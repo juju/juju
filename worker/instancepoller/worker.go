@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package addressupdater
+package instancepoller
 
 import (
 	"launchpad.net/tomb"
@@ -20,7 +20,7 @@ type updaterWorker struct {
 
 // NewWorker returns a worker that keeps track of
 // the machines in the state and polls their instance
-// addresses periodically to keep them up to date.
+// addresses and status periodically to keep them up to date.
 func NewWorker(st *state.State) worker.Worker {
 	u := &updaterWorker{
 		st: st,
@@ -46,7 +46,7 @@ func (u *updaterWorker) loop() (err error) {
 	if err != nil {
 		return err
 	}
-	logger.Infof("address updater received inital environment configuration")
+	logger.Infof("instance poller received inital environment configuration")
 	defer func() {
 		obsErr := worker.Stop(u.observer)
 		if err == nil {
@@ -72,11 +72,18 @@ func (u *updaterWorker) killAll(err error) {
 	u.tomb.Kill(err)
 }
 
-func (u *updaterWorker) addresses(id instance.Id) ([]instance.Address, error) {
+func (u *updaterWorker) instanceInfo(id instance.Id) (instanceInfo, error) {
 	env := u.observer.Environ()
 	insts, err := env.Instances([]instance.Id{id})
 	if err != nil {
-		return nil, err
+		return instanceInfo{}, err
 	}
-	return insts[0].Addresses()
+	addr, err := insts[0].Addresses()
+	if err != nil {
+		return instanceInfo{}, err
+	}
+	return instanceInfo{
+		addr,
+		insts[0].Status(),
+	}, nil
 }

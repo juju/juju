@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/container/kvm"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
@@ -28,12 +29,12 @@ import (
 	"launchpad.net/juju-core/state/apiserver"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/worker"
-	"launchpad.net/juju-core/worker/addressupdater"
 	"launchpad.net/juju-core/worker/authenticationworker"
 	"launchpad.net/juju-core/worker/charmrevisionworker"
 	"launchpad.net/juju-core/worker/cleaner"
 	"launchpad.net/juju-core/worker/deployer"
 	"launchpad.net/juju-core/worker/firewaller"
+	"launchpad.net/juju-core/worker/instancepoller"
 	"launchpad.net/juju-core/worker/localstorage"
 	workerlogger "launchpad.net/juju-core/worker/logger"
 	"launchpad.net/juju-core/worker/machiner"
@@ -207,7 +208,12 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 			runner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
 				return provisioner.NewEnvironProvisioner(st.Provisioner(), agentConfig), nil
 			})
-			// TODO(dimitern): Add firewaller here, when using the API.
+			// TODO(axw) 2013-09-24 bug #1229506
+			// Make another job to enable the firewaller. Not all environments
+			// are capable of managing ports centrally.
+			runner.StartWorker("firewaller", func() (worker.Worker, error) {
+				return firewaller.NewFirewaller(st.Firewaller())
+			})
 		case params.JobManageState:
 			runner.StartWorker("charm-revision-updater", func() (worker.Worker, error) {
 				return charmrevisionworker.NewRevisionUpdateWorker(st.CharmRevisionUpdater()), nil
@@ -297,14 +303,8 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		case state.JobHostUnits:
 			// Implemented in APIWorker.
 		case state.JobManageEnviron:
-			// TODO(axw) 2013-09-24 bug #1229506
-			// Make another job to enable the firewaller. Not all environments
-			// are capable of managing ports centrally.
-			runner.StartWorker("firewaller", func() (worker.Worker, error) {
-				return firewaller.NewFirewaller(st), nil
-			})
-			runner.StartWorker("addressupdater", func() (worker.Worker, error) {
-				return addressupdater.NewWorker(st), nil
+			runner.StartWorker("instancepoller", func() (worker.Worker, error) {
+				return instancepoller.NewWorker(st), nil
 			})
 		case state.JobManageState:
 			runner.StartWorker("apiserver", func() (worker.Worker, error) {
@@ -377,6 +377,15 @@ func (a *MachineAgent) uninstallAgent() error {
 	if agentServiceName != "" {
 		if err := upstart.NewService(agentServiceName).Remove(); err != nil {
 			errors = append(errors, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
+		}
+	}
+	// Remove the rsyslog conf file and restart rsyslogd.
+	if rsyslogConfPath := a.Conf.config.Value(agent.RsyslogConfPath); rsyslogConfPath != "" {
+		if err := os.Remove(rsyslogConfPath); err != nil {
+			errors = append(errors, err)
+		}
+		if err := syslog.Restart(); err != nil {
+			errors = append(errors, err)
 		}
 	}
 	// Remove the juju-run symlink.

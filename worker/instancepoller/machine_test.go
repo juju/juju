@@ -1,7 +1,8 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package addressupdater
+// TODO(wallyworld) - move to instancepoller_test
+package instancepoller
 
 import (
 	stderrors "errors"
@@ -16,6 +17,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
@@ -29,10 +31,10 @@ type machineSuite struct {
 
 var testAddrs = []instance.Address{instance.NewAddress("127.0.0.1")}
 
-func (*machineSuite) TestSetsAddressInitially(c *gc.C) {
+func (*machineSuite) TestSetsInstanceInfoInitially(c *gc.C) {
 	context := &testMachineContext{
-		getAddresses: addressesGetter(c, "i1234", testAddrs, nil),
-		dyingc:       make(chan struct{}),
+		getInstanceInfo: instanceInfoGetter(c, "i1234", testAddrs, "running", nil),
+		dyingc:          make(chan struct{}),
 	}
 	m := &testMachine{
 		id:         "99",
@@ -53,12 +55,27 @@ func (*machineSuite) TestSetsAddressInitially(c *gc.C) {
 	c.Assert(context.killAllErr, gc.Equals, nil)
 	c.Assert(m.addresses, gc.DeepEquals, testAddrs)
 	c.Assert(m.setAddressCount, gc.Equals, 1)
+	c.Assert(m.instStatus, gc.Equals, "running")
 }
 
 func (*machineSuite) TestShortPollIntervalWhenNoAddress(c *gc.C) {
 	defer testbase.PatchValue(&ShortPoll, 1*time.Millisecond).Restore()
 	defer testbase.PatchValue(&LongPoll, coretesting.LongWait).Restore()
-	count := countPolls(c, nil)
+	count := countPolls(c, nil, "running", params.StatusStarted)
+	c.Assert(count, jc.GreaterThan, 2)
+}
+
+func (*machineSuite) TestShortPollIntervalWhenNoStatus(c *gc.C) {
+	defer testbase.PatchValue(&ShortPoll, 1*time.Millisecond).Restore()
+	defer testbase.PatchValue(&LongPoll, coretesting.LongWait).Restore()
+	count := countPolls(c, testAddrs, "", params.StatusStarted)
+	c.Assert(count, jc.GreaterThan, 2)
+}
+
+func (*machineSuite) TestShortPollIntervalWhenNotStarted(c *gc.C) {
+	defer testbase.PatchValue(&ShortPoll, 1*time.Millisecond).Restore()
+	defer testbase.PatchValue(&LongPoll, coretesting.LongWait).Restore()
+	count := countPolls(c, testAddrs, "pending", params.StatusPending)
 	c.Assert(count, jc.GreaterThan, 2)
 }
 
@@ -72,42 +89,44 @@ func (*machineSuite) TestShortPollIntervalExponent(c *gc.C) {
 	// ShortPollBackoff of ShortWait/ShortPoll, given that sleep will
 	// sleep for at least the requested interval.
 	maxCount := int(math.Log(float64(coretesting.ShortWait)/float64(ShortPoll))/math.Log(ShortPollBackoff) + 1)
-	count := countPolls(c, nil)
+	count := countPolls(c, nil, "", params.StatusStarted)
 	c.Assert(count, jc.GreaterThan, 2)
 	c.Assert(count, jc.LessThan, maxCount)
 	c.Logf("actual count: %v; max %v", count, maxCount)
 }
 
-func (*machineSuite) TestLongPollIntervalWhenHasAddress(c *gc.C) {
+func (*machineSuite) TestLongPollIntervalWhenHasAllInstanceInfo(c *gc.C) {
 	defer testbase.PatchValue(&ShortPoll, coretesting.LongWait).Restore()
 	defer testbase.PatchValue(&LongPoll, 1*time.Millisecond).Restore()
-	count := countPolls(c, testAddrs)
+	count := countPolls(c, testAddrs, "running", params.StatusStarted)
 	c.Assert(count, jc.GreaterThan, 2)
 }
 
 // countPolls sets up a machine loop with the given
-// addresses to be returned from getAddresses,
+// addresses and status to be returned from getInstanceInfo,
 // waits for coretesting.ShortWait, and returns the
-// number of times the addresses are polled.
-func countPolls(c *gc.C, addrs []instance.Address) int {
+// number of times the instance is polled.
+func countPolls(c *gc.C, addrs []instance.Address, instStatus string, machineStatus params.Status) int {
 	count := int32(0)
-	getAddresses := func(id instance.Id) ([]instance.Address, error) {
+	getInstanceInfo := func(id instance.Id) (instanceInfo, error) {
 		c.Check(id, gc.Equals, instance.Id("i1234"))
 		atomic.AddInt32(&count, 1)
 		if addrs == nil {
-			return nil, fmt.Errorf("no instance addresses available")
+			return instanceInfo{}, fmt.Errorf("no instance addresses available")
 		}
-		return addrs, nil
+		return instanceInfo{addrs, instStatus}, nil
 	}
 	context := &testMachineContext{
-		getAddresses: getAddresses,
-		dyingc:       make(chan struct{}),
+		getInstanceInfo: getInstanceInfo,
+		dyingc:          make(chan struct{}),
 	}
 	m := &testMachine{
+		id:         "99",
 		instanceId: "i1234",
 		refresh:    func() error { return nil },
 		addresses:  addrs,
 		life:       state.Alive,
+		status:     machineStatus,
 	}
 	died := make(chan machine)
 
@@ -119,20 +138,21 @@ func countPolls(c *gc.C, addrs []instance.Address) int {
 	return int(count)
 }
 
-func (*machineSuite) TestSinglePollWhenAddressesUnimplemented(c *gc.C) {
+func (*machineSuite) TestSinglePollWhenInstancInfoUnimplemented(c *gc.C) {
 	defer testbase.PatchValue(&ShortPoll, 1*time.Millisecond).Restore()
 	defer testbase.PatchValue(&LongPoll, 1*time.Millisecond).Restore()
 	count := int32(0)
-	getAddresses := func(id instance.Id) ([]instance.Address, error) {
+	getInstanceInfo := func(id instance.Id) (instanceInfo, error) {
 		c.Check(id, gc.Equals, instance.Id("i1234"))
 		atomic.AddInt32(&count, 1)
-		return nil, errors.NewNotImplementedError("instance address")
+		return instanceInfo{}, errors.NewNotImplementedError("instance address")
 	}
 	context := &testMachineContext{
-		getAddresses: getAddresses,
-		dyingc:       make(chan struct{}),
+		getInstanceInfo: getInstanceInfo,
+		dyingc:          make(chan struct{}),
 	}
 	m := &testMachine{
+		id:         "99",
 		instanceId: "i1234",
 		refresh:    func() error { return nil },
 		life:       state.Alive,
@@ -149,11 +169,12 @@ func (*machineSuite) TestSinglePollWhenAddressesUnimplemented(c *gc.C) {
 
 func (*machineSuite) TestChangedRefreshes(c *gc.C) {
 	context := &testMachineContext{
-		getAddresses: addressesGetter(c, "i1234", testAddrs, nil),
-		dyingc:       make(chan struct{}),
+		getInstanceInfo: instanceInfoGetter(c, "i1234", testAddrs, "running", nil),
+		dyingc:          make(chan struct{}),
 	}
 	refreshc := make(chan struct{})
 	m := &testMachine{
+		id:         "99",
 		instanceId: "i1234",
 		refresh: func() error {
 			refreshc <- struct{}{}
@@ -220,6 +241,7 @@ func (*machineSuite) TestTerminatingErrors(c *gc.C) {
 	}
 }
 
+//
 // testTerminatingErrors checks that when a testMachine is
 // changed with the given mutate function, the machine goroutine
 // will die having called its context's killAll function with the
@@ -227,8 +249,8 @@ func (*machineSuite) TestTerminatingErrors(c *gc.C) {
 // of things it will go through all possible places that can return an error.
 func testTerminatingErrors(c *gc.C, mutate func(m *testMachine, err error)) {
 	context := &testMachineContext{
-		getAddresses: addressesGetter(c, "i1234", testAddrs, nil),
-		dyingc:       make(chan struct{}),
+		getInstanceInfo: instanceInfoGetter(c, "i1234", testAddrs, "running", nil),
+		dyingc:          make(chan struct{}),
 	}
 	expectErr := stderrors.New("a very unusual error")
 	m := &testMachine{
@@ -260,17 +282,20 @@ func killMachineLoop(c *gc.C, m machine, dying chan struct{}, died <-chan machin
 	}
 }
 
-func addressesGetter(c *gc.C, expectId instance.Id, addrs []instance.Address, err error) func(id instance.Id) ([]instance.Address, error) {
-	return func(id instance.Id) ([]instance.Address, error) {
+func instanceInfoGetter(
+	c *gc.C, expectId instance.Id, addrs []instance.Address,
+	status string, err error) func(id instance.Id) (instanceInfo, error) {
+
+	return func(id instance.Id) (instanceInfo, error) {
 		c.Check(id, gc.Equals, expectId)
-		return addrs, err
+		return instanceInfo{addrs, status}, err
 	}
 }
 
 type testMachineContext struct {
-	killAllErr   error
-	getAddresses func(instance.Id) ([]instance.Address, error)
-	dyingc       chan struct{}
+	killAllErr      error
+	getInstanceInfo func(instance.Id) (instanceInfo, error)
+	dyingc          chan struct{}
 }
 
 func (context *testMachineContext) killAll(err error) {
@@ -280,8 +305,8 @@ func (context *testMachineContext) killAll(err error) {
 	context.killAllErr = err
 }
 
-func (context *testMachineContext) addresses(id instance.Id) ([]instance.Address, error) {
-	return context.getAddresses(id)
+func (context *testMachineContext) instanceInfo(id instance.Id) (instanceInfo, error) {
+	return context.getInstanceInfo(id)
 }
 
 func (context *testMachineContext) dying() <-chan struct{} {
@@ -292,6 +317,8 @@ type testMachine struct {
 	instanceId      instance.Id
 	instanceIdErr   error
 	id              string
+	instStatus      string
+	status          params.Status
 	refresh         func() error
 	setAddressesErr error
 	// mu protects the following fields.
@@ -316,6 +343,23 @@ func (m *testMachine) Addresses() []instance.Address {
 
 func (m *testMachine) InstanceId() (instance.Id, error) {
 	return m.instanceId, m.instanceIdErr
+}
+
+func (m *testMachine) Status() (status params.Status, info string, data params.StatusData, err error) {
+	return m.status, "", nil, nil
+}
+
+func (m *testMachine) InstanceStatus() (string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.instStatus, nil
+}
+
+func (m *testMachine) SetInstanceStatus(status string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.instStatus = status
+	return nil
 }
 
 func (m *testMachine) SetAddresses(addrs []instance.Address) error {

@@ -11,7 +11,6 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/schema"
-	"launchpad.net/juju-core/utils"
 )
 
 var checkIfRoot = func() bool {
@@ -26,6 +25,7 @@ var (
 		"container":           schema.String(),
 		"storage-port":        schema.ForceInt(),
 		"shared-storage-port": schema.ForceInt(),
+		"namespace":           schema.String(),
 	}
 	// The port defaults below are not entirely arbitrary.  Local user web
 	// frameworks often use 8000 or 8080, so I didn't want to use either of
@@ -38,30 +38,20 @@ var (
 		"bootstrap-ip":        schema.Omit,
 		"storage-port":        8040,
 		"shared-storage-port": 8041,
+		// namespace has a default of "", for backwards compatibility.
+		"namespace": "",
 	}
 )
 
 type environConfig struct {
 	*config.Config
-	user          string
-	attrs         map[string]interface{}
-	runningAsRoot bool
+	attrs map[string]interface{}
 }
 
 func newEnvironConfig(config *config.Config, attrs map[string]interface{}) *environConfig {
-	user := os.Getenv("USER")
-	root := checkIfRoot()
-	if root {
-		sudo_user := os.Getenv("SUDO_USER")
-		if sudo_user != "" {
-			user = sudo_user
-		}
-	}
 	return &environConfig{
-		Config:        config,
-		user:          user,
-		attrs:         attrs,
-		runningAsRoot: root,
+		Config: config,
+		attrs:  attrs,
 	}
 }
 
@@ -69,7 +59,7 @@ func newEnvironConfig(config *config.Config, attrs map[string]interface{}) *envi
 // have the same local provider name, we need to have a simple way to
 // namespace the file locations, but more importantly the containers.
 func (c *environConfig) namespace() string {
-	return fmt.Sprintf("%s-%s", c.user, c.Name())
+	return c.attrs["namespace"].(string)
 }
 
 func (c *environConfig) rootDir() string {
@@ -144,25 +134,6 @@ func (c *environConfig) createDirs() error {
 		logger.Tracef("creating directory %s", dirname)
 		if err := os.MkdirAll(dirname, 0755); err != nil {
 			return err
-		}
-	}
-	if c.runningAsRoot {
-		// If we have SUDO_UID and SUDO_GID, start with rootDir(), and
-		// change ownership of the directories.
-		uid, gid, err := utils.SudoCallerIds()
-		if err != nil {
-			return err
-		}
-		if uid != 0 || gid != 0 {
-			filepath.Walk(c.rootDir(),
-				func(path string, info os.FileInfo, err error) error {
-					if info != nil && info.IsDir() {
-						if err := os.Chown(path, uid, gid); err != nil {
-							return err
-						}
-					}
-					return nil
-				})
 		}
 	}
 	return nil
