@@ -33,6 +33,7 @@ import (
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/ssh"
 	"launchpad.net/juju-core/version"
 )
 
@@ -240,12 +241,11 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	var userDataMap map[interface{}]interface{}
 	err = goyaml.Unmarshal(userData, &userDataMap)
 	c.Assert(err, gc.IsNil)
-	expectedAuthKeys := strings.TrimSpace(env.Config().AuthorizedKeys())
-	c.Assert(userDataMap, gc.DeepEquals, map[interface{}]interface{}{
+	c.Assert(userDataMap, jc.DeepEquals, map[interface{}]interface{}{
 		"output": map[interface{}]interface{}{
 			"all": "| tee -a /var/log/cloud-init-output.log",
 		},
-		"ssh_authorized_keys": []interface{}{expectedAuthKeys},
+		"ssh_authorized_keys": splitAuthKeys(env.Config().AuthorizedKeys()),
 		"runcmd": []interface{}{
 			"set -xe",
 			"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
@@ -278,6 +278,17 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 
 	_, err = bootstrap.LoadState(env.Storage())
 	c.Assert(err, gc.NotNil)
+}
+
+func splitAuthKeys(keys string) []interface{} {
+	slines := strings.FieldsFunc(keys, func(r rune) bool {
+		return r == '\n'
+	})
+	var lines []interface{}
+	for _, line := range slines {
+		lines = append(lines, ssh.EnsureJujuComment(strings.TrimSpace(line)))
+	}
+	return lines
 }
 
 func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
