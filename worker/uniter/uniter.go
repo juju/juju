@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"launchpad.net/loggo"
@@ -19,8 +20,11 @@ import (
 	corecharm "launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/uniter"
+	apiwatcher "launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/exec"
@@ -76,6 +80,9 @@ type Uniter struct {
 	hookLock     *fslock.Lock
 	runListener  *RunListener
 
+	proxy      osenv.ProxySettings
+	proxyMutex sync.Mutex
+
 	ranConfigChanged bool
 	// The execution observer is only used in tests at this stage. Should this
 	// need to be extended, perhaps a list of observers would be needed.
@@ -103,6 +110,13 @@ func (u *Uniter) loop(unitTag string) (err error) {
 	}
 	defer u.runListener.Close()
 	logger.Infof("unit %q started", u.unit)
+
+	environWatcher, err := u.st.WatchForEnvironConfigChanges()
+	if err != nil {
+		return err
+	}
+	defer watcher.Stop(environWatcher, &u.tomb)
+	u.watchForProxyChanges(environWatcher)
 
 	// Start filtering state change events for consumption by modes.
 	u.f, err = newFilter(u.st, unitTag)
@@ -322,8 +336,13 @@ func (u *Uniter) getHookContext(hctxId string, relationId int, remoteUnitName st
 		ctxRelations[id] = r.Context()
 	}
 
+	u.proxyMutex.Lock()
+	defer u.proxyMutex.Unlock()
+
+	// Make a copy of the proxy settings.
+	proxySettings := u.proxy
 	return NewHookContext(u.unit, hctxId, u.uuid, relationId, remoteUnitName,
-		ctxRelations, apiAddrs, ownerTag)
+		ctxRelations, apiAddrs, ownerTag, proxySettings)
 }
 
 func (u *Uniter) acquireHookLock(message string) (err error) {
@@ -663,4 +682,41 @@ func (u *Uniter) addRelation(rel *uniter.Relation, dir *relation.StateDir) error
 			return nil
 		}
 	}
+}
+
+// updatePackageProxy updates the package proxy settings from the
+// environment.
+func (u *Uniter) updatePackageProxy(cfg *config.Config) {
+	u.proxyMutex.Lock()
+	defer u.proxyMutex.Unlock()
+
+	newSettings := cfg.ProxySettings()
+	if u.proxy != newSettings {
+		u.proxy = newSettings
+		logger.Debugf("Updated proxy settings: %#v", u.proxy)
+	}
+}
+
+// watchForProxyChanges kicks off a go routine to listen to the watcher and
+// update the proxy settings.
+func (u *Uniter) watchForProxyChanges(environWatcher apiwatcher.NotifyWatcher) {
+	go func() {
+		for {
+			select {
+			case <-u.tomb.Dying():
+				return
+			case _, ok := <-environWatcher.Changes():
+				logger.Debugf("new environment change")
+				if !ok {
+					return
+				}
+				environConfig, err := u.st.EnvironConfig()
+				if err != nil {
+					logger.Errorf("cannot load environment configuration: %v", err)
+				} else {
+					u.updatePackageProxy(environConfig)
+				}
+			}
+		}
+	}()
 }

@@ -119,10 +119,7 @@ func (s *provisionerSuite) TestFinishMachineConfig(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Now check what we would've configured it with.
-	client := s.APIConn.State.Client()
-	configParams, err := client.MachineConfig(machineId)
-	c.Assert(err, gc.IsNil)
-	mcfg, err := statecmd.FinishMachineConfig(configParams, machineId, state.BootstrapNonce, "/var/lib/juju")
+	mcfg, err := statecmd.MachineConfig(s.State, machineId, state.BootstrapNonce, "/var/lib/juju")
 	c.Assert(err, gc.IsNil)
 	c.Check(mcfg, gc.NotNil)
 	c.Check(mcfg.APIInfo, gc.NotNil)
