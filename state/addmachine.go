@@ -422,7 +422,7 @@ func (st *State) maintainStateServersOps(mdocs []*machineDoc, currentInfo *State
 			return nil, errStateServerNotAllowed
 		}
 		var err error
-		currentInfo, err = st.stateServerInfo()
+		currentInfo, err = st.StateServerInfo()
 		if err != nil {
 			return nil, fmt.Errorf("cannot get state server info: %v", err)
 		}
@@ -465,7 +465,7 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value,
 	if numStateServers > replicaset.MaxPeers {
 		return fmt.Errorf("state server count is too large (allowed %d)", replicaset.MaxPeers)
 	}
-	info, err := st.stateServerInfo()
+	info, err := st.StateServerInfo()
 	if err != nil {
 		return err
 	}

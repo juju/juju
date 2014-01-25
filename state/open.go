@@ -286,7 +286,7 @@ func (st *State) createStateServersDoc() error {
 	// that we can avoid transaction overhead in most cases.
 	// We don't care what the error is - if it's something
 	// unexpected, it'll be picked up again below.
-	if info, err := st.stateServerInfo(); err == nil {
+	if info, err := st.StateServerInfo(); err == nil {
 		if len(info.MachineIds) > 0 && len(info.VotingMachineIds) > 0 {
 			return nil
 		}

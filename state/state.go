@@ -1213,9 +1213,7 @@ type StateServerInfo struct {
 
 // StateServerInfo returns returns information about
 // the currently configured state server machines.
-// TODO(rog) export this method when the stateServers
-// document is consistently maintained.
-func (st *State) stateServerInfo() (*StateServerInfo, error) {
+func (st *State) StateServerInfo() (*StateServerInfo, error) {
 	var doc stateServersDoc
 	err := st.stateServers.Find(D{{"_id", environGlobalKey}}).One(&doc)
 	if err != nil {
