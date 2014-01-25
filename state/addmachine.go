@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/replicaset"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
 )
@@ -28,7 +29,14 @@ type MachineTemplate struct {
 
 	// Jobs holds the jobs to run on the machine's instance.
 	// A machine must have at least one job to do.
+	// JobManageEnviron can only be part of the jobs
+	// when the first (bootstrap) machine is added.
 	Jobs []MachineJob
+
+	// NoVote holds whether a machine running
+	// a state server should abstain from peer voting.
+	// It is ignored if Jobs does not contain JobManageEnviron.
+	NoVote bool
 
 	// Addresses holds the addresses to be associated with the
 	// new machine.
@@ -114,14 +122,21 @@ func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err er
 		return nil, fmt.Errorf("environment is no longer alive")
 	}
 	var ops []txn.Op
+	var mdocs []*machineDoc
 	for _, template := range templates {
 		mdoc, addOps, err := st.addMachineOps(template)
 		if err != nil {
 			return nil, err
 		}
+		mdocs = append(mdocs, mdoc)
 		ms = append(ms, newMachine(st, mdoc))
 		ops = append(ops, addOps...)
 	}
+	ssOps, err := st.maintainStateServersOps(mdocs, nil)
+	if err != nil {
+		return nil, err
+	}
+	ops = append(ops, ssOps...)
 	ops = append(ops, env.assertAliveOp())
 	if err := st.runTransaction(ops); err != nil {
 		return nil, onAbort(err, fmt.Errorf("environment is no longer alive"))
@@ -153,7 +168,7 @@ func (st *State) addMachine(mdoc *machineDoc, ops []txn.Op) (*Machine, error) {
 // valid and combines it with values from the state
 // to produce a resulting template that more accurately
 // represents the data that will be inserted into the state.
-func (st *State) effectiveMachineTemplate(p MachineTemplate) (MachineTemplate, error) {
+func (st *State) effectiveMachineTemplate(p MachineTemplate, allowStateServer bool) (MachineTemplate, error) {
 	if p.Series == "" {
 		return MachineTemplate{}, fmt.Errorf("no series specified")
 	}
@@ -179,6 +194,11 @@ func (st *State) effectiveMachineTemplate(p MachineTemplate) (MachineTemplate, e
 		}
 		jset[j] = true
 	}
+	if jset[JobManageEnviron] {
+		if !allowStateServer {
+			return MachineTemplate{}, errStateServerNotAllowed
+		}
+	}
 
 	if p.InstanceId != "" {
 		if p.Nonce == "" {
@@ -194,7 +214,7 @@ func (st *State) effectiveMachineTemplate(p MachineTemplate) (MachineTemplate, e
 // based on the given template. It also returns the machine document
 // that will be inserted.
 func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op, error) {
-	template, err := st.effectiveMachineTemplate(template)
+	template, err := st.effectiveMachineTemplate(template, true)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -251,7 +271,7 @@ func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId s
 	if template.InstanceId != "" {
 		return nil, nil, fmt.Errorf("cannot specify instance id for a new container")
 	}
-	template, err := st.effectiveMachineTemplate(template)
+	template, err := st.effectiveMachineTemplate(template, false)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -307,7 +327,7 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineT
 	if err != nil {
 		return nil, nil, err
 	}
-	parentTemplate, err = st.effectiveMachineTemplate(parentTemplate)
+	parentTemplate, err = st.effectiveMachineTemplate(parentTemplate, false)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -316,7 +336,7 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineT
 	if err != nil {
 		return nil, nil, err
 	}
-	template, err = st.effectiveMachineTemplate(template)
+	template, err = st.effectiveMachineTemplate(template, false)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -345,6 +365,7 @@ func machineDocForTemplate(template MachineTemplate, id string) *machineDoc {
 		InstanceId: template.InstanceId,
 		Nonce:      template.Nonce,
 		Addresses:  instanceAddressesToAddresses(template.Addresses),
+		NoVote:     template.NoVote,
 	}
 }
 
@@ -363,4 +384,127 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, cons constraints.Value) [
 			Status: params.StatusPending,
 		}),
 	}
+}
+
+func hasJob(jobs []MachineJob, job MachineJob) bool {
+	for _, j := range jobs {
+		if j == job {
+			return true
+		}
+	}
+	return false
+}
+
+var errStateServerNotAllowed = fmt.Errorf("state server jobs specified without calling EnsureAvailability")
+
+// maintainStateServersOps returns a set of operations that will maintain
+// the state server information when the given machine documents
+// are added to the machines collection. If currentInfo is nil,
+// there can be only one machine document and it must have
+// id 0 (this is a special case to allow adding the bootstrap machine)
+func (st *State) maintainStateServersOps(mdocs []*machineDoc, currentInfo *StateServerInfo) ([]txn.Op, error) {
+	var newIds, newVotingIds []string
+	for _, doc := range mdocs {
+		if !hasJob(doc.Jobs, JobManageEnviron) {
+			continue
+		}
+		newIds = append(newIds, doc.Id)
+		if !doc.NoVote {
+			newVotingIds = append(newVotingIds, doc.Id)
+		}
+	}
+	if len(newIds) == 0 {
+		return nil, nil
+	}
+	if currentInfo == nil {
+		// Allow bootstrap machine only.
+		if len(mdocs) != 1 || mdocs[0].Id != "0" {
+			return nil, errStateServerNotAllowed
+		}
+		var err error
+		currentInfo, err = st.StateServerInfo()
+		if err != nil {
+			return nil, fmt.Errorf("cannot get state server info: %v", err)
+		}
+		if len(currentInfo.MachineIds) > 0 || len(currentInfo.VotingMachineIds) > 0 {
+			return nil, fmt.Errorf("state servers already exist")
+		}
+	}
+	ops := []txn.Op{{
+		C:  st.stateServers.Name,
+		Id: environGlobalKey,
+		Assert: D{{
+			"$and", []D{
+				{{"machineids", D{{"$size", len(currentInfo.MachineIds)}}}},
+				{{"votingmachineids", D{{"$size", len(currentInfo.VotingMachineIds)}}}},
+			},
+		}},
+		Update: D{
+			{"$addToSet", D{{"machineids", D{{"$each", newIds}}}}},
+			{"$addToSet", D{{"votingmachineids", D{{"$each", newVotingIds}}}}},
+		},
+	}}
+	return ops, nil
+}
+
+// EnsureAvailability adds state server machines as necessary to make
+// the number of live state servers equal to numStateServers. The given
+// constraints and series will be attached to any new machines.
+//
+// TODO(rog):
+// If any current state servers are down, they will be
+// removed from the current set of voting replica set
+// peers (although the machines themselves will remain
+// and they will still remain part of the replica set).
+// Once a machine's voting status has been removed,
+// the machine itself may be removed.
+func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value, series string) error {
+	if numStateServers%2 != 1 || numStateServers <= 0 {
+		return fmt.Errorf("number of state servers must be odd and greater than zero")
+	}
+	if numStateServers > replicaset.MaxPeers {
+		return fmt.Errorf("state server count is too large (allowed %d)", replicaset.MaxPeers)
+	}
+	info, err := st.StateServerInfo()
+	if err != nil {
+		return err
+	}
+	if len(info.VotingMachineIds) == numStateServers {
+		// TODO(rog) #1271504 2014-01-22
+		// Find machines which are down, set
+		// their NoVote flag and add new machines to
+		// replace them.
+		return nil
+	}
+	if len(info.VotingMachineIds) > numStateServers {
+		return fmt.Errorf("cannot reduce state server count")
+	}
+	mdocs := make([]*machineDoc, 0, numStateServers-len(info.MachineIds))
+	var ops []txn.Op
+	for i := len(info.MachineIds); i < numStateServers; i++ {
+		template := MachineTemplate{
+			Series: series,
+			Jobs: []MachineJob{
+				JobHostUnits,
+				JobManageEnviron,
+			},
+			Constraints: cons,
+		}
+		mdoc, addOps, err := st.addMachineOps(template)
+		if err != nil {
+			return err
+		}
+		mdocs = append(mdocs, mdoc)
+		ops = append(ops, addOps...)
+	}
+	ssOps, err := st.maintainStateServersOps(mdocs, info)
+	if err != nil {
+		return fmt.Errorf("cannot prepare machine add operations: %v", err)
+	}
+	ops = append(ops, ssOps...)
+	err = st.runTransaction(ops)
+	if err != nil {
+		return fmt.Errorf("failed to create new state server machines: %v", err)
+	}
+	return nil
 }

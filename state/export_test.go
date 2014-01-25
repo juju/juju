@@ -241,10 +241,6 @@ func GetUserPasswordSaltAndHash(u *User) (string, string) {
 	return u.doc.PasswordSalt, u.doc.PasswordHash
 }
 
-func StateServerMachineIds(st *State) ([]string, error) {
-	return st.stateServerMachineIds()
-}
-
 var NewAddress = newAddress
 
 func CheckUserExists(st *State, name string) (bool, error) {

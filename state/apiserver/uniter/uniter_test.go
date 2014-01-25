@@ -54,7 +54,7 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	s.wpCharm = s.AddTestingCharm(c, "wordpress")
 	// Create two machines, two services and add a unit to each service.
 	var err error
-	s.machine0, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	s.machine0, err = s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageState, state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	s.machine1, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
@@ -1397,7 +1397,10 @@ func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 }
 
 func (s *uniterSuite) TestAPIAddresses(c *gc.C) {
-	testing.AddStateServerMachine(c, s.State)
+	err := s.machine0.SetAddresses([]instance.Address{
+		instance.NewAddress("0.1.2.3"),
+	})
+	c.Assert(err, gc.IsNil)
 	apiAddresses, err := s.State.APIAddresses()
 	c.Assert(err, gc.IsNil)
 

@@ -647,6 +647,7 @@ func (s *DeployLocalSuite) assertMachines(c *gc.C, service *state.Service, expec
 }
 
 type InitJujuHomeSuite struct {
+	testbase.LoggingSuite
 	originalHome     string
 	originalJujuHome string
 }
@@ -654,6 +655,7 @@ type InitJujuHomeSuite struct {
 var _ = gc.Suite(&InitJujuHomeSuite{})
 
 func (s *InitJujuHomeSuite) SetUpTest(c *gc.C) {
+	s.LoggingSuite.SetUpTest(c)
 	s.originalHome = osenv.Home()
 	s.originalJujuHome = os.Getenv("JUJU_HOME")
 }
@@ -661,6 +663,7 @@ func (s *InitJujuHomeSuite) SetUpTest(c *gc.C) {
 func (s *InitJujuHomeSuite) TearDownTest(c *gc.C) {
 	osenv.SetHome(s.originalHome)
 	os.Setenv("JUJU_HOME", s.originalJujuHome)
+	s.LoggingSuite.TearDownTest(c)
 }
 
 func (s *InitJujuHomeSuite) TestJujuHome(c *gc.C) {

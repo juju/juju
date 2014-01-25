@@ -53,7 +53,6 @@ func (s *destroyEnvironmentSuite) setUpInstances(c *gc.C) (m0, m1 *state.Machine
 }
 
 func (s *destroyEnvironmentSuite) TestDestroyEnvironmentManual(c *gc.C) {
-	s.setUpScenario(c)
 	_, nonManager := s.setUpManual(c)
 
 	// If there are any non-manager manual machines in state, DestroyEnvironment will
@@ -78,7 +77,6 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironmentManual(c *gc.C) {
 }
 
 func (s *destroyEnvironmentSuite) TestDestroyEnvironment(c *gc.C) {
-	s.setUpScenario(c)
 	manager, nonManager := s.setUpInstances(c)
 	managerId, _ := manager.InstanceId()
 	nonManagerId, _ := nonManager.InstanceId()

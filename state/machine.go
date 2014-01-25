@@ -88,6 +88,7 @@ type machineDoc struct {
 	Life          Life
 	Tools         *tools.Tools `bson:",omitempty"`
 	Jobs          []MachineJob
+	NoVote        bool
 	PasswordHash  string
 	Clean         bool
 	// We store 2 different sets of addresses for the machine, obtained
@@ -203,15 +204,15 @@ func (m *Machine) Jobs() []MachineJob {
 	return m.doc.Jobs
 }
 
-// IsManager returns true if the machine has JJobManageEnviron.
+// WantsVote reports whether the machine is a state server
+// that wants to take part in peer voting.
+func (m *Machine) WantsVote() bool {
+	return hasJob(m.doc.Jobs, JobManageEnviron) && !m.doc.NoVote
+}
+
+// IsManager returns true if the machine has JobManageEnviron.
 func (m *Machine) IsManager() bool {
-	for _, job := range m.doc.Jobs {
-		switch job {
-		case JobManageEnviron:
-			return true
-		}
-	}
-	return false
+	return hasJob(m.doc.Jobs, JobManageEnviron)
 }
 
 // IsManual returns true if the machine was manually provisioned.
@@ -493,13 +494,11 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 		}
 		// Check that the machine does not have any responsibilities that
 		// prevent a lifecycle change.
-		for _, j := range m.doc.Jobs {
-			if j == JobManageEnviron {
-				// (NOTE: When we enable multiple JobManageEnviron machines,
-				// the restriction will become "there must be at least one
-				// machine with this job".)
-				return fmt.Errorf("machine %s is required by the environment", m.doc.Id)
-			}
+		if hasJob(m.doc.Jobs, JobManageEnviron) {
+			// (NOTE: When we enable multiple JobManageEnviron machines,
+			// this restriction will be lifted, but we will assert that the
+			// machine is not voting)
+			return fmt.Errorf("machine %s is required by the environment", m.doc.Id)
 		}
 		if len(m.doc.Principals) != 0 {
 			return &HasAssignedUnitsError{
