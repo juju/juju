@@ -309,9 +309,10 @@ func (st *State) createStateServersDoc() error {
 	doc.VotingMachineIds = doc.MachineIds
 	logger.Infof("found existing state servers %v", doc.MachineIds)
 
-	// We remove the document before inserting it because
+	// We update the document before inserting it because
 	// an earlier version of this code did not insert voting machine
-	// ids or maintain the ids correctly.
+	// ids or maintain the ids correctly. If that was the case,
+	// the insert will be a no-op.
 	ops := []txn.Op{{
 		C:  st.stateServers.Name,
 		Id: environGlobalKey,
