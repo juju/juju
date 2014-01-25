@@ -15,6 +15,9 @@ import (
 	"launchpad.net/juju-core/testing/testbase"
 )
 
+// FakeAuthKeys holds the authorized key used for testing
+// purposes in FakeConfig. It is valid for parsing with the utils/ssh
+// authorized-key utilities.
 const FakeAuthKeys = `ssh-rsa BBBB jo@bloggs.com`
 
 // FakeConfig() returns an environment configuration for a

@@ -280,6 +280,9 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 }
 
+// splitAuthKeys splits the given authorized keys
+// into the form expected to be found in the
+// user data.
 func splitAuthKeys(keys string) []interface{} {
 	slines := strings.FieldsFunc(keys, func(r rune) bool {
 		return r == '\n'

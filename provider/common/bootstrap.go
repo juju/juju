@@ -113,6 +113,10 @@ func GenerateSystemSSHKey(env environs.Environ) (privateKey string, err error) {
 	return privateKey, nil
 }
 
+// concatAuthKeys concatenates the two
+// sets of authorized keys, interposing
+// a newline if necessary, because authorized
+// keys are newline-separated.
 func concatAuthKeys(a, b string) string {
 	if a == "" {
 		return b
