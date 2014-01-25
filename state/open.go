@@ -304,7 +304,7 @@ func (st *State) createStateServersDoc() error {
 	// before doing any operations that may affect the current
 	// set of state servers.
 	var machineDocs []machineDoc
-	err := st.machines.Find(D{{"jobs", JobManageState}}).All(&machineDocs)
+	err := st.machines.Find(D{{"jobs", JobManageEnviron}}).All(&machineDocs)
 	if err != nil {
 		return err
 	}

@@ -322,12 +322,6 @@ func (r *srvRoot) AuthEnvironManager() bool {
 	return isMachineWithJob(r.entity, state.JobManageEnviron)
 }
 
-// AuthStateManager returns whether the authenticated user is a
-// machine with running the ManageState job.
-func (r *srvRoot) AuthStateManager() bool {
-	return isMachineWithJob(r.entity, state.JobManageState)
-}
-
 // AuthClient returns whether the authenticated entity is a client
 // user.
 func (r *srvRoot) AuthClient() bool {

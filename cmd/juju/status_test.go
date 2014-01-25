@@ -1314,7 +1314,7 @@ var statusTests = []testCase{
 		},
 	), test(
 		"service with out of date charm",
-		addMachine{machineId: "0", job: state.JobManageState},
+		addMachine{machineId: "0", job: state.JobManageEnviron},
 		setAddresses{"0", []instance.Address{instance.NewAddress("dummyenv-0.dns")}},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", params.StatusStarted, ""},
@@ -1354,7 +1354,7 @@ var statusTests = []testCase{
 		},
 	), test(
 		"unit with out of date charm",
-		addMachine{machineId: "0", job: state.JobManageState},
+		addMachine{machineId: "0", job: state.JobManageEnviron},
 		setAddresses{"0", []instance.Address{instance.NewAddress("dummyenv-0.dns")}},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", params.StatusStarted, ""},
@@ -1396,7 +1396,7 @@ var statusTests = []testCase{
 		},
 	), test(
 		"service and unit with out of date charms",
-		addMachine{machineId: "0", job: state.JobManageState},
+		addMachine{machineId: "0", job: state.JobManageEnviron},
 		setAddresses{"0", []instance.Address{instance.NewAddress("dummyenv-0.dns")}},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", params.StatusStarted, ""},
@@ -1440,7 +1440,7 @@ var statusTests = []testCase{
 		},
 	), test(
 		"service with local charm not shown as out of date",
-		addMachine{machineId: "0", job: state.JobManageState},
+		addMachine{machineId: "0", job: state.JobManageEnviron},
 		setAddresses{"0", []instance.Address{instance.NewAddress("dummyenv-0.dns")}},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", params.StatusStarted, ""},

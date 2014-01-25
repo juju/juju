@@ -175,6 +175,7 @@ func (fw *Firewaller) startMachine(tag string) error {
 		err = fw.unitsChanged(&unitsChange{machined, change})
 		if err != nil {
 			stop("units watcher", unitw)
+			delete(fw.machineds, tag)
 			return fmt.Errorf("worker/firewaller: cannot respond to units changes for %q: %v", tag, err)
 		}
 	}

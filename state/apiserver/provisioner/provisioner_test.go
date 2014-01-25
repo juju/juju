@@ -43,15 +43,21 @@ type provisionerSuite struct {
 var _ = gc.Suite(&provisionerSuite{})
 
 func (s *provisionerSuite) SetUpTest(c *gc.C) {
+	s.setUpTest(c, false)
+}
+
+func (s *provisionerSuite) setUpTest(c *gc.C, withStateServer bool) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	// Reset previous machines (if any) and create 3 machines
-	// for the tests.
+	// for the tests, plus an optional state server machine.
 	s.machines = nil
 	// Note that the specific machine ids allocated are assumed
 	// to be numerically consecutive from zero.
-	s.machines = append(s.machines, testing.AddStateServerMachine(c, s.State))
-	for i := 0; i < 2; i++ {
+	if withStateServer {
+		s.machines = append(s.machines, testing.AddStateServerMachine(c, s.State))
+	}
+	for i := 0; i < 3; i++ {
 		machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 		c.Check(err, gc.IsNil)
 		s.machines = append(s.machines, machine)
@@ -658,35 +664,6 @@ func (s *provisionerSuite) TestWatchEnvironMachines(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{})
 }
 
-func (s *provisionerSuite) TestStateAddresses(c *gc.C) {
-	addresses, err := s.State.Addresses()
-	c.Assert(err, gc.IsNil)
-
-	result, err := s.provisioner.StateAddresses()
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.StringsResult{
-		Result: addresses,
-	})
-}
-
-func (s *provisionerSuite) TestAPIAddresses(c *gc.C) {
-	addrs, err := s.State.APIAddresses()
-	c.Assert(err, gc.IsNil)
-
-	result, err := s.provisioner.APIAddresses()
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.StringsResult{
-		Result: addrs,
-	})
-}
-
-func (s *provisionerSuite) TestCACert(c *gc.C) {
-	result := s.provisioner.CACert()
-	c.Assert(result, gc.DeepEquals, params.BytesResult{
-		Result: s.State.CACert(),
-	})
-}
-
 func (s *provisionerSuite) TestToolsNothing(c *gc.C) {
 	// Not an error to watch nothing
 	results, err := s.provisioner.Tools(params.Entities{})
@@ -823,4 +800,41 @@ func (s *provisionerSuite) TestSupportsNoContainers(c *gc.C) {
 	containers, ok := m0.SupportedContainers()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{})
+}
+
+type withStateServerSuite struct {
+	provisionerSuite
+}
+
+func (s *withStateServerSuite) SetUpTest(c *gc.C) {
+	s.provisionerSuite.setUpTest(c, true)
+}
+
+func (s *withStateServerSuite) TestAPIAddresses(c *gc.C) {
+	addrs, err := s.State.APIAddresses()
+	c.Assert(err, gc.IsNil)
+
+	result, err := s.provisioner.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsResult{
+		Result: addrs,
+	})
+}
+
+func (s *withStateServerSuite) TestStateAddresses(c *gc.C) {
+	addresses, err := s.State.Addresses()
+	c.Assert(err, gc.IsNil)
+
+	result, err := s.provisioner.StateAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsResult{
+		Result: addresses,
+	})
+}
+
+func (s *withStateServerSuite) TestCACert(c *gc.C) {
+	result := s.provisioner.CACert()
+	c.Assert(result, gc.DeepEquals, params.BytesResult{
+		Result: s.State.CACert(),
+	})
 }

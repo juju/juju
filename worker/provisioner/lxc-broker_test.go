@@ -184,7 +184,7 @@ func (s *lxcProvisionerSuite) SetUpTest(c *gc.C) {
 
 	// The lxc provisioner actually needs the machine it is being created on
 	// to be in state, in order to get the watcher.
-	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits, state.JobManageState)
+	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	err = m.SetAddresses([]instance.Address{
 		instance.NewAddress("0.1.2.3"),
