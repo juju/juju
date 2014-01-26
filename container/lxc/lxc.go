@@ -109,8 +109,11 @@ func (manager *containerManager) StartContainer(
 		return nil, nil, err
 	}
 	logger.Tracef("lxc container created")
-	// Now symlink the config file into the restart directory, if it exists
-	if restartDirExists() {
+	// Now symlink the config file into the restart directory, if it exists.
+	// This is for backwards compatiblity. From Trusty onwards, the auto start
+	// option should be set in the LXC config file, this is done in the networkConfigTemplate
+	// function below.
+	if useRestartDir() {
 		containerConfigFile := filepath.Join(LxcContainerDir, name, "config")
 		if err := os.Symlink(containerConfigFile, restartSymlink(name)); err != nil {
 			return nil, nil, err
@@ -201,7 +204,7 @@ lxc.network.flags = up
 
 func networkConfigTemplate(networkType, networkLink string) string {
 	networkConfig := fmt.Sprintf(networkTemplate, networkType, networkLink)
-	if !restartDirExists() {
+	if !useRestartDir() {
 		networkConfig += "lxc.start.auto = 1\n"
 		logger.Tracef("Setting auto start to true in lxc config.")
 	}
