@@ -694,6 +694,8 @@ func (u *Uniter) updatePackageProxy(cfg *config.Config) {
 	if u.proxy != newSettings {
 		u.proxy = newSettings
 		logger.Debugf("Updated proxy settings: %#v", u.proxy)
+		// Update the environment values used by the process.
+		u.proxy.SetEnvironmentValues()
 	}
 }
 
