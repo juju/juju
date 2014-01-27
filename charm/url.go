@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 
+	"launchpad.net/juju-core/utils"
+
 	"labix.org/v2/mgo/bson"
 )
 
@@ -251,6 +253,17 @@ func (u *URL) UnmarshalJSON(b []byte) error {
 	}
 	*u = *url
 	return nil
+}
+
+// ArchiveName returns a string that is suitable as a file name in a
+// storage URL. It is constructed from the charm name, revision and a
+// random UUID string.
+func (u *URL) ArchiveName() (string, error) {
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return "", err
+	}
+	return Quote(fmt.Sprintf("%s-%d-%s", u.Name, u.Revision, uuid)), nil
 }
 
 // Quote translates a charm url string into one which can be safely used

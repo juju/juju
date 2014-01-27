@@ -199,7 +199,7 @@ func (h *charmsHandler) repackageAndUploadCharm(archive *charm.Bundle, curl *cha
 	}
 
 	// Now upload to provider storage.
-	storage, err := getEnvironStorage(h.state)
+	storage, err := GetEnvironStorage(h.state)
 	if err != nil {
 		return fmt.Errorf("cannot access provider storage: %v", err)
 	}
@@ -224,9 +224,9 @@ func (h *charmsHandler) repackageAndUploadCharm(archive *charm.Bundle, curl *cha
 	return nil
 }
 
-// getEnvironStorage creates an Environ from the config in state and
+// GetEnvironStorage creates an Environ from the config in state and
 // returns its storage interface.
-func getEnvironStorage(st *state.State) (storage.Storage, error) {
+func GetEnvironStorage(st *state.State) (storage.Storage, error) {
 	envConfig, err := st.EnvironConfig()
 	if err != nil {
 		return nil, fmt.Errorf("cannot get environment config: %v", err)
@@ -236,4 +236,16 @@ func getEnvironStorage(st *state.State) (storage.Storage, error) {
 		return nil, fmt.Errorf("cannot access environment: %v", err)
 	}
 	return env.Storage(), nil
+}
+
+// GetSHA256 returns the SHA256 hash of the contents read from source
+// (hex encoded) and the size of the source in bytes.
+func GetSHA256(source io.Reader) (string, int64, error) {
+	hash := sha256.New()
+	size, err := io.Copy(hash, source)
+	if err != nil {
+		return "", 0, err
+	}
+	digest := hex.EncodeToString(hash.Sum(nil))
+	return digest, size, nil
 }

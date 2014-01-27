@@ -4,8 +4,6 @@
 package apiserver_test
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -164,7 +162,7 @@ func (s *charmsSuite) TestUploadRespectsLocalRevision(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Finally, verify the SHA256 and uploaded URL.
-	expectedSHA256, _, err := getSHA256(tempFile)
+	expectedSHA256, _, err := apiserver.GetSHA256(tempFile)
 	c.Assert(err, gc.IsNil)
 	name := charm.Quote(expectedURL.String())
 	storage, err := apiserver.GetEnvironStorage(s.State)
@@ -174,6 +172,13 @@ func (s *charmsSuite) TestUploadRespectsLocalRevision(c *gc.C) {
 
 	c.Assert(sch.BundleURL().String(), gc.Equals, expectedUploadURL)
 	c.Assert(sch.BundleSha256(), gc.Equals, expectedSHA256)
+
+	reader, err := storage.Get(name)
+	c.Assert(err, gc.IsNil)
+	defer reader.Close()
+	downloadedSHA256, _, err := apiserver.GetSHA256(reader)
+	c.Assert(err, gc.IsNil)
+	c.Assert(downloadedSHA256, gc.Equals, expectedSHA256)
 }
 
 func (s *charmsSuite) charmsURI(c *gc.C, query string) string {
@@ -229,14 +234,4 @@ func (s *charmsSuite) assertResponse(c *gc.C, resp *http.Response, expCode int, 
 		c.Check(jsonResponse.CharmURL, gc.Equals, expCharmURL)
 	}
 	c.Check(resp.StatusCode, gc.Equals, expCode)
-}
-
-func getSHA256(source io.ReadSeeker) (string, int64, error) {
-	hash := sha256.New()
-	size, err := io.Copy(hash, source)
-	if err != nil {
-		return "", 0, err
-	}
-	digest := hex.EncodeToString(hash.Sum(nil))
-	return digest, size, nil
 }

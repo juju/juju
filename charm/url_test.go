@@ -43,7 +43,7 @@ var urlTests = []struct {
 	{"local:name", "charm URL without series: .*", nil},
 }
 
-func (s *URLSuite) TestParseURL(c *gc.C) {
+func (s *URLSuite) TestParseURLAndArchiveName(c *gc.C) {
 	for i, t := range urlTests {
 		c.Logf("test %d", i)
 		url, err := charm.ParseURL(t.s)
@@ -53,6 +53,10 @@ func (s *URLSuite) TestParseURL(c *gc.C) {
 		} else {
 			c.Check(url, gc.DeepEquals, t.url, comment)
 			c.Check(t.url.String(), gc.Equals, t.s)
+			archiveName, err := t.url.ArchiveName()
+			c.Check(err, gc.IsNil)
+			nameFormat := fmt.Sprintf("%s-%d-[0-9a-f-]+", url.Name, url.Revision)
+			c.Check(archiveName, gc.Matches, nameFormat)
 		}
 	}
 }

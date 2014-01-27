@@ -835,7 +835,7 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 		return fmt.Errorf("charm URL must include revision")
 	}
 
-	// First, check if a placeholder or a real charm exists in state.
+	// First, check if a pending or a real charm exists in state.
 	stateCharm, err := c.api.state.PrepareStoreCharmUpload(charmURL)
 	if err == nil && stateCharm.IsUploaded() {
 		// Charm already in state (it was uploaded already).
@@ -881,8 +881,11 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 		return fmt.Errorf("cannot access environment: %v", err)
 	}
 	storage := env.Storage()
-	name := charm.Quote(charmURL.String())
-	storageURL, err := storage.URL(name)
+	archiveName, err := charmURL.ArchiveName()
+	if err != nil {
+		return fmt.Errorf("cannot generate charm archive name: %v", err)
+	}
+	storageURL, err := storage.URL(archiveName)
 	if err != nil {
 		return fmt.Errorf("cannot get storage URL for charm: %v", err)
 	}
@@ -890,18 +893,8 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 	if err != nil {
 		return fmt.Errorf("cannot parse storage URL: %v", err)
 	}
-	// Make sure we're not overwritting an existing file.
-	reader, err := storage.Get(name)
-	if errors.IsNotFoundError(err) {
-		// Not uploaded to storage yet so do it now.
-		logger.Debugf("uploading charm %q to provider storage", charmURL)
-		if err := storage.Put(name, archive, size); err != nil {
-			return fmt.Errorf("cannot upload charm to provider storage: %v", err)
-		}
-	} else if err != nil {
-		return fmt.Errorf("cannot read charm from provider storage: %v", err)
-	} else if err := reader.Close(); err != nil {
-		return fmt.Errorf("cannot close storage reader: %v", err)
+	if err := storage.Put(archiveName, archive, size); err != nil {
+		return fmt.Errorf("cannot upload charm to provider storage: %v", err)
 	}
 
 	// Finally, update the charm data in state and mark it as no longer pending.
@@ -909,7 +902,11 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 	if err == state.ErrCharmRevisionAlreadyModified {
 		// This is not an error, it just signifies somebody else
 		// managed to upload and update the charm in state before
-		// us.
+		// us. This means we have to delete what we just uploaded
+		// to storage.
+		if err := storage.Remove(archiveName); err != nil {
+			return fmt.Errorf("cannot remove duplicated charm from storage: %v", err)
+		}
 		return nil
 	}
 	return err

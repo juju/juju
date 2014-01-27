@@ -19,12 +19,14 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/apiserver"
 	"launchpad.net/juju-core/state/apiserver/client"
 	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
@@ -1777,22 +1779,10 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	err = client.AddCharm(curl)
 	c.Assert(err, gc.IsNil)
 
-	// Verify it's in state.
+	// Verify it's in state and it got uploaded.
 	sch, err = s.State.Charm(curl)
 	c.Assert(err, gc.IsNil)
-
-	name = charm.Quote(curl.String())
-	storageURL, err := storage.URL(name)
-	c.Assert(err, gc.IsNil)
-
-	c.Assert(sch.BundleURL().String(), gc.Equals, storageURL)
-	// We don't care about the exact value of the hash here, just that
-	// it's set.
-	c.Assert(sch.BundleSha256(), gc.Not(gc.Equals), "")
-
-	// Verify it's added to storage.
-	_, err = storage.Get(name)
-	c.Assert(err, gc.IsNil)
+	s.assertUploaded(c, storage, sch.BundleURL(), sch.BundleSha256())
 }
 
 func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
@@ -1802,16 +1792,16 @@ func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
 	client := s.APIState.Client()
 	curl, _ := addCharm(c, store, "wordpress")
 
-	// Expect storage Put() to be called only once in the loop below.
-	// This verifies we won't overwrite an uploaded charm in the storage.
-	name := charm.Quote(curl.String())
+	// Expect storage Put() to be called once for each goroutine
+	// below.
 	ops := make(chan dummy.Operation, 500)
 	dummy.Listen(ops)
-	go s.assertPutOnce(c, ops, name)
+	go s.assertPutCalled(c, ops, 10)
 
 	// Try adding the same charm concurrently from multiple goroutines
 	// to test no "duplicate key errors" are reported (see lp bug
-	// #1067979).
+	// #1067979) and also at the end only one charm document is
+	// created.
 
 	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
@@ -1823,29 +1813,58 @@ func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
 			sch, err := s.State.Charm(curl)
 			c.Assert(err, gc.IsNil, gc.Commentf("goroutine %d", index))
 			c.Assert(sch.URL(), jc.DeepEquals, curl, gc.Commentf("goroutine %d", index))
+			expectedName := fmt.Sprintf("%s-%d-[0-9a-f-]+", curl.Name, curl.Revision)
+			c.Assert(getArchiveName(sch.BundleURL()), gc.Matches, expectedName)
 		}(i)
 	}
 	wg.Wait()
 	close(ops)
+
+	// Verify there is only a single uploaded charm remains and it
+	// contains the correct data.
+	sch, err := s.State.Charm(curl)
+	c.Assert(err, gc.IsNil)
+	storage, err := apiserver.GetEnvironStorage(s.State)
+	c.Assert(err, gc.IsNil)
+	uploads, err := storage.List(fmt.Sprintf("%s-%d-", curl.Name, curl.Revision))
+	c.Assert(err, gc.IsNil)
+	c.Assert(uploads, gc.HasLen, 1)
+	c.Assert(getArchiveName(sch.BundleURL()), gc.Equals, uploads[0])
+	s.assertUploaded(c, storage, sch.BundleURL(), sch.BundleSha256())
 }
 
-func (s *clientSuite) assertPutOnce(c *gc.C, ops chan dummy.Operation, expectPath string) {
-	called := false
+func (s *clientSuite) assertPutCalled(c *gc.C, ops chan dummy.Operation, numCalls int) {
+	calls := 0
 	select {
 	case op, ok := <-ops:
 		if !ok {
 			return
 		}
 		if op, ok := op.(dummy.OpPutFile); ok {
-			if called {
-				c.Fatalf("storage Put() called more than once")
+			calls++
+			if calls > numCalls {
+				c.Fatalf("storage Put() called %d times, expected %d times", calls, numCalls)
 				return
 			}
-			c.Assert(op.FileName, gc.Equals, expectPath)
-			called = true
+			nameFormat := "[0-9a-z-]+-[0-9]+-[0-9a-f-]+"
+			c.Assert(op.FileName, gc.Matches, nameFormat)
 		}
 	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out while waiting for a storage Put() call")
+		c.Fatalf("timed out while waiting for a storage Put() calls")
 		return
 	}
+}
+
+func (s *clientSuite) assertUploaded(c *gc.C, storage storage.Storage, bundleURL *url.URL, expectedSHA256 string) {
+	archiveName := getArchiveName(bundleURL)
+	reader, err := storage.Get(archiveName)
+	c.Assert(err, gc.IsNil)
+	defer reader.Close()
+	downloadedSHA256, _, err := apiserver.GetSHA256(reader)
+	c.Assert(err, gc.IsNil)
+	c.Assert(downloadedSHA256, gc.Equals, expectedSHA256)
+}
+
+func getArchiveName(bundleURL *url.URL) string {
+	return strings.TrimPrefix(bundleURL.RequestURI(), "/dummyenv/private/")
 }
