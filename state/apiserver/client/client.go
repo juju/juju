@@ -835,9 +835,19 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 		return fmt.Errorf("charm URL must include revision")
 	}
 
-	// First check the charm is not already in state.
-	if _, err := c.api.state.Charm(charmURL); err == nil {
+	// First, check if a placeholder or a real charm exists in state.
+	stateCharm, err := c.api.state.CharmOrPlaceholder(charmURL)
+	if err == nil && !stateCharm.IsPlaceholder() {
+		// Charm already in state (was uploaded/updated already).
 		return nil
+	}
+	// We either don't have the charm in state or it's a placeholder.
+	// Now we need to reserve the charm URL in state by adding a placeholder.
+	// This is needed so that we can guarantee nobody could try adding
+	// the same charm between now and after uploading to storage.
+	// See lp bug #1067979.
+	if err := c.api.state.AddStoreCharmPlaceholder(charmURL); err != nil {
+		return err
 	}
 
 	// Get the charm and its information from the store.
@@ -891,7 +901,7 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 		return fmt.Errorf("cannot parse storage URL: %v", err)
 	}
 
-	// Finally, add the charm to state.
+	// Finally, update the charm data in state.
 	_, err = c.api.state.AddCharm(downloadedCharm, charmURL, bundleURL, bundleSHA256)
 	return err
 }

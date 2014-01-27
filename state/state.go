@@ -445,12 +445,13 @@ func (st *State) parseTag(tag string) (coll string, id string, err error) {
 	return coll, id, nil
 }
 
-// AddCharm adds the ch charm with curl to the state.  bundleUrl must be
-// set to a URL where the bundle for ch may be downloaded from.
-// On success the newly added charm state is returned.
+// AddCharm adds the ch charm with curl to the state. bundleURL must
+// be set to a URL where the bundle for ch may be downloaded from. On
+// success the newly added charm state is returned.
 func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string) (stch *Charm, err error) {
-	// The charm may already exist in state as a placeholder, so we check for that situation and update the
-	// existing charm record if necessary, otherwise add a new record.
+	// The charm may already exist in state as a placeholder, so we
+	// check for that situation and update the existing charm record
+	// if necessary, otherwise add a new record.
 	var existing charmDoc
 	err = st.charms.Find(D{{"_id", curl.String()}, {"placeholder", true}}).One(&existing)
 	if err == mgo.ErrNotFound {
@@ -472,23 +473,14 @@ func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, b
 	return st.updateCharmDoc(ch, curl, bundleURL, bundleSha256, StillPlaceholder)
 }
 
-// Charm returns the charm with the given URL.
+// Charm returns the charm with the given URL. Charms pending upload
+// to storage and placeholders are never returned.
 func (st *State) Charm(curl *charm.URL) (*Charm, error) {
-	cdoc := &charmDoc{}
-	err := st.charms.Find(D{{"_id", curl}, {"pendingupload", false}, {"placeholder", false}}).One(cdoc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("charm %q", curl)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("cannot get charm %q: %v", curl, err)
-	}
-	if err := cdoc.Meta.Check(); err != nil {
-		return nil, fmt.Errorf("malformed charm metadata found in state: %v", err)
-	}
-	return newCharm(st, cdoc)
+	return st.findCharm(curl, skipPending|skipPlaceholders)
 }
 
-// LatestPlaceholderCharm returns the latest charm described by the given URL but which is not yet deployed.
+// LatestPlaceholderCharm returns the latest charm described by the
+// given URL but which is not yet deployed.
 func (st *State) LatestPlaceholderCharm(curl *charm.URL) (*Charm, error) {
 	noRevURL := curl.WithRevision(-1)
 	curlRegex := "^" + regexp.QuoteMeta(noRevURL.String())
@@ -508,6 +500,57 @@ func (st *State) LatestPlaceholderCharm(curl *charm.URL) (*Charm, error) {
 		return nil, errors.NotFoundf("placeholder charm %q", noRevURL)
 	}
 	return newCharm(st, &latest)
+}
+
+// CharmOrPlaceholder returns the charm described by the given URL,
+// which might be a placeholder.
+func (st *State) CharmOrPlaceholder(curl *charm.URL) (*Charm, error) {
+	return st.findCharm(curl, skipPending)
+}
+
+type findCharmFlags int
+
+// Bit flags for findCharm().
+const (
+	skipPlaceholders findCharmFlags = 1
+	skipPending      findCharmFlags = 2
+)
+
+// findCharm returns the *state.Charm for the given charm URL, but
+// skips placeholders and/or pending charms, depending on given flags.
+func (st *State) findCharm(curl *charm.URL, flags findCharmFlags) (*Charm, error) {
+	var condition D
+	if flags&skipPlaceholders != 0 {
+		if flags&skipPending != 0 {
+			// Only normal charms.
+			condition = D{{"_id", curl}, {"placeholder", false}, {"pendingupload", false}}
+		} else {
+			// Normal or pending charms.
+			condition = D{{"_id", curl}, {"placeholder", false}}
+		}
+	} else {
+		if flags&skipPending != 0 {
+			// Normal or placeholder charms.
+			condition = D{{"_id", curl}, {"pendingupload", false}}
+		} else {
+			// Normal, placeholder or pending charms.
+			condition = D{{"_id", curl}}
+		}
+	}
+	cdoc := &charmDoc{}
+	err := st.charms.Find(condition).One(&cdoc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("charm %q", curl)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("cannot get charm %q: %v", curl, err)
+	}
+	if cdoc.Meta != nil {
+		if err := cdoc.Meta.Check(); err != nil {
+			return nil, fmt.Errorf("malformed charm metadata found in state: %v", err)
+		}
+	}
+	return newCharm(st, cdoc)
 }
 
 // PrepareLocalCharmUpload must be called before a charm is uploaded
@@ -575,8 +618,10 @@ func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL,
 	return chosenUrl, nil
 }
 
-var StillPending = D{{"pendingupload", true}}
-var StillPlaceholder = D{{"placeholder", true}}
+var (
+	StillPending     = D{{"pendingupload", true}}
+	StillPlaceholder = D{{"placeholder", true}}
+)
 
 // AddStoreCharmPlaceholder creates a charm document in state for the given charm URL which
 // must reference a charm from the store. The charm document is marked as a placeholder which

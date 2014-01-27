@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 
 	gc "launchpad.net/gocheck"
 
@@ -1790,4 +1791,29 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	// Verify it's added to storage.
 	_, err = storage.Get(name)
 	c.Assert(err, gc.IsNil)
+}
+
+func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
+	store, restore := makeMockCharmStore()
+	defer restore()
+
+	client := s.APIState.Client()
+	curl, _ := addCharm(c, store, "wordpress")
+	var wg sync.WaitGroup
+
+	// Try adding the same charm concurrently from multiple goroutines
+	// to test no "duplicate key errors" are reported (see lp bug
+	// #1067979).
+	for i := 1; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			c.Assert(client.AddCharm(curl), gc.IsNil, gc.Commentf("goroutine %d", i))
+			sch, err := s.State.Charm(curl)
+			c.Assert(err, gc.IsNil, gc.Commentf("goroutine %d", i))
+			c.Assert(sch.URL(), jc.DeepEquals, curl, gc.Commentf("goroutine %d", i))
+		}()
+	}
+	wg.Wait()
 }
