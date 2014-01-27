@@ -7,12 +7,15 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"strings"
 
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
+	coreCloudinit "launchpad.net/juju-core/cloudinit"
+	"launchpad.net/juju-core/cloudinit/sshinit"
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -20,9 +23,9 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/client"
+	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
-	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -498,9 +501,9 @@ func assertRemoved(c *gc.C, entity state.Living) {
 }
 
 func (s *clientSuite) setupDestroyMachinesTest(c *gc.C) (*state.Machine, *state.Machine, *state.Machine, *state.Unit) {
-	m0, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	m0, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
-	m1, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	m1, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	m2, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
@@ -509,7 +512,7 @@ func (s *clientSuite) setupDestroyMachinesTest(c *gc.C) (*state.Machine, *state.
 	wordpress := s.AddTestingService(c, "wordpress", sch)
 	u, err := wordpress.AddUnit()
 	c.Assert(err, gc.IsNil)
-	err = u.AssignToMachine(m0)
+	err = u.AssignToMachine(m1)
 	c.Assert(err, gc.IsNil)
 
 	return m0, m1, m2, u
@@ -519,7 +522,7 @@ func (s *clientSuite) TestDestroyMachines(c *gc.C) {
 	m0, m1, m2, u := s.setupDestroyMachinesTest(c)
 
 	err := s.APIState.Client().DestroyMachines("0", "1", "2")
-	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 has unit "wordpress/0" assigned; machine 1 is required by the environment`)
+	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 is required by the environment; machine 1 has unit "wordpress/0" assigned`)
 	assertLife(c, m0, state.Alive)
 	assertLife(c, m1, state.Alive)
 	assertLife(c, m2, state.Dying)
@@ -527,9 +530,9 @@ func (s *clientSuite) TestDestroyMachines(c *gc.C) {
 	err = u.UnassignFromMachine()
 	c.Assert(err, gc.IsNil)
 	err = s.APIState.Client().DestroyMachines("0", "1", "2")
-	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 1 is required by the environment`)
-	assertLife(c, m0, state.Dying)
-	assertLife(c, m1, state.Alive)
+	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 is required by the environment`)
+	assertLife(c, m0, state.Alive)
+	assertLife(c, m1, state.Dying)
 	assertLife(c, m2, state.Dying)
 }
 
@@ -537,7 +540,7 @@ func (s *clientSuite) TestForceDestroyMachines(c *gc.C) {
 	m0, m1, m2, u := s.setupDestroyMachinesTest(c)
 
 	err := s.APIState.Client().ForceDestroyMachines("0", "1", "2")
-	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 1 is required by the environment`)
+	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 is required by the environment`)
 	assertLife(c, m0, state.Alive)
 	assertLife(c, m1, state.Alive)
 	assertLife(c, m2, state.Alive)
@@ -545,8 +548,8 @@ func (s *clientSuite) TestForceDestroyMachines(c *gc.C) {
 
 	err = s.State.Cleanup()
 	c.Assert(err, gc.IsNil)
-	assertLife(c, m0, state.Dead)
-	assertLife(c, m1, state.Alive)
+	assertLife(c, m0, state.Alive)
+	assertLife(c, m1, state.Dead)
 	assertLife(c, m2, state.Dead)
 	assertRemoved(c, u)
 }
@@ -1648,55 +1651,47 @@ func (s *clientSuite) TestInjectMachinesStillExists(c *gc.C) {
 	c.Assert(results.Machines, gc.HasLen, 1)
 }
 
-func (s *clientSuite) TestMachineConfig(c *gc.C) {
-	addrs := []instance.Address{instance.NewAddress("1.2.3.4")}
-	hc := instance.MustParseHardware("mem=4G")
+func (s *clientSuite) TestProvisioningScript(c *gc.C) {
+	// Inject a machine and then call the ProvisioningScript API.
+	// The result should be the same as when calling MachineConfig,
+	// converting it to a cloudinit.MachineConfig, and disabling
+	// apt_upgrade.
 	apiParams := params.AddMachineParams{
 		Jobs:       []params.MachineJob{params.JobHostUnits},
 		InstanceId: instance.Id("1234"),
 		Nonce:      "foo",
-		HardwareCharacteristics: hc,
-		Addrs: addrs,
+		HardwareCharacteristics: instance.MustParseHardware("arch=amd64"),
 	}
 	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(machines), gc.Equals, 1)
-
 	machineId := machines[0].Machine
-	machineConfig, err := s.APIState.Client().MachineConfig(machineId, config.DefaultSeries, "amd64")
+	// Call ProvisioningScript. Normally ProvisioningScript and
+	// MachineConfig are mutually exclusive; both of them will
+	// allocate a state/api password for the machine agent.
+	script, err := s.APIState.Client().ProvisioningScript(machineId, apiParams.Nonce)
 	c.Assert(err, gc.IsNil)
-
-	envConfig, err := s.State.EnvironConfig()
+	mcfg, err := statecmd.MachineConfig(s.State, machineId, apiParams.Nonce, "")
 	c.Assert(err, gc.IsNil)
-	env, err := environs.New(envConfig)
+	cloudcfg := coreCloudinit.New()
+	err = cloudinit.ConfigureJuju(mcfg, cloudcfg)
 	c.Assert(err, gc.IsNil)
-	stateInfo, apiInfo, err := env.StateInfo()
+	cloudcfg.SetAptUpgrade(false)
+	sshinitScript, err := sshinit.ConfigureScript(cloudcfg)
 	c.Assert(err, gc.IsNil)
-	c.Assert(machineConfig.StateAddrs, gc.DeepEquals, stateInfo.Addrs)
-	c.Assert(machineConfig.APIAddrs, gc.DeepEquals, apiInfo.Addrs)
-	c.Assert(machineConfig.Tag, gc.Equals, "machine-0")
-	caCert, _ := envConfig.CACert()
-	c.Assert(machineConfig.CACert, gc.DeepEquals, caCert)
-	c.Assert(machineConfig.Password, gc.Not(gc.Equals), "")
-	c.Assert(machineConfig.Tools.URL, gc.Not(gc.Equals), "")
-	c.Assert(machineConfig.EnvironAttrs["name"], gc.Equals, "dummyenv")
-}
-
-func (s *clientSuite) TestMachineConfigNoTools(c *gc.C) {
-	addrs := []instance.Address{instance.NewAddress("1.2.3.4")}
-	hc := instance.MustParseHardware("mem=4G")
-	apiParams := params.AddMachineParams{
-		Series:     "quantal",
-		Jobs:       []params.MachineJob{params.JobHostUnits},
-		InstanceId: instance.Id("1234"),
-		Nonce:      "foo",
-		HardwareCharacteristics: hc,
-		Addrs: addrs,
+	// ProvisioningScript internally calls MachineConfig,
+	// which allocates a new, random password. Everything
+	// about the scripts should be the same other than
+	// the line containing "oldpassword" from agent.conf.
+	scriptLines := strings.Split(script, "\n")
+	sshinitScriptLines := strings.Split(sshinitScript, "\n")
+	c.Assert(scriptLines, gc.HasLen, len(sshinitScriptLines))
+	for i, line := range scriptLines {
+		if strings.Contains(line, "oldpassword") {
+			continue
+		}
+		c.Assert(line, gc.Equals, sshinitScriptLines[i])
 	}
-	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
-	c.Assert(err, gc.IsNil)
-	_, err = s.APIState.Client().MachineConfig(machines[0].Machine, "quantal", "amd64")
-	c.Assert(err, gc.ErrorMatches, tools.ErrNoMatches.Error())
 }
 
 func (s *clientSuite) TestClientAuthorizeStoreOnDeployServiceSetCharmAndAddCharm(c *gc.C) {

@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/schema"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -104,26 +105,11 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 			return nil, err
 		}
 	}
-	// If the logging config hasn't been set, then look for the os environment
-	// variable, and failing that, get the config from loggo itself.
-	if c.asString("logging-config") == "" {
-		if environmentValue := os.Getenv(osenv.JujuLoggingConfig); environmentValue != "" {
-			c.m["logging-config"] = environmentValue
-		} else {
-			//TODO(wallyworld) - 2013-10-10 bug=1237731
-			// We need better way to ensure default logging is set to debug.
-			// This is a *quick* fix to get 1.16 out the door.
-			loggoConfig := loggo.LoggerInfo()
-			if loggoConfig != "<root>=WARNING" {
-				c.m["logging-config"] = loggoConfig
-			} else {
-				c.m["logging-config"] = "<root>=DEBUG"
-			}
-		}
+	if err := c.ensureUnitLogging(); err != nil {
+		return nil, err
 	}
-
 	// no old config to compare against
-	if err = Validate(c, nil); err != nil {
+	if err := Validate(c, nil); err != nil {
 		return nil, err
 	}
 	// Copy unknown attributes onto the type-specific map.
@@ -133,6 +119,29 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 		}
 	}
 	return c, nil
+}
+
+func (c *Config) ensureUnitLogging() error {
+	loggingConfig := c.asString("logging-config")
+	// If the logging config hasn't been set, then look for the os environment
+	// variable, and failing that, get the config from loggo itself.
+	if loggingConfig == "" {
+		if environmentValue := os.Getenv(osenv.JujuLoggingConfigEnvKey); environmentValue != "" {
+			loggingConfig = environmentValue
+		} else {
+			loggingConfig = loggo.LoggerInfo()
+		}
+	}
+	levels, err := loggo.ParseConfigurationString(loggingConfig)
+	if err != nil {
+		return err
+	}
+	// If there is is no specified level for "unit", then set one.
+	if _, ok := levels["unit"]; !ok {
+		loggingConfig = loggingConfig + ";unit=DEBUG"
+	}
+	c.m["logging-config"] = loggingConfig
+	return nil
 }
 
 func (c *Config) fillInDefaults() error {
@@ -318,9 +327,12 @@ func maybeReadAttrFromFile(m map[string]interface{}, attr, defaultPath string) e
 		}
 		path = defaultPath
 	}
-	path = expandTilde(path)
+	path, err := utils.NormalizePath(path)
+	if err != nil {
+		return err
+	}
 	if !filepath.IsAbs(path) {
-		path = JujuHomePath(path)
+		path = osenv.JujuHomePath(path)
 	}
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -400,6 +412,65 @@ func (c *Config) SyslogPort() int {
 // AuthorizedKeys returns the content for ssh's authorized_keys file.
 func (c *Config) AuthorizedKeys() string {
 	return c.mustString("authorized-keys")
+}
+
+// ProxySettings returns all three proxy settings; http, https and ftp.
+func (c *Config) ProxySettings() osenv.ProxySettings {
+	return osenv.ProxySettings{
+		Http:  c.HttpProxy(),
+		Https: c.HttpsProxy(),
+		Ftp:   c.FtpProxy(),
+	}
+}
+
+// HttpProxy returns the http proxy for the environment.
+func (c *Config) HttpProxy() string {
+	return c.asString("http-proxy")
+}
+
+// HttpsProxy returns the https proxy for the environment.
+func (c *Config) HttpsProxy() string {
+	return c.asString("https-proxy")
+}
+
+// FtpProxy returns the ftp proxy for the environment.
+func (c *Config) FtpProxy() string {
+	return c.asString("ftp-proxy")
+}
+
+func (c *Config) getWithFallback(key, fallback string) string {
+	value := c.asString(key)
+	if value == "" {
+		value = c.asString(fallback)
+	}
+	return value
+}
+
+// AptProxySettings returns all three proxy settings; http, https and ftp.
+func (c *Config) AptProxySettings() osenv.ProxySettings {
+	return osenv.ProxySettings{
+		Http:  c.AptHttpProxy(),
+		Https: c.AptHttpsProxy(),
+		Ftp:   c.AptFtpProxy(),
+	}
+}
+
+// AptHttpProxy returns the apt http proxy for the environment.
+// Falls back to the default http-proxy if not specified.
+func (c *Config) AptHttpProxy() string {
+	return c.getWithFallback("apt-http-proxy", "http-proxy")
+}
+
+// AptHttpsProxy returns the apt https proxy for the environment.
+// Falls back to the default https-proxy if not specified.
+func (c *Config) AptHttpsProxy() string {
+	return c.getWithFallback("apt-https-proxy", "https-proxy")
+}
+
+// AptFtpProxy returns the apt ftp proxy for the environment.
+// Falls back to the default ftp-proxy if not specified.
+func (c *Config) AptFtpProxy() string {
+	return c.getWithFallback("apt-ftp-proxy", "ftp-proxy")
 }
 
 // CACert returns the certificate of the CA that signed the state server
@@ -550,6 +621,12 @@ var fields = schema.Fields{
 	"logging-config":            schema.String(),
 	"charm-store-auth":          schema.String(),
 	"provisioner-safe-mode":     schema.Bool(),
+	"http-proxy":                schema.String(),
+	"https-proxy":               schema.String(),
+	"ftp-proxy":                 schema.String(),
+	"apt-http-proxy":            schema.String(),
+	"apt-https-proxy":           schema.String(),
+	"apt-ftp-proxy":             schema.String(),
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url": schema.String(),
@@ -572,6 +649,12 @@ var alwaysOptional = schema.Defaults{
 	"ca-private-key-path":   schema.Omit,
 	"logging-config":        schema.Omit,
 	"provisioner-safe-mode": schema.Omit,
+	"http-proxy":            schema.Omit,
+	"https-proxy":           schema.Omit,
+	"ftp-proxy":             schema.Omit,
+	"apt-http-proxy":        schema.Omit,
+	"apt-https-proxy":       schema.Omit,
+	"apt-ftp-proxy":         schema.Omit,
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url": "",

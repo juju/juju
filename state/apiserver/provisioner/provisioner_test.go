@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
+	commontesting "launchpad.net/juju-core/state/apiserver/common/testing"
 	"launchpad.net/juju-core/state/apiserver/provisioner"
 	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
 	statetesting "launchpad.net/juju-core/state/testing"
@@ -41,15 +42,21 @@ type provisionerSuite struct {
 var _ = gc.Suite(&provisionerSuite{})
 
 func (s *provisionerSuite) SetUpTest(c *gc.C) {
+	s.setUpTest(c, false)
+}
+
+func (s *provisionerSuite) setUpTest(c *gc.C, withStateServer bool) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	// Reset previous machines (if any) and create 3 machines
-	// for the tests.
+	// for the tests, plus an optional state server machine.
 	s.machines = nil
 	// Note that the specific machine ids allocated are assumed
 	// to be numerically consecutive from zero.
-	s.machines = append(s.machines, testing.AddStateServerMachine(c, s.State))
-	for i := 0; i < 2; i++ {
+	if withStateServer {
+		s.machines = append(s.machines, testing.AddStateServerMachine(c, s.State))
+	}
+	for i := 0; i < 3; i++ {
 		machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 		c.Check(err, gc.IsNil)
 		s.machines = append(s.machines, machine)
@@ -76,7 +83,19 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.provisioner = provisionerAPI
 }
 
-func (s *provisionerSuite) TestProvisionerFailsWithNonMachineAgentNonManagerUser(c *gc.C) {
+type withoutStateServerSuite struct {
+	provisionerSuite
+	*commontesting.EnvironWatcherTest
+}
+
+var _ = gc.Suite(&withoutStateServerSuite{})
+
+func (s *withoutStateServerSuite) SetUpTest(c *gc.C) {
+	s.setUpTest(c, false)
+	s.EnvironWatcherTest = commontesting.NewEnvironWatcherTest(s.provisioner, s.State, s.resources, commontesting.HasSecrets)
+}
+
+func (s *withoutStateServerSuite) TestProvisionerFailsWithNonMachineAgentNonManagerUser(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.MachineAgent = false
 	anAuthorizer.EnvironManager = true
@@ -93,7 +112,7 @@ func (s *provisionerSuite) TestProvisionerFailsWithNonMachineAgentNonManagerUser
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *provisionerSuite) TestSetPasswords(c *gc.C) {
+func (s *withoutStateServerSuite) TestSetPasswords(c *gc.C) {
 	args := params.PasswordChanges{
 		Changes: []params.PasswordChange{
 			{Tag: s.machines[0].Tag(), Password: "xxx0-1234567890123457890"},
@@ -127,7 +146,7 @@ func (s *provisionerSuite) TestSetPasswords(c *gc.C) {
 	}
 }
 
-func (s *provisionerSuite) TestShortSetPasswords(c *gc.C) {
+func (s *withoutStateServerSuite) TestShortSetPasswords(c *gc.C) {
 	args := params.PasswordChanges{
 		Changes: []params.PasswordChange{
 			{Tag: s.machines[1].Tag(), Password: "xxx1"},
@@ -140,7 +159,7 @@ func (s *provisionerSuite) TestShortSetPasswords(c *gc.C) {
 		"password is only 4 bytes long, and is not a valid Agent password")
 }
 
-func (s *provisionerSuite) TestLifeAsMachineAgent(c *gc.C) {
+func (s *withoutStateServerSuite) TestLifeAsMachineAgent(c *gc.C) {
 	// NOTE: This and the next call serve to test the two
 	// different authorization schemes:
 	// 1. Machine agents can access their own machine and
@@ -204,7 +223,7 @@ func (s *provisionerSuite) TestLifeAsMachineAgent(c *gc.C) {
 	})
 }
 
-func (s *provisionerSuite) TestLifeAsEnvironManager(c *gc.C) {
+func (s *withoutStateServerSuite) TestLifeAsEnvironManager(c *gc.C) {
 	err := s.machines[1].EnsureDead()
 	c.Assert(err, gc.IsNil)
 	err = s.machines[1].Refresh()
@@ -253,7 +272,7 @@ func (s *provisionerSuite) TestLifeAsEnvironManager(c *gc.C) {
 	})
 }
 
-func (s *provisionerSuite) TestRemove(c *gc.C) {
+func (s *withoutStateServerSuite) TestRemove(c *gc.C) {
 	err := s.machines[1].EnsureDead()
 	c.Assert(err, gc.IsNil)
 	s.assertLife(c, 0, state.Alive)
@@ -288,7 +307,7 @@ func (s *provisionerSuite) TestRemove(c *gc.C) {
 	s.assertLife(c, 2, state.Alive)
 }
 
-func (s *provisionerSuite) TestSetStatus(c *gc.C) {
+func (s *withoutStateServerSuite) TestSetStatus(c *gc.C) {
 	err := s.machines[0].SetStatus(params.StatusStarted, "blah", nil)
 	c.Assert(err, gc.IsNil)
 	err = s.machines[1].SetStatus(params.StatusStopped, "foo", nil)
@@ -324,7 +343,7 @@ func (s *provisionerSuite) TestSetStatus(c *gc.C) {
 	s.assertStatus(c, 2, params.StatusStarted, "again")
 }
 
-func (s *provisionerSuite) TestEnsureDead(c *gc.C) {
+func (s *withoutStateServerSuite) TestEnsureDead(c *gc.C) {
 	err := s.machines[1].EnsureDead()
 	c.Assert(err, gc.IsNil)
 	s.assertLife(c, 0, state.Alive)
@@ -358,20 +377,20 @@ func (s *provisionerSuite) TestEnsureDead(c *gc.C) {
 	s.assertLife(c, 2, state.Dead)
 }
 
-func (s *provisionerSuite) assertLife(c *gc.C, index int, expectLife state.Life) {
+func (s *withoutStateServerSuite) assertLife(c *gc.C, index int, expectLife state.Life) {
 	err := s.machines[index].Refresh()
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.machines[index].Life(), gc.Equals, expectLife)
 }
 
-func (s *provisionerSuite) assertStatus(c *gc.C, index int, expectStatus params.Status, expectInfo string) {
+func (s *withoutStateServerSuite) assertStatus(c *gc.C, index int, expectStatus params.Status, expectInfo string) {
 	status, info, _, err := s.machines[index].Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, expectStatus)
 	c.Assert(info, gc.Equals, expectInfo)
 }
 
-func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
+func (s *withoutStateServerSuite) TestWatchContainers(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	args := params.WatchContainers{Params: []params.WatchContainer{
@@ -408,7 +427,7 @@ func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
 	wc1.AssertNoChange()
 }
 
-func (s *provisionerSuite) TestWatchAllContainers(c *gc.C) {
+func (s *withoutStateServerSuite) TestWatchAllContainers(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	args := params.WatchContainers{Params: []params.WatchContainer{
@@ -445,35 +464,7 @@ func (s *provisionerSuite) TestWatchAllContainers(c *gc.C) {
 	wc1.AssertNoChange()
 }
 
-func (s *provisionerSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
-	c.Assert(s.resources.Count(), gc.Equals, 0)
-
-	result, err := s.provisioner.WatchForEnvironConfigChanges()
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{
-		NotifyWatcherId: "1",
-	})
-
-	// Verify the resources were registered and stop them when done.
-	c.Assert(s.resources.Count(), gc.Equals, 1)
-	resource := s.resources.Get("1")
-	defer statetesting.AssertStop(c, resource)
-
-	// Check that the Watch has consumed the initial event ("returned"
-	// in the Watch call)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
-	wc.AssertNoChange()
-}
-
-func (s *provisionerSuite) TestEnvironConfig(c *gc.C) {
-	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-
-	result, err := s.provisioner.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.Config, gc.DeepEquals, params.EnvironConfig(envConfig.AllAttrs()))
-
+func (s *withoutStateServerSuite) TestEnvironConfigNonManager(c *gc.C) {
 	// Now test it with a non-environment manager and make sure
 	// the secret attributes are masked.
 	anAuthorizer := s.authorizer
@@ -482,17 +473,10 @@ func (s *provisionerSuite) TestEnvironConfig(c *gc.C) {
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources,
 		anAuthorizer)
 	c.Assert(err, gc.IsNil)
-
-	// We need to see the secret attributes masked out, and for
-	// the dummy provider it's only one: "secret".
-	expectedConfig := envConfig.AllAttrs()
-	expectedConfig["secret"] = "not available"
-	result, err = aProvisioner.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	c.Assert(result.Error, gc.IsNil)
+	s.AssertEnvironConfig(c, aProvisioner, commontesting.NoSecrets)
 }
 
-func (s *provisionerSuite) TestStatus(c *gc.C) {
+func (s *withoutStateServerSuite) TestStatus(c *gc.C) {
 	err := s.machines[0].SetStatus(params.StatusStarted, "blah", nil)
 	c.Assert(err, gc.IsNil)
 	err = s.machines[1].SetStatus(params.StatusStopped, "foo", nil)
@@ -522,7 +506,7 @@ func (s *provisionerSuite) TestStatus(c *gc.C) {
 	})
 }
 
-func (s *provisionerSuite) TestSeries(c *gc.C) {
+func (s *withoutStateServerSuite) TestSeries(c *gc.C) {
 	// Add a machine with different series.
 	foobarMachine, err := s.State.AddMachine("foobar", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
@@ -549,7 +533,7 @@ func (s *provisionerSuite) TestSeries(c *gc.C) {
 	})
 }
 
-func (s *provisionerSuite) TestConstraints(c *gc.C) {
+func (s *withoutStateServerSuite) TestConstraints(c *gc.C) {
 	// Add a machine with some constraints.
 	template := state.MachineTemplate{
 		Series:      "quantal",
@@ -582,7 +566,7 @@ func (s *provisionerSuite) TestConstraints(c *gc.C) {
 	})
 }
 
-func (s *provisionerSuite) TestSetProvisioned(c *gc.C) {
+func (s *withoutStateServerSuite) TestSetProvisioned(c *gc.C) {
 	// Provision machine 0 first.
 	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
 	err := s.machines[0].SetProvisioned("i-am", "fake_nonce", &hwChars)
@@ -628,7 +612,7 @@ func (s *provisionerSuite) TestSetProvisioned(c *gc.C) {
 	c.Check(gotHardware, gc.DeepEquals, &hwChars)
 }
 
-func (s *provisionerSuite) TestInstanceId(c *gc.C) {
+func (s *withoutStateServerSuite) TestInstanceId(c *gc.C) {
 	// Provision 2 machines first.
 	err := s.machines[0].SetProvisioned("i-am", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
@@ -658,7 +642,7 @@ func (s *provisionerSuite) TestInstanceId(c *gc.C) {
 	})
 }
 
-func (s *provisionerSuite) TestWatchEnvironMachines(c *gc.C) {
+func (s *withoutStateServerSuite) TestWatchEnvironMachines(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	result, err := s.provisioner.WatchEnvironMachines()
@@ -690,52 +674,23 @@ func (s *provisionerSuite) TestWatchEnvironMachines(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{})
 }
 
-func (s *provisionerSuite) TestStateAddresses(c *gc.C) {
-	addresses, err := s.State.Addresses()
-	c.Assert(err, gc.IsNil)
-
-	result, err := s.provisioner.StateAddresses()
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.StringsResult{
-		Result: addresses,
-	})
-}
-
-func (s *provisionerSuite) TestAPIAddresses(c *gc.C) {
-	addrs, err := s.State.APIAddresses()
-	c.Assert(err, gc.IsNil)
-
-	result, err := s.provisioner.APIAddresses()
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.StringsResult{
-		Result: addrs,
-	})
-}
-
-func (s *provisionerSuite) TestCACert(c *gc.C) {
-	result := s.provisioner.CACert()
-	c.Assert(result, gc.DeepEquals, params.BytesResult{
-		Result: s.State.CACert(),
-	})
-}
-
-func (s *provisionerSuite) TestToolsNothing(c *gc.C) {
+func (s *withoutStateServerSuite) TestToolsNothing(c *gc.C) {
 	// Not an error to watch nothing
 	results, err := s.provisioner.Tools(params.Entities{})
 	c.Assert(err, gc.IsNil)
 	c.Check(results.Results, gc.HasLen, 0)
 }
 
-func (s *provisionerSuite) TestContainerConfig(c *gc.C) {
+func (s *withoutStateServerSuite) TestContainerConfig(c *gc.C) {
 	results, err := s.provisioner.ContainerConfig()
 	c.Check(err, gc.IsNil)
 	c.Check(results.ProviderType, gc.Equals, "dummy")
-	c.Check(results.AuthorizedKeys, gc.Equals, "my-keys")
+	c.Check(results.AuthorizedKeys, gc.Equals, coretesting.FakeAuthKeys)
 	c.Check(results.SSLHostnameVerification, jc.IsTrue)
 	c.Check(results.SyslogPort, gc.Equals, 2345)
 }
 
-func (s *provisionerSuite) TestToolsRefusesWrongAgent(c *gc.C) {
+func (s *withoutStateServerSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = "machine-12354"
 	anAuthorizer.EnvironManager = false
@@ -753,7 +708,7 @@ func (s *provisionerSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 	c.Assert(toolResult.Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
 }
 
-func (s *provisionerSuite) TestToolsForAgent(c *gc.C) {
+func (s *withoutStateServerSuite) TestToolsForAgent(c *gc.C) {
 	cur := version.Current
 	agent := params.Entity{Tag: s.machines[0].Tag()}
 
@@ -773,7 +728,7 @@ func (s *provisionerSuite) TestToolsForAgent(c *gc.C) {
 	c.Check(agentTools.Version, gc.DeepEquals, cur)
 }
 
-func (s *provisionerSuite) TestSetSupportedContainers(c *gc.C) {
+func (s *withoutStateServerSuite) TestSetSupportedContainers(c *gc.C) {
 	args := params.MachineContainersParams{
 		Params: []params.MachineContainers{
 			{
@@ -804,7 +759,7 @@ func (s *provisionerSuite) TestSetSupportedContainers(c *gc.C) {
 	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{instance.LXC, instance.KVM})
 }
 
-func (s *provisionerSuite) TestSetSupportedContainersPermissions(c *gc.C) {
+func (s *withoutStateServerSuite) TestSetSupportedContainersPermissions(c *gc.C) {
 	// Login as a machine agent for machine 0.
 	anAuthorizer := s.authorizer
 	anAuthorizer.MachineAgent = true
@@ -838,7 +793,7 @@ func (s *provisionerSuite) TestSetSupportedContainersPermissions(c *gc.C) {
 	})
 }
 
-func (s *provisionerSuite) TestSupportsNoContainers(c *gc.C) {
+func (s *withoutStateServerSuite) TestSupportsNoContainers(c *gc.C) {
 	args := params.MachineContainersParams{
 		Params: []params.MachineContainers{
 			{
@@ -855,4 +810,43 @@ func (s *provisionerSuite) TestSupportsNoContainers(c *gc.C) {
 	containers, ok := m0.SupportedContainers()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{})
+}
+
+var _ = gc.Suite(&withStateServerSuite{})
+
+type withStateServerSuite struct {
+	provisionerSuite
+}
+
+func (s *withStateServerSuite) SetUpTest(c *gc.C) {
+	s.provisionerSuite.setUpTest(c, true)
+}
+
+func (s *withStateServerSuite) TestAPIAddresses(c *gc.C) {
+	addrs, err := s.State.APIAddresses()
+	c.Assert(err, gc.IsNil)
+
+	result, err := s.provisioner.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsResult{
+		Result: addrs,
+	})
+}
+
+func (s *withStateServerSuite) TestStateAddresses(c *gc.C) {
+	addresses, err := s.State.Addresses()
+	c.Assert(err, gc.IsNil)
+
+	result, err := s.provisioner.StateAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsResult{
+		Result: addresses,
+	})
+}
+
+func (s *withStateServerSuite) TestCACert(c *gc.C) {
+	result := s.provisioner.CACert()
+	c.Assert(result, gc.DeepEquals, params.BytesResult{
+		Result: s.State.CACert(),
+	})
 }

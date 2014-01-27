@@ -6,6 +6,7 @@ package local
 import (
 	"fmt"
 	"net"
+	"os"
 	"syscall"
 
 	"launchpad.net/loggo"
@@ -13,6 +14,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -42,6 +44,17 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 		}
 		cfg = newCfg
 	}
+	// Set the "namespace" attribute. We do this here, and not in Prepare,
+	// for backwards compatibility: older versions did not store the namespace
+	// in config.
+	if namespace, _ := cfg.UnknownAttrs()["namespace"].(string); namespace == "" {
+		var err error
+		namespace = fmt.Sprintf("%s-%s", os.Getenv("USER"), cfg.Name())
+		cfg, err = cfg.Apply(map[string]interface{}{"namespace": namespace})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create namespace: %v", err)
+		}
+	}
 	// Do the initial validation on the config.
 	localConfig, err := providerInstance.newConfig(cfg)
 	if err != nil {
@@ -69,6 +82,42 @@ func (p environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
 	if err != nil {
 		return nil, err
 	}
+	// If the user has specified no values for any of the three normal
+	// proxies, then look in the environment and set them.
+	attrs := make(map[string]interface{})
+	setIfNotBlank := func(key, value string) {
+		if value != "" {
+			attrs[key] = value
+		}
+	}
+	logger.Tracef("Look for proxies?")
+	if cfg.HttpProxy() == "" &&
+		cfg.HttpsProxy() == "" &&
+		cfg.FtpProxy() == "" {
+		proxy := osenv.DetectProxies()
+		logger.Tracef("Proxies detected %#v", proxy)
+		setIfNotBlank("http-proxy", proxy.Http)
+		setIfNotBlank("https-proxy", proxy.Https)
+		setIfNotBlank("ftp-proxy", proxy.Ftp)
+	}
+	if cfg.AptHttpProxy() == "" &&
+		cfg.AptHttpsProxy() == "" &&
+		cfg.AptFtpProxy() == "" {
+		proxy, err := utils.DetectAptProxies()
+		if err != nil {
+			return nil, err
+		}
+		setIfNotBlank("apt-http-proxy", proxy.Http)
+		setIfNotBlank("apt-https-proxy", proxy.Https)
+		setIfNotBlank("apt-ftp-proxy", proxy.Ftp)
+	}
+	if len(attrs) > 0 {
+		cfg, err = cfg.Apply(attrs)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return p.Open(cfg)
 }
 
@@ -150,7 +199,7 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 		return nil, err
 	}
 	if dir == "." {
-		dir = config.JujuHomePath(cfg.Name())
+		dir = osenv.JujuHomePath(cfg.Name())
 	}
 	// Always assign the normalized path.
 	localConfig.attrs["root-dir"] = dir

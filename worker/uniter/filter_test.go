@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	apiuniter "launchpad.net/juju-core/state/api/uniter"
+	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker"
@@ -36,9 +37,9 @@ var _ = gc.Suite(&FilterSuite{})
 
 func (s *FilterSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	var err error
 	s.wpcharm = s.AddTestingCharm(c, "wordpress")
 	s.wordpress = s.AddTestingService(c, "wordpress", s.wpcharm)
+	var err error
 	s.unit, err = s.wordpress.AddUnit()
 	c.Assert(err, gc.IsNil)
 	err = s.unit.AssignToNewMachine()
@@ -65,7 +66,7 @@ func (s *FilterSuite) APILogin(c *gc.C, unit *state.Unit) {
 func (s *FilterSuite) TestUnitDeath(c *gc.C) {
 	f, err := newFilter(s.uniter, s.unit.Tag())
 	c.Assert(err, gc.IsNil)
-	defer f.Stop()
+	defer f.Stop() // no AssertStop, we test for an error below
 	asserter := coretesting.NotifyAsserterC{
 		Precond: func() { s.BackingState.StartSync() },
 		C:       c,
@@ -99,7 +100,7 @@ func (s *FilterSuite) TestUnitDeath(c *gc.C) {
 func (s *FilterSuite) TestUnitRemoval(c *gc.C) {
 	f, err := newFilter(s.uniter, s.unit.Tag())
 	c.Assert(err, gc.IsNil)
-	defer f.Stop()
+	defer f.Stop() // no AssertStop, we test for an error below
 
 	// short-circuit to remove because no status set.
 	err = s.unit.Destroy()
@@ -125,7 +126,7 @@ func (s *FilterSuite) assertAgentTerminates(c *gc.C, f *filter) {
 func (s *FilterSuite) TestServiceDeath(c *gc.C) {
 	f, err := newFilter(s.uniter, s.unit.Tag())
 	c.Assert(err, gc.IsNil)
-	defer f.Stop()
+	defer statetesting.AssertStop(c, f)
 	dyingAsserter := coretesting.NotifyAsserterC{
 		C:       c,
 		Precond: func() { s.BackingState.StartSync() },
@@ -160,7 +161,7 @@ loop:
 func (s *FilterSuite) TestResolvedEvents(c *gc.C) {
 	f, err := newFilter(s.uniter, s.unit.Tag())
 	c.Assert(err, gc.IsNil)
-	defer f.Stop()
+	defer statetesting.AssertStop(c, f)
 
 	resolvedAsserter := coretesting.ContentAsserterC{
 		C:       c,
@@ -220,7 +221,7 @@ func (s *FilterSuite) TestCharmUpgradeEvents(c *gc.C) {
 
 	f, err := newFilter(s.uniter, unit.Tag())
 	c.Assert(err, gc.IsNil)
-	defer f.Stop()
+	defer statetesting.AssertStop(c, f)
 
 	// No initial event is sent.
 	assertNoChange := func() {
@@ -286,7 +287,7 @@ func (s *FilterSuite) TestCharmUpgradeEvents(c *gc.C) {
 func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 	f, err := newFilter(s.uniter, s.unit.Tag())
 	c.Assert(err, gc.IsNil)
-	defer f.Stop()
+	defer statetesting.AssertStop(c, f)
 
 	// Test no changes before the charm URL is set.
 	assertNoChange := func() {
@@ -341,7 +342,7 @@ func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 	// as expected.
 	f, err = newFilter(s.uniter, s.unit.Tag())
 	c.Assert(err, gc.IsNil)
-	defer f.Stop()
+	defer statetesting.AssertStop(c, f)
 	s.BackingState.StartSync()
 	f.DiscardConfigEvent()
 	assertNoChange()
@@ -355,7 +356,7 @@ func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 func (s *FilterSuite) TestCharmErrorEvents(c *gc.C) {
 	f, err := newFilter(s.uniter, s.unit.Tag())
 	c.Assert(err, gc.IsNil)
-	defer f.Stop()
+	defer f.Stop() // no AssertStop, we test for an error below
 
 	assertNoChange := func() {
 		s.BackingState.StartSync()
@@ -375,7 +376,7 @@ func (s *FilterSuite) TestCharmErrorEvents(c *gc.C) {
 	// Filter died after the error, so restart it.
 	f, err = newFilter(s.uniter, s.unit.Tag())
 	c.Assert(err, gc.IsNil)
-	defer f.Stop()
+	defer f.Stop() // no AssertStop, we test for an error below
 
 	// Check with a nil charm URL, again no changes.
 	err = f.SetCharm(nil)
@@ -387,7 +388,7 @@ func (s *FilterSuite) TestCharmErrorEvents(c *gc.C) {
 func (s *FilterSuite) TestRelationsEvents(c *gc.C) {
 	f, err := newFilter(s.uniter, s.unit.Tag())
 	c.Assert(err, gc.IsNil)
-	defer f.Stop()
+	defer statetesting.AssertStop(c, f)
 
 	assertNoChange := func() {
 		s.BackingState.StartSync()
@@ -431,11 +432,13 @@ func (s *FilterSuite) TestRelationsEvents(c *gc.C) {
 	err = rel1.Destroy()
 	c.Assert(err, gc.IsNil)
 	assertNoChange()
+	err = f.Stop()
+	c.Assert(err, gc.IsNil)
 
 	// Start a new filter, check initial event.
 	f, err = newFilter(s.uniter, s.unit.Tag())
 	c.Assert(err, gc.IsNil)
-	defer f.Stop()
+	defer statetesting.AssertStop(c, f)
 	assertChange([]int{0, 2})
 
 	// Check setting the charm URL generates all new relation events.
@@ -452,7 +455,6 @@ func (s *FilterSuite) addRelation(c *gc.C) *state.Relation {
 	c.Assert(err, gc.IsNil)
 	svcName := fmt.Sprintf("mysql%d", len(rels))
 	s.AddTestingService(c, svcName, s.mysqlcharm)
-	c.Assert(err, gc.IsNil)
 	eps, err := s.State.InferEndpoints([]string{svcName, "wordpress"})
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)

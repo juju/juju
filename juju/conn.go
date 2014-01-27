@@ -12,7 +12,6 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
-	"path/filepath"
 	"time"
 
 	"launchpad.net/juju-core/charm"
@@ -24,6 +23,7 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/ssh"
 )
 
 // Conn holds a connection to a juju environment and its
@@ -170,7 +170,7 @@ func (c *Conn) updateSecrets() error {
 // and the revision number will be incremented before pushing.
 func (conn *Conn) PutCharm(curl *charm.URL, repo charm.Repository, bumpRevision bool) (*state.Charm, error) {
 	if curl.Revision == -1 {
-		rev, err := repo.Latest(curl)
+		rev, err := charm.Latest(repo, curl)
 		if err != nil {
 			return nil, fmt.Errorf("cannot get latest charm revision: %v", err)
 		}
@@ -253,8 +253,8 @@ func (conn *Conn) addCharm(curl *charm.URL, ch charm.Charm) (*state.Charm, error
 	return sch, nil
 }
 
-// InitJujuHome initializes the charm and environs/config packages to use
-// default paths based on the $JUJU_HOME or $HOME environment variables.
+// InitJujuHome initializes the charm, environs/config and utils/ssh packages
+// to use default paths based on the $JUJU_HOME or $HOME environment variables.
 // This function should be called before calling NewConn or Conn.Deploy.
 func InitJujuHome() error {
 	jujuHome := osenv.JujuHomeDir()
@@ -262,7 +262,10 @@ func InitJujuHome() error {
 		return stderrors.New(
 			"cannot determine juju home, required environment variables are not set")
 	}
-	config.SetJujuHome(jujuHome)
-	charm.CacheDir = filepath.Join(jujuHome, "charmcache")
+	osenv.SetJujuHome(jujuHome)
+	charm.CacheDir = osenv.JujuHomePath("charmcache")
+	if err := ssh.LoadClientKeys(osenv.JujuHomePath("ssh")); err != nil {
+		return fmt.Errorf("cannot load ssh client keys: %v", err)
+	}
 	return nil
 }

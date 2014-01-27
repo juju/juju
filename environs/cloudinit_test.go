@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -148,7 +149,7 @@ func (s *CloudInitSuite) TestStateServerUserData(c *gc.C) {
 
 func (*CloudInitSuite) testUserData(c *gc.C, stateServer bool) {
 	testJujuHome := c.MkDir()
-	defer config.SetJujuHome(config.SetJujuHome(testJujuHome))
+	defer osenv.SetJujuHome(osenv.SetJujuHome(testJujuHome))
 	tools := &tools.Tools{
 		URL:     "http://foo.com/tools/releases/juju1.2.3-linux-amd64.tgz",
 		Version: version.MustParseBinary("1.2.3-linux-amd64"),
@@ -174,14 +175,18 @@ func (*CloudInitSuite) testUserData(c *gc.C, stateServer bool) {
 			CACert:   []byte("CA CERT\n" + testing.CACert),
 			Tag:      "machine-10",
 		},
-		DataDir:          environs.DataDir,
-		Config:           envConfig,
-		StatePort:        envConfig.StatePort(),
-		APIPort:          envConfig.APIPort(),
-		SyslogPort:       envConfig.SyslogPort(),
-		StateServer:      stateServer,
-		AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
-		AuthorizedKeys:   "wheredidileavemykeys",
+		DataDir:                 environs.DataDir,
+		LogDir:                  environs.LogDir,
+		CloudInitOutputLog:      environs.CloudInitOutputLog,
+		RsyslogConfPath:         environs.RsyslogConfPath,
+		Config:                  envConfig,
+		StatePort:               envConfig.StatePort(),
+		APIPort:                 envConfig.APIPort(),
+		SyslogPort:              envConfig.SyslogPort(),
+		StateServer:             stateServer,
+		AgentEnvironment:        map[string]string{agent.ProviderType: "dummy"},
+		AuthorizedKeys:          "wheredidileavemykeys",
+		MachineAgentServiceName: "jujud-machine-10",
 	}
 	script1 := "script1"
 	script2 := "script2"
@@ -216,6 +221,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, stateServer bool) {
 			},
 			"runcmd": []interface{}{
 				"script1", "script2",
+				"set -xe",
 				"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
 				"printf '%s\\n' '5432' > '/var/lib/juju/nonce.txt'",
 			},

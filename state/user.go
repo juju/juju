@@ -11,6 +11,7 @@ import (
 	"labix.org/v2/mgo/txn"
 
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -97,7 +98,7 @@ func (u *User) Name() string {
 // Tag returns the Tag for
 // the user ("user-$username")
 func (u *User) Tag() string {
-	return "user-" + u.doc.Name
+	return names.UserTag(u.doc.Name)
 }
 
 // SetPassword sets the password associated with the user.

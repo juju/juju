@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/utils/ssh"
 )
 
 var logger = loggo.GetLogger("juju.environs.testing")
@@ -22,7 +23,7 @@ var logger = loggo.GetLogger("juju.environs.testing")
 // do not attempt to SSH to non-existent machines. The result is a function
 // that restores finishBootstrap.
 func DisableFinishBootstrap() func() {
-	f := func(environs.BootstrapContext, instance.Instance, *cloudinit.MachineConfig) error {
+	f := func(environs.BootstrapContext, ssh.Client, instance.Instance, *cloudinit.MachineConfig) error {
 		logger.Warningf("provider/common.FinishBootstrap is disabled")
 		return nil
 	}

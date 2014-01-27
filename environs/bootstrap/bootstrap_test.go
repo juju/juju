@@ -163,6 +163,8 @@ func (s *bootstrapSuite) TestBootstrapTools(c *gc.C) {
 
 		version.Current = test.CliVersion
 		envtesting.AssertUploadFakeToolsVersions(c, env.Storage(), test.Available...)
+		// Remove the default tools URL from the search path, just look in cloud storage.
+		s.PatchValue(&envtools.DefaultBaseURL, "")
 
 		cons := constraints.Value{}
 		if test.Arch != "" {
@@ -202,7 +204,7 @@ func (s *bootstrapSuite) TestEnsureToolsAvailability(c *gc.C) {
 	s.setDummyStorage(c, env)
 	envtesting.RemoveFakeTools(c, env.Storage())
 	_, err := bootstrap.EnsureToolsAvailability(env, env.Config().DefaultSeries(), nil)
-	c.Check(err, gc.ErrorMatches, "cannot find bootstrap tools: invalid URL.*")
+	c.Check(err, gc.ErrorMatches, ".*no tools available")
 }
 
 type bootstrapEnviron struct {

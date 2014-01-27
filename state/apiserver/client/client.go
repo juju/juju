@@ -15,7 +15,10 @@ import (
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/charm"
+	coreCloudinit "launchpad.net/juju-core/cloudinit"
+	"launchpad.net/juju-core/cloudinit/sshinit"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -598,10 +601,24 @@ func stateJobs(jobs []params.MachineJob) ([]state.MachineJob, error) {
 	return newJobs, nil
 }
 
-// MachineConfig returns information from the environment config that is
-// needed for machine cloud-init (both state servers and host nodes).
-func (c *Client) MachineConfig(args params.MachineConfigParams) (params.MachineConfig, error) {
-	return statecmd.MachineConfig(c.api.state, args)
+// ProvisioningScript returns a shell script that, when run,
+// provisions a machine agent on the machine executing the script.
+func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (params.ProvisioningScriptResult, error) {
+	var result params.ProvisioningScriptResult
+	mcfg, err := statecmd.MachineConfig(c.api.state, args.MachineId, args.Nonce, args.DataDir)
+	if err != nil {
+		return result, err
+	}
+	cloudcfg := coreCloudinit.New()
+	if err := cloudinit.ConfigureJuju(mcfg, cloudcfg); err != nil {
+		return result, err
+	}
+	// ProvisioningScript is run on an existing machine;
+	// we explicitly disable apt_upgrade so as not to
+	// trample the machine's existing configuration.
+	cloudcfg.SetAptUpgrade(false)
+	result.Script, err = sshinit.ConfigureScript(cloudcfg)
+	return result, err
 }
 
 // DestroyMachines removes a given set of machines.

@@ -4,47 +4,45 @@
 package osenv
 
 import (
-	"os"
 	"path/filepath"
 	"runtime"
-	"testing"
 
 	gc "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/testing/testbase"
 )
 
-func Test(t *testing.T) {
-	gc.TestingT(t)
+type importSuite struct {
+	testbase.LoggingSuite
 }
-
-type importSuite struct{}
 
 var _ = gc.Suite(&importSuite{})
 
-func (*importSuite) TestJujuHomeWin(c *gc.C) {
+func (s *importSuite) TestJujuHomeWin(c *gc.C) {
 	path := `P:\FooBar\AppData`
-	defer patchEnvironment("APPDATA", path)()
+	s.PatchEnvironment("APPDATA", path)
 	c.Assert(jujuHomeWin(), gc.Equals, filepath.Join(path, "Juju"))
 }
 
-func (*importSuite) TestJujuHomeLinux(c *gc.C) {
+func (s *importSuite) TestJujuHomeLinux(c *gc.C) {
 	path := `/foo/bar/baz/`
-	defer patchEnvironment("HOME", path)()
+	s.PatchEnvironment("HOME", path)
 	c.Assert(jujuHomeLinux(), gc.Equals, filepath.Join(path, ".juju"))
 }
 
-func (*importSuite) TestJujuHomeEnvVar(c *gc.C) {
+func (s *importSuite) TestJujuHomeEnvVar(c *gc.C) {
 	path := "/foo/bar/baz"
-	defer patchEnvironment(JujuHome, path)()
+	s.PatchEnvironment(JujuHomeEnvKey, path)
 	c.Assert(JujuHomeDir(), gc.Equals, path)
 }
 
-func (*importSuite) TestBlankJujuHomeEnvVar(c *gc.C) {
-	defer patchEnvironment(JujuHome, "")()
+func (s *importSuite) TestBlankJujuHomeEnvVar(c *gc.C) {
+	s.PatchEnvironment(JujuHomeEnvKey, "")
 
 	if runtime.GOOS == "windows" {
-		defer patchEnvironment("APPDATA", `P:\foobar`)()
+		s.PatchEnvironment("APPDATA", `P:\foobar`)
 	} else {
-		defer patchEnvironment("HOME", "/foobar")()
+		s.PatchEnvironment("HOME", "/foobar")
 	}
 	c.Assert(JujuHomeDir(), gc.Not(gc.Equals), "")
 
@@ -53,12 +51,4 @@ func (*importSuite) TestBlankJujuHomeEnvVar(c *gc.C) {
 	} else {
 		c.Assert(JujuHomeDir(), gc.Equals, jujuHomeLinux())
 	}
-}
-
-// yes this is a copy of coretesting's PatchEnvironment
-// but otherwise we get an import cycle
-func patchEnvironment(name, value string) func() {
-	oldValue := os.Getenv(name)
-	os.Setenv(name, value)
-	return func() { os.Setenv(name, oldValue) }
 }

@@ -5,7 +5,6 @@ package uniter
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -14,13 +13,15 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
+	"launchpad.net/loggo"
+
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/uniter"
+	utilexec "launchpad.net/juju-core/utils/exec"
 	unitdebug "launchpad.net/juju-core/worker/uniter/debug"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
@@ -78,11 +79,14 @@ type HookContext struct {
 
 	// serviceOwner contains the owner of the service
 	serviceOwner string
+
+	// proxySettings are the current proxy settings that the uniter knows about
+	proxySettings osenv.ProxySettings
 }
 
 func NewHookContext(unit *uniter.Unit, id, uuid string, relationId int,
 	remoteUnitName string, relations map[int]*ContextRelation,
-	apiAddrs []string, serviceOwner string) (*HookContext, error) {
+	apiAddrs []string, serviceOwner string, proxySettings osenv.ProxySettings) (*HookContext, error) {
 	ctx := &HookContext{
 		unit:           unit,
 		id:             id,
@@ -92,6 +96,7 @@ func NewHookContext(unit *uniter.Unit, id, uuid string, relationId int,
 		relations:      relations,
 		apiAddrs:       apiAddrs,
 		serviceOwner:   serviceOwner,
+		proxySettings:  proxySettings,
 	}
 	// Get and cache the addresses.
 	var err error
@@ -187,6 +192,7 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 		name, _ := ctx.RemoteUnitName()
 		vars = append(vars, "JUJU_REMOTE_UNIT="+name)
 	}
+	vars = append(vars, ctx.proxySettings.AsEnvironmentValues()...)
 	return vars
 }
 
@@ -212,10 +218,18 @@ func (ctx *HookContext) finalizeContext(process string, err error) error {
 
 // RunCommands executes the commands in an environment which allows it to to
 // call back into the hook context to execute jujuc tools.
-func (ctx *HookContext) RunCommands(commands, charmDir, toolsDir, socketPath string) (*cmd.RemoteResponse, error) {
+func (ctx *HookContext) RunCommands(commands, charmDir, toolsDir, socketPath string) (*utilexec.ExecResponse, error) {
 	env := ctx.hookVars(charmDir, toolsDir, socketPath)
-	result, err := runCommands(commands, charmDir, env)
+	result, err := utilexec.RunCommands(
+		utilexec.RunParams{
+			Commands:    commands,
+			WorkingDir:  charmDir,
+			Environment: env})
 	return result, ctx.finalizeContext("run commands", err)
+}
+
+func (ctx *HookContext) GetLogger(hookName string) loggo.Logger {
+	return loggo.GetLogger(fmt.Sprintf("unit.%s.%s", ctx.UnitName(), hookName))
 }
 
 // RunHook executes a hook in an environment which allows it to to call back
@@ -228,12 +242,12 @@ func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string)
 		logger.Infof("executing %s via debug-hooks", hookName)
 		err = session.RunHook(hookName, charmDir, env)
 	} else {
-		err = runCharmHook(hookName, charmDir, env)
+		err = ctx.runCharmHook(hookName, charmDir, env)
 	}
 	return ctx.finalizeContext(hookName, err)
 }
 
-func runCharmHook(hookName, charmDir string, env []string) error {
+func (ctx *HookContext) runCharmHook(hookName, charmDir string, env []string) error {
 	ps := exec.Command(filepath.Join(charmDir, "hooks", hookName))
 	ps.Env = env
 	ps.Dir = charmDir
@@ -244,8 +258,9 @@ func runCharmHook(hookName, charmDir string, env []string) error {
 	ps.Stdout = outWriter
 	ps.Stderr = outWriter
 	hookLogger := &hookLogger{
-		r:    outReader,
-		done: make(chan struct{}),
+		r:      outReader,
+		done:   make(chan struct{}),
+		logger: ctx.GetLogger(hookName),
 	}
 	go hookLogger.run()
 	err = ps.Start()
@@ -264,43 +279,12 @@ func runCharmHook(hookName, charmDir string, env []string) error {
 	return err
 }
 
-func runCommands(commands, charmDir string, env []string) (*cmd.RemoteResponse, error) {
-	ps := exec.Command("/bin/bash", "-s")
-	ps.Env = env
-	ps.Dir = charmDir
-	ps.Stdin = bytes.NewBufferString(commands)
-
-	stdout := &bytes.Buffer{}
-	stderr := &bytes.Buffer{}
-
-	ps.Stdout = stdout
-	ps.Stderr = stderr
-
-	err := ps.Start()
-	if err == nil {
-		err = ps.Wait()
-	}
-	result := &cmd.RemoteResponse{
-		Stdout: stdout.Bytes(),
-		Stderr: stderr.Bytes(),
-	}
-	if ee, ok := err.(*exec.ExitError); ok && err != nil {
-		status := ee.ProcessState.Sys().(syscall.WaitStatus)
-		if status.Exited() {
-			// A non-zero return code isn't considered an error here.
-			result.Code = status.ExitStatus()
-			err = nil
-		}
-		logger.Infof("run result: %v", ee)
-	}
-	return result, err
-}
-
 type hookLogger struct {
 	r       io.ReadCloser
 	done    chan struct{}
 	mu      sync.Mutex
 	stopped bool
+	logger  loggo.Logger
 }
 
 func (l *hookLogger) run() {
@@ -320,7 +304,7 @@ func (l *hookLogger) run() {
 			l.mu.Unlock()
 			return
 		}
-		logger.Infof("HOOK %s", line)
+		l.logger.Infof("%s", line)
 		l.mu.Unlock()
 	}
 }

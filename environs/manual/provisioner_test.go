@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/statecmd"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 )
@@ -118,10 +119,7 @@ func (s *provisionerSuite) TestFinishMachineConfig(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Now check what we would've configured it with.
-	client := s.APIConn.State.Client()
-	configParams, err := client.MachineConfig(machineId, series, arch)
-	c.Assert(err, gc.IsNil)
-	mcfg, err := finishMachineConfig(configParams, machineId, state.BootstrapNonce, "/var/lib/juju")
+	mcfg, err := statecmd.MachineConfig(s.State, machineId, state.BootstrapNonce, "/var/lib/juju")
 	c.Assert(err, gc.IsNil)
 	c.Check(mcfg, gc.NotNil)
 	c.Check(mcfg.APIInfo, gc.NotNil)

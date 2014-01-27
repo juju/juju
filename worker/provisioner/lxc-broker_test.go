@@ -184,7 +184,7 @@ func (s *lxcProvisionerSuite) SetUpTest(c *gc.C) {
 
 	// The lxc provisioner actually needs the machine it is being created on
 	// to be in state, in order to get the watcher.
-	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits, state.JobManageState)
+	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	err = m.SetAddresses([]instance.Address{
 		instance.NewAddress("0.1.2.3"),
@@ -282,5 +282,5 @@ func (s *lxcProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 type fakeAPI struct{}
 
 func (*fakeAPI) ContainerConfig() (params.ContainerConfig, error) {
-	return params.ContainerConfig{"fake", "my-keys", true, 2345}, nil
+	return params.ContainerConfig{"fake", coretesting.FakeAuthKeys, true, 2345}, nil
 }

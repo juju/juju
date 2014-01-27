@@ -65,7 +65,7 @@ func SampleConfig() testing.Attrs {
 	return testing.Attrs{
 		"type":                      "dummy",
 		"name":                      "only",
-		"authorized-keys":           "my-keys",
+		"authorized-keys":           testing.FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
 		"admin-secret":              testing.DefaultMongoPassword,
 		"ca-cert":                   testing.CACert,
@@ -861,7 +861,7 @@ func (e *environ) Ports() (ports []instance.Port, err error) {
 	for p := range estate.globalPorts {
 		ports = append(ports, p)
 	}
-	state.SortPorts(ports)
+	instance.SortPorts(ports)
 	return
 }
 
@@ -873,6 +873,7 @@ type dummyInstance struct {
 	state        *environState
 	ports        map[instance.Port]bool
 	id           instance.Id
+	status       string
 	machineId    string
 	series       string
 	firewallMode string
@@ -886,7 +887,7 @@ func (inst *dummyInstance) Id() instance.Id {
 }
 
 func (inst *dummyInstance) Status() string {
-	return ""
+	return inst.status
 }
 
 // SetInstanceAddresses sets the addresses associated with the given
@@ -895,6 +896,15 @@ func SetInstanceAddresses(inst instance.Instance, addrs []instance.Address) {
 	inst0 := inst.(*dummyInstance)
 	inst0.mu.Lock()
 	inst0.addresses = append(inst0.addresses[:0], addrs...)
+	inst0.mu.Unlock()
+}
+
+// SetInstanceStatus sets the status associated with the given
+// dummy instance.
+func SetInstanceStatus(inst instance.Instance, status string) {
+	inst0 := inst.(*dummyInstance)
+	inst0.mu.Lock()
+	inst0.status = status
 	inst0.mu.Unlock()
 }
 
@@ -978,7 +988,7 @@ func (inst *dummyInstance) Ports(machineId string) (ports []instance.Port, err e
 	for p := range inst.ports {
 		ports = append(ports, p)
 	}
-	state.SortPorts(ports)
+	instance.SortPorts(ports)
 	return
 }
 

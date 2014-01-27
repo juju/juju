@@ -15,26 +15,53 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/tools"
 	jc "launchpad.net/juju-core/testing/checkers"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
 )
 
 // MakeTools creates some fake tools with the given version strings.
 func MakeTools(c *gc.C, metadataDir, subdir string, versionStrings []string) {
-	toolsDir := filepath.Join(metadataDir, "tools")
+	makeTools(c, metadataDir, subdir, versionStrings, false)
+}
+
+// MakeTools creates some fake tools (including checksums) with the given version strings.
+func MakeToolsWithCheckSum(c *gc.C, metadataDir, subdir string, versionStrings []string) {
+	makeTools(c, metadataDir, subdir, versionStrings, true)
+}
+
+func makeTools(c *gc.C, metadataDir, subdir string, versionStrings []string, withCheckSum bool) {
+	toolsDir := filepath.Join(metadataDir, storage.BaseToolsPath)
 	if subdir != "" {
 		toolsDir = filepath.Join(toolsDir, subdir)
 	}
 	c.Assert(os.MkdirAll(toolsDir, 0755), gc.IsNil)
+	var toolsList coretools.List
 	for _, versionString := range versionStrings {
 		binary := version.MustParseBinary(versionString)
 		path := filepath.Join(toolsDir, fmt.Sprintf("juju-%s.tgz", binary))
-		err := ioutil.WriteFile(path, []byte(binary.String()), 0644)
+		data := binary.String()
+		err := ioutil.WriteFile(path, []byte(data), 0644)
 		c.Assert(err, gc.IsNil)
+		tool := &coretools.Tools{
+			Version: binary,
+			URL:     path,
+		}
+		if withCheckSum {
+			tool.Size, tool.SHA256 = SHA256sum(c, path)
+		}
+		toolsList = append(toolsList, tool)
 	}
+	// Write the tools metadata.
+	stor, err := filestorage.NewFileStorageWriter(metadataDir, filestorage.UseDefaultTmpDir)
+	c.Assert(err, gc.IsNil)
+	err = tools.MergeAndWriteMetadata(stor, toolsList, false)
+	c.Assert(err, gc.IsNil)
 }
 
 // SHA256sum creates the sha256 checksum for the specified file.

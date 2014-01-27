@@ -9,22 +9,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
-	"strings"
 
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/juju/osenv"
+	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/ssh"
 )
-
-func expandTilde(f string) string {
-	// TODO expansion of other user's home directories.
-	// Q what characters are valid in a user name?
-	if strings.HasPrefix(f, "~"+string(filepath.Separator)) {
-		return path.Join(osenv.Home(), f[2:])
-	}
-	return f
-}
 
 // ReadAuthorizedKeys implements the standard juju behaviour for finding
 // authorized_keys. It returns a set of keys in in authorized_keys format
@@ -33,17 +24,27 @@ func expandTilde(f string) string {
 // Home directory expansion will be performed on the path if it starts with
 // a ~; if the expanded path is relative, it will be interpreted relative
 // to $HOME/.ssh.
+//
+// The result of utils/ssh.PublicKeyFiles will always be prepended to the
+// result. In practice, this means ReadAuthorizedKeys never returns an
+// error when the call originates in the CLI.
 func ReadAuthorizedKeys(path string) (string, error) {
-	var files []string
+	files := ssh.PublicKeyFiles()
 	if path == "" {
-		files = []string{"id_dsa.pub", "id_rsa.pub", "identity.pub"}
+		files = append(files, "id_dsa.pub", "id_rsa.pub", "identity.pub")
 	} else {
-		files = []string{path}
+		files = append(files, path)
 	}
 	var firstError error
 	var keyData []byte
 	for _, f := range files {
-		f = expandTilde(f)
+		f, err := utils.NormalizePath(f)
+		if err != nil {
+			if firstError == nil {
+				firstError = err
+			}
+			continue
+		}
 		if !filepath.IsAbs(f) {
 			f = filepath.Join(osenv.Home(), ".ssh", f)
 		}

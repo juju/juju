@@ -79,10 +79,5 @@ func (c *SCPCommand) Run(ctx *cmd.Context) error {
 			c.Args[i] = "ubuntu@" + host + ":" + v[1]
 		}
 	}
-
-	cmd := ssh.ScpCommand(c.Args[0], c.Args[1], ssh.NoPasswordAuthentication)
-	cmd.Stdin = ctx.Stdin
-	cmd.Stdout = ctx.Stdout
-	cmd.Stderr = ctx.Stderr
-	return cmd.Run()
+	return ssh.Copy(c.Args[0], c.Args[1], nil)
 }

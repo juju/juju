@@ -35,6 +35,8 @@ var _ = gc.Suite(&ConfigSuite{})
 
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
+	// Make sure that the defaults are used, which
+	// is <root>=WARNING
 	loggo.ResetLoggers()
 }
 
@@ -43,7 +45,7 @@ func (s *ConfigSuite) SetUpTest(c *gc.C) {
 var sampleConfig = testing.Attrs{
 	"type":                      "my-type",
 	"name":                      "my-name",
-	"authorized-keys":           "my-keys",
+	"authorized-keys":           testing.FakeAuthKeys,
 	"firewall-mode":             config.FwInstance,
 	"admin-secret":              "foo",
 	"unknown":                   "my-unknown",
@@ -127,7 +129,7 @@ var configTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 		},
 	}, {
 		about:       "Load authorized-keys from path",
@@ -274,7 +276,7 @@ var configTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 			"agent-version":   "1.2.3",
 		},
 	}, {
@@ -283,7 +285,7 @@ var configTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 			"development":     true,
 		},
 	}, {
@@ -292,7 +294,7 @@ var configTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 			"development":     false,
 			"admin-secret":    "pork",
 		},
@@ -302,7 +304,7 @@ var configTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 			"development":     "invalid",
 		},
 		err: `development: expected bool, got string\("invalid"\)`,
@@ -312,7 +314,7 @@ var configTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 			"agent-version":   "2",
 		},
 		err: `invalid agent version in environment configuration: "2"`,
@@ -644,7 +646,7 @@ var noCertFilesTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 		},
 	}, {
 		about:       "Unspecified certificate, specified key",
@@ -652,7 +654,7 @@ var noCertFilesTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 			"ca-private-key":  caKey,
 		},
 		err: "bad CA certificate/key in configuration: crypto/tls:.*",
@@ -675,7 +677,7 @@ var emptyCertFilesTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 			"ca-private-key":  caKey,
 		},
 		err: `file ".*/my-name-cert.pem" is empty`,
@@ -685,7 +687,7 @@ var emptyCertFilesTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 		},
 		err: `file ".*/my-name-cert.pem" is empty`,
 	}, {
@@ -694,7 +696,7 @@ var emptyCertFilesTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 			"ca-cert":         caCert,
 		},
 		err: `file ".*/my-name-private-key.pem" is empty`,
@@ -704,7 +706,7 @@ var emptyCertFilesTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 			"ca-cert":         "",
 			"ca-private-key":  "",
 		},
@@ -714,7 +716,7 @@ var emptyCertFilesTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 			"ca-cert":         "",
 		},
 		err: "bad CA certificate/key in configuration: crypto/tls: .*",
@@ -838,12 +840,6 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 		c.Assert(cfg.ProvisionerSafeMode(), gc.Equals, false)
 	}
 
-	if v, ok := test.attrs["logging-config"]; ok {
-		c.Assert(cfg.LoggingConfig(), gc.Equals, v)
-	} else {
-		c.Assert(cfg.LoggingConfig(), gc.Equals, "<root>=DEBUG")
-	}
-
 	url, urlPresent := cfg.ImageMetadataURL()
 	if v, _ := test.attrs["image-metadata-url"].(string); v != "" {
 		c.Assert(url, gc.Equals, v)
@@ -873,11 +869,11 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 
 func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	// Normally this is handled by testing.FakeHome
-	s.PatchEnvironment(osenv.JujuLoggingConfig, "")
+	s.PatchEnvironment(osenv.JujuLoggingConfigEnvKey, "")
 	attrs := map[string]interface{}{
 		"type":                      "my-type",
 		"name":                      "my-name",
-		"authorized-keys":           "my-keys",
+		"authorized-keys":           testing.FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
 		"admin-secret":              "foo",
 		"unknown":                   "my-unknown",
@@ -897,12 +893,11 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	// These attributes are added if not set.
 	attrs["development"] = false
 	attrs["default-series"] = config.DefaultSeries
-	attrs["logging-config"] = loggo.LoggerInfo()
+	attrs["logging-config"] = "<root>=WARNING;unit=DEBUG"
 	attrs["ca-private-key"] = ""
 	attrs["image-metadata-url"] = ""
 	attrs["tools-metadata-url"] = ""
 	attrs["tools-url"] = ""
-	attrs["logging-config"] = "<root>=DEBUG"
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
 	c.Assert(cfg.AllAttrs(), gc.DeepEquals, attrs)
@@ -1074,18 +1069,72 @@ func newTestConfig(c *gc.C, explicit testing.Attrs) *config.Config {
 func (*ConfigSuite) TestLoggingConfig(c *gc.C) {
 	defer makeFakeHome(c).Restore()
 
-	logConfig := "<root>=WARNING;juju=DEBUG"
-	config := newTestConfig(c, testing.Attrs{"logging-config": logConfig})
-	c.Assert(config.LoggingConfig(), gc.Equals, logConfig)
+	config := newTestConfig(c, testing.Attrs{
+		"logging-config": "<root>=WARNING;juju=DEBUG"})
+	c.Assert(config.LoggingConfig(), gc.Equals, "<root>=WARNING;juju=DEBUG;unit=DEBUG")
+}
+
+func (*ConfigSuite) TestLoggingConfigWithUnit(c *gc.C) {
+	defer makeFakeHome(c).Restore()
+
+	config := newTestConfig(c, testing.Attrs{
+		"logging-config": "<root>=WARNING;unit=INFO"})
+	c.Assert(config.LoggingConfig(), gc.Equals, "<root>=WARNING;unit=INFO")
 }
 
 func (s *ConfigSuite) TestLoggingConfigFromEnvironment(c *gc.C) {
 	defer makeFakeHome(c).Restore()
-	logConfig := "<root>=INFO"
-	s.PatchEnvironment(osenv.JujuLoggingConfig, logConfig)
+	s.PatchEnvironment(osenv.JujuLoggingConfigEnvKey, "<root>=INFO")
 
 	config := newTestConfig(c, nil)
-	c.Assert(config.LoggingConfig(), gc.Equals, logConfig)
+	c.Assert(config.LoggingConfig(), gc.Equals, "<root>=INFO;unit=DEBUG")
+}
+
+func (*ConfigSuite) TestProxyValuesWithFallback(c *gc.C) {
+	defer makeFakeHome(c).Restore()
+
+	config := newTestConfig(c, testing.Attrs{
+		"http-proxy":  "http://user@10.0.0.1",
+		"https-proxy": "https://user@10.0.0.1",
+		"ftp-proxy":   "ftp://user@10.0.0.1",
+	})
+	c.Assert(config.HttpProxy(), gc.Equals, "http://user@10.0.0.1")
+	c.Assert(config.AptHttpProxy(), gc.Equals, "http://user@10.0.0.1")
+	c.Assert(config.HttpsProxy(), gc.Equals, "https://user@10.0.0.1")
+	c.Assert(config.AptHttpsProxy(), gc.Equals, "https://user@10.0.0.1")
+	c.Assert(config.FtpProxy(), gc.Equals, "ftp://user@10.0.0.1")
+	c.Assert(config.AptFtpProxy(), gc.Equals, "ftp://user@10.0.0.1")
+}
+
+func (*ConfigSuite) TestProxyValues(c *gc.C) {
+	defer makeFakeHome(c).Restore()
+
+	config := newTestConfig(c, testing.Attrs{
+		"http-proxy":      "http://user@10.0.0.1",
+		"https-proxy":     "https://user@10.0.0.1",
+		"ftp-proxy":       "ftp://user@10.0.0.1",
+		"apt-http-proxy":  "http://user@10.0.0.2",
+		"apt-https-proxy": "https://user@10.0.0.2",
+		"apt-ftp-proxy":   "ftp://user@10.0.0.2",
+	})
+	c.Assert(config.HttpProxy(), gc.Equals, "http://user@10.0.0.1")
+	c.Assert(config.AptHttpProxy(), gc.Equals, "http://user@10.0.0.2")
+	c.Assert(config.HttpsProxy(), gc.Equals, "https://user@10.0.0.1")
+	c.Assert(config.AptHttpsProxy(), gc.Equals, "https://user@10.0.0.2")
+	c.Assert(config.FtpProxy(), gc.Equals, "ftp://user@10.0.0.1")
+	c.Assert(config.AptFtpProxy(), gc.Equals, "ftp://user@10.0.0.2")
+}
+
+func (*ConfigSuite) TestProxyValuesNotSet(c *gc.C) {
+	defer makeFakeHome(c).Restore()
+
+	config := newTestConfig(c, testing.Attrs{})
+	c.Assert(config.HttpProxy(), gc.Equals, "")
+	c.Assert(config.AptHttpProxy(), gc.Equals, "")
+	c.Assert(config.HttpsProxy(), gc.Equals, "")
+	c.Assert(config.AptHttpsProxy(), gc.Equals, "")
+	c.Assert(config.FtpProxy(), gc.Equals, "")
+	c.Assert(config.AptFtpProxy(), gc.Equals, "")
 }
 
 func (*ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {

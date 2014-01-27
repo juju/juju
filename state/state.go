@@ -449,25 +449,33 @@ func (st *State) parseTag(tag string) (coll string, id string, err error) {
 // set to a URL where the bundle for ch may be downloaded from.
 // On success the newly added charm state is returned.
 func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string) (stch *Charm, err error) {
-	cdoc := &charmDoc{
-		URL:           curl,
-		Meta:          ch.Meta(),
-		Config:        ch.Config(),
-		BundleURL:     bundleURL,
-		BundleSha256:  bundleSha256,
-		PendingUpload: false,
+	// The charm may already exist in state as a placeholder, so we check for that situation and update the
+	// existing charm record if necessary, otherwise add a new record.
+	var existing charmDoc
+	err = st.charms.Find(D{{"_id", curl.String()}, {"placeholder", true}}).One(&existing)
+	if err == mgo.ErrNotFound {
+		cdoc := &charmDoc{
+			URL:          curl,
+			Meta:         ch.Meta(),
+			Config:       ch.Config(),
+			BundleURL:    bundleURL,
+			BundleSha256: bundleSha256,
+		}
+		err = st.charms.Insert(cdoc)
+		if err != nil {
+			return nil, fmt.Errorf("cannot add charm %q: %v", curl, err)
+		}
+		return newCharm(st, cdoc)
+	} else if err != nil {
+		return nil, err
 	}
-	err = st.charms.Insert(cdoc)
-	if err != nil {
-		return nil, fmt.Errorf("cannot add charm %q: %v", curl, err)
-	}
-	return newCharm(st, cdoc)
+	return st.updateCharmDoc(ch, curl, bundleURL, bundleSha256, StillPlaceholder)
 }
 
 // Charm returns the charm with the given URL.
 func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	cdoc := &charmDoc{}
-	err := st.charms.Find(D{{"_id", curl}, {"pendingupload", false}}).One(cdoc)
+	err := st.charms.Find(D{{"_id", curl}, {"pendingupload", false}, {"placeholder", false}}).One(cdoc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("charm %q", curl)
 	}
@@ -478,6 +486,28 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 		return nil, fmt.Errorf("malformed charm metadata found in state: %v", err)
 	}
 	return newCharm(st, cdoc)
+}
+
+// LatestPlaceholderCharm returns the latest charm described by the given URL but which is not yet deployed.
+func (st *State) LatestPlaceholderCharm(curl *charm.URL) (*Charm, error) {
+	noRevURL := curl.WithRevision(-1)
+	curlRegex := "^" + regexp.QuoteMeta(noRevURL.String())
+	var docs []charmDoc
+	err := st.charms.Find(D{{"_id", D{{"$regex", curlRegex}}}, {"placeholder", true}}).All(&docs)
+	if err != nil {
+		return nil, fmt.Errorf("cannot get charm %q: %v", curl, err)
+	}
+	// Find the highest revision.
+	var latest charmDoc
+	for _, doc := range docs {
+		if latest.URL == nil || doc.URL.Revision > latest.URL.Revision {
+			latest = doc
+		}
+	}
+	if latest.URL == nil {
+		return nil, errors.NotFoundf("placeholder charm %q", noRevURL)
+	}
+	return newCharm(st, &latest)
 }
 
 // PrepareLocalCharmUpload must be called before a charm is uploaded
@@ -545,6 +575,91 @@ func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL,
 	return chosenUrl, nil
 }
 
+var StillPending = D{{"pendingupload", true}}
+var StillPlaceholder = D{{"placeholder", true}}
+
+// AddStoreCharmPlaceholder creates a charm document in state for the given charm URL which
+// must reference a charm from the store. The charm document is marked as a placeholder which
+// means that if the charm is to be deployed, it will need to first be uploaded to env storage.
+func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
+	// Perform sanity checks first.
+	if curl.Schema != "cs" {
+		return fmt.Errorf("expected charm URL with cs schema, got %q", curl)
+	}
+	if curl.Revision < 0 {
+		return fmt.Errorf("expected charm URL with revision, got %q", curl)
+	}
+
+	for attempt := 0; attempt < 3; attempt++ {
+		// See if the charm already exists in state and exit early if that's the case.
+		var doc charmDoc
+		err = st.charms.Find(D{{"_id", curl.String()}}).Select(D{{"_id", 1}}).One(&doc)
+		if err != nil && err != mgo.ErrNotFound {
+			return err
+		}
+		if err == nil {
+			return nil
+		}
+
+		// Delete all previous placeholders so we don't fill up the database with unused data.
+		var ops []txn.Op
+		ops, err = st.deleteOldPlaceholderCharmsOps(curl)
+		if err != nil {
+			return nil
+		}
+		// Add the new charm doc.
+		placeholderCharm := &charmDoc{
+			URL:         curl,
+			Placeholder: true,
+		}
+		ops = append(ops, txn.Op{
+			C:      st.charms.Name,
+			Id:     placeholderCharm.URL.String(),
+			Assert: txn.DocMissing,
+			Insert: placeholderCharm,
+		})
+
+		// Run the transaction, and retry on abort.
+		if err = st.runTransaction(ops); err == txn.ErrAborted {
+			continue
+		} else if err != nil {
+			return err
+		}
+		break
+	}
+	if err != nil {
+		return ErrExcessiveContention
+	}
+	return nil
+}
+
+// deleteOldPlaceholderCharmsOps returns the txn ops required to delete all placeholder charm
+// records older than the specified charm URL.
+func (st *State) deleteOldPlaceholderCharmsOps(curl *charm.URL) ([]txn.Op, error) {
+	// Get a regex with the charm URL and no revision.
+	noRevURL := curl.WithRevision(-1)
+	curlRegex := "^" + regexp.QuoteMeta(noRevURL.String())
+	var docs []charmDoc
+	err := st.charms.Find(
+		D{{"_id", D{{"$regex", curlRegex}}}, {"placeholder", true}}).Select(D{{"_id", 1}}).All(&docs)
+	if err != nil {
+		return nil, err
+	}
+	var ops []txn.Op
+	for _, doc := range docs {
+		if doc.URL.Revision >= curl.Revision {
+			continue
+		}
+		ops = append(ops, txn.Op{
+			C:      st.charms.Name,
+			Id:     doc.URL.String(),
+			Assert: StillPlaceholder,
+			Remove: true,
+		})
+	}
+	return ops, nil
+}
+
 // UpdateUploadedCharm marks the given charm URL as uploaded and
 // updates the rest of its data, returning it as *state.Charm.
 func (st *State) UpdateUploadedCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string) (*Charm, error) {
@@ -560,22 +675,30 @@ func (st *State) UpdateUploadedCharm(ch charm.Charm, curl *charm.URL, bundleURL 
 		return nil, fmt.Errorf("charm %q already uploaded", curl)
 	}
 
+	return st.updateCharmDoc(ch, curl, bundleURL, bundleSha256, StillPending)
+}
+
+// updateCharmDoc updates the charm with specified URL with the given data, and resets the placeholder
+// and pendingupdate flags.
+func (st *State) updateCharmDoc(
+	ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string, preReq interface{}) (*Charm, error) {
+
 	updateFields := D{{"$set", D{
 		{"meta", ch.Meta()},
 		{"config", ch.Config()},
 		{"bundleurl", bundleURL},
 		{"bundlesha256", bundleSha256},
 		{"pendingupload", false},
+		{"placeholder", false},
 	}}}
-	stillPending := D{{"pendingupload", true}}
 	ops := []txn.Op{{
 		C:      st.charms.Name,
 		Id:     curl,
-		Assert: stillPending,
+		Assert: preReq,
 		Update: updateFields,
 	}}
 	if err := st.runTransaction(ops); err != nil {
-		return nil, onAbort(err, fmt.Errorf("charm revision already uploaded"))
+		return nil, onAbort(err, fmt.Errorf("charm revision already modified"))
 	}
 	return st.Charm(curl)
 }
@@ -1069,21 +1192,37 @@ func (st *State) setMongoPassword(name, password string) error {
 }
 
 type stateServersDoc struct {
-	Id         string `bson:"_id"`
-	MachineIds []string
+	Id               string `bson:"_id"`
+	MachineIds       []string
+	VotingMachineIds []string
 }
 
-// StateServerMachineIds returns a slice of the ids
-// of all machines that are configured to run a state server.
-// TODO(rog) export this method when the stateServers
-// document is consistently maintained.
-func (st *State) stateServerMachineIds() ([]string, error) {
+// StateServerInfo holds information about currently
+// configured state server machines.
+type StateServerInfo struct {
+	// MachineIds holds the ids of all machines configured
+	// to run a state server. It includes all the machine
+	// ids in VotingMachineIds.
+	MachineIds []string
+
+	// VotingMachineIds holds the ids of all machines
+	// configured to run a state server and to have a vote
+	// in peer election.
+	VotingMachineIds []string
+}
+
+// StateServerInfo returns returns information about
+// the currently configured state server machines.
+func (st *State) StateServerInfo() (*StateServerInfo, error) {
 	var doc stateServersDoc
 	err := st.stateServers.Find(D{{"_id", environGlobalKey}}).One(&doc)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get state servers document: %v", err)
 	}
-	return doc.MachineIds, nil
+	return &StateServerInfo{
+		MachineIds:       doc.MachineIds,
+		VotingMachineIds: doc.VotingMachineIds,
+	}, nil
 }
 
 // ResumeTransactions resumes all pending transactions.

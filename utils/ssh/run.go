@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"launchpad.net/juju-core/cmd"
+	utilexec "launchpad.net/juju-core/utils/exec"
 )
 
 // ExecParams are used for the parameters for ExecuteCommandOnMachine.
@@ -27,17 +27,17 @@ type ExecParams struct {
 // through /bin/bash.  If the command is not finished within the timeout
 // specified, an error is returned.  Any output captured during that time
 // is also returned in the remote response.
-func ExecuteCommandOnMachine(params ExecParams) (result cmd.RemoteResponse, err error) {
+func ExecuteCommandOnMachine(params ExecParams) (result utilexec.ExecResponse, err error) {
 	// execute bash accepting commands on stdin
 	if params.Host == "" {
 		return result, fmt.Errorf("missing host address")
 	}
 	logger.Debugf("execute on %s", params.Host)
-	options := []Option{NoPasswordAuthentication}
+	var options Options
 	if params.IdentityFile != "" {
-		options = append(options, Option{"-i", params.IdentityFile})
+		options.SetIdentities(params.IdentityFile)
 	}
-	command := Command(params.Host, []string{"/bin/bash", "-s"}, options...)
+	command := Command(params.Host, []string{"/bin/bash", "-s"}, &options)
 	// start a go routine to do the actual execution
 	var stdout, stderr bytes.Buffer
 	command.Stdout = &stdout
@@ -71,7 +71,7 @@ func ExecuteCommandOnMachine(params ExecParams) (result cmd.RemoteResponse, err 
 	case <-time.After(params.Timeout):
 		logger.Infof("killing the command due to timeout")
 		err = fmt.Errorf("command timed out")
-		command.Process.Kill()
+		command.Kill()
 	}
 	// In either case, gather as much as we have from stdout and stderr
 	result.Stderr = stderr.Bytes()

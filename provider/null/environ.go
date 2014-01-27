@@ -234,7 +234,7 @@ func (e *nullEnviron) Storage() storage.Storage {
 }
 
 var runSSHCommand = func(host string, command []string) (stderr string, err error) {
-	cmd := ssh.Command(host, command, ssh.NoPasswordAuthentication)
+	cmd := ssh.Command(host, command, nil)
 	var stderrBuf bytes.Buffer
 	cmd.Stderr = &stderrBuf
 	err = cmd.Run()
