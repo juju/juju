@@ -4,6 +4,8 @@
 package osenv_test
 
 import (
+	"os"
+
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/juju/osenv"
@@ -88,22 +90,22 @@ func (s *proxySuite) TestDetectPrimaryPreference(c *gc.C) {
 	})
 }
 
-func (s *proxySuite) TestAsEnvironmentValuesEmpty(c *gc.C) {
+func (s *proxySuite) TestAsScriptEnvironmentEmpty(c *gc.C) {
 	proxies := osenv.ProxySettings{}
-	c.Assert(proxies.AsEnvironmentValues(), gc.Equals, "")
+	c.Assert(proxies.AsScriptEnvironment(), gc.Equals, "")
 }
 
-func (s *proxySuite) TestAsEnvironmentValuesOneValue(c *gc.C) {
+func (s *proxySuite) TestAsScriptEnvironmentOneValue(c *gc.C) {
 	proxies := osenv.ProxySettings{
 		Http: "some-value",
 	}
 	expected := `
 export http_proxy=some-value
 export HTTP_PROXY=some-value`[1:]
-	c.Assert(proxies.AsEnvironmentValues(), gc.Equals, expected)
+	c.Assert(proxies.AsScriptEnvironment(), gc.Equals, expected)
 }
 
-func (s *proxySuite) TestAsEnvironmentValuesAllValue(c *gc.C) {
+func (s *proxySuite) TestAsScriptEnvironmentAllValue(c *gc.C) {
 	proxies := osenv.ProxySettings{
 		Http:  "some-value",
 		Https: "special",
@@ -116,5 +118,61 @@ export https_proxy=special
 export HTTPS_PROXY=special
 export ftp_proxy=who uses this?
 export FTP_PROXY=who uses this?`[1:]
-	c.Assert(proxies.AsEnvironmentValues(), gc.Equals, expected)
+	c.Assert(proxies.AsScriptEnvironment(), gc.Equals, expected)
+}
+
+func (s *proxySuite) TestAsEnvironmentValuesEmpty(c *gc.C) {
+	proxies := osenv.ProxySettings{}
+	c.Assert(proxies.AsEnvironmentValues(), gc.HasLen, 0)
+}
+
+func (s *proxySuite) TestAsEnvironmentValuesOneValue(c *gc.C) {
+	proxies := osenv.ProxySettings{
+		Http: "some-value",
+	}
+	expected := []string{
+		"http_proxy=some-value",
+		"HTTP_PROXY=some-value",
+	}
+	c.Assert(proxies.AsEnvironmentValues(), gc.DeepEquals, expected)
+}
+
+func (s *proxySuite) TestAsEnvironmentValuesAllValue(c *gc.C) {
+	proxies := osenv.ProxySettings{
+		Http:  "some-value",
+		Https: "special",
+		Ftp:   "who uses this?",
+	}
+	expected := []string{
+		"http_proxy=some-value",
+		"HTTP_PROXY=some-value",
+		"https_proxy=special",
+		"HTTPS_PROXY=special",
+		"ftp_proxy=who uses this?",
+		"FTP_PROXY=who uses this?",
+	}
+	c.Assert(proxies.AsEnvironmentValues(), gc.DeepEquals, expected)
+}
+
+func (s *proxySuite) TestSetEnvironmentValues(c *gc.C) {
+	s.PatchEnvironment("http_proxy", "initial")
+	s.PatchEnvironment("HTTP_PROXY", "initial")
+	s.PatchEnvironment("https_proxy", "initial")
+	s.PatchEnvironment("HTTPS_PROXY", "initial")
+	s.PatchEnvironment("ftp_proxy", "initial")
+	s.PatchEnvironment("FTP_PROXY", "initial")
+
+	proxy := osenv.ProxySettings{
+		Http:  "http proxy",
+		Https: "https proxy",
+		// Ftp left blank to show clearing env.
+	}
+	proxy.SetEnvironmentValues()
+
+	c.Assert(os.Getenv("http-proxy"), gc.Equals, "http proxy")
+	c.Assert(os.Getenv("HTTP-PROXY"), gc.Equals, "http proxy")
+	c.Assert(os.Getenv("https-proxy"), gc.Equals, "https proxy")
+	c.Assert(os.Getenv("HTTPS-PROXY"), gc.Equals, "https proxy")
+	c.Assert(os.Getenv("ftp-proxy"), gc.Equals, "")
+	c.Assert(os.Getenv("FTP-PROXY"), gc.Equals, "")
 }

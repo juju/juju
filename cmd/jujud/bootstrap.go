@@ -89,7 +89,6 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	// available for the aforementioned use case.
 	jobs := []state.MachineJob{
 		state.JobManageEnviron,
-		state.JobManageState,
 		state.JobHostUnits,
 	}
 	var characteristics instance.HardwareCharacteristics

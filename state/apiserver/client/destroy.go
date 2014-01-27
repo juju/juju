@@ -130,7 +130,7 @@ func destroyInstances(st *state.State, machines []*state.Machine) error {
 
 // checkManualMachines checks if any of the machines in the slice were
 // manually provisioned, and are non-manager machines. These machines
-// must (currently) by manually destroyed via destroy-machine before
+// must (currently) be manually destroyed via destroy-machine before
 // destroy-environment can successfully complete.
 func checkManualMachines(machines []*state.Machine) error {
 	var ids []string

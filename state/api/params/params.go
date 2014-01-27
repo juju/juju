@@ -11,7 +11,6 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils/ssh"
 	"launchpad.net/juju-core/version"
 )
@@ -514,23 +513,6 @@ type ContainerConfig struct {
 	AuthorizedKeys          string
 	SSLHostnameVerification bool
 	SyslogPort              int
-}
-
-type MachineConfigParams struct {
-	MachineId string
-}
-
-// MachineConfig contains information from the environment config that is
-// needed for a machine cloud-init.
-type MachineConfig struct {
-	EnvironAttrs map[string]interface{}
-	Tools        *tools.Tools
-	// state.Info and api.Info attributes (cannot use state.Info, api.Info directly due to import loops)
-	StateAddrs []string
-	APIAddrs   []string
-	CACert     []byte
-	Tag        string
-	Password   string
 }
 
 // ProvisioningScriptParams contains the parameters for the

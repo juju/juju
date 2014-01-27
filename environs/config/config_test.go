@@ -45,7 +45,7 @@ func (s *ConfigSuite) SetUpTest(c *gc.C) {
 var sampleConfig = testing.Attrs{
 	"type":                      "my-type",
 	"name":                      "my-name",
-	"authorized-keys":           "my-keys",
+	"authorized-keys":           testing.FakeAuthKeys,
 	"firewall-mode":             config.FwInstance,
 	"admin-secret":              "foo",
 	"unknown":                   "my-unknown",
@@ -129,7 +129,7 @@ var configTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 		},
 	}, {
 		about:       "Load authorized-keys from path",
@@ -276,7 +276,7 @@ var configTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 			"agent-version":   "1.2.3",
 		},
 	}, {
@@ -285,7 +285,7 @@ var configTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 			"development":     true,
 		},
 	}, {
@@ -294,7 +294,7 @@ var configTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 			"development":     false,
 			"admin-secret":    "pork",
 		},
@@ -304,7 +304,7 @@ var configTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 			"development":     "invalid",
 		},
 		err: `development: expected bool, got string\("invalid"\)`,
@@ -314,7 +314,7 @@ var configTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 			"agent-version":   "2",
 		},
 		err: `invalid agent version in environment configuration: "2"`,
@@ -646,7 +646,7 @@ var noCertFilesTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 		},
 	}, {
 		about:       "Unspecified certificate, specified key",
@@ -654,7 +654,7 @@ var noCertFilesTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 			"ca-private-key":  caKey,
 		},
 		err: "bad CA certificate/key in configuration: crypto/tls:.*",
@@ -677,7 +677,7 @@ var emptyCertFilesTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 			"ca-private-key":  caKey,
 		},
 		err: `file ".*/my-name-cert.pem" is empty`,
@@ -687,7 +687,7 @@ var emptyCertFilesTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 		},
 		err: `file ".*/my-name-cert.pem" is empty`,
 	}, {
@@ -696,7 +696,7 @@ var emptyCertFilesTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 			"ca-cert":         caCert,
 		},
 		err: `file ".*/my-name-private-key.pem" is empty`,
@@ -706,7 +706,7 @@ var emptyCertFilesTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 			"ca-cert":         "",
 			"ca-private-key":  "",
 		},
@@ -716,7 +716,7 @@ var emptyCertFilesTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 			"ca-cert":         "",
 		},
 		err: "bad CA certificate/key in configuration: crypto/tls: .*",
@@ -873,7 +873,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs := map[string]interface{}{
 		"type":                      "my-type",
 		"name":                      "my-name",
-		"authorized-keys":           "my-keys",
+		"authorized-keys":           testing.FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
 		"admin-secret":              "foo",
 		"unknown":                   "my-unknown",

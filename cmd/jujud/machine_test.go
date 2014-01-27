@@ -36,9 +36,9 @@ import (
 	"launchpad.net/juju-core/utils/ssh"
 	sshtesting "launchpad.net/juju-core/utils/ssh/testing"
 	"launchpad.net/juju-core/version"
-	"launchpad.net/juju-core/worker/addressupdater"
 	"launchpad.net/juju-core/worker/authenticationworker"
 	"launchpad.net/juju-core/worker/deployer"
+	"launchpad.net/juju-core/worker/instancepoller"
 )
 
 type MachineSuite struct {
@@ -156,7 +156,7 @@ func (s *MachineSuite) TestRunStop(c *gc.C) {
 }
 
 func (s *MachineSuite) TestWithDeadMachine(c *gc.C) {
-	m, _, _ := s.primeAgent(c, state.JobHostUnits, state.JobManageState)
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	err := m.EnsureDead()
 	c.Assert(err, gc.IsNil)
 	a := s.newAgent(c, m)
@@ -165,7 +165,7 @@ func (s *MachineSuite) TestWithDeadMachine(c *gc.C) {
 }
 
 func (s *MachineSuite) TestWithRemovedMachine(c *gc.C) {
-	m, _, _ := s.primeAgent(c, state.JobHostUnits, state.JobManageState)
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	err := m.EnsureDead()
 	c.Assert(err, gc.IsNil)
 	err = m.Remove()
@@ -279,7 +279,7 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 	usefulVersion := version.Current
 	usefulVersion.Series = "quantal" // to match the charm created below
 	envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), usefulVersion)
-	m, _, _ := s.primeAgent(c, state.JobManageEnviron, state.JobManageState)
+	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
 	err := m.SetAddresses([]instance.Address{
 		instance.NewAddress("0.1.2.3"),
 	})
@@ -326,12 +326,12 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 	}
 }
 
-func (s *MachineSuite) TestManageEnvironRunsAddressUpdater(c *gc.C) {
-	defer testbase.PatchValue(&addressupdater.ShortPoll, 500*time.Millisecond).Restore()
+func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
+	defer testbase.PatchValue(&instancepoller.ShortPoll, 500*time.Millisecond).Restore()
 	usefulVersion := version.Current
 	usefulVersion.Series = "quantal" // to match the charm created below
 	envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), usefulVersion)
-	m, _, _ := s.primeAgent(c, state.JobManageEnviron, state.JobManageState)
+	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
 	err := m.SetAddresses([]instance.Address{
 		instance.NewAddress("0.1.2.3"),
 	})
@@ -353,6 +353,7 @@ func (s *MachineSuite) TestManageEnvironRunsAddressUpdater(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	addrs := []instance.Address{instance.NewAddress("1.2.3.4")}
 	dummy.SetInstanceAddresses(insts[0], addrs)
+	dummy.SetInstanceStatus(insts[0], "running")
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		if !a.HasNext() {
@@ -361,7 +362,9 @@ func (s *MachineSuite) TestManageEnvironRunsAddressUpdater(c *gc.C) {
 		}
 		err := m.Refresh()
 		c.Assert(err, gc.IsNil)
-		if reflect.DeepEqual(m.Addresses(), addrs) {
+		instStatus, err := m.InstanceStatus()
+		c.Assert(err, gc.IsNil)
+		if reflect.DeepEqual(m.Addresses(), addrs) && instStatus == "running" {
 			break
 		}
 	}
@@ -397,7 +400,7 @@ func (s *MachineSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machin
 }
 
 func (s *MachineSuite) TestUpgrade(c *gc.C) {
-	m, _, currentTools := s.primeAgent(c, state.JobManageState, state.JobManageEnviron, state.JobHostUnits)
+	m, _, currentTools := s.primeAgent(c, state.JobManageEnviron, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	s.testUpgrade(c, a, m.Tag(), currentTools)
 }
@@ -409,7 +412,7 @@ var fastDialOpts = api.DialOpts{
 
 func (s *MachineSuite) waitStopped(c *gc.C, job state.MachineJob, a *MachineAgent, done chan error) {
 	err := a.Stop()
-	if job == state.JobManageState {
+	if job == state.JobManageEnviron {
 		// When shutting down, the API server can be shut down before
 		// the other workers that connect to it, so they get an error so
 		// they then die, causing Stop to return an error.  It's not
@@ -500,9 +503,9 @@ func (s *MachineSuite) assertJobWithState(
 // This test has been failing regularly on the Bot. Until someone fixes it so
 // it doesn't crash, it isn't worth having as we can't tell when someone
 // actually breaks something.
-func (s *MachineSuite) TestManageStateServesAPI(c *gc.C) {
+func (s *MachineSuite) TestManageEnvironServesAPI(c *gc.C) {
 	c.Skip("does not pass reliably on the bot (http://pad.lv/1219661")
-	s.assertJobWithState(c, state.JobManageState, func(conf agent.Config, agentState *state.State) {
+	s.assertJobWithState(c, state.JobManageEnviron, func(conf agent.Config, agentState *state.State) {
 		st, _, err := conf.OpenAPI(fastDialOpts)
 		c.Assert(err, gc.IsNil)
 		defer st.Close()
@@ -512,8 +515,8 @@ func (s *MachineSuite) TestManageStateServesAPI(c *gc.C) {
 	})
 }
 
-func (s *MachineSuite) TestManageStateRunsCleaner(c *gc.C) {
-	s.assertJobWithState(c, state.JobManageState, func(conf agent.Config, agentState *state.State) {
+func (s *MachineSuite) TestManageEnvironRunsCleaner(c *gc.C) {
+	s.assertJobWithState(c, state.JobManageEnviron, func(conf agent.Config, agentState *state.State) {
 		// Create a service and unit, and destroy the service.
 		service := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 		unit, err := service.AddUnit()
@@ -549,8 +552,8 @@ func (s *MachineSuite) TestManageStateRunsCleaner(c *gc.C) {
 	})
 }
 
-func (s *MachineSuite) TestManageStateRunsMinUnitsWorker(c *gc.C) {
-	s.assertJobWithState(c, state.JobManageState, func(conf agent.Config, agentState *state.State) {
+func (s *MachineSuite) TestJobManageEnvironRunsMinUnitsWorker(c *gc.C) {
+	s.assertJobWithState(c, state.JobManageEnviron, func(conf agent.Config, agentState *state.State) {
 		// Ensure that the MinUnits worker is alive by doing a simple check
 		// that it responds to state changes: add a service, set its minimum
 		// number of units to one, wait for the worker to add the missing unit.
@@ -640,17 +643,8 @@ func (s *MachineSuite) TestOpenStateFailsForJobHostUnitsButOpenAPIWorks(c *gc.C)
 	})
 }
 
-func (s *MachineSuite) TestOpenStateWorksForJobManageState(c *gc.C) {
-	s.assertJobWithAPI(c, state.JobManageState, func(conf agent.Config, st *api.State) {
-		s.assertCanOpenState(c, conf.Tag(), conf.DataDir())
-	})
-}
-
-// TODO(dimitern) Once firewaller uses the API and no longer connects
-// to state, change this test to use assertCannotOpenState, like the
-// one for JobHostUnits.
 func (s *MachineSuite) TestOpenStateWorksForJobManageEnviron(c *gc.C) {
-	s.assertJobWithAPI(c, state.JobManageState, func(conf agent.Config, st *api.State) {
+	s.assertJobWithAPI(c, state.JobManageEnviron, func(conf agent.Config, st *api.State) {
 		s.assertCanOpenState(c, conf.Tag(), conf.DataDir())
 	})
 }
@@ -658,7 +652,7 @@ func (s *MachineSuite) TestOpenStateWorksForJobManageEnviron(c *gc.C) {
 func (s *MachineSuite) TestMachineAgentSymlinkJujuRun(c *gc.C) {
 	_, err := os.Stat(jujuRun)
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
-	s.assertJobWithAPI(c, state.JobManageState, func(conf agent.Config, st *api.State) {
+	s.assertJobWithAPI(c, state.JobManageEnviron, func(conf agent.Config, st *api.State) {
 		// juju-run should have been created
 		_, err := os.Stat(jujuRun)
 		c.Assert(err, gc.IsNil)
@@ -670,7 +664,7 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	_, err = os.Stat(jujuRun)
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
-	s.assertJobWithAPI(c, state.JobManageState, func(conf agent.Config, st *api.State) {
+	s.assertJobWithAPI(c, state.JobManageEnviron, func(conf agent.Config, st *api.State) {
 		// juju-run should have been recreated
 		_, err := os.Stat(jujuRun)
 		c.Assert(err, gc.IsNil)
@@ -681,7 +675,7 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentUninstall(c *gc.C) {
-	m, ac, _ := s.primeAgent(c, state.JobHostUnits, state.JobManageState)
+	m, ac, _ := s.primeAgent(c, state.JobHostUnits)
 	err := m.EnsureDead()
 	c.Assert(err, gc.IsNil)
 	a := s.newAgent(c, m)
@@ -714,7 +708,7 @@ func (s *MachineWithCharmsSuite) SetUpTest(c *gc.C) {
 		Series:     "quantal",
 		InstanceId: "ardbeg-0",
 		Nonce:      state.BootstrapNonce,
-		Jobs:       []state.MachineJob{state.JobManageState},
+		Jobs:       []state.MachineJob{state.JobManageEnviron},
 	})
 	c.Assert(err, gc.IsNil)
 	err = s.machine.SetPassword(initialMachinePassword)
@@ -728,7 +722,7 @@ func (s *MachineWithCharmsSuite) SetUpTest(c *gc.C) {
 	writeStateAgentConfig(c, stateInfo, s.DataDir(), tag, initialMachinePassword)
 }
 
-func (s *MachineWithCharmsSuite) TestManageStateRunsCharmRevisionUpdater(c *gc.C) {
+func (s *MachineWithCharmsSuite) TestManageEnvironRunsCharmRevisionUpdater(c *gc.C) {
 	s.SetupScenario(c)
 
 	// Start the machine agent.

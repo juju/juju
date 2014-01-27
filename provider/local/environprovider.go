@@ -6,6 +6,7 @@ package local
 import (
 	"fmt"
 	"net"
+	"os"
 	"syscall"
 
 	"launchpad.net/loggo"
@@ -42,6 +43,17 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 			return nil, err
 		}
 		cfg = newCfg
+	}
+	// Set the "namespace" attribute. We do this here, and not in Prepare,
+	// for backwards compatibility: older versions did not store the namespace
+	// in config.
+	if namespace, _ := cfg.UnknownAttrs()["namespace"].(string); namespace == "" {
+		var err error
+		namespace = fmt.Sprintf("%s-%s", os.Getenv("USER"), cfg.Name())
+		cfg, err = cfg.Apply(map[string]interface{}{"namespace": namespace})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create namespace: %v", err)
+		}
 	}
 	// Do the initial validation on the config.
 	localConfig, err := providerInstance.newConfig(cfg)

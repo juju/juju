@@ -1192,21 +1192,37 @@ func (st *State) setMongoPassword(name, password string) error {
 }
 
 type stateServersDoc struct {
-	Id         string `bson:"_id"`
-	MachineIds []string
+	Id               string `bson:"_id"`
+	MachineIds       []string
+	VotingMachineIds []string
 }
 
-// StateServerMachineIds returns a slice of the ids
-// of all machines that are configured to run a state server.
-// TODO(rog) export this method when the stateServers
-// document is consistently maintained.
-func (st *State) stateServerMachineIds() ([]string, error) {
+// StateServerInfo holds information about currently
+// configured state server machines.
+type StateServerInfo struct {
+	// MachineIds holds the ids of all machines configured
+	// to run a state server. It includes all the machine
+	// ids in VotingMachineIds.
+	MachineIds []string
+
+	// VotingMachineIds holds the ids of all machines
+	// configured to run a state server and to have a vote
+	// in peer election.
+	VotingMachineIds []string
+}
+
+// StateServerInfo returns returns information about
+// the currently configured state server machines.
+func (st *State) StateServerInfo() (*StateServerInfo, error) {
 	var doc stateServersDoc
 	err := st.stateServers.Find(D{{"_id", environGlobalKey}}).One(&doc)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get state servers document: %v", err)
 	}
-	return doc.MachineIds, nil
+	return &StateServerInfo{
+		MachineIds:       doc.MachineIds,
+		VotingMachineIds: doc.VotingMachineIds,
+	}, nil
 }
 
 // ResumeTransactions resumes all pending transactions.
