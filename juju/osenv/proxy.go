@@ -71,3 +71,19 @@ func (s *ProxySettings) AsEnvironmentValues() []string {
 	addLine("ftp_proxy", s.Ftp)
 	return lines
 }
+
+// SetEnvironmentValues updates the process environment with the
+// proxy values stored in the settings object.  Both the lower-case
+// and upper-case variants are set.
+//
+// http-proxy, HTTP_PROXY
+// https-proxy, HTTPS_PROXY
+// ftp-proxy, FTP_PROXY
+func (s *ProxySettings) SetEnvironmentValues() {
+	os.Setenv("http-proxy", s.Http)
+	os.Setenv("HTTP-PROXY", s.Http)
+	os.Setenv("https-proxy", s.Https)
+	os.Setenv("HTTPS-PROXY", s.Https)
+	os.Setenv("ftp-proxy", s.Ftp)
+	os.Setenv("FTP-PROXY", s.Ftp)
+}
