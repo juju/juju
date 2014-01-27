@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
@@ -250,10 +251,20 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 
 func (*NetworkSuite) TestNetworkConfigTemplate(c *gc.C) {
 	config := lxc.NetworkConfigTemplate("foo", "bar")
-	expected := `
-lxc.network.type = foo
-lxc.network.link = bar
-lxc.network.flags = up
-`
-	c.Assert(config, gc.Equals, expected)
+	//In the past, the entire lxc.conf file was just networking. With the addition
+	//of the auto start, we now have to have better isolate this test. As such, we
+	//parse the conf template results and just get the results that start with
+	//'lxc.network' as that is what the test cares about.
+	obtained := []string{}
+	for _, value := range strings.Split(config, "\n") {
+		if strings.HasPrefix(value, "lxc.network") {
+			obtained = append(obtained, value)
+		}
+	}
+	expected := []string{
+		"lxc.network.type = foo",
+		"lxc.network.link = bar",
+		"lxc.network.flags = up",
+	}
+	c.Assert(obtained, gc.DeepEquals, expected)
 }
