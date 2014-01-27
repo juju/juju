@@ -44,7 +44,8 @@ func startServer(c *gc.C) (listener net.Listener, url, dataDir string) {
 
 func startServerTLS(c *gc.C) (listener net.Listener, url, dataDir string) {
 	listener, addr, dataDir := envtesting.StartStorageServerTLS(c)
-	// XXX: This should use https: surely
+	// This returns an http: scheme because promotion to https: only
+	// happens via a HEAD request to get a url with the http port.
 	url = fmt.Sprintf("http://%s/", addr)
 	return
 }

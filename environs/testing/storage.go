@@ -4,6 +4,8 @@
 package testing
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/xml"
 	"fmt"
 	"hash/crc32"
@@ -21,6 +23,7 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/tools"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )
 
@@ -65,9 +68,20 @@ func CreateLocalTestStorage(c *gc.C) (closer io.Closer, stor storage.Storage, da
 // CreateLocalTestStorageTLS
 func CreateLocalTestStorageTLS(c *gc.C) (closer io.Closer, stor storage.Storage, dataDir string) {
 	closer, addr, dataDir := StartStorageServerTLS(c)
-	stor, err := httpstorage.ClientTLS(addr, []byte(coretesting.CACert), TestAuthkey)
+	pstor, err := httpstorage.ClientTLS(addr, []byte(coretesting.CACert), TestAuthkey)
 	c.Assert(err, gc.IsNil)
+	err = pstor.Promote()
+	c.Assert(err, gc.IsNil)
+	stor = pstor
 	return
+}
+
+func PatchDefaultClientCerts() testbase.Restorer {
+	caCerts := x509.NewCertPool()
+	caCerts.AppendCertsFromPEM([]byte(coretesting.CACert))
+	return testbase.PatchValue(http.DefaultClient, http.Client{
+		Transport: &http.Transport{TLSClientConfig: &tls.Config{RootCAs: caCerts}},
+	})
 }
 
 // listBucketResult is the top level XML element of the storage index.
