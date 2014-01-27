@@ -80,10 +80,10 @@ func (s *ProxySettings) AsEnvironmentValues() []string {
 // https-proxy, HTTPS_PROXY
 // ftp-proxy, FTP_PROXY
 func (s *ProxySettings) SetEnvironmentValues() {
-	os.Setenv("http-proxy", s.Http)
-	os.Setenv("HTTP-PROXY", s.Http)
-	os.Setenv("https-proxy", s.Https)
-	os.Setenv("HTTPS-PROXY", s.Https)
-	os.Setenv("ftp-proxy", s.Ftp)
-	os.Setenv("FTP-PROXY", s.Ftp)
+	os.Setenv("http_proxy", s.Http)
+	os.Setenv("HTTP_PROXY", s.Http)
+	os.Setenv("https_proxy", s.Https)
+	os.Setenv("HTTPS_PROXY", s.Https)
+	os.Setenv("ftp_proxy", s.Ftp)
+	os.Setenv("FTP_PROXY", s.Ftp)
 }
