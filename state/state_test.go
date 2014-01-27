@@ -243,6 +243,39 @@ func (s *StateSuite) TestPrepareLocalCharmUpload(c *gc.C) {
 	c.Assert(curl.Revision, gc.Equals, 1234)
 }
 
+func (s *StateSuite) TestPrepareStoreCharmUpload(c *gc.C) {
+	// First test the sanity checks.
+	sch, err := s.State.PrepareStoreCharmUpload(charm.MustParseURL("cs:quantal/dummy"))
+	c.Assert(err, gc.ErrorMatches, "expected charm URL with revision, got .*")
+	c.Assert(sch, gc.IsNil)
+	sch, err = s.State.PrepareStoreCharmUpload(charm.MustParseURL("local:quantal/dummy"))
+	c.Assert(err, gc.ErrorMatches, "expected charm URL with cs schema, got .*")
+	c.Assert(sch, gc.IsNil)
+
+	// No charm in state, so the call should respect given revision.
+	testCurl := charm.MustParseURL("cs:quantal/missing-123")
+	sch, err = s.State.PrepareStoreCharmUpload(testCurl)
+	c.Assert(err, gc.IsNil)
+	c.Assert(sch.URL(), gc.DeepEquals, testCurl)
+	c.Assert(sch.IsUploaded(), jc.IsFalse)
+
+	s.assertPendingCharmExists(c, sch.URL())
+
+	// Try adding it again with the same revision and ensure we get the same document.
+	schCopy, err := s.State.PrepareStoreCharmUpload(testCurl)
+	c.Assert(err, gc.IsNil)
+	c.Assert(sch, jc.DeepEquals, schCopy)
+
+	// Now add a charm and try again - we should get the same result
+	// as with AddCharm.
+	ch, curl, bundleURL, bundleSHA256 := s.dummyCharm(c, "cs:precise/dummy-2")
+	sch, err = s.State.AddCharm(ch, curl, bundleURL, bundleSHA256)
+	c.Assert(err, gc.IsNil)
+	schCopy, err = s.State.PrepareStoreCharmUpload(curl)
+	c.Assert(err, gc.IsNil)
+	c.Assert(sch, jc.DeepEquals, schCopy)
+}
+
 func (s *StateSuite) TestUpdateUploadedCharm(c *gc.C) {
 	ch, curl, bundleURL, bundleSHA256 := s.dummyCharm(c, "")
 	_, err := s.State.AddCharm(ch, curl, bundleURL, bundleSHA256)
@@ -257,66 +290,19 @@ func (s *StateSuite) TestUpdateUploadedCharm(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	c.Assert(sch, gc.IsNil)
 
-	// Test with a placeholder charm.
-	csCurl := charm.MustParseURL("cs:precise/nrpe-42")
-	err = s.State.AddStoreCharmPlaceholder(csCurl)
-	c.Assert(err, gc.IsNil)
-	s.assertPlaceholderCharmExists(c, csCurl)
-	sch, err = s.State.UpdateUploadedCharm(ch, csCurl, bundleURL, bundleSHA256)
-	c.Assert(err, gc.IsNil)
-	s.assertCharmMatches(c, sch, csCurl, ch, bundleURL, bundleSHA256)
-
-	// Test with with an uploaded charm.
+	// Test with with an uploaded local charm.
 	_, err = s.State.PrepareLocalCharmUpload(missingCurl)
 	c.Assert(err, gc.IsNil)
 	sch, err = s.State.UpdateUploadedCharm(ch, missingCurl, bundleURL, "missing")
 	c.Assert(err, gc.IsNil)
-	s.assertCharmMatches(c, sch, missingCurl, ch, bundleURL, "missing")
-}
-
-func (s *StateSuite) TestCharmOrPlaceholder(c *gc.C) {
-	ch, curl, bundleURL, bundleSHA256 := s.dummyCharm(c, "cs:precise/wordpress-42")
-
-	// Cannot find non-existent charms.
-	_, err := s.State.CharmOrPlaceholder(curl)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
-
-	// Cannot find charms pending upload.
-	curl = curl.WithRevision(66)
-	curl.Schema = "local"
-	_, err = s.State.PrepareLocalCharmUpload(curl)
-	c.Assert(err, gc.IsNil)
-	_, err = s.State.CharmOrPlaceholder(curl)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
-
-	// Can find normal charms.
-	curl = curl.WithRevision(123)
-	curl.Schema = "cs"
-	sch, err := s.State.AddCharm(ch, curl, bundleURL, bundleSHA256)
-	c.Assert(err, gc.IsNil)
-	s.assertCharmMatches(c, sch, curl, ch, bundleURL, bundleSHA256)
-	sch, err = s.State.CharmOrPlaceholder(curl)
-	c.Assert(err, gc.IsNil)
-	s.assertCharmMatches(c, sch, curl, ch, bundleURL, bundleSHA256)
-
-	// Can find charm placeholders.
-	curl = curl.WithRevision(321)
-	err = s.State.AddStoreCharmPlaceholder(curl)
-	c.Assert(err, gc.IsNil)
-	sch, err = s.State.CharmOrPlaceholder(curl)
-	c.Assert(err, gc.IsNil)
-	s.assertPlaceholderCharmExists(c, curl)
-}
-
-func (s *StateSuite) assertCharmMatches(c *gc.C, sch *state.Charm, curl *charm.URL, ch charm.Charm, bundleURL *url.URL, bundleSHA256 string) {
-	c.Assert(sch.URL(), gc.DeepEquals, curl)
-	c.Assert(sch.Revision(), gc.Equals, curl.Revision)
+	c.Assert(sch.URL(), gc.DeepEquals, missingCurl)
+	c.Assert(sch.Revision(), gc.Equals, missingCurl.Revision)
 	c.Assert(sch.IsUploaded(), jc.IsTrue)
 	c.Assert(sch.IsPlaceholder(), jc.IsFalse)
 	c.Assert(sch.Meta(), gc.DeepEquals, ch.Meta())
 	c.Assert(sch.Config(), gc.DeepEquals, ch.Config())
 	c.Assert(sch.BundleURL(), gc.DeepEquals, bundleURL)
-	c.Assert(sch.BundleSha256(), gc.Equals, bundleSHA256)
+	c.Assert(sch.BundleSha256(), gc.Equals, "missing")
 }
 
 func (s *StateSuite) assertPlaceholderCharmExists(c *gc.C, curl *charm.URL) {

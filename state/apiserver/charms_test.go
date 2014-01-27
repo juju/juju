@@ -131,7 +131,7 @@ func (s *charmsSuite) TestUploadBumpsRevision(c *gc.C) {
 	c.Assert(sch.Revision(), gc.Equals, 2)
 	c.Assert(sch.IsUploaded(), jc.IsTrue)
 	// No more checks for these two here, because they
-	// are verified in TestUploadRequiresSingleUploadedFile.
+	// are verified in TestUploadRespectsLocalRevision.
 	c.Assert(sch.BundleURL(), gc.Not(gc.Equals), "")
 	c.Assert(sch.BundleSha256(), gc.Not(gc.Equals), "")
 }

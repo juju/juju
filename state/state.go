@@ -476,7 +476,19 @@ func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, b
 // Charm returns the charm with the given URL. Charms pending upload
 // to storage and placeholders are never returned.
 func (st *State) Charm(curl *charm.URL) (*Charm, error) {
-	return st.findCharm(curl, skipPending|skipPlaceholders)
+	cdoc := &charmDoc{}
+	what := D{{"_id", curl}, {"placeholder", false}, {"pendingupload", false}}
+	err := st.charms.Find(what).One(&cdoc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("charm %q", curl)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("cannot get charm %q: %v", curl, err)
+	}
+	if err := cdoc.Meta.Check(); err != nil {
+		return nil, fmt.Errorf("malformed charm metadata found in state: %v", err)
+	}
+	return newCharm(st, cdoc)
 }
 
 // LatestPlaceholderCharm returns the latest charm described by the
@@ -502,61 +514,10 @@ func (st *State) LatestPlaceholderCharm(curl *charm.URL) (*Charm, error) {
 	return newCharm(st, &latest)
 }
 
-// CharmOrPlaceholder returns the charm described by the given URL,
-// which might be a placeholder.
-func (st *State) CharmOrPlaceholder(curl *charm.URL) (*Charm, error) {
-	return st.findCharm(curl, skipPending)
-}
-
-type findCharmFlags int
-
-// Bit flags for findCharm().
-const (
-	skipPlaceholders findCharmFlags = 1
-	skipPending      findCharmFlags = 2
-)
-
-// findCharm returns the *state.Charm for the given charm URL, but
-// skips placeholders and/or pending charms, depending on given flags.
-func (st *State) findCharm(curl *charm.URL, flags findCharmFlags) (*Charm, error) {
-	var condition D
-	if flags&skipPlaceholders != 0 {
-		if flags&skipPending != 0 {
-			// Only normal charms.
-			condition = D{{"_id", curl}, {"placeholder", false}, {"pendingupload", false}}
-		} else {
-			// Normal or pending charms.
-			condition = D{{"_id", curl}, {"placeholder", false}}
-		}
-	} else {
-		if flags&skipPending != 0 {
-			// Normal or placeholder charms.
-			condition = D{{"_id", curl}, {"pendingupload", false}}
-		} else {
-			// Normal, placeholder or pending charms.
-			condition = D{{"_id", curl}}
-		}
-	}
-	cdoc := &charmDoc{}
-	err := st.charms.Find(condition).One(&cdoc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("charm %q", curl)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("cannot get charm %q: %v", curl, err)
-	}
-	if cdoc.Meta != nil {
-		if err := cdoc.Meta.Check(); err != nil {
-			return nil, fmt.Errorf("malformed charm metadata found in state: %v", err)
-		}
-	}
-	return newCharm(st, cdoc)
-}
-
-// PrepareLocalCharmUpload must be called before a charm is uploaded
-// to the provider storage in order to create a charm document in
-// state. It returns a new Charm with no metadata and a unique
-// revision number.
+// PrepareLocalCharmUpload must be called before a local charm is
+// uploaded to the provider storage in order to create a charm
+// document in state. It returns the chosen unique charm URL reserved
+// in state for the charm.
 //
 // The url's schema must be "local" and it must include a revision.
 func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL, err error) {
@@ -616,6 +577,64 @@ func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL,
 		return nil, ErrExcessiveContention
 	}
 	return chosenUrl, nil
+}
+
+// PrepareStoreCharmUpload must be called before a charm store charm
+// is uploaded to the provider storage in order to create a charm
+// document in state. If a charm with the same URL is already in
+// state, it will be returned as a *state.Charm (is can be still
+// pending or already uploaded). Otherwise, a new charm document is
+// added in state with just the given charm URL and
+// PendingUpload=true, which is then returned as a *state.Charm.
+//
+// The url's schema must be "cs" and it must include a revision.
+func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
+	// Perform a few sanity checks first.
+	if curl.Schema != "cs" {
+		return nil, fmt.Errorf("expected charm URL with cs schema, got %q", curl)
+	}
+	if curl.Revision < 0 {
+		return nil, fmt.Errorf("expected charm URL with revision, got %q", curl)
+	}
+
+	var (
+		uploadedCharm charmDoc
+		err           error
+	)
+	for attempt := 0; attempt < 3; attempt++ {
+		// Find an uploaded or pending charm with the given exact curl.
+		err = st.charms.Find(D{{"_id", curl}, {"placeholder", false}}).One(&uploadedCharm)
+		if err != nil && err != mgo.ErrNotFound {
+			return nil, err
+		} else if err == nil {
+			// The charm exists and it's either uploaded or not.
+			// In either case, we just return what we got.
+			break
+		}
+
+		// No charm found, so create it now as pending.
+		uploadedCharm = charmDoc{
+			URL:           curl,
+			PendingUpload: true,
+		}
+		ops := []txn.Op{{
+			C:      st.charms.Name,
+			Id:     curl,
+			Assert: txn.DocMissing,
+			Insert: uploadedCharm,
+		}}
+		// Run the transaction, and retry on abort.
+		if err = st.runTransaction(ops); err == txn.ErrAborted {
+			continue
+		} else if err != nil {
+			return nil, err
+		}
+		break
+	}
+	if err != nil {
+		return nil, ErrExcessiveContention
+	}
+	return newCharm(st, &uploadedCharm)
 }
 
 var (
@@ -723,8 +742,12 @@ func (st *State) UpdateUploadedCharm(ch charm.Charm, curl *charm.URL, bundleURL 
 	return st.updateCharmDoc(ch, curl, bundleURL, bundleSha256, StillPending)
 }
 
-// updateCharmDoc updates the charm with specified URL with the given data, and resets the placeholder
-// and pendingupdate flags.
+var ErrCharmRevisionAlreadyModified = fmt.Errorf("charm revision already modified")
+
+// updateCharmDoc updates the charm with specified URL with the given
+// data, and resets the placeholder and pendingupdate flags.  If the
+// charm is no longer a placeholder or pending (depending on preReq),
+// it returns ErrCharmRevisionAlreadyModified.
 func (st *State) updateCharmDoc(
 	ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string, preReq interface{}) (*Charm, error) {
 
@@ -743,7 +766,7 @@ func (st *State) updateCharmDoc(
 		Update: updateFields,
 	}}
 	if err := st.runTransaction(ops); err != nil {
-		return nil, onAbort(err, fmt.Errorf("charm revision already modified"))
+		return nil, onAbort(err, ErrCharmRevisionAlreadyModified)
 	}
 	return st.Charm(curl)
 }

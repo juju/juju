@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	gc "launchpad.net/gocheck"
 
@@ -20,6 +21,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
@@ -1799,21 +1801,51 @@ func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
 
 	client := s.APIState.Client()
 	curl, _ := addCharm(c, store, "wordpress")
-	var wg sync.WaitGroup
+
+	// Expect storage Put() to be called only once in the loop below.
+	// This verifies we won't overwrite an uploaded charm in the storage.
+	name := charm.Quote(curl.String())
+	ops := make(chan dummy.Operation, 500)
+	dummy.Listen(ops)
+	go s.assertPutOnce(c, ops, name)
 
 	// Try adding the same charm concurrently from multiple goroutines
 	// to test no "duplicate key errors" are reported (see lp bug
 	// #1067979).
-	for i := 1; i < 10; i++ {
+
+	var wg sync.WaitGroup
+	for i := 0; i < 10; i++ {
 		wg.Add(1)
-		go func() {
+		go func(index int) {
 			defer wg.Done()
 
-			c.Assert(client.AddCharm(curl), gc.IsNil, gc.Commentf("goroutine %d", i))
+			c.Assert(client.AddCharm(curl), gc.IsNil, gc.Commentf("goroutine %d", index))
 			sch, err := s.State.Charm(curl)
-			c.Assert(err, gc.IsNil, gc.Commentf("goroutine %d", i))
-			c.Assert(sch.URL(), jc.DeepEquals, curl, gc.Commentf("goroutine %d", i))
-		}()
+			c.Assert(err, gc.IsNil, gc.Commentf("goroutine %d", index))
+			c.Assert(sch.URL(), jc.DeepEquals, curl, gc.Commentf("goroutine %d", index))
+		}(i)
 	}
 	wg.Wait()
+	close(ops)
+}
+
+func (s *clientSuite) assertPutOnce(c *gc.C, ops chan dummy.Operation, expectPath string) {
+	called := false
+	select {
+	case op, ok := <-ops:
+		if !ok {
+			return
+		}
+		if op, ok := op.(dummy.OpPutFile); ok {
+			if called {
+				c.Fatalf("storage Put() called more than once")
+				return
+			}
+			c.Assert(op.FileName, gc.Equals, expectPath)
+			called = true
+		}
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out while waiting for a storage Put() call")
+		return
+	}
 }
