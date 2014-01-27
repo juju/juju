@@ -16,6 +16,7 @@ from mock import (
 import yaml
 
 from jujupy import (
+    CannotConnectEnv,
     check_wordpress,
     Environment,
     ErroredUnit,
@@ -121,8 +122,14 @@ class TestJujuClientDevel(TestCase):
                           'qux'), full)
         full = client._full_args(env, 'bar', True, ('baz', 'qux'))
         self.assertEqual((
-            'sudo', '-E', 'my/juju/bin', '--show-log', 'bar', '-e', 'foo',
+            'sudo', '-E', 'juju', '--show-log', 'bar', '-e', 'foo',
             'baz', 'qux'), full)
+        os.environ['REVNO'] = '2251'
+        full = client._full_args(env, 'bar', True, ('baz', 'qux'))
+        self.assertEqual((
+            'juju', '--show-log', 'bar', '-e', 'foo',
+            'baz', 'qux'), full)
+        del os.environ['REVNO']
         full = client._full_args(None, 'bar', False, ('baz', 'qux'))
         self.assertEqual(('juju', '--show-log', 'bar', 'baz', 'qux'), full)
 
@@ -434,8 +441,9 @@ class TestEnvironment(TestCase):
                 env.wait_for_version('1.17.2')
 
     def test_wait_for_version_handles_connection_error(self):
-        err = subprocess.CalledProcessError(1, 'foo')
+        err = subprocess.CalledProcessError(2, 'foo')
         err.stderr = 'Unable to connect to environment'
+        err = CannotConnectEnv(err)
         status = self.make_status_yaml('agent-version', '1.17.2', '1.17.2')
         actions = [err, status]
 
