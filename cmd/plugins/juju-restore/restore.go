@@ -74,7 +74,7 @@ func (c *restoreCommand) Info() *cmd.Info {
 func (c *restoreCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "set environment constraints")
-	f.BoolVar(&c.showDescription, "description", false, "")
+	f.BoolVar(&c.showDescription, "description", false, "show the purpose of this plugin")
 	c.Log.AddFlags(f)
 }
 
