@@ -10,9 +10,9 @@ import (
 	"strconv"
 	"strings"
 
-	"launchpad.net/juju-core/utils"
-
 	"labix.org/v2/mgo/bson"
+
+	"launchpad.net/juju-core/utils"
 )
 
 // A charm URL represents charm locations such as:
