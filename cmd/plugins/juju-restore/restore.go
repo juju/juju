@@ -56,9 +56,10 @@ to choose the new instance.
 
 type restoreCommand struct {
 	cmd.EnvCommandBase
-	Log         cmd.Log
-	Constraints constraints.Value
-	backupFile  string
+	Log             cmd.Log
+	Constraints     constraints.Value
+	backupFile      string
+	showDescription bool
 }
 
 func (c *restoreCommand) Info() *cmd.Info {
@@ -73,10 +74,14 @@ func (c *restoreCommand) Info() *cmd.Info {
 func (c *restoreCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "set environment constraints")
+	f.BoolVar(&c.showDescription, "description", false, "")
 	c.Log.AddFlags(f)
 }
 
 func (c *restoreCommand) Init(args []string) error {
+	if c.showDescription {
+		return cmd.CheckEmpty(args)
+	}
 	if len(args) == 0 {
 		return fmt.Errorf("no backup file specified")
 	}
@@ -123,6 +128,10 @@ func updateBootstrapMachineScript(instanceId instance.Id, adminSecret string) st
 }
 
 func (c *restoreCommand) Run(ctx *cmd.Context) error {
+	if c.showDescription {
+		fmt.Fprintf(ctx.Stdout, "%s\n", c.Info().Purpose)
+		return nil
+	}
 	if err := c.Log.Start(ctx); err != nil {
 		return err
 	}
