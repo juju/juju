@@ -268,6 +268,8 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 		`([ ! -e /home/ubuntu/.profile ] || grep -q '.juju-proxy' /home/ubuntu/.profile) || ` +
 			`printf '\n# Added by juju\n[ -f "$HOME/.juju-proxy" ] && . "$HOME/.juju-proxy"\n' >> /home/ubuntu/.profile`)
 	if (cfg.ProxySettings != osenv.ProxySettings{}) {
+		exportedProxyEnv := cfg.ProxySettings.AsScriptEnvironment()
+		c.AddScripts(strings.Split(exportedProxyEnv, "\n")...)
 		c.AddScripts(
 			fmt.Sprintf(
 				`[ -e /home/ubuntu ] && (printf '%%s\n' %s > /home/ubuntu/.juju-proxy && chown ubuntu:ubuntu /home/ubuntu/.juju-proxy)`,
