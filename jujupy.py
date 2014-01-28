@@ -120,6 +120,7 @@ class JujuClientDevel:
                 stderr.seek(0)
                 e.stderr = stderr.read()
                 if 'Unable to connect to environment' not in e.stderr:
+                    print('!!! ' + e.stderr)
                     raise
                 raise CannotConnectEnv(e)
 
