@@ -1137,6 +1137,37 @@ func (*ConfigSuite) TestProxyValuesNotSet(c *gc.C) {
 	c.Assert(config.AptFtpProxy(), gc.Equals, "")
 }
 
+func (*ConfigSuite) TestProxyConfigMap(c *gc.C) {
+	defer makeFakeHome(c).Restore()
+
+	cfg := newTestConfig(c, testing.Attrs{})
+	proxy := osenv.ProxySettings{
+		Http:  "http proxy",
+		Https: "https proxy",
+		Ftp:   "ftp proxy",
+	}
+	cfg, err := cfg.Apply(config.ProxyConfigMap(proxy))
+	c.Assert(err, gc.IsNil)
+	c.Assert(cfg.ProxySettings(), gc.DeepEquals, proxy)
+	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, proxy)
+}
+
+func (*ConfigSuite) TestAptProxyConfigMap(c *gc.C) {
+	defer makeFakeHome(c).Restore()
+
+	cfg := newTestConfig(c, testing.Attrs{})
+	proxy := osenv.ProxySettings{
+		Http:  "http proxy",
+		Https: "https proxy",
+		Ftp:   "ftp proxy",
+	}
+	cfg, err := cfg.Apply(config.AptProxyConfigMap(proxy))
+	c.Assert(err, gc.IsNil)
+	// The default proxy settings should still be empty.
+	c.Assert(cfg.ProxySettings(), gc.DeepEquals, osenv.ProxySettings{})
+	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, proxy)
+}
+
 func (*ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
 	// In order to test missing certs, it checks the JUJU_HOME dir, so we need
 	// a fake home.
