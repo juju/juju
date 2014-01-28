@@ -159,7 +159,8 @@ class TestJujuClientDevel(TestCase):
             with patch.object(JujuClientDevel, 'juju') as mock:
                 client.destroy_environment(env)
             mock.assert_called_with(
-                None, 'destroy-environment', ('foo', '-y'), False, check=False)
+                None, 'destroy-environment', ('foo', '--force', '-y'),
+                False, check=False)
 
     def test_destroy_environment_sudo(self):
         env = Environment('foo', '')
@@ -168,7 +169,8 @@ class TestJujuClientDevel(TestCase):
             with patch.object(JujuClientDevel, 'juju') as mock:
                 client.destroy_environment(env)
             mock.assert_called_with(
-                None, 'destroy-environment', ('foo', '-y'), True, check=False)
+                None, 'destroy-environment', ('foo', '--force', '-y'),
+                True, check=False)
 
     def test_get_juju_output(self):
         env = Environment('foo', '')

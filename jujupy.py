@@ -107,7 +107,8 @@ class JujuClientDevel:
 
     def destroy_environment(self, environment):
         self.juju(
-            None, 'destroy-environment', (environment.environment, '-y'),
+            None, 'destroy-environment',
+            (environment.environment, '--force', '-y'),
             environment.needs_sudo(), check=False)
 
     def get_juju_output(self, environment, command):
