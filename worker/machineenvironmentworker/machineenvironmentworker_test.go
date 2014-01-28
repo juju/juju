@@ -11,13 +11,17 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/osenv"
 	jujutesting "launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/environment"
 	"launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/machineenvironmentworker"
@@ -104,12 +108,13 @@ func (s *MachineEnvironmentWatcherSuite) waitForFile(c *gc.C, filename, expected
 	}
 }
 
-func (s *MachineEnvironmentWatcherSuite) makeWorker(c *gc.C) worker.Worker {
-	return machineenvironmentworker.NewMachineEnvironmentWorker(s.environmentAPI)
+func (s *MachineEnvironmentWatcherSuite) makeWorker(c *gc.C, agentConfig agent.Config) worker.Worker {
+	return machineenvironmentworker.NewMachineEnvironmentWorker(s.environmentAPI, agentConfig)
 }
 
 func (s *MachineEnvironmentWatcherSuite) TestRunStop(c *gc.C) {
-	envWorker := s.makeWorker(c)
+	agentConfig := agentConfig("0", "ec2")
+	envWorker := s.makeWorker(c, agentConfig)
 	c.Assert(worker.Stop(envWorker), gc.IsNil)
 }
 
@@ -147,7 +152,8 @@ func (s *MachineEnvironmentWatcherSuite) updateConfig(c *gc.C) (osenv.ProxySetti
 func (s *MachineEnvironmentWatcherSuite) TestInitialState(c *gc.C) {
 	proxySettings, aptProxySettings := s.updateConfig(c)
 
-	envWorker := s.makeWorker(c)
+	agentConfig := agentConfig("0", "ec2")
+	envWorker := s.makeWorker(c, agentConfig)
 	defer worker.Stop(envWorker)
 
 	s.waitProxySettings(c, proxySettings)
@@ -156,7 +162,8 @@ func (s *MachineEnvironmentWatcherSuite) TestInitialState(c *gc.C) {
 }
 
 func (s *MachineEnvironmentWatcherSuite) TestRespondsToEvents(c *gc.C) {
-	envWorker := s.makeWorker(c)
+	agentConfig := agentConfig("0", "ec2")
+	envWorker := s.makeWorker(c, agentConfig)
 	defer worker.Stop(envWorker)
 	s.waitForPostSetup(c)
 
@@ -165,4 +172,51 @@ func (s *MachineEnvironmentWatcherSuite) TestRespondsToEvents(c *gc.C) {
 	s.waitProxySettings(c, proxySettings)
 	s.waitForFile(c, s.proxyFile, proxySettings.AsScriptEnvironment()+"\n")
 	s.waitForFile(c, utils.AptConfFile, utils.AptProxyContent(aptProxySettings)+"\n")
+}
+
+func (s *MachineEnvironmentWatcherSuite) TestInitialStateLocalMachine1(c *gc.C) {
+	proxySettings, aptProxySettings := s.updateConfig(c)
+
+	agentConfig := agentConfig("1", provider.Local)
+	envWorker := s.makeWorker(c, agentConfig)
+	defer worker.Stop(envWorker)
+
+	s.waitProxySettings(c, proxySettings)
+	s.waitForFile(c, s.proxyFile, proxySettings.AsScriptEnvironment()+"\n")
+	s.waitForFile(c, utils.AptConfFile, utils.AptProxyContent(aptProxySettings)+"\n")
+}
+
+func (s *MachineEnvironmentWatcherSuite) TestInitialStateLocalMachine0(c *gc.C) {
+	proxySettings, _ := s.updateConfig(c)
+
+	agentConfig := agentConfig("0", provider.Local)
+	envWorker := s.makeWorker(c, agentConfig)
+	defer worker.Stop(envWorker)
+	s.waitForPostSetup(c)
+
+	s.waitProxySettings(c, proxySettings)
+
+	c.Assert(utils.AptConfFile, jc.DoesNotExist)
+	c.Assert(s.proxyFile, jc.DoesNotExist)
+}
+
+type mockConfig struct {
+	agent.Config
+	tag      string
+	provider string
+}
+
+func (mock *mockConfig) Tag() string {
+	return mock.tag
+}
+
+func (mock *mockConfig) Value(key string) string {
+	if key == agent.JujuProviderType {
+		return mock.provider
+	}
+	return ""
+}
+
+func agentConfig(machineId, provider string) *mockConfig {
+	return &mockConfig{tag: names.MachineTag(machineId), provider: provider}
 }

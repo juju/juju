@@ -10,7 +10,10 @@ import (
 
 	"launchpad.net/loggo"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/juju/osenv"
+	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state/api/environment"
 	"launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/utils"
@@ -42,17 +45,24 @@ type MachineEnvironmentWorker struct {
 	api      *environment.Facade
 	aptProxy osenv.ProxySettings
 	proxy    osenv.ProxySettings
-	first    bool
+
+	writeSystemFiles bool
+	first            bool
 }
 
 var _ worker.NotifyWatchHandler = (*MachineEnvironmentWorker)(nil)
 
 // NewMachineEnvironmentWorker returns a worker.Worker that uses the notify
 // watcher returned from the setup.
-func NewMachineEnvironmentWorker(api *environment.Facade) worker.Worker {
+func NewMachineEnvironmentWorker(api *environment.Facade, agentConfig agent.Config) worker.Worker {
+	// We don't write out system files for the local provider on machine zero
+	// as that is the host machine.
+	writeSystemFiles := !(agentConfig.Tag() == names.MachineTag("0") &&
+		agentConfig.Value(agent.JujuProviderType) == provider.Local)
 	envWorker := &MachineEnvironmentWorker{
-		api:   api,
-		first: true,
+		api:              api,
+		writeSystemFiles: writeSystemFiles,
+		first:            true,
 	}
 	return worker.NewNotifyWorker(envWorker)
 }
@@ -102,13 +112,15 @@ func (w *MachineEnvironmentWorker) onChange() error {
 		logger.Debugf("new proxy settings %#v", proxySettings)
 		w.proxy = proxySettings
 		w.proxy.SetEnvironmentValues()
-		if err := w.writeEnvironmentFile(); err != nil {
-			// It isn't really fatal, but we should record it.
-			logger.Errorf("error writing proxy environment file: %v", err)
+		if w.writeSystemFiles {
+			if err := w.writeEnvironmentFile(); err != nil {
+				// It isn't really fatal, but we should record it.
+				logger.Errorf("error writing proxy environment file: %v", err)
+			}
 		}
 	}
 	aptSettings := env.AptProxySettings()
-	if aptSettings != w.aptProxy || w.first {
+	if w.writeSystemFiles && (aptSettings != w.aptProxy || w.first) {
 		logger.Debugf("new apt proxy settings %#v", aptSettings)
 		w.aptProxy = aptSettings
 		// Always finish with a new line.
