@@ -46,12 +46,12 @@ var _ = gc.Suite(&prepareSuite{})
 func (s *prepareSuite) SetUpTest(c *gc.C) {
 	s.FakeHomeSuite.SetUpTest(c)
 	loggo.GetLogger("juju.provider.local").SetLogLevel(loggo.TRACE)
-	s.PatchEnvironment("http-proxy", "")
-	s.PatchEnvironment("HTTP-PROXY", "")
-	s.PatchEnvironment("https-proxy", "")
-	s.PatchEnvironment("HTTPS-PROXY", "")
-	s.PatchEnvironment("ftp-proxy", "")
-	s.PatchEnvironment("FTP-PROXY", "")
+	s.PatchEnvironment("http_proxy", "")
+	s.PatchEnvironment("HTTP_PROXY", "")
+	s.PatchEnvironment("https_proxy", "")
+	s.PatchEnvironment("HTTPS_PROXY", "")
+	s.PatchEnvironment("ftp_proxy", "")
+	s.PatchEnvironment("FTP_PROXY", "")
 	s.HookCommandOutput(&utils.AptCommandOutput, nil, nil)
 }
 

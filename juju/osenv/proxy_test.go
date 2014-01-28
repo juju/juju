@@ -169,10 +169,14 @@ func (s *proxySuite) TestSetEnvironmentValues(c *gc.C) {
 	}
 	proxy.SetEnvironmentValues()
 
-	c.Assert(os.Getenv("http-proxy"), gc.Equals, "http proxy")
-	c.Assert(os.Getenv("HTTP-PROXY"), gc.Equals, "http proxy")
-	c.Assert(os.Getenv("https-proxy"), gc.Equals, "https proxy")
-	c.Assert(os.Getenv("HTTPS-PROXY"), gc.Equals, "https proxy")
-	c.Assert(os.Getenv("ftp-proxy"), gc.Equals, "")
-	c.Assert(os.Getenv("FTP-PROXY"), gc.Equals, "")
+	obtained := osenv.DetectProxies()
+
+	c.Assert(obtained, gc.DeepEquals, proxy)
+
+	c.Assert(os.Getenv("http_proxy"), gc.Equals, "http proxy")
+	c.Assert(os.Getenv("HTTP_PROXY"), gc.Equals, "http proxy")
+	c.Assert(os.Getenv("https_proxy"), gc.Equals, "https proxy")
+	c.Assert(os.Getenv("HTTPS_PROXY"), gc.Equals, "https proxy")
+	c.Assert(os.Getenv("ftp_proxy"), gc.Equals, "")
+	c.Assert(os.Getenv("FTP_PROXY"), gc.Equals, "")
 }
