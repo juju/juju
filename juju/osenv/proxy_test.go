@@ -4,6 +4,8 @@
 package osenv_test
 
 import (
+	"os"
+
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/juju/osenv"
@@ -150,4 +152,31 @@ func (s *proxySuite) TestAsEnvironmentValuesAllValue(c *gc.C) {
 		"FTP_PROXY=who uses this?",
 	}
 	c.Assert(proxies.AsEnvironmentValues(), gc.DeepEquals, expected)
+}
+
+func (s *proxySuite) TestSetEnvironmentValues(c *gc.C) {
+	s.PatchEnvironment("http_proxy", "initial")
+	s.PatchEnvironment("HTTP_PROXY", "initial")
+	s.PatchEnvironment("https_proxy", "initial")
+	s.PatchEnvironment("HTTPS_PROXY", "initial")
+	s.PatchEnvironment("ftp_proxy", "initial")
+	s.PatchEnvironment("FTP_PROXY", "initial")
+
+	proxy := osenv.ProxySettings{
+		Http:  "http proxy",
+		Https: "https proxy",
+		// Ftp left blank to show clearing env.
+	}
+	proxy.SetEnvironmentValues()
+
+	obtained := osenv.DetectProxies()
+
+	c.Assert(obtained, gc.DeepEquals, proxy)
+
+	c.Assert(os.Getenv("http_proxy"), gc.Equals, "http proxy")
+	c.Assert(os.Getenv("HTTP_PROXY"), gc.Equals, "http proxy")
+	c.Assert(os.Getenv("https_proxy"), gc.Equals, "https proxy")
+	c.Assert(os.Getenv("HTTPS_PROXY"), gc.Equals, "https proxy")
+	c.Assert(os.Getenv("ftp_proxy"), gc.Equals, "")
+	c.Assert(os.Getenv("FTP_PROXY"), gc.Equals, "")
 }

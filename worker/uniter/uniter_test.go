@@ -1974,6 +1974,13 @@ func (s setProxySettings) step(c *gc.C, ctx *context) {
 	expected := (osenv.ProxySettings)(s)
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
 		if ctx.uniter.GetProxyValues() == expected {
+			// Also confirm that the values were specified for the environment.
+			c.Assert(os.Getenv("http_proxy"), gc.Equals, expected.Http)
+			c.Assert(os.Getenv("HTTP_PROXY"), gc.Equals, expected.Http)
+			c.Assert(os.Getenv("https_proxy"), gc.Equals, expected.Https)
+			c.Assert(os.Getenv("HTTPS_PROXY"), gc.Equals, expected.Https)
+			c.Assert(os.Getenv("ftp_proxy"), gc.Equals, expected.Ftp)
+			c.Assert(os.Getenv("FTP_PROXY"), gc.Equals, expected.Ftp)
 			return
 		}
 	}

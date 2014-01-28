@@ -188,7 +188,7 @@ func (s *StoreSuite) TestInfoWarning(c *gc.C) {
 }
 
 func (s *StoreSuite) TestInfoDNSError(c *gc.C) {
-	store := charm.NewStore("http://example.invalid")
+	store := charm.NewStore("http://0.1.2.3")
 	charmURL := charm.MustParseURL("cs:series/good")
 	resp, err := store.Info(charmURL)
 	c.Assert(resp, gc.IsNil)
