@@ -122,14 +122,8 @@ class TestJujuClientDevel(TestCase):
                           'qux'), full)
         full = client._full_args(env, 'bar', True, ('baz', 'qux'))
         self.assertEqual((
-            'sudo', '-E', 'juju', '--show-log', 'bar', '-e', 'foo',
-            'baz', 'qux'), full)
-        os.environ['REVNO'] = '2251'
-        full = client._full_args(env, 'bar', True, ('baz', 'qux'))
-        self.assertEqual((
             'juju', '--show-log', 'bar', '-e', 'foo',
             'baz', 'qux'), full)
-        del os.environ['REVNO']
         full = client._full_args(None, 'bar', False, ('baz', 'qux'))
         self.assertEqual(('juju', '--show-log', 'bar', 'baz', 'qux'), full)
 

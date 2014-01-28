@@ -92,11 +92,9 @@ class JujuClientDevel:
             return JujuClientDevel(version, full_path)
 
     def _full_args(self, environment, command, sudo, args):
+        # sudo is not needed for devel releases.
         e_arg = () if environment is None else ('-e', environment.environment)
-        # sudo is not needed for some devel releases.
-        revno = int(os.environ.get('REVNO', '1'))
-        sudo_args = ('sudo', '-E') if sudo and revno < 2250 else tuple()
-        return sudo_args + ('juju', '--show-log', command,) + e_arg + args
+        return ('juju', '--show-log', command,) + e_arg + args
 
     def bootstrap(self, environment):
         """Bootstrap, using sudo if necessary."""
@@ -256,7 +254,7 @@ class Environment:
         for ignored in until_timeout(300):
             try:
                 versions = self.get_status().get_agent_versions()
-            except CannotConnectEnv as e:
+            except CannotConnectEnv:
                 print('Supressing "Unable to connect to environment"')
                 continue
             if versions.keys() == [version]:
