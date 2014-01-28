@@ -44,6 +44,7 @@ func (c *DestroyEnvironmentCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.assumeYes, "yes", false, "")
 	f.BoolVar(&c.force, "force", false, "Forcefully destroy the environment, directly through the environment provider")
 	f.StringVar(&c.envName, "e", "", "juju environment to operate in")
+	f.StringVar(&c.envName, "environment", "", "juju environment to operate in")
 }
 
 func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) error {
@@ -88,6 +89,7 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) error {
 
 func (c *DestroyEnvironmentCommand) Init(args []string) error {
 	if c.envName != "" {
+		// TODO: deprecation warning
 		// They supplied the -e flag
 		if len(args) == 0 {
 			// We're happy, we have enough information

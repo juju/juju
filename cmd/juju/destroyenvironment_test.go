@@ -56,6 +56,9 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandEFlag(c *gc.C) {
 	// We don't allow them to supply both entries at the same time
 	opc, errc = runCommand(nullContext(), new(DestroyEnvironmentCommand), "-e", "dummyenv", "dummyenv", "--yes")
 	c.Check(<-errc, gc.Equals, DoubleEnvironmentError)
+	// We treat --environment the same way
+	opc, errc = runCommand(nullContext(), new(DestroyEnvironmentCommand), "--environment", "dummyenv", "dummyenv", "--yes")
+	c.Check(<-errc, gc.Equals, DoubleEnvironmentError)
 
 	// destroy using the -e flag
 	opc, errc = runCommand(nullContext(), new(DestroyEnvironmentCommand), "-e", "dummyenv", "--yes")
