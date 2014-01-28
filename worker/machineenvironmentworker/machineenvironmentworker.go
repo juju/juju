@@ -4,15 +4,33 @@
 package machineenvironmentworker
 
 import (
+	"fmt"
+	"path"
+
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/state/api/environment"
 	"launchpad.net/juju-core/state/api/watcher"
+	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/exec"
 	"launchpad.net/juju-core/worker"
 )
 
-var logger = loggo.GetLogger("juju.worker.machineenvironment")
+var (
+	logger = loggo.GetLogger("juju.worker.machineenvironment")
+
+	// ProxyDirectory is the directory containing the proxy file that contains
+	// the environment settings for the proxies based on the environment
+	// config values.
+	ProxyDirectory = "/home/ubuntu"
+
+	// ProxyFile is the name of the file to be stored in the ProxyDirectory.
+	ProxyFile = ".juju-proxy"
+
+	// Started is a function that is called when the worker has started.
+	Started = func() {}
+)
 
 // MachineEnvironmentWorker is responsible for monitoring the juju environment
 // configuration and making changes on the physical (or virtual) machine as
@@ -36,6 +54,41 @@ func NewMachineEnvironmentWorker(api *environment.Facade) worker.Worker {
 	return worker.NewNotifyWorker(envWorker)
 }
 
+func (w *MachineEnvironmentWorker) writeEnvironmentFile() error {
+	// Writing the environment file is handled by executing the script for two
+	// primary reasons:
+	//
+	// 1: In order to have the local provider specify the environment settings
+	// for the machine agent running on the host, this worker needs to run,
+	// but it should be touching any files on the disk.  If however there is
+	// an ubuntu user, it will. This shouldn't be a problem.
+	//
+	// 2: On cloud-instance ubuntu images, the ubuntu user is uid 1000, but in
+	// the situation where the ubuntu user has been created as a part of the
+	// manual provisioning process, the user will exist, and will not have the
+	// same uid/gid as the default cloud image.
+	//
+	// It is easier to shell out to check both these things, and is also the
+	// same way that the file is writting in the cloud-init process, so
+	// consistency FTW.
+	filePath := path.Join(ProxyDirectory, ProxyFile)
+	result, err := exec.RunCommands(exec.RunParams{
+		Commands: fmt.Sprintf(
+			`[ -e %s ] && (printf '%%s\n' %s > %s && chown ubuntu:ubuntu %s)`,
+			ProxyDirectory,
+			utils.ShQuote(w.proxy.AsScriptEnvironment()),
+			filePath, filePath),
+		WorkingDir: ProxyDirectory,
+	})
+	if err != nil {
+		return err
+	}
+	if result.Code != 0 {
+		logger.Errorf("failed writing new proxy values: \n%s\n%s", result.Stdout, result.Stderr)
+	}
+	return nil
+}
+
 func (w *MachineEnvironmentWorker) onChange() error {
 	env, err := w.api.EnvironConfig()
 	if err != nil {
@@ -46,6 +99,9 @@ func (w *MachineEnvironmentWorker) onChange() error {
 		logger.Debugf("new proxy settings %#v", proxySettings)
 		w.proxy = proxySettings
 		w.proxy.SetEnvironmentValues()
+		if err := w.writeEnvironmentFile(); err != nil {
+			return err
+		}
 	}
 	// TODO...
 	_ = env
@@ -53,16 +109,19 @@ func (w *MachineEnvironmentWorker) onChange() error {
 }
 
 func (w *MachineEnvironmentWorker) SetUp() (watcher.NotifyWatcher, error) {
+	logger.Debugf("worker setup")
 	// We need to set this up initially as the NotifyWorker sucks up the first
 	// event.
 	err := w.onChange()
 	if err != nil {
 		return nil, err
 	}
+	Started()
 	return w.api.WatchForEnvironConfigChanges()
 }
 
 func (w *MachineEnvironmentWorker) Handle() error {
+	logger.Debugf("worker handle")
 	return w.onChange()
 }
 
