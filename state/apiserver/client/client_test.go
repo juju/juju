@@ -31,6 +31,7 @@ import (
 	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -1860,7 +1861,7 @@ func (s *clientSuite) assertUploaded(c *gc.C, storage storage.Storage, bundleURL
 	reader, err := storage.Get(archiveName)
 	c.Assert(err, gc.IsNil)
 	defer reader.Close()
-	downloadedSHA256, _, err := apiserver.GetSHA256(reader)
+	downloadedSHA256, _, err := utils.GetSHA256(reader)
 	c.Assert(err, gc.IsNil)
 	c.Assert(downloadedSHA256, gc.Equals, expectedSHA256)
 }

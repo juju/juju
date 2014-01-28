@@ -162,7 +162,7 @@ func (s *charmsSuite) TestUploadRespectsLocalRevision(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Finally, verify the SHA256 and uploaded URL.
-	expectedSHA256, _, err := apiserver.GetSHA256(tempFile)
+	expectedSHA256, _, err := utils.GetSHA256(tempFile)
 	c.Assert(err, gc.IsNil)
 	name := charm.Quote(expectedURL.String())
 	storage, err := apiserver.GetEnvironStorage(s.State)
@@ -176,7 +176,7 @@ func (s *charmsSuite) TestUploadRespectsLocalRevision(c *gc.C) {
 	reader, err := storage.Get(name)
 	c.Assert(err, gc.IsNil)
 	defer reader.Close()
-	downloadedSHA256, _, err := apiserver.GetSHA256(reader)
+	downloadedSHA256, _, err := utils.GetSHA256(reader)
 	c.Assert(err, gc.IsNil)
 	c.Assert(downloadedSHA256, gc.Equals, expectedSHA256)
 }

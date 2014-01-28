@@ -4,11 +4,8 @@
 package juju
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	stderrors "errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -223,12 +220,10 @@ func (conn *Conn) addCharm(curl *charm.URL, ch charm.Charm) (*state.Charm, error
 	default:
 		return nil, fmt.Errorf("unknown charm type %T", ch)
 	}
-	h := sha256.New()
-	size, err := io.Copy(h, f)
+	digest, size, err := utils.GetSHA256(f)
 	if err != nil {
 		return nil, err
 	}
-	digest := hex.EncodeToString(h.Sum(nil))
 	if _, err := f.Seek(0, 0); err != nil {
 		return nil, err
 	}

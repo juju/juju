@@ -470,7 +470,7 @@ func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, b
 	} else if err != nil {
 		return nil, err
 	}
-	return st.updateCharmDoc(ch, curl, bundleURL, bundleSha256, StillPlaceholder)
+	return st.updateCharmDoc(ch, curl, bundleURL, bundleSha256, stillPlaceholder)
 }
 
 // Charm returns the charm with the given URL. Charms pending upload
@@ -603,12 +603,13 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 	)
 	for attempt := 0; attempt < 3; attempt++ {
 		// Find an uploaded or pending charm with the given exact curl.
-		err = st.charms.Find(D{{"_id", curl}, {"placeholder", false}}).One(&uploadedCharm)
+		err = st.charms.FindId(curl).One(&uploadedCharm)
 		if err != nil && err != mgo.ErrNotFound {
 			return nil, err
-		} else if err == nil {
-			// The charm exists and it's either uploaded or not.
-			// In either case, we just return what we got.
+		} else if err == nil && !uploadedCharm.Placeholder {
+			// The charm exists and it's either uploaded or still
+			// pending, but it's not a placeholder. In any case, we
+			// just return what we got.
 			break
 		}
 
@@ -638,8 +639,8 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 }
 
 var (
-	StillPending     = D{{"pendingupload", true}}
-	StillPlaceholder = D{{"placeholder", true}}
+	stillPending     = D{{"pendingupload", true}}
+	stillPlaceholder = D{{"placeholder", true}}
 )
 
 // AddStoreCharmPlaceholder creates a charm document in state for the given charm URL which
@@ -717,12 +718,38 @@ func (st *State) deleteOldPlaceholderCharmsOps(curl *charm.URL) ([]txn.Op, error
 		ops = append(ops, txn.Op{
 			C:      st.charms.Name,
 			Id:     doc.URL.String(),
-			Assert: StillPlaceholder,
+			Assert: stillPlaceholder,
 			Remove: true,
 		})
 	}
 	return ops, nil
 }
+
+// ErrCharmAlreadyUploaded is returned by UpdateUploadedCharm() when
+// the given charm is already uploaded and marked as not pending in
+// state.
+type ErrCharmAlreadyUploaded struct {
+	curl *charm.URL
+}
+
+func (e *ErrCharmAlreadyUploaded) Error() string {
+	return fmt.Sprintf("charm %q already uploaded", e.curl)
+}
+
+// IsCharmAlreadyUploadedError returns if the given error is
+// ErrCharmAlreadyUploaded.
+func IsCharmAlreadyUploadedError(err interface{}) bool {
+	if err == nil {
+		return false
+	}
+	_, ok := err.(*ErrCharmAlreadyUploaded)
+	return ok
+}
+
+// ErrCharmRevisionAlreadyModified is returned when a pending or
+// placeholder charm is no longer pending or a placeholder, signaling
+// the charm is available in state with its full information.
+var ErrCharmRevisionAlreadyModified = fmt.Errorf("charm revision already modified")
 
 // UpdateUploadedCharm marks the given charm URL as uploaded and
 // updates the rest of its data, returning it as *state.Charm.
@@ -736,13 +763,11 @@ func (st *State) UpdateUploadedCharm(ch charm.Charm, curl *charm.URL, bundleURL 
 		return nil, err
 	}
 	if !doc.PendingUpload {
-		return nil, fmt.Errorf("charm %q already uploaded", curl)
+		return nil, &ErrCharmAlreadyUploaded{curl}
 	}
 
-	return st.updateCharmDoc(ch, curl, bundleURL, bundleSha256, StillPending)
+	return st.updateCharmDoc(ch, curl, bundleURL, bundleSha256, stillPending)
 }
-
-var ErrCharmRevisionAlreadyModified = fmt.Errorf("charm revision already modified")
 
 // updateCharmDoc updates the charm with specified URL with the given
 // data, and resets the placeholder and pendingupdate flags.  If the

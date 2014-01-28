@@ -5,7 +5,6 @@ package sync
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -166,22 +165,17 @@ func copyOneToolsPackage(tool *coretools.Tools, dest storage.Storage) error {
 	if err != nil {
 		return err
 	}
+	buf := &bytes.Buffer{}
 	srcFile := resp.Body
 	defer srcFile.Close()
-	// We have to buffer the content, because Put requires the content
-	// length, but Get only returns us a ReadCloser
-	buf := &bytes.Buffer{}
-	nBytes, err := io.Copy(buf, srcFile)
+	tool.SHA256, tool.Size, err = utils.GetSHA256(io.TeeReader(srcFile, buf))
 	if err != nil {
 		return err
 	}
-	logger.Infof("downloaded %v (%dkB), uploading", toolsName, (nBytes+512)/1024)
-	logger.Infof("download %dkB, uploading", (nBytes+512)/1024)
-	sha256hash := sha256.New()
-	sha256hash.Write(buf.Bytes())
-	tool.SHA256 = fmt.Sprintf("%x", sha256hash.Sum(nil))
-	tool.Size = nBytes
-	return dest.Put(toolsName, buf, nBytes)
+	sizeInKB := (tool.Size + 512) / 1024
+	logger.Infof("downloaded %v (%dkB), uploading", toolsName, sizeInKB)
+	logger.Infof("download %dkB, uploading", sizeInKB)
+	return dest.Put(toolsName, buf, tool.Size)
 }
 
 // UploadFunc is the type of Upload, which may be

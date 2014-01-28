@@ -237,15 +237,3 @@ func GetEnvironStorage(st *state.State) (storage.Storage, error) {
 	}
 	return env.Storage(), nil
 }
-
-// GetSHA256 returns the SHA256 hash of the contents read from source
-// (hex encoded) and the size of the source in bytes.
-func GetSHA256(source io.Reader) (string, int64, error) {
-	hash := sha256.New()
-	size, err := io.Copy(hash, source)
-	if err != nil {
-		return "", 0, err
-	}
-	digest := hex.EncodeToString(hash.Sum(nil))
-	return digest, size, nil
-}

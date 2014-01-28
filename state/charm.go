@@ -4,9 +4,11 @@
 package state
 
 import (
+	"fmt"
 	"net/url"
 
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/utils"
 )
 
 // charmDoc represents the internal state of a charm in MongoDB.
@@ -77,4 +79,15 @@ func (c *Charm) IsUploaded() bool {
 // rather than representing a deployed charm.
 func (c *Charm) IsPlaceholder() bool {
 	return c.doc.Placeholder
+}
+
+// CharmArchiveName returns a string that is suitable as a file name
+// in a storage URL. It is constructed from the charm name, revision
+// and a random UUID string.
+func CharmArchiveName(name string, revision int) (string, error) {
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return "", err
+	}
+	return charm.Quote(fmt.Sprintf("%s-%d-%s", name, revision, uuid)), nil
 }

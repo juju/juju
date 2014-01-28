@@ -6,8 +6,11 @@ package utils
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -117,4 +120,27 @@ func Gunzip(data []byte) ([]byte, error) {
 		return nil, err
 	}
 	return ioutil.ReadAll(r)
+}
+
+// GetSHA256 returns the SHA256 hash of the contents read from source
+// (hex encoded) and the size of the source in bytes.
+func GetSHA256(source io.Reader) (string, int64, error) {
+	hash := sha256.New()
+	size, err := io.Copy(hash, source)
+	if err != nil {
+		return "", 0, err
+	}
+	digest := hex.EncodeToString(hash.Sum(nil))
+	return digest, size, nil
+}
+
+// GetFileSHA256 is like GetSHA256 but reads the contents of the given
+// file.
+func GetFileSHA256(filename string) (string, int64, error) {
+	f, err := os.Open(filename)
+	if err != nil {
+		return "", 0, err
+	}
+	defer f.Close()
+	return GetSHA256(f)
 }

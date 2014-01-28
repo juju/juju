@@ -4,12 +4,12 @@
 package testing
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
+	"bytes"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
@@ -18,6 +18,7 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils"
 )
 
 var logger = loggo.GetLogger("juju.charm.testing.mockstore")
@@ -38,12 +39,14 @@ type MockStore struct {
 // NewMockStore creates a mock charm store containing the specified charms.
 func NewMockStore(c *gc.C, charms map[string]int) *MockStore {
 	s := &MockStore{charms: charms}
-	bytes, err := ioutil.ReadFile(testing.Charms.BundlePath(c.MkDir(), "dummy"))
+	f, err := os.Open(testing.Charms.BundlePath(c.MkDir(), "dummy"))
 	c.Assert(err, gc.IsNil)
-	s.bundleBytes = bytes
-	h := sha256.New()
-	h.Write(bytes)
-	s.bundleSha256 = hex.EncodeToString(h.Sum(nil))
+	defer f.Close()
+	buf := &bytes.Buffer{}
+	s.bundleSha256, _, err = utils.GetSHA256(io.TeeReader(f, buf))
+	c.Assert(err, gc.IsNil)
+	s.bundleBytes = buf.Bytes()
+	c.Assert(err, gc.IsNil)
 	s.mux = http.NewServeMux()
 	s.mux.HandleFunc("/charm-info", s.serveInfo)
 	s.mux.HandleFunc("/charm-event", s.serveEvent)

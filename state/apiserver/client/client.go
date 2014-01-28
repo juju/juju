@@ -4,10 +4,7 @@
 package client
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
-	"io"
 	"net/url"
 	"os"
 	"strings"
@@ -29,6 +26,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/statecmd"
+	"launchpad.net/juju-core/utils"
 )
 
 var logger = loggo.GetLogger("juju.state.apiserver.client")
@@ -865,12 +863,10 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 		return fmt.Errorf("cannot read downloaded charm: %v", err)
 	}
 	defer archive.Close()
-	hash := sha256.New()
-	size, err := io.Copy(hash, archive)
+	bundleSHA256, size, err := utils.GetSHA256(archive)
 	if err != nil {
 		return fmt.Errorf("cannot calculate SHA256 hash of charm: %v", err)
 	}
-	bundleSHA256 := hex.EncodeToString(hash.Sum(nil))
 	if _, err := archive.Seek(0, 0); err != nil {
 		return fmt.Errorf("cannot rewind charm archive: %v", err)
 	}
@@ -881,7 +877,7 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 		return fmt.Errorf("cannot access environment: %v", err)
 	}
 	storage := env.Storage()
-	archiveName, err := charmURL.ArchiveName()
+	archiveName, err := state.CharmArchiveName(charmURL.Name, charmURL.Revision)
 	if err != nil {
 		return fmt.Errorf("cannot generate charm archive name: %v", err)
 	}
@@ -899,13 +895,14 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 
 	// Finally, update the charm data in state and mark it as no longer pending.
 	_, err = c.api.state.UpdateUploadedCharm(downloadedCharm, charmURL, bundleURL, bundleSHA256)
-	if err == state.ErrCharmRevisionAlreadyModified {
+	if err == state.ErrCharmRevisionAlreadyModified ||
+		state.IsCharmAlreadyUploadedError(err) {
 		// This is not an error, it just signifies somebody else
 		// managed to upload and update the charm in state before
 		// us. This means we have to delete what we just uploaded
 		// to storage.
 		if err := storage.Remove(archiveName); err != nil {
-			return fmt.Errorf("cannot remove duplicated charm from storage: %v", err)
+			logger.Errorf("cannot remove duplicated charm from storage: %v", err)
 		}
 		return nil
 	}
