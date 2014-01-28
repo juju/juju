@@ -855,17 +855,17 @@ func (u *UniterAPI) checkRemoteUnit(relUnit *state.RelationUnit, remoteUnitTag s
 		return "", common.ErrPerm
 	}
 	// Check remoteUnit is indeed related.
-	_, unitName, err := names.ParseTag(remoteUnitTag, names.UnitTagKind)
+	_, remoteUnitName, err := names.ParseTag(remoteUnitTag, names.UnitTagKind)
 	if err != nil {
 		return "", err
 	}
-	serviceName := names.UnitService(unitName)
+	remoteServiceName := names.UnitService(remoteUnitName)
 	rel := relUnit.Relation()
-	_, err = rel.RelatedEndpoints(serviceName)
+	_, err = rel.RelatedEndpoints(remoteServiceName)
 	if err != nil {
 		return "", common.ErrPerm
 	}
-	return unitName, nil
+	return remoteUnitName, nil
 }
 
 // ReadRemoteSettings returns the remote settings of each given set of

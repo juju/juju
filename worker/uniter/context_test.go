@@ -428,7 +428,7 @@ func (s *ContextRelationSuite) TestChangeMembers(c *gc.C) {
 
 	// ...and that its settings are no longer cached.
 	_, err := ctx.ReadSettings("u/2")
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, gc.ErrorMatches, "cannot read settings for unit \"u/2\" in relation \"u:ring\": settings not found")
 }
 
 func (s *ContextRelationSuite) TestMemberCaching(c *gc.C) {
