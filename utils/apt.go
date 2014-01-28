@@ -19,6 +19,10 @@ import (
 var (
 	aptLogger  = loggo.GetLogger("juju.utils.apt")
 	aptProxyRE = regexp.MustCompile(`(?im)^\s*Acquire::(?P<protocol>[a-z]+)::Proxy\s+"(?P<proxy>[^"]+)";\s*$`)
+
+	// AptConfFile is the full file path for the proxy settings that are
+	// written by cloud-init and the machine environ worker.
+	AptConfFile = "/etc/apt/apt.conf.d/42-juju-proxy-settings"
 )
 
 // Some helpful functions for running apt in a sane way

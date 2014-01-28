@@ -5,6 +5,7 @@ package machineenvironmentworker
 
 import (
 	"fmt"
+	"io/ioutil"
 	"path"
 
 	"launchpad.net/loggo"
@@ -41,6 +42,7 @@ type MachineEnvironmentWorker struct {
 	api      *environment.Facade
 	aptProxy osenv.ProxySettings
 	proxy    osenv.ProxySettings
+	first    bool
 }
 
 var _ worker.NotifyWatchHandler = (*MachineEnvironmentWorker)(nil)
@@ -49,7 +51,8 @@ var _ worker.NotifyWatchHandler = (*MachineEnvironmentWorker)(nil)
 // watcher returned from the setup.
 func NewMachineEnvironmentWorker(api *environment.Facade) worker.Worker {
 	envWorker := &MachineEnvironmentWorker{
-		api: api,
+		api:   api,
+		first: true,
 	}
 	return worker.NewNotifyWorker(envWorker)
 }
@@ -95,33 +98,43 @@ func (w *MachineEnvironmentWorker) onChange() error {
 		return err
 	}
 	proxySettings := env.ProxySettings()
-	if proxySettings != w.proxy {
+	if proxySettings != w.proxy || w.first {
 		logger.Debugf("new proxy settings %#v", proxySettings)
 		w.proxy = proxySettings
 		w.proxy.SetEnvironmentValues()
 		if err := w.writeEnvironmentFile(); err != nil {
-			return err
+			// It isn't really fatal, but we should record it.
+			logger.Errorf("error writing proxy environment file: %v", err)
 		}
 	}
-	// TODO...
-	_ = env
+	aptSettings := env.AptProxySettings()
+	if aptSettings != w.aptProxy || w.first {
+		logger.Debugf("new apt proxy settings %#v", aptSettings)
+		w.aptProxy = aptSettings
+		// Always finish with a new line.
+		content := utils.AptProxyContent(w.aptProxy) + "\n"
+		err := ioutil.WriteFile(utils.AptConfFile, []byte(content), 0644)
+		if err != nil {
+			// It isn't really fatal, but we should record it.
+			logger.Errorf("error writing apt proxy config file: %v", err)
+		}
+	}
 	return nil
 }
 
 func (w *MachineEnvironmentWorker) SetUp() (watcher.NotifyWatcher, error) {
-	logger.Debugf("worker setup")
 	// We need to set this up initially as the NotifyWorker sucks up the first
 	// event.
 	err := w.onChange()
 	if err != nil {
 		return nil, err
 	}
+	w.first = false
 	Started()
 	return w.api.WatchForEnvironConfigChanges()
 }
 
 func (w *MachineEnvironmentWorker) Handle() error {
-	logger.Debugf("worker handle")
 	return w.onChange()
 }
 

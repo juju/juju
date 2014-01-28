@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/environment"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/machineenvironmentworker"
 )
@@ -50,7 +51,7 @@ func (s *MachineEnvironmentWatcherSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&machineenvironmentworker.ProxyDirectory, proxyDir)
 	s.started = false
 	s.PatchValue(&machineenvironmentworker.Started, s.setStarted)
-
+	s.PatchValue(&utils.AptConfFile, path.Join(proxyDir, "juju-apt-proxy"))
 	s.proxyFile = path.Join(proxyDir, machineenvironmentworker.ProxyFile)
 }
 
@@ -112,7 +113,7 @@ func (s *MachineEnvironmentWatcherSuite) TestRunStop(c *gc.C) {
 	c.Assert(worker.Stop(envWorker), gc.IsNil)
 }
 
-func (s *MachineEnvironmentWatcherSuite) TestInitialState(c *gc.C) {
+func (s *MachineEnvironmentWatcherSuite) updateConfig(c *gc.C) (osenv.ProxySettings, osenv.ProxySettings) {
 	oldConfig, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
 
@@ -124,35 +125,44 @@ func (s *MachineEnvironmentWatcherSuite) TestInitialState(c *gc.C) {
 
 	envConfig, err := oldConfig.Apply(config.ProxyConfigMap(proxySettings))
 	c.Assert(err, gc.IsNil)
+
+	// We explicitly set apt proxy settings as well to show that it is the apt
+	// settings that are used for the apt config, and not just the normal
+	// proxy settings which is what we would get if we don't explicitly set
+	// apt values.
+	aptProxySettings := osenv.ProxySettings{
+		Http:  "apt http proxy",
+		Https: "apt https proxy",
+		Ftp:   "apt ftp proxy",
+	}
+	envConfig, err = envConfig.Apply(config.AptProxyConfigMap(aptProxySettings))
+	c.Assert(err, gc.IsNil)
+
 	err = s.State.SetEnvironConfig(envConfig, oldConfig)
 	c.Assert(err, gc.IsNil)
+
+	return proxySettings, aptProxySettings
+}
+
+func (s *MachineEnvironmentWatcherSuite) TestInitialState(c *gc.C) {
+	proxySettings, aptProxySettings := s.updateConfig(c)
 
 	envWorker := s.makeWorker(c)
 	defer worker.Stop(envWorker)
 
 	s.waitProxySettings(c, proxySettings)
 	s.waitForFile(c, s.proxyFile, proxySettings.AsScriptEnvironment()+"\n")
+	s.waitForFile(c, utils.AptConfFile, utils.AptProxyContent(aptProxySettings)+"\n")
 }
 
 func (s *MachineEnvironmentWatcherSuite) TestRespondsToEvents(c *gc.C) {
-	oldConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-
 	envWorker := s.makeWorker(c)
 	defer worker.Stop(envWorker)
 	s.waitForPostSetup(c)
 
-	proxySettings := osenv.ProxySettings{
-		Http:  "http proxy",
-		Https: "https proxy",
-		Ftp:   "ftp proxy",
-	}
-
-	envConfig, err := oldConfig.Apply(config.ProxyConfigMap(proxySettings))
-	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(envConfig, oldConfig)
-	c.Assert(err, gc.IsNil)
+	proxySettings, aptProxySettings := s.updateConfig(c)
 
 	s.waitProxySettings(c, proxySettings)
 	s.waitForFile(c, s.proxyFile, proxySettings.AsScriptEnvironment()+"\n")
+	s.waitForFile(c, utils.AptConfFile, utils.AptProxyContent(aptProxySettings)+"\n")
 }

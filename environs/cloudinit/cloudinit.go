@@ -250,7 +250,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 
 		// Write out the apt proxy settings
 		if (cfg.AptProxySettings != osenv.ProxySettings{}) {
-			filename := "/etc/apt/apt.conf.d/42-juju-proxy-settings"
+			filename := utils.AptConfFile
 			c.AddBootCmd(fmt.Sprintf(
 				`[ -f %s ] || (printf '%%s\n' %s > %s)`,
 				filename,
