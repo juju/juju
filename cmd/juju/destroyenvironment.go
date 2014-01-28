@@ -89,7 +89,8 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) error {
 
 func (c *DestroyEnvironmentCommand) Init(args []string) error {
 	if c.envName != "" {
-		// TODO: deprecation warning
+		logger.Warningf("-e/--environment flag is deprecated in 1.18, " +
+			"please supply environment as a positional parameter")
 		// They supplied the -e flag
 		if len(args) == 0 {
 			// We're happy, we have enough information
