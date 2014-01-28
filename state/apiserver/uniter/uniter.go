@@ -72,19 +72,19 @@ func NewUniterAPI(st *state.State, resources *common.Resources, authorizer commo
 }
 
 func (u *UniterAPI) getUnit(tag string) (*state.Unit, error) {
-	entity, err := u.st.FindEntity(tag)
+	_, name, err := names.ParseTag(tag, names.UnitTagKind)
 	if err != nil {
 		return nil, err
 	}
-	return entity.(*state.Unit), nil
+	return u.st.Unit(name)
 }
 
 func (u *UniterAPI) getService(tag string) (*state.Service, error) {
-	entity, err := u.st.FindEntity(tag)
+	_, name, err := names.ParseTag(tag, names.ServiceTagKind)
 	if err != nil {
 		return nil, err
 	}
-	return entity.(*state.Service), nil
+	return u.st.Service(name)
 }
 
 // PublicAddress returns the public address for each given unit, if set.
@@ -854,17 +854,18 @@ func (u *UniterAPI) checkRemoteUnit(relUnit *state.RelationUnit, remoteUnitTag s
 	if remoteUnitTag == u.auth.GetAuthTag() {
 		return "", common.ErrPerm
 	}
-	remoteUnit, err := u.getUnit(remoteUnitTag)
-	if err != nil {
-		return "", common.ErrPerm
-	}
 	// Check remoteUnit is indeed related.
+	_, unitName, err := names.ParseTag(remoteUnitTag, names.UnitTagKind)
+	if err != nil {
+		return "", err
+	}
+	serviceName := names.UnitService(unitName)
 	rel := relUnit.Relation()
-	_, err = rel.RelatedEndpoints(remoteUnit.ServiceName())
+	_, err = rel.RelatedEndpoints(serviceName)
 	if err != nil {
 		return "", common.ErrPerm
 	}
-	return remoteUnit.Name(), nil
+	return unitName, nil
 }
 
 // ReadRemoteSettings returns the remote settings of each given set of

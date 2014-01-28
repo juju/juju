@@ -1192,6 +1192,7 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 		{Relation: rel.Tag(), LocalUnit: "user-admin", RemoteUnit: "unit-wordpress-0"},
 	}}
 	result, err := s.uniter.ReadRemoteSettings(args)
+
 	// We don't set the remote unit settings on purpose to test the error.
 	expectErr := `cannot read settings for unit "mysql/0" in relation "wordpress:db mysql:server": settings not found`
 	c.Assert(err, gc.IsNil)
@@ -1210,6 +1211,7 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
+
 	// Now leave the mysqlUnit and re-enter with new settings.
 	relUnit, err = rel.Unit(s.mysqlUnit)
 	c.Assert(err, gc.IsNil)
@@ -1229,15 +1231,27 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 		LocalUnit:  "unit-wordpress-0",
 		RemoteUnit: "unit-mysql-0",
 	}}}
-	result, err = s.uniter.ReadRemoteSettings(args)
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.RelationSettingsResults{
+	expect := params.RelationSettingsResults{
 		Results: []params.RelationSettingsResult{
 			{Settings: params.RelationSettings{
 				"other": "things",
 			}},
 		},
-	})
+	}
+	result, err = s.uniter.ReadRemoteSettings(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, expect)
+
+	// Now destroy the remote unit, and check its settings can still be read.
+	err = s.mysqlUnit.Destroy()
+	c.Assert(err, gc.IsNil)
+	err = s.mysqlUnit.EnsureDead()
+	c.Assert(err, gc.IsNil)
+	err = s.mysqlUnit.Remove()
+	c.Assert(err, gc.IsNil)
+	result, err = s.uniter.ReadRemoteSettings(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, expect)
 }
 
 func (s *uniterSuite) TestReadRemoteSettingsWithNonStringValuesFails(c *gc.C) {
