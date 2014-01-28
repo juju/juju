@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/loggo/loggo"
 	"launchpad.net/golxc"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/environs/cloudinit"

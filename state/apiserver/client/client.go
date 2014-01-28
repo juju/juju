@@ -12,7 +12,7 @@ import (
 	"os"
 	"strings"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/charm"
 	coreCloudinit "launchpad.net/juju-core/cloudinit"

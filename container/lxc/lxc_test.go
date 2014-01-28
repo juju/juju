@@ -11,10 +11,10 @@ import (
 	"strings"
 	stdtesting "testing"
 
+	"github.com/loggo/loggo"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/golxc"
 	"launchpad.net/goyaml"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/container/lxc"

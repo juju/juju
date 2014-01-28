@@ -9,6 +9,6 @@ launchpad.net/gomaasapi	bzr	ian.booth@canonical.com-20131017011445-m1hmr0ap14osd
 launchpad.net/goose	bzr	tarmac-20140124165235-h9rloooc531udms5	116
 launchpad.net/goyaml	bzr	gustavo@niemeyer.net-20131114120802-abe042syx64z2m7s	50
 launchpad.net/gwacl	bzr	tarmac-20131031081035-b33m6fyrrdiuf408	229
-launchpad.net/loggo	bzr	tim.penhey@canonical.com-20130729043644-ym0cscir1cist4sm	39
+github.com/loggo/loggo	bzr	tim.penhey@canonical.com-20130729043644-ym0cscir1cist4sm	39
 launchpad.net/lpad	bzr	gustavo@niemeyer.net-20120626194701-536yx0g9jdq2ik3h	64
 launchpad.net/tomb	bzr	gustavo@niemeyer.net-20130531003818-70ikdgklbxopn8x4	17

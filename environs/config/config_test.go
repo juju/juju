@@ -9,8 +9,8 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/loggo/loggo"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/environs/config"
