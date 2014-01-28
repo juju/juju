@@ -220,7 +220,7 @@ func (conn *Conn) addCharm(curl *charm.URL, ch charm.Charm) (*state.Charm, error
 	default:
 		return nil, fmt.Errorf("unknown charm type %T", ch)
 	}
-	digest, size, err := utils.GetSHA256(f)
+	digest, size, err := utils.ReadSHA256(f)
 	if err != nil {
 		return nil, err
 	}

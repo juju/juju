@@ -20,6 +20,7 @@ import (
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/storage"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/dummy"
@@ -1825,7 +1826,7 @@ func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
 	// contains the correct data.
 	sch, err := s.State.Charm(curl)
 	c.Assert(err, gc.IsNil)
-	storage, err := apiserver.GetEnvironStorage(s.State)
+	storage, err := envtesting.GetEnvironStorage(s.State)
 	c.Assert(err, gc.IsNil)
 	uploads, err := storage.List(fmt.Sprintf("%s-%d-", curl.Name, curl.Revision))
 	c.Assert(err, gc.IsNil)
@@ -1861,7 +1862,7 @@ func (s *clientSuite) assertUploaded(c *gc.C, storage storage.Storage, bundleURL
 	reader, err := storage.Get(archiveName)
 	c.Assert(err, gc.IsNil)
 	defer reader.Close()
-	downloadedSHA256, _, err := utils.GetSHA256(reader)
+	downloadedSHA256, _, err := utils.ReadSHA256(reader)
 	c.Assert(err, gc.IsNil)
 	c.Assert(downloadedSHA256, gc.Equals, expectedSHA256)
 }

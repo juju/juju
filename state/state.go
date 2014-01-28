@@ -477,7 +477,11 @@ func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, b
 // to storage and placeholders are never returned.
 func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	cdoc := &charmDoc{}
-	what := D{{"_id", curl}, {"placeholder", false}, {"pendingupload", false}}
+	what := D{
+		{"_id", curl},
+		{"placeholder", D{{"$ne", true}}},
+		{"pendingupload", D{{"$ne", true}}},
+	}
 	err := st.charms.Find(what).One(&cdoc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("charm %q", curl)

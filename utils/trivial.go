@@ -122,9 +122,9 @@ func Gunzip(data []byte) ([]byte, error) {
 	return ioutil.ReadAll(r)
 }
 
-// GetSHA256 returns the SHA256 hash of the contents read from source
+// ReadSHA256 returns the SHA256 hash of the contents read from source
 // (hex encoded) and the size of the source in bytes.
-func GetSHA256(source io.Reader) (string, int64, error) {
+func ReadSHA256(source io.Reader) (string, int64, error) {
 	hash := sha256.New()
 	size, err := io.Copy(hash, source)
 	if err != nil {
@@ -134,13 +134,13 @@ func GetSHA256(source io.Reader) (string, int64, error) {
 	return digest, size, nil
 }
 
-// GetFileSHA256 is like GetSHA256 but reads the contents of the given
-// file.
-func GetFileSHA256(filename string) (string, int64, error) {
+// ReadFileSHA256 is like ReadSHA256 but reads the contents of the
+// given file.
+func ReadFileSHA256(filename string) (string, int64, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return "", 0, err
 	}
 	defer f.Close()
-	return GetSHA256(f)
+	return ReadSHA256(f)
 }

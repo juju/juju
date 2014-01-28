@@ -43,7 +43,7 @@ func NewMockStore(c *gc.C, charms map[string]int) *MockStore {
 	c.Assert(err, gc.IsNil)
 	defer f.Close()
 	buf := &bytes.Buffer{}
-	s.bundleSha256, _, err = utils.GetSHA256(io.TeeReader(f, buf))
+	s.bundleSha256, _, err = utils.ReadSHA256(io.TeeReader(f, buf))
 	c.Assert(err, gc.IsNil)
 	s.bundleBytes = buf.Bytes()
 	c.Assert(err, gc.IsNil)

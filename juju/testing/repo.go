@@ -75,7 +75,7 @@ func (s *RepoSuite) AssertCharmUploaded(c *gc.C, curl *charm.URL) {
 	resp, err := http.Get(url.String())
 	c.Assert(err, gc.IsNil)
 	defer resp.Body.Close()
-	digest, _, err := utils.GetSHA256(resp.Body)
+	digest, _, err := utils.ReadSHA256(resp.Body)
 	c.Assert(err, gc.IsNil)
 	c.Assert(ch.BundleSha256(), gc.Equals, digest)
 }

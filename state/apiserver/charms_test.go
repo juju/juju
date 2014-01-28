@@ -15,10 +15,10 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/apiserver"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
@@ -162,10 +162,10 @@ func (s *charmsSuite) TestUploadRespectsLocalRevision(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Finally, verify the SHA256 and uploaded URL.
-	expectedSHA256, _, err := utils.GetSHA256(tempFile)
+	expectedSHA256, _, err := utils.ReadSHA256(tempFile)
 	c.Assert(err, gc.IsNil)
 	name := charm.Quote(expectedURL.String())
-	storage, err := apiserver.GetEnvironStorage(s.State)
+	storage, err := envtesting.GetEnvironStorage(s.State)
 	c.Assert(err, gc.IsNil)
 	expectedUploadURL, err := storage.URL(name)
 	c.Assert(err, gc.IsNil)
@@ -176,7 +176,7 @@ func (s *charmsSuite) TestUploadRespectsLocalRevision(c *gc.C) {
 	reader, err := storage.Get(name)
 	c.Assert(err, gc.IsNil)
 	defer reader.Close()
-	downloadedSHA256, _, err := utils.GetSHA256(reader)
+	downloadedSHA256, _, err := utils.ReadSHA256(reader)
 	c.Assert(err, gc.IsNil)
 	c.Assert(downloadedSHA256, gc.Equals, expectedSHA256)
 }

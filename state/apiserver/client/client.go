@@ -863,7 +863,7 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 		return fmt.Errorf("cannot read downloaded charm: %v", err)
 	}
 	defer archive.Close()
-	bundleSHA256, size, err := utils.GetSHA256(archive)
+	bundleSHA256, size, err := utils.ReadSHA256(archive)
 	if err != nil {
 		return fmt.Errorf("cannot calculate SHA256 hash of charm: %v", err)
 	}

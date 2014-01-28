@@ -1196,7 +1196,7 @@ func (s addCharm) step(c *gc.C, ctx *context) {
 	err := s.dir.BundleTo(&buf)
 	c.Assert(err, gc.IsNil)
 	body := buf.Bytes()
-	hash, _, err := utils.GetSHA256(&buf)
+	hash, _, err := utils.ReadSHA256(&buf)
 	c.Assert(err, gc.IsNil)
 	key := fmt.Sprintf("/charms/%s/%d", s.dir.Meta().Name, s.dir.Revision())
 	hurl, err := url.Parse(coretesting.Server.URL + key)

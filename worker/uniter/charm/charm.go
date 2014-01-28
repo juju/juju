@@ -72,7 +72,7 @@ func (d *BundlesDir) download(sch *uniter.Charm, abort <-chan struct{}) (err err
 			}
 			log.Infof("worker/uniter/charm: download complete")
 			defer st.File.Close()
-			actualSha256, _, err := utils.GetSHA256(st.File)
+			actualSha256, _, err := utils.ReadSHA256(st.File)
 			if err != nil {
 				return err
 			}

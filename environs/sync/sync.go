@@ -168,7 +168,7 @@ func copyOneToolsPackage(tool *coretools.Tools, dest storage.Storage) error {
 	buf := &bytes.Buffer{}
 	srcFile := resp.Body
 	defer srcFile.Close()
-	tool.SHA256, tool.Size, err = utils.GetSHA256(io.TeeReader(srcFile, buf))
+	tool.SHA256, tool.Size, err = utils.ReadSHA256(io.TeeReader(srcFile, buf))
 	if err != nil {
 		return err
 	}

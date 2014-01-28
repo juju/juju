@@ -68,7 +68,7 @@ func SHA256sum(c *gc.C, path string) (int64, string) {
 	if strings.HasPrefix(path, "file://") {
 		path = path[len("file://"):]
 	}
-	hash, size, err := utils.GetFileSHA256(path)
+	hash, size, err := utils.ReadFileSHA256(path)
 	c.Assert(err, gc.IsNil)
 	return size, hash
 }

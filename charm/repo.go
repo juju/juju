@@ -297,7 +297,7 @@ func (s *CharmStore) CharmURL(location string) (*URL, error) {
 // verify returns an error unless a file exists at path with a hex-encoded
 // SHA256 matching digest.
 func verify(path, digest string) error {
-	hash, _, err := utils.GetFileSHA256(path)
+	hash, _, err := utils.ReadFileSHA256(path)
 	if err != nil {
 		return err
 	}
