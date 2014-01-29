@@ -40,7 +40,16 @@ constraints were set with juju set-constraints.
 Bootstrap initializes the cloud environment synchronously and displays information
 about the current installation steps.  The time for bootstrap to complete varies 
 across cloud providers from a few seconds to several minutes.  Once bootstrap has 
-completed, you can run other juju commands against your environment.
+completed, you can run other juju commands against your environment. You can change
+the default timeout and retry delays used during the bootstrap by changing the
+following settings in your environments.yaml (all values represent number of seconds):
+
+    # How long to wait for a SSH connection to the state server.
+    bootstrap-ssh-timeout: 600 # default: 10 minutes
+    # How long to wait between connection attempts to a state server address.
+    bootstrap-ssh-retry-delay: 5 # default: 5 seconds
+    # How often to refresh state server addresses from the API server.
+    bootstrap-ssh-addresses-delay: 10 # default: 10 seconds
 
 Private clouds may need to specify their own custom image metadata, and possibly upload
 Juju tools to cloud storage if no outgoing Internet access is available. In this case,

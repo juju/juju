@@ -498,6 +498,57 @@ var configTests = []configTest{
 		},
 		err: `syslog-port: expected number, got string\("illegal"\)`,
 	}, {
+		about:       "Explicit bootstrap SSH timeout",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":                  "my-type",
+			"name":                  "my-name",
+			"bootstrap-ssh-timeout": 300,
+		},
+	}, {
+		about:       "Invalid bootstrap SSH timeout",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":                  "my-type",
+			"name":                  "my-name",
+			"bootstrap-ssh-timeout": "illegal",
+		},
+		err: `bootstrap-ssh-timeout: expected number, got string\("illegal"\)`,
+	}, {
+		about:       "Explicit bootstrap SSH retry delay",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"bootstrap-ssh-retry-delay": 5,
+		},
+	}, {
+		about:       "Invalid bootstrap SSH retry delay",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"bootstrap-ssh-retry-delay": "illegal",
+		},
+		err: `bootstrap-ssh-retry-delay: expected number, got string\("illegal"\)`,
+	}, {
+		about:       "Explicit bootstrap SSH addresses delay",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"bootstrap-ssh-addresses-delay": 15,
+		},
+	}, {
+		about:       "Invalid bootstrap SSH addresses delay",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"bootstrap-ssh-addresses-delay": "illegal",
+		},
+		err: `bootstrap-ssh-addresses-delay: expected number, got string\("illegal"\)`,
+	}, {
 		about:       "Invalid logging configuration",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
@@ -839,6 +890,25 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 	} else {
 		c.Assert(cfg.ProvisionerSafeMode(), gc.Equals, false)
 	}
+	sshOpts := cfg.BootstrapSSHOpts()
+	test.assertDuration(
+		c,
+		"bootstrap-ssh-timeout",
+		sshOpts.Timeout,
+		config.DefaultBootstrapSSHTimeout,
+	)
+	test.assertDuration(
+		c,
+		"bootstrap-ssh-retry-delay",
+		sshOpts.RetryDelay,
+		config.DefaultBootstrapSSHRetryDelay,
+	)
+	test.assertDuration(
+		c,
+		"bootstrap-ssh-addresses-delay",
+		sshOpts.AddressesDelay,
+		config.DefaultBootstrapSSHAddressesDelay,
+	)
 
 	url, urlPresent := cfg.ImageMetadataURL()
 	if v, _ := test.attrs["image-metadata-url"].(string); v != "" {
@@ -867,25 +937,37 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 	}
 }
 
+func (test configTest) assertDuration(c *gc.C, name string, actual time.Duration, defaultInSeconds int) {
+	value, ok := test.attrs[name].(int)
+	if !ok || value == 0 {
+		c.Assert(actual, gc.Equals, time.Duration(defaultInSeconds)*time.Second)
+	} else {
+		c.Assert(actual, gc.Equals, time.Duration(value)*time.Second)
+	}
+}
+
 func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	// Normally this is handled by testing.FakeHome
 	s.PatchEnvironment(osenv.JujuLoggingConfigEnvKey, "")
 	attrs := map[string]interface{}{
-		"type":                      "my-type",
-		"name":                      "my-name",
-		"authorized-keys":           testing.FakeAuthKeys,
-		"firewall-mode":             config.FwInstance,
-		"admin-secret":              "foo",
-		"unknown":                   "my-unknown",
-		"ca-cert":                   caCert,
-		"ssl-hostname-verification": true,
-		"development":               false,
-		"provisioner-safe-mode":     false,
-		"state-port":                1234,
-		"api-port":                  4321,
-		"syslog-port":               2345,
-		"default-series":            "precise",
-		"charm-store-auth":          "token=auth",
+		"type":                          "my-type",
+		"name":                          "my-name",
+		"authorized-keys":               testing.FakeAuthKeys,
+		"firewall-mode":                 config.FwInstance,
+		"admin-secret":                  "foo",
+		"unknown":                       "my-unknown",
+		"ca-cert":                       caCert,
+		"ssl-hostname-verification":     true,
+		"development":                   false,
+		"provisioner-safe-mode":         false,
+		"state-port":                    1234,
+		"api-port":                      4321,
+		"syslog-port":                   2345,
+		"bootstrap-ssh-timeout":         3600,
+		"bootstrap-ssh-retry-delay":     30,
+		"bootstrap-ssh-addresses-delay": 10,
+		"default-series":                "precise",
+		"charm-store-auth":              "token=auth",
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
@@ -900,17 +982,18 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["tools-url"] = ""
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
-	c.Assert(cfg.AllAttrs(), gc.DeepEquals, attrs)
-	c.Assert(cfg.UnknownAttrs(), gc.DeepEquals, map[string]interface{}{"unknown": "my-unknown"})
+	c.Assert(cfg.AllAttrs(), jc.DeepEquals, attrs)
+	c.Assert(cfg.UnknownAttrs(), jc.DeepEquals, map[string]interface{}{"unknown": "my-unknown"})
 
 	newcfg, err := cfg.Apply(map[string]interface{}{
 		"name":        "new-name",
 		"new-unknown": "my-new-unknown",
 	})
+	c.Assert(err, gc.IsNil)
 
 	attrs["name"] = "new-name"
 	attrs["new-unknown"] = "my-new-unknown"
-	c.Assert(newcfg.AllAttrs(), gc.DeepEquals, attrs)
+	c.Assert(newcfg.AllAttrs(), jc.DeepEquals, attrs)
 }
 
 type validationTest struct {

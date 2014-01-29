@@ -45,6 +45,19 @@ const (
 	// DefaultSyslogPort is the default port that the syslog UDP listener is
 	// listening on.
 	DefaultSyslogPort int = 514
+
+	// DefaultBootstrapSSHTimeout is the amount of time to wait
+	// contacting a state server, in seconds.
+	DefaultBootstrapSSHTimeout int = 600
+
+	// DefaultBootstrapSSHRetryDelay is the amount of time between
+	// attempts to connect to an address, in seconds.
+	DefaultBootstrapSSHRetryDelay int = 5
+
+	// DefaultBootstrapSSHAddressesDelay is the amount of time between
+	// refreshing the addresses, in seconds. Not too frequent, as we
+	// refresh addresses from the provider each time.
+	DefaultBootstrapSSHAddressesDelay int = 10
 )
 
 // Config holds an immutable environment configuration.
@@ -473,6 +486,26 @@ func (c *Config) AptFtpProxy() string {
 	return c.getWithFallback("apt-ftp-proxy", "ftp-proxy")
 }
 
+// BootstrapSSHOpts returns the SSH timeout and retry delays used
+// during bootstrap.
+func (c *Config) BootstrapSSHOpts() SSHTimeoutOpts {
+	opts := SSHTimeoutOpts{
+		Timeout:        time.Duration(DefaultBootstrapSSHTimeout) * time.Second,
+		RetryDelay:     time.Duration(DefaultBootstrapSSHRetryDelay) * time.Second,
+		AddressesDelay: time.Duration(DefaultBootstrapSSHAddressesDelay) * time.Second,
+	}
+	if v, ok := c.m["bootstrap-ssh-timeout"].(int); ok && v != 0 {
+		opts.Timeout = time.Duration(v) * time.Second
+	}
+	if v, ok := c.m["bootstrap-ssh-retry-delay"].(int); ok && v != 0 {
+		opts.RetryDelay = time.Duration(v) * time.Second
+	}
+	if v, ok := c.m["bootstrap-ssh-addresses-delay"].(int); ok && v != 0 {
+		opts.AddressesDelay = time.Duration(v) * time.Second
+	}
+	return opts
+}
+
 // CACert returns the certificate of the CA that signed the state server
 // certificate, in PEM format, and whether the setting is available.
 func (c *Config) CACert() ([]byte, bool) {
@@ -599,34 +632,37 @@ func (c *Config) Apply(attrs map[string]interface{}) (*Config, error) {
 }
 
 var fields = schema.Fields{
-	"type":                      schema.String(),
-	"name":                      schema.String(),
-	"default-series":            schema.String(),
-	"tools-metadata-url":        schema.String(),
-	"image-metadata-url":        schema.String(),
-	"authorized-keys":           schema.String(),
-	"authorized-keys-path":      schema.String(),
-	"firewall-mode":             schema.String(),
-	"agent-version":             schema.String(),
-	"development":               schema.Bool(),
-	"admin-secret":              schema.String(),
-	"ca-cert":                   schema.String(),
-	"ca-cert-path":              schema.String(),
-	"ca-private-key":            schema.String(),
-	"ca-private-key-path":       schema.String(),
-	"ssl-hostname-verification": schema.Bool(),
-	"state-port":                schema.ForceInt(),
-	"api-port":                  schema.ForceInt(),
-	"syslog-port":               schema.ForceInt(),
-	"logging-config":            schema.String(),
-	"charm-store-auth":          schema.String(),
-	"provisioner-safe-mode":     schema.Bool(),
-	"http-proxy":                schema.String(),
-	"https-proxy":               schema.String(),
-	"ftp-proxy":                 schema.String(),
-	"apt-http-proxy":            schema.String(),
-	"apt-https-proxy":           schema.String(),
-	"apt-ftp-proxy":             schema.String(),
+	"type":                          schema.String(),
+	"name":                          schema.String(),
+	"default-series":                schema.String(),
+	"tools-metadata-url":            schema.String(),
+	"image-metadata-url":            schema.String(),
+	"authorized-keys":               schema.String(),
+	"authorized-keys-path":          schema.String(),
+	"firewall-mode":                 schema.String(),
+	"agent-version":                 schema.String(),
+	"development":                   schema.Bool(),
+	"admin-secret":                  schema.String(),
+	"ca-cert":                       schema.String(),
+	"ca-cert-path":                  schema.String(),
+	"ca-private-key":                schema.String(),
+	"ca-private-key-path":           schema.String(),
+	"ssl-hostname-verification":     schema.Bool(),
+	"state-port":                    schema.ForceInt(),
+	"api-port":                      schema.ForceInt(),
+	"syslog-port":                   schema.ForceInt(),
+	"logging-config":                schema.String(),
+	"charm-store-auth":              schema.String(),
+	"provisioner-safe-mode":         schema.Bool(),
+	"http-proxy":                    schema.String(),
+	"https-proxy":                   schema.String(),
+	"ftp-proxy":                     schema.String(),
+	"apt-http-proxy":                schema.String(),
+	"apt-https-proxy":               schema.String(),
+	"apt-ftp-proxy":                 schema.String(),
+	"bootstrap-ssh-timeout":         schema.ForceInt(),
+	"bootstrap-ssh-retry-delay":     schema.ForceInt(),
+	"bootstrap-ssh-addresses-delay": schema.ForceInt(),
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url": schema.String(),
@@ -641,20 +677,23 @@ var fields = schema.Fields{
 // but some fields listed as optional here are actually mandatory
 // with NoDefaults and are checked at the later Validate stage.
 var alwaysOptional = schema.Defaults{
-	"agent-version":         schema.Omit,
-	"ca-cert":               schema.Omit,
-	"authorized-keys":       schema.Omit,
-	"authorized-keys-path":  schema.Omit,
-	"ca-cert-path":          schema.Omit,
-	"ca-private-key-path":   schema.Omit,
-	"logging-config":        schema.Omit,
-	"provisioner-safe-mode": schema.Omit,
-	"http-proxy":            schema.Omit,
-	"https-proxy":           schema.Omit,
-	"ftp-proxy":             schema.Omit,
-	"apt-http-proxy":        schema.Omit,
-	"apt-https-proxy":       schema.Omit,
-	"apt-ftp-proxy":         schema.Omit,
+	"agent-version":                 schema.Omit,
+	"ca-cert":                       schema.Omit,
+	"authorized-keys":               schema.Omit,
+	"authorized-keys-path":          schema.Omit,
+	"ca-cert-path":                  schema.Omit,
+	"ca-private-key-path":           schema.Omit,
+	"logging-config":                schema.Omit,
+	"provisioner-safe-mode":         schema.Omit,
+	"http-proxy":                    schema.Omit,
+	"https-proxy":                   schema.Omit,
+	"ftp-proxy":                     schema.Omit,
+	"apt-http-proxy":                schema.Omit,
+	"apt-https-proxy":               schema.Omit,
+	"apt-ftp-proxy":                 schema.Omit,
+	"bootstrap-ssh-timeout":         schema.Omit,
+	"bootstrap-ssh-retry-delay":     schema.Omit,
+	"bootstrap-ssh-addresses-delay": schema.Omit,
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url": "",
@@ -686,13 +725,16 @@ var defaults = allDefaults()
 
 func allDefaults() schema.Defaults {
 	d := schema.Defaults{
-		"default-series":            DefaultSeries,
-		"firewall-mode":             FwInstance,
-		"development":               false,
-		"ssl-hostname-verification": true,
-		"state-port":                DefaultStatePort,
-		"api-port":                  DefaultAPIPort,
-		"syslog-port":               DefaultSyslogPort,
+		"default-series":                DefaultSeries,
+		"firewall-mode":                 FwInstance,
+		"development":                   false,
+		"ssl-hostname-verification":     true,
+		"state-port":                    DefaultStatePort,
+		"api-port":                      DefaultAPIPort,
+		"syslog-port":                   DefaultSyslogPort,
+		"bootstrap-ssh-timeout":         DefaultBootstrapSSHTimeout,
+		"bootstrap-ssh-retry-delay":     DefaultBootstrapSSHRetryDelay,
+		"bootstrap-ssh-addresses-delay": DefaultBootstrapSSHAddressesDelay,
 	}
 	for attr, val := range alwaysOptional {
 		d[attr] = val
@@ -726,6 +768,9 @@ var immutableAttributes = []string{
 	"state-port",
 	"api-port",
 	"syslog-port",
+	"bootstrap-ssh-timeout",
+	"bootstrap-ssh-retry-delay",
+	"bootstrap-ssh-addresses-delay",
 }
 
 var (
@@ -787,4 +832,22 @@ func AuthorizeCharmRepo(repo charm.Repository, cfg *Config) charm.Repository {
 		}
 	}
 	return repo
+}
+
+// SSHTimeoutOpts lists the amount of time we will wait for various
+// parts of the SSH connection to complete. This is similar to
+// DialOpts, see http://pad.lv/1258889 about possibly deduplicating
+// them.
+type SSHTimeoutOpts struct {
+	// Timeout is the amount of time to wait contacting a state
+	// server.
+	Timeout time.Duration
+
+	// RetryDelay is the amount of time between attempts to connect to
+	// an address.
+	RetryDelay time.Duration
+
+	// AddressesDelay is the amount of time between refreshing the
+	// addresses.
+	AddressesDelay time.Duration
 }
