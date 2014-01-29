@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/cloudinit/sshinit"
@@ -100,7 +100,7 @@ func GenerateSystemSSHKey(env environs.Environ) (privateKey string, err error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to create system key: %v", err)
 	}
-	authorized_keys := env.Config().AuthorizedKeys() + publicKey
+	authorized_keys := concatAuthKeys(env.Config().AuthorizedKeys(), publicKey)
 	newConfig, err := env.Config().Apply(map[string]interface{}{
 		"authorized-keys": authorized_keys,
 	})
@@ -111,6 +111,23 @@ func GenerateSystemSSHKey(env environs.Environ) (privateKey string, err error) {
 		return "", fmt.Errorf("failed to set new config: %v", err)
 	}
 	return privateKey, nil
+}
+
+// concatAuthKeys concatenates the two
+// sets of authorized keys, interposing
+// a newline if necessary, because authorized
+// keys are newline-separated.
+func concatAuthKeys(a, b string) string {
+	if a == "" {
+		return b
+	}
+	if b == "" {
+		return a
+	}
+	if a[len(a)-1] != '\n' {
+		return a + "\n" + b
+	}
+	return a + b
 }
 
 // handelBootstrapError cleans up after a failed bootstrap.
@@ -192,10 +209,10 @@ var FinishBootstrap = func(ctx environs.BootstrapContext, client ssh.Client, ins
 		return err
 	}
 	return sshinit.Configure(sshinit.ConfigureParams{
-		Host:   "ubuntu@" + addr,
-		Client: client,
-		Config: cloudcfg,
-		Stderr: ctx.Stderr(),
+		Host:           "ubuntu@" + addr,
+		Client:         client,
+		Config:         cloudcfg,
+		ProgressWriter: ctx.Stderr(),
 	})
 }
 

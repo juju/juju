@@ -12,7 +12,7 @@ import (
 	"os"
 	"strings"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/charm"
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
@@ -601,21 +601,11 @@ func stateJobs(jobs []params.MachineJob) ([]state.MachineJob, error) {
 	return newJobs, nil
 }
 
-// MachineConfig returns information from the environment config that is
-// needed for machine cloud-init (both state servers and host nodes).
-func (c *Client) MachineConfig(args params.MachineConfigParams) (params.MachineConfig, error) {
-	return statecmd.MachineConfig(c.api.state, args.MachineId)
-}
-
 // ProvisioningScript returns a shell script that, when run,
 // provisions a machine agent on the machine executing the script.
 func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (params.ProvisioningScriptResult, error) {
 	var result params.ProvisioningScriptResult
-	mcfgParams, err := statecmd.MachineConfig(c.api.state, args.MachineId)
-	if err != nil {
-		return result, err
-	}
-	mcfg, err := statecmd.FinishMachineConfig(mcfgParams, args.MachineId, args.Nonce, args.DataDir)
+	mcfg, err := statecmd.MachineConfig(c.api.state, args.MachineId, args.Nonce, args.DataDir)
 	if err != nil {
 		return result, err
 	}

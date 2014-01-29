@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"sync"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
@@ -31,6 +31,7 @@ const (
 	SharedStorageAddr = "SHARED_STORAGE_ADDR"
 	AgentServiceName  = "AGENT_SERVICE_NAME"
 	MongoServiceName  = "MONGO_SERVICE_NAME"
+	RsyslogConfPath   = "RSYSLOG_CONF_PATH"
 )
 
 // The Config interface is the sole way that the agent gets access to the

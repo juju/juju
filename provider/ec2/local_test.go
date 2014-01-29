@@ -4,6 +4,7 @@
 package ec2_test
 
 import (
+	"fmt"
 	"regexp"
 	"sort"
 	"strings"
@@ -33,10 +34,13 @@ import (
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/ssh"
 	"launchpad.net/juju-core/version"
 )
 
-type ProviderSuite struct{}
+type ProviderSuite struct {
+	testbase.LoggingSuite
+}
 
 var _ = gc.Suite(&ProviderSuite{})
 
@@ -58,6 +62,40 @@ func (s *ProviderSuite) TestMetadata(c *gc.C) {
 	addr, err = p.PrivateAddress()
 	c.Assert(err, gc.IsNil)
 	c.Assert(addr, gc.Equals, "private.dummy.address.invalid")
+}
+
+func (t *ProviderSuite) assertGetImageMetadataSources(c *gc.C, stream, officialSourcePath string) {
+	// Make an env configured with the stream.
+	envAttrs := localConfigAttrs
+	if stream != "" {
+		envAttrs = envAttrs.Merge(coretesting.Attrs{
+			"image-stream": stream,
+		})
+	}
+	cfg, err := config.New(config.NoDefaults, envAttrs)
+	c.Assert(err, gc.IsNil)
+	env, err := environs.Prepare(cfg, configstore.NewMem())
+	c.Assert(err, gc.IsNil)
+	c.Assert(env, gc.NotNil)
+
+	sources, err := imagemetadata.GetMetadataSources(env)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(sources), gc.Equals, 2)
+	var urls = make([]string, len(sources))
+	for i, source := range sources {
+		url, err := source.URL("")
+		c.Assert(err, gc.IsNil)
+		urls[i] = url
+	}
+	// The control bucket URL contains the bucket name.
+	c.Check(strings.Contains(urls[0], ec2.ControlBucketName(env)+"/images"), jc.IsTrue)
+	c.Assert(urls[1], gc.Equals, fmt.Sprintf("http://cloud-images.ubuntu.com/%s/", officialSourcePath))
+}
+
+func (t *ProviderSuite) TestGetImageMetadataSources(c *gc.C) {
+	t.assertGetImageMetadataSources(c, "", "releases")
+	t.assertGetImageMetadataSources(c, "released", "releases")
+	t.assertGetImageMetadataSources(c, "daily", "daily")
 }
 
 var localConfigAttrs = coretesting.FakeConfig().Merge(coretesting.Attrs{
@@ -240,12 +278,11 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	var userDataMap map[interface{}]interface{}
 	err = goyaml.Unmarshal(userData, &userDataMap)
 	c.Assert(err, gc.IsNil)
-	expectedAuthKeys := strings.TrimSpace(env.Config().AuthorizedKeys())
-	c.Assert(userDataMap, gc.DeepEquals, map[interface{}]interface{}{
+	c.Assert(userDataMap, jc.DeepEquals, map[interface{}]interface{}{
 		"output": map[interface{}]interface{}{
 			"all": "| tee -a /var/log/cloud-init-output.log",
 		},
-		"ssh_authorized_keys": []interface{}{expectedAuthKeys},
+		"ssh_authorized_keys": splitAuthKeys(env.Config().AuthorizedKeys()),
 		"runcmd": []interface{}{
 			"set -xe",
 			"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
@@ -278,6 +315,20 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 
 	_, err = bootstrap.LoadState(env.Storage())
 	c.Assert(err, gc.NotNil)
+}
+
+// splitAuthKeys splits the given authorized keys
+// into the form expected to be found in the
+// user data.
+func splitAuthKeys(keys string) []interface{} {
+	slines := strings.FieldsFunc(keys, func(r rune) bool {
+		return r == '\n'
+	})
+	var lines []interface{}
+	for _, line := range slines {
+		lines = append(lines, ssh.EnsureJujuComment(strings.TrimSpace(line)))
+	}
+	return lines
 }
 
 func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
@@ -351,22 +402,6 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	sort.Strings(image_ids)
 	c.Assert(image_ids, gc.DeepEquals, []string{"ami-00000033", "ami-00000034", "ami-00000035"})
-}
-
-func (t *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
-	env := t.Prepare(c)
-	sources, err := imagemetadata.GetMetadataSources(env)
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(sources), gc.Equals, 2)
-	var urls = make([]string, len(sources))
-	for i, source := range sources {
-		url, err := source.URL("")
-		c.Assert(err, gc.IsNil)
-		urls[i] = url
-	}
-	// The control bucket URL contains the bucket name.
-	c.Check(strings.Contains(urls[0], ec2.ControlBucketName(env)+"/images"), jc.IsTrue)
-	c.Assert(urls[1], gc.Equals, imagemetadata.DefaultBaseURL+"/")
 }
 
 func (t *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {

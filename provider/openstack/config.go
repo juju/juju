@@ -25,6 +25,7 @@ var configFields = schema.Fields{
 	"control-bucket":       schema.String(),
 	"use-floating-ip":      schema.Bool(),
 	"use-default-secgroup": schema.Bool(),
+	"network":              schema.String(),
 }
 var configDefaults = schema.Defaults{
 	"username":             "",
@@ -38,6 +39,7 @@ var configDefaults = schema.Defaults{
 	"control-bucket":       "",
 	"use-floating-ip":      false,
 	"use-default-secgroup": false,
+	"network":              "",
 }
 
 type environConfig struct {
@@ -87,6 +89,10 @@ func (c *environConfig) useFloatingIP() bool {
 
 func (c *environConfig) useDefaultSecurityGroup() bool {
 	return c.attrs["use-default-secgroup"].(bool)
+}
+
+func (c *environConfig) network() string {
+	return c.attrs["network"].(string)
 }
 
 func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {

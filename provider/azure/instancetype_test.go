@@ -309,7 +309,7 @@ func (*instanceTypeSuite) TestFindMatchingImagesReturnsErrorIfNoneFound(c *gc.C)
 	defer cleanup()
 
 	env := makeEnviron(c)
-	_, err := findMatchingImages(env, "West US", "saucy", "", []string{"amd64"})
+	_, err := findMatchingImages(env, "West US", "saucy", []string{"amd64"})
 	c.Assert(err, gc.NotNil)
 
 	c.Check(err, gc.ErrorMatches, "no OS images found for location .*")
@@ -359,7 +359,7 @@ func (*instanceTypeSuite) TestFindMatchingImagesReturnsReleasedImages(c *gc.C) {
 	defer cleanup()
 
 	env := makeEnviron(c)
-	images, err := findMatchingImages(env, "West Europe", "precise", "", []string{"amd64"})
+	images, err := findMatchingImages(env, "West Europe", "precise", []string{"amd64"})
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(images, gc.HasLen, 1)
@@ -409,8 +409,10 @@ func (*instanceTypeSuite) TestFindMatchingImagesReturnsDailyImages(c *gc.C) {
 	cleanup := prepareSimpleStreamsResponse("daily", "West Europe", "precise", "12.04", "amd64", response)
 	defer cleanup()
 
-	env := makeEnviron(c)
-	images, err := findMatchingImages(env, "West Europe", "precise", "daily", []string{"amd64"})
+	envAttrs := makeAzureConfigMap(c)
+	envAttrs["image-stream"] = "daily"
+	env := makeEnvironWithConfig(c, envAttrs)
+	images, err := findMatchingImages(env, "West Europe", "precise", []string{"amd64"})
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(images, gc.HasLen, 1)
@@ -470,7 +472,7 @@ func (*instanceTypeSuite) TestFindInstanceSpecFailsImpossibleRequest(c *gc.C) {
 	}
 
 	env := makeEnviron(c)
-	_, err := findInstanceSpec(env, "daily", impossibleConstraint)
+	_, err := findInstanceSpec(env, impossibleConstraint)
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, "no OS images found for .*")
 }
@@ -516,7 +518,7 @@ func (*instanceTypeSuite) TestFindInstanceSpecFindsMatch(c *gc.C) {
 
 	// Find a matching instance type and image.
 	env := makeEnviron(c)
-	spec, err := findInstanceSpec(env, "released", constraints)
+	spec, err := findInstanceSpec(env, constraints)
 	c.Assert(err, gc.IsNil)
 
 	// We got the instance type we described in our constraints, and
@@ -549,7 +551,7 @@ func (*instanceTypeSuite) TestFindInstanceSpecSetsBaseline(c *gc.C) {
 	}
 
 	env := makeEnviron(c)
-	spec, err := findInstanceSpec(env, "", anyInstanceType)
+	spec, err := findInstanceSpec(env, anyInstanceType)
 	c.Assert(err, gc.IsNil)
 
 	c.Check(spec.InstanceType.Name, gc.Equals, "Small")

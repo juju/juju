@@ -15,9 +15,10 @@ import (
 	"sync"
 	"time"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/uniter"
 	utilexec "launchpad.net/juju-core/utils/exec"
@@ -78,11 +79,14 @@ type HookContext struct {
 
 	// serviceOwner contains the owner of the service
 	serviceOwner string
+
+	// proxySettings are the current proxy settings that the uniter knows about
+	proxySettings osenv.ProxySettings
 }
 
 func NewHookContext(unit *uniter.Unit, id, uuid string, relationId int,
 	remoteUnitName string, relations map[int]*ContextRelation,
-	apiAddrs []string, serviceOwner string) (*HookContext, error) {
+	apiAddrs []string, serviceOwner string, proxySettings osenv.ProxySettings) (*HookContext, error) {
 	ctx := &HookContext{
 		unit:           unit,
 		id:             id,
@@ -92,6 +96,7 @@ func NewHookContext(unit *uniter.Unit, id, uuid string, relationId int,
 		relations:      relations,
 		apiAddrs:       apiAddrs,
 		serviceOwner:   serviceOwner,
+		proxySettings:  proxySettings,
 	}
 	// Get and cache the addresses.
 	var err error
@@ -187,6 +192,7 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 		name, _ := ctx.RemoteUnitName()
 		vars = append(vars, "JUJU_REMOTE_UNIT="+name)
 	}
+	vars = append(vars, ctx.proxySettings.AsEnvironmentValues()...)
 	return vars
 }
 

@@ -12,6 +12,7 @@ import (
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
+	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
@@ -167,18 +168,34 @@ var MachineIdLessThan = machineIdLessThan
 var JobNames = jobNames
 
 // SCHEMACHANGE
-// This method is used to reset a deprecated machine attriute.
+// This method is used to reset a deprecated machine attribute.
 func SetMachineInstanceId(m *Machine, instanceId string) {
 	m.doc.InstanceId = instance.Id(instanceId)
 }
 
-//SCHEMACHANGE
+// SCHEMACHANGE
+// ClearInstanceDocId sets instanceid on instanceData for machine to "".
+func ClearInstanceDocId(c *gc.C, m *Machine) {
+	ops := []txn.Op{
+		{
+			C:      m.st.instanceData.Name,
+			Id:     m.doc.Id,
+			Assert: txn.DocExists,
+			Update: D{{"$set", D{{"instanceid", ""}}}},
+		},
+	}
+
+	err := m.st.runTransaction(ops)
+	c.Assert(err, gc.IsNil)
+}
+
+// SCHEMACHANGE
 // This method is used to reset the ownertag attribute
 func SetServiceOwnerTag(s *Service, ownerTag string) {
 	s.doc.OwnerTag = ownerTag
 }
 
-//SCHEMACHANGE
+// SCHEMACHANGE
 // Get the owner directly
 func GetServiceOwnerTag(s *Service) string {
 	return s.doc.OwnerTag
@@ -222,10 +239,6 @@ func ParseTag(st *State, tag string) (string, string, error) {
 // Return the PasswordSalt that goes along with the PasswordHash
 func GetUserPasswordSaltAndHash(u *User) (string, string) {
 	return u.doc.PasswordSalt, u.doc.PasswordHash
-}
-
-func StateServerMachineIds(st *State) ([]string, error) {
-	return st.stateServerMachineIds()
 }
 
 var NewAddress = newAddress

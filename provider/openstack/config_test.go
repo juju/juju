@@ -7,8 +7,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/loggo/loggo"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -58,6 +58,7 @@ type configTest struct {
 	toolsURL                string
 	useFloatingIP           bool
 	useDefaultSecurityGroup bool
+	network                 string
 	username                string
 	password                string
 	tenantName              string
@@ -161,6 +162,7 @@ func (t configTest) check(c *gc.C) {
 	}
 	c.Assert(ecfg.useFloatingIP(), gc.Equals, t.useFloatingIP)
 	c.Assert(ecfg.useDefaultSecurityGroup(), gc.Equals, t.useDefaultSecurityGroup)
+	c.Assert(ecfg.network(), gc.Equals, t.network)
 	// Default should be true
 	expectedHostnameVerification := true
 	if t.sslHostnameSet {
@@ -430,6 +432,15 @@ var configTests = []configTest{
 		},
 		sslHostnameVerification: true,
 		sslHostnameSet:          true,
+	}, {
+		summary: "default network",
+		network: "",
+	}, {
+		summary: "network",
+		config: attrs{
+			"network": "a-network-label",
+		},
+		network: "a-network-label",
 	},
 }
 

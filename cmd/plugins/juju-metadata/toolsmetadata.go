@@ -9,8 +9,8 @@ import (
 	"path"
 	"strings"
 
+	"github.com/loggo/loggo"
 	"launchpad.net/gnuflag"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/filestorage"

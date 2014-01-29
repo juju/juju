@@ -8,12 +8,13 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	stdtesting "testing"
 
+	"github.com/loggo/loggo"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/golxc"
 	"launchpad.net/goyaml"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/container/lxc"
@@ -186,6 +187,25 @@ func (s *LxcSuite) TestStartContainerAutostarts(c *gc.C) {
 	c.Assert(autostartLink, jc.IsSymlink)
 }
 
+func (s *LxcSuite) TestStartContainerNoRestartDir(c *gc.C) {
+	err := os.Remove(s.RestartDir)
+	c.Assert(err, gc.IsNil)
+
+	manager := lxc.NewContainerManager(container.ManagerConfig{})
+	instance := containertesting.StartContainer(c, manager, "1/lxc/0")
+	autostartLink := lxc.RestartSymlink(string(instance.Id()))
+
+	config := lxc.NetworkConfigTemplate("foo", "bar")
+	expected := `
+lxc.network.type = foo
+lxc.network.link = bar
+lxc.network.flags = up
+lxc.start.auto = 1
+`
+	c.Assert(config, gc.Equals, expected)
+	c.Assert(autostartLink, jc.DoesNotExist)
+}
+
 func (s *LxcSuite) TestStopContainerRemovesAutostartLink(c *gc.C) {
 	manager := lxc.NewContainerManager(container.ManagerConfig{})
 	instance := containertesting.StartContainer(c, manager, "1/lxc/0")
@@ -231,10 +251,20 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 
 func (*NetworkSuite) TestNetworkConfigTemplate(c *gc.C) {
 	config := lxc.NetworkConfigTemplate("foo", "bar")
-	expected := `
-lxc.network.type = foo
-lxc.network.link = bar
-lxc.network.flags = up
-`
-	c.Assert(config, gc.Equals, expected)
+	//In the past, the entire lxc.conf file was just networking. With the addition
+	//of the auto start, we now have to have better isolate this test. As such, we
+	//parse the conf template results and just get the results that start with
+	//'lxc.network' as that is what the test cares about.
+	obtained := []string{}
+	for _, value := range strings.Split(config, "\n") {
+		if strings.HasPrefix(value, "lxc.network") {
+			obtained = append(obtained, value)
+		}
+	}
+	expected := []string{
+		"lxc.network.type = foo",
+		"lxc.network.link = bar",
+		"lxc.network.flags = up",
+	}
+	c.Assert(obtained, gc.DeepEquals, expected)
 }
