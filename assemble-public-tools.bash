@@ -230,7 +230,8 @@ sign_metadata() {
     key_option="--default-key $SIGNING_KEY"
     gpg_options=""
     if [[ -n $SIGNING_PASSPHRASE_FILE ]]; then
-        gpg_options="--no-tty --passphrase-file $SIGNING_PASSPHRASE_FILE"
+        gpg_options="--no-use-agent --no-tty"
+        gpg_options="$gpg_option --passphrase-file $SIGNING_PASSPHRASE_FILE"
     fi
     pattern='s/\(\.json\)/.sjson/'
     meta_files=$(ls ${DEST_DIST}/tools/streams/v1/*.json)
