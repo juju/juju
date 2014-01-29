@@ -227,15 +227,20 @@ generate_mirrors() {
 
 sign_metadata() {
     echo "Phase 6: Signing metadata with $SIGNING_KEY."
+    key_option="--default-key $SIGNING_KEY"
+    gpg_options=""
+    if [[ -n $SIGNING_PASSPHRASE_FILE ]]; then
+        gpg_options="--no-tty --passphase-file $SIGNING_PASSPHRASE_FILE"
+    fi
     pattern='s/\(\.json\)/.sjson/'
     meta_files=$(ls ${DEST_DIST}/tools/streams/v1/*.json)
     for meta_file in $meta_files; do
         signed_file=$(echo "$meta_file" | sed -e $pattern)
         echo "Creating $signed_file"
         sed -e $pattern $meta_file |
-            gpg --clearsign --default-key "$SIGNING_KEY" > $signed_file
+            gpg $gpg_options --clearsign $key_option" > $signed_file
         cat $meta_file |
-            gpg --detach-sign --default-key "$SIGNING_KEY"  > $meta_file.gpg
+            gpg $gpg_options --detach-sign $key_option"  > $meta_file.gpg
     done
     echo "The signed tools are in ${DEST_DIST}."
 }
