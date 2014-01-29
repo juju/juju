@@ -47,7 +47,15 @@ type MachineEnvironmentWorker struct {
 	proxy    osenv.ProxySettings
 
 	writeSystemFiles bool
-	first            bool
+	// The whole point of the first value is to make sure that the the files
+	// are written out the first time through, even if they are the same as
+	// "last" time, as the initial value for last time is the zeroed struct.
+	// There is the possibility that the files exist on disk with old
+	// settings, and the environment has been updated to now not have them. We
+	// need to make sure that the disk reflects the environment, so the first
+	// time through, even if the proxies are empty, we write the files to
+	// disk.
+	first bool
 }
 
 var _ worker.NotifyWatchHandler = (*MachineEnvironmentWorker)(nil)
@@ -73,7 +81,7 @@ func (w *MachineEnvironmentWorker) writeEnvironmentFile() error {
 	//
 	// 1: In order to have the local provider specify the environment settings
 	// for the machine agent running on the host, this worker needs to run,
-	// but it should be touching any files on the disk.  If however there is
+	// but it shouldn't be touching any files on the disk.  If however there is
 	// an ubuntu user, it will. This shouldn't be a problem.
 	//
 	// 2: On cloud-instance ubuntu images, the ubuntu user is uid 1000, but in
@@ -82,7 +90,7 @@ func (w *MachineEnvironmentWorker) writeEnvironmentFile() error {
 	// same uid/gid as the default cloud image.
 	//
 	// It is easier to shell out to check both these things, and is also the
-	// same way that the file is writting in the cloud-init process, so
+	// same way that the file is written in the cloud-init process, so
 	// consistency FTW.
 	filePath := path.Join(ProxyDirectory, ProxyFile)
 	result, err := exec.RunCommands(exec.RunParams{
@@ -102,12 +110,7 @@ func (w *MachineEnvironmentWorker) writeEnvironmentFile() error {
 	return nil
 }
 
-func (w *MachineEnvironmentWorker) onChange() error {
-	env, err := w.api.EnvironConfig()
-	if err != nil {
-		return err
-	}
-	proxySettings := env.ProxySettings()
+func (w *MachineEnvironmentWorker) handleProxyValues(proxySettings osenv.ProxySettings) {
 	if proxySettings != w.proxy || w.first {
 		logger.Debugf("new proxy settings %#v", proxySettings)
 		w.proxy = proxySettings
@@ -119,7 +122,9 @@ func (w *MachineEnvironmentWorker) onChange() error {
 			}
 		}
 	}
-	aptSettings := env.AptProxySettings()
+}
+
+func (w *MachineEnvironmentWorker) handleAptProxyValues(aptSettings osenv.ProxySettings) {
 	if w.writeSystemFiles && (aptSettings != w.aptProxy || w.first) {
 		logger.Debugf("new apt proxy settings %#v", aptSettings)
 		w.aptProxy = aptSettings
@@ -131,9 +136,19 @@ func (w *MachineEnvironmentWorker) onChange() error {
 			logger.Errorf("error writing apt proxy config file: %v", err)
 		}
 	}
+}
+
+func (w *MachineEnvironmentWorker) onChange() error {
+	env, err := w.api.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	w.handleProxyValues(env.ProxySettings())
+	w.handleAptProxyValues(env.AptProxySettings())
 	return nil
 }
 
+// SetUp is defined on the worker.NotifyWatchHandler interface.
 func (w *MachineEnvironmentWorker) SetUp() (watcher.NotifyWatcher, error) {
 	// We need to set this up initially as the NotifyWorker sucks up the first
 	// event.
@@ -146,10 +161,12 @@ func (w *MachineEnvironmentWorker) SetUp() (watcher.NotifyWatcher, error) {
 	return w.api.WatchForEnvironConfigChanges()
 }
 
+// Handle is defined on the worker.NotifyWatchHandler interface.
 func (w *MachineEnvironmentWorker) Handle() error {
 	return w.onChange()
 }
 
+// TearDown is defined on the worker.NotifyWatchHandler interface.
 func (w *MachineEnvironmentWorker) TearDown() error {
 	// Nothing to cleanup, only state is the watcher
 	return nil
