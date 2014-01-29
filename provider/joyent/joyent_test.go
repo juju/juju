@@ -6,22 +6,26 @@ package joyent_test
 import (
 	"fmt"
 	"io/ioutil"
-	"net/http"
-	"net/http/httptest"
 	"os"
+	"bytes"
+	"strings"
+	"text/template"
 	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/instances"
+	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	jp "launchpad.net/juju-core/provider/joyent"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 
 	"launchpad.net/gojoyent/jpc"
-	lc "launchpad.net/gojoyent/localservices/cloudapi"
-	lm "launchpad.net/gojoyent/localservices/manta"
 )
 
 const (
@@ -61,76 +65,6 @@ func TestJoyentProvider(t *stdtesting.T) {
 	gc.TestingT(t)
 }
 
-type localMantaService struct {
-	creds      *jpc.Credentials
-	Server     *httptest.Server
-	Mux        *http.ServeMux
-	oldHandler http.Handler
-	manta      *lm.Manta
-}
-
-func (s *localMantaService) Start(c *gc.C) {
-	// Set up the HTTP server.
-	s.Server = httptest.NewServer(nil)
-	c.Assert(s.Server, gc.NotNil)
-	s.oldHandler = s.Server.Config.Handler
-	s.Mux = http.NewServeMux()
-	s.Server.Config.Handler = s.Mux
-
-	// Set up a Joyent Manta service.
-	auth := jpc.Auth{User: testUser, KeyFile: testKeyFileName, Algorithm: "rsa-sha256"}
-
-	s.creds = &jpc.Credentials{
-		UserAuthentication: auth,
-		MantaKeyId:         testKeyFingerprint,
-		MantaEndpoint:      jpc.Endpoint{URL: s.Server.URL},
-	}
-	s.manta = lm.New(s.creds.MantaEndpoint.URL, s.creds.UserAuthentication.User)
-	s.manta.SetupHTTP(s.Mux)
-	c.Logf("Started local Manta service at: %v", s.Server.URL)
-}
-
-func (s *localMantaService) Stop() {
-	s.Mux = nil
-	s.Server.Config.Handler = s.oldHandler
-	s.Server.Close()
-}
-
-type localCloudAPIService struct {
-	creds      *jpc.Credentials
-	Server     *httptest.Server
-	Mux        *http.ServeMux
-	oldHandler http.Handler
-	cloudapi   *lc.CloudAPI
-}
-
-func (s *localCloudAPIService) Start(c *gc.C) {
-	// Set up the HTTP server.
-	s.Server = httptest.NewServer(nil)
-	c.Assert(s.Server, gc.NotNil)
-	s.oldHandler = s.Server.Config.Handler
-	s.Mux = http.NewServeMux()
-	s.Server.Config.Handler = s.Mux
-
-	// Set up a Joyent CloudAPI service.
-	auth := jpc.Auth{User: testUser, KeyFile: testKeyFileName, Algorithm: "rsa-sha256"}
-
-	s.creds = &jpc.Credentials{
-		UserAuthentication: auth,
-		SdcKeyId:         	testKeyFingerprint,
-		SdcEndpoint:      	jpc.Endpoint{URL: s.Server.URL},
-	}
-	s.cloudapi = lc.New(s.creds.SdcEndpoint.URL, s.creds.UserAuthentication.User)
-	s.cloudapi.SetupHTTP(s.Mux)
-	c.Logf("Started local CloudAPI service at: %v", s.Server.URL)
-}
-
-func (s *localCloudAPIService) Stop() {
-	s.Mux = nil
-	s.Server.Config.Handler = s.oldHandler
-	s.Server.Close()
-}
-
 type providerSuite struct {
 	testbase.LoggingSuite
 	envtesting.ToolsFixture
@@ -142,11 +76,11 @@ var _ = gc.Suite(&providerSuite{})
 func (s *providerSuite) SetUpSuite(c *gc.C) {
 	s.restoreTimeouts = envtesting.PatchAttemptStrategies()
 	s.LoggingSuite.SetUpSuite(c)
-	createTestKey()
+	CreateTestKey()
 }
 
 func (s *providerSuite) TearDownSuite(c *gc.C) {
-	removeTestKey()
+	RemoveTestKey()
 	s.restoreTimeouts()
 	s.LoggingSuite.TearDownSuite(c)
 }
@@ -178,7 +112,7 @@ func GetFakeConfig(sdcUrl, mantaUrl string) coretesting.Attrs {
 }
 
 // makeEnviron creates a functional Joyent environ for a test.
-func (suite *providerSuite) makeEnviron(sdcUrl, mantaUrl string) *jp.JoyentEnviron {
+func MakeEnviron(sdcUrl, mantaUrl string) *jp.JoyentEnviron {
 	attrs := GetFakeConfig(sdcUrl, mantaUrl)
 	cfg, err := config.New(config.NoDefaults, attrs)
 	if err != nil {
@@ -191,12 +125,191 @@ func (suite *providerSuite) makeEnviron(sdcUrl, mantaUrl string) *jp.JoyentEnvir
 	return env
 }
 
-func createTestKey() error {
+func CreateTestKey() error {
 	keyFile := fmt.Sprintf("%s/.ssh/%s", os.Getenv("HOME"), testKeyFileName)
 	return ioutil.WriteFile(keyFile, []byte(testPrivateKey), 400)
 }
 
-func removeTestKey() error {
+func RemoveTestKey() error {
 	keyFile := fmt.Sprintf("%s/.ssh/%s", os.Getenv("HOME"), testKeyFileName)
 	return os.Remove(keyFile)
+}
+
+// MetadataStorage returns a Storage instance which is used to store simplestreams metadata for tests.
+func MetadataStorage(e environs.Environ) storage.Storage {
+	container := "juju-dist-test"
+	metadataStorage := jp.NewStorage(e.(*jp.JoyentEnviron), container)
+
+	// Ensure the container exists.
+	err := metadataStorage.(*jp.JoyentStorage).CreateContainer()
+	if err != nil {
+		panic(fmt.Errorf("cannot create %s container: %v", container, err))
+	}
+	return metadataStorage
+}
+
+// ImageMetadataStorage returns a Storage object pointing where the goose
+// infrastructure sets up its keystone entry for image metadata
+func ImageMetadataStorage(e environs.Environ) storage.Storage {
+	env := e.(*jp.JoyentEnviron)
+	return jp.NewStorage(env, "imagedata")
+}
+
+var indexData = `
+		{
+		 "index": {
+		  "com.ubuntu.cloud:released:joyent": {
+		   "updated": "Wed, 01 May 2013 13:31:26 +0000",
+		   "clouds": [
+			{
+			 "region": "{{.Region}}",
+			 "endpoint": "{{.URL}}"
+			}
+		   ],
+		   "cloudname": "test",
+		   "datatype": "image-ids",
+		   "format": "products:1.0",
+		   "products": [
+			"com.ubuntu.cloud:server:12.04:amd64",
+			"com.ubuntu.cloud:server:12.10:amd64",
+			"com.ubuntu.cloud:server:13.04:amd64"
+		   ],
+		   "path": "image-metadata/products.json"
+		  }
+		 },
+		 "updated": "Wed, 01 May 2013 13:31:26 +0000",
+		 "format": "index:1.0"
+		}
+`
+
+var imagesData = `
+{
+ "content_id": "com.ubuntu.cloud:released:joyent",
+ "products": {
+   "com.ubuntu.cloud:server:12.04:amd64": {
+     "release": "precise",
+     "version": "12.04",
+     "arch": "amd64",
+     "versions": {
+       "20121218": {
+         "items": {
+           "inst1": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "some-region",
+             "id": "1"
+           },
+           "inst2": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "another-region",
+             "id": "2"
+           }
+         },
+         "pubname": "ubuntu-precise-12.04-amd64-server-20121218",
+         "label": "release"
+       },
+       "20121111": {
+         "items": {
+           "inst3": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "some-region",
+             "id": "3"
+           }
+         },
+         "pubname": "ubuntu-precise-12.04-amd64-server-20121111",
+         "label": "release"
+       }
+     }
+   },
+   "com.ubuntu.cloud:server:12.10:amd64": {
+     "release": "quantal",
+     "version": "12.10",
+     "arch": "amd64",
+     "versions": {
+       "20121218": {
+         "items": {
+           "inst3": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "region-1",
+             "id": "id-1"
+           },
+           "inst4": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "region-2",
+             "id": "id-2"
+           }
+         },
+         "pubname": "ubuntu-quantal-12.14-amd64-server-20121218",
+         "label": "release"
+       }
+     }
+   },
+   "com.ubuntu.cloud:server:13.04:amd64": {
+     "release": "raring",
+     "version": "13.04",
+     "arch": "amd64",
+     "versions": {
+       "20121218": {
+         "items": {
+           "inst5": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "some-region",
+             "id": "id-y"
+           },
+           "inst6": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "another-region",
+             "id": "id-z"
+           }
+         },
+         "pubname": "ubuntu-raring-13.04-amd64-server-20121218",
+         "label": "release"
+       }
+     }
+   }
+ },
+ "format": "products:1.0"
+}
+`
+
+const productMetadatafile = "image-metadata/products.json"
+
+func UseTestImageData(stor storage.Storage, creds *jpc.Credentials) {
+	// Put some image metadata files into the public storage.
+	t := template.Must(template.New("").Parse(indexData))
+	var metadata bytes.Buffer
+	if err := t.Execute(&metadata, creds); err != nil {
+		panic(fmt.Errorf("cannot generate index metdata: %v", err))
+	}
+	data := metadata.Bytes()
+	stor.Put(simplestreams.DefaultIndexPath+".json", bytes.NewReader(data), int64(len(data)))
+	stor.Put(
+		productMetadatafile, strings.NewReader(imagesData), int64(len(imagesData)))
+}
+
+func RemoveTestImageData(stor storage.Storage) {
+	stor.Remove(simplestreams.DefaultIndexPath + ".json")
+	stor.Remove(productMetadatafile)
+}
+
+func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *instances.InstanceSpec, err error) {
+	env := e.(*jp.JoyentEnviron)
+	spec, err = env.FindInstanceSpec(&instances.InstanceConstraint{
+		Series:      series,
+		Arches:      []string{arch},
+		Region:      env.Ecfg().SdcUrl(),
+		Constraints: constraints.MustParse(cons),
+	})
+	return
+}
+
+func ControlBucketName(e environs.Environ) string {
+	env := e.(*jp.JoyentEnviron)
+	return env.Ecfg().ControlDir()
 }

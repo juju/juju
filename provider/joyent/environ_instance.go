@@ -63,7 +63,7 @@ func (env *JoyentEnviron) StartInstance(cons constraints.Value, possibleTools to
 	arches := possibleTools.Arches()
 
 	series := possibleTools.OneSeries()
-	spec, err := env.findInstanceSpec(&instances.InstanceConstraint{
+	spec, err := env.FindInstanceSpec(&instances.InstanceConstraint{
 		Region:      env.Ecfg().sdcUrl(),
 		Series:      series,
 		Arches:      arches,
@@ -166,7 +166,7 @@ func getRegion(URL string) string {
 }
 
 // findInstanceSpec returns an InstanceSpec satisfying the supplied instanceConstraint.
-func (env *JoyentEnviron) findInstanceSpec(ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+func (env *JoyentEnviron) FindInstanceSpec(ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
 	packages, err := env.compute.cloudapi.ListPackages(nil)
 	if err != nil {
 		return nil, err

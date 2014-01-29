@@ -20,7 +20,7 @@ import (
 
 type storageSuite struct {
 	providerSuite
-	localMantaService
+	localMantaServer
 }
 
 const (
@@ -33,19 +33,19 @@ var _ = gc.Suite(&storageSuite{})
 
 func (s *storageSuite) SetUpSuite(c *gc.C) {
 	s.providerSuite.SetUpSuite(c)
-	s.localMantaService.Start(c)
+	s.localMantaServer.setupServer(c)
 }
 
 func (s *storageSuite) TearDownSuite(c *gc.C) {
-	s.localMantaService.Stop()
+	s.localMantaServer.destroyServer()
 	s.providerSuite.TearDownSuite(c)
 }
 
 // s.makeStorage creates a Manta storage object for the running test.
 func (s *storageSuite) assertStorage(name string, c *gc.C) *jp.JoyentStorage {
-	env := s.makeEnviron("localhost", s.localMantaService.Server.URL)
+	env := MakeEnviron("localhost", s.localMantaServer.Server.URL)
 	env.SetName(name)
-	storage := jp.NewStorage(env).(*jp.JoyentStorage)
+	storage := jp.NewStorage(env, "").(*jp.JoyentStorage)
 	c.Assert(storage, gc.NotNil)
 	return storage
 }

@@ -43,7 +43,7 @@ func NewEnviron(cfg *config.Config) (*JoyentEnviron, error) {
 	}
 	env.name = cfg.Name()
 	env.creds = getCredentials(env)
-	env.storage = NewStorage(env)
+	env.storage = NewStorage(env, "")
 	env.compute = NewCompute(env)
 	return env, nil
 }
@@ -110,6 +110,14 @@ func (env *JoyentEnviron) Destroy() error {
 
 func (env *JoyentEnviron) Ecfg() *environConfig {
 	return env.getSnapshot().ecfg
+}
+
+func (env *JoyentEnviron) Credentials() *jpc.Credentials {
+	return env.getSnapshot().creds
+}
+
+func (env *JoyentEnviron) SetCredentials() {
+	env.creds = getCredentials(env)
 }
 
 func getCredentials(env *JoyentEnviron) *jpc.Credentials {

@@ -9,6 +9,8 @@ import (
 	"io"
 	"sync"
 	"time"
+	"strings"
+	"path"
 
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/utils"
@@ -35,19 +37,23 @@ func (byteCloser) Close() error {
 
 var _ storage.Storage = (*JoyentStorage)(nil)
 
-func NewStorage(env *JoyentEnviron) storage.Storage {
-	if stor, err := newStorage(env); err == nil {
+func NewStorage(env *JoyentEnviron, name string) storage.Storage {
+	if stor, err := newStorage(env, name); err == nil {
 		return stor
 	}
 	return nil
 }
 
-func newStorage(env *JoyentEnviron) (storage.Storage, error) {
+func newStorage(env *JoyentEnviron, name string) (storage.Storage, error) {
 	client := client.NewClient(env.ecfg.mantaUrl(), "", env.creds, &logger)
+
+	if name == "" {
+		name = env.ecfg.controlDir()
+	}
 
 	return &JoyentStorage{
 		ecfg:          env.ecfg,
-		containerName: env.ecfg.controlDir(),
+		containerName: name,
 		manta:         manta.New(client)}, nil
 }
 
@@ -122,6 +128,21 @@ func (s *JoyentStorage) Get(name string) (io.ReadCloser, error) {
 func (s *JoyentStorage) Put(name string, r io.Reader, length int64) error {
 	if err := s.CreateContainer(); err != nil {
 		return fmt.Errorf("cannot make Manta control container: %v", err)
+	}
+	if strings.Contains(name, "/") {
+		var parents []string
+		dirs := strings.Split(name, "/")
+		for i, _ := range dirs {
+			if i < (len(dirs) - 1) {
+				parents = append(parents, strings.Join(dirs[:(i+1)], "/"))
+			}
+		}
+		for _, dir := range parents {
+			err := s.manta.PutDirectory(path.Join(s.containerName, dir))
+			if err != nil {
+				return fmt.Errorf("cannot create parent directory %q in control container %q: %v", dir, s.containerName, err)
+			}
+		}
 	}
 	err := s.manta.PutObject(s.containerName, name, r)
 	if err != nil {

@@ -183,6 +183,10 @@ type environConfig struct {
 	attrs map[string]interface{}
 }
 
+func (ecfg *environConfig) GetAttrs() map[string]interface{} {
+	return ecfg.attrs
+}
+
 func (ecfg *environConfig) sdcUrl() string {
 	return ecfg.attrs["sdc-url"].(string)
 }
@@ -217,4 +221,12 @@ func (ecfg *environConfig) algorithm() string {
 
 func (c *environConfig) controlDir() string {
 	return c.attrs["control-dir"].(string)
+}
+
+func (c *environConfig) ControlDir() string {
+	return c.controlDir()
+}
+
+func (ecfg *environConfig) SdcUrl() string {
+	return ecfg.sdcUrl()
 }
