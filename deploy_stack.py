@@ -18,6 +18,9 @@ def deploy_stack(environments, charm_prefix):
 
     :param environment: The name of the desired environment.
     """
+    if sys.platform == 'win32':
+        # Ensure OpenSSH is never in the path for win tests.
+        sys.path = [p for p in sys.path if 'OpenSSH' not in p]
     envs = [Environment.from_config(e) for e in environments]
     for env in envs:
         env.bootstrap()
