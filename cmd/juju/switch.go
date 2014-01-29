@@ -62,6 +62,11 @@ func validEnvironmentName(name string, names []string) bool {
 }
 
 func (c *SwitchCommand) Run(ctx *cmd.Context) error {
+	// Switch is an alternative way of dealing with environments than using
+	// the JUJU_ENV environment setting, and as such, doesn't play too well.
+	// If JUJU_ENV is set we should report that as the current environment,
+	// and not allow switching when it is set.
+
 	// Passing through the empty string reads the default environments.yaml file.
 	environments, err := environs.ReadEnvirons("")
 	if err != nil {
@@ -81,10 +86,6 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 		return nil
 	}
 
-	// Switch is an alternative way of dealing with environments than using
-	// the JUJU_ENV environment setting, and as such, doesn't play too well.
-	// If JUJU_ENV is set we should report that as the current environment,
-	// and not allow switching when it is set.
 	jujuEnv := os.Getenv("JUJU_ENV")
 	if jujuEnv != "" {
 		if c.EnvName == "" {
