@@ -1,31 +1,31 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package null
+package manual
 
 import (
 	"launchpad.net/juju-core/environs/manual"
 	"launchpad.net/juju-core/instance"
 )
 
-type nullBootstrapInstance struct {
+type manualBootstrapInstance struct {
 	host string
 }
 
-func (nullBootstrapInstance) Id() instance.Id {
+func (manualBootstrapInstance) Id() instance.Id {
 	// The only way to bootrap is via manual bootstrap.
 	return manual.BootstrapInstanceId
 }
 
-func (nullBootstrapInstance) Status() string {
+func (manualBootstrapInstance) Status() string {
 	return ""
 }
 
-func (nullBootstrapInstance) Refresh() error {
+func (manualBootstrapInstance) Refresh() error {
 	return nil
 }
 
-func (inst nullBootstrapInstance) Addresses() (addresses []instance.Address, err error) {
+func (inst manualBootstrapInstance) Addresses() (addresses []instance.Address, err error) {
 	host, err := inst.DNSName()
 	if err != nil {
 		return nil, err
@@ -39,22 +39,22 @@ func (inst nullBootstrapInstance) Addresses() (addresses []instance.Address, err
 	return addresses, nil
 }
 
-func (inst nullBootstrapInstance) DNSName() (string, error) {
+func (inst manualBootstrapInstance) DNSName() (string, error) {
 	return inst.host, nil
 }
 
-func (i nullBootstrapInstance) WaitDNSName() (string, error) {
+func (i manualBootstrapInstance) WaitDNSName() (string, error) {
 	return i.DNSName()
 }
 
-func (nullBootstrapInstance) OpenPorts(machineId string, ports []instance.Port) error {
+func (manualBootstrapInstance) OpenPorts(machineId string, ports []instance.Port) error {
 	return nil
 }
 
-func (nullBootstrapInstance) ClosePorts(machineId string, ports []instance.Port) error {
+func (manualBootstrapInstance) ClosePorts(machineId string, ports []instance.Port) error {
 	return nil
 }
 
-func (nullBootstrapInstance) Ports(machineId string) ([]instance.Port, error) {
+func (manualBootstrapInstance) Ports(machineId string) ([]instance.Port, error) {
 	return []instance.Port{}, nil
 }

@@ -11,3 +11,9 @@ const (
 	Local = "local"
 	Null  = "null"
 )
+
+// IsManual returns true iff the specified provider
+// type refers to the manual provider.
+func IsManual(provider string) bool {
+	return provider == "null" || provider == "manual"
+}
