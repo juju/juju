@@ -55,10 +55,11 @@ func (s *ValidateSuite) assertMatch(c *gc.C, stream string) {
 		Series:        "raring",
 		Architectures: []string{"amd64"},
 		Endpoint:      "some-auth-url",
+		Stream:        stream,
 		Sources: []simplestreams.DataSource{
 			simplestreams.NewURLDataSource("file://"+metadataPath, simplestreams.VerifySSLHostnames)},
 	}
-	imageIds, err := imagemetadata.ValidateImageMetadata(params, stream)
+	imageIds, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, gc.IsNil)
 	c.Assert(imageIds, gc.DeepEquals, []string{"1234"})
 }
@@ -76,10 +77,11 @@ func (s *ValidateSuite) assertNoMatch(c *gc.C, stream string) {
 		Series:        "precise",
 		Architectures: []string{"amd64"},
 		Endpoint:      "some-auth-url",
+		Stream:        stream,
 		Sources: []simplestreams.DataSource{
 			simplestreams.NewURLDataSource("file://"+s.metadataDir, simplestreams.VerifySSLHostnames)},
 	}
-	_, err := imagemetadata.ValidateImageMetadata(params, stream)
+	_, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, gc.Not(gc.IsNil))
 }
 

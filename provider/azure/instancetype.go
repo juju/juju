@@ -129,15 +129,15 @@ var fetchImageMetadata = imagemetadata.Fetch
 // requirements.
 //
 // If it finds no matching images, that's an error.
-func findMatchingImages(e *azureEnviron, location, series, stream string, arches []string) ([]*imagemetadata.ImageMetadata, error) {
+func findMatchingImages(e *azureEnviron, location, series string, arches []string) ([]*imagemetadata.ImageMetadata, error) {
 	endpoint := getEndpoint(location)
 	constraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{location, endpoint},
 		Series:    []string{series},
 		Arches:    arches,
-		Stream:    stream,
+		Stream:    e.Config().ImageStream(),
 	})
-	sources, err := imagemetadata.GetMetadataSources(e, stream)
+	sources, err := imagemetadata.GetMetadataSources(e)
 	if err != nil {
 		return nil, err
 	}
@@ -184,9 +184,9 @@ func listInstanceTypes(roleSizes []gwacl.RoleSize) []instances.InstanceType {
 
 // findInstanceSpec returns the InstanceSpec that best satisfies the supplied
 // InstanceConstraint.
-func findInstanceSpec(env *azureEnviron, stream string, constraint instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+func findInstanceSpec(env *azureEnviron, constraint instances.InstanceConstraint) (*instances.InstanceSpec, error) {
 	constraint.Constraints = defaultToBaselineSpec(constraint.Constraints)
-	imageData, err := findMatchingImages(env, constraint.Region, constraint.Series, stream, constraint.Arches)
+	imageData, err := findMatchingImages(env, constraint.Region, constraint.Series, constraint.Arches)
 	if err != nil {
 		return nil, err
 	}

@@ -21,9 +21,9 @@ type SupportsCustomSources interface {
 
 // GetMetadataSources returns the sources to use when looking for
 // simplestreams image id metadata for the given stream. If env implements
-// SupportsCustomSurces, the sources returned from that method will also
+// SupportsCustomSources, the sources returned from that method will also
 // be considered.
-func GetMetadataSources(env environs.ConfigGetter, stream string) ([]simplestreams.DataSource, error) {
+func GetMetadataSources(env environs.ConfigGetter) ([]simplestreams.DataSource, error) {
 	var sources []simplestreams.DataSource
 	config := env.Config()
 	if userURL, ok := config.ImageMetadataURL(); ok {
@@ -41,7 +41,7 @@ func GetMetadataSources(env environs.ConfigGetter, stream string) ([]simplestrea
 		sources = append(sources, customSources...)
 	}
 
-	defaultURL, err := ImageMetadataURL(DefaultBaseURL, stream)
+	defaultURL, err := ImageMetadataURL(DefaultBaseURL, config.ImageStream())
 	if err != nil {
 		return nil, err
 	}

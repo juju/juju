@@ -30,8 +30,13 @@ func (s *URLsSuite) TearDownTest(c *gc.C) {
 	s.home.Restore()
 }
 
-func (s *URLsSuite) env(c *gc.C, imageMetadataURL string) environs.Environ {
+func (s *URLsSuite) env(c *gc.C, imageMetadataURL, stream string) environs.Environ {
 	attrs := dummy.SampleConfig()
+	if stream != "" {
+		attrs = attrs.Merge(testing.Attrs{
+			"image-stream": stream,
+		})
+	}
 	if imageMetadataURL != "" {
 		attrs = attrs.Merge(testing.Attrs{
 			"image-metadata-url": imageMetadataURL,
@@ -45,8 +50,8 @@ func (s *URLsSuite) env(c *gc.C, imageMetadataURL string) environs.Environ {
 }
 
 func (s *URLsSuite) TestImageMetadataURLsNoConfigURL(c *gc.C) {
-	env := s.env(c, "")
-	sources, err := imagemetadata.GetMetadataSources(env, "")
+	env := s.env(c, "", "")
+	sources, err := imagemetadata.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	privateStorageURL, err := env.Storage().URL("images")
 	c.Assert(err, gc.IsNil)
@@ -55,8 +60,8 @@ func (s *URLsSuite) TestImageMetadataURLsNoConfigURL(c *gc.C) {
 }
 
 func (s *URLsSuite) TestImageMetadataURLs(c *gc.C) {
-	env := s.env(c, "config-image-metadata-url")
-	sources, err := imagemetadata.GetMetadataSources(env, "")
+	env := s.env(c, "config-image-metadata-url", "")
+	sources, err := imagemetadata.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	privateStorageURL, err := env.Storage().URL("images")
 	c.Assert(err, gc.IsNil)
@@ -65,8 +70,8 @@ func (s *URLsSuite) TestImageMetadataURLs(c *gc.C) {
 }
 
 func (s *URLsSuite) TestImageMetadataURLsNonReleaseStream(c *gc.C) {
-	env := s.env(c, "")
-	sources, err := imagemetadata.GetMetadataSources(env, "daily")
+	env := s.env(c, "", "daily")
+	sources, err := imagemetadata.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	privateStorageURL, err := env.Storage().URL("images")
 	c.Assert(err, gc.IsNil)

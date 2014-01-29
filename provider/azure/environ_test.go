@@ -42,6 +42,11 @@ var _ = gc.Suite(&environSuite{})
 // makeEnviron creates a fake azureEnviron with arbitrary configuration.
 func makeEnviron(c *gc.C) *azureEnviron {
 	attrs := makeAzureConfigMap(c)
+	return makeEnvironWithConfig(c, attrs)
+}
+
+// makeEnviron creates a fake azureEnviron with the specified configuration.
+func makeEnvironWithConfig(c *gc.C, attrs map[string]interface{}) *azureEnviron {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	env, err := NewEnviron(cfg)
@@ -1245,13 +1250,17 @@ func assertSourceContents(c *gc.C, source simplestreams.DataSource, filename str
 }
 
 func (s *environSuite) assertGetImageMetadataSources(c *gc.C, stream, officialSourcePath string) {
-	env := makeEnviron(c)
+	envAttrs := makeAzureConfigMap(c)
+	if stream != "" {
+		envAttrs["image-stream"] = stream
+	}
+	env := makeEnvironWithConfig(c, envAttrs)
 	s.setDummyStorage(c, env)
 
 	data := []byte{1, 2, 3, 4}
 	env.Storage().Put("images/filename", bytes.NewReader(data), int64(len(data)))
 
-	sources, err := imagemetadata.GetMetadataSources(env, stream)
+	sources, err := imagemetadata.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(sources), gc.Equals, 2)
 	assertSourceContents(c, sources[0], "filename", data)

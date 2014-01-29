@@ -549,8 +549,16 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 }
 
 func (s *localServerSuite) assertGetImageMetadataSources(c *gc.C, stream, officialSourcePath string) {
-	env := s.Open(c)
-	sources, err := imagemetadata.GetMetadataSources(env, stream)
+	// Create a config that matches s.TestConfig but with the specified stream.
+	envAttrs := s.TestConfig
+	if stream != "" {
+		envAttrs = envAttrs.Merge(coretesting.Attrs{"image-stream": stream})
+	}
+	cfg, err := config.New(config.NoDefaults, envAttrs)
+	c.Assert(err, gc.IsNil)
+	env, err := environs.New(cfg)
+	c.Assert(err, gc.IsNil)
+	sources, err := imagemetadata.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(sources, gc.HasLen, 4)
 	var urls = make([]string, len(sources))
@@ -609,10 +617,10 @@ func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	env := s.Open(c)
 	params, err := env.(simplestreams.MetadataValidator).MetadataLookupParams("some-region")
 	c.Assert(err, gc.IsNil)
-	params.Sources, err = imagemetadata.GetMetadataSources(env, "")
+	params.Sources, err = imagemetadata.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	params.Series = "raring"
-	image_ids, err := imagemetadata.ValidateImageMetadata(params, "")
+	image_ids, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, gc.IsNil)
 	c.Assert(image_ids, gc.DeepEquals, []string{"id-y"})
 }
@@ -826,7 +834,7 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSources(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = s.env.SetConfig(config)
 	c.Assert(err, gc.IsNil)
-	sources, err := imagemetadata.GetMetadataSources(s.env, "")
+	sources, err := imagemetadata.GetMetadataSources(s.env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(sources, gc.HasLen, 4)
 

@@ -421,14 +421,29 @@ func assertSourceContents(c *gc.C, source simplestreams.DataSource, filename str
 }
 
 func (suite *environSuite) assertGetImageMetadataSources(c *gc.C, stream, officialSourcePath string) {
-	env := suite.makeEnviron()
+	// Make an env configured with the stream.
+	testAttrs := maasEnvAttrs
+	testAttrs = testAttrs.Merge(coretesting.Attrs{
+		"maas-server": suite.testMAASObject.TestServer.URL,
+	})
+	if stream != "" {
+		testAttrs = testAttrs.Merge(coretesting.Attrs{
+			"image-stream": stream,
+		})
+	}
+	attrs := coretesting.FakeConfig().Merge(testAttrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+	env, err := NewEnviron(cfg)
+	c.Assert(err, gc.IsNil)
+
 	// Add a dummy file to storage so we can use that to check the
 	// obtained source later.
 	data := makeRandomBytes(10)
 	stor := NewStorage(env)
-	err := stor.Put("images/filename", bytes.NewBuffer([]byte(data)), int64(len(data)))
+	err = stor.Put("images/filename", bytes.NewBuffer([]byte(data)), int64(len(data)))
 	c.Assert(err, gc.IsNil)
-	sources, err := imagemetadata.GetMetadataSources(env, stream)
+	sources, err := imagemetadata.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(sources), gc.Equals, 2)
 	assertSourceContents(c, sources[0], "filename", data)

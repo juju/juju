@@ -65,13 +65,20 @@ func (s *ProviderSuite) TestMetadata(c *gc.C) {
 }
 
 func (t *ProviderSuite) assertGetImageMetadataSources(c *gc.C, stream, officialSourcePath string) {
-	cfg, err := config.New(config.NoDefaults, localConfigAttrs)
+	// Make an env configured with the stream.
+	envAttrs := localConfigAttrs
+	if stream != "" {
+		envAttrs = envAttrs.Merge(coretesting.Attrs{
+			"image-stream": stream,
+		})
+	}
+	cfg, err := config.New(config.NoDefaults, envAttrs)
 	c.Assert(err, gc.IsNil)
 	env, err := environs.Prepare(cfg, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	c.Assert(env, gc.NotNil)
 
-	sources, err := imagemetadata.GetMetadataSources(env, stream)
+	sources, err := imagemetadata.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(sources), gc.Equals, 2)
 	var urls = make([]string, len(sources))
@@ -389,9 +396,9 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	params.Series = "precise"
 	params.Endpoint = "https://ec2.endpoint.com"
-	params.Sources, err = imagemetadata.GetMetadataSources(env, "")
+	params.Sources, err = imagemetadata.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
-	image_ids, err := imagemetadata.ValidateImageMetadata(params, "")
+	image_ids, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, gc.IsNil)
 	sort.Strings(image_ids)
 	c.Assert(image_ids, gc.DeepEquals, []string{"ami-00000033", "ami-00000034", "ami-00000035"})

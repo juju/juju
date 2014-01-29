@@ -13,6 +13,7 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
@@ -101,6 +102,30 @@ func (c *ValidateImageMetadataCommand) Init(args []string) error {
 	return c.EnvCommandBase.Init(args)
 }
 
+var _ environs.ConfigGetter = (*overrideEnvStream)(nil)
+
+// overrideEnvStream implements environs.ConfigGetter and
+// ensures that the environs.Config returned by Config()
+// has the specified stream.
+type overrideEnvStream struct {
+	env    environs.Environ
+	stream string
+}
+
+func (oes *overrideEnvStream) Config() *config.Config {
+	cfg := oes.env.Config()
+	// If no stream specified, just use default from environ.
+	if oes.stream == "" {
+		return cfg
+	}
+	newCfg, err := cfg.Apply(map[string]interface{}{"image-stream": oes.stream})
+	if err != nil {
+		// This should never happen.
+		panic(fmt.Errorf("unexpected error making override config: %v", err))
+	}
+	return newCfg
+}
+
 func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
 	var params *simplestreams.MetadataLookupParams
 
@@ -121,7 +146,8 @@ func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		params.Sources, err = imagemetadata.GetMetadataSources(environ, c.stream)
+		oes := &overrideEnvStream{environ, c.stream}
+		params.Sources, err = imagemetadata.GetMetadataSources(oes)
 		if err != nil {
 			return err
 		}
@@ -156,8 +182,9 @@ func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
 		}
 		params.Sources = []simplestreams.DataSource{simplestreams.NewURLDataSource("file://"+dir, simplestreams.VerifySSLHostnames)}
 	}
+	params.Stream = c.stream
 
-	image_ids, err := imagemetadata.ValidateImageMetadata(params, c.stream)
+	image_ids, err := imagemetadata.ValidateImageMetadata(params)
 	if err != nil {
 		return err
 	}

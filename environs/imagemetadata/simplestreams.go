@@ -115,10 +115,7 @@ const (
 func idStream(stream string) string {
 	idstream := ""
 	if stream != "" && stream != ReleasedStream {
-		idstream = stream
-	}
-	if idstream != "" {
-		idstream = "." + idstream
+		idstream = "." + stream
 	}
 	return idstream
 }

@@ -727,7 +727,7 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 
 	series := possibleTools.OneSeries()
 	arches := possibleTools.Arches()
-	spec, err := findInstanceSpec(e, e.Config().ImageStream(), &instances.InstanceConstraint{
+	spec, err := findInstanceSpec(e, &instances.InstanceConstraint{
 		Region:      e.ecfg().region(),
 		Series:      series,
 		Arches:      arches,

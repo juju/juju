@@ -11,7 +11,7 @@ import (
 
 // findInstanceSpec returns an image and instance type satisfying the constraint.
 // The instance type comes from querying the flavors supported by the deployment.
-func findInstanceSpec(e *environ, stream string, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+func findInstanceSpec(e *environ, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
 	// first construct all available instance types from the supported flavors.
 	nova := e.nova()
 	flavors, err := nova.ListFlavorsDetail()
@@ -36,9 +36,9 @@ func findInstanceSpec(e *environ, stream string, ic *instances.InstanceConstrain
 		CloudSpec: simplestreams.CloudSpec{ic.Region, e.ecfg().authURL()},
 		Series:    []string{ic.Series},
 		Arches:    ic.Arches,
-		Stream:    stream,
+		Stream:    e.Config().ImageStream(),
 	})
-	sources, err := imagemetadata.GetMetadataSources(e, stream)
+	sources, err := imagemetadata.GetMetadataSources(e)
 	if err != nil {
 		return nil, err
 	}

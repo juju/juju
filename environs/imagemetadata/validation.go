@@ -11,7 +11,7 @@ import (
 
 // ValidateImageMetadata attempts to load image metadata for the specified cloud attributes and stream
 // and returns any image ids found, or an error if the metadata could not be loaded.
-func ValidateImageMetadata(params *simplestreams.MetadataLookupParams, stream string) ([]string, error) {
+func ValidateImageMetadata(params *simplestreams.MetadataLookupParams) ([]string, error) {
 	if params.Series == "" {
 		return nil, fmt.Errorf("required parameter series not specified")
 	}
@@ -31,7 +31,7 @@ func ValidateImageMetadata(params *simplestreams.MetadataLookupParams, stream st
 		CloudSpec: simplestreams.CloudSpec{params.Region, params.Endpoint},
 		Series:    []string{params.Series},
 		Arches:    params.Architectures,
-		Stream:    stream,
+		Stream:    params.Stream,
 	})
 	matchingImages, err := Fetch(params.Sources, simplestreams.DefaultIndexPath, imageConstraint, false)
 	if err != nil {
