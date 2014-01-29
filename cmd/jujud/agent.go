@@ -102,9 +102,10 @@ func (e *fatalError) Error() string {
 }
 
 func isFatal(err error) bool {
-	isTerminate := err == worker.ErrTerminateAgent
-	notProvisioned := params.IsCodeNotProvisioned(err)
-	if isTerminate || notProvisioned || isUpgraded(err) {
+	if err == worker.ErrTerminateAgent {
+		return true
+	}
+	if isUpgraded(err) {
 		return true
 	}
 	_, ok := err.(*fatalError)
@@ -160,7 +161,11 @@ func openState(agentConfig agent.Config, a Agent) (*state.State, AgentState, err
 	return st, entity, nil
 }
 
-func openAPIState(agentConfig agent.Config, a Agent) (*api.State, *apiagent.Entity, error) {
+type apiOpener interface {
+	OpenAPI(api.DialOpts) (*api.State, string, error)
+}
+
+func openAPIState(agentConfig apiOpener, a Agent) (*api.State, *apiagent.Entity, error) {
 	// We let the API dial fail immediately because the
 	// runner's loop outside the caller of openAPIState will
 	// keep on retrying. If we block for ages here,
@@ -168,6 +173,9 @@ func openAPIState(agentConfig agent.Config, a Agent) (*api.State, *apiagent.Enti
 	// be interrupted.
 	st, newPassword, err := agentConfig.OpenAPI(api.DialOpts{})
 	if err != nil {
+		if params.IsCodeNotProvisioned(err) {
+			err = worker.ErrTerminateAgent
+		}
 		if params.IsCodeUnauthorized(err) {
 			err = worker.ErrTerminateAgent
 		}
