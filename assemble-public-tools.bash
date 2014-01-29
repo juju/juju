@@ -75,7 +75,8 @@ retrieve_packages() {
     else
         cd $DEST_DEBS
         for archive in $ALL_ARCHIVES; do
-            echo "checking $archive for $RELEASE."
+            safe_archive=$(echo "$archive" | sed -e 's,//.*@,//,')
+            echo "checking $safe_archive for $RELEASE."
             lftp -c mirror -I "juju-core_${RELEASE}*.deb" $archive;
         done
         if [ -d $DEST_DEBS/juju-core ]; then
