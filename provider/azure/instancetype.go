@@ -137,7 +137,7 @@ func findMatchingImages(e *azureEnviron, location, series, stream string, arches
 		Arches:    arches,
 		Stream:    stream,
 	})
-	sources, err := imagemetadata.GetMetadataSources(e)
+	sources, err := imagemetadata.GetMetadataSources(e, stream)
 	if err != nil {
 		return nil, err
 	}

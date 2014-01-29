@@ -26,6 +26,7 @@ type ValidateImageMetadataCommand struct {
 	series       string
 	region       string
 	endpoint     string
+	stream       string
 }
 
 var validateImagesMetadataDoc = `
@@ -82,6 +83,7 @@ func (c *ValidateImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.series, "s", "", "the series for which to validate (overrides env config series)")
 	f.StringVar(&c.region, "r", "", "the region for which to validate (overrides env config region)")
 	f.StringVar(&c.endpoint, "u", "", "the cloud endpoint URL for which to validate (overrides env config endpoint)")
+	f.StringVar(&c.stream, "m", "", "the images stream (defaults to released)")
 }
 
 func (c *ValidateImageMetadataCommand) Init(args []string) error {
@@ -119,7 +121,7 @@ func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		params.Sources, err = imagemetadata.GetMetadataSources(environ)
+		params.Sources, err = imagemetadata.GetMetadataSources(environ, c.stream)
 		if err != nil {
 			return err
 		}
@@ -155,7 +157,7 @@ func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
 		params.Sources = []simplestreams.DataSource{simplestreams.NewURLDataSource("file://"+dir, simplestreams.VerifySSLHostnames)}
 	}
 
-	image_ids, err := imagemetadata.ValidateImageMetadata(params)
+	image_ids, err := imagemetadata.ValidateImageMetadata(params, c.stream)
 	if err != nil {
 		return err
 	}

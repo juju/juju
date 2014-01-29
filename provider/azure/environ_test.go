@@ -1244,20 +1244,26 @@ func assertSourceContents(c *gc.C, source simplestreams.DataSource, filename str
 	c.Assert(retrieved, gc.DeepEquals, content)
 }
 
-func (s *environSuite) TestGetImageMetadataSources(c *gc.C) {
+func (s *environSuite) assertGetImageMetadataSources(c *gc.C, stream, officialSourcePath string) {
 	env := makeEnviron(c)
 	s.setDummyStorage(c, env)
 
 	data := []byte{1, 2, 3, 4}
 	env.Storage().Put("images/filename", bytes.NewReader(data), int64(len(data)))
 
-	sources, err := imagemetadata.GetMetadataSources(env)
+	sources, err := imagemetadata.GetMetadataSources(env, stream)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(sources), gc.Equals, 2)
 	assertSourceContents(c, sources[0], "filename", data)
 	url, err := sources[1].URL("")
 	c.Assert(err, gc.IsNil)
-	c.Assert(url, gc.Equals, imagemetadata.DefaultBaseURL+"/")
+	c.Assert(url, gc.Equals, fmt.Sprintf("http://cloud-images.ubuntu.com/%s/", officialSourcePath))
+}
+
+func (s *environSuite) TestGetImageMetadataSources(c *gc.C) {
+	s.assertGetImageMetadataSources(c, "", "releases")
+	s.assertGetImageMetadataSources(c, "released", "releases")
+	s.assertGetImageMetadataSources(c, "daily", "daily")
 }
 
 func (s *environSuite) TestGetToolsMetadataSources(c *gc.C) {

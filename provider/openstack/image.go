@@ -38,7 +38,7 @@ func findInstanceSpec(e *environ, stream string, ic *instances.InstanceConstrain
 		Arches:    ic.Arches,
 		Stream:    stream,
 	})
-	sources, err := imagemetadata.GetMetadataSources(e)
+	sources, err := imagemetadata.GetMetadataSources(e, stream)
 	if err != nil {
 		return nil, err
 	}

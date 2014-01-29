@@ -83,6 +83,8 @@ const (
 	// The location where Ubuntu cloud image metadata is published for
 	// public consumption.
 	UbuntuCloudImagesURL = "http://cloud-images.ubuntu.com"
+	// The path where released image metadata is found.
+	ReleasedImagesPath = "releases"
 )
 
 // This needs to be a var so we can override it for testing and in bootstrap.
@@ -108,16 +110,22 @@ const (
 	ReleasedStream = "released"
 )
 
+// idStream returns the string to use in making a product id
+// for the given product stream.
+func idStream(stream string) string {
+	idstream := ""
+	if stream != "" && stream != ReleasedStream {
+		idstream = stream
+	}
+	if idstream != "" {
+		idstream = "." + idstream
+	}
+	return idstream
+}
+
 // Generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
 func (ic *ImageConstraint) Ids() ([]string, error) {
-	stream := ""
-	if ic.Stream != "" && ic.Stream != ReleasedStream {
-		stream = ic.Stream
-	}
-	if stream != "" {
-		stream = "." + stream
-	}
-
+	stream := idStream(ic.Stream)
 	nrArches := len(ic.Arches)
 	nrSeries := len(ic.Series)
 	ids := make([]string, nrArches*nrSeries)
@@ -143,6 +151,7 @@ type ImageMetadata struct {
 	RegionAlias string `json:"crsn,omitempty"`
 	RegionName  string `json:"region,omitempty"`
 	Endpoint    string `json:"endpoint,omitempty"`
+	Stream      string `json:"-"`
 }
 
 func (im *ImageMetadata) String() string {
@@ -150,7 +159,8 @@ func (im *ImageMetadata) String() string {
 }
 
 func (im *ImageMetadata) productId() string {
-	return fmt.Sprintf("com.ubuntu.cloud:server:%s:%s", im.Version, im.Arch)
+	stream := idStream(im.Stream)
+	return fmt.Sprintf("com.ubuntu.cloud%s:server:%s:%s", stream, im.Version, im.Arch)
 }
 
 // Fetch returns a list of images for the specified cloud matching the constraint.

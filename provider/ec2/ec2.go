@@ -375,7 +375,7 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 
 	arches := possibleTools.Arches()
 	stor := ebsStorage
-	sources, err := imagemetadata.GetMetadataSources(e)
+	sources, err := imagemetadata.GetMetadataSources(e, e.Config().ImageStream())
 	if err != nil {
 		return nil, nil, err
 	}
