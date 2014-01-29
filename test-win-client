@@ -40,7 +40,7 @@ fi
 ssh -i $JUJU_HOME/staging-juju-rsa \
     -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
     Administrator@$instance_ip \
-    'juju destroy-environment --force released-win-client'
+    'juju destroy-environment --force -y released-win-client'
 ssh -i $JUJU_HOME/staging-juju-rsa \
     -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
     Administrator@$instance_ip \
@@ -50,7 +50,7 @@ EXIT_STATUS=$?
 ssh -i $JUJU_HOME/staging-juju-rsa \
     -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
     Administrator@$instance_ip \
-    'juju destroy-environment --force released-win-client'
+    'juju destroy-environment --force -y released-win-client'
 set -e
 euca-stop-instances $INSTANCE_ID
 exit $EXIT_STATUS
