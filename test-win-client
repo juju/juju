@@ -30,7 +30,6 @@ done
 echo
 
 set -x
-set +e
 scp -i $JUJU_HOME/staging-juju-rsa \
     -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
     $SCRIPTS/deploy_stack.py $SCRIPTS/jujupy.py $SCRIPTS/jujuconfig.py \
@@ -41,9 +40,17 @@ fi
 ssh -i $JUJU_HOME/staging-juju-rsa \
     -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
     Administrator@$instance_ip \
+    'juju destroy-environment --force released-win-client'
+ssh -i $JUJU_HOME/staging-juju-rsa \
+    -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
+    Administrator@$instance_ip \
     '/cygdrive/c/python27/python \\Users\\Administrator\\ci\\deploy_stack.py' \
      test-win-client
 EXIT_STATUS=$?
+ssh -i $JUJU_HOME/staging-juju-rsa \
+    -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
+    Administrator@$instance_ip \
+    'juju destroy-environment --force released-win-client'
 set -e
 euca-stop-instances $INSTANCE_ID
 exit $EXIT_STATUS
