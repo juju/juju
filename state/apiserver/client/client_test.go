@@ -1861,6 +1861,15 @@ func (s *clientSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
 	c.Assert(sch.IsUploaded(), jc.IsTrue)
 }
 
+func (s *clientSuite) TestCharmArchiveName(c *gc.C) {
+	for rev, name := range []string{"Foo", "bar", "wordpress", "mysql"} {
+		archiveFormat := fmt.Sprintf("%s-%d-[0-9a-f-]+", name, rev)
+		archiveName, err := client.CharmArchiveName(name, rev)
+		c.Check(err, gc.IsNil)
+		c.Check(archiveName, gc.Matches, archiveFormat)
+	}
+}
+
 func (s *clientSuite) assertPutCalled(c *gc.C, ops chan dummy.Operation, numCalls int) {
 	calls := 0
 	select {

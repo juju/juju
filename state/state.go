@@ -614,7 +614,7 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 			// The charm exists and it's either uploaded or still
 			// pending, but it's not a placeholder. In any case, we
 			// just return what we got.
-			break
+			return newCharm(st, &uploadedCharm)
 		} else if err == mgo.ErrNotFound {
 			// Prepare the pending charm document for insertion.
 			uploadedCharm = charmDoc{
@@ -626,11 +626,17 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 
 		var ops []txn.Op
 		if uploadedCharm.Placeholder {
-			// Convert the placeholder to a pending charm.
+			// Convert the placeholder to a pending charm, while
+			// asserting the fields updated after an upload have not
+			// changed yet.
 			ops = []txn.Op{{
-				C:      st.charms.Name,
-				Id:     curl,
-				Assert: txn.DocExists,
+				C:  st.charms.Name,
+				Id: curl,
+				Assert: D{
+					{"bundlesha256", ""},
+					{"pendingupload", false},
+					{"placeholder", true},
+				},
 				Update: D{{"$set", D{
 					{"pendingupload", true},
 					{"placeholder", false},
@@ -655,13 +661,11 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 			continue
 		} else if err != nil {
 			return nil, err
+		} else if err == nil {
+			return newCharm(st, &uploadedCharm)
 		}
-		break
 	}
-	if err != nil {
-		return nil, ErrExcessiveContention
-	}
-	return newCharm(st, &uploadedCharm)
+	return nil, ErrExcessiveContention
 }
 
 var (
