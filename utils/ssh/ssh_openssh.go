@@ -62,7 +62,13 @@ func opensshOptions(options *Options, commandKind opensshCommandKind) []string {
 	if options.allocatePTY {
 		args = append(args, "-t")
 	}
-	for _, identity := range options.identities {
+	identities := options.identities
+	if pk := PrivateKeyFiles(); len(pk) > 0 {
+		// Add client keys as implicit identities
+		identities = append([]string{}, identities...)
+		identities = append(identities, pk...)
+	}
+	for _, identity := range identities {
 		args = append(args, "-i", identity)
 	}
 	if options.port != 0 {
