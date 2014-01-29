@@ -78,12 +78,12 @@ retrieve_packages() {
             echo "checking $archive for $RELEASE."
             lftp -c mirror -I "juju-core_${RELEASE}*.deb" $archive;
         done
-        if [ -d juju-core ]; then
-            found=$(find juju-core/ -name "*deb")
+        if [ -d $DEST_DEBS/juju-core ]; then
+            found=$(find $DEST_DEBS/juju-core/ -name "*deb")
             if [[ $found != "" ]]; then
-                mv juju-core/*deb ./
+                mv $DEST_DEBS/juju-core/*deb ./
             fi
-            rm -r juju-core
+            rm -r $DEST_DEBS/juju-core
         fi
     fi
 }
