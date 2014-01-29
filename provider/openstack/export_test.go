@@ -249,7 +249,7 @@ func DiscardSecurityGroup(e environs.Environ, name string) error {
 
 func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *instances.InstanceSpec, err error) {
 	env := e.(*environ)
-	spec, err = findInstanceSpec(env, &instances.InstanceConstraint{
+	spec, err = findInstanceSpec(env, e.Config().ImageStream(), &instances.InstanceConstraint{
 		Series:      series,
 		Arches:      []string{arch},
 		Region:      env.ecfg().region(),

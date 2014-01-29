@@ -88,6 +88,10 @@ openstack:
     # global public image metadata location https://cloud-images.ubuntu.com/releases.
     # image-metadata-url:  https://you-tools-metadata-url
 
+    # image-stream chooses a simplestreams stream to select OS images from,
+    # for example daily or released images (or any other stream available on simplestreams).
+    # image-stream: "released"
+
     # auth-url defaults to the value of the environment variable OS_AUTH_URL,
     # but can be specified here.
     # auth-url: https://yourkeystoneurl:443/v2.0/
@@ -723,7 +727,7 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 
 	series := possibleTools.OneSeries()
 	arches := possibleTools.Arches()
-	spec, err := findInstanceSpec(e, &instances.InstanceConstraint{
+	spec, err := findInstanceSpec(e, e.Config().ImageStream(), &instances.InstanceConstraint{
 		Region:      e.ecfg().region(),
 		Series:      series,
 		Arches:      arches,

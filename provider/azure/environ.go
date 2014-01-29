@@ -367,7 +367,7 @@ func (env *azureEnviron) selectInstanceTypeAndImage(cons constraints.Value, seri
 		Arches:      architectures,
 		Constraints: cons,
 	}
-	spec, err := findInstanceSpec(env, ecfg.imageStream(), constraint)
+	spec, err := findInstanceSpec(env, ecfg.Config.ImageStream(), constraint)
 	if err != nil {
 		return "", "", err
 	}
@@ -867,10 +867,6 @@ func (env *azureEnviron) getStorageContext() (*gwacl.StorageContext, error) {
 // It contains the central databases for the released and daily streams, but this may
 // become more configurable.  This variable is here as a placeholder, but also
 // as an injection point for tests.
-//
-// Note: Due to datasource fallback issues, the default daily stream has been removed.
-//       This var now only serves as an injection point for tests. See also:
-//           https://bugs.launchpad.net/juju-core/+bug/1233924
 var baseURLs = []string{}
 
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
@@ -889,14 +885,6 @@ func (env *azureEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 	sources := []simplestreams.DataSource{
 		storage.NewStorageSimpleStreamsDataSource(env.Storage(), storage.BaseToolsPath)}
 	return sources, nil
-}
-
-// getImageStream returns the name of the simplestreams stream from which
-// this environment wants its images, e.g. "releases" or "daily", or the
-// blank string for the default.
-func (env *azureEnviron) getImageStream() string {
-	// Hard-coded to the default for now.
-	return ""
 }
 
 // getImageMetadataSigningRequired returns whether this environment requires

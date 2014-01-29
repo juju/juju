@@ -79,8 +79,14 @@ p7vH1ewg+vd9ySST0+OkWXYpbMOIARfBKyrGM3nu
 -----END PGP PUBLIC KEY BLOCK-----
 `
 
-// This needs to be a var so we can override it for testing.
-var DefaultBaseURL = "http://cloud-images.ubuntu.com/releases"
+const (
+	// The location where Ubuntu cloud image metadata is published for
+	// public consumption.
+	UbuntuCloudImagesURL = "http://cloud-images.ubuntu.com"
+)
+
+// This needs to be a var so we can override it for testing and in bootstrap.
+var DefaultBaseURL = UbuntuCloudImagesURL
 
 // ImageConstraint defines criteria used to find an image metadata record.
 type ImageConstraint struct {
@@ -97,9 +103,17 @@ func NewImageConstraint(params simplestreams.LookupParams) *ImageConstraint {
 	return &ImageConstraint{LookupParams: params}
 }
 
+const (
+	// Used to specify the released image metadata.
+	ReleasedStream = "released"
+)
+
 // Generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
 func (ic *ImageConstraint) Ids() ([]string, error) {
-	stream := ic.Stream
+	stream := ""
+	if ic.Stream != "" && ic.Stream != ReleasedStream {
+		stream = ic.Stream
+	}
 	if stream != "" {
 		stream = "." + stream
 	}

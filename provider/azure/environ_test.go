@@ -1148,12 +1148,6 @@ func (*environSuite) TestGetAffinityGroupNameIsConstant(c *gc.C) {
 	c.Check(env.getAffinityGroupName(), gc.Equals, env.getAffinityGroupName())
 }
 
-func (*environSuite) TestGetImageStreamDefaultsToBlank(c *gc.C) {
-	env := makeEnviron(c)
-	// Hard-coded to default for now.
-	c.Check(env.getImageStream(), gc.Equals, "")
-}
-
 func (*environSuite) TestGetImageMetadataSigningRequiredDefaultsToTrue(c *gc.C) {
 	env := makeEnviron(c)
 	// Hard-coded to true for now.  Once we support other base URLs, this
