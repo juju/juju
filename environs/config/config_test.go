@@ -498,56 +498,56 @@ var configTests = []configTest{
 		},
 		err: `syslog-port: expected number, got string\("illegal"\)`,
 	}, {
-		about:       "Explicit bootstrap SSH timeout",
+		about:       "Explicit bootstrap timeout",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":              "my-type",
+			"name":              "my-name",
+			"bootstrap-timeout": 300,
+		},
+	}, {
+		about:       "Invalid bootstrap timeout",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":              "my-type",
+			"name":              "my-name",
+			"bootstrap-timeout": "illegal",
+		},
+		err: `bootstrap-timeout: expected number, got string\("illegal"\)`,
+	}, {
+		about:       "Explicit bootstrap retry delay",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
 			"type":                  "my-type",
 			"name":                  "my-name",
-			"bootstrap-ssh-timeout": 300,
+			"bootstrap-retry-delay": 5,
 		},
 	}, {
-		about:       "Invalid bootstrap SSH timeout",
+		about:       "Invalid bootstrap retry delay",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
 			"type":                  "my-type",
 			"name":                  "my-name",
-			"bootstrap-ssh-timeout": "illegal",
+			"bootstrap-retry-delay": "illegal",
 		},
-		err: `bootstrap-ssh-timeout: expected number, got string\("illegal"\)`,
+		err: `bootstrap-retry-delay: expected number, got string\("illegal"\)`,
 	}, {
-		about:       "Explicit bootstrap SSH retry delay",
+		about:       "Explicit bootstrap addresses delay",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
 			"type": "my-type",
 			"name": "my-name",
-			"bootstrap-ssh-retry-delay": 5,
+			"bootstrap-addresses-delay": 15,
 		},
 	}, {
-		about:       "Invalid bootstrap SSH retry delay",
+		about:       "Invalid bootstrap addresses delay",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
 			"type": "my-type",
 			"name": "my-name",
-			"bootstrap-ssh-retry-delay": "illegal",
+			"bootstrap-addresses-delay": "illegal",
 		},
-		err: `bootstrap-ssh-retry-delay: expected number, got string\("illegal"\)`,
-	}, {
-		about:       "Explicit bootstrap SSH addresses delay",
-		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type": "my-type",
-			"name": "my-name",
-			"bootstrap-ssh-addresses-delay": 15,
-		},
-	}, {
-		about:       "Invalid bootstrap SSH addresses delay",
-		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type": "my-type",
-			"name": "my-name",
-			"bootstrap-ssh-addresses-delay": "illegal",
-		},
-		err: `bootstrap-ssh-addresses-delay: expected number, got string\("illegal"\)`,
+		err: `bootstrap-addresses-delay: expected number, got string\("illegal"\)`,
 	}, {
 		about:       "Invalid logging configuration",
 		useDefaults: config.UseDefaults,
@@ -893,19 +893,19 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 	sshOpts := cfg.BootstrapSSHOpts()
 	test.assertDuration(
 		c,
-		"bootstrap-ssh-timeout",
+		"bootstrap-timeout",
 		sshOpts.Timeout,
 		config.DefaultBootstrapSSHTimeout,
 	)
 	test.assertDuration(
 		c,
-		"bootstrap-ssh-retry-delay",
+		"bootstrap-retry-delay",
 		sshOpts.RetryDelay,
 		config.DefaultBootstrapSSHRetryDelay,
 	)
 	test.assertDuration(
 		c,
-		"bootstrap-ssh-addresses-delay",
+		"bootstrap-addresses-delay",
 		sshOpts.AddressesDelay,
 		config.DefaultBootstrapSSHAddressesDelay,
 	)
@@ -950,24 +950,24 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	// Normally this is handled by testing.FakeHome
 	s.PatchEnvironment(osenv.JujuLoggingConfigEnvKey, "")
 	attrs := map[string]interface{}{
-		"type":                          "my-type",
-		"name":                          "my-name",
-		"authorized-keys":               testing.FakeAuthKeys,
-		"firewall-mode":                 config.FwInstance,
-		"admin-secret":                  "foo",
-		"unknown":                       "my-unknown",
-		"ca-cert":                       caCert,
-		"ssl-hostname-verification":     true,
-		"development":                   false,
-		"provisioner-safe-mode":         false,
-		"state-port":                    1234,
-		"api-port":                      4321,
-		"syslog-port":                   2345,
-		"bootstrap-ssh-timeout":         3600,
-		"bootstrap-ssh-retry-delay":     30,
-		"bootstrap-ssh-addresses-delay": 10,
-		"default-series":                "precise",
-		"charm-store-auth":              "token=auth",
+		"type":                      "my-type",
+		"name":                      "my-name",
+		"authorized-keys":           testing.FakeAuthKeys,
+		"firewall-mode":             config.FwInstance,
+		"admin-secret":              "foo",
+		"unknown":                   "my-unknown",
+		"ca-cert":                   caCert,
+		"ssl-hostname-verification": true,
+		"development":               false,
+		"provisioner-safe-mode":     false,
+		"state-port":                1234,
+		"api-port":                  4321,
+		"syslog-port":               2345,
+		"bootstrap-timeout":         3600,
+		"bootstrap-retry-delay":     30,
+		"bootstrap-addresses-delay": 10,
+		"default-series":            "precise",
+		"charm-store-auth":          "token=auth",
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
