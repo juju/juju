@@ -1763,6 +1763,7 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	bundleURL, err := url.Parse("http://bundles.testing.invalid/" + ident)
 	c.Assert(err, gc.IsNil)
 	sch, err := s.State.AddCharm(charmDir, curl, bundleURL, ident+"-sha256")
+	c.Assert(err, gc.IsNil)
 
 	name := charm.Quote(sch.URL().String())
 	storage := s.Conn.Environ.Storage()
@@ -1832,6 +1833,32 @@ func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
 	c.Assert(uploads, gc.HasLen, 1)
 	c.Assert(getArchiveName(sch.BundleURL()), gc.Equals, uploads[0])
 	s.assertUploaded(c, storage, sch.BundleURL(), sch.BundleSha256())
+}
+
+func (s *clientSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
+	store, restore := makeMockCharmStore()
+	defer restore()
+
+	client := s.APIState.Client()
+	curl, _ := addCharm(c, store, "wordpress")
+
+	// Add a placeholder with the same charm URL.
+	err := s.State.AddStoreCharmPlaceholder(curl)
+	c.Assert(err, gc.IsNil)
+	_, err = s.State.Charm(curl)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+
+	// Now try to add the charm, which will convert the placeholder to
+	// a pending charm.
+	err = client.AddCharm(curl)
+	c.Assert(err, gc.IsNil)
+
+	// Make sure the document's flags were reset as expected.
+	sch, err := s.State.Charm(curl)
+	c.Assert(err, gc.IsNil)
+	c.Assert(sch.URL(), jc.DeepEquals, curl)
+	c.Assert(sch.IsPlaceholder(), jc.IsFalse)
+	c.Assert(sch.IsUploaded(), jc.IsTrue)
 }
 
 func (s *clientSuite) assertPutCalled(c *gc.C, ops chan dummy.Operation, numCalls int) {

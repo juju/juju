@@ -615,21 +615,43 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 			// pending, but it's not a placeholder. In any case, we
 			// just return what we got.
 			break
+		} else if err == mgo.ErrNotFound {
+			// Prepare the pending charm document for insertion.
+			uploadedCharm = charmDoc{
+				URL:           curl,
+				PendingUpload: true,
+				Placeholder:   false,
+			}
 		}
 
-		// No charm found, so create it now as pending.
-		uploadedCharm = charmDoc{
-			URL:           curl,
-			PendingUpload: true,
+		var ops []txn.Op
+		if uploadedCharm.Placeholder {
+			// Convert the placeholder to a pending charm.
+			ops = []txn.Op{{
+				C:      st.charms.Name,
+				Id:     curl,
+				Assert: txn.DocExists,
+				Update: D{{"$set", D{
+					{"pendingupload", true},
+					{"placeholder", false},
+				}}},
+			}}
+			// Update the fields of the document we're returning.
+			uploadedCharm.PendingUpload = true
+			uploadedCharm.Placeholder = false
+		} else {
+			// No charm document with this curl yet, insert it.
+			ops = []txn.Op{{
+				C:      st.charms.Name,
+				Id:     curl,
+				Assert: txn.DocMissing,
+				Insert: uploadedCharm,
+			}}
 		}
-		ops := []txn.Op{{
-			C:      st.charms.Name,
-			Id:     curl,
-			Assert: txn.DocMissing,
-			Insert: uploadedCharm,
-		}}
+
 		// Run the transaction, and retry on abort.
-		if err = st.runTransaction(ops); err == txn.ErrAborted {
+		err = st.runTransaction(ops)
+		if err == txn.ErrAborted {
 			continue
 		} else if err != nil {
 			return nil, err
