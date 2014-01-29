@@ -49,7 +49,6 @@ import (
 type MachineSuite struct {
 	agentSuite
 	lxctesting.TestSuite
-	proxyDir string
 }
 
 var _ = gc.Suite(&MachineSuite{})
@@ -74,10 +73,6 @@ func (s *MachineSuite) SetUpTest(c *gc.C) {
 	fakeHome := coretesting.MakeEmptyFakeHomeWithoutJuju(c)
 	s.AddCleanup(func(*gc.C) { fakeHome.Restore() })
 	s.PatchValue(&authenticationworker.SSHUser, "")
-
-	s.proxyDir = c.MkDir()
-	s.PatchValue(&machineenvironmentworker.ProxyDirectory, s.proxyDir)
-	s.PatchValue(&utils.AptConfFile, filepath.Join(s.proxyDir, "juju-apt-proxy"))
 }
 
 func (s *MachineSuite) TearDownTest(c *gc.C) {
@@ -685,6 +680,10 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineEnvirnWorker(c *gc.C) {
+	proxyDir := c.MkDir()
+	s.PatchValue(&machineenvironmentworker.ProxyDirectory, proxyDir)
+	s.PatchValue(&utils.AptConfFile, filepath.Join(proxyDir, "juju-apt-proxy"))
+
 	s.primeAgent(c, state.JobHostUnits)
 	// Make sure there are some proxy settings to write.
 	oldConfig, err := s.State.EnvironConfig()
