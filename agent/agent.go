@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"sync"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"

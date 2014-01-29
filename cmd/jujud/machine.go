@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/loggo/loggo"
 	"launchpad.net/gnuflag"
-	"launchpad.net/loggo"
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/agent"

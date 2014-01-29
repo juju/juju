@@ -4,8 +4,8 @@
 package checkers_test
 
 import (
+	"github.com/loggo/loggo"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/loggo"
 
 	jc "launchpad.net/juju-core/testing/checkers"
 )

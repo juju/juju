@@ -13,8 +13,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/loggo/loggo"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/testing"

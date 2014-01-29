@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/charm"

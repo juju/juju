@@ -11,10 +11,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/loggo/loggo"
 	"launchpad.net/goamz/aws"
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"

@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/gnuflag"
 )

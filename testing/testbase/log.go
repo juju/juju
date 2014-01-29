@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/loggo/loggo"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/loggo"
 )
 
 // LoggingSuite redirects the juju logger to the test logger
