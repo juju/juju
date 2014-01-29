@@ -274,6 +274,38 @@ func (s *StateSuite) TestPrepareStoreCharmUpload(c *gc.C) {
 	schCopy, err = s.State.PrepareStoreCharmUpload(curl)
 	c.Assert(err, gc.IsNil)
 	c.Assert(sch, jc.DeepEquals, schCopy)
+
+	// Finally, try poking around the state with a placeholder and
+	// bundlesha256 to make sure we do the right thing.
+	curl = curl.WithRevision(999)
+	first := state.TransactionHook{
+		Before: func() {
+			err := s.State.AddStoreCharmPlaceholder(curl)
+			c.Assert(err, gc.IsNil)
+		},
+		After: func() {
+			err := s.charms.RemoveId(curl)
+			c.Assert(err, gc.IsNil)
+		},
+	}
+	second := state.TransactionHook{
+		Before: func() {
+			err := s.State.AddStoreCharmPlaceholder(curl)
+			c.Assert(err, gc.IsNil)
+		},
+		After: func() {
+			err := s.charms.UpdateId(curl, D{{"$set", D{
+				{"bundlesha256", "fake"}},
+			}})
+			c.Assert(err, gc.IsNil)
+		},
+	}
+	defer state.SetTransactionHooks(
+		c, s.State, first, second, first,
+	).Check()
+
+	_, err = s.State.PrepareStoreCharmUpload(curl)
+	c.Assert(err, gc.Equals, state.ErrExcessiveContention)
 }
 
 func (s *StateSuite) TestUpdateUploadedCharm(c *gc.C) {

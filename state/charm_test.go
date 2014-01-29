@@ -5,7 +5,6 @@ package state_test
 
 import (
 	"bytes"
-	"fmt"
 	"net/url"
 
 	gc "launchpad.net/gocheck"
@@ -50,15 +49,6 @@ func (s *CharmSuite) TestCharm(c *gc.C) {
 			Type:        "string",
 		},
 	)
-}
-
-func (s *CharmSuite) TestCharmArchiveName(c *gc.C) {
-	for rev, name := range []string{"Foo", "bar", "wordpress", "mysql"} {
-		archiveFormat := fmt.Sprintf("%s-%d-[0-9a-f-]+", name, rev)
-		archiveName, err := state.CharmArchiveName(name, rev)
-		c.Check(err, gc.IsNil)
-		c.Check(archiveName, gc.Matches, archiveFormat)
-	}
 }
 
 func (s *CharmSuite) TestCharmNotFound(c *gc.C) {

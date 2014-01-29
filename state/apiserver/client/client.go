@@ -877,7 +877,7 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 		return fmt.Errorf("cannot access environment: %v", err)
 	}
 	storage := env.Storage()
-	archiveName, err := state.CharmArchiveName(charmURL.Name, charmURL.Revision)
+	archiveName, err := CharmArchiveName(charmURL.Name, charmURL.Revision)
 	if err != nil {
 		return fmt.Errorf("cannot generate charm archive name: %v", err)
 	}
@@ -907,4 +907,15 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 		return nil
 	}
 	return err
+}
+
+// CharmArchiveName returns a string that is suitable as a file name
+// in a storage URL. It is constructed from the charm name, revision
+// and a random UUID string.
+func CharmArchiveName(name string, revision int) (string, error) {
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return "", err
+	}
+	return charm.Quote(fmt.Sprintf("%s-%d-%s", name, revision, uuid)), nil
 }
