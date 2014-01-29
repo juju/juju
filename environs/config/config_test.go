@@ -447,6 +447,21 @@ var configTests = []configTest{
 		},
 		err: `provisioner-safe-mode: expected bool, got string\("yes please"\)`,
 	}, {
+		about:       "default image stream",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+		},
+	}, {
+		about:       "explicit image stream",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":         "my-type",
+			"name":         "my-name",
+			"image-stream": "daily",
+		},
+	}, {
 		about:       "Explicit state port",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
@@ -838,6 +853,12 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 		c.Assert(cfg.ProvisionerSafeMode(), gc.Equals, v)
 	} else {
 		c.Assert(cfg.ProvisionerSafeMode(), gc.Equals, false)
+	}
+
+	if v, ok := test.attrs["image-stream"]; ok {
+		c.Assert(cfg.ImageStream(), gc.Equals, v)
+	} else {
+		c.Assert(cfg.ImageStream(), gc.Equals, "released")
 	}
 
 	url, urlPresent := cfg.ImageMetadataURL()
