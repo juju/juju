@@ -254,6 +254,7 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 	if err != nil {
 		return nil, err
 	}
+	addrs[len(addrs)-1].NetworkScope = instance.NetworkPublic
 	logger.Infof("addresses for %v: %v", hostname, addrs)
 
 	provisioned, err := checkProvisioned(hostname)

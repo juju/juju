@@ -34,8 +34,8 @@ func (inst nullBootstrapInstance) Addresses() (addresses []instance.Address, err
 	if err != nil {
 		return nil, err
 	}
-	// Add a HostName type address.
-	addresses = append(addresses, instance.NewAddress(host))
+	// The final address is the one we fed in: mark it as public.
+	addresses[len(addresses)-1].NetworkScope = instance.NetworkPublic
 	return addresses, nil
 }
 
