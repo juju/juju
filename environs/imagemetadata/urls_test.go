@@ -4,7 +4,7 @@
 package imagemetadata_test
 
 import (
-	"bytes"
+	"strings"
 
 	gc "launchpad.net/gocheck"
 
@@ -51,7 +51,7 @@ func (s *URLsSuite) env(c *gc.C, imageMetadataURL, stream string) environs.Envir
 	// Put a file in images since the dummy storage provider requires a
 	// file to exist before the URL can be found. This is to ensure it behaves
 	// the same way as MAAS.
-	err = env.Storage().Put("images/dummy", bytes.NewReader([]byte("dummy")), 5)
+	err = env.Storage().Put("images/dummy", strings.NewReader("dummy"), 5)
 	c.Assert(err, gc.IsNil)
 	return env
 }

@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/loggo/loggo"
@@ -121,7 +122,7 @@ func (s *SimpleStreamsToolsSuite) uploadToStorage(c *gc.C, stor storage.Storage,
 		// Put a file in images since the dummy storage provider requires a
 		// file to exist before the URL can be found. This is to ensure it behaves
 		// the same way as MAAS.
-		err = stor.Put(filename, bytes.NewReader([]byte("dummy")), 5)
+		err = stor.Put(filename, strings.NewReader("dummy"), 5)
 		c.Assert(err, gc.IsNil)
 		uploaded[vers], err = stor.URL(filename)
 		c.Assert(err, gc.IsNil)
