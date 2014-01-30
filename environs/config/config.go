@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/charm"
@@ -568,6 +568,17 @@ func (c *Config) ProvisionerSafeMode() bool {
 	return v
 }
 
+// ImageStream returns the simplestreams stream
+// used to identify which image ids to search
+// when starting an instance.
+func (c *Config) ImageStream() string {
+	v, ok := c.m["image-stream"].(string)
+	if ok {
+		return v
+	}
+	return "released"
+}
+
 // UnknownAttrs returns a copy of the raw configuration attributes
 // that are supposedly specific to the environment type. They could
 // also be wrong attributes, though. Only the specific environment
@@ -604,6 +615,7 @@ var fields = schema.Fields{
 	"default-series":            schema.String(),
 	"tools-metadata-url":        schema.String(),
 	"image-metadata-url":        schema.String(),
+	"image-stream":              schema.String(),
 	"authorized-keys":           schema.String(),
 	"authorized-keys-path":      schema.String(),
 	"firewall-mode":             schema.String(),
@@ -655,6 +667,7 @@ var alwaysOptional = schema.Defaults{
 	"apt-http-proxy":        schema.Omit,
 	"apt-https-proxy":       schema.Omit,
 	"apt-ftp-proxy":         schema.Omit,
+	"image-stream":          schema.Omit,
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url": "",
@@ -787,4 +800,24 @@ func AuthorizeCharmRepo(repo charm.Repository, cfg *Config) charm.Repository {
 		}
 	}
 	return repo
+}
+
+// ProxyConfigMap returns a map suitable to be applied to a Config to update
+// proxy settings.
+func ProxyConfigMap(proxy osenv.ProxySettings) map[string]interface{} {
+	return map[string]interface{}{
+		"http-proxy":  proxy.Http,
+		"https-proxy": proxy.Https,
+		"ftp-proxy":   proxy.Ftp,
+	}
+}
+
+// AptProxyConfigMap returns a map suitable to be applied to a Config to update
+// proxy settings.
+func AptProxyConfigMap(proxy osenv.ProxySettings) map[string]interface{} {
+	return map[string]interface{}{
+		"apt-http-proxy":  proxy.Http,
+		"apt-https-proxy": proxy.Https,
+		"apt-ftp-proxy":   proxy.Ftp,
+	}
 }

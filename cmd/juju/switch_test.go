@@ -96,6 +96,14 @@ func (*SwitchSimpleSuite) TestListEnvironments(c *gc.C) {
 	c.Assert(testing.Stdout(context), gc.Equals, expectedEnvironments)
 }
 
+func (*SwitchSimpleSuite) TestListEnvironmentsOSJujuEnvSet(c *gc.C) {
+	defer testing.MakeFakeHome(c, testing.MultipleEnvConfig).Restore()
+	os.Setenv("JUJU_ENV", "using-env")
+	context, err := testing.RunCommand(c, &SwitchCommand{}, []string{"--list"})
+	c.Assert(err, gc.IsNil)
+	c.Assert(testing.Stdout(context), gc.Equals, expectedEnvironments)
+}
+
 func (*SwitchSimpleSuite) TestListEnvironmentsAndChange(c *gc.C) {
 	defer testing.MakeFakeHome(c, testing.MultipleEnvConfig).Restore()
 	_, err := testing.RunCommand(c, &SwitchCommand{}, []string{"--list", "erewhemos-2"})

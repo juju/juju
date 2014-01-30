@@ -307,6 +307,12 @@ func (s *uploadSuite) TestUploadFakeSeries(c *gc.C) {
 		actualRaw := downloadToolsRaw(c, t)
 		c.Assert(string(actualRaw), gc.Equals, string(expectRaw))
 	}
+	metadata := ttesting.ParseMetadataFromStorage(c, s.env.Storage(), false)
+	c.Assert(metadata, gc.HasLen, 3)
+	for i, tm := range metadata {
+		c.Assert(tm.Release, gc.Equals, expectSeries[i])
+		c.Assert(tm.Version, gc.Equals, version.Current.Number.String())
+	}
 }
 
 func (s *uploadSuite) TestUploadAndForceVersion(c *gc.C) {

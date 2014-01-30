@@ -26,17 +26,7 @@ func (nullBootstrapInstance) Refresh() error {
 }
 
 func (inst nullBootstrapInstance) Addresses() (addresses []instance.Address, err error) {
-	host, err := inst.DNSName()
-	if err != nil {
-		return nil, err
-	}
-	addresses, err = instance.HostAddresses(host)
-	if err != nil {
-		return nil, err
-	}
-	// Add a HostName type address.
-	addresses = append(addresses, instance.NewAddress(host))
-	return addresses, nil
+	return manual.HostAddresses(inst.host)
 }
 
 func (inst nullBootstrapInstance) DNSName() (string, error) {

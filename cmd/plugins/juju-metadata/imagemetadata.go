@@ -167,6 +167,10 @@ func (c *ImageMetadataCommand) Run(context *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+	dir, err = filepath.Abs(dir)
+	if err != nil {
+		return err
+	}
 	fmt.Fprintf(out, fmt.Sprintf(helpDoc, dest, dir, dir))
 	return nil
 }

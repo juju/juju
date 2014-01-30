@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/state/api/agent"
 	"launchpad.net/juju-core/state/api/charmrevisionupdater"
 	"launchpad.net/juju-core/state/api/deployer"
+	"launchpad.net/juju-core/state/api/environment"
 	"launchpad.net/juju-core/state/api/firewaller"
 	"launchpad.net/juju-core/state/api/keyupdater"
 	"launchpad.net/juju-core/state/api/logger"
@@ -77,6 +78,11 @@ func (st *State) Upgrader() *upgrader.State {
 // Deployer returns access to the Deployer API
 func (st *State) Deployer() *deployer.State {
 	return deployer.NewState(st)
+}
+
+// Environment returns access to the Environment API
+func (st *State) Environment() *environment.Facade {
+	return environment.NewFacade(st)
 }
 
 // Logger returns access to the Logger API

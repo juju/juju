@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"code.google.com/p/go.net/websocket"
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/rpc"

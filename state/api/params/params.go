@@ -520,7 +520,14 @@ type ContainerConfig struct {
 type ProvisioningScriptParams struct {
 	MachineId string
 	Nonce     string
-	DataDir   string
+
+	// DataDir may be "", in which case the default will be used.
+	DataDir string
+
+	// DisablePackageCommands may be set to disable all package-related
+	// commands. It is then the responsibility of the provisioner to
+	// ensure that all the packages required by Juju are available.
+	DisablePackageCommands bool
 }
 
 // ProvisioningScriptResult contains the result of the
