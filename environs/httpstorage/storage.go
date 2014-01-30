@@ -21,18 +21,9 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
-// PromotableStorage is the storage.Storage interface with an added method
-// that is used for switching to HTTPS for all calls.
-type PromotableStorage interface {
-	storage.Storage
-
-	Promote() error
-}
-
-// localStorage implements the storage.Storage interface.
+// storage implements the storage.Storage interface.
 type localStorage struct {
 	addr   string
-	scheme string
 	client *http.Client
 
 	authkey           string
@@ -46,7 +37,6 @@ type localStorage struct {
 func Client(addr string) storage.Storage {
 	return &localStorage{
 		addr:   addr,
-		scheme: "http",
 		client: http.DefaultClient,
 	}
 }
@@ -55,7 +45,7 @@ func Client(addr string) storage.Storage {
 // storage server at the given network address (see Serve),
 // using TLS. The client is given an authentication key,
 // which the server will verify for Put and Remove* operations.
-func ClientTLS(addr string, caCertPEM []byte, authkey string) (PromotableStorage, error) {
+func ClientTLS(addr string, caCertPEM []byte, authkey string) (storage.Storage, error) {
 	caCerts := x509.NewCertPool()
 	if caCertPEM != nil {
 		if !caCerts.AppendCertsFromPEM(caCertPEM) {
@@ -64,7 +54,6 @@ func ClientTLS(addr string, caCertPEM []byte, authkey string) (PromotableStorage
 	}
 	return &localStorage{
 		addr:    addr,
-		scheme:  "http",
 		authkey: authkey,
 		client: &http.Client{
 			Transport: &http.Transport{
@@ -74,27 +63,8 @@ func ClientTLS(addr string, caCertPEM []byte, authkey string) (PromotableStorage
 	}, nil
 }
 
-// Promote resolves the https endpoint for the storage and switches to using
-// https for subsequent requests.
-func (s *localStorage) Promote() error {
-	httpsURL, err := s.getHTTPSBaseURL()
-	if err != nil {
-		return err
-	}
-	url, err := url.Parse(httpsURL)
-	if err != nil {
-		return err
-	}
-	s.scheme = url.Scheme
-	s.addr = url.Host
-	return nil
-}
-
 func (s *localStorage) getHTTPSBaseURL() (string, error) {
 	url, _ := s.URL("") // never fails
-	if s.scheme == "https" {
-		return url, nil
-	}
 	resp, err := s.client.Head(url)
 	if err != nil {
 		return "", err
@@ -167,7 +137,7 @@ func (s *localStorage) List(prefix string) ([]string, error) {
 
 // URL returns a URL that can be used to access the given storage file.
 func (s *localStorage) URL(name string) (string, error) {
-	return fmt.Sprintf("%s://%s/%s", s.scheme, s.addr, name), nil
+	return fmt.Sprintf("http://%s/%s", s.addr, name), nil
 }
 
 // modURL returns a URL that can be used to modify the given storage file.

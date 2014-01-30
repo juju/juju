@@ -26,17 +26,13 @@ type StateSuite struct {
 
 var _ = gc.Suite(&StateSuite{})
 
-type cleaner interface {
-	AddCleanup(testbase.CleanupFunc)
-}
-
-func newStorageWithDataDir(suite cleaner, c *gc.C) (stor storage.Storage, dataDir string) {
+func newStorageWithDataDir(suite envtesting.Cleaner, c *gc.C) (stor storage.Storage, dataDir string) {
 	closer, stor, dataDir := envtesting.CreateLocalTestStorage(c)
 	suite.AddCleanup(func(*gc.C) { closer.Close() })
 	return
 }
 
-func newStorage(suite cleaner, c *gc.C) (stor storage.Storage) {
+func newStorage(suite envtesting.Cleaner, c *gc.C) (stor storage.Storage) {
 	stor, _ = newStorageWithDataDir(suite, c)
 	return
 }
@@ -108,12 +104,10 @@ func (suite *StateSuite) TestLoadStateFromURLReadsStateFile(c *gc.C) {
 }
 
 func (suite *StateSuite) TestLoadStateFromURLGoodCert(c *gc.C) {
-	closer, stor, dataDir := envtesting.CreateLocalTestStorageTLS(c)
-	defer closer.Close()
-	defer envtesting.PatchDefaultClientCerts().Restore()
+	baseURL, dataDir := envtesting.HTTPSServer(suite, c)
 	state := suite.setUpSavedState(c, dataDir)
-	url, err := stor.URL(common.StateFile)
-	c.Assert(err, gc.IsNil)
+	url := baseURL + common.StateFile
+	defer envtesting.PatchDefaultClientCerts().Restore()
 	storedState, err := common.LoadStateFromURL(url, false)
 	c.Assert(err, gc.IsNil)
 	c.Assert(storedState, gc.NotNil)
@@ -121,21 +115,17 @@ func (suite *StateSuite) TestLoadStateFromURLGoodCert(c *gc.C) {
 }
 
 func (suite *StateSuite) TestLoadStateFromURLBadCert(c *gc.C) {
-	closer, stor, _ := envtesting.CreateLocalTestStorageTLS(c)
-	defer closer.Close()
-	url, err := stor.URL(common.StateFile)
-	c.Assert(err, gc.IsNil)
+	baseURL, _ := envtesting.HTTPSServer(suite, c)
+	url := baseURL + common.StateFile
 	storedState, err := common.LoadStateFromURL(url, false)
 	c.Assert(err, gc.ErrorMatches, ".*/provider-state:.* certificate signed by unknown authority")
 	c.Assert(storedState, gc.IsNil)
 }
 
 func (suite *StateSuite) TestLoadStateFromURLBadCertPermitted(c *gc.C) {
-	closer, stor, dataDir := envtesting.CreateLocalTestStorageTLS(c)
-	defer closer.Close()
+	baseURL, dataDir := envtesting.HTTPSServer(suite, c)
 	state := suite.setUpSavedState(c, dataDir)
-	url, err := stor.URL(common.StateFile)
-	c.Assert(err, gc.IsNil)
+	url := baseURL + common.StateFile
 	storedState, err := common.LoadStateFromURL(url, true)
 	c.Assert(err, gc.IsNil)
 	c.Check(*storedState, gc.DeepEquals, state)

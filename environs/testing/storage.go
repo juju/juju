@@ -18,6 +18,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/httpstorage"
 	"launchpad.net/juju-core/environs/storage"
@@ -27,52 +28,56 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
-const TestAuthkey = "jabberwocky"
-
-// StartStorageServer starts a new local storage server using a temporary
-// directory and returns the listener, a base URL for the server and the
-// directory path.
-func StartStorageServer(c *gc.C) (listener net.Listener, url, dataDir string) {
-	dataDir = c.MkDir()
-	embedded, err := filestorage.NewFileStorageWriter(dataDir, filestorage.UseDefaultTmpDir)
-	c.Assert(err, gc.IsNil)
-	listener, err = httpstorage.Serve("localhost:0", embedded)
-	c.Assert(err, gc.IsNil)
-	return listener, listener.Addr().String(), dataDir
-}
-
-// StartStorageServerTLS starts a new TLS-based local storage server using a
-// temporary directory and returns the listener, a base URL for the server and
-// the directory path.
-func StartStorageServerTLS(c *gc.C) (listener net.Listener, url, dataDir string) {
-	dataDir = c.MkDir()
-	embedded, err := filestorage.NewFileStorageWriter(dataDir, filestorage.UseDefaultTmpDir)
-	c.Assert(err, gc.IsNil)
-	hostnames := []string{"127.0.0.1"}
-	caCertPEM := []byte(coretesting.CACert)
-	caKeyPEM := []byte(coretesting.CAKey)
-	listener, err = httpstorage.ServeTLS("127.0.0.1:0", embedded, caCertPEM, caKeyPEM, hostnames, TestAuthkey)
-	c.Assert(err, gc.IsNil)
-	return listener, fmt.Sprintf("localhost:%d", listener.Addr().(*net.TCPAddr).Port), dataDir
-}
-
 // CreateLocalTestStorage returns the listener, which needs to be closed, and
 // the storage that is backed by a directory created in the running tests temp
 // directory.
 func CreateLocalTestStorage(c *gc.C) (closer io.Closer, stor storage.Storage, dataDir string) {
-	closer, addr, dataDir := StartStorageServer(c)
-	stor = httpstorage.Client(addr)
+	dataDir = c.MkDir()
+	underlying, err := filestorage.NewFileStorageWriter(dataDir, filestorage.UseDefaultTmpDir)
+	c.Assert(err, gc.IsNil)
+	listener, err := httpstorage.Serve("localhost:0", underlying)
+	c.Assert(err, gc.IsNil)
+	stor = httpstorage.Client(listener.Addr().String())
+	closer = listener
 	return
 }
 
-// CreateLocalTestStorageTLS
-func CreateLocalTestStorageTLS(c *gc.C) (closer io.Closer, stor storage.Storage, dataDir string) {
-	closer, addr, dataDir := StartStorageServerTLS(c)
-	pstor, err := httpstorage.ClientTLS(addr, []byte(coretesting.CACert), TestAuthkey)
+type Cleaner interface {
+	AddCleanup(testbase.CleanupFunc)
+}
+
+// HTTPServer sets up a testing https server with valid certificates backed
+// by a tempdir. The baseURL and backing dataDir path are returned, the server
+// is automatically cleaned up when the test finished.
+func HTTPSServer(suite Cleaner, c *gc.C) (baseURL string, dataDir string) {
+	// TODO(gz): Too much copied from environs/httpstorage/backend.go which
+	//           unfortunately proved to be not very reusable.
+	expiry := time.Now().UTC().AddDate(10, 0, 0)
+	hostnames := []string{"127.0.0.1"}
+	caCertPEM := []byte(coretesting.CACert)
+	caKeyPEM := []byte(coretesting.CAKey)
+	certPEM, keyPEM, err := cert.NewServer(caCertPEM, caKeyPEM, expiry, hostnames)
 	c.Assert(err, gc.IsNil)
-	err = pstor.Promote()
+	serverCert, err := tls.X509KeyPair(certPEM, keyPEM)
 	c.Assert(err, gc.IsNil)
-	stor = pstor
+	caCerts := x509.NewCertPool()
+	if !caCerts.AppendCertsFromPEM(caCertPEM) {
+		c.Fatalf("error adding CA certificate to pool")
+	}
+	config := &tls.Config{
+		NextProtos:   []string{"http/1.1"},
+		Certificates: []tls.Certificate{serverCert},
+		ClientAuth:   tls.VerifyClientCertIfGiven,
+		ClientCAs:    caCerts,
+	}
+	listener, err := tls.Listen("tcp", "127.0.0.1:0", config)
+	c.Assert(err, gc.IsNil)
+	dataDir = c.MkDir()
+	mux := http.NewServeMux()
+	mux.Handle("/", http.FileServer(http.Dir(dataDir)))
+	go http.Serve(listener, mux)
+	suite.AddCleanup(func(*gc.C) { listener.Close() })
+	baseURL = fmt.Sprintf("https://%s/", listener.Addr().String())
 	return
 }
 

@@ -18,13 +18,14 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/environs/filestorage"
+	"launchpad.net/juju-core/environs/httpstorage"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
-const testAuthkey = envtesting.TestAuthkey
+const testAuthkey = "jabberwocky"
 
 func TestLocal(t *stdtesting.T) {
 	gc.TestingT(t)
@@ -36,18 +37,31 @@ type backendSuite struct {
 
 var _ = gc.Suite(&backendSuite{})
 
+// startServer starts a new local storage server
+// using a temporary directory and returns the listener,
+// a base URL for the server and the directory path.
 func startServer(c *gc.C) (listener net.Listener, url, dataDir string) {
-	listener, addr, dataDir := envtesting.StartStorageServer(c)
-	url = fmt.Sprintf("http://%s/", addr)
-	return
+	dataDir = c.MkDir()
+	embedded, err := filestorage.NewFileStorageWriter(dataDir, filestorage.UseDefaultTmpDir)
+	c.Assert(err, gc.IsNil)
+	listener, err = httpstorage.Serve("localhost:0", embedded)
+	c.Assert(err, gc.IsNil)
+	return listener, fmt.Sprintf("http://%s/", listener.Addr()), dataDir
 }
 
+// startServerTLS starts a new TLS-based local storage server
+// using a temporary directory and returns the listener,
+// a base URL for the server and the directory path.
 func startServerTLS(c *gc.C) (listener net.Listener, url, dataDir string) {
-	listener, addr, dataDir := envtesting.StartStorageServerTLS(c)
-	// This returns an http: scheme because promotion to https: only
-	// happens via a HEAD request to get a url with the http port.
-	url = fmt.Sprintf("http://%s/", addr)
-	return
+	dataDir = c.MkDir()
+	embedded, err := filestorage.NewFileStorageWriter(dataDir, filestorage.UseDefaultTmpDir)
+	c.Assert(err, gc.IsNil)
+	hostnames := []string{"127.0.0.1"}
+	caCertPEM := []byte(coretesting.CACert)
+	caKeyPEM := []byte(coretesting.CAKey)
+	listener, err = httpstorage.ServeTLS("127.0.0.1:0", embedded, caCertPEM, caKeyPEM, hostnames, testAuthkey)
+	c.Assert(err, gc.IsNil)
+	return listener, fmt.Sprintf("http://localhost:%d/", listener.Addr().(*net.TCPAddr).Port), dataDir
 }
 
 type testCase struct {
