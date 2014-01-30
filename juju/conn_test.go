@@ -453,7 +453,7 @@ var _ = gc.Suite(&DeployLocalSuite{})
 
 func (s *DeployLocalSuite) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
-	s.repo = &charm.LocalRepository{Path: coretesting.Charms.Path}
+	s.repo = &charm.LocalRepository{Path: coretesting.Charms.Path()}
 	s.oldCacheDir, charm.CacheDir = charm.CacheDir, c.MkDir()
 }
 
