@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"launchpad.net/gnuflag"
@@ -22,6 +23,7 @@ import (
 	"launchpad.net/juju-core/environs/sync"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
 )
@@ -40,7 +42,16 @@ constraints were set with juju set-constraints.
 Bootstrap initializes the cloud environment synchronously and displays information
 about the current installation steps.  The time for bootstrap to complete varies 
 across cloud providers from a few seconds to several minutes.  Once bootstrap has 
-completed, you can run other juju commands against your environment.
+completed, you can run other juju commands against your environment. You can change
+the default timeout and retry delays used during the bootstrap by changing the
+following settings in your environments.yaml (all values represent number of seconds):
+
+    # How long to wait for a connection to the state server.
+    bootstrap-timeout: 600 # default: 10 minutes
+    # How long to wait between connection attempts to a state server address.
+    bootstrap-retry-delay: 5 # default: 5 seconds
+    # How often to refresh state server addresses from the API server.
+    bootstrap-addresses-delay: 10 # default: 10 seconds
 
 Private clouds may need to specify their own custom image metadata, and possibly upload
 Juju tools to cloud storage if no outgoing Internet access is available. In this case,
@@ -79,9 +90,19 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.MetadataSource, "metadata-source", "", "local path to use as tools and/or metadata source")
 }
 
-func (c *BootstrapCommand) Init(args []string) error {
+func (c *BootstrapCommand) Init(args []string) (err error) {
 	if len(c.Series) > 0 && !c.UploadTools {
 		return fmt.Errorf("--series requires --upload-tools")
+	}
+	if c.MetadataSource != "" {
+		c.MetadataSource, err = utils.NormalizePath(c.MetadataSource)
+		if err != nil {
+			return err
+		}
+		c.MetadataSource, err = filepath.Abs(c.MetadataSource)
+		if err != nil {
+			return err
+		}
 	}
 	return cmd.CheckEmpty(args)
 }
@@ -129,7 +150,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	if c.MetadataSource != "" {
 		logger.Infof("Setting default tools and image metadata sources: %s", c.MetadataSource)
 		tools.DefaultBaseURL = c.MetadataSource
-		imagemetadata.DefaultBaseURL = c.MetadataSource
 		if err := imagemetadata.UploadImageMetadata(environ.Storage(), c.MetadataSource); err != nil {
 			// Do not error if image metadata directory doesn't exist.
 			if !os.IsNotExist(err) {

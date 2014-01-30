@@ -4,10 +4,7 @@
 package charm
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
-	"io"
 	"os"
 	"path"
 
@@ -75,11 +72,10 @@ func (d *BundlesDir) download(sch *uniter.Charm, abort <-chan struct{}) (err err
 			}
 			log.Infof("worker/uniter/charm: download complete")
 			defer st.File.Close()
-			hash := sha256.New()
-			if _, err = io.Copy(hash, st.File); err != nil {
+			actualSha256, _, err := utils.ReadSHA256(st.File)
+			if err != nil {
 				return err
 			}
-			actualSha256 := hex.EncodeToString(hash.Sum(nil))
 			archiveSha256, err := sch.ArchiveSha256()
 			if err != nil {
 				return err

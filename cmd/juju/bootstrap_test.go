@@ -372,6 +372,7 @@ func (s *BootstrapSuite) TestUploadLocalImageMetadata(c *gc.C) {
 	ctx := coretesting.Context(c)
 	code := cmd.Main(&BootstrapCommand{}, ctx, []string{"--metadata-source", sourceDir})
 	c.Check(code, gc.Equals, 0)
+	c.Assert(imagemetadata.DefaultBaseURL, gc.Equals, imagemetadata.UbuntuCloudImagesURL)
 
 	// Now check the image metadata has been uploaded.
 	checkImageMetadata(c, env.Storage(), expected)

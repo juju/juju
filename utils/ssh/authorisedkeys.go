@@ -4,7 +4,6 @@
 package ssh
 
 import (
-	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -15,6 +14,7 @@ import (
 	"strings"
 	"sync"
 
+	"code.google.com/p/go.crypto/ssh"
 	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/utils"
@@ -34,108 +34,21 @@ const (
 	authKeysFile = "authorized_keys"
 )
 
-// case-insensive public authorized_keys options
-var validOptions = [...]string{
-	"cert-authority",
-	"command",
-	"environment",
-	"from",
-	"no-agent",
-	"no-port-forwarding",
-	"no-pty",
-	"no-user",
-	"no-X11-forwarding",
-	"permitopen",
-	"principals",
-	"tunnel",
-}
-
-var validKeytypes = [...]string{
-	"ecdsa-sha2-nistp256",
-	"ecdsa-sha2-nistp384",
-	"ecdsa-sha2-nistp521",
-	"ssh-dss",
-	"ssh-rsa",
-}
-
 type AuthorisedKey struct {
-	KeyType string
 	Key     []byte
 	Comment string
-}
-
-// skipOptions takes a non-comment line from an
-// authorized_keys file, and returns the remainder
-// of the line after skipping any options at the
-// beginning of the line.
-func skipOptions(line string) string {
-	found := false
-	lower := strings.ToLower(line)
-	for _, o := range validOptions {
-		if strings.HasPrefix(lower, o) {
-			line = line[len(o):]
-			found = true
-			break
-		}
-	}
-	if !found {
-		return line
-	}
-	// Skip to the next unquoted whitespace, returning the remainder.
-	// Double quotes may be escaped with \".
-	var quoted bool
-	for i := 0; i < len(line); i++ {
-		switch line[i] {
-		case ' ', '\t':
-			if !quoted {
-				return strings.TrimLeft(line[i+1:], " \t")
-			}
-		case '\\':
-			if i+1 < len(line) && line[i+1] == '"' {
-				i++
-			}
-		case '"':
-			quoted = !quoted
-		}
-	}
-	return ""
 }
 
 // ParseAuthorisedKey parses a non-comment line from an
 // authorized_keys file and returns the constituent parts.
 // Based on description in "man sshd".
-//
-// TODO(axw) support version 1 format?
 func ParseAuthorisedKey(line string) (*AuthorisedKey, error) {
-	withoutOptions := skipOptions(line)
-	var keytype, key, comment string
-	if i := strings.IndexAny(withoutOptions, " \t"); i == -1 {
-		// There must be at least two fields: keytype and key.
-		return nil, fmt.Errorf("malformed line: %q", line)
-	} else {
-		keytype = withoutOptions[:i]
-		key = strings.TrimSpace(withoutOptions[i+1:])
+	key, comment, _, _, ok := ssh.ParseAuthorizedKey([]byte(line))
+	if !ok {
+		return nil, fmt.Errorf("invalid authorized_key %q", line)
 	}
-	validKeytype := false
-	for _, kt := range validKeytypes {
-		if keytype == kt {
-			validKeytype = true
-			break
-		}
-	}
-	if !validKeytype {
-		return nil, fmt.Errorf("invalid keytype %q in line %q", keytype, line)
-	}
-	// Split key/comment (if any)
-	if i := strings.IndexAny(key, " \t"); i != -1 {
-		key, comment = key[:i], key[i+1:]
-	}
-	keyBytes, err := base64.StdEncoding.DecodeString(key)
-	if err != nil {
-		return nil, err
-	}
+	keyBytes := ssh.MarshalPublicKey(key)
 	return &AuthorisedKey{
-		KeyType: keytype,
 		Key:     keyBytes,
 		Comment: comment,
 	}, nil

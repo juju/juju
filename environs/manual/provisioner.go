@@ -133,7 +133,10 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 
 	var provisioningScript string
 	if stateConn == nil {
-		provisioningScript, err = client.ProvisioningScript(machineId, machineParams.Nonce)
+		provisioningScript, err = client.ProvisioningScript(params.ProvisioningScriptParams{
+			MachineId: machineId,
+			Nonce:     machineParams.Nonce,
+		})
 		if err != nil {
 			return "", err
 		}
@@ -250,7 +253,7 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 			// be using.
 		}
 	}
-	addrs, err := instance.HostAddresses(hostname)
+	addrs, err := HostAddresses(hostname)
 	if err != nil {
 		return nil, err
 	}
