@@ -609,6 +609,7 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 	if err != nil {
 		return result, err
 	}
+	mcfg.DisablePackageCommands = args.DisablePackageCommands
 	cloudcfg := coreCloudinit.New()
 	if err := cloudinit.ConfigureJuju(mcfg, cloudcfg); err != nil {
 		return result, err

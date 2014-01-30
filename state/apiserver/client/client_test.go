@@ -1669,7 +1669,10 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 	// Call ProvisioningScript. Normally ProvisioningScript and
 	// MachineConfig are mutually exclusive; both of them will
 	// allocate a state/api password for the machine agent.
-	script, err := s.APIState.Client().ProvisioningScript(machineId, apiParams.Nonce)
+	script, err := s.APIState.Client().ProvisioningScript(params.ProvisioningScriptParams{
+		MachineId: machineId,
+		Nonce:     apiParams.Nonce,
+	})
 	c.Assert(err, gc.IsNil)
 	mcfg, err := statecmd.MachineConfig(s.State, machineId, apiParams.Nonce, "")
 	c.Assert(err, gc.IsNil)
@@ -1692,6 +1695,27 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 		}
 		c.Assert(line, gc.Equals, sshinitScriptLines[i])
 	}
+}
+
+func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
+	apiParams := params.AddMachineParams{
+		Jobs:       []params.MachineJob{params.JobHostUnits},
+		InstanceId: instance.Id("1234"),
+		Nonce:      "foo",
+		HardwareCharacteristics: instance.MustParseHardware("arch=amd64"),
+	}
+	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(machines), gc.Equals, 1)
+	machineId := machines[0].Machine
+	script, err := s.APIState.Client().ProvisioningScript(params.ProvisioningScriptParams{
+		MachineId: machineId,
+		Nonce:     apiParams.Nonce,
+		DisablePackageCommands: true,
+	})
+	c.Assert(err, gc.IsNil)
+	// We disabled package commands: there should be no "apt" commands in the script.
+	c.Assert(script, gc.Not(jc.Contains), "apt-get")
 }
 
 func (s *clientSuite) TestClientAuthorizeStoreOnDeployServiceSetCharmAndAddCharm(c *gc.C) {
