@@ -254,6 +254,7 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 	if err != nil {
 		return nil, err
 	}
+	// The final address is the one we fed in: mark it as public.
 	addrs[len(addrs)-1].NetworkScope = instance.NetworkPublic
 	logger.Infof("addresses for %v: %v", hostname, addrs)
 
