@@ -240,7 +240,7 @@ func writeLxcConfig(network *container.NetworkConfig, directory, logdir string) 
 }
 
 // useRestartDir is used to determine whether or not to use a symlink to the
-// container config as the restart mechanism.  Older version of LXC had the
+// container config as the restart mechanism.  Older versions of LXC had the
 // /etc/lxc/auto directory that would indicate that a container shoud auto-
 // restart when the machine boots by having a symlink to the lxc.conf file.
 // Newer versions don't do this, but instead have a config value inside the
