@@ -134,7 +134,6 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 
 	client := rpc.NewConn(jsoncodec.NewWebsocket(conn), nil)
 	client.Start()
-	// TODO: Store appropriate websocket config in State.
 	st := &State{
 		client:          client,
 		conn:            conn,

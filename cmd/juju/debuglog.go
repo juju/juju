@@ -4,23 +4,20 @@
 package main
 
 import (
-	"bufio"
-	"fmt"
 	"io"
-	"strings"
+	"os"
 
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/names"
 )
 
 type DebugLogCommand struct {
 	cmd.EnvCommandBase
 
-	lines    int
-	entities string
+	lines  int
+	filter string
 }
 
 // defaultLineCount is the default number of lines to
@@ -43,8 +40,8 @@ func (c *DebugLogCommand) Info() *cmd.Info {
 func (c *DebugLogCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.lines, "n", defaultLineCount, "output the last K lines; or use -n +K to output lines starting with the Kth")
 	f.IntVar(&c.lines, "lines", defaultLineCount, "")
-	f.StringVar(&c.entities, "e", "", "filter the output by entities (environment, machine or unit)")
-	f.StringVar(&c.entities, "entities", "", "")
+	f.StringVar(&c.filter, "f", "", "filter the output with a regular expression")
+	f.StringVar(&c.filter, "filter", "", "")
 }
 
 func (c *DebugLogCommand) Init(args []string) error {
@@ -59,34 +56,12 @@ func (c *DebugLogCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	defer client.Close()
 
-	var entities []string
-	if c.entities == "" {
-		// Empty entities argument leads to full environment for backward compatability.
-		info, err := client.EnvironmentInfo()
-		if err != nil {
-			return err
-		}
-		entities = []string{names.EnvironTag(info.UUID)}
-	} else {
-		// Split argument into entities.
-		entities = strings.Split(c.entities, " ")
-	}
-
-	debugLog, err := client.WatchDebugLog(c.lines, entities)
+	debugLog, err := client.WatchDebugLog(c.lines, c.filter)
 	if err != nil {
 		return err
 	}
 	defer debugLog.Close()
-	reader := bufio.NewReader(debugLog)
 
-	for {
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			if err == io.EOF {
-				return nil
-			}
-			return err
-		}
-		fmt.Printf(line)
-	}
+	_, err = io.Copy(os.Stdout, debugLog)
+	return err
 }

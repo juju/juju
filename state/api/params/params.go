@@ -567,10 +567,9 @@ type StatusParams struct {
 	Patterns []string
 }
 
-// EntityLogRequest describes the requested entities when watching
-// the debug log.
+// EntityLogRequest describes a filtered request for entity logs.
 type EntityLogRequest struct {
-	Entities []string
+	Filter string
 }
 
 // EntityLogResponse is the server response to debug log request.

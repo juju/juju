@@ -520,22 +520,22 @@ func (c *Client) AddCharm(curl *charm.URL) error {
 }
 
 // WatchDebugLog returns a ClientDebugLog reading the debug log message.
-// The entitiers allow to filter for wanted machines and units, watching
-// the whole logs needs the entity of the environment. The watching is
-// started the given number of matching lines back in history.
-func (c *Client) WatchDebugLog(lines int, entities []string) (*ClientDebugLog, error) {
+// The filter allows to grep wanted lines out of the output, e.g.
+// machines or units. The watching is started the given number of
+// matching lines back in history.
+func (c *Client) WatchDebugLog(lines int, filter string) (*ClientDebugLog, error) {
 	cfg := c.st.websocketConfig
 	// Prepare URL.
-	entityStr := ""
-	for _, entity := range entities {
-		entityStr += "&entity=" + url.QueryEscape(entity)
+	attrs := url.Values{
+		"lines":  {fmt.Sprintf("%d", lines)},
+		"filter": {filter},
 	}
-	urlStr := fmt.Sprintf("wss://%s/log?lines=%d%s", c.st.serverHostPort, lines, entityStr)
-	url, err := url.Parse(urlStr)
-	if err != nil {
-		return nil, err
+	cfg.Location = &url.URL{
+		Scheme:   "wss",
+		Host:     c.st.serverHostPort,
+		Path:     "/log",
+		RawQuery: attrs.Encode(),
 	}
-	cfg.Location = url
 	cfg.Header = make(http.Header)
 	setBasicAuth(cfg.Header, c.st.tag, c.st.password)
 
@@ -559,9 +559,8 @@ func (c *ClientDebugLog) Close() error {
 // SetFilter sets the entity tags that apply to the filter.
 // This setting will not take place immediately - messages
 // already in the pipeline will still be received.
-func (c *ClientDebugLog) SetFilter(entities []string) error {
-	var req params.EntityLogRequest
-	req.Entities = entities
+func (c *ClientDebugLog) SetFilter(filter string) error {
+	req := params.EntityLogRequest{Filter: filter}
 	if err := websocket.JSON.Send(c.wsConn, &req); err != nil {
 		return err
 	}

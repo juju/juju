@@ -4,11 +4,11 @@
 package apiserver
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
 	"sync"
 
@@ -20,6 +20,9 @@ import (
 	"launchpad.net/tomb"
 )
 
+// logLocation is the location of the aggregated log in non-local
+// environments. Those need an extra location handling. Issue is
+// lp:1202682.
 const logLocation = "/var/log/juju/all-machines.log"
 
 // logHandler takes requests to watch the debug log.
@@ -27,7 +30,8 @@ type logHandler struct {
 	commonHandler
 }
 
-// newLogHandler creates a new log handler.
+// newLogHandler returns a new http.Handler
+// that handles debug-log HTTP requests.
 func newLogHandler(state *state.State) *logHandler {
 	return &logHandler{commonHandler{state}}
 }
@@ -37,13 +41,6 @@ func (h *logHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		h.sendAuthError(h, w)
 		return
 	}
-	// Get environment tag.
-	env, err := h.state.Environment()
-	if err != nil {
-		h.sendError(h, w, http.StatusInternalServerError, "cannot retrieve environment tag: %v", err)
-		return
-	}
-	envTag := env.Tag()
 	// Open log file.
 	logFile, err := os.Open(logLocation)
 	if err != nil {
@@ -53,18 +50,24 @@ func (h *logHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	defer logFile.Close()
 	// Get the arguments of the request.
 	values := req.URL.Query()
-	lines, err := strconv.Atoi(values["lines"][0])
-	if err != nil {
-		h.sendError(h, w, http.StatusInternalServerError, "cannot parse number of lines: %v", err)
-		return
+	lines := 0
+	if linesAttr := values.Get("lines"); linesAttr != "" {
+		var err error
+		lines, err = strconv.Atoi(linesAttr)
+		if err != nil {
+			h.sendError(h, w, http.StatusInternalServerError, "cannot parse number of lines: %v", err)
+			return
+		}
 	}
-	entities := values["entity"]
+	filter := values.Get("filter")
 	// Start streaming.
 	wsServer := websocket.Server{
 		Handler: func(wsConn *websocket.Conn) {
-			stream := &logStream{envTag: envTag}
-			go stream.loop(logFile, wsConn, lines, entities)
-			stream.tomb.Wait()
+			stream := &logStream{}
+			go stream.loop(logFile, wsConn, lines, filter)
+			if err := stream.tomb.Wait(); err != nil {
+				logger.Errorf("debug-log handler error: %v", err)
+			}
 		},
 	}
 	wsServer.ServeHTTP(w, req)
@@ -80,16 +83,18 @@ func (h *logHandler) errorResponse(message string) interface{} {
 type logStream struct {
 	tomb     tomb.Tomb
 	mux      sync.Mutex
-	envTag   string
-	noFilter bool
-	prefixes [][]byte
+	filter   string
+	filterRx *regexp.Regexp
 }
 
 // loop starts the tailer with the log file and the web socket.
-func (stream *logStream) loop(logFile io.ReadSeeker, wsConn *websocket.Conn, lines int, entities []string) {
+func (stream *logStream) loop(logFile io.ReadSeeker, wsConn *websocket.Conn, lines int, filter string) {
 	defer stream.tomb.Done()
-	stream.setFilter(entities)
-	tailer := tailer.NewTailer(logFile, wsConn, lines, stream.filter)
+	if err := stream.setFilter(filter); err != nil {
+		stream.tomb.Kill(err)
+		return
+	}
+	tailer := tailer.NewTailer(logFile, wsConn, lines, stream.filterLine)
 	go stream.handleRequests(wsConn)
 	select {
 	case <-tailer.Dead():
@@ -99,38 +104,25 @@ func (stream *logStream) loop(logFile io.ReadSeeker, wsConn *websocket.Conn, lin
 	}
 }
 
-// filter checks the received line for one of the confgured tags.
-func (stream *logStream) filter(line []byte) bool {
+// filterLine checks the received line for one of the confgured tags.
+func (stream *logStream) filterLine(line []byte) bool {
 	stream.mux.Lock()
 	defer stream.mux.Unlock()
-	// Check if no filter due to whole environment.
-	if stream.noFilter {
+	// Check if no filter.
+	if stream.filterRx == nil {
 		return true
 	}
-	// Check all prefixes.
-	for _, prefix := range stream.prefixes {
-		if bytes.HasPrefix(line, prefix) {
-			return true
-		}
-	}
-	return false
+	// Check if the filter matches.
+	return stream.filterRx.Match(line)
 }
 
 // setFilter configures the stream filtering by setting the
 // tags to filter.
-func (stream *logStream) setFilter(entities []string) {
+func (stream *logStream) setFilter(filter string) (err error) {
 	stream.mux.Lock()
 	defer stream.mux.Unlock()
-	stream.prefixes = make([][]byte, len(entities))
-	for i, entity := range entities {
-		if entity == stream.envTag {
-			// In case of environment tag no filtering.
-			stream.noFilter = true
-			break
-		}
-		// Add prefix for filter.
-		stream.prefixes[i] = []byte(entity + ":")
-	}
+	stream.filterRx, err = regexp.Compile(filter)
+	return
 }
 
 // handleRequests allows the stream to handle requests, so far only
@@ -142,6 +134,9 @@ func (stream *logStream) handleRequests(wsConn *websocket.Conn) {
 			stream.tomb.Kill(fmt.Errorf("error receiving packet: %v", err))
 			return
 		}
-		stream.setFilter(req.Entities)
+		if err := stream.setFilter(req.Filter); err != nil {
+			stream.tomb.Kill(fmt.Errorf("error setting filter: %v", err))
+			return
+		}
 	}
 }
