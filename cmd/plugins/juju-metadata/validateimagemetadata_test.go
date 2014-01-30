@@ -65,10 +65,11 @@ func (s *ValidateImageMetadataSuite) TestUnsupportedProviderError(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `local provider does not support image metadata validation`)
 }
 
-func (s *ValidateImageMetadataSuite) makeLocalMetadata(c *gc.C, id, region, series, endpoint string) error {
+func (s *ValidateImageMetadataSuite) makeLocalMetadata(c *gc.C, id, region, series, endpoint, stream string) error {
 	im := &imagemetadata.ImageMetadata{
-		Id:   id,
-		Arch: "amd64",
+		Id:     id,
+		Arch:   "amd64",
+		Stream: stream,
 	}
 	cloudSpec := simplestreams.CloudSpec{
 		Region:   region,
@@ -114,20 +115,20 @@ func (s *ValidateImageMetadataSuite) TearDownTest(c *gc.C) {
 	s.LoggingSuite.TearDownTest(c)
 }
 
-func (s *ValidateImageMetadataSuite) setupEc2LocalMetadata(c *gc.C, region string) {
+func (s *ValidateImageMetadataSuite) setupEc2LocalMetadata(c *gc.C, region, stream string) {
 	ec2Region, ok := aws.Regions[region]
 	if !ok {
 		c.Fatalf("unknown ec2 region %q", region)
 	}
 	endpoint := ec2Region.EC2Endpoint
-	s.makeLocalMetadata(c, "1234", region, "precise", endpoint)
+	s.makeLocalMetadata(c, "1234", region, "precise", endpoint, stream)
 }
 
-func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataUsingEnvironment(c *gc.C) {
-	s.setupEc2LocalMetadata(c, "us-east-1")
+func (s *ValidateImageMetadataSuite) assertEc2LocalMetadataUsingEnvironment(c *gc.C, stream string) {
+	s.setupEc2LocalMetadata(c, "us-east-1", stream)
 	ctx := coretesting.Context(c)
 	code := cmd.Main(
-		&ValidateImageMetadataCommand{}, ctx, []string{"-e", "ec2", "-d", s.metadataDir},
+		&ValidateImageMetadataCommand{}, ctx, []string{"-e", "ec2", "-d", s.metadataDir, "-m", stream},
 	)
 	c.Assert(code, gc.Equals, 0)
 	errOut := ctx.Stdout.(*bytes.Buffer).String()
@@ -135,12 +136,18 @@ func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataUsingEnvironment(c *gc.
 	c.Check(strippedOut, gc.Matches, `matching image ids for region "us-east-1":.*`)
 }
 
+func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataUsingEnvironment(c *gc.C) {
+	s.assertEc2LocalMetadataUsingEnvironment(c, "")
+	s.assertEc2LocalMetadataUsingEnvironment(c, imagemetadata.ReleasedStream)
+	s.assertEc2LocalMetadataUsingEnvironment(c, "daily")
+}
+
 func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataUsingIncompleteEnvironment(c *gc.C) {
 	testbase.PatchEnvironment("AWS_ACCESS_KEY_ID", "")
 	testbase.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "")
 	testbase.PatchEnvironment("EC2_ACCESS_KEY", "")
 	testbase.PatchEnvironment("EC2_SECRET_KEY", "")
-	s.setupEc2LocalMetadata(c, "us-east-1")
+	s.setupEc2LocalMetadata(c, "us-east-1", "")
 	ctx := coretesting.Context(c)
 	code := cmd.Main(
 		&ValidateImageMetadataCommand{}, ctx, []string{"-e", "ec2", "-d", s.metadataDir},
@@ -152,7 +159,7 @@ func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataUsingIncompleteEnvironm
 }
 
 func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataWithManualParams(c *gc.C) {
-	s.setupEc2LocalMetadata(c, "us-west-1")
+	s.setupEc2LocalMetadata(c, "us-west-1", "")
 	ctx := coretesting.Context(c)
 	code := cmd.Main(
 		&ValidateImageMetadataCommand{}, ctx, []string{
@@ -166,7 +173,7 @@ func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataWithManualParams(c *gc.
 }
 
 func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataNoMatch(c *gc.C) {
-	s.setupEc2LocalMetadata(c, "us-east-1")
+	s.setupEc2LocalMetadata(c, "us-east-1", "")
 	ctx := coretesting.Context(c)
 	code := cmd.Main(
 		&ValidateImageMetadataCommand{}, ctx, []string{
@@ -183,7 +190,7 @@ func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataNoMatch(c *gc.C) {
 }
 
 func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataWithManualParams(c *gc.C) {
-	s.makeLocalMetadata(c, "1234", "region-2", "raring", "some-auth-url")
+	s.makeLocalMetadata(c, "1234", "region-2", "raring", "some-auth-url", "")
 	ctx := coretesting.Context(c)
 	code := cmd.Main(
 		&ValidateImageMetadataCommand{}, ctx, []string{
@@ -197,7 +204,7 @@ func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataWithManualParams(
 }
 
 func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataNoMatch(c *gc.C) {
-	s.makeLocalMetadata(c, "1234", "region-2", "raring", "some-auth-url")
+	s.makeLocalMetadata(c, "1234", "region-2", "raring", "some-auth-url", "")
 	ctx := coretesting.Context(c)
 	code := cmd.Main(
 		&ValidateImageMetadataCommand{}, ctx, []string{

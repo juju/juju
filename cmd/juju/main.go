@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"

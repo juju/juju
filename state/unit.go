@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/loggo/loggo"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"

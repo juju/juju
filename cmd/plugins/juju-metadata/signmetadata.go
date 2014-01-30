@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/loggo/loggo"
 	"launchpad.net/gnuflag"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/simplestreams"
@@ -65,6 +65,10 @@ func (c *SignMetadataCommand) Run(context *cmd.Context) error {
 	defer loggo.RemoveWriter("signmetadata")
 	var err error
 	c.dir, err = utils.NormalizePath(c.dir)
+	if err != nil {
+		return err
+	}
+	c.dir, err = filepath.Abs(c.dir)
 	if err != nil {
 		return err
 	}

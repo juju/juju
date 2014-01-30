@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"

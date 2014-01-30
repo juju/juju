@@ -23,7 +23,7 @@ import (
 	"strings"
 	"sync"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/errors"
 )
@@ -77,9 +77,9 @@ type LookupParams struct {
 	CloudSpec
 	Series []string
 	Arches []string
-	// Stream can be "" for the default "released" stream, or "daily" for
-	// daily images, or any other stream that the available simplestreams
-	// metadata supports.
+	// Stream can be "" or "released" for the default "released" stream,
+	// or "daily" for daily images, or any other stream that the available
+	// simplestreams metadata supports.
 	Stream string
 }
 

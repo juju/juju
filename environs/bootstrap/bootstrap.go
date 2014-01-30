@@ -6,7 +6,7 @@ package bootstrap
 import (
 	"fmt"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"

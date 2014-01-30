@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/agent"

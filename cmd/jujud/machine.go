@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/loggo/loggo"
 	"launchpad.net/gnuflag"
-	"launchpad.net/loggo"
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/agent"
@@ -37,6 +37,7 @@ import (
 	"launchpad.net/juju-core/worker/instancepoller"
 	"launchpad.net/juju-core/worker/localstorage"
 	workerlogger "launchpad.net/juju-core/worker/logger"
+	"launchpad.net/juju-core/worker/machineenvironmentworker"
 	"launchpad.net/juju-core/worker/machiner"
 	"launchpad.net/juju-core/worker/minunitsworker"
 	"launchpad.net/juju-core/worker/provisioner"
@@ -182,6 +183,9 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	})
 	runner.StartWorker("logger", func() (worker.Worker, error) {
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
+	})
+	runner.StartWorker("machineenvironmentworker", func() (worker.Worker, error) {
+		return machineenvironmentworker.NewMachineEnvironmentWorker(st.Environment(), agentConfig), nil
 	})
 
 	// If not a local provider bootstrap machine, start the worker to manage SSH keys.
