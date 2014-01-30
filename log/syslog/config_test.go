@@ -57,8 +57,12 @@ $UDPServerRun 8888
 # so add one in for local messages too if needed.
 $template JujuLogFormat,"%syslogtag:6:$%%msg:::sp-if-no-1st-sp%%msg:::drop-last-lf%\n"
 
-:syslogtag, startswith, "juju-" /var/log/juju/all-machines.log;JujuLogFormat
-& ~
+if $syslogtag startswith "juju-" then
+  action(type="omfile"
+         File="/var/log/juju/all-machines.log"
+         Template="JujuLogFormat"
+         FileCreateMode="0644")
+& stop
 `
 
 func (s *SyslogConfigSuite) TestAccumulateConfigRender(c *gc.C) {
@@ -95,8 +99,12 @@ $UDPServerRun 8888
 # so add one in for local messages too if needed.
 $template JujuLogFormat-namespace,"%syslogtag:16:$%%msg:::sp-if-no-1st-sp%%msg:::drop-last-lf%\n"
 
-:syslogtag, startswith, "juju-namespace-" /var/log/juju/all-machines.log;JujuLogFormat-namespace
-& ~
+if $syslogtag startswith "juju-namespace-" then
+  action(type="omfile"
+         File="/var/log/juju-namespace/all-machines.log"
+         Template="JujuLogFormat-namespace"
+         FileCreateMode="0644")
+& stop
 `
 
 func (s *SyslogConfigSuite) TestAccumulateConfigRenderWithNamespace(c *gc.C) {
