@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju/osenv"

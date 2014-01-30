@@ -244,7 +244,6 @@ func MetadataFromTools(toolsList coretools.List) []*ToolsMetadata {
 			Release:  t.Version.Series,
 			Version:  t.Version.Number.String(),
 			Arch:     t.Version.Arch,
-			FullPath: t.URL,
 			Path:     path,
 			FileType: "tar.gz",
 			Size:     t.Size,

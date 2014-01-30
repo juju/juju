@@ -6,8 +6,8 @@ package kvm_test
 import (
 	"path/filepath"
 
+	"github.com/loggo/loggo"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container"

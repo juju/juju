@@ -36,6 +36,7 @@ func findInstanceSpec(e *environ, ic *instances.InstanceConstraint) (*instances.
 		CloudSpec: simplestreams.CloudSpec{ic.Region, e.ecfg().authURL()},
 		Series:    []string{ic.Series},
 		Arches:    ic.Arches,
+		Stream:    e.Config().ImageStream(),
 	})
 	sources, err := imagemetadata.GetMetadataSources(e)
 	if err != nil {

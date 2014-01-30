@@ -9,8 +9,8 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/loggo/loggo"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/environs/config"
@@ -446,6 +446,21 @@ var configTests = []configTest{
 			"provisioner-safe-mode": "yes please",
 		},
 		err: `provisioner-safe-mode: expected bool, got string\("yes please"\)`,
+	}, {
+		about:       "default image stream",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+		},
+	}, {
+		about:       "explicit image stream",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":         "my-type",
+			"name":         "my-name",
+			"image-stream": "daily",
+		},
 	}, {
 		about:       "Explicit state port",
 		useDefaults: config.UseDefaults,
@@ -910,6 +925,12 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 		config.DefaultBootstrapSSHAddressesDelay,
 	)
 
+	if v, ok := test.attrs["image-stream"]; ok {
+		c.Assert(cfg.ImageStream(), gc.Equals, v)
+	} else {
+		c.Assert(cfg.ImageStream(), gc.Equals, "released")
+	}
+
 	url, urlPresent := cfg.ImageMetadataURL()
 	if v, _ := test.attrs["image-metadata-url"].(string); v != "" {
 		c.Assert(url, gc.Equals, v)
@@ -1218,6 +1239,37 @@ func (*ConfigSuite) TestProxyValuesNotSet(c *gc.C) {
 	c.Assert(config.AptHttpsProxy(), gc.Equals, "")
 	c.Assert(config.FtpProxy(), gc.Equals, "")
 	c.Assert(config.AptFtpProxy(), gc.Equals, "")
+}
+
+func (*ConfigSuite) TestProxyConfigMap(c *gc.C) {
+	defer makeFakeHome(c).Restore()
+
+	cfg := newTestConfig(c, testing.Attrs{})
+	proxy := osenv.ProxySettings{
+		Http:  "http proxy",
+		Https: "https proxy",
+		Ftp:   "ftp proxy",
+	}
+	cfg, err := cfg.Apply(config.ProxyConfigMap(proxy))
+	c.Assert(err, gc.IsNil)
+	c.Assert(cfg.ProxySettings(), gc.DeepEquals, proxy)
+	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, proxy)
+}
+
+func (*ConfigSuite) TestAptProxyConfigMap(c *gc.C) {
+	defer makeFakeHome(c).Restore()
+
+	cfg := newTestConfig(c, testing.Attrs{})
+	proxy := osenv.ProxySettings{
+		Http:  "http proxy",
+		Https: "https proxy",
+		Ftp:   "ftp proxy",
+	}
+	cfg, err := cfg.Apply(config.AptProxyConfigMap(proxy))
+	c.Assert(err, gc.IsNil)
+	// The default proxy settings should still be empty.
+	c.Assert(cfg.ProxySettings(), gc.DeepEquals, osenv.ProxySettings{})
+	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, proxy)
 }
 
 func (*ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {

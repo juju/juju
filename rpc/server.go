@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/rpc/rpcreflect"
 )

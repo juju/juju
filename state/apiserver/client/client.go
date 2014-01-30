@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/charm"
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
@@ -607,6 +607,7 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 	if err != nil {
 		return result, err
 	}
+	mcfg.DisablePackageCommands = args.DisablePackageCommands
 	cloudcfg := coreCloudinit.New()
 	if err := cloudinit.ConfigureJuju(mcfg, cloudcfg); err != nil {
 		return result, err
