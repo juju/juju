@@ -250,12 +250,10 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 			// be using.
 		}
 	}
-	addrs, err := instance.HostAddresses(hostname)
+	addrs, err := HostAddresses(hostname)
 	if err != nil {
 		return nil, err
 	}
-	// The final address is the one we fed in: mark it as public.
-	addrs[len(addrs)-1].NetworkScope = instance.NetworkPublic
 	logger.Infof("addresses for %v: %v", hostname, addrs)
 
 	provisioned, err := checkProvisioned(hostname)

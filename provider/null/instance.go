@@ -25,20 +25,8 @@ func (nullBootstrapInstance) Refresh() error {
 	return nil
 }
 
-var instanceHostAddresses = instance.HostAddresses
-
 func (inst nullBootstrapInstance) Addresses() (addresses []instance.Address, err error) {
-	host, err := inst.DNSName()
-	if err != nil {
-		return nil, err
-	}
-	addresses, err = instanceHostAddresses(host)
-	if err != nil {
-		return nil, err
-	}
-	// The final address is the one we fed in: mark it as public.
-	addresses[len(addresses)-1].NetworkScope = instance.NetworkPublic
-	return addresses, nil
+	return manual.HostAddresses(inst.host)
 }
 
 func (inst nullBootstrapInstance) DNSName() (string, error) {
