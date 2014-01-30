@@ -145,10 +145,12 @@ func (manager *containerManager) StartContainer(
 func (manager *containerManager) StopContainer(instance instance.Instance) error {
 	name := string(instance.Id())
 	lxcContainer := LxcObjectFactory.New(name)
-	// Remove the autostart link.
-	if err := os.Remove(restartSymlink(name)); err != nil {
-		logger.Errorf("failed to remove restart symlink: %v", err)
-		return err
+	if useRestartDir() {
+		// Remove the autostart link.
+		if err := os.Remove(restartSymlink(name)); err != nil {
+			logger.Errorf("failed to remove restart symlink: %v", err)
+			return err
+		}
 	}
 	if err := lxcContainer.Destroy(); err != nil {
 		logger.Errorf("failed to destroy lxc container: %v", err)
@@ -235,4 +237,19 @@ func writeLxcConfig(network *container.NetworkConfig, directory, logdir string) 
 		return "", err
 	}
 	return configFilename, nil
+}
+
+// useRestartDir is used to determine whether or not to use a symlink to the
+// container config as the restart mechanism.  Older versions of LXC had the
+// /etc/lxc/auto directory that would indicate that a container shoud auto-
+// restart when the machine boots by having a symlink to the lxc.conf file.
+// Newer versions don't do this, but instead have a config value inside the
+// lxc.conf file.
+func useRestartDir() bool {
+	if _, err := os.Stat(LxcRestartDir); err != nil {
+		if os.IsNotExist(err) {
+			return false
+		}
+	}
+	return true
 }
