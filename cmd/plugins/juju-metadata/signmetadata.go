@@ -68,6 +68,10 @@ func (c *SignMetadataCommand) Run(context *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+	c.dir, err = filepath.Abs(c.dir)
+	if err != nil {
+		return err
+	}
 	keyData, err := ioutil.ReadFile(c.keyFile)
 	if err != nil {
 		return err
