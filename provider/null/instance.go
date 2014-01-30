@@ -25,12 +25,14 @@ func (nullBootstrapInstance) Refresh() error {
 	return nil
 }
 
+var instanceHostAddresses = instance.HostAddresses
+
 func (inst nullBootstrapInstance) Addresses() (addresses []instance.Address, err error) {
 	host, err := inst.DNSName()
 	if err != nil {
 		return nil, err
 	}
-	addresses, err = instance.HostAddresses(host)
+	addresses, err = instanceHostAddresses(host)
 	if err != nil {
 		return nil, err
 	}

@@ -4,5 +4,6 @@
 package null
 
 var (
-	ProviderInstance = nullProvider{}
+	ProviderInstance      = nullProvider{}
+	InstanceHostAddresses = &instanceHostAddresses
 )
