@@ -4,8 +4,6 @@
 package testing
 
 import (
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/xml"
 	"fmt"
 	"hash/crc32"
@@ -18,13 +16,10 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/httpstorage"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/tools"
-	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )
 
@@ -40,53 +35,6 @@ func CreateLocalTestStorage(c *gc.C) (closer io.Closer, stor storage.Storage, da
 	stor = httpstorage.Client(listener.Addr().String())
 	closer = listener
 	return
-}
-
-type Cleaner interface {
-	AddCleanup(testbase.CleanupFunc)
-}
-
-// HTTPServer sets up a testing https server with valid certificates backed
-// by a tempdir. The baseURL and backing dataDir path are returned, the server
-// is automatically cleaned up when the test finished.
-func HTTPSServer(suite Cleaner, c *gc.C) (baseURL string, dataDir string) {
-	// TODO(gz): Too much copied from environs/httpstorage/backend.go which
-	//           unfortunately proved to be not very reusable.
-	expiry := time.Now().UTC().AddDate(10, 0, 0)
-	hostnames := []string{"127.0.0.1"}
-	caCertPEM := []byte(coretesting.CACert)
-	caKeyPEM := []byte(coretesting.CAKey)
-	certPEM, keyPEM, err := cert.NewServer(caCertPEM, caKeyPEM, expiry, hostnames)
-	c.Assert(err, gc.IsNil)
-	serverCert, err := tls.X509KeyPair(certPEM, keyPEM)
-	c.Assert(err, gc.IsNil)
-	caCerts := x509.NewCertPool()
-	if !caCerts.AppendCertsFromPEM(caCertPEM) {
-		c.Fatalf("error adding CA certificate to pool")
-	}
-	config := &tls.Config{
-		NextProtos:   []string{"http/1.1"},
-		Certificates: []tls.Certificate{serverCert},
-		ClientAuth:   tls.VerifyClientCertIfGiven,
-		ClientCAs:    caCerts,
-	}
-	listener, err := tls.Listen("tcp", "127.0.0.1:0", config)
-	c.Assert(err, gc.IsNil)
-	dataDir = c.MkDir()
-	mux := http.NewServeMux()
-	mux.Handle("/", http.FileServer(http.Dir(dataDir)))
-	go http.Serve(listener, mux)
-	suite.AddCleanup(func(*gc.C) { listener.Close() })
-	baseURL = fmt.Sprintf("https://%s/", listener.Addr().String())
-	return
-}
-
-func PatchDefaultClientCerts() testbase.Restorer {
-	caCerts := x509.NewCertPool()
-	caCerts.AppendCertsFromPEM([]byte(coretesting.CACert))
-	return testbase.PatchValue(http.DefaultClient, http.Client{
-		Transport: &http.Transport{TLSClientConfig: &tls.Config{RootCAs: caCerts}},
-	})
 }
 
 // listBucketResult is the top level XML element of the storage index.

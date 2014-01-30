@@ -5,6 +5,8 @@ package common_test
 
 import (
 	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 
 	gc "launchpad.net/gocheck"
@@ -26,14 +28,29 @@ type StateSuite struct {
 
 var _ = gc.Suite(&StateSuite{})
 
-func newStorageWithDataDir(suite envtesting.Cleaner, c *gc.C) (stor storage.Storage, dataDir string) {
+type cleaner interface {
+	AddCleanup(testbase.CleanupFunc)
+}
+
+func newStorageWithDataDir(suite cleaner, c *gc.C) (stor storage.Storage, dataDir string) {
 	closer, stor, dataDir := envtesting.CreateLocalTestStorage(c)
 	suite.AddCleanup(func(*gc.C) { closer.Close() })
 	return
 }
 
-func newStorage(suite envtesting.Cleaner, c *gc.C) (stor storage.Storage) {
+func newStorage(suite cleaner, c *gc.C) (stor storage.Storage) {
 	stor, _ = newStorageWithDataDir(suite, c)
+	return
+}
+
+// testingHTTPServer creates a tempdir backed https server with invalid certs
+func testingHTTPSServer(suite cleaner, c *gc.C) (baseURL string, dataDir string) {
+	dataDir = c.MkDir()
+	mux := http.NewServeMux()
+	mux.Handle("/", http.FileServer(http.Dir(dataDir)))
+	server := httptest.NewTLSServer(mux)
+	suite.AddCleanup(func(*gc.C) { server.Close() })
+	baseURL = server.URL
 	return
 }
 
@@ -103,29 +120,18 @@ func (suite *StateSuite) TestLoadStateFromURLReadsStateFile(c *gc.C) {
 	c.Check(*storedState, gc.DeepEquals, state)
 }
 
-func (suite *StateSuite) TestLoadStateFromURLGoodCert(c *gc.C) {
-	baseURL, dataDir := envtesting.HTTPSServer(suite, c)
-	state := suite.setUpSavedState(c, dataDir)
-	url := baseURL + common.StateFile
-	defer envtesting.PatchDefaultClientCerts().Restore()
-	storedState, err := common.LoadStateFromURL(url, false)
-	c.Assert(err, gc.IsNil)
-	c.Assert(storedState, gc.NotNil)
-	c.Check(*storedState, gc.DeepEquals, state)
-}
-
 func (suite *StateSuite) TestLoadStateFromURLBadCert(c *gc.C) {
-	baseURL, _ := envtesting.HTTPSServer(suite, c)
-	url := baseURL + common.StateFile
+	baseURL, _ := testingHTTPSServer(suite, c)
+	url := baseURL + "/" + common.StateFile
 	storedState, err := common.LoadStateFromURL(url, false)
 	c.Assert(err, gc.ErrorMatches, ".*/provider-state:.* certificate signed by unknown authority")
 	c.Assert(storedState, gc.IsNil)
 }
 
 func (suite *StateSuite) TestLoadStateFromURLBadCertPermitted(c *gc.C) {
-	baseURL, dataDir := envtesting.HTTPSServer(suite, c)
+	baseURL, dataDir := testingHTTPSServer(suite, c)
 	state := suite.setUpSavedState(c, dataDir)
-	url := baseURL + common.StateFile
+	url := baseURL + "/" + common.StateFile
 	storedState, err := common.LoadStateFromURL(url, true)
 	c.Assert(err, gc.IsNil)
 	c.Check(*storedState, gc.DeepEquals, state)
