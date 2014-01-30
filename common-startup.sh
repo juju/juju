@@ -1,12 +1,21 @@
 set -eu
 export JUJU_HOME=$HOME/juju-ci
+
+
 dump_logs(){
   log_path=${artifacts_path}/all-machines-${ENV}.log
-  if timeout 5m juju --show-log scp -e $ENV -- -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" -i $JUJU_HOME/staging-juju-rsa 0:/var/log/juju/all-machines.log $log_path; then
+  if [[ $ENV == "local" && -f $JUJU_HOME/local/log/all-machines.log ]]; then
+    sudo cp $JUJU_HOME/local/log/all-machines.log $log_path
+    sudo chown jenkins:jenkins $log_path
     gzip $log_path
+  else
+      if timeout 5m juju --show-log scp -e $ENV -- -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" -i $JUJU_HOME/staging-juju-rsa 0:/var/log/juju/all-machines.log $log_path; then
+        gzip $log_path
+      fi
   fi
 }
-export JUJU_HOME=$HOME/juju-ci
+
+
 export PACKAGE=$WORKSPACE/new-precise.deb
 artifacts_path=$WORKSPACE/artifacts
 set -x
