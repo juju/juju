@@ -882,6 +882,9 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 	if err != nil {
 		return fmt.Errorf("cannot generate charm archive name: %v", err)
 	}
+	if err := storage.Put(archiveName, archive, size); err != nil {
+		return fmt.Errorf("cannot upload charm to provider storage: %v", err)
+	}
 	storageURL, err := storage.URL(archiveName)
 	if err != nil {
 		return fmt.Errorf("cannot get storage URL for charm: %v", err)
@@ -889,9 +892,6 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 	bundleURL, err := url.Parse(storageURL)
 	if err != nil {
 		return fmt.Errorf("cannot parse storage URL: %v", err)
-	}
-	if err := storage.Put(archiveName, archive, size); err != nil {
-		return fmt.Errorf("cannot upload charm to provider storage: %v", err)
 	}
 
 	// Finally, update the charm data in state and mark it as no longer pending.
