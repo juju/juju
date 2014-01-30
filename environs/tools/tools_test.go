@@ -117,7 +117,13 @@ func (s *SimpleStreamsToolsSuite) uploadToStorage(c *gc.C, stor storage.Storage,
 	}
 	var err error
 	for _, vers := range verses {
-		uploaded[vers], err = stor.URL(fmt.Sprintf("tools/releases/tools-%s.tar.gz", vers.String()))
+		filename := fmt.Sprintf("tools/releases/tools-%s.tar.gz", vers.String())
+		// Put a file in images since the dummy storage provider requires a
+		// file to exist before the URL can be found. This is to ensure it behaves
+		// the same way as MAAS.
+		err = stor.Put(filename, bytes.NewReader([]byte("dummy")), 5)
+		c.Assert(err, gc.IsNil)
+		uploaded[vers], err = stor.URL(filename)
 		c.Assert(err, gc.IsNil)
 	}
 	objects := s.generateMetadata(c, verses...)

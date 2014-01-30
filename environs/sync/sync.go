@@ -221,7 +221,7 @@ func upload(stor storage.Storage, forceVersion *version.Number, fakeSeries ...st
 		return nil, fmt.Errorf("cannot stat newly made tools archive: %v", err)
 	}
 	size := fileInfo.Size()
-	logger.Infof("built %v (%dkB)", toolsVersion, (size+512)/1024)
+	logger.Infof("built tools %v (%dkB)", toolsVersion, (size+512)/1024)
 	baseToolsDir, err := ioutil.TempDir("", "")
 	if err != nil {
 		return nil, err
@@ -236,13 +236,9 @@ func upload(stor storage.Storage, forceVersion *version.Number, fakeSeries ...st
 		if err != nil {
 			return "", err
 		}
-		url, err := stor.URL(name)
-		if err != nil {
-			return "", err
-		}
+		// Append to targetTools the attributes required to write out tools metadata.
 		targetTools = append(targetTools, &coretools.Tools{
 			Version: vers,
-			URL:     url,
 			Size:    size,
 			SHA256:  sha256Hash,
 		})
@@ -252,6 +248,7 @@ func upload(stor storage.Storage, forceVersion *version.Number, fakeSeries ...st
 	if err != nil {
 		return nil, err
 	}
+	logger.Debugf("generating tarballs for %v", fakeSeries)
 	for _, series := range fakeSeries {
 		_, err := simplestreams.SeriesVersion(series)
 		if err != nil {
@@ -269,12 +266,13 @@ func upload(stor storage.Storage, forceVersion *version.Number, fakeSeries ...st
 	if err != nil {
 		return nil, err
 	}
-	// The tools have been uploaded, now write out the matching simplestreams metadata so that SyncTools
-	// can find them.
+	// The tools have been copied to a temp location from which they will be uploaded,
+	// now write out the matching simplestreams metadata so that SyncTools can find them.
 	metadataStore, err := filestorage.NewFileStorageWriter(baseToolsDir, filestorage.UseDefaultTmpDir)
 	if err != nil {
 		return nil, err
 	}
+	logger.Debugf("generating tools metadata")
 	err = envtools.MergeAndWriteMetadata(metadataStore, targetTools, false)
 	if err != nil {
 		return nil, err
@@ -288,6 +286,7 @@ func upload(stor storage.Storage, forceVersion *version.Number, fakeSeries ...st
 		MajorVersion: toolsVersion.Major,
 		MinorVersion: -1,
 	}
+	logger.Debugf("uploading tools to cloud storage")
 	err = SyncTools(syncContext)
 	if err != nil {
 		return nil, err
