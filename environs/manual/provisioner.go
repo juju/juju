@@ -253,7 +253,7 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 			// be using.
 		}
 	}
-	addrs, err := instance.HostAddresses(hostname)
+	addrs, err := HostAddresses(hostname)
 	if err != nil {
 		return nil, err
 	}
