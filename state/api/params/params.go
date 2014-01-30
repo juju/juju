@@ -559,3 +559,14 @@ type DeployerConnectionValues struct {
 type StatusParams struct {
 	Patterns []string
 }
+
+// EntityLogRequest describes the requested entities when watching
+// the debug log.
+type EntityLogRequest struct {
+	Entities []string
+}
+
+// EntityLogResponse is the server response to debug log request.
+type EntityLogResponse struct {
+	Error string `json:",omitempty"`
+}

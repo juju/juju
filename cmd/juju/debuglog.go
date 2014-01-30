@@ -1,64 +1,35 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2013, 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package main
 
 import (
+	"bufio"
 	"fmt"
-	"strconv"
+	"io"
+	"strings"
 
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/names"
 )
 
 type DebugLogCommand struct {
-	cmd.CommandBase
-	// The debug log command simply invokes juju ssh with the required arguments.
-	sshCmd cmd.Command
-	lines  linesValue
+	cmd.EnvCommandBase
+
+	lines    int
+	entities string
 }
 
 // defaultLineCount is the default number of lines to
 // display, from the end of the consolidated log.
 const defaultLineCount = 10
 
-// linesValue implements gnuflag.Value, and represents
-// a -n/--lines flag value compatible with "tail".
-//
-// A negative value (-K) corresponds to --lines=K,
-// i.e. the last K lines; a positive value (+K)
-// corresponds to --lines=+K, i.e. from line K onwards.
-type linesValue int
-
-func (v *linesValue) String() string {
-	if *v > 0 {
-		return fmt.Sprintf("+%d", *v)
-	}
-	return fmt.Sprint(-*v)
-}
-
-func (v *linesValue) Set(value string) error {
-	if len(value) > 0 {
-		sign := -1
-		if value[0] == '+' {
-			value = value[1:]
-			sign = 1
-		}
-		n, err := strconv.ParseInt(value, 10, 0)
-		if err == nil && n > 0 {
-			*v = linesValue(sign * int(n))
-			return nil
-		}
-		// err is quite verbose, and doesn't convey
-		// any additional useful information.
-	}
-	return fmt.Errorf("invalid number of lines")
-}
-
 const debuglogDoc = `
-Launch an ssh shell on the state server machine and tail the consolidated log file.
-The consolidated log file contains log messages from all nodes in the environment.
+Stream the consolidated log file. The consolidated log file contains log messages
+from all nodes in the environment.
 `
 
 func (c *DebugLogCommand) Info() *cmd.Info {
@@ -70,27 +41,52 @@ func (c *DebugLogCommand) Info() *cmd.Info {
 }
 
 func (c *DebugLogCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.sshCmd.SetFlags(f)
-
-	c.lines = -defaultLineCount
-	f.Var(&c.lines, "n", "output the last K lines; or use -n +K to output lines starting with the Kth")
-	f.Var(&c.lines, "lines", "")
-}
-
-func (c *DebugLogCommand) AllowInterspersedFlags() bool {
-	return true
+	f.IntVar(&c.lines, "n", defaultLineCount, "output the last K lines; or use -n +K to output lines starting with the Kth")
+	f.IntVar(&c.lines, "lines", defaultLineCount, "")
+	f.StringVar(&c.entities, "e", "", "filter the output by entities (environment, machine or unit)")
+	f.StringVar(&c.entities, "entities", "", "")
 }
 
 func (c *DebugLogCommand) Init(args []string) error {
-	tailcmd := fmt.Sprintf("tail -n %s -f /var/log/juju/all-machines.log", &c.lines)
-	args = append([]string{"0"}, args...)
-	args = append(args, tailcmd)
-	return c.sshCmd.Init(args)
+	return nil
 }
 
-// Run uses "juju ssh" to log into the state server node
-// and tails the consolidated log file which captures log
-// messages from all nodes.
-func (c *DebugLogCommand) Run(ctx *cmd.Context) error {
-	return c.sshCmd.Run(ctx)
+// Run retrieves the debug log via the API.
+func (c *DebugLogCommand) Run(ctx *cmd.Context) (err error) {
+	client, err := juju.NewAPIClientFromName(c.EnvName)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	var entities []string
+	if c.entities == "" {
+		// Empty entities argument leads to full environment for backward compatability.
+		info, err := client.EnvironmentInfo()
+		if err != nil {
+			return err
+		}
+		entities = []string{names.EnvironTag(info.UUID)}
+	} else {
+		// Split argument into entities.
+		entities = strings.Split(c.entities, " ")
+	}
+
+	debugLog, err := client.WatchDebugLog(c.lines, entities)
+	if err != nil {
+		return err
+	}
+	defer debugLog.Close()
+	reader := bufio.NewReader(debugLog)
+
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return err
+		}
+		fmt.Printf(line)
+	}
 }

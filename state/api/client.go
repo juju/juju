@@ -4,12 +4,16 @@
 package api
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"time"
+
+	"code.google.com/p/go.net/websocket"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
@@ -463,7 +467,7 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 	}
 
 	// Prepare the upload request.
-	url := fmt.Sprintf("%s/charms?series=%s", c.st.serverRoot, curl.Series)
+	url := fmt.Sprintf("https://%s/charms?series=%s", c.st.serverHostPort, curl.Series)
 	req, err := http.NewRequest("POST", url, archive)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create upload request: %v", err)
@@ -517,4 +521,74 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 func (c *Client) AddCharm(curl *charm.URL) error {
 	args := params.CharmURL{URL: curl.String()}
 	return c.st.Call("Client", "", "AddCharm", args, nil)
+}
+
+// WatchDebugLog returns a ClientDebugLog reading the debug log message.
+// The entitiers allow to filter for wanted machines and units, watching
+// the whole logs needs the entity of the environment. The watching is
+// started the given number of matching lines back in history.
+func (c *Client) WatchDebugLog(lines int, entities []string) (*ClientDebugLog, error) {
+	cfg := c.st.websocketConfig
+	// Prepare URL.
+	entityStr := ""
+	for _, entity := range entities {
+		entityStr += "&entity=" + url.QueryEscape(entity)
+	}
+	urlStr := fmt.Sprintf("wss://%s/log?lines=%d%s", c.st.serverHostPort, lines, entityStr)
+	url, err := url.Parse(urlStr)
+	if err != nil {
+		return nil, err
+	}
+	cfg.Location = url
+	cfg.Header = make(http.Header)
+	setBasicAuth(cfg.Header, c.st.tag, c.st.password)
+
+	wsConn, err := websocket.DialConfig(&cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &ClientDebugLog{wsConn}, nil
+}
+
+// ClientDebugLog represents a stream of debug log messages.
+type ClientDebugLog struct {
+	wsConn *websocket.Conn
+}
+
+// Close closes the log.
+func (c *ClientDebugLog) Close() error {
+	return c.wsConn.Close()
+}
+
+// SetFilter sets the entity tags that apply to the filter.
+// This setting will not take place immediately - messages
+// already in the pipeline will still be received.
+func (c *ClientDebugLog) SetFilter(entities []string) error {
+	var req params.EntityLogRequest
+	req.Entities = entities
+	if err := websocket.JSON.Send(c.wsConn, &req); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Read implements io.Reader.Read.
+func (c *ClientDebugLog) Read(buf []byte) (int, error) {
+	return c.wsConn.Read(buf)
+}
+
+// setBasicAuth sets the basic authentication of the passed header.
+func setBasicAuth(h http.Header, username, password string) {
+	h.Set("Authorization", "Basic "+basicAuth(username, password))
+}
+
+// basicAuth is copied from net/http.
+// See 2 (end of page 4) http://www.ietf.org/rfc/rfc2617.txt
+// "To receive authorization, the client sends the userid and password,
+// separated by a single colon (":") character, within a base64
+// encoded string in the credentials."
+// It is not meant to be urlencoded.
+func basicAuth(username, password string) string {
+	auth := username + ":" + password
+	return base64.StdEncoding.EncodeToString([]byte(auth))
 }

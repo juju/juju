@@ -36,9 +36,14 @@ type State struct {
 	// tag and password hold the cached login credentials.
 	tag      string
 	password string
-	// serverRoot holds the cached API server address and port we used
-	// to login, with a https:// prefix.
-	serverRoot string
+
+	// serverHostPort holds the cached API server address and port
+	// we used to login.
+	serverHostPort string
+
+	// websocketConfig holds the configuration for the websocket
+	// connection.
+	websocketConfig websocket.Config
 }
 
 // Info encapsulates information about a server holding juju state and
@@ -129,12 +134,14 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 
 	client := rpc.NewConn(jsoncodec.NewWebsocket(conn), nil)
 	client.Start()
+	// TODO: Store appropriate websocket config in State.
 	st := &State{
-		client:     client,
-		conn:       conn,
-		serverRoot: "https://" + cfg.Location.Host,
-		tag:        info.Tag,
-		password:   info.Password,
+		client:          client,
+		conn:            conn,
+		serverHostPort:  cfg.Location.Host,
+		tag:             info.Tag,
+		password:        info.Password,
+		websocketConfig: *cfg,
 	}
 	if info.Tag != "" || info.Password != "" {
 		if err := st.Login(info.Tag, info.Password, info.Nonce); err != nil {

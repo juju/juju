@@ -5,9 +5,7 @@ package apiserver
 
 import (
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -15,25 +13,27 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/storage"
-	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/apiserver/common"
 )
 
 // charmsHandler handles charm upload through HTTPS in the API server.
 type charmsHandler struct {
-	state *state.State
+	commonHandler
+}
+
+// newCharmsHandler creates a new charms handler.
+func newCharmsHandler(state *state.State) *charmsHandler {
+	return &charmsHandler{commonHandler{state}}
 }
 
 func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := h.authenticate(r); err != nil {
-		h.authError(w)
+		h.sendAuthError(h, w)
 		return
 	}
 
@@ -41,69 +41,14 @@ func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "POST":
 		charmURL, err := h.processPost(r)
 		if err != nil {
-			h.sendError(w, http.StatusBadRequest, err.Error())
+			h.sendError(h, w, http.StatusBadRequest, err.Error())
 			return
 		}
 		h.sendJSON(w, http.StatusOK, &params.CharmsResponse{CharmURL: charmURL.String()})
 	// Possible future extensions, like GET.
 	default:
-		h.sendError(w, http.StatusMethodNotAllowed, fmt.Sprintf("unsupported method: %q", r.Method))
+		h.sendError(h, w, http.StatusMethodNotAllowed, "unsupported method: %q", r.Method)
 	}
-}
-
-// sendJSON sends a JSON-encoded response to the client.
-func (h *charmsHandler) sendJSON(w http.ResponseWriter, statusCode int, response *params.CharmsResponse) error {
-	w.WriteHeader(statusCode)
-	body, err := json.Marshal(response)
-	if err != nil {
-		return err
-	}
-	w.Write(body)
-	return nil
-}
-
-// sendError sends a JSON-encoded error response.
-func (h *charmsHandler) sendError(w http.ResponseWriter, statusCode int, message string) error {
-	return h.sendJSON(w, statusCode, &params.CharmsResponse{Error: message})
-}
-
-// authenticate parses HTTP basic authentication and authorizes the
-// request by looking up the provided tag and password against state.
-func (h *charmsHandler) authenticate(r *http.Request) error {
-	parts := strings.Fields(r.Header.Get("Authorization"))
-	if len(parts) != 2 || parts[0] != "Basic" {
-		// Invalid header format or no header provided.
-		return fmt.Errorf("invalid request format")
-	}
-	// Challenge is a base64-encoded "tag:pass" string.
-	// See RFC 2617, Section 2.
-	challenge, err := base64.StdEncoding.DecodeString(parts[1])
-	if err != nil {
-		return fmt.Errorf("invalid request format")
-	}
-	tagPass := strings.SplitN(string(challenge), ":", 2)
-	if len(tagPass) != 2 {
-		return fmt.Errorf("invalid request format")
-	}
-	entity, err := checkCreds(h.state, params.Creds{
-		AuthTag:  tagPass[0],
-		Password: tagPass[1],
-	})
-	if err != nil {
-		return err
-	}
-	// Only allow users, not agents.
-	_, _, err = names.ParseTag(entity.Tag(), names.UserTagKind)
-	if err != nil {
-		return common.ErrBadCreds
-	}
-	return err
-}
-
-// authError sends an unauthorized error.
-func (h *charmsHandler) authError(w http.ResponseWriter) {
-	w.Header().Set("WWW-Authenticate", `Basic realm="juju"`)
-	h.sendError(w, http.StatusUnauthorized, "unauthorized")
 }
 
 // processPost handles a charm upload POST request after authentication.
@@ -222,6 +167,11 @@ func (h *charmsHandler) repackageAndUploadCharm(archive *charm.Bundle, curl *cha
 		return fmt.Errorf("cannot update uploaded charm in state: %v", err)
 	}
 	return nil
+}
+
+// errorResponse wraps the message for an error response.
+func (h *charmsHandler) errorResponse(message string) interface{} {
+	return &params.CharmsResponse{Error: message}
 }
 
 // getEnvironStorage creates an Environ from the config in state and
