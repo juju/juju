@@ -1708,14 +1708,20 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(machines), gc.Equals, 1)
 	machineId := machines[0].Machine
-	script, err := s.APIState.Client().ProvisioningScript(params.ProvisioningScriptParams{
-		MachineId: machineId,
-		Nonce:     apiParams.Nonce,
-		DisablePackageCommands: true,
-	})
-	c.Assert(err, gc.IsNil)
-	// We disabled package commands: there should be no "apt" commands in the script.
-	c.Assert(script, gc.Not(jc.Contains), "apt-get")
+	for _, disable := range []bool{false, true} {
+		script, err := s.APIState.Client().ProvisioningScript(params.ProvisioningScriptParams{
+			MachineId: machineId,
+			Nonce:     apiParams.Nonce,
+			DisablePackageCommands: disable,
+		})
+		c.Assert(err, gc.IsNil)
+		var checker gc.Checker = jc.Contains
+		if disable {
+			// We disabled package commands: there should be no "apt" commands in the script.
+			checker = gc.Not(checker)
+		}
+		c.Assert(script, checker, "apt-get")
+	}
 }
 
 func (s *clientSuite) TestClientAuthorizeStoreOnDeployServiceSetCharmAndAddCharm(c *gc.C) {
