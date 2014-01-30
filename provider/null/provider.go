@@ -22,7 +22,18 @@ func init() {
 var errNoBootstrapHost = errors.New("bootstrap-host must be specified")
 
 func (p nullProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
-	// TODO(rog) 2013-10-07 generate storage-auth-key if not set.
+	if _, ok := cfg.UnknownAttrs()["storage-auth-key"].(string); !ok {
+		uuid, err := utils.NewUUID()
+		if err != nil {
+			return nil, err
+		}
+		cfg, err = cfg.Apply(map[string]interface{}{
+			"storage-auth-key": uuid.String(),
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
 	return p.Open(cfg)
 }
 
@@ -112,11 +123,7 @@ func (_ nullProvider) BoilerplateConfig() string {
     # bootstrap machine's Juju storage server will listen
     # on. It defaults to ` + fmt.Sprint(defaultStoragePort) + `
     # storage-port: ` + fmt.Sprint(defaultStoragePort) + `
-    
-    # storage-auth-key holds the key used to authenticate
-    # to the storage servers. It will become unnecessary to
-    # give this option.
-    storage-auth-key: {{rand}}
+
 
 `[1:]
 }

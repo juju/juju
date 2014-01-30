@@ -20,8 +20,8 @@ type SupportsCustomSources interface {
 }
 
 // GetMetadataSources returns the sources to use when looking for
-// simplestreams image id metadata. If env implements
-// SupportsCustomSurces, the sources returned from that method will also
+// simplestreams image id metadata for the given stream. If env implements
+// SupportsCustomSources, the sources returned from that method will also
 // be considered.
 func GetMetadataSources(env environs.ConfigGetter) ([]simplestreams.DataSource, error) {
 	var sources []simplestreams.DataSource
@@ -41,7 +41,7 @@ func GetMetadataSources(env environs.ConfigGetter) ([]simplestreams.DataSource, 
 		sources = append(sources, customSources...)
 	}
 
-	defaultURL, err := ImageMetadataURL(DefaultBaseURL)
+	defaultURL, err := ImageMetadataURL(DefaultBaseURL, config.ImageStream())
 	if err != nil {
 		return nil, err
 	}
@@ -53,9 +53,18 @@ func GetMetadataSources(env environs.ConfigGetter) ([]simplestreams.DataSource, 
 
 // ImageMetadataURL returns a valid image metadata URL constructed from source.
 // source may be a directory, or a URL like file://foo or http://foo.
-func ImageMetadataURL(source string) (string, error) {
+func ImageMetadataURL(source, stream string) (string, error) {
 	if source == "" {
 		return "", nil
+	}
+	// If the image metadata is coming from the official cloud images site,
+	// set up the correct path according to the images stream requested.
+	if source == UbuntuCloudImagesURL {
+		cloudImagesPath := ReleasedImagesPath
+		if stream != "" && stream != ReleasedStream {
+			cloudImagesPath = stream
+		}
+		source = fmt.Sprintf("%s/%s", source, cloudImagesPath)
 	}
 	// If source is a raw directory, we need to append the file:// prefix
 	// so it can be used as a URL.

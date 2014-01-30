@@ -188,6 +188,10 @@ amazon:
     #
     # secret-key holds the ec2 secret key. It defaults to the environment
     # variable AWS_SECRET_ACCESS_KEY.
+    #
+    # image-stream chooses a simplestreams stream to select OS images from,
+    # for example daily or released images (or any other stream available on simplestreams).
+    # image-stream: "released"
 
 `[1:]
 }
@@ -377,7 +381,7 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 	}
 
 	series := possibleTools.OneSeries()
-	spec, err := findInstanceSpec(sources, &instances.InstanceConstraint{
+	spec, err := findInstanceSpec(sources, e.Config().ImageStream(), &instances.InstanceConstraint{
 		Region:      e.ecfg().region(),
 		Series:      series,
 		Arches:      arches,
