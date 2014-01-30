@@ -36,8 +36,12 @@ $UDPServerRun {{portNumber}}
 # so add one in for local messages too if needed.
 $template JujuLogFormat{{namespace}},"%syslogtag:{{tagStart}}:$%%msg:::sp-if-no-1st-sp%%msg:::drop-last-lf%\n"
 
-:syslogtag, startswith, "juju{{namespace}}-" {{logDir}}/all-machines.log;JujuLogFormat{{namespace}}
-& ~
+if $syslogtag startswith "juju{{namespace}}-" then
+  action(type="omfile"
+         File="/var/log/juju{{namespace}}/all-machines.log"
+         Template="JujuLogFormat{{namespace}}"
+         FileCreateMode="0644")
+& stop
 `
 
 // The rsyslog conf for non-state server nodes.
