@@ -39,7 +39,10 @@ mkdir $TMP_DIR/RELEASE
 WORK=$TMP_DIR/RELEASE
 
 echo "Getting juju-core and all its dependencies."
-GOPATH=$WORK go get -v -d launchpad.net/juju-core/...
+set +x
+GOPATH=$WORK go get -v -d launchpad.net/juju-core/... || \
+    GOPATH=$WORK go get -v -d launchpad.net/juju-core/... || \
+    GOPATH=$WORK go get -v -d launchpad.net/juju-core/...
 
 echo "Setting juju-core tree to $JUJU_CORE_BRANCH $REVNO."
 (cd "${WORK}/src/launchpad.net/juju-core/" &&
