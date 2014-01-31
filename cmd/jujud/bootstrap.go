@@ -96,7 +96,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return fmt.Errorf("cannot read provider-state-url file: %v", err)
 	}
 	stateInfoURL := strings.Split(string(data), "\n")[0]
-	bsState, err := common.LoadStateFromURL(stateInfoURL)
+	bsState, err := common.LoadStateFromURL(stateInfoURL, !cfg.SSLHostnameVerification())
 	if err != nil {
 		return fmt.Errorf("cannot load state from URL %q (read from %q): %v", stateInfoURL, providerStateURLFile, err)
 	}

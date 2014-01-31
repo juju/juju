@@ -151,7 +151,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	err := common.Bootstrap(env, constraints.Value{}, nil)
 	c.Assert(err, gc.IsNil)
 
-	savedState, err := common.LoadStateFromURL(checkURL)
+	savedState, err := common.LoadStateFromURL(checkURL, false)
 	c.Assert(err, gc.IsNil)
 	c.Assert(savedState, gc.DeepEquals, &common.BootstrapState{
 		StateInstances:  []instance.Id{instance.Id(checkInstanceId)},

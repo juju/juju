@@ -4,8 +4,10 @@
 package common_test
 
 import (
-	"bytes"
 	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
+	"path/filepath"
 
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
@@ -30,10 +32,26 @@ type cleaner interface {
 	AddCleanup(testbase.CleanupFunc)
 }
 
-func newStorage(suite cleaner, c *gc.C) storage.Storage {
-	closer, stor, _ := envtesting.CreateLocalTestStorage(c)
+func newStorageWithDataDir(suite cleaner, c *gc.C) (stor storage.Storage, dataDir string) {
+	closer, stor, dataDir := envtesting.CreateLocalTestStorage(c)
 	suite.AddCleanup(func(*gc.C) { closer.Close() })
-	return stor
+	return
+}
+
+func newStorage(suite cleaner, c *gc.C) (stor storage.Storage) {
+	stor, _ = newStorageWithDataDir(suite, c)
+	return
+}
+
+// testingHTTPServer creates a tempdir backed https server without certs
+func testingHTTPSServer(suite cleaner, c *gc.C) (baseURL string, dataDir string) {
+	dataDir = c.MkDir()
+	mux := http.NewServeMux()
+	mux.Handle("/", http.FileServer(http.Dir(dataDir)))
+	server := httptest.NewTLSServer(mux)
+	suite.AddCleanup(func(*gc.C) { server.Close() })
+	baseURL = server.URL
+	return
 }
 
 func (suite *StateSuite) TestCreateStateFileWritesEmptyStateFile(c *gc.C) {
@@ -72,32 +90,49 @@ func (suite *StateSuite) TestSaveStateWritesStateFile(c *gc.C) {
 	c.Check(content, gc.DeepEquals, marshaledState)
 }
 
-func (suite *StateSuite) setUpSavedState(c *gc.C, stor storage.Storage) common.BootstrapState {
+func (suite *StateSuite) setUpSavedState(c *gc.C, dataDir string) common.BootstrapState {
 	arch := "amd64"
 	state := common.BootstrapState{
 		StateInstances:  []instance.Id{instance.Id("an-instance-id")},
 		Characteristics: []instance.HardwareCharacteristics{{Arch: &arch}}}
 	content, err := goyaml.Marshal(state)
 	c.Assert(err, gc.IsNil)
-	err = stor.Put(common.StateFile, ioutil.NopCloser(bytes.NewReader(content)), int64(len(content)))
+	err = ioutil.WriteFile(filepath.Join(dataDir, common.StateFile), []byte(content), 0644)
 	c.Assert(err, gc.IsNil)
 	return state
 }
 
 func (suite *StateSuite) TestLoadStateReadsStateFile(c *gc.C) {
-	storage := newStorage(suite, c)
-	state := suite.setUpSavedState(c, storage)
+	storage, dataDir := newStorageWithDataDir(suite, c)
+	state := suite.setUpSavedState(c, dataDir)
 	storedState, err := common.LoadState(storage)
 	c.Assert(err, gc.IsNil)
 	c.Check(*storedState, gc.DeepEquals, state)
 }
 
 func (suite *StateSuite) TestLoadStateFromURLReadsStateFile(c *gc.C) {
-	stor := newStorage(suite, c)
-	state := suite.setUpSavedState(c, stor)
+	stor, dataDir := newStorageWithDataDir(suite, c)
+	state := suite.setUpSavedState(c, dataDir)
 	url, err := stor.URL(common.StateFile)
 	c.Assert(err, gc.IsNil)
-	storedState, err := common.LoadStateFromURL(url)
+	storedState, err := common.LoadStateFromURL(url, false)
+	c.Assert(err, gc.IsNil)
+	c.Check(*storedState, gc.DeepEquals, state)
+}
+
+func (suite *StateSuite) TestLoadStateFromURLBadCert(c *gc.C) {
+	baseURL, _ := testingHTTPSServer(suite, c)
+	url := baseURL + "/" + common.StateFile
+	storedState, err := common.LoadStateFromURL(url, false)
+	c.Assert(err, gc.ErrorMatches, ".*/provider-state:.* certificate signed by unknown authority")
+	c.Assert(storedState, gc.IsNil)
+}
+
+func (suite *StateSuite) TestLoadStateFromURLBadCertPermitted(c *gc.C) {
+	baseURL, dataDir := testingHTTPSServer(suite, c)
+	state := suite.setUpSavedState(c, dataDir)
+	url := baseURL + "/" + common.StateFile
+	storedState, err := common.LoadStateFromURL(url, true)
 	c.Assert(err, gc.IsNil)
 	c.Check(*storedState, gc.DeepEquals, state)
 }
