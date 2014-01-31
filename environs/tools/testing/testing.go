@@ -4,9 +4,7 @@
 package testing
 
 import (
-	"crypto/sha256"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"path"
@@ -22,6 +20,7 @@ import (
 	"launchpad.net/juju-core/environs/tools"
 	jc "launchpad.net/juju-core/testing/checkers"
 	coretools "launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
 )
@@ -70,13 +69,9 @@ func SHA256sum(c *gc.C, path string) (int64, string) {
 	if strings.HasPrefix(path, "file://") {
 		path = path[len("file://"):]
 	}
-	f, err := os.Open(path)
+	hash, size, err := utils.ReadFileSHA256(path)
 	c.Assert(err, gc.IsNil)
-	defer f.Close()
-	hash := sha256.New()
-	size, err := io.Copy(hash, f)
-	c.Assert(err, gc.IsNil)
-	return size, fmt.Sprintf("%x", hash.Sum(nil))
+	return size, hash
 }
 
 // ParseMetadataFromDir loads ToolsMetadata from the specified directory.

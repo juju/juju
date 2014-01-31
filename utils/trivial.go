@@ -6,8 +6,11 @@ package utils
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -117,4 +120,27 @@ func Gunzip(data []byte) ([]byte, error) {
 		return nil, err
 	}
 	return ioutil.ReadAll(r)
+}
+
+// ReadSHA256 returns the SHA256 hash of the contents read from source
+// (hex encoded) and the size of the source in bytes.
+func ReadSHA256(source io.Reader) (string, int64, error) {
+	hash := sha256.New()
+	size, err := io.Copy(hash, source)
+	if err != nil {
+		return "", 0, err
+	}
+	digest := hex.EncodeToString(hash.Sum(nil))
+	return digest, size, nil
+}
+
+// ReadFileSHA256 is like ReadSHA256 but reads the contents of the
+// given file.
+func ReadFileSHA256(filename string) (string, int64, error) {
+	f, err := os.Open(filename)
+	if err != nil {
+		return "", 0, err
+	}
+	defer f.Close()
+	return ReadSHA256(f)
 }

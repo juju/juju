@@ -19,7 +19,6 @@ import (
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/juju/osenv"
 	coretools "launchpad.net/juju-core/tools"
-	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -49,18 +48,15 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 	defer loggo.RemoveWriter("toolsmetadata")
 	if c.metadataDir == "" {
 		c.metadataDir = osenv.JujuHome()
-	}
-	var err error
-	c.metadataDir, err = utils.NormalizePath(c.metadataDir)
-	if err != nil {
-		return err
+	} else {
+		c.metadataDir = context.AbsPath(c.metadataDir)
 	}
 
 	sourceStorage, err := filestorage.NewFileStorageReader(c.metadataDir)
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(context.Stdout, "Finding tools...")
+	fmt.Fprintf(context.Stdout, "Finding tools in %s\n", c.metadataDir)
 	const minorVersion = -1
 	toolsList, err := envtools.ReadList(sourceStorage, version.Current.Major, minorVersion)
 	if err == envtools.ErrNoTools {

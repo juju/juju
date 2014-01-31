@@ -4,10 +4,7 @@
 package client
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
-	"io"
 	"net/url"
 	"os"
 	"strings"
@@ -29,6 +26,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/statecmd"
+	"launchpad.net/juju-core/utils"
 )
 
 var logger = loggo.GetLogger("juju.state.apiserver.client")
@@ -836,9 +834,13 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 		return fmt.Errorf("charm URL must include revision")
 	}
 
-	// First check the charm is not already in state.
-	if _, err := c.api.state.Charm(charmURL); err == nil {
+	// First, check if a pending or a real charm exists in state.
+	stateCharm, err := c.api.state.PrepareStoreCharmUpload(charmURL)
+	if err == nil && stateCharm.IsUploaded() {
+		// Charm already in state (it was uploaded already).
 		return nil
+	} else if err != nil {
+		return err
 	}
 
 	// Get the charm and its information from the store.
@@ -862,12 +864,10 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 		return fmt.Errorf("cannot read downloaded charm: %v", err)
 	}
 	defer archive.Close()
-	hash := sha256.New()
-	size, err := io.Copy(hash, archive)
+	bundleSHA256, size, err := utils.ReadSHA256(archive)
 	if err != nil {
 		return fmt.Errorf("cannot calculate SHA256 hash of charm: %v", err)
 	}
-	bundleSHA256 := hex.EncodeToString(hash.Sum(nil))
 	if _, err := archive.Seek(0, 0); err != nil {
 		return fmt.Errorf("cannot rewind charm archive: %v", err)
 	}
@@ -878,12 +878,14 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 		return fmt.Errorf("cannot access environment: %v", err)
 	}
 	storage := env.Storage()
-	name := charm.Quote(charmURL.String())
-	err = storage.Put(name, archive, size)
+	archiveName, err := CharmArchiveName(charmURL.Name, charmURL.Revision)
 	if err != nil {
+		return fmt.Errorf("cannot generate charm archive name: %v", err)
+	}
+	if err := storage.Put(archiveName, archive, size); err != nil {
 		return fmt.Errorf("cannot upload charm to provider storage: %v", err)
 	}
-	storageURL, err := storage.URL(name)
+	storageURL, err := storage.URL(archiveName)
 	if err != nil {
 		return fmt.Errorf("cannot get storage URL for charm: %v", err)
 	}
@@ -892,7 +894,29 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 		return fmt.Errorf("cannot parse storage URL: %v", err)
 	}
 
-	// Finally, add the charm to state.
-	_, err = c.api.state.AddCharm(downloadedCharm, charmURL, bundleURL, bundleSHA256)
+	// Finally, update the charm data in state and mark it as no longer pending.
+	_, err = c.api.state.UpdateUploadedCharm(downloadedCharm, charmURL, bundleURL, bundleSHA256)
+	if err == state.ErrCharmRevisionAlreadyModified ||
+		state.IsCharmAlreadyUploadedError(err) {
+		// This is not an error, it just signifies somebody else
+		// managed to upload and update the charm in state before
+		// us. This means we have to delete what we just uploaded
+		// to storage.
+		if err := storage.Remove(archiveName); err != nil {
+			logger.Errorf("cannot remove duplicated charm from storage: %v", err)
+		}
+		return nil
+	}
 	return err
+}
+
+// CharmArchiveName returns a string that is suitable as a file name
+// in a storage URL. It is constructed from the charm name, revision
+// and a random UUID string.
+func CharmArchiveName(name string, revision int) (string, error) {
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return "", err
+	}
+	return charm.Quote(fmt.Sprintf("%s-%d-%s", name, revision, uuid)), nil
 }

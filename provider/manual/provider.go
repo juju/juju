@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package null
+package manual
 
 import (
 	"errors"
@@ -9,19 +9,20 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/utils"
 )
 
-type nullProvider struct{}
+type manualProvider struct{}
 
 func init() {
-	environs.RegisterProvider(provider.Null, nullProvider{})
+	p := manualProvider{}
+	environs.RegisterProvider("null", p)
+	environs.RegisterProvider("manual", p)
 }
 
 var errNoBootstrapHost = errors.New("bootstrap-host must be specified")
 
-func (p nullProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+func (p manualProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
 	if _, ok := cfg.UnknownAttrs()["storage-auth-key"].(string); !ok {
 		uuid, err := utils.NewUUID()
 		if err != nil {
@@ -37,7 +38,7 @@ func (p nullProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
 	return p.Open(cfg)
 }
 
-func (p nullProvider) Open(cfg *config.Config) (environs.Environ, error) {
+func (p manualProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	envConfig, err := p.validate(cfg, nil)
 	if err != nil {
 		return nil, err
@@ -45,8 +46,8 @@ func (p nullProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return p.open(envConfig)
 }
 
-func (p nullProvider) open(cfg *environConfig) (environs.Environ, error) {
-	return &nullEnviron{cfg: cfg}, nil
+func (p manualProvider) open(cfg *environConfig) (environs.Environ, error) {
+	return &manualEnviron{cfg: cfg}, nil
 }
 
 func checkImmutableString(cfg, old *environConfig, key string) error {
@@ -56,7 +57,7 @@ func checkImmutableString(cfg, old *environConfig, key string) error {
 	return nil
 }
 
-func (p nullProvider) validate(cfg, old *config.Config) (*environConfig, error) {
+func (p manualProvider) validate(cfg, old *config.Config) (*environConfig, error) {
 	// Check for valid changes for the base config values.
 	if err := config.Validate(cfg, old); err != nil {
 		return nil, err
@@ -92,7 +93,7 @@ func (p nullProvider) validate(cfg, old *config.Config) (*environConfig, error) 
 	return envConfig, nil
 }
 
-func (p nullProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
+func (p manualProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
 	envConfig, err := p.validate(cfg, old)
 	if err != nil {
 		return nil, err
@@ -100,10 +101,10 @@ func (p nullProvider) Validate(cfg, old *config.Config) (valid *config.Config, e
 	return cfg.Apply(envConfig.attrs)
 }
 
-func (_ nullProvider) BoilerplateConfig() string {
+func (_ manualProvider) BoilerplateConfig() string {
 	return `
-"null":
-    type: "null"
+manual:
+    type: manual
     # bootstrap-host holds the host name of the machine where the
     # bootstrap machine agent will be started.
     bootstrap-host: somehost.example.com
@@ -128,7 +129,7 @@ func (_ nullProvider) BoilerplateConfig() string {
 `[1:]
 }
 
-func (p nullProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
+func (p manualProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
 	envConfig, err := p.validate(cfg, nil)
 	if err != nil {
 		return nil, err
@@ -138,7 +139,7 @@ func (p nullProvider) SecretAttrs(cfg *config.Config) (map[string]string, error)
 	return attrs, nil
 }
 
-func (_ nullProvider) PublicAddress() (string, error) {
+func (_ manualProvider) PublicAddress() (string, error) {
 	// TODO(axw) 2013-09-10 bug #1222643
 	//
 	// eth0 may not be the desired interface for traffic to route
@@ -147,6 +148,6 @@ func (_ nullProvider) PublicAddress() (string, error) {
 	return utils.GetAddressForInterface("eth0")
 }
 
-func (p nullProvider) PrivateAddress() (string, error) {
+func (p manualProvider) PrivateAddress() (string, error) {
 	return p.PublicAddress()
 }

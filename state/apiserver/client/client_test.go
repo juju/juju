@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	gc "launchpad.net/gocheck"
 
@@ -17,8 +19,11 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/storage"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
@@ -26,6 +31,7 @@ import (
 	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -1787,6 +1793,7 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	bundleURL, err := url.Parse("http://bundles.testing.invalid/" + ident)
 	c.Assert(err, gc.IsNil)
 	sch, err := s.State.AddCharm(charmDir, curl, bundleURL, ident+"-sha256")
+	c.Assert(err, gc.IsNil)
 
 	name := charm.Quote(sch.URL().String())
 	storage := s.Conn.Environ.Storage()
@@ -1804,20 +1811,127 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	err = client.AddCharm(curl)
 	c.Assert(err, gc.IsNil)
 
-	// Verify it's in state.
+	// Verify it's in state and it got uploaded.
 	sch, err = s.State.Charm(curl)
 	c.Assert(err, gc.IsNil)
+	s.assertUploaded(c, storage, sch.BundleURL(), sch.BundleSha256())
+}
 
-	name = charm.Quote(curl.String())
-	storageURL, err := storage.URL(name)
+func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
+	store, restore := makeMockCharmStore()
+	defer restore()
+
+	client := s.APIState.Client()
+	curl, _ := addCharm(c, store, "wordpress")
+
+	// Expect storage Put() to be called once for each goroutine
+	// below.
+	ops := make(chan dummy.Operation, 500)
+	dummy.Listen(ops)
+	go s.assertPutCalled(c, ops, 10)
+
+	// Try adding the same charm concurrently from multiple goroutines
+	// to test no "duplicate key errors" are reported (see lp bug
+	// #1067979) and also at the end only one charm document is
+	// created.
+
+	var wg sync.WaitGroup
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+
+			c.Assert(client.AddCharm(curl), gc.IsNil, gc.Commentf("goroutine %d", index))
+			sch, err := s.State.Charm(curl)
+			c.Assert(err, gc.IsNil, gc.Commentf("goroutine %d", index))
+			c.Assert(sch.URL(), jc.DeepEquals, curl, gc.Commentf("goroutine %d", index))
+			expectedName := fmt.Sprintf("%s-%d-[0-9a-f-]+", curl.Name, curl.Revision)
+			c.Assert(getArchiveName(sch.BundleURL()), gc.Matches, expectedName)
+		}(i)
+	}
+	wg.Wait()
+	close(ops)
+
+	// Verify there is only a single uploaded charm remains and it
+	// contains the correct data.
+	sch, err := s.State.Charm(curl)
+	c.Assert(err, gc.IsNil)
+	storage, err := envtesting.GetEnvironStorage(s.State)
+	c.Assert(err, gc.IsNil)
+	uploads, err := storage.List(fmt.Sprintf("%s-%d-", curl.Name, curl.Revision))
+	c.Assert(err, gc.IsNil)
+	c.Assert(uploads, gc.HasLen, 1)
+	c.Assert(getArchiveName(sch.BundleURL()), gc.Equals, uploads[0])
+	s.assertUploaded(c, storage, sch.BundleURL(), sch.BundleSha256())
+}
+
+func (s *clientSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
+	store, restore := makeMockCharmStore()
+	defer restore()
+
+	client := s.APIState.Client()
+	curl, _ := addCharm(c, store, "wordpress")
+
+	// Add a placeholder with the same charm URL.
+	err := s.State.AddStoreCharmPlaceholder(curl)
+	c.Assert(err, gc.IsNil)
+	_, err = s.State.Charm(curl)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+
+	// Now try to add the charm, which will convert the placeholder to
+	// a pending charm.
+	err = client.AddCharm(curl)
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(sch.BundleURL().String(), gc.Equals, storageURL)
-	// We don't care about the exact value of the hash here, just that
-	// it's set.
-	c.Assert(sch.BundleSha256(), gc.Not(gc.Equals), "")
-
-	// Verify it's added to storage.
-	_, err = storage.Get(name)
+	// Make sure the document's flags were reset as expected.
+	sch, err := s.State.Charm(curl)
 	c.Assert(err, gc.IsNil)
+	c.Assert(sch.URL(), jc.DeepEquals, curl)
+	c.Assert(sch.IsPlaceholder(), jc.IsFalse)
+	c.Assert(sch.IsUploaded(), jc.IsTrue)
+}
+
+func (s *clientSuite) TestCharmArchiveName(c *gc.C) {
+	for rev, name := range []string{"Foo", "bar", "wordpress", "mysql"} {
+		archiveFormat := fmt.Sprintf("%s-%d-[0-9a-f-]+", name, rev)
+		archiveName, err := client.CharmArchiveName(name, rev)
+		c.Check(err, gc.IsNil)
+		c.Check(archiveName, gc.Matches, archiveFormat)
+	}
+}
+
+func (s *clientSuite) assertPutCalled(c *gc.C, ops chan dummy.Operation, numCalls int) {
+	calls := 0
+	select {
+	case op, ok := <-ops:
+		if !ok {
+			return
+		}
+		if op, ok := op.(dummy.OpPutFile); ok {
+			calls++
+			if calls > numCalls {
+				c.Fatalf("storage Put() called %d times, expected %d times", calls, numCalls)
+				return
+			}
+			nameFormat := "[0-9a-z-]+-[0-9]+-[0-9a-f-]+"
+			c.Assert(op.FileName, gc.Matches, nameFormat)
+		}
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out while waiting for a storage Put() calls")
+		return
+	}
+}
+
+func (s *clientSuite) assertUploaded(c *gc.C, storage storage.Storage, bundleURL *url.URL, expectedSHA256 string) {
+	archiveName := getArchiveName(bundleURL)
+	reader, err := storage.Get(archiveName)
+	c.Assert(err, gc.IsNil)
+	defer reader.Close()
+	downloadedSHA256, _, err := utils.ReadSHA256(reader)
+	c.Assert(err, gc.IsNil)
+	c.Assert(downloadedSHA256, gc.Equals, expectedSHA256)
+}
+
+func getArchiveName(bundleURL *url.URL) string {
+	return strings.TrimPrefix(bundleURL.RequestURI(), "/dummyenv/private/")
 }
