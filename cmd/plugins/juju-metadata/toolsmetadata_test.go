@@ -72,7 +72,7 @@ var versionStrings = append([]string{
 var expectedOutputCommon = makeExpectedOutputCommon()
 
 func makeExpectedOutputCommon() string {
-	expected := `Finding tools\.\.\.
+	expected := `Finding tools in .*
 .*Fetching tools to generate hash: 1\.12\.0-precise-amd64
 .*Fetching tools to generate hash: 1\.12\.0-precise-i386
 .*Fetching tools to generate hash: 1\.12\.0-raring-amd64
@@ -174,7 +174,7 @@ func (s *ToolsMetadataSuite) TestNoTools(c *gc.C) {
 	code := cmd.Main(&ToolsMetadataCommand{}, ctx, nil)
 	c.Assert(code, gc.Equals, 1)
 	stdout := ctx.Stdout.(*bytes.Buffer).String()
-	c.Assert(stdout, gc.Matches, "Finding tools\\.\\.\\.\n")
+	c.Assert(stdout, gc.Matches, "Finding tools in .*\n")
 	stderr := ctx.Stderr.(*bytes.Buffer).String()
 	c.Assert(stderr, gc.Matches, "error: no tools available\n")
 }
@@ -193,7 +193,7 @@ func (s *ToolsMetadataSuite) TestPatchLevels(c *gc.C) {
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
 	expectedOutput := fmt.Sprintf(`
-Finding tools\.\.\.
+Finding tools in .*
 .*Fetching tools to generate hash: %s
 .*Fetching tools to generate hash: %s
 .*Writing tools/streams/v1/index\.json
