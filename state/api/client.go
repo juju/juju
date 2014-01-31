@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -527,8 +528,9 @@ func (c *Client) WatchDebugLog(lines int, filter string) (*ClientDebugLog, error
 	cfg := c.st.websocketConfig
 	// Prepare URL.
 	attrs := url.Values{
-		"lines":  {fmt.Sprintf("%d", lines)},
-		"filter": {filter},
+		"juju-home": {osenv.JujuHomeDir()},
+		"lines":     {fmt.Sprintf("%d", lines)},
+		"filter":    {filter},
 	}
 	cfg.Location = &url.URL{
 		Scheme:   "wss",

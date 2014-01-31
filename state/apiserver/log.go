@@ -20,10 +20,16 @@ import (
 	"launchpad.net/tomb"
 )
 
-// logLocation is the location of the aggregated log in non-local
-// environments. Those need an extra location handling. Issue is
-// lp:1202682.
-const logLocation = "/var/log/juju/all-machines.log"
+const (
+	// defaultLogLocation is the location of the aggregated log in non-local
+	// environments.
+	defaultLogLocation = "/var/log/juju/all-machines.log"
+
+	// localLogLocation is the template for the log location in local
+	// environments. It needs the callers Juju home and the environment
+	// name.
+	localLogLocation = "%s/%s/log/all-machines.log"
+)
 
 // logHandler takes requests to watch the debug log.
 type logHandler struct {
@@ -41,15 +47,9 @@ func (h *logHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		h.sendAuthError(h, w)
 		return
 	}
-	// Open log file.
-	logFile, err := os.Open(logLocation)
-	if err != nil {
-		h.sendError(h, w, http.StatusInternalServerError, "cannot open log file: %v", err)
-		return
-	}
-	defer logFile.Close()
 	// Get the arguments of the request.
 	values := req.URL.Query()
+	jujuHome := values.Get("juju-home")
 	lines := 0
 	if linesAttr := values.Get("lines"); linesAttr != "" {
 		var err error
@@ -60,6 +60,18 @@ func (h *logHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	filter := values.Get("filter")
+	// Open log file.
+	logLoc, err := logLocation(h.state, jujuHome)
+	if err != nil {
+		h.sendError(h, w, http.StatusInternalServerError, "cannot find log file: %v", err)
+		return
+	}
+	logFile, err := os.Open(logLoc)
+	if err != nil {
+		h.sendError(h, w, http.StatusInternalServerError, "cannot open log file: %v", err)
+		return
+	}
+	defer logFile.Close()
 	// Start streaming.
 	wsServer := websocket.Server{
 		Handler: func(wsConn *websocket.Conn) {
@@ -139,4 +151,29 @@ func (stream *logStream) handleRequests(wsConn *websocket.Conn) {
 			return
 		}
 	}
+}
+
+// logLocation tries to get the location of the log file.
+func logLocation(st *state.State, jujuHome string) (string, error) {
+	_, err := os.Stat(defaultLogLocation)
+	if err == nil {
+		// Non-local environment.
+		return defaultLogLocation, nil
+	}
+	if !os.IsNotExist(err) {
+		return "", fmt.Errorf("error looking for log file: %v", err)
+	}
+	// Not found, so maybe local environment.
+	env, err := st.Environment()
+	if err != nil {
+		return "", err
+	}
+	envName := env.Name()
+	localLogLoc := fmt.Sprintf(localLogLocation, jujuHome, envName)
+	_, err = os.Stat(localLogLoc)
+	if err == nil {
+		// Found it.
+		return localLogLoc, nil
+	}
+	return "", fmt.Errorf("error looking for log file: %v", err)
 }
