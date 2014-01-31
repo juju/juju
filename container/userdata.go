@@ -6,14 +6,11 @@ package container
 import (
 	"io/ioutil"
 	"path/filepath"
-	"regexp"
-	"strings"
 
 	"github.com/loggo/loggo"
 
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/environs/cloudinit"
-	"launchpad.net/juju-core/utils"
 )
 
 var (
