@@ -402,7 +402,7 @@ func (cfg *MachineConfig) addLogging(c *cloudinit.Config) error {
 	if err != nil {
 		return err
 	}
-	c.AddFile(cfg.RsyslogConfPath, string(content), 0600)
+	c.AddFile(cfg.RsyslogConfPath, string(content), 0644)
 	c.AddRunCmd("restart rsyslog")
 	return nil
 }

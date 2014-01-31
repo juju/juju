@@ -215,6 +215,16 @@ func (s *LxcSuite) TestStopContainerRemovesAutostartLink(c *gc.C) {
 	c.Assert(autostartLink, jc.SymlinkDoesNotExist)
 }
 
+func (s *LxcSuite) TestStopContainerNoRestartDir(c *gc.C) {
+	err := os.Remove(s.RestartDir)
+	c.Assert(err, gc.IsNil)
+
+	manager := lxc.NewContainerManager(container.ManagerConfig{})
+	instance := containertesting.StartContainer(c, manager, "1/lxc/0")
+	err = manager.StopContainer(instance)
+	c.Assert(err, gc.IsNil)
+}
+
 type NetworkSuite struct {
 	testbase.LoggingSuite
 }

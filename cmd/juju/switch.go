@@ -66,6 +66,26 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 	// the JUJU_ENV environment setting, and as such, doesn't play too well.
 	// If JUJU_ENV is set we should report that as the current environment,
 	// and not allow switching when it is set.
+
+	// Passing through the empty string reads the default environments.yaml file.
+	environments, err := environs.ReadEnvirons("")
+	if err != nil {
+		return errors.New("couldn't read the environment")
+	}
+	names := environments.Names()
+	sort.Strings(names)
+
+	if c.List {
+		// List all environments.
+		if c.EnvName != "" {
+			return errors.New("cannot switch and list at the same time")
+		}
+		for _, name := range names {
+			fmt.Fprintf(ctx.Stdout, "%s\n", name)
+		}
+		return nil
+	}
+
 	jujuEnv := os.Getenv("JUJU_ENV")
 	if jujuEnv != "" {
 		if c.EnvName == "" {
@@ -76,14 +96,6 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	// Passing through the empty string reads the default environments.yaml file.
-	environments, err := environs.ReadEnvirons("")
-	if err != nil {
-		return errors.New("couldn't read the environment")
-	}
-	names := environments.Names()
-	sort.Strings(names)
-
 	currentEnv := cmd.ReadCurrentEnvironment()
 	if currentEnv == "" {
 		currentEnv = environments.Default
@@ -91,14 +103,6 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 
 	// Handle the different operation modes.
 	switch {
-	case c.List:
-		// List all environments.
-		if c.EnvName != "" {
-			return errors.New("cannot switch and list at the same time")
-		}
-		for _, name := range names {
-			fmt.Fprintf(ctx.Stdout, "%s\n", name)
-		}
 	case c.EnvName == "" && currentEnv == "":
 		// Nothing specified and nothing to switch to.
 		return errors.New("no currently specified environment")

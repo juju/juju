@@ -1,8 +1,8 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package null
+package manual
 
 var (
-	ProviderInstance = nullProvider{}
+	ProviderInstance = manualProvider{}
 )

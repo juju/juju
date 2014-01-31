@@ -32,5 +32,5 @@ func (s *FingerprintSuite) TestKeyFingerprint(c *gc.C) {
 
 func (s *FingerprintSuite) TestKeyFingerprintError(c *gc.C) {
 	_, _, err := ssh.KeyFingerprint("invalid key")
-	c.Assert(err, gc.ErrorMatches, `generating key fingerprint: invalid keytype "invalid" in line "invalid key"`)
+	c.Assert(err, gc.ErrorMatches, `generating key fingerprint: invalid authorized_key "invalid key"`)
 }

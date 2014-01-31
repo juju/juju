@@ -5,10 +5,7 @@ package uniter_test
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/rpc"
 	"net/url"
@@ -1199,10 +1196,8 @@ func (s addCharm) step(c *gc.C, ctx *context) {
 	err := s.dir.BundleTo(&buf)
 	c.Assert(err, gc.IsNil)
 	body := buf.Bytes()
-	hasher := sha256.New()
-	_, err = io.Copy(hasher, &buf)
+	hash, _, err := utils.ReadSHA256(&buf)
 	c.Assert(err, gc.IsNil)
-	hash := hex.EncodeToString(hasher.Sum(nil))
 	key := fmt.Sprintf("/charms/%s/%d", s.dir.Meta().Name, s.dir.Revision())
 	hurl, err := url.Parse(coretesting.Server.URL + key)
 	c.Assert(err, gc.IsNil)

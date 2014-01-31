@@ -90,6 +90,13 @@ func (envs *Environs) Config(name string) (*config.Config, error) {
 		}
 		logger.Warningf(msg)
 	}
+	// null has been renamed to manual (with an alias for existing config).
+	if oldType, _ := attrs["type"].(string); oldType == "null" {
+		logger.Warningf(
+			"Provider type \"null\" has been renamed to \"manual\".\n" +
+				"Please update your environment configuration.",
+		)
+	}
 
 	cfg, err := config.New(config.UseDefaults, attrs)
 	if err != nil {

@@ -5,6 +5,7 @@ package ssh_test
 
 import (
 	"encoding/base64"
+	"strings"
 	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
@@ -236,41 +237,35 @@ func (s *AuthorisedKeysKeysSuite) TestSplitAuthorisedKeys(c *gc.C) {
 	}
 }
 
-func b64(s string) string {
-	return base64.StdEncoding.EncodeToString([]byte(s))
+func b64decode(c *gc.C, s string) []byte {
+	b, err := base64.StdEncoding.DecodeString(s)
+	c.Assert(err, gc.IsNil)
+	return b
 }
 
 func (s *AuthorisedKeysKeysSuite) TestParseAuthorisedKey(c *gc.C) {
 	for i, test := range []struct {
 		line    string
-		keytype string
-		key     string
+		key     []byte
 		comment string
 		err     string
 	}{{
-		line:    "ssh-rsa " + b64("abc def"),
-		keytype: "ssh-rsa",
-		key:     "abc def",
+		line: sshtesting.ValidKeyOne.Key,
+		key:  b64decode(c, strings.Fields(sshtesting.ValidKeyOne.Key)[1]),
 	}, {
-		line:    "ssh-dss " + b64("abc def"),
-		keytype: "ssh-dss",
-		key:     "abc def",
-	}, {
-		line:    "ssh-rsa " + b64("abc def") + " a b c",
-		keytype: "ssh-rsa",
-		key:     "abc def",
+		line:    sshtesting.ValidKeyOne.Key + " a b c",
+		key:     b64decode(c, strings.Fields(sshtesting.ValidKeyOne.Key)[1]),
 		comment: "a b c",
 	}, {
 		line: "ssh-xsa blah",
-		err:  "invalid keytype \"ssh-xsa\" in line \"ssh-xsa blah\"",
+		err:  "invalid authorized_key \"ssh-xsa blah\"",
 	}, {
 		// options should be skipped
-		line:    `no-pty,principals="\"",command="\!" ssh-rsa ` + b64("blah"),
-		keytype: "ssh-rsa",
-		key:     "blah",
+		line: `no-pty,principals="\"",command="\!" ` + sshtesting.ValidKeyOne.Key,
+		key:  b64decode(c, strings.Fields(sshtesting.ValidKeyOne.Key)[1]),
 	}, {
 		line: "ssh-rsa",
-		err:  "malformed line: \"ssh-rsa\"",
+		err:  "invalid authorized_key \"ssh-rsa\"",
 	}} {
 		c.Logf("test %d: %s", i, test.line)
 		ak, err := ssh.ParseAuthorisedKey(test.line)
@@ -279,8 +274,7 @@ func (s *AuthorisedKeysKeysSuite) TestParseAuthorisedKey(c *gc.C) {
 		} else {
 			c.Assert(err, gc.IsNil)
 			c.Assert(ak, gc.Not(gc.IsNil))
-			c.Assert(ak.KeyType, gc.Equals, test.keytype)
-			c.Assert(string(ak.Key), gc.Equals, test.key)
+			c.Assert(ak.Key, gc.DeepEquals, test.key)
 			c.Assert(ak.Comment, gc.Equals, test.comment)
 		}
 	}
