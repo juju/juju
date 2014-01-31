@@ -1,7 +1,7 @@
 // Copyright 2012 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package null
+package manual
 
 import (
 	"errors"
@@ -23,14 +23,14 @@ import (
 
 type environSuite struct {
 	testbase.LoggingSuite
-	env *nullEnviron
+	env *manualEnviron
 }
 
 var _ = gc.Suite(&environSuite{})
 
 func (s *environSuite) SetUpTest(c *gc.C) {
 	envConfig := getEnvironConfig(c, MinimalConfigValues())
-	s.env = &nullEnviron{cfg: envConfig}
+	s.env = &manualEnviron{cfg: envConfig}
 }
 
 func (s *environSuite) TestSetConfig(c *gc.C) {

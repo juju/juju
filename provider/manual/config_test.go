@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package null
+package manual
 
 import (
 	"fmt"
@@ -10,7 +10,6 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/provider"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
@@ -24,7 +23,7 @@ var _ = gc.Suite(&configSuite{})
 func MinimalConfigValues() map[string]interface{} {
 	return map[string]interface{}{
 		"name":             "test",
-		"type":             provider.Null,
+		"type":             "manual",
 		"bootstrap-host":   "hostname",
 		"storage-auth-key": "whatever",
 		// While the ca-cert bits aren't entirely minimal, they avoid the need
@@ -44,7 +43,7 @@ func MinimalConfig(c *gc.C) *config.Config {
 func getEnvironConfig(c *gc.C, attrs map[string]interface{}) *environConfig {
 	testConfig, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-	envConfig, err := nullProvider{}.validate(testConfig, nil)
+	envConfig, err := manualProvider{}.validate(testConfig, nil)
 	c.Assert(err, gc.IsNil)
 	return envConfig
 }
@@ -53,16 +52,16 @@ func (s *configSuite) TestValidateConfig(c *gc.C) {
 	testConfig := MinimalConfig(c)
 	testConfig, err := testConfig.Apply(map[string]interface{}{"bootstrap-host": ""})
 	c.Assert(err, gc.IsNil)
-	_, err = nullProvider{}.Validate(testConfig, nil)
+	_, err = manualProvider{}.Validate(testConfig, nil)
 	c.Assert(err, gc.ErrorMatches, "bootstrap-host must be specified")
 
 	testConfig, err = testConfig.Apply(map[string]interface{}{"storage-auth-key": nil})
 	c.Assert(err, gc.IsNil)
-	_, err = nullProvider{}.Validate(testConfig, nil)
+	_, err = manualProvider{}.Validate(testConfig, nil)
 	c.Assert(err, gc.ErrorMatches, "storage-auth-key: expected string, got nothing")
 
 	testConfig = MinimalConfig(c)
-	valid, err := nullProvider{}.Validate(testConfig, nil)
+	valid, err := manualProvider{}.Validate(testConfig, nil)
 	c.Assert(err, gc.IsNil)
 
 	unknownAttrs := valid.UnknownAttrs()
@@ -74,7 +73,7 @@ func (s *configSuite) TestValidateConfig(c *gc.C) {
 
 func (s *configSuite) TestConfigMutability(c *gc.C) {
 	testConfig := MinimalConfig(c)
-	valid, err := nullProvider{}.Validate(testConfig, nil)
+	valid, err := manualProvider{}.Validate(testConfig, nil)
 	c.Assert(err, gc.IsNil)
 	unknownAttrs := valid.UnknownAttrs()
 
@@ -91,7 +90,7 @@ func (s *configSuite) TestConfigMutability(c *gc.C) {
 		testConfig = MinimalConfig(c)
 		testConfig, err = testConfig.Apply(map[string]interface{}{k: v})
 		c.Assert(err, gc.IsNil)
-		_, err := nullProvider{}.Validate(testConfig, oldConfig)
+		_, err := manualProvider{}.Validate(testConfig, oldConfig)
 		oldv := unknownAttrs[k]
 		errmsg := fmt.Sprintf("cannot change %s from %q to %q", k, oldv, v)
 		c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(errmsg))
