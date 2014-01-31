@@ -513,6 +513,57 @@ var configTests = []configTest{
 		},
 		err: `syslog-port: expected number, got string\("illegal"\)`,
 	}, {
+		about:       "Explicit bootstrap timeout",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":              "my-type",
+			"name":              "my-name",
+			"bootstrap-timeout": 300,
+		},
+	}, {
+		about:       "Invalid bootstrap timeout",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":              "my-type",
+			"name":              "my-name",
+			"bootstrap-timeout": "illegal",
+		},
+		err: `bootstrap-timeout: expected number, got string\("illegal"\)`,
+	}, {
+		about:       "Explicit bootstrap retry delay",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":                  "my-type",
+			"name":                  "my-name",
+			"bootstrap-retry-delay": 5,
+		},
+	}, {
+		about:       "Invalid bootstrap retry delay",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":                  "my-type",
+			"name":                  "my-name",
+			"bootstrap-retry-delay": "illegal",
+		},
+		err: `bootstrap-retry-delay: expected number, got string\("illegal"\)`,
+	}, {
+		about:       "Explicit bootstrap addresses delay",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"bootstrap-addresses-delay": 15,
+		},
+	}, {
+		about:       "Invalid bootstrap addresses delay",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"bootstrap-addresses-delay": "illegal",
+		},
+		err: `bootstrap-addresses-delay: expected number, got string\("illegal"\)`,
+	}, {
 		about:       "Invalid logging configuration",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
@@ -570,6 +621,13 @@ var configTests = []configTest{
 			"ca-cert":                   caCert,
 			"firewall-mode":             "instance",
 			"type":                      "ec2",
+		},
+	}, {
+		about:       "Provider type null is replaced with manual",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "null",
+			"name": "my-name",
 		},
 	},
 	authTokenConfigTest("token=value, tokensecret=value", true),
@@ -762,6 +820,11 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 	c.Assert(err, gc.IsNil)
 
 	typ, _ := test.attrs["type"].(string)
+	// "null" has been deprecated in favour of "manual",
+	// and is automatically switched.
+	if typ == "null" {
+		typ = "manual"
+	}
 	name, _ := test.attrs["name"].(string)
 	c.Assert(cfg.Type(), gc.Equals, typ)
 	c.Assert(cfg.Name(), gc.Equals, name)
@@ -854,6 +917,25 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 	} else {
 		c.Assert(cfg.ProvisionerSafeMode(), gc.Equals, false)
 	}
+	sshOpts := cfg.BootstrapSSHOpts()
+	test.assertDuration(
+		c,
+		"bootstrap-timeout",
+		sshOpts.Timeout,
+		config.DefaultBootstrapSSHTimeout,
+	)
+	test.assertDuration(
+		c,
+		"bootstrap-retry-delay",
+		sshOpts.RetryDelay,
+		config.DefaultBootstrapSSHRetryDelay,
+	)
+	test.assertDuration(
+		c,
+		"bootstrap-addresses-delay",
+		sshOpts.AddressesDelay,
+		config.DefaultBootstrapSSHAddressesDelay,
+	)
 
 	if v, ok := test.attrs["image-stream"]; ok {
 		c.Assert(cfg.ImageStream(), gc.Equals, v)
@@ -888,6 +970,15 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 	}
 }
 
+func (test configTest) assertDuration(c *gc.C, name string, actual time.Duration, defaultInSeconds int) {
+	value, ok := test.attrs[name].(int)
+	if !ok || value == 0 {
+		c.Assert(actual, gc.Equals, time.Duration(defaultInSeconds)*time.Second)
+	} else {
+		c.Assert(actual, gc.Equals, time.Duration(value)*time.Second)
+	}
+}
+
 func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	// Normally this is handled by testing.FakeHome
 	s.PatchEnvironment(osenv.JujuLoggingConfigEnvKey, "")
@@ -905,6 +996,9 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"state-port":                1234,
 		"api-port":                  4321,
 		"syslog-port":               2345,
+		"bootstrap-timeout":         3600,
+		"bootstrap-retry-delay":     30,
+		"bootstrap-addresses-delay": 10,
 		"default-series":            "precise",
 		"charm-store-auth":          "token=auth",
 	}
@@ -921,17 +1015,18 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["tools-url"] = ""
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
-	c.Assert(cfg.AllAttrs(), gc.DeepEquals, attrs)
-	c.Assert(cfg.UnknownAttrs(), gc.DeepEquals, map[string]interface{}{"unknown": "my-unknown"})
+	c.Assert(cfg.AllAttrs(), jc.DeepEquals, attrs)
+	c.Assert(cfg.UnknownAttrs(), jc.DeepEquals, map[string]interface{}{"unknown": "my-unknown"})
 
 	newcfg, err := cfg.Apply(map[string]interface{}{
 		"name":        "new-name",
 		"new-unknown": "my-new-unknown",
 	})
+	c.Assert(err, gc.IsNil)
 
 	attrs["name"] = "new-name"
 	attrs["new-unknown"] = "my-new-unknown"
-	c.Assert(newcfg.AllAttrs(), gc.DeepEquals, attrs)
+	c.Assert(newcfg.AllAttrs(), jc.DeepEquals, attrs)
 }
 
 type validationTest struct {

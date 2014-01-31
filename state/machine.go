@@ -224,13 +224,15 @@ func (m *Machine) IsManual() (bool, error) {
 		return true, nil
 	}
 	// The bootstrap machine uses BootstrapNonce, so in that
-	// case we need to check if its provider type is "null".
+	// case we need to check if its provider type is "manual".
+	// We also check for "null", which is an alias for manual.
 	if m.doc.Id == "0" {
 		cfg, err := m.st.EnvironConfig()
 		if err != nil {
 			return false, err
 		}
-		return cfg.Type() == "null", nil
+		t := cfg.Type()
+		return t == "null" || t == "manual", nil
 	}
 	return false, nil
 }

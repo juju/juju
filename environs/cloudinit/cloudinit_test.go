@@ -111,7 +111,7 @@ grep '1234' \$bin/juju1\.2\.3-precise-amd64.sha256 \|\| \(echo "Tools checksum m
 tar zxf \$bin/tools.tar.gz -C \$bin
 rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-precise-amd64\.sha256
 printf %s '{"version":"1\.2\.3-precise-amd64","url":"http://foo\.com/tools/releases/juju1\.2\.3-precise-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
-install -D -m 600 /dev/null '/etc/rsyslog\.d/25-juju\.conf'
+install -D -m 644 /dev/null '/etc/rsyslog\.d/25-juju\.conf'
 printf '%s\\n' '.*' > '/etc/rsyslog.d/25-juju.conf'
 restart rsyslog
 mkdir -p '/var/lib/juju/agents/machine-0'
@@ -236,7 +236,7 @@ grep '1234' \$bin/juju1\.2\.3-linux-amd64.sha256 \|\| \(echo "Tools checksum mis
 tar zxf \$bin/tools.tar.gz -C \$bin
 rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-linux-amd64\.sha256
 printf %s '{"version":"1\.2\.3-linux-amd64","url":"http://foo\.com/tools/releases/juju1\.2\.3-linux-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
-install -D -m 600 /dev/null '/etc/rsyslog\.d/25-juju\.conf'
+install -D -m 644 /dev/null '/etc/rsyslog\.d/25-juju\.conf'
 printf '%s\\n' '.*' > '/etc/rsyslog\.d/25-juju\.conf'
 restart rsyslog
 mkdir -p '/var/lib/juju/agents/machine-99'

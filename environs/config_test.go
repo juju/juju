@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/provider/dummy"
+	_ "launchpad.net/juju-core/provider/manual"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
@@ -359,5 +360,11 @@ func (s *ConfigDeprecationSuite) TestDeprecatedToolsURLWithNewURLWarning(c *gc.C
 	expected := fmt.Sprintf(
 		`.*Config attribute "tools-url" \(aknowndeprecatedfield\) is deprecated and will be ignored since` +
 			`the new tools URL attribute "tools-metadata-url".*`)
+	s.checkDeprecationWarning(c, attrs, expected)
+}
+
+func (s *ConfigDeprecationSuite) TestDeprecatedTypeNullWarning(c *gc.C) {
+	attrs := testing.Attrs{"type": "null"}
+	expected := `Provider type \"null\" has been renamed to \"manual\"\.Please update your environment configuration\.`
 	s.checkDeprecationWarning(c, attrs, expected)
 }
