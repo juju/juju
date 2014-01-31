@@ -74,52 +74,51 @@ func filterArches(src, filter []string) (dst []string) {
 // minMemoryHeuristic is the assumed minimum amount of memory (in MB) we prefer in order to run a server (1GB)
 const minMemoryHeuristic = 1024
 
-// getMatchingInstanceTypes returns all instance types matching ic.Constraints and available
-// in ic.Region, sorted by increasing region-specific cost (if known).
-func getMatchingInstanceTypes(ic *InstanceConstraint, allInstanceTypes []InstanceType) ([]InstanceType, error) {
-	cons := ic.Constraints
-	region := ic.Region
-	var itypes []InstanceType
-
-	// Iterate over allInstanceTypes, finding matching ones.
-	for _, itype := range allInstanceTypes {
+// matchingTypesForConstraint returns instance types from allTypes which match cons.
+func matchingTypesForConstraint(allTypes []InstanceType, cons constraints.Value) []InstanceType {
+	var matchingTypes []InstanceType
+	for _, itype := range allTypes {
 		itype, ok := itype.match(cons)
 		if !ok {
 			continue
 		}
-		itypes = append(itypes, itype)
+		matchingTypes = append(matchingTypes, itype)
 	}
+	return matchingTypes
+}
+
+// getMatchingInstanceTypes returns all instance types matching ic.Constraints and available
+// in ic.Region, sorted by increasing region-specific cost (if known).
+func getMatchingInstanceTypes(ic *InstanceConstraint, allInstanceTypes []InstanceType) ([]InstanceType, error) {
+	region := ic.Region
+	var itypes []InstanceType
+
+	// Rules used to select instance types:
+	// - non memory constraints like cpu-cores etc are always honoured
+	//   (previously an instance type with largest available memory was returned even if it didn't
+	//    match on other constraints like cpu-cores and this is wrong).
+	// - if no mem constraint specified, try opinionated default with enough mem to run a server.
+	// - if no matches, try again without any memory constraint and return the instance
+	//   with the largest memory
+	minMemCons := ic.Constraints
+	minMem := uint64(minMemoryHeuristic)
+	minMemCons.Mem = &minMem
+	cons := ic.Constraints
+	if ic.Constraints.Mem == nil {
+		cons = minMemCons
+	}
+	itypes = matchingTypesForConstraint(allInstanceTypes, cons)
 
 	if len(itypes) == 0 {
-		// No matching instance types were found, so the fallback is to:
-		// 1. Sort by memory and find the smallest matching both the required architecture
-		//    and our own heuristic: minimum amount of memory required to run a realistic server, or
-		// 2. Sort by memory in reverse order and return the largest one, which will hopefully work,
-		//    albeit not the best match
-		archCons := constraints.Value{Arch: ic.Constraints.Arch}
-		for _, itype := range allInstanceTypes {
-			itype, ok := itype.match(archCons)
-			if !ok {
-				continue
-			}
-			itypes = append(itypes, itype)
-		}
+		cons := ic.Constraints
+		cons.Mem = nil
+		itypes = matchingTypesForConstraint(allInstanceTypes, cons)
 		sort.Sort(byMemory(itypes))
-		var fallbackType *InstanceType
-		// 1. check for smallest instance type that can realistically run a server
-		for _, itype := range itypes {
-			if itype.Mem >= minMemoryHeuristic {
-				itcopy := itype
-				fallbackType = &itcopy
+		for i, itype := range itypes {
+			if (ic.Constraints.Mem == nil && itype.Mem >= minMemoryHeuristic) || i == len(itypes)-1 {
+				itypes = []InstanceType{itype}
 				break
 			}
-		}
-		if fallbackType == nil && len(itypes) > 0 {
-			// 2. just get the one with the largest memory
-			fallbackType = &itypes[len(itypes)-1]
-		}
-		if fallbackType != nil {
-			itypes = []InstanceType{*fallbackType}
 		}
 	}
 	// If we have matching instance types, we can return those, sorted by cost.
@@ -129,7 +128,7 @@ func getMatchingInstanceTypes(ic *InstanceConstraint, allInstanceTypes []Instanc
 	}
 
 	// No luck, so report the error.
-	return nil, fmt.Errorf("no instance types in %s matching constraints %q", region, cons)
+	return nil, fmt.Errorf("no instance types in %s matching constraints %q", region, ic.Constraints)
 }
 
 // tagsMatch returns if the tags in wanted all exist in have.

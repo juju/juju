@@ -140,21 +140,63 @@ var getInstanceTypesTest = []struct {
 		arches:         []string{"arm"},
 	},
 	{
-		about: "fallback instance type, enough memory for mongodb",
-		cons:  "mem=8G",
+		about: "enough memory for mongodb if mem not specified",
+		cons:  "cpu-cores=4",
 		itypesToUse: []InstanceType{
+			{Id: "4", Name: "it-4", Arches: []string{"amd64"}, Mem: 2048, CpuCores: 4},
+			{Id: "3", Name: "it-3", Arches: []string{"amd64"}, Mem: 1024, CpuCores: 4},
+			{Id: "2", Name: "it-2", Arches: []string{"amd64"}, Mem: 256, CpuCores: 4},
+			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, Mem: 512, CpuCores: 4},
+		},
+		expectedItypes: []string{"it-3", "it-4"},
+	},
+	{
+		about: "small mem specified, use that even though less than needed for mongodb",
+		cons:  "mem=300M",
+		itypesToUse: []InstanceType{
+			{Id: "3", Name: "it-3", Arches: []string{"amd64"}, Mem: 2048},
+			{Id: "2", Name: "it-2", Arches: []string{"amd64"}, Mem: 256},
+			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, Mem: 512},
+		},
+		expectedItypes: []string{"it-1", "it-3"},
+	},
+	{
+		about: "mem specified but no mem matches, choose largest memory type with enough memory for mongdb",
+		cons:  "mem=8G arch=amd64",
+		itypesToUse: []InstanceType{
+			{Id: "4", Name: "it-4", Arches: []string{"arm"}, Mem: 8096},
 			{Id: "3", Name: "it-3", Arches: []string{"amd64"}, Mem: 4096},
 			{Id: "2", Name: "it-2", Arches: []string{"amd64"}, Mem: 2048},
 			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, Mem: 512},
 		},
-		expectedItypes: []string{"it-2"},
+		expectedItypes: []string{"it-3"},
 	},
 	{
-		about: "fallback instance type, not enough memory for mongodb",
+		about: "mem specified but no mem matches, choose largest memory type",
 		cons:  "mem=4G",
 		itypesToUse: []InstanceType{
 			{Id: "2", Name: "it-2", Arches: []string{"amd64"}, Mem: 256},
 			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, Mem: 512},
+		},
+		expectedItypes: []string{"it-1"},
+	},
+	{
+		about: "mem specified but no mem matches, choose largest memory type matching other constraints",
+		cons:  "mem=4G arch=amd64",
+		itypesToUse: []InstanceType{
+			{Id: "3", Name: "it-3", Arches: []string{"arm"}, Mem: 1024},
+			{Id: "2", Name: "it-2", Arches: []string{"amd64"}, Mem: 256},
+			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, Mem: 512},
+		},
+		expectedItypes: []string{"it-1"},
+	},
+	{
+		about: "largest mem available matching other constraints if mem not specified",
+		cons:  "cpu-cores=4",
+		itypesToUse: []InstanceType{
+			{Id: "3", Name: "it-3", Arches: []string{"amd64"}, Mem: 1024, CpuCores: 2},
+			{Id: "2", Name: "it-2", Arches: []string{"amd64"}, Mem: 256, CpuCores: 4},
+			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, Mem: 512, CpuCores: 4},
 		},
 		expectedItypes: []string{"it-1"},
 	},
@@ -195,6 +237,9 @@ func (s *instanceTypeSuite) TestGetMatchingInstanceTypesErrors(c *gc.C) {
 
 	_, err = getMatchingInstanceTypes(constraint("test", "arch=i386 mem=8G"), instanceTypes)
 	c.Check(err, gc.ErrorMatches, `no instance types in test matching constraints "arch=i386 mem=8192M"`)
+
+	_, err = getMatchingInstanceTypes(constraint("test", "cpu-cores=9000"), instanceTypes)
+	c.Check(err, gc.ErrorMatches, `no instance types in test matching constraints "cpu-cores=9000"`)
 }
 
 var instanceTypeMatchTests = []struct {
