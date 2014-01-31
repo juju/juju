@@ -202,6 +202,10 @@ func (cfg *Config) processDeprecatedAttributes() {
 	// Even if the user has edited their environment yaml to remove the deprecated tools-url value,
 	// we still want it in the config for upgrades.
 	cfg.m["tools-url"], _ = cfg.ToolsURL()
+	// Update the provider type from null to manual.
+	if cfg.Type() == "null" {
+		cfg.m["type"] = "manual"
+	}
 }
 
 // Validate ensures that config is a valid configuration.  If old is not nil,

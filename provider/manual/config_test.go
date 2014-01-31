@@ -10,7 +10,6 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/provider"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
@@ -24,7 +23,7 @@ var _ = gc.Suite(&configSuite{})
 func minimalConfigValues() map[string]interface{} {
 	return map[string]interface{}{
 		"name":             "test",
-		"type":             provider.Null,
+		"type":             "manual",
 		"bootstrap-host":   "hostname",
 		"storage-auth-key": "whatever",
 		// While the ca-cert bits aren't entirely minimal, they avoid the need

@@ -9,7 +9,6 @@ package provider
 
 const (
 	Local = "local"
-	Null  = "null"
 )
 
 // IsManual returns true iff the specified provider

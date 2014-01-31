@@ -556,6 +556,13 @@ var configTests = []configTest{
 			"firewall-mode":             "instance",
 			"type":                      "ec2",
 		},
+	}, {
+		about:       "Provider type null is replaced with manual",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "null",
+			"name": "my-name",
+		},
 	},
 	authTokenConfigTest("token=value, tokensecret=value", true),
 	authTokenConfigTest("token=value, ", true),
@@ -747,6 +754,11 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 	c.Assert(err, gc.IsNil)
 
 	typ, _ := test.attrs["type"].(string)
+	// "null" has been deprecated in favour of "manual",
+	// and is automatically switched.
+	if typ == "null" {
+		typ = "manual"
+	}
 	name, _ := test.attrs["name"].(string)
 	c.Assert(cfg.Type(), gc.Equals, typ)
 	c.Assert(cfg.Name(), gc.Equals, name)
