@@ -41,7 +41,7 @@ func (inst *localInstance) Addresses() ([]instance.Address, error) {
 		}, {
 			NetworkScope: instance.NetworkCloudLocal,
 			Type:         instance.Ipv4Address,
-			Value:        inst.env.config.bootstrapIPAddress(),
+			Value:        inst.env.bridgeAddress,
 		}}
 		return addrs, nil
 	}
@@ -51,7 +51,7 @@ func (inst *localInstance) Addresses() ([]instance.Address, error) {
 // DNSName implements instance.Instance.DNSName.
 func (inst *localInstance) DNSName() (string, error) {
 	if inst.id == bootstrapInstanceId {
-		return inst.env.config.bootstrapIPAddress(), nil
+		return inst.env.bridgeAddress, nil
 	}
 	// Get the IPv4 address from eth0
 	return getAddressForInterface("eth0")

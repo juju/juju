@@ -89,18 +89,12 @@ func (c *environConfig) logDir() string {
 	return filepath.Join(c.rootDir(), "log")
 }
 
-// A config is bootstrapped if the bootstrap-ip address has been set.
-func (c *environConfig) bootstrapped() bool {
-	_, found := c.attrs["bootstrap-ip"]
-	return found
-}
-
+// bootstrapIPAddress returns the IP address of the bootstrap machine.
+// As of 1.18 this is only set inside the environment, and not in the
+// .jenv file.
 func (c *environConfig) bootstrapIPAddress() string {
-	addr, found := c.attrs["bootstrap-ip"]
-	if found {
-		return addr.(string)
-	}
-	return ""
+	addr, _ := c.attrs["bootstrap-ip"].(string)
+	return addr
 }
 
 func (c *environConfig) storagePort() int {
