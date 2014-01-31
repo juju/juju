@@ -55,6 +55,11 @@ func (e *Environment) UUID() string {
 	return e.doc.UUID
 }
 
+// Name returns the human friendly name of the environment.
+func (e *Environment) Name() string {
+	return e.doc.Name
+}
+
 // Life returns whether the environment is Alive, Dying or Dead.
 func (e *Environment) Life() Life {
 	return e.doc.Life

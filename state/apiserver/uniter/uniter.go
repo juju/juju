@@ -749,6 +749,17 @@ func (u *UniterAPI) CurrentEnvironUUID() (params.StringResult, error) {
 	return result, err
 }
 
+// CurrentEnvironment returns the name and UUID for the current juju environment.
+func (u *UniterAPI) CurrentEnvironment() (params.CurrentEnvironmentResult, error) {
+	result := params.CurrentEnvironmentResult{}
+	env, err := u.st.Environment()
+	if err == nil {
+		result.Name = env.Name()
+		result.UUID = env.UUID()
+	}
+	return result, err
+}
+
 // ProviderType returns the provider type used by the current juju
 // environment.
 //
