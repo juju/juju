@@ -420,13 +420,28 @@ func assertSourceContents(c *gc.C, source simplestreams.DataSource, filename str
 	c.Assert(retrieved, gc.DeepEquals, content)
 }
 
-func (suite *environSuite) TestGetImageMetadataSources(c *gc.C) {
-	env := suite.makeEnviron()
+func (suite *environSuite) assertGetImageMetadataSources(c *gc.C, stream, officialSourcePath string) {
+	// Make an env configured with the stream.
+	testAttrs := maasEnvAttrs
+	testAttrs = testAttrs.Merge(coretesting.Attrs{
+		"maas-server": suite.testMAASObject.TestServer.URL,
+	})
+	if stream != "" {
+		testAttrs = testAttrs.Merge(coretesting.Attrs{
+			"image-stream": stream,
+		})
+	}
+	attrs := coretesting.FakeConfig().Merge(testAttrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+	env, err := NewEnviron(cfg)
+	c.Assert(err, gc.IsNil)
+
 	// Add a dummy file to storage so we can use that to check the
 	// obtained source later.
 	data := makeRandomBytes(10)
 	stor := NewStorage(env)
-	err := stor.Put("images/filename", bytes.NewBuffer([]byte(data)), int64(len(data)))
+	err = stor.Put("images/filename", bytes.NewBuffer([]byte(data)), int64(len(data)))
 	c.Assert(err, gc.IsNil)
 	sources, err := imagemetadata.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
@@ -434,7 +449,13 @@ func (suite *environSuite) TestGetImageMetadataSources(c *gc.C) {
 	assertSourceContents(c, sources[0], "filename", data)
 	url, err := sources[1].URL("")
 	c.Assert(err, gc.IsNil)
-	c.Assert(url, gc.Equals, imagemetadata.DefaultBaseURL+"/")
+	c.Assert(url, gc.Equals, fmt.Sprintf("http://cloud-images.ubuntu.com/%s/", officialSourcePath))
+}
+
+func (suite *environSuite) TestGetImageMetadataSources(c *gc.C) {
+	suite.assertGetImageMetadataSources(c, "", "releases")
+	suite.assertGetImageMetadataSources(c, "released", "releases")
+	suite.assertGetImageMetadataSources(c, "daily", "daily")
 }
 
 func (suite *environSuite) TestGetToolsMetadataSources(c *gc.C) {

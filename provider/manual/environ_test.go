@@ -29,15 +29,15 @@ type environSuite struct {
 var _ = gc.Suite(&environSuite{})
 
 func (s *environSuite) SetUpTest(c *gc.C) {
-	envConfig := getEnvironConfig(c, minimalConfigValues())
+	envConfig := getEnvironConfig(c, MinimalConfigValues())
 	s.env = &manualEnviron{cfg: envConfig}
 }
 
 func (s *environSuite) TestSetConfig(c *gc.C) {
-	err := s.env.SetConfig(minimalConfig(c))
+	err := s.env.SetConfig(MinimalConfig(c))
 	c.Assert(err, gc.IsNil)
 
-	testConfig := minimalConfig(c)
+	testConfig := MinimalConfig(c)
 	testConfig, err = testConfig.Apply(map[string]interface{}{"bootstrap-host": ""})
 	c.Assert(err, gc.IsNil)
 	err = s.env.SetConfig(testConfig)

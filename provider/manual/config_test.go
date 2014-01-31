@@ -20,7 +20,7 @@ type configSuite struct {
 
 var _ = gc.Suite(&configSuite{})
 
-func minimalConfigValues() map[string]interface{} {
+func MinimalConfigValues() map[string]interface{} {
 	return map[string]interface{}{
 		"name":             "test",
 		"type":             "manual",
@@ -33,8 +33,8 @@ func minimalConfigValues() map[string]interface{} {
 	}
 }
 
-func minimalConfig(c *gc.C) *config.Config {
-	minimal := minimalConfigValues()
+func MinimalConfig(c *gc.C) *config.Config {
+	minimal := MinimalConfigValues()
 	testConfig, err := config.New(config.UseDefaults, minimal)
 	c.Assert(err, gc.IsNil)
 	return testConfig
@@ -49,7 +49,7 @@ func getEnvironConfig(c *gc.C, attrs map[string]interface{}) *environConfig {
 }
 
 func (s *configSuite) TestValidateConfig(c *gc.C) {
-	testConfig := minimalConfig(c)
+	testConfig := MinimalConfig(c)
 	testConfig, err := testConfig.Apply(map[string]interface{}{"bootstrap-host": ""})
 	c.Assert(err, gc.IsNil)
 	_, err = manualProvider{}.Validate(testConfig, nil)
@@ -60,7 +60,7 @@ func (s *configSuite) TestValidateConfig(c *gc.C) {
 	_, err = manualProvider{}.Validate(testConfig, nil)
 	c.Assert(err, gc.ErrorMatches, "storage-auth-key: expected string, got nothing")
 
-	testConfig = minimalConfig(c)
+	testConfig = MinimalConfig(c)
 	valid, err := manualProvider{}.Validate(testConfig, nil)
 	c.Assert(err, gc.IsNil)
 
@@ -72,7 +72,7 @@ func (s *configSuite) TestValidateConfig(c *gc.C) {
 }
 
 func (s *configSuite) TestConfigMutability(c *gc.C) {
-	testConfig := minimalConfig(c)
+	testConfig := MinimalConfig(c)
 	valid, err := manualProvider{}.Validate(testConfig, nil)
 	c.Assert(err, gc.IsNil)
 	unknownAttrs := valid.UnknownAttrs()
@@ -87,7 +87,7 @@ func (s *configSuite) TestConfigMutability(c *gc.C) {
 		"storage-listen-ip": "10.0.0.123",
 		"storage-port":      int64(1234),
 	} {
-		testConfig = minimalConfig(c)
+		testConfig = MinimalConfig(c)
 		testConfig, err = testConfig.Apply(map[string]interface{}{k: v})
 		c.Assert(err, gc.IsNil)
 		_, err := manualProvider{}.Validate(testConfig, oldConfig)
@@ -98,7 +98,7 @@ func (s *configSuite) TestConfigMutability(c *gc.C) {
 }
 
 func (s *configSuite) TestBootstrapHostUser(c *gc.C) {
-	values := minimalConfigValues()
+	values := MinimalConfigValues()
 	testConfig := getEnvironConfig(c, values)
 	c.Assert(testConfig.bootstrapHost(), gc.Equals, "hostname")
 	c.Assert(testConfig.bootstrapUser(), gc.Equals, "")
@@ -110,7 +110,7 @@ func (s *configSuite) TestBootstrapHostUser(c *gc.C) {
 }
 
 func (s *configSuite) TestStorageParams(c *gc.C) {
-	values := minimalConfigValues()
+	values := MinimalConfigValues()
 	testConfig := getEnvironConfig(c, values)
 	c.Assert(testConfig.storageAddr(), gc.Equals, "hostname:8040")
 	c.Assert(testConfig.storageListenAddr(), gc.Equals, ":8040")

@@ -18,7 +18,6 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
-	"launchpad.net/juju-core/utils"
 )
 
 // ImageMetadataCommand is used to write out simplestreams image metadata information.
@@ -162,11 +161,8 @@ func (c *ImageMetadataCommand) Run(context *cmd.Context) error {
 	if err != nil {
 		return fmt.Errorf("image metadata files could not be created: %v", err)
 	}
-	dest := filepath.Join(c.Dir, storage.BaseImagesPath, "streams", "v1")
-	dir, err := utils.NormalizePath(c.Dir)
-	if err != nil {
-		return err
-	}
+	dir := context.AbsPath(c.Dir)
+	dest := filepath.Join(dir, storage.BaseImagesPath, "streams", "v1")
 	fmt.Fprintf(out, fmt.Sprintf(helpDoc, dest, dir, dir))
 	return nil
 }

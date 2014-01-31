@@ -261,9 +261,9 @@ func (neverAddresses) Addresses() ([]instance.Address, error) {
 	return nil, nil
 }
 
-var testSSHTimeout = common.SSHTimeoutOpts{
+var testSSHTimeout = config.SSHTimeoutOpts{
 	Timeout:        coretesting.ShortWait,
-	ConnectDelay:   1 * time.Millisecond,
+	RetryDelay:     1 * time.Millisecond,
 	AddressesDelay: 1 * time.Millisecond,
 }
 

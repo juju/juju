@@ -4,6 +4,10 @@
 package utils_test
 
 import (
+	"bytes"
+	"fmt"
+	"io/ioutil"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -36,7 +40,7 @@ var (
 	}
 )
 
-func (utilsSuite) TestCompression(c *gc.C) {
+func (*utilsSuite) TestCompression(c *gc.C) {
 	cdata := utils.Gzip(data)
 	c.Assert(len(cdata) < len(data), gc.Equals, true)
 	data1, err := utils.Gunzip(cdata)
@@ -48,7 +52,7 @@ func (utilsSuite) TestCompression(c *gc.C) {
 	c.Assert(data1, gc.DeepEquals, data)
 }
 
-func (utilsSuite) TestCommandString(c *gc.C) {
+func (*utilsSuite) TestCommandString(c *gc.C) {
 	type test struct {
 		args     []string
 		expected string
@@ -69,5 +73,45 @@ func (utilsSuite) TestCommandString(c *gc.C) {
 		c.Logf("test %d: %q", i, test.args)
 		result := utils.CommandString(test.args...)
 		c.Assert(result, gc.Equals, test.expected)
+	}
+}
+
+func (*utilsSuite) TestReadSHA256AndReadFileSHA256(c *gc.C) {
+	sha256Tests := []struct {
+		content string
+		sha256  string
+	}{{
+		content: "",
+		sha256:  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+	}, {
+		content: "some content",
+		sha256:  "290f493c44f5d63d06b374d0a5abd292fae38b92cab2fae5efefe1b0e9347f56",
+	}, {
+		content: "foo",
+		sha256:  "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae",
+	}, {
+		content: "Foo",
+		sha256:  "1cbec737f863e4922cee63cc2ebbfaafcd1cff8b790d8cfd2e6a5d550b648afa",
+	}, {
+		content: "multi\nline\ntext\nhere",
+		sha256:  "c384f11c0294280792a44d9d6abb81f9fd991904cb7eb851a88311b04114231e",
+	}}
+
+	tempDir := c.MkDir()
+	for i, test := range sha256Tests {
+		c.Logf("test %d: %q -> %q", i, test.content, test.sha256)
+		buf := bytes.NewBufferString(test.content)
+		hash, size, err := utils.ReadSHA256(buf)
+		c.Check(err, gc.IsNil)
+		c.Check(hash, gc.Equals, test.sha256)
+		c.Check(int(size), gc.Equals, len(test.content))
+
+		tempFileName := filepath.Join(tempDir, fmt.Sprintf("sha256-%d", i))
+		err = ioutil.WriteFile(tempFileName, []byte(test.content), 0644)
+		c.Check(err, gc.IsNil)
+		fileHash, fileSize, err := utils.ReadFileSHA256(tempFileName)
+		c.Check(err, gc.IsNil)
+		c.Check(fileHash, gc.Equals, hash)
+		c.Check(fileSize, gc.Equals, size)
 	}
 }

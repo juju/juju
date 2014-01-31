@@ -315,7 +315,7 @@ func (s *simplestreamsSuite) TestWriteMetadataNoFetch(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = tools.MergeAndWriteMetadata(writer, toolsList, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
-	metadata := ttesting.ParseMetadata(c, dir, false)
+	metadata := ttesting.ParseMetadataFromDir(c, dir, false)
 	assertMetadataMatches(c, dir, toolsList, metadata)
 }
 
@@ -347,7 +347,7 @@ func (s *simplestreamsSuite) assertWriteMetadata(c *gc.C, withMirrors bool) {
 	}
 	err = tools.MergeAndWriteMetadata(writer, toolsList, writeMirrors)
 	c.Assert(err, gc.IsNil)
-	metadata := ttesting.ParseMetadata(c, dir, withMirrors)
+	metadata := ttesting.ParseMetadataFromDir(c, dir, withMirrors)
 	assertMetadataMatches(c, dir, toolsList, metadata)
 }
 
@@ -387,7 +387,7 @@ func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *gc.C) {
 	err = tools.MergeAndWriteMetadata(writer, newToolsList, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
 	requiredToolsList := append(existingToolsList, newToolsList[1])
-	metadata := ttesting.ParseMetadata(c, dir, false)
+	metadata := ttesting.ParseMetadataFromDir(c, dir, false)
 	assertMetadataMatches(c, dir, requiredToolsList, metadata)
 }
 
@@ -517,7 +517,9 @@ func (*metadataHelperSuite) TestMetadataFromTools(c *gc.C) {
 		c.Assert(md.Release, gc.Equals, t.Version.Series)
 		c.Assert(md.Version, gc.Equals, t.Version.Number.String())
 		c.Assert(md.Arch, gc.Equals, t.Version.Arch)
-		c.Assert(md.FullPath, gc.Equals, t.URL)
+		// FullPath is only filled out when reading tools using simplestreams.
+		// It's not needed elsewhere and requires a URL() call.
+		c.Assert(md.FullPath, gc.Equals, "")
 		c.Assert(md.Path, gc.Equals, tools.StorageName(t.Version)[len("tools/"):])
 		c.Assert(md.FileType, gc.Equals, "tar.gz")
 		c.Assert(md.Size, gc.Equals, t.Size)
