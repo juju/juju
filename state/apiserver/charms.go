@@ -224,12 +224,16 @@ func (h *charmsHandler) fixPath(path string) string {
 // revision files, or an error if the archive appears invalid.
 func (h *charmsHandler) findArchiveRootDir(zipr *zip.Reader) (string, error) {
 	numFound := 0
+	metadataFound := false // metadata.yaml is the only required file.
 	rootPath := ""
 	lookFor := []string{"metadata.yaml", "config.yaml", "revision"}
 	for _, fh := range zipr.File {
 		for _, fname := range lookFor {
 			dir, file := filepath.Split(h.fixPath(fh.Name))
 			if file == fname {
+				if file == "metadata.yaml" {
+					metadataFound = true
+				}
 				numFound++
 				if rootPath == "" {
 					rootPath = dir
@@ -242,7 +246,10 @@ func (h *charmsHandler) findArchiveRootDir(zipr *zip.Reader) (string, error) {
 			}
 		}
 	}
-	return "", fmt.Errorf("invalid charm archive: missing one or more of %v", lookFor)
+	if !metadataFound {
+		return "", fmt.Errorf("invalid charm archive: missing metadata.yaml")
+	}
+	return rootPath, nil
 }
 
 // extractArchiveTo extracts an archive to the given destDir, removing
