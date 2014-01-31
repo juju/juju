@@ -211,7 +211,15 @@ func (h *charmsHandler) processUploadedArchive(path string) error {
 	return nil
 }
 
-// findArchiveRootDir takes a *zip.Reader and returns the rootDir of
+// fixPath converts all forward and backslashes in path to the OS path
+// separator and calls filepath.Clean before returning it.
+func (h *charmsHandler) fixPath(path string) string {
+	sep := string(filepath.Separator)
+	p := strings.Replace(path, "\\", sep, -1)
+	return filepath.Clean(strings.Replace(p, "/", sep, -1))
+}
+
+// findArchiveRootDir scans a zip archive and returns the rootDir of
 // the archive, the one containing metadata.yaml, config.yaml and
 // revision files, or an error if the archive appears invalid.
 func (h *charmsHandler) findArchiveRootDir(zipr *zip.Reader) (string, error) {
@@ -220,12 +228,12 @@ func (h *charmsHandler) findArchiveRootDir(zipr *zip.Reader) (string, error) {
 	lookFor := []string{"metadata.yaml", "config.yaml", "revision"}
 	for _, fh := range zipr.File {
 		for _, fname := range lookFor {
-			if strings.HasSuffix(fh.Name, fname) {
+			dir, file := filepath.Split(h.fixPath(fh.Name))
+			if file == fname {
 				numFound++
-				pathPrefix := strings.TrimSuffix(fh.Name, fname)
 				if rootPath == "" {
-					rootPath = pathPrefix
-				} else if rootPath != pathPrefix {
+					rootPath = dir
+				} else if rootPath != dir {
 					return "", fmt.Errorf("invalid charm archive: expected all %v files in the same directory", lookFor)
 				}
 				if numFound == len(lookFor) {
@@ -237,94 +245,98 @@ func (h *charmsHandler) findArchiveRootDir(zipr *zip.Reader) (string, error) {
 	return "", fmt.Errorf("invalid charm archive: missing one or more of %v", lookFor)
 }
 
-// extractArchiveTo extracts an archive to the given path, removing
-// the stripSuffix from each file, effectively reducing any nested
-// subdirs to the root level.
-func (h *charmsHandler) extractArchiveTo(zipr *zip.Reader, stripPrefix, path string) error {
+// extractArchiveTo extracts an archive to the given destDir, removing
+// the rootDir from each file, effectively reducing any nested subdirs
+// to the root level.
+func (h *charmsHandler) extractArchiveTo(zipr *zip.Reader, rootDir, destDir string) error {
 	for _, fh := range zipr.File {
-		cleanName := filepath.Clean(strings.TrimPrefix(fh.Name, stripPrefix))
-		rel, err := filepath.Rel(stripPrefix, cleanName)
-		if err != nil {
-			return err
-		}
-		if strings.HasSuffix(rel, ".") || strings.HasSuffix(rel, "..") {
-			// Skip all dotted paths.
-			continue
-		}
-		f, err := fh.Open()
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-
-		mode := fh.Mode()
-		destPath := filepath.Join(path, cleanName)
-		if strings.HasSuffix(fh.Name, "/") || mode&os.ModeDir != 0 {
-			err = os.MkdirAll(destPath, mode&0777)
-			if err != nil {
-				return err
-			}
-			continue
-		}
-		base, _ := filepath.Split(destPath)
-		err = os.MkdirAll(base, 0755)
-		if err != nil {
-			return err
-		}
-
-		if mode&os.ModeSymlink != 0 {
-			data, err := ioutil.ReadAll(f)
-			if err != nil {
-				return err
-			}
-			target := string(data)
-			if filepath.IsAbs(target) {
-				return fmt.Errorf("symlink %q is absolute: %q", cleanName, target)
-			}
-			p := filepath.Join(filepath.Dir(cleanName), target)
-			if p == ".." || strings.HasPrefix(p, "../") {
-				return fmt.Errorf("symlink %q links out of charm: %s", cleanName, target)
-			}
-			err = os.Symlink(target, destPath)
-			if err != nil {
-				return err
-			}
-		}
-		if filepath.Dir(cleanName) == "hooks" {
-			if mode&os.ModeType == 0 {
-				// Set all hooks executable (by owner)
-				mode = mode | 0100
-			}
-		}
-
-		// Check file type.
-		e := "file has an unknown type: %q"
-		switch mode & os.ModeType {
-		case os.ModeDir, os.ModeSymlink, 0:
-			// That's expected, it's ok.
-			e = ""
-		case os.ModeNamedPipe:
-			e = "file is a named pipe: %q"
-		case os.ModeSocket:
-			e = "file is a socket: %q"
-		case os.ModeDevice:
-			e = "file is a device: %q"
-		}
-		if e != "" {
-			return fmt.Errorf(e, destPath)
-		}
-
-		out, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY, mode&0777)
-		if err != nil {
-			return fmt.Errorf("creating %q failed: %v", destPath, err)
-		}
-		defer out.Close()
-		_, err = io.Copy(out, f)
+		err := h.extractSingleFile(fh, rootDir, destDir)
 		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// extractSingleFile extracts the given zip file header, removing
+// rootDir from the filename, to the destDir.
+func (h *charmsHandler) extractSingleFile(fh *zip.File, rootDir, destDir string) error {
+	cleanName := h.fixPath(fh.Name)
+	relName, err := filepath.Rel(rootDir, cleanName)
+	if err != nil {
+		// Skip paths not relative to roo
+		return nil
+	}
+	if strings.Contains(relName, "..") || relName == "." {
+		// Skip current dir and paths outside rootDir.
+		return nil
+	}
+	dirName := filepath.Dir(relName)
+	f, err := fh.Open()
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	mode := fh.Mode()
+	destPath := filepath.Join(destDir, relName)
+	if dirName != "" && mode&os.ModeDir != 0 {
+		err = os.MkdirAll(destPath, mode&0777)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	if mode&os.ModeSymlink != 0 {
+		data, err := ioutil.ReadAll(f)
+		if err != nil {
+			return err
+		}
+		target := string(data)
+		if filepath.IsAbs(target) {
+			return fmt.Errorf("symlink %q is absolute: %q", cleanName, target)
+		}
+		p := filepath.Join(dirName, target)
+		if strings.Contains(p, "..") {
+			return fmt.Errorf("symlink %q links out of charm: %s", cleanName, target)
+		}
+		err = os.Symlink(target, destPath)
+		if err != nil {
+			return err
+		}
+	}
+	if dirName == "hooks" {
+		if mode&os.ModeType == 0 {
+			// Set all hooks executable (by owner)
+			mode = mode | 0100
+		}
+	}
+
+	// Check file type.
+	e := "file has an unknown type: %q"
+	switch mode & os.ModeType {
+	case os.ModeDir, os.ModeSymlink, 0:
+		// That's expected, it's ok.
+		e = ""
+	case os.ModeNamedPipe:
+		e = "file is a named pipe: %q"
+	case os.ModeSocket:
+		e = "file is a socket: %q"
+	case os.ModeDevice:
+		e = "file is a device: %q"
+	}
+	if e != "" {
+		return fmt.Errorf(e, destPath)
+	}
+
+	out, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY, mode&0777)
+	if err != nil {
+		return fmt.Errorf("creating %q failed: %v", destPath, err)
+	}
+	defer out.Close()
+	_, err = io.Copy(out, f)
+	return err
 }
 
 // repackageAndUploadCharm expands the given charm archive to a
