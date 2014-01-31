@@ -4,6 +4,9 @@
 package local_test
 
 import (
+	"errors"
+	"os/user"
+
 	"github.com/loggo/loggo"
 	gc "launchpad.net/gocheck"
 
@@ -226,6 +229,53 @@ Acquire::magic::Proxy "none";
 
 		for _, clean := range cleanup {
 			clean()
+		}
+	}
+}
+
+func (s *prepareSuite) TestPrepareNamespace(c *gc.C) {
+	s.PatchValue(local.DetectAptProxies, func() (osenv.ProxySettings, error) {
+		return osenv.ProxySettings{}, nil
+	})
+	basecfg, err := config.New(config.UseDefaults, map[string]interface{}{
+		"type": "local",
+		"name": "test",
+	})
+	provider, err := environs.Provider("local")
+	c.Assert(err, gc.IsNil)
+
+	type test struct {
+		userEnv   string
+		userOS    string
+		userOSErr error
+		namespace string
+		err       string
+	}
+	tests := []test{{
+		userEnv:   "someone",
+		userOS:    "other",
+		namespace: "someone-test",
+	}, {
+		userOS:    "other",
+		namespace: "other-test",
+	}, {
+		userOSErr: errors.New("oh noes"),
+		err:       "failed to determine username for namespace: oh noes",
+	}}
+
+	for i, test := range tests {
+		c.Logf("test %d: %v", i, test)
+		s.PatchEnvironment("USER", test.userEnv)
+		s.PatchValue(local.UserCurrent, func() (*user.User, error) {
+			return &user.User{Username: test.userOS}, test.userOSErr
+		})
+		env, err := provider.Prepare(basecfg)
+		if test.err == "" {
+			c.Assert(err, gc.IsNil)
+			cfg := env.Config()
+			c.Assert(cfg.UnknownAttrs()["namespace"], gc.Equals, test.namespace)
+		} else {
+			c.Assert(err, gc.ErrorMatches, test.err)
 		}
 	}
 }
