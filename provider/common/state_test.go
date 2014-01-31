@@ -43,7 +43,7 @@ func newStorage(suite cleaner, c *gc.C) (stor storage.Storage) {
 	return
 }
 
-// testingHTTPServer creates a tempdir backed https server with invalid certs
+// testingHTTPServer creates a tempdir backed https server without certs
 func testingHTTPSServer(suite cleaner, c *gc.C) (baseURL string, dataDir string) {
 	dataDir = c.MkDir()
 	mux := http.NewServeMux()
