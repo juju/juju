@@ -100,11 +100,11 @@ func getMatchingInstanceTypes(ic *InstanceConstraint, allInstanceTypes []Instanc
 	// - if no mem constraint specified, try opinionated default with enough mem to run a server.
 	// - if no matches and no mem constraint specified, try again and return any matching instance
 	//   with the largest memory
-	minMemCons := ic.Constraints
-	minMem := uint64(minMemoryHeuristic)
-	minMemCons.Mem = &minMem
 	cons := ic.Constraints
 	if ic.Constraints.Mem == nil {
+		minMemCons := ic.Constraints
+		minMem := uint64(minMemoryHeuristic)
+		minMemCons.Mem = &minMem
 		cons = minMemCons
 	}
 	itypes = matchingTypesForConstraint(allInstanceTypes, cons)
