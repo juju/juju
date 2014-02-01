@@ -98,7 +98,7 @@ func getMatchingInstanceTypes(ic *InstanceConstraint, allInstanceTypes []Instanc
 	//   (previously an instance type with largest available memory was returned even if it didn't
 	//    match on other constraints like cpu-cores and this is wrong).
 	// - if no mem constraint specified, try opinionated default with enough mem to run a server.
-	// - if no matches, try again without any memory constraint and return the instance
+	// - if no matches and no mem constraint specified, try again and return any matching instance
 	//   with the largest memory
 	minMemCons := ic.Constraints
 	minMem := uint64(minMemoryHeuristic)
@@ -109,16 +109,13 @@ func getMatchingInstanceTypes(ic *InstanceConstraint, allInstanceTypes []Instanc
 	}
 	itypes = matchingTypesForConstraint(allInstanceTypes, cons)
 
-	if len(itypes) == 0 {
-		cons := ic.Constraints
-		cons.Mem = nil
-		itypes = matchingTypesForConstraint(allInstanceTypes, cons)
-		sort.Sort(byMemory(itypes))
-		for i, itype := range itypes {
-			if (ic.Constraints.Mem == nil && itype.Mem >= minMemoryHeuristic) || i == len(itypes)-1 {
-				itypes = []InstanceType{itype}
-				break
-			}
+	// No matches using opinionated default, so if no mem constraint specified,
+	// look for matching instance with largest memory.
+	if len(itypes) == 0 && ic.Constraints.Mem == nil {
+		itypes = matchingTypesForConstraint(allInstanceTypes, ic.Constraints)
+		if len(itypes) > 0 {
+			sort.Sort(byMemory(itypes))
+			itypes = []InstanceType{itypes[len(itypes)-1]}
 		}
 	}
 	// If we have matching instance types, we can return those, sorted by cost.
