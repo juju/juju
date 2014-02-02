@@ -80,10 +80,15 @@ func (c *DebugLogCommand) Run(ctx *cmd.Context) (err error) {
 // watchDebugLog1dot16 runs in case of an older API server and uses ssh
 // but with server-side grep.
 func (c *DebugLogCommand) watchDebugLog1dot16(ctx *cmd.Context, logLocation string) error {
-	// var sshCmd cmd.Command
-	// tailcmd := fmt.Sprintf("tail -n %d -f %s|grep %s", c.lines, logLocation, c.filter)
-	// TODO(mue) Continue implementation.
-	return nil
+	// TODO(mue) Testing needed.
+	var sshCmd cmd.Command
+	tailcmd := fmt.Sprintf("tail -n %d -f %s|grep %s", c.lines, logLocation, c.filter)
+	args := append([]string{"0"}, tailcmd)
+	err := sshCmd.Init(args)
+	if err != nil {
+		return err
+	}
+	return sshCmd.Run(ctx)
 }
 
 // logLocation returns the log location for the SSH command based on the provider.
