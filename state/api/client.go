@@ -18,7 +18,6 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -524,13 +523,13 @@ func (c *Client) AddCharm(curl *charm.URL) error {
 // The filter allows to grep wanted lines out of the output, e.g.
 // machines or units. The watching is started the given number of
 // matching lines back in history.
-func (c *Client) WatchDebugLog(lines int, filter string) (*ClientDebugLog, error) {
+func (c *Client) WatchDebugLog(logLocation string, lines int, filter string) (*ClientDebugLog, error) {
 	cfg := c.st.websocketConfig
 	// Prepare URL.
 	attrs := url.Values{
-		"juju-home": {osenv.JujuHomeDir()},
-		"lines":     {fmt.Sprintf("%d", lines)},
-		"filter":    {filter},
+		"location": {logLocation},
+		"lines":    {fmt.Sprintf("%d", lines)},
+		"filter":   {filter},
 	}
 	cfg.Location = &url.URL{
 		Scheme:   "wss",
@@ -558,11 +557,11 @@ func (c *ClientDebugLog) Close() error {
 	return c.wsConn.Close()
 }
 
-// SetFilter sets the entity tags that apply to the filter.
-// This setting will not take place immediately - messages
+// SetFilter sets the filter regular expression. This
+// setting will not take place immediately - messages
 // already in the pipeline will still be received.
 func (c *ClientDebugLog) SetFilter(filter string) error {
-	req := params.EntityLogRequest{Filter: filter}
+	req := params.DebugLogRequest{Filter: filter}
 	if err := websocket.JSON.Send(c.wsConn, &req); err != nil {
 		return err
 	}
@@ -574,7 +573,8 @@ func (c *ClientDebugLog) Read(buf []byte) (int, error) {
 	return c.wsConn.Read(buf)
 }
 
-// setBasicAuth sets the basic authentication of the passed header.
+// setBasicAuth creates an Authorization header for HTTP Basic
+// Authentication, using the given username and password.
 func setBasicAuth(h http.Header, username, password string) {
 	h.Set("Authorization", "Basic "+basicAuth(username, password))
 }

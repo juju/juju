@@ -152,8 +152,8 @@ func (srv *Server) run(lis net.Listener) {
 	}()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", srv.apiHandler)
-	mux.Handle("/charms", newCharmsHandler(srv.state))
-	mux.Handle("/log", newLogHandler(srv.state))
+	mux.Handle("/charms", &charmsHandler{srv.state})
+	mux.Handle("/log", &debugLogHandler{srv.state})
 	// The error from http.Serve is not interesting.
 	http.Serve(lis, mux)
 }

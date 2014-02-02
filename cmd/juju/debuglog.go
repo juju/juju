@@ -4,13 +4,18 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"os"
 
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/juju/osenv"
+	"launchpad.net/juju-core/provider"
 )
 
 type DebugLogCommand struct {
@@ -25,7 +30,7 @@ type DebugLogCommand struct {
 const defaultLineCount = 10
 
 const debuglogDoc = `
-Stream the consolidated log file. The consolidated log file contains log messages
+Stream the consolidated debug log file. This file contains the log messages
 from all nodes in the environment.
 `
 
@@ -56,12 +61,46 @@ func (c *DebugLogCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	defer client.Close()
 
-	debugLog, err := client.WatchDebugLog(c.lines, c.filter)
+	logLocation, err := c.logLocation()
 	if err != nil {
 		return err
+	}
+	debugLog, err := client.WatchDebugLog(logLocation, c.lines, c.filter)
+	if err != nil {
+		logger.Infof("WatchDebugLog not supported by the API server, " +
+			"falling back to 1.16 compatibility mode using ssh")
+		return c.watchDebugLog1dot16(ctx, logLocation)
 	}
 	defer debugLog.Close()
 
 	_, err = io.Copy(os.Stdout, debugLog)
 	return err
+}
+
+// watchDebugLog1dot16 runs in case of an older API server and uses ssh
+// but with server-side grep.
+func (c *DebugLogCommand) watchDebugLog1dot16(ctx *cmd.Context, logLocation string) error {
+	// var sshCmd cmd.Command
+	// tailcmd := fmt.Sprintf("tail -n %d -f %s|grep %s", c.lines, logLocation, c.filter)
+	// TODO(mue) Continue implementation.
+	return nil
+}
+
+// logLocation returns the log location for the SSH command based on the provider.
+func (c *DebugLogCommand) logLocation() (string, error) {
+	store, err := configstore.Default()
+	if err != nil {
+		return "", fmt.Errorf("cannot open environment info storage: %v", err)
+	}
+	environ, err := environs.NewFromName(c.EnvironName(), store)
+	if err != nil {
+		return "", err
+	}
+	if environ.Config().Type() == provider.Local {
+		// Local provider.
+		return fmt.Sprintf("%s/%s/log/all-machines.log", osenv.JujuHomeDir(), environ.Name()), nil
+
+	}
+	// Default location.
+	return "/var/log/juju/all-machines.log", nil
 }

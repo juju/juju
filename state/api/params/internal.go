@@ -529,3 +529,13 @@ type RunResult struct {
 type RunResults struct {
 	Results []RunResult
 }
+
+// DebugLogRequest describes a filtered request for the debug log.
+type DebugLogRequest struct {
+	Filter string
+}
+
+// SimpleError is a server response containing a simple error message.
+type SimpleError struct {
+	Error string `json:",omitempty"`
+}

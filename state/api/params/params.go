@@ -566,13 +566,3 @@ type DeployerConnectionValues struct {
 type StatusParams struct {
 	Patterns []string
 }
-
-// EntityLogRequest describes a filtered request for entity logs.
-type EntityLogRequest struct {
-	Filter string
-}
-
-// EntityLogResponse is the server response to debug log request.
-type EntityLogResponse struct {
-	Error string `json:",omitempty"`
-}
