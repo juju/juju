@@ -115,7 +115,7 @@ func (c bootstrapContext) Stderr() io.Writer {
 // Run connects to the environment specified on the command line and bootstraps
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.
-func (c *BootstrapCommand) Run(ctx *cmd.Context) (result error) {
+func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	store, err := configstore.Default()
 	if err != nil {
 		return err
@@ -130,14 +130,9 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (result error) {
 	}
 	if !existing {
 		defer func() {
-			if result != nil {
+			if resultErr != nil {
 				if err := environs.Destroy(environ, store); err != nil {
-					logger.Warningf(`Bootstrap failed, and the environment could not be destroyed: %v
-
-You must clean up any remaining environment resources and then run:
-    juju destroy-environment --config-only %s
-
-`, err, c.EnvName)
+					logger.Errorf("Bootstrap failed, and the environment could not be destroyed: %v", err)
 				}
 			}
 		}()

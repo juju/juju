@@ -70,29 +70,28 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandEFlag(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
-func (s *destroyEnvSuite) breakDestroyEnvironment(c *gc.C, envName string) {
-	oldinfo, err := s.ConfigStore.ReadInfo(envName)
+func (s *destroyEnvSuite) TestDestroyEnvironmentCommandBroken(c *gc.C) {
+	oldinfo, err := s.ConfigStore.ReadInfo("dummyenv")
 	c.Assert(err, gc.IsNil)
 	bootstrapConfig := oldinfo.BootstrapConfig()
 	apiEndpoint := oldinfo.APIEndpoint()
 	apiCredentials := oldinfo.APICredentials()
 	err = oldinfo.Destroy()
 	c.Assert(err, gc.IsNil)
-	newinfo, err := s.ConfigStore.CreateInfo(envName)
+	newinfo, err := s.ConfigStore.CreateInfo("dummyenv")
 	c.Assert(err, gc.IsNil)
+
 	bootstrapConfig["broken"] = "Destroy"
 	newinfo.SetBootstrapConfig(bootstrapConfig)
 	newinfo.SetAPIEndpoint(apiEndpoint)
 	newinfo.SetAPICredentials(apiCredentials)
 	err = newinfo.Write()
 	c.Assert(err, gc.IsNil)
-}
 
-func (s *destroyEnvSuite) TestDestroyEnvironmentCommandBroken(c *gc.C) {
-	s.breakDestroyEnvironment(c, "dummyenv")
 	// Prepare the environment so we can destroy it.
-	_, err := environs.PrepareFromName("dummyenv", s.ConfigStore)
+	_, err = environs.PrepareFromName("dummyenv", s.ConfigStore)
 	c.Assert(err, gc.IsNil)
+
 	// destroy with broken environment
 	opc, errc := runCommand(nullContext(), new(DestroyEnvironmentCommand), "dummyenv", "--yes")
 	op, ok := (<-opc).(dummy.OpDestroy)
@@ -100,18 +99,6 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandBroken(c *gc.C) {
 	c.Assert(op.Error, gc.ErrorMatches, "dummy.Destroy is broken")
 	c.Check(<-errc, gc.Equals, op.Error)
 	c.Check(<-opc, gc.IsNil)
-}
-
-func (s *destroyEnvSuite) TestDestroyEnvironmentConfigOnly(c *gc.C) {
-	s.breakDestroyEnvironment(c, "dummyenv")
-	// destroy with broken environment, using --config-only.
-	opc, errc := runCommand(nullContext(), new(DestroyEnvironmentCommand), "dummyenv", "--yes", "--config-only")
-	// There should be no OpDestroy, and no error.
-	c.Check(<-opc, gc.IsNil)
-	c.Check(<-errc, gc.IsNil)
-	// ... but the configstore entry should now be gone.
-	_, err := s.ConfigStore.ReadInfo("dummyenv")
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func (*destroyEnvSuite) TestDestroyEnvironmentCommandConfirmationFlag(c *gc.C) {
