@@ -81,7 +81,7 @@ func (c *DebugLogCommand) Run(ctx *cmd.Context) (err error) {
 // but with server-side grep.
 func (c *DebugLogCommand) watchDebugLog1dot16(ctx *cmd.Context, logLocation string) error {
 	// TODO(mue) Testing needed.
-	var sshCmd cmd.Command
+	sshCmd := &SSHCommand{}
 	tailcmd := fmt.Sprintf("tail -n %d -f %s|grep %s", c.lines, logLocation, c.filter)
 	args := append([]string{"0"}, tailcmd)
 	err := sshCmd.Init(args)
