@@ -95,6 +95,11 @@ type Config interface {
 	// SetValue updates the value for the specified key.
 	SetValue(key, value string)
 
+	SetStateManager(b bool)
+	StateManager() bool
+
+	Clone() Config
+
 	StateInitializer
 }
 
@@ -132,6 +137,7 @@ type configInternal struct {
 	stateServerCert []byte
 	stateServerKey  []byte
 	apiPort         int
+	isStateManager  bool
 	values          map[string]string
 }
 
@@ -319,6 +325,35 @@ func (c *configInternal) Tag() string {
 
 func (c *configInternal) Dir() string {
 	return Dir(c.dataDir, c.tag)
+}
+
+func (c *configInternal) StateManager() bool {
+	return c.isStateManager
+}
+
+func (c *configInternal) SetStateManager(b bool) {
+	c.isStateManager = b
+}
+
+func (c *configInternal) Clone() Config {
+	// copy the value
+	c2 := *c
+
+	// now overwrite all the pointer, slice, and map stuff inside with deep-copies
+	copy(c2.caCert, c.caCert)
+	stateDetails := *c.stateDetails
+	c2.stateDetails = &stateDetails
+	copy(c2.stateDetails.addresses, c.stateDetails.addresses)
+	apiDetails := *c.apiDetails
+	c2.apiDetails = &apiDetails
+	copy(c2.apiDetails.addresses, c.apiDetails.addresses)
+	copy(c2.stateServerCert, c.stateServerCert)
+	copy(c2.stateServerKey, c.stateServerKey)
+	c2.values = map[string]string{}
+	for key, val := range c.values {
+		c2.values[key] = val
+	}
+	return &c2
 }
 
 func (c *configInternal) check() error {

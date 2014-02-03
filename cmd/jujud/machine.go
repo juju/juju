@@ -24,10 +24,12 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	apiagent "launchpad.net/juju-core/state/api/agent"
+	apimachiner "launchpad.net/juju-core/state/api/machiner"
 	"launchpad.net/juju-core/state/api/params"
 	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
 	"launchpad.net/juju-core/state/apiserver"
 	"launchpad.net/juju-core/upstart"
+	"launchpad.net/juju-core/utils/voyeur"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/authenticationworker"
 	"launchpad.net/juju-core/worker/charmrevisionworker"
@@ -64,6 +66,7 @@ type MachineAgent struct {
 	Conf      AgentConf
 	MachineId string
 	runner    worker.Runner
+	configVal *voyeur.Value
 }
 
 // Info returns usage information for the command.
@@ -114,36 +117,13 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	if err := a.Conf.read(a.Tag()); err != nil {
 		return err
 	}
+	a.setAgentConfig(a.Conf.config)
 	charm.CacheDir = filepath.Join(a.Conf.dataDir, "charmcache")
 	if err := a.initAgent(); err != nil {
 		return err
 	}
-
-	// ensureStateWorker ensures that there is a worker that
-	// connects to the state that runs within itself all the workers
-	// that need a state connection. Unless we're bootstrapping, we
-	// need to connect to the API server to find out if we need to
-	// call this, so we make the APIWorker call it when necessary if
-	// the machine requires it. Note that ensureStateWorker can be
-	// called many times - StartWorker does nothing if there is
-	// already a worker started with the given name.
-	ensureStateWorker := func() {
-		a.runner.StartWorker("state", a.StateWorker)
-	}
-	// We might be bootstrapping, and the API server is not
-	// running yet. If so, make sure we run a state worker instead.
-	if a.MachineId == bootstrapMachineId {
-		// TODO(rog) When we have HA, we only want to do this
-		// when we really are bootstrapping - once other
-		// instances of the API server have been started, we
-		// should follow the normal course of things and ignore
-		// the fact that this was once the bootstrap machine.
-		logger.Infof("Starting StateWorker for machine-0")
-		ensureStateWorker()
-	}
-	a.runner.StartWorker("api", func() (worker.Worker, error) {
-		return a.APIWorker(ensureStateWorker)
-	})
+	a.runner.StartWorker("api", a.APIWorker)
+	a.runner.StartWorker("statestarter", a.newStateStarterWorker)
 	a.runner.StartWorker("termination", func() (worker.Worker, error) {
 		return terminationworker.NewWorker(), nil
 	})
@@ -156,11 +136,39 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	return err
 }
 
+// newStateStarterWorker returns a new worker that watches for
+// changes to the agent configuration, and starts or stops
+// the state worker as appropriate.
+func (a *MachineAgent) newStateStarterWorker() (worker.Worker, error) {
+	return newSimpleWorker(func(stopc <-chan struct{}) error {
+		confWatch := a.watchAgentConfig()
+		for {
+			select {
+			case conf, ok := <-confWatch:
+				if !ok {
+					return nil
+				}
+				// N.B. StartWorker and StopWorker are idempotent.
+				if conf.StateManager() {
+					a.runner.StartWorker("state", func() (worker.Worker, error) {
+						return a.StateWorker(conf)
+					})
+				} else {
+					a.runner.StopWorker("state")
+					return nil
+				}
+			case <-stopc:
+				return nil
+			}
+		}
+	}), nil
+}
+
 // APIWorker returns a Worker that connects to the API and starts any
 // workers that need an API connection.
-//
-// If a state worker is necessary, APIWorker calls ensureStateWorker.
-func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error) {
+// It is also responsible for maintaining the agent config
+// by saving it to disk and calling setAgentConfig.
+func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	agentConfig := a.Conf.config
 	st, entity, err := openAPIState(agentConfig, a)
 	if err != nil {
@@ -169,7 +177,8 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	reportOpenedAPI(st)
 	for _, job := range entity.Jobs() {
 		if job.NeedsState() {
-			ensureStateWorker()
+			agentConfig.SetStateManager(true)
+			a.setAgentConfig(agentConfig)
 			break
 		}
 	}
@@ -183,6 +192,9 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	runner.StartWorker("logger", func() (worker.Worker, error) {
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
 	})
+	// runner.StartWorker("configwatcher", func() (worker.Worker, error) {
+	// 	return a.newConfigWatcher(st.Machiner())
+	// })
 
 	// If not a local provider bootstrap machine, start the worker to manage SSH keys.
 	providerType := agentConfig.Value(agent.ProviderType)
@@ -225,6 +237,15 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 		}
 	}
 	return newCloseWorker(runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
+}
+
+func (a *MachineAgent) newConfigWatcher(st *apimachiner.State) (worker.Worker, error) {
+	// TODO: (Nate) :
+	//	watch machine jobs
+	//  watch state addresses
+	//  watch API addresses
+	//	when any of them change, change the agent config, save it and call a.setAgentConfig
+	return nil, nil
 }
 
 // setupContainerSupport determines what containers can be run on this machine and
@@ -278,8 +299,7 @@ func (a *MachineAgent) updateSupportedContainers(runner worker.Runner, st *api.S
 
 // StateJobs returns a worker running all the workers that require
 // a *state.State connection.
-func (a *MachineAgent) StateWorker() (worker.Worker, error) {
-	agentConfig := a.Conf.config
+func (a *MachineAgent) StateWorker(agentConfig agent.Config) (worker.Worker, error) {
 	st, entity, err := openState(agentConfig, a)
 	if err != nil {
 		return nil, err
@@ -288,6 +308,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	m := entity.(*state.Machine)
 
 	runner := newRunner(connectionIsFatal(st), moreImportant)
+
 	// Take advantage of special knowledge here in that we will only ever want
 	// the storage provider on one machine, and that is the "bootstrap" node.
 	providerType := agentConfig.Value(agent.ProviderType)
@@ -444,4 +465,58 @@ func sendOpenedAPIs(dst chan<- *api.State) (undo func()) {
 	var original chan<- *api.State
 	original, apiReporter = apiReporter, dst
 	return func() { apiReporter = original }
+}
+
+func (a *MachineAgent) setAgentConfig(conf agent.Config) {
+	if a.configVal == nil {
+		a.configVal = voyeur.NewValue(nil)
+	}
+	a.configVal.Set(conf.Clone())
+}
+
+func (a *MachineAgent) agentConfig() agent.Config {
+	if a.configVal == nil {
+		return nil
+	}
+	val, _ := a.configVal.Get()
+	conf, _ := val.(agent.Config)
+	return conf
+}
+
+func (a *MachineAgent) watchAgentConfig() <-chan agent.Config {
+	w := a.configVal.Watch()
+	c := make(chan agent.Config)
+	go func() {
+		defer close(c)
+		for w.Next() {
+			v, _ := w.Value().(agent.Config)
+			c <- v
+		}
+	}()
+	return c
+}
+
+type simpleWorker struct {
+	stopc chan struct{}
+	done  chan error
+}
+
+func newSimpleWorker(start func(stop <-chan struct{}) error) worker.Worker {
+	w := &simpleWorker{
+		stopc: make(chan struct{}),
+		done:  make(chan error),
+	}
+	go func() {
+		w.done <- start(w.stopc)
+		close(w.done)
+	}()
+	return w
+}
+
+func (w *simpleWorker) Kill() {
+	w.stopc <- struct{}{}
+}
+
+func (w *simpleWorker) Wait() error {
+	return <-w.done
 }
