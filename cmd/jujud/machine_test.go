@@ -105,14 +105,14 @@ func (s *MachineSuite) primeAgent(c *gc.C, jobs ...state.MachineJob) (m *state.M
 
 // newAgent returns a new MachineAgent instance
 func (s *MachineSuite) newAgent(c *gc.C, m *state.Machine) *MachineAgent {
-	a := &MachineAgent{}
+	a := NewMachineAgent()
 	s.initAgent(c, a, "--machine-id", m.Id())
 	return a
 }
 
 func (s *MachineSuite) TestParseSuccess(c *gc.C) {
 	create := func() (cmd.Command, *AgentConf) {
-		a := &MachineAgent{}
+		a := NewMachineAgent()
 		return a, &a.Conf
 	}
 	a := CheckAgentCommand(c, create, []string{"--machine-id", "42"})
@@ -124,13 +124,13 @@ func (s *MachineSuite) TestParseNonsense(c *gc.C) {
 		{},
 		{"--machine-id", "-4004"},
 	} {
-		err := ParseAgentCommand(&MachineAgent{}, args)
+		err := ParseAgentCommand(NewMachineAgent(), args)
 		c.Assert(err, gc.ErrorMatches, "--machine-id option must be set, and expects a non-negative integer")
 	}
 }
 
 func (s *MachineSuite) TestParseUnknown(c *gc.C) {
-	a := &MachineAgent{}
+	a := NewMachineAgent()
 	err := ParseAgentCommand(a, []string{"--machine-id", "42", "blistering barnacles"})
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["blistering barnacles"\]`)
 }
@@ -215,6 +215,7 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	u1, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
+
 	ctx.waitDeployed(c)
 
 	// assign u0, check it's deployed.
@@ -726,7 +727,7 @@ func (s *MachineWithCharmsSuite) TestManageEnvironRunsCharmRevisionUpdater(c *gc
 	s.SetupScenario(c)
 
 	// Start the machine agent.
-	a := &MachineAgent{}
+	a := NewMachineAgent()
 	args := []string{"--data-dir", s.DataDir(), "--machine-id", s.machine.Id()}
 	err := coretesting.InitCommand(a, args)
 	c.Assert(err, gc.IsNil)

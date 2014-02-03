@@ -69,6 +69,10 @@ type MachineAgent struct {
 	configVal *voyeur.Value
 }
 
+func NewMachineAgent() *MachineAgent {
+	return &MachineAgent{configVal: voyeur.NewValue(nil)}
+}
+
 // Info returns usage information for the command.
 func (a *MachineAgent) Info() *cmd.Info {
 	return &cmd.Info{
@@ -136,32 +140,36 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	return err
 }
 
-// newStateStarterWorker returns a new worker that watches for
-// changes to the agent configuration, and starts or stops
-// the state worker as appropriate.
+// wrap just returns a function that returns the given worker and a nil error to
+// make it easier to pass plain workers to a.runner.StartWorker.
 func (a *MachineAgent) newStateStarterWorker() (worker.Worker, error) {
-	return newSimpleWorker(func(stopc <-chan struct{}) error {
-		confWatch := a.watchAgentConfig()
-		for {
-			select {
-			case conf, ok := <-confWatch:
-				if !ok {
-					return nil
-				}
-				// N.B. StartWorker and StopWorker are idempotent.
-				if conf.StateManager() {
-					a.runner.StartWorker("state", func() (worker.Worker, error) {
-						return a.StateWorker(conf)
-					})
-				} else {
-					a.runner.StopWorker("state")
-					return nil
-				}
-			case <-stopc:
+	return worker.NewSimpleWorker(a.stateStarter), nil
+}
+
+// stateStarter watches for changes to the agent configuration, and starts or
+// stops the state worker as appropriate.  It will stop working as soon as
+// stopch is closed.
+func (a *MachineAgent) stateStarter(stopch <-chan struct{}) error {
+	confWatch := a.watchAgentConfig()
+	for {
+		select {
+		case conf, ok := <-confWatch:
+			if !ok {
 				return nil
 			}
+			// N.B. StartWorker and StopWorker are idempotent.
+			if conf.StateManager() {
+				a.runner.StartWorker("state", func() (worker.Worker, error) {
+					return a.StateWorker(conf)
+				})
+			} else {
+				a.runner.StopWorker("state")
+				return nil
+			}
+		case <-stopch:
+			return nil
 		}
-	}), nil
+	}
 }
 
 // APIWorker returns a Worker that connects to the API and starts any
@@ -468,55 +476,24 @@ func sendOpenedAPIs(dst chan<- *api.State) (undo func()) {
 }
 
 func (a *MachineAgent) setAgentConfig(conf agent.Config) {
-	if a.configVal == nil {
-		a.configVal = voyeur.NewValue(nil)
-	}
 	a.configVal.Set(conf.Clone())
 }
 
 func (a *MachineAgent) agentConfig() agent.Config {
-	if a.configVal == nil {
-		return nil
-	}
 	val, _ := a.configVal.Get()
 	conf, _ := val.(agent.Config)
 	return conf
 }
 
 func (a *MachineAgent) watchAgentConfig() <-chan agent.Config {
-	w := a.configVal.Watch()
-	c := make(chan agent.Config)
+	w := a.configVal.Watcher()
+	out := make(chan agent.Config)
 	go func() {
-		defer close(c)
+		defer close(out)
 		for w.Next() {
 			v, _ := w.Value().(agent.Config)
-			c <- v
+			out <- v
 		}
 	}()
-	return c
-}
-
-type simpleWorker struct {
-	stopc chan struct{}
-	done  chan error
-}
-
-func newSimpleWorker(start func(stop <-chan struct{}) error) worker.Worker {
-	w := &simpleWorker{
-		stopc: make(chan struct{}),
-		done:  make(chan error),
-	}
-	go func() {
-		w.done <- start(w.stopc)
-		close(w.done)
-	}()
-	return w
-}
-
-func (w *simpleWorker) Kill() {
-	w.stopc <- struct{}{}
-}
-
-func (w *simpleWorker) Wait() error {
-	return <-w.done
+	return out
 }
