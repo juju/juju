@@ -900,6 +900,19 @@ func (s *uniterSuite) TestCurrentEnvironUUID(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.StringResult{Result: env.UUID()})
 }
 
+func (s *uniterSuite) TestCurrentEnvironment(c *gc.C) {
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+
+	result, err := s.uniter.CurrentEnvironment()
+	c.Assert(err, gc.IsNil)
+	expected := params.CurrentEnvironmentResult{
+		Name: env.Name(),
+		UUID: env.UUID(),
+	}
+	c.Assert(result, gc.DeepEquals, expected)
+}
+
 func (s *uniterSuite) addRelation(c *gc.C, first, second string) *state.Relation {
 	eps, err := s.State.InferEndpoints([]string{first, second})
 	c.Assert(err, gc.IsNil)

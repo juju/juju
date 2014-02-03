@@ -28,6 +28,10 @@ func (s *EnvironSuite) TestTag(c *gc.C) {
 	c.Assert(s.env.Tag(), gc.Equals, expected)
 }
 
+func (s *EnvironSuite) TestName(c *gc.C) {
+	c.Assert(s.env.Name(), gc.Equals, "testenv")
+}
+
 func (s *EnvironSuite) TestUUID(c *gc.C) {
 	uuidA := s.env.UUID()
 	c.Assert(uuidA, gc.HasLen, 36)
