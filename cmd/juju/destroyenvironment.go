@@ -26,9 +26,10 @@ var DoubleEnvironmentError = errors.New("you cannot supply both -e and the envna
 // DestroyEnvironmentCommand destroys an environment.
 type DestroyEnvironmentCommand struct {
 	cmd.CommandBase
-	envName   string
-	assumeYes bool
-	force     bool
+	envName    string
+	assumeYes  bool
+	configOnly bool
+	force      bool
 }
 
 func (c *DestroyEnvironmentCommand) Info() *cmd.Info {
@@ -43,6 +44,7 @@ func (c *DestroyEnvironmentCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.assumeYes, "y", false, "Do not ask for confirmation")
 	f.BoolVar(&c.assumeYes, "yes", false, "")
 	f.BoolVar(&c.force, "force", false, "Forcefully destroy the environment, directly through the environment provider")
+	f.BoolVar(&c.configOnly, "config-only", false, "Destroy the prepared environment configuraton, without destroying the environment")
 	f.StringVar(&c.envName, "e", "", "juju environment to operate in")
 	f.StringVar(&c.envName, "environment", "", "juju environment to operate in")
 }
@@ -57,8 +59,11 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	if !c.assumeYes {
-		fmt.Fprintf(ctx.Stdout, destroyEnvMsg, environ.Name(), environ.Config().Type())
-
+		msg := destroyEnvMsg
+		if c.configOnly {
+			msg = destroyInfoMsg
+		}
+		fmt.Fprintf(ctx.Stdout, msg, environ.Name(), environ.Config().Type())
 		scanner := bufio.NewScanner(ctx.Stdin)
 		scanner.Scan()
 		err := scanner.Err()
@@ -69,6 +74,11 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) error {
 		if answer != "y" && answer != "yes" {
 			return errors.New("Environment destruction aborted")
 		}
+	}
+	// If --config-only is supplied, then just destroy the environment
+	// info from the configstore.
+	if c.configOnly {
+		return environs.DestroyInfo(c.envName, store)
 	}
 	// If --force is supplied, then don't attempt to use the API.
 	// This is necessary to destroy broken environments, where the
@@ -115,5 +125,12 @@ func (c *DestroyEnvironmentCommand) Init(args []string) error {
 var destroyEnvMsg = `
 WARNING! this command will destroy the %q environment (type: %s)
 This includes all machines, services, data and other resources.
+
+Continue [y/N]? `[1:]
+
+var destroyInfoMsg = `
+WARNING! this command will destroy the %q environment configuration (type: %s)
+Only the environment configuration will be destroyed; there will
+be no attempt to clean up any remaining environment resources.
 
 Continue [y/N]? `[1:]
