@@ -414,7 +414,9 @@ func (env *localEnviron) Destroy() error {
 		if err != nil {
 			return err
 		}
-		args := append([]string{juju}, os.Args[1:]...)
+		args := []string{osenv.JujuHomeEnvKey + "=" + osenv.JujuHome()}
+		args = append(args, juju)
+		args = append(args, os.Args[1:]...)
 		args = append(args, "-y")
 		cmd := exec.Command("sudo", args...)
 		cmd.Stdout = os.Stdout
