@@ -1,7 +1,7 @@
 code.google.com/p/go.crypto	hg	6478cc9340cbbe6c04511280c5007722269108e9	184
 code.google.com/p/go.net	hg	3591c18acabc99439c783463ef00e6dc277eee39	77
 labix.org/v2/mgo	bzr	gustavo@niemeyer.net-20131118213720-aralgr4ienh0gdyq	248
-github.com/errgo/errgo	git	670cc165d9753187c2b049f60f6065dcf46087ef	
+github.com/errgo/errgo	git	93d72bf813883d1054cae1c001d3a46603f7f559	
 github.com/loggo/loggo	git	89458b4dc99692bc24efe9c2252d7587f8dc247b	
 launchpad.net/gnuflag	bzr	roger.peppe@canonical.com-20121003093437-zcyyw0lpvj2nifpk	12
 launchpad.net/goamz	bzr	roger.peppe@canonical.com-20131218155244-hbnkvlkkzy3vmlh9	44
