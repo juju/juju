@@ -5,6 +5,7 @@ package environs
 
 import (
 	"fmt"
+	"github.com/errgo/errgo"
 
 	"launchpad.net/juju-core/agent"
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
@@ -138,7 +139,7 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 	// These really are directly relevant to running a state server.
 	cert, key, err := cfg.GenerateStateServerCertAndKey()
 	if err != nil {
-		return fmt.Errorf("cannot generate state server certificate: %v", err)
+		return errgo.Annotate(err, "cannot generate state server certificate")
 	}
 	mcfg.StateServerCert = cert
 	mcfg.StateServerKey = key

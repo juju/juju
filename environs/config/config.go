@@ -5,6 +5,7 @@ package config
 
 import (
 	"fmt"
+	"github.com/errgo/errgo"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -277,7 +278,7 @@ func Validate(cfg, old *Config) error {
 	caKey, caKeyOK := cfg.CAPrivateKey()
 	if caCertOK || caKeyOK {
 		if err := verifyKeyPair(caCert, caKey); err != nil {
-			return fmt.Errorf("bad CA certificate/key in configuration: %v", err)
+			return errgo.Annotate(err, "bad CA certificate/key in configuration")
 		}
 	}
 

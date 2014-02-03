@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/errgo/errgo"
+
 	"launchpad.net/juju-core/instance"
 )
 
@@ -207,7 +209,7 @@ func (v *Value) setRaw(raw string) error {
 		return fmt.Errorf("unknown constraint %q", name)
 	}
 	if err != nil {
-		return fmt.Errorf("bad %q constraint: %v", name, err)
+		return errgo.Annotatef(err, "bad %q constraint", name)
 	}
 	return nil
 }
