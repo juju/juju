@@ -111,9 +111,9 @@ type CharmArchiveURLResults struct {
 	Results []CharmArchiveURLResult
 }
 
-// CurrentEnvironmentResult holds the name and unique identifier of an
-// environment.
-type CurrentEnvironmentResult struct {
+// EnvironmentResult holds the result of an API call returning a name and UUID
+// for an environment.
+type EnvironmentResult struct {
 	Error *Error
 	Name  string
 	UUID  string

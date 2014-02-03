@@ -155,7 +155,7 @@ func (st *State) RelationById(id int) (*Relation, error) {
 
 // Environment returns the environment entity.
 func (st *State) Environment() (*Environment, error) {
-	var result params.CurrentEnvironmentResult
+	var result params.EnvironmentResult
 	err := st.caller.Call("Uniter", "", "CurrentEnvironment", nil, &result)
 	if params.IsCodeNotImplemented(err) {
 		// Fall back to using the 1.16 API.
@@ -164,16 +164,24 @@ func (st *State) Environment() (*Environment, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := result.Error; err != nil {
+		return nil, err
+	}
 	return &Environment{
 		name: result.Name,
 		uuid: result.UUID,
 	}, nil
 }
 
+// environment1dot16 requests just the UUID of the current environment, when
+// using an older API server that does not support CurrentEnvironment API call.
 func (st *State) environment1dot16() (*Environment, error) {
 	var result params.StringResult
 	err := st.caller.Call("Uniter", "", "CurrentEnvironUUID", nil, &result)
 	if err != nil {
+		return nil, err
+	}
+	if err := result.Error; err != nil {
 		return nil, err
 	}
 	return &Environment{

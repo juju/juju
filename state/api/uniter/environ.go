@@ -6,7 +6,7 @@ package uniter
 // This module implements a subset of the interface provided by
 // state.Environment, as needed by the uniter API.
 
-// Environment represents the name and the unique identifier of an environment.
+// Environment represents the state of an environment.
 type Environment struct {
 	name string
 	uuid string
