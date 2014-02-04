@@ -403,9 +403,10 @@ func addServiceUnits(state *state.State, args params.AddServiceUnits) ([]*state.
 	if args.NumUnits < 1 {
 		return nil, fmt.Errorf("must add at least one unit")
 	}
-	if args.NumUnits > 1 && args.ToMachineSpec != "" {
-		return nil, fmt.Errorf("cannot use NumUnits with ToMachineSpec")
-	}
+	/// ALLOW --to X -n 10
+	///if args.NumUnits > 1 && args.ToMachineSpec != "" {
+	///	return nil, fmt.Errorf("cannot use NumUnits with ToMachineSpec")
+	///}
 	return juju.AddUnits(state, service, args.NumUnits, args.ToMachineSpec)
 }
 

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/loggo/loggo"
@@ -308,6 +309,8 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		case state.JobHostUnits:
 			// Implemented in APIWorker.
 		case state.JobManageEnviron:
+			logger.Debugf("setting GOMAXPROCS to %d to run the apiserver", runtime.NumCPU())
+			runtime.GOMAXPROCS(runtime.NumCPU())
 			runner.StartWorker("instancepoller", func() (worker.Worker, error) {
 				return instancepoller.NewWorker(st), nil
 			})
