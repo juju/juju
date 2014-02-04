@@ -112,6 +112,15 @@ func (c bootstrapContext) Stderr() io.Writer {
 	return c.Context.Stderr
 }
 
+func destroyPreparedEnviron(env environs.Environ, store configstore.Storage, err *error, action string) {
+	if *err == nil {
+		return
+	}
+	if err := environs.Destroy(env, store); err != nil {
+		logger.Errorf("%s failed, and the environment could not be destroyed: %v", action, err)
+	}
+}
+
 // Run connects to the environment specified on the command line and bootstraps
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.
@@ -129,13 +138,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return err
 	}
 	if !existing {
-		defer func() {
-			if resultErr != nil {
-				if err := environs.Destroy(environ, store); err != nil {
-					logger.Errorf("Bootstrap failed, and the environment could not be destroyed: %v", err)
-				}
-			}
-		}()
+		defer destroyPreparedEnviron(environ, store, &resultErr, "Bootstrap")
 	}
 	bootstrapContext := bootstrapContext{ctx}
 	// If the environment has a special bootstrap Storage, use it wherever
