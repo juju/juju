@@ -5,6 +5,7 @@ package environs
 
 import (
 	"fmt"
+
 	"github.com/errgo/errgo"
 
 	"launchpad.net/juju-core/agent"

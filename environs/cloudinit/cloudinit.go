@@ -7,10 +7,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/errgo/errgo"
 	"path"
 	"strings"
 
+	"github.com/errgo/errgo"
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent"

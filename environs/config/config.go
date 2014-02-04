@@ -5,7 +5,6 @@ package config
 
 import (
 	"fmt"
-	"github.com/errgo/errgo"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -13,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/errgo/errgo"
 	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/cert"
