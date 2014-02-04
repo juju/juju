@@ -151,6 +151,15 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 	mcfg.AptProxySettings = osenv.ProxySettings{}
 	mcfg.ProxySettings = osenv.ProxySettings{}
 	cloudcfg := coreCloudinit.New()
+	// Since rsyslogd is restricted by apparmor to only write to /var/log/**
+	// we now provide a symlink to the written file in the local log dir.
+	// Also, we leave the old all-machines.log file in
+	// /var/log/juju-{{namespace}} until we start the environment again. So
+	// potentially remove it at the start of the cloud-init.
+	logfile := fmt.Sprintf("/var/log/juju-%s/all-machines.log", env.config.namespace())
+	cloudcfg.AddScripts(
+		fmt.Sprintf("[ -f %s ] && rm %s", logfile, logfile),
+		fmt.Sprintf("ln -s %s %s/", logfile, env.config.logDir()))
 	if err := cloudinit.ConfigureJuju(mcfg, cloudcfg); err != nil {
 		return err
 	}
@@ -405,7 +414,9 @@ func (env *localEnviron) Destroy() error {
 		if err != nil {
 			return err
 		}
-		args := append([]string{juju}, os.Args[1:]...)
+		args := []string{osenv.JujuHomeEnvKey + "=" + osenv.JujuHome()}
+		args = append(args, juju)
+		args = append(args, os.Args[1:]...)
 		args = append(args, "-y")
 		cmd := exec.Command("sudo", args...)
 		cmd.Stdout = os.Stdout

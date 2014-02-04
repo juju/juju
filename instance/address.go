@@ -89,6 +89,9 @@ var netLookupIP = net.LookupIP
 
 // HostAddresses looks up the IP addresses of the specified
 // host, and translates them into instance.Address values.
+//
+// The argument passed in is always added ast the final
+// address in the resulting slice.
 func HostAddresses(host string) (addrs []Address, err error) {
 	hostAddr := NewAddress(host)
 	if hostAddr.Type != HostName {

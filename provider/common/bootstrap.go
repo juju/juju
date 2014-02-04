@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/cloudinit/sshinit"
@@ -19,6 +19,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/cloudinit"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
@@ -191,10 +192,14 @@ var FinishBootstrap = func(ctx environs.BootstrapContext, client ssh.Client, ins
 		exit 1
 	fi
 	`, nonceFile, utils.ShQuote(machineConfig.MachineNonce))
-	// TODO: jam 2013-12-04 bug #1257649
-	// It would be nice if users had some controll over their bootstrap
-	// timeout, since it is unlikely to be a perfect match for all clouds.
-	addr, err := waitSSH(ctx, interrupted, client, checkNonceCommand, inst, DefaultBootstrapSSHTimeout())
+	addr, err := waitSSH(
+		ctx,
+		interrupted,
+		client,
+		checkNonceCommand,
+		inst,
+		machineConfig.Config.BootstrapSSHOpts(),
+	)
 	if err != nil {
 		return err
 	}
@@ -214,33 +219,6 @@ var FinishBootstrap = func(ctx environs.BootstrapContext, client ssh.Client, ins
 		Config:         cloudcfg,
 		ProgressWriter: ctx.Stderr(),
 	})
-}
-
-// SSHTimeoutOpts lists the amount of time we will wait for various parts of
-// the SSH connection to complete. This is similar to DialOpts, see
-// http://pad.lv/1258889 about possibly deduplicating them.
-type SSHTimeoutOpts struct {
-	// Timeout is the amount of time to wait contacting
-	// a state server.
-	Timeout time.Duration
-
-	// ConnectDelay is the amount of time between attempts to connect to an address.
-	ConnectDelay time.Duration
-
-	// AddressesDelay is the amount of time between refreshing the addresses.
-	AddressesDelay time.Duration
-}
-
-// DefaultBootstrapSSHTimeout is the time we'll wait for SSH to come up on the bootstrap node
-func DefaultBootstrapSSHTimeout() SSHTimeoutOpts {
-	return SSHTimeoutOpts{
-		Timeout: 10 * time.Minute,
-
-		ConnectDelay: 5 * time.Second,
-
-		// Not too frequent, as we refresh addresses from the provider each time.
-		AddressesDelay: 10 * time.Second,
-	}
 }
 
 type addresser interface {
@@ -377,7 +355,7 @@ var connectSSH = func(client ssh.Client, host, checkHostScript string) error {
 // the presence of a file on the machine that contains the
 // machine's nonce. The "checkHostScript" is a bash script
 // that performs this file check.
-func waitSSH(ctx environs.BootstrapContext, interrupted <-chan os.Signal, client ssh.Client, checkHostScript string, inst addresser, timeout SSHTimeoutOpts) (addr string, err error) {
+func waitSSH(ctx environs.BootstrapContext, interrupted <-chan os.Signal, client ssh.Client, checkHostScript string, inst addresser, timeout config.SSHTimeoutOpts) (addr string, err error) {
 	globalTimeout := time.After(timeout.Timeout)
 	pollAddresses := time.NewTimer(0)
 
@@ -389,7 +367,7 @@ func waitSSH(ctx environs.BootstrapContext, interrupted <-chan os.Signal, client
 		client:          client,
 		stderr:          ctx.Stderr(),
 		active:          make(map[instance.Address]chan struct{}),
-		checkDelay:      timeout.ConnectDelay,
+		checkDelay:      timeout.RetryDelay,
 		checkHostScript: checkHostScript,
 	}
 	defer checker.Kill()

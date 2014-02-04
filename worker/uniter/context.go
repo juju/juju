@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju/osenv"
@@ -60,6 +60,9 @@ type HookContext struct {
 	// uuid is the universally unique identifier of the environment.
 	uuid string
 
+	// envName is the human friendly name of the environment.
+	envName string
+
 	// relationId identifies the relation for which a relation hook is
 	// executing. If it is -1, the context is not running a relation hook;
 	// otherwise, its value must be a valid key into the relations map.
@@ -84,13 +87,14 @@ type HookContext struct {
 	proxySettings osenv.ProxySettings
 }
 
-func NewHookContext(unit *uniter.Unit, id, uuid string, relationId int,
-	remoteUnitName string, relations map[int]*ContextRelation,
+func NewHookContext(unit *uniter.Unit, id, uuid, envName string,
+	relationId int, remoteUnitName string, relations map[int]*ContextRelation,
 	apiAddrs []string, serviceOwner string, proxySettings osenv.ProxySettings) (*HookContext, error) {
 	ctx := &HookContext{
 		unit:           unit,
 		id:             id,
 		uuid:           uuid,
+		envName:        envName,
 		relationId:     relationId,
 		remoteUnitName: remoteUnitName,
 		relations:      relations,
@@ -184,6 +188,7 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 		"JUJU_AGENT_SOCKET=" + socketPath,
 		"JUJU_UNIT_NAME=" + ctx.unit.Name(),
 		"JUJU_ENV_UUID=" + ctx.uuid,
+		"JUJU_ENV_NAME=" + ctx.envName,
 		"JUJU_API_ADDRESSES=" + strings.Join(ctx.apiAddrs, " "),
 	}
 	if r, found := ctx.HookRelation(); found {

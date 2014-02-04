@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/instance"

@@ -39,6 +39,7 @@ func (s *SSHCommandSuite) SetUpTest(c *gc.C) {
 	s.PatchEnvironment("PATH", s.testbin+":"+os.Getenv("PATH"))
 	s.client, err = ssh.NewOpenSSHClient()
 	c.Assert(err, gc.IsNil)
+	s.PatchValue(ssh.DefaultIdentities, nil)
 }
 
 func (s *SSHCommandSuite) command(args ...string) *ssh.Cmd {
@@ -133,4 +134,31 @@ func (s *SSHCommandSuite) TestCopy(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	// EnablePTY has no effect for Copy
 	c.Assert(string(out), gc.Equals, s.fakescp+" -o StrictHostKeyChecking no -i x -i y -P 2022 /tmp/blah foo@bar.com:baz\n")
+}
+
+func (s *SSHCommandSuite) TestCommandClientKeys(c *gc.C) {
+	clientKeysDir := c.MkDir()
+	defer ssh.ClearClientKeys()
+	err := ssh.LoadClientKeys(clientKeysDir)
+	c.Assert(err, gc.IsNil)
+	ck := filepath.Join(clientKeysDir, "juju_id_rsa")
+	var opts ssh.Options
+	opts.SetIdentities("x", "y")
+	s.assertCommandArgs(c, s.commandOptions([]string{"echo", "123"}, &opts),
+		s.fakessh+" -o StrictHostKeyChecking no -o PasswordAuthentication no -i x -i y -i "+ck+" localhost -- echo 123",
+	)
+}
+
+func (s *SSHCommandSuite) TestCommandDefaultIdentities(c *gc.C) {
+	var opts ssh.Options
+	s.PatchValue(ssh.DefaultIdentities, []string{"def1", "def2"})
+	// If no identities are specified, then the defaults aren't added.
+	s.assertCommandArgs(c, s.commandOptions([]string{"echo", "123"}, &opts),
+		s.fakessh+" -o StrictHostKeyChecking no -o PasswordAuthentication no localhost -- echo 123",
+	)
+	// If identities are specified, then the defaults are must added.
+	opts.SetIdentities("x", "y")
+	s.assertCommandArgs(c, s.commandOptions([]string{"echo", "123"}, &opts),
+		s.fakessh+" -o StrictHostKeyChecking no -o PasswordAuthentication no -i x -i y -i def1 -i def2 localhost -- echo 123",
+	)
 }

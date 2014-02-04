@@ -9,7 +9,8 @@ import (
 	"regexp"
 	"sync"
 
-	"launchpad.net/loggo"
+	"github.com/errgo/errgo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
@@ -150,16 +151,16 @@ type AgentConfigParams struct {
 // machine or unit agent.
 func NewAgentConfig(params AgentConfigParams) (Config, error) {
 	if params.DataDir == "" {
-		return nil, requiredError("data directory")
+		return nil, errgo.Trace(requiredError("data directory"))
 	}
 	if params.Tag == "" {
-		return nil, requiredError("entity tag")
+		return nil, errgo.Trace(requiredError("entity tag"))
 	}
 	if params.Password == "" {
-		return nil, requiredError("password")
+		return nil, errgo.Trace(requiredError("password"))
 	}
 	if params.CACert == nil {
-		return nil, requiredError("CA certificate")
+		return nil, errgo.Trace(requiredError("CA certificate"))
 	}
 	// Note that the password parts of the state and api information are
 	// blank.  This is by design.
@@ -202,10 +203,10 @@ type StateMachineConfigParams struct {
 // a machine running the state server.
 func NewStateMachineConfig(params StateMachineConfigParams) (Config, error) {
 	if params.StateServerCert == nil {
-		return nil, requiredError("state server cert")
+		return nil, errgo.Trace(requiredError("state server cert"))
 	}
 	if params.StateServerKey == nil {
-		return nil, requiredError("state server key")
+		return nil, errgo.Trace(requiredError("state server key"))
 	}
 	config0, err := NewAgentConfig(params.AgentConfigParams)
 	if err != nil {
@@ -308,7 +309,7 @@ func (c *configInternal) APIServerDetails() (port int, cert, key []byte) {
 
 func (c *configInternal) APIAddresses() ([]string, error) {
 	if c.apiDetails == nil {
-		return []string{}, fmt.Errorf("No apidetails in config")
+		return []string{}, errgo.New("No apidetails in config")
 	}
 	return append([]string{}, c.apiDetails.addresses...), nil
 }
@@ -323,7 +324,7 @@ func (c *configInternal) Dir() string {
 
 func (c *configInternal) check() error {
 	if c.stateDetails == nil && c.apiDetails == nil {
-		return requiredError("state or API addresses")
+		return errgo.Trace(requiredError("state or API addresses"))
 	}
 	if c.stateDetails != nil {
 		if err := checkAddrs(c.stateDetails.addresses, "state server address"); err != nil {
@@ -342,11 +343,11 @@ var validAddr = regexp.MustCompile("^.+:[0-9]+$")
 
 func checkAddrs(addrs []string, what string) error {
 	if len(addrs) == 0 {
-		return requiredError(what)
+		return errgo.Trace(requiredError(what))
 	}
 	for _, a := range addrs {
 		if !validAddr.MatchString(a) {
-			return fmt.Errorf("invalid %s %q", what, a)
+			return errgo.New("invalid %s %q", what, a)
 		}
 	}
 	return nil

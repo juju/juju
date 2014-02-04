@@ -6,11 +6,14 @@ package environs
 import (
 	"fmt"
 
+	"github.com/errgo/errgo"
+
 	"launchpad.net/juju-core/agent"
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -70,10 +73,17 @@ func NewBootstrapMachineConfig(stateInfoURL string, privateSystemSSHKey string) 
 	return mcfg
 }
 
+// PopulateMachineConfig is called both from the FinishMachineConfig below,
+// which does have access to the environment config, and from the container
+// provisioners, which don't have access to the environment config. Everything
+// that is needed to provision a container needs to be returned to the
+// provisioner in the ContainerConfig structure. Those values are then used to
+// call this function.
 func PopulateMachineConfig(mcfg *cloudinit.MachineConfig,
 	providerType, authorizedKeys string,
 	sslHostnameVerification bool,
 	syslogPort int,
+	proxy, aptProxy osenv.ProxySettings,
 ) error {
 	if authorizedKeys == "" {
 		return fmt.Errorf("environment configuration has no authorized-keys")
@@ -86,6 +96,8 @@ func PopulateMachineConfig(mcfg *cloudinit.MachineConfig,
 	mcfg.AgentEnvironment[agent.ContainerType] = string(mcfg.MachineContainerType)
 	mcfg.DisableSSLHostnameVerification = !sslHostnameVerification
 	mcfg.SyslogPort = syslogPort
+	mcfg.ProxySettings = proxy
+	mcfg.AptProxySettings = aptProxy
 	return nil
 }
 
@@ -102,11 +114,17 @@ func PopulateMachineConfig(mcfg *cloudinit.MachineConfig,
 func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons constraints.Value) (err error) {
 	defer utils.ErrorContextf(&err, "cannot complete machine configuration")
 
-	if err := PopulateMachineConfig(mcfg, cfg.Type(), cfg.AuthorizedKeys(), cfg.SSLHostnameVerification(), cfg.SyslogPort()); err != nil {
+	if err := PopulateMachineConfig(
+		mcfg,
+		cfg.Type(),
+		cfg.AuthorizedKeys(),
+		cfg.SSLHostnameVerification(),
+		cfg.SyslogPort(),
+		cfg.ProxySettings(),
+		cfg.AptProxySettings(),
+	); err != nil {
 		return err
 	}
-	mcfg.ProxySettings = cfg.ProxySettings()
-	mcfg.AptProxySettings = cfg.AptProxySettings()
 
 	// The following settings are only appropriate at bootstrap time. At the
 	// moment, the only state server is the bootstrap node, but this
@@ -138,7 +156,7 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 	// These really are directly relevant to running a state server.
 	cert, key, err := cfg.GenerateStateServerCertAndKey()
 	if err != nil {
-		return fmt.Errorf("cannot generate state server certificate: %v", err)
+		return errgo.Annotate(err, "cannot generate state server certificate")
 	}
 	mcfg.StateServerCert = cert
 	mcfg.StateServerKey = key

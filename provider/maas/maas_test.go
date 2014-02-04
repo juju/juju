@@ -50,15 +50,18 @@ func (s *providerSuite) TearDownSuite(c *gc.C) {
 
 const exampleAgentName = "dfb69555-0bc4-4d1f-85f2-4ee390974984"
 
+var maasEnvAttrs = coretesting.Attrs{
+	"name":            "test env",
+	"type":            "maas",
+	"maas-oauth":      "a:b:c",
+	"maas-agent-name": exampleAgentName,
+}
+
 // makeEnviron creates a functional maasEnviron for a test.
 func (suite *providerSuite) makeEnviron() *maasEnviron {
-	attrs := coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"name":            "test env",
-		"type":            "maas",
-		"maas-oauth":      "a:b:c",
-		"maas-server":     suite.testMAASObject.TestServer.URL,
-		"maas-agent-name": exampleAgentName,
-	})
+	testAttrs := maasEnvAttrs
+	testAttrs["maas-server"] = suite.testMAASObject.TestServer.URL
+	attrs := coretesting.FakeConfig().Merge(maasEnvAttrs)
 	cfg, err := config.New(config.NoDefaults, attrs)
 	if err != nil {
 		panic(err)
