@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/errgo/errgo"
 	"github.com/loggo/loggo"
 	"launchpad.net/goyaml"
 
@@ -162,14 +163,14 @@ func (info *environInfo) SetAPICredentials(creds APICredentials) {
 func (info *environInfo) Write() error {
 	data, err := goyaml.Marshal(info)
 	if err != nil {
-		return fmt.Errorf("cannot marshal environment info: %v", err)
+		return errgo.Annotate(err, "cannot marshal environment info")
 	}
 	// Create a temporary file and rename it, so that the data
 	// changes atomically.
 	parent, _ := filepath.Split(info.path)
 	tmpFile, err := ioutil.TempFile(parent, "")
 	if err != nil {
-		return fmt.Errorf("cannot create temporary file: %v", err)
+		return errgo.Annotate(err, "cannot create temporary file")
 	}
 	_, err = tmpFile.Write(data)
 	// N.B. We need to close the file before renaming it
@@ -177,11 +178,11 @@ func (info *environInfo) Write() error {
 	// error.
 	tmpFile.Close()
 	if err != nil {
-		return fmt.Errorf("cannot write temporary file: %v", err)
+		return errgo.Annotate(err, "cannot write temporary file")
 	}
 	if err := utils.ReplaceFile(tmpFile.Name(), info.path); err != nil {
 		os.Remove(tmpFile.Name())
-		return fmt.Errorf("cannot rename new environment info file: %v", err)
+		return errgo.Annotate(err, "cannot rename new environment info file")
 	}
 	info.initialized = true
 	return nil

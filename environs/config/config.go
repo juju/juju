@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/errgo/errgo"
 	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/cert"
@@ -277,7 +278,7 @@ func Validate(cfg, old *Config) error {
 	caKey, caKeyOK := cfg.CAPrivateKey()
 	if caCertOK || caKeyOK {
 		if err := verifyKeyPair(caCert, caKey); err != nil {
-			return fmt.Errorf("bad CA certificate/key in configuration: %v", err)
+			return errgo.Annotate(err, "bad CA certificate/key in configuration")
 		}
 	}
 
