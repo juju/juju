@@ -163,7 +163,7 @@ func runWithTimeout(r runner) error {
 	select {
 	case err := <-done:
 		return err
-	case <-time.After(5 * time.Second):
+	case <-time.After(coretesting.LongWait):
 	}
 	err := r.Stop()
 	return fmt.Errorf("timed out waiting for agent to finish; stop error: %v", err)
@@ -235,6 +235,7 @@ func writeStateAgentConfig(c *gc.C, stateInfo *state.Info, dataDir, tag, passwor
 			APIPort:         port,
 		})
 	c.Assert(err, gc.IsNil)
+	c.Assert(conf.StateManager(), jc.IsTrue)
 	c.Assert(conf.Write(), gc.IsNil)
 	return conf
 }

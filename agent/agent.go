@@ -221,6 +221,7 @@ func NewStateMachineConfig(params StateMachineConfigParams) (Config, error) {
 	config.stateServerCert = params.StateServerCert
 	config.stateServerKey = params.StateServerKey
 	config.apiPort = params.APIPort
+	config.isStateManager = true
 	return config, nil
 }
 

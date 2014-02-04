@@ -589,7 +589,7 @@ func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	go func() { c.Logf("running machine agent"); c.Check(a.Run(nil), gc.IsNil) }()
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()
 
 	// Update the keys in the environment.

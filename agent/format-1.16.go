@@ -96,6 +96,7 @@ func (formatter *formatter_1_16) read(dirName string) (*configInternal, error) {
 		stateServerKey:  stateServerKey,
 		apiPort:         format.APIPort,
 		values:          format.Values,
+		isStateManager: stateServerKey != nil,
 	}
 	if len(format.StateAddresses) > 0 {
 		config.stateDetails = &connectionDetails{
