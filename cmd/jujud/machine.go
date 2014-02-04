@@ -154,8 +154,8 @@ func (a *MachineAgent) stateStarter(stopch <-chan struct{}) error {
 	defer confWatch.Close()
 	watchCh := make(chan agent.Config)
 	go func() {
-		for w.Next() {
-			v, _ := w.Value().(agent.Config)
+		for confWatch.Next() {
+			v, _ := confWatch.Value().(agent.Config)
 			watchCh <- v
 		}
 	}()
