@@ -453,7 +453,7 @@ var _ = gc.Suite(&DeployLocalSuite{})
 
 func (s *DeployLocalSuite) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
-	s.repo = &charm.LocalRepository{Path: coretesting.Charms.Path}
+	s.repo = &charm.LocalRepository{Path: coretesting.Charms.Path()}
 	s.oldCacheDir, charm.CacheDir = charm.CacheDir, c.MkDir()
 }
 
@@ -647,6 +647,7 @@ func (s *DeployLocalSuite) assertMachines(c *gc.C, service *state.Service, expec
 }
 
 type InitJujuHomeSuite struct {
+	testbase.LoggingSuite
 	originalHome     string
 	originalJujuHome string
 }
@@ -654,6 +655,7 @@ type InitJujuHomeSuite struct {
 var _ = gc.Suite(&InitJujuHomeSuite{})
 
 func (s *InitJujuHomeSuite) SetUpTest(c *gc.C) {
+	s.LoggingSuite.SetUpTest(c)
 	s.originalHome = osenv.Home()
 	s.originalJujuHome = os.Getenv("JUJU_HOME")
 }
@@ -661,6 +663,7 @@ func (s *InitJujuHomeSuite) SetUpTest(c *gc.C) {
 func (s *InitJujuHomeSuite) TearDownTest(c *gc.C) {
 	osenv.SetHome(s.originalHome)
 	os.Setenv("JUJU_HOME", s.originalJujuHome)
+	s.LoggingSuite.TearDownTest(c)
 }
 
 func (s *InitJujuHomeSuite) TestJujuHome(c *gc.C) {
@@ -668,7 +671,7 @@ func (s *InitJujuHomeSuite) TestJujuHome(c *gc.C) {
 	os.Setenv("JUJU_HOME", jujuHome)
 	err := juju.InitJujuHome()
 	c.Assert(err, gc.IsNil)
-	c.Assert(config.JujuHome(), gc.Equals, jujuHome)
+	c.Assert(osenv.JujuHome(), gc.Equals, jujuHome)
 }
 
 func (s *InitJujuHomeSuite) TestHome(c *gc.C) {
@@ -677,7 +680,7 @@ func (s *InitJujuHomeSuite) TestHome(c *gc.C) {
 	osenv.SetHome(osHome)
 	err := juju.InitJujuHome()
 	c.Assert(err, gc.IsNil)
-	c.Assert(config.JujuHome(), gc.Equals, filepath.Join(osHome, ".juju"))
+	c.Assert(osenv.JujuHome(), gc.Equals, filepath.Join(osHome, ".juju"))
 }
 
 func (s *InitJujuHomeSuite) TestError(c *gc.C) {

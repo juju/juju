@@ -13,8 +13,12 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 )
 
+const uniter = "Uniter"
+
 // State provides access to the Uniter API facade.
 type State struct {
+	*common.EnvironWatcher
+
 	caller base.Caller
 	// unitTag contains the authenticated unit's tag.
 	unitTag string
@@ -22,12 +26,15 @@ type State struct {
 
 // NewState creates a new client-side Uniter facade.
 func NewState(caller base.Caller, authTag string) *State {
-	return &State{caller, authTag}
+	return &State{
+		EnvironWatcher: common.NewEnvironWatcher(uniter, caller),
+		caller:         caller,
+		unitTag:        authTag}
 }
 
 // life requests the lifecycle of the given entity from the server.
 func (st *State) life(tag string) (params.Life, error) {
-	return common.Life(st.caller, "Uniter", tag)
+	return common.Life(st.caller, uniter, tag)
 }
 
 // relation requests relation information from the server.
@@ -39,7 +46,7 @@ func (st *State) relation(relationTag, unitTag string) (params.RelationResult, e
 			{Relation: relationTag, Unit: unitTag},
 		},
 	}
-	err := st.caller.Call("Uniter", "", "Relation", args, &result)
+	err := st.caller.Call(uniter, "", "Relation", args, &result)
 	if err != nil {
 		return nothing, err
 	}
@@ -85,7 +92,7 @@ func (st *State) Service(tag string) (*Service, error) {
 // addresses implemented fully. See also LP bug 1221798.
 func (st *State) ProviderType() (string, error) {
 	var result params.StringResult
-	err := st.caller.Call("Uniter", "", "ProviderType", nil, &result)
+	err := st.caller.Call(uniter, "", "ProviderType", nil, &result)
 	if err != nil {
 		return "", err
 	}
@@ -126,7 +133,7 @@ func (st *State) RelationById(id int) (*Relation, error) {
 	args := params.RelationIds{
 		RelationIds: []int{id},
 	}
-	err := st.caller.Call("Uniter", "", "RelationById", args, &results)
+	err := st.caller.Call(uniter, "", "RelationById", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -148,13 +155,44 @@ func (st *State) RelationById(id int) (*Relation, error) {
 
 // Environment returns the environment entity.
 func (st *State) Environment() (*Environment, error) {
-	return &Environment{st}, nil
+	var result params.EnvironmentResult
+	err := st.caller.Call("Uniter", "", "CurrentEnvironment", nil, &result)
+	if params.IsCodeNotImplemented(err) {
+		// Fall back to using the 1.16 API.
+		return st.environment1dot16()
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := result.Error; err != nil {
+		return nil, err
+	}
+	return &Environment{
+		name: result.Name,
+		uuid: result.UUID,
+	}, nil
+}
+
+// environment1dot16 requests just the UUID of the current environment, when
+// using an older API server that does not support CurrentEnvironment API call.
+func (st *State) environment1dot16() (*Environment, error) {
+	var result params.StringResult
+	err := st.caller.Call("Uniter", "", "CurrentEnvironUUID", nil, &result)
+	if err != nil {
+		return nil, err
+	}
+	if err := result.Error; err != nil {
+		return nil, err
+	}
+	return &Environment{
+		uuid: result.Result,
+	}, nil
 }
 
 // APIAddresses returns the list of addresses used to connect to the API.
 func (st *State) APIAddresses() ([]string, error) {
 	var result params.StringsResult
-	err := st.caller.Call("Uniter", "", "APIAddresses", nil, &result)
+	err := st.caller.Call(uniter, "", "APIAddresses", nil, &result)
 	if err != nil {
 		return nil, err
 	}

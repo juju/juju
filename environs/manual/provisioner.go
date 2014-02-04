@@ -10,7 +10,7 @@ import (
 	"net"
 	"strings"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/cloudinit/sshinit"
@@ -131,23 +131,27 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 		return "", err
 	}
 
-	var configParameters params.MachineConfig
+	var provisioningScript string
 	if stateConn == nil {
-		configParameters, err = client.MachineConfig(machineId)
+		provisioningScript, err = client.ProvisioningScript(params.ProvisioningScriptParams{
+			MachineId: machineId,
+			Nonce:     machineParams.Nonce,
+		})
+		if err != nil {
+			return "", err
+		}
 	} else {
-		configParameters, err = statecmd.MachineConfig(stateConn.State, machineId)
-	}
-	if err != nil {
-		return "", err
-	}
-	// Gather the information needed by the machine agent to run the provisioning script.
-	mcfg, err := statecmd.FinishMachineConfig(configParameters, machineId, machineParams.Nonce, args.DataDir)
-	if err != nil {
-		return machineId, err
+		mcfg, err := statecmd.MachineConfig(stateConn.State, machineId, machineParams.Nonce, args.DataDir)
+		if err == nil {
+			provisioningScript, err = generateProvisioningScript(mcfg)
+		}
+		if err != nil {
+			return "", err
+		}
 	}
 
 	// Finally, provision the machine agent.
-	err = provisionMachineAgent(hostname, mcfg, args.Stderr)
+	err = runProvisionScript(provisioningScript, hostname, args.Stderr)
 	if err != nil {
 		return machineId, err
 	}
@@ -249,7 +253,7 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 			// be using.
 		}
 	}
-	addrs, err := instance.HostAddresses(hostname)
+	addrs, err := HostAddresses(hostname)
 	if err != nil {
 		return nil, err
 	}
@@ -289,17 +293,29 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 	return machineParams, nil
 }
 
-func provisionMachineAgent(host string, mcfg *cloudinit.MachineConfig, stderr io.Writer) error {
+func provisionMachineAgent(host string, mcfg *cloudinit.MachineConfig, progressWriter io.Writer) error {
+	script, err := generateProvisioningScript(mcfg)
+	if err != nil {
+		return err
+	}
+	return runProvisionScript(script, host, progressWriter)
+}
+
+func generateProvisioningScript(mcfg *cloudinit.MachineConfig) (string, error) {
 	cloudcfg := coreCloudinit.New()
 	if err := cloudinit.ConfigureJuju(mcfg, cloudcfg); err != nil {
-		return err
+		return "", err
 	}
 	// Explicitly disabling apt_upgrade so as not to trample
 	// the target machine's existing configuration.
 	cloudcfg.SetAptUpgrade(false)
-	return sshinit.Configure(sshinit.ConfigureParams{
-		Host:   "ubuntu@" + host,
-		Config: cloudcfg,
-		Stderr: stderr,
-	})
+	return sshinit.ConfigureScript(cloudcfg)
+}
+
+func runProvisionScript(script, host string, progressWriter io.Writer) error {
+	params := sshinit.ConfigureParams{
+		Host:           "ubuntu@" + host,
+		ProgressWriter: progressWriter,
+	}
+	return sshinit.RunConfigureScript(script, params)
 }

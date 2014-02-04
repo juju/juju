@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container"

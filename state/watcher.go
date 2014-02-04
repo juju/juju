@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/loggo/loggo"
 	"labix.org/v2/mgo"
-	"launchpad.net/loggo"
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/environs/config"

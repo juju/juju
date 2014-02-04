@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package null
+package manual
 
 import (
 	"bytes"
@@ -12,7 +12,7 @@ import (
 	"strings"
 	"sync"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -48,9 +48,9 @@ const (
 	storageTmpSubdir = "storage-tmp"
 )
 
-var logger = loggo.GetLogger("juju.provider.null")
+var logger = loggo.GetLogger("juju.provider.manual")
 
-type nullEnviron struct {
+type manualEnviron struct {
 	cfg                   *environConfig
 	cfgmutex              sync.Mutex
 	bootstrapStorage      storage.Storage
@@ -59,42 +59,42 @@ type nullEnviron struct {
 	ubuntuUserInitMutex   sync.Mutex
 }
 
-var _ environs.BootstrapStorager = (*nullEnviron)(nil)
-var _ envtools.SupportsCustomSources = (*nullEnviron)(nil)
+var _ environs.BootstrapStorager = (*manualEnviron)(nil)
+var _ envtools.SupportsCustomSources = (*manualEnviron)(nil)
 
-var errNoStartInstance = errors.New("null provider cannot start instances")
-var errNoStopInstance = errors.New("null provider cannot stop instances")
+var errNoStartInstance = errors.New("manual provider cannot start instances")
+var errNoStopInstance = errors.New("manual provider cannot stop instances")
 
-func (*nullEnviron) StartInstance(constraints.Value, tools.List, *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (*manualEnviron) StartInstance(constraints.Value, tools.List, *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	return nil, nil, errNoStartInstance
 }
 
-func (*nullEnviron) StopInstances([]instance.Instance) error {
+func (*manualEnviron) StopInstances([]instance.Instance) error {
 	return errNoStopInstance
 }
 
-func (e *nullEnviron) AllInstances() ([]instance.Instance, error) {
+func (e *manualEnviron) AllInstances() ([]instance.Instance, error) {
 	return e.Instances([]instance.Id{manual.BootstrapInstanceId})
 }
 
-func (e *nullEnviron) envConfig() (cfg *environConfig) {
+func (e *manualEnviron) envConfig() (cfg *environConfig) {
 	e.cfgmutex.Lock()
 	cfg = e.cfg
 	e.cfgmutex.Unlock()
 	return cfg
 }
 
-func (e *nullEnviron) Config() *config.Config {
+func (e *manualEnviron) Config() *config.Config {
 	return e.envConfig().Config
 }
 
-func (e *nullEnviron) Name() string {
+func (e *manualEnviron) Name() string {
 	return e.envConfig().Name()
 }
 
 var initUbuntuUser = manual.InitUbuntuUser
 
-func (e *nullEnviron) ensureBootstrapUbuntuUser(ctx environs.BootstrapContext) error {
+func (e *manualEnviron) ensureBootstrapUbuntuUser(ctx environs.BootstrapContext) error {
 	e.ubuntuUserInitMutex.Lock()
 	defer e.ubuntuUserInitMutex.Unlock()
 	if e.ubuntuUserInited {
@@ -111,7 +111,7 @@ func (e *nullEnviron) ensureBootstrapUbuntuUser(ctx environs.BootstrapContext) e
 	return nil
 }
 
-func (e *nullEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
+func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
 	if err := e.ensureBootstrapUbuntuUser(ctx); err != nil {
 		return err
 	}
@@ -136,14 +136,14 @@ func (e *nullEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.
 	})
 }
 
-func (e *nullEnviron) StateInfo() (*state.Info, *api.Info, error) {
+func (e *manualEnviron) StateInfo() (*state.Info, *api.Info, error) {
 	return common.StateInfo(e)
 }
 
-func (e *nullEnviron) SetConfig(cfg *config.Config) error {
+func (e *manualEnviron) SetConfig(cfg *config.Config) error {
 	e.cfgmutex.Lock()
 	defer e.cfgmutex.Unlock()
-	envConfig, err := nullProvider{}.validate(cfg, e.cfg.Config)
+	envConfig, err := manualProvider{}.validate(cfg, e.cfg.Config)
 	if err != nil {
 		return err
 	}
@@ -157,12 +157,12 @@ func (e *nullEnviron) SetConfig(cfg *config.Config) error {
 // environ/manual.BootstrapInstanceId. If any others are
 // specified, then ErrPartialInstances or ErrNoInstances
 // will result.
-func (e *nullEnviron) Instances(ids []instance.Id) (instances []instance.Instance, err error) {
+func (e *manualEnviron) Instances(ids []instance.Id) (instances []instance.Instance, err error) {
 	instances = make([]instance.Instance, len(ids))
 	var found bool
 	for i, id := range ids {
 		if id == manual.BootstrapInstanceId {
-			instances[i] = nullBootstrapInstance{e.envConfig().bootstrapHost()}
+			instances[i] = manualBootstrapInstance{e.envConfig().bootstrapHost()}
 			found = true
 		} else {
 			err = environs.ErrPartialInstances
@@ -183,7 +183,7 @@ var newSSHStorage = func(sshHost, storageDir, storageTmpdir string) (storage.Sto
 }
 
 // Implements environs.BootstrapStorager.
-func (e *nullEnviron) EnableBootstrapStorage(ctx environs.BootstrapContext) error {
+func (e *manualEnviron) EnableBootstrapStorage(ctx environs.BootstrapContext) error {
 	e.bootstrapStorageMutex.Lock()
 	defer e.bootstrapStorageMutex.Unlock()
 	if e.bootstrapStorage != nil {
@@ -205,14 +205,14 @@ func (e *nullEnviron) EnableBootstrapStorage(ctx environs.BootstrapContext) erro
 
 // GetToolsSources returns a list of sources which are
 // used to search for simplestreams tools metadata.
-func (e *nullEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
+func (e *manualEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off private storage.
 	return []simplestreams.DataSource{
 		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath),
 	}, nil
 }
 
-func (e *nullEnviron) Storage() storage.Storage {
+func (e *manualEnviron) Storage() storage.Storage {
 	e.bootstrapStorageMutex.Lock()
 	defer e.bootstrapStorageMutex.Unlock()
 	if e.bootstrapStorage != nil {
@@ -241,7 +241,7 @@ var runSSHCommand = func(host string, command []string) (stderr string, err erro
 	return stderrBuf.String(), err
 }
 
-func (e *nullEnviron) Destroy() error {
+func (e *manualEnviron) Destroy() error {
 	stderr, err := runSSHCommand(
 		"ubuntu@"+e.envConfig().bootstrapHost(),
 		[]string{"sudo", "pkill", fmt.Sprintf("-%d", terminationworker.TerminationSignal), "jujud"},
@@ -254,53 +254,53 @@ func (e *nullEnviron) Destroy() error {
 	return err
 }
 
-func (e *nullEnviron) OpenPorts(ports []instance.Port) error {
+func (e *manualEnviron) OpenPorts(ports []instance.Port) error {
 	return nil
 }
 
-func (e *nullEnviron) ClosePorts(ports []instance.Port) error {
+func (e *manualEnviron) ClosePorts(ports []instance.Port) error {
 	return nil
 }
 
-func (e *nullEnviron) Ports() ([]instance.Port, error) {
+func (e *manualEnviron) Ports() ([]instance.Port, error) {
 	return []instance.Port{}, nil
 }
 
-func (*nullEnviron) Provider() environs.EnvironProvider {
-	return nullProvider{}
+func (*manualEnviron) Provider() environs.EnvironProvider {
+	return manualProvider{}
 }
 
-func (e *nullEnviron) StorageAddr() string {
+func (e *manualEnviron) StorageAddr() string {
 	return e.envConfig().storageListenAddr()
 }
 
-func (e *nullEnviron) StorageDir() string {
+func (e *manualEnviron) StorageDir() string {
 	return path.Join(dataDir, storageSubdir)
 }
 
-func (e *nullEnviron) SharedStorageAddr() string {
+func (e *manualEnviron) SharedStorageAddr() string {
 	return ""
 }
 
-func (e *nullEnviron) SharedStorageDir() string {
+func (e *manualEnviron) SharedStorageDir() string {
 	return ""
 }
 
-func (e *nullEnviron) StorageCACert() []byte {
+func (e *manualEnviron) StorageCACert() []byte {
 	if bytes, ok := e.envConfig().CACert(); ok {
 		return bytes
 	}
 	return nil
 }
 
-func (e *nullEnviron) StorageCAKey() []byte {
+func (e *manualEnviron) StorageCAKey() []byte {
 	if bytes, ok := e.envConfig().CAPrivateKey(); ok {
 		return bytes
 	}
 	return nil
 }
 
-func (e *nullEnviron) StorageHostnames() []string {
+func (e *manualEnviron) StorageHostnames() []string {
 	cfg := e.envConfig()
 	hostnames := []string{cfg.bootstrapHost()}
 	if ip := net.ParseIP(cfg.storageListenIPAddress()); ip != nil {
@@ -311,8 +311,8 @@ func (e *nullEnviron) StorageHostnames() []string {
 	return hostnames
 }
 
-func (e *nullEnviron) StorageAuthKey() string {
+func (e *manualEnviron) StorageAuthKey() string {
 	return e.envConfig().storageAuthKey()
 }
 
-var _ localstorage.LocalTLSStorageConfig = (*nullEnviron)(nil)
+var _ localstorage.LocalTLSStorageConfig = (*manualEnviron)(nil)

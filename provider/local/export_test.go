@@ -10,7 +10,8 @@ import (
 )
 
 var (
-	Provider = providerInstance
+	Provider        = providerInstance
+	FinishBootstrap = &finishBootstrap
 )
 
 // SetRootCheckFunction allows tests to override the check for a root user.
@@ -21,25 +22,18 @@ func SetRootCheckFunction(f func() bool) func() {
 	return func() { checkIfRoot = old }
 }
 
-// SetUpstartScriptLocation allows tests to override the directory where the
-// provider writes the upstart scripts.
-func SetUpstartScriptLocation(location string) (old string) {
-	old, upstartScriptLocation = upstartScriptLocation, location
-	return
-}
-
 // ConfigNamespace returns the result of the namespace call on the
 // localConfig.
 func ConfigNamespace(cfg *config.Config) string {
-	localConfig, _ := providerInstance.newConfig(cfg)
-	return localConfig.namespace()
+	env, _ := providerInstance.Open(cfg)
+	return env.(*localEnviron).config.namespace()
 }
 
 // CreateDirs calls createDirs on the localEnviron.
 func CreateDirs(c *gc.C, cfg *config.Config) error {
-	localConfig, err := providerInstance.newConfig(cfg)
+	env, err := providerInstance.Open(cfg)
 	c.Assert(err, gc.IsNil)
-	return localConfig.createDirs()
+	return env.(*localEnviron).config.createDirs()
 }
 
 // CheckDirs returns the list of directories to check for permissions in the test.

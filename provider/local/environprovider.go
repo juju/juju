@@ -6,9 +6,10 @@ package local
 import (
 	"fmt"
 	"net"
+	"os"
 	"syscall"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -42,6 +43,17 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 			return nil, err
 		}
 		cfg = newCfg
+	}
+	// Set the "namespace" attribute. We do this here, and not in Prepare,
+	// for backwards compatibility: older versions did not store the namespace
+	// in config.
+	if namespace, _ := cfg.UnknownAttrs()["namespace"].(string); namespace == "" {
+		var err error
+		namespace = fmt.Sprintf("%s-%s", os.Getenv("USER"), cfg.Name())
+		cfg, err = cfg.Apply(map[string]interface{}{"namespace": namespace})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create namespace: %v", err)
+		}
 	}
 	// Do the initial validation on the config.
 	localConfig, err := providerInstance.newConfig(cfg)
@@ -182,7 +194,7 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 		return nil, err
 	}
 	if dir == "." {
-		dir = config.JujuHomePath(cfg.Name())
+		dir = osenv.JujuHomePath(cfg.Name())
 	}
 	// Always assign the normalized path.
 	localConfig.attrs["root-dir"] = dir

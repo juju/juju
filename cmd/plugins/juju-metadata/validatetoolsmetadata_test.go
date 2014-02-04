@@ -11,9 +11,9 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/juju/osenv"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
@@ -114,7 +114,7 @@ func (s *ValidateToolsMetadataSuite) setupEc2LocalMetadata(c *gc.C, region strin
 func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataUsingEnvironment(c *gc.C) {
 	s.setupEc2LocalMetadata(c, "us-east-1")
 	ctx := coretesting.Context(c)
-	metadataDir := config.JujuHomePath("")
+	metadataDir := osenv.JujuHomePath("")
 	code := cmd.Main(
 		&ValidateToolsMetadataCommand{}, ctx, []string{"-e", "ec2", "-j", "1.11.4", "-d", metadataDir},
 	)
@@ -141,7 +141,7 @@ func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataUsingIncompleteEnvironm
 func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataWithManualParams(c *gc.C) {
 	s.setupEc2LocalMetadata(c, "us-west-1")
 	ctx := coretesting.Context(c)
-	metadataDir := config.JujuHomePath("")
+	metadataDir := osenv.JujuHomePath("")
 	code := cmd.Main(
 		&ValidateToolsMetadataCommand{}, ctx, []string{
 			"-p", "ec2", "-s", "precise", "-r", "us-west-1", "-j", "1.11.4",
@@ -156,7 +156,7 @@ func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataWithManualParams(c *gc.
 func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataNoMatch(c *gc.C) {
 	s.setupEc2LocalMetadata(c, "us-east-1")
 	ctx := coretesting.Context(c)
-	metadataDir := config.JujuHomePath("")
+	metadataDir := osenv.JujuHomePath("")
 	code := cmd.Main(
 		&ValidateToolsMetadataCommand{}, ctx, []string{
 			"-p", "ec2", "-s", "raring", "-r", "us-west-1",
@@ -174,7 +174,7 @@ func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataNoMatch(c *gc.C) {
 func (s *ValidateToolsMetadataSuite) TestOpenstackLocalMetadataWithManualParams(c *gc.C) {
 	s.makeLocalMetadata(c, "1.11.4", "region-2", "raring", "some-auth-url")
 	ctx := coretesting.Context(c)
-	metadataDir := config.JujuHomePath("")
+	metadataDir := osenv.JujuHomePath("")
 	code := cmd.Main(
 		&ValidateToolsMetadataCommand{}, ctx, []string{
 			"-p", "openstack", "-s", "raring", "-r", "region-2", "-j", "1.11.4",
@@ -189,7 +189,7 @@ func (s *ValidateToolsMetadataSuite) TestOpenstackLocalMetadataWithManualParams(
 func (s *ValidateToolsMetadataSuite) TestOpenstackLocalMetadataNoMatch(c *gc.C) {
 	s.makeLocalMetadata(c, "1.11.4", "region-2", "raring", "some-auth-url")
 	ctx := coretesting.Context(c)
-	metadataDir := config.JujuHomePath("")
+	metadataDir := osenv.JujuHomePath("")
 	code := cmd.Main(
 		&ValidateToolsMetadataCommand{}, ctx, []string{
 			"-p", "openstack", "-s", "precise", "-r", "region-2",
@@ -207,7 +207,7 @@ func (s *ValidateToolsMetadataSuite) TestOpenstackLocalMetadataNoMatch(c *gc.C) 
 func (s *ValidateToolsMetadataSuite) TestDefaultVersion(c *gc.C) {
 	s.makeLocalMetadata(c, version.Current.Number.String(), "region-2", "raring", "some-auth-url")
 	ctx := coretesting.Context(c)
-	metadataDir := config.JujuHomePath("")
+	metadataDir := osenv.JujuHomePath("")
 	code := cmd.Main(
 		&ValidateToolsMetadataCommand{}, ctx, []string{
 			"-p", "openstack", "-s", "raring", "-r", "region-2",
@@ -222,7 +222,7 @@ func (s *ValidateToolsMetadataSuite) TestDefaultVersion(c *gc.C) {
 func (s *ValidateToolsMetadataSuite) TestMajorVersionMatch(c *gc.C) {
 	s.makeLocalMetadata(c, "1.11.4", "region-2", "raring", "some-auth-url")
 	ctx := coretesting.Context(c)
-	metadataDir := config.JujuHomePath("")
+	metadataDir := osenv.JujuHomePath("")
 	code := cmd.Main(
 		&ValidateToolsMetadataCommand{}, ctx, []string{
 			"-p", "openstack", "-s", "raring", "-r", "region-2",
@@ -237,7 +237,7 @@ func (s *ValidateToolsMetadataSuite) TestMajorVersionMatch(c *gc.C) {
 func (s *ValidateToolsMetadataSuite) TestMajorMinorVersionMatch(c *gc.C) {
 	s.makeLocalMetadata(c, "1.12.1", "region-2", "raring", "some-auth-url")
 	ctx := coretesting.Context(c)
-	metadataDir := config.JujuHomePath("")
+	metadataDir := osenv.JujuHomePath("")
 	code := cmd.Main(
 		&ValidateToolsMetadataCommand{}, ctx, []string{
 			"-p", "openstack", "-s", "raring", "-r", "region-2",
@@ -252,7 +252,7 @@ func (s *ValidateToolsMetadataSuite) TestMajorMinorVersionMatch(c *gc.C) {
 func (s *ValidateToolsMetadataSuite) TestJustDirectory(c *gc.C) {
 	s.makeLocalMetadata(c, version.Current.Number.String(), "region-2", "raring", "some-auth-url")
 	ctx := coretesting.Context(c)
-	metadataDir := config.JujuHomePath("")
+	metadataDir := osenv.JujuHomePath("")
 	code := cmd.Main(
 		&ValidateToolsMetadataCommand{}, ctx, []string{"-s", "raring", "-d", metadataDir},
 	)

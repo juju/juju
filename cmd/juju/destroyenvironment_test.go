@@ -44,6 +44,32 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommand(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
+func (s *destroyEnvSuite) TestDestroyEnvironmentCommandEFlag(c *gc.C) {
+	// Prepare the environment so we can destroy it.
+	_, err := environs.PrepareFromName("dummyenv", s.ConfigStore)
+	c.Assert(err, gc.IsNil)
+
+	// check that either environment or the flag is mandatory
+	opc, errc := runCommand(nullContext(), new(DestroyEnvironmentCommand))
+	c.Check(<-errc, gc.Equals, NoEnvironmentError)
+
+	// We don't allow them to supply both entries at the same time
+	opc, errc = runCommand(nullContext(), new(DestroyEnvironmentCommand), "-e", "dummyenv", "dummyenv", "--yes")
+	c.Check(<-errc, gc.Equals, DoubleEnvironmentError)
+	// We treat --environment the same way
+	opc, errc = runCommand(nullContext(), new(DestroyEnvironmentCommand), "--environment", "dummyenv", "dummyenv", "--yes")
+	c.Check(<-errc, gc.Equals, DoubleEnvironmentError)
+
+	// destroy using the -e flag
+	opc, errc = runCommand(nullContext(), new(DestroyEnvironmentCommand), "-e", "dummyenv", "--yes")
+	c.Check(<-errc, gc.IsNil)
+	c.Check((<-opc).(dummy.OpDestroy).Env, gc.Equals, "dummyenv")
+
+	// Verify that the environment information has been removed.
+	_, err = s.ConfigStore.ReadInfo("dummyenv")
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+}
+
 func (s *destroyEnvSuite) TestDestroyEnvironmentCommandBroken(c *gc.C) {
 	oldinfo, err := s.ConfigStore.ReadInfo("dummyenv")
 	c.Assert(err, gc.IsNil)

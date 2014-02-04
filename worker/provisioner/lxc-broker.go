@@ -4,7 +4,7 @@
 package provisioner
 
 import (
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
@@ -75,6 +75,8 @@ func (broker *lxcBroker) StartInstance(cons constraints.Value, possibleTools too
 		config.AuthorizedKeys,
 		config.SSLHostnameVerification,
 		config.SyslogPort,
+		config.Proxy,
+		config.AptProxy,
 	); err != nil {
 		lxcLogger.Errorf("failed to populate machine config: %v", err)
 		return nil, nil, err

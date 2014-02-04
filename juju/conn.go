@@ -4,11 +4,8 @@
 package juju
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	stderrors "errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -223,12 +220,10 @@ func (conn *Conn) addCharm(curl *charm.URL, ch charm.Charm) (*state.Charm, error
 	default:
 		return nil, fmt.Errorf("unknown charm type %T", ch)
 	}
-	h := sha256.New()
-	size, err := io.Copy(h, f)
+	digest, size, err := utils.ReadSHA256(f)
 	if err != nil {
 		return nil, err
 	}
-	digest := hex.EncodeToString(h.Sum(nil))
 	if _, err := f.Seek(0, 0); err != nil {
 		return nil, err
 	}
@@ -262,9 +257,9 @@ func InitJujuHome() error {
 		return stderrors.New(
 			"cannot determine juju home, required environment variables are not set")
 	}
-	config.SetJujuHome(jujuHome)
-	charm.CacheDir = config.JujuHomePath("charmcache")
-	if err := ssh.LoadClientKeys(config.JujuHomePath("ssh")); err != nil {
+	osenv.SetJujuHome(jujuHome)
+	charm.CacheDir = osenv.JujuHomePath("charmcache")
+	if err := ssh.LoadClientKeys(osenv.JujuHomePath("ssh")); err != nil {
 		return fmt.Errorf("cannot load ssh client keys: %v", err)
 	}
 	return nil

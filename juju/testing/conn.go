@@ -17,7 +17,6 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/juju"
@@ -148,8 +147,12 @@ func (s *JujuConnSuite) OpenAPIAsMachine(c *gc.C, tag, password, nonce string) *
 // OpenAPIAsNewMachine creates a new machine entry that lives in system state,
 // and then uses that to open the API. The returned *api.State should not be
 // closed by the caller as a cleanup function has been registered to do that.
-func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C) (*api.State, *state.Machine) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+// The machine will run the supplied jobs; if none are given, JobHostUnits is assumed.
+func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C, jobs ...state.MachineJob) (*api.State, *state.Machine) {
+	if len(jobs) == 0 {
+		jobs = []state.MachineJob{state.JobHostUnits}
+	}
+	machine, err := s.State.AddMachine("quantal", jobs...)
 	c.Assert(err, gc.IsNil)
 	password, err := utils.RandomPassword()
 	c.Assert(err, gc.IsNil)
@@ -170,8 +173,8 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	err := os.MkdirAll(home, 0777)
 	c.Assert(err, gc.IsNil)
 	osenv.SetHome(home)
-	s.oldJujuHome = config.SetJujuHome(filepath.Join(home, ".juju"))
-	err = os.Mkdir(config.JujuHome(), 0777)
+	s.oldJujuHome = osenv.SetJujuHome(filepath.Join(home, ".juju"))
+	err = os.Mkdir(osenv.JujuHome(), 0777)
 	c.Assert(err, gc.IsNil)
 
 	dataDir := filepath.Join(s.RootDir, "/var/lib/juju")
@@ -180,12 +183,12 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 
 	// TODO(rog) remove these files and add them only when
 	// the tests specifically need them (in cmd/juju for example)
-	s.writeSampleConfig(c, config.JujuHomePath("environments.yaml"))
+	s.writeSampleConfig(c, osenv.JujuHomePath("environments.yaml"))
 
-	err = ioutil.WriteFile(config.JujuHomePath("dummyenv-cert.pem"), []byte(testing.CACert), 0666)
+	err = ioutil.WriteFile(osenv.JujuHomePath("dummyenv-cert.pem"), []byte(testing.CACert), 0666)
 	c.Assert(err, gc.IsNil)
 
-	err = ioutil.WriteFile(config.JujuHomePath("dummyenv-private-key.pem"), []byte(testing.CAKey), 0600)
+	err = ioutil.WriteFile(osenv.JujuHomePath("dummyenv-private-key.pem"), []byte(testing.CAKey), 0600)
 	c.Assert(err, gc.IsNil)
 
 	store, err := configstore.Default()
@@ -249,7 +252,7 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 	s.Conn = nil
 	s.State = nil
 	osenv.SetHome(s.oldHome)
-	config.SetJujuHome(s.oldJujuHome)
+	osenv.SetJujuHome(s.oldJujuHome)
 	s.oldHome = ""
 	s.RootDir = ""
 }
@@ -266,7 +269,7 @@ func (s *JujuConnSuite) WriteConfig(configData string) {
 	if s.RootDir == "" {
 		panic("SetUpTest has not been called; will not overwrite $JUJU_HOME/environments.yaml")
 	}
-	path := config.JujuHomePath("environments.yaml")
+	path := osenv.JujuHomePath("environments.yaml")
 	err := ioutil.WriteFile(path, []byte(configData), 0600)
 	if err != nil {
 		panic(err)
@@ -277,7 +280,7 @@ func (s *JujuConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 	ch := testing.Charms.Dir(name)
 	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
 	curl := charm.MustParseURL("local:quantal/" + ident)
-	repo, err := charm.InferRepository(curl, testing.Charms.Path)
+	repo, err := charm.InferRepository(curl, testing.Charms.Path())
 	c.Assert(err, gc.IsNil)
 	sch, err := s.Conn.PutCharm(curl, repo, false)
 	c.Assert(err, gc.IsNil)

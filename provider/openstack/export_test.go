@@ -311,3 +311,8 @@ func CreateCustomStorage(e environs.Environ, containerName string) storage.Stora
 func GetNovaClient(e environs.Environ) *nova.Client {
 	return e.(*environ).nova()
 }
+
+// ResolveNetwork exposes environ helper function resolveNetwork for testing
+func ResolveNetwork(e environs.Environ, networkName string) (string, error) {
+	return e.(*environ).resolveNetwork(networkName)
+}

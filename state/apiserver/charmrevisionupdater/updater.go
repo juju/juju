@@ -4,7 +4,7 @@
 package charmrevisionupdater
 
 import (
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/log"
@@ -36,7 +36,7 @@ func NewCharmRevisionUpdaterAPI(
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*CharmRevisionUpdaterAPI, error) {
-	if !authorizer.AuthMachineAgent() && !authorizer.AuthStateManager() {
+	if !authorizer.AuthMachineAgent() && !authorizer.AuthEnvironManager() {
 		return nil, common.ErrPerm
 	}
 	return &CharmRevisionUpdaterAPI{

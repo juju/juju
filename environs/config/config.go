@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/charm"
@@ -45,6 +45,19 @@ const (
 	// DefaultSyslogPort is the default port that the syslog UDP listener is
 	// listening on.
 	DefaultSyslogPort int = 514
+
+	// DefaultBootstrapSSHTimeout is the amount of time to wait
+	// contacting a state server, in seconds.
+	DefaultBootstrapSSHTimeout int = 600
+
+	// DefaultBootstrapSSHRetryDelay is the amount of time between
+	// attempts to connect to an address, in seconds.
+	DefaultBootstrapSSHRetryDelay int = 5
+
+	// DefaultBootstrapSSHAddressesDelay is the amount of time between
+	// refreshing the addresses, in seconds. Not too frequent, as we
+	// refresh addresses from the provider each time.
+	DefaultBootstrapSSHAddressesDelay int = 10
 )
 
 // Config holds an immutable environment configuration.
@@ -126,7 +139,7 @@ func (c *Config) ensureUnitLogging() error {
 	// If the logging config hasn't been set, then look for the os environment
 	// variable, and failing that, get the config from loggo itself.
 	if loggingConfig == "" {
-		if environmentValue := os.Getenv(osenv.JujuLoggingConfig); environmentValue != "" {
+		if environmentValue := os.Getenv(osenv.JujuLoggingConfigEnvKey); environmentValue != "" {
 			loggingConfig = environmentValue
 		} else {
 			loggingConfig = loggo.LoggerInfo()
@@ -202,6 +215,10 @@ func (cfg *Config) processDeprecatedAttributes() {
 	// Even if the user has edited their environment yaml to remove the deprecated tools-url value,
 	// we still want it in the config for upgrades.
 	cfg.m["tools-url"], _ = cfg.ToolsURL()
+	// Update the provider type from null to manual.
+	if cfg.Type() == "null" {
+		cfg.m["type"] = "manual"
+	}
 }
 
 // Validate ensures that config is a valid configuration.  If old is not nil,
@@ -332,7 +349,7 @@ func maybeReadAttrFromFile(m map[string]interface{}, attr, defaultPath string) e
 		return err
 	}
 	if !filepath.IsAbs(path) {
-		path = JujuHomePath(path)
+		path = osenv.JujuHomePath(path)
 	}
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -473,6 +490,26 @@ func (c *Config) AptFtpProxy() string {
 	return c.getWithFallback("apt-ftp-proxy", "ftp-proxy")
 }
 
+// BootstrapSSHOpts returns the SSH timeout and retry delays used
+// during bootstrap.
+func (c *Config) BootstrapSSHOpts() SSHTimeoutOpts {
+	opts := SSHTimeoutOpts{
+		Timeout:        time.Duration(DefaultBootstrapSSHTimeout) * time.Second,
+		RetryDelay:     time.Duration(DefaultBootstrapSSHRetryDelay) * time.Second,
+		AddressesDelay: time.Duration(DefaultBootstrapSSHAddressesDelay) * time.Second,
+	}
+	if v, ok := c.m["bootstrap-timeout"].(int); ok && v != 0 {
+		opts.Timeout = time.Duration(v) * time.Second
+	}
+	if v, ok := c.m["bootstrap-retry-delay"].(int); ok && v != 0 {
+		opts.RetryDelay = time.Duration(v) * time.Second
+	}
+	if v, ok := c.m["bootstrap-addresses-delay"].(int); ok && v != 0 {
+		opts.AddressesDelay = time.Duration(v) * time.Second
+	}
+	return opts
+}
+
 // CACert returns the certificate of the CA that signed the state server
 // certificate, in PEM format, and whether the setting is available.
 func (c *Config) CACert() ([]byte, bool) {
@@ -568,6 +605,17 @@ func (c *Config) ProvisionerSafeMode() bool {
 	return v
 }
 
+// ImageStream returns the simplestreams stream
+// used to identify which image ids to search
+// when starting an instance.
+func (c *Config) ImageStream() string {
+	v, ok := c.m["image-stream"].(string)
+	if ok {
+		return v
+	}
+	return "released"
+}
+
 // UnknownAttrs returns a copy of the raw configuration attributes
 // that are supposedly specific to the environment type. They could
 // also be wrong attributes, though. Only the specific environment
@@ -604,6 +652,7 @@ var fields = schema.Fields{
 	"default-series":            schema.String(),
 	"tools-metadata-url":        schema.String(),
 	"image-metadata-url":        schema.String(),
+	"image-stream":              schema.String(),
 	"authorized-keys":           schema.String(),
 	"authorized-keys-path":      schema.String(),
 	"firewall-mode":             schema.String(),
@@ -627,6 +676,9 @@ var fields = schema.Fields{
 	"apt-http-proxy":            schema.String(),
 	"apt-https-proxy":           schema.String(),
 	"apt-ftp-proxy":             schema.String(),
+	"bootstrap-timeout":         schema.ForceInt(),
+	"bootstrap-retry-delay":     schema.ForceInt(),
+	"bootstrap-addresses-delay": schema.ForceInt(),
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url": schema.String(),
@@ -641,20 +693,24 @@ var fields = schema.Fields{
 // but some fields listed as optional here are actually mandatory
 // with NoDefaults and are checked at the later Validate stage.
 var alwaysOptional = schema.Defaults{
-	"agent-version":         schema.Omit,
-	"ca-cert":               schema.Omit,
-	"authorized-keys":       schema.Omit,
-	"authorized-keys-path":  schema.Omit,
-	"ca-cert-path":          schema.Omit,
-	"ca-private-key-path":   schema.Omit,
-	"logging-config":        schema.Omit,
-	"provisioner-safe-mode": schema.Omit,
-	"http-proxy":            schema.Omit,
-	"https-proxy":           schema.Omit,
-	"ftp-proxy":             schema.Omit,
-	"apt-http-proxy":        schema.Omit,
-	"apt-https-proxy":       schema.Omit,
-	"apt-ftp-proxy":         schema.Omit,
+	"agent-version":             schema.Omit,
+	"ca-cert":                   schema.Omit,
+	"authorized-keys":           schema.Omit,
+	"authorized-keys-path":      schema.Omit,
+	"ca-cert-path":              schema.Omit,
+	"ca-private-key-path":       schema.Omit,
+	"logging-config":            schema.Omit,
+	"provisioner-safe-mode":     schema.Omit,
+	"http-proxy":                schema.Omit,
+	"https-proxy":               schema.Omit,
+	"ftp-proxy":                 schema.Omit,
+	"apt-http-proxy":            schema.Omit,
+	"apt-https-proxy":           schema.Omit,
+	"apt-ftp-proxy":             schema.Omit,
+	"image-stream":              schema.Omit,
+	"bootstrap-timeout":         schema.Omit,
+	"bootstrap-retry-delay":     schema.Omit,
+	"bootstrap-addresses-delay": schema.Omit,
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url": "",
@@ -693,6 +749,9 @@ func allDefaults() schema.Defaults {
 		"state-port":                DefaultStatePort,
 		"api-port":                  DefaultAPIPort,
 		"syslog-port":               DefaultSyslogPort,
+		"bootstrap-timeout":         DefaultBootstrapSSHTimeout,
+		"bootstrap-retry-delay":     DefaultBootstrapSSHRetryDelay,
+		"bootstrap-addresses-delay": DefaultBootstrapSSHAddressesDelay,
 	}
 	for attr, val := range alwaysOptional {
 		d[attr] = val
@@ -726,6 +785,9 @@ var immutableAttributes = []string{
 	"state-port",
 	"api-port",
 	"syslog-port",
+	"bootstrap-timeout",
+	"bootstrap-retry-delay",
+	"bootstrap-addresses-delay",
 }
 
 var (
@@ -787,4 +849,42 @@ func AuthorizeCharmRepo(repo charm.Repository, cfg *Config) charm.Repository {
 		}
 	}
 	return repo
+}
+
+// SSHTimeoutOpts lists the amount of time we will wait for various
+// parts of the SSH connection to complete. This is similar to
+// DialOpts, see http://pad.lv/1258889 about possibly deduplicating
+// them.
+type SSHTimeoutOpts struct {
+	// Timeout is the amount of time to wait contacting a state
+	// server.
+	Timeout time.Duration
+
+	// RetryDelay is the amount of time between attempts to connect to
+	// an address.
+	RetryDelay time.Duration
+
+	// AddressesDelay is the amount of time between refreshing the
+	// addresses.
+	AddressesDelay time.Duration
+}
+
+// ProxyConfigMap returns a map suitable to be applied to a Config to update
+// proxy settings.
+func ProxyConfigMap(proxy osenv.ProxySettings) map[string]interface{} {
+	return map[string]interface{}{
+		"http-proxy":  proxy.Http,
+		"https-proxy": proxy.Https,
+		"ftp-proxy":   proxy.Ftp,
+	}
+}
+
+// AptProxyConfigMap returns a map suitable to be applied to a Config to update
+// proxy settings.
+func AptProxyConfigMap(proxy osenv.ProxySettings) map[string]interface{} {
+	return map[string]interface{}{
+		"apt-http-proxy":  proxy.Http,
+		"apt-https-proxy": proxy.Https,
+		"apt-ftp-proxy":   proxy.Ftp,
+	}
 }

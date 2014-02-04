@@ -98,7 +98,7 @@ type keySuiteBase struct {
 
 func (s *keySuiteBase) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
-	s.PatchEnvironment(osenv.JujuEnv, "dummyenv")
+	s.PatchEnvironment(osenv.JujuEnvEnvKey, "dummyenv")
 }
 
 func (s *keySuiteBase) setAuthorisedKeys(c *gc.C, keys ...string) {

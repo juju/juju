@@ -332,6 +332,48 @@ func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	c.Assert(hc.CpuPower, gc.IsNil)
 }
 
+func (s *localServerSuite) TestStartInstanceNetwork(c *gc.C) {
+	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
+		// A label that corresponds to a nova test service network
+		"network": "net",
+	}))
+	c.Assert(err, gc.IsNil)
+	env, err := environs.New(cfg)
+	c.Assert(err, gc.IsNil)
+	inst, _ := testing.AssertStartInstance(c, env, "100")
+	err = env.StopInstances([]instance.Instance{inst})
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *localServerSuite) TestStartInstanceNetworkUnknownLabel(c *gc.C) {
+	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
+		// A label that has no related network in the nova test service
+		"network": "no-network-with-this-label",
+	}))
+	c.Assert(err, gc.IsNil)
+	env, err := environs.New(cfg)
+	c.Assert(err, gc.IsNil)
+	inst, _, err := testing.StartInstance(env, "100")
+	c.Check(inst, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "No networks exist with label .*")
+}
+
+func (s *localServerSuite) TestStartInstanceNetworkUnknownId(c *gc.C) {
+	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
+		// A valid UUID but no related network in the nova test service
+		"network": "f81d4fae-7dec-11d0-a765-00a0c91e6bf6",
+	}))
+	c.Assert(err, gc.IsNil)
+	env, err := environs.New(cfg)
+	c.Assert(err, gc.IsNil)
+	inst, _, err := testing.StartInstance(env, "100")
+	c.Check(inst, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "cannot run instance: (\\n|.)*"+
+		"caused by: "+
+		"request \\(.*/servers\\) returned unexpected status: "+
+		"404; error info: .*itemNotFound.*")
+}
+
 var instanceGathering = []struct {
 	ids []instance.Id
 	err error
@@ -506,8 +548,16 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	// ec2 tests).
 }
 
-func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
-	env := s.Open(c)
+func (s *localServerSuite) assertGetImageMetadataSources(c *gc.C, stream, officialSourcePath string) {
+	// Create a config that matches s.TestConfig but with the specified stream.
+	envAttrs := s.TestConfig
+	if stream != "" {
+		envAttrs = envAttrs.Merge(coretesting.Attrs{"image-stream": stream})
+	}
+	cfg, err := config.New(config.NoDefaults, envAttrs)
+	c.Assert(err, gc.IsNil)
+	env, err := environs.New(cfg)
+	c.Assert(err, gc.IsNil)
 	sources, err := imagemetadata.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(sources, gc.HasLen, 4)
@@ -523,7 +573,13 @@ func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
 	c.Check(strings.Contains(urls[1], openstack.ControlBucketName(env)+"/images"), jc.IsTrue)
 	// The product-streams URL ends with "/imagemetadata".
 	c.Check(strings.HasSuffix(urls[2], "/imagemetadata/"), jc.IsTrue)
-	c.Assert(urls[3], gc.Equals, imagemetadata.DefaultBaseURL+"/")
+	c.Assert(urls[3], gc.Equals, fmt.Sprintf("http://cloud-images.ubuntu.com/%s/", officialSourcePath))
+}
+
+func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
+	s.assertGetImageMetadataSources(c, "", "releases")
+	s.assertGetImageMetadataSources(c, "released", "releases")
+	s.assertGetImageMetadataSources(c, "daily", "daily")
 }
 
 func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
@@ -939,3 +995,31 @@ func (s *localServerSuite) TestAllInstancesIgnoresOtherMachines(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Check(insts, gc.HasLen, 1)
 }
+
+func (s *localServerSuite) TestResolveNetworkUUID(c *gc.C) {
+	env := s.Prepare(c)
+	var sampleUUID = "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
+	networkId, err := openstack.ResolveNetwork(env, sampleUUID)
+	c.Assert(err, gc.IsNil)
+	c.Assert(networkId, gc.Equals, sampleUUID)
+}
+
+func (s *localServerSuite) TestResolveNetworkLabel(c *gc.C) {
+	env := s.Prepare(c)
+	// For now this test has to cheat and use knowledge of goose internals
+	var networkLabel = "net"
+	var expectNetworkId = "1"
+	networkId, err := openstack.ResolveNetwork(env, networkLabel)
+	c.Assert(err, gc.IsNil)
+	c.Assert(networkId, gc.Equals, expectNetworkId)
+}
+
+func (s *localServerSuite) TestResolveNetworkNotPresent(c *gc.C) {
+	env := s.Prepare(c)
+	var notPresentNetwork = "no-network-with-this-label"
+	networkId, err := openstack.ResolveNetwork(env, notPresentNetwork)
+	c.Check(networkId, gc.Equals, "")
+	c.Assert(err, gc.ErrorMatches, `No networks exist with label "no-network-with-this-label"`)
+}
+
+// TODO(gz): TestResolveNetworkMultipleMatching when can inject new networks
