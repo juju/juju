@@ -140,8 +140,8 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	return err
 }
 
-// wrap just returns a function that returns the given worker and a nil error to
-// make it easier to pass plain workers to a.runner.StartWorker.
+// newStateStarterWorker wraps stateStarter in a simple worker for use in
+// a.runner.StartWorker.
 func (a *MachineAgent) newStateStarterWorker() (worker.Worker, error) {
 	return worker.NewSimpleWorker(a.stateStarter), nil
 }
