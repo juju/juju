@@ -10,17 +10,6 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.peergrouper")
 
-// machine represents a machine in State.
-type machine struct {
-	id        string
-	wantsVote bool
-	hostPort  string
-
-//	worker *worker
-//	stm *state.Machine
-//	machineWatcher *state.NotifyWatcher
-}
-
 // peerGroupInfo holds information that may contribute to
 // a peer group.
 type peerGroupInfo struct {
