@@ -116,6 +116,10 @@ func (st *State) Ping() error {
 	return st.db.Session.Ping()
 }
 
+// MongoSession returns the underlying mongodb session
+// used by the state. It is exposed so that external code
+// can maintain the mongo replica set and should not
+// otherwise be used.
 func (st *State) MongoSession() *mgo.Session {
 	return st.db.Session
 }

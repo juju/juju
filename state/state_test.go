@@ -61,7 +61,8 @@ func (s *StateSuite) TestDialAgain(c *gc.C) {
 }
 
 func (s *StateSuite) TestMongoSession(c *gc.C) {
-	c.Assert(s.State.MongoSession(), gc.Not(gc.IsNil))
+	session := s.State.MongoSession()
+	c.Assert(session.Ping(), gc.IsNil)
 }
 
 func (s *StateSuite) TestAddresses(c *gc.C) {
