@@ -8,13 +8,14 @@ import (
 	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/replicaset"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
 func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
+	coretesting.MgoTestPackage(t)
 }
 
 type desiredPeerGroupSuite struct {

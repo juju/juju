@@ -17,6 +17,8 @@ import (
 	"launchpad.net/juju-core/worker"
 )
 
+var replicasetSet = replicaset.Set
+
 // notifyFunc holds a function that is sent
 // to the main worker loop to fetch new information
 // when something changes. It reports whether
@@ -202,7 +204,7 @@ func (w *pgWorker) setReplicaSet(members []replicaset.Member, voting map[*machin
 	if err := setHasVote(added, true); err != nil {
 		return err
 	}
-	if err := replicaset.Set(w.st.MongoSession(), members); err != nil {
+	if err := replicasetSet(w.st.MongoSession(), members); err != nil {
 		// We've failed to set the replica set, so revert back
 		// to the previous settings.
 		if err1 := setHasVote(added, false); err1 != nil {
