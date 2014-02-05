@@ -95,9 +95,6 @@ func (w *pgWorker) loop() error {
 	}
 	w.mongoPort = cfg.StatePort()
 
-	info := &peerGroupInfo{
-		machines: w.machines,
-	}
 	timer := time.NewTimer(0)
 	timer.Stop()
 
@@ -223,7 +220,7 @@ func (w *pgWorker) setReplicaSet(members []replicaset.Member, voting map[*machin
 // machines to hasVote.
 func setHasVote(ms []*machine, hasVote bool) error {
 	for _, m := range ms {
-		if err := m.SetHasVote(hasVote); err != nil {
+		if err := m.stm.SetHasVote(hasVote); err != nil {
 			return err
 		}
 	}

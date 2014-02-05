@@ -149,7 +149,7 @@ var desiredPeerGroupTests = []struct {
 func (*desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 	for i, test := range desiredPeerGroupTests {
 		c.Logf("\ntest %d: %s", i, test.about)
-		machineMap := make(map[string] *machine)
+		machineMap := make(map[string]*machine)
 		for _, m := range test.machines {
 			c.Assert(machineMap[m.id], gc.IsNil)
 			machineMap[m.id] = m
