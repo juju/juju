@@ -164,7 +164,7 @@ func uint64p(v uint64) *uint64 {
 	return &v
 }
 
-func (s *BootstrapSuite) TestMachinerWorkers(c *gc.C) {
+func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 	_, cmd, err := s.initBootstrapCommand(c, "--env-config", testConfig)
 	c.Assert(err, gc.IsNil)
 	err = cmd.Run(nil)
@@ -182,6 +182,29 @@ func (s *BootstrapSuite) TestMachinerWorkers(c *gc.C) {
 	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{
 		state.JobManageEnviron, state.JobHostUnits,
 	})
+}
+
+func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
+	agentConf, cmd, err := s.initBootstrapCommand(c, "--env-config", testConfig)
+	c.Assert(err, gc.IsNil)
+	bootstrapJobs, err := agent.MarshalBootstrapJobs(state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
+	agentConf.SetValue(agent.BootstrapJobs, bootstrapJobs)
+	err = agentConf.Write()
+	c.Assert(err, gc.IsNil)
+	err = cmd.Run(nil)
+	c.Assert(err, gc.IsNil)
+
+	st, err := state.Open(&state.Info{
+		Addrs:    []string{testing.MgoServer.Addr()},
+		CACert:   []byte(testing.CACert),
+		Password: testPasswordHash(),
+	}, state.DefaultDialOpts())
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+	m, err := st.Machine("0")
+	c.Assert(err, gc.IsNil)
+	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageEnviron})
 }
 
 func testOpenState(c *gc.C, info *state.Info, expectErrType error) {
