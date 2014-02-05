@@ -10,11 +10,22 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.peergrouper")
 
+// machine represents a machine in State.
+type machine struct {
+	id        string
+	wantsVote bool
+	hostPort  string
+
+//	worker *worker
+//	stm *state.Machine
+//	machineWatcher *state.NotifyWatcher
+}
+
 // peerGroupInfo holds information that may contribute to
 // a peer group.
 type peerGroupInfo struct {
-	machines []*machine // possibly map[id] *machine
-	statuses []replicaset.Status
+	machines map[string]*machine // id -> machine
+	statuses []replicaset.MemberStatus
 	members  []replicaset.Member
 }
 
@@ -40,8 +51,7 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, map[*machine]bo
 	// but make sure the extras aren't eligible to
 	// be primary.
 	// 3) remove them "get rid of bad rubbish"
-	// 4) bomb out "run in circles, scream and shout"
-	// 5) do nothing "nothing to see here"
+	// 4) do nothing "nothing to see here"
 	for _, member := range extra {
 		if member.Votes == nil || *member.Votes > 0 {
 			return nil, nil, fmt.Errorf("voting non-machine member found in peer group")
@@ -128,7 +138,7 @@ func possiblePeerGroupChanges(
 
 // updateAddresses updates the members' addresses from the machines' addresses.
 // It reports whether any changes have been made.
-func updateAddresses(members map[*machine]*replicaset.Member, machines []*machine) bool {
+func updateAddresses(members map[*machine]*replicaset.Member, machines map[string]*machine) bool {
 	changed := false
 	// Make sure all members' machine addresses are up to date.
 	for _, m := range machines {
@@ -206,7 +216,7 @@ func addNewMembers(
 	}
 }
 
-func isReady(status replicaset.Status) bool {
+func isReady(status replicaset.MemberStatus) bool {
 	return status.Healthy && (status.State == replicaset.PrimaryState ||
 		status.State == replicaset.SecondaryState)
 }
@@ -238,14 +248,10 @@ func (info *peerGroupInfo) membersMap() (members map[*machine]*replicaset.Member
 	members = make(map[*machine]*replicaset.Member)
 	for _, member := range info.members {
 		member := member
+		mid, ok := member.Tags["juju-machine-id"]
 		var found *machine
-		if mid, ok := member.Tags["juju-machine-id"]; ok {
-			for _, m := range info.machines {
-				if m.id == mid {
-					found = m
-					break
-				}
-			}
+		if ok {
+			found = info.machines[mid]
 		}
 		if found != nil {
 			members[found] = &member
@@ -262,8 +268,8 @@ func (info *peerGroupInfo) membersMap() (members map[*machine]*replicaset.Member
 // statusesMap returns the statuses inside info keyed by machine.
 // The provided members map holds the members keyed by machine,
 // as returned by membersMap.
-func (info *peerGroupInfo) statusesMap(members map[*machine]*replicaset.Member) map[*machine]replicaset.Status {
-	statuses := make(map[*machine]replicaset.Status)
+func (info *peerGroupInfo) statusesMap(members map[*machine]*replicaset.Member) map[*machine]replicaset.MemberStatus {
+	statuses := make(map[*machine]replicaset.MemberStatus)
 	for _, status := range info.statuses {
 		for m, member := range members {
 			if member.Id == status.Id {

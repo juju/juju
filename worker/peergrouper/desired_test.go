@@ -28,7 +28,7 @@ const mongoPort = 1234
 var desiredPeerGroupTests = []struct {
 	about    string
 	machines []*machine
-	statuses []replicaset.Status
+	statuses []replicaset.MemberStatus
 	members  []replicaset.Member
 
 	expectMembers []replicaset.Member
@@ -149,8 +149,13 @@ var desiredPeerGroupTests = []struct {
 func (*desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 	for i, test := range desiredPeerGroupTests {
 		c.Logf("\ntest %d: %s", i, test.about)
+		machineMap := make(map[string] *machine)
+		for _, m := range test.machines {
+			c.Assert(machineMap[m.id], gc.IsNil)
+			machineMap[m.id] = m
+		}
 		info := &peerGroupInfo{
-			machines: test.machines,
+			machines: machineMap,
 			statuses: test.statuses,
 			members:  test.members,
 		}
@@ -165,7 +170,7 @@ func (*desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 		if len(members) == 0 {
 			continue
 		}
-		for i, m := range info.machines {
+		for i, m := range test.machines {
 			c.Assert(voting[m], gc.Equals, test.expectVoting[i], gc.Commentf("machine %s", m.id))
 		}
 		// Assure ourselves that the total number of desired votes is odd in
@@ -268,12 +273,12 @@ var stateFlags = map[rune]replicaset.MemberState{
 // 	- 'H' if the instance is not healthy.
 //	- 'p' if the instance is in PrimaryState
 //	- 's' if the instance is in SecondaryState
-func mkStatuses(description string) []replicaset.Status {
+func mkStatuses(description string) []replicaset.MemberStatus {
 	descrs := parseDescr(description)
-	ss := make([]replicaset.Status, len(descrs))
+	ss := make([]replicaset.MemberStatus, len(descrs))
 	for i, d := range descrs {
 		machineId := d.id + 10
-		s := replicaset.Status{
+		s := replicaset.MemberStatus{
 			Id:      d.id,
 			Address: fmt.Sprintf("0.1.2.%d:%d", machineId, mongoPort),
 			Healthy: !strings.Contains(d.flags, "H"),
