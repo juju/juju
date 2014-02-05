@@ -1650,6 +1650,37 @@ func (s *StateSuite) TestWatchMachineHardwareCharacteristics(c *gc.C) {
 	wc.AssertNoChange()
 }
 
+func (s *StateSuite) TestWatchStateServerInfo(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
+
+	w := s.State.WatchStateServerInfo()
+	defer statetesting.AssertStop(c, w)
+
+	// Initial event.
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+
+	info, err := s.State.StateServerInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(info, jc.DeepEquals, &state.StateServerInfo{
+		MachineIds:       []string{"0"},
+		VotingMachineIds: []string{"0"},
+	})
+
+	err = s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	c.Assert(err, gc.IsNil)
+
+	wc.AssertOneChange()
+
+	info, err = s.State.StateServerInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(info, jc.DeepEquals, &state.StateServerInfo{
+		MachineIds:       []string{"0", "1", "2"},
+		VotingMachineIds: []string{"0", "1", "2"},
+	})
+}
+
 type attrs map[string]interface{}
 
 func (s *StateSuite) TestWatchEnvironConfig(c *gc.C) {
