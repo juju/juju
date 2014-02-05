@@ -61,8 +61,8 @@ func (v *Value) Get() (val interface{}, ok bool) {
 	return v.val, true
 }
 
-// Watcher returns a Watcher that can be used to watch for changes to the value.
-func (v *Value) Watcher() *Watcher {
+// Watch returns a Watcher that can be used to watch for changes to the value.
+func (v *Value) Watch() *Watcher {
 	return &Watcher{value: v}
 }
 
@@ -71,11 +71,12 @@ type Watcher struct {
 	value   *Value
 	version int
 	current interface{}
+	closed bool
 }
 
 // Next blocks until there is a new value to be retrieved from the value that is
-// being watched. It also unblocks when the value is closed. Next returns
-// whether the value has been closed.
+// being watched. It also unblocks when the value or the Watcher itself is closed.
+// Next reports whether the value or the Watcher itself has been closed.
 func (w *Watcher) Next() bool {
 	w.value.mu.RLock()
 	defer w.value.mu.RUnlock()
@@ -87,7 +88,7 @@ func (w *Watcher) Next() bool {
 			w.current = w.value.val
 			return true
 		}
-		if w.value.closed {
+		if w.value.closed || w.closed {
 			return false
 		}
 
@@ -95,6 +96,15 @@ func (w *Watcher) Next() bool {
 		// and then reacquires the lock, thus avoiding a deadlock.
 		w.value.wait.Wait()
 	}
+}
+
+// Close closes the Watcher without closing the underlying
+// value. It may be called concurrently with Next.
+func (w *Watcher) Close() {
+	w.value.mu.Lock()
+	w.closed = true
+	w.value.mu.Unlock()
+	w.value.wait.Broadcast()
 }
 
 // Value returns the last value that was retrieved from the watched Value.

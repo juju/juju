@@ -130,7 +130,7 @@ func (*suite) TestNewAgentConfig(c *gc.C) {
 func (*suite) TestNewStateMachineConfig(c *gc.C) {
 	type testStruct struct {
 		about    string
-		params   agent.StateMachineConfigParams
+		params   agent.AgentConfigParams
 		checkErr string
 	}
 	var tests = []testStruct{{
@@ -138,20 +138,20 @@ func (*suite) TestNewStateMachineConfig(c *gc.C) {
 		checkErr: "state server cert not found in configuration",
 	}, {
 		about: "missing state server key",
-		params: agent.StateMachineConfigParams{
+		params: agent.AgentConfigParams{
 			StateServerCert: []byte("server cert"),
 		},
 		checkErr: "state server key not found in configuration",
 	}}
 
 	for _, test := range agentConfigTests {
+		p := test.params
+		p.StateServerCert = []byte("server cert")
+		p.StateServerKey = []byte("server key")
+
 		tests = append(tests, testStruct{
-			about: test.about,
-			params: agent.StateMachineConfigParams{
-				StateServerCert:   []byte("server cert"),
-				StateServerKey:    []byte("server key"),
-				AgentConfigParams: test.params,
-			},
+			about:    test.about,
+			params:   p,
 			checkErr: test.checkErr,
 		})
 	}

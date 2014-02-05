@@ -150,13 +150,18 @@ func (a *MachineAgent) newStateStarterWorker() (worker.Worker, error) {
 // stops the state worker as appropriate.  It will stop working as soon as
 // stopch is closed.
 func (a *MachineAgent) stateStarter(stopch <-chan struct{}) error {
-	confWatch := a.watchAgentConfig()
+	confWatch := a.configVal.Watch()
+	defer confWatch.Close()
+	watchCh := make(chan agent.Config)
+	go func() {
+		for confWatch.Next() {
+			v, _ := confWatch.Value().(agent.Config)
+			watchCh <- v
+		}
+	}()
 	for {
 		select {
-		case conf, ok := <-confWatch:
-			if !ok {
-				return nil
-			}
+		case conf := <-watchCh:
 			// N.B. StartWorker and StopWorker are idempotent.
 			if conf.StateManager() {
 				a.runner.StartWorker("state", func() (worker.Worker, error) {
@@ -164,7 +169,6 @@ func (a *MachineAgent) stateStarter(stopch <-chan struct{}) error {
 				})
 			} else {
 				a.runner.StopWorker("state")
-				return nil
 			}
 		case <-stopch:
 			return nil
@@ -185,7 +189,6 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	reportOpenedAPI(st)
 	for _, job := range entity.Jobs() {
 		if job.NeedsState() {
-			agentConfig.SetStateManager(true)
 			a.setAgentConfig(agentConfig)
 			break
 		}
@@ -483,17 +486,4 @@ func (a *MachineAgent) agentConfig() agent.Config {
 	val, _ := a.configVal.Get()
 	conf, _ := val.(agent.Config)
 	return conf
-}
-
-func (a *MachineAgent) watchAgentConfig() <-chan agent.Config {
-	w := a.configVal.Watcher()
-	out := make(chan agent.Config)
-	go func() {
-		defer close(out)
-		for w.Next() {
-			v, _ := w.Value().(agent.Config)
-			out <- v
-		}
-	}()
-	return out
 }

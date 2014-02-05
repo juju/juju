@@ -433,13 +433,13 @@ func (cfg *MachineConfig) agentConfig(tag string) (agent.Config, error) {
 	if !cfg.StateServer {
 		return agent.NewAgentConfig(configParams)
 	}
-	return agent.NewStateMachineConfig(agent.StateMachineConfigParams{
-		AgentConfigParams: configParams,
-		StateServerCert:   cfg.StateServerCert,
-		StateServerKey:    cfg.StateServerKey,
-		StatePort:         cfg.StatePort,
-		APIPort:           cfg.APIPort,
-	})
+
+	configParams.StateServerCert = cfg.StateServerCert
+	configParams.StateServerKey = cfg.StateServerKey
+	configParams.StatePort = cfg.StatePort
+	configParams.APIPort = cfg.APIPort
+
+	return agent.NewStateMachineConfig(configParams)
 }
 
 // addAgentInfo adds agent-required information to the agent's directory

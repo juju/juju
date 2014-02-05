@@ -95,7 +95,8 @@ type Config interface {
 	// SetValue updates the value for the specified key.
 	SetValue(key, value string)
 
-	SetStateManager(b bool)
+	// StateManager reports if this config is for a machine that should manage
+	// state.
 	StateManager() bool
 
 	Clone() Config
@@ -137,7 +138,6 @@ type configInternal struct {
 	stateServerCert []byte
 	stateServerKey  []byte
 	apiPort         int
-	isStateManager  bool
 	values          map[string]string
 }
 
@@ -150,6 +150,12 @@ type AgentConfigParams struct {
 	APIAddresses   []string
 	CACert         []byte
 	Values         map[string]string
+
+	// These are only used by agents that are going to be managing state.
+	StateServerCert []byte
+	StateServerKey  []byte
+	StatePort       int
+	APIPort         int
 }
 
 // NewAgentConfig returns a new config object suitable for use for a
@@ -196,24 +202,16 @@ func NewAgentConfig(params AgentConfigParams) (Config, error) {
 	return config, nil
 }
 
-type StateMachineConfigParams struct {
-	AgentConfigParams
-	StateServerCert []byte
-	StateServerKey  []byte
-	StatePort       int
-	APIPort         int
-}
-
 // NewStateMachineConfig returns a configuration suitable for
 // a machine running the state server.
-func NewStateMachineConfig(params StateMachineConfigParams) (Config, error) {
+func NewStateMachineConfig(params AgentConfigParams) (Config, error) {
 	if params.StateServerCert == nil {
 		return nil, requiredError("state server cert")
 	}
 	if params.StateServerKey == nil {
 		return nil, requiredError("state server key")
 	}
-	config0, err := NewAgentConfig(params.AgentConfigParams)
+	config0, err := NewAgentConfig(params)
 	if err != nil {
 		return nil, err
 	}
@@ -328,11 +326,7 @@ func (c *configInternal) Dir() string {
 }
 
 func (c *configInternal) StateManager() bool {
-	return c.isStateManager
-}
-
-func (c *configInternal) SetStateManager(b bool) {
-	c.isStateManager = b
+	return c.caCert != nil
 }
 
 func (c *configInternal) Clone() Config {

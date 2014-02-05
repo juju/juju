@@ -79,13 +79,11 @@ func (s *format_1_16Suite) TestWriteCommands(c *gc.C) {
 }
 
 func (s *format_1_16Suite) TestReadWriteStateConfig(c *gc.C) {
-	stateParams := StateMachineConfigParams{
-		AgentConfigParams: agentParams,
-		StateServerCert:   []byte("some special cert"),
-		StateServerKey:    []byte("a special key"),
-		StatePort:         12345,
-		APIPort:           23456,
-	}
+	stateParams := agentParams
+	stateParams.StateServerCert = []byte("some special cert")
+	stateParams.StateServerKey = []byte("a special key")
+	stateParams.StatePort = 12345
+	stateParams.APIPort = 23456
 	stateParams.DataDir = c.MkDir()
 	stateParams.Values = map[string]string{"foo": "bar", "wibble": "wobble"}
 	configInterface, err := NewStateMachineConfig(stateParams)

@@ -49,9 +49,9 @@ func (s *format_1_12Suite) assertWriteAndRead(c *gc.C, config *configInternal) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(readConfig.dataDir, gc.Equals, "")
 	// This is put in by the ReadConf method that we are avoiding using
-	// becuase it will have side-effects soon around migrating configs.
+	// because it will have side-effects soon around migrating configs.
 	readConfig.dataDir = config.dataDir
-	c.Assert(readConfig, gc.DeepEquals, config)
+	c.Assert(readConfig, jc.DeepEquals, config)
 }
 
 func (s *format_1_12Suite) TestRead(c *gc.C) {
@@ -70,13 +70,12 @@ func (s *format_1_12Suite) TestWriteCommands(c *gc.C) {
 }
 
 func (s *format_1_12Suite) TestReadWriteStateConfig(c *gc.C) {
-	stateParams := StateMachineConfigParams{
-		AgentConfigParams: agentParams,
-		StateServerCert:   []byte("some special cert"),
-		StateServerKey:    []byte("a special key"),
-		StatePort:         12345,
-		APIPort:           23456,
-	}
+	stateParams := agentParams
+	stateParams.StateServerCert = []byte("some special cert")
+	stateParams.StateServerKey = []byte("a special key")
+	stateParams.StatePort = 12345
+	stateParams.APIPort = 23456
+
 	stateParams.DataDir = c.MkDir()
 	configInterface, err := NewStateMachineConfig(stateParams)
 	c.Assert(err, gc.IsNil)
