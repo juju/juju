@@ -60,6 +60,10 @@ func (s *StateSuite) TestDialAgain(c *gc.C) {
 	}
 }
 
+func (s *StateSuite) TestMongoSession(c *gc.C) {
+	c.Assert(s.State.MongoSession(), gc.Not(gc.IsNil))
+}
+
 func (s *StateSuite) TestAddresses(c *gc.C) {
 	var err error
 	machines := make([]*state.Machine, 4)

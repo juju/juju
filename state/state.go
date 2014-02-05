@@ -116,6 +116,10 @@ func (st *State) Ping() error {
 	return st.db.Session.Ping()
 }
 
+func (st *State) MongoSession() *mgo.Session {
+	return st.db.Session
+}
+
 func (st *State) Watch() *multiwatcher.Watcher {
 	st.mu.Lock()
 	if st.allManager == nil {
