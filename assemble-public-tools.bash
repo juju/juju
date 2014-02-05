@@ -212,7 +212,8 @@ generate_streams() {
     JUJU_HOME=$JUJU_DIR PATH=$JUJU_BIN_PATH:$PATH \
         $JUJU_EXEC metadata generate-tools -d ${DEST_DIST}
     # Support old tools location so that deployments can upgrade to new tools.
-    if [[ $IS_TESTING == "false" ]]; then
+    tgzs=$(ls ${DEST_DIST}/tools/releases/juju-1.16*tgz)
+    if [[ $IS_TESTING == "false" || -n $tgzs ]]; then
         cp ${DEST_DIST}/tools/releases/juju-1.16*tgz ${DEST_DIST}/tools
     fi
     echo "The tools are in ${DEST_DIST}."
