@@ -264,10 +264,10 @@ func (s *MachineSuite) TestCannotDestroyMachineWithVote(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	err = s.machine.Destroy()
-	c.Assert(err, gc.ErrorMatches, "machine [0-9]+ is a voting replica set member")
+	c.Assert(err, gc.ErrorMatches, "machine "+s.machine.Id()+" is a voting replica set member")
 
 	err = m.Destroy()
-	c.Assert(err, gc.ErrorMatches, "machine [0-9]+ is a voting replica set member")
+	c.Assert(err, gc.ErrorMatches, "machine "+s.machine.Id()+" is a voting replica set member")
 }
 
 func (s *MachineSuite) TestRemoveAbort(c *gc.C) {
