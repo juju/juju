@@ -189,6 +189,7 @@ extract_new_juju() {
     fi
     dpkg-deb -x $juju_core $JUJU_PATH/
     JUJU_EXEC=$(find $JUJU_PATH -name 'juju' | grep bin/juju)
+    JUJU_BIN_PATH=$(dirname $JUJU_EXEC)
 }
 
 
@@ -201,13 +202,15 @@ generate_streams() {
         extract_new_juju
     else
         JUJU_EXEC=$(which juju)
+        JUJU_BIN_PATH=""
     fi
     juju_version=$($JUJU_EXEC --version)
     echo "Using juju: $juju_version"
     mkdir -p ${DEST_DIST}/tools/streams/v1
     mkdir -p ${DEST_DIST}/tools/releases
     cp $DEST_TOOLS/*tgz ${DEST_DIST}/tools/releases
-    JUJU_HOME=$JUJU_DIR $JUJU_EXEC metadata generate-tools -d ${DEST_DIST}
+    JUJU_HOME=$JUJU_DIR PATH=$JUJU_BIN_PATH:$PATH \
+        $JUJU_EXEC metadata generate-tools -d ${DEST_DIST}
     # Support old tools location so that deployments can upgrade to new tools.
     if [[ $IS_TESTING == "false" ]]; then
         cp ${DEST_DIST}/tools/releases/juju-1.16*tgz ${DEST_DIST}/tools
