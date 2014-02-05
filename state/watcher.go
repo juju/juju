@@ -1059,6 +1059,10 @@ func (m *Machine) WatchHardwareCharacteristics() NotifyWatcher {
 	return newEntityWatcher(m.st, m.st.instanceData, m.doc.Id)
 }
 
+func (st *State) WatchStateServerInfo() NotifyWatcher {
+	return newEntityWatcher(st, st.stateServers, environGlobalKey)
+}
+
 // Watch returns a watcher for observing changes to a machine.
 func (m *Machine) Watch() NotifyWatcher {
 	return newEntityWatcher(m.st, m.st.machines, m.doc.Id)
