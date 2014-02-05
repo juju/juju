@@ -27,11 +27,10 @@ check_deps() {
     has_deps=1
     which lftp || has_deps=0
     which s3cmd || has_deps=0
-    which go || has_deps=0
     test -f $JUJU_DIR/s3cfg || has_deps=0
     test -f $JUJU_DIR/environments.yaml || has_deps=0
     if [[ $has_deps == 0 ]]; then
-        echo "Install golang, lftp, s3cmd, then configure s3cmd."
+        echo "Install lftp, s3cmd, then configure s3cmd."
         exit 2
     fi
 }
@@ -200,6 +199,8 @@ generate_streams() {
     cd $DESTINATION
     if [[ $RELEASE != "IGNORE" ]]; then
         extract_new_juju
+    else
+        JUJU_EXEC=$(which juju)
     fi
     juju_version=$($JUJU_EXEC --version)
     echo "Using juju: $juju_version"
@@ -342,7 +343,6 @@ fi
 PACKAGES=""
 WORK=$(mktemp -d)
 JUJU_PATH=$(mktemp -d)
-JUJU_EXEC=$(which juju)
 ARCH=$(dpkg --print-architecture)
 source /etc/lsb-release
 
