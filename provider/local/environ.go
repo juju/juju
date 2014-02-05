@@ -48,12 +48,11 @@ var _ environs.Environ = (*localEnviron)(nil)
 var _ envtools.SupportsCustomSources = (*localEnviron)(nil)
 
 type localEnviron struct {
-	localMutex            sync.Mutex
-	config                *environConfig
-	name                  string
-	sharedStorageListener net.Listener
-	storageListener       net.Listener
-	containerManager      container.Manager
+	localMutex       sync.Mutex
+	config           *environConfig
+	name             string
+	storageListener  net.Listener
+	containerManager container.Manager
 }
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
@@ -138,11 +137,9 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 	mcfg.MachineAgentServiceName = env.machineAgentServiceName()
 	mcfg.MongoServiceName = env.mongoServiceName()
 	mcfg.AgentEnvironment = map[string]string{
-		agent.Namespace:         env.config.namespace(),
-		agent.StorageDir:        env.config.storageDir(),
-		agent.StorageAddr:       env.config.storageAddr(),
-		agent.SharedStorageDir:  env.config.sharedStorageDir(),
-		agent.SharedStorageAddr: env.config.sharedStorageAddr(),
+		agent.Namespace:   env.config.namespace(),
+		agent.StorageDir:  env.config.storageDir(),
+		agent.StorageAddr: env.config.storageAddr(),
 	}
 	if err := environs.FinishMachineConfig(mcfg, env.Config(), cons); err != nil {
 		return err
@@ -286,8 +283,8 @@ func (env *localEnviron) bootstrapAddressAndStorage(cfg *config.Config) error {
 
 // setupLocalStorage looks to see if there is someone listening on the storage
 // address port.  If there is we assume that it is ours and all is good.  If
-// there is no one listening on that port, create listeners for both storage
-// and the shared storage for the duration of the commands execution.
+// there is no one listening on that port, create listeners for storage
+// for the duration of the commands execution.
 func (env *localEnviron) setupLocalStorage() error {
 	// Try to listen to the storageAddress.
 	logger.Debugf("checking %s to see if machine agent running storage listener", env.config.storageAddr())
@@ -298,10 +295,6 @@ func (env *localEnviron) setupLocalStorage() error {
 		// referenced for the duration of the open environment.  This is only for
 		// environs that have been created due to a user command.
 		env.storageListener, err = createLocalStorageListener(env.config.storageDir(), env.config.storageAddr())
-		if err != nil {
-			return err
-		}
-		env.sharedStorageListener, err = createLocalStorageListener(env.config.sharedStorageDir(), env.config.sharedStorageAddr())
 		if err != nil {
 			return err
 		}
