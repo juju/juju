@@ -20,9 +20,81 @@ func (s *workerSuite) TestStartStop(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-//how can we test that it works for real?
-//
-//we can check that replicaset.Set is called with the expected
-//arguments, but the we have a single port for all the machines.
-//
-//we could make it all operate on an interface:
+func (s *workerSuite) 
+
+
+
+type fakeState struct {
+	mu sync.Mutex
+	machines map[string] *machineDoc
+}
+
+type fakeMachine struct {
+	
+}
+
+type fakeSession struct {
+}
+
+// notifier implements a value that can be
+// watched for changes. Only one 
+type notifier struct {
+	mu sync.Mutex
+	val *voyeur.Value
+}
+
+func newNotifier() *notifier {
+	return &notifier{
+		val: voyeur.NewValue(struct{}),
+	}
+}
+
+func (n *notifier) watch() state.NotifyWatcher  {
+	return 
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	if n.watching {
+		panic("double watch")
+	}
+	n.notify = make(chan struct{}, 1)
+	n.watching = true
+	return &notifyWatcher{
+		stopped: make(chan struct{}),
+		notify: n.notify,
+	}
+}
+
+func (n *notifier) changed() {
+	select {
+	case n.c <- struct{}:
+	default:
+	}
+}
+
+type notifyWatcher struct {
+	stopped chan struct{}
+	notify <-chan struct{}
+}
+
+func (w *notifyWatcher) Kill() {
+	defer func() { recover() }
+	close(w.stopped)
+}
+
+func (w *notifyWatcher) Wait() error {
+	<-w.stopped
+	return nil
+}
+
+func (w *notifyWatcher) Stop() error {
+	w.Kill()
+	return w.Wait()
+}
+
+func (w *notifyWatcher) Err() error {
+	return nil
+}
+
+func (w *notifyWatcher) Changes() <-chan struct{} {
+	return w.notify
+}

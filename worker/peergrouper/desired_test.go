@@ -36,6 +36,8 @@ var desiredPeerGroupTests = []struct {
 	expectVoting  []bool
 	expectErr     string
 }{{
+	about: "no machines, no change",
+}, {
 	about:         "single machine, no change",
 	machines:      mkMachines("11v"),
 	members:       mkMembers("1v"),
