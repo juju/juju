@@ -12,6 +12,9 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"launchpad.net/juju-core/cmd"
+	"os/exec"
+	"syscall"
 )
 
 // Options is a client-implementation independent SSH options set.
@@ -115,7 +118,14 @@ func (c *Cmd) Run() error {
 	if err := c.Start(); err != nil {
 		return err
 	}
-	return c.Wait()
+	err := c.Wait()
+	if exitError, ok := err.(*exec.ExitError); ok && exitError != nil {
+		status := exitError.ProcessState.Sys().(syscall.WaitStatus)
+		if status.Exited() {
+			return cmd.NewRcPassthroughError(status.ExitStatus())
+		}
+	}
+	return err
 }
 
 // Start starts the command running, but does not wait for

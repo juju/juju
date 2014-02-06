@@ -293,7 +293,9 @@ func (c *SuperCommand) Run(ctx *Context) error {
 	if err != nil && err != ErrSilent {
 		logger.Errorf("%v", err)
 		// Now that this has been logged, don't log again in cmd.Main.
-		err = ErrSilent
+		if !IsRcPassthroughError(err) {
+			err = ErrSilent
+		}
 	} else {
 		logger.Infof("command finished")
 	}
