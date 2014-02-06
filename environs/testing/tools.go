@@ -166,8 +166,8 @@ func MustUploadFakeToolsVersions(stor storage.Storage, versions ...version.Binar
 }
 
 func uploadFakeTools(stor storage.Storage) error {
-	versions := []version.Binary{version.Current}
-	toolsVersion := version.Current
+	versions := []version.Binary{version.Default}
+	toolsVersion := version.Default
 	if toolsVersion.Series != config.DefaultSeries {
 		toolsVersion.Series = config.DefaultSeries
 		versions = append(versions, toolsVersion)

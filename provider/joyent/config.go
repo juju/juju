@@ -6,6 +6,7 @@ package joyent
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/schema"
@@ -229,4 +230,9 @@ func (c *environConfig) ControlDir() string {
 
 func (ecfg *environConfig) SdcUrl() string {
 	return ecfg.sdcUrl()
+}
+
+func (ecfg *environConfig) Region() string {
+	url := ecfg.sdcUrl()
+	return url[strings.LastIndex(url, "/") + 1:strings.Index(url,".")]
 }

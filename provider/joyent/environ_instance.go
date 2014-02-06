@@ -64,7 +64,7 @@ func (env *JoyentEnviron) StartInstance(cons constraints.Value, possibleTools to
 
 	series := possibleTools.OneSeries()
 	spec, err := env.FindInstanceSpec(&instances.InstanceConstraint{
-		Region:      env.Ecfg().sdcUrl(),
+		Region:      env.Ecfg().Region(),
 		Series:      series,
 		Arches:      arches,
 		Constraints: cons,

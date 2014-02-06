@@ -11,6 +11,7 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/simplestreams"
 )
 
 var logger = loggo.GetLogger("juju.provider.joyent")
@@ -121,4 +122,16 @@ func (environProvider) PrivateAddress() (string, error) {
 
 func GetProviderInstance() environs.EnvironProvider {
 	return providerInstance
+}
+
+// MetadataLookupParams returns parameters which are used to query image metadata to
+// find matching image information.
+func (p environProvider) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
+	if region == "" {
+		return nil, fmt.Errorf("region must be specified")
+	}
+	return &simplestreams.MetadataLookupParams{
+		Region:        region,
+		Architectures: []string{"amd64", "arm"},
+	}, nil
 }

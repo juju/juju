@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
@@ -130,4 +131,25 @@ func getCredentials(env *JoyentEnviron) *jpc.Credentials {
 		SdcKeyId:           env.ecfg.sdcKeyId(),
 		SdcEndpoint:        jpc.Endpoint{URL: env.ecfg.sdcUrl()},
 	}
+}
+
+// MetadataLookupParams returns parameters which are used to query simplestreams metadata.
+func (env *JoyentEnviron) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
+	if region == "" {
+		region = env.Ecfg().Region()
+	}
+	return &simplestreams.MetadataLookupParams{
+		Series:        env.Ecfg().DefaultSeries(),
+		Region:        region,
+		Endpoint:      env.Ecfg().sdcUrl(),
+		Architectures: []string{"amd64", "arm"},
+	}, nil
+}
+
+// Region is specified in the HasRegion interface.
+func (env *JoyentEnviron) Region() (simplestreams.CloudSpec, error) {
+	return simplestreams.CloudSpec{
+		Region:   env.Ecfg().Region(),
+		Endpoint: env.Ecfg().sdcUrl(),
+	}, nil
 }

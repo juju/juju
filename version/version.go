@@ -33,6 +33,12 @@ var Current = Binary{
 	Arch:   ubuntuArch(runtime.GOARCH),
 }
 
+var Default = Binary{
+	Number: MustParse(version),
+	Series: "precise",
+	Arch:   ubuntuArch(runtime.GOARCH),
+}
+
 func init() {
 	toolsDir := filepath.Dir(os.Args[0])
 	v, err := ioutil.ReadFile(filepath.Join(toolsDir, "FORCE-VERSION"))
