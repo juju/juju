@@ -2,22 +2,42 @@ package peergrouper
 
 import (
 	"fmt"
-	"net"
-	"strconv"
 	"sync"
 	"time"
 
 	"launchpad.net/tomb"
 
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/replicaset"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker"
 )
 
-var replicasetSet = replicaset.Set
+type stateInterface interface {
+	Machine(id string) (stateMachine, error)
+	WatchStateServerInfo() state.NotifyWatcher
+	StateServerInfo() (*state.StateServerInfo, error)
+	EnvironConfig() (*config.Config, error)
+	MongoSession() mongoSession
+}
+
+type stateMachine interface {
+	Id() string
+	Refresh() error
+	Watch() state.NotifyWatcher
+	WantsVote() bool
+	HasVote() bool
+	SetHasVote(hasVote bool) error
+	StateHostPort() string
+}
+
+type mongoSession interface {
+	CurrentStatus() (*replicaset.Status, error)
+	CurrentMembers() ([]replicaset.Member, error)
+	Set([]replicaset.Member) error
+}
 
 // notifyFunc holds a function that is sent
 // to the main worker loop to fetch new information
@@ -41,7 +61,9 @@ type pgWorker struct {
 	// before finishing.
 	wg sync.WaitGroup
 
-	st *state.State
+	// st represents the State. It is an interface for testing
+	// purposes only.
+	st stateInterface
 
 	// When something changes that might might affect
 	// the peer group membership, it sends a function
@@ -63,7 +85,18 @@ type pgWorker struct {
 
 // New returns a new worker that maintains the mongo replica set
 // with respect to the given state.
-func New(st *state.State) worker.Worker {
+func New(st *state.State) (worker.Worker, error) {
+	cfg, err := st.EnvironConfig()
+	if err != nil {
+		return nil, err
+	}
+	return newWorker(&stateShim{
+		State:     st,
+		mongoPort: cfg.StatePort(),
+	}), nil
+}
+
+func newWorker(st stateInterface) worker.Worker {
 	w := &pgWorker{
 		st:       st,
 		notifyCh: make(chan notifyFunc),
@@ -149,12 +182,12 @@ func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
 	session := w.st.MongoSession()
 	info := &peerGroupInfo{}
 	var err error
-	status, err := replicaset.CurrentStatus(session)
+	status, err := session.CurrentStatus()
 	if err != nil {
 		return nil, fmt.Errorf("cannot get replica set status: %v", err)
 	}
 	info.statuses = status.Members
-	info.members, err = replicaset.CurrentMembers(session)
+	info.members, err = session.CurrentMembers()
 	if err != nil {
 		return nil, fmt.Errorf("cannot get replica set members: %v", err)
 	}
@@ -204,7 +237,7 @@ func (w *pgWorker) setReplicaSet(members []replicaset.Member, voting map[*machin
 	if err := setHasVote(added, true); err != nil {
 		return err
 	}
-	if err := replicasetSet(w.st.MongoSession(), members); err != nil {
+	if err := w.st.MongoSession().Set(members); err != nil {
 		// We've failed to set the replica set, so revert back
 		// to the previous settings.
 		if err1 := setHasVote(added, false); err1 != nil {
@@ -332,11 +365,11 @@ type machine struct {
 	hostPort  string
 
 	worker         *pgWorker
-	stm            *state.Machine
+	stm            stateMachine
 	machineWatcher state.NotifyWatcher
 }
 
-func (w *pgWorker) newMachine(stm *state.Machine) *machine {
+func (w *pgWorker) newMachine(stm stateMachine) *machine {
 	m := &machine{
 		worker:         w,
 		id:             stm.Id(),
@@ -389,19 +422,11 @@ func (m *machine) refresh() (bool, error) {
 		m.wantsVote = wantsVote
 		changed = true
 	}
-	hostPort := instance.SelectInternalAddress(m.stm.Addresses(), false)
-	if hostPort != "" {
-		hostPort = joinHostPort(hostPort, m.worker.mongoPort)
-	}
-	if hostPort != m.hostPort {
+	if hostPort := m.stm.StateHostPort(); hostPort != m.hostPort {
 		m.hostPort = hostPort
 		changed = true
 	}
 	return changed, nil
-}
-
-func joinHostPort(host string, port int) string {
-	return net.JoinHostPort(host, strconv.Itoa(port))
 }
 
 func inStrings(t string, ss []string) bool {

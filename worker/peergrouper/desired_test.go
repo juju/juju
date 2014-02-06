@@ -8,8 +8,8 @@ import (
 	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
-	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/replicaset"
+	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
