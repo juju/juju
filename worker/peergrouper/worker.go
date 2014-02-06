@@ -7,7 +7,6 @@ import (
 
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/replicaset"
@@ -19,7 +18,6 @@ type stateInterface interface {
 	Machine(id string) (stateMachine, error)
 	WatchStateServerInfo() state.NotifyWatcher
 	StateServerInfo() (*state.StateServerInfo, error)
-	EnvironConfig() (*config.Config, error)
 	MongoSession() mongoSession
 }
 
@@ -72,10 +70,6 @@ type pgWorker struct {
 	// the state has actually changed.
 	notifyCh chan notifyFunc
 
-	// mongoPort holds the mongo port - it is set at initialisation
-	// time, and never changes subsequently.
-	mongoPort int
-
 	// machines holds the set of machines we are currently
 	// watching (all the state server machines). Each one has an
 	// associated goroutine that
@@ -123,12 +117,6 @@ func (w *pgWorker) Wait() error {
 func (w *pgWorker) loop() error {
 	infow := w.watchStateServerInfo()
 	defer infow.stop()
-
-	cfg, err := w.st.EnvironConfig()
-	if err != nil {
-		return err
-	}
-	w.mongoPort = cfg.StatePort()
 
 	timer := time.NewTimer(0)
 	timer.Stop()
