@@ -56,7 +56,7 @@ func (v *Value) Get() (val interface{}, ok bool) {
 	v.mu.RLock()
 	defer v.mu.RUnlock()
 	if v.closed {
-		return nil, false
+		return v.val, false
 	}
 	return v.val, true
 }
@@ -75,8 +75,9 @@ type Watcher struct {
 }
 
 // Next blocks until there is a new value to be retrieved from the value that is
-// being watched. It also unblocks when the value or the Watcher itself is closed.
-// Next reports whether the value or the Watcher itself has been closed.
+// being watched. It also unblocks when the value or the Watcher itself is
+// closed. Next returns false if the value or the Watcher itself have been
+// closed.
 func (w *Watcher) Next() bool {
 	w.value.mu.RLock()
 	defer w.value.mu.RUnlock()
@@ -92,8 +93,8 @@ func (w *Watcher) Next() bool {
 			return false
 		}
 
-		// wait is magic sauce that releases the lock until triggered
-		// and then reacquires the lock, thus avoiding a deadlock.
+		// Wait releases the lock until triggered and then reacquires the lock,
+		// thus avoiding a deadlock.
 		w.value.wait.Wait()
 	}
 }
@@ -107,7 +108,8 @@ func (w *Watcher) Close() {
 	w.value.wait.Broadcast()
 }
 
-// Value returns the last value that was retrieved from the watched Value.
+// Value returns the last value that was retrieved from the watched Value by
+// Next.
 func (w *Watcher) Value() interface{} {
 	return w.current
 }
