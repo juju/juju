@@ -71,7 +71,7 @@ type Watcher struct {
 	value   *Value
 	version int
 	current interface{}
-	closed bool
+	closed  bool
 }
 
 // Next blocks until there is a new value to be retrieved from the value that is
