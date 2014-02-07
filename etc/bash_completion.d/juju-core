@@ -1,0 +1,157 @@
+#!/bin/bash
+# juju.autocomp: dynamic bash completion for juju cmdline
+#
+# Author: JuanJo Ciarlante <jjo@canonical.com>
+# Copyright 2013+, Canonical Ltd.
+# License: GPLv3
+#
+# DISCLAIMER: using bash completion is great,
+#             cleanly implementing it is ... impossible ?.
+#             DEAL WITH IT --jjo
+
+# Show all machines
+_juju_machines_from_file() {
+    python -c 'import json, sys;j=json.load(sys.stdin);print "\n".join(j["machines"].keys());' < ${1?}
+}
+
+# Show all units, each optionally postfixed by $2 (eg. 'myservice/0:')
+_juju_units_from_file() {
+    python -c '
+s="'${2}'"
+import json, sys
+j=json.load(sys.stdin)
+all_units=[]
+for k,v in j["services"].items():
+    if v.get("units"):
+        all_units.extend(v.get("units",{}).keys())
+print "\n".join([unit + s for unit in all_units])
+' < ${1?}
+}
+
+# Show services
+_juju_services_from_file() {
+    python -c 'import json, sys;j=json.load(sys.stdin);print "\n".join(j["services"].keys());' < ${1?}
+}
+
+# Show both services and units, currently used for juju status completion
+_juju_services_and_units_from_file() {
+    _juju_services_from_file "$@"
+    _juju_units_from_file "$@"
+}
+
+# Main completion function:
+# - setups caching dir if non-existent
+# - caches juju status output, $cache_mins minutes max
+# - parses cached status file with passed func
+# - optionally adds compgen_xtra options, words_xtra
+_juju_complete_cached() {
+    local func=${1?} postfix_str="${2}" compgen_xtra="${3}" words_xtra="${4}"
+    local cache_mins=60
+    local cur
+    local cache_dir=$HOME/.cache/juju
+    local juju_status_file=${cache_dir}/juju-status-${JUJU_ENV:-default}
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    # setup caching dir under ~/.cache/juju
+    test -d ${cache_dir} || install -d ${cache_dir} -m 700
+    if [[ -z $(find "${juju_status_file}" -mmin -${cache_mins} -a -size +32c 2> /dev/null) ]]; then
+        juju status --format=json > "${juju_status_file}".tmp && \
+            mv "${juju_status_file}".tmp "${juju_status_file}"
+        rm -f "${juju_status_file}".tmp
+    fi
+    # if a postfix_str is passed (eg ':'), allow nospace
+    if [ -n "${postfix_str}" ]; then
+        compopt -o nospace
+    else
+        compopt +o nospace
+    fi
+    [[ -r "${juju_status_file}" ]] || return 0
+    # build COMPREPLY from passed function stdout
+    COMPREPLY=( $( compgen ${compgen_xtra} -W "${words_xtra} $(${func} ${juju_status_file} ${postfix_str})" -- ${cur} ))
+    return 0
+}
+
+# Not used here, available to the user for quick cache removal
+_juju_completion_cache_rm() {
+    rm -fv $HOME/.cache/juju/juju-status-${JUJU_ENV?}
+}
+
+# Get juju commands from its help
+_juju_commands()
+{
+    local cur prev options files targets
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    actions=$(juju help commands 2>/dev/null | awk '{print $1}')
+    COMPREPLY=( $( compgen -W "${actions}" -- ${cur} ) )
+    return 0
+}
+
+# Entry completion function
+_juju() {
+    local prev status
+    local orig_comp_wordbreaks="${COMP_WORDBREAKS}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    COMPREPLY=()
+    case "${prev}" in
+        # non dynamic completions:
+        juju|help)
+            _juju_commands "$@";;
+        # services:
+        status)
+            _juju_complete_cached _juju_services_and_units_from_file;;
+        upgrade-charm|*expose|*-service|*-constraints|set|get)
+            _juju_complete_cached _juju_services_from_file;;
+        add-unit)
+            _juju_complete_cached _juju_services_from_file "" "" "-n --to";;
+        # units:
+        ssh|remove-unit|debug-hooks)
+            _juju_complete_cached _juju_units_from_file;;
+        scp)
+            # tmp remove ':' from as word separator
+            COMP_WORDBREAKS="${COMP_WORDBREAKS/:/}"
+            # append ':' to units, also complete filenames
+            _juju_complete_cached _juju_units_from_file ":" "-A file";;
+        resolved)
+            _juju_complete_cached _juju_units_from_file "" "" "-r";;
+        *-relation)
+            _juju_complete_cached _juju_services_from_file;;
+        # machines
+        *-machine)
+            _juju_complete_cached _juju_machines_from_file;;
+    esac
+    status=$?
+    if [ -z "${COMPREPLY}" ]; then
+        # another case switch, for actions requiring completion for >3rd
+        # argument, e.g.: add-relation srv1 srv2
+        local juju_action="${COMP_WORDS[1]}"
+        case "${juju_action}" in
+            # non-dynamic actions (simplified)
+            bootstrap)
+                local words="--constraints --series --source --upload-tools"
+                COMPREPLY=( $( compgen -W "${words}" -- ${COMP_WORDS[COMP_CWORD]} ));;
+            upgrade-juju)
+                local words="--dev --series --upload-tools --version"
+                COMPREPLY=( $( compgen -W "${words}" -- ${COMP_WORDS[COMP_CWORD]} ));;
+            get-env*)
+                local words="--format -o"
+                COMPREPLY=( $( compgen -W "${words}" -- ${COMP_WORDS[COMP_CWORD]} ));;
+            # services:
+            *-relation)
+                _juju_complete_cached _juju_services_from_file;;
+            # (some) actions with optional switches:
+            scp)
+                COMP_WORDBREAKS="${COMP_WORDBREAKS/:/}"
+                _juju_complete_cached _juju_units_from_file ":" "-A file";;
+            resolved)
+                _juju_complete_cached _juju_units_from_file;;
+            add-unit)
+                _juju_complete_cached _juju_services_from_file;;
+        esac
+        status=$?
+    fi
+    COMP_WORDBREAKS="${orig_comp_wordbreaks}"
+    return ${status}
+}
+complete -F _juju juju
+# vim: ai et sw=2 ts=2
