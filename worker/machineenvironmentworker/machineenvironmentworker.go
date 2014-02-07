@@ -66,7 +66,8 @@ func NewMachineEnvironmentWorker(api *environment.Facade, agentConfig agent.Conf
 	// We don't write out system files for the local provider on machine zero
 	// as that is the host machine.
 	writeSystemFiles := !(agentConfig.Tag() == names.MachineTag("0") &&
-		agentConfig.Value(agent.JujuProviderType) == provider.Local)
+		agentConfig.Value(agent.ProviderType) == provider.Local)
+	logger.Debugf("write system files: %v", writeSystemFiles)
 	envWorker := &MachineEnvironmentWorker{
 		api:              api,
 		writeSystemFiles: writeSystemFiles,
