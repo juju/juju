@@ -100,20 +100,16 @@ func (s *format_1_16Suite) TestMigrate(c *gc.C) {
 	s.PatchEnvironment(osenv.JujuContainerTypeEnvKey, "container type")
 	s.PatchEnvironment(JujuStorageDir, "storage dir")
 	s.PatchEnvironment(JujuStorageAddr, "storage addr")
-	s.PatchEnvironment(JujuSharedStorageDir, "shared storage dir")
-	s.PatchEnvironment(JujuSharedStorageAddr, "shared storage addr")
 
 	config := newTestConfig(c)
 	s.formatter.migrate(config)
 
 	expected := map[string]string{
-		LxcBridge:         "lxc bridge",
-		ProviderType:      "provider type",
-		ContainerType:     "container type",
-		StorageDir:        "storage dir",
-		StorageAddr:       "storage addr",
-		SharedStorageDir:  "shared storage dir",
-		SharedStorageAddr: "shared storage addr",
+		LxcBridge:     "lxc bridge",
+		ProviderType:  "provider type",
+		ContainerType: "container type",
+		StorageDir:    "storage dir",
+		StorageAddr:   "storage addr",
 	}
 
 	c.Assert(config.values, gc.DeepEquals, expected)

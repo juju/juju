@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package null
+package manual
 
 import (
 	"fmt"
@@ -10,7 +10,6 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/provider"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
@@ -21,10 +20,10 @@ type configSuite struct {
 
 var _ = gc.Suite(&configSuite{})
 
-func minimalConfigValues() map[string]interface{} {
+func MinimalConfigValues() map[string]interface{} {
 	return map[string]interface{}{
 		"name":             "test",
-		"type":             provider.Null,
+		"type":             "manual",
 		"bootstrap-host":   "hostname",
 		"storage-auth-key": "whatever",
 		// While the ca-cert bits aren't entirely minimal, they avoid the need
@@ -34,8 +33,8 @@ func minimalConfigValues() map[string]interface{} {
 	}
 }
 
-func minimalConfig(c *gc.C) *config.Config {
-	minimal := minimalConfigValues()
+func MinimalConfig(c *gc.C) *config.Config {
+	minimal := MinimalConfigValues()
 	testConfig, err := config.New(config.UseDefaults, minimal)
 	c.Assert(err, gc.IsNil)
 	return testConfig
@@ -44,25 +43,25 @@ func minimalConfig(c *gc.C) *config.Config {
 func getEnvironConfig(c *gc.C, attrs map[string]interface{}) *environConfig {
 	testConfig, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-	envConfig, err := nullProvider{}.validate(testConfig, nil)
+	envConfig, err := manualProvider{}.validate(testConfig, nil)
 	c.Assert(err, gc.IsNil)
 	return envConfig
 }
 
 func (s *configSuite) TestValidateConfig(c *gc.C) {
-	testConfig := minimalConfig(c)
+	testConfig := MinimalConfig(c)
 	testConfig, err := testConfig.Apply(map[string]interface{}{"bootstrap-host": ""})
 	c.Assert(err, gc.IsNil)
-	_, err = nullProvider{}.Validate(testConfig, nil)
+	_, err = manualProvider{}.Validate(testConfig, nil)
 	c.Assert(err, gc.ErrorMatches, "bootstrap-host must be specified")
 
 	testConfig, err = testConfig.Apply(map[string]interface{}{"storage-auth-key": nil})
 	c.Assert(err, gc.IsNil)
-	_, err = nullProvider{}.Validate(testConfig, nil)
+	_, err = manualProvider{}.Validate(testConfig, nil)
 	c.Assert(err, gc.ErrorMatches, "storage-auth-key: expected string, got nothing")
 
-	testConfig = minimalConfig(c)
-	valid, err := nullProvider{}.Validate(testConfig, nil)
+	testConfig = MinimalConfig(c)
+	valid, err := manualProvider{}.Validate(testConfig, nil)
 	c.Assert(err, gc.IsNil)
 
 	unknownAttrs := valid.UnknownAttrs()
@@ -73,8 +72,8 @@ func (s *configSuite) TestValidateConfig(c *gc.C) {
 }
 
 func (s *configSuite) TestConfigMutability(c *gc.C) {
-	testConfig := minimalConfig(c)
-	valid, err := nullProvider{}.Validate(testConfig, nil)
+	testConfig := MinimalConfig(c)
+	valid, err := manualProvider{}.Validate(testConfig, nil)
 	c.Assert(err, gc.IsNil)
 	unknownAttrs := valid.UnknownAttrs()
 
@@ -88,10 +87,10 @@ func (s *configSuite) TestConfigMutability(c *gc.C) {
 		"storage-listen-ip": "10.0.0.123",
 		"storage-port":      int64(1234),
 	} {
-		testConfig = minimalConfig(c)
+		testConfig = MinimalConfig(c)
 		testConfig, err = testConfig.Apply(map[string]interface{}{k: v})
 		c.Assert(err, gc.IsNil)
-		_, err := nullProvider{}.Validate(testConfig, oldConfig)
+		_, err := manualProvider{}.Validate(testConfig, oldConfig)
 		oldv := unknownAttrs[k]
 		errmsg := fmt.Sprintf("cannot change %s from %q to %q", k, oldv, v)
 		c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(errmsg))
@@ -99,7 +98,7 @@ func (s *configSuite) TestConfigMutability(c *gc.C) {
 }
 
 func (s *configSuite) TestBootstrapHostUser(c *gc.C) {
-	values := minimalConfigValues()
+	values := MinimalConfigValues()
 	testConfig := getEnvironConfig(c, values)
 	c.Assert(testConfig.bootstrapHost(), gc.Equals, "hostname")
 	c.Assert(testConfig.bootstrapUser(), gc.Equals, "")
@@ -111,7 +110,7 @@ func (s *configSuite) TestBootstrapHostUser(c *gc.C) {
 }
 
 func (s *configSuite) TestStorageParams(c *gc.C) {
-	values := minimalConfigValues()
+	values := MinimalConfigValues()
 	testConfig := getEnvironConfig(c, values)
 	c.Assert(testConfig.storageAddr(), gc.Equals, "hostname:8040")
 	c.Assert(testConfig.storageListenAddr(), gc.Equals, ":8040")

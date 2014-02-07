@@ -9,8 +9,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/loggo/loggo"
 	"launchpad.net/goyaml"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
@@ -89,6 +89,13 @@ func (envs *Environs) Config(name string) (*config.Config, error) {
 				"tools-url", oldToolsURL, "tools-metadata-url", "tools-metadata-url", "tools-metadata-url", oldToolsURL)
 		}
 		logger.Warningf(msg)
+	}
+	// null has been renamed to manual (with an alias for existing config).
+	if oldType, _ := attrs["type"].(string); oldType == "null" {
+		logger.Warningf(
+			"Provider type \"null\" has been renamed to \"manual\".\n" +
+				"Please update your environment configuration.",
+		)
 	}
 
 	cfg, err := config.New(config.UseDefaults, attrs)

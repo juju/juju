@@ -16,10 +16,12 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	lxctesting "launchpad.net/juju-core/container/lxc/testing"
+	"launchpad.net/juju-core/environs/config"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
@@ -29,16 +31,19 @@ import (
 	charmtesting "launchpad.net/juju-core/state/apiserver/charmrevisionupdater/testing"
 	statetesting "launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/state/watcher"
+	"launchpad.net/juju-core/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/ssh"
 	sshtesting "launchpad.net/juju-core/utils/ssh/testing"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/authenticationworker"
 	"launchpad.net/juju-core/worker/deployer"
 	"launchpad.net/juju-core/worker/instancepoller"
+	"launchpad.net/juju-core/worker/machineenvironmentworker"
 )
 
 type MachineSuite struct {
@@ -672,6 +677,45 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 		link, err := os.Readlink(jujuRun)
 		c.Assert(err, gc.IsNil)
 		c.Assert(link, gc.Not(gc.Equals), "/nowhere/special")
+	})
+}
+
+func (s *MachineSuite) TestMachineEnvirnWorker(c *gc.C) {
+	proxyDir := c.MkDir()
+	s.PatchValue(&machineenvironmentworker.ProxyDirectory, proxyDir)
+	s.PatchValue(&utils.AptConfFile, filepath.Join(proxyDir, "juju-apt-proxy"))
+
+	s.primeAgent(c, state.JobHostUnits)
+	// Make sure there are some proxy settings to write.
+	oldConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+
+	proxySettings := osenv.ProxySettings{
+		Http:  "http proxy",
+		Https: "https proxy",
+		Ftp:   "ftp proxy",
+	}
+
+	envConfig, err := oldConfig.Apply(config.ProxyConfigMap(proxySettings))
+	c.Assert(err, gc.IsNil)
+
+	err = s.State.SetEnvironConfig(envConfig, oldConfig)
+	c.Assert(err, gc.IsNil)
+
+	s.assertJobWithAPI(c, state.JobHostUnits, func(conf agent.Config, st *api.State) {
+		for {
+			select {
+			case <-time.After(testing.LongWait):
+				c.Fatalf("timeout while waiting for proxy settings to change")
+			case <-time.After(10 * time.Millisecond):
+				_, err := os.Stat(utils.AptConfFile)
+				if os.IsNotExist(err) {
+					continue
+				}
+				c.Assert(err, gc.IsNil)
+				return
+			}
+		}
 	})
 }
 

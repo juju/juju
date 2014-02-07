@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/state/apiserver/client"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/apiserver/deployer"
+	"launchpad.net/juju-core/state/apiserver/environment"
 	"launchpad.net/juju-core/state/apiserver/firewaller"
 	"launchpad.net/juju-core/state/apiserver/keymanager"
 	"launchpad.net/juju-core/state/apiserver/keyupdater"
@@ -167,6 +168,17 @@ func (r *srvRoot) Deployer(id string) (*deployer.DeployerAPI, error) {
 		return nil, common.ErrBadId
 	}
 	return deployer.NewDeployerAPI(r.srv.state, r.resources, r)
+}
+
+// Environment returns an object that provides access to the Environment API
+// facade. The id argument is reserved for future use and currently needs to
+// be empty.
+func (r *srvRoot) Environment(id string) (*environment.EnvironmentAPI, error) {
+	if id != "" {
+		// Safeguard id for possible future use.
+		return nil, common.ErrBadId
+	}
+	return environment.NewEnvironmentAPI(r.srv.state, r.resources, r)
 }
 
 // Logger returns an object that provides access to the Logger API facade.

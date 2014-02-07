@@ -10,6 +10,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/errgo/errgo"
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent"
@@ -247,10 +248,11 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 		// juju requires git for managing charm directories.
 		c.AddPackage("git")
 		c.AddPackage("cpu-checker")
+		c.AddPackage("bridge-utils")
 
 		// Write out the apt proxy settings
 		if (cfg.AptProxySettings != osenv.ProxySettings{}) {
-			filename := "/etc/apt/apt.conf.d/42-juju-proxy-settings"
+			filename := utils.AptConfFile
 			c.AddBootCmd(fmt.Sprintf(
 				`[ -f %s ] || (printf '%%s\n' %s > %s)`,
 				filename,
@@ -401,7 +403,7 @@ func (cfg *MachineConfig) addLogging(c *cloudinit.Config) error {
 	if err != nil {
 		return err
 	}
-	c.AddFile(cfg.RsyslogConfPath, string(content), 0600)
+	c.AddFile(cfg.RsyslogConfPath, string(content), 0644)
 	c.AddRunCmd("restart rsyslog")
 	return nil
 }
@@ -456,7 +458,7 @@ func (cfg *MachineConfig) addAgentInfo(c *cloudinit.Config, tag string) (agent.C
 	}
 	cmds, err := acfg.WriteCommands()
 	if err != nil {
-		return nil, err
+		return nil, errgo.Annotate(err, "failed to write commands")
 	}
 	c.AddScripts(cmds...)
 	return acfg, nil
@@ -474,7 +476,7 @@ func (cfg *MachineConfig) addMachineAgentToBoot(c *cloudinit.Config, tag, machin
 	conf := upstart.MachineAgentUpstartService(name, toolsDir, cfg.DataDir, cfg.LogDir, tag, machineId, nil)
 	cmds, err := conf.InstallCommands()
 	if err != nil {
-		return fmt.Errorf("cannot make cloud-init upstart script for the %s agent: %v", tag, err)
+		return errgo.Annotatef(err, "cannot make cloud-init upstart script for the %s agent", tag)
 	}
 	c.AddRunCmd(cloudinit.LogProgressCmd("Starting Juju machine agent (%s)", name))
 	c.AddScripts(cmds...)
@@ -496,7 +498,7 @@ func (cfg *MachineConfig) addMongoToBoot(c *cloudinit.Config) error {
 	conf := upstart.MongoUpstartService(name, cfg.DataDir, dbDir, cfg.StatePort)
 	cmds, err := conf.InstallCommands()
 	if err != nil {
-		return fmt.Errorf("cannot make cloud-init upstart script for the state database: %v", err)
+		return errgo.Annotate(err, "cannot make cloud-init upstart script for the state database")
 	}
 	c.AddRunCmd(cloudinit.LogProgressCmd("Starting MongoDB server (%s)", name))
 	c.AddScripts(cmds...)

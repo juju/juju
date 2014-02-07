@@ -126,6 +126,22 @@ func (s *storageServer) Get(name string) (io.ReadCloser, error) {
 }
 
 func (s *storageServer) URL(name string) (string, error) {
+	// Mimic the MAAS behaviour so we are testing with the
+	// lowest common denominator.
+	if name != "" {
+		if _, ok := s.files[name]; !ok {
+			found := false
+			for file, _ := range s.files {
+				found = strings.HasPrefix(file, name+"/")
+				if found {
+					break
+				}
+			}
+			if !found {
+				return "", errors.NotFoundf(name)
+			}
+		}
+	}
 	return fmt.Sprintf("http://%v%s/%s", s.state.httpListener.Addr(), s.path, name), nil
 }
 

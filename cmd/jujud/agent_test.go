@@ -17,6 +17,7 @@ import (
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -62,7 +63,7 @@ var isFatalTests = []struct {
 		Message: "blah",
 		Code:    params.CodeNotProvisioned,
 	},
-	isFatal: true,
+	isFatal: false,
 }, {
 	err:     &fatalError{"some fatal error"},
 	isFatal: true,
@@ -294,6 +295,36 @@ func (s *agentSuite) testOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd A
 	conf = refreshConfig(c, conf)
 	// Check we can open the API with the new configuration.
 	assertOpen(conf)
+}
+
+type errorAPIOpener struct {
+	err error
+}
+
+func (e *errorAPIOpener) OpenAPI(_ api.DialOpts) (*api.State, string, error) {
+	return nil, "", e.err
+}
+
+func (s *agentSuite) testOpenAPIStateReplaceErrors(c *gc.C) {
+	for i, test := range []struct {
+		openErr    error
+		replaceErr error
+	}{{
+		fmt.Errorf("blah"), nil,
+	}, {
+		&params.Error{Code: params.CodeNotProvisioned}, worker.ErrTerminateAgent,
+	}, {
+		&params.Error{Code: params.CodeUnauthorized}, worker.ErrTerminateAgent,
+	}} {
+		c.Logf("test %d", i)
+		opener := &errorAPIOpener{test.openErr}
+		_, _, err := openAPIState(opener, nil)
+		if test.replaceErr == nil {
+			c.Check(err, gc.Equals, test.openErr)
+		} else {
+			c.Check(err, gc.Equals, test.replaceErr)
+		}
+	}
 }
 
 func (s *agentSuite) assertCanOpenState(c *gc.C, tag, dataDir string) {
