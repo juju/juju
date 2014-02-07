@@ -23,6 +23,8 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
+const mongoSocketTimeout = 10 * time.Second
+
 // Info encapsulates information about cluster of
 // servers holding juju state and can be used to make a
 // connection to that cluster.
@@ -108,6 +110,7 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 		session.Close()
 		return nil, err
 	}
+	session.SetSocketTimeout(mongoSocketTimeout)
 	return st, nil
 }
 
