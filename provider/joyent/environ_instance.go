@@ -5,7 +5,6 @@ package joyent
 
 import (
 	"fmt"
-	"strings"
 	"sync"
 
 	"launchpad.net/gojoyent/client"
@@ -161,10 +160,6 @@ func (env *JoyentEnviron) StopInstances(instances []instance.Instance) error {
 	return nil
 }
 
-func getRegion(URL string) string {
-	return URL[strings.LastIndex(URL, "/") + 1:strings.Index(URL, ".")]
-}
-
 // findInstanceSpec returns an InstanceSpec satisfying the supplied instanceConstraint.
 func (env *JoyentEnviron) FindInstanceSpec(ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
 	packages, err := env.compute.cloudapi.ListPackages(nil)
@@ -186,7 +181,7 @@ func (env *JoyentEnviron) FindInstanceSpec(ic *instances.InstanceConstraint) (*i
 	}
 
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		CloudSpec: simplestreams.CloudSpec{getRegion(ic.Region), ic.Region},
+		CloudSpec: simplestreams.CloudSpec{ic.Region, env.Ecfg().SdcUrl()},
 		Series:    []string{ic.Series},
 		Arches:    ic.Arches,
 	})

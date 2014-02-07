@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 
 	gc "launchpad.net/gocheck"
 
@@ -26,6 +27,13 @@ import (
 	"launchpad.net/juju-core/worker/upgrader"
 	"net/http"
 )
+
+// defaultVersion gives the default version for tests.
+var defaultVersion = version.Binary{
+	Number: version.MustParse(version.Version),
+	Series: "quantal",
+	Arch:   version.UbuntuArch(runtime.GOARCH),
+}
 
 // ToolsFixture is used as a fixture to stub out the default tools URL so we
 // don't hit the real internet during tests.
@@ -166,8 +174,8 @@ func MustUploadFakeToolsVersions(stor storage.Storage, versions ...version.Binar
 }
 
 func uploadFakeTools(stor storage.Storage) error {
-	versions := []version.Binary{version.Default}
-	toolsVersion := version.Default
+	versions := []version.Binary{defaultVersion}
+	toolsVersion := defaultVersion
 	if toolsVersion.Series != config.DefaultSeries {
 		toolsVersion.Series = config.DefaultSeries
 		versions = append(versions, toolsVersion)

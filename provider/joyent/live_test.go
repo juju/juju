@@ -10,9 +10,9 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/jujutest"
+	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
@@ -54,25 +54,31 @@ func registerLiveTests() {
 type LiveTests struct {
 	testbase.LoggingSuite
 	jujutest.LiveTests
+	metadataStorage storage.Storage
 }
 
 func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.LoggingSuite.SetUpSuite(c)
-	// TODO: Share code from jujutest.LiveTests for creating environment
-	e, err := environs.NewFromAttrs(t.TestConfig)
-	c.Assert(err, gc.IsNil)
 
-	// Put some fake tools in place so that tests that are simply
-	// starting instances without any need to check if those instances
-	// are running will find them in the public bucket.
-	envtesting.UploadFakeTools(c, e.Storage())
 	t.LiveTests.SetUpSuite(c)
+	// For testing, we create a storage instance to which is uploaded tools and image metadata.
+	t.PrepareOnce(c)
+	t.metadataStorage = MetadataStorage(t.Env)
+	// Put some fake tools metadata in place so that tests that are simply
+	// starting instances without any need to check if those instances
+	// are running can find the metadata.
+	envtesting.UploadFakeTools(c, t.metadataStorage)
+	c.Assert(t.Env.Storage(), gc.NotNil)
+
 }
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {
 	if t.Env == nil {
 		// This can happen if SetUpSuite fails.
 		return
+	}
+	if t.metadataStorage != nil {
+		envtesting.RemoveFakeToolsMetadata(c, t.metadataStorage)
 	}
 	t.LiveTests.TearDownSuite(c)
 	t.LoggingSuite.TearDownSuite(c)
@@ -81,6 +87,7 @@ func (t *LiveTests) TearDownSuite(c *gc.C) {
 func (t *LiveTests) SetUpTest(c *gc.C) {
 	t.LoggingSuite.SetUpTest(c)
 	t.LiveTests.SetUpTest(c)
+	c.Assert(t.Env.Storage(), gc.NotNil)
 }
 
 func (t *LiveTests) TearDownTest(c *gc.C) {
