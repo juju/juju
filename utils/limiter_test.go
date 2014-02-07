@@ -4,6 +4,8 @@
 package utils_test
 
 import (
+	"fmt"
+
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/utils"
@@ -37,4 +39,30 @@ func (*limiterSuite) TestAcquireAndRelease(c *gc.C) {
 	c.Check(l.Release(), gc.IsNil)
 	c.Check(l.Release(), gc.IsNil)
 	c.Check(l.Release(), gc.ErrorMatches, "Release without an associated Acquire")
+}
+
+func (*limiterSuite) TestAcquireWaitBlocksUntilRelease(c *gc.C) {
+	l := utils.NewLimiter(2)
+	calls := make([]string, 0, 10)
+	start := make(chan bool, 0)
+	waiting := make(chan bool, 0)
+	done := make(chan bool, 0)
+	go func() {
+		<-start
+		calls = append(calls, fmt.Sprintf("%v", l.Acquire()))
+		calls = append(calls, fmt.Sprintf("%v", l.Acquire()))
+		calls = append(calls, fmt.Sprintf("%v", l.Acquire()))
+		waiting <- true
+		l.AcquireWait()
+		calls = append(calls, "waited")
+		calls = append(calls, fmt.Sprintf("%v", l.Acquire()))
+		done <- true
+	}()
+	// Start the routine, and wait for it to get to the first checkpoint
+	start <- true
+	<-waiting
+	c.Check(l.Acquire(), jc.IsFalse)
+	l.Release()
+	<-done
+	c.Check(calls, gc.DeepEquals, []string{"true", "true", "false", "waited", "false"})
 }

@@ -10,7 +10,21 @@ import (
 type empty struct {}
 type limiter chan empty
 
-func NewLimiter(max int) limiter {
+// Limiter represents a limited resource (eg a semaphore)
+type Limiter interface {
+	// Acquire another unit of the resource.
+	// Acquire returns false to indicate there is no more availability,
+	// until another entity calls Release
+	Acquire() bool
+	// AcquireWait requests a unit of resource, but blocks until one is
+	// available
+	AcquireWait()
+	// Release returns a unit of the resource. Calling Release when there
+	// are no units Acquired is an error
+	Release() error
+}
+
+func NewLimiter(max int) Limiter {
 	return make(limiter, max)
 }
 
@@ -26,6 +40,11 @@ func (l limiter) Acquire() bool {
 		default:
 		  return false
 	}
+}
+
+func (l limiter) AcquireWait() {
+	e := empty{}
+	l <- e
 }
 
 func (l limiter) Release() error {
