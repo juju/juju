@@ -56,15 +56,14 @@ _juju_flags_for() {
 # Guessing is done by parsing juju help <cmd>, and
 # echoed for its function name (for later use by caller)
 _juju_completion_func_for_cmd() {
-    # if action is "", "help", or it greps cmd list as: prefix<non-space>
-    # make func=_juju_list_commands
-    if [[ ${1} == '' || ${1} == help || \
-          $(_juju_list_commands |egrep -c "^${1}[^ ]") > 0 ]]; then
+    local action=${1} cword=${2}
+    # if cword==1 or action==help, use _juju_list_commands
+    if [ "${cword}" -eq 1 -o "${action}" = help ]; then
         echo _juju_list_commands
         return 0
     fi
     # parse 1st line of juju help <cmd>, to guess the completion function
-    case $(juju help ${1} 2>/dev/null| head -1) in
+    case $(juju help ${action} 2>/dev/null| head -1) in
         # special case for ssh, scp which have 'service' in 1st line of help:
         *\<unit*|*juju?ssh*|*juju?scp*)    echo _juju_units_from_file;;
         *\<service*)    echo _juju_services_from_file;;
@@ -137,7 +136,7 @@ _juju() {
     local action parsing_func
     action="${COMP_WORDS[1]}"
     COMPREPLY=()
-    parsing_func=$(_juju_completion_func_for_cmd "${action}")
+    parsing_func=$(_juju_completion_func_for_cmd "${action}" ${COMP_CWORD})
     test -z "${parsing_func}" && return 0
     _juju_complete_with_func "${action}" "${parsing_func}"
     return $?
