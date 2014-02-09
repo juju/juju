@@ -77,6 +77,11 @@ endif
 	@sudo apt-get --yes install $(strip $(DEPENDENCIES))
 
 
+# Install bash_completion
+install-etc:
+	@echo Installing bash completion
+	@sudo install -o root -g root -m 644 etc/bash_completion.d/juju-core /etc/bash_completion.d
+
 .PHONY: build check install
 .PHONY: clean format simplify
 .PHONY: install-dependencies
