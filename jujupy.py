@@ -119,10 +119,11 @@ class JujuClientDevel:
             except subprocess.CalledProcessError as e:
                 stderr.seek(0)
                 e.stderr = stderr.read()
-                if 'Unable to connect to environment' not in e.stderr:
-                    print('!!! ' + e.stderr)
-                    raise
-                raise CannotConnectEnv(e)
+                if ('Unable to connect to environment' in e.stderr
+                        or 'MissingOrIncorrectVersionHeader' in e.stderr):
+                    raise CannotConnectEnv(e)
+                print('!!! ' + e.stderr)
+                raise
 
     def get_status(self, environment):
         """Get the current status as a dict."""
