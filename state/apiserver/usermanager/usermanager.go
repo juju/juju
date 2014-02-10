@@ -4,8 +4,9 @@
 package usermanager
 
 import (
-	"github.com/loggo/loggo"
+	"fmt"
 
+	"github.com/loggo/loggo"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -68,6 +69,14 @@ func NewUserManagerAPI(
 }
 
 func (api *UserManagerAPI) AddUser(args params.ModifyUsers) (params.ErrorResults, error) {
+	_, err := api.state.AddUser(args.Tag, args.Password)
+	if err != nil {
+		return params.ErrorResults{
+			[]params.ErrorResult{
+				{Error: common.ServerError(fmt.Errorf("Failed to create user: %s", err))},
+			},
+		}, err
+	}
 	return params.ErrorResults{}, nil
 }
 

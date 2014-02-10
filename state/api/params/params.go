@@ -327,7 +327,7 @@ type ModifyUserSSHKeys struct {
 
 // ModifyUser stores the parameters used for a UserManager.Add|Remove call
 type ModifyUsers struct {
-	User     string
+	Tag      string
 	Password string
 }
 

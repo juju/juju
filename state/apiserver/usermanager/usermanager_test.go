@@ -6,6 +6,7 @@ package usermanager_test
 import (
 	gc "launchpad.net/gocheck"
 	jujutesting "launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
 	"launchpad.net/juju-core/state/apiserver/usermanager"
@@ -41,4 +42,28 @@ func (s *userManagerSuite) TestNewUserManagerAcceptsClient(c *gc.C) {
 	endPoint, err := usermanager.NewUserManagerAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, gc.IsNil)
 	c.Assert(endPoint, gc.NotNil)
+}
+
+func (s *userManagerSuite) TestNewUserManagerAPIRefusesNonClient(c *gc.C) {
+	anAuthoriser := s.authorizer
+	anAuthoriser.Client = false
+	endPoint, err := usermanager.NewUserManagerAPI(s.State, s.resources, anAuthoriser)
+	c.Assert(endPoint, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func (s *userManagerSuite) TestAddUser(c *gc.C) {
+	args := params.ModifyUsers{
+		Tag:      "foobar",
+		Password: "password",
+	}
+
+	result, err := s.usermanager.AddUser(args)
+	// Check that the call is succesful
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{})
+	// Check that the call results in a new user being created
+	user, err := s.State.User("foobar")
+	c.Assert(err, gc.IsNil)
+	c.Assert(user, gc.NotNil)
 }
