@@ -22,7 +22,7 @@ func init() {
 var errNoBootstrapHost = errors.New("bootstrap-host must be specified")
 
 func (p manualProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
-	if _, ok := cfg.UnknownAttrs()["storage-auth-key"].(string); !ok {
+	if _, ok := cfg.UnknownAttrs()["storage-auth-key"]; !ok {
 		uuid, err := utils.NewUUID()
 		if err != nil {
 			return nil, err
@@ -33,6 +33,9 @@ func (p manualProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
 		if err != nil {
 			return nil, err
 		}
+	}
+	if use, ok := cfg.UnknownAttrs()["use-sshstorage"].(bool); ok && !use {
+		return nil, fmt.Errorf("use-sshstorage must not be specified")
 	}
 	return p.Open(cfg)
 }
@@ -46,7 +49,12 @@ func (p manualProvider) Open(cfg *config.Config) (environs.Environ, error) {
 }
 
 func (p manualProvider) open(cfg *environConfig) (environs.Environ, error) {
-	return &manualEnviron{cfg: cfg}, nil
+	env := &manualEnviron{cfg: cfg}
+	// Need to call SetConfig to initialise storage.
+	if err := env.SetConfig(cfg.Config); err != nil {
+		return nil, err
+	}
+	return env, nil
 }
 
 func checkImmutableString(cfg, old *environConfig, key string) error {
@@ -87,6 +95,10 @@ func (p manualProvider) validate(cfg, old *config.Config) (*environConfig, error
 		oldPort, newPort := oldEnvConfig.storagePort(), envConfig.storagePort()
 		if oldPort != newPort {
 			return nil, fmt.Errorf("cannot change storage-port from %q to %q", oldPort, newPort)
+		}
+		oldUseSSHStorage, newUseSSHStorage := oldEnvConfig.useSSHStorage(), envConfig.useSSHStorage()
+		if oldUseSSHStorage != newUseSSHStorage && newUseSSHStorage == true {
+			return nil, fmt.Errorf("cannot change use-sshstorage from %v to %v", oldUseSSHStorage, newUseSSHStorage)
 		}
 	}
 	return envConfig, nil
