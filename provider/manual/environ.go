@@ -114,8 +114,8 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraint
 	if err := e.ensureBootstrapUbuntuUser(ctx); err != nil {
 		return err
 	}
-	// Set "bootstrapped" to true, so agents know not to use sshstorage.
-	cfg, err := e.Config().Apply(map[string]interface{}{"bootstrapped": true})
+	// Set "use-sshstorage" to false, so agents know not to use sshstorage.
+	cfg, err := e.Config().Apply(map[string]interface{}{"use-sshstorage": false})
 	if err != nil {
 		return err
 	}
@@ -154,16 +154,22 @@ func (e *manualEnviron) SetConfig(cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
-	// Set storage. If the config is "bootstrapped" (i.e. internal to
-	// the environment), then use the HTTP storage. Otherwise, use
-	// ssh storage.
+	// Set storage. If "use-sshstorage" is true then use the SSH storage.
+	// Otherwise, use HTTP storage.
 	//
 	// We don't change storage once it's been set. Storage parameters
 	// are fixed at bootstrap time, and it is not possible to change
 	// them.
 	if e.storage == nil {
 		var stor storage.Storage
-		if envConfig.bootstrapped() {
+		if envConfig.useSSHStorage() {
+			storageDir := e.StorageDir()
+			storageTmpdir := path.Join(dataDir, storageTmpSubdir)
+			stor, err = newSSHStorage("ubuntu@"+e.cfg.bootstrapHost(), storageDir, storageTmpdir)
+			if err != nil {
+				return fmt.Errorf("initialising SSH storage failed: %v", err)
+			}
+		} else {
 			caCertPEM, ok := envConfig.CACert()
 			if !ok {
 				// should not be possible to validate base config
@@ -173,13 +179,6 @@ func (e *manualEnviron) SetConfig(cfg *config.Config) error {
 			stor, err = httpstorage.ClientTLS(envConfig.storageAddr(), caCertPEM, authkey)
 			if err != nil {
 				return fmt.Errorf("initialising HTTPS storage failed: %v", err)
-			}
-		} else {
-			storageDir := e.StorageDir()
-			storageTmpdir := path.Join(dataDir, storageTmpSubdir)
-			stor, err = newSSHStorage("ubuntu@"+e.cfg.bootstrapHost(), storageDir, storageTmpdir)
-			if err != nil {
-				return fmt.Errorf("initialising SSH storage failed: %v", err)
 			}
 		}
 		e.storage = stor

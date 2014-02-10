@@ -35,8 +35,8 @@ func (p manualProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
 			return nil, err
 		}
 	}
-	if bootstrapped, _ := cfg.UnknownAttrs()["bootstrapped"].(bool); bootstrapped {
-		return nil, fmt.Errorf("bootstrapped must not be specified")
+	if use, ok := cfg.UnknownAttrs()["use-sshstorage"].(bool); ok && !use {
+		return nil, fmt.Errorf("use-sshstorage must not be specified")
 	}
 	return p.Open(cfg)
 }
@@ -97,9 +97,9 @@ func (p manualProvider) validate(cfg, old *config.Config) (*environConfig, error
 		if oldPort != newPort {
 			return nil, fmt.Errorf("cannot change storage-port from %q to %q", oldPort, newPort)
 		}
-		oldBootstrapped, newBootstrapped := oldEnvConfig.bootstrapped(), envConfig.bootstrapped()
-		if oldBootstrapped != newBootstrapped && newBootstrapped == false {
-			return nil, fmt.Errorf("cannot change bootstrapped from %v to %v", oldBootstrapped, newBootstrapped)
+		oldUseSSHStorage, newUseSSHStorage := oldEnvConfig.useSSHStorage(), envConfig.useSSHStorage()
+		if oldUseSSHStorage != newUseSSHStorage && newUseSSHStorage == true {
+			return nil, fmt.Errorf("cannot change use-sshstorage from %v to %v", oldUseSSHStorage, newUseSSHStorage)
 		}
 	}
 	return envConfig, nil

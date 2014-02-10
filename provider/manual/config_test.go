@@ -27,10 +27,9 @@ func MinimalConfigValues() map[string]interface{} {
 		"type":             "manual",
 		"bootstrap-host":   "hostname",
 		"storage-auth-key": "whatever",
-		// bootstrapped isn't necessarily required,
-		// but it simplifies testing to set it to
-		// true, disabling ssh things.
-		"bootstrapped": true,
+		// Not strictly necessary, but simplifies testing by disabling
+		// ssh storage by default.
+		"use-sshstorage": false,
 		// While the ca-cert bits aren't entirely minimal, they avoid the need
 		// to set up a fake home.
 		"ca-cert":        coretesting.CACert,
@@ -126,15 +125,15 @@ func (s *configSuite) TestStorageParams(c *gc.C) {
 	c.Assert(testConfig.storageListenAddr(), gc.Equals, "10.0.0.123:1234")
 }
 
-func (s *configSuite) TestBootstrappedCompat(c *gc.C) {
+func (s *configSuite) TestStorageCompat(c *gc.C) {
 	// Older environment configurations will not have the
-	// bootstrapped attribute. We treat them as if they
-	// have bootstrapped=true.
+	// use-sshstorage attribute. We treat them as if they
+	// have use-sshstorage=false.
 	values := MinimalConfigValues()
-	delete(values, "bootstrapped")
+	delete(values, "use-sshstorage")
 	cfg, err := config.New(config.UseDefaults, values)
 	c.Assert(err, gc.IsNil)
 	envConfig := newEnvironConfig(cfg, values)
 	c.Assert(err, gc.IsNil)
-	c.Assert(envConfig.bootstrapped(), jc.IsTrue)
+	c.Assert(envConfig.useSSHStorage(), jc.IsFalse)
 }

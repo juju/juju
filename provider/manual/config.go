@@ -19,13 +19,13 @@ var (
 		"storage-listen-ip": schema.String(),
 		"storage-port":      schema.Int(),
 		"storage-auth-key":  schema.String(),
-		"bootstrapped":      schema.Bool(),
+		"use-sshstorage":    schema.Bool(),
 	}
 	configDefaults = schema.Defaults{
 		"bootstrap-user":    "",
 		"storage-listen-ip": "",
 		"storage-port":      defaultStoragePort,
-		"bootstrapped":      false,
+		"use-sshstorage":    true,
 	}
 )
 
@@ -38,12 +38,12 @@ func newEnvironConfig(config *config.Config, attrs map[string]interface{}) *envi
 	return &environConfig{Config: config, attrs: attrs}
 }
 
-func (c *environConfig) bootstrapped() bool {
-	// Prior to 1.17.3, the bootstrapped attribute
+func (c *environConfig) useSSHStorage() bool {
+	// Prior to 1.17.3, the use-sshstorage attribute
 	// did not exist. We take non-existence to be
-	// equivalent to true.
-	bootstrapped, ok := c.attrs["bootstrapped"].(bool)
-	return bootstrapped || !ok
+	// equivalent to false.
+	useSSHStorage, _ := c.attrs["use-sshstorage"].(bool)
+	return useSSHStorage
 }
 
 func (c *environConfig) bootstrapHost() string {

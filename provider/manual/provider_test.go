@@ -24,7 +24,7 @@ var _ = gc.Suite(&providerSuite{})
 
 func (s *providerSuite) TestPrepare(c *gc.C) {
 	minimal := manual.MinimalConfigValues()
-	minimal["bootstrapped"] = false
+	minimal["use-sshstorage"] = true
 	delete(minimal, "storage-auth-key")
 	testConfig, err := config.New(config.UseDefaults, minimal)
 	c.Assert(err, gc.IsNil)
@@ -35,17 +35,18 @@ func (s *providerSuite) TestPrepare(c *gc.C) {
 	c.Assert(key, jc.Satisfies, utils.IsValidUUIDString)
 }
 
-func (s *providerSuite) TestPrepareBootstrapped(c *gc.C) {
+func (s *providerSuite) TestPrepareUseSSHStorage(c *gc.C) {
 	minimal := manual.MinimalConfigValues()
+	minimal["use-sshstorage"] = false
 	testConfig, err := config.New(config.UseDefaults, minimal)
 	c.Assert(err, gc.IsNil)
 	_, err = manual.ProviderInstance.Prepare(testConfig)
-	c.Assert(err, gc.ErrorMatches, "bootstrapped must not be specified")
+	c.Assert(err, gc.ErrorMatches, "use-sshstorage must not be specified")
 
 	s.PatchValue(manual.NewSSHStorage, func(sshHost, storageDir, storageTmpdir string) (storage.Storage, error) {
 		return nil, fmt.Errorf("newSSHStorage failed")
 	})
-	minimal["bootstrapped"] = false
+	minimal["use-sshstorage"] = true
 	testConfig, err = config.New(config.UseDefaults, minimal)
 	c.Assert(err, gc.IsNil)
 	_, err = manual.ProviderInstance.Prepare(testConfig)
