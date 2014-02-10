@@ -67,3 +67,21 @@ func (s *userManagerSuite) TestAddUser(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(user, gc.NotNil)
 }
+
+func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
+	args := params.ModifyUsers{
+		Tag:      "foobar",
+		Password: "password",
+	}
+	_, err := s.usermanager.AddUser(args)
+	c.Assert(err, gc.IsNil)
+	user, err := s.State.User("foobar")
+	c.Assert(user.IsInactive(), gc.Equals, false) // The user should be active
+
+	result, err := s.usermanager.RemoveUser(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{})
+	user, err = s.State.User("foobar")
+	c.Assert(err, gc.IsNil)
+	c.Assert(user.IsInactive(), gc.Equals, true) //Removal makes the user inactive
+}

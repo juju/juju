@@ -81,5 +81,21 @@ func (api *UserManagerAPI) AddUser(args params.ModifyUsers) (params.ErrorResults
 }
 
 func (api *UserManagerAPI) RemoveUser(args params.ModifyUsers) (params.ErrorResults, error) {
+	user, err := api.state.User(args.Tag)
+	if err != nil {
+		return params.ErrorResults{
+			[]params.ErrorResult{
+				{Error: common.ServerError(fmt.Errorf("Failed to find user %s: %s", args.Tag, err))},
+			},
+		}, err
+	}
+	err = user.SetInactive()
+	if err != nil {
+		return params.ErrorResults{
+			[]params.ErrorResult{
+				{Error: common.ServerError(fmt.Errorf("Failed to remove user: %s", err))},
+			},
+		}, err
+	}
 	return params.ErrorResults{}, nil
 }
