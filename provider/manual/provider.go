@@ -23,7 +23,7 @@ func init() {
 var errNoBootstrapHost = errors.New("bootstrap-host must be specified")
 
 func (p manualProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
-	if _, ok := cfg.UnknownAttrs()["storage-auth-key"].(string); !ok {
+	if _, ok := cfg.UnknownAttrs()["storage-auth-key"]; !ok {
 		uuid, err := utils.NewUUID()
 		if err != nil {
 			return nil, err
@@ -34,6 +34,9 @@ func (p manualProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
 		if err != nil {
 			return nil, err
 		}
+	}
+	if bootstrapped, _ := cfg.UnknownAttrs()["bootstrapped"].(bool); bootstrapped {
+		return nil, fmt.Errorf("bootstrapped must not be specified")
 	}
 	return p.Open(cfg)
 }
@@ -47,7 +50,12 @@ func (p manualProvider) Open(cfg *config.Config) (environs.Environ, error) {
 }
 
 func (p manualProvider) open(cfg *environConfig) (environs.Environ, error) {
-	return &manualEnviron{cfg: cfg}, nil
+	env := &manualEnviron{cfg: cfg}
+	// Need to call SetConfig to initialise storage.
+	if err := env.SetConfig(cfg.Config); err != nil {
+		return nil, err
+	}
+	return env, nil
 }
 
 func checkImmutableString(cfg, old *environConfig, key string) error {
@@ -88,6 +96,10 @@ func (p manualProvider) validate(cfg, old *config.Config) (*environConfig, error
 		oldPort, newPort := oldEnvConfig.storagePort(), envConfig.storagePort()
 		if oldPort != newPort {
 			return nil, fmt.Errorf("cannot change storage-port from %q to %q", oldPort, newPort)
+		}
+		oldBootstrapped, newBootstrapped := oldEnvConfig.bootstrapped(), envConfig.bootstrapped()
+		if oldBootstrapped != newBootstrapped && newBootstrapped == false {
+			return nil, fmt.Errorf("cannot change bootstrapped from %v to %v", oldBootstrapped, newBootstrapped)
 		}
 	}
 	return envConfig, nil

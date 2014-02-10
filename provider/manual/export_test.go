@@ -5,4 +5,5 @@ package manual
 
 var (
 	ProviderInstance = manualProvider{}
+	NewSSHStorage    = &newSSHStorage
 )

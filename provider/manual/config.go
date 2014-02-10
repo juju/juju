@@ -19,11 +19,13 @@ var (
 		"storage-listen-ip": schema.String(),
 		"storage-port":      schema.Int(),
 		"storage-auth-key":  schema.String(),
+		"bootstrapped":      schema.Bool(),
 	}
 	configDefaults = schema.Defaults{
 		"bootstrap-user":    "",
 		"storage-listen-ip": "",
 		"storage-port":      defaultStoragePort,
+		"bootstrapped":      false,
 	}
 )
 
@@ -34,6 +36,14 @@ type environConfig struct {
 
 func newEnvironConfig(config *config.Config, attrs map[string]interface{}) *environConfig {
 	return &environConfig{Config: config, attrs: attrs}
+}
+
+func (c *environConfig) bootstrapped() bool {
+	// Prior to 1.17.3, the bootstrapped attribute
+	// did not exist. We take non-existence to be
+	// equivalent to true.
+	bootstrapped, ok := c.attrs["bootstrapped"].(bool)
+	return bootstrapped || !ok
 }
 
 func (c *environConfig) bootstrapHost() string {
