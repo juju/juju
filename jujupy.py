@@ -241,7 +241,11 @@ class Environment:
     def wait_for_started(self):
         """Wait until all unit/machine agents are 'started'."""
         for ignored in until_timeout(1200):
-            status = self.get_status()
+            try:
+                status = self.get_status()
+            except CannotConnectEnv:
+                print('Supressing "Unable to connect to environment"')
+                continue
             states = status.check_agents_started(self.environment)
             if states is None:
                 break
