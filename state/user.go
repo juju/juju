@@ -86,6 +86,7 @@ type User struct {
 
 type userDoc struct {
 	Name         string `bson:"_id_"`
+	Inactive     bool   // Removing users means they still exist, but are marked inactive
 	PasswordHash string
 	PasswordSalt string
 }
@@ -161,4 +162,21 @@ func (u *User) Refresh() error {
 	}
 	u.doc = udoc
 	return nil
+}
+
+func (u *User) SetInactive() error {
+	ops := []txn.Op{{
+		C:      u.st.users.Name,
+		Id:     u.Name(),
+		Update: D{{"$set", D{{"inactive", true}}}},
+	}}
+	if err := u.st.runTransaction(ops); err != nil {
+		return fmt.Errorf("cannot set user %q inactive: %v", u.Name(), err)
+	}
+	u.doc.Inactive = true
+	return nil
+}
+
+func (u *User) IsInactive() bool {
+	return u.doc.Inactive
 }

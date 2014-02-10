@@ -158,3 +158,14 @@ func (s *UserSuite) TestName(c *gc.C) {
 	c.Assert(u.Name(), gc.Equals, "someuser")
 	c.Assert(u.Tag(), gc.Equals, "user-someuser")
 }
+
+func (s *UserSuite) TestInactive(c *gc.C) {
+	u, err := s.State.AddUser("someuser", "")
+	c.Assert(err, gc.IsNil)
+	c.Assert(u.IsInactive(), gc.Equals, false)
+
+	err = u.SetInactive()
+	c.Assert(err, gc.IsNil)
+	c.Assert(u.IsInactive(), gc.Equals, true)
+
+}
