@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
+	"strconv"
 
 	"launchpad.net/gnuflag"
 
@@ -61,15 +63,11 @@ func (c *DebugLogCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	defer client.Close()
 
-	logLocation, err := c.logLocation()
-	if err != nil {
-		return err
-	}
-	debugLog, err := client.WatchDebugLog(logLocation, c.lines, c.filter)
+	debugLog, err := client.WatchDebugLog(c.lines, c.filter)
 	if err != nil {
 		logger.Infof("WatchDebugLog not supported by the API server, " +
 			"falling back to 1.16 compatibility mode using ssh")
-		return c.watchDebugLog1dot16(ctx, logLocation)
+		return c.watchDebugLog1dot16(ctx)
 	}
 	defer debugLog.Close()
 
@@ -79,33 +77,56 @@ func (c *DebugLogCommand) Run(ctx *cmd.Context) (err error) {
 
 // watchDebugLog1dot16 runs in case of an older API server and uses ssh
 // but with server-side grep.
-func (c *DebugLogCommand) watchDebugLog1dot16(ctx *cmd.Context, logLocation string) error {
-	// TODO(mue) Testing needed.
+func (c *DebugLogCommand) watchDebugLog1dot16(ctx *cmd.Context) error {
+	name, local, err := c.currentEnvironment()
+	if err != nil {
+		return err
+	}
+	// Work depending on the provider.
+	if local {
+		// Local provider tails local log file.
+		logLocation := fmt.Sprintf("%s/%s/log/all-machines.log", osenv.JujuHomeDir(), name)
+		tailCmd := exec.Command("tail", "-n", strconv.Itoa(c.lines), "-f", logLocation)
+		grepCmd := exec.Command("grep", c.filter)
+		r, w := io.Pipe()
+
+		tailCmd.Stdout = w
+		grepCmd.Stdin = r
+		grepCmd.Stdout = os.Stdout
+		grepCmd.Stderr = os.Stderr
+
+		err := tailCmd.Start()
+		if err != nil {
+			return err
+		}
+		err = grepCmd.Start()
+		if err != nil {
+			return err
+		}
+		return grepCmd.Wait()
+	}
+	// Any other provider uses ssh with tail.
+	logLocation := "/var/log/juju/all-machines.log"
 	sshCmd := &SSHCommand{}
-	tailcmd := fmt.Sprintf("tail -n %d -f %s|grep %s", c.lines, logLocation, c.filter)
-	args := append([]string{"0"}, tailcmd)
-	err := sshCmd.Init(args)
+	tailGrepCmd := fmt.Sprintf("tail -n %d -f %s|grep %s", c.lines, logLocation, c.filter)
+	args := []string{"0", tailGrepCmd}
+	err = sshCmd.Init(args)
 	if err != nil {
 		return err
 	}
 	return sshCmd.Run(ctx)
 }
 
-// logLocation returns the log location for the SSH command based on the provider.
-func (c *DebugLogCommand) logLocation() (string, error) {
+// currentEnvironment returns the name of the environment and if it is local.
+func (c *DebugLogCommand) currentEnvironment() (string, bool, error) {
 	store, err := configstore.Default()
 	if err != nil {
-		return "", fmt.Errorf("cannot open environment info storage: %v", err)
+		return "", false, fmt.Errorf("cannot open environment info storage: %v", err)
 	}
 	environ, err := environs.NewFromName(c.EnvironName(), store)
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
-	if environ.Config().Type() == provider.Local {
-		// Local provider.
-		return fmt.Sprintf("%s/%s/log/all-machines.log", osenv.JujuHomeDir(), environ.Name()), nil
-
-	}
-	// Default location.
-	return "/var/log/juju/all-machines.log", nil
+	local := environ.Config().Type() == provider.Local
+	return environ.Name(), local, nil
 }

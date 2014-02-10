@@ -41,10 +41,6 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	// Get the arguments of the request.
 	values := req.URL.Query()
-	logLocation := values.Get("location")
-	if logLocation == "" {
-		logLocation = defaultLogLocation
-	}
 	lines := 0
 	if linesAttr := values.Get("lines"); linesAttr != "" {
 		var err error
@@ -55,8 +51,14 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	filter := values.Get("filter")
+	filterRx, err := regexp.Compile(filter)
+	if err != nil {
+		h.sendError(w, http.StatusBadRequest, "cannot set filter: %v", err)
+		return
+	}
 	// Open log file.
-	logFile, err := os.Open(logLocation)
+	// TODO(mue) Add mechanism to get log location depending on provider.
+	logFile, err := os.Open(defaultLogLocation)
 	if err != nil {
 		h.sendError(w, http.StatusInternalServerError, "cannot open log file: %v", err)
 		return
@@ -65,11 +67,11 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// Start streaming.
 	wsServer := websocket.Server{
 		Handler: func(wsConn *websocket.Conn) {
-			stream := &logStream{}
+			stream := &logStream{filterRx: filterRx}
 			go func() {
 				defer stream.tomb.Done()
 				defer wsConn.Close()
-				stream.tomb.Kill(stream.loop(logFile, wsConn, lines, filter))
+				stream.tomb.Kill(stream.loop(logFile, wsConn, lines))
 			}()
 			if err := stream.tomb.Wait(); err != nil {
 				logger.Errorf("debug-log handler error: %v", err)
@@ -139,10 +141,7 @@ type logStream struct {
 }
 
 // loop starts the tailer with the log file and the web socket.
-func (stream *logStream) loop(logFile io.ReadSeeker, wsConn *websocket.Conn, lines int, filter string) error {
-	if err := stream.setFilter(filter); err != nil {
-		return err
-	}
+func (stream *logStream) loop(logFile io.ReadSeeker, wsConn *websocket.Conn, lines int) error {
 	tailer := tailer.NewTailer(logFile, wsConn, lines, stream.filterLine)
 	go stream.handleRequests(wsConn)
 	select {
@@ -168,11 +167,16 @@ func (stream *logStream) filterLine(line []byte) bool {
 
 // setFilter configures the stream filtering by setting the
 // tags to filter.
-func (stream *logStream) setFilter(filter string) (err error) {
+func (stream *logStream) setFilter(filter string) {
 	stream.mux.Lock()
 	defer stream.mux.Unlock()
-	stream.filterRx, err = regexp.Compile(filter)
-	return
+	filterRx, err := regexp.Compile(filter)
+	if err != nil {
+		// Keep filter untouched.
+		logger.Errorf("error setting filter: %v", err)
+		return
+	}
+	stream.filterRx = filterRx
 }
 
 // handleRequests allows the stream to handle requests, so far only
@@ -184,9 +188,6 @@ func (stream *logStream) handleRequests(wsConn *websocket.Conn) {
 			stream.tomb.Kill(fmt.Errorf("error receiving packet: %v", err))
 			return
 		}
-		if err := stream.setFilter(req.Filter); err != nil {
-			stream.tomb.Kill(fmt.Errorf("error setting filter: %v", err))
-			return
-		}
+		stream.setFilter(req.Filter)
 	}
 }

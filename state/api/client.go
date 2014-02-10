@@ -523,13 +523,12 @@ func (c *Client) AddCharm(curl *charm.URL) error {
 // The filter allows to grep wanted lines out of the output, e.g.
 // machines or units. The watching is started the given number of
 // matching lines back in history.
-func (c *Client) WatchDebugLog(logLocation string, lines int, filter string) (*ClientDebugLog, error) {
+func (c *Client) WatchDebugLog(lines int, filter string) (*ClientDebugLog, error) {
 	cfg := c.st.websocketConfig
 	// Prepare URL.
 	attrs := url.Values{
-		"location": {logLocation},
-		"lines":    {fmt.Sprintf("%d", lines)},
-		"filter":   {filter},
+		"lines":  {fmt.Sprintf("%d", lines)},
+		"filter": {filter},
 	}
 	cfg.Location = &url.URL{
 		Scheme:   "wss",
