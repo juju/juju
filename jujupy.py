@@ -120,7 +120,8 @@ class JujuClientDevel:
                 stderr.seek(0)
                 e.stderr = stderr.read()
                 if ('Unable to connect to environment' in e.stderr
-                        or 'MissingOrIncorrectVersionHeader' in e.stderr):
+                        or 'MissingOrIncorrectVersionHeader' in e.stderr
+                        or '307: Temporary Redirect' in e.stderr):
                     raise CannotConnectEnv(e)
                 print('!!! ' + e.stderr)
                 raise
