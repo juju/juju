@@ -31,6 +31,7 @@ const (
 	AgentServiceName = "AGENT_SERVICE_NAME"
 	MongoServiceName = "MONGO_SERVICE_NAME"
 	RsyslogConfPath  = "RSYSLOG_CONF_PATH"
+	BootstrapJobs    = "BOOTSTRAP_JOBS"
 )
 
 // The Config interface is the sole way that the agent gets access to the
