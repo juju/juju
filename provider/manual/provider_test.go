@@ -6,6 +6,7 @@ package manual_test
 import (
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/provider/manual"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -29,4 +30,13 @@ func (s *providerSuite) TestPrepare(c *gc.C) {
 	cfg := env.Config()
 	key, _ := cfg.UnknownAttrs()["storage-auth-key"].(string)
 	c.Assert(key, jc.Satisfies, utils.IsValidUUIDString)
+}
+
+func (s *providerSuite) TestNullAlias(c *gc.C) {
+	p, err := environs.Provider("manual")
+	c.Assert(p, gc.NotNil)
+	c.Assert(err, gc.IsNil)
+	p, err = environs.Provider("null")
+	c.Assert(p, gc.NotNil)
+	c.Assert(err, gc.IsNil)
 }
