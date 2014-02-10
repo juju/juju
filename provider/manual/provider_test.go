@@ -33,8 +33,10 @@ func (s *providerSuite) TestPrepare(c *gc.C) {
 }
 
 func (s *providerSuite) TestNullAlias(c *gc.C) {
-	_, err := environs.Provider("manual")
+	p, err := environs.Provider("manual")
+	c.Assert(p, gc.NotNil)
 	c.Assert(err, gc.IsNil)
-	_, err = environs.Provider("null")
+	p, err = environs.Provider("null")
+	c.Assert(p, gc.NotNil)
 	c.Assert(err, gc.IsNil)
 }
