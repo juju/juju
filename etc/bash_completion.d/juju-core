@@ -1,20 +1,20 @@
 #!/bin/bash
-# juju.autocomp: dynamic bash completion for juju cmdline,
-#                from parsed (and cached) juju status output
+# juju-core.bash_completion.sh: dynamic bash completion for juju cmdline,
+# from parsed (and cached) juju status output.
 #
 # Author: JuanJo Ciarlante <jjo@canonical.com>
 # Copyright 2013+, Canonical Ltd.
 # License: GPLv3
 #
 
-# Print all machines
+# Print (return) all machines
 _juju_machines_from_file() {
 python -c '
 import json, sys; j=json.load(sys.stdin)
 print "\n".join(j["machines"].keys());' < ${1?}
 }
 
-# Print all units, each optionally postfixed by $2 (eg. 'myservice/0:')
+# Print (return) all units, each optionally postfixed by $2 (eg. 'myservice/0:')
 _juju_units_from_file() {
 python -c '
 trail="'${2}'"
@@ -27,34 +27,35 @@ print "\n".join([unit + trail for unit in all_units])
 ' < ${1?}
 }
 
-# Print all services
+# Print (return) all services
 _juju_services_from_file() {
 python -c '
 import json, sys; j=json.load(sys.stdin)
 print "\n".join(j["services"].keys());' < ${1?}
 }
 
-# Print both services and units, currently used for juju status completion
+# Print (return) both services and units, currently used for juju status completion
 _juju_services_and_units_from_file() {
     _juju_services_from_file "$@"
     _juju_units_from_file "$@"
 }
 
-# Print all juju commands
+# Print (return) all juju commands
 _juju_list_commands() {
     juju help commands 2>/dev/null | awk '{print $1}'
 }
 
-# Print flags for juju action, shamelessly excluding -e/--environment for
-# cleaner completion for common usage cases (juju ssh <TAB>, etc)
+# Print (return) flags for juju action, shamelessly excluding
+# -e/--environment for cleaner completion for common usage cases
+# (e.g. juju ssh <TAB>, etc)
 _juju_flags_for() {
     test -z "${1}" && return 0
     juju help ${1} 2>/dev/null |egrep -o --  '(^|-)-[a-z-]+'|egrep -v -- '^(-e|--environment)'|sort -u
 }
 
-# Print guessed completion function for cmd
-# Guessing is done by parsing juju help <cmd>, and
-# echoed for its function name (for later use by caller)
+# Print (return) guessed completion function for cmd.
+# Guessing is done by parsing 1st line of juju help <cmd>,
+# see case switch below.
 _juju_completion_func_for_cmd() {
     local action=${1} cword=${2}
     # if cword==1 or action==help, use _juju_list_commands
@@ -68,13 +69,13 @@ _juju_completion_func_for_cmd() {
         *\<unit*|*juju?ssh*|*juju?scp*)    echo _juju_units_from_file;;
         *\<service*)    echo _juju_services_from_file;;
         *\<machine*)    echo _juju_machines_from_file;;
-        *pattern*)      echo _juju_services_and_units_from_file;; # e.g. "status"
+        *pattern*)      echo _juju_services_and_units_from_file;; # e.g. status
         ?*)     echo true ;;  # help ok, existing command, no more expansion
         *)      echo false;;  # failed, not a command
     esac
 }
 
-# Print filename from juju status cached output (if not expired),
+# Print (return) filename from juju status cached output (if not expired),
 # create cache dirs if needed
 # - setups caching dir if non-existent
 # - caches juju status output, $cache_mins minutes max
@@ -97,8 +98,8 @@ _juju_get_status_filename() {
         return 1
     fi
 }
-# main completion function wrap:
-# calls passed completion func, also adding flags for cmd
+# Main completion function wrap:
+# calls passed completion function, also adding flags for cmd
 _juju_complete_with_func() {
     local action="${1}" func=${2?}
     local cur
@@ -128,7 +129,7 @@ _juju_complete_with_func() {
 
 # Not used here, available to the user for quick cache removal
 _juju_completion_cache_rm() {
-    rm -fv $HOME/.cache/juju/juju-status-${JUJU_ENV?}
+    rm -fv $HOME/.cache/juju/juju-status-${JUJU_ENV:-default}
 }
 
 # main completion function entry point

@@ -129,7 +129,7 @@ Installing bash completion for juju
 
 Will install Bash completion for `juju` cli to
 `/etc/bash_completion.d/juju-core` It does dynamic completion for commands
-requiring service, unit and machine names (like e.g. juju status <service>,
+requiring service, unit or machine names (like e.g. juju status <service>,
 juju ssh <instance>, juju terminate-machine <machine#>, etc),
-py parsing cached `juju status` output for speedup. It also does
+by parsing cached `juju status` output for speedup. It also does
 command flags completion by parsing `juju help ...` output.
