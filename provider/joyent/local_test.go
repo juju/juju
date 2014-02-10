@@ -10,7 +10,9 @@ import (
 	"net/url"
 	"bytes"
 	"io/ioutil"
+	"fmt"
 
+	"launchpad.net/gojoyent/client"
 	lc "launchpad.net/gojoyent/localservices/cloudapi"
 	lm "launchpad.net/gojoyent/localservices/manta"
 
@@ -166,7 +168,15 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	s.Tests.SetUpTest(c)
 	// For testing, we create a storage instance to which is uploaded tools and image metadata.
 	env := s.Prepare(c)
-	env.(*jp.JoyentEnviron).SetCredentials()
+
+	cl := client.NewClient(s.mSrv.Server.URL, "", env.(*jp.JoyentEnviron).Credentials(), nil)
+	c.Assert(cl, gc.NotNil)
+	containerURL := cl.MakeServiceURL([]string{"object-store", ""})
+	s.TestConfig = s.TestConfig.Merge(coretesting.Attrs{
+		"tools-metadata-url": containerURL + "/juju-dist-test/tools",
+		"image-metadata-url": containerURL + "/juju-dist-test",
+	})
+
 	s.toolsMetadataStorage = MetadataStorage(env)
 	// Put some fake metadata in place so that tests that are simply
 	// starting instances without any need to check if those instances
@@ -399,7 +409,7 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 	env := s.Open(c)
 
 	// An error occurs if no suitable image is found.
-	_, err := FindInstanceSpec(env, "saucy", "amd64", "mem=8G")
+	_, err := FindInstanceSpec(env, "saucy", "amd64", "mem=4G")
 	c.Assert(err, gc.ErrorMatches, `no "saucy" images in some-region with arches \[amd64\]`)
 }
 

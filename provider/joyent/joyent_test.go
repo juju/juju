@@ -305,7 +305,7 @@ func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *inst
 	spec, err = env.FindInstanceSpec(&instances.InstanceConstraint{
 		Series:      series,
 		Arches:      []string{arch},
-		Region:      env.Ecfg().SdcUrl(),
+		Region:      env.Ecfg().Region(),
 		Constraints: constraints.MustParse(cons),
 	})
 	return

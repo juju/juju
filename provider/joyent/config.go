@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"net/url"
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/schema"
@@ -233,6 +234,22 @@ func (ecfg *environConfig) SdcUrl() string {
 }
 
 func (ecfg *environConfig) Region() string {
-	url := ecfg.sdcUrl()
-	return url[strings.LastIndex(url, "/") + 1:strings.Index(url,".")]
+	sdcUrl := ecfg.sdcUrl()
+	// Check if running against local services
+	if isLocalhost(sdcUrl) {
+		return "some-region"
+	}
+	return sdcUrl[strings.LastIndex(sdcUrl, "/") + 1:strings.Index(sdcUrl,".")]
+}
+
+func isLocalhost(u string) bool {
+	parsedUrl, err := url.Parse(u)
+	if err != nil {
+		return false
+	}
+	if strings.HasPrefix(parsedUrl.Host, "localhost") || strings.HasPrefix(parsedUrl.Host, "127.0.0.1") {
+		return true
+	}
+
+	return false
 }
