@@ -49,7 +49,7 @@ _juju_list_commands() {
 # cleaner completion for common usage cases (juju ssh <TAB>, etc)
 _juju_flags_for() {
     test -z "${1}" && return 0
-    juju help ${1} 2>/dev/null |egrep -o --  '(^|-)-[a-z]+'|egrep -v -- '^(-e|--environment)'|sort -u
+    juju help ${1} 2>/dev/null |egrep -o --  '(^|-)-[a-z-]+'|egrep -v -- '^(-e|--environment)'|sort -u
 }
 
 # Print guessed completion function for cmd
