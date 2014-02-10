@@ -8,6 +8,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/provider/manual"
@@ -51,4 +52,13 @@ func (s *providerSuite) TestPrepareUseSSHStorage(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	_, err = manual.ProviderInstance.Prepare(testConfig)
 	c.Assert(err, gc.ErrorMatches, "initialising SSH storage failed: newSSHStorage failed")
+}
+
+func (s *providerSuite) TestNullAlias(c *gc.C) {
+	p, err := environs.Provider("manual")
+	c.Assert(p, gc.NotNil)
+	c.Assert(err, gc.IsNil)
+	p, err = environs.Provider("null")
+	c.Assert(p, gc.NotNil)
+	c.Assert(err, gc.IsNil)
 }

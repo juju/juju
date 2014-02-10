@@ -16,8 +16,7 @@ type manualProvider struct{}
 
 func init() {
 	p := manualProvider{}
-	environs.RegisterProvider("null", p)
-	environs.RegisterProvider("manual", p)
+	environs.RegisterProvider("manual", p, "null")
 }
 
 var errNoBootstrapHost = errors.New("bootstrap-host must be specified")
