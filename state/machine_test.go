@@ -227,6 +227,49 @@ func (s *MachineSuite) TestRemove(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
+func (s *MachineSuite) TestHasVote(c *gc.C) {
+	c.Assert(s.machine.HasVote(), jc.IsFalse)
+
+	// Make another machine value so that
+	// it won't have the cached HasVote value.
+	m, err := s.State.Machine(s.machine.Id())
+	c.Assert(err, gc.IsNil)
+
+	err = s.machine.SetHasVote(true)
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.machine.HasVote(), jc.IsTrue)
+	c.Assert(m.HasVote(), jc.IsFalse)
+
+	err = m.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(m.HasVote(), jc.IsTrue)
+
+	err = m.SetHasVote(false)
+	c.Assert(err, gc.IsNil)
+	c.Assert(m.HasVote(), jc.IsFalse)
+
+	c.Assert(s.machine.HasVote(), jc.IsTrue)
+	err = s.machine.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.machine.HasVote(), jc.IsFalse)
+}
+
+func (s *MachineSuite) TestCannotDestroyMachineWithVote(c *gc.C) {
+	err := s.machine.SetHasVote(true)
+	c.Assert(err, gc.IsNil)
+
+	// Make another machine value so that
+	// it won't have the cached HasVote value.
+	m, err := s.State.Machine(s.machine.Id())
+	c.Assert(err, gc.IsNil)
+
+	err = s.machine.Destroy()
+	c.Assert(err, gc.ErrorMatches, "machine "+s.machine.Id()+" is a voting replica set member")
+
+	err = m.Destroy()
+	c.Assert(err, gc.ErrorMatches, "machine "+s.machine.Id()+" is a voting replica set member")
+}
+
 func (s *MachineSuite) TestRemoveAbort(c *gc.C) {
 	err := s.machine.EnsureDead()
 	c.Assert(err, gc.IsNil)

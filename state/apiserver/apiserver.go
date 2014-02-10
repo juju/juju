@@ -132,7 +132,7 @@ func (n *requestNotifier) join(req *http.Request) {
 }
 
 func (n *requestNotifier) leave() {
-	logger.Infof("[%X] API connection terminated after %v", n.id, time.Since(n.start))
+	logger.Infof("[%X] %s API connection terminated after %v", n.id, n.tag(), time.Since(n.start))
 }
 
 func (n requestNotifier) ClientRequest(hdr *rpc.Header, body interface{}) {

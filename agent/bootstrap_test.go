@@ -162,3 +162,19 @@ func (*bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, password string) {
 	_, err = st.Machine("0")
 	c.Assert(err, gc.IsNil)
 }
+
+func (s *bootstrapSuite) TestMarshalUnmarshalBootstrapJobs(c *gc.C) {
+	jobs := [][]state.MachineJob{
+		{},
+		{state.JobHostUnits},
+		{state.JobManageEnviron},
+		{state.JobHostUnits, state.JobManageEnviron},
+	}
+	for _, jobs := range jobs {
+		marshalled, err := agent.MarshalBootstrapJobs(jobs...)
+		c.Assert(err, gc.IsNil)
+		unmarshalled, err := agent.UnmarshalBootstrapJobs(marshalled)
+		c.Assert(err, gc.IsNil)
+		c.Assert(unmarshalled, gc.DeepEquals, jobs)
+	}
+}
