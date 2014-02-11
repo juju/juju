@@ -8,7 +8,7 @@ import sys
 import urllib2
 
 build_data = urllib2.urlopen(
-    '$LOCAL_JENKINS_URL/job/prepare-new-version/lastSuccessfulBuild/api/json')
+    '$LOCAL_JENKINS_URL/job/build-revision/lastSuccessfulBuild/api/json')
 build_json = json.load(build_data)
 for artifact in build_json['artifacts']:
     filename = artifact['fileName']
@@ -19,7 +19,7 @@ else:
 print filename
 EOT
 )
-artifact=$LOCAL_JENKINS_URL/job/prepare-new-version/lastSuccessfulBuild/artifact
+artifact=$LOCAL_JENKINS_URL/job/build-revision/lastSuccessfulBuild/artifact
 wget -q $artifact/$tarfile
 
 echo Starting instance $INSTANCE_ID

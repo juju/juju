@@ -15,7 +15,7 @@ export JUJU_HOME=$HOME/juju-ci
 export PACKAGE=$WORKSPACE/new-precise.deb
 set -x
 rm * -rf
-artifact=localhost:8080/job/prepare-new-version/lastSuccessfulBuild/artifact
+artifact=localhost:8080/job/build-revision/lastSuccessfulBuild/artifact
 wget -q $artifact/new-precise.deb
 # Determine BRANCH and REVNO
 wget -q $artifact/buildvars.bash
