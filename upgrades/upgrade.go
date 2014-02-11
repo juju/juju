@@ -13,15 +13,15 @@ import (
 // UpgradeStep defines an idempotent operation that is run to perform
 // a specific upgrade step.
 type UpgradeStep interface {
-	// A human readable description of what the upgrade step does.
+	// Description is a human readable description of what the upgrade step does.
 	Description() string
-	// The target machine types for which the upgrade step is applicable.
+	// Targets returns the target machine types for which the upgrade step is applicable.
 	Targets() []UpgradeTarget
-	// The upgrade business logic.
+	// Run executes the upgrade business logic.
 	Run() error
 }
 
-// UpgradeOperation defines a slice of upgrade steps.
+// UpgradeOperation defines what steps to perform to upgrade to a target version.
 type UpgradeOperation interface {
 	// The Juju version for which this operation is applicable.
 	// Upgrade operations designed for versions of Juju earlier
@@ -62,7 +62,7 @@ func (u upgradeToVersion) TargetVersion() version.Number {
 // Context is used give the upgrade steps attributes needed
 // to do their job.
 type Context interface {
-	// An API connection to state.
+	// APIState returns an API connection to state.
 	APIState() *api.State
 }
 
