@@ -6,24 +6,23 @@ package upgrades_test
 import (
 	"errors"
 	"strings"
-	stdtesting "testing"
+	"testing"
 
 	gc "launchpad.net/gocheck"
 
-	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state/api"
-	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/upgrades"
 	"launchpad.net/juju-core/version"
 )
 
-func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
+func Test(t *testing.T) {
+	gc.TestingT(t)
 }
 
 type upgradeSuite struct {
-	jujutesting.JujuConnSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&upgradeSuite{})
