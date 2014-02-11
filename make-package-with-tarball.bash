@@ -11,6 +11,7 @@ PACKAGING_DIR="$TMP_DIR/packaging"
 BUILD_DIR="$TMP_DIR/build"
 DEFAULT_STABLE_PACKAGING_BRANCH="lp:ubuntu/juju-core"
 DEFAULT_DEVEL_PACKAGING_BRANCH="lp:~juju-qa/juju-core/devel-packaging"
+DEFAULT_1_16_PACKAGING_BRANCH="lp:~juju-qa/juju-core/1.16-packaging"
 DEVEL_SERIES=$(distro-info --devel --codename)
 DEVEL_VERSION=$(distro-info --release --devel | cut -d ' ' -f1)
 EXTRA_RELEASES="saucy:13.10 precise:12.04"
@@ -42,6 +43,7 @@ check_deps() {
 
 make_source_package_branch() {
     echo "Phase 1: Updating the source package branch."
+    echo "Using $PACKAGING_BRANCH"
     bzr branch $PACKAGING_BRANCH $PACKAGING_DIR
     cd $PACKAGING_DIR
     bzr import-upstream $VERSION $TARBALL
@@ -110,16 +112,6 @@ update_source_package_branch() {
 test $# -ge 3 || usage
 
 PURPOSE=$1
-if [[ $PURPOSE == "stable" ]]; then
-    PACKAGING_BRANCH=$DEFAULT_STABLE_PACKAGING_BRANCH
-    PPA="ppa:juju-packaging/stable"
-elif [[ $PURPOSE == "devel" || $PURPOSE == "testing" ]]; then
-    PACKAGING_BRANCH=$DEFAULT_DEVEL_PACKAGING_BRANCH
-    PPA="ppa:juju-packaging/devel"
-else
-    usage
-fi
-
 TARBALL=$(readlink -f $2)
 if [[ ! -f "$TARBALL" ]]; then
     echo "Tarball not found."
@@ -133,6 +125,19 @@ DEBEMAIL=$3
 
 shift; shift; shift
 BUGS=$(echo "$@" | sed  -e 's/ /, /g; s/\([0-9]\+\)/#\1/g;')
+
+if [[ $PURPOSE == "stable" ]]; then
+    PACKAGING_BRANCH=$DEFAULT_STABLE_PACKAGING_BRANCH
+    PPA="ppa:juju-packaging/stable"
+elif [[ $PURPOSE == "testing" && $VERSION =~ ^1\.16\.* ]]; then
+    PACKAGING_BRANCH=$DEFAULT_1_16_PACKAGING_BRANCH
+    PPA="ppa:juju-packaging/devel"
+elif [[ $PURPOSE == "devel" || $PURPOSE == "testing" ]]; then
+    PACKAGING_BRANCH=$DEFAULT_DEVEL_PACKAGING_BRANCH
+    PPA="ppa:juju-packaging/devel"
+else
+    usage
+fi
 
 check_deps
 make_source_package_branch
