@@ -23,6 +23,13 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
+// mongoSocketTimeout should be long enough that
+// even a slow mongo server will respond in that
+// length of time. Since mongo servers ping themselves
+// every 10 seconds, that seems like a reasonable
+// default.
+const mongoSocketTimeout = 10 * time.Second
+
 // Info encapsulates information about cluster of
 // servers holding juju state and can be used to make a
 // connection to that cluster.
@@ -108,6 +115,7 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 		session.Close()
 		return nil, err
 	}
+	session.SetSocketTimeout(mongoSocketTimeout)
 	return st, nil
 }
 

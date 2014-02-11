@@ -97,17 +97,16 @@ func stateInfo() *state.Info {
 // Operation represents an action on the dummy provider.
 type Operation interface{}
 
-type GenericOperation struct {
-	Env string
-}
-
 type OpBootstrap struct {
 	Context     environs.BootstrapContext
 	Env         string
 	Constraints constraints.Value
 }
 
-type OpDestroy GenericOperation
+type OpDestroy struct {
+	Env   string
+	Error error
+}
 
 type OpStartInstance struct {
 	Env          string
@@ -637,16 +636,17 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (e *environ) Destroy() error {
+func (e *environ) Destroy() (res error) {
 	defer delay()
-	if err := e.checkBroken("Destroy"); err != nil {
-		return err
-	}
 	estate, err := e.state()
 	if err != nil {
 		if err == provider.ErrDestroyed {
 			return nil
 		}
+		return err
+	}
+	defer func() { estate.ops <- OpDestroy{Env: estate.name, Error: res} }()
+	if err := e.checkBroken("Destroy"); err != nil {
 		return err
 	}
 	p := &providerInstance
@@ -656,7 +656,6 @@ func (e *environ) Destroy() error {
 
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
-	estate.ops <- OpDestroy{Env: estate.name}
 	estate.destroy()
 	return nil
 }

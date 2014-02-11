@@ -476,6 +476,28 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 	c.Assert(errText, gc.Matches, expectedErrText)
 }
 
+func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
+	_, fake := makeEmptyFakeHome(c)
+	defer fake.Restore()
+	opc, errc := runCommand(nullContext(), new(BootstrapCommand), "-e", "brokenenv")
+	err := <-errc
+	c.Assert(err, gc.ErrorMatches, "dummy.Bootstrap is broken")
+	var opDestroy *dummy.OpDestroy
+	for opDestroy == nil {
+		select {
+		case op := <-opc:
+			switch op := op.(type) {
+			case dummy.OpDestroy:
+				opDestroy = &op
+			}
+		default:
+			c.Error("expected call to env.Destroy")
+			return
+		}
+	}
+	c.Assert(opDestroy.Error, gc.ErrorMatches, "dummy.Destroy is broken")
+}
+
 // createToolsSource writes the mock tools and metadata into a temporary
 // directory and returns it.
 func createToolsSource(c *gc.C, versions []version.Binary) string {
