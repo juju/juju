@@ -88,7 +88,9 @@ func opensshOptions(options *Options, commandKind opensshCommandKind) []string {
 				logger.Warningf("failed to normalize path %q: %v", identity, err)
 				continue
 			}
-			identities = append(identities, path)
+			if _, err := os.Stat(path); err == nil {
+				identities = append(identities, path)
+			}
 		}
 	}
 	for _, identity := range identities {

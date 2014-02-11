@@ -4,6 +4,7 @@
 package agent
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"launchpad.net/juju-core/constraints"
@@ -29,6 +30,21 @@ import (
 // machine. If it fails, the state may well be irredeemably compromised.
 type StateInitializer interface {
 	InitializeState(envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts) (*state.State, *state.Machine, error)
+}
+
+// MarshalBootstrapJobs may be used to marshal a set of
+// machine jobs for the bootstrap agent, to be added
+// into the agent configuration.
+func MarshalBootstrapJobs(jobs ...state.MachineJob) (string, error) {
+	b, err := json.Marshal(jobs)
+	return string(b), err
+}
+
+// UnmarshalBootstrapJobs unmarshals a set of machine
+// jobs marshalled with MarshalBootstrapJobs.
+func UnmarshalBootstrapJobs(s string) (jobs []state.MachineJob, err error) {
+	err = json.Unmarshal([]byte(s), &jobs)
+	return jobs, err
 }
 
 // BootstrapMachineConfig holds configuration information

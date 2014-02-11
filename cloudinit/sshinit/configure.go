@@ -141,6 +141,12 @@ func addPackageCommands(cfg *cloudinit.Config) ([]string, error) {
 		}
 		cmds = append(cmds, cloudinit.LogProgressCmd("Adding apt repository: %s", src.Source))
 		cmds = append(cmds, "add-apt-repository -y "+utils.ShQuote(src.Source))
+		if src.Prefs != nil {
+			path := utils.ShQuote(src.Prefs.Path)
+			contents := utils.ShQuote(src.Prefs.FileContents())
+			cmds = append(cmds, "install -D -m 644 /dev/null "+path)
+			cmds = append(cmds, `printf '%s\n' `+contents+` > `+path)
+		}
 	}
 	if len(cfg.AptSources()) > 0 || cfg.AptUpdate() {
 		cmds = append(cmds, cloudinit.LogProgressCmd("Running apt-get update"))
@@ -152,7 +158,12 @@ func addPackageCommands(cfg *cloudinit.Config) ([]string, error) {
 	}
 	for _, pkg := range cfg.Packages() {
 		cmds = append(cmds, cloudinit.LogProgressCmd("Installing package: %s", pkg))
-		cmd := fmt.Sprintf(aptget+"install %s", utils.ShQuote(pkg))
+		if !strings.Contains(pkg, "--target-release") {
+			// We only need to shquote the package name if it does not
+			// contain additional arguments.
+			pkg = utils.ShQuote(pkg)
+		}
+		cmd := fmt.Sprintf(aptget+"install %s", pkg)
 		cmds = append(cmds, cmd)
 	}
 	if len(cmds) > 0 {
