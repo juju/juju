@@ -230,9 +230,15 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 		return err
 	}
 
-	// We only set the bootstrap-ip inside the environment,
-	// so if it's set we can bail out. Otherwise, we need to
-	// continue on to set up things prior to bootstrap.
+	// When the localEnviron value is created on the client
+	// side, the bootstrap-ip attribute will not exist,
+	// because it is only set *within* the running
+	// environment, not in the configuration created by
+	// Prepare.
+	//
+	// When bootstrapIPAddress returns a non-empty string,
+	// we know we are running server-side and thus must use
+	// httpstorage.
 	if addr := ecfg.bootstrapIPAddress(); addr != "" {
 		env.bridgeAddress = addr
 		return nil
