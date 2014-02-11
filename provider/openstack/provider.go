@@ -483,12 +483,12 @@ func (e *environ) nova() *nova.Client {
 	return nova
 }
 
-// PrecheckInstance is specified in the environs.Prechecker interface.
+// PrecheckInstance is specified in the state.Prechecker interface.
 func (*environ) PrecheckInstance(series string, cons constraints.Value) error {
 	return nil
 }
 
-// PrecheckContainer is specified in the environs.Prechecker interface.
+// PrecheckContainer is specified in the state.Prechecker interface.
 func (*environ) PrecheckContainer(series string, kind instance.ContainerType) error {
 	// This check can either go away or be relaxed when the openstack
 	// provider manages container addressibility.

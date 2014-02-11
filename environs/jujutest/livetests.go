@@ -159,7 +159,7 @@ func (t *LiveTests) Destroy(c *gc.C) {
 func (t *LiveTests) TestPrechecker(c *gc.C) {
 	// Providers may implement Prechecker. If they do, then they should
 	// return nil for empty constraints (excluding the null provider).
-	prechecker, ok := t.Env.(environs.Prechecker)
+	prechecker, ok := t.Env.(state.Prechecker)
 	if !ok {
 		return
 	}

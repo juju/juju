@@ -68,6 +68,10 @@ type State struct {
 	transactionHooks chan ([]transactionHook)
 	watcher          *watcher.Watcher
 	pwatcher         *presence.Watcher
+
+	precheckerMutex sync.RWMutex
+	prechecker      Prechecker
+
 	// mu guards allManager.
 	mu         sync.Mutex
 	allManager *multiwatcher.StoreManager
@@ -290,6 +294,23 @@ func (st *State) EnvironConstraints() (constraints.Value, error) {
 // SetEnvironConstraints replaces the current environment constraints.
 func (st *State) SetEnvironConstraints(cons constraints.Value) error {
 	return writeConstraints(st, environGlobalKey, cons)
+}
+
+// SetPrechecker replaces the state's current prechecker,
+// returning the previous one.
+func (st *State) SetPrechecker(prechecker Prechecker) (old Prechecker) {
+	st.precheckerMutex.Lock()
+	old = st.prechecker
+	st.prechecker = prechecker
+	st.precheckerMutex.Unlock()
+	return old
+}
+
+func (st *State) getPrechecker() Prechecker {
+	st.precheckerMutex.RLock()
+	prechecker := st.prechecker
+	st.precheckerMutex.RUnlock()
+	return prechecker
 }
 
 var errDead = fmt.Errorf("not found or dead")

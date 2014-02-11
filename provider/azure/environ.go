@@ -123,12 +123,12 @@ func (env *azureEnviron) queryStorageAccountKey() (string, error) {
 	return key, nil
 }
 
-// PrecheckInstance is specified in the environs.Prechecker interface.
+// PrecheckInstance is specified in the state.Prechecker interface.
 func (*azureEnviron) PrecheckInstance(series string, cons constraints.Value) error {
 	return nil
 }
 
-// PrecheckContainer is specified in the environs.Prechecker interface.
+// PrecheckContainer is specified in the state.Prechecker interface.
 func (*azureEnviron) PrecheckContainer(series string, kind instance.ContainerType) error {
 	// This check can either go away or be relaxed when the azure
 	// provider manages container addressibility.

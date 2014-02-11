@@ -66,6 +66,28 @@ type MachineTemplate struct {
 	principals []string
 }
 
+// Prechecker is an interface that may be provided to State to perform
+// pre-flight checking of instance/container creation.
+//
+// Prechecker's methods are best effort, and not guaranteed to eliminate
+// all invalid parameters. If a precheck method returns nil, it is not
+// guaranteed that the constraints are valid; if a non-nil error is
+// returned, then the constraints are definitely invalid.
+type Prechecker interface {
+	// PrecheckInstance performs a preflight check on the specified
+	// series and constraints, ensuring that they are possibly valid for
+	// creating an instance in this environment.
+	PrecheckInstance(series string, cons constraints.Value) error
+
+	// PrecheckContainer performs a preflight check on the container type,
+	// ensuring that the environment is possibly capable of creating a
+	// container of the specified type and series.
+	//
+	// The container type must be a valid ContainerType as specified
+	// in the instance package, and != instance.NONE.
+	PrecheckContainer(series string, kind instance.ContainerType) error
+}
+
 // AddMachineInsideNewMachine creates a new machine within a container
 // of the given type inside another new machine. The two given templates
 // specify the form of the child and parent respectively.
@@ -218,6 +240,11 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 	if err != nil {
 		return nil, nil, err
 	}
+	if prechecker := st.getPrechecker(); prechecker != nil && template.InstanceId == "" {
+		if err := prechecker.PrecheckInstance(template.Series, template.Constraints); err != nil {
+			return nil, nil, err
+		}
+	}
 	seq, err := st.sequence("machine")
 	if err != nil {
 		return nil, nil, err
@@ -278,6 +305,11 @@ func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId s
 	if containerType == "" {
 		return nil, nil, fmt.Errorf("no container type specified")
 	}
+	if prechecker := st.getPrechecker(); prechecker != nil {
+		if err := prechecker.PrecheckContainer(template.Series, containerType); err != nil {
+			return nil, nil, err
+		}
+	}
 
 	// If a parent machine is specified, make sure it exists
 	// and can support the requested container type.
@@ -331,6 +363,20 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineT
 	if err != nil {
 		return nil, nil, err
 	}
+	if containerType == "" {
+		return nil, nil, fmt.Errorf("no container type specified")
+	}
+	if prechecker := st.getPrechecker(); prechecker != nil {
+		if parentTemplate.InstanceId == "" {
+			if err := prechecker.PrecheckInstance(parentTemplate.Series, parentTemplate.Constraints); err != nil {
+				return nil, nil, err
+			}
+		}
+		if err := prechecker.PrecheckContainer(template.Series, containerType); err != nil {
+			return nil, nil, err
+		}
+	}
+
 	parentDoc := machineDocForTemplate(parentTemplate, strconv.Itoa(seq))
 	newId, err := st.newContainerId(parentDoc.Id, containerType)
 	if err != nil {

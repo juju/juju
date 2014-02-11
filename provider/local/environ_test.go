@@ -76,7 +76,7 @@ func (s *environSuite) TestPrecheck(c *gc.C) {
 	environ, err := local.Provider.Open(testConfig)
 	c.Assert(err, gc.IsNil)
 	var cons constraints.Value
-	prechecker, ok := environ.(environs.Prechecker)
+	prechecker, ok := environ.(state.Prechecker)
 	c.Assert(ok, jc.IsTrue)
 
 	err = prechecker.PrecheckInstance("precise", cons)

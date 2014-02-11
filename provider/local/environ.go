@@ -79,12 +79,12 @@ func (env *localEnviron) rsyslogConfPath() string {
 	return fmt.Sprintf("/etc/rsyslog.d/25-juju-%s.conf", env.config.namespace())
 }
 
-// PrecheckInstance is specified in the environs.Prechecker interface.
+// PrecheckInstance is specified in the state.Prechecker interface.
 func (*localEnviron) PrecheckInstance(series string, cons constraints.Value) error {
 	return nil
 }
 
-// PrecheckContainer is specified in the environs.Prechecker interface.
+// PrecheckContainer is specified in the state.Prechecker interface.
 func (*localEnviron) PrecheckContainer(series string, kind instance.ContainerType) error {
 	// This check can either go away or be relaxed when the local
 	// provider can do nested containers.

@@ -30,6 +30,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/ec2"
+	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
@@ -235,7 +236,7 @@ func bootstrapContext(c *gc.C) environs.BootstrapContext {
 
 func (t *localServerSuite) TestPrecheck(c *gc.C) {
 	env := t.Prepare(c)
-	prechecker, ok := env.(environs.Prechecker)
+	prechecker, ok := env.(state.Prechecker)
 	c.Assert(ok, jc.IsTrue)
 	var cons constraints.Value
 	err := prechecker.PrecheckInstance("precise", cons)

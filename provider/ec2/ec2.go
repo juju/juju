@@ -306,12 +306,12 @@ func (e *environ) s3() *s3.S3 {
 	return s3
 }
 
-// PrecheckInstance is specified in the environs.Prechecker interface.
+// PrecheckInstance is specified in the state.Prechecker interface.
 func (e *environ) PrecheckInstance(series string, cons constraints.Value) error {
 	return nil
 }
 
-// PrecheckContainer is specified in the environs.Prechecker interface.
+// PrecheckContainer is specified in the state.Prechecker interface.
 func (e *environ) PrecheckContainer(series string, kind instance.ContainerType) error {
 	// This check can either go away or be relaxed when the ec2
 	// provider manages container addressibility.
