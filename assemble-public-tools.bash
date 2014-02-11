@@ -169,6 +169,11 @@ archive_tools() {
             echo "jujud is not in /usr/bin or /usr/lib"
             exit 4
         fi
+        sane_date=$(ar -tv ${package} |
+            grep data.tar |
+            cut -d ' ' -f4- |
+            sed -e 's,\([^ ]*\) \+\(.*\) \(.*\) \(.*\) .*,\2 \1 \4,')
+        touch --date="$sane_date" $change_dir/jujud
         tar cvfz $tool -C $change_dir jujud
         added_tools[${#added_tools[@]}]="$tool"
         echo "Created ${tool}."
