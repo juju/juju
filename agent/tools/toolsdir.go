@@ -15,6 +15,8 @@ import (
 	"path"
 	"strings"
 
+	"github.com/errgo/errgo"
+
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
@@ -99,7 +101,7 @@ func UnpackTools(dataDir string, tools *coretools.Tools, r io.Reader) (err error
 		}
 		name := path.Join(dir, hdr.Name)
 		if err := writeFile(name, os.FileMode(hdr.Mode&0777), tr); err != nil {
-			return fmt.Errorf("tar extract %q failed: %v", name, err)
+			return errgo.Annotatef(err, "tar extract %q failed", name)
 		}
 	}
 	toolsMetadataData, err := json.Marshal(tools)

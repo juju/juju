@@ -1,6 +1,7 @@
 code.google.com/p/go.crypto	hg	6478cc9340cbbe6c04511280c5007722269108e9	184
 code.google.com/p/go.net	hg	3591c18acabc99439c783463ef00e6dc277eee39	77
 labix.org/v2/mgo	bzr	gustavo@niemeyer.net-20131118213720-aralgr4ienh0gdyq	248
+github.com/errgo/errgo	git	93d72bf813883d1054cae1c001d3a46603f7f559	
 github.com/loggo/loggo	git	89458b4dc99692bc24efe9c2252d7587f8dc247b	
 launchpad.net/gnuflag	bzr	roger.peppe@canonical.com-20121003093437-zcyyw0lpvj2nifpk	12
 launchpad.net/goamz	bzr	roger.peppe@canonical.com-20131218155244-hbnkvlkkzy3vmlh9	44
@@ -9,6 +10,6 @@ launchpad.net/golxc	bzr	ian.booth@canonical.com-20140116225718-lvoikrb0me6zugin	
 launchpad.net/gomaasapi	bzr	ian.booth@canonical.com-20131017011445-m1hmr0ap14osd7li	47
 launchpad.net/goose	bzr	tarmac-20140124165235-h9rloooc531udms5	116
 launchpad.net/goyaml	bzr	gustavo@niemeyer.net-20131114120802-abe042syx64z2m7s	50
-launchpad.net/gwacl	bzr	tarmac-20131031081035-b33m6fyrrdiuf408	229
+launchpad.net/gwacl	bzr	tarmac-20140205045433-81h182mhz24fzp5e	231
 launchpad.net/lpad	bzr	gustavo@niemeyer.net-20120626194701-536yx0g9jdq2ik3h	64
 launchpad.net/tomb	bzr	gustavo@niemeyer.net-20130531003818-70ikdgklbxopn8x4	17

@@ -10,9 +10,21 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+
+	"launchpad.net/juju-core/utils"
 )
 
 var opensshCommonOptions = []string{"-o", "StrictHostKeyChecking no"}
+
+// default identities will not be attempted if
+// -i is specified and they are not explcitly
+// included.
+var defaultIdentities = []string{
+	"~/.ssh/identity",
+	"~/.ssh/id_rsa",
+	"~/.ssh/id_dsa",
+	"~/.ssh/id_ecdsa",
+}
 
 type opensshCommandKind int
 
@@ -62,11 +74,24 @@ func opensshOptions(options *Options, commandKind opensshCommandKind) []string {
 	if options.allocatePTY {
 		args = append(args, "-t")
 	}
-	identities := options.identities
+	identities := append([]string{}, options.identities...)
 	if pk := PrivateKeyFiles(); len(pk) > 0 {
 		// Add client keys as implicit identities
-		identities = append([]string{}, identities...)
 		identities = append(identities, pk...)
+	}
+	// If any identities are specified, the
+	// default ones must be explicitly specified.
+	if len(identities) > 0 {
+		for _, identity := range defaultIdentities {
+			path, err := utils.NormalizePath(identity)
+			if err != nil {
+				logger.Warningf("failed to normalize path %q: %v", identity, err)
+				continue
+			}
+			if _, err := os.Stat(path); err == nil {
+				identities = append(identities, path)
+			}
+		}
 	}
 	for _, identity := range identities {
 		args = append(args, "-i", identity)

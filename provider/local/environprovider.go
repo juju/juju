@@ -184,11 +184,6 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 				oldLocalConfig.storagePort(),
 				localConfig.storagePort())
 		}
-		if localConfig.sharedStoragePort() != oldLocalConfig.sharedStoragePort() {
-			return nil, fmt.Errorf("cannot change shared-storage-port from %v to %v",
-				oldLocalConfig.sharedStoragePort(),
-				localConfig.sharedStoragePort())
-		}
 	}
 	// Currently only supported containers are "lxc" and "kvm".
 	if localConfig.container() != instance.LXC && localConfig.container() != instance.KVM {
@@ -223,10 +218,6 @@ local:
     # Override the storage port if you have multiple local providers, or if the
     # default port is used by another program.
     # storage-port: 8040
-    
-    # Override the shared storage port if you have multiple local providers, or if the
-    # default port is used by another program.
-    # shared-storage-port: 8041
     
     # Override the network bridge if you have changed the default lxc bridge
     # network-bridge: lxcbr0

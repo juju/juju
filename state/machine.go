@@ -89,6 +89,7 @@ type machineDoc struct {
 	Tools         *tools.Tools `bson:",omitempty"`
 	Jobs          []MachineJob
 	NoVote        bool
+	HasVote       bool
 	PasswordHash  string
 	Clean         bool
 	// We store 2 different sets of addresses for the machine, obtained
@@ -208,6 +209,29 @@ func (m *Machine) Jobs() []MachineJob {
 // that wants to take part in peer voting.
 func (m *Machine) WantsVote() bool {
 	return hasJob(m.doc.Jobs, JobManageEnviron) && !m.doc.NoVote
+}
+
+// HasVote reports whether that machine is currently a voting
+// member of the replica set.
+func (m *Machine) HasVote() bool {
+	return m.doc.HasVote
+}
+
+// SetHasVote sets whether the machine is currently a voting
+// member of the replica set. It should only be called
+// from the worker that maintains the replica set.
+func (m *Machine) SetHasVote(hasVote bool) error {
+	ops := []txn.Op{{
+		C:      m.st.machines.Name,
+		Id:     m.doc.Id,
+		Assert: notDeadDoc,
+		Update: D{{"$set", D{{"hasvote", hasVote}}}},
+	}}
+	if err := m.st.runTransaction(ops); err != nil {
+		return fmt.Errorf("cannot set HasVote of machine %v: %v", m, onAbort(err, errDead))
+	}
+	m.doc.HasVote = hasVote
+	return nil
 }
 
 // IsManager returns true if the machine has JobManageEnviron.
@@ -461,6 +485,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 			{{"principals", D{{"$size", 0}}}},
 			{{"principals", D{{"$exists", false}}}},
 		}},
+		{"hasvote", D{{"$ne", true}}},
 	}
 	// 3 attempts: one with original data, one with refreshed data, and a final
 	// one intended to determine the cause of failure of the preceding attempt.
@@ -501,6 +526,9 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 			// this restriction will be lifted, but we will assert that the
 			// machine is not voting)
 			return fmt.Errorf("machine %s is required by the environment", m.doc.Id)
+		}
+		if m.doc.HasVote {
+			return fmt.Errorf("machine %s is a voting replica set member", m.doc.Id)
 		}
 		if len(m.doc.Principals) != 0 {
 			return &HasAssignedUnitsError{

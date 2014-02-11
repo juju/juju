@@ -60,6 +60,11 @@ func (s *StateSuite) TestDialAgain(c *gc.C) {
 	}
 }
 
+func (s *StateSuite) TestMongoSession(c *gc.C) {
+	session := s.State.MongoSession()
+	c.Assert(session.Ping(), gc.IsNil)
+}
+
 func (s *StateSuite) TestAddresses(c *gc.C) {
 	var err error
 	machines := make([]*state.Machine, 4)
@@ -1643,6 +1648,37 @@ func (s *StateSuite) TestWatchMachineHardwareCharacteristics(c *gc.C) {
 	err = machine.SetAgentVersion(vers)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
+}
+
+func (s *StateSuite) TestWatchStateServerInfo(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
+
+	w := s.State.WatchStateServerInfo()
+	defer statetesting.AssertStop(c, w)
+
+	// Initial event.
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+
+	info, err := s.State.StateServerInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(info, jc.DeepEquals, &state.StateServerInfo{
+		MachineIds:       []string{"0"},
+		VotingMachineIds: []string{"0"},
+	})
+
+	err = s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	c.Assert(err, gc.IsNil)
+
+	wc.AssertOneChange()
+
+	info, err = s.State.StateServerInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(info, jc.DeepEquals, &state.StateServerInfo{
+		MachineIds:       []string{"0", "1", "2"},
+		VotingMachineIds: []string{"0", "1", "2"},
+	})
 }
 
 type attrs map[string]interface{}

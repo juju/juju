@@ -19,26 +19,24 @@ var checkIfRoot = func() bool {
 
 var (
 	configFields = schema.Fields{
-		"root-dir":            schema.String(),
-		"bootstrap-ip":        schema.String(),
-		"network-bridge":      schema.String(),
-		"container":           schema.String(),
-		"storage-port":        schema.ForceInt(),
-		"shared-storage-port": schema.ForceInt(),
-		"namespace":           schema.String(),
+		"root-dir":       schema.String(),
+		"bootstrap-ip":   schema.String(),
+		"network-bridge": schema.String(),
+		"container":      schema.String(),
+		"storage-port":   schema.ForceInt(),
+		"namespace":      schema.String(),
 	}
 	// The port defaults below are not entirely arbitrary.  Local user web
 	// frameworks often use 8000 or 8080, so I didn't want to use either of
 	// these, but did want the familiarity of using something in the 8000
 	// range.
 	configDefaults = schema.Defaults{
-		"root-dir":            "",
-		"network-bridge":      "lxcbr0",
-		"container":           string(instance.LXC),
-		"bootstrap-ip":        schema.Omit,
-		"storage-port":        8040,
-		"shared-storage-port": 8041,
-		"namespace":           "",
+		"root-dir":       "",
+		"network-bridge": "lxcbr0",
+		"container":      string(instance.LXC),
+		"bootstrap-ip":   schema.Omit,
+		"storage-port":   8040,
+		"namespace":      "",
 	}
 )
 
@@ -73,10 +71,6 @@ func (c *environConfig) networkBridge() string {
 	return c.attrs["network-bridge"].(string)
 }
 
-func (c *environConfig) sharedStorageDir() string {
-	return filepath.Join(c.rootDir(), "shared-storage")
-}
-
 func (c *environConfig) storageDir() string {
 	return filepath.Join(c.rootDir(), "storage")
 }
@@ -107,16 +101,8 @@ func (c *environConfig) storagePort() int {
 	return c.attrs["storage-port"].(int)
 }
 
-func (c *environConfig) sharedStoragePort() int {
-	return c.attrs["shared-storage-port"].(int)
-}
-
 func (c *environConfig) storageAddr() string {
 	return fmt.Sprintf("%s:%d", c.bootstrapIPAddress(), c.storagePort())
-}
-
-func (c *environConfig) sharedStorageAddr() string {
-	return fmt.Sprintf("%s:%d", c.bootstrapIPAddress(), c.sharedStoragePort())
 }
 
 func (c *environConfig) configFile(filename string) string {
@@ -125,7 +111,6 @@ func (c *environConfig) configFile(filename string) string {
 
 func (c *environConfig) createDirs() error {
 	for _, dirname := range []string{
-		c.sharedStorageDir(),
 		c.storageDir(),
 		c.mongoDir(),
 		c.logDir(),

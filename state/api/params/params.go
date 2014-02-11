@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/utils/ssh"
 	"launchpad.net/juju-core/version"
 )
@@ -513,6 +514,8 @@ type ContainerConfig struct {
 	AuthorizedKeys          string
 	SSLHostnameVerification bool
 	SyslogPort              int
+	Proxy                   osenv.ProxySettings
+	AptProxy                osenv.ProxySettings
 }
 
 // ProvisioningScriptParams contains the parameters for the

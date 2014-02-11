@@ -7,4 +7,5 @@ var (
 	ReadAuthorisedKeys  = readAuthorisedKeys
 	WriteAuthorisedKeys = writeAuthorisedKeys
 	InitDefaultClient   = initDefaultClient
+	DefaultIdentities   = &defaultIdentities
 )
