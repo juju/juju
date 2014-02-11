@@ -29,6 +29,9 @@ import (
 // environments.
 const defaultLogLocation = "/var/log/juju/all-machines.log"
 
+// logLocation is the real used log location.
+var logLocation = defaultLogLocation
+
 // debugLogHandler takes requests to watch the debug log.
 type debugLogHandler struct {
 	state *state.State
@@ -58,7 +61,7 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	// Open log file.
 	// TODO(mue) Add mechanism to get log location depending on provider.
-	logFile, err := os.Open(defaultLogLocation)
+	logFile, err := os.Open(logLocation)
 	if err != nil {
 		h.sendError(w, http.StatusInternalServerError, "cannot open log file: %v", err)
 		return

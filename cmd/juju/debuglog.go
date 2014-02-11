@@ -87,7 +87,7 @@ func (c *DebugLogCommand) watchDebugLog1dot16(ctx *cmd.Context) error {
 		// Local provider tails local log file.
 		logLocation := fmt.Sprintf("%s/%s/log/all-machines.log", osenv.JujuHomeDir(), name)
 		tailCmd := exec.Command("tail", "-n", strconv.Itoa(c.lines), "-f", logLocation)
-		grepCmd := exec.Command("grep", c.filter)
+		grepCmd := exec.Command("grep", "-E", c.filter)
 		r, w := io.Pipe()
 
 		tailCmd.Stdout = w
