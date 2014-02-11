@@ -38,10 +38,23 @@ func (cfg *Config) set(opt string, yes bool, value interface{}) {
 }
 
 // AptSource is an apt(8) source, comprising a source location,
-// with an optional Key.
+// with an optional Key, and optional apt_preferences(5).
 type AptSource struct {
-	Source string `yaml:"source"`
-	Key    string `yaml:"key,omitempty"`
+	Source string          `yaml:"source"`
+	Key    string          `yaml:"key,omitempty"`
+	Prefs  *AptPreferences `yaml:"-"`
+}
+
+// AptPreferences is a set of apt_preferences(5) compatible
+// preferences for an apt source. It can be used to override the
+// default priority for the source. Path where the file will be
+// created (usually in /etc/apt/preferences.d/).
+type AptPreferences struct {
+	Path        string
+	Explanation string
+	Package     string
+	Pin         string
+	PinPriority int
 }
 
 // command represents a shell command.

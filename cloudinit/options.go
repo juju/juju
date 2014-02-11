@@ -10,6 +10,18 @@ import (
 	"launchpad.net/juju-core/utils/ssh"
 )
 
+// CloudToolsPrefsPath defines the default location of
+// apt_preferences(5) file for the cloud-tools pocket.
+const CloudToolsPrefsPath = "/etc/apt/preferences.d/50-cloud-tools"
+
+// AptPreferencesTemplate defines the format used to create an
+// apt_preferences(5) file.
+const AptPreferencesTemplate = `Explanation: %s
+Package: %s
+Pin: %s
+Pin-Priority: %d
+`
+
 // SetAttr sets an arbitrary attribute in the cloudinit config.
 // If value is nil the attribute will be deleted; otherwise
 // the value will be marshalled according to the rules
@@ -73,13 +85,26 @@ func (cfg *Config) SetAptPreserveSourcesList(yes bool) {
 
 // AddAptSource adds an apt source. The key holds the
 // public key of the source, in the form expected by apt-key(8).
-func (cfg *Config) AddAptSource(name, key string) {
+func (cfg *Config) AddAptSource(name, key string, prefs *AptPreferences) {
 	src, _ := cfg.attrs["apt_sources"].([]*AptSource)
 	cfg.attrs["apt_sources"] = append(src,
 		&AptSource{
 			Source: name,
 			Key:    key,
-		})
+			Prefs:  prefs,
+		},
+	)
+	if prefs != nil {
+		// Create the apt preferences file.
+		contents := fmt.Sprintf(
+			AptPreferencesTemplate,
+			prefs.Explanation,
+			prefs.Package,
+			prefs.Pin,
+			prefs.PinPriority,
+		)
+		cfg.AddFile(prefs.Path, contents, 0644)
+	}
 }
 
 // AptSources returns the apt sources added with AddAptSource.
@@ -100,6 +125,13 @@ func (cfg *Config) SetDebconfSelections(answers string) {
 // will be called.
 func (cfg *Config) AddPackage(name string) {
 	cfg.attrs["packages"] = append(cfg.Packages(), name)
+}
+
+// AddPackageFromTargetRelease adds a package to be installed using
+// the given release, passed to apt-get with the --target-release
+// argument.
+func (cfg *Config) AddPackageFromTargetRelease(packageName, targetRelease string) {
+	cfg.AddPackage(fmt.Sprintf("--target-release '%s' '%s'", targetRelease, packageName))
 }
 
 // Packages returns a list of packages that will be
