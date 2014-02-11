@@ -7,6 +7,9 @@
 package cloudinit
 
 import (
+	"bytes"
+	"text/template"
+
 	yaml "launchpad.net/goyaml"
 )
 
@@ -55,6 +58,24 @@ type AptPreferences struct {
 	Package     string
 	Pin         string
 	PinPriority int
+}
+
+// FileContents generates an apt_preferences(5) file from the fields
+// in prefs.
+func (prefs *AptPreferences) FileContents() string {
+	const prefTemplate = `
+Explanation: {{.Explanation}}
+Package: {{.Package}}
+Pin: {{.Pin}}
+Pin-Priority: {{.PinPriority}}
+`
+	var buf bytes.Buffer
+	t := template.Must(template.New("").Parse(prefTemplate[1:]))
+	err := t.Execute(&buf, prefs)
+	if err != nil {
+		panic(err)
+	}
+	return buf.String()
 }
 
 // command represents a shell command.

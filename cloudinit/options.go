@@ -14,14 +14,6 @@ import (
 // apt_preferences(5) file for the cloud-tools pocket.
 const CloudToolsPrefsPath = "/etc/apt/preferences.d/50-cloud-tools"
 
-// AptPreferencesTemplate defines the format used to create an
-// apt_preferences(5) file.
-const AptPreferencesTemplate = `Explanation: %s
-Package: %s
-Pin: %s
-Pin-Priority: %d
-`
-
 // SetAttr sets an arbitrary attribute in the cloudinit config.
 // If value is nil the attribute will be deleted; otherwise
 // the value will be marshalled according to the rules
@@ -96,14 +88,7 @@ func (cfg *Config) AddAptSource(name, key string, prefs *AptPreferences) {
 	)
 	if prefs != nil {
 		// Create the apt preferences file.
-		contents := fmt.Sprintf(
-			AptPreferencesTemplate,
-			prefs.Explanation,
-			prefs.Package,
-			prefs.Pin,
-			prefs.PinPriority,
-		)
-		cfg.AddFile(prefs.Path, contents, 0644)
+		cfg.AddFile(prefs.Path, prefs.FileContents(), 0644)
 	}
 }
 

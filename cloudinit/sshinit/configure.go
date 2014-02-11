@@ -143,13 +143,7 @@ func addPackageCommands(cfg *cloudinit.Config) ([]string, error) {
 		cmds = append(cmds, "add-apt-repository -y "+utils.ShQuote(src.Source))
 		if src.Prefs != nil {
 			path := utils.ShQuote(src.Prefs.Path)
-			contents := utils.ShQuote(fmt.Sprintf(
-				cloudinit.AptPreferencesTemplate,
-				src.Prefs.Explanation,
-				src.Prefs.Package,
-				src.Prefs.Pin,
-				src.Prefs.PinPriority,
-			))
+			contents := utils.ShQuote(src.Prefs.FileContents())
 			cmds = append(cmds, "install -D -m 644 /dev/null "+path)
 			cmds = append(cmds, `printf '%s\n' `+contents+` > `+path)
 		}
