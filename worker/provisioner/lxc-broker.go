@@ -75,6 +75,8 @@ func (broker *lxcBroker) StartInstance(cons constraints.Value, possibleTools too
 		config.AuthorizedKeys,
 		config.SSLHostnameVerification,
 		config.SyslogPort,
+		config.Proxy,
+		config.AptProxy,
 	); err != nil {
 		lxcLogger.Errorf("failed to populate machine config: %v", err)
 		return nil, nil, err

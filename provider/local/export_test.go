@@ -44,7 +44,6 @@ func CheckDirs(c *gc.C, cfg *config.Config) []string {
 	c.Assert(err, gc.IsNil)
 	return []string{
 		localConfig.rootDir(),
-		localConfig.sharedStorageDir(),
 		localConfig.storageDir(),
 		localConfig.mongoDir(),
 	}

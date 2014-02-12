@@ -35,33 +35,10 @@ type LxcSuite struct {
 
 var _ = gc.Suite(&LxcSuite{})
 
-func (s *LxcSuite) SetUpSuite(c *gc.C) {
-	s.TestSuite.SetUpSuite(c)
-	tmpDir := c.MkDir()
-	restore := testbase.PatchEnvironment("PATH", tmpDir)
-	s.AddSuiteCleanup(func(*gc.C) { restore() })
-	err := ioutil.WriteFile(
-		filepath.Join(tmpDir, "apt-config"),
-		[]byte(aptConfigScript),
-		0755)
-	c.Assert(err, gc.IsNil)
-}
-
 func (s *LxcSuite) SetUpTest(c *gc.C) {
 	s.TestSuite.SetUpTest(c)
 	loggo.GetLogger("juju.container.lxc").SetLogLevel(loggo.TRACE)
 }
-
-const (
-	aptHTTPProxy     = "http://1.2.3.4:3142"
-	configProxyExtra = `Acquire::https::Proxy "false";
-Acquire::ftp::Proxy "false";`
-)
-
-var (
-	configHttpProxy = fmt.Sprintf(`Acquire::http::Proxy "%s";`, aptHTTPProxy)
-	aptConfigScript = fmt.Sprintf("#!/bin/sh\n echo '%s\n%s'", configHttpProxy, configProxyExtra)
-)
 
 func (s *LxcSuite) TestStartContainer(c *gc.C) {
 	manager := lxc.NewContainerManager(container.ManagerConfig{})
@@ -80,17 +57,13 @@ func (s *LxcSuite) TestStartContainer(c *gc.C) {
 	err = goyaml.Unmarshal(data, &x)
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(x["apt_proxy"], gc.Equals, aptHTTPProxy)
-
 	var scripts []string
 	for _, s := range x["runcmd"].([]interface{}) {
 		scripts = append(scripts, s.(string))
 	}
 
-	c.Assert(scripts[len(scripts)-4:], gc.DeepEquals, []string{
+	c.Assert(scripts[len(scripts)-2:], gc.DeepEquals, []string{
 		"start jujud-machine-1-lxc-0",
-		"install -D -m 644 /dev/null '/etc/apt/apt.conf.d/99proxy-extra'",
-		fmt.Sprintf(`printf '%%s\n' '%s' > '/etc/apt/apt.conf.d/99proxy-extra'`, configProxyExtra),
 		"ifconfig",
 	})
 

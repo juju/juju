@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package null
+package manual
 
 import (
 	"fmt"
@@ -19,11 +19,13 @@ var (
 		"storage-listen-ip": schema.String(),
 		"storage-port":      schema.Int(),
 		"storage-auth-key":  schema.String(),
+		"use-sshstorage":    schema.Bool(),
 	}
 	configDefaults = schema.Defaults{
 		"bootstrap-user":    "",
 		"storage-listen-ip": "",
 		"storage-port":      defaultStoragePort,
+		"use-sshstorage":    true,
 	}
 )
 
@@ -34,6 +36,14 @@ type environConfig struct {
 
 func newEnvironConfig(config *config.Config, attrs map[string]interface{}) *environConfig {
 	return &environConfig{Config: config, attrs: attrs}
+}
+
+func (c *environConfig) useSSHStorage() bool {
+	// Prior to 1.17.3, the use-sshstorage attribute
+	// did not exist. We take non-existence to be
+	// equivalent to false.
+	useSSHStorage, _ := c.attrs["use-sshstorage"].(bool)
+	return useSSHStorage
 }
 
 func (c *environConfig) bootstrapHost() string {

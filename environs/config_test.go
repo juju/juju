@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/provider/dummy"
+	_ "launchpad.net/juju-core/provider/manual"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
@@ -303,6 +304,93 @@ func (*suite) TestBootstrapConfig(c *gc.C) {
 	c.Assert(cfg1.AllAttrs(), gc.DeepEquals, expect)
 }
 
+type dummyProvider struct {
+	environs.EnvironProvider
+}
+
+func (s *suite) TestRegisterProvider(c *gc.C) {
+	s.PatchValue(environs.Providers, make(map[string]environs.EnvironProvider))
+	s.PatchValue(environs.ProviderAliases, make(map[string]string))
+	type step struct {
+		name    string
+		aliases []string
+		err     string
+	}
+	type test []step
+
+	tests := []test{
+		[]step{{
+			name: "providerName",
+		}},
+		[]step{{
+			name:    "providerName",
+			aliases: []string{"providerName"},
+			err:     "juju: duplicate provider alias \"providerName\"",
+		}},
+		[]step{{
+			name:    "providerName",
+			aliases: []string{"providerAlias", "providerAlias"},
+			err:     "juju: duplicate provider alias \"providerAlias\"",
+		}},
+		[]step{{
+			name:    "providerName",
+			aliases: []string{"providerAlias1", "providerAlias2"},
+		}},
+		[]step{{
+			name: "providerName",
+		}, {
+			name: "providerName",
+			err:  "juju: duplicate provider name \"providerName\"",
+		}},
+		[]step{{
+			name: "providerName1",
+		}, {
+			name:    "providerName2",
+			aliases: []string{"providerName"},
+		}},
+		[]step{{
+			name: "providerName1",
+		}, {
+			name:    "providerName2",
+			aliases: []string{"providerName1"},
+			err:     "juju: duplicate provider alias \"providerName1\"",
+		}},
+	}
+
+	registerProvider := func(name string, aliases []string) (err error) {
+		defer func() { err, _ = recover().(error) }()
+		registered := &dummyProvider{}
+		environs.RegisterProvider(name, registered, aliases...)
+		p, err := environs.Provider(name)
+		c.Assert(err, gc.IsNil)
+		c.Assert(p, gc.Equals, registered)
+		for _, alias := range aliases {
+			p, err := environs.Provider(alias)
+			c.Assert(err, gc.IsNil)
+			c.Assert(p, gc.Equals, registered)
+			c.Assert(p, gc.Equals, registered)
+		}
+		return nil
+	}
+	for i, test := range tests {
+		c.Logf("test %d: %v", i, test)
+		for k := range *environs.Providers {
+			delete(*environs.Providers, k)
+		}
+		for k := range *environs.ProviderAliases {
+			delete(*environs.ProviderAliases, k)
+		}
+		for _, step := range test {
+			err := registerProvider(step.name, step.aliases)
+			if step.err == "" {
+				c.Assert(err, gc.IsNil)
+			} else {
+				c.Assert(err, gc.ErrorMatches, step.err)
+			}
+		}
+	}
+}
+
 type ConfigDeprecationSuite struct {
 	suite
 	writer *loggo.TestWriter
@@ -359,5 +447,11 @@ func (s *ConfigDeprecationSuite) TestDeprecatedToolsURLWithNewURLWarning(c *gc.C
 	expected := fmt.Sprintf(
 		`.*Config attribute "tools-url" \(aknowndeprecatedfield\) is deprecated and will be ignored since` +
 			`the new tools URL attribute "tools-metadata-url".*`)
+	s.checkDeprecationWarning(c, attrs, expected)
+}
+
+func (s *ConfigDeprecationSuite) TestDeprecatedTypeNullWarning(c *gc.C) {
+	attrs := testing.Attrs{"type": "null"}
+	expected := `Provider type \"null\" has been renamed to \"manual\"\.Please update your environment configuration\.`
 	s.checkDeprecationWarning(c, attrs, expected)
 }

@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/errgo/errgo"
+
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
@@ -235,7 +237,13 @@ func Destroy(env Environ, store configstore.Storage) error {
 	if err := env.Destroy(); err != nil {
 		return err
 	}
-	info, err := store.ReadInfo(name)
+	return DestroyInfo(name, store)
+}
+
+// DestroyInfo destroys the configuration data for the named
+// environment from the given store.
+func DestroyInfo(envName string, store configstore.Storage) error {
+	info, err := store.ReadInfo(envName)
 	if err != nil {
 		if errors.IsNotFoundError(err) {
 			return nil
@@ -243,7 +251,7 @@ func Destroy(env Environ, store configstore.Storage) error {
 		return err
 	}
 	if err := info.Destroy(); err != nil {
-		return fmt.Errorf("cannot destroy environment configuration information: %v", err)
+		return errgo.Annotate(err, "cannot destroy environment configuration information")
 	}
 	return nil
 }

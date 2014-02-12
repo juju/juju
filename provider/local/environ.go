@@ -48,14 +48,13 @@ var _ environs.Environ = (*localEnviron)(nil)
 var _ envtools.SupportsCustomSources = (*localEnviron)(nil)
 
 type localEnviron struct {
-	localMutex            sync.Mutex
-	config                *environConfig
-	name                  string
-	bridgeAddress         string
-	localStorage          storage.Storage
-	sharedStorageListener net.Listener
-	storageListener       net.Listener
-	containerManager      container.Manager
+	localMutex       sync.Mutex
+	config           *environConfig
+	name             string
+	bridgeAddress    string
+	localStorage     storage.Storage
+	storageListener  net.Listener
+	containerManager container.Manager
 }
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
@@ -142,6 +141,11 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 		return err
 	}
 
+	bootstrapJobs, err := agent.MarshalBootstrapJobs(state.JobManageEnviron)
+	if err != nil {
+		return err
+	}
+
 	mcfg := environs.NewBootstrapMachineConfig(stateFileURL, privateKey)
 	mcfg.Tools = selectedTools[0]
 	mcfg.DataDir = env.config.rootDir()
@@ -152,11 +156,10 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 	mcfg.MachineAgentServiceName = env.machineAgentServiceName()
 	mcfg.MongoServiceName = env.mongoServiceName()
 	mcfg.AgentEnvironment = map[string]string{
-		agent.Namespace:         env.config.namespace(),
-		agent.StorageDir:        env.config.storageDir(),
-		agent.StorageAddr:       env.config.storageAddr(),
-		agent.SharedStorageDir:  env.config.sharedStorageDir(),
-		agent.SharedStorageAddr: env.config.sharedStorageAddr(),
+		agent.Namespace:     env.config.namespace(),
+		agent.StorageDir:    env.config.storageDir(),
+		agent.StorageAddr:   env.config.storageAddr(),
+		agent.BootstrapJobs: bootstrapJobs,
 	}
 	if err := environs.FinishMachineConfig(mcfg, cfg, cons); err != nil {
 		return err
@@ -390,7 +393,9 @@ func (env *localEnviron) Destroy() error {
 		if err != nil {
 			return err
 		}
-		args := append([]string{juju}, os.Args[1:]...)
+		args := []string{osenv.JujuHomeEnvKey + "=" + osenv.JujuHome()}
+		args = append(args, juju)
+		args = append(args, os.Args[1:]...)
 		args = append(args, "-y")
 		cmd := exec.Command("sudo", args...)
 		cmd.Stdout = os.Stdout

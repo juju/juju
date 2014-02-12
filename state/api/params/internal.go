@@ -96,7 +96,7 @@ type StringResults struct {
 	Results []StringResult
 }
 
-// CharmArchiveURLResult holds a charm archive (bunle) URL, a
+// CharmArchiveURLResult holds a charm archive (bundle) URL, a
 // DisableSSLHostnameVerification flag or an error.
 type CharmArchiveURLResult struct {
 	Error                          *Error
@@ -109,6 +109,14 @@ type CharmArchiveURLResult struct {
 // DisableSSLHostnameVerification flag or an error.
 type CharmArchiveURLResults struct {
 	Results []CharmArchiveURLResult
+}
+
+// EnvironmentResult holds the result of an API call returning a name and UUID
+// for an environment.
+type EnvironmentResult struct {
+	Error *Error
+	Name  string
+	UUID  string
 }
 
 // ResolvedModeResult holds a resolved mode or an error.
