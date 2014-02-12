@@ -9,7 +9,7 @@ import sys
 import urllib2
 
 build_data = urllib2.urlopen(
-  '$LOCAL_JENKINS_URL/job/prepare-new-version/lastSuccessfulBuild/api/json')
+  '$LOCAL_JENKINS_URL/job/build-revision/lastSuccessfulBuild/api/json')
 build_json = json.load(build_data)
 for artifact in build_json['artifacts']:
   filename = artifact['fileName']
@@ -49,7 +49,7 @@ set +e
 ssh ubuntu@$instance_ip -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" <<EOT
 set -eux
 ssh-keygen -t rsa -b 2048 -N "" -f ~/.ssh/id_rsa
-wget -q $JENKINS_URL/job/prepare-new-version/lastSuccessfulBuild/artifact/$tarfile
+wget -q $JENKINS_URL/job/build-revision/lastSuccessfulBuild/artifact/$tarfile
 tar -xzvf $tarfile
 export GOPATH=\$HOME/$(echo $tarfile|sed -r 's/(.*).tar.gz/\1/')
 cd \$GOPATH/src/launchpad.net/juju-core

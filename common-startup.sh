@@ -22,7 +22,7 @@ set -x
 rm * -rf
 mkdir -p $artifacts_path
 touch $artifacts_path/empty
-artifact=localhost:8080/job/prepare-new-version/lastSuccessfulBuild/artifact
+artifact=localhost:8080/job/build-revision/lastSuccessfulBuild/artifact
 wget -q $artifact/new-precise.deb
 # Determine BRANCH and REVNO
 wget -q $artifact/buildvars.bash
