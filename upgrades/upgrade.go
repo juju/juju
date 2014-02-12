@@ -37,8 +37,9 @@ type UpgradeOperation interface {
 type UpgradeTarget string
 
 const (
+	// HostMachine is a machine on which units are deployed.
 	HostMachine   = UpgradeTarget("hostMachine")
-	HostContainer = UpgradeTarget("hostContainer")
+	// StateServer is a machine participating in a Juju state server cluster.
 	StateServer   = UpgradeTarget("stateServer")
 )
 
@@ -68,6 +69,9 @@ type Context interface {
 
 // UpgradeContext is a default Context implementation.
 type UpgradeContext struct {
+	// Work in progress........
+	// Exactly what a context needs is to be determined as the
+	// implementation evolves.
 	st *api.State
 }
 
