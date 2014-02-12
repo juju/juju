@@ -5,8 +5,8 @@ package upgrades
 
 import (
 	"fmt"
+	"path"
 
-	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/utils/exec"
 )
 

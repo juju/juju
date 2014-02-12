@@ -187,5 +187,5 @@ func (step *upgradeStep) Targets() []UpgradeTarget {
 
 // Run is defined on the UpgradeStep interface.
 func (step *upgradeStep) Run(context Context) error {
-	return step.run
+	return step.run(context)
 }
