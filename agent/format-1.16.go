@@ -17,7 +17,7 @@ import (
 const (
 	format_1_16 = "format 1.16"
 	// Old environment variables that are now stored in agent config.
-	JujuLxcBridge    = "JUJU_LXC_BRIDGE"
+	jujuLxcBridge    = "JUJU_LXC_BRIDGE"
 	jujuProviderType = "JUJU_PROVIDER_TYPE"
 	JujuStorageDir   = "JUJU_STORAGE_DIR"
 	JujuStorageAddr  = "JUJU_STORAGE_ADDR"
@@ -182,7 +182,7 @@ func (*formatter_1_16) migrate(config *configInternal) {
 		osenv.JujuContainerTypeEnvKey,
 		ContainerType,
 	}, {
-		JujuLxcBridge,
+		jujuLxcBridge,
 		LxcBridge,
 	}, {
 		JujuStorageDir,
