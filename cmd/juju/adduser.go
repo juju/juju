@@ -42,7 +42,7 @@ func (c *AdduserCommand) Init(args []string) error {
 	} else {
 		c.Password = args[1]
 	}
-	return cmd.CheckEmpty(args[2:])
+	return nil
 }
 
 func (c *AdduserCommand) Run(_ *cmd.Context) error {

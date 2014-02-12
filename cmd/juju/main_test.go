@@ -212,6 +212,7 @@ var commandNames = []string{
 	"add-machine",
 	"add-relation",
 	"add-unit",
+	"add-user",
 	"api-endpoints",
 	"authorised-keys",
 	"bootstrap",
@@ -236,6 +237,7 @@ var commandNames = []string{
 	"publish",
 	"remove-relation", // alias for destroy-relation
 	"remove-unit",     // alias for destroy-unit
+	"remove-user",
 	"resolved",
 	"run",
 	"scp",
