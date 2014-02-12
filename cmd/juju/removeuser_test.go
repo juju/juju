@@ -10,17 +10,16 @@ import (
 	"launchpad.net/juju-core/testing"
 )
 
-type AdduserSuite struct {
+type RemoveuserSuite struct {
 	jujutesting.RepoSuite
 }
 
-var _ = gc.Suite(&AdduserSuite{})
+var _ = gc.Suite(&RemoveuserSuite{})
 
-func (s *AdduserSuite) Testadduser(c *gc.C) {
-
+func (s *RemoveuserSuite) Testremoveuser(c *gc.C) {
 	_, err := testing.RunCommand(c, &AdduserCommand{}, []string{"foobar", "password"})
 	c.Assert(err, gc.IsNil)
 
-	_, err = testing.RunCommand(c, &AdduserCommand{}, []string{"foobar", "newpassword"})
-	c.Assert(err, gc.ErrorMatches, "user already exists")
+	_, err = testing.RunCommand(c, &RemoveuserCommand{}, []string{"foobar"})
+	c.Assert(err, gc.IsNil)
 }
