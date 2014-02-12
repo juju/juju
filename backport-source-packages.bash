@@ -21,6 +21,7 @@ check_deps() {
 
 
 backport_packages() {
+    echo "Phase 1: Backporting to $RELEASES."
     for release in $RELEASES; do
         DEBEMAIL=$DEBEMAIL \
             backportpackage -u $PPA -r -d $release -S $SUFFIX -y $DSC
