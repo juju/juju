@@ -38,9 +38,9 @@ type UpgradeTarget string
 
 const (
 	// HostMachine is a machine on which units are deployed.
-	HostMachine   = UpgradeTarget("hostMachine")
+	HostMachine = UpgradeTarget("hostMachine")
 	// StateServer is a machine participating in a Juju state server cluster.
-	StateServer   = UpgradeTarget("stateServer")
+	StateServer = UpgradeTarget("stateServer")
 )
 
 // upgradeToVersion encapsulates the steps which need to be run to
