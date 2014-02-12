@@ -18,7 +18,7 @@ type UpgradeStep interface {
 	// Targets returns the target machine types for which the upgrade step is applicable.
 	Targets() []UpgradeTarget
 	// Run executes the upgrade business logic.
-	Run() error
+	Run(context Context) error
 }
 
 // UpgradeOperation defines what steps to perform to upgrade to a target version.
@@ -84,7 +84,6 @@ func (c *UpgradeContext) APIState() *api.State {
 type upgradeOperation struct {
 	description string
 	targets     []UpgradeTarget
-	st          *api.State
 }
 
 // Description is defined on the UpgradeStep interface.
@@ -119,7 +118,7 @@ func PerformUpgrade(from version.Number, target UpgradeTarget, context Context) 
 		if upgradeOps.TargetVersion().LessEqual(from) {
 			continue
 		}
-		if err := runUpgradeSteps(target, upgradeOps); err != nil {
+		if err := runUpgradeSteps(context, target, upgradeOps); err != nil {
 			return err
 		}
 	}
@@ -141,12 +140,12 @@ func validTarget(target UpgradeTarget, step UpgradeStep) bool {
 // subsequent steps may required successful completion of earlier ones.
 // The steps must be idempotent so that the entire upgrade operation can
 // be retried.
-func runUpgradeSteps(target UpgradeTarget, upgradeOp UpgradeOperation) *upgradeError {
+func runUpgradeSteps(context Context, target UpgradeTarget, upgradeOp UpgradeOperation) *upgradeError {
 	for _, step := range upgradeOp.Steps() {
 		if !validTarget(target, step) {
 			continue
 		}
-		if err := step.Run(); err != nil {
+		if err := step.Run(context); err != nil {
 			return &upgradeError{
 				description: step.Description(),
 				err:         err,
