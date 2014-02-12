@@ -153,3 +153,19 @@ func (env *JoyentEnviron) Region() (simplestreams.CloudSpec, error) {
 		Endpoint: env.Ecfg().sdcUrl(),
 	}, nil
 }
+
+// GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
+func (env *JoyentEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
+	// Add the simplestreams source off the control bucket.
+	sources := []simplestreams.DataSource{
+		storage.NewStorageSimpleStreamsDataSource(env.Storage(), storage.BaseImagesPath)}
+	return sources, nil
+}
+
+// GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
+func (env *JoyentEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
+	// Add the simplestreams source off the control bucket.
+	sources := []simplestreams.DataSource{
+		storage.NewStorageSimpleStreamsDataSource(env.Storage(), storage.BaseToolsPath)}
+	return sources, nil
+}

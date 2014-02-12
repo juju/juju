@@ -7,10 +7,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"net/url"
 	"bytes"
 	"io/ioutil"
-	"fmt"
 
 	"launchpad.net/gojoyent/client"
 	lc "launchpad.net/gojoyent/localservices/cloudapi"
@@ -112,13 +110,13 @@ func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	s.TestConfig = GetFakeConfig(s.cSrv.Server.URL, s.mSrv.Server.URL)
 	s.LiveTests.SetUpSuite(c)
 
-	UseTestImageData(ImageMetadataStorage(s.Env), s.Env.(*jp.JoyentEnviron).Credentials())
+	UseTestImageData(MetadataStorage(s.Env), s.Env.(*jp.JoyentEnviron).Credentials())
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
 }
 
 func (s *localLiveSuite) TearDownSuite(c *gc.C) {
-	RemoveTestImageData(ImageMetadataStorage(s.Env))
+	RemoveTestImageData(MetadataStorage(s.Env))
 	s.LiveTests.TearDownSuite(c)
 	s.cSrv.destroyServer()
 	s.mSrv.destroyServer()
@@ -173,16 +171,18 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	c.Assert(cl, gc.NotNil)
 	containerURL := cl.MakeServiceURL([]string{"object-store", ""})
 	s.TestConfig = s.TestConfig.Merge(coretesting.Attrs{
-		"tools-metadata-url": containerURL + "/juju-dist-test/tools",
-		"image-metadata-url": containerURL + "/juju-dist-test",
+		"tools-metadata-url": containerURL + "/juju-test/tools",
+		"image-metadata-url": containerURL + "/juju-test/images",
 	})
+
+	env = s.Prepare(c)
 
 	s.toolsMetadataStorage = MetadataStorage(env)
 	// Put some fake metadata in place so that tests that are simply
 	// starting instances without any need to check if those instances
 	// are running can find the metadata.
 	envtesting.UploadFakeTools(c, s.toolsMetadataStorage)
-	s.imageMetadataStorage = ImageMetadataStorage(env)
+	s.imageMetadataStorage = MetadataStorage(env)
 	UseTestImageData(s.imageMetadataStorage, env.(*jp.JoyentEnviron).Credentials())
 }
 
@@ -366,40 +366,26 @@ func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
 	env := s.Open(c)
 	sources, err := imagemetadata.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
-	c.Assert(sources, gc.HasLen, 4)
+	c.Assert(len(sources), gc.Equals, 2)
 	var urls = make([]string, len(sources))
 	for i, source := range sources {
 		url, err := source.URL("")
 		c.Assert(err, gc.IsNil)
 		urls[i] = url
 	}
-	// The image-metadata-url ends with "/juju-dist-test/".
-	c.Check(strings.HasSuffix(urls[0], "/juju-dist-test/"), jc.IsTrue)
 	// The control bucket URL contains the bucket name.
-	c.Check(strings.Contains(urls[1], ControlBucketName(env)+"/images"), jc.IsTrue)
-	// The product-streams URL ends with "/imagemetadata".
-	c.Check(strings.HasSuffix(urls[2], "/imagemetadata/"), jc.IsTrue)
-	c.Assert(urls[3], gc.Equals, imagemetadata.DefaultBaseURL+"/")
+	c.Check(strings.Contains(urls[0], ControlBucketName(env)+"/images"), jc.IsTrue)
+	c.Assert(urls[1], gc.Equals, imagemetadata.DefaultBaseURL+"/")
 }
 
 func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 	env := s.Open(c)
 	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
-	c.Assert(sources, gc.HasLen, 3)
-	var urls = make([]string, len(sources))
-	for i, source := range sources {
-		url, err := source.URL("")
-		c.Assert(err, gc.IsNil)
-		urls[i] = url
-	}
-	// The tools-metadata-url ends with "/juju-dist-test/tools/".
-	c.Check(strings.HasSuffix(urls[0], "/juju-dist-test/tools/"), jc.IsTrue)
+	c.Assert(len(sources), gc.Equals, 1)
+	url, err := sources[0].URL("")
 	// The control bucket URL contains the bucket name.
-	c.Check(strings.Contains(urls[1], ControlBucketName(env)+"/tools"), jc.IsTrue)
-	// Check that the URL from keystone parses.
-	_, err = url.Parse(urls[2])
-	c.Assert(err, gc.IsNil)
+	c.Assert(strings.Contains(url, ControlBucketName(env)+"/tools"), jc.IsTrue)
 }
 
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {

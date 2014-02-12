@@ -139,7 +139,7 @@ func RemoveTestKey() error {
 
 // MetadataStorage returns a Storage instance which is used to store simplestreams metadata for tests.
 func MetadataStorage(e environs.Environ) storage.Storage {
-	container := "juju-dist-test"
+	container := "juju-test"
 	metadataStorage := jp.NewStorage(e.(*jp.JoyentEnviron), container)
 
 	// Ensure the container exists.
@@ -152,10 +152,10 @@ func MetadataStorage(e environs.Environ) storage.Storage {
 
 // ImageMetadataStorage returns a Storage object pointing where the goose
 // infrastructure sets up its keystone entry for image metadata
-func ImageMetadataStorage(e environs.Environ) storage.Storage {
+/*func ImageMetadataStorage(e environs.Environ) storage.Storage {
 	env := e.(*jp.JoyentEnviron)
 	return jp.NewStorage(env, "imagedata")
-}
+} */
 
 var indexData = `
 		{
@@ -168,7 +168,7 @@ var indexData = `
 			 "endpoint": "{{.SdcEndpoint.URL}}"
 			}
 		   ],
-		   "cloudname": "test",
+		   "cloudname": "joyent",
 		   "datatype": "image-ids",
 		   "format": "products:1.0",
 		   "products": [
@@ -176,7 +176,7 @@ var indexData = `
 			"com.ubuntu.cloud:server:12.10:amd64",
 			"com.ubuntu.cloud:server:13.04:amd64"
 		   ],
-		   "path": "image-metadata/products.json"
+		   "path": "streams/v1/com.ubuntu.cloud:released:joyent.js"
 		  }
 		 },
 		 "updated": "Wed, 01 May 2013 13:31:26 +0000",
@@ -196,16 +196,14 @@ var imagesData = `
        "20121218": {
          "items": {
            "inst1": {
-             "root_store": "ebs",
-             "virt": "pv",
+             "virt": "virtualmachine",
              "region": "some-region",
-             "id": "1"
+             "id": "11223344-0a0a-ff99-11bb-0a1b2c3d4e5f"
            },
            "inst2": {
-             "root_store": "ebs",
-             "virt": "pv",
+             "virt": "virtualmachine",
              "region": "another-region",
-             "id": "2"
+             "id": "11223344-0a0a-ff99-11bb-0a1b2c3d4e5f"
            }
          },
          "pubname": "ubuntu-precise-12.04-amd64-server-20121218",
@@ -214,10 +212,9 @@ var imagesData = `
        "20121111": {
          "items": {
            "inst3": {
-             "root_store": "ebs",
-             "virt": "pv",
+             "virt": "virtualmachine",
              "region": "some-region",
-             "id": "3"
+             "id": "11223344-0a0a-ff99-11bb-0a1b2c3d4e5f"
            }
          },
          "pubname": "ubuntu-precise-12.04-amd64-server-20121111",
@@ -233,16 +230,14 @@ var imagesData = `
        "20121218": {
          "items": {
            "inst3": {
-             "root_store": "ebs",
-             "virt": "pv",
+             "virt": "virtualmachine",
              "region": "region-1",
-             "id": "id-1"
+             "id": "11223344-0a0a-ee88-22ab-00aa11bb22cc"
            },
            "inst4": {
-             "root_store": "ebs",
-             "virt": "pv",
+             "virt": "virtualmachine",
              "region": "region-2",
-             "id": "id-2"
+             "id": "11223344-0a0a-ee88-22ab-00aa11bb22cc"
            }
          },
          "pubname": "ubuntu-quantal-12.14-amd64-server-20121218",
@@ -258,16 +253,14 @@ var imagesData = `
        "20121218": {
          "items": {
            "inst5": {
-             "root_store": "ebs",
-             "virt": "pv",
+             "virt": "virtualmachine",
              "region": "some-region",
-             "id": "id-y"
+             "id": "11223344-0a0a-dd77-33cd-abcd1234e5f6"
            },
            "inst6": {
-             "root_store": "ebs",
-             "virt": "pv",
+             "virt": "virtualmachine",
              "region": "another-region",
-             "id": "id-z"
+             "id": "11223344-0a0a-dd77-33cd-abcd1234e5f6"
            }
          },
          "pubname": "ubuntu-raring-13.04-amd64-server-20121218",
@@ -280,7 +273,7 @@ var imagesData = `
 }
 `
 
-const productMetadatafile = "image-metadata/products.json"
+const productMetadatafile = "streams/v1/com.ubuntu.cloud:released:joyent.js"
 
 func UseTestImageData(stor storage.Storage, creds *jpc.Credentials) {
 	// Put some image metadata files into the public storage.

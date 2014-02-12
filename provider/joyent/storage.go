@@ -13,9 +13,11 @@ import (
 	"path"
 
 	"launchpad.net/juju-core/environs/storage"
+	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 
 	"launchpad.net/gojoyent/client"
+	je "launchpad.net/gojoyent/errors"
 	"launchpad.net/gojoyent/manta"
 )
 
@@ -90,8 +92,11 @@ func (s *JoyentStorage) CreateContainer() error {
 // deleteContainer deletes the named container from the storage account.
 func (s *JoyentStorage) DeleteContainer(containerName string) error {
 	err := s.manta.DeleteDirectory(containerName)
-	if err == nil {
+	if err == nil && strings.EqualFold(s.containerName, containerName) {
 		s.madeContainer = false
+	}
+	if je.IsResourceNotFound(err) {
+		return coreerrors.NewNotFoundError(err, fmt.Sprintf("cannot delete %s, not found", containerName))
 	}
 	return err
 }
@@ -117,9 +122,10 @@ func (s *JoyentStorage) URL(name string) (string, error) {
 }
 
 func (s *JoyentStorage) Get(name string) (io.ReadCloser, error) {
+	logger.Debugf("Get object %s from container %s", name, s.containerName)
 	b, err := s.manta.GetObject(s.containerName, name)
 	if err != nil {
-		return nil, err
+		return nil, coreerrors.NewNotFoundError(err, fmt.Sprintf("cannot find %s", name))
 	}
 	r := byteCloser{bytes.NewReader(b)}
 	return r, nil
@@ -144,6 +150,7 @@ func (s *JoyentStorage) Put(name string, r io.Reader, length int64) error {
 			}
 		}
 	}
+	logger.Debugf("Put object %s in container %s", name, s.containerName)
 	err := s.manta.PutObject(s.containerName, name, r)
 	if err != nil {
 		return fmt.Errorf("cannot write file %q to control container %q: %v", name, s.containerName, err)
@@ -154,7 +161,7 @@ func (s *JoyentStorage) Put(name string, r io.Reader, length int64) error {
 func (s *JoyentStorage) Remove(name string) error {
 	err := s.manta.DeleteObject(s.containerName, name)
 	if err != nil {
-		return err
+		return coreerrors.NewNotFoundError(err, fmt.Sprintf("cannot delete %s, not found", name))
 	}
 	return nil
 }

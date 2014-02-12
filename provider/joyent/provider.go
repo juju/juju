@@ -11,15 +11,21 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/imagemetadata"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/environs/simplestreams"
 )
 
 var logger = loggo.GetLogger("juju.provider.joyent")
 
-type environProvider struct{}
+type joyentProvider struct{}
 
-var providerInstance = environProvider{}
+var providerInstance = joyentProvider{}
 var _ environs.EnvironProvider = providerInstance
+
+var _ simplestreams.HasRegion = (*JoyentEnviron)(nil)
+var _ imagemetadata.SupportsCustomSources = (*JoyentEnviron)(nil)
+var _ envtools.SupportsCustomSources = (*JoyentEnviron)(nil)
 
 func init() {
 	// This will only happen in binaries that actually import this provider
@@ -31,7 +37,7 @@ func init() {
 
 var errNotImplemented = errors.New("not implemented in Joyent provider")
 
-func (environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+func (joyentProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
 	// This method may be called with an incomplete cfg. It should make every
 	// reasonable effort to create a valid configuration based on the supplied,
 	// and open the resulting environment.
@@ -45,7 +51,7 @@ func (environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
 	return providerInstance.Open(preparedCfg)
 }
 
-func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
+func (joyentProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	env, err := NewEnviron(cfg)
 	if err != nil {
 		return nil, err
@@ -53,7 +59,7 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return env, nil
 }
 
-func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
+func (joyentProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
 	// You should almost certainly not change this method; if you need to change
 	// how configs are validated, you should edit validateConfig itself, to ensure
 	// that your checks are always applied.
@@ -73,7 +79,7 @@ func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, 
 	return newEcfg.Config, nil
 }
 
-func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
+func (joyentProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
 	// If you keep configSecretFields up to date, this method should Just Work.
 	ecfg, err := validateConfig(cfg, nil)
 	if err != nil {
@@ -98,11 +104,11 @@ func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error
 	return secretAttrs, nil
 }
 
-func (environProvider) BoilerplateConfig() string {
+func (joyentProvider) BoilerplateConfig() string {
 	return boilerplateConfig
 
 }
-func (environProvider) PublicAddress() (string, error) {
+func (joyentProvider) PublicAddress() (string, error) {
 	// Don't bother implementing this method until you're ready to deploy units.
 	// You probably won't need to by that stage; it's due for retirement. If it
 	// turns out that you do need to, remember that this method will *only* be
@@ -111,7 +117,7 @@ func (environProvider) PublicAddress() (string, error) {
 	return "", errNotImplemented
 }
 
-func (environProvider) PrivateAddress() (string, error) {
+func (joyentProvider) PrivateAddress() (string, error) {
 	// Don't bother implementing this method until you're ready to deploy units.
 	// You probably won't need to by that stage; it's due for retirement. If it
 	// turns out that you do need to, remember that this method will *only* be
@@ -126,7 +132,7 @@ func GetProviderInstance() environs.EnvironProvider {
 
 // MetadataLookupParams returns parameters which are used to query image metadata to
 // find matching image information.
-func (p environProvider) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
+func (p joyentProvider) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
 	if region == "" {
 		return nil, fmt.Errorf("region must be specified")
 	}

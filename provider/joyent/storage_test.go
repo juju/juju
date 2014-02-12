@@ -12,10 +12,11 @@ import (
 	"strings"
 
 	gc "launchpad.net/gocheck"
+	"launchpad.net/gojoyent/errors"
+
+	coreerrors "launchpad.net/juju-core/errors"
 	jp "launchpad.net/juju-core/provider/joyent"
 	jc "launchpad.net/juju-core/testing/checkers"
-
-	"launchpad.net/gojoyent/errors"
 )
 
 type storageSuite struct {
@@ -106,7 +107,7 @@ func (s *storageSuite) TestGetFileNotExists(c *gc.C) {
 
 	_, err := mantaStorage.Get("noFile")
 	c.Assert(err, gc.NotNil)
-	c.Assert(err, jc.Satisfies, errors.IsResourceNotFound)
+	c.Assert(err, jc.Satisfies, coreerrors.IsNotFoundError)
 }
 
 func (s *storageSuite) TestPut(c *gc.C) {
@@ -128,7 +129,7 @@ func (s *storageSuite) TestRemoveFileNotExists(c *gc.C) {
 
 	err := mantaStorage.Remove("nofile")
 	c.Assert(err, gc.NotNil)
-	c.Assert(err, jc.Satisfies, errors.IsResourceNotFound)
+	c.Assert(err, jc.Satisfies, coreerrors.IsNotFoundError)
 }
 
 func (s *storageSuite) TestRemoveAll(c *gc.C) {
@@ -185,5 +186,5 @@ func (s *storageSuite) TestDeleteContainerNotExists(c *gc.C) {
 
 	err := mantaStorage.DeleteContainer("noContainer")
 	c.Assert(err, gc.NotNil)
-	c.Assert(err, jc.Satisfies, errors.IsResourceNotFound)
+	c.Assert(err, jc.Satisfies, coreerrors.IsNotFoundError)
 }
