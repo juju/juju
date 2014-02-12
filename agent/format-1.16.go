@@ -19,8 +19,8 @@ const (
 	// Old environment variables that are now stored in agent config.
 	jujuLxcBridge    = "JUJU_LXC_BRIDGE"
 	jujuProviderType = "JUJU_PROVIDER_TYPE"
-	JujuStorageDir   = "JUJU_STORAGE_DIR"
-	JujuStorageAddr  = "JUJU_STORAGE_ADDR"
+	jujuStorageDir   = "JUJU_STORAGE_DIR"
+	jujuStorageAddr  = "JUJU_STORAGE_ADDR"
 )
 
 // formatter_1_16 is the formatter for the 1.16 format.
@@ -185,10 +185,10 @@ func (*formatter_1_16) migrate(config *configInternal) {
 		jujuLxcBridge,
 		LxcBridge,
 	}, {
-		JujuStorageDir,
+		jujuStorageDir,
 		StorageDir,
 	}, {
-		JujuStorageAddr,
+		jujuStorageAddr,
 		StorageAddr,
 	}} {
 		value := os.Getenv(name.environment)
