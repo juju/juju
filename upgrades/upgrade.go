@@ -111,8 +111,8 @@ func PerformUpgrade(from version.Number, target UpgradeTarget, context Context) 
 		from = version.MustParse("1.16.0")
 	}
 	for _, upgradeOps := range upgradeOperations(context) {
-		// Do not run steps for versions of Juju earlier than we are upgrading from.
-		if upgradeOps.TargetVersion().Less(from) {
+		// Do not run steps for versions of Juju earlier or same as we are upgrading from.
+		if upgradeOps.TargetVersion().LessEqual(from) {
 			continue
 		}
 		if err := runUpgradeSteps(target, upgradeOps); err != nil {

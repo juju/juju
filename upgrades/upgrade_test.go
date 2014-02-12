@@ -89,19 +89,31 @@ func upgradeOperations(context upgrades.Context) []upgrades.UpgradeOperation {
 			},
 		},
 		&mockUpgradeOperation{
-			targetVersion: version.MustParse("1.13.0"),
-			steps: []upgrades.UpgradeStep{
-				&mockUpgradeStep{"step 1 - 1.13.0", nil, mockContext},
-				&mockUpgradeStep{"step 2 - 1.13.0", targets(upgrades.HostMachine), mockContext},
-				&mockUpgradeStep{"step 3 - 1.13.0", targets(upgrades.StateServer), mockContext},
-			},
-		},
-		&mockUpgradeOperation{
 			targetVersion: version.MustParse("1.16.0"),
 			steps: []upgrades.UpgradeStep{
 				&mockUpgradeStep{"step 1 - 1.16.0", targets(upgrades.HostMachine), mockContext},
 				&mockUpgradeStep{"step 2 - 1.16.0", targets(upgrades.HostMachine), mockContext},
 				&mockUpgradeStep{"step 3 - 1.16.0", targets(upgrades.StateServer), mockContext},
+			},
+		},
+		&mockUpgradeOperation{
+			targetVersion: version.MustParse("1.17.0"),
+			steps: []upgrades.UpgradeStep{
+				&mockUpgradeStep{"step 1 - 1.17.0", targets(upgrades.HostMachine), mockContext},
+			},
+		},
+		&mockUpgradeOperation{
+			targetVersion: version.MustParse("1.17.1"),
+			steps: []upgrades.UpgradeStep{
+				&mockUpgradeStep{"step 1 - 1.17.1", targets(upgrades.HostMachine), mockContext},
+				&mockUpgradeStep{"step 2 - 1.17.1", targets(upgrades.StateServer), mockContext},
+			},
+		},
+		&mockUpgradeOperation{
+			targetVersion: version.MustParse("1.18.0"),
+			steps: []upgrades.UpgradeStep{
+				&mockUpgradeStep{"step 1 - 1.18.0", targets(upgrades.HostMachine), mockContext},
+				&mockUpgradeStep{"step 2 - 1.18.0", targets(upgrades.StateServer), mockContext},
 			},
 		},
 	}
@@ -118,23 +130,35 @@ type upgradeTest struct {
 
 var upgradeTests = []upgradeTest{
 	{
-		about:         "from version excludes older steps",
-		fromVersion:   "1.16.0",
+		about:         "from version excludes steps for same version",
+		fromVersion:   "1.18.0",
 		target:        upgrades.HostMachine,
-		expectedSteps: []string{"step 1 - 1.16.0", "step 2 - 1.16.0"},
+		expectedSteps: []string{},
+	},
+	{
+		about:         "from version excludes older steps",
+		fromVersion:   "1.17.0",
+		target:        upgrades.HostMachine,
+		expectedSteps: []string{"step 1 - 1.17.1", "step 1 - 1.18.0"},
 	},
 	{
 		about:         "incompatible targets excluded",
-		fromVersion:   "1.13.0",
+		fromVersion:   "1.17.1",
 		target:        upgrades.StateServer,
-		expectedSteps: []string{"step 1 - 1.13.0", "step 3 - 1.13.0", "step 3 - 1.16.0"},
+		expectedSteps: []string{"step 2 - 1.18.0"},
 	},
 	{
 		about:         "error aborts, subsequent steps not run",
-		fromVersion:   "1.12.0",
+		fromVersion:   "1.10.0",
 		target:        upgrades.HostMachine,
 		expectedSteps: []string{"step 1 - 1.12.0"},
 		err:           "step 2 error: upgrade error occurred",
+	},
+	{
+		about:         "default from version is 1.16",
+		fromVersion:   "",
+		target:        upgrades.StateServer,
+		expectedSteps: []string{"step 2 - 1.17.1", "step 2 - 1.18.0"},
 	},
 }
 
@@ -146,7 +170,10 @@ func (s *upgradeSuite) TestPerformUpgrade(c *gc.C) {
 		ctx := &mockContext{
 			messages: messages,
 		}
-		fromVersion := version.MustParse(test.fromVersion)
+		fromVersion := version.Zero
+		if test.fromVersion != "" {
+			fromVersion = version.MustParse(test.fromVersion)
+		}
 		err := upgrades.PerformUpgrade(fromVersion, test.target, ctx)
 		if test.err == "" {
 			c.Check(err, gc.IsNil)
