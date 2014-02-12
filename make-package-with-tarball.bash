@@ -126,12 +126,12 @@ DEBEMAIL=$3
 shift; shift; shift
 BUGS=$(echo "$@" | sed  -e 's/ /, /g; s/\([0-9]\+\)/#\1/g;')
 
-if [[ $PURPOSE == "stable" ]]; then
+if [[ $VERSION =~ ^1\.16\.* ]]; then
+    PACKAGING_BRANCH=$DEFAULT_1_16_PACKAGING_BRANCH
+    PPA="ppa:juju-packaging/stable"
+elif [[ $PURPOSE == "stable" ]]; then
     PACKAGING_BRANCH=$DEFAULT_STABLE_PACKAGING_BRANCH
     PPA="ppa:juju-packaging/stable"
-elif [[ $PURPOSE == "testing" && $VERSION =~ ^1\.16\.* ]]; then
-    PACKAGING_BRANCH=$DEFAULT_1_16_PACKAGING_BRANCH
-    PPA="ppa:juju-packaging/devel"
 elif [[ $PURPOSE == "devel" || $PURPOSE == "testing" ]]; then
     PACKAGING_BRANCH=$DEFAULT_DEVEL_PACKAGING_BRANCH
     PPA="ppa:juju-packaging/devel"
