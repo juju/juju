@@ -282,7 +282,9 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	lockDir := path.Join(cfg.DataDir, "locks")
 	c.AddScripts(
 		fmt.Sprintf("mkdir -p %s", lockDir),
-		fmt.Sprintf("chown ubuntu:ubuntu %s", lockDir),
+		// We only try to change ownership if there is an ubuntu user
+		// defined, and we determine this by the existance of the home dir.
+		fmt.Sprintf("[ -e /home/ubuntu ] && chown ubuntu:ubuntu %s", lockDir),
 		fmt.Sprintf("mkdir -p %s", cfg.LogDir),
 	)
 
