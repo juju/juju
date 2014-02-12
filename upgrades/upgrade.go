@@ -15,8 +15,10 @@ import (
 type UpgradeStep interface {
 	// Description is a human readable description of what the upgrade step does.
 	Description() string
+
 	// Targets returns the target machine types for which the upgrade step is applicable.
 	Targets() []UpgradeTarget
+
 	// Run executes the upgrade business logic.
 	Run(context Context) error
 }
@@ -28,6 +30,7 @@ type UpgradeOperation interface {
 	// than we are upgrading from are not run since such steps would
 	// already have been used to get to the version we are running now.
 	TargetVersion() version.Number
+
 	// Steps to perform during an upgrade.
 	Steps() []UpgradeStep
 }
@@ -39,6 +42,7 @@ type UpgradeTarget string
 const (
 	// HostMachine is a machine on which units are deployed.
 	HostMachine = UpgradeTarget("hostMachine")
+
 	// StateServer is a machine participating in a Juju state server cluster.
 	StateServer = UpgradeTarget("stateServer")
 )
