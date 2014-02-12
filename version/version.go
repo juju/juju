@@ -196,6 +196,16 @@ func (v Number) String() string {
 // Less returns whether v is semantically earlier in the
 // version sequence than w.
 func (v Number) Less(w Number) bool {
+	return v.lessMaybeEqual(w, false)
+}
+
+// LessEqual returns whether v is either the same number or
+// semantically earlier in the version sequence than w.
+func (v Number) LessEqual(w Number) bool {
+	return v.lessMaybeEqual(w, true)
+}
+
+func (v Number) lessMaybeEqual(w Number, wantEqual bool) bool {
 	switch {
 	case v.Major != w.Major:
 		return v.Major < w.Major
@@ -206,7 +216,7 @@ func (v Number) Less(w Number) bool {
 	case v.Build != w.Build:
 		return v.Build < w.Build
 	}
-	return false
+	return wantEqual
 }
 
 // GetBSON turns v into a bson.Getter so it can be saved directly

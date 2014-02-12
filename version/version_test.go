@@ -43,7 +43,7 @@ var cmpTests = []struct {
 	{"2.0.1.10", "2.0.0.0", false, false},
 }
 
-func (suite) TestComparison(c *gc.C) {
+func (suite) TestLess(c *gc.C) {
 	for i, test := range cmpTests {
 		c.Logf("test %d", i)
 		v1, err := version.Parse(test.v1)
@@ -55,6 +55,24 @@ func (suite) TestComparison(c *gc.C) {
 		c.Check(less, gc.Equals, test.less)
 		if test.eq {
 			c.Check(gt, gc.Equals, false)
+		} else {
+			c.Check(gt, gc.Equals, !test.less)
+		}
+	}
+}
+
+func (suite) TestLessEqual(c *gc.C) {
+	for i, test := range cmpTests {
+		c.Logf("test %d", i)
+		v1, err := version.Parse(test.v1)
+		c.Assert(err, gc.IsNil)
+		v2, err := version.Parse(test.v2)
+		c.Assert(err, gc.IsNil)
+		lessEqual := v1.LessEqual(v2)
+		gt := v2.LessEqual(v1)
+		c.Check(lessEqual, gc.Equals, test.eq || test.less)
+		if test.eq {
+			c.Check(lessEqual, gc.Equals, true)
 		} else {
 			c.Check(gt, gc.Equals, !test.less)
 		}

@@ -15,10 +15,12 @@ import (
 type UpgradeStep interface {
 	// Description is a human readable description of what the upgrade step does.
 	Description() string
+
 	// Targets returns the target machine types for which the upgrade step is applicable.
 	Targets() []UpgradeTarget
+
 	// Run executes the upgrade business logic.
-	Run() error
+	Run(context Context) error
 }
 
 // UpgradeOperation defines what steps to perform to upgrade to a target version.
@@ -28,6 +30,7 @@ type UpgradeOperation interface {
 	// than we are upgrading from are not run since such steps would
 	// already have been used to get to the version we are running now.
 	TargetVersion() version.Number
+
 	// Steps to perform during an upgrade.
 	Steps() []UpgradeStep
 }
@@ -37,9 +40,11 @@ type UpgradeOperation interface {
 type UpgradeTarget string
 
 const (
-	HostMachine   = UpgradeTarget("hostMachine")
-	HostContainer = UpgradeTarget("hostContainer")
-	StateServer   = UpgradeTarget("stateServer")
+	// HostMachine is a machine on which units are deployed.
+	HostMachine = UpgradeTarget("hostMachine")
+
+	// StateServer is a machine participating in a Juju state server cluster.
+	StateServer = UpgradeTarget("stateServer")
 )
 
 // upgradeToVersion encapsulates the steps which need to be run to
@@ -68,6 +73,9 @@ type Context interface {
 
 // UpgradeContext is a default Context implementation.
 type UpgradeContext struct {
+	// Work in progress........
+	// Exactly what a context needs is to be determined as the
+	// implementation evolves.
 	st *api.State
 }
 
@@ -80,7 +88,6 @@ func (c *UpgradeContext) APIState() *api.State {
 type upgradeOperation struct {
 	description string
 	targets     []UpgradeTarget
-	st          *api.State
 }
 
 // Description is defined on the UpgradeStep interface.
@@ -111,11 +118,11 @@ func PerformUpgrade(from version.Number, target UpgradeTarget, context Context) 
 		from = version.MustParse("1.16.0")
 	}
 	for _, upgradeOps := range upgradeOperations(context) {
-		// Do not run steps for versions of Juju earlier than we are upgrading from.
-		if upgradeOps.TargetVersion().Less(from) {
+		// Do not run steps for versions of Juju earlier or same as we are upgrading from.
+		if upgradeOps.TargetVersion().LessEqual(from) {
 			continue
 		}
-		if err := runUpgradeSteps(target, upgradeOps); err != nil {
+		if err := runUpgradeSteps(context, target, upgradeOps); err != nil {
 			return err
 		}
 	}
@@ -137,12 +144,12 @@ func validTarget(target UpgradeTarget, step UpgradeStep) bool {
 // subsequent steps may required successful completion of earlier ones.
 // The steps must be idempotent so that the entire upgrade operation can
 // be retried.
-func runUpgradeSteps(target UpgradeTarget, upgradeOp UpgradeOperation) *upgradeError {
+func runUpgradeSteps(context Context, target UpgradeTarget, upgradeOp UpgradeOperation) *upgradeError {
 	for _, step := range upgradeOp.Steps() {
 		if !validTarget(target, step) {
 			continue
 		}
-		if err := step.Run(); err != nil {
+		if err := step.Run(context); err != nil {
 			return &upgradeError{
 				description: step.Description(),
 				err:         err,
