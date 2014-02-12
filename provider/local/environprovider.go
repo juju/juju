@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/user"
 	"syscall"
 
 	"github.com/loggo/loggo"
@@ -31,6 +32,8 @@ var providerInstance = &environProvider{}
 func init() {
 	environs.RegisterProvider(provider.Local, providerInstance)
 }
+
+var userCurrent = user.Current
 
 // Open implements environs.EnvironProvider.Open.
 func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
@@ -72,8 +75,16 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return environ, nil
 }
 
+var detectAptProxies = utils.DetectAptProxies
+
 // Prepare implements environs.EnvironProvider.Prepare.
 func (p environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+	// The user must not set bootstrap-ip; this is determined by the provider,
+	// and its presence used to determine whether the environment has yet been
+	// bootstrapped.
+	if _, ok := cfg.UnknownAttrs()["bootstrap-ip"]; ok {
+		return nil, fmt.Errorf("bootstrap-ip must not be specified")
+	}
 	err := checkLocalPort(cfg.StatePort(), "state port")
 	if err != nil {
 		return nil, err
@@ -103,7 +114,7 @@ func (p environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
 	if cfg.AptHttpProxy() == "" &&
 		cfg.AptHttpsProxy() == "" &&
 		cfg.AptFtpProxy() == "" {
-		proxy, err := utils.DetectAptProxies()
+		proxy, err := detectAptProxies()
 		if err != nil {
 			return nil, err
 		}
@@ -122,7 +133,7 @@ func (p environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
 }
 
 // checkLocalPort checks that the passed port is not used so far.
-func checkLocalPort(port int, description string) error {
+var checkLocalPort = func(port int, description string) error {
 	logger.Infof("checking %s", description)
 	// Try to connect the port on localhost.
 	address := fmt.Sprintf("localhost:%d", port)

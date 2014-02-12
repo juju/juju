@@ -6,12 +6,14 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 var (
-	Provider        = providerInstance
-	FinishBootstrap = &finishBootstrap
+	Provider         = providerInstance
+	FinishBootstrap  = &finishBootstrap
+	CheckLocalPort   = &checkLocalPort
+	DetectAptProxies = &detectAptProxies
 )
 
 // SetRootCheckFunction allows tests to override the check for a root user.
@@ -50,13 +52,8 @@ func CheckDirs(c *gc.C, cfg *config.Config) []string {
 // MockAddressForInterface replaces the getAddressForInterface with a function
 // that returns a constant localhost ip address.
 func MockAddressForInterface() func() {
-	getAddressForInterface = func(name string) (string, error) {
+	return testbase.PatchValue(&getAddressForInterface, func(name string) (string, error) {
 		logger.Debugf("getAddressForInterface called for %s", name)
 		return "127.0.0.1", nil
-	}
-	return func() {
-		getAddressForInterface = utils.GetAddressForInterface
-	}
+	})
 }
-
-var CheckLocalPort = checkLocalPort

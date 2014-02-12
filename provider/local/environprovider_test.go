@@ -53,10 +53,13 @@ func (s *prepareSuite) SetUpTest(c *gc.C) {
 	s.PatchEnvironment("ftp_proxy", "")
 	s.PatchEnvironment("FTP_PROXY", "")
 	s.HookCommandOutput(&utils.AptCommandOutput, nil, nil)
+	restore := testbase.PatchValue(local.CheckLocalPort, func(port int, desc string) error {
+		return nil
+	})
+	s.AddSuiteCleanup(func(*gc.C) { restore() })
 }
 
 func (s *prepareSuite) TestPrepareCapturesEnvironment(c *gc.C) {
-	c.Skip("fails if local provider running already")
 	baseConfig, err := config.New(config.UseDefaults, map[string]interface{}{
 		"type": provider.Local,
 		"name": "test",

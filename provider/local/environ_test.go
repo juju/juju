@@ -39,6 +39,11 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 	s.ToolsFixture.SetUpTest(c)
 }
 
+func (s *environSuite) TearDownTest(c *gc.C) {
+	s.ToolsFixture.TearDownTest(c)
+	s.baseProviderSuite.TearDownTest(c)
+}
+
 func (*environSuite) TestOpenFailsWithProtectedDirectories(c *gc.C) {
 	testConfig := minimalConfig(c)
 	testConfig, err := testConfig.Apply(map[string]interface{}{
