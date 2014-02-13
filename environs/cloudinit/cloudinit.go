@@ -275,8 +275,16 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 				shquote(cfg.ProxySettings.AsScriptEnvironment())))
 	}
 
+	// Make the lock dir and change the ownership of the lock dir itself to
+	// ubuntu:ubuntu from root:root so the juju-run command run as the ubuntu
+	// user is able to get access to the hook execution lock (like the uniter
+	// itself does.)
+	lockDir := path.Join(cfg.DataDir, "locks")
 	c.AddScripts(
-		fmt.Sprintf("mkdir -p %s", cfg.DataDir),
+		fmt.Sprintf("mkdir -p %s", lockDir),
+		// We only try to change ownership if there is an ubuntu user
+		// defined, and we determine this by the existance of the home dir.
+		fmt.Sprintf("[ -e /home/ubuntu ] && chown ubuntu:ubuntu %s", lockDir),
 		fmt.Sprintf("mkdir -p %s", cfg.LogDir),
 	)
 

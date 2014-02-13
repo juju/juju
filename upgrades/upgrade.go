@@ -6,9 +6,14 @@ package upgrades
 import (
 	"fmt"
 
+	"github.com/loggo/loggo"
+
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/version"
 )
+
+var logger = loggo.GetLogger("juju.upgrade")
 
 // UpgradeStep defines an idempotent operation that is run to perform
 // a specific upgrade step.
@@ -41,6 +46,7 @@ type UpgradeTarget string
 
 const (
 	// HostMachine is a machine on which units are deployed.
+	// all machines?
 	HostMachine = UpgradeTarget("hostMachine")
 
 	// StateServer is a machine participating in a Juju state server cluster.
@@ -69,6 +75,8 @@ func (u upgradeToVersion) TargetVersion() version.Number {
 type Context interface {
 	// APIState returns an API connection to state.
 	APIState() *api.State
+	// AgentConfig returns the agent config for the machine that is being upgraded.
+	AgentConfig() agent.Config
 }
 
 // UpgradeContext is a default Context implementation.
@@ -76,12 +84,18 @@ type UpgradeContext struct {
 	// Work in progress........
 	// Exactly what a context needs is to be determined as the
 	// implementation evolves.
-	st *api.State
+	st          *api.State
+	agentConfig agent.Config
 }
 
 // APIState is defined on the Context interface.
 func (c *UpgradeContext) APIState() *api.State {
 	return c.st
+}
+
+// AgentConfig is defined on the Context interface.
+func (c *UpgradeContext) AgentConfig() agent.Config {
+	return c.agentConfig
 }
 
 // upgradeOperation provides base attributes for any upgrade step.
@@ -157,4 +171,25 @@ func runUpgradeSteps(context Context, target UpgradeTarget, upgradeOp UpgradeOpe
 		}
 	}
 	return nil
+}
+
+type upgradeStep struct {
+	description string
+	targets     []UpgradeTarget
+	run         func(Context) error
+}
+
+// Description is defined on the UpgradeStep interface.
+func (step *upgradeStep) Description() string {
+	return step.description
+}
+
+// Targets is defined on the UpgradeStep interface.
+func (step *upgradeStep) Targets() []UpgradeTarget {
+	return step.targets
+}
+
+// Run is defined on the UpgradeStep interface.
+func (step *upgradeStep) Run(context Context) error {
+	return step.run(context)
 }
