@@ -177,5 +177,11 @@ type byMemory []InstanceType
 func (s byMemory) Len() int      { return len(s) }
 func (s byMemory) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 func (s byMemory) Less(i, j int) bool {
-	return s[i].Mem < s[j].Mem
+	inst0, inst1 := &s[i], &s[j]
+	if inst0.Mem != inst1.Mem {
+		return s[i].Mem < s[j].Mem
+	}
+	// Memory is equal, so use cost as a tie breaker.
+	// Result is in descending order of cost so instance with lowest cost is used.
+	return inst0.Cost > inst1.Cost
 }

@@ -182,6 +182,17 @@ var getInstanceTypesTest = []struct {
 		},
 		expectedItypes: []string{"it-1"},
 	},
+	{
+		about: "largest mem available matching other constraints if mem not specified, cost is tie breaker",
+		cons:  "cpu-cores=4",
+		itypesToUse: []InstanceType{
+			{Id: "4", Name: "it-4", Arches: []string{"amd64"}, Mem: 1024, CpuCores: 2},
+			{Id: "3", Name: "it-3", Arches: []string{"amd64"}, Mem: 256, CpuCores: 4},
+			{Id: "2", Name: "it-2", Arches: []string{"amd64"}, Mem: 512, CpuCores: 4, Cost: 50},
+			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, Mem: 512, CpuCores: 4, Cost: 100},
+		},
+		expectedItypes: []string{"it-2"},
+	},
 }
 
 func constraint(region, cons string) *InstanceConstraint {
