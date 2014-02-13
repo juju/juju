@@ -6,19 +6,31 @@ package upgrades_test
 import (
 	"errors"
 	"strings"
-	"testing"
+	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/state/api"
+	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/upgrades"
 	"launchpad.net/juju-core/version"
 )
 
-func Test(t *testing.T) {
-	gc.TestingT(t)
+func TestPackage(t *stdtesting.T) {
+	coretesting.MgoTestPackage(t)
+}
+
+// assertExpectedSteps is a helper function used to check that the upgrade steps match
+// what is expected for a version.
+func assertExpectedSteps(c *gc.C, steps []upgrades.UpgradeStep, expectedSteps []string) {
+	var stepNames = make([]string, len(steps))
+	for i, step := range steps {
+		stepNames[i] = step.Description()
+	}
+	c.Assert(stepNames, gc.DeepEquals, expectedSteps)
 }
 
 type upgradeSuite struct {
@@ -63,11 +75,44 @@ func (u *mockUpgradeStep) Run(context upgrades.Context) error {
 }
 
 type mockContext struct {
-	messages []string
+	messages    []string
+	agentConfig *mockAgentConfig
+	apiState    *api.State
 }
 
 func (c *mockContext) APIState() *api.State {
-	return nil
+	return c.apiState
+}
+
+func (c *mockContext) AgentConfig() agent.Config {
+	return c.agentConfig
+}
+
+type mockAgentConfig struct {
+	agent.Config
+	dataDir      string
+	tag          string
+	namespace    string
+	apiAddresses []string
+}
+
+func (mock *mockAgentConfig) Tag() string {
+	return mock.tag
+}
+
+func (mock *mockAgentConfig) DataDir() string {
+	return mock.dataDir
+}
+
+func (mock *mockAgentConfig) APIAddresses() ([]string, error) {
+	return mock.apiAddresses, nil
+}
+
+func (mock *mockAgentConfig) Value(name string) string {
+	if name == agent.Namespace {
+		return mock.namespace
+	}
+	return ""
 }
 
 func targets(targets ...upgrades.UpgradeTarget) (upgradeTargets []upgrades.UpgradeTarget) {
@@ -148,6 +193,12 @@ var upgradeTests = []upgradeTest{
 		expectedSteps: []string{"step 2 - 1.18.0"},
 	},
 	{
+		about:         "allMachines matches everything",
+		fromVersion:   "1.17.1",
+		target:        upgrades.AllMachines,
+		expectedSteps: []string{"step 1 - 1.18.0", "step 2 - 1.18.0"},
+	},
+	{
 		about:         "error aborts, subsequent steps not run",
 		fromVersion:   "1.10.0",
 		target:        upgrades.HostMachine,
@@ -193,4 +244,15 @@ func (s *upgradeSuite) TestUpgradeOperationsOrdered(c *gc.C) {
 		}
 		previous = vers
 	}
+}
+
+var expectedVersions = []string{"1.18.0"}
+
+func (s *upgradeSuite) TestUpgradeOperationsVersions(c *gc.C) {
+	var versions []string
+	for _, utv := range (*upgrades.UpgradeOperations)(nil) {
+		versions = append(versions, utv.TargetVersion().String())
+
+	}
+	c.Assert(versions, gc.DeepEquals, expectedVersions)
 }

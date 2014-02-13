@@ -31,8 +31,11 @@ const LogDir = "/var/log/juju"
 // CloudInitOutputLog is the default cloud-init-output.log file path.
 const CloudInitOutputLog = "/var/log/cloud-init-output.log"
 
-// RsyslogConfPath is the default rsyslogd conf file path.
-const RsyslogConfPath = "/etc/rsyslog.d/25-juju.conf"
+// DefaultRsyslogConfPath is the default rsyslogd conf file path.
+const DefaultRsyslogConfPath = "/etc/rsyslog.d/25-juju.conf"
+
+// Override for testing.
+var RsyslogConfPath = DefaultRsyslogConfPath
 
 // MongoServiceName is the default Upstart service name for Mongo.
 const MongoServiceName = "juju-db"

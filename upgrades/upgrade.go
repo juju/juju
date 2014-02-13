@@ -6,9 +6,14 @@ package upgrades
 import (
 	"fmt"
 
+	"github.com/loggo/loggo"
+
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/version"
 )
+
+var logger = loggo.GetLogger("juju.upgrade")
 
 // UpgradeStep defines an idempotent operation that is run to perform
 // a specific upgrade step.
@@ -40,6 +45,9 @@ type UpgradeOperation interface {
 type UpgradeTarget string
 
 const (
+	// AllMachines applies to any machine.
+	AllMachines = UpgradeTarget("allMachines")
+
 	// HostMachine is a machine on which units are deployed.
 	HostMachine = UpgradeTarget("hostMachine")
 
@@ -69,6 +77,9 @@ func (u upgradeToVersion) TargetVersion() version.Number {
 type Context interface {
 	// APIState returns an API connection to state.
 	APIState() *api.State
+
+	// AgentConfig returns the agent config for the machine that is being upgraded.
+	AgentConfig() agent.Config
 }
 
 // UpgradeContext is a default Context implementation.
@@ -76,7 +87,8 @@ type UpgradeContext struct {
 	// Work in progress........
 	// Exactly what a context needs is to be determined as the
 	// implementation evolves.
-	st *api.State
+	st          *api.State
+	agentConfig agent.Config
 }
 
 // APIState is defined on the Context interface.
@@ -84,20 +96,9 @@ func (c *UpgradeContext) APIState() *api.State {
 	return c.st
 }
 
-// upgradeOperation provides base attributes for any upgrade step.
-type upgradeOperation struct {
-	description string
-	targets     []UpgradeTarget
-}
-
-// Description is defined on the UpgradeStep interface.
-func (u *upgradeOperation) Description() string {
-	return u.description
-}
-
-// Targets is defined on the UpgradeStep interface.
-func (u *upgradeOperation) Targets() []UpgradeTarget {
-	return u.targets
+// AgentConfig is defined on the Context interface.
+func (c *UpgradeContext) AgentConfig() agent.Config {
+	return c.agentConfig
 }
 
 // upgradeError records a description of the step being performed and the error.
@@ -132,7 +133,7 @@ func PerformUpgrade(from version.Number, target UpgradeTarget, context Context) 
 // validTarget returns true if target is in step.Targets().
 func validTarget(target UpgradeTarget, step UpgradeStep) bool {
 	for _, opTarget := range step.Targets() {
-		if target == opTarget {
+		if target == AllMachines || target == opTarget {
 			return true
 		}
 	}
@@ -157,4 +158,25 @@ func runUpgradeSteps(context Context, target UpgradeTarget, upgradeOp UpgradeOpe
 		}
 	}
 	return nil
+}
+
+type upgradeStep struct {
+	description string
+	targets     []UpgradeTarget
+	run         func(Context) error
+}
+
+// Description is defined on the UpgradeStep interface.
+func (step *upgradeStep) Description() string {
+	return step.description
+}
+
+// Targets is defined on the UpgradeStep interface.
+func (step *upgradeStep) Targets() []UpgradeTarget {
+	return step.targets
+}
+
+// Run is defined on the UpgradeStep interface.
+func (step *upgradeStep) Run(context Context) error {
+	return step.run(context)
 }

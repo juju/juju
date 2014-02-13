@@ -13,7 +13,7 @@ var upgradeOperations = func(context Context) []UpgradeOperation {
 	steps := []UpgradeOperation{
 		upgradeToVersion{
 			version.MustParse("1.18.0"),
-			stepsFor118(context),
+			stepsFor118(),
 		},
 	}
 	return steps
