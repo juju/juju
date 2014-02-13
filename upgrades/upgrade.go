@@ -6,10 +6,14 @@ package upgrades
 import (
 	"fmt"
 
+	"github.com/loggo/loggo"
+
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/version"
 )
+
+var logger = loggo.GetLogger("juju.upgrade")
 
 // UpgradeStep defines an idempotent operation that is run to perform
 // a specific upgrade step.

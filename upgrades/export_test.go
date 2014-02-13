@@ -3,4 +3,10 @@
 
 package upgrades
 
-var UpgradeOperations = &upgradeOperations
+var (
+	UpgradeOperations = &upgradeOperations
+
+	UbuntuHome = &ubuntuHome
+
+	EnsureLockDirExistsAndUbuntuWritable = ensureLockDirExistsAndUbuntuWritable
+)
