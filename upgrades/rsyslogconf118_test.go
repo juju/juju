@@ -33,10 +33,12 @@ func (s *rsyslogSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&environs.RsyslogConfPath, s.syslogPath)
 
 	apiState, _ := s.OpenAPIAsNewMachine(c, state.JobManageState, state.JobManageEnviron)
-
 	s.ctx = &mockContext{
 		agentConfig: &mockAgentConfig{
-			tag: "machine-tag", namespace: "namespace", apiAddresses: []string{"server:1234"}},
+			tag:          "machine-tag",
+			namespace:    "namespace",
+			apiAddresses: []string{"server:1234"},
+		},
 		apiState: apiState,
 	}
 }

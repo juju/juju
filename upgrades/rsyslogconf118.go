@@ -22,7 +22,7 @@ func confParams(context Context) (machineTag, namespace string, port int, err er
 	return machineTag, namespace, port, err
 }
 
-// Run is defined on UpgradeStep interface.
+// upgradeStateServerRsyslogConfig upgrades a rsuslog config file on a state server.
 func upgradeStateServerRsyslogConfig(context Context) (err error) {
 	machineTag, namespace, syslogPort, err := confParams(context)
 	configRenderer := syslog.NewAccumulateConfig(machineTag, syslogPort, namespace)
@@ -33,7 +33,7 @@ func upgradeStateServerRsyslogConfig(context Context) (err error) {
 	return WriteReplacementFile(environs.RsyslogConfPath, []byte(data))
 }
 
-// Run is defined on UpgradeStep interface.
+// upgradeHostMachineRsyslogConfig upgrades a rsuslog config file on a host machine.
 func upgradeHostMachineRsyslogConfig(context Context) (err error) {
 	machineTag, namespace, syslogPort, err := confParams(context)
 	addr, err := context.AgentConfig().APIAddresses()
