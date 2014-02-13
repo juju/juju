@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -682,12 +683,26 @@ func (s *withoutStateServerSuite) TestToolsNothing(c *gc.C) {
 }
 
 func (s *withoutStateServerSuite) TestContainerConfig(c *gc.C) {
+	cfg, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	newCfg, err := cfg.Apply(map[string]interface{}{
+		"http-proxy": "http://proxy.example.com:9000",
+	})
+	c.Assert(err, gc.IsNil)
+	err = s.State.SetEnvironConfig(newCfg, cfg)
+	c.Assert(err, gc.IsNil)
+	expectedProxy := osenv.ProxySettings{
+		Http: "http://proxy.example.com:9000",
+	}
+
 	results, err := s.provisioner.ContainerConfig()
 	c.Check(err, gc.IsNil)
 	c.Check(results.ProviderType, gc.Equals, "dummy")
 	c.Check(results.AuthorizedKeys, gc.Equals, coretesting.FakeAuthKeys)
 	c.Check(results.SSLHostnameVerification, jc.IsTrue)
 	c.Check(results.SyslogPort, gc.Equals, 2345)
+	c.Check(results.Proxy, gc.DeepEquals, expectedProxy)
+	c.Check(results.AptProxy, gc.DeepEquals, expectedProxy)
 }
 
 func (s *withoutStateServerSuite) TestToolsRefusesWrongAgent(c *gc.C) {

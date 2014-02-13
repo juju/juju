@@ -61,7 +61,7 @@ func LoadClientKeys(dir string) error {
 		// Directory exists but contains no keys;
 		// fall through and create one.
 	}
-	if err := utils.MkdirAllForUser(dir, 0700); err != nil {
+	if err := os.MkdirAll(dir, 0700); err != nil {
 		return err
 	}
 	keyfile, key, err := generateClientKey(dir)
@@ -95,11 +95,6 @@ func generateClientKey(dir string) (keyfile string, key ssh.Signer, err error) {
 	}
 	if err := ioutil.WriteFile(privkeyFilename+PublicKeySuffix, []byte(public), 0600); err != nil {
 		os.Remove(privkeyFilename)
-		return "", nil, err
-	}
-	if err := utils.ChownToUser(privkeyFilename, privkeyFilename+PublicKeySuffix); err != nil {
-		os.Remove(privkeyFilename)
-		os.Remove(privkeyFilename + PublicKeySuffix)
 		return "", nil, err
 	}
 	return privkeyFilename, clientPrivateKey, nil

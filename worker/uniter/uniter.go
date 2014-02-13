@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/agent/tools"
@@ -66,6 +66,7 @@ type Uniter struct {
 	relationers   map[int]*Relationer
 	relationHooks chan hook.Info
 	uuid          string
+	envName       string
 
 	dataDir      string
 	baseDir      string
@@ -189,10 +190,8 @@ func (u *Uniter) init(unitTag string) (err error) {
 	if err != nil {
 		return err
 	}
-	u.uuid, err = env.UUID()
-	if err != nil {
-		return err
-	}
+	u.uuid = env.UUID()
+	u.envName = env.Name()
 
 	runListenerSocketPath := filepath.Join(u.baseDir, RunListenerFile)
 	logger.Debugf("starting juju-run listener on %s:%s", RunListenerNetType, runListenerSocketPath)
@@ -341,8 +340,8 @@ func (u *Uniter) getHookContext(hctxId string, relationId int, remoteUnitName st
 
 	// Make a copy of the proxy settings.
 	proxySettings := u.proxy
-	return NewHookContext(u.unit, hctxId, u.uuid, relationId, remoteUnitName,
-		ctxRelations, apiAddrs, ownerTag, proxySettings)
+	return NewHookContext(u.unit, hctxId, u.uuid, u.envName, relationId,
+		remoteUnitName, ctxRelations, apiAddrs, ownerTag, proxySettings)
 }
 
 func (u *Uniter) acquireHookLock(message string) (err error) {

@@ -1,7 +1,7 @@
 // Copyright 2012 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package null
+package manual
 
 import (
 	"errors"
@@ -23,21 +23,26 @@ import (
 
 type environSuite struct {
 	testbase.LoggingSuite
-	env *nullEnviron
+	env *manualEnviron
+}
+
+type dummyStorage struct {
+	storage.Storage
 }
 
 var _ = gc.Suite(&environSuite{})
 
 func (s *environSuite) SetUpTest(c *gc.C) {
-	envConfig := getEnvironConfig(c, minimalConfigValues())
-	s.env = &nullEnviron{cfg: envConfig}
+	env, err := manualProvider{}.Open(MinimalConfig(c))
+	c.Assert(err, gc.IsNil)
+	s.env = env.(*manualEnviron)
 }
 
 func (s *environSuite) TestSetConfig(c *gc.C) {
-	err := s.env.SetConfig(minimalConfig(c))
+	err := s.env.SetConfig(MinimalConfig(c))
 	c.Assert(err, gc.IsNil)
 
-	testConfig := minimalConfig(c)
+	testConfig := MinimalConfig(c)
 	testConfig, err = testConfig.Apply(map[string]interface{}{"bootstrap-host": ""})
 	c.Assert(err, gc.IsNil)
 	err = s.env.SetConfig(testConfig)
@@ -128,19 +133,7 @@ func (s *environSuite) TestEnvironSupportsCustomSources(c *gc.C) {
 	c.Assert(strings.Contains(url, "/tools"), jc.IsTrue)
 }
 
-type dummyStorage struct {
-	storage.Storage
-}
-
 func (s *environSuite) TestEnvironBootstrapStorager(c *gc.C) {
-	var newSSHStorageResult = struct {
-		stor storage.Storage
-		err  error
-	}{dummyStorage{}, errors.New("failed to get SSH storage")}
-	s.PatchValue(&newSSHStorage, func(sshHost, storageDir, storageTmpdir string) (storage.Storage, error) {
-		return newSSHStorageResult.stor, newSSHStorageResult.err
-	})
-
 	var initUbuntuResult error
 	s.PatchValue(&initUbuntuUser, func(host, user, authorizedKeys string, stdin io.Reader, stdout io.Writer) error {
 		return initUbuntuResult
@@ -150,17 +143,9 @@ func (s *environSuite) TestEnvironBootstrapStorager(c *gc.C) {
 	initUbuntuResult = errors.New("failed to initialise ubuntu user")
 	c.Assert(s.env.EnableBootstrapStorage(ctx), gc.Equals, initUbuntuResult)
 	initUbuntuResult = nil
-	c.Assert(s.env.EnableBootstrapStorage(ctx), gc.Equals, newSSHStorageResult.err)
+	c.Assert(s.env.EnableBootstrapStorage(ctx), gc.IsNil)
 	// after the user is initialised once successfully,
 	// another attempt will not be made.
 	initUbuntuResult = errors.New("failed to initialise ubuntu user")
-	c.Assert(s.env.EnableBootstrapStorage(ctx), gc.Equals, newSSHStorageResult.err)
-
-	// after the bootstrap storage is initialised once successfully,
-	// another attempt will not be made.
-	backup := newSSHStorageResult.err
-	newSSHStorageResult.err = nil
-	c.Assert(s.env.EnableBootstrapStorage(ctx), gc.IsNil)
-	newSSHStorageResult.err = backup
 	c.Assert(s.env.EnableBootstrapStorage(ctx), gc.IsNil)
 }

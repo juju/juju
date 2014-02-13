@@ -181,6 +181,7 @@ var runHookTests = []struct {
 		env: map[string]string{
 			"JUJU_UNIT_NAME":     "u/0",
 			"JUJU_API_ADDRESSES": expectedApiAddrs,
+			"JUJU_ENV_NAME":      "test-env-name",
 			"http_proxy":         "http",
 			"HTTP_PROXY":         "http",
 			"https_proxy":        "https",
@@ -195,6 +196,7 @@ var runHookTests = []struct {
 		env: map[string]string{
 			"JUJU_UNIT_NAME":     "u/0",
 			"JUJU_API_ADDRESSES": expectedApiAddrs,
+			"JUJU_ENV_NAME":      "test-env-name",
 			"JUJU_RELATION":      "db",
 			"JUJU_RELATION_ID":   "db:1",
 			"JUJU_REMOTE_UNIT":   "",
@@ -207,6 +209,7 @@ var runHookTests = []struct {
 		env: map[string]string{
 			"JUJU_UNIT_NAME":     "u/0",
 			"JUJU_API_ADDRESSES": expectedApiAddrs,
+			"JUJU_ENV_NAME":      "test-env-name",
 			"JUJU_RELATION":      "db",
 			"JUJU_RELATION_ID":   "db:1",
 			"JUJU_REMOTE_UNIT":   "r/1",
@@ -710,8 +713,9 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 		_, found := s.relctxs[relid]
 		c.Assert(found, gc.Equals, true)
 	}
-	context, err := uniter.NewHookContext(s.apiUnit, "TestCtx", uuid, relid, remote,
-		s.relctxs, apiAddrs, "test-owner", proxies)
+	context, err := uniter.NewHookContext(s.apiUnit, "TestCtx", uuid,
+		"test-env-name", relid, remote, s.relctxs, apiAddrs, "test-owner",
+		proxies)
 	c.Assert(err, gc.IsNil)
 	return context
 }
@@ -764,6 +768,7 @@ func (s *RunCommandSuite) TestRunCommandsHasEnvironSet(c *gc.C) {
 		"JUJU_CONTEXT_ID":          "TestCtx",
 		"JUJU_AGENT_SOCKET":        "/path/to/socket",
 		"JUJU_UNIT_NAME":           "u/0",
+		"JUJU_ENV_NAME":            "test-env-name",
 	}
 	for key, value := range expected {
 		c.Check(executionEnvironment[key], gc.Equals, value)

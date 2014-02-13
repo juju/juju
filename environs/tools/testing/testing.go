@@ -4,11 +4,10 @@
 package testing
 
 import (
-	"crypto/sha256"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -21,6 +20,7 @@ import (
 	"launchpad.net/juju-core/environs/tools"
 	jc "launchpad.net/juju-core/testing/checkers"
 	coretools "launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
 )
@@ -69,23 +69,25 @@ func SHA256sum(c *gc.C, path string) (int64, string) {
 	if strings.HasPrefix(path, "file://") {
 		path = path[len("file://"):]
 	}
-	f, err := os.Open(path)
+	hash, size, err := utils.ReadFileSHA256(path)
 	c.Assert(err, gc.IsNil)
-	defer f.Close()
-	hash := sha256.New()
-	size, err := io.Copy(hash, f)
-	c.Assert(err, gc.IsNil)
-	return size, fmt.Sprintf("%x", hash.Sum(nil))
+	return size, hash
 }
 
-// ParseMetadata loads ToolsMetadata from the specified directory.
-func ParseMetadata(c *gc.C, metadataDir string, expectMirrors bool) []*tools.ToolsMetadata {
+// ParseMetadataFromDir loads ToolsMetadata from the specified directory.
+func ParseMetadataFromDir(c *gc.C, metadataDir string, expectMirrors bool) []*tools.ToolsMetadata {
+	stor, err := filestorage.NewFileStorageReader(metadataDir)
+	c.Assert(err, gc.IsNil)
+	return ParseMetadataFromStorage(c, stor, expectMirrors)
+}
+
+// ParseMetadataFromStorage loads ToolsMetadata from the specified storage reader.
+func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader, expectMirrors bool) []*tools.ToolsMetadata {
+	source := storage.NewStorageSimpleStreamsDataSource(stor, "tools")
 	params := simplestreams.ValueParams{
 		DataType:      tools.ContentDownload,
 		ValueTemplate: tools.ToolsMetadata{},
 	}
-
-	source := simplestreams.NewURLDataSource("file://"+metadataDir+"/tools", simplestreams.VerifySSLHostnames)
 
 	const requireSigned = false
 	indexPath := simplestreams.UnsignedIndex
@@ -97,7 +99,11 @@ func ParseMetadata(c *gc.C, metadataDir string, expectMirrors bool) []*tools.Too
 	toolsIndexMetadata := indexRef.Indexes["com.ubuntu.juju:released:tools"]
 	c.Assert(toolsIndexMetadata, gc.NotNil)
 
-	data, err := ioutil.ReadFile(filepath.Join(metadataDir, "tools", toolsIndexMetadata.ProductsFilePath))
+	// Read the products file contents.
+	r, err := stor.Get(path.Join("tools", toolsIndexMetadata.ProductsFilePath))
+	defer r.Close()
+	c.Assert(err, gc.IsNil)
+	data, err := ioutil.ReadAll(r)
 	c.Assert(err, gc.IsNil)
 
 	url, err := source.URL(toolsIndexMetadata.ProductsFilePath)
@@ -132,7 +138,11 @@ func ParseMetadata(c *gc.C, metadataDir string, expectMirrors bool) []*tools.Too
 	}
 
 	if expectMirrors {
-		data, err := ioutil.ReadFile(filepath.Join(metadataDir, "tools", simplestreams.UnsignedMirror))
+		r, err = stor.Get(path.Join("tools", simplestreams.UnsignedMirror))
+		defer r.Close()
+		c.Assert(err, gc.IsNil)
+		data, err = ioutil.ReadAll(r)
+		c.Assert(err, gc.IsNil)
 		c.Assert(string(data), jc.Contains, `"mirrors":`)
 		c.Assert(err, gc.IsNil)
 	}

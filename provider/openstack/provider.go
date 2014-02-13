@@ -15,12 +15,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/loggo/loggo"
 	"launchpad.net/goose/client"
 	gooseerrors "launchpad.net/goose/errors"
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -87,6 +87,10 @@ openstack:
     # image-metadata-url specifies the location of Ubuntu cloud image metadata. It defaults to the
     # global public image metadata location https://cloud-images.ubuntu.com/releases.
     # image-metadata-url:  https://you-tools-metadata-url
+
+    # image-stream chooses a simplestreams stream to select OS images from,
+    # for example daily or released images (or any other stream available on simplestreams).
+    # image-stream: "released"
 
     # auth-url defaults to the value of the environment variable OS_AUTH_URL,
     # but can be specified here.
