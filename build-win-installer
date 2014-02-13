@@ -2,7 +2,7 @@
 set -eux
 : ${LOCAL_JENKINS_URL=$JENKINS_URL}
 INSTANCE_ID="i-514c2871"
-tarfile=$(python <<EOT
+TARFILE=$(python <<EOT
 import json
 import sys
 import urllib2
@@ -19,8 +19,9 @@ else:
 print filename
 EOT
 )
-artifact=$LOCAL_JENKINS_URL/job/build-revision/lastSuccessfulBuild/artifact
-wget -q $artifact/$tarfile
+ARTIFACT=$LOCAL_JENKINS_URL/job/build-revision/lastSuccessfulBuild/artifact
+wget -q $artifact/$TARFILE
+VERSION=$(basename $TARFILE .tar.gz | cut -d '_' -f2)
 
 echo Starting instance $INSTANCE_ID
 euca-start-instances $INSTANCE_ID
@@ -52,10 +53,11 @@ echo
 
 set -x
 set +e
+CI_DIR="/cygdrive/c/Users/Administrator/ci"
 scp -i $JUJU_HOME/staging-juju-rsa \
     -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
-    $WORKSPACE/$tarfile $SCRIPTS/winbuildtest.py \
-    Administrator@$instance_ip:/cygdrive/c/Users/Administrator/ci/
+    $WORKSPACE/$TARFILE $SCRIPTS/winbuildtest.py \
+    Administrator@$instance_ip:$CI_DIR/
 if [ $? -ne 0 ]; then
     exit 1
 fi
@@ -63,14 +65,13 @@ ssh -i $JUJU_HOME/staging-juju-rsa \
     -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
     Administrator@$instance_ip \
     '/cygdrive/c/python27/python \\Users\\Administrator\\ci\\winbuildtest.py' \
-    $tarfile
+    $TARFILE
 if [ $? -ne 0 ]; then
     exit 1
 fi
 scp -i $JUJU_HOME/staging-juju-rsa \
     -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
-    Administrator@$instance_ip:/cygdrive/c/Users/Administrator/ci/juju-setup-*.exe \
-    $WORKSPACE/
+    Administrator@$instance_ip:$CI_DIR/juju-setup-$VERSION.exe $WORKSPACE/
 EXIT_STATUS=$?
 set -e
 euca-stop-instances $INSTANCE_ID
