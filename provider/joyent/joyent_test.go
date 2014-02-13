@@ -152,10 +152,10 @@ func MetadataStorage(e environs.Environ) storage.Storage {
 
 // ImageMetadataStorage returns a Storage object pointing where the goose
 // infrastructure sets up its keystone entry for image metadata
-/*func ImageMetadataStorage(e environs.Environ) storage.Storage {
+func ImageMetadataStorage(e environs.Environ) storage.Storage {
 	env := e.(*jp.JoyentEnviron)
-	return jp.NewStorage(env, "imagedata")
-} */
+	return jp.NewStorage(env, "juju-test")
+}
 
 var indexData = `
 		{
@@ -283,13 +283,13 @@ func UseTestImageData(stor storage.Storage, creds *jpc.Credentials) {
 		panic(fmt.Errorf("cannot generate index metdata: %v", err))
 	}
 	data := metadata.Bytes()
-	stor.Put(simplestreams.DefaultIndexPath+".json", bytes.NewReader(data), int64(len(data)))
+	stor.Put("images/"+simplestreams.DefaultIndexPath+".json", bytes.NewReader(data), int64(len(data)))
 	stor.Put(
 		productMetadatafile, strings.NewReader(imagesData), int64(len(imagesData)))
 }
 
 func RemoveTestImageData(stor storage.Storage) {
-	stor.Remove(simplestreams.DefaultIndexPath + ".json")
+	stor.Remove("images/"+simplestreams.DefaultIndexPath + ".json")
 	stor.Remove(productMetadatafile)
 }
 

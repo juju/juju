@@ -110,13 +110,13 @@ func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	s.TestConfig = GetFakeConfig(s.cSrv.Server.URL, s.mSrv.Server.URL)
 	s.LiveTests.SetUpSuite(c)
 
-	UseTestImageData(MetadataStorage(s.Env), s.Env.(*jp.JoyentEnviron).Credentials())
+	UseTestImageData(ImageMetadataStorage(s.Env), s.Env.(*jp.JoyentEnviron).Credentials())
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
 }
 
 func (s *localLiveSuite) TearDownSuite(c *gc.C) {
-	RemoveTestImageData(MetadataStorage(s.Env))
+	RemoveTestImageData(ImageMetadataStorage(s.Env))
 	s.LiveTests.TearDownSuite(c)
 	s.cSrv.destroyServer()
 	s.mSrv.destroyServer()
@@ -175,14 +175,12 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 		"image-metadata-url": containerURL + "/juju-test/images",
 	})
 
-	env = s.Prepare(c)
-
 	s.toolsMetadataStorage = MetadataStorage(env)
 	// Put some fake metadata in place so that tests that are simply
 	// starting instances without any need to check if those instances
 	// are running can find the metadata.
 	envtesting.UploadFakeTools(c, s.toolsMetadataStorage)
-	s.imageMetadataStorage = MetadataStorage(env)
+	s.imageMetadataStorage = ImageMetadataStorage(env)
 	UseTestImageData(s.imageMetadataStorage, env.(*jp.JoyentEnviron).Credentials())
 }
 
