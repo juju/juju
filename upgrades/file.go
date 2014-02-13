@@ -16,15 +16,14 @@ import (
 func WriteReplacementFile(filename string, data []byte) error {
 	// Write the data to a temp file
 	confDir := filepath.Dir(filename)
-	tempDir, err := ioutil.TempDir(confDir, "")
+	tempFile, err := ioutil.TempFile(confDir, "")
 	if err != nil {
 		return err
 	}
-	tempFile := filepath.Join(tempDir, "newfile")
-	defer os.RemoveAll(tempDir)
-	err = ioutil.WriteFile(tempFile, []byte(data), 0644)
+	defer os.Remove(tempFile.Name())
+	err = ioutil.WriteFile(tempFile.Name(), []byte(data), 0644)
 	if err != nil {
 		return err
 	}
-	return os.Rename(tempFile, filename)
+	return os.Rename(tempFile.Name(), filename)
 }
