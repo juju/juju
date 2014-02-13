@@ -118,12 +118,12 @@ func NewFromName(name string, store configstore.Storage) (Environ, error) {
 // and environment information is created using the
 // given store. If the environment is already prepared,
 // it behaves like NewFromName.
-func PrepareFromName(name string, store configstore.Storage) (Environ, error) {
+func PrepareFromName(name string, ctx BootstrapContext, store configstore.Storage) (Environ, error) {
 	cfg, _, err := ConfigForName(name, store)
 	if err != nil {
 		return nil, err
 	}
-	return Prepare(cfg, store)
+	return Prepare(cfg, ctx, store)
 }
 
 // NewFromAttrs returns a new environment based on the provided configuration
@@ -148,7 +148,7 @@ func New(config *config.Config) (Environ, error) {
 
 // Prepare prepares a new environment based on the provided configuration.
 // If the environment is already prepared, it behaves like New.
-func Prepare(cfg *config.Config, store configstore.Storage) (Environ, error) {
+func Prepare(cfg *config.Config, ctx BootstrapContext, store configstore.Storage) (Environ, error) {
 	p, err := Provider(cfg.Type())
 	if err != nil {
 		return nil, err
@@ -183,7 +183,7 @@ func Prepare(cfg *config.Config, store configstore.Storage) (Environ, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot ensure CA certificate: %v", err)
 	}
-	env, err := p.Prepare(cfg)
+	env, err := p.Prepare(ctx, cfg)
 	if err != nil {
 		if err := info.Destroy(); err != nil {
 			logger.Warningf("cannot destroy newly created environment info: %v", err)

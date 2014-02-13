@@ -78,7 +78,7 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 var detectAptProxies = utils.DetectAptProxies
 
 // Prepare implements environs.EnvironProvider.Prepare.
-func (p environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	// The user must not set bootstrap-ip; this is determined by the provider,
 	// and its presence used to determine whether the environment has yet been
 	// bootstrapped.

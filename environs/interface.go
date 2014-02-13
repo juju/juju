@@ -21,7 +21,7 @@ type EnvironProvider interface {
 	// configuration attributes in the returned environment should
 	// be saved to be used later. If the environment is already
 	// prepared, this call is equivalent to Open.
-	Prepare(cfg *config.Config) (Environ, error)
+	Prepare(ctx BootstrapContext, cfg *config.Config) (Environ, error)
 
 	// Open opens the environment and returns it.
 	// The configuration must have come from a previously
@@ -201,9 +201,9 @@ type Environ interface {
 // information about and manipulating the context in which
 // it is being invoked.
 type BootstrapContext interface {
-	Stdin() io.Reader
-	Stdout() io.Writer
-	Stderr() io.Writer
+	GetStdin() io.Reader
+	GetStdout() io.Writer
+	GetStderr() io.Writer
 
 	// InterruptNotify starts watching for interrupt signals
 	// on behalf of the caller, sending them to the supplied

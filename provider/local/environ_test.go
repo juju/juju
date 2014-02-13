@@ -161,11 +161,11 @@ func (s *localJujuTestSuite) TestBootstrap(c *gc.C) {
 		return nil
 	})
 	testConfig := minimalConfig(c)
-	environ, err := local.Provider.Prepare(testConfig)
+	ctx := coretesting.Context(c)
+	environ, err := local.Provider.Prepare(ctx, testConfig)
 	c.Assert(err, gc.IsNil)
 	envtesting.UploadFakeTools(c, environ.Storage())
 	defer environ.Storage().RemoveAll()
-	ctx := envtesting.NewBootstrapContext(coretesting.Context(c))
 	err = environ.Bootstrap(ctx, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 }

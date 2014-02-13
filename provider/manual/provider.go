@@ -21,7 +21,7 @@ func init() {
 
 var errNoBootstrapHost = errors.New("bootstrap-host must be specified")
 
-func (p manualProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+func (p manualProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	if _, ok := cfg.UnknownAttrs()["storage-auth-key"]; !ok {
 		uuid, err := utils.NewUUID()
 		if err != nil {
