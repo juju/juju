@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/sync"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/version"
 )
 
@@ -72,7 +73,7 @@ func (c *SyncToolsCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
+func (c *SyncToolsCommand) Run(ctx *cmd.Context) (resultErr error) {
 	// Register writer for output on screen.
 	loggo.RegisterWriter("synctools", cmd.NewCommandLogWriter("juju.environs.sync", ctx.Stdout, ctx.Stderr), loggo.INFO)
 	defer loggo.RemoveWriter("synctools")
@@ -80,9 +81,16 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+	var existing bool
+	if _, err := store.ReadInfo(c.EnvName); !errors.IsNotFoundError(err) {
+		existing = true
+	}
 	environ, err := environs.PrepareFromName(c.EnvName, store)
 	if err != nil {
 		return err
+	}
+	if !existing {
+		defer destroyPreparedEnviron(environ, store, &resultErr, "Sync-tools")
 	}
 
 	target := environ.Storage()

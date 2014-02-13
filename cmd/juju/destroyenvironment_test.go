@@ -94,8 +94,10 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandBroken(c *gc.C) {
 
 	// destroy with broken environment
 	opc, errc := runCommand(nullContext(), new(DestroyEnvironmentCommand), "dummyenv", "--yes")
-	c.Check(<-opc, gc.IsNil)
-	c.Check(<-errc, gc.ErrorMatches, "dummy.Destroy is broken")
+	op, ok := (<-opc).(dummy.OpDestroy)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(op.Error, gc.ErrorMatches, "dummy.Destroy is broken")
+	c.Check(<-errc, gc.Equals, op.Error)
 	c.Check(<-opc, gc.IsNil)
 }
 
