@@ -33,6 +33,7 @@ $FileCreateMode 0644
 $FileCreateMode 0640
 `
 
+// ExpectedAccumulateSyslogConf returns the expected content for a rsyslog file on a state server.
 func ExpectedAccumulateSyslogConf(c *gc.C, machineTag, namespace string, port int) string {
 	if namespace != "" {
 		namespace = "-" + namespace
@@ -67,6 +68,7 @@ $template LongTagForwardFormat,"<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %sy
 & ~
 `
 
+// ExpectedForwardSyslogConf returns the expected content for a rsyslog file on a host machine.
 func ExpectedForwardSyslogConf(c *gc.C, machineTag, namespace string, port int) string {
 	if namespace != "" {
 		namespace = "-" + namespace
