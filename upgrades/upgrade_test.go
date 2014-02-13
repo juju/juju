@@ -55,7 +55,6 @@ func (m *mockUpgradeOperation) Steps() []upgrades.UpgradeStep {
 type mockUpgradeStep struct {
 	msg     string
 	targets []upgrades.UpgradeTarget
-	context *mockContext
 }
 
 func (u *mockUpgradeStep) Description() string {
@@ -70,7 +69,8 @@ func (u *mockUpgradeStep) Run(context upgrades.Context) error {
 	if strings.HasSuffix(u.msg, "error") {
 		return errors.New("upgrade error occurred")
 	}
-	u.context.messages = append(u.context.messages, u.msg)
+	ctx := context.(*mockContext)
+	ctx.messages = append(ctx.messages, u.msg)
 	return nil
 }
 
@@ -122,43 +122,42 @@ func targets(targets ...upgrades.UpgradeTarget) (upgradeTargets []upgrades.Upgra
 	return upgradeTargets
 }
 
-func upgradeOperations(context upgrades.Context) []upgrades.UpgradeOperation {
-	mockContext := context.(*mockContext)
+func upgradeOperations() []upgrades.UpgradeOperation {
 	steps := []upgrades.UpgradeOperation{
 		&mockUpgradeOperation{
 			targetVersion: version.MustParse("1.12.0"),
 			steps: []upgrades.UpgradeStep{
-				&mockUpgradeStep{"step 1 - 1.12.0", nil, mockContext},
-				&mockUpgradeStep{"step 2 error", targets(upgrades.HostMachine), mockContext},
-				&mockUpgradeStep{"step 3", targets(upgrades.HostMachine), mockContext},
+				&mockUpgradeStep{"step 1 - 1.12.0", nil},
+				&mockUpgradeStep{"step 2 error", targets(upgrades.HostMachine)},
+				&mockUpgradeStep{"step 3", targets(upgrades.HostMachine)},
 			},
 		},
 		&mockUpgradeOperation{
 			targetVersion: version.MustParse("1.16.0"),
 			steps: []upgrades.UpgradeStep{
-				&mockUpgradeStep{"step 1 - 1.16.0", targets(upgrades.HostMachine), mockContext},
-				&mockUpgradeStep{"step 2 - 1.16.0", targets(upgrades.HostMachine), mockContext},
-				&mockUpgradeStep{"step 3 - 1.16.0", targets(upgrades.StateServer), mockContext},
+				&mockUpgradeStep{"step 1 - 1.16.0", targets(upgrades.HostMachine)},
+				&mockUpgradeStep{"step 2 - 1.16.0", targets(upgrades.HostMachine)},
+				&mockUpgradeStep{"step 3 - 1.16.0", targets(upgrades.StateServer)},
 			},
 		},
 		&mockUpgradeOperation{
 			targetVersion: version.MustParse("1.17.0"),
 			steps: []upgrades.UpgradeStep{
-				&mockUpgradeStep{"step 1 - 1.17.0", targets(upgrades.HostMachine), mockContext},
+				&mockUpgradeStep{"step 1 - 1.17.0", targets(upgrades.HostMachine)},
 			},
 		},
 		&mockUpgradeOperation{
 			targetVersion: version.MustParse("1.17.1"),
 			steps: []upgrades.UpgradeStep{
-				&mockUpgradeStep{"step 1 - 1.17.1", targets(upgrades.HostMachine), mockContext},
-				&mockUpgradeStep{"step 2 - 1.17.1", targets(upgrades.StateServer), mockContext},
+				&mockUpgradeStep{"step 1 - 1.17.1", targets(upgrades.HostMachine)},
+				&mockUpgradeStep{"step 2 - 1.17.1", targets(upgrades.StateServer)},
 			},
 		},
 		&mockUpgradeOperation{
 			targetVersion: version.MustParse("1.18.0"),
 			steps: []upgrades.UpgradeStep{
-				&mockUpgradeStep{"step 1 - 1.18.0", targets(upgrades.HostMachine), mockContext},
-				&mockUpgradeStep{"step 2 - 1.18.0", targets(upgrades.StateServer), mockContext},
+				&mockUpgradeStep{"step 1 - 1.18.0", targets(upgrades.HostMachine)},
+				&mockUpgradeStep{"step 2 - 1.18.0", targets(upgrades.StateServer)},
 			},
 		},
 	}
@@ -237,7 +236,7 @@ func (s *upgradeSuite) TestPerformUpgrade(c *gc.C) {
 
 func (s *upgradeSuite) TestUpgradeOperationsOrdered(c *gc.C) {
 	var previous version.Number
-	for i, utv := range (*upgrades.UpgradeOperations)(nil) {
+	for i, utv := range (*upgrades.UpgradeOperations)() {
 		vers := utv.TargetVersion()
 		if i > 0 {
 			c.Check(previous.Less(vers), jc.IsTrue)
@@ -250,7 +249,7 @@ var expectedVersions = []string{"1.18.0"}
 
 func (s *upgradeSuite) TestUpgradeOperationsVersions(c *gc.C) {
 	var versions []string
-	for _, utv := range (*upgrades.UpgradeOperations)(nil) {
+	for _, utv := range (*upgrades.UpgradeOperations)() {
 		versions = append(versions, utv.TargetVersion().String())
 
 	}
