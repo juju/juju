@@ -175,15 +175,7 @@ func Prepare(cfg *config.Config, store configstore.Storage) (Environ, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot create new info for environment %q: %v", cfg.Name(), err)
 	}
-	cfg, err = ensureAdminSecret(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("cannot generate admin-secret: %v", err)
-	}
-	cfg, err = ensureCertificate(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("cannot ensure CA certificate: %v", err)
-	}
-	env, err := p.Prepare(cfg)
+	env, err := prepare(cfg, info, p)
 	if err != nil {
 		if err := info.Destroy(); err != nil {
 			logger.Warningf("cannot destroy newly created environment info: %v", err)
@@ -195,6 +187,18 @@ func Prepare(cfg *config.Config, store configstore.Storage) (Environ, error) {
 		return nil, fmt.Errorf("cannot create environment info %q: %v", env.Config().Name(), err)
 	}
 	return env, nil
+}
+
+func prepare(cfg *config.Config, info configstore.EnvironInfo, p EnvironProvider) (Environ, error) {
+	cfg, err := ensureAdminSecret(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("cannot generate admin-secret: %v", err)
+	}
+	cfg, err = ensureCertificate(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("cannot ensure CA certificate: %v", err)
+	}
+	return p.Prepare(cfg)
 }
 
 // ensureAdminSecret returns a config with a non-empty admin-secret.
