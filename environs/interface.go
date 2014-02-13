@@ -63,20 +63,6 @@ type EnvironStorage interface {
 	Storage() storage.Storage
 }
 
-// BootstrapStorager is an interface through which an Environ may be
-// instructed to use a special "bootstrap storage". Bootstrap storage
-// is one that may be used before the bootstrap machine agent has been
-// provisioned.
-//
-// This is useful for environments where the storage is managed by the
-// machine agent once bootstrapped.
-type BootstrapStorager interface {
-	// EnableBootstrapStorage enables bootstrap storage, returning an
-	// error if enablement failed. If nil is returned, then calling
-	// this again will have no effect and will return nil.
-	EnableBootstrapStorage(BootstrapContext) error
-}
-
 // ConfigGetter implements access to an environments configuration.
 type ConfigGetter interface {
 	// Config returns the configuration data with which the Environ was created.
