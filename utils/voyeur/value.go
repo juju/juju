@@ -10,7 +10,9 @@ import (
 )
 
 // Value represents a shared value that can be watched for changes. Methods on
-// a Value may be called concurrently.
+// a Value may be called concurrently. The zero Value is
+// ok to use, and is equivalent to a NewValue result
+// with a nil initial value.
 type Value struct {
 	val     interface{}
 	version int
@@ -23,7 +25,7 @@ type Value struct {
 // nil, any watchers will wait until a value is set.
 func NewValue(initial interface{}) *Value {
 	v := new(Value)
-	v.wait.L = v.mu.RLocker()
+	v.init()
 	if initial != nil {
 		v.val = initial
 		v.version++
@@ -31,19 +33,31 @@ func NewValue(initial interface{}) *Value {
 	return v
 }
 
+func (v *Value) needsInit() bool {
+	return v.wait.L == nil
+}
+
+func (v *Value) init() {
+	if v.needsInit() {
+		v.wait.L = v.mu.RLocker()
+	}
+}
+
 // Set sets the shared value to val.
 func (v *Value) Set(val interface{}) {
 	v.mu.Lock()
+	v.init()
 	v.val = val
 	v.version++
-	v.wait.Broadcast()
 	v.mu.Unlock()
+	v.wait.Broadcast()
 }
 
 // Close closes the Value, unblocking any outstanding watchers.  Close always
 // returns nil.
 func (v *Value) Close() error {
 	v.mu.Lock()
+	v.init()
 	v.closed = true
 	v.mu.Unlock()
 	v.wait.Broadcast()
@@ -79,23 +93,31 @@ type Watcher struct {
 // closed. Next returns false if the value or the Watcher itself have been
 // closed.
 func (w *Watcher) Next() bool {
-	w.value.mu.RLock()
-	defer w.value.mu.RUnlock()
+	val := w.value
+	val.mu.RLock()
+	defer val.mu.RUnlock()
+	if val.needsInit() {
+		val.mu.RUnlock()
+		val.mu.Lock()
+		val.init()
+		val.mu.Unlock()
+		val.mu.RLock()
+	}
 
 	// We should never go around this loop more than twice.
 	for {
-		if w.version != w.value.version {
-			w.version = w.value.version
-			w.current = w.value.val
+		if w.version != val.version {
+			w.version = val.version
+			w.current = val.val
 			return true
 		}
-		if w.value.closed || w.closed {
+		if val.closed || w.closed {
 			return false
 		}
 
 		// Wait releases the lock until triggered and then reacquires the lock,
 		// thus avoiding a deadlock.
-		w.value.wait.Wait()
+		val.wait.Wait()
 	}
 }
 
@@ -103,6 +125,7 @@ func (w *Watcher) Next() bool {
 // value. It may be called concurrently with Next.
 func (w *Watcher) Close() {
 	w.value.mu.Lock()
+	w.value.init()
 	w.closed = true
 	w.value.mu.Unlock()
 	w.value.wait.Broadcast()
