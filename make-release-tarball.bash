@@ -47,7 +47,7 @@ echo "Setting juju-core tree to $JUJU_CORE_BRANCH $REVNO."
 (cd "${WORK}/src/launchpad.net/juju-core/" &&
  bzr pull --no-aliases --remember --overwrite -r $REVNO $JUJU_CORE_BRANCH)
 
-if [[ $JUJU_CORE_BRANCH == 'lp:juju-core/1.16' ]]; then
+if [[ $JUJU_CORE_BRANCH =~ .*1\.16.* ]]; then
     echo "Moving deps to support 1.16 releases."
     GOPATH=$WORK go get -v launchpad.net/loggo
     rm -rf $WORK/src/github.com/loggo/loggo
