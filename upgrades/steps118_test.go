@@ -4,114 +4,26 @@
 package upgrades_test
 
 import (
-	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-
-	"github.com/loggo/loggo"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/upgrades"
 )
 
-type ensureLockDirSuite struct {
-	testing.FakeHomeSuite
-	bin     string
-	home    string
-	datadir string
-	lockdir string
-	ctx     upgrades.Context
+type steps118Suite struct {
+	testbase.LoggingSuite
 }
 
-var _ = gc.Suite(&ensureLockDirSuite{})
+var _ = gc.Suite(&steps118Suite{})
 
-// fakecommand outputs its arguments to stdout for verification
-var fakecommand = `#!/bin/bash
-
-echo $@ | tee $0.args
-`
-
-func (s *ensureLockDirSuite) SetUpTest(c *gc.C) {
-	s.FakeHomeSuite.SetUpTest(c)
-
-	s.bin = c.MkDir()
-	s.PatchEnvironment("PATH", s.bin+":"+os.Getenv("PATH"))
-
-	err := ioutil.WriteFile(
-		filepath.Join(s.bin, "chown"),
-		[]byte(fakecommand), 0777)
-	c.Assert(err, gc.IsNil)
-
-	loggo.GetLogger("juju.upgrade").SetLogLevel(loggo.TRACE)
-
-	s.home = c.MkDir()
-	s.PatchValue(upgrades.UbuntuHome, s.home)
-
-	s.datadir = c.MkDir()
-	s.lockdir = filepath.Join(s.datadir, "locks")
-	s.ctx = &ensureContext{&mockAgentConfig{datadir: s.datadir}}
+var expectedSteps = []string{
+	"make $DATADIR/locks owned by ubuntu:ubuntu",
+	"upgrade rsyslog config file on state server",
+	"upgrade rsyslog config file on host machine",
 }
 
-func (s *ensureLockDirSuite) assertChownCalled(c *gc.C) {
-	bytes, err := ioutil.ReadFile(filepath.Join(s.bin, "chown.args"))
-	c.Assert(err, gc.IsNil)
-	c.Assert(string(bytes), gc.Equals, fmt.Sprintf("ubuntu:ubuntu %s\n", s.lockdir))
-}
-
-func (s *ensureLockDirSuite) assertNoChownCalled(c *gc.C) {
-	c.Assert(filepath.Join(s.bin, "chown.args"), jc.DoesNotExist)
-}
-
-func (s *ensureLockDirSuite) TestLockDirCreated(c *gc.C) {
-	err := upgrades.EnsureLockDirExistsAndUbuntuWritable(s.ctx)
-	c.Assert(err, gc.IsNil)
-
-	c.Assert(s.lockdir, jc.IsDirectory)
-	s.assertChownCalled(c)
-}
-
-func (s *ensureLockDirSuite) TestIdempotent(c *gc.C) {
-	err := upgrades.EnsureLockDirExistsAndUbuntuWritable(s.ctx)
-	c.Assert(err, gc.IsNil)
-
-	err = upgrades.EnsureLockDirExistsAndUbuntuWritable(s.ctx)
-	c.Assert(err, gc.IsNil)
-
-	c.Assert(s.lockdir, jc.IsDirectory)
-	s.assertChownCalled(c)
-}
-
-func (s *ensureLockDirSuite) TestNoChownIfNoHome(c *gc.C) {
-	s.PatchValue(upgrades.UbuntuHome, filepath.Join(s.home, "not-exist"))
-	err := upgrades.EnsureLockDirExistsAndUbuntuWritable(s.ctx)
-	c.Assert(err, gc.IsNil)
-
-	c.Assert(s.lockdir, jc.IsDirectory)
-	s.assertNoChownCalled(c)
-}
-
-type ensureContext struct {
-	agentConfig *mockAgentConfig
-}
-
-func (c *ensureContext) APIState() *api.State {
-	return nil
-}
-
-func (c *ensureContext) AgentConfig() agent.Config {
-	return c.agentConfig
-}
-
-type mockAgentConfig struct {
-	agent.Config
-	datadir string
-}
-
-func (mock *mockAgentConfig) DataDir() string {
-	return mock.datadir
+func (s *steps118Suite) TestUpgradeOperationsContent(c *gc.C) {
+	upgradeSteps := upgrades.StepsFor118()
+	c.Assert(upgradeSteps, gc.HasLen, 3)
+	assertExpectedSteps(c, upgradeSteps, expectedSteps)
 }
