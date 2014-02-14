@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package null
+package manual
 
 import (
 	"errors"
@@ -9,24 +9,38 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/utils"
 )
 
-type nullProvider struct{}
+type manualProvider struct{}
 
 func init() {
-	environs.RegisterProvider(provider.Null, nullProvider{})
+	p := manualProvider{}
+	environs.RegisterProvider("manual", p, "null")
 }
 
 var errNoBootstrapHost = errors.New("bootstrap-host must be specified")
 
-func (p nullProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
-	// TODO(rog) 2013-10-07 generate storage-auth-key if not set.
+func (p manualProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+	if _, ok := cfg.UnknownAttrs()["storage-auth-key"]; !ok {
+		uuid, err := utils.NewUUID()
+		if err != nil {
+			return nil, err
+		}
+		cfg, err = cfg.Apply(map[string]interface{}{
+			"storage-auth-key": uuid.String(),
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+	if use, ok := cfg.UnknownAttrs()["use-sshstorage"].(bool); ok && !use {
+		return nil, fmt.Errorf("use-sshstorage must not be specified")
+	}
 	return p.Open(cfg)
 }
 
-func (p nullProvider) Open(cfg *config.Config) (environs.Environ, error) {
+func (p manualProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	envConfig, err := p.validate(cfg, nil)
 	if err != nil {
 		return nil, err
@@ -34,8 +48,13 @@ func (p nullProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return p.open(envConfig)
 }
 
-func (p nullProvider) open(cfg *environConfig) (environs.Environ, error) {
-	return &nullEnviron{cfg: cfg}, nil
+func (p manualProvider) open(cfg *environConfig) (environs.Environ, error) {
+	env := &manualEnviron{cfg: cfg}
+	// Need to call SetConfig to initialise storage.
+	if err := env.SetConfig(cfg.Config); err != nil {
+		return nil, err
+	}
+	return env, nil
 }
 
 func checkImmutableString(cfg, old *environConfig, key string) error {
@@ -45,7 +64,7 @@ func checkImmutableString(cfg, old *environConfig, key string) error {
 	return nil
 }
 
-func (p nullProvider) validate(cfg, old *config.Config) (*environConfig, error) {
+func (p manualProvider) validate(cfg, old *config.Config) (*environConfig, error) {
 	// Check for valid changes for the base config values.
 	if err := config.Validate(cfg, old); err != nil {
 		return nil, err
@@ -77,11 +96,15 @@ func (p nullProvider) validate(cfg, old *config.Config) (*environConfig, error) 
 		if oldPort != newPort {
 			return nil, fmt.Errorf("cannot change storage-port from %q to %q", oldPort, newPort)
 		}
+		oldUseSSHStorage, newUseSSHStorage := oldEnvConfig.useSSHStorage(), envConfig.useSSHStorage()
+		if oldUseSSHStorage != newUseSSHStorage && newUseSSHStorage == true {
+			return nil, fmt.Errorf("cannot change use-sshstorage from %v to %v", oldUseSSHStorage, newUseSSHStorage)
+		}
 	}
 	return envConfig, nil
 }
 
-func (p nullProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
+func (p manualProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
 	envConfig, err := p.validate(cfg, old)
 	if err != nil {
 		return nil, err
@@ -89,10 +112,10 @@ func (p nullProvider) Validate(cfg, old *config.Config) (valid *config.Config, e
 	return cfg.Apply(envConfig.attrs)
 }
 
-func (_ nullProvider) BoilerplateConfig() string {
+func (_ manualProvider) BoilerplateConfig() string {
 	return `
-"null":
-    type: "null"
+manual:
+    type: manual
     # bootstrap-host holds the host name of the machine where the
     # bootstrap machine agent will be started.
     bootstrap-host: somehost.example.com
@@ -112,16 +135,12 @@ func (_ nullProvider) BoilerplateConfig() string {
     # bootstrap machine's Juju storage server will listen
     # on. It defaults to ` + fmt.Sprint(defaultStoragePort) + `
     # storage-port: ` + fmt.Sprint(defaultStoragePort) + `
-    
-    # storage-auth-key holds the key used to authenticate
-    # to the storage servers. It will become unnecessary to
-    # give this option.
-    storage-auth-key: {{rand}}
+
 
 `[1:]
 }
 
-func (p nullProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
+func (p manualProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
 	envConfig, err := p.validate(cfg, nil)
 	if err != nil {
 		return nil, err
@@ -131,7 +150,7 @@ func (p nullProvider) SecretAttrs(cfg *config.Config) (map[string]string, error)
 	return attrs, nil
 }
 
-func (_ nullProvider) PublicAddress() (string, error) {
+func (_ manualProvider) PublicAddress() (string, error) {
 	// TODO(axw) 2013-09-10 bug #1222643
 	//
 	// eth0 may not be the desired interface for traffic to route
@@ -140,6 +159,6 @@ func (_ nullProvider) PublicAddress() (string, error) {
 	return utils.GetAddressForInterface("eth0")
 }
 
-func (p nullProvider) PrivateAddress() (string, error) {
+func (p manualProvider) PrivateAddress() (string, error) {
 	return p.PublicAddress()
 }

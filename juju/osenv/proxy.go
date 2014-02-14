@@ -9,6 +9,13 @@ import (
 	"strings"
 )
 
+const (
+	// Remove the likelihood of errors by mistyping string values.
+	http_proxy  = "http_proxy"
+	https_proxy = "https_proxy"
+	ftp_proxy   = "ftp_proxy"
+)
+
 // ProxySettings holds the values for the http, https and ftp proxies found by
 // Detect Proxies.
 type ProxySettings struct {
@@ -28,9 +35,9 @@ func getProxySetting(key string) string {
 // DetectProxies returns the proxy settings found the environment.
 func DetectProxies() ProxySettings {
 	return ProxySettings{
-		Http:  getProxySetting("http_proxy"),
-		Https: getProxySetting("https_proxy"),
-		Ftp:   getProxySetting("ftp_proxy"),
+		Http:  getProxySetting(http_proxy),
+		Https: getProxySetting(https_proxy),
+		Ftp:   getProxySetting(ftp_proxy),
 	}
 }
 
@@ -47,9 +54,9 @@ func (s *ProxySettings) AsScriptEnvironment() string {
 				fmt.Sprintf("export %s=%s", strings.ToUpper(proxy), value))
 		}
 	}
-	addLine("http_proxy", s.Http)
-	addLine("https_proxy", s.Https)
-	addLine("ftp_proxy", s.Ftp)
+	addLine(http_proxy, s.Http)
+	addLine(https_proxy, s.Https)
+	addLine(ftp_proxy, s.Ftp)
 	return strings.Join(lines, "\n")
 }
 
@@ -66,8 +73,25 @@ func (s *ProxySettings) AsEnvironmentValues() []string {
 				fmt.Sprintf("%s=%s", strings.ToUpper(proxy), value))
 		}
 	}
-	addLine("http_proxy", s.Http)
-	addLine("https_proxy", s.Https)
-	addLine("ftp_proxy", s.Ftp)
+	addLine(http_proxy, s.Http)
+	addLine(https_proxy, s.Https)
+	addLine(ftp_proxy, s.Ftp)
 	return lines
+}
+
+// SetEnvironmentValues updates the process environment with the
+// proxy values stored in the settings object.  Both the lower-case
+// and upper-case variants are set.
+//
+// http_proxy, HTTP_PROXY
+// https_proxy, HTTPS_PROXY
+// ftp_proxy, FTP_PROXY
+func (s *ProxySettings) SetEnvironmentValues() {
+	setenv := func(proxy, value string) {
+		os.Setenv(proxy, value)
+		os.Setenv(strings.ToUpper(proxy), value)
+	}
+	setenv(http_proxy, s.Http)
+	setenv(https_proxy, s.Https)
+	setenv(ftp_proxy, s.Ftp)
 }

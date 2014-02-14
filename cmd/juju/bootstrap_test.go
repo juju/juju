@@ -372,6 +372,7 @@ func (s *BootstrapSuite) TestUploadLocalImageMetadata(c *gc.C) {
 	ctx := coretesting.Context(c)
 	code := cmd.Main(&BootstrapCommand{}, ctx, []string{"--metadata-source", sourceDir})
 	c.Check(code, gc.Equals, 0)
+	c.Assert(imagemetadata.DefaultBaseURL, gc.Equals, imagemetadata.UbuntuCloudImagesURL)
 
 	// Now check the image metadata has been uploaded.
 	checkImageMetadata(c, env.Storage(), expected)
@@ -473,6 +474,28 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 	errText = strings.Replace(errText, "\n", "", -1)
 	expectedErrText := "error: cannot find bootstrap tools: an error"
 	c.Assert(errText, gc.Matches, expectedErrText)
+}
+
+func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
+	_, fake := makeEmptyFakeHome(c)
+	defer fake.Restore()
+	opc, errc := runCommand(nullContext(), new(BootstrapCommand), "-e", "brokenenv")
+	err := <-errc
+	c.Assert(err, gc.ErrorMatches, "dummy.Bootstrap is broken")
+	var opDestroy *dummy.OpDestroy
+	for opDestroy == nil {
+		select {
+		case op := <-opc:
+			switch op := op.(type) {
+			case dummy.OpDestroy:
+				opDestroy = &op
+			}
+		default:
+			c.Error("expected call to env.Destroy")
+			return
+		}
+	}
+	c.Assert(opDestroy.Error, gc.ErrorMatches, "dummy.Destroy is broken")
 }
 
 // createToolsSource writes the mock tools and metadata into a temporary

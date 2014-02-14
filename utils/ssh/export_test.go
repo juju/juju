@@ -7,4 +7,6 @@ var (
 	ReadAuthorisedKeys  = readAuthorisedKeys
 	WriteAuthorisedKeys = writeAuthorisedKeys
 	InitDefaultClient   = initDefaultClient
+	DefaultIdentities   = &defaultIdentities
+	SSHDial             = &sshDial
 )

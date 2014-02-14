@@ -9,8 +9,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/loggo/loggo"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -261,9 +261,9 @@ func (neverAddresses) Addresses() ([]instance.Address, error) {
 	return nil, nil
 }
 
-var testSSHTimeout = common.SSHTimeoutOpts{
+var testSSHTimeout = config.SSHTimeoutOpts{
 	Timeout:        coretesting.ShortWait,
-	ConnectDelay:   1 * time.Millisecond,
+	RetryDelay:     1 * time.Millisecond,
 	AddressesDelay: 1 * time.Millisecond,
 }
 

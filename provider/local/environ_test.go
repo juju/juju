@@ -11,6 +11,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/agent"
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -21,6 +22,7 @@ import (
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/local"
+	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 )
@@ -35,6 +37,11 @@ var _ = gc.Suite(&environSuite{})
 func (s *environSuite) SetUpTest(c *gc.C) {
 	s.baseProviderSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
+}
+
+func (s *environSuite) TearDownTest(c *gc.C) {
+	s.ToolsFixture.TearDownTest(c)
+	s.baseProviderSuite.TearDownTest(c)
 }
 
 func (*environSuite) TestOpenFailsWithProtectedDirectories(c *gc.C) {
@@ -146,6 +153,11 @@ func (s *localJujuTestSuite) TestBootstrap(c *gc.C) {
 		c.Assert(cloudcfg.AptUpdate(), jc.IsFalse)
 		c.Assert(cloudcfg.AptUpgrade(), jc.IsFalse)
 		c.Assert(cloudcfg.Packages(), gc.HasLen, 0)
+		c.Assert(mcfg.AgentEnvironment, gc.Not(gc.IsNil))
+		// local does not allow machine-0 to host units
+		bootstrapJobs, err := agent.UnmarshalBootstrapJobs(mcfg.AgentEnvironment[agent.BootstrapJobs])
+		c.Assert(err, gc.IsNil)
+		c.Assert(bootstrapJobs, gc.DeepEquals, []state.MachineJob{state.JobManageEnviron})
 		return nil
 	})
 	testConfig := minimalConfig(c)

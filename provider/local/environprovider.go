@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/user"
 	"syscall"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -32,6 +33,8 @@ func init() {
 	environs.RegisterProvider(provider.Local, providerInstance)
 }
 
+var userCurrent = user.Current
+
 // Open implements environs.EnvironProvider.Open.
 func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	logger.Infof("opening environment %q", cfg.Name())
@@ -48,8 +51,16 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	// for backwards compatibility: older versions did not store the namespace
 	// in config.
 	if namespace, _ := cfg.UnknownAttrs()["namespace"].(string); namespace == "" {
+		username := os.Getenv("USER")
+		if username == "" {
+			u, err := userCurrent()
+			if err != nil {
+				return nil, fmt.Errorf("failed to determine username for namespace: %v", err)
+			}
+			username = u.Username
+		}
 		var err error
-		namespace = fmt.Sprintf("%s-%s", os.Getenv("USER"), cfg.Name())
+		namespace = fmt.Sprintf("%s-%s", username, cfg.Name())
 		cfg, err = cfg.Apply(map[string]interface{}{"namespace": namespace})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create namespace: %v", err)
@@ -72,8 +83,16 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return environ, nil
 }
 
+var detectAptProxies = utils.DetectAptProxies
+
 // Prepare implements environs.EnvironProvider.Prepare.
 func (p environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+	// The user must not set bootstrap-ip; this is determined by the provider,
+	// and its presence used to determine whether the environment has yet been
+	// bootstrapped.
+	if _, ok := cfg.UnknownAttrs()["bootstrap-ip"]; ok {
+		return nil, fmt.Errorf("bootstrap-ip must not be specified")
+	}
 	err := checkLocalPort(cfg.StatePort(), "state port")
 	if err != nil {
 		return nil, err
@@ -103,7 +122,7 @@ func (p environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
 	if cfg.AptHttpProxy() == "" &&
 		cfg.AptHttpsProxy() == "" &&
 		cfg.AptFtpProxy() == "" {
-		proxy, err := utils.DetectAptProxies()
+		proxy, err := detectAptProxies()
 		if err != nil {
 			return nil, err
 		}
@@ -122,7 +141,7 @@ func (p environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
 }
 
 // checkLocalPort checks that the passed port is not used so far.
-func checkLocalPort(port int, description string) error {
+var checkLocalPort = func(port int, description string) error {
 	logger.Infof("checking %s", description)
 	// Try to connect the port on localhost.
 	address := fmt.Sprintf("localhost:%d", port)
@@ -184,11 +203,6 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 				oldLocalConfig.storagePort(),
 				localConfig.storagePort())
 		}
-		if localConfig.sharedStoragePort() != oldLocalConfig.sharedStoragePort() {
-			return nil, fmt.Errorf("cannot change shared-storage-port from %v to %v",
-				oldLocalConfig.sharedStoragePort(),
-				localConfig.sharedStoragePort())
-		}
 	}
 	// Currently only supported containers are "lxc" and "kvm".
 	if localConfig.container() != instance.LXC && localConfig.container() != instance.KVM {
@@ -223,10 +237,6 @@ local:
     # Override the storage port if you have multiple local providers, or if the
     # default port is used by another program.
     # storage-port: 8040
-    
-    # Override the shared storage port if you have multiple local providers, or if the
-    # default port is used by another program.
-    # shared-storage-port: 8041
     
     # Override the network bridge if you have changed the default lxc bridge
     # network-bridge: lxcbr0

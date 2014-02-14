@@ -8,8 +8,8 @@ import (
 	"os"
 	"runtime"
 
+	"github.com/loggo/loggo"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container"

@@ -5,10 +5,7 @@ package uniter_test
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/rpc"
 	"net/url"
@@ -1199,10 +1196,8 @@ func (s addCharm) step(c *gc.C, ctx *context) {
 	err := s.dir.BundleTo(&buf)
 	c.Assert(err, gc.IsNil)
 	body := buf.Bytes()
-	hasher := sha256.New()
-	_, err = io.Copy(hasher, &buf)
+	hash, _, err := utils.ReadSHA256(&buf)
 	c.Assert(err, gc.IsNil)
-	hash := hex.EncodeToString(hasher.Sum(nil))
 	key := fmt.Sprintf("/charms/%s/%d", s.dir.Meta().Name, s.dir.Revision())
 	hurl, err := url.Parse(coretesting.Server.URL + key)
 	c.Assert(err, gc.IsNil)
@@ -1974,6 +1969,13 @@ func (s setProxySettings) step(c *gc.C, ctx *context) {
 	expected := (osenv.ProxySettings)(s)
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
 		if ctx.uniter.GetProxyValues() == expected {
+			// Also confirm that the values were specified for the environment.
+			c.Assert(os.Getenv("http_proxy"), gc.Equals, expected.Http)
+			c.Assert(os.Getenv("HTTP_PROXY"), gc.Equals, expected.Http)
+			c.Assert(os.Getenv("https_proxy"), gc.Equals, expected.Https)
+			c.Assert(os.Getenv("HTTPS_PROXY"), gc.Equals, expected.Https)
+			c.Assert(os.Getenv("ftp_proxy"), gc.Equals, expected.Ftp)
+			c.Assert(os.Getenv("FTP_PROXY"), gc.Equals, expected.Ftp)
 			return
 		}
 	}

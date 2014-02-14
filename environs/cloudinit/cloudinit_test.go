@@ -100,7 +100,8 @@ install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
 printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 test -e /proc/self/fd/9 \|\| exec 9>&2
 \(\[ ! -e /home/ubuntu/.profile \] \|\| grep -q '.juju-proxy' /home/ubuntu/.profile\) \|\| printf .* >> /home/ubuntu/.profile
-mkdir -p /var/lib/juju
+mkdir -p /var/lib/juju/locks
+\[ -e /home/ubuntu \] && chown ubuntu:ubuntu /var/lib/juju/locks
 mkdir -p /var/log/juju
 echo 'Fetching tools.*
 bin='/var/lib/juju/tools/1\.2\.3-precise-amd64'
@@ -111,7 +112,7 @@ grep '1234' \$bin/juju1\.2\.3-precise-amd64.sha256 \|\| \(echo "Tools checksum m
 tar zxf \$bin/tools.tar.gz -C \$bin
 rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-precise-amd64\.sha256
 printf %s '{"version":"1\.2\.3-precise-amd64","url":"http://foo\.com/tools/releases/juju1\.2\.3-precise-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
-install -D -m 600 /dev/null '/etc/rsyslog\.d/25-juju\.conf'
+install -D -m 644 /dev/null '/etc/rsyslog\.d/25-juju\.conf'
 printf '%s\\n' '.*' > '/etc/rsyslog.d/25-juju.conf'
 restart rsyslog
 mkdir -p '/var/lib/juju/agents/machine-0'
@@ -119,6 +120,8 @@ install -m 644 /dev/null '/var/lib/juju/agents/machine-0/format'
 printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-0/format'
 install -m 600 /dev/null '/var/lib/juju/agents/machine-0/agent\.conf'
 printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-0/agent\.conf'
+install -D -m 644 /dev/null '/etc/apt/preferences\.d/50-cloud-tools'
+printf '%s\\n' '.*' > '/etc/apt/preferences\.d/50-cloud-tools'
 install -D -m 600 /dev/null '/var/lib/juju/system-identity'
 printf '%s\\n' '.*' > '/var/lib/juju/system-identity'
 install -D -m 600 /dev/null '/var/lib/juju/server\.pem'
@@ -225,7 +228,8 @@ install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
 printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 test -e /proc/self/fd/9 \|\| exec 9>&2
 \(\[ ! -e /home/ubuntu/\.profile \] \|\| grep -q '.juju-proxy' /home/ubuntu/.profile\) \|\| printf .* >> /home/ubuntu/.profile
-mkdir -p /var/lib/juju
+mkdir -p /var/lib/juju/locks
+\[ -e /home/ubuntu \] && chown ubuntu:ubuntu /var/lib/juju/locks
 mkdir -p /var/log/juju
 echo 'Fetching tools.*
 bin='/var/lib/juju/tools/1\.2\.3-linux-amd64'
@@ -236,7 +240,7 @@ grep '1234' \$bin/juju1\.2\.3-linux-amd64.sha256 \|\| \(echo "Tools checksum mis
 tar zxf \$bin/tools.tar.gz -C \$bin
 rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-linux-amd64\.sha256
 printf %s '{"version":"1\.2\.3-linux-amd64","url":"http://foo\.com/tools/releases/juju1\.2\.3-linux-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
-install -D -m 600 /dev/null '/etc/rsyslog\.d/25-juju\.conf'
+install -D -m 644 /dev/null '/etc/rsyslog\.d/25-juju\.conf'
 printf '%s\\n' '.*' > '/etc/rsyslog\.d/25-juju\.conf'
 restart rsyslog
 mkdir -p '/var/lib/juju/agents/machine-99'
@@ -559,7 +563,7 @@ func assertScriptMatch(c *gc.C, got []string, expect string, exact bool) {
 	}
 }
 
-// CheckPackage checks that the cloudinit will or won't install the given
+// checkPackage checks that the cloudinit will or won't install the given
 // package, depending on the value of match.
 func checkPackage(c *gc.C, x map[interface{}]interface{}, pkg string, match bool) {
 	pkgs0 := x["packages"]
@@ -575,7 +579,9 @@ func checkPackage(c *gc.C, x map[interface{}]interface{}, pkg string, match bool
 	found := false
 	for _, p0 := range pkgs {
 		p := p0.(string)
-		if p == pkg {
+		hasTargetRelease := strings.Contains(p, "--target-release")
+		hasQuotedPkg := strings.Contains(p, "'"+pkg+"'")
+		if p == pkg || (hasTargetRelease && hasQuotedPkg) {
 			found = true
 		}
 	}
@@ -587,7 +593,7 @@ func checkPackage(c *gc.C, x map[interface{}]interface{}, pkg string, match bool
 	}
 }
 
-// CheckAptSources checks that the cloudinit will or won't install the given
+// checkAptSources checks that the cloudinit will or won't install the given
 // source, depending on the value of match.
 func checkAptSource(c *gc.C, x map[interface{}]interface{}, source, key string, match bool) {
 	sources0 := x["apt_sources"]
@@ -848,12 +854,16 @@ func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {
 
 	cmds := cloudcfg.RunCmds()
 	first := `([ ! -e /home/ubuntu/.profile ] || grep -q '.juju-proxy' /home/ubuntu/.profile) || printf '\n# Added by juju\n[ -f "$HOME/.juju-proxy" ] && . "$HOME/.juju-proxy"\n' >> /home/ubuntu/.profile`
-	second := `[ -e /home/ubuntu ] && (printf '%s\n' 'export http_proxy=http://user@10.0.0.1
-export HTTP_PROXY=http://user@10.0.0.1' > /home/ubuntu/.juju-proxy && chown ubuntu:ubuntu /home/ubuntu/.juju-proxy)`
+	expected := []interface{}{
+		`export http_proxy=http://user@10.0.0.1`,
+		`export HTTP_PROXY=http://user@10.0.0.1`,
+		`[ -e /home/ubuntu ] && (printf '%s\n' 'export http_proxy=http://user@10.0.0.1
+export HTTP_PROXY=http://user@10.0.0.1' > /home/ubuntu/.juju-proxy && chown ubuntu:ubuntu /home/ubuntu/.juju-proxy)`,
+	}
 	found := false
 	for i, cmd := range cmds {
 		if cmd == first {
-			c.Assert(cmds[i+1], gc.Equals, second)
+			c.Assert(cmds[i+1:i+4], jc.DeepEquals, expected)
 			found = true
 			break
 		}

@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/loggo/loggo"
 	"launchpad.net/gnuflag"
-	"launchpad.net/loggo"
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/agent"
@@ -37,6 +37,7 @@ import (
 	"launchpad.net/juju-core/worker/instancepoller"
 	"launchpad.net/juju-core/worker/localstorage"
 	workerlogger "launchpad.net/juju-core/worker/logger"
+	"launchpad.net/juju-core/worker/machineenvironmentworker"
 	"launchpad.net/juju-core/worker/machiner"
 	"launchpad.net/juju-core/worker/minunitsworker"
 	"launchpad.net/juju-core/worker/provisioner"
@@ -183,6 +184,9 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	runner.StartWorker("logger", func() (worker.Worker, error) {
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
 	})
+	runner.StartWorker("machineenvironmentworker", func() (worker.Worker, error) {
+		return machineenvironmentworker.NewMachineEnvironmentWorker(st.Environment(), agentConfig), nil
+	})
 
 	// If not a local provider bootstrap machine, start the worker to manage SSH keys.
 	providerType := agentConfig.Value(agent.ProviderType)
@@ -291,7 +295,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	// Take advantage of special knowledge here in that we will only ever want
 	// the storage provider on one machine, and that is the "bootstrap" node.
 	providerType := agentConfig.Value(agent.ProviderType)
-	if (providerType == provider.Local || providerType == provider.Null) && m.Id() == bootstrapMachineId {
+	if (providerType == provider.Local || provider.IsManual(providerType)) && m.Id() == bootstrapMachineId {
 		runner.StartWorker("local-storage", func() (worker.Worker, error) {
 			// TODO(axw) 2013-09-24 bug #1229507
 			// Make another job to enable storage.

@@ -1,9 +1,6 @@
 package testing
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -13,6 +10,7 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/utils"
 )
 
 // RepoSuite acts as a JujuConnSuite but also sets up
@@ -77,11 +75,8 @@ func (s *RepoSuite) AssertCharmUploaded(c *gc.C, curl *charm.URL) {
 	resp, err := http.Get(url.String())
 	c.Assert(err, gc.IsNil)
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	digest, _, err := utils.ReadSHA256(resp.Body)
 	c.Assert(err, gc.IsNil)
-	h := sha256.New()
-	h.Write(body)
-	digest := hex.EncodeToString(h.Sum(nil))
 	c.Assert(ch.BundleSha256(), gc.Equals, digest)
 }
 

@@ -10,6 +10,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/errgo/errgo"
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent"
@@ -208,11 +209,8 @@ func ConfigureBasic(cfg *MachineConfig, c *cloudinit.Config) error {
 	// Note: this must be the last runcmd we do in ConfigureBasic, as
 	// the presence of the nonce file is used to gate the remainder
 	// of synchronous bootstrap.
-	noncefile := shquote(path.Join(cfg.DataDir, NonceFile))
-	c.AddScripts(
-		fmt.Sprintf("install -D -m %o /dev/null %s", 0644, noncefile),
-		fmt.Sprintf(`printf '%%s\n' %s > %s`, shquote(cfg.MachineNonce), noncefile),
-	)
+	noncefile := path.Join(cfg.DataDir, NonceFile)
+	c.AddFile(noncefile, cfg.MachineNonce, 0644)
 	return nil
 }
 
@@ -247,10 +245,11 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 		// juju requires git for managing charm directories.
 		c.AddPackage("git")
 		c.AddPackage("cpu-checker")
+		c.AddPackage("bridge-utils")
 
 		// Write out the apt proxy settings
 		if (cfg.AptProxySettings != osenv.ProxySettings{}) {
-			filename := "/etc/apt/apt.conf.d/42-juju-proxy-settings"
+			filename := utils.AptConfFile
 			c.AddBootCmd(fmt.Sprintf(
 				`[ -f %s ] || (printf '%%s\n' %s > %s)`,
 				filename,
@@ -268,14 +267,24 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 		`([ ! -e /home/ubuntu/.profile ] || grep -q '.juju-proxy' /home/ubuntu/.profile) || ` +
 			`printf '\n# Added by juju\n[ -f "$HOME/.juju-proxy" ] && . "$HOME/.juju-proxy"\n' >> /home/ubuntu/.profile`)
 	if (cfg.ProxySettings != osenv.ProxySettings{}) {
+		exportedProxyEnv := cfg.ProxySettings.AsScriptEnvironment()
+		c.AddScripts(strings.Split(exportedProxyEnv, "\n")...)
 		c.AddScripts(
 			fmt.Sprintf(
 				`[ -e /home/ubuntu ] && (printf '%%s\n' %s > /home/ubuntu/.juju-proxy && chown ubuntu:ubuntu /home/ubuntu/.juju-proxy)`,
 				shquote(cfg.ProxySettings.AsScriptEnvironment())))
 	}
 
+	// Make the lock dir and change the ownership of the lock dir itself to
+	// ubuntu:ubuntu from root:root so the juju-run command run as the ubuntu
+	// user is able to get access to the hook execution lock (like the uniter
+	// itself does.)
+	lockDir := path.Join(cfg.DataDir, "locks")
 	c.AddScripts(
-		fmt.Sprintf("mkdir -p %s", cfg.DataDir),
+		fmt.Sprintf("mkdir -p %s", lockDir),
+		// We only try to change ownership if there is an ubuntu user
+		// defined, and we determine this by the existance of the home dir.
+		fmt.Sprintf("[ -e /home/ubuntu ] && chown ubuntu:ubuntu %s", lockDir),
 		fmt.Sprintf("mkdir -p %s", cfg.LogDir),
 	)
 
@@ -344,9 +353,17 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 
 			if cfg.NeedMongoPPA() {
 				const key = "" // key is loaded from PPA
-				c.AddAptSource("ppa:juju/stable", key)
+				c.AddAptSource("ppa:juju/stable", key, nil)
 			}
-			c.AddPackage("mongodb-server")
+			if cfg.Tools.Version.Series == "precise" {
+				// In precise we add the cloud-tools pocket and
+				// pin it with a lower priority, so we need to
+				// explicitly specify the target release when
+				// installing mongodb-server from there.
+				c.AddPackageFromTargetRelease("mongodb-server", "precise-updates/cloud-tools")
+			} else {
+				c.AddPackage("mongodb-server")
+			}
 		}
 		certKey := string(cfg.StateServerCert) + string(cfg.StateServerKey)
 		c.AddFile(cfg.dataFile("server.pem"), certKey, 0600)
@@ -399,7 +416,7 @@ func (cfg *MachineConfig) addLogging(c *cloudinit.Config) error {
 	if err != nil {
 		return err
 	}
-	c.AddFile(cfg.RsyslogConfPath, string(content), 0600)
+	c.AddFile(cfg.RsyslogConfPath, string(content), 0644)
 	c.AddRunCmd("restart rsyslog")
 	return nil
 }
@@ -454,7 +471,7 @@ func (cfg *MachineConfig) addAgentInfo(c *cloudinit.Config, tag string) (agent.C
 	}
 	cmds, err := acfg.WriteCommands()
 	if err != nil {
-		return nil, err
+		return nil, errgo.Annotate(err, "failed to write commands")
 	}
 	c.AddScripts(cmds...)
 	return acfg, nil
@@ -472,7 +489,7 @@ func (cfg *MachineConfig) addMachineAgentToBoot(c *cloudinit.Config, tag, machin
 	conf := upstart.MachineAgentUpstartService(name, toolsDir, cfg.DataDir, cfg.LogDir, tag, machineId, nil)
 	cmds, err := conf.InstallCommands()
 	if err != nil {
-		return fmt.Errorf("cannot make cloud-init upstart script for the %s agent: %v", tag, err)
+		return errgo.Annotatef(err, "cannot make cloud-init upstart script for the %s agent", tag)
 	}
 	c.AddRunCmd(cloudinit.LogProgressCmd("Starting Juju machine agent (%s)", name))
 	c.AddScripts(cmds...)
@@ -494,7 +511,7 @@ func (cfg *MachineConfig) addMongoToBoot(c *cloudinit.Config) error {
 	conf := upstart.MongoUpstartService(name, cfg.DataDir, dbDir, cfg.StatePort)
 	cmds, err := conf.InstallCommands()
 	if err != nil {
-		return fmt.Errorf("cannot make cloud-init upstart script for the state database: %v", err)
+		return errgo.Annotate(err, "cannot make cloud-init upstart script for the state database")
 	}
 	c.AddRunCmd(cloudinit.LogProgressCmd("Starting MongoDB server (%s)", name))
 	c.AddScripts(cmds...)
@@ -597,7 +614,14 @@ func (cfg *MachineConfig) MaybeAddCloudArchiveCloudTools(c *cloudinit.Config) {
 	}
 	const url = "http://ubuntu-cloud.archive.canonical.com/ubuntu"
 	name := fmt.Sprintf("deb %s %s-updates/cloud-tools main", url, series)
-	c.AddAptSource(name, CanonicalCloudArchiveSigningKey)
+	prefs := &cloudinit.AptPreferences{
+		Path:        cloudinit.CloudToolsPrefsPath,
+		Explanation: "Pin with lower priority, not to interfere with charms",
+		Package:     "*",
+		Pin:         fmt.Sprintf("release n=%s-updates/cloud-tools", series),
+		PinPriority: 400,
+	}
+	c.AddAptSource(name, CanonicalCloudArchiveSigningKey, prefs)
 }
 
 func (cfg *MachineConfig) NeedMongoPPA() bool {

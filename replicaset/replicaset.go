@@ -9,6 +9,9 @@ import (
 	"labix.org/v2/mgo/bson"
 )
 
+// MaxPeers defines the maximum number of peers that mongo supports.
+const MaxPeers = 7
+
 // Initiate sets up a replica set with the given replica set name with the
 // single given member.  It need be called only once for a given mongo replica
 // set.

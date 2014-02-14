@@ -19,6 +19,29 @@ const tagOffset = len("juju-") + 1
 
 // The rsyslog conf for state server nodes.
 // Messages are gathered from other nodes and accumulated in an all-machines.log file.
+//
+// The apparmor profile is quite strict about where rsyslog can write files.
+// Instead of poking with the profile, the local provider now logs to
+// /var/log/juju-{{user}}-{{env name}}/all-machines.log, and a symlink is made
+// in the local provider log dir to point to that file. The file is also
+// created with 0644 so the user can read it without poking permissions. By
+// default rsyslog creates files with 0644, but in the ubuntu package, the
+// setting is changed to 0640, which means normal users can't read the log
+// file. Using a new action directive (new as in not-legacy), we can specify
+// the file create mode so it doesn't use the default.
+//
+// I would dearly love to write the filtering action as follows to avoid setting
+// and resetting the global $FileCreateMode, but alas, precise doesn't support it
+//
+// if $syslogtag startswith "juju{{namespace}}-" then
+//   action(type="omfile"
+//          File="/var/log/juju{{namespace}}/all-machines.log"
+//          Template="JujuLogFormat{{namespace}}"
+//          FileCreateMode="0644")
+// & stop
+//
+// Instead we need to mess with the global FileCreateMode.  We set it back
+// to the ubuntu default after defining our rule.
 const stateServerRsyslogTemplate = `
 $ModLoad imfile
 
@@ -36,8 +59,10 @@ $UDPServerRun {{portNumber}}
 # so add one in for local messages too if needed.
 $template JujuLogFormat{{namespace}},"%syslogtag:{{tagStart}}:$%%msg:::sp-if-no-1st-sp%%msg:::drop-last-lf%\n"
 
-:syslogtag, startswith, "juju{{namespace}}-" {{logDir}}/all-machines.log;JujuLogFormat{{namespace}}
+$FileCreateMode 0644
+:syslogtag, startswith, "juju{{namespace}}-" /var/log/juju{{namespace}}/all-machines.log;JujuLogFormat{{namespace}}
 & ~
+$FileCreateMode 0640
 `
 
 // The rsyslog conf for non-state server nodes.

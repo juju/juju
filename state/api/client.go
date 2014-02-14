@@ -173,11 +173,7 @@ func (c *Client) AddMachines(machineParams []params.AddMachineParams) ([]params.
 
 // ProvisioningScript returns a shell script that, when run,
 // provisions a machine agent on the machine executing the script.
-func (c *Client) ProvisioningScript(machineId, nonce string) (script string, err error) {
-	args := params.ProvisioningScriptParams{
-		MachineId: machineId,
-		Nonce:     nonce,
-	}
+func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (script string, err error) {
 	var result params.ProvisioningScriptResult
 	if err = c.st.Call("Client", "", "ProvisioningScript", args, &result); err != nil {
 		return "", err

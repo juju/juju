@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/loggo/loggo"
 	"launchpad.net/golxc"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/environs/cloudinit"
@@ -109,12 +109,17 @@ func (manager *containerManager) StartContainer(
 		return nil, nil, err
 	}
 	logger.Tracef("lxc container created")
-	// Now symlink the config file into the restart directory.
-	containerConfigFile := filepath.Join(LxcContainerDir, name, "config")
-	if err := os.Symlink(containerConfigFile, restartSymlink(name)); err != nil {
-		return nil, nil, err
+	// Now symlink the config file into the restart directory, if it exists.
+	// This is for backwards compatiblity. From Trusty onwards, the auto start
+	// option should be set in the LXC config file, this is done in the networkConfigTemplate
+	// function below.
+	if useRestartDir() {
+		containerConfigFile := filepath.Join(LxcContainerDir, name, "config")
+		if err := os.Symlink(containerConfigFile, restartSymlink(name)); err != nil {
+			return nil, nil, err
+		}
+		logger.Tracef("auto-restart link created")
 	}
-	logger.Tracef("auto-restart link created")
 
 	// Start the lxc container with the appropriate settings for grabbing the
 	// console output and a log file.
@@ -140,10 +145,12 @@ func (manager *containerManager) StartContainer(
 func (manager *containerManager) StopContainer(instance instance.Instance) error {
 	name := string(instance.Id())
 	lxcContainer := LxcObjectFactory.New(name)
-	// Remove the autostart link.
-	if err := os.Remove(restartSymlink(name)); err != nil {
-		logger.Errorf("failed to remove restart symlink: %v", err)
-		return err
+	if useRestartDir() {
+		// Remove the autostart link.
+		if err := os.Remove(restartSymlink(name)); err != nil {
+			logger.Errorf("failed to remove restart symlink: %v", err)
+			return err
+		}
 	}
 	if err := lxcContainer.Destroy(); err != nil {
 		logger.Errorf("failed to destroy lxc container: %v", err)
@@ -198,7 +205,12 @@ lxc.network.flags = up
 `
 
 func networkConfigTemplate(networkType, networkLink string) string {
-	return fmt.Sprintf(networkTemplate, networkType, networkLink)
+	networkConfig := fmt.Sprintf(networkTemplate, networkType, networkLink)
+	if !useRestartDir() {
+		networkConfig += "lxc.start.auto = 1\n"
+		logger.Tracef("Setting auto start to true in lxc config.")
+	}
+	return networkConfig
 }
 
 func generateNetworkConfig(network *container.NetworkConfig) string {
@@ -225,4 +237,19 @@ func writeLxcConfig(network *container.NetworkConfig, directory, logdir string) 
 		return "", err
 	}
 	return configFilename, nil
+}
+
+// useRestartDir is used to determine whether or not to use a symlink to the
+// container config as the restart mechanism.  Older versions of LXC had the
+// /etc/lxc/auto directory that would indicate that a container shoud auto-
+// restart when the machine boots by having a symlink to the lxc.conf file.
+// Newer versions don't do this, but instead have a config value inside the
+// lxc.conf file.
+func useRestartDir() bool {
+	if _, err := os.Stat(LxcRestartDir); err != nil {
+		if os.IsNotExist(err) {
+			return false
+		}
+	}
+	return true
 }
