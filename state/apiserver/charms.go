@@ -47,7 +47,13 @@ func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.sendJSON(w, http.StatusOK, &params.CharmsResponse{CharmURL: charmURL.String()})
-	// Possible future extensions, like GET.
+	case "GET":
+		name, err := h.processGet(r)
+		if err != nil {
+			h.sendError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		http.ServeFile(w, r, name)
 	default:
 		h.sendError(w, http.StatusMethodNotAllowed, fmt.Sprintf("unsupported method: %q", r.Method))
 	}
@@ -418,4 +424,28 @@ func (h *charmsHandler) repackageAndUploadCharm(archive *charm.Bundle, curl *cha
 		return errgo.Annotate(err, "cannot update uploaded charm in state")
 	}
 	return nil
+}
+
+// processPost handles a charm upload POST request after authentication.
+func (h *charmsHandler) processGet(r *http.Request) (string, error) {
+	query := r.URL.Query()
+	// Retrieve query parameters.
+	curl := query.Get("charm")
+	if curl == "" {
+		return "", fmt.Errorf("expected charm=URL argument")
+	}
+	path := query.Get("path")
+	if path == "" {
+		return "", fmt.Errorf("expected path=path/to/file argument")
+	}
+	storage, err := envtesting.GetEnvironStorage(h.state)
+	if err != nil {
+		return "", errgo.Annotate(err, "cannot access provider storage")
+	}
+	bundle, err := storage.Get(curl)
+	if err != nil {
+		return "", errgo.Annotate(err, "charm not found in the provider storage")
+	}
+	fmt.Printf("BUNDLE: %#v", bundle)
+	return "", nil
 }
