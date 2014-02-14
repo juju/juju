@@ -1,8 +1,9 @@
 #!/bin/bash
 set -eux
 # Create package
+: ${LOCAL_JENKINS_URL=$JENKINS_URL}
 TARFILE=$($SCRIPTS/get-tarfile-name)
-wget -q $JENKINS_URL/job/build-revision/lastSuccessfulBuild/artifact/$TARFILE
+wget -q $LOCAL_JENKINS_URL/job/build-revision/lastSuccessfulBuild/artifact/$TARFILE
 set +x
 source $SCRIPTS/make-package-with-tarball.bash testing $TARFILE \
     'Curtis C. Hovey <curtis.hovey@canonical.com>'
@@ -16,4 +17,3 @@ done
 mkdir -p new-tools
 $SCRIPTS/assemble-public-tools.bash -t $WORKSPACE/ $VERSION new-tools
 $SCRIPTS/publish-public-tools.bash TESTING new-tools/juju-dist-testing
-
