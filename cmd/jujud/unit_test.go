@@ -10,13 +10,16 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/cmd"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
+	"launchpad.net/juju-core/worker/upgrader"
 )
 
 type UnitSuite struct {
@@ -39,16 +42,23 @@ func (s *UnitSuite) TearDownTest(c *gc.C) {
 const initialUnitPassword = "unit-password-1234567890"
 
 // primeAgent creates a unit, and sets up the unit agent's directory.
-// It returns the new unit and the agent's configuration.
-func (s *UnitSuite) primeAgent(c *gc.C) (*state.Unit, agent.Config, *tools.Tools) {
+// It returns the assigned machine, new unit and the agent's configuration.
+func (s *UnitSuite) primeAgent(c *gc.C) (*state.Machine, *state.Unit, agent.Config, *tools.Tools) {
 	jujutesting.AddStateServerMachine(c, s.State)
 	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	unit, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 	err = unit.SetPassword(initialUnitPassword)
 	c.Assert(err, gc.IsNil)
+	// Assign the unit to a machine.
+	err = unit.AssignToNewMachine()
+	c.Assert(err, gc.IsNil)
+	id, err := unit.AssignedMachineId()
+	c.Assert(err, gc.IsNil)
+	machine, err := s.State.Machine(id)
+	c.Assert(err, gc.IsNil)
 	conf, tools := s.agentSuite.primeAgent(c, unit.Tag(), initialUnitPassword)
-	return unit, conf, tools
+	return machine, unit, conf, tools
 }
 
 func (s *UnitSuite) newAgent(c *gc.C, unit *state.Unit) *UnitAgent {
@@ -121,7 +131,7 @@ func waitForUnitStarted(stateConn *state.State, unit *state.Unit, c *gc.C) {
 }
 
 func (s *UnitSuite) TestRunStop(c *gc.C) {
-	unit, _, _ := s.primeAgent(c)
+	_, unit, _, _ := s.primeAgent(c)
 	a := s.newAgent(c, unit)
 	go func() { c.Check(a.Run(nil), gc.IsNil) }()
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()
@@ -129,13 +139,35 @@ func (s *UnitSuite) TestRunStop(c *gc.C) {
 }
 
 func (s *UnitSuite) TestUpgrade(c *gc.C) {
-	unit, _, currentTools := s.primeAgent(c)
-	a := s.newAgent(c, unit)
-	s.testUpgrade(c, a, unit.Tag(), currentTools)
+	machine, unit, _, currentTools := s.primeAgent(c)
+	agent := s.newAgent(c, unit)
+	newVers := version.Current
+	newVers.Patch++
+	envtesting.PrimeTools(c, s.Conn.Environ.Storage(), s.DataDir(), newVers)
+	err := machine.SetAgentVersion(newVers)
+	c.Assert(err, gc.IsNil)
+	err = runWithTimeout(agent)
+	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
+		AgentName: unit.Tag(),
+		OldTools:  currentTools.Version,
+		NewTools:  newVers,
+		DataDir:   s.DataDir(),
+	})
+}
+
+func (s *UnitSuite) TestUpgradeFailsWithoutTools(c *gc.C) {
+	machine, unit, _, _ := s.primeAgent(c)
+	agent := s.newAgent(c, unit)
+	newVers := version.Current
+	newVers.Patch++
+	err := machine.SetAgentVersion(newVers)
+	c.Assert(err, gc.IsNil)
+	err = runWithTimeout(agent)
+	c.Assert(err, gc.ErrorMatches, "timed out waiting for agent to finish.*")
 }
 
 func (s *UnitSuite) TestWithDeadUnit(c *gc.C) {
-	unit, _, _ := s.primeAgent(c)
+	_, unit, _, _ := s.primeAgent(c)
 	err := unit.EnsureDead()
 	c.Assert(err, gc.IsNil)
 	a := s.newAgent(c, unit)
@@ -151,7 +183,7 @@ func (s *UnitSuite) TestWithDeadUnit(c *gc.C) {
 }
 
 func (s *UnitSuite) TestOpenAPIState(c *gc.C) {
-	unit, _, _ := s.primeAgent(c)
+	_, unit, _, _ := s.primeAgent(c)
 	s.testOpenAPIState(c, unit, s.newAgent(c, unit), initialUnitPassword)
 }
 
@@ -174,7 +206,7 @@ func (f *fakeUnitAgent) Tag() string {
 }
 
 func (s *UnitSuite) TestOpenAPIStateWithDeadEntityTerminates(c *gc.C) {
-	unit, conf, _ := s.primeAgent(c)
+	_, unit, conf, _ := s.primeAgent(c)
 	err := unit.EnsureDead()
 	c.Assert(err, gc.IsNil)
 	_, _, err = openAPIState(conf, &fakeUnitAgent{"wordpress/0"})
@@ -184,7 +216,7 @@ func (s *UnitSuite) TestOpenAPIStateWithDeadEntityTerminates(c *gc.C) {
 func (s *UnitSuite) TestOpenStateFails(c *gc.C) {
 	// Start a unit agent and make sure it doesn't set a mongo password
 	// we can use to connect to state with.
-	unit, conf, _ := s.primeAgent(c)
+	_, unit, conf, _ := s.primeAgent(c)
 	a := s.newAgent(c, unit)
 	go func() { c.Check(a.Run(nil), gc.IsNil) }()
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()

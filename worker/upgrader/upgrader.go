@@ -13,7 +13,7 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	agenttools "launchpad.net/juju-core/agent/tools"
-	"launchpad.net/juju-core/state/api/upgrader"
+	apiwatcher "launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/state/watcher"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
@@ -26,38 +26,21 @@ var retryAfter = func() <-chan time.Time {
 	return time.After(5 * time.Second)
 }
 
-// UpgradeReadyError is returned by an Upgrader to report that
-// an upgrade is ready to be performed and a restart is due.
-type UpgradeReadyError struct {
-	AgentName string
-	OldTools  *coretools.Tools
-	NewTools  *coretools.Tools
-	DataDir   string
-}
-
-func (e *UpgradeReadyError) Error() string {
-	return "must restart: an agent upgrade is available"
-}
-
-// ChangeAgentTools does the actual agent upgrade.
-// It should be called just before an agent exits, so that
-// it will restart running the new tools.
-func (e *UpgradeReadyError) ChangeAgentTools() error {
-	tools, err := agenttools.ChangeAgentTools(e.DataDir, e.AgentName, e.NewTools.Version)
-	if err != nil {
-		return err
-	}
-	logger.Infof("upgraded from %v to %v (%q)", e.OldTools.Version, tools.Version, tools.URL)
-	return nil
-}
-
 var logger = loggo.GetLogger("juju.worker.upgrader")
+
+// upgraderClient is implemented by whatever client facade is used by this upgrade worker.
+type upgradeClient interface {
+	DesiredVersion(tag string) (version.Number, error)
+	WatchAPIVersion(agentTag string) (apiwatcher.NotifyWatcher, error)
+	SetVersion(tag string, v version.Binary) error
+	Tools(tag string) (*coretools.Tools, bool, error)
+}
 
 // Upgrader represents a worker that watches the state for upgrade
 // requests.
 type Upgrader struct {
 	tomb    tomb.Tomb
-	st      *upgrader.State
+	client  upgradeClient
 	dataDir string
 	tag     string
 }
@@ -68,9 +51,9 @@ type Upgrader struct {
 // an upgrade is needed, the worker will exit with an UpgradeReadyError
 // holding details of the requested upgrade. The tools will have been
 // downloaded and unpacked.
-func NewUpgrader(st *upgrader.State, agentConfig agent.Config) *Upgrader {
+func NewUpgrader(client upgradeClient, agentConfig agent.Config) *Upgrader {
 	u := &Upgrader{
-		st:      st,
+		client:  client,
 		dataDir: agentConfig.DataDir(),
 		tag:     agentConfig.Tag(),
 	}
@@ -100,11 +83,11 @@ func (u *Upgrader) Stop() error {
 
 func (u *Upgrader) loop() error {
 	currentTools := &coretools.Tools{Version: version.Current}
-	err := u.st.SetVersion(u.tag, currentTools.Version)
+	err := u.client.SetVersion(u.tag, currentTools.Version)
 	if err != nil {
 		return err
 	}
-	versionWatcher, err := u.st.WatchAPIVersion(u.tag)
+	versionWatcher, err := u.client.WatchAPIVersion(u.tag)
 	if err != nil {
 		return err
 	}
@@ -127,7 +110,7 @@ func (u *Upgrader) loop() error {
 			if !ok {
 				return watcher.MustErr(versionWatcher)
 			}
-			wantVersion, err = u.st.DesiredVersion(u.tag)
+			wantVersion, err = u.client.DesiredVersion(u.tag)
 			if err != nil {
 				return err
 			}
@@ -142,7 +125,7 @@ func (u *Upgrader) loop() error {
 			// TODO(dimitern) 2013-10-03 bug #1234715
 			// Add a testing HTTPS storage to verify the
 			// disableSSLHostnameVerification behavior here.
-			wantTools, disableSSLHostnameVerification, err = u.st.Tools(u.tag)
+			wantTools, disableSSLHostnameVerification, err = u.client.Tools(u.tag)
 			if err != nil {
 				// Not being able to lookup Tools is considered fatal
 				return err
@@ -155,8 +138,8 @@ func (u *Upgrader) loop() error {
 			err := u.ensureTools(wantTools, disableSSLHostnameVerification)
 			if err == nil {
 				return &UpgradeReadyError{
-					OldTools:  currentTools,
-					NewTools:  wantTools,
+					OldTools:  version.Current,
+					NewTools:  wantTools.Version,
 					AgentName: u.tag,
 					DataDir:   u.dataDir,
 				}

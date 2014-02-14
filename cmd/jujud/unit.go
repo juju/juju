@@ -86,7 +86,7 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 	dataDir := a.Conf.dataDir
 	runner := worker.NewRunner(connectionIsFatal(st), moreImportant)
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
-		return upgrader.NewUpgrader(st.Upgrader(), agentConfig), nil
+		return upgrader.NewUpgrader(st.UnitUpgrader(), agentConfig), nil
 	})
 	runner.StartWorker("logger", func() (worker.Worker, error) {
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil

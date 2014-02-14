@@ -201,6 +201,16 @@ func (r *srvRoot) Upgrader(id string) (*upgrader.UpgraderAPI, error) {
 	return upgrader.NewUpgraderAPI(r.srv.state, r.resources, r)
 }
 
+// UnitUpgrader returns an object that provides access to the UnitUpgrader API facade.
+// The id argument is reserved for future use and must be empty.
+func (r *srvRoot) UnitUpgrader(id string) (*upgrader.UnitUpgraderAPI, error) {
+	if id != "" {
+		// TODO: There is no direct test for this
+		return nil, common.ErrBadId
+	}
+	return upgrader.NewUnitUpgraderAPI(r.srv.state, r.resources, r)
+}
+
 // KeyUpdater returns an object that provides access to the KeyUpdater API facade.
 // The id argument is reserved for future use and must be empty.
 func (r *srvRoot) KeyUpdater(id string) (*keyupdater.KeyUpdaterAPI, error) {
