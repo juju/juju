@@ -27,13 +27,18 @@ type error_ struct {
 	path []string
 }
 
-func (e error_) Error() string {
-	var path string
-	if e.path[0] == "." {
-		path = strings.Join(e.path[1:], "")
+// pathAsString returns a string consisting of the path elements. If path
+// starts with a ".", the dot is omitted.
+func pathAsString(path []string) string {
+	if path[0] == "." {
+		return strings.Join(path[1:], "")
 	} else {
-		path = strings.Join(e.path, "")
+		return strings.Join(path, "")
 	}
+}
+
+func (e error_) Error() string {
+	path := pathAsString(e.path)
 	if e.want == "" {
 		return fmt.Sprintf("%s: unexpected value %#v", path, e.got)
 	}
@@ -398,24 +403,27 @@ func (c fieldMapC) Coerce(v interface{}, path []string) (interface{}, error) {
 		return nil, error_{"map", v, path}
 	}
 
-	vpath := append(path, ".", "?")
-
 	if c.strict {
 		for _, k := range rv.MapKeys() {
 			ks := k.String()
 			if _, found := c.fields[ks]; !found {
-				vpath[len(vpath)-1] = ks
-				value := rv.MapIndex(k)
-				return nil, error_{"nothing", value.Interface(), vpath}
+				value := interface{}("invalid")
+				valuev := rv.MapIndex(k)
+				if valuev.IsValid() {
+					value = valuev.Interface()
+				}
+				return nil, fmt.Errorf("%v: unknown key %q (value %q)", pathAsString(path), ks, value)
 			}
 		}
 	}
 
+	vpath := append(path, ".", "?")
+
 	l := rv.Len()
 	out := make(map[string]interface{}, l)
 	for k, checker := range c.fields {
-		var value interface{}
 		valuev := rv.MapIndex(reflect.ValueOf(k))
+		var value interface{}
 		if valuev.IsValid() {
 			value = valuev.Interface()
 		} else if dflt, ok := c.defaults[k]; ok {

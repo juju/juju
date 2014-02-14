@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/loggo/loggo"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/loggo"
 )
 
 // LoggingSuite redirects the juju logger to the test logger
@@ -46,4 +46,5 @@ func (t *LoggingSuite) setUp(c *gc.C) {
 	loggo.ReplaceDefaultWriter(&gocheckWriter{c})
 	loggo.ResetLoggers()
 	loggo.GetLogger("juju").SetLogLevel(loggo.DEBUG)
+	loggo.GetLogger("unit").SetLogLevel(loggo.DEBUG)
 }

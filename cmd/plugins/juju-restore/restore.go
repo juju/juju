@@ -4,16 +4,21 @@
 package main
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"os/signal"
+	"path"
 	"text/template"
 
+	"github.com/loggo/loggo"
 	"launchpad.net/gnuflag"
-	"launchpad.net/loggo"
+	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
@@ -56,9 +61,10 @@ to choose the new instance.
 
 type restoreCommand struct {
 	cmd.EnvCommandBase
-	Log         cmd.Log
-	Constraints constraints.Value
-	backupFile  string
+	Log             cmd.Log
+	Constraints     constraints.Value
+	backupFile      string
+	showDescription bool
 }
 
 func (c *restoreCommand) Info() *cmd.Info {
@@ -73,10 +79,14 @@ func (c *restoreCommand) Info() *cmd.Info {
 func (c *restoreCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "set environment constraints")
+	f.BoolVar(&c.showDescription, "description", false, "show the purpose of this plugin")
 	c.Log.AddFlags(f)
 }
 
 func (c *restoreCommand) Init(args []string) error {
+	if c.showDescription {
+		return cmd.CheckEmpty(args)
+	}
 	if len(args) == 0 {
 		return fmt.Errorf("no backup file specified")
 	}
@@ -95,11 +105,12 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 	rm -r /var/lib/juju /var/log/juju
 	tar -C / -xvp -f juju-backup/root.tar
 	mkdir -p /var/lib/juju/db
+	export LC_ALL=C
 	mongorestore --drop --dbpath /var/lib/juju/db juju-backup/dump
 	initctl start juju-db
 
 	mongoEval() {
-		mongo --ssl -u admin -p {{.AdminSecret | shquote}} localhost:37017/admin --eval "$1"
+		mongo --ssl -u {{.Creds.Tag}} -p {{.Creds.Password | shquote}} localhost:37017/juju --eval "$1"
 	}
 	# wait for mongo to come up after starting the juju-db upstart service.
 	for i in $(seq 1 60)
@@ -115,17 +126,26 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 	initctl start jujud-machine-0
 `)
 
-func updateBootstrapMachineScript(instanceId instance.Id, adminSecret string) string {
+func updateBootstrapMachineScript(instanceId instance.Id, creds credentials) string {
 	return execTemplate(updateBootstrapMachineTemplate, struct {
 		NewInstanceId instance.Id
-		AdminSecret   string
-	}{instanceId, adminSecret})
+		Creds         credentials
+	}{instanceId, creds})
 }
 
 func (c *restoreCommand) Run(ctx *cmd.Context) error {
+	if c.showDescription {
+		fmt.Fprintf(ctx.Stdout, "%s\n", c.Info().Purpose)
+		return nil
+	}
 	if err := c.Log.Start(ctx); err != nil {
 		return err
 	}
+	creds, err := extractCreds(c.backupFile)
+	if err != nil {
+		return fmt.Errorf("cannot extract credentials from backup file: %v", err)
+	}
+	progress("extracted credentials from backup file")
 	store, err := configstore.Default()
 	if err != nil {
 		return err
@@ -138,17 +158,17 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return fmt.Errorf("cannot re-bootstrap environment: %v", err)
 	}
-	logger.Infof("connecting to newly bootstrapped instance")
+	progress("connecting to newly bootstrapped instance")
 	conn, err := juju.NewAPIConn(env, api.DefaultDialOpts())
 	if err != nil {
 		return fmt.Errorf("cannot connect to bootstrap instance: %v", err)
 	}
-	logger.Infof("restoring bootstrap machine")
-	newInstId, machine0Addr, err := restoreBootstrapMachine(conn, c.backupFile)
+	progress("restoring bootstrap machine")
+	newInstId, machine0Addr, err := restoreBootstrapMachine(conn, c.backupFile, creds)
 	if err != nil {
 		return fmt.Errorf("cannot restore bootstrap machine: %v", err)
 	}
-	logger.Infof("restored bootstrap machine")
+	progress("restored bootstrap machine")
 	// Update the environ state to point to the new instance.
 	if err := bootstrap.SaveState(env.Storage(), &bootstrap.BootstrapState{
 		StateInstances: []instance.Id{newInstId},
@@ -162,25 +182,29 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	if !ok {
 		return fmt.Errorf("configuration has no CA certificate")
 	}
-	logger.Infof("opening state")
+	progress("opening state")
 	st, err := state.Open(&state.Info{
 		Addrs:    []string{fmt.Sprintf("%s:%d", machine0Addr, cfg.StatePort())},
 		CACert:   caCert,
-		Tag:      "",
-		Password: env.Config().AdminSecret(),
+		Tag:      creds.Tag,
+		Password: creds.Password,
 	}, state.DefaultDialOpts())
 	if err != nil {
 		return fmt.Errorf("cannot open state: %v", err)
 	}
-	logger.Infof("updating all machines")
+	progress("updating all machines")
 	if err := updateAllMachines(st, machine0Addr); err != nil {
 		return fmt.Errorf("cannot update machines: %v", err)
 	}
 	return nil
 }
 
+func progress(f string, a ...interface{}) {
+	fmt.Printf("%s\n", fmt.Sprintf(f, a...))
+}
+
 func rebootstrap(cfg *config.Config, cons constraints.Value) (environs.Environ, error) {
-	logger.Infof("re-bootstrapping environment")
+	progress("re-bootstrapping environment")
 	// Turn on safe mode so that the newly bootstrapped instance
 	// will not destroy all the instances it does not know about.
 	cfg, err := cfg.Apply(map[string]interface{}{
@@ -198,7 +222,7 @@ func rebootstrap(cfg *config.Config, cons constraints.Value) (environs.Environ, 
 		return nil, fmt.Errorf("cannot retrieve environment storage; perhaps the environment was not bootstrapped: %v", err)
 	}
 	if len(state.StateInstances) == 0 {
-		return nil, fmt.Errorf("no instances found on bootstrap state; perhaps the environment was not bootstrapped", err)
+		return nil, fmt.Errorf("no instances found on bootstrap state; perhaps the environment was not bootstrapped")
 	}
 	if len(state.StateInstances) > 1 {
 		return nil, fmt.Errorf("restore does not support HA juju configurations yet")
@@ -227,7 +251,7 @@ func rebootstrap(cfg *config.Config, cons constraints.Value) (environs.Environ, 
 	return env, nil
 }
 
-func restoreBootstrapMachine(conn *juju.APIConn, backupFile string) (newInstId instance.Id, addr string, err error) {
+func restoreBootstrapMachine(conn *juju.APIConn, backupFile string, creds credentials) (newInstId instance.Id, addr string, err error) {
 	addr, err = conn.State.Client().PublicAddress("0")
 	if err != nil {
 		return "", "", fmt.Errorf("cannot get public address of bootstrap machine: %v", err)
@@ -242,15 +266,74 @@ func restoreBootstrapMachine(conn *juju.APIConn, backupFile string) (newInstId i
 	}
 	newInstId = instance.Id(info.InstanceId)
 
+	progress("copying backup file to bootstrap host")
 	if err := scp(backupFile, addr, "~/juju-backup.tgz"); err != nil {
 		return "", "", fmt.Errorf("cannot copy backup file to bootstrap instance: %v", err)
 	}
-
-	adminSecret := conn.Environ.Config().AdminSecret()
-	if err := ssh(addr, updateBootstrapMachineScript(newInstId, adminSecret)); err != nil {
+	progress("updating bootstrap machine")
+	if err := ssh(addr, updateBootstrapMachineScript(newInstId, creds)); err != nil {
 		return "", "", fmt.Errorf("update script failed: %v", err)
 	}
 	return newInstId, addr, nil
+}
+
+type credentials struct {
+	Tag      string
+	Password string
+}
+
+func extractCreds(backupFile string) (credentials, error) {
+	f, err := os.Open(backupFile)
+	if err != nil {
+		return credentials{}, err
+	}
+	defer f.Close()
+	gzr, err := gzip.NewReader(f)
+	if err != nil {
+		return credentials{}, fmt.Errorf("cannot unzip %q: %v", backupFile, err)
+	}
+	defer gzr.Close()
+	outerTar, err := findFileInTar(gzr, "juju-backup/root.tar")
+	if err != nil {
+		return credentials{}, err
+	}
+	agentConf, err := findFileInTar(outerTar, "var/lib/juju/agents/machine-0/agent.conf")
+	if err != nil {
+		return credentials{}, err
+	}
+	data, err := ioutil.ReadAll(agentConf)
+	if err != nil {
+		return credentials{}, fmt.Errorf("failed to read agent config file: %v", err)
+	}
+	var conf interface{}
+	if err := goyaml.Unmarshal(data, &conf); err != nil {
+		return credentials{}, fmt.Errorf("cannot unmarshal agent config file: %v", err)
+	}
+	m, ok := conf.(map[interface{}]interface{})
+	if !ok {
+		return credentials{}, fmt.Errorf("config file unmarshalled to %T not %T", conf, m)
+	}
+	password, ok := m["statepassword"].(string)
+	if !ok || password == "" {
+		return credentials{}, fmt.Errorf("agent password not found in configuration")
+	}
+	return credentials{
+		Tag:      "machine-0",
+		Password: password,
+	}, nil
+}
+
+func findFileInTar(r io.Reader, name string) (io.Reader, error) {
+	tarr := tar.NewReader(r)
+	for {
+		hdr, err := tarr.Next()
+		if err != nil {
+			return nil, fmt.Errorf("%q not found: %v", name, err)
+		}
+		if path.Clean(hdr.Name) == name {
+			return tarr, nil
+		}
+	}
 }
 
 var agentAddressTemplate = mustParseTemplate(`
@@ -301,7 +384,7 @@ func updateAllMachines(st *state.State, stateAddr string) error {
 			if err != nil {
 				logger.Errorf("failed to update machine %s: %v", machine, err)
 			} else {
-				logger.Infof("updated machine %s", machine)
+				progress("updated machine %s", machine)
 			}
 			done <- err
 		}()
@@ -317,7 +400,7 @@ func updateAllMachines(st *state.State, stateAddr string) error {
 
 // runMachineUpdate connects via ssh to the machine and runs the update script
 func runMachineUpdate(m *state.Machine, sshArg string) error {
-	logger.Infof("updating machine: %v\n", m)
+	progress("updating machine: %v\n", m)
 	addr := instance.SelectPublicAddress(m.Addresses())
 	if addr == "" {
 		return fmt.Errorf("no appropriate public address found")
@@ -340,7 +423,7 @@ func ssh(addr string, script string) error {
 	if err != nil {
 		return fmt.Errorf("ssh command failed: %v (%q)", err, data)
 	}
-	logger.Infof("ssh command succeeded: %q", data)
+	progress("ssh command succeeded: %q", data)
 	return nil
 }
 
@@ -353,7 +436,6 @@ func scp(file, host, destFile string) error {
 		"-o", "PasswordAuthentication no",
 		file,
 		"ubuntu@"+host+":"+destFile)
-	logger.Infof("copying backup file to bootstrap host")
 	logger.Debugf("scp command: %s %q", cmd.Path, cmd.Args)
 	out, err := cmd.CombinedOutput()
 	if err == nil {

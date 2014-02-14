@@ -21,10 +21,8 @@ func TestPackage(t *stdtesting.T) {
 }
 
 type localStorageConfig struct {
-	storageDir        string
-	storageAddr       string
-	sharedStorageDir  string
-	sharedStorageAddr string
+	storageDir  string
+	storageAddr string
 }
 
 func (c *localStorageConfig) StorageDir() string {
@@ -33,14 +31,6 @@ func (c *localStorageConfig) StorageDir() string {
 
 func (c *localStorageConfig) StorageAddr() string {
 	return c.storageAddr
-}
-
-func (c *localStorageConfig) SharedStorageDir() string {
-	return c.sharedStorageDir
-}
-
-func (c *localStorageConfig) SharedStorageAddr() string {
-	return c.sharedStorageAddr
 }
 
 type localTLSStorageConfig struct {
@@ -72,23 +62,17 @@ func (*configSuite) TestStoreConfig(c *gc.C) {
 	m, err := localstorage.StoreConfig(&config)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m, gc.DeepEquals, map[string]string{
-		localstorage.StorageDir:        "",
-		localstorage.StorageAddr:       "",
-		localstorage.SharedStorageDir:  "",
-		localstorage.SharedStorageAddr: "",
+		localstorage.StorageDir:  "",
+		localstorage.StorageAddr: "",
 	})
 
 	config.storageDir = "a"
 	config.storageAddr = "b"
-	config.sharedStorageDir = "c"
-	config.sharedStorageAddr = "d"
 	m, err = localstorage.StoreConfig(&config)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m, gc.DeepEquals, map[string]string{
-		localstorage.StorageDir:        config.storageDir,
-		localstorage.StorageAddr:       config.storageAddr,
-		localstorage.SharedStorageDir:  config.sharedStorageDir,
-		localstorage.SharedStorageAddr: config.sharedStorageAddr,
+		localstorage.StorageDir:  config.storageDir,
+		localstorage.StorageAddr: config.storageAddr,
 	})
 }
 
@@ -97,16 +81,12 @@ func (*configSuite) TestStoreConfigTLS(c *gc.C) {
 	m, err := localstorage.StoreConfig(&config)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m, gc.DeepEquals, map[string]string{
-		localstorage.StorageDir:        "",
-		localstorage.StorageAddr:       "",
-		localstorage.SharedStorageDir:  "",
-		localstorage.SharedStorageAddr: "",
+		localstorage.StorageDir:  "",
+		localstorage.StorageAddr: "",
 	})
 
 	config.storageDir = "a"
 	config.storageAddr = "b"
-	config.sharedStorageDir = "c"
-	config.sharedStorageAddr = "d"
 	config.caCertPEM = []byte("heyhey")
 	config.caKeyPEM = []byte("hoho")
 	config.hostnames = []string{"easy", "as", "1.2.3"}
@@ -114,14 +94,12 @@ func (*configSuite) TestStoreConfigTLS(c *gc.C) {
 	m, err = localstorage.StoreConfig(&config)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m, gc.DeepEquals, map[string]string{
-		localstorage.StorageDir:        config.storageDir,
-		localstorage.StorageAddr:       config.storageAddr,
-		localstorage.SharedStorageDir:  config.sharedStorageDir,
-		localstorage.SharedStorageAddr: config.sharedStorageAddr,
-		localstorage.StorageCACert:     string(config.caCertPEM),
-		localstorage.StorageCAKey:      string(config.caKeyPEM),
-		localstorage.StorageHostnames:  mustMarshalYAML(c, config.hostnames),
-		localstorage.StorageAuthKey:    config.authkey,
+		localstorage.StorageDir:       config.storageDir,
+		localstorage.StorageAddr:      config.storageAddr,
+		localstorage.StorageCACert:    string(config.caCertPEM),
+		localstorage.StorageCAKey:     string(config.caKeyPEM),
+		localstorage.StorageHostnames: mustMarshalYAML(c, config.hostnames),
+		localstorage.StorageAuthKey:   config.authkey,
 	})
 }
 

@@ -5,6 +5,7 @@ package testing
 
 import (
 	"bytes"
+	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -16,7 +17,6 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
-	"launchpad.net/juju-core/environs/sync"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -24,26 +24,21 @@ import (
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/upgrader"
-	"net/http"
 )
 
 // ToolsFixture is used as a fixture to stub out the default tools URL so we
 // don't hit the real internet during tests.
 type ToolsFixture struct {
-	origDefaultURL          string
-	origDefaultSyncLocation string
-	DefaultBaseURL          string
+	origDefaultURL string
+	DefaultBaseURL string
 }
 
 func (s *ToolsFixture) SetUpTest(c *gc.C) {
 	s.origDefaultURL = envtools.DefaultBaseURL
-	s.origDefaultSyncLocation = sync.DefaultToolsLocation
 	envtools.DefaultBaseURL = s.DefaultBaseURL
-	sync.DefaultToolsLocation = c.MkDir() // stop sync from going to s3
 }
 
 func (s *ToolsFixture) TearDownTest(c *gc.C) {
-	sync.DefaultToolsLocation = sync.DefaultToolsLocation
 	envtools.DefaultBaseURL = s.origDefaultURL
 }
 

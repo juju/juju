@@ -14,14 +14,12 @@ const (
 	// Move these variables out of agent when we can do upgrades in
 	// the right place. In this case, the local provider should do
 	// the envvar-to-agent.conf migration.
-	StorageDir        = agent.StorageDir
-	StorageAddr       = agent.StorageAddr
-	SharedStorageDir  = agent.SharedStorageDir
-	SharedStorageAddr = agent.SharedStorageAddr
-	StorageCACert     = "StorageCACert"
-	StorageCAKey      = "StorageCAKey"
-	StorageHostnames  = "StorageHostnames"
-	StorageAuthKey    = "StorageAuthKey"
+	StorageDir       = agent.StorageDir
+	StorageAddr      = agent.StorageAddr
+	StorageCACert    = "StorageCACert"
+	StorageCAKey     = "StorageCAKey"
+	StorageHostnames = "StorageHostnames"
+	StorageAuthKey   = "StorageAuthKey"
 )
 
 // LocalStorageConfig is an interface that, if implemented, may be used
@@ -30,8 +28,6 @@ const (
 type LocalStorageConfig interface {
 	StorageDir() string
 	StorageAddr() string
-	SharedStorageDir() string
-	SharedStorageAddr() string
 }
 
 // LocalTLSStorageConfig is an interface that extends LocalStorageConfig
@@ -55,14 +51,12 @@ type LocalTLSStorageConfig interface {
 }
 
 type config struct {
-	storageDir        string
-	storageAddr       string
-	sharedStorageDir  string
-	sharedStorageAddr string
-	caCertPEM         []byte
-	caKeyPEM          []byte
-	hostnames         []string
-	authkey           string
+	storageDir  string
+	storageAddr string
+	caCertPEM   []byte
+	caKeyPEM    []byte
+	hostnames   []string
+	authkey     string
 }
 
 // StoreConfig takes a LocalStorageConfig (or derivative interface),
@@ -72,8 +66,6 @@ func StoreConfig(storageConfig LocalStorageConfig) (map[string]string, error) {
 	kv := make(map[string]string)
 	kv[StorageDir] = storageConfig.StorageDir()
 	kv[StorageAddr] = storageConfig.StorageAddr()
-	kv[SharedStorageDir] = storageConfig.SharedStorageDir()
-	kv[SharedStorageAddr] = storageConfig.SharedStorageAddr()
 	if tlsConfig, ok := storageConfig.(LocalTLSStorageConfig); ok {
 		if authkey := tlsConfig.StorageAuthKey(); authkey != "" {
 			kv[StorageAuthKey] = authkey
@@ -97,11 +89,9 @@ func StoreConfig(storageConfig LocalStorageConfig) (map[string]string, error) {
 
 func loadConfig(agentConfig agent.Config) (*config, error) {
 	config := &config{
-		storageDir:        agentConfig.Value(StorageDir),
-		storageAddr:       agentConfig.Value(StorageAddr),
-		sharedStorageDir:  agentConfig.Value(SharedStorageDir),
-		sharedStorageAddr: agentConfig.Value(SharedStorageAddr),
-		authkey:           agentConfig.Value(StorageAuthKey),
+		storageDir:  agentConfig.Value(StorageDir),
+		storageAddr: agentConfig.Value(StorageAddr),
+		authkey:     agentConfig.Value(StorageAuthKey),
 	}
 
 	caCertPEM := agentConfig.Value(StorageCACert)

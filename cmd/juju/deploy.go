@@ -88,7 +88,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.BumpRevision, "upgrade", false, "")
 	f.Var(&c.Config, "config", "path to yaml-formatted service config")
 	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "set service constraints")
-	f.StringVar(&c.RepoPath, "repository", os.Getenv(osenv.JujuRepository), "local charm repository")
+	f.StringVar(&c.RepoPath, "repository", os.Getenv(osenv.JujuRepositoryEnvKey), "local charm repository")
 }
 
 func (c *DeployCommand) Init(args []string) error {
@@ -267,7 +267,7 @@ func (c *DeployCommand) run1dot16(ctx *cmd.Context) error {
 // charm on stdout.
 func addCharmViaAPI(client *api.Client, ctx *cmd.Context, curl *charm.URL, repo charm.Repository) (*charm.URL, error) {
 	if curl.Revision < 0 {
-		latest, err := repo.Latest(curl)
+		latest, err := charm.Latest(repo, curl)
 		if err != nil {
 			return nil, err
 		}

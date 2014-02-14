@@ -20,6 +20,7 @@ import (
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/utils/exec"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
 
@@ -97,7 +98,7 @@ func (s *ServerSuite) TearDownTest(c *gc.C) {
 	s.LoggingSuite.TearDownTest(c)
 }
 
-func (s *ServerSuite) Call(c *gc.C, req jujuc.Request) (resp cmd.RemoteResponse, err error) {
+func (s *ServerSuite) Call(c *gc.C, req jujuc.Request) (resp exec.ExecResponse, err error) {
 	client, err := rpc.Dial("unix", s.sockPath)
 	c.Assert(err, gc.IsNil)
 	defer client.Close()
@@ -162,7 +163,7 @@ func (s *ServerSuite) TestBadContextId(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `bad request: unknown context "whatever"`)
 }
 
-func (s *ServerSuite) AssertBadCommand(c *gc.C, args []string, code int) cmd.RemoteResponse {
+func (s *ServerSuite) AssertBadCommand(c *gc.C, args []string, code int) exec.ExecResponse {
 	resp, err := s.Call(c, jujuc.Request{"validCtx", c.MkDir(), args[0], args[1:]})
 	c.Assert(err, gc.IsNil)
 	c.Assert(resp.Code, gc.Equals, code)

@@ -6,6 +6,7 @@ package machiner
 import (
 	"fmt"
 
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/watcher"
 )
@@ -46,6 +47,21 @@ func (m *Machine) SetStatus(status params.Status, info string, data params.Statu
 		},
 	}
 	err := m.st.caller.Call("Machiner", "", "SetStatus", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
+}
+
+// SetMachineAddresses sets the machine determined addresses of the machine.
+func (m *Machine) SetMachineAddresses(addresses []instance.Address) error {
+	var result params.ErrorResults
+	args := params.SetMachinesAddresses{
+		MachineAddresses: []params.MachineAddresses{
+			{Tag: m.Tag(), Addresses: addresses},
+		},
+	}
+	err := m.st.caller.Call("Machiner", "", "SetMachineAddresses", args, &result)
 	if err != nil {
 		return err
 	}

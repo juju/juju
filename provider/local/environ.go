@@ -5,16 +5,17 @@ package local
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net"
-	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"sync"
-	"time"
 
 	"launchpad.net/juju-core/agent"
-	agenttools "launchpad.net/juju-core/agent/tools"
+	coreCloudinit "launchpad.net/juju-core/cloudinit"
+	"launchpad.net/juju-core/cloudinit/sshinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/container/factory"
@@ -29,28 +30,17 @@ import (
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
-	"launchpad.net/juju-core/log/syslog"
-	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/tools"
-	"launchpad.net/juju-core/upstart"
-	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
+	"launchpad.net/juju-core/worker/terminationworker"
 )
 
 // boostrapInstanceId is just the name we give to the bootstrap machine.
 // Using "localhost" because it is, and it makes sense.
 const bootstrapInstanceId instance.Id = "localhost"
-
-// upstartScriptLocation and syslogConfigDir are parameterised purely for
-// testing purposes as we don't really want to be installing and starting
-// scripts as root for testing.
-var (
-	upstartScriptLocation = "/etc/init"
-	syslogConfigDir       = "/etc/rsyslog.d"
-)
 
 // localEnviron implements Environ.
 var _ environs.Environ = (*localEnviron)(nil)
@@ -59,12 +49,13 @@ var _ environs.Environ = (*localEnviron)(nil)
 var _ envtools.SupportsCustomSources = (*localEnviron)(nil)
 
 type localEnviron struct {
-	localMutex            sync.Mutex
-	config                *environConfig
-	name                  string
-	sharedStorageListener net.Listener
-	storageListener       net.Listener
-	containerManager      container.Manager
+	localMutex       sync.Mutex
+	config           *environConfig
+	name             string
+	bridgeAddress    string
+	localStorage     storage.Storage
+	storageListener  net.Listener
+	containerManager container.Manager
 }
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
@@ -87,8 +78,8 @@ func (env *localEnviron) machineAgentServiceName() string {
 	return "juju-agent-" + env.config.namespace()
 }
 
-func (env *localEnviron) syslogFilename() string {
-	return fmt.Sprintf("25-juju-%s.conf", env.config.namespace())
+func (env *localEnviron) rsyslogConfPath() string {
+	return fmt.Sprintf("/etc/rsyslog.d/25-juju-%s.conf", env.config.namespace())
 }
 
 // PrecheckInstance is specified in the environs.Prechecker interface.
@@ -103,29 +94,29 @@ func (*localEnviron) PrecheckContainer(series string, kind instance.ContainerTyp
 	return environs.NewContainersUnsupported("local provider does not support nested containers")
 }
 
+func ensureNotRoot() error {
+	if checkIfRoot() {
+		return fmt.Errorf("bootstrapping a local environment must not be done as root")
+	}
+	return nil
+}
+
 // Bootstrap is specified in the Environ interface.
 func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
-	if !env.config.runningAsRoot {
-		return fmt.Errorf("bootstrapping a local environment must be done as root")
-	}
-	if err := env.config.createDirs(); err != nil {
-		logger.Errorf("failed to create necessary directories: %v", err)
+	if err := ensureNotRoot(); err != nil {
 		return err
 	}
-
-	// TODO(thumper): check that the constraints don't include "container=lxc" for now.
 	privateKey, err := common.GenerateSystemSSHKey(env)
-	if err != nil {
-		return err
-	}
-
-	cert, key, err := env.setupLocalMongoService()
 	if err != nil {
 		return err
 	}
 
 	// Before we write the agent config file, we need to make sure the
 	// instance is saved in the StateInfo.
+	stateFileURL, err := bootstrap.CreateStateFile(env.Storage())
+	if err != nil {
+		return err
+	}
 	if err := bootstrap.SaveState(env.Storage(), &bootstrap.BootstrapState{
 		StateInstances: []instance.Id{bootstrapInstanceId},
 	}); err != nil {
@@ -139,23 +130,74 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 		return err
 	}
 
-	if err := env.configureLocalSyslog(); err != nil {
+	// Record the bootstrap IP, so the containers know where to go for storage.
+	cfg, err := env.Config().Apply(map[string]interface{}{
+		"bootstrap-ip": env.bridgeAddress,
+	})
+	if err == nil {
+		err = env.SetConfig(cfg)
+	}
+	if err != nil {
+		logger.Errorf("failed to apply bootstrap-ip to config: %v", err)
 		return err
 	}
 
-	// Need to write out the agent file for machine-0 before initializing
-	// state, as as part of that process, it will reset the password in the
-	// agent file.
-	agentConfig, err := env.writeBootstrapAgentConfFile(env.config.AdminSecret(), cert, key)
+	bootstrapJobs, err := agent.MarshalBootstrapJobs(state.JobManageEnviron)
 	if err != nil {
 		return err
 	}
 
-	if err := env.initializeState(agentConfig, cons); err != nil {
+	mcfg := environs.NewBootstrapMachineConfig(stateFileURL, privateKey)
+	mcfg.Tools = selectedTools[0]
+	mcfg.DataDir = env.config.rootDir()
+	mcfg.LogDir = env.config.logDir()
+	mcfg.RsyslogConfPath = env.rsyslogConfPath()
+	mcfg.CloudInitOutputLog = filepath.Join(mcfg.LogDir, "cloud-init-output.log")
+	mcfg.DisablePackageCommands = true
+	mcfg.MachineAgentServiceName = env.machineAgentServiceName()
+	mcfg.MongoServiceName = env.mongoServiceName()
+	mcfg.AgentEnvironment = map[string]string{
+		agent.Namespace:     env.config.namespace(),
+		agent.StorageDir:    env.config.storageDir(),
+		agent.StorageAddr:   env.config.storageAddr(),
+		agent.BootstrapJobs: bootstrapJobs,
+	}
+	if err := environs.FinishMachineConfig(mcfg, cfg, cons); err != nil {
 		return err
 	}
+	// don't write proxy settings for local machine
+	mcfg.AptProxySettings = osenv.ProxySettings{}
+	mcfg.ProxySettings = osenv.ProxySettings{}
+	cloudcfg := coreCloudinit.New()
+	// Since rsyslogd is restricted by apparmor to only write to /var/log/**
+	// we now provide a symlink to the written file in the local log dir.
+	// Also, we leave the old all-machines.log file in
+	// /var/log/juju-{{namespace}} until we start the environment again. So
+	// potentially remove it at the start of the cloud-init.
+	logfile := fmt.Sprintf("/var/log/juju-%s/all-machines.log", env.config.namespace())
+	cloudcfg.AddScripts(
+		fmt.Sprintf("[ -f %s ] && rm %s", logfile, logfile),
+		fmt.Sprintf("ln -s %s %s/", logfile, env.config.logDir()))
+	if err := cloudinit.ConfigureJuju(mcfg, cloudcfg); err != nil {
+		return err
+	}
+	return finishBootstrap(mcfg, cloudcfg, ctx)
+}
 
-	return env.setupLocalMachineAgent(cons, selectedTools, privateKey)
+// finishBootstrap converts the machine config to cloud-config,
+// converts that to a script, and then executes it locally.
+//
+// mcfg is supplied for testing purposes.
+var finishBootstrap = func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config, ctx environs.BootstrapContext) error {
+	script, err := sshinit.ConfigureScript(cloudcfg)
+	if err != nil {
+		return nil
+	}
+	cmd := exec.Command("sudo", "/bin/bash", "-s")
+	cmd.Stdin = strings.NewReader(script)
+	cmd.Stdout = ctx.Stdout()
+	cmd.Stderr = ctx.Stderr()
+	return cmd.Run()
 }
 
 // StateInfo is specified in the Environ interface.
@@ -168,22 +210,6 @@ func (env *localEnviron) Config() *config.Config {
 	env.localMutex.Lock()
 	defer env.localMutex.Unlock()
 	return env.config.Config
-}
-
-func createLocalStorageListener(dir, address string) (net.Listener, error) {
-	info, err := os.Stat(dir)
-	if os.IsNotExist(err) {
-		return nil, fmt.Errorf("storage directory %q does not exist, bootstrap first", dir)
-	} else if err != nil {
-		return nil, err
-	} else if !info.Mode().IsDir() {
-		return nil, fmt.Errorf("%q exists but is not a directory (and it needs to be)", dir)
-	}
-	storage, err := filestorage.NewFileStorageWriter(dir, filestorage.UseDefaultTmpDir)
-	if err != nil {
-		return nil, err
-	}
-	return httpstorage.Serve(address, storage)
 }
 
 // SetConfig is specified in the Environ interface.
@@ -208,16 +234,19 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 		return err
 	}
 
-	// Here is the end of normal config setting.
-	if ecfg.bootstrapped() {
+	// When the localEnviron value is created on the client
+	// side, the bootstrap-ip attribute will not exist,
+	// because it is only set *within* the running
+	// environment, not in the configuration created by
+	// Prepare.
+	//
+	// When bootstrapIPAddress returns a non-empty string,
+	// we know we are running server-side and thus must use
+	// httpstorage.
+	if addr := ecfg.bootstrapIPAddress(); addr != "" {
+		env.bridgeAddress = addr
 		return nil
 	}
-	return env.bootstrapAddressAndStorage(cfg)
-}
-
-// bootstrapAddressAndStorage finishes up the setup of the environment in
-// situations where there is no machine agent running yet.
-func (env *localEnviron) bootstrapAddressAndStorage(cfg *config.Config) error {
 	// If we get to here, it is because we haven't yet bootstrapped an
 	// environment, and saved the config in it, or we are running a command
 	// from the command line, so it is ok to work on the assumption that we
@@ -225,7 +254,16 @@ func (env *localEnviron) bootstrapAddressAndStorage(cfg *config.Config) error {
 	if err := env.config.createDirs(); err != nil {
 		return err
 	}
+	// Record the network bridge address and create a filestorage.
+	if err := env.resolveBridgeAddress(cfg); err != nil {
+		return err
+	}
+	return env.setLocalStorage()
+}
 
+// resolveBridgeAddress finishes up the setup of the environment in
+// situations where there is no machine agent running yet.
+func (env *localEnviron) resolveBridgeAddress(cfg *config.Config) error {
 	// We need the provider config to get the network bridge.
 	config, err := providerInstance.newConfig(cfg)
 	if err != nil {
@@ -233,55 +271,25 @@ func (env *localEnviron) bootstrapAddressAndStorage(cfg *config.Config) error {
 		return err
 	}
 	networkBridge := config.networkBridge()
-	bridgeAddress, err := env.findBridgeAddress(networkBridge)
+	bridgeAddress, err := getAddressForInterface(networkBridge)
 	if err != nil {
 		logger.Infof("configure a different bridge using 'network-bridge' in the config file")
-		return fmt.Errorf("cannot find address of network-bridge: %q", networkBridge)
+		return fmt.Errorf("cannot find address of network-bridge: %q: %v", networkBridge, err)
 	}
 	logger.Debugf("found %q as address for %q", bridgeAddress, networkBridge)
-	cfg, err = cfg.Apply(map[string]interface{}{
-		"bootstrap-ip": bridgeAddress,
-	})
-	if err != nil {
-		logger.Errorf("failed to apply new addresses to config: %v", err)
-		return err
-	}
-	// Now recreate the config based on the settings with the bootstrap id.
-	config, err = providerInstance.newConfig(cfg)
-	if err != nil {
-		logger.Errorf("failed to create new environ config: %v", err)
-		return err
-	}
-	env.config = config
-
-	return env.setupLocalStorage()
+	env.bridgeAddress = bridgeAddress
+	return nil
 }
 
-// setupLocalStorage looks to see if there is someone listening on the storage
-// address port.  If there is we assume that it is ours and all is good.  If
-// there is no one listening on that port, create listeners for both storage
-// and the shared storage for the duration of the commands execution.
-func (env *localEnviron) setupLocalStorage() error {
-	// Try to listen to the storageAddress.
-	logger.Debugf("checking %s to see if machine agent running storage listener", env.config.storageAddr())
-	connection, err := net.Dial("tcp", env.config.storageAddr())
+// setLocalStorage creates a filestorage so tools can
+// be synced and so forth without having a machine agent
+// running.
+func (env *localEnviron) setLocalStorage() error {
+	storage, err := filestorage.NewFileStorageWriter(env.config.storageDir(), filestorage.UseDefaultTmpDir)
 	if err != nil {
-		logger.Debugf("nope, start some")
-		// These listeners are part of the environment structure so as to remain
-		// referenced for the duration of the open environment.  This is only for
-		// environs that have been created due to a user command.
-		env.storageListener, err = createLocalStorageListener(env.config.storageDir(), env.config.storageAddr())
-		if err != nil {
-			return err
-		}
-		env.sharedStorageListener, err = createLocalStorageListener(env.config.sharedStorageDir(), env.config.sharedStorageAddr())
-		if err != nil {
-			return err
-		}
-	} else {
-		logger.Debugf("yes, don't start local storage listeners")
-		connection.Close()
+		return err
 	}
+	env.localStorage = storage
 	return nil
 }
 
@@ -325,17 +333,33 @@ func (env *localEnviron) StopInstances(instances []instance.Instance) error {
 
 // Instances is specified in the Environ interface.
 func (env *localEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
-	// NOTE: do we actually care about checking the existance of the instances?
-	// I posit that here we don't really care, and that we are only called with
-	// instance ids that we know exist.
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	insts := make([]instance.Instance, len(ids))
-	for i, id := range ids {
-		insts[i] = &localInstance{id, env}
+	insts, err := env.AllInstances()
+	if err != nil {
+		return nil, err
 	}
-	return insts, nil
+	allInstances := make(map[instance.Id]instance.Instance)
+	for _, inst := range insts {
+		allInstances[inst.Id()] = inst
+	}
+	var found int
+	insts = make([]instance.Instance, len(ids))
+	for i, id := range ids {
+		if inst, ok := allInstances[id]; ok {
+			insts[i] = inst
+			found++
+		}
+	}
+	if found == 0 {
+		insts, err = nil, environs.ErrNoInstances
+	} else if found < len(ids) {
+		err = environs.ErrPartialInstances
+	} else {
+		err = nil
+	}
+	return insts, err
 }
 
 // AllInstances is specified in the InstanceBroker interface.
@@ -354,56 +378,47 @@ func (env *localEnviron) AllInstances() (instances []instance.Instance, err erro
 
 // Storage is specified in the Environ interface.
 func (env *localEnviron) Storage() storage.Storage {
+	// localStorage is non-nil if we're running from the CLI
+	if env.localStorage != nil {
+		return env.localStorage
+	}
 	return httpstorage.Client(env.config.storageAddr())
-}
-
-// Implements environs.BootstrapStorager.
-func (env *localEnviron) EnableBootstrapStorage() error {
-	return env.setupLocalStorage()
 }
 
 // Destroy is specified in the Environ interface.
 func (env *localEnviron) Destroy() error {
-	if !env.config.runningAsRoot {
-		return fmt.Errorf("destroying a local environment must be done as root")
-	}
-	// Kill all running instances.
-	containers, err := env.containerManager.ListContainers()
-	if err != nil {
-		return err
-	}
-	for _, inst := range containers {
-		if err := env.containerManager.StopContainer(inst); err != nil {
+	// Kill all running instances. This must be done as
+	// root, or listing/stopping containers will fail.
+	if !checkIfRoot() {
+		juju, err := exec.LookPath(os.Args[0])
+		if err != nil {
 			return err
 		}
+		args := []string{osenv.JujuHomeEnvKey + "=" + osenv.JujuHome()}
+		args = append(args, juju)
+		args = append(args, os.Args[1:]...)
+		args = append(args, "-y")
+		cmd := exec.Command("sudo", args...)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		return cmd.Run()
+	} else {
+		containers, err := env.containerManager.ListContainers()
+		if err != nil {
+			return err
+		}
+		for _, inst := range containers {
+			if err := env.containerManager.StopContainer(inst); err != nil {
+				return err
+			}
+		}
+		cmd := exec.Command(
+			"pkill",
+			fmt.Sprintf("-%d", terminationworker.TerminationSignal),
+			"-f", filepath.Join(regexp.QuoteMeta(env.config.rootDir()), ".*", "jujud"),
+		)
+		return cmd.Run()
 	}
-
-	logger.Infof("removing service %s", env.machineAgentServiceName())
-	machineAgent := upstart.NewService(env.machineAgentServiceName())
-	machineAgent.InitDir = upstartScriptLocation
-	if err := machineAgent.StopAndRemove(); err != nil {
-		logger.Errorf("could not remove machine agent service: %v", err)
-		return err
-	}
-
-	logger.Infof("removing service %s", env.mongoServiceName())
-	mongo := upstart.NewService(env.mongoServiceName())
-	mongo.InitDir = upstartScriptLocation
-	if err := mongo.StopAndRemove(); err != nil {
-		logger.Errorf("could not remove mongo service: %v", err)
-		return err
-	}
-
-	env.removeLocalSyslog()
-
-	// Remove the rootdir.
-	logger.Infof("removing state dir %s", env.config.rootDir())
-	if err := os.RemoveAll(env.config.rootDir()); err != nil {
-		logger.Errorf("could not remove local state dir: %v", err)
-		return err
-	}
-
-	return nil
 }
 
 // OpenPorts is specified in the Environ interface.
@@ -424,219 +439,4 @@ func (env *localEnviron) Ports() ([]instance.Port, error) {
 // Provider is specified in the Environ interface.
 func (env *localEnviron) Provider() environs.EnvironProvider {
 	return providerInstance
-}
-
-// setupLocalMongoService returns the cert and key if there was no error.
-func (env *localEnviron) setupLocalMongoService() ([]byte, []byte, error) {
-	journalDir := filepath.Join(env.config.mongoDir(), "journal")
-	logger.Debugf("create mongo journal dir: %v", journalDir)
-	if err := os.MkdirAll(journalDir, 0755); err != nil {
-		logger.Errorf("failed to make mongo journal dir %s: %v", journalDir, err)
-		return nil, nil, err
-	}
-
-	logger.Debugf("generate server cert")
-	cert, key, err := env.config.GenerateStateServerCertAndKey()
-	if err != nil {
-		logger.Errorf("failed to generate server cert: %v", err)
-		return nil, nil, err
-	}
-	if err := ioutil.WriteFile(
-		env.config.configFile("server.pem"),
-		append(cert, key...),
-		0600); err != nil {
-		logger.Errorf("failed to write server.pem: %v", err)
-		return nil, nil, err
-	}
-
-	mongo := upstart.MongoUpstartService(
-		env.mongoServiceName(),
-		env.config.rootDir(),
-		env.config.mongoDir(),
-		env.config.StatePort())
-	mongo.InitDir = upstartScriptLocation
-	logger.Infof("installing service %s to %s", env.mongoServiceName(), mongo.InitDir)
-	if err := mongo.Install(); err != nil {
-		logger.Errorf("could not install mongo service: %v", err)
-		return nil, nil, err
-	}
-	return cert, key, nil
-}
-
-func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value, possibleTools tools.List, privateKey string) error {
-	dataDir := env.config.rootDir()
-	// unpack the first tools into the agent dir.
-	agentTools := possibleTools[0]
-	logger.Debugf("tools: %#v", agentTools)
-	// save the system identity file
-	systemIdentityFilename := filepath.Join(dataDir, cloudinit.SystemIdentity)
-	logger.Debugf("writing system identity to %s", systemIdentityFilename)
-	if err := ioutil.WriteFile(systemIdentityFilename, []byte(privateKey), 0600); err != nil {
-		return fmt.Errorf("failed to write system identity: %v", err)
-	}
-
-	// brutally abuse our knowledge of storage to directly open the file
-	toolsUrl, err := url.Parse(agentTools.URL)
-	if err != nil {
-		return err
-	}
-	toolsLocation := filepath.Join(env.config.storageDir(), toolsUrl.Path)
-	logger.Infof("tools location: %v", toolsLocation)
-	toolsFile, err := os.Open(toolsLocation)
-	defer toolsFile.Close()
-	// Again, brutally abuse our knowledge here.
-
-	// The tools that possible bootstrap tools are based on the
-	// default series in the config.  However we are running potentially on a
-	// different series.  When the machine agent is started, it will be
-	// looking based on the current series, so we need to override the series
-	// returned in the tools to be the current series.
-	agentTools.Version.Series = version.Current.Series
-	err = agenttools.UnpackTools(dataDir, agentTools, toolsFile)
-
-	machineId := "0" // Always machine 0
-	tag := names.MachineTag(machineId)
-
-	// make sure we create the symlink so we have it for the upstart config to use
-	if _, err := agenttools.ChangeAgentTools(dataDir, tag, agentTools.Version); err != nil {
-		logger.Errorf("could not create tools directory symlink: %v", err)
-		return err
-	}
-
-	toolsDir := agenttools.ToolsDir(dataDir, tag)
-
-	logDir := env.config.logDir()
-	machineEnvironment := map[string]string{
-		"USER": env.config.user,
-		"HOME": osenv.Home(),
-	}
-	agentService := upstart.MachineAgentUpstartService(
-		env.machineAgentServiceName(),
-		toolsDir, dataDir, logDir, tag, machineId, machineEnvironment)
-
-	agentService.InitDir = upstartScriptLocation
-	logger.Infof("installing service %s to %s", env.machineAgentServiceName(), agentService.InitDir)
-	if err := agentService.Install(); err != nil {
-		logger.Errorf("could not install machine agent service: %v", err)
-		return err
-	}
-	return nil
-}
-
-func (env *localEnviron) findBridgeAddress(networkBridge string) (string, error) {
-	return getAddressForInterface(networkBridge)
-}
-
-func (env *localEnviron) writeBootstrapAgentConfFile(secret string, cert, key []byte) (agent.Config, error) {
-	tag := names.MachineTag("0")
-	passwordHash := utils.UserPasswordHash(secret, utils.CompatSalt)
-	// We don't check the existance of the CACert here as if it wasn't set, we
-	// wouldn't get this far.
-	cfg := env.config.Config
-	caCert, _ := cfg.CACert()
-	agentValues := map[string]string{
-		agent.ProviderType:      env.config.Type(),
-		agent.Namespace:         env.config.namespace(),
-		agent.StorageDir:        env.config.storageDir(),
-		agent.StorageAddr:       env.config.storageAddr(),
-		agent.SharedStorageDir:  env.config.sharedStorageDir(),
-		agent.SharedStorageAddr: env.config.sharedStorageAddr(),
-		agent.AgentServiceName:  env.machineAgentServiceName(),
-		agent.MongoServiceName:  env.mongoServiceName(),
-	}
-	// NOTE: the state address HAS to be localhost, otherwise the mongo
-	// initialization fails.  There is some magic code somewhere in the mongo
-	// connection code that treats connections from localhost as special, and
-	// will raise unauthorized errors during the initialization if the caller
-	// is not connected from localhost.
-	stateAddress := fmt.Sprintf("localhost:%d", cfg.StatePort())
-	apiAddress := fmt.Sprintf("localhost:%d", cfg.APIPort())
-	config, err := agent.NewStateMachineConfig(
-		agent.StateMachineConfigParams{
-			AgentConfigParams: agent.AgentConfigParams{
-				DataDir:        env.config.rootDir(),
-				Tag:            tag,
-				Password:       passwordHash,
-				Nonce:          state.BootstrapNonce,
-				StateAddresses: []string{stateAddress},
-				APIAddresses:   []string{apiAddress},
-				CACert:         caCert,
-				Values:         agentValues,
-			},
-			StateServerCert: cert,
-			StateServerKey:  key,
-			StatePort:       cfg.StatePort(),
-			APIPort:         cfg.APIPort(),
-		})
-	if err != nil {
-		return nil, err
-	}
-	if err := config.Write(); err != nil {
-		logger.Errorf("failed to write bootstrap agent file: %v", err)
-		return nil, err
-	}
-	return config, nil
-}
-
-func (env *localEnviron) initializeState(agentConfig agent.Config, cons constraints.Value) error {
-	bootstrapCfg, err := environs.BootstrapConfig(env.config.Config)
-	if err != nil {
-		return err
-	}
-	st, m, err := agentConfig.InitializeState(bootstrapCfg, agent.BootstrapMachineConfig{
-		Constraints: cons,
-		Jobs: []state.MachineJob{
-			state.JobManageEnviron,
-			state.JobManageState,
-		},
-		InstanceId: bootstrapInstanceId,
-	}, state.DialOpts{
-		Timeout: 60 * time.Second,
-	})
-	if err != nil {
-		return err
-	}
-	defer st.Close()
-	addr, err := env.findBridgeAddress(env.config.networkBridge())
-	if err != nil {
-		return fmt.Errorf("failed to get bridge address: %v", err)
-	}
-	err = m.SetAddresses([]instance.Address{{
-		NetworkScope: instance.NetworkPublic,
-		Type:         instance.HostName,
-		Value:        "localhost",
-	}, {
-		NetworkScope: instance.NetworkCloudLocal,
-		Type:         instance.Ipv4Address,
-		Value:        addr,
-	}})
-	if err != nil {
-		return fmt.Errorf("cannot set addresses on bootstrap instance: %v", err)
-	}
-	return nil
-}
-
-func (env *localEnviron) configureLocalSyslog() error {
-	tag := names.MachineTag("0")
-	syslogConfigRenderer := syslog.NewAccumulateConfig(tag, env.config.SyslogPort(), env.config.namespace())
-	syslogConfigRenderer.ConfigDir = syslogConfigDir
-	syslogConfigRenderer.ConfigFileName = env.syslogFilename()
-	syslogConfigRenderer.LogDir = env.config.logDir()
-	if err := syslogConfigRenderer.Write(); err != nil {
-		return err
-	}
-	if err := syslog.Restart(); err != nil {
-		logger.Warningf("cannot restart syslog daemon: %v", err)
-	}
-	return nil
-}
-
-func (env *localEnviron) removeLocalSyslog() {
-	// Don't fail if we have issues, but warn the user.
-	if err := os.Remove(filepath.Join(syslogConfigDir, env.syslogFilename())); err != nil {
-		logger.Warningf("could not remove local syslog config: %v", err)
-	}
-	if err := syslog.Restart(); err != nil {
-		logger.Warningf("cannot restart syslog daemon: %v", err)
-	}
 }

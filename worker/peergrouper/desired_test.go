@@ -28,7 +28,7 @@ const mongoPort = 1234
 var desiredPeerGroupTests = []struct {
 	about    string
 	machines []*machine
-	statuses []replicaset.Status
+	statuses []replicaset.MemberStatus
 	members  []replicaset.Member
 
 	expectMembers []replicaset.Member
@@ -268,12 +268,12 @@ var stateFlags = map[rune]replicaset.MemberState{
 // 	- 'H' if the instance is not healthy.
 //	- 'p' if the instance is in PrimaryState
 //	- 's' if the instance is in SecondaryState
-func mkStatuses(description string) []replicaset.Status {
+func mkStatuses(description string) []replicaset.MemberStatus {
 	descrs := parseDescr(description)
-	ss := make([]replicaset.Status, len(descrs))
+	ss := make([]replicaset.MemberStatus, len(descrs))
 	for i, d := range descrs {
 		machineId := d.id + 10
-		s := replicaset.Status{
+		s := replicaset.MemberStatus{
 			Id:      d.id,
 			Address: fmt.Sprintf("0.1.2.%d:%d", machineId, mongoPort),
 			Healthy: !strings.Contains(d.flags, "H"),

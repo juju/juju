@@ -6,7 +6,9 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"net/url"
+	"path/filepath"
 
 	gc "launchpad.net/gocheck"
 
@@ -69,7 +71,11 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 		ctx := coretesting.Context(c)
 		code := cmd.Main(&SCPCommand{}, ctx, t.args)
 		c.Check(code, gc.Equals, 0)
+		// we suppress stdout from scp
 		c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
-		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, t.result)
+		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, "")
+		data, err := ioutil.ReadFile(filepath.Join(s.bin, "scp.args"))
+		c.Assert(err, gc.IsNil)
+		c.Assert(string(data), gc.Equals, t.result)
 	}
 }

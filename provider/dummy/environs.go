@@ -33,7 +33,7 @@ import (
 	"sync"
 	"time"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -65,7 +65,7 @@ func SampleConfig() testing.Attrs {
 	return testing.Attrs{
 		"type":                      "dummy",
 		"name":                      "only",
-		"authorized-keys":           "my-keys",
+		"authorized-keys":           testing.FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
 		"admin-secret":              testing.DefaultMongoPassword,
 		"ca-cert":                   testing.CACert,
@@ -97,17 +97,16 @@ func stateInfo() *state.Info {
 // Operation represents an action on the dummy provider.
 type Operation interface{}
 
-type GenericOperation struct {
-	Env string
-}
-
 type OpBootstrap struct {
 	Context     environs.BootstrapContext
 	Env         string
 	Constraints constraints.Value
 }
 
-type OpDestroy GenericOperation
+type OpDestroy struct {
+	Env   string
+	Error error
+}
 
 type OpStartInstance struct {
 	Env          string
@@ -637,16 +636,17 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (e *environ) Destroy() error {
+func (e *environ) Destroy() (res error) {
 	defer delay()
-	if err := e.checkBroken("Destroy"); err != nil {
-		return err
-	}
 	estate, err := e.state()
 	if err != nil {
 		if err == provider.ErrDestroyed {
 			return nil
 		}
+		return err
+	}
+	defer func() { estate.ops <- OpDestroy{Env: estate.name, Error: res} }()
+	if err := e.checkBroken("Destroy"); err != nil {
 		return err
 	}
 	p := &providerInstance
@@ -656,7 +656,6 @@ func (e *environ) Destroy() error {
 
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
-	estate.ops <- OpDestroy{Env: estate.name}
 	estate.destroy()
 	return nil
 }
@@ -861,7 +860,7 @@ func (e *environ) Ports() (ports []instance.Port, err error) {
 	for p := range estate.globalPorts {
 		ports = append(ports, p)
 	}
-	state.SortPorts(ports)
+	instance.SortPorts(ports)
 	return
 }
 
@@ -873,6 +872,7 @@ type dummyInstance struct {
 	state        *environState
 	ports        map[instance.Port]bool
 	id           instance.Id
+	status       string
 	machineId    string
 	series       string
 	firewallMode string
@@ -886,7 +886,7 @@ func (inst *dummyInstance) Id() instance.Id {
 }
 
 func (inst *dummyInstance) Status() string {
-	return ""
+	return inst.status
 }
 
 // SetInstanceAddresses sets the addresses associated with the given
@@ -895,6 +895,15 @@ func SetInstanceAddresses(inst instance.Instance, addrs []instance.Address) {
 	inst0 := inst.(*dummyInstance)
 	inst0.mu.Lock()
 	inst0.addresses = append(inst0.addresses[:0], addrs...)
+	inst0.mu.Unlock()
+}
+
+// SetInstanceStatus sets the status associated with the given
+// dummy instance.
+func SetInstanceStatus(inst instance.Instance, status string) {
+	inst0 := inst.(*dummyInstance)
+	inst0.mu.Lock()
+	inst0.status = status
 	inst0.mu.Unlock()
 }
 
@@ -978,7 +987,7 @@ func (inst *dummyInstance) Ports(machineId string) (ports []instance.Port, err e
 	for p := range inst.ports {
 		ports = append(ports, p)
 	}
-	state.SortPorts(ports)
+	instance.SortPorts(ports)
 	return
 }
 

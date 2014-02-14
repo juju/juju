@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/loggo/loggo"
 	"labix.org/v2/mgo"
-	"launchpad.net/loggo"
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/environs/config"
@@ -1057,6 +1057,10 @@ var _ Watcher = (*entityWatcher)(nil)
 // WatchHardwareCharacteristics returns a watcher for observing changes to a machine's hardware characteristics.
 func (m *Machine) WatchHardwareCharacteristics() NotifyWatcher {
 	return newEntityWatcher(m.st, m.st.instanceData, m.doc.Id)
+}
+
+func (st *State) WatchStateServerInfo() NotifyWatcher {
+	return newEntityWatcher(st, st.stateServers, environGlobalKey)
 }
 
 // Watch returns a watcher for observing changes to a machine.

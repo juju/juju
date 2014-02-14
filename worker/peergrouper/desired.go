@@ -14,7 +14,7 @@ var logger = loggo.GetLogger("juju.worker.peergrouper")
 // a peer group.
 type peerGroupInfo struct {
 	machines []*machine // possibly map[id] *machine
-	statuses []replicaset.Status
+	statuses []replicaset.MemberStatus
 	members  []replicaset.Member
 }
 
@@ -213,7 +213,7 @@ func addNewMembers(
 	}
 }
 
-func isReady(status replicaset.Status) bool {
+func isReady(status replicaset.MemberStatus) bool {
 	return status.Healthy && (status.State == replicaset.PrimaryState ||
 		status.State == replicaset.SecondaryState)
 }
@@ -269,8 +269,8 @@ func (info *peerGroupInfo) membersMap() (members map[*machine]*replicaset.Member
 // statusesMap returns the statuses inside info keyed by machine.
 // The provided members map holds the members keyed by machine,
 // as returned by membersMap.
-func (info *peerGroupInfo) statusesMap(members map[*machine]*replicaset.Member) map[*machine]replicaset.Status {
-	statuses := make(map[*machine]replicaset.Status)
+func (info *peerGroupInfo) statusesMap(members map[*machine]*replicaset.Member) map[*machine]replicaset.MemberStatus {
+	statuses := make(map[*machine]replicaset.MemberStatus)
 	for _, status := range info.statuses {
 		for m, member := range members {
 			if member.Id == status.Id {

@@ -10,10 +10,11 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"time"
 
+	"github.com/loggo/loggo"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -117,7 +118,13 @@ func (s *SimpleStreamsToolsSuite) uploadToStorage(c *gc.C, stor storage.Storage,
 	}
 	var err error
 	for _, vers := range verses {
-		uploaded[vers], err = stor.URL(fmt.Sprintf("tools/releases/tools-%s.tar.gz", vers.String()))
+		filename := fmt.Sprintf("tools/releases/tools-%s.tar.gz", vers.String())
+		// Put a file in images since the dummy storage provider requires a
+		// file to exist before the URL can be found. This is to ensure it behaves
+		// the same way as MAAS.
+		err = stor.Put(filename, strings.NewReader("dummy"), 5)
+		c.Assert(err, gc.IsNil)
+		uploaded[vers], err = stor.URL(filename)
 		c.Assert(err, gc.IsNil)
 	}
 	objects := s.generateMetadata(c, verses...)
@@ -288,6 +295,8 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 }
 
 func (s *SimpleStreamsToolsSuite) TestFindBootstrapTools(c *gc.C) {
+	// Remove the default tools URL from the search path, just look in cloud storage.
+	s.PatchValue(&envtools.DefaultBaseURL, "")
 	for i, test := range envtesting.BootstrapToolsTests {
 		c.Logf("\ntest %d: %s", i, test.Info)
 		attrs := map[string]interface{}{

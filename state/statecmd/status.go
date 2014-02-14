@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
@@ -22,13 +21,15 @@ import (
 )
 
 func Status(conn *juju.Conn, patterns []string) (*api.Status, error) {
+	var nilStatus api.Status
 	var context statusContext
 	unitMatcher, err := NewUnitMatcher(patterns)
 	if err != nil {
-		return nil, err
+		return &nilStatus, err
 	}
-	if context.services, context.units, err = fetchAllServicesAndUnits(conn.State, unitMatcher); err != nil {
-		return nil, err
+	if context.services,
+		context.units, context.latestCharms, err = fetchAllServicesAndUnits(conn.State, unitMatcher); err != nil {
+		return &nilStatus, err
 	}
 
 	// Filter machines by units in scope.
@@ -36,18 +37,13 @@ func Status(conn *juju.Conn, patterns []string) (*api.Status, error) {
 	if !unitMatcher.matchesAny() {
 		machineIds, err = fetchUnitMachineIds(context.units)
 		if err != nil {
-			return nil, err
+			return &nilStatus, err
 		}
 	}
 	if context.machines, err = fetchMachines(conn.State, machineIds); err != nil {
-		return nil, err
+		return &nilStatus, err
 	}
 
-	context.instances, err = fetchAllInstances(conn.Environ)
-	if err != nil {
-		// XXX: return both err and result as both may be useful?
-		err = nil
-	}
 	return &api.Status{
 		EnvironmentName: conn.Environ.Name(),
 		Machines:        context.processMachines(),
@@ -56,10 +52,10 @@ func Status(conn *juju.Conn, patterns []string) (*api.Status, error) {
 }
 
 type statusContext struct {
-	instances map[instance.Id]instance.Instance
-	machines  map[string][]*state.Machine
-	services  map[string]*state.Service
-	units     map[string]map[string]*state.Unit
+	machines     map[string][]*state.Machine
+	services     map[string]*state.Service
+	units        map[string]map[string]*state.Unit
+	latestCharms map[charm.URL]string
 }
 
 type unitMatcher struct {
@@ -151,19 +147,6 @@ func NewUnitMatcher(patterns []string) (unitMatcher, error) {
 	return unitMatcher{patterns}, nil
 }
 
-// fetchAllInstances returns a map from instance id to instance.
-func fetchAllInstances(env environs.Environ) (map[instance.Id]instance.Instance, error) {
-	m := make(map[instance.Id]instance.Instance)
-	insts, err := env.AllInstances()
-	if err != nil {
-		return nil, err
-	}
-	for _, i := range insts {
-		m[i.Id()] = i
-	}
-	return m, nil
-}
-
 // fetchMachines returns a map from top level machine id to machines, where machines[0] is the host
 // machine and machines[1..n] are any containers (including nested ones).
 //
@@ -196,19 +179,23 @@ func fetchMachines(st *state.State, machineIds *set.Strings) (map[string][]*stat
 	return v, nil
 }
 
-// fetchAllServicesAndUnits returns a map from service name to service
-// and a map from service name to unit name to unit.
-func fetchAllServicesAndUnits(st *state.State, unitMatcher unitMatcher) (map[string]*state.Service, map[string]map[string]*state.Unit, error) {
+// fetchAllServicesAndUnits returns a map from service name to service,
+// a map from service name to unit name to unit, and a map from base charm URL to latest URL.
+func fetchAllServicesAndUnits(
+	st *state.State, unitMatcher unitMatcher) (
+	map[string]*state.Service, map[string]map[string]*state.Unit, map[charm.URL]string, error) {
+
 	svcMap := make(map[string]*state.Service)
 	unitMap := make(map[string]map[string]*state.Unit)
+	latestCharms := make(map[charm.URL]string)
 	services, err := st.AllServices()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	for _, s := range services {
 		units, err := s.AllUnits()
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		svcUnitMap := make(map[string]*state.Unit)
 		for _, u := range units {
@@ -220,9 +207,25 @@ func fetchAllServicesAndUnits(st *state.State, unitMatcher unitMatcher) (map[str
 		if unitMatcher.matchesAny() || len(svcUnitMap) > 0 {
 			unitMap[s.Name()] = svcUnitMap
 			svcMap[s.Name()] = s
+			// Record the base URL for the service's charm so that
+			// the latest store revision can be looked up.
+			charmURL, _ := s.CharmURL()
+			if charmURL.Schema == "cs" {
+				latestCharms[*charmURL.WithRevision(-1)] = ""
+			}
 		}
 	}
-	return svcMap, unitMap, nil
+	for baseURL, _ := range latestCharms {
+		ch, err := st.LatestPlaceholderCharm(&baseURL)
+		if errors.IsNotFoundError(err) {
+			continue
+		}
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		latestCharms[baseURL] = ch.String()
+	}
+	return svcMap, unitMap, latestCharms, nil
 }
 
 // fetchUnitMachineIds returns a set of IDs for machines that
@@ -290,16 +293,11 @@ func (context *statusContext) makeMachineStatus(machine *state.Machine) (status 
 	instid, err := machine.InstanceId()
 	if err == nil {
 		status.InstanceId = instid
-		inst, ok := context.instances[instid]
-		if ok {
-			status.DNSName, _ = inst.DNSName()
-			status.InstanceState = inst.Status()
-		} else {
-			// Double plus ungood.  There is an instance id recorded
-			// for this machine in the state, yet the environ cannot
-			// find that id.
-			status.InstanceState = "missing"
+		status.InstanceState, err = machine.InstanceStatus()
+		if err != nil {
+			status.InstanceState = "error"
 		}
+		status.DNSName = instance.SelectPublicAddress(machine.Addresses())
 	} else {
 		if state.IsNotProvisionedError(err) {
 			status.InstanceId = "pending"
@@ -333,10 +331,15 @@ func (context *statusContext) processServices() map[string]api.ServiceStatus {
 }
 
 func (context *statusContext) processService(service *state.Service) (status api.ServiceStatus) {
-	url, _ := service.CharmURL()
-	status.Charm = url.String()
+	serviceCharmURL, _ := service.CharmURL()
+	status.Charm = serviceCharmURL.String()
 	status.Exposed = service.IsExposed()
 	status.Life = processLife(service)
+
+	latestCharm, ok := context.latestCharms[*serviceCharmURL.WithRevision(-1)]
+	if ok && latestCharm != serviceCharmURL.String() {
+		status.CanUpgradeTo = latestCharm
+	}
 	var err error
 	status.Relations, status.SubordinateTo, err = context.processRelations(service)
 	if err != nil {
@@ -344,26 +347,30 @@ func (context *statusContext) processService(service *state.Service) (status api
 		return
 	}
 	if service.IsPrincipal() {
-		status.Units = context.processUnits(context.units[service.Name()])
+		status.Units = context.processUnits(context.units[service.Name()], serviceCharmURL.String())
 	}
 	return status
 }
 
-func (context *statusContext) processUnits(units map[string]*state.Unit) map[string]api.UnitStatus {
+func (context *statusContext) processUnits(units map[string]*state.Unit, serviceCharm string) map[string]api.UnitStatus {
 	unitsMap := make(map[string]api.UnitStatus)
 	for _, unit := range units {
-		unitsMap[unit.Name()] = context.processUnit(unit)
+		unitsMap[unit.Name()] = context.processUnit(unit, serviceCharm)
 	}
 	return unitsMap
 }
 
-func (context *statusContext) processUnit(unit *state.Unit) (status api.UnitStatus) {
+func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string) (status api.UnitStatus) {
 	status.PublicAddress, _ = unit.PublicAddress()
 	for _, port := range unit.OpenedPorts() {
 		status.OpenedPorts = append(status.OpenedPorts, port.String())
 	}
 	if unit.IsPrincipal() {
 		status.Machine, _ = unit.AssignedMachineId()
+	}
+	curl, _ := unit.CharmURL()
+	if serviceCharm != "" && curl != nil && curl.String() != serviceCharm {
+		status.Charm = curl.String()
 	}
 	status.Life,
 		status.AgentVersion,
@@ -376,7 +383,7 @@ func (context *statusContext) processUnit(unit *state.Unit) (status api.UnitStat
 			subUnit := context.unitByName(name)
 			// subUnit may be nil if subordinate was filtered out.
 			if subUnit != nil {
-				status.Subordinates[name] = context.processUnit(subUnit)
+				status.Subordinates[name] = context.processUnit(subUnit, serviceCharm)
 			}
 		}
 	}

@@ -7,14 +7,17 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
+	"github.com/loggo/loggo"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/utils/exec"
+	"launchpad.net/juju-core/utils/fslock"
 	"launchpad.net/juju-core/worker/uniter"
 )
 
@@ -26,11 +29,12 @@ var _ = gc.Suite(&RunTestSuite{})
 
 func (*RunTestSuite) TestWrongArgs(c *gc.C) {
 	for i, test := range []struct {
-		title    string
-		args     []string
-		errMatch string
-		unit     string
-		commands string
+		title        string
+		args         []string
+		errMatch     string
+		unit         string
+		commands     string
+		avoidContext bool
 	}{{
 		title:    "no args",
 		errMatch: "missing unit-name",
@@ -52,15 +56,21 @@ func (*RunTestSuite) TestWrongArgs(c *gc.C) {
 		args:     []string{"foo/1", "command"},
 		unit:     "unit-foo-1",
 		commands: "command",
+	}, {
+		title:        "execute not in a context",
+		args:         []string{"--no-context", "command"},
+		commands:     "command",
+		avoidContext: true,
 	},
 	} {
-		c.Log(fmt.Sprintf("\n%d: %s", i, test.title))
+		c.Logf("\n%d: %s", i, test.title)
 		runCommand := &RunCommand{}
-		err := runCommand.Init(test.args)
+		err := testing.InitCommand(runCommand, test.args)
 		if test.errMatch == "" {
 			c.Assert(err, gc.IsNil)
 			c.Assert(runCommand.unit, gc.Equals, test.unit)
 			c.Assert(runCommand.commands, gc.Equals, test.commands)
+			c.Assert(runCommand.noContext, gc.Equals, test.avoidContext)
 		} else {
 			c.Assert(err, gc.ErrorMatches, test.errMatch)
 		}
@@ -75,11 +85,71 @@ func (s *RunTestSuite) TestInsideContext(c *gc.C) {
 }
 
 func (s *RunTestSuite) TestMissingAgent(c *gc.C) {
-	agentDir := c.MkDir()
-	s.PatchValue(&AgentDir, agentDir)
+	s.PatchValue(&AgentDir, c.MkDir())
 
 	_, err := testing.RunCommand(c, &RunCommand{}, []string{"foo", "bar"})
 	c.Assert(err, gc.ErrorMatches, `unit "foo" not found on this machine`)
+}
+
+func waitForResult(running <-chan *cmd.Context) (*cmd.Context, error) {
+	select {
+	case result := <-running:
+		return result, nil
+	case <-time.After(testing.ShortWait):
+		return nil, fmt.Errorf("timeout")
+	}
+}
+
+func startRunAsync(c *gc.C, params []string) <-chan *cmd.Context {
+	resultChannel := make(chan *cmd.Context)
+	go func() {
+		ctx, err := testing.RunCommand(c, &RunCommand{}, params)
+		c.Assert(err, jc.Satisfies, cmd.IsRcPassthroughError)
+		c.Assert(err, gc.ErrorMatches, "rc: 0")
+		resultChannel <- ctx
+		close(resultChannel)
+	}()
+	return resultChannel
+}
+
+func (s *RunTestSuite) TestNoContext(c *gc.C) {
+	s.PatchValue(&LockDir, c.MkDir())
+	s.PatchValue(&AgentDir, c.MkDir())
+
+	ctx, err := testing.RunCommand(c, &RunCommand{}, []string{"--no-context", "echo done"})
+	c.Assert(err, jc.Satisfies, cmd.IsRcPassthroughError)
+	c.Assert(err, gc.ErrorMatches, "rc: 0")
+	c.Assert(testing.Stdout(ctx), gc.Equals, "done\n")
+}
+
+func (s *RunTestSuite) TestNoContextAsync(c *gc.C) {
+	s.PatchValue(&LockDir, c.MkDir())
+	s.PatchValue(&AgentDir, c.MkDir())
+
+	channel := startRunAsync(c, []string{"--no-context", "echo done"})
+	ctx, err := waitForResult(channel)
+	c.Assert(err, gc.IsNil)
+	c.Assert(testing.Stdout(ctx), gc.Equals, "done\n")
+}
+
+func (s *RunTestSuite) TestNoContextWithLock(c *gc.C) {
+	s.PatchValue(&LockDir, c.MkDir())
+	s.PatchValue(&AgentDir, c.MkDir())
+	s.PatchValue(&fslock.LockWaitDelay, 10*time.Millisecond)
+
+	lock, err := getLock()
+	c.Assert(err, gc.IsNil)
+	lock.Lock("juju-run test")
+
+	channel := startRunAsync(c, []string{"--no-context", "echo done"})
+	ctx, err := waitForResult(channel)
+	c.Assert(err, gc.ErrorMatches, "timeout")
+
+	lock.Unlock()
+
+	ctx, err = waitForResult(channel)
+	c.Assert(err, gc.IsNil)
+	c.Assert(testing.Stdout(ctx), gc.Equals, "done\n")
 }
 
 func (s *RunTestSuite) TestMissingSocket(c *gc.C) {
@@ -125,9 +195,9 @@ type mockRunner struct {
 
 var _ uniter.CommandRunner = (*mockRunner)(nil)
 
-func (r *mockRunner) RunCommands(commands string) (results *cmd.RemoteResponse, err error) {
+func (r *mockRunner) RunCommands(commands string) (results *exec.ExecResponse, err error) {
 	r.c.Log("mock runner: " + commands)
-	return &cmd.RemoteResponse{
+	return &exec.ExecResponse{
 		Code:   42,
 		Stdout: []byte(commands + " stdout"),
 		Stderr: []byte(commands + " stderr"),

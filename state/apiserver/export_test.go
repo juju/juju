@@ -6,7 +6,7 @@ package apiserver
 import "reflect"
 
 var (
-	RootType          = reflect.TypeOf(&srvRoot{})
-	NewPingTimeout    = newPingTimeout
-	GetEnvironStorage = getEnvironStorage
+	RootType        = reflect.TypeOf(&srvRoot{})
+	NewPingTimeout  = newPingTimeout
+	MaxPingInterval = &maxPingInterval
 )

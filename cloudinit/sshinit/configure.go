@@ -4,12 +4,11 @@
 package sshinit
 
 import (
-	"encoding/base64"
 	"fmt"
 	"io"
 	"strings"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/utils"
@@ -22,36 +21,47 @@ type ConfigureParams struct {
 	// Host is the host to configure, in the format [user@]hostname.
 	Host string
 
+	// Client is the SSH client to connect with.
+	// If Client is nil, ssh.DefaultClient will be used.
+	Client ssh.Client
+
 	// Config is the cloudinit config to carry out.
 	Config *cloudinit.Config
 
-	// Stderr is required to present bootstrap progress to the user.
-	Stderr io.Writer
+	// ProgressWriter is an io.Writer to which progress will be written,
+	// for realtime feedback.
+	ProgressWriter io.Writer
 }
 
 // Configure connects to the specified host over SSH,
 // and executes a script that carries out cloud-config.
 func Configure(params ConfigureParams) error {
 	logger.Infof("Provisioning machine agent on %s", params.Host)
-	script, err := generateScript(params.Config)
+	script, err := ConfigureScript(params.Config)
 	if err != nil {
 		return err
 	}
-	logger.Debugf("running script on %s: %s", params.Host, script)
-	scriptBase64 := base64.StdEncoding.EncodeToString([]byte(script))
-	script = fmt.Sprintf(`F=$(mktemp); echo %s | base64 -d > $F; . $F`, scriptBase64)
-	cmd := ssh.Command(
-		params.Host,
-		[]string{"sudo", "-n", fmt.Sprintf("bash -c '%s'", script)},
-		ssh.NoPasswordAuthentication,
-	)
-	cmd.Stderr = params.Stderr
+	return RunConfigureScript(script, params)
+}
+
+// RunConfigureScript connects to the specified host over
+// SSH, and executes the provided script which is expected
+// to have been returned by ConfigureScript.
+func RunConfigureScript(script string, params ConfigureParams) error {
+	logger.Debugf("Running script on %s: %s", params.Host, script)
+	client := params.Client
+	if client == nil {
+		client = ssh.DefaultClient
+	}
+	cmd := ssh.Command(params.Host, []string{"sudo", "/bin/bash"}, nil)
+	cmd.Stdin = strings.NewReader(script)
+	cmd.Stderr = params.ProgressWriter
 	return cmd.Run()
 }
 
-// generateScript generates the script that applies
+// ConfigureScript generates the bash script that applies
 // the specified cloud-config.
-func generateScript(cloudcfg *cloudinit.Config) (string, error) {
+func ConfigureScript(cloudcfg *cloudinit.Config) (string, error) {
 	// TODO(axw): 2013-08-23 bug 1215777
 	// Carry out configuration for ssh-keys-per-user,
 	// machine-updates-authkeys, using cloud-init config.
@@ -131,6 +141,12 @@ func addPackageCommands(cfg *cloudinit.Config) ([]string, error) {
 		}
 		cmds = append(cmds, cloudinit.LogProgressCmd("Adding apt repository: %s", src.Source))
 		cmds = append(cmds, "add-apt-repository -y "+utils.ShQuote(src.Source))
+		if src.Prefs != nil {
+			path := utils.ShQuote(src.Prefs.Path)
+			contents := utils.ShQuote(src.Prefs.FileContents())
+			cmds = append(cmds, "install -D -m 644 /dev/null "+path)
+			cmds = append(cmds, `printf '%s\n' `+contents+` > `+path)
+		}
 	}
 	if len(cfg.AptSources()) > 0 || cfg.AptUpdate() {
 		cmds = append(cmds, cloudinit.LogProgressCmd("Running apt-get update"))
@@ -142,7 +158,12 @@ func addPackageCommands(cfg *cloudinit.Config) ([]string, error) {
 	}
 	for _, pkg := range cfg.Packages() {
 		cmds = append(cmds, cloudinit.LogProgressCmd("Installing package: %s", pkg))
-		cmd := fmt.Sprintf(aptget+"install %s", utils.ShQuote(pkg))
+		if !strings.Contains(pkg, "--target-release") {
+			// We only need to shquote the package name if it does not
+			// contain additional arguments.
+			pkg = utils.ShQuote(pkg)
+		}
+		cmd := fmt.Sprintf(aptget+"install %s", pkg)
 		cmds = append(cmds, cmd)
 	}
 	if len(cmds) > 0 {

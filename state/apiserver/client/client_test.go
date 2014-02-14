@@ -7,22 +7,31 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"strings"
+	"sync"
+	"time"
 
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
+	coreCloudinit "launchpad.net/juju-core/cloudinit"
+	"launchpad.net/juju-core/cloudinit/sshinit"
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/storage"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/client"
+	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
-	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -498,9 +507,9 @@ func assertRemoved(c *gc.C, entity state.Living) {
 }
 
 func (s *clientSuite) setupDestroyMachinesTest(c *gc.C) (*state.Machine, *state.Machine, *state.Machine, *state.Unit) {
-	m0, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	m0, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
-	m1, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	m1, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	m2, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
@@ -509,7 +518,7 @@ func (s *clientSuite) setupDestroyMachinesTest(c *gc.C) (*state.Machine, *state.
 	wordpress := s.AddTestingService(c, "wordpress", sch)
 	u, err := wordpress.AddUnit()
 	c.Assert(err, gc.IsNil)
-	err = u.AssignToMachine(m0)
+	err = u.AssignToMachine(m1)
 	c.Assert(err, gc.IsNil)
 
 	return m0, m1, m2, u
@@ -519,7 +528,7 @@ func (s *clientSuite) TestDestroyMachines(c *gc.C) {
 	m0, m1, m2, u := s.setupDestroyMachinesTest(c)
 
 	err := s.APIState.Client().DestroyMachines("0", "1", "2")
-	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 has unit "wordpress/0" assigned; machine 1 is required by the environment`)
+	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 is required by the environment; machine 1 has unit "wordpress/0" assigned`)
 	assertLife(c, m0, state.Alive)
 	assertLife(c, m1, state.Alive)
 	assertLife(c, m2, state.Dying)
@@ -527,9 +536,9 @@ func (s *clientSuite) TestDestroyMachines(c *gc.C) {
 	err = u.UnassignFromMachine()
 	c.Assert(err, gc.IsNil)
 	err = s.APIState.Client().DestroyMachines("0", "1", "2")
-	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 1 is required by the environment`)
-	assertLife(c, m0, state.Dying)
-	assertLife(c, m1, state.Alive)
+	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 is required by the environment`)
+	assertLife(c, m0, state.Alive)
+	assertLife(c, m1, state.Dying)
 	assertLife(c, m2, state.Dying)
 }
 
@@ -537,7 +546,7 @@ func (s *clientSuite) TestForceDestroyMachines(c *gc.C) {
 	m0, m1, m2, u := s.setupDestroyMachinesTest(c)
 
 	err := s.APIState.Client().ForceDestroyMachines("0", "1", "2")
-	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 1 is required by the environment`)
+	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 is required by the environment`)
 	assertLife(c, m0, state.Alive)
 	assertLife(c, m1, state.Alive)
 	assertLife(c, m2, state.Alive)
@@ -545,8 +554,8 @@ func (s *clientSuite) TestForceDestroyMachines(c *gc.C) {
 
 	err = s.State.Cleanup()
 	c.Assert(err, gc.IsNil)
-	assertLife(c, m0, state.Dead)
-	assertLife(c, m1, state.Alive)
+	assertLife(c, m0, state.Alive)
+	assertLife(c, m1, state.Dead)
 	assertLife(c, m2, state.Dead)
 	assertRemoved(c, u)
 }
@@ -1648,55 +1657,77 @@ func (s *clientSuite) TestInjectMachinesStillExists(c *gc.C) {
 	c.Assert(results.Machines, gc.HasLen, 1)
 }
 
-func (s *clientSuite) TestMachineConfig(c *gc.C) {
-	addrs := []instance.Address{instance.NewAddress("1.2.3.4")}
-	hc := instance.MustParseHardware("mem=4G")
+func (s *clientSuite) TestProvisioningScript(c *gc.C) {
+	// Inject a machine and then call the ProvisioningScript API.
+	// The result should be the same as when calling MachineConfig,
+	// converting it to a cloudinit.MachineConfig, and disabling
+	// apt_upgrade.
 	apiParams := params.AddMachineParams{
 		Jobs:       []params.MachineJob{params.JobHostUnits},
 		InstanceId: instance.Id("1234"),
 		Nonce:      "foo",
-		HardwareCharacteristics: hc,
-		Addrs: addrs,
+		HardwareCharacteristics: instance.MustParseHardware("arch=amd64"),
 	}
 	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(machines), gc.Equals, 1)
-
 	machineId := machines[0].Machine
-	machineConfig, err := s.APIState.Client().MachineConfig(machineId, config.DefaultSeries, "amd64")
+	// Call ProvisioningScript. Normally ProvisioningScript and
+	// MachineConfig are mutually exclusive; both of them will
+	// allocate a state/api password for the machine agent.
+	script, err := s.APIState.Client().ProvisioningScript(params.ProvisioningScriptParams{
+		MachineId: machineId,
+		Nonce:     apiParams.Nonce,
+	})
 	c.Assert(err, gc.IsNil)
-
-	envConfig, err := s.State.EnvironConfig()
+	mcfg, err := statecmd.MachineConfig(s.State, machineId, apiParams.Nonce, "")
 	c.Assert(err, gc.IsNil)
-	env, err := environs.New(envConfig)
+	cloudcfg := coreCloudinit.New()
+	err = cloudinit.ConfigureJuju(mcfg, cloudcfg)
 	c.Assert(err, gc.IsNil)
-	stateInfo, apiInfo, err := env.StateInfo()
+	cloudcfg.SetAptUpgrade(false)
+	sshinitScript, err := sshinit.ConfigureScript(cloudcfg)
 	c.Assert(err, gc.IsNil)
-	c.Assert(machineConfig.StateAddrs, gc.DeepEquals, stateInfo.Addrs)
-	c.Assert(machineConfig.APIAddrs, gc.DeepEquals, apiInfo.Addrs)
-	c.Assert(machineConfig.Tag, gc.Equals, "machine-0")
-	caCert, _ := envConfig.CACert()
-	c.Assert(machineConfig.CACert, gc.DeepEquals, caCert)
-	c.Assert(machineConfig.Password, gc.Not(gc.Equals), "")
-	c.Assert(machineConfig.Tools.URL, gc.Not(gc.Equals), "")
-	c.Assert(machineConfig.EnvironAttrs["name"], gc.Equals, "dummyenv")
+	// ProvisioningScript internally calls MachineConfig,
+	// which allocates a new, random password. Everything
+	// about the scripts should be the same other than
+	// the line containing "oldpassword" from agent.conf.
+	scriptLines := strings.Split(script, "\n")
+	sshinitScriptLines := strings.Split(sshinitScript, "\n")
+	c.Assert(scriptLines, gc.HasLen, len(sshinitScriptLines))
+	for i, line := range scriptLines {
+		if strings.Contains(line, "oldpassword") {
+			continue
+		}
+		c.Assert(line, gc.Equals, sshinitScriptLines[i])
+	}
 }
 
-func (s *clientSuite) TestMachineConfigNoTools(c *gc.C) {
-	addrs := []instance.Address{instance.NewAddress("1.2.3.4")}
-	hc := instance.MustParseHardware("mem=4G")
+func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	apiParams := params.AddMachineParams{
-		Series:     "quantal",
 		Jobs:       []params.MachineJob{params.JobHostUnits},
 		InstanceId: instance.Id("1234"),
 		Nonce:      "foo",
-		HardwareCharacteristics: hc,
-		Addrs: addrs,
+		HardwareCharacteristics: instance.MustParseHardware("arch=amd64"),
 	}
 	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
 	c.Assert(err, gc.IsNil)
-	_, err = s.APIState.Client().MachineConfig(machines[0].Machine, "quantal", "amd64")
-	c.Assert(err, gc.ErrorMatches, tools.ErrNoMatches.Error())
+	c.Assert(len(machines), gc.Equals, 1)
+	machineId := machines[0].Machine
+	for _, disable := range []bool{false, true} {
+		script, err := s.APIState.Client().ProvisioningScript(params.ProvisioningScriptParams{
+			MachineId: machineId,
+			Nonce:     apiParams.Nonce,
+			DisablePackageCommands: disable,
+		})
+		c.Assert(err, gc.IsNil)
+		var checker gc.Checker = jc.Contains
+		if disable {
+			// We disabled package commands: there should be no "apt" commands in the script.
+			checker = gc.Not(checker)
+		}
+		c.Assert(script, checker, "apt-get")
+	}
 }
 
 func (s *clientSuite) TestClientAuthorizeStoreOnDeployServiceSetCharmAndAddCharm(c *gc.C) {
@@ -1762,6 +1793,7 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	bundleURL, err := url.Parse("http://bundles.testing.invalid/" + ident)
 	c.Assert(err, gc.IsNil)
 	sch, err := s.State.AddCharm(charmDir, curl, bundleURL, ident+"-sha256")
+	c.Assert(err, gc.IsNil)
 
 	name := charm.Quote(sch.URL().String())
 	storage := s.Conn.Environ.Storage()
@@ -1779,20 +1811,127 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	err = client.AddCharm(curl)
 	c.Assert(err, gc.IsNil)
 
-	// Verify it's in state.
+	// Verify it's in state and it got uploaded.
 	sch, err = s.State.Charm(curl)
 	c.Assert(err, gc.IsNil)
+	s.assertUploaded(c, storage, sch.BundleURL(), sch.BundleSha256())
+}
 
-	name = charm.Quote(curl.String())
-	storageURL, err := storage.URL(name)
+func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
+	store, restore := makeMockCharmStore()
+	defer restore()
+
+	client := s.APIState.Client()
+	curl, _ := addCharm(c, store, "wordpress")
+
+	// Expect storage Put() to be called once for each goroutine
+	// below.
+	ops := make(chan dummy.Operation, 500)
+	dummy.Listen(ops)
+	go s.assertPutCalled(c, ops, 10)
+
+	// Try adding the same charm concurrently from multiple goroutines
+	// to test no "duplicate key errors" are reported (see lp bug
+	// #1067979) and also at the end only one charm document is
+	// created.
+
+	var wg sync.WaitGroup
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+
+			c.Assert(client.AddCharm(curl), gc.IsNil, gc.Commentf("goroutine %d", index))
+			sch, err := s.State.Charm(curl)
+			c.Assert(err, gc.IsNil, gc.Commentf("goroutine %d", index))
+			c.Assert(sch.URL(), jc.DeepEquals, curl, gc.Commentf("goroutine %d", index))
+			expectedName := fmt.Sprintf("%s-%d-[0-9a-f-]+", curl.Name, curl.Revision)
+			c.Assert(getArchiveName(sch.BundleURL()), gc.Matches, expectedName)
+		}(i)
+	}
+	wg.Wait()
+	close(ops)
+
+	// Verify there is only a single uploaded charm remains and it
+	// contains the correct data.
+	sch, err := s.State.Charm(curl)
+	c.Assert(err, gc.IsNil)
+	storage, err := envtesting.GetEnvironStorage(s.State)
+	c.Assert(err, gc.IsNil)
+	uploads, err := storage.List(fmt.Sprintf("%s-%d-", curl.Name, curl.Revision))
+	c.Assert(err, gc.IsNil)
+	c.Assert(uploads, gc.HasLen, 1)
+	c.Assert(getArchiveName(sch.BundleURL()), gc.Equals, uploads[0])
+	s.assertUploaded(c, storage, sch.BundleURL(), sch.BundleSha256())
+}
+
+func (s *clientSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
+	store, restore := makeMockCharmStore()
+	defer restore()
+
+	client := s.APIState.Client()
+	curl, _ := addCharm(c, store, "wordpress")
+
+	// Add a placeholder with the same charm URL.
+	err := s.State.AddStoreCharmPlaceholder(curl)
+	c.Assert(err, gc.IsNil)
+	_, err = s.State.Charm(curl)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+
+	// Now try to add the charm, which will convert the placeholder to
+	// a pending charm.
+	err = client.AddCharm(curl)
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(sch.BundleURL().String(), gc.Equals, storageURL)
-	// We don't care about the exact value of the hash here, just that
-	// it's set.
-	c.Assert(sch.BundleSha256(), gc.Not(gc.Equals), "")
-
-	// Verify it's added to storage.
-	_, err = storage.Get(name)
+	// Make sure the document's flags were reset as expected.
+	sch, err := s.State.Charm(curl)
 	c.Assert(err, gc.IsNil)
+	c.Assert(sch.URL(), jc.DeepEquals, curl)
+	c.Assert(sch.IsPlaceholder(), jc.IsFalse)
+	c.Assert(sch.IsUploaded(), jc.IsTrue)
+}
+
+func (s *clientSuite) TestCharmArchiveName(c *gc.C) {
+	for rev, name := range []string{"Foo", "bar", "wordpress", "mysql"} {
+		archiveFormat := fmt.Sprintf("%s-%d-[0-9a-f-]+", name, rev)
+		archiveName, err := client.CharmArchiveName(name, rev)
+		c.Check(err, gc.IsNil)
+		c.Check(archiveName, gc.Matches, archiveFormat)
+	}
+}
+
+func (s *clientSuite) assertPutCalled(c *gc.C, ops chan dummy.Operation, numCalls int) {
+	calls := 0
+	select {
+	case op, ok := <-ops:
+		if !ok {
+			return
+		}
+		if op, ok := op.(dummy.OpPutFile); ok {
+			calls++
+			if calls > numCalls {
+				c.Fatalf("storage Put() called %d times, expected %d times", calls, numCalls)
+				return
+			}
+			nameFormat := "[0-9a-z-]+-[0-9]+-[0-9a-f-]+"
+			c.Assert(op.FileName, gc.Matches, nameFormat)
+		}
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out while waiting for a storage Put() calls")
+		return
+	}
+}
+
+func (s *clientSuite) assertUploaded(c *gc.C, storage storage.Storage, bundleURL *url.URL, expectedSHA256 string) {
+	archiveName := getArchiveName(bundleURL)
+	reader, err := storage.Get(archiveName)
+	c.Assert(err, gc.IsNil)
+	defer reader.Close()
+	downloadedSHA256, _, err := utils.ReadSHA256(reader)
+	c.Assert(err, gc.IsNil)
+	c.Assert(downloadedSHA256, gc.Equals, expectedSHA256)
+}
+
+func getArchiveName(bundleURL *url.URL) string {
+	return strings.TrimPrefix(bundleURL.RequestURI(), "/dummyenv/private/")
 }

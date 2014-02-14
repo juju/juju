@@ -15,9 +15,10 @@ import (
 	"sort"
 	"sync"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/utils/exec"
 )
 
 var logger = loggo.GetLogger("worker.uniter.jujuc")
@@ -79,7 +80,7 @@ func badReqErrorf(format string, v ...interface{}) error {
 
 // Main runs the Command specified by req, and fills in resp. A single command
 // is run at a time.
-func (j *Jujuc) Main(req Request, resp *cmd.RemoteResponse) error {
+func (j *Jujuc) Main(req Request, resp *exec.ExecResponse) error {
 	if req.CommandName == "" {
 		return badReqErrorf("command not specified")
 	}

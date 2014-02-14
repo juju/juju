@@ -101,7 +101,7 @@ func breakDummyProvider(c *gc.C, st *state.State, environMethod string) string {
 
 // setupEnvironment adds an environment manager machine and login to the API.
 func (s *CommonProvisionerSuite) setupEnvironmentManager(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobManageEnviron, state.JobManageState)
+	machine, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.Id(), gc.Equals, "0")
 	err = machine.SetAddresses([]instance.Address{
@@ -140,6 +140,21 @@ type stopper interface {
 // stop stops a stopper.
 func stop(c *gc.C, s stopper) {
 	c.Assert(s.Stop(), gc.IsNil)
+}
+
+func (s *CommonProvisionerSuite) startUnknownInstance(c *gc.C, id string) instance.Instance {
+	instance, _ := testing.AssertStartInstance(c, s.Conn.Environ, id)
+	select {
+	case o := <-s.op:
+		switch o := o.(type) {
+		case dummy.OpStartInstance:
+		default:
+			c.Fatalf("unexpected operation %#v", o)
+		}
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for startinstance operation")
+	}
+	return instance
 }
 
 func (s *CommonProvisionerSuite) checkStartInstance(c *gc.C, m *state.Machine) instance.Instance {
@@ -715,18 +730,13 @@ func (s *ProvisionerSuite) TestProvisioningSafeModeChange(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	i3 := s.checkStartInstance(c, m3)
 
-	// create a second machine
-	m4, err := s.addMachine()
-	c.Assert(err, gc.IsNil)
-	i4 := s.checkStartInstance(c, m4)
+	// create an instance out of band
+	i4 := s.startUnknownInstance(c, "999")
 
-	// mark the first machine as dead
+	// mark the machine as dead
 	c.Assert(m3.EnsureDead(), gc.IsNil)
 
-	// remove the second machine entirely from state
-	c.Assert(m4.EnsureDead(), gc.IsNil)
-	c.Assert(m4.Remove(), gc.IsNil)
-
+	// check the machine's instance is stopped, and the other isn't
 	s.checkStopSomeInstances(c, []instance.Instance{i3}, []instance.Instance{i4})
 	s.waitRemoved(c, m3)
 }
@@ -744,20 +754,14 @@ func (s *ProvisionerSuite) TestTurningOffSafeModeReapsUnknownInstances(c *gc.C) 
 	task := s.newProvisionerTask(c, true)
 	defer stop(c, task)
 
-	// Initially create some machines with safe mode on.
+	// Initially create a machine, and an unknown instance, with safe mode on.
 	m0, err := s.addMachine()
 	c.Assert(err, gc.IsNil)
 	i0 := s.checkStartInstance(c, m0)
-	m1, err := s.addMachine()
-	c.Assert(err, gc.IsNil)
-	i1 := s.checkStartInstance(c, m1)
+	i1 := s.startUnknownInstance(c, "999")
 
 	// mark the first machine as dead
 	c.Assert(m0.EnsureDead(), gc.IsNil)
-
-	// remove the second machine entirely from state
-	c.Assert(m1.EnsureDead(), gc.IsNil)
-	c.Assert(m1.Remove(), gc.IsNil)
 
 	// with safe mode on, only one of the machines is stopped.
 	s.checkStopSomeInstances(c, []instance.Instance{i0}, []instance.Instance{i1})

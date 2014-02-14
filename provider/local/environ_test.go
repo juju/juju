@@ -11,14 +11,19 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/agent"
+	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/jujutest"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/local"
+	"launchpad.net/juju-core/state"
+	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 )
 
@@ -32,6 +37,11 @@ var _ = gc.Suite(&environSuite{})
 func (s *environSuite) SetUpTest(c *gc.C) {
 	s.baseProviderSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
+}
+
+func (s *environSuite) TearDownTest(c *gc.C) {
+	s.ToolsFixture.TearDownTest(c)
+	s.baseProviderSuite.TearDownTest(c)
 }
 
 func (*environSuite) TestOpenFailsWithProtectedDirectories(c *gc.C) {
@@ -96,14 +106,13 @@ func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 	// Construct the directories first.
 	err := local.CreateDirs(c, minimalConfig(c))
 	c.Assert(err, gc.IsNil)
-	s.oldUpstartLocation = local.SetUpstartScriptLocation(c.MkDir())
 	s.oldPath = os.Getenv("PATH")
 	s.testPath = c.MkDir()
 	os.Setenv("PATH", s.testPath+":"+s.oldPath)
 
 	// Add in an admin secret
 	s.Tests.TestConfig["admin-secret"] = "sekrit"
-	s.restoreRootCheck = local.SetRootCheckFunction(func() bool { return true })
+	s.restoreRootCheck = local.SetRootCheckFunction(func() bool { return false })
 	s.Tests.SetUpTest(c)
 
 	cfg, err := config.New(config.NoDefaults, s.TestConfig)
@@ -115,7 +124,6 @@ func (s *localJujuTestSuite) TearDownTest(c *gc.C) {
 	s.Tests.TearDownTest(c)
 	os.Setenv("PATH", s.oldPath)
 	s.restoreRootCheck()
-	local.SetUpstartScriptLocation(s.oldUpstartLocation)
 	s.baseProviderSuite.TearDownTest(c)
 }
 
@@ -141,7 +149,25 @@ var _ = gc.Suite(&localJujuTestSuite{
 })
 
 func (s *localJujuTestSuite) TestBootstrap(c *gc.C) {
-	c.Skip("Cannot test bootstrap at this stage.")
+	s.PatchValue(local.FinishBootstrap, func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config, ctx environs.BootstrapContext) error {
+		c.Assert(cloudcfg.AptUpdate(), jc.IsFalse)
+		c.Assert(cloudcfg.AptUpgrade(), jc.IsFalse)
+		c.Assert(cloudcfg.Packages(), gc.HasLen, 0)
+		c.Assert(mcfg.AgentEnvironment, gc.Not(gc.IsNil))
+		// local does not allow machine-0 to host units
+		bootstrapJobs, err := agent.UnmarshalBootstrapJobs(mcfg.AgentEnvironment[agent.BootstrapJobs])
+		c.Assert(err, gc.IsNil)
+		c.Assert(bootstrapJobs, gc.DeepEquals, []state.MachineJob{state.JobManageEnviron})
+		return nil
+	})
+	testConfig := minimalConfig(c)
+	environ, err := local.Provider.Prepare(testConfig)
+	c.Assert(err, gc.IsNil)
+	envtesting.UploadFakeTools(c, environ.Storage())
+	defer environ.Storage().RemoveAll()
+	ctx := envtesting.NewBootstrapContext(coretesting.Context(c))
+	err = environ.Bootstrap(ctx, constraints.Value{})
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *localJujuTestSuite) TestStartStop(c *gc.C) {

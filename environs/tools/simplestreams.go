@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"path"
 	"strings"
 	"time"
 
@@ -243,7 +244,6 @@ func MetadataFromTools(toolsList coretools.List) []*ToolsMetadata {
 			Release:  t.Version.Series,
 			Version:  t.Version.Number.String(),
 			Arch:     t.Version.Arch,
-			FullPath: t.URL,
 			Path:     path,
 			FileType: "tar.gz",
 			Size:     t.Size,
@@ -311,7 +311,7 @@ func MergeMetadata(tmlist1, tmlist2 []*ToolsMetadata) ([]*ToolsMetadata, error) 
 
 // ReadMetadata returns the tools metadata from the given storage.
 func ReadMetadata(store storage.StorageReader) ([]*ToolsMetadata, error) {
-	dataSource := storage.NewStorageSimpleStreamsDataSource(store, "tools")
+	dataSource := storage.NewStorageSimpleStreamsDataSource(store, storage.BaseToolsPath)
 	toolsConstraint, err := makeToolsConstraint(simplestreams.CloudSpec{}, -1, -1, coretools.Filter{})
 	if err != nil {
 		return nil, err
@@ -355,7 +355,7 @@ func WriteMetadata(stor storage.Storage, metadata []*ToolsMetadata, writeMirrors
 	}
 	for _, md := range metadataInfo {
 		logger.Infof("Writing %s", "tools/"+md.Path)
-		err = stor.Put("tools/"+md.Path, bytes.NewReader(md.Data), int64(len(md.Data)))
+		err = stor.Put(path.Join(storage.BaseToolsPath, md.Path), bytes.NewReader(md.Data), int64(len(md.Data)))
 		if err != nil {
 			return err
 		}

@@ -11,7 +11,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/utils/ssh"
 	"launchpad.net/juju-core/version"
 )
@@ -514,25 +514,29 @@ type ContainerConfig struct {
 	AuthorizedKeys          string
 	SSLHostnameVerification bool
 	SyslogPort              int
+	Proxy                   osenv.ProxySettings
+	AptProxy                osenv.ProxySettings
 }
 
-type MachineConfigParams struct {
+// ProvisioningScriptParams contains the parameters for the
+// ProvisioningScript client API call.
+type ProvisioningScriptParams struct {
 	MachineId string
-	Series    string
-	Arch      string
+	Nonce     string
+
+	// DataDir may be "", in which case the default will be used.
+	DataDir string
+
+	// DisablePackageCommands may be set to disable all package-related
+	// commands. It is then the responsibility of the provisioner to
+	// ensure that all the packages required by Juju are available.
+	DisablePackageCommands bool
 }
 
-// MachineConfig contains information from the environment config that is
-// needed for a machine cloud-init.
-type MachineConfig struct {
-	EnvironAttrs map[string]interface{}
-	Tools        *tools.Tools
-	// state.Info and api.Info attributes (cannot use state.Info, api.Info directly due to import loops)
-	StateAddrs []string
-	APIAddrs   []string
-	CACert     []byte
-	Tag        string
-	Password   string
+// ProvisioningScriptResult contains the result of the
+// ProvisioningScript client API call.
+type ProvisioningScriptResult struct {
+	Script string
 }
 
 // EnvironmentGetResults contains the result of EnvironmentGet client

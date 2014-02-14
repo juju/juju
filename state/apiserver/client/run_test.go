@@ -12,13 +12,13 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/client"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/utils/exec"
 	"launchpad.net/juju-core/utils/ssh"
 )
 
@@ -126,7 +126,7 @@ func (s *runSuite) TestGetAllUnitNames(c *gc.C) {
 		units:    []string{"magic/0"},
 		expected: []string{"magic/0", "magic/1"},
 	}} {
-		c.Log(fmt.Sprintf("%v: %s", i, test.message))
+		c.Logf("%v: %s", i, test.message)
 		result, err := client.GetAllUnitNames(s.State, test.units, test.services)
 		if test.error == "" {
 			c.Check(err, gc.IsNil)
@@ -157,7 +157,7 @@ func (s *runSuite) TestParallelExecuteErrorsOnBlankHost(c *gc.C) {
 		&client.RemoteExec{
 			ExecParams: ssh.ExecParams{
 				Command: "foo",
-				Timeout: testing.ShortWait,
+				Timeout: testing.LongWait,
 			},
 		},
 	}
@@ -176,7 +176,7 @@ func (s *runSuite) TestParallelExecuteAddsIdentity(c *gc.C) {
 			ExecParams: ssh.ExecParams{
 				Host:    "localhost",
 				Command: "foo",
-				Timeout: testing.ShortWait,
+				Timeout: testing.LongWait,
 			},
 		},
 	}
@@ -196,7 +196,7 @@ func (s *runSuite) TestParallelExecuteCopiesAcrossMachineAndUnit(c *gc.C) {
 			ExecParams: ssh.ExecParams{
 				Host:    "localhost",
 				Command: "foo",
-				Timeout: testing.ShortWait,
+				Timeout: testing.LongWait,
 			},
 			MachineId: "machine-id",
 			UnitId:    "unit-id",
@@ -223,15 +223,15 @@ func (s *runSuite) TestRunOnAllMachines(c *gc.C) {
 	// through to the apiserver implementation. Not ideal, but it is how the
 	// other client tests are written.
 	client := s.APIState.Client()
-	results, err := client.RunOnAllMachines("hostname", testing.ShortWait)
+	results, err := client.RunOnAllMachines("hostname", testing.LongWait)
 	c.Assert(err, gc.IsNil)
 	c.Assert(results, gc.HasLen, 3)
 	var expectedResults []params.RunResult
 	for i := 0; i < 3; i++ {
 		expectedResults = append(expectedResults,
 			params.RunResult{
-				RemoteResponse: cmd.RemoteResponse{Stdout: []byte("hostname\n")},
-				MachineId:      fmt.Sprint(i),
+				ExecResponse: exec.ExecResponse{Stdout: []byte("juju-run --no-context 'hostname'\n")},
+				MachineId:    fmt.Sprint(i),
 			})
 	}
 
@@ -256,7 +256,7 @@ func (s *runSuite) TestRunMachineAndService(c *gc.C) {
 	results, err := client.Run(
 		params.RunParams{
 			Commands: "hostname",
-			Timeout:  testing.ShortWait,
+			Timeout:  testing.LongWait,
 			Machines: []string{"0"},
 			Services: []string{"magic"},
 		})
@@ -264,18 +264,18 @@ func (s *runSuite) TestRunMachineAndService(c *gc.C) {
 	c.Assert(results, gc.HasLen, 3)
 	expectedResults := []params.RunResult{
 		params.RunResult{
-			RemoteResponse: cmd.RemoteResponse{Stdout: []byte("hostname\n")},
-			MachineId:      "0",
+			ExecResponse: exec.ExecResponse{Stdout: []byte("juju-run --no-context 'hostname'\n")},
+			MachineId:    "0",
 		},
 		params.RunResult{
-			RemoteResponse: cmd.RemoteResponse{Stdout: []byte("juju-run magic/0 'hostname'\n")},
-			MachineId:      "1",
-			UnitId:         "magic/0",
+			ExecResponse: exec.ExecResponse{Stdout: []byte("juju-run magic/0 'hostname'\n")},
+			MachineId:    "1",
+			UnitId:       "magic/0",
 		},
 		params.RunResult{
-			RemoteResponse: cmd.RemoteResponse{Stdout: []byte("juju-run magic/1 'hostname'\n")},
-			MachineId:      "2",
-			UnitId:         "magic/1",
+			ExecResponse: exec.ExecResponse{Stdout: []byte("juju-run magic/1 'hostname'\n")},
+			MachineId:    "2",
+			UnitId:       "magic/1",
 		},
 	}
 

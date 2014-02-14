@@ -9,12 +9,12 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	commontesting "launchpad.net/juju-core/state/api/common/testing"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/provisioner"
 	statetesting "launchpad.net/juju-core/state/testing"
@@ -31,6 +31,8 @@ func TestAll(t *stdtesting.T) {
 
 type provisionerSuite struct {
 	testing.JujuConnSuite
+	*commontesting.EnvironWatcherTest
+
 	st      *api.State
 	machine *state.Machine
 
@@ -43,7 +45,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	var err error
-	s.machine, err = s.State.AddMachine("quantal", state.JobManageEnviron, state.JobManageState)
+	s.machine, err = s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	password, err := utils.RandomPassword()
 	c.Assert(err, gc.IsNil)
@@ -57,6 +59,8 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	// Create the provisioner API facade.
 	s.provisioner = s.st.Provisioner()
 	c.Assert(s.provisioner, gc.NotNil)
+
+	s.EnvironWatcherTest = commontesting.NewEnvironWatcherTest(s.provisioner, s.State, s.BackingState, commontesting.HasSecrets)
 }
 
 func (s *provisionerSuite) TestMachineTagAndId(c *gc.C) {
@@ -320,45 +324,6 @@ func (s *provisionerSuite) TestWatchEnvironMachines(c *gc.C) {
 	wc.AssertClosed()
 }
 
-func (s *provisionerSuite) TestEnvironConfig(c *gc.C) {
-	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-
-	conf, err := s.provisioner.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	c.Assert(conf, gc.DeepEquals, envConfig)
-}
-
-func (s *provisionerSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
-	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-
-	w, err := s.provisioner.WatchForEnvironConfigChanges()
-	c.Assert(err, gc.IsNil)
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
-
-	// Initial event.
-	wc.AssertOneChange()
-
-	// Change the environment configuration, check it's detected.
-	attrs := envConfig.AllAttrs()
-	attrs["type"] = "blah"
-	newConfig, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(newConfig, envConfig)
-	c.Assert(err, gc.IsNil)
-	wc.AssertOneChange()
-
-	// Change it back to the original config.
-	err = s.State.SetEnvironConfig(envConfig, newConfig)
-	c.Assert(err, gc.IsNil)
-	wc.AssertOneChange()
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
-}
-
 func (s *provisionerSuite) TestStateAddresses(c *gc.C) {
 	err := s.machine.SetAddresses([]instance.Address{
 		instance.NewAddress("0.1.2.3"),
@@ -391,7 +356,7 @@ func (s *provisionerSuite) TestContainerConfig(c *gc.C) {
 	result, err := s.provisioner.ContainerConfig()
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.ProviderType, gc.Equals, "dummy")
-	c.Assert(result.AuthorizedKeys, gc.Equals, "my-keys")
+	c.Assert(result.AuthorizedKeys, gc.Equals, coretesting.FakeAuthKeys)
 	c.Assert(result.SSLHostnameVerification, jc.IsTrue)
 	c.Assert(result.SyslogPort, gc.Equals, 2345)
 }

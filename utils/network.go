@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"net"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 )
 
 var logger = loggo.GetLogger("juju.utils")

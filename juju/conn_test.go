@@ -5,6 +5,7 @@ package juju_test
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -56,6 +57,11 @@ func (cs *NewConnSuite) TearDownTest(c *gc.C) {
 	cs.LoggingSuite.TearDownTest(c)
 }
 
+func assertClose(c *gc.C, closer io.Closer) {
+	err := closer.Close()
+	c.Assert(err, gc.IsNil)
+}
+
 func bootstrapContext(c *gc.C) environs.BootstrapContext {
 	return envtesting.NewBootstrapContext(coretesting.Context(c))
 }
@@ -95,9 +101,9 @@ func (*NewConnSuite) TestConnMultipleCloseOk(c *gc.C) {
 	// Error return from here is tested in TestNewConnFromNameNotSetGetsDefault.
 	conn, err := juju.NewConnFromName("")
 	c.Assert(err, gc.IsNil)
-	conn.Close()
-	conn.Close()
-	conn.Close()
+	assertClose(c, conn)
+	assertClose(c, conn)
+	assertClose(c, conn)
 }
 
 func (*NewConnSuite) TestNewConnFromNameNotSetGetsDefault(c *gc.C) {
@@ -105,7 +111,7 @@ func (*NewConnSuite) TestNewConnFromNameNotSetGetsDefault(c *gc.C) {
 	bootstrapEnv(c, "", defaultConfigStore(c))
 	conn, err := juju.NewConnFromName("")
 	c.Assert(err, gc.IsNil)
-	defer conn.Close()
+	defer assertClose(c, conn)
 	c.Assert(conn.Environ.Name(), gc.Equals, coretesting.SampleEnvName)
 }
 
@@ -116,7 +122,7 @@ func (*NewConnSuite) TestNewConnFromNameNotDefault(c *gc.C) {
 	bootstrapEnv(c, envName, defaultConfigStore(c))
 	conn, err := juju.NewConnFromName(envName)
 	c.Assert(err, gc.IsNil)
-	defer conn.Close()
+	defer assertClose(c, conn)
 	c.Assert(conn.Environ.Name(), gc.Equals, envName)
 }
 
@@ -137,6 +143,7 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
 	info.Password = utils.UserPasswordHash("side-effect secret", utils.CompatSalt)
 	st, err := state.Open(info, state.DefaultDialOpts())
 	c.Assert(err, gc.IsNil)
+	defer assertClose(c, st)
 
 	// Verify we have secrets in the environ config already.
 	statecfg, err := st.EnvironConfig()
@@ -158,7 +165,7 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
 	// Make a new Conn, which will push the secrets.
 	conn, err := juju.NewConn(env)
 	c.Assert(err, gc.IsNil)
-	defer conn.Close()
+	defer assertClose(c, conn)
 
 	statecfg, err = conn.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
@@ -184,7 +191,7 @@ func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *gc.C) {
 	// Make a new Conn, which will push the secrets.
 	conn, err := juju.NewConn(env)
 	c.Assert(err, gc.IsNil)
-	defer conn.Close()
+	defer assertClose(c, conn)
 
 	// Make another env with a different secret.
 	attrs = env.Config().AllAttrs()
@@ -195,7 +202,7 @@ func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *gc.C) {
 	// Connect with the new env and check that the secret has not changed
 	conn, err = juju.NewConn(env1)
 	c.Assert(err, gc.IsNil)
-	defer conn.Close()
+	defer assertClose(c, conn)
 	cfg, err = conn.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
 	c.Assert(cfg.UnknownAttrs()["secret"], gc.Equals, "pork")
@@ -224,25 +231,25 @@ func (cs *NewConnSuite) TestConnWithPassword(c *gc.C) {
 	info.Password = utils.UserPasswordHash("nutkin", utils.CompatSalt)
 	st, err := state.Open(info, state.DefaultDialOpts())
 	c.Assert(err, gc.IsNil)
-	st.Close()
+	assertClose(c, st)
 
 	// Check that we can connect with the original environment.
 	conn, err := juju.NewConn(env)
 	c.Assert(err, gc.IsNil)
-	conn.Close()
+	assertClose(c, conn)
 
 	// Check that the password has now been changed to the original
 	// admin password.
 	info.Password = "nutkin"
 	st1, err := state.Open(info, state.DefaultDialOpts())
 	c.Assert(err, gc.IsNil)
-	st1.Close()
+	assertClose(c, st1)
 
 	// Check that we can still connect with the original
 	// environment.
 	conn, err = juju.NewConn(env)
 	c.Assert(err, gc.IsNil)
-	defer conn.Close()
+	defer assertClose(c, conn)
 
 	// Reset the admin password so the state db can be reused.
 	err = conn.State.SetAdminMongoPassword("")
@@ -283,7 +290,7 @@ func (s *ConnSuite) TearDownTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = s.conn.Environ.Destroy()
 	c.Check(err, gc.IsNil)
-	s.conn.Close()
+	assertClose(c, s.conn)
 	s.conn = nil
 	dummy.Reset()
 	s.ToolsFixture.TearDownTest(c)
@@ -326,7 +333,7 @@ func (s *ConnSuite) TestPutBundledCharm(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	w, err := os.Create(filepath.Join(dir, "riak.charm"))
 	c.Assert(err, gc.IsNil)
-	defer w.Close()
+	defer assertClose(c, w)
 	charmDir := coretesting.Charms.Dir("riak")
 	err = charmDir.BundleTo(w)
 	c.Assert(err, gc.IsNil)
@@ -446,7 +453,7 @@ var _ = gc.Suite(&DeployLocalSuite{})
 
 func (s *DeployLocalSuite) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
-	s.repo = &charm.LocalRepository{Path: coretesting.Charms.Path}
+	s.repo = &charm.LocalRepository{Path: coretesting.Charms.Path()}
 	s.oldCacheDir, charm.CacheDir = charm.CacheDir, c.MkDir()
 }
 
@@ -640,6 +647,7 @@ func (s *DeployLocalSuite) assertMachines(c *gc.C, service *state.Service, expec
 }
 
 type InitJujuHomeSuite struct {
+	testbase.LoggingSuite
 	originalHome     string
 	originalJujuHome string
 }
@@ -647,6 +655,7 @@ type InitJujuHomeSuite struct {
 var _ = gc.Suite(&InitJujuHomeSuite{})
 
 func (s *InitJujuHomeSuite) SetUpTest(c *gc.C) {
+	s.LoggingSuite.SetUpTest(c)
 	s.originalHome = osenv.Home()
 	s.originalJujuHome = os.Getenv("JUJU_HOME")
 }
@@ -654,21 +663,24 @@ func (s *InitJujuHomeSuite) SetUpTest(c *gc.C) {
 func (s *InitJujuHomeSuite) TearDownTest(c *gc.C) {
 	osenv.SetHome(s.originalHome)
 	os.Setenv("JUJU_HOME", s.originalJujuHome)
+	s.LoggingSuite.TearDownTest(c)
 }
 
 func (s *InitJujuHomeSuite) TestJujuHome(c *gc.C) {
-	os.Setenv("JUJU_HOME", "/my/juju/home")
+	jujuHome := c.MkDir()
+	os.Setenv("JUJU_HOME", jujuHome)
 	err := juju.InitJujuHome()
 	c.Assert(err, gc.IsNil)
-	c.Assert(config.JujuHome(), gc.Equals, "/my/juju/home")
+	c.Assert(osenv.JujuHome(), gc.Equals, jujuHome)
 }
 
 func (s *InitJujuHomeSuite) TestHome(c *gc.C) {
+	osHome := c.MkDir()
 	os.Setenv("JUJU_HOME", "")
-	osenv.SetHome("/my/home/")
+	osenv.SetHome(osHome)
 	err := juju.InitJujuHome()
 	c.Assert(err, gc.IsNil)
-	c.Assert(config.JujuHome(), gc.Equals, "/my/home/.juju")
+	c.Assert(osenv.JujuHome(), gc.Equals, filepath.Join(osHome, ".juju"))
 }
 
 func (s *InitJujuHomeSuite) TestError(c *gc.C) {
@@ -679,9 +691,10 @@ func (s *InitJujuHomeSuite) TestError(c *gc.C) {
 }
 
 func (s *InitJujuHomeSuite) TestCacheDir(c *gc.C) {
-	os.Setenv("JUJU_HOME", "/foo/bar")
+	jujuHome := c.MkDir()
+	os.Setenv("JUJU_HOME", jujuHome)
 	c.Assert(charm.CacheDir, gc.Equals, "")
 	err := juju.InitJujuHome()
 	c.Assert(err, gc.IsNil)
-	c.Assert(charm.CacheDir, gc.Equals, "/foo/bar/charmcache")
+	c.Assert(charm.CacheDir, gc.Equals, filepath.Join(jujuHome, "charmcache"))
 }

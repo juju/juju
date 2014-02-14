@@ -20,11 +20,13 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
+	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
+	ttesting "launchpad.net/juju-core/environs/tools/testing"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -40,11 +42,9 @@ func TestPackage(t *testing.T) {
 type syncSuite struct {
 	testbase.LoggingSuite
 	envtesting.ToolsFixture
-	home         *coretesting.FakeHome
 	targetEnv    environs.Environ
 	origVersion  version.Binary
-	origLocation string
-	storage      *envtesting.EC2HTTPTestStorage
+	storage      storage.Storage
 	localStorage string
 }
 
@@ -59,41 +59,44 @@ func (s *syncSuite) setUpTest(c *gc.C) {
 	version.Current.Number = version.MustParse("1.8.3")
 
 	// Create a target environments.yaml.
-	s.home = coretesting.MakeFakeHome(c, `
+	fakeHome := coretesting.MakeFakeHome(c, `
 environments:
     test-target:
         type: dummy
         state-server: false
         authorized-keys: "not-really-one"
 `)
+	s.AddCleanup(func(*gc.C) { fakeHome.Restore() })
 	var err error
 	s.targetEnv, err = environs.PrepareFromName("test-target", configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	envtesting.RemoveAllTools(c, s.targetEnv)
 
 	// Create a source storage.
-	s.storage, err = envtesting.NewEC2HTTPTestStorage("127.0.0.1")
+	baseDir := c.MkDir()
+	stor, err := filestorage.NewFileStorageWriter(baseDir, filestorage.UseDefaultTmpDir)
 	c.Assert(err, gc.IsNil)
+	s.storage = stor
 
 	// Create a local tools directory.
 	s.localStorage = c.MkDir()
 
-	// Populate both with the public tools.
-	for _, vers := range vAll {
-		s.storage.PutBinary(vers)
-		putBinary(c, s.localStorage, vers)
+	// Populate both local and default tools locations with the public tools.
+	versionStrings := make([]string, len(vAll))
+	for i, vers := range vAll {
+		versionStrings[i] = vers.String()
 	}
+	ttesting.MakeTools(c, baseDir, "releases", versionStrings)
+	ttesting.MakeTools(c, s.localStorage, "releases", versionStrings)
 
-	// Switch tools location.
-	s.origLocation = sync.DefaultToolsLocation
-	sync.DefaultToolsLocation = s.storage.Location()
+	// Switch the default tools location.
+	baseURL, err := s.storage.URL(storage.BaseToolsPath)
+	c.Assert(err, gc.IsNil)
+	s.PatchValue(&envtools.DefaultBaseURL, baseURL)
 }
 
 func (s *syncSuite) tearDownTest(c *gc.C) {
-	c.Assert(s.storage.Stop(), gc.IsNil)
-	sync.DefaultToolsLocation = s.origLocation
 	dummy.Reset()
-	s.home.Restore()
 	version.Current = s.origVersion
 	s.ToolsFixture.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
@@ -218,18 +221,6 @@ var (
 	vAll    = append(append(v1all, v200p64), v310p64, v320p64)
 )
 
-// putBinary stores a faked binary in the test directory.
-func putBinary(c *gc.C, storagePath string, v version.Binary) {
-	data := v.String()
-	name := envtools.StorageName(v)
-	filename := filepath.Join(storagePath, name)
-	dir := filepath.Dir(filename)
-	err := os.MkdirAll(dir, 0755)
-	c.Assert(err, gc.IsNil)
-	err = ioutil.WriteFile(filename, []byte(data), 0666)
-	c.Assert(err, gc.IsNil)
-}
-
 func assertNoUnexpectedTools(c *gc.C, stor storage.StorageReader) {
 	// We only expect v1.x tools, no v2.x tools.
 	list, err := envtools.ReadList(stor, 2, 0)
@@ -315,6 +306,12 @@ func (s *uploadSuite) TestUploadFakeSeries(c *gc.C) {
 		c.Assert(t.Version.Number, gc.Equals, version.Current.Number)
 		actualRaw := downloadToolsRaw(c, t)
 		c.Assert(string(actualRaw), gc.Equals, string(expectRaw))
+	}
+	metadata := ttesting.ParseMetadataFromStorage(c, s.env.Storage(), false)
+	c.Assert(metadata, gc.HasLen, 3)
+	for i, tm := range metadata {
+		c.Assert(tm.Release, gc.Equals, expectSeries[i])
+		c.Assert(tm.Version, gc.Equals, version.Current.Number.String())
 	}
 }
 

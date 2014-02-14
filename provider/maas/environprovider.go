@@ -7,7 +7,7 @@ import (
 	"errors"
 	"os"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -92,7 +92,7 @@ func (prov maasEnvironProvider) SecretAttrs(cfg *config.Config) (map[string]stri
 
 func (maasEnvironProvider) hostname() (string, error) {
 	// Hack to get container ip addresses properly for MAAS demo.
-	if os.Getenv(osenv.JujuContainerType) == string(instance.LXC) {
+	if os.Getenv(osenv.JujuContainerTypeEnvKey) == string(instance.LXC) {
 		return utils.GetAddressForInterface("eth0")
 	}
 	info := machineInfo{}

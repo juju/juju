@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
+	commontesting "launchpad.net/juju-core/state/apiserver/common/testing"
 	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
 	"launchpad.net/juju-core/state/apiserver/uniter"
 	statetesting "launchpad.net/juju-core/state/testing"
@@ -29,6 +30,7 @@ func Test(t *stdtesting.T) {
 
 type uniterSuite struct {
 	testing.JujuConnSuite
+	*commontesting.EnvironWatcherTest
 
 	authorizer apiservertesting.FakeAuthorizer
 	resources  *common.Resources
@@ -52,7 +54,7 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	s.wpCharm = s.AddTestingCharm(c, "wordpress")
 	// Create two machines, two services and add a unit to each service.
 	var err error
-	s.machine0, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	s.machine0, err = s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageState, state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	s.machine1, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
@@ -88,6 +90,7 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 		s.authorizer,
 	)
 	c.Assert(err, gc.IsNil)
+	s.EnvironWatcherTest = commontesting.NewEnvironWatcherTest(s.uniter, s.State, s.resources, commontesting.NoSecrets)
 }
 
 func (s *uniterSuite) TestUniterFailsWithNonUnitAgentUser(c *gc.C) {
@@ -897,6 +900,19 @@ func (s *uniterSuite) TestCurrentEnvironUUID(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.StringResult{Result: env.UUID()})
 }
 
+func (s *uniterSuite) TestCurrentEnvironment(c *gc.C) {
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+
+	result, err := s.uniter.CurrentEnvironment()
+	c.Assert(err, gc.IsNil)
+	expected := params.EnvironmentResult{
+		Name: env.Name(),
+		UUID: env.UUID(),
+	}
+	c.Assert(result, gc.DeepEquals, expected)
+}
+
 func (s *uniterSuite) addRelation(c *gc.C, first, second string) *state.Relation {
 	eps, err := s.State.InferEndpoints([]string{first, second})
 	c.Assert(err, gc.IsNil)
@@ -1394,7 +1410,10 @@ func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 }
 
 func (s *uniterSuite) TestAPIAddresses(c *gc.C) {
-	testing.AddStateServerMachine(c, s.State)
+	err := s.machine0.SetAddresses([]instance.Address{
+		instance.NewAddress("0.1.2.3"),
+	})
+	c.Assert(err, gc.IsNil)
 	apiAddresses, err := s.State.APIAddresses()
 	c.Assert(err, gc.IsNil)
 

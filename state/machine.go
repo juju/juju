@@ -37,18 +37,22 @@ const (
 	_ MachineJob = iota
 	JobHostUnits
 	JobManageEnviron
+
+	// Deprecated in 1.18.
 	JobManageState
 )
 
 var jobNames = map[MachineJob]params.MachineJob{
 	JobHostUnits:     params.JobHostUnits,
 	JobManageEnviron: params.JobManageEnviron,
-	JobManageState:   params.JobManageState,
+
+	// Deprecated in 1.18.
+	JobManageState: params.JobManageState,
 }
 
 // AllJobs returns all supported machine jobs.
 func AllJobs() []MachineJob {
-	return []MachineJob{JobHostUnits, JobManageState, JobManageEnviron}
+	return []MachineJob{JobHostUnits, JobManageEnviron}
 }
 
 // ToParams returns the job as params.MachineJob.
@@ -84,9 +88,16 @@ type machineDoc struct {
 	Life          Life
 	Tools         *tools.Tools `bson:",omitempty"`
 	Jobs          []MachineJob
+	NoVote        bool
+	HasVote       bool
 	PasswordHash  string
 	Clean         bool
-	Addresses     []address
+	// We store 2 different sets of addresses for the machine, obtained
+	// from different sources.
+	// Addresses is the set of addresses obtained by asking the provider.
+	Addresses []address
+	// MachineAddresses is the set of addresses obtained from the machine itself.
+	MachineAddresses []address
 	// The SupportedContainers attributes are used to advertise what containers this
 	// machine is capable of hosting.
 	SupportedContainersKnown bool
@@ -140,6 +151,7 @@ func (m *Machine) globalKey() string {
 type instanceData struct {
 	Id         string      `bson:"_id"`
 	InstanceId instance.Id `bson:"instanceid"`
+	Status     string      `bson:"status,omitempty"`
 	Arch       *string     `bson:"arch,omitempty"`
 	Mem        *uint64     `bson:"mem,omitempty"`
 	RootDisk   *uint64     `bson:"rootdisk,omitempty"`
@@ -193,15 +205,38 @@ func (m *Machine) Jobs() []MachineJob {
 	return m.doc.Jobs
 }
 
-// IsManager returns true if the machine has JobManageState or JobManageEnviron.
-func (m *Machine) IsManager() bool {
-	for _, job := range m.doc.Jobs {
-		switch job {
-		case JobManageEnviron, JobManageState:
-			return true
-		}
+// WantsVote reports whether the machine is a state server
+// that wants to take part in peer voting.
+func (m *Machine) WantsVote() bool {
+	return hasJob(m.doc.Jobs, JobManageEnviron) && !m.doc.NoVote
+}
+
+// HasVote reports whether that machine is currently a voting
+// member of the replica set.
+func (m *Machine) HasVote() bool {
+	return m.doc.HasVote
+}
+
+// SetHasVote sets whether the machine is currently a voting
+// member of the replica set. It should only be called
+// from the worker that maintains the replica set.
+func (m *Machine) SetHasVote(hasVote bool) error {
+	ops := []txn.Op{{
+		C:      m.st.machines.Name,
+		Id:     m.doc.Id,
+		Assert: notDeadDoc,
+		Update: D{{"$set", D{{"hasvote", hasVote}}}},
+	}}
+	if err := m.st.runTransaction(ops); err != nil {
+		return fmt.Errorf("cannot set HasVote of machine %v: %v", m, onAbort(err, errDead))
 	}
-	return false
+	m.doc.HasVote = hasVote
+	return nil
+}
+
+// IsManager returns true if the machine has JobManageEnviron.
+func (m *Machine) IsManager() bool {
+	return hasJob(m.doc.Jobs, JobManageEnviron)
 }
 
 // IsManual returns true if the machine was manually provisioned.
@@ -213,13 +248,15 @@ func (m *Machine) IsManual() (bool, error) {
 		return true, nil
 	}
 	// The bootstrap machine uses BootstrapNonce, so in that
-	// case we need to check if its provider type is "null".
+	// case we need to check if its provider type is "manual".
+	// We also check for "null", which is an alias for manual.
 	if m.doc.Id == "0" {
 		cfg, err := m.st.EnvironConfig()
 		if err != nil {
 			return false, err
 		}
-		return cfg.Type() == "null", nil
+		t := cfg.Type()
+		return t == "null" || t == "manual", nil
 	}
 	return false, nil
 }
@@ -340,7 +377,7 @@ func (m *Machine) ForceDestroy() error {
 		ops := []txn.Op{{
 			C:      m.st.machines.Name,
 			Id:     m.doc.Id,
-			Assert: D{{"jobs", D{{"$nin", []MachineJob{JobManageState}}}}},
+			Assert: D{{"jobs", D{{"$nin", []MachineJob{JobManageEnviron}}}}},
 		}, m.st.newCleanupOp("machine", m.doc.Id)}
 		if err := m.st.runTransaction(ops); err != txn.ErrAborted {
 			return err
@@ -448,6 +485,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 			{{"principals", D{{"$size", 0}}}},
 			{{"principals", D{{"$exists", false}}}},
 		}},
+		{"hasvote", D{{"$ne", true}}},
 	}
 	// 3 attempts: one with original data, one with refreshed data, and a final
 	// one intended to determine the cause of failure of the preceding attempt.
@@ -483,13 +521,14 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 		}
 		// Check that the machine does not have any responsibilities that
 		// prevent a lifecycle change.
-		for _, j := range m.doc.Jobs {
-			if j == JobManageEnviron {
-				// (NOTE: When we enable multiple JobManageEnviron machines,
-				// the restriction will become "there must be at least one
-				// machine with this job".)
-				return fmt.Errorf("machine %s is required by the environment", m.doc.Id)
-			}
+		if hasJob(m.doc.Jobs, JobManageEnviron) {
+			// (NOTE: When we enable multiple JobManageEnviron machines,
+			// this restriction will be lifted, but we will assert that the
+			// machine is not voting)
+			return fmt.Errorf("machine %s is required by the environment", m.doc.Id)
+		}
+		if m.doc.HasVote {
+			return fmt.Errorf("machine %s is a voting replica set member", m.doc.Id)
 		}
 		if len(m.doc.Principals) != 0 {
 			return &HasAssignedUnitsError{
@@ -602,13 +641,58 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 		return m.doc.InstanceId, nil
 	}
 	instData, err := getInstanceData(m.st, m.Id())
-	if (err == nil && instData.InstanceId == "") || (err != nil && errors.IsNotFoundError(err)) {
+	if (err == nil && instData.InstanceId == "") || errors.IsNotFoundError(err) {
 		err = NotProvisionedError(m.Id())
 	}
 	if err != nil {
 		return "", err
 	}
 	return instData.InstanceId, nil
+}
+
+// InstanceStatus returns the provider specific instance status for this machine,
+// or a NotProvisionedError if instance is not yet provisioned.
+func (m *Machine) InstanceStatus() (string, error) {
+	// SCHEMACHANGE
+	// InstanceId may not be stored in the instanceData doc, so we
+	// get it using an API on machine which knows to look in the old
+	// place if necessary.
+	instId, err := m.InstanceId()
+	if err != nil {
+		return "", err
+	}
+	instData, err := getInstanceData(m.st, m.Id())
+	if (err == nil && instId == "") || errors.IsNotFoundError(err) {
+		err = NotProvisionedError(m.Id())
+	}
+	if err != nil {
+		return "", err
+	}
+	return instData.Status, nil
+}
+
+// SetInstanceStatus sets the provider specific instance status for a machine.
+func (m *Machine) SetInstanceStatus(status string) (err error) {
+	defer utils.ErrorContextf(&err, "cannot set instance status for machine %q", m)
+
+	// SCHEMACHANGE - we can't do this yet until the schema is updated
+	// so just do a txn.DocExists for now.
+	// provisioned := D{{"instanceid", D{{"$ne", ""}}}}
+	ops := []txn.Op{
+		{
+			C:      m.st.instanceData.Name,
+			Id:     m.doc.Id,
+			Assert: txn.DocExists,
+			Update: D{{"$set", D{{"status", status}}}},
+		},
+	}
+
+	if err = m.st.runTransaction(ops); err == nil {
+		return nil
+	} else if err != txn.ErrAborted {
+		return err
+	}
+	return NotProvisionedError(m.Id())
 }
 
 // Units returns all the units that have been assigned to the machine.
@@ -651,7 +735,7 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 	if characteristics == nil {
 		characteristics = &instance.HardwareCharacteristics{}
 	}
-	hc := &instanceData{
+	instData := &instanceData{
 		Id:         m.doc.Id,
 		InstanceId: id,
 		Arch:       characteristics.Arch,
@@ -674,7 +758,7 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 			C:      m.st.instanceData.Name,
 			Id:     m.doc.Id,
 			Assert: txn.DocMissing,
-			Insert: hc,
+			Insert: instData,
 		},
 	}
 
@@ -714,15 +798,27 @@ func IsNotProvisionedError(err error) bool {
 	return ok
 }
 
-// Addresses returns any hostnames and ips associated with a machine
+// Addresses returns any hostnames and ips associated with a machine,
+// determined both by the machine itself, and by asking the provider.
+//
+// The addresses returned by the provider shadow any of the addresses
+// that the machine reported with the same address value.
 func (m *Machine) Addresses() (addresses []instance.Address) {
+	merged := make(map[string]instance.Address)
+	for _, address := range m.doc.MachineAddresses {
+		merged[address.Value] = address.InstanceAddress()
+	}
 	for _, address := range m.doc.Addresses {
-		addresses = append(addresses, address.InstanceAddress())
+		merged[address.Value] = address.InstanceAddress()
+	}
+	for _, address := range merged {
+		addresses = append(addresses, address)
 	}
 	return
 }
 
-// SetAddresses records any addresses related to the machine
+// SetAddresses records any addresses related to the machine, sourced
+// by asking the provider.
 func (m *Machine) SetAddresses(addresses []instance.Address) (err error) {
 	stateAddresses := instanceAddressesToAddresses(addresses)
 	ops := []txn.Op{
@@ -738,6 +834,35 @@ func (m *Machine) SetAddresses(addresses []instance.Address) (err error) {
 		return fmt.Errorf("cannot set addresses of machine %v: %v", m, onAbort(err, errDead))
 	}
 	m.doc.Addresses = stateAddresses
+	return nil
+}
+
+// MachineAddresses returns any hostnames and ips associated with a machine,
+// determined by asking the machine itself.
+func (m *Machine) MachineAddresses() (addresses []instance.Address) {
+	for _, address := range m.doc.MachineAddresses {
+		addresses = append(addresses, address.InstanceAddress())
+	}
+	return
+}
+
+// SetMachineAddresses records any addresses related to the machine, sourced
+// by asking the machine.
+func (m *Machine) SetMachineAddresses(addresses []instance.Address) (err error) {
+	stateAddresses := instanceAddressesToAddresses(addresses)
+	ops := []txn.Op{
+		{
+			C:      m.st.machines.Name,
+			Id:     m.doc.Id,
+			Assert: notDeadDoc,
+			Update: D{{"$set", D{{"machineaddresses", stateAddresses}}}},
+		},
+	}
+
+	if err = m.st.runTransaction(ops); err != nil {
+		return fmt.Errorf("cannot set machine addresses of machine %v: %v", m, onAbort(err, errDead))
+	}
+	m.doc.MachineAddresses = stateAddresses
 	return nil
 }
 
