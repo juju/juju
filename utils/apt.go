@@ -5,12 +5,10 @@ package utils
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/loggo/loggo"
@@ -125,22 +123,6 @@ func IsUbuntu() bool {
 		return false
 	}
 	return strings.TrimSpace(out) == "Ubuntu"
-}
-
-// UbuntuRelease executes lsb_release to see if the host OS is Ubuntu.
-func UbuntuRelease() (float, error) {
-	if !IsUbuntu() {
-		return 0, errors.New("not ubuntu")
-	}
-	out, err := RunCommand("lsb_release", "-r", "-s")
-	if err != nil {
-		return 0, err
-	}
-	release, err := strconv.ParseFloat(out, 10)
-	if err != nil {
-		return 0, err
-	}
-	return release, nil
 }
 
 // IsPackageInstalled uses dpkg-query to determine if the `packageName`

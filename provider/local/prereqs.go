@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
-	"strings"
 
 	"launchpad.net/juju-core/container/kvm"
 	"launchpad.net/juju-core/instance"
@@ -18,6 +17,7 @@ import (
 )
 
 var notLinuxError = errors.New("The local provider is currently only available for Linux")
+var noMongoError = errors.New("Couldn't find mongod")
 
 const installMongodUbuntu = "MongoDB server must be installed to enable the local provider:"
 const aptAddRepositoryJujuStable = `
@@ -50,8 +50,8 @@ The local provider is currently only available for Linux`
 // mongod path bundled specifically for juju
 var jujuMongodPath = "/usr/lib/juju/bin/mongod"
 
-// mongo path to override our detection code for testing
-var testMongodPath = ""
+// lowestMongoVersion is the lowest version of mongo that juju supports.
+var lowestMongoVersion = version.Number{Major: 2, Minor: 2, Patch: 4}
 
 // lxclsPath is the path to "lxc-ls", an LXC userspace tool
 // we check the presence of to determine whether the
@@ -83,9 +83,6 @@ func VerifyPrerequisites(containerType instance.ContainerType) error {
 }
 
 func mongodPath() string {
-	if testMongodPath != "" {
-		return testMongodPath
-	}
 	if _, err := os.Stat(jujuMongodPath); err == nil {
 		return jujuMongodPath
 	}
@@ -93,44 +90,32 @@ func mongodPath() string {
 	path, _ := utils.RunCommand("which", "mongod")
 	return path
 }
-
 func verifyMongod() error {
 	path := mongodPath()
 	if path == "" {
-		return errors.New("Couldn't find mongod")
+		return noMongoError
 	}
 
-	ver, err := utils.RunCommand(path, "--version")
+	ver, err := mongodVersion(path)
 	if err != nil {
-		return fmt.Errorf("Error checking %q version: %v", path, err)
+		return err
 	}
-
+	if ver.Less(lowestMongoVersion) {
+		return fmt.Errorf("Installed version of mongod (%v) is not supported by Juju. "+
+			" Juju requires version %v or greater.",
+			ver,
+			lowestMongoVersion)
+	}
+	return nil
 }
 
-func parseMongoVer(data string) (version float64, build int, err error) {
-	// version returns a string that looks like:
-	// db version v2.4.6
-	// Thu Feb 13 11:22:23.957 git version: b9925db5eac369d77a3a5f5d98a145eaaacd9673
-	start := 12
-	end := strings.IndexAny(ver, '\r', '\n')
-	errData := strings.Replace(data, "\n", " \\n ")
-
-	if len(data) <= start || end < start {
-		return 0, 0, fmt.Errorf("Can't parse mongo version string %q", errData)
-	}
-
-	data = data[start:end]
-	sep := strings.LastIndex(data, ".")
-	ver, err := stringconv.ParseFloat(data[:sep], 64)
+func mongodVersion(path string) (version.Number, error) {
+	data, err := utils.RunCommand(path, "--version")
 	if err != nil {
-		return 0, 0, fmt.Errorf("Can't parse mongo version %q: %v", errData, err)
+		return version.Zero, fmt.Errorf("Error checking %q version: %v", path, err)
 	}
 
-	build, err = stringconv.ParseInt(data[sep:])
-	if err != nil {
-		return 0, 0, fmt.Errorf("Can't parse mongo version %q: %v", errData, err)
-	}
-	return ver, build, nil
+	return version.Parse(data)
 }
 
 func verifyLxc() error {
