@@ -45,8 +45,10 @@ type UpgradeOperation interface {
 type UpgradeTarget string
 
 const (
+	// AllMachines applies to any machine.
+	AllMachines = UpgradeTarget("allMachines")
+
 	// HostMachine is a machine on which units are deployed.
-	// all machines?
 	HostMachine = UpgradeTarget("hostMachine")
 
 	// StateServer is a machine participating in a Juju state server cluster.
@@ -75,6 +77,7 @@ func (u upgradeToVersion) TargetVersion() version.Number {
 type Context interface {
 	// APIState returns an API connection to state.
 	APIState() *api.State
+
 	// AgentConfig returns the agent config for the machine that is being upgraded.
 	AgentConfig() agent.Config
 }
@@ -98,22 +101,6 @@ func (c *UpgradeContext) AgentConfig() agent.Config {
 	return c.agentConfig
 }
 
-// upgradeOperation provides base attributes for any upgrade step.
-type upgradeOperation struct {
-	description string
-	targets     []UpgradeTarget
-}
-
-// Description is defined on the UpgradeStep interface.
-func (u *upgradeOperation) Description() string {
-	return u.description
-}
-
-// Targets is defined on the UpgradeStep interface.
-func (u *upgradeOperation) Targets() []UpgradeTarget {
-	return u.targets
-}
-
 // upgradeError records a description of the step being performed and the error.
 type upgradeError struct {
 	description string
@@ -131,7 +118,7 @@ func PerformUpgrade(from version.Number, target UpgradeTarget, context Context) 
 	if from == version.Zero {
 		from = version.MustParse("1.16.0")
 	}
-	for _, upgradeOps := range upgradeOperations(context) {
+	for _, upgradeOps := range upgradeOperations() {
 		// Do not run steps for versions of Juju earlier or same as we are upgrading from.
 		if upgradeOps.TargetVersion().LessEqual(from) {
 			continue
@@ -146,7 +133,7 @@ func PerformUpgrade(from version.Number, target UpgradeTarget, context Context) 
 // validTarget returns true if target is in step.Targets().
 func validTarget(target UpgradeTarget, step UpgradeStep) bool {
 	for _, opTarget := range step.Targets() {
-		if target == opTarget {
+		if target == AllMachines || target == opTarget {
 			return true
 		}
 	}

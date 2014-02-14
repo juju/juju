@@ -51,8 +51,16 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	// for backwards compatibility: older versions did not store the namespace
 	// in config.
 	if namespace, _ := cfg.UnknownAttrs()["namespace"].(string); namespace == "" {
+		username := os.Getenv("USER")
+		if username == "" {
+			u, err := userCurrent()
+			if err != nil {
+				return nil, fmt.Errorf("failed to determine username for namespace: %v", err)
+			}
+			username = u.Username
+		}
 		var err error
-		namespace = fmt.Sprintf("%s-%s", os.Getenv("USER"), cfg.Name())
+		namespace = fmt.Sprintf("%s-%s", username, cfg.Name())
 		cfg, err = cfg.Apply(map[string]interface{}{"namespace": namespace})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create namespace: %v", err)

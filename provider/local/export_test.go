@@ -14,6 +14,7 @@ var (
 	FinishBootstrap  = &finishBootstrap
 	CheckLocalPort   = &checkLocalPort
 	DetectAptProxies = &detectAptProxies
+	UserCurrent      = &userCurrent
 )
 
 // SetRootCheckFunction allows tests to override the check for a root user.
