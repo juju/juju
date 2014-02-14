@@ -30,7 +30,7 @@ func upgradeStateServerRsyslogConfig(context Context) (err error) {
 	if err != nil {
 		return nil
 	}
-	return WriteReplacementFile(environs.RsyslogConfPath, []byte(data))
+	return WriteReplacementFile(environs.RsyslogConfPath, []byte(data), 0644)
 }
 
 // upgradeHostMachineRsyslogConfig upgrades a rsuslog config file on a host machine.
@@ -46,5 +46,5 @@ func upgradeHostMachineRsyslogConfig(context Context) (err error) {
 	if err != nil {
 		return nil
 	}
-	return WriteReplacementFile(environs.RsyslogConfPath, []byte(data))
+	return WriteReplacementFile(environs.RsyslogConfPath, []byte(data), 0644)
 }
