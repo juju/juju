@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/juju"
 
 	"code.google.com/p/gopass"
@@ -51,5 +52,28 @@ func (c *LoginCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
+	store, err := configstore.Default()
+	if err != nil {
+		return fmt.Errorf("cannot open environment info storage: %v", err)
+	}
+	info, err := store.ReadInfo(c.EnvName)
+	if err != nil {
+		return err
+	}
+	creds := configstore.APICredentials{User: c.Tag, Password: c.Password}
+
+	info.SetAPICredentials(creds)
+
+	conn, err := juju.NewAPIClientFromInfo(c.EnvName, info)
+	if err != nil {
+		return fmt.Errorf("Failed to login %v", err)
+	}
+	defer conn.Close()
+
+	err = info.Write()
+	if err != nil {
+		return fmt.Errorf("Failed to write login data %v", err)
+	}
+
 	return nil
 }

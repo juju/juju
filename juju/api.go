@@ -110,16 +110,26 @@ func NewUserManagerClient(envName string) (*usermanager.Client, error) {
 }
 
 func newAPIClient(envName string) (*api.State, error) {
-	store, err := configstore.NewDisk(osenv.JujuHome())
-	if err != nil {
-		return nil, err
-	}
-	return newAPIFromName(envName, store)
+	/*
+		store, err := configstore.NewDisk(osenv.JujuHome())
+		if err != nil {
+			return nil, err
+		}
+		info, err := store.ReadInfo(envName)
+		if err != nil {
+			return nil, err
+		}
+	*/
+	return newAPIFromName(envName, nil)
+}
+
+func NewAPIClientFromInfo(envName string, info configstore.EnvironInfo) (*api.State, error) {
+	return newAPIFromName(envName, info)
 }
 
 // newAPIFromName implements the bulk of NewAPIClientFromName
 // but is separate for testing purposes.
-func newAPIFromName(envName string, store configstore.Storage) (*api.State, error) {
+func newAPIFromName(envName string, info configstore.EnvironInfo) (*api.State, error) {
 	// Try to read the default environment configuration file.
 	// If it doesn't exist, we carry on in case
 	// there's some environment info for that environment.
@@ -164,9 +174,16 @@ func newAPIFromName(envName string, store configstore.Storage) (*api.State, erro
 	}
 	try := parallel.NewTry(0, chooseError)
 
-	info, err := store.ReadInfo(envName)
-	if err != nil && !errors.IsNotFoundError(err) {
-		return nil, err
+	//store, err := configstore.Default()
+	store, err := configstore.NewDisk(osenv.JujuHome())
+	if err != nil {
+		return nil, fmt.Errorf("cannot open environment info storage: %v", err)
+	}
+	if info == nil {
+		info, err = store.ReadInfo(envName)
+		if err != nil && !errors.IsNotFoundError(err) {
+			return nil, err
+		}
 	}
 	var delay time.Duration
 	if info != nil && len(info.APIEndpoint().Addresses) > 0 {
