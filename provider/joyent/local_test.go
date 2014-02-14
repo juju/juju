@@ -28,7 +28,7 @@ import (
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
-	jp "launchpad.net/juju-core/provider/joyent"
+	"launchpad.net/juju-core/provider/joyent"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 )
@@ -110,13 +110,13 @@ func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	s.TestConfig = GetFakeConfig(s.cSrv.Server.URL, s.mSrv.Server.URL)
 	s.LiveTests.SetUpSuite(c)
 
-	UseTestImageData(ImageMetadataStorage(s.Env), s.Env.(*jp.JoyentEnviron).Credentials())
+	joyent.UseTestImageData(joyent.ImageMetadataStorage(s.Env), s.Env.(*joyent.JoyentEnviron).Credentials())
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
 }
 
 func (s *localLiveSuite) TearDownSuite(c *gc.C) {
-	RemoveTestImageData(ImageMetadataStorage(s.Env))
+	joyent.RemoveTestImageData(joyent.ImageMetadataStorage(s.Env))
 	s.LiveTests.TearDownSuite(c)
 	s.cSrv.destroyServer()
 	s.mSrv.destroyServer()
@@ -163,11 +163,12 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	s.mSrv.setupServer(c)
 
 	s.TestConfig = GetFakeConfig(s.cSrv.Server.URL, s.mSrv.Server.URL)
+	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
 	s.Tests.SetUpTest(c)
 	// For testing, we create a storage instance to which is uploaded tools and image metadata.
 	env := s.Prepare(c)
 
-	cl := client.NewClient(s.mSrv.Server.URL, "", env.(*jp.JoyentEnviron).Credentials(), nil)
+	cl := client.NewClient(s.mSrv.Server.URL, "", env.(*joyent.JoyentEnviron).Credentials(), nil)
 	c.Assert(cl, gc.NotNil)
 	containerURL := cl.MakeServiceURL([]string{"object-store", ""})
 	s.TestConfig = s.TestConfig.Merge(coretesting.Attrs{
@@ -175,18 +176,18 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 		"image-metadata-url": containerURL + "/juju-test/images",
 	})
 
-	s.toolsMetadataStorage = MetadataStorage(env)
+	s.toolsMetadataStorage = joyent.MetadataStorage(env)
 	// Put some fake metadata in place so that tests that are simply
 	// starting instances without any need to check if those instances
 	// are running can find the metadata.
 	envtesting.UploadFakeTools(c, s.toolsMetadataStorage)
-	s.imageMetadataStorage = ImageMetadataStorage(env)
-	UseTestImageData(s.imageMetadataStorage, env.(*jp.JoyentEnviron).Credentials())
+	s.imageMetadataStorage = joyent.ImageMetadataStorage(env)
+	joyent.UseTestImageData(s.imageMetadataStorage, env.(*joyent.JoyentEnviron).Credentials())
 }
 
 func (s *localServerSuite) TearDownTest(c *gc.C) {
 	if s.imageMetadataStorage != nil {
-		RemoveTestImageData(s.imageMetadataStorage)
+		joyent.RemoveTestImageData(s.imageMetadataStorage)
 	}
 	if s.toolsMetadataStorage != nil {
 		envtesting.RemoveFakeToolsMetadata(c, s.toolsMetadataStorage)
@@ -372,7 +373,7 @@ func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
 		urls[i] = url
 	}
 	// The control bucket URL contains the bucket name.
-	c.Check(strings.Contains(urls[0], ControlBucketName(env)+"/images"), jc.IsTrue)
+	c.Check(strings.Contains(urls[0], joyent.ControlBucketName(env)+"/images"), jc.IsTrue)
 	c.Assert(urls[1], gc.Equals, imagemetadata.DefaultBaseURL+"/")
 }
 
@@ -383,7 +384,7 @@ func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 	c.Assert(len(sources), gc.Equals, 1)
 	url, err := sources[0].URL("")
 	// The control bucket URL contains the bucket name.
-	c.Assert(strings.Contains(url, ControlBucketName(env)+"/tools"), jc.IsTrue)
+	c.Assert(strings.Contains(url, joyent.ControlBucketName(env)+"/tools"), jc.IsTrue)
 }
 
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
@@ -393,7 +394,7 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 	env := s.Open(c)
 
 	// An error occurs if no suitable image is found.
-	_, err := FindInstanceSpec(env, "saucy", "amd64", "mem=4G")
+	_, err := joyent.FindInstanceSpec(env, "saucy", "amd64", "mem=4G")
 	c.Assert(err, gc.ErrorMatches, `no "saucy" images in some-region with arches \[amd64\]`)
 }
 

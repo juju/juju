@@ -153,7 +153,7 @@ func (*ConfigSuite) TestValidateNewConfig(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
 		testConfig := newConfig(c, attrs)
-		validatedConfig, err := Provider.Validate(testConfig, nil)
+		validatedConfig, err := jp.Provider.Validate(testConfig, nil)
 		if test.err == "" {
 			c.Assert(err, gc.IsNil)
 			attrs := validatedConfig.AllAttrs()
@@ -173,7 +173,7 @@ func (*ConfigSuite) TestValidateOldConfig(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
 		testConfig := newConfig(c, attrs)
-		validatedConfig, err := Provider.Validate(knownGoodConfig, testConfig)
+		validatedConfig, err := jp.Provider.Validate(knownGoodConfig, testConfig)
 		if test.err == "" {
 			c.Assert(err, gc.IsNil)
 			attrs := validatedConfig.AllAttrs()
@@ -232,7 +232,7 @@ func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
 		testConfig := newConfig(c, attrs)
-		validatedConfig, err := Provider.Validate(testConfig, baseConfig)
+		validatedConfig, err := jp.Provider.Validate(testConfig, baseConfig)
 		if test.err == "" {
 			c.Assert(err, gc.IsNil)
 			attrs := validatedConfig.AllAttrs()
@@ -302,7 +302,7 @@ func (s *ConfigSuite) TestPrepare(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
 		testConfig := newConfig(c, attrs)
-		preparedConfig, err := Provider.Prepare(testConfig)
+		preparedConfig, err := jp.Provider.Prepare(testConfig)
 		if test.err == "" {
 			c.Assert(err, gc.IsNil)
 			attrs := preparedConfig.Config().AllAttrs()

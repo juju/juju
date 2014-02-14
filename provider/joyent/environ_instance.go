@@ -23,7 +23,7 @@ import (
 var (
 	vTypeSmartmachine 		= "smartmachine"
 	vTypeVirtualmachine 	= "virtualmachine"
- 	signedImageDataOnly 	= true
+ 	signedImageDataOnly 	= false
 )
 
 type joyentCompute struct {

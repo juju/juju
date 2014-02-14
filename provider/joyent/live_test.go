@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/provider/joyent"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
@@ -63,7 +64,7 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.LiveTests.SetUpSuite(c)
 	// For testing, we create a storage instance to which is uploaded tools and image metadata.
 	t.PrepareOnce(c)
-	t.metadataStorage = MetadataStorage(t.Env)
+	t.metadataStorage = joyent.MetadataStorage(t.Env)
 	// Put some fake tools metadata in place so that tests that are simply
 	// starting instances without any need to check if those instances
 	// are running can find the metadata.
