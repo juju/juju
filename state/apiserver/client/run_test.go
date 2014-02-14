@@ -6,7 +6,6 @@ package client_test
 import (
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"time"
 
@@ -144,8 +143,7 @@ func (s *runSuite) TestGetAllUnitNames(c *gc.C) {
 func (s *runSuite) mockSSH(c *gc.C, cmd string) {
 	testbin := c.MkDir()
 	fakessh := filepath.Join(testbin, "ssh")
-	newPath := testbin + ":" + os.Getenv("PATH")
-	s.PatchEnvironment("PATH", newPath)
+	s.PatchPath(testbin)
 	err := ioutil.WriteFile(fakessh, []byte(cmd), 0755)
 	c.Assert(err, gc.IsNil)
 }

@@ -62,7 +62,7 @@ func (s *storageSuite) SetUpSuite(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	s.bin = c.MkDir()
-	restoreEnv := testbase.PatchEnvironment("PATH", s.bin+":"+os.Getenv("PATH"))
+	restoreEnv := testbase.PatchPath(s.bin)
 	s.AddSuiteCleanup(func(*gc.C) { restoreEnv() })
 
 	// Create a "sudo" command which shifts away the "-n", sets

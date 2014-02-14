@@ -62,6 +62,13 @@ func (s *CleanupSuite) PatchEnvironment(name, value string) {
 	s.AddCleanup(func(*gc.C) { restore() })
 }
 
+// PatchPath prepends the given path to the environment $PATH and restores the
+// original path on test teardown.
+func (s *CleanupSuite) PatchPath(dir string) {
+	restore := PatchPath(dir)
+	s.AddCleanup(func(*gc.C) { restore() })
+}
+
 // PatchValue sets the 'dest' variable the the value passed in. The old value
 // is saved and returned to the original value at test tear down time using a
 // cleanup function. The value must be assignable to the element type of the
