@@ -7,6 +7,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/loggo/loggo"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
@@ -166,4 +167,26 @@ func (s *syncToolsSuite) TestSyncToolsCommandTargetDirectory(c *gc.C) {
 	c.Assert(ctx, gc.NotNil)
 	c.Assert(called, jc.IsTrue)
 	s.Reset(c)
+}
+
+func (s *syncToolsSuite) TestSyncToolsCommandDepreciatedDestination(c *gc.C) {
+	dir := c.MkDir()
+	// replace the actual sync tools with a no-op
+	syncTools = func(sctx *sync.SyncContext) error {
+		return nil
+	}
+	//register writer
+	tw := &loggo.TestWriter{}
+	c.Assert(loggo.RegisterWriter("deprecated-tester", tw, loggo.DEBUG), gc.IsNil)
+	defer loggo.RemoveWriter("deprecated-tester")
+	//add deprecated message to be checked
+	messages := []jc.SimpleMessage{
+		{loggo.WARNING, "Use of the --destination flag is deprecated in 1.18. Please use --local-dir instead."},
+	}
+	//run sync-tools command with --destination flag
+	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--destination", dir)
+	c.Assert(err, gc.IsNil)
+	c.Assert(ctx, gc.NotNil)
+	//check deprecated message was logged
+	c.Check(tw.Log, jc.LogMatches, messages)
 }
