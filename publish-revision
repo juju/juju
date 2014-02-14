@@ -1,0 +1,18 @@
+#!/bin/bash
+set -eu
+# Create package
+TARFILE=$($SCRIPTS/get-tarfile-name)
+wget -q $JENKINS_URL/job/build-revision/lastSuccessfulBuild/artifact/$TARFILE
+source $SCRIPTS/make-package-with-tarball.bash testing $TARFILE \
+    'Curtis C. Hovey <curtis.hovey@canonical.com>'
+# Now that we aren't sourcing credentials, it's safe to enable command echo.
+set -x
+
+for new_package in $NEW_PACKAGES; do
+    mv $new_package $WORKSPACE/
+done
+
+mkdir -p new-tools
+$SCRIPTS/assemble-public-tools.bash -t $WORKSPACE/ $VERSION new-tools
+$SCRIPTS/publish-public-tools.bash TESTING new-tools/juju-dist-testing
+
