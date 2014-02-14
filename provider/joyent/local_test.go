@@ -132,9 +132,9 @@ func (s *localLiveSuite) TearDownTest(c *gc.C) {
 	s.LiveTests.TearDownTest(c)
 }
 
-// localServerSuite contains tests that run against an Openstack service double.
+// localServerSuite contains tests that run against an Joyent service double.
 // These tests can test things that would be unreasonably slow or expensive
-// to test on a live Openstack server. The service double is started and stopped for
+// to test on a live Joyent server. The service double is started and stopped for
 // each test.
 type localServerSuite struct {
 	jujutest.Tests
@@ -173,7 +173,7 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	containerURL := cl.MakeServiceURL([]string{"object-store", ""})
 	s.TestConfig = s.TestConfig.Merge(coretesting.Attrs{
 		"tools-metadata-url": containerURL + "/juju-test/tools",
-		"image-metadata-url": containerURL + "/juju-test/images",
+		"image-metadata-url": containerURL + "/juju-test",
 	})
 
 	s.toolsMetadataStorage = joyent.MetadataStorage(env)
@@ -234,7 +234,7 @@ func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	_, hc := testing.AssertStartInstanceWithConstraints(c, env, "100", constraints.MustParse("mem=1024"))
 	c.Check(*hc.Arch, gc.Equals, "amd64")
-	c.Check(*hc.Mem, gc.Equals, uint64(2048))
+	c.Check(*hc.Mem, gc.Equals, uint64(1024))
 	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
 	c.Assert(hc.CpuPower, gc.IsNil)
 }
@@ -300,6 +300,7 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 	id0 := inst0.Id()
 	inst1, _ := testing.AssertStartInstance(c, env, "101")
 	id1 := inst1.Id()
+	c.Logf("id0: %s, id1: %s", id0, id1)
 	defer func() {
 		err := env.StopInstances([]instance.Instance{inst0, inst1})
 		c.Assert(err, gc.IsNil)
@@ -317,6 +318,7 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 			}
 		}
 		insts, err := env.Instances(ids)
+		c.Logf("Looking for ids %v, got %v", ids, insts)
 		c.Assert(err, gc.Equals, test.err)
 		if err == environs.ErrNoInstances {
 			c.Assert(insts, gc.HasLen, 0)
@@ -344,21 +346,16 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(stateData.StateInstances, gc.HasLen, 1)
 
-	expectedHardware := instance.MustParseHardware("arch=amd64 cpu-cores=1 mem=512M")
+	expectedHardware := instance.MustParseHardware("arch=amd64 cpu-cores=1 mem=512M root-disk=8192M")
 	insts, err := env.AllInstances()
 	c.Assert(err, gc.IsNil)
 	c.Assert(insts, gc.HasLen, 1)
-	c.Check(insts[0].Id(), gc.Equals, stateData.StateInstances[0])
-	c.Check(expectedHardware, gc.DeepEquals, stateData.Characteristics[0])
+	c.Check(stateData.StateInstances[0], gc.Equals, insts[0].Id())
+	c.Check(stateData.Characteristics[0], gc.DeepEquals, expectedHardware)
 
 	bootstrapDNS, err := insts[0].DNSName()
 	c.Assert(err, gc.IsNil)
 	c.Assert(bootstrapDNS, gc.Not(gc.Equals), "")
-
-	// The nova test double needs to be updated to support retrieving instance userData.
-	// Until then, we can't check the cloud init script was generated correctly.
-	// When we can, we should also check cloudinit for a non-manager node (as in the
-	// ec2 tests).
 }
 
 func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
@@ -407,7 +404,7 @@ func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	params.Series = "raring"
 	image_ids, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, gc.IsNil)
-	c.Assert(image_ids, gc.DeepEquals, []string{"id-y"})
+	c.Assert(image_ids, gc.DeepEquals, []string{"11223344-0a0a-dd77-33cd-abcd1234e5f6"})
 }
 
 func (s *localServerSuite) TestRemoveAll(c *gc.C) {

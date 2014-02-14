@@ -49,6 +49,7 @@ func newCompute(env *JoyentEnviron) (*joyentCompute, error) {
 
 func contains(ids []instance.Id, id instance.Id) bool {
 	for _, i := range ids {
+		logger.Debugf("Is %s equals %s? %v", i, id, (i == id))
 		if i == id {
 			return true
 		}
@@ -121,6 +122,7 @@ func (env *JoyentEnviron) AllInstances() ([]instance.Instance, error) {
 	}
 
 	for _, m := range machines {
+		logger.Debugf("Got instance %s", m.Id)
 		instances = append(instances, &joyentInstance{machine: &m, env: env})
 	}
 
@@ -128,6 +130,10 @@ func (env *JoyentEnviron) AllInstances() ([]instance.Instance, error) {
 }
 
 func (env *JoyentEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
 	instances := []instance.Instance{}
 
 	allInstances, err := env.AllInstances()
@@ -135,9 +141,10 @@ func (env *JoyentEnviron) Instances(ids []instance.Id) ([]instance.Instance, err
 		return nil, err
 	}
 
-	for _, i := range allInstances {
-		if contains(ids, i.Id()) {
-			instances = append(instances, i)
+	for index, instance := range allInstances {
+		logger.Debugf("instance %v, %v", instance, allInstances[index])
+		if contains(ids, instance.Id()) {
+			instances = append(instances, instance)
 		}
 	}
 

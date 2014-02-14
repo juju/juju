@@ -44,7 +44,7 @@ var indexData = `
 		{
 		 "index": {
 		  "com.ubuntu.cloud:released:joyent": {
-		   "updated": "Wed, 01 May 2013 13:31:26 +0000",
+		   "updated": "Fri, 14 Feb 2014 13:39:35 +0000",
 		   "clouds": [
 			{
 			 "region": "{{.Region}}",
@@ -59,104 +59,80 @@ var indexData = `
 			"com.ubuntu.cloud:server:12.10:amd64",
 			"com.ubuntu.cloud:server:13.04:amd64"
 		   ],
-		   "path": "images/streams/v1/com.ubuntu.cloud:released:joyent.json"
+		   "path": "streams/v1/com.ubuntu.cloud:released:joyent.json"
 		  }
 		 },
-		 "updated": "Wed, 01 May 2013 13:31:26 +0000",
+		 "updated": "Fri, 14 Feb 2014 13:39:35 +0000",
 		 "format": "index:1.0"
 		}
 `
 
 var imagesData = `
 {
- "content_id": "com.ubuntu.cloud:released:joyent",
- "products": {
-   "com.ubuntu.cloud:server:12.04:amd64": {
-     "release": "precise",
-     "version": "12.04",
-     "arch": "amd64",
-     "versions": {
-       "20121218": {
-         "items": {
-           "inst1": {
-             "virt": "virtualmachine",
-             "region": "some-region",
-             "id": "11223344-0a0a-ff99-11bb-0a1b2c3d4e5f"
-           },
-           "inst2": {
-             "virt": "virtualmachine",
-             "region": "another-region",
-             "id": "11223344-0a0a-ff99-11bb-0a1b2c3d4e5f"
-           }
-         },
-         "pubname": "ubuntu-precise-12.04-amd64-server-20121218",
-         "label": "release"
-       },
-       "20121111": {
-         "items": {
-           "inst3": {
-             "virt": "virtualmachine",
-             "region": "some-region",
-             "id": "11223344-0a0a-ff99-11bb-0a1b2c3d4e5f"
-           }
-         },
-         "pubname": "ubuntu-precise-12.04-amd64-server-20121111",
-         "label": "release"
-       }
-     }
-   },
-   "com.ubuntu.cloud:server:12.10:amd64": {
-     "release": "quantal",
-     "version": "12.10",
-     "arch": "amd64",
-     "versions": {
-       "20121218": {
-         "items": {
-           "inst3": {
-             "virt": "virtualmachine",
-             "region": "region-1",
-             "id": "11223344-0a0a-ee88-22ab-00aa11bb22cc"
-           },
-           "inst4": {
-             "virt": "virtualmachine",
-             "region": "region-2",
-             "id": "11223344-0a0a-ee88-22ab-00aa11bb22cc"
-           }
-         },
-         "pubname": "ubuntu-quantal-12.14-amd64-server-20121218",
-         "label": "release"
-       }
-     }
-   },
-   "com.ubuntu.cloud:server:13.04:amd64": {
-     "release": "raring",
-     "version": "13.04",
-     "arch": "amd64",
-     "versions": {
-       "20121218": {
-         "items": {
-           "inst5": {
-             "virt": "virtualmachine",
-             "region": "some-region",
-             "id": "11223344-0a0a-dd77-33cd-abcd1234e5f6"
-           },
-           "inst6": {
-             "virt": "virtualmachine",
-             "region": "another-region",
-             "id": "11223344-0a0a-dd77-33cd-abcd1234e5f6"
-           }
-         },
-         "pubname": "ubuntu-raring-13.04-amd64-server-20121218",
-         "label": "release"
-       }
-     }
-   }
- },
- "format": "products:1.0"
+  "content_id": "com.ubuntu.cloud:released:joyent",
+  "format": "products:1.0",
+  "updated": "Fri, 14 Feb 2014 13:39:35 +0000",
+  "datatype": "image-ids",
+  "products": {
+    "com.ubuntu.cloud:server:12.04:amd64": {
+      "release": "precise",
+      "version": "12.04",
+      "arch": "amd64",
+      "versions": {
+        "20140214": {
+          "items": {
+            "11223344-0a0a-ff99-11bb-0a1b2c3d4e5f": {
+              "region": "some-region",
+              "id": "11223344-0a0a-ff99-11bb-0a1b2c3d4e5f",
+              "virt": "virtualmachine"
+            }
+          },
+          "pubname": "ubuntu-precise-12.04-amd64-server-20140214",
+          "label": "release"
+        }
+      }
+    },
+    "com.ubuntu.cloud:server:12.10:amd64": {
+      "release": "quantal",
+      "version": "12.10",
+      "arch": "amd64",
+      "versions": {
+        "20140214": {
+          "items": {
+            "11223344-0a0a-ee88-22ab-00aa11bb22cc": {
+              "region": "some-region",
+              "id": "11223344-0a0a-ee88-22ab-00aa11bb22cc",
+              "virt": "virtualmachine"
+            }
+          },
+          "pubname": "ubuntu-quantal-12.10-amd64-server-20140214",
+          "label": "release"
+        }
+      }
+    },
+    "com.ubuntu.cloud:server:13.04:amd64": {
+      "release": "raring",
+      "version": "13.04",
+      "arch": "amd64",
+      "versions": {
+        "20140214": {
+          "items": {
+            "11223344-0a0a-dd77-33cd-abcd1234e5f6": {
+              "region": "some-region",
+              "id": "11223344-0a0a-dd77-33cd-abcd1234e5f6",
+              "virt": "virtualmachine"
+            }
+          },
+          "pubname": "ubuntu-raring-13.04-amd64-server-20140214",
+          "label": "release"
+        }
+      }
+    }
+  }
 }
 `
 
-const productMetadataFile = "images/streams/v1/com.ubuntu.cloud:released:joyent.json"
+const productMetadataFile = "streams/v1/com.ubuntu.cloud:released:joyent.json"
 
 func UseTestImageData(stor storage.Storage, creds *jpc.Credentials) {
 	// Put some image metadata files into the public storage.
@@ -167,13 +143,12 @@ func UseTestImageData(stor storage.Storage, creds *jpc.Credentials) {
 	}
 	data := metadata.Bytes()
 	stor.Put("images/"+simplestreams.DefaultIndexPath+".json", bytes.NewReader(data), int64(len(data)))
-	stor.Put(
-		productMetadataFile, strings.NewReader(imagesData), int64(len(imagesData)))
+	stor.Put("images/"+productMetadataFile, strings.NewReader(imagesData), int64(len(imagesData)))
 }
 
 func RemoveTestImageData(stor storage.Storage) {
 	stor.Remove("images/"+simplestreams.DefaultIndexPath + ".json")
-	stor.Remove(productMetadataFile)
+	stor.Remove("images/"+productMetadataFile)
 }
 
 func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *instances.InstanceSpec, err error) {
