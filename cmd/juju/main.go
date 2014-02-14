@@ -121,6 +121,8 @@ func Main(args []string) {
 	// Manage users commands.
 	jujucmd.Register(wrap(&AdduserCommand{}))
 	jujucmd.Register(wrap(&RemoveuserCommand{}))
+	jujucmd.Register(wrap(&LoginCommand{}))
+	jujucmd.Register(wrap(&WhoamiCommand{}))
 
 	// Common commands.
 	jujucmd.Register(wrap(&cmd.VersionCommand{}))

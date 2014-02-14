@@ -4,12 +4,15 @@
 package main
 
 import (
+	"fmt"
+	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/environs/configstore"
 )
 
 type WhoamiCommand struct {
 	cmd.EnvCommandBase
+	out cmd.Output
 }
 
 func (c *WhoamiCommand) Info() *cmd.Info {
@@ -20,15 +23,27 @@ func (c *WhoamiCommand) Info() *cmd.Info {
 	}
 }
 
+func (c *WhoamiCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.EnvCommandBase.SetFlags(f)
+	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
+		"yaml": cmd.FormatYaml,
+		"json": cmd.FormatJson,
+	})
+}
+
 func (c *WhoamiCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *WhoamiCommand) Run(_ *cmd.Context) error {
-	client, err := juju.NewAPIClientFromName(c.EnvName)
+func (c *WhoamiCommand) Run(ctx *cmd.Context) error {
+	store, err := configstore.Default()
+	if err != nil {
+		return fmt.Errorf("cannot open environment info storage: %v", err)
+	}
+	info, err := store.ReadInfo(c.EnvName)
 	if err != nil {
 		return err
 	}
-	defer client.Close()
-	return nil
+	user := info.APICredentials().User
+	return c.out.Write(ctx, user)
 }
