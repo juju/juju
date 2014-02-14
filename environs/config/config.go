@@ -626,8 +626,8 @@ func (c *Config) ProvisionerSafeMode() bool {
 // used to identify which image ids to search
 // when starting an instance.
 func (c *Config) ImageStream() string {
-	v, ok := c.defined["image-stream"].(string)
-	if ok {
+	v, _ := c.defined["image-stream"].(string)
+	if v != "" {
 		return v
 	}
 	return "released"
@@ -726,7 +726,6 @@ var alwaysOptional = schema.Defaults{
 	"apt-http-proxy":            schema.Omit,
 	"apt-https-proxy":           schema.Omit,
 	"apt-ftp-proxy":             schema.Omit,
-	"image-stream":              schema.Omit,
 	"bootstrap-timeout":         schema.Omit,
 	"bootstrap-retry-delay":     schema.Omit,
 	"bootstrap-addresses-delay": schema.Omit,
@@ -751,6 +750,8 @@ var alwaysOptional = schema.Defaults{
 	"syslog-port": DefaultSyslogPort,
 	// Authentication string sent with requests to the charm store
 	"charm-store-auth": "",
+	// Previously image-stream could be set to an empty value
+	"image-stream": "",
 }
 
 func allowEmpty(attr string) bool {

@@ -1018,6 +1018,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["image-metadata-url"] = ""
 	attrs["tools-metadata-url"] = ""
 	attrs["tools-url"] = ""
+	attrs["image-stream"] = ""
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
 	c.Assert(cfg.AllAttrs(), jc.DeepEquals, attrs)

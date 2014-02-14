@@ -127,8 +127,8 @@ func SupportedSeries() []string {
 	seriesVersionsMutex.Lock()
 	defer seriesVersionsMutex.Unlock()
 	updateSeriesVersions()
-	series := []string{}
-	for s, _ := range seriesVersions {
+	var series []string
+	for s := range seriesVersions {
 		series = append(series, s)
 	}
 	return series

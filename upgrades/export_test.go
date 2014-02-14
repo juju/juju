@@ -3,4 +3,13 @@
 
 package upgrades
 
-var UpgradeOperations = &upgradeOperations
+var (
+	UpgradeOperations = &upgradeOperations
+	UbuntuHome        = &ubuntuHome
+
+	// 118 upgrade functions
+	StepsFor118                          = stepsFor118
+	EnsureLockDirExistsAndUbuntuWritable = ensureLockDirExistsAndUbuntuWritable
+	UpgradeStateServerRsyslogConfig      = upgradeStateServerRsyslogConfig
+	UpgradeHostMachineRsyslogConfig      = upgradeHostMachineRsyslogConfig
+)

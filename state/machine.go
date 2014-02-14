@@ -39,7 +39,7 @@ const (
 	JobManageEnviron
 
 	// Deprecated in 1.18.
-	JobManageState
+	JobManageStateDeprecated
 )
 
 var jobNames = map[MachineJob]params.MachineJob{
@@ -47,7 +47,7 @@ var jobNames = map[MachineJob]params.MachineJob{
 	JobManageEnviron: params.JobManageEnviron,
 
 	// Deprecated in 1.18.
-	JobManageState: params.JobManageState,
+	JobManageStateDeprecated: params.JobManageStateDeprecated,
 }
 
 // AllJobs returns all supported machine jobs.

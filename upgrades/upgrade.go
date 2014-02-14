@@ -6,19 +6,26 @@ package upgrades
 import (
 	"fmt"
 
+	"github.com/loggo/loggo"
+
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/version"
 )
+
+var logger = loggo.GetLogger("juju.upgrade")
 
 // UpgradeStep defines an idempotent operation that is run to perform
 // a specific upgrade step.
 type UpgradeStep interface {
 	// Description is a human readable description of what the upgrade step does.
 	Description() string
+
 	// Targets returns the target machine types for which the upgrade step is applicable.
 	Targets() []UpgradeTarget
+
 	// Run executes the upgrade business logic.
-	Run() error
+	Run(context Context) error
 }
 
 // UpgradeOperation defines what steps to perform to upgrade to a target version.
@@ -28,6 +35,7 @@ type UpgradeOperation interface {
 	// than we are upgrading from are not run since such steps would
 	// already have been used to get to the version we are running now.
 	TargetVersion() version.Number
+
 	// Steps to perform during an upgrade.
 	Steps() []UpgradeStep
 }
@@ -37,9 +45,14 @@ type UpgradeOperation interface {
 type UpgradeTarget string
 
 const (
-	HostMachine   = UpgradeTarget("hostMachine")
-	HostContainer = UpgradeTarget("hostContainer")
-	StateServer   = UpgradeTarget("stateServer")
+	// AllMachines applies to any machine.
+	AllMachines = UpgradeTarget("allMachines")
+
+	// HostMachine is a machine on which units are deployed.
+	HostMachine = UpgradeTarget("hostMachine")
+
+	// StateServer is a machine participating in a Juju state server cluster.
+	StateServer = UpgradeTarget("stateServer")
 )
 
 // upgradeToVersion encapsulates the steps which need to be run to
@@ -64,11 +77,18 @@ func (u upgradeToVersion) TargetVersion() version.Number {
 type Context interface {
 	// APIState returns an API connection to state.
 	APIState() *api.State
+
+	// AgentConfig returns the agent config for the machine that is being upgraded.
+	AgentConfig() agent.Config
 }
 
 // UpgradeContext is a default Context implementation.
 type UpgradeContext struct {
-	st *api.State
+	// Work in progress........
+	// Exactly what a context needs is to be determined as the
+	// implementation evolves.
+	st          *api.State
+	agentConfig agent.Config
 }
 
 // APIState is defined on the Context interface.
@@ -76,21 +96,9 @@ func (c *UpgradeContext) APIState() *api.State {
 	return c.st
 }
 
-// upgradeOperation provides base attributes for any upgrade step.
-type upgradeOperation struct {
-	description string
-	targets     []UpgradeTarget
-	st          *api.State
-}
-
-// Description is defined on the UpgradeStep interface.
-func (u *upgradeOperation) Description() string {
-	return u.description
-}
-
-// Targets is defined on the UpgradeStep interface.
-func (u *upgradeOperation) Targets() []UpgradeTarget {
-	return u.targets
+// AgentConfig is defined on the Context interface.
+func (c *UpgradeContext) AgentConfig() agent.Config {
+	return c.agentConfig
 }
 
 // upgradeError records a description of the step being performed and the error.
@@ -110,12 +118,12 @@ func PerformUpgrade(from version.Number, target UpgradeTarget, context Context) 
 	if from == version.Zero {
 		from = version.MustParse("1.16.0")
 	}
-	for _, upgradeOps := range upgradeOperations(context) {
-		// Do not run steps for versions of Juju earlier than we are upgrading from.
-		if upgradeOps.TargetVersion().Less(from) {
+	for _, upgradeOps := range upgradeOperations() {
+		// Do not run steps for versions of Juju earlier or same as we are upgrading from.
+		if upgradeOps.TargetVersion().LessEqual(from) {
 			continue
 		}
-		if err := runUpgradeSteps(target, upgradeOps); err != nil {
+		if err := runUpgradeSteps(context, target, upgradeOps); err != nil {
 			return err
 		}
 	}
@@ -125,7 +133,7 @@ func PerformUpgrade(from version.Number, target UpgradeTarget, context Context) 
 // validTarget returns true if target is in step.Targets().
 func validTarget(target UpgradeTarget, step UpgradeStep) bool {
 	for _, opTarget := range step.Targets() {
-		if target == opTarget {
+		if target == AllMachines || target == opTarget {
 			return true
 		}
 	}
@@ -137,12 +145,12 @@ func validTarget(target UpgradeTarget, step UpgradeStep) bool {
 // subsequent steps may required successful completion of earlier ones.
 // The steps must be idempotent so that the entire upgrade operation can
 // be retried.
-func runUpgradeSteps(target UpgradeTarget, upgradeOp UpgradeOperation) *upgradeError {
+func runUpgradeSteps(context Context, target UpgradeTarget, upgradeOp UpgradeOperation) *upgradeError {
 	for _, step := range upgradeOp.Steps() {
 		if !validTarget(target, step) {
 			continue
 		}
-		if err := step.Run(); err != nil {
+		if err := step.Run(context); err != nil {
 			return &upgradeError{
 				description: step.Description(),
 				err:         err,
@@ -150,4 +158,25 @@ func runUpgradeSteps(target UpgradeTarget, upgradeOp UpgradeOperation) *upgradeE
 		}
 	}
 	return nil
+}
+
+type upgradeStep struct {
+	description string
+	targets     []UpgradeTarget
+	run         func(Context) error
+}
+
+// Description is defined on the UpgradeStep interface.
+func (step *upgradeStep) Description() string {
+	return step.description
+}
+
+// Targets is defined on the UpgradeStep interface.
+func (step *upgradeStep) Targets() []UpgradeTarget {
+	return step.targets
+}
+
+// Run is defined on the UpgradeStep interface.
+func (step *upgradeStep) Run(context Context) error {
+	return step.run(context)
 }

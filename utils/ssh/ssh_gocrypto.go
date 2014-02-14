@@ -77,6 +77,8 @@ type goCryptoCommand struct {
 	sess    *ssh.Session
 }
 
+var sshDial = ssh.Dial
+
 func (c *goCryptoCommand) ensureSession() (*ssh.Session, error) {
 	if c.sess != nil {
 		return c.sess, nil
@@ -97,7 +99,7 @@ func (c *goCryptoCommand) ensureSession() (*ssh.Session, error) {
 			ssh.ClientAuthKeyring(keyring{c.signers}),
 		},
 	}
-	conn, err := ssh.Dial("tcp", c.addr, config)
+	conn, err := sshDial("tcp", c.addr, config)
 	if err != nil {
 		return nil, err
 	}
