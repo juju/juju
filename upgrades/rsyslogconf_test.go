@@ -32,7 +32,7 @@ func (s *rsyslogSuite) SetUpTest(c *gc.C) {
 	s.syslogPath = filepath.Join(dir, "fakesyslog.conf")
 	s.PatchValue(&environs.RsyslogConfPath, s.syslogPath)
 
-	apiState, _ := s.OpenAPIAsNewMachine(c, state.JobManageState, state.JobManageEnviron)
+	apiState, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
 	s.ctx = &mockContext{
 		agentConfig: &mockAgentConfig{
 			tag:          "machine-tag",
