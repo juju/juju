@@ -25,13 +25,6 @@ import (
 	"launchpad.net/juju-core/utils/tailer"
 )
 
-// defaultLogLocation is the location of the aggregated log in non-local
-// environments.
-const defaultLogLocation = "/var/log/juju/all-machines.log"
-
-// logLocation is the real used log location.
-var logLocation = defaultLogLocation
-
 // debugLogHandler takes requests to watch the debug log.
 type debugLogHandler struct {
 	state *state.State
@@ -60,7 +53,12 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	// Open log file.
-	// TODO(mue) Add mechanism to get log location depending on provider.
+	config, err := h.state.EnvironConfig()
+	if err != nil {
+		h.sendError(w, http.StatusBadRequest, "cannot get environment configuration: %v", err)
+		return
+	}
+	logLocation := config.LogLocation()
 	logFile, err := os.Open(logLocation)
 	if err != nil {
 		h.sendError(w, http.StatusInternalServerError, "cannot open log file: %v", err)

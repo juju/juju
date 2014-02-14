@@ -159,10 +159,15 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 	// Also, we leave the old all-machines.log file in
 	// /var/log/juju-{{namespace}} until we start the environment again. So
 	// potentially remove it at the start of the cloud-init.
-	logfile := fmt.Sprintf("/var/log/juju-%s/all-machines.log", env.config.namespace())
+	logLocation := fmt.Sprintf("/var/log/juju-%s/all-machines.log", env.config.namespace())
+	mcfg.Config, err = mcfg.Config.Apply(map[string]interface{}{"log-location": logLocation})
+	if err != nil {
+		return err
+	}
 	cloudcfg.AddScripts(
-		fmt.Sprintf("[ -f %s ] && rm %s", logfile, logfile),
-		fmt.Sprintf("ln -s %s %s/", logfile, env.config.logDir()))
+		fmt.Sprintf("[ -f %s ] && rm %s", logLocation, logLocation),
+		fmt.Sprintf("ln -s %s %s/", logLocation, env.config.logDir()))
+
 	if err := cloudinit.ConfigureJuju(mcfg, cloudcfg); err != nil {
 		return err
 	}

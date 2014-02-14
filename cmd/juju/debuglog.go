@@ -14,6 +14,7 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/osenv"
@@ -63,10 +64,11 @@ func (c *DebugLogCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	defer client.Close()
 
+	logger.Debugf("CALLING WATCH DEBUG LOG")
 	debugLog, err := client.WatchDebugLog(c.lines, c.filter)
 	if err != nil {
-		logger.Infof("WatchDebugLog not supported by the API server, " +
-			"falling back to 1.16 compatibility mode using ssh")
+		logger.Infof("WatchDebugLog not supported by the API server, "+
+			"falling back to 1.16 compatibility mode using ssh: %v", err)
 		return c.watchDebugLog1dot16(ctx)
 	}
 	defer debugLog.Close()
@@ -106,9 +108,12 @@ func (c *DebugLogCommand) watchDebugLog1dot16(ctx *cmd.Context) error {
 		return grepCmd.Wait()
 	}
 	// Any other provider uses ssh with tail.
-	logLocation := "/var/log/juju/all-machines.log"
+	logLocation := config.DefaultLogLocation
 	sshCmd := &SSHCommand{}
-	tailGrepCmd := fmt.Sprintf("tail -n %d -f %s|grep %s", c.lines, logLocation, c.filter)
+	tailGrepCmd := fmt.Sprintf("tail -n %d -f %s", c.lines, logLocation)
+	if c.filter != "" {
+		tailGrepCmd += fmt.Sprintf("  | grep -E %s", c.filter)
+	}
 	args := []string{"0", tailGrepCmd}
 	err = sshCmd.Init(args)
 	if err != nil {

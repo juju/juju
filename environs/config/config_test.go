@@ -846,6 +846,10 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 	if syslogPort, ok := test.attrs["syslog-port"]; ok {
 		c.Assert(cfg.SyslogPort(), gc.Equals, syslogPort)
 	}
+	if logLocation, ok := test.attrs["log-location"]; ok {
+		c.Assert(cfg.LogLocation(), gc.Equals, logLocation)
+		c.Assert(cfg.LogLocation(), gc.Equals, config.DefaultLogLocation)
+	}
 
 	dev, _ := test.attrs["development"].(bool)
 	c.Assert(cfg.Development(), gc.Equals, dev)
@@ -996,6 +1000,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"state-port":                1234,
 		"api-port":                  4321,
 		"syslog-port":               2345,
+		"log-location":              c.MkDir() + "all-machines.log",
 		"bootstrap-timeout":         3600,
 		"bootstrap-retry-delay":     30,
 		"bootstrap-addresses-delay": 10,

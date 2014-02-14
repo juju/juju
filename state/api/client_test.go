@@ -75,29 +75,7 @@ func (s *clientSuite) TestAddLocalCharm(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 	}()
 
-	api.SetServerRoot(client, "http://localhost:8900")
+	api.SetServerHostPort(client, "localhost:8900")
 	_, err = client.AddLocalCharm(curl, charmArchive)
 	c.Assert(err, jc.Satisfies, params.IsCodeNotImplemented)
-}
-
-func (s *clientSuite) TestWatchDebugLog(c *gc.C) {
-	client := s.APIState.Client()
-
-	// debugLog, err := client.WatchDebugLog(lines, filter)
-	// c.Assert(err, gc.IsNil)
-
-	// Finally, try the NotImplementedError by mocking the server
-	// address to a handler that returns 405 Method Not Allowed.
-	http.HandleFunc("/log", func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-	})
-	go func() {
-		err = http.ListenAndServe(":8900", nil)
-		c.Assert(err, gc.IsNil)
-	}()
-
-	api.SetServerRoot(client, "http://localhost:8900")
-	debugLog, err := client.WatchDebugLog(lines, filter)
-	c.Assert(err, jc.Satisfies, params.IsCodeNotImplemented)
-
 }

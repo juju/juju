@@ -59,6 +59,10 @@ const (
 	// refreshing the addresses, in seconds. Not too frequent, as we
 	// refresh addresses from the provider each time.
 	DefaultBootstrapSSHAddressesDelay int = 10
+
+	// DefaultLogLocation is the location of the aggregated log file. The
+	// local provider uses a different one.
+	DefaultLogLocation string = "/var/log/juju/all-machines.log"
 )
 
 // Config holds an immutable environment configuration.
@@ -155,6 +159,13 @@ func (c *Config) ensureUnitLogging() error {
 		loggingConfig = loggingConfig + ";unit=DEBUG"
 	}
 	c.defined["logging-config"] = loggingConfig
+	// Ensure default log location.
+	logLocation := c.asString("log-location")
+	// If the logging location hasn't been set fall back to
+	// the default location.
+	if logLocation == "" {
+		c.defined["log-location"] = DefaultLogLocation
+	}
 	return nil
 }
 
@@ -427,6 +438,11 @@ func (c *Config) SyslogPort() int {
 	return c.mustInt("syslog-port")
 }
 
+// LogLocation returns the location of the log file.
+func (c *Config) LogLocation() string {
+	return c.mustString("log-location")
+}
+
 // AuthorizedKeys returns the content for ssh's authorized_keys file.
 func (c *Config) AuthorizedKeys() string {
 	return c.mustString("authorized-keys")
@@ -668,6 +684,7 @@ var fields = schema.Fields{
 	"state-port":                schema.ForceInt(),
 	"api-port":                  schema.ForceInt(),
 	"syslog-port":               schema.ForceInt(),
+	"log-location":              schema.String(),
 	"logging-config":            schema.String(),
 	"charm-store-auth":          schema.String(),
 	"provisioner-safe-mode":     schema.Bool(),
@@ -700,6 +717,7 @@ var alwaysOptional = schema.Defaults{
 	"authorized-keys-path":      schema.Omit,
 	"ca-cert-path":              schema.Omit,
 	"ca-private-key-path":       schema.Omit,
+	"log-location":              schema.Omit,
 	"logging-config":            schema.Omit,
 	"provisioner-safe-mode":     schema.Omit,
 	"http-proxy":                schema.Omit,
@@ -750,6 +768,7 @@ func allDefaults() schema.Defaults {
 		"state-port":                DefaultStatePort,
 		"api-port":                  DefaultAPIPort,
 		"syslog-port":               DefaultSyslogPort,
+		"log-location":              DefaultLogLocation,
 		"bootstrap-timeout":         DefaultBootstrapSSHTimeout,
 		"bootstrap-retry-delay":     DefaultBootstrapSSHRetryDelay,
 		"bootstrap-addresses-delay": DefaultBootstrapSSHAddressesDelay,
@@ -786,6 +805,7 @@ var immutableAttributes = []string{
 	"state-port",
 	"api-port",
 	"syslog-port",
+	"log-location",
 	"bootstrap-timeout",
 	"bootstrap-retry-delay",
 	"bootstrap-addresses-delay",

@@ -3,8 +3,7 @@
 
 package api
 
-// SetServerRoot allows changing the URL to the internal API server
-// that AddLocalCharm uses in order to test NotImplementedError.
-func SetServerRoot(c *Client, root string) {
-	c.st.serverRoot = root
+// SetServerHostPort allows changing the URL to the internal API server.
+func SetServerHostPort(c *Client, serverHostPort string) {
+	c.st.serverHostPort = serverHostPort
 }
