@@ -1,8 +1,9 @@
 #!/bin/bash
-set -eu
+set -eux
 # Create package
 TARFILE=$($SCRIPTS/get-tarfile-name)
 wget -q $JENKINS_URL/job/build-revision/lastSuccessfulBuild/artifact/$TARFILE
+@set +x
 source $SCRIPTS/make-package-with-tarball.bash testing $TARFILE \
     'Curtis C. Hovey <curtis.hovey@canonical.com>'
 # Now that we aren't sourcing credentials, it's safe to enable command echo.
