@@ -865,7 +865,10 @@ func (u *UniterAPI) checkRemoteUnit(relUnit *state.RelationUnit, remoteUnitTag s
 	if remoteUnitTag == u.auth.GetAuthTag() {
 		return "", common.ErrPerm
 	}
-	// Check remoteUnit is indeed related.
+	// Check remoteUnit is indeed related. Note that we don't want to actually get
+	// the *Unit, because it might have been removed; but its relation settings will
+	// persist until the relation itself has been removed (and must remain accessible
+	// because the local unit's view of reality may be time-shifted).
 	_, remoteUnitName, err := names.ParseTag(remoteUnitTag, names.UnitTagKind)
 	if err != nil {
 		return "", err
