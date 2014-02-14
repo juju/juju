@@ -56,10 +56,11 @@ func (s *prepareSuite) SetUpTest(c *gc.C) {
 	s.PatchEnvironment("ftp_proxy", "")
 	s.PatchEnvironment("FTP_PROXY", "")
 	s.HookCommandOutput(&utils.AptCommandOutput, nil, nil)
-	restore := testbase.PatchValue(local.CheckLocalPort, func(port int, desc string) error {
+	s.PatchValue(local.CheckLocalPort, func(port int, desc string) error {
 		return nil
 	})
-	s.AddSuiteCleanup(func(*gc.C) { restore() })
+	restore := local.MockAddressForInterface()
+	s.AddCleanup(func(*gc.C) { restore() })
 }
 
 func (s *prepareSuite) TestPrepareCapturesEnvironment(c *gc.C) {
@@ -70,7 +71,6 @@ func (s *prepareSuite) TestPrepareCapturesEnvironment(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	provider, err := environs.Provider(provider.Local)
 	c.Assert(err, gc.IsNil)
-	defer local.MockAddressForInterface()()
 
 	for i, test := range []struct {
 		message          string
