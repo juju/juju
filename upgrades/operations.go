@@ -9,8 +9,8 @@ import "launchpad.net/juju-core/version"
 // to upgrade Juju to particular version. The slice is ordered by target
 // version, so that the sets of operations are executed in order from oldest
 // version to most recent.
-var upgradeOperations = func() []UpgradeOperation {
-	steps := []UpgradeOperation{
+var upgradeOperations = func() []Operation {
+	steps := []Operation{
 		upgradeToVersion{
 			version.MustParse("1.18.0"),
 			stepsFor118(),
