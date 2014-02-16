@@ -24,7 +24,7 @@ func Test(t *testing.T) {
 // N.B. The FORCE-VERSION logic is tested in the environs package.
 
 var cmpTests = []struct {
-	v1, v2 string
+	v1, v2  string
 	compare int
 }{
 	{"1.0.0", "1.0.0", 0},
