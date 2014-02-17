@@ -20,7 +20,7 @@ type WhoamiSuite struct {
 
 var _ = gc.Suite(&WhoamiSuite{})
 
-func (s *WhoamiSuite) Testadduser(c *gc.C) {
+func (s *WhoamiSuite) TestWhoami(c *gc.C) {
 	environ, err := environs.PrepareFromName("dummyenv", s.ConfigStore)
 	c.Assert(err, gc.IsNil)
 
