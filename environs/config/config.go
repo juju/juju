@@ -617,6 +617,13 @@ func (c *Config) ImageStream() string {
 	return "released"
 }
 
+// Testing indicates if the environment is intended for testing.
+// In this case, accessing the charm store does not affect statistical
+// data of the store.
+func (c *Config) Testing() bool {
+	return c.defined["testing"].(bool)
+}
+
 // UnknownAttrs returns a copy of the raw configuration attributes
 // that are supposedly specific to the environment type. They could
 // also be wrong attributes, though. Only the specific environment
@@ -680,6 +687,7 @@ var fields = schema.Fields{
 	"bootstrap-timeout":         schema.ForceInt(),
 	"bootstrap-retry-delay":     schema.ForceInt(),
 	"bootstrap-addresses-delay": schema.ForceInt(),
+	"testing":                   schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url": schema.String(),
@@ -734,6 +742,7 @@ var alwaysOptional = schema.Defaults{
 	"charm-store-auth": "",
 	// Previously image-stream could be set to an empty value
 	"image-stream": "",
+	"testing":      false,
 }
 
 func allowEmpty(attr string) bool {
