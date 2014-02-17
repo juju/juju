@@ -178,7 +178,10 @@ type agentSuite struct {
 
 func (s *agentSuite) SetUpSuite(c *gc.C) {
 	s.oldRestartDelay = worker.RestartDelay
-	worker.RestartDelay = coretesting.ShortWait
+	// We could use testing.ShortWait, but this thrashes quite
+	// a bit when some tests are restarting every 50ms for 10 seconds,
+	// so use a slightly more friendly delay.
+	worker.RestartDelay = 250 * time.Millisecond
 	s.JujuConnSuite.SetUpSuite(c)
 }
 
