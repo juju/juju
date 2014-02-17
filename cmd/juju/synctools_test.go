@@ -169,24 +169,34 @@ func (s *syncToolsSuite) TestSyncToolsCommandTargetDirectory(c *gc.C) {
 	s.Reset(c)
 }
 
-func (s *syncToolsSuite) TestSyncToolsCommandDepreciatedDestination(c *gc.C) {
+func (s *syncToolsSuite) TestSyncToolsCommandDeprecatedDestination(c *gc.C) {
+	called := false
 	dir := c.MkDir()
-	// replace the actual sync tools with a no-op
 	syncTools = func(sctx *sync.SyncContext) error {
+		c.Assert(sctx.AllVersions, gc.Equals, false)
+		c.Assert(sctx.DryRun, gc.Equals, false)
+		c.Assert(sctx.Dev, gc.Equals, false)
+		c.Assert(sctx.Source, gc.Equals, "")
+		url, err := sctx.Target.URL("")
+		c.Assert(err, gc.IsNil)
+		c.Assert(url, gc.Equals, "file://"+dir)
+		called = true
 		return nil
 	}
-	//register writer
+	// Register writer.
 	tw := &loggo.TestWriter{}
 	c.Assert(loggo.RegisterWriter("deprecated-tester", tw, loggo.DEBUG), gc.IsNil)
 	defer loggo.RemoveWriter("deprecated-tester")
-	//add deprecated message to be checked
+	// Add deprecated message to be checked.
 	messages := []jc.SimpleMessage{
 		{loggo.WARNING, "Use of the --destination flag is deprecated in 1.18. Please use --local-dir instead."},
 	}
-	//run sync-tools command with --destination flag
+	// Run sync-tools command with --destination flag.
 	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--destination", dir)
 	c.Assert(err, gc.IsNil)
 	c.Assert(ctx, gc.NotNil)
-	//check deprecated message was logged
+	c.Assert(called, jc.IsTrue)
+	// Check deprecated message was logged.
 	c.Check(tw.Log, jc.LogMatches, messages)
+	s.Reset(c)
 }
