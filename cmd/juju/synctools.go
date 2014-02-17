@@ -31,6 +31,7 @@ type SyncToolsCommand struct {
 	public       bool
 	source       string
 	localDir     string
+	destination  string
 }
 
 var _ cmd.Command = (*SyncToolsCommand)(nil)
@@ -61,9 +62,15 @@ func (c *SyncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.public, "public", false, "tools are for a public cloud, so generate mirrors information")
 	f.StringVar(&c.source, "source", "", "local source directory")
 	f.StringVar(&c.localDir, "local-dir", "", "local destination directory")
+	f.StringVar(&c.destination, "destination", "", "local destination directory")
 }
 
 func (c *SyncToolsCommand) Init(args []string) error {
+	if c.destination != "" {
+		// Override localDir with destination as localDir now replaces destination
+		c.localDir = c.destination
+		logger.Warningf("Use of the --destination flag is deprecated in 1.18. Please use --local-dir instead.")
+	}
 	if c.versionStr != "" {
 		var err error
 		if c.majorVersion, c.minorVersion, err = version.ParseMajorMinor(c.versionStr); err != nil {

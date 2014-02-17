@@ -7,6 +7,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/loggo/loggo"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
@@ -165,5 +166,37 @@ func (s *syncToolsSuite) TestSyncToolsCommandTargetDirectory(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(ctx, gc.NotNil)
 	c.Assert(called, jc.IsTrue)
+	s.Reset(c)
+}
+
+func (s *syncToolsSuite) TestSyncToolsCommandDeprecatedDestination(c *gc.C) {
+	called := false
+	dir := c.MkDir()
+	syncTools = func(sctx *sync.SyncContext) error {
+		c.Assert(sctx.AllVersions, gc.Equals, false)
+		c.Assert(sctx.DryRun, gc.Equals, false)
+		c.Assert(sctx.Dev, gc.Equals, false)
+		c.Assert(sctx.Source, gc.Equals, "")
+		url, err := sctx.Target.URL("")
+		c.Assert(err, gc.IsNil)
+		c.Assert(url, gc.Equals, "file://"+dir)
+		called = true
+		return nil
+	}
+	// Register writer.
+	tw := &loggo.TestWriter{}
+	c.Assert(loggo.RegisterWriter("deprecated-tester", tw, loggo.DEBUG), gc.IsNil)
+	defer loggo.RemoveWriter("deprecated-tester")
+	// Add deprecated message to be checked.
+	messages := []jc.SimpleMessage{
+		{loggo.WARNING, "Use of the --destination flag is deprecated in 1.18. Please use --local-dir instead."},
+	}
+	// Run sync-tools command with --destination flag.
+	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--destination", dir)
+	c.Assert(err, gc.IsNil)
+	c.Assert(ctx, gc.NotNil)
+	c.Assert(called, jc.IsTrue)
+	// Check deprecated message was logged.
+	c.Check(tw.Log, jc.LogMatches, messages)
 	s.Reset(c)
 }
