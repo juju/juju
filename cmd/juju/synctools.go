@@ -66,11 +66,12 @@ func (c *SyncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *SyncToolsCommand) Init(args []string) error {
-	//if destination is set, raise deprecation error
 	if c.destination != "" {
+		//Override localDir with destination as localDir now replaces destination
+		c.localDir = c.destination
+		//Raise deprecation error
 		logger.Warningf("Use of the --destination flag is deprecated in 1.18. Please use --local-dir instead.")
 	}
-
 	if c.versionStr != "" {
 		var err error
 		if c.majorVersion, c.minorVersion, err = version.ParseMajorMinor(c.versionStr); err != nil {
