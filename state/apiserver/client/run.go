@@ -5,8 +5,6 @@ package client
 
 import (
 	"fmt"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/utils"
 	"path/filepath"
 	"sort"
 	"sync"
@@ -14,7 +12,9 @@ import (
 
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/utils/ssh"
 )
