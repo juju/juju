@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 
 	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/txn"
 	gc "launchpad.net/gocheck"
 
-	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"

@@ -5,11 +5,12 @@ package version_test
 
 import (
 	"encoding/json"
-	"labix.org/v2/mgo/bson"
 	"strings"
 	"testing"
 
+	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/version"
 )
 

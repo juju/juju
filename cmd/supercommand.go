@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/loggo/loggo"
-
 	"launchpad.net/gnuflag"
 )
 

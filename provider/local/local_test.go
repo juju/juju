@@ -6,7 +6,6 @@ package local_test
 import (
 	"fmt"
 	"net"
-
 	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"

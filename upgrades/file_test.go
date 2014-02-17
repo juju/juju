@@ -4,14 +4,14 @@
 package upgrades_test
 
 import (
+	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	gc "launchpad.net/gocheck"
 
-	"io/ioutil"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/upgrades"
-	"path/filepath"
 )
 
 type fileSuite struct {

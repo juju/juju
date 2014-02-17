@@ -10,7 +10,6 @@ import (
 	"sort"
 
 	gc "launchpad.net/gocheck"
-
 	"launchpad.net/goose/client"
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
