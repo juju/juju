@@ -48,12 +48,12 @@ func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		h.sendJSON(w, http.StatusOK, &params.CharmsResponse{CharmURL: charmURL.String()})
 	case "GET":
-		name, err := h.processGet(r)
+		path, err := h.processGet(r)
 		if err != nil {
-			h.sendError(w, http.StatusNotFound, err.Error())
+			h.sendError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		http.ServeFile(w, r, name)
+		http.ServeFile(w, r, path)
 	default:
 		h.sendError(w, http.StatusMethodNotAllowed, fmt.Sprintf("unsupported method: %q", r.Method))
 	}
@@ -426,26 +426,85 @@ func (h *charmsHandler) repackageAndUploadCharm(archive *charm.Bundle, curl *cha
 	return nil
 }
 
-// processPost handles a charm upload POST request after authentication.
+// processGet handles a charm file download GET request after authentication.
 func (h *charmsHandler) processGet(r *http.Request) (string, error) {
 	query := r.URL.Query()
+
 	// Retrieve query parameters.
-	curl := query.Get("charm")
+	curl := query.Get("url")
 	if curl == "" {
-		return "", fmt.Errorf("expected charm=URL argument")
+		return "", fmt.Errorf("expected url=CharmURL argument")
 	}
-	path := query.Get("path")
+	path := query.Get("file")
 	if path == "" {
-		return "", fmt.Errorf("expected path=path/to/file argument")
+		return "", fmt.Errorf("expected file=path/to/file argument")
 	}
+
+	// Get the provider storage.
 	storage, err := envtesting.GetEnvironStorage(h.state)
 	if err != nil {
 		return "", errgo.Annotate(err, "cannot access provider storage")
 	}
-	bundle, err := storage.Get(curl)
+
+	// Use the storage to retrieve and save the charm archive.
+	reader, err := storage.Get(charm.Quote(curl))
 	if err != nil {
 		return "", errgo.Annotate(err, "charm not found in the provider storage")
 	}
-	fmt.Printf("BUNDLE: %#v", bundle)
-	return "", nil
+	defer reader.Close()
+	data, err := ioutil.ReadAll(reader)
+	if err != nil {
+		return "", fmt.Errorf("cannot read charm data: %v", err)
+	}
+	tempCharm, err := ioutil.TempFile("", "charm")
+	if err != nil {
+		return "", fmt.Errorf("cannot create charm temp file: %v", err)
+	}
+	defer tempCharm.Close()
+	defer os.Remove(tempCharm.Name())
+	err = ioutil.WriteFile(tempCharm.Name(), data, 0644)
+	if err != nil {
+		return "", fmt.Errorf("error processing file download: %v", err)
+	}
+
+	// Read and expand the charm bundle.
+	bundle, err := charm.ReadBundle(tempCharm.Name())
+	if err != nil {
+		return "", fmt.Errorf("cannot read the charm bundle: %v", err)
+	}
+	tempBundleDirName, err := ioutil.TempDir("", "bundle")
+	if err != nil {
+		return "", fmt.Errorf("cannot create bundle temp file: %v", err)
+	}
+	defer os.RemoveAll(tempBundleDirName)
+	err = bundle.ExpandTo(tempBundleDirName)
+	if err != nil {
+		return "", fmt.Errorf("error expanding the bundle: %v", err)
+	}
+
+	// Validate the given path.
+	fullPath := filepath.Join(tempBundleDirName, path)
+	if !strings.HasPrefix(fullPath, tempBundleDirName) {
+		return "", fmt.Errorf("invalid file path: %v", fullPath)
+	}
+
+	// Return the file path. If the path does not exist, the ServeFile call
+	// will return a 404 response.
+	return fullPath, nil
 }
+
+dimitern> frankban, I'd be a bit careful when implementing the extraction, because it's a possible DDoS target if the api server gets flooded with tons of GET requests for the same charm
+<rick_h_> dimitern: does the api call support only auth'd requests so that's not an issue?
+<dimitern> frankban, perhaps using a "cache" dir somewhere, and each curl gets extracted to the same place if it's not there already?
+<frankban> dimitern: well, it's a ddos target for authenticated users
+* bac installs trusty updates.  reboots.  holds breath.
+<frankban> dimitern: yeah that can be an option
+<dimitern> frankban, rick_h_ , that's true, but still my spider sense is tingling a bit :)
+<dimitern> frankban, also, what you get "for free" is the ability to cache charms and thus answer to subsequent GETs for the same curl faster
+<frankban> dimitern, where do you usually store this kind of cache dirs? /tmp? /var/lib/juju/?
+* alejandraobregon (~alejandra@nat/canonical/x-ttwmspwgfgderwrv) has joined #juju-gui
+<dimitern> frankban, i think /var/lib/juju/agents/.. something - take a look where the charms are cached when deployed
+<frankban> dimitern: is charm.Quote(curl) good enough as a directory name?
+<dimitern> frankban, yes, it's intended to be filepath safe, although it's perhaps better to use the same tactic as the charmsHandler - i.e. "<charm name>-<revision>-<bundlesha256>" as filename, so that it's both readable in a list of files, and guarantees the same internal contents get the same name
+<frankban> dimitern: sounds good, thank you!
+
