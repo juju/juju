@@ -143,7 +143,7 @@ func (s *runSuite) TestGetAllUnitNames(c *gc.C) {
 func (s *runSuite) mockSSH(c *gc.C, cmd string) {
 	testbin := c.MkDir()
 	fakessh := filepath.Join(testbin, "ssh")
-	s.PatchPath(testbin)
+	s.PatchEnvPathPrepend(testbin)
 	err := ioutil.WriteFile(fakessh, []byte(cmd), 0755)
 	c.Assert(err, gc.IsNil)
 }

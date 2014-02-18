@@ -60,10 +60,10 @@ func PatchEnvironment(name, value string) Restorer {
 	}
 }
 
-// PatchPath provides a test a simple way to prepend path to the start of
-// the environment's $PATH variable. A function is returned that will return the
-// environment to what it was before.
-func PatchPath(dir string) Restorer {
+// PatchEnvPathPrepend provides a simple way to prepend path to the start of the
+// PATH environment variable. Returns a function that restores the environment
+// to what it was before.
+func PatchEnvPathPrepend(dir string) Restorer {
 	return PatchEnvironment("PATH", joinPathLists(dir, os.Getenv("PATH")))
 }
 

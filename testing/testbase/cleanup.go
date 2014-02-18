@@ -62,10 +62,10 @@ func (s *CleanupSuite) PatchEnvironment(name, value string) {
 	s.AddCleanup(func(*gc.C) { restore() })
 }
 
-// PatchPath prepends the given path to the environment $PATH and restores the
+// PatchEnvPathPrepend prepends the given path to the environment $PATH and restores the
 // original path on test teardown.
-func (s *CleanupSuite) PatchPath(dir string) {
-	restore := PatchPath(dir)
+func (s *CleanupSuite) PatchEnvPathPrepend(dir string) {
+	restore := PatchEnvPathPrepend(dir)
 	s.AddCleanup(func(*gc.C) { restore() })
 }
 

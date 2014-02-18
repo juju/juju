@@ -30,7 +30,7 @@ var _ = gc.Suite(&UpstartSuite{})
 
 func (s *UpstartSuite) SetUpTest(c *gc.C) {
 	s.testPath = c.MkDir()
-	s.PatchPath(s.testPath)
+	s.PatchEnvPathPrepend(s.testPath)
 	s.PatchValue(&upstart.InstallStartRetryAttempts, utils.AttemptStrategy{})
 	s.service = &upstart.Service{Name: "some-service", InitDir: c.MkDir()}
 	_, err := os.Create(filepath.Join(s.service.InitDir, "some-service.conf"))

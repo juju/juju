@@ -76,5 +76,5 @@ func InstallFakeSSH(c *gc.C, input, output interface{}, rc int) testbase.Restore
 	script := fmt.Sprintf(sshscript, stdout, stderr, rc)
 	err := ioutil.WriteFile(ssh, []byte(script), 0777)
 	c.Assert(err, gc.IsNil)
-	return testbase.PatchPath(fakebin)
+	return testbase.PatchEnvPathPrepend(fakebin)
 }

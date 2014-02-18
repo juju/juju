@@ -37,7 +37,7 @@ func (s *SSHCommandSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = ioutil.WriteFile(s.fakescp, []byte(echoCommandScript), 0755)
 	c.Assert(err, gc.IsNil)
-	s.PatchPath(s.testbin)
+	s.PatchEnvPathPrepend(s.testbin)
 	s.client, err = ssh.NewOpenSSHClient()
 	c.Assert(err, gc.IsNil)
 	s.PatchValue(ssh.DefaultIdentities, nil)

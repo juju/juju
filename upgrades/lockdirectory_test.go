@@ -37,7 +37,7 @@ func (s *ensureLockDirSuite) SetUpTest(c *gc.C) {
 	s.FakeHomeSuite.SetUpTest(c)
 
 	s.bin = c.MkDir()
-	s.PatchPath(s.bin)
+	s.PatchEnvPathPrepend(s.bin)
 
 	err := ioutil.WriteFile(
 		filepath.Join(s.bin, "chown"),

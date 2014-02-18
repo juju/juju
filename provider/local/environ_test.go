@@ -108,7 +108,7 @@ func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.oldPath = os.Getenv("PATH")
 	s.testPath = c.MkDir()
-	s.PatchPath(s.testPath)
+	s.PatchEnvPathPrepend(s.testPath)
 
 	// Add in an admin secret
 	s.Tests.TestConfig["admin-secret"] = "sekrit"

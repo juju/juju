@@ -27,7 +27,7 @@ func (s *ExecuteSSHCommandSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.testbin = c.MkDir()
 	s.fakessh = filepath.Join(s.testbin, "ssh")
-	s.PatchPath(s.testbin)
+	s.PatchEnvPathPrepend(s.testbin)
 }
 
 func (s *ExecuteSSHCommandSuite) fakeSSH(c *gc.C, cmd string) {
