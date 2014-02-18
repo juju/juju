@@ -5,6 +5,7 @@ package manual_test
 
 import (
 	"fmt"
+	"io"
 
 	gc "launchpad.net/gocheck"
 
@@ -23,6 +24,13 @@ type providerSuite struct {
 }
 
 var _ = gc.Suite(&providerSuite{})
+
+func (s *providerSuite) SetUpTest(c *gc.C) {
+	s.LoggingSuite.SetUpTest(c)
+	s.PatchValue(manual.InitUbuntuUser, func(host, user, keys string, stdin io.Reader, stdout io.Writer) error {
+		return nil
+	})
+}
 
 func (s *providerSuite) TestPrepare(c *gc.C) {
 	minimal := manual.MinimalConfigValues()

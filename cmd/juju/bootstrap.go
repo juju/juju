@@ -8,7 +8,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/errgo/errgo"
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/charm"
@@ -123,13 +122,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}
 	if !existing {
 		defer destroyPreparedEnviron(environ, store, &resultErr, "Bootstrap")
-	}
-	// If the environment has a special bootstrap Storage, use it wherever
-	// we'd otherwise use environ.Storage.
-	if bs, ok := environ.(environs.BootstrapStorager); ok {
-		if err := bs.EnableBootstrapStorage(ctx); err != nil {
-			return errgo.Annotate(err, "failed to enable bootstrap storage")
-		}
 	}
 	if err := bootstrap.EnsureNotBootstrapped(environ); err != nil {
 		return err
