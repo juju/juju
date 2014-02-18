@@ -100,7 +100,7 @@ func (e *manualEnviron) ensureBootstrapUbuntuUser(ctx environs.BootstrapContext)
 		return nil
 	}
 	cfg := e.envConfig()
-	err := initUbuntuUser(cfg.bootstrapHost(), cfg.bootstrapUser(), cfg.AuthorizedKeys(), ctx.Stdin(), ctx.Stdout())
+	err := initUbuntuUser(cfg.bootstrapHost(), cfg.bootstrapUser(), cfg.AuthorizedKeys(), ctx.GetStdin(), ctx.GetStdout())
 	if err != nil {
 		logger.Errorf("initializing ubuntu user: %v", err)
 		return err

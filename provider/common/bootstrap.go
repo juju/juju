@@ -68,12 +68,12 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, cons constra
 		return err
 	}
 
-	fmt.Fprintln(ctx.Stderr(), "Launching instance")
+	fmt.Fprintln(ctx.GetStderr(), "Launching instance")
 	inst, hw, err := env.StartInstance(cons, selectedTools, machineConfig)
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
-	fmt.Fprintf(ctx.Stderr(), " - %s\n", inst.Id())
+	fmt.Fprintf(ctx.GetStderr(), " - %s\n", inst.Id())
 
 	var characteristics []instance.HardwareCharacteristics
 	if hw != nil {
@@ -144,12 +144,12 @@ func handleBootstrapError(err error, ctx environs.BootstrapContext, inst instanc
 	defer close(ch)
 	go func() {
 		for _ = range ch {
-			fmt.Fprintln(ctx.Stderr(), "Cleaning up failed bootstrap")
+			fmt.Fprintln(ctx.GetStderr(), "Cleaning up failed bootstrap")
 		}
 	}()
 
 	if inst != nil {
-		fmt.Fprintln(ctx.Stderr(), "Stopping instance...")
+		fmt.Fprintln(ctx.GetStderr(), "Stopping instance...")
 		if stoperr := env.StopInstances([]instance.Instance{inst}); stoperr != nil {
 			logger.Errorf("cannot stop failed bootstrap instance %q: %v", inst.Id(), stoperr)
 		} else {
@@ -217,7 +217,7 @@ var FinishBootstrap = func(ctx environs.BootstrapContext, client ssh.Client, ins
 		Host:           "ubuntu@" + addr,
 		Client:         client,
 		Config:         cloudcfg,
-		ProgressWriter: ctx.Stderr(),
+		ProgressWriter: ctx.GetStderr(),
 	})
 }
 
@@ -365,14 +365,14 @@ func waitSSH(ctx environs.BootstrapContext, interrupted <-chan os.Signal, client
 	checker := parallelHostChecker{
 		Try:             parallel.NewTry(0, nil),
 		client:          client,
-		stderr:          ctx.Stderr(),
+		stderr:          ctx.GetStderr(),
 		active:          make(map[instance.Address]chan struct{}),
 		checkDelay:      timeout.RetryDelay,
 		checkHostScript: checkHostScript,
 	}
 	defer checker.Kill()
 
-	fmt.Fprintln(ctx.Stderr(), "Waiting for address")
+	fmt.Fprintln(ctx.GetStderr(), "Waiting for address")
 	for {
 		select {
 		case <-pollAddresses.C:

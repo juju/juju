@@ -13,7 +13,6 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/manual"
 	"launchpad.net/juju-core/environs/storage"
-	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	coretesting "launchpad.net/juju-core/testing"
@@ -139,7 +138,7 @@ func (s *environSuite) TestEnvironBootstrapStorager(c *gc.C) {
 		return initUbuntuResult
 	})
 
-	ctx := envtesting.NewBootstrapContext(coretesting.Context(c))
+	ctx := coretesting.Context(c)
 	initUbuntuResult = errors.New("failed to initialise ubuntu user")
 	c.Assert(s.env.EnableBootstrapStorage(ctx), gc.Equals, initUbuntuResult)
 	initUbuntuResult = nil

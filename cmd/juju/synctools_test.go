@@ -125,7 +125,7 @@ var syncToolsCommandTests = []struct {
 func (s *syncToolsSuite) TestSyncToolsCommand(c *gc.C) {
 	for i, test := range syncToolsCommandTests {
 		c.Logf("test %d: %s", i, test.description)
-		targetEnv, err := environs.PrepareFromName("test-target", s.configStore)
+		targetEnv, err := environs.PrepareFromName("test-target", nullContext(), s.configStore)
 		c.Assert(err, gc.IsNil)
 		called := false
 		syncTools = func(sctx *sync.SyncContext) error {

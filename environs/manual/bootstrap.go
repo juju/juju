@@ -136,5 +136,5 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	for k, v := range agentEnv {
 		mcfg.AgentEnvironment[k] = v
 	}
-	return provisionMachineAgent(args.Host, mcfg, args.Context.Stderr())
+	return provisionMachineAgent(args.Host, mcfg, args.Context.GetStderr())
 }

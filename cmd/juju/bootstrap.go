@@ -5,7 +5,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"strings"
 
@@ -97,22 +96,6 @@ func (c *BootstrapCommand) Init(args []string) (err error) {
 	return cmd.CheckEmpty(args)
 }
 
-type bootstrapContext struct {
-	*cmd.Context
-}
-
-func (c bootstrapContext) Stdin() io.Reader {
-	return c.Context.Stdin
-}
-
-func (c bootstrapContext) Stdout() io.Writer {
-	return c.Context.Stdout
-}
-
-func (c bootstrapContext) Stderr() io.Writer {
-	return c.Context.Stderr
-}
-
 func destroyPreparedEnviron(env environs.Environ, store configstore.Storage, err *error, action string) {
 	if *err == nil {
 		return
@@ -134,18 +117,17 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if _, err := store.ReadInfo(c.EnvName); !errors.IsNotFoundError(err) {
 		existing = true
 	}
-	environ, err := environs.PrepareFromName(c.EnvName, store)
+	environ, err := environs.PrepareFromName(c.EnvName, ctx, store)
 	if err != nil {
 		return err
 	}
 	if !existing {
 		defer destroyPreparedEnviron(environ, store, &resultErr, "Bootstrap")
 	}
-	bootstrapContext := bootstrapContext{ctx}
 	// If the environment has a special bootstrap Storage, use it wherever
 	// we'd otherwise use environ.Storage.
 	if bs, ok := environ.(environs.BootstrapStorager); ok {
-		if err := bs.EnableBootstrapStorage(bootstrapContext); err != nil {
+		if err := bs.EnableBootstrapStorage(ctx); err != nil {
 			return errgo.Annotate(err, "failed to enable bootstrap storage")
 		}
 	}
@@ -179,7 +161,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 			return err
 		}
 	}
-	return bootstrap.Bootstrap(bootstrapContext, environ, c.Constraints)
+	return bootstrap.Bootstrap(ctx, environ, c.Constraints)
 }
 
 func (c *BootstrapCommand) uploadTools(environ environs.Environ) error {

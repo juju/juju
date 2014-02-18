@@ -92,7 +92,7 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if _, err := store.ReadInfo(c.EnvName); !errors.IsNotFoundError(err) {
 		existing = true
 	}
-	environ, err := environs.PrepareFromName(c.EnvName, store)
+	environ, err := environs.PrepareFromName(c.EnvName, ctx, store)
 	if err != nil {
 		return err
 	}
