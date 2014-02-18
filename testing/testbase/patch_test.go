@@ -83,3 +83,18 @@ func (*PatchEnvironmentSuite) TestRestorerAdd(c *gc.C) {
 	restore()
 	c.Assert(order, gc.DeepEquals, []string{"second", "first"})
 }
+
+func (*PatchEnvironmentSuite) TestPatchEnvPathPrepend(c *gc.C) {
+	oldPath := os.Getenv("PATH")
+	dir := "/bin/bar"
+
+	// just in case something goes wrong
+	defer os.Setenv("PATH", oldPath)
+
+	restore := testbase.PatchEnvPathPrepend(dir)
+
+	expect := dir + string(os.PathListSeparator) + oldPath
+	c.Check(os.Getenv("PATH"), gc.Equals, expect)
+	restore()
+	c.Check(os.Getenv("PATH"), gc.Equals, oldPath)
+}

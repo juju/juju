@@ -6,6 +6,7 @@ package testbase
 import (
 	"os"
 	"reflect"
+	"strings"
 )
 
 // Restorer holds a function that can be used
@@ -57,4 +58,15 @@ func PatchEnvironment(name, value string) Restorer {
 	return func() {
 		os.Setenv(name, oldValue)
 	}
+}
+
+// PatchEnvPathPrepend provides a simple way to prepend path to the start of the
+// PATH environment variable. Returns a function that restores the environment
+// to what it was before.
+func PatchEnvPathPrepend(dir string) Restorer {
+	return PatchEnvironment("PATH", joinPathLists(dir, os.Getenv("PATH")))
+}
+
+func joinPathLists(paths ...string) string {
+	return strings.Join(paths, string(os.PathListSeparator))
 }

@@ -108,7 +108,7 @@ func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.oldPath = os.Getenv("PATH")
 	s.testPath = c.MkDir()
-	os.Setenv("PATH", s.testPath+":"+s.oldPath)
+	s.PatchEnvPathPrepend(s.testPath)
 
 	// Add in an admin secret
 	s.Tests.TestConfig["admin-secret"] = "sekrit"
@@ -122,7 +122,6 @@ func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 
 func (s *localJujuTestSuite) TearDownTest(c *gc.C) {
 	s.Tests.TearDownTest(c)
-	os.Setenv("PATH", s.oldPath)
 	s.restoreRootCheck()
 	s.baseProviderSuite.TearDownTest(c)
 }

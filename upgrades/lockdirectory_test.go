@@ -6,7 +6,6 @@ package upgrades_test
 import (
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 
 	"github.com/loggo/loggo"
@@ -38,7 +37,7 @@ func (s *ensureLockDirSuite) SetUpTest(c *gc.C) {
 	s.FakeHomeSuite.SetUpTest(c)
 
 	s.bin = c.MkDir()
-	s.PatchEnvironment("PATH", s.bin+":"+os.Getenv("PATH"))
+	s.PatchEnvPathPrepend(s.bin)
 
 	err := ioutil.WriteFile(
 		filepath.Join(s.bin, "chown"),
