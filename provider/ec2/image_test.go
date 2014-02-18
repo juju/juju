@@ -94,7 +94,7 @@ var findInstanceSpecTests = []struct {
 		series: "precise",
 		arches: both,
 		cons:   "cpu-power=",
-		itype:  "t1.micro",
+		itype:  "m1.small",
 		image:  "ami-00000033",
 	}, {
 		series: "precise",

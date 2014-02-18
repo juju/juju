@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -414,7 +415,7 @@ func (env *localEnviron) Destroy() error {
 		cmd := exec.Command(
 			"pkill",
 			fmt.Sprintf("-%d", terminationworker.TerminationSignal),
-			"jujud",
+			"-f", filepath.Join(regexp.QuoteMeta(env.config.rootDir()), ".*", "jujud"),
 		)
 		return cmd.Run()
 	}

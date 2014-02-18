@@ -211,7 +211,7 @@ func (mock *mockConfig) Tag() string {
 }
 
 func (mock *mockConfig) Value(key string) string {
-	if key == agent.JujuProviderType {
+	if key == agent.ProviderType {
 		return mock.provider
 	}
 	return ""

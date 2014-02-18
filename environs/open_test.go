@@ -249,10 +249,13 @@ func (*OpenSuite) TestPrepareWithMissingKey(c *gc.C) {
 		},
 	))
 	c.Assert(err, gc.IsNil)
-	ctx := testing.Context(c)
-	env, err := environs.Prepare(cfg, ctx, configstore.NewMem())
+	store := configstore.NewMem()
+	env, err := environs.Prepare(cfg, testing.Context(c), store)
 	c.Assert(err, gc.ErrorMatches, "cannot ensure CA certificate: environment configuration with a certificate but no CA private key")
 	c.Assert(env, gc.IsNil)
+	// Ensure that the config storage info is cleaned up.
+	_, err = store.ReadInfo(cfg.Name())
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func (*OpenSuite) TestPrepareWithExistingKeyPair(c *gc.C) {

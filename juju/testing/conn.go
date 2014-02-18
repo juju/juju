@@ -180,6 +180,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	dataDir := filepath.Join(s.RootDir, "/var/lib/juju")
 	err = os.MkdirAll(dataDir, 0777)
 	c.Assert(err, gc.IsNil)
+	s.PatchEnvironment(osenv.JujuEnvEnvKey, "")
 
 	// TODO(rog) remove these files and add them only when
 	// the tests specifically need them (in cmd/juju for example)
