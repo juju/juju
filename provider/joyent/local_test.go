@@ -166,15 +166,16 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
 	s.Tests.SetUpTest(c)
 	// For testing, we create a storage instance to which is uploaded tools and image metadata.
-	env := s.Prepare(c)
 
-	cl := client.NewClient(s.mSrv.Server.URL, "", env.(*joyent.JoyentEnviron).Credentials(), nil)
+	cl := client.NewClient(s.mSrv.Server.URL, "", nil, nil)
 	c.Assert(cl, gc.NotNil)
-	containerURL := cl.MakeServiceURL([]string{"object-store", ""})
+	containerURL := cl.MakeServiceURL([]string{s.TestConfig["manta-user"].(string), "stor"})
 	s.TestConfig = s.TestConfig.Merge(coretesting.Attrs{
-		"tools-metadata-url": containerURL + "/juju-test/tools",
-		"image-metadata-url": containerURL + "/juju-test",
+		"tools-metadata-url": containerURL + "/juju-dist/tools",
+		"image-metadata-url": containerURL + "/juju-dist/images",
 	})
+
+	env := s.Prepare(c)
 
 	s.toolsMetadataStorage = joyent.MetadataStorage(env)
 	// Put some fake metadata in place so that tests that are simply
@@ -318,7 +319,6 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 			}
 		}
 		insts, err := env.Instances(ids)
-		c.Logf("Looking for ids %v, got %v", ids, insts)
 		c.Assert(err, gc.Equals, test.err)
 		if err == environs.ErrNoInstances {
 			c.Assert(insts, gc.HasLen, 0)

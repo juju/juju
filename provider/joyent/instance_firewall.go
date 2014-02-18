@@ -5,6 +5,7 @@ package joyent
 
 import (
 	"fmt"
+	"strings"
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
@@ -18,7 +19,7 @@ const (
 
 // Helper method to create a firewall rule string for the given machine Id and port
 func createFirewallRuleVm(machineId string, port instance.Port) string {
-	return fmt.Sprintf(firewallRuleVm, machineId, port.Protocol, port.Number)
+	return fmt.Sprintf(firewallRuleVm, machineId, strings.ToLower(port.Protocol), port.Number)
 }
 
 func (inst *joyentInstance) OpenPorts(machineId string, ports []instance.Port) error {
@@ -56,7 +57,7 @@ func (inst *joyentInstance) OpenPorts(machineId string, ports []instance.Port) e
 
 func (inst *joyentInstance) ClosePorts(machineId string, ports []instance.Port) error {
 	if inst.env.Config().FirewallMode() != config.FwInstance {
-		return fmt.Errorf("invalid firewall mode %q for opening ports on instance", inst.env.Config().FirewallMode())
+		return fmt.Errorf("invalid firewall mode %q for closing ports on instance", inst.env.Config().FirewallMode())
 	}
 
 	fwRules, err := inst.env.compute.cloudapi.ListFirewallRules()
@@ -89,7 +90,7 @@ func (inst *joyentInstance) ClosePorts(machineId string, ports []instance.Port) 
 
 func (inst *joyentInstance) Ports(machineId string) ([]instance.Port, error) {
 	if inst.env.Config().FirewallMode() != config.FwInstance {
-		return nil, fmt.Errorf("invalid firewall mode %q for opening ports on instance", inst.env.Config().FirewallMode())
+		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from instance", inst.env.Config().FirewallMode())
 	}
 
 	fwRules, err := inst.env.compute.cloudapi.ListMachineFirewallRules(machineId)

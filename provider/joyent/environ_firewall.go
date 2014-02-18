@@ -10,6 +10,7 @@ import (
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/state"
 
 	"launchpad.net/gojoyent/cloudapi"
 )
@@ -20,7 +21,7 @@ const(
 
 // Helper method to create a firewall rule string for the given port
 func createFirewallRuleAll(port instance.Port) string {
-	return fmt.Sprintf(firewallRuleAll, port.Protocol, port.Number)
+	return fmt.Sprintf(firewallRuleAll, strings.ToLower(port.Protocol), port.Number)
 }
 
 // Helper method to check if a firewall rule string already exist
@@ -36,15 +37,18 @@ func ruleExists(rules []cloudapi.FirewallRule, rule string) (bool, string) {
 
 // Helper method to get port from the given firewall rules
 func getPorts(rules []cloudapi.FirewallRule) []instance.Port {
-	ports := make([]instance.Port, len(rules))
+	ports := []instance.Port{}
 	for _, r := range rules {
-		rule := r.Rule
-		p := strings.ToUpper(rule[strings.Index(rule, "ALLOW") + 6:strings.Index(rule,"PORT")-1])
-		n, _ := strconv.Atoi(rule[strings.LastIndex(rule, " ") + 1:])
-		port := instance.Port{Protocol:p, Number:n}
-		ports = append(ports, port)
+		if r.Enabled {
+			rule := r.Rule
+			p := rule[strings.Index(rule, "ALLOW") + 6:strings.Index(rule,"PORT")-1]
+			n, _ := strconv.Atoi(rule[strings.LastIndex(rule, " ") + 1:])
+			port := instance.Port{Protocol:p, Number:n}
+			ports = append(ports, port)
+		}
 	}
 
+	state.SortPorts(ports)
 	return ports
 }
 
@@ -83,7 +87,7 @@ func (env *JoyentEnviron) OpenPorts(ports []instance.Port) error {
 
 func (env *JoyentEnviron) ClosePorts(ports []instance.Port) error {
 	if env.Config().FirewallMode() != config.FwGlobal {
-		return fmt.Errorf("invalid firewall mode %q for opening ports on environment", env.Config().FirewallMode())
+		return fmt.Errorf("invalid firewall mode %q for closing ports on environment", env.Config().FirewallMode())
 	}
 
 	fwRules, err := env.compute.cloudapi.ListFirewallRules()
@@ -116,7 +120,7 @@ func (env *JoyentEnviron) ClosePorts(ports []instance.Port) error {
 
 func (env *JoyentEnviron) Ports() ([]instance.Port, error) {
 	if env.Config().FirewallMode() != config.FwGlobal {
-		return nil, fmt.Errorf("invalid firewall mode %q for opening ports on environment", env.Config().FirewallMode())
+		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from environment", env.Config().FirewallMode())
 	}
 
 	fwRules, err := env.compute.cloudapi.ListFirewallRules()

@@ -47,16 +47,6 @@ func newCompute(env *JoyentEnviron) (*joyentCompute, error) {
 		cloudapi:      cloudapi.New(client)}, nil
 }
 
-func contains(ids []instance.Id, id instance.Id) bool {
-	for _, i := range ids {
-		logger.Debugf("Is %s equals %s? %v", i, id, (i == id))
-		if i == id {
-			return true
-		}
-	}
-	return false
-}
-
 func (env *JoyentEnviron) StartInstance(cons constraints.Value, possibleTools tools.List,
 	machineConf *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
 
@@ -115,6 +105,8 @@ func (env *JoyentEnviron) AllInstances() ([]instance.Instance, error) {
 
 	filter := cloudapi.NewFilter()
 	filter.Set("tag.group", "juju")
+	filter.Set("state", "provisioning")
+	filter.Add("state", "running")
 
 	machines, err := env.compute.cloudapi.ListMachines(filter)
 	if err != nil {
@@ -122,8 +114,8 @@ func (env *JoyentEnviron) AllInstances() ([]instance.Instance, error) {
 	}
 
 	for _, m := range machines {
-		logger.Debugf("Got instance %s", m.Id)
-		instances = append(instances, &joyentInstance{machine: &m, env: env})
+		copy := m
+		instances = append(instances, &joyentInstance{machine: &copy, env: env})
 	}
 
 	return instances, nil
@@ -134,18 +126,27 @@ func (env *JoyentEnviron) Instances(ids []instance.Id) ([]instance.Instance, err
 		return nil, nil
 	}
 
-	instances := []instance.Instance{}
+	instances := make([]instance.Instance, len(ids))
+	found := 0
 
 	allInstances, err := env.AllInstances()
 	if err != nil {
 		return nil, err
 	}
 
-	for index, instance := range allInstances {
-		logger.Debugf("instance %v, %v", instance, allInstances[index])
-		if contains(ids, instance.Id()) {
-			instances = append(instances, instance)
+	for i, id := range ids {
+		for _, instance := range allInstances {
+			if instance.Id() == id {
+				instances[i] = instance
+				found++
+			}
 		}
+	}
+
+	if found == 0 {
+		return nil, environs.ErrNoInstances
+	} else if found < len(ids) {
+		return instances, environs.ErrPartialInstances
 	}
 
 	return instances, nil

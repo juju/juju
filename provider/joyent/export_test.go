@@ -22,7 +22,7 @@ var Provider environs.EnvironProvider = GetProviderInstance()
 
 // MetadataStorage returns a Storage instance which is used to store simplestreams metadata for tests.
 func MetadataStorage(e environs.Environ) storage.Storage {
-	container := "juju-test"
+	container := "juju-dist"
 	metadataStorage := NewStorage(e.(*JoyentEnviron), container)
 
 	// Ensure the container exists.
@@ -33,11 +33,11 @@ func MetadataStorage(e environs.Environ) storage.Storage {
 	return metadataStorage
 }
 
-// ImageMetadataStorage returns a Storage object pointing where the goose
-// infrastructure sets up its keystone entry for image metadata
+// ImageMetadataStorage returns a Storage object pointing where the gojoyent
+// infrastructure sets up its entry for image metadata
 func ImageMetadataStorage(e environs.Environ) storage.Storage {
 	env := e.(*JoyentEnviron)
-	return NewStorage(env, "juju-test")
+	return NewStorage(env, "juju-dist")
 }
 
 var indexData = `
@@ -59,7 +59,7 @@ var indexData = `
 			"com.ubuntu.cloud:server:12.10:amd64",
 			"com.ubuntu.cloud:server:13.04:amd64"
 		   ],
-		   "path": "streams/v1/com.ubuntu.cloud:released:joyent.json"
+		   "path": "images/streams/v1/com.ubuntu.cloud:released:joyent.json"
 		  }
 		 },
 		 "updated": "Fri, 14 Feb 2014 13:39:35 +0000",
@@ -132,7 +132,7 @@ var imagesData = `
 }
 `
 
-const productMetadataFile = "streams/v1/com.ubuntu.cloud:released:joyent.json"
+const productMetadataFile = "images/streams/v1/com.ubuntu.cloud:released:joyent.json"
 
 func UseTestImageData(stor storage.Storage, creds *jpc.Credentials) {
 	// Put some image metadata files into the public storage.
@@ -143,12 +143,12 @@ func UseTestImageData(stor storage.Storage, creds *jpc.Credentials) {
 	}
 	data := metadata.Bytes()
 	stor.Put("images/"+simplestreams.DefaultIndexPath+".json", bytes.NewReader(data), int64(len(data)))
-	stor.Put("images/"+productMetadataFile, strings.NewReader(imagesData), int64(len(imagesData)))
+	stor.Put(productMetadataFile, strings.NewReader(imagesData), int64(len(imagesData)))
 }
 
 func RemoveTestImageData(stor storage.Storage) {
 	stor.Remove("images/"+simplestreams.DefaultIndexPath + ".json")
-	stor.Remove("images/"+productMetadataFile)
+	stor.Remove(productMetadataFile)
 }
 
 func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *instances.InstanceSpec, err error) {
@@ -164,5 +164,5 @@ func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *inst
 
 func ControlBucketName(e environs.Environ) string {
 	env := e.(*JoyentEnviron)
-	return env.Ecfg().ControlDir()
+	return env.Storage().(*JoyentStorage).GetContainerName()
 }
