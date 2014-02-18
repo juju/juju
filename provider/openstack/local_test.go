@@ -33,7 +33,6 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/openstack"
-	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
@@ -255,17 +254,6 @@ func (s *localServerSuite) TearDownTest(c *gc.C) {
 
 func bootstrapContext(c *gc.C) environs.BootstrapContext {
 	return envtesting.NewBootstrapContext(coretesting.Context(c))
-}
-
-func (s *localServerSuite) TestPrecheck(c *gc.C) {
-	var cons constraints.Value
-	env := s.Prepare(c)
-	prechecker, ok := env.(state.Prechecker)
-	c.Assert(ok, jc.IsTrue)
-	err := prechecker.PrecheckInstance("precise", cons)
-	c.Check(err, gc.IsNil)
-	err = prechecker.PrecheckContainer("precise", instance.LXC)
-	c.Check(err, gc.ErrorMatches, "openstack provider does not support containers")
 }
 
 // If the bootstrap node is configured to require a public IP address,

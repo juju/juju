@@ -263,10 +263,6 @@ func (*manualEnviron) PrecheckInstance(series string, cons constraints.Value) er
 	return errors.New(`use "juju add-machine ssh:[user@]<host>" to provision machines`)
 }
 
-func (*manualEnviron) PrecheckContainer(series string, kind instance.ContainerType) error {
-	return environs.NewContainersUnsupported("manual provider does not support containers")
-}
-
 func (e *manualEnviron) OpenPorts(ports []instance.Port) error {
 	return nil
 }

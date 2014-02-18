@@ -23,22 +23,12 @@ type mockPrechecker struct {
 	precheckInstanceError       error
 	precheckInstanceSeries      string
 	precheckInstanceConstraints constraints.Value
-
-	precheckContainerError  error
-	precheckContainerSeries string
-	precheckContainerKind   instance.ContainerType
 }
 
 func (p *mockPrechecker) PrecheckInstance(series string, cons constraints.Value) error {
 	p.precheckInstanceSeries = series
 	p.precheckInstanceConstraints = cons
 	return p.precheckInstanceError
-}
-
-func (p *mockPrechecker) PrecheckContainer(series string, kind instance.ContainerType) error {
-	p.precheckContainerSeries = series
-	p.precheckContainerKind = kind
-	return p.precheckContainerError
 }
 
 func (s *PrecheckerSuite) TestSetPrechecker(c *gc.C) {
@@ -95,31 +85,9 @@ func (s *PrecheckerSuite) TestPrecheckInstanceInjectMachine(c *gc.C) {
 	c.Assert(p.precheckInstanceSeries, gc.Equals, "")
 }
 
-func (s *PrecheckerSuite) TestPrecheckContainer(c *gc.C) {
-	m0, err := s.State.AddMachine("precise", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
-	p := &mockPrechecker{}
-	s.State.SetPrechecker(p)
-
-	template := state.MachineTemplate{
-		Series: "precise",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
-	}
-	_, err = s.State.AddMachineInsideMachine(template, m0.Id(), instance.LXC)
-	c.Assert(err, gc.IsNil)
-	c.Assert(p.precheckInstanceSeries, gc.Equals, "") // no call
-	c.Assert(p.precheckContainerSeries, gc.Equals, template.Series)
-	c.Assert(p.precheckContainerKind, gc.Equals, instance.LXC)
-
-	// Ensure that AddMachineInsideMachine fails when PrecheckContainer returns an error.
-	p.precheckContainerError = fmt.Errorf("no container for you")
-	_, err = s.State.AddMachineInsideMachine(template, m0.Id(), instance.LXC)
-	c.Assert(err, gc.ErrorMatches, ".*no container for you")
-}
-
 func (s *PrecheckerSuite) TestPrecheckContainerNewMachine(c *gc.C) {
 	// Attempting to add a container to a new machine should cause
-	// both PrecheckInstance and PrecheckContainer to be called.
+	// PrecheckInstance to be called.
 	p := &mockPrechecker{}
 	s.State.SetPrechecker(p)
 	template := state.MachineTemplate{
@@ -129,6 +97,4 @@ func (s *PrecheckerSuite) TestPrecheckContainerNewMachine(c *gc.C) {
 	_, err := s.State.AddMachineInsideNewMachine(template, template, instance.LXC)
 	c.Assert(err, gc.IsNil)
 	c.Assert(p.precheckInstanceSeries, gc.Equals, template.Series)
-	c.Assert(p.precheckContainerSeries, gc.Equals, template.Series)
-	c.Assert(p.precheckContainerKind, gc.Equals, instance.LXC)
 }

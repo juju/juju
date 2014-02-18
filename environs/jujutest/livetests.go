@@ -163,18 +163,8 @@ func (t *LiveTests) TestPrechecker(c *gc.C) {
 	if !ok {
 		return
 	}
-
-	const series = "precise"
-	var cons constraints.Value
-	c.Check(prechecker.PrecheckInstance(series, cons), gc.IsNil)
-
-	err := prechecker.PrecheckContainer(series, instance.LXC)
-	// If err is nil, that is fine, some providers support containers.
-	if err != nil {
-		// But for ones that don't, they should have a standard error format.
-		c.Check(err, gc.ErrorMatches, ".*provider does not support .*containers")
-		c.Check(err, jc.Satisfies, environs.IsContainersUnsupportedError)
-	}
+	err := prechecker.PrecheckInstance("precise", constraints.Value{})
+	c.Assert(err, gc.IsNil)
 }
 
 // TestStartStop is similar to Tests.TestStartStop except

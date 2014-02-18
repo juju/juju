@@ -30,7 +30,6 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/ec2"
-	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
@@ -232,17 +231,6 @@ func (t *localServerSuite) TearDownTest(c *gc.C) {
 
 func bootstrapContext(c *gc.C) environs.BootstrapContext {
 	return envtesting.NewBootstrapContext(coretesting.Context(c))
-}
-
-func (t *localServerSuite) TestPrecheck(c *gc.C) {
-	env := t.Prepare(c)
-	prechecker, ok := env.(state.Prechecker)
-	c.Assert(ok, jc.IsTrue)
-	var cons constraints.Value
-	err := prechecker.PrecheckInstance("precise", cons)
-	c.Check(err, gc.IsNil)
-	err = prechecker.PrecheckContainer("precise", instance.LXC)
-	c.Check(err, gc.ErrorMatches, "ec2 provider does not support containers")
 }
 
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
