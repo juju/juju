@@ -180,6 +180,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	dataDir := filepath.Join(s.RootDir, "/var/lib/juju")
 	err = os.MkdirAll(dataDir, 0777)
 	c.Assert(err, gc.IsNil)
+	s.PatchEnvironment(osenv.JujuEnvEnvKey, "")
 
 	// TODO(rog) remove these files and add them only when
 	// the tests specifically need them (in cmd/juju for example)
@@ -195,13 +196,13 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.ConfigStore = store
 
-	environ, err := environs.PrepareFromName("dummyenv", s.ConfigStore)
+	ctx := testing.Context(c)
+	environ, err := environs.PrepareFromName("dummyenv", ctx, s.ConfigStore)
 	c.Assert(err, gc.IsNil)
 	// sanity check we've got the correct environment.
 	c.Assert(environ.Name(), gc.Equals, "dummyenv")
 
 	envtesting.MustUploadFakeTools(environ.Storage())
-	ctx := envtesting.NewBootstrapContext(testing.Context(c))
 	c.Assert(bootstrap.Bootstrap(ctx, environ, constraints.Value{}), gc.IsNil)
 
 	s.BackingState = environ.(GetStater).GetStateInAPIServer()

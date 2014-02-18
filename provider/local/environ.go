@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -194,8 +195,8 @@ var finishBootstrap = func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudini
 	}
 	cmd := exec.Command("sudo", "/bin/bash", "-s")
 	cmd.Stdin = strings.NewReader(script)
-	cmd.Stdout = ctx.Stdout()
-	cmd.Stderr = ctx.Stderr()
+	cmd.Stdout = ctx.GetStdout()
+	cmd.Stderr = ctx.GetStderr()
 	return cmd.Run()
 }
 
@@ -414,7 +415,7 @@ func (env *localEnviron) Destroy() error {
 		cmd := exec.Command(
 			"pkill",
 			fmt.Sprintf("-%d", terminationworker.TerminationSignal),
-			"jujud",
+			"-f", filepath.Join(regexp.QuoteMeta(env.config.rootDir()), ".*", "jujud"),
 		)
 		return cmd.Run()
 	}

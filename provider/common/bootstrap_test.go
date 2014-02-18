@@ -4,7 +4,6 @@
 package common_test
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"time"
@@ -76,22 +75,13 @@ func configGetter(c *gc.C) configFunc {
 	return func() *config.Config { return cfg }
 }
 
-// bootstrapContext creates a BootstrapContext which
-// writes stderr to the bytes.Buffer returned.
-func bootstrapContext(c *gc.C) (ctx environs.BootstrapContext, stderr *bytes.Buffer) {
-	cmdContext := coretesting.Context(c)
-	stderr = &bytes.Buffer{}
-	cmdContext.Stderr = stderr
-	return envtesting.NewBootstrapContext(cmdContext), stderr
-}
-
 func (s *BootstrapSuite) TestCannotWriteStateFile(c *gc.C) {
 	brokenStorage := &mockStorage{
 		Storage: newStorage(s, c),
 		putErr:  fmt.Errorf("noes!"),
 	}
 	env := &mockEnviron{storage: brokenStorage}
-	ctx, _ := bootstrapContext(c)
+	ctx := coretesting.Context(c)
 	err := common.Bootstrap(ctx, env, constraints.Value{})
 	c.Assert(err, gc.ErrorMatches, "cannot create initial state file: noes!")
 }
@@ -118,7 +108,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 		config:        configGetter(c),
 	}
 
-	ctx, _ := bootstrapContext(c)
+	ctx := coretesting.Context(c)
 	err = common.Bootstrap(ctx, env, checkCons)
 	c.Assert(err, gc.ErrorMatches, "cannot start bootstrap instance: meh, not started")
 }
@@ -149,7 +139,7 @@ func (s *BootstrapSuite) TestCannotRecordStartedInstance(c *gc.C) {
 		config:        configGetter(c),
 	}
 
-	ctx, _ := bootstrapContext(c)
+	ctx := coretesting.Context(c)
 	err := common.Bootstrap(ctx, env, constraints.Value{})
 	c.Assert(err, gc.ErrorMatches, "cannot save state: suddenly a wild blah")
 	c.Assert(stopped, gc.HasLen, 1)
@@ -186,7 +176,7 @@ func (s *BootstrapSuite) TestCannotRecordThenCannotStop(c *gc.C) {
 		config:        configGetter(c),
 	}
 
-	ctx, _ := bootstrapContext(c)
+	ctx := coretesting.Context(c)
 	err := common.Bootstrap(ctx, env, constraints.Value{})
 	c.Assert(err, gc.ErrorMatches, "cannot save state: suddenly a wild blah")
 	c.Assert(stopped, gc.HasLen, 1)
@@ -231,7 +221,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 		setConfig:     setConfig,
 	}
 	originalAuthKeys := env.Config().AuthorizedKeys()
-	ctx, _ := bootstrapContext(c)
+	ctx := coretesting.Context(c)
 	err := common.Bootstrap(ctx, env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
@@ -268,14 +258,14 @@ var testSSHTimeout = config.SSHTimeoutOpts{
 }
 
 func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForAddresses(c *gc.C) {
-	ctx, stderr := bootstrapContext(c)
+	ctx := coretesting.Context(c)
 	_, err := common.WaitSSH(ctx, nil, ssh.DefaultClient, "/bin/true", neverAddresses{}, testSSHTimeout)
 	c.Check(err, gc.ErrorMatches, `waited for `+testSSHTimeout.Timeout.String()+` without getting any addresses`)
-	c.Check(stderr.String(), gc.Matches, "Waiting for address\n")
+	c.Check(coretesting.Stderr(ctx), gc.Matches, "Waiting for address\n")
 }
 
 func (s *BootstrapSuite) TestWaitSSHKilledWaitingForAddresses(c *gc.C) {
-	ctx, stderr := bootstrapContext(c)
+	ctx := coretesting.Context(c)
 	interrupted := make(chan os.Signal, 1)
 	go func() {
 		<-time.After(2 * time.Millisecond)
@@ -283,7 +273,7 @@ func (s *BootstrapSuite) TestWaitSSHKilledWaitingForAddresses(c *gc.C) {
 	}()
 	_, err := common.WaitSSH(ctx, interrupted, ssh.DefaultClient, "/bin/true", neverAddresses{}, testSSHTimeout)
 	c.Check(err, gc.ErrorMatches, "interrupted")
-	c.Check(stderr.String(), gc.Matches, "Waiting for address\n")
+	c.Check(coretesting.Stderr(ctx), gc.Matches, "Waiting for address\n")
 }
 
 type brokenAddresses struct {
@@ -295,10 +285,10 @@ func (brokenAddresses) Addresses() ([]instance.Address, error) {
 }
 
 func (s *BootstrapSuite) TestWaitSSHStopsOnBadError(c *gc.C) {
-	ctx, stderr := bootstrapContext(c)
+	ctx := coretesting.Context(c)
 	_, err := common.WaitSSH(ctx, nil, ssh.DefaultClient, "/bin/true", brokenAddresses{}, testSSHTimeout)
 	c.Check(err, gc.ErrorMatches, "getting addresses: Addresses will never work")
-	c.Check(stderr.String(), gc.Equals, "Waiting for address\n")
+	c.Check(coretesting.Stderr(ctx), gc.Equals, "Waiting for address\n")
 }
 
 type neverOpensPort struct {
@@ -311,12 +301,12 @@ func (n *neverOpensPort) Addresses() ([]instance.Address, error) {
 }
 
 func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForDial(c *gc.C) {
-	ctx, stderr := bootstrapContext(c)
+	ctx := coretesting.Context(c)
 	// 0.x.y.z addresses are always invalid
 	_, err := common.WaitSSH(ctx, nil, ssh.DefaultClient, "/bin/true", &neverOpensPort{addr: "0.1.2.3"}, testSSHTimeout)
 	c.Check(err, gc.ErrorMatches,
 		`waited for `+testSSHTimeout.Timeout.String()+` without being able to connect: mock connection failure to 0.1.2.3`)
-	c.Check(stderr.String(), gc.Matches,
+	c.Check(coretesting.Stderr(ctx), gc.Matches,
 		"Waiting for address\n"+
 			"(Attempting to connect to 0.1.2.3:22\n)+")
 }
@@ -339,14 +329,14 @@ func (i *interruptOnDial) Addresses() ([]instance.Address, error) {
 }
 
 func (s *BootstrapSuite) TestWaitSSHKilledWaitingForDial(c *gc.C) {
-	ctx, stderr := bootstrapContext(c)
+	ctx := coretesting.Context(c)
 	timeout := testSSHTimeout
 	timeout.Timeout = 1 * time.Minute
 	interrupted := make(chan os.Signal, 1)
 	_, err := common.WaitSSH(ctx, interrupted, ssh.DefaultClient, "", &interruptOnDial{name: "0.1.2.3", interrupted: interrupted}, timeout)
 	c.Check(err, gc.ErrorMatches, "interrupted")
 	// Exact timing is imprecise but it should have tried a few times before being killed
-	c.Check(stderr.String(), gc.Matches,
+	c.Check(coretesting.Stderr(ctx), gc.Matches,
 		"Waiting for address\n"+
 			"(Attempting to connect to 0.1.2.3:22\n)+")
 }
@@ -371,7 +361,7 @@ func (ac *addressesChange) Addresses() ([]instance.Address, error) {
 }
 
 func (s *BootstrapSuite) TestWaitSSHRefreshAddresses(c *gc.C) {
-	ctx, stderr := bootstrapContext(c)
+	ctx := coretesting.Context(c)
 	_, err := common.WaitSSH(ctx, nil, ssh.DefaultClient, "", &addressesChange{addrs: [][]string{
 		nil,
 		nil,
@@ -383,10 +373,11 @@ func (s *BootstrapSuite) TestWaitSSHRefreshAddresses(c *gc.C) {
 	// Not necessarily the last one in the list, due to scheduling.
 	c.Check(err, gc.ErrorMatches,
 		`waited for `+testSSHTimeout.Timeout.String()+` without being able to connect: mock connection failure to 0.1.2.[34]`)
-	c.Check(stderr.String(), gc.Matches,
+	stderr := coretesting.Stderr(ctx)
+	c.Check(stderr, gc.Matches,
 		"Waiting for address\n"+
 			"(.|\n)*(Attempting to connect to 0.1.2.3:22\n)+(.|\n)*")
-	c.Check(stderr.String(), gc.Matches,
+	c.Check(stderr, gc.Matches,
 		"Waiting for address\n"+
 			"(.|\n)*(Attempting to connect to 0.1.2.4:22\n)+(.|\n)*")
 }

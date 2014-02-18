@@ -5,7 +5,6 @@ package manual
 
 import (
 	"errors"
-	"io"
 	"strings"
 
 	gc "launchpad.net/gocheck"
@@ -13,10 +12,8 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/manual"
 	"launchpad.net/juju-core/environs/storage"
-	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
@@ -131,21 +128,4 @@ func (s *environSuite) TestEnvironSupportsCustomSources(c *gc.C) {
 	url, err := sources[0].URL("")
 	c.Assert(err, gc.IsNil)
 	c.Assert(strings.Contains(url, "/tools"), jc.IsTrue)
-}
-
-func (s *environSuite) TestEnvironBootstrapStorager(c *gc.C) {
-	var initUbuntuResult error
-	s.PatchValue(&initUbuntuUser, func(host, user, authorizedKeys string, stdin io.Reader, stdout io.Writer) error {
-		return initUbuntuResult
-	})
-
-	ctx := envtesting.NewBootstrapContext(coretesting.Context(c))
-	initUbuntuResult = errors.New("failed to initialise ubuntu user")
-	c.Assert(s.env.EnableBootstrapStorage(ctx), gc.Equals, initUbuntuResult)
-	initUbuntuResult = nil
-	c.Assert(s.env.EnableBootstrapStorage(ctx), gc.IsNil)
-	// after the user is initialised once successfully,
-	// another attempt will not be made.
-	initUbuntuResult = errors.New("failed to initialise ubuntu user")
-	c.Assert(s.env.EnableBootstrapStorage(ctx), gc.IsNil)
 }

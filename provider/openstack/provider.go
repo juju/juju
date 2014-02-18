@@ -180,7 +180,7 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return e, nil
 }
 
-func (p environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	attrs := cfg.UnknownAttrs()
 	if _, ok := attrs["control-bucket"]; !ok {
 		uuid, err := utils.NewUUID()

@@ -5,7 +5,6 @@ package ssh_test
 
 import (
 	"io/ioutil"
-	"os"
 	"path/filepath"
 
 	gc "launchpad.net/gocheck"
@@ -28,8 +27,7 @@ func (s *ExecuteSSHCommandSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.testbin = c.MkDir()
 	s.fakessh = filepath.Join(s.testbin, "ssh")
-	newPath := s.testbin + ":" + os.Getenv("PATH")
-	s.PatchEnvironment("PATH", newPath)
+	s.PatchEnvPathPrepend(s.testbin)
 }
 
 func (s *ExecuteSSHCommandSuite) fakeSSH(c *gc.C, cmd string) {
