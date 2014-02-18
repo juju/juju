@@ -12,7 +12,6 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -147,7 +146,7 @@ func isleep(d time.Duration, stop <-chan struct{}) bool {
 }
 
 func openState(agentConfig agent.Config, a Agent) (*state.State, AgentState, error) {
-	st, err := agentConfig.OpenState()
+	st, err := agentConfig.OpenState(environStatePolicy{})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -164,14 +163,6 @@ func openState(agentConfig agent.Config, a Agent) (*state.State, AgentState, err
 
 type apiOpener interface {
 	OpenAPI(api.DialOpts) (*api.State, string, error)
-}
-
-func getStateEnviron(st *state.State) (environs.Environ, error) {
-	cfg, err := st.EnvironConfig()
-	if err != nil {
-		return nil, err
-	}
-	return environs.New(cfg)
 }
 
 func openAPIState(agentConfig apiOpener, a Agent) (*api.State, *apiagent.Entity, error) {

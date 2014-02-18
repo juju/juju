@@ -331,7 +331,7 @@ func (s *agentSuite) testOpenAPIStateReplaceErrors(c *gc.C) {
 func (s *agentSuite) assertCanOpenState(c *gc.C, tag, dataDir string) {
 	config, err := agent.ReadConf(dataDir, tag)
 	c.Assert(err, gc.IsNil)
-	st, err := config.OpenState()
+	st, err := config.OpenState(nil)
 	c.Assert(err, gc.IsNil)
 	st.Close()
 }
@@ -339,7 +339,7 @@ func (s *agentSuite) assertCanOpenState(c *gc.C, tag, dataDir string) {
 func (s *agentSuite) assertCannotOpenState(c *gc.C, tag, dataDir string) {
 	config, err := agent.ReadConf(dataDir, tag)
 	c.Assert(err, gc.IsNil)
-	_, err = config.OpenState()
+	_, err = config.OpenState(nil)
 	expectErr := fmt.Sprintf("cannot log in to juju database as %q: unauthorized mongo access: auth fails", tag)
 	c.Assert(err, gc.ErrorMatches, expectErr)
 }

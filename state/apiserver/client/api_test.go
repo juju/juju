@@ -111,7 +111,7 @@ func (s *baseSuite) tryOpenState(c *gc.C, e apiAuthenticator, password string) e
 	stateInfo.Password = password
 	st, err := state.Open(stateInfo, state.DialOpts{
 		Timeout: 25 * time.Millisecond,
-	})
+	}, state.Policy(nil))
 	if err == nil {
 		st.Close()
 	}

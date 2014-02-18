@@ -76,7 +76,7 @@ func (c *configInternal) InitializeState(envCfg *config.Config, machineCfg Boots
 		CACert: c.caCert,
 	}
 	logger.Debugf("initializing address %v", info.Addrs)
-	st, err := state.Initialize(&info, envCfg, timeout)
+	st, err := state.Initialize(&info, envCfg, timeout, state.Policy(nil))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to initialize state: %v", err)
 	}

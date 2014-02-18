@@ -106,7 +106,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	c.Assert(newCfg.Tag(), gc.Equals, "machine-0")
 	c.Assert(agent.Password(newCfg), gc.Not(gc.Equals), pwHash)
 	c.Assert(agent.Password(newCfg), gc.Not(gc.Equals), testing.DefaultMongoPassword)
-	st1, err := cfg.OpenState()
+	st1, err := cfg.OpenState(nil)
 	c.Assert(err, gc.IsNil)
 	defer st1.Close()
 }
@@ -156,7 +156,7 @@ func (*bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, password string) {
 		Tag:      "",
 		Password: password,
 	}
-	st, err := state.Open(info, state.DialOpts{})
+	st, err := state.Open(info, state.DialOpts{}, state.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 	_, err = st.Machine("0")

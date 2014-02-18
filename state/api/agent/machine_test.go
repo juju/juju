@@ -83,7 +83,7 @@ func (s *machineSuite) TestEntitySetPassword(c *gc.C) {
 }
 
 func tryOpenState(info *state.Info) error {
-	st, err := state.Open(info, state.DialOpts{})
+	st, err := state.Open(info, state.DialOpts{}, state.Policy(nil))
 	if err == nil {
 		st.Close()
 	}

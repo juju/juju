@@ -291,19 +291,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	reportOpenedState(st)
 	m := entity.(*state.Machine)
 
-	// TODO(axw) 2014-02-11 bug #1237295
-	// Introduce a worker that watches for
-	// environ config changes, and updates
-	// this environ.
-	environ, err := getStateEnviron(st)
-	if err != nil {
-		st.Close()
-		return nil, err
-	}
-	if prechecker, ok := environ.(state.Prechecker); ok {
-		st.SetPrechecker(prechecker)
-	}
-
 	runner := newRunner(connectionIsFatal(st), moreImportant)
 	// Take advantage of special knowledge here in that we will only ever want
 	// the storage provider on one machine, and that is the "bootstrap" node.

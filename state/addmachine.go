@@ -66,20 +66,6 @@ type MachineTemplate struct {
 	principals []string
 }
 
-// Prechecker is an interface that may be provided to State to perform
-// pre-flight checking of instance creation.
-type Prechecker interface {
-	// PrecheckInstance performs a preflight check on the specified
-	// series and constraints, ensuring that they are possibly valid for
-	// creating an instance in this environment.
-	//
-	// PrecheckInstance is best effort, and not guaranteed to eliminate
-	// all invalid parameters. If PrecheckInstance returns nil, it is not
-	// guaranteed that the constraints are valid; if a non-nil error is
-	// returned, then the constraints are definitely invalid.
-	PrecheckInstance(series string, cons constraints.Value) error
-}
-
 // AddMachineInsideNewMachine creates a new machine within a container
 // of the given type inside another new machine. The two given templates
 // specify the form of the child and parent respectively.
@@ -232,8 +218,8 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 	if err != nil {
 		return nil, nil, err
 	}
-	if prechecker := st.getPrechecker(); prechecker != nil && template.InstanceId == "" {
-		if err := prechecker.PrecheckInstance(template.Series, template.Constraints); err != nil {
+	if template.InstanceId == "" {
+		if err := st.precheckInstance(template.Series, template.Constraints); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -354,10 +340,8 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineT
 		return nil, nil, fmt.Errorf("no container type specified")
 	}
 	if parentTemplate.InstanceId == "" {
-		if prechecker := st.getPrechecker(); prechecker != nil {
-			if err := prechecker.PrecheckInstance(parentTemplate.Series, parentTemplate.Constraints); err != nil {
-				return nil, nil, err
-			}
+		if err := st.precheckInstance(parentTemplate.Series, parentTemplate.Constraints); err != nil {
+			return nil, nil, err
 		}
 	}
 

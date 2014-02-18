@@ -572,7 +572,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, cons constraints.Valu
 		// so that we can call it here.
 
 		info := stateInfo()
-		st, err := state.Initialize(info, cfg, state.DefaultDialOpts())
+		st, err := state.Initialize(info, cfg, state.DefaultDialOpts(), state.PolicyBase{})
 		if err != nil {
 			panic(err)
 		}
