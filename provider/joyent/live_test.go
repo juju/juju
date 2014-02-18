@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
+	"os"
 
 	gc "launchpad.net/gocheck"
 
@@ -37,7 +38,11 @@ func registerLiveTests() {
 	attrs := coretesting.FakeConfig().Merge(map[string]interface{}{
 		"name":           "sample-" + uniqueName,
 		"type":           "joyent",
-		"control-bucket": "juju-test-" + uniqueName,
+		"sdc-user":    	  os.Getenv("SDC_ACCOUNT"),
+		"sdc-key-id":     os.Getenv("SDC_KEY_ID"),
+		"manta-user":     os.Getenv("MANTA_USER"),
+		"manta-key-id":   os.Getenv("MANTA_KEY_ID"),
+		"control-dir": 	  "juju-test-" + uniqueName,
 		"admin-secret":   "for real",
 		"firewall-mode":  config.FwInstance,
 		"agent-version":  version.Current.Number.String(),

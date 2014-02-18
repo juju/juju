@@ -171,8 +171,8 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	c.Assert(cl, gc.NotNil)
 	containerURL := cl.MakeServiceURL([]string{s.TestConfig["manta-user"].(string), "stor"})
 	s.TestConfig = s.TestConfig.Merge(coretesting.Attrs{
-		"tools-metadata-url": containerURL + "/juju-dist/tools",
-		"image-metadata-url": containerURL + "/juju-dist/images",
+		"tools-metadata-url": containerURL + "/juju-test/tools",
+		"image-metadata-url": containerURL + "/juju-test/images",
 	})
 
 	env := s.Prepare(c)

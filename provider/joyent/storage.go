@@ -180,33 +180,36 @@ func (s *JoyentStorage) Put(name string, r io.Reader, length int64) error {
 }
 
 func (s *JoyentStorage) Remove(name string) error {
-	err := s.manta.DeleteObject(s.containerName, name)
-	if err != nil {
-		return coreerrors.NewNotFoundError(err, fmt.Sprintf("cannot delete %s, not found", name))
-	}
+	if !strings.Contains(name, "images/streams/v1") {
 
-	if strings.Contains(name, "/") {
-		var parents []string
-		dirs := strings.Split(name, "/")
-		for i := (len(dirs) - 1); i >= 0 ; i-- {
-			if i < (len(dirs) - 1) {
-				parents = append(parents, strings.Join(dirs[:(i+1)], "/"))
-			}
+		err := s.manta.DeleteObject(s.containerName, name)
+		if err != nil {
+			return coreerrors.NewNotFoundError(err, fmt.Sprintf("cannot delete %s, not found", name))
 		}
 
-		for _, dir := range parents {
-			err := s.manta.DeleteDirectory(path.Join(s.containerName, dir))
-			if err != nil {
-				if je.IsBadRequest(err) {
-					// check if delete request returned a bad request error, i.e. directory is not empty
-					// just log a warning
-					logger.Warningf("cannot delete %s, not empty", dir)
-				} else if je.IsResourceNotFound(err) {
-					// check if delete request returned a resource not found error, i.e. directory was already deleted
-					// just log a warning
-					logger.Warningf("cannot delete %s, already deleted", dir)
-				} else {
-					return fmt.Errorf("cannot delete parent directory %q in control container %q: %v", dir, s.containerName, err)
+		if strings.Contains(name, "/") {
+			var parents []string
+			dirs := strings.Split(name, "/")
+			for i := (len(dirs) - 1); i >= 0 ; i-- {
+				if i < (len(dirs) - 1) {
+					parents = append(parents, strings.Join(dirs[:(i+1)], "/"))
+				}
+			}
+
+			for _, dir := range parents {
+				err := s.manta.DeleteDirectory(path.Join(s.containerName, dir))
+				if err != nil {
+					if je.IsBadRequest(err) {
+						// check if delete request returned a bad request error, i.e. directory is not empty
+						// just log a warning
+						logger.Warningf("cannot delete %s, not empty", dir)
+					} else if je.IsResourceNotFound(err) {
+						// check if delete request returned a resource not found error, i.e. directory was already deleted
+						// just log a warning
+						logger.Warningf("cannot delete %s, already deleted", dir)
+					} else {
+						return fmt.Errorf("cannot delete parent directory %q in control container %q: %v", dir, s.containerName, err)
+					}
 				}
 			}
 		}

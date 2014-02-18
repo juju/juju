@@ -200,6 +200,9 @@ func (env *JoyentEnviron) FindInstanceSpec(ic *instances.InstanceConstraint) (*i
 
 	matchingImages, err := imagemetadata.Fetch(sources, simplestreams.DefaultIndexPath, imageConstraint, signedImageDataOnly)
 	if err != nil {
+		logger.Debugf("failed to fetch image metadata from sources %q: %q", sources, err)
+		list, _ := env.Storage().List("")
+		logger.Debugf("Content: %q", list)
 		return nil, err
 	}
 	images := instances.ImageMetadataToImages(matchingImages)
