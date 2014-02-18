@@ -14,6 +14,13 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
+type Upgrader interface {
+	WatchAPIVersion(args params.Entities) (params.NotifyWatchResults, error)
+	DesiredVersion(args params.Entities) (params.VersionResults, error)
+	Tools(args params.Entities) (params.ToolsResults, error)
+	SetTools(args params.EntitiesVersion) (params.ErrorResults, error)
+}
+
 // UpgraderAPI provides access to the Upgrader API facade.
 type UpgraderAPI struct {
 	*common.ToolsGetter

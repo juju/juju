@@ -44,8 +44,8 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.stateAPI = s.OpenAPIAs(c, s.rawUnit.Tag(), password)
 
-	// Create the unit upgrader facade.
-	s.st = s.stateAPI.UnitUpgrader()
+	// Create the upgrader facade.
+	s.st = s.stateAPI.Upgrader()
 	c.Assert(s.st, gc.NotNil)
 }
 
@@ -67,6 +67,12 @@ func (s *unitUpgraderSuite) TestSetVersionWrongUnit(c *gc.C) {
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
+func (s *unitUpgraderSuite) TestSetVersionNotUnit(c *gc.C) {
+	err := s.st.SetVersion("foo-42", version.Current)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
+}
+
 func (s *unitUpgraderSuite) TestSetVersion(c *gc.C) {
 	cur := version.Current
 	agentTools, err := s.rawUnit.AgentTools()
@@ -82,6 +88,13 @@ func (s *unitUpgraderSuite) TestSetVersion(c *gc.C) {
 
 func (s *unitUpgraderSuite) TestToolsWrongUnit(c *gc.C) {
 	tools, _, err := s.st.Tools("unit-wordpress-42")
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(tools, gc.IsNil)
+}
+
+func (s *unitUpgraderSuite) TestToolsNotUnit(c *gc.C) {
+	tools, _, err := s.st.Tools("foo-42")
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(tools, gc.IsNil)
@@ -126,6 +139,12 @@ func (s *unitUpgraderSuite) TestWatchAPIVersionWrongUnit(c *gc.C) {
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
+func (s *unitUpgraderSuite) TestWatchAPIVersionNotUnit(c *gc.C) {
+	_, err := s.st.WatchAPIVersion("foo-42")
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
+}
+
 func (s *unitUpgraderSuite) TestDesiredVersion(c *gc.C) {
 	cur := version.Current
 	curTools := &tools.Tools{Version: cur, URL: ""}
@@ -140,6 +159,12 @@ func (s *unitUpgraderSuite) TestDesiredVersion(c *gc.C) {
 
 func (s *unitUpgraderSuite) TestDesiredVersionWrongUnit(c *gc.C) {
 	_, err := s.st.DesiredVersion("unit-wordpress-42")
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
+}
+
+func (s *unitUpgraderSuite) TestDesiredVersionNotUnit(c *gc.C) {
+	_, err := s.st.DesiredVersion("foo-42")
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 }

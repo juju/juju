@@ -4,6 +4,7 @@
 package upgrader
 
 import (
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -112,6 +113,11 @@ func (u *UnitUpgraderAPI) Tools(args params.Entities) (params.ToolsResults, erro
 }
 
 func (u *UnitUpgraderAPI) getAssignedMachine(tag string) (*state.Machine, error) {
+	// Check that we really have a unit tag.
+	_, _, err := names.ParseTag(tag, names.UnitTagKind)
+	if err != nil {
+		return nil, common.ErrPerm
+	}
 	entity, err := u.st.FindEntity(tag)
 	if err != nil {
 		return nil, common.ErrPerm

@@ -70,14 +70,9 @@ func (st *State) Agent() *agent.State {
 	return agent.NewState(st)
 }
 
-// Upgrader returns access to the Upgrader API as implemented for machine agents.
+// Upgrader returns access to the Upgrader API
 func (st *State) Upgrader() *upgrader.State {
-	return upgrader.NewState(st, "Upgrader")
-}
-
-// UnitUpgrader returns access to the UnitUpgrader API as implemented for unit agents.
-func (st *State) UnitUpgrader() *upgrader.State {
-	return upgrader.NewState(st, "UnitUpgrader")
+	return upgrader.NewState(st)
 }
 
 // Deployer returns access to the Deployer API

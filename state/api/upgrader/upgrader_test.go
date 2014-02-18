@@ -51,12 +51,18 @@ func (s *machineUpgraderSuite) SetUpTest(c *gc.C) {
 // Note: This is really meant as a unit-test, this isn't a test that should
 //       need all of the setup we have for this test suite
 func (s *machineUpgraderSuite) TestNew(c *gc.C) {
-	upgrader := upgrader.NewState(s.stateAPI, "Upgrader")
+	upgrader := upgrader.NewState(s.stateAPI)
 	c.Assert(upgrader, gc.NotNil)
 }
 
 func (s *machineUpgraderSuite) TestSetVersionWrongMachine(c *gc.C) {
-	err := s.st.SetVersion("42", version.Current)
+	err := s.st.SetVersion("machine-42", version.Current)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
+}
+
+func (s *machineUpgraderSuite) TestSetVersionNotMachine(c *gc.C) {
+	err := s.st.SetVersion("foo-42", version.Current)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 }
@@ -75,7 +81,14 @@ func (s *machineUpgraderSuite) TestSetVersion(c *gc.C) {
 }
 
 func (s *machineUpgraderSuite) TestToolsWrongMachine(c *gc.C) {
-	tools, _, err := s.st.Tools("42")
+	tools, _, err := s.st.Tools("machine-42")
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(tools, gc.IsNil)
+}
+
+func (s *machineUpgraderSuite) TestToolsNotMachine(c *gc.C) {
+	tools, _, err := s.st.Tools("foo-42")
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(tools, gc.IsNil)
