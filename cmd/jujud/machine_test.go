@@ -181,7 +181,6 @@ func (s *MachineSuite) TestWithRemovedMachine(c *gc.C) {
 }
 
 func (s *MachineSuite) TestDyingMachine(c *gc.C) {
-	c.Skip("Disabled as breaks test isolation somehow, see lp:1206195")
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	done := make(chan error)
