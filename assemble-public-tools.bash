@@ -131,7 +131,8 @@ get_arch() {
     control_file=$1
     arch=$(sed -n 's/^Architecture: \([a-z]\+\)/\1/p' $control_file)
     case "${arch}" in
-        "amd64" | "i386" | "armel" | "armhf" | "arm64" | "ppc64el" )
+        "amd64" | "i386" | "armel" | "armhf" | "arm64" | "ppc64el" | 
+"powerpc" )
             ;;
         *)
             echo "Invalid arch: $arch"
