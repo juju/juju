@@ -6,18 +6,18 @@ package local
 import (
 	"errors"
 	"fmt"
-	"os"
 	"os/exec"
+	"regexp"
 	"runtime"
 
 	"launchpad.net/juju-core/container/kvm"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
 var notLinuxError = errors.New("The local provider is currently only available for Linux")
-var noMongoError = errors.New("Couldn't find mongod")
 
 const installMongodUbuntu = "MongoDB server must be installed to enable the local provider:"
 const aptAddRepositoryJujuStable = `
@@ -47,9 +47,6 @@ documentation for instructions on installing the LXC userspace tools.`
 const errUnsupportedOS = `Unsupported operating system: %s
 The local provider is currently only available for Linux`
 
-// mongod path bundled specifically for juju
-var jujuMongodPath = "/usr/lib/juju/bin/mongod"
-
 // lowestMongoVersion is the lowest version of mongo that juju supports.
 var lowestMongoVersion = version.Number{Major: 2, Minor: 2, Patch: 4}
 
@@ -62,6 +59,9 @@ var lxclsPath = "lxc-ls"
 // The operating system the process is running in.
 // This is a variable only to support unit testing.
 var goos = runtime.GOOS
+
+// This is the regex for processing the results of mongod --verison
+var mongoVerRegex = regexp.MustCompile(`db version v(\d+\.\d+\.\d+)`)
 
 // VerifyPrerequisites verifies the prerequisites of
 // the local machine (machine 0) for running the local
@@ -82,25 +82,14 @@ func VerifyPrerequisites(containerType instance.ContainerType) error {
 	return fmt.Errorf("Unknown container type specified in the config.")
 }
 
-func mongodPath() string {
-	if _, err := os.Stat(jujuMongodPath); err == nil {
-		return jujuMongodPath
-	}
-
-	path, _ := utils.RunCommand("which", "mongod")
-	return path
-}
 func verifyMongod() error {
-	path := mongodPath()
-	if path == "" {
-		return noMongoError
-	}
+	path := upstart.MongodPath()
 
 	ver, err := mongodVersion(path)
 	if err != nil {
 		return err
 	}
-	if ver.Less(lowestMongoVersion) {
+	if ver.Compare(lowestMongoVersion) < 0 {
 		return fmt.Errorf("Installed version of mongod (%v) is not supported by Juju. "+
 			" Juju requires version %v or greater.",
 			ver,
@@ -112,10 +101,18 @@ func verifyMongod() error {
 func mongodVersion(path string) (version.Number, error) {
 	data, err := utils.RunCommand(path, "--version")
 	if err != nil {
-		return version.Zero, fmt.Errorf("Error checking %q version: %v", path, err)
+		return version.Zero, wrapMongodNotExist(err)
 	}
 
-	return version.Parse(data)
+	return parseVersion(data)
+}
+
+func parseVersion(data string) (version.Number, error) {
+	matches := mongoVerRegex.FindStringSubmatch(data)
+	if len(matches) < 2 {
+		return version.Zero, errors.New("Couldn't parse version")
+	}
+	return version.Parse(matches[1])
 }
 
 func verifyLxc() error {
