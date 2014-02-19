@@ -150,7 +150,7 @@ testing_to_streams() {
     [[ $JT_IGNORE_STREAMS == '1' ]] && return 0
     echo "Phase 5: Testing to streams.canonical.com."
     source $JUJU_DIR/streamsrc
-    rsync -avzh $JUJU_DIST/tools/ $STREAMS_TESTING_DEST
+    rsync -avzh $JUJU_DIST/ $STREAMS_TESTING_DEST
 }
 
 
