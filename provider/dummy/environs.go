@@ -422,7 +422,7 @@ func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return env, nil
 }
 
-func (p *environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+func (p *environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	cfg, err := p.prepare(cfg)
 	if err != nil {
 		return nil, err

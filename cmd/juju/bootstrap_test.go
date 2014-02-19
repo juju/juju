@@ -516,7 +516,7 @@ func makeEmptyFakeHome(c *gc.C) (environs.Environ, *coretesting.FakeHome) {
 	dummy.Reset()
 	store, err := configstore.Default()
 	c.Assert(err, gc.IsNil)
-	env, err := environs.PrepareFromName("peckham", store)
+	env, err := environs.PrepareFromName("peckham", nullContext(), store)
 	c.Assert(err, gc.IsNil)
 	envtesting.RemoveAllTools(c, env)
 	return env, fake

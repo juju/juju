@@ -195,8 +195,8 @@ var finishBootstrap = func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudini
 	}
 	cmd := exec.Command("sudo", "/bin/bash", "-s")
 	cmd.Stdin = strings.NewReader(script)
-	cmd.Stdout = ctx.Stdout()
-	cmd.Stderr = ctx.Stderr()
+	cmd.Stdout = ctx.GetStdout()
+	cmd.Stderr = ctx.GetStderr()
 	return cmd.Run()
 }
 

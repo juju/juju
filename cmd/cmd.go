@@ -112,12 +112,27 @@ func (ctx *Context) AbsPath(path string) string {
 	return filepath.Join(ctx.Dir, path)
 }
 
-// InterruptNotify partially satisfies environs/bootstrap.BootstrapContext
+// GetStdin satisfies environs.BootstrapContext
+func (ctx *Context) GetStdin() io.Reader {
+	return ctx.Stdin
+}
+
+// GetStdout satisfies environs.BootstrapContext
+func (ctx *Context) GetStdout() io.Writer {
+	return ctx.Stdout
+}
+
+// GetStderr satisfies environs.BootstrapContext
+func (ctx *Context) GetStderr() io.Writer {
+	return ctx.Stderr
+}
+
+// InterruptNotify satisfies environs.BootstrapContext
 func (ctx *Context) InterruptNotify(c chan<- os.Signal) {
 	signal.Notify(c, os.Interrupt)
 }
 
-// StopInterruptNotify partially satisfies environs/bootstrap.BootstrapContext
+// StopInterruptNotify satisfies environs.BootstrapContext
 func (ctx *Context) StopInterruptNotify(c chan<- os.Signal) {
 	signal.Stop(c)
 }

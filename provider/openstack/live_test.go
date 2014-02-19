@@ -230,7 +230,7 @@ func (s *LiveTests) assertStartInstanceDefaultSecurityGroup(c *gc.C, useDefault 
 	c.Assert(env, gc.NotNil)
 	defer env.Destroy()
 	// Bootstrap and start an instance.
-	err = bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	inst, _ := jujutesting.AssertStartInstance(c, env, "100")
 	// Check whether the instance has the default security group assigned.
