@@ -8,6 +8,7 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
@@ -106,7 +107,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	c.Assert(newCfg.Tag(), gc.Equals, "machine-0")
 	c.Assert(agent.Password(newCfg), gc.Not(gc.Equals), pwHash)
 	c.Assert(agent.Password(newCfg), gc.Not(gc.Equals), testing.DefaultMongoPassword)
-	st1, err := cfg.OpenState(nil)
+	st1, err := cfg.OpenState(environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	defer st1.Close()
 }
@@ -156,7 +157,7 @@ func (*bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, password string) {
 		Tag:      "",
 		Password: password,
 	}
-	st, err := state.Open(info, state.DialOpts{}, state.Policy(nil))
+	st, err := state.Open(info, state.DialOpts{}, environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 	_, err = st.Machine("0")

@@ -52,13 +52,9 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 		return nil, err
 	}
 
-	// juju.NewConn is for backwards compatibility only.
-	// We provide a no-op policy only for those cases.
-	policy := state.PolicyBase{}
-
 	info.Password = password
 	opts := state.DefaultDialOpts()
-	st, err := state.Open(info, opts, policy)
+	st, err := state.Open(info, opts, environs.NewStatePolicy())
 	if errors.IsUnauthorizedError(err) {
 		log.Noticef("juju: authorization error while connecting to state server; retrying")
 		// We can't connect with the administrator password,;
@@ -70,7 +66,7 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 		// connecting to mongo before the state has been
 		// initialized and the initial password set.
 		for a := redialStrategy.Start(); a.Next(); {
-			st, err = state.Open(info, opts, policy)
+			st, err = state.Open(info, opts, environs.NewStatePolicy())
 			if !errors.IsUnauthorizedError(err) {
 				break
 			}

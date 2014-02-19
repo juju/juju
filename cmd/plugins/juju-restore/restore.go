@@ -188,7 +188,7 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 		CACert:   caCert,
 		Tag:      creds.Tag,
 		Password: creds.Password,
-	}, state.DefaultDialOpts(), state.Policy(nil))
+	}, state.DefaultDialOpts(), environs.NewStatePolicy())
 	if err != nil {
 		return fmt.Errorf("cannot open state: %v", err)
 	}

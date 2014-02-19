@@ -37,7 +37,7 @@ func (s *InitializeSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	var err error
-	s.State, err = state.Open(state.TestingStateInfo(), state.TestingDialOpts(), state.PolicyBase{})
+	s.State, err = state.Open(state.TestingStateInfo(), state.TestingDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.IsNil)
 }
 
@@ -59,7 +59,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 
 	cfg := testing.EnvironConfig(c)
 	initial := cfg.AllAttrs()
-	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialOpts(), state.PolicyBase{})
+	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	c.Assert(st, gc.NotNil)
 	err = st.Close()
@@ -93,7 +93,7 @@ func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 	// for originally...
 	cfg, err := cfg.Apply(map[string]interface{}{"authorized-keys": "something-else"})
 	c.Assert(err, gc.IsNil)
-	st, err = state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialOpts(), state.PolicyBase{})
+	st, err = state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	c.Assert(st, gc.NotNil)
 	st.Close()
@@ -108,7 +108,7 @@ func (s *InitializeSuite) TestEnvironConfigWithAdminSecret(c *gc.C) {
 	good := testing.EnvironConfig(c)
 	bad, err := good.Apply(map[string]interface{}{"admin-secret": "foo"})
 
-	_, err = state.Initialize(state.TestingStateInfo(), bad, state.TestingDialOpts(), state.PolicyBase{})
+	_, err = state.Initialize(state.TestingStateInfo(), bad, state.TestingDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.ErrorMatches, "admin-secret should never be written to the state")
 
 	// admin-secret blocks SetEnvironConfig.
@@ -131,7 +131,7 @@ func (s *InitializeSuite) TestEnvironConfigWithoutAgentVersion(c *gc.C) {
 	bad, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
-	_, err = state.Initialize(state.TestingStateInfo(), bad, state.TestingDialOpts(), state.PolicyBase{})
+	_, err = state.Initialize(state.TestingStateInfo(), bad, state.TestingDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.ErrorMatches, "agent-version must always be set in state")
 
 	// Bad agent-version blocks SetEnvironConfig.
