@@ -13,6 +13,7 @@ import (
 
 	"launchpad.net/juju-core/environs/simplestreams"
 	sstesting "launchpad.net/juju-core/environs/simplestreams/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 )
 
@@ -411,8 +412,7 @@ func (s *simplestreamsSuite) TestSupportedSeries(c *gc.C) {
 	defer cleanup()
 	series := simplestreams.SupportedSeries()
 	sort.Strings(series)
-	series = series[0:4]
-	c.Assert(series, gc.DeepEquals, []string{"precise", "quantal", "raring", "saucy"})
+	c.Assert(series, gc.DeepEquals, coretesting.SupportedSeries)
 }
 
 var getMirrorTests = []struct {

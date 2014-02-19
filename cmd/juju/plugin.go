@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"launchpad.net/gnuflag"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/log"

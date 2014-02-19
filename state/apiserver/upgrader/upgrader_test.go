@@ -88,10 +88,9 @@ func (s *upgraderSuite) TestWatchAPIVersion(c *gc.C) {
 	wc.AssertClosed()
 }
 
-func (s *upgraderSuite) TestUpgraderAPIRefusesNonAgent(c *gc.C) {
-	// We aren't even a machine agent
+func (s *upgraderSuite) TestUpgraderAPIRefusesNonMachineAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
-	anAuthorizer.UnitAgent = false
+	anAuthorizer.UnitAgent = true
 	anAuthorizer.MachineAgent = false
 	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, gc.NotNil)

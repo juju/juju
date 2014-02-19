@@ -100,7 +100,8 @@ install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
 printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 test -e /proc/self/fd/9 \|\| exec 9>&2
 \(\[ ! -e /home/ubuntu/.profile \] \|\| grep -q '.juju-proxy' /home/ubuntu/.profile\) \|\| printf .* >> /home/ubuntu/.profile
-mkdir -p /var/lib/juju
+mkdir -p /var/lib/juju/locks
+\[ -e /home/ubuntu \] && chown ubuntu:ubuntu /var/lib/juju/locks
 mkdir -p /var/log/juju
 echo 'Fetching tools.*
 bin='/var/lib/juju/tools/1\.2\.3-precise-amd64'
@@ -119,6 +120,8 @@ install -m 644 /dev/null '/var/lib/juju/agents/machine-0/format'
 printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-0/format'
 install -m 600 /dev/null '/var/lib/juju/agents/machine-0/agent\.conf'
 printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-0/agent\.conf'
+install -D -m 644 /dev/null '/etc/apt/preferences\.d/50-cloud-tools'
+printf '%s\\n' '.*' > '/etc/apt/preferences\.d/50-cloud-tools'
 install -D -m 600 /dev/null '/var/lib/juju/system-identity'
 printf '%s\\n' '.*' > '/var/lib/juju/system-identity'
 install -D -m 600 /dev/null '/var/lib/juju/server\.pem'
@@ -225,7 +228,8 @@ install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
 printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 test -e /proc/self/fd/9 \|\| exec 9>&2
 \(\[ ! -e /home/ubuntu/\.profile \] \|\| grep -q '.juju-proxy' /home/ubuntu/.profile\) \|\| printf .* >> /home/ubuntu/.profile
-mkdir -p /var/lib/juju
+mkdir -p /var/lib/juju/locks
+\[ -e /home/ubuntu \] && chown ubuntu:ubuntu /var/lib/juju/locks
 mkdir -p /var/log/juju
 echo 'Fetching tools.*
 bin='/var/lib/juju/tools/1\.2\.3-linux-amd64'
@@ -559,7 +563,7 @@ func assertScriptMatch(c *gc.C, got []string, expect string, exact bool) {
 	}
 }
 
-// CheckPackage checks that the cloudinit will or won't install the given
+// checkPackage checks that the cloudinit will or won't install the given
 // package, depending on the value of match.
 func checkPackage(c *gc.C, x map[interface{}]interface{}, pkg string, match bool) {
 	pkgs0 := x["packages"]
@@ -575,7 +579,9 @@ func checkPackage(c *gc.C, x map[interface{}]interface{}, pkg string, match bool
 	found := false
 	for _, p0 := range pkgs {
 		p := p0.(string)
-		if p == pkg {
+		hasTargetRelease := strings.Contains(p, "--target-release")
+		hasQuotedPkg := strings.Contains(p, "'"+pkg+"'")
+		if p == pkg || (hasTargetRelease && hasQuotedPkg) {
 			found = true
 		}
 	}
@@ -587,7 +593,7 @@ func checkPackage(c *gc.C, x map[interface{}]interface{}, pkg string, match bool
 	}
 }
 
-// CheckAptSources checks that the cloudinit will or won't install the given
+// checkAptSources checks that the cloudinit will or won't install the given
 // source, depending on the value of match.
 func checkAptSource(c *gc.C, x map[interface{}]interface{}, source, key string, match bool) {
 	sources0 := x["apt_sources"]

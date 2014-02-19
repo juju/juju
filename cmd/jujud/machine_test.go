@@ -44,6 +44,7 @@ import (
 	"launchpad.net/juju-core/worker/deployer"
 	"launchpad.net/juju-core/worker/instancepoller"
 	"launchpad.net/juju-core/worker/machineenvironmentworker"
+	"launchpad.net/juju-core/worker/upgrader"
 )
 
 type MachineSuite struct {
@@ -181,7 +182,6 @@ func (s *MachineSuite) TestWithRemovedMachine(c *gc.C) {
 }
 
 func (s *MachineSuite) TestDyingMachine(c *gc.C) {
-	c.Skip("Disabled as breaks test isolation somehow, see lp:1206195")
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	done := make(chan error)
@@ -404,8 +404,25 @@ func (s *MachineSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machin
 	panic("watcher died")
 }
 
+func (s *agentSuite) testUpgrade(c *gc.C, agent runner, tag string, currentTools *tools.Tools) {
+	newVers := version.Current
+	newVers.Patch++
+	envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), newVers)
+	err := s.State.SetEnvironAgentVersion(newVers.Number)
+	c.Assert(err, gc.IsNil)
+	err = runWithTimeout(agent)
+	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
+		AgentName: tag,
+		OldTools:  currentTools.Version,
+		NewTools:  newVers,
+		DataDir:   s.DataDir(),
+	})
+}
+
 func (s *MachineSuite) TestUpgrade(c *gc.C) {
 	m, _, currentTools := s.primeAgent(c, state.JobManageEnviron, state.JobHostUnits)
+	err := m.SetAgentVersion(currentTools.Version)
+	c.Assert(err, gc.IsNil)
 	a := s.newAgent(c, m)
 	s.testUpgrade(c, a, m.Tag(), currentTools)
 }

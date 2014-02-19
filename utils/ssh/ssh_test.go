@@ -11,6 +11,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils/ssh"
 )
@@ -36,7 +37,7 @@ func (s *SSHCommandSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = ioutil.WriteFile(s.fakescp, []byte(echoCommandScript), 0755)
 	c.Assert(err, gc.IsNil)
-	s.PatchEnvironment("PATH", s.testbin+":"+os.Getenv("PATH"))
+	s.PatchEnvPathPrepend(s.testbin)
 	s.client, err = ssh.NewOpenSSHClient()
 	c.Assert(err, gc.IsNil)
 	s.PatchValue(ssh.DefaultIdentities, nil)
@@ -149,16 +150,31 @@ func (s *SSHCommandSuite) TestCommandClientKeys(c *gc.C) {
 	)
 }
 
+func (s *SSHCommandSuite) TestCommandError(c *gc.C) {
+	var opts ssh.Options
+	err := ioutil.WriteFile(s.fakessh, []byte("#!/bin/sh\nexit 42"), 0755)
+	c.Assert(err, gc.IsNil)
+	command := s.client.Command("ignored", []string{"echo", "foo"}, &opts)
+	err = command.Run()
+	c.Assert(cmd.IsRcPassthroughError(err), gc.Equals, true)
+}
+
 func (s *SSHCommandSuite) TestCommandDefaultIdentities(c *gc.C) {
 	var opts ssh.Options
-	s.PatchValue(ssh.DefaultIdentities, []string{"def1", "def2"})
+	tempdir := c.MkDir()
+	def1 := filepath.Join(tempdir, "def1")
+	def2 := filepath.Join(tempdir, "def2")
+	s.PatchValue(ssh.DefaultIdentities, []string{def1, def2})
 	// If no identities are specified, then the defaults aren't added.
 	s.assertCommandArgs(c, s.commandOptions([]string{"echo", "123"}, &opts),
 		s.fakessh+" -o StrictHostKeyChecking no -o PasswordAuthentication no localhost -- echo 123",
 	)
 	// If identities are specified, then the defaults are must added.
+	// Only the defaults that exist on disk will be added.
+	err := ioutil.WriteFile(def2, nil, 0644)
+	c.Assert(err, gc.IsNil)
 	opts.SetIdentities("x", "y")
 	s.assertCommandArgs(c, s.commandOptions([]string{"echo", "123"}, &opts),
-		s.fakessh+" -o StrictHostKeyChecking no -o PasswordAuthentication no -i x -i y -i def1 -i def2 localhost -- echo 123",
+		s.fakessh+" -o StrictHostKeyChecking no -o PasswordAuthentication no -i x -i y -i "+def2+" localhost -- echo 123",
 	)
 }

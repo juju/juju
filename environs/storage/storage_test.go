@@ -42,7 +42,7 @@ environments:
 
 func (s *datasourceSuite) SetUpTest(c *gc.C) {
 	s.home = testing.MakeFakeHome(c, existingEnv, "existing")
-	environ, err := environs.PrepareFromName("test", configstore.NewMem())
+	environ, err := environs.PrepareFromName("test", testing.Context(c), configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	s.stor = environ.Storage()
 	s.baseURL, err = s.stor.URL("")

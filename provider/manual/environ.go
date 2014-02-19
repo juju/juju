@@ -51,15 +51,13 @@ const (
 var logger = loggo.GetLogger("juju.provider.manual")
 
 type manualEnviron struct {
-	cfg                   *environConfig
-	cfgmutex              sync.Mutex
-	bootstrapStorage      storage.Storage
-	bootstrapStorageMutex sync.Mutex
-	ubuntuUserInited      bool
-	ubuntuUserInitMutex   sync.Mutex
+	cfg                 *environConfig
+	cfgmutex            sync.Mutex
+	storage             storage.Storage
+	ubuntuUserInited    bool
+	ubuntuUserInitMutex sync.Mutex
 }
 
-var _ environs.BootstrapStorager = (*manualEnviron)(nil)
 var _ envtools.SupportsCustomSources = (*manualEnviron)(nil)
 
 var errNoStartInstance = errors.New("manual provider cannot start instances")
@@ -92,27 +90,13 @@ func (e *manualEnviron) Name() string {
 	return e.envConfig().Name()
 }
 
-var initUbuntuUser = manual.InitUbuntuUser
-
-func (e *manualEnviron) ensureBootstrapUbuntuUser(ctx environs.BootstrapContext) error {
-	e.ubuntuUserInitMutex.Lock()
-	defer e.ubuntuUserInitMutex.Unlock()
-	if e.ubuntuUserInited {
-		return nil
-	}
-	cfg := e.envConfig()
-	err := initUbuntuUser(cfg.bootstrapHost(), cfg.bootstrapUser(), cfg.AuthorizedKeys(), ctx.Stdin(), ctx.Stdout())
+func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
+	// Set "use-sshstorage" to false, so agents know not to use sshstorage.
+	cfg, err := e.Config().Apply(map[string]interface{}{"use-sshstorage": false})
 	if err != nil {
-		logger.Errorf("initializing ubuntu user: %v", err)
 		return err
 	}
-	logger.Infof("initialized ubuntu user")
-	e.ubuntuUserInited = true
-	return nil
-}
-
-func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
-	if err := e.ensureBootstrapUbuntuUser(ctx); err != nil {
+	if err := e.SetConfig(cfg); err != nil {
 		return err
 	}
 	envConfig := e.envConfig()
@@ -146,6 +130,35 @@ func (e *manualEnviron) SetConfig(cfg *config.Config) error {
 	envConfig, err := manualProvider{}.validate(cfg, e.cfg.Config)
 	if err != nil {
 		return err
+	}
+	// Set storage. If "use-sshstorage" is true then use the SSH storage.
+	// Otherwise, use HTTP storage.
+	//
+	// We don't change storage once it's been set. Storage parameters
+	// are fixed at bootstrap time, and it is not possible to change
+	// them.
+	if e.storage == nil {
+		var stor storage.Storage
+		if envConfig.useSSHStorage() {
+			storageDir := e.StorageDir()
+			storageTmpdir := path.Join(dataDir, storageTmpSubdir)
+			stor, err = newSSHStorage("ubuntu@"+e.cfg.bootstrapHost(), storageDir, storageTmpdir)
+			if err != nil {
+				return fmt.Errorf("initialising SSH storage failed: %v", err)
+			}
+		} else {
+			caCertPEM, ok := envConfig.CACert()
+			if !ok {
+				// should not be possible to validate base config
+				return fmt.Errorf("ca-cert not set")
+			}
+			authkey := envConfig.storageAuthKey()
+			stor, err = httpstorage.ClientTLS(envConfig.storageAddr(), caCertPEM, authkey)
+			if err != nil {
+				return fmt.Errorf("initialising HTTPS storage failed: %v", err)
+			}
+		}
+		e.storage = stor
 	}
 	e.cfg = envConfig
 	return nil
@@ -182,27 +195,6 @@ var newSSHStorage = func(sshHost, storageDir, storageTmpdir string) (storage.Sto
 	})
 }
 
-// Implements environs.BootstrapStorager.
-func (e *manualEnviron) EnableBootstrapStorage(ctx environs.BootstrapContext) error {
-	e.bootstrapStorageMutex.Lock()
-	defer e.bootstrapStorageMutex.Unlock()
-	if e.bootstrapStorage != nil {
-		return nil
-	}
-	if err := e.ensureBootstrapUbuntuUser(ctx); err != nil {
-		return err
-	}
-	cfg := e.envConfig()
-	storageDir := e.StorageDir()
-	storageTmpdir := path.Join(dataDir, storageTmpSubdir)
-	bootstrapStorage, err := newSSHStorage("ubuntu@"+cfg.bootstrapHost(), storageDir, storageTmpdir)
-	if err != nil {
-		return err
-	}
-	e.bootstrapStorage = bootstrapStorage
-	return nil
-}
-
 // GetToolsSources returns a list of sources which are
 // used to search for simplestreams tools metadata.
 func (e *manualEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
@@ -213,24 +205,9 @@ func (e *manualEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 }
 
 func (e *manualEnviron) Storage() storage.Storage {
-	e.bootstrapStorageMutex.Lock()
-	defer e.bootstrapStorageMutex.Unlock()
-	if e.bootstrapStorage != nil {
-		return e.bootstrapStorage
-	}
-	caCertPEM, authkey := e.StorageCACert(), e.StorageAuthKey()
-	if caCertPEM != nil && authkey != "" {
-		storage, err := httpstorage.ClientTLS(e.envConfig().storageAddr(), caCertPEM, authkey)
-		if err != nil {
-			// Should be impossible, since ca-cert will always be validated.
-			logger.Errorf("initialising HTTPS storage failed: %v", err)
-		} else {
-			return storage
-		}
-	} else {
-		logger.Errorf("missing CA cert or auth-key")
-	}
-	return nil
+	e.cfgmutex.Lock()
+	defer e.cfgmutex.Unlock()
+	return e.storage
 }
 
 var runSSHCommand = func(host string, command []string) (stderr string, err error) {
