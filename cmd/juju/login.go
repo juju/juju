@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/names"
 
 	"code.google.com/p/gopass"
 )
@@ -56,6 +57,7 @@ func (c *LoginCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return fmt.Errorf("cannot open environment info storage: %v", err)
 	}
+	c.Tag = names.UserTag(c.Tag)
 	info, err := store.ReadInfo(c.EnvName)
 	if err != nil {
 		return err

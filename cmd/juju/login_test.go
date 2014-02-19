@@ -28,7 +28,7 @@ func (s *LoginSuite) TestLogin(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	info, err := s.ConfigStore.ReadInfo("dummyenv")
-	c.Assert(info.APICredentials().User, gc.Equals, "foobar")
+	c.Assert(info.APICredentials().User, gc.Equals, "user-foobar")
 
 	err = environ.Destroy()
 	c.Assert(err, gc.IsNil)
@@ -42,7 +42,7 @@ func (s *LoginSuite) TestLoginFails(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	_, err = testing.RunCommand(c, &LoginCommand{}, []string{"foobar", "wrongpassword"})
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, gc.ErrorMatches, "Failed to login invalid entity name or password")
 	err = environ.Destroy()
 	c.Assert(err, gc.IsNil)
 }

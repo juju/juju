@@ -8,6 +8,7 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/configstore"
+	"launchpad.net/juju-core/names"
 )
 
 type WhoamiCommand struct {
@@ -45,5 +46,10 @@ func (c *WhoamiCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	user := info.APICredentials().User
-	return c.out.Write(ctx, user)
+	_, id, err := names.ParseTag(user, names.UserTagKind)
+	if err != nil {
+		return err
+	}
+
+	return c.out.Write(ctx, id)
 }

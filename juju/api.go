@@ -57,8 +57,18 @@ var errAborted = fmt.Errorf("aborted")
 // NewAPIConn returns a new Conn that uses the
 // given environment. The environment must have already
 // been bootstrapped.
+//TODO (mattyw) This function should be deleted
 func NewAPIConn(environ environs.Environ, dialOpts api.DialOpts) (*APIConn, error) {
-	info, err := environAPIInfo(environ)
+	store, err := configstore.NewDisk(osenv.JujuHome())
+	if err != nil {
+		return nil, err
+	}
+	environInfo, err := store.ReadInfo(environ.Name())
+	if err != nil {
+		return nil, err
+	}
+	environInfo.SetAPICredentials(configstore.APICredentials{"", ""})
+	info, err := environAPIInfo(environInfo, environ)
 	if err != nil {
 		return nil, err
 	}
@@ -295,7 +305,7 @@ func apiConfigConnect(info configstore.EnvironInfo, envs *environs.Environs, env
 	if err != nil {
 		return apiState{}, err
 	}
-	apiInfo, err := environAPIInfo(environ)
+	apiInfo, err := environAPIInfo(info, environ)
 	if err != nil {
 		return apiState{}, err
 	}
@@ -307,10 +317,16 @@ func apiConfigConnect(info configstore.EnvironInfo, envs *environs.Environs, env
 	return apiState{st, apiInfo}, nil
 }
 
-func environAPIInfo(environ environs.Environ) (*api.Info, error) {
+func environAPIInfo(environInfo configstore.EnvironInfo, environ environs.Environ) (*api.Info, error) {
 	_, info, err := environ.StateInfo()
 	if err != nil {
 		return nil, err
+	}
+	if environInfo.APICredentials().User != "" {
+		info.Tag = environInfo.APICredentials().User
+		info.Password = environInfo.APICredentials().Password
+		return info, nil
+
 	}
 	info.Tag = "user-admin"
 	password := environ.Config().AdminSecret()
@@ -329,6 +345,23 @@ func cacheAPIInfo(info configstore.EnvironInfo, apiInfo *api.Info) error {
 		Addresses: apiInfo.Addrs,
 		CACert:    string(apiInfo.CACert),
 	})
+	/*
+		_, username, err := names.ParseTag(apiInfo.Tag, names.UserTagKind)
+		if err != nil {
+			return fmt.Errorf("not caching API connection settings: invalid API user tag: %v", err)
+		}
+			info.SetAPICredentials(configstore.APICredentials{
+				User:     username,
+				Password: apiInfo.Password,
+			})
+	*/
+	if err := info.Write(); err != nil {
+		return fmt.Errorf("cannot cache API connection settings: %v", err)
+	}
+	return nil
+}
+
+func cacheAPICreds(info configstore.EnvironInfo, apiInfo *api.Info) error {
 	_, username, err := names.ParseTag(apiInfo.Tag, names.UserTagKind)
 	if err != nil {
 		return fmt.Errorf("not caching API connection settings: invalid API user tag: %v", err)
@@ -338,7 +371,7 @@ func cacheAPIInfo(info configstore.EnvironInfo, apiInfo *api.Info) error {
 		Password: apiInfo.Password,
 	})
 	if err := info.Write(); err != nil {
-		return fmt.Errorf("cannot cache API connection settings: %v", err)
+		return fmt.Errorf("cannot cache API cred settings: %v", err)
 	}
 	return nil
 }
