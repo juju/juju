@@ -9,6 +9,7 @@ import (
 
 	"launchpad.net/tomb"
 
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/apiserver/agent"
@@ -193,12 +194,27 @@ func (r *srvRoot) Logger(id string) (*loggerapi.LoggerAPI, error) {
 
 // Upgrader returns an object that provides access to the Upgrader API facade.
 // The id argument is reserved for future use and must be empty.
-func (r *srvRoot) Upgrader(id string) (*upgrader.UpgraderAPI, error) {
+func (r *srvRoot) Upgrader(id string) (upgrader.Upgrader, error) {
 	if id != "" {
 		// TODO: There is no direct test for this
 		return nil, common.ErrBadId
 	}
-	return upgrader.NewUpgraderAPI(r.srv.state, r.resources, r)
+	// The type of upgrader we return depends on who is asking.
+	// Machines get an UpgraderAPI, units get a UnitUpgraderAPI.
+	// This is tested in the state/api/upgrader package since there
+	// are currently no direct srvRoot tests.
+	tagKind, _, err := names.ParseTag(r.GetAuthTag(), "")
+	if err != nil {
+		return nil, common.ErrPerm
+	}
+	switch tagKind {
+	case names.MachineTagKind:
+		return upgrader.NewUpgraderAPI(r.srv.state, r.resources, r)
+	case names.UnitTagKind:
+		return upgrader.NewUnitUpgraderAPI(r.srv.state, r.resources, r)
+	}
+	// Not a machine or unit.
+	return nil, common.ErrPerm
 }
 
 // KeyUpdater returns an object that provides access to the KeyUpdater API facade.
