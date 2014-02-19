@@ -107,6 +107,7 @@ func newWorker(st stateInterface) worker.Worker {
 }
 
 func (w *pgWorker) Kill() {
+	logger.Debugf("killing worker")
 	w.tomb.Kill(nil)
 }
 
@@ -124,29 +125,36 @@ func (w *pgWorker) loop() error {
 	var desiredVoting map[*machine]bool
 	var desiredMembers []replicaset.Member
 	for {
+		logger.Debugf("pgWorker.loop looping")
 		select {
 		case f := <-w.notifyCh:
+			logger.Debugf("got notification")
 			// Update our current view of the state of affairs.
 			changed, err := f()
 			if err != nil {
+				logger.Debugf("update function returned error")
 				return err
 			}
 			if !changed {
+				logger.Debugf("no change")
 				break
 			}
 			info, err := w.peerGroupInfo()
 			if err != nil {
 				return err
 			}
+			logger.Debugf("peer group info: %#v", info)
 			members, voting, err := desiredPeerGroup(info)
 			if err != nil {
 				logger.Errorf("cannot compute desired peer group: %v", err)
 				continue
 			}
 			if members == nil {
+				logger.Debugf("no change in desired member set")
 				timer.Stop()
 				break
 			}
+			logger.Debugf("desired members: %#v", members)
 			desiredMembers = members
 			desiredVoting = voting
 			// Try to change the replica set immediately.
@@ -275,12 +283,15 @@ func (w *pgWorker) watchStateServerInfo() *serverInfoWatcher {
 }
 
 func (infow *serverInfoWatcher) loop() error {
+	logger.Debugf("serverInfoWatcher.loop")
 	for {
 		select {
 		case _, ok := <-infow.watcher.Changes():
+			logger.Debugf("got infow change")
 			if !ok {
 				return infow.watcher.Err()
 			}
+			logger.Debugf("notifying")
 			infow.worker.notify(infow.updateMachines)
 		case <-infow.worker.tomb.Dying():
 			return tomb.ErrDying
@@ -295,10 +306,13 @@ func (infow *serverInfoWatcher) stop() {
 // updateMachines is a notifyFunc that updates the current
 // machines when the state server info has changed.
 func (infow *serverInfoWatcher) updateMachines() (bool, error) {
+	logger.Debugf("updateMachines")
 	info, err := infow.worker.st.StateServerInfo()
 	if err != nil {
 		return false, err
 	}
+	logger.Debugf("state server info: %#v", info)
+	logger.Debugf("existing machines: %#v", infow.worker.machines)
 	changed := false
 	// Stop machine goroutines that no longer correspond to state server
 	// machines.
@@ -314,8 +328,10 @@ func (infow *serverInfoWatcher) updateMachines() (bool, error) {
 		if _, ok := infow.worker.machines[id]; ok {
 			continue
 		}
+		logger.Debugf("found new machine %q", id)
 		stm, err := infow.worker.st.Machine(id)
 		if err != nil {
+			logger.Debugf("machine not found: %v", err)
 			if errors.IsNotFoundError(err) {
 				// If the machine isn't found, it must have been
 				// removed and will soon enough be removed
@@ -377,7 +393,6 @@ func (w *pgWorker) newMachine(stm stateMachine) *machine {
 }
 
 func (m *machine) loop() error {
-	defer m.worker.wg.Done()
 	for {
 		select {
 		case _, ok := <-m.machineWatcher.Changes():
@@ -386,6 +401,7 @@ func (m *machine) loop() error {
 			}
 			m.worker.notify(m.refresh)
 		case <-m.worker.tomb.Dying():
+			return nil
 		}
 	}
 }

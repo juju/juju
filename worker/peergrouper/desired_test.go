@@ -36,7 +36,19 @@ var desiredPeerGroupTests = []struct {
 	expectVoting  []bool
 	expectErr     string
 }{{
-	about: "no machines, no change",
+	// Note that this should never happen - the mongo
+	// should always be bootstrapped with at least a single
+	// member in its member-set.
+	about:     "no members - error",
+	expectErr: "current member set is empty",
+}, {
+	about:    "one machine, two more proposed members",
+	machines: mkMachines("10v 11v 12v"),
+	statuses: mkStatuses("0p"),
+	members:  mkMembers("0v"),
+
+	expectMembers: mkMembers("0v 1 2"),
+	expectVoting:  []bool{true, false, false},
 }, {
 	about:         "single machine, no change",
 	machines:      mkMachines("11v"),

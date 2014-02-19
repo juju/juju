@@ -6,12 +6,13 @@ import (
 	"reflect"
 	"sync"
 
+	"launchpad.net/tomb"
+
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/replicaset"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils/voyeur"
 	"launchpad.net/juju-core/worker"
-	"launchpad.net/tomb"
 )
 
 // This file holds helper functions for mocking pieces of State and replicaset
@@ -64,6 +65,7 @@ func (st *fakeState) addMachine(id string, wantsVote bool) *fakeMachine {
 			wantsVote: wantsVote,
 		},
 	}
+	st.machines[id] = m
 	m.val.Set(m.doc)
 	return m
 }
@@ -77,8 +79,10 @@ func (st *fakeState) removeMachine(id string) {
 	delete(st.machines, id)
 }
 
-func (st *fakeState) setStateServers(info *state.StateServerInfo) {
-	st.stateServers.Set(info)
+func (st *fakeState) setStateServers(ids ...string) {
+	st.stateServers.Set(&state.StateServerInfo{
+		MachineIds: ids,
+	})
 }
 
 func (st *fakeState) StateServerInfo() (*state.StateServerInfo, error) {
@@ -179,10 +183,17 @@ func (session *fakeMongoSession) CurrentStatus() (*replicaset.Status, error) {
 	return deepCopy(session.status.Get()).(*replicaset.Status), nil
 }
 
+func (session *fakeMongoSession) setStatus(members []replicaset.MemberStatus) {
+	session.status.Set(deepCopy(&replicaset.Status{
+		Members: members,
+	}))
+}
+
 func (session *fakeMongoSession) Set(members []replicaset.Member) error {
 	if session.err != nil {
 		return session.err
 	}
+	logger.Infof("setting replicaset members to %#v", members)
 	session.members.Set(deepCopy(members))
 	return nil
 }

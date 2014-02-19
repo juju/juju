@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/loggo/loggo"
+
 	"launchpad.net/juju-core/replicaset"
-	"launchpad.net/loggo"
 )
 
 var logger = loggo.GetLogger("juju.worker.peergrouper")
@@ -23,8 +24,14 @@ type peerGroupInfo struct {
 // specifying whether that machine has been configured as voting. It may
 // return (nil, nil, nil) if the current group is already correct.
 func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, map[*machine]bool, error) {
+	if len(info.members) == 0 {
+		return nil, nil, fmt.Errorf("current member set is empty")
+	}
 	changed := false
 	members, extra, maxId := info.membersMap()
+	logger.Debugf("members map: %#v", members)
+	logger.Debugf("extra: %#v", extra)
+	logger.Debugf("maxId: %v", maxId)
 
 	// We may find extra peer group members if the machines
 	// have been removed or their state server status removed.
@@ -49,6 +56,10 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, map[*machine]bo
 	}
 
 	toRemoveVote, toAddVote, toKeep := possiblePeerGroupChanges(info, members)
+
+	logger.Infof("toRemove: %#v", toRemoveVote)
+	logger.Infof("toAdd: %#v", toAddVote)
+	logger.Infof("toKeep: %#v", toKeep)
 
 	// Set up initial record of machine votes. Any changes after
 	// this will trigger a peer group election.
@@ -189,6 +200,7 @@ func addNewMembers(
 ) {
 	for _, m := range toKeep {
 		if members[m] == nil && m.hostPort != "" {
+			logger.Infof("adding machine")
 			// This machine was not previously in the members list,
 			// so add it (as non-voting). We maintain the
 			// id manually to make it easier for tests.
@@ -201,6 +213,8 @@ func addNewMembers(
 			}
 			members[m] = member
 			setVoting(m, false)
+		} else {
+			logger.Infof("not adding machine - member %v; hostPort %q", members[m], m.hostPort)
 		}
 	}
 }
