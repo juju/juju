@@ -72,7 +72,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	envCfg, err := config.New(config.NoDefaults, envAttrs)
 	c.Assert(err, gc.IsNil)
 
-	st, m, err := cfg.InitializeState(envCfg, mcfg, state.DialOpts{})
+	st, m, err := cfg.InitializeState(envCfg, mcfg, state.DialOpts{}, environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
@@ -137,13 +137,13 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	envCfg, err := config.New(config.NoDefaults, envAttrs)
 	c.Assert(err, gc.IsNil)
 
-	st, _, err := cfg.InitializeState(envCfg, mcfg, state.DialOpts{})
+	st, _, err := cfg.InitializeState(envCfg, mcfg, state.DialOpts{}, environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	err = st.SetAdminMongoPassword("")
 	c.Check(err, gc.IsNil)
 	st.Close()
 
-	st, _, err = cfg.InitializeState(envCfg, mcfg, state.DialOpts{})
+	st, _, err = cfg.InitializeState(envCfg, mcfg, state.DialOpts{}, environs.NewStatePolicy())
 	if err == nil {
 		st.Close()
 	}
