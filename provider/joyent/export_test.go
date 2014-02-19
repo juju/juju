@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/instances"
+	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 
@@ -19,26 +20,6 @@ import (
 )
 
 var Provider environs.EnvironProvider = GetProviderInstance()
-
-// MetadataStorage returns a Storage instance which is used to store simplestreams metadata for tests.
-func MetadataStorage(e environs.Environ) storage.Storage {
-	container := "juju-test"
-	metadataStorage := NewStorage(e.(*JoyentEnviron), container)
-
-	// Ensure the container exists.
-	err := metadataStorage.(*JoyentStorage).CreateContainer()
-	if err != nil {
-		panic(fmt.Errorf("cannot create %s container: %v", container, err))
-	}
-	return metadataStorage
-}
-
-// ImageMetadataStorage returns a Storage object pointing where the gojoyent
-// infrastructure sets up its entry for image metadata
-func ImageMetadataStorage(e environs.Environ) storage.Storage {
-	env := e.(*JoyentEnviron)
-	return NewStorage(env, "juju-test")
-}
 
 var indexData = `
 		{
@@ -134,13 +115,64 @@ var imagesData = `
 
 const productMetadataFile = "streams/v1/com.ubuntu.cloud:released:joyent.json"
 
-func UseTestImageData(stor storage.Storage, creds *jpc.Credentials) {
-	// Put some image metadata files into the public storage.
-	t := template.Must(template.New("").Parse(indexData))
+func parseIndexData(creds *jpc.Credentials) bytes.Buffer {
 	var metadata bytes.Buffer
+
+	t := template.Must(template.New("").Parse(indexData))
 	if err := t.Execute(&metadata, creds); err != nil {
 		panic(fmt.Errorf("cannot generate index metdata: %v", err))
 	}
+
+	return metadata
+}
+
+
+// This provides the content for code accessing test:///... URLs. This allows
+// us to set the responses for things like the Metadata server, by pointing
+// metadata requests at test:///...
+var testRoundTripper = &jujutest.ProxyRoundTripper{}
+
+func init() {
+	testRoundTripper.RegisterForScheme("test")
+}
+
+// Set Metadata requests to be served by the filecontent supplied.
+func UseTestMetadata(creds *jpc.Credentials) {
+	metadata := parseIndexData(creds)
+	files := map[string]string{
+		"/v1/index.json": metadata.String(),
+		"/v1/com.ubuntu.cloud:released:joyent.json": imagesData,
+	}
+	testRoundTripper.Sub = jujutest.NewCannedRoundTripper(files, nil)
+}
+
+func UnregisterTestImageMetadata() {
+	testRoundTripper.Sub = nil
+}
+
+// MetadataStorage returns a Storage instance which is used to store simplestreams metadata for tests.
+func MetadataStorage(e environs.Environ) storage.Storage {
+	container := "juju-test"
+	metadataStorage := NewStorage(e.(*JoyentEnviron), container)
+
+	// Ensure the container exists.
+	err := metadataStorage.(*JoyentStorage).CreateContainer()
+	if err != nil {
+		panic(fmt.Errorf("cannot create %s container: %v", container, err))
+	}
+	return metadataStorage
+}
+
+// ImageMetadataStorage returns a Storage object pointing where the gojoyent
+// infrastructure sets up its entry for image metadata
+func ImageMetadataStorage(e environs.Environ) storage.Storage {
+	env := e.(*JoyentEnviron)
+	return NewStorage(env, "juju-test")
+}
+
+func UseTestImageData(stor storage.Storage, creds *jpc.Credentials) {
+	// Put some image metadata files into the public storage.
+	metadata := parseIndexData(creds)
 	data := metadata.Bytes()
 	stor.Put("images/"+simplestreams.DefaultIndexPath+".json", bytes.NewReader(data), int64(len(data)))
 	stor.Put("images/"+productMetadataFile, strings.NewReader(imagesData), int64(len(imagesData)))
