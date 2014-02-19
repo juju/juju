@@ -160,6 +160,8 @@ func (w *pgWorker) loop() error {
 				timer.Reset(retryInterval)
 			}
 			logger.Infof("successfully changed replica set to %#v", desiredMembers)
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
 		}
 	}
 }
