@@ -248,10 +248,12 @@ sign_metadata() {
     for meta_file in $meta_files; do
         signed_file=$(echo "$meta_file" | sed -e $pattern)
         echo "Creating $signed_file"
+        echo "gpg $gpg_options --clearsign $key_option > $signed_file"
         sed -e $pattern $meta_file |
-            gpg $gpg_options --clearsign $key_option" > $signed_file
+            gpg $gpg_options --clearsign $key_option > $signed_file
+        echo "gpg $gpg_options --detach-sign $key_option > $meta_file.gpg"
         cat $meta_file |
-            gpg $gpg_options --detach-sign $key_option"  > $meta_file.gpg
+            gpg $gpg_options --detach-sign $key_option > $meta_file.gpg
     done
     echo "The signed tools are in ${DEST_DIST}."
 }
@@ -308,6 +310,8 @@ version_names+=(["trusty"]="trusty")
 
 declare -a added_tools
 added_tools=()
+
+SIGNING_PASSPHRASE_FILE=${SIGNING_PASSPHRASE_FILE:-}
 
 IS_TESTING="false"
 while getopts ":t:" o; do
