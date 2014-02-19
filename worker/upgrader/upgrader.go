@@ -13,11 +13,11 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	agenttools "launchpad.net/juju-core/agent/tools"
+	"launchpad.net/juju-core/state/api/upgrader"
 	"launchpad.net/juju-core/state/watcher"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
-	"launchpad.net/juju-core/state/api/upgrader"
 )
 
 // retryAfter returns a channel that receives a value
