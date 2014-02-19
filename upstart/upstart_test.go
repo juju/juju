@@ -254,3 +254,24 @@ func (s *UpstartSuite) TestInstallAlreadyRunning(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(&conf.Service, jc.Satisfies, (*upstart.Service).Running)
 }
+
+func (s *UpstartSuite) TestJujuMongodPath(c *gc.C) {
+	d := c.MkDir()
+	defer os.Remove(d)
+	mongoPath := filepath.Join(d, "mongod")
+	upstart.SetJujuMongoDPath(mongoPath)
+
+	err := ioutil.WriteFile(mongoPath, []byte{}, 0777)
+	c.Assert(err, gc.IsNil)
+	defer os.Remove(mongoPath)
+
+	obtained := upstart.MongodPath()
+	c.Assert(obtained, gc.Equals, mongoPath)
+}
+
+func (s *UpstartSuite) TestDefaultMongodPath(c *gc.C) {
+	upstart.SetJujuMongoDPath("/not/going/to/exist/mongod")
+
+	obtained := upstart.MongodPath()
+	c.Assert(obtained, gc.Equals, "mongod")
+}

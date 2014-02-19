@@ -17,9 +17,9 @@ const (
 )
 
 // mongod path bundled specifically for juju
-const jujuMongodPath = "/usr/lib/juju/bin/mongod"
+var jujuMongodPath = "/usr/lib/juju/bin/mongod"
 
-// MongoPath returns the executable path to be used to run mongod on this machine.  
+// MongoPath returns the executable path to be used to run mongod on this machine.
 // If the juju-bundled version of mongo exists, it will return that path, otherwise
 // it will return the command to run mongod from the path.
 func MongodPath() string {
