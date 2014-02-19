@@ -139,7 +139,7 @@ testing_to_azure() {
 publish_to_streams() {
     [[ -f $JUJU_DIR/streamsrc ]] || return 0
     [[ $JT_IGNORE_STREAMS == '1' ]] && return 0
-    echo "Phase 5: Published to streams.canonica.com."
+    echo "Phase 5: Published to streams.canonical.com."
     source $JUJU_DIR/streamsrc
     rsync -avzh $JUJU_DIST/ $STREAMS_OFFICIAL_DEST
 }
@@ -148,7 +148,7 @@ publish_to_streams() {
 testing_to_streams() {
     [[ -f $JUJU_DIR/streamsrc ]] || return 0
     [[ $JT_IGNORE_STREAMS == '1' ]] && return 0
-    echo "Phase 5: Testing to streams.canonica.com."
+    echo "Phase 5: Testing to streams.canonical.com."
     source $JUJU_DIR/streamsrc
     rsync -avzh $JUJU_DIST/ $STREAMS_TESTING_DEST
 }
