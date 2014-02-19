@@ -211,5 +211,17 @@ func (s *suite) TestCloseWatcher(c *gc.C) {
 	// prove the value is not closed, even though the watcher is
 	_, ok := v.Get()
 	c.Assert(ok, jc.IsTrue)
+}
 
+func (s *suite) TestWatchZeroValue(c *gc.C) {
+	var v Value
+	ch := make(chan bool)
+	go func() {
+		w := v.Watch()
+		ch <- true
+		ch <- w.Next()
+	}()
+	<-ch
+	v.Set(struct{}{})
+	c.Assert(<-ch, jc.IsTrue)
 }

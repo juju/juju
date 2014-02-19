@@ -71,3 +71,62 @@ func (s *toolsSuite) TestToolsError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "splat")
 	c.Assert(result.Results, gc.HasLen, 1)
 }
+
+func (s *toolsSuite) TestSetTools(c *gc.C) {
+	getCanWrite := func() (common.AuthFunc, error) {
+		return func(tag string) bool {
+			return tag == "machine-0" || tag == "machine-42"
+		}, nil
+	}
+	ts := common.NewToolsSetter(s.State, getCanWrite)
+	c.Assert(ts, gc.NotNil)
+
+	err := s.machine0.SetAgentVersion(version.Current)
+	c.Assert(err, gc.IsNil)
+
+	args := params.EntitiesVersion{
+		AgentTools: []params.EntityVersion{{
+			Tag: "machine-0",
+			Tools: &params.Version{
+				Version: version.Current,
+			},
+		}, {
+			Tag: "machine-1",
+			Tools: &params.Version{
+				Version: version.Current,
+			},
+		}, {
+			Tag: "machine-42",
+			Tools: &params.Version{
+				Version: version.Current,
+			},
+		}},
+	}
+	result, err := ts.SetTools(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, 3)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+	agentTools, err := s.machine0.AgentTools()
+	c.Assert(err, gc.IsNil)
+	c.Assert(agentTools.Version, gc.DeepEquals, version.Current)
+	c.Assert(result.Results[1].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
+	c.Assert(result.Results[2].Error, gc.DeepEquals, apiservertesting.NotFoundError("machine 42"))
+}
+
+func (s *toolsSuite) TestToolsSetError(c *gc.C) {
+	getCanWrite := func() (common.AuthFunc, error) {
+		return nil, fmt.Errorf("splat")
+	}
+	ts := common.NewToolsSetter(s.State, getCanWrite)
+	args := params.EntitiesVersion{
+		AgentTools: []params.EntityVersion{{
+			Tag: "machine-42",
+			Tools: &params.Version{
+				Version: version.Current,
+			},
+		}},
+	}
+	result, err := ts.SetTools(args)
+	c.Assert(err, gc.ErrorMatches, "splat")
+	c.Assert(result.Results, gc.HasLen, 1)
+}

@@ -103,3 +103,50 @@ func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag string, agentVersion v
 	// in state, or even in the API servers
 	return envtools.FindExactTools(env, agentVersion, existingTools.Version.Series, existingTools.Version.Arch)
 }
+
+// ToolsSetter implements a common Tools method for use by various
+// facades.
+type ToolsSetter struct {
+	st          state.EntityFinder
+	getCanWrite GetAuthFunc
+}
+
+// NewToolsGetter returns a new ToolsGetter. The GetAuthFunc will be
+// used on each invocation of Tools to determine current permissions.
+func NewToolsSetter(st state.EntityFinder, getCanWrite GetAuthFunc) *ToolsSetter {
+	return &ToolsSetter{
+		st:          st,
+		getCanWrite: getCanWrite,
+	}
+}
+
+// SetTools updates the recorded tools version for the agents.
+func (t *ToolsSetter) SetTools(args params.EntitiesVersion) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.AgentTools)),
+	}
+	canWrite, err := t.getCanWrite()
+	if err != nil {
+		return results, err
+	}
+	for i, agentTools := range args.AgentTools {
+		err := t.setOneAgentVersion(agentTools.Tag, agentTools.Tools.Version, canWrite)
+		results.Results[i].Error = ServerError(err)
+	}
+	return results, nil
+}
+
+func (t *ToolsSetter) setOneAgentVersion(tag string, vers version.Binary, canWrite AuthFunc) error {
+	if !canWrite(tag) {
+		return ErrPerm
+	}
+	entity0, err := t.st.FindEntity(tag)
+	if err != nil {
+		return err
+	}
+	entity, ok := entity0.(state.AgentTooler)
+	if !ok {
+		return NotSupportedError(tag, "agent tools")
+	}
+	return entity.SetAgentVersion(vers)
+}
