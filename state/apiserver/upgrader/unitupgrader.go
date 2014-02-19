@@ -4,6 +4,8 @@
 package upgrader
 
 import (
+	agenttools "launchpad.net/juju-core/agent/tools"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -134,11 +136,19 @@ func (u *UnitUpgraderAPI) getMachineTools(tag string) (*tools.Tools, error) {
 	if err != nil {
 		return nil, err
 	}
-	agentTools, err := machine.AgentTools()
+	machineTools, err := machine.AgentTools()
 	if err != nil {
 		return nil, err
 	}
-	return agentTools, nil
+	// For older 1.16 upgrader workers, we need to supply a tools URL since the worker will attempt to
+	// download the tools even though they already have been fetched by the machine agent. Newer upgrader
+	// workers do not have this problem. So to be compatible across all versions, we return the full tools
+	// metadata as recorded in the downloaded tools directory.
+	downloadedTools, err := agenttools.ReadTools(environs.DataDir, machineTools.Version)
+	if err != nil {
+		return nil, err
+	}
+	return downloadedTools, nil
 }
 
 func (u *UnitUpgraderAPI) getMachineToolsVersion(tag string) (*version.Number, error) {

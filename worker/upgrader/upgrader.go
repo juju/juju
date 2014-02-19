@@ -13,11 +13,11 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	agenttools "launchpad.net/juju-core/agent/tools"
-	apiwatcher "launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/state/watcher"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
+	"launchpad.net/juju-core/state/api/upgrader"
 )
 
 // retryAfter returns a channel that receives a value
@@ -28,19 +28,11 @@ var retryAfter = func() <-chan time.Time {
 
 var logger = loggo.GetLogger("juju.worker.upgrader")
 
-// upgraderClient is implemented by whatever client facade is used by this upgrade worker.
-type upgradeClient interface {
-	DesiredVersion(tag string) (version.Number, error)
-	WatchAPIVersion(agentTag string) (apiwatcher.NotifyWatcher, error)
-	SetVersion(tag string, v version.Binary) error
-	Tools(tag string) (*coretools.Tools, bool, error)
-}
-
 // Upgrader represents a worker that watches the state for upgrade
 // requests.
 type Upgrader struct {
 	tomb    tomb.Tomb
-	client  upgradeClient
+	st      *upgrader.State
 	dataDir string
 	tag     string
 }
@@ -51,9 +43,9 @@ type Upgrader struct {
 // an upgrade is needed, the worker will exit with an UpgradeReadyError
 // holding details of the requested upgrade. The tools will have been
 // downloaded and unpacked.
-func NewUpgrader(client upgradeClient, agentConfig agent.Config) *Upgrader {
+func NewUpgrader(st *upgrader.State, agentConfig agent.Config) *Upgrader {
 	u := &Upgrader{
-		client:  client,
+		st:      st,
 		dataDir: agentConfig.DataDir(),
 		tag:     agentConfig.Tag(),
 	}
@@ -83,11 +75,11 @@ func (u *Upgrader) Stop() error {
 
 func (u *Upgrader) loop() error {
 	currentTools := &coretools.Tools{Version: version.Current}
-	err := u.client.SetVersion(u.tag, currentTools.Version)
+	err := u.st.SetVersion(u.tag, currentTools.Version)
 	if err != nil {
 		return err
 	}
-	versionWatcher, err := u.client.WatchAPIVersion(u.tag)
+	versionWatcher, err := u.st.WatchAPIVersion(u.tag)
 	if err != nil {
 		return err
 	}
@@ -110,7 +102,7 @@ func (u *Upgrader) loop() error {
 			if !ok {
 				return watcher.MustErr(versionWatcher)
 			}
-			wantVersion, err = u.client.DesiredVersion(u.tag)
+			wantVersion, err = u.st.DesiredVersion(u.tag)
 			if err != nil {
 				return err
 			}
@@ -125,7 +117,7 @@ func (u *Upgrader) loop() error {
 			// TODO(dimitern) 2013-10-03 bug #1234715
 			// Add a testing HTTPS storage to verify the
 			// disableSSLHostnameVerification behavior here.
-			wantTools, disableSSLHostnameVerification, err = u.client.Tools(u.tag)
+			wantTools, disableSSLHostnameVerification, err = u.st.Tools(u.tag)
 			if err != nil {
 				// Not being able to lookup Tools is considered fatal
 				return err
