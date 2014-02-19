@@ -172,7 +172,6 @@ func (s *unitUpgraderSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 }
 
 func (s *unitUpgraderSuite) TestToolsForAgent(c *gc.C) {
-	cur := version.Current
 	agent := params.Entity{Tag: s.rawUnit.Tag()}
 
 	// The machine must have its existing tools set before we query for the
