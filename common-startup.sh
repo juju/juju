@@ -22,10 +22,10 @@ set -x
 rm * -rf
 mkdir -p $artifacts_path
 touch $artifacts_path/empty
-artifact=localhost:8080/job/build-revision/lastSuccessfulBuild/artifact
-wget -q $artifact/new-precise.deb
+afact='lastSuccessfulBuild/artifact'
+wget -q localhost:8080/job/publish-revision/$afact/new-precise.deb
 # Determine BRANCH and REVNO
-wget -q $artifact/buildvars.bash
+wget -q localhost:8080/job/build-revision/$afact/buildvars.bash
 source buildvars.bash
 echo "Testing $BRANCH $REVNO on $ENV"
 dpkg-deb -x $PACKAGE extracted-bin

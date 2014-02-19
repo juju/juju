@@ -1,0 +1,8 @@
+#!/bin/bash
+tarfile=/mnt/jenkins/ci-jobs-$(date -I).tar.gz
+if [ -x $tarfile ]; then
+    echo $tarfile already exists!
+    exit 1
+fi
+tar -C /var/lib/jenkins -czvf $tarfile --exclude=workspace/* \
+  --exclude=builds/* --exclude=.bzr  jobs/

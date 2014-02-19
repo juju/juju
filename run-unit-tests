@@ -3,23 +3,7 @@ set -eux
 : ${LOCAL_JENKINS_URL=$JENKINS_URL}
 INSTANCE_TYPE=$1
 AMI_IMAGE=$2
-tarfile=$(python <<EOT
-import json
-import sys
-import urllib2
-
-build_data = urllib2.urlopen(
-  '$LOCAL_JENKINS_URL/job/build-revision/lastSuccessfulBuild/api/json')
-build_json = json.load(build_data)
-for artifact in build_json['artifacts']:
-  filename = artifact['fileName']
-  if filename.endswith('.tar.gz'):
-    break
-else:
-  sys.exit(1)
-print filename
-EOT
-)
+tarfile=$($SCRIPTS/get-tarfile-name $revision_build)
 RUN_OUTPUT=$(euca-run-instances -k id_rsa -t $INSTANCE_TYPE $AMI_IMAGE)
 if [ $? -ne 0 ]; then
   exit 1
@@ -49,7 +33,7 @@ set +e
 ssh ubuntu@$instance_ip -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" <<EOT
 set -eux
 ssh-keygen -t rsa -b 2048 -N "" -f ~/.ssh/id_rsa
-wget -q $JENKINS_URL/job/build-revision/lastSuccessfulBuild/artifact/$tarfile
+wget -q $JENKINS_URL/job/build-revision/$revision_build/artifact/$tarfile
 tar -xzvf $tarfile
 export GOPATH=\$HOME/$(echo $tarfile|sed -r 's/(.*).tar.gz/\1/')
 cd \$GOPATH/src/launchpad.net/juju-core
