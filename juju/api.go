@@ -59,11 +59,8 @@ var errAborted = fmt.Errorf("aborted")
 // been bootstrapped.
 //TODO (mattyw) This function should be deleted
 func NewAPIConn(environ environs.Environ, dialOpts api.DialOpts) (*APIConn, error) {
-	store, err := configstore.NewDisk(osenv.JujuHome())
-	if err != nil {
-		return nil, err
-	}
-	environInfo, err := store.ReadInfo(environ.Name())
+	store := configstore.NewMem()
+	environInfo, err := store.CreateInfo(environ.Name())
 	if err != nil {
 		return nil, err
 	}
@@ -345,16 +342,14 @@ func cacheAPIInfo(info configstore.EnvironInfo, apiInfo *api.Info) error {
 		Addresses: apiInfo.Addrs,
 		CACert:    string(apiInfo.CACert),
 	})
-	/*
-		_, username, err := names.ParseTag(apiInfo.Tag, names.UserTagKind)
-		if err != nil {
-			return fmt.Errorf("not caching API connection settings: invalid API user tag: %v", err)
-		}
-			info.SetAPICredentials(configstore.APICredentials{
-				User:     username,
-				Password: apiInfo.Password,
-			})
-	*/
+	_, username, err := names.ParseTag(apiInfo.Tag, names.UserTagKind)
+	if err != nil {
+		return fmt.Errorf("not caching API connection settings: invalid API user tag: %v", err)
+	}
+	info.SetAPICredentials(configstore.APICredentials{
+		User:     username,
+		Password: apiInfo.Password,
+	})
 	if err := info.Write(); err != nil {
 		return fmt.Errorf("cannot cache API connection settings: %v", err)
 	}
