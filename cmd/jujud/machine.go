@@ -506,6 +506,7 @@ func (a *MachineAgent) getUpgradingFromVersion(st *api.State) (*version.Binary, 
 func (a *MachineAgent) upgradeFromVersion(st *api.State, from version.Binary, target upgrades.Target) error {
 	agentConfig := a.Conf.config
 	context := upgrades.NewContext(agentConfig, st)
+	logger.Infof("Starting upgrade from %v to %v for %v", from, version.Current, target)
 	if err := upgrades.PerformUpgrade(from.Number, target, context); err != nil {
 		return fmt.Errorf("cannot perform upgrade from %v to %v for : %v", from, version.Current, target, err)
 	}
