@@ -113,7 +113,6 @@ func (c *OpenSSHClient) Command(host string, command []string, options *Options)
 	args := opensshOptions(options, sshKind)
 	args = append(args, host)
 	if len(command) > 0 {
-		args = append(args, "--")
 		args = append(args, command...)
 	}
 	bin, args := sshpassWrap("ssh", args)

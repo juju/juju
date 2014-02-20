@@ -82,15 +82,9 @@ func (c *SSHCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	args := c.Args
-	if len(args) > 0 && args[0] == "--" {
-		// utils/ssh adds "--"; we will continue to accept
-		// it from the CLI for backwards compatibility.
-		args = args[1:]
-	}
 	var options ssh.Options
 	options.EnablePTY()
-	cmd := ssh.Command("ubuntu@"+host, args, &options)
+	cmd := ssh.Command("ubuntu@"+host, c.Args, &options)
 	cmd.Stdin = ctx.Stdin
 	cmd.Stdout = ctx.Stdout
 	cmd.Stderr = ctx.Stderr
