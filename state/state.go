@@ -44,6 +44,7 @@ const BootstrapNonce = "user-admin:bootstrap"
 // managed by juju.
 type State struct {
 	info             *Info
+	policy           Policy
 	db               *mgo.Database
 	environments     *mgo.Collection
 	charms           *mgo.Collection

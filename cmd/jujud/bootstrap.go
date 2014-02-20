@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
@@ -96,7 +97,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		Jobs:            jobs,
 		InstanceId:      bsState.StateInstances[0],
 		Characteristics: characteristics,
-	}, state.DefaultDialOpts())
+	}, state.DefaultDialOpts(), environs.NewStatePolicy())
 	if err != nil {
 		return err
 	}
