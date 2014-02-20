@@ -450,7 +450,6 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 			checkEnvConfig(c, test.cfg.Config, x, scripts)
 		}
 		checkPackage(c, x, "git", true)
-		checkPackage(c, x, "curl", true)
 		tag := names.MachineTag(test.cfg.MachineId)
 		acfg := getAgentConfig(c, tag, scripts)
 		c.Assert(acfg, jc.Contains, "AGENT_SERVICE_NAME: jujud-"+tag)
