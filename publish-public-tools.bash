@@ -44,12 +44,12 @@ publish_to_canonistack() {
     echo "Phase 1: Publish to canonistack."
     source $JUJU_DIR/canonistacktoolsrc
     cd $JUJU_DIST/tools/releases/
-    ${SCRIPT_DIR}/swift-sync tools/releases/ *.tgz
+    ${SCRIPT_DIR}/swift-sync.bash tools/releases/ *.tgz
     cd $JUJU_DIST/tools/streams/v1
-    ${SCRIPT_DIR}/swift-sync tools/streams/v1/ {index,com}*
+    ${SCRIPT_DIR}/swift-sync.bash tools/streams/v1/ {index,com}*
     # This needed to allow old deployments upgrade.
     cd ${JUJU_DIST}/tools
-    ${SCRIPT_DIR}/swift-sync tools/ juju-1.16*.tgz
+    ${SCRIPT_DIR}/swift-sync.bash tools/ juju-1.16*.tgz
 }
 
 
@@ -58,9 +58,9 @@ testing_to_canonistack() {
     echo "Phase 1: Testing to canonistack."
     source $JUJU_DIR/canonistacktoolsrc
     cd $JUJU_DIST/tools/releases/
-    ${SCRIPT_DIR}/swift-sync testing/tools/releases/ *.tgz
+    ${SCRIPT_DIR}/swift-sync.bash testing/tools/releases/ *.tgz
     cd $JUJU_DIST/tools/streams/v1
-    ${SCRIPT_DIR}/swift-sync testing/tools/streams/v1/ {index,com}*
+    ${SCRIPT_DIR}/swift-sync.bash testing/tools/streams/v1/ {index,com}*
 }
 
 
@@ -69,12 +69,12 @@ publish_to_hp() {
     echo "Phase 2: Publish to HP Cloud."
     source $JUJU_DIR/hptoolsrc
     cd $JUJU_DIST/tools/releases/
-    ${SCRIPT_DIR}/swift-sync tools/releases/ *.tgz
+    ${SCRIPT_DIR}/swift-sync.bash tools/releases/ *.tgz
     cd $JUJU_DIST/tools/streams/v1
-    ${SCRIPT_DIR}/swift-sync tools/streams/v1/ {index,com}*
+    ${SCRIPT_DIR}/swift-sync.bash tools/streams/v1/ {index,com}*
     # Support old tools location so that deployments can upgrade to new tools.
     cd ${JUJU_DIST}/tools
-    ${SCRIPT_DIR}/swift-sync tools/ juju-1.16*.tgz
+    ${SCRIPT_DIR}/swift-sync.bash tools/ juju-1.16*.tgz
 }
 
 
@@ -85,9 +85,9 @@ testing_to_hp() {
     echo "Phase 2: Testing to HP Cloud."
     source $JUJU_DIR/hptoolsrc
     cd $JUJU_DIST/tools/releases/
-    ${SCRIPT_DIR}/swift-sync testing/tools/releases/ *.tgz
+    ${SCRIPT_DIR}/swift-sync.bash testing/tools/releases/ *.tgz
     cd $JUJU_DIST/tools/streams/v1
-    ${SCRIPT_DIR}/swift-sync testing/tools/streams/v1/ {index,com}*
+    ${SCRIPT_DIR}/swift-sync.bash testing/tools/streams/v1/ {index,com}*
 }
 
 
@@ -181,7 +181,7 @@ else
     testing_to_streams
     testing_to_canonistack
     testing_to_hp
-    testing_to_aws
-    testing_to_azure
+    #testing_to_aws
+    #testing_to_azure
     echo "Testing data published to all CPCs."
 fi
