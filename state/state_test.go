@@ -470,7 +470,7 @@ var jobStringTests = []struct {
 }{
 	{state.JobHostUnits, "JobHostUnits"},
 	{state.JobManageEnviron, "JobManageEnviron"},
-	{state.JobManageState, "JobManageState"},
+	{state.JobManageStateDeprecated, "JobManageState"},
 	{0, "<unknown job 0>"},
 	{5, "<unknown job 5>"},
 }

@@ -97,17 +97,16 @@ func stateInfo() *state.Info {
 // Operation represents an action on the dummy provider.
 type Operation interface{}
 
-type GenericOperation struct {
-	Env string
-}
-
 type OpBootstrap struct {
 	Context     environs.BootstrapContext
 	Env         string
 	Constraints constraints.Value
 }
 
-type OpDestroy GenericOperation
+type OpDestroy struct {
+	Env   string
+	Error error
+}
 
 type OpStartInstance struct {
 	Env          string
@@ -436,7 +435,7 @@ func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return env, nil
 }
 
-func (p *environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+func (p *environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	cfg, err := p.prepare(cfg)
 	if err != nil {
 		return nil, err
@@ -503,6 +502,9 @@ dummy:
 }
 
 var errBroken = errors.New("broken environment")
+
+// Override for testing - the data directory with which the state api server is initialised.
+var DataDir = ""
 
 func (e *environ) ecfg() *environConfig {
 	e.ecfgMutex.Lock()
@@ -599,7 +601,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, cons constraints.Valu
 		if err != nil {
 			panic(err)
 		}
-		estate.apiServer, err = apiserver.NewServer(st, "localhost:0", []byte(testing.ServerCert), []byte(testing.ServerKey), "")
+		estate.apiServer, err = apiserver.NewServer(st, "localhost:0", []byte(testing.ServerCert), []byte(testing.ServerKey), DataDir)
 		if err != nil {
 			panic(err)
 		}
@@ -650,16 +652,17 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (e *environ) Destroy() error {
+func (e *environ) Destroy() (res error) {
 	defer delay()
-	if err := e.checkBroken("Destroy"); err != nil {
-		return err
-	}
 	estate, err := e.state()
 	if err != nil {
 		if err == provider.ErrDestroyed {
 			return nil
 		}
+		return err
+	}
+	defer func() { estate.ops <- OpDestroy{Env: estate.name, Error: res} }()
+	if err := e.checkBroken("Destroy"); err != nil {
 		return err
 	}
 	p := &providerInstance
@@ -669,7 +672,6 @@ func (e *environ) Destroy() error {
 
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
-	estate.ops <- OpDestroy{Env: estate.name}
 	estate.destroy()
 	return nil
 }

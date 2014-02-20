@@ -74,7 +74,7 @@ func (t *ProviderSuite) assertGetImageMetadataSources(c *gc.C, stream, officialS
 	}
 	cfg, err := config.New(config.NoDefaults, envAttrs)
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg, configstore.NewMem())
+	env, err := environs.Prepare(cfg, coretesting.Context(c), configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	c.Assert(env, gc.NotNil)
 
@@ -229,14 +229,10 @@ func (t *localServerSuite) TearDownTest(c *gc.C) {
 	t.srv.stopServer(c)
 }
 
-func bootstrapContext(c *gc.C) environs.BootstrapContext {
-	return envtesting.NewBootstrapContext(coretesting.Context(c))
-}
-
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
@@ -323,7 +319,7 @@ func splitAuthKeys(keys string) []interface{} {
 func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	t.srv.ec2srv.SetInitialInstanceState(ec2test.Terminated)
 	inst, _ := testing.AssertStartInstance(c, env, "1")
@@ -334,7 +330,7 @@ func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	_, hc := testing.AssertStartInstance(c, env, "1")
 	c.Check(*hc.Arch, gc.Equals, "amd64")
@@ -346,7 +342,7 @@ func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 func (t *localServerSuite) TestAddresses(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	inst, _ := testing.AssertStartInstance(c, env, "1")
 	c.Assert(err, gc.IsNil)
@@ -431,7 +427,7 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 
 	cfg, err := config.New(config.NoDefaults, localConfigAttrs)
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg, configstore.NewMem())
+	env, err := environs.Prepare(cfg, coretesting.Context(c), configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	t.env = env
 }

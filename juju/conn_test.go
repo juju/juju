@@ -62,17 +62,14 @@ func assertClose(c *gc.C, closer io.Closer) {
 	c.Assert(err, gc.IsNil)
 }
 
-func bootstrapContext(c *gc.C) environs.BootstrapContext {
-	return envtesting.NewBootstrapContext(coretesting.Context(c))
-}
-
 func (*NewConnSuite) TestNewConnWithoutAdminSecret(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg, configstore.NewMem())
+	ctx := coretesting.Context(c)
+	env, err := environs.Prepare(cfg, ctx, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err = bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
+	err = bootstrap.Bootstrap(ctx, env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
 	attrs := env.Config().AllAttrs()
@@ -88,10 +85,11 @@ func bootstrapEnv(c *gc.C, envName string, store configstore.Storage) {
 	if store == nil {
 		store = configstore.NewMem()
 	}
-	env, err := environs.PrepareFromName(envName, store)
+	ctx := coretesting.Context(c)
+	env, err := environs.PrepareFromName(envName, ctx, store)
 	c.Assert(err, gc.IsNil)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err = bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
+	err = bootstrap.Bootstrap(ctx, env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 }
 
@@ -133,10 +131,11 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg, configstore.NewMem())
+	ctx := coretesting.Context(c)
+	env, err := environs.Prepare(cfg, ctx, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err = bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
+	err = bootstrap.Bootstrap(ctx, env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	info, _, err := env.StateInfo()
 	c.Assert(err, gc.IsNil)
@@ -182,10 +181,11 @@ func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *gc.C) {
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg, configstore.NewMem())
+	ctx := coretesting.Context(c)
+	env, err := environs.Prepare(cfg, ctx, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err = bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
+	err = bootstrap.Bootstrap(ctx, env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
 	// Make a new Conn, which will push the secrets.
@@ -218,10 +218,11 @@ func (cs *NewConnSuite) TestConnWithPassword(c *gc.C) {
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg, configstore.NewMem())
+	ctx := coretesting.Context(c)
+	env, err := environs.Prepare(cfg, ctx, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err = bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
+	err = bootstrap.Bootstrap(ctx, env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
 	// Check that Bootstrap has correctly used a hash
@@ -272,10 +273,11 @@ func (s *ConnSuite) SetUpTest(c *gc.C) {
 	s.ToolsFixture.SetUpTest(c)
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, gc.IsNil)
-	environ, err := environs.Prepare(cfg, configstore.NewMem())
+	ctx := coretesting.Context(c)
+	environ, err := environs.Prepare(cfg, ctx, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	envtesting.UploadFakeTools(c, environ.Storage())
-	err = bootstrap.Bootstrap(bootstrapContext(c), environ, constraints.Value{})
+	err = bootstrap.Bootstrap(ctx, environ, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	s.conn, err = juju.NewConn(environ)
 	c.Assert(err, gc.IsNil)

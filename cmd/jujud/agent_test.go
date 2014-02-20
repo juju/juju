@@ -179,7 +179,10 @@ type agentSuite struct {
 
 func (s *agentSuite) SetUpSuite(c *gc.C) {
 	s.oldRestartDelay = worker.RestartDelay
-	worker.RestartDelay = coretesting.ShortWait
+	// We could use testing.ShortWait, but this thrashes quite
+	// a bit when some tests are restarting every 50ms for 10 seconds,
+	// so use a slightly more friendly delay.
+	worker.RestartDelay = 250 * time.Millisecond
 	s.JujuConnSuite.SetUpSuite(c)
 }
 
@@ -263,17 +266,6 @@ func (s *agentSuite) initAgent(c *gc.C, a cmd.Command, args ...string) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *agentSuite) proposeVersion(c *gc.C, vers version.Number) {
-	oldcfg, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	cfg, err := oldcfg.Apply(map[string]interface{}{
-		"agent-version": vers.String(),
-	})
-	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(cfg, oldcfg)
-	c.Assert(err, gc.IsNil)
-}
-
 func (s *agentSuite) testOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd Agent, initialPassword string) {
 	conf, err := agent.ReadConf(s.DataDir(), ent.Tag())
 	c.Assert(err, gc.IsNil)
@@ -343,20 +335,6 @@ func (s *agentSuite) assertCannotOpenState(c *gc.C, tag, dataDir string) {
 	_, err = config.OpenState(environs.NewStatePolicy())
 	expectErr := fmt.Sprintf("cannot log in to juju database as %q: unauthorized mongo access: auth fails", tag)
 	c.Assert(err, gc.ErrorMatches, expectErr)
-}
-
-func (s *agentSuite) testUpgrade(c *gc.C, agent runner, tag string, currentTools *coretools.Tools) {
-	newVers := version.Current
-	newVers.Patch++
-	newTools := envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), newVers)[0]
-	s.proposeVersion(c, newVers.Number)
-	err := runWithTimeout(agent)
-	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
-		AgentName: tag,
-		OldTools:  currentTools,
-		NewTools:  newTools,
-		DataDir:   s.DataDir(),
-	})
 }
 
 func refreshConfig(c *gc.C, config agent.Config) agent.Config {

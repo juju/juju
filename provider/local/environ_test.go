@@ -38,6 +38,11 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 	s.ToolsFixture.SetUpTest(c)
 }
 
+func (s *environSuite) TearDownTest(c *gc.C) {
+	s.ToolsFixture.TearDownTest(c)
+	s.baseProviderSuite.TearDownTest(c)
+}
+
 func (*environSuite) TestOpenFailsWithProtectedDirectories(c *gc.C) {
 	testConfig := minimalConfig(c)
 	testConfig, err := testConfig.Apply(map[string]interface{}{
@@ -87,7 +92,7 @@ func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.oldPath = os.Getenv("PATH")
 	s.testPath = c.MkDir()
-	os.Setenv("PATH", s.testPath+":"+s.oldPath)
+	s.PatchEnvPathPrepend(s.testPath)
 
 	// Add in an admin secret
 	s.Tests.TestConfig["admin-secret"] = "sekrit"
@@ -101,7 +106,6 @@ func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 
 func (s *localJujuTestSuite) TearDownTest(c *gc.C) {
 	s.Tests.TearDownTest(c)
-	os.Setenv("PATH", s.oldPath)
 	s.restoreRootCheck()
 	s.baseProviderSuite.TearDownTest(c)
 }
@@ -140,11 +144,11 @@ func (s *localJujuTestSuite) TestBootstrap(c *gc.C) {
 		return nil
 	})
 	testConfig := minimalConfig(c)
-	environ, err := local.Provider.Prepare(testConfig)
+	ctx := coretesting.Context(c)
+	environ, err := local.Provider.Prepare(ctx, testConfig)
 	c.Assert(err, gc.IsNil)
 	envtesting.UploadFakeTools(c, environ.Storage())
 	defer environ.Storage().RemoveAll()
-	ctx := envtesting.NewBootstrapContext(coretesting.Context(c))
 	err = environ.Bootstrap(ctx, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 }

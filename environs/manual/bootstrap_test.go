@@ -4,19 +4,22 @@
 package manual
 
 import (
+	"fmt"
+	"io"
 	"os"
 
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
+	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/storage"
-	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/version"
 )
 
 type bootstrapSuite struct {
@@ -28,11 +31,9 @@ var _ = gc.Suite(&bootstrapSuite{})
 
 type localStorageEnviron struct {
 	environs.Environ
-	storage           storage.Storage
-	storageAddr       string
-	storageDir        string
-	sharedStorageAddr string
-	sharedStorageDir  string
+	storage     storage.Storage
+	storageAddr string
+	storageDir  string
 }
 
 func (e *localStorageEnviron) Storage() storage.Storage {
@@ -45,14 +46,6 @@ func (e *localStorageEnviron) StorageAddr() string {
 
 func (e *localStorageEnviron) StorageDir() string {
 	return e.storageDir
-}
-
-func (e *localStorageEnviron) SharedStorageAddr() string {
-	return e.sharedStorageAddr
-}
-
-func (e *localStorageEnviron) SharedStorageDir() string {
-	return e.sharedStorageDir
 }
 
 func (s *bootstrapSuite) SetUpTest(c *gc.C) {
@@ -81,7 +74,7 @@ func (s *bootstrapSuite) getArgs(c *gc.C) BootstrapArgs {
 		HardwareCharacteristics: &instance.HardwareCharacteristics{
 			Arch: &arch,
 		},
-		Context: envtesting.NewBootstrapContext(coretesting.Context(c)),
+		Context: coretesting.Context(c),
 	}
 }
 
@@ -161,4 +154,29 @@ func (s *bootstrapSuite) TestBootstrapNoMatchingTools(c *gc.C) {
 	args.Series = "edgy"
 	defer fakeSSH{SkipDetection: true, SkipProvisionAgent: true}.install(c).Restore()
 	c.Assert(Bootstrap(args), gc.ErrorMatches, "no matching tools available")
+}
+
+func (s *bootstrapSuite) TestBootstrapToolsFileURL(c *gc.C) {
+	storageName := tools.StorageName(version.Current)
+	sftpURL, err := s.env.Storage().URL(storageName)
+	c.Assert(err, gc.IsNil)
+	fileURL := fmt.Sprintf("file://%s/%s", s.env.storageDir, storageName)
+	s.testBootstrapToolsURL(c, sftpURL, fileURL)
+}
+
+func (s *bootstrapSuite) TestBootstrapToolsExternalURL(c *gc.C) {
+	const externalURL = "http://test.invalid/tools.tgz"
+	s.testBootstrapToolsURL(c, externalURL, externalURL)
+}
+
+func (s *bootstrapSuite) testBootstrapToolsURL(c *gc.C, toolsURL, expectedURL string) {
+	s.PatchValue(&provisionMachineAgent, func(host string, mcfg *cloudinit.MachineConfig, w io.Writer) error {
+		c.Assert(mcfg.Tools.URL, gc.Equals, expectedURL)
+		return nil
+	})
+	args := s.getArgs(c)
+	args.PossibleTools[0].URL = toolsURL
+	defer fakeSSH{SkipDetection: true}.install(c).Restore()
+	err := Bootstrap(args)
+	c.Assert(err, gc.IsNil)
 }

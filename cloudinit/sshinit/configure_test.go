@@ -103,6 +103,16 @@ func (s *configureSuite) TestAptSources(c *gc.C) {
 			checkIff(gc.Matches, needsCloudTools),
 			"(.|\n)*add-apt-repository.*cloud-tools(.|\n)*",
 		)
+		c.Assert(
+			script,
+			checkIff(gc.Matches, needsCloudTools),
+			"(.|\n)*Pin: release n=precise-updates/cloud-tools\nPin-Priority: 400(.|\n)*",
+		)
+		c.Assert(
+			script,
+			checkIff(gc.Matches, needsCloudTools),
+			"(.|\n)*install -D -m 644 /dev/null '/etc/apt/preferences.d/50-cloud-tools'(.|\n)*",
+		)
 
 		// Only Quantal requires the PPA (for mongo).
 		needsJujuPPA := series == "quantal"
@@ -143,7 +153,7 @@ func (s *configureSuite) TestAptUpdate(c *gc.C) {
 	cfg.SetAptUpdate(true)
 	assertScriptMatches(c, cfg, aptGetUpdatePattern, true)
 	cfg.SetAptUpdate(false)
-	cfg.AddAptSource("source", "key")
+	cfg.AddAptSource("source", "key", nil)
 	assertScriptMatches(c, cfg, aptGetUpdatePattern, true)
 }
 
@@ -152,7 +162,7 @@ func (s *configureSuite) TestAptUpgrade(c *gc.C) {
 	aptGetUpgradePattern := aptgetRegexp + "upgrade(.|\n)*"
 	cfg := cloudinit.New()
 	cfg.SetAptUpdate(true)
-	cfg.AddAptSource("source", "key")
+	cfg.AddAptSource("source", "key", nil)
 	assertScriptMatches(c, cfg, aptGetUpgradePattern, false)
 	cfg.SetAptUpgrade(true)
 	assertScriptMatches(c, cfg, aptGetUpgradePattern, true)

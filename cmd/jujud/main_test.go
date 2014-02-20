@@ -20,10 +20,20 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/worker/deployer"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
 
 var caCertFile string
+
+func mkdtemp(prefix string) string {
+	d, err := ioutil.TempDir("", prefix)
+	if err != nil {
+		panic(err)
+	}
+	return d
+}
 
 func mktemp(prefix string, content string) string {
 	f, err := ioutil.TempFile("", prefix)
@@ -39,6 +49,12 @@ func mktemp(prefix string, content string) string {
 }
 
 func TestPackage(t *stdtesting.T) {
+	// Change the default init dir in worker/deployer,
+	// so the deployer doesn't try to remove upstart
+	// jobs from tests.
+	restore := testbase.PatchValue(&deployer.InitDir, mkdtemp("juju-worker-deployer"))
+	defer restore()
+
 	// Change the path to "juju-run", so that the
 	// tests don't try to write to /usr/local/bin.
 	jujuRun = mktemp("juju-run", "")

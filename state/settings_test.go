@@ -4,8 +4,6 @@
 package state
 
 import (
-	"time"
-
 	"labix.org/v2/mgo/txn"
 	gc "launchpad.net/gocheck"
 
@@ -37,7 +35,7 @@ func TestingStateInfo() *Info {
 // connecting to the testing state server.
 func TestingDialOpts() DialOpts {
 	return DialOpts{
-		Timeout: 100 * time.Millisecond,
+		Timeout: testing.LongWait,
 	}
 }
 

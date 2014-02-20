@@ -37,10 +37,10 @@ func (*OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	// matches *Settings.Map()
 	cfg, err := config.New(config.NoDefaults, dummySampleConfig())
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg, configstore.NewMem())
+	ctx := testing.Context(c)
+	env, err := environs.Prepare(cfg, ctx, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	envtesting.UploadFakeTools(c, env.Storage())
-	ctx := envtesting.NewBootstrapContext(testing.Context(c))
 	err = bootstrap.Bootstrap(ctx, env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 }
@@ -57,7 +57,8 @@ func (*OpenSuite) TestNewUnknownEnviron(c *gc.C) {
 func (*OpenSuite) TestNewFromName(c *gc.C) {
 	defer testing.MakeFakeHome(c, testing.MultipleEnvConfigNoDefault, testing.SampleCertName).Restore()
 	store := configstore.NewMem()
-	e, err := environs.PrepareFromName("erewhemos", store)
+	ctx := testing.Context(c)
+	e, err := environs.PrepareFromName("erewhemos", ctx, store)
 	c.Assert(err, gc.IsNil)
 
 	e, err = environs.NewFromName("erewhemos", store)
@@ -96,7 +97,8 @@ func (*OpenSuite) TestNewFromNameWithInvalidEnvironConfig(c *gc.C) {
 
 func (*OpenSuite) TestPrepareFromName(c *gc.C) {
 	defer testing.MakeFakeHome(c, testing.MultipleEnvConfigNoDefault, testing.SampleCertName).Restore()
-	e, err := environs.PrepareFromName("erewhemos", configstore.NewMem())
+	ctx := testing.Context(c)
+	e, err := environs.PrepareFromName("erewhemos", ctx, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	c.Assert(e.Name(), gc.Equals, "erewhemos")
 	// Check we can access storage ok, which implies the environment has been prepared.
@@ -175,7 +177,8 @@ func (*OpenSuite) TestPrepare(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, baselineAttrs)
 	c.Assert(err, gc.IsNil)
 	store := configstore.NewMem()
-	env, err := environs.Prepare(cfg, store)
+	ctx := testing.Context(c)
+	env, err := environs.Prepare(cfg, ctx, store)
 	c.Assert(err, gc.IsNil)
 	// Check we can access storage ok, which implies the environment has been prepared.
 	c.Assert(env.Storage(), gc.NotNil)
@@ -204,7 +207,7 @@ func (*OpenSuite) TestPrepare(c *gc.C) {
 	c.Assert(caCert.Subject.CommonName, gc.Equals, `juju-generated CA for environment "`+testing.SampleEnvName+`"`)
 
 	// Check we can call Prepare again.
-	env, err = environs.Prepare(cfg, store)
+	env, err = environs.Prepare(cfg, ctx, store)
 	c.Assert(err, gc.IsNil)
 	c.Assert(env.Name(), gc.Equals, "erewhemos")
 	c.Assert(env.Storage(), gc.NotNil)
@@ -221,13 +224,14 @@ func (*OpenSuite) TestPrepareGeneratesDifferentAdminSecrets(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, baselineAttrs)
 	c.Assert(err, gc.IsNil)
 
-	env0, err := environs.Prepare(cfg, configstore.NewMem())
+	ctx := testing.Context(c)
+	env0, err := environs.Prepare(cfg, ctx, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	adminSecret0 := env0.Config().AdminSecret()
 	c.Assert(adminSecret0, gc.HasLen, 32)
 	c.Assert(adminSecret0, gc.Matches, "^[0-9a-f]*$")
 
-	env1, err := environs.Prepare(cfg, configstore.NewMem())
+	env1, err := environs.Prepare(cfg, ctx, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	adminSecret1 := env1.Config().AdminSecret()
 	c.Assert(adminSecret1, gc.HasLen, 32)
@@ -245,9 +249,13 @@ func (*OpenSuite) TestPrepareWithMissingKey(c *gc.C) {
 		},
 	))
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg, configstore.NewMem())
+	store := configstore.NewMem()
+	env, err := environs.Prepare(cfg, testing.Context(c), store)
 	c.Assert(err, gc.ErrorMatches, "cannot ensure CA certificate: environment configuration with a certificate but no CA private key")
 	c.Assert(env, gc.IsNil)
+	// Ensure that the config storage info is cleaned up.
+	_, err = store.ReadInfo(cfg.Name())
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func (*OpenSuite) TestPrepareWithExistingKeyPair(c *gc.C) {
@@ -260,7 +268,8 @@ func (*OpenSuite) TestPrepareWithExistingKeyPair(c *gc.C) {
 		},
 	))
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg, configstore.NewMem())
+	ctx := testing.Context(c)
+	env, err := environs.Prepare(cfg, ctx, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	cfgCertPEM, cfgCertOK := env.Config().CACert()
 	cfgKeyPEM, cfgKeyOK := env.Config().CAPrivateKey()
@@ -282,7 +291,8 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 	store := configstore.NewMem()
 	// Prepare the environment and sanity-check that
 	// the config storage info has been made.
-	e, err := environs.Prepare(cfg, store)
+	ctx := testing.Context(c)
+	e, err := environs.Prepare(cfg, ctx, store)
 	c.Assert(err, gc.IsNil)
 	_, err = store.ReadInfo(e.Name())
 	c.Assert(err, gc.IsNil)
@@ -328,7 +338,8 @@ func (s *checkEnvironmentSuite) TearDownTest(c *gc.C) {
 func (s *checkEnvironmentSuite) TestCheckEnvironment(c *gc.C) {
 	defer testing.MakeFakeHome(c, checkEnv, "existing").Restore()
 
-	environ, err := environs.PrepareFromName("test", configstore.NewMem())
+	ctx := testing.Context(c)
+	environ, err := environs.PrepareFromName("test", ctx, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 
 	// VerifyStorage is sufficient for our tests and much simpler
@@ -343,7 +354,8 @@ func (s *checkEnvironmentSuite) TestCheckEnvironment(c *gc.C) {
 func (s *checkEnvironmentSuite) TestCheckEnvironmentFileNotFound(c *gc.C) {
 	defer testing.MakeFakeHome(c, checkEnv, "existing").Restore()
 
-	environ, err := environs.PrepareFromName("test", configstore.NewMem())
+	ctx := testing.Context(c)
+	environ, err := environs.PrepareFromName("test", ctx, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 
 	// VerifyStorage is sufficient for our tests and much simpler
@@ -364,7 +376,8 @@ func (s *checkEnvironmentSuite) TestCheckEnvironmentFileNotFound(c *gc.C) {
 func (s *checkEnvironmentSuite) TestCheckEnvironmentGetFails(c *gc.C) {
 	defer testing.MakeFakeHome(c, checkEnv, "existing").Restore()
 
-	environ, err := environs.PrepareFromName("test", configstore.NewMem())
+	ctx := testing.Context(c)
+	environ, err := environs.PrepareFromName("test", ctx, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 
 	// VerifyStorage is sufficient for our tests and much simpler
@@ -384,7 +397,8 @@ func (s *checkEnvironmentSuite) TestCheckEnvironmentGetFails(c *gc.C) {
 func (s *checkEnvironmentSuite) TestCheckEnvironmentBadContent(c *gc.C) {
 	defer testing.MakeFakeHome(c, checkEnv, "existing").Restore()
 
-	environ, err := environs.PrepareFromName("test", configstore.NewMem())
+	ctx := testing.Context(c)
+	environ, err := environs.PrepareFromName("test", ctx, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 
 	// We mock a bad (eg. from a Python-juju environment) bootstrap-verify.
