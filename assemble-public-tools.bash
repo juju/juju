@@ -135,7 +135,7 @@ get_arch() {
             ;;
         *)
             echo "Invalid arch: $arch"
-            exit 3
+            arch="UNSUPPORTED"
             ;;
     esac
 }
@@ -156,6 +156,10 @@ archive_tools() {
         get_version $control_version
         get_series $control_version
         get_arch $control_file
+        if [[ $arch == 'UNSUPPORTED' ]]; then
+            echo "Skipping unsupported architecture $package"
+            continue
+        fi
         tool="${DEST_TOOLS}/juju-${version}-${series}-${arch}.tgz"
         echo "Creating $tool."
         dpkg-deb -x $package ${WORK}/juju
