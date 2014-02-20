@@ -293,7 +293,7 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 	return machineParams, nil
 }
 
-func provisionMachineAgent(host string, mcfg *cloudinit.MachineConfig, progressWriter io.Writer) error {
+var provisionMachineAgent = func(host string, mcfg *cloudinit.MachineConfig, progressWriter io.Writer) error {
 	script, err := generateProvisioningScript(mcfg)
 	if err != nil {
 		return err
