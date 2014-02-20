@@ -490,6 +490,9 @@ dummy:
 
 var errBroken = errors.New("broken environment")
 
+// Override for testing - the data directory with which the state api server is initialised.
+var DataDir = ""
+
 func (e *environ) ecfg() *environConfig {
 	e.ecfgMutex.Lock()
 	ecfg := e.ecfgUnlocked
@@ -585,7 +588,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, cons constraints.Valu
 		if err != nil {
 			panic(err)
 		}
-		estate.apiServer, err = apiserver.NewServer(st, "localhost:0", []byte(testing.ServerCert), []byte(testing.ServerKey), "")
+		estate.apiServer, err = apiserver.NewServer(st, "localhost:0", []byte(testing.ServerCert), []byte(testing.ServerKey), DataDir)
 		if err != nil {
 			panic(err)
 		}

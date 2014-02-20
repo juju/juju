@@ -63,8 +63,7 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 		UnitAgent: true,
 	}
 	// Set up fake downloaded tools for the assigned machine.
-	dataDir := c.MkDir()
-	fakeToolsPath := filepath.Join(dataDir, "tools", version.Current.String())
+	fakeToolsPath := filepath.Join(s.DataDir(), "tools", version.Current.String())
 	err = os.MkdirAll(fakeToolsPath, 0700)
 	c.Assert(err, gc.IsNil)
 	s.fakeTools = &tools.Tools{
@@ -78,7 +77,7 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 	err = ioutil.WriteFile(filepath.Join(fakeToolsPath, "downloaded-tools.txt"), []byte(toolsMetadataData), 0644)
 	c.Assert(err, gc.IsNil)
 
-	s.upgrader, err = upgrader.NewUnitUpgraderAPI(s.State, s.resources, s.authorizer, dataDir)
+	s.upgrader, err = upgrader.NewUnitUpgraderAPI(s.State, s.resources, s.authorizer, s.DataDir())
 	c.Assert(err, gc.IsNil)
 }
 

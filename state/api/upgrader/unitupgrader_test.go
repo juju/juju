@@ -11,7 +11,6 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -54,9 +53,7 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 	s.stateAPI = s.OpenAPIAs(c, s.rawUnit.Tag(), password)
 
 	// Set up fake downloaded tools for the assigned machine.
-	libDir := c.MkDir()
-	s.PatchValue(&environs.DataDir, libDir)
-	fakeToolsPath := filepath.Join(libDir, "tools", version.Current.String())
+	fakeToolsPath := filepath.Join(s.DataDir(), "tools", version.Current.String())
 	err = os.MkdirAll(fakeToolsPath, 0700)
 	c.Assert(err, gc.IsNil)
 	s.fakeTools = &tools.Tools{
