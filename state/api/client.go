@@ -75,12 +75,12 @@ type Status struct {
 
 // Status returns the status of the juju environment.
 func (c *Client) Status(patterns []string) (*Status, error) {
-	var s Status
+	var result Status
 	p := params.StatusParams{Patterns: patterns}
-	if err := c.st.Call("Client", "", "FullStatus", p, &s); err != nil {
+	if err := c.st.Call("Client", "", "FullStatus", p, &result); err != nil {
 		return nil, err
 	}
-	return &s, nil
+	return &result, nil
 }
 
 // LegacyMachineStatus holds just the instance-id of a machine.
@@ -95,11 +95,11 @@ type LegacyStatus struct {
 
 // LegacyStatus is a stub version of Status that 1.16 introduced.
 func (c *Client) LegacyStatus() (*LegacyStatus, error) {
-	var s LegacyStatus
-	if err := c.st.Call("Client", "", "Status", nil, &s); err != nil {
+	var result LegacyStatus
+	if err := c.st.Call("Client", "", "Status", nil, &result); err != nil {
 		return nil, err
 	}
-	return &s, nil
+	return &result, nil
 }
 
 // ServiceSet sets configuration options on a service.
