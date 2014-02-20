@@ -13,12 +13,22 @@ import (
 const (
 	maxMongoFiles = 65000
 	maxAgentFiles = 20000
+
+	// MongoScriptVersion keeps track of changes to the mongo upstart script.
+	// Update this version when you update the script that gets installed from
+	// MongoUpstartService.
+	MongoScriptVersion = 2
 )
 
 // MongoUpstartService returns the upstart config for the mongo state service.
-func MongoUpstartService(name, dataDir, dbDir string, port int) *Conf {
+//
+// This method assumes there is a server.pem keyfile in dataDir.
+func MongoUpstartService(name, dataDir string, port int) *Conf {
 	keyFile := path.Join(dataDir, "server.pem")
 	svc := NewService(name)
+
+	dbDir := path.Join(dataDir, "db")
+
 	return &Conf{
 		Service: *svc,
 		Desc:    "juju state database",
@@ -36,7 +46,8 @@ func MongoUpstartService(name, dataDir, dbDir string, port int) *Conf {
 			" --port " + fmt.Sprint(port) +
 			" --noprealloc" +
 			" --syslog" +
-			" --smallfiles",
+			" --smallfiles" +
+			" --replSet juju",
 	}
 }
 
