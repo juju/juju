@@ -5,7 +5,7 @@ export JUJU_HOME=$HOME/juju-ci
 dump_logs(){
   log_path=${artifacts_path}/all-machines-${ENV}.log
   if [[ $ENV == "local" && -f $JUJU_HOME/local/log/machine-0.log ]]; then
-    sudo cp $JUJU_HOME/local/log/*.log $artifacts_path
+    sudo cp $JUJU_HOME/local/log/*.log $artifacts_path/
     sudo chown jenkins:jenkins $artifacts_path/*.log
     for log in $artifacts_path/*.log; do
         gzip $log
