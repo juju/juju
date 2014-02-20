@@ -13,7 +13,7 @@ from jujupy import (
 )
 
 
-def deploy_stack(environments, charm_prefix):
+def deploy_stack(environments, charm_prefix, already_bootstrapped):
     """"Deploy a Wordpress stack in the specified environment.
 
     :param environment: The name of the desired environment.
@@ -23,7 +23,8 @@ def deploy_stack(environments, charm_prefix):
         sys.path = [p for p in sys.path if 'OpenSSH' not in p]
     envs = [Environment.from_config(e) for e in environments]
     for env in envs:
-        env.bootstrap()
+        if not already_bootstrapped:
+            env.bootstrap()
     for env in envs:
         agent_version = env.get_matching_agent_version()
         status = env.get_status()
@@ -54,10 +55,13 @@ def main():
     parser = ArgumentParser('Deploy a WordPress stack')
     parser.add_argument('--charm-prefix', help='A prefix for charm urls.',
                         default='')
+    parser.add_argument('--already-bootstrapped',
+                        help='The environment is already bootstrapped.',
+                        action='store_true')
     parser.add_argument('env', nargs='*')
     args = parser.parse_args()
     try:
-        deploy_stack(args.env, args.charm_prefix)
+        deploy_stack(args.env, args.charm_prefix, args.already_bootstrapped)
     except Exception as e:
         print(e)
         sys.exit(1)
