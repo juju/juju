@@ -5,7 +5,6 @@ package upgrader
 
 import (
 	agenttools "launchpad.net/juju-core/agent/tools"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -22,6 +21,7 @@ type UnitUpgraderAPI struct {
 	st         *state.State
 	resources  *common.Resources
 	authorizer common.Authorizer
+	dataDir    string
 }
 
 // NewUnitUpgraderAPI creates a new server-side UnitUpgraderAPI facade.
@@ -29,6 +29,7 @@ func NewUnitUpgraderAPI(
 	st *state.State,
 	resources *common.Resources,
 	authorizer common.Authorizer,
+	dataDir string,
 ) (*UnitUpgraderAPI, error) {
 	if !authorizer.AuthUnitAgent() {
 		return nil, common.ErrPerm
@@ -42,6 +43,7 @@ func NewUnitUpgraderAPI(
 		st:          st,
 		resources:   resources,
 		authorizer:  authorizer,
+		dataDir:     dataDir,
 	}, nil
 }
 
@@ -144,7 +146,7 @@ func (u *UnitUpgraderAPI) getMachineTools(tag string) (*tools.Tools, error) {
 	// download the tools even though they already have been fetched by the machine agent. Newer upgrader
 	// workers do not have this problem. So to be compatible across all versions, we return the full tools
 	// metadata as recorded in the downloaded tools directory.
-	downloadedTools, err := agenttools.ReadTools(environs.DataDir, machineTools.Version)
+	downloadedTools, err := agenttools.ReadTools(u.dataDir, machineTools.Version)
 	if err != nil {
 		return nil, err
 	}
