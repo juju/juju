@@ -10,6 +10,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
@@ -100,5 +101,5 @@ func (p *mockPolicy) Prechecker(cfg *config.Config) (state.Prechecker, error) {
 	if p.getPrechecker != nil {
 		return p.getPrechecker(cfg)
 	}
-	return nil, nil
+	return nil, errors.NewNotImplementedError("Prechecker")
 }

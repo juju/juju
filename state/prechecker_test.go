@@ -10,6 +10,7 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 )
@@ -68,11 +69,15 @@ func (s *PrecheckerSuite) TestPrecheckErrors(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, ".*no prechecker for you")
 }
 
-func (s *PrecheckerSuite) TestPrecheckNoPrechecker(c *gc.C) {
+func (s *PrecheckerSuite) TestPrecheckPrecheckerUnimplemented(c *gc.C) {
+	var precheckerErr error
 	s.policy.getPrechecker = func(*config.Config) (state.Prechecker, error) {
-		return nil, nil
+		return nil, precheckerErr
 	}
 	_, err := s.addOneMachine(c, constraints.Value{})
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: policy returned nil prechecker without an error")
+	precheckerErr = errors.NewNotImplementedError("Prechecker")
+	_, err = s.addOneMachine(c, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 }
 

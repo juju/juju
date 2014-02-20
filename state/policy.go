@@ -4,6 +4,8 @@
 package state
 
 import (
+	"fmt"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
@@ -55,8 +57,7 @@ func (st *State) precheckInstance(series string, cons constraints.Value) error {
 		return err
 	}
 	if prechecker == nil {
-		logger.Debugf("policy returned nil prechecker, ignoring")
-		return nil
+		return fmt.Errorf("policy returned nil prechecker without an error")
 	}
 	return prechecker.PrecheckInstance(series, cons)
 }
