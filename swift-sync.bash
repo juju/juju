@@ -14,7 +14,7 @@ usage() {
 
 
 test $# -gt 1 || usage
-DEST=$1
+DEST=$(echo "$1" | sed -r 's,/$,,')
 shift
 FILES=$@
 
@@ -34,5 +34,5 @@ for file in $FILES; do
         echo "$md5 == $etag"
     fi
     echo "Uploading $JUJU_DIST/$DEST/$file"
-    #swift upload $JUJU_DISTs/$DEST/ $file
+    swift upload $JUJU_DIST/$DEST/ $file
 done
