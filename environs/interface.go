@@ -71,28 +71,6 @@ type ConfigGetter interface {
 	Config() *config.Config
 }
 
-// Prechecker is an optional interface that an Environ may implement,
-// in order to support pre-flight checking of instance/container creation.
-//
-// Prechecker's methods are best effort, and not guaranteed to eliminate
-// all invalid parameters. If a precheck method returns nil, it is not
-// guaranteed that the constraints are valid; if a non-nil error is
-// returned, then the constraints are definitely invalid.
-type Prechecker interface {
-	// PrecheckInstance performs a preflight check on the specified
-	// series and constraints, ensuring that they are possibly valid for
-	// creating an instance in this environment.
-	PrecheckInstance(series string, cons constraints.Value) error
-
-	// PrecheckContainer performs a preflight check on the container type,
-	// ensuring that the environment is possibly capable of creating a
-	// container of the specified type and series.
-	//
-	// The container type must be a valid ContainerType as specified
-	// in the instance package, and != instance.NONE.
-	PrecheckContainer(series string, kind instance.ContainerType) error
-}
-
 // An Environ represents a juju environment as specified
 // in the environments.yaml file.
 //
@@ -180,6 +158,10 @@ type Environ interface {
 
 	// Provider returns the EnvironProvider that created this Environ.
 	Provider() EnvironProvider
+
+	// TODO(axw) 2014-02-11 #pending-review
+	//     Embed state.Prechecker, and introduce an EnvironBase
+	//     that embeds a no-op prechecker implementation.
 }
 
 // BootstrapContext is an interface that is passed to

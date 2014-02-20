@@ -9,6 +9,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -83,7 +84,7 @@ func (s *machineSuite) TestEntitySetPassword(c *gc.C) {
 }
 
 func tryOpenState(info *state.Info) error {
-	st, err := state.Open(info, state.DialOpts{})
+	st, err := state.Open(info, state.DialOpts{}, environs.NewStatePolicy())
 	if err == nil {
 		st.Close()
 	}

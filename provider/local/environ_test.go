@@ -20,7 +20,6 @@ import (
 	"launchpad.net/juju-core/environs/jujutest"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/local"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
@@ -74,21 +73,6 @@ func (s *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 	url, err := sources[0].URL("")
 	c.Assert(err, gc.IsNil)
 	c.Assert(strings.Contains(url, "/tools"), jc.IsTrue)
-}
-
-func (s *environSuite) TestPrecheck(c *gc.C) {
-	testConfig := minimalConfig(c)
-	environ, err := local.Provider.Open(testConfig)
-	c.Assert(err, gc.IsNil)
-	var cons constraints.Value
-	prechecker, ok := environ.(environs.Prechecker)
-	c.Assert(ok, jc.IsTrue)
-
-	err = prechecker.PrecheckInstance("precise", cons)
-	c.Check(err, gc.IsNil)
-
-	err = prechecker.PrecheckContainer("precise", instance.LXC)
-	c.Check(err, gc.ErrorMatches, "local provider does not support nested containers")
 }
 
 type localJujuTestSuite struct {

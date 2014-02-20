@@ -53,7 +53,7 @@ func (s *SettingsSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	// TODO(dfc) this logic is duplicated with the metawatcher_test.
-	state, err := Open(TestingStateInfo(), TestingDialOpts())
+	state, err := Open(TestingStateInfo(), TestingDialOpts(), Policy(nil))
 	c.Assert(err, gc.IsNil)
 
 	s.state = state

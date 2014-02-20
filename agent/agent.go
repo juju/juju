@@ -75,7 +75,7 @@ type Config interface {
 
 	// OpenState tries to open a direct connection to the state database using
 	// the given Conf.
-	OpenState() (*state.State, error)
+	OpenState(policy state.Policy) (*state.State, error)
 
 	// Write writes the agent configuration.
 	Write() error
@@ -429,7 +429,7 @@ func (c *configInternal) OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassw
 	return st, password, nil
 }
 
-func (c *configInternal) OpenState() (*state.State, error) {
+func (c *configInternal) OpenState(policy state.Policy) (*state.State, error) {
 	info := state.Info{
 		Addrs:    c.stateDetails.addresses,
 		Password: c.stateDetails.password,
@@ -437,7 +437,7 @@ func (c *configInternal) OpenState() (*state.State, error) {
 		Tag:      c.tag,
 	}
 	if info.Password != "" {
-		st, err := state.Open(&info, state.DefaultDialOpts())
+		st, err := state.Open(&info, state.DefaultDialOpts(), policy)
 		if err == nil {
 			return st, nil
 		}
@@ -448,5 +448,5 @@ func (c *configInternal) OpenState() (*state.State, error) {
 		}
 	}
 	info.Password = c.oldPassword
-	return state.Open(&info, state.DefaultDialOpts())
+	return state.Open(&info, state.DefaultDialOpts(), policy)
 }

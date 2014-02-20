@@ -294,11 +294,11 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	if strings.HasPrefix(cfg.Tools.URL, fileSchemePrefix) {
 		copyCmd = fmt.Sprintf("cp %s $bin/tools.tar.gz", shquote(cfg.Tools.URL[len(fileSchemePrefix):]))
 	} else {
-		wgetCommand := "wget"
+		curlCommand := "curl"
 		if cfg.DisableSSLHostnameVerification {
-			wgetCommand = "wget --no-check-certificate"
+			curlCommand = "curl --insecure"
 		}
-		copyCmd = fmt.Sprintf("%s --no-verbose -O $bin/tools.tar.gz %s", wgetCommand, shquote(cfg.Tools.URL))
+		copyCmd = fmt.Sprintf("%s -o $bin/tools.tar.gz %s", curlCommand, shquote(cfg.Tools.URL))
 		c.AddRunCmd(cloudinit.LogProgressCmd("Fetching tools: %s", copyCmd))
 	}
 	toolsJson, err := json.Marshal(cfg.Tools)

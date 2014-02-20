@@ -47,7 +47,7 @@ func (s *storeManagerStateSuite) TearDownSuite(c *gc.C) {
 func (s *storeManagerStateSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-	s.State = TestingInitialize(c, nil)
+	s.State = TestingInitialize(c, nil, Policy(nil))
 	s.State.AddUser("admin", "pass")
 }
 
