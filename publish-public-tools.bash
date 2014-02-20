@@ -44,12 +44,12 @@ publish_to_canonistack() {
     echo "Phase 1: Publish to canonistack."
     source $JUJU_DIR/canonistacktoolsrc
     cd $JUJU_DIST/tools/releases/
-    swift upload --changed juju-dist/tools/releases/ *.tgz
+    ${SCRIPT_DIR}/swift-sync tools/releases/ *.tgz
     cd $JUJU_DIST/tools/streams/v1
-    swift upload --changed juju-dist/tools/streams/v1/ {index,com}*
+    ${SCRIPT_DIR}/swift-sync tools/streams/v1/ {index,com}*
     # This needed to allow old deployments upgrade.
-    cd ${JUJU_DIST}
-    swift upload --changed juju-dist tools/juju-1.16*.tgz
+    cd ${JUJU_DIST}/tools
+    ${SCRIPT_DIR}/swift-sync tools/ juju-1.16*.tgz
 }
 
 
@@ -58,9 +58,9 @@ testing_to_canonistack() {
     echo "Phase 1: Testing to canonistack."
     source $JUJU_DIR/canonistacktoolsrc
     cd $JUJU_DIST/tools/releases/
-    swift upload --changed juju-dist/testing/tools/releases/ *.tgz
+    ${SCRIPT_DIR}/swift-sync testing/tools/releases/ *.tgz
     cd $JUJU_DIST/tools/streams/v1
-    swift upload --changed juju-dist/testing/tools/streams/v1/ {index,com}*
+    ${SCRIPT_DIR}/swift-sync testing/tools/streams/v1/ {index,com}*
 }
 
 
@@ -69,12 +69,12 @@ publish_to_hp() {
     echo "Phase 2: Publish to HP Cloud."
     source $JUJU_DIR/hptoolsrc
     cd $JUJU_DIST/tools/releases/
-    swift upload --changed juju-dist/tools/releases/ *.tgz
+    ${SCRIPT_DIR}/swift-sync tools/releases/ *.tgz
     cd $JUJU_DIST/tools/streams/v1
-    swift upload --changed juju-dist/tools/streams/v1/ {index,com}*
+    ${SCRIPT_DIR}/swift-sync tools/streams/v1/ {index,com}*
     # Support old tools location so that deployments can upgrade to new tools.
-    cd ${JUJU_DIST}
-    swift upload --changed juju-dist tools/juju-1.16*.tgz
+    cd ${JUJU_DIST}/tools
+    ${SCRIPT_DIR}/swift-sync tools/ juju-1.16*.tgz
 }
 
 
@@ -85,10 +85,9 @@ testing_to_hp() {
     echo "Phase 2: Testing to HP Cloud."
     source $JUJU_DIR/hptoolsrc
     cd $JUJU_DIST/tools/releases/
-    swift upload --changed juju-dist/testing/tools/releases/ *.tgz
+    ${SCRIPT_DIR}/swift-sync testing/tools/releases/ *.tgz
     cd $JUJU_DIST/tools/streams/v1
-    swift upload --changed juju-dist/testing/tools/streams/v1/ {index,com}*
-    swift upload --changed juju-dist/curtis/tools/streams/v1/ {index,com}*
+    ${SCRIPT_DIR}/swift-sync testing/tools/streams/v1/ {index,com}*
 }
 
 
