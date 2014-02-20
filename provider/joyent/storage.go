@@ -109,7 +109,14 @@ func (s *JoyentStorage) List(prefix string) ([]string, error) {
 
 	var names []string
 	for _, item := range content {
-		names = append(names, strings.TrimPrefix(item, s.containerName + "/"))
+		name := strings.TrimPrefix(item, s.containerName + "/")
+		if prefix != "" {
+			if strings.HasPrefix(name, prefix) {
+				names = append(names, name)
+			}
+		} else {
+			names = append(names, name)
+		}
 	}
 	return names, nil
 }
@@ -180,9 +187,16 @@ func (s *JoyentStorage) Put(name string, r io.Reader, length int64) error {
 }
 
 func (s *JoyentStorage) Remove(name string) error {
+	logger.Debugf("Deleting %s", name)
 	err := s.manta.DeleteObject(s.containerName, name)
 	if err != nil {
-		return coreerrors.NewNotFoundError(err, fmt.Sprintf("cannot delete %s, not found", name))
+		if je.IsResourceNotFound(err) {
+			// gojoyent returns an error if file doesn't exist
+			// just log a warning
+			logger.Warningf("cannot delete %s from %s, already deleted", name, s.containerName)
+		} else {
+			return err
+		}
 	}
 
 	if strings.Contains(name, "/") {

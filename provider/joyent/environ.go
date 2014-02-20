@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
+	//"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -62,18 +63,13 @@ func (*JoyentEnviron) Provider() environs.EnvironProvider {
 }
 
 func (env *JoyentEnviron) SetConfig(cfg *config.Config) error {
-	//env.lock.Lock()
-	//defer env.lock.Unlock()
-	ecfg, err := validateConfig(cfg, env.ecfg)
+	env.lock.Lock()
+	defer env.lock.Unlock()
+	ecfg, err := providerInstance.newConfig(cfg)
 	if err != nil {
 		return err
 	}
-	//storage, err := newStorage(ecfg)
-	//if err != nil {
-	//	return err
-	//}
 	env.ecfg = ecfg
-	//env.storage = storage
 	return nil
 }
 

@@ -72,6 +72,12 @@ func (env *JoyentEnviron) StartInstance(cons constraints.Value, possibleTools to
 		return nil, nil, err
 	}
 
+	userData, err := environs.ComposeUserData(machineConf)
+	if err != nil {
+		return nil, nil, fmt.Errorf("cannot make user data: %v", err)
+	}
+	logger.Debugf("joyent user data; %d bytes", len(userData))
+
 	var machine *cloudapi.Machine
 	machine, err = env.compute.cloudapi.CreateMachine(cloudapi.CreateMachineOpts{
 		Package:         spec.InstanceType.Name,
@@ -200,9 +206,6 @@ func (env *JoyentEnviron) FindInstanceSpec(ic *instances.InstanceConstraint) (*i
 
 	matchingImages, err := imagemetadata.Fetch(sources, simplestreams.DefaultIndexPath, imageConstraint, signedImageDataOnly)
 	if err != nil {
-		logger.Debugf("failed to fetch image metadata from sources %q: %q", sources, err)
-		list, _ := env.Storage().List("")
-		logger.Debugf("Content: %q", list)
 		return nil, err
 	}
 	images := instances.ImageMetadataToImages(matchingImages)

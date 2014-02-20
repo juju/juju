@@ -126,7 +126,6 @@ func parseIndexData(creds *jpc.Credentials) bytes.Buffer {
 	return metadata
 }
 
-
 // This provides the content for code accessing test:///... URLs. This allows
 // us to set the responses for things like the Metadata server, by pointing
 // metadata requests at test:///...
@@ -152,7 +151,7 @@ func UnregisterTestImageMetadata() {
 
 // MetadataStorage returns a Storage instance which is used to store simplestreams metadata for tests.
 func MetadataStorage(e environs.Environ) storage.Storage {
-	container := "juju-test"
+	container := "juju-dist"
 	metadataStorage := NewStorage(e.(*JoyentEnviron), container)
 
 	// Ensure the container exists.

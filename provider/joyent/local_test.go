@@ -10,7 +10,7 @@ import (
 	"bytes"
 	"io/ioutil"
 
-	//"launchpad.net/gojoyent/client"
+	"launchpad.net/gojoyent/client"
 	lc "launchpad.net/gojoyent/localservices/cloudapi"
 	lm "launchpad.net/gojoyent/localservices/manta"
 
@@ -31,6 +31,7 @@ import (
 	"launchpad.net/juju-core/provider/joyent"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type ProviderSuite struct{}
@@ -95,12 +96,14 @@ func (m *localMantaServer) destroyServer() {
 }
 
 type localLiveSuite struct {
+	testbase.LoggingSuite
 	LiveTests
 	cSrv 	   *localCloudAPIServer
 	mSrv 	   *localMantaServer
 }
 
 func (s *localLiveSuite) SetUpSuite(c *gc.C) {
+	s.LoggingSuite.SetUpSuite(c)
 	CreateTestKey()
 	s.cSrv = &localCloudAPIServer{}
 	s.mSrv = &localMantaServer{}
@@ -113,28 +116,29 @@ func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	})
 	s.LiveTests.SetUpSuite(c)
 
-	//joyent.UseTestImageData(joyent.ImageMetadataStorage(s.Env), s.Env.(*joyent.JoyentEnviron).Credentials())
 	joyent.UseTestMetadata(s.Env.(*joyent.JoyentEnviron).Credentials())
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
 }
 
 func (s *localLiveSuite) TearDownSuite(c *gc.C) {
-	//joyent.RemoveTestImageData(joyent.ImageMetadataStorage(s.Env))
 	joyent.UnregisterTestImageMetadata()
 	s.LiveTests.TearDownSuite(c)
 	s.cSrv.destroyServer()
 	s.mSrv.destroyServer()
 	RemoveTestKey()
+	s.LoggingSuite.TearDownSuite(c)
 }
 
 func (s *localLiveSuite) SetUpTest(c *gc.C) {
+	s.LoggingSuite.SetUpTest(c)
 	s.LiveTests.SetUpTest(c)
 	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
 }
 
 func (s *localLiveSuite) TearDownTest(c *gc.C) {
 	s.LiveTests.TearDownTest(c)
+	s.LoggingSuite.TearDownTest(c)
 }
 
 // localServerSuite contains tests that run against an Joyent service double.
@@ -172,11 +176,11 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	s.Tests.SetUpTest(c)
 	// For testing, we create a storage instance to which is uploaded tools and image metadata.
 
-	//cl := client.NewClient(s.mSrv.Server.URL, "", nil, nil)
-	//c.Assert(cl, gc.NotNil)
-	//containerURL := cl.MakeServiceURL([]string{s.TestConfig["manta-user"].(string), "stor"})
+	cl := client.NewClient(s.mSrv.Server.URL, "", nil, nil)
+	c.Assert(cl, gc.NotNil)
+	containerURL := cl.MakeServiceURL([]string{s.TestConfig["manta-user"].(string), "stor"})
 	s.TestConfig = s.TestConfig.Merge(coretesting.Attrs{
-		//"tools-metadata-url": containerURL + "/juju-test/tools",
+		"tools-metadata-url": containerURL + "/juju-dist/tools",
 		//"image-metadata-url": containerURL + "/juju-test/images",
 		"image-metadata-url": "test://",
 	})
@@ -188,15 +192,15 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	// starting instances without any need to check if those instances
 	// are running can find the metadata.
 	envtesting.UploadFakeTools(c, s.toolsMetadataStorage)
-	s.imageMetadataStorage = joyent.ImageMetadataStorage(env)
-	//joyent.UseTestImageData(s.imageMetadataStorage, env.(*joyent.JoyentEnviron).Credentials())
+	//s.imageMetadataStorage = joyent.ImageMetadataStorage(env)
 	joyent.UseTestMetadata(env.(*joyent.JoyentEnviron).Credentials())
 }
 
 func (s *localServerSuite) TearDownTest(c *gc.C) {
-	if s.imageMetadataStorage != nil {
-		joyent.RemoveTestImageData(s.imageMetadataStorage)
-	}
+	joyent.UnregisterTestImageMetadata()
+	//if s.imageMetadataStorage != nil {
+	//	joyent.RemoveTestImageData(s.imageMetadataStorage)
+	//}
 	if s.toolsMetadataStorage != nil {
 		envtesting.RemoveFakeToolsMetadata(c, s.toolsMetadataStorage)
 	}
@@ -208,17 +212,6 @@ func (s *localServerSuite) TearDownTest(c *gc.C) {
 
 func bootstrapContext(c *gc.C) environs.BootstrapContext {
 	return envtesting.NewBootstrapContext(coretesting.Context(c))
-}
-
-func (s *localServerSuite) TestPrecheck(c *gc.C) {
-	var cons constraints.Value
-	env := s.Prepare(c)
-	prechecker, ok := env.(environs.Prechecker)
-	c.Assert(ok, jc.IsTrue)
-	err := prechecker.PrecheckInstance("precise", cons)
-	c.Check(err, gc.IsNil)
-	err = prechecker.PrecheckContainer("precise", instance.LXC)
-	c.Check(err, gc.ErrorMatches, "joyent provider does not support containers")
 }
 
 // If the environment is configured not to require a public IP address for nodes,

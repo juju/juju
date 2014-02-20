@@ -83,9 +83,21 @@ func (s *storageSuite) TestList(c *gc.C) {
 	s.assertContainer(mantaStorage, c)
 	s.assertFile(mantaStorage, c)
 
-	names, err := mantaStorage.List("prefix")
+	names, err := mantaStorage.List("")
 	c.Assert(err, gc.IsNil)
 	c.Check(names, gc.DeepEquals, []string{fileName})
+}
+
+func (s *storageSuite) TestListWithPrefix(c *gc.C) {
+	mantaStorage := s.assertStorage(storageName, c)
+	s.assertContainer(mantaStorage, c)
+	s.assertFile(mantaStorage, c)
+	err := mantaStorage.Put("pr/fileName", strings.NewReader(fileBlobContent), int64(len(fileBlobContent)))
+	c.Assert(err, gc.IsNil)
+
+	names, err := mantaStorage.List("p")
+	c.Assert(err, gc.IsNil)
+	c.Check(names, gc.DeepEquals, []string{"pr/fileName"})
 }
 
 func (s *storageSuite) TestGet(c *gc.C) {
@@ -128,8 +140,7 @@ func (s *storageSuite) TestRemoveFileNotExists(c *gc.C) {
 	mantaStorage := s.assertStorage(storageName, c)
 
 	err := mantaStorage.Remove("nofile")
-	c.Assert(err, gc.NotNil)
-	c.Assert(err, jc.Satisfies, coreerrors.IsNotFoundError)
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *storageSuite) TestRemoveAll(c *gc.C) {

@@ -141,3 +141,12 @@ func (p joyentProvider) MetadataLookupParams(region string) (*simplestreams.Meta
 		Architectures: []string{"amd64", "arm"},
 	}, nil
 }
+
+func (p joyentProvider) newConfig(cfg *config.Config) (*environConfig, error) {
+	/*valid, err := p.Validate(cfg, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &environConfig{valid, valid.UnknownAttrs()}, nil*/
+	return validateConfig(cfg, nil)
+}
