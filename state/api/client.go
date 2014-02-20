@@ -77,7 +77,26 @@ type Status struct {
 func (c *Client) Status(patterns []string) (*Status, error) {
 	var s Status
 	p := params.StatusParams{Patterns: patterns}
-	if err := c.st.Call("Client", "", "Status", p, &s); err != nil {
+	if err := c.st.Call("Client", "", "FullStatus", p, &s); err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
+// LegacyMachineStatus holds just the instance-id of a machine.
+type LegacyMachineStatus struct {
+	InstanceId string
+}
+
+// LegacyStatus holds minimal information on the status of a juju environment.
+type LegacyStatus struct {
+	Machines map[string]LegacyMachineStatus
+}
+
+// LegacyStatus is a stub version of Status that 1.16 introduced.
+func (c *Client) LegacyStatus() (*LegacyStatus, error) {
+	var s LegacyStatus
+	if err := c.st.Call("Client", "", "Status", nil, &s); err != nil {
 		return nil, err
 	}
 	return &s, nil
