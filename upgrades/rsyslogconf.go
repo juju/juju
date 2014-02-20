@@ -26,11 +26,7 @@ func confParams(context Context) (machineTag, namespace string, port int, err er
 func upgradeStateServerRsyslogConfig(context Context) (err error) {
 	machineTag, namespace, syslogPort, err := confParams(context)
 	configRenderer := syslog.NewAccumulateConfig(machineTag, syslogPort, namespace)
-	data, err := configRenderer.Render()
-	if err != nil {
-		return nil
-	}
-	return WriteReplacementFile(environs.RsyslogConfPath, []byte(data), 0644)
+	return writeConfigAndRestart(configRenderer)
 }
 
 // upgradeHostMachineRsyslogConfig upgrades a rsuslog config file on a host machine.
@@ -40,11 +36,19 @@ func upgradeHostMachineRsyslogConfig(context Context) (err error) {
 	if err != nil {
 		return err
 	}
-
 	configRenderer := syslog.NewForwardConfig(machineTag, syslogPort, namespace, addr)
-	data, err := configRenderer.Render()
+	return writeConfigAndRestart(configRenderer)
+}
+
+// writeConfigAndRestart renders config to a new rsyslog config and restart the rsyslog process.
+func writeConfigAndRestart(config *syslog.SyslogConfig) error {
+	data, err := config.Render()
 	if err != nil {
 		return nil
 	}
-	return WriteReplacementFile(environs.RsyslogConfPath, []byte(data), 0644)
+	err = WriteReplacementFile(environs.RsyslogConfPath, []byte(data), 0644)
+	if err != nil {
+		return nil
+	}
+	return syslog.Restart()
 }

@@ -27,7 +27,10 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
 	"launchpad.net/juju-core/state/apiserver"
+	"launchpad.net/juju-core/upgrades"
 	"launchpad.net/juju-core/upstart"
+	"launchpad.net/juju-core/utils/set"
+	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/authenticationworker"
 	"launchpad.net/juju-core/worker/charmrevisionworker"
@@ -61,10 +64,14 @@ var jujuRun = "/usr/local/bin/juju-run"
 // MachineAgent is a cmd.Command responsible for running a machine agent.
 type MachineAgent struct {
 	cmd.CommandBase
-	tomb      tomb.Tomb
-	Conf      AgentConf
-	MachineId string
-	runner    worker.Runner
+	tomb         tomb.Tomb
+	Conf         AgentConf
+	MachineId    string
+	runner       worker.Runner
+	upgradesDone chan upgrades.Target
+	// ensureStateWorker might be run twice but we only
+	// want to run state server upgrade once.
+	stateServerUpgradeDone bool
 }
 
 // Info returns usage information for the command.
@@ -120,6 +127,9 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 		return err
 	}
 
+	// Make a channel to receive upgrade notifications.
+	a.upgradesDone = make(chan upgrades.Target, 1)
+
 	// ensureStateWorker ensures that there is a worker that
 	// connects to the state that runs within itself all the workers
 	// that need a state connection. Unless we're bootstrapping, we
@@ -161,7 +171,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 // workers that need an API connection.
 //
 // If a state worker is necessary, APIWorker calls ensureStateWorker.
-func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error) {
+func (a *MachineAgent) APIWorker(ensureStateWorker func()) (w worker.Worker, err error) {
 	agentConfig := a.Conf.config
 	st, entity, err := openAPIState(agentConfig, a)
 	if err != nil {
@@ -174,6 +184,17 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 			break
 		}
 	}
+	// Ensure state is closed if we exit with an error.
+	defer func() {
+		if err != nil && st != nil {
+			st.Close()
+		}
+	}()
+	// Before starting the workers, perform any remaining upgrade steps.
+	if err = a.finishUpgrades(st, entity.Jobs()); err != nil {
+		return nil, err
+	}
+
 	runner := newRunner(connectionIsFatal(st), moreImportant)
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
 		return machiner.NewMachiner(st.Machiner(), agentConfig), nil
@@ -308,9 +329,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		case state.JobHostUnits:
 			// Implemented in APIWorker.
 		case state.JobManageEnviron:
-			runner.StartWorker("instancepoller", func() (worker.Worker, error) {
-				return instancepoller.NewWorker(st), nil
-			})
+			// Upgrades need access to the apiserver, so start that first.
 			runner.StartWorker("apiserver", func() (worker.Worker, error) {
 				// If the configuration does not have the required information,
 				// it is currently not a recoverable error, so we kill the whole
@@ -324,6 +343,26 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				}
 				dataDir := a.Conf.config.DataDir()
 				return apiserver.NewServer(st, fmt.Sprintf(":%d", port), cert, key, dataDir)
+			})
+			// Perform an upgrade to the current Juju version. This needs to happen after the apiserver is
+			// run but before any other workers are started. This function might be called twice so we guard
+			// against running the upgrade operations more than once.
+			if !a.stateServerUpgradeDone {
+				// The upgrade machinery needs a state api connection. We get one here, allowing for the
+				// api server started above to finish initialising.
+				agentConfig := a.Conf.config
+				apiState, _, err := openAPIStateWithRetry(agentConfig, a, authRetryAttempt)
+				if err != nil {
+					return nil, err
+				}
+				defer apiState.Close()
+				if err = a.performUpgrade(upgrades.StateServer, apiState); err != nil {
+					return nil, err
+				}
+				a.stateServerUpgradeDone = true
+			}
+			runner.StartWorker("instancepoller", func() (worker.Worker, error) {
+				return instancepoller.NewWorker(st), nil
 			})
 			runner.StartWorker("cleaner", func() (worker.Worker, error) {
 				return cleaner.NewCleaner(st), nil
@@ -415,6 +454,94 @@ func (a *MachineAgent) uninstallAgent() error {
 		return nil
 	}
 	return fmt.Errorf("uninstall failed: %v", errors)
+}
+
+// waitForUpgrades waits for the expected upgrades to complete.
+func (a *MachineAgent) waitForUpgrades(expectedUpgrades set.Strings) error {
+	doneUpgrades := set.NewStrings()
+	for {
+		select {
+		case target := <-a.upgradesDone:
+			doneUpgrades.Add(string(target))
+		case <-time.After(5 * time.Minute):
+			return fmt.Errorf("timeout waiting for upgrade tasks to complete")
+		}
+		if expectedUpgrades.Difference(doneUpgrades).IsEmpty() {
+			break
+		}
+	}
+	return nil
+}
+
+// performUpgrade runs all the upgrade operations for the specified target.
+func (a *MachineAgent) performUpgrade(target upgrades.Target, st *api.State) error {
+	// Perform operations required to upgrade this machine to the current Juju version.
+	oldVersion, err := a.getUpgradingFromVersion(st)
+	if err != nil {
+		return err
+	}
+	return a.upgradeFromVersion(st, *oldVersion, target)
+}
+
+// getUpgradingFromVersion returns the version from which the agent is being upgraded.
+func (a *MachineAgent) getUpgradingFromVersion(st *api.State) (*version.Binary, error) {
+	// We read the previous version from which we are upgrading from state - it is still recorded
+	// in state because the upgrade worker has not been started yet.
+	oldAgentTools, _, err := st.Upgrader().Tools(a.Tag())
+	if err != nil && !params.IsCodeNotFound(err) {
+		return nil, fmt.Errorf("cannot read previous Juju version for upgrade: %v", err)
+	}
+	var oldVersion version.Binary
+	// If agent version is not recorded, assume 1.16.
+	if params.IsCodeNotFound(err) {
+		oldVersion = version.Current
+		oldVersion.Number = version.MustParse("1.16.0")
+	} else {
+		oldVersion = oldAgentTools.Version
+	}
+	return &oldVersion, nil
+}
+
+// upgradeFromVersion performs operations required to upgrade this machine to the current Juju version.
+func (a *MachineAgent) upgradeFromVersion(st *api.State, from version.Binary, target upgrades.Target) error {
+	agentConfig := a.Conf.config
+	context := upgrades.NewContext(agentConfig, st)
+	if err := upgrades.PerformUpgrade(from.Number, target, context); err != nil {
+		return fmt.Errorf("cannot perform upgrade from %v to %v for : %v", from, version.Current, target, err)
+	}
+	a.upgradesDone <- target
+	return nil
+}
+
+// finishUpgrades runs any upgrade operations which have not been started yet.
+func (a *MachineAgent) finishUpgrades(st *api.State, jobs []params.MachineJob) error {
+	oldVersion, err := a.getUpgradingFromVersion(st)
+	if err != nil {
+		return err
+	}
+	// Record the upgrade tasks we need to wait on.
+	expectedUpgrades := set.NewStrings()
+	for _, job := range jobs {
+		switch job {
+		case params.JobHostUnits:
+			expectedUpgrades.Add(string(upgrades.HostMachine))
+		case params.JobManageEnviron:
+			expectedUpgrades.Add(string(upgrades.StateServer))
+		}
+	}
+
+	// The upgrade for state servers has already been run, if required.
+	// Now run any remaining upgrade tasks.
+	for _, job := range jobs {
+		switch job {
+		case params.JobHostUnits:
+			// Perform an upgrade to the current Juju version.
+			go func() {
+				a.upgradeFromVersion(st, *oldVersion, upgrades.HostMachine)
+			}()
+		}
+	}
+	return a.waitForUpgrades(expectedUpgrades)
 }
 
 // Below pieces are used for testing,to give us access to the *State opened

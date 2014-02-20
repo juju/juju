@@ -11,6 +11,7 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	jujutesting "launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/log/syslog"
 	syslogtesting "launchpad.net/juju-core/log/syslog/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/upgrades"
@@ -25,12 +26,15 @@ type rsyslogSuite struct {
 
 var _ = gc.Suite(&rsyslogSuite{})
 
+func fakeRestart() error { return nil }
+
 func (s *rsyslogSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	dir := c.MkDir()
 	s.syslogPath = filepath.Join(dir, "fakesyslog.conf")
 	s.PatchValue(&environs.RsyslogConfPath, s.syslogPath)
+	s.PatchValue(&syslog.Restart, fakeRestart)
 
 	apiState, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
 	s.ctx = &mockContext{
@@ -63,7 +67,8 @@ func (s *rsyslogSuite) TestHostMachineUpgrade(c *gc.C) {
 
 	data, err := ioutil.ReadFile(s.syslogPath)
 	c.Assert(err, gc.IsNil)
-	c.Assert(string(data), gc.Equals, syslogtesting.ExpectedForwardSyslogConf(c, "machine-tag", "namespace", 2345))
+	c.Assert(
+		string(data), gc.Equals, syslogtesting.ExpectedForwardSyslogConf(c, "machine-tag", "namespace", "server", 2345))
 }
 
 func (s *rsyslogSuite) TestHostServerUpgradeIdempotent(c *gc.C) {

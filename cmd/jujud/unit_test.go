@@ -62,7 +62,7 @@ func (s *UnitSuite) primeAgent(c *gc.C) (*state.Machine, *state.Unit, agent.Conf
 	c.Assert(err, gc.IsNil)
 	machine, err := s.State.Machine(id)
 	c.Assert(err, gc.IsNil)
-	conf, tools := s.agentSuite.primeAgent(c, unit.Tag(), initialUnitPassword)
+	conf, tools := s.agentSuite.primeAgent(c, unit.Tag(), initialUnitPassword, version.Current)
 	return machine, unit, conf, tools
 }
 
@@ -212,7 +212,7 @@ func (s *UnitSuite) TestOpenAPIState(c *gc.C) {
 }
 
 func (s *UnitSuite) TestOpenAPIStateWithBadCredsTerminates(c *gc.C) {
-	conf, _ := s.agentSuite.primeAgent(c, "unit-missing-0", "no-password")
+	conf, _ := s.agentSuite.primeAgent(c, "unit-missing-0", "no-password", version.Current)
 	_, _, err := openAPIState(conf, nil)
 	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
 }

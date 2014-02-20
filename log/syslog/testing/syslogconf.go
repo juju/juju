@@ -64,20 +64,21 @@ $InputRunFileMonitor
 
 $template LongTagForwardFormat,"<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %syslogtag%%msg:::sp-if-no-1st-sp%%msg%"
 
-:syslogtag, startswith, "juju{{namespace}}-" @server:{{port}};LongTagForwardFormat
+:syslogtag, startswith, "juju{{namespace}}-" @{{bootstrapIP}}:{{port}};LongTagForwardFormat
 & ~
 `
 
 // ExpectedForwardSyslogConf returns the expected content for a rsyslog file on a host machine.
-func ExpectedForwardSyslogConf(c *gc.C, machineTag, namespace string, port int) string {
+func ExpectedForwardSyslogConf(c *gc.C, machineTag, namespace, bootstrapIP string, port int) string {
 	if namespace != "" {
 		namespace = "-" + namespace
 	}
 	t := template.New("")
 	t.Funcs(template.FuncMap{
-		"machine":   func() string { return machineTag },
-		"namespace": func() string { return namespace },
-		"port":      func() int { return port },
+		"machine":     func() string { return machineTag },
+		"namespace":   func() string { return namespace },
+		"bootstrapIP": func() string { return bootstrapIP },
+		"port":        func() int { return port },
 	})
 	t = template.Must(t.Parse(expectedForwardSyslogConfTemplate))
 	var conf bytes.Buffer
