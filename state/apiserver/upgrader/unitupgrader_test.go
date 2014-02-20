@@ -11,7 +11,6 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -63,13 +62,8 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 		LoggedIn:  true,
 		UnitAgent: true,
 	}
-	s.upgrader, err = upgrader.NewUnitUpgraderAPI(s.State, s.resources, s.authorizer)
-	c.Assert(err, gc.IsNil)
-
 	// Set up fake downloaded tools for the assigned machine.
-	libDir := c.MkDir()
-	s.PatchValue(&environs.DataDir, libDir)
-	fakeToolsPath := filepath.Join(libDir, "tools", version.Current.String())
+	fakeToolsPath := filepath.Join(s.DataDir(), "tools", version.Current.String())
 	err = os.MkdirAll(fakeToolsPath, 0700)
 	c.Assert(err, gc.IsNil)
 	s.fakeTools = &tools.Tools{
@@ -81,6 +75,9 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 	toolsMetadataData, err := json.Marshal(s.fakeTools)
 	c.Assert(err, gc.IsNil)
 	err = ioutil.WriteFile(filepath.Join(fakeToolsPath, "downloaded-tools.txt"), []byte(toolsMetadataData), 0644)
+	c.Assert(err, gc.IsNil)
+
+	s.upgrader, err = upgrader.NewUnitUpgraderAPI(s.State, s.resources, s.authorizer, s.DataDir())
 	c.Assert(err, gc.IsNil)
 }
 
@@ -125,7 +122,7 @@ func (s *unitUpgraderSuite) TestUpgraderAPIRefusesNonUnitAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.MachineAgent = true
 	anAuthorizer.UnitAgent = false
-	anUpgrader, err := upgrader.NewUnitUpgraderAPI(s.State, s.resources, anAuthorizer)
+	anUpgrader, err := upgrader.NewUnitUpgraderAPI(s.State, s.resources, anAuthorizer, "")
 	c.Check(err, gc.NotNil)
 	c.Check(anUpgrader, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -135,7 +132,7 @@ func (s *unitUpgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *gc.C) {
 	// We are a unit agent, but not the one we are trying to track
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = "unit-wordpress-12354"
-	anUpgrader, err := upgrader.NewUnitUpgraderAPI(s.State, s.resources, anAuthorizer)
+	anUpgrader, err := upgrader.NewUnitUpgraderAPI(s.State, s.resources, anAuthorizer, "")
 	c.Check(err, gc.IsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawUnit.Tag()}},
@@ -158,7 +155,7 @@ func (s *unitUpgraderSuite) TestToolsNothing(c *gc.C) {
 func (s *unitUpgraderSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = "unit-wordpress-12354"
-	anUpgrader, err := upgrader.NewUnitUpgraderAPI(s.State, s.resources, anAuthorizer)
+	anUpgrader, err := upgrader.NewUnitUpgraderAPI(s.State, s.resources, anAuthorizer, "")
 	c.Check(err, gc.IsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawUnit.Tag()}},
@@ -202,7 +199,7 @@ func (s *unitUpgraderSuite) TestSetToolsNothing(c *gc.C) {
 func (s *unitUpgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = "unit-wordpress-12354"
-	anUpgrader, err := upgrader.NewUnitUpgraderAPI(s.State, s.resources, anAuthorizer)
+	anUpgrader, err := upgrader.NewUnitUpgraderAPI(s.State, s.resources, anAuthorizer, "")
 	c.Check(err, gc.IsNil)
 	args := params.EntitiesVersion{
 		AgentTools: []params.EntityVersion{{
@@ -259,7 +256,7 @@ func (s *unitUpgraderSuite) TestDesiredVersionNothing(c *gc.C) {
 func (s *unitUpgraderSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = "unit-wordpress-12354"
-	anUpgrader, err := upgrader.NewUnitUpgraderAPI(s.State, s.resources, anAuthorizer)
+	anUpgrader, err := upgrader.NewUnitUpgraderAPI(s.State, s.resources, anAuthorizer, "")
 	c.Check(err, gc.IsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawUnit.Tag()}},

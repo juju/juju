@@ -177,8 +177,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	err = os.Mkdir(osenv.JujuHome(), 0777)
 	c.Assert(err, gc.IsNil)
 
-	dataDir := filepath.Join(s.RootDir, "/var/lib/juju")
-	err = os.MkdirAll(dataDir, 0777)
+	err = os.MkdirAll(s.DataDir(), 0777)
 	c.Assert(err, gc.IsNil)
 	s.PatchEnvironment(osenv.JujuEnvEnvKey, "")
 
@@ -201,6 +200,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	// sanity check we've got the correct environment.
 	c.Assert(environ.Name(), gc.Equals, "dummyenv")
+	s.PatchValue(&dummy.DataDir, s.DataDir())
 
 	envtesting.MustUploadFakeTools(environ.Storage())
 	c.Assert(bootstrap.Bootstrap(ctx, environ, constraints.Value{}), gc.IsNil)
