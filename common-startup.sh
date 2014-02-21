@@ -36,7 +36,7 @@ wget -q localhost:8080/job/build-revision/$afact/buildvars.bash
 source buildvars.bash
 echo "Testing $BRANCH $REVNO on $ENV"
 dpkg-deb -x $PACKAGE extracted-bin
-JUJU_BIN=$(readline -f $(dirname $(find extracted-bin -name juju)))
+JUJU_BIN=$(readlink -f $(dirname $(find extracted-bin -name juju)))
 export NEW_PATH=$JUJU_BIN:$PATH
 if [ "$ENV" != "manual" ]; then
   $SCRIPTS/destroy-environment $ENV
