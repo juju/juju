@@ -10,7 +10,6 @@ import (
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/state"
 
 	"launchpad.net/gojoyent/cloudapi"
 )
@@ -48,7 +47,7 @@ func getPorts(rules []cloudapi.FirewallRule) []instance.Port {
 		}
 	}
 
-	state.SortPorts(ports)
+	instance.SortPorts(ports)
 	return ports
 }
 
