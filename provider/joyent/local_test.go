@@ -181,7 +181,6 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	containerURL := cl.MakeServiceURL([]string{s.TestConfig["manta-user"].(string), "stor"})
 	s.TestConfig = s.TestConfig.Merge(coretesting.Attrs{
 		"tools-metadata-url": containerURL + "/juju-dist/tools",
-		//"image-metadata-url": containerURL + "/juju-test/images",
 		"image-metadata-url": "test://",
 	})
 
@@ -192,7 +191,6 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	// starting instances without any need to check if those instances
 	// are running can find the metadata.
 	envtesting.UploadFakeTools(c, s.toolsMetadataStorage)
-	//s.imageMetadataStorage = joyent.ImageMetadataStorage(env)
 	joyent.UseTestMetadata(env.(*joyent.JoyentEnviron).Credentials())
 }
 
