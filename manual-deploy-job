@@ -1,4 +1,5 @@
 #!/bin/bash
+export ENV=manual
 source $SCRIPTS/common-startup.sh
 # Do the deployment for upgrade testing.
 EXIT_STATUS=0
