@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"syscall"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 )
 
 var logger = loggo.GetLogger("juju.util.exec")

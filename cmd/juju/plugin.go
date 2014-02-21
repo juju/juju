@@ -14,8 +14,8 @@ import (
 	"strings"
 
 	"launchpad.net/gnuflag"
+
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/log"
 )
@@ -95,8 +95,8 @@ func (c *PluginCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *PluginCommand) Run(ctx *cmd.Context) error {
 	command := exec.Command(c.name, c.args...)
 	command.Env = append(os.Environ(), []string{
-		osenv.JujuHome + "=" + config.JujuHome(),
-		osenv.JujuEnv + "=" + c.EnvironName()}...,
+		osenv.JujuHomeEnvKey + "=" + osenv.JujuHome(),
+		osenv.JujuEnvEnvKey + "=" + c.EnvironName()}...,
 	)
 
 	// Now hook up stdin, stdout, stderr

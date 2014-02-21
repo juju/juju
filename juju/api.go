@@ -8,12 +8,13 @@ import (
 	"io"
 	"time"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/keymanager"
@@ -100,7 +101,7 @@ func NewKeyManagerClient(envName string) (*keymanager.Client, error) {
 }
 
 func newAPIClient(envName string) (*api.State, error) {
-	store, err := configstore.NewDisk(config.JujuHome())
+	store, err := configstore.NewDisk(osenv.JujuHome())
 	if err != nil {
 		return nil, err
 	}

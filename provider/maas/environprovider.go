@@ -7,7 +7,7 @@ import (
 	"errors"
 	"os"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -41,7 +41,7 @@ func (maasEnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
 var errAgentNameAlreadySet = errors.New(
 	"maas-agent-name is already set; this should not be set by hand")
 
-func (p maasEnvironProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+func (p maasEnvironProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	attrs := cfg.UnknownAttrs()
 	oldName, found := attrs["maas-agent-name"]
 	if found && oldName != "" {
@@ -92,7 +92,7 @@ func (prov maasEnvironProvider) SecretAttrs(cfg *config.Config) (map[string]stri
 
 func (maasEnvironProvider) hostname() (string, error) {
 	// Hack to get container ip addresses properly for MAAS demo.
-	if os.Getenv(osenv.JujuContainerType) == string(instance.LXC) {
+	if os.Getenv(osenv.JujuContainerTypeEnvKey) == string(instance.LXC) {
 		return utils.GetAddressForInterface("eth0")
 	}
 	info := machineInfo{}

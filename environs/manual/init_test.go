@@ -43,7 +43,7 @@ func (s *initialisationSuite) TestDetectionError(c *gc.C) {
 	// will return an error. stderr will be included in the error message.
 	defer sshtesting.InstallFakeSSH(c, detectionScript, []string{scriptResponse, "oh noes"}, 33)()
 	hc, _, err := DetectSeriesAndHardwareCharacteristics("hostname")
-	c.Assert(err, gc.ErrorMatches, "exit status 33 \\(oh noes\\)")
+	c.Assert(err, gc.ErrorMatches, "rc: 33 \\(oh noes\\)")
 	// if the script doesn't fail, stderr is simply ignored.
 	defer sshtesting.InstallFakeSSH(c, detectionScript, []string{scriptResponse, "non-empty-stderr"}, 0)()
 	hc, _, err = DetectSeriesAndHardwareCharacteristics("hostname")
@@ -134,7 +134,7 @@ func (s *initialisationSuite) TestCheckProvisioned(c *gc.C) {
 	// will return an error. stderr will be included in the error message.
 	defer sshtesting.InstallFakeSSH(c, checkProvisionedScript, []string{"non-empty-stdout", "non-empty-stderr"}, 255)()
 	_, err = checkProvisioned("example.com")
-	c.Assert(err, gc.ErrorMatches, "exit status 255 \\(non-empty-stderr\\)")
+	c.Assert(err, gc.ErrorMatches, "rc: 255 \\(non-empty-stderr\\)")
 }
 
 func (s *initialisationSuite) TestInitUbuntuUserNonExisting(c *gc.C) {
@@ -153,5 +153,5 @@ func (s *initialisationSuite) TestInitUbuntuUserError(c *gc.C) {
 	defer sshtesting.InstallFakeSSH(c, "", []string{"", "failed to create ubuntu user"}, 123)()
 	defer sshtesting.InstallFakeSSH(c, "", "", 1)() // simulate failure of ubuntu@ login
 	err := InitUbuntuUser("testhost", "testuser", "", nil, nil)
-	c.Assert(err, gc.ErrorMatches, "exit status 123 \\(failed to create ubuntu user\\)")
+	c.Assert(err, gc.ErrorMatches, "rc: 123 \\(failed to create ubuntu user\\)")
 }

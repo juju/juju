@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/environs/configstore"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state/api"
 	coretesting "launchpad.net/juju-core/testing"
@@ -45,11 +46,12 @@ func (cs *NewAPIConnSuite) TearDownTest(c *gc.C) {
 func (*NewAPIConnSuite) TestNewConn(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg, configstore.NewMem())
+	ctx := coretesting.Context(c)
+	env, err := environs.Prepare(cfg, ctx, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 
 	envtesting.UploadFakeTools(c, env.Storage())
-	err = bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
+	err = bootstrap.Bootstrap(ctx, env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
 	cfg = env.Config()
@@ -421,7 +423,7 @@ func (*NewAPIClientSuite) TestWithBootstrapConfigAndNoEnvironmentsFile(c *gc.C) 
 	c.Assert(info.BootstrapConfig(), gc.NotNil)
 	c.Assert(info.APIEndpoint().Addresses, gc.HasLen, 0)
 
-	err = os.Remove(config.JujuHomePath("environments.yaml"))
+	err = os.Remove(osenv.JujuHomePath("environments.yaml"))
 	c.Assert(err, gc.IsNil)
 
 	st, err := juju.NewAPIFromName(coretesting.SampleEnvName, store)

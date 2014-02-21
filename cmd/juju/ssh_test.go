@@ -41,7 +41,7 @@ func (s *SSHCommonSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	s.bin = c.MkDir()
-	s.PatchEnvironment("PATH", s.bin+":"+os.Getenv("PATH"))
+	s.PatchEnvPathPrepend(s.bin)
 	for _, name := range []string{"ssh", "scp"} {
 		f, err := os.OpenFile(filepath.Join(s.bin, name), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0777)
 		c.Assert(err, gc.IsNil)

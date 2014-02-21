@@ -4,10 +4,7 @@
 package provisioner
 
 import (
-	"fmt"
-
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
@@ -26,6 +23,9 @@ type ProvisionerAPI struct {
 	*common.StateAddresser
 	*common.APIAddresser
 	*common.ToolsGetter
+	*common.EnvironWatcher
+	*common.EnvironMachinesWatcher
+	*common.InstanceIdGetter
 
 	st          *state.State
 	resources   *common.Resources
@@ -67,19 +67,26 @@ func NewProvisionerAPI(
 			return isMachineAgent && names.MachineTag(parentId) == authEntityTag
 		}, nil
 	}
+	// Both provisioner types can watch the environment.
+	getCanWatch := common.AuthAlways(true)
+	// Only the environment provisioner can read secrets.
+	getCanReadSecrets := common.AuthAlways(authorizer.AuthEnvironManager())
 	return &ProvisionerAPI{
-		Remover:         common.NewRemover(st, false, getAuthFunc),
-		StatusSetter:    common.NewStatusSetter(st, getAuthFunc),
-		DeadEnsurer:     common.NewDeadEnsurer(st, getAuthFunc),
-		PasswordChanger: common.NewPasswordChanger(st, getAuthFunc),
-		LifeGetter:      common.NewLifeGetter(st, getAuthFunc),
-		StateAddresser:  common.NewStateAddresser(st),
-		APIAddresser:    common.NewAPIAddresser(st),
-		ToolsGetter:     common.NewToolsGetter(st, getAuthFunc),
-		st:              st,
-		resources:       resources,
-		authorizer:      authorizer,
-		getAuthFunc:     getAuthFunc,
+		Remover:                common.NewRemover(st, false, getAuthFunc),
+		StatusSetter:           common.NewStatusSetter(st, getAuthFunc),
+		DeadEnsurer:            common.NewDeadEnsurer(st, getAuthFunc),
+		PasswordChanger:        common.NewPasswordChanger(st, getAuthFunc),
+		LifeGetter:             common.NewLifeGetter(st, getAuthFunc),
+		StateAddresser:         common.NewStateAddresser(st),
+		APIAddresser:           common.NewAPIAddresser(st),
+		ToolsGetter:            common.NewToolsGetter(st, getAuthFunc),
+		EnvironWatcher:         common.NewEnvironWatcher(st, resources, getCanWatch, getCanReadSecrets),
+		EnvironMachinesWatcher: common.NewEnvironMachinesWatcher(st, resources, getCanReadSecrets),
+		InstanceIdGetter:       common.NewInstanceIdGetter(st, getAuthFunc),
+		st:                     st,
+		resources:              resources,
+		authorizer:             authorizer,
+		getAuthFunc:            getAuthFunc,
 	}, nil
 }
 
@@ -149,52 +156,6 @@ func (p *ProvisionerAPI) WatchAllContainers(args params.WatchContainers) (params
 	return p.WatchContainers(args)
 }
 
-// WatchForEnvironConfigChanges returns a NotifyWatcher to observe
-// changes to the environment configuration.
-func (p *ProvisionerAPI) WatchForEnvironConfigChanges() (params.NotifyWatchResult, error) {
-	result := params.NotifyWatchResult{}
-	watch := p.st.WatchForEnvironConfigChanges()
-	// Consume the initial event. Technically, API
-	// calls to Watch 'transmit' the initial event
-	// in the Watch response. But NotifyWatchers
-	// have no state to transmit.
-	if _, ok := <-watch.Changes(); ok {
-		result.NotifyWatcherId = p.resources.Register(watch)
-	} else {
-		return result, watcher.MustErr(watch)
-	}
-	return result, nil
-}
-
-// EnvironConfig returns the current environment's configuration.
-func (p *ProvisionerAPI) EnvironConfig() (params.EnvironConfigResult, error) {
-	result := params.EnvironConfigResult{}
-	config, err := p.st.EnvironConfig()
-	if err != nil {
-		return result, err
-	}
-	allAttrs := config.AllAttrs()
-	if !p.authorizer.AuthEnvironManager() {
-		// Mask out any secrets in the environment configuration
-		// with values of the same type, so it'll pass validation.
-		//
-		// TODO(dimitern) 201309-26 bug #1231384
-		// This needs to change so we won't return anything to
-		// entities other than the environment manager, but the
-		// provisioner code should be refactored first.
-		env, err := environs.New(config)
-		if err != nil {
-			return result, err
-		}
-		secretAttrs, err := env.Provider().SecretAttrs(config)
-		for k := range secretAttrs {
-			allAttrs[k] = "not available"
-		}
-	}
-	result.Config = allAttrs
-	return result, nil
-}
-
 // SetSupportedContainers updates the list of containers supported by the machines passed in args.
 func (p *ProvisionerAPI) SetSupportedContainers(
 	args params.MachineContainersParams) (params.ErrorResults, error) {
@@ -236,6 +197,8 @@ func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	result.AuthorizedKeys = config.AuthorizedKeys()
 	result.SSLHostnameVerification = config.SSLHostnameVerification()
 	result.SyslogPort = config.SyslogPort()
+	result.Proxy = config.ProxySettings()
+	result.AptProxy = config.AptProxySettings()
 	return result, nil
 }
 
@@ -318,50 +281,6 @@ func (p *ProvisionerAPI) SetProvisioned(args params.SetProvisioned) (params.Erro
 			err = machine.SetProvisioned(arg.InstanceId, arg.Nonce, arg.Characteristics)
 		}
 		result.Results[i].Error = common.ServerError(err)
-	}
-	return result, nil
-}
-
-// InstanceId returns the provider specific instance id for each given
-// machine or an CodeNotProvisioned error, if not set.
-func (p *ProvisionerAPI) InstanceId(args params.Entities) (params.StringResults, error) {
-	result := params.StringResults{
-		Results: make([]params.StringResult, len(args.Entities)),
-	}
-	canAccess, err := p.getAuthFunc()
-	if err != nil {
-		return result, err
-	}
-	for i, entity := range args.Entities {
-		machine, err := p.getMachine(canAccess, entity.Tag)
-		if err == nil {
-			var instanceId instance.Id
-			instanceId, err = machine.InstanceId()
-			if err == nil {
-				result.Results[i].Result = string(instanceId)
-			}
-		}
-		result.Results[i].Error = common.ServerError(err)
-	}
-	return result, nil
-}
-
-// WatchEnvironMachines returns a StringsWatcher that notifies of
-// changes to the lifecycles of the machines (but not containers) in
-// the current environment.
-func (p *ProvisionerAPI) WatchEnvironMachines() (params.StringsWatchResult, error) {
-	result := params.StringsWatchResult{}
-	if !p.authorizer.AuthEnvironManager() {
-		return result, common.ErrPerm
-	}
-	watch := p.st.WatchEnvironMachines()
-	// Consume the initial event and forward it to the result.
-	if changes, ok := <-watch.Changes(); ok {
-		result.StringsWatcherId = p.resources.Register(watch)
-		result.Changes = changes
-	} else {
-		err := watcher.MustErr(watch)
-		return result, fmt.Errorf("cannot obtain initial environment machines: %v", err)
 	}
 	return result, nil
 }

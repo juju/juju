@@ -4,7 +4,7 @@
 package provisioner
 
 import (
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
@@ -85,6 +85,8 @@ func (broker *kvmBroker) StartInstance(
 		config.AuthorizedKeys,
 		config.SSLHostnameVerification,
 		config.SyslogPort,
+		config.Proxy,
+		config.AptProxy,
 	); err != nil {
 		kvmLogger.Errorf("failed to populate machine config: %v", err)
 		return nil, nil, err

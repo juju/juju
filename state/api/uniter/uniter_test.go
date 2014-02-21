@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	commontesting "launchpad.net/juju-core/state/api/common/testing"
 	"launchpad.net/juju-core/state/api/uniter"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
@@ -22,11 +23,12 @@ import (
 type uniterSuite struct {
 	testing.JujuConnSuite
 
-	st               *api.State
-	wordpressMachine *state.Machine
-	wordpressService *state.Service
-	wordpressCharm   *state.Charm
-	wordpressUnit    *state.Unit
+	st                 *api.State
+	stateServerMachine *state.Machine
+	wordpressMachine   *state.Machine
+	wordpressService   *state.Service
+	wordpressCharm     *state.Charm
+	wordpressUnit      *state.Unit
 
 	uniter *uniter.State
 }
@@ -38,7 +40,15 @@ func TestAll(t *stdtesting.T) {
 }
 
 func (s *uniterSuite) SetUpTest(c *gc.C) {
+	s.setUpTest(c, true)
+}
+
+func (s *uniterSuite) setUpTest(c *gc.C, addStateServer bool) {
 	s.JujuConnSuite.SetUpTest(c)
+
+	if addStateServer {
+		s.stateServerMachine = testing.AddStateServerMachine(c, s.State)
+	}
 
 	// Create a machine, a service and add a unit so we can log in as
 	// its agent.
@@ -90,4 +100,18 @@ func (s *uniterSuite) assertInScope(c *gc.C, relUnit *state.RelationUnit, inScop
 	ok, err := relUnit.InScope()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ok, gc.Equals, inScope)
+}
+
+type uniterCommonSuite struct {
+	uniterSuite
+
+	*commontesting.EnvironWatcherTest
+}
+
+var _ = gc.Suite(&uniterCommonSuite{})
+
+func (s *uniterCommonSuite) SetUpTest(c *gc.C) {
+	s.uniterSuite.SetUpTest(c)
+
+	s.EnvironWatcherTest = commontesting.NewEnvironWatcherTest(s.uniter, s.State, s.BackingState, commontesting.NoSecrets)
 }

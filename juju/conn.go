@@ -4,11 +4,8 @@
 package juju
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	stderrors "errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -57,7 +54,7 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 
 	info.Password = password
 	opts := state.DefaultDialOpts()
-	st, err := state.Open(info, opts)
+	st, err := state.Open(info, opts, environs.NewStatePolicy())
 	if errors.IsUnauthorizedError(err) {
 		log.Noticef("juju: authorization error while connecting to state server; retrying")
 		// We can't connect with the administrator password,;
@@ -69,7 +66,7 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 		// connecting to mongo before the state has been
 		// initialized and the initial password set.
 		for a := redialStrategy.Start(); a.Next(); {
-			st, err = state.Open(info, opts)
+			st, err = state.Open(info, opts, environs.NewStatePolicy())
 			if !errors.IsUnauthorizedError(err) {
 				break
 			}
@@ -223,12 +220,10 @@ func (conn *Conn) addCharm(curl *charm.URL, ch charm.Charm) (*state.Charm, error
 	default:
 		return nil, fmt.Errorf("unknown charm type %T", ch)
 	}
-	h := sha256.New()
-	size, err := io.Copy(h, f)
+	digest, size, err := utils.ReadSHA256(f)
 	if err != nil {
 		return nil, err
 	}
-	digest := hex.EncodeToString(h.Sum(nil))
 	if _, err := f.Seek(0, 0); err != nil {
 		return nil, err
 	}
@@ -262,9 +257,9 @@ func InitJujuHome() error {
 		return stderrors.New(
 			"cannot determine juju home, required environment variables are not set")
 	}
-	config.SetJujuHome(jujuHome)
-	charm.CacheDir = config.JujuHomePath("charmcache")
-	if err := ssh.LoadClientKeys(config.JujuHomePath("ssh")); err != nil {
+	osenv.SetJujuHome(jujuHome)
+	charm.CacheDir = osenv.JujuHomePath("charmcache")
+	if err := ssh.LoadClientKeys(osenv.JujuHomePath("ssh")); err != nil {
 		return fmt.Errorf("cannot load ssh client keys: %v", err)
 	}
 	return nil

@@ -42,7 +42,7 @@ environments:
 
 func (s *datasourceSuite) SetUpTest(c *gc.C) {
 	s.home = testing.MakeFakeHome(c, existingEnv, "existing")
-	environ, err := environs.PrepareFromName("test", configstore.NewMem())
+	environ, err := environs.PrepareFromName("test", testing.Context(c), configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	s.stor = environ.Storage()
 	s.baseURL, err = s.stor.URL("")
@@ -100,6 +100,8 @@ func (s *datasourceSuite) TestFetchWithNoRetry(c *gc.C) {
 }
 
 func (s *datasourceSuite) TestURL(c *gc.C) {
+	sampleData := "hello world"
+	s.stor.Put("bar/data.txt", bytes.NewReader([]byte(sampleData)), int64(len(sampleData)))
 	ds := storage.NewStorageSimpleStreamsDataSource(s.stor, "")
 	url, err := ds.URL("bar")
 	c.Assert(err, gc.IsNil)
@@ -108,6 +110,8 @@ func (s *datasourceSuite) TestURL(c *gc.C) {
 }
 
 func (s *datasourceSuite) TestURLWithBasePath(c *gc.C) {
+	sampleData := "hello world"
+	s.stor.Put("base/bar/data.txt", bytes.NewReader([]byte(sampleData)), int64(len(sampleData)))
 	ds := storage.NewStorageSimpleStreamsDataSource(s.stor, "base")
 	url, err := ds.URL("bar")
 	c.Assert(err, gc.IsNil)

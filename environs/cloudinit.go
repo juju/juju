@@ -6,20 +6,39 @@ package environs
 import (
 	"fmt"
 
+	"github.com/errgo/errgo"
+
 	"launchpad.net/juju-core/agent"
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/juju/osenv"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/utils"
 )
 
-// Default data directory.
+// DataDir is the default data directory.
 // Tests can override this where needed, so they don't need to mess with global
 // system state.
 var DataDir = "/var/lib/juju"
+
+// LogDir is the default log file path.
+const LogDir = "/var/log/juju"
+
+// CloudInitOutputLog is the default cloud-init-output.log file path.
+const CloudInitOutputLog = "/var/log/cloud-init-output.log"
+
+// DefaultRsyslogConfPath is the default rsyslogd conf file path.
+const DefaultRsyslogConfPath = "/etc/rsyslog.d/25-juju.conf"
+
+// Override for testing.
+var RsyslogConfPath = DefaultRsyslogConfPath
+
+// MongoServiceName is the default Upstart service name for Mongo.
+const MongoServiceName = "juju-db"
 
 // NewMachineConfig sets up a basic machine configuration, for a non-bootstrap
 // node.  You'll still need to supply more information, but this takes care of
@@ -28,7 +47,12 @@ func NewMachineConfig(machineID, machineNonce string,
 	stateInfo *state.Info, apiInfo *api.Info) *cloudinit.MachineConfig {
 	return &cloudinit.MachineConfig{
 		// Fixed entries.
-		DataDir: DataDir,
+		DataDir:                 DataDir,
+		LogDir:                  LogDir,
+		CloudInitOutputLog:      CloudInitOutputLog,
+		RsyslogConfPath:         RsyslogConfPath,
+		MachineAgentServiceName: "jujud-" + names.MachineTag(machineID),
+		MongoServiceName:        MongoServiceName,
 
 		// Parameter entries.
 		MachineId:    machineID,
@@ -52,10 +76,17 @@ func NewBootstrapMachineConfig(stateInfoURL string, privateSystemSSHKey string) 
 	return mcfg
 }
 
+// PopulateMachineConfig is called both from the FinishMachineConfig below,
+// which does have access to the environment config, and from the container
+// provisioners, which don't have access to the environment config. Everything
+// that is needed to provision a container needs to be returned to the
+// provisioner in the ContainerConfig structure. Those values are then used to
+// call this function.
 func PopulateMachineConfig(mcfg *cloudinit.MachineConfig,
 	providerType, authorizedKeys string,
 	sslHostnameVerification bool,
 	syslogPort int,
+	proxy, aptProxy osenv.ProxySettings,
 ) error {
 	if authorizedKeys == "" {
 		return fmt.Errorf("environment configuration has no authorized-keys")
@@ -68,6 +99,8 @@ func PopulateMachineConfig(mcfg *cloudinit.MachineConfig,
 	mcfg.AgentEnvironment[agent.ContainerType] = string(mcfg.MachineContainerType)
 	mcfg.DisableSSLHostnameVerification = !sslHostnameVerification
 	mcfg.SyslogPort = syslogPort
+	mcfg.ProxySettings = proxy
+	mcfg.AptProxySettings = aptProxy
 	return nil
 }
 
@@ -84,7 +117,15 @@ func PopulateMachineConfig(mcfg *cloudinit.MachineConfig,
 func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons constraints.Value) (err error) {
 	defer utils.ErrorContextf(&err, "cannot complete machine configuration")
 
-	if err := PopulateMachineConfig(mcfg, cfg.Type(), cfg.AuthorizedKeys(), cfg.SSLHostnameVerification(), cfg.SyslogPort()); err != nil {
+	if err := PopulateMachineConfig(
+		mcfg,
+		cfg.Type(),
+		cfg.AuthorizedKeys(),
+		cfg.SSLHostnameVerification(),
+		cfg.SyslogPort(),
+		cfg.ProxySettings(),
+		cfg.AptProxySettings(),
+	); err != nil {
 		return err
 	}
 
@@ -118,7 +159,7 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 	// These really are directly relevant to running a state server.
 	cert, key, err := cfg.GenerateStateServerCertAndKey()
 	if err != nil {
-		return fmt.Errorf("cannot generate state server certificate: %v", err)
+		return errgo.Annotate(err, "cannot generate state server certificate")
 	}
 	mcfg.StateServerCert = cert
 	mcfg.StateServerKey = key

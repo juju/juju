@@ -47,7 +47,7 @@ func (s *storeManagerStateSuite) TearDownSuite(c *gc.C) {
 func (s *storeManagerStateSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-	s.State = TestingInitialize(c, nil)
+	s.State = TestingInitialize(c, nil, Policy(nil))
 	s.State.AddUser("admin", "pass")
 }
 
@@ -957,7 +957,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = m1.Remove()
 	c.Assert(err, gc.IsNil)
-	m2, err := s.State.AddMachine("quantal", JobManageEnviron)
+	m2, err := s.State.AddMachine("quantal", JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m2.Id(), gc.Equals, "2")
 	s.State.StartSync()

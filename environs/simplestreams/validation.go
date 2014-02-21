@@ -17,4 +17,5 @@ type MetadataLookupParams struct {
 	Architectures []string
 	Endpoint      string
 	Sources       []DataSource
+	Stream        string
 }

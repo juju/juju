@@ -17,19 +17,13 @@ var configFields = schema.Fields{
 	"management-certificate-path": schema.String(),
 	"management-certificate":      schema.String(),
 	"storage-account-name":        schema.String(),
-	"image-stream":                schema.String(),
 	"force-image-name":            schema.String(),
 }
 var configDefaults = schema.Defaults{
 	"location":                    "",
 	"management-certificate":      "",
 	"management-certificate-path": "",
-	// The default is blank, which means "use the first of the base URLs
-	// that has a matching image."  The first base URL is for "released",
-	// which is what we want, but also a blank default will be easier on
-	// the user if we later make the list of base URLs configurable.
-	"image-stream":     "",
-	"force-image-name": "",
+	"force-image-name":            "",
 }
 
 type azureEnvironConfig struct {
@@ -51,10 +45,6 @@ func (cfg *azureEnvironConfig) managementCertificate() string {
 
 func (cfg *azureEnvironConfig) storageAccountName() string {
 	return cfg.attrs["storage-account-name"].(string)
-}
-
-func (cfg *azureEnvironConfig) imageStream() string {
-	return cfg.attrs["image-stream"].(string)
 }
 
 func (cfg *azureEnvironConfig) forceImageName() string {
@@ -105,8 +95,6 @@ func (prov azureEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.C
 	return cfg.Apply(envCfg.attrs)
 }
 
-// TODO(jtv): Once we have "released" images for Azure, update the provisional
-// image-stream and default-series settings.
 const boilerplateYAML = `
 # https://juju.ubuntu.com/docs/config-azure.html
 azure:
@@ -128,11 +116,10 @@ azure:
     # force-image-name overrides the OS image selection to use
     # a fixed image for all deployments. Most useful for developers.
     # force-image-name: b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-13_10-amd64-server-DEVELOPMENT-20130713-Juju_ALPHA-en-us-30GB
-    
+
     # image-stream chooses a simplestreams stream to select OS images from,
     # for example daily or released images (or any other stream available on simplestreams).
-    # Leave blank for released images.
-    # image-stream: ""
+    # image-stream: "released"
 `
 
 func (prov azureEnvironProvider) BoilerplateConfig() string {

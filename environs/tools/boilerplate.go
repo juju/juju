@@ -12,8 +12,8 @@ import (
 	"text/template"
 	"time"
 
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/juju/osenv"
 )
 
 const (
@@ -55,7 +55,7 @@ func MakeBoilerplate(tm *ToolsMetadata, cloudSpec *simplestreams.CloudSpec, flat
 	}
 
 	if !flattenPath {
-		streamsPath := config.JujuHomePath(streamsDir)
+		streamsPath := osenv.JujuHomePath(streamsDir)
 		if err := os.MkdirAll(streamsPath, 0755); err != nil {
 			return nil, err
 		}
@@ -96,7 +96,7 @@ func writeJsonFile(imparams toolsMetadataParams, filename, boilerplate string) e
 		panic(fmt.Errorf("cannot generate %s metdata: %v", filename, err))
 	}
 	data := metadata.Bytes()
-	path := config.JujuHomePath(filename)
+	path := osenv.JujuHomePath(filename)
 	if err := ioutil.WriteFile(path, data, 0666); err != nil {
 		return err
 	}

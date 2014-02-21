@@ -8,7 +8,7 @@ import (
 	"io"
 	"strings"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/utils"
@@ -28,8 +28,9 @@ type ConfigureParams struct {
 	// Config is the cloudinit config to carry out.
 	Config *cloudinit.Config
 
-	// Stderr is required to present bootstrap progress to the user.
-	Stderr io.Writer
+	// ProgressWriter is an io.Writer to which progress will be written,
+	// for realtime feedback.
+	ProgressWriter io.Writer
 }
 
 // Configure connects to the specified host over SSH,
@@ -40,14 +41,21 @@ func Configure(params ConfigureParams) error {
 	if err != nil {
 		return err
 	}
-	logger.Debugf("running script on %s: %s", params.Host, script)
+	return RunConfigureScript(script, params)
+}
+
+// RunConfigureScript connects to the specified host over
+// SSH, and executes the provided script which is expected
+// to have been returned by ConfigureScript.
+func RunConfigureScript(script string, params ConfigureParams) error {
+	logger.Debugf("Running script on %s: %s", params.Host, script)
 	client := params.Client
 	if client == nil {
 		client = ssh.DefaultClient
 	}
 	cmd := ssh.Command(params.Host, []string{"sudo", "/bin/bash"}, nil)
 	cmd.Stdin = strings.NewReader(script)
-	cmd.Stderr = params.Stderr
+	cmd.Stderr = params.ProgressWriter
 	return cmd.Run()
 }
 
@@ -133,6 +141,12 @@ func addPackageCommands(cfg *cloudinit.Config) ([]string, error) {
 		}
 		cmds = append(cmds, cloudinit.LogProgressCmd("Adding apt repository: %s", src.Source))
 		cmds = append(cmds, "add-apt-repository -y "+utils.ShQuote(src.Source))
+		if src.Prefs != nil {
+			path := utils.ShQuote(src.Prefs.Path)
+			contents := utils.ShQuote(src.Prefs.FileContents())
+			cmds = append(cmds, "install -D -m 644 /dev/null "+path)
+			cmds = append(cmds, `printf '%s\n' `+contents+` > `+path)
+		}
 	}
 	if len(cfg.AptSources()) > 0 || cfg.AptUpdate() {
 		cmds = append(cmds, cloudinit.LogProgressCmd("Running apt-get update"))
@@ -144,7 +158,12 @@ func addPackageCommands(cfg *cloudinit.Config) ([]string, error) {
 	}
 	for _, pkg := range cfg.Packages() {
 		cmds = append(cmds, cloudinit.LogProgressCmd("Installing package: %s", pkg))
-		cmd := fmt.Sprintf(aptget+"install %s", utils.ShQuote(pkg))
+		if !strings.Contains(pkg, "--target-release") {
+			// We only need to shquote the package name if it does not
+			// contain additional arguments.
+			pkg = utils.ShQuote(pkg)
+		}
+		cmd := fmt.Sprintf(aptget+"install %s", pkg)
 		cmds = append(cmds, cmd)
 	}
 	if len(cmds) > 0 {

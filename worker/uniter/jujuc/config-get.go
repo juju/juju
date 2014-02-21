@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"launchpad.net/gnuflag"
+
 	"launchpad.net/juju-core/cmd"
 )
 

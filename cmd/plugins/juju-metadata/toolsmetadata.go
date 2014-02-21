@@ -9,17 +9,16 @@ import (
 	"path"
 	"strings"
 
+	"github.com/loggo/loggo"
 	"launchpad.net/gnuflag"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/juju/osenv"
 	coretools "launchpad.net/juju-core/tools"
-	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -48,19 +47,16 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 	loggo.RegisterWriter("toolsmetadata", cmd.NewCommandLogWriter("juju.environs.tools", context.Stdout, context.Stderr), loggo.INFO)
 	defer loggo.RemoveWriter("toolsmetadata")
 	if c.metadataDir == "" {
-		c.metadataDir = config.JujuHome()
-	}
-	var err error
-	c.metadataDir, err = utils.NormalizePath(c.metadataDir)
-	if err != nil {
-		return err
+		c.metadataDir = osenv.JujuHome()
+	} else {
+		c.metadataDir = context.AbsPath(c.metadataDir)
 	}
 
 	sourceStorage, err := filestorage.NewFileStorageReader(c.metadataDir)
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(context.Stdout, "Finding tools...")
+	fmt.Fprintf(context.Stdout, "Finding tools in %s\n", c.metadataDir)
 	const minorVersion = -1
 	toolsList, err := envtools.ReadList(sourceStorage, version.Current.Major, minorVersion)
 	if err == envtools.ErrNoTools {

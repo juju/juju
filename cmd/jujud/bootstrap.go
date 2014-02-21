@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
@@ -74,23 +75,18 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	// TODO(fwereade): we need to be able to customize machine jobs,
-	// not just hardcode these values; in particular, JobHostUnits
-	// on a machine, like this one, that is running JobManageEnviron
-	// (not to mention the actual state server itself...) will allow
-	// a malicious or compromised unit to trivially access to the
-	// user's environment credentials. However, given that this point
-	// is currently moot (see Upgrader in this package), the pseudo-
-	// local provider mode (in which everything is deployed with
-	// `--to 0`) offers enough value to enough people that
-	// JobHostUnits is currently always enabled. This will one day
-	// have to change, but it's strictly less important than fixing
-	// Upgrader, and it's a capability we'll always want to have
-	// available for the aforementioned use case.
+	// agent.BootstrapJobs is an optional field in the agent
+	// config, and was introduced after 1.17.2. We default to
+	// allowing units on machine-0 if missing.
 	jobs := []state.MachineJob{
 		state.JobManageEnviron,
-		state.JobManageState,
 		state.JobHostUnits,
+	}
+	if bootstrapJobs := c.Conf.config.Value(agent.BootstrapJobs); bootstrapJobs != "" {
+		jobs, err = agent.UnmarshalBootstrapJobs(bootstrapJobs)
+		if err != nil {
+			return err
+		}
 	}
 	var characteristics instance.HardwareCharacteristics
 	if len(bsState.Characteristics) > 0 {
@@ -101,7 +97,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		Jobs:            jobs,
 		InstanceId:      bsState.StateInstances[0],
 		Characteristics: characteristics,
-	}, state.DefaultDialOpts())
+	}, state.DefaultDialOpts(), environs.NewStatePolicy())
 	if err != nil {
 		return err
 	}

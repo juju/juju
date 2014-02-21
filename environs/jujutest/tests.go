@@ -61,7 +61,7 @@ func (t *Tests) Open(c *gc.C) environs.Environ {
 func (t *Tests) Prepare(c *gc.C) environs.Environ {
 	cfg, err := config.New(config.NoDefaults, t.TestConfig)
 	c.Assert(err, gc.IsNil)
-	e, err := environs.Prepare(cfg, t.ConfigStore)
+	e, err := environs.Prepare(cfg, coretesting.Context(c), t.ConfigStore)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", t.TestConfig))
 	c.Assert(e, gc.NotNil)
 	return e
@@ -76,10 +76,6 @@ func (t *Tests) SetUpTest(c *gc.C) {
 func (t *Tests) TearDownTest(c *gc.C) {
 	t.ToolsFixture.TearDownTest(c)
 	t.LoggingSuite.TearDownTest(c)
-}
-
-func bootstrapContext(c *gc.C) environs.BootstrapContext {
-	return envtesting.NewBootstrapContext(coretesting.Context(c))
 }
 
 func (t *Tests) TestStartStop(c *gc.C) {
@@ -138,7 +134,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	envtesting.UploadFakeTools(c, e.Storage())
 	err := common.EnsureNotBootstrapped(e)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(bootstrapContext(c), e, constraints.Value{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), e, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
 	info, apiInfo, err := e.StateInfo()
@@ -166,7 +162,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 
 	err = common.EnsureNotBootstrapped(e3)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(bootstrapContext(c), e3, constraints.Value{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), e3, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
 	err = common.EnsureNotBootstrapped(e3)

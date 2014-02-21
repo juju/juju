@@ -285,9 +285,12 @@ func (s *productSpecSuite) TestIdWithDefaultStream(c *gc.C) {
 		Series: []string{"precise"},
 		Arches: []string{"amd64"},
 	})
-	ids, err := imageConstraint.Ids()
-	c.Assert(err, gc.IsNil)
-	c.Assert(ids, gc.DeepEquals, []string{"com.ubuntu.cloud:server:12.04:amd64"})
+	for _, stream := range []string{"", "released"} {
+		imageConstraint.Stream = stream
+		ids, err := imageConstraint.Ids()
+		c.Assert(err, gc.IsNil)
+		c.Assert(ids, gc.DeepEquals, []string{"com.ubuntu.cloud:server:12.04:amd64"})
+	}
 }
 
 func (s *productSpecSuite) TestId(c *gc.C) {

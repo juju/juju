@@ -4,8 +4,11 @@
 package local_test
 
 import (
+	"errors"
+	"os/user"
+
+	"github.com/loggo/loggo"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/loggo"
 
 	lxctesting "launchpad.net/juju-core/container/lxc/testing"
 	"launchpad.net/juju-core/environs"
@@ -46,14 +49,18 @@ var _ = gc.Suite(&prepareSuite{})
 func (s *prepareSuite) SetUpTest(c *gc.C) {
 	s.FakeHomeSuite.SetUpTest(c)
 	loggo.GetLogger("juju.provider.local").SetLogLevel(loggo.TRACE)
-	s.PatchEnvironment("http-proxy", "")
-	s.PatchEnvironment("HTTP-PROXY", "")
-	s.PatchEnvironment("https-proxy", "")
-	s.PatchEnvironment("HTTPS-PROXY", "")
-	s.PatchEnvironment("ftp-proxy", "")
-	s.PatchEnvironment("FTP-PROXY", "")
+	s.PatchEnvironment("http_proxy", "")
+	s.PatchEnvironment("HTTP_PROXY", "")
+	s.PatchEnvironment("https_proxy", "")
+	s.PatchEnvironment("HTTPS_PROXY", "")
+	s.PatchEnvironment("ftp_proxy", "")
+	s.PatchEnvironment("FTP_PROXY", "")
 	s.HookCommandOutput(&utils.AptCommandOutput, nil, nil)
-
+	s.PatchValue(local.CheckLocalPort, func(port int, desc string) error {
+		return nil
+	})
+	restore := local.MockAddressForInterface()
+	s.AddCleanup(func(*gc.C) { restore() })
 }
 
 func (s *prepareSuite) TestPrepareCapturesEnvironment(c *gc.C) {
@@ -64,7 +71,6 @@ func (s *prepareSuite) TestPrepareCapturesEnvironment(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	provider, err := environs.Provider(provider.Local)
 	c.Assert(err, gc.IsNil)
-	defer local.MockAddressForInterface()()
 
 	for i, test := range []struct {
 		message          string
@@ -209,7 +215,7 @@ Acquire::magic::Proxy "none";
 			testConfig, err = baseConfig.Apply(test.extraConfig)
 			c.Assert(err, gc.IsNil)
 		}
-		env, err := provider.Prepare(testConfig)
+		env, err := provider.Prepare(testing.Context(c), testConfig)
 		c.Assert(err, gc.IsNil)
 
 		envConfig := env.Config()
@@ -223,6 +229,53 @@ Acquire::magic::Proxy "none";
 
 		for _, clean := range cleanup {
 			clean()
+		}
+	}
+}
+
+func (s *prepareSuite) TestPrepareNamespace(c *gc.C) {
+	s.PatchValue(local.DetectAptProxies, func() (osenv.ProxySettings, error) {
+		return osenv.ProxySettings{}, nil
+	})
+	basecfg, err := config.New(config.UseDefaults, map[string]interface{}{
+		"type": "local",
+		"name": "test",
+	})
+	provider, err := environs.Provider("local")
+	c.Assert(err, gc.IsNil)
+
+	type test struct {
+		userEnv   string
+		userOS    string
+		userOSErr error
+		namespace string
+		err       string
+	}
+	tests := []test{{
+		userEnv:   "someone",
+		userOS:    "other",
+		namespace: "someone-test",
+	}, {
+		userOS:    "other",
+		namespace: "other-test",
+	}, {
+		userOSErr: errors.New("oh noes"),
+		err:       "failed to determine username for namespace: oh noes",
+	}}
+
+	for i, test := range tests {
+		c.Logf("test %d: %v", i, test)
+		s.PatchEnvironment("USER", test.userEnv)
+		s.PatchValue(local.UserCurrent, func() (*user.User, error) {
+			return &user.User{Username: test.userOS}, test.userOSErr
+		})
+		env, err := provider.Prepare(testing.Context(c), basecfg)
+		if test.err == "" {
+			c.Assert(err, gc.IsNil)
+			cfg := env.Config()
+			c.Assert(cfg.UnknownAttrs()["namespace"], gc.Equals, test.namespace)
+		} else {
+			c.Assert(err, gc.ErrorMatches, test.err)
 		}
 	}
 }

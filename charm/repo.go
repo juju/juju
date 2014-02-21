@@ -4,12 +4,11 @@
 package charm
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -138,6 +137,12 @@ func (s *CharmStore) Info(curls ...*URL) ([]*InfoResponse, error) {
 	}
 	resp, err := s.get(baseURL + strings.Join(charmSnippets, "&"))
 	if err != nil {
+		if url_error, ok := err.(*url.Error); ok {
+			switch url_error.Err.(type) {
+			case *net.DNSError, *net.OpError:
+				return nil, fmt.Errorf("Cannot access the charm store. Are you connected to the internet? Error details: %v", err)
+			}
+		}
 		return nil, err
 	}
 	defer resp.Body.Close()
@@ -292,16 +297,11 @@ func (s *CharmStore) CharmURL(location string) (*URL, error) {
 // verify returns an error unless a file exists at path with a hex-encoded
 // SHA256 matching digest.
 func verify(path, digest string) error {
-	f, err := os.Open(path)
+	hash, _, err := utils.ReadFileSHA256(path)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	h := sha256.New()
-	if _, err := io.Copy(h, f); err != nil {
-		return err
-	}
-	if hex.EncodeToString(h.Sum(nil)) != digest {
+	if hash != digest {
 		return fmt.Errorf("bad SHA256 of %q", path)
 	}
 	return nil

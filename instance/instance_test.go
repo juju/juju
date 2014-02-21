@@ -242,3 +242,25 @@ func (s *HardwareSuite) TestParseHardware(c *gc.C) {
 		c.Assert(cons1, gc.DeepEquals, hwc)
 	}
 }
+
+type PortsSuite struct{}
+
+var _ = gc.Suite(&PortsSuite{})
+
+var sortPortsTests = []struct {
+	have, want []instance.Port
+}{
+	{nil, []instance.Port{}},
+	{[]instance.Port{{"b", 1}, {"a", 99}, {"a", 1}}, []instance.Port{{"a", 1}, {"a", 99}, {"b", 1}}},
+}
+
+func (*PortsSuite) TestSortPorts(c *gc.C) {
+	for _, t := range sortPortsTests {
+		p := make([]instance.Port, len(t.have))
+		copy(p, t.have)
+		instance.SortPorts(p)
+		c.Check(p, gc.DeepEquals, t.want)
+		instance.SortPorts(p)
+		c.Check(p, gc.DeepEquals, t.want)
+	}
+}

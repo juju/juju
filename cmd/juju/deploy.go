@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"launchpad.net/gnuflag"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
@@ -88,7 +89,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.BumpRevision, "upgrade", false, "")
 	f.Var(&c.Config, "config", "path to yaml-formatted service config")
 	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "set service constraints")
-	f.StringVar(&c.RepoPath, "repository", os.Getenv(osenv.JujuRepository), "local charm repository")
+	f.StringVar(&c.RepoPath, "repository", os.Getenv(osenv.JujuRepositoryEnvKey), "local charm repository")
 }
 
 func (c *DeployCommand) Init(args []string) error {

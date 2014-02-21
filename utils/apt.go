@@ -11,7 +11,7 @@ import (
 	"regexp"
 	"strings"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/juju/osenv"
 )
@@ -19,6 +19,10 @@ import (
 var (
 	aptLogger  = loggo.GetLogger("juju.utils.apt")
 	aptProxyRE = regexp.MustCompile(`(?im)^\s*Acquire::(?P<protocol>[a-z]+)::Proxy\s+"(?P<proxy>[^"]+)";\s*$`)
+
+	// AptConfFile is the full file path for the proxy settings that are
+	// written by cloud-init and the machine environ worker.
+	AptConfFile = "/etc/apt/apt.conf.d/42-juju-proxy-settings"
 )
 
 // Some helpful functions for running apt in a sane way
@@ -94,6 +98,22 @@ func DetectAptProxies() (result osenv.ProxySettings, err error) {
 		}
 	}
 	return result, nil
+}
+
+// AptProxyContent produces the format expected by the apt config files
+// from the ProxySettings struct.
+func AptProxyContent(proxy osenv.ProxySettings) string {
+	lines := []string{}
+	addLine := func(proxy, value string) {
+		if value != "" {
+			lines = append(lines, fmt.Sprintf(
+				"Acquire::%s::Proxy %q;", proxy, value))
+		}
+	}
+	addLine("http", proxy.Http)
+	addLine("https", proxy.Https)
+	addLine("ftp", proxy.Ftp)
+	return strings.Join(lines, "\n")
 }
 
 // IsUbuntu executes lxb_release to see if the host OS is Ubuntu.

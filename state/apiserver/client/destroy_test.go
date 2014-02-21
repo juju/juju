@@ -25,7 +25,7 @@ var _ = gc.Suite(&destroyEnvironmentSuite{})
 // setUpManual adds "manually provisioned" machines to state:
 // one manager machine, and one non-manager.
 func (s *destroyEnvironmentSuite) setUpManual(c *gc.C) (m0, m1 *state.Machine) {
-	m0, err := s.State.AddMachine("precise", state.JobManageEnviron, state.JobManageState)
+	m0, err := s.State.AddMachine("precise", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	err = m0.SetProvisioned(instance.Id("manual:0"), "manual:0:fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
@@ -39,7 +39,7 @@ func (s *destroyEnvironmentSuite) setUpManual(c *gc.C) (m0, m1 *state.Machine) {
 // setUpInstances adds machines to state backed by instances:
 // one manager machine, and one non-manager.
 func (s *destroyEnvironmentSuite) setUpInstances(c *gc.C) (m0, m1 *state.Machine) {
-	m0, err := s.State.AddMachine("precise", state.JobManageEnviron, state.JobManageState)
+	m0, err := s.State.AddMachine("precise", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	inst, _ := testing.AssertStartInstance(c, s.APIConn.Environ, m0.Id())
 	err = m0.SetProvisioned(inst.Id(), "fake_nonce", nil)
@@ -53,7 +53,6 @@ func (s *destroyEnvironmentSuite) setUpInstances(c *gc.C) (m0, m1 *state.Machine
 }
 
 func (s *destroyEnvironmentSuite) TestDestroyEnvironmentManual(c *gc.C) {
-	s.setUpScenario(c)
 	_, nonManager := s.setUpManual(c)
 
 	// If there are any non-manager manual machines in state, DestroyEnvironment will
@@ -78,7 +77,6 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironmentManual(c *gc.C) {
 }
 
 func (s *destroyEnvironmentSuite) TestDestroyEnvironment(c *gc.C) {
-	s.setUpScenario(c)
 	manager, nonManager := s.setUpInstances(c)
 	managerId, _ := manager.InstanceId()
 	nonManagerId, _ := nonManager.InstanceId()

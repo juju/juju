@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/cloudinit/sshinit"
@@ -19,6 +19,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/cloudinit"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
@@ -67,12 +68,12 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, cons constra
 		return err
 	}
 
-	fmt.Fprintln(ctx.Stderr(), "Launching instance")
+	fmt.Fprintln(ctx.GetStderr(), "Launching instance")
 	inst, hw, err := env.StartInstance(cons, selectedTools, machineConfig)
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
-	fmt.Fprintf(ctx.Stderr(), " - %s\n", inst.Id())
+	fmt.Fprintf(ctx.GetStderr(), " - %s\n", inst.Id())
 
 	var characteristics []instance.HardwareCharacteristics
 	if hw != nil {
@@ -100,7 +101,7 @@ func GenerateSystemSSHKey(env environs.Environ) (privateKey string, err error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to create system key: %v", err)
 	}
-	authorized_keys := env.Config().AuthorizedKeys() + publicKey
+	authorized_keys := concatAuthKeys(env.Config().AuthorizedKeys(), publicKey)
 	newConfig, err := env.Config().Apply(map[string]interface{}{
 		"authorized-keys": authorized_keys,
 	})
@@ -111,6 +112,23 @@ func GenerateSystemSSHKey(env environs.Environ) (privateKey string, err error) {
 		return "", fmt.Errorf("failed to set new config: %v", err)
 	}
 	return privateKey, nil
+}
+
+// concatAuthKeys concatenates the two
+// sets of authorized keys, interposing
+// a newline if necessary, because authorized
+// keys are newline-separated.
+func concatAuthKeys(a, b string) string {
+	if a == "" {
+		return b
+	}
+	if b == "" {
+		return a
+	}
+	if a[len(a)-1] != '\n' {
+		return a + "\n" + b
+	}
+	return a + b
 }
 
 // handelBootstrapError cleans up after a failed bootstrap.
@@ -126,12 +144,12 @@ func handleBootstrapError(err error, ctx environs.BootstrapContext, inst instanc
 	defer close(ch)
 	go func() {
 		for _ = range ch {
-			fmt.Fprintln(ctx.Stderr(), "Cleaning up failed bootstrap")
+			fmt.Fprintln(ctx.GetStderr(), "Cleaning up failed bootstrap")
 		}
 	}()
 
 	if inst != nil {
-		fmt.Fprintln(ctx.Stderr(), "Stopping instance...")
+		fmt.Fprintln(ctx.GetStderr(), "Stopping instance...")
 		if stoperr := env.StopInstances([]instance.Instance{inst}); stoperr != nil {
 			logger.Errorf("cannot stop failed bootstrap instance %q: %v", inst.Id(), stoperr)
 		} else {
@@ -174,10 +192,14 @@ var FinishBootstrap = func(ctx environs.BootstrapContext, client ssh.Client, ins
 		exit 1
 	fi
 	`, nonceFile, utils.ShQuote(machineConfig.MachineNonce))
-	// TODO: jam 2013-12-04 bug #1257649
-	// It would be nice if users had some controll over their bootstrap
-	// timeout, since it is unlikely to be a perfect match for all clouds.
-	addr, err := waitSSH(ctx, interrupted, client, checkNonceCommand, inst, DefaultBootstrapSSHTimeout())
+	addr, err := waitSSH(
+		ctx,
+		interrupted,
+		client,
+		checkNonceCommand,
+		inst,
+		machineConfig.Config.BootstrapSSHOpts(),
+	)
 	if err != nil {
 		return err
 	}
@@ -192,38 +214,11 @@ var FinishBootstrap = func(ctx environs.BootstrapContext, client ssh.Client, ins
 		return err
 	}
 	return sshinit.Configure(sshinit.ConfigureParams{
-		Host:   "ubuntu@" + addr,
-		Client: client,
-		Config: cloudcfg,
-		Stderr: ctx.Stderr(),
+		Host:           "ubuntu@" + addr,
+		Client:         client,
+		Config:         cloudcfg,
+		ProgressWriter: ctx.GetStderr(),
 	})
-}
-
-// SSHTimeoutOpts lists the amount of time we will wait for various parts of
-// the SSH connection to complete. This is similar to DialOpts, see
-// http://pad.lv/1258889 about possibly deduplicating them.
-type SSHTimeoutOpts struct {
-	// Timeout is the amount of time to wait contacting
-	// a state server.
-	Timeout time.Duration
-
-	// ConnectDelay is the amount of time between attempts to connect to an address.
-	ConnectDelay time.Duration
-
-	// AddressesDelay is the amount of time between refreshing the addresses.
-	AddressesDelay time.Duration
-}
-
-// DefaultBootstrapSSHTimeout is the time we'll wait for SSH to come up on the bootstrap node
-func DefaultBootstrapSSHTimeout() SSHTimeoutOpts {
-	return SSHTimeoutOpts{
-		Timeout: 10 * time.Minute,
-
-		ConnectDelay: 5 * time.Second,
-
-		// Not too frequent, as we refresh addresses from the provider each time.
-		AddressesDelay: 10 * time.Second,
-	}
 }
 
 type addresser interface {
@@ -360,7 +355,7 @@ var connectSSH = func(client ssh.Client, host, checkHostScript string) error {
 // the presence of a file on the machine that contains the
 // machine's nonce. The "checkHostScript" is a bash script
 // that performs this file check.
-func waitSSH(ctx environs.BootstrapContext, interrupted <-chan os.Signal, client ssh.Client, checkHostScript string, inst addresser, timeout SSHTimeoutOpts) (addr string, err error) {
+func waitSSH(ctx environs.BootstrapContext, interrupted <-chan os.Signal, client ssh.Client, checkHostScript string, inst addresser, timeout config.SSHTimeoutOpts) (addr string, err error) {
 	globalTimeout := time.After(timeout.Timeout)
 	pollAddresses := time.NewTimer(0)
 
@@ -370,14 +365,14 @@ func waitSSH(ctx environs.BootstrapContext, interrupted <-chan os.Signal, client
 	checker := parallelHostChecker{
 		Try:             parallel.NewTry(0, nil),
 		client:          client,
-		stderr:          ctx.Stderr(),
+		stderr:          ctx.GetStderr(),
 		active:          make(map[instance.Address]chan struct{}),
-		checkDelay:      timeout.ConnectDelay,
+		checkDelay:      timeout.RetryDelay,
 		checkHostScript: checkHostScript,
 	}
 	defer checker.Kill()
 
-	fmt.Fprintln(ctx.Stderr(), "Waiting for address")
+	fmt.Fprintln(ctx.GetStderr(), "Waiting for address")
 	for {
 		select {
 		case <-pollAddresses.C:

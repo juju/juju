@@ -4,6 +4,8 @@
 package tools_test
 
 import (
+	"strings"
+
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
@@ -41,7 +43,7 @@ func (s *URLsSuite) env(c *gc.C, toolsMetadataURL string) environs.Environ {
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg, configstore.NewMem())
+	env, err := environs.Prepare(cfg, testing.Context(c), configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	return env
 }
@@ -49,6 +51,11 @@ func (s *URLsSuite) env(c *gc.C, toolsMetadataURL string) environs.Environ {
 func (s *URLsSuite) TestToolsURLsNoConfigURL(c *gc.C) {
 	env := s.env(c, "")
 	sources, err := tools.GetMetadataSources(env)
+	c.Assert(err, gc.IsNil)
+	// Put a file in tools since the dummy storage provider requires a
+	// file to exist before the URL can be found. This is to ensure it behaves
+	// the same way as MAAS.
+	err = env.Storage().Put("tools/dummy", strings.NewReader("dummy"), 5)
 	c.Assert(err, gc.IsNil)
 	privateStorageURL, err := env.Storage().URL("tools")
 	c.Assert(err, gc.IsNil)
@@ -59,6 +66,11 @@ func (s *URLsSuite) TestToolsURLsNoConfigURL(c *gc.C) {
 func (s *URLsSuite) TestToolsSources(c *gc.C) {
 	env := s.env(c, "config-tools-metadata-url")
 	sources, err := tools.GetMetadataSources(env)
+	c.Assert(err, gc.IsNil)
+	// Put a file in tools since the dummy storage provider requires a
+	// file to exist before the URL can be found. This is to ensure it behaves
+	// the same way as MAAS.
+	err = env.Storage().Put("tools/dummy", strings.NewReader("dummy"), 5)
 	c.Assert(err, gc.IsNil)
 	privateStorageURL, err := env.Storage().URL("tools")
 	c.Assert(err, gc.IsNil)

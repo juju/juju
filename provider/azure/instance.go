@@ -11,7 +11,6 @@ import (
 
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/common"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker/firewaller"
 )
 
@@ -244,7 +243,7 @@ func (azInstance *azureInstance) Ports(machineId string) (ports []instance.Port,
 		return err
 	})
 	if ports != nil {
-		state.SortPorts(ports)
+		instance.SortPorts(ports)
 	}
 	return ports, err
 }
