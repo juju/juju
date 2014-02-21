@@ -30,7 +30,8 @@ import (
 
 // charmsHandler handles charm upload through HTTPS in the API server.
 type charmsHandler struct {
-	state *state.State
+	state   *state.State
+	dataDir string
 }
 
 func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -449,7 +450,7 @@ func (h *charmsHandler) processGet(r *http.Request) (string, error) {
 
 	// Validate the given file path.
 	name := charm.Quote(curl)
-	bundlePath := filepath.Join("/var/lib/juju/charm-cache/", name) + string(filepath.Separator)
+	bundlePath := filepath.Join(h.dataDir, "charm-get-cache/", name) + string(filepath.Separator)
 	path, err := filepath.Abs(filepath.Join(bundlePath, file))
 	if err != nil {
 		return "", fmt.Errorf("cannot retrieve the charms cache: %v", err)
@@ -504,7 +505,7 @@ func (h *charmsHandler) downloadCharm(name, bundlePath string) error {
 	if err != nil {
 		return errgo.Annotate(err, "cannot read the charm bundle")
 	}
-	if err = os.MkdirAll(bundlePath, 0644); err != nil {
+	if err = os.MkdirAll(bundlePath, 0755); err != nil {
 		return errgo.Annotate(err, "cannot create the charms cache")
 	}
 	if err = bundle.ExpandTo(bundlePath); err != nil {

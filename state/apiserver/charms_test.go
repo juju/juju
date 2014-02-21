@@ -55,13 +55,13 @@ func (s *charmsSuite) TestCharmsServedSecurely(c *gc.C) {
 func (s *charmsSuite) TestRequiresAuth(c *gc.C) {
 	resp, err := s.sendRequest(c, "", "", "GET", s.charmsURI(c, ""), "", nil)
 	c.Assert(err, gc.IsNil)
-	s.assertResponse(c, resp, http.StatusUnauthorized, "unauthorized", "")
+	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "unauthorized")
 }
 
-func (s *charmsSuite) TestUploadRequiresPOST(c *gc.C) {
+func (s *charmsSuite) TestRequiresPOSTorGET(c *gc.C) {
 	resp, err := s.authRequest(c, "PUT", s.charmsURI(c, ""), "", nil)
 	c.Assert(err, gc.IsNil)
-	s.assertResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "PUT"`, "")
+	s.assertErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "PUT"`)
 }
 
 func (s *charmsSuite) TestAuthRequiresUser(c *gc.C) {
@@ -77,18 +77,18 @@ func (s *charmsSuite) TestAuthRequiresUser(c *gc.C) {
 
 	resp, err := s.sendRequest(c, machine.Tag(), password, "GET", s.charmsURI(c, ""), "", nil)
 	c.Assert(err, gc.IsNil)
-	s.assertResponse(c, resp, http.StatusUnauthorized, "unauthorized", "")
+	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "unauthorized")
 
 	// Now try a user login.
 	resp, err = s.authRequest(c, "GET", s.charmsURI(c, ""), "", nil)
 	c.Assert(err, gc.IsNil)
-	s.assertResponse(c, resp, http.StatusBadRequest, "expected url=CharmURL query argument", "")
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected url=CharmURL query argument")
 }
 
 func (s *charmsSuite) TestUploadRequiresSeries(c *gc.C) {
 	resp, err := s.authRequest(c, "POST", s.charmsURI(c, ""), "", nil)
 	c.Assert(err, gc.IsNil)
-	s.assertResponse(c, resp, http.StatusBadRequest, "expected series=URL argument", "")
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected series=URL argument")
 }
 
 func (s *charmsSuite) TestUploadFailsWithInvalidZip(c *gc.C) {
@@ -100,12 +100,12 @@ func (s *charmsSuite) TestUploadFailsWithInvalidZip(c *gc.C) {
 	// check the error at extraction time later.
 	resp, err := s.uploadRequest(c, s.charmsURI(c, "?series=quantal"), true, tempFile.Name())
 	c.Assert(err, gc.IsNil)
-	s.assertResponse(c, resp, http.StatusBadRequest, "cannot open charm archive: zip: not a valid zip file", "")
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, "cannot open charm archive: zip: not a valid zip file")
 
 	// Now try with the default Content-Type.
 	resp, err = s.uploadRequest(c, s.charmsURI(c, "?series=quantal"), false, tempFile.Name())
 	c.Assert(err, gc.IsNil)
-	s.assertResponse(c, resp, http.StatusBadRequest, "expected Content-Type: application/zip, got: application/octet-stream", "")
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected Content-Type: application/zip, got: application/octet-stream")
 }
 
 func (s *charmsSuite) TestUploadBumpsRevision(c *gc.C) {
@@ -124,7 +124,7 @@ func (s *charmsSuite) TestUploadBumpsRevision(c *gc.C) {
 	resp, err := s.uploadRequest(c, s.charmsURI(c, "?series=quantal"), true, ch.Path)
 	c.Assert(err, gc.IsNil)
 	expectedURL := charm.MustParseURL("local:quantal/dummy-2")
-	s.assertResponse(c, resp, http.StatusOK, "", expectedURL.String())
+	s.assertPOSTResponse(c, resp, expectedURL.String())
 	sch, err := s.State.Charm(expectedURL)
 	c.Assert(err, gc.IsNil)
 	c.Assert(sch.URL(), gc.DeepEquals, expectedURL)
@@ -152,7 +152,7 @@ func (s *charmsSuite) TestUploadRespectsLocalRevision(c *gc.C) {
 	resp, err := s.uploadRequest(c, s.charmsURI(c, "?series=quantal"), true, tempFile.Name())
 	c.Assert(err, gc.IsNil)
 	expectedURL := charm.MustParseURL("local:quantal/dummy-123")
-	s.assertResponse(c, resp, http.StatusOK, "", expectedURL.String())
+	s.assertPOSTResponse(c, resp, expectedURL.String())
 	sch, err := s.State.Charm(expectedURL)
 	c.Assert(err, gc.IsNil)
 	c.Assert(sch.URL(), gc.DeepEquals, expectedURL)
@@ -207,7 +207,7 @@ func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *gc.C) {
 	resp, err := s.uploadRequest(c, s.charmsURI(c, "?series=quantal"), true, tempFile.Name())
 	c.Assert(err, gc.IsNil)
 	expectedURL := charm.MustParseURL("local:quantal/dummy-1")
-	s.assertResponse(c, resp, http.StatusOK, "", expectedURL.String())
+	s.assertPOSTResponse(c, resp, expectedURL.String())
 	sch, err := s.State.Charm(expectedURL)
 	c.Assert(err, gc.IsNil)
 	c.Assert(sch.URL(), gc.DeepEquals, expectedURL)
@@ -238,6 +238,55 @@ func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *gc.C) {
 	c.Assert(bundle.Revision(), jc.DeepEquals, sch.Revision())
 	c.Assert(bundle.Meta(), jc.DeepEquals, sch.Meta())
 	c.Assert(bundle.Config(), jc.DeepEquals, sch.Config())
+}
+
+func (s *charmsSuite) TestGetRequiresCharmURL(c *gc.C) {
+	uri := s.charmsURI(c, "?file=hooks/install")
+	resp, err := s.authRequest(c, "GET", uri, "", nil)
+	c.Assert(err, gc.IsNil)
+	s.assertErrorResponse(
+		c, resp, http.StatusBadRequest,
+		"expected url=CharmURL query argument")
+}
+
+func (s *charmsSuite) TestGetRequiresFilePath(c *gc.C) {
+	uri := s.charmsURI(c, "?url=local:precise/ghost-4")
+	resp, err := s.authRequest(c, "GET", uri, "", nil)
+	c.Assert(err, gc.IsNil)
+	s.assertErrorResponse(
+		c, resp, http.StatusBadRequest,
+		"expected file=path/to/file query argument")
+}
+
+func (s *charmsSuite) TestGetFailsWithInvalidCharmURL(c *gc.C) {
+	uri := s.charmsURI(c, "?url=local:precise/no-such&file=hooks/install")
+	resp, err := s.authRequest(c, "GET", uri, "", nil)
+	c.Assert(err, gc.IsNil)
+	s.assertErrorResponse(
+		c, resp, http.StatusBadRequest,
+		"unable to retrieve and save the charm: charm not found in the provider storage: .*")
+}
+
+func (s *charmsSuite) TestGetFailsWithInvalidFilePath(c *gc.C) {
+	uri := s.charmsURI(c, "?url=local:precise/ghost-4&file=../../../../etc/passwd")
+	resp, err := s.authRequest(c, "GET", uri, "", nil)
+	c.Assert(err, gc.IsNil)
+	s.assertErrorResponse(
+		c, resp, http.StatusBadRequest,
+		`invalid file path: "../../../../etc/passwd"`)
+}
+
+func (s *charmsSuite) TestGetReturnsFileContents(c *gc.C) {
+	// Add the dummy charm with revision 1.
+	ch := coretesting.Charms.Bundle(c.MkDir(), "dummy")
+	_, err := s.uploadRequest(
+		c, s.charmsURI(c, "?series=quantal"), true, ch.Path)
+	c.Assert(err, gc.IsNil)
+
+	uri := s.charmsURI(c, "?url=local:quantal/dummy-1&file=hooks/install")
+	resp, err := s.authRequest(c, "GET", uri, "", nil)
+	c.Assert(err, gc.IsNil)
+	s.assertGETResponse(c, resp, "#!/bin/bash\necho \"Done!\"\n")
 }
 
 func (s *charmsSuite) charmsURI(c *gc.C, query string) string {
@@ -278,19 +327,33 @@ func (s *charmsSuite) uploadRequest(c *gc.C, uri string, asZip bool, path string
 	return s.authRequest(c, "POST", uri, contentType, file)
 }
 
-func (s *charmsSuite) assertResponse(c *gc.C, resp *http.Response, expCode int, expError, expCharmURL string) {
+func (s *charmsSuite) assertPOSTResponse(c *gc.C, resp *http.Response, expCharmURL string) {
+	body := assertResponse(c, resp, http.StatusOK)
+	charmResponse := jsonResponse(c, body)
+	c.Check(charmResponse.Error, gc.Equals, "")
+	c.Check(charmResponse.CharmURL, gc.Equals, expCharmURL)
+}
+
+func (s *charmsSuite) assertGETResponse(c *gc.C, resp *http.Response, expBody string) {
+	body := assertResponse(c, resp, http.StatusOK)
+	c.Check(string(body), gc.Equals, expBody)
+}
+
+func (s *charmsSuite) assertErrorResponse(c *gc.C, resp *http.Response, expCode int, expError string) {
+	body := assertResponse(c, resp, expCode)
+	c.Check(jsonResponse(c, body).Error, gc.Matches, expError)
+}
+
+func assertResponse(c *gc.C, resp *http.Response, expCode int) []byte {
+	c.Check(resp.StatusCode, gc.Equals, expCode)
 	body, err := ioutil.ReadAll(resp.Body)
 	defer resp.Body.Close()
 	c.Assert(err, gc.IsNil)
-	var jsonResponse params.CharmsResponse
-	err = json.Unmarshal(body, &jsonResponse)
+	return body
+}
+
+func jsonResponse(c *gc.C, body []byte) (jsonResponse params.CharmsResponse) {
+	err := json.Unmarshal(body, &jsonResponse)
 	c.Assert(err, gc.IsNil)
-	if expError != "" {
-		c.Check(jsonResponse.Error, gc.Matches, expError)
-		c.Check(jsonResponse.CharmURL, gc.Equals, "")
-	} else {
-		c.Check(jsonResponse.Error, gc.Equals, "")
-		c.Check(jsonResponse.CharmURL, gc.Equals, expCharmURL)
-	}
-	c.Check(resp.StatusCode, gc.Equals, expCode)
+	return
 }
