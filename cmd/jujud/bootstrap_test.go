@@ -85,13 +85,14 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, args ...string) (machineC
 	// NOTE: the old test used an equivalent of the NewAgentConfig, but it
 	// really should be using NewStateMachineConfig.
 	params := agent.AgentConfigParams{
-		DataDir:        s.dataDir,
-		Tag:            "bootstrap",
-		Password:       testPasswordHash(),
-		Nonce:          state.BootstrapNonce,
-		StateAddresses: []string{testing.MgoServer.Addr()},
-		APIAddresses:   []string{"0.1.2.3:1234"},
-		CACert:         []byte(testing.CACert),
+		DataDir:           s.dataDir,
+		Tag:               "bootstrap",
+		UpgradedToVersion: version.Current.Number,
+		Password:          testPasswordHash(),
+		Nonce:             state.BootstrapNonce,
+		StateAddresses:    []string{testing.MgoServer.Addr()},
+		APIAddresses:      []string{"0.1.2.3:1234"},
+		CACert:            []byte(testing.CACert),
 	}
 	bootConf, err := agent.NewAgentConfig(params)
 	c.Assert(err, gc.IsNil)
