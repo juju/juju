@@ -25,6 +25,7 @@ import (
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/provider/dummy"
+	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
@@ -171,7 +172,7 @@ func (s *SimpleStreamsToolsSuite) resetEnv(c *gc.C, attrs map[string]interface{}
 	dummy.Reset()
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(attrs))
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg, configstore.NewMem())
+	env, err := environs.Prepare(cfg, testing.Context(c), configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	s.env = env
 	s.removeTools(c)

@@ -67,15 +67,14 @@ func CheckTools(c *gc.C, obtained, expected *coretools.Tools) {
 	}
 }
 
-// CheckUpgraderReadyError ensures the obtained and expected errors are equal, allowing for the fact that
-// the error's tools attributes may not have size and checksum set.
+// CheckUpgraderReadyError ensures the obtained and expected errors are equal.
 func CheckUpgraderReadyError(c *gc.C, obtained error, expected *upgrader.UpgradeReadyError) {
 	c.Assert(obtained, gc.FitsTypeOf, &upgrader.UpgradeReadyError{})
 	err := obtained.(*upgrader.UpgradeReadyError)
 	c.Assert(err.AgentName, gc.Equals, expected.AgentName)
 	c.Assert(err.DataDir, gc.Equals, expected.DataDir)
-	CheckTools(c, err.OldTools, expected.OldTools)
-	CheckTools(c, err.NewTools, expected.NewTools)
+	c.Assert(err.OldTools, gc.Equals, expected.OldTools)
+	c.Assert(err.NewTools, gc.Equals, expected.NewTools)
 }
 
 // PrimeTools sets up the current version of the tools to vers and
@@ -83,7 +82,6 @@ func CheckUpgraderReadyError(c *gc.C, obtained error, expected *upgrader.Upgrade
 func PrimeTools(c *gc.C, stor storage.Storage, dataDir string, vers version.Binary) *coretools.Tools {
 	err := os.RemoveAll(filepath.Join(dataDir, "tools"))
 	c.Assert(err, gc.IsNil)
-	version.Current = vers
 	agentTools, err := uploadFakeToolsVersion(stor, vers)
 	c.Assert(err, gc.IsNil)
 	resp, err := http.Get(agentTools.URL)

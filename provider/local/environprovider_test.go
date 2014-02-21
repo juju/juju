@@ -215,7 +215,7 @@ Acquire::magic::Proxy "none";
 			testConfig, err = baseConfig.Apply(test.extraConfig)
 			c.Assert(err, gc.IsNil)
 		}
-		env, err := provider.Prepare(testConfig)
+		env, err := provider.Prepare(testing.Context(c), testConfig)
 		c.Assert(err, gc.IsNil)
 
 		envConfig := env.Config()
@@ -269,7 +269,7 @@ func (s *prepareSuite) TestPrepareNamespace(c *gc.C) {
 		s.PatchValue(local.UserCurrent, func() (*user.User, error) {
 			return &user.User{Username: test.userOS}, test.userOSErr
 		})
-		env, err := provider.Prepare(basecfg)
+		env, err := provider.Prepare(testing.Context(c), basecfg)
 		if test.err == "" {
 			c.Assert(err, gc.IsNil)
 			cfg := env.Config()

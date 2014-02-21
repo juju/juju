@@ -5,9 +5,8 @@ import (
 	"testing"
 	"time"
 
-	gc "launchpad.net/gocheck"
-
 	"labix.org/v2/mgo"
+	gc "launchpad.net/gocheck"
 
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"

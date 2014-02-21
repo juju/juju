@@ -6,7 +6,6 @@ package testing
 import (
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 
 	gc "launchpad.net/gocheck"
@@ -77,5 +76,5 @@ func InstallFakeSSH(c *gc.C, input, output interface{}, rc int) testbase.Restore
 	script := fmt.Sprintf(sshscript, stdout, stderr, rc)
 	err := ioutil.WriteFile(ssh, []byte(script), 0777)
 	c.Assert(err, gc.IsNil)
-	return testbase.PatchEnvironment("PATH", fakebin+":"+os.Getenv("PATH"))
+	return testbase.PatchEnvPathPrepend(fakebin)
 }

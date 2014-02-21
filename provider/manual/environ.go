@@ -58,7 +58,6 @@ type manualEnviron struct {
 	ubuntuUserInitMutex sync.Mutex
 }
 
-var _ environs.BootstrapStorager = (*manualEnviron)(nil)
 var _ envtools.SupportsCustomSources = (*manualEnviron)(nil)
 
 var errNoStartInstance = errors.New("manual provider cannot start instances")
@@ -91,29 +90,7 @@ func (e *manualEnviron) Name() string {
 	return e.envConfig().Name()
 }
 
-var initUbuntuUser = manual.InitUbuntuUser
-
-func (e *manualEnviron) ensureBootstrapUbuntuUser(ctx environs.BootstrapContext) error {
-	e.ubuntuUserInitMutex.Lock()
-	defer e.ubuntuUserInitMutex.Unlock()
-	if e.ubuntuUserInited {
-		return nil
-	}
-	cfg := e.envConfig()
-	err := initUbuntuUser(cfg.bootstrapHost(), cfg.bootstrapUser(), cfg.AuthorizedKeys(), ctx.Stdin(), ctx.Stdout())
-	if err != nil {
-		logger.Errorf("initializing ubuntu user: %v", err)
-		return err
-	}
-	logger.Infof("initialized ubuntu user")
-	e.ubuntuUserInited = true
-	return nil
-}
-
 func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
-	if err := e.ensureBootstrapUbuntuUser(ctx); err != nil {
-		return err
-	}
 	// Set "use-sshstorage" to false, so agents know not to use sshstorage.
 	cfg, err := e.Config().Apply(map[string]interface{}{"use-sshstorage": false})
 	if err != nil {
@@ -218,11 +195,6 @@ var newSSHStorage = func(sshHost, storageDir, storageTmpdir string) (storage.Sto
 	})
 }
 
-// Implements environs.BootstrapStorager.
-func (e *manualEnviron) EnableBootstrapStorage(ctx environs.BootstrapContext) error {
-	return e.ensureBootstrapUbuntuUser(ctx)
-}
-
 // GetToolsSources returns a list of sources which are
 // used to search for simplestreams tools metadata.
 func (e *manualEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
@@ -257,6 +229,10 @@ func (e *manualEnviron) Destroy() error {
 		}
 	}
 	return err
+}
+
+func (*manualEnviron) PrecheckInstance(series string, cons constraints.Value) error {
+	return errors.New(`use "juju add-machine ssh:[user@]<host>" to provision machines`)
 }
 
 func (e *manualEnviron) OpenPorts(ports []instance.Port) error {

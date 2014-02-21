@@ -252,21 +252,6 @@ func (s *localServerSuite) TearDownTest(c *gc.C) {
 	s.LoggingSuite.TearDownTest(c)
 }
 
-func bootstrapContext(c *gc.C) environs.BootstrapContext {
-	return envtesting.NewBootstrapContext(coretesting.Context(c))
-}
-
-func (s *localServerSuite) TestPrecheck(c *gc.C) {
-	var cons constraints.Value
-	env := s.Prepare(c)
-	prechecker, ok := env.(environs.Prechecker)
-	c.Assert(ok, jc.IsTrue)
-	err := prechecker.PrecheckInstance("precise", cons)
-	c.Check(err, gc.IsNil)
-	err = prechecker.PrecheckContainer("precise", instance.LXC)
-	c.Check(err, gc.ErrorMatches, "openstack provider does not support containers")
-}
-
 // If the bootstrap node is configured to require a public IP address,
 // bootstrapping fails if an address cannot be allocated.
 func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *gc.C) {
@@ -285,7 +270,7 @@ func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*cannot allocate a public IP as needed(.|\n)*")
 }
 
@@ -312,9 +297,9 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 		"use-floating-ip": false,
 	}))
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg, s.ConfigStore)
+	env, err := environs.Prepare(cfg, coretesting.Context(c), s.ConfigStore)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	inst, _ := testing.AssertStartInstance(c, env, "100")
 	err = env.StopInstances([]instance.Instance{inst})
@@ -323,7 +308,7 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 
 func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := s.Prepare(c)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	_, hc := testing.AssertStartInstanceWithConstraints(c, env, "100", constraints.MustParse("mem=1024"))
 	c.Check(*hc.Arch, gc.Equals, "amd64")
@@ -522,7 +507,7 @@ func (s *localServerSuite) TestInstancesBuildSpawning(c *gc.C) {
 // It should be moved to environs.jujutests.Tests.
 func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := s.Prepare(c)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
@@ -760,7 +745,7 @@ func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
 	c.Assert(attrs["auth-url"].(string)[:8], gc.Equals, "https://")
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-	s.env, err = environs.Prepare(cfg, configstore.NewMem())
+	s.env, err = environs.Prepare(cfg, coretesting.Context(c), configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	s.attrs = s.env.Config().AllAttrs()
 }
@@ -817,7 +802,7 @@ func (s *localHTTPSServerSuite) TestCanBootstrap(c *gc.C) {
 	openstack.UseTestImageData(metadataStorage, s.cred)
 	defer openstack.RemoveTestImageData(metadataStorage)
 
-	err = bootstrap.Bootstrap(bootstrapContext(c), s.env, constraints.Value{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), s.env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 }
 
@@ -960,7 +945,7 @@ func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
 
 func (s *localServerSuite) TestAllInstancesIgnoresOtherMachines(c *gc.C) {
 	env := s.Prepare(c)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
 	// Check that we see 1 instance in the environment

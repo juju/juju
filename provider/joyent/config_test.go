@@ -286,7 +286,7 @@ func (s *ConfigSuite) TestPrepare(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
 		testConfig := newConfig(c, attrs)
-		preparedConfig, err := joyent.Provider.Prepare(testConfig)
+		preparedConfig, err := joyent.Provider.Prepare(testing.Context(c), testConfig)
 		if test.err == "" {
 			c.Assert(err, gc.IsNil)
 			attrs := preparedConfig.Config().AllAttrs()

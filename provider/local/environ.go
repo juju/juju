@@ -82,18 +82,6 @@ func (env *localEnviron) rsyslogConfPath() string {
 	return fmt.Sprintf("/etc/rsyslog.d/25-juju-%s.conf", env.config.namespace())
 }
 
-// PrecheckInstance is specified in the environs.Prechecker interface.
-func (*localEnviron) PrecheckInstance(series string, cons constraints.Value) error {
-	return nil
-}
-
-// PrecheckContainer is specified in the environs.Prechecker interface.
-func (*localEnviron) PrecheckContainer(series string, kind instance.ContainerType) error {
-	// This check can either go away or be relaxed when the local
-	// provider can do nested containers.
-	return environs.NewContainersUnsupported("local provider does not support nested containers")
-}
-
 func ensureNotRoot() error {
 	if checkIfRoot() {
 		return fmt.Errorf("bootstrapping a local environment must not be done as root")
@@ -195,8 +183,8 @@ var finishBootstrap = func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudini
 	}
 	cmd := exec.Command("sudo", "/bin/bash", "-s")
 	cmd.Stdin = strings.NewReader(script)
-	cmd.Stdout = ctx.Stdout()
-	cmd.Stderr = ctx.Stderr()
+	cmd.Stdout = ctx.GetStdout()
+	cmd.Stderr = ctx.GetStderr()
 	return cmd.Run()
 }
 

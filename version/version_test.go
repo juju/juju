@@ -5,11 +5,12 @@ package version_test
 
 import (
 	"encoding/json"
-	"labix.org/v2/mgo/bson"
 	"strings"
 	"testing"
 
+	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/version"
 )
 
@@ -24,58 +25,33 @@ func Test(t *testing.T) {
 // N.B. The FORCE-VERSION logic is tested in the environs package.
 
 var cmpTests = []struct {
-	v1, v2 string
-	less   bool
-	eq     bool
+	v1, v2  string
+	compare int
 }{
-	{"1.0.0", "1.0.0", false, true},
-	{"01.0.0", "1.0.0", false, true},
-	{"10.0.0", "9.0.0", false, false},
-	{"1.0.0", "1.0.1", true, false},
-	{"1.0.1", "1.0.0", false, false},
-	{"1.0.0", "1.1.0", true, false},
-	{"1.1.0", "1.0.0", false, false},
-	{"1.0.0", "2.0.0", true, false},
-	{"2.0.0", "1.0.0", false, false},
-	{"2.0.0.0", "2.0.0", false, true},
-	{"2.0.0.0", "2.0.0.0", false, true},
-	{"2.0.0.1", "2.0.0.0", false, false},
-	{"2.0.1.10", "2.0.0.0", false, false},
+	{"1.0.0", "1.0.0", 0},
+	{"01.0.0", "1.0.0", 0},
+	{"10.0.0", "9.0.0", 1},
+	{"1.0.0", "1.0.1", -1},
+	{"1.0.1", "1.0.0", 1},
+	{"1.0.0", "1.1.0", -1},
+	{"1.1.0", "1.0.0", 1},
+	{"1.0.0", "2.0.0", -1},
+	{"2.0.0", "1.0.0", 1},
+	{"2.0.0.0", "2.0.0", 0},
+	{"2.0.0.0", "2.0.0.0", 0},
+	{"2.0.0.1", "2.0.0.0", 1},
+	{"2.0.1.10", "2.0.0.0", 1},
 }
 
-func (suite) TestLess(c *gc.C) {
+func (suite) TestCompare(c *gc.C) {
 	for i, test := range cmpTests {
 		c.Logf("test %d", i)
 		v1, err := version.Parse(test.v1)
 		c.Assert(err, gc.IsNil)
 		v2, err := version.Parse(test.v2)
 		c.Assert(err, gc.IsNil)
-		less := v1.Less(v2)
-		gt := v2.Less(v1)
-		c.Check(less, gc.Equals, test.less)
-		if test.eq {
-			c.Check(gt, gc.Equals, false)
-		} else {
-			c.Check(gt, gc.Equals, !test.less)
-		}
-	}
-}
-
-func (suite) TestLessEqual(c *gc.C) {
-	for i, test := range cmpTests {
-		c.Logf("test %d", i)
-		v1, err := version.Parse(test.v1)
-		c.Assert(err, gc.IsNil)
-		v2, err := version.Parse(test.v2)
-		c.Assert(err, gc.IsNil)
-		lessEqual := v1.LessEqual(v2)
-		gt := v2.LessEqual(v1)
-		c.Check(lessEqual, gc.Equals, test.eq || test.less)
-		if test.eq {
-			c.Check(lessEqual, gc.Equals, true)
-		} else {
-			c.Check(gt, gc.Equals, !test.less)
-		}
+		compare := v1.Compare(v2)
+		c.Check(compare, gc.Equals, test.compare)
 	}
 }
 

@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"sort"
 
-	"launchpad.net/juju-core/replicaset"
 	"launchpad.net/loggo"
+
+	"launchpad.net/juju-core/replicaset"
 )
 
 var logger = loggo.GetLogger("juju.worker.peergrouper")

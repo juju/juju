@@ -11,9 +11,10 @@
 package checkers_test
 
 import (
-	"launchpad.net/juju-core/testing/checkers"
 	"regexp"
 	"testing"
+
+	"launchpad.net/juju-core/testing/checkers"
 )
 
 func deepEqual(a1, a2 interface{}) bool {
