@@ -209,7 +209,7 @@ func (s *localServerSuite) TearDownTest(c *gc.C) {
 }
 
 func bootstrapContext(c *gc.C) environs.BootstrapContext {
-	return envtesting.NewBootstrapContext(coretesting.Context(c))
+	return coretesting.Context(c)
 }
 
 // If the environment is configured not to require a public IP address for nodes,
@@ -218,7 +218,7 @@ func bootstrapContext(c *gc.C) environs.BootstrapContext {
 func (s *localServerSuite) TestStartInstance(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, s.TestConfig)
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg, s.ConfigStore)
+	env, err := environs.Prepare(cfg, bootstrapContext(c), s.ConfigStore)
 	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
 	c.Assert(err, gc.IsNil)

@@ -302,11 +302,12 @@ var prepareConfigTests = []struct {
 }}
 
 func (s *ConfigSuite) TestPrepare(c *gc.C) {
+	ctx := testing.Context(c)
 	for i, test := range prepareConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
 		testConfig := newConfig(c, attrs)
-		preparedConfig, err := jp.Provider.Prepare(testConfig)
+		preparedConfig, err := jp.Provider.Prepare(ctx, testConfig)
 		if test.err == "" {
 			c.Assert(err, gc.IsNil)
 			attrs := preparedConfig.Config().AllAttrs()
