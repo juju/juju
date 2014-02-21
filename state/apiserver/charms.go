@@ -473,10 +473,6 @@ func (h *charmsHandler) processGet(r *http.Request) (string, error) {
 // downloadCharm downloads the given charm name from the provider storage and
 // extracts the corresponding bundle to the given bundlePath.
 func (h *charmsHandler) downloadCharm(name, bundlePath string) error {
-	if err := os.MkdirAll(bundlePath, 0644); err != nil {
-		return errgo.Annotate(err, "cannot create the charms cache")
-	}
-
 	// Get the provider storage.
 	storage, err := envtesting.GetEnvironStorage(h.state)
 	if err != nil {
@@ -499,8 +495,7 @@ func (h *charmsHandler) downloadCharm(name, bundlePath string) error {
 	}
 	defer tempCharm.Close()
 	defer os.Remove(tempCharm.Name())
-	err = ioutil.WriteFile(tempCharm.Name(), data, 0644)
-	if err != nil {
+	if err = ioutil.WriteFile(tempCharm.Name(), data, 0644); err != nil {
 		return errgo.Annotate(err, "error processing charm archive download")
 	}
 
@@ -509,8 +504,11 @@ func (h *charmsHandler) downloadCharm(name, bundlePath string) error {
 	if err != nil {
 		return errgo.Annotate(err, "cannot read the charm bundle")
 	}
-	err = bundle.ExpandTo(bundlePath)
-	if err != nil {
+	if err = os.MkdirAll(bundlePath, 0644); err != nil {
+		return errgo.Annotate(err, "cannot create the charms cache")
+	}
+	if err = bundle.ExpandTo(bundlePath); err != nil {
+		defer os.RemoveAll(bundlePath)
 		return errgo.Annotate(err, "error expanding the bundle")
 	}
 	return nil
