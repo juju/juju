@@ -221,12 +221,26 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	}
 
 	// Get a connection to state.
-	apiState, m, err := a.openAPIConnection()
-	if err != nil {
+	apiState, entity, err := a.openAPIConnection()
+	if err != nil && err != worker.ErrTerminateAgent {
 		return err
 	}
-	defer apiState.Close()
+	if err == nil {
+		defer apiState.Close()
+		a.startWorkers(apiState, entity)
+		// And now we wait.....
+		err = a.runner.Wait()
+	}
 
+	if err == worker.ErrTerminateAgent {
+		err = a.uninstallAgent()
+	}
+	err = agentDone(err)
+	a.tomb.Kill(err)
+	return err
+}
+
+func (a *MachineAgent) startWorkers(apiState *api.State, entity *apiagent.Entity) {
 	// apiWorkerRunner is a runner which terminates when connection to state closes.
 	apiWorkerRunner := newRunner(connectionIsFatal(apiState), moreImportant)
 
@@ -241,11 +255,11 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	// Run the upgrades before starting any other workers.
 	a.upgradeComplete = make(chan struct{})
 	a.runner.StartWorker("upgrade-steps", func() (worker.Worker, error) {
-		return a.upgradeWorker(apiState, m.Jobs()), nil
+		return a.upgradeWorker(apiState, entity.Jobs()), nil
 	})
 
 	// Start the workers which require direct access to state.
-	for _, job := range m.Jobs() {
+	for _, job := range entity.Jobs() {
 		if job.NeedsState() {
 			a.startWorker(a.runner, "state", a.StateWorker)
 			break
@@ -253,21 +267,12 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	}
 	// Start the workers which require an API connection.
 	a.startWorker(a.runner, "api", func() (worker.Worker, error) {
-		return a.APIWorker(apiWorkerRunner, m)
+		return a.APIWorker(apiWorkerRunner, entity)
 	})
 	// Finally, the termination worker.
 	a.startWorker(a.runner, "termination", func() (worker.Worker, error) {
 		return terminationworker.NewWorker(), nil
 	})
-
-	// And now we wait.....
-	err = a.runner.Wait()
-	if err == worker.ErrTerminateAgent {
-		err = a.uninstallAgent()
-	}
-	err = agentDone(err)
-	a.tomb.Kill(err)
-	return err
 }
 
 func (a *MachineAgent) openStateConnection() (*state.State, *state.Machine, error) {

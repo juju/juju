@@ -49,7 +49,6 @@ func (s *UpgradeSuite) TestUpgradeStepsHostMachine(c *gc.C) {
 	// We need to first start up a state server that thinks it has already been upgraded.
 	ss, _, _ := s.primeAgent(c, s.upgradeToVersion, state.JobManageEnviron)
 	a := s.newAgent(c, ss)
-	//	go func() { c.Check(a.Run(nil), gc.IsNil) }()
 	go func() { a.Run(nil) }()
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()
 	// Now run the test.
