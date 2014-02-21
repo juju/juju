@@ -181,7 +181,7 @@ else
     testing_to_streams
     testing_to_canonistack
     testing_to_hp
-    #testing_to_aws
-    #testing_to_azure
+    testing_to_aws
+    testing_to_azure
     echo "Testing data published to all CPCs."
 fi
