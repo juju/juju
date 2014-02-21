@@ -257,13 +257,12 @@ func (s *UpstartSuite) TestInstallAlreadyRunning(c *gc.C) {
 
 func (s *UpstartSuite) TestJujuMongodPath(c *gc.C) {
 	d := c.MkDir()
-	defer os.Remove(d)
+	defer os.RemoveAll(d)
 	mongoPath := filepath.Join(d, "mongod")
 	upstart.JujuMongodPath = mongoPath
 
 	err := ioutil.WriteFile(mongoPath, []byte{}, 0777)
 	c.Assert(err, gc.IsNil)
-	defer os.Remove(mongoPath)
 
 	obtained := upstart.MongodPath()
 	c.Assert(obtained, gc.Equals, mongoPath)
