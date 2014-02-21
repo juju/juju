@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 )
 
 var logger = loggo.GetLogger("juju.agent")
@@ -88,6 +89,14 @@ type Config interface {
 	// APIServerDetails returns the details needed to run an API server.
 	APIServerDetails() (port int, cert, key []byte)
 
+	// UpgradedToVersion returns the version for which all upgrade steps have been
+	// successfully run, which is also the same as the initially deployed version.
+	UpgradedToVersion() version.Number
+
+	// WriteUpgradedToVersion updates the config's UpgradedToVersion and writes
+	// the new agent configuration.
+	WriteUpgradedToVersion(newVersion version.Number) error
+
 	// Value returns the value associated with the key, or an empty string if
 	// the key is not found.
 	Value(key string) string
@@ -122,17 +131,18 @@ type connectionDetails struct {
 }
 
 type configInternal struct {
-	dataDir         string
-	tag             string
-	nonce           string
-	caCert          []byte
-	stateDetails    *connectionDetails
-	apiDetails      *connectionDetails
-	oldPassword     string
-	stateServerCert []byte
-	stateServerKey  []byte
-	apiPort         int
-	values          map[string]string
+	dataDir           string
+	tag               string
+	upgradedToVersion version.Number
+	nonce             string
+	caCert            []byte
+	stateDetails      *connectionDetails
+	apiDetails        *connectionDetails
+	oldPassword       string
+	stateServerCert   []byte
+	stateServerKey    []byte
+	apiPort           int
+	values            map[string]string
 }
 
 type AgentConfigParams struct {
@@ -164,12 +174,13 @@ func NewAgentConfig(params AgentConfigParams) (Config, error) {
 	// Note that the password parts of the state and api information are
 	// blank.  This is by design.
 	config := &configInternal{
-		dataDir:     params.DataDir,
-		tag:         params.Tag,
-		nonce:       params.Nonce,
-		caCert:      params.CACert,
-		oldPassword: params.Password,
-		values:      params.Values,
+		dataDir:           params.DataDir,
+		tag:               params.Tag,
+		upgradedToVersion: version.Current.Number,
+		nonce:             params.Nonce,
+		caCert:            params.CACert,
+		oldPassword:       params.Password,
+		values:            params.Values,
 	}
 	if len(params.StateAddresses) > 0 {
 		config.stateDetails = &connectionDetails{
@@ -279,6 +290,10 @@ func (c *configInternal) Nonce() string {
 	return c.nonce
 }
 
+func (c *configInternal) UpgradedToVersion() version.Number {
+	return c.upgradedToVersion
+}
+
 func (c *configInternal) CACert() []byte {
 	// Give the caller their own copy of the cert to avoid any possibility of
 	// modifying the config's copy.
@@ -386,6 +401,11 @@ func (c *configInternal) Write() error {
 	configMutex.Lock()
 	defer configMutex.Unlock()
 	return currentFormatter.write(c)
+}
+
+func (c *configInternal) WriteUpgradedToVersion(newVersion version.Number) error {
+	c.upgradedToVersion = newVersion
+	return c.Write()
 }
 
 func (c *configInternal) WriteCommands() ([]string, error) {
