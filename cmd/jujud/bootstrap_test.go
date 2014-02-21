@@ -15,7 +15,6 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
-	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -25,6 +24,7 @@ import (
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 )
 
 // We don't want to use JujuConnSuite because it gives us
