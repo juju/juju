@@ -206,7 +206,6 @@ class Environment:
         self.environment = environment
         self.client = client
         self.config = config
-        self.provider_type = self.config.get('type')
         if self.config is not None:
             self.local = bool(self.config.get('type') == 'local')
             self.hpcloud = bool(
@@ -214,10 +213,6 @@ class Environment:
         else:
             self.local = False
             self.hpcloud = False
-
-    @property
-    def extended_version(self):
-        return self.provider_type in ('local', 'manual', 'null')
 
     @classmethod
     def from_config(cls, name):
@@ -279,7 +274,7 @@ class Environment:
 
     def get_matching_agent_version(self, no_build=False):
         version_number = self.client.version.split('-')[0]
-        if not no_build and self.extended_version:
+        if not no_build and self.local:
             version_number += '.1'
         return version_number
 

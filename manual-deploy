@@ -23,8 +23,9 @@ environments:
     type: manual
     bootstrap-host: $machine_0_name
     bootstrap-user: ubuntu
+    tools-metadata-url: http://juju-dist.s3.amazonaws.com/testing/tools
 EOT
-juju bootstrap --show-log -e manual --upload-tools
+juju bootstrap --show-log -e manual
 $SCRIPTS/wait-for-port $machine_0_name 8040
 
 for machine in $machine_1_name $machine_2_name; do
