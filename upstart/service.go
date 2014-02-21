@@ -16,15 +16,16 @@ const (
 	maxAgentFiles = 20000
 )
 
-// mongod path bundled specifically for juju
-var jujuMongodPath = "/usr/lib/juju/bin/mongod"
+// JujuMongodPath is the path of the mongod that is bundled specifically for juju.
+// This value is public only for testing purposes, please do not change.
+var JujuMongodPath = "/usr/lib/juju/bin/mongod"
 
 // MongoPath returns the executable path to be used to run mongod on this machine.
 // If the juju-bundled version of mongo exists, it will return that path, otherwise
 // it will return the command to run mongod from the path.
 func MongodPath() string {
-	if _, err := os.Stat(jujuMongodPath); err == nil {
-		return jujuMongodPath
+	if _, err := os.Stat(JujuMongodPath); err == nil {
+		return JujuMongodPath
 	}
 
 	// just use whatever is in the path

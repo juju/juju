@@ -90,8 +90,8 @@ func verifyMongod() error {
 		return err
 	}
 	if ver.Compare(lowestMongoVersion) < 0 {
-		return fmt.Errorf("Installed version of mongod (%v) is not supported by Juju. "+
-			" Juju requires version %v or greater.",
+		return fmt.Errorf("installed version of mongod (%v) is not supported by Juju. "+
+			"Juju requires version %v or greater.",
 			ver,
 			lowestMongoVersion)
 	}
@@ -110,7 +110,7 @@ func mongodVersion(path string) (version.Number, error) {
 func parseVersion(data string) (version.Number, error) {
 	matches := mongoVerRegex.FindStringSubmatch(data)
 	if len(matches) < 2 {
-		return version.Zero, errors.New("Couldn't parse version")
+		return version.Zero, errors.New("could not parse mongod version")
 	}
 	return version.Parse(matches[1])
 }

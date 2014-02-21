@@ -13,6 +13,7 @@ import (
 
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/version"
 )
 
@@ -43,6 +44,8 @@ func (s *prereqsSuite) SetUpTest(c *gc.C) {
 	s.testMongodPath = filepath.Join(s.tmpdir, "mongod")
 	lxclsPath = filepath.Join(s.tmpdir, "lxc-ls")
 	s.PatchEnvironment("PATH", s.tmpdir)
+
+	upstart.JujuMongodPath = "/somewhere/that/doesnt/exist"
 
 	os.Setenv("JUJUTEST_LSB_RELEASE_ID", "Ubuntu")
 	err := ioutil.WriteFile(filepath.Join(s.tmpdir, "lsb_release"), []byte(lsbrelease), 0777)
@@ -102,8 +105,8 @@ func (s *prereqsSuite) TestVerifyMongod(c *gc.C) {
 	s.setMongoVersion(2, 2, 2)
 	c.Assert(verifyMongod(), gc.IsNil)
 
-	expected := fmt.Sprintf("Installed version of mongod .* is not supported by Juju. "+
-		" Juju requires version %v or greater.", lowver)
+	expected := fmt.Sprintf("installed version of mongod .* is not supported by Juju. "+
+		"Juju requires version %v or greater.", lowver)
 
 	s.setMongoVersion(2, 2, 1)
 	c.Assert(verifyMongod(), gc.ErrorMatches, expected)
@@ -126,7 +129,7 @@ Thu Feb 13 15:53:58.210 git version: b9925db5eac369d77a3a5f5d98a145eaaacd9673
 
 	data = "this is total garbage"
 	v, err = parseVersion(data)
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, gc.ErrorMatches, "could not parse mongod version")
 	c.Assert(v, gc.Equals, version.Zero)
 }
 
