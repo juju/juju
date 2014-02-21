@@ -41,13 +41,26 @@ func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case "POST":
+		// Add a local charm to the store provider.
+		// Requires a "series" query specifying the series to use for the charm.
 		charmURL, err := h.processPost(r)
 		if err != nil {
 			h.sendError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		h.sendJSON(w, http.StatusOK, &params.CharmsResponse{CharmURL: charmURL.String()})
-	// Possible future extensions, like GET.
+	case "GET":
+		// Retrieve a charm file.
+		// Requires "url" (charm URL) and a "file" (the path to the file) to be
+		// included in the query.
+		path, err := h.processGet(r)
+		if err != nil {
+			h.sendError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		// Serve the static path. If the path does not exist, the ServeFile
+		// call will return a 404 response.
+		http.ServeFile(w, r, path)
 	default:
 		h.sendError(w, http.StatusMethodNotAllowed, fmt.Sprintf("unsupported method: %q", r.Method))
 	}
@@ -113,7 +126,7 @@ func (h *charmsHandler) processPost(r *http.Request) (*charm.URL, error) {
 	query := r.URL.Query()
 	series := query.Get("series")
 	if series == "" {
-		return nil, fmt.Errorf("expected series= URL argument")
+		return nil, fmt.Errorf("expected series=URL argument")
 	}
 	// Make sure the content type is zip.
 	contentType := r.Header.Get("Content-Type")
@@ -416,6 +429,87 @@ func (h *charmsHandler) repackageAndUploadCharm(archive *charm.Bundle, curl *cha
 	_, err = h.state.UpdateUploadedCharm(archive, curl, bundleURL, bundleSHA256)
 	if err != nil {
 		return errgo.Annotate(err, "cannot update uploaded charm in state")
+	}
+	return nil
+}
+
+// processGet handles a charm file download GET request after authentication.
+func (h *charmsHandler) processGet(r *http.Request) (string, error) {
+	query := r.URL.Query()
+
+	// Retrieve query parameters.
+	curl := query.Get("url")
+	if curl == "" {
+		return "", fmt.Errorf("expected url=CharmURL query argument")
+	}
+	file := query.Get("file")
+	if file == "" {
+		return "", fmt.Errorf("expected file=path/to/file query argument")
+	}
+
+	// Validate the given file path.
+	name := charm.Quote(curl)
+	bundlePath := filepath.Join("/var/lib/juju/charm-cache/", name) + string(filepath.Separator)
+	path, err := filepath.Abs(filepath.Join(bundlePath, file))
+	if err != nil {
+		return "", fmt.Errorf("cannot retrieve the charms cache: %v", err)
+	}
+	if !strings.HasPrefix(path, bundlePath) {
+		return "", fmt.Errorf("invalid file path: %q", file)
+	}
+
+	// Check if the charm bundle is already in the cache.
+	if _, err = os.Stat(bundlePath); os.IsNotExist(err) {
+		// Download the charm and extract the bundle.
+		if err = h.downloadCharm(name, bundlePath); err != nil {
+			return "", fmt.Errorf("unable to retrieve and save the charm: %v", err)
+		}
+	} else if err != nil {
+		return "", fmt.Errorf("cannot access the charms cache: %v", err)
+	}
+	return path, nil
+}
+
+// downloadCharm downloads the given charm name from the provider storage and
+// extracts the corresponding bundle to the given bundlePath.
+func (h *charmsHandler) downloadCharm(name, bundlePath string) error {
+	// Get the provider storage.
+	storage, err := envtesting.GetEnvironStorage(h.state)
+	if err != nil {
+		return errgo.Annotate(err, "cannot access provider storage")
+	}
+
+	// Use the storage to retrieve and save the charm archive.
+	reader, err := storage.Get(name)
+	if err != nil {
+		return errgo.Annotate(err, "charm not found in the provider storage")
+	}
+	defer reader.Close()
+	data, err := ioutil.ReadAll(reader)
+	if err != nil {
+		return errgo.Annotate(err, "cannot read charm data")
+	}
+	tempCharm, err := ioutil.TempFile("", "charm")
+	if err != nil {
+		return errgo.Annotate(err, "cannot create charm archive temp file")
+	}
+	defer tempCharm.Close()
+	defer os.Remove(tempCharm.Name())
+	if err = ioutil.WriteFile(tempCharm.Name(), data, 0644); err != nil {
+		return errgo.Annotate(err, "error processing charm archive download")
+	}
+
+	// Read and expand the charm bundle.
+	bundle, err := charm.ReadBundle(tempCharm.Name())
+	if err != nil {
+		return errgo.Annotate(err, "cannot read the charm bundle")
+	}
+	if err = os.MkdirAll(bundlePath, 0644); err != nil {
+		return errgo.Annotate(err, "cannot create the charms cache")
+	}
+	if err = bundle.ExpandTo(bundlePath); err != nil {
+		defer os.RemoveAll(bundlePath)
+		return errgo.Annotate(err, "error expanding the bundle")
 	}
 	return nil
 }
