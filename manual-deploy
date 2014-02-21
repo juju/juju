@@ -1,6 +1,8 @@
 #!/bin/bash
 set -eux
 : ${SCRIPTS:=$(readlink -f $(dirname $0))}
+: ${JUJU_HOME:=$SCRIPTS/manual-provider-home}
+export JUJU_HOME
 echo $0
 export INSTANCE_TYPE=m1.large
 export AMI_IMAGE=ami-bd6d40d4
@@ -10,16 +12,25 @@ machine_2_id=$($SCRIPTS/ec2-run-instance-get-id)
 machine_0_name=$($SCRIPTS/ec2-get-name $machine_0_id)
 machine_1_name=$($SCRIPTS/ec2-get-name $machine_1_id)
 machine_2_name=$($SCRIPTS/ec2-get-name $machine_2_id)
-export JUJU_HOME=$(pwd)/manual-provider-home
+
+$SCRIPTS/wait-for-port $machine_0_name 22
 rm -f $JUJU_HOME/environments/manual.jenv
-sed -i "s/bootstrap-host: .*/bootstrap-host: $machine_0_name/" $JUJU_HOME/environments.yaml
-$SCRIPTS/wait-for-ssh $machine_0_name
+
+# Write new environments.yaml
+cat  > $JUJU_HOME/environments.yaml <<EOT
+environments:
+  manual:
+    type: manual
+    bootstrap-host: $machine_0_name
+    bootstrap-user: ubuntu
+EOT
 juju bootstrap --show-log -e manual --upload-tools
-$SCRIPTS/wait-for-ssh $machine_0_name 8040
-$SCRIPTS/wait-for-ssh $machine_1_name
-juju add-machine ssh:$machine_1_name
-$SCRIPTS/wait-for-ssh $machine_2_name
-juju add-machine ssh:$machine_2_name
+$SCRIPTS/wait-for-port $machine_0_name 8040
+
+for machine in $machine_1_name $machine_2_name; do
+  $SCRIPTS/wait-for-port $machine 22
+  juju add-machine ssh:$machine
+done
 
 if $SCRIPTS/deploy_stack.py --already-bootstrapped manual; then
   exit_code=0
