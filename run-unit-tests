@@ -7,13 +7,13 @@ tarfile=$($SCRIPTS/get-tarfile-name $revision_build)
 instance_id=$($SCRIPTS/ec2-run-instance-get-id)
 set +x
 echo Starting instance $instance_id
-instance_ip=$($SCRIPTS/ec2-get-ip $instance_id)
-echo Instance has ip $instance_ip
+instance_name=$($SCRIPTS/ec2-get-name $instance_id)
+echo Instance has ip $instance_name
 sleep 30
-$SCRIPTS/wait-for-port $instance_ip 22
+$SCRIPTS/wait-for-port $instance_name 22
 set -x
 set +e
-ssh ubuntu@$instance_ip -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" <<EOT
+ssh ubuntu@$instance_name -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" <<EOT
 set -eux
 ssh-keygen -t rsa -b 2048 -N "" -f ~/.ssh/id_rsa
 wget -q $JENKINS_URL/job/build-revision/$revision_build/artifact/$tarfile
