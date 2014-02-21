@@ -1,0 +1,6 @@
+#!/bin/bash
+source $SCRIPTS/common-startup.sh
+# Do the deployment for upgrade testing.
+EXIT_STATUS=0
+JUJU_REPOSITORY=$HOME/repository PATH=$NEW_PATH $SCRIPTS/manual-deploy || EXIT_STATUS=$?
+exit $EXIT_STATUS
