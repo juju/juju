@@ -143,20 +143,20 @@ func (a *MachineAgent) upgradeWaiterWorker(start func() (worker.Worker, error)) 
 // upgradeWorker runs the required upgrade steps.
 func (a *MachineAgent) upgradeWorker(apiState *api.State, jobs []params.MachineJob) worker.Worker {
 	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
-		waitCh := make(chan error)
-		go func() {
-			waitCh <- a.runUpgrades(apiState, jobs)
-		}()
-		select {
-		case err := <-waitCh:
+		err := a.runUpgrades(apiState, jobs)
+		if err != nil {
 			return err
-		case <-stop:
-			waitCh <- nil
 		}
-		return <-waitCh
+		defer func() {
+			recover()
+		}()
+		close(a.upgradeComplete)
+		return nil
 	})
 }
 
+// runUpgrades runs the upgrade operations for each job type and updates the
+// updatedToVersion on success.
 func (a *MachineAgent) runUpgrades(st *api.State, jobs []params.MachineJob) error {
 	agentConfig := a.Conf.config
 	context := upgrades.NewContext(agentConfig, st)
@@ -172,16 +172,15 @@ func (a *MachineAgent) runUpgrades(st *api.State, jobs []params.MachineJob) erro
 		}
 		fromVersion := version.Current
 		fromVersion.Number = agentConfig.UpgradedToVersion()
-		if err := a.upgradeFromVersion(context, fromVersion, target); err != nil {
+		if err := upgradeFromVersion(context, fromVersion, target); err != nil {
 			return err
 		}
 	}
-	defer close(a.upgradeComplete)
 	return a.Conf.config.WriteUpgradedToVersion(version.Current.Number)
 }
 
 // upgradeFromVersion performs operations required to upgrade this machine to the current Juju version.
-func (a *MachineAgent) upgradeFromVersion(context upgrades.Context, from version.Binary, target upgrades.Target) error {
+func upgradeFromVersion(context upgrades.Context, from version.Binary, target upgrades.Target) error {
 	if target == "" {
 		panic("target must be specified")
 	}
