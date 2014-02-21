@@ -1,0 +1,11 @@
+#!/bin/bash
+set -eu
+instance_name=''
+echo -n Waiting for instance name >&2
+while [ -z "$instance_name" ]; do
+  sleep 1
+  instance_name=$(euca-describe-instances $1|sed '/^INSTANCE/!d'|cut -f 4)
+  echo -n . >&2
+done
+echo >&2
+echo $instance_name

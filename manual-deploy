@@ -7,18 +7,19 @@ export AMI_IMAGE=ami-bd6d40d4
 machine_0_id=$($SCRIPTS/ec2-run-instance-get-id)
 machine_1_id=$($SCRIPTS/ec2-run-instance-get-id)
 machine_2_id=$($SCRIPTS/ec2-run-instance-get-id)
-machine_0_ip=$($SCRIPTS/ec2-get-ip $machine_0_id)
-machine_1_ip=$($SCRIPTS/ec2-get-ip $machine_1_id)
-machine_2_ip=$($SCRIPTS/ec2-get-ip $machine_2_id)
+machine_0_name=$($SCRIPTS/ec2-get-name $machine_0_id)
+machine_1_name=$($SCRIPTS/ec2-get-name $machine_1_id)
+machine_2_name=$($SCRIPTS/ec2-get-name $machine_2_id)
 export JUJU_HOME=$(pwd)/manual-provider-home
 rm -f $JUJU_HOME/environments/manual.jenv
-sed -i "s/bootstrap-host: .*/bootstrap-host: $machine_0_ip/" $JUJU_HOME/environments.yaml
-$SCRIPTS/wait-for-ssh $machine_0_ip
+sed -i "s/bootstrap-host: .*/bootstrap-host: $machine_0_name/" $JUJU_HOME/environments.yaml
+$SCRIPTS/wait-for-ssh $machine_0_name
 juju bootstrap --show-log -e manual --upload-tools
-$SCRIPTS/wait-for-ssh $machine_0_ip 8040
-juju add-machine ssh:$machine_1_ip
-juju add-machine ssh:$machine_2_ip
-#echo euca-terminate-instances $machine_0_id $machine_1_id $machine_2_id
+$SCRIPTS/wait-for-ssh $machine_0_name 8040
+$SCRIPTS/wait-for-ssh $machine_1_name
+juju add-machine ssh:$machine_1_name
+$SCRIPTS/wait-for-ssh $machine_2_name
+juju add-machine ssh:$machine_2_name
 
 if $SCRIPTS/deploy_stack.py --already-bootstrapped manual; then
   exit_code=0
