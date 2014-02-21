@@ -1,9 +1,6 @@
 set -eu
 if [ "$ENV" = "manual" ]; then
   export JUJU_HOME=$WORKSPACE/manual-provider-home
-  if [ ! -d $JUJU_HOME ]; then
-    mkdir $JUJU_HOME
-  fi
   source $HOME/juju-ci/ec2rc
 else
   export JUJU_HOME=$HOME/juju-ci
