@@ -59,9 +59,9 @@ func (s *charmsSuite) TestRequiresAuth(c *gc.C) {
 }
 
 func (s *charmsSuite) TestUploadRequiresPOST(c *gc.C) {
-	resp, err := s.authRequest(c, "GET", s.charmsURI(c, ""), "", nil)
+	resp, err := s.authRequest(c, "PUT", s.charmsURI(c, ""), "", nil)
 	c.Assert(err, gc.IsNil)
-	s.assertResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "GET"`, "")
+	s.assertResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "PUT"`, "")
 }
 
 func (s *charmsSuite) TestAuthRequiresUser(c *gc.C) {
@@ -82,13 +82,13 @@ func (s *charmsSuite) TestAuthRequiresUser(c *gc.C) {
 	// Now try a user login.
 	resp, err = s.authRequest(c, "GET", s.charmsURI(c, ""), "", nil)
 	c.Assert(err, gc.IsNil)
-	s.assertResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "GET"`, "")
+	s.assertResponse(c, resp, http.StatusBadRequest, "expected url=CharmURL query argument", "")
 }
 
 func (s *charmsSuite) TestUploadRequiresSeries(c *gc.C) {
 	resp, err := s.authRequest(c, "POST", s.charmsURI(c, ""), "", nil)
 	c.Assert(err, gc.IsNil)
-	s.assertResponse(c, resp, http.StatusBadRequest, "expected series= URL argument", "")
+	s.assertResponse(c, resp, http.StatusBadRequest, "expected series=URL argument", "")
 }
 
 func (s *charmsSuite) TestUploadFailsWithInvalidZip(c *gc.C) {
