@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/statecmd"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 )
@@ -69,7 +70,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 		}.install(c).Restore()
 		machineId, err = ProvisionMachine(args)
 		if errorCode != 0 {
-			c.Assert(err, gc.ErrorMatches, fmt.Sprintf("exit status %d", errorCode))
+			c.Assert(err, gc.ErrorMatches, fmt.Sprintf("rc: %d", errorCode))
 			c.Assert(machineId, gc.Equals, "")
 		} else {
 			c.Assert(err, gc.IsNil)
@@ -103,10 +104,10 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 		SkipProvisionAgent:       true,
 	}.install(c).Restore()
 	_, err = ProvisionMachine(args)
-	c.Assert(err, gc.ErrorMatches, "error checking if provisioned: exit status 255")
+	c.Assert(err, gc.ErrorMatches, "error checking if provisioned: rc: 255")
 }
 
-func (s *provisionerSuite) TestCreateMachineConfig(c *gc.C) {
+func (s *provisionerSuite) TestFinishMachineConfig(c *gc.C) {
 	const series = "precise"
 	const arch = "amd64"
 	defer fakeSSH{
@@ -118,15 +119,14 @@ func (s *provisionerSuite) TestCreateMachineConfig(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Now check what we would've configured it with.
-	client := s.APIConn.State.Client()
-	mcfg, err := createMachineConfig(client, machineId, series, arch, state.BootstrapNonce, "/var/lib/juju")
+	mcfg, err := statecmd.MachineConfig(s.State, machineId, state.BootstrapNonce, "/var/lib/juju")
 	c.Assert(err, gc.IsNil)
-	c.Assert(mcfg, gc.NotNil)
-	c.Assert(mcfg.APIInfo, gc.NotNil)
-	c.Assert(mcfg.StateInfo, gc.NotNil)
+	c.Check(mcfg, gc.NotNil)
+	c.Check(mcfg.APIInfo, gc.NotNil)
+	c.Check(mcfg.StateInfo, gc.NotNil)
 
 	stateInfo, apiInfo, err := s.APIConn.Environ.StateInfo()
 	c.Assert(err, gc.IsNil)
-	c.Assert(mcfg.APIInfo.Addrs, gc.DeepEquals, apiInfo.Addrs)
-	c.Assert(mcfg.StateInfo.Addrs, gc.DeepEquals, stateInfo.Addrs)
+	c.Check(mcfg.APIInfo.Addrs, gc.DeepEquals, apiInfo.Addrs)
+	c.Check(mcfg.StateInfo.Addrs, gc.DeepEquals, stateInfo.Addrs)
 }

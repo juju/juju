@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/errgo/errgo"
+
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
@@ -116,12 +118,12 @@ func NewFromName(name string, store configstore.Storage) (Environ, error) {
 // and environment information is created using the
 // given store. If the environment is already prepared,
 // it behaves like NewFromName.
-func PrepareFromName(name string, store configstore.Storage) (Environ, error) {
+func PrepareFromName(name string, ctx BootstrapContext, store configstore.Storage) (Environ, error) {
 	cfg, _, err := ConfigForName(name, store)
 	if err != nil {
 		return nil, err
 	}
-	return Prepare(cfg, store)
+	return Prepare(cfg, ctx, store)
 }
 
 // NewFromAttrs returns a new environment based on the provided configuration
@@ -146,7 +148,7 @@ func New(config *config.Config) (Environ, error) {
 
 // Prepare prepares a new environment based on the provided configuration.
 // If the environment is already prepared, it behaves like New.
-func Prepare(cfg *config.Config, store configstore.Storage) (Environ, error) {
+func Prepare(cfg *config.Config, ctx BootstrapContext, store configstore.Storage) (Environ, error) {
 	p, err := Provider(cfg.Type())
 	if err != nil {
 		return nil, err
@@ -173,15 +175,7 @@ func Prepare(cfg *config.Config, store configstore.Storage) (Environ, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot create new info for environment %q: %v", cfg.Name(), err)
 	}
-	cfg, err = ensureAdminSecret(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("cannot generate admin-secret: %v", err)
-	}
-	cfg, err = ensureCertificate(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("cannot ensure CA certificate: %v", err)
-	}
-	env, err := p.Prepare(cfg)
+	env, err := prepare(ctx, cfg, info, p)
 	if err != nil {
 		if err := info.Destroy(); err != nil {
 			logger.Warningf("cannot destroy newly created environment info: %v", err)
@@ -193,6 +187,18 @@ func Prepare(cfg *config.Config, store configstore.Storage) (Environ, error) {
 		return nil, fmt.Errorf("cannot create environment info %q: %v", env.Config().Name(), err)
 	}
 	return env, nil
+}
+
+func prepare(ctx BootstrapContext, cfg *config.Config, info configstore.EnvironInfo, p EnvironProvider) (Environ, error) {
+	cfg, err := ensureAdminSecret(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("cannot generate admin-secret: %v", err)
+	}
+	cfg, err = ensureCertificate(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("cannot ensure CA certificate: %v", err)
+	}
+	return p.Prepare(ctx, cfg)
 }
 
 // ensureAdminSecret returns a config with a non-empty admin-secret.
@@ -235,7 +241,13 @@ func Destroy(env Environ, store configstore.Storage) error {
 	if err := env.Destroy(); err != nil {
 		return err
 	}
-	info, err := store.ReadInfo(name)
+	return DestroyInfo(name, store)
+}
+
+// DestroyInfo destroys the configuration data for the named
+// environment from the given store.
+func DestroyInfo(envName string, store configstore.Storage) error {
+	info, err := store.ReadInfo(envName)
 	if err != nil {
 		if errors.IsNotFoundError(err) {
 			return nil
@@ -243,7 +255,7 @@ func Destroy(env Environ, store configstore.Storage) error {
 		return err
 	}
 	if err := info.Destroy(); err != nil {
-		return fmt.Errorf("cannot destroy environment configuration information: %v", err)
+		return errgo.Annotate(err, "cannot destroy environment configuration information")
 	}
 	return nil
 }

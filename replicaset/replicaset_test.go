@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
+	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
-	"labix.org/v2/mgo"
-
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils"
 )
 
 var (
@@ -30,9 +30,11 @@ func newServer() (*coretesting.MgoInstance, error) {
 	}
 
 	// by dialing right now, we'll wait until it's running
-	deadline := time.Now().Add(time.Second * 5)
-	for {
-		session, err := inst.DialDirect()
+	strategy := utils.AttemptStrategy{Total: time.Second * 5, Delay: time.Millisecond * 100}
+	attempt := strategy.Start()
+	for attempt.Next() {
+		var session *mgo.Session
+		session, err = inst.DialDirect()
 		if err != nil {
 			err = fmt.Errorf("Error dialing mongo server %q: %s", inst.Addr(), err.Error())
 		} else {
@@ -43,10 +45,11 @@ func newServer() (*coretesting.MgoInstance, error) {
 			}
 			session.Close()
 		}
-		if err == nil || time.Now().After(deadline) {
-			return inst, err
+		if err == nil || !attempt.HasNext() {
+			break
 		}
 	}
+	return inst, err
 }
 
 type MongoSuite struct{}
@@ -65,6 +68,31 @@ func (s *MongoSuite) SetUpSuite(c *gc.C) {
 	dialAndTestInitiate(c)
 }
 
+func (s *MongoSuite) TearDownTest(c *gc.C) {
+	// remove all secondaries from the replicaset on test teardown
+	session, err := root.DialDirect()
+	if err != nil {
+		c.Logf("Failed to dial root during test cleanup: %v", err)
+		return
+	}
+	defer session.Close()
+	mems, err := CurrentMembers(session)
+	if err != nil {
+		c.Logf("Failed to get list of memners during test cleanup: %v", err)
+		return
+	}
+
+	addrs := []string{}
+	for _, m := range mems {
+		if root.Addr() != m.Address {
+			addrs = append(addrs, m.Address)
+		}
+	}
+	if err = Remove(session, addrs...); err != nil {
+		c.Logf("Error removing secondaries: %v", err)
+	}
+}
+
 func dialAndTestInitiate(c *gc.C) {
 	session := root.MustDialDirect()
 	defer session.Close()
@@ -72,7 +100,8 @@ func dialAndTestInitiate(c *gc.C) {
 	err := Initiate(session, root.Addr(), name)
 	c.Assert(err, gc.IsNil)
 
-	expectedMembers := []Member{Member{Address: root.Addr()}}
+	// Ids start at 1 for us, so we can differentiate between set and unset
+	expectedMembers := []Member{Member{Id: 1, Address: root.Addr()}}
 
 	// need to set mode to strong so that we wait for the write to succeed
 	// before reading and thus ensure that we're getting consistent reads.
@@ -112,26 +141,9 @@ func (s *MongoSuite) TearDownSuite(c *gc.C) {
 	root.Destroy()
 }
 
-/*
 func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 	session := root.MustDial()
 	defer session.Close()
-
-	expectedStatus := []Status{
-		{
-			Address: root.Addr(),
-			Self:    true,
-			ErrMsg:  "",
-			Healthy: true,
-			State:   StartupState,
-		},
-	}
-
-	status, err := CurrentStatus(session)
-	expectedStatus[0].Uptime = status[0].Uptime
-	expectedStatus[0].Ping = status[0].Ping
-	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.DeepEquals, expectedStatus)
 
 	members := make([]Member, 0, 5)
 
@@ -148,21 +160,64 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 		instances = append(instances, inst)
 		defer inst.Destroy()
 		defer Remove(session, inst.Addr())
-		members = append(members, Member{Address: inst.Addr(), Id: x + 1})
+
+		key := fmt.Sprintf("key%d", x)
+		val := fmt.Sprintf("val%d", x)
+
+		tags := map[string]string{key: val}
+
+		members = append(members, Member{Address: inst.Addr(), Tags: tags})
 	}
 
-	err = Add(session, members...)
+	var err error
+
+	strategy := utils.AttemptStrategy{Total: time.Second * 30, Delay: time.Millisecond * 100}
+	attempt := strategy.Start()
+	for attempt.Next() {
+		err = Add(session, members...)
+		if err == nil || !attempt.HasNext() {
+			break
+		}
+	}
 	c.Assert(err, gc.IsNil)
 
-	mems, err := CurrentMembers(session)
+	expectedMembers := make([]Member, len(members))
+	for x, m := range members {
+		// Ids should start at 1 (for the root) and go up
+		m.Id = x + 1
+		expectedMembers[x] = m
+	}
+
+	var cfg *Config
+	attempt = strategy.Start()
+	for attempt.Next() {
+		cfg, err = CurrentConfig(session)
+		if err == nil || !attempt.HasNext() {
+			break
+		}
+	}
+
 	c.Assert(err, gc.IsNil)
-	c.Assert(mems, gc.DeepEquals, members)
+	c.Assert(cfg.Name, gc.Equals, name)
+
+	// 2 since we already changed it once
+	c.Assert(cfg.Version, gc.Equals, 2)
+
+	mems := cfg.Members
+
+	c.Assert(mems, gc.DeepEquals, expectedMembers)
 
 	// Now remove the last two Members
-	err = Remove(session, members[3].Address, members[4].Address)
+	attempt = strategy.Start()
+	for attempt.Next() {
+		err = Remove(session, members[3].Address, members[4].Address)
+		if err == nil || !attempt.HasNext() {
+			break
+		}
+	}
 	c.Assert(err, gc.IsNil)
 
-	expectedMembers := members[0:3]
+	expectedMembers = expectedMembers[0:3]
 
 	mems, err = CurrentMembers(session)
 	c.Assert(err, gc.IsNil)
@@ -170,42 +225,51 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 
 	// now let's mix it up and set the new members to a mix of the previous
 	// plus the new arbiter
-	mems = []Member{members[3], members[2], members[0], members[4]}
+	mems = []Member{members[3], mems[2], mems[0], members[4]}
 
-	// reset this guy's ID to make sure it gets set corrcetly
-	mems[3].Id = 0
+	attempt = strategy.Start()
+	for attempt.Next() {
+		err = Set(session, mems)
+		if err == nil || !attempt.HasNext() {
+			break
+		}
+	}
 
-	err = Set(session, mems)
 	c.Assert(err, gc.IsNil)
 
-	deadline := time.Now().Add(time.Second * 60)
-
-	for {
+	attempt = strategy.Start()
+	for attempt.Next() {
 		// can dial whichever replica address here, mongo will figure it out
 		session = instances[0].MustDialDirect()
-		err := session.Ping()
-		if err == nil || time.Now().After(deadline) {
+		err = session.Ping()
+		if err == nil || !attempt.HasNext() {
 			break
 		}
 	}
 	c.Assert(err, gc.IsNil)
 
-	expectedMembers = []Member{members[3], members[2], members[0], members[4]}
+	expectedMembers = []Member{members[3], expectedMembers[2], expectedMembers[0], members[4]}
 
 	// any new members will get an id of max(other_ids...)+1
-	expectedMembers[0].Id = 3
-	expectedMembers[3].Id = 4
+	expectedMembers[0].Id = 4
+	expectedMembers[3].Id = 5
 
-	mems, err = CurrentMembers(session)
+	attempt = strategy.Start()
+	for attempt.Next() {
+		mems, err = CurrentMembers(session)
+		if err == nil || !attempt.HasNext() {
+			break
+		}
+	}
 	c.Assert(err, gc.IsNil)
 	c.Assert(mems, gc.DeepEquals, expectedMembers)
 }
-*/
+
 func (s *MongoSuite) TestIsMaster(c *gc.C) {
 	session := root.MustDial()
 	defer session.Close()
 
-	exp := IsMasterResults{
+	expected := IsMasterResults{
 		// The following fields hold information about the specific mongodb node.
 		IsMaster:  true,
 		Secondary: false,
@@ -224,36 +288,99 @@ func (s *MongoSuite) TestIsMaster(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Check(closeEnough(res.LocalTime, time.Now()), gc.Equals, true)
 	res.LocalTime = time.Time{}
-	c.Check(*res, gc.DeepEquals, exp)
+	c.Check(*res, gc.DeepEquals, expected)
 }
 
-/*
 func (s *MongoSuite) TestCurrentStatus(c *gc.C) {
 	session := root.MustDial()
 	defer session.Close()
 
-	exp := IsMasterResults{
-		// The following fields hold information about the specific mongodb node.
-		IsMaster:  true,
-		Secondary: false,
-		Arbiter:   false,
-		Address:   root.Addr(),
-		LocalTime: time.Time{},
+	inst1, err := newServer()
+	c.Assert(err, gc.IsNil)
+	defer inst1.Destroy()
+	defer Remove(session, inst1.Addr())
 
-		// The following fields hold information about the replica set.
-		ReplicaSetName: name,
-		Addresses:      []string{root.Addr()},
-		Arbiters:       nil,
-		PrimaryAddress: root.Addr(),
+	inst2, err := newServer()
+	c.Assert(err, gc.IsNil)
+	defer inst2.Destroy()
+	defer Remove(session, inst2.Addr())
+
+	strategy := utils.AttemptStrategy{Total: time.Second * 30, Delay: time.Millisecond * 100}
+	attempt := strategy.Start()
+	for attempt.Next() {
+		err = Add(session, Member{Address: inst1.Addr()}, Member{Address: inst2.Addr()})
+		if err == nil || !attempt.HasNext() {
+			break
+		}
+	}
+	c.Assert(err, gc.IsNil)
+
+	expected := &Status{
+		Name: name,
+		Members: []MemberStatus{{
+			Id:      1,
+			Address: root.Addr(),
+			Self:    true,
+			ErrMsg:  "",
+			Healthy: true,
+			State:   PrimaryState,
+		}, {
+			Id:      2,
+			Address: inst1.Addr(),
+			Self:    false,
+			ErrMsg:  "",
+			Healthy: true,
+			State:   SecondaryState,
+		}, {
+			Id:      3,
+			Address: inst2.Addr(),
+			Self:    false,
+			ErrMsg:  "",
+			Healthy: true,
+			State:   SecondaryState,
+		}},
 	}
 
-	res, err := IsMaster(session)
-	c.Assert(err, gc.IsNil)
-	c.Check(closeEnough(res.LocalTime, time.Now()), gc.Equals, true)
-	res.LocalTime = time.Time{}
-	c.Check(*res, gc.DeepEquals, exp)
+	strategy.Total = time.Second * 60
+	attempt = strategy.Start()
+	var res *Status
+	for attempt.Next() {
+		var err error
+		res, err = CurrentStatus(session)
+		if err != nil {
+			if !attempt.HasNext() {
+				c.Errorf("Couldn't get status before timeout, got err: %v", err)
+				return
+			} else {
+				// try again
+				continue
+			}
+		}
+
+		if res.Members[0].State == PrimaryState &&
+			res.Members[1].State == SecondaryState &&
+			res.Members[2].State == SecondaryState {
+			break
+		}
+		if !attempt.HasNext() {
+			c.Errorf("Servers did not get into final state before timeout.  Status: %#v", res)
+			return
+		}
+	}
+
+	for x, _ := range res.Members {
+		// non-empty uptime and ping
+		c.Check(res.Members[x].Uptime, gc.Not(gc.Equals), 0)
+
+		// ping is always going to be zero since we're on localhost
+		// so we can't really test it right now
+
+		// now overwrite Uptime so it won't throw off DeepEquals
+		res.Members[x].Uptime = 0
+	}
+	c.Check(res, gc.DeepEquals, expected)
 }
-*/
+
 func closeEnough(expected, obtained time.Time) bool {
 	t := obtained.Sub(expected)
 	return (-500*time.Millisecond) < t && t < (500*time.Millisecond)

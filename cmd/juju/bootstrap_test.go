@@ -6,9 +6,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 	"strings"
 
 	gc "launchpad.net/gocheck"
@@ -17,10 +14,15 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/configstore"
+	"launchpad.net/juju-core/environs/filestorage"
+	"launchpad.net/juju-core/environs/imagemetadata"
+	imtesting "launchpad.net/juju-core/environs/imagemetadata/testing"
+	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
+	ttesting "launchpad.net/juju-core/environs/tools/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
@@ -49,7 +51,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 
 	// Set up a local source with tools.
 	sourceDir := createToolsSource(c, vAll)
-	s.PatchValue(&sync.DefaultToolsLocation, sourceDir)
+	s.PatchValue(&envtools.DefaultBaseURL, sourceDir)
 }
 
 func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
@@ -122,7 +124,7 @@ func (s *BootstrapSuite) runAllowRetriesTest(c *gc.C, test bootstrapRetryTest) {
 	_, fake := makeEmptyFakeHome(c)
 	defer fake.Restore()
 	sourceDir := createToolsSource(c, toolsVersions)
-	s.PatchValue(&sync.DefaultToolsLocation, sourceDir)
+	s.PatchValue(&envtools.DefaultBaseURL, sourceDir)
 
 	var findToolsRetryValues []bool
 	mockFindTools := func(cloudInst environs.ConfigGetter, majorVersion, minorVersion int,
@@ -321,13 +323,59 @@ func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
 	// Bootstrap the environment with an invalid source.
 	// The command returns with an error.
 	ctx := coretesting.Context(c)
-	code := cmd.Main(&BootstrapCommand{}, ctx, []string{"--source", c.MkDir()})
+	code := cmd.Main(&BootstrapCommand{}, ctx, []string{"--metadata-source", c.MkDir()})
 	c.Check(code, gc.Equals, 1)
 
 	// Now check that there are no tools available.
 	_, err := envtools.FindTools(
 		env, version.Current.Major, version.Current.Minor, coretools.Filter{}, envtools.DoNotAllowRetry)
 	c.Assert(err, gc.FitsTypeOf, errors.NotFoundf(""))
+}
+
+// createImageMetadata creates some image metadata in a local directory.
+func createImageMetadata(c *gc.C) (string, []*imagemetadata.ImageMetadata) {
+	// Generate some image metadata.
+	im := []*imagemetadata.ImageMetadata{
+		{
+			Id:         "1234",
+			Arch:       "amd64",
+			Version:    "13.04",
+			RegionName: "region",
+			Endpoint:   "endpoint",
+		},
+	}
+	cloudSpec := &simplestreams.CloudSpec{
+		Region:   "region",
+		Endpoint: "endpoint",
+	}
+	sourceDir := c.MkDir()
+	sourceStor, err := filestorage.NewFileStorageWriter(sourceDir, filestorage.UseDefaultTmpDir)
+	c.Assert(err, gc.IsNil)
+	err = imagemetadata.MergeAndWriteMetadata("raring", im, cloudSpec, sourceStor)
+	c.Assert(err, gc.IsNil)
+	return sourceDir, im
+}
+
+// checkImageMetadata checks that the environment contains the expected image metadata.
+func checkImageMetadata(c *gc.C, stor storage.StorageReader, expected []*imagemetadata.ImageMetadata) {
+	metadata := imtesting.ParseMetadataFromStorage(c, stor)
+	c.Assert(metadata, gc.HasLen, 1)
+	c.Assert(expected[0], gc.DeepEquals, metadata[0])
+}
+
+func (s *BootstrapSuite) TestUploadLocalImageMetadata(c *gc.C) {
+	sourceDir, expected := createImageMetadata(c)
+	env, fake := makeEmptyFakeHome(c)
+	defer fake.Restore()
+
+	// Bootstrap the environment with the valid source.
+	ctx := coretesting.Context(c)
+	code := cmd.Main(&BootstrapCommand{}, ctx, []string{"--metadata-source", sourceDir})
+	c.Check(code, gc.Equals, 0)
+	c.Assert(imagemetadata.DefaultBaseURL, gc.Equals, imagemetadata.UbuntuCloudImagesURL)
+
+	// Now check the image metadata has been uploaded.
+	checkImageMetadata(c, env.Storage(), expected)
 }
 
 func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
@@ -340,7 +388,7 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	// The bootstrapping has to show no error, because the tools
 	// are automatically synchronized.
 	ctx := coretesting.Context(c)
-	code := cmd.Main(&BootstrapCommand{}, ctx, []string{"--source", sourceDir})
+	code := cmd.Main(&BootstrapCommand{}, ctx, []string{"--metadata-source", sourceDir})
 	c.Check(code, gc.Equals, 0)
 
 	// Now check the available tools which are the 1.2.0 envtools.
@@ -350,7 +398,7 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, series string) environs.Environ {
 	s.PatchValue(&sync.Upload, mockUploadTools)
 	sourceDir := createToolsSource(c, vAll)
-	s.PatchValue(&sync.DefaultToolsLocation, sourceDir)
+	s.PatchValue(&envtools.DefaultBaseURL, sourceDir)
 
 	// Change the tools location to be the test location and also
 	// the version and ensure their later restoring.
@@ -428,20 +476,37 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 	c.Assert(errText, gc.Matches, expectedErrText)
 }
 
-// createToolsSource writes the mock tools into a temporary
+func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
+	_, fake := makeEmptyFakeHome(c)
+	defer fake.Restore()
+	opc, errc := runCommand(nullContext(), new(BootstrapCommand), "-e", "brokenenv")
+	err := <-errc
+	c.Assert(err, gc.ErrorMatches, "dummy.Bootstrap is broken")
+	var opDestroy *dummy.OpDestroy
+	for opDestroy == nil {
+		select {
+		case op := <-opc:
+			switch op := op.(type) {
+			case dummy.OpDestroy:
+				opDestroy = &op
+			}
+		default:
+			c.Error("expected call to env.Destroy")
+			return
+		}
+	}
+	c.Assert(opDestroy.Error, gc.ErrorMatches, "dummy.Destroy is broken")
+}
+
+// createToolsSource writes the mock tools and metadata into a temporary
 // directory and returns it.
 func createToolsSource(c *gc.C, versions []version.Binary) string {
-	source := c.MkDir()
-	for _, vers := range versions {
-		data := vers.String()
-		name := envtools.StorageName(vers)
-		filename := filepath.Join(source, name)
-		dir := filepath.Dir(filename)
-		err := os.MkdirAll(dir, 0755)
-		c.Assert(err, gc.IsNil)
-		err = ioutil.WriteFile(filename, []byte(data), 0666)
-		c.Assert(err, gc.IsNil)
+	versionStrings := make([]string, len(versions))
+	for i, vers := range versions {
+		versionStrings[i] = vers.String()
 	}
+	source := c.MkDir()
+	ttesting.MakeTools(c, source, "releases", versionStrings)
 	return source
 }
 
@@ -451,7 +516,7 @@ func makeEmptyFakeHome(c *gc.C) (environs.Environ, *coretesting.FakeHome) {
 	dummy.Reset()
 	store, err := configstore.Default()
 	c.Assert(err, gc.IsNil)
-	env, err := environs.PrepareFromName("peckham", store)
+	env, err := environs.PrepareFromName("peckham", nullContext(), store)
 	c.Assert(err, gc.IsNil)
 	envtesting.RemoveAllTools(c, env)
 	return env, fake

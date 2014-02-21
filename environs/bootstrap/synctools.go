@@ -105,7 +105,7 @@ func EnsureToolsAvailability(env environs.Environ, series string, arch *string) 
 	}
 
 	// No tools available, so synchronize.
-	logger.Warningf("no tools available, attempting to retrieve from %v", sync.DefaultToolsLocation)
+	logger.Warningf("no tools available, attempting to retrieve from %v", envtools.DefaultBaseURL)
 	if syncErr := syncOrUpload(env, series); syncErr != nil {
 		// The target may have tools that don't match, so don't
 		// return a misleading "no tools found" error.

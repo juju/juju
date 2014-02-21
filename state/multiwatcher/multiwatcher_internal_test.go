@@ -613,7 +613,7 @@ func (*storeManagerSuite) TestRunStop(c *gc.C) {
 	err := sm.Stop()
 	c.Assert(err, gc.IsNil)
 	d, err := w.Next()
-	c.Assert(err, gc.ErrorMatches, "state watcher was stopped")
+	c.Assert(err, gc.ErrorMatches, "shared state watcher was stopped")
 	c.Assert(d, gc.HasLen, 0)
 }
 

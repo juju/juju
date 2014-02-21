@@ -9,12 +9,16 @@ import (
 
 	"launchpad.net/tomb"
 
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/apiserver/agent"
+	"launchpad.net/juju-core/state/apiserver/charmrevisionupdater"
 	"launchpad.net/juju-core/state/apiserver/client"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/apiserver/deployer"
+	"launchpad.net/juju-core/state/apiserver/environment"
+	"launchpad.net/juju-core/state/apiserver/firewaller"
 	"launchpad.net/juju-core/state/apiserver/keymanager"
 	"launchpad.net/juju-core/state/apiserver/keyupdater"
 	loggerapi "launchpad.net/juju-core/state/apiserver/logger"
@@ -36,7 +40,7 @@ type taggedAuthenticator interface {
 // timeout closes the monitored connection.
 // TODO(mue): Idea by Roger: Move to API (e.g. params) so
 // that the pinging there may depend on the interval.
-const maxPingInterval = 3 * time.Minute
+var maxPingInterval = 3 * time.Minute
 
 // srvRoot represents a single client's connection to the state
 // after it has logged in.
@@ -60,14 +64,7 @@ func newSrvRoot(root *initialRoot, entity taggedAuthenticator) *srvRoot {
 		resources: common.NewResources(),
 		entity:    entity,
 	}
-	action := func() {
-		err := r.rpcConn.Close()
-		if err != nil {
-			logger.Errorf("error closing the RPC connection: %v", err)
-		}
-	}
-	r.clientAPI.API = client.NewAPI(r.srv.state, r.resources, r)
-	r.pingTimeout = newPingTimeout(action, maxPingInterval)
+	r.clientAPI.API = client.NewAPI(r.srv.state, r.resources, r, r.srv.dataDir)
 	return r
 }
 
@@ -75,7 +72,9 @@ func newSrvRoot(root *initialRoot, entity taggedAuthenticator) *srvRoot {
 // cleaning up to ensure that all outstanding requests return.
 func (r *srvRoot) Kill() {
 	r.resources.StopAll()
-	r.pingTimeout.stop()
+	if r.pingTimeout != nil {
+		r.pingTimeout.stop()
+	}
 }
 
 // requireAgent checks whether the current client is an agent and hence
@@ -130,17 +129,6 @@ func (r *srvRoot) Provisioner(id string) (*provisioner.ProvisionerAPI, error) {
 	return provisioner.NewProvisionerAPI(r.srv.state, r.resources, r)
 }
 
-// MachineAgent returns an object that provides access to the machine
-// agent API.  The id argument is reserved for future use and must currently
-// be empty.
-// DEPRECATED(v1.14)
-func (r *srvRoot) MachineAgent(id string) (*machine.AgentAPI, error) {
-	if id != "" {
-		return nil, common.ErrBadId
-	}
-	return machine.NewAgentAPI(r.srv.state, r)
-}
-
 // Uniter returns an object that provides access to the Uniter API
 // facade. The id argument is reserved for future use and currently
 // needs to be empty.
@@ -150,6 +138,17 @@ func (r *srvRoot) Uniter(id string) (*uniter.UniterAPI, error) {
 		return nil, common.ErrBadId
 	}
 	return uniter.NewUniterAPI(r.srv.state, r.resources, r)
+}
+
+// Firewaller returns an object that provides access to the Firewaller
+// API facade. The id argument is reserved for future use and
+// currently needs to be empty.
+func (r *srvRoot) Firewaller(id string) (*firewaller.FirewallerAPI, error) {
+	if id != "" {
+		// Safeguard id for possible future use.
+		return nil, common.ErrBadId
+	}
+	return firewaller.NewFirewallerAPI(r.srv.state, r.resources, r)
 }
 
 // Agent returns an object that provides access to the
@@ -172,6 +171,17 @@ func (r *srvRoot) Deployer(id string) (*deployer.DeployerAPI, error) {
 	return deployer.NewDeployerAPI(r.srv.state, r.resources, r)
 }
 
+// Environment returns an object that provides access to the Environment API
+// facade. The id argument is reserved for future use and currently needs to
+// be empty.
+func (r *srvRoot) Environment(id string) (*environment.EnvironmentAPI, error) {
+	if id != "" {
+		// Safeguard id for possible future use.
+		return nil, common.ErrBadId
+	}
+	return environment.NewEnvironmentAPI(r.srv.state, r.resources, r)
+}
+
 // Logger returns an object that provides access to the Logger API facade.
 // The id argument is reserved for future use and must be empty.
 func (r *srvRoot) Logger(id string) (*loggerapi.LoggerAPI, error) {
@@ -184,12 +194,27 @@ func (r *srvRoot) Logger(id string) (*loggerapi.LoggerAPI, error) {
 
 // Upgrader returns an object that provides access to the Upgrader API facade.
 // The id argument is reserved for future use and must be empty.
-func (r *srvRoot) Upgrader(id string) (*upgrader.UpgraderAPI, error) {
+func (r *srvRoot) Upgrader(id string) (upgrader.Upgrader, error) {
 	if id != "" {
 		// TODO: There is no direct test for this
 		return nil, common.ErrBadId
 	}
-	return upgrader.NewUpgraderAPI(r.srv.state, r.resources, r)
+	// The type of upgrader we return depends on who is asking.
+	// Machines get an UpgraderAPI, units get a UnitUpgraderAPI.
+	// This is tested in the state/api/upgrader package since there
+	// are currently no direct srvRoot tests.
+	tagKind, _, err := names.ParseTag(r.GetAuthTag(), "")
+	if err != nil {
+		return nil, common.ErrPerm
+	}
+	switch tagKind {
+	case names.MachineTagKind:
+		return upgrader.NewUpgraderAPI(r.srv.state, r.resources, r)
+	case names.UnitTagKind:
+		return upgrader.NewUnitUpgraderAPI(r.srv.state, r.resources, r, r.srv.dataDir)
+	}
+	// Not a machine or unit.
+	return nil, common.ErrPerm
 }
 
 // KeyUpdater returns an object that provides access to the KeyUpdater API facade.
@@ -200,6 +225,16 @@ func (r *srvRoot) KeyUpdater(id string) (*keyupdater.KeyUpdaterAPI, error) {
 		return nil, common.ErrBadId
 	}
 	return keyupdater.NewKeyUpdaterAPI(r.srv.state, r.resources, r)
+}
+
+// CharmRevisionUpdater returns an object that provides access to the CharmRevisionUpdater API facade.
+// The id argument is reserved for future use and must be empty.
+func (r *srvRoot) CharmRevisionUpdater(id string) (*charmrevisionupdater.CharmRevisionUpdaterAPI, error) {
+	if id != "" {
+		// TODO: There is no direct test for this
+		return nil, common.ErrBadId
+	}
+	return charmrevisionupdater.NewCharmRevisionUpdaterAPI(r.srv.state, r.resources, r)
 }
 
 // NotifyWatcher returns an object that provides
@@ -281,8 +316,15 @@ func (r *srvRoot) AllWatcher(id string) (*srvClientAllWatcher, error) {
 // is not called frequently enough, the connection
 // will be dropped.
 func (r *srvRoot) Pinger(id string) (pinger, error) {
+	if r.pingTimeout == nil {
+		return nullPinger{}, nil
+	}
 	return r.pingTimeout, nil
 }
+
+type nullPinger struct{}
+
+func (nullPinger) Ping() {}
 
 // AuthMachineAgent returns whether the current client is a machine agent.
 func (r *srvRoot) AuthMachineAgent() bool {
@@ -306,12 +348,6 @@ func (r *srvRoot) AuthOwner(tag string) bool {
 // machine with running the ManageEnviron job.
 func (r *srvRoot) AuthEnvironManager() bool {
 	return isMachineWithJob(r.entity, state.JobManageEnviron)
-}
-
-// AuthStateManager returns whether the authenticated user is a
-// machine with running the ManageState job.
-func (r *srvRoot) AuthStateManager() bool {
-	return isMachineWithJob(r.entity, state.JobManageState)
 }
 
 // AuthClient returns whether the authenticated entity is a client

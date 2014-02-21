@@ -28,34 +28,28 @@ type SSHSuite struct {
 
 type SSHCommonSuite struct {
 	testing.JujuConnSuite
-	oldpath string
+	bin string
 }
 
 // fakecommand outputs its arguments to stdout for verification
 var fakecommand = `#!/bin/bash
 
-echo $@
+echo $@ | tee $0.args
 `
 
 func (s *SSHCommonSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
-	path := c.MkDir()
-	s.oldpath = os.Getenv("PATH")
-	os.Setenv("PATH", path+":"+s.oldpath)
+	s.bin = c.MkDir()
+	s.PatchEnvPathPrepend(s.bin)
 	for _, name := range []string{"ssh", "scp"} {
-		f, err := os.OpenFile(filepath.Join(path, name), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0777)
+		f, err := os.OpenFile(filepath.Join(s.bin, name), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0777)
 		c.Assert(err, gc.IsNil)
 		_, err = f.Write([]byte(fakecommand))
 		c.Assert(err, gc.IsNil)
 		err = f.Close()
 		c.Assert(err, gc.IsNil)
 	}
-}
-
-func (s *SSHCommonSuite) TearDownTest(c *gc.C) {
-	os.Setenv("PATH", s.oldpath)
-	s.JujuConnSuite.TearDownTest(c)
 }
 
 const (

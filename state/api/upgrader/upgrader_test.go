@@ -26,7 +26,7 @@ func TestAll(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
 }
 
-type upgraderSuite struct {
+type machineUpgraderSuite struct {
 	testing.JujuConnSuite
 
 	stateAPI *api.State
@@ -34,16 +34,13 @@ type upgraderSuite struct {
 	// These are raw State objects. Use them for setup and assertions, but
 	// should never be touched by the API calls themselves
 	rawMachine *state.Machine
-	rawCharm   *state.Charm
-	rawService *state.Service
-	rawUnit    *state.Unit
 
 	st *upgrader.State
 }
 
-var _ = gc.Suite(&upgraderSuite{})
+var _ = gc.Suite(&machineUpgraderSuite{})
 
-func (s *upgraderSuite) SetUpTest(c *gc.C) {
+func (s *machineUpgraderSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.stateAPI, s.rawMachine = s.OpenAPIAsNewMachine(c)
 	// Create the upgrader facade.
@@ -53,18 +50,24 @@ func (s *upgraderSuite) SetUpTest(c *gc.C) {
 
 // Note: This is really meant as a unit-test, this isn't a test that should
 //       need all of the setup we have for this test suite
-func (s *upgraderSuite) TestNew(c *gc.C) {
+func (s *machineUpgraderSuite) TestNew(c *gc.C) {
 	upgrader := upgrader.NewState(s.stateAPI)
 	c.Assert(upgrader, gc.NotNil)
 }
 
-func (s *upgraderSuite) TestSetVersionWrongMachine(c *gc.C) {
-	err := s.st.SetVersion("42", version.Current)
+func (s *machineUpgraderSuite) TestSetVersionWrongMachine(c *gc.C) {
+	err := s.st.SetVersion("machine-42", version.Current)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (s *upgraderSuite) TestSetVersion(c *gc.C) {
+func (s *machineUpgraderSuite) TestSetVersionNotMachine(c *gc.C) {
+	err := s.st.SetVersion("foo-42", version.Current)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
+}
+
+func (s *machineUpgraderSuite) TestSetVersion(c *gc.C) {
 	cur := version.Current
 	agentTools, err := s.rawMachine.AgentTools()
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
@@ -77,14 +80,21 @@ func (s *upgraderSuite) TestSetVersion(c *gc.C) {
 	c.Check(agentTools.Version, gc.Equals, cur)
 }
 
-func (s *upgraderSuite) TestToolsWrongMachine(c *gc.C) {
-	tools, _, err := s.st.Tools("42")
+func (s *machineUpgraderSuite) TestToolsWrongMachine(c *gc.C) {
+	tools, _, err := s.st.Tools("machine-42")
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(tools, gc.IsNil)
 }
 
-func (s *upgraderSuite) TestTools(c *gc.C) {
+func (s *machineUpgraderSuite) TestToolsNotMachine(c *gc.C) {
+	tools, _, err := s.st.Tools("foo-42")
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(tools, gc.IsNil)
+}
+
+func (s *machineUpgraderSuite) TestTools(c *gc.C) {
 	cur := version.Current
 	curTools := &tools.Tools{Version: cur, URL: ""}
 	curTools.Version.Minor++
@@ -106,7 +116,7 @@ func (s *upgraderSuite) TestTools(c *gc.C) {
 	c.Assert(disableSSLHostnameVerification, jc.IsTrue)
 }
 
-func (s *upgraderSuite) TestWatchAPIVersion(c *gc.C) {
+func (s *machineUpgraderSuite) TestWatchAPIVersion(c *gc.C) {
 	w, err := s.st.WatchAPIVersion(s.rawMachine.Tag())
 	c.Assert(err, gc.IsNil)
 	defer statetesting.AssertStop(c, w)
@@ -130,7 +140,7 @@ func (s *upgraderSuite) TestWatchAPIVersion(c *gc.C) {
 	wc.AssertClosed()
 }
 
-func (s *upgraderSuite) TestDesiredVersion(c *gc.C) {
+func (s *machineUpgraderSuite) TestDesiredVersion(c *gc.C) {
 	cur := version.Current
 	curTools := &tools.Tools{Version: cur, URL: ""}
 	curTools.Version.Minor++

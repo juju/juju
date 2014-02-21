@@ -88,7 +88,9 @@ func (c *SSHCommand) Run(ctx *cmd.Context) error {
 		// it from the CLI for backwards compatibility.
 		args = args[1:]
 	}
-	cmd := ssh.Command("ubuntu@"+host, args, ssh.NoPasswordAuthentication, ssh.AllocateTTY)
+	var options ssh.Options
+	options.EnablePTY()
+	cmd := ssh.Command("ubuntu@"+host, args, &options)
 	cmd.Stdin = ctx.Stdin
 	cmd.Stdout = ctx.Stdout
 	cmd.Stderr = ctx.Stderr

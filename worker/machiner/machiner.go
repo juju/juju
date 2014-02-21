@@ -4,10 +4,12 @@ package machiner
 
 import (
 	"fmt"
+	"net"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/machiner"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/watcher"
@@ -31,19 +33,20 @@ func NewMachiner(st *machiner.State, agentConfig agent.Config) worker.Worker {
 	return worker.NewNotifyWorker(mr)
 }
 
-func isNotFoundOrUnauthorized(err error) bool {
-	return params.IsCodeNotFound(err) || params.IsCodeUnauthorized(err)
-}
-
 func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 	// Find which machine we're responsible for.
 	m, err := mr.st.Machine(mr.tag)
-	if isNotFoundOrUnauthorized(err) {
+	if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 		return nil, worker.ErrTerminateAgent
 	} else if err != nil {
 		return nil, err
 	}
 	mr.machine = m
+
+	// Set the addresses in state to the host's addresses.
+	if err := setMachineAddresses(m); err != nil {
+		return nil, err
+	}
 
 	// Mark the machine as started and log it.
 	if err := m.SetStatus(params.StatusStarted, "", nil); err != nil {
@@ -54,8 +57,40 @@ func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 	return m.Watch()
 }
 
+var interfaceAddrs = net.InterfaceAddrs
+
+// setMachineAddresses sets the addresses for this machine to all of the
+// host's non-loopback interface IP addresses.
+func setMachineAddresses(m *machiner.Machine) error {
+	addrs, err := interfaceAddrs()
+	if err != nil {
+		return err
+	}
+	var hostAddresses []instance.Address
+	for _, addr := range addrs {
+		var ip net.IP
+		switch addr := addr.(type) {
+		case *net.IPAddr:
+			ip = addr.IP
+		case *net.IPNet:
+			ip = addr.IP
+		default:
+			continue
+		}
+		if ip.IsLoopback() {
+			continue
+		}
+		hostAddresses = append(hostAddresses, instance.NewAddress(ip.String()))
+	}
+	if len(hostAddresses) == 0 {
+		return nil
+	}
+	logger.Infof("setting addresses for %v to %q", m.Tag(), hostAddresses)
+	return m.SetMachineAddresses(hostAddresses)
+}
+
 func (mr *Machiner) Handle() error {
-	if err := mr.machine.Refresh(); isNotFoundOrUnauthorized(err) {
+	if err := mr.machine.Refresh(); params.IsCodeNotFoundOrCodeUnauthorized(err) {
 		return worker.ErrTerminateAgent
 	} else if err != nil {
 		return err

@@ -5,10 +5,7 @@ package uniter_test
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/rpc"
 	"net/url"
@@ -25,8 +22,8 @@ import (
 
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -35,6 +32,7 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
+	utilexec "launchpad.net/juju-core/utils/exec"
 	"launchpad.net/juju-core/utils/fslock"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/uniter"
@@ -850,7 +848,9 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 		return filepath.Join(testDir, name)
 	}
 	echoUnitNameToFile := func(name string) string {
-		return fmt.Sprintf("echo juju run ${JUJU_UNIT_NAME} > %s", filepath.Join(testDir, name))
+		path := filepath.Join(testDir, name)
+		template := "echo juju run ${JUJU_UNIT_NAME} > %s.tmp; mv %s.tmp %s"
+		return fmt.Sprintf(template, path, path, path)
 	}
 	tests := []uniterTest{
 		ut(
@@ -869,6 +869,22 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 			verifyFile{
 				testFile("jujuc.output"),
 				"user-admin\nprivate.dummy.address.example.com\npublic.dummy.address.example.com\n",
+			},
+		), ut(
+			"run commands: proxy settings set",
+			quickStartRelation{},
+			setProxySettings{Http: "http", Https: "https", Ftp: "ftp"},
+			runCommands{
+				fmt.Sprintf("echo $http_proxy > %s", testFile("proxy.output")),
+				fmt.Sprintf("echo $HTTP_PROXY >> %s", testFile("proxy.output")),
+				fmt.Sprintf("echo $https_proxy >> %s", testFile("proxy.output")),
+				fmt.Sprintf("echo $HTTPS_PROXY >> %s", testFile("proxy.output")),
+				fmt.Sprintf("echo $ftp_proxy >> %s", testFile("proxy.output")),
+				fmt.Sprintf("echo $FTP_PROXY >> %s", testFile("proxy.output")),
+			},
+			verifyFile{
+				testFile("proxy.output"),
+				"http\nhttp\nhttps\nhttps\nftp\nftp\n",
 			},
 		), ut(
 			"run commands: async using rpc client",
@@ -908,6 +924,7 @@ var relationsTests = []uniterTest{
 		verifyRunning{},
 		relationState{life: state.Dying},
 		removeRelationUnit{"mysql/0"},
+		verifyRunning{},
 		relationState{removed: true},
 		verifyRunning{},
 	), ut(
@@ -919,6 +936,7 @@ var relationsTests = []uniterTest{
 		waitHooks{"db-relation-broken db:0"},
 		verifyRunning{},
 		relationState{removed: true},
+		verifyRunning{},
 	), ut(
 		"service becomes dying while in a relation",
 		quickStartRelation{},
@@ -1180,10 +1198,8 @@ func (s addCharm) step(c *gc.C, ctx *context) {
 	err := s.dir.BundleTo(&buf)
 	c.Assert(err, gc.IsNil)
 	body := buf.Bytes()
-	hasher := sha256.New()
-	_, err = io.Copy(hasher, &buf)
+	hash, _, err := utils.ReadSHA256(&buf)
 	c.Assert(err, gc.IsNil)
-	hash := hex.EncodeToString(hasher.Sum(nil))
 	key := fmt.Sprintf("/charms/%s/%d", s.dir.Meta().Name, s.dir.Revision())
 	hurl, err := url.Parse(coretesting.Server.URL + key)
 	c.Assert(err, gc.IsNil)
@@ -1589,7 +1605,7 @@ func (s verifyCharm) step(c *gc.C, ctx *context) {
 	if s.dirty {
 		cmp = gc.Not(gc.Matches)
 	}
-	c.Assert(string(out), cmp, "# On branch master\nnothing to commit.*\n")
+	c.Assert(string(out), cmp, "(# )?On branch master\nnothing to commit.*\n")
 }
 
 type startUpgradeError struct{}
@@ -1938,6 +1954,36 @@ var verifyHookSyncLockLocked = custom{func(c *gc.C, ctx *context) {
 	c.Assert(lock.IsLocked(), jc.IsTrue)
 }}
 
+type setProxySettings osenv.ProxySettings
+
+func (s setProxySettings) step(c *gc.C, ctx *context) {
+	old, err := ctx.st.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	cfg, err := old.Apply(map[string]interface{}{
+		"http-proxy":  s.Http,
+		"https-proxy": s.Https,
+		"ftp-proxy":   s.Ftp,
+	})
+	c.Assert(err, gc.IsNil)
+	err = ctx.st.SetEnvironConfig(cfg, old)
+	c.Assert(err, gc.IsNil)
+	// wait for the new values...
+	expected := (osenv.ProxySettings)(s)
+	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
+		if ctx.uniter.GetProxyValues() == expected {
+			// Also confirm that the values were specified for the environment.
+			c.Assert(os.Getenv("http_proxy"), gc.Equals, expected.Http)
+			c.Assert(os.Getenv("HTTP_PROXY"), gc.Equals, expected.Http)
+			c.Assert(os.Getenv("https_proxy"), gc.Equals, expected.Https)
+			c.Assert(os.Getenv("HTTPS_PROXY"), gc.Equals, expected.Https)
+			c.Assert(os.Getenv("ftp_proxy"), gc.Equals, expected.Ftp)
+			c.Assert(os.Getenv("FTP_PROXY"), gc.Equals, expected.Ftp)
+			return
+		}
+	}
+	c.Fatal("settings didn't get noticed by the uniter")
+}
+
 type runCommands []string
 
 func (cmds runCommands) step(c *gc.C, ctx *context) {
@@ -1961,7 +2007,7 @@ func (cmds asyncRunCommands) step(c *gc.C, ctx *context) {
 		c.Assert(err, gc.IsNil)
 		defer client.Close()
 
-		var result cmd.RemoteResponse
+		var result utilexec.ExecResponse
 		err = client.Call(uniter.JujuRunEndpoint, commands, &result)
 		c.Assert(err, gc.IsNil)
 		c.Check(result.Code, gc.Equals, 0)

@@ -28,7 +28,7 @@ func (s *commonSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	var err error
-	s.machine0, err = s.State.AddMachine("quantal", state.JobManageEnviron, state.JobManageState)
+	s.machine0, err = s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 
 	s.machine1, err = s.State.AddMachine("quantal", state.JobHostUnits)

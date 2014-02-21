@@ -6,6 +6,7 @@ package machine_test
 import (
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -146,6 +147,39 @@ func (s *machinerSuite) TestEnsureDead(c *gc.C) {
 	err = s.machine1.Refresh()
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.machine1.Life(), gc.Equals, state.Dead)
+}
+
+func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
+	c.Assert(s.machine0.Addresses(), gc.HasLen, 0)
+	c.Assert(s.machine1.Addresses(), gc.HasLen, 0)
+
+	addresses := []instance.Address{
+		instance.NewAddress("127.0.0.1"),
+		instance.NewAddress("8.8.8.8"),
+	}
+
+	args := params.SetMachinesAddresses{MachineAddresses: []params.MachineAddresses{
+		{Tag: "machine-1", Addresses: addresses},
+		{Tag: "machine-0", Addresses: addresses},
+		{Tag: "machine-42", Addresses: addresses},
+	}}
+
+	result, err := s.machiner.SetMachineAddresses(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{nil},
+			{apiservertesting.ErrUnauthorized},
+			{apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	err = s.machine1.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.machine1.MachineAddresses(), gc.DeepEquals, addresses)
+	err = s.machine0.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.machine0.MachineAddresses(), gc.HasLen, 0)
 }
 
 func (s *machinerSuite) TestWatch(c *gc.C) {

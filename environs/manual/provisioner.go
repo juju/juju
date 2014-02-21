@@ -10,12 +10,10 @@ import (
 	"net"
 	"strings"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/cloudinit/sshinit"
-	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
@@ -23,6 +21,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/statecmd"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 )
@@ -72,11 +71,33 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 	if err != nil {
 		return "", err
 	}
+	// Used for fallback to 1.16 code
+	var stateConn *juju.Conn
 	defer func() {
 		if machineId != "" && err != nil {
 			logger.Errorf("provisioning failed, removing machine %v: %v", machineId, err)
-			client.DestroyMachines(machineId)
+			// If we have stateConn, then we are in 1.16
+			// compatibility mode and we should issue
+			// DestroyMachines directly on the state, rather than
+			// via API (because DestroyMachine *also* didn't exist
+			// in 1.16, though it will be in 1.16.5).
+			// TODO: When this compatibility code is removed, we
+			// should remove the method in state as well (as long
+			// as destroy-machine also no longer needs it.)
+			var cleanupErr error
+			if stateConn != nil {
+				cleanupErr = statecmd.DestroyMachines1dot16(stateConn.State, machineId)
+			} else {
+				cleanupErr = client.DestroyMachines(machineId)
+			}
+			if cleanupErr != nil {
+				logger.Warningf("error cleaning up machine: %s", cleanupErr)
+			}
 			machineId = ""
+		}
+		if stateConn != nil {
+			stateConn.Close()
+			stateConn = nil
 		}
 		client.Close()
 	}()
@@ -85,34 +106,52 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 	// the ubuntu user's authorized_keys file with the public keys in the current
 	// user's ~/.ssh directory. The authenticationworker will later update the
 	// ubuntu user's authorized_keys.
-	user, host := splitUserHost(args.Host)
+	user, hostname := splitUserHost(args.Host)
 	authorizedKeys, err := config.ReadAuthorizedKeys("")
-	if err := InitUbuntuUser(host, user, authorizedKeys, args.Stdin, args.Stdout); err != nil {
+	if err := InitUbuntuUser(hostname, user, authorizedKeys, args.Stdin, args.Stdout); err != nil {
 		return "", err
 	}
 
-	// Generate a unique nonce for the machine.
-	uuid, err := utils.NewUUID()
+	machineParams, err := gatherMachineParams(hostname)
 	if err != nil {
 		return "", err
 	}
-	instanceId := instance.Id(manualInstancePrefix + host)
-	nonce := fmt.Sprintf("%s:%s", instanceId, uuid.String())
 
 	// Inform Juju that the machine exists.
-	machineId, series, arch, err := recordMachineInState(client, host, nonce, instanceId)
+	machineId, err = recordMachineInState(client, *machineParams)
+	if params.IsCodeNotImplemented(err) {
+		logger.Infof("AddMachines not supported by the API server, " +
+			"falling back to 1.16 compatibility mode (direct DB access)")
+		stateConn, err = juju.NewConnFromName(args.EnvName)
+		if err == nil {
+			machineId, err = recordMachineInState1dot16(stateConn, *machineParams)
+		}
+	}
 	if err != nil {
 		return "", err
 	}
 
-	// Gather the information needed by the machine agent to run the provisioning script.
-	mcfg, err := createMachineConfig(client, machineId, series, arch, nonce, args.DataDir)
-	if err != nil {
-		return machineId, err
+	var provisioningScript string
+	if stateConn == nil {
+		provisioningScript, err = client.ProvisioningScript(params.ProvisioningScriptParams{
+			MachineId: machineId,
+			Nonce:     machineParams.Nonce,
+		})
+		if err != nil {
+			return "", err
+		}
+	} else {
+		mcfg, err := statecmd.MachineConfig(stateConn.State, machineId, machineParams.Nonce, args.DataDir)
+		if err == nil {
+			provisioningScript, err = generateProvisioningScript(mcfg)
+		}
+		if err != nil {
+			return "", err
+		}
 	}
 
 	// Finally, provision the machine agent.
-	err = provisionMachineAgent(host, mcfg, args.Stderr)
+	err = runProvisionScript(provisioningScript, hostname, args.Stderr)
 	if err != nil {
 		return machineId, err
 	}
@@ -129,10 +168,70 @@ func splitUserHost(host string) (string, string) {
 }
 
 func recordMachineInState(
-	client *api.Client, host, nonce string, instanceId instance.Id) (machineId, series, arch string, err error) {
+	client *api.Client, machineParams params.AddMachineParams) (machineId string, err error) {
+	results, err := client.AddMachines([]params.AddMachineParams{machineParams})
+	if err != nil {
+		return "", err
+	}
+	// Currently, only one machine is added, but in future there may be several added in one call.
+	machineInfo := results[0]
+	if machineInfo.Error != nil {
+		return "", machineInfo.Error
+	}
+	return machineInfo.Machine, nil
+}
 
+// convertToStateJobs takes a slice of params.MachineJob and makes them a slice of state.MachineJob
+func convertToStateJobs(jobs []params.MachineJob) ([]state.MachineJob, error) {
+	outJobs := make([]state.MachineJob, len(jobs))
+	var err error
+	for j, job := range jobs {
+		if outJobs[j], err = state.MachineJobFromParams(job); err != nil {
+			return nil, err
+		}
+	}
+	return outJobs, nil
+}
+
+func recordMachineInState1dot16(
+	stateConn *juju.Conn, machineParams params.AddMachineParams) (machineId string, err error) {
+	stateJobs, err := convertToStateJobs(machineParams.Jobs)
+	if err != nil {
+		return "", err
+	}
+	//if p.Series == "" {
+	//	p.Series = defaultSeries
+	//}
+	template := state.MachineTemplate{
+		Series:      machineParams.Series,
+		Constraints: machineParams.Constraints,
+		InstanceId:  machineParams.InstanceId,
+		Jobs:        stateJobs,
+		Nonce:       machineParams.Nonce,
+		HardwareCharacteristics: machineParams.HardwareCharacteristics,
+		Addresses:               machineParams.Addrs,
+	}
+	machine, err := stateConn.State.AddOneMachine(template)
+	if err != nil {
+		return "", err
+	}
+	return machine.Id(), nil
+}
+
+// gatherMachineParams collects all the information we know about the machine
+// we are about to provision. It will SSH into that machine as the ubuntu user.
+// The hostname supplied should not include a username.
+// If we can, we will reverse lookup the hostname by its IP address, and use
+// the DNS resolved name, rather than the name that was supplied
+func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
+
+	// Generate a unique nonce for the machine.
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return nil, err
+	}
 	// First, gather the parameters needed to inject the existing host into state.
-	if ip := net.ParseIP(host); ip != nil {
+	if ip := net.ParseIP(hostname); ip != nil {
 		// Do a reverse-lookup on the IP. The IP may not have
 		// a DNS entry, so just log a warning if this fails.
 		names, err := net.LookupAddr(ip.String())
@@ -140,38 +239,50 @@ func recordMachineInState(
 			logger.Infof("failed to resolve %v: %v", ip, err)
 		} else {
 			logger.Infof("resolved %v to %v", ip, names)
-			host = names[0]
+			hostname = names[0]
+			// TODO: jam 2014-01-09 https://bugs.launchpad.net/bugs/1267387
+			// We change what 'hostname' we are using here (rather
+			// than an IP address we use the DNS name). I'm not
+			// sure why that is better, but if we are changing the
+			// host, we should probably be returning the hostname
+			// to the parent function.
+			// Also, we don't seem to try and compare if 'ip' is in
+			// the list of addrs returned from
+			// instance.HostAddresses in case you might get
+			// multiple and one of them is what you are supposed to
+			// be using.
 		}
 	}
-	addrs, err := instance.HostAddresses(host)
+	addrs, err := HostAddresses(hostname)
 	if err != nil {
-		return "", "", "", err
+		return nil, err
 	}
-	logger.Infof("addresses for %v: %v", host, addrs)
+	logger.Infof("addresses for %v: %v", hostname, addrs)
 
-	provisioned, err := checkProvisioned(host)
+	provisioned, err := checkProvisioned(hostname)
 	if err != nil {
 		err = fmt.Errorf("error checking if provisioned: %v", err)
-		return "", "", "", err
+		return nil, err
 	}
 	if provisioned {
-		return "", "", "", ErrProvisioned
+		return nil, ErrProvisioned
 	}
 
-	hc, series, err := DetectSeriesAndHardwareCharacteristics(host)
+	hc, series, err := DetectSeriesAndHardwareCharacteristics(hostname)
 	if err != nil {
 		err = fmt.Errorf("error detecting hardware characteristics: %v", err)
-		return "", "", "", err
+		return nil, err
 	}
 
-	// Inject a new machine into state.
-	//
 	// There will never be a corresponding "instance" that any provider
 	// knows about. This is fine, and works well with the provisioner
 	// task. The provisioner task will happily remove any and all dead
 	// machines from state, but will ignore the associated instance ID
 	// if it isn't one that the environment provider knows about.
-	machineParams := params.AddMachineParams{
+
+	instanceId := instance.Id(manualInstancePrefix + hostname)
+	nonce := fmt.Sprintf("%s:%s", instanceId, uuid.String())
+	machineParams := &params.AddMachineParams{
 		Series:                  series,
 		HardwareCharacteristics: hc,
 		InstanceId:              instanceId,
@@ -179,62 +290,32 @@ func recordMachineInState(
 		Addrs:                   addrs,
 		Jobs:                    []params.MachineJob{params.JobHostUnits},
 	}
-	results, err := client.AddMachines([]params.AddMachineParams{machineParams})
-	if err != nil {
-		return "", "", "", err
-	}
-	// Currently, only one machine is added, but in future there may be several added in one call.
-	machineInfo := results[0]
-	if machineInfo.Error != nil {
-		return "", "", "", machineInfo.Error
-	}
-	return machineInfo.Machine, series, *hc.Arch, nil
+	return machineParams, nil
 }
 
-func createMachineConfig(client *api.Client, machineId, series, arch, nonce, dataDir string) (*cloudinit.MachineConfig, error) {
-	configParameters, err := client.MachineConfig(machineId, series, arch)
+var provisionMachineAgent = func(host string, mcfg *cloudinit.MachineConfig, progressWriter io.Writer) error {
+	script, err := generateProvisioningScript(mcfg)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	stateInfo := &state.Info{
-		Addrs:    configParameters.StateAddrs,
-		Password: configParameters.Password,
-		Tag:      configParameters.Tag,
-		CACert:   configParameters.CACert,
-	}
-	apiInfo := &api.Info{
-		Addrs:    configParameters.APIAddrs,
-		Password: configParameters.Password,
-		Tag:      configParameters.Tag,
-		CACert:   configParameters.CACert,
-	}
-	environConfig, err := config.New(config.NoDefaults, configParameters.EnvironAttrs)
-	if err != nil {
-		return nil, err
-	}
-	mcfg := environs.NewMachineConfig(machineId, nonce, stateInfo, apiInfo)
-	if dataDir != "" {
-		mcfg.DataDir = dataDir
-	}
-	mcfg.Tools = configParameters.Tools
-	err = environs.FinishMachineConfig(mcfg, environConfig, constraints.Value{})
-	if err != nil {
-		return nil, err
-	}
-	return mcfg, nil
+	return runProvisionScript(script, host, progressWriter)
 }
 
-func provisionMachineAgent(host string, mcfg *cloudinit.MachineConfig, stderr io.Writer) error {
+func generateProvisioningScript(mcfg *cloudinit.MachineConfig) (string, error) {
 	cloudcfg := coreCloudinit.New()
 	if err := cloudinit.ConfigureJuju(mcfg, cloudcfg); err != nil {
-		return err
+		return "", err
 	}
 	// Explicitly disabling apt_upgrade so as not to trample
 	// the target machine's existing configuration.
 	cloudcfg.SetAptUpgrade(false)
-	return sshinit.Configure(sshinit.ConfigureParams{
-		Host:   "ubuntu@" + host,
-		Config: cloudcfg,
-		Stderr: stderr,
-	})
+	return sshinit.ConfigureScript(cloudcfg)
+}
+
+func runProvisionScript(script, host string, progressWriter io.Writer) error {
+	params := sshinit.ConfigureParams{
+		Host:           "ubuntu@" + host,
+		ProgressWriter: progressWriter,
+	}
+	return sshinit.RunConfigureScript(script, params)
 }

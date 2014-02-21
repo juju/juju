@@ -14,12 +14,13 @@ import (
 	"strings"
 	"sync"
 
-	"launchpad.net/loggo"
+	"code.google.com/p/go.crypto/ssh"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/utils"
 )
 
-var logger = loggo.GetLogger("juju.ssh")
+var logger = loggo.GetLogger("juju.utils.ssh")
 
 type ListMode bool
 
@@ -33,9 +34,25 @@ const (
 	authKeysFile = "authorized_keys"
 )
 
-// KeyFingerprint returns the fingerprint and comment for the specified key, using
-// the OS dependent function keyFingerprint.
-var KeyFingerprint = keyFingerprint
+type AuthorisedKey struct {
+	Key     []byte
+	Comment string
+}
+
+// ParseAuthorisedKey parses a non-comment line from an
+// authorized_keys file and returns the constituent parts.
+// Based on description in "man sshd".
+func ParseAuthorisedKey(line string) (*AuthorisedKey, error) {
+	key, comment, _, _, ok := ssh.ParseAuthorizedKey([]byte(line))
+	if !ok {
+		return nil, fmt.Errorf("invalid authorized_key %q", line)
+	}
+	keyBytes := ssh.MarshalPublicKey(key)
+	return &AuthorisedKey{
+		Key:     keyBytes,
+		Comment: comment,
+	}, nil
+}
 
 // SplitAuthorisedKeys extracts a key slice from the specified key data,
 // by splitting the key data into lines and ignoring comments and blank lines.
@@ -157,7 +174,7 @@ func AddKeys(user string, newKeys ...string) error {
 		return err
 	}
 	for _, newKey := range newKeys {
-		fingerprint, comment, err := keyFingerprint(newKey)
+		fingerprint, comment, err := KeyFingerprint(newKey)
 		if err != nil {
 			return err
 		}
@@ -165,7 +182,7 @@ func AddKeys(user string, newKeys ...string) error {
 			return fmt.Errorf("cannot add ssh key without comment")
 		}
 		for _, key := range existingKeys {
-			existingFingerprint, existingComment, err := keyFingerprint(key)
+			existingFingerprint, existingComment, err := KeyFingerprint(key)
 			if err != nil {
 				// Only log a warning if the unrecognised key line is not a comment.
 				if key[0] != '#' {
@@ -202,7 +219,7 @@ func DeleteKeys(user string, keyIds ...string) error {
 	var sshKeys = make(map[string]string)
 	var keyComments = make(map[string]string)
 	for _, key := range existingKeyData {
-		fingerprint, comment, err := keyFingerprint(key)
+		fingerprint, comment, err := KeyFingerprint(key)
 		if err != nil {
 			logger.Debugf("keeping unrecognised existing ssh key %q: %v", key, err)
 			keysToWrite = append(keysToWrite, key)
@@ -248,13 +265,13 @@ func ReplaceKeys(user string, newKeys ...string) error {
 	}
 	var existingNonKeyLines []string
 	for _, line := range existingKeyData {
-		_, _, err := keyFingerprint(line)
+		_, _, err := KeyFingerprint(line)
 		if err != nil {
 			existingNonKeyLines = append(existingNonKeyLines, line)
 		}
 	}
 	for _, newKey := range newKeys {
-		_, comment, err := keyFingerprint(newKey)
+		_, comment, err := KeyFingerprint(newKey)
 		if err != nil {
 			return err
 		}
@@ -275,7 +292,7 @@ func ListKeys(user string, mode ListMode) ([]string, error) {
 	}
 	var keys []string
 	for _, key := range keyData {
-		fingerprint, comment, err := keyFingerprint(key)
+		fingerprint, comment, err := KeyFingerprint(key)
 		if err != nil {
 			// Only log a warning if the unrecognised key line is not a comment.
 			if key[0] != '#' {
@@ -302,19 +319,19 @@ func ListKeys(user string, mode ListMode) ([]string, error) {
 const JujuCommentPrefix = "Juju:"
 
 func EnsureJujuComment(key string) string {
-	_, comment, err := keyFingerprint(key)
+	ak, err := ParseAuthorisedKey(key)
 	// Just return an invalid key as is.
 	if err != nil {
 		logger.Warningf("invalid Juju ssh key %s: %v", key, err)
 		return key
 	}
-	if comment == "" {
+	if ak.Comment == "" {
 		return key + " " + JujuCommentPrefix + "sshkey"
 	} else {
 		// Add the Juju prefix to the comment if necessary.
-		if !strings.HasPrefix(comment, JujuCommentPrefix) {
-			commentIndex := strings.LastIndex(key, comment)
-			return key[:commentIndex] + JujuCommentPrefix + comment
+		if !strings.HasPrefix(ak.Comment, JujuCommentPrefix) {
+			commentIndex := strings.LastIndex(key, ak.Comment)
+			return key[:commentIndex] + JujuCommentPrefix + ak.Comment
 		}
 	}
 	return key

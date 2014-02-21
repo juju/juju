@@ -10,16 +10,17 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/loggo/loggo"
 	"launchpad.net/goose/client"
 	gooseerrors "launchpad.net/goose/errors"
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -71,6 +72,14 @@ openstack:
     # addresses by default without requiring a floating IP address.
     # use-floating-ip: false
 
+    # use-default-secgroup specifies whether new machine instances should have the "default"
+    # Openstack security group assigned.
+    # use-default-secgroup: false
+
+    # network specifies the network label or uuid to bring machines up on, in
+    # the case where multiple networks exist. It may be omitted otherwise.
+    # network: <your network label or uuid>
+
     # tools-metadata-url specifies the location of the Juju tools and metadata. It defaults to the
     # global public tools metadata location https://streams.canonical.com/tools.
     # tools-metadata-url:  https://you-tools-metadata-url
@@ -78,6 +87,10 @@ openstack:
     # image-metadata-url specifies the location of Ubuntu cloud image metadata. It defaults to the
     # global public image metadata location https://cloud-images.ubuntu.com/releases.
     # image-metadata-url:  https://you-tools-metadata-url
+
+    # image-stream chooses a simplestreams stream to select OS images from,
+    # for example daily or released images (or any other stream available on simplestreams).
+    # image-stream: "released"
 
     # auth-url defaults to the value of the environment variable OS_AUTH_URL,
     # but can be specified here.
@@ -119,7 +132,11 @@ hpcloud:
     # to give the nodes a public IP address. Some installations assign public IP
     # addresses by default without requiring a floating IP address.
     # use-floating-ip: false
-    
+
+    # use-default-secgroup specifies whether new machine instances should have the "default"
+    # Openstack security group assigned.
+    # use-default-secgroup: false
+
     # tenant-name holds the openstack tenant name. In HPCloud, this is 
     # synonymous with the project-name  It defaults to
     # the environment variable OS_TENANT_NAME.
@@ -163,7 +180,7 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return e, nil
 }
 
-func (p environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	attrs := cfg.UnknownAttrs()
 	if _, ok := attrs["control-bucket"]; !ok {
 		uuid, err := utils.NewUUID()
@@ -466,18 +483,6 @@ func (e *environ) nova() *nova.Client {
 	return nova
 }
 
-// PrecheckInstance is specified in the environs.Prechecker interface.
-func (*environ) PrecheckInstance(series string, cons constraints.Value) error {
-	return nil
-}
-
-// PrecheckContainer is specified in the environs.Prechecker interface.
-func (*environ) PrecheckContainer(series string, kind instance.ContainerType) error {
-	// This check can either go away or be relaxed when the openstack
-	// provider manages container addressibility.
-	return environs.NewContainersUnsupported("openstack provider does not support containers")
-}
-
 func (e *environ) Name() string {
 	return e.name
 }
@@ -623,6 +628,37 @@ func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 	return e.toolsSources, nil
 }
 
+// TODO(gz): Move this somewhere more reusable
+const uuidPattern = "^([a-fA-F0-9]{8})-([a-fA-f0-9]{4})-([1-5][a-fA-f0-9]{3})-([a-fA-f0-9]{4})-([a-fA-f0-9]{12})$"
+
+var uuidRegexp = regexp.MustCompile(uuidPattern)
+
+// resolveNetwork takes either a network id or label and returns a network id
+func (e *environ) resolveNetwork(networkName string) (string, error) {
+	if uuidRegexp.MatchString(networkName) {
+		// Network id supplied, assume valid as boot will fail if not
+		return networkName, nil
+	}
+	// Network label supplied, resolve to a network id
+	networks, err := e.nova().ListNetworks()
+	if err != nil {
+		return "", err
+	}
+	var networkIds = []string{}
+	for _, network := range networks {
+		if network.Label == networkName {
+			networkIds = append(networkIds, network.Id)
+		}
+	}
+	switch len(networkIds) {
+	case 1:
+		return networkIds[0], nil
+	case 0:
+		return "", fmt.Errorf("No networks exist with label %q", networkName)
+	}
+	return "", fmt.Errorf("Multiple networks with label %q: %v", networkName, networkIds)
+}
+
 // allocatePublicIP tries to find an available floating IP address, or
 // allocates a new one, returning it, or an error
 func (e *environ) allocatePublicIP() (*nova.FloatingIP, error) {
@@ -703,6 +739,16 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 		return nil, nil, fmt.Errorf("cannot make user data: %v", err)
 	}
 	logger.Debugf("openstack user data; %d bytes", len(userData))
+	var networks = []nova.ServerNetworks{}
+	usingNetwork := e.ecfg().network()
+	if usingNetwork != "" {
+		networkId, err := e.resolveNetwork(usingNetwork)
+		if err != nil {
+			return nil, nil, err
+		}
+		logger.Debugf("using network id %q", networkId)
+		networks = append(networks, nova.ServerNetworks{NetworkId: networkId})
+	}
 	withPublicIP := e.ecfg().useFloatingIP()
 	var publicIP *nova.FloatingIP
 	if withPublicIP {
@@ -722,16 +768,17 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 	for i, g := range groups {
 		groupNames[i] = nova.SecurityGroupName{g.Name}
 	}
-
+	var opts = nova.RunServerOpts{
+		Name:               e.machineFullName(machineConfig.MachineId),
+		FlavorId:           spec.InstanceType.Id,
+		ImageId:            spec.Image.Id,
+		UserData:           userData,
+		SecurityGroupNames: groupNames,
+		Networks:           networks,
+	}
 	var server *nova.Entity
 	for a := shortAttempt.Start(); a.Next(); {
-		server, err = e.nova().RunServer(nova.RunServerOpts{
-			Name:               e.machineFullName(machineConfig.MachineId),
-			FlavorId:           spec.InstanceType.Id,
-			ImageId:            spec.Image.Id,
-			UserData:           userData,
-			SecurityGroupNames: groupNames,
-		})
+		server, err = e.nova().RunServer(opts)
 		if err == nil || !gooseerrors.IsNotFound(err) {
 			break
 		}
@@ -951,7 +998,7 @@ func (e *environ) portsInGroup(name string) (ports []instance.Port, err error) {
 			})
 		}
 	}
-	state.SortPorts(ports)
+	instance.SortPorts(ports)
 	return ports, nil
 }
 
@@ -1058,7 +1105,15 @@ func (e *environ) setUpGroups(machineId string, statePort, apiPort int) ([]nova.
 	if err != nil {
 		return nil, err
 	}
-	return []nova.SecurityGroup{jujuGroup, machineGroup}, nil
+	groups := []nova.SecurityGroup{jujuGroup, machineGroup}
+	if e.ecfg().useDefaultSecurityGroup() {
+		defaultGroup, err := e.nova().SecurityGroupByName("default")
+		if err != nil {
+			return nil, fmt.Errorf("loading default security group: %v", err)
+		}
+		groups = append(groups, *defaultGroup)
+	}
+	return groups, nil
 }
 
 // zeroGroup holds the zero security group.

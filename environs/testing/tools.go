@@ -5,6 +5,7 @@ package testing
 
 import (
 	"bytes"
+	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -17,7 +18,6 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
-	"launchpad.net/juju-core/environs/sync"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -25,7 +25,6 @@ import (
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/upgrader"
-	"net/http"
 )
 
 // defaultVersion gives the default version for tests.
@@ -38,20 +37,16 @@ var defaultVersion = version.Binary{
 // ToolsFixture is used as a fixture to stub out the default tools URL so we
 // don't hit the real internet during tests.
 type ToolsFixture struct {
-	origDefaultURL          string
-	origDefaultSyncLocation string
-	DefaultBaseURL          string
+	origDefaultURL string
+	DefaultBaseURL string
 }
 
 func (s *ToolsFixture) SetUpTest(c *gc.C) {
 	s.origDefaultURL = envtools.DefaultBaseURL
-	s.origDefaultSyncLocation = sync.DefaultToolsLocation
 	envtools.DefaultBaseURL = s.DefaultBaseURL
-	sync.DefaultToolsLocation = c.MkDir() // stop sync from going to s3
 }
 
 func (s *ToolsFixture) TearDownTest(c *gc.C) {
-	sync.DefaultToolsLocation = sync.DefaultToolsLocation
 	envtools.DefaultBaseURL = s.origDefaultURL
 }
 
@@ -80,15 +75,14 @@ func CheckTools(c *gc.C, obtained, expected *coretools.Tools) {
 	}
 }
 
-// CheckUpgraderReadyError ensures the obtained and expected errors are equal, allowing for the fact that
-// the error's tools attributes may not have size and checksum set.
+// CheckUpgraderReadyError ensures the obtained and expected errors are equal.
 func CheckUpgraderReadyError(c *gc.C, obtained error, expected *upgrader.UpgradeReadyError) {
 	c.Assert(obtained, gc.FitsTypeOf, &upgrader.UpgradeReadyError{})
 	err := obtained.(*upgrader.UpgradeReadyError)
 	c.Assert(err.AgentName, gc.Equals, expected.AgentName)
 	c.Assert(err.DataDir, gc.Equals, expected.DataDir)
-	CheckTools(c, err.OldTools, expected.OldTools)
-	CheckTools(c, err.NewTools, expected.NewTools)
+	c.Assert(err.OldTools, gc.Equals, expected.OldTools)
+	c.Assert(err.NewTools, gc.Equals, expected.NewTools)
 }
 
 // PrimeTools sets up the current version of the tools to vers and
@@ -96,7 +90,6 @@ func CheckUpgraderReadyError(c *gc.C, obtained error, expected *upgrader.Upgrade
 func PrimeTools(c *gc.C, stor storage.Storage, dataDir string, vers version.Binary) *coretools.Tools {
 	err := os.RemoveAll(filepath.Join(dataDir, "tools"))
 	c.Assert(err, gc.IsNil)
-	version.Current = vers
 	agentTools, err := uploadFakeToolsVersion(stor, vers)
 	c.Assert(err, gc.IsNil)
 	resp, err := http.Get(agentTools.URL)

@@ -23,7 +23,7 @@ import (
 	"strings"
 	"sync"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/errors"
 )
@@ -77,9 +77,9 @@ type LookupParams struct {
 	CloudSpec
 	Series []string
 	Arches []string
-	// Stream can be "" for the default "released" stream, or "daily" for
-	// daily images, or any other stream that the available simplestreams
-	// metadata supports.
+	// Stream can be "" or "released" for the default "released" stream,
+	// or "daily" for daily images, or any other stream that the available
+	// simplestreams metadata supports.
 	Stream string
 }
 
@@ -127,8 +127,8 @@ func SupportedSeries() []string {
 	seriesVersionsMutex.Lock()
 	defer seriesVersionsMutex.Unlock()
 	updateSeriesVersions()
-	series := []string{}
-	for s, _ := range seriesVersions {
+	var series []string
+	for s := range seriesVersions {
 		series = append(series, s)
 	}
 	return series
@@ -394,12 +394,13 @@ func newNoMatchingProductsError(message string, args ...interface{}) error {
 }
 
 const (
+	StreamsDir       = "streams/v1"
 	UnsignedIndex    = "streams/v1/index.json"
 	DefaultIndexPath = "streams/v1/index"
 	UnsignedMirror   = "streams/v1/mirrors.json"
 	mirrorsPath      = "streams/v1/mirrors"
 	signedSuffix     = ".sjson"
-	unsignedSuffix   = ".json"
+	UnsignedSuffix   = ".json"
 )
 
 type appendMatchingFunc func(DataSource, []interface{}, map[string]interface{}, LookupConstraint) []interface{}
@@ -441,7 +442,7 @@ func GetMetadata(sources []DataSource, baseIndexPath string, cons LookupConstrai
 
 // getMaybeSignedMetadata returns metadata records matching the specified constraint.
 func getMaybeSignedMetadata(source DataSource, baseIndexPath string, cons LookupConstraint, signed bool, params ValueParams) ([]interface{}, error) {
-	indexPath := baseIndexPath + unsignedSuffix
+	indexPath := baseIndexPath + UnsignedSuffix
 	if signed {
 		indexPath = baseIndexPath + signedSuffix
 	}
@@ -546,7 +547,7 @@ func GetIndexWithFormat(source DataSource, indexPath, indexFormat string, requir
 func getMirrorRefs(source DataSource, baseMirrorsPath string, requireSigned bool,
 	params ValueParams) (MirrorRefs, string, error) {
 
-	mirrorsPath := baseMirrorsPath + unsignedSuffix
+	mirrorsPath := baseMirrorsPath + UnsignedSuffix
 	if requireSigned {
 		mirrorsPath = baseMirrorsPath + signedSuffix
 	}

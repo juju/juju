@@ -8,8 +8,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/loggo/loggo"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/loggo"
 )
 
 type SimpleMessage struct {

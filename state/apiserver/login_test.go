@@ -4,8 +4,8 @@
 package apiserver_test
 
 import (
+	"github.com/loggo/loggo"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/loggo"
 
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -50,6 +50,7 @@ func (s *loginSuite) setupServer(c *gc.C) (*api.Info, func()) {
 		"localhost:0",
 		[]byte(coretesting.ServerCert),
 		[]byte(coretesting.ServerKey),
+		"",
 	)
 	c.Assert(err, gc.IsNil)
 	info := &api.Info{

@@ -149,16 +149,12 @@ func decodeUserData(userData string) ([]byte, error) {
 	return utils.Gunzip(data)
 }
 
-func bootstrapContext(c *gc.C) environs.BootstrapContext {
-	return envtesting.NewBootstrapContext(coretesting.Context(c))
-}
-
 func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
 	// Create node 0: it will be used as the bootstrap node.
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	// The bootstrap node has been acquired and started.
 	operations := suite.testMAASObject.TestServer.NodeOperations()
@@ -372,7 +368,7 @@ func (suite *environSuite) TestBootstrapSucceeds(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "thenode", "hostname": "host"}`)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 }
 
@@ -388,14 +384,14 @@ func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = env.SetConfig(cfg)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
 	c.Check(err, gc.ErrorMatches, "cannot find bootstrap tools.*")
 }
 
 func (suite *environSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
 	// Since there are no nodes, the attempt to allocate one returns a
 	// 409: Conflict.
 	c.Check(err, gc.ErrorMatches, ".*409.*")
@@ -407,7 +403,7 @@ func (suite *environSuite) TestBootstrapIntegratesWithEnvirons(c *gc.C) {
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "bootstrapnode", "hostname": "host"}`)
 
 	// bootstrap.Bootstrap calls Environ.Bootstrap.  This works.
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 }
 
@@ -420,13 +416,28 @@ func assertSourceContents(c *gc.C, source simplestreams.DataSource, filename str
 	c.Assert(retrieved, gc.DeepEquals, content)
 }
 
-func (suite *environSuite) TestGetImageMetadataSources(c *gc.C) {
-	env := suite.makeEnviron()
+func (suite *environSuite) assertGetImageMetadataSources(c *gc.C, stream, officialSourcePath string) {
+	// Make an env configured with the stream.
+	testAttrs := maasEnvAttrs
+	testAttrs = testAttrs.Merge(coretesting.Attrs{
+		"maas-server": suite.testMAASObject.TestServer.URL,
+	})
+	if stream != "" {
+		testAttrs = testAttrs.Merge(coretesting.Attrs{
+			"image-stream": stream,
+		})
+	}
+	attrs := coretesting.FakeConfig().Merge(testAttrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+	env, err := NewEnviron(cfg)
+	c.Assert(err, gc.IsNil)
+
 	// Add a dummy file to storage so we can use that to check the
 	// obtained source later.
 	data := makeRandomBytes(10)
 	stor := NewStorage(env)
-	err := stor.Put("images/filename", bytes.NewBuffer([]byte(data)), int64(len(data)))
+	err = stor.Put("images/filename", bytes.NewBuffer([]byte(data)), int64(len(data)))
 	c.Assert(err, gc.IsNil)
 	sources, err := imagemetadata.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
@@ -434,7 +445,13 @@ func (suite *environSuite) TestGetImageMetadataSources(c *gc.C) {
 	assertSourceContents(c, sources[0], "filename", data)
 	url, err := sources[1].URL("")
 	c.Assert(err, gc.IsNil)
-	c.Assert(url, gc.Equals, imagemetadata.DefaultBaseURL+"/")
+	c.Assert(url, gc.Equals, fmt.Sprintf("http://cloud-images.ubuntu.com/%s/", officialSourcePath))
+}
+
+func (suite *environSuite) TestGetImageMetadataSources(c *gc.C) {
+	suite.assertGetImageMetadataSources(c, "", "releases")
+	suite.assertGetImageMetadataSources(c, "released", "releases")
+	suite.assertGetImageMetadataSources(c, "daily", "daily")
 }
 
 func (suite *environSuite) TestGetToolsMetadataSources(c *gc.C) {

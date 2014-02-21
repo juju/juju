@@ -6,7 +6,7 @@ package provisioner
 import (
 	"sync"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/agent"
@@ -97,7 +97,7 @@ func (p *provisioner) Stop() error {
 
 // getStartTask creates a new worker for the provisioner,
 func (p *provisioner) getStartTask(safeMode bool) (ProvisionerTask, error) {
-	auth, err := NewAPIAuthenticator(p.st)
+	auth, err := environs.NewAPIAuthenticator(p.st)
 	if err != nil {
 		return nil, err
 	}

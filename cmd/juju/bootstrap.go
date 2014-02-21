@@ -5,7 +5,7 @@ package main
 
 import (
 	"fmt"
-	"io"
+	"os"
 	"strings"
 
 	"launchpad.net/gnuflag"
@@ -17,7 +17,10 @@ import (
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
+	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/sync"
+	"launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
@@ -37,7 +40,21 @@ constraints were set with juju set-constraints.
 Bootstrap initializes the cloud environment synchronously and displays information
 about the current installation steps.  The time for bootstrap to complete varies 
 across cloud providers from a few seconds to several minutes.  Once bootstrap has 
-completed, you can run other juju commands against your environment.
+completed, you can run other juju commands against your environment. You can change
+the default timeout and retry delays used during the bootstrap by changing the
+following settings in your environments.yaml (all values represent number of seconds):
+
+    # How long to wait for a connection to the state server.
+    bootstrap-timeout: 600 # default: 10 minutes
+    # How long to wait between connection attempts to a state server address.
+    bootstrap-retry-delay: 5 # default: 5 seconds
+    # How often to refresh state server addresses from the API server.
+    bootstrap-addresses-delay: 10 # default: 10 seconds
+
+Private clouds may need to specify their own custom image metadata, and possibly upload
+Juju tools to cloud storage if no outgoing Internet access is available. In this case,
+use the --metadata-source paramater to tell bootstrap a local directory from which to
+upload tools and/or image metadata.
 
 See Also:
    juju help switch
@@ -49,10 +66,10 @@ See Also:
 // environment, and setting up everything necessary to continue working.
 type BootstrapCommand struct {
 	cmd.EnvCommandBase
-	Constraints constraints.Value
-	UploadTools bool
-	Series      []string
-	Source      string
+	Constraints    constraints.Value
+	UploadTools    bool
+	Series         []string
+	MetadataSource string
 }
 
 func (c *BootstrapCommand) Info() *cmd.Info {
@@ -68,63 +85,65 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "set environment constraints")
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
 	f.Var(seriesVar{&c.Series}, "series", "upload tools for supplied comma-separated series list")
-	f.StringVar(&c.Source, "source", "", "local path to use as tools source")
+	f.StringVar(&c.MetadataSource, "metadata-source", "", "local path to use as tools and/or metadata source")
 }
 
-func (c *BootstrapCommand) Init(args []string) error {
+func (c *BootstrapCommand) Init(args []string) (err error) {
 	if len(c.Series) > 0 && !c.UploadTools {
 		return fmt.Errorf("--series requires --upload-tools")
 	}
 	return cmd.CheckEmpty(args)
 }
 
-type bootstrapContext struct {
-	*cmd.Context
-}
-
-func (c bootstrapContext) Stdin() io.Reader {
-	return c.Context.Stdin
-}
-
-func (c bootstrapContext) Stdout() io.Writer {
-	return c.Context.Stdout
-}
-
-func (c bootstrapContext) Stderr() io.Writer {
-	return c.Context.Stderr
+func destroyPreparedEnviron(env environs.Environ, store configstore.Storage, err *error, action string) {
+	if *err == nil {
+		return
+	}
+	if err := environs.Destroy(env, store); err != nil {
+		logger.Errorf("%s failed, and the environment could not be destroyed: %v", action, err)
+	}
 }
 
 // Run connects to the environment specified on the command line and bootstraps
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.
-func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
+func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	store, err := configstore.Default()
 	if err != nil {
 		return err
 	}
-	environ, err := environs.PrepareFromName(c.EnvName, store)
+	var existing bool
+	if _, err := store.ReadInfo(c.EnvName); !errors.IsNotFoundError(err) {
+		existing = true
+	}
+	environ, err := environs.PrepareFromName(c.EnvName, ctx, store)
 	if err != nil {
 		return err
 	}
-	bootstrapContext := bootstrapContext{ctx}
-	// If the environment has a special bootstrap Storage, use it wherever
-	// we'd otherwise use environ.Storage.
-	if bs, ok := environ.(environs.BootstrapStorager); ok {
-		if err := bs.EnableBootstrapStorage(bootstrapContext); err != nil {
-			return fmt.Errorf("failed to enable bootstrap storage: %v", err)
-		}
+	if !existing {
+		defer destroyPreparedEnviron(environ, store, &resultErr, "Bootstrap")
 	}
 	if err := bootstrap.EnsureNotBootstrapped(environ); err != nil {
 		return err
 	}
-	// If --source is specified, override the default tools source.
-	if c.Source != "" {
-		logger.Infof("Setting default tools source: %s", c.Source)
-		sync.DefaultToolsLocation = c.Source
+	// If --metadata-source is specified, override the default tools metadata source so
+	// SyncTools can use it, and also upload any image metadata.
+	if c.MetadataSource != "" {
+		metadataDir := ctx.AbsPath(c.MetadataSource)
+		logger.Infof("Setting default tools and image metadata sources: %s", metadataDir)
+		tools.DefaultBaseURL = metadataDir
+		if err := imagemetadata.UploadImageMetadata(environ.Storage(), metadataDir); err != nil {
+			// Do not error if image metadata directory doesn't exist.
+			if !os.IsNotExist(err) {
+				return fmt.Errorf("uploading image metadata: %v", err)
+			}
+		} else {
+			logger.Infof("custom image metadata uploaded")
+		}
 	}
 	// TODO (wallyworld): 2013-09-20 bug 1227931
 	// We can set a custom tools data source instead of doing an
-	// unecessary upload.
+	// unnecessary upload.
 	if environ.Config().Type() == provider.Local {
 		c.UploadTools = true
 	}
@@ -134,7 +153,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 			return err
 		}
 	}
-	return bootstrap.Bootstrap(bootstrapContext, environ, c.Constraints)
+	return bootstrap.Bootstrap(ctx, environ, c.Constraints)
 }
 
 func (c *BootstrapCommand) uploadTools(environ environs.Environ) error {

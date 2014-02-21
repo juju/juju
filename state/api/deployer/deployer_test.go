@@ -8,6 +8,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -42,7 +43,7 @@ var _ = gc.Suite(&deployerSuite{})
 
 func (s *deployerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.stateAPI, s.machine = s.OpenAPIAsNewMachine(c)
+	s.stateAPI, s.machine = s.OpenAPIAsNewMachine(c, state.JobManageEnviron, state.JobHostUnits)
 
 	var err error
 	// Create the needed services and relate them.
@@ -231,10 +232,15 @@ func (s *deployerSuite) TestUnitSetPassword(c *gc.C) {
 }
 
 func (s *deployerSuite) TestStateAddresses(c *gc.C) {
-	testing.AddStateServerMachine(c, s.State)
+	addrs := []instance.Address{
+		instance.NewAddress("0.1.2.3"),
+	}
+	err := s.machine.SetAddresses(addrs)
+	c.Assert(err, gc.IsNil)
 
 	stateAddresses, err := s.State.Addresses()
 	c.Assert(err, gc.IsNil)
+	c.Assert(len(stateAddresses), gc.Equals, 1)
 
 	addresses, err := s.st.StateAddresses()
 	c.Assert(err, gc.IsNil)
@@ -242,14 +248,19 @@ func (s *deployerSuite) TestStateAddresses(c *gc.C) {
 }
 
 func (s *deployerSuite) TestAPIAddresses(c *gc.C) {
-	testing.AddStateServerMachine(c, s.State)
-
-	apiAddresses, err := s.State.APIAddresses()
+	addrs := []instance.Address{
+		instance.NewAddress("0.1.2.3"),
+	}
+	err := s.machine.SetAddresses(addrs)
 	c.Assert(err, gc.IsNil)
+
+	stateAddresses, err := s.State.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(stateAddresses), gc.Equals, 1)
 
 	addresses, err := s.st.APIAddresses()
 	c.Assert(err, gc.IsNil)
-	c.Assert(addresses, gc.DeepEquals, apiAddresses)
+	c.Assert(addresses, gc.DeepEquals, stateAddresses)
 }
 
 func (s *deployerSuite) TestCACert(c *gc.C) {

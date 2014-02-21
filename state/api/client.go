@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"time"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
@@ -46,6 +47,7 @@ type ServiceStatus struct {
 	Exposed       bool
 	Life          string
 	Relations     map[string][]string
+	CanUpgradeTo  string
 	SubordinateTo []string
 	Units         map[string]UnitStatus
 }
@@ -60,6 +62,7 @@ type UnitStatus struct {
 	Machine        string
 	OpenedPorts    []string
 	PublicAddress  string
+	Charm          string
 	Subordinates   map[string]UnitStatus
 }
 
@@ -168,16 +171,14 @@ func (c *Client) AddMachines(machineParams []params.AddMachineParams) ([]params.
 	return results.Machines, err
 }
 
-// MachineConfig returns information from the environment config that are
-// needed for machine cloud-init.
-func (c *Client) MachineConfig(machineId, series, arch string) (result params.MachineConfig, err error) {
-	args := params.MachineConfigParams{
-		MachineId: machineId,
-		Series:    series,
-		Arch:      arch,
+// ProvisioningScript returns a shell script that, when run,
+// provisions a machine agent on the machine executing the script.
+func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (script string, err error) {
+	var result params.ProvisioningScriptResult
+	if err = c.st.Call("Client", "", "ProvisioningScript", args, &result); err != nil {
+		return "", err
 	}
-	err = c.st.Call("Client", "", "MachineConfig", args, &result)
-	return result, err
+	return result.Script, nil
 }
 
 // DestroyMachines removes a given set of machines.
@@ -396,6 +397,23 @@ func (c *Client) EnvironmentSet(config map[string]interface{}) error {
 func (c *Client) SetEnvironAgentVersion(version version.Number) error {
 	args := params.SetEnvironAgentVersion{Version: version}
 	return c.st.Call("Client", "", "SetEnvironAgentVersion", args, nil)
+}
+
+// RunOnAllMachines runs the command on all the machines with the specified
+// timeout.
+func (c *Client) RunOnAllMachines(commands string, timeout time.Duration) ([]params.RunResult, error) {
+	var results params.RunResults
+	args := params.RunParams{Commands: commands, Timeout: timeout}
+	err := c.st.Call("Client", "", "RunOnAllMachines", args, &results)
+	return results.Results, err
+}
+
+// Run the Commands specified on the machines identified through the ids
+// provided in the machines, services and units slices.
+func (c *Client) Run(run params.RunParams) ([]params.RunResult, error) {
+	var results params.RunResults
+	err := c.st.Call("Client", "", "Run", run, &results)
+	return results.Results, err
 }
 
 // DestroyEnvironment puts the environment into a "dying" state,

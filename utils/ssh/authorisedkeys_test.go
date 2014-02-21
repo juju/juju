@@ -4,6 +4,8 @@
 package ssh_test
 
 import (
+	"encoding/base64"
+	"strings"
 	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
@@ -232,5 +234,48 @@ func (s *AuthorisedKeysKeysSuite) TestSplitAuthorisedKeys(c *gc.C) {
 	} {
 		actual := ssh.SplitAuthorisedKeys(test.keyData)
 		c.Assert(actual, gc.DeepEquals, test.expected)
+	}
+}
+
+func b64decode(c *gc.C, s string) []byte {
+	b, err := base64.StdEncoding.DecodeString(s)
+	c.Assert(err, gc.IsNil)
+	return b
+}
+
+func (s *AuthorisedKeysKeysSuite) TestParseAuthorisedKey(c *gc.C) {
+	for i, test := range []struct {
+		line    string
+		key     []byte
+		comment string
+		err     string
+	}{{
+		line: sshtesting.ValidKeyOne.Key,
+		key:  b64decode(c, strings.Fields(sshtesting.ValidKeyOne.Key)[1]),
+	}, {
+		line:    sshtesting.ValidKeyOne.Key + " a b c",
+		key:     b64decode(c, strings.Fields(sshtesting.ValidKeyOne.Key)[1]),
+		comment: "a b c",
+	}, {
+		line: "ssh-xsa blah",
+		err:  "invalid authorized_key \"ssh-xsa blah\"",
+	}, {
+		// options should be skipped
+		line: `no-pty,principals="\"",command="\!" ` + sshtesting.ValidKeyOne.Key,
+		key:  b64decode(c, strings.Fields(sshtesting.ValidKeyOne.Key)[1]),
+	}, {
+		line: "ssh-rsa",
+		err:  "invalid authorized_key \"ssh-rsa\"",
+	}} {
+		c.Logf("test %d: %s", i, test.line)
+		ak, err := ssh.ParseAuthorisedKey(test.line)
+		if test.err != "" {
+			c.Assert(err, gc.ErrorMatches, test.err)
+		} else {
+			c.Assert(err, gc.IsNil)
+			c.Assert(ak, gc.Not(gc.IsNil))
+			c.Assert(ak.Key, gc.DeepEquals, test.key)
+			c.Assert(ak.Comment, gc.Equals, test.comment)
+		}
 	}
 }

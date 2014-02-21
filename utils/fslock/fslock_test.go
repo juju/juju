@@ -10,7 +10,6 @@ import (
 	"path"
 	"runtime"
 	"sync/atomic"
-	"testing"
 	"time"
 
 	gc "launchpad.net/gocheck"
@@ -21,10 +20,6 @@ import (
 	"launchpad.net/juju-core/utils/fslock"
 )
 
-func Test(t *testing.T) {
-	gc.TestingT(t)
-}
-
 type fslockSuite struct {
 	testbase.LoggingSuite
 	lockDelay time.Duration
@@ -34,12 +29,7 @@ var _ = gc.Suite(&fslockSuite{})
 
 func (s *fslockSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
-	s.lockDelay = fslock.SetLockWaitDelay(1 * time.Millisecond)
-}
-
-func (s *fslockSuite) TearDownSuite(c *gc.C) {
-	fslock.SetLockWaitDelay(s.lockDelay)
-	s.LoggingSuite.TearDownSuite(c)
+	s.PatchValue(&fslock.LockWaitDelay, 1*time.Millisecond)
 }
 
 // This test also happens to test that locks can get created when the parent

@@ -12,7 +12,21 @@ import (
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/osenv"
+	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/utils/ssh"
 )
+
+// FakeAuthKeys holds the authorized key used for testing
+// purposes in FakeConfig. It is valid for parsing with the utils/ssh
+// authorized-key utilities.
+const FakeAuthKeys = `ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAYQDP8fPSAMFm2PQGoVUks/FENVUMww1QTK6m++Y2qX9NGHm43kwEzxfoWR77wo6fhBhgFHsQ6ogE/cYLx77hOvjTchMEP74EVxSce0qtDjI7SwYbOpAButRId3g/Ef4STz8= joe@0.1.2.4`
+
+func init() {
+	_, err := ssh.ParseAuthorisedKey(FakeAuthKeys)
+	if err != nil {
+		panic("FakeAuthKeys does not hold a valid authorized key: " + err.Error())
+	}
+}
 
 // FakeConfig() returns an environment configuration for a
 // fake provider with all required attributes set.
@@ -20,7 +34,7 @@ func FakeConfig() Attrs {
 	return Attrs{
 		"type":                      "someprovider",
 		"name":                      "testenv",
-		"authorized-keys":           "my-keys",
+		"authorized-keys":           FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
 		"admin-secret":              "fish",
 		"ca-cert":                   CACert,
@@ -109,9 +123,9 @@ func MakeFakeHomeNoEnvironments(c *gc.C, certNames ...string) *FakeHome {
 	fake := MakeEmptyFakeHome(c)
 
 	for _, name := range certNames {
-		err := ioutil.WriteFile(config.JujuHomePath(name+"-cert.pem"), []byte(CACert), 0600)
+		err := ioutil.WriteFile(osenv.JujuHomePath(name+"-cert.pem"), []byte(CACert), 0600)
 		c.Assert(err, gc.IsNil)
-		err = ioutil.WriteFile(config.JujuHomePath(name+"-private-key.pem"), []byte(CAKey), 0600)
+		err = ioutil.WriteFile(osenv.JujuHomePath(name+"-private-key.pem"), []byte(CAKey), 0600)
 		c.Assert(err, gc.IsNil)
 	}
 
@@ -133,7 +147,7 @@ func MakeFakeHomeNoEnvironments(c *gc.C, certNames ...string) *FakeHome {
 func MakeFakeHome(c *gc.C, envConfig string, certNames ...string) *FakeHome {
 	fake := MakeFakeHomeNoEnvironments(c, certNames...)
 
-	envs := config.JujuHomePath("environments.yaml")
+	envs := osenv.JujuHomePath("environments.yaml")
 	err := ioutil.WriteFile(envs, []byte(envConfig), 0644)
 	c.Assert(err, gc.IsNil)
 
@@ -142,7 +156,7 @@ func MakeFakeHome(c *gc.C, envConfig string, certNames ...string) *FakeHome {
 
 func MakeEmptyFakeHome(c *gc.C) *FakeHome {
 	fake := MakeEmptyFakeHomeWithoutJuju(c)
-	err := os.Mkdir(config.JujuHome(), 0700)
+	err := os.Mkdir(osenv.JujuHome(), 0700)
 	c.Assert(err, gc.IsNil)
 	return fake
 }
@@ -151,19 +165,19 @@ func MakeEmptyFakeHomeWithoutJuju(c *gc.C) *FakeHome {
 	oldHomeEnv := osenv.Home()
 	oldEnvironment := make(map[string]string)
 	for _, name := range []string{
-		osenv.JujuHome,
-		osenv.JujuEnv,
-		osenv.JujuLoggingConfig,
+		osenv.JujuHomeEnvKey,
+		osenv.JujuEnvEnvKey,
+		osenv.JujuLoggingConfigEnvKey,
 	} {
 		oldEnvironment[name] = os.Getenv(name)
 	}
 	fakeHome := c.MkDir()
 	osenv.SetHome(fakeHome)
-	os.Setenv(osenv.JujuHome, "")
-	os.Setenv(osenv.JujuEnv, "")
-	os.Setenv(osenv.JujuLoggingConfig, "")
+	os.Setenv(osenv.JujuHomeEnvKey, "")
+	os.Setenv(osenv.JujuEnvEnvKey, "")
+	os.Setenv(osenv.JujuLoggingConfigEnvKey, "")
 	jujuHome := filepath.Join(fakeHome, ".juju")
-	oldJujuHome := config.SetJujuHome(jujuHome)
+	oldJujuHome := osenv.SetJujuHome(jujuHome)
 	return &FakeHome{
 		oldHomeEnv:     oldHomeEnv,
 		oldEnvironment: oldEnvironment,
@@ -178,7 +192,7 @@ func HomePath(names ...string) string {
 }
 
 func (h *FakeHome) Restore() {
-	config.SetJujuHome(h.oldJujuHome)
+	osenv.SetJujuHome(h.oldJujuHome)
 	for name, value := range h.oldEnvironment {
 		os.Setenv(name, value)
 	}
@@ -232,4 +246,15 @@ func MakeSampleHome(c *gc.C) *FakeHome {
 
 func MakeMultipleEnvHome(c *gc.C) *FakeHome {
 	return MakeFakeHome(c, MultipleEnvConfig, SampleCertName, SampleCertName+"-2")
+}
+
+type FakeHomeSuite struct {
+	testbase.LoggingSuite
+	Home *FakeHome
+}
+
+func (s *FakeHomeSuite) SetUpTest(c *gc.C) {
+	s.LoggingSuite.SetUpTest(c)
+	s.Home = MakeSampleHome(c)
+	s.AddCleanup(func(*gc.C) { s.Home.Restore() })
 }

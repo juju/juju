@@ -228,6 +228,6 @@ func (s *ImageMetadataSuite) TestImageMetadataBadArgs(c *gc.C) {
 		c.Logf("test: %d", i)
 		ctx := testing.Context(c)
 		code := cmd.Main(&ImageMetadataCommand{}, ctx, t.args)
-		c.Check(code, gc.Equals, 2)
+		c.Check(code, gc.Equals, 1)
 	}
 }

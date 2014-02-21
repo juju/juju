@@ -42,6 +42,11 @@ var _ = gc.Suite(&environSuite{})
 // makeEnviron creates a fake azureEnviron with arbitrary configuration.
 func makeEnviron(c *gc.C) *azureEnviron {
 	attrs := makeAzureConfigMap(c)
+	return makeEnvironWithConfig(c, attrs)
+}
+
+// makeEnviron creates a fake azureEnviron with the specified configuration.
+func makeEnvironWithConfig(c *gc.C, attrs map[string]interface{}) *azureEnviron {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	env, err := NewEnviron(cfg)
@@ -86,15 +91,6 @@ func (*environSuite) TestGetSnapshotLocksEnviron(c *gc.C) {
 func (*environSuite) TestName(c *gc.C) {
 	env := azureEnviron{name: "foo"}
 	c.Check(env.Name(), gc.Equals, env.name)
-}
-
-func (*environSuite) TestPrecheck(c *gc.C) {
-	env := azureEnviron{name: "foo"}
-	var cons constraints.Value
-	err := env.PrecheckInstance("saucy", cons)
-	c.Check(err, gc.IsNil)
-	err = env.PrecheckContainer("saucy", instance.LXC)
-	c.Check(err, gc.ErrorMatches, "azure provider does not support containers")
 }
 
 func (*environSuite) TestConfigReturnsConfig(c *gc.C) {
@@ -1148,12 +1144,6 @@ func (*environSuite) TestGetAffinityGroupNameIsConstant(c *gc.C) {
 	c.Check(env.getAffinityGroupName(), gc.Equals, env.getAffinityGroupName())
 }
 
-func (*environSuite) TestGetImageStreamDefaultsToBlank(c *gc.C) {
-	env := makeEnviron(c)
-	// Hard-coded to default for now.
-	c.Check(env.getImageStream(), gc.Equals, "")
-}
-
 func (*environSuite) TestGetImageMetadataSigningRequiredDefaultsToTrue(c *gc.C) {
 	env := makeEnviron(c)
 	// Hard-coded to true for now.  Once we support other base URLs, this
@@ -1250,8 +1240,12 @@ func assertSourceContents(c *gc.C, source simplestreams.DataSource, filename str
 	c.Assert(retrieved, gc.DeepEquals, content)
 }
 
-func (s *environSuite) TestGetImageMetadataSources(c *gc.C) {
-	env := makeEnviron(c)
+func (s *environSuite) assertGetImageMetadataSources(c *gc.C, stream, officialSourcePath string) {
+	envAttrs := makeAzureConfigMap(c)
+	if stream != "" {
+		envAttrs["image-stream"] = stream
+	}
+	env := makeEnvironWithConfig(c, envAttrs)
 	s.setDummyStorage(c, env)
 
 	data := []byte{1, 2, 3, 4}
@@ -1263,7 +1257,13 @@ func (s *environSuite) TestGetImageMetadataSources(c *gc.C) {
 	assertSourceContents(c, sources[0], "filename", data)
 	url, err := sources[1].URL("")
 	c.Assert(err, gc.IsNil)
-	c.Assert(url, gc.Equals, imagemetadata.DefaultBaseURL+"/")
+	c.Assert(url, gc.Equals, fmt.Sprintf("http://cloud-images.ubuntu.com/%s/", officialSourcePath))
+}
+
+func (s *environSuite) TestGetImageMetadataSources(c *gc.C) {
+	s.assertGetImageMetadataSources(c, "", "releases")
+	s.assertGetImageMetadataSources(c, "released", "releases")
+	s.assertGetImageMetadataSources(c, "daily", "daily")
 }
 
 func (s *environSuite) TestGetToolsMetadataSources(c *gc.C) {

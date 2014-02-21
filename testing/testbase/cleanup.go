@@ -4,6 +4,8 @@
 package testbase
 
 import (
+	"os/exec"
+
 	gc "launchpad.net/gocheck"
 )
 
@@ -60,6 +62,13 @@ func (s *CleanupSuite) PatchEnvironment(name, value string) {
 	s.AddCleanup(func(*gc.C) { restore() })
 }
 
+// PatchEnvPathPrepend prepends the given path to the environment $PATH and restores the
+// original path on test teardown.
+func (s *CleanupSuite) PatchEnvPathPrepend(dir string) {
+	restore := PatchEnvPathPrepend(dir)
+	s.AddCleanup(func(*gc.C) { restore() })
+}
+
 // PatchValue sets the 'dest' variable the the value passed in. The old value
 // is saved and returned to the original value at test tear down time using a
 // cleanup function. The value must be assignable to the element type of the
@@ -67,4 +76,17 @@ func (s *CleanupSuite) PatchEnvironment(name, value string) {
 func (s *CleanupSuite) PatchValue(dest, value interface{}) {
 	restore := PatchValue(dest, value)
 	s.AddCleanup(func(*gc.C) { restore() })
+}
+
+// HookCommandOutput calls the package function of the same name to mock out
+// the result of a particular comand execution, and will call the restore
+// function on test teardown.
+func (s *CleanupSuite) HookCommandOutput(
+	outputFunc *func(cmd *exec.Cmd) ([]byte, error),
+	output []byte,
+	err error,
+) <-chan *exec.Cmd {
+	result, restore := HookCommandOutput(outputFunc, output, err)
+	s.AddCleanup(func(*gc.C) { restore() })
+	return result
 }

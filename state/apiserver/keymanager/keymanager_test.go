@@ -4,11 +4,11 @@
 package keymanager_test
 
 import (
+	"fmt"
 	"strings"
 
 	gc "launchpad.net/gocheck"
 
-	"fmt"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"

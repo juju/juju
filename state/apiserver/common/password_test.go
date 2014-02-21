@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type passwordSuite struct{}
@@ -107,8 +108,7 @@ func (*passwordSuite) TestSetPasswords(c *gc.C) {
 			},
 			"x4": &fakeUnitAuthenticator{},
 			"x5": &fakeMachineAuthenticator{jobs: []state.MachineJob{state.JobHostUnits}},
-			"x6": &fakeMachineAuthenticator{jobs: []state.MachineJob{state.JobManageState}},
-			"x7": &fakeMachineAuthenticator{jobs: []state.MachineJob{state.JobManageEnviron}},
+			"x6": &fakeMachineAuthenticator{jobs: []state.MachineJob{state.JobManageEnviron}},
 		},
 	}
 	getCanChange := func() (common.AuthFunc, error) {
@@ -129,13 +129,12 @@ func (*passwordSuite) TestSetPasswords(c *gc.C) {
 		Changes: changes,
 	})
 	c.Assert(err, gc.IsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+	c.Assert(results, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{apiservertesting.ErrUnauthorized},
 			{nil},
 			{&params.Error{Message: "x2 error"}},
 			{&params.Error{Message: "x3 error"}},
-			{nil},
 			{nil},
 			{nil},
 			{nil},
@@ -150,8 +149,6 @@ func (*passwordSuite) TestSetPasswords(c *gc.C) {
 	c.Check(st.entities["x5"].(*fakeMachineAuthenticator).mongoPass, gc.Equals, "")
 	c.Check(st.entities["x6"].(*fakeMachineAuthenticator).pass, gc.Equals, "x6pass")
 	c.Check(st.entities["x6"].(*fakeMachineAuthenticator).mongoPass, gc.Equals, "x6pass")
-	c.Check(st.entities["x7"].(*fakeMachineAuthenticator).pass, gc.Equals, "x7pass")
-	c.Check(st.entities["x7"].(*fakeMachineAuthenticator).mongoPass, gc.Equals, "x7pass")
 }
 
 func (*passwordSuite) TestSetPasswordsError(c *gc.C) {

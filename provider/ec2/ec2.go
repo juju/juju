@@ -11,10 +11,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/loggo/loggo"
 	"launchpad.net/goamz/aws"
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -188,6 +188,10 @@ amazon:
     #
     # secret-key holds the ec2 secret key. It defaults to the environment
     # variable AWS_SECRET_ACCESS_KEY.
+    #
+    # image-stream chooses a simplestreams stream to select OS images from,
+    # for example daily or released images (or any other stream available on simplestreams).
+    # image-stream: "released"
 
 `[1:]
 }
@@ -203,7 +207,7 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return e, nil
 }
 
-func (p environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	attrs := cfg.UnknownAttrs()
 	if _, ok := attrs["control-bucket"]; !ok {
 		uuid, err := utils.NewUUID()
@@ -302,18 +306,6 @@ func (e *environ) s3() *s3.S3 {
 	return s3
 }
 
-// PrecheckInstance is specified in the environs.Prechecker interface.
-func (e *environ) PrecheckInstance(series string, cons constraints.Value) error {
-	return nil
-}
-
-// PrecheckContainer is specified in the environs.Prechecker interface.
-func (e *environ) PrecheckContainer(series string, kind instance.ContainerType) error {
-	// This check can either go away or be relaxed when the ec2
-	// provider manages container addressibility.
-	return environs.NewContainersUnsupported("ec2 provider does not support containers")
-}
-
 func (e *environ) Name() string {
 	return e.name
 }
@@ -377,7 +369,7 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 	}
 
 	series := possibleTools.OneSeries()
-	spec, err := findInstanceSpec(sources, &instances.InstanceConstraint{
+	spec, err := findInstanceSpec(sources, e.Config().ImageStream(), &instances.InstanceConstraint{
 		Region:      e.ecfg().region(),
 		Series:      series,
 		Arches:      arches,
@@ -719,7 +711,7 @@ func (e *environ) portsInGroup(name string) (ports []instance.Port, err error) {
 			})
 		}
 	}
-	state.SortPorts(ports)
+	instance.SortPorts(ports)
 	return ports, nil
 }
 

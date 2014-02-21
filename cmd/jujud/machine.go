@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/loggo/loggo"
 	"launchpad.net/gnuflag"
-	"launchpad.net/loggo"
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/agent"
@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/container/kvm"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
@@ -28,17 +29,20 @@ import (
 	"launchpad.net/juju-core/state/apiserver"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/worker"
-	"launchpad.net/juju-core/worker/addressupdater"
 	"launchpad.net/juju-core/worker/authenticationworker"
+	"launchpad.net/juju-core/worker/charmrevisionworker"
 	"launchpad.net/juju-core/worker/cleaner"
 	"launchpad.net/juju-core/worker/deployer"
 	"launchpad.net/juju-core/worker/firewaller"
+	"launchpad.net/juju-core/worker/instancepoller"
 	"launchpad.net/juju-core/worker/localstorage"
 	workerlogger "launchpad.net/juju-core/worker/logger"
+	"launchpad.net/juju-core/worker/machineenvironmentworker"
 	"launchpad.net/juju-core/worker/machiner"
 	"launchpad.net/juju-core/worker/minunitsworker"
 	"launchpad.net/juju-core/worker/provisioner"
 	"launchpad.net/juju-core/worker/resumer"
+	"launchpad.net/juju-core/worker/terminationworker"
 	"launchpad.net/juju-core/worker/upgrader"
 )
 
@@ -51,6 +55,8 @@ var newRunner = func(isFatal func(error) bool, moreImportant func(e0, e1 error) 
 const bootstrapMachineId = "0"
 
 var retryDelay = 3 * time.Second
+
+var jujuRun = "/usr/local/bin/juju-run"
 
 // MachineAgent is a cmd.Command responsible for running a machine agent.
 type MachineAgent struct {
@@ -110,6 +116,9 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 		return err
 	}
 	charm.CacheDir = filepath.Join(a.Conf.dataDir, "charmcache")
+	if err := a.initAgent(); err != nil {
+		return err
+	}
 
 	// ensureStateWorker ensures that there is a worker that
 	// connects to the state that runs within itself all the workers
@@ -135,6 +144,9 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	}
 	a.runner.StartWorker("api", func() (worker.Worker, error) {
 		return a.APIWorker(ensureStateWorker)
+	})
+	a.runner.StartWorker("termination", func() (worker.Worker, error) {
+		return terminationworker.NewWorker(), nil
 	})
 	err := a.runner.Wait()
 	if err == worker.ErrTerminateAgent {
@@ -172,9 +184,17 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	runner.StartWorker("logger", func() (worker.Worker, error) {
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
 	})
-	runner.StartWorker("authenticationworker", func() (worker.Worker, error) {
-		return authenticationworker.NewWorker(st.KeyUpdater(), agentConfig), nil
+	runner.StartWorker("machineenvironmentworker", func() (worker.Worker, error) {
+		return machineenvironmentworker.NewMachineEnvironmentWorker(st.Environment(), agentConfig), nil
 	})
+
+	// If not a local provider bootstrap machine, start the worker to manage SSH keys.
+	providerType := agentConfig.Value(agent.ProviderType)
+	if providerType != provider.Local || a.MachineId != bootstrapMachineId {
+		runner.StartWorker("authenticationworker", func() (worker.Worker, error) {
+			return authenticationworker.NewWorker(st.KeyUpdater(), agentConfig), nil
+		})
+	}
 
 	// Perform the operations needed to set up hosting for containers.
 	if err := a.setupContainerSupport(runner, st, entity); err != nil {
@@ -192,9 +212,17 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 			runner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
 				return provisioner.NewEnvironProvisioner(st.Provisioner(), agentConfig), nil
 			})
-			// TODO(dimitern): Add firewaller here, when using the API.
-		case params.JobManageState:
-			// Not yet implemented with the API.
+			// TODO(axw) 2013-09-24 bug #1229506
+			// Make another job to enable the firewaller. Not all environments
+			// are capable of managing ports centrally.
+			runner.StartWorker("firewaller", func() (worker.Worker, error) {
+				return firewaller.NewFirewaller(st.Firewaller())
+			})
+			runner.StartWorker("charm-revision-updater", func() (worker.Worker, error) {
+				return charmrevisionworker.NewRevisionUpdateWorker(st.CharmRevisionUpdater()), nil
+			})
+		case params.JobManageStateDeprecated:
+			// Legacy environments may set this, but we ignore it.
 		default:
 			// TODO(dimitern): Once all workers moved over to using
 			// the API, report "unknown job type" here.
@@ -253,7 +281,7 @@ func (a *MachineAgent) updateSupportedContainers(runner worker.Runner, st *api.S
 }
 
 // StateJobs returns a worker running all the workers that require
-// a *state.State cofnnection.
+// a *state.State connection.
 func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	agentConfig := a.Conf.config
 	st, entity, err := openState(agentConfig, a)
@@ -267,7 +295,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	// Take advantage of special knowledge here in that we will only ever want
 	// the storage provider on one machine, and that is the "bootstrap" node.
 	providerType := agentConfig.Value(agent.ProviderType)
-	if (providerType == provider.Local || providerType == provider.Null) && m.Id() == bootstrapMachineId {
+	if (providerType == provider.Local || provider.IsManual(providerType)) && m.Id() == bootstrapMachineId {
 		runner.StartWorker("local-storage", func() (worker.Worker, error) {
 			// TODO(axw) 2013-09-24 bug #1229507
 			// Make another job to enable storage.
@@ -280,16 +308,9 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		case state.JobHostUnits:
 			// Implemented in APIWorker.
 		case state.JobManageEnviron:
-			// TODO(axw) 2013-09-24 bug #1229506
-			// Make another job to enable the firewaller. Not all environments
-			// are capable of managing ports centrally.
-			runner.StartWorker("firewaller", func() (worker.Worker, error) {
-				return firewaller.NewFirewaller(st), nil
+			runner.StartWorker("instancepoller", func() (worker.Worker, error) {
+				return instancepoller.NewWorker(st), nil
 			})
-			runner.StartWorker("addressupdater", func() (worker.Worker, error) {
-				return addressupdater.NewWorker(st), nil
-			})
-		case state.JobManageState:
 			runner.StartWorker("apiserver", func() (worker.Worker, error) {
 				// If the configuration does not have the required information,
 				// it is currently not a recoverable error, so we kill the whole
@@ -301,7 +322,8 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				if len(cert) == 0 || len(key) == 0 {
 					return nil, &fatalError{"configuration does not have state server cert/key"}
 				}
-				return apiserver.NewServer(st, fmt.Sprintf(":%d", port), cert, key)
+				dataDir := a.Conf.config.DataDir()
+				return apiserver.NewServer(st, fmt.Sprintf(":%d", port), cert, key, dataDir)
 			})
 			runner.StartWorker("cleaner", func() (worker.Worker, error) {
 				return cleaner.NewCleaner(st), nil
@@ -315,6 +337,8 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			runner.StartWorker("minunitsworker", func() (worker.Worker, error) {
 				return minunitsworker.NewMinUnitsWorker(st), nil
 			})
+		case state.JobManageStateDeprecated:
+			// Legacy environments may set this, but we ignore it.
 		default:
 			logger.Warningf("ignoring unknown job %q", job)
 		}
@@ -341,6 +365,14 @@ func (a *MachineAgent) Tag() string {
 	return names.MachineTag(a.MachineId)
 }
 
+func (a *MachineAgent) initAgent() error {
+	if err := os.Remove(jujuRun); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	jujud := filepath.Join(a.Conf.dataDir, "tools", a.Tag(), "jujud")
+	return os.Symlink(jujud, jujuRun)
+}
+
 func (a *MachineAgent) uninstallAgent() error {
 	var errors []error
 	agentServiceName := a.Conf.config.Value(agent.AgentServiceName)
@@ -352,6 +384,19 @@ func (a *MachineAgent) uninstallAgent() error {
 		if err := upstart.NewService(agentServiceName).Remove(); err != nil {
 			errors = append(errors, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
 		}
+	}
+	// Remove the rsyslog conf file and restart rsyslogd.
+	if rsyslogConfPath := a.Conf.config.Value(agent.RsyslogConfPath); rsyslogConfPath != "" {
+		if err := os.Remove(rsyslogConfPath); err != nil {
+			errors = append(errors, err)
+		}
+		if err := syslog.Restart(); err != nil {
+			errors = append(errors, err)
+		}
+	}
+	// Remove the juju-run symlink.
+	if err := os.Remove(jujuRun); err != nil && !os.IsNotExist(err) {
+		errors = append(errors, err)
 	}
 	// The machine agent may terminate without knowing its jobs,
 	// for example if the machine's entry in state was removed.
