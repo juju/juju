@@ -8,6 +8,7 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/version"
 )
 
 type suite struct {
@@ -184,6 +185,7 @@ func (*suite) TestAttributes(c *gc.C) {
 	c.Assert(conf.Tag(), gc.Equals, "omg")
 	c.Assert(conf.Dir(), gc.Equals, "/data/dir/agents/omg")
 	c.Assert(conf.Nonce(), gc.Equals, "a nonce")
+	c.Assert(conf.UpgradedToVersion(), gc.DeepEquals, version.Current.Number)
 }
 
 func (s *suite) TestApiAddressesCantWriteBack(c *gc.C) {
@@ -198,6 +200,17 @@ func (s *suite) TestApiAddressesCantWriteBack(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(newValue, gc.DeepEquals, []string{"localhost:1235"})
 }
+
+func assertConfigEqual(c *gc.C, c1, c2 agent.Config) {
+	// Since we can't directly poke the internals, we'll use the WriteCommands
+	// method.
+	confCommands, err := c1.WriteCommands()
+	c.Assert(err, gc.IsNil)
+	rereadCommands, err := c2.WriteCommands()
+	c.Assert(err, gc.IsNil)
+	c.Assert(confCommands, gc.DeepEquals, rereadCommands)
+}
+
 func (*suite) TestWriteAndRead(c *gc.C) {
 	testParams := attributeParams
 	testParams.DataDir = c.MkDir()
@@ -207,13 +220,7 @@ func (*suite) TestWriteAndRead(c *gc.C) {
 	c.Assert(conf.Write(), gc.IsNil)
 	reread, err := agent.ReadConf(conf.DataDir(), conf.Tag())
 	c.Assert(err, gc.IsNil)
-	// Since we can't directly poke the internals, we'll use the WriteCommands
-	// method.
-	confCommands, err := conf.WriteCommands()
-	c.Assert(err, gc.IsNil)
-	rereadCommands, err := reread.WriteCommands()
-	c.Assert(err, gc.IsNil)
-	c.Assert(confCommands, gc.DeepEquals, rereadCommands)
+	assertConfigEqual(c, conf, reread)
 }
 
 func (*suite) TestWriteNewPassword(c *gc.C) {
@@ -261,6 +268,23 @@ func (*suite) TestWriteNewPassword(c *gc.C) {
 		c.Assert(agent.Password(conf), gc.Equals, agent.Password(reread))
 		c.Assert(newPass, gc.Equals, agent.Password(conf))
 	}
+}
+
+func (*suite) TestWriteUpgradedToVersion(c *gc.C) {
+	testParams := attributeParams
+	testParams.DataDir = c.MkDir()
+	conf, err := agent.NewAgentConfig(testParams)
+	c.Assert(err, gc.IsNil)
+	c.Assert(conf.Write(), gc.IsNil)
+
+	newVersion := version.Current.Number
+	newVersion.Major++
+	c.Assert(conf.WriteUpgradedToVersion(newVersion), gc.IsNil)
+	c.Assert(conf.UpgradedToVersion(), gc.DeepEquals, newVersion)
+
+	// Show that the upgradedToVersion is saved.
+	reread, err := agent.ReadConf(conf.DataDir(), conf.Tag())
+	assertConfigEqual(c, conf, reread)
 }
 
 // Actual opening of state and api requires a lot more boiler plate to make
