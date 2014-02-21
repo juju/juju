@@ -797,7 +797,7 @@ func (s *MachineWithCharmsSuite) SetUpTest(c *gc.C) {
 
 	// Set up the agent configuration.
 	stateInfo := s.StateInfo(c)
-	writeStateAgentConfig(c, stateInfo, s.DataDir(), tag, initialMachinePassword)
+	writeStateAgentConfig(c, stateInfo, s.DataDir(), tag, initialMachinePassword, version.Current)
 }
 
 func (s *MachineWithCharmsSuite) TestManageEnvironRunsCharmRevisionUpdater(c *gc.C) {

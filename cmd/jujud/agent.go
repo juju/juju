@@ -177,7 +177,7 @@ func openAPIState(agentConfig apiOpener, a Agent) (*api.State, *apiagent.Entity,
 }
 
 var authRetryAttempt = utils.AttemptStrategy{
-	Total: 1 * time.Minute,
+	Total: 10 * time.Second,
 	Delay: 2 * time.Second,
 }
 

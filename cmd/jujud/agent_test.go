@@ -209,7 +209,7 @@ func (s *agentSuite) primeAgent(c *gc.C, tag, password string, vers version.Bina
 		agent.AgentConfigParams{
 			DataDir:           s.DataDir(),
 			Tag:               tag,
-			UpgradedToVersion: version.Current.Number,
+			UpgradedToVersion: vers.Number,
 			Password:          password,
 			Nonce:             state.BootstrapNonce,
 			StateAddresses:    stateInfo.Addrs,
@@ -221,7 +221,7 @@ func (s *agentSuite) primeAgent(c *gc.C, tag, password string, vers version.Bina
 }
 
 // makeStateAgentConfig creates and writes a state agent config.
-func writeStateAgentConfig(c *gc.C, stateInfo *state.Info, dataDir, tag, password string) agent.Config {
+func writeStateAgentConfig(c *gc.C, stateInfo *state.Info, dataDir, tag, password string, vers version.Binary) agent.Config {
 	port := coretesting.FindTCPPort()
 	apiAddr := []string{fmt.Sprintf("localhost:%d", port)}
 	conf, err := agent.NewStateMachineConfig(
@@ -229,7 +229,7 @@ func writeStateAgentConfig(c *gc.C, stateInfo *state.Info, dataDir, tag, passwor
 			AgentConfigParams: agent.AgentConfigParams{
 				DataDir:           dataDir,
 				Tag:               tag,
-				UpgradedToVersion: version.Current.Number,
+				UpgradedToVersion: vers.Number,
 				Password:          password,
 				Nonce:             state.BootstrapNonce,
 				StateAddresses:    stateInfo.Addrs,
@@ -258,7 +258,7 @@ func (s *agentSuite) primeStateAgent(
 	c.Assert(tools1, gc.DeepEquals, agentTools)
 
 	stateInfo := s.StateInfo(c)
-	conf := writeStateAgentConfig(c, stateInfo, s.DataDir(), tag, password)
+	conf := writeStateAgentConfig(c, stateInfo, s.DataDir(), tag, password, vers)
 	return conf, agentTools
 }
 

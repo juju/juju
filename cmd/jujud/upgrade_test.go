@@ -9,6 +9,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log/syslog"
 	syslogtesting "launchpad.net/juju-core/log/syslog/testing"
@@ -45,10 +46,11 @@ func (s *UpgradeSuite) TestUpgradeStepsStateServer(c *gc.C) {
 }
 
 func (s *UpgradeSuite) TestUpgradeStepsHostMachine(c *gc.C) {
-	// We need to first start up a state server.
+	// We need to first start up a state server that thinks it has already been upgraded.
 	ss, _, _ := s.primeAgent(c, s.upgradeToVersion, state.JobManageEnviron)
 	a := s.newAgent(c, ss)
-	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	//	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	go func() { a.Run(nil) }()
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()
 	// Now run the test.
 	s.assertUpgradeSteps(c, state.JobHostUnits)
@@ -73,21 +75,20 @@ func (s *UpgradeSuite) assertUpgradeSteps(c *gc.C, job state.MachineJob) {
 	oldVersion := s.upgradeToVersion
 	oldVersion.Major = 1
 	oldVersion.Minor = 16
-	s.machine, _, _ = s.primeAgent(c, oldVersion, job)
+	var oldConfig agent.Config
+	s.machine, oldConfig, _ = s.primeAgent(c, oldVersion, job)
 	s.assertPrepareForUpgrade(c)
 
 	a := s.newAgent(c, s.machine)
 	go func() { c.Check(a.Run(nil), gc.IsNil) }()
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()
 
-	// Wait for upgrade steps to run and upgrade worker to start.
+	// Wait for upgrade steps to run.
 	success := false
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		err = s.machine.Refresh()
+		conf, err := agent.ReadConf(oldConfig.DataDir(), s.machine.Tag())
 		c.Assert(err, gc.IsNil)
-		agentTools, err := s.machine.AgentTools()
-		c.Assert(err, gc.IsNil)
-		success = agentTools.Version == s.upgradeToVersion
+		success = conf.UpgradedToVersion() == s.upgradeToVersion.Number
 		if success {
 			break
 		}

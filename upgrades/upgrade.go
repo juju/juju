@@ -171,7 +171,7 @@ func runUpgradeSteps(context Context, target Target, upgradeOp Operation) *upgra
 				err:         err,
 			}
 		}
-		logger.Errorf("Upgrade step finished: %v", step.Description())
+		logger.Infof("Upgrade step finished: %v", step.Description())
 	}
 	return nil
 }
