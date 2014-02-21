@@ -10,7 +10,7 @@ echo Starting instance $instance_id
 instance_ip=$($SCRIPTS/ec2-get-ip $instance_id)
 echo Instance has ip $instance_ip
 sleep 30
-$SCRIPTS/wait-for-ssh $instance_ip
+$SCRIPTS/wait-for-port $instance_ip 22
 set -x
 set +e
 ssh ubuntu@$instance_ip -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" <<EOT
