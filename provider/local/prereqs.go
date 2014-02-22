@@ -6,12 +6,13 @@ package local
 import (
 	"errors"
 	"fmt"
-	"os"
 	"os/exec"
+	"regexp"
 	"runtime"
 
 	"launchpad.net/juju-core/container/kvm"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
@@ -46,9 +47,8 @@ documentation for instructions on installing the LXC userspace tools.`
 const errUnsupportedOS = `Unsupported operating system: %s
 The local provider is currently only available for Linux`
 
-// mongodPath is the path to "mongod", the MongoDB server.
-// This is a variable only to support unit testing.
-var mongodPath = "/usr/bin/mongod"
+// lowestMongoVersion is the lowest version of mongo that juju supports.
+var lowestMongoVersion = version.Number{Major: 2, Minor: 2, Patch: 4}
 
 // lxclsPath is the path to "lxc-ls", an LXC userspace tool
 // we check the presence of to determine whether the
@@ -59,6 +59,9 @@ var lxclsPath = "lxc-ls"
 // The operating system the process is running in.
 // This is a variable only to support unit testing.
 var goos = runtime.GOOS
+
+// This is the regex for processing the results of mongod --verison
+var mongoVerRegex = regexp.MustCompile(`db version v(\d+\.\d+\.\d+)`)
 
 // VerifyPrerequisites verifies the prerequisites of
 // the local machine (machine 0) for running the local
@@ -80,15 +83,36 @@ func VerifyPrerequisites(containerType instance.ContainerType) error {
 }
 
 func verifyMongod() error {
-	if _, err := os.Stat(mongodPath); err != nil {
-		if os.IsNotExist(err) {
-			return wrapMongodNotExist(err)
-		} else {
-			return err
-		}
+	path := upstart.MongodPath()
+
+	ver, err := mongodVersion(path)
+	if err != nil {
+		return err
 	}
-	// TODO(axw) verify version/SSL capabilities
+	if ver.Compare(lowestMongoVersion) < 0 {
+		return fmt.Errorf("installed version of mongod (%v) is not supported by Juju. "+
+			"Juju requires version %v or greater.",
+			ver,
+			lowestMongoVersion)
+	}
 	return nil
+}
+
+func mongodVersion(path string) (version.Number, error) {
+	data, err := utils.RunCommand(path, "--version")
+	if err != nil {
+		return version.Zero, wrapMongodNotExist(err)
+	}
+
+	return parseVersion(data)
+}
+
+func parseVersion(data string) (version.Number, error) {
+	matches := mongoVerRegex.FindStringSubmatch(data)
+	if len(matches) < 2 {
+		return version.Zero, errors.New("could not parse mongod version")
+	}
+	return version.Parse(matches[1])
 }
 
 func verifyLxc() error {
