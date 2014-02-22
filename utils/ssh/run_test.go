@@ -48,7 +48,7 @@ func (s *ExecuteSSHCommandSuite) TestCaptureOutput(c *gc.C) {
 	c.Assert(response.Code, gc.Equals, 0)
 	c.Assert(string(response.Stdout), gc.Equals, "sudo apt-get update\nsudo apt-get upgrade\n")
 	c.Assert(string(response.Stderr), gc.Equals,
-		"-o StrictHostKeyChecking no -o PasswordAuthentication no hostname -- /bin/bash -s\n")
+		"-o StrictHostKeyChecking no -o PasswordAuthentication no hostname /bin/bash -s\n")
 }
 
 func (s *ExecuteSSHCommandSuite) TestIdentityFile(c *gc.C) {
