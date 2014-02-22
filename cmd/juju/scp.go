@@ -21,6 +21,7 @@ Launch an scp command to copy files. Each argument <file1> ... <file2>
 is either local file path or remote locations of the form <target>:<path>,
 where <target> can be either a machine id as listed by "juju status" in the
 "machines" section or a unit name as listed in the "services" section.
+Any extra arguments to scp can be passed after --, in any place.
 
 Examples:
 
@@ -28,9 +29,10 @@ Copy a single file from machine 2 to the local machine:
 
     juju scp 2:/var/log/syslog .
 
-Copy 2 files from two units to the local backup/ directory:
+Copy 2 files from two units to the local backup/ directory, passig -v
+to scp as an extra argument:
 
-    juju scp ubuntu/0:/path/file1 ubuntu/1:/path/file2 backup/
+    juju scp ubuntu/0:/path/file1 -- -v ubuntu/1:/path/file2 backup/
 
 Recursively copy the directory /var/log/mongodb/ on the first mongodb
 server to the local directory remote-logs:
@@ -45,7 +47,7 @@ Copy a local file to the second apache unit of the environment "testing":
 func (c *SCPCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "scp",
-		Args:    "[-- scp-option...] <file1> ... <file2>",
+		Args:    "[-- scp-option...] <file1> ... <file2> [-- scp-option...]",
 		Purpose: "launch a scp command to copy files to/from remote machine(s)",
 		Doc:     scpDoc,
 	}
@@ -78,7 +80,6 @@ func (c *SCPCommand) Run(ctx *cmd.Context) error {
 	// with "-") verbatim to scp.
 	var targets, extraArgs []string
 	for _, arg := range c.Args {
-		// BUG(dfc) This will not work for IPv6 addresses like 2001:db8::1:2:/somepath.
 		if v := strings.SplitN(arg, ":", 2); len(v) > 1 {
 			host, err := c.hostFromTarget(v[0])
 			if err != nil {

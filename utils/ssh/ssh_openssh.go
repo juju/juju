@@ -64,7 +64,10 @@ func NewOpenSSHClient() (*OpenSSHClient, error) {
 }
 
 func opensshOptions(options *Options, commandKind opensshCommandKind) map[string][]string {
-	args := opensshCommonOptions
+	args := make(map[string][]string)
+	for k, v := range opensshCommonOptions {
+		args[k] = v
+	}
 	if options == nil {
 		options = &Options{}
 	}
@@ -113,6 +116,11 @@ func expandArgs(args map[string][]string, quote bool) []string {
 	for opt, vals := range args {
 		if len(vals) == 0 {
 			list = append(list, opt)
+			if opt == "-t" {
+				// In order to force a PTY to be allocated, we need to
+				// pass -t twice.
+				list = append(list, opt)
+			}
 		}
 		for _, val := range vals {
 			list = append(list, opt)

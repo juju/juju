@@ -54,28 +54,33 @@ func (s *SSHCommonSuite) SetUpTest(c *gc.C) {
 
 const (
 	commonArgs = `-o StrictHostKeyChecking no -o PasswordAuthentication no `
-	sshArgs    = commonArgs + `-t `
+	sshArgs    = commonArgs + `-t -t `
 )
 
 var sshTests = []struct {
+	about  string
 	args   []string
 	result string
 }{
 	{
+		"connect to machine 0",
 		[]string{"ssh", "0"},
 		sshArgs + "ubuntu@dummyenv-0.dns\n",
 	},
 	{
+		"connect to machine 0 and pass extra arguments",
 		[]string{"ssh", "0", "uname", "-a"},
 		sshArgs + "ubuntu@dummyenv-0.dns uname -a\n",
 	},
 	{
+		"connect to unit mysql/0",
 		[]string{"ssh", "mysql/0"},
 		sshArgs + "ubuntu@dummyenv-0.dns\n",
 	},
 	{
-		[]string{"ssh", "mongodb/1"},
-		sshArgs + "ubuntu@dummyenv-2.dns\n",
+		"connect to unit mongodb/1 and pass extra arguments",
+		[]string{"ssh", "mongodb/1", "ls", "/"},
+		sshArgs + "ubuntu@dummyenv-2.dns ls /\n",
 	},
 }
 
@@ -96,8 +101,8 @@ func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 	s.addUnit(srv, m[1], c)
 	s.addUnit(srv, m[2], c)
 
-	for _, t := range sshTests {
-		c.Logf("testing juju ssh %s", t.args)
+	for i, t := range sshTests {
+		c.Logf("test %d: %s -> %s\n", i, t.about, t.args)
 		ctx := coretesting.Context(c)
 		jujucmd := cmd.NewSuperCommand(cmd.SuperCommandParams{})
 		jujucmd.Register(&SSHCommand{})

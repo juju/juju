@@ -13,7 +13,6 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/cmd"
 	coretesting "launchpad.net/juju-core/testing"
 )
 
@@ -24,28 +23,54 @@ type SCPSuite struct {
 }
 
 var scpTests = []struct {
+	about  string
 	args   []string
 	result string
 }{
 	{
+		"scp from machine 0 to current dir",
 		[]string{"0:foo", "."},
 		commonArgs + "ubuntu@dummyenv-0.dns:foo .\n",
 	},
 	{
+		"scp from machine 0 to current dir with extra args before",
+		[]string{"-- -rv", "0:foo", "."},
+		commonArgs + "-rv ubuntu@dummyenv-0.dns:foo .\n",
+	},
+	{
+		"scp from machine 0 to current dir with extra args after",
+		[]string{"0:foo", ".", "-- -rv"},
+		commonArgs + "-rv ubuntu@dummyenv-0.dns:foo .\n",
+	},
+	{
+		"scp from current dir to machine 0",
 		[]string{"foo", "0:"},
 		commonArgs + "foo ubuntu@dummyenv-0.dns:\n",
 	},
 	{
+		"scp from current dir to machine 0 with extra args in the middle",
+		[]string{"foo", "-- -r -v", "0:"},
+		commonArgs + "-r -v foo ubuntu@dummyenv-0.dns:\n",
+	},
+	{
+		"scp from machine 0 to unit mysql/0",
 		[]string{"0:foo", "mysql/0:/foo"},
 		commonArgs + "ubuntu@dummyenv-0.dns:foo ubuntu@dummyenv-0.dns:/foo\n",
 	},
 	{
-		[]string{"a", "b", "mysql/0"},
-		commonArgs + "a b\n",
+		"scp from machine 0 to unit mysql/0 and extra args",
+		[]string{"-- -q", "0:foo", "mysql/0:/foo"},
+		commonArgs + "-q ubuntu@dummyenv-0.dns:foo ubuntu@dummyenv-0.dns:/foo\n",
 	},
 	{
-		[]string{"mongodb/1:foo", "mongodb/0:"},
-		commonArgs + "ubuntu@dummyenv-2.dns:foo ubuntu@dummyenv-1.dns:\n",
+		"scp two local files to unit mysql/0",
+		[]string{"file1", "file2", "mysql/0:/foo/"},
+		commonArgs + "file1 file2 ubuntu@dummyenv-0.dns:/foo/\n",
+	},
+	{
+		"scp from unit mongodb/1 to unit mongodb/0 and multiple extra args",
+		[]string{"-- -r", "mongodb/1:foo", "-- -v", "mongodb/0:", "-- -q -l5"},
+		commonArgs + "-r -v -q -l5 ubuntu@dummyenv-2.dns:foo ubuntu@dummyenv-1.dns:\n",
 	},
 }
 
@@ -66,11 +91,15 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 	s.addUnit(srv, m[1], c)
 	s.addUnit(srv, m[2], c)
 
-	for _, t := range scpTests {
-		c.Logf("testing juju scp %s", t.args)
+	for i, t := range scpTests {
+		c.Logf("test %d: %s -> %s\n", i, t.about, t.args)
 		ctx := coretesting.Context(c)
-		code := cmd.Main(&SCPCommand{}, ctx, t.args)
-		c.Check(code, gc.Equals, 0)
+		scpcmd := &SCPCommand{}
+
+		err := scpcmd.Init(t.args)
+		c.Check(err, gc.IsNil)
+		err = scpcmd.Run(ctx)
+		c.Check(err, gc.IsNil)
 		// we suppress stdout from scp
 		c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
 		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, "")

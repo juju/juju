@@ -95,7 +95,7 @@ func (s *SSHCommandSuite) TestCommandEnablePTY(c *gc.C) {
 	var opts ssh.Options
 	opts.EnablePTY()
 	s.assertCommandArgs(c, s.commandOptions([]string{"echo", "123"}, &opts),
-		s.fakessh+" -o StrictHostKeyChecking no -o PasswordAuthentication no -t localhost echo 123",
+		s.fakessh+" -o StrictHostKeyChecking no -o PasswordAuthentication no -t -t localhost echo 123",
 	)
 }
 
@@ -129,12 +129,19 @@ func (s *SSHCommandSuite) TestCopy(c *gc.C) {
 	opts.AllowPasswordAuthentication()
 	opts.SetIdentities("x", "y")
 	opts.SetPort(2022)
-	err := s.client.Copy("/tmp/blah", "foo@bar.com:baz", &opts)
+	err := s.client.Copy([]string{"/tmp/blah", "foo@bar.com:baz"}, nil, &opts)
 	c.Assert(err, gc.IsNil)
 	out, err := ioutil.ReadFile(s.fakescp + ".args")
 	c.Assert(err, gc.IsNil)
 	// EnablePTY has no effect for Copy
 	c.Assert(string(out), gc.Equals, s.fakescp+" -o StrictHostKeyChecking no -i x -i y -P 2022 /tmp/blah foo@bar.com:baz\n")
+
+	// Try passing extra args
+	err = s.client.Copy([]string{"/tmp/blah", "foo@bar.com:baz"}, []string{"-r", "-v"}, &opts)
+	c.Assert(err, gc.IsNil)
+	out, err = ioutil.ReadFile(s.fakescp + ".args")
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(out), gc.Equals, s.fakescp+" -o StrictHostKeyChecking no -i x -i y -P 2022 -r -v /tmp/blah foo@bar.com:baz\n")
 }
 
 func (s *SSHCommandSuite) TestCommandClientKeys(c *gc.C) {

@@ -39,15 +39,23 @@ Launch an ssh shell on the machine identified by the <target> parameter.
 "machines" section or a unit name as listed in the "services" section.
 Any extra parameters are passsed as extra parameters to the ssh command.
 
-Examples
+Examples:
 
 Connect to machine 0:
 
     juju ssh 0
 
+Connect to machine 1 and run 'uname -a':
+
+    juju ssh 1 uname -a
+
 Connect to the first mysql unit:
 
     juju ssh mysql/0
+
+Connect to the first mysql unit and run 'ls -la /var/log/juju':
+
+    juju ssh mysql/0 ls -la /var/log/juju
 `
 
 func (c *SSHCommand) Info() *cmd.Info {
