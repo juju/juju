@@ -65,20 +65,9 @@ var sshTests = []struct {
 		[]string{"ssh", "0"},
 		sshArgs + "ubuntu@dummyenv-0.dns\n",
 	},
-	// juju ssh 0 'uname -a'
-	{
-		[]string{"ssh", "0", "uname -a"},
-		sshArgs + "ubuntu@dummyenv-0.dns -- uname -a\n",
-	},
-	// juju ssh 0 -- uname -a
-	{
-		[]string{"ssh", "0", "--", "uname", "-a"},
-		sshArgs + "ubuntu@dummyenv-0.dns -- uname -a\n",
-	},
-	// juju ssh 0 uname -a
 	{
 		[]string{"ssh", "0", "uname", "-a"},
-		sshArgs + "ubuntu@dummyenv-0.dns -- uname -a\n",
+		sshArgs + "ubuntu@dummyenv-0.dns uname -a\n",
 	},
 	{
 		[]string{"ssh", "mysql/0"},
