@@ -262,6 +262,11 @@ func (st *State) SetEnvironConfig(cfg, old *config.Config) error {
 	if err := checkEnvironConfig(cfg); err != nil {
 		return err
 	}
+	validConfig, err := st.validate(cfg, old)
+	if err != nil {
+		return err
+	}
+
 	// TODO(axw) 2013-12-6 #1167616
 	// Ensure that the settings on disk have not changed
 	// underneath us. The settings changes are actually
@@ -272,7 +277,7 @@ func (st *State) SetEnvironConfig(cfg, old *config.Config) error {
 	if err != nil {
 		return err
 	}
-	newattrs := cfg.AllAttrs()
+	newattrs := validConfig.AllAttrs()
 	for k, _ := range old.AllAttrs() {
 		if _, ok := newattrs[k]; !ok {
 			settings.Delete(k)

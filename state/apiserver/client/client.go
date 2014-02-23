@@ -789,18 +789,8 @@ func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
 	if err != nil {
 		return err
 	}
-	env, err := environs.New(oldConfig)
-	if err != nil {
-		return err
-	}
-	// Now validate this new config against the existing config via the provider.
-	provider := env.Provider()
-	newProviderConfig, err := provider.Validate(newConfig, oldConfig)
-	if err != nil {
-		return err
-	}
-	// Now try to apply the new validated config.
-	return c.api.state.SetEnvironConfig(newProviderConfig, oldConfig)
+	// Now try to apply the new config.
+	return c.api.state.SetEnvironConfig(newConfig, oldConfig)
 }
 
 // SetEnvironAgentVersion sets the environment agent version.
