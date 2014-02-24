@@ -146,5 +146,5 @@ func (s *SSHGoCryptoCommandSuite) TestCopy(c *gc.C) {
 	client, err := ssh.NewGoCryptoClient()
 	c.Assert(err, gc.IsNil)
 	err = client.Copy([]string{"0.1.2.3:b", c.MkDir()}, nil, nil)
-	c.Assert(err, gc.ErrorMatches, "Copy is not implemented")
+	c.Assert(err, gc.ErrorMatches, `scp command is not implemented \(OpenSSH scp not available in PATH\)`)
 }
