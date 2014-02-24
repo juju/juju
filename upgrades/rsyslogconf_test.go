@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	syslogtesting "launchpad.net/juju-core/log/syslog/testing"
+	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/upgrades"
 )
@@ -24,6 +25,12 @@ type rsyslogSuite struct {
 }
 
 var _ = gc.Suite(&rsyslogSuite{})
+
+func (s *rsyslogSuite) SetUpSuite(c *gc.C) {
+	// Disable config validation.
+	dummy.SetStatePolicy(nil)
+	s.JujuConnSuite.SetUpSuite(c)
+}
 
 func (s *rsyslogSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
@@ -43,13 +50,31 @@ func (s *rsyslogSuite) SetUpTest(c *gc.C) {
 	}
 }
 
+func (s *rsyslogSuite) setSyslogTLS(c *gc.C, enable bool) {
+	old, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	cfg, err := old.Apply(map[string]interface{}{
+		"syslog-tls": enable,
+	})
+	s.State.SetEnvironConfig(cfg, old)
+}
+
 func (s *rsyslogSuite) TestStateServerUpgrade(c *gc.C) {
+	s.testStateServerUpgrade(c, false)
+}
+
+func (s *rsyslogSuite) TestStateServerUpgradeTLS(c *gc.C) {
+	s.testStateServerUpgrade(c, true)
+}
+
+func (s *rsyslogSuite) testStateServerUpgrade(c *gc.C, tls bool) {
+	s.setSyslogTLS(c, tls)
 	err := upgrades.UpgradeStateServerRsyslogConfig(s.ctx)
 	c.Assert(err, gc.IsNil)
 
 	data, err := ioutil.ReadFile(s.syslogPath)
 	c.Assert(err, gc.IsNil)
-	c.Assert(string(data), gc.Equals, syslogtesting.ExpectedAccumulateSyslogConf(c, "machine-tag", "namespace", 2345, false))
+	c.Assert(string(data), gc.Equals, syslogtesting.ExpectedAccumulateSyslogConf(c, "machine-tag", "namespace", 2345, tls))
 }
 
 func (s *rsyslogSuite) TestStateServerUpgradeIdempotent(c *gc.C) {
@@ -58,12 +83,21 @@ func (s *rsyslogSuite) TestStateServerUpgradeIdempotent(c *gc.C) {
 }
 
 func (s *rsyslogSuite) TestHostMachineUpgrade(c *gc.C) {
+	s.testHostMachineUpgrade(c, false)
+}
+
+func (s *rsyslogSuite) TestHostMachineUpgradeTLS(c *gc.C) {
+	s.testHostMachineUpgrade(c, true)
+}
+
+func (s *rsyslogSuite) testHostMachineUpgrade(c *gc.C, tls bool) {
+	s.setSyslogTLS(c, tls)
 	err := upgrades.UpgradeHostMachineRsyslogConfig(s.ctx)
 	c.Assert(err, gc.IsNil)
 
 	data, err := ioutil.ReadFile(s.syslogPath)
 	c.Assert(err, gc.IsNil)
-	c.Assert(string(data), gc.Equals, syslogtesting.ExpectedForwardSyslogConf(c, "machine-tag", "namespace", 2345, false))
+	c.Assert(string(data), gc.Equals, syslogtesting.ExpectedForwardSyslogConf(c, "machine-tag", "namespace", 2345, tls))
 }
 
 func (s *rsyslogSuite) TestHostServerUpgradeIdempotent(c *gc.C) {
