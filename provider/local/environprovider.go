@@ -101,9 +101,14 @@ func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Conf
 	if err != nil {
 		return nil, err
 	}
+	attrs := make(map[string]interface{})
+
+	// Use plain old UDP for syslog, so we don't need to prereq
+	// rsyslog-gnutls. It's of no benefit to the local provider.
+	attrs["syslog-tls"] = false
+
 	// If the user has specified no values for any of the three normal
 	// proxies, then look in the environment and set them.
-	attrs := make(map[string]interface{})
 	setIfNotBlank := func(key, value string) {
 		if value != "" {
 			attrs[key] = value
@@ -130,13 +135,11 @@ func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Conf
 		setIfNotBlank("apt-https-proxy", proxy.Https)
 		setIfNotBlank("apt-ftp-proxy", proxy.Ftp)
 	}
-	if len(attrs) > 0 {
-		cfg, err = cfg.Apply(attrs)
-		if err != nil {
-			return nil, err
-		}
-	}
 
+	cfg, err = cfg.Apply(attrs)
+	if err != nil {
+		return nil, err
+	}
 	return p.Open(cfg)
 }
 
