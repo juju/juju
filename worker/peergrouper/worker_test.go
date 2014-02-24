@@ -8,6 +8,7 @@ import (
 
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils/voyeur"
 	"launchpad.net/juju-core/worker"
 )
@@ -37,7 +38,7 @@ func (s *workerSuite) TestSetsMembersInitially(c *gc.C) {
 	for i := 10; i < 13; i++ {
 		id := fmt.Sprint(i)
 		m := st.addMachine(id, true)
-		m.setStateHostPort(fmt.Sprintf("0.1.2.%d", i))
+		m.setStateHostPort(fmt.Sprintf("0.1.2.%d:%d", i, mongoPort))
 		ids = append(ids, id)
 	}
 	st.setStateServers(ids...)
@@ -55,7 +56,10 @@ func (s *workerSuite) TestSetsMembersInitially(c *gc.C) {
 	}()
 
 	mustNext(c, memberWatcher)
-	c.Assert(memberWatcher.Value(), gc.HasLen, 3)
+	c.Assert(memberWatcher.Value(), jc.DeepEquals, mkMembers("0v 1 2"))
+}
+
+func (s *workerSuite) TestMembersChange(c *gc.C) {
 }
 
 func mustNext(c *gc.C, w *voyeur.Watcher) (ok bool) {
