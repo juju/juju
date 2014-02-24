@@ -35,12 +35,12 @@ func (s *BundleSuite) SetUpSuite(c *gc.C) {
 
 var dummyManifest = []string{
 	"config.yaml",
-	"empty/",
-	"hooks/",
+	"empty",
+	"hooks",
 	"hooks/install",
 	"metadata.yaml",
 	"revision",
-	"src/",
+	"src",
 	"src/hello.c",
 }
 
