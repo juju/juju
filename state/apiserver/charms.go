@@ -52,16 +52,20 @@ func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.sendJSON(w, http.StatusOK, &params.CharmsResponse{CharmURL: charmURL.String()})
 	case "GET":
 		// Retrieve a charm file.
-		// Requires "url" (charm URL) and a "file" (the path to the file) to be
-		// included in the query.
-		path, err := h.processGet(r)
-		if err != nil {
+		// Requires "url" (charm URL) and an optional "file" (the path to the
+		// charm file) to be included in the query.
+		if bundlePath, filePath, err := h.processGet(r); err != nil {
+			// An error occurred retrieving the bundle
 			h.sendError(w, http.StatusBadRequest, err.Error())
-			return
+		} else if filePath == "" {
+			// The client requested charm information.
+			logger.Infof("============ OPTION 2")
+			h.sendFilesList(w, r, bundlePath)
+		} else {
+			// The client requested a specific file.
+			logger.Infof("============ OPTION 3")
+			h.sendFile(w, r, filePath)
 		}
-		// Serve the static path. If the path does not exist, the ServeFile
-		// call will return a 404 response.
-		http.ServeFile(w, r, path)
 	default:
 		h.sendError(w, http.StatusMethodNotAllowed, fmt.Sprintf("unsupported method: %q", r.Method))
 	}
@@ -69,6 +73,7 @@ func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // sendJSON sends a JSON-encoded response to the client.
 func (h *charmsHandler) sendJSON(w http.ResponseWriter, statusCode int, response *params.CharmsResponse) error {
+	//w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 	body, err := json.Marshal(response)
 	if err != nil {
@@ -76,6 +81,45 @@ func (h *charmsHandler) sendJSON(w http.ResponseWriter, statusCode int, response
 	}
 	w.Write(body)
 	return nil
+}
+
+// sendFilesList sends a JSON-encoded response to the client including the list
+// of files contained in the given path.
+func (h *charmsHandler) sendFilesList(w http.ResponseWriter, r *http.Request, path string) {
+	files := []string{"aaa", "bbb"}
+	h.sendJSON(w, http.StatusOK, &params.CharmsResponse{Files: files})
+}
+
+// sendFile sends the file contents of the file present in the given path.
+// A 404 page not found is returned if path does not exist.
+// A 403 forbidden error is returned if path pints to a directory.
+func (h *charmsHandler) sendFile(w http.ResponseWriter, r *http.Request, path string) {
+	logger.Infof("========== sendFile")
+	file, err := os.Open(path)
+	if os.IsNotExist(err) {
+		http.NotFound(w, r)
+		return
+	} else if err != nil {
+		http.Error(
+			w, fmt.Sprintf("unable to open file at %q: %v", path, err),
+			http.StatusInternalServerError)
+		return
+	}
+	defer file.Close()
+	fileInfo, err := file.Stat()
+	if err != nil {
+		http.Error(
+			w, fmt.Sprintf("unable to get info for %q: %v", path, err),
+			http.StatusInternalServerError)
+		return
+	}
+	// Deny directory listing.
+	if fileInfo.IsDir() {
+		logger.Infof("=============== DIRECTORY!")
+		http.Error(w, "directory listing not allowed", http.StatusForbidden)
+		return
+	}
+	http.ServeContent(w, r, fileInfo.Name(), fileInfo.ModTime(), file)
 }
 
 // sendError sends a JSON-encoded error response.
@@ -435,45 +479,59 @@ func (h *charmsHandler) repackageAndUploadCharm(archive *charm.Bundle, curl *cha
 }
 
 // processGet handles a charm file download GET request after authentication.
-func (h *charmsHandler) processGet(r *http.Request) (string, error) {
+// It returns the bundle path, the requested file path (if any) and an error.
+func (h *charmsHandler) processGet(r *http.Request) (string, string, error) {
+	logger.Infof("========== PROCESS GET ==========")
 	query := r.URL.Query()
 
-	// Retrieve query parameters.
+	// Retrieve and validate query parameters.
 	curl := query.Get("url")
 	if curl == "" {
-		return "", fmt.Errorf("expected url=CharmURL query argument")
+		return "", "", fmt.Errorf("expected url=CharmURL query argument")
 	}
 	file := query.Get("file")
-	if file == "" {
-		return "", fmt.Errorf("expected file=path/to/file query argument")
-	}
 
-	// Validate the given file path.
+	// Prepare the bundle directories.
 	name := charm.Quote(curl)
 	bundlePath := filepath.Join(h.dataDir, "charm-get-cache", name)
-	path, err := filepath.Abs(filepath.Join(bundlePath, file))
+	filePath, err := h.getFilePath(bundlePath, file)
 	if err != nil {
-		return "", fmt.Errorf("cannot retrieve the charms cache: %v", err)
+		return "", "", err
 	}
-	if path != bundlePath && !strings.HasPrefix(path, bundlePath+"/") {
-		return "", fmt.Errorf("invalid file path: %q", file)
-	}
+	logger.Infof("========== file path 2: %v", filePath)
 
 	// Check if the charm bundle is already in the cache.
-	if _, err = os.Stat(bundlePath); os.IsNotExist(err) {
+	if _, err := os.Stat(bundlePath); os.IsNotExist(err) {
 		// Download the charm and extract the bundle.
 		if err = h.downloadCharm(name, bundlePath); err != nil {
-			return "", fmt.Errorf("unable to retrieve and save the charm: %v", err)
+			return "", "", fmt.Errorf("unable to retrieve and save the charm: %v", err)
 		}
 	} else if err != nil {
-		return "", fmt.Errorf("cannot access the charms cache: %v", err)
+		return "", "", fmt.Errorf("cannot access the charms cache: %v", err)
 	}
-	return path, nil
+	return bundlePath, filePath, nil
+}
+
+// getFilePath return the absolute path of a charm file, based on the given
+// bundlePath. It also checks that the resulting path lives inside the bundle.
+func (h *charmsHandler) getFilePath(bundlePath, file string) (string, error) {
+	if file == "" {
+		return "", nil
+	}
+	filePath, err := filepath.Abs(filepath.Join(bundlePath, file))
+	if err != nil {
+		return "", errgo.Annotate(err, "cannot retrieve the requested path")
+	}
+	if !strings.HasPrefix(filePath, bundlePath+"/") {
+		return "", fmt.Errorf("invalid file path: %q", file)
+	}
+	return filePath, nil
 }
 
 // downloadCharm downloads the given charm name from the provider storage and
 // extracts the corresponding bundle to the given bundlePath.
 func (h *charmsHandler) downloadCharm(name, bundlePath string) error {
+	logger.Infof("========== DOWNLOAD CHARM ==========")
 	// Get the provider storage.
 	storage, err := envtesting.GetEnvironStorage(h.state)
 	if err != nil {
@@ -514,6 +572,7 @@ func (h *charmsHandler) downloadCharm(name, bundlePath string) error {
 		return errgo.Annotate(err, "cannot create the charms cache")
 	}
 	bundleTempPath, err := ioutil.TempDir(cacheDir, "bundle")
+	logger.Infof("CACHE: %v", bundleTempPath)
 	if err != nil {
 		return errgo.Annotate(err, "cannot create the temporary bundle directory")
 	}

@@ -249,17 +249,8 @@ func (s *charmsSuite) TestGetRequiresCharmURL(c *gc.C) {
 		"expected url=CharmURL query argument")
 }
 
-func (s *charmsSuite) TestGetRequiresFilePath(c *gc.C) {
-	uri := s.charmsURI(c, "?url=local:precise/ghost-4")
-	resp, err := s.authRequest(c, "GET", uri, "", nil)
-	c.Assert(err, gc.IsNil)
-	s.assertErrorResponse(
-		c, resp, http.StatusBadRequest,
-		"expected file=path/to/file query argument")
-}
-
 func (s *charmsSuite) TestGetFailsWithInvalidCharmURL(c *gc.C) {
-	uri := s.charmsURI(c, "?url=local:precise/no-such&file=hooks/install")
+	uri := s.charmsURI(c, "?url=local:precise/no-such")
 	resp, err := s.authRequest(c, "GET", uri, "", nil)
 	c.Assert(err, gc.IsNil)
 	s.assertErrorResponse(
@@ -276,7 +267,7 @@ func (s *charmsSuite) TestGetFailsWithInvalidFilePath(c *gc.C) {
 		`invalid file path: "../../../../etc/passwd"`)
 }
 
-func (s *charmsSuite) TestGetFailsWithFileNotFound(c *gc.C) {
+func (s *charmsSuite) TestGetReturnsFileNotFound(c *gc.C) {
 	// Add the dummy charm.
 	ch := coretesting.Charms.Bundle(c.MkDir(), "dummy")
 	_, err := s.uploadRequest(
@@ -287,6 +278,19 @@ func (s *charmsSuite) TestGetFailsWithFileNotFound(c *gc.C) {
 	resp, err := s.authRequest(c, "GET", uri, "", nil)
 	c.Assert(err, gc.IsNil)
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusNotFound)
+}
+
+func (s *charmsSuite) TestGetReturnsDirectoryForbidden(c *gc.C) {
+	// Add the dummy charm.
+	ch := coretesting.Charms.Bundle(c.MkDir(), "dummy")
+	_, err := s.uploadRequest(
+		c, s.charmsURI(c, "?series=quantal"), true, ch.Path)
+	c.Assert(err, gc.IsNil)
+	// Ensure a 404 is returned if the requested file is a directory.
+	uri := s.charmsURI(c, "?url=local:quantal/dummy-1&file=hooks")
+	resp, err := s.authRequest(c, "GET", uri, "", nil)
+	c.Assert(err, gc.IsNil)
+	c.Assert(resp.StatusCode, gc.Equals, http.StatusForbidden)
 }
 
 func (s *charmsSuite) TestGetReturnsFileContents(c *gc.C) {
@@ -322,24 +326,17 @@ func (s *charmsSuite) TestGetReturnsFileContents(c *gc.C) {
 	}
 }
 
-func (s *charmsSuite) TestGetListsDirectories(c *gc.C) {
+func (s *charmsSuite) TestGetListsFiles(c *gc.C) {
 	// Add the dummy charm.
 	ch := coretesting.Charms.Bundle(c.MkDir(), "dummy")
 	_, err := s.uploadRequest(
 		c, s.charmsURI(c, "?series=quantal"), true, ch.Path)
 	c.Assert(err, gc.IsNil)
-	// Ensure directory contents are properly listed.
-	uri := s.charmsURI(c, "?url=local:quantal/dummy-1&file=/")
+	// Ensure charm files are properly listed.
+	uri := s.charmsURI(c, "?url=local:quantal/dummy-1")
 	resp, err := s.authRequest(c, "GET", uri, "", nil)
 	c.Assert(err, gc.IsNil)
-	expectedContents := "<pre>\n" +
-		"<a href=\"hooks/\">hooks/</a>\n" +
-		"<a href=\"empty/\">empty/</a>\n" +
-		"<a href=\"metadata.yaml\">metadata.yaml</a>\n" +
-		"<a href=\"revision\">revision</a>\n" +
-		"<a href=\"config.yaml\">config.yaml</a>\n" +
-		"<a href=\"src/\">src/</a>\n" +
-		"</pre>\n"
+	expectedContents := ""
 	s.assertGETResponse(c, resp, expectedContents)
 }
 
