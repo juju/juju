@@ -282,11 +282,31 @@ func (s *charmsSuite) TestGetReturnsFileContents(c *gc.C) {
 	_, err := s.uploadRequest(
 		c, s.charmsURI(c, "?series=quantal"), true, ch.Path)
 	c.Assert(err, gc.IsNil)
+	for i, t := range []struct {
+		summary  string
+		file     string
+		response string
+	}{{
+		summary:  "relative path",
+		file:     "revision",
+		response: "1",
+	}, {
+		summary:  "absolute path",
+		file:     "/revision",
+		response: "1",
+	}, {
+		summary:  "sub-directory path",
+		file:     "hooks/install",
+		response: "#!/bin/bash\necho \"Done!\"\n",
+	},
+	} {
+		c.Logf("test %d: %s", i, t.summary)
+		uri := s.charmsURI(c, "?url=local:quantal/dummy-1&file="+t.file)
+		resp, err := s.authRequest(c, "GET", uri, "", nil)
+		c.Assert(err, gc.IsNil)
+		s.assertGETResponse(c, resp, t.response)
+	}
 
-	uri := s.charmsURI(c, "?url=local:quantal/dummy-1&file=hooks/install")
-	resp, err := s.authRequest(c, "GET", uri, "", nil)
-	c.Assert(err, gc.IsNil)
-	s.assertGETResponse(c, resp, "#!/bin/bash\necho \"Done!\"\n")
 }
 
 func (s *charmsSuite) charmsURI(c *gc.C, query string) string {
