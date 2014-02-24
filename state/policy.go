@@ -76,11 +76,11 @@ func (st *State) precheckInstance(series string, cons constraints.Value) error {
 // a Validator, and calls validate if a non-nil Validator is returned.
 func (st *State) validate(cfg, old *config.Config) (valid *config.Config, err error) {
 	if st.policy == nil {
-		return nil, nil
+		return cfg, nil
 	}
 	configValidator, err := st.policy.ConfigValidator(cfg)
 	if errors.IsNotImplementedError(err) {
-		return nil, nil
+		return cfg, nil
 	} else if err != nil {
 		return nil, err
 	}
