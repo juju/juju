@@ -43,9 +43,13 @@ const (
 	// DefaultApiPort is the default port the API server is listening on.
 	DefaultAPIPort int = 17070
 
-	// DefaultSyslogPort is the default port that the syslog UDP listener is
+	// DefaultSyslogTLS is the default value specifying whether to encrypt
+	// syslog connections with TLS.
+	DefaultSyslogTLS = true
+
+	// DefaultSyslogPort is the default port that the syslog UDP/TCP listener is
 	// listening on.
-	DefaultSyslogPort int = 514
+	DefaultSyslogPort int = 6514
 
 	// DefaultBootstrapSSHTimeout is the amount of time to wait
 	// contacting a state server, in seconds.
@@ -427,6 +431,14 @@ func (c *Config) SyslogPort() int {
 	return c.mustInt("syslog-port")
 }
 
+// SyslogTLS returns the a boolean indicating whether TLS will
+// be used to encrypt syslog connections. If it is false, then
+// unencrypted UDP will be used.
+func (c *Config) SyslogTLS() bool {
+	tls, _ := c.defined["syslog-tls"].(bool)
+	return tls
+}
+
 // AuthorizedKeys returns the content for ssh's authorized_keys file.
 func (c *Config) AuthorizedKeys() string {
 	return c.mustString("authorized-keys")
@@ -668,6 +680,7 @@ var fields = schema.Fields{
 	"state-port":                schema.ForceInt(),
 	"api-port":                  schema.ForceInt(),
 	"syslog-port":               schema.ForceInt(),
+	"syslog-tls":                schema.Bool(),
 	"logging-config":            schema.String(),
 	"charm-store-auth":          schema.String(),
 	"provisioner-safe-mode":     schema.Bool(),
@@ -711,6 +724,7 @@ var alwaysOptional = schema.Defaults{
 	"bootstrap-timeout":         schema.Omit,
 	"bootstrap-retry-delay":     schema.Omit,
 	"bootstrap-addresses-delay": schema.Omit,
+	"syslog-tls":                schema.Omit,
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url": "",
@@ -742,6 +756,9 @@ func allowEmpty(attr string) bool {
 
 var defaults = allDefaults()
 
+// allDefaults returns a schema.Defaults that contains
+// defaults to be used when creating a new config with
+// UseDefaults.
 func allDefaults() schema.Defaults {
 	d := schema.Defaults{
 		"default-series":            DefaultSeries,
@@ -751,12 +768,15 @@ func allDefaults() schema.Defaults {
 		"state-port":                DefaultStatePort,
 		"api-port":                  DefaultAPIPort,
 		"syslog-port":               DefaultSyslogPort,
+		"syslog-tls":                DefaultSyslogTLS,
 		"bootstrap-timeout":         DefaultBootstrapSSHTimeout,
 		"bootstrap-retry-delay":     DefaultBootstrapSSHRetryDelay,
 		"bootstrap-addresses-delay": DefaultBootstrapSSHAddressesDelay,
 	}
 	for attr, val := range alwaysOptional {
-		d[attr] = val
+		if _, ok := d[attr]; !ok {
+			d[attr] = val
+		}
 	}
 	return d
 }
@@ -787,6 +807,7 @@ var immutableAttributes = []string{
 	"state-port",
 	"api-port",
 	"syslog-port",
+	"syslog-tls",
 	"bootstrap-timeout",
 	"bootstrap-retry-delay",
 	"bootstrap-addresses-delay",

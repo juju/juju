@@ -35,7 +35,7 @@ const tagOffset = len("juju-") + 1
 //
 // if $syslogtag startswith "juju{{namespace}}-" then
 //   action(type="omfile"
-//          File="/var/log/juju{{namespace}}/all-machines.log"
+//          File="{{logDir}}/all-machines.log"
 //          Template="JujuLogFormat{{namespace}}"
 //          FileCreateMode="0644")
 // & stop
@@ -51,16 +51,25 @@ $InputFileName {{logfilePath}}
 $InputFileTag juju{{namespace}}-{{logfileName}}:
 $InputFileStateFile {{logfileName}}{{namespace}}
 $InputRunFileMonitor
-
+{{if tlsCACertPath}}
+$ModLoad imtcp
+$DefaultNetstreamDriver gtls
+$DefaultNetstreamDriverCAFile {{tlsCACertPath}}
+$DefaultNetstreamDriverCertFile {{tlsCertPath}}
+$DefaultNetstreamDriverKeyFile {{tlsKeyPath}}
+$InputTCPServerStreamDriverAuthMode anon
+$InputTCPServerStreamDriverMode 1 # run driver in TLS-only mode
+$InputTCPServerRun {{portNumber}}
+{{else}}
 $ModLoad imudp
 $UDPServerRun {{portNumber}}
-
+{{end}}
 # Messages received from remote rsyslog machines have messages prefixed with a space,
 # so add one in for local messages too if needed.
 $template JujuLogFormat{{namespace}},"%syslogtag:{{tagStart}}:$%%msg:::sp-if-no-1st-sp%%msg:::drop-last-lf%\n"
 
 $FileCreateMode 0644
-:syslogtag, startswith, "juju{{namespace}}-" /var/log/juju{{namespace}}/all-machines.log;JujuLogFormat{{namespace}}
+:syslogtag, startswith, "juju{{namespace}}-" {{logDir}}/all-machines.log;JujuLogFormat{{namespace}}
 & ~
 $FileCreateMode 0640
 `
@@ -76,11 +85,21 @@ $InputFileName {{logfilePath}}
 $InputFileTag juju{{namespace}}-{{logfileName}}:
 $InputFileStateFile {{logfileName}}{{namespace}}
 $InputRunFileMonitor
-
+{{if tlsCACertPath}}
+$DefaultNetstreamDriver gtls
+$DefaultNetstreamDriverCAFile {{tlsCACertPath}}
+$ActionSendStreamDriverAuthMode anon
+$ActionSendStreamDriverMode 1 # run driver in TLS-only mode
+{{end}}
 $template LongTagForwardFormat,"<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %syslogtag%%msg:::sp-if-no-1st-sp%%msg%"
 
-:syslogtag, startswith, "juju{{namespace}}-" @{{bootstrapIP}}:{{portNumber}};LongTagForwardFormat
+:syslogtag, startswith, "juju{{namespace}}-" {{addressPrefix}}{{bootstrapIP}}:{{portNumber}};LongTagForwardFormat
 & ~
+`
+
+// nodeRsyslogTemplateTLSHeader is prepended to
+// nodeRsyslogTemplate if TLS is to be used.
+const nodeRsyslogTemplateTLSHeader = `
 `
 
 const defaultConfigDir = "/etc/rsyslog.d"
@@ -104,7 +123,15 @@ type SyslogConfig struct {
 	LogFileName string
 	// the addresses of the state server to which messages should be forwarded.
 	StateServerAddresses []string
-	// the port number for the udp listener
+	// TLSCACertPath is the full path to the CA certificate that
+	// signed the rsyslog server's certificate. If this is non-empty,
+	// then TLS will be used.
+	TLSCACertPath string
+	// TLSCertPath is the full path to the server's certificate.
+	TLSCertPath string
+	// TLSKeyPath is the full path to the server's private key.
+	TLSKeyPath string
+	// the port number for the listener
 	Port int
 	// the directory for the logfiles
 	LogDir string
@@ -165,15 +192,25 @@ func (slConfig *SyslogConfig) Render() ([]byte, error) {
 		return fmt.Sprintf("%s/%s.log", slConfig.LogDir, slConfig.LogFileName)
 	}
 
+	// A single @ means UDP, @@ means TCP.
+	addressPrefix := "@"
+	if slConfig.TLSCACertPath != "" {
+		addressPrefix = "@@"
+	}
+
 	t := template.New("")
 	t.Funcs(template.FuncMap{
-		"logfileName": func() string { return slConfig.LogFileName },
-		"bootstrapIP": bootstrapIP,
-		"logfilePath": logFilePath,
-		"portNumber":  func() int { return slConfig.Port },
-		"logDir":      func() string { return slConfig.LogDir },
-		"namespace":   func() string { return slConfig.Namespace },
-		"tagStart":    func() int { return tagOffset + len(slConfig.Namespace) },
+		"logfileName":   func() string { return slConfig.LogFileName },
+		"bootstrapIP":   bootstrapIP,
+		"logfilePath":   logFilePath,
+		"addressPrefix": func() string { return addressPrefix },
+		"portNumber":    func() int { return slConfig.Port },
+		"logDir":        func() string { return slConfig.LogDir },
+		"namespace":     func() string { return slConfig.Namespace },
+		"tagStart":      func() int { return tagOffset + len(slConfig.Namespace) },
+		"tlsCACertPath": func() string { return slConfig.TLSCACertPath },
+		"tlsCertPath":   func() string { return slConfig.TLSCertPath },
+		"tlsKeyPath":    func() string { return slConfig.TLSKeyPath },
 	})
 
 	// Process the rsyslog config template and echo to the conf file.

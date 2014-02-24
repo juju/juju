@@ -803,12 +803,20 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 	}
 }
 
-func (*cloudinitSuite) createMachineConfig(c *gc.C, environConfig *config.Config) *cloudinit.MachineConfig {
+func (*cloudinitSuite) createMachineConfig(c *gc.C, environConfig *config.Config, stateServer bool) *cloudinit.MachineConfig {
 	machineId := "42"
 	machineNonce := "fake-nonce"
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	machineConfig := environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo)
+	var machineConfig *cloudinit.MachineConfig
+	if stateServer {
+		var err error
+		environConfig, err = environConfig.Apply(map[string]interface{}{"agent-version": "2.3.4"})
+		c.Assert(err, gc.IsNil)
+		machineConfig = environs.NewBootstrapMachineConfig("http://testing.invalid/provider-state", "invalid ssh key")
+	} else {
+		machineConfig = environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo)
+	}
 	machineConfig.Tools = &tools.Tools{
 		Version: version.MustParseBinary("2.3.4-foo-bar"),
 		URL:     "http://tools.testing.invalid/2.3.4-foo-bar.tgz",
@@ -820,7 +828,7 @@ func (*cloudinitSuite) createMachineConfig(c *gc.C, environConfig *config.Config
 
 func (s *cloudinitSuite) TestAptProxyNotWrittenIfNotSet(c *gc.C) {
 	environConfig := minimalConfig(c)
-	machineCfg := s.createMachineConfig(c, environConfig)
+	machineCfg := s.createMachineConfig(c, environConfig, false)
 	cloudcfg := coreCloudinit.New()
 	err := cloudinit.Configure(machineCfg, cloudcfg)
 	c.Assert(err, gc.IsNil)
@@ -835,7 +843,7 @@ func (s *cloudinitSuite) TestAptProxyWritten(c *gc.C) {
 		"apt-http-proxy": "http://user@10.0.0.1",
 	})
 	c.Assert(err, gc.IsNil)
-	machineCfg := s.createMachineConfig(c, environConfig)
+	machineCfg := s.createMachineConfig(c, environConfig, false)
 	cloudcfg := coreCloudinit.New()
 	err = cloudinit.Configure(machineCfg, cloudcfg)
 	c.Assert(err, gc.IsNil)
@@ -851,7 +859,7 @@ func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {
 		"http-proxy": "http://user@10.0.0.1",
 	})
 	c.Assert(err, gc.IsNil)
-	machineCfg := s.createMachineConfig(c, environConfig)
+	machineCfg := s.createMachineConfig(c, environConfig, false)
 	cloudcfg := coreCloudinit.New()
 	err = cloudinit.Configure(machineCfg, cloudcfg)
 	c.Assert(err, gc.IsNil)
@@ -873,6 +881,61 @@ export HTTP_PROXY=http://user@10.0.0.1' > /home/ubuntu/.juju-proxy && chown ubun
 		}
 	}
 	c.Assert(found, jc.IsTrue)
+}
+
+func (s *cloudinitSuite) testSyslogTLS(c *gc.C, syslogTLS, stateServer bool) {
+	environConfig := minimalConfig(c)
+	environConfig, err := environConfig.Apply(map[string]interface{}{
+		"syslog-tls": syslogTLS,
+	})
+	c.Assert(err, gc.IsNil)
+	machineCfg := s.createMachineConfig(c, environConfig, stateServer)
+	cloudcfg := coreCloudinit.New()
+	err = cloudinit.Configure(machineCfg, cloudcfg)
+	c.Assert(err, gc.IsNil)
+	runcmds := cloudcfg.RunCmds()
+	hasCA := findRunCmd(runcmds, containsMatcher("/var/log/juju/ca.pem"))
+	hasCert := findRunCmd(runcmds, containsMatcher("/var/log/juju/cert.pem"))
+	hasKey := findRunCmd(runcmds, containsMatcher("/var/log/juju/key.pem"))
+	if syslogTLS {
+		if !hasCA {
+			c.Error("missing rsyslog TLS configuration")
+		}
+		if stateServer {
+			if !hasCert || !hasKey {
+				c.Error("missing rsyslog server TLS configuration")
+			}
+		} else if hasCert || hasKey {
+			c.Error("found rsyslog server TLS configuration")
+		}
+	} else if hasCA || hasCert || hasKey {
+		c.Error("found rsyslog TLS configuration")
+	}
+}
+
+func (s *cloudinitSuite) TestSyslogTLS(c *gc.C) {
+	s.testSyslogTLS(c, false, false)
+	s.testSyslogTLS(c, false, true)
+	s.testSyslogTLS(c, true, false)
+	s.testSyslogTLS(c, true, true)
+}
+
+func containsMatcher(s string) func(interface{}) bool {
+	return func(x interface{}) bool {
+		if x, ok := x.(string); ok {
+			return strings.Contains(x, s)
+		}
+		return false
+	}
+}
+
+func findRunCmd(cmds []interface{}, match func(cmd interface{}) bool) bool {
+	for _, cmd := range cmds {
+		if match(cmd) {
+			return true
+		}
+	}
+	return false
 }
 
 var serverCert = []byte(`

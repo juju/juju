@@ -1099,7 +1099,11 @@ var validationTests = []validationTest{{
 }, {
 	about: "Cannot change the syslog-port from implicit-default to different value",
 	new:   testing.Attrs{"syslog-port": 42},
-	err:   `cannot change syslog-port from 514 to 42`,
+	err:   `cannot change syslog-port from 6514 to 42`,
+}, {
+	about: "Cannot change the syslog-tls from implicit-default to different value",
+	new:   testing.Attrs{"syslog-tls": false},
+	err:   `cannot change syslog-tls from true to false`,
 }}
 
 func (*ConfigSuite) TestValidateChange(c *gc.C) {

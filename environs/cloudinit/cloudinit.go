@@ -63,6 +63,10 @@ type MachineConfig struct {
 	// if StateServer is true.
 	APIPort int
 
+	// SyslogTLS specifies whether to use TLS or UDP for rsyslog
+	// communications.
+	SyslogTLS bool
+
 	// SyslogPort specifies the port number that will be used when
 	// sending the log messages using rsyslog.
 	SyslogPort int
@@ -246,6 +250,9 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 		c.AddPackage("git")
 		c.AddPackage("cpu-checker")
 		c.AddPackage("bridge-utils")
+		if cfg.SyslogTLS {
+			c.AddPackage("rsyslog-gnutls")
+		}
 
 		// Write out the apt proxy settings
 		if (cfg.AptProxySettings != osenv.ProxySettings{}) {
@@ -406,12 +413,36 @@ func (cfg *MachineConfig) addLogging(c *cloudinit.Config) error {
 	var configRenderer *syslog.SyslogConfig
 	if cfg.StateServer {
 		configRenderer = syslog.NewAccumulateConfig(
-			names.MachineTag(cfg.MachineId), cfg.SyslogPort, namespace)
+			names.MachineTag(cfg.MachineId),
+			cfg.SyslogPort,
+			namespace,
+		)
 	} else {
 		configRenderer = syslog.NewForwardConfig(
-			names.MachineTag(cfg.MachineId), cfg.SyslogPort, namespace, cfg.stateHostAddrs())
+			names.MachineTag(cfg.MachineId),
+			cfg.SyslogPort,
+			namespace,
+			cfg.stateHostAddrs(),
+		)
 	}
 	configRenderer.LogDir = cfg.LogDir
+
+	// If TLS is to be used, then copy the certificates
+	// and key somewhere that rsyslogd can read. The
+	// client is anonymous, so only needs the CA cert.
+	if cfg.SyslogTLS {
+		configRenderer.TLSCACertPath = path.Join(cfg.LogDir, "ca.pem")
+		c.AddFile(configRenderer.TLSCACertPath, string(cfg.StateInfo.CACert), 0600)
+		c.AddRunCmd("chown syslog:adm " + configRenderer.TLSCACertPath)
+		if cfg.StateServer {
+			configRenderer.TLSCertPath = path.Join(cfg.LogDir, "cert.pem")
+			c.AddFile(configRenderer.TLSCertPath, string(cfg.StateServerCert), 0600)
+			configRenderer.TLSKeyPath = path.Join(cfg.LogDir, "key.pem")
+			c.AddFile(configRenderer.TLSKeyPath, string(cfg.StateServerKey), 0600)
+			c.AddRunCmd("chown syslog:adm " + configRenderer.TLSKeyPath + " " + configRenderer.TLSCertPath)
+		}
+	}
+
 	content, err := configRenderer.Render()
 	if err != nil {
 		return err

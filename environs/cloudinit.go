@@ -86,6 +86,7 @@ func PopulateMachineConfig(mcfg *cloudinit.MachineConfig,
 	providerType, authorizedKeys string,
 	sslHostnameVerification bool,
 	syslogPort int,
+	syslogTLS bool,
 	proxy, aptProxy osenv.ProxySettings,
 ) error {
 	if authorizedKeys == "" {
@@ -99,6 +100,7 @@ func PopulateMachineConfig(mcfg *cloudinit.MachineConfig,
 	mcfg.AgentEnvironment[agent.ContainerType] = string(mcfg.MachineContainerType)
 	mcfg.DisableSSLHostnameVerification = !sslHostnameVerification
 	mcfg.SyslogPort = syslogPort
+	mcfg.SyslogTLS = syslogTLS
 	mcfg.ProxySettings = proxy
 	mcfg.AptProxySettings = aptProxy
 	return nil
@@ -123,6 +125,7 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 		cfg.AuthorizedKeys(),
 		cfg.SSLHostnameVerification(),
 		cfg.SyslogPort(),
+		cfg.SyslogTLS(),
 		cfg.ProxySettings(),
 		cfg.AptProxySettings(),
 	); err != nil {

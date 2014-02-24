@@ -70,6 +70,8 @@ func VerifyPrerequisites(containerType instance.ContainerType) error {
 	if goos != "linux" {
 		return fmt.Errorf(errUnsupportedOS, goos)
 	}
+	// TODO(axw) ensure rsyslog-gnutls is available
+	// or should we make rsyslog/tls optional for local?
 	if err := verifyMongod(); err != nil {
 		return err
 	}

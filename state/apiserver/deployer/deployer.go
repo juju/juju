@@ -77,6 +77,7 @@ func (d *DeployerAPI) ConnectionInfo() (result params.DeployerConnectionValues, 
 			StateAddresses: info.StateAddresses,
 			APIAddresses:   info.APIAddresses,
 			SyslogPort:     info.SyslogPort,
+			SyslogTLS:      info.SyslogTLS,
 		}
 	}
 	return result, err

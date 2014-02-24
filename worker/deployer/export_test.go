@@ -12,9 +12,10 @@ type fakeAPI struct{}
 
 func (*fakeAPI) ConnectionInfo() (params.DeployerConnectionValues, error) {
 	return params.DeployerConnectionValues{
-		[]string{"s1:123", "s2:123"},
-		[]string{"a1:123", "a2:123"},
-		2345,
+		StateAddresses: []string{"s1:123", "s2:123"},
+		APIAddresses:   []string{"a1:123", "a2:123"},
+		SyslogPort:     2345,
+		SyslogTLS:      false,
 	}, nil
 }
 

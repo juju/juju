@@ -19,22 +19,31 @@ $InputFileName /var/log/juju/{{machine}}.log
 $InputFileTag juju{{namespace}}-{{machine}}:
 $InputFileStateFile {{machine}}{{namespace}}
 $InputRunFileMonitor
-
+{{if tls}}
+$ModLoad imtcp
+$DefaultNetstreamDriver gtls
+$DefaultNetstreamDriverCAFile /var/log/juju/ca.pem
+$DefaultNetstreamDriverCertFile /var/log/juju/cert.pem
+$DefaultNetstreamDriverKeyFile /var/log/juju/key.pem
+$InputTCPServerStreamDriverAuthMode anon
+$InputTCPServerStreamDriverMode 1 # run driver in TLS-only mode
+$InputTCPServerRun {{port}}
+{{else}}
 $ModLoad imudp
 $UDPServerRun {{port}}
-
+{{end}}
 # Messages received from remote rsyslog machines have messages prefixed with a space,
 # so add one in for local messages too if needed.
 $template JujuLogFormat{{namespace}},"%syslogtag:{{offset}}:$%%msg:::sp-if-no-1st-sp%%msg:::drop-last-lf%\n"
 
 $FileCreateMode 0644
-:syslogtag, startswith, "juju{{namespace}}-" /var/log/juju{{namespace}}/all-machines.log;JujuLogFormat{{namespace}}
+:syslogtag, startswith, "juju{{namespace}}-" /var/log/juju/all-machines.log;JujuLogFormat{{namespace}}
 & ~
 $FileCreateMode 0640
 `
 
 // ExpectedAccumulateSyslogConf returns the expected content for a rsyslog file on a state server.
-func ExpectedAccumulateSyslogConf(c *gc.C, machineTag, namespace string, port int) string {
+func ExpectedAccumulateSyslogConf(c *gc.C, machineTag, namespace string, port int, tls bool) string {
 	if namespace != "" {
 		namespace = "-" + namespace
 	}
@@ -44,6 +53,7 @@ func ExpectedAccumulateSyslogConf(c *gc.C, machineTag, namespace string, port in
 		"namespace": func() string { return namespace },
 		"port":      func() int { return port },
 		"offset":    func() int { return 6 + len(namespace) },
+		"tls":       func() bool { return tls },
 	})
 	t = template.Must(t.Parse(expectedAccumulateSyslogConfTemplate))
 	var conf bytes.Buffer
@@ -61,15 +71,21 @@ $InputFileName /var/log/juju/{{machine}}.log
 $InputFileTag juju{{namespace}}-{{machine}}:
 $InputFileStateFile {{machine}}{{namespace}}
 $InputRunFileMonitor
-
+{{if tls}}
+$DefaultNetstreamDriver gtls
+$DefaultNetstreamDriverCAFile /var/log/juju/ca.pem
+$ActionSendStreamDriverAuthMode anon
+$ActionSendStreamDriverMode 1 # run driver in TLS-only mode
+{{end}}
 $template LongTagForwardFormat,"<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %syslogtag%%msg:::sp-if-no-1st-sp%%msg%"
-
-:syslogtag, startswith, "juju{{namespace}}-" @server:{{port}};LongTagForwardFormat
+{{if tls}}
+:syslogtag, startswith, "juju{{namespace}}-" @@server:{{port}};LongTagForwardFormat{{else}}
+:syslogtag, startswith, "juju{{namespace}}-" @server:{{port}};LongTagForwardFormat{{end}}
 & ~
 `
 
 // ExpectedForwardSyslogConf returns the expected content for a rsyslog file on a host machine.
-func ExpectedForwardSyslogConf(c *gc.C, machineTag, namespace string, port int) string {
+func ExpectedForwardSyslogConf(c *gc.C, machineTag, namespace string, port int, tls bool) string {
 	if namespace != "" {
 		namespace = "-" + namespace
 	}
@@ -78,6 +94,7 @@ func ExpectedForwardSyslogConf(c *gc.C, machineTag, namespace string, port int) 
 		"machine":   func() string { return machineTag },
 		"namespace": func() string { return namespace },
 		"port":      func() int { return port },
+		"tls":       func() bool { return tls },
 	})
 	t = template.Must(t.Parse(expectedForwardSyslogConfTemplate))
 	var conf bytes.Buffer

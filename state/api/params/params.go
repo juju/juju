@@ -514,6 +514,7 @@ type ContainerConfig struct {
 	AuthorizedKeys          string
 	SSLHostnameVerification bool
 	SyslogPort              int
+	SyslogTLS               bool
 	Proxy                   osenv.ProxySettings
 	AptProxy                osenv.ProxySettings
 }
@@ -563,6 +564,7 @@ type DeployerConnectionValues struct {
 	StateAddresses []string
 	APIAddresses   []string
 	SyslogPort     int
+	SyslogTLS      bool
 }
 
 // StatusParams holds parameters for the Status call.

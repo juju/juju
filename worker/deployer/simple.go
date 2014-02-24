@@ -128,6 +128,9 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	syslogConfigRenderer := syslog.NewForwardConfig(tag, result.SyslogPort, namespace, result.StateAddresses)
 	syslogConfigRenderer.ConfigDir = ctx.syslogConfigDir
 	syslogConfigRenderer.ConfigFileName = fmt.Sprintf("26-juju-%s.conf", tag)
+	if result.SyslogTLS {
+		syslogConfigRenderer.TLSCACertPath = path.Join(syslogConfigRenderer.LogDir, "ca.pem")
+	}
 	if err := syslogConfigRenderer.Write(); err != nil {
 		return err
 	}

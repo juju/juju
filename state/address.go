@@ -123,6 +123,7 @@ type DeployerConnectionValues struct {
 	StateAddresses []string
 	APIAddresses   []string
 	SyslogPort     int
+	SyslogTLS      bool
 }
 
 // DeployerConnectionInfo returns the address information necessary for the deployer.
@@ -140,5 +141,6 @@ func (st *State) DeployerConnectionInfo() (*DeployerConnectionValues, error) {
 		StateAddresses: appendPort(addrs, config.StatePort()),
 		APIAddresses:   appendPort(addrs, config.APIPort()),
 		SyslogPort:     config.SyslogPort(),
+		SyslogTLS:      config.SyslogTLS(),
 	}, nil
 }
