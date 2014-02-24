@@ -450,12 +450,12 @@ func (h *charmsHandler) processGet(r *http.Request) (string, error) {
 
 	// Validate the given file path.
 	name := charm.Quote(curl)
-	bundlePath := filepath.Join(h.dataDir, "charm-get-cache/", name) + string(filepath.Separator)
+	bundlePath := filepath.Join(h.dataDir, "charm-get-cache", name)
 	path, err := filepath.Abs(filepath.Join(bundlePath, file))
 	if err != nil {
 		return "", fmt.Errorf("cannot retrieve the charms cache: %v", err)
 	}
-	if !strings.HasPrefix(path, bundlePath) {
+	if path != bundlePath && !strings.HasPrefix(path, bundlePath+"/") {
 		return "", fmt.Errorf("invalid file path: %q", file)
 	}
 
@@ -505,12 +505,24 @@ func (h *charmsHandler) downloadCharm(name, bundlePath string) error {
 	if err != nil {
 		return errgo.Annotate(err, "cannot read the charm bundle")
 	}
-	if err = os.MkdirAll(bundlePath, 0755); err != nil {
+	// In order to avoid races, the bundle is expanded in a temporary dir which
+	// is then atomically renamed. The temporary directory is created in the
+	// charm cache so that we can safely assume the rename source and target
+	// live in the same file system.
+	cacheDir, _ := filepath.Split(bundlePath)
+	if err = os.MkdirAll(cacheDir, 0755); err != nil {
 		return errgo.Annotate(err, "cannot create the charms cache")
 	}
-	if err = bundle.ExpandTo(bundlePath); err != nil {
-		defer os.RemoveAll(bundlePath)
+	bundleTempPath, err := ioutil.TempDir(cacheDir, "bundle")
+	if err != nil {
+		return errgo.Annotate(err, "cannot create the temporary bundle directory")
+	}
+	if err = bundle.ExpandTo(bundleTempPath); err != nil {
+		defer os.RemoveAll(bundleTempPath)
 		return errgo.Annotate(err, "error expanding the bundle")
+	}
+	if err = os.Rename(bundleTempPath, bundlePath); err != nil {
+		return errgo.Annotate(err, "error renaming the bundle")
 	}
 	return nil
 }
