@@ -63,7 +63,7 @@ func (c *GoCryptoClient) Command(host string, command []string, options *Options
 //
 // Copy is currently unimplemented, and will always return an error.
 func (c *GoCryptoClient) Copy(targets, extraArgs []string, options *Options) error {
-	return fmt.Errorf("Copy is not implemented")
+	return fmt.Errorf("scp command is not implemented (OpenSSH scp not available in PATH)")
 }
 
 type goCryptoCommand struct {
