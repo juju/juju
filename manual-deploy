@@ -3,12 +3,13 @@ set -eux
 : ${SCRIPTS:=$(readlink -f $(dirname $0))}
 : ${JUJU_HOME:=$SCRIPTS/manual-provider-home}
 export JUJU_HOME
-echo $0
+$SCRIPTS/ec2-terminate-job-instances
 export INSTANCE_TYPE=m1.large
 export AMI_IMAGE=ami-bd6d40d4
 machine_0_id=$($SCRIPTS/ec2-run-instance-get-id)
 machine_1_id=$($SCRIPTS/ec2-run-instance-get-id)
 machine_2_id=$($SCRIPTS/ec2-run-instance-get-id)
+$SCRIPTS/ec2-tag-job-instances $machine_0_id $machine_1_id $machine_2_id
 machine_0_name=$($SCRIPTS/ec2-get-name $machine_0_id)
 machine_1_name=$($SCRIPTS/ec2-get-name $machine_1_id)
 machine_2_name=$($SCRIPTS/ec2-get-name $machine_2_id)
@@ -39,5 +40,5 @@ else
   exit_code=1
 fi
 rm $JUJU_HOME/environments/manual.jenv
-euca-terminate-instances $machine_0_id $machine_1_id $machine_2_id
+$SCRIPTS/ec2-terminate-job-instances
 exit $exit_code
