@@ -32,7 +32,7 @@ func (c *Client) Status() (api.LegacyStatus, error) {
 	legacyStatus.Machines = make(map[string]api.LegacyMachineStatus)
 	for machineName, machineStatus := range status.Machines {
 		legacyStatus.Machines[machineName] = api.LegacyMachineStatus{
-			InstanceId: machineStatus.Id,
+			InstanceId: string(machineStatus.InstanceId),
 		}
 	}
 	return legacyStatus, nil

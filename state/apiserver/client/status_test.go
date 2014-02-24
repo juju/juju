@@ -6,6 +6,7 @@ package client_test
 import (
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 )
 
@@ -26,8 +27,6 @@ func (s *statusSuite) addMachine(c *gc.C) *state.Machine {
 
 func (s *statusSuite) TestFullStatus(c *gc.C) {
 	machine := s.addMachine(c)
-	// XXX: Have to test via the client even though this is in apiserver,
-	//      due to using NewConnFromState in the call?
 	client := s.APIState.Client()
 	status, err := client.Status(nil)
 	c.Assert(err, gc.IsNil)
@@ -44,6 +43,9 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 
 func (s *statusSuite) TestLegacyStatus(c *gc.C) {
 	machine := s.addMachine(c)
+	instanceId := "i-fakeinstance"
+	err := machine.SetProvisioned(instance.Id(instanceId), "fakenonce", nil)
+	c.Assert(err, gc.IsNil)
 	client := s.APIState.Client()
 	status, err := client.LegacyStatus()
 	c.Assert(err, gc.IsNil)
@@ -52,5 +54,5 @@ func (s *statusSuite) TestLegacyStatus(c *gc.C) {
 	if !ok {
 		c.Fatalf("Missing machine with id %q", machine.Id())
 	}
-	c.Check(resultMachine.InstanceId, gc.Equals, machine.Id())
+	c.Check(resultMachine.InstanceId, gc.Equals, instanceId)
 }
