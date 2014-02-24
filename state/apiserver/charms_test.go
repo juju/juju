@@ -124,7 +124,7 @@ func (s *charmsSuite) TestUploadBumpsRevision(c *gc.C) {
 	resp, err := s.uploadRequest(c, s.charmsURI(c, "?series=quantal"), true, ch.Path)
 	c.Assert(err, gc.IsNil)
 	expectedURL := charm.MustParseURL("local:quantal/dummy-2")
-	s.assertPOSTResponse(c, resp, expectedURL.String())
+	s.assertUploadResponse(c, resp, expectedURL.String())
 	sch, err := s.State.Charm(expectedURL)
 	c.Assert(err, gc.IsNil)
 	c.Assert(sch.URL(), gc.DeepEquals, expectedURL)
@@ -152,7 +152,7 @@ func (s *charmsSuite) TestUploadRespectsLocalRevision(c *gc.C) {
 	resp, err := s.uploadRequest(c, s.charmsURI(c, "?series=quantal"), true, tempFile.Name())
 	c.Assert(err, gc.IsNil)
 	expectedURL := charm.MustParseURL("local:quantal/dummy-123")
-	s.assertPOSTResponse(c, resp, expectedURL.String())
+	s.assertUploadResponse(c, resp, expectedURL.String())
 	sch, err := s.State.Charm(expectedURL)
 	c.Assert(err, gc.IsNil)
 	c.Assert(sch.URL(), gc.DeepEquals, expectedURL)
@@ -207,7 +207,7 @@ func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *gc.C) {
 	resp, err := s.uploadRequest(c, s.charmsURI(c, "?series=quantal"), true, tempFile.Name())
 	c.Assert(err, gc.IsNil)
 	expectedURL := charm.MustParseURL("local:quantal/dummy-1")
-	s.assertPOSTResponse(c, resp, expectedURL.String())
+	s.assertUploadResponse(c, resp, expectedURL.String())
 	sch, err := s.State.Charm(expectedURL)
 	c.Assert(err, gc.IsNil)
 	c.Assert(sch.URL(), gc.DeepEquals, expectedURL)
@@ -322,7 +322,7 @@ func (s *charmsSuite) TestGetReturnsFileContents(c *gc.C) {
 		uri := s.charmsURI(c, "?url=local:quantal/dummy-1&file="+t.file)
 		resp, err := s.authRequest(c, "GET", uri, "", nil)
 		c.Assert(err, gc.IsNil)
-		s.assertGETResponse(c, resp, t.response)
+		s.assertGetFileResponse(c, resp, t.response)
 	}
 }
 
@@ -336,8 +336,11 @@ func (s *charmsSuite) TestGetListsFiles(c *gc.C) {
 	uri := s.charmsURI(c, "?url=local:quantal/dummy-1")
 	resp, err := s.authRequest(c, "GET", uri, "", nil)
 	c.Assert(err, gc.IsNil)
-	expectedContents := ""
-	s.assertGETResponse(c, resp, expectedContents)
+	expectedFiles := []string{
+		"config.yaml", "hooks/install", "metadata.yaml", "revision",
+		"src/hello.c",
+	}
+	s.assertGetFileListResponse(c, resp, expectedFiles)
 }
 
 func (s *charmsSuite) TestGetUsesCache(c *gc.C) {
@@ -353,7 +356,7 @@ func (s *charmsSuite) TestGetUsesCache(c *gc.C) {
 	uri := s.charmsURI(c, "?url=local:trusty/django-42&file=readme.md")
 	resp, err := s.authRequest(c, "GET", uri, "", nil)
 	c.Assert(err, gc.IsNil)
-	s.assertGETResponse(c, resp, string(contents))
+	s.assertGetFileResponse(c, resp, string(contents))
 }
 
 func (s *charmsSuite) charmsURI(c *gc.C, query string) string {
@@ -394,16 +397,23 @@ func (s *charmsSuite) uploadRequest(c *gc.C, uri string, asZip bool, path string
 	return s.authRequest(c, "POST", uri, contentType, file)
 }
 
-func (s *charmsSuite) assertPOSTResponse(c *gc.C, resp *http.Response, expCharmURL string) {
+func (s *charmsSuite) assertUploadResponse(c *gc.C, resp *http.Response, expCharmURL string) {
 	body := assertResponse(c, resp, http.StatusOK)
 	charmResponse := jsonResponse(c, body)
 	c.Check(charmResponse.Error, gc.Equals, "")
 	c.Check(charmResponse.CharmURL, gc.Equals, expCharmURL)
 }
 
-func (s *charmsSuite) assertGETResponse(c *gc.C, resp *http.Response, expBody string) {
+func (s *charmsSuite) assertGetFileResponse(c *gc.C, resp *http.Response, expBody string) {
 	body := assertResponse(c, resp, http.StatusOK)
 	c.Check(string(body), gc.Equals, expBody)
+}
+
+func (s *charmsSuite) assertGetFileListResponse(c *gc.C, resp *http.Response, expFiles []string) {
+	body := assertResponse(c, resp, http.StatusOK)
+	charmResponse := jsonResponse(c, body)
+	c.Check(charmResponse.Error, gc.Equals, "")
+	c.Check(charmResponse.Files, gc.DeepEquals, expFiles)
 }
 
 func (s *charmsSuite) assertErrorResponse(c *gc.C, resp *http.Response, expCode int, expError string) {

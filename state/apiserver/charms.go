@@ -86,7 +86,28 @@ func (h *charmsHandler) sendJSON(w http.ResponseWriter, statusCode int, response
 // sendFilesList sends a JSON-encoded response to the client including the list
 // of files contained in the given path.
 func (h *charmsHandler) sendFilesList(w http.ResponseWriter, r *http.Request, path string) {
-	files := []string{"aaa", "bbb"}
+	var files []string
+	err := filepath.Walk(path, func(filePath string, fileInfo os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		// Exclude directories.
+		if fileInfo.IsDir() {
+			return nil
+		}
+		relPath, err := filepath.Rel(path, filePath)
+		if err != nil {
+			return err
+		}
+		files = append(files, relPath)
+		return nil
+	})
+	if err != nil {
+		http.Error(
+			w, fmt.Sprintf("unable to list files in %q: %v", path, err),
+			http.StatusInternalServerError)
+		return
+	}
 	h.sendJSON(w, http.StatusOK, &params.CharmsResponse{Files: files})
 }
 
