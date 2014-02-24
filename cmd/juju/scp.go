@@ -17,16 +17,22 @@ type SCPCommand struct {
 }
 
 const scpDoc = `
-Lauch an scp command to copy files. <to> and <from> are either local
-file paths or remote locations of the form <target>:<path>, where
-<target> can be either a machine id as listed by "juju status" in the
+Launch an scp command to copy files. Each argument <file1> ... <file2>
+is either local file path or remote locations of the form <target>:<path>,
+where <target> can be either a machine id as listed by "juju status" in the
 "machines" section or a unit name as listed in the "services" section.
+Any extra arguments to scp can be passed after --, in any place.
 
-Examples
+Examples:
 
 Copy a single file from machine 2 to the local machine:
 
     juju scp 2:/var/log/syslog .
+
+Copy 2 files from two units to the local backup/ directory, passig -v
+to scp as an extra argument:
+
+    juju scp ubuntu/0:/path/file1 -- -v ubuntu/1:/path/file2 backup/
 
 Recursively copy the directory /var/log/mongodb/ on the first mongodb
 server to the local directory remote-logs:
@@ -41,7 +47,7 @@ Copy a local file to the second apache unit of the environment "testing":
 func (c *SCPCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "scp",
-		Args:    "[-- scp-option...] <from> <to>",
+		Args:    "[-- scp-option...] <file1> ... <file2> [-- scp-option...]",
 		Purpose: "launch a scp command to copy files to/from remote machine(s)",
 		Doc:     scpDoc,
 	}
@@ -67,17 +73,33 @@ func (c *SCPCommand) Run(ctx *cmd.Context) error {
 	}
 	defer c.apiClient.Close()
 
-	// translate arguments in the form 0:/somepath or service/0:/somepath into
-	// ubuntu@machine:/somepath so they can be presented to scp.
-	for i := range c.Args {
-		// BUG(dfc) This will not work for IPv6 addresses like 2001:db8::1:2:/somepath.
-		if v := strings.SplitN(c.Args[i], ":", 2); len(v) > 1 {
+	// Parse all arguments, translating those in the form 0:/somepath
+	// or service/0:/somepath into ubuntu@machine:/somepath so they
+	// can be given to scp as targets (source(s) and destination(s)),
+	// and passing any others that look like extra arguments (starting
+	// with "-") verbatim to scp.
+	var targets, extraArgs []string
+	for _, arg := range c.Args {
+		if v := strings.SplitN(arg, ":", 2); len(v) > 1 {
 			host, err := c.hostFromTarget(v[0])
 			if err != nil {
 				return err
 			}
-			c.Args[i] = "ubuntu@" + host + ":" + v[1]
+			targets = append(targets, "ubuntu@"+host+":"+v[1])
+			continue
+		}
+		if strings.HasPrefix(arg, "-") {
+			// Allow -- to be specified last, in which case
+			// we need to strip it.
+			arg = strings.TrimSpace(strings.TrimPrefix(arg, "--"))
+			if arg != "" {
+				// Extra argument(s).
+				extraArgs = append(extraArgs, arg)
+			}
+		} else {
+			// Local path
+			targets = append(targets, arg)
 		}
 	}
-	return ssh.Copy(c.Args[0], c.Args[1], nil)
+	return ssh.Copy(targets, extraArgs, nil)
 }
