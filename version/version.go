@@ -22,15 +22,16 @@ import (
 // The presence and format of this constant is very important.
 // The debian/rules build recipe uses this value for the version
 // number of the release package.
+const version = "1.17.4"
 const Version = "1.17.3"
 
 // Current gives the current version of the system.  If the file
 // "FORCE-VERSION" is present in the same directory as the running
 // binary, it will override this.
 var Current = Binary{
-	Number: MustParse(Version),
+	Number: MustParse(version),
 	Series: readSeries("/etc/lsb-release"),
-	Arch:   UbuntuArch(runtime.GOARCH),
+	Arch:   ubuntuArch(runtime.GOARCH),
 }
 
 func init() {
@@ -281,7 +282,7 @@ func readSeries(releaseFile string) string {
 	return "unknown"
 }
 
-func UbuntuArch(arch string) string {
+func ubuntuArch(arch string) string {
 	if arch == "386" {
 		arch = "i386"
 	}
