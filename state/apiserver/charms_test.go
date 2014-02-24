@@ -286,7 +286,7 @@ func (s *charmsSuite) TestGetReturnsDirectoryForbidden(c *gc.C) {
 	_, err := s.uploadRequest(
 		c, s.charmsURI(c, "?series=quantal"), true, ch.Path)
 	c.Assert(err, gc.IsNil)
-	// Ensure a 404 is returned if the requested file is a directory.
+	// Ensure a 403 is returned if the requested file is a directory.
 	uri := s.charmsURI(c, "?url=local:quantal/dummy-1&file=hooks")
 	resp, err := s.authRequest(c, "GET", uri, "", nil)
 	c.Assert(err, gc.IsNil)

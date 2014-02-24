@@ -51,15 +51,15 @@ func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		h.sendJSON(w, http.StatusOK, &params.CharmsResponse{CharmURL: charmURL.String()})
 	case "GET":
-		// Retrieve a charm file.
+		// Retrieve or list charm files.
 		// Requires "url" (charm URL) and an optional "file" (the path to the
 		// charm file) to be included in the query.
 		if bundlePath, filePath, err := h.processGet(r); err != nil {
-			// An error occurred retrieving the bundle
+			// An error occurred retrieving the charm bundle.
 			h.sendError(w, http.StatusBadRequest, err.Error())
 		} else if filePath == "" {
-			// The client requested charm information.
-			h.sendFilesList(w, r, bundlePath)
+			// The client requested the list of charm files.
+			h.sendFilesList(w, bundlePath)
 		} else {
 			// The client requested a specific file.
 			h.sendFile(w, r, filePath)
@@ -83,7 +83,7 @@ func (h *charmsHandler) sendJSON(w http.ResponseWriter, statusCode int, response
 
 // sendFilesList sends a JSON-encoded response to the client including the list
 // of files contained in the given path.
-func (h *charmsHandler) sendFilesList(w http.ResponseWriter, r *http.Request, path string) {
+func (h *charmsHandler) sendFilesList(w http.ResponseWriter, path string) {
 	var files []string
 	err := filepath.Walk(path, func(filePath string, fileInfo os.FileInfo, err error) error {
 		if err != nil {
@@ -111,7 +111,7 @@ func (h *charmsHandler) sendFilesList(w http.ResponseWriter, r *http.Request, pa
 
 // sendFile sends the file contents of the file present in the given path.
 // A 404 page not found is returned if path does not exist.
-// A 403 forbidden error is returned if path pints to a directory.
+// A 403 forbidden error is returned if path points to a directory.
 func (h *charmsHandler) sendFile(w http.ResponseWriter, r *http.Request, path string) {
 	file, err := os.Open(path)
 	if os.IsNotExist(err) {
@@ -127,7 +127,7 @@ func (h *charmsHandler) sendFile(w http.ResponseWriter, r *http.Request, path st
 	fileInfo, err := file.Stat()
 	if err != nil {
 		http.Error(
-			w, fmt.Sprintf("unable to get info for %q: %v", path, err),
+			w, fmt.Sprintf("unable to get info about %q: %v", path, err),
 			http.StatusInternalServerError)
 		return
 	}
