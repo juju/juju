@@ -28,13 +28,25 @@ func (s *simpleWorkerSuite) TestWait(c *gc.C) {
 	c.Assert(w.Wait(), gc.Equals, testError)
 }
 
-func (s *simpleWorkerSuite) TestKill(c *gc.C) {
-	doWork := func(stopCh <-chan struct{}) error {
-		<-stopCh
+func (s *simpleWorkerSuite) TestWaitNil(c *gc.C) {
+	doWork := func(_ <-chan struct{}) error {
 		return nil
 	}
 
 	w := NewSimpleWorker(doWork)
-	w.Kill()
 	c.Assert(w.Wait(), gc.Equals, nil)
+}
+
+func (s *simpleWorkerSuite) TestKill(c *gc.C) {
+	doWork := func(stopCh <-chan struct{}) error {
+		<-stopCh
+		return testError
+	}
+
+	w := NewSimpleWorker(doWork)
+	w.Kill()
+	c.Assert(w.Wait(), gc.Equals, testError)
+
+	// test we can kill again without a panic
+	w.Kill()
 }
