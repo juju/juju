@@ -71,7 +71,7 @@ func (v *Value) Closed() bool {
 	return v.closed
 }
 
-// Get returns the current value. 
+// Get returns the current value.
 func (v *Value) Get() interface{} {
 	v.mu.RLock()
 	defer v.mu.RUnlock()
