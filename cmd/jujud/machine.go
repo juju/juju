@@ -156,6 +156,7 @@ func (a *MachineAgent) upgradeWorker(apiState *api.State, jobs []params.MachineJ
 		if err != nil {
 			return err
 		}
+		logger.Infof("Upgrade to %v completed.", version.Current)
 		close(a.upgradeComplete)
 		<-stop
 		return nil
