@@ -116,7 +116,6 @@ func (s symlink) check(c *gc.C, basePath string) {
 
 type custom struct {
 	createFunc func(c *gc.C, basePath string)
-	checkFunc  func(c *gc.C, basePath string)
 }
 
 func (x custom) create(c *gc.C, basePath string) {
@@ -124,5 +123,5 @@ func (x custom) create(c *gc.C, basePath string) {
 }
 
 func (x custom) check(c *gc.C, basePath string) {
-	x.checkFunc(c, basePath)
+	panic("not implemented")
 }

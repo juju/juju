@@ -159,6 +159,111 @@ func (s *ZipSuite) TestExtractAllOverwriteFiles(c *gc.C) {
 	}
 }
 
-func (s *ZipSuite) TestFails(c *gc.C) {
+func (s *ZipSuite) TestExtractAllOverwriteSymlinks(c *gc.C) {
+	name := "some-symlink"
+	for i, test := range []creator{
+		file{name, "content", 0644},
+		dir{name, 0751},
+		symlink{name, "wherever"},
+	} {
+		c.Logf("test %d: %#v", i, test)
+		targetPath := c.MkDir()
+		original := file{"original", "content", 0644}
+		original.create(c, targetPath)
+		symlink{name, "original"}.create(c, targetPath)
+		reader := s.makeZip(c, test)
+		err := zip.ExtractAll(reader, targetPath)
+		c.Check(err, gc.IsNil)
+		test.check(c, targetPath)
+		original.check(c, targetPath)
+	}
+}
+
+func (s *ZipSuite) TestExtractAllOverwriteDirs(c *gc.C) {
+	name := "some-dir"
+	for i, test := range []creator{
+		file{name, "content", 0644},
+		dir{name, 0751},
+		symlink{name, "wherever"},
+	} {
+		c.Logf("test %d: %#v", i, test)
+		targetPath := c.MkDir()
+		dir{name, 0}.create(c, targetPath)
+		reader := s.makeZip(c, test)
+		err := zip.ExtractAll(reader, targetPath)
+		c.Check(err, gc.IsNil)
+		test.check(c, targetPath)
+	}
+}
+
+func (s *ZipSuite) TestExtractAllMergeDirs(c *gc.C) {
+	targetPath := c.MkDir()
+	dir{"dir", 0755}.create(c, targetPath)
+	originals := []creator{
+		dir{"dir/original-dir", 0751},
+		file{"dir/original-file", "content 1", 0600},
+		symlink{"dir/original-symlink", "original-file"},
+	}
+	for _, creator := range originals {
+		creator.create(c, targetPath)
+	}
+	merges := []creator{
+		dir{"dir", 0751},
+		dir{"dir/merge-dir", 0750},
+		file{"dir/merge-file", "content 2", 0640},
+		symlink{"dir/merge-symlink", "merge-file"},
+	}
+	reader := s.makeZip(c, merges...)
+	err := zip.ExtractAll(reader, targetPath)
+	c.Assert(err, gc.IsNil)
+
+	for i, test := range append(originals, merges...) {
+		c.Logf("test %d: %#v", i, test)
+		test.check(c, targetPath)
+	}
+}
+
+func (s *ZipSuite) TestExtractAllSymlinkErrors(c *gc.C) {
+	for i, test := range []struct {
+		content []creator
+		error   string
+	}{{
+		content: []creator{
+			symlink{"symlink", "/blah"},
+		},
+		error: `cannot process "symlink": symlink "/blah" is absolute`,
+	}, {
+		content: []creator{
+			symlink{"symlink", "../blah"},
+		},
+		error: `cannot process "symlink": symlink "../blah" leads out of scope`,
+	}, {
+		content: []creator{
+			dir{"dir", 0755},
+			symlink{"dir/symlink", "../../blah"},
+		},
+		error: `cannot process "dir/symlink": symlink "../../blah" leads out of scope`,
+	}} {
+		c.Logf("test %d: %s", i, test.error)
+		targetPath := c.MkDir()
+		reader := s.makeZip(c, test.content...)
+		err := zip.ExtractAll(reader, targetPath)
+		c.Assert(err, gc.ErrorMatches, test.error)
+	}
+}
+
+func (s *ZipSuite) TestExtractAllFileTypeErrors(c *gc.C) {
+	c.Fatalf("not finished")
+}
+
+func (s *ZipSuite) TestExtract(c *gc.C) {
+	c.Fatalf("not finished")
+}
+
+func (s *ZipSuite) TestExtractSingleFile(c *gc.C) {
+	c.Fatalf("not finished")
+}
+
+func (s *ZipSuite) TestExtractSymlinkErrors(c *gc.C) {
 	c.Fatalf("not finished")
 }

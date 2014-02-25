@@ -162,15 +162,15 @@ func (x expander) checkSymlink(filePath string, zipFile *zip.File) (string, erro
 	}
 	targetPath := buffer.String()
 	if filepath.IsAbs(targetPath) {
-		return "", fmt.Errorf("symlink is absolute")
+		return "", fmt.Errorf("symlink %q is absolute", targetPath)
 	}
 	finalPath := filepath.Join(filepath.Dir(filePath), targetPath)
 	relativePath, err := filepath.Rel(x.targetPath, finalPath)
 	if err != nil {
-		return "", fmt.Errorf("symlink not comprehensible")
+		return "", fmt.Errorf("symlink %q not comprehensible", targetPath)
 	}
 	if !isSanePath(relativePath) {
-		return "", fmt.Errorf("symlink leads out of scope")
+		return "", fmt.Errorf("symlink %q leads out of scope", targetPath)
 	}
 	return targetPath, nil
 }
