@@ -246,7 +246,8 @@ func (s *charmsSuite) TestGetRequiresCharmURL(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.assertErrorResponse(
 		c, resp, http.StatusBadRequest,
-		"expected url=CharmURL query argument")
+		"expected url=CharmURL query argument",
+	)
 }
 
 func (s *charmsSuite) TestGetFailsWithInvalidCharmURL(c *gc.C) {
@@ -255,7 +256,8 @@ func (s *charmsSuite) TestGetFailsWithInvalidCharmURL(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.assertErrorResponse(
 		c, resp, http.StatusBadRequest,
-		"unable to retrieve and save the charm: charm not found in the provider storage: .*")
+		"unable to retrieve and save the charm: charm not found in the provider storage: .*",
+	)
 }
 
 func (s *charmsSuite) TestGetFailsWithInvalidFilePath(c *gc.C) {
@@ -264,7 +266,8 @@ func (s *charmsSuite) TestGetFailsWithInvalidFilePath(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.assertErrorResponse(
 		c, resp, http.StatusBadRequest,
-		`invalid file path: "../../../../etc/passwd"`)
+		`invalid file path: "../../../../etc/passwd"`,
+	)
 }
 
 func (s *charmsSuite) TestGetReturnsFileNotFound(c *gc.C) {
