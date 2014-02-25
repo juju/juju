@@ -459,10 +459,6 @@ func (m *machine) refresh() (bool, error) {
 		m.hostPort = hostPort
 		changed = true
 	}
-	// TODO remove this check!
-	if m.hostPort == "" {
-		panic(fmt.Errorf("hostPort has become empty; stm %#v", m.stm))
-	}
 	return changed, nil
 }
 
