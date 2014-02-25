@@ -1,0 +1,3 @@
+#!/bin/bash
+set -eu
+euca-create-tags "$@" --tag job_name=$JOB_NAME

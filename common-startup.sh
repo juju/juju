@@ -1,6 +1,10 @@
 set -eu
-export JUJU_HOME=$HOME/juju-ci
-
+if [ "$ENV" = "manual" ]; then
+  export JUJU_HOME=$WORKSPACE/manual-provider-home
+  source $HOME/juju-ci/ec2rc
+else
+  export JUJU_HOME=$HOME/juju-ci
+fi
 
 dump_logs(){
   log_path=${artifacts_path}/all-machines-${ENV}.log
@@ -31,6 +35,8 @@ wget -q localhost:8080/job/build-revision/$afact/buildvars.bash
 source buildvars.bash
 echo "Testing $BRANCH $REVNO on $ENV"
 dpkg-deb -x $PACKAGE extracted-bin
-export NEW_PATH=$(dirname $(find extracted-bin -name juju)):$PATH
-# Try to ensure a clean environment
-$SCRIPTS/destroy-environment $ENV
+JUJU_BIN=$(readlink -f $(dirname $(find extracted-bin -name juju)))
+export NEW_PATH=$JUJU_BIN:$PATH
+if [ "$ENV" != "manual" ]; then
+  $SCRIPTS/destroy-environment $ENV
+fi

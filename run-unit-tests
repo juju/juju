@@ -1,36 +1,20 @@
 #!/bin/bash
 set -eux
 : ${LOCAL_JENKINS_URL=$JENKINS_URL}
-INSTANCE_TYPE=$1
-AMI_IMAGE=$2
+export INSTANCE_TYPE=$1
+export AMI_IMAGE=$2
 tarfile=$($SCRIPTS/get-tarfile-name $revision_build)
-RUN_OUTPUT=$(euca-run-instances -k id_rsa -t $INSTANCE_TYPE $AMI_IMAGE)
-if [ $? -ne 0 ]; then
-  exit 1
-fi
-
-instance_id=$(echo $RUN_OUTPUT|sed -r 's/.*INSTANCE (i-[^ ]*) .*/\1/')
+instance_id=$($SCRIPTS/ec2-run-instance-get-id)
+$SCRIPTS/ec2-tag-job-instances $instance_id
 set +x
 echo Starting instance $instance_id
-instance_ip=''
-echo -n Waiting for IP address
-while [ -z "$instance_ip" ]; do
-  sleep 1
-  instance_ip=$(euca-describe-instances $instance_id|sed '/^INSTANCE/!d'|cut -f 17)
-  echo -n .
-done
-echo
-echo Instance has ip $instance_ip
+instance_name=$($SCRIPTS/ec2-get-name $instance_id)
+echo Instance has ip $instance_name
 sleep 30
-echo -n Waiting for SSH
-while ! netcat $instance_ip 22 -w 1 -q 0 </dev/null >/dev/null; do
-  sleep 1
-  echo -n .
-done
-echo
+$SCRIPTS/wait-for-port $instance_name 22
 set -x
 set +e
-ssh ubuntu@$instance_ip -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" <<EOT
+ssh ubuntu@$instance_name -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" <<EOT
 set -eux
 ssh-keygen -t rsa -b 2048 -N "" -f ~/.ssh/id_rsa
 wget -q $JENKINS_URL/job/build-revision/$revision_build/artifact/$tarfile
@@ -45,5 +29,5 @@ make check
 EOT
 EXIT_STATUS=$?
 set -e
-euca-terminate-instances $instance_id
+$SCRIPTS/ec2-terminate-job-instances
 exit $EXIT_STATUS
