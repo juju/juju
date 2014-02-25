@@ -44,5 +44,5 @@ func (s *rsyslogSuite) TestSetRsyslogCert(c *gc.C) {
 
 func (s *rsyslogSuite) TestSetRsyslogCertPerms(c *gc.C) {
 	// TODO(axw) SetRsyslogCert requires that the
-    // caller is a state server.
+	// caller is a state server.
 }

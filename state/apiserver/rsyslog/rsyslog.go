@@ -4,8 +4,8 @@
 package rsyslog
 
 import (
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/cert"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 )
