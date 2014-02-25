@@ -34,6 +34,8 @@ type charmsHandler struct {
 	dataDir string
 }
 
+//type zipHandlerFunc func(reader zip.ReadCloser)
+
 func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := h.authenticate(r); err != nil {
 		h.authError(w)
@@ -54,15 +56,15 @@ func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// Retrieve or list charm files.
 		// Requires "url" (charm URL) and an optional "file" (the path to the
 		// charm file) to be included in the query.
-		if bundlePath, filePath, err := h.processGet(r); err != nil {
+		if charmArchivePath, filePath, err := h.processGet(r); err != nil {
 			// An error occurred retrieving the charm bundle.
 			h.sendError(w, http.StatusBadRequest, err.Error())
 		} else if filePath == "" {
 			// The client requested the list of charm files.
-			h.sendFilesList(w, bundlePath)
+			h.sendZipFilesList(w, charmArchivePath)
 		} else {
 			// The client requested a specific file.
-			h.sendFile(w, r, filePath)
+			h.sendZipFile(w, r, charmArchivePath, filePath)
 		}
 	default:
 		h.sendError(w, http.StatusMethodNotAllowed, fmt.Sprintf("unsupported method: %q", r.Method))
@@ -81,62 +83,61 @@ func (h *charmsHandler) sendJSON(w http.ResponseWriter, statusCode int, response
 	return nil
 }
 
-// sendFilesList sends a JSON-encoded response to the client including the list
-// of files contained in the given path.
-func (h *charmsHandler) sendFilesList(w http.ResponseWriter, path string) {
+// sendZipFilesList sends a JSON-encoded response to the client including the
+// list of files contained in the zip archive present in the given archivePath.
+func (h *charmsHandler) sendZipFilesList(w http.ResponseWriter, archivePath string) {
 	var files []string
-	err := filepath.Walk(path, func(filePath string, fileInfo os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		// Exclude directories.
-		if fileInfo.IsDir() {
-			return nil
-		}
-		relPath, err := filepath.Rel(path, filePath)
-		if err != nil {
-			return err
-		}
-		files = append(files, relPath)
-		return nil
-	})
+	reader, err := zip.OpenReader(archivePath)
 	if err != nil {
 		http.Error(
-			w, fmt.Sprintf("unable to list files in %q: %v", path, err),
+			w, fmt.Sprintf("unable to read archive in %q: %v", archivePath, err),
 			http.StatusInternalServerError)
 		return
+	}
+	defer reader.Close()
+	for _, file := range reader.File {
+		fileInfo := file.FileInfo()
+		if !fileInfo.IsDir() {
+			files = append(files, file.Name)
+		}
 	}
 	h.sendJSON(w, http.StatusOK, &params.CharmsResponse{Files: files})
 }
 
-// sendFile sends the file contents of the file present in the given path.
+// sendZipFile sends the file contents of a file included in the given zip.
 // A 404 page not found is returned if path does not exist.
 // A 403 forbidden error is returned if path points to a directory.
-func (h *charmsHandler) sendFile(w http.ResponseWriter, r *http.Request, path string) {
-	file, err := os.Open(path)
-	if os.IsNotExist(err) {
-		http.NotFound(w, r)
-		return
-	} else if err != nil {
-		http.Error(
-			w, fmt.Sprintf("unable to open file at %q: %v", path, err),
-			http.StatusInternalServerError)
-		return
-	}
-	defer file.Close()
-	fileInfo, err := file.Stat()
+func (h *charmsHandler) sendZipFile(w http.ResponseWriter, r *http.Request, archivePath, filePath string) {
+	reader, err := zip.OpenReader(archivePath)
 	if err != nil {
 		http.Error(
-			w, fmt.Sprintf("unable to get info about %q: %v", path, err),
+			w, fmt.Sprintf("unable to read archive in %q: %v", archivePath, err),
 			http.StatusInternalServerError)
 		return
 	}
-	// Deny directory listing.
-	if fileInfo.IsDir() {
-		http.Error(w, "directory listing not allowed", http.StatusForbidden)
+	defer reader.Close()
+	for _, file := range reader.File {
+		if h.fixPath(file.Name) != filePath {
+			continue
+		}
+		fileInfo := file.FileInfo()
+		if fileInfo.IsDir() {
+			http.Error(w, "directory listing not allowed", http.StatusForbidden)
+			return
+		}
+		if contents, err := file.Open(); err != nil {
+			http.Error(
+				w, fmt.Sprintf("unable to read file %q: %v", filePath, err),
+				http.StatusInternalServerError)
+		} else {
+			defer contents.Close()
+			w.WriteHeader(http.StatusOK)
+			io.Copy(w, contents)
+		}
 		return
 	}
-	http.ServeContent(w, r, fileInfo.Name(), fileInfo.ModTime(), file)
+	http.NotFound(w, r)
+	return
 }
 
 // sendError sends a JSON-encoded error response.
@@ -505,47 +506,49 @@ func (h *charmsHandler) processGet(r *http.Request) (string, string, error) {
 	if curl == "" {
 		return "", "", fmt.Errorf("expected url=CharmURL query argument")
 	}
+	var filePath string
 	file := query.Get("file")
+	if file == "" {
+		filePath = ""
+	} else {
+		filePath = h.fixPath(file)
+	}
 
 	// Prepare the bundle directories.
 	name := charm.Quote(curl)
-	bundlePath := filepath.Join(h.dataDir, "charm-get-cache", name)
-	filePath, err := h.getFilePath(bundlePath, file)
-	if err != nil {
-		return "", "", err
-	}
+	charmArchivePath := filepath.Join(h.dataDir, "charm-get-cache", name+".zip")
 
-	// Check if the charm bundle is already in the cache.
-	if _, err := os.Stat(bundlePath); os.IsNotExist(err) {
-		// Download the charm and extract the bundle.
-		if err = h.downloadCharm(name, bundlePath); err != nil {
+	// Check if the charm archive is already in the cache.
+	if _, err := os.Stat(charmArchivePath); os.IsNotExist(err) {
+		// Download the charm archive and save it to the cache.
+		if err = h.downloadCharm(name, charmArchivePath); err != nil {
 			return "", "", fmt.Errorf("unable to retrieve and save the charm: %v", err)
 		}
 	} else if err != nil {
 		return "", "", fmt.Errorf("cannot access the charms cache: %v", err)
 	}
-	return bundlePath, filePath, nil
+	return charmArchivePath, filePath, nil
 }
 
 // getFilePath return the absolute path of a charm file, based on the given
 // bundlePath. It also checks that the resulting path lives inside the bundle.
-func (h *charmsHandler) getFilePath(bundlePath, file string) (string, error) {
-	if file == "" {
-		return "", nil
-	}
-	filePath, err := filepath.Abs(filepath.Join(bundlePath, file))
-	if err != nil {
-		return "", errgo.Annotate(err, "cannot retrieve the requested path")
-	}
-	if !strings.HasPrefix(filePath, bundlePath+"/") {
-		return "", fmt.Errorf("invalid file path: %q", file)
-	}
-	return filePath, nil
-}
+// func (h *charmsHandler) getFilePath(bundlePath, file string) (string, error) {
+// 	if file == "" {
+// 		return "", nil
+// 	}
+// 	filePath, err := filepath.Abs(filepath.Join(bundlePath, file))
+// 	if err != nil {
+// 		return "", errgo.Annotate(err, "cannot retrieve the requested path")
+// 	}
+// 	if !strings.HasPrefix(filePath, bundlePath+"/") {
+// 		return "", fmt.Errorf("invalid file path: %q", file)
+// 	}
+// 	return filePath, nil
+// }
 
 // downloadCharm downloads the given charm name from the provider storage and
-// extracts the corresponding bundle to the given bundlePath.
-func (h *charmsHandler) downloadCharm(name, bundlePath string) error {
+// save the corresponding zip archive to the given charmArchivePath.
+func (h *charmsHandler) downloadCharm(name, charmArchivePath string) error {
 	// Get the provider storage.
 	storage, err := envtesting.GetEnvironStorage(h.state)
 	if err != nil {
@@ -562,39 +565,50 @@ func (h *charmsHandler) downloadCharm(name, bundlePath string) error {
 	if err != nil {
 		return errgo.Annotate(err, "cannot read charm data")
 	}
-	tempCharm, err := ioutil.TempFile("", "charm")
-	if err != nil {
-		return errgo.Annotate(err, "cannot create charm archive temp file")
-	}
-	defer tempCharm.Close()
-	defer os.Remove(tempCharm.Name())
-	if err = ioutil.WriteFile(tempCharm.Name(), data, 0644); err != nil {
-		return errgo.Annotate(err, "error processing charm archive download")
-	}
-
-	// Read and expand the charm bundle.
-	bundle, err := charm.ReadBundle(tempCharm.Name())
-	if err != nil {
-		return errgo.Annotate(err, "cannot read the charm bundle")
-	}
-	// In order to avoid races, the bundle is expanded in a temporary dir which
-	// is then atomically renamed. The temporary directory is created in the
-	// charm cache so that we can safely assume the rename source and target
-	// live in the same file system.
-	cacheDir, _ := filepath.Split(bundlePath)
+	// In order to avoid races, the archive is saved in a temporary file which
+	// is then atomically renamed. The temporary file is created in the
+	// charm cache directory so that we can safely assume the rename source and
+	// target live in the same file system.
+	cacheDir := filepath.Dir(charmArchivePath)
 	if err = os.MkdirAll(cacheDir, 0755); err != nil {
 		return errgo.Annotate(err, "cannot create the charms cache")
 	}
-	bundleTempPath, err := ioutil.TempDir(cacheDir, "bundle")
+	tempCharmArchive, err := ioutil.TempFile(cacheDir, "charm")
 	if err != nil {
-		return errgo.Annotate(err, "cannot create the temporary bundle directory")
+		return errgo.Annotate(err, "cannot create charm archive temp file")
 	}
-	if err = bundle.ExpandTo(bundleTempPath); err != nil {
-		defer os.RemoveAll(bundleTempPath)
-		return errgo.Annotate(err, "error expanding the bundle")
+	defer tempCharmArchive.Close()
+	if err = ioutil.WriteFile(tempCharmArchive.Name(), data, 0644); err != nil {
+		return errgo.Annotate(err, "error processing charm archive download")
 	}
-	if err = os.Rename(bundleTempPath, bundlePath); err != nil {
-		return errgo.Annotate(err, "error renaming the bundle")
+	if err = os.Rename(tempCharmArchive.Name(), charmArchivePath); err != nil {
+		return errgo.Annotate(err, "error renaming the charm archive")
 	}
 	return nil
+
+	// // Read and expand the charm bundle.
+	// bundle, err := charm.ReadBundle(tempCharm.Name())
+	// if err != nil {
+	// 	return errgo.Annotate(err, "cannot read the charm bundle")
+	// }
+	// // In order to avoid races, the bundle is expanded in a temporary dir which
+	// // is then atomically renamed. The temporary directory is created in the
+	// // charm cache so that we can safely assume the rename source and target
+	// // live in the same file system.
+	// cacheDir, _ := filepath.Split(bundlePath)
+	// if err = os.MkdirAll(cacheDir, 0755); err != nil {
+	// 	return errgo.Annotate(err, "cannot create the charms cache")
+	// }
+	// bundleTempPath, err := ioutil.TempDir(cacheDir, "bundle")
+	// if err != nil {
+	// 	return errgo.Annotate(err, "cannot create the temporary bundle directory")
+	// }
+	// if err = bundle.ExpandTo(bundleTempPath); err != nil {
+	// 	defer os.RemoveAll(bundleTempPath)
+	// 	return errgo.Annotate(err, "error expanding the bundle")
+	// }
+	// if err = os.Rename(bundleTempPath, bundlePath); err != nil {
+	// 	return errgo.Annotate(err, "error renaming the bundle")
+	// }
+	// return nil
 }
