@@ -22,7 +22,7 @@ import (
 
 var (
 	vTypeSmartmachine   = "smartmachine"
-	vTypeVirtualmachine = "virtualmachine"
+	vTypeVirtualmachine = "kvm"
 	signedImageDataOnly = false
 )
 

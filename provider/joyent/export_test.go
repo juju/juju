@@ -15,7 +15,6 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/jujutest"
-	//"launchpad.net/juju-core/errors"
 )
 
 var Provider environs.EnvironProvider = GetProviderInstance()
@@ -64,7 +63,7 @@ var imagesData = `
             "11223344-0a0a-ff99-11bb-0a1b2c3d4e5f": {
               "region": "some-region",
               "id": "11223344-0a0a-ff99-11bb-0a1b2c3d4e5f",
-              "virt": "virtualmachine"
+              "virt": "kvm"
             }
           },
           "pubname": "ubuntu-precise-12.04-amd64-server-20140214",
@@ -82,7 +81,7 @@ var imagesData = `
             "11223344-0a0a-ee88-22ab-00aa11bb22cc": {
               "region": "some-region",
               "id": "11223344-0a0a-ee88-22ab-00aa11bb22cc",
-              "virt": "virtualmachine"
+              "virt": "kvm"
             }
           },
           "pubname": "ubuntu-quantal-12.10-amd64-server-20140214",
@@ -100,7 +99,7 @@ var imagesData = `
             "11223344-0a0a-dd77-33cd-abcd1234e5f6": {
               "region": "some-region",
               "id": "11223344-0a0a-dd77-33cd-abcd1234e5f6",
-              "virt": "virtualmachine"
+              "virt": "kvm"
             }
           },
           "pubname": "ubuntu-raring-13.04-amd64-server-20140214",
