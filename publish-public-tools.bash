@@ -103,9 +103,14 @@ testing_to_aws() {
     # this is the same as the publishing command except that the
     # destination is juju-dist/testing/
     [[ $JT_IGNORE_AWS == '1' ]] && return 0
-    echo "Phase 3: Testing to AWS."
+    echo "Phase 3.1: Testing to AWS juju-dist."
     s3cmd -c $JUJU_DIR/s3cfg sync --exclude '*mirror*' \
         ${JUJU_DIST}/tools s3://juju-dist/testing/
+    # Bug 1283275, tools-url: http://juju-dist.s3.amazonaws.com is ignored.
+    # Use tools-url: http://juju-ci.s3.amazonaws.com/tools
+    echo "Phase 3.2: Testing to AWS juju-ci."
+    s3cmd -c $JUJU_DIR/juju-qa.s3cfg sync --exclude '*mirror*' \
+        ${JUJU_DIST}/tools s3://juju-ci/
 }
 
 shim_creds() {
