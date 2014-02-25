@@ -353,9 +353,9 @@ func (s *charmsSuite) TestGetUsesCache(c *gc.C) {
 	// Create and save the zip archive.
 	buffer := new(bytes.Buffer)
 	writer := zip.NewWriter(buffer)
-	file, err := writer.Create("readme.md")
+	file, err := writer.Create("utils.js")
 	c.Assert(err, gc.IsNil)
-	contents := "these are the voyages"
+	contents := "// these are the voyages"
 	_, err = file.Write([]byte(contents))
 	c.Assert(err, gc.IsNil)
 	err = writer.Close()
@@ -365,10 +365,10 @@ func (s *charmsSuite) TestGetUsesCache(c *gc.C) {
 	err = ioutil.WriteFile(charmArchivePath, buffer.Bytes(), 0644)
 	c.Assert(err, gc.IsNil)
 	// Ensure the cached contents are properly retrieved.
-	uri := s.charmsURI(c, "?url=local:trusty/django-42&file=readme.md")
+	uri := s.charmsURI(c, "?url=local:trusty/django-42&file=utils.js")
 	resp, err := s.authRequest(c, "GET", uri, "", nil)
 	c.Assert(err, gc.IsNil)
-	s.assertGetFileResponse(c, resp, contents, "text/plain; charset=utf-8")
+	s.assertGetFileResponse(c, resp, contents, "application/javascript")
 }
 
 func (s *charmsSuite) charmsURI(c *gc.C, query string) string {

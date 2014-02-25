@@ -12,10 +12,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"mime"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/errgo/errgo"
@@ -135,6 +137,11 @@ func (h *charmsHandler) fileSender(filePath string) zipContentsSenderFunc {
 					http.StatusInternalServerError)
 			} else {
 				defer contents.Close()
+				ctype := mime.TypeByExtension(filepath.Ext(filePath))
+				if ctype != "" {
+					w.Header().Set("Content-Type", ctype)
+				}
+				w.Header().Set("Content-Length", strconv.FormatInt(fileInfo.Size(), 10))
 				w.WriteHeader(http.StatusOK)
 				io.Copy(w, contents)
 			}
@@ -535,22 +542,6 @@ func (h *charmsHandler) processGet(r *http.Request) (string, string, error) {
 	return charmArchivePath, filePath, nil
 }
 
-// getFilePath return the absolute path of a charm file, based on the given
-// bundlePath. It also checks that the resulting path lives inside the bundle.
-// func (h *charmsHandler) getFilePath(bundlePath, file string) (string, error) {
-// 	if file == "" {
-// 		return "", nil
-// 	}
-// 	filePath, err := filepath.Abs(filepath.Join(bundlePath, file))
-// 	if err != nil {
-// 		return "", errgo.Annotate(err, "cannot retrieve the requested path")
-// 	}
-// 	if !strings.HasPrefix(filePath, bundlePath+"/") {
-// 		return "", fmt.Errorf("invalid file path: %q", file)
-// 	}
-// 	return filePath, nil
-// }
-
 // downloadCharm downloads the given charm name from the provider storage and
 // save the corresponding zip archive to the given charmArchivePath.
 func (h *charmsHandler) downloadCharm(name, charmArchivePath string) error {
@@ -590,30 +581,4 @@ func (h *charmsHandler) downloadCharm(name, charmArchivePath string) error {
 		return errgo.Annotate(err, "error renaming the charm archive")
 	}
 	return nil
-
-	// // Read and expand the charm bundle.
-	// bundle, err := charm.ReadBundle(tempCharm.Name())
-	// if err != nil {
-	// 	return errgo.Annotate(err, "cannot read the charm bundle")
-	// }
-	// // In order to avoid races, the bundle is expanded in a temporary dir which
-	// // is then atomically renamed. The temporary directory is created in the
-	// // charm cache so that we can safely assume the rename source and target
-	// // live in the same file system.
-	// cacheDir, _ := filepath.Split(bundlePath)
-	// if err = os.MkdirAll(cacheDir, 0755); err != nil {
-	// 	return errgo.Annotate(err, "cannot create the charms cache")
-	// }
-	// bundleTempPath, err := ioutil.TempDir(cacheDir, "bundle")
-	// if err != nil {
-	// 	return errgo.Annotate(err, "cannot create the temporary bundle directory")
-	// }
-	// if err = bundle.ExpandTo(bundleTempPath); err != nil {
-	// 	defer os.RemoveAll(bundleTempPath)
-	// 	return errgo.Annotate(err, "error expanding the bundle")
-	// }
-	// if err = os.Rename(bundleTempPath, bundlePath); err != nil {
-	// 	return errgo.Annotate(err, "error renaming the bundle")
-	// }
-	// return nil
 }
