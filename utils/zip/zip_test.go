@@ -6,7 +6,9 @@ package zip_test
 import (
 	stdzip "archive/zip"
 	"fmt"
+	"io/ioutil"
 	"path"
+	"path/filepath"
 	"sort"
 
 	gc "launchpad.net/gocheck"
@@ -120,6 +122,12 @@ func (s *ZipSuite) TestFind(c *gc.C) {
 	sort.Strings(expect)
 	sort.Strings(actual)
 	c.Check(actual, jc.DeepEquals, expect)
+}
+
+func (s *ZipSuite) TestFindError(c *gc.C) {
+	reader := s.makeZip(c, file{"some-file", "", 0644})
+	_, err := zip.Find(reader, "[]")
+	c.Assert(err, gc.ErrorMatches, "syntax error in pattern")
 }
 
 func (s *ZipSuite) TestExtractAll(c *gc.C) {
@@ -256,14 +264,91 @@ func (s *ZipSuite) TestExtractAllFileTypeErrors(c *gc.C) {
 	c.Fatalf("not finished")
 }
 
-func (s *ZipSuite) TestExtract(c *gc.C) {
-	c.Fatalf("not finished")
+func (s *ZipSuite) TestExtractDir(c *gc.C) {
+	reader := s.makeZip(c,
+		file{"bad-file", "xxx", 0644},
+		dir{"bad-dir", 0755},
+		symlink{"bad-symlink", "bad-file"},
+		dir{"some-dir", 0751},
+		file{"some-dir/some-file", "content 1", 0644},
+		file{"some-dir/another-file", "content 2", 0600},
+		dir{"some-dir/another-dir", 0750},
+		symlink{"some-dir/another-dir/some-symlink", "../some-file"},
+	)
+	targetParent := c.MkDir()
+	targetPath := filepath.Join(targetParent, "random-dir")
+	err := zip.Extract(reader, targetPath, "some-dir")
+	c.Assert(err, gc.IsNil)
+
+	for i, test := range []creator{
+		dir{"random-dir", 0751},
+		file{"random-dir/some-file", "content 1", 0644},
+		file{"random-dir/another-file", "content 2", 0600},
+		dir{"random-dir/another-dir", 0750},
+		symlink{"random-dir/another-dir/some-symlink", "../some-file"},
+	} {
+		c.Logf("test %d: %#v", i, test)
+		test.check(c, targetParent)
+	}
+
+	fileInfos, err := ioutil.ReadDir(targetParent)
+	c.Check(err, gc.IsNil)
+	c.Check(fileInfos, gc.HasLen, 1)
 }
 
 func (s *ZipSuite) TestExtractSingleFile(c *gc.C) {
-	c.Fatalf("not finished")
+	reader := s.makeZip(c,
+		dir{"dir", 0755},
+		dir{"dir/dir", 0755},
+		file{"dir/dir/some-file", "content 1", 0644},
+		file{"dir/dir/some-file-wtf", "content 2", 0644},
+	)
+	targetParent := c.MkDir()
+	targetPath := filepath.Join(targetParent, "just-the-one-file")
+	err := zip.Extract(reader, targetPath, "dir/dir/some-file")
+	c.Assert(err, gc.IsNil)
+	fileInfos, err := ioutil.ReadDir(targetParent)
+	c.Check(err, gc.IsNil)
+	c.Check(fileInfos, gc.HasLen, 1)
+	file{"just-the-one-file", "content 1", 0644}.check(c, targetParent)
 }
 
 func (s *ZipSuite) TestExtractSymlinkErrors(c *gc.C) {
-	c.Fatalf("not finished")
+	for i, test := range []struct {
+		content []creator
+		source  string
+		error   string
+	}{{
+		content: []creator{
+			dir{"dir", 0755},
+			symlink{"dir/symlink", "/blah"},
+		},
+		source: "dir",
+		error:  `cannot process "dir/symlink": symlink "/blah" is absolute`,
+	}, {
+		content: []creator{
+			dir{"dir", 0755},
+			symlink{"dir/symlink", "../blah"},
+		},
+		source: "dir",
+		error:  `cannot process "dir/symlink": symlink "../blah" leads out of scope`,
+	}, {
+		content: []creator{
+			symlink{"symlink", "blah"},
+		},
+		source: "symlink",
+		error:  `cannot process "symlink": symlink "blah" leads out of scope`,
+	}} {
+		c.Logf("test %d: %s", i, test.error)
+		targetPath := c.MkDir()
+		reader := s.makeZip(c, test.content...)
+		err := zip.Extract(reader, targetPath, test.source)
+		c.Assert(err, gc.ErrorMatches, test.error)
+	}
+}
+
+func (s *ZipSuite) TestExtractSourceError(c *gc.C) {
+	reader := s.makeZip(c, dir{"dir", 0755})
+	err := zip.Extract(reader, c.MkDir(), "../lol")
+	c.Assert(err, gc.ErrorMatches, `cannot extract files rooted at "../lol"`)
 }

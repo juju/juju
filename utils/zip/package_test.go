@@ -89,13 +89,15 @@ func (f file) create(c *gc.C, basePath string) {
 func (f file) check(c *gc.C, basePath string) {
 	path := join(basePath, f.path)
 	fileInfo, err := os.Lstat(path)
-	c.Check(err, gc.IsNil)
+	if !c.Check(err, gc.IsNil) {
+		return
+	}
 	mode := fileInfo.Mode()
 	c.Check(mode&os.ModeType, gc.Equals, os.FileMode(0))
 	c.Check(mode&os.ModePerm, gc.Equals, f.perm)
 	data, err := ioutil.ReadFile(path)
-	c.Assert(err, gc.IsNil)
-	c.Assert(string(data), gc.Equals, f.data)
+	c.Check(err, gc.IsNil)
+	c.Check(string(data), gc.Equals, f.data)
 }
 
 type symlink struct {

@@ -32,22 +32,24 @@ func FindAll(reader *zip.Reader) ([]string, error) {
 }
 
 // Find returns the cleaned path of every file in the supplied zip reader whose
-// base name matches the supplied pattern.
+// base name matches the supplied pattern, which is interpreted as in path.Check.
 func Find(reader *zip.Reader, pattern string) ([]string, error) {
+	// path.Match will only return an error if the pattern is not
+	// valid (*and* the supplied name is not empty, hence "check").
+	if _, err := path.Match(pattern, "check"); err != nil {
+		return nil, err
+	}
 	var matches []string
 	callback := func(zipFile *zip.File) error {
 		cleanPath := path.Clean(zipFile.Name)
 		baseName := path.Base(cleanPath)
-		if match, err := path.Match(pattern, baseName); err != nil {
-			return err
-		} else if match {
+		if match, _ := path.Match(pattern, baseName); match {
 			matches = append(matches, cleanPath)
 		}
 		return nil
 	}
-	if err := Walk(reader, callback); err != nil {
-		return nil, err
-	}
+	// callback never returns an error, so nor will Walk.
+	Walk(reader, callback)
 	return matches, nil
 }
 
@@ -59,7 +61,8 @@ func ExtractAll(reader *zip.Reader, targetPath string) error {
 
 // Extract extracts the supplied zip reader to the target path, omitting files
 // not rooted at the source path, and overwriting existing files and directories
-// only where necessary.
+// only where necessary. If the source path identifies a single file, it will be
+// extracted to the target path directly.
 func Extract(reader *zip.Reader, targetPath, sourcePath string) error {
 	sourcePath = path.Clean(sourcePath)
 	if sourcePath == "." {
@@ -67,15 +70,15 @@ func Extract(reader *zip.Reader, targetPath, sourcePath string) error {
 	} else if !isSanePath(sourcePath) {
 		return fmt.Errorf("cannot extract files rooted at %q", sourcePath)
 	}
-	return Walk(reader, expander{targetPath, sourcePath}.expand)
+	return Walk(reader, extractor{targetPath, sourcePath}.expand)
 }
 
-type expander struct {
+type extractor struct {
 	targetPath string
 	sourcePath string
 }
 
-func (x expander) path(zipFile *zip.File) (string, bool) {
+func (x extractor) path(zipFile *zip.File) (string, bool) {
 	cleanPath := path.Clean(zipFile.Name)
 	if !strings.HasPrefix(cleanPath, x.sourcePath) {
 		return "", false
@@ -87,7 +90,7 @@ func (x expander) path(zipFile *zip.File) (string, bool) {
 	return filepath.Join(x.targetPath, filepath.FromSlash(relativePath)), true
 }
 
-func (x expander) expand(zipFile *zip.File) error {
+func (x extractor) expand(zipFile *zip.File) error {
 	filePath, ok := x.path(zipFile)
 	if !ok {
 		return nil
@@ -97,26 +100,27 @@ func (x expander) expand(zipFile *zip.File) error {
 		return err
 	}
 	mode := zipFile.Mode()
-	perm := mode & os.ModePerm
-	switch mode & os.ModeType {
+	modePerm := mode & os.ModePerm
+	modeType := mode & os.ModeType
+	switch modeType {
 	case os.ModeDir:
-		return x.writeDir(filePath, perm)
+		return x.writeDir(filePath, modePerm)
 	case os.ModeSymlink:
 		return x.writeSymlink(filePath, zipFile)
 	case 0:
-		return x.writeFile(filePath, zipFile, perm)
+		return x.writeFile(filePath, zipFile, modePerm)
 	}
-	return fmt.Errorf("unknown file type")
+	return fmt.Errorf("unknown file type %o", modeType)
 }
 
-func (x expander) writeDir(filePath string, perm os.FileMode) error {
+func (x extractor) writeDir(filePath string, modePerm os.FileMode) error {
 	fileInfo, err := os.Lstat(filePath)
 	switch {
 	case err == nil:
 		mode := fileInfo.Mode()
 		if mode.IsDir() {
-			if mode&os.ModePerm != perm {
-				return os.Chmod(filePath, perm)
+			if mode&os.ModePerm != modePerm {
+				return os.Chmod(filePath, modePerm)
 			}
 			return nil
 		}
@@ -126,23 +130,23 @@ func (x expander) writeDir(filePath string, perm os.FileMode) error {
 			return err
 		}
 	}
-	return os.MkdirAll(filePath, perm)
+	return os.MkdirAll(filePath, modePerm)
 }
 
-func (x expander) writeFile(filePath string, zipFile *zip.File, perm os.FileMode) error {
+func (x extractor) writeFile(filePath string, zipFile *zip.File, modePerm os.FileMode) error {
 	if _, err := os.Lstat(filePath); !os.IsNotExist(err) {
 		if err := os.RemoveAll(filePath); err != nil {
 			return err
 		}
 	}
-	writer, err := os.OpenFile(filePath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, perm)
+	writer, err := os.OpenFile(filePath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, modePerm)
 	if err != nil {
 		return err
 	}
 	return readTo(writer, zipFile)
 }
 
-func (x expander) writeSymlink(filePath string, zipFile *zip.File) error {
+func (x extractor) writeSymlink(filePath string, zipFile *zip.File) error {
 	targetPath, err := x.checkSymlink(filePath, zipFile)
 	if err != nil {
 		return err
@@ -155,7 +159,7 @@ func (x expander) writeSymlink(filePath string, zipFile *zip.File) error {
 	return os.Symlink(targetPath, filePath)
 }
 
-func (x expander) checkSymlink(filePath string, zipFile *zip.File) (string, error) {
+func (x extractor) checkSymlink(filePath string, zipFile *zip.File) (string, error) {
 	var buffer bytes.Buffer
 	if err := readTo(&buffer, zipFile); err != nil {
 		return "", err
@@ -167,6 +171,7 @@ func (x expander) checkSymlink(filePath string, zipFile *zip.File) (string, erro
 	finalPath := filepath.Join(filepath.Dir(filePath), targetPath)
 	relativePath, err := filepath.Rel(x.targetPath, finalPath)
 	if err != nil {
+		// Not tested, because I don't know how to trigger this condition.
 		return "", fmt.Errorf("symlink %q not comprehensible", targetPath)
 	}
 	if !isSanePath(relativePath) {
