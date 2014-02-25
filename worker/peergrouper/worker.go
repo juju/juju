@@ -5,10 +5,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/replicaset"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker"
@@ -44,7 +44,20 @@ type mongoSession interface {
 // whether the replica set may need to be changed).
 type notifyFunc func() (bool, error)
 
-const retryInterval = 2 * time.Second
+var (
+	// If we fail to set the mongo replicset members,
+	// we retry at the following interval until we succeed.
+	retryInterval = 2 * time.Second
+
+	// pollInterval holds the interval at which the replicaset
+	// members will be updated even in the absence of changes
+	// to State. This enables us to make changes to members
+	// that are triggered by changes to member status.
+	//
+	// 10 seconds is the default time interval used by
+	// mongo to keep its replicas up to date.
+	pollInterval = 10 * time.Second
+)
 
 // worker holds all the mutable state that we are watching.
 // The only goroutine that is allowed to modify this
@@ -98,10 +111,15 @@ func newWorker(st stateInterface) worker.Worker {
 	}
 	go func() {
 		defer w.tomb.Done()
-		defer w.wg.Wait()
 		if err := w.loop(); err != nil {
+			logger.Errorf("peergrouper loop terminated: %v", err)
 			w.tomb.Kill(err)
 		}
+		// Wait for the various goroutines to be killed.
+		// N.B. we don't defer this call because
+		// that will cause a panic to deadlock waiting
+		// for the unkilled goroutines to exit.
+		w.wg.Wait()
 	}()
 	return w
 }
@@ -119,11 +137,8 @@ func (w *pgWorker) loop() error {
 	infow := w.watchStateServerInfo()
 	defer infow.stop()
 
-	timer := time.NewTimer(0)
-	timer.Stop()
-
-	var desiredVoting map[*machine]bool
-	var desiredMembers []replicaset.Member
+	retry := time.NewTimer(0)
+	retry.Stop()
 	for {
 		logger.Debugf("pgWorker.loop looping")
 		select {
@@ -131,46 +146,46 @@ func (w *pgWorker) loop() error {
 			logger.Debugf("got notification")
 			// Update our current view of the state of affairs.
 			changed, err := f()
+			logger.Debugf("notification returned %v, %v", changed, err)
 			if err != nil {
-				logger.Debugf("update function returned error")
+				logger.Debugf("update function returned error: %v", err)
 				return err
 			}
 			if !changed {
 				logger.Debugf("no change")
 				break
 			}
-			info, err := w.peerGroupInfo()
-			if err != nil {
-				return err
-			}
-			logger.Debugf("peer group info: %#v", info)
-			members, voting, err := desiredPeerGroup(info)
-			if err != nil {
-				logger.Errorf("cannot compute desired peer group: %v", err)
-				continue
-			}
-			if members == nil {
-				logger.Debugf("no change in desired member set")
-				timer.Stop()
-				break
-			}
-			logger.Debugf("desired members: %#v", members)
-			desiredMembers = members
-			desiredVoting = voting
-			// Try to change the replica set immediately.
-			timer.Reset(0)
-		case <-timer.C:
-			if err := w.setReplicaSet(desiredMembers, desiredVoting); err != nil {
+			// Try to update the replica set immediately.
+			retry.Reset(0)
+		case <-retry.C:
+			logger.Infof("updating replica set members")
+			if err := w.updateReplicaset(); err != nil {
 				if _, isReplicaSetError := err.(*replicaSetError); !isReplicaSetError {
 					return err
 				}
 				logger.Errorf("cannot set replicaset: %v", err)
-				timer.Reset(retryInterval)
+				retry.Reset(retryInterval)
+				break
 			}
-			logger.Infof("successfully changed replica set to %#v", desiredMembers)
+
+			// Update the replica set members occasionally
+			// to keep them up to date with the current
+			// replicaset member statuses.
+			retry.Reset(pollInterval)
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		}
+	}
+}
+
+// notify sends the given notification function to
+// the worker main loop to be executed.
+func (w *pgWorker) notify(f notifyFunc) bool {
+	select {
+	case w.notifyCh <- f:
+		return true
+	case <-w.tomb.Dying():
+		return false
 	}
 }
 
@@ -200,9 +215,23 @@ type replicaSetError struct {
 	error
 }
 
-// setReplicaSet sets the current replica set members, and applies the
+// updateReplicaset sets the current replica set members, and applies the
 // given voting status to machines in the state.
-func (w *pgWorker) setReplicaSet(members []replicaset.Member, voting map[*machine]bool) error {
+func (w *pgWorker) updateReplicaset() error {
+	info, err := w.peerGroupInfo()
+	if err != nil {
+		return err
+	}
+	logger.Debugf("peer group info: %s", spew.Sdump(info))
+	members, voting, err := desiredPeerGroup(info)
+	if err != nil {
+		return fmt.Errorf("cannot compute desired peer group: %v", err)
+	}
+	logger.Debugf("desired members: %#v", members)
+	if members == nil {
+		logger.Debugf("no change in desired member set")
+		return nil
+	}
 	// We cannot change the HasVote flag of a machine in state at exactly
 	// the same moment as changing its voting status in the replica set.
 	//
@@ -235,26 +264,44 @@ func (w *pgWorker) setReplicaSet(members []replicaset.Member, voting map[*machin
 	if err := setHasVote(added, true); err != nil {
 		return err
 	}
+	logger.Infof("added vote to %v", added)
 	if err := w.st.MongoSession().Set(members); err != nil {
 		// We've failed to set the replica set, so revert back
 		// to the previous settings.
+		logger.Infof("reverting vote on %v", added)
 		if err1 := setHasVote(added, false); err1 != nil {
-			log.Errorf("cannot revert machine voting after failure to change replica set")
+			logger.Errorf("cannot revert machine voting after failure to change replica set: %v", err1)
 		}
 		return &replicaSetError{err}
 	}
+	logger.Infof("removing vote from %v", removed)
+	logger.Infof("successfully changed replica set to %#v", members)
 	if err := setHasVote(removed, false); err != nil {
 		return err
 	}
 	return nil
 }
 
+// start runs the given loop function until it returns.
+// When it returns, the receiving pgWorker is killed with
+// the returned error.
+func (w *pgWorker) start(loop func() error) {
+	w.wg.Add(1)
+	go func() {
+		defer w.wg.Done()
+		if err := loop(); err != nil {
+			w.tomb.Kill(err)
+		}
+	}()
+}
+
 // setHasVote sets the HasVote status of all the given
 // machines to hasVote.
 func setHasVote(ms []*machine, hasVote bool) error {
+
 	for _, m := range ms {
 		if err := m.stm.SetHasVote(hasVote); err != nil {
-			return err
+			return fmt.Errorf("cannot set voting status of %q to %v: %v", m.id, hasVote, err)
 		}
 	}
 	return nil
@@ -272,13 +319,7 @@ func (w *pgWorker) watchStateServerInfo() *serverInfoWatcher {
 		worker:  w,
 		watcher: w.st.WatchStateServerInfo(),
 	}
-	w.wg.Add(1)
-	go func() {
-		defer w.wg.Done()
-		if err := infow.loop(); err != nil {
-			w.tomb.Kill(err)
-		}
-	}()
+	w.start(infow.loop)
 	return infow
 }
 
@@ -309,7 +350,7 @@ func (infow *serverInfoWatcher) updateMachines() (bool, error) {
 	logger.Debugf("updateMachines")
 	info, err := infow.worker.st.StateServerInfo()
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("cannot get state server info: %v", err)
 	}
 	logger.Debugf("state server info: %#v", info)
 	logger.Debugf("existing machines: %#v", infow.worker.machines)
@@ -346,24 +387,6 @@ func (infow *serverInfoWatcher) updateMachines() (bool, error) {
 	return changed, nil
 }
 
-// notifyError sends a notification that returns the given error.
-func (w *pgWorker) notifyError(err error) {
-	w.notify(func() (bool, error) {
-		return false, err
-	})
-}
-
-// notify sends the given notification function to
-// the worker main loop to be executed.
-func (w *pgWorker) notify(f notifyFunc) bool {
-	select {
-	case w.notifyCh <- f:
-		return true
-	case <-w.tomb.Dying():
-		return false
-	}
-}
-
 // machine represents a machine in State.
 type machine struct {
 	id        string
@@ -375,20 +398,24 @@ type machine struct {
 	machineWatcher state.NotifyWatcher
 }
 
+func (m *machine) String() string {
+	return m.id
+}
+
+func (m *machine) GoString() string {
+	return fmt.Sprintf("&peergrouper.machine{id: %q, wantsVote: %v, hostPort: %q}", m.id, m.wantsVote, m.hostPort)
+}
+
 func (w *pgWorker) newMachine(stm stateMachine) *machine {
 	m := &machine{
 		worker:         w,
 		id:             stm.Id(),
 		stm:            stm,
+		hostPort:       stm.StateHostPort(),
+		wantsVote:      stm.WantsVote(),
 		machineWatcher: stm.Watch(),
 	}
-	w.wg.Add(1)
-	go func() {
-		defer w.wg.Done()
-		if err := m.loop(); err != nil {
-			w.notifyError(err)
-		}
-	}()
+	w.start(m.loop)
 	return m
 }
 
@@ -431,6 +458,10 @@ func (m *machine) refresh() (bool, error) {
 	if hostPort := m.stm.StateHostPort(); hostPort != m.hostPort {
 		m.hostPort = hostPort
 		changed = true
+	}
+	// TODO remove this check!
+	if m.hostPort == "" {
+		panic(fmt.Errorf("hostPort has become empty; stm %#v", m.stm))
 	}
 	return changed, nil
 }

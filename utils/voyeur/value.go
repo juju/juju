@@ -6,7 +6,6 @@
 package voyeur
 
 import (
-	"log"
 	"sync"
 )
 
@@ -110,7 +109,6 @@ func (w *Watcher) Next() bool {
 
 	// We should never go around this loop more than twice.
 	for {
-		log.Printf("Watcher.Next, local version %v; val version %v", w.version, val.version)
 		if w.version != val.version {
 			w.version = val.version
 			w.current = val.val
@@ -122,7 +120,6 @@ func (w *Watcher) Next() bool {
 
 		// Wait releases the lock until triggered and then reacquires the lock,
 		// thus avoiding a deadlock.
-		log.Printf("Watcher.Next, waiting")
 		val.wait.Wait()
 	}
 }

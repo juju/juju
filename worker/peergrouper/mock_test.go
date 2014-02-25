@@ -3,6 +3,7 @@ package peergrouper
 import (
 	"encoding/json"
 	"fmt"
+	"path"
 	"reflect"
 	"sync"
 
@@ -23,6 +24,7 @@ type fakeState struct {
 	machines     map[string]*fakeMachine
 	stateServers voyeur.Value // of *state.StateServerInfo
 	session      *fakeMongoSession
+	check        func(st *fakeState) error
 }
 
 var (
@@ -31,11 +33,72 @@ var (
 	_ mongoSession   = (*fakeMongoSession)(nil)
 )
 
+type errorPat struct {
+	pat     string
+	errFunc func() error
+}
+
+var (
+	errorsMutex sync.Mutex
+	errorPats   []errorPat
+)
+
+// setErrorFor causes the given error to be returned
+// from any mock call that matches the given
+// string, which may contain wildcards as
+// in path.Match.
+//
+// The standard form for errors is:
+//    Type.Function <arg>...
+// See individual functions for details.
+func setErrorFor(what string, err error) {
+	setErrorFuncFor(what, func() error {
+		return err
+	})
+}
+
+// setErrorFuncFor causes the given function
+// to be invoked to return the error for the
+// given pattern.
+func setErrorFuncFor(what string, errFunc func() error) {
+	errorsMutex.Lock()
+	defer errorsMutex.Unlock()
+	errorPats = append(errorPats, errorPat{
+		pat:     what,
+		errFunc: errFunc,
+	})
+}
+
+// errorFor concatenates the given arguments
+// with fmt.Sprint and returns any error registered with
+// setErrorFor that matches the resulting string.
+func errorFor(what ...interface{}) error {
+	errorsMutex.Lock()
+	s := fmt.Sprint(what...)
+	f := func() error { return nil }
+	for _, pat := range errorPats {
+		if ok, _ := path.Match(pat.pat, s); ok {
+			f = pat.errFunc
+			break
+		}
+	}
+	errorsMutex.Unlock()
+	err := f()
+	logger.Errorf("errorFor %q -> %v", s, err)
+	return err
+}
+
+func resetErrors() {
+	errorsMutex.Lock()
+	defer errorsMutex.Unlock()
+	errorPats = errorPats[:0]
+}
+
 func newFakeState() *fakeState {
 	st := &fakeState{
 		machines: make(map[string]*fakeMachine),
-		session:  newFakeMongoSession(),
 	}
+	st.session = newFakeMongoSession(st)
 	st.stateServers.Set(&state.StateServerInfo{})
 	return st
 }
@@ -44,10 +107,68 @@ func (st *fakeState) MongoSession() mongoSession {
 	return st.session
 }
 
-func (st *fakeState) Machine(id string) (stateMachine, error) {
+func (st *fakeState) checkInvariants() {
+	if st.check == nil {
+		return
+	}
+	if err := st.check(st); err != nil {
+		// Force a panic, otherwise we can deadlock
+		// when called from within the worker.
+		go panic(err)
+		select {}
+	}
+}
+
+// checkinvariants checks that all the expected invariants
+// in the state hold true. Currently we check that:
+// - total number of votes is odd.
+// - member voting status implies that machine has vote.
+func checkInvariants(st *fakeState) error {
+	members := st.session.members.Get().([]replicaset.Member)
+	voteCount := 0
+	for _, m := range members {
+		votes := 1
+		if m.Votes != nil {
+			votes = *m.Votes
+		}
+		voteCount += votes
+		if id, ok := m.Tags["juju-machine-id"]; ok {
+			if votes > 0 {
+				m := st.machine(id)
+				if m == nil {
+					return fmt.Errorf("voting member with machine id %q has no associated Machine", id)
+				}
+				if !m.HasVote() {
+					return fmt.Errorf("machine %q should be marked as having the vote, but does not", id)
+				}
+			}
+		}
+	}
+	if voteCount%2 != 1 {
+		return fmt.Errorf("total vote count is not odd (got %d)", voteCount)
+	}
+	return nil
+}
+
+type invariantChecker interface {
+	checkInvariants()
+}
+
+// machine is similar to Machine except that
+// it bypasses the error mocking machinery.
+// It returns nil if there is no machine with the
+// given id.
+func (st *fakeState) machine(id string) *fakeMachine {
 	st.mu.Lock()
 	defer st.mu.Unlock()
-	if m := st.machines[id]; m != nil {
+	return st.machines[id]
+}
+
+func (st *fakeState) Machine(id string) (stateMachine, error) {
+	if err := errorFor("State.Machine ", id); err != nil {
+		return nil, err
+	}
+	if m := st.machine(id); m != nil {
 		return m, nil
 	}
 	return nil, errors.NotFoundf("machine %s", id)
@@ -56,10 +177,12 @@ func (st *fakeState) Machine(id string) (stateMachine, error) {
 func (st *fakeState) addMachine(id string, wantsVote bool) *fakeMachine {
 	st.mu.Lock()
 	defer st.mu.Unlock()
+	logger.Infof("fakeState.addMachine %q", id)
 	if st.machines[id] != nil {
 		panic(fmt.Errorf("id %q already used", id))
 	}
 	m := &fakeMachine{
+		checker: st,
 		doc: machineDoc{
 			id:        id,
 			wantsVote: wantsVote,
@@ -86,6 +209,9 @@ func (st *fakeState) setStateServers(ids ...string) {
 }
 
 func (st *fakeState) StateServerInfo() (*state.StateServerInfo, error) {
+	if err := errorFor("State.StateServerInfo"); err != nil {
+		return nil, err
+	}
 	return deepCopy(st.stateServers.Get()).(*state.StateServerInfo), nil
 }
 
@@ -94,14 +220,22 @@ func (st *fakeState) WatchStateServerInfo() state.NotifyWatcher {
 }
 
 type fakeMachine struct {
-	mu  sync.Mutex
-	val voyeur.Value // of machineDoc
-	doc machineDoc
+	mu      sync.Mutex
+	val     voyeur.Value // of machineDoc
+	doc     machineDoc
+	checker invariantChecker
 }
 
 func (m *fakeMachine) Refresh() error {
+	if err := errorFor("Machine.Refresh ", m.doc.id); err != nil {
+		return err
+	}
 	m.doc = m.val.Get().(machineDoc)
 	return nil
+}
+
+func (m *fakeMachine) GoString() string {
+	return fmt.Sprintf("&fakeMachine{%#v}", m.doc)
 }
 
 func (m *fakeMachine) Id() string {
@@ -128,11 +262,12 @@ func (m *fakeMachine) StateHostPort() string {
 // the receiver by mutating it with the provided function.
 func (m *fakeMachine) mutate(f func(*machineDoc)) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	doc := m.val.Get().(machineDoc)
 	f(&doc)
 	m.val.Set(doc)
 	f(&m.doc)
+	m.mu.Unlock()
+	m.checker.checkInvariants()
 }
 
 func (m *fakeMachine) setStateHostPort(hostPort string) {
@@ -142,17 +277,19 @@ func (m *fakeMachine) setStateHostPort(hostPort string) {
 }
 
 func (m *fakeMachine) SetHasVote(hasVote bool) error {
+	if err := errorFor("Machine.SetHasVote ", m.doc.id, " ", hasVote); err != nil {
+		return err
+	}
 	m.mutate(func(doc *machineDoc) {
 		doc.hasVote = hasVote
 	})
 	return nil
 }
 
-func (m *fakeMachine) setWantsVote(wantsVote bool) error {
+func (m *fakeMachine) setWantsVote(wantsVote bool) {
 	m.mutate(func(doc *machineDoc) {
 		doc.wantsVote = wantsVote
 	})
-	return nil
 }
 
 type machineDoc struct {
@@ -163,23 +300,34 @@ type machineDoc struct {
 }
 
 type fakeMongoSession struct {
-	err     error
+	// If InstantlyReady is true, replica status of
+	// all members will be instantly reported as ready.
+	InstantlyReady bool
+
+	checker invariantChecker
 	members voyeur.Value // of []replicaset.Member
 	status  voyeur.Value // of *replicaset.Status
 }
 
-func newFakeMongoSession() *fakeMongoSession {
+func newFakeMongoSession(checker invariantChecker) *fakeMongoSession {
 	s := new(fakeMongoSession)
+	s.checker = checker
 	s.members.Set([]replicaset.Member(nil))
 	s.status.Set(&replicaset.Status{})
 	return s
 }
 
 func (session *fakeMongoSession) CurrentMembers() ([]replicaset.Member, error) {
+	if err := errorFor("Session.CurrentMembers"); err != nil {
+		return nil, err
+	}
 	return deepCopy(session.members.Get()).([]replicaset.Member), nil
 }
 
 func (session *fakeMongoSession) CurrentStatus() (*replicaset.Status, error) {
+	if err := errorFor("Session.CurrentStatus"); err != nil {
+		return nil, err
+	}
 	return deepCopy(session.status.Get()).(*replicaset.Status), nil
 }
 
@@ -190,11 +338,28 @@ func (session *fakeMongoSession) setStatus(members []replicaset.MemberStatus) {
 }
 
 func (session *fakeMongoSession) Set(members []replicaset.Member) error {
-	if session.err != nil {
-		return session.err
+	if err := errorFor("Session.Set"); err != nil {
+		logger.Infof("not setting replicaset members to %#v", members)
+		return err
 	}
 	logger.Infof("setting replicaset members to %#v", members)
 	session.members.Set(deepCopy(members))
+	if session.InstantlyReady {
+		statuses := make([]replicaset.MemberStatus, len(members))
+		for i, m := range members {
+			statuses[i] = replicaset.MemberStatus{
+				Id:      m.Id,
+				Address: m.Address,
+				Healthy: true,
+				State:   replicaset.SecondaryState,
+			}
+			if i == 0 {
+				statuses[i].State = replicaset.PrimaryState
+			}
+		}
+		session.setStatus(statuses)
+	}
+	session.checker.checkInvariants()
 	return nil
 }
 

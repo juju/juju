@@ -9,13 +9,14 @@ import (
 
 	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/replicaset"
-	coretesting "launchpad.net/juju-core/testing"
+	//	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
 func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
+	gc.TestingT(t)
+	//	coretesting.MgoTestPackage(t)
 }
 
 type desiredPeerGroupSuite struct {
@@ -62,7 +63,7 @@ var desiredPeerGroupTests = []struct {
 	members:      mkMembers("1v 2vT"),
 	statuses:     mkStatuses("1p 2s"),
 	expectVoting: []bool{true},
-	expectErr:    "voting non-machine member found in peer group",
+	expectErr:    "voting non-machine member.* found in peer group",
 }, {
 	about:    "extra member with >1 votes",
 	machines: mkMachines("11v"),
@@ -73,7 +74,7 @@ var desiredPeerGroupTests = []struct {
 	}),
 	statuses:     mkStatuses("1p 2s"),
 	expectVoting: []bool{true},
-	expectErr:    "voting non-machine member found in peer group",
+	expectErr:    "voting non-machine member.* found in peer group",
 }, {
 	about:         "new machine with no associated member",
 	machines:      mkMachines("11v 12v"),
@@ -159,6 +160,17 @@ var desiredPeerGroupTests = []struct {
 		Address: "0.1.99.13:1234",
 		Tags:    memberTag("13"),
 	}),
+}, {
+	about: "a machine's address is ignored if it changes to empty",
+	machines: append(mkMachines("11v 12v"), &machine{
+		id:        "13",
+		wantsVote: true,
+		hostPort:  "",
+	}),
+	statuses:      mkStatuses("1s 2p 3p"),
+	members:       mkMembers("1v 2v 3v"),
+	expectVoting:  []bool{true, true, true},
+	expectMembers: nil,
 }}
 
 func (*desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {

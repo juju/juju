@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/replicaset"
@@ -29,7 +30,7 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, map[*machine]bo
 	}
 	changed := false
 	members, extra, maxId := info.membersMap()
-	logger.Debugf("members map: %#v", members)
+	logger.Debugf("members map: %s", spew.Sdump(members))
 	logger.Debugf("extra: %#v", extra)
 	logger.Debugf("maxId: %v", maxId)
 
@@ -50,7 +51,7 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, map[*machine]bo
 	// 4) do nothing "nothing to see here"
 	for _, member := range extra {
 		if member.Votes == nil || *member.Votes > 0 {
-			return nil, nil, fmt.Errorf("voting non-machine member found in peer group")
+			return nil, nil, fmt.Errorf("voting non-machine member %#v found in peer group", member)
 		}
 		changed = true
 	}
@@ -107,25 +108,33 @@ func possiblePeerGroupChanges(
 	members map[*machine]*replicaset.Member,
 ) (toRemoveVote, toAddVote, toKeep []*machine) {
 	statuses := info.statusesMap(members)
+	logger.Debugf("statuses map: %s", spew.Sdump(statuses))
 
+	logger.Debugf("assessing possible peer group changes:")
 	for _, m := range info.machines {
 		member := members[m]
 		isVoting := member != nil && isVotingMember(member)
 		switch {
 		case m.wantsVote && isVoting:
+			logger.Debugf("machine %q is already voting", m.id)
 			toKeep = append(toKeep, m)
 		case m.wantsVote && !isVoting:
 			if status, ok := statuses[m]; ok && isReady(status) {
+				logger.Debugf("machine %q is a potential voter", m.id)
 				toAddVote = append(toAddVote, m)
 			} else {
+				logger.Debugf("machine %q is not ready (has status: %v)", m.id, ok)
 				toKeep = append(toKeep, m)
 			}
 		case !m.wantsVote && isVoting:
+			logger.Debugf("machine %q is a potential non-voter", m.id)
 			toRemoveVote = append(toRemoveVote, m)
 		case !m.wantsVote && !isVoting:
+			logger.Debugf("machine %q does not want the vote", m.id)
 			toKeep = append(toKeep, m)
 		}
 	}
+	logger.Debugf("assessed")
 	// sort machines to be added and removed so that we
 	// get deterministic behaviour when testing. Earlier
 	// entries will be dealt with preferentially, so we could
@@ -200,7 +209,7 @@ func addNewMembers(
 ) {
 	for _, m := range toKeep {
 		if members[m] == nil && m.hostPort != "" {
-			logger.Infof("adding machine")
+			logger.Infof("adding machine %q", m.id)
 			// This machine was not previously in the members list,
 			// so add it (as non-voting). We maintain the
 			// id manually to make it easier for tests.
@@ -213,8 +222,10 @@ func addNewMembers(
 			}
 			members[m] = member
 			setVoting(m, false)
+		} else if m.hostPort == "" {
+			logger.Infof("not adding machine %q: no address", m.id)
 		} else {
-			logger.Infof("not adding machine - member %v; hostPort %q", members[m], m.hostPort)
+			logger.Infof("machine %q is already a replicaset member", m.id)
 		}
 	}
 }
