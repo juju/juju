@@ -165,6 +165,12 @@ func (a *MachineAgent) upgradeWorker(apiState *api.State, jobs []params.MachineJ
 // runUpgrades runs the upgrade operations for each job type and updates the updatedToVersion on success.
 func (a *MachineAgent) runUpgrades(st *api.State, jobs []params.MachineJob) error {
 	agentConfig := a.Conf.config
+	from := version.Current
+	from.Number = agentConfig.UpgradedToVersion()
+	if from == version.Current {
+		logger.Infof("Upgrade to %v already completed.", version.Current)
+		return nil
+	}
 	context := upgrades.NewContext(agentConfig, st)
 	for _, job := range jobs {
 		var target upgrades.Target
@@ -176,8 +182,6 @@ func (a *MachineAgent) runUpgrades(st *api.State, jobs []params.MachineJob) erro
 		default:
 			continue
 		}
-		from := version.Current
-		from.Number = agentConfig.UpgradedToVersion()
 		logger.Infof("Starting upgrade from %v to %v for %v", from, version.Current, target)
 		if err := upgrades.PerformUpgrade(from.Number, target, context); err != nil {
 			return fmt.Errorf("cannot perform upgrade from %v to %v for : %v", from, version.Current, target, err)
