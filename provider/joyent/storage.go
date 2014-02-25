@@ -7,10 +7,10 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"path"
+	"strings"
 	"sync"
 	"time"
-	"strings"
-	"path"
 
 	"launchpad.net/juju-core/environs/storage"
 	coreerrors "launchpad.net/juju-core/errors"
@@ -109,7 +109,7 @@ func (s *JoyentStorage) List(prefix string) ([]string, error) {
 
 	var names []string
 	for _, item := range content {
-		name := strings.TrimPrefix(item, s.containerName + "/")
+		name := strings.TrimPrefix(item, s.containerName+"/")
 		if prefix != "" {
 			if strings.HasPrefix(name, prefix) {
 				names = append(names, name)
@@ -131,13 +131,13 @@ func list(s *JoyentStorage, path string) ([]string, error) {
 	var names []string
 	for _, item := range contents {
 		if strings.HasSuffix(item.Name, "/") {
-			items, err := list(s, path + "/" + item.Name[:strings.LastIndex(item.Name, "/")])
+			items, err := list(s, path+"/"+item.Name[:strings.LastIndex(item.Name, "/")])
 			if err != nil {
 				return nil, err
 			}
 			names = append(names, items...)
 		} else {
-			names = append(names, path + "/" + item.Name)
+			names = append(names, path+"/"+item.Name)
 		}
 	}
 	return names, nil
@@ -202,7 +202,7 @@ func (s *JoyentStorage) Remove(name string) error {
 	if strings.Contains(name, "/") {
 		var parents []string
 		dirs := strings.Split(name, "/")
-		for i := (len(dirs) - 1); i >= 0 ; i-- {
+		for i := (len(dirs) - 1); i >= 0; i-- {
 			if i < (len(dirs) - 1) {
 				parents = append(parents, strings.Join(dirs[:(i+1)], "/"))
 			}

@@ -5,8 +5,8 @@ package joyent
 
 import (
 	"fmt"
-	"strings"
 	"strconv"
+	"strings"
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
@@ -14,8 +14,8 @@ import (
 	"launchpad.net/gojoyent/cloudapi"
 )
 
-const(
-	firewallRuleAll 	= "FROM * TO * ALLOW %s PORT %d"
+const (
+	firewallRuleAll = "FROM * TO * ALLOW %s PORT %d"
 )
 
 // Helper method to create a firewall rule string for the given port
@@ -40,9 +40,9 @@ func getPorts(rules []cloudapi.FirewallRule) []instance.Port {
 	for _, r := range rules {
 		if r.Enabled {
 			rule := r.Rule
-			p := rule[strings.Index(rule, "ALLOW") + 6:strings.Index(rule,"PORT")-1]
-			n, _ := strconv.Atoi(rule[strings.LastIndex(rule, " ") + 1:])
-			port := instance.Port{Protocol:p, Number:n}
+			p := rule[strings.Index(rule, "ALLOW")+6 : strings.Index(rule, "PORT")-1]
+			n, _ := strconv.Atoi(rule[strings.LastIndex(rule, " ")+1:])
+			port := instance.Port{Protocol: p, Number: n}
 			ports = append(ports, port)
 		}
 	}
@@ -70,8 +70,8 @@ func (env *JoyentEnviron) OpenPorts(ports []instance.Port) error {
 			}
 		} else {
 			_, err := env.compute.cloudapi.CreateFirewallRule(cloudapi.CreateFwRuleOpts{
-				Enabled:        true,
-				Rule:           rule,
+				Enabled: true,
+				Rule:    rule,
 			})
 			if err != nil {
 				return fmt.Errorf("couldn't create rule %s: %v", rule, err)
@@ -103,8 +103,8 @@ func (env *JoyentEnviron) ClosePorts(ports []instance.Port) error {
 			}
 		} else {
 			_, err := env.compute.cloudapi.CreateFirewallRule(cloudapi.CreateFwRuleOpts{
-				Enabled:        false,
-				Rule:           rule,
+				Enabled: false,
+				Rule:    rule,
 			})
 			if err != nil {
 				return fmt.Errorf("couldn't create rule %s: %v", rule, err)

@@ -5,9 +5,9 @@ package joyent
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
-	"net/url"
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/schema"
@@ -239,7 +239,7 @@ func (ecfg *environConfig) Region() string {
 	if isLocalhost(sdcUrl) {
 		return "some-region"
 	}
-	return sdcUrl[strings.LastIndex(sdcUrl, "/") + 1:strings.Index(sdcUrl,".")]
+	return sdcUrl[strings.LastIndex(sdcUrl, "/")+1 : strings.Index(sdcUrl, ".")]
 }
 
 func isLocalhost(u string) bool {

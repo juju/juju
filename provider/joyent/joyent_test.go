@@ -13,8 +13,8 @@ import (
 
 	"launchpad.net/juju-core/environs/config"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	coretesting "launchpad.net/juju-core/testing"
 	jp "launchpad.net/juju-core/provider/joyent"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )
@@ -88,18 +88,18 @@ func (s *providerSuite) TearDownTest(c *gc.C) {
 
 func GetFakeConfig(sdcUrl, mantaUrl string) coretesting.Attrs {
 	return coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"name":         	"joyent test environment",
-		"type":         	"joyent",
-		"sdc-user":     	testUser,
-		"sdc-key-id":   	testKeyFingerprint,
-		"sdc-url":      	sdcUrl,
-		"manta-user":   	testUser,
-		"manta-key-id": 	testKeyFingerprint,
-		"manta-url":    	mantaUrl,
-		"key-file":     	fmt.Sprintf("%s/.ssh/%s", os.Getenv("HOME"), testKeyFileName),
-		"algorithm":    	"rsa-sha256",
-		"control-dir":  	"juju-test",
-		"agent-version":    version.Current.Number.String(),
+		"name":          "joyent test environment",
+		"type":          "joyent",
+		"sdc-user":      testUser,
+		"sdc-key-id":    testKeyFingerprint,
+		"sdc-url":       sdcUrl,
+		"manta-user":    testUser,
+		"manta-key-id":  testKeyFingerprint,
+		"manta-url":     mantaUrl,
+		"key-file":      fmt.Sprintf("%s/.ssh/%s", os.Getenv("HOME"), testKeyFileName),
+		"algorithm":     "rsa-sha256",
+		"control-dir":   "juju-test",
+		"agent-version": version.Current.Number.String(),
 	})
 }
 
@@ -126,4 +126,3 @@ func RemoveTestKey() error {
 	keyFile := fmt.Sprintf("%s/.ssh/%s", os.Getenv("HOME"), testKeyFileName)
 	return os.Remove(keyFile)
 }
-

@@ -12,8 +12,8 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
-	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/environs/simplestreams"
+	envtools "launchpad.net/juju-core/environs/tools"
 )
 
 var logger = loggo.GetLogger("juju.provider.joyent")

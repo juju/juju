@@ -13,9 +13,7 @@ import (
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/jujutest"
-	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/provider/joyent"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
@@ -36,16 +34,16 @@ func randomName() string {
 
 func registerLiveTests() {
 	attrs := coretesting.FakeConfig().Merge(map[string]interface{}{
-		"name":           "sample-" + uniqueName,
-		"type":           "joyent",
-		"sdc-user":    	  os.Getenv("SDC_ACCOUNT"),
-		"sdc-key-id":     os.Getenv("SDC_KEY_ID"),
-		"manta-user":     os.Getenv("MANTA_USER"),
-		"manta-key-id":   os.Getenv("MANTA_KEY_ID"),
-		"control-dir": 	  "juju-test-" + uniqueName,
-		"admin-secret":   "for real",
-		"firewall-mode":  config.FwInstance,
-		"agent-version":  version.Current.Number.String(),
+		"name":          "sample-" + uniqueName,
+		"type":          "joyent",
+		"sdc-user":      os.Getenv("SDC_ACCOUNT"),
+		"sdc-key-id":    os.Getenv("SDC_KEY_ID"),
+		"manta-user":    os.Getenv("MANTA_USER"),
+		"manta-key-id":  os.Getenv("MANTA_KEY_ID"),
+		"control-dir":   "juju-test-" + uniqueName,
+		"admin-secret":  "for real",
+		"firewall-mode": config.FwInstance,
+		"agent-version": version.Current.Number.String(),
 	})
 	gc.Suite(&LiveTests{
 		LiveTests: jujutest.LiveTests{
@@ -60,7 +58,6 @@ func registerLiveTests() {
 type LiveTests struct {
 	testbase.LoggingSuite
 	jujutest.LiveTests
-	metadataStorage storage.Storage
 }
 
 func (t *LiveTests) SetUpSuite(c *gc.C) {
@@ -69,22 +66,17 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.LiveTests.SetUpSuite(c)
 	// For testing, we create a storage instance to which is uploaded tools and image metadata.
 	t.PrepareOnce(c)
-	t.metadataStorage = joyent.MetadataStorage(t.Env)
+	c.Assert(t.Env.Storage(), gc.NotNil)
 	// Put some fake tools metadata in place so that tests that are simply
 	// starting instances without any need to check if those instances
 	// are running can find the metadata.
-	envtesting.UploadFakeTools(c, t.metadataStorage)
-	c.Assert(t.Env.Storage(), gc.NotNil)
-
+	envtesting.UploadFakeTools(c, t.Env.Storage())
 }
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {
 	if t.Env == nil {
 		// This can happen if SetUpSuite fails.
 		return
-	}
-	if t.metadataStorage != nil {
-		envtesting.RemoveFakeToolsMetadata(c, t.metadataStorage)
 	}
 	t.LiveTests.TearDownSuite(c)
 	t.LoggingSuite.TearDownSuite(c)

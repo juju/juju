@@ -21,15 +21,15 @@ import (
 )
 
 var (
-	vTypeSmartmachine 		= "smartmachine"
-	vTypeVirtualmachine 	= "virtualmachine"
- 	signedImageDataOnly 	= false
+	vTypeSmartmachine   = "smartmachine"
+	vTypeVirtualmachine = "virtualmachine"
+	signedImageDataOnly = false
 )
 
 type joyentCompute struct {
 	sync.Mutex
-	ecfg          *environConfig
-	cloudapi      *cloudapi.Client
+	ecfg     *environConfig
+	cloudapi *cloudapi.Client
 }
 
 func NewCompute(env *JoyentEnviron) *joyentCompute {
@@ -43,8 +43,8 @@ func newCompute(env *JoyentEnviron) (*joyentCompute, error) {
 	client := client.NewClient(env.ecfg.sdcUrl(), cloudapi.DefaultAPIVersion, env.creds, &logger)
 
 	return &joyentCompute{
-		ecfg:          env.ecfg,
-		cloudapi:      cloudapi.New(client)}, nil
+		ecfg:     env.ecfg,
+		cloudapi: cloudapi.New(client)}, nil
 }
 
 func (env *JoyentEnviron) StartInstance(cons constraints.Value, possibleTools tools.List,
@@ -80,17 +80,17 @@ func (env *JoyentEnviron) StartInstance(cons constraints.Value, possibleTools to
 
 	var machine *cloudapi.Machine
 	machine, err = env.compute.cloudapi.CreateMachine(cloudapi.CreateMachineOpts{
-		Package:         spec.InstanceType.Name,
-		Image:           spec.Image.Id,
-		Tags:            map[string]string {"group" : "juju"},
+		Package: spec.InstanceType.Name,
+		Image:   spec.Image.Id,
+		Tags:    map[string]string{"group": "juju"},
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot run instances: %v", err)
 	}
 
 	inst := &joyentInstance{
-		machine:	machine,
-		env:        env,
+		machine: machine,
+		env:     env,
 	}
 	logger.Infof("started instance %q", inst.Id())
 
@@ -189,7 +189,7 @@ func (env *JoyentEnviron) FindInstanceSpec(ic *instances.InstanceConstraint) (*i
 			Mem:      uint64(pkg.Memory),
 			CpuCores: uint64(pkg.VCPUs),
 			RootDisk: uint64(pkg.Disk * 1024),
-			VType:	  &vTypeVirtualmachine,
+			VType:    &vTypeVirtualmachine,
 		}
 		allInstanceTypes = append(allInstanceTypes, instanceType)
 	}

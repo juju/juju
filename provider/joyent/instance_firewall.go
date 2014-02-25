@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	firewallRuleVm 		= "FROM * TO vm %s ALLOW %s PORT %d"
+	firewallRuleVm = "FROM * TO vm %s ALLOW %s PORT %d"
 )
 
 // Helper method to create a firewall rule string for the given machine Id and port
@@ -41,8 +41,8 @@ func (inst *joyentInstance) OpenPorts(machineId string, ports []instance.Port) e
 			}
 		} else {
 			_, err := inst.env.compute.cloudapi.CreateFirewallRule(cloudapi.CreateFwRuleOpts{
-				Enabled:        true,
-				Rule:           rule,
+				Enabled: true,
+				Rule:    rule,
 			})
 			if err != nil {
 				return fmt.Errorf("couldn't create rule %s: %v", rule, err)
@@ -74,8 +74,8 @@ func (inst *joyentInstance) ClosePorts(machineId string, ports []instance.Port) 
 			}
 		} else {
 			_, err := inst.env.compute.cloudapi.CreateFirewallRule(cloudapi.CreateFwRuleOpts{
-				Enabled:        false,
-				Rule:           rule,
+				Enabled: false,
+				Rule:    rule,
 			})
 			if err != nil {
 				return fmt.Errorf("couldn't create rule %s: %v", rule, err)
@@ -100,4 +100,3 @@ func (inst *joyentInstance) Ports(machineId string) ([]instance.Port, error) {
 
 	return getPorts(fwRules), nil
 }
-

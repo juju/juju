@@ -4,13 +4,12 @@
 package joyent_test
 
 import (
+	"bytes"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"bytes"
-	"io/ioutil"
 
-	"launchpad.net/gojoyent/client"
 	lc "launchpad.net/gojoyent/localservices/cloudapi"
 	lm "launchpad.net/gojoyent/localservices/manta"
 	gc "launchpad.net/gocheck"
@@ -46,7 +45,7 @@ type localCloudAPIServer struct {
 	Server     *httptest.Server
 	Mux        *http.ServeMux
 	oldHandler http.Handler
-	cloudapi *lc.CloudAPI
+	cloudapi   *lc.CloudAPI
 }
 
 func (ca *localCloudAPIServer) setupServer(c *gc.C) {
@@ -72,7 +71,7 @@ type localMantaServer struct {
 	Server     *httptest.Server
 	Mux        *http.ServeMux
 	oldHandler http.Handler
-	manta	 *lm.Manta
+	manta      *lm.Manta
 }
 
 func (m *localMantaServer) setupServer(c *gc.C) {
@@ -97,8 +96,8 @@ func (m *localMantaServer) destroyServer() {
 type localLiveSuite struct {
 	testbase.LoggingSuite
 	LiveTests
-	cSrv 	   *localCloudAPIServer
-	mSrv 	   *localMantaServer
+	cSrv *localCloudAPIServer
+	mSrv *localMantaServer
 }
 
 func (s *localLiveSuite) SetUpSuite(c *gc.C) {
@@ -132,7 +131,6 @@ func (s *localLiveSuite) TearDownSuite(c *gc.C) {
 func (s *localLiveSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.LiveTests.SetUpTest(c)
-	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
 }
 
 func (s *localLiveSuite) TearDownTest(c *gc.C) {
@@ -146,10 +144,8 @@ func (s *localLiveSuite) TearDownTest(c *gc.C) {
 // each test.
 type localServerSuite struct {
 	jujutest.Tests
-	cSrv 	   			 *localCloudAPIServer
-	mSrv 	   			 *localMantaServer
-	toolsMetadataStorage storage.Storage
-	imageMetadataStorage storage.Storage
+	cSrv *localCloudAPIServer
+	mSrv *localMantaServer
 }
 
 func (s *localServerSuite) SetUpSuite(c *gc.C) {
@@ -171,36 +167,16 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	s.mSrv.setupServer(c)
 
 	s.TestConfig = GetFakeConfig(s.cSrv.Server.URL, s.mSrv.Server.URL)
-	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
 	s.Tests.SetUpTest(c)
-	// For testing, we create a storage instance to which is uploaded tools and image metadata.
 
-	cl := client.NewClient(s.mSrv.Server.URL, "", nil, nil)
-	c.Assert(cl, gc.NotNil)
-	containerURL := cl.MakeServiceURL([]string{s.TestConfig["manta-user"].(string), "stor"})
-	s.TestConfig = s.TestConfig.Merge(coretesting.Attrs{
-		"tools-metadata-url": containerURL + "/juju-test-metadata/tools",
-		"image-metadata-url": containerURL + "/juju-test-metadata/images",
-	})
-
+	// Put some fake image metadata in place.
 	env := s.Prepare(c)
-	s.toolsMetadataStorage = joyent.MetadataStorage(env)
 
-	// Put some fake metadata in place so that tests that are simply
-	// starting instances without any need to check if those instances
-	// are running can find the metadata.
-	envtesting.UploadFakeTools(c, s.toolsMetadataStorage)
-	s.imageMetadataStorage = joyent.ImageMetadataStorage(env)
-	joyent.UseStorageTestImageMetadata(s.imageMetadataStorage, env.(*joyent.JoyentEnviron).Credentials())
+	joyent.UseExternalTestImageMetadata(env.(*joyent.JoyentEnviron).Credentials())
 }
 
 func (s *localServerSuite) TearDownTest(c *gc.C) {
-	if s.imageMetadataStorage != nil {
-		joyent.RemoveStorageTestImageMetadata(s.imageMetadataStorage)
-	}
-	if s.toolsMetadataStorage != nil {
-		envtesting.RemoveFakeToolsMetadata(c, s.toolsMetadataStorage)
-	}
+	joyent.UnregisterExternalTestImageMetadata()
 	s.Tests.TearDownTest(c)
 	s.cSrv.destroyServer()
 	s.mSrv.destroyServer()
@@ -219,6 +195,7 @@ func (s *localServerSuite) TestStartInstance(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	env, err := environs.Prepare(cfg, bootstrapContext(c), s.ConfigStore)
 	c.Assert(err, gc.IsNil)
+	envtesting.UploadFakeTools(c, env.Storage())
 	err = bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	inst, _ := testing.AssertStartInstance(c, env, "100")
@@ -228,6 +205,7 @@ func (s *localServerSuite) TestStartInstance(c *gc.C) {
 
 func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := s.Prepare(c)
+	envtesting.UploadFakeTools(c, env.Storage())
 	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	_, hc := testing.AssertStartInstanceWithConstraints(c, env, "100", constraints.MustParse("mem=1024"))
@@ -286,6 +264,7 @@ var instanceGathering = []struct {
 
 func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
 	env := s.Prepare(c)
+	envtesting.UploadFakeTools(c, env.Storage())
 	inst, _ := testing.AssertStartInstance(c, env, "100")
 	c.Assert(inst.Status(), gc.Equals, "running")
 	err := env.StopInstances([]instance.Instance{inst})
@@ -294,6 +273,7 @@ func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
 
 func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 	env := s.Prepare(c)
+	envtesting.UploadFakeTools(c, env.Storage())
 	inst0, _ := testing.AssertStartInstance(c, env, "100")
 	id0 := inst0.Id()
 	inst1, _ := testing.AssertStartInstance(c, env, "101")
@@ -335,6 +315,7 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 // It should be moved to environs.jujutests.Tests.
 func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := s.Prepare(c)
+	envtesting.UploadFakeTools(c, env.Storage())
 	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
@@ -366,34 +347,28 @@ func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		urls[i] = url
 	}
-	// The images-metadata-url ends with "/juju-test-metadata/images/".
-	c.Check(strings.HasSuffix(urls[0], "/juju-test-metadata/images/"), jc.IsTrue)
 	// The control bucket URL contains the bucket name.
-	c.Assert(strings.Contains(urls[1], joyent.ControlBucketName(env)+"/images"), jc.IsTrue)
+	c.Assert(strings.Contains(urls[0], joyent.ControlBucketName(env)+"/images"), jc.IsTrue)
 }
 
 func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 	env := s.Open(c)
 	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(sources), gc.Equals, 2)
+	c.Assert(len(sources), gc.Equals, 1)
 	var urls = make([]string, len(sources))
 	for i, source := range sources {
 		url, err := source.URL("")
 		c.Assert(err, gc.IsNil)
 		urls[i] = url
 	}
-	// The tools-metadata-url ends with "/juju-test-metadata/tools/".
-	c.Check(strings.HasSuffix(urls[0], "/juju-test-metadata/tools/"), jc.IsTrue)
 	// The control bucket URL contains the bucket name.
-	c.Assert(strings.Contains(urls[1], joyent.ControlBucketName(env)+"/tools"), jc.IsTrue)
+	c.Assert(strings.Contains(urls[0], joyent.ControlBucketName(env)+"/tools"), jc.IsTrue)
 }
 
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 	env := s.Open(c)
-	// Add image metadata to cloud storage otherwise we'll get a not found since after not finding the
-	// image in the image-metadata-url, cloud storage will be searched next.
-	joyent.UseStorageTestImageMetadata(env.Storage(), env.(*joyent.JoyentEnviron).Credentials())
+
 	// An error occurs if no suitable image is found.
 	_, err := joyent.FindInstanceSpec(env, "saucy", "amd64", "mem=4G")
 	c.Assert(err, gc.ErrorMatches, `no "saucy" images in some-region with arches \[amd64\]`)
