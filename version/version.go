@@ -23,7 +23,6 @@ import (
 // The debian/rules build recipe uses this value for the version
 // number of the release package.
 const version = "1.17.4"
-const Version = "1.17.3"
 
 // Current gives the current version of the system.  If the file
 // "FORCE-VERSION" is present in the same directory as the running

@@ -150,7 +150,6 @@ func (s *JoyentStorage) URL(name string) (string, error) {
 }
 
 func (s *JoyentStorage) Get(name string) (io.ReadCloser, error) {
-	logger.Debugf("Get object %s from container %s", name, s.containerName)
 	b, err := s.manta.GetObject(s.containerName, name)
 	if err != nil {
 		return nil, coreerrors.NewNotFoundError(err, fmt.Sprintf("cannot find %s", name))
@@ -178,7 +177,6 @@ func (s *JoyentStorage) Put(name string, r io.Reader, length int64) error {
 			}
 		}
 	}
-	logger.Debugf("Put object %s in container %s", name, s.containerName)
 	err := s.manta.PutObject(s.containerName, name, r)
 	if err != nil {
 		return fmt.Errorf("cannot write file %q to control container %q: %v", name, s.containerName, err)
@@ -187,7 +185,6 @@ func (s *JoyentStorage) Put(name string, r io.Reader, length int64) error {
 }
 
 func (s *JoyentStorage) Remove(name string) error {
-	logger.Debugf("Deleting %s", name)
 	err := s.manta.DeleteObject(s.containerName, name)
 	if err != nil {
 		if je.IsResourceNotFound(err) {
