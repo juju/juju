@@ -5,6 +5,7 @@ export INSTANCE_TYPE=$1
 export AMI_IMAGE=$2
 tarfile=$($SCRIPTS/get-tarfile-name $revision_build)
 instance_id=$($SCRIPTS/ec2-run-instance-get-id)
+$SCRIPTS/ec2-tag-job-instances $instance_id
 set +x
 echo Starting instance $instance_id
 instance_name=$($SCRIPTS/ec2-get-name $instance_id)
@@ -28,5 +29,5 @@ make check
 EOT
 EXIT_STATUS=$?
 set -e
-euca-terminate-instances $instance_id
+$SCRIPTS/ec2-terminate-job-instances
 exit $EXIT_STATUS
