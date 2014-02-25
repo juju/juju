@@ -69,10 +69,10 @@ type Client interface {
 	// Host is specified in the format [user@]host.
 	Command(host string, command []string, options *Options) *Cmd
 
-	// Copy copies file(s) between the local host a remote host(s).
+	// Copy copies file(s) between local and remote host(s).
 	// Paths are specified in the scp format, [[user@]host:]path. If
 	// any extra arguments are specified in extraArgs, they are passed
-	// to scp verbatim.
+	// verbatim.
 	Copy(targets, extraArgs []string, options *Options) error
 }
 
