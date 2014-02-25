@@ -43,10 +43,6 @@ const (
 	// DefaultApiPort is the default port the API server is listening on.
 	DefaultAPIPort int = 17070
 
-	// DefaultSyslogTLS is the default value specifying whether to encrypt
-	// syslog connections with TLS.
-	DefaultSyslogTLS = true
-
 	// DefaultSyslogPort is the default port that the syslog UDP/TCP listener is
 	// listening on.
 	DefaultSyslogPort int = 6514
@@ -431,12 +427,14 @@ func (c *Config) SyslogPort() int {
 	return c.mustInt("syslog-port")
 }
 
-// SyslogTLS returns the a boolean indicating whether TLS will
-// be used to encrypt syslog connections. If it is false, then
-// unencrypted UDP will be used.
-func (c *Config) SyslogTLS() bool {
-	tls, _ := c.defined["syslog-tls"].(bool)
-	return tls
+// RsyslogCACert returns the certificate of the CA that signed the
+// rsyslog certificate, in PEM format, or nil if one hasn't been
+// generated yet.
+func (c *Config) RsyslogCACert() []byte {
+	if s, ok := c.defined["rsyslog-ca-cert"]; ok {
+		return []byte(s.(string))
+	}
+	return nil
 }
 
 // AuthorizedKeys returns the content for ssh's authorized_keys file.
@@ -680,7 +678,7 @@ var fields = schema.Fields{
 	"state-port":                schema.ForceInt(),
 	"api-port":                  schema.ForceInt(),
 	"syslog-port":               schema.ForceInt(),
-	"syslog-tls":                schema.Bool(),
+	"rsyslog-ca-cert":           schema.String(),
 	"logging-config":            schema.String(),
 	"charm-store-auth":          schema.String(),
 	"provisioner-safe-mode":     schema.Bool(),
@@ -724,7 +722,7 @@ var alwaysOptional = schema.Defaults{
 	"bootstrap-timeout":         schema.Omit,
 	"bootstrap-retry-delay":     schema.Omit,
 	"bootstrap-addresses-delay": schema.Omit,
-	"syslog-tls":                schema.Omit,
+	"rsyslog-ca-cert":           schema.Omit,
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url": "",
@@ -768,7 +766,6 @@ func allDefaults() schema.Defaults {
 		"state-port":                DefaultStatePort,
 		"api-port":                  DefaultAPIPort,
 		"syslog-port":               DefaultSyslogPort,
-		"syslog-tls":                DefaultSyslogTLS,
 		"bootstrap-timeout":         DefaultBootstrapSSHTimeout,
 		"bootstrap-retry-delay":     DefaultBootstrapSSHRetryDelay,
 		"bootstrap-addresses-delay": DefaultBootstrapSSHAddressesDelay,
@@ -806,8 +803,6 @@ var immutableAttributes = []string{
 	"firewall-mode",
 	"state-port",
 	"api-port",
-	"syslog-port",
-	"syslog-tls",
 	"bootstrap-timeout",
 	"bootstrap-retry-delay",
 	"bootstrap-addresses-delay",

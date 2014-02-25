@@ -196,8 +196,6 @@ func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	result.ProviderType = config.Type()
 	result.AuthorizedKeys = config.AuthorizedKeys()
 	result.SSLHostnameVerification = config.SSLHostnameVerification()
-	result.SyslogPort = config.SyslogPort()
-	result.SyslogTLS = config.SyslogTLS()
 	result.Proxy = config.ProxySettings()
 	result.AptProxy = config.AptProxySettings()
 	return result, nil

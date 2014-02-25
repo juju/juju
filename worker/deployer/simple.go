@@ -54,9 +54,6 @@ type SimpleContext struct {
 	// will be written. It is set for testing and left empty for production, in
 	// which case the system default is used, typically /etc/rsyslog.d
 	syslogConfigDir string
-
-	// syslogConfigPath is the full path name of the syslog conf file.
-	syslogConfigPath string
 }
 
 var _ Context = (*SimpleContext)(nil)
@@ -100,6 +97,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	logger.Debugf("API addresses: %q", result.APIAddresses)
 	containerType := ctx.agentConfig.Value(agent.ContainerType)
 	namespace := ctx.agentConfig.Value(agent.Namespace)
+	// TODO(axw) record rsyslog config dir.
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			DataDir:  dataDir,
@@ -125,21 +123,6 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 
 	// Install an upstart job that runs the unit agent.
 	logPath := path.Join(ctx.logDir, tag+".log")
-	syslogConfigRenderer := syslog.NewForwardConfig(tag, result.SyslogPort, namespace, result.StateAddresses)
-	syslogConfigRenderer.ConfigDir = ctx.syslogConfigDir
-	syslogConfigRenderer.ConfigFileName = fmt.Sprintf("26-juju-%s.conf", tag)
-	if result.SyslogTLS {
-		syslogConfigRenderer.TLSCACertPath = path.Join(syslogConfigRenderer.LogDir, "ca.pem")
-	}
-	if err := syslogConfigRenderer.Write(); err != nil {
-		return err
-	}
-	ctx.syslogConfigPath = syslogConfigRenderer.ConfigFilePath()
-	if err := syslog.Restart(); err != nil {
-		logger.Warningf("installer: cannot restart syslog daemon: %v", err)
-	}
-	defer removeOnErr(&err, ctx.syslogConfigPath)
-
 	cmd := strings.Join([]string{
 		path.Join(toolsDir, "jujud"), "unit",
 		"--data-dir", dataDir,
@@ -192,9 +175,6 @@ func (ctx *SimpleContext) RecallUnit(unitName string) error {
 	agentDir := agent.Dir(dataDir, tag)
 	if err := os.RemoveAll(agentDir); err != nil {
 		return err
-	}
-	if err := os.Remove(ctx.syslogConfigPath); err != nil && !os.IsNotExist(err) {
-		logger.Warningf("installer: cannot remove %q: %v", ctx.syslogConfigPath, err)
 	}
 	// Defer this so a failure here does not impede the cleanup (as in tests).
 	defer func() {

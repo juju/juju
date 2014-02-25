@@ -138,9 +138,8 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 	mcfg := environs.NewBootstrapMachineConfig(stateFileURL, privateKey)
 	mcfg.Tools = selectedTools[0]
 	mcfg.DataDir = env.config.rootDir()
-	mcfg.LogDir = env.config.logDir()
-	mcfg.RsyslogConfPath = env.rsyslogConfPath()
-	mcfg.CloudInitOutputLog = filepath.Join(mcfg.LogDir, "cloud-init-output.log")
+	mcfg.LogDir = fmt.Sprintf("/var/log/juju-%s", env.config.namespace())
+	mcfg.CloudInitOutputLog = filepath.Join(env.config.logDir(), "cloud-init-output.log")
 	mcfg.DisablePackageCommands = true
 	mcfg.MachineAgentServiceName = env.machineAgentServiceName()
 	mcfg.MongoServiceName = env.mongoServiceName()
@@ -162,10 +161,14 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 	// Also, we leave the old all-machines.log file in
 	// /var/log/juju-{{namespace}} until we start the environment again. So
 	// potentially remove it at the start of the cloud-init.
-	logfile := fmt.Sprintf("/var/log/juju-%s/all-machines.log", env.config.namespace())
+	os.RemoveAll(env.config.logDir())
+	os.MkdirAll(env.config.logDir(), 0755)
 	cloudcfg.AddScripts(
-		fmt.Sprintf("[ -f %s ] && rm %s", logfile, logfile),
-		fmt.Sprintf("ln -s %s %s/", logfile, env.config.logDir()))
+		fmt.Sprintf("rm -fr %s", mcfg.LogDir),
+		fmt.Sprintf("mkdir -p %s", mcfg.LogDir),
+		fmt.Sprintf("rm -f /var/spool/rsyslog/machine-0-%s", env.config.namespace()),
+		fmt.Sprintf("ln -s %s/all-machines.log %s/", mcfg.LogDir, env.config.logDir()),
+		fmt.Sprintf("ln -s %s/machine-0.log %s/", env.config.logDir(), mcfg.LogDir))
 	if err := cloudinit.ConfigureJuju(mcfg, cloudcfg); err != nil {
 		return err
 	}

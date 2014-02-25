@@ -18,7 +18,6 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/container/kvm"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
@@ -42,6 +41,7 @@ import (
 	"launchpad.net/juju-core/worker/minunitsworker"
 	"launchpad.net/juju-core/worker/provisioner"
 	"launchpad.net/juju-core/worker/resumer"
+	"launchpad.net/juju-core/worker/rsyslog"
 	"launchpad.net/juju-core/worker/terminationworker"
 	"launchpad.net/juju-core/worker/upgrader"
 )
@@ -65,6 +65,8 @@ type MachineAgent struct {
 	Conf      AgentConf
 	MachineId string
 	runner    worker.Runner
+
+	rsyslogConfPath string
 }
 
 // Info returns usage information for the command.
@@ -157,6 +159,8 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	return err
 }
 
+var newRsyslogConfigWorker = rsyslog.NewRsyslogConfigWorker
+
 // APIWorker returns a Worker that connects to the API and starts any
 // workers that need an API connection.
 //
@@ -174,6 +178,14 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 			break
 		}
 	}
+	rsyslogMode := rsyslog.RsyslogModeForwarding
+	for _, job := range entity.Jobs() {
+		if job == params.JobManageEnviron {
+			rsyslogMode = rsyslog.RsyslogModeAccumulate
+			break
+		}
+	}
+
 	runner := newRunner(connectionIsFatal(st), moreImportant)
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
 		return machiner.NewMachiner(st.Machiner(), agentConfig), nil
@@ -186,6 +198,9 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	})
 	runner.StartWorker("machineenvironmentworker", func() (worker.Worker, error) {
 		return machineenvironmentworker.NewMachineEnvironmentWorker(st.Environment(), agentConfig), nil
+	})
+	runner.StartWorker("rsyslog", func() (worker.Worker, error) {
+		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
 
 	// If not a local provider bootstrap machine, start the worker to manage SSH keys.
@@ -383,15 +398,6 @@ func (a *MachineAgent) uninstallAgent() error {
 	if agentServiceName != "" {
 		if err := upstart.NewService(agentServiceName).Remove(); err != nil {
 			errors = append(errors, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
-		}
-	}
-	// Remove the rsyslog conf file and restart rsyslogd.
-	if rsyslogConfPath := a.Conf.config.Value(agent.RsyslogConfPath); rsyslogConfPath != "" {
-		if err := os.Remove(rsyslogConfPath); err != nil {
-			errors = append(errors, err)
-		}
-		if err := syslog.Restart(); err != nil {
-			errors = append(errors, err)
 		}
 	}
 	// Remove the juju-run symlink.

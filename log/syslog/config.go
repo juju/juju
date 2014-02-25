@@ -51,7 +51,7 @@ $InputFileName {{logfilePath}}
 $InputFileTag juju{{namespace}}-{{logfileName}}:
 $InputFileStateFile {{logfileName}}{{namespace}}
 $InputRunFileMonitor
-{{if tlsCACertPath}}
+
 $ModLoad imtcp
 $DefaultNetstreamDriver gtls
 $DefaultNetstreamDriverCAFile {{tlsCACertPath}}
@@ -60,10 +60,7 @@ $DefaultNetstreamDriverKeyFile {{tlsKeyPath}}
 $InputTCPServerStreamDriverAuthMode anon
 $InputTCPServerStreamDriverMode 1 # run driver in TLS-only mode
 $InputTCPServerRun {{portNumber}}
-{{else}}
-$ModLoad imudp
-$UDPServerRun {{portNumber}}
-{{end}}
+
 # Messages received from remote rsyslog machines have messages prefixed with a space,
 # so add one in for local messages too if needed.
 $template JujuLogFormat{{namespace}},"%syslogtag:{{tagStart}}:$%%msg:::sp-if-no-1st-sp%%msg:::drop-last-lf%\n"
@@ -79,21 +76,27 @@ $FileCreateMode 0640
 const nodeRsyslogTemplate = `
 $ModLoad imfile
 
+# Enable reliable forwarding.
+$ActionQueueType LinkedList
+$ActionQueueFileName {{logfileName}}{{namespace}}
+$ActionResumeRetryCount -1
+$ActionQueueSaveOnShutdown on
+
 $InputFilePersistStateInterval 50
 $InputFilePollInterval 5
 $InputFileName {{logfilePath}}
 $InputFileTag juju{{namespace}}-{{logfileName}}:
 $InputFileStateFile {{logfileName}}{{namespace}}
 $InputRunFileMonitor
-{{if tlsCACertPath}}
+
 $DefaultNetstreamDriver gtls
 $DefaultNetstreamDriverCAFile {{tlsCACertPath}}
 $ActionSendStreamDriverAuthMode anon
 $ActionSendStreamDriverMode 1 # run driver in TLS-only mode
-{{end}}
+
 $template LongTagForwardFormat,"<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %syslogtag%%msg:::sp-if-no-1st-sp%%msg%"
 
-:syslogtag, startswith, "juju{{namespace}}-" {{addressPrefix}}{{bootstrapIP}}:{{portNumber}};LongTagForwardFormat
+:syslogtag, startswith, "juju{{namespace}}-" @@{{bootstrapIP}}:{{portNumber}};LongTagForwardFormat
 & ~
 `
 
@@ -180,7 +183,6 @@ func (slConfig *SyslogConfig) ConfigFilePath() string {
 
 // Render generates the rsyslog config.
 func (slConfig *SyslogConfig) Render() ([]byte, error) {
-
 	// TODO: for HA, we will want to send to all state server addresses (maybe).
 	var bootstrapIP = func() string {
 		addr := slConfig.StateServerAddresses[0]
@@ -192,18 +194,11 @@ func (slConfig *SyslogConfig) Render() ([]byte, error) {
 		return fmt.Sprintf("%s/%s.log", slConfig.LogDir, slConfig.LogFileName)
 	}
 
-	// A single @ means UDP, @@ means TCP.
-	addressPrefix := "@"
-	if slConfig.TLSCACertPath != "" {
-		addressPrefix = "@@"
-	}
-
 	t := template.New("")
 	t.Funcs(template.FuncMap{
 		"logfileName":   func() string { return slConfig.LogFileName },
 		"bootstrapIP":   bootstrapIP,
 		"logfilePath":   logFilePath,
-		"addressPrefix": func() string { return addressPrefix },
 		"portNumber":    func() int { return slConfig.Port },
 		"logDir":        func() string { return slConfig.LogDir },
 		"namespace":     func() string { return slConfig.Namespace },

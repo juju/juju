@@ -513,8 +513,6 @@ type ContainerConfig struct {
 	ProviderType            string
 	AuthorizedKeys          string
 	SSLHostnameVerification bool
-	SyslogPort              int
-	SyslogTLS               bool
 	Proxy                   osenv.ProxySettings
 	AptProxy                osenv.ProxySettings
 }
@@ -563,11 +561,14 @@ type SetEnvironAgentVersion struct {
 type DeployerConnectionValues struct {
 	StateAddresses []string
 	APIAddresses   []string
-	SyslogPort     int
-	SyslogTLS      bool
 }
 
 // StatusParams holds parameters for the Status call.
 type StatusParams struct {
 	Patterns []string
+}
+
+// SetRsyslogCertParams holds parameters for the SetRsyslogCert call.
+type SetRsyslogCertParams struct {
+	CACert []byte
 }

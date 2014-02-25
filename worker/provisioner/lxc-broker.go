@@ -74,8 +74,6 @@ func (broker *lxcBroker) StartInstance(cons constraints.Value, possibleTools too
 		config.ProviderType,
 		config.AuthorizedKeys,
 		config.SSLHostnameVerification,
-		config.SyslogPort,
-		config.SyslogTLS,
 		config.Proxy,
 		config.AptProxy,
 	); err != nil {

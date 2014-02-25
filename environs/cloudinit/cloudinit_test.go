@@ -76,7 +76,6 @@ var cloudinitTests = []cloudinitTest{
 			StateServerKey:  serverKey,
 			StatePort:       37017,
 			APIPort:         17070,
-			SyslogPort:      514,
 			MachineNonce:    "FAKE_NONCE",
 			StateInfo: &state.Info{
 				Password: "arble",
@@ -90,7 +89,6 @@ var cloudinitTests = []cloudinitTest{
 			DataDir:                 environs.DataDir,
 			LogDir:                  environs.LogDir,
 			CloudInitOutputLog:      environs.CloudInitOutputLog,
-			RsyslogConfPath:         environs.RsyslogConfPath,
 			StateInfoURL:            "some-url",
 			SystemPrivateSSHKey:     "private rsa key",
 			MachineAgentServiceName: "jujud-machine-0",
@@ -116,9 +114,6 @@ grep '1234' \$bin/juju1\.2\.3-precise-amd64.sha256 \|\| \(echo "Tools checksum m
 tar zxf \$bin/tools.tar.gz -C \$bin
 rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-precise-amd64\.sha256
 printf %s '{"version":"1\.2\.3-precise-amd64","url":"http://foo\.com/tools/releases/juju1\.2\.3-precise-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
-install -D -m 644 /dev/null '/etc/rsyslog\.d/25-juju\.conf'
-printf '%s\\n' '.*' > '/etc/rsyslog.d/25-juju.conf'
-restart rsyslog
 mkdir -p '/var/lib/juju/agents/machine-0'
 install -m 644 /dev/null '/var/lib/juju/agents/machine-0/format'
 printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-0/format'
@@ -165,7 +160,6 @@ start jujud-machine-0
 			StateServerKey:  serverKey,
 			StatePort:       37017,
 			APIPort:         17070,
-			SyslogPort:      514,
 			MachineNonce:    "FAKE_NONCE",
 			StateInfo: &state.Info{
 				Password: "arble",
@@ -179,7 +173,6 @@ start jujud-machine-0
 			DataDir:                 environs.DataDir,
 			LogDir:                  environs.LogDir,
 			CloudInitOutputLog:      environs.CloudInitOutputLog,
-			RsyslogConfPath:         environs.RsyslogConfPath,
 			StateInfoURL:            "some-url",
 			SystemPrivateSSHKey:     "private rsa key",
 			MachineAgentServiceName: "jujud-machine-0",
@@ -207,7 +200,6 @@ ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
 			DataDir:            environs.DataDir,
 			LogDir:             environs.LogDir,
 			CloudInitOutputLog: environs.CloudInitOutputLog,
-			RsyslogConfPath:    environs.RsyslogConfPath,
 			StateServer:        false,
 			Tools:              newSimpleTools("1.2.3-linux-amd64"),
 			MachineNonce:       "FAKE_NONCE",
@@ -223,7 +215,6 @@ ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
 				Password: "bletch",
 				CACert:   []byte("CA CERT\n" + testing.CACert),
 			},
-			SyslogPort:              514,
 			MachineAgentServiceName: "jujud-machine-99",
 		},
 		expectScripts: `
@@ -244,9 +235,6 @@ grep '1234' \$bin/juju1\.2\.3-linux-amd64.sha256 \|\| \(echo "Tools checksum mis
 tar zxf \$bin/tools.tar.gz -C \$bin
 rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-linux-amd64\.sha256
 printf %s '{"version":"1\.2\.3-linux-amd64","url":"http://foo\.com/tools/releases/juju1\.2\.3-linux-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
-install -D -m 644 /dev/null '/etc/rsyslog\.d/25-juju\.conf'
-printf '%s\\n' '.*' > '/etc/rsyslog\.d/25-juju\.conf'
-restart rsyslog
 mkdir -p '/var/lib/juju/agents/machine-99'
 install -m 644 /dev/null '/var/lib/juju/agents/machine-99/format'
 printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-99/format'
@@ -267,7 +255,6 @@ start jujud-machine-99
 			DataDir:              environs.DataDir,
 			LogDir:               environs.LogDir,
 			CloudInitOutputLog:   environs.CloudInitOutputLog,
-			RsyslogConfPath:      environs.RsyslogConfPath,
 			StateServer:          false,
 			Tools:                newSimpleTools("1.2.3-linux-amd64"),
 			MachineNonce:         "FAKE_NONCE",
@@ -283,13 +270,10 @@ start jujud-machine-99
 				Password: "bletch",
 				CACert:   []byte("CA CERT\n" + testing.CACert),
 			},
-			SyslogPort:              514,
 			MachineAgentServiceName: "jujud-machine-2-lxc-1",
 		},
 		inexactMatch: true,
 		expectScripts: `
-printf '%s\\n' '.*' > '/etc/rsyslog\.d/25-juju\.conf'
-restart rsyslog
 mkdir -p '/var/lib/juju/agents/machine-2-lxc-1'
 install -m 644 /dev/null '/var/lib/juju/agents/machine-2-lxc-1/format'
 printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-2-lxc-1/format'
@@ -308,7 +292,6 @@ start jujud-machine-2-lxc-1
 			DataDir:            environs.DataDir,
 			LogDir:             environs.LogDir,
 			CloudInitOutputLog: environs.CloudInitOutputLog,
-			RsyslogConfPath:    environs.RsyslogConfPath,
 			StateServer:        false,
 			Tools:              newSimpleTools("1.2.3-linux-amd64"),
 			MachineNonce:       "FAKE_NONCE",
@@ -324,7 +307,6 @@ start jujud-machine-2-lxc-1
 				Password: "bletch",
 				CACert:   []byte("CA CERT\n" + testing.CACert),
 			},
-			SyslogPort:                     514,
 			DisableSSLHostnameVerification: true,
 			MachineAgentServiceName:        "jujud-machine-99",
 		},
@@ -345,7 +327,6 @@ curl --insecure -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/releases/juju1\.2
 			StateServerKey:  serverKey,
 			StatePort:       37017,
 			APIPort:         17070,
-			SyslogPort:      514,
 			MachineNonce:    "FAKE_NONCE",
 			StateInfo: &state.Info{
 				Password: "arble",
@@ -358,7 +339,6 @@ curl --insecure -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/releases/juju1\.2
 			DataDir:                 environs.DataDir,
 			LogDir:                  environs.LogDir,
 			CloudInitOutputLog:      environs.CloudInitOutputLog,
-			RsyslogConfPath:         environs.RsyslogConfPath,
 			StateInfoURL:            "some-url",
 			SystemPrivateSSHKey:     "private rsa key",
 			MachineAgentServiceName: "jujud-machine-0",
@@ -644,9 +624,6 @@ var verifyTests = []struct {
 	{"missing API info", func(cfg *cloudinit.MachineConfig) {
 		cfg.APIInfo = nil
 	}},
-	{"missing syslog port", func(cfg *cloudinit.MachineConfig) {
-		cfg.SyslogPort = 0
-	}},
 	{"missing state hosts", func(cfg *cloudinit.MachineConfig) {
 		cfg.StateServer = false
 		cfg.StateInfo = &state.Info{
@@ -695,9 +672,6 @@ var verifyTests = []struct {
 	}},
 	{"missing cloud-init output log path", func(cfg *cloudinit.MachineConfig) {
 		cfg.CloudInitOutputLog = ""
-	}},
-	{"missing rsyslog.d conf path", func(cfg *cloudinit.MachineConfig) {
-		cfg.RsyslogConfPath = ""
 	}},
 	{"missing tools", func(cfg *cloudinit.MachineConfig) {
 		cfg.Tools = nil
@@ -765,7 +739,6 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		StateServerKey:   serverKey,
 		StatePort:        1234,
 		APIPort:          1235,
-		SyslogPort:       2345,
 		MachineId:        "99",
 		Tools:            newSimpleTools("9.9.9-linux-arble"),
 		AuthorizedKeys:   "sshkey1",
@@ -783,7 +756,6 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		DataDir:                 environs.DataDir,
 		LogDir:                  environs.LogDir,
 		CloudInitOutputLog:      environs.CloudInitOutputLog,
-		RsyslogConfPath:         environs.RsyslogConfPath,
 		MachineNonce:            "FAKE_NONCE",
 		SystemPrivateSSHKey:     "private rsa key",
 		MachineAgentServiceName: "jujud-machine-99",
@@ -881,61 +853,6 @@ export HTTP_PROXY=http://user@10.0.0.1' > /home/ubuntu/.juju-proxy && chown ubun
 		}
 	}
 	c.Assert(found, jc.IsTrue)
-}
-
-func (s *cloudinitSuite) testSyslogTLS(c *gc.C, syslogTLS, stateServer bool) {
-	environConfig := minimalConfig(c)
-	environConfig, err := environConfig.Apply(map[string]interface{}{
-		"syslog-tls": syslogTLS,
-	})
-	c.Assert(err, gc.IsNil)
-	machineCfg := s.createMachineConfig(c, environConfig, stateServer)
-	cloudcfg := coreCloudinit.New()
-	err = cloudinit.Configure(machineCfg, cloudcfg)
-	c.Assert(err, gc.IsNil)
-	runcmds := cloudcfg.RunCmds()
-	hasCA := findRunCmd(runcmds, containsMatcher("/var/log/juju/ca.pem"))
-	hasCert := findRunCmd(runcmds, containsMatcher("/var/log/juju/cert.pem"))
-	hasKey := findRunCmd(runcmds, containsMatcher("/var/log/juju/key.pem"))
-	if syslogTLS {
-		if !hasCA {
-			c.Error("missing rsyslog TLS configuration")
-		}
-		if stateServer {
-			if !hasCert || !hasKey {
-				c.Error("missing rsyslog server TLS configuration")
-			}
-		} else if hasCert || hasKey {
-			c.Error("found rsyslog server TLS configuration")
-		}
-	} else if hasCA || hasCert || hasKey {
-		c.Error("found rsyslog TLS configuration")
-	}
-}
-
-func (s *cloudinitSuite) TestSyslogTLS(c *gc.C) {
-	s.testSyslogTLS(c, false, false)
-	s.testSyslogTLS(c, false, true)
-	s.testSyslogTLS(c, true, false)
-	s.testSyslogTLS(c, true, true)
-}
-
-func containsMatcher(s string) func(interface{}) bool {
-	return func(x interface{}) bool {
-		if x, ok := x.(string); ok {
-			return strings.Contains(x, s)
-		}
-		return false
-	}
-}
-
-func findRunCmd(cmds []interface{}, match func(cmd interface{}) bool) bool {
-	for _, cmd := range cmds {
-		if match(cmd) {
-			return true
-		}
-	}
-	return false
 }
 
 var serverCert = []byte(`

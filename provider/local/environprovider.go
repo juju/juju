@@ -103,10 +103,6 @@ func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Conf
 	}
 	attrs := make(map[string]interface{})
 
-	// Use plain old UDP for syslog, so we don't need to prereq
-	// rsyslog-gnutls. It's of no benefit to the local provider.
-	attrs["syslog-tls"] = false
-
 	// If the user has specified no values for any of the three normal
 	// proxies, then look in the environment and set them.
 	setIfNotBlank := func(key, value string) {

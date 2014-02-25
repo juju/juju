@@ -198,12 +198,11 @@ func (fix *SimpleToolsFixture) getContextForMachine(c *gc.C, machineTag string) 
 	return deployer.NewTestSimpleContext(config, fix.initDir, fix.logDir, fix.syslogConfigDir)
 }
 
-func (fix *SimpleToolsFixture) paths(tag string) (confPath, agentDir, toolsDir, syslogConfPath string) {
+func (fix *SimpleToolsFixture) paths(tag string) (confPath, agentDir, toolsDir string) {
 	confName := fmt.Sprintf("jujud-%s.conf", tag)
 	confPath = filepath.Join(fix.initDir, confName)
 	agentDir = agent.Dir(fix.dataDir, tag)
 	toolsDir = tools.ToolsDir(fix.dataDir, tag)
-	syslogConfPath = filepath.Join(fix.syslogConfigDir, fmt.Sprintf("26-juju-%s.conf", tag))
 	return
 }
 
@@ -225,7 +224,7 @@ $template LongTagForwardFormat,"<%%PRI%%>%%TIMESTAMP:::date-rfc3339%% %%HOSTNAME
 
 func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string) {
 	tag := names.UnitTag(name)
-	uconfPath, _, toolsDir, syslogConfPath := fix.paths(tag)
+	uconfPath, _, toolsDir := fix.paths(tag)
 	uconfData, err := ioutil.ReadFile(uconfPath)
 	c.Assert(err, gc.IsNil)
 	uconf := string(uconfData)
@@ -261,20 +260,12 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string
 	jujudData, err := ioutil.ReadFile(jujudPath)
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(jujudData), gc.Equals, fakeJujud)
-
-	syslogConfData, err := ioutil.ReadFile(syslogConfPath)
-	c.Assert(err, gc.IsNil)
-	parts := strings.SplitN(name, "/", 2)
-	unitTag := fmt.Sprintf("unit-%s-%s", parts[0], parts[1])
-	expectedSyslogConfReplaced := fmt.Sprintf(expectedSyslogConf, unitTag, unitTag, unitTag)
-	c.Assert(string(syslogConfData), gc.Equals, expectedSyslogConfReplaced)
-
 }
 
 func (fix *SimpleToolsFixture) checkUnitRemoved(c *gc.C, name string) {
 	tag := names.UnitTag(name)
-	confPath, agentDir, toolsDir, syslogConfPath := fix.paths(tag)
-	for _, path := range []string{confPath, agentDir, toolsDir, syslogConfPath} {
+	confPath, agentDir, toolsDir := fix.paths(tag)
+	for _, path := range []string{confPath, agentDir, toolsDir} {
 		_, err := ioutil.ReadFile(path)
 		if err == nil {
 			c.Log("Warning: %q not removed as expected", path)
