@@ -4,6 +4,8 @@
 package apiserver_test
 
 import (
+	"archive/zip"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -260,27 +262,22 @@ func (s *charmsSuite) TestGetFailsWithInvalidCharmURL(c *gc.C) {
 	)
 }
 
-// func (s *charmsSuite) TestGetFailsWithInvalidFilePath(c *gc.C) {
-// 	uri := s.charmsURI(c, "?url=local:precise/ghost-4&file=../../../../etc/passwd")
-// 	resp, err := s.authRequest(c, "GET", uri, "", nil)
-// 	c.Assert(err, gc.IsNil)
-// 	s.assertErrorResponse(
-// 		c, resp, http.StatusBadRequest,
-// 		`invalid file path: "../../../../etc/passwd"`,
-// 	)
-// }
-
 func (s *charmsSuite) TestGetReturnsFileNotFound(c *gc.C) {
 	// Add the dummy charm.
 	ch := coretesting.Charms.Bundle(c.MkDir(), "dummy")
 	_, err := s.uploadRequest(
 		c, s.charmsURI(c, "?series=quantal"), true, ch.Path)
 	c.Assert(err, gc.IsNil)
-	// Ensure a 404 is returned if the file is not included in the charm.
-	uri := s.charmsURI(c, "?url=local:quantal/dummy-1&file=no-such-file")
-	resp, err := s.authRequest(c, "GET", uri, "", nil)
-	c.Assert(err, gc.IsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusNotFound)
+	// Ensure a 404 is returned fo files not included in the charm.
+	for i, file := range []string{
+		"no-such-file", "..", "../../../etc/passwd", "hooks/delete",
+	} {
+		c.Logf("test %d: %s", i, file)
+		uri := s.charmsURI(c, "?url=local:quantal/dummy-1&file="+file)
+		resp, err := s.authRequest(c, "GET", uri, "", nil)
+		c.Assert(err, gc.IsNil)
+		c.Assert(resp.StatusCode, gc.Equals, http.StatusNotFound)
+	}
 }
 
 func (s *charmsSuite) TestGetReturnsDirectoryForbidden(c *gc.C) {
@@ -325,7 +322,7 @@ func (s *charmsSuite) TestGetReturnsFileContents(c *gc.C) {
 		uri := s.charmsURI(c, "?url=local:quantal/dummy-1&file="+t.file)
 		resp, err := s.authRequest(c, "GET", uri, "", nil)
 		c.Assert(err, gc.IsNil)
-		s.assertGetFileResponse(c, resp, t.response)
+		s.assertGetFileResponse(c, resp, t.response, "text/plain; charset=utf-8")
 	}
 }
 
@@ -344,22 +341,34 @@ func (s *charmsSuite) TestGetListsFiles(c *gc.C) {
 		"src/hello.c",
 	}
 	s.assertGetFileListResponse(c, resp, expectedFiles)
+	ctype := resp.Header.Get("content-type")
+	c.Assert(ctype, gc.Equals, "application/json")
 }
 
 func (s *charmsSuite) TestGetUsesCache(c *gc.C) {
-	// Add a fake charm in the cache directory.
-	curl := charm.Quote("local:trusty/django-42")
-	path := filepath.Join(s.DataDir(), "charm-get-cache", curl)
-	err := os.MkdirAll(path, 0755)
+	// Add a fake charm archive in the cache directory.
+	cacheDir := filepath.Join(s.DataDir(), "charm-get-cache")
+	err := os.MkdirAll(cacheDir, 0755)
 	c.Assert(err, gc.IsNil)
-	contents := []byte("these are the voyages")
-	err = ioutil.WriteFile(filepath.Join(path, "readme.md"), contents, 0644)
+	// Create and save the zip archive.
+	buffer := new(bytes.Buffer)
+	writer := zip.NewWriter(buffer)
+	file, err := writer.Create("readme.md")
+	c.Assert(err, gc.IsNil)
+	contents := "these are the voyages"
+	_, err = file.Write([]byte(contents))
+	c.Assert(err, gc.IsNil)
+	err = writer.Close()
+	c.Assert(err, gc.IsNil)
+	charmArchivePath := filepath.Join(
+		cacheDir, charm.Quote("local:trusty/django-42")+".zip")
+	err = ioutil.WriteFile(charmArchivePath, buffer.Bytes(), 0644)
 	c.Assert(err, gc.IsNil)
 	// Ensure the cached contents are properly retrieved.
 	uri := s.charmsURI(c, "?url=local:trusty/django-42&file=readme.md")
 	resp, err := s.authRequest(c, "GET", uri, "", nil)
 	c.Assert(err, gc.IsNil)
-	s.assertGetFileResponse(c, resp, string(contents))
+	s.assertGetFileResponse(c, resp, contents, "text/plain; charset=utf-8")
 }
 
 func (s *charmsSuite) charmsURI(c *gc.C, query string) string {
@@ -401,34 +410,36 @@ func (s *charmsSuite) uploadRequest(c *gc.C, uri string, asZip bool, path string
 }
 
 func (s *charmsSuite) assertUploadResponse(c *gc.C, resp *http.Response, expCharmURL string) {
-	body := assertResponse(c, resp, http.StatusOK)
+	body := assertResponse(c, resp, http.StatusOK, "application/json")
 	charmResponse := jsonResponse(c, body)
 	c.Check(charmResponse.Error, gc.Equals, "")
 	c.Check(charmResponse.CharmURL, gc.Equals, expCharmURL)
 }
 
-func (s *charmsSuite) assertGetFileResponse(c *gc.C, resp *http.Response, expBody string) {
-	body := assertResponse(c, resp, http.StatusOK)
+func (s *charmsSuite) assertGetFileResponse(c *gc.C, resp *http.Response, expBody, expContentType string) {
+	body := assertResponse(c, resp, http.StatusOK, expContentType)
 	c.Check(string(body), gc.Equals, expBody)
 }
 
 func (s *charmsSuite) assertGetFileListResponse(c *gc.C, resp *http.Response, expFiles []string) {
-	body := assertResponse(c, resp, http.StatusOK)
+	body := assertResponse(c, resp, http.StatusOK, "application/json")
 	charmResponse := jsonResponse(c, body)
 	c.Check(charmResponse.Error, gc.Equals, "")
 	c.Check(charmResponse.Files, gc.DeepEquals, expFiles)
 }
 
 func (s *charmsSuite) assertErrorResponse(c *gc.C, resp *http.Response, expCode int, expError string) {
-	body := assertResponse(c, resp, expCode)
+	body := assertResponse(c, resp, expCode, "application/json")
 	c.Check(jsonResponse(c, body).Error, gc.Matches, expError)
 }
 
-func assertResponse(c *gc.C, resp *http.Response, expCode int) []byte {
+func assertResponse(c *gc.C, resp *http.Response, expCode int, expContentType string) []byte {
 	c.Check(resp.StatusCode, gc.Equals, expCode)
 	body, err := ioutil.ReadAll(resp.Body)
 	defer resp.Body.Close()
 	c.Assert(err, gc.IsNil)
+	ctype := resp.Header.Get("content-type")
+	c.Assert(ctype, gc.Equals, expContentType)
 	return body
 }
 

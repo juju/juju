@@ -34,6 +34,8 @@ type charmsHandler struct {
 	dataDir string
 }
 
+// zipContentsSenderFunc functions are responsible of sending a zip archive
+// related response. The zip archive can be accessed through the given reader.
 type zipContentsSenderFunc func(w http.ResponseWriter, r *http.Request, reader *zip.ReadCloser)
 
 func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -83,6 +85,8 @@ func (h *charmsHandler) sendJSON(w http.ResponseWriter, statusCode int, response
 	return nil
 }
 
+// sendZipContents uses the given zipContentsSenderFunc to send a response
+// related to the zip archive located in the given archivePath.
 func sendZipContents(w http.ResponseWriter, r *http.Request, archivePath string, zipContentsSender zipContentsSenderFunc) {
 	reader, err := zip.OpenReader(archivePath)
 	if err != nil {
@@ -92,9 +96,13 @@ func sendZipContents(w http.ResponseWriter, r *http.Request, archivePath string,
 		return
 	}
 	defer reader.Close()
+	// The zipContentsSenderFunc will handle the zip contents, set up and send
+	// an appropriate response.
 	zipContentsSender(w, r, reader)
 }
 
+// fileListSender sends a JSON-encoded response to the client including the
+// list of files contained in the zip archive.
 func (h *charmsHandler) fileListSender(w http.ResponseWriter, r *http.Request, reader *zip.ReadCloser) {
 	var files []string
 	for _, file := range reader.File {
@@ -106,6 +114,10 @@ func (h *charmsHandler) fileListSender(w http.ResponseWriter, r *http.Request, r
 	h.sendJSON(w, http.StatusOK, &params.CharmsResponse{Files: files})
 }
 
+// fileSender returns a zipContentsSenderFunc which is responsible of sending
+// the contents of filePath included in the given zip.
+// A 404 page not found is returned if path does not exist in the zip.
+// A 403 forbidden error is returned if path points to a directory.
 func (h *charmsHandler) fileSender(filePath string) zipContentsSenderFunc {
 	return func(w http.ResponseWriter, r *http.Request, reader *zip.ReadCloser) {
 		for _, file := range reader.File {
@@ -131,63 +143,6 @@ func (h *charmsHandler) fileSender(filePath string) zipContentsSenderFunc {
 		http.NotFound(w, r)
 		return
 	}
-}
-
-// sendZipFilesList sends a JSON-encoded response to the client including the
-// list of files contained in the zip archive present in the given archivePath.
-func (h *charmsHandler) sendZipFilesList(w http.ResponseWriter, archivePath string) {
-	var files []string
-	reader, err := zip.OpenReader(archivePath)
-	if err != nil {
-		http.Error(
-			w, fmt.Sprintf("unable to read archive in %q: %v", archivePath, err),
-			http.StatusInternalServerError)
-		return
-	}
-	defer reader.Close()
-	for _, file := range reader.File {
-		fileInfo := file.FileInfo()
-		if !fileInfo.IsDir() {
-			files = append(files, file.Name)
-		}
-	}
-	h.sendJSON(w, http.StatusOK, &params.CharmsResponse{Files: files})
-}
-
-// sendZipFile sends the file contents of a file included in the given zip.
-// A 404 page not found is returned if path does not exist.
-// A 403 forbidden error is returned if path points to a directory.
-func (h *charmsHandler) sendZipFile(w http.ResponseWriter, r *http.Request, archivePath, filePath string) {
-	reader, err := zip.OpenReader(archivePath)
-	if err != nil {
-		http.Error(
-			w, fmt.Sprintf("unable to read archive in %q: %v", archivePath, err),
-			http.StatusInternalServerError)
-		return
-	}
-	defer reader.Close()
-	for _, file := range reader.File {
-		if h.fixPath(file.Name) != filePath {
-			continue
-		}
-		fileInfo := file.FileInfo()
-		if fileInfo.IsDir() {
-			http.Error(w, "directory listing not allowed", http.StatusForbidden)
-			return
-		}
-		if contents, err := file.Open(); err != nil {
-			http.Error(
-				w, fmt.Sprintf("unable to read file %q: %v", filePath, err),
-				http.StatusInternalServerError)
-		} else {
-			defer contents.Close()
-			w.WriteHeader(http.StatusOK)
-			io.Copy(w, contents)
-		}
-		return
-	}
-	http.NotFound(w, r)
-	return
 }
 
 // sendError sends a JSON-encoded error response.
