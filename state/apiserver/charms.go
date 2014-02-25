@@ -34,7 +34,7 @@ type charmsHandler struct {
 	dataDir string
 }
 
-//type zipHandlerFunc func(reader zip.ReadCloser)
+type zipContentsSenderFunc func(w http.ResponseWriter, r *http.Request, reader *zip.ReadCloser)
 
 func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := h.authenticate(r); err != nil {
@@ -61,10 +61,10 @@ func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			h.sendError(w, http.StatusBadRequest, err.Error())
 		} else if filePath == "" {
 			// The client requested the list of charm files.
-			h.sendZipFilesList(w, charmArchivePath)
+			sendZipContents(w, r, charmArchivePath, h.fileListSender)
 		} else {
 			// The client requested a specific file.
-			h.sendZipFile(w, r, charmArchivePath, filePath)
+			sendZipContents(w, r, charmArchivePath, h.fileSender(filePath))
 		}
 	default:
 		h.sendError(w, http.StatusMethodNotAllowed, fmt.Sprintf("unsupported method: %q", r.Method))
@@ -81,6 +81,56 @@ func (h *charmsHandler) sendJSON(w http.ResponseWriter, statusCode int, response
 	}
 	w.Write(body)
 	return nil
+}
+
+func sendZipContents(w http.ResponseWriter, r *http.Request, archivePath string, zipContentsSender zipContentsSenderFunc) {
+	reader, err := zip.OpenReader(archivePath)
+	if err != nil {
+		http.Error(
+			w, fmt.Sprintf("unable to read archive in %q: %v", archivePath, err),
+			http.StatusInternalServerError)
+		return
+	}
+	defer reader.Close()
+	zipContentsSender(w, r, reader)
+}
+
+func (h *charmsHandler) fileListSender(w http.ResponseWriter, r *http.Request, reader *zip.ReadCloser) {
+	var files []string
+	for _, file := range reader.File {
+		fileInfo := file.FileInfo()
+		if !fileInfo.IsDir() {
+			files = append(files, file.Name)
+		}
+	}
+	h.sendJSON(w, http.StatusOK, &params.CharmsResponse{Files: files})
+}
+
+func (h *charmsHandler) fileSender(filePath string) zipContentsSenderFunc {
+	return func(w http.ResponseWriter, r *http.Request, reader *zip.ReadCloser) {
+		for _, file := range reader.File {
+			if h.fixPath(file.Name) != filePath {
+				continue
+			}
+			fileInfo := file.FileInfo()
+			if fileInfo.IsDir() {
+				http.Error(w, "directory listing not allowed", http.StatusForbidden)
+				return
+			}
+			if contents, err := file.Open(); err != nil {
+				http.Error(
+					w, fmt.Sprintf("unable to read file %q: %v", filePath, err),
+					http.StatusInternalServerError)
+			} else {
+				defer contents.Close()
+				w.WriteHeader(http.StatusOK)
+				io.Copy(w, contents)
+			}
+			return
+		}
+		http.NotFound(w, r)
+		return
+	}
 }
 
 // sendZipFilesList sends a JSON-encoded response to the client including the
