@@ -73,10 +73,6 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	fakeHome := coretesting.MakeEmptyFakeHomeWithoutJuju(c)
 	s.AddCleanup(func(*gc.C) { fakeHome.Restore() })
 	s.PatchValue(&authenticationworker.SSHUser, "")
-	s.PatchValue(&authRetryAttempt, utils.AttemptStrategy{
-		Total: 3 * time.Second,
-		Delay: 1 * time.Second,
-	})
 }
 
 func (s *commonMachineSuite) TearDownTest(c *gc.C) {

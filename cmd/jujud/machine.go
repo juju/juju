@@ -92,6 +92,7 @@ func (a *MachineAgent) Init(args []string) error {
 		return err
 	}
 	a.runner = newRunner(isFatal, moreImportant)
+	a.upgradeComplete = make(chan struct{})
 	return nil
 }
 
@@ -107,7 +108,7 @@ func (a *MachineAgent) Stop() error {
 }
 
 // startWorker starts a worker to run the specified child worker but only after waiting for upgrades to complete.
-func (a *MachineAgent) startWorker(runner worker.Runner, name string, start func() (worker.Worker, error)) {
+func (a *MachineAgent) startWorkerAfterUpgrade(runner worker.Runner, name string, start func() (worker.Worker, error)) {
 	runner.StartWorker(name, func() (worker.Worker, error) {
 		return a.upgradeWaiterWorker(start), nil
 	})
@@ -140,23 +141,28 @@ func (a *MachineAgent) upgradeWaiterWorker(start func() (worker.Worker, error)) 
 	})
 }
 
-// upgradeWorker runs the required upgrade steps.
+// upgradeWorker runs the required upgrade operations to upgrade to the current Juju version.
 func (a *MachineAgent) upgradeWorker(apiState *api.State, jobs []params.MachineJob) worker.Worker {
 	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
+		select {
+		case <-a.upgradeComplete:
+			// Our work is already done (we're probably being restarted
+			// because the API connection has gone down), so do nothing.
+			<-stop
+			return nil
+		default:
+		}
 		err := a.runUpgrades(apiState, jobs)
 		if err != nil {
 			return err
 		}
-		defer func() {
-			recover()
-		}()
 		close(a.upgradeComplete)
+		<-stop
 		return nil
 	})
 }
 
-// runUpgrades runs the upgrade operations for each job type and updates the
-// updatedToVersion on success.
+// runUpgrades runs the upgrade operations for each job type and updates the updatedToVersion on success.
 func (a *MachineAgent) runUpgrades(st *api.State, jobs []params.MachineJob) error {
 	agentConfig := a.Conf.config
 	context := upgrades.NewContext(agentConfig, st)
@@ -170,25 +176,14 @@ func (a *MachineAgent) runUpgrades(st *api.State, jobs []params.MachineJob) erro
 		default:
 			continue
 		}
-		fromVersion := version.Current
-		fromVersion.Number = agentConfig.UpgradedToVersion()
-		if err := upgradeFromVersion(context, fromVersion, target); err != nil {
-			return err
+		from := version.Current
+		from.Number = agentConfig.UpgradedToVersion()
+		logger.Infof("Starting upgrade from %v to %v for %v", from, version.Current, target)
+		if err := upgrades.PerformUpgrade(from.Number, target, context); err != nil {
+			return fmt.Errorf("cannot perform upgrade from %v to %v for : %v", from, version.Current, target, err)
 		}
 	}
 	return a.Conf.config.WriteUpgradedToVersion(version.Current.Number)
-}
-
-// upgradeFromVersion performs operations required to upgrade this machine to the current Juju version.
-func upgradeFromVersion(context upgrades.Context, from version.Binary, target upgrades.Target) error {
-	if target == "" {
-		panic("target must be specified")
-	}
-	logger.Infof("Starting upgrade from %v to %v for %v", from, version.Current, target)
-	if err := upgrades.PerformUpgrade(from.Number, target, context); err != nil {
-		return fmt.Errorf("cannot perform upgrade from %v to %v for : %v", from, version.Current, target, err)
-	}
-	return nil
 }
 
 // Run runs a machine agent.
@@ -208,30 +203,35 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 		return err
 	}
 
-	// The bootstrap machine needs to run the state api server before anything else so
-	// that workers which need a state connection can get one.
-	//	TODO(rog) When we have HA, we only want to do this
-	//	when we really are bootstrapping - once other
-	//	instances of the API server have been started, we
-	//	should follow the normal course of things and ignore
-	//	the fact that this was once the bootstrap machine.
+	// ensureStateWorker ensures that there is a worker that
+	// connects to the state that runs within itself all the workers
+	// that need a state connection. Unless we're bootstrapping, we
+	// need to connect to the API server to find out if we need to
+	// call this, so we make the APIWorker call it when necessary if
+	// the machine requires it. Note that ensureStateWorker can be
+	// called many times - StartWorker does nothing if there is
+	// already a worker started with the given name.
+	ensureStateWorker := func() {
+		a.runner.StartWorker("state", a.StateWorker)
+	}
+	// We might be bootstrapping, and the API server is not
+	// running yet. If so, make sure we run a state worker instead.
 	if a.MachineId == bootstrapMachineId {
-		logger.Infof("Starting API server for machine-0")
-		a.runner.StartWorker("api-server", a.StateAPIServer)
+		// TODO(rog) When we have HA, we only want to do this
+		// when we really are bootstrapping - once other
+		// instances of the API server have been started, we
+		// should follow the normal course of things and ignore
+		// the fact that this was once the bootstrap machine.
+		logger.Infof("Starting StateWorker for machine-0")
+		ensureStateWorker()
 	}
-
-	// Get a connection to state.
-	apiState, entity, err := a.openAPIConnection()
-	if err != nil && err != worker.ErrTerminateAgent {
-		return err
-	}
-	if err == nil {
-		defer apiState.Close()
-		a.startWorkers(apiState, entity)
-		// And now we wait.....
-		err = a.runner.Wait()
-	}
-
+	a.runner.StartWorker("api", func() (worker.Worker, error) {
+		return a.APIWorker(ensureStateWorker)
+	})
+	a.runner.StartWorker("termination", func() (worker.Worker, error) {
+		return terminationworker.NewWorker(), nil
+	})
+	err := a.runner.Wait()
 	if err == worker.ErrTerminateAgent {
 		err = a.uninstallAgent()
 	}
@@ -240,84 +240,48 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	return err
 }
 
-func (a *MachineAgent) startWorkers(apiState *api.State, entity *apiagent.Entity) {
-	// apiWorkerRunner is a runner which terminates when connection to state closes.
-	apiWorkerRunner := newRunner(connectionIsFatal(apiState), moreImportant)
-
-	// Start an upgrade worker which handles upgrade requests.
-	a.runner.StartWorker("upgrader-watcher", func() (worker.Worker, error) {
-		apiWorkerRunner.StartWorker("upgrader", func() (worker.Worker, error) {
-			return upgrader.NewUpgrader(apiState.Upgrader(), a.Conf.config), nil
-		})
-		return apiWorkerRunner, nil
-	})
-
-	// Run the upgrades before starting any other workers.
-	a.upgradeComplete = make(chan struct{})
-	a.runner.StartWorker("upgrade-steps", func() (worker.Worker, error) {
-		return a.upgradeWorker(apiState, entity.Jobs()), nil
-	})
-
-	// Start the workers which require direct access to state.
-	for _, job := range entity.Jobs() {
-		if job.NeedsState() {
-			a.startWorker(a.runner, "state", a.StateWorker)
-			break
-		}
-	}
-	// Start the workers which require an API connection.
-	a.startWorker(a.runner, "api", func() (worker.Worker, error) {
-		return a.APIWorker(apiWorkerRunner, entity)
-	})
-	// Finally, the termination worker.
-	a.startWorker(a.runner, "termination", func() (worker.Worker, error) {
-		return terminationworker.NewWorker(), nil
-	})
-}
-
-func (a *MachineAgent) openStateConnection() (*state.State, *state.Machine, error) {
-	agentConfig := a.Conf.config
-	st, entity, err := openState(agentConfig, a)
-	if err != nil {
-		return nil, nil, err
-	}
-	reportOpenedState(st)
-	return st, entity.(*state.Machine), nil
-}
-
-func (a *MachineAgent) openAPIConnection() (*api.State, *apiagent.Entity, error) {
-	agentConfig := a.Conf.config
-	st, entity, err := openAPIStateWithRetry(agentConfig, a, authRetryAttempt)
-	if err == nil {
-		reportOpenedAPI(st)
-	}
-	return st, entity, err
-}
-
 // APIWorker returns a Worker that connects to the API and starts any
 // workers that need an API connection.
 //
 // If a state worker is necessary, APIWorker calls ensureStateWorker.
-func (a *MachineAgent) APIWorker(runner worker.Runner, entity *apiagent.Entity) (worker.Worker, error) {
-	st, _, err := a.openAPIConnection()
+func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error) {
+	agentConfig := a.Conf.config
+	st, entity, err := openAPIState(agentConfig, a)
 	if err != nil {
 		return nil, err
 	}
-	agentConfig := a.Conf.config
-	runner.StartWorker("machiner", func() (worker.Worker, error) {
+	reportOpenedAPI(st)
+	for _, job := range entity.Jobs() {
+		if job.NeedsState() {
+			ensureStateWorker()
+			break
+		}
+	}
+	runner := newRunner(connectionIsFatal(st), moreImportant)
+
+	// Run the upgrader and the upgrade-steps worker without waiting for the upgrade steps to complete.
+	runner.StartWorker("upgrader", func() (worker.Worker, error) {
+		return upgrader.NewUpgrader(st.Upgrader(), agentConfig), nil
+	})
+	runner.StartWorker("upgrade-steps", func() (worker.Worker, error) {
+		return a.upgradeWorker(st, entity.Jobs()), nil
+	})
+
+	// All other workers must wait for the upgrade steps to complete before starting.
+	a.startWorkerAfterUpgrade(runner, "machiner", func() (worker.Worker, error) {
 		return machiner.NewMachiner(st.Machiner(), agentConfig), nil
 	})
-	runner.StartWorker("logger", func() (worker.Worker, error) {
+	a.startWorkerAfterUpgrade(runner, "logger", func() (worker.Worker, error) {
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
 	})
-	runner.StartWorker("machineenvironmentworker", func() (worker.Worker, error) {
+	a.startWorkerAfterUpgrade(runner, "machineenvironmentworker", func() (worker.Worker, error) {
 		return machineenvironmentworker.NewMachineEnvironmentWorker(st.Environment(), agentConfig), nil
 	})
 
 	// If not a local provider bootstrap machine, start the worker to manage SSH keys.
 	providerType := agentConfig.Value(agent.ProviderType)
 	if providerType != provider.Local || a.MachineId != bootstrapMachineId {
-		runner.StartWorker("authenticationworker", func() (worker.Worker, error) {
+		a.startWorkerAfterUpgrade(runner, "authenticationworker", func() (worker.Worker, error) {
 			return authenticationworker.NewWorker(st.KeyUpdater(), agentConfig), nil
 		})
 	}
@@ -329,22 +293,22 @@ func (a *MachineAgent) APIWorker(runner worker.Runner, entity *apiagent.Entity) 
 	for _, job := range entity.Jobs() {
 		switch job {
 		case params.JobHostUnits:
-			runner.StartWorker("deployer", func() (worker.Worker, error) {
+			a.startWorkerAfterUpgrade(runner, "deployer", func() (worker.Worker, error) {
 				apiDeployer := st.Deployer()
 				context := newDeployContext(apiDeployer, agentConfig)
 				return deployer.NewDeployer(apiDeployer, context), nil
 			})
 		case params.JobManageEnviron:
-			runner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
+			a.startWorkerAfterUpgrade(runner, "environ-provisioner", func() (worker.Worker, error) {
 				return provisioner.NewEnvironProvisioner(st.Provisioner(), agentConfig), nil
 			})
 			// TODO(axw) 2013-09-24 bug #1229506
 			// Make another job to enable the firewaller. Not all environments
 			// are capable of managing ports centrally.
-			runner.StartWorker("firewaller", func() (worker.Worker, error) {
+			a.startWorkerAfterUpgrade(runner, "firewaller", func() (worker.Worker, error) {
 				return firewaller.NewFirewaller(st.Firewaller())
 			})
-			runner.StartWorker("charm-revision-updater", func() (worker.Worker, error) {
+			a.startWorkerAfterUpgrade(runner, "charm-revision-updater", func() (worker.Worker, error) {
 				return charmrevisionworker.NewRevisionUpdateWorker(st.CharmRevisionUpdater()), nil
 			})
 		case params.JobManageStateDeprecated:
@@ -400,50 +364,29 @@ func (a *MachineAgent) updateSupportedContainers(runner worker.Runner, st *api.S
 	// Start the watcher to fire when a container is first requested on the machine.
 	watcherName := fmt.Sprintf("%s-container-watcher", machine.Id())
 	handler := provisioner.NewContainerSetupHandler(runner, watcherName, containers, machine, pr, a.Conf.config)
-	runner.StartWorker(watcherName, func() (worker.Worker, error) {
+	a.startWorkerAfterUpgrade(runner, watcherName, func() (worker.Worker, error) {
 		return worker.NewStringsWorker(handler), nil
 	})
 	return nil
 }
 
-// StateAPIServer returns a worker running the state API server.
-func (a *MachineAgent) StateAPIServer() (worker.Worker, error) {
-	st, _, err := a.openStateConnection()
-	if err != nil {
-		return nil, err
-	}
-	runner := newRunner(connectionIsFatal(st), moreImportant)
-	runner.StartWorker("apiserver", func() (worker.Worker, error) {
-		// If the configuration does not have the required information,
-		// it is currently not a recoverable error, so we kill the whole
-		// agent, potentially enabling human intervention to fix
-		// the agent's configuration file. In the future, we may retrieve
-		// the state server certificate and key from the state, and
-		// this should then change.
-		port, cert, key := a.Conf.config.APIServerDetails()
-		if len(cert) == 0 || len(key) == 0 {
-			return nil, &fatalError{"configuration does not have state server cert/key"}
-		}
-		dataDir := a.Conf.config.DataDir()
-		return apiserver.NewServer(st, fmt.Sprintf(":%d", port), cert, key, dataDir)
-	})
-	return newCloseWorker(runner, st), nil
-}
-
 // StateJobs returns a worker running all the workers that require
 // a *state.State connection.
 func (a *MachineAgent) StateWorker() (worker.Worker, error) {
-	st, m, err := a.openStateConnection()
+	agentConfig := a.Conf.config
+	st, entity, err := openState(agentConfig, a)
 	if err != nil {
 		return nil, err
 	}
-	agentConfig := a.Conf.config
+	reportOpenedState(st)
+	m := entity.(*state.Machine)
+
 	runner := newRunner(connectionIsFatal(st), moreImportant)
 	// Take advantage of special knowledge here in that we will only ever want
 	// the storage provider on one machine, and that is the "bootstrap" node.
 	providerType := agentConfig.Value(agent.ProviderType)
 	if (providerType == provider.Local || provider.IsManual(providerType)) && m.Id() == bootstrapMachineId {
-		runner.StartWorker("local-storage", func() (worker.Worker, error) {
+		a.startWorkerAfterUpgrade(runner, "local-storage", func() (worker.Worker, error) {
 			// TODO(axw) 2013-09-24 bug #1229507
 			// Make another job to enable storage.
 			// There's nothing special about this.
@@ -455,19 +398,33 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		case state.JobHostUnits:
 			// Implemented in APIWorker.
 		case state.JobManageEnviron:
-			runner.StartWorker("instancepoller", func() (worker.Worker, error) {
+			a.startWorkerAfterUpgrade(runner, "instancepoller", func() (worker.Worker, error) {
 				return instancepoller.NewWorker(st), nil
 			})
-			runner.StartWorker("cleaner", func() (worker.Worker, error) {
+			runner.StartWorker("apiserver", func() (worker.Worker, error) {
+				// If the configuration does not have the required information,
+				// it is currently not a recoverable error, so we kill the whole
+				// agent, potentially enabling human intervention to fix
+				// the agent's configuration file. In the future, we may retrieve
+				// the state server certificate and key from the state, and
+				// this should then change.
+				port, cert, key := a.Conf.config.APIServerDetails()
+				if len(cert) == 0 || len(key) == 0 {
+					return nil, &fatalError{"configuration does not have state server cert/key"}
+				}
+				dataDir := a.Conf.config.DataDir()
+				return apiserver.NewServer(st, fmt.Sprintf(":%d", port), cert, key, dataDir)
+			})
+			a.startWorkerAfterUpgrade(runner, "cleaner", func() (worker.Worker, error) {
 				return cleaner.NewCleaner(st), nil
 			})
-			runner.StartWorker("resumer", func() (worker.Worker, error) {
+			a.startWorkerAfterUpgrade(runner, "resumer", func() (worker.Worker, error) {
 				// The action of resumer is so subtle that it is not tested,
 				// because we can't figure out how to do so without brutalising
 				// the transaction log.
 				return resumer.NewResumer(st), nil
 			})
-			runner.StartWorker("minunitsworker", func() (worker.Worker, error) {
+			a.startWorkerAfterUpgrade(runner, "minunitsworker", func() (worker.Worker, error) {
 				return minunitsworker.NewMinUnitsWorker(st), nil
 			})
 		case state.JobManageStateDeprecated:

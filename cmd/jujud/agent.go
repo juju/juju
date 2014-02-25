@@ -19,7 +19,6 @@ import (
 	apiagent "launchpad.net/juju-core/state/api/agent"
 	apideployer "launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/deployer"
@@ -173,29 +172,7 @@ func openAPIState(agentConfig apiOpener, a Agent) (*api.State, *apiagent.Entity,
 	// keep on retrying. If we block for ages here,
 	// then the worker that's calling this cannot
 	// be interrupted.
-	return openAPIStateWithRetry(agentConfig, a, utils.AttemptStrategy{})
-}
-
-var authRetryAttempt = utils.AttemptStrategy{
-	Total: 30 * time.Second,
-	Delay: 2 * time.Second,
-}
-
-func openAPIStateWithRetry(
-	agentConfig apiOpener, a Agent, attempt utils.AttemptStrategy) (*api.State, *apiagent.Entity, error) {
-
-	var err error
-	var st *api.State
-	var newPassword string
-	for a := attempt.Start(); a.Next(); {
-		st, newPassword, err = agentConfig.OpenAPI(api.DialOpts{})
-		if err == nil {
-			break
-		}
-		if params.IsCodeUnauthorized(err) {
-			continue
-		}
-	}
+	st, newPassword, err := agentConfig.OpenAPI(api.DialOpts{})
 	if err != nil {
 		if params.IsCodeNotProvisioned(err) {
 			err = worker.ErrTerminateAgent
