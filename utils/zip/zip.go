@@ -19,7 +19,8 @@ import (
 func Walk(reader *zip.Reader, callback func(zipFile *zip.File) error) error {
 	for _, zipFile := range reader.File {
 		if err := callback(zipFile); err != nil {
-			return fmt.Errorf("cannot process %q: %v", zipFile.Name, err)
+			cleanName := path.Clean(zipFile.Name)
+			return fmt.Errorf("cannot process %q: %v", cleanName, err)
 		}
 	}
 	return nil
@@ -109,12 +110,31 @@ func (x expander) expand(zipFile *zip.File) error {
 }
 
 func (x expander) writeDir(filePath string, perm os.FileMode) error {
-	// TODO change perms if necessary
+	fileInfo, err := os.Lstat(filePath)
+	switch {
+	case err == nil:
+		mode := fileInfo.Mode()
+		if mode.IsDir() {
+			if mode&os.ModePerm != perm {
+				return os.Chmod(filePath, perm)
+			}
+			return nil
+		}
+		fallthrough
+	case !os.IsNotExist(err):
+		if err := os.RemoveAll(filePath); err != nil {
+			return err
+		}
+	}
 	return os.MkdirAll(filePath, perm)
 }
 
 func (x expander) writeFile(filePath string, zipFile *zip.File, perm os.FileMode) error {
-	// TODO change perms if necessary
+	if _, err := os.Lstat(filePath); !os.IsNotExist(err) {
+		if err := os.RemoveAll(filePath); err != nil {
+			return err
+		}
+	}
 	writer, err := os.OpenFile(filePath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, perm)
 	if err != nil {
 		return err
@@ -123,23 +143,36 @@ func (x expander) writeFile(filePath string, zipFile *zip.File, perm os.FileMode
 }
 
 func (x expander) writeSymlink(filePath string, zipFile *zip.File) error {
+	targetPath, err := x.checkSymlink(filePath, zipFile)
+	if err != nil {
+		return err
+	}
+	if _, err := os.Lstat(filePath); !os.IsNotExist(err) {
+		if err := os.RemoveAll(filePath); err != nil {
+			return err
+		}
+	}
+	return os.Symlink(targetPath, filePath)
+}
+
+func (x expander) checkSymlink(filePath string, zipFile *zip.File) (string, error) {
 	var buffer bytes.Buffer
 	if err := readTo(&buffer, zipFile); err != nil {
-		return err
+		return "", err
 	}
 	targetPath := buffer.String()
 	if filepath.IsAbs(targetPath) {
-		return fmt.Errorf("symlink is absolute")
+		return "", fmt.Errorf("symlink is absolute")
 	}
 	finalPath := filepath.Join(filepath.Dir(filePath), targetPath)
 	relativePath, err := filepath.Rel(x.targetPath, finalPath)
 	if err != nil {
-		return fmt.Errorf("symlink not comprehensible")
+		return "", fmt.Errorf("symlink not comprehensible")
 	}
 	if !isSanePath(relativePath) {
-		return fmt.Errorf("symlink leads out of scope")
+		return "", fmt.Errorf("symlink leads out of scope")
 	}
-	return os.Symlink(targetPath, filePath)
+	return targetPath, nil
 }
 
 func readTo(writer io.Writer, zipFile *zip.File) error {
