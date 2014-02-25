@@ -105,6 +105,10 @@ func (s *DestroyMachineSuite) TestForce(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = u.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	err = m0.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(m0.Life(), gc.Equals, state.Dead)
+
 	err = m1.Refresh()
 	c.Assert(err, gc.IsNil)
 	c.Assert(m1.Life(), gc.Equals, state.Dead)

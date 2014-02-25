@@ -62,12 +62,15 @@ func ClientTLS(addr string, caCertPEM []byte, authkey string) (storage.Storage, 
 }
 
 func (s *localStorage) getHTTPSBaseURL() (string, error) {
-	url, _ := s.URL("/") // never fails
+	url, _ := s.URL("") // never fails
 	resp, err := s.client.Head(url)
 	if err != nil {
 		return "", err
 	}
 	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("Could not access file storage: %v %s", url, resp.Status)
+	}
 	httpsURL, err := resp.Location()
 	if err != nil {
 		return "", err
