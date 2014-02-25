@@ -10,10 +10,7 @@ import (
 	"os/exec"
 )
 
-// Override for testing.
-var Restart = restart
-
-func restart() error {
+func Restart() error {
 	if os.Geteuid() == 0 {
 		return runCommand("restart", "rsyslog")
 	}

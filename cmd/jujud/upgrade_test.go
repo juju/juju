@@ -4,15 +4,11 @@
 package main
 
 import (
-	"io/ioutil"
 	"path/filepath"
 
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/log/syslog"
-	syslogtesting "launchpad.net/juju-core/log/syslog/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -22,7 +18,6 @@ import (
 type UpgradeSuite struct {
 	commonMachineSuite
 
-	rsyslogPath      string
 	machine          *state.Machine
 	upgradeToVersion version.Binary
 }
@@ -33,7 +28,6 @@ func fakeRestart() error { return nil }
 
 func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 	s.commonMachineSuite.SetUpTest(c)
-	s.PatchValue(&syslog.Restart, fakeRestart)
 
 	// As Juju versions increase, update the version to which we are upgrading.
 	s.upgradeToVersion = version.Current
@@ -56,16 +50,6 @@ func (s *UpgradeSuite) TestUpgradeStepsHostMachine(c *gc.C) {
 	s.assertHostUpgrades(c)
 }
 
-func (s *UpgradeSuite) assertPrepareForUpgrade(c *gc.C) {
-	// Prepare for Rsyslog
-	syslogDir := c.MkDir()
-	s.rsyslogPath = filepath.Join(syslogDir, "rsyslog.conf")
-	s.PatchValue(&environs.RsyslogConfPath, s.rsyslogPath)
-	err := ioutil.WriteFile(s.rsyslogPath, []byte("hello world"), 0644)
-	c.Assert(err, gc.IsNil)
-	// Other preparation here as needed...
-}
-
 func (s *UpgradeSuite) assertUpgradeSteps(c *gc.C, job state.MachineJob) {
 	s.PatchValue(&version.Current, s.upgradeToVersion)
 	err := s.State.SetEnvironAgentVersion(s.upgradeToVersion.Number)
@@ -76,7 +60,6 @@ func (s *UpgradeSuite) assertUpgradeSteps(c *gc.C, job state.MachineJob) {
 	oldVersion.Minor = 16
 	var oldConfig agent.Config
 	s.machine, oldConfig, _ = s.primeAgent(c, oldVersion, job)
-	s.assertPrepareForUpgrade(c)
 
 	a := s.newAgent(c, s.machine)
 	go func() { c.Check(a.Run(nil), gc.IsNil) }()
@@ -97,23 +80,12 @@ func (s *UpgradeSuite) assertUpgradeSteps(c *gc.C, job state.MachineJob) {
 }
 
 func (s *UpgradeSuite) assertStateServerUpgrades(c *gc.C) {
-	// Rsyslog
-	rsyslogContent := syslogtesting.ExpectedAccumulateSyslogConf(c, s.machine.Tag(), "", 2345)
-	s.assertRsyslogUpgrade(c, rsyslogContent)
+	// Add checks as needed...
 }
 
 func (s *UpgradeSuite) assertHostUpgrades(c *gc.C) {
-	// Rsyslog
-	rsyslogContent := syslogtesting.ExpectedForwardSyslogConf(c, s.machine.Tag(), "", "127.0.0.1", 2345)
-	s.assertRsyslogUpgrade(c, rsyslogContent)
-
 	// Lock directory
 	lockdir := filepath.Join(s.DataDir(), "locks")
 	c.Assert(lockdir, jc.IsDirectory)
-}
-
-func (s *UpgradeSuite) assertRsyslogUpgrade(c *gc.C, configContent string) {
-	data, err := ioutil.ReadFile(s.rsyslogPath)
-	c.Assert(err, gc.IsNil)
-	c.Assert(string(data), gc.Equals, configContent)
+	// Add other checks as needed...
 }

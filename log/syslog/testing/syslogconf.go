@@ -33,21 +33,27 @@ $FileCreateMode 0644
 $FileCreateMode 0640
 `
 
+type templateArgs struct {
+	MachineTag string
+	Namespace string
+	BootstrapIP string
+	Port int
+	Offset int
+}
+
 // ExpectedAccumulateSyslogConf returns the expected content for a rsyslog file on a state server.
 func ExpectedAccumulateSyslogConf(c *gc.C, machineTag, namespace string, port int) string {
 	if namespace != "" {
 		namespace = "-" + namespace
 	}
-	t := template.New("")
-	t.Funcs(template.FuncMap{
-		"machine":   func() string { return machineTag },
-		"namespace": func() string { return namespace },
-		"port":      func() int { return port },
-		"offset":    func() int { return 6 + len(namespace) },
-	})
-	t = template.Must(t.Parse(expectedAccumulateSyslogConfTemplate))
+	t := template.Must(template.New("").Parse(expectedAccumulateSyslogConfTemplate))
 	var conf bytes.Buffer
-	err := t.Execute(&conf, nil)
+	err := t.Execute(&conf, templateArgs{
+		MachineTag: machineTag,
+		Namespace: namespace,
+		Offset: 6 + len(namespace),
+		Port: port,
+	})
 	c.Assert(err, gc.IsNil)
 	return conf.String()
 }
@@ -73,16 +79,14 @@ func ExpectedForwardSyslogConf(c *gc.C, machineTag, namespace, bootstrapIP strin
 	if namespace != "" {
 		namespace = "-" + namespace
 	}
-	t := template.New("")
-	t.Funcs(template.FuncMap{
-		"machine":     func() string { return machineTag },
-		"namespace":   func() string { return namespace },
-		"bootstrapIP": func() string { return bootstrapIP },
-		"port":        func() int { return port },
-	})
-	t = template.Must(t.Parse(expectedForwardSyslogConfTemplate))
+	t := template.Must(template.New("").Parse(expectedForwardSyslogConfTemplate))
 	var conf bytes.Buffer
-	err := t.Execute(&conf, nil)
+	err := t.Execute(&conf, templateArgs{
+		MachineTag: machineTag,
+		Namespace: namespace,
+		BootstrapIP: bootstrapIP,
+		Port: port,
+	})
 	c.Assert(err, gc.IsNil)
 	return conf.String()
 }
