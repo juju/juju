@@ -34,11 +34,11 @@ $FileCreateMode 0640
 `
 
 type templateArgs struct {
-	MachineTag string
-	Namespace string
+	MachineTag  string
+	Namespace   string
 	BootstrapIP string
-	Port int
-	Offset int
+	Port        int
+	Offset      int
 }
 
 // ExpectedAccumulateSyslogConf returns the expected content for a rsyslog file on a state server.
@@ -50,9 +50,9 @@ func ExpectedAccumulateSyslogConf(c *gc.C, machineTag, namespace string, port in
 	var conf bytes.Buffer
 	err := t.Execute(&conf, templateArgs{
 		MachineTag: machineTag,
-		Namespace: namespace,
-		Offset: 6 + len(namespace),
-		Port: port,
+		Namespace:  namespace,
+		Offset:     6 + len(namespace),
+		Port:       port,
 	})
 	c.Assert(err, gc.IsNil)
 	return conf.String()
@@ -82,10 +82,10 @@ func ExpectedForwardSyslogConf(c *gc.C, machineTag, namespace, bootstrapIP strin
 	t := template.Must(template.New("").Parse(expectedForwardSyslogConfTemplate))
 	var conf bytes.Buffer
 	err := t.Execute(&conf, templateArgs{
-		MachineTag: machineTag,
-		Namespace: namespace,
+		MachineTag:  machineTag,
+		Namespace:   namespace,
 		BootstrapIP: bootstrapIP,
-		Port: port,
+		Port:        port,
 	})
 	c.Assert(err, gc.IsNil)
 	return conf.String()
