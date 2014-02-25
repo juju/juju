@@ -45,6 +45,6 @@ func (t *LoggingSuite) setUp(c *gc.C) {
 	loggo.ResetWriters()
 	loggo.ReplaceDefaultWriter(&gocheckWriter{c})
 	loggo.ResetLoggers()
-	loggo.GetLogger("juju.worker.peergrouper").SetLogLevel(loggo.DEBUG)
+	loggo.GetLogger("juju").SetLogLevel(loggo.DEBUG)
 	loggo.GetLogger("unit").SetLogLevel(loggo.DEBUG)
 }

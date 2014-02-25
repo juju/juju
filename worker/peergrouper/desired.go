@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/replicaset"
@@ -30,7 +29,8 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, map[*machine]bo
 	}
 	changed := false
 	members, extra, maxId := info.membersMap()
-	logger.Debugf("members map: %s", spew.Sdump(members))
+	logger.Debugf("calculating desired peer group")
+	logger.Debugf("members: %#v", members)
 	logger.Debugf("extra: %#v", extra)
 	logger.Debugf("maxId: %v", maxId)
 
@@ -57,10 +57,6 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, map[*machine]bo
 	}
 
 	toRemoveVote, toAddVote, toKeep := possiblePeerGroupChanges(info, members)
-
-	logger.Infof("toRemove: %#v", toRemoveVote)
-	logger.Infof("toAdd: %#v", toAddVote)
-	logger.Infof("toKeep: %#v", toKeep)
 
 	// Set up initial record of machine votes. Any changes after
 	// this will trigger a peer group election.
@@ -108,7 +104,6 @@ func possiblePeerGroupChanges(
 	members map[*machine]*replicaset.Member,
 ) (toRemoveVote, toAddVote, toKeep []*machine) {
 	statuses := info.statusesMap(members)
-	logger.Debugf("statuses map: %s", spew.Sdump(statuses))
 
 	logger.Debugf("assessing possible peer group changes:")
 	for _, m := range info.machines {

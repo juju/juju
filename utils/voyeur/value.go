@@ -107,7 +107,13 @@ func (w *Watcher) Next() bool {
 		val.mu.RLock()
 	}
 
-	// We should never go around this loop more than twice.
+	// We can go around this loop a maximum of two times,
+	// because the only thing that can cause a Wait to
+	// return is for the condition to be triggered,
+	// which can only happen if the value is set (causing
+	// the version to increment) or it is closed
+	// causing the closed flag to be set.
+	// Both these cases will cause Next to return.
 	for {
 		if w.version != val.version {
 			w.version = val.version
