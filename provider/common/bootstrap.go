@@ -97,13 +97,13 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, cons constra
 func GenerateSystemSSHKey(env environs.Environ) (privateKey string, err error) {
 	logger.Debugf("generate a system ssh key")
 	// Create a new system ssh key and add that to the authorized keys.
-	privateKey, publicKey, err := ssh.GenerateKey("juju-system-key")
+	privateKey, publicKey, err := ssh.GenerateKey(config.JujuSystemKeyComment)
 	if err != nil {
 		return "", fmt.Errorf("failed to create system key: %v", err)
 	}
-	authorized_keys := concatAuthKeys(env.Config().AuthorizedKeys(), publicKey)
+	authorized_keys := config.ConcatAuthKeys(env.Config().AuthorizedKeys(), publicKey)
 	newConfig, err := env.Config().Apply(map[string]interface{}{
-		"authorized-keys": authorized_keys,
+		config.AuthKeysConfig: authorized_keys,
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to create new config: %v", err)
@@ -112,23 +112,6 @@ func GenerateSystemSSHKey(env environs.Environ) (privateKey string, err error) {
 		return "", fmt.Errorf("failed to set new config: %v", err)
 	}
 	return privateKey, nil
-}
-
-// concatAuthKeys concatenates the two
-// sets of authorized keys, interposing
-// a newline if necessary, because authorized
-// keys are newline-separated.
-func concatAuthKeys(a, b string) string {
-	if a == "" {
-		return b
-	}
-	if b == "" {
-		return a
-	}
-	if a[len(a)-1] != '\n' {
-		return a + "\n" + b
-	}
-	return a + b
 }
 
 // handelBootstrapError cleans up after a failed bootstrap.

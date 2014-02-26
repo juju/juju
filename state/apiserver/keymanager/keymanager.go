@@ -139,7 +139,7 @@ func parseKeys(keys []string, mode ssh.ListMode) (keyInfo []string) {
 func (api *KeyManagerAPI) writeSSHKeys(currentConfig *config.Config, sshKeys []string) error {
 	// Write out the new keys.
 	keyStr := strings.Join(sshKeys, "\n")
-	newConfig, err := currentConfig.Apply(map[string]interface{}{"authorized-keys": keyStr})
+	newConfig, err := currentConfig.Apply(map[string]interface{}{config.AuthKeysConfig: keyStr})
 	if err != nil {
 		return fmt.Errorf("creating new environ config: %v", err)
 	}

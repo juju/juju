@@ -11,5 +11,10 @@ func stepsFor118() []Step {
 			targets:     []Target{HostMachine},
 			run:         ensureLockDirExistsAndUbuntuWritable,
 		},
+		&upgradeStep{
+			description: "generate system ssh key",
+			targets:     []Target{StateServer},
+			run:         ensureSystemSSHKey,
+		},
 	}
 }
