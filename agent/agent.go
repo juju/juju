@@ -408,8 +408,14 @@ func (c *configInternal) Write() error {
 }
 
 func (c *configInternal) WriteUpgradedToVersion(newVersion version.Number) error {
+	originalVersion := c.upgradedToVersion
 	c.upgradedToVersion = newVersion
-	return c.Write()
+	err := c.Write()
+	if err != nil {
+		// We don't want to retain the new version if there's been an error writing the file.
+		c.upgradedToVersion = originalVersion
+	}
+	return err
 }
 
 func (c *configInternal) WriteCommands() ([]string, error) {
