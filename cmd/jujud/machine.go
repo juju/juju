@@ -28,6 +28,7 @@ import (
 	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
 	"launchpad.net/juju-core/state/apiserver"
 	"launchpad.net/juju-core/upstart"
+	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/authenticationworker"
 	"launchpad.net/juju-core/worker/charmrevisionworker"
@@ -111,7 +112,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	// lines of all logging in the log file.
 	loggo.RemoveWriter("logfile")
 	defer a.tomb.Done()
-	logger.Infof("machine agent %v start", a.Tag())
+	logger.Infof("machine agent %v start %s", a.Tag(), version.Current)
 	if err := a.Conf.read(a.Tag()); err != nil {
 		return err
 	}
