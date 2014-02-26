@@ -47,7 +47,7 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 // primed to vote.
 func initState(c *gc.C, st *fakeState, numMachines int) {
 	var ids []string
-	for i := 10; i < 13; i++ {
+	for i := 10; i < 10 + numMachines; i++ {
 		id := fmt.Sprint(i)
 		m := st.addMachine(id, true)
 		m.setStateHostPort(fmt.Sprintf("0.1.2.%d:%d", i, mongoPort))
@@ -174,7 +174,7 @@ var fatalErrorsTests = []struct {
 }}
 
 func (s *workerSuite) TestFatalErrors(c *gc.C) {
-	testbase.PatchValue(&pollInterval, 500*time.Millisecond)
+	testbase.PatchValue(&pollInterval, 5*time.Millisecond)
 	for i, test := range fatalErrorsTests {
 		c.Logf("test %d: %s -> %s", i, test.errPattern, test.expectErr)
 		resetErrors()

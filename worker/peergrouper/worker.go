@@ -47,7 +47,7 @@ type mongoSession interface {
 type notifyFunc func() (bool, error)
 
 var (
-	// If we fail to set the mongo replicset members,
+	// If we fail to set the mongo replica set members,
 	// we retry at the following interval until we succeed.
 	retryInterval = 2 * time.Second
 
