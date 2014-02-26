@@ -262,13 +262,14 @@ func (s *charmsSuite) TestGetFailsWithInvalidCharmURL(c *gc.C) {
 	)
 }
 
-func (s *charmsSuite) TestGetReturnsFileNotFound(c *gc.C) {
+func (s *charmsSuite) TestGetReturnsNotFoundWhenMissing(c *gc.C) {
 	// Add the dummy charm.
 	ch := coretesting.Charms.Bundle(c.MkDir(), "dummy")
 	_, err := s.uploadRequest(
 		c, s.charmsURI(c, "?series=quantal"), true, ch.Path)
 	c.Assert(err, gc.IsNil)
-	// Ensure a 404 is returned fo files not included in the charm.
+
+	// Ensure a 404 is returned for files not included in the charm.
 	for i, file := range []string{
 		"no-such-file", "..", "../../../etc/passwd", "hooks/delete",
 	} {
@@ -280,12 +281,13 @@ func (s *charmsSuite) TestGetReturnsFileNotFound(c *gc.C) {
 	}
 }
 
-func (s *charmsSuite) TestGetReturnsDirectoryForbidden(c *gc.C) {
+func (s *charmsSuite) TestGetReturnsForbiddenWithDirectory(c *gc.C) {
 	// Add the dummy charm.
 	ch := coretesting.Charms.Bundle(c.MkDir(), "dummy")
 	_, err := s.uploadRequest(
 		c, s.charmsURI(c, "?series=quantal"), true, ch.Path)
 	c.Assert(err, gc.IsNil)
+
 	// Ensure a 403 is returned if the requested file is a directory.
 	uri := s.charmsURI(c, "?url=local:quantal/dummy-1&file=hooks")
 	resp, err := s.authRequest(c, "GET", uri, "", nil)
@@ -299,6 +301,7 @@ func (s *charmsSuite) TestGetReturnsFileContents(c *gc.C) {
 	_, err := s.uploadRequest(
 		c, s.charmsURI(c, "?series=quantal"), true, ch.Path)
 	c.Assert(err, gc.IsNil)
+
 	// Ensure the file contents are properly returned.
 	for i, t := range []struct {
 		summary  string
@@ -332,6 +335,7 @@ func (s *charmsSuite) TestGetListsFiles(c *gc.C) {
 	_, err := s.uploadRequest(
 		c, s.charmsURI(c, "?series=quantal"), true, ch.Path)
 	c.Assert(err, gc.IsNil)
+
 	// Ensure charm files are properly listed.
 	uri := s.charmsURI(c, "?url=local:quantal/dummy-1")
 	resp, err := s.authRequest(c, "GET", uri, "", nil)
@@ -350,6 +354,7 @@ func (s *charmsSuite) TestGetUsesCache(c *gc.C) {
 	cacheDir := filepath.Join(s.DataDir(), "charm-get-cache")
 	err := os.MkdirAll(cacheDir, 0755)
 	c.Assert(err, gc.IsNil)
+
 	// Create and save the zip archive.
 	buffer := new(bytes.Buffer)
 	writer := zip.NewWriter(buffer)
@@ -364,6 +369,7 @@ func (s *charmsSuite) TestGetUsesCache(c *gc.C) {
 		cacheDir, charm.Quote("local:trusty/django-42")+".zip")
 	err = ioutil.WriteFile(charmArchivePath, buffer.Bytes(), 0644)
 	c.Assert(err, gc.IsNil)
+
 	// Ensure the cached contents are properly retrieved.
 	uri := s.charmsURI(c, "?url=local:trusty/django-42&file=utils.js")
 	resp, err := s.authRequest(c, "GET", uri, "", nil)
@@ -438,7 +444,7 @@ func assertResponse(c *gc.C, resp *http.Response, expCode int, expContentType st
 	body, err := ioutil.ReadAll(resp.Body)
 	defer resp.Body.Close()
 	c.Assert(err, gc.IsNil)
-	ctype := resp.Header.Get("content-type")
+	ctype := resp.Header.Get("Content-Type")
 	c.Assert(ctype, gc.Equals, expContentType)
 	return body
 }

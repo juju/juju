@@ -135,6 +135,7 @@ func (h *charmsHandler) fileSender(filePath string) zipContentsSenderFunc {
 				http.Error(
 					w, fmt.Sprintf("unable to read file %q: %v", filePath, err),
 					http.StatusInternalServerError)
+				return
 			} else {
 				defer contents.Close()
 				ctype := mime.TypeByExtension(filepath.Ext(filePath))
@@ -508,7 +509,7 @@ func (h *charmsHandler) repackageAndUploadCharm(archive *charm.Bundle, curl *cha
 	return nil
 }
 
-// processGet handles a charm file download GET request after authentication.
+// processGet handles a charm file GET request after authentication.
 // It returns the bundle path, the requested file path (if any) and an error.
 func (h *charmsHandler) processGet(r *http.Request) (string, string, error) {
 	query := r.URL.Query()
@@ -543,7 +544,7 @@ func (h *charmsHandler) processGet(r *http.Request) (string, string, error) {
 }
 
 // downloadCharm downloads the given charm name from the provider storage and
-// save the corresponding zip archive to the given charmArchivePath.
+// saves the corresponding zip archive to the given charmArchivePath.
 func (h *charmsHandler) downloadCharm(name, charmArchivePath string) error {
 	// Get the provider storage.
 	storage, err := envtesting.GetEnvironStorage(h.state)
@@ -578,6 +579,7 @@ func (h *charmsHandler) downloadCharm(name, charmArchivePath string) error {
 		return errgo.Annotate(err, "error processing charm archive download")
 	}
 	if err = os.Rename(tempCharmArchive.Name(), charmArchivePath); err != nil {
+		defer os.Remove(tempCharmArchive.Name())
 		return errgo.Annotate(err, "error renaming the charm archive")
 	}
 	return nil
