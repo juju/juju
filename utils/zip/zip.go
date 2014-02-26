@@ -1,4 +1,4 @@
-// Copyright 2011, 2012, 2013, 2014 Canonical Ltd.
+// Copyright 2011-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package zip
@@ -14,25 +14,13 @@ import (
 	"strings"
 )
 
-// Walk calls the supplied callback with every file in the supplied zip reader.
-// If the callback ever returns an error, the process will abort.
-func Walk(reader *zip.Reader, callback func(zipFile *zip.File) error) error {
-	for _, zipFile := range reader.File {
-		if err := callback(zipFile); err != nil {
-			cleanName := path.Clean(zipFile.Name)
-			return fmt.Errorf("cannot process %q: %v", cleanName, err)
-		}
-	}
-	return nil
-}
-
 // FindAll returns the cleaned path of every file in the supplied zip reader.
 func FindAll(reader *zip.Reader) ([]string, error) {
 	return Find(reader, "*")
 }
 
 // Find returns the cleaned path of every file in the supplied zip reader whose
-// base name matches the supplied pattern, which is interpreted as in path.Check.
+// base name matches the supplied pattern, which is interpreted as in path.Match.
 func Find(reader *zip.Reader, pattern string) ([]string, error) {
 	// path.Match will only return an error if the pattern is not
 	// valid (*and* the supplied name is not empty, hence "check").
@@ -40,63 +28,73 @@ func Find(reader *zip.Reader, pattern string) ([]string, error) {
 		return nil, err
 	}
 	var matches []string
-	callback := func(zipFile *zip.File) error {
+	for _, zipFile := range reader.File {
 		cleanPath := path.Clean(zipFile.Name)
 		baseName := path.Base(cleanPath)
 		if match, _ := path.Match(pattern, baseName); match {
 			matches = append(matches, cleanPath)
 		}
-		return nil
 	}
-	// callback never returns an error, so nor will Walk.
-	Walk(reader, callback)
 	return matches, nil
 }
 
 // ExtractAll extracts the supplied zip reader to the target path, overwriting
 // existing files and directories only where necessary.
-func ExtractAll(reader *zip.Reader, targetPath string) error {
-	return Extract(reader, targetPath, "")
+func ExtractAll(reader *zip.Reader, targetRoot string) error {
+	return Extract(reader, targetRoot, "")
 }
 
-// Extract extracts the supplied zip reader to the target path, omitting files
-// not rooted at the source path, and overwriting existing files and directories
-// only where necessary. If the source path identifies a single file, it will be
-// extracted to the target path directly.
-func Extract(reader *zip.Reader, targetPath, sourcePath string) error {
-	sourcePath = path.Clean(sourcePath)
-	if sourcePath == "." {
-		sourcePath = ""
-	} else if !isSanePath(sourcePath) {
-		return fmt.Errorf("cannot extract files rooted at %q", sourcePath)
+// Extract extracts files from the supplied zip reader, from the (internal, slash-
+// separated) source path into the (external, OS-specific) target path. If the
+// source path does not reference a directory, the referenced file will be written
+// directly to the target path.
+func Extract(reader *zip.Reader, targetRoot, sourceRoot string) error {
+	sourceRoot = path.Clean(sourceRoot)
+	if sourceRoot == "." {
+		sourceRoot = ""
 	}
-	return Walk(reader, extractor{targetPath, sourcePath}.expand)
+	if !isSanePath(sourceRoot) {
+		return fmt.Errorf("cannot extract files rooted at %q", sourceRoot)
+	}
+	extractor := extractor{targetRoot, sourceRoot}
+	for _, zipFile := range reader.File {
+		if err := extractor.extract(zipFile); err != nil {
+			cleanName := path.Clean(zipFile.Name)
+			return fmt.Errorf("cannot extract %q: %v", cleanName, err)
+		}
+	}
+	return nil
 }
 
 type extractor struct {
-	targetPath string
-	sourcePath string
+	targetRoot string
+	sourceRoot string
 }
 
-func (x extractor) path(zipFile *zip.File) (string, bool) {
+// targetPath returns the target path for a given zip file and whether
+// it should be extracted.
+func (x extractor) targetPath(zipFile *zip.File) (string, bool) {
 	cleanPath := path.Clean(zipFile.Name)
-	if !strings.HasPrefix(cleanPath, x.sourcePath) {
-		return "", false
+	if cleanPath == x.sourceRoot {
+		return x.targetRoot, true
 	}
-	relativePath := cleanPath[len(x.sourcePath):]
-	if strings.HasPrefix(relativePath, "/") {
-		relativePath = relativePath[1:]
+	if x.sourceRoot != "" {
+		mustPrefix := x.sourceRoot + "/"
+		if !strings.HasPrefix(cleanPath, mustPrefix) {
+			return "", false
+		}
+		cleanPath = cleanPath[len(mustPrefix):]
 	}
-	return filepath.Join(x.targetPath, filepath.FromSlash(relativePath)), true
+	return filepath.Join(x.targetRoot, filepath.FromSlash(cleanPath)), true
 }
 
-func (x extractor) expand(zipFile *zip.File) error {
-	filePath, ok := x.path(zipFile)
+func (x extractor) extract(zipFile *zip.File) error {
+	targetPath, ok := x.targetPath(zipFile)
 	if !ok {
 		return nil
 	}
-	parentPath := filepath.Dir(filePath)
-	if err := os.MkdirAll(parentPath, os.ModePerm); err != nil {
+	parentPath := filepath.Dir(targetPath)
+	if err := os.MkdirAll(parentPath, 0777); err != nil {
 		return err
 	}
 	mode := zipFile.Mode()
@@ -104,80 +102,80 @@ func (x extractor) expand(zipFile *zip.File) error {
 	modeType := mode & os.ModeType
 	switch modeType {
 	case os.ModeDir:
-		return x.writeDir(filePath, modePerm)
+		return x.writeDir(targetPath, modePerm)
 	case os.ModeSymlink:
-		return x.writeSymlink(filePath, zipFile)
+		return x.writeSymlink(targetPath, zipFile)
 	case 0:
-		return x.writeFile(filePath, zipFile, modePerm)
+		return x.writeFile(targetPath, zipFile, modePerm)
 	}
 	return fmt.Errorf("unknown file type %d", modeType)
 }
 
-func (x extractor) writeDir(filePath string, modePerm os.FileMode) error {
-	fileInfo, err := os.Lstat(filePath)
+func (x extractor) writeDir(targetPath string, modePerm os.FileMode) error {
+	fileInfo, err := os.Lstat(targetPath)
 	switch {
 	case err == nil:
 		mode := fileInfo.Mode()
 		if mode.IsDir() {
 			if mode&os.ModePerm != modePerm {
-				return os.Chmod(filePath, modePerm)
+				return os.Chmod(targetPath, modePerm)
 			}
 			return nil
 		}
 		fallthrough
 	case !os.IsNotExist(err):
-		if err := os.RemoveAll(filePath); err != nil {
+		if err := os.RemoveAll(targetPath); err != nil {
 			return err
 		}
 	}
-	return os.MkdirAll(filePath, modePerm)
+	return os.MkdirAll(targetPath, modePerm)
 }
 
-func (x extractor) writeFile(filePath string, zipFile *zip.File, modePerm os.FileMode) error {
-	if _, err := os.Lstat(filePath); !os.IsNotExist(err) {
-		if err := os.RemoveAll(filePath); err != nil {
+func (x extractor) writeFile(targetPath string, zipFile *zip.File, modePerm os.FileMode) error {
+	if _, err := os.Lstat(targetPath); !os.IsNotExist(err) {
+		if err := os.RemoveAll(targetPath); err != nil {
 			return err
 		}
 	}
-	writer, err := os.OpenFile(filePath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, modePerm)
+	writer, err := os.OpenFile(targetPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, modePerm)
 	if err != nil {
 		return err
 	}
 	return readTo(writer, zipFile)
 }
 
-func (x extractor) writeSymlink(filePath string, zipFile *zip.File) error {
-	targetPath, err := x.checkSymlink(filePath, zipFile)
+func (x extractor) writeSymlink(targetPath string, zipFile *zip.File) error {
+	symlinkTarget, err := x.checkSymlink(targetPath, zipFile)
 	if err != nil {
 		return err
 	}
-	if _, err := os.Lstat(filePath); !os.IsNotExist(err) {
-		if err := os.RemoveAll(filePath); err != nil {
+	if _, err := os.Lstat(targetPath); !os.IsNotExist(err) {
+		if err := os.RemoveAll(targetPath); err != nil {
 			return err
 		}
 	}
-	return os.Symlink(targetPath, filePath)
+	return os.Symlink(symlinkTarget, targetPath)
 }
 
-func (x extractor) checkSymlink(filePath string, zipFile *zip.File) (string, error) {
+func (x extractor) checkSymlink(targetPath string, zipFile *zip.File) (string, error) {
 	var buffer bytes.Buffer
 	if err := readTo(&buffer, zipFile); err != nil {
 		return "", err
 	}
-	targetPath := buffer.String()
-	if filepath.IsAbs(targetPath) {
-		return "", fmt.Errorf("symlink %q is absolute", targetPath)
+	symlinkTarget := buffer.String()
+	if filepath.IsAbs(symlinkTarget) {
+		return "", fmt.Errorf("symlink %q is absolute", symlinkTarget)
 	}
-	finalPath := filepath.Join(filepath.Dir(filePath), targetPath)
-	relativePath, err := filepath.Rel(x.targetPath, finalPath)
+	finalPath := filepath.Join(filepath.Dir(targetPath), symlinkTarget)
+	relativePath, err := filepath.Rel(x.targetRoot, finalPath)
 	if err != nil {
 		// Not tested, because I don't know how to trigger this condition.
-		return "", fmt.Errorf("symlink %q not comprehensible", targetPath)
+		return "", fmt.Errorf("symlink %q not comprehensible", symlinkTarget)
 	}
 	if !isSanePath(relativePath) {
-		return "", fmt.Errorf("symlink %q leads out of scope", targetPath)
+		return "", fmt.Errorf("symlink %q leads out of scope", symlinkTarget)
 	}
-	return targetPath, nil
+	return symlinkTarget, nil
 }
 
 func readTo(writer io.Writer, zipFile *zip.File) error {
