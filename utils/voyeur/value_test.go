@@ -51,25 +51,27 @@ func (s *suite) TestValueGetSet(c *gc.C) {
 	v := NewValue(nil)
 	expected := "12345"
 	v.Set(expected)
-	got, ok := v.Get()
-	c.Assert(ok, jc.IsTrue)
+	got := v.Get()
 	c.Assert(got, gc.Equals, expected)
+	c.Assert(v.Closed(), jc.IsFalse)
 }
 
 func (s *suite) TestValueInitial(c *gc.C) {
 	expected := "12345"
 	v := NewValue(expected)
-	got, ok := v.Get()
-	c.Assert(ok, jc.IsTrue)
+	got := v.Get()
 	c.Assert(got, gc.Equals, expected)
+	c.Assert(v.Closed(), jc.IsFalse)
 }
 
 func (s *suite) TestValueClose(c *gc.C) {
 	expected := "12345"
 	v := NewValue(expected)
 	c.Assert(v.Close(), gc.IsNil)
-	got, ok := v.Get()
-	c.Assert(ok, jc.IsFalse)
+
+	isClosed := v.Closed()
+	c.Assert(isClosed, jc.IsTrue)
+	got := v.Get()
 	c.Assert(got, gc.Equals, expected)
 
 	// test that we can close multiple times without a problem
@@ -209,8 +211,7 @@ func (s *suite) TestCloseWatcher(c *gc.C) {
 	ch <- true
 
 	// prove the value is not closed, even though the watcher is
-	_, ok := v.Get()
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(v.Closed(), jc.IsFalse)
 }
 
 func (s *suite) TestWatchZeroValue(c *gc.C) {
