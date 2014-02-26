@@ -1891,6 +1891,25 @@ func (s *clientSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
 	c.Assert(sch.IsUploaded(), jc.IsTrue)
 }
 
+func (s *clientSuite) TestAddCharmTestingEnv(c *gc.C) {
+	store, restore := makeMockCharmStore()
+	defer restore()
+
+	client := s.APIState.Client()
+	curl, _ := addCharm(c, store, "wordpress")
+	err := client.AddCharm(curl)
+	c.Assert(err, gc.IsNil)
+	c.Assert(store.LastGetWasTesting, gc.Equals, false)
+
+	args := map[string]interface{}{"testing": true}
+	err = s.APIState.Client().EnvironmentSet(args)
+	c.Assert(err, gc.IsNil)
+	curl, _ = addCharm(c, store, "mysql")
+	err = client.AddCharm(curl)
+	c.Assert(err, gc.IsNil)
+	c.Assert(store.LastGetWasTesting, gc.Equals, true)
+}
+
 func (s *clientSuite) TestCharmArchiveName(c *gc.C) {
 	for rev, name := range []string{"Foo", "bar", "wordpress", "mysql"} {
 		archiveFormat := fmt.Sprintf("%s-%d-[0-9a-f-]+", name, rev)

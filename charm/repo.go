@@ -51,7 +51,7 @@ type CharmRevision struct {
 
 // Repository represents a collection of charms.
 type Repository interface {
-	Get(curl *URL) (Charm, error)
+	Get(curl *URL, testing bool) (Charm, error)
 	Latest(curls ...*URL) ([]CharmRevision, error)
 }
 
@@ -309,7 +309,7 @@ func verify(path, digest string) error {
 
 // Get returns the charm referenced by curl.
 // CacheDir must have been set, otherwise Get will panic.
-func (s *CharmStore) Get(curl *URL) (Charm, error) {
+func (s *CharmStore) Get(curl *URL, testing bool) (Charm, error) {
 	// The cache location must have been previously set.
 	if CacheDir == "" {
 		panic("charm cache directory path is empty")
@@ -335,7 +335,11 @@ func (s *CharmStore) Get(curl *URL) (Charm, error) {
 	}
 	path := filepath.Join(CacheDir, Quote(curl.String())+".charm")
 	if verify(path, digest) != nil {
-		resp, err := s.get(s.BaseURL + "/charm/" + url.QueryEscape(curl.Path()))
+		store_url := s.BaseURL + "/charm/" + url.QueryEscape(curl.Path())
+		if testing {
+			store_url = store_url + "?stats=0"
+		}
+		resp, err := s.get(store_url)
 		if err != nil {
 			return nil, err
 		}
@@ -381,7 +385,7 @@ var _ Repository = (*LocalRepository)(nil)
 func (r *LocalRepository) Latest(curls ...*URL) ([]CharmRevision, error) {
 	result := make([]CharmRevision, len(curls))
 	for i, curl := range curls {
-		ch, err := r.Get(curl.WithRevision(-1))
+		ch, err := r.Get(curl.WithRevision(-1), false)
 		if err == nil {
 			result[i].Revision = ch.Revision()
 		} else {
@@ -409,7 +413,7 @@ func mightBeCharm(info os.FileInfo) bool {
 // Get returns a charm matching curl, if one exists. If curl has a revision of
 // -1, it returns the latest charm that matches curl. If multiple candidates
 // satisfy the foregoing, the first one encountered will be returned.
-func (r *LocalRepository) Get(curl *URL) (Charm, error) {
+func (r *LocalRepository) Get(curl *URL, testing bool) (Charm, error) {
 	if curl.Schema != "local" {
 		return nil, fmt.Errorf("local repository got URL with non-local schema: %q", curl)
 	}

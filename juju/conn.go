@@ -173,7 +173,7 @@ func (conn *Conn) PutCharm(curl *charm.URL, repo charm.Repository, bumpRevision 
 		}
 		curl = curl.WithRevision(rev)
 	}
-	ch, err := repo.Get(curl)
+	ch, err := repo.Get(curl, conn.Environ.Config().Testing())
 	if err != nil {
 		return nil, fmt.Errorf("cannot get charm: %v", err)
 	}

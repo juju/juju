@@ -32,6 +32,7 @@ type MockStore struct {
 	Downloads      []*charm.URL
 	Authorizations []string
 	Metadata       []string
+	NoStats        []*charm.URL
 
 	charms map[string]int
 }
@@ -170,7 +171,13 @@ func (s *MockStore) serveEvent(w http.ResponseWriter, r *http.Request) {
 
 func (s *MockStore) serveCharm(w http.ResponseWriter, r *http.Request) {
 	charmURL := charm.MustParseURL("cs:" + r.URL.Path[len("/charm/"):])
-	s.Downloads = append(s.Downloads, charmURL)
+
+	r.ParseForm()
+	if r.Form.Get("stats") == "0" {
+		s.NoStats = append(s.NoStats, charmURL)
+	} else {
+		s.Downloads = append(s.Downloads, charmURL)
+	}
 
 	if auth := r.Header.Get("Authorization"); auth != "" {
 		s.Authorizations = append(s.Authorizations, auth)

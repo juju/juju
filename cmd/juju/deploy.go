@@ -275,7 +275,7 @@ func addCharmViaAPI(client *api.Client, ctx *cmd.Context, curl *charm.URL, repo 
 	}
 	switch curl.Schema {
 	case "local":
-		ch, err := repo.Get(curl)
+		ch, err := repo.Get(curl, false)
 		if err != nil {
 			return nil, err
 		}

@@ -241,7 +241,7 @@ func (c *UpgradeCharmCommand) run1dot16(ctx *cmd.Context) error {
 			return fmt.Errorf("already running latest charm %q", newURL)
 		}
 		// This is a local repository.
-		if ch, err := repo.Get(newURL); err != nil {
+		if ch, err := repo.Get(newURL, false); err != nil {
 			return err
 		} else if _, bumpRevision = ch.(*charm.Dir); !bumpRevision {
 			// Only bump the revision when it's a directory.

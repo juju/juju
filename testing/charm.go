@@ -126,8 +126,9 @@ func (r *Repo) Bundle(dst, name string) *charm.Bundle {
 // MockCharmStore implements charm.Repository and is used to isolate tests
 // that would otherwise need to hit the real charm store.
 type MockCharmStore struct {
-	charms    map[string]map[int]*charm.Bundle
-	AuthAttrs string
+	charms            map[string]map[int]*charm.Bundle
+	AuthAttrs         string
+	LastGetWasTesting bool
 }
 
 func NewMockCharmStore() *MockCharmStore {
@@ -182,7 +183,8 @@ func (s *MockCharmStore) interpret(charmURL *charm.URL) (base string, rev int) {
 }
 
 // Get implements charm.Repository.Get.
-func (s *MockCharmStore) Get(charmURL *charm.URL) (charm.Charm, error) {
+func (s *MockCharmStore) Get(charmURL *charm.URL, testing bool) (charm.Charm, error) {
+	s.LastGetWasTesting = testing
 	base, rev := s.interpret(charmURL)
 	charm, found := s.charms[base][rev]
 	if !found {
