@@ -277,7 +277,6 @@ func (st *State) SetEnvironConfig(cfg, old *config.Config) error {
 	if err != nil {
 		return err
 	}
-	logger.Warningf("%#v", validConfig)
 	newattrs := validConfig.AllAttrs()
 	for k, _ := range old.AllAttrs() {
 		if _, ok := newattrs[k]; !ok {
