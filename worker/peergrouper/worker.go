@@ -51,7 +51,7 @@ var (
 	// we retry at the following interval until we succeed.
 	retryInterval = 2 * time.Second
 
-	// pollInterval holds the interval at which the replicaset
+	// pollInterval holds the interval at which the replica set
 	// members will be updated even in the absence of changes
 	// to State. This enables us to make changes to members
 	// that are triggered by changes to member status.
@@ -119,15 +119,14 @@ func newWorker(st stateInterface) worker.Worker {
 		}
 		// Wait for the various goroutines to be killed.
 		// N.B. we don't defer this call because
-		// that will cause a panic to deadlock waiting
-		// for the unkilled goroutines to exit.
+		// if we do and a bug causes a panic, Wait will deadlock
+		// waiting for the unkilled goroutines to exit.
 		w.wg.Wait()
 	}()
 	return w
 }
 
 func (w *pgWorker) Kill() {
-	logger.Debugf("killing worker")
 	w.tomb.Kill(nil)
 }
 
@@ -142,25 +141,19 @@ func (w *pgWorker) loop() error {
 	retry := time.NewTimer(0)
 	retry.Stop()
 	for {
-		logger.Debugf("pgWorker.loop looping")
 		select {
 		case f := <-w.notifyCh:
-			logger.Debugf("got notification")
 			// Update our current view of the state of affairs.
 			changed, err := f()
-			logger.Debugf("notification returned %v, %v", changed, err)
 			if err != nil {
-				logger.Debugf("update function returned error: %v", err)
 				return err
 			}
 			if !changed {
-				logger.Debugf("no change")
 				break
 			}
 			// Try to update the replica set immediately.
 			retry.Reset(0)
 		case <-retry.C:
-			logger.Infof("updating replica set members")
 			if err := w.updateReplicaset(); err != nil {
 				if _, isReplicaSetError := err.(*replicaSetError); !isReplicaSetError {
 					return err
@@ -172,7 +165,7 @@ func (w *pgWorker) loop() error {
 
 			// Update the replica set members occasionally
 			// to keep them up to date with the current
-			// replicaset member statuses.
+			// replica set member statuses.
 			retry.Reset(pollInterval)
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
@@ -228,11 +221,11 @@ func (w *pgWorker) updateReplicaset() error {
 	if err != nil {
 		return fmt.Errorf("cannot compute desired peer group: %v", err)
 	}
-	logger.Debugf("desired members: %#v", members)
 	if members == nil {
-		logger.Debugf("no change in desired member set")
+		logger.Debugf("no change in desired peer group")
 		return nil
 	}
+	logger.Debugf("desired peer group members: %#v", members)
 	// We cannot change the HasVote flag of a machine in state at exactly
 	// the same moment as changing its voting status in the replica set.
 	//
@@ -265,17 +258,14 @@ func (w *pgWorker) updateReplicaset() error {
 	if err := setHasVote(added, true); err != nil {
 		return err
 	}
-	logger.Infof("added vote to %v", added)
 	if err := w.st.MongoSession().Set(members); err != nil {
 		// We've failed to set the replica set, so revert back
 		// to the previous settings.
-		logger.Infof("reverting vote on %v", added)
 		if err1 := setHasVote(added, false); err1 != nil {
 			logger.Errorf("cannot revert machine voting after failure to change replica set: %v", err1)
 		}
 		return &replicaSetError{err}
 	}
-	logger.Infof("removing vote from %v", removed)
 	logger.Infof("successfully changed replica set to %#v", members)
 	if err := setHasVote(removed, false); err != nil {
 		return err
@@ -325,15 +315,12 @@ func (w *pgWorker) watchStateServerInfo() *serverInfoWatcher {
 }
 
 func (infow *serverInfoWatcher) loop() error {
-	logger.Debugf("serverInfoWatcher.loop")
 	for {
 		select {
 		case _, ok := <-infow.watcher.Changes():
-			logger.Debugf("got infow change")
 			if !ok {
 				return infow.watcher.Err()
 			}
-			logger.Debugf("notifying")
 			infow.worker.notify(infow.updateMachines)
 		case <-infow.worker.tomb.Dying():
 			return tomb.ErrDying
@@ -348,13 +335,10 @@ func (infow *serverInfoWatcher) stop() {
 // updateMachines is a notifyFunc that updates the current
 // machines when the state server info has changed.
 func (infow *serverInfoWatcher) updateMachines() (bool, error) {
-	logger.Debugf("updateMachines")
 	info, err := infow.worker.st.StateServerInfo()
 	if err != nil {
 		return false, fmt.Errorf("cannot get state server info: %v", err)
 	}
-	logger.Debugf("state server info: %#v", info)
-	logger.Debugf("existing machines: %#v", infow.worker.machines)
 	changed := false
 	// Stop machine goroutines that no longer correspond to state server
 	// machines.
@@ -373,14 +357,15 @@ func (infow *serverInfoWatcher) updateMachines() (bool, error) {
 		logger.Debugf("found new machine %q", id)
 		stm, err := infow.worker.st.Machine(id)
 		if err != nil {
-			logger.Debugf("machine not found: %v", err)
 			if errors.IsNotFoundError(err) {
 				// If the machine isn't found, it must have been
 				// removed and will soon enough be removed
 				// from the state server list. This will probably
 				// never happen, but we'll code defensively anyway.
+				logger.Warningf("machine %q from state server list not found", id)
 				continue
 			}
+			return false, fmt.Errorf("cannot get machine %q: %v", id, err)
 		}
 		infow.worker.machines[id] = infow.worker.newMachine(stm)
 		changed = true

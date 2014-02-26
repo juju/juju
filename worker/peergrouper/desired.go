@@ -207,7 +207,6 @@ func addNewMembers(
 ) {
 	for _, m := range toKeep {
 		if members[m] == nil && m.hostPort != "" {
-			logger.Infof("adding machine %q", m.id)
 			// This machine was not previously in the members list,
 			// so add it (as non-voting). We maintain the
 			// id manually to make it easier for tests.
@@ -221,9 +220,7 @@ func addNewMembers(
 			members[m] = member
 			setVoting(m, false)
 		} else if m.hostPort == "" {
-			logger.Infof("not adding machine %q: no address", m.id)
-		} else {
-			logger.Infof("machine %q is already a replicaset member", m.id)
+			logger.Debugf("ignoring machine %q with no address", m.id)
 		}
 	}
 }

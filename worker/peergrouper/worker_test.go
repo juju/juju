@@ -153,36 +153,35 @@ func (s *workerSuite) TestAddressChange(c *gc.C) {
 }
 
 var fatalErrorsTests = []struct {
-	errPat    string
-	err       error
-	expectErr string
+	errPattern string
+	err        error
+	expectErr  string
 }{{
-	errPat:    "State.StateServerInfo",
-	err:       errors.New("sample"),
-	expectErr: "cannot get state server info: sample",
+	errPattern: "State.StateServerInfo",
+	expectErr:  "cannot get state server info: sample",
 }, {
-	errPat:    "Machine.SetHasVote 11 true",
-	err:       errors.New("sample"),
-	expectErr: `cannot set voting status of "11" to true: sample`,
+	errPattern: "Machine.SetHasVote 11 true",
+	expectErr:  `cannot set voting status of "11" to true: sample`,
 }, {
-	errPat:    "Session.CurrentStatus",
-	err:       errors.New("sample"),
-	expectErr: "cannot get replica set status: sample",
+	errPattern: "Session.CurrentStatus",
+	expectErr:  "cannot get replica set status: sample",
 }, {
-	errPat:    "Session.CurrentMembers",
-	err:       errors.New("sample"),
-	expectErr: "cannot get replica set members: sample",
+	errPattern: "Session.CurrentMembers",
+	expectErr:  "cannot get replica set members: sample",
+}, {
+	errPattern: "State.Machine *",
+	expectErr:  `cannot get machine "10": sample`,
 }}
 
 func (s *workerSuite) TestFatalErrors(c *gc.C) {
-	testbase.PatchValue(&pollInterval, 5*time.Millisecond)
+	testbase.PatchValue(&pollInterval, 500*time.Millisecond)
 	for i, test := range fatalErrorsTests {
-		c.Logf("test %d: %s -> %s", i, test.errPat, test.expectErr)
+		c.Logf("test %d: %s -> %s", i, test.errPattern, test.expectErr)
 		resetErrors()
 		st := newFakeState()
 		st.session.InstantlyReady = true
 		initState(c, st, 3)
-		setErrorFor(test.errPat, test.err)
+		setErrorFor(test.errPattern, errors.New("sample"))
 		w := newWorker(st)
 		done := make(chan error)
 		go func() {
