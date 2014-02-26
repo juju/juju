@@ -68,12 +68,11 @@ func (*formatter_1_16) decode64(value string) (result []byte, err error) {
 
 // upgradedToVersion parses the upgradedToVersion string value into a version.Number.
 // An empty value is returned as 1.16.0.
-func (*formatter_1_16) upgradedToVersion(value string) (result version.Number, err error) {
-	result = version.MustParse("1.16.0")
+func (*formatter_1_16) upgradedToVersion(value string) (version.Number, error) {
 	if value != "" {
-		result, err = version.Parse(value)
+		return version.Parse(value)
 	}
-	return
+	return version.MustParse("1.16.0"), nil
 }
 
 func (formatter *formatter_1_16) read(dirName string) (*configInternal, error) {
