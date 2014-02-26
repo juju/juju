@@ -4,6 +4,7 @@
 package main
 
 import (
+	"os"
 	"path/filepath"
 
 	gc "launchpad.net/gocheck"
@@ -79,13 +80,21 @@ func (s *UpgradeSuite) assertUpgradeSteps(c *gc.C, job state.MachineJob) {
 	c.Assert(success, jc.IsTrue)
 }
 
+func (s *UpgradeSuite) keyFile() string {
+	return filepath.Join(s.DataDir(), "system-identity")
+}
+
 func (s *UpgradeSuite) assertStateServerUpgrades(c *gc.C) {
-	// Add checks as needed...
+	// System SSH key
+	c.Assert(s.keyFile(), jc.IsNonEmptyFile)
 }
 
 func (s *UpgradeSuite) assertHostUpgrades(c *gc.C) {
 	// Lock directory
 	lockdir := filepath.Join(s.DataDir(), "locks")
 	c.Assert(lockdir, jc.IsDirectory)
+	// SSH key file should not be generated for hosts.
+	_, err := os.Stat(s.keyFile())
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 	// Add other checks as needed...
 }

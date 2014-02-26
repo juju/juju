@@ -31,10 +31,14 @@ func ensureSystemSSHKey(context Context) error {
 	// Write new authorised key.
 	client := context.APIState().Client()
 	cfg, err := client.EnvironmentGet()
-	authorised_keys := config.ConcatAuthKeys(cfg[config.AuthKeysConfig].(string), publicKey)
 	if err != nil {
 		return fmt.Errorf("failed to read current environment config: %v", err)
 	}
+	var authKeys string
+	if v, ok := cfg[config.AuthKeysConfig]; ok {
+		authKeys = v.(string)
+	}
+	authorised_keys := config.ConcatAuthKeys(authKeys, publicKey)
 	err = client.EnvironmentSet(map[string]interface{}{
 		config.AuthKeysConfig: authorised_keys,
 	})
