@@ -1,3 +1,6 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package peergrouper
 
 import (
@@ -9,14 +12,13 @@ import (
 
 	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/replicaset"
-	//	coretesting "launchpad.net/juju-core/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
 func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
-	//	coretesting.MgoTestPackage(t)
+	coretesting.MgoTestPackage(t)
 }
 
 type desiredPeerGroupSuite struct {
@@ -37,7 +39,7 @@ var desiredPeerGroupTests = []struct {
 	expectVoting  []bool
 	expectErr     string
 }{{
-	// Note that this should never happen - the mongo
+	// Note that this should never happen - mongo
 	// should always be bootstrapped with at least a single
 	// member in its member-set.
 	about:     "no members - error",

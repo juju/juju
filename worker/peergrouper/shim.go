@@ -1,3 +1,6 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package peergrouper
 
 import (
@@ -5,6 +8,7 @@ import (
 	"strconv"
 
 	"labix.org/v2/mgo"
+
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/replicaset"
 	"launchpad.net/juju-core/state"

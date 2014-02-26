@@ -1,3 +1,6 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package peergrouper
 
 import (
@@ -5,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/errors"
@@ -222,7 +224,6 @@ func (w *pgWorker) updateReplicaset() error {
 	if err != nil {
 		return err
 	}
-	logger.Debugf("peer group info: %s", spew.Sdump(info))
 	members, voting, err := desiredPeerGroup(info)
 	if err != nil {
 		return fmt.Errorf("cannot compute desired peer group: %v", err)

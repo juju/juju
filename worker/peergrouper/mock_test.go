@@ -1,3 +1,6 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package peergrouper
 
 import (
@@ -33,14 +36,14 @@ var (
 	_ mongoSession   = (*fakeMongoSession)(nil)
 )
 
-type errorPat struct {
-	pat     string
+type errorPattern struct {
+	pattern string
 	errFunc func() error
 }
 
 var (
-	errorsMutex sync.Mutex
-	errorPats   []errorPat
+	errorsMutex   sync.Mutex
+	errorPatterns []errorPattern
 )
 
 // setErrorFor causes the given error to be returned
@@ -63,22 +66,26 @@ func setErrorFor(what string, err error) {
 func setErrorFuncFor(what string, errFunc func() error) {
 	errorsMutex.Lock()
 	defer errorsMutex.Unlock()
-	errorPats = append(errorPats, errorPat{
-		pat:     what,
+	errorPatterns = append(errorPatterns, errorPattern{
+		pattern: what,
 		errFunc: errFunc,
 	})
 }
 
-// errorFor concatenates the given arguments
-// with fmt.Sprint and returns any error registered with
+// errorFor concatenates the call name
+// with all the args, space separated,
+// and returns any error registered with
 // setErrorFor that matches the resulting string.
-func errorFor(what ...interface{}) error {
+func errorFor(name string, args ...interface{}) error {
 	errorsMutex.Lock()
-	s := fmt.Sprint(what...)
+	s := name
+	for _, arg := range args {
+		s += " " + fmt.Sprint(arg)
+	}
 	f := func() error { return nil }
-	for _, pat := range errorPats {
-		if ok, _ := path.Match(pat.pat, s); ok {
-			f = pat.errFunc
+	for _, pattern := range errorPatterns {
+		if ok, _ := path.Match(pattern.pattern, s); ok {
+			f = pattern.errFunc
 			break
 		}
 	}
@@ -91,7 +98,7 @@ func errorFor(what ...interface{}) error {
 func resetErrors() {
 	errorsMutex.Lock()
 	defer errorsMutex.Unlock()
-	errorPats = errorPats[:0]
+	errorPatterns = errorPatterns[:0]
 }
 
 func newFakeState() *fakeState {
@@ -119,7 +126,7 @@ func (st *fakeState) checkInvariants() {
 	}
 }
 
-// checkinvariants checks that all the expected invariants
+// checkInvariants checks that all the expected invariants
 // in the state hold true. Currently we check that:
 // - total number of votes is odd.
 // - member voting status implies that machine has vote.
@@ -165,7 +172,7 @@ func (st *fakeState) machine(id string) *fakeMachine {
 }
 
 func (st *fakeState) Machine(id string) (stateMachine, error) {
-	if err := errorFor("State.Machine ", id); err != nil {
+	if err := errorFor("State.Machine", id); err != nil {
 		return nil, err
 	}
 	if m := st.machine(id); m != nil {
@@ -227,7 +234,7 @@ type fakeMachine struct {
 }
 
 func (m *fakeMachine) Refresh() error {
-	if err := errorFor("Machine.Refresh ", m.doc.id); err != nil {
+	if err := errorFor("Machine.Refresh", m.doc.id); err != nil {
 		return err
 	}
 	m.doc = m.val.Get().(machineDoc)
@@ -276,8 +283,9 @@ func (m *fakeMachine) setStateHostPort(hostPort string) {
 	})
 }
 
+// SetHasVote implements stateMachine.SetHasVote.
 func (m *fakeMachine) SetHasVote(hasVote bool) error {
-	if err := errorFor("Machine.SetHasVote ", m.doc.id, " ", hasVote); err != nil {
+	if err := errorFor("Machine.SetHasVote", m.doc.id, hasVote); err != nil {
 		return err
 	}
 	m.mutate(func(doc *machineDoc) {
@@ -309,6 +317,7 @@ type fakeMongoSession struct {
 	status  voyeur.Value // of *replicaset.Status
 }
 
+// newFakeMongoSession returns a mock implementation of mongoSession.
 func newFakeMongoSession(checker invariantChecker) *fakeMongoSession {
 	s := new(fakeMongoSession)
 	s.checker = checker
@@ -317,6 +326,7 @@ func newFakeMongoSession(checker invariantChecker) *fakeMongoSession {
 	return s
 }
 
+// CurrentMembers implements mongoSession.CurrentMembers.
 func (session *fakeMongoSession) CurrentMembers() ([]replicaset.Member, error) {
 	if err := errorFor("Session.CurrentMembers"); err != nil {
 		return nil, err
@@ -324,6 +334,7 @@ func (session *fakeMongoSession) CurrentMembers() ([]replicaset.Member, error) {
 	return deepCopy(session.members.Get()).([]replicaset.Member), nil
 }
 
+// CurrentStatus implements mongoSession.CurrentStatus.
 func (session *fakeMongoSession) CurrentStatus() (*replicaset.Status, error) {
 	if err := errorFor("Session.CurrentStatus"); err != nil {
 		return nil, err
@@ -331,12 +342,14 @@ func (session *fakeMongoSession) CurrentStatus() (*replicaset.Status, error) {
 	return deepCopy(session.status.Get()).(*replicaset.Status), nil
 }
 
+// setStatus sets the status of the current members of the session.
 func (session *fakeMongoSession) setStatus(members []replicaset.MemberStatus) {
 	session.status.Set(deepCopy(&replicaset.Status{
 		Members: members,
 	}))
 }
 
+// Set implements mongoSession.Set
 func (session *fakeMongoSession) Set(members []replicaset.Member) error {
 	if err := errorFor("Session.Set"); err != nil {
 		logger.Infof("not setting replicaset members to %#v", members)
@@ -383,14 +396,15 @@ func deepCopy(x interface{}) interface{} {
 	return newx
 }
 
-// notifier implements a value that can be
-// watched for changes. Only one
 type notifier struct {
 	tomb    tomb.Tomb
 	w       *voyeur.Watcher
 	changes chan struct{}
 }
 
+// WatchValue returns a NotifyWatcher that triggers
+// when the given value changes. Its Wait and Err methods
+// never return a non-nil error.
 func WatchValue(val *voyeur.Value) state.NotifyWatcher {
 	n := &notifier{
 		w:       val.Watch(),

@@ -1,3 +1,6 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package peergrouper
 
 import (
@@ -7,6 +10,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
@@ -14,18 +18,18 @@ import (
 	"launchpad.net/juju-core/worker"
 )
 
-//type workerJujuConnSuite struct {
-//	testing.JujuConnSuite
-//}
-//
-//var _ = gc.Suite(&workerJujuConnSuite{})
-//
-//func (s *workerJujuConnSuite) TestStartStop(c *gc.C) {
-//	w, err := New(s.State)
-//	c.Assert(err, gc.IsNil)
-//	err = worker.Stop(w)
-//	c.Assert(err, gc.IsNil)
-//}
+type workerJujuConnSuite struct {
+	testing.JujuConnSuite
+}
+
+var _ = gc.Suite(&workerJujuConnSuite{})
+
+func (s *workerJujuConnSuite) TestStartStop(c *gc.C) {
+	w, err := New(s.State)
+	c.Assert(err, gc.IsNil)
+	err = worker.Stop(w)
+	c.Assert(err, gc.IsNil)
+}
 
 type workerSuite struct {
 	testbase.LoggingSuite
