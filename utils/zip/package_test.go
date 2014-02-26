@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2011-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package zip_test
@@ -33,7 +33,7 @@ func (s *BaseSuite) makeZip(c *gc.C, creators ...creator) *zip.Reader {
 	defer os.RemoveAll(basePath)
 
 	outPath := join(c.MkDir(), "test.zip")
-	cmd := exec.Command("/bin/sh", "-c", fmt.Sprintf("cd %s; zip --fifo --symlinks -r %s .", basePath, outPath))
+	cmd := exec.Command("/bin/sh", "-c", fmt.Sprintf("cd %q; zip --fifo --symlinks -r %q .", basePath, outPath))
 	output, err := cmd.CombinedOutput()
 	c.Assert(err, gc.IsNil, gc.Commentf("Command output: %s", output))
 
@@ -114,16 +114,4 @@ func (s symlink) check(c *gc.C, basePath string) {
 	data, err := os.Readlink(join(basePath, s.path))
 	c.Check(err, gc.IsNil)
 	c.Check(data, gc.Equals, s.data)
-}
-
-type custom struct {
-	createFunc func(c *gc.C, basePath string)
-}
-
-func (x custom) create(c *gc.C, basePath string) {
-	x.createFunc(c, basePath)
-}
-
-func (x custom) check(c *gc.C, basePath string) {
-	panic("not implemented")
 }

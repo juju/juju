@@ -4,10 +4,7 @@
 package zip_test
 
 import (
-	stdzip "archive/zip"
-	"fmt"
 	"io/ioutil"
-	"path"
 	"path/filepath"
 	"sort"
 
@@ -22,46 +19,6 @@ type ZipSuite struct {
 }
 
 var _ = gc.Suite(&ZipSuite{})
-
-func (s *ZipSuite) TestWalk(c *gc.C) {
-	reader := s.makeZip(c,
-		file{"file", "", 0644},
-		symlink{"symlink", "file"},
-		dir{"dir", 0755},
-		dir{"dir/dir", 0755},
-		file{"dir/dir/file", "", 0644},
-		symlink{"dir/dir/symlink", ".."},
-	)
-	expect := []string{
-		"file", "symlink", "dir", "dir/dir", "dir/dir/file", "dir/dir/symlink",
-	}
-	actual := []string{}
-	callback := func(zipFile *stdzip.File) error {
-		actual = append(actual, path.Clean(zipFile.Name))
-		return nil
-	}
-
-	err := zip.Walk(reader, callback)
-	c.Assert(err, gc.IsNil)
-	sort.Strings(expect)
-	sort.Strings(actual)
-	c.Check(actual, jc.DeepEquals, expect)
-}
-
-func (s *ZipSuite) TestWalkError(c *gc.C) {
-	reader := s.makeZip(c,
-		dir{"dir", 0755},
-		dir{"dir/dir", 0755},
-	)
-	count := 0
-	callback := func(_ *stdzip.File) error {
-		count += 1
-		return fmt.Errorf("lol borken")
-	}
-	err := zip.Walk(reader, callback)
-	c.Assert(err, gc.ErrorMatches, `cannot process "dir": lol borken`)
-	c.Assert(count, gc.Equals, 1)
-}
 
 func (s *ZipSuite) TestFind(c *gc.C) {
 	reader := s.makeZip(c,
@@ -239,24 +196,24 @@ func (s *ZipSuite) TestExtractAllSymlinkErrors(c *gc.C) {
 		content: []creator{
 			symlink{"symlink", "/blah"},
 		},
-		error: `cannot process "symlink": symlink "/blah" is absolute`,
+		error: `cannot extract "symlink": symlink "/blah" is absolute`,
 	}, {
 		content: []creator{
 			symlink{"symlink", "../blah"},
 		},
-		error: `cannot process "symlink": symlink "../blah" leads out of scope`,
+		error: `cannot extract "symlink": symlink "../blah" leads out of scope`,
 	}, {
 		content: []creator{
 			dir{"dir", 0755},
 			symlink{"dir/symlink", "../../blah"},
 		},
-		error: `cannot process "dir/symlink": symlink "../../blah" leads out of scope`,
+		error: `cannot extract "dir/symlink": symlink "../../blah" leads out of scope`,
 	}} {
 		c.Logf("test %d: %s", i, test.error)
 		targetPath := c.MkDir()
 		reader := s.makeZip(c, test.content...)
 		err := zip.ExtractAll(reader, targetPath)
-		c.Assert(err, gc.ErrorMatches, test.error)
+		c.Check(err, gc.ErrorMatches, test.error)
 	}
 }
 
@@ -266,6 +223,7 @@ func (s *ZipSuite) TestExtractDir(c *gc.C) {
 		dir{"bad-dir", 0755},
 		symlink{"bad-symlink", "bad-file"},
 		dir{"some-dir", 0751},
+		file{"some-dir-bad-lol", "xxx", 0644},
 		file{"some-dir/some-file", "content 1", 0644},
 		file{"some-dir/another-file", "content 2", 0600},
 		dir{"some-dir/another-dir", 0750},
@@ -290,6 +248,10 @@ func (s *ZipSuite) TestExtractDir(c *gc.C) {
 	fileInfos, err := ioutil.ReadDir(targetParent)
 	c.Check(err, gc.IsNil)
 	c.Check(fileInfos, gc.HasLen, 1)
+
+	fileInfos, err = ioutil.ReadDir(targetPath)
+	c.Check(err, gc.IsNil)
+	c.Check(fileInfos, gc.HasLen, 3)
 }
 
 func (s *ZipSuite) TestExtractSingleFile(c *gc.C) {
@@ -320,26 +282,26 @@ func (s *ZipSuite) TestExtractSymlinkErrors(c *gc.C) {
 			symlink{"dir/symlink", "/blah"},
 		},
 		source: "dir",
-		error:  `cannot process "dir/symlink": symlink "/blah" is absolute`,
+		error:  `cannot extract "dir/symlink": symlink "/blah" is absolute`,
 	}, {
 		content: []creator{
 			dir{"dir", 0755},
 			symlink{"dir/symlink", "../blah"},
 		},
 		source: "dir",
-		error:  `cannot process "dir/symlink": symlink "../blah" leads out of scope`,
+		error:  `cannot extract "dir/symlink": symlink "../blah" leads out of scope`,
 	}, {
 		content: []creator{
 			symlink{"symlink", "blah"},
 		},
 		source: "symlink",
-		error:  `cannot process "symlink": symlink "blah" leads out of scope`,
+		error:  `cannot extract "symlink": symlink "blah" leads out of scope`,
 	}} {
 		c.Logf("test %d: %s", i, test.error)
 		targetPath := c.MkDir()
 		reader := s.makeZip(c, test.content...)
 		err := zip.Extract(reader, targetPath, test.source)
-		c.Assert(err, gc.ErrorMatches, test.error)
+		c.Check(err, gc.ErrorMatches, test.error)
 	}
 }
 
