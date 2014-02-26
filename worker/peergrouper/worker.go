@@ -61,7 +61,7 @@ var (
 	pollInterval = 10 * time.Second
 )
 
-// worker holds all the mutable state that we are watching.
+// pgWorker holds all the mutable state that we are watching.
 // The only goroutine that is allowed to modify this
 // is worker.loop - other watchers modify the
 // current state by calling worker.notify instead of
