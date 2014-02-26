@@ -107,90 +107,6 @@ func (a *MachineAgent) Stop() error {
 	return a.tomb.Wait()
 }
 
-// startWorker starts a worker to run the specified child worker but only after waiting for upgrades to complete.
-func (a *MachineAgent) startWorkerAfterUpgrade(runner worker.Runner, name string, start func() (worker.Worker, error)) {
-	runner.StartWorker(name, func() (worker.Worker, error) {
-		return a.upgradeWaiterWorker(start), nil
-	})
-}
-
-// upgradeWaiterWorker runs the specified worker after upgrades have completed.
-func (a *MachineAgent) upgradeWaiterWorker(start func() (worker.Worker, error)) worker.Worker {
-	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
-		// wait for the upgrade to complete (or for us to be stopped)
-		select {
-		case <-stop:
-			return nil
-		case <-a.upgradeComplete:
-		}
-		w, err := start()
-		if err != nil {
-			return err
-		}
-		waitCh := make(chan error)
-		go func() {
-			waitCh <- w.Wait()
-		}()
-		select {
-		case err := <-waitCh:
-			return err
-		case <-stop:
-			w.Kill()
-		}
-		return <-waitCh
-	})
-}
-
-// upgradeWorker runs the required upgrade operations to upgrade to the current Juju version.
-func (a *MachineAgent) upgradeWorker(apiState *api.State, jobs []params.MachineJob) worker.Worker {
-	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
-		select {
-		case <-a.upgradeComplete:
-			// Our work is already done (we're probably being restarted
-			// because the API connection has gone down), so do nothing.
-			<-stop
-			return nil
-		default:
-		}
-		err := a.runUpgrades(apiState, jobs)
-		if err != nil {
-			return err
-		}
-		logger.Infof("Upgrade to %v completed.", version.Current)
-		close(a.upgradeComplete)
-		<-stop
-		return nil
-	})
-}
-
-// runUpgrades runs the upgrade operations for each job type and updates the updatedToVersion on success.
-func (a *MachineAgent) runUpgrades(st *api.State, jobs []params.MachineJob) error {
-	agentConfig := a.Conf.config
-	from := version.Current
-	from.Number = agentConfig.UpgradedToVersion()
-	if from == version.Current {
-		logger.Infof("Upgrade to %v already completed.", version.Current)
-		return nil
-	}
-	context := upgrades.NewContext(agentConfig, st)
-	for _, job := range jobs {
-		var target upgrades.Target
-		switch job {
-		case params.JobManageEnviron:
-			target = upgrades.StateServer
-		case params.JobHostUnits:
-			target = upgrades.HostMachine
-		default:
-			continue
-		}
-		logger.Infof("Starting upgrade from %v to %v for %v", from, version.Current, target)
-		if err := upgrades.PerformUpgrade(from.Number, target, context); err != nil {
-			return fmt.Errorf("cannot perform upgrade from %v to %v for : %v", from, version.Current, target, err)
-		}
-	}
-	return a.Conf.config.WriteUpgradedToVersion(version.Current.Number)
-}
-
 // Run runs a machine agent.
 func (a *MachineAgent) Run(_ *cmd.Context) error {
 	// Due to changes in the logging, and needing to care about old
@@ -439,6 +355,90 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		}
 	}
 	return newCloseWorker(runner, st), nil
+}
+
+// startWorker starts a worker to run the specified child worker but only after waiting for upgrades to complete.
+func (a *MachineAgent) startWorkerAfterUpgrade(runner worker.Runner, name string, start func() (worker.Worker, error)) {
+	runner.StartWorker(name, func() (worker.Worker, error) {
+			return a.upgradeWaiterWorker(start), nil
+		})
+}
+
+// upgradeWaiterWorker runs the specified worker after upgrades have completed.
+func (a *MachineAgent) upgradeWaiterWorker(start func() (worker.Worker, error)) worker.Worker {
+	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
+		// wait for the upgrade to complete (or for us to be stopped)
+		select {
+		case <-stop:
+			return nil
+		case <-a.upgradeComplete:
+		}
+		w, err := start()
+		if err != nil {
+			return err
+		}
+		waitCh := make(chan error)
+		go func() {
+			waitCh <- w.Wait()
+		}()
+		select {
+		case err := <-waitCh:
+			return err
+		case <-stop:
+			w.Kill()
+		}
+		return <-waitCh
+	})
+}
+
+// upgradeWorker runs the required upgrade operations to upgrade to the current Juju version.
+func (a *MachineAgent) upgradeWorker(apiState *api.State, jobs []params.MachineJob) worker.Worker {
+	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
+		select {
+		case <-a.upgradeComplete:
+			// Our work is already done (we're probably being restarted
+			// because the API connection has gone down), so do nothing.
+			<-stop
+			return nil
+		default:
+		}
+		err := a.runUpgrades(apiState, jobs)
+		if err != nil {
+			return err
+		}
+		logger.Infof("Upgrade to %v completed.", version.Current)
+		close(a.upgradeComplete)
+		<-stop
+		return nil
+	})
+}
+
+// runUpgrades runs the upgrade operations for each job type and updates the updatedToVersion on success.
+func (a *MachineAgent) runUpgrades(st *api.State, jobs []params.MachineJob) error {
+	agentConfig := a.Conf.config
+	from := version.Current
+	from.Number = agentConfig.UpgradedToVersion()
+	if from == version.Current {
+		logger.Infof("Upgrade to %v already completed.", version.Current)
+		return nil
+	}
+	context := upgrades.NewContext(agentConfig, st)
+	for _, job := range jobs {
+		var target upgrades.Target
+		switch job {
+		case params.JobManageEnviron:
+			target = upgrades.StateServer
+		case params.JobHostUnits:
+			target = upgrades.HostMachine
+		default:
+			continue
+		}
+		logger.Infof("Starting upgrade from %v to %v for %v", from, version.Current, target)
+		if err := upgrades.PerformUpgrade(from.Number, target, context); err != nil {
+			return fmt.Errorf("cannot perform upgrade from %v to %v for : %v", from, version.Current, target, err)
+		}
+	}
+	return a.Conf.config.WriteUpgradedToVersion(version.Current.Number)
 }
 
 func (a *MachineAgent) Entity(st *state.State) (AgentState, error) {

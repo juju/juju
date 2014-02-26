@@ -129,7 +129,7 @@ func PerformUpgrade(from version.Number, target Target, context Context) error {
 	for _, upgradeOps := range upgradeOperations() {
 		targetVersion := upgradeOps.TargetVersion()
 		// Do not run steps for versions of Juju earlier or same as we are upgrading from.
-		if targetVersion.Compare(from) < 1 {
+		if targetVersion.Compare(from) <= 0 {
 			continue
 		}
 		// Do not run steps for versions of Juju later than we are upgrading to.
@@ -172,6 +172,7 @@ func runUpgradeSteps(context Context, target Target, upgradeOp Operation) *upgra
 			}
 		}
 	}
+	logger.Infof("All upgrade steps completed successfully")
 	return nil
 }
 
