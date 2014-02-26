@@ -110,7 +110,7 @@ func (x extractor) expand(zipFile *zip.File) error {
 	case 0:
 		return x.writeFile(filePath, zipFile, modePerm)
 	}
-	return fmt.Errorf("unknown file type %o", modeType)
+	return fmt.Errorf("unknown file type %d", modeType)
 }
 
 func (x extractor) writeDir(filePath string, modePerm os.FileMode) error {

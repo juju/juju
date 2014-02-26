@@ -260,10 +260,6 @@ func (s *ZipSuite) TestExtractAllSymlinkErrors(c *gc.C) {
 	}
 }
 
-func (s *ZipSuite) TestExtractAllFileTypeErrors(c *gc.C) {
-	c.Fatalf("not finished")
-}
-
 func (s *ZipSuite) TestExtractDir(c *gc.C) {
 	reader := s.makeZip(c,
 		file{"bad-file", "xxx", 0644},
