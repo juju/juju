@@ -791,7 +791,6 @@ var immutableAttributes = []string{
 	"firewall-mode",
 	"state-port",
 	"api-port",
-	"syslog-port",
 	"bootstrap-timeout",
 	"bootstrap-retry-delay",
 	"bootstrap-addresses-delay",
