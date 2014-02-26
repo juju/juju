@@ -221,11 +221,11 @@ func (s *suite) TestApiAddressesCantWriteBack(c *gc.C) {
 func assertConfigEqual(c *gc.C, c1, c2 agent.Config) {
 	// Since we can't directly poke the internals, we'll use the WriteCommands
 	// method.
-	confCommands, err := c1.WriteCommands()
+	conf1Commands, err := c1.WriteCommands()
 	c.Assert(err, gc.IsNil)
-	rereadCommands, err := c2.WriteCommands()
+	conf2Commands, err := c2.WriteCommands()
 	c.Assert(err, gc.IsNil)
-	c.Assert(confCommands, gc.DeepEquals, rereadCommands)
+	c.Assert(conf1Commands, gc.DeepEquals, conf2Commands)
 }
 
 func (*suite) TestWriteAndRead(c *gc.C) {
