@@ -742,6 +742,9 @@ func allowEmpty(attr string) bool {
 
 var defaults = allDefaults()
 
+// allDefaults returns a schema.Defaults that contains
+// defaults to be used when creating a new config with
+// UseDefaults.
 func allDefaults() schema.Defaults {
 	d := schema.Defaults{
 		"default-series":            DefaultSeries,
@@ -756,7 +759,9 @@ func allDefaults() schema.Defaults {
 		"bootstrap-addresses-delay": DefaultBootstrapSSHAddressesDelay,
 	}
 	for attr, val := range alwaysOptional {
-		d[attr] = val
+		if _, ok := d[attr]; !ok {
+			d[attr] = val
+		}
 	}
 	return d
 }
@@ -786,7 +791,6 @@ var immutableAttributes = []string{
 	"firewall-mode",
 	"state-port",
 	"api-port",
-	"syslog-port",
 	"bootstrap-timeout",
 	"bootstrap-retry-delay",
 	"bootstrap-addresses-delay",

@@ -12,11 +12,13 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"mime"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/errgo/errgo"
@@ -32,8 +34,13 @@ import (
 
 // charmsHandler handles charm upload through HTTPS in the API server.
 type charmsHandler struct {
-	state *state.State
+	state   *state.State
+	dataDir string
 }
+
+// zipContentsSenderFunc functions are responsible of sending a zip archive
+// related response. The zip archive can be accessed through the given reader.
+type zipContentsSenderFunc func(w http.ResponseWriter, r *http.Request, reader *zip.ReadCloser)
 
 func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := h.authenticate(r); err != nil {
@@ -43,13 +50,28 @@ func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case "POST":
+		// Add a local charm to the store provider.
+		// Requires a "series" query specifying the series to use for the charm.
 		charmURL, err := h.processPost(r)
 		if err != nil {
 			h.sendError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		h.sendJSON(w, http.StatusOK, &params.CharmsResponse{CharmURL: charmURL.String()})
-	// Possible future extensions, like GET.
+	case "GET":
+		// Retrieve or list charm files.
+		// Requires "url" (charm URL) and an optional "file" (the path to the
+		// charm file) to be included in the query.
+		if charmArchivePath, filePath, err := h.processGet(r); err != nil {
+			// An error occurred retrieving the charm bundle.
+			h.sendError(w, http.StatusBadRequest, err.Error())
+		} else if filePath == "" {
+			// The client requested the list of charm files.
+			sendZipContents(w, r, charmArchivePath, h.fileListSender)
+		} else {
+			// The client requested a specific file.
+			sendZipContents(w, r, charmArchivePath, h.fileSender(filePath))
+		}
 	default:
 		h.sendError(w, http.StatusMethodNotAllowed, fmt.Sprintf("unsupported method: %q", r.Method))
 	}
@@ -57,6 +79,7 @@ func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // sendJSON sends a JSON-encoded response to the client.
 func (h *charmsHandler) sendJSON(w http.ResponseWriter, statusCode int, response *params.CharmsResponse) error {
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 	body, err := json.Marshal(response)
 	if err != nil {
@@ -64,6 +87,72 @@ func (h *charmsHandler) sendJSON(w http.ResponseWriter, statusCode int, response
 	}
 	w.Write(body)
 	return nil
+}
+
+// sendZipContents uses the given zipContentsSenderFunc to send a response
+// related to the zip archive located in the given archivePath.
+func sendZipContents(w http.ResponseWriter, r *http.Request, archivePath string, zipContentsSender zipContentsSenderFunc) {
+	reader, err := zip.OpenReader(archivePath)
+	if err != nil {
+		http.Error(
+			w, fmt.Sprintf("unable to read archive in %q: %v", archivePath, err),
+			http.StatusInternalServerError)
+		return
+	}
+	defer reader.Close()
+	// The zipContentsSenderFunc will handle the zip contents, set up and send
+	// an appropriate response.
+	zipContentsSender(w, r, reader)
+}
+
+// fileListSender sends a JSON-encoded response to the client including the
+// list of files contained in the zip archive.
+func (h *charmsHandler) fileListSender(w http.ResponseWriter, r *http.Request, reader *zip.ReadCloser) {
+	var files []string
+	for _, file := range reader.File {
+		fileInfo := file.FileInfo()
+		if !fileInfo.IsDir() {
+			files = append(files, file.Name)
+		}
+	}
+	h.sendJSON(w, http.StatusOK, &params.CharmsResponse{Files: files})
+}
+
+// fileSender returns a zipContentsSenderFunc which is responsible of sending
+// the contents of filePath included in the given zip.
+// A 404 page not found is returned if path does not exist in the zip.
+// A 403 forbidden error is returned if path points to a directory.
+func (h *charmsHandler) fileSender(filePath string) zipContentsSenderFunc {
+	return func(w http.ResponseWriter, r *http.Request, reader *zip.ReadCloser) {
+		for _, file := range reader.File {
+			if h.fixPath(file.Name) != filePath {
+				continue
+			}
+			fileInfo := file.FileInfo()
+			if fileInfo.IsDir() {
+				http.Error(w, "directory listing not allowed", http.StatusForbidden)
+				return
+			}
+			if contents, err := file.Open(); err != nil {
+				http.Error(
+					w, fmt.Sprintf("unable to read file %q: %v", filePath, err),
+					http.StatusInternalServerError)
+				return
+			} else {
+				defer contents.Close()
+				ctype := mime.TypeByExtension(filepath.Ext(filePath))
+				if ctype != "" {
+					w.Header().Set("Content-Type", ctype)
+				}
+				w.Header().Set("Content-Length", strconv.FormatInt(fileInfo.Size(), 10))
+				w.WriteHeader(http.StatusOK)
+				io.Copy(w, contents)
+			}
+			return
+		}
+		http.NotFound(w, r)
+		return
+	}
 }
 
 // sendError sends a JSON-encoded error response.
@@ -115,7 +204,7 @@ func (h *charmsHandler) processPost(r *http.Request) (*charm.URL, error) {
 	query := r.URL.Query()
 	series := query.Get("series")
 	if series == "" {
-		return nil, fmt.Errorf("expected series= URL argument")
+		return nil, fmt.Errorf("expected series=URL argument")
 	}
 	// Make sure the content type is zip.
 	contentType := r.Header.Get("Content-Type")
@@ -314,6 +403,82 @@ func (h *charmsHandler) repackageAndUploadCharm(archive *charm.Bundle, curl *cha
 	_, err = h.state.UpdateUploadedCharm(archive, curl, bundleURL, bundleSHA256)
 	if err != nil {
 		return errgo.Annotate(err, "cannot update uploaded charm in state")
+	}
+	return nil
+}
+
+// processGet handles a charm file GET request after authentication.
+// It returns the bundle path, the requested file path (if any) and an error.
+func (h *charmsHandler) processGet(r *http.Request) (string, string, error) {
+	query := r.URL.Query()
+
+	// Retrieve and validate query parameters.
+	curl := query.Get("url")
+	if curl == "" {
+		return "", "", fmt.Errorf("expected url=CharmURL query argument")
+	}
+	var filePath string
+	file := query.Get("file")
+	if file == "" {
+		filePath = ""
+	} else {
+		filePath = h.fixPath(file)
+	}
+
+	// Prepare the bundle directories.
+	name := charm.Quote(curl)
+	charmArchivePath := filepath.Join(h.dataDir, "charm-get-cache", name+".zip")
+
+	// Check if the charm archive is already in the cache.
+	if _, err := os.Stat(charmArchivePath); os.IsNotExist(err) {
+		// Download the charm archive and save it to the cache.
+		if err = h.downloadCharm(name, charmArchivePath); err != nil {
+			return "", "", fmt.Errorf("unable to retrieve and save the charm: %v", err)
+		}
+	} else if err != nil {
+		return "", "", fmt.Errorf("cannot access the charms cache: %v", err)
+	}
+	return charmArchivePath, filePath, nil
+}
+
+// downloadCharm downloads the given charm name from the provider storage and
+// saves the corresponding zip archive to the given charmArchivePath.
+func (h *charmsHandler) downloadCharm(name, charmArchivePath string) error {
+	// Get the provider storage.
+	storage, err := envtesting.GetEnvironStorage(h.state)
+	if err != nil {
+		return errgo.Annotate(err, "cannot access provider storage")
+	}
+
+	// Use the storage to retrieve and save the charm archive.
+	reader, err := storage.Get(name)
+	if err != nil {
+		return errgo.Annotate(err, "charm not found in the provider storage")
+	}
+	defer reader.Close()
+	data, err := ioutil.ReadAll(reader)
+	if err != nil {
+		return errgo.Annotate(err, "cannot read charm data")
+	}
+	// In order to avoid races, the archive is saved in a temporary file which
+	// is then atomically renamed. The temporary file is created in the
+	// charm cache directory so that we can safely assume the rename source and
+	// target live in the same file system.
+	cacheDir := filepath.Dir(charmArchivePath)
+	if err = os.MkdirAll(cacheDir, 0755); err != nil {
+		return errgo.Annotate(err, "cannot create the charms cache")
+	}
+	tempCharmArchive, err := ioutil.TempFile(cacheDir, "charm")
+	if err != nil {
+		return errgo.Annotate(err, "cannot create charm archive temp file")
+	}
+	defer tempCharmArchive.Close()
+	if err = ioutil.WriteFile(tempCharmArchive.Name(), data, 0644); err != nil {
+		return errgo.Annotate(err, "error processing charm archive download")
+	}
+	if err = os.Rename(tempCharmArchive.Name(), charmArchivePath); err != nil {
+		defer os.Remove(tempCharmArchive.Name())
+		return errgo.Annotate(err, "error renaming the charm archive")
 	}
 	return nil
 }
