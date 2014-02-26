@@ -112,7 +112,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	// lines of all logging in the log file.
 	loggo.RemoveWriter("logfile")
 	defer a.tomb.Done()
-	logger.Infof("machine agent %v start %s", a.Tag(), version.Current)
+	logger.Infof("machine agent %v start (%s)", a.Tag(), version.Current)
 	if err := a.Conf.read(a.Tag()); err != nil {
 		return err
 	}
