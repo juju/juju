@@ -360,8 +360,8 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 // startWorker starts a worker to run the specified child worker but only after waiting for upgrades to complete.
 func (a *MachineAgent) startWorkerAfterUpgrade(runner worker.Runner, name string, start func() (worker.Worker, error)) {
 	runner.StartWorker(name, func() (worker.Worker, error) {
-			return a.upgradeWaiterWorker(start), nil
-		})
+		return a.upgradeWaiterWorker(start), nil
+	})
 }
 
 // upgradeWaiterWorker runs the specified worker after upgrades have completed.
