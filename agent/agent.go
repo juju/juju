@@ -30,7 +30,6 @@ const (
 	StorageAddr      = "STORAGE_ADDR"
 	AgentServiceName = "AGENT_SERVICE_NAME"
 	MongoServiceName = "MONGO_SERVICE_NAME"
-	RsyslogConfPath  = "RSYSLOG_CONF_PATH"
 	BootstrapJobs    = "BOOTSTRAP_JOBS"
 )
 

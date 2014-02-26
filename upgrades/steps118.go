@@ -11,15 +11,5 @@ func stepsFor118() []Step {
 			targets:     []Target{HostMachine},
 			run:         ensureLockDirExistsAndUbuntuWritable,
 		},
-		&upgradeStep{
-			description: "upgrade rsyslog config file on state server",
-			targets:     []Target{StateServer},
-			run:         upgradeStateServerRsyslogConfig,
-		},
-		&upgradeStep{
-			description: "upgrade rsyslog config file on host machine",
-			targets:     []Target{HostMachine},
-			run:         upgradeHostMachineRsyslogConfig,
-		},
 	}
 }

@@ -33,7 +33,6 @@ func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
 		DataDir:            environs.DataDir,
 		LogDir:             environs.LogDir,
 		CloudInitOutputLog: environs.CloudInitOutputLog,
-		RsyslogConfPath:    environs.RsyslogConfPath,
 		Tools:              &tools.Tools{URL: "file://" + c.MkDir()},
 		StateInfo: &state.Info{
 			CACert:   []byte(testing.CACert),
@@ -46,7 +45,6 @@ func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
 			Addrs:  []string{"127.0.0.1:123"},
 			Tag:    names.MachineTag(machineID),
 		},
-		SyslogPort:              2345,
 		MachineAgentServiceName: "jujud-machine-0",
 	}
 }

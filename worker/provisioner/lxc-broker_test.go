@@ -285,6 +285,5 @@ func (*fakeAPI) ContainerConfig() (params.ContainerConfig, error) {
 	return params.ContainerConfig{
 		ProviderType:            "fake",
 		AuthorizedKeys:          coretesting.FakeAuthKeys,
-		SSLHostnameVerification: true,
-		SyslogPort:              2345}, nil
+		SSLHostnameVerification: true}, nil
 }
