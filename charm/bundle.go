@@ -208,7 +208,9 @@ func (b *Bundle) ExpandTo(dir string) (err error) {
 	hooksDir := filepath.Join(dir, "hooks")
 	fixHook := fixHookFunc(hooksDir, b.meta.Hooks())
 	if err := filepath.Walk(hooksDir, fixHook); err != nil {
-		return err
+		if !os.IsNotExist(err) {
+			return err
+		}
 	}
 	revFile, err := os.Create(filepath.Join(dir, "revision"))
 	if err != nil {

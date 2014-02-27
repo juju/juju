@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -38,9 +39,9 @@ type charmsHandler struct {
 	dataDir string
 }
 
-// zipContentsSenderFunc functions are responsible of sending a zip archive
-// related response. The zip archive can be accessed through the given reader.
-type zipContentsSenderFunc func(w http.ResponseWriter, r *http.Request, reader *zip.ReadCloser)
+// bundleContentSenderFunc functions are responsible for sending a
+// response related to a charm bundle.
+type bundleContentSenderFunc func(w http.ResponseWriter, r *http.Request, bundle *charm.Bundle)
 
 func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := h.authenticate(r); err != nil {
@@ -67,10 +68,10 @@ func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			h.sendError(w, http.StatusBadRequest, err.Error())
 		} else if filePath == "" {
 			// The client requested the list of charm files.
-			sendZipContents(w, r, charmArchivePath, h.fileListSender)
+			sendBundleContent(w, r, charmArchivePath, h.manifestSender)
 		} else {
 			// The client requested a specific file.
-			sendZipContents(w, r, charmArchivePath, h.fileSender(filePath))
+			sendBundleContent(w, r, charmArchivePath, h.fileSender(filePath))
 		}
 	default:
 		h.sendError(w, http.StatusMethodNotAllowed, fmt.Sprintf("unsupported method: %q", r.Method))
@@ -89,43 +90,53 @@ func (h *charmsHandler) sendJSON(w http.ResponseWriter, statusCode int, response
 	return nil
 }
 
-// sendZipContents uses the given zipContentsSenderFunc to send a response
-// related to the zip archive located in the given archivePath.
-func sendZipContents(w http.ResponseWriter, r *http.Request, archivePath string, zipContentsSender zipContentsSenderFunc) {
-	reader, err := zip.OpenReader(archivePath)
+// sendBundleContent uses the given bundleContentSenderFunc to send a response
+// related to the charm archive located in the given archivePath.
+func sendBundleContent(w http.ResponseWriter, r *http.Request, archivePath string, sender bundleContentSenderFunc) {
+	bundle, err := charm.ReadBundle(archivePath)
 	if err != nil {
 		http.Error(
 			w, fmt.Sprintf("unable to read archive in %q: %v", archivePath, err),
 			http.StatusInternalServerError)
 		return
 	}
-	defer reader.Close()
-	// The zipContentsSenderFunc will handle the zip contents, set up and send
-	// an appropriate response.
-	zipContentsSender(w, r, reader)
+	// The bundleContentSenderFunc will set up and send an appropriate response.
+	sender(w, r, bundle)
 }
 
-// fileListSender sends a JSON-encoded response to the client including the
-// list of files contained in the zip archive.
-func (h *charmsHandler) fileListSender(w http.ResponseWriter, r *http.Request, reader *zip.ReadCloser) {
-	var files []string
-	for _, file := range reader.File {
-		fileInfo := file.FileInfo()
-		if !fileInfo.IsDir() {
-			files = append(files, file.Name)
-		}
+// manifestSender sends a JSON-encoded response to the client including the
+// list of files contained in the charm bundle.
+func (h *charmsHandler) manifestSender(w http.ResponseWriter, r *http.Request, bundle *charm.Bundle) {
+	manifest, err := bundle.Manifest()
+	if err != nil {
+		http.Error(
+			w, fmt.Sprintf("unable to read archive in %q: %v", bundle.Path, err),
+			http.StatusInternalServerError)
+		return
 	}
-	h.sendJSON(w, http.StatusOK, &params.CharmsResponse{Files: files})
+	h.sendJSON(w, http.StatusOK, &params.CharmsResponse{Files: manifest.SortedValues()})
 }
 
-// fileSender returns a zipContentsSenderFunc which is responsible of sending
-// the contents of filePath included in the given zip.
-// A 404 page not found is returned if path does not exist in the zip.
-// A 403 forbidden error is returned if path points to a directory.
-func (h *charmsHandler) fileSender(filePath string) zipContentsSenderFunc {
-	return func(w http.ResponseWriter, r *http.Request, reader *zip.ReadCloser) {
-		for _, file := range reader.File {
-			if h.fixPath(file.Name) != filePath {
+// fileSender returns a bundleContentSenderFunc which is responsible for sending
+// the contents of filePath included in the given charm bundle. If filePath does
+// not identify a file, or a symlink that resolves to a file, a 403 forbidden error
+// is returned.
+func (h *charmsHandler) fileSender(filePath string) bundleContentSenderFunc {
+	return func(w http.ResponseWriter, r *http.Request, bundle *charm.Bundle) {
+		// TODO(fwereade) 20140127 lp:XXXXXXXXX
+		// This doesn't handle symlinks helpfully, and should be talking in
+		// terms of bundles rather than zip readers; but this demands thought
+		// and design and is not amenable to a quick fix.
+		zipReader, err := zip.OpenReader(bundle.Path)
+		if err != nil {
+			http.Error(
+				w, fmt.Sprintf("unable to read charm: %v", err),
+				http.StatusInternalServerError)
+			return
+		}
+		defer zipReader.Close()
+		for _, file := range zipReader.File {
+			if path.Clean(file.Name) != filePath {
 				continue
 			}
 			fileInfo := file.FileInfo()
@@ -133,21 +144,21 @@ func (h *charmsHandler) fileSender(filePath string) zipContentsSenderFunc {
 				http.Error(w, "directory listing not allowed", http.StatusForbidden)
 				return
 			}
-			if contents, err := file.Open(); err != nil {
+			contents, err := file.Open()
+			if err != nil {
 				http.Error(
 					w, fmt.Sprintf("unable to read file %q: %v", filePath, err),
 					http.StatusInternalServerError)
 				return
-			} else {
-				defer contents.Close()
-				ctype := mime.TypeByExtension(filepath.Ext(filePath))
-				if ctype != "" {
-					w.Header().Set("Content-Type", ctype)
-				}
-				w.Header().Set("Content-Length", strconv.FormatInt(fileInfo.Size(), 10))
-				w.WriteHeader(http.StatusOK)
-				io.Copy(w, contents)
 			}
+			defer contents.Close()
+			ctype := mime.TypeByExtension(filepath.Ext(filePath))
+			if ctype != "" {
+				w.Header().Set("Content-Type", ctype)
+			}
+			w.Header().Set("Content-Length", strconv.FormatInt(fileInfo.Size(), 10))
+			w.WriteHeader(http.StatusOK)
+			io.Copy(w, contents)
 			return
 		}
 		http.NotFound(w, r)
@@ -422,7 +433,7 @@ func (h *charmsHandler) processGet(r *http.Request) (string, string, error) {
 	if file == "" {
 		filePath = ""
 	} else {
-		filePath = h.fixPath(file)
+		filePath = path.Clean(file)
 	}
 
 	// Prepare the bundle directories.

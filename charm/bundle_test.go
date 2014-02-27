@@ -288,7 +288,7 @@ func (s *BundleSuite) TestExpandToWithBadLink(c *gc.C) {
 
 	path := filepath.Join(c.MkDir(), "charm")
 	err = bundle.ExpandTo(path)
-	c.Assert(err, gc.ErrorMatches, `symlink "hooks/badlink" links out of charm: "../../target"`)
+	c.Assert(err, gc.ErrorMatches, `cannot extract "hooks/badlink": symlink "../../target" leads out of scope`)
 
 	// Symlink targeting an absolute path.
 	os.Remove(badLink)
@@ -300,7 +300,7 @@ func (s *BundleSuite) TestExpandToWithBadLink(c *gc.C) {
 
 	path = filepath.Join(c.MkDir(), "charm")
 	err = bundle.ExpandTo(path)
-	c.Assert(err, gc.ErrorMatches, `symlink "hooks/badlink" is absolute: "/target"`)
+	c.Assert(err, gc.ErrorMatches, `cannot extract "hooks/badlink": symlink "/target" is absolute`)
 }
 
 func extBundleDirPath(c *gc.C, dirpath string) string {
