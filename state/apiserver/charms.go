@@ -123,7 +123,7 @@ func (h *charmsHandler) manifestSender(w http.ResponseWriter, r *http.Request, b
 // is returned.
 func (h *charmsHandler) fileSender(filePath string) bundleContentSenderFunc {
 	return func(w http.ResponseWriter, r *http.Request, bundle *charm.Bundle) {
-		// TODO(fwereade) 20140127 lp:XXXXXXXXX
+		// TODO(fwereade) 20140127 lp:1285685
 		// This doesn't handle symlinks helpfully, and should be talking in
 		// terms of bundles rather than zip readers; but this demands thought
 		// and design and is not amenable to a quick fix.
