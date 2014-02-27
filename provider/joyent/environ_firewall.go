@@ -15,12 +15,12 @@ import (
 )
 
 const (
-	firewallRuleAll = "FROM * TO * ALLOW %s PORT %d"
+	firewallRuleAll = "FROM tag %s TO tag juju ALLOW %s PORT %d"
 )
 
 // Helper method to create a firewall rule string for the given port
-func createFirewallRuleAll(port instance.Port) string {
-	return fmt.Sprintf(firewallRuleAll, strings.ToLower(port.Protocol), port.Number)
+func createFirewallRuleAll(env *JoyentEnviron, port instance.Port) string {
+	return fmt.Sprintf(firewallRuleAll, env.Name(), strings.ToLower(port.Protocol), port.Number)
 }
 
 // Helper method to check if a firewall rule string already exist
@@ -35,11 +35,11 @@ func ruleExists(rules []cloudapi.FirewallRule, rule string) (bool, string) {
 }
 
 // Helper method to get port from the given firewall rules
-func getPorts(rules []cloudapi.FirewallRule) []instance.Port {
+func getPorts(env *JoyentEnviron, rules []cloudapi.FirewallRule) []instance.Port {
 	ports := []instance.Port{}
 	for _, r := range rules {
-		if r.Enabled {
-			rule := r.Rule
+		rule := r.Rule
+		if r.Enabled && strings.HasPrefix(rule, "FROM tag "+env.Name()) && strings.Contains(rule, "PORT") {
 			p := rule[strings.Index(rule, "ALLOW")+6 : strings.Index(rule, "PORT")-1]
 			n, _ := strconv.Atoi(rule[strings.LastIndex(rule, " ")+1:])
 			port := instance.Port{Protocol: p, Number: n}
@@ -62,7 +62,7 @@ func (env *JoyentEnviron) OpenPorts(ports []instance.Port) error {
 	}
 
 	for _, p := range ports {
-		rule := createFirewallRuleAll(p)
+		rule := createFirewallRuleAll(env, p)
 		if e, id := ruleExists(fwRules, rule); e {
 			_, err := env.compute.cloudapi.EnableFirewallRule(id)
 			if err != nil {
@@ -95,7 +95,7 @@ func (env *JoyentEnviron) ClosePorts(ports []instance.Port) error {
 	}
 
 	for _, p := range ports {
-		rule := createFirewallRuleAll(p)
+		rule := createFirewallRuleAll(env, p)
 		if e, id := ruleExists(fwRules, rule); e {
 			_, err := env.compute.cloudapi.DisableFirewallRule(id)
 			if err != nil {
@@ -127,5 +127,5 @@ func (env *JoyentEnviron) Ports() ([]instance.Port, error) {
 		return nil, fmt.Errorf("cannot get firewall rules: %v", err)
 	}
 
-	return getPorts(fwRules), nil
+	return getPorts(env, fwRules), nil
 }

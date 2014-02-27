@@ -5,6 +5,7 @@ package joyent
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	"launchpad.net/gojoyent/client"
@@ -17,6 +18,7 @@ import (
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/tools"
 )
 
@@ -45,6 +47,10 @@ func newCompute(env *JoyentEnviron) (*joyentCompute, error) {
 	return &joyentCompute{
 		ecfg:     env.ecfg,
 		cloudapi: cloudapi.New(client)}, nil
+}
+
+func (env *JoyentEnviron) machineFullName(machineId string) string {
+	return fmt.Sprintf("juju-%s-%s", env.Name(), names.MachineTag(machineId))
 }
 
 func (env *JoyentEnviron) StartInstance(cons constraints.Value, possibleTools tools.List,
@@ -80,9 +86,10 @@ func (env *JoyentEnviron) StartInstance(cons constraints.Value, possibleTools to
 
 	var machine *cloudapi.Machine
 	machine, err = env.compute.cloudapi.CreateMachine(cloudapi.CreateMachineOpts{
+		//Name:	 env.machineFullName(machineConf.MachineId),
 		Package: spec.InstanceType.Name,
 		Image:   spec.Image.Id,
-		Tags:    map[string]string{"group": "juju"},
+		Tags:    map[string]string{"tag.group": "juju", "tag.env": env.Name()},
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot run instances: %v", err)
@@ -111,8 +118,7 @@ func (env *JoyentEnviron) AllInstances() ([]instance.Instance, error) {
 
 	filter := cloudapi.NewFilter()
 	filter.Set("tag.group", "juju")
-	filter.Set("state", "provisioning")
-	filter.Add("state", "running")
+	filter.Set("tag.env", env.Name())
 
 	machines, err := env.compute.cloudapi.ListMachines(filter)
 	if err != nil {
@@ -120,8 +126,10 @@ func (env *JoyentEnviron) AllInstances() ([]instance.Instance, error) {
 	}
 
 	for _, m := range machines {
-		copy := m
-		instances = append(instances, &joyentInstance{machine: &copy, env: env})
+		if strings.EqualFold(m.State, "provisioning") || strings.EqualFold(m.State, "running") {
+			copy := m
+			instances = append(instances, &joyentInstance{machine: &copy, env: env})
+		}
 	}
 
 	return instances, nil
@@ -131,6 +139,8 @@ func (env *JoyentEnviron) Instances(ids []instance.Id) ([]instance.Instance, err
 	if len(ids) == 0 {
 		return nil, nil
 	}
+
+	logger.Debugf("Looking for instances %q", ids)
 
 	instances := make([]instance.Instance, len(ids))
 	found := 0
@@ -149,6 +159,8 @@ func (env *JoyentEnviron) Instances(ids []instance.Id) ([]instance.Instance, err
 		}
 	}
 
+	logger.Debugf("Found %d instances %q", found, instances)
+
 	if found == 0 {
 		return nil, environs.ErrNoInstances
 	} else if found < len(ids) {
@@ -159,15 +171,10 @@ func (env *JoyentEnviron) Instances(ids []instance.Id) ([]instance.Instance, err
 }
 
 func (env *JoyentEnviron) StopInstances(instances []instance.Instance) error {
-	ids := make([]instance.Id, len(instances))
-	for i, inst := range instances {
-		ids[i] = inst.(*joyentInstance).Id()
-	}
-
-	for _, id := range ids {
-		err := env.compute.cloudapi.StopMachine(string(id))
+	for _, inst := range instances {
+		err := inst.(*joyentInstance).Stop()
 		if err != nil {
-			return fmt.Errorf("cannot stop instance %s: %v", string(id), err)
+			return fmt.Errorf("cannot stop instance %s: %v", string(inst.(*joyentInstance).Id()), err)
 		}
 	}
 
