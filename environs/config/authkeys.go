@@ -20,8 +20,8 @@ import (
 const (
 	// AuthKeysConfig is the configuration key for authorised keys.
 	AuthKeysConfig = "authorized-keys"
-	// JujuSystemKeyComment is the SSH key comment for Juju system keys.
-	JujuSystemKeyComment = "juju-system-key"
+	// JujuSystemKey is the SSH key comment for Juju system keys.
+	JujuSystemKey = "juju-system-key"
 )
 
 // ReadAuthorizedKeys implements the standard juju behaviour for finding

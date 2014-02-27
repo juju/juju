@@ -11,6 +11,7 @@ import (
 
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/state/api/keymanager"
 	"launchpad.net/juju-core/utils/ssh"
 )
 
@@ -24,26 +25,19 @@ func ensureSystemSSHKey(context Context) error {
 	if keyExists {
 		return nil
 	}
-	privateKey, publicKey, err := ssh.GenerateKey(config.JujuSystemKeyComment)
+	privateKey, publicKey, err := ssh.GenerateKey(config.JujuSystemKey)
 	if err != nil {
 		return fmt.Errorf("failed to create system key: %v", err)
 	}
 	// Write new authorised key.
-	client := context.APIState().Client()
-	cfg, err := client.EnvironmentGet()
-	if err != nil {
-		return fmt.Errorf("failed to read current environment config: %v", err)
+	keyManager := keymanager.NewClient(context.APIState())
+	errResults, err := keyManager.AddKeys(config.JujuSystemKey, publicKey)
+	apiErr := err
+	if apiErr == nil {
+		apiErr = errResults[0].Error
 	}
-	var authKeys string
-	if v, ok := cfg[config.AuthKeysConfig]; ok {
-		authKeys = v.(string)
-	}
-	authorised_keys := config.ConcatAuthKeys(authKeys, publicKey)
-	err = client.EnvironmentSet(map[string]interface{}{
-		config.AuthKeysConfig: authorised_keys,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to update authoised keys with new system key: %v", err)
+	if err != nil || errResults[0].Error != nil {
+		return fmt.Errorf("failed to update authoised keys with new system key: %v", apiErr)
 	}
 	return ioutil.WriteFile(identityFile, []byte(privateKey), 0600)
 }

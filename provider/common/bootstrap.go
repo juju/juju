@@ -97,7 +97,7 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, cons constra
 func GenerateSystemSSHKey(env environs.Environ) (privateKey string, err error) {
 	logger.Debugf("generate a system ssh key")
 	// Create a new system ssh key and add that to the authorized keys.
-	privateKey, publicKey, err := ssh.GenerateKey(config.JujuSystemKeyComment)
+	privateKey, publicKey, err := ssh.GenerateKey(config.JujuSystemKey)
 	if err != nil {
 		return "", fmt.Errorf("failed to create system key: %v", err)
 	}

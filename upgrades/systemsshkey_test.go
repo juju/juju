@@ -11,6 +11,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	jujutesting "launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/state"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/upgrades"
 	"launchpad.net/juju-core/utils/ssh"
@@ -25,12 +26,18 @@ var _ = gc.Suite(&systemSSHKeySuite{})
 
 func (s *systemSSHKeySuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
+	apiState, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
 	s.ctx = &mockContext{
 		agentConfig: &mockAgentConfig{dataDir: s.DataDir()},
-		apiState:    s.APIState,
+		apiState:    apiState,
 	}
 	_, err := os.Stat(s.keyFile())
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
+	// There's initially one authorised key for the test user.
+	cfg, err := s.JujuConnSuite.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	authKeys := ssh.SplitAuthorisedKeys(cfg.AuthorizedKeys())
+	c.Assert(authKeys, gc.HasLen, 1)
 }
 
 func (s *systemSSHKeySuite) keyFile() string {
