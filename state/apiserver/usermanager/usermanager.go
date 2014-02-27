@@ -41,14 +41,7 @@ func NewUserManagerAPI(
 
 	// TODO(mattyw) - replace stub with real canRead function
 	// For now, only admins can add users.
-	getCanWrite := func() (common.AuthFunc, error) {
-		return func(tag string) bool {
-			if _, err := st.User(tag); err != nil {
-				return false
-			}
-			return authorizer.GetAuthTag() == "user-admin"
-		}, nil
-	}
+	getCanWrite := common.AuthAlways(true)
 	return &UserManagerAPI{
 			state:       st,
 			authorizer:  authorizer,

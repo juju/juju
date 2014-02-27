@@ -21,14 +21,14 @@ func (c *Client) Close() error {
 }
 
 func (c *Client) AddUser(tag, password string) (params.ErrorResult, error) {
-	p := params.ModifyUsers{Tag: tag, Password: password}
+	p := params.ModifyUser{Tag: tag, Password: password}
 	var result params.ErrorResult
 	err := c.st.Call("UserManager", "", "AddUser", p, &result)
 	return result, err
 }
 
 func (c *Client) RemoveUser(tag string) (params.ErrorResult, error) {
-	p := params.ModifyUsers{Tag: tag}
+	p := params.ModifyUser{Tag: tag}
 	var result params.ErrorResult
 	err := c.st.Call("UserManager", "", "RemoveUser", p, &result)
 	return result, err

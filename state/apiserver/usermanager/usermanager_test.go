@@ -52,7 +52,7 @@ func (s *userManagerSuite) TestAddUser(c *gc.C) {
 	result, err := s.usermanager.AddUser(args)
 	// Check that the call is succesful
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{})
+	c.Assert(result, gc.DeepEquals, params.ErrorResult{})
 	// Check that the call results in a new user being created
 	user, err := s.State.User("foobar")
 	c.Assert(err, gc.IsNil)
@@ -71,16 +71,16 @@ func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
 
 	result, err := s.usermanager.RemoveUser(args)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{})
+	c.Assert(result, gc.DeepEquals, params.ErrorResult{Error: nil})
 	user, err = s.State.User("foobar")
 	c.Assert(err, gc.IsNil)
-	c.Assert(user.IsInactive(), gc.Equals, true) //Removal makes the user inactive
+	// Removal makes the user in active
+	c.Assert(user.IsInactive(), gc.Equals, true)
 	c.Assert(user.PasswordValid(args.Password), gc.Equals, true)
 }
 
-/* Since removing a user just sets them inactive you cannot add a user
-that has been previously been removed
-*/
+// Since removing a user just sets them inactive you cannot add a user
+// that has been previously been removed
 func (s *userManagerSuite) TestCannotAddRemoveAdd(c *gc.C) {
 	args := params.ModifyUser{
 		Tag:      "foobar",
