@@ -95,7 +95,9 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 	runner.StartWorker("uniter", func() (worker.Worker, error) {
 		return uniter.NewUniter(st.Uniter(), entity.Tag(), dataDir), nil
 	})
-	startRsyslogWorker(runner, st, agentConfig, rsyslog.RsyslogModeForwarding)
+	runner.StartWorker("rsyslog", func() (worker.Worker, error) {
+		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslog.RsyslogModeForwarding)
+	})
 	return newCloseWorker(runner, st), nil
 }
 

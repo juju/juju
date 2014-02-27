@@ -26,6 +26,7 @@ import (
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 )
 
 // BootstrapStateURLFile is used to communicate to the first bootstrap node
@@ -404,14 +405,15 @@ func (cfg *MachineConfig) agentConfig(tag string) (agent.Config, error) {
 		password = cfg.StateInfo.Password
 	}
 	configParams := agent.AgentConfigParams{
-		DataDir:        cfg.DataDir,
-		Tag:            tag,
-		Password:       password,
-		Nonce:          cfg.MachineNonce,
-		StateAddresses: cfg.stateHostAddrs(),
-		APIAddresses:   cfg.apiHostAddrs(),
-		CACert:         cfg.StateInfo.CACert,
-		Values:         cfg.AgentEnvironment,
+		DataDir:           cfg.DataDir,
+		Tag:               tag,
+		UpgradedToVersion: version.Current.Number,
+		Password:          password,
+		Nonce:             cfg.MachineNonce,
+		StateAddresses:    cfg.stateHostAddrs(),
+		APIAddresses:      cfg.apiHostAddrs(),
+		CACert:            cfg.StateInfo.CACert,
+		Values:            cfg.AgentEnvironment,
 	}
 	if !cfg.StateServer {
 		return agent.NewAgentConfig(configParams)

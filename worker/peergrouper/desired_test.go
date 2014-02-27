@@ -1,3 +1,6 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package peergrouper
 
 import (
@@ -8,14 +11,14 @@ import (
 	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
-
 	"launchpad.net/juju-core/replicaset"
+	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
 func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
+	coretesting.MgoTestPackage(t)
 }
 
 type desiredPeerGroupSuite struct {
@@ -36,6 +39,20 @@ var desiredPeerGroupTests = []struct {
 	expectVoting  []bool
 	expectErr     string
 }{{
+	// Note that this should never happen - mongo
+	// should always be bootstrapped with at least a single
+	// member in its member-set.
+	about:     "no members - error",
+	expectErr: "current member set is empty",
+}, {
+	about:    "one machine, two more proposed members",
+	machines: mkMachines("10v 11v 12v"),
+	statuses: mkStatuses("0p"),
+	members:  mkMembers("0v"),
+
+	expectMembers: mkMembers("0v 1 2"),
+	expectVoting:  []bool{true, false, false},
+}, {
 	about:         "single machine, no change",
 	machines:      mkMachines("11v"),
 	members:       mkMembers("1v"),
@@ -48,7 +65,7 @@ var desiredPeerGroupTests = []struct {
 	members:      mkMembers("1v 2vT"),
 	statuses:     mkStatuses("1p 2s"),
 	expectVoting: []bool{true},
-	expectErr:    "voting non-machine member found in peer group",
+	expectErr:    "voting non-machine member.* found in peer group",
 }, {
 	about:    "extra member with >1 votes",
 	machines: mkMachines("11v"),
@@ -59,7 +76,7 @@ var desiredPeerGroupTests = []struct {
 	}),
 	statuses:     mkStatuses("1p 2s"),
 	expectVoting: []bool{true},
-	expectErr:    "voting non-machine member found in peer group",
+	expectErr:    "voting non-machine member.* found in peer group",
 }, {
 	about:         "new machine with no associated member",
 	machines:      mkMachines("11v 12v"),
@@ -145,13 +162,29 @@ var desiredPeerGroupTests = []struct {
 		Address: "0.1.99.13:1234",
 		Tags:    memberTag("13"),
 	}),
+}, {
+	about: "a machine's address is ignored if it changes to empty",
+	machines: append(mkMachines("11v 12v"), &machine{
+		id:        "13",
+		wantsVote: true,
+		hostPort:  "",
+	}),
+	statuses:      mkStatuses("1s 2p 3p"),
+	members:       mkMembers("1v 2v 3v"),
+	expectVoting:  []bool{true, true, true},
+	expectMembers: nil,
 }}
 
 func (*desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 	for i, test := range desiredPeerGroupTests {
 		c.Logf("\ntest %d: %s", i, test.about)
+		machineMap := make(map[string]*machine)
+		for _, m := range test.machines {
+			c.Assert(machineMap[m.id], gc.IsNil)
+			machineMap[m.id] = m
+		}
 		info := &peerGroupInfo{
-			machines: test.machines,
+			machines: machineMap,
 			statuses: test.statuses,
 			members:  test.members,
 		}
@@ -166,7 +199,7 @@ func (*desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 		if len(members) == 0 {
 			continue
 		}
-		for i, m := range info.machines {
+		for i, m := range test.machines {
 			c.Assert(voting[m], gc.Equals, test.expectVoting[i], gc.Commentf("machine %s", m.id))
 		}
 		// Assure ourselves that the total number of desired votes is odd in

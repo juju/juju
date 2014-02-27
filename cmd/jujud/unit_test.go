@@ -64,7 +64,7 @@ func (s *UnitSuite) primeAgent(c *gc.C) (*state.Machine, *state.Unit, agent.Conf
 	c.Assert(err, gc.IsNil)
 	machine, err := s.State.Machine(id)
 	c.Assert(err, gc.IsNil)
-	conf, tools := s.agentSuite.primeAgent(c, unit.Tag(), initialUnitPassword)
+	conf, tools := s.agentSuite.primeAgent(c, unit.Tag(), initialUnitPassword, version.Current)
 	return machine, unit, conf, tools
 }
 
@@ -214,7 +214,7 @@ func (s *UnitSuite) TestOpenAPIState(c *gc.C) {
 }
 
 func (s *UnitSuite) TestOpenAPIStateWithBadCredsTerminates(c *gc.C) {
-	conf, _ := s.agentSuite.primeAgent(c, "unit-missing-0", "no-password")
+	conf, _ := s.agentSuite.primeAgent(c, "unit-missing-0", "no-password", version.Current)
 	_, _, err := openAPIState(conf, nil)
 	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
 }
@@ -253,7 +253,7 @@ func (s *UnitSuite) TestOpenStateFails(c *gc.C) {
 
 func (s *UnitSuite) TestRsyslogConfigWorker(c *gc.C) {
 	created := make(chan rsyslog.RsyslogMode, 1)
-	s.PatchValue(&newRsyslogConfigWorker, func(_ *apirsyslog.State, mode rsyslog.RsyslogMode, tag, namespace string, addrs []string) (worker.Worker, error) {
+	s.PatchValue(&newRsyslogConfigWorker, func(_ *apirsyslog.State, _ agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
 		created <- mode
 		return worker.NewRunner(isFatal, moreImportant), nil
 	})

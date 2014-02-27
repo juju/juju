@@ -19,6 +19,7 @@ import (
 	apiagent "launchpad.net/juju-core/state/api/agent"
 	apideployer "launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/state/api/params"
+	apirsyslog "launchpad.net/juju-core/state/api/rsyslog"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/deployer"
@@ -251,20 +252,18 @@ var newDeployContext = func(st *apideployer.State, agentConfig agent.Config) dep
 	return deployer.NewSimpleContext(agentConfig, st)
 }
 
-var newRsyslogConfigWorker = rsyslog.NewRsyslogConfigWorker
-
-func startRsyslogWorker(runner worker.Runner, st *api.State, agentConfig agent.Config, mode rsyslog.RsyslogMode) {
-	runner.StartWorker("rsyslog", func() (worker.Worker, error) {
-		tag := agentConfig.Tag()
-		namespace := agentConfig.Value(agent.Namespace)
-		var addrs []string
-		if mode == rsyslog.RsyslogModeForwarding {
-			var err error
-			addrs, err = agentConfig.APIAddresses()
-			if err != nil {
-				return nil, err
-			}
+// newRsyslogConfigWorker creates and returns a new RsyslogConfigWorker
+// based on the specified configuration parameters.
+var newRsyslogConfigWorker = func(st *apirsyslog.State, agentConfig agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
+	tag := agentConfig.Tag()
+	namespace := agentConfig.Value(agent.Namespace)
+	var addrs []string
+	if mode == rsyslog.RsyslogModeForwarding {
+		var err error
+		addrs, err = agentConfig.APIAddresses()
+		if err != nil {
+			return nil, err
 		}
-		return newRsyslogConfigWorker(st.Rsyslog(), mode, tag, namespace, addrs)
-	})
+	}
+	return rsyslog.NewRsyslogConfigWorker(st, mode, tag, namespace, addrs)
 }

@@ -93,10 +93,11 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	namespace := ctx.agentConfig.Value(agent.Namespace)
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
-			DataDir:  dataDir,
-			Tag:      tag,
-			Password: initialPassword,
-			Nonce:    "unused",
+			DataDir:           dataDir,
+			Tag:               tag,
+			UpgradedToVersion: version.Current.Number,
+			Password:          initialPassword,
+			Nonce:             "unused",
 			// TODO: remove the state addresses here and test when api only.
 			StateAddresses: result.StateAddresses,
 			APIAddresses:   result.APIAddresses,
