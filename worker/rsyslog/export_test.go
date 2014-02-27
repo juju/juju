@@ -4,10 +4,9 @@
 package rsyslog
 
 var (
-	RestartRsyslog = &restartRsyslog
-	LogDir         = &logDir
-	RsyslogConfDir = &rsyslogConfDir
-	LookupUser     = &lookupUser
-
-	NewRsyslogConfigHandler = newRsyslogConfigHandler //(st *apirsyslog.State, mode RsyslogMode, tag, namespace string, stateServerAddrs []string) (*RsyslogConfigHandler, error) {
+	RestartRsyslog          = &restartRsyslog
+	LogDir                  = &logDir
+	RsyslogConfDir          = &rsyslogConfDir
+	LookupUser              = &lookupUser
+	NewRsyslogConfigHandler = newRsyslogConfigHandler
 )
