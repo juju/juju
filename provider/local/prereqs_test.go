@@ -149,7 +149,7 @@ func (s *prereqsSuite) TestMongoPrereq(c *gc.C) {
 }
 
 func (s *prereqsSuite) TestLxcPrereq(c *gc.C) {
-	s.PatchValue(&lxclsPath, filepath.Join(c.MkDir(), "non-existent"))
+	s.PatchValue(&lxclsPath, filepath.Join(s.tmpdir, "non-existent"))
 
 	err := VerifyPrerequisites(instance.LXC)
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*Linux Containers \\(LXC\\) userspace tools must be\ninstalled(.|\n)*")
@@ -176,7 +176,14 @@ func (s *prereqsSuite) TestRsyslogGnutlsPrereq(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*rsyslog-gnutls must be installed to enable the local provider(.|\n)*")
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*apt-get install rsyslog-gnutls(.|\n)*")
 
+	s.PatchValue(&defaultRsyslogGnutlsPath, filepath.Join(s.tmpdir, "non-existent"))
 	os.Setenv("JUJUTEST_LSB_RELEASE_ID", "NotUbuntu")
 	err = VerifyPrerequisites(instance.LXC)
+	c.Assert(err, gc.ErrorMatches, "(.|\n)*non-existent: no such file or directory(.|\n)*")
 	c.Assert(err, gc.Not(gc.ErrorMatches), "(.|\n)*apt-get install rsyslog-gnutls(.|\n)*")
+
+	err = ioutil.WriteFile(defaultRsyslogGnutlsPath, nil, 0644)
+	c.Assert(err, gc.IsNil)
+	err = VerifyPrerequisites(instance.LXC)
+	c.Assert(err, gc.IsNil)
 }

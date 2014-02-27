@@ -6,6 +6,7 @@ package local
 import (
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"regexp"
 	"runtime"
@@ -65,6 +66,11 @@ var lowestMongoVersion = version.Number{Major: 2, Minor: 2, Patch: 4}
 // tools are installed. This is a variable only to support
 // unit testing.
 var lxclsPath = "lxc-ls"
+
+// defaultRsyslogGnutlsPath is the default path to the
+// rsyslog GnuTLS module. This is a variable only to
+// support unit testing.
+var defaultRsyslogGnutlsPath = "/usr/lib/rsyslog/lmnsd_gtls.so"
 
 // The operating system the process is running in.
 // This is a variable only to support unit testing.
@@ -137,13 +143,20 @@ func verifyLxc() error {
 }
 
 func verifyRsyslogGnutls() error {
-	if !utils.IsPackageInstalled("rsyslog-gnutls") {
-		if utils.IsUbuntu() {
-			return errors.New(installRsyslogGnutlsUbuntu)
-		}
-		return errors.New(installRsyslogGnutlsGeneric)
+	if utils.IsPackageInstalled("rsyslog-gnutls") {
+		return nil
 	}
-	return nil
+	if utils.IsUbuntu() {
+		return errors.New(installRsyslogGnutlsUbuntu)
+	}
+	// Not all Linuxes will distribute the module
+	// in the same way. Check if it's in the default
+	// location too.
+	_, err := os.Stat(defaultRsyslogGnutlsPath)
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("%v\n%s", err, installRsyslogGnutlsGeneric)
 }
 
 func wrapMongodNotExist(err error) error {
