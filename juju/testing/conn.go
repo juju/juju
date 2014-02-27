@@ -300,13 +300,14 @@ func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag string) agent.Config {
 	c.Assert(err, gc.IsNil)
 	config, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
-			DataDir:        s.DataDir(),
-			Tag:            tag,
-			Password:       password,
-			Nonce:          "nonce",
-			StateAddresses: s.StateInfo(c).Addrs,
-			APIAddresses:   s.APIInfo(c).Addrs,
-			CACert:         []byte(testing.CACert),
+			DataDir:           s.DataDir(),
+			Tag:               tag,
+			UpgradedToVersion: version.Current.Number,
+			Password:          password,
+			Nonce:             "nonce",
+			StateAddresses:    s.StateInfo(c).Addrs,
+			APIAddresses:      s.APIInfo(c).Addrs,
+			CACert:            []byte(testing.CACert),
 		})
 	c.Assert(err, gc.IsNil)
 	return config

@@ -207,13 +207,14 @@ func (s *agentSuite) primeAgent(c *gc.C, tag, password string) (agent.Config, *c
 	apiInfo := s.APIInfo(c)
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
-			DataDir:        s.DataDir(),
-			Tag:            tag,
-			Password:       password,
-			Nonce:          state.BootstrapNonce,
-			StateAddresses: stateInfo.Addrs,
-			APIAddresses:   apiInfo.Addrs,
-			CACert:         stateInfo.CACert,
+			DataDir:           s.DataDir(),
+			Tag:               tag,
+			UpgradedToVersion: version.Current.Number,
+			Password:          password,
+			Nonce:             state.BootstrapNonce,
+			StateAddresses:    stateInfo.Addrs,
+			APIAddresses:      apiInfo.Addrs,
+			CACert:            stateInfo.CACert,
 		})
 	c.Assert(conf.Write(), gc.IsNil)
 	return conf, agentTools
@@ -226,13 +227,14 @@ func writeStateAgentConfig(c *gc.C, stateInfo *state.Info, dataDir, tag, passwor
 	conf, err := agent.NewStateMachineConfig(
 		agent.StateMachineConfigParams{
 			AgentConfigParams: agent.AgentConfigParams{
-				DataDir:        dataDir,
-				Tag:            tag,
-				Password:       password,
-				Nonce:          state.BootstrapNonce,
-				StateAddresses: stateInfo.Addrs,
-				APIAddresses:   apiAddr,
-				CACert:         stateInfo.CACert,
+				DataDir:           dataDir,
+				Tag:               tag,
+				UpgradedToVersion: version.Current.Number,
+				Password:          password,
+				Nonce:             state.BootstrapNonce,
+				StateAddresses:    stateInfo.Addrs,
+				APIAddresses:      apiAddr,
+				CACert:            stateInfo.CACert,
 			},
 			StateServerCert: []byte(coretesting.ServerCert),
 			StateServerKey:  []byte(coretesting.ServerKey),
