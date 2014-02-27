@@ -332,7 +332,7 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 
 // ModeHookError is responsible for watching and responding to:
 // * user resolution of hook errors
-// * charm upgrade requests
+// * forced charm upgrade requests
 func ModeHookError(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeHookError", &err)()
 	if u.s.Op != RunHook || u.s.OpStep != Pending {
@@ -392,26 +392,16 @@ func ModeConflicted(curl *charm.URL) Mode {
 		}
 		u.f.WantResolvedEvent()
 		u.f.WantUpgradeEvent(true)
-		for {
-			select {
-			case <-u.tomb.Dying():
-				return nil, tomb.ErrDying
-			case <-u.f.ResolvedEvents():
-				err = u.charm.Snapshotf("Upgrade conflict resolved.")
-				if e := u.f.ClearResolved(); e != nil {
-					return nil, e
-				}
-				if err != nil {
-					return nil, err
-				}
-				return ModeUpgrading(curl), nil
-			case curl := <-u.f.UpgradeEvents():
-				if err := u.charm.Revert(); err != nil {
-					return nil, err
-				}
-				return ModeUpgrading(curl), nil
+		select {
+		case <-u.tomb.Dying():
+			return nil, tomb.ErrDying
+		case <-u.f.ResolvedEvents():
+			if err := u.f.ClearResolved(); err != nil {
+				return nil, err
 			}
+		case curl = <-u.f.UpgradeEvents():
 		}
+		return ModeUpgrading(curl), nil
 	}
 }
 

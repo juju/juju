@@ -60,7 +60,7 @@ func (s *DeployerSuite) TestInstall(c *gc.C) {
 	c.Assert(string(data), gc.Equals, "hello")
 
 	target := charm.NewGitDir(s.targetPath)
-	url, err := charm.ReadCharmURL(target)
+	url, err := target.ReadCharmURL()
 	c.Assert(err, gc.IsNil)
 	c.Assert(url, gc.DeepEquals, corecharm.MustParseURL("cs:s/c-1"))
 	lines, err := target.Log()

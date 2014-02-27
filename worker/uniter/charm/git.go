@@ -235,8 +235,12 @@ func (d *GitDir) statuses() ([]string, error) {
 }
 
 // ReadCharmURL reads the charm identity file from the supplied GitDir.
-func ReadCharmURL(d *GitDir) (*charm.URL, error) {
-	path := filepath.Join(d.path, ".juju-charm")
+func (d *GitDir) ReadCharmURL() (*charm.URL, error) {
+	path := filepath.Join(d.path, charmURLPath)
+	return ReadCharmURL(path)
+}
+
+func ReadCharmURL(path string) (*charm.URL, error) {
 	surl := ""
 	if err := utils.ReadYaml(path, &surl); err != nil {
 		return nil, err
@@ -245,6 +249,10 @@ func ReadCharmURL(d *GitDir) (*charm.URL, error) {
 }
 
 // WriteCharmURL writes a charm identity file into the directory.
-func WriteCharmURL(d *GitDir, url *charm.URL) error {
-	return utils.WriteYaml(filepath.Join(d.path, ".juju-charm"), url.String())
+func (d *GitDir) WriteCharmURL(url *charm.URL) error {
+	return WriteCharmURL(filepath.Join(d.path, charmURLPath), url)
+}
+
+func WriteCharmURL(path string, url *charm.URL) error {
+	return utils.WriteYaml(path, url.String())
 }

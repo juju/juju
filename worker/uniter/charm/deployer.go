@@ -10,12 +10,19 @@ import (
 	"path/filepath"
 	"time"
 
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/set"
 )
 
 const (
 	updatePrefix  = "update-"
 	installPrefix = "install-"
+	manifestsPath = "manifests"
+
+	charmURLPath     = ".juju-charm"
+	deployingURLPath = ".juju-deploying"
 )
 
 // Deployer is responsible for installing and upgrading charms.
@@ -23,6 +30,174 @@ type Deployer interface {
 	Stage(info BundleInfo, abort <-chan struct{}) error
 	Deploy() error
 }
+
+// manifestDeployer tracks the manifests of a series of charm bundles, and
+// uses those to remove files used only by old charms.
+type manifestDeployer struct {
+	charmPath string
+	dataPath  string
+	bundles   BundleReader
+	staged    struct {
+		url      *charm.URL
+		bundle   *charm.Bundle
+		manifest set.Strings
+	}
+}
+
+func NewManifestDeployer(charmPath, dataPath string, bundles BundleReader) Deployer {
+	return &manifestDeployer{
+		charmPath: charmPath,
+		dataPath:  dataPath,
+		bundles:   bundles,
+	}
+}
+
+// Stage is defined in the Deployer interface.
+func (d *manifestDeployer) Stage(info BundleInfo, abort <-chan struct{}) error {
+	if err := d.purgeGitDeployer(); err != nil {
+		return err
+	}
+	bundle, err := d.bundles.Read(info, abort)
+	if err != nil {
+		return err
+	}
+	manifest, err := bundle.Manifest()
+	if err != nil {
+		return err
+	}
+	url := info.URL()
+	if err := d.storeManifest(url, manifest); err != nil {
+		return err
+	}
+	d.staged.url = url
+	d.staged.bundle = bundle
+	d.staged.manifest = manifest
+	return nil
+}
+
+func (d *manifestDeployer) storeManifest(url *charm.URL, manifest set.Strings) error {
+	if err := os.MkdirAll(d.DataPath(manifestsPath), 0755); err != nil {
+		return err
+	}
+	name := charm.Quote(url.String())
+	path := filepath.Join(d.DataPath(manifestsPath), name)
+	return utils.WriteYaml(path, manifest.SortedValues())
+}
+
+func (d *manifestDeployer) loadManifest(urlFilePath string) (*charm.URL, set.Strings, error) {
+	url, err := ReadCharmURL(d.CharmPath(urlFilePath))
+	if err != nil {
+		return nil, set.NewStrings(), err
+	}
+	name := charm.Quote(url.String())
+	path := filepath.Join(d.DataPath(manifestsPath), name)
+	manifest := []string{}
+	err = utils.ReadYaml(path, &manifest)
+	if os.IsNotExist(err) {
+		log.Warningf("manifest not found at %q: files from charm %q may be left unremoved", path, url)
+		err = nil
+	}
+	return url, set.NewStrings(manifest...), err
+}
+
+// Deploy is defined in the Deployer interface.
+func (d *manifestDeployer) Deploy() error {
+	baseURL, baseManifest, err := d.loadManifest(charmURLPath)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	deployingURL, deployingManifest, err := d.loadManifest(deployingURLPath)
+	if err == nil {
+		// A deploy was already in progress.
+		log.Debugf("detected interrupted deploy of charm %q", deployingURL)
+		if *deployingURL != *d.staged.url {
+			// Remove any files from the interrupted deploy.
+			log.Debugf("removing files from charm %q", deployingURL)
+			if err := d.removeDiff(deployingManifest, baseManifest); err != nil {
+				return err
+			}
+		}
+	} else if os.IsNotExist(err) {
+		if baseURL != nil && *baseURL == *d.staged.url {
+			log.Debugf("already deployed charm %q", deployingURL)
+			return nil
+		}
+	} else {
+		return err
+	}
+	// Write or overwrite the deploying URL to point to the staged one.
+	log.Debugf("preparing to deploy charm %q", deployingURL)
+	if err := d.startDeploy(); err != nil {
+		return err
+	}
+	// Delete files in the base version not present in the staged charm.
+	if err := d.removeDiff(baseManifest, d.staged.manifest); err != nil {
+		return err
+	}
+	// Overwrite whatever's in place with the staged charm.
+	log.Debugf("deploying charm %q", d.staged.url)
+	if err := d.staged.bundle.ExpandTo(d.charmPath); err != nil {
+		return err
+	}
+	// Move the deploying file over the charm URL file, and we're done.
+	log.Debugf("finishing deploy of charm %q", d.staged.url)
+	return d.finishDeploy()
+}
+
+// CharmPath returns the supplied path joined to the ManfiestDeployer's charm directory.
+func (d *manifestDeployer) CharmPath(path string) string {
+	return filepath.Join(d.charmPath, path)
+}
+
+// CharmPath returns the supplied path joined to the ManfiestDeployer's data directory.
+func (d *manifestDeployer) DataPath(path string) string {
+	return filepath.Join(d.dataPath, path)
+}
+
+// removeDiff removes every path in oldManifest that is not present in newManifest.
+func (d *manifestDeployer) removeDiff(oldManifest, newManifest set.Strings) error {
+	for _, path := range oldManifest.Difference(newManifest).SortedValues() {
+		if err := os.RemoveAll(filepath.Join(d.charmPath, path)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// startDeploy persists the fact that we've started deploying the staged bundle.
+func (d *manifestDeployer) startDeploy() error {
+	if d.staged.url == nil {
+		return fmt.Errorf("no charm staged; cannot start deploying")
+	}
+	if err := os.MkdirAll(d.charmPath, 0755); err != nil {
+		return err
+	}
+	return WriteCharmURL(d.CharmPath(deployingURLPath), d.staged.url)
+}
+
+// finishDeploy persists the fact that we've finished deploying the staged bundle.
+func (d *manifestDeployer) finishDeploy() error {
+	oldPath := d.CharmPath(deployingURLPath)
+	newPath := d.CharmPath(charmURLPath)
+	return os.Rename(oldPath, newPath)
+}
+
+func (d *manifestDeployer) purgeGitDeployer() error {
+	return nil //fmt.Errorf("notimpl")
+}
+
+//-
+//-
+//-
+//-
+//-
+//-
+//-
+//-
+//-
+//-
+//-
+//-
 
 // gitDeployer maintains a git repository tracking a series of charm versions,
 // and can install and upgrade charm deployments to the current version.

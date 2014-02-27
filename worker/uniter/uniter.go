@@ -207,7 +207,7 @@ func (u *Uniter) init(unitTag string) (err error) {
 	u.charm = charm.NewGitDir(filepath.Join(u.baseDir, "charm"))
 	deployerPath := filepath.Join(u.baseDir, "state", "deployer")
 	bundles := charm.NewBundlesDir(filepath.Join(u.baseDir, "state", "bundles"))
-	u.deployer = charm.NewGitDeployer(u.charm.Path(), deployerPath, bundles)
+	u.deployer = charm.NewManifestDeployer(u.charm.Path(), deployerPath, bundles)
 	u.sf = NewStateFile(filepath.Join(u.baseDir, "state", "uniter"))
 	u.rand = rand.New(rand.NewSource(time.Now().Unix()))
 	return nil
@@ -500,9 +500,6 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 		if hi.Kind == hooks.RelationBroken {
 			delete(u.relationers, hi.RelationId)
 		}
-	}
-	if err := u.charm.Snapshotf("Completed %q hook.", hi.Kind); err != nil {
-		return err
 	}
 	if hi.Kind == hooks.ConfigChanged {
 		u.ranConfigChanged = true
