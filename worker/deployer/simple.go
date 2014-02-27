@@ -21,6 +21,10 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
+// InitDir is the default upstart init directory.
+// This is a var so it can be overridden by tests.
+var InitDir = "/etc/init"
+
 // APICalls defines the interface to the API that the simple context needs.
 type APICalls interface {
 	ConnectionInfo() (params.DeployerConnectionValues, error)
@@ -65,7 +69,7 @@ func NewSimpleContext(agentConfig agent.Config, api APICalls) *SimpleContext {
 	return &SimpleContext{
 		api:         api,
 		agentConfig: agentConfig,
-		initDir:     "/etc/init",
+		initDir:     InitDir,
 		logDir:      "/var/log/juju",
 	}
 }
@@ -98,10 +102,11 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	namespace := ctx.agentConfig.Value(agent.Namespace)
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
-			DataDir:  dataDir,
-			Tag:      tag,
-			Password: initialPassword,
-			Nonce:    "unused",
+			DataDir:           dataDir,
+			Tag:               tag,
+			UpgradedToVersion: version.Current.Number,
+			Password:          initialPassword,
+			Nonce:             "unused",
 			// TODO: remove the state addresses here and test when api only.
 			StateAddresses: result.StateAddresses,
 			APIAddresses:   result.APIAddresses,

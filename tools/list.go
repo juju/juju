@@ -74,7 +74,7 @@ func (src List) Newest() (version.Number, List) {
 	var result List
 	var best version.Number
 	for _, tools := range src {
-		if best.Less(tools.Version.Number) {
+		if best.Compare(tools.Version.Number) < 0 {
 			// Found new best number; reset result list.
 			best = tools.Version.Number
 			result = append(result[:0], tools)
@@ -95,7 +95,7 @@ func (src List) NewestCompatible(base version.Number) (newest version.Number, fo
 		toolVersion := tool.Version.Number
 		if newest == toolVersion {
 			found = true
-		} else if newest.Less(toolVersion) &&
+		} else if newest.Compare(toolVersion) < 0 &&
 			toolVersion.Major == newest.Major &&
 			toolVersion.Minor == newest.Minor {
 			newest = toolVersion

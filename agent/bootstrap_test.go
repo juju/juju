@@ -8,6 +8,7 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
@@ -50,11 +51,12 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 
 	pwHash := utils.UserPasswordHash(testing.DefaultMongoPassword, utils.CompatSalt)
 	cfg, err := agent.NewAgentConfig(agent.AgentConfigParams{
-		DataDir:        dataDir,
-		Tag:            "machine-0",
-		StateAddresses: []string{testing.MgoServer.Addr()},
-		CACert:         []byte(testing.CACert),
-		Password:       pwHash,
+		DataDir:           dataDir,
+		Tag:               "machine-0",
+		UpgradedToVersion: version.Current.Number,
+		StateAddresses:    []string{testing.MgoServer.Addr()},
+		CACert:            []byte(testing.CACert),
+		Password:          pwHash,
 	})
 	c.Assert(err, gc.IsNil)
 	expectConstraints := constraints.MustParse("mem=1024M")
@@ -71,7 +73,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	envCfg, err := config.New(config.NoDefaults, envAttrs)
 	c.Assert(err, gc.IsNil)
 
-	st, m, err := cfg.InitializeState(envCfg, mcfg, state.DialOpts{})
+	st, m, err := cfg.InitializeState(envCfg, mcfg, state.DialOpts{}, environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
@@ -106,7 +108,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	c.Assert(newCfg.Tag(), gc.Equals, "machine-0")
 	c.Assert(agent.Password(newCfg), gc.Not(gc.Equals), pwHash)
 	c.Assert(agent.Password(newCfg), gc.Not(gc.Equals), testing.DefaultMongoPassword)
-	st1, err := cfg.OpenState()
+	st1, err := cfg.OpenState(environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	defer st1.Close()
 }
@@ -115,11 +117,12 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	dataDir := c.MkDir()
 	pwHash := utils.UserPasswordHash(testing.DefaultMongoPassword, utils.CompatSalt)
 	cfg, err := agent.NewAgentConfig(agent.AgentConfigParams{
-		DataDir:        dataDir,
-		Tag:            "machine-0",
-		StateAddresses: []string{testing.MgoServer.Addr()},
-		CACert:         []byte(testing.CACert),
-		Password:       pwHash,
+		DataDir:           dataDir,
+		Tag:               "machine-0",
+		UpgradedToVersion: version.Current.Number,
+		StateAddresses:    []string{testing.MgoServer.Addr()},
+		CACert:            []byte(testing.CACert),
+		Password:          pwHash,
 	})
 	c.Assert(err, gc.IsNil)
 	expectConstraints := constraints.MustParse("mem=1024M")
@@ -136,13 +139,13 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	envCfg, err := config.New(config.NoDefaults, envAttrs)
 	c.Assert(err, gc.IsNil)
 
-	st, _, err := cfg.InitializeState(envCfg, mcfg, state.DialOpts{})
+	st, _, err := cfg.InitializeState(envCfg, mcfg, state.DialOpts{}, environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	err = st.SetAdminMongoPassword("")
 	c.Check(err, gc.IsNil)
 	st.Close()
 
-	st, _, err = cfg.InitializeState(envCfg, mcfg, state.DialOpts{})
+	st, _, err = cfg.InitializeState(envCfg, mcfg, state.DialOpts{}, environs.NewStatePolicy())
 	if err == nil {
 		st.Close()
 	}
@@ -156,9 +159,25 @@ func (*bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, password string) {
 		Tag:      "",
 		Password: password,
 	}
-	st, err := state.Open(info, state.DialOpts{})
+	st, err := state.Open(info, state.DialOpts{}, environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 	_, err = st.Machine("0")
 	c.Assert(err, gc.IsNil)
+}
+
+func (s *bootstrapSuite) TestMarshalUnmarshalBootstrapJobs(c *gc.C) {
+	jobs := [][]state.MachineJob{
+		{},
+		{state.JobHostUnits},
+		{state.JobManageEnviron},
+		{state.JobHostUnits, state.JobManageEnviron},
+	}
+	for _, jobs := range jobs {
+		marshalled, err := agent.MarshalBootstrapJobs(jobs...)
+		c.Assert(err, gc.IsNil)
+		unmarshalled, err := agent.UnmarshalBootstrapJobs(marshalled)
+		c.Assert(err, gc.IsNil)
+		c.Assert(unmarshalled, gc.DeepEquals, jobs)
+	}
 }

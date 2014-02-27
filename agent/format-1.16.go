@@ -12,15 +12,16 @@ import (
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/juju/osenv"
+	"launchpad.net/juju-core/version"
 )
 
 const (
 	format_1_16 = "format 1.16"
 	// Old environment variables that are now stored in agent config.
-	JujuLxcBridge    = "JUJU_LXC_BRIDGE"
-	JujuProviderType = "JUJU_PROVIDER_TYPE"
-	JujuStorageDir   = "JUJU_STORAGE_DIR"
-	JujuStorageAddr  = "JUJU_STORAGE_ADDR"
+	jujuLxcBridge    = "JUJU_LXC_BRIDGE"
+	jujuProviderType = "JUJU_PROVIDER_TYPE"
+	jujuStorageDir   = "JUJU_STORAGE_DIR"
+	jujuStorageAddr  = "JUJU_STORAGE_ADDR"
 )
 
 // formatter_1_16 is the formatter for the 1.16 format.
@@ -29,8 +30,9 @@ type formatter_1_16 struct {
 
 // format_1_16Serialization holds information for a given agent.
 type format_1_16Serialization struct {
-	Tag   string
-	Nonce string
+	Tag               string
+	Nonce             string
+	UpgradedToVersion string `yaml:"upgradedToVersion"`
 	// CACert is base64 encoded
 	CACert         string
 	StateAddresses []string `yaml:",omitempty"`
@@ -64,6 +66,15 @@ func (*formatter_1_16) decode64(value string) (result []byte, err error) {
 	return
 }
 
+// upgradedToVersion parses the upgradedToVersion string value into a version.Number.
+// An empty value is returned as 1.16.0.
+func (*formatter_1_16) upgradedToVersion(value string) (version.Number, error) {
+	if value != "" {
+		return version.Parse(value)
+	}
+	return version.MustParse("1.16.0"), nil
+}
+
 func (formatter *formatter_1_16) read(dirName string) (*configInternal, error) {
 	data, err := ioutil.ReadFile(formatter.configFile(dirName))
 	if err != nil {
@@ -85,15 +96,20 @@ func (formatter *formatter_1_16) read(dirName string) (*configInternal, error) {
 	if err != nil {
 		return nil, err
 	}
+	upgradedToVersion, err := formatter.upgradedToVersion(format.UpgradedToVersion)
+	if err != nil {
+		return nil, err
+	}
 	config := &configInternal{
-		tag:             format.Tag,
-		nonce:           format.Nonce,
-		caCert:          caCert,
-		oldPassword:     format.OldPassword,
-		stateServerCert: stateServerCert,
-		stateServerKey:  stateServerKey,
-		apiPort:         format.APIPort,
-		values:          format.Values,
+		tag:               format.Tag,
+		nonce:             format.Nonce,
+		upgradedToVersion: upgradedToVersion,
+		caCert:            caCert,
+		oldPassword:       format.OldPassword,
+		stateServerCert:   stateServerCert,
+		stateServerKey:    stateServerKey,
+		apiPort:           format.APIPort,
+		values:            format.Values,
 	}
 	if len(format.StateAddresses) > 0 {
 		config.stateDetails = &connectionDetails{
@@ -112,14 +128,15 @@ func (formatter *formatter_1_16) read(dirName string) (*configInternal, error) {
 
 func (formatter *formatter_1_16) makeFormat(config *configInternal) *format_1_16Serialization {
 	format := &format_1_16Serialization{
-		Tag:             config.tag,
-		Nonce:           config.nonce,
-		CACert:          base64.StdEncoding.EncodeToString(config.caCert),
-		OldPassword:     config.oldPassword,
-		StateServerCert: base64.StdEncoding.EncodeToString(config.stateServerCert),
-		StateServerKey:  base64.StdEncoding.EncodeToString(config.stateServerKey),
-		APIPort:         config.apiPort,
-		Values:          config.values,
+		Tag:               config.tag,
+		Nonce:             config.nonce,
+		UpgradedToVersion: config.upgradedToVersion.String(),
+		CACert:            base64.StdEncoding.EncodeToString(config.caCert),
+		OldPassword:       config.oldPassword,
+		StateServerCert:   base64.StdEncoding.EncodeToString(config.stateServerCert),
+		StateServerKey:    base64.StdEncoding.EncodeToString(config.stateServerKey),
+		APIPort:           config.apiPort,
+		Values:            config.values,
 	}
 	if config.stateDetails != nil {
 		format.StateAddresses = config.stateDetails.addresses
@@ -176,19 +193,19 @@ func (*formatter_1_16) migrate(config *configInternal) {
 		environment string
 		config      string
 	}{{
-		JujuProviderType,
+		jujuProviderType,
 		ProviderType,
 	}, {
 		osenv.JujuContainerTypeEnvKey,
 		ContainerType,
 	}, {
-		JujuLxcBridge,
+		jujuLxcBridge,
 		LxcBridge,
 	}, {
-		JujuStorageDir,
+		jujuStorageDir,
 		StorageDir,
 	}, {
-		JujuStorageAddr,
+		jujuStorageAddr,
 		StorageAddr,
 	}} {
 		value := os.Getenv(name.environment)

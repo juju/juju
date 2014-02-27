@@ -127,8 +127,8 @@ func SupportedSeries() []string {
 	seriesVersionsMutex.Lock()
 	defer seriesVersionsMutex.Unlock()
 	updateSeriesVersions()
-	series := []string{}
-	for s, _ := range seriesVersions {
+	var series []string
+	for s := range seriesVersions {
 		series = append(series, s)
 	}
 	return series
@@ -509,6 +509,7 @@ func GetIndexWithFormat(source DataSource, indexPath, indexFormat string, requir
 	var indices Indices
 	err = json.Unmarshal(data, &indices)
 	if err != nil {
+		logger.Errorf("bad JSON index data at URL %q: %v", url, string(data))
 		return nil, fmt.Errorf("cannot unmarshal JSON index metadata at URL %q: %v", url, err)
 	}
 	if indices.Format != indexFormat {
@@ -957,6 +958,7 @@ func ParseCloudMetadata(data []byte, format, url string, valueTemplate interface
 		err = metadata.construct(reflect.TypeOf(valueTemplate))
 	}
 	if err != nil {
+		logger.Errorf("bad JSON product data at URL %q: %v", url, string(data))
 		return nil, fmt.Errorf("cannot unmarshal JSON metadata at URL %q: %v", url, err)
 	}
 	metadata.applyAliases()

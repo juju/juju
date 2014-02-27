@@ -11,6 +11,7 @@ import (
 
 	"launchpad.net/juju-core/environs/config"
 	coretesting "launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
@@ -26,6 +27,9 @@ func MinimalConfigValues() map[string]interface{} {
 		"type":             "manual",
 		"bootstrap-host":   "hostname",
 		"storage-auth-key": "whatever",
+		// Not strictly necessary, but simplifies testing by disabling
+		// ssh storage by default.
+		"use-sshstorage": false,
 		// While the ca-cert bits aren't entirely minimal, they avoid the need
 		// to set up a fake home.
 		"ca-cert":        coretesting.CACert,
@@ -119,4 +123,17 @@ func (s *configSuite) TestStorageParams(c *gc.C) {
 	testConfig = getEnvironConfig(c, values)
 	c.Assert(testConfig.storageAddr(), gc.Equals, "hostname:1234")
 	c.Assert(testConfig.storageListenAddr(), gc.Equals, "10.0.0.123:1234")
+}
+
+func (s *configSuite) TestStorageCompat(c *gc.C) {
+	// Older environment configurations will not have the
+	// use-sshstorage attribute. We treat them as if they
+	// have use-sshstorage=false.
+	values := MinimalConfigValues()
+	delete(values, "use-sshstorage")
+	cfg, err := config.New(config.UseDefaults, values)
+	c.Assert(err, gc.IsNil)
+	envConfig := newEnvironConfig(cfg, values)
+	c.Assert(err, gc.IsNil)
+	c.Assert(envConfig.useSSHStorage(), jc.IsFalse)
 }

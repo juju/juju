@@ -218,6 +218,11 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 	if err != nil {
 		return nil, nil, err
 	}
+	if template.InstanceId == "" {
+		if err := st.precheckInstance(template.Series, template.Constraints); err != nil {
+			return nil, nil, err
+		}
+	}
 	seq, err := st.sequence("machine")
 	if err != nil {
 		return nil, nil, err
@@ -331,6 +336,15 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineT
 	if err != nil {
 		return nil, nil, err
 	}
+	if containerType == "" {
+		return nil, nil, fmt.Errorf("no container type specified")
+	}
+	if parentTemplate.InstanceId == "" {
+		if err := st.precheckInstance(parentTemplate.Series, parentTemplate.Constraints); err != nil {
+			return nil, nil, err
+		}
+	}
+
 	parentDoc := machineDocForTemplate(parentTemplate, strconv.Itoa(seq))
 	newId, err := st.newContainerId(parentDoc.Id, containerType)
 	if err != nil {

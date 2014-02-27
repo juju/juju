@@ -180,7 +180,7 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return e, nil
 }
 
-func (p environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	attrs := cfg.UnknownAttrs()
 	if _, ok := attrs["control-bucket"]; !ok {
 		uuid, err := utils.NewUUID()
@@ -481,18 +481,6 @@ func (e *environ) nova() *nova.Client {
 	nova := e.novaUnlocked
 	e.ecfgMutex.Unlock()
 	return nova
-}
-
-// PrecheckInstance is specified in the environs.Prechecker interface.
-func (*environ) PrecheckInstance(series string, cons constraints.Value) error {
-	return nil
-}
-
-// PrecheckContainer is specified in the environs.Prechecker interface.
-func (*environ) PrecheckContainer(series string, kind instance.ContainerType) error {
-	// This check can either go away or be relaxed when the openstack
-	// provider manages container addressibility.
-	return environs.NewContainersUnsupported("openstack provider does not support containers")
 }
 
 func (e *environ) Name() string {

@@ -23,6 +23,13 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
+// mongoSocketTimeout should be long enough that
+// even a slow mongo server will respond in that
+// length of time. Since mongo servers ping themselves
+// every 10 seconds, that seems like a reasonable
+// default.
+const mongoSocketTimeout = 10 * time.Second
+
 // Info encapsulates information about cluster of
 // servers holding juju state and can be used to make a
 // connection to that cluster.
@@ -62,8 +69,13 @@ func DefaultDialOpts() DialOpts {
 // Open connects to the server described by the given
 // info, waits for it to be initialized, and returns a new State
 // representing the environment connected to.
-// It returns unauthorizedError if access is unauthorized.
-func Open(info *Info, opts DialOpts) (*State, error) {
+//
+// A policy may be provided, which will be used to validate and
+// modify behaviour of certain operations in state. A nil policy
+// may be provided.
+//
+// Open returns unauthorizedError if access is unauthorized.
+func Open(info *Info, opts DialOpts, policy Policy) (*State, error) {
 	logger.Infof("opening state; mongo addresses: %q; entity %q", info.Addrs, info.Tag)
 	if len(info.Addrs) == 0 {
 		return nil, stderrors.New("no mongo addresses")
@@ -103,19 +115,20 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 		return nil, err
 	}
 	logger.Infof("connection established")
-	st, err := newState(session, info)
+	st, err := newState(session, info, policy)
 	if err != nil {
 		session.Close()
 		return nil, err
 	}
+	session.SetSocketTimeout(mongoSocketTimeout)
 	return st, nil
 }
 
 // Initialize sets up an initial empty state and returns it.
 // This needs to be performed only once for a given environment.
 // It returns unauthorizedError if access is unauthorized.
-func Initialize(info *Info, cfg *config.Config, opts DialOpts) (rst *State, err error) {
-	st, err := Open(info, opts)
+func Initialize(info *Info, cfg *config.Config, opts DialOpts, policy Policy) (rst *State, err error) {
+	st, err := Open(info, opts, policy)
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +222,7 @@ func isUnauthorized(err error) bool {
 	return false
 }
 
-func newState(session *mgo.Session, info *Info) (*State, error) {
+func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 	db := session.DB("juju")
 	pdb := session.DB("presence")
 	if info.Tag != "" {
@@ -227,6 +240,7 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 	}
 	st := &State{
 		info:           info,
+		policy:         policy,
 		db:             db,
 		environments:   db.C("environments"),
 		charms:         db.C("charms"),

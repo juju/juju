@@ -27,6 +27,7 @@ import (
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 )
 
 // BootstrapStateURLFile is used to communicate to the first bootstrap node
@@ -209,11 +210,8 @@ func ConfigureBasic(cfg *MachineConfig, c *cloudinit.Config) error {
 	// Note: this must be the last runcmd we do in ConfigureBasic, as
 	// the presence of the nonce file is used to gate the remainder
 	// of synchronous bootstrap.
-	noncefile := shquote(path.Join(cfg.DataDir, NonceFile))
-	c.AddScripts(
-		fmt.Sprintf("install -D -m %o /dev/null %s", 0644, noncefile),
-		fmt.Sprintf(`printf '%%s\n' %s > %s`, shquote(cfg.MachineNonce), noncefile),
-	)
+	noncefile := path.Join(cfg.DataDir, NonceFile)
+	c.AddFile(noncefile, cfg.MachineNonce, 0644)
 	return nil
 }
 
@@ -278,8 +276,16 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 				shquote(cfg.ProxySettings.AsScriptEnvironment())))
 	}
 
+	// Make the lock dir and change the ownership of the lock dir itself to
+	// ubuntu:ubuntu from root:root so the juju-run command run as the ubuntu
+	// user is able to get access to the hook execution lock (like the uniter
+	// itself does.)
+	lockDir := path.Join(cfg.DataDir, "locks")
 	c.AddScripts(
-		fmt.Sprintf("mkdir -p %s", cfg.DataDir),
+		fmt.Sprintf("mkdir -p %s", lockDir),
+		// We only try to change ownership if there is an ubuntu user
+		// defined, and we determine this by the existance of the home dir.
+		fmt.Sprintf("[ -e /home/ubuntu ] && chown ubuntu:ubuntu %s", lockDir),
 		fmt.Sprintf("mkdir -p %s", cfg.LogDir),
 	)
 
@@ -289,11 +295,11 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	if strings.HasPrefix(cfg.Tools.URL, fileSchemePrefix) {
 		copyCmd = fmt.Sprintf("cp %s $bin/tools.tar.gz", shquote(cfg.Tools.URL[len(fileSchemePrefix):]))
 	} else {
-		wgetCommand := "wget"
+		curlCommand := "curl"
 		if cfg.DisableSSLHostnameVerification {
-			wgetCommand = "wget --no-check-certificate"
+			curlCommand = "curl --insecure"
 		}
-		copyCmd = fmt.Sprintf("%s --no-verbose -O $bin/tools.tar.gz %s", wgetCommand, shquote(cfg.Tools.URL))
+		copyCmd = fmt.Sprintf("%s -o $bin/tools.tar.gz %s", curlCommand, shquote(cfg.Tools.URL))
 		c.AddRunCmd(cloudinit.LogProgressCmd("Fetching tools: %s", copyCmd))
 	}
 	toolsJson, err := json.Marshal(cfg.Tools)
@@ -348,9 +354,17 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 
 			if cfg.NeedMongoPPA() {
 				const key = "" // key is loaded from PPA
-				c.AddAptSource("ppa:juju/stable", key)
+				c.AddAptSource("ppa:juju/stable", key, nil)
 			}
-			c.AddPackage("mongodb-server")
+			if cfg.Tools.Version.Series == "precise" {
+				// In precise we add the cloud-tools pocket and
+				// pin it with a lower priority, so we need to
+				// explicitly specify the target release when
+				// installing mongodb-server from there.
+				c.AddPackageFromTargetRelease("mongodb-server", "precise-updates/cloud-tools")
+			} else {
+				c.AddPackage("mongodb-server")
+			}
 		}
 		certKey := string(cfg.StateServerCert) + string(cfg.StateServerKey)
 		c.AddFile(cfg.dataFile("server.pem"), certKey, 0600)
@@ -423,14 +437,15 @@ func (cfg *MachineConfig) agentConfig(tag string) (agent.Config, error) {
 		password = cfg.StateInfo.Password
 	}
 	configParams := agent.AgentConfigParams{
-		DataDir:        cfg.DataDir,
-		Tag:            tag,
-		Password:       password,
-		Nonce:          cfg.MachineNonce,
-		StateAddresses: cfg.stateHostAddrs(),
-		APIAddresses:   cfg.apiHostAddrs(),
-		CACert:         cfg.StateInfo.CACert,
-		Values:         cfg.AgentEnvironment,
+		DataDir:           cfg.DataDir,
+		Tag:               tag,
+		UpgradedToVersion: version.Current.Number,
+		Password:          password,
+		Nonce:             cfg.MachineNonce,
+		StateAddresses:    cfg.stateHostAddrs(),
+		APIAddresses:      cfg.apiHostAddrs(),
+		CACert:            cfg.StateInfo.CACert,
+		Values:            cfg.AgentEnvironment,
 	}
 	if !cfg.StateServer {
 		return agent.NewAgentConfig(configParams)
@@ -601,7 +616,14 @@ func (cfg *MachineConfig) MaybeAddCloudArchiveCloudTools(c *cloudinit.Config) {
 	}
 	const url = "http://ubuntu-cloud.archive.canonical.com/ubuntu"
 	name := fmt.Sprintf("deb %s %s-updates/cloud-tools main", url, series)
-	c.AddAptSource(name, CanonicalCloudArchiveSigningKey)
+	prefs := &cloudinit.AptPreferences{
+		Path:        cloudinit.CloudToolsPrefsPath,
+		Explanation: "Pin with lower priority, not to interfere with charms",
+		Package:     "*",
+		Pin:         fmt.Sprintf("release n=%s-updates/cloud-tools", series),
+		PinPriority: 400,
+	}
+	c.AddAptSource(name, CanonicalCloudArchiveSigningKey, prefs)
 }
 
 func (cfg *MachineConfig) NeedMongoPPA() bool {

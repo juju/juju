@@ -57,6 +57,12 @@ func (s *CommonProvisionerSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
+	// Disable the default state policy, because the
+	// provisioner needs to be able to test pathological
+	// scenarios where a machine exists in state with
+	// invalid environment config.
+	dummy.SetStatePolicy(nil)
+
 	s.JujuConnSuite.SetUpTest(c)
 	// Create the operations channel with more than enough space
 	// for those tests that don't listen on it.

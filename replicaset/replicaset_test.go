@@ -5,9 +5,8 @@ import (
 	"testing"
 	"time"
 
-	gc "launchpad.net/gocheck"
-
 	"labix.org/v2/mgo"
+	gc "launchpad.net/gocheck"
 
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
@@ -348,10 +347,14 @@ func (s *MongoSuite) TestCurrentStatus(c *gc.C) {
 	for attempt.Next() {
 		var err error
 		res, err = CurrentStatus(session)
-
-		if err != nil && !attempt.HasNext() {
-			c.Errorf("Couldn't get status before timeout, got err: %v", err)
-			return
+		if err != nil {
+			if !attempt.HasNext() {
+				c.Errorf("Couldn't get status before timeout, got err: %v", err)
+				return
+			} else {
+				// try again
+				continue
+			}
 		}
 
 		if res.Members[0].State == PrimaryState &&

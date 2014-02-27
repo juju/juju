@@ -29,9 +29,8 @@ type UpstartSuite struct {
 var _ = gc.Suite(&UpstartSuite{})
 
 func (s *UpstartSuite) SetUpTest(c *gc.C) {
-	origPath := os.Getenv("PATH")
 	s.testPath = c.MkDir()
-	s.PatchEnvironment("PATH", s.testPath+":"+origPath)
+	s.PatchEnvPathPrepend(s.testPath)
 	s.PatchValue(&upstart.InstallStartRetryAttempts, utils.AttemptStrategy{})
 	s.service = &upstart.Service{Name: "some-service", InitDir: c.MkDir()}
 	_, err := os.Create(filepath.Join(s.service.InitDir, "some-service.conf"))
@@ -254,4 +253,24 @@ func (s *UpstartSuite) TestInstallAlreadyRunning(c *gc.C) {
 	err = conf.Install()
 	c.Assert(err, gc.IsNil)
 	c.Assert(&conf.Service, jc.Satisfies, (*upstart.Service).Running)
+}
+
+func (s *UpstartSuite) TestJujuMongodPath(c *gc.C) {
+	d := c.MkDir()
+	defer os.RemoveAll(d)
+	mongoPath := filepath.Join(d, "mongod")
+	upstart.JujuMongodPath = mongoPath
+
+	err := ioutil.WriteFile(mongoPath, []byte{}, 0777)
+	c.Assert(err, gc.IsNil)
+
+	obtained := upstart.MongodPath()
+	c.Assert(obtained, gc.Equals, mongoPath)
+}
+
+func (s *UpstartSuite) TestDefaultMongodPath(c *gc.C) {
+	upstart.JujuMongodPath = "/not/going/to/exist/mongod"
+
+	obtained := upstart.MongodPath()
+	c.Assert(obtained, gc.Equals, "mongod")
 }
