@@ -43,6 +43,7 @@ import (
 	"launchpad.net/juju-core/worker/minunitsworker"
 	"launchpad.net/juju-core/worker/provisioner"
 	"launchpad.net/juju-core/worker/resumer"
+	"launchpad.net/juju-core/worker/rsyslog"
 	"launchpad.net/juju-core/worker/terminationworker"
 	"launchpad.net/juju-core/worker/upgrader"
 )
@@ -177,6 +178,14 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 			break
 		}
 	}
+	rsyslogMode := rsyslog.RsyslogModeForwarding
+	for _, job := range entity.Jobs() {
+		if job == params.JobManageEnviron {
+			rsyslogMode = rsyslog.RsyslogModeAccumulate
+			break
+		}
+	}
+
 	runner := newRunner(connectionIsFatal(st), moreImportant)
 
 	// Run the upgrader and the upgrade-steps worker without waiting for the upgrade steps to complete.
@@ -196,6 +205,9 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	})
 	a.startWorkerAfterUpgrade(runner, "machineenvironmentworker", func() (worker.Worker, error) {
 		return machineenvironmentworker.NewMachineEnvironmentWorker(st.Environment(), agentConfig), nil
+	})
+	a.startWorkerAfterUpgrade(runner, "rsyslog", func() (worker.Worker, error) {
+		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
 
 	// If not a local provider bootstrap machine, start the worker to manage SSH keys.

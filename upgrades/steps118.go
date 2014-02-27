@@ -16,5 +16,10 @@ func stepsFor118() []Step {
 			targets:     []Target{StateServer},
 			run:         ensureSystemSSHKey,
 		},
+		&upgradeStep{
+			description: "install rsyslog-gnutls",
+			targets:     []Target{AllMachines},
+			run:         installRsyslogGnutls,
+		},
 	}
 }

@@ -238,6 +238,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 		c.AddPackage("git")
 		c.AddPackage("cpu-checker")
 		c.AddPackage("bridge-utils")
+		c.AddPackage("rsyslog-gnutls")
 
 		// Write out the apt proxy settings
 		if (cfg.AptProxySettings != osenv.ProxySettings{}) {
