@@ -27,7 +27,9 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
 	"launchpad.net/juju-core/state/apiserver"
+	"launchpad.net/juju-core/upgrades"
 	"launchpad.net/juju-core/upstart"
+	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/authenticationworker"
 	"launchpad.net/juju-core/worker/charmrevisionworker"
@@ -61,10 +63,11 @@ var jujuRun = "/usr/local/bin/juju-run"
 // MachineAgent is a cmd.Command responsible for running a machine agent.
 type MachineAgent struct {
 	cmd.CommandBase
-	tomb      tomb.Tomb
-	Conf      AgentConf
-	MachineId string
-	runner    worker.Runner
+	tomb            tomb.Tomb
+	Conf            AgentConf
+	MachineId       string
+	runner          worker.Runner
+	upgradeComplete chan struct{}
 }
 
 // Info returns usage information for the command.
@@ -89,6 +92,7 @@ func (a *MachineAgent) Init(args []string) error {
 		return err
 	}
 	a.runner = newRunner(isFatal, moreImportant)
+	a.upgradeComplete = make(chan struct{})
 	return nil
 }
 
@@ -175,23 +179,30 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 		}
 	}
 	runner := newRunner(connectionIsFatal(st), moreImportant)
-	runner.StartWorker("machiner", func() (worker.Worker, error) {
-		return machiner.NewMachiner(st.Machiner(), agentConfig), nil
-	})
+
+	// Run the upgrader and the upgrade-steps worker without waiting for the upgrade steps to complete.
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
 		return upgrader.NewUpgrader(st.Upgrader(), agentConfig), nil
 	})
-	runner.StartWorker("logger", func() (worker.Worker, error) {
+	runner.StartWorker("upgrade-steps", func() (worker.Worker, error) {
+		return a.upgradeWorker(st, entity.Jobs()), nil
+	})
+
+	// All other workers must wait for the upgrade steps to complete before starting.
+	a.startWorkerAfterUpgrade(runner, "machiner", func() (worker.Worker, error) {
+		return machiner.NewMachiner(st.Machiner(), agentConfig), nil
+	})
+	a.startWorkerAfterUpgrade(runner, "logger", func() (worker.Worker, error) {
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
 	})
-	runner.StartWorker("machineenvironmentworker", func() (worker.Worker, error) {
+	a.startWorkerAfterUpgrade(runner, "machineenvironmentworker", func() (worker.Worker, error) {
 		return machineenvironmentworker.NewMachineEnvironmentWorker(st.Environment(), agentConfig), nil
 	})
 
 	// If not a local provider bootstrap machine, start the worker to manage SSH keys.
 	providerType := agentConfig.Value(agent.ProviderType)
 	if providerType != provider.Local || a.MachineId != bootstrapMachineId {
-		runner.StartWorker("authenticationworker", func() (worker.Worker, error) {
+		a.startWorkerAfterUpgrade(runner, "authenticationworker", func() (worker.Worker, error) {
 			return authenticationworker.NewWorker(st.KeyUpdater(), agentConfig), nil
 		})
 	}
@@ -203,22 +214,22 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	for _, job := range entity.Jobs() {
 		switch job {
 		case params.JobHostUnits:
-			runner.StartWorker("deployer", func() (worker.Worker, error) {
+			a.startWorkerAfterUpgrade(runner, "deployer", func() (worker.Worker, error) {
 				apiDeployer := st.Deployer()
 				context := newDeployContext(apiDeployer, agentConfig)
 				return deployer.NewDeployer(apiDeployer, context), nil
 			})
 		case params.JobManageEnviron:
-			runner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
+			a.startWorkerAfterUpgrade(runner, "environ-provisioner", func() (worker.Worker, error) {
 				return provisioner.NewEnvironProvisioner(st.Provisioner(), agentConfig), nil
 			})
 			// TODO(axw) 2013-09-24 bug #1229506
 			// Make another job to enable the firewaller. Not all environments
 			// are capable of managing ports centrally.
-			runner.StartWorker("firewaller", func() (worker.Worker, error) {
+			a.startWorkerAfterUpgrade(runner, "firewaller", func() (worker.Worker, error) {
 				return firewaller.NewFirewaller(st.Firewaller())
 			})
-			runner.StartWorker("charm-revision-updater", func() (worker.Worker, error) {
+			a.startWorkerAfterUpgrade(runner, "charm-revision-updater", func() (worker.Worker, error) {
 				return charmrevisionworker.NewRevisionUpdateWorker(st.CharmRevisionUpdater()), nil
 			})
 		case params.JobManageStateDeprecated:
@@ -274,7 +285,7 @@ func (a *MachineAgent) updateSupportedContainers(runner worker.Runner, st *api.S
 	// Start the watcher to fire when a container is first requested on the machine.
 	watcherName := fmt.Sprintf("%s-container-watcher", machine.Id())
 	handler := provisioner.NewContainerSetupHandler(runner, watcherName, containers, machine, pr, a.Conf.config)
-	runner.StartWorker(watcherName, func() (worker.Worker, error) {
+	a.startWorkerAfterUpgrade(runner, watcherName, func() (worker.Worker, error) {
 		return worker.NewStringsWorker(handler), nil
 	})
 	return nil
@@ -296,7 +307,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	// the storage provider on one machine, and that is the "bootstrap" node.
 	providerType := agentConfig.Value(agent.ProviderType)
 	if (providerType == provider.Local || provider.IsManual(providerType)) && m.Id() == bootstrapMachineId {
-		runner.StartWorker("local-storage", func() (worker.Worker, error) {
+		a.startWorkerAfterUpgrade(runner, "local-storage", func() (worker.Worker, error) {
 			// TODO(axw) 2013-09-24 bug #1229507
 			// Make another job to enable storage.
 			// There's nothing special about this.
@@ -308,7 +319,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		case state.JobHostUnits:
 			// Implemented in APIWorker.
 		case state.JobManageEnviron:
-			runner.StartWorker("instancepoller", func() (worker.Worker, error) {
+			a.startWorkerAfterUpgrade(runner, "instancepoller", func() (worker.Worker, error) {
 				return instancepoller.NewWorker(st), nil
 			})
 			runner.StartWorker("apiserver", func() (worker.Worker, error) {
@@ -325,16 +336,16 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				dataDir := a.Conf.config.DataDir()
 				return apiserver.NewServer(st, fmt.Sprintf(":%d", port), cert, key, dataDir)
 			})
-			runner.StartWorker("cleaner", func() (worker.Worker, error) {
+			a.startWorkerAfterUpgrade(runner, "cleaner", func() (worker.Worker, error) {
 				return cleaner.NewCleaner(st), nil
 			})
-			runner.StartWorker("resumer", func() (worker.Worker, error) {
+			a.startWorkerAfterUpgrade(runner, "resumer", func() (worker.Worker, error) {
 				// The action of resumer is so subtle that it is not tested,
 				// because we can't figure out how to do so without brutalising
 				// the transaction log.
 				return resumer.NewResumer(st), nil
 			})
-			runner.StartWorker("minunitsworker", func() (worker.Worker, error) {
+			a.startWorkerAfterUpgrade(runner, "minunitsworker", func() (worker.Worker, error) {
 				return minunitsworker.NewMinUnitsWorker(st), nil
 			})
 		case state.JobManageStateDeprecated:
@@ -344,6 +355,90 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		}
 	}
 	return newCloseWorker(runner, st), nil
+}
+
+// startWorker starts a worker to run the specified child worker but only after waiting for upgrades to complete.
+func (a *MachineAgent) startWorkerAfterUpgrade(runner worker.Runner, name string, start func() (worker.Worker, error)) {
+	runner.StartWorker(name, func() (worker.Worker, error) {
+		return a.upgradeWaiterWorker(start), nil
+	})
+}
+
+// upgradeWaiterWorker runs the specified worker after upgrades have completed.
+func (a *MachineAgent) upgradeWaiterWorker(start func() (worker.Worker, error)) worker.Worker {
+	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
+		// wait for the upgrade to complete (or for us to be stopped)
+		select {
+		case <-stop:
+			return nil
+		case <-a.upgradeComplete:
+		}
+		w, err := start()
+		if err != nil {
+			return err
+		}
+		waitCh := make(chan error)
+		go func() {
+			waitCh <- w.Wait()
+		}()
+		select {
+		case err := <-waitCh:
+			return err
+		case <-stop:
+			w.Kill()
+		}
+		return <-waitCh
+	})
+}
+
+// upgradeWorker runs the required upgrade operations to upgrade to the current Juju version.
+func (a *MachineAgent) upgradeWorker(apiState *api.State, jobs []params.MachineJob) worker.Worker {
+	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
+		select {
+		case <-a.upgradeComplete:
+			// Our work is already done (we're probably being restarted
+			// because the API connection has gone down), so do nothing.
+			<-stop
+			return nil
+		default:
+		}
+		err := a.runUpgrades(apiState, jobs)
+		if err != nil {
+			return err
+		}
+		logger.Infof("Upgrade to %v completed.", version.Current)
+		close(a.upgradeComplete)
+		<-stop
+		return nil
+	})
+}
+
+// runUpgrades runs the upgrade operations for each job type and updates the updatedToVersion on success.
+func (a *MachineAgent) runUpgrades(st *api.State, jobs []params.MachineJob) error {
+	agentConfig := a.Conf.config
+	from := version.Current
+	from.Number = agentConfig.UpgradedToVersion()
+	if from == version.Current {
+		logger.Infof("Upgrade to %v already completed.", version.Current)
+		return nil
+	}
+	context := upgrades.NewContext(agentConfig, st)
+	for _, job := range jobs {
+		var target upgrades.Target
+		switch job {
+		case params.JobManageEnviron:
+			target = upgrades.StateServer
+		case params.JobHostUnits:
+			target = upgrades.HostMachine
+		default:
+			continue
+		}
+		logger.Infof("Starting upgrade from %v to %v for %v", from, version.Current, target)
+		if err := upgrades.PerformUpgrade(from.Number, target, context); err != nil {
+			return fmt.Errorf("cannot perform upgrade from %v to %v for : %v", from, version.Current, target, err)
+		}
+	}
+	return a.Conf.config.WriteUpgradedToVersion(version.Current.Number)
 }
 
 func (a *MachineAgent) Entity(st *state.State) (AgentState, error) {

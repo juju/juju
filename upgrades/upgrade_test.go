@@ -167,6 +167,7 @@ func upgradeOperations() []upgrades.Operation {
 type upgradeTest struct {
 	about         string
 	fromVersion   string
+	toVersion     string
 	target        upgrades.Target
 	expectedSteps []string
 	err           string
@@ -178,6 +179,12 @@ var upgradeTests = []upgradeTest{
 		fromVersion:   "1.18.0",
 		target:        upgrades.HostMachine,
 		expectedSteps: []string{},
+	},
+	{
+		about:         "target version excludes steps for newer version",
+		toVersion:     "1.17.1",
+		target:        upgrades.HostMachine,
+		expectedSteps: []string{"step 1 - 1.17.0", "step 1 - 1.17.1"},
 	},
 	{
 		about:         "from version excludes older steps",
@@ -224,6 +231,13 @@ func (s *upgradeSuite) TestPerformUpgrade(c *gc.C) {
 		if test.fromVersion != "" {
 			fromVersion = version.MustParse(test.fromVersion)
 		}
+		toVersion := version.MustParse("1.18.0")
+		if test.toVersion != "" {
+			toVersion = version.MustParse(test.toVersion)
+		}
+		vers := version.Current
+		vers.Number = toVersion
+		s.PatchValue(&version.Current, vers)
 		err := upgrades.PerformUpgrade(fromVersion, test.target, ctx)
 		if test.err == "" {
 			c.Check(err, gc.IsNil)

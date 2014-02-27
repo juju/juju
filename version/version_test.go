@@ -52,6 +52,10 @@ func (suite) TestCompare(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		compare := v1.Compare(v2)
 		c.Check(compare, gc.Equals, test.compare)
+		// Check that reversing the operands has
+		// the expected result.
+		compare = v2.Compare(v1)
+		c.Check(compare, gc.Equals, -test.compare)
 	}
 }
 
