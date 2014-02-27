@@ -11,9 +11,9 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing/testbase"
-	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/version"
 )
 
@@ -45,7 +45,7 @@ func (s *prereqsSuite) SetUpTest(c *gc.C) {
 	lxclsPath = filepath.Join(s.tmpdir, "lxc-ls")
 	s.PatchEnvironment("PATH", s.tmpdir)
 
-	upstart.JujuMongodPath = "/somewhere/that/doesnt/exist"
+	mongo.JujuMongodPath = "/somewhere/that/doesnt/exist"
 
 	os.Setenv("JUJUTEST_LSB_RELEASE_ID", "Ubuntu")
 	err := ioutil.WriteFile(filepath.Join(s.tmpdir, "lsb_release"), []byte(lsbrelease), 0777)
