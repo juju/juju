@@ -73,8 +73,7 @@ type Uniter struct {
 	toolsDir     string
 	relationsDir string
 	charm        *charm.GitDir
-	bundles      *charm.BundlesDir
-	deployer     *charm.Deployer
+	deployer     charm.Deployer
 	s            *State
 	sf           *StateFile
 	rand         *rand.Rand
@@ -206,8 +205,9 @@ func (u *Uniter) init(unitTag string) (err error) {
 	u.relationers = map[int]*Relationer{}
 	u.relationHooks = make(chan hook.Info)
 	u.charm = charm.NewGitDir(filepath.Join(u.baseDir, "charm"))
-	u.bundles = charm.NewBundlesDir(filepath.Join(u.baseDir, "state", "bundles"))
-	u.deployer = charm.NewDeployer(filepath.Join(u.baseDir, "state", "deployer"))
+	deployerPath := filepath.Join(u.baseDir, "state", "deployer")
+	bundles := charm.NewBundlesDir(filepath.Join(u.baseDir, "state", "bundles"))
+	u.deployer = charm.NewGitDeployer(u.charm.Path(), deployerPath, bundles)
 	u.sf = NewStateFile(filepath.Join(u.baseDir, "state", "uniter"))
 	u.rand = rand.New(rand.NewSource(time.Now().Unix()))
 	return nil
@@ -269,11 +269,7 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason Op) error {
 		if err != nil {
 			return err
 		}
-		bun, err := u.bundles.Read(sch, u.tomb.Dying())
-		if err != nil {
-			return err
-		}
-		if err = u.deployer.Stage(bun, curl); err != nil {
+		if err = u.deployer.Stage(sch, u.tomb.Dying()); err != nil {
 			return err
 		}
 
@@ -291,7 +287,7 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason Op) error {
 		if err = u.writeState(reason, Pending, hi, curl); err != nil {
 			return err
 		}
-		if err = u.deployer.Deploy(u.charm); err != nil {
+		if err = u.deployer.Deploy(); err != nil {
 			return err
 		}
 		if err = u.writeState(reason, Done, hi, curl); err != nil {
