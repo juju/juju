@@ -64,15 +64,18 @@ func (v *Value) Close() error {
 	return nil
 }
 
-// Get returns the current value. If the Value has been closed, ok will be
-// false.
-func (v *Value) Get() (val interface{}, ok bool) {
+// Closed reports whether the value has been closed.
+func (v *Value) Closed() bool {
 	v.mu.RLock()
 	defer v.mu.RUnlock()
-	if v.closed {
-		return v.val, false
-	}
-	return v.val, true
+	return v.closed
+}
+
+// Get returns the current value.
+func (v *Value) Get() interface{} {
+	v.mu.RLock()
+	defer v.mu.RUnlock()
+	return v.val
 }
 
 // Watch returns a Watcher that can be used to watch for changes to the value.
