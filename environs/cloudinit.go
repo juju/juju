@@ -31,12 +31,6 @@ const LogDir = "/var/log/juju"
 // CloudInitOutputLog is the default cloud-init-output.log file path.
 const CloudInitOutputLog = "/var/log/cloud-init-output.log"
 
-// DefaultRsyslogConfPath is the default rsyslogd conf file path.
-const DefaultRsyslogConfPath = "/etc/rsyslog.d/25-juju.conf"
-
-// Override for testing.
-var RsyslogConfPath = DefaultRsyslogConfPath
-
 // MongoServiceName is the default Upstart service name for Mongo.
 const MongoServiceName = "juju-db"
 
@@ -50,7 +44,6 @@ func NewMachineConfig(machineID, machineNonce string,
 		DataDir:                 DataDir,
 		LogDir:                  LogDir,
 		CloudInitOutputLog:      CloudInitOutputLog,
-		RsyslogConfPath:         RsyslogConfPath,
 		MachineAgentServiceName: "jujud-" + names.MachineTag(machineID),
 		MongoServiceName:        MongoServiceName,
 
@@ -85,7 +78,6 @@ func NewBootstrapMachineConfig(stateInfoURL string, privateSystemSSHKey string) 
 func PopulateMachineConfig(mcfg *cloudinit.MachineConfig,
 	providerType, authorizedKeys string,
 	sslHostnameVerification bool,
-	syslogPort int,
 	proxy, aptProxy osenv.ProxySettings,
 ) error {
 	if authorizedKeys == "" {
@@ -98,7 +90,6 @@ func PopulateMachineConfig(mcfg *cloudinit.MachineConfig,
 	mcfg.AgentEnvironment[agent.ProviderType] = providerType
 	mcfg.AgentEnvironment[agent.ContainerType] = string(mcfg.MachineContainerType)
 	mcfg.DisableSSLHostnameVerification = !sslHostnameVerification
-	mcfg.SyslogPort = syslogPort
 	mcfg.ProxySettings = proxy
 	mcfg.AptProxySettings = aptProxy
 	return nil
@@ -122,7 +113,6 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 		cfg.Type(),
 		cfg.AuthorizedKeys(),
 		cfg.SSLHostnameVerification(),
-		cfg.SyslogPort(),
 		cfg.ProxySettings(),
 		cfg.AptProxySettings(),
 	); err != nil {

@@ -18,7 +18,6 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/container/kvm"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
@@ -478,15 +477,6 @@ func (a *MachineAgent) uninstallAgent() error {
 	if agentServiceName != "" {
 		if err := upstart.NewService(agentServiceName).Remove(); err != nil {
 			errors = append(errors, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
-		}
-	}
-	// Remove the rsyslog conf file and restart rsyslogd.
-	if rsyslogConfPath := a.Conf.config.Value(agent.RsyslogConfPath); rsyslogConfPath != "" {
-		if err := os.Remove(rsyslogConfPath); err != nil {
-			errors = append(errors, err)
-		}
-		if err := syslog.Restart(); err != nil {
-			errors = append(errors, err)
 		}
 	}
 	// Remove the juju-run symlink.

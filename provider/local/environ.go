@@ -78,10 +78,6 @@ func (env *localEnviron) machineAgentServiceName() string {
 	return "juju-agent-" + env.config.namespace()
 }
 
-func (env *localEnviron) rsyslogConfPath() string {
-	return fmt.Sprintf("/etc/rsyslog.d/25-juju-%s.conf", env.config.namespace())
-}
-
 func ensureNotRoot() error {
 	if checkIfRoot() {
 		return fmt.Errorf("bootstrapping a local environment must not be done as root")
@@ -139,7 +135,6 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 	mcfg.Tools = selectedTools[0]
 	mcfg.DataDir = env.config.rootDir()
 	mcfg.LogDir = env.config.logDir()
-	mcfg.RsyslogConfPath = env.rsyslogConfPath()
 	mcfg.CloudInitOutputLog = filepath.Join(mcfg.LogDir, "cloud-init-output.log")
 	mcfg.DisablePackageCommands = true
 	mcfg.MachineAgentServiceName = env.machineAgentServiceName()

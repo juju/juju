@@ -700,7 +700,6 @@ func (s *withoutStateServerSuite) TestContainerConfig(c *gc.C) {
 	c.Check(results.ProviderType, gc.Equals, "dummy")
 	c.Check(results.AuthorizedKeys, gc.Equals, coretesting.FakeAuthKeys)
 	c.Check(results.SSLHostnameVerification, jc.IsTrue)
-	c.Check(results.SyslogPort, gc.Equals, 2345)
 	c.Check(results.Proxy, gc.DeepEquals, expectedProxy)
 	c.Check(results.AptProxy, gc.DeepEquals, expectedProxy)
 }
