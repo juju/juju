@@ -36,8 +36,18 @@ a MongoDB server built with SSL support.
 const installLxcUbuntu = `
 Linux Containers (LXC) userspace tools must be
 installed to enable the local provider:
-  
+
     sudo apt-get install lxc`
+
+const installRsyslogGnutlsUbuntu = `
+rsyslog-gnutls must be installed to enable the local provider:
+
+    sudo apt-get install rsyslog-gnutls`
+
+const installRsyslogGnutlsGeneric = `
+rsyslog-gnutls must be installed to enable the local provider.
+Please consult your operating system distrinution's documentation
+for instructions on installing this package.`
 
 const installLxcGeneric = `
 Linux Containers (LXC) userspace tools must be installed to enable the
@@ -71,6 +81,9 @@ func VerifyPrerequisites(containerType instance.ContainerType) error {
 		return fmt.Errorf(errUnsupportedOS, goos)
 	}
 	if err := verifyMongod(); err != nil {
+		return err
+	}
+	if err := verifyRsyslogGnutls(); err != nil {
 		return err
 	}
 	switch containerType {
@@ -119,6 +132,16 @@ func verifyLxc() error {
 	_, err := exec.LookPath(lxclsPath)
 	if err != nil {
 		return wrapLxcNotFound(err)
+	}
+	return nil
+}
+
+func verifyRsyslogGnutls() error {
+	if !utils.IsPackageInstalled("rsyslog-gnutls") {
+		if utils.IsUbuntu() {
+			return errors.New(installRsyslogGnutlsUbuntu)
+		}
+		return errors.New(installRsyslogGnutlsGeneric)
 	}
 	return nil
 }
