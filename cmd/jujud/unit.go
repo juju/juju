@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
 	workerlogger "launchpad.net/juju-core/worker/logger"
 	"launchpad.net/juju-core/worker/rsyslog"
@@ -71,7 +72,7 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 	if err := a.Conf.read(a.Tag()); err != nil {
 		return err
 	}
-	agentLogger.Infof("unit agent %v start", a.Tag())
+	agentLogger.Infof("unit agent %v start (%s)", a.Tag(), version.Current)
 	a.runner.StartWorker("api", a.APIWorkers)
 	err := agentDone(a.runner.Wait())
 	a.tomb.Kill(err)
