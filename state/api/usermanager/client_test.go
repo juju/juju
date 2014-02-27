@@ -27,7 +27,7 @@ func (s *usermanagerSuite) SetUpTest(c *gc.C) {
 func (s *usermanagerSuite) TestAddUser(c *gc.C) {
 	errResults, err := s.usermanager.AddUser("foobar", "password")
 	c.Assert(err, gc.IsNil)
-	c.Assert(errResults, gc.DeepEquals, []params.ErrorResult(nil))
+	c.Assert(errResults, gc.DeepEquals, params.ErrorResult{})
 	_, err = s.State.User("foobar")
 	c.Assert(err, gc.IsNil)
 }
@@ -35,13 +35,13 @@ func (s *usermanagerSuite) TestAddUser(c *gc.C) {
 func (s *usermanagerSuite) TestRemoveUser(c *gc.C) {
 	errResults, err := s.usermanager.AddUser("foobar", "password")
 	c.Assert(err, gc.IsNil)
-	c.Assert(errResults, gc.DeepEquals, []params.ErrorResult(nil))
+	c.Assert(errResults, gc.DeepEquals, params.ErrorResult{})
 	_, err = s.State.User("foobar")
 	c.Assert(err, gc.IsNil)
 
 	errResults, err = s.usermanager.RemoveUser("foobar")
 	c.Assert(err, gc.IsNil)
-	c.Assert(errResults, gc.DeepEquals, []params.ErrorResult(nil))
+	c.Assert(errResults, gc.DeepEquals, params.ErrorResult{})
 	user, err := s.State.User("foobar")
 	c.Assert(user.IsInactive(), gc.Equals, true)
 }
