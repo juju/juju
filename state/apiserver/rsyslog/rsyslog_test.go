@@ -68,7 +68,7 @@ func (s *rsyslogSuite) TestSetRsyslogCertInvalid(c *gc.C) {
 		Type:  "CERTIFICATE",
 		Bytes: []byte("not a valid certificate"),
 	}))
-	c.Assert(err, gc.ErrorMatches, "asn1: structure error.*")
+	c.Assert(err, gc.ErrorMatches, ".*structure error.*")
 	verifyRsyslogCACert(c, st.Rsyslog(), nil)
 }
 
