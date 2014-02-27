@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -59,6 +60,12 @@ const bootstrapMachineId = "0"
 var retryDelay = 3 * time.Second
 
 var jujuRun = "/usr/local/bin/juju-run"
+
+const mongoSvcFmt = "juju-mongod-%d"
+
+var mongoServiceName = fmt.Sprintf(mongoSvcFmt, upstart.MongoScriptVersion)
+
+const oldMongoServiceName = "juju-mongod"
 
 // MachineAgent is a cmd.Command responsible for running a machine agent.
 type MachineAgent struct {
@@ -244,7 +251,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			runner.StartWorker("charm-revision-updater", func() (worker.Worker, error) {
 				return charmrevisionworker.NewRevisionUpdateWorker(st.CharmRevisionUpdater()), nil
 			})
-		case params.JobManageState:
+		case params.JobManageStateDeprecated:
 			// Legacy environments may set this, but we ignore it.
 		default:
 			// TODO(dimitern): Once all workers moved over to using
@@ -369,7 +376,7 @@ func (a *MachineAgent) StateWorker(agentConfig agent.Config) (worker.Worker, err
 			runner.StartWorker("minunitsworker", func() (worker.Worker, error) {
 				return minunitsworker.NewMinUnitsWorker(st), nil
 			})
-		case state.JobManageState:
+		case state.JobManageStateDeprecated:
 			// Legacy environments may set this, but we ignore it.
 		default:
 			logger.Warningf("ignoring unknown job %q", job)
@@ -487,9 +494,7 @@ func (a *MachineAgent) setAgentConfig(conf agent.Config) {
 }
 
 func (a *MachineAgent) agentConfig() agent.Config {
-	val, _ := a.configVal.Get()
-	conf, _ := val.(agent.Config)
-	return conf
+	return a.configVal.Get().(agent.Config)
 }
 
 // ensureMongoServer ensures that the correct mongo upstart script is installed
@@ -537,7 +542,7 @@ func (a *MachineAgent) mongoDir() string {
 	return a.Conf.dataDir
 }
 
-// mongoSvcConfig returns the upstart configuration object for mongo.
+// mongoService returns the upstart configuration object for mongo.
 func (a *MachineAgent) mongoService() *upstart.Conf {
 	return upstart.MongoUpstartService(
 		mongoServiceName,

@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
+	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
@@ -187,7 +188,7 @@ func (*environWatcherSuite) TestEnvironConfigReadSecretsFalse(c *gc.C) {
 func testingEnvConfig(c *gc.C) *config.Config {
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg, configstore.NewMem())
+	env, err := environs.Prepare(cfg, testing.Context(c), configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	return env.Config()
 }

@@ -36,7 +36,7 @@ func (s *compatSuite) TearDownSuite(c *gc.C) {
 func (s *compatSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-	s.state = TestingInitialize(c, nil)
+	s.state = TestingInitialize(c, nil, Policy(nil))
 	env, err := s.state.Environment()
 	c.Assert(err, gc.IsNil)
 	s.env = env

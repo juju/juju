@@ -12,7 +12,6 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"os/signal"
 	"path"
 	"text/template"
 
@@ -154,7 +153,7 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	env, err := rebootstrap(cfg, c.Constraints)
+	env, err := rebootstrap(cfg, ctx, c.Constraints)
 	if err != nil {
 		return fmt.Errorf("cannot re-bootstrap environment: %v", err)
 	}
@@ -188,7 +187,7 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 		CACert:   caCert,
 		Tag:      creds.Tag,
 		Password: creds.Password,
-	}, state.DefaultDialOpts())
+	}, state.DefaultDialOpts(), environs.NewStatePolicy())
 	if err != nil {
 		return fmt.Errorf("cannot open state: %v", err)
 	}
@@ -203,7 +202,7 @@ func progress(f string, a ...interface{}) {
 	fmt.Printf("%s\n", fmt.Sprintf(f, a...))
 }
 
-func rebootstrap(cfg *config.Config, cons constraints.Value) (environs.Environ, error) {
+func rebootstrap(cfg *config.Config, ctx *cmd.Context, cons constraints.Value) (environs.Environ, error) {
 	progress("re-bootstrapping environment")
 	// Turn on safe mode so that the newly bootstrapped instance
 	// will not destroy all the instances it does not know about.
@@ -245,7 +244,7 @@ func rebootstrap(cfg *config.Config, cons constraints.Value) (environs.Environ, 
 	// error-prone) or we could provide a --no-check flag to make
 	// it go ahead anyway without the check.
 
-	if err := bootstrap.Bootstrap(bootstrapContext{}, env, cons); err != nil {
+	if err := bootstrap.Bootstrap(ctx, env, cons); err != nil {
 		return nil, fmt.Errorf("cannot bootstrap new instance: %v", err)
 	}
 	return env, nil
@@ -461,26 +460,4 @@ func execTemplate(tmpl *template.Template, data interface{}) string {
 		panic(fmt.Errorf("template error: %v", err))
 	}
 	return buf.String()
-}
-
-type bootstrapContext struct{}
-
-func (bootstrapContext) Stdin() io.Reader {
-	return os.Stdin
-}
-
-func (bootstrapContext) Stdout() io.Writer {
-	return os.Stdout
-}
-
-func (bootstrapContext) Stderr() io.Writer {
-	return os.Stderr
-}
-
-func (bootstrapContext) InterruptNotify(c chan<- os.Signal) {
-	signal.Notify(c, os.Interrupt)
-}
-
-func (bootstrapContext) StopInterruptNotify(c chan<- os.Signal) {
-	signal.Stop(c)
 }

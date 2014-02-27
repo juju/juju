@@ -63,7 +63,8 @@ func (s *verifyStorageSuite) TearDownTest(c *gc.C) {
 func (s *verifyStorageSuite) TestVerifyStorage(c *gc.C) {
 	defer testing.MakeFakeHome(c, existingEnv, "existing").Restore()
 
-	environ, err := environs.PrepareFromName("test", configstore.NewMem())
+	ctx := testing.Context(c)
+	environ, err := environs.PrepareFromName("test", ctx, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	stor := environ.Storage()
 	err = environs.VerifyStorage(stor)
@@ -80,7 +81,8 @@ func (s *verifyStorageSuite) TestVerifyStorage(c *gc.C) {
 func (s *verifyStorageSuite) TestVerifyStorageFails(c *gc.C) {
 	defer testing.MakeFakeHome(c, existingEnv, "existing").Restore()
 
-	environ, err := environs.PrepareFromName("test", configstore.NewMem())
+	ctx := testing.Context(c)
+	environ, err := environs.PrepareFromName("test", ctx, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	stor := environ.Storage()
 	someError := errors.Unauthorizedf("you shall not pass")

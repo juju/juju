@@ -61,10 +61,16 @@ func (c *ImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *ImageMetadataCommand) Init(args []string) error {
+	return cmd.CheckEmpty(args)
+}
+
+// setParams sets parameters based on the environment configuration
+// for those which have not been explicitly specified.
+func (c *ImageMetadataCommand) setParams(context *cmd.Context) error {
 	c.privateStorage = "<private storage name>"
 	var environ environs.Environ
 	if store, err := configstore.Default(); err == nil {
-		if environ, err = environs.PrepareFromName(c.EnvName, store); err == nil {
+		if environ, err = environs.PrepareFromName(c.EnvName, context, store); err == nil {
 			logger.Infof("creating image metadata for environment %q", environ.Name())
 			// If the user has not specified region and endpoint, try and get it from the environment.
 			if c.Region == "" || c.Endpoint == "" {
@@ -120,8 +126,7 @@ func (c *ImageMetadataCommand) Init(args []string) error {
 			return err
 		}
 	}
-
-	return cmd.CheckEmpty(args)
+	return nil
 }
 
 var helpDoc = `
@@ -143,8 +148,10 @@ and set the value of image-metadata-url accordingly.
 `
 
 func (c *ImageMetadataCommand) Run(context *cmd.Context) error {
+	if err := c.setParams(context); err != nil {
+		return err
+	}
 	out := context.Stdout
-
 	im := &imagemetadata.ImageMetadata{
 		Id:   c.ImageId,
 		Arch: c.Arch,

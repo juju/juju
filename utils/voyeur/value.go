@@ -10,7 +10,9 @@ import (
 )
 
 // Value represents a shared value that can be watched for changes. Methods on
-// a Value may be called concurrently.
+// a Value may be called concurrently. The zero Value is
+// ok to use, and is equivalent to a NewValue result
+// with a nil initial value.
 type Value struct {
 	val     interface{}
 	version int
@@ -23,7 +25,7 @@ type Value struct {
 // nil, any watchers will wait until a value is set.
 func NewValue(initial interface{}) *Value {
 	v := new(Value)
-	v.wait.L = v.mu.RLocker()
+	v.init()
 	if initial != nil {
 		v.val = initial
 		v.version++
@@ -31,34 +33,49 @@ func NewValue(initial interface{}) *Value {
 	return v
 }
 
+func (v *Value) needsInit() bool {
+	return v.wait.L == nil
+}
+
+func (v *Value) init() {
+	if v.needsInit() {
+		v.wait.L = v.mu.RLocker()
+	}
+}
+
 // Set sets the shared value to val.
 func (v *Value) Set(val interface{}) {
 	v.mu.Lock()
+	v.init()
 	v.val = val
 	v.version++
-	v.wait.Broadcast()
 	v.mu.Unlock()
+	v.wait.Broadcast()
 }
 
 // Close closes the Value, unblocking any outstanding watchers.  Close always
 // returns nil.
 func (v *Value) Close() error {
 	v.mu.Lock()
+	v.init()
 	v.closed = true
 	v.mu.Unlock()
 	v.wait.Broadcast()
 	return nil
 }
 
-// Get returns the current value. If the Value has been closed, ok will be
-// false.
-func (v *Value) Get() (val interface{}, ok bool) {
+// Closed reports whether the value has been closed.
+func (v *Value) Closed() bool {
 	v.mu.RLock()
 	defer v.mu.RUnlock()
-	if v.closed {
-		return nil, false
-	}
-	return v.val, true
+	return v.closed
+}
+
+// Get returns the current value.
+func (v *Value) Get() interface{} {
+	v.mu.RLock()
+	defer v.mu.RUnlock()
+	return v.val
 }
 
 // Watch returns a Watcher that can be used to watch for changes to the value.
@@ -71,30 +88,45 @@ type Watcher struct {
 	value   *Value
 	version int
 	current interface{}
-	closed bool
+	closed  bool
 }
 
 // Next blocks until there is a new value to be retrieved from the value that is
-// being watched. It also unblocks when the value or the Watcher itself is closed.
-// Next reports whether the value or the Watcher itself has been closed.
+// being watched. It also unblocks when the value or the Watcher itself is
+// closed. Next returns false if the value or the Watcher itself have been
+// closed.
 func (w *Watcher) Next() bool {
-	w.value.mu.RLock()
-	defer w.value.mu.RUnlock()
+	val := w.value
+	val.mu.RLock()
+	defer val.mu.RUnlock()
+	if val.needsInit() {
+		val.mu.RUnlock()
+		val.mu.Lock()
+		val.init()
+		val.mu.Unlock()
+		val.mu.RLock()
+	}
 
-	// We should never go around this loop more than twice.
+	// We can go around this loop a maximum of two times,
+	// because the only thing that can cause a Wait to
+	// return is for the condition to be triggered,
+	// which can only happen if the value is set (causing
+	// the version to increment) or it is closed
+	// causing the closed flag to be set.
+	// Both these cases will cause Next to return.
 	for {
-		if w.version != w.value.version {
-			w.version = w.value.version
-			w.current = w.value.val
+		if w.version != val.version {
+			w.version = val.version
+			w.current = val.val
 			return true
 		}
-		if w.value.closed || w.closed {
+		if val.closed || w.closed {
 			return false
 		}
 
-		// wait is magic sauce that releases the lock until triggered
-		// and then reacquires the lock, thus avoiding a deadlock.
-		w.value.wait.Wait()
+		// Wait releases the lock until triggered and then reacquires the lock,
+		// thus avoiding a deadlock.
+		val.wait.Wait()
 	}
 }
 
@@ -102,12 +134,14 @@ func (w *Watcher) Next() bool {
 // value. It may be called concurrently with Next.
 func (w *Watcher) Close() {
 	w.value.mu.Lock()
+	w.value.init()
 	w.closed = true
 	w.value.mu.Unlock()
 	w.value.wait.Broadcast()
 }
 
-// Value returns the last value that was retrieved from the watched Value.
+// Value returns the last value that was retrieved from the watched Value by
+// Next.
 func (w *Watcher) Value() interface{} {
 	return w.current
 }

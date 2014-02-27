@@ -4,13 +4,11 @@
 package local_test
 
 import (
-	"os"
 	"path/filepath"
-	"runtime"
-	"syscall"
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider"
@@ -23,10 +21,6 @@ type configSuite struct {
 }
 
 var _ = gc.Suite(&configSuite{})
-
-func (s *configSuite) SetUpTest(c *gc.C) {
-	s.baseProviderSuite.SetUpTest(c)
-}
 
 func minimalConfigValues() map[string]interface{} {
 	return testing.FakeConfig().Merge(testing.Attrs{
@@ -114,64 +108,8 @@ func (s *configSuite) TestNamespace(c *gc.C) {
 func (s *configSuite) TestBootstrapAsRoot(c *gc.C) {
 	restore := local.SetRootCheckFunction(func() bool { return true })
 	defer restore()
-	_, err := local.Provider.Prepare(minimalConfig(c))
+	env, err := local.Provider.Prepare(testing.Context(c), minimalConfig(c))
+	c.Assert(err, gc.IsNil)
+	err = env.Bootstrap(testing.Context(c), constraints.Value{})
 	c.Assert(err, gc.ErrorMatches, "bootstrapping a local environment must not be done as root")
-}
-
-type configRootSuite struct {
-	baseProviderSuite
-}
-
-var _ = gc.Suite(&configRootSuite{})
-
-func (s *configRootSuite) SetUpTest(c *gc.C) {
-	s.baseProviderSuite.SetUpTest(c)
-	// Skip if not linux
-	if runtime.GOOS != "linux" {
-		c.Skip("not running linux")
-	}
-	// Skip if not running as root.
-	if os.Getuid() != 0 {
-		c.Skip("not running as root")
-	}
-}
-
-func (s *configRootSuite) TestCreateDirsNoUserJustRoot(c *gc.C) {
-	defer os.Setenv("SUDO_UID", os.Getenv("SUDO_UID"))
-	defer os.Setenv("SUDO_GID", os.Getenv("SUDO_GID"))
-
-	os.Setenv("SUDO_UID", "")
-	os.Setenv("SUDO_GID", "")
-
-	testConfig := minimalConfig(c)
-	err := local.CreateDirs(c, testConfig)
-	c.Assert(err, gc.IsNil)
-	// Check that the dirs are owned by root.
-	for _, dir := range local.CheckDirs(c, testConfig) {
-		info, err := os.Stat(dir)
-		c.Assert(err, gc.IsNil)
-		// This call is linux specific, but then so is sudo
-		c.Assert(info.Sys().(*syscall.Stat_t).Uid, gc.Equals, uint32(0))
-		c.Assert(info.Sys().(*syscall.Stat_t).Gid, gc.Equals, uint32(0))
-	}
-}
-
-func (s *configRootSuite) TestCreateDirsAsUser(c *gc.C) {
-	defer os.Setenv("SUDO_UID", os.Getenv("SUDO_UID"))
-	defer os.Setenv("SUDO_GID", os.Getenv("SUDO_GID"))
-
-	os.Setenv("SUDO_UID", "1000")
-	os.Setenv("SUDO_GID", "1000")
-
-	testConfig := minimalConfig(c)
-	err := local.CreateDirs(c, testConfig)
-	c.Assert(err, gc.IsNil)
-	// Check that the dirs are owned by the UID/GID set above..
-	for _, dir := range local.CheckDirs(c, testConfig) {
-		info, err := os.Stat(dir)
-		c.Assert(err, gc.IsNil)
-		// This call is linux specific, but then so is sudo
-		c.Assert(info.Sys().(*syscall.Stat_t).Uid, gc.Equals, uint32(1000))
-		c.Assert(info.Sys().(*syscall.Stat_t).Gid, gc.Equals, uint32(1000))
-	}
 }

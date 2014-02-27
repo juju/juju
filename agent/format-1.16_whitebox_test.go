@@ -95,11 +95,11 @@ func (s *format_1_16Suite) TestReadWriteStateConfig(c *gc.C) {
 }
 
 func (s *format_1_16Suite) TestMigrate(c *gc.C) {
-	s.PatchEnvironment(JujuLxcBridge, "lxc bridge")
-	s.PatchEnvironment(JujuProviderType, "provider type")
+	s.PatchEnvironment(jujuLxcBridge, "lxc bridge")
+	s.PatchEnvironment(jujuProviderType, "provider type")
 	s.PatchEnvironment(osenv.JujuContainerTypeEnvKey, "container type")
-	s.PatchEnvironment(JujuStorageDir, "storage dir")
-	s.PatchEnvironment(JujuStorageAddr, "storage addr")
+	s.PatchEnvironment(jujuStorageDir, "storage dir")
+	s.PatchEnvironment(jujuStorageAddr, "storage addr")
 
 	config := newTestConfig(c)
 	s.formatter.migrate(config)
@@ -116,7 +116,7 @@ func (s *format_1_16Suite) TestMigrate(c *gc.C) {
 }
 
 func (s *format_1_16Suite) TestMigrateOnlySetsExisting(c *gc.C) {
-	s.PatchEnvironment(JujuProviderType, "provider type")
+	s.PatchEnvironment(jujuProviderType, "provider type")
 
 	config := newTestConfig(c)
 	s.formatter.migrate(config)

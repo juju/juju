@@ -27,7 +27,7 @@ var _ = gc.Suite(&destroyEnvSuite{})
 
 func (s *destroyEnvSuite) TestDestroyEnvironmentCommand(c *gc.C) {
 	// Prepare the environment so we can destroy it.
-	_, err := environs.PrepareFromName("dummyenv", s.ConfigStore)
+	_, err := environs.PrepareFromName("dummyenv", nullContext(), s.ConfigStore)
 	c.Assert(err, gc.IsNil)
 
 	// check environment is mandatory
@@ -46,7 +46,7 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommand(c *gc.C) {
 
 func (s *destroyEnvSuite) TestDestroyEnvironmentCommandEFlag(c *gc.C) {
 	// Prepare the environment so we can destroy it.
-	_, err := environs.PrepareFromName("dummyenv", s.ConfigStore)
+	_, err := environs.PrepareFromName("dummyenv", nullContext(), s.ConfigStore)
 	c.Assert(err, gc.IsNil)
 
 	// check that either environment or the flag is mandatory
@@ -89,13 +89,15 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandBroken(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Prepare the environment so we can destroy it.
-	_, err = environs.PrepareFromName("dummyenv", s.ConfigStore)
+	_, err = environs.PrepareFromName("dummyenv", nullContext(), s.ConfigStore)
 	c.Assert(err, gc.IsNil)
 
 	// destroy with broken environment
 	opc, errc := runCommand(nullContext(), new(DestroyEnvironmentCommand), "dummyenv", "--yes")
-	c.Check(<-opc, gc.IsNil)
-	c.Check(<-errc, gc.ErrorMatches, "dummy.Destroy is broken")
+	op, ok := (<-opc).(dummy.OpDestroy)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(op.Error, gc.ErrorMatches, "dummy.Destroy is broken")
+	c.Check(<-errc, gc.Equals, op.Error)
 	c.Check(<-opc, gc.IsNil)
 }
 
@@ -120,7 +122,7 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandConfirmation(c *gc.C) {
 	ctx.Stdin = &stdin
 
 	// Prepare the environment so we can destroy it.
-	env, err := environs.PrepareFromName("dummyenv", s.ConfigStore)
+	env, err := environs.PrepareFromName("dummyenv", nullContext(), s.ConfigStore)
 	c.Assert(err, gc.IsNil)
 
 	assertEnvironNotDestroyed(c, env, s.ConfigStore)
@@ -154,7 +156,7 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandConfirmation(c *gc.C) {
 	for _, answer := range []string{"y", "Y", "yes", "YES"} {
 		// Prepare the environment so we can destroy it.
 		s.Reset(c)
-		env, err := environs.PrepareFromName("dummyenv", s.ConfigStore)
+		env, err := environs.PrepareFromName("dummyenv", nullContext(), s.ConfigStore)
 		c.Assert(err, gc.IsNil)
 
 		stdin.Reset()

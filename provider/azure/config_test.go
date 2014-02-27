@@ -192,3 +192,13 @@ func (*configSuite) TestSecretAttrsReturnsSensitiveAttributes(c *gc.C) {
 	}
 	c.Check(secretAttrs, gc.DeepEquals, expectedAttrs)
 }
+
+func (*configSuite) TestEmptyImageStream1dot16Compat(c *gc.C) {
+	attrs := makeAzureConfigMap(c)
+	attrs["image-stream"] = ""
+	provider := azureEnvironProvider{}
+	cfg, err := config.New(config.UseDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+	_, err = provider.Validate(cfg, nil)
+	c.Assert(err, gc.IsNil)
+}

@@ -12,6 +12,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
+	charmtesting "launchpad.net/juju-core/charm/testing"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
@@ -19,6 +20,15 @@ import (
 
 type UpgradeCharmErrorsSuite struct {
 	jujutesting.RepoSuite
+}
+
+func (s *UpgradeCharmErrorsSuite) SetUpTest(c *gc.C) {
+	s.RepoSuite.SetUpTest(c)
+	mockstore := charmtesting.NewMockStore(c, map[string]int{})
+	s.AddCleanup(func(*gc.C) { mockstore.Close() })
+	s.PatchValue(&charm.Store, &charm.CharmStore{
+		BaseURL: mockstore.Address(),
+	})
 }
 
 var _ = gc.Suite(&UpgradeCharmErrorsSuite{})

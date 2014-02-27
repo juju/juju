@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -51,6 +52,8 @@ type localEnviron struct {
 	localMutex       sync.Mutex
 	config           *environConfig
 	name             string
+	bridgeAddress    string
+	localStorage     storage.Storage
 	storageListener  net.Listener
 	containerManager container.Manager
 }
@@ -77,18 +80,6 @@ func (env *localEnviron) machineAgentServiceName() string {
 
 func (env *localEnviron) rsyslogConfPath() string {
 	return fmt.Sprintf("/etc/rsyslog.d/25-juju-%s.conf", env.config.namespace())
-}
-
-// PrecheckInstance is specified in the environs.Prechecker interface.
-func (*localEnviron) PrecheckInstance(series string, cons constraints.Value) error {
-	return nil
-}
-
-// PrecheckContainer is specified in the environs.Prechecker interface.
-func (*localEnviron) PrecheckContainer(series string, kind instance.ContainerType) error {
-	// This check can either go away or be relaxed when the local
-	// provider can do nested containers.
-	return environs.NewContainersUnsupported("local provider does not support nested containers")
 }
 
 func ensureNotRoot() error {
@@ -127,6 +118,23 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 		return err
 	}
 
+	// Record the bootstrap IP, so the containers know where to go for storage.
+	cfg, err := env.Config().Apply(map[string]interface{}{
+		"bootstrap-ip": env.bridgeAddress,
+	})
+	if err == nil {
+		err = env.SetConfig(cfg)
+	}
+	if err != nil {
+		logger.Errorf("failed to apply bootstrap-ip to config: %v", err)
+		return err
+	}
+
+	bootstrapJobs, err := agent.MarshalBootstrapJobs(state.JobManageEnviron)
+	if err != nil {
+		return err
+	}
+
 	mcfg := environs.NewBootstrapMachineConfig(stateFileURL, privateKey)
 	mcfg.Tools = selectedTools[0]
 	mcfg.DataDir = env.config.rootDir()
@@ -137,11 +145,12 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 	mcfg.MachineAgentServiceName = env.machineAgentServiceName()
 	mcfg.MongoServiceName = env.mongoServiceName()
 	mcfg.AgentEnvironment = map[string]string{
-		agent.Namespace:   env.config.namespace(),
-		agent.StorageDir:  env.config.storageDir(),
-		agent.StorageAddr: env.config.storageAddr(),
+		agent.Namespace:     env.config.namespace(),
+		agent.StorageDir:    env.config.storageDir(),
+		agent.StorageAddr:   env.config.storageAddr(),
+		agent.BootstrapJobs: bootstrapJobs,
 	}
-	if err := environs.FinishMachineConfig(mcfg, env.Config(), cons); err != nil {
+	if err := environs.FinishMachineConfig(mcfg, cfg, cons); err != nil {
 		return err
 	}
 	// don't write proxy settings for local machine
@@ -174,8 +183,8 @@ var finishBootstrap = func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudini
 	}
 	cmd := exec.Command("sudo", "/bin/bash", "-s")
 	cmd.Stdin = strings.NewReader(script)
-	cmd.Stdout = ctx.Stdout()
-	cmd.Stderr = ctx.Stderr()
+	cmd.Stdout = ctx.GetStdout()
+	cmd.Stderr = ctx.GetStderr()
 	return cmd.Run()
 }
 
@@ -189,22 +198,6 @@ func (env *localEnviron) Config() *config.Config {
 	env.localMutex.Lock()
 	defer env.localMutex.Unlock()
 	return env.config.Config
-}
-
-func createLocalStorageListener(dir, address string) (net.Listener, error) {
-	info, err := os.Stat(dir)
-	if os.IsNotExist(err) {
-		return nil, fmt.Errorf("storage directory %q does not exist, bootstrap first", dir)
-	} else if err != nil {
-		return nil, err
-	} else if !info.Mode().IsDir() {
-		return nil, fmt.Errorf("%q exists but is not a directory (and it needs to be)", dir)
-	}
-	storage, err := filestorage.NewFileStorageWriter(dir, filestorage.UseDefaultTmpDir)
-	if err != nil {
-		return nil, err
-	}
-	return httpstorage.Serve(address, storage)
 }
 
 // SetConfig is specified in the Environ interface.
@@ -229,19 +222,19 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 		return err
 	}
 
-	// Here is the end of normal config setting.
-	if ecfg.bootstrapped() {
+	// When the localEnviron value is created on the client
+	// side, the bootstrap-ip attribute will not exist,
+	// because it is only set *within* the running
+	// environment, not in the configuration created by
+	// Prepare.
+	//
+	// When bootstrapIPAddress returns a non-empty string,
+	// we know we are running server-side and thus must use
+	// httpstorage.
+	if addr := ecfg.bootstrapIPAddress(); addr != "" {
+		env.bridgeAddress = addr
 		return nil
 	}
-	if err := ensureNotRoot(); err != nil {
-		return err
-	}
-	return env.bootstrapAddressAndStorage(cfg)
-}
-
-// bootstrapAddressAndStorage finishes up the setup of the environment in
-// situations where there is no machine agent running yet.
-func (env *localEnviron) bootstrapAddressAndStorage(cfg *config.Config) error {
 	// If we get to here, it is because we haven't yet bootstrapped an
 	// environment, and saved the config in it, or we are running a command
 	// from the command line, so it is ok to work on the assumption that we
@@ -249,7 +242,16 @@ func (env *localEnviron) bootstrapAddressAndStorage(cfg *config.Config) error {
 	if err := env.config.createDirs(); err != nil {
 		return err
 	}
+	// Record the network bridge address and create a filestorage.
+	if err := env.resolveBridgeAddress(cfg); err != nil {
+		return err
+	}
+	return env.setLocalStorage()
+}
 
+// resolveBridgeAddress finishes up the setup of the environment in
+// situations where there is no machine agent running yet.
+func (env *localEnviron) resolveBridgeAddress(cfg *config.Config) error {
 	// We need the provider config to get the network bridge.
 	config, err := providerInstance.newConfig(cfg)
 	if err != nil {
@@ -260,48 +262,22 @@ func (env *localEnviron) bootstrapAddressAndStorage(cfg *config.Config) error {
 	bridgeAddress, err := getAddressForInterface(networkBridge)
 	if err != nil {
 		logger.Infof("configure a different bridge using 'network-bridge' in the config file")
-		return fmt.Errorf("cannot find address of network-bridge: %q", networkBridge)
+		return fmt.Errorf("cannot find address of network-bridge: %q: %v", networkBridge, err)
 	}
 	logger.Debugf("found %q as address for %q", bridgeAddress, networkBridge)
-	cfg, err = cfg.Apply(map[string]interface{}{
-		"bootstrap-ip": bridgeAddress,
-	})
-	if err != nil {
-		logger.Errorf("failed to apply new addresses to config: %v", err)
-		return err
-	}
-	// Now recreate the config based on the settings with the bootstrap id.
-	config, err = providerInstance.newConfig(cfg)
-	if err != nil {
-		logger.Errorf("failed to create new environ config: %v", err)
-		return err
-	}
-	env.config = config
-
-	return env.setupLocalStorage()
+	env.bridgeAddress = bridgeAddress
+	return nil
 }
 
-// setupLocalStorage looks to see if there is someone listening on the storage
-// address port.  If there is we assume that it is ours and all is good.  If
-// there is no one listening on that port, create listeners for storage
-// for the duration of the commands execution.
-func (env *localEnviron) setupLocalStorage() error {
-	// Try to listen to the storageAddress.
-	logger.Debugf("checking %s to see if machine agent running storage listener", env.config.storageAddr())
-	connection, err := net.Dial("tcp", env.config.storageAddr())
+// setLocalStorage creates a filestorage so tools can
+// be synced and so forth without having a machine agent
+// running.
+func (env *localEnviron) setLocalStorage() error {
+	storage, err := filestorage.NewFileStorageWriter(env.config.storageDir(), filestorage.UseDefaultTmpDir)
 	if err != nil {
-		logger.Debugf("nope, start some")
-		// These listeners are part of the environment structure so as to remain
-		// referenced for the duration of the open environment.  This is only for
-		// environs that have been created due to a user command.
-		env.storageListener, err = createLocalStorageListener(env.config.storageDir(), env.config.storageAddr())
-		if err != nil {
-			return err
-		}
-	} else {
-		logger.Debugf("yes, don't start local storage listeners")
-		connection.Close()
+		return err
 	}
+	env.localStorage = storage
 	return nil
 }
 
@@ -390,12 +366,11 @@ func (env *localEnviron) AllInstances() (instances []instance.Instance, err erro
 
 // Storage is specified in the Environ interface.
 func (env *localEnviron) Storage() storage.Storage {
+	// localStorage is non-nil if we're running from the CLI
+	if env.localStorage != nil {
+		return env.localStorage
+	}
 	return httpstorage.Client(env.config.storageAddr())
-}
-
-// Implements environs.BootstrapStorager.
-func (env *localEnviron) EnableBootstrapStorage() error {
-	return env.setupLocalStorage()
 }
 
 // Destroy is specified in the Environ interface.
@@ -428,7 +403,7 @@ func (env *localEnviron) Destroy() error {
 		cmd := exec.Command(
 			"pkill",
 			fmt.Sprintf("-%d", terminationworker.TerminationSignal),
-			"jujud",
+			"-f", filepath.Join(regexp.QuoteMeta(env.config.rootDir()), ".*", "jujud"),
 		)
 		return cmd.Run()
 	}

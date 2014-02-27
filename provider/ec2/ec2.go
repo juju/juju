@@ -207,7 +207,7 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return e, nil
 }
 
-func (p environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	attrs := cfg.UnknownAttrs()
 	if _, ok := attrs["control-bucket"]; !ok {
 		uuid, err := utils.NewUUID()
@@ -304,18 +304,6 @@ func (e *environ) s3() *s3.S3 {
 	s3 := e.s3Unlocked
 	e.ecfgMutex.Unlock()
 	return s3
-}
-
-// PrecheckInstance is specified in the environs.Prechecker interface.
-func (e *environ) PrecheckInstance(series string, cons constraints.Value) error {
-	return nil
-}
-
-// PrecheckContainer is specified in the environs.Prechecker interface.
-func (e *environ) PrecheckContainer(series string, kind instance.ContainerType) error {
-	// This check can either go away or be relaxed when the ec2
-	// provider manages container addressibility.
-	return environs.NewContainersUnsupported("ec2 provider does not support containers")
 }
 
 func (e *environ) Name() string {

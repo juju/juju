@@ -1,11 +1,12 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package worker
 
-// simpleWorker is a type that just provides very simple Kill and Wait
-// mechanisms through the use of a couple channels.  The channels are only used
-// for their "block until closed" feature.  Nothing is ever sent over them.
+// simpleWorker implements the worker returned by NewSimpleWorker.
+// The stopc and done channels are used for closing notifications
+// only. No values are sent over them. The err value is set once only,
+// just before the done channel is closed.
 type simpleWorker struct {
 	stopc chan struct{}
 	done  chan struct{}

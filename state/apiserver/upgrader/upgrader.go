@@ -14,9 +14,17 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
+type Upgrader interface {
+	WatchAPIVersion(args params.Entities) (params.NotifyWatchResults, error)
+	DesiredVersion(args params.Entities) (params.VersionResults, error)
+	Tools(args params.Entities) (params.ToolsResults, error)
+	SetTools(args params.EntitiesVersion) (params.ErrorResults, error)
+}
+
 // UpgraderAPI provides access to the Upgrader API facade.
 type UpgraderAPI struct {
 	*common.ToolsGetter
+	*common.ToolsSetter
 
 	st         *state.State
 	resources  *common.Resources
@@ -29,14 +37,15 @@ func NewUpgraderAPI(
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*UpgraderAPI, error) {
-	if !authorizer.AuthMachineAgent() && !authorizer.AuthUnitAgent() {
+	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}
-	getCanRead := func() (common.AuthFunc, error) {
+	getCanReadWrite := func() (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
 	}
 	return &UpgraderAPI{
-		ToolsGetter: common.NewToolsGetter(st, getCanRead),
+		ToolsGetter: common.NewToolsGetter(st, getCanReadWrite),
+		ToolsSetter: common.NewToolsSetter(st, getCanReadWrite),
 		st:          st,
 		resources:   resources,
 		authorizer:  authorizer,
@@ -101,39 +110,4 @@ func (u *UpgraderAPI) DesiredVersion(args params.Entities) (params.VersionResult
 		results[i].Error = common.ServerError(err)
 	}
 	return params.VersionResults{results}, nil
-}
-
-// SetTools updates the recorded tools version for the agents.
-func (u *UpgraderAPI) SetTools(args params.EntitiesVersion) (params.ErrorResults, error) {
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.AgentTools)),
-	}
-	for i, agentTools := range args.AgentTools {
-		err := u.setOneAgentVersion(agentTools.Tag, agentTools.Tools.Version)
-		results.Results[i].Error = common.ServerError(err)
-	}
-	return results, nil
-}
-
-func (u *UpgraderAPI) setOneAgentVersion(tag string, vers version.Binary) error {
-	if !u.authorizer.AuthOwner(tag) {
-		return common.ErrPerm
-	}
-	entity, err := u.findEntity(tag)
-	if err != nil {
-		return err
-	}
-	return entity.SetAgentVersion(vers)
-}
-
-func (u *UpgraderAPI) findEntity(tag string) (state.AgentTooler, error) {
-	entity0, err := u.st.FindEntity(tag)
-	if err != nil {
-		return nil, err
-	}
-	entity, ok := entity0.(state.AgentTooler)
-	if !ok {
-		return nil, common.NotSupportedError(tag, "agent tools")
-	}
-	return entity, nil
 }
