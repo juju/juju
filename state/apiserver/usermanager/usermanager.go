@@ -17,8 +17,8 @@ var logger = loggo.GetLogger("juju.state.apiserver.usermanager")
 
 // UserManager defines the methods on the usermanager API end point.
 type UserManager interface {
-	AddUser(arg params.ModifyUsers) (params.ErrorResult, error)
-	RemoveUser(arg params.ModifyUsers) (params.ErrorResult, error)
+	AddUser(arg params.ModifyUser) (params.ErrorResult, error)
+	RemoveUser(arg params.ModifyUser) (params.ErrorResult, error)
 }
 
 // UserManagerAPI implements the user manager interface and is the concrete
@@ -56,12 +56,15 @@ func NewUserManagerAPI(
 		nil
 }
 
-func (api *UserManagerAPI) AddUser(args params.ModifyUsers) (params.ErrorResult, error) {
+func (api *UserManagerAPI) AddUser(args params.ModifyUser) (params.ErrorResult, error) {
 	canWrite, err := api.getCanWrite()
 	if err != nil {
 		return params.ErrorResult{common.ServerError(err)}, err
 	}
-	_, err := api.state.AddUser(args.Tag, args.Password)
+	if !canWrite(args.Tag) {
+		return params.ErrorResult{common.ServerError(common.ErrPerm)}, common.ErrPerm
+	}
+	_, err = api.state.AddUser(args.Tag, args.Password)
 	if err != nil {
 		return params.ErrorResult{
 			Error: common.ServerError(fmt.Errorf("Failed to create user: %s", err)),
@@ -70,10 +73,13 @@ func (api *UserManagerAPI) AddUser(args params.ModifyUsers) (params.ErrorResult,
 	return params.ErrorResult{}, nil
 }
 
-func (api *UserManagerAPI) RemoveUser(args params.ModifyUsers) (params.ErrorResult, error) {
+func (api *UserManagerAPI) RemoveUser(args params.ModifyUser) (params.ErrorResult, error) {
 	canWrite, err := api.getCanWrite()
 	if err != nil {
 		return params.ErrorResult{common.ServerError(err)}, err
+	}
+	if !canWrite(args.Tag) {
+		return params.ErrorResult{common.ServerError(common.ErrPerm)}, common.ErrPerm
 	}
 	user, err := api.state.User(args.Tag)
 	if err != nil {

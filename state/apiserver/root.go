@@ -115,7 +115,7 @@ func (r *srvRoot) UserManager(id string) (*usermanager.UserManagerAPI, error) {
 	if id != "" {
 		return nil, common.ErrBadId
 	}
-	return usermanager.NewUserManagerAPI(r.srv.state, r.resources, r)
+	return usermanager.NewUserManagerAPI(r.srv.state, r)
 }
 
 // Machiner returns an object that provides access to the Machiner API
