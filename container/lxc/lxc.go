@@ -53,10 +53,10 @@ var _ container.Manager = (*containerManager)(nil)
 // parameter.
 func NewContainerManager(conf container.ManagerConfig) container.Manager {
 	logdir := "/var/log/juju"
-	if conf.LogDir != "" {
-		logdir = conf.LogDir
+	if conf["LogDir"] != "" {
+		logdir = conf["LogDir"].(string)
 	}
-	return &containerManager{name: conf.Name, logdir: logdir}
+	return &containerManager{name: conf["Name"].(string), logdir: logdir}
 }
 
 func (manager *containerManager) StartContainer(

@@ -26,7 +26,7 @@ func NewKvmBroker(
 	tools *tools.Tools,
 	agentConfig agent.Config,
 ) (environs.InstanceBroker, error) {
-	manager, err := kvm.NewContainerManager(container.ManagerConfig{Name: "juju"})
+	manager, err := kvm.NewContainerManager(container.ManagerConfig{"Name": "juju", "LogDir": ""})
 	if err != nil {
 		return nil, err
 	}

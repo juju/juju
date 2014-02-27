@@ -19,7 +19,7 @@ type factorySuite struct {
 var _ = gc.Suite(&factorySuite{})
 
 func (*factorySuite) TestNewContainerManager(c *gc.C) {
-	conf := container.ManagerConfig{Name: "test"}
+	conf := container.ManagerConfig{"Name": "test", "LogDir": ""}
 
 	for _, test := range []struct {
 		containerType instance.ContainerType

@@ -55,13 +55,13 @@ var IsKVMSupported = func() (bool, error) {
 // containers. The containers that are created are namespaced by the name
 // parameter.
 func NewContainerManager(conf container.ManagerConfig) (container.Manager, error) {
-	if conf.Name == "" {
+	if conf["Name"] == "" {
 		return nil, fmt.Errorf("name is required")
 	}
-	if conf.LogDir == "" {
-		conf.LogDir = "/var/log/juju"
+	if conf["LogDir"] == "" {
+		conf["LogDir"] = "/var/log/juju"
 	}
-	return &containerManager{name: conf.Name, logdir: conf.LogDir}, nil
+	return &containerManager{name: conf["Name"].(string), logdir: conf["LogDir"].(string)}, nil
 }
 
 // containerManager handles all of the business logic at the juju specific
