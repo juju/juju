@@ -11,6 +11,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -91,8 +92,10 @@ func (c *mockContext) AgentConfig() agent.Config {
 type mockAgentConfig struct {
 	agent.Config
 	dataDir      string
+	logDir       string
 	tag          string
 	namespace    string
+	jobs         []state.MachineJob
 	apiAddresses []string
 }
 
@@ -102,6 +105,14 @@ func (mock *mockAgentConfig) Tag() string {
 
 func (mock *mockAgentConfig) DataDir() string {
 	return mock.dataDir
+}
+
+func (mock *mockAgentConfig) LogDir() string {
+	return mock.logDir
+}
+
+func (mock *mockAgentConfig) Jobs() []state.MachineJob {
+	return mock.jobs
 }
 
 func (mock *mockAgentConfig) APIAddresses() ([]string, error) {

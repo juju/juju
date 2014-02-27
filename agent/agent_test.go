@@ -24,7 +24,7 @@ var agentConfigTests = []struct {
 	about:    "missing data directory",
 	checkErr: "data directory not found in configuration",
 }, {
-	about: "missing tag directory",
+	about: "missing tag",
 	params: agent.AgentConfigParams{
 		DataDir: "/data/dir",
 	},
@@ -200,12 +200,13 @@ func (s *suite) TestApiAddressesCantWriteBack(c *gc.C) {
 }
 func (*suite) TestWriteAndRead(c *gc.C) {
 	testParams := attributeParams
+	testParams.LogDir = c.MkDir()
 	testParams.DataDir = c.MkDir()
 	conf, err := agent.NewAgentConfig(testParams)
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(conf.Write(), gc.IsNil)
-	reread, err := agent.ReadConf(conf.DataDir(), conf.Tag())
+	reread, err := agent.ReadConf(agent.ConfigPath(conf.DataDir(), conf.Tag()))
 	c.Assert(err, gc.IsNil)
 	// Since we can't directly poke the internals, we'll use the WriteCommands
 	// method.
@@ -257,7 +258,7 @@ func (*suite) TestWriteNewPassword(c *gc.C) {
 		newPass, err := agent.WriteNewPassword(conf)
 		c.Assert(err, gc.IsNil)
 		// Show that the password is saved.
-		reread, err := agent.ReadConf(conf.DataDir(), conf.Tag())
+		reread, err := agent.ReadConf(agent.ConfigPath(conf.DataDir(), conf.Tag()))
 		c.Assert(agent.Password(conf), gc.Equals, agent.Password(reread))
 		c.Assert(newPass, gc.Equals, agent.Password(conf))
 	}

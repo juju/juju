@@ -423,7 +423,7 @@ Service Unit Agent
 `
 
 const helpLogging = `
-Juju  has logging available for both client and server components. Most
+Juju has logging available for both client and server components. Most
 users' exposure to the logging mechanism is through either the 'debug-log'
 command, or through the log file stored on the bootstrap node at
 /var/log/juju/all-machines.log.

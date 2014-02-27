@@ -10,6 +10,7 @@ import (
 
 	"github.com/loggo/loggo"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/environs/cloudinit"
@@ -59,7 +60,7 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 		return nil, fmt.Errorf("name is required")
 	}
 	if conf.LogDir == "" {
-		conf.LogDir = "/var/log/juju"
+		conf.LogDir = agent.DefaultLogDir
 	}
 	return &containerManager{name: conf.Name, logdir: conf.LogDir}, nil
 }

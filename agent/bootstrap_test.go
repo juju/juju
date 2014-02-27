@@ -102,7 +102,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 
 	// Check that the machine agent's config has been written
 	// and that we can use it to connect to the state.
-	newCfg, err := agent.ReadConf(dataDir, "machine-0")
+	newCfg, err := agent.ReadConf(agent.ConfigPath(dataDir, "machine-0"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(newCfg.Tag(), gc.Equals, "machine-0")
 	c.Assert(agent.Password(newCfg), gc.Not(gc.Equals), pwHash)
@@ -162,20 +162,4 @@ func (*bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, password string) {
 	defer st.Close()
 	_, err = st.Machine("0")
 	c.Assert(err, gc.IsNil)
-}
-
-func (s *bootstrapSuite) TestMarshalUnmarshalBootstrapJobs(c *gc.C) {
-	jobs := [][]state.MachineJob{
-		{},
-		{state.JobHostUnits},
-		{state.JobManageEnviron},
-		{state.JobHostUnits, state.JobManageEnviron},
-	}
-	for _, jobs := range jobs {
-		marshalled, err := agent.MarshalBootstrapJobs(jobs...)
-		c.Assert(err, gc.IsNil)
-		unmarshalled, err := agent.UnmarshalBootstrapJobs(marshalled)
-		c.Assert(err, gc.IsNil)
-		c.Assert(unmarshalled, gc.DeepEquals, jobs)
-	}
 }

@@ -25,6 +25,14 @@ type format_1_16Suite struct {
 
 var _ = gc.Suite(&format_1_16Suite{})
 
+func newTestConfig(c *gc.C) *configInternal {
+	params := agentParams
+	params.DataDir = c.MkDir()
+	config, err := NewAgentConfig(params)
+	c.Assert(err, gc.IsNil)
+	return config.(*configInternal)
+}
+
 func (s *format_1_16Suite) TestWriteAgentConfig(c *gc.C) {
 	config := newTestConfig(c)
 	err := s.formatter.write(config)
@@ -37,7 +45,7 @@ func (s *format_1_16Suite) TestWriteAgentConfig(c *gc.C) {
 	c.Assert(fileInfo.Mode().Perm(), gc.Equals, os.FileMode(0600))
 	c.Assert(fileInfo.Size(), jc.GreaterThan, 0)
 
-	formatLocation := path.Join(config.Dir(), formatFilename)
+	formatLocation := path.Join(config.Dir(), legacyFormatFilename)
 	fileInfo, err = os.Stat(formatLocation)
 	c.Assert(err, gc.IsNil)
 	c.Assert(fileInfo.Mode().IsRegular(), jc.IsTrue)
@@ -58,7 +66,9 @@ func (s *format_1_16Suite) assertWriteAndRead(c *gc.C, config *configInternal) {
 	// This is put in by the ReadConf method that we are avoiding using
 	// becuase it will have side-effects soon around migrating configs.
 	readConfig.dataDir = config.dataDir
-	c.Assert(readConfig, gc.DeepEquals, config)
+	// logDir was not present in 1.16
+	readConfig.logDir = config.logDir
+	c.Assert(readConfig, jc.DeepEquals, config)
 }
 
 func (s *format_1_16Suite) TestRead(c *gc.C) {
@@ -114,7 +124,7 @@ func (s *format_1_16Suite) TestMigrate(c *gc.C) {
 		StorageAddr:   "storage addr",
 	}
 
-	c.Assert(config.values, gc.DeepEquals, expected)
+	c.Assert(config.values, jc.DeepEquals, expected)
 }
 
 func (s *format_1_16Suite) TestMigrateOnlySetsExisting(c *gc.C) {
@@ -127,5 +137,5 @@ func (s *format_1_16Suite) TestMigrateOnlySetsExisting(c *gc.C) {
 		ProviderType: "provider type",
 	}
 
-	c.Assert(config.values, gc.DeepEquals, expected)
+	c.Assert(config.values, jc.DeepEquals, expected)
 }

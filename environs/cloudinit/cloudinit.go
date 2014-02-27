@@ -95,6 +95,9 @@ type MachineConfig struct {
 	// LogDir holds the directory that juju logs will be written to.
 	LogDir string
 
+	// Jobs holds what machine jobs to run.
+	Jobs []state.MachineJob
+
 	// RsyslogConfPath is the path to the rsyslogd conf file written
 	// for configuring distributed logging.
 	RsyslogConfPath string
@@ -406,10 +409,19 @@ func (cfg *MachineConfig) addLogging(c *cloudinit.Config) error {
 	var configRenderer *syslog.SyslogConfig
 	if cfg.StateServer {
 		configRenderer = syslog.NewAccumulateConfig(
-			names.MachineTag(cfg.MachineId), cfg.SyslogPort, namespace)
+			names.MachineTag(cfg.MachineId),
+			cfg.LogDir,
+			cfg.SyslogPort,
+			namespace,
+		)
 	} else {
 		configRenderer = syslog.NewForwardConfig(
-			names.MachineTag(cfg.MachineId), cfg.SyslogPort, namespace, cfg.stateHostAddrs())
+			names.MachineTag(cfg.MachineId),
+			cfg.LogDir,
+			cfg.SyslogPort,
+			namespace,
+			cfg.stateHostAddrs(),
+		)
 	}
 	configRenderer.LogDir = cfg.LogDir
 	content, err := configRenderer.Render()
@@ -437,6 +449,8 @@ func (cfg *MachineConfig) agentConfig(tag string) (agent.Config, error) {
 	}
 	configParams := agent.AgentConfigParams{
 		DataDir:        cfg.DataDir,
+		LogDir:         cfg.LogDir,
+		Jobs:           cfg.Jobs,
 		Tag:            tag,
 		Password:       password,
 		Nonce:          cfg.MachineNonce,
@@ -652,6 +666,9 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 	}
 	if cfg.LogDir == "" {
 		return fmt.Errorf("missing log directory")
+	}
+	if len(cfg.Jobs) == 0 {
+		return fmt.Errorf("missing machine jobs")
 	}
 	if cfg.CloudInitOutputLog == "" {
 		return fmt.Errorf("missing cloud-init output log path")

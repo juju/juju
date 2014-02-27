@@ -38,6 +38,10 @@ type AgentConf struct {
 
 // addFlags injects common agent flags into f.
 func (c *AgentConf) addFlags(f *gnuflag.FlagSet) {
+	// TODO(dimitern) 2014-02-19 bug 1282025
+	// We need to pass a config location here instead and
+	// use it to locate the conf and the infer the data-dir
+	// from there instead of passing it like that.
 	f.StringVar(&c.dataDir, "data-dir", "/var/lib/juju", "directory for juju data")
 }
 
@@ -49,7 +53,7 @@ func (c *AgentConf) checkArgs(args []string) error {
 }
 
 func (c *AgentConf) read(tag string) (err error) {
-	c.config, err = agent.ReadConf(c.dataDir, tag)
+	c.config, err = agent.ReadConf(agent.ConfigPath(c.dataDir, tag))
 	return
 }
 

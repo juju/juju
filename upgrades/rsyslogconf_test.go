@@ -9,6 +9,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/environs"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	syslogtesting "launchpad.net/juju-core/log/syslog/testing"
@@ -36,6 +37,7 @@ func (s *rsyslogSuite) SetUpTest(c *gc.C) {
 	s.ctx = &mockContext{
 		agentConfig: &mockAgentConfig{
 			tag:          "machine-tag",
+			logDir:       agent.DefaultLogDir,
 			namespace:    "namespace",
 			apiAddresses: []string{"server:1234"},
 		},
@@ -49,7 +51,17 @@ func (s *rsyslogSuite) TestStateServerUpgrade(c *gc.C) {
 
 	data, err := ioutil.ReadFile(s.syslogPath)
 	c.Assert(err, gc.IsNil)
-	c.Assert(string(data), gc.Equals, syslogtesting.ExpectedAccumulateSyslogConf(c, "machine-tag", "namespace", 2345))
+	c.Assert(
+		string(data),
+		gc.Equals,
+		syslogtesting.ExpectedAccumulateSyslogConf(
+			c,
+			"machine-tag",
+			agent.DefaultLogDir,
+			"namespace",
+			2345,
+		),
+	)
 }
 
 func (s *rsyslogSuite) TestStateServerUpgradeIdempotent(c *gc.C) {
@@ -63,7 +75,17 @@ func (s *rsyslogSuite) TestHostMachineUpgrade(c *gc.C) {
 
 	data, err := ioutil.ReadFile(s.syslogPath)
 	c.Assert(err, gc.IsNil)
-	c.Assert(string(data), gc.Equals, syslogtesting.ExpectedForwardSyslogConf(c, "machine-tag", "namespace", 2345))
+	c.Assert(
+		string(data),
+		gc.Equals,
+		syslogtesting.ExpectedForwardSyslogConf(
+			c,
+			"machine-tag",
+			agent.DefaultLogDir,
+			"namespace",
+			2345,
+		),
+	)
 }
 
 func (s *rsyslogSuite) TestHostServerUpgradeIdempotent(c *gc.C) {

@@ -23,7 +23,6 @@ func NewTestSimpleContext(agentConfig agent.Config, initDir, logDir, syslogConfi
 		api:             &fakeAPI{},
 		agentConfig:     agentConfig,
 		initDir:         initDir,
-		logDir:          logDir,
 		syslogConfigDir: syslogConfigDir,
 	}
 }

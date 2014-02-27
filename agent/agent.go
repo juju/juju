@@ -5,7 +5,9 @@ package agent
 
 import (
 	"fmt"
+	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"sync"
 
@@ -20,6 +22,9 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.agent")
+
+// DefaultLogDir defines the default log directory for juju agents.
+const DefaultLogDir = "/var/log/juju"
 
 const (
 	LxcBridge        = "LXC_BRIDGE"
@@ -48,6 +53,13 @@ type Config interface {
 	// DataDir returns the data directory. Each agent has a subdirectory
 	// containing the configuration files.
 	DataDir() string
+
+	// LogDir returns the log directory. All logs from all agents on
+	// the machine are written to this directory.
+	LogDir() string
+
+	// Jobs returns a list of MachineJobs that need to run.
+	Jobs() []state.MachineJob
 
 	// Tag returns the tag of the entity on whose behalf the state connection
 	// will be made.
@@ -123,8 +135,10 @@ type connectionDetails struct {
 
 type configInternal struct {
 	dataDir         string
+	logDir          string
 	tag             string
 	nonce           string
+	jobs            []state.MachineJob
 	caCert          []byte
 	stateDetails    *connectionDetails
 	apiDetails      *connectionDetails
@@ -137,6 +151,8 @@ type configInternal struct {
 
 type AgentConfigParams struct {
 	DataDir        string
+	LogDir         string
+	Jobs           []state.MachineJob
 	Tag            string
 	Password       string
 	Nonce          string
@@ -152,6 +168,10 @@ func NewAgentConfig(params AgentConfigParams) (Config, error) {
 	if params.DataDir == "" {
 		return nil, errgo.Trace(requiredError("data directory"))
 	}
+	logDir := DefaultLogDir
+	if params.LogDir != "" {
+		logDir = params.LogDir
+	}
 	if params.Tag == "" {
 		return nil, errgo.Trace(requiredError("entity tag"))
 	}
@@ -164,7 +184,9 @@ func NewAgentConfig(params AgentConfigParams) (Config, error) {
 	// Note that the password parts of the state and api information are
 	// blank.  This is by design.
 	config := &configInternal{
+		logDir:      logDir,
 		dataDir:     params.DataDir,
+		jobs:        params.Jobs,
 		tag:         params.Tag,
 		nonce:       params.Nonce,
 		caCert:      params.CACert,
@@ -220,32 +242,45 @@ func NewStateMachineConfig(params StateMachineConfigParams) (Config, error) {
 
 // Dir returns the agent-specific data directory.
 func Dir(dataDir, agentName string) string {
-	return path.Join(dataDir, "agents", agentName)
+	return filepath.Join(dataDir, "agents", agentName)
 }
 
-// ReadConf reads configuration data for the given
-// entity from the given data directory.
-func ReadConf(dataDir, tag string) (Config, error) {
+// ConfigPath returns the full path to the agent config file.
+// NOTE: Delete this once all agents accept --config instead
+// of --data-dir - it won't be needed anymore.
+func ConfigPath(dataDir, agentName string) string {
+	return filepath.Join(Dir(dataDir, agentName), agentConfFile)
+}
+
+// ReadConf reads configuration data from the given location.
+func ReadConf(configFilePath string) (Config, error) {
 	// Even though the ReadConf is done at the start of the agent loading, and
 	// that this should not be called more than once by an agent, I feel that
 	// not locking the mutex that is used to protect writes is wrong.
 	configMutex.Lock()
 	defer configMutex.Unlock()
-	dir := Dir(dataDir, tag)
+	dir := filepath.Dir(configFilePath)
 	format, err := readFormat(dir)
 	if err != nil {
 		return nil, err
 	}
-	logger.Debugf("Reading agent config, format: %s", format)
+	logger.Debugf("Reading agent config %s", format)
 	formatter, err := newFormatter(format)
 	if err != nil {
 		return nil, err
 	}
-	config, err := formatter.read(dir)
+	location := dir // for 1.16 compatibility
+	if format == format_1_18 {
+		location = configFilePath
+	}
+	config, err := formatter.read(location)
 	if err != nil {
 		return nil, err
 	}
-	config.dataDir = dataDir
+	if config.dataDir == "" {
+		// 1.16 compatibility
+		config.dataDir = dir
+	}
 	if err := config.check(); err != nil {
 		return nil, err
 	}
@@ -255,7 +290,13 @@ func ReadConf(dataDir, tag string) (Config, error) {
 		currentFormatter.migrate(config)
 		// Write the content out in the new format.
 		if err := currentFormatter.write(config); err != nil {
-			logger.Errorf("cannot write the agent config in format %s: %v", currentFormat, err)
+			logger.Errorf("cannot write the agent config %s: %v", currentFormat, err)
+			return nil, err
+		}
+		// Remove the format file.
+		formatPath := formatFile(dir)
+		if err := os.Remove(formatPath); !os.IsNotExist(err) {
+			logger.Errorf("cannot remove legacy format file %q: %v", formatPath, err)
 			return nil, err
 		}
 	}
@@ -273,6 +314,14 @@ func (c *configInternal) File(name string) string {
 
 func (c *configInternal) DataDir() string {
 	return c.dataDir
+}
+
+func (c *configInternal) LogDir() string {
+	return c.logDir
+}
+
+func (c *configInternal) Jobs() []state.MachineJob {
+	return c.jobs
 }
 
 func (c *configInternal) Nonce() string {

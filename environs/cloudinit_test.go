@@ -176,7 +176,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, stateServer bool) {
 			Tag:      "machine-10",
 		},
 		DataDir:                 environs.DataDir,
-		LogDir:                  environs.LogDir,
+		LogDir:                  agent.DefaultLogDir,
 		CloudInitOutputLog:      environs.CloudInitOutputLog,
 		RsyslogConfPath:         environs.RsyslogConfPath,
 		Config:                  envConfig,

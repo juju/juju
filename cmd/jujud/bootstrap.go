@@ -75,17 +75,14 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	// agent.BootstrapJobs is an optional field in the agent
-	// config, and was introduced after 1.17.2. We default to
-	// allowing units on machine-0 if missing.
-	jobs := []state.MachineJob{
-		state.JobManageEnviron,
-		state.JobHostUnits,
-	}
-	if bootstrapJobs := c.Conf.config.Value(agent.BootstrapJobs); bootstrapJobs != "" {
-		jobs, err = agent.UnmarshalBootstrapJobs(bootstrapJobs)
-		if err != nil {
-			return err
+	// agent.Jobs is an optional field in the agent config, and was
+	// introduced after 1.17.2. We default to allowing units on
+	// machine-0 if missing.
+	jobs := c.Conf.config.Jobs()
+	if len(jobs) == 0 {
+		jobs = []state.MachineJob{
+			state.JobManageEnviron,
+			state.JobHostUnits,
 		}
 	}
 	var characteristics instance.HardwareCharacteristics

@@ -134,8 +134,8 @@ func (s *SimpleContextSuite) TestOldDeployedUnitsCanBeRecalled(c *gc.C) {
 type SimpleToolsFixture struct {
 	testbase.LoggingSuite
 	dataDir         string
-	initDir         string
 	logDir          string
+	initDir         string
 	origPath        string
 	binDir          string
 	syslogConfigDir string
@@ -189,12 +189,12 @@ func (fix *SimpleToolsFixture) assertUpstartCount(c *gc.C, count int) {
 }
 
 func (fix *SimpleToolsFixture) getContext(c *gc.C) *deployer.SimpleContext {
-	config := agentConfig("machine-tag", fix.dataDir)
+	config := agentConfig("machine-tag", fix.dataDir, fix.logDir)
 	return deployer.NewTestSimpleContext(config, fix.initDir, fix.logDir, fix.syslogConfigDir)
 }
 
 func (fix *SimpleToolsFixture) getContextForMachine(c *gc.C, machineTag string) *deployer.SimpleContext {
-	config := agentConfig(machineTag, fix.dataDir)
+	config := agentConfig(machineTag, fix.dataDir, fix.logDir)
 	return deployer.NewTestSimpleContext(config, fix.initDir, fix.logDir, fix.syslogConfigDir)
 }
 
@@ -212,7 +212,7 @@ $ModLoad imfile
 
 $InputFilePersistStateInterval 50
 $InputFilePollInterval 5
-$InputFileName /var/log/juju/%s.log
+$InputFileName %s/%s.log
 $InputFileTag juju-%s:
 $InputFileStateFile %s
 $InputRunFileMonitor
@@ -253,7 +253,7 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string
 		}
 	}
 
-	conf, err := agent.ReadConf(fix.dataDir, tag)
+	conf, err := agent.ReadConf(agent.ConfigPath(fix.dataDir, tag))
 	c.Assert(err, gc.IsNil)
 	c.Assert(conf.Tag(), gc.Equals, tag)
 	c.Assert(conf.DataDir(), gc.Equals, fix.dataDir)
@@ -266,7 +266,7 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string
 	c.Assert(err, gc.IsNil)
 	parts := strings.SplitN(name, "/", 2)
 	unitTag := fmt.Sprintf("unit-%s-%s", parts[0], parts[1])
-	expectedSyslogConfReplaced := fmt.Sprintf(expectedSyslogConf, unitTag, unitTag, unitTag)
+	expectedSyslogConfReplaced := fmt.Sprintf(expectedSyslogConf, fix.logDir, unitTag, unitTag, unitTag)
 	c.Assert(string(syslogConfData), gc.Equals, expectedSyslogConfReplaced)
 
 }
@@ -297,6 +297,7 @@ type mockConfig struct {
 	agent.Config
 	tag     string
 	datadir string
+	logdir  string
 }
 
 func (mock *mockConfig) Tag() string {
@@ -307,6 +308,10 @@ func (mock *mockConfig) DataDir() string {
 	return mock.datadir
 }
 
+func (mock *mockConfig) LogDir() string {
+	return mock.logdir
+}
+
 func (mock *mockConfig) CACert() []byte {
 	return []byte(testing.CACert)
 }
@@ -315,6 +320,6 @@ func (mock *mockConfig) Value(_ string) string {
 	return ""
 }
 
-func agentConfig(tag, datadir string) agent.Config {
-	return &mockConfig{tag: tag, datadir: datadir}
+func agentConfig(tag, datadir, logdir string) agent.Config {
+	return &mockConfig{tag: tag, datadir: datadir, logdir: logdir}
 }

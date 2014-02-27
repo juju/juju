@@ -15,7 +15,7 @@ $ModLoad imfile
 
 $InputFilePersistStateInterval 50
 $InputFilePollInterval 5
-$InputFileName /var/log/juju/{{machine}}.log
+$InputFileName {{logDir}}/{{machine}}.log
 $InputFileTag juju{{namespace}}-{{machine}}:
 $InputFileStateFile {{machine}}{{namespace}}
 $InputRunFileMonitor
@@ -34,13 +34,14 @@ $FileCreateMode 0640
 `
 
 // ExpectedAccumulateSyslogConf returns the expected content for a rsyslog file on a state server.
-func ExpectedAccumulateSyslogConf(c *gc.C, machineTag, namespace string, port int) string {
+func ExpectedAccumulateSyslogConf(c *gc.C, machineTag, logDir, namespace string, port int) string {
 	if namespace != "" {
 		namespace = "-" + namespace
 	}
 	t := template.New("")
 	t.Funcs(template.FuncMap{
 		"machine":   func() string { return machineTag },
+		"logDir":    func() string { return logDir },
 		"namespace": func() string { return namespace },
 		"port":      func() int { return port },
 		"offset":    func() int { return 6 + len(namespace) },
@@ -57,7 +58,7 @@ $ModLoad imfile
 
 $InputFilePersistStateInterval 50
 $InputFilePollInterval 5
-$InputFileName /var/log/juju/{{machine}}.log
+$InputFileName {{logDir}}/{{machine}}.log
 $InputFileTag juju{{namespace}}-{{machine}}:
 $InputFileStateFile {{machine}}{{namespace}}
 $InputRunFileMonitor
@@ -69,13 +70,14 @@ $template LongTagForwardFormat,"<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %sy
 `
 
 // ExpectedForwardSyslogConf returns the expected content for a rsyslog file on a host machine.
-func ExpectedForwardSyslogConf(c *gc.C, machineTag, namespace string, port int) string {
+func ExpectedForwardSyslogConf(c *gc.C, machineTag, logDir, namespace string, port int) string {
 	if namespace != "" {
 		namespace = "-" + namespace
 	}
 	t := template.New("")
 	t.Funcs(template.FuncMap{
 		"machine":   func() string { return machineTag },
+		"logDir":    func() string { return logDir },
 		"namespace": func() string { return namespace },
 		"port":      func() int { return port },
 	})

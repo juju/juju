@@ -9,23 +9,24 @@ import (
 	"launchpad.net/juju-core/log/syslog"
 )
 
-func confParams(context Context) (machineTag, namespace string, port int, err error) {
+func confParams(context Context) (machineTag, logDir, namespace string, port int, err error) {
 	namespace = context.AgentConfig().Value(agent.Namespace)
 	machineTag = context.AgentConfig().Tag()
+	logDir = context.AgentConfig().LogDir()
 
 	environment := context.APIState().Environment()
 	config, err := environment.EnvironConfig()
 	if err != nil {
-		return "", "", 0, err
+		return "", "", "", 0, err
 	}
 	port = config.SyslogPort()
-	return machineTag, namespace, port, err
+	return machineTag, logDir, namespace, port, err
 }
 
-// upgradeStateServerRsyslogConfig upgrades a rsuslog config file on a state server.
+// upgradeStateServerRsyslogConfig upgrades a rsyslog config file on a state server.
 func upgradeStateServerRsyslogConfig(context Context) (err error) {
-	machineTag, namespace, syslogPort, err := confParams(context)
-	configRenderer := syslog.NewAccumulateConfig(machineTag, syslogPort, namespace)
+	machineTag, logDir, namespace, syslogPort, err := confParams(context)
+	configRenderer := syslog.NewAccumulateConfig(machineTag, logDir, syslogPort, namespace)
 	data, err := configRenderer.Render()
 	if err != nil {
 		return nil
@@ -33,15 +34,15 @@ func upgradeStateServerRsyslogConfig(context Context) (err error) {
 	return WriteReplacementFile(environs.RsyslogConfPath, []byte(data), 0644)
 }
 
-// upgradeHostMachineRsyslogConfig upgrades a rsuslog config file on a host machine.
+// upgradeHostMachineRsyslogConfig upgrades a rsyslog config file on a host machine.
 func upgradeHostMachineRsyslogConfig(context Context) (err error) {
-	machineTag, namespace, syslogPort, err := confParams(context)
+	machineTag, logDir, namespace, syslogPort, err := confParams(context)
 	addr, err := context.AgentConfig().APIAddresses()
 	if err != nil {
 		return err
 	}
 
-	configRenderer := syslog.NewForwardConfig(machineTag, syslogPort, namespace, addr)
+	configRenderer := syslog.NewForwardConfig(machineTag, logDir, syslogPort, namespace, addr)
 	data, err := configRenderer.Render()
 	if err != nil {
 		return nil

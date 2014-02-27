@@ -25,9 +25,6 @@ import (
 // system state.
 var DataDir = "/var/lib/juju"
 
-// LogDir is the default log file path.
-const LogDir = "/var/log/juju"
-
 // CloudInitOutputLog is the default cloud-init-output.log file path.
 const CloudInitOutputLog = "/var/log/cloud-init-output.log"
 
@@ -48,7 +45,8 @@ func NewMachineConfig(machineID, machineNonce string,
 	return &cloudinit.MachineConfig{
 		// Fixed entries.
 		DataDir:                 DataDir,
-		LogDir:                  LogDir,
+		LogDir:                  agent.DefaultLogDir,
+		Jobs:                    []state.MachineJob{state.JobHostUnits},
 		CloudInitOutputLog:      CloudInitOutputLog,
 		RsyslogConfPath:         RsyslogConfPath,
 		MachineAgentServiceName: "jujud-" + names.MachineTag(machineID),
@@ -73,6 +71,7 @@ func NewBootstrapMachineConfig(stateInfoURL string, privateSystemSSHKey string) 
 	mcfg.StateServer = true
 	mcfg.StateInfoURL = stateInfoURL
 	mcfg.SystemPrivateSSHKey = privateSystemSSHKey
+	mcfg.Jobs = []state.MachineJob{state.JobManageEnviron}
 	return mcfg
 }
 

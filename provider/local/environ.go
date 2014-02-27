@@ -130,25 +130,20 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 		return err
 	}
 
-	bootstrapJobs, err := agent.MarshalBootstrapJobs(state.JobManageEnviron)
-	if err != nil {
-		return err
-	}
-
 	mcfg := environs.NewBootstrapMachineConfig(stateFileURL, privateKey)
 	mcfg.Tools = selectedTools[0]
 	mcfg.DataDir = env.config.rootDir()
 	mcfg.LogDir = env.config.logDir()
+	mcfg.Jobs = []state.MachineJob{state.JobManageEnviron}
 	mcfg.RsyslogConfPath = env.rsyslogConfPath()
 	mcfg.CloudInitOutputLog = filepath.Join(mcfg.LogDir, "cloud-init-output.log")
 	mcfg.DisablePackageCommands = true
 	mcfg.MachineAgentServiceName = env.machineAgentServiceName()
 	mcfg.MongoServiceName = env.mongoServiceName()
 	mcfg.AgentEnvironment = map[string]string{
-		agent.Namespace:     env.config.namespace(),
-		agent.StorageDir:    env.config.storageDir(),
-		agent.StorageAddr:   env.config.storageAddr(),
-		agent.BootstrapJobs: bootstrapJobs,
+		agent.Namespace:   env.config.namespace(),
+		agent.StorageDir:  env.config.storageDir(),
+		agent.StorageAddr: env.config.storageAddr(),
 	}
 	if err := environs.FinishMachineConfig(mcfg, cfg, cons); err != nil {
 		return err

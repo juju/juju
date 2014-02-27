@@ -13,6 +13,7 @@ import (
 	"github.com/loggo/loggo"
 	"launchpad.net/golxc"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/instance"
@@ -52,7 +53,7 @@ var _ container.Manager = (*containerManager)(nil)
 // containers. The containers that are created are namespaced by the name
 // parameter.
 func NewContainerManager(conf container.ManagerConfig) container.Manager {
-	logdir := "/var/log/juju"
+	logdir := agent.DefaultLogDir
 	if conf.LogDir != "" {
 		logdir = conf.LogDir
 	}

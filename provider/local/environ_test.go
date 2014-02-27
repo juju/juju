@@ -11,7 +11,6 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent"
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -138,9 +137,7 @@ func (s *localJujuTestSuite) TestBootstrap(c *gc.C) {
 		c.Assert(cloudcfg.Packages(), gc.HasLen, 0)
 		c.Assert(mcfg.AgentEnvironment, gc.Not(gc.IsNil))
 		// local does not allow machine-0 to host units
-		bootstrapJobs, err := agent.UnmarshalBootstrapJobs(mcfg.AgentEnvironment[agent.BootstrapJobs])
-		c.Assert(err, gc.IsNil)
-		c.Assert(bootstrapJobs, gc.DeepEquals, []state.MachineJob{state.JobManageEnviron})
+		c.Assert(mcfg.Jobs, gc.DeepEquals, []state.MachineJob{state.JobManageEnviron})
 		return nil
 	})
 	testConfig := minimalConfig(c)
