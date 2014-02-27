@@ -12,6 +12,11 @@ func stepsFor118() []Step {
 			run:         ensureLockDirExistsAndUbuntuWritable,
 		},
 		&upgradeStep{
+			description: "generate system ssh key",
+			targets:     []Target{StateServer},
+			run:         ensureSystemSSHKey,
+		},
+		&upgradeStep{
 			description: "install rsyslog-gnutls",
 			targets:     []Target{AllMachines},
 			run:         installRsyslogGnutls,

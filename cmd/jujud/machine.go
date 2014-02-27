@@ -446,7 +446,7 @@ func (a *MachineAgent) runUpgrades(st *api.State, jobs []params.MachineJob) erro
 		}
 		logger.Infof("Starting upgrade from %v to %v for %v", from, version.Current, target)
 		if err := upgrades.PerformUpgrade(from.Number, target, context); err != nil {
-			return fmt.Errorf("cannot perform upgrade from %v to %v for : %v", from, version.Current, target, err)
+			return fmt.Errorf("cannot perform upgrade from %v to %v for %v: %v", from, version.Current, target, err)
 		}
 	}
 	return a.Conf.config.WriteUpgradedToVersion(version.Current.Number)

@@ -18,6 +18,7 @@ var _ = gc.Suite(&steps118Suite{})
 
 var expectedSteps = []string{
 	"make $DATADIR/locks owned by ubuntu:ubuntu",
+	"generate system ssh key",
 	"install rsyslog-gnutls",
 }
 
