@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker"
 	workerlogger "launchpad.net/juju-core/worker/logger"
+	"launchpad.net/juju-core/worker/rsyslog"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/juju-core/worker/upgrader"
 )
@@ -94,6 +95,7 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 	runner.StartWorker("uniter", func() (worker.Worker, error) {
 		return uniter.NewUniter(st.Uniter(), entity.Tag(), dataDir), nil
 	})
+	startRsyslogWorker(runner, st, agentConfig, rsyslog.RsyslogModeForwarding)
 	return newCloseWorker(runner, st), nil
 }
 

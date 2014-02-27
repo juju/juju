@@ -22,6 +22,7 @@ import (
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/deployer"
+	"launchpad.net/juju-core/worker/rsyslog"
 	"launchpad.net/juju-core/worker/upgrader"
 )
 
@@ -248,4 +249,22 @@ func (c *closeWorker) Wait() error {
 // otherwise be restricted.
 var newDeployContext = func(st *apideployer.State, agentConfig agent.Config) deployer.Context {
 	return deployer.NewSimpleContext(agentConfig, st)
+}
+
+var newRsyslogConfigWorker = rsyslog.NewRsyslogConfigWorker
+
+func startRsyslogWorker(runner worker.Runner, st *api.State, agentConfig agent.Config, mode rsyslog.RsyslogMode) {
+	runner.StartWorker("rsyslog", func() (worker.Worker, error) {
+		tag := agentConfig.Tag()
+		namespace := agentConfig.Value(agent.Namespace)
+		var addrs []string
+		if mode == rsyslog.RsyslogModeForwarding {
+			var err error
+			addrs, err = agentConfig.APIAddresses()
+			if err != nil {
+				return nil, err
+			}
+		}
+		return newRsyslogConfigWorker(st.Rsyslog(), mode, tag, namespace, addrs)
+	})
 }

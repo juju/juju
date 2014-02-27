@@ -567,3 +567,8 @@ type DeployerConnectionValues struct {
 type StatusParams struct {
 	Patterns []string
 }
+
+// SetRsyslogCertParams holds parameters for the SetRsyslogCert call.
+type SetRsyslogCertParams struct {
+	CACert []byte
+}

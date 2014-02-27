@@ -11,5 +11,10 @@ func stepsFor118() []Step {
 			targets:     []Target{HostMachine},
 			run:         ensureLockDirExistsAndUbuntuWritable,
 		},
+		&upgradeStep{
+			description: "install rsyslog-gnutls",
+			targets:     []Target{AllMachines},
+			run:         installRsyslogGnutls,
+		},
 	}
 }

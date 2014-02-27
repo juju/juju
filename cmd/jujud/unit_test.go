@@ -20,10 +20,12 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
+	apirsyslog "launchpad.net/juju-core/state/api/rsyslog"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
+	"launchpad.net/juju-core/worker/rsyslog"
 	"launchpad.net/juju-core/worker/upgrader"
 )
 
@@ -247,4 +249,24 @@ func (s *UnitSuite) TestOpenStateFails(c *gc.C) {
 	waitForUnitStarted(s.State, unit, c)
 
 	s.assertCannotOpenState(c, conf.Tag(), conf.DataDir())
+}
+
+func (s *UnitSuite) TestRsyslogConfigWorker(c *gc.C) {
+	created := make(chan rsyslog.RsyslogMode, 1)
+	s.PatchValue(&newRsyslogConfigWorker, func(_ *apirsyslog.State, mode rsyslog.RsyslogMode, tag, namespace string, addrs []string) (worker.Worker, error) {
+		created <- mode
+		return worker.NewRunner(isFatal, moreImportant), nil
+	})
+
+	_, unit, _, _ := s.primeAgent(c)
+	a := s.newAgent(c, unit)
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+
+	select {
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout while waiting for rsyslog worker to be created")
+	case mode := <-created:
+		c.Assert(mode, gc.Equals, rsyslog.RsyslogModeForwarding)
+	}
 }
