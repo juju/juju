@@ -88,14 +88,14 @@ func (inst *joyentInstance) Stop() error {
 	}
 
 	// wait for machine to be stopped
-	/*for !inst.pollMachineState(id, "stopped") {
+	for !inst.pollMachineState(id, "stopped") {
 		time.Sleep(1 * time.Second)
 	}
 
 	err = inst.env.compute.cloudapi.DeleteMachine(id)
 	if err != nil {
-		return fmt.Errorf("cannot stop instance %s: %v", id, err)
-	} */
+		return fmt.Errorf("cannot delete instance %s: %v", id, err)
+	}
 
 	return nil
 }

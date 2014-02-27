@@ -171,11 +171,25 @@ func (env *JoyentEnviron) Instances(ids []instance.Id) ([]instance.Instance, err
 }
 
 func (env *JoyentEnviron) StopInstances(instances []instance.Instance) error {
+	// Remove all the instances in parallel so that we incur less round-trips.
+	var wg sync.WaitGroup
+	//var err error
+	wg.Add(len(instances))
+	errc := make(chan error, len(instances))
 	for _, inst := range instances {
-		err := inst.(*joyentInstance).Stop()
-		if err != nil {
-			return fmt.Errorf("cannot stop instance %s: %v", string(inst.(*joyentInstance).Id()), err)
-		}
+		inst := inst.(*joyentInstance)
+		go func() {
+			defer wg.Done()
+			if err := inst.Stop(); err != nil {
+				errc <- err
+			}
+		}()
+	}
+	wg.Wait()
+	select {
+	case err := <-errc:
+		return fmt.Errorf("cannot stop all instances: %v", err)
+	default:
 	}
 
 	return nil
