@@ -18,10 +18,11 @@ var _ = gc.Suite(&steps118Suite{})
 
 var expectedSteps = []string{
 	"make $DATADIR/locks owned by ubuntu:ubuntu",
+	"generate system ssh key",
 }
 
 func (s *steps118Suite) TestUpgradeOperationsContent(c *gc.C) {
 	upgradeSteps := upgrades.StepsFor118()
-	c.Assert(upgradeSteps, gc.HasLen, 1)
+	c.Assert(upgradeSteps, gc.HasLen, 2)
 	assertExpectedSteps(c, upgradeSteps, expectedSteps)
 }
