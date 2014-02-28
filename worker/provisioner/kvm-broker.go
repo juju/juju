@@ -84,7 +84,6 @@ func (broker *kvmBroker) StartInstance(
 		config.ProviderType,
 		config.AuthorizedKeys,
 		config.SSLHostnameVerification,
-		config.SyslogPort,
 		config.Proxy,
 		config.AptProxy,
 	); err != nil {

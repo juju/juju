@@ -86,3 +86,14 @@ func (s *AuthKeysSuite) TestReadAuthorizedKeysClientKeys(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(keys, gc.Equals, prefix)
 }
+
+func (s *AuthKeysSuite) TestConcatAuthKeys(c *gc.C) {
+	for _, test := range []struct{ a, b, result string }{
+		{"a", "", "a"},
+		{"", "b", "b"},
+		{"a", "b", "a\nb"},
+		{"a\n", "b", "a\nb"},
+	} {
+		c.Check(config.ConcatAuthKeys(test.a, test.b), gc.Equals, test.result)
+	}
+}
