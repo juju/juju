@@ -38,7 +38,7 @@ func (s *MongoSuite) TestJujuMongodPath(c *gc.C) {
 	d := c.MkDir()
 	defer os.RemoveAll(d)
 	mongoPath := filepath.Join(d, "mongod")
-	s.PatchValue(&JujuMongodPath, mongoPath)
+	s.PatchValue(&jujuMongodPath, mongoPath)
 
 	err := ioutil.WriteFile(mongoPath, []byte{}, 0777)
 	c.Assert(err, gc.IsNil)
@@ -48,7 +48,7 @@ func (s *MongoSuite) TestJujuMongodPath(c *gc.C) {
 }
 
 func (s *MongoSuite) TestDefaultMongodPath(c *gc.C) {
-	s.PatchValue(&JujuMongodPath, "/not/going/to/exist/mongod")
+	s.PatchValue(&jujuMongodPath, "/not/going/to/exist/mongod")
 
 	obtained := MongodPath()
 	c.Assert(obtained, gc.Equals, "mongod")

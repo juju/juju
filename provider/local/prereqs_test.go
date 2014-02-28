@@ -45,7 +45,8 @@ func (s *prereqsSuite) SetUpTest(c *gc.C) {
 	lxclsPath = filepath.Join(s.tmpdir, "lxc-ls")
 	s.PatchEnvironment("PATH", s.tmpdir)
 
-	mongo.JujuMongodPath = "/somewhere/that/doesnt/exist"
+	cleanup := mongo.MockPackage()
+	s.AddCleanup(func(c *gc.C) { cleanup() })
 
 	os.Setenv("JUJUTEST_LSB_RELEASE_ID", "Ubuntu")
 	err := ioutil.WriteFile(filepath.Join(s.tmpdir, "lsb_release"), []byte(lsbrelease), 0777)

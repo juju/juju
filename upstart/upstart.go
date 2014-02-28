@@ -19,8 +19,10 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
+const defaultInitDir = "/etc/init"
+
 var startedRE = regexp.MustCompile(`^.* start/running, process (\d+)\n$`)
-var initDir = "/etc/init"
+var initDir = defaultInitDir
 
 func init() {
 	rand.Seed(time.Now().UTC().UnixNano())
@@ -29,7 +31,6 @@ func init() {
 // MockPackage mocks out the internals for this package, and returns a function
 // that will undo the mocking.  This method should only be used during testing.
 func MockPackage() func() {
-	old := initDir
 	initDir = path.Join(os.TempDir(), fmt.Sprintf("juju-upstart-%d", rand.Int()))
 	err := os.MkdirAll(initDir, 0777)
 	if err != nil {
@@ -37,7 +38,7 @@ func MockPackage() func() {
 	}
 	return func() {
 		os.RemoveAll(initDir)
-		initDir = old
+		initDir = defaultInitDir
 	}
 }
 

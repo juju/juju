@@ -14,7 +14,8 @@ import (
 )
 
 const (
-	maxMongoFiles = 65000
+	maxMongoFiles         = 65000
+	jujuMongodDefaultPath = "/usr/lib/juju/bin/mongod"
 )
 
 var (
@@ -22,18 +23,24 @@ var (
 
 	oldMongoServiceName = "juju-db"
 
-	// JujuMongodPath is the path of the mongod that is bundled specifically for
-	// juju. This value is public and non-const only for testing purposes,
-	// please do not change.
-	JujuMongodPath = "/usr/lib/juju/bin/mongod"
+	// this value is what we use in the code, it's a variable so we can mock it
+	// out
+	jujuMongodPath = jujuMongodDefaultPath
 )
+
+// MockPackage mocks out specific parts of this package for testing purposes.
+// This function should not be called from production code.
+func MockPackage() func() {
+	jujuMongodPath = "/somewhere/that/doesnt/exist"
+	return func() { jujuMongodPath = jujuMongodDefaultPath }
+}
 
 // MongoPath returns the executable path to be used to run mongod on this
 // machine. If the juju-bundled version of mongo exists, it will return that
 // path, otherwise it will return the command to run mongod from the path.
 func MongodPath() string {
-	if _, err := os.Stat(JujuMongodPath); err == nil {
-		return JujuMongodPath
+	if _, err := os.Stat(jujuMongodPath); err == nil {
+		return jujuMongodPath
 	}
 
 	// just use whatever is in the path
