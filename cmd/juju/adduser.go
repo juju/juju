@@ -1,56 +1,67 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012, 2013, 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package main
 
 import (
-	"errors"
 	"fmt"
+
+	"code.google.com/p/go.crypto/ssh/terminal"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
-
-	"code.google.com/p/gopass"
 )
 
-type AdduserCommand struct {
+const addUserDoc = `
+Add users to an existing environment
+The user information is stored within an existing environment, and will be lost
+when the environent is destroyed.
+
+Examples:
+  juju add-user foobar mypass       (Add user foobar with password mypass)
+  juju add-user foobar              (Add user foobar. A prompt will request the password)
+`
+
+type AddUserCommand struct {
 	cmd.EnvCommandBase
-	Tag      string
+	User     string
 	Password string
 }
 
-func (c *AdduserCommand) Info() *cmd.Info {
+func (c *AddUserCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-user",
 		Args:    "<username> <password>",
 		Purpose: "adds a user",
+		Doc:     addUserDoc,
 	}
 }
 
-func (c *AdduserCommand) Init(args []string) error {
+func (c *AddUserCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return errors.New("no username supplied")
+		return fmt.Errorf("no username supplied")
 	}
-	c.Tag = args[0]
+	c.User = args[0]
 
 	if len(args) == 1 {
-		pass, err := gopass.GetPass("password: ")
+		fmt.Print("password: ")
+		pass, err := terminal.ReadPassword(0)
 		if err != nil {
 			return fmt.Errorf("Failed to read password %v", err)
 		}
-		c.Password = pass
+		c.Password = string(pass)
 	} else {
 		c.Password = args[1]
 	}
 	return nil
 }
 
-func (c *AdduserCommand) Run(_ *cmd.Context) error {
+func (c *AddUserCommand) Run(_ *cmd.Context) error {
 	client, err := juju.NewUserManagerClient(c.EnvName)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
-	_, err = client.AddUser(c.Tag, c.Password)
+	_, err = client.AddUser(c.User, c.Password)
 	return err
 }

@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package main
@@ -8,8 +8,11 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/configstore"
-	//"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/names"
 )
+
+const whoamiDoc = `
+`
 
 type WhoamiCommand struct {
 	cmd.EnvCommandBase
@@ -21,6 +24,7 @@ func (c *WhoamiCommand) Info() *cmd.Info {
 		Name:    "whoami",
 		Args:    "",
 		Purpose: "prints the name of the currently logged in user",
+		Doc:     whoamiDoc,
 	}
 }
 
@@ -46,10 +50,10 @@ func (c *WhoamiCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	user := info.APICredentials().User
-	//_, id, err := names.ParseTag(user, names.UserTagKind)
+	_, id, err := names.ParseTag(user, names.UserTagKind)
 	if err != nil {
 		return err
 	}
 
-	return c.out.Write(ctx, user)
+	return c.out.Write(ctx, id)
 }

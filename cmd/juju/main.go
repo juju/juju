@@ -118,9 +118,9 @@ func Main(args []string) {
 	// Manage authorised ssh keys.
 	jujucmd.Register(wrap(NewAuthorisedKeysCommand()))
 
-	// Manage users commands.
-	jujucmd.Register(wrap(&AdduserCommand{}))
-	jujucmd.Register(wrap(&RemoveuserCommand{}))
+	// Manage users.
+	jujucmd.Register(wrap(&AddUserCommand{}))
+	jujucmd.Register(wrap(&RemoveUserCommand{}))
 	jujucmd.Register(wrap(&LoginCommand{}))
 	jujucmd.Register(wrap(&WhoamiCommand{}))
 

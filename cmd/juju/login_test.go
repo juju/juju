@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package main
@@ -18,11 +18,11 @@ type LoginSuite struct {
 var _ = gc.Suite(&LoginSuite{})
 
 func (s *LoginSuite) TestLogin(c *gc.C) {
-	environ, err := environs.PrepareFromName("dummyenv", s.ConfigStore)
+	environ, err := environs.PrepareFromName("dummyenv", nullContext(), s.ConfigStore)
 	c.Assert(err, gc.IsNil)
 	defer environ.Destroy()
 
-	_, err = testing.RunCommand(c, &AdduserCommand{}, []string{"foobar", "password"})
+	_, err = testing.RunCommand(c, &AddUserCommand{}, []string{"foobar", "password"})
 	c.Assert(err, gc.IsNil)
 
 	_, err = testing.RunCommand(c, &LoginCommand{}, []string{"foobar", "password"})
@@ -34,11 +34,11 @@ func (s *LoginSuite) TestLogin(c *gc.C) {
 }
 
 func (s *LoginSuite) TestLoginFails(c *gc.C) {
-	environ, err := environs.PrepareFromName("dummyenv", s.ConfigStore)
+	environ, err := environs.PrepareFromName("dummyenv", nullContext(), s.ConfigStore)
 	c.Assert(err, gc.IsNil)
 	defer environ.Destroy()
 
-	_, err = testing.RunCommand(c, &AdduserCommand{}, []string{"foobar", "password"})
+	_, err = testing.RunCommand(c, &AddUserCommand{}, []string{"foobar", "password"})
 	c.Assert(err, gc.IsNil)
 
 	_, err = testing.RunCommand(c, &LoginCommand{}, []string{"foobar", "wrongpassword"})

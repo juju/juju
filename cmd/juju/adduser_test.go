@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package main
@@ -10,17 +10,17 @@ import (
 	"launchpad.net/juju-core/testing"
 )
 
-type AdduserSuite struct {
+type AddUserSuite struct {
 	jujutesting.RepoSuite
 }
 
-var _ = gc.Suite(&AdduserSuite{})
+var _ = gc.Suite(&AddUserSuite{})
 
-func (s *AdduserSuite) Testadduser(c *gc.C) {
+func (s *AddUserSuite) Testadduser(c *gc.C) {
 
-	_, err := testing.RunCommand(c, &AdduserCommand{}, []string{"foobar", "password"})
+	_, err := testing.RunCommand(c, &AddUserCommand{}, []string{"foobar", "password"})
 	c.Assert(err, gc.IsNil)
 
-	_, err = testing.RunCommand(c, &AdduserCommand{}, []string{"foobar", "newpassword"})
+	_, err = testing.RunCommand(c, &AddUserCommand{}, []string{"foobar", "newpassword"})
 	c.Assert(err, gc.ErrorMatches, "user already exists")
 }

@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package main
@@ -10,16 +10,16 @@ import (
 	"launchpad.net/juju-core/testing"
 )
 
-type RemoveuserSuite struct {
+type RemoveUserSuite struct {
 	jujutesting.RepoSuite
 }
 
-var _ = gc.Suite(&RemoveuserSuite{})
+var _ = gc.Suite(&RemoveUserSuite{})
 
-func (s *RemoveuserSuite) Testremoveuser(c *gc.C) {
-	_, err := testing.RunCommand(c, &AdduserCommand{}, []string{"foobar", "password"})
+func (s *RemoveUserSuite) Testremoveuser(c *gc.C) {
+	_, err := testing.RunCommand(c, &AddUserCommand{}, []string{"foobar", "password"})
 	c.Assert(err, gc.IsNil)
 
-	_, err = testing.RunCommand(c, &RemoveuserCommand{}, []string{"foobar"})
+	_, err = testing.RunCommand(c, &RemoveUserCommand{}, []string{"foobar"})
 	c.Assert(err, gc.IsNil)
 }

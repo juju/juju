@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package main
@@ -10,34 +10,38 @@ import (
 	"launchpad.net/juju-core/juju"
 )
 
-type RemoveuserCommand struct {
+const removeUserDoc = `
+`
+
+type RemoveUserCommand struct {
 	cmd.EnvCommandBase
-	Tag string
+	User string
 }
 
-func (c *RemoveuserCommand) Info() *cmd.Info {
+func (c *RemoveUserCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove-user",
 		Args:    "<username>",
 		Purpose: "removes a user",
+		Doc:     removeUserDoc,
 	}
 }
 
-func (c *RemoveuserCommand) Init(args []string) error {
+func (c *RemoveUserCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.New("no username supplied")
 	}
-	c.Tag = args[0]
+	c.User = args[0]
 
 	return cmd.CheckEmpty(args[1:])
 }
 
-func (c *RemoveuserCommand) Run(_ *cmd.Context) error {
+func (c *RemoveUserCommand) Run(_ *cmd.Context) error {
 	client, err := juju.NewUserManagerClient(c.EnvName)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
-	_, err = client.RemoveUser(c.Tag)
+	_, err = client.RemoveUser(c.User)
 	return err
 }
