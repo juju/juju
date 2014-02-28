@@ -166,14 +166,15 @@ func (c *Conn) updateSecrets() error {
 // If bumpRevision is true, the charm must be a local directory,
 // and the revision number will be incremented before pushing.
 func (conn *Conn) PutCharm(curl *charm.URL, repo charm.Repository, bumpRevision bool) (*state.Charm, error) {
+	testing := conn.Environ.Config().Testing()
 	if curl.Revision == -1 {
-		rev, err := charm.Latest(repo, curl)
+		rev, err := charm.Latest(repo, curl, testing)
 		if err != nil {
 			return nil, fmt.Errorf("cannot get latest charm revision: %v", err)
 		}
 		curl = curl.WithRevision(rev)
 	}
-	ch, err := repo.Get(curl, conn.Environ.Config().Testing())
+	ch, err := repo.Get(curl, testing)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get charm: %v", err)
 	}

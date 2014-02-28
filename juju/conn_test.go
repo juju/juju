@@ -447,13 +447,17 @@ func (s *ConnSuite) TestPutCharmTestingEnv(c *gc.C) {
 		"cs:series/charm2": 1,
 	})
 	server.Downloads = nil
-	server.NoStats = nil
+	server.DownloadsNoStats = nil
+	server.InfoRequestCount = 0
+	server.InfoRequestCountNoStats = 0
 	store := &charm.CharmStore{BaseURL: server.Address()}
 	curl := charm.MustParseURL("cs:series/charm1-1")
 	expected_downloads := []*charm.URL{curl}
 	s.conn.PutCharm(curl, store, false)
 	c.Assert(server.Downloads, gc.DeepEquals, expected_downloads)
-	c.Assert(server.NoStats, gc.IsNil)
+	c.Assert(server.DownloadsNoStats, gc.IsNil)
+	c.Assert(server.InfoRequestCount, gc.Equals, 1)
+	c.Assert(server.InfoRequestCountNoStats, gc.Equals, 0)
 
 	new_config, err := s.conn.Environ.Config().Apply(map[string]interface{}{"testing": true})
 	c.Assert(err, gc.IsNil)
@@ -462,7 +466,9 @@ func (s *ConnSuite) TestPutCharmTestingEnv(c *gc.C) {
 	expected_nostats := []*charm.URL{curl}
 	s.conn.PutCharm(curl, store, false)
 	c.Assert(server.Downloads, gc.DeepEquals, expected_downloads)
-	c.Assert(server.NoStats, gc.DeepEquals, expected_nostats)
+	c.Assert(server.DownloadsNoStats, gc.DeepEquals, expected_nostats)
+	c.Assert(server.InfoRequestCount, gc.Equals, 1)
+	c.Assert(server.InfoRequestCountNoStats, gc.Equals, 1)
 }
 
 // DeployLocalSuite uses a fresh copy of the same local dummy charm for each

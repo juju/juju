@@ -43,7 +43,9 @@ func (s *StoreSuite) SetUpTest(c *gc.C) {
 	s.server.Downloads = nil
 	s.server.Authorizations = nil
 	s.server.Metadata = nil
-	s.server.NoStats = nil
+	s.server.DownloadsNoStats = nil
+	s.server.InfoRequestCount = 0
+	s.server.InfoRequestCountNoStats = 0
 }
 
 // Uses the TearDownTest from testbase.LoggingSuite
@@ -56,7 +58,7 @@ func (s *StoreSuite) TearDownSuite(c *gc.C) {
 func (s *StoreSuite) TestMissing(c *gc.C) {
 	charmURL := charm.MustParseURL("cs:series/missing")
 	expect := `charm not found: cs:series/missing`
-	_, err := charm.Latest(s.store, charmURL)
+	_, err := charm.Latest(s.store, charmURL, false)
 	c.Assert(err, gc.ErrorMatches, expect)
 	_, err = s.store.Get(charmURL, false)
 	c.Assert(err, gc.ErrorMatches, expect)
@@ -65,7 +67,7 @@ func (s *StoreSuite) TestMissing(c *gc.C) {
 func (s *StoreSuite) TestError(c *gc.C) {
 	charmURL := charm.MustParseURL("cs:series/borken")
 	expect := `charm info errors for "cs:series/borken": badness`
-	_, err := charm.Latest(s.store, charmURL)
+	_, err := charm.Latest(s.store, charmURL, false)
 	c.Assert(err, gc.ErrorMatches, expect)
 	_, err = s.store.Get(charmURL, false)
 	c.Assert(err, gc.ErrorMatches, expect)
@@ -74,7 +76,7 @@ func (s *StoreSuite) TestError(c *gc.C) {
 func (s *StoreSuite) TestWarning(c *gc.C) {
 	charmURL := charm.MustParseURL("cs:series/unwise")
 	expect := `.* WARNING juju charm store reports for "cs:series/unwise": foolishness` + "\n"
-	r, err := charm.Latest(s.store, charmURL)
+	r, err := charm.Latest(s.store, charmURL, false)
 	c.Assert(r, gc.Equals, 23)
 	c.Assert(err, gc.IsNil)
 	c.Assert(c.GetTestLog(), gc.Matches, expect)
@@ -90,13 +92,25 @@ func (s *StoreSuite) TestLatest(c *gc.C) {
 		charm.MustParseURL("cs:series/good-2"),
 		charm.MustParseURL("cs:series/good-99"),
 	}
-	revInfo, err := s.store.Latest(urls...)
+	revInfo, err := s.store.Latest(false, urls...)
 	c.Assert(err, gc.IsNil)
 	c.Assert(revInfo, gc.DeepEquals, []charm.CharmRevision{
 		{23, "2c9f01a53a73c221d5360207e7bb2f887ff83c32b04e58aca76c4d99fd071ec7", nil},
 		{23, "2c9f01a53a73c221d5360207e7bb2f887ff83c32b04e58aca76c4d99fd071ec7", nil},
 		{23, "2c9f01a53a73c221d5360207e7bb2f887ff83c32b04e58aca76c4d99fd071ec7", nil},
 	})
+}
+
+func (s *StoreSuite) TestLatestTestingFlag(c *gc.C) {
+	urls := []*charm.URL{charm.MustParseURL("cs:series/good")}
+	_, err := s.store.Latest(false, urls...)
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.server.InfoRequestCount, gc.Equals, 1)
+	c.Assert(s.server.InfoRequestCountNoStats, gc.Equals, 0)
+	_, err = s.store.Latest(true, urls...)
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.server.InfoRequestCount, gc.Equals, 1)
+	c.Assert(s.server.InfoRequestCountNoStats, gc.Equals, 1)
 }
 
 func (s *StoreSuite) assertCached(c *gc.C, charmURL *charm.URL) {
@@ -145,21 +159,25 @@ func (s *StoreSuite) TestGetBadCache(c *gc.C) {
 	s.assertCached(c, revCharmURL)
 }
 
-func (s *StoreSuite) TestGetTesting(c *gc.C) {
+func (s *StoreSuite) TestGetTestingFlag(c *gc.C) {
 	base := "cs:series/good-12"
 	charmURL := charm.MustParseURL(base)
 	ch, err := s.store.Get(charmURL, false)
 	c.Assert(err, gc.IsNil)
 	c.Assert(ch, gc.NotNil)
 	c.Assert(s.server.Downloads, gc.DeepEquals, []*charm.URL{charmURL})
-	c.Assert(s.server.NoStats, gc.IsNil)
+	c.Assert(s.server.DownloadsNoStats, gc.IsNil)
+	c.Assert(s.server.InfoRequestCount, gc.Equals, 1)
+	c.Assert(s.server.InfoRequestCountNoStats, gc.Equals, 0)
 	other := "cs:series/good-23"
 	otherURL := charm.MustParseURL(other)
 	ch, err = s.store.Get(otherURL, true)
 	c.Assert(err, gc.IsNil)
 	c.Assert(ch, gc.NotNil)
 	c.Assert(s.server.Downloads, gc.DeepEquals, []*charm.URL{charmURL})
-	c.Assert(s.server.NoStats, gc.DeepEquals, []*charm.URL{otherURL})
+	c.Assert(s.server.DownloadsNoStats, gc.DeepEquals, []*charm.URL{otherURL})
+	c.Assert(s.server.InfoRequestCount, gc.Equals, 1)
+	c.Assert(s.server.InfoRequestCountNoStats, gc.Equals, 1)
 }
 
 // The following tests cover the low-level CharmStore-specific API.
@@ -170,7 +188,7 @@ func (s *StoreSuite) TestInfo(c *gc.C) {
 		charm.MustParseURL("cs:series/better"),
 		charm.MustParseURL("cs:series/best"),
 	}
-	infos, err := s.store.Info(charmURLs...)
+	infos, err := s.store.Info(false, charmURLs...)
 	c.Assert(err, gc.IsNil)
 	c.Assert(infos, gc.HasLen, 3)
 	expected := []int{23, 24, 25}
@@ -182,7 +200,7 @@ func (s *StoreSuite) TestInfo(c *gc.C) {
 
 func (s *StoreSuite) TestInfoNotFound(c *gc.C) {
 	charmURL := charm.MustParseURL("cs:series/missing")
-	info, err := s.store.Info(charmURL)
+	info, err := s.store.Info(false, charmURL)
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, gc.HasLen, 1)
 	c.Assert(info[0].Errors, gc.HasLen, 1)
@@ -191,7 +209,7 @@ func (s *StoreSuite) TestInfoNotFound(c *gc.C) {
 
 func (s *StoreSuite) TestInfoError(c *gc.C) {
 	charmURL := charm.MustParseURL("cs:series/borken")
-	info, err := s.store.Info(charmURL)
+	info, err := s.store.Info(false, charmURL)
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, gc.HasLen, 1)
 	c.Assert(info[0].Errors, gc.DeepEquals, []string{"badness"})
@@ -199,7 +217,7 @@ func (s *StoreSuite) TestInfoError(c *gc.C) {
 
 func (s *StoreSuite) TestInfoWarning(c *gc.C) {
 	charmURL := charm.MustParseURL("cs:series/unwise")
-	info, err := s.store.Info(charmURL)
+	info, err := s.store.Info(false, charmURL)
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, gc.HasLen, 1)
 	c.Assert(info[0].Warnings, gc.DeepEquals, []string{"foolishness"})
@@ -208,10 +226,22 @@ func (s *StoreSuite) TestInfoWarning(c *gc.C) {
 func (s *StoreSuite) TestInfoDNSError(c *gc.C) {
 	store := charm.NewStore("http://0.1.2.3")
 	charmURL := charm.MustParseURL("cs:series/good")
-	resp, err := store.Info(charmURL)
+	resp, err := store.Info(false, charmURL)
 	c.Assert(resp, gc.IsNil)
 	expect := `Cannot access the charm store. Are you connected to the internet. Error details:.*`
 	c.Assert(err, gc.ErrorMatches, expect)
+}
+
+func (s *StoreSuite) TestInfoTesting(c *gc.C) {
+	charmURL := charm.MustParseURL("cs:series/good")
+	_, err := s.store.Info(false, charmURL)
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.server.InfoRequestCount, gc.Equals, 1)
+	c.Assert(s.server.InfoRequestCountNoStats, gc.Equals, 0)
+	_, err = s.store.Info(true, charmURL)
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.server.InfoRequestCount, gc.Equals, 1)
+	c.Assert(s.server.InfoRequestCountNoStats, gc.Equals, 1)
 }
 
 func (s *StoreSuite) TestEvent(c *gc.C) {
@@ -388,7 +418,7 @@ func (s *LocalRepoSuite) TestMissingCharm(c *gc.C) {
 	} {
 		c.Logf("test %d: %s", i, str)
 		charmURL := charm.MustParseURL(str)
-		_, err := charm.Latest(s.repo, charmURL)
+		_, err := charm.Latest(s.repo, charmURL, false)
 		s.checkNotFoundErr(c, err, charmURL)
 		_, err = s.repo.Get(charmURL, false)
 		s.checkNotFoundErr(c, err, charmURL)
@@ -397,12 +427,12 @@ func (s *LocalRepoSuite) TestMissingCharm(c *gc.C) {
 
 func (s *LocalRepoSuite) TestMissingRepo(c *gc.C) {
 	c.Assert(os.RemoveAll(s.repo.Path), gc.IsNil)
-	_, err := charm.Latest(s.repo, charm.MustParseURL("local:quantal/zebra"))
+	_, err := charm.Latest(s.repo, charm.MustParseURL("local:quantal/zebra"), false)
 	c.Assert(err, gc.ErrorMatches, `no repository found at ".*"`)
 	_, err = s.repo.Get(charm.MustParseURL("local:quantal/zebra"), false)
 	c.Assert(err, gc.ErrorMatches, `no repository found at ".*"`)
 	c.Assert(ioutil.WriteFile(s.repo.Path, nil, 0666), gc.IsNil)
-	_, err = charm.Latest(s.repo, charm.MustParseURL("local:quantal/zebra"))
+	_, err = charm.Latest(s.repo, charm.MustParseURL("local:quantal/zebra"), false)
 	c.Assert(err, gc.ErrorMatches, `no repository found at ".*"`)
 	_, err = s.repo.Get(charm.MustParseURL("local:quantal/zebra"), false)
 	c.Assert(err, gc.ErrorMatches, `no repository found at ".*"`)
@@ -411,7 +441,7 @@ func (s *LocalRepoSuite) TestMissingRepo(c *gc.C) {
 func (s *LocalRepoSuite) TestMultipleVersions(c *gc.C) {
 	charmURL := charm.MustParseURL("local:quantal/upgrade")
 	s.addDir("upgrade1")
-	rev, err := charm.Latest(s.repo, charmURL)
+	rev, err := charm.Latest(s.repo, charmURL, false)
 	c.Assert(err, gc.IsNil)
 	c.Assert(rev, gc.Equals, 1)
 	ch, err := s.repo.Get(charmURL, false)
@@ -419,7 +449,7 @@ func (s *LocalRepoSuite) TestMultipleVersions(c *gc.C) {
 	c.Assert(ch.Revision(), gc.Equals, 1)
 
 	s.addDir("upgrade2")
-	rev, err = charm.Latest(s.repo, charmURL)
+	rev, err = charm.Latest(s.repo, charmURL, false)
 	c.Assert(err, gc.IsNil)
 	c.Assert(rev, gc.Equals, 2)
 	ch, err = s.repo.Get(charmURL, false)
@@ -427,7 +457,7 @@ func (s *LocalRepoSuite) TestMultipleVersions(c *gc.C) {
 	c.Assert(ch.Revision(), gc.Equals, 2)
 
 	revCharmURL := charmURL.WithRevision(1)
-	rev, err = charm.Latest(s.repo, revCharmURL)
+	rev, err = charm.Latest(s.repo, revCharmURL, false)
 	c.Assert(err, gc.IsNil)
 	c.Assert(rev, gc.Equals, 2)
 	ch, err = s.repo.Get(revCharmURL, false)
@@ -435,7 +465,7 @@ func (s *LocalRepoSuite) TestMultipleVersions(c *gc.C) {
 	c.Assert(ch.Revision(), gc.Equals, 1)
 
 	badRevCharmURL := charmURL.WithRevision(33)
-	rev, err = charm.Latest(s.repo, badRevCharmURL)
+	rev, err = charm.Latest(s.repo, badRevCharmURL, false)
 	c.Assert(err, gc.IsNil)
 	c.Assert(rev, gc.Equals, 2)
 	_, err = s.repo.Get(badRevCharmURL, false)
@@ -446,7 +476,7 @@ func (s *LocalRepoSuite) TestBundle(c *gc.C) {
 	charmURL := charm.MustParseURL("local:quantal/dummy")
 	s.addBundle("dummy")
 
-	rev, err := charm.Latest(s.repo, charmURL)
+	rev, err := charm.Latest(s.repo, charmURL, false)
 	c.Assert(err, gc.IsNil)
 	c.Assert(rev, gc.Equals, 1)
 	ch, err := s.repo.Get(charmURL, false)
@@ -491,7 +521,7 @@ func (s *LocalRepoSuite) TestIgnoresUnpromisingNames(c *gc.C) {
 
 	_, err = s.repo.Get(charmURL, false)
 	s.checkNotFoundErr(c, err, charmURL)
-	_, err = charm.Latest(s.repo, charmURL)
+	_, err = charm.Latest(s.repo, charmURL, false)
 	s.checkNotFoundErr(c, err, charmURL)
 	c.Assert(c.GetTestLog(), gc.Equals, "")
 }

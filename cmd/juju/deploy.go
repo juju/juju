@@ -143,7 +143,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 
 	repo = config.AuthorizeCharmRepo(repo, conf)
 
-	curl, err = addCharmViaAPI(client, ctx, curl, repo)
+	curl, err = addCharmViaAPI(client, ctx, curl, repo, conf.Testing())
 	if err != nil {
 		return err
 	}
@@ -265,9 +265,9 @@ func (c *DeployCommand) run1dot16(ctx *cmd.Context) error {
 // addCharmViaAPI calls the appropriate client API calls to add the
 // given charm URL to state. Also displays the charm URL of the added
 // charm on stdout.
-func addCharmViaAPI(client *api.Client, ctx *cmd.Context, curl *charm.URL, repo charm.Repository) (*charm.URL, error) {
+func addCharmViaAPI(client *api.Client, ctx *cmd.Context, curl *charm.URL, repo charm.Repository, testing bool) (*charm.URL, error) {
 	if curl.Revision < 0 {
-		latest, err := charm.Latest(repo, curl)
+		latest, err := charm.Latest(repo, curl, testing)
 		if err != nil {
 			return nil, err
 		}

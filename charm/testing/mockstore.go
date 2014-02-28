@@ -25,14 +25,16 @@ var logger = loggo.GetLogger("juju.charm.testing.mockstore")
 
 // MockStore provides a mock charm store implementation useful when testing.
 type MockStore struct {
-	mux            *http.ServeMux
-	listener       net.Listener
-	bundleBytes    []byte
-	bundleSha256   string
-	Downloads      []*charm.URL
-	Authorizations []string
-	Metadata       []string
-	NoStats        []*charm.URL
+	mux                     *http.ServeMux
+	listener                net.Listener
+	bundleBytes             []byte
+	bundleSha256            string
+	Downloads               []*charm.URL
+	DownloadsNoStats        []*charm.URL
+	Authorizations          []string
+	Metadata                []string
+	InfoRequestCount        int
+	InfoRequestCountNoStats int
 
 	charms map[string]int
 }
@@ -86,6 +88,12 @@ func (s *MockStore) serveInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	r.ParseForm()
+	if r.Form.Get("stats") == "0" {
+		s.InfoRequestCountNoStats += 1
+	} else {
+		s.InfoRequestCount += 1
+	}
+
 	response := map[string]*charm.InfoResponse{}
 	for _, url := range r.Form["charms"] {
 		cr := &charm.InfoResponse{}
@@ -174,7 +182,7 @@ func (s *MockStore) serveCharm(w http.ResponseWriter, r *http.Request) {
 
 	r.ParseForm()
 	if r.Form.Get("stats") == "0" {
-		s.NoStats = append(s.NoStats, charmURL)
+		s.DownloadsNoStats = append(s.DownloadsNoStats, charmURL)
 	} else {
 		s.Downloads = append(s.Downloads, charmURL)
 	}
