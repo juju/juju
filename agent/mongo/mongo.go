@@ -14,21 +14,13 @@ import (
 )
 
 const (
-	mongoSvcFmt         = "juju-db-v%d"
-	oldMongoServiceName = "juju-db"
-
 	maxMongoFiles = 65000
-
-	// mongoScriptVersion keeps track of changes to the mongo upstart script.
-	// Update this version when you update the script that gets installed from
-	// MongoUpstartService.
-	mongoScriptVersion = 2
 )
 
 var (
 	logger = loggo.GetLogger("juju.agent.mongo")
 
-	mongoServiceName = fmt.Sprintf(mongoSvcFmt, mongoScriptVersion)
+	oldMongoServiceName = "juju-db"
 
 	// JujuMongodPath is the path of the mongod that is bundled specifically for
 	// juju. This value is public and non-const only for testing purposes,
@@ -54,16 +46,29 @@ func MongodPath() string {
 // This method will remove old versions of the mongo upstart script as necessary
 // before installing the new version.
 func ensureMongoServer(dir string, port int) error {
-	service := MongoUpstartService(mongoServiceName, dir, port)
+	name := makeServiceName(mongoScriptVersion)
+	service := MongoUpstartService(name, dir, port)
 	if service.Installed() {
 		return nil
 	}
 
-	if err := removeOldMongoServices(); err != nil {
+	if err := removeOldMongoServices(mongoScriptVersion); err != nil {
 		return err
 	}
 
-	journalDir := filepath.Join(dir, "journal")
+	if err := makeJournalDirs(dir); err != nil {
+		return err
+	}
+
+	if err := service.Install(); err != nil {
+		logger.Errorf("Failed to install mongo service %q: %v", service.Name, err)
+		return err
+	}
+	return service.Start()
+}
+
+func makeJournalDirs(dir string) error {
+	journalDir := path.Join(dir, "journal")
 
 	if err := os.MkdirAll(journalDir, 0700); err != nil {
 		logger.Errorf("failed to make mongo journal dir %s: %v", journalDir, err)
@@ -80,17 +85,12 @@ func ensureMongoServer(dir string, port int) error {
 			return err
 		}
 	}
-
-	if err := service.Install(); err != nil {
-		logger.Errorf("Failed to install mongo service %q: %v", service.Name, err)
-		return err
-	}
-	return service.Start()
+	return nil
 }
 
 // removeOldMongoServices looks for any old juju mongo upstart scripts and
 // removes them.
-func removeOldMongoServices() error {
+func removeOldMongoServices(curVersion int) error {
 	old := upstart.NewService(oldMongoServiceName)
 	if err := old.StopAndRemove(); err != nil {
 		logger.Errorf("Failed to remove old mongo upstart service %q: %v", old.Name, err)
@@ -98,8 +98,8 @@ func removeOldMongoServices() error {
 	}
 
 	// the new formatting for the script name started at version 2
-	for x := 2; x < mongoScriptVersion; x++ {
-		old := upstart.NewService(fmt.Sprintf(mongoSvcFmt, x))
+	for x := 2; x < curVersion; x++ {
+		old := upstart.NewService(makeServiceName(x))
 		if err := old.StopAndRemove(); err != nil {
 			logger.Errorf("Failed to remove old mongo upstart service %q: %v", old.Name, err)
 			return err
@@ -108,16 +108,27 @@ func removeOldMongoServices() error {
 	return nil
 }
 
-// MongoUpstartService returns the upstart config for the mongo state service.
+func makeServiceName(version int) string {
+	return fmt.Sprintf("juju-db-v%d", version)
+}
+
+// mongoScriptVersion keeps track of changes to the mongo upstart script.
+// Update this version when you update the script that gets installed from
+// MongoUpstartService.
+const mongoScriptVersion = 2
+
+// MongoUpstartService returns the upstart config for the mongo state service
+// and the version number of that config.
 //
 // This method assumes there is a server.pem keyfile in dataDir.
 func MongoUpstartService(name, dataDir string, port int) *upstart.Conf {
+
 	keyFile := path.Join(dataDir, "server.pem")
 	svc := upstart.NewService(name)
 
 	dbDir := path.Join(dataDir, "db")
 
-	return &upstart.Conf{
+	conf := &upstart.Conf{
 		Service: *svc,
 		Desc:    "juju state database",
 		Limit: map[string]string{
@@ -139,4 +150,5 @@ func MongoUpstartService(name, dataDir string, port int) *upstart.Conf {
 		// +
 		//	" --replSet juju",
 	}
+	return conf
 }
