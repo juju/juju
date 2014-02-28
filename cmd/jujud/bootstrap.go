@@ -62,16 +62,16 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return fmt.Errorf("cannot read provider-state-url file: %v", err)
 	}
+	envCfg, err := config.New(config.NoDefaults, c.EnvConfig)
+	if err != nil {
+		return err
+	}
 	stateInfoURL := strings.Split(string(data), "\n")[0]
-	bsState, err := bootstrap.LoadStateFromURL(stateInfoURL)
+	bsState, err := bootstrap.LoadStateFromURL(stateInfoURL, !envCfg.SSLHostnameVerification())
 	if err != nil {
 		return fmt.Errorf("cannot load state from URL %q (read from %q): %v", stateInfoURL, providerStateURLFile, err)
 	}
 	err = c.Conf.read("machine-0")
-	if err != nil {
-		return err
-	}
-	envCfg, err := config.New(config.NoDefaults, c.EnvConfig)
 	if err != nil {
 		return err
 	}

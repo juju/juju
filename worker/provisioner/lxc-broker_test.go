@@ -68,12 +68,13 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.agentConfig, err = agent.NewAgentConfig(
 		agent.AgentConfigParams{
-			DataDir:      "/not/used/here",
-			Tag:          "tag",
-			Password:     "dummy-secret",
-			Nonce:        "nonce",
-			APIAddresses: []string{"10.0.0.1:1234"},
-			CACert:       []byte(coretesting.CACert),
+			DataDir:           "/not/used/here",
+			Tag:               "tag",
+			UpgradedToVersion: version.Current.Number,
+			Password:          "dummy-secret",
+			Nonce:             "nonce",
+			APIAddresses:      []string{"10.0.0.1:1234"},
+			CACert:            []byte(coretesting.CACert),
 		})
 	c.Assert(err, gc.IsNil)
 	s.broker = provisioner.NewLxcBroker(&fakeAPI{}, tools, s.agentConfig)
@@ -285,6 +286,5 @@ func (*fakeAPI) ContainerConfig() (params.ContainerConfig, error) {
 	return params.ContainerConfig{
 		ProviderType:            "fake",
 		AuthorizedKeys:          coretesting.FakeAuthKeys,
-		SSLHostnameVerification: true,
-		SyslogPort:              2345}, nil
+		SSLHostnameVerification: true}, nil
 }

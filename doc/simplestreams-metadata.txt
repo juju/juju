@@ -23,14 +23,14 @@ The path components (in order of lookup) are:
 1. User supplied location (specified by tools-metadata-url or image-metadata-url config settings)
 2. The environment's cloud storage
 3. Provider specific locations (eg keystone endpoint if on Openstack)
-4. A web location with metadata for supported public clouds (https://streams.canonical.com)
+4. A web location with metadata for supported public clouds (https://streams.canonical.com/juju)
 
 Metadata may be inline signed, or unsigned. We indicate a metadata file is signed by using
 a '.sjson' extension. Each location in the path is first searched for signed metadata, and
 if none is found, unsigned metadata is attempted before moving onto the next path location.
 
 Juju ships with public keys used to validate the integrity of image and tools metadata obtained
-from https://streams.canonical.com. So out of the box, Juju will "Just Work" with any supported
+from https://streams.canonical.com/juju. So out of the box, Juju will "Just Work" with any supported
 public cloud, using signed metadata. Setting up metadata for a private (eg Openstack) cloud requires
 metadata to be generated using tools which ship with Juju (more below).
 
@@ -148,7 +148,7 @@ endpoints may be created by the cloud administrator. These are defined as follow
 juju-tools      : the <path_url> value as described above in Tools Metadata Contents
 product-streams : the <path_url> value as described above in Image Metadata Contents
 
-4. Central web location (https://streams.canonical.com)
+4. Central web location (https://streams.canonical.com/juju)
 
 This is the default location used to search for image and tools metadata and is used if no matches
 are found earlier in any of the above locations. No user configuration is required.
@@ -164,7 +164,7 @@ Issue 1 means that image id metadata needs to be generated and made available.
 Issue 2 means that tools need to be mirrored locally to make them accessible.
 
 Juju tools exist to help with generating and validating image and tools metadata.
-For tools, it is often easiest to just mirror https://streams.canonical.com/tools.
+For tools, it is often easiest to just mirror https://streams.canonical.com/juju/tools.
 However image metadata cannot be simply mirrored because the image ids are taken
 from the cloud storage provider, so this need to be generated and validated using
 the commands described below.
@@ -172,11 +172,24 @@ the commands described below.
 The available Juju metadata tools can be seen by using the help command:
   juju help metadata
 
-The overall workflow is:
-- generate image metadata
-- copy image metadata to somewhere in the metadata search path
+A summary of the overall workflow is (more detail next):
+- create a local directory in which to store image and tools metadata
+- generate image metadata to local directory
+- optionally download tools to local directory/tools
+Then either
+- juju bootstrap --metadata-source <local_directory>
+or
+- optionally, copy image metadata to somewhere in the metadata search path
 - optionally, mirror tools to somewhere in the metadata search path
 - optionally, configure tools-metadata-url and/or image-metadata-url
+
+If the bootstrap --metadata-source directory option is used, any image metadata and tools found
+in the specified directory will be uploaded automatically to the cloud storage for that deployment.
+This is useful for situations where image and tools metadata do not need to be shared amongst several
+users, since each Juju environment will upload its own separate copy of the required files.
+
+Using the image-metadata-url and tools-metadata-url to point to publicly accessible locations is useful
+when several Juju environments are to be deployed on a private cloud and the metadata should be shared.
 
 1. Image metadata
 
@@ -189,15 +202,15 @@ an environment specified with the -e option). These parameters can also be overr
 
 The image metadata command can be run multiple times with different regions, series, architecture, and
 it will keep adding to the metadata files. Once all required image ids have been added, the index and product
-json files can be uploaded to a location in the Juju metadata search path. As per the Configuration section,
-this may be somewhere specified by the image-metadata-url setting or the cloud's storage etc.
+json files are ready to use. These can be uploaded to a location in the Juju metadata search path or the bootstrap
+--metadata-source option may be used.
 
 Examples:
 1. image-metadata-url
  - upload contents of <metadata_dir> to http://somelocation
  - set image-metadata-url to http://somelocation/images
-2. Cloud storage
- - upload contents of <metadata_dir> directly to environment's cloud storage
+2. bootstrap option
+ - juju bootstrap --metadata-source <metadata_dir>
 
 To ensure that the image metadata has been generated and uploaded correctly, use the validation command to
 ensure an image id can be discovered for a given scenario (region series, arch):
@@ -210,21 +223,23 @@ in the environment config.
 
 2. Tools metadata
 
-Generally, tools and related metadata is mirrored from https://streams.canonical.com/tools. However,
+Generally, tools and related metadata is mirrored from https://streams.canonical.com/juju/tools. However,
 it is possible to manually generate metadata for a custom built tools tarball using:
-  juju generate-tools -d <tools_dir>
+  juju generate-tools -d <metadata_dir>
 
-where the required tools tarballs are first placed in a directory <tools_dir>/tools/releases.
-Then, the contents of <tools_dir> can be uploaded to a location in the Juju metadata search path.
-As per the Configuration section, this may be somewhere specified by the tools-metadata-url setting or
-the cloud's storage etc.
+where the required tools tarballs are first placed in a directory <metadata_dir>/tools/releases.
+Then, the contents of <metadata_dir> can be uploaded to a location in the Juju metadata search path or the
+bootstrap --metadata-source option may be used.
 
 Examples:
 1. tools-metadata-url
- - upload contents of <tools_dir> to http://somelocation
+ - upload contents of <metadata_dir> to http://somelocation
  - set tools-metadata-url to http://somelocation/tools
-2. Cloud storage
- - upload contents of <tools_dir> directly to environment's cloud storage
+2. bootstrap option
+ - juju bootstrap --metadata-source <tools_dir>
+
+Note that image and tools metadata are generally written into the same local directory and the bootstrap
+--metadata-source option will upload both types of metadata.
 
 As with image metadata, the validation command is used to ensure tools are available for Juju to use:
   juju metadata validate-tools

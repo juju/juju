@@ -191,15 +191,15 @@ func (s *agentSuite) TearDownSuite(c *gc.C) {
 	worker.RestartDelay = s.oldRestartDelay
 }
 
-// primeAgent writes the configuration file and tools for an agent with the
-// given entity name.  It returns the agent's configuration and the current
-// tools.
-func (s *agentSuite) primeAgent(c *gc.C, tag, password string) (agent.Config, *coretools.Tools) {
+// primeAgent writes the configuration file and tools with version vers
+// for an agent with the given entity name.  It returns the agent's
+// configuration and the current tools.
+func (s *agentSuite) primeAgent(c *gc.C, tag, password string, vers version.Binary) (agent.Config, *coretools.Tools) {
 	stor := s.Conn.Environ.Storage()
-	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), version.Current)
+	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), vers)
 	err := envtools.MergeAndWriteMetadata(stor, coretools.List{agentTools}, envtools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
-	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag, version.Current)
+	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag, vers)
 	c.Assert(err, gc.IsNil)
 	c.Assert(tools1, gc.DeepEquals, agentTools)
 
@@ -207,32 +207,34 @@ func (s *agentSuite) primeAgent(c *gc.C, tag, password string) (agent.Config, *c
 	apiInfo := s.APIInfo(c)
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
-			DataDir:        s.DataDir(),
-			Tag:            tag,
-			Password:       password,
-			Nonce:          state.BootstrapNonce,
-			StateAddresses: stateInfo.Addrs,
-			APIAddresses:   apiInfo.Addrs,
-			CACert:         stateInfo.CACert,
+			DataDir:           s.DataDir(),
+			Tag:               tag,
+			UpgradedToVersion: vers.Number,
+			Password:          password,
+			Nonce:             state.BootstrapNonce,
+			StateAddresses:    stateInfo.Addrs,
+			APIAddresses:      apiInfo.Addrs,
+			CACert:            stateInfo.CACert,
 		})
 	c.Assert(conf.Write(), gc.IsNil)
 	return conf, agentTools
 }
 
 // makeStateAgentConfig creates and writes a state agent config.
-func writeStateAgentConfig(c *gc.C, stateInfo *state.Info, dataDir, tag, password string) agent.Config {
+func writeStateAgentConfig(c *gc.C, stateInfo *state.Info, dataDir, tag, password string, vers version.Binary) agent.Config {
 	port := coretesting.FindTCPPort()
 	apiAddr := []string{fmt.Sprintf("localhost:%d", port)}
 	conf, err := agent.NewStateMachineConfig(
 		agent.StateMachineConfigParams{
 			AgentConfigParams: agent.AgentConfigParams{
-				DataDir:        dataDir,
-				Tag:            tag,
-				Password:       password,
-				Nonce:          state.BootstrapNonce,
-				StateAddresses: stateInfo.Addrs,
-				APIAddresses:   apiAddr,
-				CACert:         stateInfo.CACert,
+				DataDir:           dataDir,
+				Tag:               tag,
+				UpgradedToVersion: vers.Number,
+				Password:          password,
+				Nonce:             state.BootstrapNonce,
+				StateAddresses:    stateInfo.Addrs,
+				APIAddresses:      apiAddr,
+				CACert:            stateInfo.CACert,
 			},
 			StateServerCert: []byte(coretesting.ServerCert),
 			StateServerKey:  []byte(coretesting.ServerKey),
@@ -244,17 +246,19 @@ func writeStateAgentConfig(c *gc.C, stateInfo *state.Info, dataDir, tag, passwor
 	return conf
 }
 
-// primeStateAgent writes the configuration file and tools for an agent with the
-// given entity name.  It returns the agent's configuration and the current
-// tools.
-func (s *agentSuite) primeStateAgent(c *gc.C, tag, password string) (agent.Config, *coretools.Tools) {
-	agentTools := envtesting.PrimeTools(c, s.Conn.Environ.Storage(), s.DataDir(), version.Current)
-	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag, version.Current)
+// primeStateAgent writes the configuration file and tools with version vers
+// for an agent with the given entity name.  It returns the agent's configuration
+// and the current tools.
+func (s *agentSuite) primeStateAgent(
+	c *gc.C, tag, password string, vers version.Binary) (agent.Config, *coretools.Tools) {
+
+	agentTools := envtesting.PrimeTools(c, s.Conn.Environ.Storage(), s.DataDir(), vers)
+	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag, vers)
 	c.Assert(err, gc.IsNil)
 	c.Assert(tools1, gc.DeepEquals, agentTools)
 
 	stateInfo := s.StateInfo(c)
-	conf := writeStateAgentConfig(c, stateInfo, s.DataDir(), tag, password)
+	conf := writeStateAgentConfig(c, stateInfo, s.DataDir(), tag, password, vers)
 	return conf, agentTools
 }
 
