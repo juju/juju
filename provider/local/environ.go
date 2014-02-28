@@ -12,6 +12,9 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"syscall"
+
+	"github.com/errgo/errgo"
 
 	"launchpad.net/juju-core/agent"
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
@@ -374,38 +377,61 @@ func (env *localEnviron) Storage() storage.Storage {
 
 // Destroy is specified in the Environ interface.
 func (env *localEnviron) Destroy() error {
-	// Kill all running instances. This must be done as
-	// root, or listing/stopping containers will fail.
+	// If bootstrap failed, for example because the user
+	// lacks sudo rights, then the agents won't have been
+	// installed. If that's the case, we can just remove
+	// the data-dir and exit.
+	agentsDir := filepath.Join(env.config.rootDir(), "agents")
+	if _, err := os.Stat(agentsDir); os.IsNotExist(err) {
+		// If we can't remove the root dir, then continue
+		// and attempt as root anyway.
+		if os.RemoveAll(env.config.rootDir()) == nil {
+			return nil
+		}
+	}
 	if !checkIfRoot() {
 		juju, err := exec.LookPath(os.Args[0])
 		if err != nil {
 			return err
 		}
-		args := []string{osenv.JujuHomeEnvKey + "=" + osenv.JujuHome()}
-		args = append(args, juju)
-		args = append(args, os.Args[1:]...)
-		args = append(args, "-y")
+		args := []string{
+			osenv.JujuHomeEnvKey + "=" + osenv.JujuHome(),
+			juju, "destroy-environment", "-y", "--force", env.Name(),
+		}
 		cmd := exec.Command("sudo", args...)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		return cmd.Run()
-	} else {
-		containers, err := env.containerManager.ListContainers()
-		if err != nil {
+	}
+	// Kill all running instances. This must be done as
+	// root, or listing/stopping containers will fail.
+	containers, err := env.containerManager.ListContainers()
+	if err != nil {
+		return err
+	}
+	for _, inst := range containers {
+		if err := env.containerManager.StopContainer(inst); err != nil {
 			return err
 		}
-		for _, inst := range containers {
-			if err := env.containerManager.StopContainer(inst); err != nil {
-				return err
+	}
+	cmd := exec.Command(
+		"pkill",
+		fmt.Sprintf("-%d", terminationworker.TerminationSignal),
+		"-f", filepath.Join(regexp.QuoteMeta(env.config.rootDir()), ".*", "jujud"),
+	)
+	if err := cmd.Run(); err != nil {
+		if err, ok := err.(*exec.ExitError); ok {
+			// Exit status 1 means no processes were matched:
+			// we don't consider this an error here.
+			if err.ProcessState.Sys().(syscall.WaitStatus).ExitStatus() != 1 {
+				return errgo.Annotate(err, "failed to kill jujud")
 			}
 		}
-		cmd := exec.Command(
-			"pkill",
-			fmt.Sprintf("-%d", terminationworker.TerminationSignal),
-			"-f", filepath.Join(regexp.QuoteMeta(env.config.rootDir()), ".*", "jujud"),
-		)
-		return cmd.Run()
 	}
+	if err := os.RemoveAll(env.config.rootDir()); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
 }
 
 // OpenPorts is specified in the Environ interface.
