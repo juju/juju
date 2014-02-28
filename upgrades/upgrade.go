@@ -79,9 +79,12 @@ type Context interface {
 	// APIState returns an API connection to state.
 	APIState() *api.State
 
+	// State returns a connection to state. This will be non-nil
+	// only in the context of a state server.
 	State() *state.State
 
-	// AgentConfig returns the agent config for the machine that is being upgraded.
+	// AgentConfig returns the agent config for the machine that is being
+	// upgraded.
 	AgentConfig() agent.Config
 }
 
@@ -90,19 +93,19 @@ type upgradeContext struct {
 	// Work in progress........
 	// Exactly what a context needs is to be determined as the
 	// implementation evolves.
-	st          *api.State
-	ss          *state.State
+	api         *api.State
+	st          *state.State
 	agentConfig agent.Config
 }
 
 // APIState is defined on the Context interface.
 func (c *upgradeContext) APIState() *api.State {
-	return c.st
+	return c.api
 }
 
 // State is defined on the Context interface.
 func (c *upgradeContext) State() *state.State {
-	return c.ss
+	return c.st
 }
 
 // AgentConfig is defined on the Context interface.
@@ -111,8 +114,9 @@ func (c *upgradeContext) AgentConfig() agent.Config {
 }
 
 // NewContext returns a new upgrade context.
-func NewContext(agentConfig agent.Config, st *api.State) Context {
+func NewContext(agentConfig agent.Config, api *api.State, st *state.State) Context {
 	return &upgradeContext{
+		api:         api,
 		st:          st,
 		agentConfig: agentConfig,
 	}
@@ -155,7 +159,7 @@ func PerformUpgrade(from version.Number, target Target, context Context) error {
 // validTarget returns true if target is in step.Targets().
 func validTarget(target Target, step Step) bool {
 	for _, opTarget := range step.Targets() {
-		if target == AllMachines || target == opTarget {
+		if opTarget == AllMachines || target == opTarget {
 			return true
 		}
 	}

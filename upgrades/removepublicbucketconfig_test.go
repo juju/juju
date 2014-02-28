@@ -25,7 +25,7 @@ func (s *removePublicBucketConfigSuite) SetUpTest(c *gc.C) {
 	s.ctx = &mockContext{
 		agentConfig: &mockAgentConfig{dataDir: s.DataDir()},
 		apiState:    apiState,
-		st:          s.State,
+		state:       s.State,
 	}
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
