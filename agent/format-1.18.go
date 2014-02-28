@@ -209,6 +209,7 @@ func (formatter *formatter_1_18) writeCommands(config *configInternal) ([]string
 	if err != nil {
 		return nil, err
 	}
+	data = []byte(versionLine + "\n" + string(data))
 	commands := []string{"mkdir -p " + utils.ShQuote(config.Dir())}
 	commands = append(commands, writeFileCommands(config.File(agentConfFile), string(data), 0600)...)
 	return commands, nil
