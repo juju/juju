@@ -68,6 +68,8 @@ type MachineAgent struct {
 	MachineId       string
 	runner          worker.Runner
 	upgradeComplete chan struct{}
+	stateOpened     chan struct{}
+	st              *state.State
 }
 
 // Info returns usage information for the command.
@@ -93,6 +95,7 @@ func (a *MachineAgent) Init(args []string) error {
 	}
 	a.runner = newRunner(isFatal, moreImportant)
 	a.upgradeComplete = make(chan struct{})
+	a.stateOpened = make(chan struct{})
 	return nil
 }
 
@@ -310,6 +313,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	if err != nil {
 		return nil, err
 	}
+	close(a.stateOpened)
 	reportOpenedState(st)
 	m := entity.(*state.Machine)
 
@@ -413,7 +417,18 @@ func (a *MachineAgent) upgradeWorker(apiState *api.State, jobs []params.MachineJ
 			return nil
 		default:
 		}
-		err := a.runUpgrades(apiState, jobs)
+		// If the machine agent is a state server, wait until state is opened.
+		var st *state.State
+		for _, job := range jobs {
+			if job == params.JobManageEnviron {
+				select {
+				case <-a.stateOpened:
+				}
+				st = a.st
+				break
+			}
+		}
+		err := a.runUpgrades(st, apiState, jobs)
 		if err != nil {
 			return err
 		}
@@ -425,7 +440,7 @@ func (a *MachineAgent) upgradeWorker(apiState *api.State, jobs []params.MachineJ
 }
 
 // runUpgrades runs the upgrade operations for each job type and updates the updatedToVersion on success.
-func (a *MachineAgent) runUpgrades(st *api.State, jobs []params.MachineJob) error {
+func (a *MachineAgent) runUpgrades(st *state.State, apiState *api.State, jobs []params.MachineJob) error {
 	agentConfig := a.Conf.config
 	from := version.Current
 	from.Number = agentConfig.UpgradedToVersion()
@@ -433,7 +448,7 @@ func (a *MachineAgent) runUpgrades(st *api.State, jobs []params.MachineJob) erro
 		logger.Infof("Upgrade to %v already completed.", version.Current)
 		return nil
 	}
-	context := upgrades.NewContext(agentConfig, st)
+	context := upgrades.NewContext(agentConfig, apiState, st)
 	for _, job := range jobs {
 		var target upgrades.Target
 		switch job {
