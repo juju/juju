@@ -9,6 +9,7 @@ import (
 	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/version"
 )
@@ -78,6 +79,8 @@ type Context interface {
 	// APIState returns an API connection to state.
 	APIState() *api.State
 
+	State() *state.State
+
 	// AgentConfig returns the agent config for the machine that is being upgraded.
 	AgentConfig() agent.Config
 }
@@ -88,12 +91,18 @@ type upgradeContext struct {
 	// Exactly what a context needs is to be determined as the
 	// implementation evolves.
 	st          *api.State
+	ss          *state.State
 	agentConfig agent.Config
 }
 
 // APIState is defined on the Context interface.
 func (c *upgradeContext) APIState() *api.State {
 	return c.st
+}
+
+// State is defined on the Context interface.
+func (c *upgradeContext) State() *state.State {
+	return c.ss
 }
 
 // AgentConfig is defined on the Context interface.

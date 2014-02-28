@@ -87,6 +87,14 @@ func (s *UpgradeSuite) keyFile() string {
 func (s *UpgradeSuite) assertStateServerUpgrades(c *gc.C) {
 	// System SSH key
 	c.Assert(s.keyFile(), jc.IsNonEmptyFile)
+	// Public bucket config.
+	cfg, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	allAttrs := cfg.AllAttrs()
+	_, ok := allAttrs["public-bucket"]
+	c.Assert(ok, jc.IsFalse)
+	_, ok = allAttrs["public-bucket-region"]
+	c.Assert(ok, jc.IsFalse)
 }
 
 func (s *UpgradeSuite) assertHostUpgrades(c *gc.C) {

@@ -11,6 +11,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -78,10 +79,15 @@ type mockContext struct {
 	messages    []string
 	agentConfig *mockAgentConfig
 	apiState    *api.State
+	st          *state.State
 }
 
 func (c *mockContext) APIState() *api.State {
 	return c.apiState
+}
+
+func (c *mockContext) State() *state.State {
+	return c.st
 }
 
 func (c *mockContext) AgentConfig() agent.Config {

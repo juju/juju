@@ -21,5 +21,10 @@ func stepsFor118() []Step {
 			targets:     []Target{AllMachines},
 			run:         installRsyslogGnutls,
 		},
+		&upgradeStep{
+			description: "remove old public-bucket config values",
+			targets:     []Target{StateServer},
+			run:         removePublicBucketConfig,
+		},
 	}
 }

@@ -20,6 +20,7 @@ var expectedSteps = []string{
 	"make $DATADIR/locks owned by ubuntu:ubuntu",
 	"generate system ssh key",
 	"install rsyslog-gnutls",
+	"remove old public-bucket config values",
 }
 
 func (s *steps118Suite) TestUpgradeOperationsContent(c *gc.C) {
