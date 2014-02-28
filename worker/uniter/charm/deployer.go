@@ -111,8 +111,25 @@ func (d *manifestDeployer) loadManifest(urlFilePath string) (*charm.URL, set.Str
 }
 
 // Deploy is defined in the Deployer interface.
-func (d *manifestDeployer) Deploy() error {
+func (d *manifestDeployer) Deploy() (err error) {
 	baseURL, baseManifest, err := d.loadManifest(charmURLPath)
+	defer func() {
+		if err != nil {
+			if baseURL != nil {
+				// We now treat any failure to overwrite the charm as a conflict,
+				// because we know the charm itself is OK; it's thus plausible for
+				// a user to get in there and fix it.
+				log.Errorf("cannot upgrade charm: %v", err)
+				err = ErrConflict
+			} else {
+				// ...but if we can't install at all, we just fail out as before,
+				// because I'm not willing to mess around with the state machine to
+				// accommodate a case rare enough that we've never heard of it
+				// actually happening.
+				err = fmt.Errorf("cannot install charm: %v", err)
+			}
+		}
+	}()
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
@@ -166,8 +183,10 @@ func (d *manifestDeployer) DataPath(path string) string {
 
 // removeDiff removes every path in oldManifest that is not present in newManifest.
 func (d *manifestDeployer) removeDiff(oldManifest, newManifest set.Strings) error {
-	for _, path := range oldManifest.Difference(newManifest).SortedValues() {
-		if err := os.RemoveAll(filepath.Join(d.charmPath, path)); err != nil {
+	diff := oldManifest.Difference(newManifest)
+	for _, path := range diff.SortedValues() {
+		fullPath := filepath.Join(d.charmPath, filepath.FromSlash(path))
+		if err := os.RemoveAll(fullPath); err != nil {
 			return err
 		}
 	}
@@ -346,7 +365,12 @@ func (d *gitDeployer) upgrade(target *GitDir) error {
 	} else if dirty {
 		if conflicted, err := target.Conflicted(); err != nil {
 			return err
-		} else if !conflicted {
+		} else if conflicted {
+			log.Infof("worker/uniter/charm: reverting conflicted charm before upgrade")
+			if err := target.Revert(); err != nil {
+				return err
+			}
+		} else {
 			log.Infof("worker/uniter/charm: snapshotting dirty charm before upgrade")
 			if err = target.Snapshotf("Pre-upgrade snapshot."); err != nil {
 				return err
