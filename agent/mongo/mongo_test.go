@@ -119,6 +119,11 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 	testJournalDirs(dir, c)
 	c.Check(oldsvc.Installed(), jc.IsFalse)
 	c.Check(svc.Installed(), jc.IsTrue)
+
+	// now check we can call it multiple times without error
+	err = ensureMongoServer(dir, port)
+	c.Assert(err, gc.IsNil)
+
 }
 
 func makeService(name string, c *gc.C) *upstart.Conf {
