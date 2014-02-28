@@ -47,7 +47,7 @@ rsyslog-gnutls must be installed to enable the local provider:
 
 const installRsyslogGnutlsGeneric = `
 rsyslog-gnutls must be installed to enable the local provider.
-Please consult your operating system distrinution's documentation
+Please consult your operating system distribution's documentation
 for instructions on installing this package.`
 
 const installLxcGeneric = `
