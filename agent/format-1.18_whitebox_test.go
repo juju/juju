@@ -8,6 +8,7 @@
 package agent
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -15,6 +16,7 @@ import (
 
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/version"
 )
 
 type format_1_18Suite struct {
@@ -42,11 +44,14 @@ func (s *format_1_18Suite) TestWriteAgentConfig(c *gc.C) {
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
 
+var configData1dot18WithoutUpgradedToVersion = versionLine + "\n" + configDataWithoutUpgradedToVersion
+
 func (s *format_1_18Suite) TestMissingUpgradedToVersion(c *gc.C) {
 	dataDir := c.MkDir()
-	err := ioutil.WriteFile(ConfigPath(dataDir, "agent.conf"), []byte(configDataWithoutUpgradedToVersion), 0600)
+	configPath := filepath.Join(dataDir, "agent.conf")
+	err := ioutil.WriteFile(configPath, []byte(configData1dot18WithoutUpgradedToVersion), 0600)
 	c.Assert(err, gc.IsNil)
-	readConfig, err := s.formatter.read(dataDir)
+	readConfig, err := s.formatter.read(configPath)
 	c.Assert(err, gc.IsNil)
 	c.Assert(readConfig.UpgradedToVersion(), gc.Equals, version.MustParse("1.16.0"))
 }

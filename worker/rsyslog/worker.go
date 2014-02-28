@@ -15,6 +15,7 @@ import (
 	"github.com/errgo/errgo"
 	"github.com/loggo/loggo"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/names"
@@ -27,7 +28,7 @@ var logger = loggo.GetLogger("juju.worker.rsyslog")
 
 var (
 	rsyslogConfDir = "/etc/rsyslog.d"
-	logDir         = "/var/log/juju"
+	logDir         = agent.DefaultLogDir
 )
 
 // RsyslogMode describes how to configure rsyslog.
@@ -78,9 +79,13 @@ func NewRsyslogConfigWorker(st *apirsyslog.State, mode RsyslogMode, tag, namespa
 func newRsyslogConfigHandler(st *apirsyslog.State, mode RsyslogMode, tag, namespace string, stateServerAddrs []string) (*RsyslogConfigHandler, error) {
 	var syslogConfig *syslog.SyslogConfig
 	if mode == RsyslogModeAccumulate {
-		syslogConfig = syslog.NewAccumulateConfig(tag, 0, namespace)
+		syslogConfig = syslog.NewAccumulateConfig(
+			tag, logDir, 0, namespace,
+		)
 	} else {
-		syslogConfig = syslog.NewForwardConfig(tag, 0, namespace, stateServerAddrs)
+		syslogConfig = syslog.NewForwardConfig(
+			tag, logDir, 0, namespace, stateServerAddrs,
+		)
 	}
 
 	// Historically only machine-0 includes the namespace in the log

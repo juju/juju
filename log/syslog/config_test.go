@@ -47,13 +47,7 @@ func (s *SyslogConfigSuite) TestAccumulateConfigRender(c *gc.C) {
 	s.assertRsyslogConfigContents(
 		c,
 		syslogConfigRenderer,
-		syslogtesting.ExpectedAccumulateSyslogConf(
-			c,
-			"some-machine",
-			agent.DefaultLogDir,
-			"",
-			8888,
-		),
+		syslogtesting.ExpectedAccumulateSyslogConf(c, "some-machine", "", 8888),
 	)
 }
 
@@ -69,86 +63,45 @@ func (s *SyslogConfigSuite) TestAccumulateConfigWrite(c *gc.C) {
 	c.Assert(
 		string(syslogConfData),
 		gc.Equals,
-		syslogtesting.ExpectedAccumulateSyslogConf(
-			c,
-			"some-machine",
-			agent.DefaultLogDir,
-			"",
-			8888,
-		),
+		syslogtesting.ExpectedAccumulateSyslogConf(c, "some-machine", "", 8888),
 	)
 }
 
 func (s *SyslogConfigSuite) TestAccumulateConfigRenderWithNamespace(c *gc.C) {
-	syslogConfigRenderer := syslog.NewAccumulateConfig(
-		"some-machine",
-		agent.DefaultLogDir,
-		8888,
-		"namespace",
-	)
+	syslogConfigRenderer := syslog.NewAccumulateConfig("some-machine", agent.DefaultLogDir, 8888, "namespace")
 	syslogConfigRenderer.LogDir += "-namespace"
 	s.assertRsyslogConfigContents(
-		c,
-		syslogConfigRenderer,
-		syslogtesting.ExpectedAccumulateSyslogConf(
-			c,
-			"some-machine",
-			agent.DefaultLogDir+"-namespace",
-			"namespace",
-			8888,
+		c, syslogConfigRenderer, syslogtesting.ExpectedAccumulateSyslogConf(
+			c, "some-machine", "namespace", 8888,
 		),
 	)
 }
 
 func (s *SyslogConfigSuite) TestForwardConfigRender(c *gc.C) {
 	syslogConfigRenderer := syslog.NewForwardConfig(
-		"some-machine",
-		agent.DefaultLogDir,
-		999,
-		"",
-		[]string{"server"},
+		"some-machine", agent.DefaultLogDir, 999, "", []string{"server"},
 	)
 	s.assertRsyslogConfigContents(
-		c,
-		syslogConfigRenderer,
-		syslogtesting.ExpectedForwardSyslogConf(
-			c,
-			"some-machine",
-			agent.DefaultLogDir,
-			"",
-			999,
+		c, syslogConfigRenderer, syslogtesting.ExpectedForwardSyslogConf(
+			c, "some-machine", agent.DefaultLogDir, "", "server", 999,
 		),
 	)
 }
 
 func (s *SyslogConfigSuite) TestForwardConfigRenderWithNamespace(c *gc.C) {
 	syslogConfigRenderer := syslog.NewForwardConfig(
-		"some-machine",
-		agent.DefaultLogDir,
-		999,
-		"namespace",
-		[]string{"server"},
+		"some-machine", agent.DefaultLogDir, 999, "namespace", []string{"server"},
 	)
 	s.assertRsyslogConfigContents(
-		c,
-		syslogConfigRenderer,
-		syslogtesting.ExpectedForwardSyslogConf(
-			c,
-			"some-machine",
-			agent.DefaultLogDir,
-			"namespace",
-			999,
+		c, syslogConfigRenderer, syslogtesting.ExpectedForwardSyslogConf(
+			c, "some-machine", agent.DefaultLogDir, "namespace", "server", 999,
 		),
 	)
 }
 
 func (s *SyslogConfigSuite) TestForwardConfigWrite(c *gc.C) {
 	syslogConfigRenderer := syslog.NewForwardConfig(
-		"some-machine",
-		agent.DefaultLogDir,
-		999,
-		"",
-		[]string{"server"},
+		"some-machine", agent.DefaultLogDir, 999, "", []string{"server"},
 	)
 	syslogConfigRenderer.ConfigDir = s.configDir
 	syslogConfigRenderer.ConfigFileName = "rsyslog.conf"
@@ -161,11 +114,7 @@ func (s *SyslogConfigSuite) TestForwardConfigWrite(c *gc.C) {
 		string(syslogConfData),
 		gc.Equals,
 		syslogtesting.ExpectedForwardSyslogConf(
-			c,
-			"some-machine",
-			agent.DefaultLogDir,
-			"",
-			999,
+			c, "some-machine", agent.DefaultLogDir, "", "server", 999,
 		),
 	)
 }

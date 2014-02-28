@@ -10,7 +10,6 @@ package agent
 import (
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 
 	gc "launchpad.net/gocheck"
@@ -41,14 +40,14 @@ func (s *format_1_16Suite) TestWriteAgentConfig(c *gc.C) {
 	err := s.formatter.write(config)
 	c.Assert(err, gc.IsNil)
 
-	expectedLocation := path.Join(config.Dir(), "agent.conf")
+	expectedLocation := filepath.Join(config.Dir(), "agent.conf")
 	fileInfo, err := os.Stat(expectedLocation)
 	c.Assert(err, gc.IsNil)
 	c.Assert(fileInfo.Mode().IsRegular(), jc.IsTrue)
 	c.Assert(fileInfo.Mode().Perm(), gc.Equals, os.FileMode(0600))
 	c.Assert(fileInfo.Size(), jc.GreaterThan, 0)
 
-	formatLocation := path.Join(config.Dir(), legacyFormatFilename)
+	formatLocation := filepath.Join(config.Dir(), legacyFormatFilename)
 	fileInfo, err = os.Stat(formatLocation)
 	c.Assert(err, gc.IsNil)
 	c.Assert(fileInfo.Mode().IsRegular(), jc.IsTrue)
@@ -73,7 +72,7 @@ values: {}
 
 func (s *format_1_16Suite) TestMissingUpgradedToVersion(c *gc.C) {
 	dataDir := c.MkDir()
-	err := ioutil.WriteFile(ConfigPath(dataDir, "agent.conf"), []byte(configDataWithoutUpgradedToVersion), 0600)
+	err := ioutil.WriteFile(filepath.Join(dataDir, "agent.conf"), []byte(configDataWithoutUpgradedToVersion), 0600)
 	c.Assert(err, gc.IsNil)
 	readConfig, err := s.formatter.read(dataDir)
 	c.Assert(err, gc.IsNil)

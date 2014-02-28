@@ -41,6 +41,7 @@ $FileCreateMode 0640
 
 type templateArgs struct {
 	MachineTag  string
+	LogDir      string
 	Namespace   string
 	BootstrapIP string
 	Port        int
@@ -48,7 +49,7 @@ type templateArgs struct {
 }
 
 // ExpectedAccumulateSyslogConf returns the expected content for a rsyslog file on a state server.
-func ExpectedAccumulateSyslogConf(c *gc.C, machineTag, logDir, namespace string, port int) string {
+func ExpectedAccumulateSyslogConf(c *gc.C, machineTag, namespace string, port int) string {
 	if namespace != "" {
 		namespace = "-" + namespace
 	}
@@ -56,7 +57,6 @@ func ExpectedAccumulateSyslogConf(c *gc.C, machineTag, logDir, namespace string,
 	var conf bytes.Buffer
 	err := t.Execute(&conf, templateArgs{
 		MachineTag: machineTag,
-		LogDir:     logDir,
 		Namespace:  namespace,
 		Offset:     len("juju-") + len(namespace) + 1,
 		Port:       port,

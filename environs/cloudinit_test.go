@@ -174,6 +174,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, stateServer bool) {
 		},
 		DataDir:                 environs.DataDir,
 		LogDir:                  agent.DefaultLogDir,
+		Jobs:                    state.AllJobs(),
 		CloudInitOutputLog:      environs.CloudInitOutputLog,
 		Config:                  envConfig,
 		StatePort:               envConfig.StatePort(),

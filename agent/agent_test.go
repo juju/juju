@@ -238,19 +238,6 @@ func (s *suite) TestApiAddressesCantWriteBack(c *gc.C) {
 	c.Assert(newValue, gc.DeepEquals, []string{"localhost:1235"})
 }
 
-func (*suite) TestWriteAndRead(c *gc.C) {
-	testParams := attributeParams
-	testParams.LogDir = c.MkDir()
-	testParams.DataDir = c.MkDir()
-	conf, err := agent.NewAgentConfig(testParams)
-	c.Assert(err, gc.IsNil)
-
-	c.Assert(conf.Write(), gc.IsNil)
-	reread, err := agent.ReadConf(agent.ConfigPath(conf.DataDir(), conf.Tag()))
-	c.Assert(err, gc.IsNil)
-	assertConfigEqual(c, conf, reread)
-}
-
 func assertConfigEqual(c *gc.C, c1, c2 agent.Config) {
 	// Since we can't directly poke the internals, we'll use the WriteCommands
 	// method.
@@ -264,6 +251,7 @@ func assertConfigEqual(c *gc.C, c1, c2 agent.Config) {
 func (*suite) TestWriteAndRead(c *gc.C) {
 	testParams := attributeParams
 	testParams.DataDir = c.MkDir()
+	testParams.LogDir = c.MkDir()
 	conf, err := agent.NewAgentConfig(testParams)
 	c.Assert(err, gc.IsNil)
 
