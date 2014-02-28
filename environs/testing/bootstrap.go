@@ -4,11 +4,8 @@
 package testing
 
 import (
-	"io"
-
 	"github.com/loggo/loggo"
 
-	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/instance"
@@ -28,24 +25,4 @@ func DisableFinishBootstrap() func() {
 		return nil
 	}
 	return testbase.PatchValue(&common.FinishBootstrap, f)
-}
-
-type bootstrapContext struct {
-	*cmd.Context
-}
-
-func (c bootstrapContext) Stdin() io.Reader {
-	return c.Context.Stdin
-}
-
-func (c bootstrapContext) Stdout() io.Writer {
-	return c.Context.Stdout
-}
-
-func (c bootstrapContext) Stderr() io.Writer {
-	return c.Context.Stderr
-}
-
-func NewBootstrapContext(ctx *cmd.Context) environs.BootstrapContext {
-	return bootstrapContext{ctx}
 }

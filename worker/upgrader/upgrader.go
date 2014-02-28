@@ -26,31 +26,6 @@ var retryAfter = func() <-chan time.Time {
 	return time.After(5 * time.Second)
 }
 
-// UpgradeReadyError is returned by an Upgrader to report that
-// an upgrade is ready to be performed and a restart is due.
-type UpgradeReadyError struct {
-	AgentName string
-	OldTools  *coretools.Tools
-	NewTools  *coretools.Tools
-	DataDir   string
-}
-
-func (e *UpgradeReadyError) Error() string {
-	return "must restart: an agent upgrade is available"
-}
-
-// ChangeAgentTools does the actual agent upgrade.
-// It should be called just before an agent exits, so that
-// it will restart running the new tools.
-func (e *UpgradeReadyError) ChangeAgentTools() error {
-	tools, err := agenttools.ChangeAgentTools(e.DataDir, e.AgentName, e.NewTools.Version)
-	if err != nil {
-		return err
-	}
-	logger.Infof("upgraded from %v to %v (%q)", e.OldTools.Version, tools.Version, tools.URL)
-	return nil
-}
-
 var logger = loggo.GetLogger("juju.worker.upgrader")
 
 // Upgrader represents a worker that watches the state for upgrade
@@ -155,8 +130,8 @@ func (u *Upgrader) loop() error {
 			err := u.ensureTools(wantTools, disableSSLHostnameVerification)
 			if err == nil {
 				return &UpgradeReadyError{
-					OldTools:  currentTools,
-					NewTools:  wantTools,
+					OldTools:  version.Current,
+					NewTools:  wantTools.Version,
 					AgentName: u.tag,
 					DataDir:   u.dataDir,
 				}

@@ -48,6 +48,7 @@ Examples:
    juju add-machine lxc                  (starts a new machine with an lxc container)
    juju add-machine lxc:4                (starts a new lxc container on machine 4)
    juju add-machine --constraints mem=8G (starts a machine with at least 8GB RAM)
+   juju add-machine ssh:user@10.10.0.3   (manually provisions a machine with ssh)
 
 See Also:
    juju help constraints

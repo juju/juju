@@ -22,7 +22,7 @@ import (
 // The presence and format of this constant is very important.
 // The debian/rules build recipe uses this value for the version
 // number of the release package.
-const version = "1.17.3"
+const version = "1.17.4"
 
 // Current gives the current version of the system.  If the file
 // "FORCE-VERSION" is present in the same directory as the running
@@ -193,20 +193,27 @@ func (v Number) String() string {
 	return s
 }
 
-// Less returns whether v is semantically earlier in the
-// version sequence than w.
-func (v Number) Less(w Number) bool {
+// Compare returns -1, 0 or 1 depending on whether
+// v is less than, equal to or greater than w.
+func (v Number) Compare(w Number) int {
+	if v == w {
+		return 0
+	}
+	less := false
 	switch {
 	case v.Major != w.Major:
-		return v.Major < w.Major
+		less = v.Major < w.Major
 	case v.Minor != w.Minor:
-		return v.Minor < w.Minor
+		less = v.Minor < w.Minor
 	case v.Patch != w.Patch:
-		return v.Patch < w.Patch
+		less = v.Patch < w.Patch
 	case v.Build != w.Build:
-		return v.Build < w.Build
+		less = v.Build < w.Build
 	}
-	return false
+	if less {
+		return -1
+	}
+	return 1
 }
 
 // GetBSON turns v into a bson.Getter so it can be saved directly

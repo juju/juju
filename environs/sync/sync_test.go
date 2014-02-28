@@ -68,7 +68,7 @@ environments:
 `)
 	s.AddCleanup(func(*gc.C) { fakeHome.Restore() })
 	var err error
-	s.targetEnv, err = environs.PrepareFromName("test-target", configstore.NewMem())
+	s.targetEnv, err = environs.PrepareFromName("test-target", coretesting.Context(c), configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	envtesting.RemoveAllTools(c, s.targetEnv)
 
@@ -264,7 +264,7 @@ func (s *uploadSuite) SetUpTest(c *gc.C) {
 	// We only want to use simplestreams to find any synced tools.
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, gc.IsNil)
-	s.env, err = environs.Prepare(cfg, configstore.NewMem())
+	s.env, err = environs.Prepare(cfg, coretesting.Context(c), configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 }
 

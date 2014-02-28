@@ -169,8 +169,12 @@ func (u *User) SetInactive() error {
 		C:      u.st.users.Name,
 		Id:     u.Name(),
 		Update: D{{"$set", D{{"inactive", true}}}},
+		Assert: txn.DocExists,
 	}}
 	if err := u.st.runTransaction(ops); err != nil {
+		if err == txn.ErrAborted {
+			err = fmt.Errorf("user doesn't exist")
+		}
 		return fmt.Errorf("cannot set user %q inactive: %v", u.Name(), err)
 	}
 	u.doc.Inactive = true

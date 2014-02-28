@@ -1,13 +1,13 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package usermanager_test
 
 import (
 	gc "launchpad.net/gocheck"
+
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/apiserver/common"
 	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
 	"launchpad.net/juju-core/state/apiserver/usermanager"
 )
@@ -16,7 +16,6 @@ type userManagerSuite struct {
 	jujutesting.JujuConnSuite
 
 	usermanager *usermanager.UserManagerAPI
-	resources   *common.Resources
 	authorizer  apiservertesting.FakeAuthorizer
 }
 
@@ -24,8 +23,6 @@ var _ = gc.Suite(&userManagerSuite{})
 
 func (s *userManagerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:      "user-admin",
@@ -34,26 +31,20 @@ func (s *userManagerSuite) SetUpTest(c *gc.C) {
 	}
 
 	var err error
-	s.usermanager, err = usermanager.NewUserManagerAPI(s.State, s.resources, s.authorizer)
+	s.usermanager, err = usermanager.NewUserManagerAPI(s.State, s.authorizer)
 	c.Assert(err, gc.IsNil)
-}
-
-func (s *userManagerSuite) TestNewUserManagerAcceptsClient(c *gc.C) {
-	endPoint, err := usermanager.NewUserManagerAPI(s.State, s.resources, s.authorizer)
-	c.Assert(err, gc.IsNil)
-	c.Assert(endPoint, gc.NotNil)
 }
 
 func (s *userManagerSuite) TestNewUserManagerAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := s.authorizer
 	anAuthoriser.Client = false
-	endPoint, err := usermanager.NewUserManagerAPI(s.State, s.resources, anAuthoriser)
+	endPoint, err := usermanager.NewUserManagerAPI(s.State, anAuthoriser)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *userManagerSuite) TestAddUser(c *gc.C) {
-	args := params.ModifyUsers{
+	args := params.ModifyUser{
 		Tag:      "foobar",
 		Password: "password",
 	}
@@ -61,7 +52,7 @@ func (s *userManagerSuite) TestAddUser(c *gc.C) {
 	result, err := s.usermanager.AddUser(args)
 	// Check that the call is succesful
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{})
+	c.Assert(result, gc.DeepEquals, params.ErrorResult{})
 	// Check that the call results in a new user being created
 	user, err := s.State.User("foobar")
 	c.Assert(err, gc.IsNil)
@@ -69,7 +60,7 @@ func (s *userManagerSuite) TestAddUser(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
-	args := params.ModifyUsers{
+	args := params.ModifyUser{
 		Tag:      "foobar",
 		Password: "password",
 	}
@@ -80,17 +71,18 @@ func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
 
 	result, err := s.usermanager.RemoveUser(args)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{})
+	c.Assert(result, gc.DeepEquals, params.ErrorResult{Error: nil})
 	user, err = s.State.User("foobar")
 	c.Assert(err, gc.IsNil)
-	c.Assert(user.IsInactive(), gc.Equals, true) //Removal makes the user inactive
+	// Removal makes the user in active
+	c.Assert(user.IsInactive(), gc.Equals, true)
+	c.Assert(user.PasswordValid(args.Password), gc.Equals, true)
 }
 
-/* Since removing a user just sets them inactive you cannot add a user
-that has been previously been removed
-*/
+// Since removing a user just sets them inactive you cannot add a user
+// that has been previously been removed
 func (s *userManagerSuite) TestCannotAddRemoveAdd(c *gc.C) {
-	args := params.ModifyUsers{
+	args := params.ModifyUser{
 		Tag:      "foobar",
 		Password: "password",
 	}

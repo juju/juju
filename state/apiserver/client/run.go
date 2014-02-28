@@ -5,8 +5,6 @@ package client
 
 import (
 	"fmt"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/utils"
 	"path/filepath"
 	"sort"
 	"sync"
@@ -14,7 +12,9 @@ import (
 
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/utils/ssh"
 )
@@ -106,8 +106,7 @@ func (c *Client) Run(run params.RunParams) (results params.RunResults, err error
 		if err != nil {
 			return results, err
 		}
-		command := `[ -f "$HOME/.juju-proxy" ] && . "$HOME/.juju-proxy"`
-		command += fmt.Sprintf("\njuju-run --no-context %s", quotedCommands)
+		command := fmt.Sprintf("juju-run --no-context %s", quotedCommands)
 		execParam := remoteParamsForMachine(machine, command, run.Timeout)
 		params = append(params, execParam)
 	}

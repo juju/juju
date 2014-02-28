@@ -5,6 +5,7 @@ package ssh_test
 
 import (
 	"encoding/binary"
+	"errors"
 	"net"
 	"sync"
 
@@ -107,10 +108,14 @@ func (s *SSHGoCryptoCommandSuite) TestClientNoKeys(c *gc.C) {
 	defer ssh.ClearClientKeys()
 	err = ssh.LoadClientKeys(c.MkDir())
 	c.Assert(err, gc.IsNil)
+
+	s.PatchValue(ssh.SSHDial, func(network, address string, cfg *cryptossh.ClientConfig) (*cryptossh.ClientConn, error) {
+		return nil, errors.New("ssh.Dial failed")
+	})
 	cmd = client.Command("0.1.2.3", []string{"echo", "123"}, nil)
 	_, err = cmd.Output()
 	// error message differs based on whether using cgo or not
-	c.Assert(err, gc.ErrorMatches, `(dial tcp )?0\.1\.2\.3:22: invalid argument`)
+	c.Assert(err, gc.ErrorMatches, "ssh.Dial failed")
 }
 
 func (s *SSHGoCryptoCommandSuite) TestCommand(c *gc.C) {
@@ -140,6 +145,6 @@ func (s *SSHGoCryptoCommandSuite) TestCommand(c *gc.C) {
 func (s *SSHGoCryptoCommandSuite) TestCopy(c *gc.C) {
 	client, err := ssh.NewGoCryptoClient()
 	c.Assert(err, gc.IsNil)
-	err = client.Copy("0.1.2.3:b", c.MkDir(), nil)
-	c.Assert(err, gc.ErrorMatches, "Copy is not implemented")
+	err = client.Copy([]string{"0.1.2.3:b", c.MkDir()}, nil, nil)
+	c.Assert(err, gc.ErrorMatches, `scp command is not implemented \(OpenSSH scp not available in PATH\)`)
 }

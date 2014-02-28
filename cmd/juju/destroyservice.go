@@ -23,6 +23,7 @@ func (c *DestroyServiceCommand) Info() *cmd.Info {
 		Args:    "<service>",
 		Purpose: "destroy a service",
 		Doc:     "Destroying a service will destroy all its units and relations.",
+		Aliases: []string{"remove-service"},
 	}
 }
 

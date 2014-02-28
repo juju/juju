@@ -5,11 +5,9 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"strings"
 
-	"github.com/errgo/errgo"
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/charm"
@@ -22,6 +20,7 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/sync"
 	"launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
@@ -96,41 +95,33 @@ func (c *BootstrapCommand) Init(args []string) (err error) {
 	return cmd.CheckEmpty(args)
 }
 
-type bootstrapContext struct {
-	*cmd.Context
-}
-
-func (c bootstrapContext) Stdin() io.Reader {
-	return c.Context.Stdin
-}
-
-func (c bootstrapContext) Stdout() io.Writer {
-	return c.Context.Stdout
-}
-
-func (c bootstrapContext) Stderr() io.Writer {
-	return c.Context.Stderr
+func destroyPreparedEnviron(env environs.Environ, store configstore.Storage, err *error, action string) {
+	if *err == nil {
+		return
+	}
+	if err := environs.Destroy(env, store); err != nil {
+		logger.Errorf("%s failed, and the environment could not be destroyed: %v", action, err)
+	}
 }
 
 // Run connects to the environment specified on the command line and bootstraps
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.
-func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
+func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	store, err := configstore.Default()
 	if err != nil {
 		return err
 	}
-	environ, err := environs.PrepareFromName(c.EnvName, store)
+	var existing bool
+	if _, err := store.ReadInfo(c.EnvName); !errors.IsNotFoundError(err) {
+		existing = true
+	}
+	environ, err := environs.PrepareFromName(c.EnvName, ctx, store)
 	if err != nil {
 		return err
 	}
-	bootstrapContext := bootstrapContext{ctx}
-	// If the environment has a special bootstrap Storage, use it wherever
-	// we'd otherwise use environ.Storage.
-	if bs, ok := environ.(environs.BootstrapStorager); ok {
-		if err := bs.EnableBootstrapStorage(bootstrapContext); err != nil {
-			return errgo.Annotate(err, "failed to enable bootstrap storage")
-		}
+	if !existing {
+		defer destroyPreparedEnviron(environ, store, &resultErr, "Bootstrap")
 	}
 	if err := bootstrap.EnsureNotBootstrapped(environ); err != nil {
 		return err
@@ -162,7 +153,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 			return err
 		}
 	}
-	return bootstrap.Bootstrap(bootstrapContext, environ, c.Constraints)
+	return bootstrap.Bootstrap(ctx, environ, c.Constraints)
 }
 
 func (c *BootstrapCommand) uploadTools(environ environs.Environ) error {

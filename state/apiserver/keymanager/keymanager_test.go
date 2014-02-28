@@ -4,11 +4,11 @@
 package keymanager_test
 
 import (
+	"fmt"
 	"strings"
 
 	gc "launchpad.net/gocheck"
 
-	"fmt"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -51,9 +51,26 @@ func (s *keyManagerSuite) TestNewKeyManagerAPIAcceptsClient(c *gc.C) {
 	c.Assert(endPoint, gc.NotNil)
 }
 
+func (s *keyManagerSuite) TestNewKeyManagerAPIAcceptsEnvironManager(c *gc.C) {
+	anAuthoriser := s.authoriser
+	anAuthoriser.EnvironManager = true
+	endPoint, err := keymanager.NewKeyManagerAPI(s.State, s.resources, anAuthoriser)
+	c.Assert(err, gc.IsNil)
+	c.Assert(endPoint, gc.NotNil)
+}
+
 func (s *keyManagerSuite) TestNewKeyManagerAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Client = false
+	endPoint, err := keymanager.NewKeyManagerAPI(s.State, s.resources, anAuthoriser)
+	c.Assert(endPoint, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func (s *keyManagerSuite) TestNewKeyManagerAPIRefusesNonEnvironManager(c *gc.C) {
+	anAuthoriser := s.authoriser
+	anAuthoriser.Client = false
+	anAuthoriser.MachineAgent = true
 	endPoint, err := keymanager.NewKeyManagerAPI(s.State, s.resources, anAuthoriser)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -117,6 +134,55 @@ func (s *keyManagerSuite) TestAddKeys(c *gc.C) {
 		},
 	})
 	s.assertEnvironKeys(c, append(initialKeys, newKey))
+}
+
+func (s *keyManagerSuite) TestAddJujuSystemKey(c *gc.C) {
+	anAuthoriser := s.authoriser
+	anAuthoriser.Client = false
+	anAuthoriser.EnvironManager = true
+	anAuthoriser.Tag = "machine-0"
+	var err error
+	s.keymanager, err = keymanager.NewKeyManagerAPI(s.State, s.resources, anAuthoriser)
+	c.Assert(err, gc.IsNil)
+	key1 := sshtesting.ValidKeyOne.Key + " user@host"
+	key2 := sshtesting.ValidKeyTwo.Key
+	initialKeys := []string{key1, key2}
+	s.setAuthorisedKeys(c, strings.Join(initialKeys, "\n"))
+
+	newKey := sshtesting.ValidKeyThree.Key + " juju-system-key"
+	args := params.ModifyUserSSHKeys{
+		User: "juju-system-key",
+		Keys: []string{newKey},
+	}
+	results, err := s.keymanager.AddKeys(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+		},
+	})
+	s.assertEnvironKeys(c, append(initialKeys, newKey))
+}
+
+func (s *keyManagerSuite) TestAddJujuSystemKeyNotMachine(c *gc.C) {
+	anAuthoriser := s.authoriser
+	anAuthoriser.Client = false
+	anAuthoriser.EnvironManager = true
+	anAuthoriser.Tag = "unit-wordpress-0"
+	var err error
+	s.keymanager, err = keymanager.NewKeyManagerAPI(s.State, s.resources, anAuthoriser)
+	c.Assert(err, gc.IsNil)
+	key1 := sshtesting.ValidKeyOne.Key
+	s.setAuthorisedKeys(c, key1)
+
+	newKey := sshtesting.ValidKeyThree.Key + " juju-system-key"
+	args := params.ModifyUserSSHKeys{
+		User: "juju-system-key",
+		Keys: []string{newKey},
+	}
+	_, err = s.keymanager.AddKeys(args)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	s.assertEnvironKeys(c, []string{key1})
 }
 
 func (s *keyManagerSuite) TestDeleteKeys(c *gc.C) {

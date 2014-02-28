@@ -236,7 +236,9 @@ var commandNames = []string{
 	"init",
 	"login",
 	"publish",
+	"remove-machine",  // alias for destroy-machine
 	"remove-relation", // alias for destroy-relation
+	"remove-service",  // alias for destroy-service
 	"remove-unit",     // alias for destroy-unit
 	"remove-user",
 	"resolved",

@@ -14,7 +14,7 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
-var opensshCommonOptions = []string{"-o", "StrictHostKeyChecking no"}
+var opensshCommonOptions = map[string][]string{"-o": []string{"StrictHostKeyChecking no"}}
 
 // default identities will not be attempted if
 // -i is specified and they are not explcitly
@@ -63,16 +63,19 @@ func NewOpenSSHClient() (*OpenSSHClient, error) {
 	return &c, nil
 }
 
-func opensshOptions(options *Options, commandKind opensshCommandKind) []string {
-	args := append([]string{}, opensshCommonOptions...)
+func opensshOptions(options *Options, commandKind opensshCommandKind) map[string][]string {
+	args := make(map[string][]string)
+	for k, v := range opensshCommonOptions {
+		args[k] = v
+	}
 	if options == nil {
 		options = &Options{}
 	}
 	if !options.passwordAuthAllowed {
-		args = append(args, "-o", "PasswordAuthentication no")
+		args["-o"] = append(args["-o"], "PasswordAuthentication no")
 	}
 	if options.allocatePTY {
-		args = append(args, "-t")
+		args["-t"] = []string{}
 	}
 	identities := append([]string{}, options.identities...)
 	if pk := PrivateKeyFiles(); len(pk) > 0 {
@@ -88,49 +91,82 @@ func opensshOptions(options *Options, commandKind opensshCommandKind) []string {
 				logger.Warningf("failed to normalize path %q: %v", identity, err)
 				continue
 			}
-			identities = append(identities, path)
+			if _, err := os.Stat(path); err == nil {
+				identities = append(identities, path)
+			}
 		}
 	}
 	for _, identity := range identities {
-		args = append(args, "-i", identity)
+		args["-i"] = append(args["-i"], identity)
 	}
 	if options.port != 0 {
+		port := fmt.Sprint(options.port)
 		if commandKind == scpKind {
 			// scp uses -P instead of -p (-p means preserve).
-			args = append(args, "-P")
+			args["-P"] = []string{port}
 		} else {
-			args = append(args, "-p")
+			args["-p"] = []string{port}
 		}
-		args = append(args, fmt.Sprint(options.port))
 	}
 	return args
 }
 
+func expandArgs(args map[string][]string, quote bool) []string {
+	var list []string
+	for opt, vals := range args {
+		if len(vals) == 0 {
+			list = append(list, opt)
+			if opt == "-t" {
+				// In order to force a PTY to be allocated, we need to
+				// pass -t twice.
+				list = append(list, opt)
+			}
+		}
+		for _, val := range vals {
+			list = append(list, opt)
+			if quote {
+				val = fmt.Sprintf("%q", val)
+			}
+			list = append(list, val)
+		}
+	}
+	return list
+}
+
 // Command implements Client.Command.
 func (c *OpenSSHClient) Command(host string, command []string, options *Options) *Cmd {
-	args := opensshOptions(options, sshKind)
+	opts := opensshOptions(options, sshKind)
+	args := expandArgs(opts, false)
 	args = append(args, host)
 	if len(command) > 0 {
-		args = append(args, "--")
 		args = append(args, command...)
 	}
 	bin, args := sshpassWrap("ssh", args)
+	optsList := strings.Join(expandArgs(opts, true), " ")
+	fullCommand := strings.Join(command, " ")
+	logger.Debugf("running: %s %s %q '%s'", bin, optsList, host, fullCommand)
 	return &Cmd{impl: &opensshCmd{exec.Command(bin, args...)}}
 }
 
 // Copy implements Client.Copy.
-func (c *OpenSSHClient) Copy(source, dest string, userOptions *Options) error {
+func (c *OpenSSHClient) Copy(targets, extraArgs []string, userOptions *Options) error {
 	var options Options
 	if userOptions != nil {
 		options = *userOptions
 		options.allocatePTY = false // doesn't make sense for scp
 	}
-	args := opensshOptions(&options, scpKind)
-	args = append(args, source, dest)
+	opts := opensshOptions(&options, scpKind)
+	args := expandArgs(opts, false)
+	args = append(args, extraArgs...)
+	args = append(args, targets...)
 	bin, args := sshpassWrap("scp", args)
 	cmd := exec.Command(bin, args...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
+	allOpts := append(expandArgs(opts, true), extraArgs...)
+	optsList := strings.Join(allOpts, " ")
+	targetList := `"` + strings.Join(targets, `" "`) + `"`
+	logger.Debugf("running: %s %s %s", bin, optsList, targetList)
 	if err := cmd.Run(); err != nil {
 		stderr := strings.TrimSpace(stderr.String())
 		if len(stderr) > 0 {

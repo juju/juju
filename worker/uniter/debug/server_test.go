@@ -39,7 +39,7 @@ var fakecommands = []string{"tmux"}
 func (s *DebugHooksServerSuite) SetUpTest(c *gc.C) {
 	s.fakebin = c.MkDir()
 	s.tmpdir = c.MkDir()
-	s.PatchEnvironment("PATH", s.fakebin+":"+os.Getenv("PATH"))
+	s.PatchEnvPathPrepend(s.fakebin)
 	s.PatchEnvironment("TMPDIR", s.tmpdir)
 	s.PatchEnvironment("TEST_RESULT", "")
 	for _, name := range fakecommands {

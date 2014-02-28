@@ -848,7 +848,9 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 		return filepath.Join(testDir, name)
 	}
 	echoUnitNameToFile := func(name string) string {
-		return fmt.Sprintf("echo juju run ${JUJU_UNIT_NAME} > %s", filepath.Join(testDir, name))
+		path := filepath.Join(testDir, name)
+		template := "echo juju run ${JUJU_UNIT_NAME} > %s.tmp; mv %s.tmp %s"
+		return fmt.Sprintf(template, path, path, path)
 	}
 	tests := []uniterTest{
 		ut(

@@ -12,6 +12,7 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/provider/dummy"
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
@@ -29,7 +30,7 @@ func (s *StorageSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, gc.IsNil)
-	s.env, err = environs.Prepare(cfg, configstore.NewMem())
+	s.env, err = environs.Prepare(cfg, testing.Context(c), configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	s.dataDir = c.MkDir()
 }
