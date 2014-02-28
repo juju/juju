@@ -27,9 +27,9 @@ func stepsFor118() []Step {
 			run:         installRsyslogGnutls,
 		},
 		&upgradeStep{
-			description: "remove old public-bucket config values",
+			description: "remove deprecated attribute values",
 			targets:     []Target{StateServer},
-			run:         removePublicBucketConfig,
+			run:         processDeprecatedAttributes,
 		},
 	}
 }

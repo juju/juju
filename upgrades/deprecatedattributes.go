@@ -9,7 +9,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 )
 
-func removePublicBucketConfig(context Context) error {
+func processDeprecatedAttributes(context Context) error {
 	st := context.State()
 	cfg, err := st.EnvironConfig()
 	if err != nil {
@@ -18,6 +18,9 @@ func removePublicBucketConfig(context Context) error {
 	newAttrs := cfg.AllAttrs()
 	delete(newAttrs, "public-bucket")
 	delete(newAttrs, "public-bucket-region")
+	delete(newAttrs, "public-bucket-url")
+	delete(newAttrs, "default-image-id")
+	delete(newAttrs, "default-instance-type")
 	newCfg, err := config.New(config.NoDefaults, newAttrs)
 	if err != nil {
 		return fmt.Errorf("failed to create new config: %v", err)

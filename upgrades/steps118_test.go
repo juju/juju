@@ -21,7 +21,7 @@ var expectedSteps = []string{
 	"generate system ssh key",
 	"update rsyslog port",
 	"install rsyslog-gnutls",
-	"remove old public-bucket config values",
+	"remove deprecated attribute values",
 }
 
 func (s *steps118Suite) TestUpgradeOperationsContent(c *gc.C) {

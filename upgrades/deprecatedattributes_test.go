@@ -12,14 +12,14 @@ import (
 	"launchpad.net/juju-core/upgrades"
 )
 
-type removePublicBucketConfigSuite struct {
+type processDeprecatedAttributesSuite struct {
 	jujutesting.JujuConnSuite
 	ctx upgrades.Context
 }
 
-var _ = gc.Suite(&removePublicBucketConfigSuite{})
+var _ = gc.Suite(&processDeprecatedAttributesSuite{})
 
-func (s *removePublicBucketConfigSuite) SetUpTest(c *gc.C) {
+func (s *processDeprecatedAttributesSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	apiState, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
 	s.ctx = &mockContext{
@@ -31,8 +31,11 @@ func (s *removePublicBucketConfigSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	// Add in old public bucket config.
 	newCfg, err := cfg.Apply(map[string]interface{}{
-		"public-bucket":        "foo",
-		"public-bucket-region": "bar",
+		"public-bucket":         "foo",
+		"public-bucket-region":  "bar",
+		"public-bucket-url":     "shazbot",
+		"default-instance-type": "vulch",
+		"default-image-id":      "1234",
 	})
 	c.Assert(err, gc.IsNil)
 	err = s.State.SetEnvironConfig(newCfg, cfg)
@@ -42,30 +45,36 @@ func (s *removePublicBucketConfigSuite) SetUpTest(c *gc.C) {
 	allAttrs := cfg.AllAttrs()
 	c.Assert(allAttrs["public-bucket"], gc.Equals, "foo")
 	c.Assert(allAttrs["public-bucket-region"], gc.Equals, "bar")
+	c.Assert(allAttrs["public-bucket-url"], gc.Equals, "shazbot")
+	c.Assert(allAttrs["default-instance-type"], gc.Equals, "vulch")
+	c.Assert(allAttrs["default-image-id"], gc.Equals, "1234")
 }
 
-func (s *removePublicBucketConfigSuite) assertConfigRemoved(c *gc.C) {
+func (s *processDeprecatedAttributesSuite) assertConfigRemoved(c *gc.C) {
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
 	allAttrs := cfg.AllAttrs()
-	_, ok := allAttrs["public-bucket"]
-	c.Assert(ok, jc.IsFalse)
-	_, ok = allAttrs["public-bucket-region"]
-	c.Assert(ok, jc.IsFalse)
+	for _, deprecated := range []string{
+		"public-bucket", "public-bucket-region", "public-bucket-url",
+		"default-image-id", "default-instance-type",
+	} {
+		_, ok := allAttrs[deprecated]
+		c.Assert(ok, jc.IsFalse)
+	}
 }
 
-func (s *removePublicBucketConfigSuite) TestPublicBucketConfigRemoved(c *gc.C) {
-	err := upgrades.RemovePublicBucketConfig(s.ctx)
+func (s *processDeprecatedAttributesSuite) TestPublicBucketConfigRemoved(c *gc.C) {
+	err := upgrades.ProcessDeprecatedAttributes(s.ctx)
 	c.Assert(err, gc.IsNil)
 	s.assertConfigRemoved(c)
 }
 
-func (s *removePublicBucketConfigSuite) TestIdempotent(c *gc.C) {
-	err := upgrades.RemovePublicBucketConfig(s.ctx)
+func (s *processDeprecatedAttributesSuite) TestIdempotent(c *gc.C) {
+	err := upgrades.ProcessDeprecatedAttributes(s.ctx)
 	c.Assert(err, gc.IsNil)
 	s.assertConfigRemoved(c)
 
-	err = upgrades.RemovePublicBucketConfig(s.ctx)
+	err = upgrades.ProcessDeprecatedAttributes(s.ctx)
 	c.Assert(err, gc.IsNil)
 	s.assertConfigRemoved(c)
 }

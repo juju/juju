@@ -90,6 +90,8 @@ func (envs *Environs) Config(name string) (*config.Config, error) {
 		}
 		logger.Warningf(msg)
 	}
+	// Construct a new config with the deprecated attributes removed.
+
 	// null has been renamed to manual (with an alias for existing config).
 	if oldType, _ := attrs["type"].(string); oldType == "null" {
 		logger.Warningf(

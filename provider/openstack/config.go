@@ -217,6 +217,7 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 			"default-instance-type", defaultInstanceType)
 		logger.Warningf(msg)
 	}
+	// Construct a new config with the deprecated attributes removed.
 
 	// Apply the coerced unknown values back into the config.
 	return cfg.Apply(ecfg.attrs)

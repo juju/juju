@@ -114,7 +114,7 @@ func (s *UpgradeSuite) assertStateServerUpgrades(c *gc.C) {
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
 	c.Assert(cfg.SyslogPort(), gc.Equals, config.DefaultSyslogPort)
-	// Public bucket config should have been deleted.
+	// Deprecated attributes should have been deleted - just test a couple.
 	allAttrs := cfg.AllAttrs()
 	_, ok := allAttrs["public-bucket"]
 	c.Assert(ok, jc.IsFalse)
