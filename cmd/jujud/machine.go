@@ -313,6 +313,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	if err != nil {
 		return nil, err
 	}
+	a.st = st
 	close(a.stateOpened)
 	reportOpenedState(st)
 	m := entity.(*state.Machine)

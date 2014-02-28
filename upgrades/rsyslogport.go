@@ -16,5 +16,8 @@ func updateRsyslogPort(context Context) error {
 	cfg, err := old.Apply(map[string]interface{}{
 		"syslog-port": config.DefaultSyslogPort,
 	})
+	if err != nil {
+		return err
+	}
 	return st.SetEnvironConfig(cfg, old)
 }
