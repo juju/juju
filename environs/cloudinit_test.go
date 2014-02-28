@@ -63,7 +63,6 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 		StateInfo: &state.Info{Tag: "not touched"},
 		APIInfo:   &api.Info{Tag: "not touched"},
 		DisableSSLHostnameVerification: false,
-		SyslogPort:                     2345,
 	})
 }
 
@@ -71,7 +70,6 @@ func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
 	attrs := dummySampleConfig().Merge(testing.Attrs{
 		"authorized-keys":           "we-are-the-keys",
 		"ssl-hostname-verification": false,
-		"syslog-port":               8888,
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
@@ -90,7 +88,6 @@ func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
 		StateInfo: &state.Info{Tag: "not touched"},
 		APIInfo:   &api.Info{Tag: "not touched"},
 		DisableSSLHostnameVerification: true,
-		SyslogPort:                     8888,
 	})
 }
 
@@ -178,11 +175,9 @@ func (*CloudInitSuite) testUserData(c *gc.C, stateServer bool) {
 		DataDir:                 environs.DataDir,
 		LogDir:                  agent.DefaultLogDir,
 		CloudInitOutputLog:      environs.CloudInitOutputLog,
-		RsyslogConfPath:         environs.RsyslogConfPath,
 		Config:                  envConfig,
 		StatePort:               envConfig.StatePort(),
 		APIPort:                 envConfig.APIPort(),
-		SyslogPort:              envConfig.SyslogPort(),
 		StateServer:             stateServer,
 		AgentEnvironment:        map[string]string{agent.ProviderType: "dummy"},
 		AuthorizedKeys:          "wheredidileavemykeys",

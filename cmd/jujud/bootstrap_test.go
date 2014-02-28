@@ -24,6 +24,7 @@ import (
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 )
 
 // We don't want to use JujuConnSuite because it gives us
@@ -93,15 +94,16 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []state.MachineJob, 
 	// NOTE: the old test used an equivalent of the NewAgentConfig, but it
 	// really should be using NewStateMachineConfig.
 	params := agent.AgentConfigParams{
-		LogDir:         s.logDir,
-		DataDir:        s.dataDir,
-		Jobs:           jobs,
-		Tag:            "bootstrap",
-		Password:       testPasswordHash(),
-		Nonce:          state.BootstrapNonce,
-		StateAddresses: []string{testing.MgoServer.Addr()},
-		APIAddresses:   []string{"0.1.2.3:1234"},
-		CACert:         []byte(testing.CACert),
+		LogDir:            s.logDir,
+		DataDir:           s.dataDir,
+		Jobs:              jobs,
+		Tag:               "bootstrap",
+		UpgradedToVersion: version.Current.Number,
+		Password:          testPasswordHash(),
+		Nonce:             state.BootstrapNonce,
+		StateAddresses:    []string{testing.MgoServer.Addr()},
+		APIAddresses:      []string{"0.1.2.3:1234"},
+		CACert:            []byte(testing.CACert),
 	}
 	bootConf, err := agent.NewAgentConfig(params)
 	c.Assert(err, gc.IsNil)

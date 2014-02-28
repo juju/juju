@@ -42,6 +42,15 @@ func (s *format_1_18Suite) TestWriteAgentConfig(c *gc.C) {
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
 
+func (s *format_1_18Suite) TestMissingUpgradedToVersion(c *gc.C) {
+	dataDir := c.MkDir()
+	err := ioutil.WriteFile(ConfigPath(dataDir, "agent.conf"), []byte(configDataWithoutUpgradedToVersion), 0600)
+	c.Assert(err, gc.IsNil)
+	readConfig, err := s.formatter.read(dataDir)
+	c.Assert(err, gc.IsNil)
+	c.Assert(readConfig.UpgradedToVersion(), gc.Equals, version.MustParse("1.16.0"))
+}
+
 func (s *format_1_18Suite) assertWriteAndRead(c *gc.C, config *configInternal) {
 	err := s.formatter.write(config)
 	c.Assert(err, gc.IsNil)

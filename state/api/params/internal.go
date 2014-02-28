@@ -506,10 +506,11 @@ type RelationUnitsWatchResults struct {
 	Results []RelationUnitsWatchResult
 }
 
-// CharmsResponse is the server response to a charm upload request.
+// CharmsResponse is the server response to charm upload or GET requests.
 type CharmsResponse struct {
-	Error    string `json:",omitempty"`
-	CharmURL string `json:",omitempty"`
+	Error    string   `json:",omitempty"`
+	CharmURL string   `json:",omitempty"`
+	Files    []string `json:",omitempty"`
 }
 
 // RunParams is used to provide the parameters to the Run method.

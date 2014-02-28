@@ -18,12 +18,12 @@ var _ = gc.Suite(&steps118Suite{})
 
 var expectedSteps = []string{
 	"make $DATADIR/locks owned by ubuntu:ubuntu",
-	"upgrade rsyslog config file on state server",
-	"upgrade rsyslog config file on host machine",
+	"generate system ssh key",
+	"install rsyslog-gnutls",
 }
 
 func (s *steps118Suite) TestUpgradeOperationsContent(c *gc.C) {
 	upgradeSteps := upgrades.StepsFor118()
-	c.Assert(upgradeSteps, gc.HasLen, 3)
+	c.Assert(upgradeSteps, gc.HasLen, len(expectedSteps))
 	assertExpectedSteps(c, upgradeSteps, expectedSteps)
 }

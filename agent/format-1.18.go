@@ -29,11 +29,12 @@ type formatter_1_18 struct {
 
 // format_1_18Serialization holds information for a given agent.
 type format_1_18Serialization struct {
-	Tag     string
-	DataDir string
-	LogDir  string
-	Nonce   string
-	Jobs    []string `yaml:",omitempty"`
+	Tag               string
+	DataDir           string
+	LogDir            string
+	Nonce             string
+	Jobs              []string `yaml:",omitempty"`
+	UpgradedToVersion string   `yaml:"upgradedToVersion"`
 
 	// CACert is base64 encoded
 	CACert         string
@@ -62,6 +63,15 @@ func (*formatter_1_18) decode64(value string) (result []byte, err error) {
 		result, err = base64.StdEncoding.DecodeString(value)
 	}
 	return
+}
+
+// upgradedToVersion parses the upgradedToVersion string value into a version.Number.
+// An empty value is returned as 1.16.0.
+func (*formatter_1_18) upgradedToVersion(value string) (version.Number, error) {
+	if value != "" {
+		return version.Parse(value)
+	}
+	return version.MustParse("1.16.0"), nil
 }
 
 func (formatter *formatter_1_18) read(configFilePath string) (*configInternal, error) {
@@ -100,17 +110,22 @@ func (formatter *formatter_1_18) read(configFilePath string) (*configInternal, e
 	if err != nil {
 		return nil, err
 	}
+	upgradedToVersion, err := formatter.upgradedToVersion(format.UpgradedToVersion)
+	if err != nil {
+		return nil, err
+	}
 	config := &configInternal{
-		tag:             format.Tag,
-		dataDir:         format.DataDir,
-		logDir:          format.LogDir,
-		nonce:           format.Nonce,
-		caCert:          caCert,
-		oldPassword:     format.OldPassword,
-		stateServerCert: stateServerCert,
-		stateServerKey:  stateServerKey,
-		apiPort:         format.APIPort,
-		values:          format.Values,
+		tag:               format.Tag,
+		dataDir:           format.DataDir,
+		logDir:            format.LogDir,
+		upgradedToVersion: upgradedToVersion,
+		nonce:             format.Nonce,
+		caCert:            caCert,
+		oldPassword:       format.OldPassword,
+		stateServerCert:   stateServerCert,
+		stateServerKey:    stateServerKey,
+		apiPort:           format.APIPort,
+		values:            format.Values,
 	}
 	for _, jobName := range format.Jobs {
 		job, err := state.MachineJobFromParams(params.MachineJob(jobName))
@@ -143,17 +158,18 @@ func (formatter *formatter_1_18) makeFormat(config *configInternal) *format_1_18
 		jobs[i] = job.String()
 	}
 	format := &format_1_18Serialization{
-		Tag:             config.tag,
-		DataDir:         config.dataDir,
-		LogDir:          config.logDir,
-		Jobs:            jobs,
-		Nonce:           config.nonce,
-		CACert:          base64.StdEncoding.EncodeToString(config.caCert),
-		OldPassword:     config.oldPassword,
-		StateServerCert: base64.StdEncoding.EncodeToString(config.stateServerCert),
-		StateServerKey:  base64.StdEncoding.EncodeToString(config.stateServerKey),
-		APIPort:         config.apiPort,
-		Values:          config.values,
+		Tag:               config.tag,
+		DataDir:           config.dataDir,
+		LogDir:            config.logDir,
+		Jobs:              jobs,
+		UpgradedToVersion: config.upgradedToVersion.String(),
+		Nonce:             config.nonce,
+		CACert:            base64.StdEncoding.EncodeToString(config.caCert),
+		OldPassword:       config.oldPassword,
+		StateServerCert:   base64.StdEncoding.EncodeToString(config.stateServerCert),
+		StateServerKey:    base64.StdEncoding.EncodeToString(config.stateServerKey),
+		APIPort:           config.apiPort,
+		Values:            config.values,
 	}
 	if config.stateDetails != nil {
 		format.StateAddresses = config.stateDetails.addresses
