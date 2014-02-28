@@ -27,8 +27,9 @@ type APICalls interface {
 }
 
 func NewLxcBroker(api APICalls, tools *tools.Tools, agentConfig agent.Config) environs.InstanceBroker {
+	manager, _ := lxc.NewContainerManager(container.ManagerConfig{container.ConfigName: "juju"})
 	return &lxcBroker{
-		manager:     lxc.NewContainerManager(container.ManagerConfig{"Name": "juju", "LogDir": ""}),
+		manager:     manager,
 		api:         api,
 		tools:       tools,
 		agentConfig: agentConfig,

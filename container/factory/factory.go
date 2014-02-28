@@ -19,7 +19,7 @@ import (
 func NewContainerManager(forType instance.ContainerType, conf container.ManagerConfig) (container.Manager, error) {
 	switch forType {
 	case instance.LXC:
-		return lxc.NewContainerManager(conf), nil
+		return lxc.NewContainerManager(conf)
 	case instance.KVM:
 		return kvm.NewContainerManager(conf)
 	}
