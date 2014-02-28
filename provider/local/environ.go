@@ -129,9 +129,9 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 	mcfg := environs.NewBootstrapMachineConfig(stateFileURL, privateKey)
 	mcfg.Tools = selectedTools[0]
 	mcfg.DataDir = env.config.rootDir()
-	mcfg.LogDir = env.config.logDir()
+	mcfg.LogDir = fmt.Sprintf("/var/log/juju-%s", env.config.namespace())
 	mcfg.Jobs = []state.MachineJob{state.JobManageEnviron}
-	mcfg.CloudInitOutputLog = filepath.Join(mcfg.LogDir, "cloud-init-output.log")
+	mcfg.CloudInitOutputLog = filepath.Join(env.config.logDir(), "cloud-init-output.log")
 	mcfg.DisablePackageCommands = true
 	mcfg.MachineAgentServiceName = env.machineAgentServiceName()
 	mcfg.MongoServiceName = env.mongoServiceName()

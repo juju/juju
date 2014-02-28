@@ -268,7 +268,7 @@ func (*suite) TestWriteAndRead(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(conf.Write(), gc.IsNil)
-	reread, err := agent.ReadConf(conf.DataDir(), conf.Tag())
+	reread, err := agent.ReadConf(agent.ConfigPath(conf.DataDir(), conf.Tag()))
 	c.Assert(err, gc.IsNil)
 	assertConfigEqual(c, conf, reread)
 }
@@ -336,7 +336,7 @@ func (*suite) TestWriteUpgradedToVersion(c *gc.C) {
 	c.Assert(conf.UpgradedToVersion(), gc.DeepEquals, newVersion)
 
 	// Show that the upgradedToVersion is saved.
-	reread, err := agent.ReadConf(conf.DataDir(), conf.Tag())
+	reread, err := agent.ReadConf(agent.ConfigPath(conf.DataDir(), conf.Tag()))
 	assertConfigEqual(c, conf, reread)
 }
 

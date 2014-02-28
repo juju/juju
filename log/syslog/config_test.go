@@ -86,13 +86,14 @@ func (s *SyslogConfigSuite) TestAccumulateConfigRenderWithNamespace(c *gc.C) {
 		8888,
 		"namespace",
 	)
+	syslogConfigRenderer.LogDir += "-namespace"
 	s.assertRsyslogConfigContents(
 		c,
 		syslogConfigRenderer,
 		syslogtesting.ExpectedAccumulateSyslogConf(
 			c,
 			"some-machine",
-			agent.DefaultLogDir,
+			agent.DefaultLogDir+"-namespace",
 			"namespace",
 			8888,
 		),

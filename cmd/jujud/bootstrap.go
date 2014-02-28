@@ -75,10 +75,6 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	envCfg, err := config.New(config.NoDefaults, c.EnvConfig)
-	if err != nil {
-		return err
-	}
 	// agent.Jobs is an optional field in the agent config, and was
 	// introduced after 1.17.2. We default to allowing units on
 	// machine-0 if missing.

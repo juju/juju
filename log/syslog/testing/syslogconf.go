@@ -15,7 +15,7 @@ $ModLoad imfile
 
 $InputFilePersistStateInterval 50
 $InputFilePollInterval 5
-$InputFileName {{.LogDir}}{{.Namespace}}/{{.MachineTag}}.log
+$InputFileName /var/log/juju{{.Namespace}}/{{.MachineTag}}.log
 $InputFileTag juju{{.Namespace}}-{{.MachineTag}}:
 $InputFileStateFile {{.MachineTag}}{{.Namespace}}
 $InputRunFileMonitor
@@ -82,7 +82,7 @@ $InputFileStateFile {{.MachineTag}}{{.Namespace}}
 $InputRunFileMonitor
 
 $DefaultNetstreamDriver gtls
-$DefaultNetstreamDriverCAFile /var/log/juju/ca-cert.pem
+$DefaultNetstreamDriverCAFile {{.LogDir}}/ca-cert.pem
 $ActionSendStreamDriverAuthMode anon
 $ActionSendStreamDriverMode 1 # run driver in TLS-only mode
 
