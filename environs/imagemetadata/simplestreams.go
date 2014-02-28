@@ -100,7 +100,7 @@ func NewImageConstraint(params simplestreams.LookupParams) *ImageConstraint {
 		params.Series = simplestreams.SupportedSeries()
 	}
 	if len(params.Arches) == 0 {
-		params.Arches = []string{"amd64", "i386", "arm"}
+		params.Arches = []string{"amd64", "i386", "arm", "arm64"}
 	}
 	return &ImageConstraint{LookupParams: params}
 }
