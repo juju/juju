@@ -12,14 +12,14 @@ func stepsFor118() []Step {
 			run:         ensureLockDirExistsAndUbuntuWritable,
 		},
 		&upgradeStep{
-			description: "upgrade rsyslog config file on state server",
+			description: "generate system ssh key",
 			targets:     []Target{StateServer},
-			run:         upgradeStateServerRsyslogConfig,
+			run:         ensureSystemSSHKey,
 		},
 		&upgradeStep{
-			description: "upgrade rsyslog config file on host machine",
-			targets:     []Target{HostMachine},
-			run:         upgradeHostMachineRsyslogConfig,
+			description: "install rsyslog-gnutls",
+			targets:     []Target{AllMachines},
+			run:         installRsyslogGnutls,
 		},
 	}
 }
