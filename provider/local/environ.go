@@ -165,6 +165,7 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 	cloudcfg.AddScripts(
 		fmt.Sprintf("rm -fr %s", mcfg.LogDir),
 		fmt.Sprintf("mkdir -p %s", mcfg.LogDir),
+		fmt.Sprintf("chown syslog:adm %s", mcfg.LogDir),
 		fmt.Sprintf("rm -f /var/spool/rsyslog/machine-0-%s", env.config.namespace()),
 		fmt.Sprintf("ln -s %s/all-machines.log %s/", mcfg.LogDir, env.config.logDir()),
 		fmt.Sprintf("ln -s %s/machine-0.log %s/", env.config.logDir(), mcfg.LogDir))
