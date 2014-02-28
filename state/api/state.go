@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/state/api/machiner"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/provisioner"
+	"launchpad.net/juju-core/state/api/rsyslog"
 	"launchpad.net/juju-core/state/api/uniter"
 	"launchpad.net/juju-core/state/api/upgrader"
 )
@@ -98,4 +99,9 @@ func (st *State) KeyUpdater() *keyupdater.State {
 // CharmRevisionUpdater returns access to the CharmRevisionUpdater API
 func (st *State) CharmRevisionUpdater() *charmrevisionupdater.State {
 	return charmrevisionupdater.NewState(st)
+}
+
+// Rsyslog returns access to the Rsyslog API
+func (st *State) Rsyslog() *rsyslog.State {
+	return rsyslog.NewState(st)
 }

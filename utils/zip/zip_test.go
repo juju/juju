@@ -4,7 +4,9 @@
 package zip_test
 
 import (
+	"bytes"
 	"io/ioutil"
+	"os/exec"
 	"path/filepath"
 	"sort"
 
@@ -269,6 +271,19 @@ func (s *ZipSuite) TestExtractSingleFile(c *gc.C) {
 	c.Check(err, gc.IsNil)
 	c.Check(fileInfos, gc.HasLen, 1)
 	file{"just-the-one-file", "content 1", 0644}.check(c, targetParent)
+}
+
+func (s *ZipSuite) TestClosesFile(c *gc.C) {
+	reader := s.makeZip(c, file{"f", "echo hullo!", 0755})
+	targetPath := c.MkDir()
+	err := zip.ExtractAll(reader, targetPath)
+	c.Assert(err, gc.IsNil)
+	cmd := exec.Command("/bin/sh", "-c", filepath.Join(targetPath, "f"))
+	var buffer bytes.Buffer
+	cmd.Stdout = &buffer
+	err = cmd.Run()
+	c.Assert(err, gc.IsNil)
+	c.Assert(buffer.String(), gc.Equals, "hullo!\n")
 }
 
 func (s *ZipSuite) TestExtractSymlinkErrors(c *gc.C) {

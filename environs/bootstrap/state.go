@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/utils"
 )
 
 // StateFile is the name of the file where the provider's state is stored.
@@ -67,10 +68,18 @@ func SaveState(storage storage.StorageWriter, state *BootstrapState) error {
 }
 
 // LoadStateFromURL reads state from the given URL.
-func LoadStateFromURL(url string) (*BootstrapState, error) {
-	resp, err := http.Get(url)
+func LoadStateFromURL(url string, disableSSLHostnameVerification bool) (*BootstrapState, error) {
+	client := http.DefaultClient
+	if disableSSLHostnameVerification {
+		logger.Infof("hostname SSL verification disabled")
+		client = utils.GetNonValidatingHTTPClient()
+	}
+	resp, err := client.Get(url)
 	if err != nil {
 		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("could not load state from url: %v %s", url, resp.Status)
 	}
 	return loadState(resp.Body)
 }

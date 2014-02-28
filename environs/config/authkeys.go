@@ -17,6 +17,13 @@ import (
 	"launchpad.net/juju-core/utils/ssh"
 )
 
+const (
+	// AuthKeysConfig is the configuration key for authorised keys.
+	AuthKeysConfig = "authorized-keys"
+	// JujuSystemKey is the SSH key comment for Juju system keys.
+	JujuSystemKey = "juju-system-key"
+)
+
 // ReadAuthorizedKeys implements the standard juju behaviour for finding
 // authorized_keys. It returns a set of keys in in authorized_keys format
 // (see sshd(8) for a description).  If path is non-empty, it names the
@@ -77,4 +84,19 @@ func verifyKeyPair(certb, key []byte) error {
 	}
 	_, err := cert.ParseCert(certb)
 	return err
+}
+
+// ConcatAuthKeys concatenates the two sets of authorised keys, interposing
+// a newline if necessary, because authorised keys are newline-separated.
+func ConcatAuthKeys(a, b string) string {
+	if a == "" {
+		return b
+	}
+	if b == "" {
+		return a
+	}
+	if a[len(a)-1] != '\n' {
+		return a + "\n" + b
+	}
+	return a + b
 }

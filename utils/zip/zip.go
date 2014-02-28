@@ -141,6 +141,7 @@ func (x extractor) writeFile(targetPath string, zipFile *zip.File, modePerm os.F
 	if err != nil {
 		return err
 	}
+	defer writer.Close()
 	return copyTo(writer, zipFile)
 }
 
