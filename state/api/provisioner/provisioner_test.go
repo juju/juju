@@ -358,7 +358,6 @@ func (s *provisionerSuite) TestContainerConfig(c *gc.C) {
 	c.Assert(result.ProviderType, gc.Equals, "dummy")
 	c.Assert(result.AuthorizedKeys, gc.Equals, coretesting.FakeAuthKeys)
 	c.Assert(result.SSLHostnameVerification, jc.IsTrue)
-	c.Assert(result.SyslogPort, gc.Equals, 2345)
 }
 
 func (s *provisionerSuite) TestCACert(c *gc.C) {

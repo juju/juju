@@ -12,6 +12,7 @@ import (
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -48,8 +49,8 @@ func NewKeyManagerAPI(
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*KeyManagerAPI, error) {
-	// Only clients can access the key manager service.
-	if !authorizer.AuthClient() {
+	// Only clients and environment managers can access the key manager service.
+	if !authorizer.AuthClient() && !authorizer.AuthEnvironManager() {
 		return nil, common.ErrPerm
 	}
 	// TODO(wallyworld) - replace stub with real canRead function
@@ -59,10 +60,17 @@ func NewKeyManagerAPI(
 			return authorizer.GetAuthTag() == "user-admin"
 		}, nil
 	}
-	// TODO(wallyworld) - replace stub with real canRead function
-	// For now, only admins can write authorised ssh keys.
+	// TODO(wallyworld) - replace stub with real canWrite function
+	// For now, only admins can write authorised ssh keys for users.
+	// Machine agents can write the juju-system-key.
 	getCanWrite := func() (common.AuthFunc, error) {
 		return func(tag string) bool {
+			// Are we a machine agent writing the Juju system key.
+			if tag == config.JujuSystemKey {
+				_, _, err := names.ParseTag(authorizer.GetAuthTag(), names.MachineTagKind)
+				return err == nil
+			}
+			// Are we writing the auth key for a user.
 			if _, err := st.User(tag); err != nil {
 				return false
 			}
@@ -139,7 +147,7 @@ func parseKeys(keys []string, mode ssh.ListMode) (keyInfo []string) {
 func (api *KeyManagerAPI) writeSSHKeys(currentConfig *config.Config, sshKeys []string) error {
 	// Write out the new keys.
 	keyStr := strings.Join(sshKeys, "\n")
-	newConfig, err := currentConfig.Apply(map[string]interface{}{"authorized-keys": keyStr})
+	newConfig, err := currentConfig.Apply(map[string]interface{}{config.AuthKeysConfig: keyStr})
 	if err != nil {
 		return fmt.Errorf("creating new environ config: %v", err)
 	}

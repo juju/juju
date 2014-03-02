@@ -133,12 +133,11 @@ func (s *SimpleContextSuite) TestOldDeployedUnitsCanBeRecalled(c *gc.C) {
 
 type SimpleToolsFixture struct {
 	testbase.LoggingSuite
-	dataDir         string
-	initDir         string
-	logDir          string
-	origPath        string
-	binDir          string
-	syslogConfigDir string
+	dataDir  string
+	initDir  string
+	logDir   string
+	origPath string
+	binDir   string
 }
 
 var fakeJujud = "#!/bin/bash --norc\n# fake-jujud\nexit 0\n"
@@ -148,7 +147,6 @@ func (fix *SimpleToolsFixture) SetUp(c *gc.C, dataDir string) {
 	fix.dataDir = dataDir
 	fix.initDir = c.MkDir()
 	fix.logDir = c.MkDir()
-	fix.syslogConfigDir = c.MkDir()
 	toolsDir := tools.SharedToolsDir(fix.dataDir, version.Current)
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, gc.IsNil)
@@ -190,42 +188,25 @@ func (fix *SimpleToolsFixture) assertUpstartCount(c *gc.C, count int) {
 
 func (fix *SimpleToolsFixture) getContext(c *gc.C) *deployer.SimpleContext {
 	config := agentConfig("machine-tag", fix.dataDir)
-	return deployer.NewTestSimpleContext(config, fix.initDir, fix.logDir, fix.syslogConfigDir)
+	return deployer.NewTestSimpleContext(config, fix.initDir, fix.logDir)
 }
 
 func (fix *SimpleToolsFixture) getContextForMachine(c *gc.C, machineTag string) *deployer.SimpleContext {
 	config := agentConfig(machineTag, fix.dataDir)
-	return deployer.NewTestSimpleContext(config, fix.initDir, fix.logDir, fix.syslogConfigDir)
+	return deployer.NewTestSimpleContext(config, fix.initDir, fix.logDir)
 }
 
-func (fix *SimpleToolsFixture) paths(tag string) (confPath, agentDir, toolsDir, syslogConfPath string) {
+func (fix *SimpleToolsFixture) paths(tag string) (confPath, agentDir, toolsDir string) {
 	confName := fmt.Sprintf("jujud-%s.conf", tag)
 	confPath = filepath.Join(fix.initDir, confName)
 	agentDir = agent.Dir(fix.dataDir, tag)
 	toolsDir = tools.ToolsDir(fix.dataDir, tag)
-	syslogConfPath = filepath.Join(fix.syslogConfigDir, fmt.Sprintf("26-juju-%s.conf", tag))
 	return
 }
 
-var expectedSyslogConf = `
-$ModLoad imfile
-
-$InputFilePersistStateInterval 50
-$InputFilePollInterval 5
-$InputFileName /var/log/juju/%s.log
-$InputFileTag juju-%s:
-$InputFileStateFile %s
-$InputRunFileMonitor
-
-$template LongTagForwardFormat,"<%%PRI%%>%%TIMESTAMP:::date-rfc3339%% %%HOSTNAME%% %%syslogtag%%%%msg:::sp-if-no-1st-sp%%%%msg%%"
-
-:syslogtag, startswith, "juju-" @s1:2345;LongTagForwardFormat
-& ~
-`
-
 func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string) {
 	tag := names.UnitTag(name)
-	uconfPath, _, toolsDir, syslogConfPath := fix.paths(tag)
+	uconfPath, _, toolsDir := fix.paths(tag)
 	uconfData, err := ioutil.ReadFile(uconfPath)
 	c.Assert(err, gc.IsNil)
 	uconf := string(uconfData)
@@ -261,20 +242,12 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string
 	jujudData, err := ioutil.ReadFile(jujudPath)
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(jujudData), gc.Equals, fakeJujud)
-
-	syslogConfData, err := ioutil.ReadFile(syslogConfPath)
-	c.Assert(err, gc.IsNil)
-	parts := strings.SplitN(name, "/", 2)
-	unitTag := fmt.Sprintf("unit-%s-%s", parts[0], parts[1])
-	expectedSyslogConfReplaced := fmt.Sprintf(expectedSyslogConf, unitTag, unitTag, unitTag)
-	c.Assert(string(syslogConfData), gc.Equals, expectedSyslogConfReplaced)
-
 }
 
 func (fix *SimpleToolsFixture) checkUnitRemoved(c *gc.C, name string) {
 	tag := names.UnitTag(name)
-	confPath, agentDir, toolsDir, syslogConfPath := fix.paths(tag)
-	for _, path := range []string{confPath, agentDir, toolsDir, syslogConfPath} {
+	confPath, agentDir, toolsDir := fix.paths(tag)
+	for _, path := range []string{confPath, agentDir, toolsDir} {
 		_, err := ioutil.ReadFile(path)
 		if err == nil {
 			c.Log("Warning: %q not removed as expected", path)
