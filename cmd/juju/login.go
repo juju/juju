@@ -33,6 +33,7 @@ func (c *LoginCommand) Info() *cmd.Info {
 }
 
 func (c *LoginCommand) Init(args []string) error {
+	c.InitCommandBase()
 	if len(args) == 0 {
 		return fmt.Errorf("no username supplied")
 	}

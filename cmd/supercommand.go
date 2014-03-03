@@ -12,6 +12,7 @@ import (
 
 	"github.com/loggo/loggo"
 	"launchpad.net/gnuflag"
+	"launchpad.net/juju-core/errors"
 )
 
 var logger = loggo.GetLogger("juju.cmd")
@@ -292,7 +293,7 @@ func (c *SuperCommand) Run(ctx *Context) error {
 	if err != nil && err != ErrSilent {
 		logger.Errorf("%v", err)
 		// Now that this has been logged, don't log again in cmd.Main.
-		if !IsRcPassthroughError(err) {
+		if !errors.IsRcPassthroughError(err) {
 			err = ErrSilent
 		}
 	} else {

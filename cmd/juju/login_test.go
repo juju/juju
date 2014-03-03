@@ -6,7 +6,6 @@ package main
 import (
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/testing"
 )
@@ -18,29 +17,21 @@ type LoginSuite struct {
 var _ = gc.Suite(&LoginSuite{})
 
 func (s *LoginSuite) TestLogin(c *gc.C) {
-	environ, err := environs.PrepareFromName("dummyenv", nullContext(), s.ConfigStore)
-	c.Assert(err, gc.IsNil)
-	defer environ.Destroy()
-
-	_, err = testing.RunCommand(c, &AddUserCommand{}, []string{"foobar", "password"})
+	_, err := testing.RunCommand(c, &AddUserCommand{}, []string{"foobar", "password"})
 	c.Assert(err, gc.IsNil)
 
 	_, err = testing.RunCommand(c, &LoginCommand{}, []string{"foobar", "password"})
 	c.Assert(err, gc.IsNil)
 
 	info, err := s.ConfigStore.ReadInfo("dummyenv")
-	c.Assert(info.APICredentials().User, gc.Equals, "foobar")
+	c.Assert(info.APICredentials().User, gc.Equals, "user-foobar")
 
 }
 
 func (s *LoginSuite) TestLoginFails(c *gc.C) {
-	environ, err := environs.PrepareFromName("dummyenv", nullContext(), s.ConfigStore)
-	c.Assert(err, gc.IsNil)
-	defer environ.Destroy()
-
-	_, err = testing.RunCommand(c, &AddUserCommand{}, []string{"foobar", "password"})
+	_, err := testing.RunCommand(c, &AddUserCommand{}, []string{"foobar", "password"})
 	c.Assert(err, gc.IsNil)
 
 	_, err = testing.RunCommand(c, &LoginCommand{}, []string{"foobar", "wrongpassword"})
-	c.Assert(err, gc.ErrorMatches, "Failed to login invalid entity name or password")
+	c.Assert(err, gc.ErrorMatches, "login failed: invalid entity name or password")
 }

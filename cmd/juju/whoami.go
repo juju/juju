@@ -37,7 +37,7 @@ func (c *WhoamiCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *WhoamiCommand) Init(args []string) error {
-	return nil
+	return c.InitCommandBase()
 }
 
 func (c *WhoamiCommand) Run(ctx *cmd.Context) error {

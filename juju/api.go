@@ -342,12 +342,14 @@ func cacheAPIInfo(info configstore.EnvironInfo, apiInfo *api.Info) error {
 		Addresses: apiInfo.Addrs,
 		CACert:    string(apiInfo.CACert),
 	})
-	_, username, err := names.ParseTag(apiInfo.Tag, names.UserTagKind)
-	if err != nil {
-		return fmt.Errorf("not caching API connection settings: invalid API user tag: %v", err)
-	}
+	/*
+		_, username, err := names.ParseTag(apiInfo.Tag, names.UserTagKind)
+		if err != nil {
+			return fmt.Errorf("not caching API connection settings: invalid API user tag: %v", err)
+		}
+	*/
 	info.SetAPICredentials(configstore.APICredentials{
-		User:     username,
+		User:     apiInfo.Tag,
 		Password: apiInfo.Password,
 	})
 	if err := info.Write(); err != nil {

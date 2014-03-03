@@ -12,6 +12,7 @@ import (
 
 	"launchpad.net/gnuflag"
 
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju/osenv"
 )
 
@@ -60,6 +61,16 @@ func getDefaultEnvironment() string {
 		return defaultEnv
 	}
 	return ReadCurrentEnvironment()
+}
+func (c *EnvCommandBase) InitCommandBase() error {
+	if c.EnvName == "" {
+		envs, err := environs.ReadEnvirons("")
+		if err != nil {
+			return err
+		}
+		c.EnvName = envs.Default
+	}
+	return nil
 }
 
 func (c *EnvCommandBase) SetFlags(f *gnuflag.FlagSet) {

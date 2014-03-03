@@ -14,7 +14,7 @@ import (
 	"os/exec"
 	"syscall"
 
-	"launchpad.net/juju-core/cmd"
+	jujuerrors "launchpad.net/juju-core/errors"
 )
 
 // Options is a client-implementation independent SSH options set.
@@ -123,7 +123,7 @@ func (c *Cmd) Run() error {
 	if exitError, ok := err.(*exec.ExitError); ok && exitError != nil {
 		status := exitError.ProcessState.Sys().(syscall.WaitStatus)
 		if status.Exited() {
-			return cmd.NewRcPassthroughError(status.ExitStatus())
+			return jujuerrors.NewRcPassthroughError(status.ExitStatus())
 		}
 	}
 	return err
