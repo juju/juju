@@ -11,6 +11,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -111,7 +112,7 @@ func (s *baseSuite) tryOpenState(c *gc.C, e apiAuthenticator, password string) e
 	stateInfo.Password = password
 	st, err := state.Open(stateInfo, state.DialOpts{
 		Timeout: 25 * time.Millisecond,
-	})
+	}, environs.NewStatePolicy())
 	if err == nil {
 		st.Close()
 	}

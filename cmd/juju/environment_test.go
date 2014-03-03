@@ -167,7 +167,6 @@ var immutableConfigTests = map[string]string{
 	"firewall-mode": "global",
 	"state-port":    "1",
 	"api-port":      "666",
-	"syslog-port":   "42",
 }
 
 func (s *SetEnvironmentSuite) TestImmutableConfigValues(c *gc.C) {

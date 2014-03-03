@@ -13,6 +13,7 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/errors"
@@ -23,6 +24,7 @@ import (
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 )
 
 // We don't want to use JujuConnSuite because it gives us
@@ -84,13 +86,14 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, args ...string) (machineC
 	// NOTE: the old test used an equivalent of the NewAgentConfig, but it
 	// really should be using NewStateMachineConfig.
 	params := agent.AgentConfigParams{
-		DataDir:        s.dataDir,
-		Tag:            "bootstrap",
-		Password:       testPasswordHash(),
-		Nonce:          state.BootstrapNonce,
-		StateAddresses: []string{testing.MgoServer.Addr()},
-		APIAddresses:   []string{"0.1.2.3:1234"},
-		CACert:         []byte(testing.CACert),
+		DataDir:           s.dataDir,
+		Tag:               "bootstrap",
+		UpgradedToVersion: version.Current.Number,
+		Password:          testPasswordHash(),
+		Nonce:             state.BootstrapNonce,
+		StateAddresses:    []string{testing.MgoServer.Addr()},
+		APIAddresses:      []string{"0.1.2.3:1234"},
+		CACert:            []byte(testing.CACert),
 	}
 	bootConf, err := agent.NewAgentConfig(params)
 	c.Assert(err, gc.IsNil)
@@ -118,7 +121,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 		Addrs:    []string{testing.MgoServer.Addr()},
 		CACert:   []byte(testing.CACert),
 		Password: testPasswordHash(),
-	}, state.DefaultDialOpts())
+	}, state.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 	machines, err := st.AllMachines()
@@ -145,7 +148,7 @@ func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 		Addrs:    []string{testing.MgoServer.Addr()},
 		CACert:   []byte(testing.CACert),
 		Password: testPasswordHash(),
-	}, state.DefaultDialOpts())
+	}, state.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 	cons, err := st.EnvironConstraints()
@@ -174,7 +177,7 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 		Addrs:    []string{testing.MgoServer.Addr()},
 		CACert:   []byte(testing.CACert),
 		Password: testPasswordHash(),
-	}, state.DefaultDialOpts())
+	}, state.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 	m, err := st.Machine("0")
@@ -199,7 +202,7 @@ func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 		Addrs:    []string{testing.MgoServer.Addr()},
 		CACert:   []byte(testing.CACert),
 		Password: testPasswordHash(),
-	}, state.DefaultDialOpts())
+	}, state.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 	m, err := st.Machine("0")
@@ -208,7 +211,7 @@ func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 }
 
 func testOpenState(c *gc.C, info *state.Info, expectErrType error) {
-	st, err := state.Open(info, state.DefaultDialOpts())
+	st, err := state.Open(info, state.DefaultDialOpts(), environs.NewStatePolicy())
 	if st != nil {
 		st.Close()
 	}
@@ -236,7 +239,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 
 	// Check we can log in to mongo as admin.
 	info.Tag, info.Password = "", testPasswordHash()
-	st, err := state.Open(info, state.DefaultDialOpts())
+	st, err := state.Open(info, state.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	// Reset password so the tests can continue to use the same server.
 	defer st.Close()
@@ -254,7 +257,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	machineConf1, err := agent.ReadConf(machineConf.DataDir(), "machine-0")
 	c.Assert(err, gc.IsNil)
 
-	st, err = machineConf1.OpenState()
+	st, err = machineConf1.OpenState(environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 }

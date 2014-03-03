@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
@@ -61,16 +62,16 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return fmt.Errorf("cannot read provider-state-url file: %v", err)
 	}
+	envCfg, err := config.New(config.NoDefaults, c.EnvConfig)
+	if err != nil {
+		return err
+	}
 	stateInfoURL := strings.Split(string(data), "\n")[0]
-	bsState, err := bootstrap.LoadStateFromURL(stateInfoURL)
+	bsState, err := bootstrap.LoadStateFromURL(stateInfoURL, !envCfg.SSLHostnameVerification())
 	if err != nil {
 		return fmt.Errorf("cannot load state from URL %q (read from %q): %v", stateInfoURL, providerStateURLFile, err)
 	}
 	err = c.Conf.read("machine-0")
-	if err != nil {
-		return err
-	}
-	envCfg, err := config.New(config.NoDefaults, c.EnvConfig)
 	if err != nil {
 		return err
 	}
@@ -96,7 +97,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		Jobs:            jobs,
 		InstanceId:      bsState.StateInstances[0],
 		Characteristics: characteristics,
-	}, state.DefaultDialOpts())
+	}, state.DefaultDialOpts(), environs.NewStatePolicy())
 	if err != nil {
 		return err
 	}

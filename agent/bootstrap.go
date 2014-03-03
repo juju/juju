@@ -29,7 +29,7 @@ import (
 // InitializeState returns the newly initialized state and bootstrap
 // machine. If it fails, the state may well be irredeemably compromised.
 type StateInitializer interface {
-	InitializeState(envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts) (*state.State, *state.Machine, error)
+	InitializeState(envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts, policy state.Policy) (*state.State, *state.Machine, error)
 }
 
 // MarshalBootstrapJobs may be used to marshal a set of
@@ -67,7 +67,7 @@ type BootstrapMachineConfig struct {
 
 const bootstrapMachineId = "0"
 
-func (c *configInternal) InitializeState(envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts) (*state.State, *state.Machine, error) {
+func (c *configInternal) InitializeState(envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts, policy state.Policy) (*state.State, *state.Machine, error) {
 	if c.Tag() != names.MachineTag(bootstrapMachineId) {
 		return nil, nil, fmt.Errorf("InitializeState not called with bootstrap machine's configuration")
 	}
@@ -76,7 +76,7 @@ func (c *configInternal) InitializeState(envCfg *config.Config, machineCfg Boots
 		CACert: c.caCert,
 	}
 	logger.Debugf("initializing address %v", info.Addrs)
-	st, err := state.Initialize(&info, envCfg, timeout)
+	st, err := state.Initialize(&info, envCfg, timeout, policy)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to initialize state: %v", err)
 	}
