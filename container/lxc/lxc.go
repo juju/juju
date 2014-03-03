@@ -51,12 +51,13 @@ var _ container.Manager = (*containerManager)(nil)
 // NewContainerManager returns a manager object that can start and stop lxc
 // containers. The containers that are created are namespaced by the name
 // parameter.
-func NewContainerManager(conf container.ManagerConfig) container.Manager {
-	logdir := "/var/log/juju"
-	if conf.LogDir != "" {
-		logdir = conf.LogDir
+func NewContainerManager(conf container.ManagerConfig) (container.Manager, error) {
+	name := conf[container.ConfigName]
+	logDir := conf[container.LogDir]
+	if logDir == "" {
+		logDir = "/var/log/juju"
 	}
-	return &containerManager{name: conf.Name, logdir: logdir}
+	return &containerManager{name: name, logdir: logDir}, nil
 }
 
 func (manager *containerManager) StartContainer(

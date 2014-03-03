@@ -217,8 +217,8 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	env.containerManager, err = factory.NewContainerManager(
 		containerType,
 		container.ManagerConfig{
-			Name:   env.config.namespace(),
-			LogDir: env.config.logDir(),
+			container.ConfigName: env.config.namespace(),
+			container.LogDir:     env.config.logDir(),
 		})
 	if err != nil {
 		return err
