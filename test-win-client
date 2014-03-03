@@ -1,6 +1,17 @@
 #!/bin/bash
 set -eux
-INSTANCE_ID="i-514c2871"
+
+
+usage() {
+    echo "usage: $0 INSTANCE_ID"
+    echo "  INSTANCE_ID: The EC2 intance_id of the windown test machine."
+    exit 1
+}
+
+
+test $# -eq 1 || usage
+
+INSTANCE_ID=$1
 
 echo Starting instance $INSTANCE_ID
 euca-start-instances $INSTANCE_ID

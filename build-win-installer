@@ -1,7 +1,18 @@
 #!/bin/bash
 set -eux
+
+
+usage() {
+    echo "usage: $0 INSTANCE_ID"
+    echo "  INSTANCE_ID: The EC2 intance_id of the windown test machine."
+    exit 1
+}
+
+
 : ${LOCAL_JENKINS_URL=$JENKINS_URL}
-INSTANCE_ID="i-514c2871"
+test $# -eq 1 || usage
+
+INSTANCE_ID=$1
 TARFILE=$(python <<EOT
 import json
 import sys
