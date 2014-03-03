@@ -145,7 +145,7 @@ func (cs *ContainerSetup) getContainerArtifacts(containerType instance.Container
 	switch containerType {
 	case instance.LXC:
 		initialiser = lxc.NewContainerInitialiser()
-		broker = NewLxcBroker(cs.provisioner, tools, cs.config)
+		broker, _ = NewLxcBroker(cs.provisioner, tools, cs.config)
 	case instance.KVM:
 		initialiser = kvm.NewContainerInitialiser()
 		broker, err = NewKvmBroker(cs.provisioner, tools, cs.config)
