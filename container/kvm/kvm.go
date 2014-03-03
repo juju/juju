@@ -56,10 +56,10 @@ var IsKVMSupported = func() (bool, error) {
 // parameter.
 func NewContainerManager(conf container.ManagerConfig) (container.Manager, error) {
 	name := conf[container.ConfigName]
-	logDir := conf[container.LogDir]
 	if name == "" {
 		return nil, fmt.Errorf("name is required")
 	}
+	logDir := conf[container.ConfigLogDir]
 	if logDir == "" {
 		logDir = "/var/log/juju"
 	}
