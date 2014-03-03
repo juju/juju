@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"launchpad.net/gojoyent/client"
 	"launchpad.net/gojoyent/cloudapi"
@@ -92,14 +93,33 @@ func (env *JoyentEnviron) StartInstance(cons constraints.Value, possibleTools to
 		Tags:    map[string]string{"tag.group": "juju", "tag.env": env.Name()},
 	})
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot run instances: %v", err)
+		return nil, nil, fmt.Errorf("cannot create instances: %v", err)
 	}
+	machineId := machine.Id
+
+	logger.Infof("provisioning instance %q", machineId)
+
+	machine, err = env.compute.cloudapi.GetMachine(machineId)
+	if err != nil {
+		return nil, nil, fmt.Errorf("cannot start instances: %v", err)
+	}
+
+	// wait for machine to start
+	for !strings.EqualFold(machine.State, "running") {
+		time.Sleep(1 * time.Second)
+
+		machine, err = env.compute.cloudapi.GetMachine(machineId)
+		if err != nil {
+			return nil, nil, fmt.Errorf("cannot start instances: %v", err)
+		}
+	}
+
+	logger.Infof("started instance %q", machineId)
 
 	inst := &joyentInstance{
 		machine: machine,
 		env:     env,
 	}
-	logger.Infof("started instance %q", inst.Id())
 
 	disk64 := uint64(machine.Disk)
 	hc := instance.HardwareCharacteristics{
