@@ -21,6 +21,10 @@ func processDeprecatedAttributes(context Context) error {
 	delete(newAttrs, "public-bucket-url")
 	delete(newAttrs, "default-image-id")
 	delete(newAttrs, "default-instance-type")
+	tools_url, ok := newAttrs["tools-url"]
+	if ok && tools_url != "" {
+		newAttrs["tools-metadata-url"] = tools_url
+	}
 	newCfg, err := config.New(config.NoDefaults, newAttrs)
 	if err != nil {
 		return fmt.Errorf("failed to create new config: %v", err)
