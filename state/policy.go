@@ -25,9 +25,9 @@ type Policy interface {
 	// a (possibly nil) Prechecker or an error.
 	Prechecker(*config.Config) (Prechecker, error)
 
-	// ConfigValidator takes a *config.Config and returns
+	// ConfigValidator takes a string (environ type) and returns
 	// a (possibly nil) ConfigValidator or an error.
-	ConfigValidator(*config.Config) (ConfigValidator, error)
+	ConfigValidator(string) (ConfigValidator, error)
 }
 
 // Prechecker is a policy interface that is provided to State
@@ -78,7 +78,7 @@ func (st *State) validate(cfg, old *config.Config) (valid *config.Config, err er
 	if st.policy == nil {
 		return cfg, nil
 	}
-	configValidator, err := st.policy.ConfigValidator(cfg)
+	configValidator, err := st.policy.ConfigValidator(cfg.Type())
 	if errors.IsNotImplementedError(err) {
 		return cfg, nil
 	} else if err != nil {

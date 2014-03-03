@@ -51,7 +51,7 @@ func (p *mockConfigValidator) Validate(cfg, old *config.Config) (valid *config.C
 func (s *ConfigValidatorSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.configValidator = mockConfigValidator{}
-	s.policy.getConfigValidator = func(*config.Config) (state.ConfigValidator, error) {
+	s.policy.getConfigValidator = func(string) (state.ConfigValidator, error) {
 		return &s.configValidator, nil
 	}
 }
@@ -74,7 +74,7 @@ func (s *ConfigValidatorSuite) TestConfigValidate(c *gc.C) {
 
 func (s *ConfigValidatorSuite) TestSetEnvironConfigFailsOnConfigValidateError(c *gc.C) {
 	var configValidatorErr error
-	s.policy.getConfigValidator = func(*config.Config) (state.ConfigValidator, error) {
+	s.policy.getConfigValidator = func(string) (state.ConfigValidator, error) {
 		configValidatorErr = errors.NotFoundf("")
 		return &s.configValidator, configValidatorErr
 	}
@@ -94,7 +94,7 @@ func (s *ConfigValidatorSuite) TestSetEnvironConfigUpdatesState(c *gc.C) {
 
 func (s *ConfigValidatorSuite) TestConfigValidateUnimplemented(c *gc.C) {
 	var configValidatorErr error
-	s.policy.getConfigValidator = func(*config.Config) (state.ConfigValidator, error) {
+	s.policy.getConfigValidator = func(string) (state.ConfigValidator, error) {
 		return nil, configValidatorErr
 	}
 
@@ -106,7 +106,7 @@ func (s *ConfigValidatorSuite) TestConfigValidateUnimplemented(c *gc.C) {
 }
 
 func (s *ConfigValidatorSuite) TestConfigValidateNoPolicy(c *gc.C) {
-	s.policy.getConfigValidator = func(cfg *config.Config) (state.ConfigValidator, error) {
+	s.policy.getConfigValidator = func(typ string) (state.ConfigValidator, error) {
 		c.Errorf("should not have been invoked")
 		return nil, nil
 	}
