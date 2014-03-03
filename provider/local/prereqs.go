@@ -83,7 +83,10 @@ func VerifyPrerequisites(containerType instance.ContainerType) error {
 }
 
 func verifyMongod() error {
-	path := mongo.MongodPath()
+	path, err := mongo.MongodPath()
+	if err != nil {
+		return err
+	}
 
 	ver, err := mongodVersion(path)
 	if err != nil {

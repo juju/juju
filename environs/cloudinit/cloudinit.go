@@ -509,7 +509,10 @@ func (cfg *MachineConfig) addMongoToBoot(c *cloudinit.Config) error {
 	)
 
 	name := cfg.MongoServiceName
-	conf := mongo.MongoUpstartService(name, cfg.DataDir, cfg.StatePort)
+	conf, err := mongo.MongoUpstartService(name, cfg.DataDir, cfg.StatePort)
+	if err != nil {
+		return err
+	}
 	cmds, err := conf.InstallCommands()
 	if err != nil {
 		return errgo.Annotate(err, "cannot make cloud-init upstart script for the state database")
