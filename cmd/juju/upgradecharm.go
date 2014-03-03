@@ -150,7 +150,7 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 	explicitRevision := true
 	if newURL.Revision == -1 {
 		explicitRevision = false
-		latest, err := charm.Latest(repo, newURL, conf.Testing())
+		latest, err := charm.Latest(repo, newURL, conf.TestMode())
 		if err != nil {
 			return err
 		}
@@ -167,7 +167,7 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	addedURL, err := addCharmViaAPI(client, ctx, newURL, repo, conf.Testing())
+	addedURL, err := addCharmViaAPI(client, ctx, newURL, repo, conf.TestMode())
 	if err != nil {
 		return err
 	}
@@ -222,7 +222,7 @@ func (c *UpgradeCharmCommand) run1dot16(ctx *cmd.Context) error {
 	explicitRevision := true
 	if newURL.Revision == -1 {
 		explicitRevision = false
-		latest, err := charm.Latest(repo, newURL, conf.Testing())
+		latest, err := charm.Latest(repo, newURL, conf.TestMode())
 		if err != nil {
 			return err
 		}

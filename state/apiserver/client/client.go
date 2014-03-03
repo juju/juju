@@ -850,7 +850,7 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 		return err
 	}
 	store := config.AuthorizeCharmRepo(CharmStore, envConfig)
-	downloadedCharm, err := store.Get(charmURL, envConfig.Testing())
+	downloadedCharm, err := store.Get(charmURL, envConfig.TestMode())
 	if err != nil {
 		return errgo.Annotatef(err, "cannot download charm %q", charmURL.String())
 	}

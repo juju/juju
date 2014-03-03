@@ -1891,7 +1891,7 @@ func (s *clientSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
 	c.Assert(sch.IsUploaded(), jc.IsTrue)
 }
 
-func (s *clientSuite) TestAddCharmTestingEnv(c *gc.C) {
+func (s *clientSuite) TestAddCharmTestMode(c *gc.C) {
 	store, restore := makeMockCharmStore()
 	defer restore()
 
@@ -1899,7 +1899,7 @@ func (s *clientSuite) TestAddCharmTestingEnv(c *gc.C) {
 	curl, _ := addCharm(c, store, "wordpress")
 	err := client.AddCharm(curl)
 	c.Assert(err, gc.IsNil)
-	c.Assert(store.LastCallTestingValue, gc.Equals, false)
+	c.Assert(store.LastCallTestModeValue, gc.Equals, false)
 
 	args := map[string]interface{}{"testing": true}
 	err = s.APIState.Client().EnvironmentSet(args)
@@ -1907,7 +1907,7 @@ func (s *clientSuite) TestAddCharmTestingEnv(c *gc.C) {
 	curl, _ = addCharm(c, store, "mysql")
 	err = client.AddCharm(curl)
 	c.Assert(err, gc.IsNil)
-	c.Assert(store.LastCallTestingValue, gc.Equals, true)
+	c.Assert(store.LastCallTestModeValue, gc.Equals, true)
 }
 
 func (s *clientSuite) TestCharmArchiveName(c *gc.C) {

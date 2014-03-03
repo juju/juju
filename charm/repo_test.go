@@ -101,7 +101,7 @@ func (s *StoreSuite) TestLatest(c *gc.C) {
 	})
 }
 
-func (s *StoreSuite) TestLatestTestingFlag(c *gc.C) {
+func (s *StoreSuite) TestLatestTestModeFlag(c *gc.C) {
 	urls := []*charm.URL{charm.MustParseURL("cs:series/good")}
 	_, err := s.store.Latest(false, urls...)
 	c.Assert(err, gc.IsNil)
@@ -159,7 +159,7 @@ func (s *StoreSuite) TestGetBadCache(c *gc.C) {
 	s.assertCached(c, revCharmURL)
 }
 
-func (s *StoreSuite) TestGetTestingFlag(c *gc.C) {
+func (s *StoreSuite) TestGetTestModeFlag(c *gc.C) {
 	base := "cs:series/good-12"
 	charmURL := charm.MustParseURL(base)
 	ch, err := s.store.Get(charmURL, false)
@@ -232,7 +232,7 @@ func (s *StoreSuite) TestInfoDNSError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, expect)
 }
 
-func (s *StoreSuite) TestInfoTesting(c *gc.C) {
+func (s *StoreSuite) TestInfoTestModeFlag(c *gc.C) {
 	charmURL := charm.MustParseURL("cs:series/good")
 	_, err := s.store.Info(false, charmURL)
 	c.Assert(err, gc.IsNil)

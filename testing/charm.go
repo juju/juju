@@ -126,9 +126,9 @@ func (r *Repo) Bundle(dst, name string) *charm.Bundle {
 // MockCharmStore implements charm.Repository and is used to isolate tests
 // that would otherwise need to hit the real charm store.
 type MockCharmStore struct {
-	charms               map[string]map[int]*charm.Bundle
-	AuthAttrs            string
-	LastCallTestingValue bool
+	charms                map[string]map[int]*charm.Bundle
+	AuthAttrs             string
+	LastCallTestModeValue bool
 }
 
 func NewMockCharmStore() *MockCharmStore {
@@ -183,8 +183,8 @@ func (s *MockCharmStore) interpret(charmURL *charm.URL) (base string, rev int) {
 }
 
 // Get implements charm.Repository.Get.
-func (s *MockCharmStore) Get(charmURL *charm.URL, testing bool) (charm.Charm, error) {
-	s.LastCallTestingValue = testing
+func (s *MockCharmStore) Get(charmURL *charm.URL, testMode bool) (charm.Charm, error) {
+	s.LastCallTestModeValue = testMode
 	base, rev := s.interpret(charmURL)
 	charm, found := s.charms[base][rev]
 	if !found {
@@ -194,8 +194,8 @@ func (s *MockCharmStore) Get(charmURL *charm.URL, testing bool) (charm.Charm, er
 }
 
 // Latest implements charm.Repository.Latest.
-func (s *MockCharmStore) Latest(testing bool, charmURLs ...*charm.URL) ([]charm.CharmRevision, error) {
-	s.LastCallTestingValue = testing
+func (s *MockCharmStore) Latest(testMode bool, charmURLs ...*charm.URL) ([]charm.CharmRevision, error) {
+	s.LastCallTestModeValue = testMode
 	result := make([]charm.CharmRevision, len(charmURLs))
 	for i, curl := range charmURLs {
 		charmURL := curl.WithRevision(-1)

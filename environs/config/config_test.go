@@ -630,12 +630,12 @@ var configTests = []configTest{
 			"name": "my-name",
 		},
 	}, {
-		about:       "Testing flag specified",
+		about:       "TestMode flag specified",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
-			"type":    "my-type",
-			"name":    "my-name",
-			"testing": true,
+			"type":     "my-type",
+			"name":     "my-name",
+			"testmode": true,
 		},
 	},
 	authTokenConfigTest("token=value, tokensecret=value", true),
@@ -858,8 +858,8 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 	dev, _ := test.attrs["development"].(bool)
 	c.Assert(cfg.Development(), gc.Equals, dev)
 
-	testing, _ := test.attrs["testing"].(bool)
-	c.Assert(cfg.Testing(), gc.Equals, testing)
+	testmode, _ := test.attrs["testmode"].(bool)
+	c.Assert(cfg.TestMode(), gc.Equals, testmode)
 
 	if series, _ := test.attrs["default-series"].(string); series != "" {
 		c.Assert(cfg.DefaultSeries(), gc.Equals, series)
@@ -1012,7 +1012,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"bootstrap-addresses-delay": 10,
 		"default-series":            "precise",
 		"charm-store-auth":          "token=auth",
-		"testing":                   false,
+		"testmode":                  false,
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)

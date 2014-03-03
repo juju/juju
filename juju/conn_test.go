@@ -440,7 +440,7 @@ func (s *ConnSuite) TestAddUnits(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `invalid force machine id ".*"`)
 }
 
-func (s *ConnSuite) TestPutCharmTestingEnv(c *gc.C) {
+func (s *ConnSuite) TestPutCharmTestMode(c *gc.C) {
 	s.PatchValue(&charm.CacheDir, c.MkDir())
 	server := charmtesting.NewMockStore(c, map[string]int{
 		"cs:series/charm1": 1,
@@ -459,7 +459,7 @@ func (s *ConnSuite) TestPutCharmTestingEnv(c *gc.C) {
 	c.Assert(server.InfoRequestCount, gc.Equals, 1)
 	c.Assert(server.InfoRequestCountNoStats, gc.Equals, 0)
 
-	new_config, err := s.conn.Environ.Config().Apply(map[string]interface{}{"testing": true})
+	new_config, err := s.conn.Environ.Config().Apply(map[string]interface{}{"testmode": true})
 	c.Assert(err, gc.IsNil)
 	s.conn.Environ.SetConfig(new_config)
 	curl = charm.MustParseURL("cs:series/charm2-1")
