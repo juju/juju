@@ -42,7 +42,7 @@ func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, majorVersion, minorV
 		toolsConstraint.Arches = []string{filter.Arch}
 	} else {
 		logger.Debugf("no architecture specified when finding tools, looking for any")
-		toolsConstraint.Arches = []string{"amd64", "i386", "arm"}
+		toolsConstraint.Arches = []string{"amd64", "i386", "arm", "arm64", "ppc64"}
 	}
 	// The old tools search allowed finding tools without needing to specify a series.
 	// The simplestreams metadata is keyed off series, so series must be specified in
