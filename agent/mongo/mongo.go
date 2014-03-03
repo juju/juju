@@ -2,10 +2,11 @@ package mongo
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
+	"strings"
 
 	"launchpad.net/loggo"
 
@@ -14,8 +15,9 @@ import (
 )
 
 const (
-	maxMongoFiles         = 65000
-	jujuMongodDefaultPath = "/usr/lib/juju/bin/mongod"
+	maxFiles              = 65000
+	maxProcs              = 20000
+	JujuMongodPathDefault = "/usr/lib/juju/bin/mongod"
 )
 
 var (
@@ -23,36 +25,36 @@ var (
 
 	oldMongoServiceName = "juju-db"
 
-	// this value is what we use in the code, it's a variable so we can mock it
-	// out
-	jujuMongodPath = jujuMongodDefaultPath
+	// JujuMongodPath is the path to the juju-specific mongod instance.
+	JujuMongodPath = JujuMongodPathDefault
 )
-
-// MockPackage mocks out specific parts of this package for testing purposes.
-// This function should not be called from production code.
-func MockPackage() func() {
-	jujuMongodPath = "/somewhere/that/doesnt/exist"
-	return func() { jujuMongodPath = jujuMongodDefaultPath }
-}
 
 // MongoPath returns the executable path to be used to run mongod on this
 // machine. If the juju-bundled version of mongo exists, it will return that
 // path, otherwise it will return the command to run mongod from the path.
-func MongodPath() string {
-	if _, err := os.Stat(jujuMongodPath); err == nil {
-		return jujuMongodPath
+func MongodPath() (string, error) {
+	if _, err := os.Stat(JujuMongodPath); err == nil {
+		return JujuMongodPath
 	}
 
-	// just use whatever is in the path
-	return "mongod"
+	s, err := exec.Command("/usr/bin/which", "mongod").Output()
+	if err != nil {
+		// this should never happen, unless which doesn't exist
+		return fmt.Errorf("cannot determine mongod path: %v", err)
+	}
+	path := strings.TrimSpace(string(s))
+	if path == "" {
+		return path, fmt.Errorf("cannot find mongod in $PATH")
+	}
+	return path, nil
 }
 
-// ensureMongoServer ensures that the correct mongo upstart script is installed
+// EnsureMongoServer ensures that the correct mongo upstart script is installed
 // and running.
 //
 // This method will remove old versions of the mongo upstart script as necessary
 // before installing the new version.
-func ensureMongoServer(dir string, port int) error {
+func EnsureMongoServer(dir string, port int) error {
 	name := makeServiceName(mongoScriptVersion)
 	service := MongoUpstartService(name, dir, port)
 	if service.Installed() {
@@ -68,8 +70,7 @@ func ensureMongoServer(dir string, port int) error {
 	}
 
 	if err := service.Install(); err != nil {
-		logger.Errorf("Failed to install mongo service %q: %v", service.Name, err)
-		return err
+		return fmt.Errorf("failed to install mongo service %q: %v", service.Name, err)
 	}
 	return service.Start()
 }
@@ -83,13 +84,20 @@ func makeJournalDirs(dir string) error {
 	}
 
 	// manually create the prealloc files, since otherwise they get created as 100M files.
-	zeroes := make([]byte, 1024*1024)
+	zeroes := make([]byte, 64*1024) // should be enough for anyone
 	for x := 0; x < 3; x++ {
 		name := fmt.Sprintf("prealloc.%d", x)
 		filename := filepath.Join(journalDir, name)
-		if err := ioutil.WriteFile(filename, zeroes, 700); err != nil {
-			logger.Errorf("failed to make write mongo prealloc file: %v", journalDir, err)
-			return err
+		f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0700)
+		if err != nil {
+			return fmt.Errorf("failed to open mongo prealloc file %q: %v", filename, err)
+		}
+		defer f.Close()
+		// write 64kb 16x = 1mb
+		for y := 0; y < 16; y++ {
+			if _, err := f.Write(zeroes); err != nil {
+				return fmt.Errorf("failed to write to mongo prealloc file %q: %v", filename, err)
+			}
 		}
 	}
 	return nil
@@ -124,8 +132,7 @@ func makeServiceName(version int) string {
 // MongoUpstartService.
 const mongoScriptVersion = 2
 
-// MongoUpstartService returns the upstart config for the mongo state service
-// and the version number of that config.
+// MongoUpstartService returns the upstart config for the mongo state service.
 //
 // This method assumes there is a server.pem keyfile in dataDir.
 func MongoUpstartService(name, dataDir string, port int) *upstart.Conf {
@@ -139,8 +146,8 @@ func MongoUpstartService(name, dataDir string, port int) *upstart.Conf {
 		Service: *svc,
 		Desc:    "juju state database",
 		Limit: map[string]string{
-			"nofile": fmt.Sprintf("%d %d", maxMongoFiles, maxMongoFiles),
-			"nproc":  fmt.Sprintf("%d %d", upstart.MaxAgentFiles, upstart.MaxAgentFiles),
+			"nofile": fmt.Sprintf("%d %d", maxFiles, maxFiles),
+			"nproc":  fmt.Sprintf("%d %d", maxProcs, maxProcs),
 		},
 		Cmd: MongodPath() +
 			" --auth" +

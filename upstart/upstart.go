@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"os/exec"
 	"path"
@@ -19,28 +18,10 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
-const defaultInitDir = "/etc/init"
+const InitDirDefault = "/etc/init"
 
 var startedRE = regexp.MustCompile(`^.* start/running, process (\d+)\n$`)
-var initDir = defaultInitDir
-
-func init() {
-	rand.Seed(time.Now().UTC().UnixNano())
-}
-
-// MockPackage mocks out the internals for this package, and returns a function
-// that will undo the mocking.  This method should only be used during testing.
-func MockPackage() func() {
-	initDir = path.Join(os.TempDir(), fmt.Sprintf("juju-upstart-%d", rand.Int()))
-	err := os.MkdirAll(initDir, 0777)
-	if err != nil {
-		panic(err)
-	}
-	return func() {
-		os.RemoveAll(initDir)
-		initDir = defaultInitDir
-	}
-}
+var InitDir = InitDirDefault
 
 var InstallStartRetryAttempts = utils.AttemptStrategy{
 	Total: 1 * time.Second,
@@ -54,7 +35,7 @@ type Service struct {
 }
 
 func NewService(name string) *Service {
-	return &Service{Name: name, InitDir: initDir}
+	return &Service{Name: name, InitDir: InitDir}
 }
 
 // confPath returns the path to the service's configuration file.

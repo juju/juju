@@ -25,20 +25,19 @@ var _ = gc.Suite(&MongoSuite{})
 func (s *MongoSuite) SetUpSuite(c *gc.C) {
 	testpath := c.MkDir()
 	s.PatchEnvPathPrepend(testpath)
+	// mock out the start method so we can fake install services without sudo
 	start := filepath.Join(testpath, "start")
 	err := ioutil.WriteFile(start, []byte("#!/bin/bash --norc\nexit 0"), 0755)
 	c.Assert(err, gc.IsNil)
 
-	cleanup := upstart.MockPackage()
-	s.AddSuiteCleanup(func(c *gc.C) { cleanup() })
-	// mock out the start method so we can fake install services without sudo
+	s.PatchValue(&upstart.InitDir, c.MkDir())
 }
 
 func (s *MongoSuite) TestJujuMongodPath(c *gc.C) {
 	d := c.MkDir()
 	defer os.RemoveAll(d)
 	mongoPath := filepath.Join(d, "mongod")
-	s.PatchValue(&jujuMongodPath, mongoPath)
+	s.PatchValue(&JujuMongodPath, mongoPath)
 
 	err := ioutil.WriteFile(mongoPath, []byte{}, 0777)
 	c.Assert(err, gc.IsNil)
@@ -48,10 +47,16 @@ func (s *MongoSuite) TestJujuMongodPath(c *gc.C) {
 }
 
 func (s *MongoSuite) TestDefaultMongodPath(c *gc.C) {
-	s.PatchValue(&jujuMongodPath, "/not/going/to/exist/mongod")
+	s.PatchValue(&JujuMongodPath, "/not/going/to/exist/mongod")
+
+	dir := c.MkDir()
+	s.PatchEnvPathPrepend(dir)
+	filename := filepath.Join(dir, "mongod")
+	err := ioutil.WriteFile(filename, []byte{}, 0777)
+	c.Assert(err, gc.IsNil)
 
 	obtained := MongodPath()
-	c.Assert(obtained, gc.Equals, "mongod")
+	c.Assert(obtained, gc.Equals, filename)
 }
 
 func (s *MongoSuite) TestRemoveOldMongoServices(c *gc.C) {
@@ -111,7 +116,7 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 	oldsvc := makeService(oldMongoServiceName, c)
 	defer oldsvc.Remove()
 
-	err := ensureMongoServer(dir, port)
+	err := EnsureMongoServer(dir, port)
 	c.Assert(err, gc.IsNil)
 	svc := MongoUpstartService(makeServiceName(mongoScriptVersion), dir, port)
 	defer svc.Remove()
@@ -121,7 +126,7 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 	c.Check(svc.Installed(), jc.IsTrue)
 
 	// now check we can call it multiple times without error
-	err = ensureMongoServer(dir, port)
+	err = EnsureMongoServer(dir, port)
 	c.Assert(err, gc.IsNil)
 
 }

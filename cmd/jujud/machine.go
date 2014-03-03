@@ -283,6 +283,10 @@ func (a *MachineAgent) updateSupportedContainers(runner worker.Runner, st *api.S
 // StateJobs returns a worker running all the workers that require
 // a *state.State connection.
 func (a *MachineAgent) StateWorker() (worker.Worker, error) {
+	if err := a.ensureMongoServer(); err != nil {
+		return err
+	}
+
 	agentConfig := a.Conf.config
 	st, entity, err := openState(agentConfig, a)
 	if err != nil {

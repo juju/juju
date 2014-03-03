@@ -11,8 +11,7 @@ import (
 )
 
 const (
-	maxMongoFiles = 65000
-	MaxAgentFiles = 20000
+	maxAgentFiles = 20000
 )
 
 // MachineAgentUpstartService returns the upstart config for a machine agent
@@ -26,7 +25,7 @@ func MachineAgentUpstartService(name, toolsDir, dataDir, logDir, tag, machineId 
 		Service: *svc,
 		Desc:    fmt.Sprintf("juju %s agent", tag),
 		Limit: map[string]string{
-			"nofile": fmt.Sprintf("%d %d", MaxAgentFiles, MaxAgentFiles),
+			"nofile": fmt.Sprintf("%d %d", maxAgentFiles, maxAgentFiles),
 		},
 		Cmd: path.Join(toolsDir, "jujud") +
 			" machine" +
