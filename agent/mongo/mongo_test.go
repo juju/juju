@@ -42,8 +42,9 @@ func (s *MongoSuite) TestJujuMongodPath(c *gc.C) {
 	err := ioutil.WriteFile(mongoPath, []byte{}, 0777)
 	c.Assert(err, gc.IsNil)
 
-	obtained := MongodPath()
-	c.Assert(obtained, gc.Equals, mongoPath)
+	obtained, err := MongodPath()
+	c.Check(err, gc.IsNil)
+	c.Check(obtained, gc.Equals, mongoPath)
 }
 
 func (s *MongoSuite) TestDefaultMongodPath(c *gc.C) {
@@ -55,8 +56,9 @@ func (s *MongoSuite) TestDefaultMongodPath(c *gc.C) {
 	err := ioutil.WriteFile(filename, []byte{}, 0777)
 	c.Assert(err, gc.IsNil)
 
-	obtained := MongodPath()
-	c.Assert(obtained, gc.Equals, filename)
+	obtained, err := MongodPath()
+	c.Check(err, gc.IsNil)
+	c.Check(obtained, gc.Equals, filename)
 }
 
 func (s *MongoSuite) TestRemoveOldMongoServices(c *gc.C) {
@@ -118,7 +120,8 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 
 	err := EnsureMongoServer(dir, port)
 	c.Assert(err, gc.IsNil)
-	svc := MongoUpstartService(makeServiceName(mongoScriptVersion), dir, port)
+	svc, err := MongoUpstartService(makeServiceName(mongoScriptVersion), dir, port)
+	c.Assert(err, gc.IsNil)
 	defer svc.Remove()
 
 	testJournalDirs(dir, c)

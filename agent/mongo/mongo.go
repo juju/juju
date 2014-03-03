@@ -34,13 +34,13 @@ var (
 // path, otherwise it will return the command to run mongod from the path.
 func MongodPath() (string, error) {
 	if _, err := os.Stat(JujuMongodPath); err == nil {
-		return JujuMongodPath
+		return JujuMongodPath, nil
 	}
 
 	s, err := exec.Command("/usr/bin/which", "mongod").Output()
 	if err != nil {
 		// this should never happen, unless which doesn't exist
-		return fmt.Errorf("cannot determine mongod path: %v", err)
+		return "", fmt.Errorf("cannot determine mongod path: %v", err)
 	}
 	path := strings.TrimSpace(string(s))
 	if path == "" {
@@ -56,7 +56,10 @@ func MongodPath() (string, error) {
 // before installing the new version.
 func EnsureMongoServer(dir string, port int) error {
 	name := makeServiceName(mongoScriptVersion)
-	service := MongoUpstartService(name, dir, port)
+	service, err := MongoUpstartService(name, dir, port)
+	if err != nil {
+		return err
+	}
 	if service.Installed() {
 		return nil
 	}
@@ -135,12 +138,17 @@ const mongoScriptVersion = 2
 // MongoUpstartService returns the upstart config for the mongo state service.
 //
 // This method assumes there is a server.pem keyfile in dataDir.
-func MongoUpstartService(name, dataDir string, port int) *upstart.Conf {
+func MongoUpstartService(name, dataDir string, port int) (*upstart.Conf, error) {
 
 	keyFile := path.Join(dataDir, "server.pem")
 	svc := upstart.NewService(name)
 
 	dbDir := path.Join(dataDir, "db")
+
+	mongodpath, err := MongodPath()
+	if err != nil {
+		return nil, err
+	}
 
 	conf := &upstart.Conf{
 		Service: *svc,
@@ -149,7 +157,7 @@ func MongoUpstartService(name, dataDir string, port int) *upstart.Conf {
 			"nofile": fmt.Sprintf("%d %d", maxFiles, maxFiles),
 			"nproc":  fmt.Sprintf("%d %d", maxProcs, maxProcs),
 		},
-		Cmd: MongodPath() +
+		Cmd: mongodpath +
 			" --auth" +
 			" --dbpath=" + dbDir +
 			" --sslOnNormalPorts" +
@@ -164,5 +172,5 @@ func MongoUpstartService(name, dataDir string, port int) *upstart.Conf {
 		// +
 		//	" --replSet juju",
 	}
-	return conf
+	return conf, nil
 }
