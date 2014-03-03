@@ -36,7 +36,6 @@ func (s *processDeprecatedAttributesSuite) SetUpTest(c *gc.C) {
 		"public-bucket-url":     "shazbot",
 		"default-instance-type": "vulch",
 		"default-image-id":      "1234",
-		"tools-url":             "some-tools-url",
 	})
 	c.Assert(err, gc.IsNil)
 	err = s.State.SetEnvironConfig(newCfg, cfg)
@@ -49,7 +48,6 @@ func (s *processDeprecatedAttributesSuite) SetUpTest(c *gc.C) {
 	c.Assert(allAttrs["public-bucket-url"], gc.Equals, "shazbot")
 	c.Assert(allAttrs["default-instance-type"], gc.Equals, "vulch")
 	c.Assert(allAttrs["default-image-id"], gc.Equals, "1234")
-	c.Assert(allAttrs["tools-url"], gc.Equals, "some-tools-url")
 }
 
 func (s *processDeprecatedAttributesSuite) assertConfigProcessed(c *gc.C) {
@@ -63,8 +61,6 @@ func (s *processDeprecatedAttributesSuite) assertConfigProcessed(c *gc.C) {
 		_, ok := allAttrs[deprecated]
 		c.Assert(ok, jc.IsFalse)
 	}
-	c.Assert(allAttrs["tools-metadata-url"], gc.Equals, "some-tools-url")
-	c.Assert(allAttrs["tools-url"], gc.Equals, "some-tools-url")
 }
 
 func (s *processDeprecatedAttributesSuite) TestOldConfigRemoved(c *gc.C) {
