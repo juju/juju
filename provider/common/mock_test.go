@@ -72,7 +72,7 @@ func (env *mockEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 	if env.getToolsSources != nil {
 		return env.getToolsSources()
 	}
-	datasource := storage.NewStorageSimpleStreamsDataSource(env.Storage(), storage.BaseToolsPath)
+	datasource := storage.NewStorageSimpleStreamsDataSource("test cloud storage", env.Storage(), storage.BaseToolsPath)
 	return []simplestreams.DataSource{datasource}, nil
 }
 

@@ -27,7 +27,7 @@ func ParseMetadataFromDir(c *gc.C, metadataDir string) []*imagemetadata.ImageMet
 
 // ParseMetadataFromStorage loads ImageMetadata from the specified storage reader.
 func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader) []*imagemetadata.ImageMetadata {
-	source := storage.NewStorageSimpleStreamsDataSource(stor, "images")
+	source := storage.NewStorageSimpleStreamsDataSource("test storage reader", stor, "images")
 
 	// Find the simplestreams index file.
 	params := simplestreams.ValueParams{

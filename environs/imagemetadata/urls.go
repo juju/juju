@@ -31,7 +31,7 @@ func GetMetadataSources(env environs.ConfigGetter) ([]simplestreams.DataSource, 
 		if !config.SSLHostnameVerification() {
 			verify = simplestreams.NoVerifySSLHostnames
 		}
-		sources = append(sources, simplestreams.NewURLDataSource(userURL, verify))
+		sources = append(sources, simplestreams.NewURLDataSource("image-metadata-url", userURL, verify))
 	}
 	if custom, ok := env.(SupportsCustomSources); ok {
 		customSources, err := custom.GetImageSources()
@@ -46,7 +46,7 @@ func GetMetadataSources(env environs.ConfigGetter) ([]simplestreams.DataSource, 
 		return nil, err
 	}
 	if defaultURL != "" {
-		sources = append(sources, simplestreams.NewURLDataSource(defaultURL, simplestreams.VerifySSLHostnames))
+		sources = append(sources, simplestreams.NewURLDataSource("default URL", defaultURL, simplestreams.VerifySSLHostnames))
 	}
 	return sources, nil
 }

@@ -74,7 +74,7 @@ func setupSimpleStreamsTests(t *testing.T) {
 func registerSimpleStreamsTests() {
 	gc.Suite(&simplestreamsSuite{
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
-			Source:        simplestreams.NewURLDataSource("test:", simplestreams.VerifySSLHostnames),
+			Source:        simplestreams.NewURLDataSource("test", "test:", simplestreams.VerifySSLHostnames),
 			RequireSigned: false,
 			DataType:      tools.ContentDownload,
 			ValidConstraint: tools.NewVersionedToolsConstraint("1.13.0", simplestreams.LookupParams{
@@ -92,7 +92,7 @@ func registerSimpleStreamsTests() {
 
 func registerLiveSimpleStreamsTests(baseURL string, validToolsConstraint simplestreams.LookupConstraint, requireSigned bool) {
 	gc.Suite(&sstesting.LocalLiveSimplestreamsSuite{
-		Source:          simplestreams.NewURLDataSource(baseURL, simplestreams.VerifySSLHostnames),
+		Source:          simplestreams.NewURLDataSource("test", baseURL, simplestreams.VerifySSLHostnames),
 		RequireSigned:   requireSigned,
 		DataType:        tools.ContentDownload,
 		ValidConstraint: validToolsConstraint,
@@ -244,8 +244,11 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 				Arches:    t.arches,
 			})
 		}
-		tools, err := tools.Fetch(
-			[]simplestreams.DataSource{s.Source}, simplestreams.DefaultIndexPath, toolsConstraint, s.RequireSigned)
+		// Add invalid datasource and check later that resolveInfo is correct.
+		invalidSource := simplestreams.NewURLDataSource("invalid", "file://invalid", simplestreams.VerifySSLHostnames)
+		tools, resolveInfo, err := tools.Fetch(
+			[]simplestreams.DataSource{invalidSource, s.Source},
+			simplestreams.DefaultIndexPath, toolsConstraint, s.RequireSigned)
 		if !c.Check(err, gc.IsNil) {
 			continue
 		}
@@ -254,6 +257,12 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 		}
 		c.Check(tools, gc.DeepEquals, t.tools)
+		c.Check(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
+			Source:    "test",
+			Signed:    s.RequireSigned,
+			IndexURL:  "test:/streams/v1/index.json",
+			MirrorURL: "",
+		})
 	}
 }
 
@@ -263,7 +272,7 @@ func (s *simplestreamsSuite) TestFetchWithMirror(c *gc.C) {
 		Series:    []string{"precise"},
 		Arches:    []string{"amd64"},
 	})
-	toolsMetadata, err := tools.Fetch(
+	toolsMetadata, resolveInfo, err := tools.Fetch(
 		[]simplestreams.DataSource{s.Source}, simplestreams.DefaultIndexPath, toolsConstraint, s.RequireSigned)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(toolsMetadata), gc.Equals, 1)
@@ -280,6 +289,12 @@ func (s *simplestreamsSuite) TestFetchWithMirror(c *gc.C) {
 	}
 	c.Assert(err, gc.IsNil)
 	c.Assert(toolsMetadata[0], gc.DeepEquals, expectedMetadata)
+	c.Assert(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
+		Source:    "test",
+		Signed:    s.RequireSigned,
+		IndexURL:  "test:/streams/v1/index.json",
+		MirrorURL: "test:/",
+	})
 }
 
 func assertMetadataMatches(c *gc.C, storageDir string, toolList coretools.List, metadata []*tools.ToolsMetadata) {
@@ -752,17 +767,23 @@ func (s *signedSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *signedSuite) TestSignedToolsMetadata(c *gc.C) {
-	signedSource := simplestreams.NewURLDataSource("signedtest://host/signed", simplestreams.VerifySSLHostnames)
+	signedSource := simplestreams.NewURLDataSource("test", "signedtest://host/signed", simplestreams.VerifySSLHostnames)
 	toolsConstraint := tools.NewVersionedToolsConstraint("1.13.0", simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
 		Series:    []string{"precise"},
 		Arches:    []string{"amd64"},
 	})
-	toolsMetadata, err := tools.Fetch(
+	toolsMetadata, resolveInfo, err := tools.Fetch(
 		[]simplestreams.DataSource{signedSource}, simplestreams.DefaultIndexPath, toolsConstraint, true)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(toolsMetadata), gc.Equals, 1)
 	c.Assert(toolsMetadata[0].Path, gc.Equals, "tools/releases/20130806/juju-1.13.1-precise-amd64.tgz")
+	c.Assert(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
+		Source:    "test",
+		Signed:    true,
+		IndexURL:  "signedtest://host/signed/streams/v1/index.sjson",
+		MirrorURL: "",
+	})
 }
 
 var unsignedIndex = `

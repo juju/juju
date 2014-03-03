@@ -180,16 +180,20 @@ func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
 		if _, err := os.Stat(dir); err != nil {
 			return err
 		}
-		params.Sources = []simplestreams.DataSource{simplestreams.NewURLDataSource("file://"+dir, simplestreams.VerifySSLHostnames)}
+		params.Sources = []simplestreams.DataSource{
+			simplestreams.NewURLDataSource(
+				"local metadata directory", "file://"+dir, simplestreams.VerifySSLHostnames),
+		}
 	}
 	params.Stream = c.stream
 
-	image_ids, err := imagemetadata.ValidateImageMetadata(params)
+	image_ids, resolveInfo, err := imagemetadata.ValidateImageMetadata(params)
 	if err != nil {
 		return err
 	}
 
 	if len(image_ids) > 0 {
+		fmt.Println(resolveInfo)
 		fmt.Fprintf(context.Stdout, "matching image ids for region %q:\n%s\n", params.Region, strings.Join(image_ids, "\n"))
 	} else {
 		var urls []string

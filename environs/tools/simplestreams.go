@@ -168,7 +168,10 @@ func (t *ToolsMetadata) productId() (string, error) {
 // The base URL locations are as specified - the first location which has a file is the one used.
 // Signed data is preferred, but if there is no signed data available and onlySigned is false,
 // then unsigned data is used.
-func Fetch(sources []simplestreams.DataSource, indexPath string, cons *ToolsConstraint, onlySigned bool) ([]*ToolsMetadata, error) {
+func Fetch(
+	sources []simplestreams.DataSource, indexPath string, cons *ToolsConstraint,
+	onlySigned bool) ([]*ToolsMetadata, *simplestreams.ResolveInfo, error) {
+
 	params := simplestreams.ValueParams{
 		DataType:        ContentDownload,
 		FilterFunc:      appendMatchingTools,
@@ -176,15 +179,15 @@ func Fetch(sources []simplestreams.DataSource, indexPath string, cons *ToolsCons
 		ValueTemplate:   ToolsMetadata{},
 		PublicKey:       simplestreamsToolsPublicKey,
 	}
-	items, err := simplestreams.GetMetadata(sources, indexPath, cons, onlySigned, params)
+	items, resolveInfo, err := simplestreams.GetMetadata(sources, indexPath, cons, onlySigned, params)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	metadata := make([]*ToolsMetadata, len(items))
 	for i, md := range items {
 		metadata[i] = md.(*ToolsMetadata)
 	}
-	return metadata, nil
+	return metadata, resolveInfo, nil
 }
 
 // appendMatchingTools updates matchingTools with tools metadata records from tools which belong to the
@@ -311,12 +314,13 @@ func MergeMetadata(tmlist1, tmlist2 []*ToolsMetadata) ([]*ToolsMetadata, error) 
 
 // ReadMetadata returns the tools metadata from the given storage.
 func ReadMetadata(store storage.StorageReader) ([]*ToolsMetadata, error) {
-	dataSource := storage.NewStorageSimpleStreamsDataSource(store, storage.BaseToolsPath)
+	dataSource := storage.NewStorageSimpleStreamsDataSource("existing metadata", store, storage.BaseToolsPath)
 	toolsConstraint, err := makeToolsConstraint(simplestreams.CloudSpec{}, -1, -1, coretools.Filter{})
 	if err != nil {
 		return nil, err
 	}
-	metadata, err := Fetch([]simplestreams.DataSource{dataSource}, simplestreams.DefaultIndexPath, toolsConstraint, false)
+	metadata, _, err := Fetch(
+		[]simplestreams.DataSource{dataSource}, simplestreams.DefaultIndexPath, toolsConstraint, false)
 	if err != nil && !errors.IsNotFoundError(err) {
 		return nil, err
 	}

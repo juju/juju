@@ -15,6 +15,9 @@ import (
 
 // A DataSource retrieves simplestreams metadata.
 type DataSource interface {
+	// Description describes the origin of this datasource.
+	// eg tools-metadata-url, cloud storage, keystone catalog etc.
+	Description() string
 	// Fetch loads the data at the specified relative path. It returns a reader from which
 	// the data can be retrieved as well as the full URL of the file. The full URL is typically
 	// used in log messages to help diagnose issues accessing the data.
@@ -43,20 +46,27 @@ const (
 
 // A urlDataSource retrieves data from an HTTP URL.
 type urlDataSource struct {
+	description          string
 	baseURL              string
 	hostnameVerification SSLHostnameVerification
 }
 
 // NewURLDataSource returns a new datasource reading from the specified baseURL.
-func NewURLDataSource(baseURL string, verify SSLHostnameVerification) DataSource {
+func NewURLDataSource(description, baseURL string, verify SSLHostnameVerification) DataSource {
 	return &urlDataSource{
+		description:          description,
 		baseURL:              baseURL,
 		hostnameVerification: verify,
 	}
 }
 
+// Description is defined in simplestreams.DataSource.
+func (u *urlDataSource) Description() string {
+	return u.description
+}
+
 func (u *urlDataSource) GoString() string {
-	return fmt.Sprintf("urlDataSource(%q)", u.baseURL)
+	return fmt.Sprintf("%v: urlDataSource(%q)", u.description, u.baseURL)
 }
 
 // urlJoin returns baseURL + relpath making sure to have a '/' inbetween them

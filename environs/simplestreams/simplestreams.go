@@ -30,6 +30,13 @@ import (
 
 var logger = loggo.GetLogger("juju.environs.simplestreams")
 
+type ResolveInfo struct {
+	Source    string
+	Signed    bool
+	IndexURL  string
+	MirrorURL string
+}
+
 // CloudSpec uniquely defines a specific cloud deployment.
 type CloudSpec struct {
 	Region   string `json:"region"`
@@ -422,12 +429,14 @@ type ValueParams struct {
 // GetMetadata returns metadata records matching the specified constraint,looking in each source for signed metadata.
 // If onlySigned is false and no signed metadata is found in a source, the source is used to look for unsigned metadata.
 // Each source is tried in turn until at least one signed (or unsigned) match is found.
-func GetMetadata(sources []DataSource, baseIndexPath string, cons LookupConstraint, onlySigned bool, params ValueParams) (items []interface{}, err error) {
+func GetMetadata(
+	sources []DataSource, baseIndexPath string, cons LookupConstraint, onlySigned bool,
+	params ValueParams) (items []interface{}, resolveInfo *ResolveInfo, err error) {
 	for _, source := range sources {
-		items, err = getMaybeSignedMetadata(source, baseIndexPath, cons, true, params)
+		items, resolveInfo, err = getMaybeSignedMetadata(source, baseIndexPath, cons, true, params)
 		// If no items are found using signed metadata, check unsigned.
 		if err != nil && len(items) == 0 && !onlySigned {
-			items, err = getMaybeSignedMetadata(source, baseIndexPath, cons, false, params)
+			items, resolveInfo, err = getMaybeSignedMetadata(source, baseIndexPath, cons, false, params)
 		}
 		if err == nil {
 			break
@@ -437,11 +446,14 @@ func GetMetadata(sources []DataSource, baseIndexPath string, cons LookupConstrai
 		// no matching products is an internal error only
 		err = nil
 	}
-	return items, err
+	return items, resolveInfo, err
 }
 
 // getMaybeSignedMetadata returns metadata records matching the specified constraint.
-func getMaybeSignedMetadata(source DataSource, baseIndexPath string, cons LookupConstraint, signed bool, params ValueParams) ([]interface{}, error) {
+func getMaybeSignedMetadata(source DataSource, baseIndexPath string, cons LookupConstraint,
+	signed bool, params ValueParams) ([]interface{}, *ResolveInfo, error) {
+
+	resolveInfo := &ResolveInfo{}
 	indexPath := baseIndexPath + UnsignedSuffix
 	if signed {
 		indexPath = baseIndexPath + signedSuffix
@@ -458,20 +470,26 @@ func getMaybeSignedMetadata(source DataSource, baseIndexPath string, cons Lookup
 		if errors.IsNotFoundError(err) || errors.IsUnauthorizedError(err) {
 			logger.Debugf("cannot load index %q: %v", indexURL, err)
 		}
-		return nil, err
+		return nil, nil, err
 	}
 	logger.Debugf("read metadata index at %q", indexURL)
 	items, err = indexRef.getLatestMetadataWithFormat(cons, "products:1.0", signed)
 	if err != nil {
 		if errors.IsNotFoundError(err) {
 			logger.Debugf("skipping index because of error getting latest metadata %q: %v", indexURL, err)
-			return nil, err
+			return nil, nil, err
 		}
 		if _, ok := err.(*noMatchingProductsError); ok {
 			logger.Debugf("%v", err)
 		}
 	}
-	return items, err
+	resolveInfo.Source = source.Description()
+	resolveInfo.Signed = signed
+	resolveInfo.IndexURL = indexURL
+	if indexRef.Source.Description() == "mirror" {
+		resolveInfo.MirrorURL = indexRef.Source.(*urlDataSource).baseURL
+	}
+	return items, resolveInfo, err
 }
 
 // fetchData gets all the data from the given source located at the specified path.
@@ -534,7 +552,7 @@ func GetIndexWithFormat(source DataSource, indexPath, indexFormat string, requir
 			source, mirrors, params.DataType, params.MirrorContentId, cloudSpec, requireSigned, params.PublicKey)
 		if err == nil {
 			logger.Debugf("using mirrored products path: %s", path.Join(mirrorInfo.MirrorURL, mirrorInfo.Path))
-			indexRef.Source = NewURLDataSource(mirrorInfo.MirrorURL, VerifySSLHostnames)
+			indexRef.Source = NewURLDataSource("mirror", mirrorInfo.MirrorURL, VerifySSLHostnames)
 			indexRef.MirroredProductsPath = mirrorInfo.Path
 		} else {
 			logger.Debugf("no mirror information available for %s: %v", cloudSpec, err)

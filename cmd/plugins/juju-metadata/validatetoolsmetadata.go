@@ -191,10 +191,16 @@ func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {
 		if _, err := os.Stat(c.metadataDir); err != nil {
 			return err
 		}
-		params.Sources = []simplestreams.DataSource{simplestreams.NewURLDataSource("file://"+c.metadataDir, simplestreams.VerifySSLHostnames)}
+		toolsURL, err := tools.ToolsURL(c.metadataDir)
+		if err != nil {
+			return err
+		}
+		params.Sources = []simplestreams.DataSource{simplestreams.NewURLDataSource(
+			"local metadata directory", toolsURL, simplestreams.VerifySSLHostnames),
+		}
 	}
 
-	versions, err := tools.ValidateToolsMetadata(&tools.ToolsMetadataLookupParams{
+	versions, _, err := tools.ValidateToolsMetadata(&tools.ToolsMetadataLookupParams{
 		MetadataLookupParams: *params,
 		Version:              c.exactVersion,
 		Major:                c.major,
