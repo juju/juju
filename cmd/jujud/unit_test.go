@@ -4,17 +4,12 @@
 package main
 
 import (
-	"encoding/json"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 	"time"
 
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/names"
@@ -150,27 +145,10 @@ func (s *UnitSuite) TestUpgrade(c *gc.C) {
 	agent := s.newAgent(c, unit)
 	newVers := version.Current
 	newVers.Patch++
-	envtesting.PrimeTools(c, s.Conn.Environ.Storage(), s.DataDir(), newVers)
-
-	// Set up fake downloaded tools for the assigned machine.
-	libDir := c.MkDir()
-	s.PatchValue(&environs.DataDir, libDir)
-	fakeToolsPath := filepath.Join(libDir, "tools", newVers.String())
-	err := os.MkdirAll(fakeToolsPath, 0700)
-	c.Assert(err, gc.IsNil)
-	fakeTools := tools.Tools{
-		Version: newVers,
-		URL:     "fake-url",
-		Size:    1234,
-		SHA256:  "checksum",
-	}
-	toolsMetadataData, err := json.Marshal(fakeTools)
-	c.Assert(err, gc.IsNil)
-	err = ioutil.WriteFile(filepath.Join(fakeToolsPath, "downloaded-tools.txt"), []byte(toolsMetadataData), 0644)
-	c.Assert(err, gc.IsNil)
+	envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), newVers)
 
 	// Set the machine agent version to trigger an upgrade.
-	err = machine.SetAgentVersion(newVers)
+	err := machine.SetAgentVersion(newVers)
 	c.Assert(err, gc.IsNil)
 	err = runWithTimeout(agent)
 	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
