@@ -312,7 +312,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 
 		}
 		envtesting.MustUploadFakeToolsVersions(s.Conn.Environ.Storage(), versions...)
-		stor, err := filestorage.NewFileStorageWriter(toolsDir, "")
+		stor, err := filestorage.NewFileStorageWriter(toolsDir)
 		c.Assert(err, gc.IsNil)
 		envtesting.MustUploadFakeToolsVersions(stor, versions...)
 		err = com.Run(coretesting.Context(c))

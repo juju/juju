@@ -349,7 +349,7 @@ func createImageMetadata(c *gc.C) (string, []*imagemetadata.ImageMetadata) {
 		Endpoint: "endpoint",
 	}
 	sourceDir := c.MkDir()
-	sourceStor, err := filestorage.NewFileStorageWriter(sourceDir, filestorage.UseDefaultTmpDir)
+	sourceStor, err := filestorage.NewFileStorageWriter(sourceDir)
 	c.Assert(err, gc.IsNil)
 	err = imagemetadata.MergeAndWriteMetadata("raring", im, cloudSpec, sourceStor)
 	c.Assert(err, gc.IsNil)

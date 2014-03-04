@@ -311,7 +311,7 @@ func (s *simplestreamsSuite) TestWriteMetadataNoFetch(c *gc.C) {
 		},
 	}
 	dir := c.MkDir()
-	writer, err := filestorage.NewFileStorageWriter(dir, filestorage.UseDefaultTmpDir)
+	writer, err := filestorage.NewFileStorageWriter(dir)
 	c.Assert(err, gc.IsNil)
 	err = tools.MergeAndWriteMetadata(writer, toolsList, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
@@ -339,7 +339,7 @@ func (s *simplestreamsSuite) assertWriteMetadata(c *gc.C, withMirrors bool) {
 			URL: "bogus://",
 		},
 	}
-	writer, err := filestorage.NewFileStorageWriter(dir, filestorage.UseDefaultTmpDir)
+	writer, err := filestorage.NewFileStorageWriter(dir)
 	c.Assert(err, gc.IsNil)
 	writeMirrors := tools.DoNotWriteMirrors
 	if withMirrors {
@@ -372,7 +372,7 @@ func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *gc.C) {
 			SHA256:  "xyz",
 		},
 	}
-	writer, err := filestorage.NewFileStorageWriter(dir, filestorage.UseDefaultTmpDir)
+	writer, err := filestorage.NewFileStorageWriter(dir)
 	c.Assert(err, gc.IsNil)
 	err = tools.MergeAndWriteMetadata(writer, existingToolsList, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
@@ -689,7 +689,7 @@ func (*metadataHelperSuite) TestReadWriteMetadata(c *gc.C) {
 		Path:    "path2",
 	}}
 
-	stor, err := filestorage.NewFileStorageWriter(c.MkDir(), filestorage.UseDefaultTmpDir)
+	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
 	c.Assert(err, gc.IsNil)
 	out, err := tools.ReadMetadata(stor)
 	c.Assert(out, gc.HasLen, 0)
