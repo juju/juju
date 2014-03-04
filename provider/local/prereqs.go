@@ -67,6 +67,9 @@ var lowestMongoVersion = version.Number{Major: 2, Minor: 2, Patch: 4}
 // unit testing.
 var lxclsPath = "lxc-ls"
 
+// isPackageInstalled is a variable to support testing.
+var isPackageInstalled = utils.IsPackageInstalled
+
 // defaultRsyslogGnutlsPath is the default path to the
 // rsyslog GnuTLS module. This is a variable only to
 // support unit testing.
@@ -143,7 +146,7 @@ func verifyLxc() error {
 }
 
 func verifyRsyslogGnutls() error {
-	if utils.IsPackageInstalled("rsyslog-gnutls") {
+	if isPackageInstalled("rsyslog-gnutls") {
 		return nil
 	}
 	if utils.IsUbuntu() {

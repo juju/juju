@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/upstart"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -36,6 +37,11 @@ func init() {
 	// even when mongodb and lxc-ls can't be
 	// found.
 	lxclsPath = "/bin/true"
+
+	// Allow non-prereq tests to pass by default.
+	isPackageInstalled = func(packageName string) bool {
+		return true
+	}
 }
 
 func (s *prereqsSuite) SetUpTest(c *gc.C) {
@@ -55,6 +61,7 @@ func (s *prereqsSuite) SetUpTest(c *gc.C) {
 	// simulate package installation query responses.
 	err = os.Symlink("/bin/true", filepath.Join(s.tmpdir, "dpkg-query"))
 	c.Assert(err, gc.IsNil)
+	s.PatchValue(&isPackageInstalled, utils.IsPackageInstalled)
 }
 
 func (*prereqsSuite) TestSupportedOS(c *gc.C) {
