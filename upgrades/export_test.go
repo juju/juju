@@ -12,4 +12,5 @@ var (
 	EnsureLockDirExistsAndUbuntuWritable = ensureLockDirExistsAndUbuntuWritable
 	EnsureSystemSSHKey                   = ensureSystemSSHKey
 	UpdateRsyslogPort                    = updateRsyslogPort
+	ProcessDeprecatedAttributes          = processDeprecatedAttributes
 )

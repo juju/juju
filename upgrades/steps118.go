@@ -26,5 +26,10 @@ func stepsFor118() []Step {
 			targets:     []Target{AllMachines},
 			run:         installRsyslogGnutls,
 		},
+		&upgradeStep{
+			description: "remove deprecated attribute values",
+			targets:     []Target{StateServer},
+			run:         processDeprecatedAttributes,
+		},
 	}
 }
