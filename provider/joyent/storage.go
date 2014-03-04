@@ -130,8 +130,8 @@ func list(s *JoyentStorage, path string) ([]string, error) {
 	}
 	var names []string
 	for _, item := range contents {
-		if strings.HasSuffix(item.Name, "/") {
-			items, err := list(s, path+"/"+item.Name[:strings.LastIndex(item.Name, "/")])
+		if strings.EqualFold(item.Type, "directory") {
+			items, err := list(s, path+"/"+item.Name)
 			if err != nil {
 				return nil, err
 			}
