@@ -31,10 +31,10 @@ import (
 var logger = loggo.GetLogger("juju.environs.simplestreams")
 
 type ResolveInfo struct {
-	Source    string
-	Signed    bool
-	IndexURL  string
-	MirrorURL string
+	Source    string `yaml:"source" json:"source"`
+	Signed    bool   `yaml:"signed" json:"signed"`
+	IndexURL  string `yaml:"indexURL" json:"indexURL"`
+	MirrorURL string `yaml:"mirrorURL,omitempty" json:"mirrorURL,omitempty"`
 }
 
 // CloudSpec uniquely defines a specific cloud deployment.

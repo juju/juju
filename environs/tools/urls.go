@@ -54,7 +54,7 @@ func GetMetadataSourcesWithRetries(env environs.ConfigGetter, allowRetry bool) (
 		return nil, err
 	}
 	if defaultURL != "" {
-		sources = append(sources, simplestreams.NewURLDataSource("default URL", defaultURL, simplestreams.VerifySSLHostnames))
+		sources = append(sources, simplestreams.NewURLDataSource("default simplestreams", defaultURL, simplestreams.VerifySSLHostnames))
 	}
 	for _, source := range sources {
 		source.SetAllowRetry(allowRetry)

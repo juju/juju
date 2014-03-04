@@ -119,7 +119,7 @@ func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataUsingEnvironment(c *gc.
 	c.Assert(code, gc.Equals, 0)
 	errOut := ctx.Stdout.(*bytes.Buffer).String()
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
-	c.Check(strippedOut, gc.Matches, `matching tools versions:.*`)
+	c.Check(strippedOut, gc.Matches, `Matching Tools Versions:.*Resolve Metadata.*`)
 }
 
 func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataUsingIncompleteEnvironment(c *gc.C) {
@@ -147,7 +147,7 @@ func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataWithManualParams(c *gc.
 	c.Assert(code, gc.Equals, 0)
 	errOut := ctx.Stdout.(*bytes.Buffer).String()
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
-	c.Check(strippedOut, gc.Matches, `matching tools versions:.*`)
+	c.Check(strippedOut, gc.Matches, `Matching Tools Versions:.*Resolve Metadata.*`)
 }
 
 func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataNoMatch(c *gc.C) {
@@ -178,7 +178,7 @@ func (s *ValidateToolsMetadataSuite) TestOpenstackLocalMetadataWithManualParams(
 	c.Assert(code, gc.Equals, 0)
 	errOut := ctx.Stdout.(*bytes.Buffer).String()
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
-	c.Check(strippedOut, gc.Matches, `matching tools versions:.*`)
+	c.Check(strippedOut, gc.Matches, `Matching Tools Versions:.*Resolve Metadata.*`)
 }
 
 func (s *ValidateToolsMetadataSuite) TestOpenstackLocalMetadataNoMatch(c *gc.C) {
@@ -209,7 +209,7 @@ func (s *ValidateToolsMetadataSuite) TestDefaultVersion(c *gc.C) {
 	c.Assert(code, gc.Equals, 0)
 	errOut := ctx.Stdout.(*bytes.Buffer).String()
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
-	c.Check(strippedOut, gc.Matches, `matching tools versions:.*`)
+	c.Check(strippedOut, gc.Matches, `Matching Tools Versions:.*Resolve Metadata.*`)
 }
 
 func (s *ValidateToolsMetadataSuite) TestMajorVersionMatch(c *gc.C) {
@@ -223,7 +223,7 @@ func (s *ValidateToolsMetadataSuite) TestMajorVersionMatch(c *gc.C) {
 	c.Assert(code, gc.Equals, 0)
 	errOut := ctx.Stdout.(*bytes.Buffer).String()
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
-	c.Check(strippedOut, gc.Matches, `matching tools versions:.*`)
+	c.Check(strippedOut, gc.Matches, `Matching Tools Versions:.*Resolve Metadata.*`)
 }
 
 func (s *ValidateToolsMetadataSuite) TestMajorMinorVersionMatch(c *gc.C) {
@@ -237,7 +237,7 @@ func (s *ValidateToolsMetadataSuite) TestMajorMinorVersionMatch(c *gc.C) {
 	c.Assert(code, gc.Equals, 0)
 	errOut := ctx.Stdout.(*bytes.Buffer).String()
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
-	c.Check(strippedOut, gc.Matches, `matching tools versions:.*`)
+	c.Check(strippedOut, gc.Matches, `Matching Tools Versions:.*Resolve Metadata.*`)
 }
 
 func (s *ValidateToolsMetadataSuite) TestJustDirectory(c *gc.C) {
@@ -249,5 +249,5 @@ func (s *ValidateToolsMetadataSuite) TestJustDirectory(c *gc.C) {
 	c.Assert(code, gc.Equals, 0)
 	errOut := ctx.Stdout.(*bytes.Buffer).String()
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
-	c.Check(strippedOut, gc.Matches, `matching tools versions:.*`)
+	c.Check(strippedOut, gc.Matches, `Matching Tools Versions:.*Resolve Metadata.*`)
 }

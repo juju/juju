@@ -21,6 +21,7 @@ import (
 // ValidateToolsMetadataCommand
 type ValidateToolsMetadataCommand struct {
 	cmd.EnvCommandBase
+	out          cmd.Output
 	providerType string
 	metadataDir  string
 	series       string
@@ -100,6 +101,7 @@ func (c *ValidateToolsMetadataCommand) Info() *cmd.Info {
 
 func (c *ValidateToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
+	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	f.StringVar(&c.providerType, "p", "", "the provider type eg ec2, openstack")
 	f.StringVar(&c.metadataDir, "d", "", "directory where metadata files are found")
 	f.StringVar(&c.series, "s", "", "the series for which to validate (overrides env config series)")
@@ -200,7 +202,7 @@ func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {
 		}
 	}
 
-	versions, _, err := tools.ValidateToolsMetadata(&tools.ToolsMetadataLookupParams{
+	versions, resolveInfo, err := tools.ValidateToolsMetadata(&tools.ToolsMetadataLookupParams{
 		MetadataLookupParams: *params,
 		Version:              c.exactVersion,
 		Major:                c.major,
@@ -211,7 +213,11 @@ func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {
 	}
 
 	if len(versions) > 0 {
-		fmt.Fprintf(context.Stdout, "matching tools versions:\n%s\n", strings.Join(versions, "\n"))
+		metadata := map[string]interface{}{
+			"Matching Tools Versions": versions,
+			"Resolve Metadata":        *resolveInfo,
+		}
+		c.out.Write(context, metadata)
 	} else {
 		var urls []string
 		for _, s := range params.Sources {

@@ -46,7 +46,7 @@ func GetMetadataSources(env environs.ConfigGetter) ([]simplestreams.DataSource, 
 		return nil, err
 	}
 	if defaultURL != "" {
-		sources = append(sources, simplestreams.NewURLDataSource("default URL", defaultURL, simplestreams.VerifySSLHostnames))
+		sources = append(sources, simplestreams.NewURLDataSource("default cloud images", defaultURL, simplestreams.VerifySSLHostnames))
 	}
 	return sources, nil
 }

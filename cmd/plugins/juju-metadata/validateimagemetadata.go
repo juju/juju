@@ -22,6 +22,7 @@ import (
 // ValidateImageMetadataCommand
 type ValidateImageMetadataCommand struct {
 	cmd.EnvCommandBase
+	out          cmd.Output
 	providerType string
 	metadataDir  string
 	series       string
@@ -79,6 +80,7 @@ func (c *ValidateImageMetadataCommand) Info() *cmd.Info {
 
 func (c *ValidateImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
+	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	f.StringVar(&c.providerType, "p", "", "the provider type eg ec2, openstack")
 	f.StringVar(&c.metadataDir, "d", "", "directory where metadata files are found")
 	f.StringVar(&c.series, "s", "", "the series for which to validate (overrides env config series)")
@@ -193,8 +195,12 @@ func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
 	}
 
 	if len(image_ids) > 0 {
-		fmt.Println(resolveInfo)
-		fmt.Fprintf(context.Stdout, "matching image ids for region %q:\n%s\n", params.Region, strings.Join(image_ids, "\n"))
+		metadata := map[string]interface{}{
+			"ImageIds":         image_ids,
+			"Region":           params.Region,
+			"Resolve Metadata": *resolveInfo,
+		}
+		c.out.Write(context, metadata)
 	} else {
 		var urls []string
 		for _, s := range params.Sources {
