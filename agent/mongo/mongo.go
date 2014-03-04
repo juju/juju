@@ -15,9 +15,8 @@ import (
 )
 
 const (
-	maxFiles              = 65000
-	maxProcs              = 20000
-	JujuMongodPathDefault = "/usr/lib/juju/bin/mongod"
+	maxFiles = 65000
+	maxProcs = 20000
 )
 
 var (
@@ -25,8 +24,8 @@ var (
 
 	oldMongoServiceName = "juju-db"
 
-	// JujuMongodPath is the path to the juju-specific mongod instance.
-	JujuMongodPath = JujuMongodPathDefault
+	// JujuMongodPath holds the default path to the juju-specific mongod.
+	JujuMongodPath = "/usr/lib/juju/bin/mongod"
 )
 
 // MongoPath returns the executable path to be used to run mongod on this
@@ -36,15 +35,9 @@ func MongodPath() (string, error) {
 	if _, err := os.Stat(JujuMongodPath); err == nil {
 		return JujuMongodPath, nil
 	}
-
-	s, err := exec.Command("/usr/bin/which", "mongod").Output()
+	path, err := exec.LookPath("mongod")
 	if err != nil {
-		// this should never happen, unless which doesn't exist
-		return "", fmt.Errorf("cannot determine mongod path: %v", err)
-	}
-	path := strings.TrimSpace(string(s))
-	if path == "" {
-		return path, fmt.Errorf("cannot find mongod in $PATH")
+		return "", err
 	}
 	return path, nil
 }
@@ -96,11 +89,11 @@ func makeJournalDirs(dir string) error {
 			return fmt.Errorf("failed to open mongo prealloc file %q: %v", filename, err)
 		}
 		defer f.Close()
-		// write 64kb 16x = 1mb
-		for y := 0; y < 16; y++ {
-			if _, err := f.Write(zeroes); err != nil {
+		for total := 0; total < 1024*1024; {
+			if n, err := f.Write(zeroes); err != nil {
 				return fmt.Errorf("failed to write to mongo prealloc file %q: %v", filename, err)
 			}
+			total += n
 		}
 	}
 	return nil

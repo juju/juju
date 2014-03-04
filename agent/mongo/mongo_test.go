@@ -39,7 +39,7 @@ func (s *MongoSuite) TestJujuMongodPath(c *gc.C) {
 	mongoPath := filepath.Join(d, "mongod")
 	s.PatchValue(&JujuMongodPath, mongoPath)
 
-	err := ioutil.WriteFile(mongoPath, []byte{}, 0777)
+	err := ioutil.WriteFile(mongoPath, nil, 0777)
 	c.Assert(err, gc.IsNil)
 
 	obtained, err := MongodPath()
@@ -53,7 +53,7 @@ func (s *MongoSuite) TestDefaultMongodPath(c *gc.C) {
 	dir := c.MkDir()
 	s.PatchEnvPathPrepend(dir)
 	filename := filepath.Join(dir, "mongod")
-	err := ioutil.WriteFile(filename, []byte{}, 0777)
+	err := ioutil.WriteFile(filename, nil, 0777)
 	c.Assert(err, gc.IsNil)
 
 	obtained, err := MongodPath()

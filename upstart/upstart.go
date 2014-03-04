@@ -18,10 +18,10 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
-const InitDirDefault = "/etc/init"
-
 var startedRE = regexp.MustCompile(`^.* start/running, process (\d+)\n$`)
-var InitDir = InitDirDefault
+
+// InitDir holds the default init directory name.
+var InitDir = "/etc/init"
 
 var InstallStartRetryAttempts = utils.AttemptStrategy{
 	Total: 1 * time.Second,
