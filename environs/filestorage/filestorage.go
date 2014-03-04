@@ -110,7 +110,6 @@ type fileStorageWriter struct {
 	fileStorageReader
 }
 
-
 // NewFileStorageWriter returns a new read/write storag for
 // a directory inside the local file system.
 func NewFileStorageWriter(path string) (storage.Storage, error) {
