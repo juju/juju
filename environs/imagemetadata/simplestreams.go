@@ -175,7 +175,7 @@ func Fetch(
 	}
 	items, resolveInfo, err := simplestreams.GetMetadata(sources, indexPath, cons, onlySigned, params)
 	if err != nil {
-		return nil, nil, err
+		return nil, resolveInfo, err
 	}
 	metadata := make([]*ImageMetadata, len(items))
 	for i, md := range items {

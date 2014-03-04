@@ -32,7 +32,7 @@ func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, majorVersion, minorV
 		if majorMismatch || minorMismacth {
 			return nil, coretools.ErrNoMatches
 		}
-		toolsConstraint = NewVersionedToolsConstraint(filter.Number.String(),
+		toolsConstraint = NewVersionedToolsConstraint(filter.Number,
 			simplestreams.LookupParams{CloudSpec: cloudSpec})
 	} else {
 		toolsConstraint = NewGeneralToolsConstraint(majorVersion, minorVersion, filter.Released,

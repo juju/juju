@@ -62,7 +62,7 @@ func setupSimpleStreamsTests(t *testing.T) {
 			t.Fatalf("Unknown vendor %s. Must be one of %s", *vendor, keys)
 		}
 		registerLiveSimpleStreamsTests(testData.baseURL,
-			tools.NewVersionedToolsConstraint("1.13.0", simplestreams.LookupParams{
+			tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
 				CloudSpec: testData.validCloudSpec,
 				Series:    []string{version.Current.Series},
 				Arches:    []string{"amd64"},
@@ -77,7 +77,7 @@ func registerSimpleStreamsTests() {
 			Source:        simplestreams.NewURLDataSource("test", "test:", simplestreams.VerifySSLHostnames),
 			RequireSigned: false,
 			DataType:      tools.ContentDownload,
-			ValidConstraint: tools.NewVersionedToolsConstraint("1.13.0", simplestreams.LookupParams{
+			ValidConstraint: tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
 				CloudSpec: simplestreams.CloudSpec{
 					Region:   "us-east-1",
 					Endpoint: "https://ec2.us-east-1.amazonaws.com",
@@ -238,11 +238,12 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 				Arches:    t.arches,
 			})
 		} else {
-			toolsConstraint = tools.NewVersionedToolsConstraint(t.version, simplestreams.LookupParams{
-				CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
-				Series:    []string{t.series},
-				Arches:    t.arches,
-			})
+			toolsConstraint = tools.NewVersionedToolsConstraint(version.MustParse(t.version),
+				simplestreams.LookupParams{
+					CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
+					Series:    []string{t.series},
+					Arches:    t.arches,
+				})
 		}
 		// Add invalid datasource and check later that resolveInfo is correct.
 		invalidSource := simplestreams.NewURLDataSource("invalid", "file://invalid", simplestreams.VerifySSLHostnames)
@@ -411,7 +412,7 @@ type productSpecSuite struct{}
 var _ = gc.Suite(&productSpecSuite{})
 
 func (s *productSpecSuite) TestId(c *gc.C) {
-	toolsConstraint := tools.NewVersionedToolsConstraint("1.13.0", simplestreams.LookupParams{
+	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
 		Series: []string{"precise"},
 		Arches: []string{"amd64"},
 	})
@@ -421,7 +422,7 @@ func (s *productSpecSuite) TestId(c *gc.C) {
 }
 
 func (s *productSpecSuite) TestIdMultiArch(c *gc.C) {
-	toolsConstraint := tools.NewVersionedToolsConstraint("1.11.3", simplestreams.LookupParams{
+	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.11.3"), simplestreams.LookupParams{
 		Series: []string{"precise"},
 		Arches: []string{"amd64", "arm"},
 	})
@@ -433,7 +434,7 @@ func (s *productSpecSuite) TestIdMultiArch(c *gc.C) {
 }
 
 func (s *productSpecSuite) TestIdMultiSeries(c *gc.C) {
-	toolsConstraint := tools.NewVersionedToolsConstraint("1.11.3", simplestreams.LookupParams{
+	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.11.3"), simplestreams.LookupParams{
 		Series: []string{"precise", "raring"},
 		Arches: []string{"amd64"},
 	})
@@ -768,7 +769,7 @@ func (s *signedSuite) TearDownSuite(c *gc.C) {
 
 func (s *signedSuite) TestSignedToolsMetadata(c *gc.C) {
 	signedSource := simplestreams.NewURLDataSource("test", "signedtest://host/signed", simplestreams.VerifySSLHostnames)
-	toolsConstraint := tools.NewVersionedToolsConstraint("1.13.0", simplestreams.LookupParams{
+	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
 		Series:    []string{"precise"},
 		Arches:    []string{"amd64"},

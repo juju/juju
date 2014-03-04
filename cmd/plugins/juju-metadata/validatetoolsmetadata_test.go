@@ -165,6 +165,9 @@ func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataNoMatch(c *gc.C) {
 			"-u", "https://ec2.region.amazonaws.com", "-d", s.metadataDir},
 	)
 	c.Assert(code, gc.Equals, 1)
+	errOut := ctx.Stderr.(*bytes.Buffer).String()
+	strippedOut := strings.Replace(errOut, "\n", "", -1)
+	c.Check(strippedOut, gc.Matches, `.*Resolve Metadata:.*`)
 }
 
 func (s *ValidateToolsMetadataSuite) TestOpenstackLocalMetadataWithManualParams(c *gc.C) {
@@ -196,6 +199,9 @@ func (s *ValidateToolsMetadataSuite) TestOpenstackLocalMetadataNoMatch(c *gc.C) 
 			"-u", "some-auth-url", "-d", s.metadataDir},
 	)
 	c.Assert(code, gc.Equals, 1)
+	errOut := ctx.Stderr.(*bytes.Buffer).String()
+	strippedOut := strings.Replace(errOut, "\n", "", -1)
+	c.Check(strippedOut, gc.Matches, `.*Resolve Metadata:.*`)
 }
 
 func (s *ValidateToolsMetadataSuite) TestDefaultVersion(c *gc.C) {

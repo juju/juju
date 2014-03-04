@@ -465,27 +465,27 @@ func getMaybeSignedMetadata(source DataSource, baseIndexPath string, cons Lookup
 		// So the best we can do is use the relative path for the URL when logging messages.
 		indexURL = indexPath
 	}
+	resolveInfo.Source = source.Description()
+	resolveInfo.Signed = signed
+	resolveInfo.IndexURL = indexURL
 	indexRef, err := GetIndexWithFormat(source, indexPath, "index:1.0", signed, cons.Params().CloudSpec, params)
 	if err != nil {
 		if errors.IsNotFoundError(err) || errors.IsUnauthorizedError(err) {
 			logger.Debugf("cannot load index %q: %v", indexURL, err)
 		}
-		return nil, nil, err
+		return nil, resolveInfo, err
 	}
 	logger.Debugf("read metadata index at %q", indexURL)
 	items, err = indexRef.getLatestMetadataWithFormat(cons, "products:1.0", signed)
 	if err != nil {
 		if errors.IsNotFoundError(err) {
 			logger.Debugf("skipping index because of error getting latest metadata %q: %v", indexURL, err)
-			return nil, nil, err
+			return nil, resolveInfo, err
 		}
 		if _, ok := err.(*noMatchingProductsError); ok {
 			logger.Debugf("%v", err)
 		}
 	}
-	resolveInfo.Source = source.Description()
-	resolveInfo.Signed = signed
-	resolveInfo.IndexURL = indexURL
 	if indexRef.Source.Description() == "mirror" {
 		resolveInfo.MirrorURL = indexRef.Source.(*urlDataSource).baseURL
 	}

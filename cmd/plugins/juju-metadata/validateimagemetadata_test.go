@@ -191,6 +191,9 @@ func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataNoMatch(c *gc.C) {
 			"-u", "https://ec2.region.amazonaws.com", "-d", s.metadataDir},
 	)
 	c.Assert(code, gc.Equals, 1)
+	errOut := ctx.Stderr.(*bytes.Buffer).String()
+	strippedOut := strings.Replace(errOut, "\n", "", -1)
+	c.Check(strippedOut, gc.Matches, `.*Resolve Metadata:.*`)
 }
 
 func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataWithManualParams(c *gc.C) {
@@ -218,10 +221,16 @@ func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataNoMatch(c *gc.C) 
 			"-u", "some-auth-url", "-d", s.metadataDir},
 	)
 	c.Assert(code, gc.Equals, 1)
+	errOut := ctx.Stderr.(*bytes.Buffer).String()
+	strippedOut := strings.Replace(errOut, "\n", "", -1)
+	c.Check(strippedOut, gc.Matches, `.*Resolve Metadata:.*`)
 	code = cmd.Main(
 		&ValidateImageMetadataCommand{}, ctx, []string{
 			"-p", "openstack", "-s", "raring", "-r", "region-3",
 			"-u", "some-auth-url", "-d", s.metadataDir},
 	)
 	c.Assert(code, gc.Equals, 1)
+	errOut = ctx.Stderr.(*bytes.Buffer).String()
+	strippedOut = strings.Replace(errOut, "\n", "", -1)
+	c.Check(strippedOut, gc.Matches, `.*Resolve Metadata:.*`)
 }

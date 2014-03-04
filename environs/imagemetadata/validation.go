@@ -35,10 +35,10 @@ func ValidateImageMetadata(params *simplestreams.MetadataLookupParams) ([]string
 	})
 	matchingImages, resolveInfo, err := Fetch(params.Sources, simplestreams.DefaultIndexPath, imageConstraint, false)
 	if err != nil {
-		return nil, nil, err
+		return nil, resolveInfo, err
 	}
 	if len(matchingImages) == 0 {
-		return nil, nil, fmt.Errorf("no matching images found for constraint %+v", imageConstraint)
+		return nil, resolveInfo, fmt.Errorf("no matching images found for constraint %+v", imageConstraint)
 	}
 	image_ids := make([]string, len(matchingImages))
 	for i, im := range matchingImages {

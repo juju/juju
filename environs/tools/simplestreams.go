@@ -102,9 +102,8 @@ type ToolsConstraint struct {
 }
 
 // NewVersionedToolsConstraint returns a ToolsConstraint for a tools with a specific version.
-func NewVersionedToolsConstraint(vers string, params simplestreams.LookupParams) *ToolsConstraint {
-	versNum := version.MustParse(vers)
-	return &ToolsConstraint{LookupParams: params, Version: versNum}
+func NewVersionedToolsConstraint(vers version.Number, params simplestreams.LookupParams) *ToolsConstraint {
+	return &ToolsConstraint{LookupParams: params, Version: vers}
 }
 
 // NewGeneralToolsConstraint returns a ToolsConstraint for tools with matching major/minor version numbers.

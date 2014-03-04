@@ -209,6 +209,14 @@ func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {
 		Minor:                c.minor,
 	})
 	if err != nil {
+		if resolveInfo != nil {
+			metadata := map[string]interface{}{
+				"Resolve Metadata": *resolveInfo,
+			}
+			if metadataYaml, yamlErr := cmd.FormatYaml(metadata); yamlErr == nil {
+				err = fmt.Errorf("%v\n%v", err, string(metadataYaml))
+			}
+		}
 		return err
 	}
 
@@ -219,14 +227,14 @@ func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {
 		}
 		c.out.Write(context, metadata)
 	} else {
-		var urls []string
+		var sources []string
 		for _, s := range params.Sources {
 			url, err := s.URL("")
-			if err != nil {
-				urls = append(urls, url)
+			if err == nil {
+				sources = append(sources, fmt.Sprintf("- %s (%s)", s.Description(), url))
 			}
 		}
-		return fmt.Errorf("no matching tools using URLs:\n%s", strings.Join(urls, "\n"))
+		return fmt.Errorf("no matching tools using sources:\n%s", strings.Join(sources, "\n"))
 	}
 	return nil
 }

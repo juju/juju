@@ -38,7 +38,11 @@ func ValidateToolsMetadata(params *ToolsMetadataLookupParams) ([]string, *simple
 			Arches:    params.Architectures,
 		})
 	} else {
-		toolsConstraint = NewVersionedToolsConstraint(params.Version, simplestreams.LookupParams{
+		versNum, err := version.Parse(params.Version)
+		if err != nil {
+			return nil, nil, err
+		}
+		toolsConstraint = NewVersionedToolsConstraint(versNum, simplestreams.LookupParams{
 			CloudSpec: simplestreams.CloudSpec{params.Region, params.Endpoint},
 			Series:    []string{params.Series},
 			Arches:    params.Architectures,
@@ -46,10 +50,10 @@ func ValidateToolsMetadata(params *ToolsMetadataLookupParams) ([]string, *simple
 	}
 	matchingTools, resolveInfo, err := Fetch(params.Sources, simplestreams.DefaultIndexPath, toolsConstraint, false)
 	if err != nil {
-		return nil, nil, err
+		return nil, resolveInfo, err
 	}
 	if len(matchingTools) == 0 {
-		return nil, nil, fmt.Errorf("no matching tools found for constraint %+v", toolsConstraint)
+		return nil, resolveInfo, fmt.Errorf("no matching tools found for constraint %+v", toolsConstraint)
 	}
 	versions := make([]string, len(matchingTools))
 	for i, tm := range matchingTools {

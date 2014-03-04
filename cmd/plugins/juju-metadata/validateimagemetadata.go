@@ -191,9 +191,16 @@ func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
 
 	image_ids, resolveInfo, err := imagemetadata.ValidateImageMetadata(params)
 	if err != nil {
+		if resolveInfo != nil {
+			metadata := map[string]interface{}{
+				"Resolve Metadata": *resolveInfo,
+			}
+			if metadataYaml, yamlErr := cmd.FormatYaml(metadata); yamlErr == nil {
+				err = fmt.Errorf("%v\n%v", err, string(metadataYaml))
+			}
+		}
 		return err
 	}
-
 	if len(image_ids) > 0 {
 		metadata := map[string]interface{}{
 			"ImageIds":         image_ids,
@@ -202,14 +209,16 @@ func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
 		}
 		c.out.Write(context, metadata)
 	} else {
-		var urls []string
+		var sources []string
 		for _, s := range params.Sources {
 			url, err := s.URL("")
-			if err != nil {
-				urls = append(urls, url)
+			if err == nil {
+				sources = append(sources, fmt.Sprintf("- %s (%s)", s.Description(), url))
 			}
 		}
-		return fmt.Errorf("no matching image ids for region %s using URLs:\n%s", params.Region, strings.Join(urls, "\n"))
+		return fmt.Errorf(
+			"no matching image ids for region %s using sources:\n%s",
+			params.Region, strings.Join(sources, "\n"))
 	}
 	return nil
 }
