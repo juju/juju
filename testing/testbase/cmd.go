@@ -17,6 +17,7 @@ func HookCommandOutput(
 	cmdChan := make(chan *exec.Cmd, 1)
 	origCommandOutput := *outputFunc
 	cleanup := func() {
+		close(cmdChan)
 		*outputFunc = origCommandOutput
 	}
 	*outputFunc = func(cmd *exec.Cmd) ([]byte, error) {
