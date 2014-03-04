@@ -40,7 +40,10 @@ func (s *processDeprecatedAttributesSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = s.State.SetEnvironConfig(newCfg, cfg)
 	c.Assert(err, gc.IsNil)
-	cfg, err = s.State.EnvironConfig()
+}
+
+func (s *processDeprecatedAttributesSuite) TestAttributesSet(c *gc.C) {
+	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
 	allAttrs := cfg.AllAttrs()
 	c.Assert(allAttrs["public-bucket"], gc.Equals, "foo")
