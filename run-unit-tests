@@ -38,6 +38,9 @@ else
     juju_compiler="gccgo-4.9 gccgo-go"
 fi
 sudo apt-get install -y $DEPS \$juju_db \$juju_compiler
+EOT
+
+ssh ubuntu@$instance_name -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" <<EOT
 bzr whoami 'J. Random Hacker <jrandom@example.org>'
 make check
 EOT
