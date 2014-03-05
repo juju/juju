@@ -89,9 +89,6 @@ endif
 	@echo Installing dependencies
 	@sudo apt-get --yes install $(strip $(DEPENDENCIES))
 
-deps:
-	$(shell echo $(DEPENDENCIES))
-
 .PHONY: build check install
 .PHONY: clean format simplify
 .PHONY: install-dependencies
