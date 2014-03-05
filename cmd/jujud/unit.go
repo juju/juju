@@ -6,7 +6,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
 	"launchpad.net/tomb"
 

@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 	"launchpad.net/goose/client"
 	gooseerrors "launchpad.net/goose/errors"
 	"launchpad.net/goose/identity"
@@ -204,7 +204,7 @@ func (p environProvider) MetadataLookupParams(region string) (*simplestreams.Met
 	}
 	return &simplestreams.MetadataLookupParams{
 		Region:        region,
-		Architectures: []string{"amd64", "arm"},
+		Architectures: []string{"amd64", "arm", "arm64"},
 	}, nil
 }
 
@@ -585,7 +585,7 @@ func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 	}
 	// Add the simplestreams source off the control bucket.
 	e.imageSources = append(e.imageSources, storage.NewStorageSimpleStreamsDataSource(
-		e.Storage(), storage.BaseImagesPath))
+		"cloud storage", e.Storage(), storage.BaseImagesPath))
 	// Add the simplestreams base URL from keystone if it is defined.
 	productStreamsURL, err := e.client.MakeServiceURL("product-streams", nil)
 	if err == nil {
@@ -593,7 +593,7 @@ func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 		if !e.Config().SSLHostnameVerification() {
 			verify = simplestreams.NoVerifySSLHostnames
 		}
-		source := simplestreams.NewURLDataSource(productStreamsURL, verify)
+		source := simplestreams.NewURLDataSource("keystone catalog", productStreamsURL, verify)
 		e.imageSources = append(e.imageSources, source)
 	}
 	return e.imageSources, nil
@@ -618,11 +618,12 @@ func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 		verify = simplestreams.NoVerifySSLHostnames
 	}
 	// Add the simplestreams source off the control bucket.
-	e.toolsSources = append(e.toolsSources, storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath))
+	e.toolsSources = append(e.toolsSources, storage.NewStorageSimpleStreamsDataSource(
+		"cloud storage", e.Storage(), storage.BaseToolsPath))
 	// Add the simplestreams base URL from keystone if it is defined.
 	toolsURL, err := e.client.MakeServiceURL("juju-tools", nil)
 	if err == nil {
-		source := simplestreams.NewURLDataSource(toolsURL, verify)
+		source := simplestreams.NewURLDataSource("keystone catalog", toolsURL, verify)
 		e.toolsSources = append(e.toolsSources, source)
 	}
 	return e.toolsSources, nil
@@ -1196,7 +1197,7 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 		Series:        e.ecfg().DefaultSeries(),
 		Region:        region,
 		Endpoint:      e.ecfg().authURL(),
-		Architectures: []string{"amd64", "arm"},
+		Architectures: []string{"amd64", "arm", "arm64"},
 	}, nil
 }
 

@@ -11,4 +11,6 @@ var (
 	StepsFor118                          = stepsFor118
 	EnsureLockDirExistsAndUbuntuWritable = ensureLockDirExistsAndUbuntuWritable
 	EnsureSystemSSHKey                   = ensureSystemSSHKey
+	UpdateRsyslogPort                    = updateRsyslogPort
+	ProcessDeprecatedAttributes          = processDeprecatedAttributes
 )

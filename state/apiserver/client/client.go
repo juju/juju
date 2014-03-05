@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/errgo/errgo"
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/charm"
 	coreCloudinit "launchpad.net/juju-core/cloudinit"

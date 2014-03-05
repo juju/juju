@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
@@ -51,16 +51,16 @@ func Main(args []string) {
 		MissingCallback: RunPlugin,
 	})
 	jujucmd.AddHelpTopic("basics", "Basic commands", helpBasics)
-	jujucmd.AddHelpTopic("local", "How to configure a local (LXC) provider",
+	jujucmd.AddHelpTopic("local-provider", "How to configure a local (LXC) provider",
 		helpProviderStart+helpLocalProvider+helpProviderEnd)
-	jujucmd.AddHelpTopic("openstack", "How to configure an OpenStack provider",
-		helpProviderStart+helpOpenstackProvider+helpProviderEnd)
-	jujucmd.AddHelpTopic("ec2", "How to configure an Amazon EC2 provider",
-		helpProviderStart+helpEC2Provider+helpProviderEnd)
-	jujucmd.AddHelpTopic("hpcloud", "How to configure an HP Cloud provider",
-		helpProviderStart+helpHPCloud+helpProviderEnd)
-	jujucmd.AddHelpTopic("azure", "How to configure a Windows Azure provider",
-		helpProviderStart+helpAzureProvider+helpProviderEnd)
+	jujucmd.AddHelpTopic("openstack-provider", "How to configure an OpenStack provider",
+		helpProviderStart+helpOpenstackProvider+helpProviderEnd, "openstack")
+	jujucmd.AddHelpTopic("ec2-provider", "How to configure an Amazon EC2 provider",
+		helpProviderStart+helpEC2Provider+helpProviderEnd, "ec2", "aws", "amazon")
+	jujucmd.AddHelpTopic("hpcloud-provider", "How to configure an HP Cloud provider",
+		helpProviderStart+helpHPCloud+helpProviderEnd, "hpcloud", "hp-cloud")
+	jujucmd.AddHelpTopic("azure-provider", "How to configure a Windows Azure provider",
+		helpProviderStart+helpAzureProvider+helpProviderEnd, "azure")
 	jujucmd.AddHelpTopic("constraints", "How to use commands with constraints", helpConstraints)
 	jujucmd.AddHelpTopic("glossary", "Glossary of terms", helpGlossary)
 	jujucmd.AddHelpTopic("logging", "How Juju handles logging", helpLogging)
