@@ -161,7 +161,7 @@ func (info *environInfo) SetAPICredentials(creds APICredentials) {
 
 // Location returns the location of the environInfo in human readable format
 func (info *environInfo) Location() string {
-    return info.path
+	return info.path
 }
 
 // Write implements EnvironInfo.Write.
