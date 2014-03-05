@@ -15,8 +15,12 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
-// BundleReader exists to make BundlesDir mockable.
+// BundleReader primarily exists to make BundlesDir mockable.
 type BundleReader interface {
+
+	// Read returns the bundle identified by the supplied info. The abort chan
+	// can be used to notify an implementation that it need not complete the
+	// operation, and can immediately error out if it is convenient to do so.
 	Read(bi BundleInfo, abort <-chan struct{}) (*charm.Bundle, error)
 }
 

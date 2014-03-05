@@ -6,7 +6,6 @@ package charm_test
 import (
 	"fmt"
 	"io/ioutil"
-	"net/url"
 	"os"
 	"path/filepath"
 
@@ -255,21 +254,14 @@ func (br *bundleReader) Add(c *gc.C, url *corecharm.URL, customize func(path str
 		br.bundles = map[string]*corecharm.Bundle{}
 	}
 	br.bundles[url.String()] = bundle
-	return &bundleInfo{url}
+	return &bundleInfo{nil, url}
 }
 
 type bundleInfo struct {
+	charm.BundleInfo
 	url *corecharm.URL
 }
 
 func (info *bundleInfo) URL() *corecharm.URL {
 	return info.url
-}
-
-func (info *bundleInfo) ArchiveURL() (*url.URL, bool, error) {
-	return nil, false, nil
-}
-
-func (info *bundleInfo) ArchiveSha256() (string, error) {
-	return "", nil
 }

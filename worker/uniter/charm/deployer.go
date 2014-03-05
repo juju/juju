@@ -20,7 +20,15 @@ const (
 
 // Deployer is responsible for installing and upgrading charms.
 type Deployer interface {
+
+	// Stage must be called to prime the Deployer to install or upgrade the
+	// bundle identified by the supplied info. The abort chan can be used to
+	// notify an implementation that it need not complete the operation, and
+	// can immediately error out if it convenient to do so.
 	Stage(info BundleInfo, abort <-chan struct{}) error
+
+	// Deploy will install or upgrade the staged bundle. Behaviour is undefined
+	// if Stage has not been called.
 	Deploy() error
 }
 
@@ -33,8 +41,8 @@ type gitDeployer struct {
 	current   *GitDir
 }
 
-// NewGitDeployer creates a new Deployer which stores its state in the supplied
-// directory.
+// NewGitDeployer creates a new Deployer which stores its state in dataPath,
+// and installs or upgrades the charm at charmPath.
 func NewGitDeployer(charmPath, dataPath string, bundles BundleReader) Deployer {
 	return &gitDeployer{
 		charmPath: charmPath,
