@@ -57,7 +57,7 @@ var upgradeGitConflictsTests = []uniterTest{
 			status: params.StatusStarted,
 		},
 		waitHooks{"install", "config-changed", "start"},
-		verifyGitCharm{},
+		verifyGitCharm{dirty: true},
 
 		createCharm{
 			revision: 1,
