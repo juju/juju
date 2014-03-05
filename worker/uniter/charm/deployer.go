@@ -32,18 +32,6 @@ type Deployer interface {
 	Deploy() error
 }
 
-// NewDeployer returns a Deployer of whatever kind is currently in use for the
-// supplied paths, or a manifest deployer if none exists yet.
-func NewDeployer(charmPath, dataPath string, bundles BundleReader) (Deployer, error) {
-	gitDeployer := NewGitDeployer(charmPath, dataPath, bundles).(*gitDeployer)
-	if exists, err := gitDeployer.current.Exists(); err != nil {
-		return nil, err
-	} else if exists {
-		return gitDeployer, nil
-	}
-	return NewManifestDeployer(charmPath, dataPath, bundles), nil
-}
-
 // manifestDeployer tracks the manifests of a series of charm bundles, and
 // uses those to remove files used only by old charms.
 type manifestDeployer struct {

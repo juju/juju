@@ -207,7 +207,10 @@ func (u *Uniter) init(unitTag string) (err error) {
 	u.charmPath = filepath.Join(u.baseDir, "charm")
 	deployerPath := filepath.Join(u.baseDir, "state", "deployer")
 	bundles := charm.NewBundlesDir(filepath.Join(u.baseDir, "state", "bundles"))
-	u.deployer = charm.NewManifestDeployer(u.charmPath, deployerPath, bundles)
+	u.deployer, err = charm.NewDeployer(u.charmPath, deployerPath, bundles)
+	if err != nil {
+		return fmt.Errorf("cannot create deployer: %v", err)
+	}
 	u.sf = NewStateFile(filepath.Join(u.baseDir, "state", "uniter"))
 	u.rand = rand.New(rand.NewSource(time.Now().Unix()))
 	return nil
@@ -674,6 +677,13 @@ func (u *Uniter) addRelation(rel *uniter.Relation, dir *relation.StateDir) error
 			return nil
 		}
 	}
+}
+
+func (u *Uniter) fixDeployer() error {
+	if err := charm.FixDeployer(&u.deployer); err != nil {
+		return fmt.Errorf("cannot convert git deployment to manifest deployment: %v", err)
+	}
+	return nil
 }
 
 // updatePackageProxy updates the package proxy settings from the

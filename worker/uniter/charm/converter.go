@@ -12,12 +12,30 @@ import (
 	"launchpad.net/juju-core/utils/set"
 )
 
+// NewDeployer returns a Deployer of whatever kind is currently in use for the
+// supplied paths, or a manifest deployer if none exists yet. It is a var so
+// that it can be patched for uniter tests.
+var NewDeployer = newDeployer
+
+func newDeployer(charmPath, dataPath string, bundles BundleReader) (Deployer, error) {
+	gitDeployer := NewGitDeployer(charmPath, dataPath, bundles).(*gitDeployer)
+	if exists, err := gitDeployer.current.Exists(); err != nil {
+		return nil, err
+	} else if exists {
+		return gitDeployer, nil
+	}
+	return NewManifestDeployer(charmPath, dataPath, bundles), nil
+}
+
 // FixDeployer ensures that the supplied Deployer address points to a manifest
 // deployer. If a git deployer is passed into FixDeployer, it will be converted
-// to a manifest deployer, and all git deployer data will be removed. The charm
+// to a manifest deployer, and the git deployer data will be removed. The charm
 // is assumed to be in a stable state; this should not be called if there is any
 // chance the git deployer is partway through an upgrade, or in a conflicted state.
-func FixDeployer(deployer *Deployer) error {
+// It is a var so that it can be patched for uniter tests.
+var FixDeployer = fixDeployer
+
+func fixDeployer(deployer *Deployer) error {
 	if manifestDeployer, ok := (*deployer).(*manifestDeployer); ok {
 		// This works around a race at the very end of this func, in which
 		// the process could have been killed after removing the "current"
@@ -95,9 +113,9 @@ func ensureCurrentGitCharm(gitDeployer *gitDeployer, expectURL *charm.URL) error
 
 // gitManifest returns every file path in the supplied directory, *except* for:
 //    * paths below .git, because we don't need to track every file: we just
-//      want them all gine
-//    * charmURLPath, because we don't ever want to remove that, because that's
-//      how the manifestDeployer keeps track of what version it's upgrading from.
+//      want them all gone
+//    * charmURLPath, because we don't ever want to remove that: that's how
+//      the manifestDeployer keeps track of what version it's upgrading from.
 // All paths are slash-separated, to match the bundle manifest format.
 func gitManifest(dirPath string) (set.Strings, error) {
 	manifest := set.NewStrings()

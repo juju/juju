@@ -21,7 +21,7 @@ import (
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent/tools"
-	"launchpad.net/juju-core/charm"
+	corecharm "launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/juju/testing"
@@ -31,11 +31,13 @@ import (
 	apiuniter "launchpad.net/juju-core/state/api/uniter"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 	utilexec "launchpad.net/juju-core/utils/exec"
 	"launchpad.net/juju-core/utils/fslock"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/uniter"
+	"launchpad.net/juju-core/worker/uniter/charm"
 )
 
 // worstCase is used for timeouts when timing out
@@ -888,7 +890,6 @@ var upgradeConflictsTests = []uniterTest{
 		resolveError{state.ResolvedNoHooks},
 		waitHooks{"upgrade-charm", "config-changed", "stop"},
 		waitUniterDead{},
-		fixUpgradeError{},
 	), ut(
 		"upgrade conflict unit dying",
 		startUpgradeError{},
@@ -898,7 +899,6 @@ var upgradeConflictsTests = []uniterTest{
 		resolveError{state.ResolvedNoHooks},
 		waitHooks{"upgrade-charm", "config-changed", "stop"},
 		waitUniterDead{},
-		fixUpgradeError{},
 	), ut(
 		"upgrade conflict unit dead",
 		startUpgradeError{},
@@ -1170,7 +1170,7 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 
 	// Create the subordinate service.
 	dir := coretesting.Charms.ClonedDir(c.MkDir(), "logging")
-	curl, err := charm.ParseURL("cs:quantal/logging")
+	curl, err := corecharm.ParseURL("cs:quantal/logging")
 	c.Assert(err, gc.IsNil)
 	curl = curl.WithRevision(dir.Revision())
 	step(c, ctx, addCharm{dir, curl})
@@ -1212,8 +1212,7 @@ func step(c *gc.C, ctx *context, s stepper) {
 	s.step(c, ctx)
 }
 
-type ensureStateWorker struct {
-}
+type ensureStateWorker struct{}
 
 func (s ensureStateWorker) step(c *gc.C, ctx *context) {
 	addresses, err := ctx.st.Addresses()
@@ -1252,7 +1251,7 @@ func (s createCharm) step(c *gc.C, ctx *context) {
 	if s.customize != nil {
 		s.customize(c, ctx, base)
 	}
-	dir, err := charm.ReadDir(base)
+	dir, err := corecharm.ReadDir(base)
 	c.Assert(err, gc.IsNil)
 	err = dir.SetDiskRevision(s.revision)
 	c.Assert(err, gc.IsNil)
@@ -1260,8 +1259,8 @@ func (s createCharm) step(c *gc.C, ctx *context) {
 }
 
 type addCharm struct {
-	dir  *charm.Dir
-	curl *charm.URL
+	dir  *corecharm.Dir
+	curl *corecharm.URL
 }
 
 func (s addCharm) step(c *gc.C, ctx *context) {
@@ -1630,7 +1629,7 @@ func (s fixHook) step(c *gc.C, ctx *context) {
 type changeConfig map[string]interface{}
 
 func (s changeConfig) step(c *gc.C, ctx *context) {
-	err := ctx.svc.UpdateConfigSettings(charm.Settings(s))
+	err := ctx.svc.UpdateConfigSettings(corecharm.Settings(s))
 	c.Assert(err, gc.IsNil)
 }
 
@@ -1932,8 +1931,8 @@ var subordinateDying = custom{func(c *gc.C, ctx *context) {
 	c.Assert(ctx.subordinate.Destroy(), gc.IsNil)
 }}
 
-func curl(revision int) *charm.URL {
-	return charm.MustParseURL("cs:quantal/wordpress").WithRevision(revision)
+func curl(revision int) *corecharm.URL {
+	return corecharm.MustParseURL("cs:quantal/wordpress").WithRevision(revision)
 }
 
 func appendHook(c *gc.C, charm, name, data string) {
@@ -1950,10 +1949,10 @@ func renameRelation(c *gc.C, charmPath, oldName, newName string) {
 	f, err := os.Open(path)
 	c.Assert(err, gc.IsNil)
 	defer f.Close()
-	meta, err := charm.ReadMeta(f)
+	meta, err := corecharm.ReadMeta(f)
 	c.Assert(err, gc.IsNil)
 
-	replace := func(what map[string]charm.Relation) bool {
+	replace := func(what map[string]corecharm.Relation) bool {
 		for relName, relation := range what {
 			if relName == oldName {
 				what[newName] = relation
@@ -1973,7 +1972,7 @@ func renameRelation(c *gc.C, charmPath, oldName, newName string) {
 	f, err = os.Open(path)
 	c.Assert(err, gc.IsNil)
 	defer f.Close()
-	meta, err = charm.ReadMeta(f)
+	meta, err = corecharm.ReadMeta(f)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -2120,4 +2119,37 @@ func (verify verifyNoFile) step(c *gc.C, ctx *context) {
 	// Wait a short time and check again.
 	time.Sleep(coretesting.ShortWait)
 	c.Assert(verify.filename, jc.DoesNotExist)
+}
+
+// prepareGitUniter runs a sequence of uniter tests with the manifest deployer
+// replacement logic patched out, simulating the effect of running an older
+// version of juju that exclusively used a git deployer. This is useful both
+// for testing the new deployer-replacement code *and* for running the old
+// tests against the new, patched code to check that the tweaks made to
+// accommodate the manifest deployer do not change the original behaviour as
+// simulated by the patched-out code.
+type prepareGitUniter struct {
+	prepSteps []stepper
+}
+
+func (s prepareGitUniter) step(c *gc.C, ctx *context) {
+	c.Assert(ctx.uniter, gc.IsNil, gc.Commentf("please don't try to patch stuff while the uniter's running"))
+	newDeployer := func(charmPath, dataPath string, bundles charm.BundleReader) (charm.Deployer, error) {
+		return charm.NewGitDeployer(charmPath, dataPath, bundles), nil
+	}
+	restoreNewDeployer := testbase.PatchValue(&charm.NewDeployer, newDeployer)
+	defer restoreNewDeployer()
+
+	fixDeployer := func(deployer *charm.Deployer) error {
+		return nil
+	}
+	restoreFixDeployer := testbase.PatchValue(&charm.FixDeployer, fixDeployer)
+	defer restoreFixDeployer()
+
+	for _, prepStep := range s.prepSteps {
+		step(c, ctx, prepStep)
+	}
+	if ctx.uniter != nil {
+		step(c, ctx, stopUniter{})
+	}
 }

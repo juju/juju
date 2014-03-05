@@ -242,6 +242,9 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 	if err = u.unit.SetStatus(params.StatusStarted, "", nil); err != nil {
 		return nil, err
 	}
+	if err := u.fixDeployer(); err != nil {
+		return nil, err
+	}
 	u.f.WantUpgradeEvent(false)
 	for _, r := range u.relationers {
 		r.StartHooks()
