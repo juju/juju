@@ -114,7 +114,7 @@ func (s *DeployerSuite) TestUpgrade(c *gc.C) {
 	c.Assert(lines[0], gc.Matches, `[0-9a-f]{7} Upgraded charm to "cs:s/c-2".`)
 }
 
-func (s *DeployerSuite) TestConflict(c *gc.C) {
+func (s *DeployerSuite) TestConflictRevertResolve(c *gc.C) {
 	// Install.
 	info1 := s.bundles.Add(c, corecharm.MustParseURL("cs:s/c-1"), func(path string) {
 		err := ioutil.WriteFile(filepath.Join(path, "some-file"), []byte("hello"), 0644)
@@ -147,7 +147,7 @@ func (s *DeployerSuite) TestConflict(c *gc.C) {
 	c.Assert(conflicted, gc.Equals, true)
 
 	// Revert and check initial content.
-	err = target.Revert()
+	err = s.deployer.NotifyRevert()
 	c.Assert(err, gc.IsNil)
 	data, err := ioutil.ReadFile(filepath.Join(s.targetPath, "some-file"))
 	c.Assert(err, gc.IsNil)
@@ -175,7 +175,7 @@ func (s *DeployerSuite) TestConflict(c *gc.C) {
 	// Manually resolve, and commit.
 	err = ioutil.WriteFile(filepath.Join(target.Path(), "some-file"), []byte("nu!"), 0644)
 	c.Assert(err, gc.IsNil)
-	err = target.Snapshotf("user resolved conflicts")
+	err = s.deployer.NotifyResolved()
 	c.Assert(err, gc.IsNil)
 	conflicted, err = target.Conflicted()
 	c.Assert(err, gc.IsNil)
