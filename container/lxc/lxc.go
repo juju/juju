@@ -97,6 +97,7 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 	if err != nil {
 		return nil, err
 	}
+	logger.Debugf("backing filesystem: %q", backingFS)
 	return &containerManager{
 		name:              name,
 		logdir:            logDir,
@@ -152,7 +153,7 @@ func (manager *containerManager) StartContainer(
 		}
 		var extraCloneArgs []string
 		if manager.backingFilesystem == Btrfs {
-			extraCloneArgs = append(extraCreateArgs, "--snapshot")
+			extraCloneArgs = append(extraCloneArgs, "--snapshot")
 		}
 
 		// TODO: fslock on clone template
