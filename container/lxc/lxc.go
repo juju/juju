@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 	"launchpad.net/golxc"
 
 	coreCloudinit "launchpad.net/juju-core/cloudinit"

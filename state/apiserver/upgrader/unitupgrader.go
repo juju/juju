@@ -4,13 +4,13 @@
 package upgrader
 
 import (
-	agenttools "launchpad.net/juju-core/agent/tools"
+	"launchpad.net/juju-core/environs"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/watcher"
-	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -107,11 +107,10 @@ func (u *UnitUpgraderAPI) Tools(args params.Entities) (params.ToolsResults, erro
 		Results: make([]params.ToolsResult, len(args.Entities)),
 	}
 	for i, entity := range args.Entities {
-		err := common.ErrPerm
+		result.Results[i].Error = common.ServerError(common.ErrPerm)
 		if u.authorizer.AuthOwner(entity.Tag) {
-			result.Results[i].Tools, err = u.getMachineTools(entity.Tag)
+			result.Results[i] = u.getMachineTools(entity.Tag)
 		}
-		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
 }
@@ -133,7 +132,48 @@ func (u *UnitUpgraderAPI) getAssignedMachine(tag string) (*state.Machine, error)
 	return u.st.Machine(id)
 }
 
-func (u *UnitUpgraderAPI) getMachineTools(tag string) (*tools.Tools, error) {
+func (u *UnitUpgraderAPI) getMachineTools(tag string) params.ToolsResult {
+	var result params.ToolsResult
+	machine, err := u.getAssignedMachine(tag)
+	if err != nil {
+		result.Error = common.ServerError(err)
+		return result
+	}
+	machineTools, err := machine.AgentTools()
+	if err != nil {
+		result.Error = common.ServerError(err)
+		return result
+	}
+	// For older 1.16 upgrader workers, we need to supply a tools URL since the worker will attempt to
+	// download the tools even though they already have been fetched by the machine agent. Newer upgrader
+	// workers do not have this problem. So to be compatible across all versions, we return the full
+	// tools metadata.
+	// TODO (wallyworld) - remove in 1.20, just return machineTools
+	cfg, err := u.st.EnvironConfig()
+	if err != nil {
+		result.Error = common.ServerError(err)
+		return result
+	}
+	// SSLHostnameVerification defaults to true, so we need to
+	// invert that, for backwards-compatibility (older versions
+	// will have DisableSSLHostnameVerification: false by default).
+	result.DisableSSLHostnameVerification = !cfg.SSLHostnameVerification()
+	env, err := environs.New(cfg)
+	if err != nil {
+		result.Error = common.ServerError(err)
+		return result
+	}
+	agentTools, err := envtools.FindExactTools(
+		env, machineTools.Version.Number, machineTools.Version.Series, machineTools.Version.Arch)
+	if err != nil {
+		result.Error = common.ServerError(err)
+		return result
+	}
+	result.Tools = agentTools
+	return result
+}
+
+func (u *UnitUpgraderAPI) getMachineToolsVersion(tag string) (*version.Number, error) {
 	machine, err := u.getAssignedMachine(tag)
 	if err != nil {
 		return nil, err
@@ -142,21 +182,5 @@ func (u *UnitUpgraderAPI) getMachineTools(tag string) (*tools.Tools, error) {
 	if err != nil {
 		return nil, err
 	}
-	// For older 1.16 upgrader workers, we need to supply a tools URL since the worker will attempt to
-	// download the tools even though they already have been fetched by the machine agent. Newer upgrader
-	// workers do not have this problem. So to be compatible across all versions, we return the full tools
-	// metadata as recorded in the downloaded tools directory.
-	downloadedTools, err := agenttools.ReadTools(u.dataDir, machineTools.Version)
-	if err != nil {
-		return nil, err
-	}
-	return downloadedTools, nil
-}
-
-func (u *UnitUpgraderAPI) getMachineToolsVersion(tag string) (*version.Number, error) {
-	agentTools, err := u.getMachineTools(tag)
-	if err != nil {
-		return nil, err
-	}
-	return &agentTools.Version.Number, nil
+	return &machineTools.Version.Number, nil
 }

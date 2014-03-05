@@ -11,6 +11,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -78,10 +79,15 @@ type mockContext struct {
 	messages    []string
 	agentConfig *mockAgentConfig
 	apiState    *api.State
+	state       *state.State
 }
 
 func (c *mockContext) APIState() *api.State {
 	return c.apiState
+}
+
+func (c *mockContext) State() *state.State {
+	return c.state
 }
 
 func (c *mockContext) AgentConfig() agent.Config {
@@ -160,6 +166,14 @@ func upgradeOperations() []upgrades.Operation {
 				&mockUpgradeStep{"step 2 - 1.18.0", targets(upgrades.StateServer)},
 			},
 		},
+		&mockUpgradeOperation{
+			targetVersion: version.MustParse("1.20.0"),
+			steps: []upgrades.Step{
+				&mockUpgradeStep{"step 1 - 1.20.0", targets(upgrades.AllMachines)},
+				&mockUpgradeStep{"step 2 - 1.20.0", targets(upgrades.HostMachine)},
+				&mockUpgradeStep{"step 3 - 1.20.0", targets(upgrades.StateServer)},
+			},
+		},
 	}
 	return steps
 }
@@ -200,9 +214,17 @@ var upgradeTests = []upgradeTest{
 	},
 	{
 		about:         "allMachines matches everything",
-		fromVersion:   "1.17.1",
-		target:        upgrades.AllMachines,
-		expectedSteps: []string{"step 1 - 1.18.0", "step 2 - 1.18.0"},
+		fromVersion:   "1.18.1",
+		toVersion:     "1.20.0",
+		target:        upgrades.HostMachine,
+		expectedSteps: []string{"step 1 - 1.20.0", "step 2 - 1.20.0"},
+	},
+	{
+		about:         "allMachines matches everything",
+		fromVersion:   "1.18.1",
+		toVersion:     "1.20.0",
+		target:        upgrades.StateServer,
+		expectedSteps: []string{"step 1 - 1.20.0", "step 3 - 1.20.0"},
 	},
 	{
 		about:         "error aborts, subsequent steps not run",
