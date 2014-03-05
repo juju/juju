@@ -27,17 +27,17 @@ export GOPATH=\$HOME/$(echo $tarfile|sed -r 's/(.*).tar.gz/\1/')
 cd \$GOPATH/src/launchpad.net/juju-core
 sudo apt-get update
 # make install-dependencies
-if [[ $(apt-cache madison juju-mongodb) =~ .*juju-mongodb.* ]]; then
+if [[ \$(apt-cache madison juju-mongodb) =~ .*juju-mongodb.* ]]; then
     juju_db="juju-mongodb"
 else
     juju_db="mongodb-server"
 fi
-if [[ $(apt-cache madison golang) =~  .*golang.* ]]; then
+if [[ \$(apt-cache madison golang) =~  .*golang.* ]]; then
     juju_compiler="golang"
 else
     juju_compiler="gccgo-4.9 gccgo-go"
 fi
-sudo apt-get install -y $DEPS $juju_db $juju_compiler
+sudo apt-get install -y $DEPS \$juju_db \$juju_compiler
 bzr whoami 'J. Random Hacker <jrandom@example.org>'
 make check
 EOT
