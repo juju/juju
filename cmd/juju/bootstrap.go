@@ -113,9 +113,10 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return err
 	}
 	var existing bool
-	if _, err := store.ReadInfo(c.EnvName); !errors.IsNotFoundError(err) {
+	if environInfo, err := store.ReadInfo(c.EnvName); !errors.IsNotFoundError(err) {
 		existing = true
-		logger.Warningf("Using existing environment file: /path/to/.juju/environments/foo.jenv")
+		loc := environInfo.Location()
+		logger.Warningf("using existing environment file: %q", loc)
 	}
 	environ, err := environs.PrepareFromName(c.EnvName, ctx, store)
 	if err != nil {

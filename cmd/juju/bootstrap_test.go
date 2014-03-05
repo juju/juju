@@ -336,7 +336,7 @@ func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
 	opc, errc := runCommand(ctx, new(BootstrapCommand), "-e", "peckham")
 	c.Assert(<-errc, gc.IsNil)
 	c.Assert((<-opc).(dummy.OpPutFile).Env, gc.Equals, "peckham")
-	c.Assert(testWriter.Log, jc.LogMatches, []string{"Found and using existing .jenv file"})
+	c.Assert(testWriter.Log, jc.LogMatches, []string{"using existing environment file: .*"})
 }
 
 func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
