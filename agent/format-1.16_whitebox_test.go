@@ -27,14 +27,6 @@ type format_1_16Suite struct {
 
 var _ = gc.Suite(&format_1_16Suite{})
 
-func newTestConfig(c *gc.C) *configInternal {
-	params := agentParams
-	params.DataDir = c.MkDir()
-	config, err := NewAgentConfig(params)
-	c.Assert(err, gc.IsNil)
-	return config.(*configInternal)
-}
-
 func (s *format_1_16Suite) TestWriteAgentConfig(c *gc.C) {
 	config := newTestConfig(c)
 	err := s.formatter.write(config)

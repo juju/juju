@@ -4,11 +4,14 @@
 package agent
 
 import (
+	"bytes"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"sync"
 
 	"github.com/errgo/errgo"
@@ -58,7 +61,7 @@ type Config interface {
 	LogDir() string
 
 	// Jobs returns a list of MachineJobs that need to run.
-	Jobs() []state.MachineJob
+	Jobs() []params.MachineJob
 
 	// Tag returns the tag of the entity on whose behalf the state connection
 	// will be made.
@@ -141,11 +144,12 @@ type connectionDetails struct {
 }
 
 type configInternal struct {
+	configFilePath    string
 	dataDir           string
 	logDir            string
 	tag               string
 	nonce             string
-	jobs              []state.MachineJob
+	jobs              []params.MachineJob
 	upgradedToVersion version.Number
 	caCert            []byte
 	stateDetails      *connectionDetails
@@ -160,7 +164,7 @@ type configInternal struct {
 type AgentConfigParams struct {
 	DataDir           string
 	LogDir            string
-	Jobs              []state.MachineJob
+	Jobs              []params.MachineJob
 	UpgradedToVersion version.Number
 	Tag               string
 	Password          string
@@ -272,48 +276,54 @@ func ReadConf(configFilePath string) (Config, error) {
 	// not locking the mutex that is used to protect writes is wrong.
 	configMutex.Lock()
 	defer configMutex.Unlock()
+	var (
+		format formatter
+		config Config
+		err    error
+	)
+	configData, err := ioutil.ReadFile(configFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("cannot read agent config %q: %v", configFilePath, err)
+	}
+
+	// Try to read the legacy format file.
 	dir := filepath.Dir(configFilePath)
-	format, err := readFormat(dir)
+	legacyFormatPath := filepath.Join(dir, legacyFormatFilename)
+	formatBytes, err := ioutil.ReadFile(legacyFormatPath)
+	formatData := string(formatBytes)
+	if err == nil {
+		// It exists, so unmarshal with a legacy formatter.
+		// Drop the format prefix to leave the version only.
+		if !strings.HasPrefix(formatData, legacyFormatPrefix) {
+			return nil, fmt.Errorf("malformed agent config format: %q", formatData)
+		}
+		format, err = getFormatter(strings.TrimPrefix(formatData, legacyFormatPrefix))
+		if err != nil {
+			return nil, err
+		}
+		config, err = format.unmarshal(configData)
+	} else {
+		// Does not exist, just parse the data.
+		format, config, err = parseConfigData(configData)
+	}
 	if err != nil {
 		return nil, err
 	}
-	logger.Debugf("Reading agent config %s", format)
-	formatter, err := newFormatter(format)
-	if err != nil {
-		return nil, err
-	}
-	location := dir // for 1.16 compatibility
-	if format == format_1_18 {
-		location = configFilePath
-	}
-	config, err := formatter.read(location)
-	if err != nil {
-		return nil, err
-	}
-	if config.dataDir == "" {
-		// 1.16 compatibility
-		config.dataDir = dir
-	}
-	if err := config.check(); err != nil {
-		return nil, err
-	}
-
+	logger.Debugf("read agent config format %q", format.version())
 	if format != currentFormat {
-		// Migrate the config to the new format.
-		currentFormatter.migrate(config)
-		// Write the content out in the new format.
-		if err := currentFormatter.write(config); err != nil {
-			logger.Errorf("cannot write the agent config %s: %v", currentFormat, err)
-			return nil, err
+		// Migrate from a legacy format to the new one.
+		data := currentFormat.marshal(config)
+		err := utils.AtomicWriteFile(configFilePath, data, 0600)
+		if err != nil {
+			return nil, fmt.Errorf("cannot upgrade agent config %s to %s: %v", format.version(), currentFormat.version(), err)
 		}
-		// Remove the format file.
-		formatPath := formatFile(dir)
-		if err := os.Remove(formatPath); !os.IsNotExist(err) {
-			logger.Errorf("cannot remove legacy format file %q: %v", formatPath, err)
-			return nil, err
+		logger.Debugf("migrated agent config from %s to %s", format.version(), currentFormat.version())
+		err = os.Remove(legacyFormatPath)
+		if err != nil && !os.IsNotExist(err) {
+			return nil, fmt.Errorf("cannot remove legacy format file %q: %v", legacyFormatPath, err)
 		}
 	}
-
+	config.configFilePath = configFilePath
 	return config, nil
 }
 
@@ -447,11 +457,26 @@ func (c *configInternal) writeNewPassword() (string, error) {
 	return newPassword, nil
 }
 
+func (c *configInternal) fileContents() ([]byte, error) {
+	data, err := currentFormatter.marshal(c)
+	if err != nil {
+		return nil, err
+	}
+	var buf bytes.Buffer
+	fmt.Fprintf(&buf, "%s%s\n", formatPrefix, currentFormatter.version())
+	buf.Write(data)
+	return buf.Bytes(), nil
+}
+
 func (c *configInternal) Write() error {
 	// Lock is taken prior to generating any content to write.
 	configMutex.Lock()
 	defer configMutex.Unlock()
-	return currentFormatter.write(c)
+	data, err := c.fileContents()
+	if err != nil {
+		return err
+	}
+	return utils.AtomicWriteFile(c.configFilePath, data, 0600)
 }
 
 func (c *configInternal) WriteUpgradedToVersion(newVersion version.Number) error {
@@ -466,7 +491,14 @@ func (c *configInternal) WriteUpgradedToVersion(newVersion version.Number) error
 }
 
 func (c *configInternal) WriteCommands() ([]string, error) {
-	return currentFormatter.writeCommands(c)
+	data, err := c.fileContents()
+	if err != nil {
+		return nil, err
+	}
+	data = fileContents(currentFormatter.version(), data)
+	commands := []string{"mkdir -p " + utils.ShQuote(c.Dir())}
+	commands = append(commands, writeFileCommands(c.File(agentConfFile), string(data), 0600)...)
+	return commands, nil
 }
 
 func (c *configInternal) OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassword string, err error) {

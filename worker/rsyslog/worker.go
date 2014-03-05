@@ -6,7 +6,6 @@ package rsyslog
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/user"
 	"strconv"
@@ -21,6 +20,7 @@ import (
 	"launchpad.net/juju-core/names"
 	apirsyslog "launchpad.net/juju-core/state/api/rsyslog"
 	"launchpad.net/juju-core/state/api/watcher"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker"
 )
 
@@ -249,14 +249,15 @@ func (h *RsyslogConfigHandler) ensureCertificates() error {
 }
 
 func writeFileAtomic(path string, data []byte, mode os.FileMode, uid, gid int) error {
-	temp := path + ".temp"
-	if err := ioutil.WriteFile(temp, data, mode); err != nil {
-		return err
-	}
-	if uid != 0 {
-		if err := os.Chown(temp, uid, gid); err != nil {
+	chmodAndChown := func(f *os.File) error {
+		if err := f.Chmod(mode); err != nil {
 			return err
 		}
+		if uid != 0 {
+			if err := f.Chown(uid, gid); err != nil {
+				return err
+			}
+		}
 	}
-	return os.Rename(temp, path)
+	return utils.AtomicWriteFileAndChange(path, data, chmodAndChown)
 }

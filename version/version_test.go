@@ -10,6 +10,7 @@ import (
 
 	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
+	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/version"
 )
@@ -183,21 +184,32 @@ func (suite) TestParseBinary(c *gc.C) {
 }
 
 var marshallers = []struct {
-	name      string
-	marshal   func(interface{}) ([]byte, error)
-	unmarshal func([]byte, interface{}) error
+	name       string
+	marshal    func(interface{}) ([]byte, error)
+	unmarshal  func([]byte, interface{}) error
+	onlyNumber bool
 }{{
 	"json",
 	json.Marshal,
 	json.Unmarshal,
+	false,
 }, {
 	"bson",
 	bson.Marshal,
 	bson.Unmarshal,
+	false,
+}, {
+	"yaml",
+	goyaml.Marshal,
+	goyaml.Unmarshal,
+	true,
 }}
 
 func (suite) TestBinaryMarshalUnmarshal(c *gc.C) {
 	for _, m := range marshallers {
+		if m.onlyNumber {
+			continue
+		}
 		c.Logf("encoding %v", m.name)
 		type doc struct {
 			Version version.Binary
@@ -208,7 +220,7 @@ func (suite) TestBinaryMarshalUnmarshal(c *gc.C) {
 		var nv doc
 		err = m.unmarshal(data, &nv)
 		c.Assert(err, gc.IsNil)
-		c.Assert(v, gc.Equals, nv)
+		c.Assert(nv, gc.Equals, v)
 	}
 }
 
@@ -216,15 +228,18 @@ func (suite) TestNumberMarshalUnmarshal(c *gc.C) {
 	for _, m := range marshallers {
 		c.Logf("encoding %v", m.name)
 		type doc struct {
-			Version version.Number
+			Version *version.Number
 		}
-		v := doc{version.MustParse("1.2.3")}
+		// Work around goyaml bug #1096149
+		// SetYAML is not called for non-pointer fields.
+		np := version.MustParse("1.2.3")
+		v := doc{&np}
 		data, err := m.marshal(&v)
 		c.Assert(err, gc.IsNil)
 		var nv doc
 		err = m.unmarshal(data, &nv)
 		c.Assert(err, gc.IsNil)
-		c.Assert(v, gc.Equals, nv)
+		c.Assert(nv, gc.DeepEquals, v)
 	}
 }
 

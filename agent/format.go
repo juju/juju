@@ -4,10 +4,8 @@
 package agent
 
 import (
+	"bytes"
 	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"launchpad.net/juju-core/utils"
@@ -32,69 +30,36 @@ import (
 // number is just a convenience for us to know which stable release
 // introduced that format.
 
-const (
-	legacyFormatFilename = "format"
-	currentFormat        = format_1_18
-	previousFormat       = format_1_16
-)
-
-var (
-	currentFormatter  = &formatter_1_18{}
-	previousFormatter = &formatter_1_16{}
-)
+var formats = make(map[string]formatter)
 
 // The formatter defines the two methods needed by the formatters for
 // translating to and from the internal, format agnostic, structure.
 type formatter interface {
-	read(location string) (*configInternal, error)
-	write(config *configInternal) error
-	writeCommands(config *configInternal) ([]string, error)
-	// migrate is called when upgrading from the previous format to
-	// the current format.
-	migrate(config *configInternal)
+	version() string
+	unmarshal(data []byte) (Config, error)
 }
 
-func formatFile(dirName string) string {
-	return filepath.Join(dirName, legacyFormatFilename)
+func registerFormat(format formatter) {
+	formats["format "+format.version()] = formatter
 }
 
-func readFormat(dirName string) (string, error) {
-	contents, err := ioutil.ReadFile(formatFile(dirName))
-	if err != nil {
-		// In pre-1.12 agents the format file will be missing,
-		// but we no longer support them. It will be missing
-		// also with 1.18 or later agents.
-		return currentFormat, nil
-	}
-	return strings.TrimSpace(string(contents)), nil
-}
+// Once a new format version is introduced:
+// - Create a formatter for the new version (including a marshal() method);
+// - Call registerFormat in the new format's init() function.
+// - Change this to point to the new format;
+// - Remove the marshal() method from the old format;
 
-func newFormatter(format string) (formatter, error) {
-	switch format {
-	case currentFormat:
-		return currentFormatter, nil
-	case previousFormat:
-		return previousFormatter, nil
-	}
-	return nil, fmt.Errorf("unknown agent config format %q", format)
-}
+// currentFormat holds the current agent config version's formatter.
+var currentFormat = format_1_18
 
-func writeFormatFile(dirName string, format string) error {
-	if format == currentFormat {
-		// In 1.18 we no longer use a format file.
-		return nil
-	}
-	if err := os.MkdirAll(dirName, 0755); err != nil {
-		return err
-	}
-	newFile := formatFile(dirName) + "-new"
-	if err := ioutil.WriteFile(newFile, []byte(format+"\n"), 0644); err != nil {
-		return err
-	}
-	return os.Rename(newFile, formatFile(dirName))
-}
+// agentConfFile is the default file name of used for the agent
+// config.
+const agentConfFile = "agent.conf"
 
-func writeFileCommands(filename, contents string, permission int) []string {
+// formatPrefix is prefix of the first line in an agent config file.
+const formatPrefix = "# format "
+
+func writeFileCommands(filename string, contents []byte, permission int) []string {
 	quotedFilename := utils.ShQuote(filename)
 	return []string{
 		fmt.Sprintf("install -m %o /dev/null %s", permission, quotedFilename),
@@ -102,8 +67,32 @@ func writeFileCommands(filename, contents string, permission int) []string {
 	}
 }
 
-func writeCommandsForFormat(dirName, format string) []string {
-	commands := []string{"mkdir -p " + utils.ShQuote(dirName)}
-	commands = append(commands, writeFileCommands(formatFile(dirName), format, 0644)...)
-	return commands
+func getFormatter(version string) (formatter, error) {
+	version = strings.TrimSpace(version)
+	format, ok := formats[version]
+	if !ok {
+		return nil, fmt.Errorf("unknown agent config format %q", version)
+	}
+	return format, nil
+}
+
+func parseConfigData(data []byte) (formatter, Config, error) {
+	i := bytes.IndexByte(data, '\n')
+	if i == -1 {
+		return nil, nil, fmt.Errorf("invalid agent config format: %s", string(data))
+	}
+	version, configData := string(data[0:i]), data[i+1:]
+	if !strings.HasPrefix(version, formatPrefix) {
+		return nil, nil, fmt.Errorf("malformed agent config format %q", version)
+	}
+	version = strings.TrimPrefix(version, formatPrefix)
+	format, err := getFormatter(version)
+	if err != nil {
+		return nil, nil, err
+	}
+	config, err := format.unmarshal(configData)
+	if err != nil {
+		return nil, nil, err
+	}
+	return format, config, nil
 }

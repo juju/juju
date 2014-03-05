@@ -255,6 +255,25 @@ func (vp *Number) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// GetYAML implements goyaml.Getter
+func (v Number) GetYAML() (tag string, value interface{}) {
+	return "", v.String()
+}
+
+// SetYAML implements goyaml.Setter
+func (vp *Number) SetYAML(tag string, value interface{}) bool {
+	vstr := fmt.Sprintf("%v", value)
+	if vstr == "" {
+		return false
+	}
+	v, err := Parse(vstr)
+	if err != nil {
+		return false
+	}
+	*vp = v
+	return true
+}
+
 func isOdd(x int) bool {
 	return x%2 != 0
 }
