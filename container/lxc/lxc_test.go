@@ -40,6 +40,37 @@ func (s *LxcSuite) SetUpTest(c *gc.C) {
 	loggo.GetLogger("juju.container.lxc").SetLogLevel(loggo.TRACE)
 }
 
+func (s *LxcSuite) TestContainerDirFilesystem(c *gc.C) {
+	for i, test := range []struct {
+		message    string
+		output     string
+		expected   string
+		errorMatch string
+	}{{
+		message:  "btrfs",
+		output:   "Type\nbtrfs\n",
+		expected: lxc.Btrfs,
+	}, {
+		message:  "ext4",
+		output:   "Type\next4\n",
+		expected: "ext4",
+	}, {
+		message:    "not enough output",
+		output:     "foo",
+		errorMatch: "could not determine filesystem type",
+	}} {
+		c.Logf("%v: %s", i, test.message)
+		s.HookCommandOutput(&lxc.FsCommandOutput, []byte(test.output), nil)
+		value, err := lxc.ContainerDirFilesystem()
+		if test.errorMatch == "" {
+			c.Check(err, gc.IsNil)
+			c.Check(value, gc.Equals, test.expected)
+		} else {
+			c.Check(err, gc.ErrorMatches, test.errorMatch)
+		}
+	}
+}
+
 func (s *LxcSuite) makeManager(c *gc.C, name string) container.Manager {
 	manager, err := lxc.NewContainerManager(container.ManagerConfig{
 		container.ConfigName: name,
@@ -177,12 +208,24 @@ func (s *LxcSuite) TestStartContainerNoRestartDir(c *gc.C) {
 	instance := containertesting.StartContainer(c, manager, "1/lxc/0")
 	autostartLink := lxc.RestartSymlink(string(instance.Id()))
 
-	config := lxc.NetworkConfigTemplate("foo", "bar")
+	netConfig := lxc.DefaultNetworkConfig()
+	autostart := true
+	config := lxc.GenerateLXCConfigTemplate(netConfig, autostart)
 	expected := `
-lxc.network.type = foo
-lxc.network.link = bar
+lxc.network.type = veth
+lxc.network.link = lxcbr0
 lxc.network.flags = up
 lxc.start.auto = 1
+`
+	c.Assert(config, gc.Equals, expected)
+	c.Assert(autostartLink, jc.DoesNotExist)
+
+	autostart = false
+	config = lxc.GenerateLXCConfigTemplate(netConfig, autostart)
+	expected = `
+lxc.network.type = veth
+lxc.network.link = lxcbr0
+lxc.network.flags = up
 `
 	c.Assert(config, gc.Equals, expected)
 	c.Assert(autostartLink, jc.DoesNotExist)
@@ -235,14 +278,15 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 		net:    "phys",
 		link:   "foo",
 	}} {
-		config := lxc.GenerateNetworkConfig(test.config)
+		dontCareAboutAutostart := false
+		config := lxc.GenerateLXCConfigTemplate(test.config, dontCareAboutAutostart)
 		c.Assert(config, jc.Contains, fmt.Sprintf("lxc.network.type = %s\n", test.net))
 		c.Assert(config, jc.Contains, fmt.Sprintf("lxc.network.link = %s\n", test.link))
 	}
 }
 
-func (*NetworkSuite) TestNetworkConfigTemplate(c *gc.C) {
-	config := lxc.NetworkConfigTemplate("foo", "bar")
+func (*NetworkSuite) TestLXCConfigTemplate(c *gc.C) {
+	config := lxc.LXCConfigTemplate("foo", "bar")
 	//In the past, the entire lxc.conf file was just networking. With the addition
 	//of the auto start, we now have to have better isolate this test. As such, we
 	//parse the conf template results and just get the results that start with

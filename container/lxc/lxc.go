@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/tailer"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -39,12 +40,33 @@ var (
 const (
 	// DefaultLxcBridge is the package created container bridge
 	DefaultLxcBridge = "lxcbr0"
+	// Btrfs is special as we treat it differently for create and clone.
+	Btrfs = "btrfs"
 )
 
 // DefaultNetworkConfig returns a valid NetworkConfig to use the
 // defaultLxcBridge that is created by the lxc package.
 func DefaultNetworkConfig() *container.NetworkConfig {
 	return container.BridgeNetworkConfig(DefaultLxcBridge)
+}
+
+// FsCommandOutput calls cmd.Output, this is used as an overloading point so
+// we can test what *would* be run without actually executing another program
+var FsCommandOutput = (*exec.Cmd).CombinedOutput
+
+func containerDirFilesystem() (string, error) {
+	cmd := exec.Command("df", "--output=fstype", LxcContainerDir)
+	out, err := FsCommandOutput(cmd)
+	if err != nil {
+		return "", err
+	}
+	// The filesystem is the second line.
+	lines := strings.Split(string(out), "\n")
+	if len(lines) < 2 {
+		logger.Errorf("unexpected output: ", out)
+		return "", fmt.Errorf("could not determine filesystem type")
+	}
+	return lines[1], nil
 }
 
 type containerManager struct {
@@ -132,7 +154,7 @@ func (manager *containerManager) StartContainer(
 		// Note here that the lxcObjectFacotry only returns a valid container
 		// object, and doesn't actually construct the underlying lxc container on
 		// disk.
-		lxcContainer := LxcObjectFactory.New(name)
+		lxcContainer = LxcObjectFactory.New(name)
 		templateParams := []string{
 			"--debug",                      // Debug errors in the cloud image
 			"--userdata", userDataFilename, // Our groovey cloud-init
@@ -146,7 +168,7 @@ func (manager *containerManager) StartContainer(
 			return nil, nil, err
 		}
 		// Make sure that the mount dir has been created.
-		logger.Tracef("make the mount dir for the shard logs")
+		logger.Tracef("make the mount dir for the shared logs")
 		if err := os.MkdirAll(internalLogDir(name), 0755); err != nil {
 			logger.Errorf("failed to create internal /var/log/juju mount dir: %v", err)
 			return nil, nil, err
@@ -416,12 +438,12 @@ func (manager *containerManager) ensureCloneTemplate(
 	}
 	// Create the container.
 	logger.Tracef("create the container")
-	if err := lxcContainer.Create(configFile, defaultTemplate, templateParams...); err != nil {
+	if err := lxcContainer.Create(configFile, defaultTemplate, nil, templateParams); err != nil {
 		logger.Errorf("lxc container creation failed: %v", err)
 		return nil, err
 	}
 	// Make sure that the mount dir has been created.
-	logger.Tracef("make the mount dir for the shard logs")
+	logger.Tracef("make the mount dir for the shared logs")
 	if err := os.MkdirAll(internalLogDir(name), 0755); err != nil {
 		logger.Tracef("failed to create internal /var/log/juju mount dir: %v", err)
 		return nil, err
