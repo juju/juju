@@ -1057,7 +1057,7 @@ func fetchMetadata(name string) (value string, err error) {
 func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket.
 	sources := []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseImagesPath)}
+		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseImagesPath)}
 	return sources, nil
 }
 
@@ -1065,6 +1065,6 @@ func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket.
 	sources := []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)}
+		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseToolsPath)}
 	return sources, nil
 }
