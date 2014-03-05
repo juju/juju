@@ -18,22 +18,22 @@ $SCRIPTS/wait-for-port $instance_name 22
 
 set -x
 set +e
-DEPS="build-essential bzr distro-info-data git-core mercurial zip rsyslog-gnutls"
-ssh ubuntu@$instance_name -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" <<EOT
-set -eux
-sudo apt-get update
-if [[ \$(apt-cache madison juju-mongodb) =~ .*juju-mongodb.* ]]; then
-    juju_db="juju-mongodb"
-else
-    juju_db="mongodb-server"
-fi
-if [[ \$(apt-cache madison golang) =~  .*golang.* ]]; then
-    juju_compiler="golang"
-else
-    juju_compiler="gccgo-4.9 gccgo-go"
-fi
-sudo apt-get install -y $DEPS \$juju_db \$juju_compiler
-EOT
+#DEPS="build-essential bzr distro-info-data git-core mercurial zip rsyslog-gnutls"
+#ssh ubuntu@$instance_name -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" <<EOT
+#set -eux
+#sudo apt-get update
+#if [[ \$(apt-cache madison juju-mongodb) =~ .*juju-mongodb.* ]]; then
+#    juju_db="juju-mongodb"
+#else
+#    juju_db="mongodb-server"
+#fi
+#if [[ \$(apt-cache madison golang) =~  .*golang.* ]]; then
+#    juju_compiler="golang"
+#else
+#    juju_compiler="gccgo-4.9 gccgo-go"
+#fi
+#sudo apt-get install -y $DEPS \$juju_db \$juju_compiler
+#EOT
 
 ssh ubuntu@$instance_name -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" <<EOT
 set -eux
@@ -42,8 +42,8 @@ wget -q $JENKINS_URL/job/build-revision/$revision_build/artifact/$tarfile
 tar -xzvf $tarfile
 export GOPATH=\$HOME/$juju_version
 cd \$GOPATH/src/launchpad.net/juju-core
-# sudo apt-get update
-# make install-dependencies
+sudo apt-get update
+make install-dependencies
 bzr whoami 'J. Random Hacker <jrandom@example.org>'
 make check
 EOT
