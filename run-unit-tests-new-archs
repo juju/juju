@@ -1,25 +1,41 @@
 #!/bin/bash
 set -eux
 : ${LOCAL_JENKINS_URL=$JENKINS_URL}
+ssh_options="-o 'StrictHostKeyChecking no' -o 'UserKnownHostsFile /dev/null'"
+remote_user="ubuntu"
 
-export INSTANCE_TYPE=$1
-export AMI_IMAGE=$2
+if [[ $1 =~ .*@.* ]]; then
+    is_ephemeral="false"
+    remote_user=$(echo $1 | cut -d @ -f1)
+    instance_name=$(echo $1 | cut -d @ -f2)
+    shift
+    ssh_options="$ssh_options $@"
+else
+    is_ephemeral="true"
+    export INSTANCE_TYPE=$1
+    export AMI_IMAGE=$2
+fi
+
+if [[ $is_ephemeral == "true" ]]; then
+    instance_id=$($SCRIPTS/ec2-run-instance-get-id)
+    $SCRIPTS/ec2-tag-job-instances $instance_id
+    set +x
+    echo Starting instance $instance_id
+    instance_name=$($SCRIPTS/ec2-get-name $instance_id)
+    echo Instance has ip $instance_name
+    sleep 30
+    $SCRIPTS/wait-for-port $instance_name 22
+fi
+
+# Define common vars for remote scripts; do not make them evalaute
+# what is known in this script to ensure the logs line order is sane.
 tarfile=$($SCRIPTS/get-tarfile-name $revision_build)
 juju_version=$(basename $tarfile .tar.gz)
-instance_id=$($SCRIPTS/ec2-run-instance-get-id)
-$SCRIPTS/ec2-tag-job-instances $instance_id
-
-set +x
-echo Starting instance $instance_id
-instance_name=$($SCRIPTS/ec2-get-name $instance_id)
-echo Instance has ip $instance_name
-sleep 30
-$SCRIPTS/wait-for-port $instance_name 22
 
 set -x
 set +e
 DEPS="build-essential bzr distro-info-data git-core mercurial zip rsyslog-gnutls"
-ssh ubuntu@$instance_name -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" <<EOT
+ssh $remote_user@$instance_name $ssh_options <<EOT
 set -eux
 sudo apt-get update
 if [[ \$(apt-cache madison juju-mongodb) =~ .*juju-mongodb.* ]]; then
@@ -35,7 +51,7 @@ fi
 sudo apt-get install -y $DEPS \$juju_db \$juju_compiler
 EOT
 
-ssh ubuntu@$instance_name -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" <<EOT
+ssh $remote_user@$instance_name $ssh_options <<EOT
 set -eux
 ssh-keygen -t rsa -b 2048 -N "" -f ~/.ssh/id_rsa
 wget -q $JENKINS_URL/job/build-revision/$revision_build/artifact/$tarfile
@@ -51,5 +67,9 @@ EOT
 EXIT_STATUS=$?
 
 set -e
-$SCRIPTS/ec2-terminate-job-instances
+
+if [[ $is_ephemeral == "true" ]]; then
+    $SCRIPTS/ec2-terminate-job-instances
+fi
+
 exit $EXIT_STATUS
