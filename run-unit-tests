@@ -5,6 +5,7 @@ set -eux
 export INSTANCE_TYPE=$1
 export AMI_IMAGE=$2
 tarfile=$($SCRIPTS/get-tarfile-name $revision_build)
+juju_version=$(basename $tarfile .tar.gz)
 instance_id=$($SCRIPTS/ec2-run-instance-get-id)
 $SCRIPTS/ec2-tag-job-instances $instance_id
 
@@ -21,7 +22,6 @@ DEPS="build-essential bzr distro-info-data git-core mercurial zip rsyslog-gnutls
 ssh ubuntu@$instance_name -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" <<EOT
 set -eux
 sudo apt-get update
-# make install-dependencies
 if [[ \$(apt-cache madison juju-mongodb) =~ .*juju-mongodb.* ]]; then
     juju_db="juju-mongodb"
 else
@@ -40,7 +40,7 @@ set -eux
 ssh-keygen -t rsa -b 2048 -N "" -f ~/.ssh/id_rsa
 wget -q $JENKINS_URL/job/build-revision/$revision_build/artifact/$tarfile
 tar -xzvf $tarfile
-export GOPATH=\$HOME/$(echo $tarfile|sed -r 's/(.*).tar.gz/\1/')
+export GOPATH=\$HOME/$juju_version
 cd \$GOPATH/src/launchpad.net/juju-core
 # sudo apt-get update
 # make install-dependencies
