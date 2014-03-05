@@ -501,9 +501,6 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 			delete(u.relationers, hi.RelationId)
 		}
 	}
-	if err := u.charm.Snapshotf("Completed %q hook.", hi.Kind); err != nil {
-		return err
-	}
 	if hi.Kind == hooks.ConfigChanged {
 		u.ranConfigChanged = true
 	}
