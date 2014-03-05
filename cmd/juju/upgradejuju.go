@@ -232,9 +232,9 @@ func (c *UpgradeJujuCommand) initVersions(cfg *config.Config, env environs.Envir
 			return nil, err
 		}
 		if !c.UploadTools {
-			// No tools found and we shouldn't upload any, so pretend
-			// there is no more recent version available.
-			if c.Version == version.Zero {
+			// No tools found and we shouldn't upload any, so if we are not asking for a
+			// major upgrade, pretend there is no more recent version available.
+			if c.Version == version.Zero && agent.Major == client.Major {
 				return nil, errUpToDate
 			}
 			return nil, err
@@ -299,17 +299,24 @@ func (v *upgradeVersions) uploadTools(storage storage.Storage, series []string) 
 // the value of the chosen field.
 func (v *upgradeVersions) validate() (err error) {
 	if v.chosen == version.Zero {
-		// No explicitly specified version, so find the next available
-		// stable release to upgrade to, starting from the current agent
-		// version and doing major.minor+1 or +2 as needed.
-		nextStable := v.agent
-		if v.agent.IsDev() {
-			nextStable.Minor += 1
+		// No explicitly specified version, so find the version to which we
+		// need to upgrade. If the CLI and agent major versions match, we find
+		// next available stable release to upgrade to by incrementing the
+		// minor version, starting from the current agent version and doing
+		// major.minor+1 or +2 as needed. If the CLI has a greater major version,
+		// we just use the CLI version as is.
+		nextVersion := v.agent
+		if nextVersion.Major == v.client.Major {
+			if v.agent.IsDev() {
+				nextVersion.Minor += 1
+			} else {
+				nextVersion.Minor += 2
+			}
 		} else {
-			nextStable.Minor += 2
+			nextVersion = v.client
 		}
 
-		newestNextStable, found := v.tools.NewestCompatible(nextStable)
+		newestNextStable, found := v.tools.NewestCompatible(nextVersion)
 		if found {
 			log.Debugf("found a more recent stable version %s", newestNextStable)
 			v.chosen = newestNextStable
@@ -319,7 +326,11 @@ func (v *upgradeVersions) validate() (err error) {
 				log.Debugf("found more recent current version %s", newestCurrent)
 				v.chosen = newestCurrent
 			} else {
-				return fmt.Errorf("no more recent supported versions available")
+				if v.agent.Major != v.client.Major {
+					return fmt.Errorf("no compatible tools available")
+				} else {
+					return fmt.Errorf("no more recent supported versions available")
+				}
 			}
 		}
 	} else {
@@ -334,17 +345,16 @@ func (v *upgradeVersions) validate() (err error) {
 		return errUpToDate
 	}
 
-	// Major version upgrade
-	if v.chosen.Major < v.agent.Major {
+	// Disallow major.minor version downgrades.
+	if v.chosen.Major < v.agent.Major || v.chosen.Major == v.agent.Major && v.chosen.Minor < v.agent.Minor {
 		// TODO(fwereade): I'm a bit concerned about old agent/CLI tools even
 		// *connecting* to environments with higher agent-versions; but ofc they
 		// have to connect in order to discover they shouldn't. However, once
 		// any of our tools detect an incompatible version, they should act to
 		// minimize damage: the CLI should abort politely, and the agents should
 		// run an Upgrader but no other tasks.
-		return fmt.Errorf("cannot change major version from %d to %d", v.agent.Major, v.chosen.Major)
-	} else if v.chosen.Major > v.agent.Major {
-		return fmt.Errorf("major version upgrades are not supported yet")
+		return fmt.Errorf("cannot change version from %d.%d to %d.%d",
+			v.agent.Major, v.agent.Minor, v.chosen.Major, v.chosen.Minor)
 	}
 
 	return nil
