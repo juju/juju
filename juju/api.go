@@ -57,15 +57,17 @@ var errAborted = fmt.Errorf("aborted")
 // NewAPIConn returns a new Conn that uses the
 // given environment. The environment must have already
 // been bootstrapped.
-//TODO (mattyw) This function should be deleted
 func NewAPIConn(environ environs.Environ, dialOpts api.DialOpts) (*APIConn, error) {
-	store := configstore.NewMem()
-	environInfo, err := store.CreateInfo(environ.Name())
-	if err != nil {
-		return nil, err
-	}
-	environInfo.SetAPICredentials(configstore.APICredentials{"", ""})
-	info, err := environAPIInfo(environInfo, environ)
+	/*
+		store := configstore.NewMem()
+		environInfo, err := store.CreateInfo(environ.Name())
+		if err != nil {
+			return nil, err
+		}
+		environInfo.SetAPICredentials(configstore.APICredentials{"", ""})
+		info, err := environAPIInfo(environInfo, environ)
+	*/
+	info, err := environAPIInfo(nil, environ)
 	if err != nil {
 		return nil, err
 	}
@@ -117,16 +119,6 @@ func NewUserManagerClient(envName string) (*usermanager.Client, error) {
 }
 
 func newAPIClient(envName string) (*api.State, error) {
-	/*
-		store, err := configstore.NewDisk(osenv.JujuHome())
-		if err != nil {
-			return nil, err
-		}
-		info, err := store.ReadInfo(envName)
-		if err != nil {
-			return nil, err
-		}
-	*/
 	return newAPIFromName(envName, nil)
 }
 
@@ -181,7 +173,6 @@ func newAPIFromName(envName string, info configstore.EnvironInfo) (*api.State, e
 	}
 	try := parallel.NewTry(0, chooseError)
 
-	//store, err := configstore.Default()
 	store, err := configstore.NewDisk(osenv.JujuHome())
 	if err != nil {
 		return nil, fmt.Errorf("cannot open environment info storage: %v", err)
@@ -319,11 +310,13 @@ func environAPIInfo(environInfo configstore.EnvironInfo, environ environs.Enviro
 	if err != nil {
 		return nil, err
 	}
-	if environInfo.APICredentials().User != "" {
-		info.Tag = environInfo.APICredentials().User
-		info.Password = environInfo.APICredentials().Password
-		return info, nil
+	if environInfo != nil {
+		if environInfo.APICredentials().User != "" && environInfo.APICredentials().Password != "" {
+			info.Tag = environInfo.APICredentials().User
+			info.Password = environInfo.APICredentials().Password
+			return info, nil
 
+		}
 	}
 	info.Tag = "user-admin"
 	password := environ.Config().AdminSecret()
@@ -342,33 +335,17 @@ func cacheAPIInfo(info configstore.EnvironInfo, apiInfo *api.Info) error {
 		Addresses: apiInfo.Addrs,
 		CACert:    string(apiInfo.CACert),
 	})
-	/*
-		_, username, err := names.ParseTag(apiInfo.Tag, names.UserTagKind)
-		if err != nil {
-			return fmt.Errorf("not caching API connection settings: invalid API user tag: %v", err)
-		}
-	*/
-	info.SetAPICredentials(configstore.APICredentials{
-		User:     apiInfo.Tag,
-		Password: apiInfo.Password,
-	})
-	if err := info.Write(); err != nil {
-		return fmt.Errorf("cannot cache API connection settings: %v", err)
-	}
-	return nil
-}
-
-func cacheAPICreds(info configstore.EnvironInfo, apiInfo *api.Info) error {
 	_, username, err := names.ParseTag(apiInfo.Tag, names.UserTagKind)
 	if err != nil {
 		return fmt.Errorf("not caching API connection settings: invalid API user tag: %v", err)
 	}
 	info.SetAPICredentials(configstore.APICredentials{
+		//User:     apiInfo.Tag,
 		User:     username,
 		Password: apiInfo.Password,
 	})
 	if err := info.Write(); err != nil {
-		return fmt.Errorf("cannot cache API cred settings: %v", err)
+		return fmt.Errorf("cannot cache API connection settings: %v", err)
 	}
 	return nil
 }

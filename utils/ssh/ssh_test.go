@@ -11,7 +11,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils/ssh"
 )
@@ -163,7 +163,7 @@ func (s *SSHCommandSuite) TestCommandError(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	command := s.client.Command("ignored", []string{"echo", "foo"}, &opts)
 	err = command.Run()
-	c.Assert(cmd.IsRcPassthroughError(err), gc.Equals, true)
+	c.Assert(errors.IsRcPassthroughError(err), gc.Equals, true)
 }
 
 func (s *SSHCommandSuite) TestCommandDefaultIdentities(c *gc.C) {

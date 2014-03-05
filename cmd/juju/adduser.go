@@ -9,6 +9,7 @@ import (
 	"code.google.com/p/go.crypto/ssh/terminal"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju"
 )
 
@@ -23,7 +24,7 @@ Examples:
 `
 
 type AddUserCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	User     string
 	Password string
 }

@@ -7,15 +7,16 @@ import (
 	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/environs/configstore"
-	"launchpad.net/juju-core/names"
+	//"launchpad.net/juju-core/names"
 )
 
 const whoamiDoc = `
 `
 
 type WhoamiCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	out cmd.Output
 }
 
@@ -50,10 +51,10 @@ func (c *WhoamiCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	user := info.APICredentials().User
-	_, id, err := names.ParseTag(user, names.UserTagKind)
+	//_, id, err := names.ParseTag(user, names.UserTagKind)
 	if err != nil {
 		return err
 	}
 
-	return c.out.Write(ctx, id)
+	return c.out.Write(ctx, user)
 }

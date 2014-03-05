@@ -24,7 +24,7 @@ func (s *LoginSuite) TestLogin(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	info, err := s.ConfigStore.ReadInfo("dummyenv")
-	c.Assert(info.APICredentials().User, gc.Equals, "user-foobar")
+	c.Assert(info.APICredentials().User, gc.Equals, "foobar")
 
 }
 

@@ -9,6 +9,7 @@ import (
 	"code.google.com/p/go.crypto/ssh/terminal"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
@@ -18,7 +19,7 @@ const loginDoc = `
 `
 
 type LoginCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	User     string
 	Password string
 }
