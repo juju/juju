@@ -30,6 +30,15 @@ const (
 type Deployer interface {
 	Stage(info BundleInfo, abort <-chan struct{}) error
 	Deploy() error
+
+	// NotifyResolved must be called to inform the Deployer that a conflicted
+	// deploy has been unblocked by some change.
+	NotifyResolved() error
+
+	// NotifyRevert must be called to inform the Deployer that a conflicted
+	// deploy has failed irreparably, and future deployments should be made
+	// based on the state before the attempted deploy was started.
+	NotifyRevert() error
 }
 
 // manifestDeployer tracks the manifests of a series of charm bundles, and
@@ -123,7 +132,6 @@ func (d *manifestDeployer) Deploy() (err error) {
 	}
 	deployingURL, deployingManifest, err := d.loadManifest(deployingURLPath)
 	if err == nil {
-		// A deploy was already in progress.
 		log.Debugf("detected interrupted deploy of charm %q", deployingURL)
 		if *deployingURL != *d.staged.url {
 			// Remove any files from the interrupted deploy.
@@ -157,6 +165,18 @@ func (d *manifestDeployer) Deploy() (err error) {
 	// Move the deploying file over the charm URL file, and we're done.
 	log.Debugf("finishing deploy of charm %q", d.staged.url)
 	return d.finishDeploy()
+}
+
+func (d *manifestDeployer) NotifyResolved() error {
+	// Maybe it is resolved, maybe not. We'll find out soon enough, but we
+	// don't need to take any action now.
+	return nil
+}
+
+func (d *manifestDeployer) NotifyRevert() error {
+	// The Deploy implementation always reverts when required anyway, so we
+	// need take no action right now.
+	return nil
 }
 
 // CharmPath returns the supplied path joined to the ManfiestDeployer's charm directory.
@@ -203,20 +223,20 @@ func (d *manifestDeployer) finishDeploy() error {
 // and can install and upgrade charm deployments to the current version. It
 // should not be used under any circumstances.
 type gitDeployer struct {
-	charmPath string
-	dataPath  string
-	bundles   BundleReader
-	current   *GitDir
+	target   *GitDir
+	dataPath string
+	bundles  BundleReader
+	current  *GitDir
 }
 
 // NewGitDeployer creates a new Deployer which stores its state in the supplied
 // directory.
 func NewGitDeployer(charmPath, dataPath string, bundles BundleReader) Deployer {
 	return &gitDeployer{
-		charmPath: charmPath,
-		dataPath:  dataPath,
-		bundles:   bundles,
-		current:   NewGitDir(filepath.Join(dataPath, gitCurrentPath)),
+		target:   NewGitDir(charmPath),
+		dataPath: dataPath,
+		bundles:  bundles,
+		current:  NewGitDir(filepath.Join(dataPath, gitCurrentPath)),
 	}
 }
 
@@ -301,18 +321,25 @@ func (d *gitDeployer) Deploy() (err error) {
 	} else if !exists {
 		return fmt.Errorf("no charm set")
 	}
-	target := NewGitDir(d.charmPath)
-	if exists, err := target.Exists(); err != nil {
+	if exists, err := d.target.Exists(); err != nil {
 		return err
 	} else if !exists {
-		return d.install(target)
+		return d.install()
 	}
-	return d.upgrade(target)
+	return d.upgrade()
+}
+
+func (d *gitDeployer) NotifyResolved() error {
+	return d.target.Snapshotf("Upgrade conflict resolved.")
+}
+
+func (d *gitDeployer) NotifyRevert() error {
+	return d.target.Revert()
 }
 
 // install creates a new deployment of current, and atomically moves it to
 // target.
-func (d *gitDeployer) install(target *GitDir) error {
+func (d *gitDeployer) install() error {
 	defer collectGitOrphans(d.dataPath)
 	log.Infof("worker/uniter/charm: preparing new charm deployment")
 	url, err := d.current.ReadCharmURL()
@@ -334,42 +361,37 @@ func (d *gitDeployer) install(target *GitDir) error {
 		return err
 	}
 	log.Infof("worker/uniter/charm: deploying charm")
-	return os.Rename(installPath, target.Path())
+	return os.Rename(installPath, d.target.Path())
 }
 
 // upgrade pulls from current into target. If target has local changes, but
 // no conflicts, it will be snapshotted before any changes are made.
-func (d *gitDeployer) upgrade(target *GitDir) error {
+func (d *gitDeployer) upgrade() error {
 	log.Infof("worker/uniter/charm: preparing charm upgrade")
 	url, err := d.current.ReadCharmURL()
 	if err != nil {
 		return err
 	}
-	if err := target.Init(); err != nil {
+	if err := d.target.Init(); err != nil {
 		return err
 	}
-	if dirty, err := target.Dirty(); err != nil {
+	if dirty, err := d.target.Dirty(); err != nil {
 		return err
 	} else if dirty {
-		if conflicted, err := target.Conflicted(); err != nil {
+		if conflicted, err := d.target.Conflicted(); err != nil {
 			return err
-		} else if conflicted {
-			log.Infof("worker/uniter/charm: reverting conflicted charm before upgrade")
-			if err := target.Revert(); err != nil {
-				return err
-			}
-		} else {
+		} else if !conflicted {
 			log.Infof("worker/uniter/charm: snapshotting dirty charm before upgrade")
-			if err = target.Snapshotf("Pre-upgrade snapshot."); err != nil {
+			if err = d.target.Snapshotf("Pre-upgrade snapshot."); err != nil {
 				return err
 			}
 		}
 	}
 	log.Infof("worker/uniter/charm: deploying charm")
-	if err := target.Pull(d.current); err != nil {
+	if err := d.target.Pull(d.current); err != nil {
 		return err
 	}
-	return target.Snapshotf("Upgraded charm to %q.", url)
+	return d.target.Snapshotf("Upgraded charm to %q.", url)
 }
 
 // collectGitOrphans deletes all repos in dataPath except the one pointed to by

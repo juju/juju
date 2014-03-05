@@ -48,7 +48,7 @@ func fixDeployer(deployer *Deployer) error {
 		return fmt.Errorf("cannot fix unknown deployer type: %T", *deployer)
 	}
 	manifestDeployer := &manifestDeployer{
-		charmPath: gitDeployer.charmPath,
+		charmPath: gitDeployer.target.Path(),
 		dataPath:  gitDeployer.dataPath,
 		bundles:   gitDeployer.bundles,
 	}

@@ -399,10 +399,17 @@ func ModeConflicted(curl *charm.URL) Mode {
 		case <-u.tomb.Dying():
 			return nil, tomb.ErrDying
 		case <-u.f.ResolvedEvents():
-			if err := u.f.ClearResolved(); err != nil {
+			err := u.deployer.NotifyResolved()
+			if e := u.f.ClearResolved(); e != nil {
+				return nil, e
+			}
+			if err != nil {
 				return nil, err
 			}
 		case curl = <-u.f.UpgradeEvents():
+			if err := u.deployer.NotifyRevert(); err != nil {
+				return nil, err
+			}
 		}
 		return ModeUpgrading(curl), nil
 	}
