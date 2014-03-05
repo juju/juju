@@ -68,7 +68,7 @@ func (l *Log) Start(ctx *Context) error {
 	}
 	level := loggo.WARNING
 	if l.Verbose {
-		ctx.Stdout.Write([]byte("verbose is deprecated with the current meaning, use show-log\n"))
+		ctx.Stdout.Write([]byte("Flag --verbose is deprecated with the current meaning, use --show-log\n"))
 		l.ShowLog = true
 	}
 	if l.ShowLog {

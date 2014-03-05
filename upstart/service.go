@@ -6,6 +6,7 @@ package upstart
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path"
 
 	"launchpad.net/juju-core/utils"
@@ -33,8 +34,10 @@ func MongodPath() string {
 		return JujuMongodPath
 	}
 
+	s, _ := exec.LookPath("mongod")
+
 	// just use whatever is in the path
-	return "mongod"
+	return s
 }
 
 // MongoUpstartService returns the upstart config for the mongo state service.

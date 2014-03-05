@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 )
 
 var logger = loggo.GetLogger("juju.agent")
@@ -30,7 +31,6 @@ const (
 	StorageAddr      = "STORAGE_ADDR"
 	AgentServiceName = "AGENT_SERVICE_NAME"
 	MongoServiceName = "MONGO_SERVICE_NAME"
-	RsyslogConfPath  = "RSYSLOG_CONF_PATH"
 	BootstrapJobs    = "BOOTSTRAP_JOBS"
 )
 
@@ -88,6 +88,14 @@ type Config interface {
 	// APIServerDetails returns the details needed to run an API server.
 	APIServerDetails() (port int, cert, key []byte)
 
+	// UpgradedToVersion returns the version for which all upgrade steps have been
+	// successfully run, which is also the same as the initially deployed version.
+	UpgradedToVersion() version.Number
+
+	// WriteUpgradedToVersion updates the config's UpgradedToVersion and writes
+	// the new agent configuration.
+	WriteUpgradedToVersion(newVersion version.Number) error
+
 	// Value returns the value associated with the key, or an empty string if
 	// the key is not found.
 	Value(key string) string
@@ -128,28 +136,30 @@ type connectionDetails struct {
 }
 
 type configInternal struct {
-	dataDir         string
-	tag             string
-	nonce           string
-	caCert          []byte
-	stateDetails    *connectionDetails
-	apiDetails      *connectionDetails
-	oldPassword     string
-	stateServerCert []byte
-	stateServerKey  []byte
-	apiPort         int
-	values          map[string]string
+	dataDir           string
+	tag               string
+	upgradedToVersion version.Number
+	nonce             string
+	caCert            []byte
+	stateDetails      *connectionDetails
+	apiDetails        *connectionDetails
+	oldPassword       string
+	stateServerCert   []byte
+	stateServerKey    []byte
+	apiPort           int
+	values            map[string]string
 }
 
 type AgentConfigParams struct {
-	DataDir        string
-	Tag            string
-	Password       string
-	Nonce          string
-	StateAddresses []string
-	APIAddresses   []string
-	CACert         []byte
-	Values         map[string]string
+	DataDir           string
+	Tag               string
+	UpgradedToVersion version.Number
+	Password          string
+	Nonce             string
+	StateAddresses    []string
+	APIAddresses      []string
+	CACert            []byte
+	Values            map[string]string
 
 	// These are only used by agents that are going to be managing state.
 	StateServerCert []byte
@@ -160,37 +170,41 @@ type AgentConfigParams struct {
 
 // NewAgentConfig returns a new config object suitable for use for a
 // machine or unit agent.
-func NewAgentConfig(params AgentConfigParams) (Config, error) {
-	if params.DataDir == "" {
+func NewAgentConfig(configParams AgentConfigParams) (Config, error) {
+	if configParams.DataDir == "" {
 		return nil, errgo.Trace(requiredError("data directory"))
 	}
-	if params.Tag == "" {
+	if configParams.Tag == "" {
 		return nil, errgo.Trace(requiredError("entity tag"))
 	}
-	if params.Password == "" {
+	if configParams.UpgradedToVersion == version.Zero {
+		return nil, errgo.Trace(requiredError("upgradedToVersion"))
+	}
+	if configParams.Password == "" {
 		return nil, errgo.Trace(requiredError("password"))
 	}
-	if params.CACert == nil {
+	if configParams.CACert == nil {
 		return nil, errgo.Trace(requiredError("CA certificate"))
 	}
 	// Note that the password parts of the state and api information are
 	// blank.  This is by design.
 	config := &configInternal{
-		dataDir:     params.DataDir,
-		tag:         params.Tag,
-		nonce:       params.Nonce,
-		caCert:      params.CACert,
-		oldPassword: params.Password,
-		values:      params.Values,
+		dataDir:           configParams.DataDir,
+		tag:               configParams.Tag,
+		upgradedToVersion: configParams.UpgradedToVersion,
+		nonce:             configParams.Nonce,
+		caCert:            configParams.CACert,
+		oldPassword:       configParams.Password,
+		values:            configParams.Values,
 	}
-	if len(params.StateAddresses) > 0 {
+	if len(configParams.StateAddresses) > 0 {
 		config.stateDetails = &connectionDetails{
-			addresses: params.StateAddresses,
+			addresses: configParams.StateAddresses,
 		}
 	}
-	if len(params.APIAddresses) > 0 {
+	if len(configParams.APIAddresses) > 0 {
 		config.apiDetails = &connectionDetails{
-			addresses: params.APIAddresses,
+			addresses: configParams.APIAddresses,
 		}
 	}
 	if err := config.check(); err != nil {
@@ -204,21 +218,21 @@ func NewAgentConfig(params AgentConfigParams) (Config, error) {
 
 // NewStateMachineConfig returns a configuration suitable for
 // a machine running the state server.
-func NewStateMachineConfig(params AgentConfigParams) (Config, error) {
-	if params.StateServerCert == nil {
+func NewStateMachineConfig(configParams AgentConfigParams) (Config, error) {
+	if configParams.StateServerCert == nil {
 		return nil, errgo.Trace(requiredError("state server cert"))
 	}
-	if params.StateServerKey == nil {
+	if configParams.StateServerKey == nil {
 		return nil, errgo.Trace(requiredError("state server key"))
 	}
-	config0, err := NewAgentConfig(params)
+	config0, err := NewAgentConfig(configParams)
 	if err != nil {
 		return nil, err
 	}
 	config := config0.(*configInternal)
-	config.stateServerCert = params.StateServerCert
-	config.stateServerKey = params.StateServerKey
-	config.apiPort = params.APIPort
+	config.stateServerCert = configParams.StateServerCert
+	config.stateServerKey = configParams.StateServerKey
+	config.apiPort = configParams.APIPort
 	return config, nil
 }
 
@@ -281,6 +295,10 @@ func (c *configInternal) DataDir() string {
 
 func (c *configInternal) Nonce() string {
 	return c.nonce
+}
+
+func (c *configInternal) UpgradedToVersion() version.Number {
+	return c.upgradedToVersion
 }
 
 func (c *configInternal) CACert() []byte {
@@ -415,6 +433,17 @@ func (c *configInternal) Write() error {
 	configMutex.Lock()
 	defer configMutex.Unlock()
 	return currentFormatter.write(c)
+}
+
+func (c *configInternal) WriteUpgradedToVersion(newVersion version.Number) error {
+	originalVersion := c.upgradedToVersion
+	c.upgradedToVersion = newVersion
+	err := c.Write()
+	if err != nil {
+		// We don't want to retain the new version if there's been an error writing the file.
+		c.upgradedToVersion = originalVersion
+	}
+	return err
 }
 
 func (c *configInternal) WriteCommands() ([]string, error) {

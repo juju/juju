@@ -11,6 +11,7 @@ import (
 
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/version"
 )
 
 type format_1_12Suite struct {
@@ -42,6 +43,8 @@ func (s *format_1_12Suite) TestWriteAgentConfig(c *gc.C) {
 }
 
 func (s *format_1_12Suite) assertWriteAndRead(c *gc.C, config *configInternal) {
+	// Format 1.12 doesn't know about upgradedToVersion so zero it out.
+	config.upgradedToVersion = version.Zero
 	err := s.formatter.write(config)
 	c.Assert(err, gc.IsNil)
 	// The readConfig is missing the dataDir initially.

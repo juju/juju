@@ -61,6 +61,7 @@ func (s *SyslogConfigSuite) TestAccumulateConfigWrite(c *gc.C) {
 
 func (s *SyslogConfigSuite) TestAccumulateConfigRenderWithNamespace(c *gc.C) {
 	syslogConfigRenderer := syslog.NewAccumulateConfig("some-machine", 8888, "namespace")
+	syslogConfigRenderer.LogDir += "-namespace"
 	s.assertRsyslogConfigContents(
 		c, syslogConfigRenderer, syslogtesting.ExpectedAccumulateSyslogConf(c, "some-machine", "namespace", 8888))
 }
@@ -68,13 +69,13 @@ func (s *SyslogConfigSuite) TestAccumulateConfigRenderWithNamespace(c *gc.C) {
 func (s *SyslogConfigSuite) TestForwardConfigRender(c *gc.C) {
 	syslogConfigRenderer := syslog.NewForwardConfig("some-machine", 999, "", []string{"server"})
 	s.assertRsyslogConfigContents(
-		c, syslogConfigRenderer, syslogtesting.ExpectedForwardSyslogConf(c, "some-machine", "", 999))
+		c, syslogConfigRenderer, syslogtesting.ExpectedForwardSyslogConf(c, "some-machine", "", "server", 999))
 }
 
 func (s *SyslogConfigSuite) TestForwardConfigRenderWithNamespace(c *gc.C) {
 	syslogConfigRenderer := syslog.NewForwardConfig("some-machine", 999, "namespace", []string{"server"})
 	s.assertRsyslogConfigContents(
-		c, syslogConfigRenderer, syslogtesting.ExpectedForwardSyslogConf(c, "some-machine", "namespace", 999))
+		c, syslogConfigRenderer, syslogtesting.ExpectedForwardSyslogConf(c, "some-machine", "namespace", "server", 999))
 }
 
 func (s *SyslogConfigSuite) TestForwardConfigWrite(c *gc.C) {
@@ -86,5 +87,6 @@ func (s *SyslogConfigSuite) TestForwardConfigWrite(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	syslogConfData, err := ioutil.ReadFile(syslogConfigRenderer.ConfigFilePath())
 	c.Assert(err, gc.IsNil)
-	c.Assert(string(syslogConfData), gc.Equals, syslogtesting.ExpectedForwardSyslogConf(c, "some-machine", "", 999))
+	c.Assert(
+		string(syslogConfData), gc.Equals, syslogtesting.ExpectedForwardSyslogConf(c, "some-machine", "", "server", 999))
 }

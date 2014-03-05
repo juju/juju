@@ -51,11 +51,12 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 
 	pwHash := utils.UserPasswordHash(testing.DefaultMongoPassword, utils.CompatSalt)
 	cfg, err := agent.NewAgentConfig(agent.AgentConfigParams{
-		DataDir:        dataDir,
-		Tag:            "machine-0",
-		StateAddresses: []string{testing.MgoServer.Addr()},
-		CACert:         []byte(testing.CACert),
-		Password:       pwHash,
+		DataDir:           dataDir,
+		Tag:               "machine-0",
+		UpgradedToVersion: version.Current.Number,
+		StateAddresses:    []string{testing.MgoServer.Addr()},
+		CACert:            []byte(testing.CACert),
+		Password:          pwHash,
 	})
 	c.Assert(err, gc.IsNil)
 	expectConstraints := constraints.MustParse("mem=1024M")
@@ -116,11 +117,12 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	dataDir := c.MkDir()
 	pwHash := utils.UserPasswordHash(testing.DefaultMongoPassword, utils.CompatSalt)
 	cfg, err := agent.NewAgentConfig(agent.AgentConfigParams{
-		DataDir:        dataDir,
-		Tag:            "machine-0",
-		StateAddresses: []string{testing.MgoServer.Addr()},
-		CACert:         []byte(testing.CACert),
-		Password:       pwHash,
+		DataDir:           dataDir,
+		Tag:               "machine-0",
+		UpgradedToVersion: version.Current.Number,
+		StateAddresses:    []string{testing.MgoServer.Addr()},
+		CACert:            []byte(testing.CACert),
+		Password:          pwHash,
 	})
 	c.Assert(err, gc.IsNil)
 	expectConstraints := constraints.MustParse("mem=1024M")
