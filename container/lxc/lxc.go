@@ -150,8 +150,13 @@ func (manager *containerManager) StartContainer(
 			"--userdata", userDataFilename, // Our groovey cloud-init
 			"--hostid", name, // Use the container name as the hostid
 		}
+		var extraCloneArgs []string
+		if manager.backingFilesystem == Btrfs {
+			extraCloneArgs = append(extraCreateArgs, "--snapshot")
+		}
+
 		// TODO: fslock on clone template
-		lxcContainer, err = templateContainer.Clone(name, nil, templateParams) // TODO:. ...
+		lxcContainer, err = templateContainer.Clone(name, extraCloneArgs, templateParams)
 		if err != nil {
 			logger.Errorf("lxc container cloning failed: %v", err)
 			return nil, nil, err
@@ -442,9 +447,13 @@ func (manager *containerManager) ensureCloneTemplate(
 		"--hostid", name, // Use the container name as the hostid
 		"-r", series,
 	}
+	var extraCreateArgs []string
+	if manager.backingFilesystem == Btrfs {
+		extraCreateArgs = append(extraCreateArgs, "-B", Btrfs)
+	}
 	// Create the container.
 	logger.Tracef("create the container")
-	if err := lxcContainer.Create(configFile, defaultTemplate, nil, templateParams); err != nil {
+	if err := lxcContainer.Create(configFile, defaultTemplate, extraCreateArgs, templateParams); err != nil {
 		logger.Errorf("lxc container creation failed: %v", err)
 		return nil, err
 	}
