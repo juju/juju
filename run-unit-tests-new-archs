@@ -1,0 +1,55 @@
+#!/bin/bash
+set -eux
+: ${LOCAL_JENKINS_URL=$JENKINS_URL}
+
+export INSTANCE_TYPE=$1
+export AMI_IMAGE=$2
+tarfile=$($SCRIPTS/get-tarfile-name $revision_build)
+juju_version=$(basename $tarfile .tar.gz)
+instance_id=$($SCRIPTS/ec2-run-instance-get-id)
+$SCRIPTS/ec2-tag-job-instances $instance_id
+
+set +x
+echo Starting instance $instance_id
+instance_name=$($SCRIPTS/ec2-get-name $instance_id)
+echo Instance has ip $instance_name
+sleep 30
+$SCRIPTS/wait-for-port $instance_name 22
+
+set -x
+set +e
+DEPS="build-essential bzr distro-info-data git-core mercurial zip rsyslog-gnutls"
+ssh ubuntu@$instance_name -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" <<EOT
+set -eux
+sudo apt-get update
+if [[ \$(apt-cache madison juju-mongodb) =~ .*juju-mongodb.* ]]; then
+    juju_db="juju-mongodb"
+else
+    juju_db="mongodb-server"
+fi
+if [[ \$(apt-cache madison golang) =~  .*golang.* ]]; then
+    juju_compiler="golang"
+else
+    juju_compiler="gccgo-4.9 gccgo-go"
+fi
+sudo apt-get install -y $DEPS \$juju_db \$juju_compiler
+EOT
+
+ssh ubuntu@$instance_name -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" <<EOT
+set -eux
+ssh-keygen -t rsa -b 2048 -N "" -f ~/.ssh/id_rsa
+wget -q $JENKINS_URL/job/build-revision/$revision_build/artifact/$tarfile
+tar -xzvf $tarfile
+export GOPATH=\$HOME/$juju_version
+cd \$GOPATH/src/launchpad.net/juju-core
+#sudo apt-get update
+#sudo apt-get install -y build-essential
+#make install-dependencies
+bzr whoami 'J. Random Hacker <jrandom@example.org>'
+make check
+EOT
+EXIT_STATUS=$?
+
+set -e
+$SCRIPTS/ec2-terminate-job-instances
+exit $EXIT_STATUS
