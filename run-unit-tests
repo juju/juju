@@ -43,7 +43,7 @@ tar -xzvf $tarfile
 export GOPATH=\$HOME/$juju_version
 cd \$GOPATH/src/launchpad.net/juju-core
 sudo apt-get update
-sudo apt-get unstall -y build-essential
+sudo apt-get install -y build-essential
 make install-dependencies
 bzr whoami 'J. Random Hacker <jrandom@example.org>'
 make check
