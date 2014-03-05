@@ -70,9 +70,10 @@ func containerDirFilesystem() (string, error) {
 }
 
 type containerManager struct {
-	name            string
-	logdir          string
-	createWithClone bool
+	name              string
+	logdir            string
+	createWithClone   bool
+	backingFilesystem string
 }
 
 // containerManager implements container.Manager.
@@ -92,10 +93,15 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 		logger.Tracef("using lxc-clone for creating containers")
 		useClone = true
 	}
+	backingFS, err := containerDirFilesystem()
+	if err != nil {
+		return nil, err
+	}
 	return &containerManager{
-		name:            name,
-		logdir:          logDir,
-		createWithClone: useClone,
+		name:              name,
+		logdir:            logDir,
+		createWithClone:   useClone,
+		backingFilesystem: backingFS,
 	}, nil
 }
 
