@@ -21,6 +21,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 )
 
 // Cloud-init write the URL to be used to load the bootstrap state into this file.
@@ -80,9 +81,9 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	// machine-0 if missing.
 	jobs := c.Conf.config.Jobs()
 	if len(jobs) == 0 {
-		jobs = []state.MachineJob{
-			state.JobManageEnviron,
-			state.JobHostUnits,
+		jobs = []params.MachineJob{
+			params.JobManageEnviron,
+			params.JobHostUnits,
 		}
 	}
 	var characteristics instance.HardwareCharacteristics

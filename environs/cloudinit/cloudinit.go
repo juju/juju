@@ -23,6 +23,7 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
@@ -92,7 +93,7 @@ type MachineConfig struct {
 	LogDir string
 
 	// Jobs holds what machine jobs to run.
-	Jobs []state.MachineJob
+	Jobs []params.MachineJob
 
 	// CloudInitOutputLog specifies the path to the output log for cloud-init.
 	// The directory containing the log file must already exist.

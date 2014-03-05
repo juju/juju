@@ -36,6 +36,7 @@ import (
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/terminationworker"
@@ -133,7 +134,7 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 	mcfg.Tools = selectedTools[0]
 	mcfg.DataDir = env.config.rootDir()
 	mcfg.LogDir = fmt.Sprintf("/var/log/juju-%s", env.config.namespace())
-	mcfg.Jobs = []state.MachineJob{state.JobManageEnviron}
+	mcfg.Jobs = []params.MachineJob{params.JobManageEnviron}
 	mcfg.CloudInitOutputLog = filepath.Join(env.config.logDir(), "cloud-init-output.log")
 	mcfg.DisablePackageCommands = true
 	mcfg.MachineAgentServiceName = env.machineAgentServiceName()

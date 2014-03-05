@@ -226,6 +226,7 @@ func NewAgentConfig(configParams AgentConfigParams) (Config, error) {
 	if config.values == nil {
 		config.values = make(map[string]string)
 	}
+	config.configFilePath = ConfigPath(config.dataDir, config.tag)
 	return config, nil
 }
 
@@ -278,7 +279,7 @@ func ReadConf(configFilePath string) (Config, error) {
 	defer configMutex.Unlock()
 	var (
 		format formatter
-		config Config
+		config *configInternal
 		err    error
 	)
 	configData, err := ioutil.ReadFile(configFilePath)
@@ -312,8 +313,11 @@ func ReadConf(configFilePath string) (Config, error) {
 	logger.Debugf("read agent config format %q", format.version())
 	if format != currentFormat {
 		// Migrate from a legacy format to the new one.
-		data := currentFormat.marshal(config)
-		err := utils.AtomicWriteFile(configFilePath, data, 0600)
+		data, err := currentFormat.marshal(config)
+		if err != nil {
+			return nil, fmt.Errorf("cannot marshal agent config: %v", err)
+		}
+		err = utils.AtomicWriteFile(configFilePath, data, 0600)
 		if err != nil {
 			return nil, fmt.Errorf("cannot upgrade agent config %s to %s: %v", format.version(), currentFormat.version(), err)
 		}
@@ -343,7 +347,7 @@ func (c *configInternal) LogDir() string {
 	return c.logDir
 }
 
-func (c *configInternal) Jobs() []state.MachineJob {
+func (c *configInternal) Jobs() []params.MachineJob {
 	return c.jobs
 }
 
@@ -458,12 +462,12 @@ func (c *configInternal) writeNewPassword() (string, error) {
 }
 
 func (c *configInternal) fileContents() ([]byte, error) {
-	data, err := currentFormatter.marshal(c)
+	data, err := currentFormat.marshal(c)
 	if err != nil {
 		return nil, err
 	}
 	var buf bytes.Buffer
-	fmt.Fprintf(&buf, "%s%s\n", formatPrefix, currentFormatter.version())
+	fmt.Fprintf(&buf, "%s%s\n", formatPrefix, currentFormat.version())
 	buf.Write(data)
 	return buf.Bytes(), nil
 }
@@ -475,6 +479,11 @@ func (c *configInternal) Write() error {
 	data, err := c.fileContents()
 	if err != nil {
 		return err
+	}
+	// Make sure the config dir gets created.
+	configDir := filepath.Dir(c.configFilePath)
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return fmt.Errorf("cannot create agent config dir %q: %v", configDir, err)
 	}
 	return utils.AtomicWriteFile(c.configFilePath, data, 0600)
 }
@@ -495,9 +504,8 @@ func (c *configInternal) WriteCommands() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	data = fileContents(currentFormatter.version(), data)
 	commands := []string{"mkdir -p " + utils.ShQuote(c.Dir())}
-	commands = append(commands, writeFileCommands(c.File(agentConfFile), string(data), 0600)...)
+	commands = append(commands, writeFileCommands(c.File(agentConfFile), data, 0600)...)
 	return commands, nil
 }
 

@@ -122,7 +122,10 @@ func AtomicWriteFileAndChange(filename string, contents []byte, change func(*os.
 	if err := change(f); err != nil {
 		return err
 	}
-	return ReplaceFile(f.Name(), filename)
+	if err := ReplaceFile(f.Name(), filename); err != nil {
+		return fmt.Errorf("cannot replace %q with %q: %v", f.Name(), filename, err)
+	}
+	return nil
 }
 
 // AtomicWriteFile atomically writes the filename with the given

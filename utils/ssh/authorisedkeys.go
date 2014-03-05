@@ -116,7 +116,7 @@ func writeAuthorisedKeys(username string, keys []string) error {
 	}
 
 	logger.Debugf("writing authorised keys file %s", sshKeyFile)
-	err = utils.AtomicWriteFile(sshKeyFile, keyData, perms)
+	err = utils.AtomicWriteFile(sshKeyFile, []byte(keyData), perms)
 	if err != nil {
 		return err
 	}

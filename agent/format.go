@@ -36,11 +36,11 @@ var formats = make(map[string]formatter)
 // translating to and from the internal, format agnostic, structure.
 type formatter interface {
 	version() string
-	unmarshal(data []byte) (Config, error)
+	unmarshal(data []byte) (*configInternal, error)
 }
 
 func registerFormat(format formatter) {
-	formats["format "+format.version()] = formatter
+	formats[format.version()] = format
 }
 
 // Once a new format version is introduced:
@@ -61,9 +61,10 @@ const formatPrefix = "# format "
 
 func writeFileCommands(filename string, contents []byte, permission int) []string {
 	quotedFilename := utils.ShQuote(filename)
+	quotedContents := utils.ShQuote(string(contents))
 	return []string{
 		fmt.Sprintf("install -m %o /dev/null %s", permission, quotedFilename),
-		fmt.Sprintf(`printf '%%s\n' %s > %s`, utils.ShQuote(contents), quotedFilename),
+		fmt.Sprintf(`printf '%%s\n' %s > %s`, quotedContents, quotedFilename),
 	}
 }
 
@@ -76,7 +77,7 @@ func getFormatter(version string) (formatter, error) {
 	return format, nil
 }
 
-func parseConfigData(data []byte) (formatter, Config, error) {
+func parseConfigData(data []byte) (formatter, *configInternal, error) {
 	i := bytes.IndexByte(data, '\n')
 	if i == -1 {
 		return nil, nil, fmt.Errorf("invalid agent config format: %s", string(data))

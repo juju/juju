@@ -4,8 +4,6 @@
 package agent
 
 import (
-	"encoding/base64"
-
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/version"
@@ -53,7 +51,7 @@ func (formatter_1_18) version() string {
 	return "1.18"
 }
 
-func (f *formatter_1_18) unmarshal(data []byte) (Config, error) {
+func (f *formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 	var format format_1_18Serialization
 	if err := goyaml.Unmarshal(data, &format); err != nil {
 		return nil, err
@@ -65,10 +63,10 @@ func (f *formatter_1_18) unmarshal(data []byte) (Config, error) {
 		jobs:              format.Jobs,
 		upgradedToVersion: *format.UpgradedToVersion,
 		nonce:             format.Nonce,
-		caCert:            caCert,
+		caCert:            []byte(format.CACert),
 		oldPassword:       format.OldPassword,
-		stateServerCert:   stateServerCert,
-		stateServerKey:    stateServerKey,
+		stateServerCert:   []byte(format.StateServerCert),
+		stateServerKey:    []byte(format.StateServerKey),
 		apiPort:           format.APIPort,
 		values:            format.Values,
 	}
@@ -98,10 +96,10 @@ func (formatter *formatter_1_18) marshal(config *configInternal) ([]byte, error)
 		Jobs:              config.jobs,
 		UpgradedToVersion: &config.upgradedToVersion,
 		Nonce:             config.nonce,
-		CACert:            base64.StdEncoding.EncodeToString(config.caCert),
+		CACert:            string(config.caCert),
 		OldPassword:       config.oldPassword,
-		StateServerCert:   base64.StdEncoding.EncodeToString(config.stateServerCert),
-		StateServerKey:    base64.StdEncoding.EncodeToString(config.stateServerKey),
+		StateServerCert:   string(config.stateServerCert),
+		StateServerKey:    string(config.stateServerKey),
 		APIPort:           config.apiPort,
 		Values:            config.values,
 	}

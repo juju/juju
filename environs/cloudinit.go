@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -40,7 +41,7 @@ func NewMachineConfig(machineID, machineNonce string,
 		// Fixed entries.
 		DataDir:                 DataDir,
 		LogDir:                  agent.DefaultLogDir,
-		Jobs:                    []state.MachineJob{state.JobHostUnits},
+		Jobs:                    []params.MachineJob{params.JobHostUnits},
 		CloudInitOutputLog:      CloudInitOutputLog,
 		MachineAgentServiceName: "jujud-" + names.MachineTag(machineID),
 		MongoServiceName:        MongoServiceName,
@@ -64,7 +65,7 @@ func NewBootstrapMachineConfig(stateInfoURL string, privateSystemSSHKey string) 
 	mcfg.StateServer = true
 	mcfg.StateInfoURL = stateInfoURL
 	mcfg.SystemPrivateSSHKey = privateSystemSSHKey
-	mcfg.Jobs = []state.MachineJob{state.JobManageEnviron}
+	mcfg.Jobs = []params.MachineJob{params.JobManageEnviron, params.JobHostUnits}
 	return mcfg
 }
 

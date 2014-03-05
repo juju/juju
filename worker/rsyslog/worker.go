@@ -258,6 +258,7 @@ func writeFileAtomic(path string, data []byte, mode os.FileMode, uid, gid int) e
 				return err
 			}
 		}
+		return nil
 	}
 	return utils.AtomicWriteFileAndChange(path, data, chmodAndChown)
 }
