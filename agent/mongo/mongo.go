@@ -6,7 +6,6 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	"strings"
 
 	"launchpad.net/loggo"
 
@@ -90,7 +89,8 @@ func makeJournalDirs(dir string) error {
 		}
 		defer f.Close()
 		for total := 0; total < 1024*1024; {
-			if n, err := f.Write(zeroes); err != nil {
+			n, err := f.Write(zeroes)
+			if err != nil {
 				return fmt.Errorf("failed to write to mongo prealloc file %q: %v", filename, err)
 			}
 			total += n
