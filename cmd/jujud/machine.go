@@ -18,7 +18,6 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/container/kvm"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
@@ -44,6 +43,7 @@ import (
 	"launchpad.net/juju-core/worker/minunitsworker"
 	"launchpad.net/juju-core/worker/provisioner"
 	"launchpad.net/juju-core/worker/resumer"
+	"launchpad.net/juju-core/worker/rsyslog"
 	"launchpad.net/juju-core/worker/terminationworker"
 	"launchpad.net/juju-core/worker/upgrader"
 )
@@ -68,6 +68,8 @@ type MachineAgent struct {
 	MachineId       string
 	runner          worker.Runner
 	upgradeComplete chan struct{}
+	stateOpened     chan struct{}
+	st              *state.State
 }
 
 // Info returns usage information for the command.
@@ -93,6 +95,7 @@ func (a *MachineAgent) Init(args []string) error {
 	}
 	a.runner = newRunner(isFatal, moreImportant)
 	a.upgradeComplete = make(chan struct{})
+	a.stateOpened = make(chan struct{})
 	return nil
 }
 
@@ -115,7 +118,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	// lines of all logging in the log file.
 	loggo.RemoveWriter("logfile")
 	defer a.tomb.Done()
-	logger.Infof("machine agent %v start", a.Tag())
+	logger.Infof("machine agent %v start (%s)", a.Tag(), version.Current)
 	if err := a.Conf.read(a.Tag()); err != nil {
 		return err
 	}
@@ -178,6 +181,14 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 			break
 		}
 	}
+	rsyslogMode := rsyslog.RsyslogModeForwarding
+	for _, job := range entity.Jobs() {
+		if job == params.JobManageEnviron {
+			rsyslogMode = rsyslog.RsyslogModeAccumulate
+			break
+		}
+	}
+
 	runner := newRunner(connectionIsFatal(st), moreImportant)
 
 	// Run the upgrader and the upgrade-steps worker without waiting for the upgrade steps to complete.
@@ -197,6 +208,9 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	})
 	a.startWorkerAfterUpgrade(runner, "machineenvironmentworker", func() (worker.Worker, error) {
 		return machineenvironmentworker.NewMachineEnvironmentWorker(st.Environment(), agentConfig), nil
+	})
+	a.startWorkerAfterUpgrade(runner, "rsyslog", func() (worker.Worker, error) {
+		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
 
 	// If not a local provider bootstrap machine, start the worker to manage SSH keys.
@@ -299,6 +313,8 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	if err != nil {
 		return nil, err
 	}
+	a.st = st
+	close(a.stateOpened)
 	reportOpenedState(st)
 	m := entity.(*state.Machine)
 
@@ -402,7 +418,18 @@ func (a *MachineAgent) upgradeWorker(apiState *api.State, jobs []params.MachineJ
 			return nil
 		default:
 		}
-		err := a.runUpgrades(apiState, jobs)
+		// If the machine agent is a state server, wait until state is opened.
+		var st *state.State
+		for _, job := range jobs {
+			if job == params.JobManageEnviron {
+				select {
+				case <-a.stateOpened:
+				}
+				st = a.st
+				break
+			}
+		}
+		err := a.runUpgrades(st, apiState, jobs)
 		if err != nil {
 			return err
 		}
@@ -414,7 +441,7 @@ func (a *MachineAgent) upgradeWorker(apiState *api.State, jobs []params.MachineJ
 }
 
 // runUpgrades runs the upgrade operations for each job type and updates the updatedToVersion on success.
-func (a *MachineAgent) runUpgrades(st *api.State, jobs []params.MachineJob) error {
+func (a *MachineAgent) runUpgrades(st *state.State, apiState *api.State, jobs []params.MachineJob) error {
 	agentConfig := a.Conf.config
 	from := version.Current
 	from.Number = agentConfig.UpgradedToVersion()
@@ -422,7 +449,7 @@ func (a *MachineAgent) runUpgrades(st *api.State, jobs []params.MachineJob) erro
 		logger.Infof("Upgrade to %v already completed.", version.Current)
 		return nil
 	}
-	context := upgrades.NewContext(agentConfig, st)
+	context := upgrades.NewContext(agentConfig, apiState, st)
 	for _, job := range jobs {
 		var target upgrades.Target
 		switch job {
@@ -478,15 +505,6 @@ func (a *MachineAgent) uninstallAgent() error {
 	if agentServiceName != "" {
 		if err := upstart.NewService(agentServiceName).Remove(); err != nil {
 			errors = append(errors, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
-		}
-	}
-	// Remove the rsyslog conf file and restart rsyslogd.
-	if rsyslogConfPath := a.Conf.config.Value(agent.RsyslogConfPath); rsyslogConfPath != "" {
-		if err := os.Remove(rsyslogConfPath); err != nil {
-			errors = append(errors, err)
-		}
-		if err := syslog.Restart(); err != nil {
-			errors = append(errors, err)
 		}
 	}
 	// Remove the juju-run symlink.

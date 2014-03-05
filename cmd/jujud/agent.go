@@ -19,9 +19,11 @@ import (
 	apiagent "launchpad.net/juju-core/state/api/agent"
 	apideployer "launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/state/api/params"
+	apirsyslog "launchpad.net/juju-core/state/api/rsyslog"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/deployer"
+	"launchpad.net/juju-core/worker/rsyslog"
 	"launchpad.net/juju-core/worker/upgrader"
 )
 
@@ -248,4 +250,20 @@ func (c *closeWorker) Wait() error {
 // otherwise be restricted.
 var newDeployContext = func(st *apideployer.State, agentConfig agent.Config) deployer.Context {
 	return deployer.NewSimpleContext(agentConfig, st)
+}
+
+// newRsyslogConfigWorker creates and returns a new RsyslogConfigWorker
+// based on the specified configuration parameters.
+var newRsyslogConfigWorker = func(st *apirsyslog.State, agentConfig agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
+	tag := agentConfig.Tag()
+	namespace := agentConfig.Value(agent.Namespace)
+	var addrs []string
+	if mode == rsyslog.RsyslogModeForwarding {
+		var err error
+		addrs, err = agentConfig.APIAddresses()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return rsyslog.NewRsyslogConfigWorker(st, mode, tag, namespace, addrs)
 }
