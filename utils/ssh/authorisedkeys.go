@@ -15,7 +15,7 @@ import (
 	"sync"
 
 	"code.google.com/p/go.crypto/ssh"
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/utils"
 )

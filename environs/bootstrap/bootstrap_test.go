@@ -218,7 +218,8 @@ var _ envtools.SupportsCustomSources = (*bootstrapEnviron)(nil)
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
 func (e *bootstrapEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket.
-	return []simplestreams.DataSource{storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)}, nil
+	return []simplestreams.DataSource{
+		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseToolsPath)}, nil
 }
 
 func newEnviron(name string, defaultKeys bool) *bootstrapEnviron {

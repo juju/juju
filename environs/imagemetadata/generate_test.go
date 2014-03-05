@@ -28,8 +28,8 @@ func assertFetch(c *gc.C, stor storage.Storage, series, arch, region, endpoint, 
 		Series:    []string{series},
 		Arches:    []string{arch},
 	})
-	dataSource := storage.NewStorageSimpleStreamsDataSource(stor, "images")
-	metadata, err := imagemetadata.Fetch(
+	dataSource := storage.NewStorageSimpleStreamsDataSource("test datasource", stor, "images")
+	metadata, _, err := imagemetadata.Fetch(
 		[]simplestreams.DataSource{dataSource}, simplestreams.DefaultIndexPath, cons, false)
 	c.Assert(err, gc.IsNil)
 	c.Assert(metadata, gc.HasLen, 1)
