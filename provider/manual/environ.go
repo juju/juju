@@ -200,7 +200,7 @@ var newSSHStorage = func(sshHost, storageDir, storageTmpdir string) (storage.Sto
 func (e *manualEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off private storage.
 	return []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath),
+		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseToolsPath),
 	}, nil
 }
 
