@@ -100,7 +100,7 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 	if err != nil {
 		return nil, err
 	}
-	logger.Debugf("backing filesystem: %q", backingFS)
+	logger.Tracef("backing filesystem: %q", backingFS)
 	return &containerManager{
 		name:              name,
 		logdir:            logDir,
