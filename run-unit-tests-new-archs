@@ -34,6 +34,7 @@ juju_version=$(basename $tarfile .tar.gz)
 
 set -x
 set +e
+echo $ssh_options
 DEPS="build-essential bzr distro-info-data git-core mercurial zip rsyslog-gnutls"
 ssh $remote_user@$instance_name $ssh_options <<EOT
 set -eux
