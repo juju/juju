@@ -75,7 +75,7 @@ type EnvironInfo interface {
 	SetAPICredentials(APICredentials)
 
 	// Location returns the location of the source of the environment
-	// information in a human readable format
+	// information in a human readable format.
 	Location() string
 
 	// Write writes the current information to persistent storage.

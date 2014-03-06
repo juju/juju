@@ -159,7 +159,7 @@ func (info *environInfo) SetAPICredentials(creds APICredentials) {
 	info.Password = creds.Password
 }
 
-// Location returns the location of the environInfo in human readable format
+// Location returns the location of the environInfo in human readable format.
 func (info *environInfo) Location() string {
 	return info.path
 }
