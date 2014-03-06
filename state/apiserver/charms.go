@@ -122,7 +122,7 @@ func (h *charmsHandler) manifestSender(w http.ResponseWriter, r *http.Request, b
 // not identify a file or a symlink, a 403 forbidden error is returned.
 func (h *charmsHandler) fileSender(filePath string) bundleContentSenderFunc {
 	return func(w http.ResponseWriter, r *http.Request, bundle *charm.Bundle) {
-		// TODO(fwereade) 20140127 lp:1285685
+		// TODO(fwereade) 2014-01-27 bug #1285685
 		// This doesn't handle symlinks helpfully, and should be talking in
 		// terms of bundles rather than zip readers; but this demands thought
 		// and design and is not amenable to a quick fix.
@@ -337,7 +337,7 @@ func (h *charmsHandler) findArchiveRootDir(zipr *zip.Reader) (string, error) {
 }
 
 func depth(path string) int {
-	return strings.Count(path, string(filepath.Separator))
+	return strings.Count(path, "/")
 }
 
 type byDepth []string

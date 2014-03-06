@@ -174,7 +174,7 @@ func (b *Bundle) zipOpen() (*zipReadCloser, error) {
 	return &zipReadCloser{Closer: f, Reader: r}, nil
 }
 
-// Manifest returns a sorted list of the charm's contents.
+// Manifest returns a set of the charm's contents.
 func (b *Bundle) Manifest() (set.Strings, error) {
 	zipr, err := b.zipOpen()
 	if err != nil {
