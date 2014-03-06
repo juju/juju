@@ -333,9 +333,8 @@ func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
 	loggo.RegisterWriter(logger, testWriter, loggo.WARNING)
 	defer loggo.RemoveWriter(logger)
 
-	opc, errc := runCommand(ctx, new(BootstrapCommand), "-e", "peckham")
+	_, errc := runCommand(ctx, new(BootstrapCommand), "-e", "peckham")
 	c.Assert(<-errc, gc.IsNil)
-	c.Assert((<-opc).(dummy.OpPutFile).Env, gc.Equals, "peckham")
 	c.Assert(testWriter.Log, jc.LogMatches, []string{"using existing environment file: .*"})
 }
 
