@@ -20,3 +20,8 @@ func (s *memInterfaceSuite) SetUpSuite(c *gc.C) {
 		return configstore.NewMem()
 	}
 }
+
+func (s *memInterfaceSuite) TestMemInfoLocation(c *gc.C) {
+	memStore := configstore.NewMem()
+	c.Assert(memStore.Location(), gc.Equals, "memory")
+}
