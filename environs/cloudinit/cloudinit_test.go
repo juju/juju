@@ -57,8 +57,15 @@ func minimalConfig(c *gc.C) *config.Config {
 	return cfg
 }
 
+func must(s string, err error) string {
+	if err != nil {
+		panic(err)
+	}
+	return s
+}
+
 // mongodPath is the path where we should expect mongod in the environment.
-var mongodPath = mongo.MongodPath()
+var mongodPath = must(mongo.MongodPath())
 
 // Each test gives a cloudinit config - we check the
 // output to see if it looks correct.
