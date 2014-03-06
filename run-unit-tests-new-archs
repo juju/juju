@@ -53,14 +53,19 @@ EOT
 
 ssh $remote_user@$instance_name $ssh_options <<EOT
 set -eux
-ssh-keygen -t rsa -b 2048 -N "" -f ~/.ssh/id_rsa
+if [[ ! -f ~/.ssh/id_rsa ]]; then
+    ssh-keygen -t rsa -b 2048 -N "" -f ~/.ssh/id_rsa
+fi
+export GOPATH=\$HOME/$juju_version
+if [[ -d \$GOPATH ]]; then
+  rm -r \$GOPATH
+fi
+if [[ -f $tarfile ]]; then
+  rm $tarfile
+fi
 wget -q $JENKINS_URL/job/build-revision/$revision_build/artifact/$tarfile
 tar -xzvf $tarfile
-export GOPATH=\$HOME/$juju_version
 cd \$GOPATH/src/launchpad.net/juju-core
-#sudo apt-get update
-#sudo apt-get install -y build-essential
-#make install-dependencies
 bzr whoami 'J. Random Hacker <jrandom@example.org>'
 make check
 EOT
