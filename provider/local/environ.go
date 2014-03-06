@@ -222,9 +222,9 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	env.containerManager, err = factory.NewContainerManager(
 		containerType,
 		container.ManagerConfig{
-			container.ConfigName: env.config.namespace(),
-			container.LogDir:     env.config.logDir(),
-			"use-clone":          strconv.FormatBool(env.fastLXC),
+			container.ConfigName:   env.config.namespace(),
+			container.ConfigLogDir: env.config.logDir(),
+			"use-clone":            strconv.FormatBool(env.fastLXC),
 		})
 	if err != nil {
 		return err

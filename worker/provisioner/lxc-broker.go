@@ -26,14 +26,17 @@ type APICalls interface {
 	ContainerConfig() (params.ContainerConfig, error)
 }
 
-func NewLxcBroker(api APICalls, tools *tools.Tools, agentConfig agent.Config) environs.InstanceBroker {
-	manager, _ := lxc.NewContainerManager(container.ManagerConfig{container.ConfigName: "juju"})
+func NewLxcBroker(api APICalls, tools *tools.Tools, agentConfig agent.Config) (environs.InstanceBroker, error) {
+	manager, err := lxc.NewContainerManager(container.ManagerConfig{container.ConfigName: "juju"})
+	if err != nil {
+		return nil, err
+	}
 	return &lxcBroker{
 		manager:     manager,
 		api:         api,
 		tools:       tools,
 		agentConfig: agentConfig,
-	}
+	}, nil
 }
 
 type lxcBroker struct {

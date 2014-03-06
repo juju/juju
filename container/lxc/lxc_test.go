@@ -81,7 +81,7 @@ func (s *LxcSuite) makeManager(c *gc.C, name string) container.Manager {
 }
 
 func (s *LxcSuite) TestStartContainer(c *gc.C) {
-	manager := s.makeManager(c, "")
+	manager := s.makeManager(c, "test")
 	instance := containertesting.StartContainer(c, manager, "1/lxc/0")
 
 	name := string(instance.Id())
@@ -122,7 +122,7 @@ func (s *LxcSuite) TestStartContainer(c *gc.C) {
 }
 
 func (s *LxcSuite) TestContainerState(c *gc.C) {
-	manager := s.makeManager(c, "")
+	manager := s.makeManager(c, "test")
 	c.Logf("%#v", manager)
 	instance := containertesting.StartContainer(c, manager, "1/lxc/0")
 
@@ -137,7 +137,7 @@ func (s *LxcSuite) TestContainerState(c *gc.C) {
 }
 
 func (s *LxcSuite) TestStopContainer(c *gc.C) {
-	manager := s.makeManager(c, "")
+	manager := s.makeManager(c, "test")
 	instance := containertesting.StartContainer(c, manager, "1/lxc/0")
 
 	err := manager.StopContainer(instance)
@@ -151,7 +151,7 @@ func (s *LxcSuite) TestStopContainer(c *gc.C) {
 }
 
 func (s *LxcSuite) TestStopContainerNameClash(c *gc.C) {
-	manager := s.makeManager(c, "")
+	manager := s.makeManager(c, "test")
 	instance := containertesting.StartContainer(c, manager, "1/lxc/0")
 
 	name := string(instance.Id())
@@ -195,7 +195,7 @@ func (s *LxcSuite) TestListContainers(c *gc.C) {
 }
 
 func (s *LxcSuite) TestStartContainerAutostarts(c *gc.C) {
-	manager := s.makeManager(c, "")
+	manager := s.makeManager(c, "test")
 	instance := containertesting.StartContainer(c, manager, "1/lxc/0")
 	autostartLink := lxc.RestartSymlink(string(instance.Id()))
 	c.Assert(autostartLink, jc.IsSymlink)
@@ -205,7 +205,7 @@ func (s *LxcSuite) TestStartContainerNoRestartDir(c *gc.C) {
 	err := os.Remove(s.RestartDir)
 	c.Assert(err, gc.IsNil)
 
-	manager := s.makeManager(c, "")
+	manager := s.makeManager(c, "test")
 	instance := containertesting.StartContainer(c, manager, "1/lxc/0")
 	autostartLink := lxc.RestartSymlink(string(instance.Id()))
 
@@ -233,7 +233,7 @@ lxc.network.flags = up
 }
 
 func (s *LxcSuite) TestStopContainerRemovesAutostartLink(c *gc.C) {
-	manager := s.makeManager(c, "")
+	manager := s.makeManager(c, "test")
 	instance := containertesting.StartContainer(c, manager, "1/lxc/0")
 	err := manager.StopContainer(instance)
 	c.Assert(err, gc.IsNil)
@@ -245,7 +245,7 @@ func (s *LxcSuite) TestStopContainerNoRestartDir(c *gc.C) {
 	err := os.Remove(s.RestartDir)
 	c.Assert(err, gc.IsNil)
 
-	manager := s.makeManager(c, "")
+	manager := s.makeManager(c, "test")
 	instance := containertesting.StartContainer(c, manager, "1/lxc/0")
 	err = manager.StopContainer(instance)
 	c.Assert(err, gc.IsNil)
