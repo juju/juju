@@ -56,6 +56,8 @@ fi
 sudo apt-get install -y $DEPS \$juju_db \$juju_compiler
 EOT
 
+scp "$@" $HOME/jobs/build-revision/builds/$revision_build/archive/$tarfile $remote_user@$instance_name:~/
+
 ssh "$@" $remote_user@$instance_name <<EOT
 set -eux
 if [[ ! -f ~/.ssh/id_rsa ]]; then
@@ -65,10 +67,6 @@ export GOPATH=\$HOME/$juju_version
 if [[ -d \$GOPATH ]]; then
   rm -r \$GOPATH
 fi
-if [[ -f $tarfile ]]; then
-  rm $tarfile
-fi
-wget -q $JENKINS_URL/job/build-revision/$revision_build/artifact/$tarfile
 tar -xzvf $tarfile
 cd \$GOPATH/src/launchpad.net/juju-core
 bzr whoami 'J. Random Hacker <jrandom@example.org>'
