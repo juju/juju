@@ -500,7 +500,7 @@ func (manager *containerManager) ensureCloneTemplate(
 			logger.Infof("not heard anything from the template log for five minutes")
 			return nil, fmt.Errorf("template container did not stop")
 		}
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(time.Second)
 	}
 
 	return lxcContainer, nil
