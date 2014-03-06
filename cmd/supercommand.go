@@ -19,6 +19,9 @@ var logger = loggo.GetLogger("juju.cmd")
 type topic struct {
 	short string
 	long  func() string
+	// Help aliases are not output when topics are listed, but are used
+	// to search for the help topic
+	alias bool
 }
 
 type UnrecognizedCommand struct {
@@ -103,8 +106,8 @@ func (c *SuperCommand) init() {
 // param, and the full text being the long param.  The description is shown in
 // 'help topics', and the full text is shown when the command 'help <name>' is
 // called.
-func (c *SuperCommand) AddHelpTopic(name, short, long string) {
-	c.subcmds["help"].(*helpCommand).addTopic(name, short, echo(long))
+func (c *SuperCommand) AddHelpTopic(name, short, long string, aliases ...string) {
+	c.subcmds["help"].(*helpCommand).addTopic(name, short, echo(long), aliases...)
 }
 
 // AddHelpTopicCallback adds a new help topic with the description being the
@@ -353,11 +356,17 @@ func echo(s string) func() string {
 	return func() string { return s }
 }
 
-func (c *helpCommand) addTopic(name, short string, long func() string) {
+func (c *helpCommand) addTopic(name, short string, long func() string, aliases ...string) {
 	if _, found := c.topics[name]; found {
 		panic(fmt.Sprintf("help topic already added: %s", name))
 	}
-	c.topics[name] = topic{short, long}
+	c.topics[name] = topic{short, long, false}
+	for _, alias := range aliases {
+		if _, found := c.topics[alias]; found {
+			panic(fmt.Sprintf("help topic already added: %s", alias))
+		}
+		c.topics[alias] = topic{short, long, true}
+	}
 }
 
 func (c *helpCommand) globalOptions() string {
@@ -377,15 +386,16 @@ command.
 }
 
 func (c *helpCommand) topicList() string {
-	topics := make([]string, len(c.topics))
-	i := 0
+	var topics []string
 	longest := 0
-	for name := range c.topics {
+	for name, topic := range c.topics {
+		if topic.alias {
+			continue
+		}
 		if len(name) > longest {
 			longest = len(name)
 		}
-		topics[i] = name
-		i++
+		topics = append(topics, name)
 	}
 	sort.Strings(topics)
 	for i, name := range topics {

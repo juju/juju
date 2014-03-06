@@ -281,7 +281,7 @@ func (v *Value) setArch(str string) error {
 	}
 	switch str {
 	case "":
-	case "amd64", "i386", "arm":
+	case "amd64", "i386", "arm", "arm64":
 	default:
 		return fmt.Errorf("%q not recognized", str)
 	}

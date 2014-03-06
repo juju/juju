@@ -11,6 +11,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -78,10 +79,15 @@ type mockContext struct {
 	messages    []string
 	agentConfig *mockAgentConfig
 	apiState    *api.State
+	state       *state.State
 }
 
 func (c *mockContext) APIState() *api.State {
 	return c.apiState
+}
+
+func (c *mockContext) State() *state.State {
+	return c.state
 }
 
 func (c *mockContext) AgentConfig() agent.Config {
@@ -160,6 +166,14 @@ func upgradeOperations() []upgrades.Operation {
 				&mockUpgradeStep{"step 2 - 1.18.0", targets(upgrades.StateServer)},
 			},
 		},
+		&mockUpgradeOperation{
+			targetVersion: version.MustParse("1.20.0"),
+			steps: []upgrades.Step{
+				&mockUpgradeStep{"step 1 - 1.20.0", targets(upgrades.AllMachines)},
+				&mockUpgradeStep{"step 2 - 1.20.0", targets(upgrades.HostMachine)},
+				&mockUpgradeStep{"step 3 - 1.20.0", targets(upgrades.StateServer)},
+			},
+		},
 	}
 	return steps
 }
@@ -167,6 +181,7 @@ func upgradeOperations() []upgrades.Operation {
 type upgradeTest struct {
 	about         string
 	fromVersion   string
+	toVersion     string
 	target        upgrades.Target
 	expectedSteps []string
 	err           string
@@ -178,6 +193,12 @@ var upgradeTests = []upgradeTest{
 		fromVersion:   "1.18.0",
 		target:        upgrades.HostMachine,
 		expectedSteps: []string{},
+	},
+	{
+		about:         "target version excludes steps for newer version",
+		toVersion:     "1.17.1",
+		target:        upgrades.HostMachine,
+		expectedSteps: []string{"step 1 - 1.17.0", "step 1 - 1.17.1"},
 	},
 	{
 		about:         "from version excludes older steps",
@@ -193,9 +214,17 @@ var upgradeTests = []upgradeTest{
 	},
 	{
 		about:         "allMachines matches everything",
-		fromVersion:   "1.17.1",
-		target:        upgrades.AllMachines,
-		expectedSteps: []string{"step 1 - 1.18.0", "step 2 - 1.18.0"},
+		fromVersion:   "1.18.1",
+		toVersion:     "1.20.0",
+		target:        upgrades.HostMachine,
+		expectedSteps: []string{"step 1 - 1.20.0", "step 2 - 1.20.0"},
+	},
+	{
+		about:         "allMachines matches everything",
+		fromVersion:   "1.18.1",
+		toVersion:     "1.20.0",
+		target:        upgrades.StateServer,
+		expectedSteps: []string{"step 1 - 1.20.0", "step 3 - 1.20.0"},
 	},
 	{
 		about:         "error aborts, subsequent steps not run",
@@ -224,6 +253,13 @@ func (s *upgradeSuite) TestPerformUpgrade(c *gc.C) {
 		if test.fromVersion != "" {
 			fromVersion = version.MustParse(test.fromVersion)
 		}
+		toVersion := version.MustParse("1.18.0")
+		if test.toVersion != "" {
+			toVersion = version.MustParse(test.toVersion)
+		}
+		vers := version.Current
+		vers.Number = toVersion
+		s.PatchValue(&version.Current, vers)
 		err := upgrades.PerformUpgrade(fromVersion, test.target, ctx)
 		if test.err == "" {
 			c.Check(err, gc.IsNil)

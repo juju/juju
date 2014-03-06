@@ -860,9 +860,9 @@ var baseURLs = []string{}
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
 func (env *azureEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
 	sources := make([]simplestreams.DataSource, 1+len(baseURLs))
-	sources[0] = storage.NewStorageSimpleStreamsDataSource(env.Storage(), storage.BaseImagesPath)
+	sources[0] = storage.NewStorageSimpleStreamsDataSource("cloud storage", env.Storage(), storage.BaseImagesPath)
 	for i, url := range baseURLs {
-		sources[i+1] = simplestreams.NewURLDataSource(url, simplestreams.VerifySSLHostnames)
+		sources[i+1] = simplestreams.NewURLDataSource("Azure base URL", url, simplestreams.VerifySSLHostnames)
 	}
 	return sources, nil
 }
@@ -871,7 +871,7 @@ func (env *azureEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
 func (env *azureEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket.
 	sources := []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource(env.Storage(), storage.BaseToolsPath)}
+		storage.NewStorageSimpleStreamsDataSource("cloud storage", env.Storage(), storage.BaseToolsPath)}
 	return sources, nil
 }
 

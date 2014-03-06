@@ -34,6 +34,7 @@ func MongodPath() (string, error) {
 	if _, err := os.Stat(JujuMongodPath); err == nil {
 		return JujuMongodPath, nil
 	}
+
 	path, err := exec.LookPath("mongod")
 	if err != nil {
 		return "", err

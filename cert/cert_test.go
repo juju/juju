@@ -86,6 +86,7 @@ func (certSuite) TestNewServer(c *gc.C) {
 	c.Assert(srvCert.NotAfter.Equal(expiry), gc.Equals, true)
 	c.Assert(srvCert.BasicConstraintsValid, gc.Equals, false)
 	c.Assert(srvCert.IsCA, gc.Equals, false)
+	c.Assert(srvCert.ExtKeyUsage, gc.DeepEquals, []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth})
 
 	checkTLSConnection(c, caCert, srvCert, srvKey)
 }

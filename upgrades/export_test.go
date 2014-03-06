@@ -10,6 +10,7 @@ var (
 	// 118 upgrade functions
 	StepsFor118                          = stepsFor118
 	EnsureLockDirExistsAndUbuntuWritable = ensureLockDirExistsAndUbuntuWritable
-	UpgradeStateServerRsyslogConfig      = upgradeStateServerRsyslogConfig
-	UpgradeHostMachineRsyslogConfig      = upgradeHostMachineRsyslogConfig
+	EnsureSystemSSHKey                   = ensureSystemSSHKey
+	UpdateRsyslogPort                    = updateRsyslogPort
+	ProcessDeprecatedAttributes          = processDeprecatedAttributes
 )

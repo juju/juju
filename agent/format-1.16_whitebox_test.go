@@ -8,14 +8,17 @@
 package agent
 
 import (
+	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/juju/osenv"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/version"
 )
 
 type format_1_16Suite struct {
@@ -48,6 +51,27 @@ func (s *format_1_16Suite) TestWriteAgentConfig(c *gc.C) {
 	c.Assert(formatContent, gc.Equals, format_1_16)
 }
 
+var configDataWithoutUpgradedToVersion = `
+tag: omg
+nonce: a nonce
+cacert: Y2EgY2VydA==
+stateaddresses:
+- localhost:1234
+apiaddresses:
+- localhost:1235
+oldpassword: sekrit
+values: {}
+`
+
+func (s *format_1_16Suite) TestMissingUpgradedToVersion(c *gc.C) {
+	dataDir := c.MkDir()
+	err := ioutil.WriteFile(filepath.Join(dataDir, "agent.conf"), []byte(configDataWithoutUpgradedToVersion), 0600)
+	c.Assert(err, gc.IsNil)
+	readConfig, err := s.formatter.read(dataDir)
+	c.Assert(err, gc.IsNil)
+	c.Assert(readConfig.UpgradedToVersion(), gc.Equals, version.MustParse("1.16.0"))
+}
+
 func (s *format_1_16Suite) assertWriteAndRead(c *gc.C, config *configInternal) {
 	err := s.formatter.write(config)
 	c.Assert(err, gc.IsNil)
@@ -56,7 +80,7 @@ func (s *format_1_16Suite) assertWriteAndRead(c *gc.C, config *configInternal) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(readConfig.dataDir, gc.Equals, "")
 	// This is put in by the ReadConf method that we are avoiding using
-	// becuase it will have side-effects soon around migrating configs.
+	// because it will have side-effects soon around migrating configs.
 	readConfig.dataDir = config.dataDir
 	c.Assert(readConfig, gc.DeepEquals, config)
 }
