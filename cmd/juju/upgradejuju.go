@@ -353,8 +353,7 @@ func (v *upgradeVersions) validate() (err error) {
 		// any of our tools detect an incompatible version, they should act to
 		// minimize damage: the CLI should abort politely, and the agents should
 		// run an Upgrader but no other tasks.
-		return fmt.Errorf("cannot change version from %d.%d to %d.%d",
-			v.agent.Major, v.agent.Minor, v.chosen.Major, v.chosen.Minor)
+		return fmt.Errorf("cannot change version from %s to %s", v.agent, v.chosen)
 	}
 
 	return nil
