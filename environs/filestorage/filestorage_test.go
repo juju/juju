@@ -95,9 +95,18 @@ func (s *filestorageSuite) TestListHidesTempDir(c *gc.C) {
 	// We also pretend the .tmp directory doesn't exist. If you call a
 	// directory that doesn't exist, we just return an empty list of
 	// strings, so we force the same behavior for '.tmp'
-	s.createFile(c, ".tmp/test-file")
 	// we poke in a file so it would have something to return
+	s.createFile(c, ".tmp/test-file")
 	files, err = storage.List(s.reader, ".tmp")
+	c.Assert(err, gc.IsNil)
+	c.Check(files, gc.DeepEquals, []string(nil))
+	// For consistency, we refuse all other possibilities as well
+	s.createFile(c, ".tmp/foo/bar")
+	files, err = storage.List(s.reader, ".tmp/foo")
+	c.Assert(err, gc.IsNil)
+	c.Check(files, gc.DeepEquals, []string(nil))
+	s.createFile(c, ".tmpother/foo")
+	files, err = storage.List(s.reader, ".tmpother")
 	c.Assert(err, gc.IsNil)
 	c.Check(files, gc.DeepEquals, []string(nil))
 }
@@ -131,6 +140,17 @@ func (s *filestorageSuite) TestGet(c *gc.C) {
 	c.Assert(err, jc.Satisfies, coreerrors.IsNotFoundError)
 }
 
+func (s *filestorageSuite) TestGetRefusesTemp(c *gc.C) {
+	s.createFile(c, ".tmp/test-file")
+	_, err := storage.Get(s.reader, ".tmp/test-file")
+	c.Check(err, gc.NotNil)
+	c.Check(err, jc.Satisfies, os.IsNotExist)
+	s.createFile(c, ".tmp/foo/test-file")
+	_, err = storage.Get(s.reader, ".tmp/foo/test-file")
+	c.Check(err, gc.NotNil)
+	c.Check(err, jc.Satisfies, os.IsNotExist)
+}
+
 func (s *filestorageSuite) TestPut(c *gc.C) {
 	data := []byte{1, 2, 3, 4, 5}
 	err := s.writer.Put("test-write", bytes.NewReader(data), int64(len(data)))
@@ -138,6 +158,20 @@ func (s *filestorageSuite) TestPut(c *gc.C) {
 	b, err := ioutil.ReadFile(filepath.Join(s.dir, "test-write"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(b, gc.DeepEquals, data)
+}
+
+func (s *filestorageSuite) TestPutRefusesTmp(c *gc.C) {
+	data := []byte{1, 2, 3, 4, 5}
+	err := s.writer.Put(".tmp/test-write", bytes.NewReader(data), int64(len(data)))
+	c.Assert(err, gc.NotNil)
+	c.Check(err, jc.Satisfies, os.IsPermission)
+	c.Check(*err.(*os.PathError), gc.Equals, os.PathError{
+		Op:   "Put",
+		Path: ".tmp/test-write",
+		Err:  os.ErrPermission,
+	})
+	_, err = ioutil.ReadFile(filepath.Join(s.dir, ".tmp", "test-write"))
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
 
 func (s *filestorageSuite) TestRemove(c *gc.C) {

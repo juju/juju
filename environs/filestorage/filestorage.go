@@ -49,6 +49,13 @@ func (f *fileStorageReader) fullPath(name string) string {
 
 // Get implements storage.StorageReader.Get.
 func (f *fileStorageReader) Get(name string) (io.ReadCloser, error) {
+	if isInternalPath(name) {
+		return nil, &os.PathError{
+			Op:   "Get",
+			Path: name,
+			Err:  os.ErrNotExist,
+		}
+	}
 	filename := f.fullPath(name)
 	fi, err := os.Stat(filename)
 	if err != nil {
@@ -66,11 +73,19 @@ func (f *fileStorageReader) Get(name string) (io.ReadCloser, error) {
 	return file, nil
 }
 
+// isInternalPath returns true if a path should be hidden from user visibility
+// filestorage uses ".tmp/" as a staging directory for uploads, so we don't
+// want it to be visible
+func isInternalPath(path string) bool {
+	// This blocks both ".tmp", ".tmp/foo" but also ".tmpdir", better to be
+	// overly restrictive to start with
+	return strings.HasPrefix(path, ".tmp")
+}
+
 // List implements storage.StorageReader.List.
 func (f *fileStorageReader) List(prefix string) ([]string, error) {
 	var names []string
-	if prefix == ".tmp" {
-		// We don't expose our staging directory
+	if isInternalPath(prefix) {
 		return names, nil
 	}
 	prefix = filepath.Join(f.path, prefix)
@@ -121,6 +136,13 @@ func NewFileStorageWriter(path string) (storage.Storage, error) {
 }
 
 func (f *fileStorageWriter) Put(name string, r io.Reader, length int64) error {
+	if isInternalPath(name) {
+		return &os.PathError{
+			Op:   "Put",
+			Path: name,
+			Err:  os.ErrPermission,
+		}
+	}
 	fullpath := f.fullPath(name)
 	dir := filepath.Dir(fullpath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
