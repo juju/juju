@@ -9,15 +9,28 @@ endif
 PROJECT := launchpad.net/juju-core
 PROJECT_DIR := $(shell go list -e -f '{{.Dir}}' $(PROJECT))
 
+ifeq ($(shell apt-cache madison golang | sed -r 's/ *([^ ]*) .*/\1/'), golang)
+	GO_C := golang
+else
+	GO_C := gccgo-4.9  gccgo-go
+endif
+
+ifeq ($(shell apt-cache madison juju-mongodb | sed -r 's/ *([^ ]*) .*/\1/'), juju-mongodb)
+	JUJU_DB := juju-mongodb
+else
+	JUJU_DB := mongodb-server
+endif
+
 define DEPENDENCIES
   build-essential
   bzr
   distro-info-data
   git-core
-  golang
   mercurial
-  mongodb-server
+  rsyslog-gnutls
   zip
+  $(GO_C)
+  $(JUJU_DB)
 endef
 
 default: build
@@ -75,7 +88,6 @@ ifeq ($(shell lsb_release -cs|sed -r 's/precise|quantal|raring/old/'),old)
 endif
 	@echo Installing dependencies
 	@sudo apt-get --yes install $(strip $(DEPENDENCIES))
-
 
 .PHONY: build check install
 .PHONY: clean format simplify

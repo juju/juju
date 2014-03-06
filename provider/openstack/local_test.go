@@ -605,7 +605,7 @@ func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	params.Sources, err = imagemetadata.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	params.Series = "raring"
-	image_ids, err := imagemetadata.ValidateImageMetadata(params)
+	image_ids, _, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, gc.IsNil)
 	c.Assert(image_ids, gc.DeepEquals, []string{"id-y"})
 }
