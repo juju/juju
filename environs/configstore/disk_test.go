@@ -110,7 +110,7 @@ func (*diskStoreSuite) TestRead(c *gc.C) {
 		Addresses: []string{"example.com", "kremvax.ru"},
 		CACert:    "first line\nsecond line",
 	})
-	c.Assert(info.Location(), gc.Matches, "*/someenv.jenv")
+	c.Assert(info.Location(), gc.Matches, ".*/someenv.jenv")
 	c.Assert(info.BootstrapConfig(), gc.DeepEquals, map[string]interface{}{
 		"secret": "blah",
 		"arble":  "bletch",
