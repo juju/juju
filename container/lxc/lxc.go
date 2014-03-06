@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -32,6 +33,8 @@ var (
 const (
 	// DefaultLxcBridge is the package created container bridge
 	DefaultLxcBridge = "lxcbr0"
+	// Btrfs is special as we treat it differently for create and clone.
+	Btrfs = "btrfs"
 )
 
 // DefaultNetworkConfig returns a valid NetworkConfig to use the
@@ -40,9 +43,29 @@ func DefaultNetworkConfig() *container.NetworkConfig {
 	return container.BridgeNetworkConfig(DefaultLxcBridge)
 }
 
+// FsCommandOutput calls cmd.Output, this is used as an overloading point so
+// we can test what *would* be run without actually executing another program
+var FsCommandOutput = (*exec.Cmd).CombinedOutput
+
+func containerDirFilesystem() (string, error) {
+	cmd := exec.Command("df", "--output=fstype", LxcContainerDir)
+	out, err := FsCommandOutput(cmd)
+	if err != nil {
+		return "", err
+	}
+	// The filesystem is the second line.
+	lines := strings.Split(string(out), "\n")
+	if len(lines) < 2 {
+		logger.Errorf("unexpected output: ", out)
+		return "", fmt.Errorf("could not determine filesystem type")
+	}
+	return lines[1], nil
+}
+
 type containerManager struct {
-	name   string
-	logdir string
+	name              string
+	logdir            string
+	backingFilesystem string
 }
 
 // containerManager implements container.Manager.
@@ -60,7 +83,15 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 	if logDir == "" {
 		logDir = "/var/log/juju"
 	}
-	return &containerManager{name: name, logdir: logDir}, nil
+	backingFS, err := containerDirFilesystem()
+	if err != nil {
+		return nil, err
+	}
+	logger.Tracef("backing filesystem: %q", backingFS)
+	return &containerManager{
+		name:              name,
+		logdir:            logDir,
+		backingFilesystem: backingFS}, nil
 }
 
 func (manager *containerManager) StartContainer(
