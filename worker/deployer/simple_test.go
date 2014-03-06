@@ -18,7 +18,7 @@ import (
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
@@ -274,7 +274,7 @@ type mockConfig struct {
 	datadir           string
 	logdir            string
 	upgradedToVersion version.Number
-	jobs              []state.MachineJob
+	jobs              []params.MachineJob
 }
 
 func (mock *mockConfig) Tag() string {
@@ -289,7 +289,7 @@ func (mock *mockConfig) LogDir() string {
 	return mock.logdir
 }
 
-func (mock *mockConfig) Jobs() []state.MachineJob {
+func (mock *mockConfig) Jobs() []params.MachineJob {
 	return mock.jobs
 }
 

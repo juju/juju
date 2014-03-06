@@ -21,7 +21,7 @@ import (
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider/local"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 )
@@ -160,7 +160,7 @@ func (s *localJujuTestSuite) TestBootstrap(c *gc.C) {
 		c.Assert(cloudcfg.Packages(), gc.HasLen, 0)
 		c.Assert(mcfg.AgentEnvironment, gc.Not(gc.IsNil))
 		// local does not allow machine-0 to host units
-		c.Assert(mcfg.Jobs, gc.DeepEquals, []state.MachineJob{state.JobManageEnviron})
+		c.Assert(mcfg.Jobs, gc.DeepEquals, []params.MachineJob{params.JobManageEnviron})
 		return nil
 	})
 	s.testBootstrap(c)

@@ -19,6 +19,7 @@ import (
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
@@ -154,6 +155,10 @@ func (*CloudInitSuite) testUserData(c *gc.C, stateServer bool) {
 	envConfig, err := config.New(config.NoDefaults, dummySampleConfig())
 	c.Assert(err, gc.IsNil)
 
+	allJobs := []params.MachineJob{
+		params.JobManageEnviron,
+		params.JobHostUnits,
+	}
 	cfg := &cloudinit.MachineConfig{
 		MachineId:       "10",
 		MachineNonce:    "5432",
@@ -174,7 +179,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, stateServer bool) {
 		},
 		DataDir:                 environs.DataDir,
 		LogDir:                  agent.DefaultLogDir,
-		Jobs:                    state.AllJobs(),
+		Jobs:                    allJobs,
 		CloudInitOutputLog:      environs.CloudInitOutputLog,
 		Config:                  envConfig,
 		StatePort:               envConfig.StatePort(),

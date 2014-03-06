@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/tools"
@@ -33,7 +34,7 @@ func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
 		MachineNonce:       "gxshasqlnng",
 		DataDir:            environs.DataDir,
 		LogDir:             agent.DefaultLogDir,
-		Jobs:               state.AllJobs(),
+		Jobs:               []params.MachineJob{params.JobManageEnviron, params.JobHostUnits},
 		CloudInitOutputLog: environs.CloudInitOutputLog,
 		Tools:              &tools.Tools{URL: "file://" + c.MkDir()},
 		StateInfo: &state.Info{

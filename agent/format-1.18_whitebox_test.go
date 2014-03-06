@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // The format tests are white box tests, meaning that the tests are in the
@@ -8,106 +8,160 @@
 package agent
 
 import (
-	"io/ioutil"
-	"os"
 	"path/filepath"
 
 	gc "launchpad.net/gocheck"
-
+	"launchpad.net/juju-core/state/api/params"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
 type format_1_18Suite struct {
 	testbase.LoggingSuite
-	formatter formatter_1_18
 }
 
 var _ = gc.Suite(&format_1_18Suite{})
 
-func (s *format_1_18Suite) TestWriteAgentConfig(c *gc.C) {
-	config := newTestConfig(c)
-	err := s.formatter.write(config)
-	c.Assert(err, gc.IsNil)
-
-	expectedLocation := ConfigPath(config.DataDir(), config.Tag())
-	fileInfo, err := os.Stat(expectedLocation)
-	c.Assert(err, gc.IsNil)
-	c.Assert(fileInfo.Mode().IsRegular(), jc.IsTrue)
-	c.Assert(fileInfo.Mode().Perm(), gc.Equals, os.FileMode(0600))
-	c.Assert(fileInfo.Size(), jc.GreaterThan, 0)
-
-	// Make sure no format file is written.
-	formatLocation := filepath.Join(config.Dir(), legacyFormatFilename)
-	_, err = os.Stat(formatLocation)
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
-}
-
-var configData1dot18WithoutUpgradedToVersion = versionLine + "\n" + configDataWithoutUpgradedToVersion
+var configData1_18WithoutUpgradedToVersion = "# format 1.18\n" + configDataWithoutUpgradedToVersion
 
 func (s *format_1_18Suite) TestMissingUpgradedToVersion(c *gc.C) {
 	dataDir := c.MkDir()
-	configPath := filepath.Join(dataDir, "agent.conf")
-	err := ioutil.WriteFile(configPath, []byte(configData1dot18WithoutUpgradedToVersion), 0600)
+	configPath := filepath.Join(dataDir, agentConfigFilename)
+	err := utils.AtomicWriteFile(configPath, []byte(configData1_18WithoutUpgradedToVersion), 0600)
 	c.Assert(err, gc.IsNil)
-	readConfig, err := s.formatter.read(configPath)
+	readConfig, err := ReadConf(configPath)
 	c.Assert(err, gc.IsNil)
 	c.Assert(readConfig.UpgradedToVersion(), gc.Equals, version.MustParse("1.16.0"))
 }
 
-func (s *format_1_18Suite) assertWriteAndRead(c *gc.C, config *configInternal) {
-	err := s.formatter.write(config)
+func (*format_1_18Suite) TestReadConfWithExisting1_18ConfigFileContents(c *gc.C) {
+	dataDir := c.MkDir()
+	configPath := filepath.Join(dataDir, agentConfigFilename)
+	err := utils.AtomicWriteFile(configPath, []byte(agentConfig1_18Contents), 0600)
 	c.Assert(err, gc.IsNil)
-	readConfig, err := s.formatter.read(ConfigPath(config.DataDir(), config.Tag()))
+
+	config, err := ReadConf(configPath)
 	c.Assert(err, gc.IsNil)
-	// logDir is empty to it gets the default.
-	readConfig.logDir = config.logDir
-	c.Assert(readConfig, jc.DeepEquals, config)
+	c.Assert(config.UpgradedToVersion(), jc.DeepEquals, version.MustParse("1.17.5.1"))
+	c.Assert(config.Jobs(), jc.DeepEquals, []params.MachineJob{params.JobManageEnviron})
 }
 
-func (s *format_1_18Suite) TestRead(c *gc.C) {
-	config := newTestConfig(c)
-	s.assertWriteAndRead(c, config)
-}
+var agentConfig1_18Contents = `
+# format 1.18
+tag: machine-0
+datadir: /home/user/.juju/local
+logdir: /var/log/juju-user-local
+nonce: user-admin:bootstrap
+jobs:
+- JobManageEnviron
+upgradedToVersion: 1.17.5.1
+cacert: '-----BEGIN CERTIFICATE-----
 
-func (s *format_1_18Suite) TestWriteCommands(c *gc.C) {
-	config := newTestConfig(c)
-	commands, err := s.formatter.writeCommands(config)
-	c.Assert(err, gc.IsNil)
-	c.Assert(commands, gc.HasLen, 3)
-	c.Assert(commands[0], gc.Matches, `mkdir -p '\S+/agents/omg'`)
-	c.Assert(commands[1], gc.Matches, `install -m 600 /dev/null '\S+/agents/omg/agent.conf'`)
-	c.Assert(commands[2], gc.Matches, `printf '%s\\n' '(.|\n)*' > '\S+/agents/omg/agent.conf'`)
-}
+  MIICWzCCAcagAwIBAgIBADALBgkqhkiG9w0BAQUwQzENMAsGA1UEChMEanVqdTEy
 
-func (s *format_1_18Suite) TestReadWriteStateConfig(c *gc.C) {
-	stateParams := StateMachineConfigParams{
-		AgentConfigParams: agentParams,
-		StateServerCert:   []byte("some special cert"),
-		StateServerKey:    []byte("a special key"),
-		StatePort:         12345,
-		APIPort:           23456,
-	}
-	stateParams.DataDir = c.MkDir()
-	stateParams.Values = map[string]string{"foo": "bar", "wibble": "wobble"}
-	configInterface, err := NewStateMachineConfig(stateParams)
-	c.Assert(err, gc.IsNil)
-	config, ok := configInterface.(*configInternal)
-	c.Assert(ok, jc.IsTrue)
+  MDAGA1UEAwwpanVqdS1nZW5lcmF0ZWQgQ0EgZm9yIGVudmlyb25tZW50ICJsb2Nh
 
-	s.assertWriteAndRead(c, config)
-}
+  bCIwHhcNMTQwMzA1MTQxOTA3WhcNMjQwMzA1MTQyNDA3WjBDMQ0wCwYDVQQKEwRq
 
-func (s *format_1_18Suite) TestMigrate(c *gc.C) {
-	config := newTestConfig(c)
-	config.logDir = ""
-	s.formatter.migrate(config)
+  dWp1MTIwMAYDVQQDDClqdWp1LWdlbmVyYXRlZCBDQSBmb3IgZW52aXJvbm1lbnQg
 
-	// LogDir is set only when empty.
-	c.Assert(config.logDir, gc.Equals, DefaultLogDir)
-	config.logDir = "/path/log"
+  ImxvY2FsIjCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEAwHsKV7fKfmSQt2QL
 
-	s.formatter.migrate(config)
-	c.Assert(config.logDir, gc.Equals, "/path/log")
-}
+  P4+hrqQJhDTMifgNkIY9nTlLHegV5jl5XJ8lRYjZBXJEMz0AzW/RbrDElkn5+4Do
+
+  pIWPNDAT0eztXBvVwL6qQOUtiBsA7vHQJMQaLVAmZNKvrHyuhcoG+hpf8EMaLdbA
+
+  iCGKifs+Y0MFt5AeriVDH5lGlzcCAwEAAaNjMGEwDgYDVR0PAQH/BAQDAgCkMA8G
+
+  A1UdEwEB/wQFMAMBAf8wHQYDVR0OBBYEFB3Td3SP66UToZkOjVh3Wy8b6HR6MB8G
+
+  A1UdIwQYMBaAFB3Td3SP66UToZkOjVh3Wy8b6HR6MAsGCSqGSIb3DQEBBQOBgQB4
+
+  izvSRSpimi40aEOnZIsSMHVBiSCclpBg5cq7lGyiUSsDROTIbsRAKPBmrflB/qbf
+
+  J70rWFwh/d/5ssCAYrZviFL6WvpuLD3j3m4PYampNMmvJf2s6zVRIMotEY+bVwfU
+
+  z4jGaVpODac0i0bE0/Uh9qXK1UXcYY57vNNAgkaYAQ==
+
+  -----END CERTIFICATE-----
+
+'
+stateaddresses:
+- localhost:37017
+statepassword: NB5imrDaWCCRW/4akSSvUxhX
+apiaddresses:
+- localhost:17070
+apipassword: NB5imrDaWCCRW/4akSSvUxhX
+oldpassword: oBlMbFUGvCb2PMFgYVzjS6GD
+values:
+  AGENT_SERVICE_NAME: juju-agent-user-local
+  CONTAINER_TYPE: ""
+  MONGO_SERVICE_NAME: juju-db-user-local
+  NAMESPACE: user-local
+  PROVIDER_TYPE: local
+  STORAGE_ADDR: 10.0.3.1:8040
+  STORAGE_DIR: /home/user/.juju/local/storage
+stateservercert: '-----BEGIN CERTIFICATE-----
+
+  MIICNzCCAaKgAwIBAgIBADALBgkqhkiG9w0BAQUwQzENMAsGA1UEChMEanVqdTEy
+
+  MDAGA1UEAwwpanVqdS1nZW5lcmF0ZWQgQ0EgZm9yIGVudmlyb25tZW50ICJsb2Nh
+
+  bCIwHhcNMTQwMzA1MTQxOTE1WhcNMjQwMzA1MTQyNDE1WjAbMQ0wCwYDVQQKEwRq
+
+  dWp1MQowCAYDVQQDEwEqMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDJnbuN
+
+  L3m/oY7Er2lEF6ye1SodepvpI0CLCdLwrYP52cRxbVzoD1jbXveclolg2xoUquga
+
+  qxsAhvVzzGaoLux1BoBD+G0N637fnY4XSIC9IuSkPOAdReKJkOvTL4nTjpzgfeHR
+
+  hRin6Xckvp96L4Prmki7sYQ8PG9Q7TBcOf4yowIDAQABo2cwZTAOBgNVHQ8BAf8E
+
+  BAMCAKgwEwYDVR0lBAwwCgYIKwYBBQUHAwEwHQYDVR0OBBYEFE1MB3d+5BW+n066
+
+  lWcVkhta1etlMB8GA1UdIwQYMBaAFB3Td3SP66UToZkOjVh3Wy8b6HR6MAsGCSqG
+
+  SIb3DQEBBQOBgQBnsBvl3hfIQbHhAlqritDBCWGpaXywlHe4PvyVL3LZTLiAZ9a/
+
+  BOSBfovs81sjUe5l60j+1vgRQgvT2Pnw6WGWmYWhSyxW7upEUl1LuZxnw3AVGVFO
+
+  r140iBNUtTfGUf3PmyBXHSotqgMime+rNSjl25qSoYwnuQXdFdCKJoutYg==
+
+  -----END CERTIFICATE-----
+
+'
+stateserverkey: '-----BEGIN RSA PRIVATE KEY-----
+
+  MIICXAIBAAKBgQDJnbuNL3m/oY7Er2lEF6ye1SodepvpI0CLCdLwrYP52cRxbVzo
+
+  D1jbXveclolg2xoUqugaqxsAhvVzzGaoLux1BoBD+G0N637fnY4XSIC9IuSkPOAd
+
+  ReKJkOvTL4nTjpzgfeHRhRin6Xckvp96L4Prmki7sYQ8PG9Q7TBcOf4yowIDAQAB
+
+  AoGASEtzETFQ6tI3q3dqu6vxjhLJw0BP381wO2sOZJcTl+fqdPHOOrgmGKN5DoE8
+
+  SarHM1oFWGq6h/nc0eUdenk4+CokpbKRgUU9hB1TKGYMbN3bUTKPOqTMHbnrhWdT
+
+  P/fqa+nXhvg7igMT3Rk7l9DsSxoYB5xZmiLaXqynVE5MNoECQQDRsgDDUrUOeMH6
+
+  1+GO+afb8beRzR8mnaBvja6XLlZB6SUcGet9bMgAiGH3arH6ARfNNsWrDAmvArah
+
+  SKeqRB5TAkEA9iMEQDkcybCmxu4Y3YLeQuT9r3h26QhQjc+eRINS/3ZLN+lxKnXG
+
+  N019ZUlsyL97lJBDzTMPsBqfXJ2pbqXwcQJBAJNLuPN63kl7E68zA3Ld9UYvBWY6
+
+  Mp56bJ7PZAs39kk4DuQtZNhmmBqfskkMPlZBfEmfJrxeqVKw0j56faPBU5cCQFYU
+
+  mP/8+VxwM2OPEZMmmaS7gR1E/BEznzh5S9iaNQSy0kuTkMhQuCnPJ/OsYiczEH08
+
+  lvnEyc/E/8bcPM09q4ECQCFwMWzw2Jx9VOBGm60yiOKIdLgdDZOY/tP0jigNCMJF
+
+  47/BJx3FCgW3io81a4KOc445LxgiPUJyyCNlY1dW70o=
+
+  -----END RSA PRIVATE KEY-----
+
+'
+apiport: 17070
+`[1:]

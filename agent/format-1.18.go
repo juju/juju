@@ -56,6 +56,11 @@ func (f *formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 	if err := goyaml.Unmarshal(data, &format); err != nil {
 		return nil, err
 	}
+	if format.UpgradedToVersion == nil || *format.UpgradedToVersion == version.Zero {
+		// Assume we upgrade from 1.16.
+		upgradedToVersion := version.MustParse("1.16.0")
+		format.UpgradedToVersion = &upgradedToVersion
+	}
 	config := &configInternal{
 		tag:               format.Tag,
 		dataDir:           format.DataDir,

@@ -21,6 +21,7 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
@@ -38,6 +39,13 @@ type cloudinitSuite struct {
 var _ = gc.Suite(&cloudinitSuite{})
 
 var envConstraints = constraints.MustParse("mem=2G")
+
+var allMachineJobs = []params.MachineJob{
+	params.JobManageEnviron, params.JobHostUnits,
+}
+var normalMachineJobs = []params.MachineJob{
+	params.JobHostUnits,
+}
 
 type cloudinitTest struct {
 	cfg           cloudinit.MachineConfig
@@ -88,7 +96,7 @@ var cloudinitTests = []cloudinitTest{
 			Constraints:             envConstraints,
 			DataDir:                 environs.DataDir,
 			LogDir:                  agent.DefaultLogDir,
-			Jobs:                    state.AllJobs(),
+			Jobs:                    allMachineJobs,
 			CloudInitOutputLog:      environs.CloudInitOutputLog,
 			StateInfoURL:            "some-url",
 			SystemPrivateSSHKey:     "private rsa key",
@@ -169,7 +177,7 @@ start jujud-machine-0
 			Constraints:             envConstraints,
 			DataDir:                 environs.DataDir,
 			LogDir:                  agent.DefaultLogDir,
-			Jobs:                    state.AllJobs(),
+			Jobs:                    allMachineJobs,
 			CloudInitOutputLog:      environs.CloudInitOutputLog,
 			StateInfoURL:            "some-url",
 			SystemPrivateSSHKey:     "private rsa key",
@@ -197,7 +205,7 @@ ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
 			AgentEnvironment:   map[string]string{agent.ProviderType: "dummy"},
 			DataDir:            environs.DataDir,
 			LogDir:             agent.DefaultLogDir,
-			Jobs:               []state.MachineJob{state.JobHostUnits},
+			Jobs:               normalMachineJobs,
 			CloudInitOutputLog: environs.CloudInitOutputLog,
 			StateServer:        false,
 			Tools:              newSimpleTools("1.2.3-linux-amd64"),
@@ -251,7 +259,7 @@ start jujud-machine-99
 			AgentEnvironment:     map[string]string{agent.ProviderType: "dummy"},
 			DataDir:              environs.DataDir,
 			LogDir:               agent.DefaultLogDir,
-			Jobs:                 []state.MachineJob{state.JobHostUnits},
+			Jobs:                 normalMachineJobs,
 			CloudInitOutputLog:   environs.CloudInitOutputLog,
 			StateServer:          false,
 			Tools:                newSimpleTools("1.2.3-linux-amd64"),
@@ -287,7 +295,7 @@ start jujud-machine-2-lxc-1
 			AgentEnvironment:   map[string]string{agent.ProviderType: "dummy"},
 			DataDir:            environs.DataDir,
 			LogDir:             agent.DefaultLogDir,
-			Jobs:               []state.MachineJob{state.JobHostUnits},
+			Jobs:               normalMachineJobs,
 			CloudInitOutputLog: environs.CloudInitOutputLog,
 			StateServer:        false,
 			Tools:              newSimpleTools("1.2.3-linux-amd64"),
@@ -335,7 +343,7 @@ curl --insecure -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/releases/juju1\.2
 			},
 			DataDir:                 environs.DataDir,
 			LogDir:                  agent.DefaultLogDir,
-			Jobs:                    state.AllJobs(),
+			Jobs:                    allMachineJobs,
 			CloudInitOutputLog:      environs.CloudInitOutputLog,
 			StateInfoURL:            "some-url",
 			SystemPrivateSSHKey:     "private rsa key",
@@ -366,7 +374,7 @@ func newFileTools(vers, path string) *tools.Tools {
 }
 
 func getAgentConfig(c *gc.C, tag string, scripts []string) (cfg string) {
-	re := regexp.MustCompile(`printf '%s\\n' '([^']+)' > .*agents/` + regexp.QuoteMeta(tag) + `/agent\.conf`)
+	re := regexp.MustCompile(`printf '%s\\n' '((\n|.)+)' > .*agents/` + regexp.QuoteMeta(tag) + `/agent\.conf`)
 	found := false
 	for _, s := range scripts {
 		m := re.FindStringSubmatch(s)
@@ -753,7 +761,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		Config:                  minimalConfig(c),
 		DataDir:                 environs.DataDir,
 		LogDir:                  agent.DefaultLogDir,
-		Jobs:                    []state.MachineJob{state.JobHostUnits},
+		Jobs:                    normalMachineJobs,
 		CloudInitOutputLog:      environs.CloudInitOutputLog,
 		MachineNonce:            "FAKE_NONCE",
 		SystemPrivateSSHKey:     "private rsa key",

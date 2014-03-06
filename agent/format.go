@@ -52,9 +52,9 @@ func registerFormat(format formatter) {
 // currentFormat holds the current agent config version's formatter.
 var currentFormat = format_1_18
 
-// agentConfFile is the default file name of used for the agent
+// agentConfigFilename is the default file name of used for the agent
 // config.
-const agentConfFile = "agent.conf"
+const agentConfigFilename = "agent.conf"
 
 // formatPrefix is prefix of the first line in an agent config file.
 const formatPrefix = "# format "

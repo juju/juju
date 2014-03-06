@@ -20,6 +20,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
@@ -83,12 +84,12 @@ func testPasswordHash() string {
 	return utils.UserPasswordHash(testPassword, utils.CompatSalt)
 }
 
-func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []state.MachineJob, args ...string) (machineConf agent.Config, cmd *BootstrapCommand, err error) {
+func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob, args ...string) (machineConf agent.Config, cmd *BootstrapCommand, err error) {
 	ioutil.WriteFile(s.providerStateURLFile, []byte("test://localhost/provider-state\n"), 0600)
 	if len(jobs) == 0 {
 		// Add default jobs.
-		jobs = []state.MachineJob{
-			state.JobManageEnviron, state.JobHostUnits,
+		jobs = []params.MachineJob{
+			params.JobManageEnviron, params.JobHostUnits,
 		}
 	}
 	// NOTE: the old test used an equivalent of the NewAgentConfig, but it
@@ -199,7 +200,7 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
-	jobs := []state.MachineJob{state.JobManageEnviron}
+	jobs := []params.MachineJob{params.JobManageEnviron}
 	_, cmd, err := s.initBootstrapCommand(c, jobs, "--env-config", testConfig)
 	c.Assert(err, gc.IsNil)
 	err = cmd.Run(nil)
@@ -214,7 +215,7 @@ func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 	defer st.Close()
 	m, err := st.Machine("0")
 	c.Assert(err, gc.IsNil)
-	c.Assert(m.Jobs(), gc.DeepEquals, jobs)
+	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageEnviron})
 }
 
 func testOpenState(c *gc.C, info *state.Info, expectErrType error) {

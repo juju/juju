@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
@@ -100,7 +101,7 @@ type mockAgentConfig struct {
 	logDir       string
 	tag          string
 	namespace    string
-	jobs         []state.MachineJob
+	jobs         []params.MachineJob
 	apiAddresses []string
 }
 
@@ -116,7 +117,7 @@ func (mock *mockAgentConfig) LogDir() string {
 	return mock.logDir
 }
 
-func (mock *mockAgentConfig) Jobs() []state.MachineJob {
+func (mock *mockAgentConfig) Jobs() []params.MachineJob {
 	return mock.jobs
 }
 

@@ -4,9 +4,13 @@
 package agent
 
 import (
+	"os"
+	"path/filepath"
+
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/state/api/params"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )
@@ -39,28 +43,68 @@ func newTestConfig(c *gc.C) *configInternal {
 	return config.(*configInternal)
 }
 
-const legacyFormatFileContents = "format 1.16"
-const legacyConfig1_16 = `
-tag: omg
-nonce: a nonce
-cacert: Y2EgY2VydA==
-stateaddresses:
-- localhost:1234
-apiaddresses:
-- localhost:1235
-oldpassword: sekrit
-values: {}
-`
-
-func (*formatSuite) TestReadPreviousFormatWritesNew(c *gc.C) {
+func (*formatSuite) TestWriteCommands(c *gc.C) {
 	config := newTestConfig(c)
+	commands, err := config.WriteCommands()
+	c.Assert(err, gc.IsNil)
+	c.Assert(commands, gc.HasLen, 3)
+	c.Assert(commands[0], gc.Matches, `mkdir -p '\S+/agents/omg'`)
+	c.Assert(commands[1], gc.Matches, `install -m 600 /dev/null '\S+/agents/omg/agent.conf'`)
+	c.Assert(commands[2], gc.Matches, `printf '%s\\n' '(.|\n)*' > '\S+/agents/omg/agent.conf'`)
+}
 
-	err := previousFormatter.write(config)
+func (*formatSuite) TestWriteAgentConfig(c *gc.C) {
+	config := newTestConfig(c)
+	err := config.Write()
 	c.Assert(err, gc.IsNil)
 
-	_, err = ReadConf(ConfigPath(config.DataDir(), config.Tag()))
+	configPath := ConfigPath(config.DataDir(), config.Tag())
+	formatPath := filepath.Join(config.Dir(), legacyFormatFilename)
+	assertFileExists(c, configPath)
+	assertFileNotExist(c, formatPath)
+}
+
+func (*formatSuite) TestRead(c *gc.C) {
+	config := newTestConfig(c)
+	assertWriteAndRead(c, config)
+}
+
+func (*formatSuite) TestReadWriteStateConfig(c *gc.C) {
+	stateParams := StateMachineConfigParams{
+		AgentConfigParams: agentParams,
+		StateServerCert:   []byte("some special cert"),
+		StateServerKey:    []byte("a special key"),
+		StatePort:         12345,
+		APIPort:           23456,
+	}
+	stateParams.DataDir = c.MkDir()
+	stateParams.Values = map[string]string{"foo": "bar", "wibble": "wobble"}
+	configInterface, err := NewStateMachineConfig(stateParams)
 	c.Assert(err, gc.IsNil)
-	format, err := readFormat(config.Dir())
+	config, ok := configInterface.(*configInternal)
+	c.Assert(ok, jc.IsTrue)
+
+	assertWriteAndRead(c, config)
+}
+
+func assertWriteAndRead(c *gc.C, config *configInternal) {
+	err := config.Write()
 	c.Assert(err, gc.IsNil)
-	c.Assert(format, gc.Equals, currentFormat)
+	configPath := ConfigPath(config.DataDir(), config.Tag())
+	readConfig, err := ReadConf(configPath)
+	c.Assert(err, gc.IsNil)
+	c.Assert(readConfig, jc.DeepEquals, config)
+}
+
+func assertFileExists(c *gc.C, path string) {
+	fileInfo, err := os.Stat(path)
+	c.Assert(err, gc.IsNil)
+	c.Assert(fileInfo.Mode().IsRegular(), jc.IsTrue)
+	c.Assert(fileInfo.Mode().Perm(), gc.Equals, os.FileMode(0600))
+	c.Assert(fileInfo.Size(), jc.GreaterThan, 0)
+}
+
+func assertFileNotExist(c *gc.C, path string) {
+	_, err := os.Stat(path)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
