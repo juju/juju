@@ -1,8 +1,7 @@
 #!/bin/bash
 set -eux
 : ${LOCAL_JENKINS_URL=$JENKINS_URL}
-declare -a ssh_options=("-o" "'StrictHostKeyChecking no'")
-ssh_options=("${ssh_options[@]}" "-o" "'UserKnownHostsFile /dev/null'")
+ssh_options='-o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null"'
 remote_user="ubuntu"
 
 if [[ $1 =~ .*@.* ]]; then
@@ -10,7 +9,7 @@ if [[ $1 =~ .*@.* ]]; then
     remote_user=$(echo $1 | cut -d @ -f1)
     instance_name=$(echo $1 | cut -d @ -f2)
     shift
-    ssh_options=("${ssh_options[@]}" "$@")
+    ssh_options="$(printf " %q" $ssh_options "$@")"
 else
     is_ephemeral="true"
     export INSTANCE_TYPE=$1
@@ -37,7 +36,7 @@ set -x
 set +e
 echo $ssh_options
 DEPS="build-essential bzr distro-info-data git-core mercurial zip rsyslog-gnutls"
-ssh $remote_user@$instance_name ${ssh_options[@]} <<EOT
+ssh $remote_user@$instance_name $ssh_options <<EOT
 set -eux
 sudo apt-get update
 if [[ \$(apt-cache madison juju-mongodb) =~ .*juju-mongodb.* ]]; then
@@ -53,7 +52,7 @@ fi
 sudo apt-get install -y $DEPS \$juju_db \$juju_compiler
 EOT
 
-ssh $remote_user@$instance_name ${ssh_options[@]} <<EOT
+ssh $remote_user@$instance_name $ssh_options <<EOT
 set -eux
 if [[ ! -f ~/.ssh/id_rsa ]]; then
     ssh-keygen -t rsa -b 2048 -N "" -f ~/.ssh/id_rsa
