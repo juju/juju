@@ -4,14 +4,9 @@
 package tools_test
 
 import (
-	"bytes"
-	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
-	"strings"
-	"time"
 
 	"github.com/loggo/loggo"
 	gc "launchpad.net/gocheck"
@@ -19,10 +14,9 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
-	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
+	ttesting "launchpad.net/juju-core/environs/tools/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
@@ -87,84 +81,12 @@ func (s *SimpleStreamsToolsSuite) removeTools(c *gc.C) {
 	}
 }
 
-type metadataFile struct {
-	path string
-	data []byte
-}
-
-func (s *SimpleStreamsToolsSuite) generateMetadata(c *gc.C, verses ...version.Binary) []metadataFile {
-	var metadata = make([]*envtools.ToolsMetadata, len(verses))
-	for i, vers := range verses {
-		basePath := fmt.Sprintf("releases/tools-%s.tar.gz", vers.String())
-		metadata[i] = &envtools.ToolsMetadata{
-			Release: vers.Series,
-			Version: vers.Number.String(),
-			Arch:    vers.Arch,
-			Path:    basePath,
-		}
-	}
-	index, products, err := envtools.MarshalToolsMetadataJSON(metadata, time.Now())
-	c.Assert(err, gc.IsNil)
-	objects := []metadataFile{
-		{simplestreams.UnsignedIndex, index},
-		{envtools.ProductMetadataPath, products},
-	}
-	return objects
-}
-
-func (s *SimpleStreamsToolsSuite) uploadToStorage(c *gc.C, stor storage.Storage, verses ...version.Binary) map[version.Binary]string {
-	uploaded := map[version.Binary]string{}
-	if len(verses) == 0 {
-		return uploaded
-	}
-	var err error
-	for _, vers := range verses {
-		filename := fmt.Sprintf("tools/releases/tools-%s.tar.gz", vers.String())
-		// Put a file in images since the dummy storage provider requires a
-		// file to exist before the URL can be found. This is to ensure it behaves
-		// the same way as MAAS.
-		err = stor.Put(filename, strings.NewReader("dummy"), 5)
-		c.Assert(err, gc.IsNil)
-		uploaded[vers], err = stor.URL(filename)
-		c.Assert(err, gc.IsNil)
-	}
-	objects := s.generateMetadata(c, verses...)
-	for _, object := range objects {
-		toolspath := path.Join("tools", object.path)
-		err = stor.Put(toolspath, bytes.NewReader(object.data), int64(len(object.data)))
-		c.Assert(err, gc.IsNil)
-	}
-	return uploaded
-}
-
-func (s *SimpleStreamsToolsSuite) uploadVersions(c *gc.C, dir string, verses ...version.Binary) map[version.Binary]string {
-	uploaded := map[version.Binary]string{}
-	if len(verses) == 0 {
-		return uploaded
-	}
-	for _, vers := range verses {
-		basePath := fmt.Sprintf("releases/tools-%s.tar.gz", vers.String())
-		uploaded[vers] = fmt.Sprintf("file://%s/%s", dir, basePath)
-	}
-	objects := s.generateMetadata(c, verses...)
-	for _, object := range objects {
-		path := filepath.Join(dir, object.path)
-		dir := filepath.Dir(path)
-		if err := os.MkdirAll(dir, 0755); err != nil && !os.IsExist(err) {
-			c.Assert(err, gc.IsNil)
-		}
-		err := ioutil.WriteFile(path, object.data, 0644)
-		c.Assert(err, gc.IsNil)
-	}
-	return uploaded
-}
-
 func (s *SimpleStreamsToolsSuite) uploadCustom(c *gc.C, verses ...version.Binary) map[version.Binary]string {
-	return s.uploadVersions(c, s.customToolsDir, verses...)
+	return ttesting.UploadToDirectory(c, s.customToolsDir, verses...)
 }
 
 func (s *SimpleStreamsToolsSuite) uploadPublic(c *gc.C, verses ...version.Binary) map[version.Binary]string {
-	return s.uploadVersions(c, s.publicToolsDir, verses...)
+	return ttesting.UploadToDirectory(c, s.publicToolsDir, verses...)
 }
 
 func (s *SimpleStreamsToolsSuite) resetEnv(c *gc.C, attrs map[string]interface{}) {
@@ -258,7 +180,7 @@ func (s *SimpleStreamsToolsSuite) TestFindTools(c *gc.C) {
 
 func (s *SimpleStreamsToolsSuite) TestFindToolsInControlBucket(c *gc.C) {
 	s.reset(c, nil)
-	custom := s.uploadToStorage(c, s.env.Storage(), envtesting.V110p...)
+	custom := ttesting.UploadToStorage(c, s.env.Storage(), envtesting.V110p...)
 	s.uploadPublic(c, envtesting.VAll...)
 	actual, err := envtools.FindTools(s.env, 1, 1, coretools.Filter{}, envtools.DoNotAllowRetry)
 	c.Assert(err, gc.IsNil)

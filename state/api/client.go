@@ -419,6 +419,15 @@ func (c *Client) SetEnvironAgentVersion(version version.Number) error {
 	return c.st.Call("Client", "", "SetEnvironAgentVersion", args, nil)
 }
 
+// FindTools returns a List containing all tools matching the specified major version.
+func (c *Client) FindTools(majorVersion int) (result params.FindToolsResults, err error) {
+	args := params.FindToolsParams{
+		MajorVersion: majorVersion,
+	}
+	err = c.st.Call("Client", "", "FindTools", args, &result)
+	return result, err
+}
+
 // RunOnAllMachines runs the command on all the machines with the specified
 // timeout.
 func (c *Client) RunOnAllMachines(commands string, timeout time.Duration) ([]params.RunResult, error) {

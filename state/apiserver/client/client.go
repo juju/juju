@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
@@ -27,6 +28,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/statecmd"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -806,6 +808,23 @@ func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
 // SetEnvironAgentVersion sets the environment agent version.
 func (c *Client) SetEnvironAgentVersion(args params.SetEnvironAgentVersion) error {
 	return c.api.state.SetEnvironAgentVersion(args.Version)
+}
+
+// FindTools returns a List containing all tools matching the given parameters.
+func (c *Client) FindTools(args params.FindToolsParams) (params.FindToolsResults, error) {
+	result := params.FindToolsResults{}
+	// Get the existing environment config from the state.
+	envConfig, err := c.api.state.EnvironConfig()
+	if err != nil {
+		return result, err
+	}
+	env, err := environs.New(envConfig)
+	if err != nil {
+		return result, err
+	}
+	result.List, err = envtools.FindTools(env, args.MajorVersion, -1, coretools.Filter{}, envtools.DoNotAllowRetry)
+	result.Error = common.ServerError(err)
+	return result, nil
 }
 
 func destroyErr(desc string, ids, errs []string) error {
