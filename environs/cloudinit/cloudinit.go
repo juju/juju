@@ -327,7 +327,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	// MongoDB, and other infrastructure.
 	if !cfg.DisablePackageCommands {
 		series := cfg.Tools.Version.Series
-		cfg.MaybeAddCloudArchiveCloudTools(c, series)
+		MaybeAddCloudArchiveCloudTools(c, series)
 	}
 
 	if cfg.StateServer {
