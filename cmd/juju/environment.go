@@ -10,6 +10,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state/api/params"
 )
@@ -17,7 +18,7 @@ import (
 // GetEnvironmentCommand is able to output either the entire environment or
 // the requested value in a format of the user's choosing.
 type GetEnvironmentCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	key string
 	out cmd.Output
 }
@@ -105,7 +106,7 @@ type attributes map[string]interface{}
 
 // SetEnvironment
 type SetEnvironmentCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	values attributes
 }
 

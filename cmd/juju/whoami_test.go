@@ -5,6 +5,7 @@ package main
 
 import (
 	"bytes"
+
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"

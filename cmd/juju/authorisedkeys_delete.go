@@ -10,6 +10,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju"
 )
 
@@ -21,7 +22,7 @@ typically something like "user@host", or the key fingerprint found by using ssh-
 
 // DeleteKeysCommand is used to delete authorized ssh keys for a user.
 type DeleteKeysCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	user   string
 	keyIds []string
 }

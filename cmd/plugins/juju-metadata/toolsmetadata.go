@@ -10,6 +10,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
@@ -21,7 +22,7 @@ import (
 
 // ToolsMetadataCommand is used to generate simplestreams metadata for juju tools.
 type ToolsMetadataCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	fetch       bool
 	metadataDir string
 	public      bool

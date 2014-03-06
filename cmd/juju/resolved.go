@@ -9,13 +9,14 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
 )
 
 // ResolvedCommand marks a unit in an error state as ready to continue.
 type ResolvedCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	UnitName string
 	Retry    bool
 }

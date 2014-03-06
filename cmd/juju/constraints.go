@@ -9,6 +9,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
@@ -51,7 +52,7 @@ See Also:
 
 // GetConstraintsCommand shows the constraints for a service or environment.
 type GetConstraintsCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	ServiceName string
 	out         cmd.Output
 }
@@ -129,7 +130,7 @@ func (c *GetConstraintsCommand) Run(ctx *cmd.Context) error {
 
 // SetConstraintsCommand shows the constraints for a service or environment.
 type SetConstraintsCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	ServiceName string
 	Constraints constraints.Value
 }

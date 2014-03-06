@@ -11,6 +11,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/simplestreams"
@@ -20,7 +21,7 @@ import (
 
 // ValidateToolsMetadataCommand
 type ValidateToolsMetadataCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	out          cmd.Output
 	providerType string
 	metadataDir  string

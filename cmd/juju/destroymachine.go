@@ -9,6 +9,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
@@ -17,7 +18,7 @@ import (
 
 // DestroyMachineCommand causes an existing machine to be destroyed.
 type DestroyMachineCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	MachineIds []string
 	Force      bool
 }

@@ -12,6 +12,7 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
@@ -20,7 +21,7 @@ import (
 
 // UpgradeCharm is responsible for upgrading a service's charm.
 type UpgradeCharmCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	ServiceName string
 	Force       bool
 	RepoPath    string // defaults to JUJU_REPOSITORY

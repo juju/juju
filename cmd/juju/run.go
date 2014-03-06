@@ -14,6 +14,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	jujuerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
@@ -22,7 +23,7 @@ import (
 
 // RunCommand is responsible for running arbitrary commands on remote machines.
 type RunCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	out      cmd.Output
 	all      bool
 	timeout  time.Duration

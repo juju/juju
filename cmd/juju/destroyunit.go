@@ -8,13 +8,14 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
 )
 
 // DestroyUnitCommand is responsible for destroying service units.
 type DestroyUnitCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	UnitNames []string
 }
 

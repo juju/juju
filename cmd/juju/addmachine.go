@@ -10,6 +10,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/manual"
 	"launchpad.net/juju-core/instance"
@@ -56,7 +57,7 @@ See Also:
 
 // AddMachineCommand starts a new machine and registers it in the environment.
 type AddMachineCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	// If specified, use this series, else use the environment default-series
 	Series string
 	// If specified, these constraints are merged with those already in the environment.

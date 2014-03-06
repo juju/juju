@@ -20,6 +20,7 @@ import (
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
@@ -59,7 +60,7 @@ to choose the new instance.
 `
 
 type restoreCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	Log             cmd.Log
 	Constraints     constraints.Value
 	backupFile      string
