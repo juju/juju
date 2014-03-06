@@ -119,8 +119,7 @@ func (h *charmsHandler) manifestSender(w http.ResponseWriter, r *http.Request, b
 
 // fileSender returns a bundleContentSenderFunc which is responsible for sending
 // the contents of filePath included in the given charm bundle. If filePath does
-// not identify a file, or a symlink that resolves to a file, a 403 forbidden error
-// is returned.
+// not identify a file or a symlink, a 403 forbidden error is returned.
 func (h *charmsHandler) fileSender(filePath string) bundleContentSenderFunc {
 	return func(w http.ResponseWriter, r *http.Request, bundle *charm.Bundle) {
 		// TODO(fwereade) 20140127 lp:1285685
