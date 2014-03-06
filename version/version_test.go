@@ -184,43 +184,39 @@ func (suite) TestParseBinary(c *gc.C) {
 }
 
 var marshallers = []struct {
-	name       string
-	marshal    func(interface{}) ([]byte, error)
-	unmarshal  func([]byte, interface{}) error
-	onlyNumber bool
+	name      string
+	marshal   func(interface{}) ([]byte, error)
+	unmarshal func([]byte, interface{}) error
 }{{
 	"json",
 	json.Marshal,
 	json.Unmarshal,
-	false,
 }, {
 	"bson",
 	bson.Marshal,
 	bson.Unmarshal,
-	false,
 }, {
 	"yaml",
 	goyaml.Marshal,
 	goyaml.Unmarshal,
-	true,
 }}
 
 func (suite) TestBinaryMarshalUnmarshal(c *gc.C) {
 	for _, m := range marshallers {
-		if m.onlyNumber {
-			continue
-		}
 		c.Logf("encoding %v", m.name)
 		type doc struct {
-			Version version.Binary
+			Version *version.Binary
 		}
-		v := doc{version.MustParseBinary("1.2.3-foo-bar")}
-		data, err := m.marshal(v)
+		// Work around goyaml bug #1096149
+		// SetYAML is not called for non-pointer fields.
+		bp := version.MustParseBinary("1.2.3-foo-bar")
+		v := doc{&bp}
+		data, err := m.marshal(&v)
 		c.Assert(err, gc.IsNil)
-		var nv doc
-		err = m.unmarshal(data, &nv)
+		var bv doc
+		err = m.unmarshal(data, &bv)
 		c.Assert(err, gc.IsNil)
-		c.Assert(nv, gc.Equals, v)
+		c.Assert(bv, gc.DeepEquals, v)
 	}
 }
 

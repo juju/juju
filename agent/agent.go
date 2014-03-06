@@ -280,7 +280,6 @@ func ReadConf(configFilePath string) (Config, error) {
 	var (
 		format formatter
 		config *configInternal
-		err    error
 	)
 	configData, err := ioutil.ReadFile(configFilePath)
 	if err != nil {
@@ -291,12 +290,15 @@ func ReadConf(configFilePath string) (Config, error) {
 	dir := filepath.Dir(configFilePath)
 	legacyFormatPath := filepath.Join(dir, legacyFormatFilename)
 	formatBytes, err := ioutil.ReadFile(legacyFormatPath)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, fmt.Errorf("cannot read format file: %v", err)
+	}
 	formatData := string(formatBytes)
 	if err == nil {
 		// It exists, so unmarshal with a legacy formatter.
 		// Drop the format prefix to leave the version only.
 		if !strings.HasPrefix(formatData, legacyFormatPrefix) {
-			return nil, fmt.Errorf("malformed agent config format: %q", formatData)
+			return nil, fmt.Errorf("malformed agent config format %q", formatData)
 		}
 		format, err = getFormatter(strings.TrimPrefix(formatData, legacyFormatPrefix))
 		if err != nil {
@@ -310,16 +312,13 @@ func ReadConf(configFilePath string) (Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	logger.Debugf("read agent config format %q", format.version())
+	logger.Debugf("read agent config, format %q", format.version())
+	config.configFilePath = configFilePath
 	if format != currentFormat {
 		// Migrate from a legacy format to the new one.
-		data, err := currentFormat.marshal(config)
+		err := config.write()
 		if err != nil {
-			return nil, fmt.Errorf("cannot marshal agent config: %v", err)
-		}
-		err = utils.AtomicWriteFile(configFilePath, data, 0600)
-		if err != nil {
-			return nil, fmt.Errorf("cannot upgrade agent config %s to %s: %v", format.version(), currentFormat.version(), err)
+			return nil, fmt.Errorf("cannot migrate %s agent config to %s: %v", format.version(), currentFormat.version(), err)
 		}
 		logger.Debugf("migrated agent config from %s to %s", format.version(), currentFormat.version())
 		err = os.Remove(legacyFormatPath)
@@ -327,7 +326,6 @@ func ReadConf(configFilePath string) (Config, error) {
 			return nil, fmt.Errorf("cannot remove legacy format file %q: %v", legacyFormatPath, err)
 		}
 	}
-	config.configFilePath = configFilePath
 	return config, nil
 }
 
@@ -472,10 +470,8 @@ func (c *configInternal) fileContents() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (c *configInternal) Write() error {
-	// Lock is taken prior to generating any content to write.
-	configMutex.Lock()
-	defer configMutex.Unlock()
+// write is the internal implementation of c.Write().
+func (c *configInternal) write() error {
 	data, err := c.fileContents()
 	if err != nil {
 		return err
@@ -486,6 +482,13 @@ func (c *configInternal) Write() error {
 		return fmt.Errorf("cannot create agent config dir %q: %v", configDir, err)
 	}
 	return utils.AtomicWriteFile(c.configFilePath, data, 0600)
+}
+
+func (c *configInternal) Write() error {
+	// Lock is taken prior to generating any content to write.
+	configMutex.Lock()
+	defer configMutex.Unlock()
+	return c.write()
 }
 
 func (c *configInternal) WriteUpgradedToVersion(newVersion version.Number) error {

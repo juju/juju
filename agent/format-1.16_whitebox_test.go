@@ -49,14 +49,18 @@ func (*format_1_16Suite) TestReadConfReadsLegacyFormatAndWritesNew(c *gc.C) {
 	config, err := ReadConf(configPath)
 	c.Assert(err, gc.IsNil)
 	c.Assert(config, gc.NotNil)
+	// Test we wrote a currently valid config.
+	config, err = ReadConf(configPath)
+	c.Assert(err, gc.IsNil)
+	c.Assert(config, gc.NotNil)
+	c.Assert(config.UpgradedToVersion(), jc.DeepEquals, version.MustParse("1.16.0"))
+	c.Assert(config.Jobs(), gc.HasLen, 0)
 
 	// Old format was deleted.
 	assertFileNotExist(c, formatPath)
 	// And new contents were written.
 	data, err := ioutil.ReadFile(configPath)
 	c.Assert(err, gc.IsNil)
-	c.Assert(config.UpgradedToVersion(), jc.DeepEquals, version.MustParse("1.16.0"))
-	c.Assert(config.Jobs(), gc.HasLen, 0)
 	c.Assert(string(data), gc.Not(gc.Equals), agentConfig1_16Contents)
 }
 
