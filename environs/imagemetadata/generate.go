@@ -34,9 +34,9 @@ func MergeAndWriteMetadata(series string, metadata []*ImageMetadata, cloudSpec *
 // readMetadata reads the image metadata from metadataStore.
 func readMetadata(metadataStore storage.Storage) ([]*ImageMetadata, error) {
 	// Read any existing metadata so we can merge the new tools metadata with what's there.
-	dataSource := storage.NewStorageSimpleStreamsDataSource(metadataStore, storage.BaseImagesPath)
+	dataSource := storage.NewStorageSimpleStreamsDataSource("existing metadata", metadataStore, storage.BaseImagesPath)
 	imageConstraint := NewImageConstraint(simplestreams.LookupParams{})
-	existingMetadata, err := Fetch(
+	existingMetadata, _, err := Fetch(
 		[]simplestreams.DataSource{dataSource}, simplestreams.DefaultIndexPath, imageConstraint, false)
 	if err != nil && !errors.IsNotFoundError(err) {
 		return nil, err
