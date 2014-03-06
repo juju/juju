@@ -7,7 +7,7 @@ import (
 	"path"
 	"path/filepath"
 
-	"launchpad.net/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
