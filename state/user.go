@@ -1,6 +1,3 @@
-// Copyright 2013 Canonical Ltd.
-// Licensed under the AGPLv3, see LICENCE file for details.
-
 package state
 
 import (
@@ -165,6 +162,9 @@ func (u *User) Refresh() error {
 }
 
 func (u *User) SetInactive() error {
+	if u.doc.Name == "admin" {
+		return errors.Unauthorizedf("Can't deactivate admin user")
+	}
 	ops := []txn.Op{{
 		C:      u.st.users.Name,
 		Id:     u.Name(),
