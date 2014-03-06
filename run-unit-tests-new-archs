@@ -1,7 +1,7 @@
 #!/bin/bash
 set -eux
 : ${LOCAL_JENKINS_URL=$JENKINS_URL}
-ssh_options="-o 'StrictHostKeyChecking no' -o 'UserKnownHostsFile /dev/null'"
+ssh_options='-o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null"'
 remote_user="ubuntu"
 
 if [[ $1 =~ .*@.* ]]; then
