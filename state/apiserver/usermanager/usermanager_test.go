@@ -81,6 +81,7 @@ func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
 
 // Since removing a user just sets them inactive you cannot add a user
 // that has been previously been removed
+// TODO: This test should be removed 1288745
 func (s *userManagerSuite) TestCannotAddRemoveAdd(c *gc.C) {
 	args := params.ModifyUser{
 		Tag:      "foobar",
