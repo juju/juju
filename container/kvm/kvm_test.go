@@ -30,12 +30,12 @@ var _ = gc.Suite(&KVMSuite{})
 func (s *KVMSuite) SetUpTest(c *gc.C) {
 	s.TestSuite.SetUpTest(c)
 	var err error
-	s.manager, err = kvm.NewContainerManager(container.ManagerConfig{Name: "test"})
+	s.manager, err = kvm.NewContainerManager(container.ManagerConfig{container.ConfigName: "test"})
 	c.Assert(err, gc.IsNil)
 }
 
 func (*KVMSuite) TestManagerNameNeeded(c *gc.C) {
-	manager, err := kvm.NewContainerManager(container.ManagerConfig{})
+	manager, err := kvm.NewContainerManager(container.ManagerConfig{container.ConfigName: ""})
 	c.Assert(err, gc.ErrorMatches, "name is required")
 	c.Assert(manager, gc.IsNil)
 }
