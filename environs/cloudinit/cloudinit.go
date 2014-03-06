@@ -326,7 +326,8 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	// for series that need it. This gives us up-to-date LXC,
 	// MongoDB, and other infrastructure.
 	if !cfg.DisablePackageCommands {
-		cfg.MaybeAddCloudArchiveCloudTools(c)
+		series := cfg.Tools.Version.Series
+		cfg.MaybeAddCloudArchiveCloudTools(c, series)
 	}
 
 	if cfg.StateServer {
@@ -573,8 +574,7 @@ p/+af/HU1smBrOfIeRoxb8jQoHu3
 
 // MaybeAddCloudArchiveCloudTools adds the cloud-archive cloud-tools
 // pocket to apt sources, if the series requires it.
-func (cfg *MachineConfig) MaybeAddCloudArchiveCloudTools(c *cloudinit.Config) {
-	series := cfg.Tools.Version.Series
+func MaybeAddCloudArchiveCloudTools(c *cloudinit.Config, series string) {
 	if series != "precise" {
 		// Currently only precise; presumably we'll
 		// need to add each LTS in here as they're
