@@ -200,14 +200,14 @@ var upgradeJujuTests = []struct {
 	currentVersion: "3.2.0-quantal-amd64",
 	agentVersion:   "4.2.0",
 	args:           []string{"--version", "3.2.0"},
-	expectErr:      "cannot change version from 4.2 to 3.2",
+	expectErr:      "cannot change version from 4.2.0 to 3.2.0",
 }, {
 	about:          "minor version downgrade to incompatible version",
 	tools:          []string{"3.2.0-quantal-amd64"},
 	currentVersion: "3.2.0-quantal-amd64",
 	agentVersion:   "3.3.0",
 	args:           []string{"--version", "3.2.0"},
-	expectErr:      "cannot change version from 3.3 to 3.2",
+	expectErr:      "cannot change version from 3.3.0 to 3.2.0",
 }, {
 	about:          "nothing available",
 	currentVersion: "2.0.0-quantal-amd64",
