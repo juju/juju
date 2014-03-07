@@ -76,7 +76,10 @@ func (c *LoginCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return fmt.Errorf("login failed: %v", err)
 	}
-	defer conn.Close()
+	err = conn.Close()
+	if err != nil {
+		return fmt.Errorf("failed to close connection: %v", err)
+	}
 
 	err = info.Write()
 	if err != nil {
