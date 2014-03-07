@@ -10,14 +10,14 @@ import (
 )
 
 var (
-	Provider               = providerInstance
-	FinishBootstrap        = &finishBootstrap
 	CheckLocalPort         = &checkLocalPort
 	DetectAptProxies       = &detectAptProxies
-	UserCurrent            = &userCurrent
-	UseFastLXC             = useFastLXC
-	LSBReleaseFileVar      = &lsbReleaseFile
 	EnvKeyTestingForceSlow = envKeyTestingForceSlow
+	FinishBootstrap        = &finishBootstrap
+	Provider               = providerInstance
+	ReleaseVersion         = &releaseVersion
+	UseFastLXC             = useFastLXC
+	UserCurrent            = &userCurrent
 )
 
 // SetRootCheckFunction allows tests to override the check for a root user.
