@@ -4,26 +4,23 @@
 package main
 
 import (
-	"encoding/json"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 	"time"
 
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
+	apirsyslog "launchpad.net/juju-core/state/api/rsyslog"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
+	"launchpad.net/juju-core/worker/rsyslog"
 	"launchpad.net/juju-core/worker/upgrader"
 )
 
@@ -62,7 +59,7 @@ func (s *UnitSuite) primeAgent(c *gc.C) (*state.Machine, *state.Unit, agent.Conf
 	c.Assert(err, gc.IsNil)
 	machine, err := s.State.Machine(id)
 	c.Assert(err, gc.IsNil)
-	conf, tools := s.agentSuite.primeAgent(c, unit.Tag(), initialUnitPassword)
+	conf, tools := s.agentSuite.primeAgent(c, unit.Tag(), initialUnitPassword, version.Current)
 	return machine, unit, conf, tools
 }
 
@@ -148,27 +145,10 @@ func (s *UnitSuite) TestUpgrade(c *gc.C) {
 	agent := s.newAgent(c, unit)
 	newVers := version.Current
 	newVers.Patch++
-	envtesting.PrimeTools(c, s.Conn.Environ.Storage(), s.DataDir(), newVers)
-
-	// Set up fake downloaded tools for the assigned machine.
-	libDir := c.MkDir()
-	s.PatchValue(&environs.DataDir, libDir)
-	fakeToolsPath := filepath.Join(libDir, "tools", newVers.String())
-	err := os.MkdirAll(fakeToolsPath, 0700)
-	c.Assert(err, gc.IsNil)
-	fakeTools := tools.Tools{
-		Version: newVers,
-		URL:     "fake-url",
-		Size:    1234,
-		SHA256:  "checksum",
-	}
-	toolsMetadataData, err := json.Marshal(fakeTools)
-	c.Assert(err, gc.IsNil)
-	err = ioutil.WriteFile(filepath.Join(fakeToolsPath, "downloaded-tools.txt"), []byte(toolsMetadataData), 0644)
-	c.Assert(err, gc.IsNil)
+	envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), newVers)
 
 	// Set the machine agent version to trigger an upgrade.
-	err = machine.SetAgentVersion(newVers)
+	err := machine.SetAgentVersion(newVers)
 	c.Assert(err, gc.IsNil)
 	err = runWithTimeout(agent)
 	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
@@ -212,7 +192,7 @@ func (s *UnitSuite) TestOpenAPIState(c *gc.C) {
 }
 
 func (s *UnitSuite) TestOpenAPIStateWithBadCredsTerminates(c *gc.C) {
-	conf, _ := s.agentSuite.primeAgent(c, "unit-missing-0", "no-password")
+	conf, _ := s.agentSuite.primeAgent(c, "unit-missing-0", "no-password", version.Current)
 	_, _, err := openAPIState(conf, nil)
 	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
 }
@@ -247,4 +227,24 @@ func (s *UnitSuite) TestOpenStateFails(c *gc.C) {
 	waitForUnitStarted(s.State, unit, c)
 
 	s.assertCannotOpenState(c, conf.Tag(), conf.DataDir())
+}
+
+func (s *UnitSuite) TestRsyslogConfigWorker(c *gc.C) {
+	created := make(chan rsyslog.RsyslogMode, 1)
+	s.PatchValue(&newRsyslogConfigWorker, func(_ *apirsyslog.State, _ agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
+		created <- mode
+		return worker.NewRunner(isFatal, moreImportant), nil
+	})
+
+	_, unit, _, _ := s.primeAgent(c)
+	a := s.newAgent(c, unit)
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+
+	select {
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout while waiting for rsyslog worker to be created")
+	case mode := <-created:
+		c.Assert(mode, gc.Equals, rsyslog.RsyslogModeForwarding)
+	}
 }

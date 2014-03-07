@@ -4,7 +4,7 @@
 package provisioner
 
 import (
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
@@ -26,13 +26,17 @@ type APICalls interface {
 	ContainerConfig() (params.ContainerConfig, error)
 }
 
-func NewLxcBroker(api APICalls, tools *tools.Tools, agentConfig agent.Config) environs.InstanceBroker {
+func NewLxcBroker(api APICalls, tools *tools.Tools, agentConfig agent.Config) (environs.InstanceBroker, error) {
+	manager, err := lxc.NewContainerManager(container.ManagerConfig{container.ConfigName: "juju"})
+	if err != nil {
+		return nil, err
+	}
 	return &lxcBroker{
-		manager:     lxc.NewContainerManager(container.ManagerConfig{Name: "juju"}),
+		manager:     manager,
 		api:         api,
 		tools:       tools,
 		agentConfig: agentConfig,
-	}
+	}, nil
 }
 
 type lxcBroker struct {
@@ -74,7 +78,6 @@ func (broker *lxcBroker) StartInstance(cons constraints.Value, possibleTools too
 		config.ProviderType,
 		config.AuthorizedKeys,
 		config.SSLHostnameVerification,
-		config.SyslogPort,
 		config.Proxy,
 		config.AptProxy,
 	); err != nil {

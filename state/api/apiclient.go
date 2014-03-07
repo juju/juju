@@ -65,11 +65,6 @@ type Info struct {
 	Nonce string `yaml:",omitempty"`
 }
 
-var openAttempt = utils.AttemptStrategy{
-	Total: 5 * time.Minute,
-	Delay: 500 * time.Millisecond,
-}
-
 // DialOpts holds configuration parameters that control the
 // Dialing behavior when connecting to a state server.
 type DialOpts struct {

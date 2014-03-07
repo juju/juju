@@ -24,7 +24,7 @@ type datasourceSuite struct {
 }
 
 func (s *datasourceSuite) TestFetch(c *gc.C) {
-	ds := simplestreams.NewURLDataSource("test:", simplestreams.VerifySSLHostnames)
+	ds := simplestreams.NewURLDataSource("test", "test:", simplestreams.VerifySSLHostnames)
 	rc, url, err := ds.Fetch("streams/v1/tools_metadata.json")
 	c.Assert(err, gc.IsNil)
 	defer rc.Close()
@@ -36,7 +36,7 @@ func (s *datasourceSuite) TestFetch(c *gc.C) {
 }
 
 func (s *datasourceSuite) TestURL(c *gc.C) {
-	ds := simplestreams.NewURLDataSource("foo", simplestreams.VerifySSLHostnames)
+	ds := simplestreams.NewURLDataSource("test", "foo", simplestreams.VerifySSLHostnames)
 	url, err := ds.URL("bar")
 	c.Assert(err, gc.IsNil)
 	c.Assert(url, gc.Equals, "foo/bar")
@@ -64,7 +64,7 @@ func (s *datasourceHTTPSSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *datasourceHTTPSSuite) TestNormalClientFails(c *gc.C) {
-	ds := simplestreams.NewURLDataSource(s.Server.URL, simplestreams.VerifySSLHostnames)
+	ds := simplestreams.NewURLDataSource("test", s.Server.URL, simplestreams.VerifySSLHostnames)
 	url, err := ds.URL("bar")
 	c.Assert(err, gc.IsNil)
 	c.Check(url, gc.Equals, s.Server.URL+"/bar")
@@ -76,7 +76,7 @@ func (s *datasourceHTTPSSuite) TestNormalClientFails(c *gc.C) {
 }
 
 func (s *datasourceHTTPSSuite) TestNonVerifyingClientSucceeds(c *gc.C) {
-	ds := simplestreams.NewURLDataSource(s.Server.URL, simplestreams.NoVerifySSLHostnames)
+	ds := simplestreams.NewURLDataSource("test", s.Server.URL, simplestreams.NoVerifySSLHostnames)
 	url, err := ds.URL("bar")
 	c.Assert(err, gc.IsNil)
 	c.Check(url, gc.Equals, s.Server.URL+"/bar")

@@ -9,7 +9,7 @@ import (
 	stdtesting "testing"
 	"time"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cert"
@@ -1072,11 +1072,6 @@ var validationTests = []validationTest{{
 	new:   testing.Attrs{"api-port": 42},
 	err:   `cannot change api-port from 17070 to 42`,
 }, {
-	about: "Cannot change the syslog-port",
-	old:   testing.Attrs{"syslog-port": 345},
-	new:   testing.Attrs{"syslog-port": 42},
-	err:   `cannot change syslog-port from 345 to 42`,
-}, {
 	about: "Can change the state-port from explicit-default to implicit-default",
 	old:   testing.Attrs{"state-port": config.DefaultStatePort},
 }, {
@@ -1097,9 +1092,9 @@ var validationTests = []validationTest{{
 	new:   testing.Attrs{"api-port": 42},
 	err:   `cannot change api-port from 17070 to 42`,
 }, {
-	about: "Cannot change the syslog-port from implicit-default to different value",
-	new:   testing.Attrs{"syslog-port": 42},
-	err:   `cannot change syslog-port from 514 to 42`,
+	about: "Cannot change the bootstrap-timeout from implicit-default to different value",
+	new:   testing.Attrs{"bootstrap-timeout": 5},
+	err:   `cannot change bootstrap-timeout from 600 to 5`,
 }}
 
 func (*ConfigSuite) TestValidateChange(c *gc.C) {

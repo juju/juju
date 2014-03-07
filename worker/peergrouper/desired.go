@@ -1,10 +1,13 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package peergrouper
 
 import (
 	"fmt"
 	"sort"
 
-	"launchpad.net/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/replicaset"
 )
@@ -14,16 +17,9 @@ var logger = loggo.GetLogger("juju.worker.peergrouper")
 // peerGroupInfo holds information that may contribute to
 // a peer group.
 type peerGroupInfo struct {
-	machines []*machine // possibly map[id] *machine
+	machines map[string]*machine // id -> machine
 	statuses []replicaset.MemberStatus
 	members  []replicaset.Member
-}
-
-// machine represents a machine in State.
-type machine struct {
-	id        string
-	wantsVote bool
-	hostPort  string
 }
 
 // desiredPeerGroup returns the mongo peer group according to the given
@@ -31,8 +27,15 @@ type machine struct {
 // specifying whether that machine has been configured as voting. It may
 // return (nil, nil, nil) if the current group is already correct.
 func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, map[*machine]bool, error) {
+	if len(info.members) == 0 {
+		return nil, nil, fmt.Errorf("current member set is empty")
+	}
 	changed := false
 	members, extra, maxId := info.membersMap()
+	logger.Debugf("calculating desired peer group")
+	logger.Debugf("members: %#v", members)
+	logger.Debugf("extra: %#v", extra)
+	logger.Debugf("maxId: %v", maxId)
 
 	// We may find extra peer group members if the machines
 	// have been removed or their state server status removed.
@@ -48,11 +51,10 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, map[*machine]bo
 	// but make sure the extras aren't eligible to
 	// be primary.
 	// 3) remove them "get rid of bad rubbish"
-	// 4) bomb out "run in circles, scream and shout"
-	// 5) do nothing "nothing to see here"
+	// 4) do nothing "nothing to see here"
 	for _, member := range extra {
 		if member.Votes == nil || *member.Votes > 0 {
-			return nil, nil, fmt.Errorf("voting non-machine member found in peer group")
+			return nil, nil, fmt.Errorf("voting non-machine member %#v found in peer group", member)
 		}
 		changed = true
 	}
@@ -106,24 +108,31 @@ func possiblePeerGroupChanges(
 ) (toRemoveVote, toAddVote, toKeep []*machine) {
 	statuses := info.statusesMap(members)
 
+	logger.Debugf("assessing possible peer group changes:")
 	for _, m := range info.machines {
 		member := members[m]
 		isVoting := member != nil && isVotingMember(member)
 		switch {
 		case m.wantsVote && isVoting:
+			logger.Debugf("machine %q is already voting", m.id)
 			toKeep = append(toKeep, m)
 		case m.wantsVote && !isVoting:
 			if status, ok := statuses[m]; ok && isReady(status) {
+				logger.Debugf("machine %q is a potential voter", m.id)
 				toAddVote = append(toAddVote, m)
 			} else {
+				logger.Debugf("machine %q is not ready (has status: %v)", m.id, ok)
 				toKeep = append(toKeep, m)
 			}
 		case !m.wantsVote && isVoting:
+			logger.Debugf("machine %q is a potential non-voter", m.id)
 			toRemoveVote = append(toRemoveVote, m)
 		case !m.wantsVote && !isVoting:
+			logger.Debugf("machine %q does not want the vote", m.id)
 			toKeep = append(toKeep, m)
 		}
 	}
+	logger.Debugf("assessed")
 	// sort machines to be added and removed so that we
 	// get deterministic behaviour when testing. Earlier
 	// entries will be dealt with preferentially, so we could
@@ -136,7 +145,7 @@ func possiblePeerGroupChanges(
 
 // updateAddresses updates the members' addresses from the machines' addresses.
 // It reports whether any changes have been made.
-func updateAddresses(members map[*machine]*replicaset.Member, machines []*machine) bool {
+func updateAddresses(members map[*machine]*replicaset.Member, machines map[string]*machine) bool {
 	changed := false
 	// Make sure all members' machine addresses are up to date.
 	for _, m := range machines {
@@ -210,6 +219,8 @@ func addNewMembers(
 			}
 			members[m] = member
 			setVoting(m, false)
+		} else if m.hostPort == "" {
+			logger.Debugf("ignoring machine %q with no address", m.id)
 		}
 	}
 }
@@ -246,14 +257,10 @@ func (info *peerGroupInfo) membersMap() (members map[*machine]*replicaset.Member
 	members = make(map[*machine]*replicaset.Member)
 	for _, member := range info.members {
 		member := member
+		mid, ok := member.Tags["juju-machine-id"]
 		var found *machine
-		if mid, ok := member.Tags["juju-machine-id"]; ok {
-			for _, m := range info.machines {
-				if m.id == mid {
-					found = m
-					break
-				}
-			}
+		if ok {
+			found = info.machines[mid]
 		}
 		if found != nil {
 			members[found] = &member

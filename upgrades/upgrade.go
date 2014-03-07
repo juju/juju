@@ -6,9 +6,10 @@ package upgrades
 import (
 	"fmt"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/version"
 )
@@ -78,27 +79,47 @@ type Context interface {
 	// APIState returns an API connection to state.
 	APIState() *api.State
 
-	// AgentConfig returns the agent config for the machine that is being upgraded.
+	// State returns a connection to state. This will be non-nil
+	// only in the context of a state server.
+	State() *state.State
+
+	// AgentConfig returns the agent config for the machine that is being
+	// upgraded.
 	AgentConfig() agent.Config
 }
 
-// UpgradeContext is a default Context implementation.
-type UpgradeContext struct {
+// upgradeContext is a default Context implementation.
+type upgradeContext struct {
 	// Work in progress........
 	// Exactly what a context needs is to be determined as the
 	// implementation evolves.
-	st          *api.State
+	api         *api.State
+	st          *state.State
 	agentConfig agent.Config
 }
 
 // APIState is defined on the Context interface.
-func (c *UpgradeContext) APIState() *api.State {
+func (c *upgradeContext) APIState() *api.State {
+	return c.api
+}
+
+// State is defined on the Context interface.
+func (c *upgradeContext) State() *state.State {
 	return c.st
 }
 
 // AgentConfig is defined on the Context interface.
-func (c *UpgradeContext) AgentConfig() agent.Config {
+func (c *upgradeContext) AgentConfig() agent.Config {
 	return c.agentConfig
+}
+
+// NewContext returns a new upgrade context.
+func NewContext(agentConfig agent.Config, api *api.State, st *state.State) Context {
+	return &upgradeContext{
+		api:         api,
+		st:          st,
+		agentConfig: agentConfig,
+	}
 }
 
 // upgradeError records a description of the step being performed and the error.
@@ -113,14 +134,19 @@ func (e *upgradeError) Error() string {
 
 // PerformUpgrade runs the business logic needed to upgrade the current "from" version to this
 // version of Juju on the "target" type of machine.
-func PerformUpgrade(from version.Number, target Target, context Context) *upgradeError {
+func PerformUpgrade(from version.Number, target Target, context Context) error {
 	// If from is not known, it is 1.16.
 	if from == version.Zero {
 		from = version.MustParse("1.16.0")
 	}
 	for _, upgradeOps := range upgradeOperations() {
+		targetVersion := upgradeOps.TargetVersion()
 		// Do not run steps for versions of Juju earlier or same as we are upgrading from.
-		if upgradeOps.TargetVersion().Compare(from) < 1 {
+		if targetVersion.Compare(from) <= 0 {
+			continue
+		}
+		// Do not run steps for versions of Juju later than we are upgrading to.
+		if targetVersion.Compare(version.Current.Number) > 0 {
 			continue
 		}
 		if err := runUpgradeSteps(context, target, upgradeOps); err != nil {
@@ -133,7 +159,7 @@ func PerformUpgrade(from version.Number, target Target, context Context) *upgrad
 // validTarget returns true if target is in step.Targets().
 func validTarget(target Target, step Step) bool {
 	for _, opTarget := range step.Targets() {
-		if target == AllMachines || target == opTarget {
+		if opTarget == AllMachines || target == opTarget {
 			return true
 		}
 	}
@@ -150,13 +176,16 @@ func runUpgradeSteps(context Context, target Target, upgradeOp Operation) *upgra
 		if !validTarget(target, step) {
 			continue
 		}
+		logger.Infof("Running upgrade step: %v", step.Description())
 		if err := step.Run(context); err != nil {
+			logger.Errorf("upgrade step %q failed: %v", step.Description(), err)
 			return &upgradeError{
 				description: step.Description(),
 				err:         err,
 			}
 		}
 	}
+	logger.Infof("All upgrade steps completed successfully")
 	return nil
 }
 

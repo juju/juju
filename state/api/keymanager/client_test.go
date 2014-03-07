@@ -9,6 +9,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	jujutesting "launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/keymanager"
 	"launchpad.net/juju-core/state/api/params"
 	keymanagerserver "launchpad.net/juju-core/state/apiserver/keymanager"
@@ -87,6 +88,33 @@ func (s *keymanagerSuite) TestAddKeys(c *gc.C) {
 		{Error: clientError("invalid ssh key: invalid")},
 	})
 	s.assertEnvironKeys(c, append([]string{key1}, newKeys[:2]...))
+}
+
+func (s *keymanagerSuite) TestAddSystemKey(c *gc.C) {
+	key1 := sshtesting.ValidKeyOne.Key + " user@host"
+	s.setAuthorisedKeys(c, key1)
+
+	apiState, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	keyManager := keymanager.NewClient(apiState)
+	newKey := sshtesting.ValidKeyTwo.Key
+	errResults, err := keyManager.AddKeys("juju-system-key", newKey)
+	c.Assert(err, gc.IsNil)
+	c.Assert(errResults, gc.DeepEquals, []params.ErrorResult{
+		{Error: nil},
+	})
+	s.assertEnvironKeys(c, []string{key1, newKey})
+}
+
+func (s *keymanagerSuite) TestAddSystemKeyWrongUser(c *gc.C) {
+	key1 := sshtesting.ValidKeyOne.Key + " user@host"
+	s.setAuthorisedKeys(c, key1)
+
+	apiState, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	keyManager := keymanager.NewClient(apiState)
+	newKey := sshtesting.ValidKeyTwo.Key
+	_, err := keyManager.AddKeys("some-user", newKey)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	s.assertEnvironKeys(c, []string{key1})
 }
 
 func (s *keymanagerSuite) TestDeleteKeys(c *gc.C) {

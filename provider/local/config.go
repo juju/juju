@@ -107,7 +107,6 @@ func (c *environConfig) createDirs() error {
 	for _, dirname := range []string{
 		c.storageDir(),
 		c.mongoDir(),
-		c.logDir(),
 	} {
 		logger.Tracef("creating directory %s", dirname)
 		if err := os.MkdirAll(dirname, 0755); err != nil {

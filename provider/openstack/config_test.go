@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
@@ -55,7 +55,6 @@ type configTest struct {
 	envVars                 map[string]string
 	region                  string
 	controlBucket           string
-	toolsURL                string
 	useFloatingIP           bool
 	useDefaultSecurityGroup bool
 	network                 string
@@ -151,11 +150,6 @@ func (t configTest) check(c *gc.C) {
 		actual, err := e.Provider().SecretAttrs(ecfg.Config)
 		c.Assert(err, gc.IsNil)
 		c.Assert(expected, gc.DeepEquals, actual)
-	}
-	if t.toolsURL != "" {
-		toolsURL, ok := ecfg.ToolsURL()
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(toolsURL, gc.Equals, t.toolsURL)
 	}
 	if t.firewallMode != "" {
 		c.Assert(ecfg.FirewallMode(), gc.Equals, t.firewallMode)
@@ -449,6 +443,28 @@ func (s *ConfigSuite) TestConfig(c *gc.C) {
 	for i, t := range configTests {
 		c.Logf("test %d: %s (%v)", i, t.summary, t.config)
 		t.check(c)
+	}
+}
+
+func (s *ConfigSuite) TestDeprecatedAttributesRemoved(c *gc.C) {
+	s.setupEnvCredentials()
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
+		"type":                  "openstack",
+		"control-bucket":        "x",
+		"default-image-id":      "id-1234",
+		"default-instance-type": "big",
+	})
+
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+	// Keep err for validation below.
+	valid, err := providerInstance.Validate(cfg, nil)
+	c.Assert(err, gc.IsNil)
+	// Check deprecated attributes removed.
+	allAttrs := valid.AllAttrs()
+	for _, attr := range []string{"default-image-id", "default-instance-type"} {
+		_, ok := allAttrs[attr]
+		c.Assert(ok, jc.IsFalse)
 	}
 }
 

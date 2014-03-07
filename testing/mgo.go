@@ -145,7 +145,9 @@ func (inst *MgoInstance) run() error {
 	}
 	server.Stderr = server.Stdout
 	exited := make(chan struct{})
+	started := make(chan struct{})
 	go func() {
+		<-started
 		lines := readLines(out, 20)
 		err := server.Wait()
 		exitErr, _ := err.(*exec.ExitError)
@@ -159,7 +161,9 @@ func (inst *MgoInstance) run() error {
 		close(exited)
 	}()
 	inst.exited = exited
-	if err := server.Start(); err != nil {
+	err = server.Start()
+	close(started)
+	if err != nil {
 		return err
 	}
 	inst.server = server

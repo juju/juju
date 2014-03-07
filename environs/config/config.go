@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/errgo/errgo"
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/charm"
@@ -43,9 +43,9 @@ const (
 	// DefaultApiPort is the default port the API server is listening on.
 	DefaultAPIPort int = 17070
 
-	// DefaultSyslogPort is the default port that the syslog UDP listener is
+	// DefaultSyslogPort is the default port that the syslog UDP/TCP listener is
 	// listening on.
-	DefaultSyslogPort int = 514
+	DefaultSyslogPort int = 6514
 
 	// DefaultBootstrapSSHTimeout is the amount of time to wait
 	// contacting a state server, in seconds.
@@ -427,6 +427,16 @@ func (c *Config) SyslogPort() int {
 	return c.mustInt("syslog-port")
 }
 
+// RsyslogCACert returns the certificate of the CA that signed the
+// rsyslog certificate, in PEM format, or nil if one hasn't been
+// generated yet.
+func (c *Config) RsyslogCACert() []byte {
+	if s, ok := c.defined["rsyslog-ca-cert"]; ok {
+		return []byte(s.(string))
+	}
+	return nil
+}
+
 // AuthorizedKeys returns the content for ssh's authorized_keys file.
 func (c *Config) AuthorizedKeys() string {
 	return c.mustString("authorized-keys")
@@ -668,6 +678,7 @@ var fields = schema.Fields{
 	"state-port":                schema.ForceInt(),
 	"api-port":                  schema.ForceInt(),
 	"syslog-port":               schema.ForceInt(),
+	"rsyslog-ca-cert":           schema.String(),
 	"logging-config":            schema.String(),
 	"charm-store-auth":          schema.String(),
 	"provisioner-safe-mode":     schema.Bool(),
@@ -711,6 +722,7 @@ var alwaysOptional = schema.Defaults{
 	"bootstrap-timeout":         schema.Omit,
 	"bootstrap-retry-delay":     schema.Omit,
 	"bootstrap-addresses-delay": schema.Omit,
+	"rsyslog-ca-cert":           schema.Omit,
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url": "",
@@ -742,6 +754,9 @@ func allowEmpty(attr string) bool {
 
 var defaults = allDefaults()
 
+// allDefaults returns a schema.Defaults that contains
+// defaults to be used when creating a new config with
+// UseDefaults.
 func allDefaults() schema.Defaults {
 	d := schema.Defaults{
 		"default-series":            DefaultSeries,
@@ -756,7 +771,9 @@ func allDefaults() schema.Defaults {
 		"bootstrap-addresses-delay": DefaultBootstrapSSHAddressesDelay,
 	}
 	for attr, val := range alwaysOptional {
-		d[attr] = val
+		if _, ok := d[attr]; !ok {
+			d[attr] = val
+		}
 	}
 	return d
 }
@@ -786,7 +803,6 @@ var immutableAttributes = []string{
 	"firewall-mode",
 	"state-port",
 	"api-port",
-	"syslog-port",
 	"bootstrap-timeout",
 	"bootstrap-retry-delay",
 	"bootstrap-addresses-delay",

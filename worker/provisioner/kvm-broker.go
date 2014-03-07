@@ -4,7 +4,7 @@
 package provisioner
 
 import (
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
@@ -26,7 +26,7 @@ func NewKvmBroker(
 	tools *tools.Tools,
 	agentConfig agent.Config,
 ) (environs.InstanceBroker, error) {
-	manager, err := kvm.NewContainerManager(container.ManagerConfig{Name: "juju"})
+	manager, err := kvm.NewContainerManager(container.ManagerConfig{container.ConfigName: "juju"})
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +84,6 @@ func (broker *kvmBroker) StartInstance(
 		config.ProviderType,
 		config.AuthorizedKeys,
 		config.SSLHostnameVerification,
-		config.SyslogPort,
 		config.Proxy,
 		config.AptProxy,
 	); err != nil {
