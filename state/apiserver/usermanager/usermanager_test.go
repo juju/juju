@@ -44,15 +44,17 @@ func (s *userManagerSuite) TestNewUserManagerAPIRefusesNonClient(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestAddUser(c *gc.C) {
-	args := params.ModifyUser{
+	arg := params.ModifyUser{
 		Tag:      "foobar",
 		Password: "password",
 	}
 
+	args := params.ModifyUsers{Params: []params.ModifyUser{arg}}
+
 	result, err := s.usermanager.AddUser(args)
 	// Check that the call is succesful
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResult{})
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{params.ErrorResult{Error: nil}}})
 	// Check that the call results in a new user being created
 	user, err := s.State.User("foobar")
 	c.Assert(err, gc.IsNil)
@@ -60,10 +62,11 @@ func (s *userManagerSuite) TestAddUser(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
-	args := params.ModifyUser{
+	arg := params.ModifyUser{
 		Tag:      "foobar",
 		Password: "password",
 	}
+	args := params.ModifyUsers{Params: []params.ModifyUser{arg}}
 	_, err := s.usermanager.AddUser(args)
 	c.Assert(err, gc.IsNil)
 	user, err := s.State.User("foobar")
@@ -71,28 +74,32 @@ func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
 
 	result, err := s.usermanager.RemoveUser(args)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResult{Error: nil})
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{params.ErrorResult{Error: nil}}})
 	user, err = s.State.User("foobar")
 	c.Assert(err, gc.IsNil)
 	// Removal makes the user in active
 	c.Assert(user.IsInactive(), gc.Equals, true)
-	c.Assert(user.PasswordValid(args.Password), gc.Equals, true)
+	c.Assert(user.PasswordValid(arg.Password), gc.Equals, true)
 }
 
 // Since removing a user just sets them inactive you cannot add a user
 // that has been previously been removed
 // TODO: This test should be removed 1288745
 func (s *userManagerSuite) TestCannotAddRemoveAdd(c *gc.C) {
-	args := params.ModifyUser{
-		Tag:      "foobar",
+	arg := params.ModifyUser{
+		Tag:      "addremove",
 		Password: "password",
 	}
+	args := params.ModifyUsers{Params: []params.ModifyUser{arg}}
 	_, err := s.usermanager.AddUser(args)
 	c.Assert(err, gc.IsNil)
 
 	_, err = s.usermanager.RemoveUser(args)
 	c.Assert(err, gc.IsNil)
-	_, err = s.State.User("foobar")
-	_, err = s.usermanager.AddUser(args)
-	c.Assert(err, gc.NotNil)
+	_, err = s.State.User("addremove")
+	result, err := s.usermanager.AddUser(args)
+	expectedError := params.Error{Code: "", Message: "Failed to create user: user already exists"}
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			params.ErrorResult{&expectedError}}})
 }

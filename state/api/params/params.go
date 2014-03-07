@@ -331,6 +331,10 @@ type ModifyUser struct {
 	Password string
 }
 
+type ModifyUsers struct {
+	Params []ModifyUser
+}
+
 // MarshalJSON implements json.Marshaler.
 func (d *Delta) MarshalJSON() ([]byte, error) {
 	b, err := json.Marshal(d.Entity)
