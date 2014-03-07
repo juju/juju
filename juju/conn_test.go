@@ -15,7 +15,6 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
-	charmtesting "launchpad.net/juju-core/charm/testing"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
@@ -375,7 +374,7 @@ func (s *ConnSuite) TestPutCharmUpload(c *gc.C) {
 	rev := sch.Revision()
 
 	// Change the charm on disk.
-	ch, err := repo.Get(curl, false)
+	ch, err := repo.Get(curl)
 	c.Assert(err, gc.IsNil)
 	chd := ch.(*charm.Dir)
 	err = ioutil.WriteFile(filepath.Join(chd.Path, "extra"), []byte("arble"), 0666)
@@ -438,37 +437,6 @@ func (s *ConnSuite) TestAddUnits(c *gc.C) {
 	// Check that all but the first colon is left alone.
 	_, err = juju.AddUnits(s.conn.State, svc, 1, "lxc:"+strings.Replace(id3, "/", ":", -1))
 	c.Assert(err, gc.ErrorMatches, `invalid force machine id ".*"`)
-}
-
-func (s *ConnSuite) TestPutCharmTestMode(c *gc.C) {
-	s.PatchValue(&charm.CacheDir, c.MkDir())
-	server := charmtesting.NewMockStore(c, map[string]int{
-		"cs:series/charm1": 1,
-		"cs:series/charm2": 1,
-	})
-	server.Downloads = nil
-	server.DownloadsNoStats = nil
-	server.InfoRequestCount = 0
-	server.InfoRequestCountNoStats = 0
-	store := &charm.CharmStore{BaseURL: server.Address()}
-	curl := charm.MustParseURL("cs:series/charm1-1")
-	expected_downloads := []*charm.URL{curl}
-	s.conn.PutCharm(curl, store, false)
-	c.Assert(server.Downloads, gc.DeepEquals, expected_downloads)
-	c.Assert(server.DownloadsNoStats, gc.IsNil)
-	c.Assert(server.InfoRequestCount, gc.Equals, 1)
-	c.Assert(server.InfoRequestCountNoStats, gc.Equals, 0)
-
-	new_config, err := s.conn.Environ.Config().Apply(map[string]interface{}{"testmode": true})
-	c.Assert(err, gc.IsNil)
-	s.conn.Environ.SetConfig(new_config)
-	curl = charm.MustParseURL("cs:series/charm2-1")
-	expected_nostats := []*charm.URL{curl}
-	s.conn.PutCharm(curl, store, false)
-	c.Assert(server.Downloads, gc.DeepEquals, expected_downloads)
-	c.Assert(server.DownloadsNoStats, gc.DeepEquals, expected_nostats)
-	c.Assert(server.InfoRequestCount, gc.Equals, 1)
-	c.Assert(server.InfoRequestCountNoStats, gc.Equals, 1)
 }
 
 // DeployLocalSuite uses a fresh copy of the same local dummy charm for each

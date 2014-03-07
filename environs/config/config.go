@@ -846,18 +846,22 @@ func (cfg *Config) GenerateStateServerCertAndKey() ([]byte, []byte, error) {
 	return cert.NewServer(caCert, caKey, time.Now().UTC().AddDate(10, 0, 0), noHostnames)
 }
 
-type Authorizer interface {
+type Specializer interface {
 	WithAuthAttrs(string) charm.Repository
+	SetTestMode(testMode bool) charm.Repository
 }
 
-// AuthorizeCharmRepo returns a repository with authentication added
-// from the specified configuration.
-func AuthorizeCharmRepo(repo charm.Repository, cfg *Config) charm.Repository {
+// SpecializeCharmRepo returns a repository customized for given configuration.
+// It adds authentication if necessary and sets a charm store's testMode flag.
+func SpecializeCharmRepo(repo charm.Repository, cfg *Config) charm.Repository {
 	// If a charm store auth token is set, pass it on to the charm store
 	if auth, authSet := cfg.CharmStoreAuth(); authSet {
-		if CS, isCS := repo.(Authorizer); isCS {
+		if CS, isCS := repo.(Specializer); isCS {
 			repo = CS.WithAuthAttrs(auth)
 		}
+	}
+	if CS, isCS := repo.(Specializer); isCS {
+		repo = CS.SetTestMode(cfg.TestMode())
 	}
 	return repo
 }

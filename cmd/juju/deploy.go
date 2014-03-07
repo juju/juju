@@ -141,9 +141,9 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	repo = config.AuthorizeCharmRepo(repo, conf)
+	repo = config.SpecializeCharmRepo(repo, conf)
 
-	curl, err = addCharmViaAPI(client, ctx, curl, repo, conf.TestMode())
+	curl, err = addCharmViaAPI(client, ctx, curl, repo)
 	if err != nil {
 		return err
 	}
@@ -212,7 +212,7 @@ func (c *DeployCommand) run1dot16(ctx *cmd.Context) error {
 		return err
 	}
 
-	repo = config.AuthorizeCharmRepo(repo, conf)
+	repo = config.SpecializeCharmRepo(repo, conf)
 
 	// TODO(fwereade) it's annoying to roundtrip the bytes through the client
 	// here, but it's the original behaviour and not convenient to change.
@@ -265,9 +265,9 @@ func (c *DeployCommand) run1dot16(ctx *cmd.Context) error {
 // addCharmViaAPI calls the appropriate client API calls to add the
 // given charm URL to state. Also displays the charm URL of the added
 // charm on stdout.
-func addCharmViaAPI(client *api.Client, ctx *cmd.Context, curl *charm.URL, repo charm.Repository, testMode bool) (*charm.URL, error) {
+func addCharmViaAPI(client *api.Client, ctx *cmd.Context, curl *charm.URL, repo charm.Repository) (*charm.URL, error) {
 	if curl.Revision < 0 {
-		latest, err := charm.Latest(repo, curl, testMode)
+		latest, err := charm.Latest(repo, curl)
 		if err != nil {
 			return nil, err
 		}
@@ -275,7 +275,7 @@ func addCharmViaAPI(client *api.Client, ctx *cmd.Context, curl *charm.URL, repo 
 	}
 	switch curl.Schema {
 	case "local":
-		ch, err := repo.Get(curl, false)
+		ch, err := repo.Get(curl)
 		if err != nil {
 			return nil, err
 		}

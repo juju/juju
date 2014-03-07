@@ -51,15 +51,15 @@ type CharmRevision struct {
 
 // Repository represents a collection of charms.
 type Repository interface {
-	Get(curl *URL, testMode bool) (Charm, error)
-	Latest(testMode bool, curls ...*URL) ([]CharmRevision, error)
+	Get(curl *URL) (Charm, error)
+	Latest(curls ...*URL) ([]CharmRevision, error)
 }
 
 // Latest returns the latest revision of the charm referenced by curl, regardless
 // of the revision set on each curl.
 // This is a helper which calls the bulk method and unpacks a single result.
-func Latest(repo Repository, curl *URL, testMode bool) (int, error) {
-	revs, err := repo.Latest(testMode, curl)
+func Latest(repo Repository, curl *URL) (int, error) {
+	revs, err := repo.Latest(curl)
 	if err != nil {
 		return 0, err
 	}
@@ -87,6 +87,7 @@ type CharmStore struct {
 	BaseURL   string
 	authAttrs string // a list of attr=value pairs, comma separated
 	jujuAttrs string // a list of attr=value pairs, comma separated
+	testMode  bool
 }
 
 var _ Repository = (*CharmStore)(nil)
@@ -99,6 +100,14 @@ func (s *CharmStore) WithAuthAttrs(authAttrs string) Repository {
 	authCS := *s
 	authCS.authAttrs = authAttrs
 	return &authCS
+}
+
+// SetTestMode returns a Repository where testMode is set to value passed to
+// this method.
+func (s *CharmStore) SetTestMode(testMode bool) Repository {
+	newRepo := *s
+	newRepo.testMode = testMode
+	return &newRepo
 }
 
 // WithJujuAttrs returns a Repository with the Juju metadata attributes set.
@@ -129,13 +138,13 @@ func (s *CharmStore) get(url string) (resp *http.Response, err error) {
 }
 
 // Info returns details for all the specified charms in the charm store.
-func (s *CharmStore) Info(testMode bool, curls ...*URL) ([]*InfoResponse, error) {
+func (s *CharmStore) Info(curls ...*URL) ([]*InfoResponse, error) {
 	baseURL := s.BaseURL + "/charm-info?"
 	charmSnippets := make([]string, len(curls)+1)
 	for i, curl := range curls {
 		charmSnippets[i] = "charms=" + url.QueryEscape(curl.String())
 	}
-	if testMode {
+	if s.testMode {
 		charmSnippets = append(charmSnippets, "stats=0")
 	}
 	resp, err := s.get(baseURL + strings.Join(charmSnippets, "&"))
@@ -209,8 +218,8 @@ func (s *CharmStore) Event(curl *URL, digest string) (*EventResponse, error) {
 }
 
 // revisions returns the revisions of the charms referenced by curls.
-func (s *CharmStore) revisions(testMode bool, curls ...*URL) (revisions []CharmRevision, err error) {
-	infos, err := s.Info(testMode, curls...)
+func (s *CharmStore) revisions(curls ...*URL) (revisions []CharmRevision, err error) {
+	infos, err := s.Info(curls...)
 	if err != nil {
 		return nil, err
 	}
@@ -236,12 +245,12 @@ func (s *CharmStore) revisions(testMode bool, curls ...*URL) (revisions []CharmR
 
 // Latest returns the latest revision of the charms referenced by curls, regardless
 // of the revision set on each curl.
-func (s *CharmStore) Latest(testMode bool, curls ...*URL) ([]CharmRevision, error) {
+func (s *CharmStore) Latest(curls ...*URL) ([]CharmRevision, error) {
 	baseCurls := make([]*URL, len(curls))
 	for i, curl := range curls {
 		baseCurls[i] = curl.WithRevision(-1)
 	}
-	return s.revisions(testMode, baseCurls...)
+	return s.revisions(baseCurls...)
 }
 
 // BranchLocation returns the location for the branch holding the charm at curl.
@@ -312,7 +321,7 @@ func verify(path, digest string) error {
 
 // Get returns the charm referenced by curl.
 // CacheDir must have been set, otherwise Get will panic.
-func (s *CharmStore) Get(curl *URL, testMode bool) (Charm, error) {
+func (s *CharmStore) Get(curl *URL) (Charm, error) {
 	// The cache location must have been previously set.
 	if CacheDir == "" {
 		panic("charm cache directory path is empty")
@@ -320,7 +329,7 @@ func (s *CharmStore) Get(curl *URL, testMode bool) (Charm, error) {
 	if err := os.MkdirAll(CacheDir, os.FileMode(0755)); err != nil {
 		return nil, err
 	}
-	revInfo, err := s.revisions(testMode, curl)
+	revInfo, err := s.revisions(curl)
 	if err != nil {
 		return nil, err
 	}
@@ -339,7 +348,7 @@ func (s *CharmStore) Get(curl *URL, testMode bool) (Charm, error) {
 	path := filepath.Join(CacheDir, Quote(curl.String())+".charm")
 	if verify(path, digest) != nil {
 		store_url := s.BaseURL + "/charm/" + url.QueryEscape(curl.Path())
-		if testMode {
+		if s.testMode {
 			store_url = store_url + "?stats=0"
 		}
 		resp, err := s.get(store_url)
@@ -385,10 +394,10 @@ var _ Repository = (*LocalRepository)(nil)
 
 // Latest returns the latest revision of the charm referenced by curl, regardless
 // of the revision set on curl itself.
-func (r *LocalRepository) Latest(testMode bool, curls ...*URL) ([]CharmRevision, error) {
+func (r *LocalRepository) Latest(curls ...*URL) ([]CharmRevision, error) {
 	result := make([]CharmRevision, len(curls))
 	for i, curl := range curls {
-		ch, err := r.Get(curl.WithRevision(-1), false)
+		ch, err := r.Get(curl.WithRevision(-1))
 		if err == nil {
 			result[i].Revision = ch.Revision()
 		} else {
@@ -416,7 +425,7 @@ func mightBeCharm(info os.FileInfo) bool {
 // Get returns a charm matching curl, if one exists. If curl has a revision of
 // -1, it returns the latest charm that matches curl. If multiple candidates
 // satisfy the foregoing, the first one encountered will be returned.
-func (r *LocalRepository) Get(curl *URL, testMode bool) (Charm, error) {
+func (r *LocalRepository) Get(curl *URL) (Charm, error) {
 	if curl.Schema != "local" {
 		return nil, fmt.Errorf("local repository got URL with non-local schema: %q", curl)
 	}

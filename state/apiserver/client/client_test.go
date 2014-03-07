@@ -1738,7 +1738,9 @@ func (s *clientSuite) TestClientAuthorizeStoreOnDeployServiceSetCharmAndAddCharm
 	c.Assert(err, gc.IsNil)
 
 	attrs := coretesting.Attrs(oldConfig.AllAttrs())
-	attrs = attrs.Merge(coretesting.Attrs{"charm-store-auth": "token=value"})
+	attrs = attrs.Merge(coretesting.Attrs{
+		"charm-store-auth": "token=value",
+		"testmode":         true})
 
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
@@ -1754,6 +1756,7 @@ func (s *clientSuite) TestClientAuthorizeStoreOnDeployServiceSetCharmAndAddCharm
 
 	// check that the store's auth attributes were set
 	c.Assert(store.AuthAttrs, gc.Equals, "token=value")
+	c.Assert(store.TestMode, gc.Equals, true)
 
 	store.AuthAttrs = ""
 
@@ -1889,25 +1892,6 @@ func (s *clientSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
 	c.Assert(sch.URL(), jc.DeepEquals, curl)
 	c.Assert(sch.IsPlaceholder(), jc.IsFalse)
 	c.Assert(sch.IsUploaded(), jc.IsTrue)
-}
-
-func (s *clientSuite) TestAddCharmTestMode(c *gc.C) {
-	store, restore := makeMockCharmStore()
-	defer restore()
-
-	client := s.APIState.Client()
-	curl, _ := addCharm(c, store, "wordpress")
-	err := client.AddCharm(curl)
-	c.Assert(err, gc.IsNil)
-	c.Assert(store.LastCallTestModeValue, gc.Equals, false)
-
-	args := map[string]interface{}{"testing": true}
-	err = s.APIState.Client().EnvironmentSet(args)
-	c.Assert(err, gc.IsNil)
-	curl, _ = addCharm(c, store, "mysql")
-	err = client.AddCharm(curl)
-	c.Assert(err, gc.IsNil)
-	c.Assert(store.LastCallTestModeValue, gc.Equals, true)
 }
 
 func (s *clientSuite) TestCharmArchiveName(c *gc.C) {

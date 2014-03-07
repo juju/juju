@@ -143,14 +143,14 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	repo = config.AuthorizeCharmRepo(repo, conf)
+	repo = config.SpecializeCharmRepo(repo, conf)
 
 	// If no explicit revision was set with either SwitchURL
 	// or Revision flags, discover the latest.
 	explicitRevision := true
 	if newURL.Revision == -1 {
 		explicitRevision = false
-		latest, err := charm.Latest(repo, newURL, conf.TestMode())
+		latest, err := charm.Latest(repo, newURL)
 		if err != nil {
 			return err
 		}
@@ -167,7 +167,7 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	addedURL, err := addCharmViaAPI(client, ctx, newURL, repo, conf.TestMode())
+	addedURL, err := addCharmViaAPI(client, ctx, newURL, repo)
 	if err != nil {
 		return err
 	}
@@ -215,14 +215,14 @@ func (c *UpgradeCharmCommand) run1dot16(ctx *cmd.Context) error {
 		return err
 	}
 
-	repo = config.AuthorizeCharmRepo(repo, conf)
+	repo = config.SpecializeCharmRepo(repo, conf)
 
 	// If no explicit revision was set with either SwitchURL
 	// or Revision flags, discover the latest.
 	explicitRevision := true
 	if newURL.Revision == -1 {
 		explicitRevision = false
-		latest, err := charm.Latest(repo, newURL, conf.TestMode())
+		latest, err := charm.Latest(repo, newURL)
 		if err != nil {
 			return err
 		}
@@ -241,7 +241,7 @@ func (c *UpgradeCharmCommand) run1dot16(ctx *cmd.Context) error {
 			return fmt.Errorf("already running latest charm %q", newURL)
 		}
 		// This is a local repository.
-		if ch, err := repo.Get(newURL, false); err != nil {
+		if ch, err := repo.Get(newURL); err != nil {
 			return err
 		} else if _, bumpRevision = ch.(*charm.Dir); !bumpRevision {
 			// Only bump the revision when it's a directory.
