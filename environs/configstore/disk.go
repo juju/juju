@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 
 	"github.com/errgo/errgo"
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/errors"

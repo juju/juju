@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 	"launchpad.net/golxc"
 
 	"launchpad.net/juju-core/container"
@@ -51,12 +51,16 @@ var _ container.Manager = (*containerManager)(nil)
 // NewContainerManager returns a manager object that can start and stop lxc
 // containers. The containers that are created are namespaced by the name
 // parameter.
-func NewContainerManager(conf container.ManagerConfig) container.Manager {
-	logdir := "/var/log/juju"
-	if conf.LogDir != "" {
-		logdir = conf.LogDir
+func NewContainerManager(conf container.ManagerConfig) (container.Manager, error) {
+	name := conf[container.ConfigName]
+	if name == "" {
+		return nil, fmt.Errorf("name is required")
 	}
-	return &containerManager{name: conf.Name, logdir: logdir}
+	logDir := conf[container.ConfigLogDir]
+	if logDir == "" {
+		logDir = "/var/log/juju"
+	}
+	return &containerManager{name: name, logdir: logDir}, nil
 }
 
 func (manager *containerManager) StartContainer(

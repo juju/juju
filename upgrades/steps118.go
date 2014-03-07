@@ -17,9 +17,19 @@ func stepsFor118() []Step {
 			run:         ensureSystemSSHKey,
 		},
 		&upgradeStep{
+			description: "update rsyslog port",
+			targets:     []Target{StateServer},
+			run:         updateRsyslogPort,
+		},
+		&upgradeStep{
 			description: "install rsyslog-gnutls",
 			targets:     []Target{AllMachines},
 			run:         installRsyslogGnutls,
+		},
+		&upgradeStep{
+			description: "remove deprecated attribute values",
+			targets:     []Target{StateServer},
+			run:         processDeprecatedAttributes,
 		},
 	}
 }
