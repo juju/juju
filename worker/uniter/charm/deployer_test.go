@@ -4,6 +4,7 @@
 package charm_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -17,36 +18,47 @@ import (
 
 type DeployerSuite struct {
 	testing.GitSuite
+	bundles    *bundleReader
+	targetPath string
+	deployer   charm.Deployer
 }
 
 var _ = gc.Suite(&DeployerSuite{})
 
+func (s *DeployerSuite) SetUpTest(c *gc.C) {
+	s.GitSuite.SetUpTest(c)
+	s.bundles = &bundleReader{}
+	s.targetPath = filepath.Join(c.MkDir(), "target")
+	deployerPath := filepath.Join(c.MkDir(), "deployer")
+	s.deployer = charm.NewGitDeployer(s.targetPath, deployerPath, s.bundles)
+}
+
 func (s *DeployerSuite) TestUnsetCharm(c *gc.C) {
-	d := charm.NewDeployer(filepath.Join(c.MkDir(), "deployer"))
-	err := d.Deploy(charm.NewGitDir(c.MkDir()))
+	err := s.deployer.Deploy()
 	c.Assert(err, gc.ErrorMatches, "charm deployment failed: no charm set")
 }
 
 func (s *DeployerSuite) TestInstall(c *gc.C) {
-	// Install.
-	d := charm.NewDeployer(filepath.Join(c.MkDir(), "deployer"))
-	bun := bundle(c, func(path string) {
+	// Prepare.
+	info := s.bundles.Add(c, corecharm.MustParseURL("cs:s/c-1"), func(path string) {
 		err := ioutil.WriteFile(filepath.Join(path, "some-file"), []byte("hello"), 0644)
 		c.Assert(err, gc.IsNil)
 	})
-	err := d.Stage(bun, corecharm.MustParseURL("cs:s/c-1"))
+	err := s.deployer.Stage(info, nil)
 	c.Assert(err, gc.IsNil)
-	checkCleanup(c, d)
+	checkCleanup(c, s.deployer)
 
-	target := charm.NewGitDir(filepath.Join(c.MkDir(), "target"))
-	err = d.Deploy(target)
+	// Install.
+	err = s.deployer.Deploy()
 	c.Assert(err, gc.IsNil)
-	checkCleanup(c, d)
+	checkCleanup(c, s.deployer)
 
 	// Check content.
-	data, err := ioutil.ReadFile(filepath.Join(target.Path(), "some-file"))
+	data, err := ioutil.ReadFile(filepath.Join(s.targetPath, "some-file"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(data), gc.Equals, "hello")
+
+	target := charm.NewGitDir(s.targetPath)
 	url, err := charm.ReadCharmURL(target)
 	c.Assert(err, gc.IsNil)
 	c.Assert(url, gc.DeepEquals, corecharm.MustParseURL("cs:s/c-1"))
@@ -59,41 +71,40 @@ func (s *DeployerSuite) TestInstall(c *gc.C) {
 
 func (s *DeployerSuite) TestUpgrade(c *gc.C) {
 	// Install.
-	d := charm.NewDeployer(filepath.Join(c.MkDir(), "deployer"))
-	bun1 := bundle(c, func(path string) {
+	info1 := s.bundles.Add(c, corecharm.MustParseURL("cs:s/c-1"), func(path string) {
 		err := ioutil.WriteFile(filepath.Join(path, "some-file"), []byte("hello"), 0644)
 		c.Assert(err, gc.IsNil)
 		err = os.Symlink("./some-file", filepath.Join(path, "a-symlink"))
 		c.Assert(err, gc.IsNil)
 	})
-	err := d.Stage(bun1, corecharm.MustParseURL("cs:s/c-1"))
+	err := s.deployer.Stage(info1, nil)
 	c.Assert(err, gc.IsNil)
-	target := charm.NewGitDir(filepath.Join(c.MkDir(), "target"))
-	err = d.Deploy(target)
+	err = s.deployer.Deploy()
 	c.Assert(err, gc.IsNil)
 
 	// Upgrade.
-	bun2 := bundle(c, func(path string) {
+	info2 := s.bundles.Add(c, corecharm.MustParseURL("cs:s/c-2"), func(path string) {
 		err := ioutil.WriteFile(filepath.Join(path, "some-file"), []byte("goodbye"), 0644)
 		c.Assert(err, gc.IsNil)
 		err = ioutil.WriteFile(filepath.Join(path, "a-symlink"), []byte("not any more!"), 0644)
 		c.Assert(err, gc.IsNil)
 	})
-	err = d.Stage(bun2, corecharm.MustParseURL("cs:s/c-2"))
+	err = s.deployer.Stage(info2, nil)
 	c.Assert(err, gc.IsNil)
-	checkCleanup(c, d)
-
-	err = d.Deploy(target)
+	checkCleanup(c, s.deployer)
+	err = s.deployer.Deploy()
 	c.Assert(err, gc.IsNil)
-	checkCleanup(c, d)
+	checkCleanup(c, s.deployer)
 
 	// Check content.
-	data, err := ioutil.ReadFile(filepath.Join(target.Path(), "some-file"))
+	data, err := ioutil.ReadFile(filepath.Join(s.targetPath, "some-file"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(data), gc.Equals, "goodbye")
-	data, err = ioutil.ReadFile(filepath.Join(target.Path(), "a-symlink"))
+	data, err = ioutil.ReadFile(filepath.Join(s.targetPath, "a-symlink"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(data), gc.Equals, "not any more!")
+
+	target := charm.NewGitDir(s.targetPath)
 	url, err := charm.ReadCharmURL(target)
 	c.Assert(err, gc.IsNil)
 	c.Assert(url, gc.DeepEquals, corecharm.MustParseURL("cs:s/c-2"))
@@ -103,43 +114,42 @@ func (s *DeployerSuite) TestUpgrade(c *gc.C) {
 	c.Assert(lines[0], gc.Matches, `[0-9a-f]{7} Upgraded charm to "cs:s/c-2".`)
 }
 
-func (s *DeployerSuite) TestConflict(c *gc.C) {
+func (s *DeployerSuite) TestConflictRevertResolve(c *gc.C) {
 	// Install.
-	d := charm.NewDeployer(filepath.Join(c.MkDir(), "deployer"))
-	bun1 := bundle(c, func(path string) {
+	info1 := s.bundles.Add(c, corecharm.MustParseURL("cs:s/c-1"), func(path string) {
 		err := ioutil.WriteFile(filepath.Join(path, "some-file"), []byte("hello"), 0644)
 		c.Assert(err, gc.IsNil)
 	})
-	err := d.Stage(bun1, corecharm.MustParseURL("cs:s/c-1"))
+	err := s.deployer.Stage(info1, nil)
 	c.Assert(err, gc.IsNil)
-	target := charm.NewGitDir(filepath.Join(c.MkDir(), "target"))
-	err = d.Deploy(target)
+	err = s.deployer.Deploy()
 	c.Assert(err, gc.IsNil)
 
 	// Mess up target.
-	err = ioutil.WriteFile(filepath.Join(target.Path(), "some-file"), []byte("mu!"), 0644)
+	err = ioutil.WriteFile(filepath.Join(s.targetPath, "some-file"), []byte("mu!"), 0644)
 	c.Assert(err, gc.IsNil)
 
 	// Upgrade.
-	bun2 := bundle(c, func(path string) {
+	info2 := s.bundles.Add(c, corecharm.MustParseURL("cs:s/c-2"), func(path string) {
 		err := ioutil.WriteFile(filepath.Join(path, "some-file"), []byte("goodbye"), 0644)
 		c.Assert(err, gc.IsNil)
 	})
-	err = d.Stage(bun2, corecharm.MustParseURL("cs:s/c-2"))
+	err = s.deployer.Stage(info2, nil)
 	c.Assert(err, gc.IsNil)
-	err = d.Deploy(target)
+	err = s.deployer.Deploy()
 	c.Assert(err, gc.Equals, charm.ErrConflict)
-	checkCleanup(c, d)
+	checkCleanup(c, s.deployer)
 
 	// Check state.
+	target := charm.NewGitDir(s.targetPath)
 	conflicted, err := target.Conflicted()
 	c.Assert(err, gc.IsNil)
 	c.Assert(conflicted, gc.Equals, true)
 
 	// Revert and check initial content.
-	err = target.Revert()
+	err = s.deployer.NotifyRevert()
 	c.Assert(err, gc.IsNil)
-	data, err := ioutil.ReadFile(filepath.Join(target.Path(), "some-file"))
+	data, err := ioutil.ReadFile(filepath.Join(s.targetPath, "some-file"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(data), gc.Equals, "mu!")
 	conflicted, err = target.Conflicted()
@@ -147,25 +157,25 @@ func (s *DeployerSuite) TestConflict(c *gc.C) {
 	c.Assert(conflicted, gc.Equals, false)
 
 	// Try to upgrade again.
-	err = d.Deploy(target)
+	err = s.deployer.Deploy()
 	c.Assert(err, gc.Equals, charm.ErrConflict)
 	conflicted, err = target.Conflicted()
 	c.Assert(err, gc.IsNil)
 	c.Assert(conflicted, gc.Equals, true)
-	checkCleanup(c, d)
+	checkCleanup(c, s.deployer)
 
 	// And again.
-	err = d.Deploy(target)
+	err = s.deployer.Deploy()
 	c.Assert(err, gc.Equals, charm.ErrConflict)
 	conflicted, err = target.Conflicted()
 	c.Assert(err, gc.IsNil)
 	c.Assert(conflicted, gc.Equals, true)
-	checkCleanup(c, d)
+	checkCleanup(c, s.deployer)
 
 	// Manually resolve, and commit.
 	err = ioutil.WriteFile(filepath.Join(target.Path(), "some-file"), []byte("nu!"), 0644)
 	c.Assert(err, gc.IsNil)
-	err = target.Snapshotf("user resolved conflicts")
+	err = s.deployer.NotifyResolved()
 	c.Assert(err, gc.IsNil)
 	conflicted, err = target.Conflicted()
 	c.Assert(err, gc.IsNil)
@@ -173,9 +183,9 @@ func (s *DeployerSuite) TestConflict(c *gc.C) {
 
 	// Try a final upgrade to the same charm and check it doesn't write anything
 	// except the upgrade log line.
-	err = d.Deploy(target)
+	err = s.deployer.Deploy()
 	c.Assert(err, gc.IsNil)
-	checkCleanup(c, d)
+	checkCleanup(c, s.deployer)
 
 	data, err = ioutil.ReadFile(filepath.Join(target.Path(), "some-file"))
 	c.Assert(err, gc.IsNil)
@@ -200,25 +210,58 @@ func bundle(c *gc.C, customize func(path string)) *corecharm.Bundle {
 	defer file.Close()
 	err = dir.BundleTo(file)
 	c.Assert(err, gc.IsNil)
-	bun, err := corecharm.ReadBundle(bunpath)
+	bundle, err := corecharm.ReadBundle(bunpath)
 	c.Assert(err, gc.IsNil)
-	return bun
+	return bundle
 }
 
-func checkCleanup(c *gc.C, d *charm.Deployer) {
+func checkCleanup(c *gc.C, d charm.Deployer) {
 	// Only one update dir should exist and be pointed to by the 'current'
 	// symlink since extra ones should have been cleaned up by
 	// cleanupOrphans.
-	updateDirs, err := filepath.Glob(filepath.Join(d.Path(), "update-*"))
+	deployerPath := charm.GitDeployerDataPath(d)
+	updateDirs, err := filepath.Glob(filepath.Join(deployerPath, "update-*"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(updateDirs, gc.HasLen, 1)
-	current, err := os.Readlink(d.Current().Path())
+	deployerCurrent := charm.GitDeployerCurrent(d)
+	current, err := os.Readlink(deployerCurrent.Path())
 	c.Assert(err, gc.IsNil)
 	c.Assert(updateDirs[0], gc.Equals, current)
 
 	// No install dirs should be left behind since the one created is
 	// renamed to the target path.
-	installDirs, err := filepath.Glob(filepath.Join(d.Path(), "install-*"))
+	installDirs, err := filepath.Glob(filepath.Join(deployerPath, "install-*"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(installDirs, gc.HasLen, 0)
+}
+
+type bundleReader struct {
+	bundles map[string]*corecharm.Bundle
+}
+
+// Read implements the BundleReader interface.
+func (br *bundleReader) Read(info charm.BundleInfo, abort <-chan struct{}) (*corecharm.Bundle, error) {
+	bundle, ok := br.bundles[info.URL().String()]
+	if !ok {
+		return nil, fmt.Errorf("no such charm!")
+	}
+	return bundle, nil
+}
+
+func (br *bundleReader) Add(c *gc.C, url *corecharm.URL, customize func(path string)) charm.BundleInfo {
+	bundle := bundle(c, customize)
+	if br.bundles == nil {
+		br.bundles = map[string]*corecharm.Bundle{}
+	}
+	br.bundles[url.String()] = bundle
+	return &bundleInfo{nil, url}
+}
+
+type bundleInfo struct {
+	charm.BundleInfo
+	url *corecharm.URL
+}
+
+func (info *bundleInfo) URL() *corecharm.URL {
+	return info.url
 }
