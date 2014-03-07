@@ -163,7 +163,7 @@ func (*suite) TestNewAgentConfig(c *gc.C) {
 func (*suite) TestNewStateMachineConfig(c *gc.C) {
 	type testStruct struct {
 		about         string
-		params   agent.AgentConfigParams
+		params        agent.AgentConfigParams
 		checkErr      string
 		inspectConfig func(*gc.C, agent.Config)
 	}
