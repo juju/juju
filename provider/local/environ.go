@@ -272,7 +272,7 @@ func (env *localEnviron) resolveBridgeAddress(cfg *config.Config) error {
 // be synced and so forth without having a machine agent
 // running.
 func (env *localEnviron) setLocalStorage() error {
-	storage, err := filestorage.NewFileStorageWriter(env.config.storageDir(), filestorage.UseDefaultTmpDir)
+	storage, err := filestorage.NewFileStorageWriter(env.config.storageDir())
 	if err != nil {
 		return err
 	}

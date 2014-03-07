@@ -48,7 +48,7 @@ func (s *storageWorker) serveStorage(storageAddr, storageDir string, config *con
 		scheme = "https://"
 	}
 	logger.Infof("serving storage from %s to %s%s", storageDir, scheme, storageAddr)
-	storage, err := filestorage.NewFileStorageWriter(storageDir, filestorage.UseDefaultTmpDir)
+	storage, err := filestorage.NewFileStorageWriter(storageDir)
 	if err != nil {
 		return nil, err
 	}
