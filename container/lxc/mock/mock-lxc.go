@@ -5,6 +5,9 @@ package mock
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 
 	"launchpad.net/golxc"
 )
@@ -44,13 +47,15 @@ type ContainerFactory interface {
 }
 
 type mockFactory struct {
-	instances map[string]golxc.Container
-	listeners []chan<- Event
+	containerDir string
+	instances    map[string]golxc.Container
+	listeners    []chan<- Event
 }
 
-func MockFactory() ContainerFactory {
+func MockFactory(containerDir string) ContainerFactory {
 	return &mockFactory{
-		instances: make(map[string]golxc.Container),
+		containerDir: containerDir,
+		instances:    make(map[string]golxc.Container),
 	}
 }
 
@@ -74,7 +79,17 @@ func (mock *mockContainer) Create(configFile, template string, extraArgs []strin
 	}
 	mock.state = golxc.StateStopped
 	mock.factory.instances[mock.name] = mock
-	return nil
+	// Create the container directory.
+	containerDir := filepath.Join(mock.factory.containerDir, mock.name)
+	if err := os.MkdirAll(containerDir, 0755); err != nil {
+		return err
+	}
+	data, err := ioutil.ReadFile(configFile)
+	if err != nil {
+		return err
+	}
+	configFilename := filepath.Join(containerDir, "config")
+	return ioutil.WriteFile(configFilename, data, 0755)
 }
 
 // Start runs the container as a daemon.
