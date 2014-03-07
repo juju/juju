@@ -210,6 +210,11 @@ func ConfigureBasic(cfg *MachineConfig, c *cloudinit.Config) error {
 // ConfigureJuju updates the provided cloudinit.Config with configuration
 // to initialise a Juju machine agent.
 func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
+	targetRelease := ""
+	if cfg.Tools.Version.Series == "precise" {
+		targetRelease = "precise-update/cloud-tools"
+	}
+
 	if err := verifyConfig(cfg); err != nil {
 		return err
 	}
@@ -236,10 +241,10 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 		c.SetAptUpgrade(true)
 
 		// juju requires git for managing charm directories.
-		c.AddPackage("git")
-		c.AddPackage("cpu-checker")
-		c.AddPackage("bridge-utils")
-		c.AddPackage("rsyslog-gnutls")
+		c.AddPackage("git", targetRelease)
+		c.AddPackage("cpu-checker", targetRelease)
+		c.AddPackage("bridge-utils", targetRelease)
+		c.AddPackage("rsyslog-gnutls", targetRelease)
 
 		// Write out the apt proxy settings
 		if (cfg.AptProxySettings != osenv.ProxySettings{}) {
@@ -345,15 +350,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 				const key = "" // key is loaded from PPA
 				c.AddAptSource("ppa:juju/stable", key, nil)
 			}
-			if cfg.Tools.Version.Series == "precise" {
-				// In precise we add the cloud-tools pocket and
-				// pin it with a lower priority, so we need to
-				// explicitly specify the target release when
-				// installing mongodb-server from there.
-				c.AddPackageFromTargetRelease("mongodb-server", "precise-updates/cloud-tools")
-			} else {
-				c.AddPackage("mongodb-server")
-			}
+			c.AddPackage("mongodb-server", targetRelease)
 		}
 		certKey := string(cfg.StateServerCert) + string(cfg.StateServerKey)
 		c.AddFile(cfg.dataFile("server.pem"), certKey, 0600)

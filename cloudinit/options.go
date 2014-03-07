@@ -105,18 +105,16 @@ func (cfg *Config) SetDebconfSelections(answers string) {
 	cfg.set("debconf_selections", answers != "", answers)
 }
 
-// AddPackage adds a package to be installed on first boot.
-// If any packages are specified, "apt-get update"
-// will be called.
-func (cfg *Config) AddPackage(name string) {
-	cfg.attrs["packages"] = append(cfg.Packages(), name)
-}
-
-// AddPackageFromTargetRelease adds a package to be installed using
+// AddPackage adds a package to be installed using
 // the given release, passed to apt-get with the --target-release
-// argument.
-func (cfg *Config) AddPackageFromTargetRelease(packageName, targetRelease string) {
-	cfg.AddPackage(fmt.Sprintf("--target-release '%s' '%s'", targetRelease, packageName))
+// argument. If targetRelease is an empty string, no --target-release.
+func (cfg *Config) AddPackage(packageName, targetRelease string) {
+	if targetRelease == "" {
+		cfg.attrs["packages"] = append(cfg.Packages(), packageName)
+	} else {
+		name := fmt.Sprintf("--target-release '%s' '%s'", targetRelease, packageName)
+		cfg.attrs["packages"] = append(cfg.Packages(), name)
+	}
 }
 
 // Packages returns a list of packages that will be
