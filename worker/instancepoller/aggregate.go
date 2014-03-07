@@ -18,6 +18,10 @@ type aggregator struct {
         tomb    tomb.Tomb
 }
 
+type instanceGetter interface {
+    
+}
+
 func newAggregator(env environs.Environ) *aggregator {
 	a := &aggregator{
 		environ: env,
@@ -51,7 +55,7 @@ func (a *aggregator) instanceInfo(id instance.Id) (instanceInfo, error) {
 }
 
 var GatherTime = 3 * time.Second
-var Capacity = 1
+var Capacity int64 = 1
 
 func (a *aggregator) loop() error {
 	timer := time.NewTimer(0)
@@ -95,11 +99,6 @@ func (a *aggregator) Kill() {
         a.tomb.Kill(nil)                                                       
 }       
 
-func (a *aggregator) Stop() error {                                               
-        a.tomb.Kill(nil)                                                       
-        return a.tomb.Wait()                                                   
-}                                                                               
-                                                                                
 func (a *aggregator) Wait() error {                                               
         return a.tomb.Wait()                                                   
 }        
