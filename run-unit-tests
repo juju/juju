@@ -18,6 +18,8 @@ $SCRIPTS/wait-for-port $instance_name 22
 
 # Define the common vars before the embedded scripts; do not make them evalaute
 # what is already know in the outer script.
+set -x
+set +e
 scp -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
     $HOME/jobs/build-revision/builds/$revision_build/archive/$tarfile \
     ubuntu@$instance_name:~/
