@@ -14,7 +14,6 @@ import (
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/agent/mongo"
 	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
@@ -361,9 +360,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 		}
 		certKey := string(cfg.StateServerCert) + string(cfg.StateServerKey)
 		c.AddFile(cfg.dataFile("server.pem"), certKey, 0600)
-		if err := cfg.addMongoToBoot(c); err != nil {
-			return err
-		}
+
 		// We temporarily give bootstrap-state a directory
 		// of its own so that it can get the state info via the
 		// same mechanism as other jujud commands.
@@ -468,31 +465,6 @@ func (cfg *MachineConfig) addMachineAgentToBoot(c *cloudinit.Config, tag, machin
 		return errgo.Annotatef(err, "cannot make cloud-init upstart script for the %s agent", tag)
 	}
 	c.AddRunCmd(cloudinit.LogProgressCmd("Starting Juju machine agent (%s)", name))
-	c.AddScripts(cmds...)
-	return nil
-}
-
-func (cfg *MachineConfig) addMongoToBoot(c *cloudinit.Config) error {
-	dbDir := path.Join(cfg.DataDir, "db")
-	c.AddScripts(
-		"mkdir -p "+dbDir+"/journal",
-		"chmod 0700 "+dbDir,
-		// Otherwise we get three files with 100M+ each, which takes time.
-		"dd bs=1M count=1 if=/dev/zero of="+dbDir+"/journal/prealloc.0",
-		"dd bs=1M count=1 if=/dev/zero of="+dbDir+"/journal/prealloc.1",
-		"dd bs=1M count=1 if=/dev/zero of="+dbDir+"/journal/prealloc.2",
-	)
-
-	name := cfg.MongoServiceName
-	conf, err := mongo.MongoUpstartService(name, cfg.DataDir, cfg.StatePort)
-	if err != nil {
-		return err
-	}
-	cmds, err := conf.InstallCommands()
-	if err != nil {
-		return errgo.Annotate(err, "cannot make cloud-init upstart script for the state database")
-	}
-	c.AddRunCmd(cloudinit.LogProgressCmd("Starting MongoDB server (%s)", name))
 	c.AddScripts(cmds...)
 	return nil
 }
