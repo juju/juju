@@ -8,7 +8,7 @@ import (
 	"io/ioutil"
 	"path"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/juju/osenv"

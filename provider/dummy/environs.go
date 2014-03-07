@@ -33,7 +33,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"

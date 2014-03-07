@@ -82,7 +82,7 @@ func (s *UpgradeSuite) assertUpgradeSteps(c *gc.C, job state.MachineJob) {
 	// Wait for upgrade steps to run.
 	success := false
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		conf, err := agent.ReadConf(oldConfig.DataDir(), s.machine.Tag())
+		conf, err := agent.ReadConf(agent.ConfigPath(oldConfig.DataDir(), s.machine.Tag()))
 		c.Assert(err, gc.IsNil)
 		success = conf.UpgradedToVersion() == s.upgradeToVersion.Number
 		if success {

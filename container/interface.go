@@ -8,12 +8,14 @@ import (
 	"launchpad.net/juju-core/instance"
 )
 
+const (
+	ConfigName   = "name"
+	ConfigLogDir = "log-dir"
+)
+
 // ManagerConfig contains the initialization parameters for the ContainerManager.
 // The name of the manager is used to namespace the containers on the machine.
-type ManagerConfig struct {
-	Name   string
-	LogDir string
-}
+type ManagerConfig map[string]string
 
 // Manager is responsible for starting containers, and stopping and listing
 // containers that it has started.

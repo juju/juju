@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -24,9 +25,6 @@ import (
 // Tests can override this where needed, so they don't need to mess with global
 // system state.
 var DataDir = "/var/lib/juju"
-
-// LogDir is the default log file path.
-const LogDir = "/var/log/juju"
 
 // CloudInitOutputLog is the default cloud-init-output.log file path.
 const CloudInitOutputLog = "/var/log/cloud-init-output.log"
@@ -42,7 +40,8 @@ func NewMachineConfig(machineID, machineNonce string,
 	return &cloudinit.MachineConfig{
 		// Fixed entries.
 		DataDir:                 DataDir,
-		LogDir:                  LogDir,
+		LogDir:                  agent.DefaultLogDir,
+		Jobs:                    []params.MachineJob{params.JobHostUnits},
 		CloudInitOutputLog:      CloudInitOutputLog,
 		MachineAgentServiceName: "jujud-" + names.MachineTag(machineID),
 		MongoServiceName:        MongoServiceName,
@@ -66,6 +65,7 @@ func NewBootstrapMachineConfig(stateInfoURL string, privateSystemSSHKey string) 
 	mcfg.StateServer = true
 	mcfg.StateInfoURL = stateInfoURL
 	mcfg.SystemPrivateSSHKey = privateSystemSSHKey
+	mcfg.Jobs = []params.MachineJob{params.JobManageEnviron, params.JobHostUnits}
 	return mcfg
 }
 

@@ -11,7 +11,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/juju/osenv"
 )

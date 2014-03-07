@@ -120,8 +120,7 @@ func (s *RsyslogSuite) TestModeForwarding(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	syslogPort := s.Conn.Environ.Config().SyslogPort()
-	syslogConfig := syslog.NewForwardConfig(m.Tag(), syslogPort, "", addrs)
-	syslogConfig.LogDir = *rsyslog.LogDir
+	syslogConfig := syslog.NewForwardConfig(m.Tag(), *rsyslog.LogDir, syslogPort, "", addrs)
 	syslogConfig.ConfigDir = *rsyslog.RsyslogConfDir
 	rendered, err := syslogConfig.Render()
 	c.Assert(err, gc.IsNil)
@@ -154,8 +153,7 @@ func (s *RsyslogSuite) TestModeAccumulate(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	syslogPort := s.Conn.Environ.Config().SyslogPort()
-	syslogConfig := syslog.NewAccumulateConfig(m.Tag(), syslogPort, "")
-	syslogConfig.LogDir = *rsyslog.LogDir
+	syslogConfig := syslog.NewAccumulateConfig(m.Tag(), *rsyslog.LogDir, syslogPort, "")
 	syslogConfig.ConfigDir = *rsyslog.RsyslogConfDir
 	rendered, err := syslogConfig.Render()
 	c.Assert(err, gc.IsNil)

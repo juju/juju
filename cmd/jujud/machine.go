@@ -5,16 +5,16 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/container/kvm"
@@ -62,12 +62,6 @@ const bootstrapMachineId = "0"
 var retryDelay = 3 * time.Second
 
 var jujuRun = "/usr/local/bin/juju-run"
-
-const mongoSvcFmt = "juju-mongod-%d"
-
-var mongoServiceName = fmt.Sprintf(mongoSvcFmt, upstart.MongoScriptVersion)
-
-const oldMongoServiceName = "juju-mongod"
 
 // MachineAgent is a cmd.Command responsible for running a machine agent.
 type MachineAgent struct {
@@ -347,6 +341,11 @@ func (a *MachineAgent) updateSupportedContainers(runner worker.Runner, st *api.S
 // StateJobs returns a worker running all the workers that require
 // a *state.State connection.
 func (a *MachineAgent) StateWorker(agentConfig agent.Config) (worker.Worker, error) {
+	err := mongo.EnsureMongoServer(a.Conf.dataDir, agentConfig.StatePort())
+	if err != nil {
+		return nil, err
+	}
+
 	st, entity, err := openState(agentConfig, a)
 	if err != nil {
 		return nil, err
@@ -608,77 +607,4 @@ func (a *MachineAgent) setAgentConfig(conf agent.Config) {
 
 func (a *MachineAgent) agentConfig() agent.Config {
 	return a.configVal.Get().(agent.Config)
-}
-
-// ensureMongoServer ensures that the correct mongo upstart script is installed
-// and running.
-//
-// This method will remove old versions of the mongo upstart script as necessary
-// before installing the new version.
-func (a *MachineAgent) ensureMongoServer() error {
-	service := a.mongoService()
-	if service.Installed() {
-		return nil
-	}
-
-	if err := removeOldMongoServices(); err != nil {
-		return err
-	}
-
-	journalDir := filepath.Join(a.mongoDir(), "journal")
-
-	if err := os.MkdirAll(journalDir, 0700); err != nil {
-		logger.Errorf("failed to make mongo journal dir %s: %v", journalDir, err)
-		return err
-	}
-
-	// manually create the prealloc files, since otherwise they get created as 100M files.
-	zeroes := make([]byte, 1024*1024)
-	for x := 0; x < 3; x++ {
-		name := fmt.Sprintf("prealloc.%d", x)
-		filename := filepath.Join(journalDir, name)
-		if err := ioutil.WriteFile(filename, zeroes, 700); err != nil {
-			logger.Errorf("failed to make write mongo prealloc file: %v", journalDir, err)
-			return err
-		}
-	}
-
-	if err := service.Install(); err != nil {
-		logger.Errorf("Failed to install mongo service %q: %v", service.Name, err)
-		return err
-	}
-	return service.Start()
-}
-
-// mongoDir returns the directory that mongo should use to store its data.
-func (a *MachineAgent) mongoDir() string {
-	return a.Conf.dataDir
-}
-
-// mongoService returns the upstart configuration object for mongo.
-func (a *MachineAgent) mongoService() *upstart.Conf {
-	return upstart.MongoUpstartService(
-		mongoServiceName,
-		a.mongoDir(),
-		0) // a.Conf.config.StatePort())
-}
-
-// removeOldMongoServices looks for any old juju mongo upstart scripts and
-// removes them.
-func removeOldMongoServices() error {
-	old := upstart.NewService(oldMongoServiceName)
-	if err := old.StopAndRemove(); err != nil {
-		logger.Errorf("Failed to remove old mongo upstart service %q: %v", old.Name, err)
-		return err
-	}
-
-	// the new formatting for the script name started at version 2
-	for x := 2; x < upstart.MongoScriptVersion; x++ {
-		old := upstart.NewService(fmt.Sprintf(mongoSvcFmt, x))
-		if err := old.StopAndRemove(); err != nil {
-			logger.Errorf("Failed to remove old mongo upstart service %q: %v", old.Name, err)
-			return err
-		}
-	}
-	return nil
 }

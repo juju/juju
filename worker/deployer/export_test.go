@@ -22,6 +22,5 @@ func NewTestSimpleContext(agentConfig agent.Config, initDir, logDir string) *Sim
 		api:         &fakeAPI{},
 		agentConfig: agentConfig,
 		initDir:     initDir,
-		logDir:      logDir,
 	}
 }
