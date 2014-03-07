@@ -332,7 +332,7 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 
 // ModeHookError is responsible for watching and responding to:
 // * user resolution of hook errors
-// * charm upgrade requests
+// * forced charm upgrade requests
 func ModeHookError(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeHookError", &err)()
 	if u.s.Op != RunHook || u.s.OpStep != Pending {
