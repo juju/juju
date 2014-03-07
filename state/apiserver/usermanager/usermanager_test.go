@@ -44,12 +44,12 @@ func (s *userManagerSuite) TestNewUserManagerAPIRefusesNonClient(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestAddUser(c *gc.C) {
-	arg := params.ModifyUser{
+	arg := params.EntityPassword{
 		Tag:      "foobar",
 		Password: "password",
 	}
 
-	args := params.ModifyUsers{Params: []params.ModifyUser{arg}}
+	args := params.EntityPasswords{Entities: []params.EntityPassword{arg}}
 
 	result, err := s.usermanager.AddUser(args)
 	// Check that the call is succesful
@@ -62,39 +62,47 @@ func (s *userManagerSuite) TestAddUser(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
-	arg := params.ModifyUser{
+	arg := params.EntityPassword{
 		Tag:      "foobar",
 		Password: "password",
 	}
-	args := params.ModifyUsers{Params: []params.ModifyUser{arg}}
+	removeArg := params.Entity{
+		Tag: "foobar",
+	}
+	args := params.EntityPasswords{Entities: []params.EntityPassword{arg}}
+	removeArgs := params.Entities{Entities: []params.Entity{removeArg}}
 	_, err := s.usermanager.AddUser(args)
 	c.Assert(err, gc.IsNil)
 	user, err := s.State.User("foobar")
 	c.Assert(user.IsDeactivated(), gc.Equals, false) // The user should be active
 
-	result, err := s.usermanager.RemoveUser(args)
+	result, err := s.usermanager.RemoveUser(removeArgs)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{params.ErrorResult{Error: nil}}})
 	user, err = s.State.User("foobar")
 	c.Assert(err, gc.IsNil)
 	// Removal makes the user in active
 	c.Assert(user.IsDeactivated(), gc.Equals, true)
-	c.Assert(user.PasswordValid(arg.Password), gc.Equals, true)
+	c.Assert(user.PasswordValid(arg.Password), gc.Equals, false)
 }
 
 // Since removing a user just deacitvates them you cannot add a user
 // that has been previously been removed
 // TODO(mattyw) 2014-03-07 bug #1288745
 func (s *userManagerSuite) TestCannotAddRemoveAdd(c *gc.C) {
-	arg := params.ModifyUser{
+	arg := params.EntityPassword{
 		Tag:      "addremove",
 		Password: "password",
 	}
-	args := params.ModifyUsers{Params: []params.ModifyUser{arg}}
+	removeArg := params.Entity{
+		Tag: "foobar",
+	}
+	args := params.EntityPasswords{Entities: []params.EntityPassword{arg}}
+	removeArgs := params.Entities{Entities: []params.Entity{removeArg}}
 	_, err := s.usermanager.AddUser(args)
 	c.Assert(err, gc.IsNil)
 
-	_, err = s.usermanager.RemoveUser(args)
+	_, err = s.usermanager.RemoveUser(removeArgs)
 	c.Assert(err, gc.IsNil)
 	_, err = s.State.User("addremove")
 	result, err := s.usermanager.AddUser(args)

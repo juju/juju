@@ -61,8 +61,8 @@ func (u *Unit) Remove() error {
 // SetPassword sets the unit's password.
 func (u *Unit) SetPassword(password string) error {
 	var result params.ErrorResults
-	args := params.PasswordChanges{
-		Changes: []params.PasswordChange{
+	args := params.EntityPasswords{
+		Entities: []params.EntityPassword{
 			{Tag: u.tag, Password: password},
 		},
 	}

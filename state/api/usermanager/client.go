@@ -23,16 +23,16 @@ func (c *Client) Close() error {
 }
 
 func (c *Client) AddUser(tag, password string) (params.ErrorResults, error) {
-	u := params.ModifyUser{Tag: tag, Password: password}
-	p := params.ModifyUsers{Params: []params.ModifyUser{u}}
+	u := params.EntityPassword{Tag: tag, Password: password}
+	p := params.EntityPasswords{Entities: []params.EntityPassword{u}}
 	results := new(params.ErrorResults)
 	err := c.st.Call("UserManager", "", "AddUser", p, results)
 	return *results, err
 }
 
 func (c *Client) RemoveUser(tag string) (params.ErrorResults, error) {
-	u := params.ModifyUser{Tag: tag}
-	p := params.ModifyUsers{Params: []params.ModifyUser{u}}
+	u := params.Entity{Tag: tag}
+	p := params.Entities{Entities: []params.Entity{u}}
 	results := new(params.ErrorResults)
 	err := c.st.Call("UserManager", "", "RemoveUser", p, results)
 	return *results, err

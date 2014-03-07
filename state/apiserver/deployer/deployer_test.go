@@ -147,8 +147,8 @@ func (s *deployerSuite) TestWatchUnits(c *gc.C) {
 }
 
 func (s *deployerSuite) TestSetPasswords(c *gc.C) {
-	args := params.PasswordChanges{
-		Changes: []params.PasswordChange{
+	args := params.EntityPasswords{
+		Entities: []params.EntityPassword{
 			{Tag: "unit-mysql-0", Password: "xxx-12345678901234567890"},
 			{Tag: "unit-mysql-1", Password: "yyy-12345678901234567890"},
 			{Tag: "unit-logging-0", Password: "zzz-12345678901234567890"},
@@ -182,8 +182,8 @@ func (s *deployerSuite) TestSetPasswords(c *gc.C) {
 	err = s.subordinate0.Refresh()
 	c.Assert(errors.IsNotFoundError(err), gc.Equals, true)
 
-	results, err = s.deployer.SetPasswords(params.PasswordChanges{
-		Changes: []params.PasswordChange{
+	results, err = s.deployer.SetPasswords(params.EntityPasswords{
+		Entities: []params.EntityPassword{
 			{Tag: "unit-logging-0", Password: "blah-12345678901234567890"},
 		},
 	})
