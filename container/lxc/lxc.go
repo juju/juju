@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/utils/tailer"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -24,7 +22,9 @@ import (
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/fslock"
+	"launchpad.net/juju-core/utils/tailer"
 	"launchpad.net/juju-core/version"
 )
 
@@ -310,10 +310,7 @@ func networkConfigTemplate(networkType, networkLink string) string {
 	return fmt.Sprintf(networkTemplate, networkType, networkLink)
 }
 
-func generateLXCConfigTemplate(
-	network *container.NetworkConfig,
-	useAutostart bool,
-) string {
+func generateNetworkConfig(network *container.NetworkConfig) string {
 	var lxcConfig string
 	if network == nil {
 		logger.Warningf("network unspecified, using default networking config")
@@ -321,12 +318,12 @@ func generateLXCConfigTemplate(
 	}
 	switch network.NetworkType {
 	case container.PhysicalNetwork:
-		lxcConfig = lxcConfigTemplate("phys", network.Device)
+		lxcConfig = networkConfigTemplate("phys", network.Device)
 	default:
 		logger.Warningf("Unknown network config type %q: using bridge", network.NetworkType)
 		fallthrough
 	case container.BridgeNetwork:
-		lxcConfig = lxcConfigTemplate("veth", network.Device)
+		lxcConfig = networkConfigTemplate("veth", network.Device)
 	}
 
 	return lxcConfig
@@ -336,9 +333,8 @@ func writeLxcConfig(
 	network *container.NetworkConfig,
 	directory,
 	logdir string,
-	useAutostart bool,
 ) (string, error) {
-	networkConfig := generateLXCConfigTemplate(network, useAutostart)
+	networkConfig := generateNetworkConfig(network)
 	configFilename := filepath.Join(directory, "lxc.conf")
 	configContent := fmt.Sprintf(localConfig, networkConfig, logdir)
 	if err := ioutil.WriteFile(configFilename, []byte(configContent), 0644); err != nil {
