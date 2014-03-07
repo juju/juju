@@ -139,11 +139,6 @@ func MongoUpstartService(name, dataDir string, port int) (*upstart.Conf, error) 
 
 	dbDir := path.Join(dataDir, "db")
 
-	mongodpath, err := MongodPath()
-	if err != nil {
-		return nil, err
-	}
-
 	conf := &upstart.Conf{
 		Service: *svc,
 		Desc:    "juju state database",
@@ -151,7 +146,7 @@ func MongoUpstartService(name, dataDir string, port int) (*upstart.Conf, error) 
 			"nofile": fmt.Sprintf("%d %d", maxFiles, maxFiles),
 			"nproc":  fmt.Sprintf("%d %d", maxProcs, maxProcs),
 		},
-		Cmd: mongodpath +
+		Cmd: "/usr/bin/mongod" +
 			" --auth" +
 			" --dbpath=" + dbDir +
 			" --sslOnNormalPorts" +
