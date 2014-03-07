@@ -11,9 +11,9 @@ import (
 	"regexp"
 	"runtime"
 
+	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/container/kvm"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
@@ -105,7 +105,10 @@ func VerifyPrerequisites(containerType instance.ContainerType) error {
 }
 
 func verifyMongod() error {
-	path := upstart.MongodPath()
+	path, err := mongo.MongodPath()
+	if err != nil {
+		return wrapMongodNotExist(err)
+	}
 
 	ver, err := mongodVersion(path)
 	if err != nil {
