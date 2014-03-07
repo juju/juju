@@ -46,6 +46,7 @@ sudo apt-get update
 sudo apt-get install -y build-essential
 make install-dependencies
 bzr whoami 'J. Random Hacker <jrandom@example.org>'
+make build
 make check
 EOT
 EXIT_STATUS=$?
