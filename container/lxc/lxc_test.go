@@ -11,7 +11,7 @@ import (
 	"strings"
 	stdtesting "testing"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/golxc"
 	"launchpad.net/goyaml"
