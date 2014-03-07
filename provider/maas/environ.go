@@ -268,6 +268,7 @@ func (environ *maasEnviron) StartInstance(cons constraints.Value, possibleTools 
 	userdata, err := environs.ComposeUserData(
 		machineConfig,
 		runCmd,
+		"apt-get install bridge-utils",
 		createBridgeNetwork(),
 		linkBridgeInInterfaces(),
 		"service networking restart",
