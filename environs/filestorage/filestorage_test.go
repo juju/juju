@@ -199,7 +199,7 @@ func (s *filestorageSuite) TestPutTmpDir(c *gc.C) {
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 
 	// To deal with recovering from hard failure, we
-	// doesn't care if the temporary directory already exists. It
+	// don't care if the temporary directory already exists. It
 	// still removes it, though.
 	err = os.Mkdir(s.dir+"/.tmp", 0755)
 	c.Assert(err, gc.IsNil)
