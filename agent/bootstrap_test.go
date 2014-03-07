@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
@@ -63,7 +64,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	expectHW := instance.MustParseHardware("mem=2048M")
 	mcfg := agent.BootstrapMachineConfig{
 		Constraints:     expectConstraints,
-		Jobs:            []state.MachineJob{state.JobHostUnits},
+		Jobs:            []params.MachineJob{params.JobHostUnits},
 		InstanceId:      "i-bootstrap",
 		Characteristics: expectHW,
 	}
@@ -103,7 +104,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 
 	// Check that the machine agent's config has been written
 	// and that we can use it to connect to the state.
-	newCfg, err := agent.ReadConf(dataDir, "machine-0")
+	newCfg, err := agent.ReadConf(agent.ConfigPath(dataDir, "machine-0"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(newCfg.Tag(), gc.Equals, "machine-0")
 	c.Assert(agent.Password(newCfg), gc.Not(gc.Equals), pwHash)
@@ -129,7 +130,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	expectHW := instance.MustParseHardware("mem=2048M")
 	mcfg := agent.BootstrapMachineConfig{
 		Constraints:     expectConstraints,
-		Jobs:            []state.MachineJob{state.JobHostUnits},
+		Jobs:            []params.MachineJob{params.JobHostUnits},
 		InstanceId:      "i-bootstrap",
 		Characteristics: expectHW,
 	}
@@ -164,20 +165,4 @@ func (*bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, password string) {
 	defer st.Close()
 	_, err = st.Machine("0")
 	c.Assert(err, gc.IsNil)
-}
-
-func (s *bootstrapSuite) TestMarshalUnmarshalBootstrapJobs(c *gc.C) {
-	jobs := [][]state.MachineJob{
-		{},
-		{state.JobHostUnits},
-		{state.JobManageEnviron},
-		{state.JobHostUnits, state.JobManageEnviron},
-	}
-	for _, jobs := range jobs {
-		marshalled, err := agent.MarshalBootstrapJobs(jobs...)
-		c.Assert(err, gc.IsNil)
-		unmarshalled, err := agent.UnmarshalBootstrapJobs(marshalled)
-		c.Assert(err, gc.IsNil)
-		c.Assert(unmarshalled, gc.DeepEquals, jobs)
-	}
 }

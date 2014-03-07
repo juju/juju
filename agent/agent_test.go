@@ -18,14 +18,15 @@ type suite struct {
 var _ = gc.Suite(&suite{})
 
 var agentConfigTests = []struct {
-	about    string
-	params   agent.AgentConfigParams
-	checkErr string
+	about         string
+	params        agent.AgentConfigParams
+	checkErr      string
+	inspectConfig func(*gc.C, agent.Config)
 }{{
 	about:    "missing data directory",
 	checkErr: "data directory not found in configuration",
 }, {
-	about: "missing tag directory",
+	about: "missing tag",
 	params: agent.AgentConfigParams{
 		DataDir: "/data/dir",
 	},
@@ -129,6 +130,21 @@ var agentConfigTests = []struct {
 		APIAddresses:      []string{"localhost:1235"},
 		Nonce:             "a nonce",
 	},
+}, {
+	about: "missing logDir sets default",
+	params: agent.AgentConfigParams{
+		DataDir:           "/data/dir",
+		Tag:               "omg",
+		Password:          "sekrit",
+		UpgradedToVersion: version.Current.Number,
+		CACert:            []byte("ca cert"),
+		StateAddresses:    []string{"localhost:1234"},
+		APIAddresses:      []string{"localhost:1235"},
+		Nonce:             "a nonce",
+	},
+	inspectConfig: func(c *gc.C, cfg agent.Config) {
+		c.Check(cfg.LogDir(), gc.Equals, agent.DefaultLogDir)
+	},
 }}
 
 func (*suite) TestNewAgentConfig(c *gc.C) {
@@ -146,9 +162,10 @@ func (*suite) TestNewAgentConfig(c *gc.C) {
 
 func (*suite) TestNewStateMachineConfig(c *gc.C) {
 	type testStruct struct {
-		about    string
-		params   agent.StateMachineConfigParams
-		checkErr string
+		about         string
+		params        agent.StateMachineConfigParams
+		checkErr      string
+		inspectConfig func(*gc.C, agent.Config)
 	}
 	var tests = []testStruct{{
 		about:    "missing state server cert",
@@ -175,9 +192,12 @@ func (*suite) TestNewStateMachineConfig(c *gc.C) {
 
 	for i, test := range tests {
 		c.Logf("%v: %s", i, test.about)
-		_, err := agent.NewStateMachineConfig(test.params)
+		cfg, err := agent.NewStateMachineConfig(test.params)
 		if test.checkErr == "" {
 			c.Assert(err, gc.IsNil)
+			if test.inspectConfig != nil {
+				test.inspectConfig(c, cfg)
+			}
 		} else {
 			c.Assert(err, gc.ErrorMatches, test.checkErr)
 		}
@@ -231,11 +251,12 @@ func assertConfigEqual(c *gc.C, c1, c2 agent.Config) {
 func (*suite) TestWriteAndRead(c *gc.C) {
 	testParams := attributeParams
 	testParams.DataDir = c.MkDir()
+	testParams.LogDir = c.MkDir()
 	conf, err := agent.NewAgentConfig(testParams)
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(conf.Write(), gc.IsNil)
-	reread, err := agent.ReadConf(conf.DataDir(), conf.Tag())
+	reread, err := agent.ReadConf(agent.ConfigPath(conf.DataDir(), conf.Tag()))
 	c.Assert(err, gc.IsNil)
 	assertConfigEqual(c, conf, reread)
 }
@@ -284,7 +305,7 @@ func (*suite) TestWriteNewPassword(c *gc.C) {
 		newPass, err := agent.WriteNewPassword(conf)
 		c.Assert(err, gc.IsNil)
 		// Show that the password is saved.
-		reread, err := agent.ReadConf(conf.DataDir(), conf.Tag())
+		reread, err := agent.ReadConf(agent.ConfigPath(conf.DataDir(), conf.Tag()))
 		c.Assert(agent.Password(conf), gc.Equals, agent.Password(reread))
 		c.Assert(newPass, gc.Equals, agent.Password(conf))
 	}
@@ -303,7 +324,7 @@ func (*suite) TestWriteUpgradedToVersion(c *gc.C) {
 	c.Assert(conf.UpgradedToVersion(), gc.DeepEquals, newVersion)
 
 	// Show that the upgradedToVersion is saved.
-	reread, err := agent.ReadConf(conf.DataDir(), conf.Tag())
+	reread, err := agent.ReadConf(agent.ConfigPath(conf.DataDir(), conf.Tag()))
 	assertConfigEqual(c, conf, reread)
 }
 
