@@ -138,24 +138,16 @@ func (manager *containerManager) StartContainer(
 		return nil, nil, err
 	}
 	// Make sure that the mount dir has been created.
-	logger.Tracef("make the mount dir for the shard logs")
+	logger.Tracef("make the mount dir for the shared logs")
 	if err := os.MkdirAll(internalLogDir(name), 0755); err != nil {
 		logger.Errorf("failed to create internal /var/log/juju mount dir: %v", err)
 		return nil, nil, err
 	}
 	logger.Tracef("lxc container created")
-	// Now symlink the config file into the restart directory, if it exists.
-	// This is for backwards compatiblity. From Trusty onwards, the auto start
-	// option should be set in the LXC config file, this is done in the networkConfigTemplate
-	// function below.
-	if useRestartDir() {
-		containerConfigFile := filepath.Join(LxcContainerDir, name, "config")
-		if err := os.Symlink(containerConfigFile, restartSymlink(name)); err != nil {
-			return nil, nil, err
-		}
-		logger.Tracef("auto-restart link created")
-	}
 
+	if err := autostartContainer(name); err != nil {
+		return nil, nil, err
+	}
 	// Start the lxc container with the appropriate settings for grabbing the
 	// console output and a log file.
 	consoleFile := filepath.Join(directory, "console.log")
@@ -175,6 +167,32 @@ func (manager *containerManager) StartContainer(
 	}
 	logger.Tracef("container started")
 	return &lxcInstance{lxcContainer, name}, hardware, nil
+}
+
+func autostartContainer(name string) error {
+	// Now symlink the config file into the restart directory, if it exists.
+	// This is for backwards compatiblity. From Trusty onwards, the auto start
+	// option should be set in the LXC config file, this is done in the networkConfigTemplate
+	// function below.
+	if useRestartDir() {
+		if err := os.Symlink(
+			containerConfigFilename(name),
+			restartSymlink(name),
+		); err != nil {
+			return err
+		}
+		logger.Tracef("auto-restart link created")
+	} else {
+		file, err := os.OpenFile(
+			containerConfigFilename(name), os.O_RDWR|os.O_APPEND, 0644)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+		file.WriteString("lxc.start.auto = 1\n")
+		logger.Tracef("Setting auto start to true in lxc config.")
+	}
+	return nil
 }
 
 func (manager *containerManager) StopContainer(instance instance.Instance) error {
@@ -229,6 +247,10 @@ func restartSymlink(name string) string {
 	return filepath.Join(LxcRestartDir, name+".conf")
 }
 
+func containerConfigFilename(name string) string {
+	return filepath.Join(LxcContainerDir, name, "config")
+}
+
 const localConfig = `%s
 lxc.mount.entry=%s var/log/juju none defaults,bind 0 0
 `
@@ -240,12 +262,7 @@ lxc.network.flags = up
 `
 
 func networkConfigTemplate(networkType, networkLink string) string {
-	networkConfig := fmt.Sprintf(networkTemplate, networkType, networkLink)
-	if !useRestartDir() {
-		networkConfig += "lxc.start.auto = 1\n"
-		logger.Tracef("Setting auto start to true in lxc config.")
-	}
-	return networkConfig
+	return fmt.Sprintf(networkTemplate, networkType, networkLink)
 }
 
 func generateNetworkConfig(network *container.NetworkConfig) string {
