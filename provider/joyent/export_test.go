@@ -137,7 +137,7 @@ var origImagesUrl = imagemetadata.DefaultBaseURL
 func UseExternalTestImageMetadata(creds *jpc.Credentials) {
 	metadata := parseIndexData(creds)
 	files := map[string]string{
-		"/streams/v1/index.json": metadata.String(),
+		"/streams/v1/index.json":                            metadata.String(),
 		"/streams/v1/com.ubuntu.cloud:released:joyent.json": imagesData,
 	}
 	testRoundTripper.Sub = jujutest.NewCannedRoundTripper(files, nil)

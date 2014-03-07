@@ -10,9 +10,9 @@ import (
 	"net/http/httptest"
 	"strings"
 
+	gc "launchpad.net/gocheck"
 	lc "launchpad.net/gojoyent/localservices/cloudapi"
 	lm "launchpad.net/gojoyent/localservices/manta"
-	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"

@@ -34,9 +34,7 @@ func (inst *joyentInstance) Refresh() error {
 }
 
 func (inst *joyentInstance) Addresses() ([]instance.Address, error) {
-	logger.Debugf("Getting Addresses for instance %q, state %s", inst.Id(), inst.machine.State)
 	addresses := make([]instance.Address, len(inst.machine.IPs))
-	logger.Debugf("Got addresses %q", inst.machine.IPs)
 	for _, ip := range inst.machine.IPs {
 		address := instance.NewAddress(ip)
 		if ip == inst.machine.PrimaryIP {
@@ -47,20 +45,15 @@ func (inst *joyentInstance) Addresses() ([]instance.Address, error) {
 		addresses = append(addresses, address)
 	}
 
-	//logger.Debugf("Return addresses %q", addresses)
-
 	return addresses, nil
 }
 
 func (inst *joyentInstance) DNSName() (string, error) {
-	logger.Debugf("Getting DNS Name for instance %q", inst.Id())
 	addresses, err := inst.Addresses()
-	//logger.Debugf("Got addresses %q, err %q", addresses, err)
 	if err != nil {
 		return "", err
 	}
 	addr := instance.SelectPublicAddress(addresses)
-	//logger.Debugf("Got public addresses %q, err %q", addr, err)
 	if addr == "" {
 		return "", instance.ErrNoDNSName
 	}
