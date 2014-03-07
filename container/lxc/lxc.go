@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"launchpad.net/juju-core/juju/osenv"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -135,8 +136,7 @@ func (manager *containerManager) StartContainer(
 		return nil, nil, err
 	}
 	logger.Tracef("write the lxc.conf file")
-	useAutostart := true
-	configFile, err := writeLxcConfig(network, directory, manager.logdir, useAutostart)
+	configFile, err := writeLxcConfig(network, directory, manager.logdir)
 	if err != nil {
 		logger.Errorf("failed to write config file: %v", err)
 		return nil, nil, err
@@ -381,14 +381,16 @@ end script
 // This should have the authorized keys, base packages, the cloud archive if
 // necessary,  initial apt proxy config, and it should do the apt-get
 // update/upgrade initially.
-func templateUserData(machineConfig *cloudinit.MachineConfig) ([]byte, error) {
+func templateUserData(
+	series string, authorizedKeys string, aptProxy osenv.ProxySettings,
+) ([]byte, error) {
 	cloudConfig := coreCloudinit.New()
 	cloudConfig.AddScripts(
 		"set -xe", // ensure we run all the scripts or abort.
 	)
-	machineConfig.MaybeAddCloudArchiveCloudTools(cloudConfig)
-	cloudConfig.AddSSHAuthorizedKeys(machineConfig.AuthorizedKeys)
-	cloudinit.AddAptCommands(machineConfig, cloudConfig)
+	cloudinit.MaybeAddCloudArchiveCloudTools(cloudConfig, series)
+	cloudConfig.AddSSHAuthorizedKeys(authorizedKeys)
+	cloudinit.AddAptCommands(aptProxy, cloudConfig)
 	cloudConfig.AddScripts(
 		fmt.Sprintf(
 			"printf '%%s\n' %s > %s",
@@ -437,7 +439,8 @@ func (manager *containerManager) ensureCloneTemplate(
 	}
 	logger.Infof("template does not exist, creating")
 
-	userData, err := templateUserData(machineConfig)
+	userData, err := templateUserData(
+		series, machineConfig.AuthorizedKeys, machineConfig.AptProxySettings)
 	if err != nil {
 		logger.Tracef("filed to create tempalte user data for template: %v", err)
 		return nil, err
@@ -447,8 +450,7 @@ func (manager *containerManager) ensureCloneTemplate(
 		return nil, err
 	}
 
-	noAutostart := false
-	configFile, err := writeLxcConfig(network, containerDirectory, manager.logdir, noAutostart)
+	configFile, err := writeLxcConfig(network, containerDirectory, manager.logdir)
 	if err != nil {
 		logger.Errorf("failed to write config file: %v", err)
 		return nil, err

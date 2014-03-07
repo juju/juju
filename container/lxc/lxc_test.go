@@ -268,15 +268,14 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 		net:    "phys",
 		link:   "foo",
 	}} {
-		dontCareAboutAutostart := false
-		config := lxc.GenerateLXCConfigTemplate(test.config, dontCareAboutAutostart)
+		config := lxc.GenerateNetworkConfig(test.config)
 		c.Assert(config, jc.Contains, fmt.Sprintf("lxc.network.type = %s\n", test.net))
 		c.Assert(config, jc.Contains, fmt.Sprintf("lxc.network.link = %s\n", test.link))
 	}
 }
 
-func (*NetworkSuite) TestLXCConfigTemplate(c *gc.C) {
-	config := lxc.LXCConfigTemplate("foo", "bar")
+func (*NetworkSuite) TestNetworkConfigTemplate(c *gc.C) {
+	config := lxc.NetworkConfigTemplate("foo", "bar")
 	//In the past, the entire lxc.conf file was just networking. With the addition
 	//of the auto start, we now have to have better isolate this test. As such, we
 	//parse the conf template results and just get the results that start with
