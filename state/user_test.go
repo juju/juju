@@ -159,20 +159,21 @@ func (s *UserSuite) TestName(c *gc.C) {
 	c.Assert(u.Tag(), gc.Equals, "user-someuser")
 }
 
-func (s *UserSuite) TestInactive(c *gc.C) {
+func (s *UserSuite) TestDeactivate(c *gc.C) {
 	u, err := s.State.AddUser("someuser", "")
 	c.Assert(err, gc.IsNil)
-	c.Assert(u.IsInactive(), gc.Equals, false)
+	c.Assert(u.IsDeactivated(), gc.Equals, false)
 
-	err = u.SetInactive()
+	err = u.Deactivate()
 	c.Assert(err, gc.IsNil)
-	c.Assert(u.IsInactive(), gc.Equals, true)
+	c.Assert(u.IsDeactivated(), gc.Equals, true)
+	c.Assert(u.PasswordValid(""), gc.Equals, false)
 
 }
 
 func (s *UserSuite) TestCantDeactivateAdminUser(c *gc.C) {
 	u, err := s.State.User("admin")
 	c.Assert(err, gc.IsNil)
-	err = u.SetInactive()
+	err = u.Deactivate()
 	c.Assert(err, gc.ErrorMatches, "Can't deactivate admin user")
 }

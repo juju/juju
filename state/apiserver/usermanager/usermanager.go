@@ -63,7 +63,7 @@ func (api *UserManagerAPI) AddUser(args params.ModifyUsers) (params.ErrorResults
 			result.Results[0].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		_, err = api.state.AddUser(arg.Tag, arg.Password)
+		_, err := api.state.AddUser(arg.Tag, arg.Password)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(fmt.Errorf("Failed to create user: %s", err))
 			continue
@@ -78,7 +78,6 @@ func (api *UserManagerAPI) RemoveUser(args params.ModifyUsers) (params.ErrorResu
 	}
 	canWrite, err := api.getCanWrite()
 	if err != nil {
-		result.Results[0].Error = common.ServerError(err)
 		return result, err
 	}
 	for i, arg := range args.Params {
@@ -88,10 +87,10 @@ func (api *UserManagerAPI) RemoveUser(args params.ModifyUsers) (params.ErrorResu
 		}
 		user, err := api.state.User(arg.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(fmt.Errorf("Failed to find user %s: %s", arg.Tag, err))
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		err = user.SetInactive()
+		err = user.Deactivate()
 		if err != nil {
 			result.Results[i].Error = common.ServerError(fmt.Errorf("Failed to remove user: %s", err))
 			continue

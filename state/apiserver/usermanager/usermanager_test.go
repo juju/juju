@@ -70,7 +70,7 @@ func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
 	_, err := s.usermanager.AddUser(args)
 	c.Assert(err, gc.IsNil)
 	user, err := s.State.User("foobar")
-	c.Assert(user.IsInactive(), gc.Equals, false) // The user should be active
+	c.Assert(user.IsDeactivated(), gc.Equals, false) // The user should be active
 
 	result, err := s.usermanager.RemoveUser(args)
 	c.Assert(err, gc.IsNil)
@@ -78,13 +78,13 @@ func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
 	user, err = s.State.User("foobar")
 	c.Assert(err, gc.IsNil)
 	// Removal makes the user in active
-	c.Assert(user.IsInactive(), gc.Equals, true)
+	c.Assert(user.IsDeactivated(), gc.Equals, true)
 	c.Assert(user.PasswordValid(arg.Password), gc.Equals, true)
 }
 
-// Since removing a user just sets them inactive you cannot add a user
+// Since removing a user just deacitvates them you cannot add a user
 // that has been previously been removed
-// TODO: This test should be removed 1288745
+// TODO(mattyw) 2014-03-07 bug #1288745
 func (s *userManagerSuite) TestCannotAddRemoveAdd(c *gc.C) {
 	arg := params.ModifyUser{
 		Tag:      "addremove",

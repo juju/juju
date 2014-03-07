@@ -8,8 +8,8 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 )
 
-// TOOO: Need to add a SetPassword
-// lp:1288750
+// TODO(mattyw) 2014-03-07 bug #1288750
+// Need a SetPassword method.
 type Client struct {
 	st *api.State
 }

@@ -45,5 +45,5 @@ func (s *usermanagerSuite) TestRemoveUser(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(errResults, gc.DeepEquals, expectedResult)
 	user, err := s.State.User("foobar")
-	c.Assert(user.IsInactive(), gc.Equals, true)
+	c.Assert(user.IsDeactivated(), gc.Equals, true)
 }
