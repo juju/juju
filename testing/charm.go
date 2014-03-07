@@ -140,7 +140,7 @@ func (s *MockCharmStore) WithAuthAttrs(auth string) charm.Repository {
 	return s
 }
 
-func (s *MockCharmStore) SetTestMode(testMode bool) charm.Repository {
+func (s *MockCharmStore) WithTestMode(testMode bool) charm.Repository {
 	s.TestMode = testMode
 	return s
 }

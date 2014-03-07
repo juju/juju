@@ -1730,7 +1730,7 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	}
 }
 
-func (s *clientSuite) TestClientAuthorizeStoreOnDeployServiceSetCharmAndAddCharm(c *gc.C) {
+func (s *clientSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAddCharm(c *gc.C) {
 	store, restore := makeMockCharmStore()
 	defer restore()
 
@@ -1740,7 +1740,7 @@ func (s *clientSuite) TestClientAuthorizeStoreOnDeployServiceSetCharmAndAddCharm
 	attrs := coretesting.Attrs(oldConfig.AllAttrs())
 	attrs = attrs.Merge(coretesting.Attrs{
 		"charm-store-auth": "token=value",
-		"testmode":         true})
+		"test-mode":         true})
 
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)

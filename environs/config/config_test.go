@@ -635,7 +635,7 @@ var configTests = []configTest{
 		attrs: testing.Attrs{
 			"type":     "my-type",
 			"name":     "my-name",
-			"testmode": true,
+			"test-mode": true,
 		},
 	},
 	authTokenConfigTest("token=value, tokensecret=value", true),
@@ -858,7 +858,7 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 	dev, _ := test.attrs["development"].(bool)
 	c.Assert(cfg.Development(), gc.Equals, dev)
 
-	testmode, _ := test.attrs["testmode"].(bool)
+	testmode, _ := test.attrs["test-mode"].(bool)
 	c.Assert(cfg.TestMode(), gc.Equals, testmode)
 
 	if series, _ := test.attrs["default-series"].(string); series != "" {
@@ -1012,7 +1012,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"bootstrap-addresses-delay": 10,
 		"default-series":            "precise",
 		"charm-store-auth":          "token=auth",
-		"testmode":                  false,
+		"test-mode":                  false,
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)

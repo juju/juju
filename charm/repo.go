@@ -102,9 +102,9 @@ func (s *CharmStore) WithAuthAttrs(authAttrs string) Repository {
 	return &authCS
 }
 
-// SetTestMode returns a Repository where testMode is set to value passed to
+// WithTestMode returns a Repository where testMode is set to value passed to
 // this method.
-func (s *CharmStore) SetTestMode(testMode bool) Repository {
+func (s *CharmStore) WithTestMode(testMode bool) Repository {
 	newRepo := *s
 	newRepo.testMode = testMode
 	return &newRepo
@@ -140,14 +140,14 @@ func (s *CharmStore) get(url string) (resp *http.Response, err error) {
 // Info returns details for all the specified charms in the charm store.
 func (s *CharmStore) Info(curls ...*URL) ([]*InfoResponse, error) {
 	baseURL := s.BaseURL + "/charm-info?"
-	charmSnippets := make([]string, len(curls)+1)
+	queryParams := make([]string, len(curls), len(curls)+1)
 	for i, curl := range curls {
-		charmSnippets[i] = "charms=" + url.QueryEscape(curl.String())
+		queryParams[i] = "charms=" + url.QueryEscape(curl.String())
 	}
 	if s.testMode {
-		charmSnippets = append(charmSnippets, "stats=0")
+		queryParams = append(queryParams, "stats=0")
 	}
-	resp, err := s.get(baseURL + strings.Join(charmSnippets, "&"))
+	resp, err := s.get(baseURL + strings.Join(queryParams, "&"))
 	if err != nil {
 		if url_error, ok := err.(*url.Error); ok {
 			switch url_error.Err.(type) {

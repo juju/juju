@@ -621,7 +621,7 @@ func (c *Config) ImageStream() string {
 // In this case, accessing the charm store does not affect statistical
 // data of the store.
 func (c *Config) TestMode() bool {
-	return c.defined["testmode"].(bool)
+	return c.defined["test-mode"].(bool)
 }
 
 // UnknownAttrs returns a copy of the raw configuration attributes
@@ -687,7 +687,7 @@ var fields = schema.Fields{
 	"bootstrap-timeout":         schema.ForceInt(),
 	"bootstrap-retry-delay":     schema.ForceInt(),
 	"bootstrap-addresses-delay": schema.ForceInt(),
-	"testmode":                  schema.Bool(),
+	"test-mode":                  schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url": schema.String(),
@@ -742,7 +742,7 @@ var alwaysOptional = schema.Defaults{
 	"charm-store-auth": "",
 	// Previously image-stream could be set to an empty value
 	"image-stream": "",
-	"testmode":     false,
+	"test-mode":     false,
 }
 
 func allowEmpty(attr string) bool {
@@ -848,7 +848,7 @@ func (cfg *Config) GenerateStateServerCertAndKey() ([]byte, []byte, error) {
 
 type Specializer interface {
 	WithAuthAttrs(string) charm.Repository
-	SetTestMode(testMode bool) charm.Repository
+	WithTestMode(testMode bool) charm.Repository
 }
 
 // SpecializeCharmRepo returns a repository customized for given configuration.
@@ -861,7 +861,7 @@ func SpecializeCharmRepo(repo charm.Repository, cfg *Config) charm.Repository {
 		}
 	}
 	if CS, isCS := repo.(Specializer); isCS {
-		repo = CS.SetTestMode(cfg.TestMode())
+		repo = CS.WithTestMode(cfg.TestMode())
 	}
 	return repo
 }

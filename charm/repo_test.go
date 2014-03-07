@@ -158,7 +158,7 @@ func (s *StoreSuite) TestGetTestModeFlag(c *gc.C) {
 	c.Assert(s.server.InfoRequestCount, gc.Equals, 1)
 	c.Assert(s.server.InfoRequestCountNoStats, gc.Equals, 0)
 
-	storeInTestMode := s.store.SetTestMode(true)
+	storeInTestMode := s.store.WithTestMode(true)
 	other := "cs:series/good-23"
 	otherURL := charm.MustParseURL(other)
 	ch, err = storeInTestMode.Get(otherURL)
@@ -220,7 +220,7 @@ func (s *StoreSuite) TestInfoTestModeFlag(c *gc.C) {
 	c.Assert(s.server.InfoRequestCount, gc.Equals, 1)
 	c.Assert(s.server.InfoRequestCountNoStats, gc.Equals, 0)
 
-	storeInTestMode, ok := s.store.SetTestMode(true).(*charm.CharmStore)
+	storeInTestMode, ok := s.store.WithTestMode(true).(*charm.CharmStore)
 	c.Assert(ok, gc.Equals, true)
 	_, err = storeInTestMode.Info(charmURL)
 	c.Assert(err, gc.IsNil)
