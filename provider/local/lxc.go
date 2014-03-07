@@ -10,15 +10,16 @@ import (
 	"strings"
 
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/version"
 )
 
 // envKeyTestingForceSlow is an environment variable name to force the slow
 // lxc path. Setting to any non-empty value will force the slow path.
 const envKeyTestingForceSlow = "JUJU_TESTING_LXC_FORCE_SLOW"
 
-// lsbReleaseFile is the name of the file that is read in order to determine
-// the release version of ubuntu.
-var lsbReleaseFile = "/etc/lsb-release"
+// releaseVersion is a function that returns a string representing the
+// DISTRIB_RELEASE from the /etc/lsb-release file.
+var releaseVersion = version.ReleaseVersion
 
 func useFastLXC(containerType instance.ContainerType) bool {
 	if containerType != instance.LXC {
@@ -27,7 +28,7 @@ func useFastLXC(containerType instance.ContainerType) bool {
 	if os.Getenv(envKeyTestingForceSlow) != "" {
 		return false
 	}
-	release := getReleaseVersion()
+	release := releaseVersion()
 	if release == "" {
 		return false
 	}
@@ -36,21 +37,4 @@ func useFastLXC(containerType instance.ContainerType) bool {
 		return false
 	}
 	return value >= 14.04
-}
-
-// getReleaseVersion looks for the value of DISTRIB_RELEASE in the content of
-// the lsbReleaseFile.  If the value is not found, the file is not found, or
-// an error occurs reading the file, an empty string is returned.
-func getReleaseVersion() string {
-	content, err := ioutil.ReadFile(lsbReleaseFile)
-	if err != nil {
-		return ""
-	}
-	const prefix = "DISTRIB_RELEASE="
-	for _, line := range strings.Split(string(content), "\n") {
-		if strings.HasPrefix(line, prefix) {
-			return strings.Trim(line[len(prefix):], "\t '\"")
-		}
-	}
-	return ""
 }
