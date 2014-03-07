@@ -4,9 +4,7 @@
 package local_test
 
 import (
-	"io/ioutil"
 	gc "launchpad.net/gocheck"
-	"path/filepath"
 
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/local"

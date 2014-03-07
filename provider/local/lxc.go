@@ -4,10 +4,8 @@
 package local
 
 import (
-	"io/ioutil"
 	"os"
 	"strconv"
-	"strings"
 
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/version"
