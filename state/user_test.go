@@ -45,6 +45,11 @@ func (s *UserSuite) TestAddUser(c *gc.C) {
 	c.Assert(u1.PasswordValid("b"), jc.IsTrue)
 }
 
+func (s *UserSuite) TestAddUserBlankPassword(c *gc.C) {
+	_, err := s.State.AddUser("blank", "")
+	c.Check(err, gc.ErrorMatches, "password can't be empty")
+}
+
 func (s *UserSuite) TestCheckUserExists(c *gc.C) {
 	u, err := s.State.AddUser("a", "b")
 	c.Check(u, gc.NotNil)
@@ -58,7 +63,7 @@ func (s *UserSuite) TestCheckUserExists(c *gc.C) {
 }
 
 func (s *UserSuite) TestSetPassword(c *gc.C) {
-	u, err := s.State.AddUser("someuser", "")
+	u, err := s.State.AddUser("someuser", "password")
 	c.Assert(err, gc.IsNil)
 
 	testSetPassword(c, func() (state.Authenticator, error) {
@@ -92,7 +97,7 @@ func (s *UserSuite) TestSetPasswordChangesSalt(c *gc.C) {
 }
 
 func (s *UserSuite) TestSetPasswordHash(c *gc.C) {
-	u, err := s.State.AddUser("someuser", "")
+	u, err := s.State.AddUser("someuser", "password")
 	c.Assert(err, gc.IsNil)
 
 	err = u.SetPasswordHash(utils.UserPasswordHash("foo", utils.CompatSalt), utils.CompatSalt)
@@ -111,7 +116,7 @@ func (s *UserSuite) TestSetPasswordHash(c *gc.C) {
 }
 
 func (s *UserSuite) TestSetPasswordHashWithSalt(c *gc.C) {
-	u, err := s.State.AddUser("someuser", "")
+	u, err := s.State.AddUser("someuser", "password")
 	c.Assert(err, gc.IsNil)
 
 	err = u.SetPasswordHash(utils.UserPasswordHash("foo", "salted"), "salted")
@@ -124,7 +129,7 @@ func (s *UserSuite) TestSetPasswordHashWithSalt(c *gc.C) {
 }
 
 func (s *UserSuite) TestPasswordValidUpdatesSalt(c *gc.C) {
-	u, err := s.State.AddUser("someuser", "")
+	u, err := s.State.AddUser("someuser", "password")
 	c.Assert(err, gc.IsNil)
 
 	compatHash := utils.UserPasswordHash("foo", utils.CompatSalt)
@@ -152,7 +157,7 @@ func (s *UserSuite) TestPasswordValidUpdatesSalt(c *gc.C) {
 }
 
 func (s *UserSuite) TestName(c *gc.C) {
-	u, err := s.State.AddUser("someuser", "")
+	u, err := s.State.AddUser("someuser", "password")
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(u.Name(), gc.Equals, "someuser")
@@ -160,7 +165,7 @@ func (s *UserSuite) TestName(c *gc.C) {
 }
 
 func (s *UserSuite) TestInactive(c *gc.C) {
-	u, err := s.State.AddUser("someuser", "")
+	u, err := s.State.AddUser("someuser", "password")
 	c.Assert(err, gc.IsNil)
 	c.Assert(u.IsInactive(), gc.Equals, false)
 
