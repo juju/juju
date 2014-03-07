@@ -72,7 +72,6 @@ func (s *LxcSuite) TestContainerDirFilesystem(c *gc.C) {
 }
 
 func (s *LxcSuite) makeManager(c *gc.C, name string) container.Manager {
-	s.HookCommandOutput(&lxc.FsCommandOutput, []byte("Type\next4\n"), nil)
 	manager, err := lxc.NewContainerManager(container.ManagerConfig{
 		container.ConfigName: name,
 	})

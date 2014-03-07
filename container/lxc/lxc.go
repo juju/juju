@@ -329,11 +329,7 @@ func generateNetworkConfig(network *container.NetworkConfig) string {
 	return lxcConfig
 }
 
-func writeLxcConfig(
-	network *container.NetworkConfig,
-	directory,
-	logdir string,
-) (string, error) {
+func writeLxcConfig(network *container.NetworkConfig, directory, logdir string) (string, error) {
 	networkConfig := generateNetworkConfig(network)
 	configFilename := filepath.Join(directory, "lxc.conf")
 	configContent := fmt.Sprintf(localConfig, networkConfig, logdir)
