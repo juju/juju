@@ -60,7 +60,7 @@ func (a *aggregator) loop() error {
         bucket := ratelimit.New(GatherTime, Capacity)
 	for {
 		select {
-                case <- a.tomb.Dying():
+                case <-a.tomb.Dying():
                     return tomb.ErrDying
 		case req, ok := <-a.reqc:
 			if !ok {
