@@ -142,7 +142,7 @@ func (x extractor) writeFile(targetPath string, zipFile *zip.File, modePerm os.F
 		return err
 	}
 	defer writer.Close()
-	return readTo(writer, zipFile)
+	return copyTo(writer, zipFile)
 }
 
 func (x extractor) writeSymlink(targetPath string, zipFile *zip.File) error {
@@ -160,7 +160,7 @@ func (x extractor) writeSymlink(targetPath string, zipFile *zip.File) error {
 
 func (x extractor) checkSymlink(targetPath string, zipFile *zip.File) (string, error) {
 	var buffer bytes.Buffer
-	if err := readTo(&buffer, zipFile); err != nil {
+	if err := copyTo(&buffer, zipFile); err != nil {
 		return "", err
 	}
 	symlinkTarget := buffer.String()
@@ -179,7 +179,7 @@ func (x extractor) checkSymlink(targetPath string, zipFile *zip.File) (string, e
 	return symlinkTarget, nil
 }
 
-func readTo(writer io.Writer, zipFile *zip.File) error {
+func copyTo(writer io.Writer, zipFile *zip.File) error {
 	reader, err := zipFile.Open()
 	if err != nil {
 		return err

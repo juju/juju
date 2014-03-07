@@ -6,7 +6,7 @@ package log
 import (
 	"fmt"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 )
 
 var (

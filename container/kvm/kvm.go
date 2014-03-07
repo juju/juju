@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
@@ -56,13 +56,15 @@ var IsKVMSupported = func() (bool, error) {
 // containers. The containers that are created are namespaced by the name
 // parameter.
 func NewContainerManager(conf container.ManagerConfig) (container.Manager, error) {
-	if conf.Name == "" {
+	name := conf[container.ConfigName]
+	if name == "" {
 		return nil, fmt.Errorf("name is required")
 	}
-	if conf.LogDir == "" {
-		conf.LogDir = agent.DefaultLogDir
+	logDir := conf[container.ConfigLogDir]
+	if logDir == "" {
+		logDir = agent.DefaultLogDir
 	}
-	return &containerManager{name: conf.Name, logdir: conf.LogDir}, nil
+	return &containerManager{name: name, logdir: logDir}, nil
 }
 
 // containerManager handles all of the business logic at the juju specific

@@ -12,6 +12,7 @@ import (
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/mongo"
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -26,7 +27,6 @@ import (
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/tools"
-	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/version"
 )
 
@@ -65,8 +65,15 @@ func minimalConfig(c *gc.C) *config.Config {
 	return cfg
 }
 
+func must(s string, err error) string {
+	if err != nil {
+		panic(err)
+	}
+	return s
+}
+
 // mongodPath is the path where we should expect mongod in the environment.
-var mongodPath = upstart.MongodPath()
+var mongodPath = must(mongo.MongodPath())
 
 // Each test gives a cloudinit config - we check the
 // output to see if it looks correct.
