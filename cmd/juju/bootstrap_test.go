@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/loggo"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
@@ -26,6 +27,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
@@ -313,6 +315,27 @@ func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 	c.Check(code2, gc.Equals, 1)
 	c.Check(coretesting.Stderr(ctx2), gc.Equals, "error: environment is already bootstrapped\n")
 	c.Check(coretesting.Stdout(ctx2), gc.Equals, "")
+}
+
+func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
+	env, fake := makeEmptyFakeHome(c)
+	defer fake.Restore()
+	defaultSeriesVersion := version.Current
+	defaultSeriesVersion.Series = env.Config().DefaultSeries()
+
+	store, err := configstore.Default()
+	c.Assert(err, gc.IsNil)
+	ctx := coretesting.Context(c)
+	environs.PrepareFromName("peckham", ctx, store)
+
+	logger := "jenv.warning.test"
+	testWriter := &loggo.TestWriter{}
+	loggo.RegisterWriter(logger, testWriter, loggo.WARNING)
+	defer loggo.RemoveWriter(logger)
+
+	_, errc := runCommand(ctx, new(BootstrapCommand), "-e", "peckham")
+	c.Assert(<-errc, gc.IsNil)
+	c.Assert(testWriter.Log, jc.LogMatches, []string{"ignoring environments.yaml: using bootstrap config in .*"})
 }
 
 func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
