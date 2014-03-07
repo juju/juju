@@ -4,9 +4,7 @@
 package local_test
 
 import (
-	"io/ioutil"
 	gc "launchpad.net/gocheck"
-	"path/filepath"
 
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/local"
@@ -28,54 +26,32 @@ func (*lxcTest) TestUseFastLXCForContainer(c *gc.C) {
 func (t *lxcTest) TestUseFastLXC(c *gc.C) {
 	for i, test := range []struct {
 		message        string
-		releaseContent string
+		releaseVersion string
 		expected       bool
 		overrideSlow   string
 	}{{
 		message: "missing release file",
 	}, {
-		message:        "missing prefix in file",
-		releaseContent: "some junk\nand more junk",
+		message:        "precise release",
+		releaseVersion: "12.04",
 	}, {
-		message: "precise release",
-		releaseContent: `
-DISTRIB_ID=Ubuntu
-DISTRIB_RELEASE=12.04
-DISTRIB_CODENAME=precise
-DISTRIB_DESCRIPTION="Ubuntu 12.04.3 LTS"
-`,
-	}, {
-		message: "trusty release",
-		releaseContent: `
-DISTRIB_ID=Ubuntu
-DISTRIB_RELEASE=14.04
-DISTRIB_CODENAME=trusty
-DISTRIB_DESCRIPTION="Ubuntu Trusty Tahr (development branch)"
-`,
-		expected: true,
-	}, {
-		message:        "minimal trusty release",
-		releaseContent: `DISTRIB_RELEASE=14.04`,
+		message:        "trusty release",
+		releaseVersion: "14.04",
 		expected:       true,
 	}, {
-		message:        "minimal unstable unicorn",
-		releaseContent: `DISTRIB_RELEASE=14.10`,
+		message:        "unstable unicorn",
+		releaseVersion: "14.10",
 		expected:       true,
 	}, {
-		message:        "minimal jaunty",
-		releaseContent: `DISTRIB_RELEASE=9.10`,
+		message:        "jaunty",
+		releaseVersion: "9.10",
 	}, {
 		message:        "env override",
-		releaseContent: `DISTRIB_RELEASE=14.04`,
+		releaseVersion: "14.04",
 		overrideSlow:   "value",
 	}} {
 		c.Logf("%v: %v", i, test.message)
-		filename := filepath.Join(c.MkDir(), "lsbRelease")
-		t.PatchValue(local.LSBReleaseFileVar, filename)
-		if test.releaseContent != "" {
-			err := ioutil.WriteFile(filename, []byte(test.releaseContent+"\n"), 0644)
-			c.Assert(err, gc.IsNil)
-		}
+		t.PatchValue(local.ReleaseVersion, func() string { return test.releaseVersion })
 		t.PatchEnvironment(local.EnvKeyTestingForceSlow, test.overrideSlow)
 		value := local.UseFastLXC(instance.LXC)
 		c.Assert(value, gc.Equals, test.expected)
