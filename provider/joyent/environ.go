@@ -153,7 +153,7 @@ func (env *JoyentEnviron) Region() (simplestreams.CloudSpec, error) {
 func (env *JoyentEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket.
 	sources := []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource(env.Storage(), storage.BaseImagesPath)}
+		storage.NewStorageSimpleStreamsDataSource("cloud storage", env.Storage(), storage.BaseImagesPath)}
 	return sources, nil
 }
 
@@ -161,6 +161,6 @@ func (env *JoyentEnviron) GetImageSources() ([]simplestreams.DataSource, error) 
 func (env *JoyentEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket.
 	sources := []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource(env.Storage(), storage.BaseToolsPath)}
+		storage.NewStorageSimpleStreamsDataSource("cloud storage", env.Storage(), storage.BaseToolsPath)}
 	return sources, nil
 }
