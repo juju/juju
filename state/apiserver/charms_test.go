@@ -4,7 +4,6 @@
 package apiserver_test
 
 import (
-	"archive/zip"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -329,7 +328,7 @@ func (s *charmsSuite) TestGetReturnsFileContents(c *gc.C) {
 	}
 }
 
-func (s *charmsSuite) TestGetListsFiles(c *gc.C) {
+func (s *charmsSuite) TestGetReturnsManifest(c *gc.C) {
 	// Add the dummy charm.
 	ch := coretesting.Charms.Bundle(c.MkDir(), "dummy")
 	_, err := s.uploadRequest(
@@ -340,10 +339,9 @@ func (s *charmsSuite) TestGetListsFiles(c *gc.C) {
 	uri := s.charmsURI(c, "?url=local:quantal/dummy-1")
 	resp, err := s.authRequest(c, "GET", uri, "", nil)
 	c.Assert(err, gc.IsNil)
-	expectedFiles := []string{
-		"revision", "config.yaml", "hooks/install", "metadata.yaml",
-		"src/hello.c",
-	}
+	manifest, err := ch.Manifest()
+	c.Assert(err, gc.IsNil)
+	expectedFiles := manifest.SortedValues()
 	s.assertGetFileListResponse(c, resp, expectedFiles)
 	ctype := resp.Header.Get("content-type")
 	c.Assert(ctype, gc.Equals, "application/json")
@@ -355,15 +353,14 @@ func (s *charmsSuite) TestGetUsesCache(c *gc.C) {
 	err := os.MkdirAll(cacheDir, 0755)
 	c.Assert(err, gc.IsNil)
 
-	// Create and save the zip archive.
-	buffer := new(bytes.Buffer)
-	writer := zip.NewWriter(buffer)
-	file, err := writer.Create("utils.js")
+	// Create and save a bundle in it.
+	charmDir := coretesting.Charms.ClonedDir(c.MkDir(), "dummy")
+	testPath := filepath.Join(charmDir.Path, "utils.js")
+	contents := "// blah blah"
+	err = ioutil.WriteFile(testPath, []byte(contents), 0755)
 	c.Assert(err, gc.IsNil)
-	contents := "// these are the voyages"
-	_, err = file.Write([]byte(contents))
-	c.Assert(err, gc.IsNil)
-	err = writer.Close()
+	var buffer bytes.Buffer
+	err = charmDir.BundleTo(&buffer)
 	c.Assert(err, gc.IsNil)
 	charmArchivePath := filepath.Join(
 		cacheDir, charm.Quote("local:trusty/django-42")+".zip")

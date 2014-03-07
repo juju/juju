@@ -392,26 +392,23 @@ func ModeConflicted(curl *charm.URL) Mode {
 		}
 		u.f.WantResolvedEvent()
 		u.f.WantUpgradeEvent(true)
-		for {
-			select {
-			case <-u.tomb.Dying():
-				return nil, tomb.ErrDying
-			case <-u.f.ResolvedEvents():
-				err = u.charm.Snapshotf("Upgrade conflict resolved.")
-				if e := u.f.ClearResolved(); e != nil {
-					return nil, e
-				}
-				if err != nil {
-					return nil, err
-				}
-				return ModeUpgrading(curl), nil
-			case curl := <-u.f.UpgradeEvents():
-				if err := u.charm.Revert(); err != nil {
-					return nil, err
-				}
-				return ModeUpgrading(curl), nil
+		select {
+		case <-u.tomb.Dying():
+			return nil, tomb.ErrDying
+		case <-u.f.ResolvedEvents():
+			err = u.deployer.NotifyResolved()
+			if e := u.f.ClearResolved(); e != nil {
+				return nil, e
+			}
+			if err != nil {
+				return nil, err
+			}
+		case curl = <-u.f.UpgradeEvents():
+			if err := u.deployer.NotifyRevert(); err != nil {
+				return nil, err
 			}
 		}
+		return ModeUpgrading(curl), nil
 	}
 }
 

@@ -5,11 +5,8 @@ package main
 
 import (
 	"fmt"
-	"net/url"
-	"path"
-	"strings"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
@@ -60,19 +57,12 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 	const minorVersion = -1
 	toolsList, err := envtools.ReadList(sourceStorage, version.Current.Major, minorVersion)
 	if err == envtools.ErrNoTools {
-		source := envtools.DefaultBaseURL
-		var u *url.URL
-		u, err = url.Parse(source)
+		var source string
+		source, err = envtools.ToolsURL(envtools.DefaultBaseURL)
 		if err != nil {
-			return fmt.Errorf("invalid tools source %s: %v", source, err)
+			return err
 		}
-		if u.Scheme == "" {
-			source = "file://" + source
-			if !strings.HasSuffix(source, "/"+storage.BaseToolsPath) {
-				source = path.Join(source, storage.BaseToolsPath)
-			}
-		}
-		sourceDataSource := simplestreams.NewURLDataSource(source, simplestreams.VerifySSLHostnames)
+		sourceDataSource := simplestreams.NewURLDataSource("local source", source, simplestreams.VerifySSLHostnames)
 		toolsList, err = envtools.FindToolsForCloud(
 			[]simplestreams.DataSource{sourceDataSource}, simplestreams.CloudSpec{},
 			version.Current.Major, minorVersion, coretools.Filter{})

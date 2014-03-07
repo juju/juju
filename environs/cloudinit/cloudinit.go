@@ -14,6 +14,7 @@ import (
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/mongo"
 	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
@@ -23,6 +24,7 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
@@ -90,6 +92,9 @@ type MachineConfig struct {
 
 	// LogDir holds the directory that juju logs will be written to.
 	LogDir string
+
+	// Jobs holds what machine jobs to run.
+	Jobs []params.MachineJob
 
 	// CloudInitOutputLog specifies the path to the output log for cloud-init.
 	// The directory containing the log file must already exist.
@@ -406,6 +411,8 @@ func (cfg *MachineConfig) agentConfig(tag string) (agent.Config, error) {
 	}
 	configParams := agent.AgentConfigParams{
 		DataDir:           cfg.DataDir,
+		LogDir:            cfg.LogDir,
+		Jobs:              cfg.Jobs,
 		Tag:               tag,
 		UpgradedToVersion: version.Current.Number,
 		Password:          password,
@@ -477,7 +484,10 @@ func (cfg *MachineConfig) addMongoToBoot(c *cloudinit.Config) error {
 	)
 
 	name := cfg.MongoServiceName
-	conf := upstart.MongoUpstartService(name, cfg.DataDir, dbDir, cfg.StatePort)
+	conf, err := mongo.MongoUpstartService(name, cfg.DataDir, cfg.StatePort)
+	if err != nil {
+		return err
+	}
 	cmds, err := conf.InstallCommands()
 	if err != nil {
 		return errgo.Annotate(err, "cannot make cloud-init upstart script for the state database")
@@ -621,6 +631,9 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 	}
 	if cfg.LogDir == "" {
 		return fmt.Errorf("missing log directory")
+	}
+	if len(cfg.Jobs) == 0 {
+		return fmt.Errorf("missing machine jobs")
 	}
 	if cfg.CloudInitOutputLog == "" {
 		return fmt.Errorf("missing cloud-init output log path")

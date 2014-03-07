@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/replicaset"
 )

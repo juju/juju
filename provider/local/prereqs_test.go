@@ -11,9 +11,9 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing/testbase"
-	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
@@ -48,9 +48,11 @@ func (s *prereqsSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.tmpdir = c.MkDir()
 	s.testMongodPath = filepath.Join(s.tmpdir, "mongod")
+
 	s.PatchEnvironment("PATH", s.tmpdir)
 
-	s.PatchValue(&upstart.JujuMongodPath, "/somewhere/that/doesnt/exist")
+	s.PatchValue(&mongo.JujuMongodPath, "/somewhere/that/wont/exist")
+
 	s.setMongoVersion(c, lowestMongoVersion.Major, lowestMongoVersion.Minor, lowestMongoVersion.Patch)
 
 	os.Setenv("JUJUTEST_LSB_RELEASE_ID", "Ubuntu")

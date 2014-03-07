@@ -41,6 +41,7 @@ $FileCreateMode 0640
 
 type templateArgs struct {
 	MachineTag  string
+	LogDir      string
 	Namespace   string
 	BootstrapIP string
 	Port        int
@@ -75,13 +76,13 @@ $ActionQueueSaveOnShutdown on
 
 $InputFilePersistStateInterval 50
 $InputFilePollInterval 5
-$InputFileName /var/log/juju/{{.MachineTag}}.log
+$InputFileName {{.LogDir}}/{{.MachineTag}}.log
 $InputFileTag juju{{.Namespace}}-{{.MachineTag}}:
 $InputFileStateFile {{.MachineTag}}{{.Namespace}}
 $InputRunFileMonitor
 
 $DefaultNetstreamDriver gtls
-$DefaultNetstreamDriverCAFile /var/log/juju/ca-cert.pem
+$DefaultNetstreamDriverCAFile {{.LogDir}}/ca-cert.pem
 $ActionSendStreamDriverAuthMode anon
 $ActionSendStreamDriverMode 1 # run driver in TLS-only mode
 
@@ -92,7 +93,7 @@ $template LongTagForwardFormat,"<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %sy
 `
 
 // ExpectedForwardSyslogConf returns the expected content for a rsyslog file on a host machine.
-func ExpectedForwardSyslogConf(c *gc.C, machineTag, namespace, bootstrapIP string, port int) string {
+func ExpectedForwardSyslogConf(c *gc.C, machineTag, logDir, namespace, bootstrapIP string, port int) string {
 	if namespace != "" {
 		namespace = "-" + namespace
 	}
@@ -100,6 +101,7 @@ func ExpectedForwardSyslogConf(c *gc.C, machineTag, namespace, bootstrapIP strin
 	var conf bytes.Buffer
 	err := t.Execute(&conf, templateArgs{
 		MachineTag:  machineTag,
+		LogDir:      logDir,
 		Namespace:   namespace,
 		BootstrapIP: bootstrapIP,
 		Port:        port,
