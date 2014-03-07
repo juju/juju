@@ -14,6 +14,7 @@ import (
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/mongo"
 	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
@@ -477,7 +478,10 @@ func (cfg *MachineConfig) addMongoToBoot(c *cloudinit.Config) error {
 	)
 
 	name := cfg.MongoServiceName
-	conf := upstart.MongoUpstartService(name, cfg.DataDir, dbDir, cfg.StatePort)
+	conf, err := mongo.MongoUpstartService(name, cfg.DataDir, cfg.StatePort)
+	if err != nil {
+		return err
+	}
 	cmds, err := conf.InstallCommands()
 	if err != nil {
 		return errgo.Annotate(err, "cannot make cloud-init upstart script for the state database")
