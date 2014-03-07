@@ -633,8 +633,8 @@ var configTests = []configTest{
 		about:       "TestMode flag specified",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
-			"type":     "my-type",
-			"name":     "my-name",
+			"type":      "my-type",
+			"name":      "my-name",
 			"test-mode": true,
 		},
 	},
@@ -1012,7 +1012,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"bootstrap-addresses-delay": 10,
 		"default-series":            "precise",
 		"charm-store-auth":          "token=auth",
-		"test-mode":                  false,
+		"test-mode":                 false,
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)

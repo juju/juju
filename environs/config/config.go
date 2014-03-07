@@ -687,7 +687,7 @@ var fields = schema.Fields{
 	"bootstrap-timeout":         schema.ForceInt(),
 	"bootstrap-retry-delay":     schema.ForceInt(),
 	"bootstrap-addresses-delay": schema.ForceInt(),
-	"test-mode":                  schema.Bool(),
+	"test-mode":                 schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url": schema.String(),
@@ -742,7 +742,7 @@ var alwaysOptional = schema.Defaults{
 	"charm-store-auth": "",
 	// Previously image-stream could be set to an empty value
 	"image-stream": "",
-	"test-mode":     false,
+	"test-mode":    false,
 }
 
 func allowEmpty(attr string) bool {

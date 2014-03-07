@@ -1740,7 +1740,7 @@ func (s *clientSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAddChar
 	attrs := coretesting.Attrs(oldConfig.AllAttrs())
 	attrs = attrs.Merge(coretesting.Attrs{
 		"charm-store-auth": "token=value",
-		"test-mode":         true})
+		"test-mode":        true})
 
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
