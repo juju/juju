@@ -77,18 +77,18 @@ func (s *EnvironWatcherTest) TestWatchForEnvironConfigChanges(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Change the environment configuration, check it's detected.
-	attrs := envConfig.AllAttrs()
-	attrs["type"] = "blah"
-	newConfig, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
-	err = s.st.SetEnvironConfig(newConfig, envConfig)
+	newAttrs := map[string]interface{}{"logging-config": "juju=ERROR"}
+	err = s.st.UpdateEnvironConfig(newAttrs, []string{})
 	c.Assert(err, gc.IsNil)
 	wc.AssertOneChange()
 
 	// Change it back to the original config.
-	err = s.st.SetEnvironConfig(envConfig, newConfig)
+	oldAttrs := map[string]interface{}{"logging-config": envConfig.AllAttrs()["logging-config"]}
+	err = s.st.UpdateEnvironConfig(oldAttrs, []string{})
 	c.Assert(err, gc.IsNil)
 	wc.AssertOneChange()
+
+	// TODO [waigani] test removing an attribute.
 
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()

@@ -105,9 +105,9 @@ func (p *mockPolicy) Prechecker(cfg *config.Config) (state.Prechecker, error) {
 	return nil, errors.NewNotImplementedError("Prechecker")
 }
 
-func (p *mockPolicy) ConfigValidator(typ string) (state.ConfigValidator, error) {
+func (p *mockPolicy) ConfigValidator(providerType string) (state.ConfigValidator, error) {
 	if p.getConfigValidator != nil {
-		return p.getConfigValidator(typ)
+		return p.getConfigValidator(providerType)
 	}
 	return nil, errors.NewNotImplementedError("ConfigValidator")
 }

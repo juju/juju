@@ -25,7 +25,7 @@ type mockConfigValidator struct {
 	validateValid *config.Config
 }
 
-// To test SetEnvironConfig updates state, Validate returns a config
+// To test UpdateEnvironConfig updates state, Validate returns a config
 // different to both input configs
 func mockValidCfg() (valid *config.Config, err error) {
 	cfg, err := config.New(config.UseDefaults, coretesting.FakeConfig())
@@ -56,40 +56,37 @@ func (s *ConfigValidatorSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *ConfigValidatorSuite) setEnvironConfig(c *gc.C) error {
-	cfg, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	change, err := cfg.Apply(map[string]interface{}{
+func (s *ConfigValidatorSuite) updateEnvironConfig(c *gc.C) error {
+	updateAttrs := map[string]interface{}{
 		"authorized-keys": "different-keys",
 		"arbitrary-key":   "shazam!",
-	})
-	c.Assert(err, gc.IsNil)
-	return s.State.SetEnvironConfig(change, cfg)
+	}
+	return s.State.UpdateEnvironConfig(updateAttrs, []string{})
 }
 
 func (s *ConfigValidatorSuite) TestConfigValidate(c *gc.C) {
-	err := s.setEnvironConfig(c)
+	err := s.updateEnvironConfig(c)
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *ConfigValidatorSuite) TestSetEnvironConfigFailsOnConfigValidateError(c *gc.C) {
+func (s *ConfigValidatorSuite) TestUpdateEnvironConfigFailsOnConfigValidateError(c *gc.C) {
 	var configValidatorErr error
 	s.policy.getConfigValidator = func(string) (state.ConfigValidator, error) {
 		configValidatorErr = errors.NotFoundf("")
 		return &s.configValidator, configValidatorErr
 	}
 
-	err := s.setEnvironConfig(c)
+	err := s.updateEnvironConfig(c)
 	c.Assert(err, gc.ErrorMatches, " not found")
 }
 
-func (s *ConfigValidatorSuite) TestSetEnvironConfigUpdatesState(c *gc.C) {
-	s.setEnvironConfig(c)
+func (s *ConfigValidatorSuite) TestUpdateEnvironConfigUpdatesState(c *gc.C) {
+	s.updateEnvironConfig(c)
 	stateCfg, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
 	newValidCfg, err := mockValidCfg()
 	c.Assert(err, gc.IsNil)
-	c.Assert(stateCfg, gc.DeepEquals, newValidCfg)
+	c.Assert(stateCfg.AllAttrs()["arbitrary-key"], gc.Equals, newValidCfg.AllAttrs()["arbitrary-key"])
 }
 
 func (s *ConfigValidatorSuite) TestConfigValidateUnimplemented(c *gc.C) {
@@ -98,20 +95,20 @@ func (s *ConfigValidatorSuite) TestConfigValidateUnimplemented(c *gc.C) {
 		return nil, configValidatorErr
 	}
 
-	err := s.setEnvironConfig(c)
+	err := s.updateEnvironConfig(c)
 	c.Assert(err, gc.ErrorMatches, "policy returned nil configValidator without an error")
 	configValidatorErr = errors.NewNotImplementedError("Validator")
-	err = s.setEnvironConfig(c)
+	err = s.updateEnvironConfig(c)
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *ConfigValidatorSuite) TestConfigValidateNoPolicy(c *gc.C) {
-	s.policy.getConfigValidator = func(typ string) (state.ConfigValidator, error) {
+	s.policy.getConfigValidator = func(providerType string) (state.ConfigValidator, error) {
 		c.Errorf("should not have been invoked")
 		return nil, nil
 	}
 
 	state.SetPolicy(s.State, nil)
-	err := s.setEnvironConfig(c)
+	err := s.updateEnvironConfig(c)
 	c.Assert(err, gc.IsNil)
 }

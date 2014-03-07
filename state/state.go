@@ -256,34 +256,70 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) error {
 	return ErrExcessiveContention
 }
 
-// SetEnvironConfig replaces the current configuration of the
-// environment with the provided configuration.
-func (st *State) SetEnvironConfig(cfg, old *config.Config) error {
-	if err := checkEnvironConfig(cfg); err != nil {
-		return err
-	}
-	validConfig, err := st.validate(cfg, old)
-	if err != nil {
-		return err
+// DELETE ME
+func debugCfg(cfg *config.Config) {
+	if s, ok := cfg.AllAttrs()["secret"]; ok {
+		logger.Warningf("secret in allAttrs: %v", s)
+	} else {
+		logger.Warningf("secret not in allAttrs")
 	}
 
-	// TODO(axw) 2013-12-6 #1167616
-	// Ensure that the settings on disk have not changed
-	// underneath us. The settings changes are actually
-	// applied as a delta to what's on disk; if there has
-	// been a concurrent update, the change may not be what
-	// the user asked for.
+	if s, ok := cfg.UnknownAttrs()["secret"]; ok {
+		logger.Warningf("secret in unknownAttrs: %v", s)
+	} else {
+		logger.Warningf("secret not in unknownAttrs")
+	}
+}
+
+func (st *State) buildAndValidateEnvironConfig(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) (validCfg *config.Config, err error) {
+	newConfig, err := oldConfig.Apply(updateAttrs)
+	if err != nil {
+		return nil, err
+	}
+	if len(removeAttrs) != 0 {
+		newConfig, err = newConfig.Remove(removeAttrs)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if err := checkEnvironConfig(newConfig); err != nil {
+		return nil, err
+	}
+	return st.validate(newConfig, oldConfig)
+}
+
+// UpateEnvironConfig adds, updates or removes attributes in the current
+// configuration of the environment with the provided updateAttrs and
+// removeAttrs.
+func (st *State) UpdateEnvironConfig(updateAttrs map[string]interface{}, removeAttrs []string) error {
+	if len(updateAttrs)+len(removeAttrs) == 0 {
+		return fmt.Errorf("both updateAttrs and removeAttrs cannont be empty")
+	}
 	settings, err := readSettings(st, environGlobalKey)
 	if err != nil {
 		return err
 	}
-	newattrs := validConfig.AllAttrs()
-	for k, _ := range old.AllAttrs() {
-		if _, ok := newattrs[k]; !ok {
+
+	// Get the existing environment config from state.
+	existingAttrs := settings.Map()
+	oldConfig, err := config.New(config.NoDefaults, existingAttrs)
+	if err != nil {
+		return err
+	}
+
+	validCfg, err := st.buildAndValidateEnvironConfig(updateAttrs, removeAttrs, oldConfig)
+	if err != nil {
+		return err
+	}
+
+	//use validCfg to update settings
+	validAttrs := validCfg.AllAttrs()
+	for k, _ := range oldConfig.AllAttrs() {
+		if _, ok := validAttrs[k]; !ok {
 			settings.Delete(k)
 		}
 	}
-	settings.Update(newattrs)
+	settings.Update(validAttrs)
 	_, err = settings.Write()
 	return err
 }

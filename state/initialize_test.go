@@ -106,15 +106,16 @@ func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 func (s *InitializeSuite) TestEnvironConfigWithAdminSecret(c *gc.C) {
 	// admin-secret blocks Initialize.
 	good := testing.EnvironConfig(c)
-	bad, err := good.Apply(map[string]interface{}{"admin-secret": "foo"})
+	badUpdateAttrs := map[string]interface{}{"admin-secret": "foo"}
+	bad, err := good.Apply(badUpdateAttrs)
 
 	_, err = state.Initialize(state.TestingStateInfo(), bad, state.TestingDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.ErrorMatches, "admin-secret should never be written to the state")
 
-	// admin-secret blocks SetEnvironConfig.
+	// admin-secret blocks UpdateEnvironConfig.
 	st := state.TestingInitialize(c, good, state.Policy(nil))
 	st.Close()
-	err = s.State.SetEnvironConfig(bad, good)
+	err = s.State.UpdateEnvironConfig(badUpdateAttrs, []string{})
 	c.Assert(err, gc.ErrorMatches, "admin-secret should never be written to the state")
 
 	// EnvironConfig remains inviolate.
@@ -134,10 +135,9 @@ func (s *InitializeSuite) TestEnvironConfigWithoutAgentVersion(c *gc.C) {
 	_, err = state.Initialize(state.TestingStateInfo(), bad, state.TestingDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.ErrorMatches, "agent-version must always be set in state")
 
-	// Bad agent-version blocks SetEnvironConfig.
 	st := state.TestingInitialize(c, good, state.Policy(nil))
 	st.Close()
-	err = s.State.SetEnvironConfig(bad, good)
+	err = s.State.UpdateEnvironConfig(map[string]interface{}{}, []string{"agent-version"})
 	c.Assert(err, gc.ErrorMatches, "agent-version must always be set in state")
 
 	// EnvironConfig remains inviolate.

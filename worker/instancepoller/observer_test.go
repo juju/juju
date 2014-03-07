@@ -5,7 +5,6 @@
 package instancepoller
 
 import (
-	"strings"
 	"time"
 
 	"github.com/loggo/loggo"
@@ -44,50 +43,21 @@ func (s *observerSuite) TestEnvironmentChanges(c *gc.C) {
 	env := obs.Environ()
 	c.Assert(env.Config().AllAttrs(), gc.DeepEquals, originalConfig.AllAttrs())
 
-	var oldType string
-	// Change to an invalid configuration and check
-	// that the observer's environment remains the same.
-	testing.ChangeEnvironConfig(c, s.State, func(attrs coretesting.Attrs) coretesting.Attrs {
-		oldType = attrs["type"].(string)
-		return attrs.Merge(coretesting.Attrs{
-			"type": "invalid",
-		})
-	})
+	// Change the environment configuration with a different name and check that we see it.
+	s.State.UpdateEnvironConfig(map[string]interface{}{"logging-config": "juju=ERROR"}, []string{})
 	s.State.StartSync()
 
-	// Wait for the observer to register the invalid environment
-	timeout := time.After(coretesting.LongWait)
-loop:
-	for {
-		select {
-		case msg := <-logc:
-			if strings.Contains(msg, "error creating Environ") {
-				break loop
-			}
-		case <-timeout:
-			c.Fatalf("timed out waiting to see broken environment")
-		}
-	}
 	// Check that the returned environ is still the same.
 	env = obs.Environ()
 	c.Assert(env.Config().AllAttrs(), gc.DeepEquals, originalConfig.AllAttrs())
-
-	// Change the environment back to a valid configuration
-	// with a different name and check that we see it.
-	testing.ChangeEnvironConfig(c, s.State, func(attrs coretesting.Attrs) coretesting.Attrs {
-		return attrs.Merge(coretesting.Attrs{
-			"type": oldType,
-			"name": "a-new-name",
-		})
-	})
-	s.State.StartSync()
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		env := obs.Environ()
 		if !a.HasNext() {
 			c.Fatalf("timed out waiting for new environ")
 		}
-		if env.Config().Name() == "a-new-name" {
+
+		if env.Config().LoggingConfig() == "juju=ERROR;unit=DEBUG" {
 			break
 		}
 	}

@@ -648,6 +648,15 @@ func (c *Config) AllAttrs() map[string]interface{} {
 	return allAttrs
 }
 
+// Remove returns a new configuration that has the attributes of c minus attrs.
+func (c *Config) Remove(attrs []string) (*Config, error) {
+	defined := c.AllAttrs()
+	for _, k := range attrs {
+		delete(defined, k)
+	}
+	return New(NoDefaults, defined)
+}
+
 // Apply returns a new configuration that has the attributes of c plus attrs.
 func (c *Config) Apply(attrs map[string]interface{}) (*Config, error) {
 	defined := c.AllAttrs()

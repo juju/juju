@@ -149,26 +149,18 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(statecfg.UnknownAttrs()["secret"], gc.Equals, "pork")
 
-	// Remove the secret from state, and then make sure it gets
-	// pushed back again.
-	attrs = statecfg.AllAttrs()
-	delete(attrs, "secret")
-	newcfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
-	err = st.SetEnvironConfig(newcfg, statecfg)
+	// Removing the secret from state should not be possible, as
+	// UpdateEnvironConfig vaidates the config and resets the "secret"
+	// setting.
+	err = st.UpdateEnvironConfig(map[string]interface{}{}, []string{"secret"})
 	c.Assert(err, gc.IsNil)
 	statecfg, err = st.EnvironConfig()
 	c.Assert(err, gc.IsNil)
-	c.Assert(statecfg.UnknownAttrs()["secret"], gc.IsNil)
+	c.Assert(statecfg.UnknownAttrs()["secret"], gc.Equals, "pork")
 
-	// Make a new Conn, which will push the secrets.
 	conn, err := juju.NewConn(env)
 	c.Assert(err, gc.IsNil)
 	defer assertClose(c, conn)
-
-	statecfg, err = conn.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	c.Assert(statecfg.UnknownAttrs()["secret"], gc.Equals, "pork")
 
 	// Reset the admin password so the state db can be reused.
 	err = conn.State.SetAdminMongoPassword("")

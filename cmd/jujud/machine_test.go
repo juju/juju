@@ -723,19 +723,15 @@ func (s *MachineSuite) TestMachineEnvirnWorker(c *gc.C) {
 
 	s.primeAgent(c, version.Current, state.JobHostUnits)
 	// Make sure there are some proxy settings to write.
-	oldConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-
 	proxySettings := osenv.ProxySettings{
 		Http:  "http proxy",
 		Https: "https proxy",
 		Ftp:   "ftp proxy",
 	}
 
-	envConfig, err := oldConfig.Apply(config.ProxyConfigMap(proxySettings))
-	c.Assert(err, gc.IsNil)
+	updateAttrs := config.ProxyConfigMap(proxySettings)
 
-	err = s.State.SetEnvironConfig(envConfig, oldConfig)
+	err := s.State.UpdateEnvironConfig(updateAttrs, []string{})
 	c.Assert(err, gc.IsNil)
 
 	s.assertJobWithAPI(c, state.JobHostUnits, func(conf agent.Config, st *api.State) {

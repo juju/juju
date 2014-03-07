@@ -13,7 +13,6 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/osenv"
@@ -153,11 +152,7 @@ func (c *Conn) updateSecrets() error {
 			attrs[k] = v
 		}
 	}
-	newcfg, err := config.New(config.NoDefaults, attrs)
-	if err != nil {
-		return err
-	}
-	return c.State.SetEnvironConfig(newcfg, cfg)
+	return c.State.UpdateEnvironConfig(attrs, []string{})
 }
 
 // PutCharm uploads the given charm to provider storage, and adds a

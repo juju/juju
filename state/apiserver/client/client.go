@@ -769,28 +769,22 @@ func (c *Client) EnvironmentGet() (params.EnvironmentGetResults, error) {
 // EnvironmentSet implements the server-side part of the
 // set-environment CLI command.
 func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
-	// TODO(dimitern,thumper): 2013-11-06 bug #1167616
-	// SetEnvironConfig should take both new and old configs.
 
-	// Get the existing environment config from the state.
-	oldConfig, err := c.api.state.EnvironConfig()
-	if err != nil {
-		return err
-	}
 	// Make sure we don't allow changing agent-version.
 	if v, found := args.Config["agent-version"]; found {
+		oldConfig, err := c.api.state.EnvironConfig()
+		if err != nil {
+			return err
+		}
 		oldVersion, _ := oldConfig.AgentVersion()
 		if v != oldVersion.String() {
 			return fmt.Errorf("agent-version cannot be changed")
 		}
 	}
-	// Apply the attributes specified for the command to the state config.
-	newConfig, err := oldConfig.Apply(args.Config)
-	if err != nil {
-		return err
-	}
-	// Now try to apply the new config.
-	return c.api.state.SetEnvironConfig(newConfig, oldConfig)
+
+	// TODO [waigani] Add a txn retry loop
+	return c.api.state.UpdateEnvironConfig(args.Config, []string{})
+
 }
 
 // SetEnvironAgentVersion sets the environment agent version.

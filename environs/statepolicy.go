@@ -34,8 +34,8 @@ func (environStatePolicy) Prechecker(cfg *config.Config) (state.Prechecker, erro
 	return nil, errors.NewNotImplementedError("Prechecker")
 }
 
-func (environStatePolicy) ConfigValidator(typ string) (state.ConfigValidator, error) {
-	provider, err := Provider(typ)
+func (environStatePolicy) ConfigValidator(providerType string) (state.ConfigValidator, error) {
+	provider, err := Provider(providerType)
 	if err != nil {
 		return nil, err
 	}

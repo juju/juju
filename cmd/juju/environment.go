@@ -162,26 +162,8 @@ func (c *SetEnvironmentCommand) run1dot16() error {
 	}
 	defer conn.Close()
 
-	// Here is the magic around setting the attributes:
-	// TODO(thumper): get this magic under test somewhere, and update other call-sites to use it.
-	// Get the existing environment config from the state.
-	oldConfig, err := conn.State.EnvironConfig()
-	if err != nil {
-		return err
-	}
-	// Apply the attributes specified for the command to the state config.
-	newConfig, err := oldConfig.Apply(c.values)
-	if err != nil {
-		return err
-	}
-	// Now validate this new config against the existing config via the provider.
-	provider := conn.Environ.Provider()
-	newProviderConfig, err := provider.Validate(newConfig, oldConfig)
-	if err != nil {
-		return err
-	}
-	// Now try to apply the new validated config.
-	return conn.State.SetEnvironConfig(newProviderConfig, oldConfig)
+	// Update state config with new values
+	return conn.State.UpdateEnvironConfig(c.values, []string{})
 }
 
 func (c *SetEnvironmentCommand) Run(ctx *cmd.Context) error {
