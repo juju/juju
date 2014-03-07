@@ -335,7 +335,7 @@ func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
 
 	_, errc := runCommand(ctx, new(BootstrapCommand), "-e", "peckham")
 	c.Assert(<-errc, gc.IsNil)
-	c.Assert(testWriter.Log, jc.LogMatches, []string{"using existing environment file: .*"})
+	c.Assert(testWriter.Log, jc.LogMatches, []string{"ignoring environments.yaml: using bootstrap config in .*"})
 }
 
 func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
