@@ -7,7 +7,7 @@ import (
 	"errors"
 	"os/user"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 	gc "launchpad.net/gocheck"
 
 	lxctesting "launchpad.net/juju-core/container/lxc/testing"

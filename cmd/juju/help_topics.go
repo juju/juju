@@ -24,11 +24,11 @@ Basic commands:
   juju help topics      list all help topics
 
 Provider information:
-  juju help azure       use on Windows Azure
-  juju help ec2         use on Amazon EC2
-  juju help hpcloud     use on HP Cloud
-  juju help local       use on this computer
-  juju help openstack   use on OpenStack
+  juju help azure-provider       use on Windows Azure
+  juju help ec2-provider         use on Amazon EC2
+  juju help hpcloud-provider     use on HP Cloud
+  juju help local-provider       use on this computer
+  juju help openstack-provider   use on OpenStack
 `
 
 const helpProviderStart = `
@@ -423,7 +423,7 @@ Service Unit Agent
 `
 
 const helpLogging = `
-Juju  has logging available for both client and server components. Most
+Juju has logging available for both client and server components. Most
 users' exposure to the logging mechanism is through either the 'debug-log'
 command, or through the log file stored on the bootstrap node at
 /var/log/juju/all-machines.log.

@@ -16,7 +16,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -28,6 +30,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
+	ziputil "launchpad.net/juju-core/utils/zip"
 )
 
 // charmsHandler handles charm upload through HTTPS in the API server.
@@ -36,9 +39,9 @@ type charmsHandler struct {
 	dataDir string
 }
 
-// zipContentsSenderFunc functions are responsible of sending a zip archive
-// related response. The zip archive can be accessed through the given reader.
-type zipContentsSenderFunc func(w http.ResponseWriter, r *http.Request, reader *zip.ReadCloser)
+// bundleContentSenderFunc functions are responsible for sending a
+// response related to a charm bundle.
+type bundleContentSenderFunc func(w http.ResponseWriter, r *http.Request, bundle *charm.Bundle)
 
 func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := h.authenticate(r); err != nil {
@@ -65,10 +68,10 @@ func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			h.sendError(w, http.StatusBadRequest, err.Error())
 		} else if filePath == "" {
 			// The client requested the list of charm files.
-			sendZipContents(w, r, charmArchivePath, h.fileListSender)
+			sendBundleContent(w, r, charmArchivePath, h.manifestSender)
 		} else {
 			// The client requested a specific file.
-			sendZipContents(w, r, charmArchivePath, h.fileSender(filePath))
+			sendBundleContent(w, r, charmArchivePath, h.fileSender(filePath))
 		}
 	default:
 		h.sendError(w, http.StatusMethodNotAllowed, fmt.Sprintf("unsupported method: %q", r.Method))
@@ -87,43 +90,52 @@ func (h *charmsHandler) sendJSON(w http.ResponseWriter, statusCode int, response
 	return nil
 }
 
-// sendZipContents uses the given zipContentsSenderFunc to send a response
-// related to the zip archive located in the given archivePath.
-func sendZipContents(w http.ResponseWriter, r *http.Request, archivePath string, zipContentsSender zipContentsSenderFunc) {
-	reader, err := zip.OpenReader(archivePath)
+// sendBundleContent uses the given bundleContentSenderFunc to send a response
+// related to the charm archive located in the given archivePath.
+func sendBundleContent(w http.ResponseWriter, r *http.Request, archivePath string, sender bundleContentSenderFunc) {
+	bundle, err := charm.ReadBundle(archivePath)
 	if err != nil {
 		http.Error(
 			w, fmt.Sprintf("unable to read archive in %q: %v", archivePath, err),
 			http.StatusInternalServerError)
 		return
 	}
-	defer reader.Close()
-	// The zipContentsSenderFunc will handle the zip contents, set up and send
-	// an appropriate response.
-	zipContentsSender(w, r, reader)
+	// The bundleContentSenderFunc will set up and send an appropriate response.
+	sender(w, r, bundle)
 }
 
-// fileListSender sends a JSON-encoded response to the client including the
-// list of files contained in the zip archive.
-func (h *charmsHandler) fileListSender(w http.ResponseWriter, r *http.Request, reader *zip.ReadCloser) {
-	var files []string
-	for _, file := range reader.File {
-		fileInfo := file.FileInfo()
-		if !fileInfo.IsDir() {
-			files = append(files, file.Name)
-		}
+// manifestSender sends a JSON-encoded response to the client including the
+// list of files contained in the charm bundle.
+func (h *charmsHandler) manifestSender(w http.ResponseWriter, r *http.Request, bundle *charm.Bundle) {
+	manifest, err := bundle.Manifest()
+	if err != nil {
+		http.Error(
+			w, fmt.Sprintf("unable to read archive in %q: %v", bundle.Path, err),
+			http.StatusInternalServerError)
+		return
 	}
-	h.sendJSON(w, http.StatusOK, &params.CharmsResponse{Files: files})
+	h.sendJSON(w, http.StatusOK, &params.CharmsResponse{Files: manifest.SortedValues()})
 }
 
-// fileSender returns a zipContentsSenderFunc which is responsible of sending
-// the contents of filePath included in the given zip.
-// A 404 page not found is returned if path does not exist in the zip.
-// A 403 forbidden error is returned if path points to a directory.
-func (h *charmsHandler) fileSender(filePath string) zipContentsSenderFunc {
-	return func(w http.ResponseWriter, r *http.Request, reader *zip.ReadCloser) {
-		for _, file := range reader.File {
-			if h.fixPath(file.Name) != filePath {
+// fileSender returns a bundleContentSenderFunc which is responsible for sending
+// the contents of filePath included in the given charm bundle. If filePath does
+// not identify a file or a symlink, a 403 forbidden error is returned.
+func (h *charmsHandler) fileSender(filePath string) bundleContentSenderFunc {
+	return func(w http.ResponseWriter, r *http.Request, bundle *charm.Bundle) {
+		// TODO(fwereade) 2014-01-27 bug #1285685
+		// This doesn't handle symlinks helpfully, and should be talking in
+		// terms of bundles rather than zip readers; but this demands thought
+		// and design and is not amenable to a quick fix.
+		zipReader, err := zip.OpenReader(bundle.Path)
+		if err != nil {
+			http.Error(
+				w, fmt.Sprintf("unable to read charm: %v", err),
+				http.StatusInternalServerError)
+			return
+		}
+		defer zipReader.Close()
+		for _, file := range zipReader.File {
+			if path.Clean(file.Name) != filePath {
 				continue
 			}
 			fileInfo := file.FileInfo()
@@ -131,21 +143,21 @@ func (h *charmsHandler) fileSender(filePath string) zipContentsSenderFunc {
 				http.Error(w, "directory listing not allowed", http.StatusForbidden)
 				return
 			}
-			if contents, err := file.Open(); err != nil {
+			contents, err := file.Open()
+			if err != nil {
 				http.Error(
 					w, fmt.Sprintf("unable to read file %q: %v", filePath, err),
 					http.StatusInternalServerError)
 				return
-			} else {
-				defer contents.Close()
-				ctype := mime.TypeByExtension(filepath.Ext(filePath))
-				if ctype != "" {
-					w.Header().Set("Content-Type", ctype)
-				}
-				w.Header().Set("Content-Length", strconv.FormatInt(fileInfo.Size(), 10))
-				w.WriteHeader(http.StatusOK)
-				io.Copy(w, contents)
 			}
+			defer contents.Close()
+			ctype := mime.TypeByExtension(filepath.Ext(filePath))
+			if ctype != "" {
+				w.Header().Set("Content-Type", ctype)
+			}
+			w.Header().Set("Content-Length", strconv.FormatInt(fileInfo.Size(), 10))
+			w.WriteHeader(http.StatusOK)
+			io.Copy(w, contents)
 			return
 		}
 		http.NotFound(w, r)
@@ -273,25 +285,26 @@ func (h *charmsHandler) processUploadedArchive(path string) error {
 	if err != nil {
 		return errgo.Annotate(err, "cannot read charm archive")
 	}
-	if rootDir == "" {
+	if rootDir == "." {
 		// Normal charm, just use charm.ReadBundle().
 		return nil
 	}
+
 	// There is one or more subdirs, so we need extract it to a temp
-	// dir and then read is as a charm dir.
+	// dir and then read it as a charm dir.
 	tempDir, err := ioutil.TempDir("", "charm-extract")
 	if err != nil {
 		return errgo.Annotate(err, "cannot create temp directory")
 	}
 	defer os.RemoveAll(tempDir)
-	err = h.extractArchiveTo(zipr, rootDir, tempDir)
-	if err != nil {
+	if err := ziputil.Extract(zipr, tempDir, rootDir); err != nil {
 		return errgo.Annotate(err, "cannot extract charm archive")
 	}
 	dir, err := charm.ReadDir(tempDir)
 	if err != nil {
 		return errgo.Annotate(err, "cannot read extracted archive")
 	}
+
 	// Now repackage the dir as a bundle at the original path.
 	if err := f.Truncate(0); err != nil {
 		return err
@@ -302,140 +315,36 @@ func (h *charmsHandler) processUploadedArchive(path string) error {
 	return nil
 }
 
-// fixPath converts all forward and backslashes in path to the OS path
-// separator and calls filepath.Clean before returning it.
-func (h *charmsHandler) fixPath(path string) string {
-	sep := string(filepath.Separator)
-	p := strings.Replace(path, "\\", sep, -1)
-	return filepath.Clean(strings.Replace(p, "/", sep, -1))
-}
-
 // findArchiveRootDir scans a zip archive and returns the rootDir of
 // the archive, the one containing metadata.yaml, config.yaml and
 // revision files, or an error if the archive appears invalid.
 func (h *charmsHandler) findArchiveRootDir(zipr *zip.Reader) (string, error) {
-	numFound := 0
-	metadataFound := false // metadata.yaml is the only required file.
-	rootPath := ""
-	lookFor := []string{"metadata.yaml", "config.yaml", "revision"}
-	for _, fh := range zipr.File {
-		for _, fname := range lookFor {
-			dir, file := filepath.Split(h.fixPath(fh.Name))
-			if file == fname {
-				if file == "metadata.yaml" {
-					metadataFound = true
-				}
-				numFound++
-				if rootPath == "" {
-					rootPath = dir
-				} else if rootPath != dir {
-					return "", fmt.Errorf("invalid charm archive: expected all %v files in the same directory", lookFor)
-				}
-				if numFound == len(lookFor) {
-					return rootPath, nil
-				}
-			}
-		}
+	paths, err := ziputil.Find(zipr, "metadata.yaml")
+	if err != nil {
+		return "", err
 	}
-	if !metadataFound {
+	switch len(paths) {
+	case 0:
 		return "", fmt.Errorf("invalid charm archive: missing metadata.yaml")
+	case 1:
+	default:
+		sort.Sort(byDepth(paths))
+		if depth(paths[0]) == depth(paths[1]) {
+			return "", fmt.Errorf("invalid charm archive: ambiguous root directory")
+		}
 	}
-	return rootPath, nil
+	return filepath.Dir(paths[0]), nil
 }
 
-// extractArchiveTo extracts an archive to the given destDir, removing
-// the rootDir from each file, effectively reducing any nested subdirs
-// to the root level.
-func (h *charmsHandler) extractArchiveTo(zipr *zip.Reader, rootDir, destDir string) error {
-	for _, fh := range zipr.File {
-		err := h.extractSingleFile(fh, rootDir, destDir)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+func depth(path string) int {
+	return strings.Count(path, "/")
 }
 
-// extractSingleFile extracts the given zip file header, removing
-// rootDir from the filename, to the destDir.
-func (h *charmsHandler) extractSingleFile(fh *zip.File, rootDir, destDir string) error {
-	cleanName := h.fixPath(fh.Name)
-	relName, err := filepath.Rel(rootDir, cleanName)
-	if err != nil {
-		// Skip paths not relative to roo
-		return nil
-	}
-	if strings.Contains(relName, "..") || relName == "." {
-		// Skip current dir and paths outside rootDir.
-		return nil
-	}
-	dirName := filepath.Dir(relName)
-	f, err := fh.Open()
-	if err != nil {
-		return err
-	}
-	defer f.Close()
+type byDepth []string
 
-	mode := fh.Mode()
-	destPath := filepath.Join(destDir, relName)
-	if dirName != "" && mode&os.ModeDir != 0 {
-		err = os.MkdirAll(destPath, mode&0777)
-		if err != nil {
-			return err
-		}
-		return nil
-	}
-
-	if mode&os.ModeSymlink != 0 {
-		data, err := ioutil.ReadAll(f)
-		if err != nil {
-			return err
-		}
-		target := string(data)
-		if filepath.IsAbs(target) {
-			return fmt.Errorf("symlink %q is absolute: %q", cleanName, target)
-		}
-		p := filepath.Join(dirName, target)
-		if strings.Contains(p, "..") {
-			return fmt.Errorf("symlink %q links out of charm: %s", cleanName, target)
-		}
-		err = os.Symlink(target, destPath)
-		if err != nil {
-			return err
-		}
-	}
-	if dirName == "hooks" {
-		if mode&os.ModeType == 0 {
-			// Set all hooks executable (by owner)
-			mode = mode | 0100
-		}
-	}
-
-	// Check file type.
-	e := "file has an unknown type: %q"
-	switch mode & os.ModeType {
-	case os.ModeDir, os.ModeSymlink, 0:
-		// That's expected, it's ok.
-		e = ""
-	case os.ModeNamedPipe:
-		e = "file is a named pipe: %q"
-	case os.ModeSocket:
-		e = "file is a socket: %q"
-	case os.ModeDevice:
-		e = "file is a device: %q"
-	}
-	if e != "" {
-		return fmt.Errorf(e, destPath)
-	}
-
-	out, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY, mode&0777)
-	if err != nil {
-		return fmt.Errorf("creating %q failed: %v", destPath, err)
-	}
-	defer out.Close()
-	_, err = io.Copy(out, f)
-	return err
-}
+func (d byDepth) Len() int           { return len(d) }
+func (d byDepth) Swap(i, j int)      { d[i], d[j] = d[j], d[i] }
+func (d byDepth) Less(i, j int) bool { return depth(d[i]) < depth(d[j]) }
 
 // repackageAndUploadCharm expands the given charm archive to a
 // temporary directoy, repackages it with the given curl's revision,
@@ -465,6 +374,7 @@ func (h *charmsHandler) repackageAndUploadCharm(archive *charm.Bundle, curl *cha
 	if err != nil {
 		return errgo.Annotate(err, "cannot read extracted charm")
 	}
+
 	// Bundle the charm and calculate its sha256 hash at the
 	// same time.
 	hash := sha256.New()
@@ -477,13 +387,11 @@ func (h *charmsHandler) repackageAndUploadCharm(archive *charm.Bundle, curl *cha
 	if err != nil {
 		return errgo.Annotate(err, "cannot get charm file size")
 	}
-	// Seek to the beginning so the subsequent Put will read
-	// the whole file again.
+
+	// Now upload to provider storage.
 	if _, err := repackagedArchive.Seek(0, 0); err != nil {
 		return errgo.Annotate(err, "cannot rewind the charm file reader")
 	}
-
-	// Now upload to provider storage.
 	storage, err := envtesting.GetEnvironStorage(h.state)
 	if err != nil {
 		return errgo.Annotate(err, "cannot access provider storage")
@@ -524,7 +432,7 @@ func (h *charmsHandler) processGet(r *http.Request) (string, string, error) {
 	if file == "" {
 		filePath = ""
 	} else {
-		filePath = h.fixPath(file)
+		filePath = path.Clean(file)
 	}
 
 	// Prepare the bundle directories.

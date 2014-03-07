@@ -58,7 +58,7 @@ func makeTools(c *gc.C, metadataDir, subdir string, versionStrings []string, wit
 		toolsList = append(toolsList, tool)
 	}
 	// Write the tools metadata.
-	stor, err := filestorage.NewFileStorageWriter(metadataDir, filestorage.UseDefaultTmpDir)
+	stor, err := filestorage.NewFileStorageWriter(metadataDir)
 	c.Assert(err, gc.IsNil)
 	err = tools.MergeAndWriteMetadata(stor, toolsList, false)
 	c.Assert(err, gc.IsNil)
@@ -83,7 +83,7 @@ func ParseMetadataFromDir(c *gc.C, metadataDir string, expectMirrors bool) []*to
 
 // ParseMetadataFromStorage loads ToolsMetadata from the specified storage reader.
 func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader, expectMirrors bool) []*tools.ToolsMetadata {
-	source := storage.NewStorageSimpleStreamsDataSource(stor, "tools")
+	source := storage.NewStorageSimpleStreamsDataSource("test storage reader", stor, "tools")
 	params := simplestreams.ValueParams{
 		DataType:      tools.ContentDownload,
 		ValueTemplate: tools.ToolsMetadata{},

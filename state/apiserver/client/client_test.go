@@ -1730,11 +1730,12 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	}
 }
 
-func (s *clientSuite) TestClientAuthorizeStoreOnDeployServiceSetCharmAndAddCharm(c *gc.C) {
+func (s *clientSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAddCharm(c *gc.C) {
 	store, restore := makeMockCharmStore()
 	defer restore()
 
-	attrs := map[string]interface{}{"charm-store-auth": "token=value"}
+	attrs := map[string]interface{}{"charm-store-auth": "token=value",
+		"test-mode": true}
 	err := s.State.UpdateEnvironConfig(attrs, []string{})
 	c.Assert(err, gc.IsNil)
 
@@ -1746,6 +1747,7 @@ func (s *clientSuite) TestClientAuthorizeStoreOnDeployServiceSetCharmAndAddCharm
 
 	// check that the store's auth attributes were set
 	c.Assert(store.AuthAttrs, gc.Equals, "token=value")
+	c.Assert(store.TestMode, gc.Equals, true)
 
 	store.AuthAttrs = ""
 

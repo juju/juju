@@ -22,7 +22,7 @@ const tagOffset = len("juju-") + 1
 //
 // The apparmor profile is quite strict about where rsyslog can write files.
 // Instead of poking with the profile, the local provider now logs to
-// /var/log/juju-{{user}}-{{env name}}/all-machines.log, and a symlink is made
+// {{logDir}}-{{user}}-{{env name}}/all-machines.log, and a symlink is made
 // in the local provider log dir to point to that file. The file is also
 // created with 0644 so the user can read it without poking permissions. By
 // default rsyslog creates files with 0644, but in the ubuntu package, the
@@ -35,7 +35,7 @@ const tagOffset = len("juju-") + 1
 //
 // if $syslogtag startswith "juju{{namespace}}-" then
 //   action(type="omfile"
-//          File="{{logDir}}/all-machines.log"
+//          File="{{logDir}}{{namespace}}/all-machines.log"
 //          Template="JujuLogFormat{{namespace}}"
 //          FileCreateMode="0644")
 // & stop
@@ -147,13 +147,13 @@ type SyslogConfig struct {
 
 // NewForwardConfig creates a SyslogConfig instance used on unit nodes to forward log entries
 // to the state server nodes.
-func NewForwardConfig(logFile string, port int, namespace string, stateServerAddresses []string) *SyslogConfig {
+func NewForwardConfig(logFile, logDir string, port int, namespace string, stateServerAddresses []string) *SyslogConfig {
 	conf := &SyslogConfig{
 		configTemplate:       nodeRsyslogTemplate,
 		StateServerAddresses: stateServerAddresses,
 		LogFileName:          logFile,
 		Port:                 port,
-		LogDir:               "/var/log/juju",
+		LogDir:               logDir,
 	}
 	if namespace != "" {
 		conf.Namespace = "-" + namespace
@@ -163,12 +163,12 @@ func NewForwardConfig(logFile string, port int, namespace string, stateServerAdd
 
 // NewAccumulateConfig creates a SyslogConfig instance used to accumulate log entries from the
 // various unit nodes.
-func NewAccumulateConfig(logFile string, port int, namespace string) *SyslogConfig {
+func NewAccumulateConfig(logFile, logDir string, port int, namespace string) *SyslogConfig {
 	conf := &SyslogConfig{
 		configTemplate: stateServerRsyslogTemplate,
 		LogFileName:    logFile,
 		Port:           port,
-		LogDir:         "/var/log/juju",
+		LogDir:         logDir,
 	}
 	if namespace != "" {
 		conf.Namespace = "-" + namespace

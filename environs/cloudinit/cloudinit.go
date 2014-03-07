@@ -14,6 +14,7 @@ import (
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/mongo"
 	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
@@ -23,6 +24,7 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
@@ -90,6 +92,9 @@ type MachineConfig struct {
 
 	// LogDir holds the directory that juju logs will be written to.
 	LogDir string
+
+	// Jobs holds what machine jobs to run.
+	Jobs []params.MachineJob
 
 	// CloudInitOutputLog specifies the path to the output log for cloud-init.
 	// The directory containing the log file must already exist.
@@ -206,6 +211,31 @@ func ConfigureBasic(cfg *MachineConfig, c *cloudinit.Config) error {
 	return nil
 }
 
+// AddAptCommands update the cloudinit.Config instance with the necessary
+// packages, the request to do the apt-get update/upgrade on boot, and adds
+// the apt proxy settings if there are any.
+func AddAptCommands(proxy osenv.ProxySettings, c *cloudinit.Config) {
+	// Bring packages up-to-date.
+	c.SetAptUpdate(true)
+	c.SetAptUpgrade(true)
+
+	// juju requires git for managing charm directories.
+	c.AddPackage("git")
+	c.AddPackage("cpu-checker")
+	c.AddPackage("bridge-utils")
+	c.AddPackage("rsyslog-gnutls")
+
+	// Write out the apt proxy settings
+	if (proxy != osenv.ProxySettings{}) {
+		filename := utils.AptConfFile
+		c.AddBootCmd(fmt.Sprintf(
+			`[ -f %s ] || (printf '%%s\n' %s > %s)`,
+			filename,
+			shquote(utils.AptProxyContent(proxy)),
+			filename))
+	}
+}
+
 // ConfigureJuju updates the provided cloudinit.Config with configuration
 // to initialise a Juju machine agent.
 func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
@@ -230,25 +260,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	}
 
 	if !cfg.DisablePackageCommands {
-		// Bring packages up-to-date.
-		c.SetAptUpdate(true)
-		c.SetAptUpgrade(true)
-
-		// juju requires git for managing charm directories.
-		c.AddPackage("git")
-		c.AddPackage("cpu-checker")
-		c.AddPackage("bridge-utils")
-		c.AddPackage("rsyslog-gnutls")
-
-		// Write out the apt proxy settings
-		if (cfg.AptProxySettings != osenv.ProxySettings{}) {
-			filename := utils.AptConfFile
-			c.AddBootCmd(fmt.Sprintf(
-				`[ -f %s ] || (printf '%%s\n' %s > %s)`,
-				filename,
-				shquote(utils.AptProxyContent(cfg.AptProxySettings)),
-				filename))
-		}
+		AddAptCommands(cfg.AptProxySettings, c)
 	}
 
 	// Write out the normal proxy settings so that the settings are
@@ -326,7 +338,8 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	// for series that need it. This gives us up-to-date LXC,
 	// MongoDB, and other infrastructure.
 	if !cfg.DisablePackageCommands {
-		cfg.MaybeAddCloudArchiveCloudTools(c)
+		series := cfg.Tools.Version.Series
+		MaybeAddCloudArchiveCloudTools(c, series)
 	}
 
 	if cfg.StateServer {
@@ -406,6 +419,8 @@ func (cfg *MachineConfig) agentConfig(tag string) (agent.Config, error) {
 	}
 	configParams := agent.AgentConfigParams{
 		DataDir:           cfg.DataDir,
+		LogDir:            cfg.LogDir,
+		Jobs:              cfg.Jobs,
 		Tag:               tag,
 		UpgradedToVersion: version.Current.Number,
 		Password:          password,
@@ -477,7 +492,10 @@ func (cfg *MachineConfig) addMongoToBoot(c *cloudinit.Config) error {
 	)
 
 	name := cfg.MongoServiceName
-	conf := upstart.MongoUpstartService(name, cfg.DataDir, dbDir, cfg.StatePort)
+	conf, err := mongo.MongoUpstartService(name, cfg.DataDir, cfg.StatePort)
+	if err != nil {
+		return err
+	}
 	cmds, err := conf.InstallCommands()
 	if err != nil {
 		return errgo.Annotate(err, "cannot make cloud-init upstart script for the state database")
@@ -573,8 +591,7 @@ p/+af/HU1smBrOfIeRoxb8jQoHu3
 
 // MaybeAddCloudArchiveCloudTools adds the cloud-archive cloud-tools
 // pocket to apt sources, if the series requires it.
-func (cfg *MachineConfig) MaybeAddCloudArchiveCloudTools(c *cloudinit.Config) {
-	series := cfg.Tools.Version.Series
+func MaybeAddCloudArchiveCloudTools(c *cloudinit.Config, series string) {
 	if series != "precise" {
 		// Currently only precise; presumably we'll
 		// need to add each LTS in here as they're
@@ -621,6 +638,9 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 	}
 	if cfg.LogDir == "" {
 		return fmt.Errorf("missing log directory")
+	}
+	if len(cfg.Jobs) == 0 {
+		return fmt.Errorf("missing machine jobs")
 	}
 	if cfg.CloudInitOutputLog == "" {
 		return fmt.Errorf("missing cloud-init output log path")

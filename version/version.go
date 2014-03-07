@@ -22,7 +22,7 @@ import (
 // The presence and format of this constant is very important.
 // The debian/rules build recipe uses this value for the version
 // number of the release package.
-const version = "1.17.4"
+const version = "1.17.5"
 
 // Current gives the current version of the system.  If the file
 // "FORCE-VERSION" is present in the same directory as the running
@@ -112,6 +112,25 @@ func (vp *Binary) UnmarshalJSON(data []byte) error {
 	}
 	*vp = v
 	return nil
+}
+
+// GetYAML implements goyaml.Getter
+func (v Binary) GetYAML() (tag string, value interface{}) {
+	return "", v.String()
+}
+
+// SetYAML implements goyaml.Setter
+func (vp *Binary) SetYAML(tag string, value interface{}) bool {
+	vstr := fmt.Sprintf("%v", value)
+	if vstr == "" {
+		return false
+	}
+	v, err := ParseBinary(vstr)
+	if err != nil {
+		return false
+	}
+	*vp = v
+	return true
 }
 
 var (
@@ -253,6 +272,25 @@ func (vp *Number) UnmarshalJSON(data []byte) error {
 	}
 	*vp = v
 	return nil
+}
+
+// GetYAML implements goyaml.Getter
+func (v Number) GetYAML() (tag string, value interface{}) {
+	return "", v.String()
+}
+
+// SetYAML implements goyaml.Setter
+func (vp *Number) SetYAML(tag string, value interface{}) bool {
+	vstr := fmt.Sprintf("%v", value)
+	if vstr == "" {
+		return false
+	}
+	v, err := Parse(vstr)
+	if err != nil {
+		return false
+	}
+	*vp = v
+	return true
 }
 
 func isOdd(x int) bool {

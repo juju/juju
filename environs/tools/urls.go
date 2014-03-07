@@ -39,7 +39,7 @@ func GetMetadataSourcesWithRetries(env environs.ConfigGetter, allowRetry bool) (
 		if !config.SSLHostnameVerification() {
 			verify = simplestreams.NoVerifySSLHostnames
 		}
-		sources = append(sources, simplestreams.NewURLDataSource(userURL, verify))
+		sources = append(sources, simplestreams.NewURLDataSource("tools-metadata-url", userURL, verify))
 	}
 	if custom, ok := env.(SupportsCustomSources); ok {
 		customSources, err := custom.GetToolsSources()
@@ -54,7 +54,7 @@ func GetMetadataSourcesWithRetries(env environs.ConfigGetter, allowRetry bool) (
 		return nil, err
 	}
 	if defaultURL != "" {
-		sources = append(sources, simplestreams.NewURLDataSource(defaultURL, simplestreams.VerifySSLHostnames))
+		sources = append(sources, simplestreams.NewURLDataSource("default simplestreams", defaultURL, simplestreams.VerifySSLHostnames))
 	}
 	for _, source := range sources {
 		source.SetAllowRetry(allowRetry)

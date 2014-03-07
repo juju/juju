@@ -15,7 +15,7 @@ import (
 	"sync"
 
 	"code.google.com/p/go.crypto/ssh"
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/utils"
 )
@@ -114,22 +114,16 @@ func writeAuthorisedKeys(username string, keys []string) error {
 	if err == nil {
 		perms = info.Mode().Perm()
 	}
-	// Write the data to a temp file
-	tempDir, err := ioutil.TempDir(keyDir, "")
-	if err != nil {
-		return err
-	}
-	tempFile := filepath.Join(tempDir, "newkeyfile")
-	defer os.RemoveAll(tempDir)
-	err = ioutil.WriteFile(tempFile, []byte(keyData), perms)
+
+	logger.Debugf("writing authorised keys file %s", sshKeyFile)
+	err = utils.AtomicWriteFile(sshKeyFile, []byte(keyData), perms)
 	if err != nil {
 		return err
 	}
 
-	// Rename temp file to the final location and ensure its owner
-	// is set correctly.
-	logger.Debugf("writing authorised keys file %s", sshKeyFile)
 	// TODO (wallyworld) - what to do on windows (if anything)
+	// TODO(dimitern) - no need to use user.Current() if username
+	// is "" - it will use the current user anyway.
 	if runtime.GOOS != "windows" {
 		// Ensure the resulting authorised keys file has its ownership
 		// set to the specified username.
@@ -151,12 +145,12 @@ func writeAuthorisedKeys(username string, keys []string) error {
 		if err != nil {
 			return err
 		}
-		err = os.Chown(tempFile, uid, gid)
+		err = os.Chown(sshKeyFile, uid, gid)
 		if err != nil {
 			return err
 		}
 	}
-	return os.Rename(tempFile, sshKeyFile)
+	return nil
 }
 
 // We need a mutex because updates to the authorised keys file are done by

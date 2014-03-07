@@ -752,7 +752,7 @@ var upgradeConflictsTests = []uniterTest{
 			status: params.StatusStarted,
 		},
 		waitHooks{"install", "config-changed", "start"},
-		verifyCharm{},
+		verifyCharm{dirty: true},
 
 		createCharm{
 			revision: 1,
@@ -1623,7 +1623,7 @@ func (s startUpgradeError) step(c *gc.C, ctx *context) {
 			status: params.StatusStarted,
 		},
 		waitHooks{"install", "config-changed", "start"},
-		verifyCharm{},
+		verifyCharm{dirty: true},
 
 		createCharm{
 			revision: 1,

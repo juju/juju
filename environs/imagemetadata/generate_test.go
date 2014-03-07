@@ -28,8 +28,8 @@ func assertFetch(c *gc.C, stor storage.Storage, series, arch, region, endpoint, 
 		Series:    []string{series},
 		Arches:    []string{arch},
 	})
-	dataSource := storage.NewStorageSimpleStreamsDataSource(stor, "images")
-	metadata, err := imagemetadata.Fetch(
+	dataSource := storage.NewStorageSimpleStreamsDataSource("test datasource", stor, "images")
+	metadata, _, err := imagemetadata.Fetch(
 		[]simplestreams.DataSource{dataSource}, simplestreams.DefaultIndexPath, cons, false)
 	c.Assert(err, gc.IsNil)
 	c.Assert(metadata, gc.HasLen, 1)
@@ -49,7 +49,7 @@ func (s *generateSuite) TestWriteMetadata(c *gc.C) {
 		Endpoint: "endpoint",
 	}
 	dir := c.MkDir()
-	targetStorage, err := filestorage.NewFileStorageWriter(dir, filestorage.UseDefaultTmpDir)
+	targetStorage, err := filestorage.NewFileStorageWriter(dir)
 	c.Assert(err, gc.IsNil)
 	err = imagemetadata.MergeAndWriteMetadata("raring", im, cloudSpec, targetStorage)
 	c.Assert(err, gc.IsNil)
@@ -74,7 +74,7 @@ func (s *generateSuite) TestWriteMetadataMergeOverwriteSameArch(c *gc.C) {
 		Endpoint: "endpoint",
 	}
 	dir := c.MkDir()
-	targetStorage, err := filestorage.NewFileStorageWriter(dir, filestorage.UseDefaultTmpDir)
+	targetStorage, err := filestorage.NewFileStorageWriter(dir)
 	c.Assert(err, gc.IsNil)
 	err = imagemetadata.MergeAndWriteMetadata("raring", existingImageMetadata, cloudSpec, targetStorage)
 	c.Assert(err, gc.IsNil)
@@ -116,7 +116,7 @@ func (s *generateSuite) TestWriteMetadataMergeDifferentSeries(c *gc.C) {
 		Endpoint: "endpoint",
 	}
 	dir := c.MkDir()
-	targetStorage, err := filestorage.NewFileStorageWriter(dir, filestorage.UseDefaultTmpDir)
+	targetStorage, err := filestorage.NewFileStorageWriter(dir)
 	c.Assert(err, gc.IsNil)
 	err = imagemetadata.MergeAndWriteMetadata("raring", existingImageMetadata, cloudSpec, targetStorage)
 	c.Assert(err, gc.IsNil)
@@ -161,7 +161,7 @@ func (s *generateSuite) TestWriteMetadataMergeDifferentRegion(c *gc.C) {
 		Endpoint: "endpoint",
 	}
 	dir := c.MkDir()
-	targetStorage, err := filestorage.NewFileStorageWriter(dir, filestorage.UseDefaultTmpDir)
+	targetStorage, err := filestorage.NewFileStorageWriter(dir)
 	c.Assert(err, gc.IsNil)
 	err = imagemetadata.MergeAndWriteMetadata("raring", existingImageMetadata, cloudSpec, targetStorage)
 	c.Assert(err, gc.IsNil)

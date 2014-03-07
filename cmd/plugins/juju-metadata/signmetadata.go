@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
