@@ -3,4 +3,7 @@
 
 package version
 
-var ReadSeries = readSeries
+var (
+	ReadSeries        = readSeries
+	LSBReleaseFileVar = &lsbReleaseFile
+)

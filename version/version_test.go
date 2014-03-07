@@ -5,18 +5,23 @@ package version_test
 
 import (
 	"encoding/json"
+	"io/ioutil"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )
 
-type suite struct{}
+type suite struct {
+	testbase.LoggingSuite
+}
 
-var _ = gc.Suite(suite{})
+var _ = gc.Suite(&suite{})
 
 func Test(t *testing.T) {
 	gc.TestingT(t)
@@ -43,7 +48,7 @@ var cmpTests = []struct {
 	{"2.0.1.10", "2.0.0.0", 1},
 }
 
-func (suite) TestCompare(c *gc.C) {
+func (*suite) TestCompare(c *gc.C) {
 	for i, test := range cmpTests {
 		c.Logf("test %d", i)
 		v1, err := version.Parse(test.v1)
@@ -105,7 +110,7 @@ var parseTests = []struct {
 	err: "invalid version.*",
 }}
 
-func (suite) TestParse(c *gc.C) {
+func (*suite) TestParse(c *gc.C) {
 	for i, test := range parseTests {
 		c.Logf("test %d", i)
 		got, err := version.Parse(test.v)
@@ -151,7 +156,7 @@ var parseBinaryTests = []struct {
 	err: "invalid binary version.*",
 }}
 
-func (suite) TestParseBinary(c *gc.C) {
+func (*suite) TestParseBinary(c *gc.C) {
 	for i, test := range parseBinaryTests {
 		c.Logf("test 1: %d", i)
 		got, err := version.ParseBinary(test.v)
@@ -196,7 +201,7 @@ var marshallers = []struct {
 	bson.Unmarshal,
 }}
 
-func (suite) TestBinaryMarshalUnmarshal(c *gc.C) {
+func (*suite) TestBinaryMarshalUnmarshal(c *gc.C) {
 	for _, m := range marshallers {
 		c.Logf("encoding %v", m.name)
 		type doc struct {
@@ -212,7 +217,7 @@ func (suite) TestBinaryMarshalUnmarshal(c *gc.C) {
 	}
 }
 
-func (suite) TestNumberMarshalUnmarshal(c *gc.C) {
+func (*suite) TestNumberMarshalUnmarshal(c *gc.C) {
 	for _, m := range marshallers {
 		c.Logf("encoding %v", m.name)
 		type doc struct {
@@ -249,7 +254,7 @@ var parseMajorMinorTests = []struct {
 	err: `invalid major version number blah: strconv.ParseInt: parsing "blah": invalid syntax`,
 }}
 
-func (suite) TestParseMajorMinor(c *gc.C) {
+func (*suite) TestParseMajorMinor(c *gc.C) {
 	for i, test := range parseMajorMinorTests {
 		c.Logf("test %d", i)
 		major, minor, err := version.ParseMajorMinor(test.v)
@@ -260,5 +265,58 @@ func (suite) TestParseMajorMinor(c *gc.C) {
 			c.Check(major, gc.Equals, test.expectMajor)
 			c.Check(minor, gc.Equals, test.expectMinor)
 		}
+	}
+}
+
+func (s *suite) TestUseFastLXC(c *gc.C) {
+	for i, test := range []struct {
+		message        string
+		releaseContent string
+		expected       string
+	}{{
+		message: "missing release file",
+	}, {
+		message:        "missing prefix in file",
+		releaseContent: "some junk\nand more junk",
+	}, {
+		message: "precise release",
+		releaseContent: `
+DISTRIB_ID=Ubuntu
+DISTRIB_RELEASE=12.04
+DISTRIB_CODENAME=precise
+DISTRIB_DESCRIPTION="Ubuntu 12.04.3 LTS"
+`,
+		expected: "12.04",
+	}, {
+		message: "trusty release",
+		releaseContent: `
+DISTRIB_ID=Ubuntu
+DISTRIB_RELEASE=14.04
+DISTRIB_CODENAME=trusty
+DISTRIB_DESCRIPTION="Ubuntu Trusty Tahr (development branch)"
+`,
+		expected: "14.04",
+	}, {
+		message:        "minimal trusty release",
+		releaseContent: `DISTRIB_RELEASE=14.04`,
+		expected:       "14.04",
+	}, {
+		message:        "minimal unstable unicorn",
+		releaseContent: `DISTRIB_RELEASE=14.10`,
+		expected:       "14.10",
+	}, {
+		message:        "minimal jaunty",
+		releaseContent: `DISTRIB_RELEASE=9.10`,
+		expected:       "9.10",
+	}} {
+		c.Logf("%v: %v", i, test.message)
+		filename := filepath.Join(c.MkDir(), "lsbRelease")
+		s.PatchValue(version.LSBReleaseFileVar, filename)
+		if test.releaseContent != "" {
+			err := ioutil.WriteFile(filename, []byte(test.releaseContent+"\n"), 0644)
+			c.Assert(err, gc.IsNil)
+		}
+		value := version.ReleaseVersion()
+		c.Assert(value, gc.Equals, test.expected)
 	}
 }
