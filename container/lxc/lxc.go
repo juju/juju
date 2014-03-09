@@ -92,7 +92,8 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 	return &containerManager{
 		name:              name,
 		logdir:            logDir,
-		backingFilesystem: backingFS}, nil
+		backingFilesystem: backingFS,
+	}, nil
 }
 
 func (manager *containerManager) StartContainer(
