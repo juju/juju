@@ -403,6 +403,9 @@ func (cfg *MachineConfig) dataFile(name string) string {
 // TargetRelease returns a string suitable for use with apt-get --target-release
 // based on the machines series.
 func (cfg *MachineConfig) TargetRelease() string {
+	// Only supported LTS releases have cloud-tools pocket support.
+	// Will need to update if-logic for other supported LTS releases
+	// as they become available.
 	targetRelease := ""
 	if cfg.Tools.Version.Series == "precise" {
 		targetRelease = "precise-update/cloud-tools"

@@ -105,9 +105,9 @@ func (cfg *Config) SetDebconfSelections(answers string) {
 	cfg.set("debconf_selections", answers != "", answers)
 }
 
-// AddPackage adds a package to be installed using
-// the given release, passed to apt-get with the --target-release
-// argument. If targetRelease is an empty string, no --target-release.
+// AddPackage adds a package to be installed using apt-get.
+// If targetRelease is provided, --target-release will be passed to the apt-get command.
+// If targetRelease is an empty string, no --target-release will be passed to the apt-get command.
 func (cfg *Config) AddPackage(packageName, targetRelease string) {
 	if targetRelease == "" {
 		cfg.attrs["packages"] = append(cfg.Packages(), packageName)
