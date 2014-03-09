@@ -849,7 +849,7 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 	if err != nil {
 		return err
 	}
-	store := config.AuthorizeCharmRepo(CharmStore, envConfig)
+	store := config.SpecializeCharmRepo(CharmStore, envConfig)
 	downloadedCharm, err := store.Get(charmURL)
 	if err != nil {
 		return errgo.Annotatef(err, "cannot download charm %q", charmURL.String())

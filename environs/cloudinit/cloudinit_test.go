@@ -22,6 +22,7 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
@@ -38,6 +39,13 @@ type cloudinitSuite struct {
 var _ = gc.Suite(&cloudinitSuite{})
 
 var envConstraints = constraints.MustParse("mem=2G")
+
+var allMachineJobs = []params.MachineJob{
+	params.JobManageEnviron, params.JobHostUnits,
+}
+var normalMachineJobs = []params.MachineJob{
+	params.JobHostUnits,
+}
 
 type cloudinitTest struct {
 	cfg           cloudinit.MachineConfig
@@ -94,7 +102,8 @@ var cloudinitTests = []cloudinitTest{
 			},
 			Constraints:             envConstraints,
 			DataDir:                 environs.DataDir,
-			LogDir:                  environs.LogDir,
+			LogDir:                  agent.DefaultLogDir,
+			Jobs:                    allMachineJobs,
 			CloudInitOutputLog:      environs.CloudInitOutputLog,
 			StateInfoURL:            "some-url",
 			SystemPrivateSSHKey:     "private rsa key",
@@ -122,8 +131,6 @@ tar zxf \$bin/tools.tar.gz -C \$bin
 rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-precise-amd64\.sha256
 printf %s '{"version":"1\.2\.3-precise-amd64","url":"http://foo\.com/tools/releases/juju1\.2\.3-precise-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
 mkdir -p '/var/lib/juju/agents/machine-0'
-install -m 644 /dev/null '/var/lib/juju/agents/machine-0/format'
-printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-0/format'
 install -m 600 /dev/null '/var/lib/juju/agents/machine-0/agent\.conf'
 printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-0/agent\.conf'
 install -D -m 644 /dev/null '/etc/apt/preferences\.d/50-cloud-tools'
@@ -141,8 +148,6 @@ echo 'Starting MongoDB server \(juju-db\)'.*
 cat >> /etc/init/juju-db\.conf << 'EOF'\\ndescription "juju state database"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 65000 65000\\nlimit nproc 20000 20000\\n\\nexec ` + mongodPath + ` --auth --dbpath=/var/lib/juju/db --sslOnNormalPorts --sslPEMKeyFile '/var/lib/juju/server\.pem' --sslPEMKeyPassword ignored --bind_ip 0\.0\.0\.0 --port 37017 --noprealloc --syslog --smallfiles\\nEOF\\n
 start juju-db
 mkdir -p '/var/lib/juju/agents/bootstrap'
-install -m 644 /dev/null '/var/lib/juju/agents/bootstrap/format'
-printf '%s\\n' '.*' > '/var/lib/juju/agents/bootstrap/format'
 install -m 600 /dev/null '/var/lib/juju/agents/bootstrap/agent\.conf'
 printf '%s\\n' '.*' > '/var/lib/juju/agents/bootstrap/agent\.conf'
 echo 'Bootstrapping Juju machine agent'.*
@@ -178,7 +183,8 @@ start jujud-machine-0
 			},
 			Constraints:             envConstraints,
 			DataDir:                 environs.DataDir,
-			LogDir:                  environs.LogDir,
+			LogDir:                  agent.DefaultLogDir,
+			Jobs:                    allMachineJobs,
 			CloudInitOutputLog:      environs.CloudInitOutputLog,
 			StateInfoURL:            "some-url",
 			SystemPrivateSSHKey:     "private rsa key",
@@ -205,7 +211,8 @@ ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
 			AuthorizedKeys:     "sshkey1",
 			AgentEnvironment:   map[string]string{agent.ProviderType: "dummy"},
 			DataDir:            environs.DataDir,
-			LogDir:             environs.LogDir,
+			LogDir:             agent.DefaultLogDir,
+			Jobs:               normalMachineJobs,
 			CloudInitOutputLog: environs.CloudInitOutputLog,
 			StateServer:        false,
 			Tools:              newSimpleTools("1.2.3-linux-amd64"),
@@ -243,8 +250,6 @@ tar zxf \$bin/tools.tar.gz -C \$bin
 rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-linux-amd64\.sha256
 printf %s '{"version":"1\.2\.3-linux-amd64","url":"http://foo\.com/tools/releases/juju1\.2\.3-linux-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
 mkdir -p '/var/lib/juju/agents/machine-99'
-install -m 644 /dev/null '/var/lib/juju/agents/machine-99/format'
-printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-99/format'
 install -m 600 /dev/null '/var/lib/juju/agents/machine-99/agent\.conf'
 printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-99/agent\.conf'
 ln -s 1\.2\.3-linux-amd64 '/var/lib/juju/tools/machine-99'
@@ -260,7 +265,8 @@ start jujud-machine-99
 			AuthorizedKeys:       "sshkey1",
 			AgentEnvironment:     map[string]string{agent.ProviderType: "dummy"},
 			DataDir:              environs.DataDir,
-			LogDir:               environs.LogDir,
+			LogDir:               agent.DefaultLogDir,
+			Jobs:                 normalMachineJobs,
 			CloudInitOutputLog:   environs.CloudInitOutputLog,
 			StateServer:          false,
 			Tools:                newSimpleTools("1.2.3-linux-amd64"),
@@ -282,8 +288,6 @@ start jujud-machine-99
 		inexactMatch: true,
 		expectScripts: `
 mkdir -p '/var/lib/juju/agents/machine-2-lxc-1'
-install -m 644 /dev/null '/var/lib/juju/agents/machine-2-lxc-1/format'
-printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-2-lxc-1/format'
 install -m 600 /dev/null '/var/lib/juju/agents/machine-2-lxc-1/agent\.conf'
 printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-2-lxc-1/agent\.conf'
 ln -s 1\.2\.3-linux-amd64 '/var/lib/juju/tools/machine-2-lxc-1'
@@ -297,7 +301,8 @@ start jujud-machine-2-lxc-1
 			AuthorizedKeys:     "sshkey1",
 			AgentEnvironment:   map[string]string{agent.ProviderType: "dummy"},
 			DataDir:            environs.DataDir,
-			LogDir:             environs.LogDir,
+			LogDir:             agent.DefaultLogDir,
+			Jobs:               normalMachineJobs,
 			CloudInitOutputLog: environs.CloudInitOutputLog,
 			StateServer:        false,
 			Tools:              newSimpleTools("1.2.3-linux-amd64"),
@@ -344,7 +349,8 @@ curl --insecure -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/releases/juju1\.2
 				CACert:   []byte("CA CERT\n" + testing.CACert),
 			},
 			DataDir:                 environs.DataDir,
-			LogDir:                  environs.LogDir,
+			LogDir:                  agent.DefaultLogDir,
+			Jobs:                    allMachineJobs,
 			CloudInitOutputLog:      environs.CloudInitOutputLog,
 			StateInfoURL:            "some-url",
 			SystemPrivateSSHKey:     "private rsa key",
@@ -375,7 +381,7 @@ func newFileTools(vers, path string) *tools.Tools {
 }
 
 func getAgentConfig(c *gc.C, tag string, scripts []string) (cfg string) {
-	re := regexp.MustCompile(`printf '%s\\n' '([^']+)' > .*agents/` + regexp.QuoteMeta(tag) + `/agent\.conf`)
+	re := regexp.MustCompile(`printf '%s\\n' '((\n|.)+)' > .*agents/` + regexp.QuoteMeta(tag) + `/agent\.conf`)
 	found := false
 	for _, s := range scripts {
 		m := re.FindStringSubmatch(s)
@@ -761,7 +767,8 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		},
 		Config:                  minimalConfig(c),
 		DataDir:                 environs.DataDir,
-		LogDir:                  environs.LogDir,
+		LogDir:                  agent.DefaultLogDir,
+		Jobs:                    normalMachineJobs,
 		CloudInitOutputLog:      environs.CloudInitOutputLog,
 		MachineNonce:            "FAKE_NONCE",
 		SystemPrivateSSHKey:     "private rsa key",

@@ -43,7 +43,7 @@ var _ = gc.Suite(&backendSuite{})
 // a base URL for the server and the directory path.
 func startServer(c *gc.C) (listener net.Listener, url, dataDir string) {
 	dataDir = c.MkDir()
-	embedded, err := filestorage.NewFileStorageWriter(dataDir, filestorage.UseDefaultTmpDir)
+	embedded, err := filestorage.NewFileStorageWriter(dataDir)
 	c.Assert(err, gc.IsNil)
 	listener, err = httpstorage.Serve("localhost:0", embedded)
 	c.Assert(err, gc.IsNil)
@@ -55,7 +55,7 @@ func startServer(c *gc.C) (listener net.Listener, url, dataDir string) {
 // a base URL for the server and the directory path.
 func startServerTLS(c *gc.C) (listener net.Listener, url, dataDir string) {
 	dataDir = c.MkDir()
-	embedded, err := filestorage.NewFileStorageWriter(dataDir, filestorage.UseDefaultTmpDir)
+	embedded, err := filestorage.NewFileStorageWriter(dataDir)
 	c.Assert(err, gc.IsNil)
 	hostnames := []string{"127.0.0.1"}
 	caCertPEM := []byte(coretesting.CACert)
