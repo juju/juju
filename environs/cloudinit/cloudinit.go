@@ -400,6 +400,8 @@ func (cfg *MachineConfig) dataFile(name string) string {
 	return path.Join(cfg.DataDir, name)
 }
 
+// TargetRelease returns a string suitable for use with apt-get --target-release
+// based on the machines series.
 func (cfg *MachineConfig) TargetRelease() string {
 	targetRelease := ""
 	if cfg.Tools.Version.Series == "precise" {
