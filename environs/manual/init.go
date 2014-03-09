@@ -16,13 +16,6 @@ import (
 	"launchpad.net/juju-core/utils/ssh"
 )
 
-// checkProvisionedScript is the script to run on the remote machine
-// to check if a machine has already been provisioned.
-//
-// This is a little convoluted to avoid returning an error in the
-// common case of no matching files.
-const checkProvisionedScript = "ls /etc/init/ | grep juju.*\\.conf || exit 0"
-
 // checkProvisioned checks if any juju upstart jobs already
 // exist on the host machine.
 func checkProvisioned(host string) (bool, error) {
@@ -31,7 +24,7 @@ func checkProvisioned(host string) (bool, error) {
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
-	cmd.Stdin = strings.NewReader(checkProvisionedScript)
+	cmd.Stdin = strings.NewReader(ssh.CheckProvisionedScript)
 	if err := cmd.Run(); err != nil {
 		if stderr.Len() != 0 {
 			err = fmt.Errorf("%v (%v)", err, strings.TrimSpace(stderr.String()))
@@ -57,7 +50,7 @@ func DetectSeriesAndHardwareCharacteristics(host string) (hc instance.HardwareCh
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
-	cmd.Stdin = bytes.NewBufferString(detectionScript)
+	cmd.Stdin = bytes.NewBufferString(ssh.DetectionScript)
 	if err := cmd.Run(); err != nil {
 		if stderr.Len() != 0 {
 			err = fmt.Errorf("%v (%v)", err, strings.TrimSpace(stderr.String()))
@@ -130,13 +123,6 @@ var archREs = []struct {
 	{regexp.MustCompile("armv.*"), "arm"},
 	{regexp.MustCompile("aarch64"), "arm64"},
 }
-
-const detectionScript = `#!/bin/bash
-set -e
-lsb_release -cs
-uname -m
-grep MemTotal /proc/meminfo
-cat /proc/cpuinfo`
 
 // InitUbuntuUser adds the ubuntu user if it doesn't
 // already exist, updates its ~/.ssh/authorized_keys,

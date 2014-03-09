@@ -19,8 +19,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/storage"
-	envtesting "launchpad.net/juju-core/environs/testing"
+	envstorage "launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/dummy"
@@ -32,6 +31,7 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
+	utilsstorage "launchpad.net/juju-core/utils/storage"
 	"launchpad.net/juju-core/version"
 )
 
@@ -1799,14 +1799,14 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	name := charm.Quote(sch.URL().String())
-	storage := s.Conn.Environ.Storage()
-	_, err = storage.Get(name)
+	theStorage := s.Conn.Environ.Storage()
+	_, err = theStorage.Get(name)
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 
 	// AddCharm should see the charm in state and not upload it.
 	err = client.AddCharm(sch.URL())
 	c.Assert(err, gc.IsNil)
-	_, err = storage.Get(name)
+	_, err = theStorage.Get(name)
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 
 	// Now try adding another charm completely.
@@ -1817,7 +1817,7 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	// Verify it's in state and it got uploaded.
 	sch, err = s.State.Charm(curl)
 	c.Assert(err, gc.IsNil)
-	s.assertUploaded(c, storage, sch.BundleURL(), sch.BundleSha256())
+	s.assertUploaded(c, theStorage, sch.BundleURL(), sch.BundleSha256())
 }
 
 func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
@@ -1859,13 +1859,13 @@ func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
 	// contains the correct data.
 	sch, err := s.State.Charm(curl)
 	c.Assert(err, gc.IsNil)
-	storage, err := envtesting.GetEnvironStorage(s.State)
+	theStorage, err := utilsstorage.GetEnvironStorage(s.State)
 	c.Assert(err, gc.IsNil)
-	uploads, err := storage.List(fmt.Sprintf("%s-%d-", curl.Name, curl.Revision))
+	uploads, err := theStorage.List(fmt.Sprintf("%s-%d-", curl.Name, curl.Revision))
 	c.Assert(err, gc.IsNil)
 	c.Assert(uploads, gc.HasLen, 1)
 	c.Assert(getArchiveName(sch.BundleURL()), gc.Equals, uploads[0])
-	s.assertUploaded(c, storage, sch.BundleURL(), sch.BundleSha256())
+	s.assertUploaded(c, theStorage, sch.BundleURL(), sch.BundleSha256())
 }
 
 func (s *clientSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
@@ -1925,9 +1925,9 @@ func (s *clientSuite) assertPutCalled(c *gc.C, ops chan dummy.Operation, numCall
 	}
 }
 
-func (s *clientSuite) assertUploaded(c *gc.C, storage storage.Storage, bundleURL *url.URL, expectedSHA256 string) {
+func (s *clientSuite) assertUploaded(c *gc.C, theStorage envstorage.Storage, bundleURL *url.URL, expectedSHA256 string) {
 	archiveName := getArchiveName(bundleURL)
-	reader, err := storage.Get(archiveName)
+	reader, err := theStorage.Get(archiveName)
 	c.Assert(err, gc.IsNil)
 	defer reader.Close()
 	downloadedSHA256, _, err := utils.ReadSHA256(reader)

@@ -23,16 +23,23 @@ func GetNonValidatingHTTPClient() *http.Client {
 	return insecureClient
 }
 
+func registerFileProto(transport *http.Transport) {
+	fileproto := http.NewFileTransport(http.Dir("/"))
+	transport.RegisterProtocol("file", fileproto)
+}
+
 // NewHttpTLSTransport returns a new http.Transport constructed with the TLS config
 // and the necessary parameters for Juju.
 func NewHttpTLSTransport(tlsConfig *tls.Config) *http.Transport {
 	// See https://code.google.com/p/go/issues/detail?id=4677
 	// We need to force the connection to close each time so that we don't
 	// hit the above Go bug.
-	return &http.Transport{
+	transport := &http.Transport{
 		TLSClientConfig:   tlsConfig,
 		DisableKeepAlives: true,
 	}
+	registerFileProto(transport)
+	return transport
 }
 
 // NewHttpTransport returns a new http.Transport constructed with the necessary
@@ -41,8 +48,10 @@ func NewHttpTransport() *http.Transport {
 	// See https://code.google.com/p/go/issues/detail?id=4677
 	// We need to force the connection to close each time so that we don't
 	// hit the above Go bug.
-	return &http.Transport{
+	transport := &http.Transport{
 		Proxy:             http.ProxyFromEnvironment,
 		DisableKeepAlives: true,
 	}
+	registerFileProto(transport)
+	return transport
 }

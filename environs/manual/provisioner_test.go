@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/statecmd"
 	jc "launchpad.net/juju-core/testing/checkers"
+	sshtesting "launchpad.net/juju-core/utils/ssh/testing"
 	"launchpad.net/juju-core/version"
 )
 
@@ -43,12 +44,12 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	args.Host = "ubuntu@" + args.Host
 
 	envtesting.RemoveTools(c, s.Conn.Environ.Storage())
-	defer fakeSSH{
+	defer sshtesting.FakeSSH{
 		Series:             series,
 		Arch:               arch,
 		InitUbuntuUser:     true,
 		SkipProvisionAgent: true,
-	}.install(c).Restore()
+	}.Install(c).Restore()
 	// Attempt to provision a machine with no tools available, expect it to fail.
 	machineId, err := ProvisionMachine(args)
 	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
@@ -62,12 +63,12 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 
 	for i, errorCode := range []int{255, 0} {
 		c.Logf("test %d: code %d", i, errorCode)
-		defer fakeSSH{
+		defer sshtesting.FakeSSH{
 			Series:                 series,
 			Arch:                   arch,
 			InitUbuntuUser:         true,
 			ProvisionAgentExitCode: errorCode,
-		}.install(c).Restore()
+		}.Install(c).Restore()
 		machineId, err = ProvisionMachine(args)
 		if errorCode != 0 {
 			c.Assert(err, gc.ErrorMatches, fmt.Sprintf("rc: %d", errorCode))
@@ -88,21 +89,21 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 
 	// Attempting to provision a machine twice should fail. We effect
 	// this by checking for existing juju upstart configurations.
-	defer fakeSSH{
+	defer sshtesting.FakeSSH{
 		Provisioned:        true,
 		InitUbuntuUser:     true,
 		SkipDetection:      true,
 		SkipProvisionAgent: true,
-	}.install(c).Restore()
+	}.Install(c).Restore()
 	_, err = ProvisionMachine(args)
 	c.Assert(err, gc.Equals, ErrProvisioned)
-	defer fakeSSH{
+	defer sshtesting.FakeSSH{
 		Provisioned:              true,
 		CheckProvisionedExitCode: 255,
 		InitUbuntuUser:           true,
 		SkipDetection:            true,
 		SkipProvisionAgent:       true,
-	}.install(c).Restore()
+	}.Install(c).Restore()
 	_, err = ProvisionMachine(args)
 	c.Assert(err, gc.ErrorMatches, "error checking if provisioned: rc: 255")
 }
@@ -110,11 +111,11 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 func (s *provisionerSuite) TestFinishMachineConfig(c *gc.C) {
 	const series = "precise"
 	const arch = "amd64"
-	defer fakeSSH{
+	defer sshtesting.FakeSSH{
 		Series:         series,
 		Arch:           arch,
 		InitUbuntuUser: true,
-	}.install(c).Restore()
+	}.Install(c).Restore()
 	machineId, err := ProvisionMachine(s.getArgs(c))
 	c.Assert(err, gc.IsNil)
 

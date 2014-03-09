@@ -299,9 +299,9 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	if strings.HasPrefix(cfg.Tools.URL, fileSchemePrefix) {
 		copyCmd = fmt.Sprintf("cp %s $bin/tools.tar.gz", shquote(cfg.Tools.URL[len(fileSchemePrefix):]))
 	} else {
-		curlCommand := "curl"
+		curlCommand := "curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; size %{size_download} bytes; speed %{speed_download} bytes/s '"
 		if cfg.DisableSSLHostnameVerification {
-			curlCommand = "curl --insecure"
+			curlCommand += " --insecure"
 		}
 		copyCmd = fmt.Sprintf("%s -o $bin/tools.tar.gz %s", curlCommand, shquote(cfg.Tools.URL))
 		c.AddRunCmd(cloudinit.LogProgressCmd("Fetching tools: %s", copyCmd))
