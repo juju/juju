@@ -24,6 +24,7 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
@@ -91,6 +92,9 @@ type MachineConfig struct {
 
 	// LogDir holds the directory that juju logs will be written to.
 	LogDir string
+
+	// Jobs holds what machine jobs to run.
+	Jobs []params.MachineJob
 
 	// CloudInitOutputLog specifies the path to the output log for cloud-init.
 	// The directory containing the log file must already exist.
@@ -207,14 +211,36 @@ func ConfigureBasic(cfg *MachineConfig, c *cloudinit.Config) error {
 	return nil
 }
 
+// AddAptCommands update the cloudinit.Config instance with the necessary
+// packages, the request to do the apt-get update/upgrade on boot, and adds
+// the apt proxy settings if there are any.
+func AddAptCommands(proxy osenv.ProxySettings, c *cloudinit.Config, cfg *MachineConfig) {
+	targetRelease := cfg.TargetRelease()
+
+	// Bring packages up-to-date.
+	c.SetAptUpdate(true)
+	c.SetAptUpgrade(true)
+
+	// juju requires git for managing charm directories.
+	c.AddPackage("git", targetRelease)
+	c.AddPackage("cpu-checker", targetRelease)
+	c.AddPackage("bridge-utils", targetRelease)
+	c.AddPackage("rsyslog-gnutls", targetRelease)
+
+	// Write out the apt proxy settings
+	if (proxy != osenv.ProxySettings{}) {
+		filename := utils.AptConfFile
+		c.AddBootCmd(fmt.Sprintf(
+			`[ -f %s ] || (printf '%%s\n' %s > %s)`,
+			filename,
+			shquote(utils.AptProxyContent(proxy)),
+			filename))
+	}
+}
+
 // ConfigureJuju updates the provided cloudinit.Config with configuration
 // to initialise a Juju machine agent.
 func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
-	targetRelease := ""
-	if cfg.Tools.Version.Series == "precise" {
-		targetRelease = "precise-update/cloud-tools"
-	}
-
 	if err := verifyConfig(cfg); err != nil {
 		return err
 	}
@@ -236,25 +262,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	}
 
 	if !cfg.DisablePackageCommands {
-		// Bring packages up-to-date.
-		c.SetAptUpdate(true)
-		c.SetAptUpgrade(true)
-
-		// juju requires git for managing charm directories.
-		c.AddPackage("git", targetRelease)
-		c.AddPackage("cpu-checker", targetRelease)
-		c.AddPackage("bridge-utils", targetRelease)
-		c.AddPackage("rsyslog-gnutls", targetRelease)
-
-		// Write out the apt proxy settings
-		if (cfg.AptProxySettings != osenv.ProxySettings{}) {
-			filename := utils.AptConfFile
-			c.AddBootCmd(fmt.Sprintf(
-				`[ -f %s ] || (printf '%%s\n' %s > %s)`,
-				filename,
-				shquote(utils.AptProxyContent(cfg.AptProxySettings)),
-				filename))
-		}
+		AddAptCommands(cfg.AptProxySettings, c, cfg)
 	}
 
 	// Write out the normal proxy settings so that the settings are
@@ -332,7 +340,8 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	// for series that need it. This gives us up-to-date LXC,
 	// MongoDB, and other infrastructure.
 	if !cfg.DisablePackageCommands {
-		cfg.MaybeAddCloudArchiveCloudTools(c)
+		series := cfg.Tools.Version.Series
+		MaybeAddCloudArchiveCloudTools(c, series)
 	}
 
 	if cfg.StateServer {
@@ -350,7 +359,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 				const key = "" // key is loaded from PPA
 				c.AddAptSource("ppa:juju/stable", key, nil)
 			}
-			c.AddPackage("mongodb-server", targetRelease)
+			c.AddPackage("mongodb-server", cfg.TargetRelease())
 		}
 		certKey := string(cfg.StateServerCert) + string(cfg.StateServerKey)
 		c.AddFile(cfg.dataFile("server.pem"), certKey, 0600)
@@ -392,6 +401,14 @@ func (cfg *MachineConfig) dataFile(name string) string {
 	return path.Join(cfg.DataDir, name)
 }
 
+func (cfg *MachineConfig) TargetRelease() string {
+	targetRelease := ""
+	if cfg.Tools.Version.Series == "precise" {
+		targetRelease = "precise-update/cloud-tools"
+	}
+	return targetRelease
+}
+
 func (cfg *MachineConfig) agentConfig(tag string) (agent.Config, error) {
 	// TODO for HAState: the stateHostAddrs and apiHostAddrs here assume that
 	// if the machine is a stateServer then to use localhost.  This may be
@@ -404,6 +421,8 @@ func (cfg *MachineConfig) agentConfig(tag string) (agent.Config, error) {
 	}
 	configParams := agent.AgentConfigParams{
 		DataDir:           cfg.DataDir,
+		LogDir:            cfg.LogDir,
+		Jobs:              cfg.Jobs,
 		Tag:               tag,
 		UpgradedToVersion: version.Current.Number,
 		Password:          password,
@@ -574,8 +593,7 @@ p/+af/HU1smBrOfIeRoxb8jQoHu3
 
 // MaybeAddCloudArchiveCloudTools adds the cloud-archive cloud-tools
 // pocket to apt sources, if the series requires it.
-func (cfg *MachineConfig) MaybeAddCloudArchiveCloudTools(c *cloudinit.Config) {
-	series := cfg.Tools.Version.Series
+func MaybeAddCloudArchiveCloudTools(c *cloudinit.Config, series string) {
 	if series != "precise" {
 		// Currently only precise; presumably we'll
 		// need to add each LTS in here as they're
@@ -622,6 +640,9 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 	}
 	if cfg.LogDir == "" {
 		return fmt.Errorf("missing log directory")
+	}
+	if len(cfg.Jobs) == 0 {
+		return fmt.Errorf("missing machine jobs")
 	}
 	if cfg.CloudInitOutputLog == "" {
 		return fmt.Errorf("missing cloud-init output log path")
