@@ -135,7 +135,7 @@ func (manager *containerManager) StartContainer(
 	}
 	// Create the container.
 	logger.Tracef("create the container")
-	if err := lxcContainer.Create(configFile, defaultTemplate, templateParams...); err != nil {
+	if err := lxcContainer.Create(configFile, defaultTemplate, nil, templateParams); err != nil {
 		logger.Errorf("lxc container creation failed: %v", err)
 		return nil, nil, err
 	}
@@ -268,19 +268,22 @@ func networkConfigTemplate(networkType, networkLink string) string {
 }
 
 func generateNetworkConfig(network *container.NetworkConfig) string {
+	var lxcConfig string
 	if network == nil {
 		logger.Warningf("network unspecified, using default networking config")
 		network = DefaultNetworkConfig()
 	}
 	switch network.NetworkType {
 	case container.PhysicalNetwork:
-		return networkConfigTemplate("phys", network.Device)
+		lxcConfig = networkConfigTemplate("phys", network.Device)
 	default:
 		logger.Warningf("Unknown network config type %q: using bridge", network.NetworkType)
 		fallthrough
 	case container.BridgeNetwork:
-		return networkConfigTemplate("veth", network.Device)
+		lxcConfig = networkConfigTemplate("veth", network.Device)
 	}
+
+	return lxcConfig
 }
 
 func writeLxcConfig(network *container.NetworkConfig, directory, logdir string) (string, error) {

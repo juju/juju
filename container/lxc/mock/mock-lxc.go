@@ -73,7 +73,7 @@ func (mock *mockContainer) Name() string {
 }
 
 // Create creates a new container based on the given template.
-func (mock *mockContainer) Create(configFile, template string, templateArgs ...string) error {
+func (mock *mockContainer) Create(configFile, template string, extraArgs []string, templateArgs []string) error {
 	if mock.state != golxc.StateUnknown {
 		return fmt.Errorf("container is already created")
 	}
@@ -117,7 +117,7 @@ func (mock *mockContainer) Stop() error {
 }
 
 // Clone creates a copy of the container, giving the copy the specified name.
-func (mock *mockContainer) Clone(name string) (golxc.Container, error) {
+func (mock *mockContainer) Clone(name string, extraArgs []string, templateArgs []string) (golxc.Container, error) {
 	container := &mockContainer{
 		factory:  mock.factory,
 		name:     name,
