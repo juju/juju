@@ -12,6 +12,7 @@ import (
 
 	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
+	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
@@ -199,21 +200,28 @@ var marshallers = []struct {
 	"bson",
 	bson.Marshal,
 	bson.Unmarshal,
+}, {
+	"yaml",
+	goyaml.Marshal,
+	goyaml.Unmarshal,
 }}
 
 func (*suite) TestBinaryMarshalUnmarshal(c *gc.C) {
 	for _, m := range marshallers {
 		c.Logf("encoding %v", m.name)
 		type doc struct {
-			Version version.Binary
+			Version *version.Binary
 		}
-		v := doc{version.MustParseBinary("1.2.3-foo-bar")}
-		data, err := m.marshal(v)
+		// Work around goyaml bug #1096149
+		// SetYAML is not called for non-pointer fields.
+		bp := version.MustParseBinary("1.2.3-foo-bar")
+		v := doc{&bp}
+		data, err := m.marshal(&v)
 		c.Assert(err, gc.IsNil)
-		var nv doc
-		err = m.unmarshal(data, &nv)
+		var bv doc
+		err = m.unmarshal(data, &bv)
 		c.Assert(err, gc.IsNil)
-		c.Assert(v, gc.Equals, nv)
+		c.Assert(bv, gc.DeepEquals, v)
 	}
 }
 
@@ -221,15 +229,18 @@ func (*suite) TestNumberMarshalUnmarshal(c *gc.C) {
 	for _, m := range marshallers {
 		c.Logf("encoding %v", m.name)
 		type doc struct {
-			Version version.Number
+			Version *version.Number
 		}
-		v := doc{version.MustParse("1.2.3")}
+		// Work around goyaml bug #1096149
+		// SetYAML is not called for non-pointer fields.
+		np := version.MustParse("1.2.3")
+		v := doc{&np}
 		data, err := m.marshal(&v)
 		c.Assert(err, gc.IsNil)
 		var nv doc
 		err = m.unmarshal(data, &nv)
 		c.Assert(err, gc.IsNil)
-		c.Assert(v, gc.Equals, nv)
+		c.Assert(nv, gc.DeepEquals, v)
 	}
 }
 

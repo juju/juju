@@ -13,6 +13,7 @@ import (
 	"github.com/juju/loggo"
 	"launchpad.net/golxc"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/instance"
@@ -58,7 +59,7 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 	}
 	logDir := conf[container.ConfigLogDir]
 	if logDir == "" {
-		logDir = "/var/log/juju"
+		logDir = agent.DefaultLogDir
 	}
 	return &containerManager{name: name, logdir: logDir}, nil
 }

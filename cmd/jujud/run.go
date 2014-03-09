@@ -119,7 +119,7 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 
 	socketPath := filepath.Join(unitDir, uniter.RunListenerFile)
 	// make sure the socket exists
-	client, err := rpc.Dial(uniter.RunListenerNetType, socketPath)
+	client, err := rpc.Dial("unix", socketPath)
 	if err != nil {
 		return nil, err
 	}

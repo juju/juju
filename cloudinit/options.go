@@ -346,7 +346,6 @@ func shquote(p string) string {
 // puppet
 // resizefs
 // rightscale_userdata
-// rsyslog
 // scripts_per_boot
 // scripts_per_instance
 // scripts_per_once

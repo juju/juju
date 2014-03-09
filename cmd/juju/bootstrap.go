@@ -113,8 +113,9 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return err
 	}
 	var existing bool
-	if _, err := store.ReadInfo(c.EnvName); !errors.IsNotFoundError(err) {
+	if environInfo, err := store.ReadInfo(c.EnvName); !errors.IsNotFoundError(err) {
 		existing = true
+		logger.Warningf("ignoring environments.yaml: using bootstrap config in %s", environInfo.Location())
 	}
 	environ, err := environs.PrepareFromName(c.EnvName, ctx, store)
 	if err != nil {
