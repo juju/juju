@@ -21,6 +21,7 @@ func processDeprecatedAttributes(context Context) error {
 	delete(newAttrs, "public-bucket-url")
 	delete(newAttrs, "default-image-id")
 	delete(newAttrs, "default-instance-type")
+	delete(newAttrs, "shared-storage-port")
 	// TODO (wallyworld) - delete tools-url in 1.20
 	newCfg, err := config.New(config.NoDefaults, newAttrs)
 	if err != nil {

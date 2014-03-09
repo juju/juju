@@ -74,7 +74,7 @@ environments:
 
 	// Create a source storage.
 	baseDir := c.MkDir()
-	stor, err := filestorage.NewFileStorageWriter(baseDir, filestorage.UseDefaultTmpDir)
+	stor, err := filestorage.NewFileStorageWriter(baseDir)
 	c.Assert(err, gc.IsNil)
 	s.storage = stor
 

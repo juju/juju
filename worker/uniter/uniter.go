@@ -41,8 +41,7 @@ const (
 	// These work fine for linux, but should we need to work with windows
 	// workloads in the future, we'll need to move these into a file that is
 	// compiled conditionally for different targets and use tcp (most likely).
-	RunListenerNetType = "unix"
-	RunListenerFile    = "run.socket"
+	RunListenerFile = "run.socket"
 )
 
 // A UniterExecutionObserver gets the appropriate methods called when a hook
@@ -73,8 +72,7 @@ type Uniter struct {
 	toolsDir     string
 	relationsDir string
 	charm        *charm.GitDir
-	bundles      *charm.BundlesDir
-	deployer     *charm.Deployer
+	deployer     charm.Deployer
 	s            *State
 	sf           *StateFile
 	rand         *rand.Rand
@@ -194,8 +192,8 @@ func (u *Uniter) init(unitTag string) (err error) {
 	u.envName = env.Name()
 
 	runListenerSocketPath := filepath.Join(u.baseDir, RunListenerFile)
-	logger.Debugf("starting juju-run listener on %s:%s", RunListenerNetType, runListenerSocketPath)
-	u.runListener, err = NewRunListener(u, RunListenerNetType, runListenerSocketPath)
+	logger.Debugf("starting juju-run listener on unix:%s", runListenerSocketPath)
+	u.runListener, err = NewRunListener(u, runListenerSocketPath)
 	if err != nil {
 		return err
 	}
@@ -206,8 +204,9 @@ func (u *Uniter) init(unitTag string) (err error) {
 	u.relationers = map[int]*Relationer{}
 	u.relationHooks = make(chan hook.Info)
 	u.charm = charm.NewGitDir(filepath.Join(u.baseDir, "charm"))
-	u.bundles = charm.NewBundlesDir(filepath.Join(u.baseDir, "state", "bundles"))
-	u.deployer = charm.NewDeployer(filepath.Join(u.baseDir, "state", "deployer"))
+	deployerPath := filepath.Join(u.baseDir, "state", "deployer")
+	bundles := charm.NewBundlesDir(filepath.Join(u.baseDir, "state", "bundles"))
+	u.deployer = charm.NewGitDeployer(u.charm.Path(), deployerPath, bundles)
 	u.sf = NewStateFile(filepath.Join(u.baseDir, "state", "uniter"))
 	u.rand = rand.New(rand.NewSource(time.Now().Unix()))
 	return nil
@@ -269,11 +268,7 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason Op) error {
 		if err != nil {
 			return err
 		}
-		bun, err := u.bundles.Read(sch, u.tomb.Dying())
-		if err != nil {
-			return err
-		}
-		if err = u.deployer.Stage(bun, curl); err != nil {
+		if err = u.deployer.Stage(sch, u.tomb.Dying()); err != nil {
 			return err
 		}
 
@@ -291,7 +286,7 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason Op) error {
 		if err = u.writeState(reason, Pending, hi, curl); err != nil {
 			return err
 		}
-		if err = u.deployer.Deploy(u.charm); err != nil {
+		if err = u.deployer.Deploy(); err != nil {
 			return err
 		}
 		if err = u.writeState(reason, Done, hi, curl); err != nil {
@@ -504,9 +499,6 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 		if hi.Kind == hooks.RelationBroken {
 			delete(u.relationers, hi.RelationId)
 		}
-	}
-	if err := u.charm.Snapshotf("Completed %q hook.", hi.Kind); err != nil {
-		return err
 	}
 	if hi.Kind == hooks.ConfigChanged {
 		u.ranConfigChanged = true

@@ -118,6 +118,25 @@ func (vp *Binary) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// GetYAML implements goyaml.Getter
+func (v Binary) GetYAML() (tag string, value interface{}) {
+	return "", v.String()
+}
+
+// SetYAML implements goyaml.Setter
+func (vp *Binary) SetYAML(tag string, value interface{}) bool {
+	vstr := fmt.Sprintf("%v", value)
+	if vstr == "" {
+		return false
+	}
+	v, err := ParseBinary(vstr)
+	if err != nil {
+		return false
+	}
+	*vp = v
+	return true
+}
+
 var (
 	binaryPat = regexp.MustCompile(`^(\d{1,9})\.(\d{1,9})\.(\d{1,9})(\.\d{1,9})?-([^-]+)-([^-]+)$`)
 	numberPat = regexp.MustCompile(`^(\d{1,9})\.(\d{1,9})\.(\d{1,9})(\.\d{1,9})?$`)
@@ -257,6 +276,25 @@ func (vp *Number) UnmarshalJSON(data []byte) error {
 	}
 	*vp = v
 	return nil
+}
+
+// GetYAML implements goyaml.Getter
+func (v Number) GetYAML() (tag string, value interface{}) {
+	return "", v.String()
+}
+
+// SetYAML implements goyaml.Setter
+func (vp *Number) SetYAML(tag string, value interface{}) bool {
+	vstr := fmt.Sprintf("%v", value)
+	if vstr == "" {
+		return false
+	}
+	v, err := Parse(vstr)
+	if err != nil {
+		return false
+	}
+	*vp = v
+	return true
 }
 
 func isOdd(x int) bool {
