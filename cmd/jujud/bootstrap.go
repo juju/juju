@@ -21,6 +21,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 )
 
 // Cloud-init write the URL to be used to load the bootstrap state into this file.
@@ -75,17 +76,14 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	// agent.BootstrapJobs is an optional field in the agent
-	// config, and was introduced after 1.17.2. We default to
-	// allowing units on machine-0 if missing.
-	jobs := []state.MachineJob{
-		state.JobManageEnviron,
-		state.JobHostUnits,
-	}
-	if bootstrapJobs := c.Conf.config.Value(agent.BootstrapJobs); bootstrapJobs != "" {
-		jobs, err = agent.UnmarshalBootstrapJobs(bootstrapJobs)
-		if err != nil {
-			return err
+	// agent.Jobs is an optional field in the agent config, and was
+	// introduced after 1.17.2. We default to allowing units on
+	// machine-0 if missing.
+	jobs := c.Conf.config.Jobs()
+	if len(jobs) == 0 {
+		jobs = []params.MachineJob{
+			params.JobManageEnviron,
+			params.JobHostUnits,
 		}
 	}
 	var characteristics instance.HardwareCharacteristics

@@ -4,7 +4,6 @@
 package agent
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"launchpad.net/juju-core/constraints"
@@ -12,6 +11,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/version"
 )
 
@@ -32,21 +32,6 @@ type StateInitializer interface {
 	InitializeState(envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts, policy state.Policy) (*state.State, *state.Machine, error)
 }
 
-// MarshalBootstrapJobs may be used to marshal a set of
-// machine jobs for the bootstrap agent, to be added
-// into the agent configuration.
-func MarshalBootstrapJobs(jobs ...state.MachineJob) (string, error) {
-	b, err := json.Marshal(jobs)
-	return string(b), err
-}
-
-// UnmarshalBootstrapJobs unmarshals a set of machine
-// jobs marshalled with MarshalBootstrapJobs.
-func UnmarshalBootstrapJobs(s string) (jobs []state.MachineJob, err error) {
-	err = json.Unmarshal([]byte(s), &jobs)
-	return jobs, err
-}
-
 // BootstrapMachineConfig holds configuration information
 // to attach to the bootstrap machine.
 type BootstrapMachineConfig struct {
@@ -55,7 +40,7 @@ type BootstrapMachineConfig struct {
 	Constraints constraints.Value
 
 	// Jobs holds the jobs that the machine agent will run.
-	Jobs []state.MachineJob
+	Jobs []params.MachineJob
 
 	// InstanceId holds the instance id of the bootstrap machine.
 	InstanceId instance.Id
@@ -138,13 +123,21 @@ func (c *configInternal) initBootstrapMachine(st *state.State, cfg BootstrapMach
 
 	logger.Infof("initialising bootstrap machine with config: %+v", cfg)
 
+	jobs := make([]state.MachineJob, len(cfg.Jobs))
+	for i, job := range cfg.Jobs {
+		machineJob, err := state.MachineJobFromParams(job)
+		if err != nil {
+			return nil, fmt.Errorf("invalid bootstrap machine job %q: %v", job, err)
+		}
+		jobs[i] = machineJob
+	}
 	m, err := st.AddOneMachine(state.MachineTemplate{
 		Series:                  version.Current.Series,
 		Nonce:                   state.BootstrapNonce,
 		Constraints:             cfg.Constraints,
 		InstanceId:              cfg.InstanceId,
 		HardwareCharacteristics: cfg.Characteristics,
-		Jobs: cfg.Jobs,
+		Jobs: jobs,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("cannot create bootstrap machine in state: %v", err)

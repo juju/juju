@@ -71,7 +71,7 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 		return err
 	}
 
-	targetStorage, err := filestorage.NewFileStorageWriter(c.metadataDir, filestorage.UseDefaultTmpDir)
+	targetStorage, err := filestorage.NewFileStorageWriter(c.metadataDir)
 	if err != nil {
 		return err
 	}

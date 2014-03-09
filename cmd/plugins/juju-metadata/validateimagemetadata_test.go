@@ -75,7 +75,7 @@ func (s *ValidateImageMetadataSuite) makeLocalMetadata(c *gc.C, id, region, seri
 		Region:   region,
 		Endpoint: endpoint,
 	}
-	targetStorage, err := filestorage.NewFileStorageWriter(s.metadataDir, filestorage.UseDefaultTmpDir)
+	targetStorage, err := filestorage.NewFileStorageWriter(s.metadataDir)
 	if err != nil {
 		return err
 	}

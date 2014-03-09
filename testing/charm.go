@@ -128,6 +128,7 @@ func (r *Repo) Bundle(dst, name string) *charm.Bundle {
 type MockCharmStore struct {
 	charms    map[string]map[int]*charm.Bundle
 	AuthAttrs string
+	TestMode  bool
 }
 
 func NewMockCharmStore() *MockCharmStore {
@@ -136,6 +137,11 @@ func NewMockCharmStore() *MockCharmStore {
 
 func (s *MockCharmStore) WithAuthAttrs(auth string) charm.Repository {
 	s.AuthAttrs = auth
+	return s
+}
+
+func (s *MockCharmStore) WithTestMode(testMode bool) charm.Repository {
+	s.TestMode = testMode
 	return s
 }
 
