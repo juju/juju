@@ -17,6 +17,7 @@ import (
 	"github.com/juju/loggo"
 	"launchpad.net/golxc"
 
+	"launchpad.net/juju-core/agent"
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/environs/cloudinit"
@@ -90,7 +91,7 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 	}
 	logDir := conf[container.ConfigLogDir]
 	if logDir == "" {
-		logDir = "/var/log/juju"
+		logDir = agent.DefaultLogDir
 	}
 	useClone := false
 	if conf["use-clone"] == "true" {

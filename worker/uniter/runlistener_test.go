@@ -24,7 +24,7 @@ var _ = gc.Suite(&ListenerSuite{})
 // Mirror the params to uniter.NewRunListener, but add cleanup to close it.
 func (s *ListenerSuite) NewRunListener(c *gc.C) *uniter.RunListener {
 	s.socketPath = filepath.Join(c.MkDir(), "test.listener")
-	listener, err := uniter.NewRunListener(&mockRunner{c}, "unix", s.socketPath)
+	listener, err := uniter.NewRunListener(&mockRunner{c}, s.socketPath)
 	c.Assert(err, gc.IsNil)
 	c.Assert(listener, gc.NotNil)
 	s.AddCleanup(func(*gc.C) {
@@ -33,13 +33,13 @@ func (s *ListenerSuite) NewRunListener(c *gc.C) *uniter.RunListener {
 	return listener
 }
 
-func (s *ListenerSuite) TestNewRunListenerSecondFails(c *gc.C) {
+func (s *ListenerSuite) TestNewRunListenerOnExistingSocketRemovesItAndSucceeds(c *gc.C) {
 	s.NewRunListener(c)
 
-	listener, err := uniter.NewRunListener(&mockRunner{}, "unix", s.socketPath)
-
-	c.Assert(listener, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, ".* address already in use")
+	listener, err := uniter.NewRunListener(&mockRunner{}, s.socketPath)
+	c.Assert(err, gc.IsNil)
+	c.Assert(listener, gc.NotNil)
+	listener.Close()
 }
 
 func (s *ListenerSuite) TestClientCall(c *gc.C) {
