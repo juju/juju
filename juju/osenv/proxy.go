@@ -14,14 +14,16 @@ const (
 	http_proxy  = "http_proxy"
 	https_proxy = "https_proxy"
 	ftp_proxy   = "ftp_proxy"
+	no_proxy    = "no_proxy"
 )
 
 // ProxySettings holds the values for the http, https and ftp proxies found by
 // Detect Proxies.
 type ProxySettings struct {
-	Http  string
-	Https string
-	Ftp   string
+	Http    string
+	Https   string
+	Ftp     string
+	NoProxy string
 }
 
 func getProxySetting(key string) string {
@@ -35,9 +37,10 @@ func getProxySetting(key string) string {
 // DetectProxies returns the proxy settings found the environment.
 func DetectProxies() ProxySettings {
 	return ProxySettings{
-		Http:  getProxySetting(http_proxy),
-		Https: getProxySetting(https_proxy),
-		Ftp:   getProxySetting(ftp_proxy),
+		Http:    getProxySetting(http_proxy),
+		Https:   getProxySetting(https_proxy),
+		Ftp:     getProxySetting(ftp_proxy),
+		NoProxy: getProxySetting(no_proxy),
 	}
 }
 
@@ -57,6 +60,7 @@ func (s *ProxySettings) AsScriptEnvironment() string {
 	addLine(http_proxy, s.Http)
 	addLine(https_proxy, s.Https)
 	addLine(ftp_proxy, s.Ftp)
+	addLine(no_proxy, s.NoProxy)
 	return strings.Join(lines, "\n")
 }
 
@@ -76,6 +80,7 @@ func (s *ProxySettings) AsEnvironmentValues() []string {
 	addLine(http_proxy, s.Http)
 	addLine(https_proxy, s.Https)
 	addLine(ftp_proxy, s.Ftp)
+	addLine(no_proxy, s.NoProxy)
 	return lines
 }
 
@@ -94,4 +99,5 @@ func (s *ProxySettings) SetEnvironmentValues() {
 	setenv(http_proxy, s.Http)
 	setenv(https_proxy, s.Https)
 	setenv(ftp_proxy, s.Ftp)
+	setenv(no_proxy, s.NoProxy)
 }
