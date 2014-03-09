@@ -215,13 +215,12 @@ func ConfigureBasic(cfg *MachineConfig, c *cloudinit.Config) error {
 // packages, the request to do the apt-get update/upgrade on boot, and adds
 // the apt proxy settings if there are any.
 func AddAptCommands(proxy osenv.ProxySettings, c *cloudinit.Config, cfg *MachineConfig) {
-	targetRelease := cfg.TargetRelease()
-
 	// Bring packages up-to-date.
 	c.SetAptUpdate(true)
 	c.SetAptUpgrade(true)
 
 	// juju requires git for managing charm directories.
+	targetRelease := cfg.TargetRelease()
 	c.AddPackage("git", targetRelease)
 	c.AddPackage("cpu-checker", targetRelease)
 	c.AddPackage("bridge-utils", targetRelease)
