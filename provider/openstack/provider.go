@@ -1197,11 +1197,7 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 		Series:        e.ecfg().DefaultSeries(),
 		Region:        region,
 		Endpoint:      e.ecfg().authURL(),
-<<<<<<< TREE
 		Architectures: []string{"amd64", "arm", "arm64", "ppc64"},
-=======
-		Architectures: []string{"amd64", "arm", "arm64"},
->>>>>>> MERGE-SOURCE
 	}, nil
 }
 
