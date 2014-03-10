@@ -169,7 +169,7 @@ func (u *User) Refresh() error {
 }
 
 func (u *User) Deactivate() error {
-	if u.doc.Name == "admin" {
+	if u.doc.Name == AdminUser {
 		return errors.Unauthorizedf("Can't deactivate admin user")
 	}
 	ops := []txn.Op{{

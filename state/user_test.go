@@ -172,7 +172,7 @@ func (s *UserSuite) TestDeactivate(c *gc.C) {
 }
 
 func (s *UserSuite) TestCantDeactivateAdminUser(c *gc.C) {
-	u, err := s.State.User("admin")
+	u, err := s.State.User(state.AdminUser)
 	c.Assert(err, gc.IsNil)
 	err = u.Deactivate()
 	c.Assert(err, gc.ErrorMatches, "Can't deactivate admin user")
