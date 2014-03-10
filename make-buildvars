@@ -1,0 +1,47 @@
+#!/usr/bin/env python
+
+from textwrap import dedent
+import re
+import sys
+
+from bzrlib.branch import Branch
+from bzrlib.plugin import load_plugins
+from bzrlib.revisionspec import RevisionSpec
+
+
+def get_revision_info(branch, revision_spec):
+    """Find the revision_id, revno and juju-core version of a branch.
+
+    :param branch: The location of the branch.
+    :param revision_spec: a human-readable revision spec like '-1', 'revno:5'
+        or 'revid:asdf'
+    :return: a tuple of revno, revision-id, version
+    """
+    candidate = Branch.open(branch)
+    candidate.lock_read()
+    try:
+        info = RevisionSpec.from_string(revision_spec).in_history(candidate)
+        tree = candidate.repository.revision_tree(info.rev_id)
+        tree.lock_read()
+        try:
+            file_id = tree.path2id('version/version.go')
+            v_bytes = tree.get_file_text(file_id, path='version/version.go')
+        finally:
+            tree.unlock()
+        version = re.search('^const version = "(.*)"', v_bytes, re.M).group(1)
+        return info.revno, info.rev_id, version
+    finally:
+        candidate.unlock()
+
+if __name__ == '__main__':
+    load_plugins()
+    branch = sys.argv[1]
+    revision_spec = sys.argv[2] if len(sys.argv) > 2 else 'revno:-1'
+    revno, revision_id, version = get_revision_info(branch, revision_spec)
+    with open('buildvars.bash', 'w') as f:
+        f.write(dedent("""\
+            export BRANCH=%s
+            export REVNO=%s
+            export REVISION_ID='%s'
+            export VERSION=%s
+        """ % (branch, revno, revision_id, version)))
