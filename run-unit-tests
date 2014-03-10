@@ -35,6 +35,9 @@ sudo apt-get update
 sudo apt-get install -y build-essential
 make install-dependencies
 bzr whoami 'J. Random Hacker <jrandom@example.org>'
+# Force mongodb-server to be present because the makefile doesn't know that
+# juju-mongodb was temporarilly removed
+sudo apt-get install -y mongodb-server
 make build
 make check
 EOT
