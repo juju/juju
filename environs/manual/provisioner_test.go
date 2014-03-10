@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package manual
+package manual_test
 
 import (
 	"fmt"
@@ -9,6 +9,8 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/environs/manual"
+	manualtesting "launchpad.net/juju-core/environs/manual/testing"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
@@ -16,7 +18,6 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/statecmd"
 	jc "launchpad.net/juju-core/testing/checkers"
-	sshtesting "launchpad.net/juju-core/utils/ssh/testing"
 	"launchpad.net/juju-core/version"
 )
 
@@ -26,10 +27,10 @@ type provisionerSuite struct {
 
 var _ = gc.Suite(&provisionerSuite{})
 
-func (s *provisionerSuite) getArgs(c *gc.C) ProvisionMachineArgs {
+func (s *provisionerSuite) getArgs(c *gc.C) manual.ProvisionMachineArgs {
 	hostname, err := os.Hostname()
 	c.Assert(err, gc.IsNil)
-	return ProvisionMachineArgs{
+	return manual.ProvisionMachineArgs{
 		Host:    hostname,
 		EnvName: "dummyenv",
 	}
@@ -44,14 +45,14 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	args.Host = "ubuntu@" + args.Host
 
 	envtesting.RemoveTools(c, s.Conn.Environ.Storage())
-	defer sshtesting.FakeSSH{
+	defer manualtesting.FakeSSH{
 		Series:             series,
 		Arch:               arch,
 		InitUbuntuUser:     true,
 		SkipProvisionAgent: true,
 	}.Install(c).Restore()
 	// Attempt to provision a machine with no tools available, expect it to fail.
-	machineId, err := ProvisionMachine(args)
+	machineId, err := manual.ProvisionMachine(args)
 	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 	c.Assert(machineId, gc.Equals, "")
 
@@ -63,13 +64,13 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 
 	for i, errorCode := range []int{255, 0} {
 		c.Logf("test %d: code %d", i, errorCode)
-		defer sshtesting.FakeSSH{
+		defer manualtesting.FakeSSH{
 			Series:                 series,
 			Arch:                   arch,
 			InitUbuntuUser:         true,
 			ProvisionAgentExitCode: errorCode,
 		}.Install(c).Restore()
-		machineId, err = ProvisionMachine(args)
+		machineId, err = manual.ProvisionMachine(args)
 		if errorCode != 0 {
 			c.Assert(err, gc.ErrorMatches, fmt.Sprintf("rc: %d", errorCode))
 			c.Assert(machineId, gc.Equals, "")
@@ -89,34 +90,34 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 
 	// Attempting to provision a machine twice should fail. We effect
 	// this by checking for existing juju upstart configurations.
-	defer sshtesting.FakeSSH{
+	defer manualtesting.FakeSSH{
 		Provisioned:        true,
 		InitUbuntuUser:     true,
 		SkipDetection:      true,
 		SkipProvisionAgent: true,
 	}.Install(c).Restore()
-	_, err = ProvisionMachine(args)
-	c.Assert(err, gc.Equals, ErrProvisioned)
-	defer sshtesting.FakeSSH{
+	_, err = manual.ProvisionMachine(args)
+	c.Assert(err, gc.Equals, manual.ErrProvisioned)
+	defer manualtesting.FakeSSH{
 		Provisioned:              true,
 		CheckProvisionedExitCode: 255,
 		InitUbuntuUser:           true,
 		SkipDetection:            true,
 		SkipProvisionAgent:       true,
 	}.Install(c).Restore()
-	_, err = ProvisionMachine(args)
+	_, err = manual.ProvisionMachine(args)
 	c.Assert(err, gc.ErrorMatches, "error checking if provisioned: rc: 255")
 }
 
 func (s *provisionerSuite) TestFinishMachineConfig(c *gc.C) {
 	const series = "precise"
 	const arch = "amd64"
-	defer sshtesting.FakeSSH{
+	defer manualtesting.FakeSSH{
 		Series:         series,
 		Arch:           arch,
 		InitUbuntuUser: true,
 	}.Install(c).Restore()
-	machineId, err := ProvisionMachine(s.getArgs(c))
+	machineId, err := manual.ProvisionMachine(s.getArgs(c))
 	c.Assert(err, gc.IsNil)
 
 	// Now check what we would've configured it with.

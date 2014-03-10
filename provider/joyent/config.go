@@ -14,25 +14,39 @@ import (
 
 // boilerplateConfig will be shown in help output, so please keep it up to
 // date when you change environment configuration below.
-const boilerplateConfig = `joyent:
-  type: joyent
+var boilerplateConfig = `
+joyent:
+    type: joyent
 
-  # SDC config
-  # Can be set via env variables, or specified here
-  # sdc-user: <secret>
-  # Can be set via env variables, or specified here
-  # sdc-key-id: <secret>
-  # region defaults to us-west-1, override if required
-  # sdc-region: us-west-1
+    ## SDC config
 
-  # Manta config
-  # Can be set via env variables, or specified here
-  # manta-user: <secret>
-  # Can be set via env variables, or specified here
-  # manta-key-id: <secret>
-  # region defaults to us-east, override if required
-  # manta-region: us-east
-`
+    # Can be set via env variables, or specified here
+    #
+    # sdc-user: <secret>
+
+    # Can be set via env variables, or specified here
+    #
+    # sdc-key-id: <secret>
+
+    # region defaults to us-west-1, override if required
+    #
+    # sdc-region: us-west-1
+
+    ## Manta config
+
+    # Can be set via env variables, or specified here
+    #
+    # manta-user: <secret>
+
+    # Can be set via env variables, or specified here
+    #
+    # manta-key-id: <secret>
+
+    # region defaults to us-east, override if required
+    #
+    # manta-region: us-east
+
+`[1:]
 
 const (
 	SdcAccount = "SDC_ACCOUNT"

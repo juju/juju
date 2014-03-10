@@ -26,6 +26,20 @@ func Default() (Storage, error) {
 	return NewDisk(osenv.JujuHome())
 }
 
+// Exists returns if the default disk-based environment config storage
+// exists for the given environment name and it can be read.
+// It's defined here so it can be overridden in tests.
+var Exists = func(envName string) bool {
+	store, err := Default()
+	if err != nil {
+		return false
+	}
+	if _, err := store.ReadInfo(envName); err != nil {
+		return false
+	}
+	return true
+}
+
 type diskStore struct {
 	dir string
 }

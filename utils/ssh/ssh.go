@@ -17,22 +17,6 @@ import (
 	"launchpad.net/juju-core/cmd"
 )
 
-// DetectionScript is the script to run on the remote machine to
-// detect the OS series and hardware characteristics.
-const DetectionScript = `#!/bin/bash
-set -e
-lsb_release -cs
-uname -m
-grep MemTotal /proc/meminfo
-cat /proc/cpuinfo`
-
-// CheckProvisionedScript is the script to run on the remote machine
-// to check if a machine has already been provisioned.
-//
-// This is a little convoluted to avoid returning an error in the
-// common case of no matching files.
-const CheckProvisionedScript = "ls /etc/init/ | grep juju.*\\.conf || exit 0"
-
 // Options is a client-implementation independent SSH options set.
 type Options struct {
 	// ssh server port; zero means use the default (22)

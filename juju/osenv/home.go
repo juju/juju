@@ -30,6 +30,14 @@ func SetJujuHome(newJujuHome string) string {
 	return oldJujuHome
 }
 
+// HaveJujuHome returns if jujuHome have benn initialized, so that
+// calling JujuHome() won't panic.
+func HaveJujuHome() bool {
+	jujuHomeMu.Lock()
+	defer jujuHomeMu.Unlock()
+	return jujuHome != ""
+}
+
 // JujuHome returns the current juju home.
 func JujuHome() string {
 	jujuHomeMu.Lock()

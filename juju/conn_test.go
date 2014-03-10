@@ -81,10 +81,13 @@ func (*NewConnSuite) TestNewConnWithoutAdminSecret(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot connect without admin-secret")
 }
 
-func bootstrapEnv(c *gc.C, envName string, store configstore.Storage) {
+func bootstrapEnv(c *gc.C, s *testbase.CleanupSuite, envName string, store configstore.Storage) {
 	if store == nil {
 		store = configstore.NewMem()
 	}
+	s.PatchValue(&configstore.Exists, func(name string) bool {
+		return true
+	})
 	ctx := coretesting.Context(c)
 	env, err := environs.PrepareFromName(envName, ctx, store)
 	c.Assert(err, gc.IsNil)
@@ -93,9 +96,9 @@ func bootstrapEnv(c *gc.C, envName string, store configstore.Storage) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (*NewConnSuite) TestConnMultipleCloseOk(c *gc.C) {
+func (cs *NewConnSuite) TestConnMultipleCloseOk(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
-	bootstrapEnv(c, "", defaultConfigStore(c))
+	bootstrapEnv(c, &cs.CleanupSuite, "", defaultConfigStore(c))
 	// Error return from here is tested in TestNewConnFromNameNotSetGetsDefault.
 	conn, err := juju.NewConnFromName("")
 	c.Assert(err, gc.IsNil)
@@ -104,20 +107,20 @@ func (*NewConnSuite) TestConnMultipleCloseOk(c *gc.C) {
 	assertClose(c, conn)
 }
 
-func (*NewConnSuite) TestNewConnFromNameNotSetGetsDefault(c *gc.C) {
+func (cs *NewConnSuite) TestNewConnFromNameNotSetGetsDefault(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
-	bootstrapEnv(c, "", defaultConfigStore(c))
+	bootstrapEnv(c, &cs.CleanupSuite, "", defaultConfigStore(c))
 	conn, err := juju.NewConnFromName("")
 	c.Assert(err, gc.IsNil)
 	defer assertClose(c, conn)
 	c.Assert(conn.Environ.Name(), gc.Equals, coretesting.SampleEnvName)
 }
 
-func (*NewConnSuite) TestNewConnFromNameNotDefault(c *gc.C) {
+func (cs *NewConnSuite) TestNewConnFromNameNotDefault(c *gc.C) {
 	defer coretesting.MakeMultipleEnvHome(c).Restore()
 	// The default environment is "erewhemos", so make sure we get what we ask for.
 	const envName = "erewhemos-2"
-	bootstrapEnv(c, envName, defaultConfigStore(c))
+	bootstrapEnv(c, &cs.CleanupSuite, envName, defaultConfigStore(c))
 	conn, err := juju.NewConnFromName(envName)
 	c.Assert(err, gc.IsNil)
 	defer assertClose(c, conn)

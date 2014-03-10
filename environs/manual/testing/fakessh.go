@@ -11,8 +11,8 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/environs/manual"
 	"launchpad.net/juju-core/testing/testbase"
-	"launchpad.net/juju-core/utils/ssh"
 )
 
 // sshscript should only print the result on the first execution,
@@ -97,7 +97,7 @@ func InstallDetectionFakeSSH(c *gc.C, series, arch string) testbase.Restorer {
 		"MemTotal: 4096 kB",
 		"processor: 0",
 	}, "\n")
-	return InstallFakeSSH(c, ssh.DetectionScript, detectionoutput, 0)
+	return InstallFakeSSH(c, manual.DetectionScript, detectionoutput, 0)
 }
 
 // FakeSSH wraps the invocation of InstallFakeSSH based on the parameters.
@@ -148,7 +148,7 @@ func (r FakeSSH) Install(c *gc.C) testbase.Restorer {
 	if r.Provisioned {
 		checkProvisionedOutput = "/etc/init/jujud-machine-0.conf"
 	}
-	add(ssh.CheckProvisionedScript, checkProvisionedOutput, r.CheckProvisionedExitCode)
+	add(manual.CheckProvisionedScript, checkProvisionedOutput, r.CheckProvisionedExitCode)
 	if r.InitUbuntuUser {
 		add("", nil, 0)
 	}

@@ -5,4 +5,6 @@ package manual
 
 var (
 	InstanceHostAddresses = &instanceHostAddresses
+	ProvisionMachineAgent = &provisionMachineAgent
+	CheckProvisioned      = checkProvisioned
 )
