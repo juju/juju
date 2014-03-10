@@ -53,6 +53,9 @@ func (api *UserManagerAPI) AddUser(args params.EntityPasswords) (params.ErrorRes
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Changes)),
 	}
+	if len(args.Changes) == 0 {
+		return result, nil
+	}
 	canWrite, err := api.getCanWrite()
 	if err != nil {
 		result.Results[0].Error = common.ServerError(err)
@@ -75,6 +78,9 @@ func (api *UserManagerAPI) AddUser(args params.EntityPasswords) (params.ErrorRes
 func (api *UserManagerAPI) RemoveUser(args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
 	}
 	canWrite, err := api.getCanWrite()
 	if err != nil {
