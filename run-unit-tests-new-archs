@@ -56,7 +56,7 @@ fi
 sudo apt-get install -y $DEPS \$juju_db \$juju_compiler
 EOT
 
-scp "$@" $HOME/jobs/build-revision/builds/$revision_build/archive/$tarfile $remote_user@$instance_name:~/
+scp "$@" $HOME/jobs/build-revision/lastStable/archive/$tarfile $remote_user@$instance_name:~/
 
 ssh "$@" $remote_user@$instance_name <<EOT
 set -eux
