@@ -19,6 +19,8 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/utils/set"
 )
 
 type BundleSuite struct {
@@ -30,6 +32,17 @@ var _ = gc.Suite(&BundleSuite{})
 
 func (s *BundleSuite) SetUpSuite(c *gc.C) {
 	s.bundlePath = testing.Charms.BundlePath(c.MkDir(), "dummy")
+}
+
+var dummyManifest = []string{
+	"config.yaml",
+	"empty",
+	"hooks",
+	"hooks/install",
+	"metadata.yaml",
+	"revision",
+	"src",
+	"src/hello.c",
 }
 
 func (s *BundleSuite) TestReadBundle(c *gc.C) {
@@ -55,6 +68,42 @@ func (s *BundleSuite) TestReadBundleBytes(c *gc.C) {
 	bundle, err := charm.ReadBundleBytes(data)
 	c.Assert(err, gc.IsNil)
 	checkDummy(c, bundle, "")
+}
+
+func (s *BundleSuite) TestManifest(c *gc.C) {
+	bundle, err := charm.ReadBundle(s.bundlePath)
+	c.Assert(err, gc.IsNil)
+	manifest, err := bundle.Manifest()
+	c.Assert(err, gc.IsNil)
+	c.Assert(manifest, jc.DeepEquals, set.NewStrings(dummyManifest...))
+}
+
+func (s *BundleSuite) TestManifestNoRevision(c *gc.C) {
+	bundle, err := charm.ReadBundle(s.bundlePath)
+	c.Assert(err, gc.IsNil)
+	dirPath := c.MkDir()
+	err = bundle.ExpandTo(dirPath)
+	c.Assert(err, gc.IsNil)
+	err = os.Remove(filepath.Join(dirPath, "revision"))
+	c.Assert(err, gc.IsNil)
+
+	bundle = extBundleDir(c, dirPath)
+	manifest, err := bundle.Manifest()
+	c.Assert(err, gc.IsNil)
+	c.Assert(manifest, gc.DeepEquals, set.NewStrings(dummyManifest...))
+}
+
+func (s *BundleSuite) TestManifestSymlink(c *gc.C) {
+	srcPath := testing.Charms.ClonedDirPath(c.MkDir(), "dummy")
+	if err := os.Symlink("../target", filepath.Join(srcPath, "hooks/symlink")); err != nil {
+		c.Skip("cannot symlink")
+	}
+	expected := append([]string{"hooks/symlink"}, dummyManifest...)
+
+	bundle := bundleDir(c, srcPath)
+	manifest, err := bundle.Manifest()
+	c.Assert(err, gc.IsNil)
+	c.Assert(manifest, gc.DeepEquals, set.NewStrings(expected...))
 }
 
 func (s *BundleSuite) TestExpandTo(c *gc.C) {
@@ -153,15 +202,9 @@ func (s *BundleSuite) TestBundleFileModes(c *gc.C) {
 	}
 
 	// Bundle and extract the charm to a new directory.
-	dir, err := charm.ReadDir(srcPath)
-	c.Assert(err, gc.IsNil)
-	buf := new(bytes.Buffer)
-	err = dir.BundleTo(buf)
-	c.Assert(err, gc.IsNil)
-	bundle, err := charm.ReadBundleBytes(buf.Bytes())
-	c.Assert(err, gc.IsNil)
+	bundle := bundleDir(c, srcPath)
 	path := c.MkDir()
-	err = bundle.ExpandTo(path)
+	err := bundle.ExpandTo(path)
 	c.Assert(err, gc.IsNil)
 
 	// Check sensible file modes once round-tripped.
@@ -194,8 +237,7 @@ func (s *BundleSuite) TestBundleRevisionFile(c *gc.C) {
 	err := os.Remove(revPath)
 	c.Assert(err, gc.IsNil)
 
-	bundle, err := charm.ReadBundle(extBundleDir(c, charmDir))
-	c.Assert(err, gc.IsNil)
+	bundle := extBundleDir(c, charmDir)
 	c.Assert(bundle.Revision(), gc.Equals, 0)
 
 	// Missing revision file with old revision in metadata
@@ -204,15 +246,15 @@ func (s *BundleSuite) TestBundleRevisionFile(c *gc.C) {
 	_, err = file.Write([]byte("\nrevision: 1234\n"))
 	c.Assert(err, gc.IsNil)
 
-	bundle, err = charm.ReadBundle(extBundleDir(c, charmDir))
-	c.Assert(err, gc.IsNil)
+	bundle = extBundleDir(c, charmDir)
 	c.Assert(bundle.Revision(), gc.Equals, 1234)
 
 	// Revision file with bad content
 	err = ioutil.WriteFile(revPath, []byte("garbage"), 0666)
 	c.Assert(err, gc.IsNil)
 
-	bundle, err = charm.ReadBundle(extBundleDir(c, charmDir))
+	path := extBundleDirPath(c, charmDir)
+	bundle, err = charm.ReadBundle(path)
 	c.Assert(err, gc.ErrorMatches, "invalid revision file")
 	c.Assert(bundle, gc.IsNil)
 }
@@ -242,30 +284,48 @@ func (s *BundleSuite) TestExpandToWithBadLink(c *gc.C) {
 	err := os.Symlink("../../target", badLink)
 	c.Assert(err, gc.IsNil)
 
-	bundle, err := charm.ReadBundle(extBundleDir(c, charmDir))
+	bundle := extBundleDir(c, charmDir)
 	c.Assert(err, gc.IsNil)
 
 	path := filepath.Join(c.MkDir(), "charm")
 	err = bundle.ExpandTo(path)
-	c.Assert(err, gc.ErrorMatches, `symlink "hooks/badlink" links out of charm: "../../target"`)
+	c.Assert(err, gc.ErrorMatches, `cannot extract "hooks/badlink": symlink "../../target" leads out of scope`)
 
 	// Symlink targeting an absolute path.
 	os.Remove(badLink)
 	err = os.Symlink("/target", badLink)
 	c.Assert(err, gc.IsNil)
 
-	bundle, err = charm.ReadBundle(extBundleDir(c, charmDir))
+	bundle = extBundleDir(c, charmDir)
 	c.Assert(err, gc.IsNil)
 
 	path = filepath.Join(c.MkDir(), "charm")
 	err = bundle.ExpandTo(path)
-	c.Assert(err, gc.ErrorMatches, `symlink "hooks/badlink" is absolute: "/target"`)
+	c.Assert(err, gc.ErrorMatches, `cannot extract "hooks/badlink": symlink "/target" is absolute`)
 }
 
-func extBundleDir(c *gc.C, dirpath string) (path string) {
-	path = filepath.Join(c.MkDir(), "bundle.charm")
+func extBundleDirPath(c *gc.C, dirpath string) string {
+	path := filepath.Join(c.MkDir(), "bundle.charm")
 	cmd := exec.Command("/bin/sh", "-c", fmt.Sprintf("cd %s; zip --fifo --symlinks -r %s .", dirpath, path))
 	output, err := cmd.CombinedOutput()
 	c.Assert(err, gc.IsNil, gc.Commentf("Command output: %s", output))
 	return path
+}
+
+func extBundleDir(c *gc.C, dirpath string) *charm.Bundle {
+	path := extBundleDirPath(c, dirpath)
+	bundle, err := charm.ReadBundle(path)
+	c.Assert(err, gc.IsNil)
+	return bundle
+}
+
+func bundleDir(c *gc.C, dirpath string) *charm.Bundle {
+	dir, err := charm.ReadDir(dirpath)
+	c.Assert(err, gc.IsNil)
+	buf := new(bytes.Buffer)
+	err = dir.BundleTo(buf)
+	c.Assert(err, gc.IsNil)
+	bundle, err := charm.ReadBundleBytes(buf.Bytes())
+	c.Assert(err, gc.IsNil)
+	return bundle
 }

@@ -77,7 +77,8 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 			CACert:            []byte(coretesting.CACert),
 		})
 	c.Assert(err, gc.IsNil)
-	s.broker = provisioner.NewLxcBroker(&fakeAPI{}, tools, s.agentConfig)
+	s.broker, err = provisioner.NewLxcBroker(&fakeAPI{}, tools, s.agentConfig)
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string) instance.Instance {
@@ -237,7 +238,8 @@ func (s *lxcProvisionerSuite) newLxcProvisioner(c *gc.C) provisioner.Provisioner
 	agentConfig := s.AgentConfigForTag(c, parentMachineTag)
 	tools, err := s.provisioner.Tools(agentConfig.Tag())
 	c.Assert(err, gc.IsNil)
-	broker := provisioner.NewLxcBroker(s.provisioner, tools, agentConfig)
+	broker, err := provisioner.NewLxcBroker(s.provisioner, tools, agentConfig)
+	c.Assert(err, gc.IsNil)
 	return provisioner.NewContainerProvisioner(instance.LXC, s.provisioner, agentConfig, broker)
 }
 

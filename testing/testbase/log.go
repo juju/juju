@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 	gc "launchpad.net/gocheck"
 )
 

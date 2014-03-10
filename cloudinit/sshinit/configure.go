@@ -8,7 +8,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/utils"

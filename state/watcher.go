@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 	"labix.org/v2/mgo"
 	"launchpad.net/tomb"
 

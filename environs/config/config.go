@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/errgo/errgo"
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/charm"
@@ -627,6 +627,13 @@ func (c *Config) ImageStream() string {
 	return "released"
 }
 
+// TestMode indicates if the environment is intended for testing.
+// In this case, accessing the charm store does not affect statistical
+// data of the store.
+func (c *Config) TestMode() bool {
+	return c.defined["test-mode"].(bool)
+}
+
 // UnknownAttrs returns a copy of the raw configuration attributes
 // that are supposedly specific to the environment type. They could
 // also be wrong attributes, though. Only the specific environment
@@ -691,6 +698,7 @@ var fields = schema.Fields{
 	"bootstrap-timeout":         schema.ForceInt(),
 	"bootstrap-retry-delay":     schema.ForceInt(),
 	"bootstrap-addresses-delay": schema.ForceInt(),
+	"test-mode":                 schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url": schema.String(),
@@ -746,6 +754,7 @@ var alwaysOptional = schema.Defaults{
 	"charm-store-auth": "",
 	// Previously image-stream could be set to an empty value
 	"image-stream": "",
+	"test-mode":    false,
 }
 
 func allowEmpty(attr string) bool {
@@ -853,18 +862,22 @@ func (cfg *Config) GenerateStateServerCertAndKey() ([]byte, []byte, error) {
 	return cert.NewServer(caCert, caKey, time.Now().UTC().AddDate(10, 0, 0), noHostnames)
 }
 
-type Authorizer interface {
+type Specializer interface {
 	WithAuthAttrs(string) charm.Repository
+	WithTestMode(testMode bool) charm.Repository
 }
 
-// AuthorizeCharmRepo returns a repository with authentication added
-// from the specified configuration.
-func AuthorizeCharmRepo(repo charm.Repository, cfg *Config) charm.Repository {
+// SpecializeCharmRepo returns a repository customized for given configuration.
+// It adds authentication if necessary and sets a charm store's testMode flag.
+func SpecializeCharmRepo(repo charm.Repository, cfg *Config) charm.Repository {
 	// If a charm store auth token is set, pass it on to the charm store
 	if auth, authSet := cfg.CharmStoreAuth(); authSet {
-		if CS, isCS := repo.(Authorizer); isCS {
+		if CS, isCS := repo.(Specializer); isCS {
 			repo = CS.WithAuthAttrs(auth)
 		}
+	}
+	if CS, isCS := repo.(Specializer); isCS {
+		repo = CS.WithTestMode(cfg.TestMode())
 	}
 	return repo
 }

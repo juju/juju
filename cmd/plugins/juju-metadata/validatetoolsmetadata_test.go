@@ -77,7 +77,7 @@ func (s *ValidateToolsMetadataSuite) makeLocalMetadata(c *gc.C, version, region,
 		Arch:    "amd64",
 		Release: series,
 	}}
-	targetStorage, err := filestorage.NewFileStorageWriter(s.metadataDir, filestorage.UseDefaultTmpDir)
+	targetStorage, err := filestorage.NewFileStorageWriter(s.metadataDir)
 	c.Assert(err, gc.IsNil)
 	err = tools.WriteMetadata(targetStorage, tm, false)
 	if err != nil {

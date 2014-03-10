@@ -4,7 +4,7 @@
 package main
 
 import (
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
@@ -88,7 +88,7 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) (resultErr error) {
 	defer cleanup()
 	target := environ.Storage()
 	if c.localDir != "" {
-		target, err = filestorage.NewFileStorageWriter(c.localDir, filestorage.UseDefaultTmpDir)
+		target, err = filestorage.NewFileStorageWriter(c.localDir)
 		if err != nil {
 			return err
 		}

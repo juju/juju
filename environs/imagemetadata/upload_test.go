@@ -29,7 +29,7 @@ type uploadSuite struct {
 func createImageMetadata(c *gc.C) (sourceDir string, destDir string, destStor storage.Storage, metadata *imagemetadata.ImageMetadata) {
 	destDir = c.MkDir()
 	var err error
-	destStor, err = filestorage.NewFileStorageWriter(destDir, filestorage.UseDefaultTmpDir)
+	destStor, err = filestorage.NewFileStorageWriter(destDir)
 	c.Assert(err, gc.IsNil)
 
 	// Generate some metadata.
@@ -48,7 +48,7 @@ func createImageMetadata(c *gc.C) (sourceDir string, destDir string, destStor st
 	im[0].RegionName = cloudSpec.Region
 	im[0].Endpoint = cloudSpec.Endpoint
 	var sourceStor storage.Storage
-	sourceStor, err = filestorage.NewFileStorageWriter(sourceDir, filestorage.UseDefaultTmpDir)
+	sourceStor, err = filestorage.NewFileStorageWriter(sourceDir)
 	c.Assert(err, gc.IsNil)
 	err = imagemetadata.MergeAndWriteMetadata("raring", im, cloudSpec, sourceStor)
 	c.Assert(err, gc.IsNil)
@@ -69,7 +69,7 @@ func (s *uploadSuite) TestUpload(c *gc.C) {
 
 func (s *uploadSuite) TestUploadErrors(c *gc.C) {
 	destDir := c.MkDir()
-	destStor, err := filestorage.NewFileStorageWriter(destDir, filestorage.UseDefaultTmpDir)
+	destStor, err := filestorage.NewFileStorageWriter(destDir)
 	c.Assert(err, gc.IsNil)
 	err = imagemetadata.UploadImageMetadata(destStor, "foo")
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
