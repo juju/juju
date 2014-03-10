@@ -113,12 +113,15 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	err = u.Deactivate()
 	c.Assert(err, gc.IsNil)
 
-	_, err = st.Machiner().Machine("0")
-	c.Assert(err, gc.ErrorMatches, `unknown object type "Machiner"`)
+	_, err = st.Client().Status([]string{})
+	c.Assert(err, gc.ErrorMatches, `unknown object type "Client"`)
 
 	// Since these are user login tests, the nonce is empty.
 	err = st.Login("user-inactive", "password", "")
 	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")
+
+	_, err = st.Client().Status([]string{})
+	c.Assert(err, gc.ErrorMatches, `unknown object type "Client"`)
 }
 
 func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {
