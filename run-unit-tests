@@ -38,6 +38,7 @@ bzr whoami 'J. Random Hacker <jrandom@example.org>'
 # Force mongodb-server to be present because the makefile doesn't know that
 # juju-mongodb was temporarilly removed
 sudo apt-get install -y mongodb-server
+sudo apt-get remove -y juju-mongodb
 make build
 make check
 EOT
