@@ -17,8 +17,8 @@ const (
 	no_proxy    = "no_proxy"
 )
 
-// ProxySettings holds the values for the http, https and ftp proxies found by
-// Detect Proxies.
+// ProxySettings holds the values for the http, https and ftp proxies as well
+// as the no_proxy value found by Detect Proxies.
 type ProxySettings struct {
 	Http    string
 	Https   string
