@@ -482,8 +482,9 @@ func (*instanceTypeSuite) TestFindInstanceSpecFailsImpossibleRequest(c *gc.C) {
 // It returns a cleanup function, which you must call when done.
 func patchFetchImageMetadata(cannedResponse []*imagemetadata.ImageMetadata, cannedError error) func() {
 	original := fetchImageMetadata
-	fetchImageMetadata = func([]simplestreams.DataSource, string, *imagemetadata.ImageConstraint, bool) ([]*imagemetadata.ImageMetadata, error) {
-		return cannedResponse, cannedError
+	fetchImageMetadata = func([]simplestreams.DataSource, string, *imagemetadata.ImageConstraint, bool) (
+		[]*imagemetadata.ImageMetadata, *simplestreams.ResolveInfo, error) {
+		return cannedResponse, nil, cannedError
 	}
 	return func() { fetchImageMetadata = original }
 }

@@ -48,7 +48,7 @@ func findInstanceSpec(
 		Arches:    ic.Arches,
 		Stream:    stream,
 	})
-	matchingImages, err := imagemetadata.Fetch(
+	matchingImages, _, err := imagemetadata.Fetch(
 		sources, simplestreams.DefaultIndexPath, imageConstraint, signedImageDataOnly)
 	if err != nil {
 		return nil, err

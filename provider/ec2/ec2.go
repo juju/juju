@@ -338,7 +338,11 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 		Series:        e.ecfg().DefaultSeries(),
 		Region:        region,
 		Endpoint:      ec2Region.EC2Endpoint,
+<<<<<<< TREE
 		Architectures: []string{"amd64", "i386", "arm", "arm64", "ppc64"},
+=======
+		Architectures: []string{"amd64", "i386", "arm", "arm64"},
+>>>>>>> MERGE-SOURCE
 	}, nil
 }
 
@@ -1057,7 +1061,7 @@ func fetchMetadata(name string) (value string, err error) {
 func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket.
 	sources := []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseImagesPath)}
+		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseImagesPath)}
 	return sources, nil
 }
 
@@ -1065,6 +1069,6 @@ func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket.
 	sources := []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)}
+		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseToolsPath)}
 	return sources, nil
 }

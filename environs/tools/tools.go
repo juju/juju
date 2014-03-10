@@ -32,7 +32,7 @@ func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, majorVersion, minorV
 		if majorMismatch || minorMismacth {
 			return nil, coretools.ErrNoMatches
 		}
-		toolsConstraint = NewVersionedToolsConstraint(filter.Number.String(),
+		toolsConstraint = NewVersionedToolsConstraint(filter.Number,
 			simplestreams.LookupParams{CloudSpec: cloudSpec})
 	} else {
 		toolsConstraint = NewGeneralToolsConstraint(majorVersion, minorVersion, filter.Released,
@@ -117,7 +117,7 @@ func FindToolsForCloud(sources []simplestreams.DataSource, cloudSpec simplestrea
 	if err != nil {
 		return nil, err
 	}
-	toolsMetadata, err := Fetch(sources, simplestreams.DefaultIndexPath, toolsConstraint, false)
+	toolsMetadata, _, err := Fetch(sources, simplestreams.DefaultIndexPath, toolsConstraint, false)
 	if err != nil {
 		if errors.IsNotFoundError(err) {
 			err = ErrNoTools

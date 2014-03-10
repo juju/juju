@@ -164,22 +164,24 @@ func (im *ImageMetadata) productId() string {
 // The base URL locations are as specified - the first location which has a file is the one used.
 // Signed data is preferred, but if there is no signed data available and onlySigned is false,
 // then unsigned data is used.
-func Fetch(sources []simplestreams.DataSource, indexPath string, cons *ImageConstraint, onlySigned bool) ([]*ImageMetadata, error) {
+func Fetch(
+	sources []simplestreams.DataSource, indexPath string, cons *ImageConstraint,
+	onlySigned bool) ([]*ImageMetadata, *simplestreams.ResolveInfo, error) {
 	params := simplestreams.ValueParams{
 		DataType:      ImageIds,
 		FilterFunc:    appendMatchingImages,
 		ValueTemplate: ImageMetadata{},
 		PublicKey:     simplestreamsImagesPublicKey,
 	}
-	items, err := simplestreams.GetMetadata(sources, indexPath, cons, onlySigned, params)
+	items, resolveInfo, err := simplestreams.GetMetadata(sources, indexPath, cons, onlySigned, params)
 	if err != nil {
-		return nil, err
+		return nil, resolveInfo, err
 	}
 	metadata := make([]*ImageMetadata, len(items))
 	for i, md := range items {
 		metadata[i] = md.(*ImageMetadata)
 	}
-	return metadata, nil
+	return metadata, resolveInfo, nil
 }
 
 type imageKey struct {

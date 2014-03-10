@@ -198,7 +198,8 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 
 	// Check for deprecated fields and log a warning. We also print to stderr to ensure the user sees the message
 	// even if they are not running with --debug.
-	if defaultImageId := cfg.AllAttrs()["default-image-id"]; defaultImageId != nil && defaultImageId.(string) != "" {
+	cfgAttrs := cfg.AllAttrs()
+	if defaultImageId := cfgAttrs["default-image-id"]; defaultImageId != nil && defaultImageId.(string) != "" {
 		msg := fmt.Sprintf(
 			"Config attribute %q (%v) is deprecated and ignored.\n"+
 				"Your cloud provider should have set up image metadata to provide the correct image id\n"+
@@ -208,7 +209,7 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 			"default-image-id", defaultImageId)
 		logger.Warningf(msg)
 	}
-	if defaultInstanceType := cfg.AllAttrs()["default-instance-type"]; defaultInstanceType != nil && defaultInstanceType.(string) != "" {
+	if defaultInstanceType := cfgAttrs["default-instance-type"]; defaultInstanceType != nil && defaultInstanceType.(string) != "" {
 		msg := fmt.Sprintf(
 			"Config attribute %q (%v) is deprecated and ignored.\n"+
 				"The correct instance flavor is determined using constraints, globally specified\n"+
@@ -217,7 +218,13 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 			"default-instance-type", defaultInstanceType)
 		logger.Warningf(msg)
 	}
-
-	// Apply the coerced unknown values back into the config.
-	return cfg.Apply(ecfg.attrs)
+	// Construct a new config with the deprecated attributes removed.
+	for _, attr := range []string{"default-image-id", "default-instance-type"} {
+		delete(cfgAttrs, attr)
+		delete(ecfg.attrs, attr)
+	}
+	for k, v := range ecfg.attrs {
+		cfgAttrs[k] = v
+	}
+	return config.New(config.NoDefaults, cfgAttrs)
 }
