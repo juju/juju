@@ -62,7 +62,7 @@ func (u *Unit) Remove() error {
 func (u *Unit) SetPassword(password string) error {
 	var result params.ErrorResults
 	args := params.EntityPasswords{
-		Entities: []params.EntityPassword{
+		Changes: []params.EntityPassword{
 			{Tag: u.tag, Password: password},
 		},
 	}

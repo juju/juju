@@ -28,7 +28,7 @@ type Entities struct {
 
 // EntityPasswords holds the parameters for making a SetPasswords call.
 type EntityPasswords struct {
-	Entities []EntityPassword
+	Changes []EntityPassword
 }
 
 // EntityPassword specifies a password change for the entity

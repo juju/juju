@@ -86,7 +86,7 @@ func (m *Entity) ContainerType() instance.ContainerType {
 func (m *Entity) SetPassword(password string) error {
 	var results params.ErrorResults
 	args := params.EntityPasswords{
-		Entities: []params.EntityPassword{{
+		Changes: []params.EntityPassword{{
 			Tag:      m.tag,
 			Password: password,
 		}},

@@ -49,7 +49,7 @@ func (s *userManagerSuite) TestAddUser(c *gc.C) {
 		Password: "password",
 	}
 
-	args := params.EntityPasswords{Entities: []params.EntityPassword{arg}}
+	args := params.EntityPasswords{Changes: []params.EntityPassword{arg}}
 
 	result, err := s.usermanager.AddUser(args)
 	// Check that the call is succesful
@@ -69,7 +69,7 @@ func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
 	removeArg := params.Entity{
 		Tag: "foobar",
 	}
-	args := params.EntityPasswords{Entities: []params.EntityPassword{arg}}
+	args := params.EntityPasswords{Changes: []params.EntityPassword{arg}}
 	removeArgs := params.Entities{Entities: []params.Entity{removeArg}}
 	_, err := s.usermanager.AddUser(args)
 	c.Assert(err, gc.IsNil)
@@ -97,7 +97,7 @@ func (s *userManagerSuite) TestCannotAddRemoveAdd(c *gc.C) {
 	removeArg := params.Entity{
 		Tag: "foobar",
 	}
-	args := params.EntityPasswords{Entities: []params.EntityPassword{arg}}
+	args := params.EntityPasswords{Changes: []params.EntityPassword{arg}}
 	removeArgs := params.Entities{Entities: []params.Entity{removeArg}}
 	_, err := s.usermanager.AddUser(args)
 	c.Assert(err, gc.IsNil)

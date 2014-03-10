@@ -115,7 +115,7 @@ func (s *withoutStateServerSuite) TestProvisionerFailsWithNonMachineAgentNonMana
 
 func (s *withoutStateServerSuite) TestSetPasswords(c *gc.C) {
 	args := params.EntityPasswords{
-		Entities: []params.EntityPassword{
+		Changes: []params.EntityPassword{
 			{Tag: s.machines[0].Tag(), Password: "xxx0-1234567890123457890"},
 			{Tag: s.machines[1].Tag(), Password: "xxx1-1234567890123457890"},
 			{Tag: s.machines[2].Tag(), Password: "xxx2-1234567890123457890"},
@@ -149,7 +149,7 @@ func (s *withoutStateServerSuite) TestSetPasswords(c *gc.C) {
 
 func (s *withoutStateServerSuite) TestShortSetPasswords(c *gc.C) {
 	args := params.EntityPasswords{
-		Entities: []params.EntityPassword{
+		Changes: []params.EntityPassword{
 			{Tag: s.machines[1].Tag(), Password: "xxx1"},
 		},
 	}

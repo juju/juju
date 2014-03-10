@@ -51,14 +51,14 @@ func NewUserManagerAPI(
 
 func (api *UserManagerAPI) AddUser(args params.EntityPasswords) (params.ErrorResults, error) {
 	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Entities)),
+		Results: make([]params.ErrorResult, len(args.Changes)),
 	}
 	canWrite, err := api.getCanWrite()
 	if err != nil {
 		result.Results[0].Error = common.ServerError(err)
 		return result, err
 	}
-	for i, arg := range args.Entities {
+	for i, arg := range args.Changes {
 		if !canWrite(arg.Tag) {
 			result.Results[0].Error = common.ServerError(common.ErrPerm)
 			continue

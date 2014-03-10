@@ -28,16 +28,16 @@ func NewPasswordChanger(st state.EntityFinder, getCanChange GetAuthFunc) *Passwo
 // SetPasswords sets the given password for each supplied entity, if possible.
 func (pc *PasswordChanger) SetPasswords(args params.EntityPasswords) (params.ErrorResults, error) {
 	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Entities)),
+		Results: make([]params.ErrorResult, len(args.Changes)),
 	}
-	if len(args.Entities) == 0 {
+	if len(args.Changes) == 0 {
 		return result, nil
 	}
 	canChange, err := pc.getCanChange()
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
-	for i, param := range args.Entities {
+	for i, param := range args.Changes {
 		if !canChange(param.Tag) {
 			result.Results[i].Error = ServerError(ErrPerm)
 			continue

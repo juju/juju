@@ -126,7 +126,7 @@ func (*passwordSuite) TestSetPasswords(c *gc.C) {
 		})
 	}
 	results, err := pc.SetPasswords(params.EntityPasswords{
-		Entities: changes,
+		Changes: changes,
 	})
 	c.Assert(err, gc.IsNil)
 	c.Assert(results, jc.DeepEquals, params.ErrorResults{
@@ -164,7 +164,7 @@ func (*passwordSuite) TestSetPasswordsError(c *gc.C) {
 			Password: fmt.Sprintf("%spass", tag),
 		})
 	}
-	_, err := pc.SetPasswords(params.EntityPasswords{Entities: changes})
+	_, err := pc.SetPasswords(params.EntityPasswords{Changes: changes})
 	c.Assert(err, gc.ErrorMatches, "splat")
 }
 
