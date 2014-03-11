@@ -161,7 +161,7 @@ func (c *ImageMetadataCommand) Run(context *cmd.Context) error {
 		Region:   c.Region,
 		Endpoint: c.Endpoint,
 	}
-	targetStorage, err := filestorage.NewFileStorageWriter(c.Dir, filestorage.UseDefaultTmpDir)
+	targetStorage, err := filestorage.NewFileStorageWriter(c.Dir)
 	if err != nil {
 		return err
 	}

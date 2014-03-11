@@ -90,7 +90,7 @@ var upgradeJujuTests = []struct {
 }, {
 	about:          "--upload-tools with inappropriate version 2",
 	currentVersion: "3.2.7-quantal-amd64",
-	args:           []string{"--upload-tools", "--version", "3.1.0.4"},
+	args:           []string{"--upload-tools", "--version", "3.2.8.4"},
 	expectInitErr:  "cannot specify build number when uploading tools",
 }, {
 	about:          "latest supported stable release",
@@ -104,6 +104,24 @@ var upgradeJujuTests = []struct {
 	currentVersion: "2.0.0-quantal-amd64",
 	agentVersion:   "2.0.0",
 	expectVersion:  "2.0.5",
+}, {
+	about:          "latest current release matching CLI, major version",
+	tools:          []string{"3.2.0-quantal-amd64"},
+	currentVersion: "3.2.0-quantal-amd64",
+	agentVersion:   "2.8.2",
+	expectVersion:  "3.2.0",
+}, {
+	about:          "latest current release matching CLI, major version, no matching major tools",
+	tools:          []string{"2.8.2-quantal-amd64"},
+	currentVersion: "3.2.0-quantal-amd64",
+	agentVersion:   "2.8.2",
+	expectErr:      "no matching tools available",
+}, {
+	about:          "latest current release matching CLI, major version, no matching tools",
+	tools:          []string{"3.3.0-quantal-amd64"},
+	currentVersion: "3.2.0-quantal-amd64",
+	agentVersion:   "2.8.2",
+	expectErr:      "no compatible tools available",
 }, {
 	about:          "no next supported available",
 	tools:          []string{"2.1.0-quantal-amd64", "2.1.5-quantal-i386", "2.3.3-quantal-amd64"},
@@ -129,6 +147,13 @@ var upgradeJujuTests = []struct {
 	agentVersion:   "2.0.0",
 	args:           []string{"--version", "2.3.0"},
 	expectVersion:  "2.3.0",
+}, {
+	about:          "specified major version",
+	tools:          []string{"3.2.0-quantal-amd64"},
+	currentVersion: "3.2.0-quantal-amd64",
+	agentVersion:   "2.8.2",
+	args:           []string{"--version", "3.2.0"},
+	expectVersion:  "3.2.0",
 }, {
 	about:          "specified version missing, but already set",
 	currentVersion: "3.0.0-quantal-amd64",
@@ -175,14 +200,14 @@ var upgradeJujuTests = []struct {
 	currentVersion: "3.2.0-quantal-amd64",
 	agentVersion:   "4.2.0",
 	args:           []string{"--version", "3.2.0"},
-	expectErr:      "cannot change major version from 4 to 3",
+	expectErr:      "cannot change version from 4.2.0 to 3.2.0",
 }, {
-	about:          "major version upgrade to compatible version",
+	about:          "minor version downgrade to incompatible version",
 	tools:          []string{"3.2.0-quantal-amd64"},
 	currentVersion: "3.2.0-quantal-amd64",
-	agentVersion:   "2.8.2",
+	agentVersion:   "3.3.0",
 	args:           []string{"--version", "3.2.0"},
-	expectErr:      "major version upgrades are not supported yet",
+	expectErr:      "cannot change version from 3.3.0 to 3.2.0",
 }, {
 	about:          "nothing available",
 	currentVersion: "2.0.0-quantal-amd64",
@@ -312,7 +337,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 
 		}
 		envtesting.MustUploadFakeToolsVersions(s.Conn.Environ.Storage(), versions...)
-		stor, err := filestorage.NewFileStorageWriter(toolsDir, "")
+		stor, err := filestorage.NewFileStorageWriter(toolsDir)
 		c.Assert(err, gc.IsNil)
 		envtesting.MustUploadFakeToolsVersions(stor, versions...)
 		err = com.Run(coretesting.Context(c))

@@ -6,7 +6,7 @@ package kvm_test
 import (
 	"path/filepath"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
@@ -30,14 +30,23 @@ var _ = gc.Suite(&KVMSuite{})
 func (s *KVMSuite) SetUpTest(c *gc.C) {
 	s.TestSuite.SetUpTest(c)
 	var err error
-	s.manager, err = kvm.NewContainerManager(container.ManagerConfig{Name: "test"})
+	s.manager, err = kvm.NewContainerManager(container.ManagerConfig{container.ConfigName: "test"})
 	c.Assert(err, gc.IsNil)
 }
 
 func (*KVMSuite) TestManagerNameNeeded(c *gc.C) {
-	manager, err := kvm.NewContainerManager(container.ManagerConfig{})
+	manager, err := kvm.NewContainerManager(container.ManagerConfig{container.ConfigName: ""})
 	c.Assert(err, gc.ErrorMatches, "name is required")
 	c.Assert(manager, gc.IsNil)
+}
+
+func (*KVMSuite) TestManagerWarnsAboutUnknownOption(c *gc.C) {
+	_, err := kvm.NewContainerManager(container.ManagerConfig{
+		container.ConfigName: "BillyBatson",
+		"shazam":             "Captain Marvel",
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(c.GetTestLog(), gc.Matches, `^.*WARNING juju.container.kvm Found unused config option with key: "shazam" and value: "Captain Marvel"\n*`)
 }
 
 func (s *KVMSuite) TestListInitiallyEmpty(c *gc.C) {

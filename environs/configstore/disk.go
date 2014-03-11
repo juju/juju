@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 
 	"github.com/errgo/errgo"
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/errors"
@@ -157,6 +157,11 @@ func (info *environInfo) SetAPIEndpoint(endpoint APIEndpoint) {
 func (info *environInfo) SetAPICredentials(creds APICredentials) {
 	info.User = creds.User
 	info.Password = creds.Password
+}
+
+// Location returns the location of the environInfo in human readable format.
+func (info *environInfo) Location() string {
+	return fmt.Sprintf("file %q", info.path)
 }
 
 // Write implements EnvironInfo.Write.

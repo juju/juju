@@ -148,7 +148,7 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	repo = config.AuthorizeCharmRepo(repo, conf)
+	repo = config.SpecializeCharmRepo(repo, conf)
 
 	// If no explicit revision was set with either SwitchURL
 	// or Revision flags, discover the latest.
@@ -220,7 +220,7 @@ func (c *UpgradeCharmCommand) run1dot16(ctx *cmd.Context) error {
 		return err
 	}
 
-	repo = config.AuthorizeCharmRepo(repo, conf)
+	repo = config.SpecializeCharmRepo(repo, conf)
 
 	// If no explicit revision was set with either SwitchURL
 	// or Revision flags, discover the latest.

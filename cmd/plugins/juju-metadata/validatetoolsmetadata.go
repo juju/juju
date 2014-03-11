@@ -163,7 +163,7 @@ func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {
 				return err
 			}
 			params = &simplestreams.MetadataLookupParams{
-				Architectures: []string{"amd64", "arm", "i386", "arm64"},
+				Architectures: []string{"amd64", "arm", "i386", "arm64", "ppc64"},
 			}
 		}
 	} else {

@@ -21,6 +21,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	ttesting "launchpad.net/juju-core/environs/tools/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/dummy"
@@ -1475,6 +1476,18 @@ func (s *clientSuite) TestClientEnvironmentSetCannotChangeAgentVersion(c *gc.C) 
 	c.Assert(err, gc.IsNil)
 }
 
+func (s *clientSuite) TestClientFindTools(c *gc.C) {
+	result, err := s.APIState.Client().FindTools(2, -1, "", "")
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Error, jc.Satisfies, params.IsCodeNotFound)
+	ttesting.UploadToStorage(c, s.Conn.Environ.Storage(), version.MustParseBinary("2.12.0-precise-amd64"))
+	result, err = s.APIState.Client().FindTools(2, 12, "precise", "amd64")
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.List, gc.HasLen, 1)
+	c.Assert(result.List[0].Version, gc.Equals, version.MustParseBinary("2.12.0-precise-amd64"))
+}
+
 func (s *clientSuite) checkMachine(c *gc.C, id, series, cons string) {
 	// Ensure the machine was actually created.
 	machine, err := s.BackingState.Machine(id)
@@ -1730,7 +1743,7 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	}
 }
 
-func (s *clientSuite) TestClientAuthorizeStoreOnDeployServiceSetCharmAndAddCharm(c *gc.C) {
+func (s *clientSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAddCharm(c *gc.C) {
 	store, restore := makeMockCharmStore()
 	defer restore()
 
@@ -1738,7 +1751,9 @@ func (s *clientSuite) TestClientAuthorizeStoreOnDeployServiceSetCharmAndAddCharm
 	c.Assert(err, gc.IsNil)
 
 	attrs := coretesting.Attrs(oldConfig.AllAttrs())
-	attrs = attrs.Merge(coretesting.Attrs{"charm-store-auth": "token=value"})
+	attrs = attrs.Merge(coretesting.Attrs{
+		"charm-store-auth": "token=value",
+		"test-mode":        true})
 
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
@@ -1754,6 +1769,7 @@ func (s *clientSuite) TestClientAuthorizeStoreOnDeployServiceSetCharmAndAddCharm
 
 	// check that the store's auth attributes were set
 	c.Assert(store.AuthAttrs, gc.Equals, "token=value")
+	c.Assert(store.TestMode, gc.Equals, true)
 
 	store.AuthAttrs = ""
 

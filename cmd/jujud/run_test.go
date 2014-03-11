@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
@@ -182,7 +182,7 @@ func (s *RunTestSuite) runListenerForAgent(c *gc.C, agent string) {
 	c.Assert(err, gc.IsNil)
 
 	socketPath := filepath.Join(testAgentDir, uniter.RunListenerFile)
-	listener, err := uniter.NewRunListener(&mockRunner{c}, "unix", socketPath)
+	listener, err := uniter.NewRunListener(&mockRunner{c}, socketPath)
 	c.Assert(err, gc.IsNil)
 	c.Assert(listener, gc.NotNil)
 	s.AddCleanup(func(*gc.C) {
