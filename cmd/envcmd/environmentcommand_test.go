@@ -6,22 +6,25 @@ package envcmd_test
 import (
 	"io/ioutil"
 	"os"
+	"testing"
 
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju/osenv"
-	"launchpad.net/juju-core/testing"
+	jujutesting "launchpad.net/juju-core/testing"
 )
 
 type EnvironmentCommandSuite struct {
-	home *testing.FakeHome
+	home *jujutesting.FakeHome
 }
 
 var _ = gc.Suite(&EnvironmentCommandSuite{})
 
+func Test(t *testing.T) { gc.TestingT(t) }
+
 func (s *EnvironmentCommandSuite) SetUpTest(c *gc.C) {
-	s.home = testing.MakeEmptyFakeHome(c)
+	s.home = jujutesting.MakeEmptyFakeHome(c)
 }
 
 func (s *EnvironmentCommandSuite) TearDownTest(c *gc.C) {
