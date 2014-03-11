@@ -101,7 +101,7 @@ func EnsureCloneTemplate(
 		return nil, err
 	}
 
-	lock, err := AcquireTemplateLock(name, "manager ensure existence")
+	lock, err := AcquireTemplateLock(name, "ensure clone exists")
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +125,7 @@ func EnsureCloneTemplate(
 		return nil, err
 	}
 
-	configFile, err := writeLxcConfig(network, containerDirectory, manager.logdir)
+	configFile, err := writeLxcConfig(network, containerDirectory)
 	if err != nil {
 		logger.Errorf("failed to write config file: %v", err)
 		return nil, err
