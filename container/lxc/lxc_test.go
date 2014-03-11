@@ -80,6 +80,15 @@ func (s *LxcSuite) makeManager(c *gc.C, name string) container.Manager {
 	return manager
 }
 
+func (*LxcSuite) TestManagerWarnsAboutUnknownOption(c *gc.C) {
+	_, err := lxc.NewContainerManager(container.ManagerConfig{
+		container.ConfigName: "BillyBatson",
+		"shazam":             "Captain Marvel",
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(c.GetTestLog(), gc.Matches, `^.*WARNING juju.container.lxc Found unused config option with key: "shazam" and value: "Captain Marvel"\n*`)
+}
+
 func (s *LxcSuite) TestStartContainer(c *gc.C) {
 	manager := s.makeManager(c, "test")
 	instance := containertesting.StartContainer(c, manager, "1/lxc/0")
