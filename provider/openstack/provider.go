@@ -204,7 +204,7 @@ func (p environProvider) MetadataLookupParams(region string) (*simplestreams.Met
 	}
 	return &simplestreams.MetadataLookupParams{
 		Region:        region,
-		Architectures: []string{"amd64", "arm", "arm64"},
+		Architectures: []string{"amd64", "arm", "arm64", "ppc64"},
 	}, nil
 }
 
@@ -1197,7 +1197,7 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 		Series:        e.ecfg().DefaultSeries(),
 		Region:        region,
 		Endpoint:      e.ecfg().authURL(),
-		Architectures: []string{"amd64", "arm", "arm64"},
+		Architectures: []string{"amd64", "arm", "arm64", "ppc64"},
 	}, nil
 }
 

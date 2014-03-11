@@ -129,6 +129,7 @@ var archREs = []struct {
 	{regexp.MustCompile("i[3-9]86"), "i386"},
 	{regexp.MustCompile("armv.*"), "arm"},
 	{regexp.MustCompile("aarch64"), "arm64"},
+	{regexp.MustCompile("ppc64el|ppc64le"), "ppc64"},
 }
 
 const detectionScript = `#!/bin/bash
