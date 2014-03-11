@@ -358,7 +358,7 @@ func (c *UpgradeJujuCommand) run1dot16() error {
 	defer conn.Close()
 	defer func() {
 		if err == errUpToDate {
-			logger.Noticef(err.Error())
+			logger.Infof(err.Error())
 			err = nil
 		}
 	}()
