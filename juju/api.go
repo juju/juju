@@ -8,7 +8,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/juju/loggo"
+	"github.com/loggo/loggo"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -18,7 +18,6 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/keymanager"
-	"launchpad.net/juju-core/state/api/usermanager"
 	"launchpad.net/juju-core/utils/parallel"
 )
 
@@ -58,16 +57,7 @@ var errAborted = fmt.Errorf("aborted")
 // given environment. The environment must have already
 // been bootstrapped.
 func NewAPIConn(environ environs.Environ, dialOpts api.DialOpts) (*APIConn, error) {
-	/*
-		store := configstore.NewMem()
-		environInfo, err := store.CreateInfo(environ.Name())
-		if err != nil {
-			return nil, err
-		}
-		environInfo.SetAPICredentials(configstore.APICredentials{"", ""})
-		info, err := environAPIInfo(environInfo, environ)
-	*/
-	info, err := environAPIInfo(nil, environ)
+	info, err := environAPIInfo(environ)
 	if err != nil {
 		return nil, err
 	}
@@ -110,25 +100,17 @@ func NewKeyManagerClient(envName string) (*keymanager.Client, error) {
 	return keymanager.NewClient(st), nil
 }
 
-func NewUserManagerClient(envName string) (*usermanager.Client, error) {
-	st, err := newAPIClient(envName)
+func newAPIClient(envName string) (*api.State, error) {
+	store, err := configstore.NewDisk(osenv.JujuHome())
 	if err != nil {
 		return nil, err
 	}
-	return usermanager.NewClient(st), nil
-}
-
-func newAPIClient(envName string) (*api.State, error) {
-	return newAPIFromName(envName, nil)
-}
-
-func NewAPIClientFromInfo(envName string, info configstore.EnvironInfo) (*api.State, error) {
-	return newAPIFromName(envName, info)
+	return newAPIFromName(envName, store)
 }
 
 // newAPIFromName implements the bulk of NewAPIClientFromName
 // but is separate for testing purposes.
-func newAPIFromName(envName string, info configstore.EnvironInfo) (*api.State, error) {
+func newAPIFromName(envName string, store configstore.Storage) (*api.State, error) {
 	// Try to read the default environment configuration file.
 	// If it doesn't exist, we carry on in case
 	// there's some environment info for that environment.
@@ -173,15 +155,9 @@ func newAPIFromName(envName string, info configstore.EnvironInfo) (*api.State, e
 	}
 	try := parallel.NewTry(0, chooseError)
 
-	store, err := configstore.NewDisk(osenv.JujuHome())
-	if err != nil {
-		return nil, fmt.Errorf("cannot open environment info storage: %v", err)
-	}
-	if info == nil {
-		info, err = store.ReadInfo(envName)
-		if err != nil && !errors.IsNotFoundError(err) {
-			return nil, err
-		}
+	info, err := store.ReadInfo(envName)
+	if err != nil && !errors.IsNotFoundError(err) {
+		return nil, err
 	}
 	var delay time.Duration
 	if info != nil && len(info.APIEndpoint().Addresses) > 0 {
@@ -293,7 +269,7 @@ func apiConfigConnect(info configstore.EnvironInfo, envs *environs.Environs, env
 	if err != nil {
 		return apiState{}, err
 	}
-	apiInfo, err := environAPIInfo(info, environ)
+	apiInfo, err := environAPIInfo(environ)
 	if err != nil {
 		return apiState{}, err
 	}
@@ -305,18 +281,10 @@ func apiConfigConnect(info configstore.EnvironInfo, envs *environs.Environs, env
 	return apiState{st, apiInfo}, nil
 }
 
-func environAPIInfo(environInfo configstore.EnvironInfo, environ environs.Environ) (*api.Info, error) {
+func environAPIInfo(environ environs.Environ) (*api.Info, error) {
 	_, info, err := environ.StateInfo()
 	if err != nil {
 		return nil, err
-	}
-	if environInfo != nil {
-		if environInfo.APICredentials().User != "" && environInfo.APICredentials().Password != "" {
-			info.Tag = environInfo.APICredentials().User
-			info.Password = environInfo.APICredentials().Password
-			return info, nil
-
-		}
 	}
 	info.Tag = "user-admin"
 	password := environ.Config().AdminSecret()
@@ -340,7 +308,6 @@ func cacheAPIInfo(info configstore.EnvironInfo, apiInfo *api.Info) error {
 		return fmt.Errorf("not caching API connection settings: invalid API user tag: %v", err)
 	}
 	info.SetAPICredentials(configstore.APICredentials{
-		//User:     apiInfo.Tag,
 		User:     username,
 		Password: apiInfo.Password,
 	})

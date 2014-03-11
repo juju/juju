@@ -212,7 +212,6 @@ var commandNames = []string{
 	"add-machine",
 	"add-relation",
 	"add-unit",
-	"add-user",
 	"api-endpoints",
 	"authorised-keys",
 	"bootstrap",
@@ -234,13 +233,11 @@ var commandNames = []string{
 	"help",
 	"help-tool",
 	"init",
-	"login",
 	"publish",
 	"remove-machine",  // alias for destroy-machine
 	"remove-relation", // alias for destroy-relation
 	"remove-service",  // alias for destroy-service
 	"remove-unit",     // alias for destroy-unit
-	"remove-user",
 	"resolved",
 	"run",
 	"scp",
@@ -259,7 +256,6 @@ var commandNames = []string{
 	"upgrade-charm",
 	"upgrade-juju",
 	"version",
-	"whoami",
 }
 
 func (s *MainSuite) TestHelpCommands(c *gc.C) {
