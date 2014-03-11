@@ -4,21 +4,19 @@
 package instancepoller
 
 import (
-        stdtesting "testing"
-        "time"
+	stdtesting "testing"
+	"time"
 
-        gc "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
-        "launchpad.net/juju-core/juju/testing"
-        "launchpad.net/juju-core/testing/testbase"
-        coretesting "launchpad.net/juju-core/testing"
-        "launchpad.net/juju-core/worker/resumer"
+	"launchpad.net/juju-core/juju/testing"
+	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/worker/resumer"
 )
 
 type aggregateSuite struct {
-    testbase.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&aggregateSuite{})
-
-

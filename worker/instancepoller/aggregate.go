@@ -1,25 +1,28 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package instancepoller
 
 import (
-        "fmt"
+	"fmt"
 	"time"
 
-        "github.com/juju/ratelimit"
-        "launchpad.net/tomb"
+	"github.com/juju/ratelimit"
+	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 )
 
-type aggregator struct {
-	environ environs.Environ
-	reqc    chan instanceInfoReq
-        tomb    tomb.Tomb
+type instanceGetter interface {
+	Instances(ids []instance.Id) ([]instance.Instance, error)
 }
 
-type instanceGetter interface {
-
+type aggregator struct {
+	environ instanceGetter
+	reqc    chan instanceInfoReq
+	tomb    tomb.Tomb
 }
 
 func newAggregator(env environs.Environ) *aggregator {
@@ -27,10 +30,10 @@ func newAggregator(env environs.Environ) *aggregator {
 		environ: env,
 		reqc:    make(chan instanceInfoReq),
 	}
-        go func() {
-                defer a.tomb.Done()
-                a.tomb.Kill(a.loop())
-        }()
+	go func() {
+		defer a.tomb.Done()
+		a.tomb.Kill(a.loop())
+	}()
 	return a
 }
 
@@ -61,17 +64,17 @@ func (a *aggregator) loop() error {
 	timer := time.NewTimer(0)
 	timer.Stop()
 	var reqs []instanceInfoReq
-        bucket := ratelimit.New(GatherTime, Capacity)
+	bucket := ratelimit.New(GatherTime, Capacity)
 	for {
 		select {
-                case <-a.tomb.Dying():
-                    return tomb.ErrDying
+		case <-a.tomb.Dying():
+			return tomb.ErrDying
 		case req, ok := <-a.reqc:
 			if !ok {
 				return fmt.Errorf("request channel closed")
 			}
 			if len(reqs) == 0 {
-                                waitTime := bucket.Take(1)
+				waitTime := bucket.Take(1)
 				timer.Reset(waitTime)
 			}
 			reqs = append(reqs, req)
@@ -96,11 +99,11 @@ func (a *aggregator) loop() error {
 }
 
 func (a *aggregator) Kill() {
-        a.tomb.Kill(nil)
+	a.tomb.Kill(nil)
 }
 
 func (a *aggregator) Wait() error {
-        return a.tomb.Wait()
+	return a.tomb.Wait()
 }
 
 // instanceInfo returns the instance info for the given id
