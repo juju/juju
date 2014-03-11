@@ -417,6 +417,9 @@ type ToolsResults struct {
 // FindToolsParams defines parameters for the FindTools method.
 type FindToolsParams struct {
 	MajorVersion int
+	MinorVersion int
+	Arch         string
+	Series       string
 }
 
 // FindToolsResults holds a list of tools from FindTools and any error.

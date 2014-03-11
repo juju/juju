@@ -1477,11 +1477,11 @@ func (s *clientSuite) TestClientEnvironmentSetCannotChangeAgentVersion(c *gc.C) 
 }
 
 func (s *clientSuite) TestClientFindTools(c *gc.C) {
-	result, err := s.APIState.Client().FindTools(2)
+	result, err := s.APIState.Client().FindTools(2, -1, "", "")
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Error, jc.Satisfies, params.IsCodeNotFound)
 	ttesting.UploadToStorage(c, s.Conn.Environ.Storage(), version.MustParseBinary("2.12.0-precise-amd64"))
-	result, err = s.APIState.Client().FindTools(2)
+	result, err = s.APIState.Client().FindTools(2, 12, "precise", "amd64")
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.List, gc.HasLen, 1)

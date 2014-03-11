@@ -822,7 +822,11 @@ func (c *Client) FindTools(args params.FindToolsParams) (params.FindToolsResults
 	if err != nil {
 		return result, err
 	}
-	result.List, err = envtools.FindTools(env, args.MajorVersion, -1, coretools.Filter{}, envtools.DoNotAllowRetry)
+	filter := coretools.Filter{
+		Arch:   args.Arch,
+		Series: args.Series,
+	}
+	result.List, err = envtools.FindTools(env, args.MajorVersion, args.MajorVersion, filter, envtools.DoNotAllowRetry)
 	result.Error = common.ServerError(err)
 	return result, nil
 }

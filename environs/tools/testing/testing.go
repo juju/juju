@@ -156,9 +156,9 @@ type metadataFile struct {
 	data []byte
 }
 
-func generateMetadata(c *gc.C, verses ...version.Binary) []metadataFile {
-	var metadata = make([]*tools.ToolsMetadata, len(verses))
-	for i, vers := range verses {
+func generateMetadata(c *gc.C, versions ...version.Binary) []metadataFile {
+	var metadata = make([]*tools.ToolsMetadata, len(versions))
+	for i, vers := range versions {
 		basePath := fmt.Sprintf("releases/tools-%s.tar.gz", vers.String())
 		metadata[i] = &tools.ToolsMetadata{
 			Release: vers.Series,
@@ -177,13 +177,13 @@ func generateMetadata(c *gc.C, verses ...version.Binary) []metadataFile {
 }
 
 // UploadToStorage uploads tools and metadata for the specified versions to storage.
-func UploadToStorage(c *gc.C, stor storage.Storage, verses ...version.Binary) map[version.Binary]string {
+func UploadToStorage(c *gc.C, stor storage.Storage, versions ...version.Binary) map[version.Binary]string {
 	uploaded := map[version.Binary]string{}
-	if len(verses) == 0 {
+	if len(versions) == 0 {
 		return uploaded
 	}
 	var err error
-	for _, vers := range verses {
+	for _, vers := range versions {
 		filename := fmt.Sprintf("tools/releases/tools-%s.tar.gz", vers.String())
 		// Put a file in images since the dummy storage provider requires a
 		// file to exist before the URL can be found. This is to ensure it behaves
@@ -193,7 +193,7 @@ func UploadToStorage(c *gc.C, stor storage.Storage, verses ...version.Binary) ma
 		uploaded[vers], err = stor.URL(filename)
 		c.Assert(err, gc.IsNil)
 	}
-	objects := generateMetadata(c, verses...)
+	objects := generateMetadata(c, versions...)
 	for _, object := range objects {
 		toolspath := path.Join("tools", object.path)
 		err = stor.Put(toolspath, bytes.NewReader(object.data), int64(len(object.data)))
@@ -203,16 +203,16 @@ func UploadToStorage(c *gc.C, stor storage.Storage, verses ...version.Binary) ma
 }
 
 // UploadToStorage uploads tools and metadata for the specified versions to dir.
-func UploadToDirectory(c *gc.C, dir string, verses ...version.Binary) map[version.Binary]string {
+func UploadToDirectory(c *gc.C, dir string, versions ...version.Binary) map[version.Binary]string {
 	uploaded := map[version.Binary]string{}
-	if len(verses) == 0 {
+	if len(versions) == 0 {
 		return uploaded
 	}
-	for _, vers := range verses {
+	for _, vers := range versions {
 		basePath := fmt.Sprintf("releases/tools-%s.tar.gz", vers.String())
 		uploaded[vers] = fmt.Sprintf("file://%s/%s", dir, basePath)
 	}
-	objects := generateMetadata(c, verses...)
+	objects := generateMetadata(c, versions...)
 	for _, object := range objects {
 		path := filepath.Join(dir, object.path)
 		dir := filepath.Dir(path)

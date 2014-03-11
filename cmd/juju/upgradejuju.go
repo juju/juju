@@ -17,7 +17,6 @@ import (
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	coretools "launchpad.net/juju-core/tools"
@@ -118,7 +117,7 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) (err error) {
 	defer client.Close()
 	defer func() {
 		if err == errUpToDate {
-			log.Noticef(err.Error())
+			logger.Infof(err.Error())
 			err = nil
 		}
 	}()
@@ -148,14 +147,14 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) (err error) {
 	if err := v.validate(); err != nil {
 		return err
 	}
-	log.Infof("upgrade version chosen: %s", v.chosen)
+	logger.Infof("upgrade version chosen: %s", v.chosen)
 	// TODO(fwereade): this list may be incomplete, pending envtools.Upload change.
-	log.Infof("available tools: %s", v.tools)
+	logger.Infof("available tools: %s", v.tools)
 
 	if err := client.SetEnvironAgentVersion(v.chosen); err != nil {
 		return err
 	}
-	log.Noticef("started upgrade to %s", v.chosen)
+	logger.Infof("started upgrade to %s", v.chosen)
 	return nil
 }
 
@@ -173,7 +172,7 @@ func (c *UpgradeJujuCommand) initVersions(client *api.Client, cfg *config.Config
 		return nil, errUpToDate
 	}
 	clientVersion := version.Current.Number
-	findResult, err := client.FindTools(clientVersion.Major)
+	findResult, err := client.FindTools(clientVersion.Major, -1, "", "")
 	var availableTools coretools.List
 	if params.IsCodeNotImplemented(err) {
 		availableTools, err = findTools1dot17(cfg)
@@ -291,12 +290,12 @@ func (v *upgradeVersions) validate() (err error) {
 
 		newestNextStable, found := v.tools.NewestCompatible(nextVersion)
 		if found {
-			log.Debugf("found a more recent stable version %s", newestNextStable)
+			logger.Debugf("found a more recent stable version %s", newestNextStable)
 			v.chosen = newestNextStable
 		} else {
 			newestCurrent, found := v.tools.NewestCompatible(v.agent)
 			if found {
-				log.Debugf("found more recent current version %s", newestCurrent)
+				logger.Debugf("found more recent current version %s", newestCurrent)
 				v.chosen = newestCurrent
 			} else {
 				if v.agent.Major != v.client.Major {
@@ -351,7 +350,7 @@ func uploadVersion(vers version.Number, existing coretools.List) version.Number 
 // needed for compatibility, so 1.16 can be upgraded to newer
 // releases. It should be removed in 1.18.
 func (c *UpgradeJujuCommand) run1dot16() error {
-	log.Warningf("running in 1.16 compatibility mode")
+	logger.Warningf("running in 1.16 compatibility mode")
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
 		return err
@@ -359,7 +358,7 @@ func (c *UpgradeJujuCommand) run1dot16() error {
 	defer conn.Close()
 	defer func() {
 		if err == errUpToDate {
-			log.Noticef(err.Error())
+			logger.Noticef(err.Error())
 			err = nil
 		}
 	}()
@@ -383,13 +382,13 @@ func (c *UpgradeJujuCommand) run1dot16() error {
 	if err := v.validate(); err != nil {
 		return err
 	}
-	log.Infof("upgrade version chosen: %s", v.chosen)
-	log.Infof("available tools: %s", v.tools)
+	logger.Infof("upgrade version chosen: %s", v.chosen)
+	logger.Infof("available tools: %s", v.tools)
 
 	if err := conn.State.SetEnvironAgentVersion(v.chosen); err != nil {
 		return err
 	}
-	log.Noticef("started upgrade to %s", v.chosen)
+	logger.Infof("started upgrade to %s", v.chosen)
 	return nil
 }
 

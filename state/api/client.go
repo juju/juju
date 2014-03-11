@@ -419,10 +419,15 @@ func (c *Client) SetEnvironAgentVersion(version version.Number) error {
 	return c.st.Call("Client", "", "SetEnvironAgentVersion", args, nil)
 }
 
-// FindTools returns a List containing all tools matching the specified major version.
-func (c *Client) FindTools(majorVersion int) (result params.FindToolsResults, err error) {
+// FindTools returns a List containing all tools matching the specified parameters.
+func (c *Client) FindTools(majorVersion, minorVersion int,
+	series, arch string) (result params.FindToolsResults, err error) {
+
 	args := params.FindToolsParams{
 		MajorVersion: majorVersion,
+		MinorVersion: minorVersion,
+		Arch:         arch,
+		Series:       series,
 	}
 	err = c.st.Call("Client", "", "FindTools", args, &result)
 	return result, err
