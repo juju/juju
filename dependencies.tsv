@@ -6,7 +6,7 @@ github.com/juju/loggo	git	fa3acf9ab9ed09aea29030558528e24a254d27af
 launchpad.net/gnuflag	bzr	roger.peppe@canonical.com-20121003093437-zcyyw0lpvj2nifpk	12
 launchpad.net/goamz	bzr	roger.peppe@canonical.com-20131218155244-hbnkvlkkzy3vmlh9	44
 launchpad.net/gocheck	bzr	gustavo@niemeyer.net-20130302024745-6ikofwq2c03h7giu	85
-launchpad.net/golxc	bzr	to-be-determined-when-other-branch-landed	8
+launchpad.net/golxc	bzr	tim.penhey@canonical.com-20140311005930-b14361bwnocu3krh	8
 launchpad.net/gomaasapi	bzr	ian.booth@canonical.com-20131017011445-m1hmr0ap14osd7li	47
 launchpad.net/goose	bzr	tarmac-20140124165235-h9rloooc531udms5	116
 launchpad.net/goyaml	bzr	gustavo@niemeyer.net-20131114120802-abe042syx64z2m7s	50
