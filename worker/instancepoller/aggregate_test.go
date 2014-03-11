@@ -4,15 +4,9 @@
 package instancepoller
 
 import (
-	stdtesting "testing"
-	"time"
-
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/juju/testing"
-	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
-	"launchpad.net/juju-core/worker/resumer"
 )
 
 type aggregateSuite struct {
@@ -20,3 +14,16 @@ type aggregateSuite struct {
 }
 
 var _ = gc.Suite(&aggregateSuite{})
+
+type testInstanceGetter struct {
+    ids []instance.Id
+    results []instanceInfoReply
+}
+
+func (i *testInstanceGetter) Instances(ids []instance.Id) ([]instance.Instance, error) {
+    return new([]instance.Instance), nil
+}
+
+func (s *aggregateSuite) TestLoop(c *gc.C) {
+    &newAggregator(new(testInstanceGetter)
+}

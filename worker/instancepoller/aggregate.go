@@ -25,7 +25,7 @@ type aggregator struct {
 	tomb    tomb.Tomb
 }
 
-func newAggregator(env environs.Environ) *aggregator {
+func newAggregator(env instanceGetter) *aggregator {
 	a := &aggregator{
 		environ: env,
 		reqc:    make(chan instanceInfoReq),
