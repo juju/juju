@@ -35,6 +35,10 @@ func (c *AddKeysCommand) Info() *cmd.Info {
 }
 
 func (c *AddKeysCommand) Init(args []string) error {
+	err := c.EnsureEnvNameSet()
+	if err != nil {
+		return err
+	}
 	switch len(args) {
 	case 0:
 		return errors.New("no ssh key specified")

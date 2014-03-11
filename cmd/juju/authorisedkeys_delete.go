@@ -37,6 +37,10 @@ func (c *DeleteKeysCommand) Info() *cmd.Info {
 }
 
 func (c *DeleteKeysCommand) Init(args []string) error {
+	err := c.EnsureEnvNameSet()
+	if err != nil {
+		return err
+	}
 	switch len(args) {
 	case 0:
 		return errors.New("no ssh key id specified")

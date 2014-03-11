@@ -38,6 +38,10 @@ func (c *EndpointCommand) Info() *cmd.Info {
 }
 
 func (c *EndpointCommand) Init(args []string) error {
+	err := c.EnsureEnvNameSet()
+	if err != nil {
+		return err
+	}
 	return cmd.CheckEmpty(args)
 }
 

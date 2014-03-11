@@ -45,6 +45,10 @@ func (c *SetCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *SetCommand) Init(args []string) error {
+	err := c.EnsureEnvNameSet()
+	if err != nil {
+		return err
+	}
 	if len(args) == 0 || len(strings.Split(args[0], "=")) > 1 {
 		return errors.New("no service name specified")
 	}

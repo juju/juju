@@ -29,6 +29,10 @@ func (c *RemoveUserCommand) Info() *cmd.Info {
 }
 
 func (c *RemoveUserCommand) Init(args []string) error {
+	err := c.EnsureEnvNameSet()
+	if err != nil {
+		return err
+	}
 	if len(args) == 0 {
 		return errors.New("no username supplied")
 	}

@@ -42,6 +42,14 @@ func (c *ListKeysCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.user, "user", "admin", "the user for which to list the keys")
 }
 
+func (c *ListKeysCommand) Init(args []string) error {
+	err := c.EnsureEnvNameSet()
+	if err != nil {
+		return err
+	}
+	return cmd.CheckEmpty(args)
+}
+
 func (c *ListKeysCommand) Run(context *cmd.Context) error {
 	client, err := juju.NewKeyManagerClient(c.EnvName)
 	if err != nil {

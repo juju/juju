@@ -81,6 +81,10 @@ func (c *RunCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *RunCommand) Init(args []string) error {
+	err := c.EnsureEnvNameSet()
+	if err != nil {
+		return err
+	}
 	if len(args) == 0 {
 		return errors.New("no commands specified")
 	}

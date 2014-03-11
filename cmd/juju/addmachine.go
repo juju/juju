@@ -83,6 +83,10 @@ func (c *AddMachineCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *AddMachineCommand) Init(args []string) error {
+	err := c.EnsureEnvNameSet()
+	if err != nil {
+		return err
+	}
 	if c.Constraints.Container != nil {
 		return fmt.Errorf("container constraint %q not allowed when adding a machine", *c.Constraints.Container)
 	}

@@ -267,7 +267,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []string) {
 	setDefaultPassword(c, u)
 	add(u)
 
-	u, err = s.State.AddUser("other", "")
+	u, err = s.State.AddUser("other", "password")
 	c.Assert(err, gc.IsNil)
 	setDefaultPassword(c, u)
 	add(u)

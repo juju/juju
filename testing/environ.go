@@ -244,6 +244,12 @@ func MakeSampleHome(c *gc.C) *FakeHome {
 	return MakeFakeHome(c, SingleEnvConfig, SampleCertName)
 }
 
+func MakeSampleHomeWithFiles(c *gc.C, files []TestFile) *FakeHome {
+	fake := MakeSampleHome(c)
+	fake.AddFiles(c, files)
+	return fake
+}
+
 func MakeMultipleEnvHome(c *gc.C) *FakeHome {
 	return MakeFakeHome(c, MultipleEnvConfig, SampleCertName, SampleCertName+"-2")
 }

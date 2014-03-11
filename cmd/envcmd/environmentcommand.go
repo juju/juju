@@ -63,7 +63,8 @@ func getDefaultEnvironment() string {
 	}
 	return ReadCurrentEnvironment()
 }
-func (c *EnvCommandBase) InitCommandBase() error {
+
+func (c *EnvCommandBase) EnsureEnvNameSet() error {
 	if c.EnvName == "" {
 		envs, err := environs.ReadEnvirons("")
 		if err != nil {

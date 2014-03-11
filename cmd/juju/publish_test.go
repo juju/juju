@@ -75,7 +75,7 @@ func (s *PublishSuite) TearDownSuite(c *gc.C) {
 func (s *PublishSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.HTTPSuite.SetUpTest(c)
-	s.home = testing.MakeFakeHomeWithFiles(c, []testing.TestFile{
+	s.home = testing.MakeSampleHomeWithFiles(c, []testing.TestFile{
 		{
 			Name: ".bazaar/bazaar.conf",
 			Data: "[DEFAULT]\nemail = Test <testing@testing.invalid>\n",

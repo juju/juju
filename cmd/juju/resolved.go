@@ -36,6 +36,10 @@ func (c *ResolvedCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *ResolvedCommand) Init(args []string) error {
+	err := c.EnsureEnvNameSet()
+	if err != nil {
+		return err
+	}
 	if len(args) > 0 {
 		c.UnitName = args[0]
 		if !names.IsUnit(c.UnitName) {

@@ -37,6 +37,10 @@ func (c *GetCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *GetCommand) Init(args []string) error {
+	err := c.EnsureEnvNameSet()
+	if err != nil {
+		return err
+	}
 	// TODO(dfc) add --schema-only
 	if len(args) == 0 {
 		return errors.New("no service name specified")

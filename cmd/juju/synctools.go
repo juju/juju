@@ -67,6 +67,10 @@ func (c *SyncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *SyncToolsCommand) Init(args []string) error {
+	err := c.EnsureEnvNameSet()
+	if err != nil {
+		return err
+	}
 	if c.destination != "" {
 		// Override localDir with destination as localDir now replaces destination
 		c.localDir = c.destination

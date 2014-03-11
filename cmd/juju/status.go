@@ -58,7 +58,7 @@ func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *StatusCommand) Init(args []string) error {
 	c.patterns = args
-	return nil
+	return c.EnsureEnvNameSet()
 }
 
 var connectionError = `Unable to connect to environment "%s".

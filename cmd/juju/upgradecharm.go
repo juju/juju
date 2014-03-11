@@ -85,6 +85,10 @@ func (c *UpgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *UpgradeCharmCommand) Init(args []string) error {
+	err := c.EnsureEnvNameSet()
+	if err != nil {
+		return err
+	}
 	switch len(args) {
 	case 1:
 		if !names.IsService(args[0]) {

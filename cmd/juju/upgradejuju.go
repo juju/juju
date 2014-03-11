@@ -82,6 +82,10 @@ func (c *UpgradeJujuCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *UpgradeJujuCommand) Init(args []string) error {
+	err := c.EnsureEnvNameSet()
+	if err != nil {
+		return err
+	}
 	if c.vers != "" {
 		vers, err := version.Parse(c.vers)
 		if err != nil {

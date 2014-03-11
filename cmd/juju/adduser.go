@@ -39,6 +39,10 @@ func (c *AddUserCommand) Info() *cmd.Info {
 }
 
 func (c *AddUserCommand) Init(args []string) error {
+	err := c.EnsureEnvNameSet()
+	if err != nil {
+		return err
+	}
 	if len(args) == 0 {
 		return fmt.Errorf("no username supplied")
 	}

@@ -94,6 +94,10 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *DeployCommand) Init(args []string) error {
+	err := c.EnsureEnvNameSet()
+	if err != nil {
+		return err
+	}
 	switch len(args) {
 	case 2:
 		if !names.IsService(args[1]) {

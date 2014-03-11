@@ -36,7 +36,7 @@ func (c *dummySSHCommand) Run(ctx *cmd.Context) error {
 // debug-log is implemented by invoking juju ssh with the correct arguments.
 // This test helper checks for the expected invocation.
 func (s *DebugLogSuite) assertDebugLogInvokesSSHCommand(c *gc.C, expected string, args ...string) {
-	defer testing.MakeEmptyFakeHome(c).Restore()
+	defer testing.MakeSampleHome(c).Restore()
 	debugLogCmd, err := runDebugLog(c, args...)
 	c.Assert(err, gc.IsNil)
 	debugCmd := debugLogCmd.sshCmd.(*dummySSHCommand)
@@ -65,7 +65,7 @@ func (s *DebugLogSuite) TestDebugLogLast(c *gc.C) {
 }
 
 func (s *DebugLogSuite) TestDebugLogValidation(c *gc.C) {
-	defer testing.MakeEmptyFakeHome(c).Restore()
+	defer testing.MakeSampleHome(c).Restore()
 	_, err := runDebugLog(c, "-n", "0")
 	c.Assert(err, gc.ErrorMatches, "invalid value \"0\" for flag -n: invalid number of lines")
 	_, err = runDebugLog(c, "-n", "-1")

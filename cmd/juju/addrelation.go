@@ -26,6 +26,10 @@ func (c *AddRelationCommand) Info() *cmd.Info {
 }
 
 func (c *AddRelationCommand) Init(args []string) error {
+	err := c.EnsureEnvNameSet()
+	if err != nil {
+		return err
+	}
 	if len(args) != 2 {
 		return fmt.Errorf("a relation must involve two services")
 	}
