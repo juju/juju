@@ -221,6 +221,7 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 	attemptCount = 0
 	attempt = strategy.Start()
 	for attempt.Next() {
+		attemptCount += 1
 		err = Remove(session, members[3].Address, members[4].Address)
 		if err == nil || !attempt.HasNext() {
 			break
@@ -251,26 +252,35 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 	// plus the new arbiter
 	mems = []Member{members[3], mems[2], mems[0], members[4]}
 
+	start = time.Now()
+	attemptCount = 0
 	attempt = strategy.Start()
 	for attempt.Next() {
+		attemptCount += 1
 		err = Set(session, mems)
 		if err == nil || !attempt.HasNext() {
 			break
 		}
+		c.Logf("attempting Set got error: %v", err)
 	}
-
 	c.Assert(err, gc.IsNil)
+	c.Logf("Set() completed after %d attempts in %s", attemptCount, time.Since(start))
 
+	start = time.Now()
+	attemptCount = 0
 	attempt = strategy.Start()
 	for attempt.Next() {
+		attemptCount += 1
 		// can dial whichever replica address here, mongo will figure it out
 		session = instances[0].MustDialDirect()
 		err = session.Ping()
 		if err == nil || !attempt.HasNext() {
 			break
 		}
+		c.Logf("attempting session.Ping() got error: %v", err)
 	}
 	c.Assert(err, gc.IsNil)
+	c.Logf("session.Ping() completed after %d attempts in %s", attemptCount, time.Since(start))
 
 	expectedMembers = []Member{members[3], expectedMembers[2], expectedMembers[0], members[4]}
 
@@ -278,14 +288,19 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 	expectedMembers[0].Id = 4
 	expectedMembers[3].Id = 5
 
+	start = time.Now()
+	attemptCount = 0
 	attempt = strategy.Start()
 	for attempt.Next() {
+		attemptCount += 1
 		mems, err = CurrentMembers(session)
 		if err == nil || !attempt.HasNext() {
 			break
 		}
+		c.Logf("attempting CurrentMembers() got error: %v", err)
 	}
 	c.Assert(err, gc.IsNil)
+	c.Logf("CurrentMembers() completed after %d attempts in %s", attemptCount, time.Since(start))
 	c.Assert(mems, gc.DeepEquals, expectedMembers)
 }
 
