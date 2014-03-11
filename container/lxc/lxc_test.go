@@ -185,16 +185,18 @@ func (s *LxcSuite) TestStartContainerNoRestartDir(c *gc.C) {
 
 	manager := s.makeManager(c, "test")
 	instance := containertesting.StartContainer(c, manager, "1/lxc/0")
-	autostartLink := lxc.RestartSymlink(string(instance.Id()))
-
-	config := lxc.NetworkConfigTemplate("foo", "bar")
+	name := string(instance.Id())
+	autostartLink := lxc.RestartSymlink(name)
+	config, err := ioutil.ReadFile(lxc.ContainerConfigFilename(name))
+	c.Assert(err, gc.IsNil)
 	expected := `
-lxc.network.type = foo
-lxc.network.link = bar
+lxc.network.type = veth
+lxc.network.link = nic42
 lxc.network.flags = up
 lxc.start.auto = 1
+lxc.mount.entry=/var/log/juju var/log/juju none defaults,bind 0 0
 `
-	c.Assert(config, gc.Equals, expected)
+	c.Assert(string(config), gc.Equals, expected)
 	c.Assert(autostartLink, jc.DoesNotExist)
 }
 

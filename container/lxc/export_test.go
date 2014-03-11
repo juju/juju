@@ -4,7 +4,8 @@
 package lxc
 
 var (
-	NetworkConfigTemplate = networkConfigTemplate
-	GenerateNetworkConfig = generateNetworkConfig
-	RestartSymlink        = restartSymlink
+	NetworkConfigTemplate   = networkConfigTemplate
+	GenerateNetworkConfig   = generateNetworkConfig
+	RestartSymlink          = restartSymlink
+	ContainerConfigFilename = containerConfigFilename
 )
