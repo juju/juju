@@ -492,15 +492,14 @@ func CheckPackage(c *gc.C, userDataMap map[interface{}]interface{}, pkg string, 
 	}
 
 	pkgs := pkgs0.([]interface{})
+
 	found := false
 	for _, p0 := range pkgs {
 		p := p0.(string)
-		reMatch, _ := regexp.MatchString(pkg, p)
-		if reMatch {
+		if p == pkg {
 			found = true
 		}
 	}
-
 	switch {
 	case match && !found:
 		c.Errorf("package %q not found in %v", pkg, pkgs)
