@@ -442,12 +442,14 @@ func (c *Config) AuthorizedKeys() string {
 	return c.mustString("authorized-keys")
 }
 
-// ProxySettings returns all three proxy settings; http, https and ftp.
+// ProxySettings returns all four proxy settings; http, https, ftp, and no
+// proxy.
 func (c *Config) ProxySettings() osenv.ProxySettings {
 	return osenv.ProxySettings{
-		Http:  c.HttpProxy(),
-		Https: c.HttpsProxy(),
-		Ftp:   c.FtpProxy(),
+		Http:    c.HttpProxy(),
+		Https:   c.HttpsProxy(),
+		Ftp:     c.FtpProxy(),
+		NoProxy: c.NoProxy(),
 	}
 }
 
@@ -464,6 +466,11 @@ func (c *Config) HttpsProxy() string {
 // FtpProxy returns the ftp proxy for the environment.
 func (c *Config) FtpProxy() string {
 	return c.asString("ftp-proxy")
+}
+
+// NoProxy returns the 'no proxy' for the environment.
+func (c *Config) NoProxy() string {
+	return c.asString("no-proxy")
 }
 
 func (c *Config) getWithFallback(key, fallback string) string {
@@ -692,6 +699,7 @@ var fields = schema.Fields{
 	"http-proxy":                schema.String(),
 	"https-proxy":               schema.String(),
 	"ftp-proxy":                 schema.String(),
+	"no-proxy":                  schema.String(),
 	"apt-http-proxy":            schema.String(),
 	"apt-https-proxy":           schema.String(),
 	"apt-ftp-proxy":             schema.String(),
@@ -721,16 +729,19 @@ var alwaysOptional = schema.Defaults{
 	"ca-private-key-path":       schema.Omit,
 	"logging-config":            schema.Omit,
 	"provisioner-safe-mode":     schema.Omit,
-	"http-proxy":                schema.Omit,
-	"https-proxy":               schema.Omit,
-	"ftp-proxy":                 schema.Omit,
-	"apt-http-proxy":            schema.Omit,
-	"apt-https-proxy":           schema.Omit,
-	"apt-ftp-proxy":             schema.Omit,
 	"bootstrap-timeout":         schema.Omit,
 	"bootstrap-retry-delay":     schema.Omit,
 	"bootstrap-addresses-delay": schema.Omit,
 	"rsyslog-ca-cert":           schema.Omit,
+
+	// Proxy values default to "", otherwise they can't be set to blank.
+	"http-proxy":      "",
+	"https-proxy":     "",
+	"ftp-proxy":       "",
+	"no-proxy":        "",
+	"apt-http-proxy":  "",
+	"apt-https-proxy": "",
+	"apt-ftp-proxy":   "",
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url": "",
@@ -907,6 +918,7 @@ func ProxyConfigMap(proxy osenv.ProxySettings) map[string]interface{} {
 		"http-proxy":  proxy.Http,
 		"https-proxy": proxy.Https,
 		"ftp-proxy":   proxy.Ftp,
+		"no-proxy":    proxy.NoProxy,
 	}
 }
 

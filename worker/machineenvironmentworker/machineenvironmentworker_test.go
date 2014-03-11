@@ -123,9 +123,10 @@ func (s *MachineEnvironmentWatcherSuite) updateConfig(c *gc.C) (osenv.ProxySetti
 	c.Assert(err, gc.IsNil)
 
 	proxySettings := osenv.ProxySettings{
-		Http:  "http proxy",
-		Https: "https proxy",
-		Ftp:   "ftp proxy",
+		Http:    "http proxy",
+		Https:   "https proxy",
+		Ftp:     "ftp proxy",
+		NoProxy: "no proxy",
 	}
 
 	envConfig, err := oldConfig.Apply(config.ProxyConfigMap(proxySettings))
