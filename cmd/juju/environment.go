@@ -163,7 +163,7 @@ func (c *SetEnvironmentCommand) run1dot16() error {
 	defer conn.Close()
 
 	// Update state config with new values
-	return conn.State.UpdateEnvironConfig(c.values, []string{})
+	return conn.State.UpdateEnvironConfig(c.values, nil)
 }
 
 func (c *SetEnvironmentCommand) Run(ctx *cmd.Context) error {

@@ -162,6 +162,7 @@ func (s *SetEnvironmentSuite) TestChangeAsCommandPair(c *gc.C) {
 }
 
 var immutableConfigTests = map[string]string{
+	"type":          "dummy",
 	"name":          "foo",
 	"firewall-mode": "global",
 	"state-port":    "1",
