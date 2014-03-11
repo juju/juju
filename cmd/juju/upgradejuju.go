@@ -110,7 +110,7 @@ func (c *UpgradeJujuCommand) Init(args []string) error {
 var errUpToDate = stderrors.New("no upgrades available")
 
 // Run changes the version proposed for the juju envtools.
-func (c *UpgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
+func (c *UpgradeJujuCommand) Run(_ *cmd.Context) (err error) {
 	client, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
 		return err
@@ -141,7 +141,7 @@ func (c *UpgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	if c.UploadTools {
 		series := getUploadSeries(cfg, c.Series)
-		if err := v.uploadTools(ctx, cfg, series); err != nil {
+		if err := v.uploadTools(cfg, series); err != nil {
 			return err
 		}
 	}
@@ -174,6 +174,12 @@ func (c *UpgradeJujuCommand) initVersions(client *api.Client, cfg *config.Config
 	}
 	clientVersion := version.Current.Number
 	findResult, err := client.FindTools(clientVersion.Major)
+	var availableTools coretools.List
+	if params.IsCodeNotImplemented(err) {
+		availableTools, err = findTools1dot17(cfg)
+	} else {
+		availableTools = findResult.List
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -195,8 +201,18 @@ func (c *UpgradeJujuCommand) initVersions(client *api.Client, cfg *config.Config
 		agent:  agent,
 		client: clientVersion,
 		chosen: c.Version,
-		tools:  findResult.List,
+		tools:  availableTools,
 	}, nil
+}
+
+// findTools1dot17 allows 1.17.x versions to be upgraded.
+func findTools1dot17(cfg *config.Config) (coretools.List, error) {
+	env, err := environs.New(cfg)
+	if err != nil {
+		return nil, err
+	}
+	clientVersion := version.Current.Number
+	return envtools.FindTools(env, clientVersion.Major, -1, coretools.Filter{}, envtools.DoNotAllowRetry)
 }
 
 // upgradeVersions holds the version information for making upgrade decisions.
@@ -214,7 +230,7 @@ type upgradeVersions struct {
 // than that of any otherwise-matching available envtools.
 // uploadTools resets the chosen version and replaces the available tools
 // with the ones just uploaded.
-func (v *upgradeVersions) uploadTools(ctx *cmd.Context, cfg *config.Config, series []string) (err error) {
+func (v *upgradeVersions) uploadTools(cfg *config.Config, series []string) (err error) {
 	// TODO(fwereade): this is kinda crack: we should not assume that
 	// version.Current matches whatever source happens to be built. The
 	// ideal would be:
@@ -232,15 +248,16 @@ func (v *upgradeVersions) uploadTools(ctx *cmd.Context, cfg *config.Config, seri
 	}
 	v.chosen = uploadVersion(v.chosen, v.tools)
 
+	// TODO(wallyworld): we don't want to create an environment here but there's
+	// currently no choice. We need to add an UploadTools API.
+	env, err := environs.New(cfg)
+	if err != nil {
+		return err
+	}
 	// TODO(fwereade): sync.Upload should return coretools.List, and should
 	// include all the extra series we build, so we can set *that* onto
 	// v.available and maybe one day be able to check that a given upgrade
 	// won't leave out-of-date machines lying around, starved of tools.
-	env, cleanup, err := environFromName(ctx, cfg.Name(), &err, "upgrade upload tools")
-	if err != nil {
-		return err
-	}
-	defer cleanup()
 	uploaded, err := sync.Upload(env.Storage(), &v.chosen, series...)
 	if err != nil {
 		return err
