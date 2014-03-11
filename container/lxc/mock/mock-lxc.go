@@ -5,11 +5,12 @@ package mock
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
 	"launchpad.net/golxc"
+
+	"launchpad.net/juju-core/utils"
 )
 
 // This file provides a mock implementation of the golxc interfaces
@@ -84,12 +85,8 @@ func (mock *mockContainer) Create(configFile, template string, extraArgs []strin
 	if err := os.MkdirAll(containerDir, 0755); err != nil {
 		return err
 	}
-	data, err := ioutil.ReadFile(configFile)
-	if err != nil {
-		return err
-	}
-	configFilename := filepath.Join(containerDir, "config")
-	return ioutil.WriteFile(configFilename, data, 0755)
+	containerConfig := filepath.Join(containerDir, "config")
+	return utils.CopyFile(containerConfig, configFile)
 }
 
 // Start runs the container as a daemon.
