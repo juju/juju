@@ -4,6 +4,8 @@
 package instancepoller
 
 import (
+        "fmt"
+
 	gc "launchpad.net/gocheck"
 
         "launchpad.net/juju-core/instance"
@@ -21,19 +23,26 @@ type testInstanceGetter struct {
     results []instanceInfoReply
 }
 
+type testInstance struct {
+    instance.Instance
+}
+
 func (i *testInstanceGetter) Instances(ids []instance.Id) ([]instance.Instance, error) {
-    var results []instance.Instance
-    return results, nil
+//    var results []instance.Instance
+//    results[0] = testInstance{}
+    return nil, fmt.Errorf("Some error")
 }
 
 func (s *aggregateSuite) TestLoop(c *gc.C) {
     testGetter := new(testInstanceGetter)
     aggregator := newAggregator(testGetter)
 
-    req := &instanceInfoReq{
-        reply: make(chan instanceInfoReply),
+    replyChan := make(chan instanceInfoReply)
+    req := instanceInfoReq{
+        reply: replyChan,
+        instId: instance.Id("foo"),
     }
     aggregator.reqc <- req
-    reply :=  <-req.reply
+    reply :=  <-replyChan
     c.Assert(reply.err, gc.IsNil)
 }
