@@ -96,13 +96,21 @@ def delete_instance(env, instance_id):
         environ['EC2_URL'] = ec2_url
         environ['EC2_ACCESS_KEY'] = env.config['access-key']
         environ['EC2_SECRET_KEY'] = env.config['secret-key']
-        print("Deleting %s." % instance_id)
-        output = subprocess.check_output(
-            ['euca-terminate-instances', instance_id], env=environ)
-        print(output)
+        command_args = ['euca-terminate-instances', instance_id]
+    elif provider_type == 'openstack':
+        environ = dict(os.environ)
+        environ['OS_AUTH_URL'] = env.config['auth-url']
+        environ['OS_REGION_NAME'] = env.config['region']
+        environ['OS_USERNAME'] = env.config['username']
+        environ['OS_PASSWORD'] = env.config['password']
+        environ['OS_TENANT_NAME'] = env.config['tenant-name']
+        command_args = ['nova', 'delete', instance_id]
     else:
         raise ValueError(
             "This test does not support the %s provider" % provider_type)
+    print("Deleting %s." % instance_id)
+    output = subprocess.check_output(command_args, env=environ)
+    print(output)
 
 
 def restore_missing_state_server(env, backup_file):
