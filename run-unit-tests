@@ -37,9 +37,7 @@ make install-dependencies
 bzr whoami 'J. Random Hacker <jrandom@example.org>'
 # Force mongodb-server to be present because the makefile doesn't know that
 # juju-mongodb was temporarilly removed
-set +ex
-sudo apt-get install -y mongodb-server
-set -ex
+# sudo apt-get install -y mongodb-server
 sudo apt-get remove -y juju-mongodb
 if [[ \$(lsb_release -sc) == "trusty" ]]; then
     sudo apt-get upgrade -y
