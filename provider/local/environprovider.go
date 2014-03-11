@@ -112,12 +112,14 @@ func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Conf
 	logger.Tracef("Look for proxies?")
 	if cfg.HttpProxy() == "" &&
 		cfg.HttpsProxy() == "" &&
-		cfg.FtpProxy() == "" {
+		cfg.FtpProxy() == "" &&
+		cfg.NoProxy() == "" {
 		proxy := osenv.DetectProxies()
 		logger.Tracef("Proxies detected %#v", proxy)
 		setIfNotBlank("http-proxy", proxy.Http)
 		setIfNotBlank("https-proxy", proxy.Https)
 		setIfNotBlank("ftp-proxy", proxy.Ftp)
+		setIfNotBlank("no-proxy", proxy.NoProxy)
 	}
 	if cfg.AptHttpProxy() == "" &&
 		cfg.AptHttpsProxy() == "" &&

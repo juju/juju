@@ -79,10 +79,12 @@ var _ container.Manager = (*containerManager)(nil)
 // parameter.
 func NewContainerManager(conf container.ManagerConfig) (container.Manager, error) {
 	name := conf[container.ConfigName]
+	delete(conf, container.ConfigName)
 	if name == "" {
 		return nil, fmt.Errorf("name is required")
 	}
 	logDir := conf[container.ConfigLogDir]
+	delete(conf, container.ConfigLogDir)
 	if logDir == "" {
 		logDir = agent.DefaultLogDir
 	}
@@ -96,6 +98,9 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 		return nil, err
 	}
 	logger.Tracef("backing filesystem: %q", backingFS)
+	for k, v := range conf {
+		logger.Warningf(`Found unused config option with key: "%v" and value: "%v"`, k, v)
+	}
 	return &containerManager{
 		name:              name,
 		logdir:            logDir,
