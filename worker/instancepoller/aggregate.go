@@ -4,8 +4,8 @@ import (
         "fmt"
 	"time"
 
-        "github.com/juju/ratelimit"                                                   
-        "launchpad.net/tomb" 
+        "github.com/juju/ratelimit"
+        "launchpad.net/tomb"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
@@ -19,7 +19,7 @@ type aggregator struct {
 }
 
 type instanceGetter interface {
-    
+
 }
 
 func newAggregator(env environs.Environ) *aggregator {
@@ -27,10 +27,10 @@ func newAggregator(env environs.Environ) *aggregator {
 		environ: env,
 		reqc:    make(chan instanceInfoReq),
 	}
-        go func() {                                                             
-                defer a.tomb.Done()                                            
-                a.tomb.Kill(a.loop())                                         
-        }()  
+        go func() {
+                defer a.tomb.Done()
+                a.tomb.Kill(a.loop())
+        }()
 	return a
 }
 
@@ -95,13 +95,13 @@ func (a *aggregator) loop() error {
 	}
 }
 
-func (a *aggregator) Kill() {                                                     
-        a.tomb.Kill(nil)                                                       
-}       
+func (a *aggregator) Kill() {
+        a.tomb.Kill(nil)
+}
 
-func (a *aggregator) Wait() error {                                               
-        return a.tomb.Wait()                                                   
-}        
+func (a *aggregator) Wait() error {
+        return a.tomb.Wait()
+}
 
 // instanceInfo returns the instance info for the given id
 // and instance. If inst is nil, it returns a not-found error.
