@@ -172,14 +172,19 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 	var err error
 
 	strategy := utils.AttemptStrategy{Total: time.Second * 30, Delay: time.Millisecond * 100}
+	start := time.Now()
+	attemptCount := 0
 	attempt := strategy.Start()
 	for attempt.Next() {
+		attemptCount += 1
 		err = Add(session, members...)
 		if err == nil || !attempt.HasNext() {
 			break
 		}
+		c.Logf("attempting to Add got error: %v", err)
 	}
 	c.Assert(err, gc.IsNil)
+	c.Logf("Add() completed after %d attempts in %s", attemptCount, time.Since(start))
 
 	expectedMembers := make([]Member, len(members))
 	for x, m := range members {
@@ -189,15 +194,19 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 	}
 
 	var cfg *Config
+	start = time.Now()
+	attemptCount = 0
 	attempt = strategy.Start()
 	for attempt.Next() {
+		attemptCount += 1
 		cfg, err = CurrentConfig(session)
 		if err == nil || !attempt.HasNext() {
 			break
 		}
+		c.Logf("attempting CurrentConfig got error: %v", err)
 	}
-
 	c.Assert(err, gc.IsNil)
+	c.Logf("CurrentConfig() completed after %d attempts in %s", attemptCount, time.Since(start))
 	c.Assert(cfg.Name, gc.Equals, name)
 
 	// 2 since we already changed it once
@@ -208,19 +217,34 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 	c.Assert(mems, gc.DeepEquals, expectedMembers)
 
 	// Now remove the last two Members
+	start = time.Now()
+	attemptCount = 0
 	attempt = strategy.Start()
 	for attempt.Next() {
 		err = Remove(session, members[3].Address, members[4].Address)
 		if err == nil || !attempt.HasNext() {
 			break
 		}
+		c.Logf("attempting Remove got error: %v", err)
 	}
 	c.Assert(err, gc.IsNil)
+	c.Logf("Remove() completed after %d attempts in %s", attemptCount, time.Since(start))
 
 	expectedMembers = expectedMembers[0:3]
 
-	mems, err = CurrentMembers(session)
+	start = time.Now()
+	attemptCount = 0
+	attempt = strategy.Start()
+	for attempt.Next() {
+		attemptCount += 1
+		mems, err = CurrentMembers(session)
+		if err == nil || !attempt.HasNext() {
+			break
+		}
+		c.Logf("attempting CurrentMembers got error: %v", err)
+	}
 	c.Assert(err, gc.IsNil)
+	c.Logf("CurrentMembers() completed after %d attempts in %s", attemptCount, time.Since(start))
 	c.Assert(mems, gc.DeepEquals, expectedMembers)
 
 	// now let's mix it up and set the new members to a mix of the previous
