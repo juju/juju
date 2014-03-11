@@ -13,6 +13,7 @@ import (
 	"hash"
 	"io"
 	"path"
+	"sort"
 	"strings"
 	"time"
 
@@ -186,8 +187,21 @@ func Fetch(
 	for i, md := range items {
 		metadata[i] = md.(*ToolsMetadata)
 	}
+	Sort(metadata)
 	return metadata, resolveInfo, nil
 }
+
+// Sort sorts a slice of ToolsMetadata in ascending order of their version
+// in order to ensure the results of Fetch are ordered deterministically.
+func Sort(metadata []*ToolsMetadata) {
+	sort.Sort(byVersion(metadata))
+}
+
+type byVersion []*ToolsMetadata
+
+func (b byVersion) Len() int           { return len(b) }
+func (b byVersion) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
+func (b byVersion) Less(i, j int) bool { return b[i].binary().String() < b[j].binary().String() }
 
 // appendMatchingTools updates matchingTools with tools metadata records from tools which belong to the
 // specified series. If a tools record already exists in matchingTools, it is not overwritten.
@@ -308,6 +322,7 @@ func MergeMetadata(tmlist1, tmlist2 []*ToolsMetadata) ([]*ToolsMetadata, error) 
 	for _, metadata := range merged {
 		list = append(list, metadata)
 	}
+	Sort(list)
 	return list, nil
 }
 
