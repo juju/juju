@@ -189,13 +189,14 @@ func (s *LxcSuite) TestStartContainerNoRestartDir(c *gc.C) {
 	autostartLink := lxc.RestartSymlink(name)
 	config, err := ioutil.ReadFile(lxc.ContainerConfigFilename(name))
 	c.Assert(err, gc.IsNil)
-	expectedRegex := `(?m)
-lxc.network.type = .*
-lxc.network.link = .*
-lxc.network.flags = (\n|.)*
+	expected := `
+lxc.network.type = veth
+lxc.network.link = nic42
+lxc.network.flags = up
 lxc.start.auto = 1
+lxc.mount.entry=/var/log/juju var/log/juju none defaults,bind 0 0
 `
-	c.Assert(string(config), gc.Matches, expectedRegex)
+	c.Assert(string(config), gc.Equals, expected)
 	c.Assert(autostartLink, jc.DoesNotExist)
 }
 
