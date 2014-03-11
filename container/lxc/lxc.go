@@ -127,7 +127,7 @@ func (manager *containerManager) StartContainer(
 		return nil, nil, err
 	}
 	logger.Tracef("write the lxc.conf file")
-	configFile, err := writeLxcConfig(network, directory, manager.logdir)
+	configFile, err := writeLxcConfig(network, directory)
 	if err != nil {
 		logger.Errorf("failed to write config file: %v", err)
 		return nil, nil, err
@@ -144,15 +144,12 @@ func (manager *containerManager) StartContainer(
 		logger.Errorf("lxc container creation failed: %v", err)
 		return nil, nil, err
 	}
-	// Make sure that the mount dir has been created.
-	logger.Tracef("make the mount dir for the shared logs")
-	if err := os.MkdirAll(internalLogDir(name), 0755); err != nil {
-		logger.Errorf("failed to create internal /var/log/juju mount dir: %v", err)
-		return nil, nil, err
-	}
 	logger.Tracef("lxc container created")
 
 	if err := autostartContainer(name); err != nil {
+		return nil, nil, err
+	}
+	if err := mountHostLogDir(name, manager.logdir); err != nil {
 		return nil, nil, err
 	}
 	// Start the lxc container with the appropriate settings for grabbing the
@@ -176,6 +173,17 @@ func (manager *containerManager) StartContainer(
 	return &lxcInstance{lxcContainer, name}, hardware, nil
 }
 
+func appendToContainerConfig(name, line string) error {
+	file, err := os.OpenFile(
+		containerConfigFilename(name), os.O_RDWR|os.O_APPEND, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	_, err = file.WriteString(line)
+	return err
+}
+
 func autostartContainer(name string) error {
 	// Now symlink the config file into the restart directory, if it exists.
 	// This is for backwards compatiblity. From Trusty onwards, the auto start
@@ -190,16 +198,23 @@ func autostartContainer(name string) error {
 		}
 		logger.Tracef("auto-restart link created")
 	} else {
-		file, err := os.OpenFile(
-			containerConfigFilename(name), os.O_RDWR|os.O_APPEND, 0644)
-		if err != nil {
-			return err
-		}
-		defer file.Close()
-		file.WriteString("lxc.start.auto = 1\n")
 		logger.Tracef("Setting auto start to true in lxc config.")
+		return appendToContainerConfig(name, "lxc.start.auto = 1\n")
 	}
 	return nil
+}
+
+func mountHostLogDir(name, logDir string) error {
+	// Make sure that the mount dir has been created.
+	logger.Tracef("make the mount dir for the shared logs")
+	if err := os.MkdirAll(internalLogDir(name), 0755); err != nil {
+		logger.Errorf("failed to create internal /var/log/juju mount dir: %v", err)
+		return err
+	}
+	line := fmt.Sprintf(
+		"lxc.mount.entry=%s var/log/juju none defaults,bind 0 0\n",
+		logDir)
+	return appendToContainerConfig(name, line)
 }
 
 func (manager *containerManager) StopContainer(instance instance.Instance) error {
@@ -258,10 +273,6 @@ func containerConfigFilename(name string) string {
 	return filepath.Join(LxcContainerDir, name, "config")
 }
 
-const localConfig = `%s
-lxc.mount.entry=%s var/log/juju none defaults,bind 0 0
-`
-
 const networkTemplate = `
 lxc.network.type = %s
 lxc.network.link = %s
@@ -291,11 +302,10 @@ func generateNetworkConfig(network *container.NetworkConfig) string {
 	return lxcConfig
 }
 
-func writeLxcConfig(network *container.NetworkConfig, directory, logdir string) (string, error) {
+func writeLxcConfig(network *container.NetworkConfig, directory string) (string, error) {
 	networkConfig := generateNetworkConfig(network)
 	configFilename := filepath.Join(directory, "lxc.conf")
-	configContent := fmt.Sprintf(localConfig, networkConfig, logdir)
-	if err := ioutil.WriteFile(configFilename, []byte(configContent), 0644); err != nil {
+	if err := ioutil.WriteFile(configFilename, []byte(networkConfig), 0644); err != nil {
 		return "", err
 	}
 	return configFilename, nil
