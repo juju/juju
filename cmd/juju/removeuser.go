@@ -12,6 +12,10 @@ import (
 )
 
 const removeUserDoc = `
+Remove users from an existing environment
+
+Examples:
+  juju remove-user foobar
 `
 
 type RemoveUserCommand struct {
