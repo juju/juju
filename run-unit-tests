@@ -32,6 +32,12 @@ tar -xzvf $tarfile
 export GOPATH=\$HOME/$juju_version
 cd \$GOPATH/src/launchpad.net/juju-core
 sudo apt-get update
+# ec2 must have bad mirrors, more than half of the calls to install a package
+# in main is listed as not available after an update.
+test -z "$(apt-cache showpkg build-essential)" && sudo apt-get update
+test -z "$(apt-cache showpkg build-essential)" && sudo apt-get update
+test -z "$(apt-cache showpkg build-essential)" && sudo apt-get update
+test -z "$(apt-cache showpkg build-essential)" && sudo apt-get update
 sudo apt-get install -y build-essential
 make install-dependencies
 bzr whoami 'J. Random Hacker <jrandom@example.org>'
