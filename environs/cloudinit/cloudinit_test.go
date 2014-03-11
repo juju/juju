@@ -804,6 +804,14 @@ func (*cloudinitSuite) createMachineConfig(c *gc.C, environConfig *config.Config
 	return machineConfig
 }
 
+func (s *cloudinitSuite) TestMachineConfigTargetRelease(c *gc.C) {
+	environConfig := minimalConfig(c)
+	machineCfg := s.createMachineConfig(c, environConfig)
+	c.Assert(machineCfg.TargetRelease(), gc.Equals, "")
+	machineCfg.Tools.Version.Series = "precise"
+	c.Assert(machineCfg.TargetRelease(), gc.Equals, "precise-update/cloud-tools")
+}
+
 func (s *cloudinitSuite) TestAptProxyNotWrittenIfNotSet(c *gc.C) {
 	environConfig := minimalConfig(c)
 	machineCfg := s.createMachineConfig(c, environConfig)

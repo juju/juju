@@ -209,18 +209,11 @@ runcmd:
 		},
 	},
 	{
-		"Packages",
-		"packages:\n- juju\n- ubuntu\n",
-		func(cfg *cloudinit.Config) {
-			cfg.AddPackage("juju")
-			cfg.AddPackage("ubuntu")
-		},
-	},
-	{
 		"Packages with --target-release",
-		"packages:\n- --target-release 'precise-updates/cloud-tools' 'mongodb-server'\n",
+		"packages:\n- --target-release 'precise-updates/cloud-tools' 'mongodb-server'\n- --target-release 'precise-updates/cloud-tools' 'juju'\n",
 		func(cfg *cloudinit.Config) {
-			cfg.AddPackageFromTargetRelease("mongodb-server", "precise-updates/cloud-tools")
+			cfg.AddPackage("mongodb-server", "precise-updates/cloud-tools")
+			cfg.AddPackage("juju", "precise-updates/cloud-tools")
 		},
 	},
 	{
@@ -309,11 +302,11 @@ func (S) TestRunCmds(c *gc.C) {
 func (S) TestPackages(c *gc.C) {
 	cfg := cloudinit.New()
 	c.Assert(cfg.Packages(), gc.HasLen, 0)
-	cfg.AddPackage("a b c")
-	cfg.AddPackage("d!")
+	cfg.AddPackage("a b c", "")
+	cfg.AddPackage("d!", "")
 	expectedPackages := []string{"a b c", "d!"}
 	c.Assert(cfg.Packages(), gc.DeepEquals, expectedPackages)
-	cfg.AddPackageFromTargetRelease("package", "series")
+	cfg.AddPackage("package", "series")
 	expectedPackages = append(expectedPackages, "--target-release 'series' 'package'")
 	c.Assert(cfg.Packages(), gc.DeepEquals, expectedPackages)
 }
@@ -355,8 +348,8 @@ func (S) TestSetOutput(c *gc.C) {
 //- ubuntu
 func ExampleConfig() {
 	cfg := cloudinit.New()
-	cfg.AddPackage("juju")
-	cfg.AddPackage("ubuntu")
+	cfg.AddPackage("juju", "")
+	cfg.AddPackage("ubuntu", "")
 	data, err := cfg.Render()
 	if err != nil {
 		fmt.Printf("render error: %v", err)
