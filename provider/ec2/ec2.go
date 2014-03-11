@@ -236,7 +236,7 @@ func (p environProvider) MetadataLookupParams(region string) (*simplestreams.Met
 	return &simplestreams.MetadataLookupParams{
 		Region:        region,
 		Endpoint:      ec2Region.EC2Endpoint,
-		Architectures: []string{"amd64", "i386", "arm", "arm64", "ppc64"},
+		Architectures: []string{"amd64", "i386"},
 	}, nil
 }
 
