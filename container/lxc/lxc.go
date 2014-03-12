@@ -279,7 +279,7 @@ func (manager *containerManager) StopContainer(instance instance.Instance) error
 		return err
 	}
 
-	err = container.RemoveDirectory(name)
+	err := container.RemoveDirectory(name)
 	logger.Tracef("container %q stopped: %v", name, time.Now().Sub(start))
 	return err
 }
