@@ -4,8 +4,6 @@
 package lxc
 
 import (
-	"fmt"
-
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/utils"
 )
@@ -36,7 +34,9 @@ func (ci *containerInitialiser) Initialise() error {
 // with utils.AptGetInstall based on the targetRelease string.
 func targetReleasePackages(targetRelease string) []string {
 	packages := []string{
-		fmt.Sprintf("--target-release '%s' '%s'", targetRelease, requiredPackages[0]),
+		"--target-release",
+		targetRelease,
+		requiredPackages[0],
 	}
 	return packages
 }
