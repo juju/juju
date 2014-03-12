@@ -41,9 +41,6 @@ func WriteCloudInitFile(directory string, userData []byte) (string, error) {
 }
 
 func cloudInitUserData(machineConfig *cloudinit.MachineConfig) ([]byte, error) {
-	// consider not having this line hardcoded...
-	logger.Tracef("pretty sure datadir is set here: %q", machineConfig.DataDir)
-	machineConfig.DataDir = "/var/lib/juju"
 	cloudConfig := coreCloudinit.New()
 	err := cloudinit.Configure(machineConfig, cloudConfig)
 	if err != nil {
