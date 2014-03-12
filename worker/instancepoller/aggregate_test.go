@@ -38,13 +38,13 @@ func (t testInstance) Status() string {
 type testInstanceGetter struct {
 	ids     []instance.Id
 	results []testInstance
-	err     bool
+	err     error
 }
 
 func (i *testInstanceGetter) Instances(ids []instance.Id) (result []instance.Instance, err error) {
 	i.ids = ids
-	if i.err {
-		return nil, fmt.Errorf("Some error")
+	if i.err != nil {
+		return nil, i.err
 	}
 	for _, inst := range i.results {
 		result = append(result, inst)
@@ -120,6 +120,8 @@ func (s *aggregateSuite) TestRequestBatching(c *gc.C) {
 
 func (s *aggregateSuite) TestError(c *gc.C) {
 	testGetter := new(testInstanceGetter)
+	ourError := fmt.Errorf("Some error")
+	testGetter.err = ourError
 
 	aggregator := newAggregator(testGetter)
 
@@ -130,5 +132,5 @@ func (s *aggregateSuite) TestError(c *gc.C) {
 	}
 	aggregator.reqc <- req
 	reply := <-replyChan
-	c.Assert(reply.err, gc.IsNil)
+	c.Assert(reply.err, gc.Equals, ourError)
 }
