@@ -85,11 +85,11 @@ func fmtConfigForLog(cfg *Config) string {
 		memberInfo[i] = fmt.Sprintf("Member{%d %q %v}", member.Id, member.Address, member.Tags)
 
 	}
-	return fmt.Sprintf("{Name: %s, Version: %s, Members: %s}",
-		cfg.Name, cfg.Version, strings.Join(memberInfo))
+	return fmt.Sprintf("{Name: %s, Version: %d, Members: {%s}}",
+		cfg.Name, cfg.Version, strings.Join(memberInfo, ", "))
 }
 func logReplicaSetChange(cmd string, oldconfig, newconfig *Config) {
-	logger.Debugf("%s() changing replica set\nfrom %s\t  to %s",
+	logger.Debugf("%s() changing replica set\nfrom %s\n  to %s",
 		cmd, fmtConfigForLog(oldconfig), fmtConfigForLog(newconfig))
 }
 
