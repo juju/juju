@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/loggo"
 
+	"launchpad.net/juju-core/agent"
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/environs/cloudinit"
 )

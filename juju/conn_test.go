@@ -124,7 +124,7 @@ func (*NewConnSuite) TestNewConnFromNameNotDefault(c *gc.C) {
 	c.Assert(conn.Environ.Name(), gc.Equals, envName)
 }
 
-func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
+func (*NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
 	attrs := dummy.SampleConfig().Merge(coretesting.Attrs{
 		"admin-secret": "side-effect secret",
 		"secret":       "pork",
@@ -175,7 +175,7 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *gc.C) {
+func (*NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *gc.C) {
 	attrs := dummy.SampleConfig().Merge(coretesting.Attrs{
 		"secret": "pork",
 	})
@@ -212,7 +212,7 @@ func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (cs *NewConnSuite) TestConnWithPassword(c *gc.C) {
+func (*NewConnSuite) TestConnWithPassword(c *gc.C) {
 	attrs := dummy.SampleConfig().Merge(coretesting.Attrs{
 		"admin-secret": "nutkin",
 	})
