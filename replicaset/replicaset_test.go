@@ -388,7 +388,7 @@ func (s *MongoSuite) TestCurrentStatus(c *gc.C) {
 		}},
 	}
 
-	strategy.Total = time.Second * 60
+	strategy.Total = time.Second * 90
 	attempt = strategy.Start()
 	var res *Status
 	for attempt.Next() {
