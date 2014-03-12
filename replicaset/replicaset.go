@@ -96,7 +96,7 @@ func fmtConfigForLog(config *Config) string {
 func applyRelSetConfig(cmd string, session *mgo.Session, oldconfig, newconfig *Config) error {
 	logger.Debugf("%s() changing replica set\nfrom %s\n  to %s",
 		cmd, fmtConfigForLog(oldconfig), fmtConfigForLog(newconfig))
-	err = session.Run(bson.D{{"replSetReconfig", config}}, nil)
+	err := session.Run(bson.D{{"replSetReconfig", newconfig}}, nil)
 	// We will only try to Ping 2 times
 	for i := 0; i < 2; i++ {
 		if err == io.EOF {
