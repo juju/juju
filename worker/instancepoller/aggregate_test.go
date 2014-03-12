@@ -117,3 +117,18 @@ func (s *aggregateSuite) TestRequestBatching(c *gc.C) {
 
 	c.Assert(testGetter.ids, gc.DeepEquals, []instance.Id{instance.Id("foo2"), instance.Id("foo3")})
 }
+
+func (s *aggregateSuite) TestError(c *gc.C) {
+	testGetter := new(testInstanceGetter)
+
+	aggregator := newAggregator(testGetter)
+
+	replyChan := make(chan instanceInfoReply)
+	req := instanceInfoReq{
+		reply:  replyChan,
+		instId: instance.Id("foo"),
+	}
+	aggregator.reqc <- req
+	reply := <-replyChan
+	c.Assert(reply.err, gc.IsNil)
+}
