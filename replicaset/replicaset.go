@@ -7,10 +7,12 @@ import (
 
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
+	"github.com/juju/loggo"
 )
 
 // MaxPeers defines the maximum number of peers that mongo supports.
 const MaxPeers = 7
+var logger = loggo.GetLogger("juju.replicaset")
 
 // Initiate sets up a replica set with the given replica set name with the
 // single given member.  It need be called only once for a given mongo replica
@@ -85,6 +87,7 @@ func Add(session *mgo.Session, members ...Member) error {
 		return err
 	}
 
+	oldconfig := *config
 	config.Version++
 	max := 0
 	for _, member := range config.Members {
@@ -108,6 +111,7 @@ outerLoop:
 		}
 		config.Members = append(config.Members, newMember)
 	}
+	logger.Debugf("Add() changing replica set from %#v to %#v", oldconfig, *config)
 	return session.Run(bson.D{{"replSetReconfig", config}}, nil)
 }
 
@@ -118,6 +122,7 @@ func Remove(session *mgo.Session, addrs ...string) error {
 	if err != nil {
 		return err
 	}
+	oldconfig := *config
 	config.Version++
 	for _, rem := range addrs {
 		for n, repl := range config.Members {
@@ -127,12 +132,14 @@ func Remove(session *mgo.Session, addrs ...string) error {
 			}
 		}
 	}
+	logger.Debugf("Remove() changing replica set from %#v to %#v", oldconfig, *config)
 	err = session.Run(bson.D{{"replSetReconfig", config}}, nil)
 	if err == io.EOF {
 		// If the primary changes due to replSetReconfig, then while a
 		// reelection is happening, all current connections are
 		// dropped. 
 		// Refreshing should fix us up.
+		logger.Debugf("got EOF while running replSetReconfig, Refreshing")
 		session.Refresh()
 		// However, we should Ping to make sure we're actually connected
 		err = session.Ping()
@@ -148,6 +155,8 @@ func Set(session *mgo.Session, members []Member) error {
 		return err
 	}
 
+	// Copy the current configuration for logging
+	oldconfig := *config
 	config.Version++
 
 	// Assign ids to members that did not previously exist, starting above the
@@ -173,6 +182,7 @@ func Set(session *mgo.Session, members []Member) error {
 
 	config.Members = members
 
+	logger.Debugf("Set() changing replica set from %#v to %#v", oldconfig, *config)
 	err = session.Run(bson.D{{"replSetReconfig", config}}, nil)
 	if err == io.EOF {
 		// EOF means we got disconnected due to a Remove... this is normal.

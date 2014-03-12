@@ -185,7 +185,7 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 		}
 		c.Logf("attempting to Add got error: %v", err)
 	}
-	c.Logf("Add() completed after %d attempts in %s", attemptCount, time.Since(start))
+	c.Logf("Add() %d attempts in %s", attemptCount, time.Since(start))
 	c.Assert(err, gc.IsNil)
 
 	expectedMembers := make([]Member, len(members))
@@ -207,7 +207,7 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 		}
 		c.Logf("attempting CurrentConfig got error: %v", err)
 	}
-	c.Logf("CurrentConfig() completed after %d attempts in %s", attemptCount, time.Since(start))
+	c.Logf("CurrentConfig() %d attempts in %s", attemptCount, time.Since(start))
 	c.Assert(err, gc.IsNil)
 	c.Assert(cfg.Name, gc.Equals, name)
 
@@ -230,7 +230,7 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 		}
 		c.Logf("attempting Remove got error: %v", err)
 	}
-	c.Logf("Remove() completed after %d attempts in %s", attemptCount, time.Since(start))
+	c.Logf("Remove() %d attempts in %s", attemptCount, time.Since(start))
 	c.Assert(err, gc.IsNil)
 
 	expectedMembers = expectedMembers[0:3]
@@ -246,7 +246,7 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 		}
 		c.Logf("attempting CurrentMembers got error: %v", err)
 	}
-	c.Logf("CurrentMembers() completed after %d attempts in %s", attemptCount, time.Since(start))
+	c.Logf("CurrentMembers() %d attempts in %s", attemptCount, time.Since(start))
 	c.Assert(err, gc.IsNil)
 	c.Assert(mems, gc.DeepEquals, expectedMembers)
 
@@ -265,7 +265,7 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 		}
 		c.Logf("attempting Set got error: %v", err)
 	}
-	c.Logf("Set() completed after %d attempts in %s", attemptCount, time.Since(start))
+	c.Logf("Set() %d attempts in %s", attemptCount, time.Since(start))
 	c.Assert(err, gc.IsNil)
 
 	start = time.Now()
@@ -281,7 +281,7 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 		}
 		c.Logf("attempting session.Ping() got error: %v after %s", err, time.Since(start))
 	}
-	c.Logf("session.Ping() completed after %d attempts in %s", attemptCount, time.Since(start))
+	c.Logf("session.Ping() %d attempts in %s", attemptCount, time.Since(start))
 	c.Assert(err, gc.IsNil)
 
 	expectedMembers = []Member{members[3], expectedMembers[2], expectedMembers[0], members[4]}
@@ -302,7 +302,7 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 		c.Logf("attempting CurrentMembers() got error: %v", err)
 	}
 	c.Assert(err, gc.IsNil)
-	c.Logf("CurrentMembers() completed after %d attempts in %s", attemptCount, time.Since(start))
+	c.Logf("CurrentMembers() %d attempts in %s", attemptCount, time.Since(start))
 	c.Assert(mems, gc.DeepEquals, expectedMembers)
 }
 
