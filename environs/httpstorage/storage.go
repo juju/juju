@@ -16,10 +16,14 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/juju/loggo"
+
 	"launchpad.net/juju-core/environs/storage"
 	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 )
+
+var logger = loggo.GetLogger("juju.environs.httpstorage")
 
 // storage implements the storage.Storage interface.
 type localStorage struct {
@@ -46,6 +50,7 @@ func Client(addr string) storage.Storage {
 // using TLS. The client is given an authentication key,
 // which the server will verify for Put and Remove* operations.
 func ClientTLS(addr string, caCertPEM []byte, authkey string) (storage.Storage, error) {
+	logger.Debugf("using https storage at %q", addr)
 	caCerts := x509.NewCertPool()
 	if caCertPEM != nil {
 		if !caCerts.AppendCertsFromPEM(caCertPEM) {
@@ -83,6 +88,7 @@ func (s *localStorage) getHTTPSBaseURL() (string, error) {
 // responsibility to close it after use. If the name does not
 // exist, it should return a *NotFoundError.
 func (s *localStorage) Get(name string) (io.ReadCloser, error) {
+	logger.Debugf("getting %q from storage", name)
 	url, err := s.URL(name)
 	if err != nil {
 		return nil, err
@@ -167,6 +173,7 @@ func (s *localStorage) ShouldRetry(err error) bool {
 // Put reads from r and writes to the given storage file.
 // The length must be set to the total length of the file.
 func (s *localStorage) Put(name string, r io.Reader, length int64) error {
+	logger.Debugf("putting %q (len %d) to storage", name, length)
 	url, err := s.modURL(name)
 	if err != nil {
 		return err

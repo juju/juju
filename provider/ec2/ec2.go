@@ -179,18 +179,25 @@ func (p environProvider) BoilerplateConfig() string {
 # https://juju.ubuntu.com/docs/config-aws.html
 amazon:
     type: ec2
-    # region specifies the ec2 region. It defaults to us-east-1.
+
+    # region specifies the EC2 region. It defaults to us-east-1.
+    #
     # region: us-east-1
+
+    # access-key holds the EC2 access key. It defaults to the
+    # environment variable AWS_ACCESS_KEY_ID.
     #
-    # access-key holds the ec2 access key. It defaults to the environment
-    # variable AWS_ACCESS_KEY_ID.
     # access-key: <secret>
+
+    # secret-key holds the EC2 secret key. It defaults to the
+    # environment variable AWS_SECRET_ACCESS_KEY.
     #
-    # secret-key holds the ec2 secret key. It defaults to the environment
-    # variable AWS_SECRET_ACCESS_KEY.
+    # secret-key: <secret>
+
+    # image-stream chooses a simplestreams stream to select OS images
+    # from, for example daily or released images (or any other stream
+    # available on simplestreams).
     #
-    # image-stream chooses a simplestreams stream to select OS images from,
-    # for example daily or released images (or any other stream available on simplestreams).
     # image-stream: "released"
 
 `[1:]
@@ -236,7 +243,7 @@ func (p environProvider) MetadataLookupParams(region string) (*simplestreams.Met
 	return &simplestreams.MetadataLookupParams{
 		Region:        region,
 		Endpoint:      ec2Region.EC2Endpoint,
-		Architectures: []string{"amd64", "i386", "arm", "arm64"},
+		Architectures: []string{"amd64", "i386"},
 	}, nil
 }
 
@@ -338,7 +345,7 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 		Series:        e.ecfg().DefaultSeries(),
 		Region:        region,
 		Endpoint:      ec2Region.EC2Endpoint,
-		Architectures: []string{"amd64", "i386", "arm", "arm64"},
+		Architectures: []string{"amd64", "i386", "arm", "arm64", "ppc64"},
 	}, nil
 }
 

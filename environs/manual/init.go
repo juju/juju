@@ -16,6 +16,15 @@ import (
 	"launchpad.net/juju-core/utils/ssh"
 )
 
+// detectionScript is the script to run on the remote machine to
+// detect the OS series and hardware characteristics.
+const detectionScript = `#!/bin/bash
+set -e
+lsb_release -cs
+uname -m
+grep MemTotal /proc/meminfo
+cat /proc/cpuinfo`
+
 // checkProvisionedScript is the script to run on the remote machine
 // to check if a machine has already been provisioned.
 //
@@ -129,14 +138,8 @@ var archREs = []struct {
 	{regexp.MustCompile("i[3-9]86"), "i386"},
 	{regexp.MustCompile("armv.*"), "arm"},
 	{regexp.MustCompile("aarch64"), "arm64"},
+	{regexp.MustCompile("ppc64el|ppc64le"), "ppc64"},
 }
-
-const detectionScript = `#!/bin/bash
-set -e
-lsb_release -cs
-uname -m
-grep MemTotal /proc/meminfo
-cat /proc/cpuinfo`
 
 // InitUbuntuUser adds the ubuntu user if it doesn't
 // already exist, updates its ~/.ssh/authorized_keys,

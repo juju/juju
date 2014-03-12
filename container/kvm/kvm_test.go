@@ -40,6 +40,15 @@ func (*KVMSuite) TestManagerNameNeeded(c *gc.C) {
 	c.Assert(manager, gc.IsNil)
 }
 
+func (*KVMSuite) TestManagerWarnsAboutUnknownOption(c *gc.C) {
+	_, err := kvm.NewContainerManager(container.ManagerConfig{
+		container.ConfigName: "BillyBatson",
+		"shazam":             "Captain Marvel",
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(c.GetTestLog(), gc.Matches, `^.*WARNING juju.container.kvm Found unused config option with key: "shazam" and value: "Captain Marvel"\n*`)
+}
+
 func (s *KVMSuite) TestListInitiallyEmpty(c *gc.C) {
 	containers, err := s.manager.ListContainers()
 	c.Assert(err, gc.IsNil)

@@ -8,5 +8,3 @@ cmd/charmload/charmload
 .emacs.desktop
 .emacs.desktop.lock
 *.test
-.idea
-add-joyent-provider.iml

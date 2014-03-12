@@ -95,32 +95,40 @@ func (prov azureEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.C
 	return cfg.Apply(envCfg.attrs)
 }
 
-const boilerplateYAML = `
+var boilerplateYAML = `
 # https://juju.ubuntu.com/docs/config-azure.html
 azure:
     type: azure
 
-    # location specifies the place where instances will be started, for
-    # example: West US, North Europe.
+    # location specifies the place where instances will be started,
+    # for example: West US, North Europe.
+    #
     location: West US
-    
-    # The following attributes specify Windows Azure Management information.
-    # See  http://msdn.microsoft.com/en-us/library/windowsazure
+
+    # The following attributes specify Windows Azure Management
+    # information. See:
+    # http://msdn.microsoft.com/en-us/library/windowsazure
     # for details.
+    #
     management-subscription-id: <00000000-0000-0000-0000-000000000000>
     management-certificate-path: /home/me/azure.pem
 
     # storage-account-name holds Windows Azure Storage info.
+    #
     storage-account-name: abcdefghijkl
 
-    # force-image-name overrides the OS image selection to use
-    # a fixed image for all deployments. Most useful for developers.
+    # force-image-name overrides the OS image selection to use a fixed
+    # image for all deployments. Most useful for developers.
+    #
     # force-image-name: b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-13_10-amd64-server-DEVELOPMENT-20130713-Juju_ALPHA-en-us-30GB
 
-    # image-stream chooses a simplestreams stream to select OS images from,
-    # for example daily or released images (or any other stream available on simplestreams).
+    # image-stream chooses a simplestreams stream to select OS images
+    # from, for example daily or released images (or any other stream
+    # available on simplestreams).
+    #
     # image-stream: "released"
-`
+
+`[1:]
 
 func (prov azureEnvironProvider) BoilerplateConfig() string {
 	return boilerplateYAML

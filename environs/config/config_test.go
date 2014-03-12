@@ -629,6 +629,14 @@ var configTests = []configTest{
 			"type": "null",
 			"name": "my-name",
 		},
+	}, {
+		about:       "TestMode flag specified",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":      "my-type",
+			"name":      "my-name",
+			"test-mode": true,
+		},
 	},
 	authTokenConfigTest("token=value, tokensecret=value", true),
 	authTokenConfigTest("token=value, ", true),
@@ -850,6 +858,9 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 	dev, _ := test.attrs["development"].(bool)
 	c.Assert(cfg.Development(), gc.Equals, dev)
 
+	testmode, _ := test.attrs["test-mode"].(bool)
+	c.Assert(cfg.TestMode(), gc.Equals, testmode)
+
 	if series, _ := test.attrs["default-series"].(string); series != "" {
 		c.Assert(cfg.DefaultSeries(), gc.Equals, series)
 	} else {
@@ -1001,6 +1012,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"bootstrap-addresses-delay": 10,
 		"default-series":            "precise",
 		"charm-store-auth":          "token=auth",
+		"test-mode":                 false,
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
@@ -1014,6 +1026,14 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["tools-metadata-url"] = ""
 	attrs["tools-url"] = ""
 	attrs["image-stream"] = ""
+	attrs["http-proxy"] = ""
+	attrs["https-proxy"] = ""
+	attrs["ftp-proxy"] = ""
+	attrs["no-proxy"] = ""
+	attrs["apt-http-proxy"] = ""
+	attrs["apt-https-proxy"] = ""
+	attrs["apt-ftp-proxy"] = ""
+
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
 	c.Assert(cfg.AllAttrs(), jc.DeepEquals, attrs)
@@ -1209,6 +1229,7 @@ func (*ConfigSuite) TestProxyValuesWithFallback(c *gc.C) {
 		"http-proxy":  "http://user@10.0.0.1",
 		"https-proxy": "https://user@10.0.0.1",
 		"ftp-proxy":   "ftp://user@10.0.0.1",
+		"no-proxy":    "localhost,10.0.3.1",
 	})
 	c.Assert(config.HttpProxy(), gc.Equals, "http://user@10.0.0.1")
 	c.Assert(config.AptHttpProxy(), gc.Equals, "http://user@10.0.0.1")
@@ -1216,6 +1237,7 @@ func (*ConfigSuite) TestProxyValuesWithFallback(c *gc.C) {
 	c.Assert(config.AptHttpsProxy(), gc.Equals, "https://user@10.0.0.1")
 	c.Assert(config.FtpProxy(), gc.Equals, "ftp://user@10.0.0.1")
 	c.Assert(config.AptFtpProxy(), gc.Equals, "ftp://user@10.0.0.1")
+	c.Assert(config.NoProxy(), gc.Equals, "localhost,10.0.3.1")
 }
 
 func (*ConfigSuite) TestProxyValues(c *gc.C) {
@@ -1247,6 +1269,7 @@ func (*ConfigSuite) TestProxyValuesNotSet(c *gc.C) {
 	c.Assert(config.AptHttpsProxy(), gc.Equals, "")
 	c.Assert(config.FtpProxy(), gc.Equals, "")
 	c.Assert(config.AptFtpProxy(), gc.Equals, "")
+	c.Assert(config.NoProxy(), gc.Equals, "")
 }
 
 func (*ConfigSuite) TestProxyConfigMap(c *gc.C) {
@@ -1254,13 +1277,16 @@ func (*ConfigSuite) TestProxyConfigMap(c *gc.C) {
 
 	cfg := newTestConfig(c, testing.Attrs{})
 	proxy := osenv.ProxySettings{
-		Http:  "http proxy",
-		Https: "https proxy",
-		Ftp:   "ftp proxy",
+		Http:    "http proxy",
+		Https:   "https proxy",
+		Ftp:     "ftp proxy",
+		NoProxy: "no proxy",
 	}
 	cfg, err := cfg.Apply(config.ProxyConfigMap(proxy))
 	c.Assert(err, gc.IsNil)
 	c.Assert(cfg.ProxySettings(), gc.DeepEquals, proxy)
+	// Apt proxy and proxy differ by the content of the no-proxy values.
+	proxy.NoProxy = ""
 	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, proxy)
 }
 

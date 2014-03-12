@@ -18,16 +18,13 @@ const jujuPkgPrefix = "launchpad.net/juju-core/"
 // imported by the packageName parameter.  The resulting list removes the
 // common prefix "launchpad.net/juju-core/" leaving just the short names.
 func FindJujuCoreImports(c *gc.C, packageName string) []string {
-
 	var result []string
 	allpkgs := make(map[string]bool)
 
 	findJujuCoreImports(c, packageName, allpkgs)
-
 	for name := range allpkgs {
 		result = append(result, name[len(jujuPkgPrefix):])
 	}
-
 	sort.Strings(result)
 	return result
 }

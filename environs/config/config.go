@@ -442,12 +442,14 @@ func (c *Config) AuthorizedKeys() string {
 	return c.mustString("authorized-keys")
 }
 
-// ProxySettings returns all three proxy settings; http, https and ftp.
+// ProxySettings returns all four proxy settings; http, https, ftp, and no
+// proxy.
 func (c *Config) ProxySettings() osenv.ProxySettings {
 	return osenv.ProxySettings{
-		Http:  c.HttpProxy(),
-		Https: c.HttpsProxy(),
-		Ftp:   c.FtpProxy(),
+		Http:    c.HttpProxy(),
+		Https:   c.HttpsProxy(),
+		Ftp:     c.FtpProxy(),
+		NoProxy: c.NoProxy(),
 	}
 }
 
@@ -464,6 +466,11 @@ func (c *Config) HttpsProxy() string {
 // FtpProxy returns the ftp proxy for the environment.
 func (c *Config) FtpProxy() string {
 	return c.asString("ftp-proxy")
+}
+
+// NoProxy returns the 'no proxy' for the environment.
+func (c *Config) NoProxy() string {
+	return c.asString("no-proxy")
 }
 
 func (c *Config) getWithFallback(key, fallback string) string {
@@ -627,6 +634,13 @@ func (c *Config) ImageStream() string {
 	return "released"
 }
 
+// TestMode indicates if the environment is intended for testing.
+// In this case, accessing the charm store does not affect statistical
+// data of the store.
+func (c *Config) TestMode() bool {
+	return c.defined["test-mode"].(bool)
+}
+
 // UnknownAttrs returns a copy of the raw configuration attributes
 // that are supposedly specific to the environment type. They could
 // also be wrong attributes, though. Only the specific environment
@@ -685,12 +699,14 @@ var fields = schema.Fields{
 	"http-proxy":                schema.String(),
 	"https-proxy":               schema.String(),
 	"ftp-proxy":                 schema.String(),
+	"no-proxy":                  schema.String(),
 	"apt-http-proxy":            schema.String(),
 	"apt-https-proxy":           schema.String(),
 	"apt-ftp-proxy":             schema.String(),
 	"bootstrap-timeout":         schema.ForceInt(),
 	"bootstrap-retry-delay":     schema.ForceInt(),
 	"bootstrap-addresses-delay": schema.ForceInt(),
+	"test-mode":                 schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url": schema.String(),
@@ -713,16 +729,19 @@ var alwaysOptional = schema.Defaults{
 	"ca-private-key-path":       schema.Omit,
 	"logging-config":            schema.Omit,
 	"provisioner-safe-mode":     schema.Omit,
-	"http-proxy":                schema.Omit,
-	"https-proxy":               schema.Omit,
-	"ftp-proxy":                 schema.Omit,
-	"apt-http-proxy":            schema.Omit,
-	"apt-https-proxy":           schema.Omit,
-	"apt-ftp-proxy":             schema.Omit,
 	"bootstrap-timeout":         schema.Omit,
 	"bootstrap-retry-delay":     schema.Omit,
 	"bootstrap-addresses-delay": schema.Omit,
 	"rsyslog-ca-cert":           schema.Omit,
+
+	// Proxy values default to "", otherwise they can't be set to blank.
+	"http-proxy":      "",
+	"https-proxy":     "",
+	"ftp-proxy":       "",
+	"no-proxy":        "",
+	"apt-http-proxy":  "",
+	"apt-https-proxy": "",
+	"apt-ftp-proxy":   "",
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url": "",
@@ -746,6 +765,7 @@ var alwaysOptional = schema.Defaults{
 	"charm-store-auth": "",
 	// Previously image-stream could be set to an empty value
 	"image-stream": "",
+	"test-mode":    false,
 }
 
 func allowEmpty(attr string) bool {
@@ -853,18 +873,22 @@ func (cfg *Config) GenerateStateServerCertAndKey() ([]byte, []byte, error) {
 	return cert.NewServer(caCert, caKey, time.Now().UTC().AddDate(10, 0, 0), noHostnames)
 }
 
-type Authorizer interface {
+type Specializer interface {
 	WithAuthAttrs(string) charm.Repository
+	WithTestMode(testMode bool) charm.Repository
 }
 
-// AuthorizeCharmRepo returns a repository with authentication added
-// from the specified configuration.
-func AuthorizeCharmRepo(repo charm.Repository, cfg *Config) charm.Repository {
+// SpecializeCharmRepo returns a repository customized for given configuration.
+// It adds authentication if necessary and sets a charm store's testMode flag.
+func SpecializeCharmRepo(repo charm.Repository, cfg *Config) charm.Repository {
 	// If a charm store auth token is set, pass it on to the charm store
 	if auth, authSet := cfg.CharmStoreAuth(); authSet {
-		if CS, isCS := repo.(Authorizer); isCS {
+		if CS, isCS := repo.(Specializer); isCS {
 			repo = CS.WithAuthAttrs(auth)
 		}
+	}
+	if CS, isCS := repo.(Specializer); isCS {
+		repo = CS.WithTestMode(cfg.TestMode())
 	}
 	return repo
 }
@@ -894,6 +918,7 @@ func ProxyConfigMap(proxy osenv.ProxySettings) map[string]interface{} {
 		"http-proxy":  proxy.Http,
 		"https-proxy": proxy.Https,
 		"ftp-proxy":   proxy.Ftp,
+		"no-proxy":    proxy.NoProxy,
 	}
 }
 

@@ -64,12 +64,14 @@ var boilerplateYAML = `
 # https://juju.ubuntu.com/docs/config-maas.html
 maas:
     type: maas
-  
+
     # maas-server specifies the location of the MAAS server. It must
     # specify the base path.
+    #
     maas-server: 'http://192.168.1.1/MAAS/'
-    
+
     # maas-oauth holds the OAuth credentials from MAAS.
+    #
     maas-oauth: '<add your OAuth credentials from MAAS here>'
 
 `[1:]
