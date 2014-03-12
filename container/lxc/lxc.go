@@ -163,9 +163,9 @@ func (manager *containerManager) StartContainer(
 			"--userdata", userDataFilename, // Our groovey cloud-init
 			"--hostid", name, // Use the container name as the hostid
 		}
-		var extraCloneArgs []string
-		if manager.backingFilesystem == Btrfs {
-			extraCloneArgs = append(extraCloneArgs, "--snapshot")
+		extraCloneArgs := []string{"--snapshot"}
+		if manager.backingFilesystem != Btrfs {
+			extraCloneArgs = append(extraCloneArgs, "--backingstore", "aufs")
 		}
 
 		lock, err := AcquireTemplateLock(templateContainer.Name(), "clone")
