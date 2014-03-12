@@ -112,6 +112,8 @@ func (s *aggregateSuite) TestRequestBatching(c *gc.C) {
 	reply3 := <-replyChan3
 	c.Assert(reply2.err, gc.IsNil)
 	c.Assert(reply3.err, gc.IsNil)
+	c.Assert(reply2.info.status, gc.Equals, "not foobar")
+	c.Assert(reply3.info.status, gc.Equals, "ok-ish")
 
 	c.Assert(testGetter.ids, gc.DeepEquals, []instance.Id{instance.Id("foo2"), instance.Id("foo3")})
 }
