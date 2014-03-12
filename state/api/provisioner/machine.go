@@ -163,6 +163,22 @@ func (m *Machine) Series() (string, error) {
 	return result.Result, nil
 }
 
+// TargetRelease returns a string suitable for use with apt-get --target-release
+// based on the machines series.
+func (m *Machine) TargetRelease() string {
+	// Only LTS releases have cloud-tools pocket support.
+	// TODO: add cases to the switch for other LTS releasees as they go live.
+	var targetRelease string
+	series, _ := m.Series()
+	switch series {
+	case "precise":
+		targetRelease = "precise-update/cloud-tools"
+	default:
+		targetRelease = ""
+	}
+	return targetRelease
+}
+
 // SetProvisioned sets the provider specific machine id, nonce and also metadata for
 // this machine. Once set, the instance id cannot be changed.
 func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics) error {
