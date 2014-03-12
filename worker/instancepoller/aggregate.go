@@ -98,14 +98,6 @@ func (a *aggregator) loop() error {
 	}
 }
 
-func (a *aggregator) Kill() {
-	a.tomb.Kill(nil)
-}
-
-func (a *aggregator) Wait() error {
-	return a.tomb.Wait()
-}
-
 // instanceInfo returns the instance info for the given id
 // and instance. If inst is nil, it returns a not-found error.
 func (*aggregator) instInfo(id instance.Id, inst instance.Instance) (instanceInfo, error) {
@@ -121,3 +113,12 @@ func (*aggregator) instInfo(id instance.Id, inst instance.Instance) (instanceInf
 		inst.Status(),
 	}, nil
 }
+
+func (a *aggregator) Kill() {
+	a.tomb.Kill(nil)
+}
+
+func (a *aggregator) Wait() error {
+	return a.tomb.Wait()
+}
+

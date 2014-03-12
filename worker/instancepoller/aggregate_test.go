@@ -18,11 +18,6 @@ type aggregateSuite struct {
 
 var _ = gc.Suite(&aggregateSuite{})
 
-type testInstanceGetter struct {
-    ids []instance.Id
-    results []instanceInfoReply
-}
-
 type testInstance struct {
     instance.Instance
     addresses []instance.Address
@@ -34,10 +29,15 @@ func (t *testInstance) Addresses() ([]instance.Address, error) {
     return t.addresses, nil
 }
 
-func (t *testInstance) Id() (Id) {
+func (t *testInstance) Id() (instance.Id) {
     return t.id
 }
 
+
+type testInstanceGetter struct {
+    ids []instance.Id
+    results []instanceInfoReply
+}
 
 func (i *testInstanceGetter) Instances(ids []instance.Id) ([]instance.Instance, error) {
 //    var results []instance.Instance
@@ -57,6 +57,6 @@ func (s *aggregateSuite) TestLoop(c *gc.C) {
     }
     aggregator.reqc <- req
     reply :=  <-replyChan
-    c.Assert(reply.info, gc.IsNil)
+    c.Assert(reply.info, gc.Equals, instanceInfo{})
     c.Assert(testGetter.ids, gc.Equals, []instance.Id{instance.Id("foo")})
 }
