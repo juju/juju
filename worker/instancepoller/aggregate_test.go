@@ -25,11 +25,24 @@ type testInstanceGetter struct {
 
 type testInstance struct {
     instance.Instance
+    addresses []instance.Address
+    id instance.Id
+    address instance.Address
 }
+
+func (t *testInstance) Addresses() ([]instance.Address, error) {
+    return t.addresses, nil
+}
+
+func (t *testInstance) Id() (Id) {
+    return t.id
+}
+
 
 func (i *testInstanceGetter) Instances(ids []instance.Id) ([]instance.Instance, error) {
 //    var results []instance.Instance
 //    results[0] = testInstance{}
+    i.ids = ids
     return nil, fmt.Errorf("Some error")
 }
 
@@ -44,5 +57,6 @@ func (s *aggregateSuite) TestLoop(c *gc.C) {
     }
     aggregator.reqc <- req
     reply :=  <-replyChan
-    c.Assert(reply.err, gc.IsNil)
+    c.Assert(reply.info, gc.IsNil)
+    c.Assert(testGetter.ids, gc.Equals, []instance.Id{instance.Id("foo")})
 }
