@@ -175,7 +175,6 @@ var FinishBootstrap = func(ctx environs.BootstrapContext, client ssh.Client, ins
 		exit 1
 	fi
 	`, nonceFile, utils.ShQuote(machineConfig.MachineNonce))
-	logger.Debugf("Running %q command", checkNonceCommand)
 	addr, err := waitSSH(
 		ctx,
 		interrupted,

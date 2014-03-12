@@ -5,6 +5,9 @@ package joyent
 
 import (
 	"fmt"
+	//"io/ioutil"
+	//"os"
+	//"path"
 	"strings"
 	"sync"
 	"time"
@@ -21,6 +24,8 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils"
+
 )
 
 var (
@@ -83,14 +88,20 @@ func (env *JoyentEnviron) StartInstance(cons constraints.Value, possibleTools to
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot make user data: %v", err)
 	}
-	logger.Debugf("joyent user data; %d bytes", len(userData))
+	// Unzipping as Joyent API expects it as string
+	userData, err = utils.Gunzip(userData)
+	if err != nil {
+		return nil, nil, fmt.Errorf("cannot make user data: %v", err)
+	}
+	logger.Debugf("joyent user data: %d bytes", len(userData))
 
 	var machine *cloudapi.Machine
 	machine, err = env.compute.cloudapi.CreateMachine(cloudapi.CreateMachineOpts{
 		//Name:	 env.machineFullName(machineConf.MachineId),
-		Package: spec.InstanceType.Name,
-		Image:   spec.Image.Id,
-		Tags:    map[string]string{"tag.group": "juju", "tag.env": env.Name()},
+		Package: 	spec.InstanceType.Name,
+		Image:   	spec.Image.Id,
+		Metadata:   map[string]string{"metadata.cloud-init:user-data": string(userData)},
+		Tags:    	map[string]string{"tag.group": "juju", "tag.env": env.Name()},
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot create instances: %v", err)
