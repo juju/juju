@@ -31,7 +31,7 @@ import (
 var (
 	// MgoServer is a shared mongo server used by tests.
 	MgoServer = &MgoInstance{ssl: true}
-	logger = loggo.GetLogger("juju.testing")
+	logger    = loggo.GetLogger("juju.testing")
 )
 
 type MgoInstance struct {

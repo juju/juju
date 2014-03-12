@@ -5,13 +5,14 @@ import (
 	"io"
 	"time"
 
+	"github.com/juju/loggo"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
-	"github.com/juju/loggo"
 )
 
 // MaxPeers defines the maximum number of peers that mongo supports.
 const MaxPeers = 7
+
 var logger = loggo.GetLogger("juju.replicaset")
 
 // Initiate sets up a replica set with the given replica set name with the
@@ -137,7 +138,7 @@ func Remove(session *mgo.Session, addrs ...string) error {
 	if err == io.EOF {
 		// If the primary changes due to replSetReconfig, then while a
 		// reelection is happening, all current connections are
-		// dropped. 
+		// dropped.
 		// Refreshing should fix us up.
 		logger.Debugf("got EOF while running replSetReconfig, Refreshing")
 		session.Refresh()
