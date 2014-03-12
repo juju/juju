@@ -129,10 +129,13 @@ func Remove(session *mgo.Session, addrs ...string) error {
 	}
 	err = session.Run(bson.D{{"replSetReconfig", config}}, nil)
 	if err == io.EOF {
-		// EOF means we got disconnected due to the Remove... this is normal.
+		// If the primary changes due to replSetReconfig, then while a
+		// reelection is happening, all current connections are
+		// dropped. 
 		// Refreshing should fix us up.
 		session.Refresh()
-		err = nil
+		// However, we should Ping to make sure we're actually connected
+		err = session.Ping()
 	}
 	return err
 }

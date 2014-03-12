@@ -117,11 +117,13 @@ func (inst *MgoInstance) run() error {
 	if inst.server != nil {
 		panic("mongo server is already running")
 	}
+	logPath := filepath.Join(dbdir, "server.log")
 
 	mgoport := strconv.Itoa(inst.port)
 	mgoargs := []string{
 		"--auth",
 		"--dbpath", inst.dir,
+		"--logpath", logPath,
 		"--port", mgoport,
 		"--nssize", "1",
 		"--noprealloc",
