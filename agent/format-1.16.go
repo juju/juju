@@ -88,6 +88,8 @@ func (formatter_1_16) unmarshal(data []byte) (*configInternal, error) {
 	config := &configInternal{
 		tag:               format.Tag,
 		nonce:             format.Nonce,
+		dataDir:           DefaultDataDir,
+		logDir:            DefaultLogDir,
 		upgradedToVersion: *format.UpgradedToVersion,
 		caCert:            caCert,
 		oldPassword:       format.OldPassword,

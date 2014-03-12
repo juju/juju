@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/loggo"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
@@ -36,7 +37,7 @@ import (
 
 const (
 	// TODO(axw) make this configurable?
-	dataDir = "/var/lib/juju"
+	dataDir = agent.DefaultDataDir
 
 	// storageSubdir is the subdirectory of
 	// dataDir in which storage will be located.
