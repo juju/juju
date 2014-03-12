@@ -218,6 +218,14 @@ var fetchTests = []struct {
 				Storage:    "ebs",
 			},
 			{
+				Id:         "ami-26745464",
+				VType:      "pv",
+				Arch:       "amd64",
+				RegionName: "au-east-1",
+				Endpoint:   "https://somewhere",
+				Storage:    "ebs",
+			},
+			{
 				Id:         "ami-442ea674",
 				VType:      "hvm",
 				Arch:       "amd64",
@@ -233,14 +241,6 @@ var fetchTests = []struct {
 				RegionName:  "us-west-3",
 				Endpoint:    "https://ec2.us-west-3.amazonaws.com",
 				Storage:     "ebs",
-			},
-			{
-				Id:         "ami-26745464",
-				VType:      "pv",
-				Arch:       "amd64",
-				RegionName: "au-east-1",
-				Endpoint:   "https://somewhere",
-				Storage:    "ebs",
 			},
 			{
 				Id:         "ami-442ea684",

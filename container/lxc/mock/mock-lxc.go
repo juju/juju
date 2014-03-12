@@ -5,8 +5,12 @@ package mock
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"launchpad.net/golxc"
+
+	"launchpad.net/juju-core/utils"
 )
 
 // This file provides a mock implementation of the golxc interfaces
@@ -44,13 +48,15 @@ type ContainerFactory interface {
 }
 
 type mockFactory struct {
-	instances map[string]golxc.Container
-	listeners []chan<- Event
+	containerDir string
+	instances    map[string]golxc.Container
+	listeners    []chan<- Event
 }
 
-func MockFactory() ContainerFactory {
+func MockFactory(containerDir string) ContainerFactory {
 	return &mockFactory{
-		instances: make(map[string]golxc.Container),
+		containerDir: containerDir,
+		instances:    make(map[string]golxc.Container),
 	}
 }
 
@@ -74,7 +80,13 @@ func (mock *mockContainer) Create(configFile, template string, templateArgs ...s
 	}
 	mock.state = golxc.StateStopped
 	mock.factory.instances[mock.name] = mock
-	return nil
+	// Create the container directory.
+	containerDir := filepath.Join(mock.factory.containerDir, mock.name)
+	if err := os.MkdirAll(containerDir, 0755); err != nil {
+		return err
+	}
+	containerConfig := filepath.Join(containerDir, "config")
+	return utils.CopyFile(containerConfig, configFile)
 }
 
 // Start runs the container as a daemon.
