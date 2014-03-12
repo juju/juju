@@ -3,6 +3,7 @@ package replicaset
 import (
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/juju/loggo"
@@ -78,6 +79,20 @@ type Member struct {
 	Votes *int `bson:"votes,omitempty"`
 }
 
+func fmtConfigForLog(cfg *Config) string {
+	memberInfo := make([]string, len(cfg.Members))
+	for i, member := range cfg.Members {
+		memberInfo[i] = fmt.Sprintf("Member{%d %q %v}", member.Id, member.Address, member.Tags)
+
+	}
+	return fmt.Sprintf("{Name: %s, Version: %s, Members: %s}",
+		cfg.Name, cfg.Version, strings.Join(memberInfo))
+}
+func logReplicaSetChange(cmd string, oldconfig, newconfig *Config) {
+	logger.Debugf("%s() changing replica set\nfrom %s\t  to %s",
+		cmd, fmtConfigForLog(oldconfig), fmtConfigForLog(newconfig))
+}
+
 // Add adds the given members to the session's replica set.  Duplicates of
 // existing replicas will be ignored.
 //
@@ -112,7 +127,7 @@ outerLoop:
 		}
 		config.Members = append(config.Members, newMember)
 	}
-	logger.Debugf("Add() changing replica set from %#v to %#v", oldconfig, *config)
+	logReplicaSetChange("Add", &oldconfig, config)
 	return session.Run(bson.D{{"replSetReconfig", config}}, nil)
 }
 
@@ -133,14 +148,13 @@ func Remove(session *mgo.Session, addrs ...string) error {
 			}
 		}
 	}
-	logger.Debugf("Remove() changing replica set from %#v to %#v", oldconfig, *config)
+	logReplicaSetChange("Remove", &oldconfig, config)
 	err = session.Run(bson.D{{"replSetReconfig", config}}, nil)
 	if err == io.EOF {
-		// If the primary changes due to replSetReconfig, then while a
-		// reelection is happening, all current connections are
-		// dropped.
+		// If the primary changes due to replSetReconfig, then  all
+		// current connections are dropped.
 		// Refreshing should fix us up.
-		logger.Debugf("got EOF while running replSetReconfig, Refreshing")
+		logger.Debugf("got EOF while running Remove(), Refreshing")
 		session.Refresh()
 		// However, we should Ping to make sure we're actually connected
 		err = session.Ping()
@@ -183,7 +197,7 @@ func Set(session *mgo.Session, members []Member) error {
 
 	config.Members = members
 
-	logger.Debugf("Set() changing replica set from %#v to %#v", oldconfig, *config)
+	logReplicaSetChange("Set", &oldconfig, config)
 	err = session.Run(bson.D{{"replSetReconfig", config}}, nil)
 	if err == io.EOF {
 		// EOF means we got disconnected due to a Remove... this is normal.
