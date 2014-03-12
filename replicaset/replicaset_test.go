@@ -346,7 +346,7 @@ func (s *MongoSuite) TestCurrentStatus(c *gc.C) {
 	defer inst2.Destroy()
 	defer Remove(session, inst2.Addr())
 
-	strategy := utils.AttemptStrategy{Total: time.Second * 30, Delay: time.Millisecond * 100}
+	strategy := utils.AttemptStrategy{Total: time.Second * 31, Delay: time.Millisecond * 100}
 	attempt := strategy.Start()
 	for attempt.Next() {
 		err = Add(session, Member{Address: inst1.Addr()}, Member{Address: inst2.Addr()})

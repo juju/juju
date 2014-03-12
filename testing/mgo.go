@@ -300,7 +300,7 @@ func (inst *MgoInstance) dial(direct bool) (*mgo.Session, error) {
 		Dial: func(addr net.Addr) (net.Conn, error) {
 			conn, err := tls.Dial("tcp", addr.String(), tlsConfig)
 			if err != nil {
-				loggo.Infof("tls.Dial(%s) failed with %v", addr, err)
+				logger.Infof("tls.Dial(%s) failed with %v", addr, err)
 				return nil, err
 			}
 			return conn, nil
