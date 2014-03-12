@@ -19,11 +19,12 @@ import (
 const AZURE_DOMAIN_NAME = "cloudapp.net"
 
 type azureInstance struct {
-	environ        *azureEnviron
-	hostedService  *gwacl.HostedServiceDescriptor
-	instanceId     instance.Id
-	deploymentName string
-	roleName       string
+	environ              *azureEnviron
+	hostedService        *gwacl.HostedServiceDescriptor
+	instanceId           instance.Id
+	deploymentName       string
+	roleName             string
+	maskStateServerPorts bool
 
 	mu           sync.RWMutex
 	roleInstance *gwacl.RoleInstance
@@ -227,7 +228,7 @@ func (azInstance *azureInstance) closeEndpoints(context *azureManagementContext,
 	return context.RemoveRoleEndpoints(request)
 }
 
-// convertAndFilterEndpoints converts a slice of gwacl.InputEndpoint into a slice of instance.Port.
+// convertEndpointsToPorts converts a slice of gwacl.InputEndpoint into a slice of instance.Port.
 func convertEndpointsToPorts(endpoints []gwacl.InputEndpoint) []instance.Port {
 	ports := []instance.Port{}
 	for _, endpoint := range endpoints {
@@ -241,13 +242,10 @@ func convertEndpointsToPorts(endpoints []gwacl.InputEndpoint) []instance.Port {
 
 // convertAndFilterEndpoints converts a slice of gwacl.InputEndpoint into a slice of instance.Port
 // and filters out the initial endpoints that every instance should have opened (ssh port, etc.).
-func convertAndFilterEndpoints(endpoints []gwacl.InputEndpoint, env *azureEnviron) []instance.Port {
-	// TODO(axw) ideally we should remember which instances are
-	// state servers, or no service can expose ports used for
-	// state- or API-server.
+func convertAndFilterEndpoints(endpoints []gwacl.InputEndpoint, env *azureEnviron, stateServer bool) []instance.Port {
 	return firewaller.Diff(
 		convertEndpointsToPorts(endpoints),
-		convertEndpointsToPorts(env.getInitialEndpoints(true)),
+		convertEndpointsToPorts(env.getInitialEndpoints(stateServer)),
 	)
 }
 
@@ -277,6 +275,6 @@ func (azInstance *azureInstance) listPorts(context *azureManagementContext) ([]i
 	if err != nil {
 		return nil, err
 	}
-	ports := convertAndFilterEndpoints(endpoints, azInstance.environ)
+	ports := convertAndFilterEndpoints(endpoints, azInstance.environ, azInstance.maskStateServerPorts)
 	return ports, nil
 }

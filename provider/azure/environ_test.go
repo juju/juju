@@ -980,11 +980,58 @@ func (s *environSuite) TestGetInstance(c *gc.C) {
 	c.Check(inst1.(*azureInstance).roleName, gc.Equals, service1.Deployments[0].RoleList[0].RoleName)
 	service1.Deployments[0].RoleList = service2.Deployments[0].RoleList
 	inst1, err = env.getInstance(service1, "")
-	c.Assert(err, gc.ErrorMatches, `expected one role for "service1", got 2`)
+	c.Check(err, gc.ErrorMatches, `expected one role for "service1", got 2`)
 
 	inst2, err := env.getInstance(service2, service2.Deployments[0].RoleList[0].RoleName)
 	c.Assert(err, gc.IsNil)
 	c.Check(inst2.Id(), gc.Equals, instance.Id("service1-"+service2.Deployments[0].RoleList[0].RoleName))
+}
+
+func (s *environSuite) TestInitialPorts(c *gc.C) {
+	env := makeEnviron(c)
+	service1 := makeLegacyDeployment(env, "service1")
+	service2 := makeDeployment(env, "service2")
+	service3 := makeDeployment(env, "service3")
+	service3.Label = base64.StdEncoding.EncodeToString([]byte(stateServerLabel))
+
+	role1 := &service1.Deployments[0].RoleList[0]
+	inst1, err := env.getInstance(service1, role1.RoleName)
+	c.Assert(err, gc.IsNil)
+	c.Assert(inst1.(*azureInstance).maskStateServerPorts, jc.IsTrue)
+	role2 := &service2.Deployments[0].RoleList[0]
+	inst2, err := env.getInstance(service2, role2.RoleName)
+	c.Assert(err, gc.IsNil)
+	role3 := &service3.Deployments[0].RoleList[0]
+	inst3, err := env.getInstance(service3, role3.RoleName)
+	c.Assert(err, gc.IsNil)
+
+	// Only role2 should report opened state server ports via the Ports method.
+	dummyRole := *role1
+	configSetNetwork(&dummyRole).InputEndpoints = &[]gwacl.InputEndpoint{{
+		LocalPort: env.Config().StatePort(),
+		Protocol:  "tcp",
+		Name:      "stateserver",
+		Port:      env.Config().StatePort(),
+	}, {
+		LocalPort: env.Config().APIPort(),
+		Protocol:  "tcp",
+		Name:      "apiserver",
+		Port:      env.Config().APIPort(),
+	}}
+	reportsStateServerPorts := func(inst instance.Instance) bool {
+		responses := preparePortChangeConversation(c, &dummyRole)
+		gwacl.PatchManagementAPIResponses(responses)
+		ports, err := inst.Ports("")
+		c.Assert(err, gc.IsNil)
+		portmap := make(map[int]bool)
+		for _, port := range ports {
+			portmap[port.Number] = true
+		}
+		return portmap[env.Config().StatePort()] && portmap[env.Config().APIPort()]
+	}
+	c.Check(inst1, gc.Not(jc.Satisfies), reportsStateServerPorts)
+	c.Check(inst2, jc.Satisfies, reportsStateServerPorts)
+	c.Check(inst3, gc.Not(jc.Satisfies), reportsStateServerPorts)
 }
 
 func (*environSuite) TestNewOSVirtualDisk(c *gc.C) {

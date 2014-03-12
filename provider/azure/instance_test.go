@@ -196,10 +196,6 @@ func (s *instanceSuite) TestOpenPorts(c *gc.C) {
 		{"PUT", ".*/deployments/deployment-one/roles/role-one"}, // UpdateRole
 	})
 
-	tcp79 := makeInputEndpoint(79, "tcp")
-	tcp587 := makeInputEndpoint(587, "tcp")
-	udp9 := makeInputEndpoint(9, "udp")
-
 	// A representative UpdateRole payload includes configuration for the
 	// ports requested.
 	role := &gwacl.PersistentVMRole{}
@@ -208,7 +204,11 @@ func (s *instanceSuite) TestOpenPorts(c *gc.C) {
 	c.Check(
 		*configSetNetwork((*gwacl.Role)(role)).InputEndpoints,
 		gc.DeepEquals,
-		[]gwacl.InputEndpoint{tcp79, tcp587, udp9},
+		[]gwacl.InputEndpoint{
+			makeInputEndpoint(79, "tcp"),
+			makeInputEndpoint(587, "tcp"),
+			makeInputEndpoint(9, "udp"),
+		},
 	)
 }
 
@@ -287,7 +287,7 @@ func (s *instanceSuite) TestClosePorts(c *gc.C) {
 			c.Check(endpoints, gc.IsNil)
 		} else {
 			c.Check(endpoints, gc.NotNil)
-			c.Check(convertAndFilterEndpoints(*endpoints, s.env), gc.DeepEquals, test.outputPorts)
+			c.Check(convertAndFilterEndpoints(*endpoints, s.env, false), gc.DeepEquals, test.outputPorts)
 		}
 	}
 }
@@ -338,15 +338,20 @@ func (s *instanceSuite) TestConvertAndFilterEndpoints(c *gc.C) {
 			Number:   44,
 			Protocol: "tcp",
 		}}
-	c.Check(convertAndFilterEndpoints(endpoints, s.env), gc.DeepEquals, expectedPorts)
+	c.Check(convertAndFilterEndpoints(endpoints, s.env, true), gc.DeepEquals, expectedPorts)
 }
 
 func (s *instanceSuite) TestConvertAndFilterEndpointsEmptySlice(c *gc.C) {
-	ports := convertAndFilterEndpoints([]gwacl.InputEndpoint{}, s.env)
+	ports := convertAndFilterEndpoints([]gwacl.InputEndpoint{}, s.env, true)
 	c.Check(ports, gc.HasLen, 0)
 }
 
 func (s *instanceSuite) TestPorts(c *gc.C) {
+	s.testPorts(c, false)
+	s.testPorts(c, true)
+}
+
+func (s *instanceSuite) testPorts(c *gc.C, maskStateServerPorts bool) {
 	// Update the role's endpoints by hand.
 	configSetNetwork(s.role).InputEndpoints = &[]gwacl.InputEndpoint{{
 		LocalPort: 223,
@@ -363,24 +368,36 @@ func (s *instanceSuite) TestPorts(c *gc.C) {
 		Protocol:  "tcp",
 		Name:      "test456",
 		Port:      4456,
+	}, {
+		LocalPort: s.env.Config().StatePort(),
+		Protocol:  "tcp",
+		Name:      "stateserver",
+		Port:      s.env.Config().StatePort(),
+	}, {
+		LocalPort: s.env.Config().APIPort(),
+		Protocol:  "tcp",
+		Name:      "apiserver",
+		Port:      s.env.Config().APIPort(),
 	}}
 
 	responses := preparePortChangeConversation(c, s.role)
 	record := gwacl.PatchManagementAPIResponses(responses)
+	s.instance.maskStateServerPorts = maskStateServerPorts
 	ports, err := s.instance.Ports("machine-id")
 	c.Assert(err, gc.IsNil)
 	assertPortChangeConversation(c, *record, []expectedRequest{
 		{"GET", ".*/deployments/deployment-one/roles/role-one"}, // GetRole
 	})
 
-	c.Check(
-		ports,
-		gc.DeepEquals,
-		// The result is sorted using instance.SortPorts() (i.e. first by protocol,
-		// then by number).
-		[]instance.Port{
-			{Number: 4456, Protocol: "tcp"},
-			{Number: 1123, Protocol: "udp"},
-			{Number: 2123, Protocol: "udp"},
-		})
+	expected := []instance.Port{
+		{Number: 4456, Protocol: "tcp"},
+		{Number: 1123, Protocol: "udp"},
+		{Number: 2123, Protocol: "udp"},
+	}
+	if !maskStateServerPorts {
+		expected = append(expected, instance.Port{Number: s.env.Config().StatePort(), Protocol: "tcp"})
+		expected = append(expected, instance.Port{Number: s.env.Config().APIPort(), Protocol: "tcp"})
+		instance.SortPorts(expected)
+	}
+	c.Check(ports, gc.DeepEquals, expected)
 }

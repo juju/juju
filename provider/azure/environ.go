@@ -48,6 +48,10 @@ const (
 	// environement, in CIDR notation. This is the network used for
 	// machine-to-machine communication.
 	networkDefinition = "10.0.0.0/8"
+
+	// stateServerLabel is the label applied to the cloud service created
+	// for state servers.
+	stateServerLabel = "juju-state-server"
 )
 
 type azureEnviron struct {
@@ -542,7 +546,7 @@ func (env *azureEnviron) StartInstance(cons constraints.Value, possibleTools too
 	var label string
 	if machineConfig.StateServer {
 		// All state servers are grouped together.
-		label = "juju-state-server"
+		label = stateServerLabel
 	} else {
 		// TODO(axw) 2014-03-10 #1229411
 		// Choose a label based on the service name of the unit
@@ -569,6 +573,7 @@ func (env *azureEnviron) getInstance(hostedService *gwacl.HostedService, roleNam
 	}
 	deployment := &hostedService.Deployments[0]
 
+	var maskStateServerPorts bool
 	var instanceId instance.Id
 	switch deployment.Name {
 	case deploymentNameV1(hostedService.ServiceName):
@@ -578,8 +583,16 @@ func (env *azureEnviron) getInstance(hostedService *gwacl.HostedService, roleNam
 			return nil, fmt.Errorf("expected one role for %q, got %d", deployment.Name, n)
 		}
 		roleName = deployment.RoleList[0].RoleName
+		// In the old implementation of the Azure provider,
+		// all machines opened the state and API server ports.
+		maskStateServerPorts = true
 	case deploymentNameV2(hostedService.ServiceName):
 		instanceId = instance.Id(fmt.Sprintf("%s-%s", hostedService.ServiceName, roleName))
+		// Newly created state server machines are put into
+		// the cloud service with the stateServerLabel label.
+		if decoded, err := base64.StdEncoding.DecodeString(hostedService.Label); err == nil {
+			maskStateServerPorts = string(decoded) == stateServerLabel
+		}
 	}
 
 	var roleInstance *gwacl.RoleInstance
@@ -591,12 +604,13 @@ func (env *azureEnviron) getInstance(hostedService *gwacl.HostedService, roleNam
 	}
 
 	instance := &azureInstance{
-		environ:        env,
-		hostedService:  &hostedService.HostedServiceDescriptor,
-		instanceId:     instanceId,
-		deploymentName: deployment.Name,
-		roleName:       roleName,
-		roleInstance:   roleInstance,
+		environ:              env,
+		hostedService:        &hostedService.HostedServiceDescriptor,
+		instanceId:           instanceId,
+		deploymentName:       deployment.Name,
+		roleName:             roleName,
+		roleInstance:         roleInstance,
+		maskStateServerPorts: maskStateServerPorts,
 	}
 	return instance, nil
 }
