@@ -121,4 +121,3 @@ func (a *aggregator) Kill() {
 func (a *aggregator) Wait() error {
 	return a.tomb.Wait()
 }
-
