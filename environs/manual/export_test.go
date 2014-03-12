@@ -8,3 +8,8 @@ var (
 	ProvisionMachineAgent = &provisionMachineAgent
 	CheckProvisioned      = checkProvisioned
 )
+
+const (
+	DetectionScript        = detectionScript
+	CheckProvisionedScript = checkProvisionedScript
+)

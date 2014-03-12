@@ -16,21 +16,21 @@ import (
 	"launchpad.net/juju-core/utils/ssh"
 )
 
-// DetectionScript is the script to run on the remote machine to
+// detectionScript is the script to run on the remote machine to
 // detect the OS series and hardware characteristics.
-const DetectionScript = `#!/bin/bash
+const detectionScript = `#!/bin/bash
 set -e
 lsb_release -cs
 uname -m
 grep MemTotal /proc/meminfo
 cat /proc/cpuinfo`
 
-// CheckProvisionedScript is the script to run on the remote machine
+// checkProvisionedScript is the script to run on the remote machine
 // to check if a machine has already been provisioned.
 //
 // This is a little convoluted to avoid returning an error in the
 // common case of no matching files.
-const CheckProvisionedScript = "ls /etc/init/ | grep juju.*\\.conf || exit 0"
+const checkProvisionedScript = "ls /etc/init/ | grep juju.*\\.conf || exit 0"
 
 // checkProvisioned checks if any juju upstart jobs already
 // exist on the host machine.
@@ -40,7 +40,7 @@ func checkProvisioned(host string) (bool, error) {
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
-	cmd.Stdin = strings.NewReader(CheckProvisionedScript)
+	cmd.Stdin = strings.NewReader(checkProvisionedScript)
 	if err := cmd.Run(); err != nil {
 		if stderr.Len() != 0 {
 			err = fmt.Errorf("%v (%v)", err, strings.TrimSpace(stderr.String()))
@@ -66,7 +66,7 @@ func DetectSeriesAndHardwareCharacteristics(host string) (hc instance.HardwareCh
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
-	cmd.Stdin = bytes.NewBufferString(DetectionScript)
+	cmd.Stdin = bytes.NewBufferString(detectionScript)
 	if err := cmd.Run(); err != nil {
 		if stderr.Len() != 0 {
 			err = fmt.Errorf("%v (%v)", err, strings.TrimSpace(stderr.String()))
