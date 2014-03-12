@@ -86,12 +86,19 @@ func (*instanceSuite) TestWaitDNSName(c *gc.C) {
 
 func makeInputEndpoint(port int, protocol string) gwacl.InputEndpoint {
 	name := fmt.Sprintf("%s%d", protocol, port)
+	var lbName string
+	var lbProbe *gwacl.LoadBalancerProbe
+	if protocol == "tcp" {
+		lbName = name
+		lbProbe = &gwacl.LoadBalancerProbe{Port: port, Protocol: "TCP"}
+	}
 	return gwacl.InputEndpoint{
 		LocalPort: port,
 		Name:      name,
-		LoadBalancedEndpointSetName: name,
-		Port:     port,
-		Protocol: protocol,
+		LoadBalancedEndpointSetName: lbName,
+		LoadBalancerProbe:           lbProbe,
+		Port:                        port,
+		Protocol:                    protocol,
 	}
 }
 
@@ -189,6 +196,10 @@ func (s *instanceSuite) TestOpenPorts(c *gc.C) {
 		{"PUT", ".*/deployments/deployment-one/roles/role-one"}, // UpdateRole
 	})
 
+	tcp79 := makeInputEndpoint(79, "tcp")
+	tcp587 := makeInputEndpoint(587, "tcp")
+	udp9 := makeInputEndpoint(9, "udp")
+
 	// A representative UpdateRole payload includes configuration for the
 	// ports requested.
 	role := &gwacl.PersistentVMRole{}
@@ -196,11 +207,9 @@ func (s *instanceSuite) TestOpenPorts(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Check(
 		*configSetNetwork((*gwacl.Role)(role)).InputEndpoints,
-		gc.DeepEquals, []gwacl.InputEndpoint{
-			makeInputEndpoint(79, "tcp"),
-			makeInputEndpoint(587, "tcp"),
-			makeInputEndpoint(9, "udp"),
-		})
+		gc.DeepEquals,
+		[]gwacl.InputEndpoint{tcp79, tcp587, udp9},
+	)
 }
 
 func (s *instanceSuite) TestOpenPortsFailsWhenUnableToGetRole(c *gc.C) {

@@ -31,7 +31,6 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
-	//"launchpad.net/juju-core/utils/set"
 )
 
 type environSuite struct {
@@ -674,22 +673,6 @@ func (*environSuite) TestNewHostedServiceFailsIfUnableToFindUniqueName(c *gc.C) 
 	c.Check(err, gc.ErrorMatches, "could not come up with a unique hosted service name.*")
 }
 
-// buildDeleteHostedServiceResponses returns a slice containing the responses
-// that a fake Azure server can use to simulate the deletion of the given list
-// of hosted services. Each delete is preceded by a GetHostedServiceProperties.
-func buildDeleteHostedServiceResponses(c *gc.C, services ...*gwacl.HostedService) []gwacl.DispatcherResponse {
-	responses := make([]gwacl.DispatcherResponse, len(services)*2)
-	for i, service := range services {
-		serviceXML, err := service.Serialize()
-		c.Assert(err, gc.IsNil)
-		serviceGetResponse := gwacl.NewDispatcherResponse([]byte(serviceXML), http.StatusOK, nil)
-		serviceDeleteResponse := gwacl.NewDispatcherResponse(nil, http.StatusOK, nil)
-		responses[2*i] = serviceGetResponse
-		responses[2*i+1] = serviceDeleteResponse
-	}
-	return responses
-}
-
 func buildGetServicePropertiesResponses(c *gc.C, services ...*gwacl.HostedService) []gwacl.DispatcherResponse {
 	responses := make([]gwacl.DispatcherResponse, len(services))
 	for i, service := range services {
@@ -707,22 +690,6 @@ func buildStatusOKResponses(c *gc.C, n int) []gwacl.DispatcherResponse {
 	}
 	return responses
 }
-
-/*
-func buildDestroyAzureDeploymentResponses(c *gc.C, deployment *gwacl.Deployment) (responses []gwacl.DispatcherResponse) {
-	// One for the deployment, and one for each role's OS disk.
-	okResponse := gwacl.NewDispatcherResponse(nil, http.StatusOK, nil)
-	responses = append(responses, okResponse)
-	var diskNames set.Strings
-	for _, role := range deployment.RoleList {
-		diskNames.Add(role.OSVirtualHardDisk.DiskName)
-	}
-	for _ = range diskNames.Values() {
-		responses = append(responses, okResponse)
-	}
-	return responses
-}
-*/
 
 func makeAzureService(name string) *gwacl.HostedService {
 	return &gwacl.HostedService{
@@ -762,8 +729,7 @@ func (s *environSuite) TestStopInstancesDestroysMachines(c *gc.C) {
 	service2Name := "service2"
 	service2 := makeDeployment(env, service2Name)
 
-	role1Name := service1.Deployments[0].RoleList[0].RoleName
-	inst1, err := env.getInstance(service1, role1Name)
+	inst1, err := env.getInstance(service1, "")
 	c.Assert(err, gc.IsNil)
 	role2Name := service2.Deployments[0].RoleList[0].RoleName
 	inst2, err := env.getInstance(service2, role2Name)
@@ -772,45 +738,59 @@ func (s *environSuite) TestStopInstancesDestroysMachines(c *gc.C) {
 	inst3, err := env.getInstance(service2, role3Name)
 	c.Assert(err, gc.IsNil)
 
-	instances := []instance.Instance{inst1, inst2, inst3}
-	responses := buildStatusOKResponses(c, len(instances)) // DeleteRole
-	service1.Deployments[0].RoleList = nil
-	service2.Deployments[0].RoleList = nil
-	responses = append(responses, buildDeleteHostedServiceResponses(c, service1, service2)...)
+	responses := buildGetServicePropertiesResponses(c, service1)
+	responses = append(responses, buildStatusOKResponses(c, 1)...) // DeleteHostedService
+	responses = append(responses, buildGetServicePropertiesResponses(c, service2)...)
+	responses = append(responses, buildStatusOKResponses(c, 1)...) // DeleteHostedService
 	requests := gwacl.PatchManagementAPIResponses(responses)
-	err = env.StopInstances(instances)
+	err = env.StopInstances([]instance.Instance{inst1, inst2, inst3})
 	c.Check(err, gc.IsNil)
 
-	// One DELETE per role (DeleteRole), and one GET and DELETE per
-	// service (GetHostedServiceProperties and DeleteHostedService).
+	// One GET and DELETE per service
+	// (GetHostedServiceProperties and DeleteHostedService).
 	c.Check(len(*requests), gc.Equals, len(responses))
-	assertOneRequestMatches(c, *requests, "DELETE", ".*"+role1Name+".*")
-	assertOneRequestMatches(c, *requests, "DELETE", ".*"+role2Name+".*")
-	assertOneRequestMatches(c, *requests, "DELETE", ".*"+role3Name+".*")
-	assertOneRequestMatches(c, *requests, "GET", ".*"+service2Name+".")
-	assertOneRequestMatches(c, *requests, "GET", ".*"+service1Name+".*")
-	assertOneRequestMatches(c, *requests, "DELETE", ".*"+service2Name+".*")
+	assertOneRequestMatches(c, *requests, "GET", ".*"+service1Name+".")
+	assertOneRequestMatches(c, *requests, "GET", ".*"+service2Name+".*")
+	assertOneRequestMatches(c, *requests, "DELETE", ".*"+service1Name+".*")
 	assertOneRequestMatches(c, *requests, "DELETE", ".*"+service2Name+".*")
 }
 
-func (s *environSuite) TestStopInstancesWhenStoppingMachinesFails(c *gc.C) {
-	responses := []gwacl.DispatcherResponse{
-		// Failed to delete one of the roles.
-		gwacl.NewDispatcherResponse(nil, http.StatusConflict, nil),
-		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
-	}
+func (s *environSuite) TestStopInstancesServiceSubset(c *gc.C) {
 	env := makeEnviron(c)
-	service1Name := "service1"
-	service1 := makeDeployment(env, service1Name)
-	service2Name := "service2"
-	service2 := makeDeployment(env, service2Name)
+	service := makeDeployment(env, "service")
 
+	role1Name := service.Deployments[0].RoleList[0].RoleName
+	inst1, err := env.getInstance(service, role1Name)
+	c.Assert(err, gc.IsNil)
+
+	responses := buildGetServicePropertiesResponses(c, service)
+	responses = append(responses, buildStatusOKResponses(c, 1)...) // DeleteRole
+	requests := gwacl.PatchManagementAPIResponses(responses)
+	err = env.StopInstances([]instance.Instance{inst1})
+	c.Check(err, gc.IsNil)
+
+	// One GET for the service, and one DELETE for the role.
+	// The service isn't deleted because it has two roles,
+	// and only one is being deleted.
+	c.Check(len(*requests), gc.Equals, len(responses))
+	assertOneRequestMatches(c, *requests, "GET", ".*"+service.ServiceName+".")
+	assertOneRequestMatches(c, *requests, "DELETE", ".*"+role1Name+".*")
+}
+
+func (s *environSuite) TestStopInstancesWhenStoppingMachinesFails(c *gc.C) {
+	env := makeEnviron(c)
+	service1 := makeDeployment(env, "service1")
+	service2 := makeDeployment(env, "service2")
 	service1Role1Name := service1.Deployments[0].RoleList[0].RoleName
 	inst1, err := env.getInstance(service1, service1Role1Name)
 	c.Assert(err, gc.IsNil)
 	service2Role1Name := service2.Deployments[0].RoleList[0].RoleName
 	inst2, err := env.getInstance(service2, service2Role1Name)
 	c.Assert(err, gc.IsNil)
+
+	responses := buildGetServicePropertiesResponses(c, service1, service2)
+	// Failed to delete one of the services.
+	responses = append(responses, gwacl.NewDispatcherResponse(nil, http.StatusConflict, nil))
 	requests := gwacl.PatchManagementAPIResponses(responses)
 
 	instances := []instance.Instance{inst1, inst2}
@@ -818,31 +798,9 @@ func (s *environSuite) TestStopInstancesWhenStoppingMachinesFails(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, ".*Conflict.*")
 
 	c.Check(len(*requests), gc.Equals, len(responses))
-	assertOneRequestMatches(c, *requests, "DELETE", ".*"+service1Role1Name+".")
-	assertOneRequestMatches(c, *requests, "DELETE", ".*"+service2Role1Name+".")
-}
-
-func (s *environSuite) TestStopInstancesWithLimitedConcurrency(c *gc.C) {
-	env := makeEnviron(c)
-	var services []*gwacl.HostedService
-	var instances []instance.Instance
-	for i := 0; i < 10; i++ {
-		serviceName := fmt.Sprintf("service%d", i)
-		service := makeDeployment(env, serviceName)
-		instance, err := env.getInstance(service, service.Deployments[0].RoleList[0].RoleName)
-		c.Assert(err, gc.IsNil)
-		services = append(services, service)
-		instances = append(instances, instance)
-		service.Deployments[0].RoleList = nil
-	}
-
-	responses := buildStatusOKResponses(c, len(instances)) // DeleteRole
-	responses = append(responses, buildDeleteHostedServiceResponses(c, services...)...)
-	requests := gwacl.PatchManagementAPIResponses(responses)
-
-	err := env.StopInstances(instances)
-	c.Check(err, gc.IsNil)
-	c.Check(len(*requests), gc.Equals, len(services)*3)
+	assertOneRequestMatches(c, *requests, "GET", ".*"+service1.ServiceName+".*")
+	assertOneRequestMatches(c, *requests, "GET", ".*"+service2.ServiceName+".*")
+	assertOneRequestMatches(c, *requests, "DELETE", ".*("+service1.ServiceName+"|"+service2.ServiceName+").")
 }
 
 func (s *environSuite) TestStopInstancesWithZeroInstance(c *gc.C) {
@@ -984,48 +942,49 @@ func assertOneRequestMatches(c *gc.C, requests []*gwacl.X509Request, method stri
 func (s *environSuite) TestDestroyStopsAllInstances(c *gc.C) {
 	env := makeEnviron(c)
 	s.setDummyStorage(c, env)
-
-	// Simulate 2 instances corresponding to two Azure services.
 	prefix := env.getEnvPrefix()
-	service1Name := prefix + "service1"
-	service1 := makeAzureService(service1Name)
-	services := []*gwacl.HostedService{service1}
+	service1 := makeDeployment(env, prefix+"service1")
+	service2 := makeDeployment(env, prefix+"service2")
+
 	// The call to AllInstances() will return only one service (service1).
-	listInstancesResponses := getAzureServiceListResponse(c, service1.HostedServiceDescriptor)
-	destroyResponses := buildDeleteHostedServiceResponses(c, service1)
-	responses := append(listInstancesResponses, destroyResponses...)
-	cleanupResponses := getVnetAndAffinityGroupCleanupResponses(c)
-	responses = append(responses, cleanupResponses...)
+	responses := getAzureServiceListResponse(c, service1.HostedServiceDescriptor, service2.HostedServiceDescriptor)
+	responses = append(responses, buildStatusOKResponses(c, 2)...) // DeleteHostedService
+	responses = append(responses, getVnetAndAffinityGroupCleanupResponses(c)...)
 	requests := gwacl.PatchManagementAPIResponses(responses)
 
 	err := env.Destroy()
 	c.Check(err, gc.IsNil)
 
 	// One request to get the list of all the environment's instances.
-	// Then two requests per destroyed machine (one to fetch the
-	// service's information, one to delete it) and two requests to delete
-	// the Virtual Network and the Affinity Group.
-	c.Check((*requests), gc.HasLen, 1+len(services)*2+2)
+	// One delete request per destroyed service, and two additional
+	// requests to delete the Virtual Network and the Affinity Group.
+	c.Check((*requests), gc.HasLen, 5)
 	c.Check((*requests)[0].Method, gc.Equals, "GET")
-	assertOneRequestMatches(c, *requests, "GET", ".*"+service1Name+".*")
-	assertOneRequestMatches(c, *requests, "DELETE", ".*"+service1Name+".*")
+	assertOneRequestMatches(c, *requests, "DELETE", ".*"+service1.ServiceName+".*")
+	assertOneRequestMatches(c, *requests, "DELETE", ".*"+service2.ServiceName+".*")
 }
 
 func (s *environSuite) TestGetInstance(c *gc.C) {
 	env := makeEnviron(c)
 	service1 := makeLegacyDeployment(env, "service1")
 	service2 := makeDeployment(env, "service1")
+
+	// azureEnviron.Instances will call getInstance with roleName==""
+	// for legacy instances. This will cause getInstance to get the
+	// one and only role (or error if there is more than one).
 	inst1, err := env.getInstance(service1, "")
 	c.Assert(err, gc.IsNil)
 	c.Check(inst1.Id(), gc.Equals, instance.Id("service1"))
+	c.Check(inst1, gc.FitsTypeOf, &azureInstance{})
+	c.Check(inst1.(*azureInstance).environ, gc.Equals, env)
+	c.Check(inst1.(*azureInstance).roleName, gc.Equals, service1.Deployments[0].RoleList[0].RoleName)
+	service1.Deployments[0].RoleList = service2.Deployments[0].RoleList
+	inst1, err = env.getInstance(service1, "")
+	c.Assert(err, gc.ErrorMatches, `expected one role for "service1", got 2`)
+
 	inst2, err := env.getInstance(service2, service2.Deployments[0].RoleList[0].RoleName)
 	c.Assert(err, gc.IsNil)
 	c.Check(inst2.Id(), gc.Equals, instance.Id("service1-"+service2.Deployments[0].RoleList[0].RoleName))
-	// TODO(axw) expand tests
-
-	//c.Check(instance, gc.FitsTypeOf, &azureInstance{})
-	//azInstance := instance.(*azureInstance)
-	//c.Check(azInstance.environ, gc.Equals, env)
 }
 
 func (*environSuite) TestNewOSVirtualDisk(c *gc.C) {

@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -27,7 +28,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/tools"
-	"launchpad.net/juju-core/utils/parallel"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
 )
 
@@ -200,14 +201,40 @@ func (env *azureEnviron) createVirtualNetwork() error {
 	return azure.AddVirtualNetworkSite(&virtualNetwork)
 }
 
+// deleteVnetAttempt is an AttemptyStrategy for use
+// when attempting delete a virtual network. This is
+// necessary as Azure apparently does not release all
+// references to the vnet even when all cloud services
+// are deleted.
+var deleteVnetAttempt = utils.AttemptStrategy{
+	Total: 30 * time.Second,
+	Delay: 1 * time.Second,
+}
+
+var networkInUse = regexp.MustCompile(".*The virtual network .* is currently in use.*")
+
 func (env *azureEnviron) deleteVirtualNetwork() error {
 	azure, err := env.getManagementAPI()
 	if err != nil {
 		return err
 	}
 	defer env.releaseManagementAPI(azure)
-	vnetName := env.getVirtualNetworkName()
-	return azure.RemoveVirtualNetworkSite(vnetName)
+	for a := deleteVnetAttempt.Start(); a.Next(); {
+		vnetName := env.getVirtualNetworkName()
+		err = azure.RemoveVirtualNetworkSite(vnetName)
+		if err == nil {
+			return nil
+		}
+		if err, ok := err.(*gwacl.AzureError); ok {
+			if err.StatusCode() == 400 && networkInUse.MatchString(err.Message) {
+				// Retry on "virtual network XYZ is currently in use".
+				continue
+			}
+		}
+		// Any other error should be returned.
+		break
+	}
+	return err
 }
 
 // getContainerName returns the name of the private storage account container
@@ -428,9 +455,7 @@ func (env *azureEnviron) createRole(azure *gwacl.ManagementAPI, role *gwacl.Role
 		// should destroy it if anything below fails.
 		defer func() {
 			if resultErr != nil {
-				azure.DestroyHostedService(&gwacl.DestroyHostedServiceRequest{
-					ServiceName: service.ServiceName,
-				})
+				azure.DeleteHostedService(service.ServiceName)
 				// Destroying the hosted service destroys the instance,
 				// so ensure StopInstances isn't called.
 				inst = nil
@@ -516,8 +541,7 @@ func (env *azureEnviron) StartInstance(cons constraints.Value, possibleTools too
 	// same availability set.
 	var label string
 	if machineConfig.StateServer {
-		// TODO(axw) label should be blank by default, have a special value
-		// if provisioning a state server, else whatever's in the Affinity.
+		// All state servers are grouped together.
 		label = "juju-state-server"
 	} else {
 		// TODO(axw) 2014-03-10 #1229411
@@ -658,13 +682,6 @@ func (env *azureEnviron) newRole(roleSize string, vhd *gwacl.OSVirtualHardDisk, 
 	return role
 }
 
-// Spawn this many goroutines to issue requests for destroying services.
-// TODO: this is currently set to 1 because of a problem in Azure:
-// removing Services in the same affinity group concurrently causes a conflict.
-// This conflict is wrongly reported by Azure as a BadRequest (400).
-// This has been reported to Windows Azure.
-const maxConcurrentDeletes = 1
-
 // StartInstance is specified in the InstanceBroker interface.
 func (env *azureEnviron) StopInstances(instances []instance.Instance) error {
 	context, err := env.getManagementAPI()
@@ -673,49 +690,64 @@ func (env *azureEnviron) StopInstances(instances []instance.Instance) error {
 	}
 	defer env.releaseManagementAPI(context)
 
-	// Destroy all the roles in parallel. Record services for which
-	// roles are destroyed, so we can garbage collect later.
-	services := make(map[string]bool)
-	run := parallel.NewRun(maxConcurrentDeletes)
+	// Map services to role names we want to delete.
+	serviceInstances := make(map[string]map[string]bool)
 	for _, instance := range instances {
 		instance, ok := instance.(*azureInstance)
 		if !ok {
 			continue
 		}
 		serviceName := instance.hostedService.ServiceName
-		deploymentName := instance.deploymentName
-		roleName := instance.roleName
-		services[serviceName] = true
-		run.Do(func() error {
-			return context.DeleteRole(&gwacl.DeleteRoleRequest{
-				ServiceName:    serviceName,
-				DeploymentName: deploymentName,
-				RoleName:       roleName,
-				DeleteMedia:    true,
-			})
-		})
-	}
-	if err := run.Wait(); err != nil {
-		return fmt.Errorf("failed to delete roles", err)
+		deleteRoleNames, ok := serviceInstances[serviceName]
+		if !ok {
+			deleteRoleNames = make(map[string]bool)
+			serviceInstances[serviceName] = deleteRoleNames
+		}
+		deleteRoleNames[instance.roleName] = true
 	}
 
-	// Destroy services now bereft of roles.
-	run = parallel.NewRun(maxConcurrentDeletes)
-	for serviceName := range services {
-		serviceName := serviceName // copy for closure
-		run.Do(func() error {
-			service, err := context.GetHostedServiceProperties(serviceName, true)
-			if err != nil {
-				return err
-			} else if len(service.Deployments) != 1 {
-				return nil
-			} else if len(service.Deployments[0].RoleList) != 0 {
-				return nil
+	// Load the properties of each service, so we know whether to
+	// delete the entire service.
+	//
+	// Note: concurrent operations on Affinity Groups have been
+	// found to cause conflict responses, so we do everything serially.
+	for serviceName, deleteRoleNames := range serviceInstances {
+		service, err := context.GetHostedServiceProperties(serviceName, true)
+		if err != nil {
+			return err
+		} else if len(service.Deployments) != 1 {
+			continue
+		}
+		// Filter the instances that have no corresponding role.
+		var roleNames set.Strings
+		for _, role := range service.Deployments[0].RoleList {
+			roleNames.Add(role.RoleName)
+		}
+		for roleName := range deleteRoleNames {
+			if !roleNames.Contains(roleName) {
+				delete(deleteRoleNames, roleName)
 			}
-			return context.DeleteHostedService(serviceName)
-		})
+		}
+		// If we're deleting all the roles, we need to delete the
+		// entire cloud service or we'll get an error.
+		if len(deleteRoleNames) == roleNames.Size() {
+			if err := context.DeleteHostedService(serviceName); err != nil {
+				return err
+			}
+		} else {
+			for roleName := range deleteRoleNames {
+				if err := context.DeleteRole(&gwacl.DeleteRoleRequest{
+					ServiceName:    serviceName,
+					DeploymentName: service.Deployments[0].Name,
+					RoleName:       roleName,
+					DeleteMedia:    true,
+				}); err != nil {
+					return err
+				}
+			}
+		}
 	}
-	return run.Wait()
+	return nil
 }
 
 // destroyAllServices destroys all Cloud Services and deployments contained.
@@ -733,16 +765,12 @@ func (env *azureEnviron) destroyAllServices() error {
 	if err != nil {
 		return err
 	}
-
-	run := parallel.NewRun(maxConcurrentDeletes)
 	for _, service := range services {
-		run.Do(func() error {
-			return context.DestroyHostedService(&gwacl.DestroyHostedServiceRequest{
-				ServiceName: service.ServiceName,
-			})
-		})
+		if err := context.DeleteHostedService(service.ServiceName); err != nil {
+			return err
+		}
 	}
-	return run.Wait()
+	return nil
 }
 
 // Instances is specified in the Environ interface.
