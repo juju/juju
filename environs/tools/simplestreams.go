@@ -187,6 +187,8 @@ func Fetch(
 	for i, md := range items {
 		metadata[i] = md.(*ToolsMetadata)
 	}
+	// Sorting the metadata is not strictly necessary, but it ensures consistent ordering for
+	// all compilers, and it just makes it easier to look at the data.
 	Sort(metadata)
 	return metadata, resolveInfo, nil
 }
