@@ -23,6 +23,12 @@ const (
 	Started Action = iota
 	// A container has been stopped.
 	Stopped
+	// A container has been created.
+	Created
+	// A container has been destroyed.
+	Destroyed
+	// A container has been cloned.
+	Cloned
 )
 
 func (action Action) String() string {
@@ -86,7 +92,11 @@ func (mock *mockContainer) Create(configFile, template string, extraArgs []strin
 		return err
 	}
 	containerConfig := filepath.Join(containerDir, "config")
-	return utils.CopyFile(containerConfig, configFile)
+	if err := utils.CopyFile(containerConfig, configFile); err != nil {
+		return err
+	}
+	mock.factory.notify(Created, mock.name)
+	return nil
 }
 
 // Start runs the container as a daemon.
@@ -122,6 +132,7 @@ func (mock *mockContainer) Clone(name string, extraArgs []string, templateArgs [
 		logLevel: golxc.LogWarning,
 	}
 	mock.factory.instances[name] = container
+	mock.factory.notify(Cloned, mock.name)
 	return container, nil
 }
 
@@ -146,6 +157,7 @@ func (mock *mockContainer) Destroy() error {
 	}
 	mock.state = golxc.StateUnknown
 	delete(mock.factory.instances, mock.name)
+	mock.factory.notify(Destroyed, mock.name)
 	return nil
 }
 
