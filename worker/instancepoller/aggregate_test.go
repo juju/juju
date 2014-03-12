@@ -25,7 +25,7 @@ type testInstance struct {
 	instance.Instance
 	addresses []instance.Address
 	status    string
-	err	bool
+	err       bool
 }
 
 var _ instance.Instance = (*testInstance)(nil)
