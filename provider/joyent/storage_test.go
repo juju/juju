@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	gc "launchpad.net/gocheck"
-	"launchpad.net/gojoyent/errors"
+	"github.com/joyent/gocommon/errors"
 
 	coreerrors "launchpad.net/juju-core/errors"
 	jp "launchpad.net/juju-core/provider/joyent"

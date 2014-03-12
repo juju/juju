@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"text/template"
 
-	"launchpad.net/gojoyent/jpc"
+	"github.com/joyent/gosign/auth"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -111,7 +111,7 @@ var imagesData = `
 }
 `
 
-func parseIndexData(creds *jpc.Credentials) bytes.Buffer {
+func parseIndexData(creds *auth.Credentials) bytes.Buffer {
 	var metadata bytes.Buffer
 
 	t := template.Must(template.New("").Parse(indexData))
@@ -134,7 +134,7 @@ func init() {
 var origImagesUrl = imagemetadata.DefaultBaseURL
 
 // Set Metadata requests to be served by the filecontent supplied.
-func UseExternalTestImageMetadata(creds *jpc.Credentials) {
+func UseExternalTestImageMetadata(creds *auth.Credentials) {
 	metadata := parseIndexData(creds)
 	files := map[string]string{
 		"/streams/v1/index.json":                            metadata.String(),

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"launchpad.net/gojoyent/cloudapi"
+	"github.com/joyent/gosdc/cloudapi"
 
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/common"

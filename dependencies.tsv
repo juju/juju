@@ -1,12 +1,15 @@
 code.google.com/p/go.crypto	hg	6478cc9340cbbe6c04511280c5007722269108e9	184
 code.google.com/p/go.net	hg	3591c18acabc99439c783463ef00e6dc277eee39	77
 labix.org/v2/mgo	bzr	gustavo@niemeyer.net-20131118213720-aralgr4ienh0gdyq	248
-github.com/errgo/errgo	git	93d72bf813883d1054cae1c001d3a46603f7f559	
+github.com/errgo/errgo	git	93d72bf813883d1054cae1c001d3a46603f7f559
+github.com/joyent/gocommon	git	efd4b3510166793e9ad9592e5cb936105f79b553
+github.com/joyent/gomanta	git	cc958546ebf8fde9b6afe04c615a88b9fe0b1354
+github.com/joyent/gosdc	git	9c30419092c82238f62e13a77068eb91db5dc8c9
+github.com/joyent/gosign	git	d54ac4e99bd7cd49f842231cdd77f6cb8bade6b6
 github.com/juju/loggo	git	fa3acf9ab9ed09aea29030558528e24a254d27af	
 launchpad.net/gnuflag	bzr	roger.peppe@canonical.com-20121003093437-zcyyw0lpvj2nifpk	12
 launchpad.net/goamz	bzr	roger.peppe@canonical.com-20131218155244-hbnkvlkkzy3vmlh9	44
 launchpad.net/gocheck	bzr	gustavo@niemeyer.net-20130302024745-6ikofwq2c03h7giu	85
-launchpad.net/gojoyent	bzr	daniele.stroppa@joyent.com-20140307101334-g06k2qhadiuyml9g	66
 launchpad.net/golxc	bzr	ian.booth@canonical.com-20140116225718-lvoikrb0me6zugin	6
 launchpad.net/gomaasapi	bzr	ian.booth@canonical.com-20131017011445-m1hmr0ap14osd7li	47
 launchpad.net/goose	bzr	tarmac-20140124165235-h9rloooc531udms5	116

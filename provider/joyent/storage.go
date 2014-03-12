@@ -16,9 +16,9 @@ import (
 	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 
-	"launchpad.net/gojoyent/client"
-	je "launchpad.net/gojoyent/errors"
-	"launchpad.net/gojoyent/manta"
+	"github.com/joyent/gocommon/client"
+	je "github.com/joyent/gocommon/errors"
+	"github.com/joyent/gomanta/manta"
 )
 
 type JoyentStorage struct {

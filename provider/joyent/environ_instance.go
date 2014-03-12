@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"launchpad.net/gojoyent/client"
-	"launchpad.net/gojoyent/cloudapi"
+	"github.com/joyent/gocommon/client"
+	"github.com/joyent/gosdc/cloudapi"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"

@@ -6,7 +6,7 @@ package joyent
 import (
 	"sync"
 
-	"launchpad.net/gojoyent/jpc"
+	"github.com/joyent/gosign/auth"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -29,7 +29,7 @@ type JoyentEnviron struct {
 	// affected fields.
 	lock    sync.Mutex
 	ecfg    *environConfig
-	creds   *jpc.Credentials
+	creds   *auth.Credentials
 	storage storage.Storage
 	compute *joyentCompute
 }
@@ -108,7 +108,7 @@ func (env *JoyentEnviron) Ecfg() *environConfig {
 	return env.getSnapshot().ecfg
 }
 
-func (env *JoyentEnviron) Credentials() *jpc.Credentials {
+func (env *JoyentEnviron) Credentials() *auth.Credentials {
 	return env.getSnapshot().creds
 }
 
@@ -116,15 +116,15 @@ func (env *JoyentEnviron) SetCredentials() {
 	env.creds = getCredentials(env)
 }
 
-func getCredentials(env *JoyentEnviron) *jpc.Credentials {
-	auth := jpc.Auth{User: env.ecfg.mantaUser(), KeyFile: env.ecfg.keyFile(), Algorithm: env.ecfg.algorithm()}
+func getCredentials(env *JoyentEnviron) *auth.Credentials {
+	authentication := auth.Auth{User: env.ecfg.mantaUser(), KeyFile: env.ecfg.keyFile(), Algorithm: env.ecfg.algorithm()}
 
-	return &jpc.Credentials{
-		UserAuthentication: auth,
+	return &auth.Credentials{
+		UserAuthentication: authentication,
 		MantaKeyId:         env.ecfg.mantaKeyId(),
-		MantaEndpoint:      jpc.Endpoint{URL: env.ecfg.mantaUrl()},
+		MantaEndpoint:      auth.Endpoint{URL: env.ecfg.mantaUrl()},
 		SdcKeyId:           env.ecfg.sdcKeyId(),
-		SdcEndpoint:        jpc.Endpoint{URL: env.ecfg.sdcUrl()},
+		SdcEndpoint:        auth.Endpoint{URL: env.ecfg.sdcUrl()},
 	}
 }
 

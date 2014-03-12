@@ -11,8 +11,8 @@ import (
 	"strings"
 
 	gc "launchpad.net/gocheck"
-	lc "launchpad.net/gojoyent/localservices/cloudapi"
-	lm "launchpad.net/gojoyent/localservices/manta"
+	lc "github.com/joyent/gosdc/localservices/cloudapi"
+	lm "github.com/joyent/gomanta/localservices/manta"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
