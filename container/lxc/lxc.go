@@ -95,7 +95,11 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 	}
 	backingFS, err := containerDirFilesystem()
 	if err != nil {
-		return nil, err
+		// Especially in tests, or a bot, the lxc dir may not exist
+		// causing the test to fail. Since we only really care if the
+		// backingFS is 'btrfs' and we treat the rest the same, just
+		// call it 'unknown'.
+		backingFS = "unknown"
 	}
 	logger.Tracef("backing filesystem: %q", backingFS)
 	for k, v := range conf {
