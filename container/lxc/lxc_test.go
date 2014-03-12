@@ -6,7 +6,6 @@ package lxc_test
 import (
 	"fmt"
 	"io/ioutil"
-	"launchpad.net/juju-core/juju/osenv"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,6 +24,7 @@ import (
 	lxctesting "launchpad.net/juju-core/container/lxc/testing"
 	containertesting "launchpad.net/juju-core/container/testing"
 	instancetest "launchpad.net/juju-core/instance/testing"
+	"launchpad.net/juju-core/juju/osenv"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
@@ -48,7 +48,7 @@ func (s *LxcSuite) SetUpTest(c *gc.C) {
 	s.events = make(chan mock.Event, 25)
 	s.TestSuite.Factory.AddListener(s.events)
 	s.PatchValue(&lxc.TemplateLockDir, c.MkDir())
-	s.PatchValue(&lxc.TemplateStopTimeout, 2000*time.Millisecond)
+	s.PatchValue(&lxc.TemplateStopTimeout, 500*time.Millisecond)
 }
 
 func (s *LxcSuite) TearDownTest(c *gc.C) {
