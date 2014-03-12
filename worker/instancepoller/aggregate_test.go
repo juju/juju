@@ -36,18 +36,21 @@ func (t *testInstance) Id() (instance.Id) {
 
 type testInstanceGetter struct {
     ids []instance.Id
-    results []instanceInfoReply
+    results []instance.Instance
+    err bool
 }
 
 func (i *testInstanceGetter) Instances(ids []instance.Id) ([]instance.Instance, error) {
-//    var results []instance.Instance
-//    results[0] = testInstance{}
     i.ids = ids
-    return nil, fmt.Errorf("Some error")
+    if i.err {
+        return nil, fmt.Errorf("Some error")
+    }
+    return i.results, nil
 }
 
 func (s *aggregateSuite) TestLoop(c *gc.C) {
     testGetter := new(testInstanceGetter)
+    testGetter.err = true
     aggregator := newAggregator(testGetter)
 
     replyChan := make(chan instanceInfoReply)
@@ -57,6 +60,6 @@ func (s *aggregateSuite) TestLoop(c *gc.C) {
     }
     aggregator.reqc <- req
     reply :=  <-replyChan
-    c.Assert(reply.info, gc.Equals, instanceInfo{})
-    c.Assert(testGetter.ids, gc.Equals, []instance.Id{instance.Id("foo")})
+    c.Assert(reply.info, gc.DeepEquals, instanceInfo{})
+    c.Assert(testGetter.ids, gc.DeepEquals, []instance.Id{instance.Id("foo")})
 }
