@@ -9,6 +9,8 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing/testbase"
 )
@@ -23,47 +25,53 @@ type testInstance struct {
 	instance.Instance
 	addresses []instance.Address
 	status    string
+	err	bool
 }
 
 var _ instance.Instance = (*testInstance)(nil)
 
-func (t testInstance) Addresses() ([]instance.Address, error) {
+func (t *testInstance) Addresses() ([]instance.Address, error) {
+	if t.err {
+		return nil, fmt.Errorf("gotcha")
+	}
 	return t.addresses, nil
 }
 
-func (t testInstance) Status() string {
+func (t *testInstance) Status() string {
 	return t.status
 }
 
 type testInstanceGetter struct {
 	ids     []instance.Id
-	results []testInstance
+	results []*testInstance
 	err     error
 }
 
 func (i *testInstanceGetter) Instances(ids []instance.Id) (result []instance.Instance, err error) {
 	i.ids = ids
-	if i.err != nil {
-		return nil, i.err
-	}
+	err = i.err
 	for _, inst := range i.results {
-		result = append(result, inst)
+		if inst == nil {
+			result = append(result, nil)
+		} else {
+			result = append(result, inst)
+		}
 	}
 	return
 }
 
 func newTestInstance(status string, addresses []string) *testInstance {
-	thisInstance := &testInstance{status: status}
+	thisInstance := testInstance{status: status}
 	for _, address := range addresses {
 		thisInstance.addresses = append(thisInstance.addresses, instance.NewAddress(address))
 	}
-	return thisInstance
+	return &thisInstance
 }
 
 func (s *aggregateSuite) TestSingleRequest(c *gc.C) {
 	testGetter := new(testInstanceGetter)
 	instance1 := newTestInstance("foobar", []string{"127.0.0.1", "192.168.1.1"})
-	testGetter.results = []testInstance{*instance1}
+	testGetter.results = []*testInstance{instance1}
 	aggregator := newAggregator(testGetter)
 
 	replyChan := make(chan instanceInfoReply)
@@ -86,7 +94,7 @@ func (s *aggregateSuite) TestRequestBatching(c *gc.C) {
 	testGetter := new(testInstanceGetter)
 
 	instance1 := newTestInstance("foobar", []string{"127.0.0.1", "192.168.1.1"})
-	testGetter.results = []testInstance{*instance1}
+	testGetter.results = []*testInstance{instance1}
 	aggregator := newAggregator(testGetter)
 
 	replyChan := make(chan instanceInfoReply)
@@ -107,7 +115,7 @@ func (s *aggregateSuite) TestRequestBatching(c *gc.C) {
 	aggregator.reqc <- instanceInfoReq{reply: replyChan2, instId: instance.Id("foo2")}
 	aggregator.reqc <- instanceInfoReq{reply: replyChan3, instId: instance.Id("foo3")}
 
-	testGetter.results = []testInstance{*instance2, *instance3}
+	testGetter.results = []*testInstance{instance2, instance3}
 	reply2 := <-replyChan2
 	reply3 := <-replyChan3
 	c.Assert(reply2.err, gc.IsNil)
@@ -133,4 +141,54 @@ func (s *aggregateSuite) TestError(c *gc.C) {
 	aggregator.reqc <- req
 	reply := <-replyChan
 	c.Assert(reply.err, gc.Equals, ourError)
+}
+
+func (s *aggregateSuite) TestPartialErrResponse(c *gc.C) {
+	testGetter := new(testInstanceGetter)
+	testGetter.err = environs.ErrPartialInstances
+	testGetter.results = []*testInstance{nil}
+
+	aggregator := newAggregator(testGetter)
+
+	replyChan := make(chan instanceInfoReply)
+	req := instanceInfoReq{
+		reply:  replyChan,
+		instId: instance.Id("foo"),
+	}
+	aggregator.reqc <- req
+	reply := <-replyChan
+	c.Assert(reply.err, gc.DeepEquals, errors.NotFoundf("instance foo"))
+}
+
+func (s *aggregateSuite) TestAddressesError(c *gc.C) {
+	testGetter := new(testInstanceGetter)
+	instance1 := newTestInstance("foobar", []string{"127.0.0.1", "192.168.1.1"})
+	instance1.err = true
+	testGetter.results = []*testInstance{instance1}
+	aggregator := newAggregator(testGetter)
+
+	replyChan := make(chan instanceInfoReply)
+	req := instanceInfoReq{
+		reply:  replyChan,
+		instId: instance.Id("foo"),
+	}
+	aggregator.reqc <- req
+	reply := <-replyChan
+	c.Assert(reply.err, gc.DeepEquals, fmt.Errorf("gotcha"))
+}
+
+func (s *aggregateSuite) TestKillAndWait(c *gc.C) {
+	testGetter := new(testInstanceGetter)
+	aggregator := newAggregator(testGetter)
+	aggregator.Kill()
+	err := aggregator.Wait()
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *aggregateSuite) TestLoopDying(c *gc.C) {
+	testGetter := new(testInstanceGetter)
+	aggregator := newAggregator(testGetter)
+	close(aggregator.reqc)
+	err := aggregator.Wait()
+	c.Assert(err, gc.NotNil)
 }
