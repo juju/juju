@@ -93,6 +93,7 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 		logger.Tracef("using lxc-clone for creating containers")
 		useClone = true
 	}
+	delete(conf, "use-clone")
 	backingFS, err := containerDirFilesystem()
 	if err != nil {
 		// Especially in tests, or a bot, the lxc dir may not exist
