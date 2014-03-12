@@ -43,20 +43,16 @@ func (s *observerSuite) TestEnvironmentChanges(c *gc.C) {
 	env := obs.Environ()
 	c.Assert(env.Config().AllAttrs(), gc.DeepEquals, originalConfig.AllAttrs())
 
-	// Change the environment configuration with a different name and check that we see it.
-	s.State.UpdateEnvironConfig(map[string]interface{}{"logging-config": "juju=ERROR"}, []string{})
+	// Change the environment with a different name and check that we see it.
+	err = s.State.UpdateEnvironConfig(map[string]interface{}{"logging-config": "juju=ERROR"}, nil, nil)
+	c.Assert(err, gc.IsNil)
 	s.State.StartSync()
-
-	// Check that the returned environ is still the same.
-	env = obs.Environ()
-	c.Assert(env.Config().AllAttrs(), gc.DeepEquals, originalConfig.AllAttrs())
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		env := obs.Environ()
 		if !a.HasNext() {
 			c.Fatalf("timed out waiting for new environ")
 		}
-
 		if env.Config().LoggingConfig() == "juju=ERROR;unit=DEBUG" {
 			break
 		}

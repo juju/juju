@@ -11,6 +11,7 @@ import (
 
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/dummy"
+	_ "launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -162,17 +163,14 @@ func (s *SetEnvironmentSuite) TestChangeAsCommandPair(c *gc.C) {
 }
 
 var immutableConfigTests = map[string]string{
-	"type":          "dummy",
 	"name":          "foo",
+	"type":          "local",
 	"firewall-mode": "global",
 	"state-port":    "1",
 	"api-port":      "666",
 }
 
 func (s *SetEnvironmentSuite) TestImmutableConfigValues(c *gc.C) {
-	_, err := testing.RunCommand(c, &SetEnvironmentCommand{}, []string{"type=foo"})
-	c.Check(err, gc.ErrorMatches, `no registered provider for "foo"`)
-
 	for name, value := range immutableConfigTests {
 		param := fmt.Sprintf("%s=%s", name, value)
 		_, err := testing.RunCommand(c, &SetEnvironmentCommand{}, []string{param})

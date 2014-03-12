@@ -143,7 +143,7 @@ func (s *MachineEnvironmentWatcherSuite) updateConfig(c *gc.C) (osenv.ProxySetti
 		attrs[k] = v
 	}
 
-	err := s.State.UpdateEnvironConfig(attrs, []string{})
+	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 
 	return proxySettings, aptProxySettings

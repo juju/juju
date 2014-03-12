@@ -1962,7 +1962,7 @@ func (s setProxySettings) step(c *gc.C, ctx *context) {
 		"https-proxy": s.Https,
 		"ftp-proxy":   s.Ftp,
 	}
-	err := ctx.st.UpdateEnvironConfig(attrs, []string{})
+	err := ctx.st.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 	// wait for the new values...
 	expected := (osenv.ProxySettings)(s)

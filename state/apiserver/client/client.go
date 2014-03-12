@@ -769,21 +769,22 @@ func (c *Client) EnvironmentGet() (params.EnvironmentGetResults, error) {
 // EnvironmentSet implements the server-side part of the
 // set-environment CLI command.
 func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
-
 	// Make sure we don't allow changing agent-version.
-	if v, found := args.Config["agent-version"]; found {
-		oldConfig, err := c.api.state.EnvironConfig()
-		if err != nil {
-			return err
+	checkAgentVersion := func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
+		if v, found := updateAttrs["agent-version"]; found {
+			oldVersion, _ := oldConfig.AgentVersion()
+			if v != oldVersion.String() {
+				return fmt.Errorf("agent-version cannot be changed")
+			}
 		}
-		oldVersion, _ := oldConfig.AgentVersion()
-		if v != oldVersion.String() {
-			return fmt.Errorf("agent-version cannot be changed")
-		}
+		return nil
 	}
 
-	// TODO [waigani] Add a txn retry loop
-	return c.api.state.UpdateEnvironConfig(args.Config, []string{})
+	// TODO(waigani) 2014-3-11 #1167616
+	// Add a txn retry loop to ensure that the settings on disk have not
+	// changed underneath us.
+
+	return c.api.state.UpdateEnvironConfig(args.Config, nil, checkAgentVersion)
 
 }
 

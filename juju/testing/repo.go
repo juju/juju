@@ -26,7 +26,7 @@ func (s *RepoSuite) SetUpTest(c *gc.C) {
 	// Change the environ's config to ensure we're using the one in state,
 	// not the one in the local environments.yaml
 	updateAttrs := map[string]interface{}{"default-series": "precise"}
-	err := s.State.UpdateEnvironConfig(updateAttrs, []string{})
+	err := s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 	s.RepoPath = os.Getenv("JUJU_REPOSITORY")
 	repoPath := c.MkDir()

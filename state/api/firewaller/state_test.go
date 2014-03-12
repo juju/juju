@@ -81,17 +81,15 @@ func (s *stateSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
 
 	// Change the environment configuration, check it's detected.
 	newAttrs := map[string]interface{}{"logging-config": "juju=ERROR"}
-	err = s.State.UpdateEnvironConfig(newAttrs, []string{})
+	err = s.State.UpdateEnvironConfig(newAttrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 	wc.AssertOneChange()
 
 	// Change it back to the original config.
 	oldAttrs := map[string]interface{}{"logging-config": envConfig.AllAttrs()["logging-config"]}
-	err = s.State.UpdateEnvironConfig(oldAttrs, []string{})
+	err = s.State.UpdateEnvironConfig(oldAttrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 	wc.AssertOneChange()
-
-	// TODO [waigani] test removing an attribute.
 
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()

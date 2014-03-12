@@ -148,7 +148,7 @@ func (api *KeyManagerAPI) writeSSHKeys(sshKeys []string) error {
 	// Write out the new keys.
 	keyStr := strings.Join(sshKeys, "\n")
 	attrs := map[string]interface{}{config.AuthKeysConfig: keyStr}
-	err := api.state.UpdateEnvironConfig(attrs, []string{})
+	err := api.state.UpdateEnvironConfig(attrs, nil, nil)
 	if err != nil {
 		return fmt.Errorf("writing environ config: %v", err)
 	}

@@ -14,5 +14,5 @@ func processDeprecatedAttributes(context Context) error {
 		"shared-storage-port",
 	}
 	// TODO (wallyworld) - delete tools-url in 1.20
-	return st.UpdateEnvironConfig(map[string]interface{}{}, removeAttrs)
+	return st.UpdateEnvironConfig(map[string]interface{}{}, removeAttrs, nil)
 }

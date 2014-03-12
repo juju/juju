@@ -61,7 +61,7 @@ func (s *ConfigValidatorSuite) updateEnvironConfig(c *gc.C) error {
 		"authorized-keys": "different-keys",
 		"arbitrary-key":   "shazam!",
 	}
-	return s.State.UpdateEnvironConfig(updateAttrs, []string{})
+	return s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
 }
 
 func (s *ConfigValidatorSuite) TestConfigValidate(c *gc.C) {

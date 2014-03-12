@@ -143,16 +143,17 @@ func (c *Conn) updateSecrets() error {
 	if err != nil {
 		return err
 	}
+	var secretAttrs map[string]interface{}
 	attrs := cfg.AllAttrs()
 	for k, v := range secrets {
 		if _, exists := attrs[k]; exists {
 			// Environment already has secrets. Won't send again.
 			return nil
 		} else {
-			attrs[k] = v
+			secretAttrs[k] = v
 		}
 	}
-	return c.State.UpdateEnvironConfig(attrs, []string{})
+	return c.State.UpdateEnvironConfig(secretAttrs, nil, nil)
 }
 
 // PutCharm uploads the given charm to provider storage, and adds a

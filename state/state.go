@@ -256,21 +256,6 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) error {
 	return ErrExcessiveContention
 }
 
-// DELETE ME
-func debugCfg(cfg *config.Config) {
-	if s, ok := cfg.AllAttrs()["secret"]; ok {
-		logger.Warningf("secret in allAttrs: %v", s)
-	} else {
-		logger.Warningf("secret not in allAttrs")
-	}
-
-	if s, ok := cfg.UnknownAttrs()["secret"]; ok {
-		logger.Warningf("secret in unknownAttrs: %v", s)
-	} else {
-		logger.Warningf("secret not in unknownAttrs")
-	}
-}
-
 func (st *State) buildAndValidateEnvironConfig(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) (validCfg *config.Config, err error) {
 	newConfig, err := oldConfig.Apply(updateAttrs)
 	if err != nil {
@@ -288,10 +273,12 @@ func (st *State) buildAndValidateEnvironConfig(updateAttrs map[string]interface{
 	return st.validate(newConfig, oldConfig)
 }
 
+type ValidateFn func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error
+
 // UpateEnvironConfig adds, updates or removes attributes in the current
 // configuration of the environment with the provided updateAttrs and
 // removeAttrs.
-func (st *State) UpdateEnvironConfig(updateAttrs map[string]interface{}, removeAttrs []string) error {
+func (st *State) UpdateEnvironConfig(updateAttrs map[string]interface{}, removeAttrs []string, additionalValidation ValidateFn) error {
 	if len(updateAttrs)+len(removeAttrs) == 0 {
 		return fmt.Errorf("both updateAttrs and removeAttrs cannont be empty")
 	}
@@ -301,12 +288,16 @@ func (st *State) UpdateEnvironConfig(updateAttrs map[string]interface{}, removeA
 	}
 
 	// Get the existing environment config from state.
-	existingAttrs := settings.Map()
-	oldConfig, err := config.New(config.NoDefaults, existingAttrs)
+	oldConfig, err := config.New(config.NoDefaults, settings.Map())
 	if err != nil {
 		return err
 	}
-
+	if additionalValidation != nil {
+		err = additionalValidation(updateAttrs, removeAttrs, oldConfig)
+		if err != nil {
+			return err
+		}
+	}
 	validCfg, err := st.buildAndValidateEnvironConfig(updateAttrs, removeAttrs, oldConfig)
 	if err != nil {
 		return err

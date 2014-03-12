@@ -1254,7 +1254,7 @@ func (s *StateSuite) TestEnvironConfig(c *gc.C) {
 		"authorized-keys": "different-keys",
 		"arbitrary-key":   "shazam!",
 	}
-	err := s.State.UpdateEnvironConfig(attrs, []string{})
+	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
@@ -1701,7 +1701,7 @@ func (s *StateSuite) TestWatchEnvironConfig(c *gc.C) {
 		cfg, err = cfg.Apply(change)
 		c.Assert(err, gc.IsNil)
 		if change != nil {
-			err = s.State.UpdateEnvironConfig(change, []string{})
+			err = s.State.UpdateEnvironConfig(change, nil, nil)
 			c.Assert(err, gc.IsNil)
 		}
 		s.State.StartSync()
@@ -2505,7 +2505,7 @@ func (s *StateSuite) prepareAgentVersionTests(c *gc.C) (*config.Config, string) 
 func (s *StateSuite) changeEnviron(c *gc.C, envConfig *config.Config, name string, value interface{}) {
 	attrs := envConfig.AllAttrs()
 	attrs[name] = value
-	c.Assert(s.State.UpdateEnvironConfig(attrs, []string{}), gc.IsNil)
+	c.Assert(s.State.UpdateEnvironConfig(attrs, nil, nil), gc.IsNil)
 }
 
 func (s *StateSuite) assertAgentVersion(c *gc.C, envConfig *config.Config, vers string) {

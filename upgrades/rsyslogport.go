@@ -12,5 +12,5 @@ func updateRsyslogPort(context Context) error {
 	attrs := map[string]interface{}{
 		"syslog-port": config.DefaultSyslogPort,
 	}
-	return st.UpdateEnvironConfig(attrs, []string{})
+	return st.UpdateEnvironConfig(attrs, nil, nil)
 }

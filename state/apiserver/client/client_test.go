@@ -1736,7 +1736,7 @@ func (s *clientSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAddChar
 
 	attrs := map[string]interface{}{"charm-store-auth": "token=value",
 		"test-mode": true}
-	err := s.State.UpdateEnvironConfig(attrs, []string{})
+	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 
 	curl, _ := addCharm(c, store, "dummy")

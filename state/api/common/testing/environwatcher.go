@@ -78,13 +78,13 @@ func (s *EnvironWatcherTest) TestWatchForEnvironConfigChanges(c *gc.C) {
 
 	// Change the environment configuration, check it's detected.
 	newAttrs := map[string]interface{}{"logging-config": "juju=ERROR"}
-	err = s.st.UpdateEnvironConfig(newAttrs, []string{})
+	err = s.st.UpdateEnvironConfig(newAttrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 	wc.AssertOneChange()
 
 	// Change it back to the original config.
 	oldAttrs := map[string]interface{}{"logging-config": envConfig.AllAttrs()["logging-config"]}
-	err = s.st.UpdateEnvironConfig(oldAttrs, []string{})
+	err = s.st.UpdateEnvironConfig(oldAttrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 	wc.AssertOneChange()
 

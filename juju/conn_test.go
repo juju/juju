@@ -152,7 +152,7 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
 	// Removing the secret from state should not be possible, as
 	// UpdateEnvironConfig vaidates the config and resets the "secret"
 	// setting.
-	err = st.UpdateEnvironConfig(map[string]interface{}{}, []string{"secret"})
+	err = st.UpdateEnvironConfig(map[string]interface{}{}, []string{"secret"}, nil)
 	c.Assert(err, gc.IsNil)
 	statecfg, err = st.EnvironConfig()
 	c.Assert(err, gc.IsNil)

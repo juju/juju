@@ -97,7 +97,7 @@ func (s *CommonProvisionerSuite) APILogin(c *gc.C, machine *state.Machine) {
 // an error, which is also returned as a message to be checked.
 func breakDummyProvider(c *gc.C, st *state.State, environMethod string) string {
 	attrs := map[string]interface{}{"broken": environMethod}
-	err := st.UpdateEnvironConfig(attrs, []string{})
+	err := st.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 	return fmt.Sprintf("dummy.%s is broken", environMethod)
 }
@@ -119,14 +119,14 @@ func (s *CommonProvisionerSuite) setupEnvironmentManager(c *gc.C) {
 // validation.
 func (s *CommonProvisionerSuite) invalidateEnvironment(c *gc.C) {
 	attrs := map[string]interface{}{"type": "unknown"}
-	err := s.State.UpdateEnvironConfig(attrs, []string{})
+	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `no registered provider for "unknown"`)
 }
 
 // fixEnvironment undoes the work of invalidateEnvironment.
 func (s *CommonProvisionerSuite) fixEnvironment() error {
 	attrs := map[string]interface{}{"type": s.cfg.AllAttrs()["type"]}
-	return s.State.UpdateEnvironConfig(attrs, []string{})
+	return s.State.UpdateEnvironConfig(attrs, nil, nil)
 }
 
 // stopper is stoppable.
@@ -554,7 +554,7 @@ func (s *ProvisionerSuite) TestProvisioningSafeMode(c *gc.C) {
 
 	// turn on safe mode
 	attrs := map[string]interface{}{"provisioner-safe-mode": true}
-	err = s.State.UpdateEnvironConfig(attrs, []string{})
+	err = s.State.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 
 	// start a new provisioner to shut down only the machine still in state.
@@ -596,7 +596,7 @@ func (s *ProvisionerSuite) TestProvisioningSafeModeChange(c *gc.C) {
 
 	// turn on safe mode
 	attrs := map[string]interface{}{"provisioner-safe-mode": true}
-	err = s.State.UpdateEnvironConfig(attrs, []string{})
+	err = s.State.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 
 	s.BackingState.StartSync()

@@ -686,7 +686,7 @@ func (s *withoutStateServerSuite) TestContainerConfig(c *gc.C) {
 	attrs := map[string]interface{}{
 		"http-proxy": "http://proxy.example.com:9000",
 	}
-	err := s.State.UpdateEnvironConfig(attrs, []string{})
+	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 	expectedProxy := osenv.ProxySettings{
 		Http: "http://proxy.example.com:9000",
