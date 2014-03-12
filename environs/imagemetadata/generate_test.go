@@ -139,7 +139,6 @@ func (s *generateSuite) TestWriteMetadataMergeDifferentSeries(c *gc.C) {
 		im.RegionName = cloudSpec.Region
 		im.Endpoint = cloudSpec.Endpoint
 	}
-	imagemetadata.Sort(metadata)
 	imagemetadata.Sort(newImageMetadata)
 	c.Assert(metadata, gc.DeepEquals, newImageMetadata)
 	assertFetch(c, targetStorage, "raring", "amd64", "region", "endpoint", "1234")
@@ -190,7 +189,6 @@ func (s *generateSuite) TestWriteMetadataMergeDifferentRegion(c *gc.C) {
 	existingImageMetadata[0].RegionName = "region"
 	existingImageMetadata[0].Endpoint = "endpoint"
 	newImageMetadata = append(newImageMetadata, existingImageMetadata[0])
-	imagemetadata.Sort(metadata)
 	imagemetadata.Sort(newImageMetadata)
 	c.Assert(metadata, gc.DeepEquals, newImageMetadata)
 	assertFetch(c, targetStorage, "raring", "amd64", "region", "endpoint", "1234")
