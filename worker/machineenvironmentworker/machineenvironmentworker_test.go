@@ -121,9 +121,10 @@ func (s *MachineEnvironmentWatcherSuite) TestRunStop(c *gc.C) {
 func (s *MachineEnvironmentWatcherSuite) updateConfig(c *gc.C) (osenv.ProxySettings, osenv.ProxySettings) {
 
 	proxySettings := osenv.ProxySettings{
-		Http:  "http proxy",
-		Https: "https proxy",
-		Ftp:   "ftp proxy",
+		Http:    "http proxy",
+		Https:   "https proxy",
+		Ftp:     "ftp proxy",
+		NoProxy: "no proxy",
 	}
 	attrs := map[string]interface{}{}
 	for k, v := range config.ProxyConfigMap(proxySettings) {

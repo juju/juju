@@ -873,7 +873,7 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 		), ut(
 			"run commands: proxy settings set",
 			quickStartRelation{},
-			setProxySettings{Http: "http", Https: "https", Ftp: "ftp"},
+			setProxySettings{Http: "http", Https: "https", Ftp: "ftp", NoProxy: "localhost"},
 			runCommands{
 				fmt.Sprintf("echo $http_proxy > %s", testFile("proxy.output")),
 				fmt.Sprintf("echo $HTTP_PROXY >> %s", testFile("proxy.output")),
@@ -881,10 +881,12 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 				fmt.Sprintf("echo $HTTPS_PROXY >> %s", testFile("proxy.output")),
 				fmt.Sprintf("echo $ftp_proxy >> %s", testFile("proxy.output")),
 				fmt.Sprintf("echo $FTP_PROXY >> %s", testFile("proxy.output")),
+				fmt.Sprintf("echo $no_proxy >> %s", testFile("proxy.output")),
+				fmt.Sprintf("echo $NO_PROXY >> %s", testFile("proxy.output")),
 			},
 			verifyFile{
 				testFile("proxy.output"),
-				"http\nhttp\nhttps\nhttps\nftp\nftp\n",
+				"http\nhttp\nhttps\nhttps\nftp\nftp\nlocalhost\nlocalhost\n",
 			},
 		), ut(
 			"run commands: async using rpc client",
@@ -1961,8 +1963,8 @@ func (s setProxySettings) step(c *gc.C, ctx *context) {
 		"http-proxy":  s.Http,
 		"https-proxy": s.Https,
 		"ftp-proxy":   s.Ftp,
+		"no-proxy":    s.NoProxy,
 	}
-	err := ctx.st.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 	// wait for the new values...
 	expected := (osenv.ProxySettings)(s)
@@ -1975,6 +1977,8 @@ func (s setProxySettings) step(c *gc.C, ctx *context) {
 			c.Assert(os.Getenv("HTTPS_PROXY"), gc.Equals, expected.Https)
 			c.Assert(os.Getenv("ftp_proxy"), gc.Equals, expected.Ftp)
 			c.Assert(os.Getenv("FTP_PROXY"), gc.Equals, expected.Ftp)
+			c.Assert(os.Getenv("no_proxy"), gc.Equals, expected.NoProxy)
+			c.Assert(os.Getenv("NO_PROXY"), gc.Equals, expected.NoProxy)
 			return
 		}
 	}

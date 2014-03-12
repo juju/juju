@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -33,6 +34,8 @@ var (
 const (
 	// DefaultLxcBridge is the package created container bridge
 	DefaultLxcBridge = "lxcbr0"
+	// Btrfs is special as we treat it differently for create and clone.
+	Btrfs = "btrfs"
 )
 
 // DefaultNetworkConfig returns a valid NetworkConfig to use the
@@ -41,9 +44,29 @@ func DefaultNetworkConfig() *container.NetworkConfig {
 	return container.BridgeNetworkConfig(DefaultLxcBridge)
 }
 
+// FsCommandOutput calls cmd.Output, this is used as an overloading point so
+// we can test what *would* be run without actually executing another program
+var FsCommandOutput = (*exec.Cmd).CombinedOutput
+
+func containerDirFilesystem() (string, error) {
+	cmd := exec.Command("df", "--output=fstype", LxcContainerDir)
+	out, err := FsCommandOutput(cmd)
+	if err != nil {
+		return "", err
+	}
+	// The filesystem is the second line.
+	lines := strings.Split(string(out), "\n")
+	if len(lines) < 2 {
+		logger.Errorf("unexpected output: ", out)
+		return "", fmt.Errorf("could not determine filesystem type")
+	}
+	return lines[1], nil
+}
+
 type containerManager struct {
-	name   string
-	logdir string
+	name              string
+	logdir            string
+	backingFilesystem string
 }
 
 // containerManager implements container.Manager.
@@ -54,14 +77,32 @@ var _ container.Manager = (*containerManager)(nil)
 // parameter.
 func NewContainerManager(conf container.ManagerConfig) (container.Manager, error) {
 	name := conf[container.ConfigName]
+	delete(conf, container.ConfigName)
 	if name == "" {
 		return nil, fmt.Errorf("name is required")
 	}
 	logDir := conf[container.ConfigLogDir]
+	delete(conf, container.ConfigLogDir)
 	if logDir == "" {
 		logDir = agent.DefaultLogDir
 	}
-	return &containerManager{name: name, logdir: logDir}, nil
+	backingFS, err := containerDirFilesystem()
+	if err != nil {
+		// Especially in tests, or a bot, the lxc dir may not exist
+		// causing the test to fail. Since we only really care if the
+		// backingFS is 'btrfs' and we treat the rest the same, just
+		// call it 'unknown'.
+		backingFS = "unknown"
+	}
+	logger.Tracef("backing filesystem: %q", backingFS)
+	for k, v := range conf {
+		logger.Warningf(`Found unused config option with key: "%v" and value: "%v"`, k, v)
+	}
+	return &containerManager{
+		name:              name,
+		logdir:            logDir,
+		backingFilesystem: backingFS,
+	}, nil
 }
 
 func (manager *containerManager) StartContainer(
@@ -90,7 +131,7 @@ func (manager *containerManager) StartContainer(
 		return nil, nil, err
 	}
 	logger.Tracef("write the lxc.conf file")
-	configFile, err := writeLxcConfig(network, directory, manager.logdir)
+	configFile, err := writeLxcConfig(network, directory)
 	if err != nil {
 		logger.Errorf("failed to write config file: %v", err)
 		return nil, nil, err
@@ -103,29 +144,18 @@ func (manager *containerManager) StartContainer(
 	}
 	// Create the container.
 	logger.Tracef("create the container")
-	if err := lxcContainer.Create(configFile, defaultTemplate, templateParams...); err != nil {
+	if err := lxcContainer.Create(configFile, defaultTemplate, nil, templateParams); err != nil {
 		logger.Errorf("lxc container creation failed: %v", err)
 		return nil, nil, err
 	}
-	// Make sure that the mount dir has been created.
-	logger.Tracef("make the mount dir for the shard logs")
-	if err := os.MkdirAll(internalLogDir(name), 0755); err != nil {
-		logger.Errorf("failed to create internal /var/log/juju mount dir: %v", err)
+	logger.Tracef("lxc container created")
+
+	if err := autostartContainer(name); err != nil {
 		return nil, nil, err
 	}
-	logger.Tracef("lxc container created")
-	// Now symlink the config file into the restart directory, if it exists.
-	// This is for backwards compatiblity. From Trusty onwards, the auto start
-	// option should be set in the LXC config file, this is done in the networkConfigTemplate
-	// function below.
-	if useRestartDir() {
-		containerConfigFile := filepath.Join(LxcContainerDir, name, "config")
-		if err := os.Symlink(containerConfigFile, restartSymlink(name)); err != nil {
-			return nil, nil, err
-		}
-		logger.Tracef("auto-restart link created")
+	if err := mountHostLogDir(name, manager.logdir); err != nil {
+		return nil, nil, err
 	}
-
 	// Start the lxc container with the appropriate settings for grabbing the
 	// console output and a log file.
 	consoleFile := filepath.Join(directory, "console.log")
@@ -145,6 +175,50 @@ func (manager *containerManager) StartContainer(
 	}
 	logger.Tracef("container started")
 	return &lxcInstance{lxcContainer, name}, hardware, nil
+}
+
+func appendToContainerConfig(name, line string) error {
+	file, err := os.OpenFile(
+		containerConfigFilename(name), os.O_RDWR|os.O_APPEND, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	_, err = file.WriteString(line)
+	return err
+}
+
+func autostartContainer(name string) error {
+	// Now symlink the config file into the restart directory, if it exists.
+	// This is for backwards compatiblity. From Trusty onwards, the auto start
+	// option should be set in the LXC config file, this is done in the networkConfigTemplate
+	// function below.
+	if useRestartDir() {
+		if err := os.Symlink(
+			containerConfigFilename(name),
+			restartSymlink(name),
+		); err != nil {
+			return err
+		}
+		logger.Tracef("auto-restart link created")
+	} else {
+		logger.Tracef("Setting auto start to true in lxc config.")
+		return appendToContainerConfig(name, "lxc.start.auto = 1\n")
+	}
+	return nil
+}
+
+func mountHostLogDir(name, logDir string) error {
+	// Make sure that the mount dir has been created.
+	logger.Tracef("make the mount dir for the shared logs")
+	if err := os.MkdirAll(internalLogDir(name), 0755); err != nil {
+		logger.Errorf("failed to create internal /var/log/juju mount dir: %v", err)
+		return err
+	}
+	line := fmt.Sprintf(
+		"lxc.mount.entry=%s var/log/juju none defaults,bind 0 0\n",
+		logDir)
+	return appendToContainerConfig(name, line)
 }
 
 func (manager *containerManager) StopContainer(instance instance.Instance) error {
@@ -199,9 +273,9 @@ func restartSymlink(name string) string {
 	return filepath.Join(LxcRestartDir, name+".conf")
 }
 
-const localConfig = `%s
-lxc.mount.entry=%s var/log/juju none defaults,bind 0 0
-`
+func containerConfigFilename(name string) string {
+	return filepath.Join(LxcContainerDir, name, "config")
+}
 
 const networkTemplate = `
 lxc.network.type = %s
@@ -210,35 +284,32 @@ lxc.network.flags = up
 `
 
 func networkConfigTemplate(networkType, networkLink string) string {
-	networkConfig := fmt.Sprintf(networkTemplate, networkType, networkLink)
-	if !useRestartDir() {
-		networkConfig += "lxc.start.auto = 1\n"
-		logger.Tracef("Setting auto start to true in lxc config.")
-	}
-	return networkConfig
+	return fmt.Sprintf(networkTemplate, networkType, networkLink)
 }
 
 func generateNetworkConfig(network *container.NetworkConfig) string {
+	var lxcConfig string
 	if network == nil {
 		logger.Warningf("network unspecified, using default networking config")
 		network = DefaultNetworkConfig()
 	}
 	switch network.NetworkType {
 	case container.PhysicalNetwork:
-		return networkConfigTemplate("phys", network.Device)
+		lxcConfig = networkConfigTemplate("phys", network.Device)
 	default:
 		logger.Warningf("Unknown network config type %q: using bridge", network.NetworkType)
 		fallthrough
 	case container.BridgeNetwork:
-		return networkConfigTemplate("veth", network.Device)
+		lxcConfig = networkConfigTemplate("veth", network.Device)
 	}
+
+	return lxcConfig
 }
 
-func writeLxcConfig(network *container.NetworkConfig, directory, logdir string) (string, error) {
+func writeLxcConfig(network *container.NetworkConfig, directory string) (string, error) {
 	networkConfig := generateNetworkConfig(network)
 	configFilename := filepath.Join(directory, "lxc.conf")
-	configContent := fmt.Sprintf(localConfig, networkConfig, logdir)
-	if err := ioutil.WriteFile(configFilename, []byte(configContent), 0644); err != nil {
+	if err := ioutil.WriteFile(configFilename, []byte(networkConfig), 0644); err != nil {
 		return "", err
 	}
 	return configFilename, nil

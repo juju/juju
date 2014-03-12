@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package manual
+package manual_test
 
 import (
 	"fmt"
@@ -9,6 +9,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/environs/manual"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
@@ -25,10 +26,10 @@ type provisionerSuite struct {
 
 var _ = gc.Suite(&provisionerSuite{})
 
-func (s *provisionerSuite) getArgs(c *gc.C) ProvisionMachineArgs {
+func (s *provisionerSuite) getArgs(c *gc.C) manual.ProvisionMachineArgs {
 	hostname, err := os.Hostname()
 	c.Assert(err, gc.IsNil)
-	return ProvisionMachineArgs{
+	return manual.ProvisionMachineArgs{
 		Host:    hostname,
 		EnvName: "dummyenv",
 	}
@@ -50,7 +51,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 		SkipProvisionAgent: true,
 	}.install(c).Restore()
 	// Attempt to provision a machine with no tools available, expect it to fail.
-	machineId, err := ProvisionMachine(args)
+	machineId, err := manual.ProvisionMachine(args)
 	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 	c.Assert(machineId, gc.Equals, "")
 
@@ -68,7 +69,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 			InitUbuntuUser:         true,
 			ProvisionAgentExitCode: errorCode,
 		}.install(c).Restore()
-		machineId, err = ProvisionMachine(args)
+		machineId, err = manual.ProvisionMachine(args)
 		if errorCode != 0 {
 			c.Assert(err, gc.ErrorMatches, fmt.Sprintf("rc: %d", errorCode))
 			c.Assert(machineId, gc.Equals, "")
@@ -94,8 +95,8 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 		SkipDetection:      true,
 		SkipProvisionAgent: true,
 	}.install(c).Restore()
-	_, err = ProvisionMachine(args)
-	c.Assert(err, gc.Equals, ErrProvisioned)
+	_, err = manual.ProvisionMachine(args)
+	c.Assert(err, gc.Equals, manual.ErrProvisioned)
 	defer fakeSSH{
 		Provisioned:              true,
 		CheckProvisionedExitCode: 255,
@@ -103,7 +104,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 		SkipDetection:            true,
 		SkipProvisionAgent:       true,
 	}.install(c).Restore()
-	_, err = ProvisionMachine(args)
+	_, err = manual.ProvisionMachine(args)
 	c.Assert(err, gc.ErrorMatches, "error checking if provisioned: rc: 255")
 }
 
@@ -115,7 +116,7 @@ func (s *provisionerSuite) TestFinishMachineConfig(c *gc.C) {
 		Arch:           arch,
 		InitUbuntuUser: true,
 	}.install(c).Restore()
-	machineId, err := ProvisionMachine(s.getArgs(c))
+	machineId, err := manual.ProvisionMachine(s.getArgs(c))
 	c.Assert(err, gc.IsNil)
 
 	// Now check what we would've configured it with.
