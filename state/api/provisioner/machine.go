@@ -172,7 +172,7 @@ func (m *Machine) TargetRelease() string {
 	series, _ := m.Series()
 	switch series {
 	case "precise":
-		targetRelease = "precise-update/cloud-tools"
+		targetRelease = "precise-updates/cloud-tools"
 	default:
 		targetRelease = ""
 	}

@@ -204,6 +204,24 @@ func (s *provisionerSuite) TestSeries(c *gc.C) {
 	c.Assert(series, gc.Equals, "quantal")
 }
 
+func (s *provisionerSuite) TestTargetReleasePrecise(c *gc.C) {
+	preciseMachine, err := s.State.AddMachine("precise", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+
+	apiMachine, err := s.provisioner.Machine(preciseMachine.Tag())
+	c.Assert(err, gc.IsNil)
+	c.Assert(apiMachine.TargetRelease(), gc.Equals, "precise-update/cloud-tools")
+}
+
+func (s *provisionerSuite) TestTargetReleaseOther(c *gc.C) {
+	foobarMachine, err := s.State.AddMachine("foobar", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+
+	apiMachine, err := s.provisioner.Machine(foobarMachine.Tag())
+	c.Assert(err, gc.IsNil)
+	c.Assert(apiMachine.TargetRelease(), gc.Equals, "")
+}
+
 func (s *provisionerSuite) TestConstraints(c *gc.C) {
 	// Create a fresh machine with some constraints.
 	template := state.MachineTemplate{

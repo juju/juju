@@ -29,19 +29,27 @@ func NewContainerInitialiser(targetRelease string) container.Initialiser {
 
 // Initialise is specified on the container.Initialiser interface.
 func (ci *containerInitialiser) Initialise() error {
-	return ensureDependencies()
+	return ensureDependencies((*ci).targetRelease)
 }
 
-// updateTargetRelease will overwrite the lxc package in the
-// requiredPackages slice if containerInitialiser.targetRelease
-// is set to a value other than empty string.
-func (ci *containerInitialiser) updateTargetRelease() {
-	if ci.targetRelease != "" {
-		pkg := requiredPackages[0]
-		requiredPackages[0] = fmt.Sprintf("--target-release '%s' %s'", ci.targetRelease, pkg)
+// targetReleasePackages returns a slice suitable for use
+// with utils.AptGetInstall based on the targetRelease string.
+func targetReleasePackages(targetRelease string) []string {
+	packages := []string{
+		fmt.Sprintf("--target-release '%s' '%s'", targetRelease, requiredPackages[0]),
 	}
+	return packages
 }
 
-func ensureDependencies() error {
-	return utils.AptGetInstall(requiredPackages...)
+// ensureDependencies checks the targetRelease and updates the packages
+// that are sent to utils.AptGetInstall to include the --target-release
+// switch. If targetRelease is an empty string, no switch is passed.
+func ensureDependencies(targetRelease string) error {
+	var packages []string
+	if targetRelease != "" {
+		packages = targetReleasePackages(targetRelease)
+	} else {
+		packages = requiredPackages
+	}
+	return utils.AptGetInstall(packages...)
 }
