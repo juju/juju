@@ -86,17 +86,17 @@ func (*instanceSuite) TestWaitDNSName(c *gc.C) {
 
 func makeInputEndpoint(port int, protocol string) gwacl.InputEndpoint {
 	name := fmt.Sprintf("%s%d", protocol, port)
-	var lbName string
-	var lbProbe *gwacl.LoadBalancerProbe
-	if protocol == "tcp" {
-		lbName = name
-		lbProbe = &gwacl.LoadBalancerProbe{Port: port, Protocol: "TCP"}
+	probe := &gwacl.LoadBalancerProbe{Port: port, Protocol: "TCP"}
+	if protocol == "udp" {
+		// We just use port 22 (SSH) for the
+		// probe when a UDP port is exposed.
+		probe.Port = 22
 	}
 	return gwacl.InputEndpoint{
 		LocalPort: port,
 		Name:      name,
-		LoadBalancedEndpointSetName: lbName,
-		LoadBalancerProbe:           lbProbe,
+		LoadBalancedEndpointSetName: name,
+		LoadBalancerProbe:           probe,
 		Port:                        port,
 		Protocol:                    protocol,
 	}

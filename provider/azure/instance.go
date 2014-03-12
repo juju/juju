@@ -176,25 +176,21 @@ func (azInstance *azureInstance) openEndpoints(context *azureManagementContext, 
 			Protocol:  port.Protocol,
 		}
 		if azInstance.supportsLoadBalancing() {
-			if strings.ToUpper(endpoint.Protocol) == "TCP" {
-				endpoint.LoadBalancedEndpointSetName = name
-				endpoint.LoadBalancerProbe = &gwacl.LoadBalancerProbe{
-					Port:     port.Number,
-					Protocol: "TCP",
-				}
-			} else {
-				// TODO(axw) 2013-03-12 #XXXYYY
-				// Support load balancing of UDP by opening a
-				// particular port on all machine agents on the Azure
-				// provider.
-				//
-				// For now, we do not allow load balancing UDP, but nor
-				// do we prevent attempts to expose the ports; this will
-				// fail if there are multiple units of the same service.
+			probePort := port.Number
+			if strings.ToUpper(endpoint.Protocol) == "UDP" {
+				// Load balancing needs a TCP port to probe, or an HTTP
+				// server port & path to query. For UDP, we just use the
+				// machine's SSH agent port to test machine liveness.
 				//
 				// It probably doesn't make sense to load balance most UDP
-				// protocols transparently, but that's an application
-				// level concern.
+				// protocols transparently, but that's an application level
+				// concern.
+				probePort = 22
+			}
+			endpoint.LoadBalancedEndpointSetName = name
+			endpoint.LoadBalancerProbe = &gwacl.LoadBalancerProbe{
+				Port:     probePort,
+				Protocol: "TCP",
 			}
 		}
 		request.InputEndpoints = append(request.InputEndpoints, endpoint)
