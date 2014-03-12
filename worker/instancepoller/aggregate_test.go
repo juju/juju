@@ -40,6 +40,8 @@ type testInstanceGetter struct {
 	err     bool
 }
 
+
+
 func (i *testInstanceGetter) Instances(ids []instance.Id) (result []instance.Instance, err error) {
 	i.ids = ids
 	if i.err {
@@ -51,15 +53,18 @@ func (i *testInstanceGetter) Instances(ids []instance.Id) (result []instance.Ins
 	return
 }
 
+func newTestInstance(status string, addresses []string) (*testInstance) {
+	thisInstance := &testInstance{status: status}
+	for _, address := range addresses {
+		thisInstance.addresses = append(thisInstance.addresses, instance.NewAddress(address))
+	}
+	return thisInstance
+}
+
 func (s *aggregateSuite) TestSingleRequest(c *gc.C) {
 	testGetter := new(testInstanceGetter)
-	address1 := instance.NewAddress("127.0.0.1")
-	address2 := instance.NewAddress("192.168.1.1")
-	instance1 := testInstance{
-			status:    "foobar",
-			addresses: []instance.Address{address1, address2},
-		}
-	testGetter.results = []testInstance{instance1}
+	instance1 := newTestInstance("foobar", []string{"127.0.0.1", "192.168.1.1"})
+	testGetter.results = []testInstance{*instance1}
 	aggregator := newAggregator(testGetter)
 
 	replyChan := make(chan instanceInfoReply)
@@ -72,7 +77,12 @@ func (s *aggregateSuite) TestSingleRequest(c *gc.C) {
 	c.Assert(reply.err, gc.IsNil)
 	c.Assert(reply.info, gc.DeepEquals, instanceInfo{
 		status:    "foobar",
-		addresses: []instance.Address{address1, address2},
+		addresses: instance1.addresses,
 	})
 	c.Assert(testGetter.ids, gc.DeepEquals, []instance.Id{instance.Id("foo")})
 }
+
+//func (s *aggregateSuite) TestRequestBatching(c *gc.C) {
+//	testGetter := new(testInstanceGetter)
+
+//}
