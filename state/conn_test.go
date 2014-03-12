@@ -63,7 +63,10 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 }
 
 func (cs *ConnSuite) TearDownTest(c *gc.C) {
-	cs.State.Close()
+	if cs.State != nil {
+		// If setup fails, we don't have a State yet
+		cs.State.Close()
+	}
 	cs.MgoSuite.TearDownTest(c)
 	cs.LoggingSuite.TearDownTest(c)
 }

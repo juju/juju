@@ -19,6 +19,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/juju/loggo"
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
@@ -30,6 +31,7 @@ import (
 var (
 	// MgoServer is a shared mongo server used by tests.
 	MgoServer = &MgoInstance{ssl: true}
+	logger = loggo.GetLogger("juju.testing")
 )
 
 type MgoInstance struct {
@@ -296,7 +298,12 @@ func (inst *MgoInstance) dial(direct bool) (*mgo.Session, error) {
 		Direct: direct,
 		Addrs:  []string{inst.addr},
 		Dial: func(addr net.Addr) (net.Conn, error) {
-			return tls.Dial("tcp", addr.String(), tlsConfig)
+			conn, err := tls.Dial("tcp", addr.String(), tlsConfig)
+			if err != nil {
+				loggo.Infof("tls.Dial(%s) failed with %v", addr, err)
+				return nil, err
+			}
+			return conn, nil
 		},
 		Timeout: mgoDialTimeout,
 	})
