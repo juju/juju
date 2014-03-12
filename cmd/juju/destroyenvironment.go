@@ -67,7 +67,7 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
 		}
 		answer := strings.ToLower(scanner.Text())
 		if answer != "y" && answer != "yes" {
-			return errors.New("Environment destruction aborted")
+			return errors.New("environment destruction aborted")
 		}
 	}
 	// If --force is supplied, then don't attempt to use the API.
