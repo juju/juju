@@ -6,10 +6,12 @@ package lxc_test
 import (
 	"fmt"
 	"io/ioutil"
+	"launchpad.net/juju-core/juju/osenv"
 	"os"
 	"path/filepath"
 	"strings"
 	stdtesting "testing"
+	"time"
 
 	"github.com/juju/loggo"
 	gc "launchpad.net/gocheck"
@@ -19,6 +21,7 @@ import (
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/container/lxc"
+	"launchpad.net/juju-core/container/lxc/mock"
 	lxctesting "launchpad.net/juju-core/container/lxc/testing"
 	containertesting "launchpad.net/juju-core/container/testing"
 	instancetest "launchpad.net/juju-core/instance/testing"
@@ -32,6 +35,9 @@ func Test(t *stdtesting.T) {
 
 type LxcSuite struct {
 	lxctesting.TestSuite
+
+	events   chan mock.Event
+	useClone bool
 }
 
 var _ = gc.Suite(&LxcSuite{})
@@ -39,6 +45,16 @@ var _ = gc.Suite(&LxcSuite{})
 func (s *LxcSuite) SetUpTest(c *gc.C) {
 	s.TestSuite.SetUpTest(c)
 	loggo.GetLogger("juju.container.lxc").SetLogLevel(loggo.TRACE)
+	s.events = make(chan mock.Event, 25)
+	s.TestSuite.Factory.AddListener(s.events)
+	s.PatchValue(&lxc.TemplateLockDir, c.MkDir())
+	s.PatchValue(&lxc.TemplateStopTimeout, 2000*time.Millisecond)
+}
+
+func (s *LxcSuite) TearDownTest(c *gc.C) {
+	s.TestSuite.Factory.RemoveListener(s.events)
+	close(s.events)
+	s.TestSuite.TearDownTest(c)
 }
 
 func (s *LxcSuite) TestContainerDirFilesystem(c *gc.C) {
@@ -73,9 +89,13 @@ func (s *LxcSuite) TestContainerDirFilesystem(c *gc.C) {
 }
 
 func (s *LxcSuite) makeManager(c *gc.C, name string) container.Manager {
-	manager, err := lxc.NewContainerManager(container.ManagerConfig{
+	params := container.ManagerConfig{
 		container.ConfigName: name,
-	})
+	}
+	if s.useClone {
+		params["use-clone"] = "true"
+	}
+	manager, err := lxc.NewContainerManager(params)
 	c.Assert(err, gc.IsNil)
 	return manager
 }
@@ -128,6 +148,73 @@ func (s *LxcSuite) TestStartContainer(c *gc.C) {
 	location, err := os.Readlink(expectedLinkLocation)
 	c.Assert(err, gc.IsNil)
 	c.Assert(location, gc.Equals, expectedTarget)
+}
+
+func (s *LxcSuite) ensureTemplateStopped(name string) {
+	go func() {
+		for {
+			template := s.Factory.New(name)
+			if template.IsRunning() {
+				template.Stop()
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+	}()
+}
+
+func (s *LxcSuite) AssertEvent(c *gc.C, event mock.Event, expected mock.Action, id string) {
+	c.Assert(event.Action, gc.Equals, expected)
+	c.Assert(event.InstanceId, gc.Equals, id)
+}
+
+func (s *LxcSuite) TestStartContainerEvents(c *gc.C) {
+	manager := s.makeManager(c, "test")
+	instance := containertesting.StartContainer(c, manager, "1")
+	id := string(instance.Id())
+	s.AssertEvent(c, <-s.events, mock.Created, id)
+	s.AssertEvent(c, <-s.events, mock.Started, id)
+}
+
+func (s *LxcSuite) TestStartContainerEventsWithClone(c *gc.C) {
+	s.PatchValue(&s.useClone, true)
+	// The template containers are created with an upstart job that
+	// stops them once cloud init has finished.  We emulate that here.
+	template := "juju-series-template"
+	s.ensureTemplateStopped(template)
+	manager := s.makeManager(c, "test")
+	instance := containertesting.StartContainer(c, manager, "1")
+	id := string(instance.Id())
+	s.AssertEvent(c, <-s.events, mock.Created, template)
+	s.AssertEvent(c, <-s.events, mock.Started, template)
+	s.AssertEvent(c, <-s.events, mock.Stopped, template)
+	s.AssertEvent(c, <-s.events, mock.Cloned, template)
+	s.AssertEvent(c, <-s.events, mock.Started, id)
+}
+
+func (s *LxcSuite) createTemplate(c *gc.C) golxc.Container {
+	name := "juju-series-template"
+	s.ensureTemplateStopped(name)
+	network := lxc.DefaultNetworkConfig()
+	authorizedKeys := "authorized keys list"
+	aptProxy := osenv.ProxySettings{}
+	template, err := lxc.EnsureCloneTemplate(
+		"ext4", "series", network, authorizedKeys, aptProxy)
+	c.Assert(err, gc.IsNil)
+	c.Assert(template.Name(), gc.Equals, name)
+	s.AssertEvent(c, <-s.events, mock.Created, name)
+	s.AssertEvent(c, <-s.events, mock.Started, name)
+	s.AssertEvent(c, <-s.events, mock.Stopped, name)
+	return template
+}
+
+func (s *LxcSuite) TestStartContainerEventsWithCloneExistingTemplate(c *gc.C) {
+	s.createTemplate(c)
+	s.PatchValue(&s.useClone, true)
+	manager := s.makeManager(c, "test")
+	instance := containertesting.StartContainer(c, manager, "1")
+	id := string(instance.Id())
+	s.AssertEvent(c, <-s.events, mock.Cloned, "juju-series-template")
+	s.AssertEvent(c, <-s.events, mock.Started, id)
 }
 
 func (s *LxcSuite) TestContainerState(c *gc.C) {
