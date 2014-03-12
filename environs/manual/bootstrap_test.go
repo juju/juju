@@ -15,7 +15,6 @@ import (
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/manual"
-	manualtesting "launchpad.net/juju-core/environs/manual/testing"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
@@ -84,7 +83,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	args := s.getArgs(c)
 	args.Host = "ubuntu@" + args.Host
 
-	defer manualtesting.FakeSSH{SkipDetection: true}.Install(c).Restore()
+	defer fakeSSH{SkipDetection: true}.install(c).Restore()
 	err := manual.Bootstrap(args)
 	c.Assert(err, gc.IsNil)
 
@@ -99,16 +98,16 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	// Do it all again; this should work, despite the fact that
 	// there's a bootstrap state file. Existence for that is
 	// checked in general bootstrap code (environs/bootstrap).
-	defer manualtesting.FakeSSH{SkipDetection: true}.Install(c).Restore()
+	defer fakeSSH{SkipDetection: true}.install(c).Restore()
 	err = manual.Bootstrap(args)
 	c.Assert(err, gc.IsNil)
 
 	// We *do* check that the machine has no juju* upstart jobs, though.
-	defer manualtesting.FakeSSH{
+	defer fakeSSH{
 		Provisioned:        true,
 		SkipDetection:      true,
 		SkipProvisionAgent: true,
-	}.Install(c).Restore()
+	}.install(c).Restore()
 	err = manual.Bootstrap(args)
 	c.Assert(err, gc.Equals, manual.ErrProvisioned)
 }
@@ -116,7 +115,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 func (s *bootstrapSuite) TestBootstrapScriptFailure(c *gc.C) {
 	args := s.getArgs(c)
 	args.Host = "ubuntu@" + args.Host
-	defer manualtesting.FakeSSH{SkipDetection: true, ProvisionAgentExitCode: 1}.Install(c).Restore()
+	defer fakeSSH{SkipDetection: true, ProvisionAgentExitCode: 1}.install(c).Restore()
 	err := manual.Bootstrap(args)
 	c.Assert(err, gc.NotNil)
 
@@ -148,13 +147,13 @@ func (s *bootstrapSuite) TestBootstrapNoMatchingTools(c *gc.C) {
 	// Empty tools list.
 	args := s.getArgs(c)
 	args.PossibleTools = nil
-	defer manualtesting.FakeSSH{SkipDetection: true, SkipProvisionAgent: true}.Install(c).Restore()
+	defer fakeSSH{SkipDetection: true, SkipProvisionAgent: true}.install(c).Restore()
 	c.Assert(manual.Bootstrap(args), gc.ErrorMatches, "possible tools is empty")
 
 	// Non-empty list, but none that match the series/arch.
 	args = s.getArgs(c)
 	args.Series = "edgy"
-	defer manualtesting.FakeSSH{SkipDetection: true, SkipProvisionAgent: true}.Install(c).Restore()
+	defer fakeSSH{SkipDetection: true, SkipProvisionAgent: true}.install(c).Restore()
 	c.Assert(manual.Bootstrap(args), gc.ErrorMatches, "no matching tools available")
 }
 
@@ -178,7 +177,7 @@ func (s *bootstrapSuite) testBootstrapToolsURL(c *gc.C, toolsURL, expectedURL st
 	})
 	args := s.getArgs(c)
 	args.PossibleTools[0].URL = toolsURL
-	defer manualtesting.FakeSSH{SkipDetection: true}.Install(c).Restore()
+	defer fakeSSH{SkipDetection: true}.install(c).Restore()
 	err := manual.Bootstrap(args)
 	c.Assert(err, gc.IsNil)
 }

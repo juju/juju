@@ -9,7 +9,6 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/juju/osenv"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type JujuHomeSuite struct {
@@ -28,7 +27,6 @@ func (s *JujuHomeSuite) TestErrorHome(c *gc.C) {
 	// Invalid juju home leads to panic when retrieving.
 	f := func() { _ = osenv.JujuHome() }
 	c.Assert(f, gc.PanicMatches, "juju home hasn't been initialized")
-	c.Assert(osenv.HaveJujuHome(), jc.IsFalse)
 	f = func() { _ = osenv.JujuHomePath("environments.yaml") }
 	c.Assert(f, gc.PanicMatches, "juju home hasn't been initialized")
 }
@@ -38,5 +36,4 @@ func (s *JujuHomeSuite) TestHomePath(c *gc.C) {
 	defer osenv.SetJujuHome(osenv.SetJujuHome(testJujuHome))
 	envPath := osenv.JujuHomePath("environments.yaml")
 	c.Assert(envPath, gc.Equals, filepath.Join(testJujuHome, "environments.yaml"))
-	c.Assert(osenv.HaveJujuHome(), jc.IsTrue)
 }

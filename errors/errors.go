@@ -3,7 +3,9 @@
 
 package errors
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // errorWrapper defines a way to encapsulate an error inside another error.
 type errorWrapper struct {

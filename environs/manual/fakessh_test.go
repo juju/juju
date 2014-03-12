@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package testing
+package manual_test
 
 import (
 	"fmt"
@@ -42,7 +42,7 @@ else
     exec ssh $*
 fi`
 
-// InstallFakeSSH creates a fake "ssh" command in a new $PATH,
+// installFakeSSH creates a fake "ssh" command in a new $PATH,
 // updates $PATH, and returns a function to reset $PATH to its
 // original value when called.
 //
@@ -53,7 +53,7 @@ fi`
 //    - nil (no output)
 //    - a string (stdout)
 //    - a slice of strings, of length two (stdout, stderr)
-func InstallFakeSSH(c *gc.C, input, output interface{}, rc int) testbase.Restorer {
+func installFakeSSH(c *gc.C, input, output interface{}, rc int) testbase.Restorer {
 	fakebin := c.MkDir()
 	ssh := filepath.Join(fakebin, "ssh")
 	switch input := input.(type) {
@@ -81,10 +81,10 @@ func InstallFakeSSH(c *gc.C, input, output interface{}, rc int) testbase.Restore
 	return testbase.PatchEnvPathPrepend(fakebin)
 }
 
-// InstallDetectionFakeSSH installs a fake SSH command, which will respond
+// installDetectionFakeSSH installs a fake SSH command, which will respond
 // to the series/hardware detection script with the specified
 // series/arch.
-func InstallDetectionFakeSSH(c *gc.C, series, arch string) testbase.Restorer {
+func installDetectionFakeSSH(c *gc.C, series, arch string) testbase.Restorer {
 	if series == "" {
 		series = "precise"
 	}
@@ -97,11 +97,11 @@ func InstallDetectionFakeSSH(c *gc.C, series, arch string) testbase.Restorer {
 		"MemTotal: 4096 kB",
 		"processor: 0",
 	}, "\n")
-	return InstallFakeSSH(c, manual.DetectionScript, detectionoutput, 0)
+	return installFakeSSH(c, manual.DetectionScript, detectionoutput, 0)
 }
 
-// FakeSSH wraps the invocation of InstallFakeSSH based on the parameters.
-type FakeSSH struct {
+// fakeSSH wraps the invocation of InstallFakeSSH based on the parameters.
+type fakeSSH struct {
 	Series string
 	Arch   string
 
@@ -130,19 +130,19 @@ type FakeSSH struct {
 	SkipDetection bool
 }
 
-// Install installs fake SSH commands, which will respond to
+// install installs fake SSH commands, which will respond to
 // manual provisioning/bootstrapping commands with the specified
 // output and exit codes.
-func (r FakeSSH) Install(c *gc.C) testbase.Restorer {
+func (r fakeSSH) install(c *gc.C) testbase.Restorer {
 	var restore testbase.Restorer
 	add := func(input, output interface{}, rc int) {
-		restore = restore.Add(InstallFakeSSH(c, input, output, rc))
+		restore = restore.Add(installFakeSSH(c, input, output, rc))
 	}
 	if !r.SkipProvisionAgent {
 		add(nil, nil, r.ProvisionAgentExitCode)
 	}
 	if !r.SkipDetection {
-		restore.Add(InstallDetectionFakeSSH(c, r.Series, r.Arch))
+		restore.Add(installDetectionFakeSSH(c, r.Series, r.Arch))
 	}
 	var checkProvisionedOutput interface{}
 	if r.Provisioned {

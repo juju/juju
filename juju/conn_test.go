@@ -81,13 +81,10 @@ func (*NewConnSuite) TestNewConnWithoutAdminSecret(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot connect without admin-secret")
 }
 
-func bootstrapEnv(c *gc.C, s *testbase.CleanupSuite, envName string, store configstore.Storage) {
+func bootstrapEnv(c *gc.C, envName string, store configstore.Storage) {
 	if store == nil {
 		store = configstore.NewMem()
 	}
-	s.PatchValue(&configstore.Exists, func(name string) bool {
-		return true
-	})
 	ctx := coretesting.Context(c)
 	env, err := environs.PrepareFromName(envName, ctx, store)
 	c.Assert(err, gc.IsNil)
@@ -96,9 +93,9 @@ func bootstrapEnv(c *gc.C, s *testbase.CleanupSuite, envName string, store confi
 	c.Assert(err, gc.IsNil)
 }
 
-func (cs *NewConnSuite) TestConnMultipleCloseOk(c *gc.C) {
+func (*NewConnSuite) TestConnMultipleCloseOk(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
-	bootstrapEnv(c, &cs.CleanupSuite, "", defaultConfigStore(c))
+	bootstrapEnv(c, "", defaultConfigStore(c))
 	// Error return from here is tested in TestNewConnFromNameNotSetGetsDefault.
 	conn, err := juju.NewConnFromName("")
 	c.Assert(err, gc.IsNil)
@@ -107,27 +104,27 @@ func (cs *NewConnSuite) TestConnMultipleCloseOk(c *gc.C) {
 	assertClose(c, conn)
 }
 
-func (cs *NewConnSuite) TestNewConnFromNameNotSetGetsDefault(c *gc.C) {
+func (*NewConnSuite) TestNewConnFromNameNotSetGetsDefault(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
-	bootstrapEnv(c, &cs.CleanupSuite, "", defaultConfigStore(c))
+	bootstrapEnv(c, "", defaultConfigStore(c))
 	conn, err := juju.NewConnFromName("")
 	c.Assert(err, gc.IsNil)
 	defer assertClose(c, conn)
 	c.Assert(conn.Environ.Name(), gc.Equals, coretesting.SampleEnvName)
 }
 
-func (cs *NewConnSuite) TestNewConnFromNameNotDefault(c *gc.C) {
+func (*NewConnSuite) TestNewConnFromNameNotDefault(c *gc.C) {
 	defer coretesting.MakeMultipleEnvHome(c).Restore()
 	// The default environment is "erewhemos", so make sure we get what we ask for.
 	const envName = "erewhemos-2"
-	bootstrapEnv(c, &cs.CleanupSuite, envName, defaultConfigStore(c))
+	bootstrapEnv(c, envName, defaultConfigStore(c))
 	conn, err := juju.NewConnFromName(envName)
 	c.Assert(err, gc.IsNil)
 	defer assertClose(c, conn)
 	c.Assert(conn.Environ.Name(), gc.Equals, envName)
 }
 
-func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
+func (*NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
 	attrs := dummy.SampleConfig().Merge(coretesting.Attrs{
 		"admin-secret": "side-effect secret",
 		"secret":       "pork",
@@ -178,7 +175,7 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *gc.C) {
+func (*NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *gc.C) {
 	attrs := dummy.SampleConfig().Merge(coretesting.Attrs{
 		"secret": "pork",
 	})
@@ -215,7 +212,7 @@ func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (cs *NewConnSuite) TestConnWithPassword(c *gc.C) {
+func (*NewConnSuite) TestConnWithPassword(c *gc.C) {
 	attrs := dummy.SampleConfig().Merge(coretesting.Attrs{
 		"admin-secret": "nutkin",
 	})

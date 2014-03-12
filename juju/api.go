@@ -101,10 +101,6 @@ func NewKeyManagerClient(envName string) (*keymanager.Client, error) {
 }
 
 func newAPIClient(envName string) (*api.State, error) {
-	if !configstore.Exists(envName) {
-		logger.Debugf("no config store found for environment %q", envName)
-		return nil, environs.ErrNotBootstrapped
-	}
 	store, err := configstore.NewDisk(osenv.JujuHome())
 	if err != nil {
 		return nil, err

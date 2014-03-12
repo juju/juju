@@ -18,13 +18,13 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/environs"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
-	utilsstorage "launchpad.net/juju-core/utils/storage"
 )
 
 type charmsSuite struct {
@@ -168,15 +168,15 @@ func (s *charmsSuite) TestUploadRespectsLocalRevision(c *gc.C) {
 	expectedSHA256, _, err := utils.ReadSHA256(tempFile)
 	c.Assert(err, gc.IsNil)
 	name := charm.Quote(expectedURL.String())
-	envStorage, err := utilsstorage.GetEnvironStorage(s.State)
+	storage, err := environs.GetStorage(s.State)
 	c.Assert(err, gc.IsNil)
-	expectedUploadURL, err := envStorage.URL(name)
+	expectedUploadURL, err := storage.URL(name)
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(sch.BundleURL().String(), gc.Equals, expectedUploadURL)
 	c.Assert(sch.BundleSha256(), gc.Equals, expectedSHA256)
 
-	reader, err := envStorage.Get(name)
+	reader, err := storage.Get(name)
 	c.Assert(err, gc.IsNil)
 	defer reader.Close()
 	downloadedSHA256, _, err := utils.ReadSHA256(reader)
@@ -219,9 +219,9 @@ func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *gc.C) {
 	// should succeed, because it was repackaged during upload to
 	// strip nested dirs.
 	archiveName := strings.TrimPrefix(sch.BundleURL().RequestURI(), "/dummyenv/private/")
-	envStorage, err := utilsstorage.GetEnvironStorage(s.State)
+	storage, err := environs.GetStorage(s.State)
 	c.Assert(err, gc.IsNil)
-	reader, err := envStorage.Get(archiveName)
+	reader, err := storage.Get(archiveName)
 	c.Assert(err, gc.IsNil)
 	defer reader.Close()
 

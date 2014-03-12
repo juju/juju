@@ -46,16 +46,14 @@ const (
 	ConfigFromEnvirons
 )
 
-// ConfigForName returns the configuration for the environment with the
-// given name from the default environments file. If the name is blank,
-// the default environment will be used. If the configuration is not
-// found, an errors.NotFoundError is returned.
-// If the given store contains an entry for the environment
-// and it has associated bootstrap config, that configuration
-// will be returned.
-// ConfigForName also returns where the configuration
-// was sourced from (this is also valid even when there
-// is an error.
+// ConfigForName returns the configuration for the environment with
+// the given name from the default environments file. If the name is
+// blank, the default environment will be used. If the configuration
+// is not found, an errors.NotFoundError is returned. If the given
+// store contains an entry for the environment and it has associated
+// bootstrap config, that configuration will be returned.
+// ConfigForName also returns where the configuration was sourced from
+// (this is also valid even when there is an error.
 func ConfigForName(name string, store configstore.Storage) (*config.Config, ConfigSource, error) {
 	envs, err := ReadEnvirons("")
 	if err != nil {
@@ -90,9 +88,7 @@ func ConfigForName(name string, store configstore.Storage) (*config.Config, Conf
 // ConfigForName and returns ErrNotBootstrapped if it looks like the
 // environment is not bootstrapped, or err as-is otherwise.
 func maybeNotBootstrapped(err error, source ConfigSource) error {
-	if source != ConfigFromInfo {
-		// If we read the config from other place than
-		// the .jenv we assume it's not bootstrapped.
+	if err != nil && source == ConfigFromEnvirons {
 		return ErrNotBootstrapped
 	}
 	return err

@@ -85,7 +85,7 @@ func (cs *NewAPIClientSuite) TearDownTest(c *gc.C) {
 	cs.LoggingSuite.TearDownTest(c)
 }
 
-func (cs *NewAPIClientSuite) TestNameDefault(c *gc.C) {
+func (*NewAPIClientSuite) TestNameDefault(c *gc.C) {
 	defer coretesting.MakeMultipleEnvHome(c).Restore()
 	// The connection logic should not delay the config connection
 	// at all when there is no environment info available.
@@ -93,7 +93,7 @@ func (cs *NewAPIClientSuite) TestNameDefault(c *gc.C) {
 	// and checking that the connection happens within that
 	// time.
 	defer testbase.PatchValue(juju.ProviderConnectDelay, coretesting.LongWait).Restore()
-	bootstrapEnv(c, &cs.CleanupSuite, coretesting.SampleEnvName, defaultConfigStore(c))
+	bootstrapEnv(c, coretesting.SampleEnvName, defaultConfigStore(c))
 
 	startTime := time.Now()
 	apiclient, err := juju.NewAPIClientFromName("")
@@ -105,10 +105,10 @@ func (cs *NewAPIClientSuite) TestNameDefault(c *gc.C) {
 	assertEnvironmentName(c, apiclient, coretesting.SampleEnvName)
 }
 
-func (cs *NewAPIClientSuite) TestNameNotDefault(c *gc.C) {
+func (*NewAPIClientSuite) TestNameNotDefault(c *gc.C) {
 	defer coretesting.MakeMultipleEnvHome(c).Restore()
 	envName := coretesting.SampleCertName + "-2"
-	bootstrapEnv(c, &cs.CleanupSuite, envName, defaultConfigStore(c))
+	bootstrapEnv(c, envName, defaultConfigStore(c))
 	apiclient, err := juju.NewAPIClientFromName(envName)
 	c.Assert(err, gc.IsNil)
 	defer apiclient.Close()
@@ -150,7 +150,7 @@ func (*NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 	c.Assert(mockStore.written, jc.IsFalse)
 }
 
-func (cs *NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
+func (*NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
 
 	store := newConfigStore(coretesting.SampleEnvName, &environInfo{
@@ -166,7 +166,7 @@ func (cs *NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
 			"admin-secret":              "adminpass",
 		},
 	})
-	bootstrapEnv(c, &cs.CleanupSuite, coretesting.SampleEnvName, store)
+	bootstrapEnv(c, coretesting.SampleEnvName, store)
 
 	// Verify the cache is empty.
 	info, err := store.ReadInfo("myenv")
@@ -251,10 +251,10 @@ func (*NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 	c.Assert(st, gc.IsNil)
 }
 
-func (cs *NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
+func (*NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
 	store := configstore.NewMem()
-	bootstrapEnv(c, &cs.CleanupSuite, coretesting.SampleEnvName, store)
+	bootstrapEnv(c, coretesting.SampleEnvName, store)
 	setEndpointAddress(c, store, coretesting.SampleEnvName, "infoapi.invalid")
 
 	infoOpenedState := new(api.State)
@@ -312,11 +312,11 @@ func setEndpointAddress(c *gc.C, store configstore.Storage, envName string, addr
 	c.Assert(err, gc.IsNil)
 }
 
-func (cs *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
+func (*NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
 
 	store := configstore.NewMem()
-	bootstrapEnv(c, &cs.CleanupSuite, coretesting.SampleEnvName, store)
+	bootstrapEnv(c, coretesting.SampleEnvName, store)
 	setEndpointAddress(c, store, coretesting.SampleEnvName, "infoapi.invalid")
 
 	infoOpenedState := new(api.State)
@@ -379,10 +379,10 @@ func (cs *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 	}
 }
 
-func (cs *NewAPIClientSuite) TestBothError(c *gc.C) {
+func (*NewAPIClientSuite) TestBothError(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
 	store := configstore.NewMem()
-	bootstrapEnv(c, &cs.CleanupSuite, coretesting.SampleEnvName, store)
+	bootstrapEnv(c, coretesting.SampleEnvName, store)
 	setEndpointAddress(c, store, coretesting.SampleEnvName, "infoapi.invalid")
 
 	defer testbase.PatchValue(juju.ProviderConnectDelay, 0*time.Second).Restore()
@@ -405,19 +405,19 @@ func defaultConfigStore(c *gc.C) configstore.Storage {
 }
 
 // TODO(jam): 2013-08-27 This should move somewhere in api.*
-func (cs *NewAPIClientSuite) TestMultipleCloseOk(c *gc.C) {
+func (*NewAPIClientSuite) TestMultipleCloseOk(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
-	bootstrapEnv(c, &cs.CleanupSuite, "", defaultConfigStore(c))
+	bootstrapEnv(c, "", defaultConfigStore(c))
 	client, _ := juju.NewAPIClientFromName("")
 	c.Assert(client.Close(), gc.IsNil)
 	c.Assert(client.Close(), gc.IsNil)
 	c.Assert(client.Close(), gc.IsNil)
 }
 
-func (cs *NewAPIClientSuite) TestWithBootstrapConfigAndNoEnvironmentsFile(c *gc.C) {
+func (*NewAPIClientSuite) TestWithBootstrapConfigAndNoEnvironmentsFile(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
 	store := configstore.NewMem()
-	bootstrapEnv(c, &cs.CleanupSuite, coretesting.SampleEnvName, store)
+	bootstrapEnv(c, coretesting.SampleEnvName, store)
 	info, err := store.ReadInfo(coretesting.SampleEnvName)
 	c.Assert(err, gc.IsNil)
 	c.Assert(info.BootstrapConfig(), gc.NotNil)
@@ -431,7 +431,7 @@ func (cs *NewAPIClientSuite) TestWithBootstrapConfigAndNoEnvironmentsFile(c *gc.
 	st.Close()
 }
 
-func (cs *NewAPIClientSuite) TestWithBootstrapConfigTakesPrecedence(c *gc.C) {
+func (*NewAPIClientSuite) TestWithBootstrapConfigTakesPrecedence(c *gc.C) {
 	// We want to make sure that the code is using the bootstrap
 	// config rather than information from environments.yaml,
 	// even when there is an entry in environments.yaml
@@ -440,7 +440,7 @@ func (cs *NewAPIClientSuite) TestWithBootstrapConfigTakesPrecedence(c *gc.C) {
 	defer coretesting.MakeMultipleEnvHome(c).Restore()
 
 	store := configstore.NewMem()
-	bootstrapEnv(c, &cs.CleanupSuite, coretesting.SampleEnvName, store)
+	bootstrapEnv(c, coretesting.SampleEnvName, store)
 	info, err := store.ReadInfo(coretesting.SampleEnvName)
 	c.Assert(err, gc.IsNil)
 

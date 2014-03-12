@@ -25,11 +25,11 @@ import (
 	"github.com/errgo/errgo"
 
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
-	utilsstorage "launchpad.net/juju-core/utils/storage"
 	ziputil "launchpad.net/juju-core/utils/zip"
 )
 
@@ -392,15 +392,15 @@ func (h *charmsHandler) repackageAndUploadCharm(archive *charm.Bundle, curl *cha
 	if _, err := repackagedArchive.Seek(0, 0); err != nil {
 		return errgo.Annotate(err, "cannot rewind the charm file reader")
 	}
-	envStorage, err := utilsstorage.GetEnvironStorage(h.state)
+	storage, err := environs.GetStorage(h.state)
 	if err != nil {
 		return errgo.Annotate(err, "cannot access provider storage")
 	}
 	name := charm.Quote(curl.String())
-	if err := envStorage.Put(name, repackagedArchive, size); err != nil {
+	if err := storage.Put(name, repackagedArchive, size); err != nil {
 		return errgo.Annotate(err, "cannot upload charm to provider storage")
 	}
-	storageURL, err := envStorage.URL(name)
+	storageURL, err := storage.URL(name)
 	if err != nil {
 		return errgo.Annotate(err, "cannot get storage URL for charm")
 	}
@@ -455,13 +455,13 @@ func (h *charmsHandler) processGet(r *http.Request) (string, string, error) {
 // saves the corresponding zip archive to the given charmArchivePath.
 func (h *charmsHandler) downloadCharm(name, charmArchivePath string) error {
 	// Get the provider storage.
-	envStorage, err := utilsstorage.GetEnvironStorage(h.state)
+	storage, err := environs.GetStorage(h.state)
 	if err != nil {
 		return errgo.Annotate(err, "cannot access provider storage")
 	}
 
 	// Use the storage to retrieve and save the charm archive.
-	reader, err := envStorage.Get(name)
+	reader, err := storage.Get(name)
 	if err != nil {
 		return errgo.Annotate(err, "charm not found in the provider storage")
 	}
