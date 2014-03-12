@@ -33,7 +33,6 @@ func (t *testInstance) Id() (instance.Id) {
     return t.id
 }
 
-
 type testInstanceGetter struct {
     ids []instance.Id
     results []instance.Instance
