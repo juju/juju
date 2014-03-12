@@ -41,6 +41,8 @@ end script
 
 var (
 	TemplateLockDir = "/var/lib/juju/locks"
+
+	TemplateStopTimeout = 5 * time.Minute
 )
 
 // templateUserData returns a minimal user data necessary for the template.
@@ -176,7 +178,7 @@ func EnsureCloneTemplate(
 		return nil, err
 	}
 
-	tailWriter := &logTail{}
+	tailWriter := &logTail{tick: time.Now()}
 	consoleTailer := tailer.NewTailer(console, tailWriter, 0, nil)
 	defer consoleTailer.Stop()
 
@@ -184,9 +186,9 @@ func EnsureCloneTemplate(
 	// if no output check to see if stopped
 	// If we have no output and still running, something has probably gone wrong
 	for lxcContainer.IsRunning() {
-		if tailWriter.lastTick().Before(time.Now().Add(-5 * time.Minute)) {
+		if tailWriter.lastTick().Before(time.Now().Add(-TemplateStopTimeout)) {
 			logger.Infof("not heard anything from the template log for five minutes")
-			return nil, fmt.Errorf("template container did not stop")
+			return nil, fmt.Errorf("template container %q did not stop", name)
 		}
 		time.Sleep(time.Second)
 	}
