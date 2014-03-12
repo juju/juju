@@ -28,16 +28,16 @@ import (
 )
 
 // MakeTools creates some fake tools with the given version strings.
-func MakeTools(c *gc.C, metadataDir, subdir string, versionStrings []string) {
-	makeTools(c, metadataDir, subdir, versionStrings, false)
+func MakeTools(c *gc.C, metadataDir, subdir string, versionStrings []string) coretools.List {
+	return makeTools(c, metadataDir, subdir, versionStrings, false)
 }
 
 // MakeTools creates some fake tools (including checksums) with the given version strings.
-func MakeToolsWithCheckSum(c *gc.C, metadataDir, subdir string, versionStrings []string) {
-	makeTools(c, metadataDir, subdir, versionStrings, true)
+func MakeToolsWithCheckSum(c *gc.C, metadataDir, subdir string, versionStrings []string) coretools.List {
+	return makeTools(c, metadataDir, subdir, versionStrings, true)
 }
 
-func makeTools(c *gc.C, metadataDir, subdir string, versionStrings []string, withCheckSum bool) {
+func makeTools(c *gc.C, metadataDir, subdir string, versionStrings []string, withCheckSum bool) coretools.List {
 	toolsDir := filepath.Join(metadataDir, storage.BaseToolsPath)
 	if subdir != "" {
 		toolsDir = filepath.Join(toolsDir, subdir)
@@ -64,6 +64,7 @@ func makeTools(c *gc.C, metadataDir, subdir string, versionStrings []string, wit
 	c.Assert(err, gc.IsNil)
 	err = tools.MergeAndWriteMetadata(stor, toolsList, false)
 	c.Assert(err, gc.IsNil)
+	return toolsList
 }
 
 // SHA256sum creates the sha256 checksum for the specified file.
