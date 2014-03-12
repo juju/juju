@@ -55,6 +55,7 @@ def backup_state_server(env):
     environ = dict(os.environ)
     environ['JUJU_ENV'] = env.environment
     output = subprocess.check_output(["juju-backup"], env=environ)
+    print(output)
     match = backup_file_pattern.search(output)
     if match is None:
         raise Exception("The backup file was not found in output: %s" % output)
@@ -79,9 +80,10 @@ def restore_present_state_server(env, backup_file):
         print(
             "juju-restore correctly refused to restore "
             "because the state-server was still up.")
+        print(err)
         match = running_instance_pattern.search(err)
         if match is None:
-            raise Exception("The instance was not found in output: %s" % err)
+            raise Exception("The instance was not found in output above.")
         instance_id = match.group(1)
     return instance_id
 
@@ -117,8 +119,13 @@ def restore_missing_state_server(env, backup_file):
     """juju-restore creates a replacement state-server for the services."""
     environ = dict(os.environ)
     environ['JUJU_ENV'] = env.environment
-    subprocess.check_call(
-        ['juju-restore', '--constraints', 'mem=2G', backup_file], env=environ)
+    proc = subprocess.Popen(
+        ['juju-restore', '--constraints', 'mem=2G', backup_file], env=environ,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    output, err = proc.communicate()
+    if proc.returncode != 0:
+        raise Exception("Restore failed: \n%s" % err)
+    print(output)
     env.wait_for_started().status
     print("%s restored" % env.environment)
 
