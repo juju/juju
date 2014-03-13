@@ -106,7 +106,7 @@ func (*LxcSuite) TestManagerWarnsAboutUnknownOption(c *gc.C) {
 		"shazam":             "Captain Marvel",
 	})
 	c.Assert(err, gc.IsNil)
-	c.Assert(c.GetTestLog(), jc.Contains, `WARNING juju.container.lxc Found unused config option with key: "shazam" and value: "Captain Marvel"`)
+	c.Assert(c.GetTestLog(), jc.Contains, `WARNING juju.container unused config option: "shazam" -> "Captain Marvel"`)
 }
 
 func (s *LxcSuite) TestStartContainer(c *gc.C) {

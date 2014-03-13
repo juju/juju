@@ -56,20 +56,15 @@ var IsKVMSupported = func() (bool, error) {
 // containers. The containers that are created are namespaced by the name
 // parameter.
 func NewContainerManager(conf container.ManagerConfig) (container.Manager, error) {
-	name := conf[container.ConfigName]
-	delete(conf, container.ConfigName)
+	name := conf.PopValue(container.ConfigName)
 	if name == "" {
 		return nil, fmt.Errorf("name is required")
 	}
-	logDir := conf[container.ConfigLogDir]
-	delete(conf, container.ConfigLogDir)
+	logDir := conf.PopValue(container.ConfigLogDir)
 	if logDir == "" {
 		logDir = agent.DefaultLogDir
 	}
-	for k, v := range conf {
-		logger.Warningf(`Found unused config option with key: "%v" and value: "%v"`, k, v)
-	}
-
+	conf.WarnAboutUnused()
 	return &containerManager{name: name, logdir: logDir}, nil
 }
 

@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -78,22 +79,18 @@ var _ container.Manager = (*containerManager)(nil)
 // containers. The containers that are created are namespaced by the name
 // parameter.
 func NewContainerManager(conf container.ManagerConfig) (container.Manager, error) {
-	name := conf[container.ConfigName]
-	delete(conf, container.ConfigName)
+	name := conf.PopValue(container.ConfigName)
 	if name == "" {
 		return nil, fmt.Errorf("name is required")
 	}
-	logDir := conf[container.ConfigLogDir]
-	delete(conf, container.ConfigLogDir)
+	logDir := conf.PopValue(container.ConfigLogDir)
 	if logDir == "" {
 		logDir = agent.DefaultLogDir
 	}
-	useClone := false
-	if conf["use-clone"] == "true" {
-		logger.Tracef("using lxc-clone for creating containers")
-		useClone = true
-	}
-	delete(conf, "use-clone")
+	// Explicitly ignore the error result from ParseBool.
+	// If it fails to parse, the value is false, and this suits
+	// us fine.
+	useClone, _ := strconv.ParseBool(conf.PopValue("use-clone"))
 	backingFS, err := containerDirFilesystem()
 	if err != nil {
 		// Especially in tests, or a bot, the lxc dir may not exist
@@ -103,9 +100,7 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 		backingFS = "unknown"
 	}
 	logger.Tracef("backing filesystem: %q", backingFS)
-	for k, v := range conf {
-		logger.Warningf(`Found unused config option with key: "%v" and value: "%v"`, k, v)
-	}
+	conf.WarnAboutUnused()
 	return &containerManager{
 		name:              name,
 		logdir:            logDir,
