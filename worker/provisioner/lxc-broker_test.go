@@ -204,6 +204,8 @@ func (s *lxcProvisionerSuite) SetUpTest(c *gc.C) {
 func (s *lxcProvisionerSuite) expectStarted(c *gc.C, machine *state.Machine) string {
 	s.State.StartSync()
 	event := <-s.events
+	c.Assert(event.Action, gc.Equals, mock.Created)
+	event = <-s.events
 	c.Assert(event.Action, gc.Equals, mock.Started)
 	err := machine.Refresh()
 	c.Assert(err, gc.IsNil)
@@ -215,6 +217,8 @@ func (s *lxcProvisionerSuite) expectStopped(c *gc.C, instId string) {
 	s.State.StartSync()
 	event := <-s.events
 	c.Assert(event.Action, gc.Equals, mock.Stopped)
+	event = <-s.events
+	c.Assert(event.Action, gc.Equals, mock.Destroyed)
 	c.Assert(event.InstanceId, gc.Equals, instId)
 }
 

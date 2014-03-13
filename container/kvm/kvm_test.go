@@ -46,7 +46,7 @@ func (*KVMSuite) TestManagerWarnsAboutUnknownOption(c *gc.C) {
 		"shazam":             "Captain Marvel",
 	})
 	c.Assert(err, gc.IsNil)
-	c.Assert(c.GetTestLog(), gc.Matches, `^.*WARNING juju.container.kvm Found unused config option with key: "shazam" and value: "Captain Marvel"\n*`)
+	c.Assert(c.GetTestLog(), jc.Contains, `WARNING juju.container unused config option: "shazam" -> "Captain Marvel"`)
 }
 
 func (s *KVMSuite) TestListInitiallyEmpty(c *gc.C) {

@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -219,6 +220,7 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 		container.ManagerConfig{
 			container.ConfigName:   env.config.namespace(),
 			container.ConfigLogDir: env.config.logDir(),
+			"use-clone":            strconv.FormatBool(env.fastLXC),
 		})
 	if err != nil {
 		return err
