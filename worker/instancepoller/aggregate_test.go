@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
@@ -46,11 +47,13 @@ type testInstanceGetter struct {
 	ids     []instance.Id
 	results []*testInstance
 	err     error
+	counter int
 }
 
 func (i *testInstanceGetter) Instances(ids []instance.Id) (result []instance.Instance, err error) {
 	i.ids = ids
 	err = i.err
+	i.counter += 1
 	for _, inst := range i.results {
 		if inst == nil {
 			result = append(result, nil)
@@ -84,7 +87,7 @@ func (s *aggregateSuite) TestSingleRequest(c *gc.C) {
 	c.Assert(testGetter.ids, gc.DeepEquals, []instance.Id{"foo"})
 }
 
-func (s *aggregateSuite) TestRequestBatching(c *gc.C) {
+func (s *aggregateSuite) TestMultipleResponseHandling(c *gc.C) {
 	s.PatchValue(&gatherTime, 30*time.Millisecond)
 	testGetter := new(testInstanceGetter)
 
@@ -119,6 +122,30 @@ func (s *aggregateSuite) TestRequestBatching(c *gc.C) {
 	wg.Wait()
 
 	c.Assert(len(testGetter.ids), gc.DeepEquals, 2)
+}
+
+func (s *aggregateSuite) TestBatching(c *gc.C) {
+	s.PatchValue(&gatherTime, 10*time.Millisecond)
+	testGetter := new(testInstanceGetter)
+
+	aggregator := newAggregator(testGetter)
+	for i := 0; i < 100; i++ {
+		testGetter.results = append(testGetter.results, newTestInstance("foobar", []string{"127.0.0.1", "192.168.1.1"}))
+	}
+	var wg sync.WaitGroup
+	makeRequest := func() {
+		_, err := aggregator.instanceInfo("foo")
+		c.Check(err, gc.IsNil)
+		wg.Done()
+	}
+	wg.Add(100)
+	for i := 0; i < 100; i++ {
+		go makeRequest()
+		time.Sleep(time.Millisecond)
+	}
+	wg.Wait()
+	c.Assert(testGetter.counter, jc.LessThan, 15)
+	c.Assert(testGetter.counter, jc.GreaterThan, 10)
 }
 
 func (s *aggregateSuite) TestError(c *gc.C) {
