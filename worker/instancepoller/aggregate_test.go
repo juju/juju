@@ -25,14 +25,14 @@ type testInstance struct {
 	instance.Instance
 	addresses []instance.Address
 	status    string
-	err       bool
+	err       error
 }
 
 var _ instance.Instance = (*testInstance)(nil)
 
 func (t *testInstance) Addresses() ([]instance.Address, error) {
-	if t.err {
-		return nil, fmt.Errorf("gotcha")
+	if t.err != nil{
+		return nil, t.err
 	}
 	return t.addresses, nil
 }
@@ -163,7 +163,8 @@ func (s *aggregateSuite) TestPartialErrResponse(c *gc.C) {
 func (s *aggregateSuite) TestAddressesError(c *gc.C) {
 	testGetter := new(testInstanceGetter)
 	instance1 := newTestInstance("foobar", []string{"127.0.0.1", "192.168.1.1"})
-	instance1.err = true
+        ourError := fmt.Errorf("gotcha")
+	instance1.err = ourError
 	testGetter.results = []*testInstance{instance1}
 	aggregator := newAggregator(testGetter)
 
@@ -174,7 +175,7 @@ func (s *aggregateSuite) TestAddressesError(c *gc.C) {
 	}
 	aggregator.reqc <- req
 	reply := <-replyChan
-	c.Assert(reply.err, gc.DeepEquals, fmt.Errorf("gotcha"))
+	c.Assert(reply.err, gc.Equals, ourError)
 }
 
 func (s *aggregateSuite) TestKillAndWait(c *gc.C) {
