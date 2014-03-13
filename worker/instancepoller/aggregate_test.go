@@ -31,7 +31,7 @@ type testInstance struct {
 var _ instance.Instance = (*testInstance)(nil)
 
 func (t *testInstance) Addresses() ([]instance.Address, error) {
-	if t.err != nil{
+	if t.err != nil {
 		return nil, t.err
 	}
 	return t.addresses, nil
@@ -74,13 +74,13 @@ func (s *aggregateSuite) TestSingleRequest(c *gc.C) {
 	testGetter.results = []*testInstance{instance1}
 	aggregator := newAggregator(testGetter)
 
-        info, err := aggregator.instanceInfo("foo")
-        c.Assert(err, gc.IsNil)
+	info, err := aggregator.instanceInfo("foo")
+	c.Assert(err, gc.IsNil)
 	c.Assert(info, gc.DeepEquals, instanceInfo{
 		status:    "foobar",
 		addresses: instance1.addresses,
 	})
-	c.Assert(testGetter.ids, gc.DeepEquals, []instance.Id{instance.Id("foo")})
+	c.Assert(testGetter.ids, gc.DeepEquals, []instance.Id{"foo"})
 }
 
 func (s *aggregateSuite) TestRequestBatching(c *gc.C) {
@@ -127,7 +127,7 @@ func (s *aggregateSuite) TestError(c *gc.C) {
 
 	aggregator := newAggregator(testGetter)
 
-        _, err := aggregator.instanceInfo("foo")
+	_, err := aggregator.instanceInfo("foo")
 	c.Assert(err, gc.Equals, ourError)
 }
 
@@ -137,7 +137,7 @@ func (s *aggregateSuite) TestPartialErrResponse(c *gc.C) {
 	testGetter.results = []*testInstance{nil}
 
 	aggregator := newAggregator(testGetter)
-        _, err := aggregator.instanceInfo("foo")
+	_, err := aggregator.instanceInfo("foo")
 
 	c.Assert(err, gc.DeepEquals, errors.NotFoundf("instance foo"))
 }
@@ -145,12 +145,12 @@ func (s *aggregateSuite) TestPartialErrResponse(c *gc.C) {
 func (s *aggregateSuite) TestAddressesError(c *gc.C) {
 	testGetter := new(testInstanceGetter)
 	instance1 := newTestInstance("foobar", []string{"127.0.0.1", "192.168.1.1"})
-        ourError := fmt.Errorf("gotcha")
+	ourError := fmt.Errorf("gotcha")
 	instance1.err = ourError
 	testGetter.results = []*testInstance{instance1}
 
 	aggregator := newAggregator(testGetter)
-        _, err := aggregator.instanceInfo("foo")
+	_, err := aggregator.instanceInfo("foo")
 	c.Assert(err, gc.Equals, ourError)
 }
 
@@ -160,12 +160,4 @@ func (s *aggregateSuite) TestKillAndWait(c *gc.C) {
 	aggregator.Kill()
 	err := aggregator.Wait()
 	c.Assert(err, gc.IsNil)
-}
-
-func (s *aggregateSuite) TestLoopDying(c *gc.C) {
-	testGetter := new(testInstanceGetter)
-	aggregator := newAggregator(testGetter)
-	close(aggregator.reqc)
-	err := aggregator.Wait()
-	c.Assert(err, gc.NotNil)
 }

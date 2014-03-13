@@ -4,7 +4,6 @@
 package instancepoller
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/ratelimit"
@@ -69,10 +68,7 @@ func (a *aggregator) loop() error {
 		select {
 		case <-a.tomb.Dying():
 			return tomb.ErrDying
-		case req, ok := <-a.reqc:
-			if !ok {
-				return fmt.Errorf("request channel closed")
-			}
+		case req := <-a.reqc:
 			if len(reqs) == 0 {
 				waitTime := bucket.Take(1)
 				timer.Reset(waitTime)
