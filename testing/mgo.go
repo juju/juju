@@ -19,6 +19,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/juju/loggo"
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
@@ -30,6 +31,7 @@ import (
 var (
 	// MgoServer is a shared mongo server used by tests.
 	MgoServer = &MgoInstance{ssl: true}
+	logger    = loggo.GetLogger("juju.testing")
 )
 
 type MgoInstance struct {
@@ -83,6 +85,7 @@ func (inst *MgoInstance) Start(ssl bool) error {
 	if err != nil {
 		return err
 	}
+	logger.Debugf("starting mongo in %s", dbdir)
 
 	// give them all the same keyfile so they can talk appropriately
 	keyFilePath := filepath.Join(dbdir, "keyfile")
@@ -106,6 +109,7 @@ func (inst *MgoInstance) Start(ssl bool) error {
 		os.RemoveAll(inst.dir)
 		inst.dir = ""
 	}
+	logger.Debugf("started mongod pid %d in %s on port %d", inst.server.Process.Pid, dbdir, inst.port)
 	return err
 }
 
@@ -120,6 +124,7 @@ func (inst *MgoInstance) run() error {
 	mgoargs := []string{
 		"--auth",
 		"--dbpath", inst.dir,
+		"--logpath", filepath.Join(inst.dir, "server.log"),
 		"--port", mgoport,
 		"--nssize", "1",
 		"--noprealloc",
@@ -180,6 +185,7 @@ func (inst *MgoInstance) kill() {
 
 func (inst *MgoInstance) Destroy() {
 	if inst.server != nil {
+		logger.Debugf("killing mongod pid %d in %s on port %d", inst.server.Process.Pid, inst.dir, inst.port)
 		inst.kill()
 		os.RemoveAll(inst.dir)
 		inst.addr, inst.dir = "", ""
@@ -189,6 +195,7 @@ func (inst *MgoInstance) Destroy() {
 // Restart restarts the mongo server, useful for
 // testing what happens when a state server goes down.
 func (inst *MgoInstance) Restart() {
+	logger.Debugf("restarting mongod pid %d in %s on port %d", inst.server.Process.Pid, inst.dir, inst.port)
 	inst.kill()
 	if err := inst.Start(inst.ssl); err != nil {
 		panic(err)
@@ -296,7 +303,12 @@ func (inst *MgoInstance) dial(direct bool) (*mgo.Session, error) {
 		Direct: direct,
 		Addrs:  []string{inst.addr},
 		Dial: func(addr net.Addr) (net.Conn, error) {
-			return tls.Dial("tcp", addr.String(), tlsConfig)
+			conn, err := tls.Dial("tcp", addr.String(), tlsConfig)
+			if err != nil {
+				logger.Debugf("tls.Dial(%s) failed with %v", addr, err)
+				return nil, err
+			}
+			return conn, nil
 		},
 		Timeout: mgoDialTimeout,
 	})

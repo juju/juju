@@ -30,15 +30,15 @@ func (ci *containerInitialiser) Initialise() error {
 	return ensureDependencies((*ci).targetRelease)
 }
 
-// targetReleasePackages returns a slice suitable for use
-// with utils.AptGetInstall based on the targetRelease string.
-func targetReleasePackages(targetRelease string) []string {
+// installLtsPackages issues an AptGetInstall command passing the
+// --target-release switch for all of the ltsPackages
+func installLtsPackages(targetRelease string) error {
 	packages := []string{
 		"--target-release",
 		targetRelease,
-		requiredPackages[0],
 	}
-	return packages
+	packages = append(packages, ltsPackages...)
+	return utils.AptGetInstall(packages...)
 }
 
 // ensureDependencies checks the targetRelease and updates the packages

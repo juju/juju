@@ -41,6 +41,37 @@ func (s *LxcSuite) SetUpTest(c *gc.C) {
 	loggo.GetLogger("juju.container.lxc").SetLogLevel(loggo.TRACE)
 }
 
+func (s *LxcSuite) TestContainerDirFilesystem(c *gc.C) {
+	for i, test := range []struct {
+		message    string
+		output     string
+		expected   string
+		errorMatch string
+	}{{
+		message:  "btrfs",
+		output:   "Type\nbtrfs\n",
+		expected: lxc.Btrfs,
+	}, {
+		message:  "ext4",
+		output:   "Type\next4\n",
+		expected: "ext4",
+	}, {
+		message:    "not enough output",
+		output:     "foo",
+		errorMatch: "could not determine filesystem type",
+	}} {
+		c.Logf("%v: %s", i, test.message)
+		s.HookCommandOutput(&lxc.FsCommandOutput, []byte(test.output), nil)
+		value, err := lxc.ContainerDirFilesystem()
+		if test.errorMatch == "" {
+			c.Check(err, gc.IsNil)
+			c.Check(value, gc.Equals, test.expected)
+		} else {
+			c.Check(err, gc.ErrorMatches, test.errorMatch)
+		}
+	}
+}
+
 func (s *LxcSuite) makeManager(c *gc.C, name string) container.Manager {
 	manager, err := lxc.NewContainerManager(container.ManagerConfig{
 		container.ConfigName: name,
@@ -55,7 +86,7 @@ func (*LxcSuite) TestManagerWarnsAboutUnknownOption(c *gc.C) {
 		"shazam":             "Captain Marvel",
 	})
 	c.Assert(err, gc.IsNil)
-	c.Assert(c.GetTestLog(), gc.Matches, `^.*WARNING juju.container.lxc Found unused config option with key: "shazam" and value: "Captain Marvel"\n*`)
+	c.Assert(c.GetTestLog(), jc.Contains, `WARNING juju.container.lxc Found unused config option with key: "shazam" and value: "Captain Marvel"`)
 }
 
 func (s *LxcSuite) TestStartContainer(c *gc.C) {
@@ -185,16 +216,18 @@ func (s *LxcSuite) TestStartContainerNoRestartDir(c *gc.C) {
 
 	manager := s.makeManager(c, "test")
 	instance := containertesting.StartContainer(c, manager, "1/lxc/0")
-	autostartLink := lxc.RestartSymlink(string(instance.Id()))
-
-	config := lxc.NetworkConfigTemplate("foo", "bar")
+	name := string(instance.Id())
+	autostartLink := lxc.RestartSymlink(name)
+	config, err := ioutil.ReadFile(lxc.ContainerConfigFilename(name))
+	c.Assert(err, gc.IsNil)
 	expected := `
-lxc.network.type = foo
-lxc.network.link = bar
+lxc.network.type = veth
+lxc.network.link = nic42
 lxc.network.flags = up
 lxc.start.auto = 1
+lxc.mount.entry=/var/log/juju var/log/juju none defaults,bind 0 0
 `
-	c.Assert(config, gc.Equals, expected)
+	c.Assert(string(config), gc.Equals, expected)
 	c.Assert(autostartLink, jc.DoesNotExist)
 }
 

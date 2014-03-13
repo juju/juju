@@ -5,8 +5,12 @@ package mock
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"launchpad.net/golxc"
+
+	"launchpad.net/juju-core/utils"
 )
 
 // This file provides a mock implementation of the golxc interfaces
@@ -44,13 +48,15 @@ type ContainerFactory interface {
 }
 
 type mockFactory struct {
-	instances map[string]golxc.Container
-	listeners []chan<- Event
+	containerDir string
+	instances    map[string]golxc.Container
+	listeners    []chan<- Event
 }
 
-func MockFactory() ContainerFactory {
+func MockFactory(containerDir string) ContainerFactory {
 	return &mockFactory{
-		instances: make(map[string]golxc.Container),
+		containerDir: containerDir,
+		instances:    make(map[string]golxc.Container),
 	}
 }
 
@@ -68,13 +74,19 @@ func (mock *mockContainer) Name() string {
 }
 
 // Create creates a new container based on the given template.
-func (mock *mockContainer) Create(configFile, template string, templateArgs ...string) error {
+func (mock *mockContainer) Create(configFile, template string, extraArgs []string, templateArgs []string) error {
 	if mock.state != golxc.StateUnknown {
 		return fmt.Errorf("container is already created")
 	}
 	mock.state = golxc.StateStopped
 	mock.factory.instances[mock.name] = mock
-	return nil
+	// Create the container directory.
+	containerDir := filepath.Join(mock.factory.containerDir, mock.name)
+	if err := os.MkdirAll(containerDir, 0755); err != nil {
+		return err
+	}
+	containerConfig := filepath.Join(containerDir, "config")
+	return utils.CopyFile(containerConfig, configFile)
 }
 
 // Start runs the container as a daemon.
@@ -102,7 +114,7 @@ func (mock *mockContainer) Stop() error {
 }
 
 // Clone creates a copy of the container, giving the copy the specified name.
-func (mock *mockContainer) Clone(name string) (golxc.Container, error) {
+func (mock *mockContainer) Clone(name string, extraArgs []string, templateArgs []string) (golxc.Container, error) {
 	container := &mockContainer{
 		factory:  mock.factory,
 		name:     name,
