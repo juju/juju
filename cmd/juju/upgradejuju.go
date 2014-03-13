@@ -265,7 +265,7 @@ func (context *upgradeContext) uploadTools(series []string) (err error) {
 	logger.Infof("uploading tools %v (%dkB) to Juju state server", builtTools.Version, (builtTools.Size+512)/1024)
 	uploaded, err = context.apiClient.UploadTools(toolsPath, builtTools.Version, series...)
 	if params.IsCodeNotImplemented(err) {
-		uploaded, err = context.uploadTools1dot17(builtTools)
+		uploaded, err = context.uploadTools1dot17(builtTools, series...)
 	}
 	if err != nil {
 		return err
@@ -274,13 +274,15 @@ func (context *upgradeContext) uploadTools(series []string) (err error) {
 	return nil
 }
 
-func (context *upgradeContext) uploadTools1dot17(builtTools *sync.BuiltTools) (*coretools.Tools, error) {
+func (context *upgradeContext) uploadTools1dot17(builtTools *sync.BuiltTools,
+	series ...string) (*coretools.Tools, error) {
+
 	logger.Warningf("running upload tools in 1.17 compatibility mode")
 	env, err := environs.New(context.config)
 	if err != nil {
 		return nil, err
 	}
-	return sync.SyncBuiltTools(env.Storage(), builtTools)
+	return sync.SyncBuiltTools(env.Storage(), builtTools, series...)
 }
 
 // validate chooses an upgrade version, if one has not already been chosen,
