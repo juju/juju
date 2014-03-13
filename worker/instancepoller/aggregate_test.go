@@ -5,6 +5,7 @@ package instancepoller
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	gc "launchpad.net/gocheck"
@@ -102,22 +103,22 @@ func (s *aggregateSuite) TestRequestBatching(c *gc.C) {
 
 	instance2 := newTestInstance("not foobar", []string{"192.168.1.2"})
 	instance3 := newTestInstance("ok-ish", []string{"192.168.1.3"})
-
-	replyChan2 := make(chan instanceInfoReply)
-	replyChan3 := make(chan instanceInfoReply)
-
-	aggregator.reqc <- instanceInfoReq{reply: replyChan2, instId: instance.Id("foo2")}
-	aggregator.reqc <- instanceInfoReq{reply: replyChan3, instId: instance.Id("foo3")}
-
 	testGetter.results = []*testInstance{instance2, instance3}
-	reply2 := <-replyChan2
-	reply3 := <-replyChan3
-	c.Assert(reply2.err, gc.IsNil)
-	c.Assert(reply3.err, gc.IsNil)
-	c.Assert(reply2.info.status, gc.Equals, "not foobar")
-	c.Assert(reply3.info.status, gc.Equals, "ok-ish")
 
-	c.Assert(testGetter.ids, gc.DeepEquals, []instance.Id{instance.Id("foo2"), instance.Id("foo3")})
+	var wg sync.WaitGroup
+	checkInfo := func(id instance.Id, expectStatus string) {
+		info, err := aggregator.instanceInfo(id)
+		c.Check(err, gc.IsNil)
+		c.Check(info.status, gc.Equals, expectStatus)
+		wg.Done()
+	}
+
+	wg.Add(2)
+	go checkInfo("foo2", "not foobar")
+	go checkInfo("foo3", "ok-ish")
+	wg.Wait()
+
+	c.Assert(len(testGetter.ids), gc.DeepEquals, 2)
 }
 
 func (s *aggregateSuite) TestError(c *gc.C) {
