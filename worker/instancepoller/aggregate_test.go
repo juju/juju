@@ -60,9 +60,7 @@ func (i *testInstanceGetter) Instances(ids []instance.Id) (result []instance.Ins
 
 func newTestInstance(status string, addresses []string) *testInstance {
 	thisInstance := testInstance{status: status}
-	for _, address := range addresses {
-		thisInstance.addresses = append(thisInstance.addresses, instance.NewAddress(address))
-	}
+        thisInstance.addresses = instance.NewAddresses(addresses)
 	return &thisInstance
 }
 
