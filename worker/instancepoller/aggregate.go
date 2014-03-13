@@ -57,13 +57,14 @@ func (a *aggregator) instanceInfo(id instance.Id) (instanceInfo, error) {
 }
 
 var gatherTime = 3 * time.Second
-var capacity int64 = 1
 
 func (a *aggregator) loop() error {
 	timer := time.NewTimer(0)
 	timer.Stop()
 	var reqs []instanceInfoReq
-	bucket := ratelimit.New(gatherTime, capacity)
+        // We use a capacity of 1 so that sporadic requests will
+        // be serviced immediately without having to wait.
+	bucket := ratelimit.New(gatherTime, 1)
 	for {
 		select {
 		case <-a.tomb.Dying():
