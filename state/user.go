@@ -180,7 +180,7 @@ func (u *User) Deactivate() error {
 	}}
 	if err := u.st.runTransaction(ops); err != nil {
 		if err == txn.ErrAborted {
-			err = fmt.Errorf("user doesn't exist")
+			err = fmt.Errorf("user no longer exists")
 		}
 		return fmt.Errorf("cannot deactivate user %q: %v", u.Name(), err)
 	}

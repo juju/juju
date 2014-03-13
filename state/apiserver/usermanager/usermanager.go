@@ -39,8 +39,7 @@ func NewUserManagerAPI(
 		return nil, common.ErrPerm
 	}
 
-	// TODO(mattyw) - replace stub with real canRead function
-	// For now, only admins can add users.
+	// TODO(mattyw) - replace stub with real canWrite function
 	getCanWrite := common.AuthAlways(true)
 	return &UserManagerAPI{
 			state:       st,
