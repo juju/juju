@@ -210,6 +210,7 @@ func (c *UpgradeJujuCommand) initVersions(client *api.Client, cfg *config.Config
 
 // findTools1dot17 allows 1.17.x versions to be upgraded.
 func findTools1dot17(cfg *config.Config) (coretools.List, error) {
+	logger.Warningf("running find tools in 1.17 compatibility mode")
 	env, err := environs.New(cfg)
 	if err != nil {
 		return nil, err
@@ -261,6 +262,7 @@ func (context *upgradeContext) uploadTools(series []string) (err error) {
 
 	var uploaded *coretools.Tools
 	toolsPath := path.Join(builtTools.Dir, builtTools.StorageName)
+	logger.Infof("uploading tools %v (%dkB) to Juju state server", builtTools.Version, (builtTools.Size+512)/1024)
 	uploaded, err = context.apiClient.UploadTools(toolsPath, builtTools.Version, series...)
 	if params.IsCodeNotImplemented(err) {
 		uploaded, err = context.uploadTools1dot17(builtTools)
@@ -273,6 +275,7 @@ func (context *upgradeContext) uploadTools(series []string) (err error) {
 }
 
 func (context *upgradeContext) uploadTools1dot17(builtTools *sync.BuiltTools) (*coretools.Tools, error) {
+	logger.Warningf("running upload tools in 1.17 compatibility mode")
 	env, err := environs.New(context.config)
 	if err != nil {
 		return nil, err
