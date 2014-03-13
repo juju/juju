@@ -74,15 +74,9 @@ func (s *aggregateSuite) TestSingleRequest(c *gc.C) {
 	testGetter.results = []*testInstance{instance1}
 	aggregator := newAggregator(testGetter)
 
-	replyChan := make(chan instanceInfoReply)
-	req := instanceInfoReq{
-		reply:  replyChan,
-		instId: instance.Id("foo"),
-	}
-	aggregator.reqc <- req
-	reply := <-replyChan
-	c.Assert(reply.err, gc.IsNil)
-	c.Assert(reply.info, gc.DeepEquals, instanceInfo{
+        info, err := aggregator.instanceInfo("foo")
+        c.Assert(err, gc.IsNil)
+	c.Assert(info, gc.DeepEquals, instanceInfo{
 		status:    "foobar",
 		addresses: instance1.addresses,
 	})
@@ -133,14 +127,8 @@ func (s *aggregateSuite) TestError(c *gc.C) {
 
 	aggregator := newAggregator(testGetter)
 
-	replyChan := make(chan instanceInfoReply)
-	req := instanceInfoReq{
-		reply:  replyChan,
-		instId: instance.Id("foo"),
-	}
-	aggregator.reqc <- req
-	reply := <-replyChan
-	c.Assert(reply.err, gc.Equals, ourError)
+        _, err := aggregator.instanceInfo("foo")
+	c.Assert(err, gc.Equals, ourError)
 }
 
 func (s *aggregateSuite) TestPartialErrResponse(c *gc.C) {
@@ -149,15 +137,9 @@ func (s *aggregateSuite) TestPartialErrResponse(c *gc.C) {
 	testGetter.results = []*testInstance{nil}
 
 	aggregator := newAggregator(testGetter)
+        _, err := aggregator.instanceInfo("foo")
 
-	replyChan := make(chan instanceInfoReply)
-	req := instanceInfoReq{
-		reply:  replyChan,
-		instId: instance.Id("foo"),
-	}
-	aggregator.reqc <- req
-	reply := <-replyChan
-	c.Assert(reply.err, gc.DeepEquals, errors.NotFoundf("instance foo"))
+	c.Assert(err, gc.DeepEquals, errors.NotFoundf("instance foo"))
 }
 
 func (s *aggregateSuite) TestAddressesError(c *gc.C) {
@@ -166,16 +148,10 @@ func (s *aggregateSuite) TestAddressesError(c *gc.C) {
         ourError := fmt.Errorf("gotcha")
 	instance1.err = ourError
 	testGetter.results = []*testInstance{instance1}
-	aggregator := newAggregator(testGetter)
 
-	replyChan := make(chan instanceInfoReply)
-	req := instanceInfoReq{
-		reply:  replyChan,
-		instId: instance.Id("foo"),
-	}
-	aggregator.reqc <- req
-	reply := <-replyChan
-	c.Assert(reply.err, gc.Equals, ourError)
+	aggregator := newAggregator(testGetter)
+        _, err := aggregator.instanceInfo("foo")
+	c.Assert(err, gc.Equals, ourError)
 }
 
 func (s *aggregateSuite) TestKillAndWait(c *gc.C) {
