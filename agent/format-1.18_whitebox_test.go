@@ -10,9 +10,10 @@ package agent
 import (
 	"path/filepath"
 
+	jc "github.com/juju/testing/checkers"
+
 	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state/api/params"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -24,9 +25,9 @@ type format_1_18Suite struct {
 
 var _ = gc.Suite(&format_1_18Suite{})
 
-var configData1_18WithoutUpgradedToVersion = "# format 1.18\n" + configDataWithoutUpgradedToVersion
+var configData1_18WithoutUpgradedToVersion = "# format 1.18\n" + configDataWithoutNewAttributes
 
-func (s *format_1_18Suite) TestMissingUpgradedToVersion(c *gc.C) {
+func (s *format_1_18Suite) TestMissingAttributes(c *gc.C) {
 	dataDir := c.MkDir()
 	configPath := filepath.Join(dataDir, agentConfigFilename)
 	err := utils.AtomicWriteFile(configPath, []byte(configData1_18WithoutUpgradedToVersion), 0600)
@@ -34,6 +35,8 @@ func (s *format_1_18Suite) TestMissingUpgradedToVersion(c *gc.C) {
 	readConfig, err := ReadConf(configPath)
 	c.Assert(err, gc.IsNil)
 	c.Assert(readConfig.UpgradedToVersion(), gc.Equals, version.MustParse("1.16.0"))
+	c.Assert(readConfig.LogDir(), gc.Equals, "/var/log/juju")
+	c.Assert(readConfig.DataDir(), gc.Equals, "/var/lib/juju")
 }
 
 func (*format_1_18Suite) TestReadConfWithExisting1_18ConfigFileContents(c *gc.C) {

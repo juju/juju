@@ -80,6 +80,9 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 	if config.logDir == "" {
 		config.logDir = DefaultLogDir
 	}
+	if config.dataDir == "" {
+		config.dataDir = DefaultDataDir
+	}
 	if len(format.StateAddresses) > 0 {
 		config.stateDetails = &connectionDetails{
 			format.StateAddresses,

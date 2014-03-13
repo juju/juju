@@ -8,11 +8,8 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/sync"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/version"
 )
 
@@ -84,25 +81,14 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) (resultErr error) {
 	// Register writer for output on screen.
 	loggo.RegisterWriter("synctools", cmd.NewCommandLogWriter("juju.environs.sync", ctx.Stdout, ctx.Stderr), loggo.INFO)
 	defer loggo.RemoveWriter("synctools")
-	store, err := configstore.Default()
+	environ, cleanup, err := environFromName(ctx, c.EnvName, &resultErr, "Sync-tools")
 	if err != nil {
 		return err
 	}
-	var existing bool
-	if _, err := store.ReadInfo(c.EnvName); !errors.IsNotFoundError(err) {
-		existing = true
-	}
-	environ, err := environs.PrepareFromName(c.EnvName, ctx, store)
-	if err != nil {
-		return err
-	}
-	if !existing {
-		defer destroyPreparedEnviron(environ, store, &resultErr, "Sync-tools")
-	}
-
+	defer cleanup()
 	target := environ.Storage()
 	if c.localDir != "" {
-		target, err = filestorage.NewFileStorageWriter(c.localDir, filestorage.UseDefaultTmpDir)
+		target, err = filestorage.NewFileStorageWriter(c.localDir)
 		if err != nil {
 			return err
 		}

@@ -67,59 +67,75 @@ func (p environProvider) BoilerplateConfig() string {
 # https://juju.ubuntu.com/docs/config-openstack.html
 openstack:
     type: openstack
-    # use-floating-ip specifies whether a floating IP address is required
-    # to give the nodes a public IP address. Some installations assign public IP
-    # addresses by default without requiring a floating IP address.
+
+    # use-floating-ip specifies whether a floating IP address is
+    # required to give the nodes a public IP address. Some
+    # installations assign public IP addresses by default without
+    # requiring a floating IP address.
+    #
     # use-floating-ip: false
 
-    # use-default-secgroup specifies whether new machine instances should have the "default"
-    # Openstack security group assigned.
+    # use-default-secgroup specifies whether new machine instances
+    # should have the "default" Openstack security group assigned.
+    #
     # use-default-secgroup: false
 
-    # network specifies the network label or uuid to bring machines up on, in
-    # the case where multiple networks exist. It may be omitted otherwise.
+    # network specifies the network label or uuid to bring machines up
+    # on, in the case where multiple networks exist. It may be omitted
+    # otherwise.
+    #
     # network: <your network label or uuid>
 
-    # tools-metadata-url specifies the location of the Juju tools and metadata. It defaults to the
-    # global public tools metadata location https://streams.canonical.com/tools.
-    # tools-metadata-url:  https://you-tools-metadata-url
+    # tools-metadata-url specifies the location of the Juju tools and
+    # metadata. It defaults to the global public tools metadata
+    # location https://streams.canonical.com/tools.
+    #
+    # tools-metadata-url:  https://your-tools-metadata-url
 
-    # image-metadata-url specifies the location of Ubuntu cloud image metadata. It defaults to the
-    # global public image metadata location https://cloud-images.ubuntu.com/releases.
-    # image-metadata-url:  https://you-tools-metadata-url
+    # image-metadata-url specifies the location of Ubuntu cloud image
+    # metadata. It defaults to the global public image metadata
+    # location https://cloud-images.ubuntu.com/releases.
+    #
+    # image-metadata-url:  https://your-tools-metadata-url
 
-    # image-stream chooses a simplestreams stream to select OS images from,
-    # for example daily or released images (or any other stream available on simplestreams).
+    # image-stream chooses a simplestreams stream to select OS images
+    # from, for example daily or released images (or any other stream
+    # available on simplestreams).
+    #
     # image-stream: "released"
 
-    # auth-url defaults to the value of the environment variable OS_AUTH_URL,
-    # but can be specified here.
+    # auth-url defaults to the value of the environment variable
+    # OS_AUTH_URL, but can be specified here.
+    #
     # auth-url: https://yourkeystoneurl:443/v2.0/
 
-    # tenant-name holds the openstack tenant name. It defaults to
-    # the environment variable OS_TENANT_NAME.
+    # tenant-name holds the openstack tenant name. It defaults to the
+    # environment variable OS_TENANT_NAME.
+    #
     # tenant-name: <your tenant name>
 
-    # region holds the openstack region.  It defaults to
-    # the environment variable OS_REGION_NAME.
+    # region holds the openstack region. It defaults to the
+    # environment variable OS_REGION_NAME.
+    #
     # region: <your region>
 
-    # The auth-mode, username and password attributes
-    # are used for userpass authentication (the default).
-
+    # The auth-mode, username and password attributes are used for
+    # userpass authentication (the default).
+    #
     # auth-mode holds the authentication mode. For user-password
-    # authentication, auth-mode should be "userpass" and username
-    # and password should be set appropriately; they default to
-    # the environment variables OS_USERNAME and OS_PASSWORD
-     # respectively.
+    # authentication, auth-mode should be "userpass" and username and
+    # password should be set appropriately; they default to the
+    # environment variables OS_USERNAME and OS_PASSWORD respectively.
+    #
     # auth-mode: userpass
     # username: <your username>
     # password: <secret>
-     
-    # For key-pair authentication, auth-mode should  be "keypair"
-    # and access-key and secret-key should be  set appropriately; they default to
-    # the environment variables OS_ACCESS_KEY and OS_SECRET_KEY
-    # respectively.
+
+    # For key-pair authentication, auth-mode should be "keypair" and
+    # access-key and secret-key should be set appropriately; they
+    # default to the environment variables OS_ACCESS_KEY and
+    # OS_SECRET_KEY respectively.
+    #
     # auth-mode: keypair
     # access-key: <secret>
     # secret-key: <secret>
@@ -127,45 +143,59 @@ openstack:
 # https://juju.ubuntu.com/docs/config-hpcloud.html
 hpcloud:
     type: openstack
-    
-    # use-floating-ip specifies whether a floating IP address is required
-    # to give the nodes a public IP address. Some installations assign public IP
-    # addresses by default without requiring a floating IP address.
+
+    # use-floating-ip specifies whether a floating IP address is
+    # required to give the nodes a public IP address. Some
+    # installations assign public IP addresses by default without
+    # requiring a floating IP address.
+    #
     # use-floating-ip: false
 
-    # use-default-secgroup specifies whether new machine instances should have the "default"
-    # Openstack security group assigned.
+    # use-default-secgroup specifies whether new machine instances
+    # should have the "default" Openstack security group assigned.
+    #
     # use-default-secgroup: false
 
-    # tenant-name holds the openstack tenant name. In HPCloud, this is 
-    # synonymous with the project-name  It defaults to
-    # the environment variable OS_TENANT_NAME.
+    # tenant-name holds the openstack tenant name. In HPCloud, this is
+    # synonymous with the project-name It defaults to the environment
+    # variable OS_TENANT_NAME.
+    #
     # tenant-name: <your tenant name>
-    
-    # auth-url holds the keystone url for authentication. 
-    # It defaults to the value of the environment variable OS_AUTH_URL.
+
+    # image-stream chooses a simplestreams stream to select OS images
+    # from, for example daily or released images (or any other stream
+    # available on simplestreams).
+    #
+    # image-stream: "released"
+
+    # auth-url holds the keystone url for authentication. It defaults
+    # to the value of the environment variable OS_AUTH_URL.
+    #
     # auth-url: https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0/
 
-    # region holds the HP Cloud region (e.g. az-1.region-a.geo-1).  
-    # It defaults to the environment variable OS_REGION_NAME.
+    # region holds the HP Cloud region (e.g. az-1.region-a.geo-1). It
+    # defaults to the environment variable OS_REGION_NAME.
+    #
     # region: <your region>
-    
+
     # auth-mode holds the authentication mode. For user-password
-    # authentication, auth-mode should be "userpass" and username
-    # and password should be set appropriately; they default to
-    # the environment variables OS_USERNAME and OS_PASSWORD
-    # respectively.
+    # authentication, auth-mode should be "userpass" and username and
+    # password should be set appropriately; they default to the
+    # environment variables OS_USERNAME and OS_PASSWORD respectively.
+    #
     # auth-mode: userpass
     # username: <your_username>
     # password: <your_password>
-    
-    # For key-pair authentication, auth-mode should  be "keypair"
-    # and access-key and secret-key should be  set appropriately; they default to
-    # the environment variables OS_ACCESS_KEY and OS_SECRET_KEY
-    # respectively.
+
+    # For key-pair authentication, auth-mode should be "keypair" and
+    # access-key and secret-key should be set appropriately; they
+    # default to the environment variables OS_ACCESS_KEY and
+    # OS_SECRET_KEY respectively.
+    #
     # auth-mode: keypair
     # access-key: <secret>
     # secret-key: <secret>
+
 `[1:]
 }
 
@@ -204,7 +234,7 @@ func (p environProvider) MetadataLookupParams(region string) (*simplestreams.Met
 	}
 	return &simplestreams.MetadataLookupParams{
 		Region:        region,
-		Architectures: []string{"amd64", "arm", "arm64"},
+		Architectures: []string{"amd64", "arm", "arm64", "ppc64"},
 	}, nil
 }
 
@@ -1197,7 +1227,7 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 		Series:        e.ecfg().DefaultSeries(),
 		Region:        region,
 		Endpoint:      e.ecfg().authURL(),
-		Architectures: []string{"amd64", "arm", "arm64"},
+		Architectures: []string{"amd64", "arm", "arm64", "ppc64"},
 	}, nil
 }
 

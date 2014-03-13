@@ -4,10 +4,10 @@
 package names_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/names"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type userSuite struct{}

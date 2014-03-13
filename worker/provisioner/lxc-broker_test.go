@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
@@ -24,7 +25,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/provisioner"
@@ -204,6 +204,8 @@ func (s *lxcProvisionerSuite) SetUpTest(c *gc.C) {
 func (s *lxcProvisionerSuite) expectStarted(c *gc.C, machine *state.Machine) string {
 	s.State.StartSync()
 	event := <-s.events
+	c.Assert(event.Action, gc.Equals, mock.Created)
+	event = <-s.events
 	c.Assert(event.Action, gc.Equals, mock.Started)
 	err := machine.Refresh()
 	c.Assert(err, gc.IsNil)
@@ -215,6 +217,8 @@ func (s *lxcProvisionerSuite) expectStopped(c *gc.C, instId string) {
 	s.State.StartSync()
 	event := <-s.events
 	c.Assert(event.Action, gc.Equals, mock.Stopped)
+	event = <-s.events
+	c.Assert(event.Action, gc.Equals, mock.Destroyed)
 	c.Assert(event.InstanceId, gc.Equals, instId)
 }
 

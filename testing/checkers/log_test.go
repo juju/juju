@@ -5,9 +5,8 @@ package checkers_test
 
 import (
 	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
-
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type LogMatchesSuite struct{}

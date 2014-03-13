@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/filestorage"
@@ -20,7 +21,6 @@ import (
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
@@ -337,7 +337,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 
 		}
 		envtesting.MustUploadFakeToolsVersions(s.Conn.Environ.Storage(), versions...)
-		stor, err := filestorage.NewFileStorageWriter(toolsDir, "")
+		stor, err := filestorage.NewFileStorageWriter(toolsDir)
 		c.Assert(err, gc.IsNil)
 		envtesting.MustUploadFakeToolsVersions(stor, versions...)
 		err = com.Run(coretesting.Context(c))

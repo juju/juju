@@ -55,6 +55,8 @@ func (s *prepareSuite) SetUpTest(c *gc.C) {
 	s.PatchEnvironment("HTTPS_PROXY", "")
 	s.PatchEnvironment("ftp_proxy", "")
 	s.PatchEnvironment("FTP_PROXY", "")
+	s.PatchEnvironment("no_proxy", "")
+	s.PatchEnvironment("NO_PROXY", "")
 	s.HookCommandOutput(&utils.AptCommandOutput, nil, nil)
 	s.PatchValue(local.CheckLocalPort, func(port int, desc string) error {
 		return nil
@@ -87,11 +89,13 @@ func (s *prepareSuite) TestPrepareCapturesEnvironment(c *gc.C) {
 			"http_proxy":  "http://user@10.0.0.1",
 			"HTTPS_PROXY": "https://user@10.0.0.1",
 			"ftp_proxy":   "ftp://user@10.0.0.1",
+			"no_proxy":    "localhost,10.0.3.1",
 		},
 		expectedProxy: osenv.ProxySettings{
-			Http:  "http://user@10.0.0.1",
-			Https: "https://user@10.0.0.1",
-			Ftp:   "ftp://user@10.0.0.1",
+			Http:    "http://user@10.0.0.1",
+			Https:   "https://user@10.0.0.1",
+			Ftp:     "ftp://user@10.0.0.1",
+			NoProxy: "localhost,10.0.3.1",
 		},
 		expectedAptProxy: osenv.ProxySettings{
 			Http:  "http://user@10.0.0.1",
@@ -145,6 +149,19 @@ func (s *prepareSuite) TestPrepareCapturesEnvironment(c *gc.C) {
 		},
 		expectedAptProxy: osenv.ProxySettings{
 			Ftp: "ftp://user@10.0.0.42",
+		},
+	}, {
+		message: "skips proxy from environment if no-proxy set",
+		extraConfig: map[string]interface{}{
+			"no-proxy": "localhost,10.0.3.1",
+		},
+		env: map[string]string{
+			"http_proxy":  "http://user@10.0.0.1",
+			"HTTPS_PROXY": "https://user@10.0.0.1",
+			"ftp_proxy":   "ftp://user@10.0.0.1",
+		},
+		expectedProxy: osenv.ProxySettings{
+			NoProxy: "localhost,10.0.3.1",
 		},
 	}, {
 		message: "apt-proxies detected",
@@ -222,6 +239,7 @@ Acquire::magic::Proxy "none";
 		c.Assert(envConfig.HttpProxy(), gc.Equals, test.expectedProxy.Http)
 		c.Assert(envConfig.HttpsProxy(), gc.Equals, test.expectedProxy.Https)
 		c.Assert(envConfig.FtpProxy(), gc.Equals, test.expectedProxy.Ftp)
+		c.Assert(envConfig.NoProxy(), gc.Equals, test.expectedProxy.NoProxy)
 
 		c.Assert(envConfig.AptHttpProxy(), gc.Equals, test.expectedAptProxy.Http)
 		c.Assert(envConfig.AptHttpsProxy(), gc.Equals, test.expectedAptProxy.Https)

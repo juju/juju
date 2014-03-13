@@ -414,6 +414,20 @@ type ToolsResults struct {
 	Results []ToolsResult
 }
 
+// FindToolsParams defines parameters for the FindTools method.
+type FindToolsParams struct {
+	MajorVersion int
+	MinorVersion int
+	Arch         string
+	Series       string
+}
+
+// FindToolsResults holds a list of tools from FindTools and any error.
+type FindToolsResults struct {
+	List  tools.List
+	Error *Error
+}
+
 // Version holds a specific binary version.
 type Version struct {
 	Version version.Binary
