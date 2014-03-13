@@ -6,6 +6,7 @@ package instancepoller
 import (
 	"fmt"
 	"sync"
+        "sync/atomic"
 	"time"
 
 	gc "launchpad.net/gocheck"
@@ -47,13 +48,13 @@ type testInstanceGetter struct {
 	ids     []instance.Id
 	results []instance.Instance
 	err     error
-	counter int
+	counter int32
 }
 
 func (i *testInstanceGetter) Instances(ids []instance.Id) (result []instance.Instance, err error) {
 	i.ids = ids
 	err = i.err
-	i.counter += 1
+        i.counter = atomic.AddInt32(&i.counter, 1)
 	for _, inst := range i.results {
 		if inst == nil {
 			result = append(result, nil)
