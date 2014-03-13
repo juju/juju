@@ -15,7 +15,7 @@ import (
 	"launchpad.net/juju-core/utils/ssh"
 )
 
-func ensureSystemSSHKey(context Context) error {
+func ensureSystemSSHKey(context Context, target Target) error {
 	identityFile := path.Join(context.AgentConfig().DataDir(), cloudinit.SystemIdentity)
 	// Don't generate a key unless we have to.
 	keyExists, err := systemKeyExists(identityFile)

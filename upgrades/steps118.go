@@ -27,9 +27,14 @@ func stepsFor118() []Step {
 			run:         installRsyslogGnutls,
 		},
 		&upgradeStep{
-			description: "remove deprecated attribute values",
+			description: "remove deprecated environment config settings",
 			targets:     []Target{StateServer},
-			run:         processDeprecatedAttributes,
+			run:         processDeprecatedEnvSettings,
+		},
+		&upgradeStep{
+			description: "migrate local provider agent config",
+			targets:     []Target{AllMachines},
+			run:         migrateLocalProviderAgentConfig,
 		},
 	}
 }

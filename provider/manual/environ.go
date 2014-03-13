@@ -36,9 +36,6 @@ import (
 )
 
 const (
-	// TODO(axw) make this configurable?
-	dataDir = agent.DefaultDataDir
-
 	// storageSubdir is the subdirectory of
 	// dataDir in which storage will be located.
 	storageSubdir = "storage"
@@ -113,7 +110,7 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraint
 	return manual.Bootstrap(manual.BootstrapArgs{
 		Context:                 ctx,
 		Host:                    host,
-		DataDir:                 dataDir,
+		DataDir:                 agent.DefaultDataDir,
 		Environ:                 e,
 		PossibleTools:           selectedTools,
 		Series:                  series,
@@ -142,7 +139,7 @@ func (e *manualEnviron) SetConfig(cfg *config.Config) error {
 		var stor storage.Storage
 		if envConfig.useSSHStorage() {
 			storageDir := e.StorageDir()
-			storageTmpdir := path.Join(dataDir, storageTmpSubdir)
+			storageTmpdir := path.Join(agent.DefaultDataDir, storageTmpSubdir)
 			stor, err = newSSHStorage("ubuntu@"+e.cfg.bootstrapHost(), storageDir, storageTmpdir)
 			if err != nil {
 				return fmt.Errorf("initialising SSH storage failed: %v", err)
@@ -258,7 +255,7 @@ func (e *manualEnviron) StorageAddr() string {
 }
 
 func (e *manualEnviron) StorageDir() string {
-	return path.Join(dataDir, storageSubdir)
+	return path.Join(agent.DefaultDataDir, storageSubdir)
 }
 
 func (e *manualEnviron) SharedStorageAddr() string {

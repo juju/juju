@@ -65,7 +65,7 @@ func (s *ensureLockDirSuite) assertNoChownCalled(c *gc.C) {
 }
 
 func (s *ensureLockDirSuite) TestLockDirCreated(c *gc.C) {
-	err := upgrades.EnsureLockDirExistsAndUbuntuWritable(s.ctx)
+	err := upgrades.EnsureLockDirExistsAndUbuntuWritable(s.ctx, "")
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(s.lockdir, jc.IsDirectory)
@@ -73,10 +73,10 @@ func (s *ensureLockDirSuite) TestLockDirCreated(c *gc.C) {
 }
 
 func (s *ensureLockDirSuite) TestIdempotent(c *gc.C) {
-	err := upgrades.EnsureLockDirExistsAndUbuntuWritable(s.ctx)
+	err := upgrades.EnsureLockDirExistsAndUbuntuWritable(s.ctx, "")
 	c.Assert(err, gc.IsNil)
 
-	err = upgrades.EnsureLockDirExistsAndUbuntuWritable(s.ctx)
+	err = upgrades.EnsureLockDirExistsAndUbuntuWritable(s.ctx, "")
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(s.lockdir, jc.IsDirectory)
@@ -85,7 +85,7 @@ func (s *ensureLockDirSuite) TestIdempotent(c *gc.C) {
 
 func (s *ensureLockDirSuite) TestNoChownIfNoHome(c *gc.C) {
 	s.PatchValue(upgrades.UbuntuHome, filepath.Join(s.home, "not-exist"))
-	err := upgrades.EnsureLockDirExistsAndUbuntuWritable(s.ctx)
+	err := upgrades.EnsureLockDirExistsAndUbuntuWritable(s.ctx, "")
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(s.lockdir, jc.IsDirectory)

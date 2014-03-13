@@ -28,10 +28,12 @@ import (
 var logger = loggo.GetLogger("juju.agent")
 
 // DefaultLogDir defines the default log directory for juju agents.
-const DefaultLogDir = "/var/log/juju"
+// It's defined as a variable so it could be overridden in tests.
+var DefaultLogDir = "/var/log/juju"
 
 // DefaultDataDir defines the default data directory for juju agents.
-const DefaultDataDir = "/var/lib/juju"
+// It's defined as a variable so it could be overridden in tests.
+var DefaultDataDir = "/var/lib/juju"
 
 const (
 	LxcBridge        = "LXC_BRIDGE"
@@ -123,6 +125,77 @@ type Config interface {
 	StateInitializer
 }
 
+// MigrateConfig takes an existing agent config and applies the given
+// newParams selectively. Only non-empty fields in newParams are used
+// to change existing config settings. All changes are written
+// atomically. UpgradedToVersion cannot be changed here, because
+// MigrateConfig is most likely called during an upgrade, so it will be
+// changed at the end of the upgrade anyway, if successful.
+func MigrateConfig(currentConfig Config, newParams AgentConfigParams) error {
+	configMutex.Lock()
+	defer configMutex.Unlock()
+	config := currentConfig.(*configInternal)
+
+	if newParams.DataDir != "" {
+		config.dataDir = newParams.DataDir
+	}
+	if newParams.LogDir != "" {
+		config.logDir = newParams.LogDir
+	}
+	if len(newParams.Jobs) > 0 {
+		config.jobs = newParams.Jobs[:]
+	}
+	if newParams.Tag != "" {
+		config.tag = newParams.Tag
+	}
+	if newParams.Nonce != "" {
+		config.nonce = newParams.Nonce
+	}
+	if newParams.Password != "" {
+		config.oldPassword = newParams.Password
+	}
+	if len(newParams.CACert) > 0 {
+		config.caCert = newParams.CACert[:]
+	}
+	if len(newParams.StateAddresses) > 0 {
+		if config.stateDetails == nil {
+			config.stateDetails = &connectionDetails{}
+		}
+		config.stateDetails.addresses = newParams.StateAddresses[:]
+	}
+	if len(newParams.APIAddresses) > 0 {
+		if config.apiDetails == nil {
+			config.apiDetails = &connectionDetails{}
+		}
+		config.apiDetails.addresses = newParams.APIAddresses[:]
+	}
+	for key, value := range newParams.Values {
+		if config.values == nil {
+			config.values = make(map[string]string)
+		}
+		if value == "" {
+			delete(config.values, key)
+		} else {
+			config.values[key] = value
+		}
+	}
+	if err := config.check(); err != nil {
+		return fmt.Errorf("migrated agent config is invalid: %v", err)
+	}
+	oldConfigFile := config.configFilePath
+	config.configFilePath = ConfigPath(config.dataDir, config.tag)
+	if err := config.write(); err != nil {
+		return fmt.Errorf("cannot migrate agent config: %v", err)
+	}
+	if oldConfigFile != config.configFilePath && oldConfigFile != "" {
+		err := os.Remove(oldConfigFile)
+		if err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("cannot remove old agent config %q: %v", oldConfigFile, err)
+		}
+	}
+	return nil
+}
+
 // Ensure that the configInternal struct implements the Config interface.
 var _ Config = (*configInternal)(nil)
 
@@ -197,7 +270,7 @@ func NewAgentConfig(configParams AgentConfigParams) (Config, error) {
 	if configParams.Password == "" {
 		return nil, errgo.Trace(requiredError("password"))
 	}
-	if configParams.CACert == nil {
+	if len(configParams.CACert) == 0 {
 		return nil, errgo.Trace(requiredError("CA certificate"))
 	}
 	// Note that the password parts of the state and api information are
@@ -495,9 +568,11 @@ func (c *configInternal) Write() error {
 }
 
 func (c *configInternal) WriteUpgradedToVersion(newVersion version.Number) error {
+	configMutex.Lock()
+	defer configMutex.Unlock()
 	originalVersion := c.upgradedToVersion
 	c.upgradedToVersion = newVersion
-	err := c.Write()
+	err := c.write()
 	if err != nil {
 		// We don't want to retain the new version if there's been an error writing the file.
 		c.upgradedToVersion = originalVersion

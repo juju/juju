@@ -21,7 +21,7 @@ var ubuntuHome = "/home/ubuntu"
 // we need to change the ownership of the lock directory to ubuntu:ubuntu.
 // Also we need to make sure that this directory exists on machines with no
 // units.
-func ensureLockDirExistsAndUbuntuWritable(context Context) error {
+func ensureLockDirExistsAndUbuntuWritable(context Context, target Target) error {
 	lockDir := path.Join(context.AgentConfig().DataDir(), "locks")
 	// We only try to change ownership if there is an ubuntu user
 	// defined, and we determine this by the existance of the home dir.
