@@ -6,7 +6,7 @@ package instancepoller
 import (
 	"fmt"
 	"sync"
-        "sync/atomic"
+	"sync/atomic"
 	"time"
 
 	gc "launchpad.net/gocheck"
@@ -45,6 +45,7 @@ func (t *testInstance) Status() string {
 }
 
 type testInstanceGetter struct {
+	// ids is set when the Instances method is called.
 	ids     []instance.Id
 	results []instance.Instance
 	err     error
@@ -53,7 +54,7 @@ type testInstanceGetter struct {
 
 func (i *testInstanceGetter) Instances(ids []instance.Id) (result []instance.Instance, err error) {
 	i.ids = ids
-        i.counter = atomic.AddInt32(&i.counter, 1)
+	i.counter = atomic.AddInt32(&i.counter, 1)
 	return i.results, i.err
 }
 

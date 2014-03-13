@@ -62,8 +62,8 @@ func (a *aggregator) loop() error {
 	timer := time.NewTimer(0)
 	timer.Stop()
 	var reqs []instanceInfoReq
-        // We use a capacity of 1 so that sporadic requests will
-        // be serviced immediately without having to wait.
+	// We use a capacity of 1 so that sporadic requests will
+	// be serviced immediately without having to wait.
 	bucket := ratelimit.New(gatherTime, 1)
 	for {
 		select {
