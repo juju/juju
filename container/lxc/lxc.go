@@ -59,7 +59,7 @@ func containerDirFilesystem() (string, error) {
 	// The filesystem is the second line.
 	lines := strings.Split(string(out), "\n")
 	if len(lines) < 2 {
-		logger.Errorf("unexpected output: ", out)
+		logger.Errorf("unexpected output: %q", out)
 		return "", fmt.Errorf("could not determine filesystem type")
 	}
 	return lines[1], nil
