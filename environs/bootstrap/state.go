@@ -40,6 +40,7 @@ type BootstrapState struct {
 // putState writes the given data to the state file on the given storage.
 // The file's name is as defined in StateFile.
 func putState(storage storage.StorageWriter, data []byte) error {
+	logger.Debugf("putting %q to bootstrap storage %T", StateFile, storage)
 	return storage.Put(StateFile, bytes.NewBuffer(data), int64(len(data)))
 }
 
@@ -69,6 +70,7 @@ func SaveState(storage storage.StorageWriter, state *BootstrapState) error {
 
 // LoadStateFromURL reads state from the given URL.
 func LoadStateFromURL(url string, disableSSLHostnameVerification bool) (*BootstrapState, error) {
+	logger.Debugf("loading %q from %q", StateFile, url)
 	client := http.DefaultClient
 	if disableSSLHostnameVerification {
 		logger.Infof("hostname SSL verification disabled")

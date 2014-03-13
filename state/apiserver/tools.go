@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"strings"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/filestorage"
@@ -81,16 +82,22 @@ func (h *toolsHandler) processPost(r *http.Request) (*tools.Tools, bool, error) 
 	if err != nil {
 		return nil, false, fmt.Errorf("invalid tools version %q: %v", binaryVersionParam, err)
 	}
+	var fakeSeries []string
+	seriesParam := query.Get("series")
+	if seriesParam != "" {
+		fakeSeries = strings.Split(seriesParam, ",")
+	}
+	logger.Debugf("request to upload tools %s for series %q", toolsVersion, seriesParam)
 	// Make sure the content type is x-tar-gz.
 	contentType := r.Header.Get("Content-Type")
 	if contentType != "application/x-tar-gz" {
 		return nil, false, fmt.Errorf("expected Content-Type: application/x-tar-gz, got: %v", contentType)
 	}
-	return h.handleUpload(r.Body, toolsVersion)
+	return h.handleUpload(r.Body, toolsVersion, fakeSeries...)
 }
 
 // handleUpload uploads the tools data from the reader to env storage as the specified version.
-func (h *toolsHandler) handleUpload(r io.Reader, toolsVersion version.Binary) (*tools.Tools, bool, error) {
+func (h *toolsHandler) handleUpload(r io.Reader, toolsVersion version.Binary, fakeSeries ...string) (*tools.Tools, bool, error) {
 	// Set up a local temp directory for the tools tarball.
 	tmpDir, err := ioutil.TempDir("", "uploadtools-")
 	if err != nil {
@@ -111,6 +118,7 @@ func (h *toolsHandler) handleUpload(r io.Reader, toolsVersion version.Binary) (*
 	if err != nil {
 		return nil, false, fmt.Errorf("cannot create tools file %s: %v", fullToolsFilename, err)
 	}
+	logger.Debugf("saving uploaded tools to temp file: %s", fullToolsFilename)
 	defer toolsFile.Close()
 	sha256hash := sha256.New()
 	var size int64
@@ -121,25 +129,41 @@ func (h *toolsHandler) handleUpload(r io.Reader, toolsVersion version.Binary) (*
 		return nil, false, fmt.Errorf("no tools uploaded")
 	}
 
+	// TODO(wallyworld): check integrity of tools tarball.
+
 	// Create a tools record and sync to storage.
 	uploadedTools := &tools.Tools{
 		Version: toolsVersion,
 		Size:    size,
 		SHA256:  fmt.Sprintf("%x", sha256hash.Sum(nil)),
 	}
-	return h.uploadToStorage(uploadedTools, tmpDir, toolsFilename)
+	logger.Debugf("about to upload tools %+v to storage", uploadedTools)
+	return h.uploadToStorage(uploadedTools, tmpDir, toolsFilename, fakeSeries...)
 }
 
 // uploadToStorage uploads the tools from the specified directory to environment storage.
 func (h *toolsHandler) uploadToStorage(uploadedTools *tools.Tools, toolsDir,
-	toolsFilename string) (*tools.Tools, bool, error) {
+	toolsFilename string, fakeSeries ...string) (*tools.Tools, bool, error) {
 
 	// SyncTools requires simplestreams metadata to find the tools to upload.
 	stor, err := filestorage.NewFileStorageWriter(toolsDir)
 	if err != nil {
 		return nil, false, fmt.Errorf("cannot create metadata storage: %v", err)
 	}
-	err = envtools.MergeAndWriteMetadata(stor, []*tools.Tools{uploadedTools}, false)
+	// Generate metadata for the fake series. The URL for each fake series
+	// record points to the same tools tarball.
+	allToolsMetadata := []*tools.Tools{uploadedTools}
+	for _, series := range fakeSeries {
+		vers := uploadedTools.Version
+		vers.Series = series
+		allToolsMetadata = append(allToolsMetadata, &tools.Tools{
+			Version: vers,
+			URL:     uploadedTools.URL,
+			Size:    uploadedTools.Size,
+			SHA256:  uploadedTools.SHA256,
+		})
+	}
+	err = envtools.MergeAndWriteMetadata(stor, allToolsMetadata, false)
 	if err != nil {
 		return nil, false, fmt.Errorf("cannot get environment config: %v", err)
 	}
@@ -155,28 +179,16 @@ func (h *toolsHandler) uploadToStorage(uploadedTools *tools.Tools, toolsDir,
 	}
 
 	// Now perform the upload.
-	url, err := syncTools(env, toolsDir, toolsFilename)
+	builtTools := &sync.BuiltTools{
+		Version:     uploadedTools.Version,
+		Dir:         toolsDir,
+		StorageName: toolsFilename,
+		Size:        uploadedTools.Size,
+		Sha256Hash:  uploadedTools.SHA256,
+	}
+	uploadedTools, err = sync.SyncBuiltTools(env.Storage(), builtTools, fakeSeries...)
 	if err != nil {
 		return nil, false, err
 	}
-	uploadedTools.URL = url
 	return uploadedTools, !envConfig.SSLHostnameVerification(), nil
-}
-
-// syncTools invokes the SyncTools API to upload tools to environment storage.
-func syncTools(env environs.Environ, toolsDir, toolsFilename string) (string, error) {
-	stor := env.Storage()
-	sctx := &sync.SyncContext{
-		Target:      stor,
-		Source:      toolsDir,
-		AllVersions: true,
-	}
-	if err := sync.SyncTools(sctx); err != nil {
-		return "", err
-	}
-	url, err := stor.URL(toolsFilename)
-	if err != nil {
-		return "", err
-	}
-	return url, nil
 }

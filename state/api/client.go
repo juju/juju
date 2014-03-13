@@ -9,12 +9,14 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
@@ -547,4 +549,61 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 func (c *Client) AddCharm(curl *charm.URL) error {
 	args := params.CharmURL{URL: curl.String()}
 	return c.st.Call("Client", "", "AddCharm", args, nil)
+}
+
+func (c *Client) UploadTools(toolsFilename string, vers version.Binary,
+	fakeSeries ...string) (tools *tools.Tools, err error) {
+
+	toolsTarball, err := os.Open(toolsFilename)
+	if err != nil {
+		return nil, err
+	}
+	defer toolsTarball.Close()
+
+	// Prepare the upload request.
+	url := fmt.Sprintf("%s/tools?binaryVersion=%s&series=%s", c.st.serverRoot, vers, strings.Join(fakeSeries, ","))
+	req, err := http.NewRequest("POST", url, toolsTarball)
+	if err != nil {
+		return nil, fmt.Errorf("cannot create upload request: %v", err)
+	}
+	req.SetBasicAuth(c.st.tag, c.st.password)
+	req.Header.Set("Content-Type", "application/x-tar-gz")
+
+	// Send the request.
+
+	// BUG(dimitern) 2013-12-17 bug #1261780
+	// Due to issues with go 1.1.2, fixed later, we cannot use a
+	// regular TLS client with the CACert here, because we get "x509:
+	// cannot validate certificate for 127.0.0.1 because it doesn't
+	// contain any IP SANs". Once we use a later go version, this
+	// should be changed to connect to the API server with a regular
+	// HTTP+TLS enabled client, using the CACert (possily cached, like
+	// the tag and password) passed in api.Open()'s info argument.
+	resp, err := utils.GetNonValidatingHTTPClient().Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("cannot upload charm: %v", err)
+	}
+	if resp.StatusCode == http.StatusMethodNotAllowed {
+		// API server is 1.17 or older, so tools upload
+		// is not supported; notify the client.
+		return nil, &params.Error{
+			Message: "tools upload is not supported by the API server",
+			Code:    params.CodeNotImplemented,
+		}
+	}
+
+	// Now parse the response & return.
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("cannot read tools upload response: %v", err)
+	}
+	defer resp.Body.Close()
+	var jsonResponse params.ToolsResult
+	if err := json.Unmarshal(body, &jsonResponse); err != nil {
+		return nil, fmt.Errorf("cannot unmarshal upload response: %v", err)
+	}
+	if err := jsonResponse.Error; err != nil {
+		return nil, fmt.Errorf("error uploading tools: %v", err)
+	}
+	return jsonResponse.Tools, nil
 }

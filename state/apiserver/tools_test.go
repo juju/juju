@@ -131,6 +131,40 @@ func (s *toolsSuite) TestUpload(c *gc.C) {
 	c.Assert(uploadedData, gc.DeepEquals, expectedData)
 }
 
+func (s *toolsSuite) TestUploadFakeSeries(c *gc.C) {
+	// Make some fake tools.
+	localStorage := c.MkDir()
+	vers := version.MustParseBinary("1.9.0-quantal-amd64")
+	versionStrings := []string{vers.String()}
+	expectedTools := ttesting.MakeToolsWithCheckSum(c, localStorage, "releases", versionStrings)
+
+	// Now try uploading them.
+	toolsFile := tools.StorageName(vers)
+	params := "?binaryVersion=" + vers.String() + "&series=precise,trusty"
+	resp, err := s.uploadRequest(c, s.toolsURI(c, params), true, path.Join(localStorage, toolsFile))
+	c.Assert(err, gc.IsNil)
+
+	// Check the response.
+	stor := s.Conn.Environ.Storage()
+	toolsURL, err := stor.URL(tools.StorageName(vers))
+	c.Assert(err, gc.IsNil)
+	expectedTools[0].URL = toolsURL
+	s.assertUploadResponse(c, resp, expectedTools[0])
+
+	// Check the contents.
+	for _, series := range []string{"precise", "quantal", "trusty"} {
+		toolsVersion := vers
+		toolsVersion.Series = series
+		r, err := stor.Get(tools.StorageName(toolsVersion))
+		c.Assert(err, gc.IsNil)
+		uploadedData, err := ioutil.ReadAll(r)
+		c.Assert(err, gc.IsNil)
+		expectedData, err := ioutil.ReadFile(filepath.Join(localStorage, tools.StorageName(vers)))
+		c.Assert(err, gc.IsNil)
+		c.Assert(uploadedData, gc.DeepEquals, expectedData)
+	}
+}
+
 func (s *toolsSuite) toolsURI(c *gc.C, query string) string {
 	_, info, err := s.APIConn.Environ.StateInfo()
 	c.Assert(err, gc.IsNil)

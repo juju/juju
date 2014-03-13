@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	apiagent "launchpad.net/juju-core/state/api/agent"
@@ -215,7 +216,7 @@ func agentDone(err error) error {
 	if ug, ok := err.(*upgrader.UpgradeReadyError); ok {
 		if err := ug.ChangeAgentTools(); err != nil {
 			// Return and let upstart deal with the restart.
-			return err
+			return log.LoggedErrorf(logger, "cannot change agent tools: %v", err)
 		}
 	}
 	return err
