@@ -54,7 +54,7 @@ type testInstanceGetter struct {
 
 func (i *testInstanceGetter) Instances(ids []instance.Id) (result []instance.Instance, err error) {
 	i.ids = ids
-	i.counter = atomic.AddInt32(&i.counter, 1)
+	atomic.AddInt32(&i.counter, 1)
 	return i.results, i.err
 }
 
