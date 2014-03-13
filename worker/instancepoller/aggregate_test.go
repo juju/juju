@@ -132,13 +132,17 @@ func (s *aggregateSuite) TestBatching(c *gc.C) {
 		c.Check(err, gc.IsNil)
 		wg.Done()
 	}
+	startTime := time.Now()
 	wg.Add(100)
 	for i := 0; i < 100; i++ {
 		go makeRequest()
 		time.Sleep(time.Millisecond)
 	}
 	wg.Wait()
-	c.Assert(testGetter.counter, jc.LessThan, 15)
+	totalTime := time.Now().Sub(startTime)
+	// +1 because we expect one extra call for the first request
+	expectedMax := int((totalTime / (10 * time.Millisecond)) + 1)
+	c.Assert(testGetter.counter, jc.LessThan, expectedMax+1)
 	c.Assert(testGetter.counter, jc.GreaterThan, 10)
 }
 
