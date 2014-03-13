@@ -4,6 +4,7 @@
 package charmrevisionupdater_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
@@ -13,7 +14,6 @@ import (
 	"launchpad.net/juju-core/state/apiserver/charmrevisionupdater/testing"
 	"launchpad.net/juju-core/state/apiserver/common"
 	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type charmVersionSuite struct {

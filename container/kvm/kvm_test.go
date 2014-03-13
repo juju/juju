@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
@@ -15,7 +16,6 @@ import (
 	kvmtesting "launchpad.net/juju-core/container/kvm/testing"
 	containertesting "launchpad.net/juju-core/container/testing"
 	"launchpad.net/juju-core/instance"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )
@@ -46,7 +46,7 @@ func (*KVMSuite) TestManagerWarnsAboutUnknownOption(c *gc.C) {
 		"shazam":             "Captain Marvel",
 	})
 	c.Assert(err, gc.IsNil)
-	c.Assert(c.GetTestLog(), gc.Matches, `^.*WARNING juju.container.kvm Found unused config option with key: "shazam" and value: "Captain Marvel"\n*`)
+	c.Assert(c.GetTestLog(), jc.Contains, `WARNING juju.container unused config option: "shazam" -> "Captain Marvel"`)
 }
 
 func (s *KVMSuite) TestListInitiallyEmpty(c *gc.C) {

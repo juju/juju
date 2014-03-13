@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os/exec"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
@@ -15,7 +16,6 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -182,7 +182,7 @@ func (s *ContainerSetupSuite) TestContainerInitialised(c *gc.C) {
 		ctype    instance.ContainerType
 		packages []string
 	}{
-		{instance.LXC, []string{"lxc"}},
+		{instance.LXC, []string{"--target-release", "precise-updates/cloud-tools", "lxc"}},
 		{instance.KVM, []string{"uvtool-libvirt", "uvtool"}},
 	} {
 		s.assertContainerInitialised(c, test.ctype, test.packages)

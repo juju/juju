@@ -6,13 +6,13 @@ package maas
 import (
 	"io/ioutil"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 )
 

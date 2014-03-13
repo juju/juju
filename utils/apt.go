@@ -42,6 +42,82 @@ var aptGetCommand = []string{
 // the user
 var aptGetEnvOptions = []string{"DEBIAN_FRONTEND=noninteractive"}
 
+// cloudArchivePackages maintaines a list of packages that AptGetPreparePackages
+// should reference when determining the --target-release for a given series.
+// http://reqorts.qa.ubuntu.com/reports/ubuntu-server/cloud-archive/cloud-tools_versions.html
+var cloudArchivePackages = map[string]bool{
+	"cloud-utils":             true,
+	"curtin":                  true,
+	"djorm-ext-pgarray":       true,
+	"golang":                  true,
+	"iproute2":                true,
+	"isc-dhcp":                true,
+	"juju-core":               true,
+	"libseccomp":              true,
+	"libv8-3.14":              true,
+	"lxc":                     true,
+	"maas":                    true,
+	"mongodb":                 true,
+	"python-django":           true,
+	"python-django-piston":    true,
+	"python-jujuclient":       true,
+	"python-tx-tftp":          true,
+	"python-websocket-client": true,
+	"raphael 2.1.0-1ubuntu1":  true,
+	"simplestreams":           true,
+	"txlongpoll":              true,
+	"uvtool":                  true,
+	"yui3":                    true,
+}
+
+// targetRelease returns a string base on the current series
+// that is suitable for use with the apt-get --target-release option
+func targetRelease(series string) string {
+	switch series {
+	case "precise":
+		return "precise-updates/cloud-tools"
+	default:
+		return ""
+	}
+}
+
+// AptGetPreparePackages returns a slice of installCommands. Each item
+// in the slice is suitable for passing directly to AptGetInstall.
+//
+// AptGetPreparePackages will inspect the series passed to it
+// and properly generate an installCommand entry with a --target-release
+// should the series be an LTS release with cloud archive packages.
+func AptGetPreparePackages(packages []string, series string) [][]string {
+	var installCommands [][]string
+	if target := targetRelease(series); target == "" {
+		return append(installCommands, packages)
+	} else {
+		var pkgs []string
+		pkgs_with_target := []string{"--target-release", target}
+		for _, pkg := range packages {
+			if cloudArchivePackages[pkg] {
+				pkgs_with_target = append(pkgs_with_target, pkg)
+			} else {
+				pkgs = append(pkgs, pkg)
+			}
+		}
+
+		// We check for >2 here so that we only append pkgs_with_target
+		// if there was an actual package in the slice.
+		if len(pkgs_with_target) > 2 {
+			installCommands = append(installCommands, pkgs_with_target)
+		}
+
+		// Sometimes we may end up with all cloudArchivePackages
+		// in that case we do not want to append an empty slice of pkgs
+		if len(pkgs) > 0 {
+			installCommands = append(installCommands, pkgs)
+		}
+
+		return installCommands
+	}
+}
+
 // AptGetInstall runs 'apt-get install packages' for the packages listed here
 func AptGetInstall(packages ...string) error {
 	cmdArgs := append([]string(nil), aptGetCommand...)
