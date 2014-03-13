@@ -975,7 +975,7 @@ func (s *environSuite) TestGetInstance(c *gc.C) {
 	inst1, err := env.getInstance(service1, "")
 	c.Assert(err, gc.IsNil)
 	c.Check(inst1.Id(), gc.Equals, instance.Id("service1"))
-	c.Check(inst1, gc.FitsTypeOf, &azureInstance{})
+	c.Assert(inst1, gc.FitsTypeOf, &azureInstance{})
 	c.Check(inst1.(*azureInstance).environ, gc.Equals, env)
 	c.Check(inst1.(*azureInstance).roleName, gc.Equals, service1.Deployments[0].RoleList[0].RoleName)
 	service1.Deployments[0].RoleList = service2.Deployments[0].RoleList

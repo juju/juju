@@ -13,9 +13,11 @@ import (
 
 	"launchpad.net/juju-core/instance"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type instanceSuite struct {
+	testbase.LoggingSuite
 	env        *azureEnviron
 	service    *gwacl.HostedService
 	deployment *gwacl.Deployment

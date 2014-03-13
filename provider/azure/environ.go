@@ -440,7 +440,14 @@ func (env *azureEnviron) ensureCloudService(azure *gwacl.ManagementAPI, label st
 	return service, label, nil
 }
 
-func (env *azureEnviron) createRole(azure *gwacl.ManagementAPI, role *gwacl.Role, label string) (resultInst instance.Instance, resultErr error) {
+// createInstance creates all of the necessary Azure entities in order
+// to create a new instance. This includes Cloud Service, Deployment
+// and Role.
+//
+// If label is non-empty, then createInstance will assign to a Cloud
+// Service with that label, if any, otherwise creating one with that
+// label.
+func (env *azureEnviron) createInstance(azure *gwacl.ManagementAPI, role *gwacl.Role, label string) (resultInst instance.Instance, resultErr error) {
 	var inst instance.Instance
 	defer func() {
 		if inst != nil && resultErr != nil {
@@ -557,7 +564,7 @@ func (env *azureEnviron) StartInstance(cons constraints.Value, possibleTools too
 	// If we're creating machine-0, we'll want to expose port 22.
 	// All other machines get an auto-generated public port for SSH.
 	role := env.newRole(instanceType, vhd, userData, machineConfig.StateServer)
-	inst, err := env.createRole(azure.ManagementAPI, role, label)
+	inst, err := env.createInstance(azure.ManagementAPI, role, label)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -586,6 +593,7 @@ func (env *azureEnviron) getInstance(hostedService *gwacl.HostedService, roleNam
 		// In the old implementation of the Azure provider,
 		// all machines opened the state and API server ports.
 		maskStateServerPorts = true
+
 	case deploymentNameV2(hostedService.ServiceName):
 		instanceId = instance.Id(fmt.Sprintf("%s-%s", hostedService.ServiceName, roleName))
 		// Newly created state server machines are put into
@@ -633,7 +641,7 @@ func (env *azureEnviron) newOSDisk(sourceImageName string) *gwacl.OSVirtualHardD
 func (env *azureEnviron) getInitialEndpoints(stateServer bool) []gwacl.InputEndpoint {
 	// TODO(axw) either proxy ssh traffic through one of the
 	// randomly chosen VMs to the internal address, or otherwise
-	// don't load balance SSH and provie a way of getting the
+	// don't load balance SSH and provide a way of getting the
 	// local port.
 	cfg := env.Config()
 	endpoints := []gwacl.InputEndpoint{{
