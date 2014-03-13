@@ -144,7 +144,12 @@ func (cs *ContainerSetup) getContainerArtifacts(containerType instance.Container
 	var broker environs.InstanceBroker
 	switch containerType {
 	case instance.LXC:
-		initialiser = lxc.NewContainerInitialiser(cs.machine.TargetRelease())
+		targetRelease, err := cs.machine.TargetRelease()
+		if err != nil {
+			return nil, nil, err
+		}
+
+		initialiser = lxc.NewContainerInitialiser(targetRelease)
 		broker, err = NewLxcBroker(cs.provisioner, tools, cs.config)
 		if err != nil {
 			return nil, nil, err

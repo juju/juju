@@ -165,18 +165,18 @@ func (m *Machine) Series() (string, error) {
 
 // TargetRelease returns a string suitable for use with apt-get --target-release
 // based on the machines series.
-func (m *Machine) TargetRelease() string {
+func (m *Machine) TargetRelease() (string, error) {
 	// Only LTS releases have cloud-tools pocket support.
 	// TODO: add cases to the switch for other LTS releasees as they go live.
 	var targetRelease string
-	series, _ := m.Series()
+	series, err := m.Series()
 	switch series {
 	case "precise":
 		targetRelease = "precise-updates/cloud-tools"
 	default:
 		targetRelease = ""
 	}
-	return targetRelease
+	return targetRelease, err
 }
 
 // SetProvisioned sets the provider specific machine id, nonce and also metadata for

@@ -210,7 +210,10 @@ func (s *provisionerSuite) TestTargetReleasePrecise(c *gc.C) {
 
 	apiMachine, err := s.provisioner.Machine(preciseMachine.Tag())
 	c.Assert(err, gc.IsNil)
-	c.Assert(apiMachine.TargetRelease(), gc.Equals, "precise-update/cloud-tools")
+
+	targetRelease, err := apiMachine.TargetRelease()
+	c.Assert(err, gc.IsNil)
+	c.Assert(targetRelease, gc.Equals, "precise-updates/cloud-tools")
 }
 
 func (s *provisionerSuite) TestTargetReleaseOther(c *gc.C) {
@@ -219,7 +222,10 @@ func (s *provisionerSuite) TestTargetReleaseOther(c *gc.C) {
 
 	apiMachine, err := s.provisioner.Machine(foobarMachine.Tag())
 	c.Assert(err, gc.IsNil)
-	c.Assert(apiMachine.TargetRelease(), gc.Equals, "")
+
+	targetRelease, err := apiMachine.TargetRelease()
+	c.Assert(err, gc.IsNil)
+	c.Assert(targetRelease, gc.Equals, "")
 }
 
 func (s *provisionerSuite) TestConstraints(c *gc.C) {

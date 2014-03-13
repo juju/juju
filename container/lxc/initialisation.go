@@ -8,13 +8,19 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
-// For LTS releases if NewContainerInitialiser is provided with a
-// targetRelease any package in this slice will use --target-release
-// during AptGetInstall
+// ltsPackages holds any required packages that may
+// install with a different version from their default.
+// The installed versions of these packages will be selected
+// with targetRelease argument to NewContainerInitialiser.
+//
+// ltsPackages should include any required packages
+// from the cloud archive.
 var ltsPackages = []string{
 	"lxc",
 }
 
+// requiredPackages holds any required packages that
+// will always install with their default version.
 var requiredPackages = []string{}
 
 type containerInitialiser struct {
@@ -35,38 +41,28 @@ func (ci *containerInitialiser) Initialise() error {
 	return ensureDependencies((*ci).targetRelease)
 }
 
-// installLtsPackages issues an AptGetInstall command passing the
+// installLTSPackages issues an AptGetInstall command passing the
 // --target-release switch for all of the ltsPackages
-func installLtsPackages(targetRelease string) error {
-	packages := []string{
-		"--target-release",
-		targetRelease,
+func installLTSPackages(targetRelease string) error {
+	var args []string
+	if targetRelease != "" {
+		args = append(args, "--target-release", targetRelease)
 	}
-	packages = append(packages, ltsPackages...)
-	return utils.AptGetInstall(packages...)
+	args = append(args, ltsPackages...)
+	return utils.AptGetInstall(args...)
 }
 
 // ensureDependencies checks the targetRelease and updates the packages
 // that are sent to utils.AptGetInstall to include the --target-release
 // switch. If targetRelease is an empty string, no switch is passed.
 func ensureDependencies(targetRelease string) error {
-	var packages []string
 	var err error
-	if targetRelease != "" {
-		// if we have a targetRelease, we will run two AptGetInstall commands
-		// one with --target-release for ltsPackages and the other without for requiredPackages
-		packages = requiredPackages
-		err = installLtsPackages(targetRelease)
-		if err != nil {
-			return err
-		}
-	} else {
-		// if we do not have a targetRelease append the two package slices together
-		// and issue a single AptGetInstall command
-		packages = append(requiredPackages, ltsPackages...)
+	if err = installLTSPackages(targetRelease); err != nil {
+		return err
 	}
-	if len(packages) != 0 {
-		err = utils.AptGetInstall(packages...)
+
+	if len(requiredPackages) != 0 {
+		err = utils.AptGetInstall(requiredPackages...)
 	}
 	return err
 }
