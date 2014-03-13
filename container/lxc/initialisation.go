@@ -34,7 +34,7 @@ func (ci *containerInitialiser) Initialise() error {
 // and runs each set of packages through AptGetInstall
 func ensureDependencies(series string) error {
 	var err error
-	aptGetInstallCommandList = utils.AptGetPreparePackages(requiredPackages, series)
+	aptGetInstallCommandList := utils.AptGetPreparePackages(requiredPackages, series)
 	for _, commands := range aptGetInstallCommandList {
 		err = utils.AptGetInstall(commands...)
 		if err != nil {
