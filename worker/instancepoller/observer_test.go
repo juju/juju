@@ -5,12 +5,14 @@
 package instancepoller
 
 import (
+	"strings"
 	"time"
 
 	"github.com/juju/loggo"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 )
 
@@ -42,18 +44,47 @@ func (s *observerSuite) TestEnvironmentChanges(c *gc.C) {
 
 	env := obs.Environ()
 	c.Assert(env.Config().AllAttrs(), gc.DeepEquals, originalConfig.AllAttrs())
+	var oldType string
+	oldType = env.Config().AllAttrs()["type"].(string)
 
-	// Change the environment with a different name and check that we see it.
-	err = s.State.UpdateEnvironConfig(map[string]interface{}{"logging-config": "juju=ERROR"}, nil, nil)
-	c.Assert(err, gc.IsNil)
-	s.State.StartSync()
+	info := s.StateInfo(c)
+	opts := state.DefaultDialOpts()
+	st2, err := state.Open(info, opts, state.Policy(nil))
+	defer st2.Close()
+
+	// Change to an invalid configuration and check
+	// that the observer's environment remains the same.
+	st2.UpdateEnvironConfig(map[string]interface{}{"type": "invalid"}, nil, nil)
+	st2.StartSync()
+
+	// Wait for the observer to register the invalid environment
+	timeout := time.After(coretesting.LongWait)
+loop:
+	for {
+		select {
+		case msg := <-logc:
+			if strings.Contains(msg, "error creating Environ") {
+				break loop
+			}
+		case <-timeout:
+			c.Fatalf("timed out waiting to see broken environment")
+		}
+	}
+	// Check that the returned environ is still the same.
+	env = obs.Environ()
+	c.Assert(env.Config().AllAttrs(), gc.DeepEquals, originalConfig.AllAttrs())
+
+	// Change the environment back to a valid configuration
+	// with a different name and check that we see it.
+	st2.UpdateEnvironConfig(map[string]interface{}{"type": oldType, "name": "a-new-name"}, nil, nil)
+	st2.StartSync()
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		env := obs.Environ()
 		if !a.HasNext() {
 			c.Fatalf("timed out waiting for new environ")
 		}
-		if env.Config().LoggingConfig() == "juju=ERROR;unit=DEBUG" {
+		if env.Config().Name() == "a-new-name" {
 			break
 		}
 	}
