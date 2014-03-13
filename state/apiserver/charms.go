@@ -6,7 +6,6 @@ package apiserver
 import (
 	"archive/zip"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -26,16 +25,13 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/apiserver/common"
 	ziputil "launchpad.net/juju-core/utils/zip"
 )
 
 // charmsHandler handles charm upload through HTTPS in the API server.
 type charmsHandler struct {
-	state   *state.State
+	httpHandler
 	dataDir string
 }
 
@@ -168,45 +164,6 @@ func (h *charmsHandler) fileSender(filePath string) bundleContentSenderFunc {
 // sendError sends a JSON-encoded error response.
 func (h *charmsHandler) sendError(w http.ResponseWriter, statusCode int, message string) error {
 	return h.sendJSON(w, statusCode, &params.CharmsResponse{Error: message})
-}
-
-// authenticate parses HTTP basic authentication and authorizes the
-// request by looking up the provided tag and password against state.
-func (h *charmsHandler) authenticate(r *http.Request) error {
-	parts := strings.Fields(r.Header.Get("Authorization"))
-	if len(parts) != 2 || parts[0] != "Basic" {
-		// Invalid header format or no header provided.
-		return fmt.Errorf("invalid request format")
-	}
-	// Challenge is a base64-encoded "tag:pass" string.
-	// See RFC 2617, Section 2.
-	challenge, err := base64.StdEncoding.DecodeString(parts[1])
-	if err != nil {
-		return fmt.Errorf("invalid request format")
-	}
-	tagPass := strings.SplitN(string(challenge), ":", 2)
-	if len(tagPass) != 2 {
-		return fmt.Errorf("invalid request format")
-	}
-	entity, err := checkCreds(h.state, params.Creds{
-		AuthTag:  tagPass[0],
-		Password: tagPass[1],
-	})
-	if err != nil {
-		return err
-	}
-	// Only allow users, not agents.
-	_, _, err = names.ParseTag(entity.Tag(), names.UserTagKind)
-	if err != nil {
-		return common.ErrBadCreds
-	}
-	return err
-}
-
-// authError sends an unauthorized error.
-func (h *charmsHandler) authError(w http.ResponseWriter) {
-	w.Header().Set("WWW-Authenticate", `Basic realm="juju"`)
-	h.sendError(w, http.StatusUnauthorized, "unauthorized")
 }
 
 // processPost handles a charm upload POST request after authentication.
