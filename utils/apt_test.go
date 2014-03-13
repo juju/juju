@@ -34,9 +34,9 @@ func (s *AptSuite) TestOnePackage(c *gc.C) {
 }
 
 func (s *AptSuite) TestAptGetPreparePackages(c *gc.C) {
-	packagesList := utils.AptGetPreparePackages([]string{"lxc", "bridge-utils"}, "precise")
-	c.Assert(packagesList[0], gc.DeepEquals, []string{"bridge-utils"})
-	c.Assert(packagesList[1], gc.DeepEquals, []string{"--target-release", "precise-updates/cloud-tools", "lxc"})
+	packagesList := utils.AptGetPreparePackages([]string{"lxc", "bridge-utils", "git", "mongodb"}, "precise")
+	c.Assert(packagesList[0], gc.DeepEquals, []string{"--target-release", "precise-updates/cloud-tools", "lxc", "mongodb"})
+	c.Assert(packagesList[1], gc.DeepEquals, []string{"bridge-utils", "git"})
 }
 
 func (s *AptSuite) TestAptGetError(c *gc.C) {

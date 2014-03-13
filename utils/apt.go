@@ -44,6 +44,7 @@ var aptGetEnvOptions = []string{"DEBIAN_FRONTEND=noninteractive"}
 
 // cloudArchivePackages maintaines a list of packages that AptGetPreparePackages
 // should reference when determining the --target-release for a given series.
+// http://reqorts.qa.ubuntu.com/reports/ubuntu-server/cloud-archive/cloud-tools_versions.html
 var cloudArchivePackages = map[string]bool{
 	"cloud-utils":             true,
 	"curtin":                  true,
@@ -69,7 +70,7 @@ var cloudArchivePackages = map[string]bool{
 	"yui3":                    true,
 }
 
-// targetRelesase returns a string base on the current series
+// targetRelease returns a string base on the current series
 // that is suitable for use with the apt-get --target-release option
 func targetRelease(series string) string {
 	switch series {
@@ -99,18 +100,17 @@ func AptGetPreparePackages(packages []string, series string) [][]string {
 			}
 		}
 
-		// Sometimes we may end up with all cloudArchivePackages
-		// in that case we do not want to append an empty slice of pkgs
-		if len(pkgs) > 0 {
-			installCommands = append(installCommands, pkgs)
-		}
-
 		// We check for >2 here so that we only append pkgs_with_target
 		// if there was an actual package in the slice.
 		if len(pkgs_with_target) > 2 {
 			installCommands = append(installCommands, pkgs_with_target)
 		}
 
+		// Sometimes we may end up with all cloudArchivePackages
+		// in that case we do not want to append an empty slice of pkgs
+		if len(pkgs) > 0 {
+			installCommands = append(installCommands, pkgs)
+		}
 	} else {
 		installCommands = append(installCommands, packages)
 	}
