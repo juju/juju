@@ -45,7 +45,7 @@ func (t *testInstance) Status() string {
 
 type testInstanceGetter struct {
 	ids     []instance.Id
-	results []*testInstance
+	results []instance.Instance
 	err     error
 	counter int
 }
@@ -75,7 +75,7 @@ func newTestInstance(status string, addresses []string) *testInstance {
 func (s *aggregateSuite) TestSingleRequest(c *gc.C) {
 	testGetter := new(testInstanceGetter)
 	instance1 := newTestInstance("foobar", []string{"127.0.0.1", "192.168.1.1"})
-	testGetter.results = []*testInstance{instance1}
+	testGetter.results = []instance.Instance{instance1}
 	aggregator := newAggregator(testGetter)
 
 	info, err := aggregator.instanceInfo("foo")
@@ -92,7 +92,7 @@ func (s *aggregateSuite) TestMultipleResponseHandling(c *gc.C) {
 	testGetter := new(testInstanceGetter)
 
 	instance1 := newTestInstance("foobar", []string{"127.0.0.1", "192.168.1.1"})
-	testGetter.results = []*testInstance{instance1}
+	testGetter.results = []instance.Instance{instance1}
 	aggregator := newAggregator(testGetter)
 
 	replyChan := make(chan instanceInfoReply)
@@ -106,7 +106,7 @@ func (s *aggregateSuite) TestMultipleResponseHandling(c *gc.C) {
 
 	instance2 := newTestInstance("not foobar", []string{"192.168.1.2"})
 	instance3 := newTestInstance("ok-ish", []string{"192.168.1.3"})
-	testGetter.results = []*testInstance{instance2, instance3}
+	testGetter.results = []instance.Instance{instance2, instance3}
 
 	var wg sync.WaitGroup
 	checkInfo := func(id instance.Id, expectStatus string) {
@@ -162,7 +162,7 @@ func (s *aggregateSuite) TestError(c *gc.C) {
 func (s *aggregateSuite) TestPartialErrResponse(c *gc.C) {
 	testGetter := new(testInstanceGetter)
 	testGetter.err = environs.ErrPartialInstances
-	testGetter.results = []*testInstance{nil}
+	testGetter.results = []instance.Instance{nil}
 
 	aggregator := newAggregator(testGetter)
 	_, err := aggregator.instanceInfo("foo")
@@ -175,7 +175,7 @@ func (s *aggregateSuite) TestAddressesError(c *gc.C) {
 	instance1 := newTestInstance("foobar", []string{"127.0.0.1", "192.168.1.1"})
 	ourError := fmt.Errorf("gotcha")
 	instance1.err = ourError
-	testGetter.results = []*testInstance{instance1}
+	testGetter.results = []instance.Instance{instance1}
 
 	aggregator := newAggregator(testGetter)
 	_, err := aggregator.instanceInfo("foo")
