@@ -8,9 +8,14 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
-var requiredPackages = []string{
+// For LTS releases if NewContainerInitialiser is provided with a
+// targetRelease any package in this slice will use --target-release
+// during AptGetInstall
+var ltsPackages = []string{
 	"lxc",
 }
+
+var requiredPackages = []string{}
 
 type containerInitialiser struct {
 	targetRelease string
@@ -46,10 +51,22 @@ func installLtsPackages(targetRelease string) error {
 // switch. If targetRelease is an empty string, no switch is passed.
 func ensureDependencies(targetRelease string) error {
 	var packages []string
+	var err error
 	if targetRelease != "" {
-		packages = targetReleasePackages(targetRelease)
-	} else {
+		// if we have a targetRelease, we will run two AptGetInstall commands
+		// one with --target-release for ltsPackages and the other without for requiredPackages
 		packages = requiredPackages
+		err = installLtsPackages(targetRelease)
+		if err != nil {
+			return err
+		}
+	} else {
+		// if we do not have a targetRelease append the two package slices together
+		// and issue a single AptGetInstall command
+		packages = append(requiredPackages, ltsPackages...)
 	}
-	return utils.AptGetInstall(packages...)
+	if len(packages) != 0 {
+		err = utils.AptGetInstall(packages...)
+	}
+	return err
 }

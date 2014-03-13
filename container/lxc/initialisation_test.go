@@ -22,7 +22,7 @@ type InitialiserSuite struct {
 
 var _ = gc.Suite(&InitialiserSuite{})
 
-func (s *InitialiserSuite) TestInstallLtsPackages(c *gc.C) {
+func (s *InitialiserSuite) TestTargetReleasePackages(c *gc.C) {
 	cmdChan := s.HookCommandOutput(&utils.AptCommandOutput, []byte{}, nil)
 	container := NewContainerInitialiser("target")
 	err := container.Initialise()
@@ -32,13 +32,13 @@ func (s *InitialiserSuite) TestInstallLtsPackages(c *gc.C) {
 	c.Assert(cmd.Args, gc.DeepEquals, []string{
 		"apt-get", "--option=Dpkg::Options::=--force-confold",
 		"--option=Dpkg::options::=--force-unsafe-io", "--assume-yes", "--quiet",
-		"install", "--target-release 'target' 'lxc'",
+		"install", "--target-release", "target", "lxc",
 	})
 }
 
-func (s *InitialiserSuite) TestEnsurePackages(c *gc.C) {
+func (s *InitialiserSuite) TestNoTargetReleasePackages(c *gc.C) {
 	cmdChan := s.HookCommandOutput(&utils.AptCommandOutput, []byte{}, nil)
-	container := NewContainerInitialiser("target")
+	container := NewContainerInitialiser("")
 	err := container.Initialise()
 	c.Assert(err, gc.IsNil)
 
@@ -46,6 +46,6 @@ func (s *InitialiserSuite) TestEnsurePackages(c *gc.C) {
 	c.Assert(cmd.Args, gc.DeepEquals, []string{
 		"apt-get", "--option=Dpkg::Options::=--force-confold",
 		"--option=Dpkg::options::=--force-unsafe-io", "--assume-yes", "--quiet",
-		"install", "--target-release 'target' 'lxc'",
+		"install", "lxc",
 	})
 }
