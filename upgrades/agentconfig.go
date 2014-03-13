@@ -6,7 +6,6 @@ package upgrades
 import (
 	"fmt"
 	"os/user"
-	"path/filepath"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/environs/config"
@@ -63,7 +62,9 @@ func migrateLocalProviderAgentConfig(context Context, target Target) error {
 	jobs := []params.MachineJob{params.JobHostUnits}
 	if target == StateServer {
 		dataDir = rootDir
-		logDir = filepath.Join(rootDir, "log")
+		// TODO(dimitern) create this (as root), so that rsyslog
+		// can create its certificates and logs in it.
+		logDir = fmt.Sprintf("/var/log/juju-%s", namespace)
 		jobs = []params.MachineJob{params.JobManageEnviron}
 	}
 
