@@ -15,7 +15,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"

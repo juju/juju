@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 	"launchpad.net/goamz/aws"
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
@@ -179,18 +179,25 @@ func (p environProvider) BoilerplateConfig() string {
 # https://juju.ubuntu.com/docs/config-aws.html
 amazon:
     type: ec2
-    # region specifies the ec2 region. It defaults to us-east-1.
+
+    # region specifies the EC2 region. It defaults to us-east-1.
+    #
     # region: us-east-1
+
+    # access-key holds the EC2 access key. It defaults to the
+    # environment variable AWS_ACCESS_KEY_ID.
     #
-    # access-key holds the ec2 access key. It defaults to the environment
-    # variable AWS_ACCESS_KEY_ID.
     # access-key: <secret>
+
+    # secret-key holds the EC2 secret key. It defaults to the
+    # environment variable AWS_SECRET_ACCESS_KEY.
     #
-    # secret-key holds the ec2 secret key. It defaults to the environment
-    # variable AWS_SECRET_ACCESS_KEY.
+    # secret-key: <secret>
+
+    # image-stream chooses a simplestreams stream to select OS images
+    # from, for example daily or released images (or any other stream
+    # available on simplestreams).
     #
-    # image-stream chooses a simplestreams stream to select OS images from,
-    # for example daily or released images (or any other stream available on simplestreams).
     # image-stream: "released"
 
 `[1:]
@@ -236,7 +243,7 @@ func (p environProvider) MetadataLookupParams(region string) (*simplestreams.Met
 	return &simplestreams.MetadataLookupParams{
 		Region:        region,
 		Endpoint:      ec2Region.EC2Endpoint,
-		Architectures: []string{"amd64", "i386", "arm"},
+		Architectures: []string{"amd64", "i386"},
 	}, nil
 }
 
@@ -338,7 +345,7 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 		Series:        e.ecfg().DefaultSeries(),
 		Region:        region,
 		Endpoint:      ec2Region.EC2Endpoint,
-		Architectures: []string{"amd64", "i386", "arm"},
+		Architectures: []string{"amd64", "i386", "arm", "arm64", "ppc64"},
 	}, nil
 }
 
@@ -1057,7 +1064,7 @@ func fetchMetadata(name string) (value string, err error) {
 func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket.
 	sources := []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseImagesPath)}
+		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseImagesPath)}
 	return sources, nil
 }
 
@@ -1065,6 +1072,6 @@ func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket.
 	sources := []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)}
+		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseToolsPath)}
 	return sources, nil
 }

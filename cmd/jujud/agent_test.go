@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
@@ -21,7 +22,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
@@ -271,7 +271,7 @@ func (s *agentSuite) initAgent(c *gc.C, a cmd.Command, args ...string) {
 }
 
 func (s *agentSuite) testOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd Agent, initialPassword string) {
-	conf, err := agent.ReadConf(s.DataDir(), ent.Tag())
+	conf, err := agent.ReadConf(agent.ConfigPath(s.DataDir(), ent.Tag()))
 	c.Assert(err, gc.IsNil)
 
 	// Check that it starts initially and changes the password
@@ -326,7 +326,7 @@ func (s *agentSuite) testOpenAPIStateReplaceErrors(c *gc.C) {
 }
 
 func (s *agentSuite) assertCanOpenState(c *gc.C, tag, dataDir string) {
-	config, err := agent.ReadConf(dataDir, tag)
+	config, err := agent.ReadConf(agent.ConfigPath(dataDir, tag))
 	c.Assert(err, gc.IsNil)
 	st, err := config.OpenState(environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
@@ -334,7 +334,7 @@ func (s *agentSuite) assertCanOpenState(c *gc.C, tag, dataDir string) {
 }
 
 func (s *agentSuite) assertCannotOpenState(c *gc.C, tag, dataDir string) {
-	config, err := agent.ReadConf(dataDir, tag)
+	config, err := agent.ReadConf(agent.ConfigPath(dataDir, tag))
 	c.Assert(err, gc.IsNil)
 	_, err = config.OpenState(environs.NewStatePolicy())
 	expectErr := fmt.Sprintf("cannot log in to juju database as %q: unauthorized mongo access: auth fails", tag)
@@ -342,7 +342,7 @@ func (s *agentSuite) assertCannotOpenState(c *gc.C, tag, dataDir string) {
 }
 
 func refreshConfig(c *gc.C, config agent.Config) agent.Config {
-	config, err := agent.ReadConf(config.DataDir(), config.Tag())
+	config, err := agent.ReadConf(agent.ConfigPath(config.DataDir(), config.Tag()))
 	c.Assert(err, gc.IsNil)
 	return config
 }

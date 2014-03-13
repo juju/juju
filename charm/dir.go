@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 
 	"launchpad.net/juju-core/log"
@@ -217,6 +218,17 @@ func (zp *zipPacker) visit(path string, fi os.FileInfo, err error) error {
 	}
 	_, err = w.Write(data)
 	return err
+}
+
+func checkSymlinkTarget(basedir, symlink, target string) error {
+	if filepath.IsAbs(target) {
+		return fmt.Errorf("symlink %q is absolute: %q", symlink, target)
+	}
+	p := filepath.Join(filepath.Dir(symlink), target)
+	if p == ".." || strings.HasPrefix(p, "../") {
+		return fmt.Errorf("symlink %q links out of charm: %q", symlink, target)
+	}
+	return nil
 }
 
 func checkFileType(path string, mode os.FileMode) error {

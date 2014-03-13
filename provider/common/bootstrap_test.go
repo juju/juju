@@ -8,7 +8,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
@@ -21,7 +22,6 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/common"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils/ssh"

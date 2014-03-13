@@ -8,11 +8,13 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/tools"
@@ -31,9 +33,9 @@ func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
 		MachineId:          machineID,
 		MachineNonce:       "gxshasqlnng",
 		DataDir:            environs.DataDir,
-		LogDir:             environs.LogDir,
+		LogDir:             agent.DefaultLogDir,
+		Jobs:               []params.MachineJob{params.JobManageEnviron, params.JobHostUnits},
 		CloudInitOutputLog: environs.CloudInitOutputLog,
-		RsyslogConfPath:    environs.RsyslogConfPath,
 		Tools:              &tools.Tools{URL: "file://" + c.MkDir()},
 		StateInfo: &state.Info{
 			CACert:   []byte(testing.CACert),
@@ -46,7 +48,6 @@ func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
 			Addrs:  []string{"127.0.0.1:123"},
 			Tag:    names.MachineTag(machineID),
 		},
-		SyslogPort:              2345,
 		MachineAgentServiceName: "jujud-machine-0",
 	}
 }

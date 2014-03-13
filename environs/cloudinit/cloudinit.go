@@ -14,16 +14,17 @@ import (
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/mongo"
 	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
-	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
@@ -64,10 +65,6 @@ type MachineConfig struct {
 	// if StateServer is true.
 	APIPort int
 
-	// SyslogPort specifies the port number that will be used when
-	// sending the log messages using rsyslog.
-	SyslogPort int
-
 	// StateInfo holds the means for the new instance to communicate with the
 	// juju state. Unless the new machine is running a state server (StateServer is
 	// set), there must be at least one state server address supplied.
@@ -96,9 +93,8 @@ type MachineConfig struct {
 	// LogDir holds the directory that juju logs will be written to.
 	LogDir string
 
-	// RsyslogConfPath is the path to the rsyslogd conf file written
-	// for configuring distributed logging.
-	RsyslogConfPath string
+	// Jobs holds what machine jobs to run.
+	Jobs []params.MachineJob
 
 	// CloudInitOutputLog specifies the path to the output log for cloud-init.
 	// The directory containing the log file must already exist.
@@ -215,6 +211,31 @@ func ConfigureBasic(cfg *MachineConfig, c *cloudinit.Config) error {
 	return nil
 }
 
+// AddAptCommands update the cloudinit.Config instance with the necessary
+// packages, the request to do the apt-get update/upgrade on boot, and adds
+// the apt proxy settings if there are any.
+func AddAptCommands(proxy osenv.ProxySettings, c *cloudinit.Config) {
+	// Bring packages up-to-date.
+	c.SetAptUpdate(true)
+	c.SetAptUpgrade(true)
+
+	// juju requires git for managing charm directories.
+	c.AddPackage("git")
+	c.AddPackage("cpu-checker")
+	c.AddPackage("bridge-utils")
+	c.AddPackage("rsyslog-gnutls")
+
+	// Write out the apt proxy settings
+	if (proxy != osenv.ProxySettings{}) {
+		filename := utils.AptConfFile
+		c.AddBootCmd(fmt.Sprintf(
+			`[ -f %s ] || (printf '%%s\n' %s > %s)`,
+			filename,
+			shquote(utils.AptProxyContent(proxy)),
+			filename))
+	}
+}
+
 // ConfigureJuju updates the provided cloudinit.Config with configuration
 // to initialise a Juju machine agent.
 func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
@@ -239,24 +260,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	}
 
 	if !cfg.DisablePackageCommands {
-		// Bring packages up-to-date.
-		c.SetAptUpdate(true)
-		c.SetAptUpgrade(true)
-
-		// juju requires git for managing charm directories.
-		c.AddPackage("git")
-		c.AddPackage("cpu-checker")
-		c.AddPackage("bridge-utils")
-
-		// Write out the apt proxy settings
-		if (cfg.AptProxySettings != osenv.ProxySettings{}) {
-			filename := utils.AptConfFile
-			c.AddBootCmd(fmt.Sprintf(
-				`[ -f %s ] || (printf '%%s\n' %s > %s)`,
-				filename,
-				shquote(utils.AptProxyContent(cfg.AptProxySettings)),
-				filename))
-		}
+		AddAptCommands(cfg.AptProxySettings, c)
 	}
 
 	// Write out the normal proxy settings so that the settings are
@@ -295,9 +299,9 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	if strings.HasPrefix(cfg.Tools.URL, fileSchemePrefix) {
 		copyCmd = fmt.Sprintf("cp %s $bin/tools.tar.gz", shquote(cfg.Tools.URL[len(fileSchemePrefix):]))
 	} else {
-		curlCommand := "curl"
+		curlCommand := "curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; size %{size_download} bytes; speed %{speed_download} bytes/s '"
 		if cfg.DisableSSLHostnameVerification {
-			curlCommand = "curl --insecure"
+			curlCommand += " --insecure"
 		}
 		copyCmd = fmt.Sprintf("%s -o $bin/tools.tar.gz %s", curlCommand, shquote(cfg.Tools.URL))
 		c.AddRunCmd(cloudinit.LogProgressCmd("Fetching tools: %s", copyCmd))
@@ -318,10 +322,6 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 		fmt.Sprintf("printf %%s %s > $bin/downloaded-tools.txt", shquote(string(toolsJson))),
 	)
 
-	if err := cfg.addLogging(c); err != nil {
-		return err
-	}
-
 	// We add the machine agent's configuration info
 	// before running bootstrap-state so that bootstrap-state
 	// has a chance to rerwrite it to change the password.
@@ -338,7 +338,8 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	// for series that need it. This gives us up-to-date LXC,
 	// MongoDB, and other infrastructure.
 	if !cfg.DisablePackageCommands {
-		cfg.MaybeAddCloudArchiveCloudTools(c)
+		series := cfg.Tools.Version.Series
+		MaybeAddCloudArchiveCloudTools(c, series)
 	}
 
 	if cfg.StateServer {
@@ -402,26 +403,6 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	return cfg.addMachineAgentToBoot(c, machineTag, cfg.MachineId)
 }
 
-func (cfg *MachineConfig) addLogging(c *cloudinit.Config) error {
-	namespace := cfg.AgentEnvironment[agent.Namespace]
-	var configRenderer *syslog.SyslogConfig
-	if cfg.StateServer {
-		configRenderer = syslog.NewAccumulateConfig(
-			names.MachineTag(cfg.MachineId), cfg.SyslogPort, namespace)
-	} else {
-		configRenderer = syslog.NewForwardConfig(
-			names.MachineTag(cfg.MachineId), cfg.SyslogPort, namespace, cfg.stateHostAddrs())
-	}
-	configRenderer.LogDir = cfg.LogDir
-	content, err := configRenderer.Render()
-	if err != nil {
-		return err
-	}
-	c.AddFile(cfg.RsyslogConfPath, string(content), 0644)
-	c.AddRunCmd("restart rsyslog")
-	return nil
-}
-
 func (cfg *MachineConfig) dataFile(name string) string {
 	return path.Join(cfg.DataDir, name)
 }
@@ -438,6 +419,8 @@ func (cfg *MachineConfig) agentConfig(tag string) (agent.Config, error) {
 	}
 	configParams := agent.AgentConfigParams{
 		DataDir:           cfg.DataDir,
+		LogDir:            cfg.LogDir,
+		Jobs:              cfg.Jobs,
 		Tag:               tag,
 		UpgradedToVersion: version.Current.Number,
 		Password:          password,
@@ -466,7 +449,6 @@ func (cfg *MachineConfig) addAgentInfo(c *cloudinit.Config, tag string) (agent.C
 	if err != nil {
 		return nil, err
 	}
-	acfg.SetValue(agent.RsyslogConfPath, cfg.RsyslogConfPath)
 	acfg.SetValue(agent.AgentServiceName, cfg.MachineAgentServiceName)
 	if cfg.StateServer {
 		acfg.SetValue(agent.MongoServiceName, cfg.MongoServiceName)
@@ -510,7 +492,10 @@ func (cfg *MachineConfig) addMongoToBoot(c *cloudinit.Config) error {
 	)
 
 	name := cfg.MongoServiceName
-	conf := upstart.MongoUpstartService(name, cfg.DataDir, dbDir, cfg.StatePort)
+	conf, err := mongo.MongoUpstartService(name, cfg.DataDir, cfg.StatePort)
+	if err != nil {
+		return err
+	}
 	cmds, err := conf.InstallCommands()
 	if err != nil {
 		return errgo.Annotate(err, "cannot make cloud-init upstart script for the state database")
@@ -606,8 +591,7 @@ p/+af/HU1smBrOfIeRoxb8jQoHu3
 
 // MaybeAddCloudArchiveCloudTools adds the cloud-archive cloud-tools
 // pocket to apt sources, if the series requires it.
-func (cfg *MachineConfig) MaybeAddCloudArchiveCloudTools(c *cloudinit.Config) {
-	series := cfg.Tools.Version.Series
+func MaybeAddCloudArchiveCloudTools(c *cloudinit.Config, series string) {
 	if series != "precise" {
 		// Currently only precise; presumably we'll
 		// need to add each LTS in here as they're
@@ -655,11 +639,11 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 	if cfg.LogDir == "" {
 		return fmt.Errorf("missing log directory")
 	}
+	if len(cfg.Jobs) == 0 {
+		return fmt.Errorf("missing machine jobs")
+	}
 	if cfg.CloudInitOutputLog == "" {
 		return fmt.Errorf("missing cloud-init output log path")
-	}
-	if cfg.RsyslogConfPath == "" {
-		return fmt.Errorf("missing rsyslog.d conf path")
 	}
 	if cfg.Tools == nil {
 		return fmt.Errorf("missing tools")
@@ -675,9 +659,6 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 	}
 	if cfg.APIInfo == nil {
 		return fmt.Errorf("missing API info")
-	}
-	if cfg.SyslogPort == 0 {
-		return fmt.Errorf("missing syslog port")
 	}
 	if len(cfg.APIInfo.CACert) == 0 {
 		return fmt.Errorf("missing API CA certificate")

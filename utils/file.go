@@ -6,6 +6,7 @@ package utils
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"os/user"
 	"path"
@@ -97,4 +98,44 @@ func CopyFile(dest, source string) error {
 	defer f.Close()
 	_, err = io.Copy(df, f)
 	return err
+}
+
+// AtomicWriteFileAndChange atomically writes the filename with the
+// given contents and calls the given function after the contents were
+// written, but before the file is renamed.
+func AtomicWriteFileAndChange(filename string, contents []byte, change func(*os.File) error) (err error) {
+	dir, file := filepath.Split(filename)
+	f, err := ioutil.TempFile(dir, file)
+	if err != nil {
+		return fmt.Errorf("cannot create temp file: %v", err)
+	}
+	defer f.Close()
+	defer func() {
+		if err != nil {
+			// Don't leave the temp file lying around on error.
+			os.Remove(f.Name())
+		}
+	}()
+	if _, err := f.Write(contents); err != nil {
+		return fmt.Errorf("cannot write %q contents: %v", filename, err)
+	}
+	if err := change(f); err != nil {
+		return err
+	}
+	if err := ReplaceFile(f.Name(), filename); err != nil {
+		return fmt.Errorf("cannot replace %q with %q: %v", f.Name(), filename, err)
+	}
+	return nil
+}
+
+// AtomicWriteFile atomically writes the filename with the given
+// contents and permissions, replacing any existing file at the same
+// path.
+func AtomicWriteFile(filename string, contents []byte, perms os.FileMode) (err error) {
+	return AtomicWriteFileAndChange(filename, contents, func(f *os.File) error {
+		if err := f.Chmod(perms); err != nil {
+			return fmt.Errorf("cannot set permissions: %v", err)
+		}
+		return nil
+	})
 }

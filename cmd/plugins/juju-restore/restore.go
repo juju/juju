@@ -15,7 +15,7 @@ import (
 	"path"
 	"text/template"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
 	"launchpad.net/goyaml"
 

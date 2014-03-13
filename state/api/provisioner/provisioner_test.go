@@ -6,6 +6,7 @@ package provisioner_test
 import (
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
@@ -19,7 +20,6 @@ import (
 	"launchpad.net/juju-core/state/api/provisioner"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -358,7 +358,6 @@ func (s *provisionerSuite) TestContainerConfig(c *gc.C) {
 	c.Assert(result.ProviderType, gc.Equals, "dummy")
 	c.Assert(result.AuthorizedKeys, gc.Equals, coretesting.FakeAuthKeys)
 	c.Assert(result.SSLHostnameVerification, jc.IsTrue)
-	c.Assert(result.SyslogPort, gc.Equals, 2345)
 }
 
 func (s *provisionerSuite) TestCACert(c *gc.C) {

@@ -4,6 +4,7 @@
 package imagemetadata_test
 
 import (
+	"path"
 	"path/filepath"
 
 	gc "launchpad.net/gocheck"
@@ -33,7 +34,7 @@ func (s *ValidateSuite) makeLocalMetadata(c *gc.C, id, region, series, endpoint,
 		Region:   region,
 		Endpoint: endpoint,
 	}
-	targetStorage, err := filestorage.NewFileStorageWriter(s.metadataDir, filestorage.UseDefaultTmpDir)
+	targetStorage, err := filestorage.NewFileStorageWriter(s.metadataDir)
 	c.Assert(err, gc.IsNil)
 	err = imagemetadata.MergeAndWriteMetadata(series, metadata, &cloudSpec, targetStorage)
 	if err != nil {
@@ -57,11 +58,17 @@ func (s *ValidateSuite) assertMatch(c *gc.C, stream string) {
 		Endpoint:      "some-auth-url",
 		Stream:        stream,
 		Sources: []simplestreams.DataSource{
-			simplestreams.NewURLDataSource("file://"+metadataPath, simplestreams.VerifySSLHostnames)},
+			simplestreams.NewURLDataSource("test", "file://"+metadataPath, simplestreams.VerifySSLHostnames)},
 	}
-	imageIds, err := imagemetadata.ValidateImageMetadata(params)
+	imageIds, resolveInfo, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, gc.IsNil)
 	c.Assert(imageIds, gc.DeepEquals, []string{"1234"})
+	c.Check(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
+		Source:    "test",
+		Signed:    false,
+		IndexURL:  "file://" + path.Join(metadataPath, "streams/v1/index.json"),
+		MirrorURL: "",
+	})
 }
 
 func (s *ValidateSuite) TestMatch(c *gc.C) {
@@ -79,9 +86,9 @@ func (s *ValidateSuite) assertNoMatch(c *gc.C, stream string) {
 		Endpoint:      "some-auth-url",
 		Stream:        stream,
 		Sources: []simplestreams.DataSource{
-			simplestreams.NewURLDataSource("file://"+s.metadataDir, simplestreams.VerifySSLHostnames)},
+			simplestreams.NewURLDataSource("test", "file://"+s.metadataDir, simplestreams.VerifySSLHostnames)},
 	}
-	_, err := imagemetadata.ValidateImageMetadata(params)
+	_, _, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, gc.Not(gc.IsNil))
 }
 

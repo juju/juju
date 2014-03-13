@@ -21,6 +21,7 @@ import (
 // ValidateToolsMetadataCommand
 type ValidateToolsMetadataCommand struct {
 	cmd.EnvCommandBase
+	out          cmd.Output
 	providerType string
 	metadataDir  string
 	series       string
@@ -100,6 +101,7 @@ func (c *ValidateToolsMetadataCommand) Info() *cmd.Info {
 
 func (c *ValidateToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
+	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	f.StringVar(&c.providerType, "p", "", "the provider type eg ec2, openstack")
 	f.StringVar(&c.metadataDir, "d", "", "directory where metadata files are found")
 	f.StringVar(&c.series, "s", "", "the series for which to validate (overrides env config series)")
@@ -160,7 +162,7 @@ func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {
 				return err
 			}
 			params = &simplestreams.MetadataLookupParams{
-				Architectures: []string{"amd64", "arm", "i386"},
+				Architectures: []string{"amd64", "arm", "i386", "arm64", "ppc64"},
 			}
 		}
 	} else {
@@ -191,30 +193,48 @@ func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {
 		if _, err := os.Stat(c.metadataDir); err != nil {
 			return err
 		}
-		params.Sources = []simplestreams.DataSource{simplestreams.NewURLDataSource("file://"+c.metadataDir, simplestreams.VerifySSLHostnames)}
+		toolsURL, err := tools.ToolsURL(c.metadataDir)
+		if err != nil {
+			return err
+		}
+		params.Sources = []simplestreams.DataSource{simplestreams.NewURLDataSource(
+			"local metadata directory", toolsURL, simplestreams.VerifySSLHostnames),
+		}
 	}
 
-	versions, err := tools.ValidateToolsMetadata(&tools.ToolsMetadataLookupParams{
+	versions, resolveInfo, err := tools.ValidateToolsMetadata(&tools.ToolsMetadataLookupParams{
 		MetadataLookupParams: *params,
 		Version:              c.exactVersion,
 		Major:                c.major,
 		Minor:                c.minor,
 	})
 	if err != nil {
+		if resolveInfo != nil {
+			metadata := map[string]interface{}{
+				"Resolve Metadata": *resolveInfo,
+			}
+			if metadataYaml, yamlErr := cmd.FormatYaml(metadata); yamlErr == nil {
+				err = fmt.Errorf("%v\n%v", err, string(metadataYaml))
+			}
+		}
 		return err
 	}
 
 	if len(versions) > 0 {
-		fmt.Fprintf(context.Stdout, "matching tools versions:\n%s\n", strings.Join(versions, "\n"))
+		metadata := map[string]interface{}{
+			"Matching Tools Versions": versions,
+			"Resolve Metadata":        *resolveInfo,
+		}
+		c.out.Write(context, metadata)
 	} else {
-		var urls []string
+		var sources []string
 		for _, s := range params.Sources {
 			url, err := s.URL("")
-			if err != nil {
-				urls = append(urls, url)
+			if err == nil {
+				sources = append(sources, fmt.Sprintf("- %s (%s)", s.Description(), url))
 			}
 		}
-		return fmt.Errorf("no matching tools using URLs:\n%s", strings.Join(urls, "\n"))
+		return fmt.Errorf("no matching tools using sources:\n%s", strings.Join(sources, "\n"))
 	}
 	return nil
 }

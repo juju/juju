@@ -12,7 +12,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/simplestreams"
@@ -140,7 +140,7 @@ func selectSourceDatasource(syncContext *SyncContext) (simplestreams.DataSource,
 		return nil, err
 	}
 	logger.Infof("using sync tools source: %v", sourceURL)
-	return simplestreams.NewURLDataSource(sourceURL, simplestreams.VerifySSLHostnames), nil
+	return simplestreams.NewURLDataSource("sync tools source", sourceURL, simplestreams.VerifySSLHostnames), nil
 }
 
 // copyTools copies a set of tools from the source to the target.
@@ -262,7 +262,7 @@ func upload(stor storage.Storage, forceVersion *version.Number, fakeSeries ...st
 	}
 	// The tools have been copied to a temp location from which they will be uploaded,
 	// now write out the matching simplestreams metadata so that SyncTools can find them.
-	metadataStore, err := filestorage.NewFileStorageWriter(baseToolsDir, filestorage.UseDefaultTmpDir)
+	metadataStore, err := filestorage.NewFileStorageWriter(baseToolsDir)
 	if err != nil {
 		return nil, err
 	}

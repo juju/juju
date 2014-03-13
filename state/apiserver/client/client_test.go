@@ -11,16 +11,18 @@ import (
 	"sync"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/cloudinit/sshinit"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/storage"
-	envtesting "launchpad.net/juju-core/environs/testing"
+	envstorage "launchpad.net/juju-core/environs/storage"
+	ttesting "launchpad.net/juju-core/environs/tools/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/dummy"
@@ -30,7 +32,6 @@ import (
 	"launchpad.net/juju-core/state/apiserver/client"
 	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
@@ -1475,6 +1476,18 @@ func (s *clientSuite) TestClientEnvironmentSetCannotChangeAgentVersion(c *gc.C) 
 	c.Assert(err, gc.IsNil)
 }
 
+func (s *clientSuite) TestClientFindTools(c *gc.C) {
+	result, err := s.APIState.Client().FindTools(2, -1, "", "")
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Error, jc.Satisfies, params.IsCodeNotFound)
+	ttesting.UploadToStorage(c, s.Conn.Environ.Storage(), version.MustParseBinary("2.12.0-precise-amd64"))
+	result, err = s.APIState.Client().FindTools(2, 12, "precise", "amd64")
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.List, gc.HasLen, 1)
+	c.Assert(result.List[0].Version, gc.Equals, version.MustParseBinary("2.12.0-precise-amd64"))
+}
+
 func (s *clientSuite) checkMachine(c *gc.C, id, series, cons string) {
 	// Ensure the machine was actually created.
 	machine, err := s.BackingState.Machine(id)
@@ -1730,7 +1743,7 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	}
 }
 
-func (s *clientSuite) TestClientAuthorizeStoreOnDeployServiceSetCharmAndAddCharm(c *gc.C) {
+func (s *clientSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAddCharm(c *gc.C) {
 	store, restore := makeMockCharmStore()
 	defer restore()
 
@@ -1738,7 +1751,9 @@ func (s *clientSuite) TestClientAuthorizeStoreOnDeployServiceSetCharmAndAddCharm
 	c.Assert(err, gc.IsNil)
 
 	attrs := coretesting.Attrs(oldConfig.AllAttrs())
-	attrs = attrs.Merge(coretesting.Attrs{"charm-store-auth": "token=value"})
+	attrs = attrs.Merge(coretesting.Attrs{
+		"charm-store-auth": "token=value",
+		"test-mode":        true})
 
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
@@ -1754,6 +1769,7 @@ func (s *clientSuite) TestClientAuthorizeStoreOnDeployServiceSetCharmAndAddCharm
 
 	// check that the store's auth attributes were set
 	c.Assert(store.AuthAttrs, gc.Equals, "token=value")
+	c.Assert(store.TestMode, gc.Equals, true)
 
 	store.AuthAttrs = ""
 
@@ -1856,7 +1872,7 @@ func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
 	// contains the correct data.
 	sch, err := s.State.Charm(curl)
 	c.Assert(err, gc.IsNil)
-	storage, err := envtesting.GetEnvironStorage(s.State)
+	storage, err := environs.GetStorage(s.State)
 	c.Assert(err, gc.IsNil)
 	uploads, err := storage.List(fmt.Sprintf("%s-%d-", curl.Name, curl.Revision))
 	c.Assert(err, gc.IsNil)
@@ -1922,7 +1938,7 @@ func (s *clientSuite) assertPutCalled(c *gc.C, ops chan dummy.Operation, numCall
 	}
 }
 
-func (s *clientSuite) assertUploaded(c *gc.C, storage storage.Storage, bundleURL *url.URL, expectedSHA256 string) {
+func (s *clientSuite) assertUploaded(c *gc.C, storage envstorage.Storage, bundleURL *url.URL, expectedSHA256 string) {
 	archiveName := getArchiveName(bundleURL)
 	reader, err := storage.Get(archiveName)
 	c.Assert(err, gc.IsNil)

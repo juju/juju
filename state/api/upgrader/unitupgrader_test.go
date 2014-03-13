@@ -4,11 +4,7 @@
 package upgrader_test
 
 import (
-	"encoding/json"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/errors"
@@ -18,7 +14,6 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/upgrader"
 	statetesting "launchpad.net/juju-core/state/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -34,9 +29,6 @@ type unitUpgraderSuite struct {
 	rawMachine *state.Machine
 	rawUnit    *state.Unit
 
-	// Tools for the assigned machine.
-	fakeTools *tools.Tools
-
 	st *upgrader.State
 }
 
@@ -51,21 +43,6 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 	err = s.rawUnit.SetPassword(password)
 	c.Assert(err, gc.IsNil)
 	s.stateAPI = s.OpenAPIAs(c, s.rawUnit.Tag(), password)
-
-	// Set up fake downloaded tools for the assigned machine.
-	fakeToolsPath := filepath.Join(s.DataDir(), "tools", version.Current.String())
-	err = os.MkdirAll(fakeToolsPath, 0700)
-	c.Assert(err, gc.IsNil)
-	s.fakeTools = &tools.Tools{
-		Version: version.Current,
-		URL:     "fake-url",
-		Size:    1234,
-		SHA256:  "checksum",
-	}
-	toolsMetadataData, err := json.Marshal(s.fakeTools)
-	c.Assert(err, gc.IsNil)
-	err = ioutil.WriteFile(filepath.Join(fakeToolsPath, "downloaded-tools.txt"), []byte(toolsMetadataData), 0644)
-	c.Assert(err, gc.IsNil)
 
 	// Create the upgrader facade.
 	s.st = s.stateAPI.Upgrader()
@@ -132,7 +109,8 @@ func (s *unitUpgraderSuite) TestTools(c *gc.C) {
 	// running set. We want to be upgraded to cur.Version
 	stateTools, _, err := s.st.Tools(s.rawUnit.Tag())
 	c.Assert(err, gc.IsNil)
-	c.Assert(stateTools, gc.DeepEquals, s.fakeTools)
+	c.Check(stateTools.Version.Number, gc.DeepEquals, version.Current.Number)
+	c.Assert(stateTools.URL, gc.NotNil)
 }
 
 func (s *unitUpgraderSuite) TestWatchAPIVersion(c *gc.C) {

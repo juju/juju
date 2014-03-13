@@ -8,11 +8,11 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/upgrades"
 )
 

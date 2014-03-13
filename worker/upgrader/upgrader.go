@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/agent"
@@ -165,5 +165,6 @@ func (u *Upgrader) ensureTools(agentTools *coretools.Tools, disableSSLHostnameVe
 	if err != nil {
 		return fmt.Errorf("cannot unpack tools: %v", err)
 	}
+	logger.Infof("unpacked tools %s to %s", agentTools.Version, u.dataDir)
 	return nil
 }

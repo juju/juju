@@ -7,7 +7,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
@@ -76,7 +76,7 @@ func (s *LogSuite) TestVerboseSetsLogLevel(c *gc.C) {
 
 	c.Assert(loggo.GetLogger("").LogLevel(), gc.Equals, loggo.INFO)
 	c.Assert(testing.Stderr(ctx), gc.Equals, "")
-	c.Assert(testing.Stdout(ctx), gc.Equals, "verbose is deprecated with the current meaning, use show-log\n")
+	c.Assert(testing.Stdout(ctx), gc.Equals, "Flag --verbose is deprecated with the current meaning, use --show-log\n")
 }
 
 func (s *LogSuite) TestDebugSetsLogLevel(c *gc.C) {

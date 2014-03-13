@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
@@ -29,22 +30,24 @@ import (
 	"launchpad.net/juju-core/state/api"
 	apideployer "launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/state/api/params"
+	apirsyslog "launchpad.net/juju-core/state/api/rsyslog"
 	charmtesting "launchpad.net/juju-core/state/apiserver/charmrevisionupdater/testing"
 	statetesting "launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/ssh"
 	sshtesting "launchpad.net/juju-core/utils/ssh/testing"
 	"launchpad.net/juju-core/version"
+	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/authenticationworker"
 	"launchpad.net/juju-core/worker/deployer"
 	"launchpad.net/juju-core/worker/instancepoller"
 	"launchpad.net/juju-core/worker/machineenvironmentworker"
+	"launchpad.net/juju-core/worker/rsyslog"
 	"launchpad.net/juju-core/worker/upgrader"
 )
 
@@ -765,6 +768,30 @@ func (s *MachineSuite) TestMachineAgentUninstall(c *gc.C) {
 	// data-dir should have been removed on termination
 	_, err = os.Stat(ac.DataDir())
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
+}
+
+func (s *MachineSuite) TestMachineAgentRsyslogManageEnviron(c *gc.C) {
+	s.testMachineAgentRsyslogConfigWorker(c, state.JobManageEnviron, rsyslog.RsyslogModeAccumulate)
+}
+
+func (s *MachineSuite) TestMachineAgentRsyslogHostUnits(c *gc.C) {
+	s.testMachineAgentRsyslogConfigWorker(c, state.JobHostUnits, rsyslog.RsyslogModeForwarding)
+}
+
+func (s *MachineSuite) testMachineAgentRsyslogConfigWorker(c *gc.C, job state.MachineJob, expectedMode rsyslog.RsyslogMode) {
+	created := make(chan rsyslog.RsyslogMode, 1)
+	s.PatchValue(&newRsyslogConfigWorker, func(_ *apirsyslog.State, _ agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
+		created <- mode
+		return worker.NewRunner(isFatal, moreImportant), nil
+	})
+	s.assertJobWithAPI(c, job, func(conf agent.Config, st *api.State) {
+		select {
+		case <-time.After(testing.LongWait):
+			c.Fatalf("timeout while waiting for rsyslog worker to be created")
+		case mode := <-created:
+			c.Assert(mode, gc.Equals, expectedMode)
+		}
+	})
 }
 
 // MachineWithCharmsSuite provides infrastructure for tests which need to

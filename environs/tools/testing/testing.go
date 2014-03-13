@@ -4,6 +4,7 @@
 package testing
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -11,14 +12,15 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/tools"
-	jc "launchpad.net/juju-core/testing/checkers"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
@@ -58,7 +60,7 @@ func makeTools(c *gc.C, metadataDir, subdir string, versionStrings []string, wit
 		toolsList = append(toolsList, tool)
 	}
 	// Write the tools metadata.
-	stor, err := filestorage.NewFileStorageWriter(metadataDir, filestorage.UseDefaultTmpDir)
+	stor, err := filestorage.NewFileStorageWriter(metadataDir)
 	c.Assert(err, gc.IsNil)
 	err = tools.MergeAndWriteMetadata(stor, toolsList, false)
 	c.Assert(err, gc.IsNil)
@@ -83,7 +85,7 @@ func ParseMetadataFromDir(c *gc.C, metadataDir string, expectMirrors bool) []*to
 
 // ParseMetadataFromStorage loads ToolsMetadata from the specified storage reader.
 func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader, expectMirrors bool) []*tools.ToolsMetadata {
-	source := storage.NewStorageSimpleStreamsDataSource(stor, "tools")
+	source := storage.NewStorageSimpleStreamsDataSource("test storage reader", stor, "tools")
 	params := simplestreams.ValueParams{
 		DataType:      tools.ContentDownload,
 		ValueTemplate: tools.ToolsMetadata{},
@@ -147,4 +149,78 @@ func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader, expectMirrors
 		c.Assert(err, gc.IsNil)
 	}
 	return toolsMetadata
+}
+
+type metadataFile struct {
+	path string
+	data []byte
+}
+
+func generateMetadata(c *gc.C, versions ...version.Binary) []metadataFile {
+	var metadata = make([]*tools.ToolsMetadata, len(versions))
+	for i, vers := range versions {
+		basePath := fmt.Sprintf("releases/tools-%s.tar.gz", vers.String())
+		metadata[i] = &tools.ToolsMetadata{
+			Release: vers.Series,
+			Version: vers.Number.String(),
+			Arch:    vers.Arch,
+			Path:    basePath,
+		}
+	}
+	index, products, err := tools.MarshalToolsMetadataJSON(metadata, time.Now())
+	c.Assert(err, gc.IsNil)
+	objects := []metadataFile{
+		{simplestreams.UnsignedIndex, index},
+		{tools.ProductMetadataPath, products},
+	}
+	return objects
+}
+
+// UploadToStorage uploads tools and metadata for the specified versions to storage.
+func UploadToStorage(c *gc.C, stor storage.Storage, versions ...version.Binary) map[version.Binary]string {
+	uploaded := map[version.Binary]string{}
+	if len(versions) == 0 {
+		return uploaded
+	}
+	var err error
+	for _, vers := range versions {
+		filename := fmt.Sprintf("tools/releases/tools-%s.tar.gz", vers.String())
+		// Put a file in images since the dummy storage provider requires a
+		// file to exist before the URL can be found. This is to ensure it behaves
+		// the same way as MAAS.
+		err = stor.Put(filename, strings.NewReader("dummy"), 5)
+		c.Assert(err, gc.IsNil)
+		uploaded[vers], err = stor.URL(filename)
+		c.Assert(err, gc.IsNil)
+	}
+	objects := generateMetadata(c, versions...)
+	for _, object := range objects {
+		toolspath := path.Join("tools", object.path)
+		err = stor.Put(toolspath, bytes.NewReader(object.data), int64(len(object.data)))
+		c.Assert(err, gc.IsNil)
+	}
+	return uploaded
+}
+
+// UploadToStorage uploads tools and metadata for the specified versions to dir.
+func UploadToDirectory(c *gc.C, dir string, versions ...version.Binary) map[version.Binary]string {
+	uploaded := map[version.Binary]string{}
+	if len(versions) == 0 {
+		return uploaded
+	}
+	for _, vers := range versions {
+		basePath := fmt.Sprintf("releases/tools-%s.tar.gz", vers.String())
+		uploaded[vers] = fmt.Sprintf("file://%s/%s", dir, basePath)
+	}
+	objects := generateMetadata(c, versions...)
+	for _, object := range objects {
+		path := filepath.Join(dir, object.path)
+		dir := filepath.Dir(path)
+		if err := os.MkdirAll(dir, 0755); err != nil && !os.IsExist(err) {
+			c.Assert(err, gc.IsNil)
+		}
+		err := ioutil.WriteFile(path, object.data, 0644)
+		c.Assert(err, gc.IsNil)
+	}
+	return uploaded
 }

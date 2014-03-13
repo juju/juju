@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2013, 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package local
@@ -10,8 +10,12 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
+	"syscall"
+
+	"github.com/errgo/errgo"
 
 	"launchpad.net/juju-core/agent"
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
@@ -33,6 +37,7 @@ import (
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/terminationworker"
@@ -56,13 +61,14 @@ type localEnviron struct {
 	localStorage     storage.Storage
 	storageListener  net.Listener
 	containerManager container.Manager
+	fastLXC          bool
 }
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
 func (e *localEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket.
 	return []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)}, nil
+		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseToolsPath)}, nil
 }
 
 // Name is specified in the Environ interface.
@@ -76,10 +82,6 @@ func (env *localEnviron) mongoServiceName() string {
 
 func (env *localEnviron) machineAgentServiceName() string {
 	return "juju-agent-" + env.config.namespace()
-}
-
-func (env *localEnviron) rsyslogConfPath() string {
-	return fmt.Sprintf("/etc/rsyslog.d/25-juju-%s.conf", env.config.namespace())
 }
 
 func ensureNotRoot() error {
@@ -130,25 +132,19 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 		return err
 	}
 
-	bootstrapJobs, err := agent.MarshalBootstrapJobs(state.JobManageEnviron)
-	if err != nil {
-		return err
-	}
-
 	mcfg := environs.NewBootstrapMachineConfig(stateFileURL, privateKey)
 	mcfg.Tools = selectedTools[0]
 	mcfg.DataDir = env.config.rootDir()
-	mcfg.LogDir = env.config.logDir()
-	mcfg.RsyslogConfPath = env.rsyslogConfPath()
-	mcfg.CloudInitOutputLog = filepath.Join(mcfg.LogDir, "cloud-init-output.log")
+	mcfg.LogDir = fmt.Sprintf("/var/log/juju-%s", env.config.namespace())
+	mcfg.Jobs = []params.MachineJob{params.JobManageEnviron}
+	mcfg.CloudInitOutputLog = filepath.Join(env.config.logDir(), "cloud-init-output.log")
 	mcfg.DisablePackageCommands = true
 	mcfg.MachineAgentServiceName = env.machineAgentServiceName()
 	mcfg.MongoServiceName = env.mongoServiceName()
 	mcfg.AgentEnvironment = map[string]string{
-		agent.Namespace:     env.config.namespace(),
-		agent.StorageDir:    env.config.storageDir(),
-		agent.StorageAddr:   env.config.storageAddr(),
-		agent.BootstrapJobs: bootstrapJobs,
+		agent.Namespace:   env.config.namespace(),
+		agent.StorageDir:  env.config.storageDir(),
+		agent.StorageAddr: env.config.storageAddr(),
 	}
 	if err := environs.FinishMachineConfig(mcfg, cfg, cons); err != nil {
 		return err
@@ -162,10 +158,15 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 	// Also, we leave the old all-machines.log file in
 	// /var/log/juju-{{namespace}} until we start the environment again. So
 	// potentially remove it at the start of the cloud-init.
-	logfile := fmt.Sprintf("/var/log/juju-%s/all-machines.log", env.config.namespace())
+	os.RemoveAll(env.config.logDir())
+	os.MkdirAll(env.config.logDir(), 0755)
 	cloudcfg.AddScripts(
-		fmt.Sprintf("[ -f %s ] && rm %s", logfile, logfile),
-		fmt.Sprintf("ln -s %s %s/", logfile, env.config.logDir()))
+		fmt.Sprintf("rm -fr %s", mcfg.LogDir),
+		fmt.Sprintf("mkdir -p %s", mcfg.LogDir),
+		fmt.Sprintf("chown syslog:adm %s", mcfg.LogDir),
+		fmt.Sprintf("rm -f /var/spool/rsyslog/machine-0-%s", env.config.namespace()),
+		fmt.Sprintf("ln -s %s/all-machines.log %s/", mcfg.LogDir, env.config.logDir()),
+		fmt.Sprintf("ln -s %s/machine-0.log %s/", env.config.logDir(), mcfg.LogDir))
 	if err := cloudinit.ConfigureJuju(mcfg, cloudcfg); err != nil {
 		return err
 	}
@@ -211,12 +212,15 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	defer env.localMutex.Unlock()
 	env.config = ecfg
 	env.name = ecfg.Name()
+	containerType := ecfg.container()
+	env.fastLXC = useFastLXC(containerType)
 
 	env.containerManager, err = factory.NewContainerManager(
-		ecfg.container(),
+		containerType,
 		container.ManagerConfig{
-			Name:   env.config.namespace(),
-			LogDir: env.config.logDir(),
+			container.ConfigName:   env.config.namespace(),
+			container.ConfigLogDir: env.config.logDir(),
+			"use-clone":            strconv.FormatBool(env.fastLXC),
 		})
 	if err != nil {
 		return err
@@ -273,7 +277,7 @@ func (env *localEnviron) resolveBridgeAddress(cfg *config.Config) error {
 // be synced and so forth without having a machine agent
 // running.
 func (env *localEnviron) setLocalStorage() error {
-	storage, err := filestorage.NewFileStorageWriter(env.config.storageDir(), filestorage.UseDefaultTmpDir)
+	storage, err := filestorage.NewFileStorageWriter(env.config.storageDir())
 	if err != nil {
 		return err
 	}
@@ -375,38 +379,61 @@ func (env *localEnviron) Storage() storage.Storage {
 
 // Destroy is specified in the Environ interface.
 func (env *localEnviron) Destroy() error {
-	// Kill all running instances. This must be done as
-	// root, or listing/stopping containers will fail.
+	// If bootstrap failed, for example because the user
+	// lacks sudo rights, then the agents won't have been
+	// installed. If that's the case, we can just remove
+	// the data-dir and exit.
+	agentsDir := filepath.Join(env.config.rootDir(), "agents")
+	if _, err := os.Stat(agentsDir); os.IsNotExist(err) {
+		// If we can't remove the root dir, then continue
+		// and attempt as root anyway.
+		if os.RemoveAll(env.config.rootDir()) == nil {
+			return nil
+		}
+	}
 	if !checkIfRoot() {
 		juju, err := exec.LookPath(os.Args[0])
 		if err != nil {
 			return err
 		}
-		args := []string{osenv.JujuHomeEnvKey + "=" + osenv.JujuHome()}
-		args = append(args, juju)
-		args = append(args, os.Args[1:]...)
-		args = append(args, "-y")
+		args := []string{
+			osenv.JujuHomeEnvKey + "=" + osenv.JujuHome(),
+			juju, "destroy-environment", "-y", "--force", env.Name(),
+		}
 		cmd := exec.Command("sudo", args...)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		return cmd.Run()
-	} else {
-		containers, err := env.containerManager.ListContainers()
-		if err != nil {
+	}
+	// Kill all running instances. This must be done as
+	// root, or listing/stopping containers will fail.
+	containers, err := env.containerManager.ListContainers()
+	if err != nil {
+		return err
+	}
+	for _, inst := range containers {
+		if err := env.containerManager.StopContainer(inst); err != nil {
 			return err
 		}
-		for _, inst := range containers {
-			if err := env.containerManager.StopContainer(inst); err != nil {
-				return err
+	}
+	cmd := exec.Command(
+		"pkill",
+		fmt.Sprintf("-%d", terminationworker.TerminationSignal),
+		"-f", filepath.Join(regexp.QuoteMeta(env.config.rootDir()), ".*", "jujud"),
+	)
+	if err := cmd.Run(); err != nil {
+		if err, ok := err.(*exec.ExitError); ok {
+			// Exit status 1 means no processes were matched:
+			// we don't consider this an error here.
+			if err.ProcessState.Sys().(syscall.WaitStatus).ExitStatus() != 1 {
+				return errgo.Annotate(err, "failed to kill jujud")
 			}
 		}
-		cmd := exec.Command(
-			"pkill",
-			fmt.Sprintf("-%d", terminationworker.TerminationSignal),
-			"-f", filepath.Join(regexp.QuoteMeta(env.config.rootDir()), ".*", "jujud"),
-		)
-		return cmd.Run()
 	}
+	if err := os.RemoveAll(env.config.rootDir()); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
 }
 
 // OpenPorts is specified in the Environ interface.

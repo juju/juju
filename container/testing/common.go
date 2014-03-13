@@ -6,13 +6,13 @@ package testing
 import (
 	"io/ioutil"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
@@ -21,7 +21,6 @@ func StartContainer(c *gc.C, manager container.Manager, machineId string) instan
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	machineConfig := environs.NewMachineConfig(machineId, "fake-nonce", stateInfo, apiInfo)
-	machineConfig.SyslogPort = 2345
 	machineConfig.Tools = &tools.Tools{
 		Version: version.MustParseBinary("2.3.4-foo-bar"),
 		URL:     "http://tools.testing.invalid/2.3.4-foo-bar.tgz",

@@ -12,8 +12,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
@@ -36,7 +37,7 @@ import (
 
 const (
 	// TODO(axw) make this configurable?
-	dataDir = "/var/lib/juju"
+	dataDir = agent.DefaultDataDir
 
 	// storageSubdir is the subdirectory of
 	// dataDir in which storage will be located.
@@ -188,6 +189,7 @@ func (e *manualEnviron) Instances(ids []instance.Id) (instances []instance.Insta
 }
 
 var newSSHStorage = func(sshHost, storageDir, storageTmpdir string) (storage.Storage, error) {
+	logger.Debugf("using ssh storage at host %q dir %q", sshHost, storageDir)
 	return sshstorage.NewSSHStorage(sshstorage.NewSSHStorageParams{
 		Host:       sshHost,
 		StorageDir: storageDir,
@@ -200,7 +202,7 @@ var newSSHStorage = func(sshHost, storageDir, storageTmpdir string) (storage.Sto
 func (e *manualEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off private storage.
 	return []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath),
+		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseToolsPath),
 	}, nil
 }
 

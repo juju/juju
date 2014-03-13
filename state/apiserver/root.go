@@ -24,6 +24,7 @@ import (
 	loggerapi "launchpad.net/juju-core/state/apiserver/logger"
 	"launchpad.net/juju-core/state/apiserver/machine"
 	"launchpad.net/juju-core/state/apiserver/provisioner"
+	"launchpad.net/juju-core/state/apiserver/rsyslog"
 	"launchpad.net/juju-core/state/apiserver/uniter"
 	"launchpad.net/juju-core/state/apiserver/upgrader"
 	"launchpad.net/juju-core/state/apiserver/usermanager"
@@ -191,6 +192,17 @@ func (r *srvRoot) Environment(id string) (*environment.EnvironmentAPI, error) {
 		return nil, common.ErrBadId
 	}
 	return environment.NewEnvironmentAPI(r.srv.state, r.resources, r)
+}
+
+// Rsyslog returns an object that provides access to the Rsyslog API
+// facade. The id argument is reserved for future use and currently needs to
+// be empty.
+func (r *srvRoot) Rsyslog(id string) (*rsyslog.RsyslogAPI, error) {
+	if id != "" {
+		// Safeguard id for possible future use.
+		return nil, common.ErrBadId
+	}
+	return rsyslog.NewRsyslogAPI(r.srv.state, r.resources, r)
 }
 
 // Logger returns an object that provides access to the Logger API facade.

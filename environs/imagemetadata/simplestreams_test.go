@@ -66,7 +66,8 @@ func Test(t *testing.T) {
 func registerSimpleStreamsTests() {
 	gc.Suite(&simplestreamsSuite{
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
-			Source:        simplestreams.NewURLDataSource("test:", simplestreams.VerifySSLHostnames),
+			Source: simplestreams.NewURLDataSource(
+				"test roundtripper", "test:", simplestreams.VerifySSLHostnames),
 			RequireSigned: false,
 			DataType:      imagemetadata.ImageIds,
 			ValidConstraint: imagemetadata.NewImageConstraint(simplestreams.LookupParams{
@@ -84,7 +85,7 @@ func registerSimpleStreamsTests() {
 
 func registerLiveSimpleStreamsTests(baseURL string, validImageConstraint simplestreams.LookupConstraint, requireSigned bool) {
 	gc.Suite(&sstesting.LocalLiveSimplestreamsSuite{
-		Source:          simplestreams.NewURLDataSource(baseURL, simplestreams.VerifySSLHostnames),
+		Source:          simplestreams.NewURLDataSource("test", baseURL, simplestreams.VerifySSLHostnames),
 		RequireSigned:   requireSigned,
 		DataType:        imagemetadata.ImageIds,
 		ValidConstraint: validImageConstraint,
@@ -217,6 +218,14 @@ var fetchTests = []struct {
 				Storage:    "ebs",
 			},
 			{
+				Id:         "ami-26745464",
+				VType:      "pv",
+				Arch:       "amd64",
+				RegionName: "au-east-1",
+				Endpoint:   "https://somewhere",
+				Storage:    "ebs",
+			},
+			{
 				Id:         "ami-442ea674",
 				VType:      "hvm",
 				Arch:       "amd64",
@@ -232,14 +241,6 @@ var fetchTests = []struct {
 				RegionName:  "us-west-3",
 				Endpoint:    "https://ec2.us-west-3.amazonaws.com",
 				Storage:     "ebs",
-			},
-			{
-				Id:         "ami-26745464",
-				VType:      "pv",
-				Arch:       "amd64",
-				RegionName: "au-east-1",
-				Endpoint:   "https://somewhere",
-				Storage:    "ebs",
 			},
 			{
 				Id:         "ami-442ea684",
@@ -265,7 +266,11 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 			Series:    []string{"precise"},
 			Arches:    t.arches,
 		})
-		images, err := imagemetadata.Fetch([]simplestreams.DataSource{s.Source}, simplestreams.DefaultIndexPath, imageConstraint, s.RequireSigned)
+		// Add invalid datasource and check later that resolveInfo is correct.
+		invalidSource := simplestreams.NewURLDataSource("invalid", "file://invalid", simplestreams.VerifySSLHostnames)
+		images, resolveInfo, err := imagemetadata.Fetch(
+			[]simplestreams.DataSource{invalidSource, s.Source}, simplestreams.DefaultIndexPath,
+			imageConstraint, s.RequireSigned)
 		if !c.Check(err, gc.IsNil) {
 			continue
 		}
@@ -273,6 +278,12 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 			testImage.Version = t.version
 		}
 		c.Check(images, gc.DeepEquals, t.images)
+		c.Check(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
+			Source:    "test roundtripper",
+			Signed:    s.RequireSigned,
+			IndexURL:  "test:/streams/v1/index.json",
+			MirrorURL: "",
+		})
 	}
 }
 
@@ -364,28 +375,34 @@ func (s *signedSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *signedSuite) TestSignedImageMetadata(c *gc.C) {
-	signedSource := simplestreams.NewURLDataSource("signedtest://host/signed", simplestreams.VerifySSLHostnames)
+	signedSource := simplestreams.NewURLDataSource("test", "signedtest://host/signed", simplestreams.VerifySSLHostnames)
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
 		Series:    []string{"precise"},
 		Arches:    []string{"amd64"},
 	})
-	images, err := imagemetadata.Fetch(
+	images, resolveInfo, err := imagemetadata.Fetch(
 		[]simplestreams.DataSource{signedSource}, simplestreams.DefaultIndexPath, imageConstraint, true)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(images), gc.Equals, 1)
 	c.Assert(images[0].Id, gc.Equals, "ami-123456")
+	c.Check(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
+		Source:    "test",
+		Signed:    true,
+		IndexURL:  "signedtest://host/signed/streams/v1/index.sjson",
+		MirrorURL: "",
+	})
 }
 
 func (s *signedSuite) TestSignedImageMetadataInvalidSignature(c *gc.C) {
-	signedSource := simplestreams.NewURLDataSource("signedtest://host/signed", simplestreams.VerifySSLHostnames)
+	signedSource := simplestreams.NewURLDataSource("test", "signedtest://host/signed", simplestreams.VerifySSLHostnames)
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
 		Series:    []string{"precise"},
 		Arches:    []string{"amd64"},
 	})
 	imagemetadata.SetSigningPublicKey(s.origKey)
-	_, err := imagemetadata.Fetch(
+	_, _, err := imagemetadata.Fetch(
 		[]simplestreams.DataSource{signedSource}, simplestreams.DefaultIndexPath, imageConstraint, true)
 	c.Assert(err, gc.ErrorMatches, "cannot read index data.*")
 }

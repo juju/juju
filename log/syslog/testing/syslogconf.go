@@ -15,13 +15,19 @@ $ModLoad imfile
 
 $InputFilePersistStateInterval 50
 $InputFilePollInterval 5
-$InputFileName /var/log/juju/{{.MachineTag}}.log
+$InputFileName /var/log/juju{{.Namespace}}/{{.MachineTag}}.log
 $InputFileTag juju{{.Namespace}}-{{.MachineTag}}:
 $InputFileStateFile {{.MachineTag}}{{.Namespace}}
 $InputRunFileMonitor
 
-$ModLoad imudp
-$UDPServerRun {{.Port}}
+$ModLoad imtcp
+$DefaultNetstreamDriver gtls
+$DefaultNetstreamDriverCAFile /var/log/juju{{.Namespace}}/ca-cert.pem
+$DefaultNetstreamDriverCertFile /var/log/juju{{.Namespace}}/rsyslog-cert.pem
+$DefaultNetstreamDriverKeyFile /var/log/juju{{.Namespace}}/rsyslog-key.pem
+$InputTCPServerStreamDriverAuthMode anon
+$InputTCPServerStreamDriverMode 1 # run driver in TLS-only mode
+$InputTCPServerRun {{.Port}}
 
 # Messages received from remote rsyslog machines have messages prefixed with a space,
 # so add one in for local messages too if needed.
@@ -35,6 +41,7 @@ $FileCreateMode 0640
 
 type templateArgs struct {
 	MachineTag  string
+	LogDir      string
 	Namespace   string
 	BootstrapIP string
 	Port        int
@@ -61,21 +68,32 @@ func ExpectedAccumulateSyslogConf(c *gc.C, machineTag, namespace string, port in
 var expectedForwardSyslogConfTemplate = `
 $ModLoad imfile
 
+# Enable reliable forwarding.
+$ActionQueueType LinkedList
+$ActionQueueFileName {{.MachineTag}}{{.Namespace}}
+$ActionResumeRetryCount -1
+$ActionQueueSaveOnShutdown on
+
 $InputFilePersistStateInterval 50
 $InputFilePollInterval 5
-$InputFileName /var/log/juju/{{.MachineTag}}.log
+$InputFileName {{.LogDir}}/{{.MachineTag}}.log
 $InputFileTag juju{{.Namespace}}-{{.MachineTag}}:
 $InputFileStateFile {{.MachineTag}}{{.Namespace}}
 $InputRunFileMonitor
 
+$DefaultNetstreamDriver gtls
+$DefaultNetstreamDriverCAFile {{.LogDir}}/ca-cert.pem
+$ActionSendStreamDriverAuthMode anon
+$ActionSendStreamDriverMode 1 # run driver in TLS-only mode
+
 $template LongTagForwardFormat,"<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %syslogtag%%msg:::sp-if-no-1st-sp%%msg%"
 
-:syslogtag, startswith, "juju{{.Namespace}}-" @{{.BootstrapIP}}:{{.Port}};LongTagForwardFormat
+:syslogtag, startswith, "juju{{.Namespace}}-" @@{{.BootstrapIP}}:{{.Port}};LongTagForwardFormat
 & ~
 `
 
 // ExpectedForwardSyslogConf returns the expected content for a rsyslog file on a host machine.
-func ExpectedForwardSyslogConf(c *gc.C, machineTag, namespace, bootstrapIP string, port int) string {
+func ExpectedForwardSyslogConf(c *gc.C, machineTag, logDir, namespace, bootstrapIP string, port int) string {
 	if namespace != "" {
 		namespace = "-" + namespace
 	}
@@ -83,6 +101,7 @@ func ExpectedForwardSyslogConf(c *gc.C, machineTag, namespace, bootstrapIP strin
 	var conf bytes.Buffer
 	err := t.Execute(&conf, templateArgs{
 		MachineTag:  machineTag,
+		LogDir:      logDir,
 		Namespace:   namespace,
 		BootstrapIP: bootstrapIP,
 		Port:        port,

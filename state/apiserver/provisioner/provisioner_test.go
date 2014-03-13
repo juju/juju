@@ -7,6 +7,7 @@ import (
 	"fmt"
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
@@ -22,7 +23,6 @@ import (
 	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 )
 
@@ -700,7 +700,6 @@ func (s *withoutStateServerSuite) TestContainerConfig(c *gc.C) {
 	c.Check(results.ProviderType, gc.Equals, "dummy")
 	c.Check(results.AuthorizedKeys, gc.Equals, coretesting.FakeAuthKeys)
 	c.Check(results.SSLHostnameVerification, jc.IsTrue)
-	c.Check(results.SyslogPort, gc.Equals, 2345)
 	c.Check(results.Proxy, gc.DeepEquals, expectedProxy)
 	c.Check(results.AptProxy, gc.DeepEquals, expectedProxy)
 }

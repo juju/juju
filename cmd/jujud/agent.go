@@ -14,14 +14,17 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	apiagent "launchpad.net/juju-core/state/api/agent"
 	apideployer "launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/state/api/params"
+	apirsyslog "launchpad.net/juju-core/state/api/rsyslog"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/deployer"
+	"launchpad.net/juju-core/worker/rsyslog"
 	"launchpad.net/juju-core/worker/upgrader"
 )
 
@@ -38,6 +41,10 @@ type AgentConf struct {
 
 // addFlags injects common agent flags into f.
 func (c *AgentConf) addFlags(f *gnuflag.FlagSet) {
+	// TODO(dimitern) 2014-02-19 bug 1282025
+	// We need to pass a config location here instead and
+	// use it to locate the conf and the infer the data-dir
+	// from there instead of passing it like that.
 	f.StringVar(&c.dataDir, "data-dir", "/var/lib/juju", "directory for juju data")
 }
 
@@ -49,7 +56,7 @@ func (c *AgentConf) checkArgs(args []string) error {
 }
 
 func (c *AgentConf) read(tag string) (err error) {
-	c.config, err = agent.ReadConf(c.dataDir, tag)
+	c.config, err = agent.ReadConf(agent.ConfigPath(c.dataDir, tag))
 	return
 }
 
@@ -209,7 +216,7 @@ func agentDone(err error) error {
 	if ug, ok := err.(*upgrader.UpgradeReadyError); ok {
 		if err := ug.ChangeAgentTools(); err != nil {
 			// Return and let upstart deal with the restart.
-			return err
+			return log.LoggedErrorf(logger, "cannot change agent tools: %v", err)
 		}
 	}
 	return err
@@ -248,4 +255,20 @@ func (c *closeWorker) Wait() error {
 // otherwise be restricted.
 var newDeployContext = func(st *apideployer.State, agentConfig agent.Config) deployer.Context {
 	return deployer.NewSimpleContext(agentConfig, st)
+}
+
+// newRsyslogConfigWorker creates and returns a new RsyslogConfigWorker
+// based on the specified configuration parameters.
+var newRsyslogConfigWorker = func(st *apirsyslog.State, agentConfig agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
+	tag := agentConfig.Tag()
+	namespace := agentConfig.Value(agent.Namespace)
+	var addrs []string
+	if mode == rsyslog.RsyslogModeForwarding {
+		var err error
+		addrs, err = agentConfig.APIAddresses()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return rsyslog.NewRsyslogConfigWorker(st, mode, tag, namespace, addrs)
 }

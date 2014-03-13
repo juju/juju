@@ -17,7 +17,7 @@ import (
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
@@ -117,7 +117,7 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) (err error) {
 	defer client.Close()
 	defer func() {
 		if err == errUpToDate {
-			log.Noticef(err.Error())
+			logger.Infof(err.Error())
 			err = nil
 		}
 	}()
@@ -134,78 +134,27 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	env, err := environs.New(cfg)
-	if err != nil {
-		return err
-	}
-	v, err := c.initVersions(cfg, env)
+	v, err := c.initVersions(client, cfg)
 	if err != nil {
 		return err
 	}
 	if c.UploadTools {
 		series := getUploadSeries(cfg, c.Series)
-		if err := v.uploadTools(env.Storage(), series); err != nil {
+		if err := v.uploadTools(cfg, series); err != nil {
 			return err
 		}
 	}
 	if err := v.validate(); err != nil {
 		return err
 	}
-	log.Infof("upgrade version chosen: %s", v.chosen)
+	logger.Infof("upgrade version chosen: %s", v.chosen)
 	// TODO(fwereade): this list may be incomplete, pending envtools.Upload change.
-	log.Infof("available tools: %s", v.tools)
+	logger.Infof("available tools: %s", v.tools)
 
 	if err := client.SetEnvironAgentVersion(v.chosen); err != nil {
 		return err
 	}
-	log.Noticef("started upgrade to %s", v.chosen)
-	return nil
-}
-
-// run1dot16 implements the command without access to the API. This is
-// needed for compatibility, so 1.16 can be upgraded to newer
-// releases. It should be removed in 1.18.
-func (c *UpgradeJujuCommand) run1dot16() error {
-	log.Warningf("running in 1.16 compatibility mode")
-	conn, err := juju.NewConnFromName(c.EnvName)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-	defer func() {
-		if err == errUpToDate {
-			log.Noticef(err.Error())
-			err = nil
-		}
-	}()
-
-	// Determine the version to upgrade to, uploading tools if necessary.
-	env := conn.Environ
-	cfg, err := conn.State.EnvironConfig()
-	if err != nil {
-		return err
-	}
-	v, err := c.initVersions(cfg, env)
-	if err != nil {
-		return err
-	}
-	if c.UploadTools {
-		series := getUploadSeries(cfg, c.Series)
-		if err := v.uploadTools(env.Storage(), series); err != nil {
-			return err
-		}
-	}
-	if err := v.validate(); err != nil {
-		return err
-	}
-	log.Infof("upgrade version chosen: %s", v.chosen)
-	// TODO(fwereade): this list may be incomplete, pending envtools.Upload change.
-	log.Infof("available tools: %s", v.tools)
-
-	if err := conn.State.SetEnvironAgentVersion(v.chosen); err != nil {
-		return err
-	}
-	log.Noticef("started upgrade to %s", v.chosen)
+	logger.Infof("started upgrade to %s", v.chosen)
 	return nil
 }
 
@@ -213,7 +162,7 @@ func (c *UpgradeJujuCommand) run1dot16() error {
 // agent and client versions, and the list of currently available tools, will
 // always be accurate; the chosen version, and the flag indicating development
 // mode, may remain blank until uploadTools or validate is called.
-func (c *UpgradeJujuCommand) initVersions(cfg *config.Config, env environs.Environ) (*upgradeVersions, error) {
+func (c *UpgradeJujuCommand) initVersions(client *api.Client, cfg *config.Config) (*upgradeVersions, error) {
 	agent, ok := cfg.AgentVersion()
 	if !ok {
 		// Can't happen. In theory.
@@ -222,19 +171,26 @@ func (c *UpgradeJujuCommand) initVersions(cfg *config.Config, env environs.Envir
 	if c.Version == agent {
 		return nil, errUpToDate
 	}
-	client := version.Current.Number
-	// TODO use an API call rather than requiring the environment,
-	// so that we can restrict access to the provider secrets
-	// while still allowing users to upgrade.
-	available, err := envtools.FindTools(env, client.Major, -1, coretools.Filter{}, envtools.DoNotAllowRetry)
+	clientVersion := version.Current.Number
+	findResult, err := client.FindTools(clientVersion.Major, -1, "", "")
+	var availableTools coretools.List
+	if params.IsCodeNotImplemented(err) {
+		availableTools, err = findTools1dot17(cfg)
+	} else {
+		availableTools = findResult.List
+	}
 	if err != nil {
-		if !errors.IsNotFoundError(err) {
+		return nil, err
+	}
+	err = findResult.Error
+	if findResult.Error != nil {
+		if !params.IsCodeNotFound(err) {
 			return nil, err
 		}
 		if !c.UploadTools {
-			// No tools found and we shouldn't upload any, so pretend
-			// there is no more recent version available.
-			if c.Version == version.Zero {
+			// No tools found and we shouldn't upload any, so if we are not asking for a
+			// major upgrade, pretend there is no more recent version available.
+			if c.Version == version.Zero && agent.Major == clientVersion.Major {
 				return nil, errUpToDate
 			}
 			return nil, err
@@ -242,10 +198,20 @@ func (c *UpgradeJujuCommand) initVersions(cfg *config.Config, env environs.Envir
 	}
 	return &upgradeVersions{
 		agent:  agent,
-		client: client,
+		client: clientVersion,
 		chosen: c.Version,
-		tools:  available,
+		tools:  availableTools,
 	}, nil
+}
+
+// findTools1dot17 allows 1.17.x versions to be upgraded.
+func findTools1dot17(cfg *config.Config) (coretools.List, error) {
+	env, err := environs.New(cfg)
+	if err != nil {
+		return nil, err
+	}
+	clientVersion := version.Current.Number
+	return envtools.FindTools(env, clientVersion.Major, -1, coretools.Filter{}, envtools.DoNotAllowRetry)
 }
 
 // upgradeVersions holds the version information for making upgrade decisions.
@@ -263,7 +229,7 @@ type upgradeVersions struct {
 // than that of any otherwise-matching available envtools.
 // uploadTools resets the chosen version and replaces the available tools
 // with the ones just uploaded.
-func (v *upgradeVersions) uploadTools(storage storage.Storage, series []string) error {
+func (v *upgradeVersions) uploadTools(cfg *config.Config, series []string) (err error) {
 	// TODO(fwereade): this is kinda crack: we should not assume that
 	// version.Current matches whatever source happens to be built. The
 	// ideal would be:
@@ -281,11 +247,17 @@ func (v *upgradeVersions) uploadTools(storage storage.Storage, series []string) 
 	}
 	v.chosen = uploadVersion(v.chosen, v.tools)
 
-	// TODO(fwereade): envtools.Upload should return envtools.List, and should
+	// TODO(wallyworld): we don't want to create an environment here but there's
+	// currently no choice. We need to add an UploadTools API.
+	env, err := environs.New(cfg)
+	if err != nil {
+		return err
+	}
+	// TODO(fwereade): sync.Upload should return coretools.List, and should
 	// include all the extra series we build, so we can set *that* onto
 	// v.available and maybe one day be able to check that a given upgrade
-	// won't leave out-of-date machines lying around, starved of envtools.
-	uploaded, err := sync.Upload(storage, &v.chosen, series...)
+	// won't leave out-of-date machines lying around, starved of tools.
+	uploaded, err := sync.Upload(env.Storage(), &v.chosen, series...)
 	if err != nil {
 		return err
 	}
@@ -299,27 +271,38 @@ func (v *upgradeVersions) uploadTools(storage storage.Storage, series []string) 
 // the value of the chosen field.
 func (v *upgradeVersions) validate() (err error) {
 	if v.chosen == version.Zero {
-		// No explicitly specified version, so find the next available
-		// stable release to upgrade to, starting from the current agent
-		// version and doing major.minor+1 or +2 as needed.
-		nextStable := v.agent
-		if v.agent.IsDev() {
-			nextStable.Minor += 1
+		// No explicitly specified version, so find the version to which we
+		// need to upgrade. If the CLI and agent major versions match, we find
+		// next available stable release to upgrade to by incrementing the
+		// minor version, starting from the current agent version and doing
+		// major.minor+1 or +2 as needed. If the CLI has a greater major version,
+		// we just use the CLI version as is.
+		nextVersion := v.agent
+		if nextVersion.Major == v.client.Major {
+			if v.agent.IsDev() {
+				nextVersion.Minor += 1
+			} else {
+				nextVersion.Minor += 2
+			}
 		} else {
-			nextStable.Minor += 2
+			nextVersion = v.client
 		}
 
-		newestNextStable, found := v.tools.NewestCompatible(nextStable)
+		newestNextStable, found := v.tools.NewestCompatible(nextVersion)
 		if found {
-			log.Debugf("found a more recent stable version %s", newestNextStable)
+			logger.Debugf("found a more recent stable version %s", newestNextStable)
 			v.chosen = newestNextStable
 		} else {
 			newestCurrent, found := v.tools.NewestCompatible(v.agent)
 			if found {
-				log.Debugf("found more recent current version %s", newestCurrent)
+				logger.Debugf("found more recent current version %s", newestCurrent)
 				v.chosen = newestCurrent
 			} else {
-				return fmt.Errorf("no more recent supported versions available")
+				if v.agent.Major != v.client.Major {
+					return fmt.Errorf("no compatible tools available")
+				} else {
+					return fmt.Errorf("no more recent supported versions available")
+				}
 			}
 		}
 	} else {
@@ -334,17 +317,15 @@ func (v *upgradeVersions) validate() (err error) {
 		return errUpToDate
 	}
 
-	// Major version upgrade
-	if v.chosen.Major < v.agent.Major {
+	// Disallow major.minor version downgrades.
+	if v.chosen.Major < v.agent.Major || v.chosen.Major == v.agent.Major && v.chosen.Minor < v.agent.Minor {
 		// TODO(fwereade): I'm a bit concerned about old agent/CLI tools even
 		// *connecting* to environments with higher agent-versions; but ofc they
 		// have to connect in order to discover they shouldn't. However, once
 		// any of our tools detect an incompatible version, they should act to
 		// minimize damage: the CLI should abort politely, and the agents should
 		// run an Upgrader but no other tasks.
-		return fmt.Errorf("cannot change major version from %d to %d", v.agent.Major, v.chosen.Major)
-	} else if v.chosen.Major > v.agent.Major {
-		return fmt.Errorf("major version upgrades are not supported yet")
+		return fmt.Errorf("cannot change version from %s to %s", v.agent, v.chosen)
 	}
 
 	return nil
@@ -363,4 +344,95 @@ func uploadVersion(vers version.Number, existing coretools.List) version.Number 
 		}
 	}
 	return vers
+}
+
+// run1dot16 implements the command without access to the API. This is
+// needed for compatibility, so 1.16 can be upgraded to newer
+// releases. It should be removed in 1.18.
+func (c *UpgradeJujuCommand) run1dot16() error {
+	logger.Warningf("running in 1.16 compatibility mode")
+	conn, err := juju.NewConnFromName(c.EnvName)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	defer func() {
+		if err == errUpToDate {
+			logger.Infof(err.Error())
+			err = nil
+		}
+	}()
+
+	// Determine the version to upgrade to, uploading tools if necessary.
+	env := conn.Environ
+	cfg, err := conn.State.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	v, err := c.initVersions1dot16(cfg, env)
+	if err != nil {
+		return err
+	}
+	if c.UploadTools {
+		series := getUploadSeries(cfg, c.Series)
+		if err := v.uploadTools1dot16(env.Storage(), series); err != nil {
+			return err
+		}
+	}
+	if err := v.validate(); err != nil {
+		return err
+	}
+	logger.Infof("upgrade version chosen: %s", v.chosen)
+	logger.Infof("available tools: %s", v.tools)
+
+	if err := conn.State.SetEnvironAgentVersion(v.chosen); err != nil {
+		return err
+	}
+	logger.Infof("started upgrade to %s", v.chosen)
+	return nil
+}
+
+func (c *UpgradeJujuCommand) initVersions1dot16(cfg *config.Config, env environs.Environ) (*upgradeVersions, error) {
+	agent, ok := cfg.AgentVersion()
+	if !ok {
+		// Can't happen. In theory.
+		return nil, fmt.Errorf("incomplete environment configuration")
+	}
+	if c.Version == agent {
+		return nil, errUpToDate
+	}
+	client := version.Current.Number
+	available, err := envtools.FindTools(env, client.Major, -1, coretools.Filter{}, envtools.DoNotAllowRetry)
+	if err != nil {
+		if !errors.IsNotFoundError(err) {
+			return nil, err
+		}
+		if !c.UploadTools {
+			// No tools found and we shouldn't upload any, so if we are not asking for a
+			// major upgrade, pretend there is no more recent version available.
+			if c.Version == version.Zero && agent.Major == client.Major {
+				return nil, errUpToDate
+			}
+			return nil, err
+		}
+	}
+	return &upgradeVersions{
+		agent:  agent,
+		client: client,
+		chosen: c.Version,
+		tools:  available,
+	}, nil
+}
+
+func (v *upgradeVersions) uploadTools1dot16(storage storage.Storage, series []string) error {
+	if v.chosen == version.Zero {
+		v.chosen = v.client
+	}
+	v.chosen = uploadVersion(v.chosen, v.tools)
+	uploaded, err := sync.Upload(storage, &v.chosen, series...)
+	if err != nil {
+		return err
+	}
+	v.tools = coretools.List{uploaded}
+	return nil
 }

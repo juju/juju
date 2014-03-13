@@ -8,6 +8,7 @@ package imagemetadata
 
 import (
 	"fmt"
+	"sort"
 
 	"launchpad.net/juju-core/environs/simplestreams"
 )
@@ -100,7 +101,7 @@ func NewImageConstraint(params simplestreams.LookupParams) *ImageConstraint {
 		params.Series = simplestreams.SupportedSeries()
 	}
 	if len(params.Arches) == 0 {
-		params.Arches = []string{"amd64", "i386", "arm"}
+		params.Arches = []string{"amd64", "i386", "arm", "arm64", "ppc64"}
 	}
 	return &ImageConstraint{LookupParams: params}
 }
@@ -164,23 +165,40 @@ func (im *ImageMetadata) productId() string {
 // The base URL locations are as specified - the first location which has a file is the one used.
 // Signed data is preferred, but if there is no signed data available and onlySigned is false,
 // then unsigned data is used.
-func Fetch(sources []simplestreams.DataSource, indexPath string, cons *ImageConstraint, onlySigned bool) ([]*ImageMetadata, error) {
+func Fetch(
+	sources []simplestreams.DataSource, indexPath string, cons *ImageConstraint,
+	onlySigned bool) ([]*ImageMetadata, *simplestreams.ResolveInfo, error) {
 	params := simplestreams.ValueParams{
 		DataType:      ImageIds,
 		FilterFunc:    appendMatchingImages,
 		ValueTemplate: ImageMetadata{},
 		PublicKey:     simplestreamsImagesPublicKey,
 	}
-	items, err := simplestreams.GetMetadata(sources, indexPath, cons, onlySigned, params)
+	items, resolveInfo, err := simplestreams.GetMetadata(sources, indexPath, cons, onlySigned, params)
 	if err != nil {
-		return nil, err
+		return nil, resolveInfo, err
 	}
 	metadata := make([]*ImageMetadata, len(items))
 	for i, md := range items {
 		metadata[i] = md.(*ImageMetadata)
 	}
-	return metadata, nil
+	// Sorting the metadata is not strictly necessary, but it ensures consistent ordering for
+	// all compilers, and it just makes it easier to look at the data.
+	Sort(metadata)
+	return metadata, resolveInfo, nil
 }
+
+// Sort sorts a slice of ImageMetadata in ascending order of their id
+// in order to ensure the results of Fetch are ordered deterministically.
+func Sort(metadata []*ImageMetadata) {
+	sort.Sort(byId(metadata))
+}
+
+type byId []*ImageMetadata
+
+func (b byId) Len() int           { return len(b) }
+func (b byId) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
+func (b byId) Less(i, j int) bool { return b[i].Id < b[j].Id }
 
 type imageKey struct {
 	vtype   string

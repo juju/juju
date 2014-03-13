@@ -6,6 +6,7 @@ package environs_test
 import (
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
@@ -19,8 +20,8 @@ import (
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
@@ -63,7 +64,6 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 		StateInfo: &state.Info{Tag: "not touched"},
 		APIInfo:   &api.Info{Tag: "not touched"},
 		DisableSSLHostnameVerification: false,
-		SyslogPort:                     2345,
 	})
 }
 
@@ -71,7 +71,6 @@ func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
 	attrs := dummySampleConfig().Merge(testing.Attrs{
 		"authorized-keys":           "we-are-the-keys",
 		"ssl-hostname-verification": false,
-		"syslog-port":               8888,
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
@@ -90,7 +89,6 @@ func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
 		StateInfo: &state.Info{Tag: "not touched"},
 		APIInfo:   &api.Info{Tag: "not touched"},
 		DisableSSLHostnameVerification: true,
-		SyslogPort:                     8888,
 	})
 }
 
@@ -157,6 +155,10 @@ func (*CloudInitSuite) testUserData(c *gc.C, stateServer bool) {
 	envConfig, err := config.New(config.NoDefaults, dummySampleConfig())
 	c.Assert(err, gc.IsNil)
 
+	allJobs := []params.MachineJob{
+		params.JobManageEnviron,
+		params.JobHostUnits,
+	}
 	cfg := &cloudinit.MachineConfig{
 		MachineId:       "10",
 		MachineNonce:    "5432",
@@ -176,13 +178,12 @@ func (*CloudInitSuite) testUserData(c *gc.C, stateServer bool) {
 			Tag:      "machine-10",
 		},
 		DataDir:                 environs.DataDir,
-		LogDir:                  environs.LogDir,
+		LogDir:                  agent.DefaultLogDir,
+		Jobs:                    allJobs,
 		CloudInitOutputLog:      environs.CloudInitOutputLog,
-		RsyslogConfPath:         environs.RsyslogConfPath,
 		Config:                  envConfig,
 		StatePort:               envConfig.StatePort(),
 		APIPort:                 envConfig.APIPort(),
-		SyslogPort:              envConfig.SyslogPort(),
 		StateServer:             stateServer,
 		AgentEnvironment:        map[string]string{agent.ProviderType: "dummy"},
 		AuthorizedKeys:          "wheredidileavemykeys",

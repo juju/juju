@@ -17,25 +17,17 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
 )
 
 // DataDir is the default data directory.
 // Tests can override this where needed, so they don't need to mess with global
 // system state.
-var DataDir = "/var/lib/juju"
-
-// LogDir is the default log file path.
-const LogDir = "/var/log/juju"
+var DataDir = agent.DefaultDataDir
 
 // CloudInitOutputLog is the default cloud-init-output.log file path.
 const CloudInitOutputLog = "/var/log/cloud-init-output.log"
-
-// DefaultRsyslogConfPath is the default rsyslogd conf file path.
-const DefaultRsyslogConfPath = "/etc/rsyslog.d/25-juju.conf"
-
-// Override for testing.
-var RsyslogConfPath = DefaultRsyslogConfPath
 
 // MongoServiceName is the default Upstart service name for Mongo.
 const MongoServiceName = "juju-db"
@@ -48,9 +40,9 @@ func NewMachineConfig(machineID, machineNonce string,
 	return &cloudinit.MachineConfig{
 		// Fixed entries.
 		DataDir:                 DataDir,
-		LogDir:                  LogDir,
+		LogDir:                  agent.DefaultLogDir,
+		Jobs:                    []params.MachineJob{params.JobHostUnits},
 		CloudInitOutputLog:      CloudInitOutputLog,
-		RsyslogConfPath:         RsyslogConfPath,
 		MachineAgentServiceName: "jujud-" + names.MachineTag(machineID),
 		MongoServiceName:        MongoServiceName,
 
@@ -73,6 +65,7 @@ func NewBootstrapMachineConfig(stateInfoURL string, privateSystemSSHKey string) 
 	mcfg.StateServer = true
 	mcfg.StateInfoURL = stateInfoURL
 	mcfg.SystemPrivateSSHKey = privateSystemSSHKey
+	mcfg.Jobs = []params.MachineJob{params.JobManageEnviron, params.JobHostUnits}
 	return mcfg
 }
 
@@ -85,7 +78,6 @@ func NewBootstrapMachineConfig(stateInfoURL string, privateSystemSSHKey string) 
 func PopulateMachineConfig(mcfg *cloudinit.MachineConfig,
 	providerType, authorizedKeys string,
 	sslHostnameVerification bool,
-	syslogPort int,
 	proxy, aptProxy osenv.ProxySettings,
 ) error {
 	if authorizedKeys == "" {
@@ -98,7 +90,6 @@ func PopulateMachineConfig(mcfg *cloudinit.MachineConfig,
 	mcfg.AgentEnvironment[agent.ProviderType] = providerType
 	mcfg.AgentEnvironment[agent.ContainerType] = string(mcfg.MachineContainerType)
 	mcfg.DisableSSLHostnameVerification = !sslHostnameVerification
-	mcfg.SyslogPort = syslogPort
 	mcfg.ProxySettings = proxy
 	mcfg.AptProxySettings = aptProxy
 	return nil
@@ -122,7 +113,6 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 		cfg.Type(),
 		cfg.AuthorizedKeys(),
 		cfg.SSLHostnameVerification(),
-		cfg.SyslogPort(),
 		cfg.ProxySettings(),
 		cfg.AptProxySettings(),
 	); err != nil {

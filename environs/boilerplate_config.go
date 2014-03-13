@@ -12,24 +12,36 @@ import (
 )
 
 var configHeader = `
-# This is the Juju config file, which you can use to specify multiple environments in which to deploy.
-# By default Juju ships AWS (default), HP Cloud, OpenStack.
-# See https://juju.ubuntu.com/docs for more information
+# This is the Juju config file, which you can use to specify multiple
+# environments in which to deploy. By default Juju ships with AWS
+# (default), HP Cloud, OpenStack, Azure, MaaS, Local and Manual
+# providers. See https://juju.ubuntu.com/docs for more information
 
-# An environment configuration must always specify at least the following information:
-#
+# An environment configuration must always specify at least the
+# following information:
 # - name (to identify the environment)
 # - type (to specify the provider)
+# In the following example the name is "myenv" and type is "ec2".
+# myenv:
+#    type: ec2
 
 # Values in <brackets> below need to be filled in by the user.
 # Optional attributes are shown commented out, with
 # a sample value or a value in <brackets>.
 
+# There are several settings supported by all environments, all of which
+# are optional and have specified default values. For more info, see the
+# Juju documentation.
+
 # The default environment is chosen when an environment is not
 # specified using any of the following, in descending order of precedence:
-#   -e or --environment command line parameter.
-#   JUJU_ENV environment variable.
-#   the juju switch command.
+#  1. -e or --environment command line parameter, passed after the command, e.g.
+#     $ juju add-unit -e myenv myservice
+#  2. By setting JUJU_ENV environment variable.
+#  3. Using the juju switch command like this:
+#     $ juju switch myenv
+#
+
 default: amazon
 
 environments:

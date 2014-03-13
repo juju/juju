@@ -14,7 +14,6 @@ import (
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/juju/osenv"
-	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/upstart"
@@ -45,32 +44,19 @@ type SimpleContext struct {
 	// initDir specifies the directory used by upstart on the local system.
 	// It is typically set to "/etc/init".
 	initDir string
-
-	// logDir specifies the directory to which installed units will write
-	// their log files. It is typically set to "/var/log/juju".
-	logDir string
-
-	// sysLogConfigDir specifies the directory to which the syslog conf file
-	// will be written. It is set for testing and left empty for production, in
-	// which case the system default is used, typically /etc/rsyslog.d
-	syslogConfigDir string
-
-	// syslogConfigPath is the full path name of the syslog conf file.
-	syslogConfigPath string
 }
 
 var _ Context = (*SimpleContext)(nil)
 
-// NewSimpleContext returns a new SimpleContext, acting on behalf of the
-// specified deployer, that deploys unit agents as upstart jobs in
-// "/etc/init" logging to "/var/log/juju". Paths to which agents and tools
-// are installed are relative to dataDir.
+// NewSimpleContext returns a new SimpleContext, acting on behalf of
+// the specified deployer, that deploys unit agents as upstart jobs in
+// "/etc/init". Paths to which agents and tools are installed are
+// relative to dataDir.
 func NewSimpleContext(agentConfig agent.Config, api APICalls) *SimpleContext {
 	return &SimpleContext{
 		api:         api,
 		agentConfig: agentConfig,
 		initDir:     InitDir,
-		logDir:      "/var/log/juju",
 	}
 }
 
@@ -88,6 +74,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	// Link the current tools for use by the new agent.
 	tag := names.UnitTag(unitName)
 	dataDir := ctx.agentConfig.DataDir()
+	logDir := ctx.agentConfig.LogDir()
 	_, err = tools.ChangeAgentTools(dataDir, tag, version.Current)
 	toolsDir := tools.ToolsDir(dataDir, tag)
 	defer removeOnErr(&err, toolsDir)
@@ -103,8 +90,9 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			DataDir:           dataDir,
-			Tag:               tag,
+			LogDir:            logDir,
 			UpgradedToVersion: version.Current.Number,
+			Tag:               tag,
 			Password:          initialPassword,
 			Nonce:             "unused",
 			// TODO: remove the state addresses here and test when api only.
@@ -125,19 +113,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	defer removeOnErr(&err, conf.Dir())
 
 	// Install an upstart job that runs the unit agent.
-	logPath := path.Join(ctx.logDir, tag+".log")
-	syslogConfigRenderer := syslog.NewForwardConfig(tag, result.SyslogPort, namespace, result.StateAddresses)
-	syslogConfigRenderer.ConfigDir = ctx.syslogConfigDir
-	syslogConfigRenderer.ConfigFileName = fmt.Sprintf("26-juju-%s.conf", tag)
-	if err := syslogConfigRenderer.Write(); err != nil {
-		return err
-	}
-	ctx.syslogConfigPath = syslogConfigRenderer.ConfigFilePath()
-	if err := syslog.Restart(); err != nil {
-		logger.Warningf("installer: cannot restart syslog daemon: %v", err)
-	}
-	defer removeOnErr(&err, ctx.syslogConfigPath)
-
+	logPath := path.Join(logDir, tag+".log")
 	cmd := strings.Join([]string{
 		path.Join(toolsDir, "jujud"), "unit",
 		"--data-dir", dataDir,
@@ -191,15 +167,6 @@ func (ctx *SimpleContext) RecallUnit(unitName string) error {
 	if err := os.RemoveAll(agentDir); err != nil {
 		return err
 	}
-	if err := os.Remove(ctx.syslogConfigPath); err != nil && !os.IsNotExist(err) {
-		logger.Warningf("installer: cannot remove %q: %v", ctx.syslogConfigPath, err)
-	}
-	// Defer this so a failure here does not impede the cleanup (as in tests).
-	defer func() {
-		if err := syslog.Restart(); err != nil {
-			logger.Warningf("installer: cannot restart syslog daemon: %v", err)
-		}
-	}()
 	toolsDir := tools.ToolsDir(dataDir, tag)
 	return os.Remove(toolsDir)
 }

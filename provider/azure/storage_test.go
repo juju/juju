@@ -11,12 +11,12 @@ import (
 	"net/url"
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gwacl"
 
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/errors"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type storageSuite struct {

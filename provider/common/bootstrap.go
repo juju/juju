@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/cloudinit/sshinit"
@@ -404,19 +404,4 @@ func EnsureBootstrapTools(env environs.Environ, series string, arch *string) (co
 		return nil, err
 	}
 	return bootstrap.SetBootstrapTools(env, possibleTools)
-}
-
-// EnsureNotBootstrapped returns null if the environment is not bootstrapped,
-// and an error if it is or if the function was not able to tell.
-func EnsureNotBootstrapped(env environs.Environ) error {
-	_, err := bootstrap.LoadState(env.Storage())
-	// If there is no error loading the bootstrap state, then we are
-	// bootstrapped.
-	if err == nil {
-		return fmt.Errorf("environment is already bootstrapped")
-	}
-	if err == environs.ErrNotBootstrapped {
-		return nil
-	}
-	return err
 }
