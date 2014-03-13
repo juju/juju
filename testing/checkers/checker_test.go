@@ -6,9 +6,8 @@ package checkers_test
 import (
 	"testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
-
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 func Test(t *testing.T) { gc.TestingT(t) }
