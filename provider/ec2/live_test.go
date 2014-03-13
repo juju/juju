@@ -9,6 +9,7 @@ import (
 	"io"
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	amzec2 "launchpad.net/goamz/ec2"
 	gc "launchpad.net/gocheck"
 
@@ -22,7 +23,6 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/ec2"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )

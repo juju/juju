@@ -5,4 +5,11 @@ package manual
 
 var (
 	InstanceHostAddresses = &instanceHostAddresses
+	ProvisionMachineAgent = &provisionMachineAgent
+	CheckProvisioned      = checkProvisioned
+)
+
+const (
+	DetectionScript        = detectionScript
+	CheckProvisionedScript = checkProvisionedScript
 )

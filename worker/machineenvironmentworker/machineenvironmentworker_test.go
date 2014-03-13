@@ -9,6 +9,7 @@ import (
 	"path"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
@@ -21,7 +22,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/environment"
 	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/machineenvironmentworker"
@@ -123,9 +123,10 @@ func (s *MachineEnvironmentWatcherSuite) updateConfig(c *gc.C) (osenv.ProxySetti
 	c.Assert(err, gc.IsNil)
 
 	proxySettings := osenv.ProxySettings{
-		Http:  "http proxy",
-		Https: "https proxy",
-		Ftp:   "ftp proxy",
+		Http:    "http proxy",
+		Https:   "https proxy",
+		Ftp:     "ftp proxy",
+		NoProxy: "no proxy",
 	}
 
 	envConfig, err := oldConfig.Apply(config.ProxyConfigMap(proxySettings))

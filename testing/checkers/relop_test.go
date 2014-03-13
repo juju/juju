@@ -4,9 +4,8 @@
 package checkers_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
-
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type RelopSuite struct{}

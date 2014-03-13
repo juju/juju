@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 
+	jc "github.com/juju/testing/checkers"
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
@@ -15,7 +16,6 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type ServiceSuite struct {

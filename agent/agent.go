@@ -30,6 +30,9 @@ var logger = loggo.GetLogger("juju.agent")
 // DefaultLogDir defines the default log directory for juju agents.
 const DefaultLogDir = "/var/log/juju"
 
+// DefaultDataDir defines the default data directory for juju agents.
+const DefaultDataDir = "/var/lib/juju"
+
 const (
 	LxcBridge        = "LXC_BRIDGE"
 	ProviderType     = "PROVIDER_TYPE"

@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2013, 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package local
@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -60,6 +61,7 @@ type localEnviron struct {
 	localStorage     storage.Storage
 	storageListener  net.Listener
 	containerManager container.Manager
+	fastLXC          bool
 }
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
@@ -210,12 +212,15 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	defer env.localMutex.Unlock()
 	env.config = ecfg
 	env.name = ecfg.Name()
+	containerType := ecfg.container()
+	env.fastLXC = useFastLXC(containerType)
 
 	env.containerManager, err = factory.NewContainerManager(
-		ecfg.container(),
+		containerType,
 		container.ManagerConfig{
 			container.ConfigName:   env.config.namespace(),
 			container.ConfigLogDir: env.config.logDir(),
+			"use-clone":            strconv.FormatBool(env.fastLXC),
 		})
 	if err != nil {
 		return err

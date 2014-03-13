@@ -7,9 +7,8 @@ import (
 	"reflect"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
-
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 // NotifyAsserterC gives helper functions for making assertions about how a
