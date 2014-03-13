@@ -204,6 +204,19 @@ func (s *LxcSuite) createTemplate(c *gc.C) golxc.Container {
 	s.AssertEvent(c, <-s.events, mock.Created, name)
 	s.AssertEvent(c, <-s.events, mock.Started, name)
 	s.AssertEvent(c, <-s.events, mock.Stopped, name)
+
+	autostartLink := lxc.RestartSymlink(name)
+	config, err := ioutil.ReadFile(lxc.ContainerConfigFilename(name))
+	c.Assert(err, gc.IsNil)
+	expected := `
+lxc.network.type = veth
+lxc.network.link = lxcbr0
+lxc.network.flags = up
+`
+	// NOTE: no autostart, no mounting the log dir
+	c.Assert(string(config), gc.Equals, expected)
+	c.Assert(autostartLink, jc.DoesNotExist)
+
 	return template
 }
 
