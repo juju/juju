@@ -194,7 +194,7 @@ func (s *LxcSuite) TestStartContainerEventsWithClone(c *gc.C) {
 func (s *LxcSuite) createTemplate(c *gc.C) golxc.Container {
 	name := "juju-series-template"
 	s.ensureTemplateStopped(name)
-	network := lxc.DefaultNetworkConfig()
+	network := container.BridgeNetworkConfig("nic42")
 	authorizedKeys := "authorized keys list"
 	aptProxy := osenv.ProxySettings{}
 	template, err := lxc.EnsureCloneTemplate(
@@ -210,7 +210,7 @@ func (s *LxcSuite) createTemplate(c *gc.C) golxc.Container {
 	c.Assert(err, gc.IsNil)
 	expected := `
 lxc.network.type = veth
-lxc.network.link = lxcbr0
+lxc.network.link = nic42
 lxc.network.flags = up
 `
 	// NOTE: no autostart, no mounting the log dir
@@ -225,9 +225,16 @@ func (s *LxcSuite) TestStartContainerEventsWithCloneExistingTemplate(c *gc.C) {
 	s.PatchValue(&s.useClone, true)
 	manager := s.makeManager(c, "test")
 	instance := containertesting.StartContainer(c, manager, "1")
-	id := string(instance.Id())
+	name := string(instance.Id())
 	s.AssertEvent(c, <-s.events, mock.Cloned, "juju-series-template")
-	s.AssertEvent(c, <-s.events, mock.Started, id)
+	s.AssertEvent(c, <-s.events, mock.Started, name)
+
+	autostartLink := lxc.RestartSymlink(name)
+	config, err := ioutil.ReadFile(lxc.ContainerConfigFilename(name))
+	c.Assert(err, gc.IsNil)
+	mountLine := "lxc.mount.entry=/var/log/juju var/log/juju none defaults,bind 0 0"
+	c.Assert(string(config), jc.Contains, mountLine)
+	c.Assert(autostartLink, jc.IsSymlink)
 }
 
 func (s *LxcSuite) TestContainerState(c *gc.C) {
