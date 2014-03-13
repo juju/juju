@@ -163,6 +163,26 @@ func (m *Machine) Series() (string, error) {
 	return result.Result, nil
 }
 
+// PrincipalUnits returns the machine's assigned principal units.
+func (m *Machine) PrincipalUnits() ([]string, error) {
+	var results params.StringsResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: m.tag}},
+	}
+	err := m.st.caller.Call("Provisioner", "", "PrincipalUnits", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return result.Result, nil
+}
+
 // SetProvisioned sets the provider specific machine id, nonce and also metadata for
 // this machine. Once set, the instance id cannot be changed.
 func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics) error {

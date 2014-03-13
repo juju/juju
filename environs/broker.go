@@ -23,6 +23,11 @@ type StartInstanceParams struct {
 
 	// MachineConfig describes the machine's configuration.
 	MachineConfig *cloudinit.MachineConfig
+
+	// PrincipalUnits contains the names of the principal
+	// units initially associated with the machine for
+	// which the instance is being created.
+	PrincipalUnits []string
 }
 
 // TODO(wallyworld) - we want this in the environs/instance package but import loops

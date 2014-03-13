@@ -387,6 +387,10 @@ func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error
 	if err != nil {
 		return err
 	}
+	principalUnits, err := machine.PrincipalUnits()
+	if err != nil {
+		return err
+	}
 	possibleTools, err := task.possibleTools(series, cons)
 	if err != nil {
 		return err
@@ -396,9 +400,10 @@ func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error
 		return err
 	}
 	inst, metadata, err := task.broker.StartInstance(environs.StartInstanceParams{
-		Constraints:   cons,
-		Tools:         possibleTools,
-		MachineConfig: machineConfig,
+		Constraints:    cons,
+		Tools:          possibleTools,
+		MachineConfig:  machineConfig,
+		PrincipalUnits: principalUnits,
 	})
 	if err != nil {
 		// Set the state to error, so the machine will be skipped next

@@ -240,6 +240,34 @@ func (p *ProvisionerAPI) Series(args params.Entities) (params.StringResults, err
 	return result, nil
 }
 
+// PrincipalUnits returns the principal units for each given machine entity.
+func (p *ProvisionerAPI) PrincipalUnits(args params.Entities) (params.StringsResults, error) {
+	result := params.StringsResults{
+		Results: make([]params.StringsResult, len(args.Entities)),
+	}
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		return result, err
+	}
+	for i, entity := range args.Entities {
+		machine, err := p.getMachine(canAccess, entity.Tag)
+		if err == nil {
+			units, err := machine.Units()
+			if err == nil {
+				var principals []string
+				for _, unit := range units {
+					if unit.IsPrincipal() {
+						principals = append(principals, unit.Name())
+					}
+				}
+				result.Results[i].Result = principals
+			}
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
 // Constraints returns the constraints for each given machine entity.
 func (p *ProvisionerAPI) Constraints(args params.Entities) (params.ConstraintsResults, error) {
 	result := params.ConstraintsResults{

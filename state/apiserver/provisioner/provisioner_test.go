@@ -534,6 +534,54 @@ func (s *withoutStateServerSuite) TestSeries(c *gc.C) {
 	})
 }
 
+func (s *withoutStateServerSuite) TestPrincipalUnits(c *gc.C) {
+	addUnits := func(name string, machines ...*state.Machine) (units []*state.Unit) {
+		svc := s.AddTestingService(c, name, s.AddTestingCharm(c, name))
+		for _, m := range machines {
+			unit, err := svc.AddUnit()
+			c.Assert(err, gc.IsNil)
+			err = unit.AssignToMachine(m)
+			c.Assert(err, gc.IsNil)
+			units = append(units, unit)
+		}
+		return units
+	}
+	mysqlUnit := addUnits("mysql", s.machines[0])[0]
+	addUnits("wordpress", s.machines[0], s.machines[2])
+
+	// Create a logging service, subordinate to mysql.
+	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
+	eps, err := s.State.InferEndpoints([]string{"mysql", "logging"})
+	c.Assert(err, gc.IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, gc.IsNil)
+	ru, err := rel.Unit(mysqlUnit)
+	c.Assert(err, gc.IsNil)
+	err = ru.EnterScope(nil)
+	c.Assert(err, gc.IsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: s.machines[0].Tag()},
+		{Tag: s.machines[1].Tag()},
+		{Tag: s.machines[2].Tag()},
+		{Tag: "machine-42"},
+		{Tag: "unit-foo-0"},
+		{Tag: "service-bar"},
+	}}
+	result, err := s.provisioner.PrincipalUnits(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsResults{
+		Results: []params.StringsResult{
+			{Result: []string{"mysql/0", "wordpress/0"}},
+			{Result: nil},
+			{Result: []string{"wordpress/1"}},
+			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
 func (s *withoutStateServerSuite) TestConstraints(c *gc.C) {
 	// Add a machine with some constraints.
 	template := state.MachineTemplate{

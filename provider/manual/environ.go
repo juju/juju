@@ -58,6 +58,7 @@ type manualEnviron struct {
 }
 
 var _ envtools.SupportsCustomSources = (*manualEnviron)(nil)
+var _ state.Prechecker = (*manualEnviron)(nil)
 
 var errNoStartInstance = errors.New("manual provider cannot start instances")
 var errNoStopInstance = errors.New("manual provider cannot stop instances")
@@ -231,7 +232,7 @@ func (e *manualEnviron) Destroy() error {
 	return err
 }
 
-func (*manualEnviron) PrecheckInstance(series string, cons constraints.Value) error {
+func (*manualEnviron) PrecheckInstance(series string, cons constraints.Value, principalUnits []string) error {
 	return errors.New(`use "juju add-machine ssh:[user@]<host>" to provision machines`)
 }
 
