@@ -53,16 +53,8 @@ type testInstanceGetter struct {
 
 func (i *testInstanceGetter) Instances(ids []instance.Id) (result []instance.Instance, err error) {
 	i.ids = ids
-	err = i.err
         i.counter = atomic.AddInt32(&i.counter, 1)
-	for _, inst := range i.results {
-		if inst == nil {
-			result = append(result, nil)
-		} else {
-			result = append(result, inst)
-		}
-	}
-	return
+	return i.results, i.err
 }
 
 func newTestInstance(status string, addresses []string) *testInstance {
