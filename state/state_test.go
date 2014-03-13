@@ -1032,7 +1032,7 @@ func (s *StateSuite) TestServiceNotFound(c *gc.C) {
 
 func (s *StateSuite) TestAddServiceNoTag(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	_, err := s.State.AddService("wordpress", "admin", charm)
+	_, err := s.State.AddService("wordpress", state.AdminUser, charm)
 	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": Invalid ownertag admin")
 }
 
