@@ -95,7 +95,7 @@ func (a *aggregator) loop() error {
 	}
 }
 
-// instanceInfo returns the instance info for the given id
+// instInfo returns the instance info for the given id
 // and instance. If inst is nil, it returns a not-found error.
 func (*aggregator) instInfo(id instance.Id, inst instance.Instance) (instanceInfo, error) {
 	if inst == nil {
