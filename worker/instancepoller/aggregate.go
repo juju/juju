@@ -57,14 +57,14 @@ func (a *aggregator) instanceInfo(id instance.Id) (instanceInfo, error) {
 	return r.info, r.err
 }
 
-var GatherTime = 3 * time.Second
-var Capacity int64 = 1
+var gatherTime = 3 * time.Second
+var capacity int64 = 1
 
 func (a *aggregator) loop() error {
 	timer := time.NewTimer(0)
 	timer.Stop()
 	var reqs []instanceInfoReq
-	bucket := ratelimit.New(GatherTime, Capacity)
+	bucket := ratelimit.New(gatherTime, capacity)
 	for {
 		select {
 		case <-a.tomb.Dying():

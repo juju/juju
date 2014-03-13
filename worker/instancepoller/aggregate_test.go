@@ -90,7 +90,7 @@ func (s *aggregateSuite) TestSingleRequest(c *gc.C) {
 }
 
 func (s *aggregateSuite) TestRequestBatching(c *gc.C) {
-	s.PatchValue(&GatherTime, 30*time.Millisecond)
+	s.PatchValue(&gatherTime, 30*time.Millisecond)
 	testGetter := new(testInstanceGetter)
 
 	instance1 := newTestInstance("foobar", []string{"127.0.0.1", "192.168.1.1"})
