@@ -22,9 +22,9 @@ type InitialiserSuite struct {
 
 var _ = gc.Suite(&InitialiserSuite{})
 
-func (s *InitialiserSuite) TestTargetReleasePackages(c *gc.C) {
+func (s *InitialiserSuite) TestLTSSeriesPackages(c *gc.C) {
 	cmdChan := s.HookCommandOutput(&utils.AptCommandOutput, []byte{}, nil)
-	container := NewContainerInitialiser("target")
+	container := NewContainerInitialiser("precise")
 	err := container.Initialise()
 	c.Assert(err, gc.IsNil)
 
@@ -32,11 +32,11 @@ func (s *InitialiserSuite) TestTargetReleasePackages(c *gc.C) {
 	c.Assert(cmd.Args, gc.DeepEquals, []string{
 		"apt-get", "--option=Dpkg::Options::=--force-confold",
 		"--option=Dpkg::options::=--force-unsafe-io", "--assume-yes", "--quiet",
-		"install", "--target-release", "target", "lxc",
+		"install", "--target-release", "precise-updates/cloud-tools", "lxc",
 	})
 }
 
-func (s *InitialiserSuite) TestNoTargetReleasePackages(c *gc.C) {
+func (s *InitialiserSuite) TestNoSeriesPackages(c *gc.C) {
 	cmdChan := s.HookCommandOutput(&utils.AptCommandOutput, []byte{}, nil)
 	container := NewContainerInitialiser("")
 	err := container.Initialise()

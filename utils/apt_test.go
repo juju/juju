@@ -33,6 +33,12 @@ func (s *AptSuite) TestOnePackage(c *gc.C) {
 	c.Assert(cmd.Env[len(cmd.Env)-1], gc.Equals, "DEBIAN_FRONTEND=noninteractive")
 }
 
+func (s *AptSuite) TestAptGetPreparePackages(c *gc.C) {
+	packagesList := utils.AptGetPreparePackages([]string{"lxc", "bridge-utils"}, "precise")
+	c.Assert(packagesList[0], gc.DeepEquals, []string{"bridge-utils"})
+	c.Assert(packagesList[1], gc.DeepEquals, []string{"--target-release", "precise-updates/cloud-tools", "lxc"})
+}
+
 func (s *AptSuite) TestAptGetError(c *gc.C) {
 	const expected = `E: frobnicator failure detected`
 	cmdError := fmt.Errorf("error")
