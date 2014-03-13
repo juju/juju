@@ -89,7 +89,9 @@ func targetRelease(series string) string {
 // should the series be an LTS release with cloud archive packages.
 func AptGetPreparePackages(packages []string, series string) [][]string {
 	var installCommands [][]string
-	if target := targetRelease(series); target != "" {
+	if target := targetRelease(series); target == "" {
+		return append(installCommands, packages)
+	} else {
 		var pkgs []string
 		pkgs_with_target := []string{"--target-release", target}
 		for _, pkg := range packages {
@@ -111,10 +113,9 @@ func AptGetPreparePackages(packages []string, series string) [][]string {
 		if len(pkgs) > 0 {
 			installCommands = append(installCommands, pkgs)
 		}
-	} else {
-		installCommands = append(installCommands, packages)
+
+		return installCommands
 	}
-	return installCommands
 }
 
 // AptGetInstall runs 'apt-get install packages' for the packages listed here
