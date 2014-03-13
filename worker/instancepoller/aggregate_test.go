@@ -60,7 +60,7 @@ func (i *testInstanceGetter) Instances(ids []instance.Id) (result []instance.Ins
 
 func newTestInstance(status string, addresses []string) *testInstance {
 	thisInstance := testInstance{status: status}
-        thisInstance.addresses = instance.NewAddresses(addresses)
+	thisInstance.addresses = instance.NewAddresses(addresses)
 	return &thisInstance
 }
 
