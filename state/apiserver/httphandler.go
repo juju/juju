@@ -22,6 +22,7 @@ type errorSender interface {
 
 // httpHandler handles http requests through HTTPS in the API server.
 type httpHandler struct {
+	// Structs which embed httpHandler provide their own errorSender implementation.
 	errorSender
 	state *state.State
 }
@@ -44,18 +45,16 @@ func (h *httpHandler) authenticate(r *http.Request) error {
 	if len(tagPass) != 2 {
 		return fmt.Errorf("invalid request format")
 	}
-	entity, err := checkCreds(h.state, params.Creds{
-		AuthTag:  tagPass[0],
-		Password: tagPass[1],
-	})
-	if err != nil {
-		return err
-	}
 	// Only allow users, not agents.
-	_, _, err = names.ParseTag(entity.Tag(), names.UserTagKind)
+	_, _, err = names.ParseTag(tagPass[0], names.UserTagKind)
 	if err != nil {
 		return common.ErrBadCreds
 	}
+	// Ensure the credentials are correct.
+	_, err = checkCreds(h.state, params.Creds{
+		AuthTag:  tagPass[0],
+		Password: tagPass[1],
+	})
 	return err
 }
 

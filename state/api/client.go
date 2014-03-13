@@ -551,9 +551,11 @@ func (c *Client) AddCharm(curl *charm.URL) error {
 	return c.st.Call("Client", "", "AddCharm", args, nil)
 }
 
-func (c *Client) UploadTools(toolsFilename string, vers version.Binary,
-	fakeSeries ...string) (tools *tools.Tools, err error) {
-
+func (c *Client) UploadTools(
+	toolsFilename string, vers version.Binary, fakeSeries ...string,
+) (
+	tools *tools.Tools, err error,
+) {
 	toolsTarball, err := os.Open(toolsFilename)
 	if err != nil {
 		return nil, err
@@ -584,7 +586,7 @@ func (c *Client) UploadTools(toolsFilename string, vers version.Binary,
 		return nil, fmt.Errorf("cannot upload charm: %v", err)
 	}
 	if resp.StatusCode == http.StatusMethodNotAllowed {
-		// API server is 1.17 or older, so tools upload
+		// API server is older than 1.17.5, so tools upload
 		// is not supported; notify the client.
 		return nil, &params.Error{
 			Message: "tools upload is not supported by the API server",

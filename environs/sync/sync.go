@@ -252,7 +252,7 @@ func cloneToolsForSeries(toolsInfo *BuiltTools, series ...string) error {
 	return envtools.MergeAndWriteMetadata(metadataStore, targetTools, false)
 }
 
-// BuiltTools contains metadata about a tools tarball resulting from
+// BuiltTools contains metadata for a tools tarball resulting from
 // a call to BundleTools.
 type BuiltTools struct {
 	Version     version.Binary

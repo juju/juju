@@ -99,7 +99,7 @@ func (h *toolsHandler) processPost(r *http.Request) (*tools.Tools, bool, error) 
 // handleUpload uploads the tools data from the reader to env storage as the specified version.
 func (h *toolsHandler) handleUpload(r io.Reader, toolsVersion version.Binary, fakeSeries ...string) (*tools.Tools, bool, error) {
 	// Set up a local temp directory for the tools tarball.
-	tmpDir, err := ioutil.TempDir("", "uploadtools-")
+	tmpDir, err := ioutil.TempDir("", "juju-upload-tools-")
 	if err != nil {
 		return nil, false, fmt.Errorf("cannot create temp dir: %v", err)
 	}

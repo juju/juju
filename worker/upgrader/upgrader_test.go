@@ -122,9 +122,7 @@ func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
 	s.PatchValue(&version.Current, oldTools.Version)
 	newTools := envtesting.AssertUploadFakeToolsVersions(
 		c, stor, version.MustParseBinary("5.4.5-precise-amd64"))[0]
-	err := envtools.MergeAndWriteMetadata(stor, coretools.List{oldTools, newTools}, envtools.DoNotWriteMirrors)
-	c.Assert(err, gc.IsNil)
-	err = statetesting.SetAgentVersion(s.State, newTools.Version.Number)
+	err := statetesting.SetAgentVersion(s.State, newTools.Version.Number)
 	c.Assert(err, gc.IsNil)
 
 	// Make the download take a while so that we verify that
@@ -151,9 +149,7 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 	s.PatchValue(&version.Current, oldTools.Version)
 	newTools := envtesting.AssertUploadFakeToolsVersions(
 		c, stor, version.MustParseBinary("5.4.5-precise-amd64"))[0]
-	err := envtools.MergeAndWriteMetadata(stor, coretools.List{oldTools, newTools}, envtools.DoNotWriteMirrors)
-	c.Assert(err, gc.IsNil)
-	err = statetesting.SetAgentVersion(s.State, newTools.Version.Number)
+	err := statetesting.SetAgentVersion(s.State, newTools.Version.Number)
 	c.Assert(err, gc.IsNil)
 
 	retryc := make(chan time.Time)
