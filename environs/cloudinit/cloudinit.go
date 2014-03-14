@@ -214,17 +214,16 @@ func ConfigureBasic(cfg *MachineConfig, c *cloudinit.Config) error {
 // AddAptCommands update the cloudinit.Config instance with the necessary
 // packages, the request to do the apt-get update/upgrade on boot, and adds
 // the apt proxy settings if there are any.
-func AddAptCommands(proxy osenv.ProxySettings, c *cloudinit.Config, cfg *MachineConfig) {
+func AddAptCommands(proxy osenv.ProxySettings, c *cloudinit.Config) {
 	// Bring packages up-to-date.
 	c.SetAptUpdate(true)
 	c.SetAptUpgrade(true)
 
 	// juju requires git for managing charm directories.
-	targetRelease := cfg.TargetRelease()
-	c.AddPackage("git", targetRelease)
-	c.AddPackage("cpu-checker", targetRelease)
-	c.AddPackage("bridge-utils", targetRelease)
-	c.AddPackage("rsyslog-gnutls", targetRelease)
+	c.AddPackage("git")
+	c.AddPackage("cpu-checker")
+	c.AddPackage("bridge-utils")
+	c.AddPackage("rsyslog-gnutls")
 
 	// Write out the apt proxy settings
 	if (proxy != osenv.ProxySettings{}) {
@@ -261,7 +260,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	}
 
 	if !cfg.DisablePackageCommands {
-		AddAptCommands(cfg.AptProxySettings, c, cfg)
+		AddAptCommands(cfg.AptProxySettings, c)
 	}
 
 	// Write out the normal proxy settings so that the settings are
@@ -300,9 +299,9 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	if strings.HasPrefix(cfg.Tools.URL, fileSchemePrefix) {
 		copyCmd = fmt.Sprintf("cp %s $bin/tools.tar.gz", shquote(cfg.Tools.URL[len(fileSchemePrefix):]))
 	} else {
-		curlCommand := "curl"
+		curlCommand := "curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; size %{size_download} bytes; speed %{speed_download} bytes/s '"
 		if cfg.DisableSSLHostnameVerification {
-			curlCommand = "curl --insecure"
+			curlCommand += " --insecure"
 		}
 		copyCmd = fmt.Sprintf("%s -o $bin/tools.tar.gz %s", curlCommand, shquote(cfg.Tools.URL))
 		c.AddRunCmd(cloudinit.LogProgressCmd("Fetching tools: %s", copyCmd))
@@ -358,7 +357,15 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 				const key = "" // key is loaded from PPA
 				c.AddAptSource("ppa:juju/stable", key, nil)
 			}
-			c.AddPackage("mongodb-server", cfg.TargetRelease())
+			if cfg.Tools.Version.Series == "precise" {
+				// In precise we add the cloud-tools pocket and
+				// pin it with a lower priority, so we need to
+				// explicitly specify the target release when
+				// installing mongodb-server from there.
+				c.AddPackageFromTargetRelease("mongodb-server", "precise-updates/cloud-tools")
+			} else {
+				c.AddPackage("mongodb-server")
+			}
 		}
 		certKey := string(cfg.StateServerCert) + string(cfg.StateServerKey)
 		c.AddFile(cfg.dataFile("server.pem"), certKey, 0600)
@@ -398,19 +405,6 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 
 func (cfg *MachineConfig) dataFile(name string) string {
 	return path.Join(cfg.DataDir, name)
-}
-
-// TargetRelease returns a string suitable for use with apt-get --target-release
-// based on the machines series.
-func (cfg *MachineConfig) TargetRelease() string {
-	// Only supported LTS releases have cloud-tools pocket support.
-	// Will need to update if-logic for other supported LTS releases
-	// as they become available.
-	targetRelease := ""
-	if cfg.Tools.Version.Series == "precise" {
-		targetRelease = "precise-update/cloud-tools"
-	}
-	return targetRelease
 }
 
 func (cfg *MachineConfig) agentConfig(tag string) (agent.Config, error) {

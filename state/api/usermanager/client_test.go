@@ -6,7 +6,7 @@ package usermanager_test
 import (
 	gc "launchpad.net/gocheck"
 	jujutesting "launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/usermanager"
 )
 
@@ -25,23 +25,34 @@ func (s *usermanagerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *usermanagerSuite) TestAddUser(c *gc.C) {
-	errResults, err := s.usermanager.AddUser("foobar", "password")
+	err := s.usermanager.AddUser("foobar", "password")
 	c.Assert(err, gc.IsNil)
-	c.Assert(errResults, gc.DeepEquals, params.ErrorResult{})
 	_, err = s.State.User("foobar")
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *usermanagerSuite) TestRemoveUser(c *gc.C) {
-	errResults, err := s.usermanager.AddUser("foobar", "password")
+	err := s.usermanager.AddUser("foobar", "password")
 	c.Assert(err, gc.IsNil)
-	c.Assert(errResults, gc.DeepEquals, params.ErrorResult{})
 	_, err = s.State.User("foobar")
 	c.Assert(err, gc.IsNil)
 
-	errResults, err = s.usermanager.RemoveUser("foobar")
+	err = s.usermanager.RemoveUser("foobar")
 	c.Assert(err, gc.IsNil)
-	c.Assert(errResults, gc.DeepEquals, params.ErrorResult{})
 	user, err := s.State.User("foobar")
-	c.Assert(user.IsInactive(), gc.Equals, true)
+	c.Assert(user.IsDeactivated(), gc.Equals, true)
+}
+
+func (s *usermanagerSuite) TestAddExistingUser(c *gc.C) {
+	err := s.usermanager.AddUser("foobar", "password")
+	c.Assert(err, gc.IsNil)
+
+	// Try adding again
+	err = s.usermanager.AddUser("foobar", "password")
+	c.Assert(err, gc.ErrorMatches, "Failed to create user: user already exists")
+}
+
+func (s *usermanagerSuite) TestCantRemoveAdminUser(c *gc.C) {
+	err := s.usermanager.RemoveUser(state.AdminUser)
+	c.Assert(err, gc.ErrorMatches, "Failed to remove user: Can't deactivate admin user")
 }

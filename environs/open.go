@@ -46,16 +46,14 @@ const (
 	ConfigFromEnvirons
 )
 
-// ConfigForName returns the configuration for the environment with the
-// given name from the default environments file. If the name is blank,
-// the default environment will be used. If the configuration is not
-// found, an errors.NotFoundError is returned.
-// If the given store contains an entry for the environment
-// and it has associated bootstrap config, that configuration
-// will be returned.
-// ConfigForName also returns where the configuration
-// was sourced from (this is also valid even when there
-// is an error.
+// ConfigForName returns the configuration for the environment with
+// the given name from the default environments file. If the name is
+// blank, the default environment will be used. If the configuration
+// is not found, an errors.NotFoundError is returned. If the given
+// store contains an entry for the environment and it has associated
+// bootstrap config, that configuration will be returned.
+// ConfigForName also returns where the configuration was sourced from
+// (this is also valid even when there is an error.
 func ConfigForName(name string, store configstore.Storage) (*config.Config, ConfigSource, error) {
 	envs, err := ReadEnvirons("")
 	if err != nil {
@@ -86,6 +84,16 @@ func ConfigForName(name string, store configstore.Storage) (*config.Config, Conf
 	return cfg, ConfigFromEnvirons, err
 }
 
+// maybeNotBootstrapped takes an error and source, returned by
+// ConfigForName and returns ErrNotBootstrapped if it looks like the
+// environment is not bootstrapped, or err as-is otherwise.
+func maybeNotBootstrapped(err error, source ConfigSource) error {
+	if err != nil && source == ConfigFromEnvirons {
+		return ErrNotBootstrapped
+	}
+	return err
+}
+
 // NewFromName opens the environment with the given
 // name from the default environments file. If the
 // name is blank, the default environment will be used.
@@ -99,16 +107,16 @@ func NewFromName(name string, store configstore.Storage) (Environ, error) {
 	// configuration attributes don't exist which
 	// will be filled in by Prepare.
 	cfg, source, err := ConfigForName(name, store)
-	if err != nil && source == ConfigFromEnvirons {
-		err = ErrNotBootstrapped
+	if err := maybeNotBootstrapped(err, source); err != nil {
+		return nil, err
 	}
 	if err != nil {
 		return nil, err
 	}
 
 	env, err := New(cfg)
-	if err != nil && source == ConfigFromEnvirons {
-		err = ErrNotBootstrapped
+	if err := maybeNotBootstrapped(err, source); err != nil {
+		return nil, err
 	}
 	return env, err
 }

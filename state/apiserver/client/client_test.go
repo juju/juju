@@ -11,16 +11,17 @@ import (
 	"sync"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/cloudinit/sshinit"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/storage"
-	envtesting "launchpad.net/juju-core/environs/testing"
+	envstorage "launchpad.net/juju-core/environs/storage"
 	ttesting "launchpad.net/juju-core/environs/tools/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -31,7 +32,6 @@ import (
 	"launchpad.net/juju-core/state/apiserver/client"
 	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
@@ -1872,7 +1872,7 @@ func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
 	// contains the correct data.
 	sch, err := s.State.Charm(curl)
 	c.Assert(err, gc.IsNil)
-	storage, err := envtesting.GetEnvironStorage(s.State)
+	storage, err := environs.GetStorage(s.State)
 	c.Assert(err, gc.IsNil)
 	uploads, err := storage.List(fmt.Sprintf("%s-%d-", curl.Name, curl.Revision))
 	c.Assert(err, gc.IsNil)
@@ -1938,7 +1938,7 @@ func (s *clientSuite) assertPutCalled(c *gc.C, ops chan dummy.Operation, numCall
 	}
 }
 
-func (s *clientSuite) assertUploaded(c *gc.C, storage storage.Storage, bundleURL *url.URL, expectedSHA256 string) {
+func (s *clientSuite) assertUploaded(c *gc.C, storage envstorage.Storage, bundleURL *url.URL, expectedSHA256 string) {
 	archiveName := getArchiveName(bundleURL)
 	reader, err := storage.Get(archiveName)
 	c.Assert(err, gc.IsNil)

@@ -8,12 +8,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/simplestreams/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 var _ = gc.Suite(&datasourceSuite{})

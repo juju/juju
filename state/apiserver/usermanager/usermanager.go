@@ -17,8 +17,8 @@ var logger = loggo.GetLogger("juju.state.apiserver.usermanager")
 
 // UserManager defines the methods on the usermanager API end point.
 type UserManager interface {
-	AddUser(arg params.ModifyUser) (params.ErrorResult, error)
-	RemoveUser(arg params.ModifyUser) (params.ErrorResult, error)
+	AddUser(arg params.EntityPasswords) (params.ErrorResults, error)
+	RemoveUser(arg params.Entities) (params.ErrorResults, error)
 }
 
 // UserManagerAPI implements the user manager interface and is the concrete
@@ -39,8 +39,7 @@ func NewUserManagerAPI(
 		return nil, common.ErrPerm
 	}
 
-	// TODO(mattyw) - replace stub with real canRead function
-	// For now, only admins can add users.
+	// TODO(mattyw) - replace stub with real canWrite function
 	getCanWrite := common.AuthAlways(true)
 	return &UserManagerAPI{
 			state:       st,
@@ -49,42 +48,58 @@ func NewUserManagerAPI(
 		nil
 }
 
-func (api *UserManagerAPI) AddUser(args params.ModifyUser) (params.ErrorResult, error) {
+func (api *UserManagerAPI) AddUser(args params.EntityPasswords) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Changes)),
+	}
+	if len(args.Changes) == 0 {
+		return result, nil
+	}
 	canWrite, err := api.getCanWrite()
 	if err != nil {
-		return params.ErrorResult{common.ServerError(err)}, err
+		result.Results[0].Error = common.ServerError(err)
+		return result, err
 	}
-	if !canWrite(args.Tag) {
-		return params.ErrorResult{common.ServerError(common.ErrPerm)}, common.ErrPerm
+	for i, arg := range args.Changes {
+		if !canWrite(arg.Tag) {
+			result.Results[0].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		_, err := api.state.AddUser(arg.Tag, arg.Password)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(fmt.Errorf("Failed to create user: %s", err))
+			continue
+		}
 	}
-	_, err = api.state.AddUser(args.Tag, args.Password)
-	if err != nil {
-		return params.ErrorResult{
-			Error: common.ServerError(fmt.Errorf("Failed to create user: %s", err)),
-		}, err
-	}
-	return params.ErrorResult{}, nil
+	return result, nil
 }
 
-func (api *UserManagerAPI) RemoveUser(args params.ModifyUser) (params.ErrorResult, error) {
+func (api *UserManagerAPI) RemoveUser(args params.Entities) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
 	canWrite, err := api.getCanWrite()
 	if err != nil {
-		return params.ErrorResult{common.ServerError(err)}, err
+		return result, err
 	}
-	if !canWrite(args.Tag) {
-		return params.ErrorResult{common.ServerError(common.ErrPerm)}, common.ErrPerm
+	for i, arg := range args.Entities {
+		if !canWrite(arg.Tag) {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		user, err := api.state.User(arg.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		err = user.Deactivate()
+		if err != nil {
+			result.Results[i].Error = common.ServerError(fmt.Errorf("Failed to remove user: %s", err))
+			continue
+		}
 	}
-	user, err := api.state.User(args.Tag)
-	if err != nil {
-		return params.ErrorResult{
-			Error: common.ServerError(fmt.Errorf("Failed to find user %s: %s", args.Tag, err)),
-		}, err
-	}
-	err = user.SetInactive()
-	if err != nil {
-		return params.ErrorResult{
-			Error: common.ServerError(fmt.Errorf("Failed to remove user: %s", err)),
-		}, err
-	}
-	return params.ErrorResult{}, nil
+	return result, nil
 }

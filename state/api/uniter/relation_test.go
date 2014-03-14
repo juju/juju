@@ -4,12 +4,12 @@
 package uniter_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/uniter"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type relationSuite struct {

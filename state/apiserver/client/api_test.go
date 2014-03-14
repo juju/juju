@@ -8,6 +8,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
@@ -20,7 +21,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -262,7 +262,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []string) {
 	add := func(e state.Entity) {
 		entities = append(entities, e.Tag())
 	}
-	u, err := s.State.User("admin")
+	u, err := s.State.User(state.AdminUser)
 	c.Assert(err, gc.IsNil)
 	setDefaultPassword(c, u)
 	add(u)

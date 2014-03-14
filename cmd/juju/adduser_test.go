@@ -10,6 +10,8 @@ import (
 	"launchpad.net/juju-core/testing"
 )
 
+// All of the functionality of the AddUser api call is contained elsewhere
+// This suite provides basic tests for the AddUser command
 type AddUserSuite struct {
 	jujutesting.RepoSuite
 }
@@ -22,5 +24,5 @@ func (s *AddUserSuite) Testadduser(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	_, err = testing.RunCommand(c, &AddUserCommand{}, []string{"foobar", "newpassword"})
-	c.Assert(err, gc.ErrorMatches, "user already exists")
+	c.Assert(err, gc.ErrorMatches, "Failed to create user: user already exists")
 }

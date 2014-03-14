@@ -51,6 +51,5 @@ func (c *RemoveUserCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	_, err = client.RemoveUser(c.User)
-	return err
+	return client.RemoveUser(c.User)
 }

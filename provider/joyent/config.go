@@ -14,25 +14,46 @@ import (
 
 // boilerplateConfig will be shown in help output, so please keep it up to
 // date when you change environment configuration below.
-const boilerplateConfig = `joyent:
-  type: joyent
+var boilerplateConfig = `
+joyent:
+    type: joyent
 
-  # SDC config
-  # Can be set via env variables, or specified here
-  # sdc-user: <secret>
-  # Can be set via env variables, or specified here
-  # sdc-key-id: <secret>
-  # region defaults to us-west-1, override if required
-  # sdc-region: us-west-1
+    ## SDC config
 
-  # Manta config
-  # Can be set via env variables, or specified here
-  # manta-user: <secret>
-  # Can be set via env variables, or specified here
-  # manta-key-id: <secret>
-  # region defaults to us-east, override if required
-  # manta-region: us-east
-`
+    # sdc-user holds the SDC user. It can also be specified in the
+    # SDC_ACCOUNT environment variable.
+    #
+    # sdc-user: <secret>
+
+    # sdc-key-id holds the fingerprint of one of user's SSH keys. It
+    # can also be specified in the SDC_KEY_ID environment variable.
+    #
+    # sdc-key-id: <secret>
+
+    # sdc-region holds the region to use: us-west-1 (default),
+    # us-east-1, us-sw-1, eu-ams-1. Override if required.
+    #
+    # sdc-region: us-west-1
+
+    ## Manta config
+
+    # manta-user holds the user's Manta account name. It can also be
+    #  specified in the MANTA_USER environment variable.
+    #
+    # manta-user: <secret>
+
+    # manta-key-id holds the fingerprint of one of the user's SSH
+    # keys. It can also be specified in the MANTA_KEY_ID environment
+    # variable.
+    #
+    # manta-key-id: <secret>
+
+    # manta-region holds the Manta region to use. It defaults to
+    # us-east, override if required
+    #
+    # manta-region: us-east
+
+`[1:]
 
 const (
 	SdcAccount = "SDC_ACCOUNT"

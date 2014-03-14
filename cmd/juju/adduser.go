@@ -67,6 +67,5 @@ func (c *AddUserCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	_, err = client.AddUser(c.User, c.Password)
-	return err
+	return client.AddUser(c.User, c.Password)
 }

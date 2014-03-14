@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	"launchpad.net/goamz/aws"
 	amzec2 "launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/ec2/ec2test"
@@ -31,7 +32,6 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/ec2"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/ssh"
@@ -492,15 +492,14 @@ func CheckPackage(c *gc.C, userDataMap map[interface{}]interface{}, pkg string, 
 	}
 
 	pkgs := pkgs0.([]interface{})
+
 	found := false
 	for _, p0 := range pkgs {
 		p := p0.(string)
-		reMatch, _ := regexp.MatchString(pkg, p)
-		if reMatch {
+		if p == pkg {
 			found = true
 		}
 	}
-
 	switch {
 	case match && !found:
 		c.Errorf("package %q not found in %v", pkg, pkgs)

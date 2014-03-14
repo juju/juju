@@ -11,8 +11,9 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
+	jc "github.com/juju/testing/checkers"
+
 	gc "launchpad.net/gocheck"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -24,17 +25,19 @@ type format_1_16Suite struct {
 
 var _ = gc.Suite(&format_1_16Suite{})
 
-func (s *format_1_16Suite) TestMissingUpgradedToVersion(c *gc.C) {
+func (s *format_1_16Suite) TestMissingAttributes(c *gc.C) {
 	dataDir := c.MkDir()
 	formatPath := filepath.Join(dataDir, legacyFormatFilename)
 	err := utils.AtomicWriteFile(formatPath, []byte(legacyFormatFileContents), 0600)
 	c.Assert(err, gc.IsNil)
 	configPath := filepath.Join(dataDir, agentConfigFilename)
-	err = utils.AtomicWriteFile(configPath, []byte(configDataWithoutUpgradedToVersion), 0600)
+	err = utils.AtomicWriteFile(configPath, []byte(configDataWithoutNewAttributes), 0600)
 	c.Assert(err, gc.IsNil)
 	readConfig, err := ReadConf(configPath)
 	c.Assert(err, gc.IsNil)
 	c.Assert(readConfig.UpgradedToVersion(), gc.Equals, version.MustParse("1.16.0"))
+	c.Assert(readConfig.LogDir(), gc.Equals, "/var/log/juju")
+	c.Assert(readConfig.DataDir(), gc.Equals, "/var/lib/juju")
 }
 
 func (*format_1_16Suite) TestReadConfReadsLegacyFormatAndWritesNew(c *gc.C) {
@@ -88,7 +91,7 @@ stateserverkey: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlDV3dJQkFBS0JnUUN1
 apiport: 17070
 `[1:]
 
-const configDataWithoutUpgradedToVersion = `
+const configDataWithoutNewAttributes = `
 tag: omg
 nonce: a nonce
 cacert: Y2EgY2VydA==

@@ -24,7 +24,7 @@ import (
 // DataDir is the default data directory.
 // Tests can override this where needed, so they don't need to mess with global
 // system state.
-var DataDir = "/var/lib/juju"
+var DataDir = agent.DefaultDataDir
 
 // CloudInitOutputLog is the default cloud-init-output.log file path.
 const CloudInitOutputLog = "/var/log/cloud-init-output.log"

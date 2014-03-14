@@ -4,8 +4,6 @@
 package imagemetadata_test
 
 import (
-	"sort"
-
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/filestorage"
@@ -141,8 +139,7 @@ func (s *generateSuite) TestWriteMetadataMergeDifferentSeries(c *gc.C) {
 		im.RegionName = cloudSpec.Region
 		im.Endpoint = cloudSpec.Endpoint
 	}
-	sort.Sort(byId(metadata))
-	sort.Sort(byId(newImageMetadata))
+	imagemetadata.Sort(newImageMetadata)
 	c.Assert(metadata, gc.DeepEquals, newImageMetadata)
 	assertFetch(c, targetStorage, "raring", "amd64", "region", "endpoint", "1234")
 	assertFetch(c, targetStorage, "precise", "amd64", "region", "endpoint", "abcd")
@@ -192,15 +189,8 @@ func (s *generateSuite) TestWriteMetadataMergeDifferentRegion(c *gc.C) {
 	existingImageMetadata[0].RegionName = "region"
 	existingImageMetadata[0].Endpoint = "endpoint"
 	newImageMetadata = append(newImageMetadata, existingImageMetadata[0])
-	sort.Sort(byId(metadata))
-	sort.Sort(byId(newImageMetadata))
+	imagemetadata.Sort(newImageMetadata)
 	c.Assert(metadata, gc.DeepEquals, newImageMetadata)
 	assertFetch(c, targetStorage, "raring", "amd64", "region", "endpoint", "1234")
 	assertFetch(c, targetStorage, "raring", "amd64", "region2", "endpoint2", "abcd")
 }
-
-type byId []*imagemetadata.ImageMetadata
-
-func (b byId) Len() int           { return len(b) }
-func (b byId) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
-func (b byId) Less(i, j int) bool { return b[i].Id < b[j].Id }

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 
+	jc "github.com/juju/testing/checkers"
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
@@ -15,7 +16,6 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type ServiceSuite struct {
@@ -580,13 +580,13 @@ func (s *ServiceSuite) TestRiakEndpoints(c *gc.C) {
 		},
 	})
 
-	adminEP, err := riak.Endpoint("admin")
+	adminEP, err := riak.Endpoint(state.AdminUser)
 	c.Assert(err, gc.IsNil)
 	c.Assert(adminEP, gc.DeepEquals, state.Endpoint{
 		ServiceName: "myriak",
 		Relation: charm.Relation{
 			Interface: "http",
-			Name:      "admin",
+			Name:      state.AdminUser,
 			Role:      charm.RoleProvider,
 			Scope:     charm.ScopeGlobal,
 		},
