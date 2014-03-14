@@ -909,23 +909,29 @@ type SSHTimeoutOpts struct {
 	AddressesDelay time.Duration
 }
 
+func addIfNotEmpty(settings map[string]interface{}, key, value string) {
+	if value != "" {
+		settings[key] = value
+	}
+}
+
 // ProxyConfigMap returns a map suitable to be applied to a Config to update
 // proxy settings.
 func ProxyConfigMap(proxy osenv.ProxySettings) map[string]interface{} {
-	return map[string]interface{}{
-		"http-proxy":  proxy.Http,
-		"https-proxy": proxy.Https,
-		"ftp-proxy":   proxy.Ftp,
-		"no-proxy":    proxy.NoProxy,
-	}
+	settings := make(map[string]interface{})
+	addIfNotEmpty(settings, "http-proxy", proxy.Http)
+	addIfNotEmpty(settings, "https-proxy", proxy.Https)
+	addIfNotEmpty(settings, "ftp-proxy", proxy.Ftp)
+	addIfNotEmpty(settings, "no-proxy", proxy.NoProxy)
+	return settings
 }
 
 // AptProxyConfigMap returns a map suitable to be applied to a Config to update
 // proxy settings.
 func AptProxyConfigMap(proxy osenv.ProxySettings) map[string]interface{} {
-	return map[string]interface{}{
-		"apt-http-proxy":  proxy.Http,
-		"apt-https-proxy": proxy.Https,
-		"apt-ftp-proxy":   proxy.Ftp,
-	}
+	settings := make(map[string]interface{})
+	addIfNotEmpty(settings, "apt-http-proxy", proxy.Http)
+	addIfNotEmpty(settings, "apt-https-proxy", proxy.Https)
+	addIfNotEmpty(settings, "apt-ftp-proxy", proxy.Ftp)
+	return settings
 }
