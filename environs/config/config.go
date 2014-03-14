@@ -733,15 +733,13 @@ var alwaysOptional = schema.Defaults{
 	"bootstrap-retry-delay":     schema.Omit,
 	"bootstrap-addresses-delay": schema.Omit,
 	"rsyslog-ca-cert":           schema.Omit,
-
-	// Proxy values default to "", otherwise they can't be set to blank.
-	"http-proxy":      "",
-	"https-proxy":     "",
-	"ftp-proxy":       "",
-	"no-proxy":        "",
-	"apt-http-proxy":  "",
-	"apt-https-proxy": "",
-	"apt-ftp-proxy":   "",
+	"http-proxy":                schema.Omit,
+	"https-proxy":               schema.Omit,
+	"ftp-proxy":                 schema.Omit,
+	"no-proxy":                  schema.Omit,
+	"apt-http-proxy":            schema.Omit,
+	"apt-https-proxy":           schema.Omit,
+	"apt-ftp-proxy":             schema.Omit,
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url": "",
