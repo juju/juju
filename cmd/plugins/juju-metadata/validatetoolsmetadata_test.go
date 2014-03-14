@@ -5,6 +5,7 @@ package main
 
 import (
 	"bytes"
+	"github.com/juju/testing/logging"
 	"strings"
 
 	"launchpad.net/goamz/aws"
@@ -90,9 +91,9 @@ func (s *ValidateToolsMetadataSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.home = coretesting.MakeFakeHome(c, metadataTestEnvConfig)
 	s.metadataDir = c.MkDir()
-	restore := testbase.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
+	restore := logging.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
 	s.AddCleanup(func(*gc.C) { restore() })
-	restore = testbase.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "secret")
+	restore = logging.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "secret")
 	s.AddCleanup(func(*gc.C) { restore() })
 }
 
