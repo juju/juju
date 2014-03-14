@@ -113,6 +113,13 @@ func UnpackTools(dataDir string, tools *coretools.Tools, r io.Reader) (err error
 		return err
 	}
 
+	// The tempdir is created with 0700, so we need to make it more
+	// accessable for juju-run.
+	err = os.Chmod(dir, 0755)
+	if err != nil {
+		return err
+	}
+
 	err = os.Rename(dir, SharedToolsDir(dataDir, tools.Version))
 	// If we've failed to rename the directory, it may be because
 	// the directory already exists - if ReadTools succeeds, we
