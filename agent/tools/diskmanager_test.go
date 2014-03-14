@@ -6,6 +6,7 @@ package tools_test
 import (
 	"bytes"
 	"encoding/json"
+	"os"
 	"path/filepath"
 
 	gc "launchpad.net/gocheck"
@@ -101,4 +102,9 @@ func (s *DiskManagerSuite) assertToolsContents(c *gc.C, t *coretools.Tools, file
 	gotTools, err := s.manager.ReadTools(t.Version)
 	c.Assert(err, gc.IsNil)
 	c.Assert(*gotTools, gc.Equals, *t)
+	// Make sure that the tools directory is readable by the ubuntu user (for
+	// juju-run)
+	info, err := os.Stat(dir)
+	c.Assert(err, gc.IsNil)
+	c.Assert(info.Mode().Perm(), gc.Equals, os.FileMode(0755))
 }
