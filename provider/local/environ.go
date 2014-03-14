@@ -182,6 +182,7 @@ var finishBootstrap = func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudini
 	if err != nil {
 		return nil
 	}
+	script = cloudinit.DumpLogOnError(mcfg) + script
 	cmd := exec.Command("sudo", "/bin/bash", "-s")
 	cmd.Stdin = strings.NewReader(script)
 	cmd.Stdout = ctx.GetStdout()

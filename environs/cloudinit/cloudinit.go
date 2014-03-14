@@ -403,6 +403,23 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	return cfg.addMachineAgentToBoot(c, machineTag, cfg.MachineId)
 }
 
+// DumpLogOnError returns a bash script that may
+// be used to dump the contents of the cloud-init
+// output log to stderr when the shell exits.
+func DumpLogOnError(mcfg *MachineConfig) string {
+	script := `
+dump_cloudinit_log() {
+    code=$?
+    if [ $code -ne 0 ]; then
+        cat %s >&2
+    fi
+    exit $code
+}
+trap "dump_cloudinit_log" EXIT
+`[1:]
+	return fmt.Sprintf(script, shquote(mcfg.CloudInitOutputLog))
+}
+
 func (cfg *MachineConfig) dataFile(name string) string {
 	return path.Join(cfg.DataDir, name)
 }

@@ -196,7 +196,12 @@ var FinishBootstrap = func(ctx environs.BootstrapContext, client ssh.Client, ins
 	if err := cloudinit.ConfigureJuju(machineConfig, cloudcfg); err != nil {
 		return err
 	}
-	return sshinit.Configure(sshinit.ConfigureParams{
+	script, err := sshinit.ConfigureScript(cloudcfg)
+	if err != nil {
+		return err
+	}
+	script = cloudinit.DumpLogOnError(machineConfig) + script
+	return sshinit.RunConfigureScript(script, sshinit.ConfigureParams{
 		Host:           "ubuntu@" + addr,
 		Client:         client,
 		Config:         cloudcfg,
