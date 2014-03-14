@@ -4,11 +4,11 @@
 package upgrades_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/upgrades"
 )
 
@@ -29,13 +29,14 @@ func (s *processDeprecatedAttributesSuite) SetUpTest(c *gc.C) {
 	}
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
-	// Add in old public bucket config.
+	// Add in old attributes.
 	newCfg, err := cfg.Apply(map[string]interface{}{
 		"public-bucket":         "foo",
 		"public-bucket-region":  "bar",
 		"public-bucket-url":     "shazbot",
 		"default-instance-type": "vulch",
 		"default-image-id":      "1234",
+		"shared-storage-port":   1234,
 	})
 	c.Assert(err, gc.IsNil)
 	err = s.State.SetEnvironConfig(newCfg, cfg)
@@ -51,6 +52,7 @@ func (s *processDeprecatedAttributesSuite) TestAttributesSet(c *gc.C) {
 	c.Assert(allAttrs["public-bucket-url"], gc.Equals, "shazbot")
 	c.Assert(allAttrs["default-instance-type"], gc.Equals, "vulch")
 	c.Assert(allAttrs["default-image-id"], gc.Equals, "1234")
+	c.Assert(allAttrs["shared-storage-port"], gc.Equals, 1234)
 }
 
 func (s *processDeprecatedAttributesSuite) assertConfigProcessed(c *gc.C) {
@@ -59,7 +61,7 @@ func (s *processDeprecatedAttributesSuite) assertConfigProcessed(c *gc.C) {
 	allAttrs := cfg.AllAttrs()
 	for _, deprecated := range []string{
 		"public-bucket", "public-bucket-region", "public-bucket-url",
-		"default-image-id", "default-instance-type",
+		"default-image-id", "default-instance-type", "shared-storage-port",
 	} {
 		_, ok := allAttrs[deprecated]
 		c.Assert(ok, jc.IsFalse)

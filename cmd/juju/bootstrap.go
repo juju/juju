@@ -16,11 +16,9 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/sync"
 	"launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
@@ -95,34 +93,15 @@ func (c *BootstrapCommand) Init(args []string) (err error) {
 	return cmd.CheckEmpty(args)
 }
 
-func destroyPreparedEnviron(env environs.Environ, store configstore.Storage, err *error, action string) {
-	if *err == nil {
-		return
-	}
-	if err := environs.Destroy(env, store); err != nil {
-		logger.Errorf("%s failed, and the environment could not be destroyed: %v", action, err)
-	}
-}
-
 // Run connects to the environment specified on the command line and bootstraps
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.
 func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
-	store, err := configstore.Default()
+	environ, cleanup, err := environFromName(ctx, c.EnvName, &resultErr, "Bootstrap")
 	if err != nil {
 		return err
 	}
-	var existing bool
-	if _, err := store.ReadInfo(c.EnvName); !errors.IsNotFoundError(err) {
-		existing = true
-	}
-	environ, err := environs.PrepareFromName(c.EnvName, ctx, store)
-	if err != nil {
-		return err
-	}
-	if !existing {
-		defer destroyPreparedEnviron(environ, store, &resultErr, "Bootstrap")
-	}
+	defer cleanup()
 	if err := bootstrap.EnsureNotBootstrapped(environ); err != nil {
 		return err
 	}

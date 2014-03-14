@@ -6,6 +6,7 @@ package state_test
 import (
 	"sort"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
@@ -15,7 +16,6 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 )
 

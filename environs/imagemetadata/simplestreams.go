@@ -8,6 +8,7 @@ package imagemetadata
 
 import (
 	"fmt"
+	"sort"
 
 	"launchpad.net/juju-core/environs/simplestreams"
 )
@@ -100,7 +101,7 @@ func NewImageConstraint(params simplestreams.LookupParams) *ImageConstraint {
 		params.Series = simplestreams.SupportedSeries()
 	}
 	if len(params.Arches) == 0 {
-		params.Arches = []string{"amd64", "i386", "arm", "arm64"}
+		params.Arches = []string{"amd64", "i386", "arm", "arm64", "ppc64"}
 	}
 	return &ImageConstraint{LookupParams: params}
 }
@@ -181,8 +182,23 @@ func Fetch(
 	for i, md := range items {
 		metadata[i] = md.(*ImageMetadata)
 	}
+	// Sorting the metadata is not strictly necessary, but it ensures consistent ordering for
+	// all compilers, and it just makes it easier to look at the data.
+	Sort(metadata)
 	return metadata, resolveInfo, nil
 }
+
+// Sort sorts a slice of ImageMetadata in ascending order of their id
+// in order to ensure the results of Fetch are ordered deterministically.
+func Sort(metadata []*ImageMetadata) {
+	sort.Sort(byId(metadata))
+}
+
+type byId []*ImageMetadata
+
+func (b byId) Len() int           { return len(b) }
+func (b byId) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
+func (b byId) Less(i, j int) bool { return b[i].Id < b[j].Id }
 
 type imageKey struct {
 	vtype   string

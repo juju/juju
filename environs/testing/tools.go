@@ -138,6 +138,8 @@ func UploadFakeToolsVersions(stor storage.Storage, versions ...version.Binary) (
 func AssertUploadFakeToolsVersions(c *gc.C, stor storage.Storage, versions ...version.Binary) []*coretools.Tools {
 	agentTools, err := UploadFakeToolsVersions(stor, versions...)
 	c.Assert(err, gc.IsNil)
+	err = envtools.MergeAndWriteMetadata(stor, agentTools, envtools.DoNotWriteMirrors)
+	c.Assert(err, gc.IsNil)
 	return agentTools
 }
 

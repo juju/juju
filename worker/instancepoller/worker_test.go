@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/instance"
@@ -16,7 +17,6 @@ import (
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/worker"
 )
 

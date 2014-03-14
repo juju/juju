@@ -6,6 +6,7 @@ package environs_test
 import (
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
@@ -19,8 +20,8 @@ import (
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
@@ -154,6 +155,10 @@ func (*CloudInitSuite) testUserData(c *gc.C, stateServer bool) {
 	envConfig, err := config.New(config.NoDefaults, dummySampleConfig())
 	c.Assert(err, gc.IsNil)
 
+	allJobs := []params.MachineJob{
+		params.JobManageEnviron,
+		params.JobHostUnits,
+	}
 	cfg := &cloudinit.MachineConfig{
 		MachineId:       "10",
 		MachineNonce:    "5432",
@@ -173,7 +178,8 @@ func (*CloudInitSuite) testUserData(c *gc.C, stateServer bool) {
 			Tag:      "machine-10",
 		},
 		DataDir:                 environs.DataDir,
-		LogDir:                  environs.LogDir,
+		LogDir:                  agent.DefaultLogDir,
+		Jobs:                    allJobs,
 		CloudInitOutputLog:      environs.CloudInitOutputLog,
 		Config:                  envConfig,
 		StatePort:               envConfig.StatePort(),

@@ -6,6 +6,7 @@ package upgrader_test
 import (
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	envtesting "launchpad.net/juju-core/environs/testing"
@@ -17,7 +18,6 @@ import (
 	"launchpad.net/juju-core/state/api/upgrader"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )

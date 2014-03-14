@@ -13,16 +13,6 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
-// Entity identifies a single entity.
-type Entity struct {
-	Tag string
-}
-
-// Entities identifies multiple entities.
-type Entities struct {
-	Entities []Entity
-}
-
 // MachineContainersParams holds the arguments for making a SetSupportedContainers
 // API call.
 type MachineContainersParams struct {
@@ -414,6 +404,20 @@ type ToolsResults struct {
 	Results []ToolsResult
 }
 
+// FindToolsParams defines parameters for the FindTools method.
+type FindToolsParams struct {
+	MajorVersion int
+	MinorVersion int
+	Arch         string
+	Series       string
+}
+
+// FindToolsResults holds a list of tools from FindTools and any error.
+type FindToolsResults struct {
+	List  tools.List
+	Error *Error
+}
+
 // Version holds a specific binary version.
 type Version struct {
 	Version version.Binary
@@ -431,18 +435,6 @@ type EntityVersion struct {
 // multiple entities.
 type EntitiesVersion struct {
 	AgentTools []EntityVersion
-}
-
-// PasswordChanges holds the parameters for making a SetPasswords call.
-type PasswordChanges struct {
-	Changes []PasswordChange
-}
-
-// PasswordChange specifies a password change for the entity
-// with the given tag.
-type PasswordChange struct {
-	Tag      string
-	Password string
 }
 
 // NotifyWatchResult holds a NotifyWatcher id and an error (if any).

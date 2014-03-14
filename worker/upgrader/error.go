@@ -4,7 +4,7 @@
 package upgrader
 
 import (
-	agenttools "launchpad.net/juju-core/agent/tools"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -25,10 +25,10 @@ func (e *UpgradeReadyError) Error() string {
 // It should be called just before an agent exits, so that
 // it will restart running the new tools.
 func (e *UpgradeReadyError) ChangeAgentTools() error {
-	tools, err := agenttools.ChangeAgentTools(e.DataDir, e.AgentName, e.NewTools)
+	agentTools, err := tools.ChangeAgentTools(e.DataDir, e.AgentName, e.NewTools)
 	if err != nil {
 		return err
 	}
-	logger.Infof("upgraded from %v to %v (%q)", e.OldTools, tools.Version, tools.URL)
+	logger.Infof("upgraded from %v to %v (%q)", e.OldTools, agentTools.Version, agentTools.URL)
 	return nil
 }

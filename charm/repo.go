@@ -87,6 +87,7 @@ type CharmStore struct {
 	BaseURL   string
 	authAttrs string // a list of attr=value pairs, comma separated
 	jujuAttrs string // a list of attr=value pairs, comma separated
+	testMode  bool
 }
 
 var _ Repository = (*CharmStore)(nil)
@@ -99,6 +100,14 @@ func (s *CharmStore) WithAuthAttrs(authAttrs string) Repository {
 	authCS := *s
 	authCS.authAttrs = authAttrs
 	return &authCS
+}
+
+// WithTestMode returns a Repository where testMode is set to value passed to
+// this method.
+func (s *CharmStore) WithTestMode(testMode bool) Repository {
+	newRepo := *s
+	newRepo.testMode = testMode
+	return &newRepo
 }
 
 // WithJujuAttrs returns a Repository with the Juju metadata attributes set.
@@ -131,11 +140,14 @@ func (s *CharmStore) get(url string) (resp *http.Response, err error) {
 // Info returns details for all the specified charms in the charm store.
 func (s *CharmStore) Info(curls ...*URL) ([]*InfoResponse, error) {
 	baseURL := s.BaseURL + "/charm-info?"
-	charmSnippets := make([]string, len(curls))
+	queryParams := make([]string, len(curls), len(curls)+1)
 	for i, curl := range curls {
-		charmSnippets[i] = "charms=" + url.QueryEscape(curl.String())
+		queryParams[i] = "charms=" + url.QueryEscape(curl.String())
 	}
-	resp, err := s.get(baseURL + strings.Join(charmSnippets, "&"))
+	if s.testMode {
+		queryParams = append(queryParams, "stats=0")
+	}
+	resp, err := s.get(baseURL + strings.Join(queryParams, "&"))
 	if err != nil {
 		if url_error, ok := err.(*url.Error); ok {
 			switch url_error.Err.(type) {
@@ -335,7 +347,11 @@ func (s *CharmStore) Get(curl *URL) (Charm, error) {
 	}
 	path := filepath.Join(CacheDir, Quote(curl.String())+".charm")
 	if verify(path, digest) != nil {
-		resp, err := s.get(s.BaseURL + "/charm/" + url.QueryEscape(curl.Path()))
+		store_url := s.BaseURL + "/charm/" + url.QueryEscape(curl.Path())
+		if s.testMode {
+			store_url = store_url + "?stats=0"
+		}
+		resp, err := s.get(store_url)
 		if err != nil {
 			return nil, err
 		}

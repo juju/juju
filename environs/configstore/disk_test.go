@@ -12,11 +12,11 @@ import (
 	"strings"
 	"syscall"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/errors"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
@@ -110,6 +110,7 @@ func (*diskStoreSuite) TestRead(c *gc.C) {
 		Addresses: []string{"example.com", "kremvax.ru"},
 		CACert:    "first line\nsecond line",
 	})
+	c.Assert(info.Location(), gc.Equals, fmt.Sprintf("file %q", dir+"/environments/someenv.jenv"))
 	c.Assert(info.BootstrapConfig(), gc.DeepEquals, map[string]interface{}{
 		"secret": "blah",
 		"arble":  "bletch",

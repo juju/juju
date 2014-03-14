@@ -14,9 +14,9 @@ import (
 
 	"github.com/juju/loggo"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/httpstorage"
 	"launchpad.net/juju-core/environs/manual"
@@ -28,7 +28,6 @@ import (
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils/ssh"
 	"launchpad.net/juju-core/worker/localstorage"
 	"launchpad.net/juju-core/worker/terminationworker"
@@ -36,7 +35,7 @@ import (
 
 const (
 	// TODO(axw) make this configurable?
-	dataDir = "/var/lib/juju"
+	dataDir = agent.DefaultDataDir
 
 	// storageSubdir is the subdirectory of
 	// dataDir in which storage will be located.
@@ -63,7 +62,7 @@ var _ envtools.SupportsCustomSources = (*manualEnviron)(nil)
 var errNoStartInstance = errors.New("manual provider cannot start instances")
 var errNoStopInstance = errors.New("manual provider cannot stop instances")
 
-func (*manualEnviron) StartInstance(constraints.Value, tools.List, *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (*manualEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	return nil, nil, errNoStartInstance
 }
 
@@ -188,6 +187,7 @@ func (e *manualEnviron) Instances(ids []instance.Id) (instances []instance.Insta
 }
 
 var newSSHStorage = func(sshHost, storageDir, storageTmpdir string) (storage.Storage, error) {
+	logger.Debugf("using ssh storage at host %q dir %q", sshHost, storageDir)
 	return sshstorage.NewSSHStorage(sshstorage.NewSSHStorageParams{
 		Host:       sshHost,
 		StorageDir: storageDir,

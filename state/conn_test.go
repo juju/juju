@@ -59,11 +59,14 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	cs.services = cs.MgoSuite.Session.DB("juju").C("services")
 	cs.units = cs.MgoSuite.Session.DB("juju").C("units")
 	cs.stateServers = cs.MgoSuite.Session.DB("juju").C("stateServers")
-	cs.State.AddUser("admin", "pass")
+	cs.State.AddUser(state.AdminUser, "pass")
 }
 
 func (cs *ConnSuite) TearDownTest(c *gc.C) {
-	cs.State.Close()
+	if cs.State != nil {
+		// If setup fails, we don't have a State yet
+		cs.State.Close()
+	}
 	cs.MgoSuite.TearDownTest(c)
 	cs.LoggingSuite.TearDownTest(c)
 }

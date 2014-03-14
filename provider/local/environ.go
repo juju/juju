@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2013, 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package local
@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -36,7 +37,7 @@ import (
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/terminationworker"
 )
@@ -59,6 +60,7 @@ type localEnviron struct {
 	localStorage     storage.Storage
 	storageListener  net.Listener
 	containerManager container.Manager
+	fastLXC          bool
 }
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
@@ -129,24 +131,19 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 		return err
 	}
 
-	bootstrapJobs, err := agent.MarshalBootstrapJobs(state.JobManageEnviron)
-	if err != nil {
-		return err
-	}
-
 	mcfg := environs.NewBootstrapMachineConfig(stateFileURL, privateKey)
 	mcfg.Tools = selectedTools[0]
 	mcfg.DataDir = env.config.rootDir()
 	mcfg.LogDir = fmt.Sprintf("/var/log/juju-%s", env.config.namespace())
+	mcfg.Jobs = []params.MachineJob{params.JobManageEnviron}
 	mcfg.CloudInitOutputLog = filepath.Join(env.config.logDir(), "cloud-init-output.log")
 	mcfg.DisablePackageCommands = true
 	mcfg.MachineAgentServiceName = env.machineAgentServiceName()
 	mcfg.MongoServiceName = env.mongoServiceName()
 	mcfg.AgentEnvironment = map[string]string{
-		agent.Namespace:     env.config.namespace(),
-		agent.StorageDir:    env.config.storageDir(),
-		agent.StorageAddr:   env.config.storageAddr(),
-		agent.BootstrapJobs: bootstrapJobs,
+		agent.Namespace:   env.config.namespace(),
+		agent.StorageDir:  env.config.storageDir(),
+		agent.StorageAddr: env.config.storageAddr(),
 	}
 	if err := environs.FinishMachineConfig(mcfg, cfg, cons); err != nil {
 		return err
@@ -214,12 +211,15 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	defer env.localMutex.Unlock()
 	env.config = ecfg
 	env.name = ecfg.Name()
+	containerType := ecfg.container()
+	env.fastLXC = useFastLXC(containerType)
 
 	env.containerManager, err = factory.NewContainerManager(
-		ecfg.container(),
+		containerType,
 		container.ManagerConfig{
 			container.ConfigName:   env.config.namespace(),
 			container.ConfigLogDir: env.config.logDir(),
+			"use-clone":            strconv.FormatBool(env.fastLXC),
 		})
 	if err != nil {
 		return err
@@ -276,7 +276,7 @@ func (env *localEnviron) resolveBridgeAddress(cfg *config.Config) error {
 // be synced and so forth without having a machine agent
 // running.
 func (env *localEnviron) setLocalStorage() error {
-	storage, err := filestorage.NewFileStorageWriter(env.config.storageDir(), filestorage.UseDefaultTmpDir)
+	storage, err := filestorage.NewFileStorageWriter(env.config.storageDir())
 	if err != nil {
 		return err
 	}
@@ -285,24 +285,23 @@ func (env *localEnviron) setLocalStorage() error {
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (env *localEnviron) StartInstance(cons constraints.Value, possibleTools tools.List,
-	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
 
-	series := possibleTools.OneSeries()
-	logger.Debugf("StartInstance: %q, %s", machineConfig.MachineId, series)
-	machineConfig.Tools = possibleTools[0]
-	machineConfig.MachineContainerType = env.config.container()
-	logger.Debugf("tools: %#v", machineConfig.Tools)
+	series := args.Tools.OneSeries()
+	logger.Debugf("StartInstance: %q, %s", args.MachineConfig.MachineId, series)
+	args.MachineConfig.Tools = args.Tools[0]
+	args.MachineConfig.MachineContainerType = env.config.container()
+	logger.Debugf("tools: %#v", args.MachineConfig.Tools)
 	network := container.BridgeNetworkConfig(env.config.networkBridge())
-	if err := environs.FinishMachineConfig(machineConfig, env.config.Config, cons); err != nil {
+	if err := environs.FinishMachineConfig(args.MachineConfig, env.config.Config, args.Constraints); err != nil {
 		return nil, nil, err
 	}
 	// TODO: evaluate the impact of setting the contstraints on the
 	// machineConfig for all machines rather than just state server nodes.
 	// This limiation is why the constraints are assigned directly here.
-	machineConfig.Constraints = cons
-	machineConfig.AgentEnvironment[agent.Namespace] = env.config.namespace()
-	inst, hardware, err := env.containerManager.StartContainer(machineConfig, series, network)
+	args.MachineConfig.Constraints = args.Constraints
+	args.MachineConfig.AgentEnvironment[agent.Namespace] = env.config.namespace()
+	inst, hardware, err := env.containerManager.StartContainer(args.MachineConfig, series, network)
 	if err != nil {
 		return nil, nil, err
 	}

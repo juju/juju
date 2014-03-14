@@ -159,6 +159,11 @@ func (info *environInfo) SetAPICredentials(creds APICredentials) {
 	info.Password = creds.Password
 }
 
+// Location returns the location of the environInfo in human readable format.
+func (info *environInfo) Location() string {
+	return fmt.Sprintf("file %q", info.path)
+}
+
 // Write implements EnvironInfo.Write.
 func (info *environInfo) Write() error {
 	data, err := goyaml.Marshal(info)

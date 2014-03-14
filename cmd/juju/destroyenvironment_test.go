@@ -6,6 +6,7 @@ package main
 import (
 	"bytes"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
@@ -16,7 +17,6 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type destroyEnvSuite struct {
@@ -130,7 +130,7 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandConfirmation(c *gc.C) {
 	// Ensure confirmation is requested if "-y" is not specified.
 	stdin.WriteString("n")
 	opc, errc := runCommand(ctx, new(DestroyEnvironmentCommand), "dummyenv")
-	c.Check(<-errc, gc.ErrorMatches, "Environment destruction aborted")
+	c.Check(<-errc, gc.ErrorMatches, "environment destruction aborted")
 	c.Check(<-opc, gc.IsNil)
 	c.Check(stdout.String(), gc.Matches, "WARNING!.*dummyenv.*\\(type: dummy\\)(.|\n)*")
 	assertEnvironNotDestroyed(c, env, s.ConfigStore)
@@ -140,7 +140,7 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandConfirmation(c *gc.C) {
 	stdout.Reset()
 	opc, errc = runCommand(ctx, new(DestroyEnvironmentCommand), "dummyenv")
 	c.Check(<-opc, gc.IsNil)
-	c.Check(<-errc, gc.ErrorMatches, "Environment destruction aborted")
+	c.Check(<-errc, gc.ErrorMatches, "environment destruction aborted")
 	assertEnvironNotDestroyed(c, env, s.ConfigStore)
 
 	// "--yes" passed: no confirmation request.

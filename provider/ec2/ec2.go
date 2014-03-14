@@ -18,7 +18,6 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
@@ -179,18 +178,25 @@ func (p environProvider) BoilerplateConfig() string {
 # https://juju.ubuntu.com/docs/config-aws.html
 amazon:
     type: ec2
-    # region specifies the ec2 region. It defaults to us-east-1.
+
+    # region specifies the EC2 region. It defaults to us-east-1.
+    #
     # region: us-east-1
+
+    # access-key holds the EC2 access key. It defaults to the
+    # environment variable AWS_ACCESS_KEY_ID.
     #
-    # access-key holds the ec2 access key. It defaults to the environment
-    # variable AWS_ACCESS_KEY_ID.
     # access-key: <secret>
+
+    # secret-key holds the EC2 secret key. It defaults to the
+    # environment variable AWS_SECRET_ACCESS_KEY.
     #
-    # secret-key holds the ec2 secret key. It defaults to the environment
-    # variable AWS_SECRET_ACCESS_KEY.
+    # secret-key: <secret>
+
+    # image-stream chooses a simplestreams stream to select OS images
+    # from, for example daily or released images (or any other stream
+    # available on simplestreams).
     #
-    # image-stream chooses a simplestreams stream to select OS images from,
-    # for example daily or released images (or any other stream available on simplestreams).
     # image-stream: "released"
 
 `[1:]
@@ -236,7 +242,7 @@ func (p environProvider) MetadataLookupParams(region string) (*simplestreams.Met
 	return &simplestreams.MetadataLookupParams{
 		Region:        region,
 		Endpoint:      ec2Region.EC2Endpoint,
-		Architectures: []string{"amd64", "i386", "arm", "arm64"},
+		Architectures: []string{"amd64", "i386"},
 	}, nil
 }
 
@@ -338,7 +344,7 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 		Series:        e.ecfg().DefaultSeries(),
 		Region:        region,
 		Endpoint:      ec2Region.EC2Endpoint,
-		Architectures: []string{"amd64", "i386", "arm", "arm64"},
+		Architectures: []string{"amd64", "i386", "arm", "arm64", "ppc64"},
 	}, nil
 }
 
@@ -358,50 +364,49 @@ func (e *environ) Region() (simplestreams.CloudSpec, error) {
 const ebsStorage = "ebs"
 
 // StartInstance is specified in the InstanceBroker interface.
-func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List,
-	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
 
-	arches := possibleTools.Arches()
+	arches := args.Tools.Arches()
 	stor := ebsStorage
 	sources, err := imagemetadata.GetMetadataSources(e)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	series := possibleTools.OneSeries()
+	series := args.Tools.OneSeries()
 	spec, err := findInstanceSpec(sources, e.Config().ImageStream(), &instances.InstanceConstraint{
 		Region:      e.ecfg().region(),
 		Series:      series,
 		Arches:      arches,
-		Constraints: cons,
+		Constraints: args.Constraints,
 		Storage:     &stor,
 	})
 	if err != nil {
 		return nil, nil, err
 	}
-	tools, err := possibleTools.Match(tools.Filter{Arch: spec.Image.Arch})
+	tools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
 		return nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
-	machineConfig.Tools = tools[0]
-	if err := environs.FinishMachineConfig(machineConfig, e.Config(), cons); err != nil {
+	args.MachineConfig.Tools = tools[0]
+	if err := environs.FinishMachineConfig(args.MachineConfig, e.Config(), args.Constraints); err != nil {
 		return nil, nil, err
 	}
 
-	userData, err := environs.ComposeUserData(machineConfig)
+	userData, err := environs.ComposeUserData(args.MachineConfig)
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot make user data: %v", err)
 	}
 	logger.Debugf("ec2 user data; %d bytes", len(userData))
 	cfg := e.Config()
-	groups, err := e.setUpGroups(machineConfig.MachineId, cfg.StatePort(), cfg.APIPort())
+	groups, err := e.setUpGroups(args.MachineConfig.MachineId, cfg.StatePort(), cfg.APIPort())
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
 	var instResp *ec2.RunInstancesResp
 
-	device, diskSize := getDiskSize(cons)
+	device, diskSize := getDiskSize(args.Constraints)
 	for a := shortAttempt.Start(); a.Next(); {
 		instResp, err = e.ec2().RunInstances(&ec2.RunInstances{
 			ImageId:             spec.Image.Id,

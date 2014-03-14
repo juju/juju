@@ -31,7 +31,7 @@ func (s *ValidateSuite) makeLocalMetadata(c *gc.C, version, series string) error
 		SHA256:   "f65a92b3b41311bdf398663ee1c5cd0c",
 	}}
 
-	stor, err := filestorage.NewFileStorageWriter(s.metadataDir, filestorage.UseDefaultTmpDir)
+	stor, err := filestorage.NewFileStorageWriter(s.metadataDir)
 	c.Assert(err, gc.IsNil)
 	err = WriteMetadata(stor, tm, false)
 	c.Assert(err, gc.IsNil)

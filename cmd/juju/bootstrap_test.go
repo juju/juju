@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
@@ -140,6 +142,30 @@ func (s *BootstrapSuite) runAllowRetriesTest(c *gc.C, test bootstrapRetryTest) {
 	err := <-errc
 	c.Check(findToolsRetryValues, gc.DeepEquals, test.expectedAllowRetry)
 	c.Check(err, gc.ErrorMatches, test.err)
+}
+
+// mockUploadTools simulates the effect of tools.Upload, but skips the time-
+// consuming build from source.
+// TODO(fwereade) better factor agent/tools such that build logic is
+// exposed and can itself be neatly mocked?
+func mockUploadTools(stor storage.Storage, forceVersion *version.Number, series ...string) (*coretools.Tools, error) {
+	vers := version.Current
+	if forceVersion != nil {
+		vers.Number = *forceVersion
+	}
+	versions := []version.Binary{vers}
+	for _, series := range series {
+		if series != version.Current.Series {
+			newVers := vers
+			newVers.Series = series
+			versions = append(versions, newVers)
+		}
+	}
+	agentTools, err := envtesting.UploadFakeToolsVersions(stor, versions...)
+	if err != nil {
+		return nil, err
+	}
+	return agentTools[0], nil
 }
 
 func (s *BootstrapSuite) TestTest(c *gc.C) {
@@ -315,6 +341,27 @@ func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 	c.Check(coretesting.Stdout(ctx2), gc.Equals, "")
 }
 
+func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
+	env, fake := makeEmptyFakeHome(c)
+	defer fake.Restore()
+	defaultSeriesVersion := version.Current
+	defaultSeriesVersion.Series = env.Config().DefaultSeries()
+
+	store, err := configstore.Default()
+	c.Assert(err, gc.IsNil)
+	ctx := coretesting.Context(c)
+	environs.PrepareFromName("peckham", ctx, store)
+
+	logger := "jenv.warning.test"
+	testWriter := &loggo.TestWriter{}
+	loggo.RegisterWriter(logger, testWriter, loggo.WARNING)
+	defer loggo.RemoveWriter(logger)
+
+	_, errc := runCommand(ctx, new(BootstrapCommand), "-e", "peckham")
+	c.Assert(<-errc, gc.IsNil)
+	c.Assert(testWriter.Log, jc.LogMatches, []string{"ignoring environments.yaml: using bootstrap config in .*"})
+}
+
 func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
 	s.PatchValue(&version.Current.Number, version.MustParse("1.2.0"))
 	env, fake := makeEmptyFakeHome(c)
@@ -349,7 +396,7 @@ func createImageMetadata(c *gc.C) (string, []*imagemetadata.ImageMetadata) {
 		Endpoint: "endpoint",
 	}
 	sourceDir := c.MkDir()
-	sourceStor, err := filestorage.NewFileStorageWriter(sourceDir, filestorage.UseDefaultTmpDir)
+	sourceStor, err := filestorage.NewFileStorageWriter(sourceDir)
 	c.Assert(err, gc.IsNil)
 	err = imagemetadata.MergeAndWriteMetadata("raring", im, cloudSpec, sourceStor)
 	c.Assert(err, gc.IsNil)

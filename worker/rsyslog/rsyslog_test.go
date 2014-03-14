@@ -10,6 +10,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cert"
@@ -18,7 +19,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/worker/rsyslog"
 )
@@ -120,8 +120,7 @@ func (s *RsyslogSuite) TestModeForwarding(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	syslogPort := s.Conn.Environ.Config().SyslogPort()
-	syslogConfig := syslog.NewForwardConfig(m.Tag(), syslogPort, "", addrs)
-	syslogConfig.LogDir = *rsyslog.LogDir
+	syslogConfig := syslog.NewForwardConfig(m.Tag(), *rsyslog.LogDir, syslogPort, "", addrs)
 	syslogConfig.ConfigDir = *rsyslog.RsyslogConfDir
 	rendered, err := syslogConfig.Render()
 	c.Assert(err, gc.IsNil)
@@ -154,8 +153,7 @@ func (s *RsyslogSuite) TestModeAccumulate(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	syslogPort := s.Conn.Environ.Config().SyslogPort()
-	syslogConfig := syslog.NewAccumulateConfig(m.Tag(), syslogPort, "")
-	syslogConfig.LogDir = *rsyslog.LogDir
+	syslogConfig := syslog.NewAccumulateConfig(m.Tag(), *rsyslog.LogDir, syslogPort, "")
 	syslogConfig.ConfigDir = *rsyslog.RsyslogConfDir
 	rendered, err := syslogConfig.Render()
 	c.Assert(err, gc.IsNil)

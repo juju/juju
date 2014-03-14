@@ -69,7 +69,11 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, cons constra
 	}
 
 	fmt.Fprintln(ctx.GetStderr(), "Launching instance")
-	inst, hw, err := env.StartInstance(cons, selectedTools, machineConfig)
+	inst, hw, err := env.StartInstance(environs.StartInstanceParams{
+		Constraints:   cons,
+		Tools:         selectedTools,
+		MachineConfig: machineConfig,
+	})
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
@@ -404,19 +408,4 @@ func EnsureBootstrapTools(env environs.Environ, series string, arch *string) (co
 		return nil, err
 	}
 	return bootstrap.SetBootstrapTools(env, possibleTools)
-}
-
-// EnsureNotBootstrapped returns null if the environment is not bootstrapped,
-// and an error if it is or if the function was not able to tell.
-func EnsureNotBootstrapped(env environs.Environ) error {
-	_, err := bootstrap.LoadState(env.Storage())
-	// If there is no error loading the bootstrap state, then we are
-	// bootstrapped.
-	if err == nil {
-		return fmt.Errorf("environment is already bootstrapped")
-	}
-	if err == environs.ErrNotBootstrapped {
-		return nil
-	}
-	return err
 }

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
@@ -27,13 +28,11 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
@@ -138,7 +137,7 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 	}
 	envtesting.UploadFakeTools(c, t.Env.Storage())
-	err := common.EnsureNotBootstrapped(t.Env)
+	err := bootstrap.EnsureNotBootstrapped(t.Env)
 	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(coretesting.Context(c), t.Env, cons)
 	c.Assert(err, gc.IsNil)
@@ -382,7 +381,7 @@ func (t *LiveTests) TestBootstrapMultiple(c *gc.C) {
 	// already up, this has been moved into the bootstrap command.
 	t.BootstrapOnce(c)
 
-	err := common.EnsureNotBootstrapped(t.Env)
+	err := bootstrap.EnsureNotBootstrapped(t.Env)
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 
 	c.Logf("destroy env")
@@ -860,7 +859,10 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 
 	t.PrepareOnce(c)
 	possibleTools := envtesting.AssertUploadFakeToolsVersions(c, t.Env.Storage(), version.MustParseBinary("5.4.5-precise-amd64"))
-	inst, _, err := t.Env.StartInstance(constraints.Value{}, possibleTools, machineConfig)
+	inst, _, err := t.Env.StartInstance(environs.StartInstanceParams{
+		Tools:         possibleTools,
+		MachineConfig: machineConfig,
+	})
 	if inst != nil {
 		err := t.Env.StopInstances([]instance.Instance{inst})
 		c.Check(err, gc.IsNil)
