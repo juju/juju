@@ -131,15 +131,15 @@ func handleBootstrapError(err error, ctx environs.BootstrapContext, inst instanc
 		}
 	}()
 
-	// if inst != nil {
-	// 	fmt.Fprintln(ctx.GetStderr(), "Stopping instance...")
-	// 	if stoperr := env.StopInstances([]instance.Instance{inst}); stoperr != nil {
-	// 		logger.Errorf("cannot stop failed bootstrap instance %q: %v", inst.Id(), stoperr)
-	// 	} else {
-	// 		// set to nil so we know we can safely delete the state file
-	// 		inst = nil
-	// 	}
-	// }
+	if inst != nil {
+		fmt.Fprintln(ctx.GetStderr(), "Stopping instance...")
+		if stoperr := env.StopInstances([]instance.Instance{inst}); stoperr != nil {
+			logger.Errorf("cannot stop failed bootstrap instance %q: %v", inst.Id(), stoperr)
+		} else {
+			// set to nil so we know we can safely delete the state file
+			inst = nil
+		}
+	}
 	// We only delete the bootstrap state file if either we didn't
 	// start an instance, or we managed to cleanly stop it.
 	if inst == nil {

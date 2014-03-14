@@ -113,18 +113,22 @@ func testJournalDirs(dir string, c *gc.C) {
 
 func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 	dir := c.MkDir()
+	dbDir := filepath.Join(dir, "db")
+	err := os.MkdirAll(dbDir, 0777)
+	c.Assert(err, gc.IsNil)
+
 	port := 25252
 
 	oldsvc := makeService(oldMongoServiceName, c)
 	defer oldsvc.Remove()
 
-	err := EnsureMongoServer(dir, port)
+	err = EnsureMongoServer(dir, port)
 	c.Assert(err, gc.IsNil)
-	svc, err := MongoUpstartService(makeServiceName(mongoScriptVersion), dir, port)
+	svc, err := mongoUpstartService(makeServiceName(mongoScriptVersion), dir, dbDir, port)
 	c.Assert(err, gc.IsNil)
 	defer svc.Remove()
 
-	testJournalDirs(dir, c)
+	testJournalDirs(dbDir, c)
 	c.Check(oldsvc.Installed(), jc.IsFalse)
 	c.Check(svc.Installed(), jc.IsTrue)
 
@@ -132,6 +136,26 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 	err = EnsureMongoServer(dir, port)
 	c.Assert(err, gc.IsNil)
 
+}
+
+func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
+	dir := c.MkDir()
+	dbDir := filepath.Join(dir, "db")
+
+	// remove the directory so we use the path but it won't exist
+	// that should make it get cleaned up at the end of the test if created
+	os.RemoveAll(dir)
+	port := 25252
+
+	err := EnsureMongoServer(dir, port)
+	c.Check(err, gc.IsNil)
+
+	_, err = os.Stat(dbDir)
+	c.Assert(err, gc.IsNil)
+
+	svc, err := mongoUpstartService(makeServiceName(mongoScriptVersion), dir, dbDir, port)
+	c.Assert(err, gc.IsNil)
+	defer svc.Remove()
 }
 
 func makeService(name string, c *gc.C) *upstart.Conf {

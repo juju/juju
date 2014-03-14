@@ -51,9 +51,10 @@ func MongodPath() (string, error) {
 // This is a variable so it can be overridden in tests
 var EnsureMongoServer = ensureMongoServer
 
-func ensureMongoServer(dir string, port int) error {
+func ensureMongoServer(dataDir string, port int) error {
+	dbDir := filepath.Join(dataDir, "db")
 	name := makeServiceName(mongoScriptVersion)
-	service, err := MongoUpstartService(name, dir, port)
+	service, err := mongoUpstartService(name, dataDir, dbDir, port)
 	if err != nil {
 		return err
 	}
@@ -67,7 +68,7 @@ func ensureMongoServer(dir string, port int) error {
 		return err
 	}
 
-	if err := makeJournalDirs(dir); err != nil {
+	if err := makeJournalDirs(dbDir); err != nil {
 		return err
 	}
 
@@ -136,15 +137,12 @@ func makeServiceName(version int) string {
 // MongoUpstartService.
 const mongoScriptVersion = 2
 
-// MongoUpstartService returns the upstart config for the mongo state service.
+// mongoUpstartService returns the upstart config for the mongo state service.
 //
 // This method assumes there is a server.pem keyfile in dataDir.
-func MongoUpstartService(name, dataDir string, port int) (*upstart.Conf, error) {
-
+func mongoUpstartService(name, dataDir, dbDir string, port int) (*upstart.Conf, error) {
 	keyFile := path.Join(dataDir, "server.pem")
 	svc := upstart.NewService(name)
-
-	dbDir := path.Join(dataDir, "db")
 
 	conf := &upstart.Conf{
 		Service: *svc,
