@@ -38,7 +38,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/terminationworker"
 )
@@ -286,24 +285,23 @@ func (env *localEnviron) setLocalStorage() error {
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (env *localEnviron) StartInstance(cons constraints.Value, possibleTools tools.List,
-	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
 
-	series := possibleTools.OneSeries()
-	logger.Debugf("StartInstance: %q, %s", machineConfig.MachineId, series)
-	machineConfig.Tools = possibleTools[0]
-	machineConfig.MachineContainerType = env.config.container()
-	logger.Debugf("tools: %#v", machineConfig.Tools)
+	series := args.Tools.OneSeries()
+	logger.Debugf("StartInstance: %q, %s", args.MachineConfig.MachineId, series)
+	args.MachineConfig.Tools = args.Tools[0]
+	args.MachineConfig.MachineContainerType = env.config.container()
+	logger.Debugf("tools: %#v", args.MachineConfig.Tools)
 	network := container.BridgeNetworkConfig(env.config.networkBridge())
-	if err := environs.FinishMachineConfig(machineConfig, env.config.Config, cons); err != nil {
+	if err := environs.FinishMachineConfig(args.MachineConfig, env.config.Config, args.Constraints); err != nil {
 		return nil, nil, err
 	}
 	// TODO: evaluate the impact of setting the contstraints on the
 	// machineConfig for all machines rather than just state server nodes.
 	// This limiation is why the constraints are assigned directly here.
-	machineConfig.Constraints = cons
-	machineConfig.AgentEnvironment[agent.Namespace] = env.config.namespace()
-	inst, hardware, err := env.containerManager.StartContainer(machineConfig, series, network)
+	args.MachineConfig.Constraints = args.Constraints
+	args.MachineConfig.AgentEnvironment[agent.Namespace] = env.config.namespace()
+	inst, hardware, err := env.containerManager.StartContainer(args.MachineConfig, series, network)
 	if err != nil {
 		return nil, nil, err
 	}
