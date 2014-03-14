@@ -6,6 +6,7 @@ package agent
 import (
 	"fmt"
 
+	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
@@ -16,9 +17,9 @@ import (
 )
 
 // InitializeState should be called on the bootstrap machine's agent
-// configuration. It uses that information to dial the state server and
-// initialize it. It also generates a new password for the bootstrap
-// machine and calls Write to save the the configuration.
+// configuration. It uses that information to create the state server, dial the
+// state server, and initialize it. It also generates a new password for the
+// bootstrap machine and calls Write to save the the configuration.
 //
 // The envCfg values will be stored in the state's EnvironConfig; the
 // machineCfg values will be used to configure the bootstrap Machine,
@@ -29,7 +30,7 @@ import (
 // InitializeState returns the newly initialized state and bootstrap
 // machine. If it fails, the state may well be irredeemably compromised.
 type StateInitializer interface {
-	InitializeState(envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts, policy state.Policy) (*state.State, *state.Machine, error)
+	InitializeState(dataDir string, envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts, policy state.Policy) (*state.State, *state.Machine, error)
 }
 
 // BootstrapMachineConfig holds configuration information
@@ -52,10 +53,15 @@ type BootstrapMachineConfig struct {
 
 const bootstrapMachineId = "0"
 
-func (c *configInternal) InitializeState(envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts, policy state.Policy) (*state.State, *state.Machine, error) {
+func (c *configInternal) InitializeState(dataDir string, envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts, policy state.Policy) (*state.State, *state.Machine, error) {
 	if c.Tag() != names.MachineTag(bootstrapMachineId) {
 		return nil, nil, fmt.Errorf("InitializeState not called with bootstrap machine's configuration")
 	}
+
+	if err := mongo.EnsureMongoServer(dataDir, envCfg.StatePort()); err != nil {
+		return nil, nil, err
+	}
+
 	info := state.Info{
 		Addrs:  c.stateDetails.addresses,
 		CACert: c.caCert,

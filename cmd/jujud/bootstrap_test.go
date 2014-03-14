@@ -13,6 +13,7 @@ import (
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
@@ -36,6 +37,7 @@ type BootstrapSuite struct {
 	dataDir              string
 	logDir               string
 	providerStateURLFile string
+	fakeEnsureMongo      *fakeEnsure
 }
 
 var _ = gc.Suite(&BootstrapSuite{})
@@ -47,7 +49,22 @@ func init() {
 	testRoundTripper.RegisterForScheme("test")
 }
 
+type fakeEnsure struct {
+	dir  string
+	port int
+	err  error
+}
+
+func (f *fakeEnsure) fakeEnsureMongo(dir string, port int) error {
+	f.dir = dir
+	f.port = port
+	return f.err
+}
+
 func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
+	s.fakeEnsureMongo = &fakeEnsure{}
+	s.PatchValue(&mongo.EnsureMongoServer, s.fakeEnsureMongo.fakeEnsureMongo)
+
 	s.LoggingSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 	stateInfo := bootstrap.BootstrapState{

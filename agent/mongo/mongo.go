@@ -47,16 +47,22 @@ func MongodPath() (string, error) {
 //
 // This method will remove old versions of the mongo upstart script as necessary
 // before installing the new version.
-func EnsureMongoServer(dir string, port int) error {
+//
+// This is a variable so it can be overridden in tests
+var EnsureMongoServer = ensureMongoServer
+
+func ensureMongoServer(dir string, port int) error {
 	name := makeServiceName(mongoScriptVersion)
 	service, err := MongoUpstartService(name, dir, port)
 	if err != nil {
 		return err
 	}
 	if service.Installed() {
+		logger.Infof("Mongod service %q already installed, nothing to do.", name)
 		return nil
 	}
 
+	logger.Infof("Installing mongod service %q", name)
 	if err := removeOldMongoServices(mongoScriptVersion); err != nil {
 		return err
 	}
@@ -65,6 +71,7 @@ func EnsureMongoServer(dir string, port int) error {
 		return err
 	}
 
+	logger.Debugf("mongod upstart command: %s", service.Cmd)
 	if err := service.Install(); err != nil {
 		return fmt.Errorf("failed to install mongo service %q: %v", service.Name, err)
 	}

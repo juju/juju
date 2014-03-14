@@ -4,10 +4,13 @@
 package agent_test
 
 import (
+	"errors"
+
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -23,6 +26,7 @@ import (
 type bootstrapSuite struct {
 	testbase.LoggingSuite
 	testing.MgoSuite
+	fake *fakeEnsure
 }
 
 var _ = gc.Suite(&bootstrapSuite{})
@@ -40,11 +44,25 @@ func (s *bootstrapSuite) TearDownSuite(c *gc.C) {
 func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
+	s.fake = &fakeEnsure{}
+	s.PatchValue(&mongo.EnsureMongoServer, s.fake.fakeEnsureMongo)
 }
 
 func (s *bootstrapSuite) TearDownTest(c *gc.C) {
 	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
+}
+
+type fakeEnsure struct {
+	dir  string
+	port int
+	err  error
+}
+
+func (f *fakeEnsure) fakeEnsureMongo(dir string, port int) error {
+	f.dir = dir
+	f.port = port
+	return f.err
 }
 
 func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
@@ -74,7 +92,17 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	envCfg, err := config.New(config.NoDefaults, envAttrs)
 	c.Assert(err, gc.IsNil)
 
-	st, m, err := cfg.InitializeState(envCfg, mcfg, state.DialOpts{}, environs.NewStatePolicy())
+	s.fake.err = errors.New("foo")
+	st, m, err := cfg.InitializeState(dataDir, envCfg, mcfg, state.DialOpts{}, environs.NewStatePolicy())
+	c.Check(st, gc.IsNil)
+	c.Check(m, gc.IsNil)
+	c.Check(err, gc.Equals, s.fake.err)
+	c.Check(s.fake.dir, gc.Equals, dataDir)
+	c.Check(s.fake.port, gc.Equals, envCfg.StatePort())
+
+	s.fake.err = nil
+
+	st, m, err = cfg.InitializeState(dataDir, envCfg, mcfg, state.DialOpts{}, environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
@@ -116,6 +144,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 
 func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	dataDir := c.MkDir()
+
 	pwHash := utils.UserPasswordHash(testing.DefaultMongoPassword, utils.CompatSalt)
 	cfg, err := agent.NewAgentConfig(agent.AgentConfigParams{
 		DataDir:           dataDir,
@@ -140,13 +169,13 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	envCfg, err := config.New(config.NoDefaults, envAttrs)
 	c.Assert(err, gc.IsNil)
 
-	st, _, err := cfg.InitializeState(envCfg, mcfg, state.DialOpts{}, environs.NewStatePolicy())
+	st, _, err := cfg.InitializeState(dataDir, envCfg, mcfg, state.DialOpts{}, environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	err = st.SetAdminMongoPassword("")
 	c.Check(err, gc.IsNil)
 	st.Close()
 
-	st, _, err = cfg.InitializeState(envCfg, mcfg, state.DialOpts{}, environs.NewStatePolicy())
+	st, _, err = cfg.InitializeState(dataDir, envCfg, mcfg, state.DialOpts{}, environs.NewStatePolicy())
 	if err == nil {
 		st.Close()
 	}

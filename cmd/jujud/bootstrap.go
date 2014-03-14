@@ -90,7 +90,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if len(bsState.Characteristics) > 0 {
 		characteristics = bsState.Characteristics[0]
 	}
-	st, _, err := c.Conf.config.InitializeState(envCfg, agent.BootstrapMachineConfig{
+	st, _, err := c.Conf.config.InitializeState(c.Conf.dataDir, envCfg, agent.BootstrapMachineConfig{
 		Constraints:     c.Constraints,
 		Jobs:            jobs,
 		InstanceId:      bsState.StateInstances[0],
