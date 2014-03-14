@@ -124,7 +124,6 @@ func (inst *MgoInstance) run() error {
 	mgoargs := []string{
 		"--auth",
 		"--dbpath", inst.dir,
-		"--logpath", filepath.Join(inst.dir, "server.log"),
 		"--port", mgoport,
 		"--nssize", "1",
 		"--noprealloc",
@@ -159,6 +158,7 @@ func (inst *MgoInstance) run() error {
 		if err == nil || exitErr != nil && exitErr.Exited() {
 			// mongodb has exited without being killed, so print the
 			// last few lines of its log output.
+			log.Errorf("mongodb has exited without being killed")
 			for _, line := range lines {
 				log.Errorf("mongod: %s", line)
 			}
