@@ -8,6 +8,7 @@ import (
 	"os/user"
 
 	"github.com/juju/loggo"
+	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
 	lxctesting "launchpad.net/juju-core/container/lxc/testing"
@@ -16,7 +17,7 @@ import (
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/local"
-	"launchpad.net/juju-core/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 )
@@ -29,7 +30,7 @@ type baseProviderSuite struct {
 
 func (s *baseProviderSuite) SetUpTest(c *gc.C) {
 	s.TestSuite.SetUpTest(c)
-	s.home = testing.MakeFakeHomeNoEnvironments(c, "test")
+	s.home = coretesting.MakeFakeHomeNoEnvironments(c, "test")
 	loggo.GetLogger("juju.provider.local").SetLogLevel(loggo.TRACE)
 	s.restore = local.MockAddressForInterface()
 }
@@ -222,7 +223,7 @@ Acquire::magic::Proxy "none";
 		c.Logf("\n%v: %s", i, test.message)
 		cleanup := []func(){}
 		for key, value := range test.env {
-			restore := testbase.PatchEnvironment(key, value)
+			restore := testing.PatchEnvironment(key, value)
 			cleanup = append(cleanup, restore)
 		}
 		_, restore := testbase.HookCommandOutput(&utils.AptCommandOutput, []byte(test.aptOutput), nil)

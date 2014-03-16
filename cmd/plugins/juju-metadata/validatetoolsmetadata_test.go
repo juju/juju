@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"strings"
 
+	"github.com/juju/testing"
 	"launchpad.net/goamz/aws"
 	gc "launchpad.net/gocheck"
 
@@ -90,9 +91,9 @@ func (s *ValidateToolsMetadataSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.home = coretesting.MakeFakeHome(c, metadataTestEnvConfig)
 	s.metadataDir = c.MkDir()
-	restore := testbase.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
+	restore := testing.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
 	s.AddCleanup(func(*gc.C) { restore() })
-	restore = testbase.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "secret")
+	restore = testing.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "secret")
 	s.AddCleanup(func(*gc.C) { restore() })
 }
 
@@ -123,8 +124,8 @@ func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataUsingEnvironment(c *gc.
 }
 
 func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataUsingIncompleteEnvironment(c *gc.C) {
-	testbase.PatchEnvironment("AWS_ACCESS_KEY_ID", "")
-	testbase.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "")
+	testing.PatchEnvironment("AWS_ACCESS_KEY_ID", "")
+	testing.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "")
 	s.setupEc2LocalMetadata(c, "us-east-1")
 	ctx := coretesting.Context(c)
 	code := cmd.Main(
