@@ -20,7 +20,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/worker/rsyslog"
 )
 
@@ -36,7 +35,7 @@ var _ = gc.Suite(&RsyslogSuite{})
 
 func (s *RsyslogSuite) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
-	restore := testbase.PatchValue(rsyslog.LookupUser, func(username string) (uid, gid int, err error) {
+	restore := testing.PatchValue(rsyslog.LookupUser, func(username string) (uid, gid int, err error) {
 		// worker will not attempt to chown files if uid/gid is 0
 		return 0, 0, nil
 	})

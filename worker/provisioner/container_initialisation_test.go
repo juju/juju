@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os/exec"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -16,7 +17,6 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
@@ -51,7 +51,7 @@ func noImportance(err0, err1 error) bool {
 func (s *ContainerSetupSuite) SetUpTest(c *gc.C) {
 	s.CommonProvisionerSuite.SetUpTest(c)
 	s.CommonProvisionerSuite.setupEnvironmentManager(c)
-	aptCmdChan, cleanup := testbase.HookCommandOutput(&utils.AptCommandOutput, []byte{}, nil)
+	aptCmdChan, cleanup := testing.HookCommandOutput(&utils.AptCommandOutput, []byte{}, nil)
 	s.aptCmdChan = aptCmdChan
 	s.AddCleanup(func(*gc.C) { cleanup() })
 

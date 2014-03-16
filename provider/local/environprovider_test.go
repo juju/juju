@@ -18,7 +18,6 @@ import (
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/local"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -226,14 +225,14 @@ Acquire::magic::Proxy "none";
 			restore := testing.PatchEnvironment(key, value)
 			cleanup = append(cleanup, restore)
 		}
-		_, restore := testbase.HookCommandOutput(&utils.AptCommandOutput, []byte(test.aptOutput), nil)
+		_, restore := testing.HookCommandOutput(&utils.AptCommandOutput, []byte(test.aptOutput), nil)
 		cleanup = append(cleanup, restore)
 		testConfig := baseConfig
 		if test.extraConfig != nil {
 			testConfig, err = baseConfig.Apply(test.extraConfig)
 			c.Assert(err, gc.IsNil)
 		}
-		env, err := provider.Prepare(testing.Context(c), testConfig)
+		env, err := provider.Prepare(coretesting.Context(c), testConfig)
 		c.Assert(err, gc.IsNil)
 
 		envConfig := env.Config()
@@ -288,7 +287,7 @@ func (s *prepareSuite) TestPrepareNamespace(c *gc.C) {
 		s.PatchValue(local.UserCurrent, func() (*user.User, error) {
 			return &user.User{Username: test.userOS}, test.userOSErr
 		})
-		env, err := provider.Prepare(testing.Context(c), basecfg)
+		env, err := provider.Prepare(coretesting.Context(c), basecfg)
 		if test.err == "" {
 			c.Assert(err, gc.IsNil)
 			cfg := env.Config()
