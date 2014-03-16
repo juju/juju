@@ -24,7 +24,7 @@ import (
 
 type baseProviderSuite struct {
 	lxctesting.TestSuite
-	home    *testing.FakeHome
+	home    *coretesting.FakeHome
 	restore func()
 }
 
@@ -42,7 +42,7 @@ func (s *baseProviderSuite) TearDownTest(c *gc.C) {
 }
 
 type prepareSuite struct {
-	testing.FakeHomeSuite
+	coretesting.FakeHomeSuite
 }
 
 var _ = gc.Suite(&prepareSuite{})

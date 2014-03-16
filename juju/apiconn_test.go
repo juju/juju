@@ -478,7 +478,7 @@ func assertEnvironmentName(c *gc.C, client *api.Client, expectName string) {
 	c.Assert(envInfo.Name, gc.Equals, expectName)
 }
 
-func setAPIClosed() (<-chan *api.State, testbase.Restorer) {
+func setAPIClosed() (<-chan *api.State, testing.Restorer) {
 	stateClosed := make(chan *api.State)
 	apiClose := func(st *api.State) error {
 		stateClosed <- st

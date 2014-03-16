@@ -14,13 +14,12 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju/osenv"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 var logger = loggo.GetLogger("juju.test")
 
 type LogSuite struct {
-	coretesting.CleanupSuite
+	testing.CleanupSuite
 }
 
 var _ = gc.Suite(&LogSuite{})

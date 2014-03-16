@@ -740,7 +740,7 @@ func (s *MachineSuite) TestMachineEnvirnWorker(c *gc.C) {
 	s.assertJobWithAPI(c, state.JobHostUnits, func(conf agent.Config, st *api.State) {
 		for {
 			select {
-			case <-time.After(testing.LongWait):
+			case <-time.After(coretesting.LongWait):
 				c.Fatalf("timeout while waiting for proxy settings to change")
 			case <-time.After(10 * time.Millisecond):
 				_, err := os.Stat(utils.AptConfFile)
@@ -785,7 +785,7 @@ func (s *MachineSuite) testMachineAgentRsyslogConfigWorker(c *gc.C, job state.Ma
 	})
 	s.assertJobWithAPI(c, job, func(conf agent.Config, st *api.State) {
 		select {
-		case <-time.After(testing.LongWait):
+		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timeout while waiting for rsyslog worker to be created")
 		case mode := <-created:
 			c.Assert(mode, gc.Equals, expectedMode)

@@ -21,7 +21,6 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/worker/deployer"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
