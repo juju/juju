@@ -3,10 +3,10 @@
 package local
 
 import (
+	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 var (
@@ -56,7 +56,7 @@ func CheckDirs(c *gc.C, cfg *config.Config) []string {
 // MockAddressForInterface replaces the getAddressForInterface with a function
 // that returns a constant localhost ip address.
 func MockAddressForInterface() func() {
-	return testbase.PatchValue(&getAddressForInterface, func(name string) (string, error) {
+	return testing.PatchValue(&getAddressForInterface, func(name string) (string, error) {
 		logger.Debugf("getAddressForInterface called for %s", name)
 		return "127.0.0.1", nil
 	})

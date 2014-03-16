@@ -8,18 +8,19 @@ import (
 	"path/filepath"
 
 	"github.com/juju/loggo"
+	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju/osenv"
-	"launchpad.net/juju-core/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
 var logger = loggo.GetLogger("juju.test")
 
 type LogSuite struct {
-	testbase.CleanupSuite
+	testing.CleanupSuite
 }
 
 var _ = gc.Suite(&LogSuite{})

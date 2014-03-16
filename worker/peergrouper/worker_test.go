@@ -8,10 +8,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/juju/testing"
+	jujutesting "launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils/voyeur"
@@ -19,7 +20,7 @@ import (
 )
 
 type workerJujuConnSuite struct {
-	testing.JujuConnSuite
+	jujutesting.JujuConnSuite
 }
 
 var _ = gc.Suite(&workerJujuConnSuite{})
@@ -61,7 +62,7 @@ func initState(c *gc.C, st *fakeState, numMachines int) {
 }
 
 func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
-	testbase.PatchValue(&pollInterval, 5*time.Millisecond)
+	testing.PatchValue(&pollInterval, 5*time.Millisecond)
 
 	st := newFakeState()
 	initState(c, st, 3)
@@ -174,7 +175,7 @@ var fatalErrorsTests = []struct {
 }}
 
 func (s *workerSuite) TestFatalErrors(c *gc.C) {
-	testbase.PatchValue(&pollInterval, 5*time.Millisecond)
+	testing.PatchValue(&pollInterval, 5*time.Millisecond)
 	for i, test := range fatalErrorsTests {
 		c.Logf("test %d: %s -> %s", i, test.errPattern, test.expectErr)
 		resetErrors()
@@ -207,7 +208,7 @@ func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
 		count++
 		return errors.New("sample")
 	})
-	testbase.PatchValue(&retryInterval, 5*time.Millisecond)
+	testing.PatchValue(&retryInterval, 5*time.Millisecond)
 	w := newWorker(st)
 	defer func() {
 		c.Check(worker.Stop(w), gc.IsNil)

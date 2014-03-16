@@ -10,11 +10,12 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cert"
-	"launchpad.net/juju-core/juju/testing"
+	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -28,7 +29,7 @@ func TestPackage(t *stdtesting.T) {
 }
 
 type RsyslogSuite struct {
-	testing.JujuConnSuite
+	jujutesting.JujuConnSuite
 }
 
 var _ = gc.Suite(&RsyslogSuite{})

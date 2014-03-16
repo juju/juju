@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -45,8 +46,8 @@ func (*machineSuite) TestSetsInstanceInfoInitially(c *gc.C) {
 	died := make(chan machine)
 	// Change the poll intervals to be short, so that we know
 	// that we've polled (probably) at least a few times.
-	defer testbase.PatchValue(&ShortPoll, coretesting.ShortWait/10).Restore()
-	defer testbase.PatchValue(&LongPoll, coretesting.ShortWait/10).Restore()
+	defer testing.PatchValue(&ShortPoll, coretesting.ShortWait/10).Restore()
+	defer testing.PatchValue(&LongPoll, coretesting.ShortWait/10).Restore()
 
 	go runMachine(context, m, nil, died)
 	time.Sleep(coretesting.ShortWait)
@@ -59,30 +60,30 @@ func (*machineSuite) TestSetsInstanceInfoInitially(c *gc.C) {
 }
 
 func (*machineSuite) TestShortPollIntervalWhenNoAddress(c *gc.C) {
-	defer testbase.PatchValue(&ShortPoll, 1*time.Millisecond).Restore()
-	defer testbase.PatchValue(&LongPoll, coretesting.LongWait).Restore()
+	defer testing.PatchValue(&ShortPoll, 1*time.Millisecond).Restore()
+	defer testing.PatchValue(&LongPoll, coretesting.LongWait).Restore()
 	count := countPolls(c, nil, "running", params.StatusStarted)
 	c.Assert(count, jc.GreaterThan, 2)
 }
 
 func (*machineSuite) TestShortPollIntervalWhenNoStatus(c *gc.C) {
-	defer testbase.PatchValue(&ShortPoll, 1*time.Millisecond).Restore()
-	defer testbase.PatchValue(&LongPoll, coretesting.LongWait).Restore()
+	defer testing.PatchValue(&ShortPoll, 1*time.Millisecond).Restore()
+	defer testing.PatchValue(&LongPoll, coretesting.LongWait).Restore()
 	count := countPolls(c, testAddrs, "", params.StatusStarted)
 	c.Assert(count, jc.GreaterThan, 2)
 }
 
 func (*machineSuite) TestShortPollIntervalWhenNotStarted(c *gc.C) {
-	defer testbase.PatchValue(&ShortPoll, 1*time.Millisecond).Restore()
-	defer testbase.PatchValue(&LongPoll, coretesting.LongWait).Restore()
+	defer testing.PatchValue(&ShortPoll, 1*time.Millisecond).Restore()
+	defer testing.PatchValue(&LongPoll, coretesting.LongWait).Restore()
 	count := countPolls(c, testAddrs, "pending", params.StatusPending)
 	c.Assert(count, jc.GreaterThan, 2)
 }
 
 func (*machineSuite) TestShortPollIntervalExponent(c *gc.C) {
-	defer testbase.PatchValue(&ShortPoll, 1*time.Microsecond).Restore()
-	defer testbase.PatchValue(&LongPoll, coretesting.LongWait).Restore()
-	defer testbase.PatchValue(&ShortPollBackoff, 2.0).Restore()
+	defer testing.PatchValue(&ShortPoll, 1*time.Microsecond).Restore()
+	defer testing.PatchValue(&LongPoll, coretesting.LongWait).Restore()
+	defer testing.PatchValue(&ShortPollBackoff, 2.0).Restore()
 
 	// With an exponent of 2, the maximum number of polls that can
 	// occur within the given interval ShortWait is log to the base
@@ -96,8 +97,8 @@ func (*machineSuite) TestShortPollIntervalExponent(c *gc.C) {
 }
 
 func (*machineSuite) TestLongPollIntervalWhenHasAllInstanceInfo(c *gc.C) {
-	defer testbase.PatchValue(&ShortPoll, coretesting.LongWait).Restore()
-	defer testbase.PatchValue(&LongPoll, 1*time.Millisecond).Restore()
+	defer testing.PatchValue(&ShortPoll, coretesting.LongWait).Restore()
+	defer testing.PatchValue(&LongPoll, 1*time.Millisecond).Restore()
 	count := countPolls(c, testAddrs, "running", params.StatusStarted)
 	c.Assert(count, jc.GreaterThan, 2)
 }
@@ -139,8 +140,8 @@ func countPolls(c *gc.C, addrs []instance.Address, instStatus string, machineSta
 }
 
 func (*machineSuite) TestSinglePollWhenInstancInfoUnimplemented(c *gc.C) {
-	defer testbase.PatchValue(&ShortPoll, 1*time.Millisecond).Restore()
-	defer testbase.PatchValue(&LongPoll, 1*time.Millisecond).Restore()
+	defer testing.PatchValue(&ShortPoll, 1*time.Millisecond).Restore()
+	defer testing.PatchValue(&LongPoll, 1*time.Millisecond).Restore()
 	count := int32(0)
 	getInstanceInfo := func(id instance.Id) (instanceInfo, error) {
 		c.Check(id, gc.Equals, instance.Id("i1234"))
