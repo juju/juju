@@ -11,7 +11,7 @@ import (
 // state server addresses and the CA public certificate.
 type AddressAndCertGetter interface {
 	Addresses() ([]string, error)
-	APIAddresses() ([]string, error)
+	APIAddressesFromMachines() ([]string, error)
 	CACert() []byte
 }
 
@@ -28,7 +28,7 @@ func NewAPIAddresser(getter AddressAndCertGetter) *APIAddresser {
 
 // APIAddresses returns the list of addresses used to connect to the API.
 func (a *APIAddresser) APIAddresses() (params.StringsResult, error) {
-	addrs, err := a.getter.APIAddresses()
+	addrs, err := a.getter.APIAddressesFromMachines()
 	if err != nil {
 		return params.StringsResult{}, err
 	}

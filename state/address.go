@@ -105,9 +105,11 @@ func (st *State) Addresses() ([]string, error) {
 	return appendPort(addrs, config.StatePort()), nil
 }
 
-// APIAddresses returns the list of cloud-internal addresses that
+// APIAddressesFromMachines returns the list of cloud-internal addresses that
 // can be used to connect to the state API server.
-func (st *State) APIAddresses() ([]string, error) {
+// This method will be deprecated when API addresses are
+// stored independently in their own document.
+func (st *State) APIAddressesFromMachines() ([]string, error) {
 	addrs, err := st.stateServerAddresses()
 	if err != nil {
 		return nil, err
