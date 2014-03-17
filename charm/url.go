@@ -48,6 +48,10 @@ func IsValidName(name string) bool {
 	return validName.MatchString(name)
 }
 
+func (url *URL) IsResolved() bool {
+	return url.Series != ""
+}
+
 // WithRevision returns a URL equivalent to url but with Revision set
 // to revision.
 func (url *URL) WithRevision(revision int) *URL {
@@ -68,11 +72,13 @@ func MustParseURL(url string) *URL {
 // ParseURL parses the provided charm URL string into its respective
 // structure.
 func ParseURL(url string) (*URL, error) {
-	u := &URL{}
+	u := &URL{Schema: "cs"}
 	i := strings.Index(url, ":")
-	if i > 0 {
+	if i >= 0 {
 		u.Schema = url[:i]
 		i++
+	} else {
+		i = 0
 	}
 	// cs: or local:
 	if u.Schema != "cs" && u.Schema != "local" {
@@ -96,15 +102,16 @@ func ParseURL(url string) (*URL, error) {
 	}
 
 	// <series>
-	if len(parts) < 2 {
-		return nil, fmt.Errorf("charm URL without series: %q", url)
-	}
 	if len(parts) == 2 {
 		u.Series = parts[0]
 		if !IsValidSeries(u.Series) {
 			return nil, fmt.Errorf("charm URL has invalid series: %q", url)
 		}
 		parts = parts[1:]
+	}
+
+	if len(parts) < 1 {
+		return nil, fmt.Errorf("charm URL without charm name: %q", url)
 	}
 
 	// <name>[-<revision>]
@@ -187,16 +194,19 @@ func InferURL(src, defaultSeries string) (*URL, error) {
 }
 
 func (u *URL) Path() string {
+	var parts []string
 	if u.User != "" {
-		if u.Revision >= 0 {
-			return fmt.Sprintf("~%s/%s/%s-%d", u.User, u.Series, u.Name, u.Revision)
-		}
-		return fmt.Sprintf("~%s/%s/%s", u.User, u.Series, u.Name)
+		parts = append(parts, fmt.Sprintf("~%s", u.User))
+	}
+	if u.IsResolved() {
+		parts = append(parts, u.Series)
 	}
 	if u.Revision >= 0 {
-		return fmt.Sprintf("%s/%s-%d", u.Series, u.Name, u.Revision)
+		parts = append(parts, fmt.Sprintf("%s-%d", u.Name, u.Revision))
+	} else {
+		parts = append(parts, u.Name)
 	}
-	return fmt.Sprintf("%s/%s", u.Series, u.Name)
+	return strings.Join(parts, "/")
 }
 
 func (u *URL) String() string {

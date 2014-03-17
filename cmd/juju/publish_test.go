@@ -110,9 +110,14 @@ func (s *PublishSuite) TestFrom(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot obtain local digest: branch has no content`)
 }
 
-func (s *PublishSuite) TestMissingSeries(c *gc.C) {
+func (s *PublishSuite) TestResolvedSeries(c *gc.C) {
 	_, err := s.runPublish(c, "cs:wordpress")
-	c.Assert(err, gc.ErrorMatches, `cannot infer charm URL for "cs:wordpress": no series provided`)
+	c.Assert(err, gc.ErrorMatches, `cannot obtain local digest: branch has no content`)
+}
+
+func (s *PublishSuite) TestMissingSeries(c *gc.C) {
+	_, err := s.runPublish(c, "cs:/wordpress")
+	c.Assert(err, gc.ErrorMatches, `charm URL has invalid series: \"cs:/wordpress\"`)
 }
 
 func (s *PublishSuite) TestNotClean(c *gc.C) {

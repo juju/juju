@@ -74,6 +74,22 @@ func charmStatsKey(curl *charm.URL, kind string) []string {
 	return []string{kind, curl.Series, curl.Name, curl.User}
 }
 
+func (s *Server) resolveSeries(curl *charm.URL) *charm.URL {
+	result := *curl
+	if !curl.IsResolved() {
+		curl.Series = "precise"
+	}
+	return &result
+}
+
+func (s *Server) resolveURL(url string) (*charm.URL, error) {
+	curl, err := charm.ParseURL(url)
+	if err != nil {
+		return nil, err
+	}
+	return s.resolveSeries(curl), nil
+}
+
 func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/charm-info" {
 		w.WriteHeader(http.StatusNotFound)
@@ -84,7 +100,7 @@ func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 	for _, url := range r.Form["charms"] {
 		c := &charm.InfoResponse{}
 		response[url] = c
-		curl, err := charm.ParseURL(url)
+		curl, err := s.resolveURL(url)
 		var info *CharmInfo
 		if err == nil {
 			info, err = s.store.CharmInfo(curl)
@@ -92,6 +108,7 @@ func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 		var skey []string
 		if err == nil {
 			skey = charmStatsKey(curl, "charm-info")
+			c.CanonicalURL = curl.String()
 			c.Sha256 = info.BundleSha256()
 			c.Revision = info.Revision()
 			c.Digest = info.Digest()
@@ -132,7 +149,7 @@ func (s *Server) serveEvent(w http.ResponseWriter, r *http.Request) {
 		}
 		c := &charm.EventResponse{}
 		response[url] = c
-		curl, err := charm.ParseURL(url)
+		curl, err := s.resolveURL(url)
 		var event *CharmEvent
 		if err == nil {
 			event, err = s.store.CharmEvent(curl, digest)
@@ -169,7 +186,7 @@ func (s *Server) serveCharm(w http.ResponseWriter, r *http.Request) {
 	if !strings.HasPrefix(r.URL.Path, "/charm/") {
 		panic("serveCharm: bad url")
 	}
-	curl, err := charm.ParseURL("cs:" + r.URL.Path[len("/charm/"):])
+	curl, err := s.resolveURL("cs:" + r.URL.Path[len("/charm/"):])
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		return

@@ -40,7 +40,7 @@ func InferRepository(curl *URL, localRepoPath string) (repo Repository, err erro
 		if localRepoPath == "" {
 			return nil, errors.New("path to local repository not specified")
 		}
-		repo = &LocalRepository{localRepoPath}
+		repo = &LocalRepository{Path:localRepoPath}
 	default:
 		return nil, fmt.Errorf("unknown schema for charm URL %q", curl)
 	}

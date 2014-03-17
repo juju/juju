@@ -40,7 +40,8 @@ func (s *StoreSuite) TestServerCharmInfo(c *gc.C) {
 	var tests = []struct{ url, sha, digest, err string }{
 		{curl.String(), fakeRevZeroSha, "some-digest", ""},
 		{"cs:oneiric/non-existent", "", "", "entry not found"},
-		{"cs:bad", "", "", `charm URL without series: "cs:bad"`},
+		{"cs:bad", "", "", "entry not found"},
+		{"gopher:archie-server", "", "", `charm URL has invalid schema: "gopher:archie-server"`},
 	}
 
 	for _, t := range tests {
@@ -51,9 +52,10 @@ func (s *StoreSuite) TestServerCharmInfo(c *gc.C) {
 		expected := make(map[string]interface{})
 		if t.sha != "" {
 			expected[t.url] = map[string]interface{}{
-				"revision": float64(0),
-				"sha256":   t.sha,
-				"digest":   t.digest,
+				"canonicalUrl": t.url,
+				"revision":     float64(0),
+				"sha256":       t.sha,
+				"digest":       t.digest,
 			}
 		} else {
 			expected[t.url] = map[string]interface{}{

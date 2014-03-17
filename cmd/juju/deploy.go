@@ -101,7 +101,7 @@ func (c *DeployCommand) Init(args []string) error {
 		c.ServiceName = args[1]
 		fallthrough
 	case 1:
-		if _, err := charm.InferURL(args[0], "fake"); err != nil {
+		if _, err := charm.ParseURL(args[0]); err != nil {
 			return fmt.Errorf("invalid charm name %q", args[0])
 		}
 		c.CharmName = args[0]
@@ -133,7 +133,8 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	curl, err := charm.InferURL(c.CharmName, conf.DefaultSeries())
+	//curl, err := charm.InferURL(c.CharmName, conf.DefaultSeries())
+	curl, err := charm.ParseURL(c.CharmName)
 	if err != nil {
 		return err
 	}
@@ -143,6 +144,13 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	}
 
 	repo = config.SpecializeCharmRepo(repo, conf)
+
+	if !curl.IsResolved() {
+		curl, err = repo.Resolve(curl)
+		if err != nil {
+			return err
+		}
+	}
 
 	curl, err = addCharmViaAPI(client, ctx, curl, repo)
 	if err != nil {
@@ -204,7 +212,8 @@ func (c *DeployCommand) run1dot16(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	curl, err := charm.InferURL(c.CharmName, conf.DefaultSeries())
+	//curl, err := charm.InferURL(c.CharmName, conf.DefaultSeries())
+	curl, err := charm.ParseURL(c.CharmName)
 	if err != nil {
 		return err
 	}

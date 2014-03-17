@@ -450,7 +450,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	c.Logf("deploying service")
 	repoDir := c.MkDir()
 	url := coretesting.Charms.ClonedURL(repoDir, mtools0.Version.Series, "dummy")
-	sch, err := conn.PutCharm(url, &charm.LocalRepository{repoDir}, false)
+	sch, err := conn.PutCharm(url, &charm.LocalRepository{Path:repoDir}, false)
 	c.Assert(err, gc.IsNil)
 	svc, err := conn.State.AddService("dummy", "user-admin", sch)
 	c.Assert(err, gc.IsNil)
