@@ -11,6 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/container/kvm"
 	lxctesting "launchpad.net/juju-core/container/lxc/testing"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -302,6 +303,9 @@ func (s *prepareSuite) TestPrepareNamespace(c *gc.C) {
 func (s *prepareSuite) TestFastLXCClone(c *gc.C) {
 	s.PatchValue(local.DetectAptProxies, func() (osenv.ProxySettings, error) {
 		return osenv.ProxySettings{}, nil
+	})
+	s.PatchValue(&kvm.IsKVMSupported, func() (bool, error) {
+		return true, nil
 	})
 	basecfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"type": "local",
