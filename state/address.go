@@ -141,10 +141,6 @@ func (st *State) SetAPIAddresses(addrs []instance.Address) error {
 		Update: D{{"$set", D{
 			{"apiaddresses", doc.APIAddresses},
 		}}},
-	}, {
-		C:      st.stateServers.Name,
-		Id:     apiAddressesKey,
-		Insert: &doc,
 	}}
 	if err := st.runTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set API addresses: %v", err)
