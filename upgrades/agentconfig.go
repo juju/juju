@@ -8,15 +8,43 @@ import (
 	"os"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
 )
 
 var rootLogDir = "/var/log"
 
-func migrateLocalProviderAgentConfig(context Context, target Target) error {
+func getEnvironConfig(context Context) (*config.Config, error) {
 	st := context.State()
-	envConfig, err := st.EnvironConfig()
+	if st != nil {
+		return st.EnvironConfig()
+	}
+	apiState := context.APIState()
+	if apiState == nil {
+		return nil, fmt.Errorf("cannot connect to neither state nor API")
+	}
+	attrs, err := apiState.Client().EnvironmentGet()
+	if err != nil {
+		return nil, fmt.Errorf("cannot get environment attributes: %v", err)
+	}
+	return config.New(config.NoDefaults, attrs)
+}
+
+func setEnvironConfig(context Context, newConfig, oldConfig *config.Config) error {
+	st := context.State()
+	if st != nil {
+		return st.SetEnvironConfig(newConfig, oldConfig)
+	}
+	apiState := context.APIState()
+	if apiState == nil {
+		return fmt.Errorf("cannot connect to neither state nor API")
+	}
+	return apiState.Client().EnvironmentSet(newConfig.AllAttrs())
+}
+
+func migrateLocalProviderAgentConfig(context Context, target Target) error {
+	envConfig, err := getEnvironConfig(context)
 	if err != nil {
 		return fmt.Errorf("failed to read current config: %v", err)
 	}
@@ -52,8 +80,7 @@ func migrateLocalProviderAgentConfig(context Context, target Target) error {
 	if err != nil {
 		return fmt.Errorf("cannot apply environment config: %v", err)
 	}
-	err = st.SetEnvironConfig(newCfg, envConfig)
-	if err != nil {
+	if err := setEnvironConfig(context, newCfg, envConfig); err != nil {
 		return fmt.Errorf("cannot set environment config: %v", err)
 	}
 
