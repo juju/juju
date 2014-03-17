@@ -83,17 +83,17 @@ As of trusty, the local provider will prefer to use lxc-clone to create
 the machines. A 'template' container is created with the name
   juju-<series>-tempalte
 where <series> is the OS series, for example 'juju-precise-template'.
-You can override the clone use by specifying
+You can override the use of clone by specifying
   use-clone: true
 or
   use-clone: false
-in the environments.yaml file for the local block.  If you have the main 
-container directory mounted on a btrfs partition, then the clone will be
-using btrfs snapshots to create the containers. This means that the clones
-use up much less disk space.  If you do not have btrfs, lxc will attempt to
-use aufs (which is an overlay type filesystem). You can explicitly ask
-Juju to create full containers and not overlays by specifying the following
-in the provider configuration:
+in the configuration for you local provider.  If you have the main  container
+directory mounted on a btrfs partition, then the clone will be using btrfs
+snapshots to create the containers. This means that the clones use up much
+less disk space.  If you do not have btrfs, lxc will attempt to use aufs
+(which is an overlay type filesystem). You can explicitly ask Juju to create
+full containers and not overlays by specifying the following in the provider
+configuration:
   use-clone-aufs: false
 
 
