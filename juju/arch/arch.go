@@ -42,8 +42,11 @@ var archREs = []struct {
 	{regexp.MustCompile("ppc64el|ppc64le"), PPC64},
 }
 
+// Override for testing.
+var HostArch = hostArch
+
 // HostArch returns the Juju architecture of the machine on which it is run.
-func HostArch() (string, error) {
+func hostArch() (string, error) {
 	rawArch, err := utils.RunCommand("uname", "-m")
 	if err != nil {
 		return "", err

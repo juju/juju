@@ -44,6 +44,7 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/common"
@@ -522,6 +523,11 @@ func (e *environ) checkBroken(method string) error {
 
 func (e *environ) Name() string {
 	return e.name
+}
+
+// SupportedArchitectures is specified on the EnvironCapability interface.
+func (*environ) SupportedArchitectures() ([]string, error) {
+	return []string{arch.AMD64}, nil
 }
 
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.

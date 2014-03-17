@@ -33,6 +33,7 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
@@ -68,6 +69,15 @@ func (e *localEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket.
 	return []simplestreams.DataSource{
 		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseToolsPath)}, nil
+}
+
+// SupportedArchitectures is specified on the EnvironCapability interface.
+func (*localEnviron) SupportedArchitectures() ([]string, error) {
+	localArch, err := arch.HostArch()
+	if err != nil {
+		return nil, err
+	}
+	return []string{localArch}, nil
 }
 
 // Name is specified in the Environ interface.
