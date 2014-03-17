@@ -143,7 +143,7 @@ func (c *Conn) updateSecrets() error {
 	if err != nil {
 		return err
 	}
-	var secretAttrs map[string]interface{}
+	secretAttrs := make(map[string]interface{})
 	attrs := cfg.AllAttrs()
 	for k, v := range secrets {
 		if _, exists := attrs[k]; exists {

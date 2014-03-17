@@ -140,7 +140,8 @@ func (*NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
 	info, _, err := env.StateInfo()
 	c.Assert(err, gc.IsNil)
 	info.Password = utils.UserPasswordHash("side-effect secret", utils.CompatSalt)
-	st, err := state.Open(info, state.DefaultDialOpts(), environs.NewStatePolicy())
+	//Use a state without a nil policy, which will allow us to set an invalid config
+	st, err := state.Open(info, state.DefaultDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer assertClose(c, st)
 
@@ -149,18 +150,19 @@ func (*NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(statecfg.UnknownAttrs()["secret"], gc.Equals, "pork")
 
-	// Removing the secret from state should not be possible, as
-	// UpdateEnvironConfig vaidates the config and resets the "secret"
-	// setting.
+	// Remove the secret from state, and then make sure it gets
+	// pushed back again.
 	err = st.UpdateEnvironConfig(map[string]interface{}{}, []string{"secret"}, nil)
 	c.Assert(err, gc.IsNil)
-	statecfg, err = st.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	c.Assert(statecfg.UnknownAttrs()["secret"], gc.Equals, "pork")
 
+	// Make a new Conn, which will push the secrets.
 	conn, err := juju.NewConn(env)
 	c.Assert(err, gc.IsNil)
 	defer assertClose(c, conn)
+
+	statecfg, err = conn.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	c.Assert(statecfg.UnknownAttrs()["secret"], gc.Equals, "pork")
 
 	// Reset the admin password so the state db can be reused.
 	err = conn.State.SetAdminMongoPassword("")

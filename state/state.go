@@ -280,8 +280,15 @@ type ValidateFn func(updateAttrs map[string]interface{}, removeAttrs []string, o
 // removeAttrs.
 func (st *State) UpdateEnvironConfig(updateAttrs map[string]interface{}, removeAttrs []string, additionalValidation ValidateFn) error {
 	if len(updateAttrs)+len(removeAttrs) == 0 {
-		return fmt.Errorf("both updateAttrs and removeAttrs cannont be empty")
+		return nil
 	}
+
+	// TODO(axw) 2013-12-6 #1167616
+	// Ensure that the settings on disk have not changed
+	// underneath us. The settings changes are actually
+	// applied as a delta to what's on disk; if there has
+	// been a concurrent update, the change may not be what
+	// the user asked for.
 	settings, err := readSettings(st, environGlobalKey)
 	if err != nil {
 		return err

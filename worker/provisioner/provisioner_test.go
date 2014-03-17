@@ -118,15 +118,21 @@ func (s *CommonProvisionerSuite) setupEnvironmentManager(c *gc.C) {
 // so the Settings returned from the watcher will not pass
 // validation.
 func (s *CommonProvisionerSuite) invalidateEnvironment(c *gc.C) {
+	st, err := state.Open(s.StateInfo(c), state.DefaultDialOpts(), state.Policy(nil))
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
 	attrs := map[string]interface{}{"type": "unknown"}
-	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
-	c.Assert(err, gc.ErrorMatches, `no registered provider for "unknown"`)
+	err = st.UpdateEnvironConfig(attrs, nil, nil)
+	c.Assert(err, gc.IsNil)
 }
 
 // fixEnvironment undoes the work of invalidateEnvironment.
-func (s *CommonProvisionerSuite) fixEnvironment() error {
+func (s *CommonProvisionerSuite) fixEnvironment(c *gc.C) error {
+	st, err := state.Open(s.StateInfo(c), state.DefaultDialOpts(), state.Policy(nil))
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
 	attrs := map[string]interface{}{"type": s.cfg.AllAttrs()["type"]}
-	return s.State.UpdateEnvironConfig(attrs, nil, nil)
+	return st.UpdateEnvironConfig(attrs, nil, nil)
 }
 
 // stopper is stoppable.
@@ -406,7 +412,7 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenStartInstanceFailed
 	}
 
 	// Unbreak the environ config.
-	err = s.fixEnvironment()
+	err = s.fixEnvironment(c)
 	c.Assert(err, gc.IsNil)
 
 	// Restart the PA to make sure the machine is skipped again.
@@ -442,6 +448,59 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForContainers(c *gc.C) {
 	c.Assert(m.EnsureDead(), gc.IsNil)
 	s.checkStopInstances(c, inst)
 	s.waitRemoved(c, m)
+}
+
+func (s *ProvisionerSuite) TestProvisioningDoesNotOccurWithAnInvalidEnvironment(c *gc.C) {
+	s.invalidateEnvironment(c)
+
+	p := s.newEnvironProvisioner(c)
+	defer stop(c, p)
+
+	// try to create a machine
+	_, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+
+	// the PA should not create it
+	s.checkNoOperations(c)
+}
+
+func (s *ProvisionerSuite) TestProvisioningOccursWithFixedEnvironment(c *gc.C) {
+	s.invalidateEnvironment(c)
+
+	p := s.newEnvironProvisioner(c)
+	defer stop(c, p)
+
+	// try to create a machine
+	m, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+
+	// the PA should not create it
+	s.checkNoOperations(c)
+
+	err = s.fixEnvironment(c)
+	c.Assert(err, gc.IsNil)
+
+	s.checkStartInstance(c, m)
+}
+
+func (s *ProvisionerSuite) TestProvisioningDoesOccurAfterInvalidEnvironmentPublished(c *gc.C) {
+	p := s.newEnvironProvisioner(c)
+	defer stop(c, p)
+
+	// place a new machine into the state
+	m, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+
+	s.checkStartInstance(c, m)
+
+	s.invalidateEnvironment(c)
+
+	// create a second machine
+	m, err = s.addMachine()
+	c.Assert(err, gc.IsNil)
+
+	// the PA should create it using the old environment
+	s.checkStartInstance(c, m)
 }
 
 func (s *ProvisionerSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterRestart(c *gc.C) {

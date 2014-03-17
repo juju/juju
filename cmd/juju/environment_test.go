@@ -11,7 +11,7 @@ import (
 
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/dummy"
-	_ "launchpad.net/juju-core/provider/dummy"
+	_ "launchpad.net/juju-core/provider/local"
 	"launchpad.net/juju-core/testing"
 )
 

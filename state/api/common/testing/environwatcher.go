@@ -76,9 +76,22 @@ func (s *EnvironWatcherTest) TestWatchForEnvironConfigChanges(c *gc.C) {
 	// Initial event.
 	wc.AssertOneChange()
 
-	// Change the environment configuration, check it's detected.
+	// Change the environment configuration by updating an existing attribute, check it's detected.
 	newAttrs := map[string]interface{}{"logging-config": "juju=ERROR"}
 	err = s.st.UpdateEnvironConfig(newAttrs, nil, nil)
+	c.Assert(err, gc.IsNil)
+	wc.AssertOneChange()
+
+	// Change the environment configuration by adding a new attribute, check it's detected.
+	newAttrs = map[string]interface{}{"foo": "bar"}
+	err = s.st.UpdateEnvironConfig(newAttrs, nil, nil)
+	c.Assert(err, gc.IsNil)
+	wc.AssertOneChange()
+
+	// Change the environment configuration by removing an attribute, check it's detected.
+	err = s.st.UpdateEnvironConfig(map[string]interface{}{}, []string{"foo"}, nil)
+	cf, err := s.st.EnvironConfig()
+	c.Logf("!!!!! %#v", cf.AllAttrs()["logging-config"])
 	c.Assert(err, gc.IsNil)
 	wc.AssertOneChange()
 
@@ -87,8 +100,6 @@ func (s *EnvironWatcherTest) TestWatchForEnvironConfigChanges(c *gc.C) {
 	err = s.st.UpdateEnvironConfig(oldAttrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 	wc.AssertOneChange()
-
-	// TODO [waigani] test removing an attribute.
 
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
