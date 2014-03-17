@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
+	"github.com/juju/testing/logging"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
@@ -19,7 +20,7 @@ import (
 var logger = loggo.GetLogger("juju.test")
 
 type LogSuite struct {
-	testing.CleanupSuite
+	logging.LoggingSuite
 }
 
 var _ = gc.Suite(&LogSuite{})
