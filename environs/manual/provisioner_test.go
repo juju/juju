@@ -20,6 +20,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/statecmd"
+	"launchpad.net/juju-core/utils/shell"
 	"launchpad.net/juju-core/version"
 )
 
@@ -159,6 +160,6 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	removeLogFile := "rm -f '/var/log/cloud-init-output.log'\n"
-	expectedScript := removeLogFile + cloudinit.DumpLogOnError(mcfg) + sshinitScript
+	expectedScript := removeLogFile + shell.DumpFileOnErrorScript("/var/log/cloud-init-output.log") + sshinitScript
 	c.Assert(script, gc.Equals, expectedScript)
 }

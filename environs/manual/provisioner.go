@@ -4,6 +4,7 @@
 package manual
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -24,6 +25,7 @@ import (
 	"launchpad.net/juju-core/state/statecmd"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/shell"
 )
 
 const manualInstancePrefix = "manual:"
@@ -309,15 +311,18 @@ func ProvisioningScript(mcfg *cloudinit.MachineConfig) (string, error) {
 	// Explicitly disabling apt_upgrade so as not to trample
 	// the target machine's existing configuration.
 	cloudcfg.SetAptUpgrade(false)
-	script, err := sshinit.ConfigureScript(cloudcfg)
+	configScript, err := sshinit.ConfigureScript(cloudcfg)
 	if err != nil {
 		return "", err
 	}
-	// If something goes wrong, dump cloud-init-output.log to stderr.
-	script = cloudinit.DumpLogOnError(mcfg) + script
+
+	var buf bytes.Buffer
 	// Always remove the cloud-init-output.log file first, if it exists.
-	script = fmt.Sprintf("rm -f %s\n", utils.ShQuote(mcfg.CloudInitOutputLog)) + script
-	return script, nil
+	fmt.Fprintf(&buf, "rm -f %s\n", utils.ShQuote(mcfg.CloudInitOutputLog))
+	// If something goes wrong, dump cloud-init-output.log to stderr.
+	buf.WriteString(shell.DumpFileOnErrorScript(mcfg.CloudInitOutputLog))
+	buf.WriteString(configScript)
+	return buf.String(), nil
 }
 
 func runProvisionScript(script, host string, progressWriter io.Writer) error {

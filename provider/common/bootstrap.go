@@ -24,6 +24,7 @@ import (
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/parallel"
+	"launchpad.net/juju-core/utils/shell"
 	"launchpad.net/juju-core/utils/ssh"
 )
 
@@ -196,11 +197,11 @@ var FinishBootstrap = func(ctx environs.BootstrapContext, client ssh.Client, ins
 	if err := cloudinit.ConfigureJuju(machineConfig, cloudcfg); err != nil {
 		return err
 	}
-	script, err := sshinit.ConfigureScript(cloudcfg)
+	configScript, err := sshinit.ConfigureScript(cloudcfg)
 	if err != nil {
 		return err
 	}
-	script = cloudinit.DumpLogOnError(machineConfig) + script
+	script := shell.DumpFileOnErrorScript(machineConfig.CloudInitOutputLog) + configScript
 	return sshinit.RunConfigureScript(script, sshinit.ConfigureParams{
 		Host:           "ubuntu@" + addr,
 		Client:         client,
