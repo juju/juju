@@ -246,7 +246,20 @@ func (c *Settings) Read() error {
 // key. It returns the settings and the current rxnRevno.
 func readSettingsDoc(st *State, key string) (map[string]interface{}, int64, error) {
 	config := map[string]interface{}{}
-	err := st.settings.FindId(key).One(config)
+	if st == nil {
+		panic(fmt.Sprintf("readSettingsDoc: st=%v", st))
+	}
+	if st.settings == nil {
+		panic(fmt.Sprintf("readSettingsDoc: st.settings=%v", st.settings))
+	}
+	if st.settings.FindId == nil {
+		panic(fmt.Sprintf("readSettingsDoc: st.settings.FindId=%v", st.settings.FindId))
+	}
+	q := st.settings.FindId(key)
+	if q == nil {
+		panic(fmt.Sprintf("readSettingsDoc: st.settings.FindId(%q)=%v", key, q))
+	}
+	err := q.One(config)
 	if err != nil {
 		return nil, 0, err
 	}
