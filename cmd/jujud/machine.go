@@ -70,7 +70,7 @@ type MachineAgent struct {
 	runner          worker.Runner
 	upgradeComplete chan struct{}
 	stateOpened     chan struct{}
-	workersStarted	chan struct{}
+	workersStarted  chan struct{}
 	st              *state.State
 }
 

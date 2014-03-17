@@ -408,11 +408,11 @@ func (s *MachineSuite) TestManageEnvironSetsGOMAXPROCS(c *gc.C) {
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
 	s.setFakeMachineAddresses(c, m)
 	numCPUResult := 2
-	numCPUFunc := func () int { return numCPUResult }
+	numCPUFunc := func() int { return numCPUResult }
 	maxProcsChan := make(chan int, 1)
-	gomaxprocsFunc := func (maxprocs int) int {
+	gomaxprocsFunc := func(maxprocs int) int {
 		maxProcsChan <- maxprocs
-		 return maxprocs
+		return maxprocs
 	}
 	cleanup := utils.OverrideGOMAXPROCSFuncs(gomaxprocsFunc, numCPUFunc)
 	defer cleanup()
@@ -447,9 +447,9 @@ func (s *MachineSuite) TestManageEnvironSetsGOMAXPROCS(c *gc.C) {
 	<-a2.workersStarted
 	c.Check(a2.Stop(), gc.IsNil)
 	select {
-		case procs := <-maxProcsChan:
-			c.Errorf("we should not have called GOMAXPROCS(%d)", procs)
-		case <-time.After(coretesting.ShortWait):
+	case procs := <-maxProcsChan:
+		c.Errorf("we should not have called GOMAXPROCS(%d)", procs)
+	case <-time.After(coretesting.ShortWait):
 	}
 }
 
