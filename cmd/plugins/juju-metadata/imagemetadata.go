@@ -18,7 +18,7 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
-	"launchpad.net/juju-core/utils/arch"
+	"launchpad.net/juju-core/juju/arch"
 )
 
 // ImageMetadataCommand is used to write out simplestreams image metadata information.

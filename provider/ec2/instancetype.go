@@ -7,7 +7,7 @@ import (
 	"launchpad.net/goamz/aws"
 
 	"launchpad.net/juju-core/environs/instances"
-	"launchpad.net/juju-core/utils/arch"
+	"launchpad.net/juju-core/juju/arch"
 )
 
 // Type of virtualisation used.

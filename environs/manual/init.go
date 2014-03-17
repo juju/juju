@@ -11,8 +11,8 @@ import (
 	"strings"
 
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/utils/arch"
 	"launchpad.net/juju-core/utils/ssh"
 )
 

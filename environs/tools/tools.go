@@ -11,8 +11,8 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/juju/arch"
 	coretools "launchpad.net/juju-core/tools"
-	"launchpad.net/juju-core/utils/arch"
 	"launchpad.net/juju-core/version"
 )
 

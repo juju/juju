@@ -11,7 +11,7 @@ import (
 	"sort"
 
 	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/utils/arch"
+	"launchpad.net/juju-core/juju/arch"
 )
 
 func init() {

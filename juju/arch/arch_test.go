@@ -7,8 +7,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/testing/testbase"
-	"launchpad.net/juju-core/utils/arch"
 )
 
 type archSuite struct {
@@ -18,9 +18,9 @@ type archSuite struct {
 var _ = gc.Suite(&archSuite{})
 
 func (s *archSuite) TestHostArch(c *gc.C) {
-	arch, err := arch.HostArch()
+	a, err := arch.HostArch()
 	c.Assert(err, gc.IsNil)
-	c.Assert(arch.IsSupportedArch(arch), jc.IsTrue)
+	c.Assert(arch.IsSupportedArch(a), jc.IsTrue)
 }
 
 func (s *archSuite) TestNormaliseArch(c *gc.C) {
@@ -49,8 +49,8 @@ func (s *archSuite) TestNormaliseArch(c *gc.C) {
 }
 
 func (s *archSuite) TestIsSupportedArch(c *gc.C) {
-	for _, arch := range arch.AllSupportedArches {
-		c.Assert(arch.IsSupportedArch(arch), jc.IsTrue)
+	for _, a := range arch.AllSupportedArches {
+		c.Assert(arch.IsSupportedArch(a), jc.IsTrue)
 	}
 	c.Assert(arch.IsSupportedArch("invalid"), jc.IsFalse)
 }
