@@ -87,7 +87,7 @@ You can override the use of clone by specifying
   use-clone: true
 or
   use-clone: false
-in the configuration for you local provider.  If you have the main  container
+in the configuration for your local provider.  If you have the main container
 directory mounted on a btrfs partition, then the clone will be using btrfs
 snapshots to create the containers. This means that the clones use up much
 less disk space.  If you do not have btrfs, lxc will attempt to use aufs
