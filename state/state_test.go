@@ -111,7 +111,7 @@ func (s *StateSuite) TestAddresses(c *gc.C) {
 		fmt.Sprintf("10.0.0.3:%d", envConfig.StatePort()),
 	})
 
-	addrs, err = s.State.APIAddresses()
+	addrs, err = s.State.APIAddressesFromMachines()
 	c.Assert(err, gc.IsNil)
 	c.Assert(addrs, gc.HasLen, 3)
 	c.Assert(addrs, jc.SameContents, []string{

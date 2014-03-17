@@ -344,7 +344,7 @@ func (s *provisionerSuite) TestAPIAddresses(c *gc.C) {
 	})
 	c.Assert(err, gc.IsNil)
 
-	apiAddresses, err := s.State.APIAddresses()
+	apiAddresses, err := s.State.APIAddressesFromMachines()
 	c.Assert(err, gc.IsNil)
 
 	addresses, err := s.provisioner.APIAddresses()
