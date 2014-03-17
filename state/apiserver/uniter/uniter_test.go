@@ -6,6 +6,7 @@ package uniter_test
 import (
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
@@ -21,7 +22,6 @@ import (
 	"launchpad.net/juju-core/state/apiserver/uniter"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 func Test(t *stdtesting.T) {

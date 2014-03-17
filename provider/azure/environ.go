@@ -13,7 +13,6 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
@@ -24,7 +23,6 @@ import (
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils/parallel"
 )
 
@@ -363,24 +361,23 @@ func (env *azureEnviron) selectInstanceTypeAndImage(cons constraints.Value, seri
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (env *azureEnviron) StartInstance(cons constraints.Value, possibleTools tools.List,
-	machineConfig *cloudinit.MachineConfig) (_ instance.Instance, _ *instance.HardwareCharacteristics, err error) {
+func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ instance.Instance, _ *instance.HardwareCharacteristics, err error) {
 
 	// Declaring "err" in the function signature so that we can "defer"
 	// any cleanup that needs to run during error returns.
 
-	err = environs.FinishMachineConfig(machineConfig, env.Config(), cons)
+	err = environs.FinishMachineConfig(args.MachineConfig, env.Config(), args.Constraints)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	// Pick envtools.  Needed for the custom data (which is what we normally
 	// call userdata).
-	machineConfig.Tools = possibleTools[0]
-	logger.Infof("picked tools %q", machineConfig.Tools)
+	args.MachineConfig.Tools = args.Tools[0]
+	logger.Infof("picked tools %q", args.MachineConfig.Tools)
 
 	// Compose userdata.
-	userData, err := makeCustomData(machineConfig)
+	userData, err := makeCustomData(args.MachineConfig)
 	if err != nil {
 		return nil, nil, fmt.Errorf("custom data: %v", err)
 	}
@@ -409,8 +406,8 @@ func (env *azureEnviron) StartInstance(cons constraints.Value, possibleTools too
 		}
 	}()
 
-	series := possibleTools.OneSeries()
-	instanceType, sourceImageName, err := env.selectInstanceTypeAndImage(cons, series, location)
+	series := args.Tools.OneSeries()
+	instanceType, sourceImageName, err := env.selectInstanceTypeAndImage(args.Constraints, series, location)
 	if err != nil {
 		return nil, nil, err
 	}

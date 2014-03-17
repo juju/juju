@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
@@ -27,7 +28,6 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
@@ -142,6 +142,30 @@ func (s *BootstrapSuite) runAllowRetriesTest(c *gc.C, test bootstrapRetryTest) {
 	err := <-errc
 	c.Check(findToolsRetryValues, gc.DeepEquals, test.expectedAllowRetry)
 	c.Check(err, gc.ErrorMatches, test.err)
+}
+
+// mockUploadTools simulates the effect of tools.Upload, but skips the time-
+// consuming build from source.
+// TODO(fwereade) better factor agent/tools such that build logic is
+// exposed and can itself be neatly mocked?
+func mockUploadTools(stor storage.Storage, forceVersion *version.Number, series ...string) (*coretools.Tools, error) {
+	vers := version.Current
+	if forceVersion != nil {
+		vers.Number = *forceVersion
+	}
+	versions := []version.Binary{vers}
+	for _, series := range series {
+		if series != version.Current.Series {
+			newVers := vers
+			newVers.Series = series
+			versions = append(versions, newVers)
+		}
+	}
+	agentTools, err := envtesting.UploadFakeToolsVersions(stor, versions...)
+	if err != nil {
+		return nil, err
+	}
+	return agentTools[0], nil
 }
 
 func (s *BootstrapSuite) TestTest(c *gc.C) {

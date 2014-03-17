@@ -9,11 +9,11 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	corecharm "launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/worker/uniter/charm"
 )

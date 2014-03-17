@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
@@ -14,7 +15,6 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/provider/manual"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 )
