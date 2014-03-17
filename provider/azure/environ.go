@@ -20,6 +20,7 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -301,8 +302,8 @@ func attemptCreateService(azure *gwacl.ManagementAPI, prefix string, affinityGro
 	return req, nil
 }
 
-// architectures lists the CPU architectures supported by Azure.
-var architectures = []string{"amd64", "i386"}
+// supportedArches lists the CPU architectures supported by Azure.
+var supportedArches = []string{arch.AMD64, arch.I386}
 
 // newHostedService creates a hosted service.  It will make up a unique name,
 // starting with the given prefix.
@@ -350,7 +351,7 @@ func (env *azureEnviron) selectInstanceTypeAndImage(cons constraints.Value, seri
 	constraint := instances.InstanceConstraint{
 		Region:      location,
 		Series:      series,
-		Arches:      architectures,
+		Arches:      supportedArches,
 		Constraints: cons,
 	}
 	spec, err := findInstanceSpec(env, constraint)
