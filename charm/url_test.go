@@ -5,6 +5,7 @@ package charm_test
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
@@ -100,21 +101,36 @@ func (s *URLSuite) TestInferURL(c *gc.C) {
 
 var inferNoDefaultSeriesTests = []struct {
 	vague, exact string
+	resolved     bool
 }{
-	{"foo", ""},
-	{"foo-1", ""},
-	{"cs:foo", ""},
-	{"cs:~user/foo", ""},
-	//{"series/foo", "cs:series/foo"},
-	//{"cs:series/foo", "cs:series/foo"},
-	//{"cs:~user/series/foo", "cs:~user/series/foo"},
+	{"foo", "", false},
+	{"foo-1", "", false},
+	{"cs:foo", "", false},
+	{"cs:~user/foo", "", false},
+	{"series/foo", "cs:series/foo", true},
+	{"cs:series/foo", "cs:series/foo", true},
+	{"cs:~user/series/foo", "cs:~user/series/foo", true},
 }
 
 func (s *URLSuite) TestInferURLNoDefaultSeries(c *gc.C) {
 	for _, t := range inferNoDefaultSeriesTests {
+		inferred, err := charm.InferURL(t.vague, "")
+		if t.exact == "" {
+			c.Assert(err, gc.ErrorMatches, fmt.Sprintf("cannot infer charm URL for %q: no series provided", t.vague))
+		} else {
+			parsed, err := charm.ParseURL(t.exact)
+			c.Assert(err, gc.IsNil)
+			c.Assert(inferred, gc.DeepEquals, parsed, gc.Commentf(`InferURL(%q, "")`, t.vague))
+			c.Assert(parsed.IsResolved(), gc.Equals, true)
+		}
+	}
+}
+
+func (s *URLSuite) TestParseUnresolved(c *gc.C) {
+	for _, t := range inferNoDefaultSeriesTests {
 		inferred, err := charm.ParseURL(t.vague)
 		c.Assert(err, gc.IsNil)
-		c.Assert(inferred.IsResolved(), gc.Equals, false)
+		c.Assert(inferred.IsResolved(), gc.Equals, t.resolved)
 	}
 }
 

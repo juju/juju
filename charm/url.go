@@ -48,6 +48,8 @@ func IsValidName(name string) bool {
 	return validName.MatchString(name)
 }
 
+// IsResolved returns whether a charm URL has been resolved, containing no
+// implciit path components.
 func (url *URL) IsResolved() bool {
 	return url.Series != ""
 }
@@ -155,8 +157,10 @@ func ParseURL(url string) (*URL, error) {
 // when src does not include that information; similarly, a missing
 // schema is assumed to be 'cs'.
 func InferURL(src, defaultSeries string) (*URL, error) {
-	if u, err := ParseURL(src); err == nil {
-		// src was a valid charm URL already
+	if u, err := ParseURL(src); err != nil {
+		return nil, err
+	} else if u.IsResolved() {
+		// src was already a resolved charm URL
 		return u, nil
 	}
 	if strings.HasPrefix(src, "~") {

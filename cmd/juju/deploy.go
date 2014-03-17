@@ -133,7 +133,6 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	//curl, err := charm.InferURL(c.CharmName, conf.DefaultSeries())
 	curl, err := charm.ParseURL(c.CharmName)
 	if err != nil {
 		return err
@@ -212,7 +211,6 @@ func (c *DeployCommand) run1dot16(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	//curl, err := charm.InferURL(c.CharmName, conf.DefaultSeries())
 	curl, err := charm.ParseURL(c.CharmName)
 	if err != nil {
 		return err

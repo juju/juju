@@ -6,7 +6,6 @@ package testing
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -125,7 +124,6 @@ func (s *MockStore) serveInfo(w http.ResponseWriter, r *http.Request) {
 				cr.Sha256 = s.bundleSha256
 				cr.CanonicalURL = charmURL.String()
 			} else {
-				fmt.Println("charms:", s.charms, "charmURL:", charmURL)
 				cr.Errors = append(cr.Errors, "entry not found")
 			}
 		}

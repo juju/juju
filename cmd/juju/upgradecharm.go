@@ -130,7 +130,6 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 	var newURL *charm.URL
 	if c.SwitchURL != "" {
 		// A new charm URL was explicitly specified.
-		//newURL, err = charm.InferURL(c.SwitchURL, conf.DefaultSeries())
 		newURL, err = charm.ParseURL(c.SwitchURL)
 		if err != nil {
 			return err

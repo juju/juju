@@ -417,12 +417,14 @@ type LocalRepository struct {
 
 var _ Repository = (*LocalRepository)(nil)
 
+// WithDefaultSeries returns a Repository with the default series set.
 func (r *LocalRepository) WithDefaultSeries(defaultSeries string) Repository {
 	localRepo := *r
 	localRepo.defaultSeries = defaultSeries
 	return &localRepo
 }
 
+// Resolve canonicalizes charm URLs, resolving references and implied series.
 func (r *LocalRepository) Resolve(curl *URL) (*URL, error) {
 	result := &*curl
 	if !result.IsResolved() {

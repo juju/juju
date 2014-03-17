@@ -99,7 +99,6 @@ func (c *PublishCommand) Run(ctx *cmd.Context) (err error) {
 			}
 		}
 	} else {
-		//curl, err = charm.InferURL(c.URL, "")
 		curl, err = charm.ParseURL(c.URL)
 		if err != nil {
 			return err

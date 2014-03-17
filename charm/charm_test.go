@@ -46,7 +46,6 @@ var inferRepoTests = []struct {
 func (s *CharmSuite) TestInferRepository(c *gc.C) {
 	for i, t := range inferRepoTests {
 		c.Logf("test %d", i)
-		//curl, err := charm.InferURL(t.url, "precise")
 		curl, err := charm.ParseURL(t.url)
 		c.Assert(err, gc.IsNil)
 		repo, err := charm.InferRepository(curl, "/some/path")
