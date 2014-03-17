@@ -44,5 +44,7 @@ func UseMultipleCPUs() {
 		gomaxprocs(0)
 		return
 	}
-	gomaxprocs(numcpu())
+	n := numcpu()
+	logger.Debugf("setting GOMAXPROCS to %d", n)
+	gomaxprocs(n)
 }
