@@ -174,7 +174,7 @@ func (hc *HardwareCharacteristics) setArch(str string) error {
 	if hc.Arch != nil {
 		return fmt.Errorf("already set")
 	}
-	if !utils.IsSupportedArch(str) {
+	if str != "" && !utils.IsSupportedArch(str) {
 		return fmt.Errorf("%q not recognized", str)
 	}
 	hc.Arch = &str
