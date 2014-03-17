@@ -140,7 +140,7 @@ func (*NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
 	info, _, err := env.StateInfo()
 	c.Assert(err, gc.IsNil)
 	info.Password = utils.UserPasswordHash("side-effect secret", utils.CompatSalt)
-	//Use a state without a nil policy, which will allow us to set an invalid config
+	// Use a state without a nil policy, which will allow us to set an invalid config.
 	st, err := state.Open(info, state.DefaultDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer assertClose(c, st)

@@ -90,8 +90,6 @@ func (s *EnvironWatcherTest) TestWatchForEnvironConfigChanges(c *gc.C) {
 
 	// Change the environment configuration by removing an attribute, check it's detected.
 	err = s.st.UpdateEnvironConfig(map[string]interface{}{}, []string{"foo"}, nil)
-	cf, err := s.st.EnvironConfig()
-	c.Logf("!!!!! %#v", cf.AllAttrs()["logging-config"])
 	c.Assert(err, gc.IsNil)
 	wc.AssertOneChange()
 

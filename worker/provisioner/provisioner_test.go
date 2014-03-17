@@ -589,6 +589,52 @@ func (s *ProvisionerSuite) TestDyingMachines(c *gc.C) {
 	c.Assert(m0.Life(), gc.Equals, state.Dying)
 }
 
+func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublished(c *gc.C) {
+	p := s.newEnvironProvisioner(c)
+	defer stop(c, p)
+
+	// place a new machine into the state
+	m, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	s.checkStartInstance(c, m)
+
+	s.invalidateEnvironment(c)
+	s.BackingState.StartSync()
+
+	// create a second machine
+	m, err = s.addMachine()
+	c.Assert(err, gc.IsNil)
+
+	// the PA should create it using the old environment
+	s.checkStartInstance(c, m)
+
+	err = s.fixEnvironment(c)
+	c.Assert(err, gc.IsNil)
+
+	// insert our observer
+	cfgObserver := make(chan *config.Config, 1)
+	provisioner.SetObserver(p, cfgObserver)
+
+	err = s.State.UpdateEnvironConfig(map[string]interface{}{"secret": "beef"}, nil, nil)
+	c.Assert(err, gc.IsNil)
+
+	s.BackingState.StartSync()
+
+	// wait for the PA to load the new configuration
+	select {
+	case <-cfgObserver:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("PA did not action config change")
+	}
+
+	// create a third machine
+	m, err = s.addMachine()
+	c.Assert(err, gc.IsNil)
+
+	// the PA should create it using the new environment
+	s.checkStartInstanceCustom(c, m, "beef", s.defaultConstraints)
+}
+
 func (s *ProvisionerSuite) TestProvisioningSafeMode(c *gc.C) {
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)

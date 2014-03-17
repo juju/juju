@@ -40,6 +40,5 @@ func (environStatePolicy) ConfigValidator(providerType string) (state.ConfigVali
 		return nil, err
 	}
 
-	return provider.(state.ConfigValidator), nil
-	return nil, errors.NewNotImplementedError("ConfigValidator")
+	return provider, nil
 }

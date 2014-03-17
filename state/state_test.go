@@ -1684,21 +1684,34 @@ func (s *StateSuite) TestWatchStateServerInfo(c *gc.C) {
 }
 
 func (s *StateSuite) TestAdditionalValidation(c *gc.C) {
-
-	checkAgentVersion := func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
-		if v, found := updateAttrs["agent-version"]; found {
-			oldVersion, _ := oldConfig.AgentVersion()
-			if v != oldVersion.String() {
-				return fmt.Errorf("agent-version cannot be changed")
+	updateAttrs := map[string]interface{}{"logging-config": "juju=ERROR"}
+	configValidator1 := func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
+		c.Assert(updateAttrs, gc.DeepEquals, map[string]interface{}{"logging-config": "juju=ERROR"})
+		if _, found := updateAttrs["logging-config"]; found {
+			return fmt.Errorf("cannot change logging-config")
+		}
+		return nil
+	}
+	removeAttrs := []string{"logging-config"}
+	configValidator2 := func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
+		c.Assert(removeAttrs, gc.DeepEquals, []string{"logging-config"})
+		for _, i := range removeAttrs {
+			if i == "logging-config" {
+				return fmt.Errorf("cannot remove logging-config")
 			}
 		}
 		return nil
 	}
+	configValidator3 := func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
+		return nil
+	}
 
-	updateAttrs := map[string]interface{}{"agent-version": "99"}
-	err := s.State.UpdateEnvironConfig(updateAttrs, nil, checkAgentVersion)
-	c.Assert(err, gc.ErrorMatches, "agent-version cannot be changed")
-
+	err := s.State.UpdateEnvironConfig(updateAttrs, nil, configValidator1)
+	c.Assert(err, gc.ErrorMatches, "cannot change logging-config")
+	err = s.State.UpdateEnvironConfig(nil, removeAttrs, configValidator2)
+	c.Assert(err, gc.ErrorMatches, "cannot remove logging-config")
+	err = s.State.UpdateEnvironConfig(updateAttrs, nil, configValidator3)
+	c.Assert(err, gc.IsNil)
 }
 
 type attrs map[string]interface{}
@@ -1815,7 +1828,7 @@ func (s *StateSuite) TestWatchEnvironConfigCorruptConfig(c *gc.C) {
 	}
 
 	// Fix the configuration.
-	err = settings.Update(nil, bson.D{{"$set", bson.D{{"name", "foo"}}}})
+	err = settings.UpdateId("e", bson.D{{"$set", bson.D{{"name", "foo"}}}})
 	c.Assert(err, gc.IsNil)
 	fixed := cfg.AllAttrs()
 	err = s.State.UpdateEnvironConfig(fixed, nil, nil)

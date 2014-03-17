@@ -276,12 +276,12 @@ func (st *State) buildAndValidateEnvironConfig(updateAttrs map[string]interface{
 	return st.validate(newConfig, oldConfig)
 }
 
-type ValidateFn func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error
+type ValidateConfigFunc func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error
 
 // UpateEnvironConfig adds, updates or removes attributes in the current
 // configuration of the environment with the provided updateAttrs and
 // removeAttrs.
-func (st *State) UpdateEnvironConfig(updateAttrs map[string]interface{}, removeAttrs []string, additionalValidation ValidateFn) error {
+func (st *State) UpdateEnvironConfig(updateAttrs map[string]interface{}, removeAttrs []string, additionalValidation ValidateConfigFunc) error {
 	if len(updateAttrs)+len(removeAttrs) == 0 {
 		return nil
 	}
@@ -313,7 +313,6 @@ func (st *State) UpdateEnvironConfig(updateAttrs map[string]interface{}, removeA
 		return err
 	}
 
-	//use validCfg to update settings
 	validAttrs := validCfg.AllAttrs()
 	for k, _ := range oldConfig.AllAttrs() {
 		if _, ok := validAttrs[k]; !ok {
