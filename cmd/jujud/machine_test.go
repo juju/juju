@@ -421,6 +421,8 @@ func (s *MachineSuite) TestManageEnvironSetsGOMAXPROCS(c *gc.C) {
 	go func() {
 		c.Check(a.Run(nil), gc.IsNil)
 	}()
+	// Wait for configuration to be finished
+	<-a.workersStarted
 	// By default, the agent should try to call GOMAXPROCS(0) on startup,
 	// since setting it higher is not enabled.
 	c.Check(<-maxProcsChan, gc.Equals, int(0))

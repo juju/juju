@@ -105,7 +105,9 @@ func jujuDMain(args []string) (code int, err error) {
 	jujud.Register(&MachineAgent{})
 	jujud.Register(&UnitAgent{})
 	jujud.Register(&cmd.VersionCommand{})
-	// TODO: jam 2014-03-17 explicitly test that this is being called in jujuDMain
+	// TODO: jam 2014-03-17 https://launchpad.net/bugs/1293383
+	// we would like a test that EnableMultipleCPUs is being called in
+	// jujuDMain
 	utils.EnableMultipleCPUs()
 	code = cmd.Main(jujud, cmd.DefaultContext(), args[1:])
 	return code, nil
