@@ -1,30 +1,32 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package utils
+package arch
 
 import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"launchpad.net/juju-core/utils"
 )
 
 // The following constants define the machine architectures supported by Juju.
 const (
-	Arch_amd64 = "amd64"
-	Arch_i386  = "i386"
-	Arch_arm   = "arm"
-	Arch_arm64 = "arm64"
-	Arch_ppc64 = "ppc64"
+	AMD64 = "amd64"
+	I386  = "i386"
+	ARM   = "arm"
+	ARM64 = "arm64"
+	PPC64 = "ppc64"
 )
 
 // AllSupportedArches records the machine architectures recognised by Juju.
 var AllSupportedArches = []string{
-	Arch_amd64,
-	Arch_i386,
-	Arch_arm,
-	Arch_arm64,
-	Arch_ppc64,
+	AMD64,
+	I386,
+	ARM,
+	ARM64,
+	PPC64,
 }
 
 // archREs maps regular expressions for matching
@@ -33,16 +35,16 @@ var archREs = []struct {
 	*regexp.Regexp
 	arch string
 }{
-	{regexp.MustCompile("amd64|x86_64"), Arch_amd64},
-	{regexp.MustCompile("i[3-9]86"), Arch_i386},
-	{regexp.MustCompile("armv.*"), Arch_arm},
-	{regexp.MustCompile("aarch64"), Arch_arm64},
-	{regexp.MustCompile("ppc64el|ppc64le"), Arch_ppc64},
+	{regexp.MustCompile("amd64|x86_64"), AMD64},
+	{regexp.MustCompile("i[3-9]86"), I386},
+	{regexp.MustCompile("armv.*"), ARM},
+	{regexp.MustCompile("aarch64"), ARM64},
+	{regexp.MustCompile("ppc64el|ppc64le"), PPC64},
 }
 
 // HostArch returns the Juju architecture of the machine on which it is run.
 func HostArch() (string, error) {
-	rawArch, err := RunCommand("uname", "-m")
+	rawArch, err := utils.RunCommand("uname", "-m")
 	if err != nil {
 		return "", err
 	}

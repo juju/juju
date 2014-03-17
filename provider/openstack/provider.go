@@ -37,6 +37,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/arch"
 )
 
 var logger = loggo.GetLogger("juju.provider.openstack")
@@ -226,7 +227,7 @@ func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Conf
 }
 
 // supportedArches lists the CPU architectures supported by Openstack.
-var supportedArches = []string{utils.Arch_amd64, utils.Arch_arm, utils.Arch_arm64, utils.Arch_ppc64}
+var supportedArches = []string{arch.AMD64, arch.ARM, arch.ARM64, arch.PPC64}
 
 // MetadataLookupParams returns parameters which are used to query image metadata to
 // find matching image information.

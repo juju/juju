@@ -12,7 +12,7 @@ import (
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/errors"
 	coretools "launchpad.net/juju-core/tools"
-	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/arch"
 	"launchpad.net/juju-core/version"
 )
 
@@ -43,7 +43,7 @@ func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, majorVersion, minorV
 		toolsConstraint.Arches = []string{filter.Arch}
 	} else {
 		logger.Debugf("no architecture specified when finding tools, looking for any")
-		toolsConstraint.Arches = utils.AllSupportedArches
+		toolsConstraint.Arches = arch.AllSupportedArches
 	}
 	// The old tools search allowed finding tools without needing to specify a series.
 	// The simplestreams metadata is keyed off series, so series must be specified in

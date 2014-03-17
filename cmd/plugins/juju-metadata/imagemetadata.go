@@ -18,7 +18,7 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
-	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/arch"
 )
 
 // ImageMetadataCommand is used to write out simplestreams image metadata information.
@@ -54,7 +54,7 @@ func (c *ImageMetadataCommand) Info() *cmd.Info {
 func (c *ImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.StringVar(&c.Series, "s", "", "the charm series")
-	f.StringVar(&c.Arch, "a", utils.Arch_amd64, "the image achitecture")
+	f.StringVar(&c.Arch, "a", arch.AMD64, "the image achitecture")
 	f.StringVar(&c.Dir, "d", "", "the destination directory in which to place the metadata files")
 	f.StringVar(&c.ImageId, "i", "", "the image id")
 	f.StringVar(&c.Region, "r", "", "the region")

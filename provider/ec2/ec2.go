@@ -30,6 +30,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/arch"
 )
 
 var logger = loggo.GetLogger("juju.provider.ec2")
@@ -232,7 +233,7 @@ func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Conf
 // supportedArches lists the CPU architectures supported by EC2.
 // TODO(wallyworld): EC2 could possibly support arm and ppc but we only record
 // instance metadata for amd64 and i386. See allInstanceTypes in instancetype.go
-var supportedArches = []string{utils.Arch_amd64, utils.Arch_i386}
+var supportedArches = []string{arch.AMD64, arch.I386}
 
 // MetadataLookupParams returns parameters which are used to query image metadata to
 // find matching image information.

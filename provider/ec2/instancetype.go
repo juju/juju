@@ -7,7 +7,7 @@ import (
 	"launchpad.net/goamz/aws"
 
 	"launchpad.net/juju-core/environs/instances"
-	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/arch"
 )
 
 // Type of virtualisation used.
@@ -18,8 +18,8 @@ var (
 
 // all instance types can run amd64 images, and some can also run i386 ones.
 var (
-	amd64 = []string{utils.Arch_amd64}
-	both  = []string{utils.Arch_amd64, utils.Arch_i386}
+	amd64 = []string{arch.AMD64}
+	both  = []string{arch.AMD64, arch.I386}
 )
 
 // allRegions is defined here to allow tests to override the content.

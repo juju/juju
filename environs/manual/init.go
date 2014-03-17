@@ -12,6 +12,7 @@ import (
 
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/arch"
 	"launchpad.net/juju-core/utils/ssh"
 )
 
@@ -75,7 +76,7 @@ func DetectSeriesAndHardwareCharacteristics(host string) (hc instance.HardwareCh
 	lines := strings.Split(stdout.String(), "\n")
 	series = strings.TrimSpace(lines[0])
 
-	arch, err := utils.NormaliseArch(lines[1])
+	arch, err := arch.NormaliseArch(lines[1])
 	if err != nil {
 		return hc, "", err
 	}

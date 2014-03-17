@@ -1,14 +1,14 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package utils_test
+package arch_test
 
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/testing/testbase"
-	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/arch"
 )
 
 type archSuite struct {
@@ -18,9 +18,9 @@ type archSuite struct {
 var _ = gc.Suite(&archSuite{})
 
 func (s *archSuite) TestHostArch(c *gc.C) {
-	arch, err := utils.HostArch()
+	arch, err := arch.HostArch()
 	c.Assert(err, gc.IsNil)
-	c.Assert(utils.IsSupportedArch(arch), jc.IsTrue)
+	c.Assert(arch.IsSupportedArch(arch), jc.IsTrue)
 }
 
 func (s *archSuite) TestNormaliseArch(c *gc.C) {
@@ -39,7 +39,7 @@ func (s *archSuite) TestNormaliseArch(c *gc.C) {
 		{"ppc64el", "ppc64"},
 		{"ppc64le", "ppc64"},
 	} {
-		arch, err := utils.NormaliseArch(test.raw)
+		arch, err := arch.NormaliseArch(test.raw)
 		if test.arch == "" {
 			c.Check(err, gc.ErrorMatches, "unrecognised architecture:.*")
 		} else {
@@ -49,8 +49,8 @@ func (s *archSuite) TestNormaliseArch(c *gc.C) {
 }
 
 func (s *archSuite) TestIsSupportedArch(c *gc.C) {
-	for _, arch := range utils.AllSupportedArches {
-		c.Assert(utils.IsSupportedArch(arch), jc.IsTrue)
+	for _, arch := range arch.AllSupportedArches {
+		c.Assert(arch.IsSupportedArch(arch), jc.IsTrue)
 	}
-	c.Assert(utils.IsSupportedArch("invalid"), jc.IsFalse)
+	c.Assert(arch.IsSupportedArch("invalid"), jc.IsFalse)
 }

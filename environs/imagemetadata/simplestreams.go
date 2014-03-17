@@ -11,7 +11,7 @@ import (
 	"sort"
 
 	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/arch"
 )
 
 func init() {
@@ -102,7 +102,7 @@ func NewImageConstraint(params simplestreams.LookupParams) *ImageConstraint {
 		params.Series = simplestreams.SupportedSeries()
 	}
 	if len(params.Arches) == 0 {
-		params.Arches = utils.AllSupportedArches
+		params.Arches = arch.AllSupportedArches
 	}
 	return &ImageConstraint{LookupParams: params}
 }
