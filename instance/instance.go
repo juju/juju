@@ -6,11 +6,12 @@ package instance
 import (
 	"errors"
 	"fmt"
-	"launchpad.net/juju-core/utils"
 	"math"
 	"sort"
 	"strconv"
 	"strings"
+
+	"launchpad.net/juju-core/juju/arch"
 )
 
 var ErrNoDNSName = errors.New("DNS name not allocated")
@@ -174,7 +175,7 @@ func (hc *HardwareCharacteristics) setArch(str string) error {
 	if hc.Arch != nil {
 		return fmt.Errorf("already set")
 	}
-	if str != "" && !utils.IsSupportedArch(str) {
+	if str != "" && !arch.IsSupportedArch(str) {
 		return fmt.Errorf("%q not recognized", str)
 	}
 	hc.Arch = &str
