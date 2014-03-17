@@ -5,6 +5,7 @@ package apiserver_test
 
 import (
 	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	jujutesting "launchpad.net/juju-core/juju/testing"
@@ -13,7 +14,6 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -97,6 +97,31 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 			c.Assert(err, gc.ErrorMatches, `unknown object type "Machiner"`)
 		}()
 	}
+}
+
+func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
+	info, cleanup := s.setupServer(c)
+	defer cleanup()
+
+	info.Tag = ""
+	info.Password = ""
+	st, err := api.Open(info, fastDialOpts)
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+	u, err := s.State.AddUser("inactive", "password")
+	c.Assert(err, gc.IsNil)
+	err = u.Deactivate()
+	c.Assert(err, gc.IsNil)
+
+	_, err = st.Client().Status([]string{})
+	c.Assert(err, gc.ErrorMatches, `unknown object type "Client"`)
+
+	// Since these are user login tests, the nonce is empty.
+	err = st.Login("user-inactive", "password", "")
+	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")
+
+	_, err = st.Client().Status([]string{})
+	c.Assert(err, gc.ErrorMatches, `unknown object type "Client"`)
 }
 
 func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {

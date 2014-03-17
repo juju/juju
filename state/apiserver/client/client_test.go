@@ -11,15 +11,14 @@ import (
 	"sync"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
-	coreCloudinit "launchpad.net/juju-core/cloudinit"
-	"launchpad.net/juju-core/cloudinit/sshinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/manual"
 	envstorage "launchpad.net/juju-core/environs/storage"
 	ttesting "launchpad.net/juju-core/environs/tools/testing"
 	"launchpad.net/juju-core/errors"
@@ -31,7 +30,6 @@ import (
 	"launchpad.net/juju-core/state/apiserver/client"
 	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
@@ -1695,11 +1693,7 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	mcfg, err := statecmd.MachineConfig(s.State, machineId, apiParams.Nonce, "")
 	c.Assert(err, gc.IsNil)
-	cloudcfg := coreCloudinit.New()
-	err = cloudinit.ConfigureJuju(mcfg, cloudcfg)
-	c.Assert(err, gc.IsNil)
-	cloudcfg.SetAptUpgrade(false)
-	sshinitScript, err := sshinit.ConfigureScript(cloudcfg)
+	sshinitScript, err := manual.ProvisioningScript(mcfg)
 	c.Assert(err, gc.IsNil)
 	// ProvisioningScript internally calls MachineConfig,
 	// which allocates a new, random password. Everything

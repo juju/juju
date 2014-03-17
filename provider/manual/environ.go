@@ -17,7 +17,6 @@ import (
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/httpstorage"
 	"launchpad.net/juju-core/environs/manual"
@@ -29,7 +28,6 @@ import (
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils/ssh"
 	"launchpad.net/juju-core/worker/localstorage"
 	"launchpad.net/juju-core/worker/terminationworker"
@@ -61,7 +59,7 @@ var _ envtools.SupportsCustomSources = (*manualEnviron)(nil)
 var errNoStartInstance = errors.New("manual provider cannot start instances")
 var errNoStopInstance = errors.New("manual provider cannot stop instances")
 
-func (*manualEnviron) StartInstance(constraints.Value, tools.List, *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (*manualEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	return nil, nil, errNoStartInstance
 }
 

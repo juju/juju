@@ -233,8 +233,8 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to presence database as %q", info.Tag))
 		}
 	} else if info.Password != "" {
-		admin := session.DB("admin")
-		if err := admin.Login("admin", info.Password); err != nil {
+		admin := session.DB(AdminUser)
+		if err := admin.Login(AdminUser, info.Password); err != nil {
 			return nil, maybeUnauthorized(err, "cannot log in to admin database")
 		}
 	}

@@ -9,10 +9,10 @@ import (
 	"runtime"
 	"testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/errors"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type errorsSuite struct{}

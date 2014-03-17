@@ -14,7 +14,7 @@ import (
 	"regexp"
 	"testing"
 
-	"launchpad.net/juju-core/testing/checkers"
+	"github.com/juju/testing/checkers"
 )
 
 func deepEqual(a1, a2 interface{}) bool {

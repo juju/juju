@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
@@ -32,7 +33,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
@@ -859,7 +859,10 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 
 	t.PrepareOnce(c)
 	possibleTools := envtesting.AssertUploadFakeToolsVersions(c, t.Env.Storage(), version.MustParseBinary("5.4.5-precise-amd64"))
-	inst, _, err := t.Env.StartInstance(constraints.Value{}, possibleTools, machineConfig)
+	inst, _, err := t.Env.StartInstance(environs.StartInstanceParams{
+		Tools:         possibleTools,
+		MachineConfig: machineConfig,
+	})
 	if inst != nil {
 		err := t.Env.StopInstances([]instance.Instance{inst})
 		c.Check(err, gc.IsNil)

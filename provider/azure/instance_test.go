@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"net/http"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gwacl"
 
 	"launchpad.net/juju-core/instance"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type instanceSuite struct{}

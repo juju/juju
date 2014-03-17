@@ -18,7 +18,6 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
@@ -26,6 +25,7 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -230,6 +230,11 @@ func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Conf
 	return p.Open(cfg)
 }
 
+// supportedArches lists the CPU architectures supported by EC2.
+// TODO(wallyworld): EC2 could possibly support arm and ppc but we only record
+// instance metadata for amd64 and i386. See allInstanceTypes in instancetype.go
+var supportedArches = []string{arch.AMD64, arch.I386}
+
 // MetadataLookupParams returns parameters which are used to query image metadata to
 // find matching image information.
 func (p environProvider) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
@@ -243,7 +248,7 @@ func (p environProvider) MetadataLookupParams(region string) (*simplestreams.Met
 	return &simplestreams.MetadataLookupParams{
 		Region:        region,
 		Endpoint:      ec2Region.EC2Endpoint,
-		Architectures: []string{"amd64", "i386"},
+		Architectures: supportedArches,
 	}, nil
 }
 
@@ -345,7 +350,7 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 		Series:        e.ecfg().DefaultSeries(),
 		Region:        region,
 		Endpoint:      ec2Region.EC2Endpoint,
-		Architectures: []string{"amd64", "i386", "arm", "arm64", "ppc64"},
+		Architectures: supportedArches,
 	}, nil
 }
 
@@ -365,50 +370,49 @@ func (e *environ) Region() (simplestreams.CloudSpec, error) {
 const ebsStorage = "ebs"
 
 // StartInstance is specified in the InstanceBroker interface.
-func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List,
-	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
 
-	arches := possibleTools.Arches()
+	arches := args.Tools.Arches()
 	stor := ebsStorage
 	sources, err := imagemetadata.GetMetadataSources(e)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	series := possibleTools.OneSeries()
+	series := args.Tools.OneSeries()
 	spec, err := findInstanceSpec(sources, e.Config().ImageStream(), &instances.InstanceConstraint{
 		Region:      e.ecfg().region(),
 		Series:      series,
 		Arches:      arches,
-		Constraints: cons,
+		Constraints: args.Constraints,
 		Storage:     &stor,
 	})
 	if err != nil {
 		return nil, nil, err
 	}
-	tools, err := possibleTools.Match(tools.Filter{Arch: spec.Image.Arch})
+	tools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
 		return nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
-	machineConfig.Tools = tools[0]
-	if err := environs.FinishMachineConfig(machineConfig, e.Config(), cons); err != nil {
+	args.MachineConfig.Tools = tools[0]
+	if err := environs.FinishMachineConfig(args.MachineConfig, e.Config(), args.Constraints); err != nil {
 		return nil, nil, err
 	}
 
-	userData, err := environs.ComposeUserData(machineConfig)
+	userData, err := environs.ComposeUserData(args.MachineConfig)
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot make user data: %v", err)
 	}
 	logger.Debugf("ec2 user data; %d bytes", len(userData))
 	cfg := e.Config()
-	groups, err := e.setUpGroups(machineConfig.MachineId, cfg.StatePort(), cfg.APIPort())
+	groups, err := e.setUpGroups(args.MachineConfig.MachineId, cfg.StatePort(), cfg.APIPort())
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
 	var instResp *ec2.RunInstancesResp
 
-	device, diskSize := getDiskSize(cons)
+	device, diskSize := getDiskSize(args.Constraints)
 	for a := shortAttempt.Start(); a.Next(); {
 		instResp, err = e.ec2().RunInstances(&ec2.RunInstances{
 			ImageId:             spec.Image.Id,

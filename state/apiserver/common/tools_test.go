@@ -6,6 +6,7 @@ package common_test
 import (
 	"fmt"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/juju/testing"
@@ -13,7 +14,6 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 )
 

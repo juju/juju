@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cert"
@@ -17,7 +18,6 @@ import (
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )
@@ -1026,13 +1026,6 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["tools-metadata-url"] = ""
 	attrs["tools-url"] = ""
 	attrs["image-stream"] = ""
-	attrs["http-proxy"] = ""
-	attrs["https-proxy"] = ""
-	attrs["ftp-proxy"] = ""
-	attrs["no-proxy"] = ""
-	attrs["apt-http-proxy"] = ""
-	attrs["apt-https-proxy"] = ""
-	attrs["apt-ftp-proxy"] = ""
 
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)

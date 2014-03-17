@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
