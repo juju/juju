@@ -31,9 +31,13 @@ func migrateLocalProviderAgentConfig(context Context, target Target) error {
 	container, _ := attrs["container"].(string)
 
 	if namespace == "" {
-		username := os.Getenv("SUDO_USER")
+		username := os.Getenv("USER")
+		if username == "root" {
+			// sudo was probably called, get the original user.
+			username = os.Getenv("SUDO_USER")
+		}
 		if username == "" {
-			return fmt.Errorf("cannot get current user. SUDO_USER not set: %v", os.Environ())
+			return fmt.Errorf("cannot get current user from the environment: %v", os.Environ())
 		}
 		namespace = username + "-" + envConfig.Name()
 	}

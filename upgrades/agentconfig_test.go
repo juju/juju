@@ -27,6 +27,8 @@ var _ = gc.Suite(&migrateLocalProviderAgentConfigSuite{})
 
 func (s *migrateLocalProviderAgentConfigSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
+	// Make sure we fallback to SUDO_USER if USER is root.
+	s.PatchEnvironment("USER", "root")
 	s.PatchEnvironment("SUDO_USER", "user")
 	s.PatchValue(&agent.DefaultDataDir, c.MkDir())
 	s.PatchValue(&agent.DefaultLogDir, c.MkDir())
