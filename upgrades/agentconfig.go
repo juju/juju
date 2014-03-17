@@ -5,17 +5,11 @@ package upgrades
 
 import (
 	"fmt"
-	"os/user"
+	"os"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 )
-
-func migrateLocalProviderEnvSettings(st *state.State, envConfig *config.Config, namespace, container *string) error {
-	return nil
-}
 
 func migrateLocalProviderAgentConfig(context Context, target Target) error {
 	st := context.State()
@@ -34,11 +28,11 @@ func migrateLocalProviderAgentConfig(context Context, target Target) error {
 	container, _ := attrs["container"].(string)
 
 	if namespace == "" {
-		curUser, err := user.Current()
-		if err != nil {
-			return fmt.Errorf("cannot get current user: %v", err)
+		username := os.Getenv("SUDO_USER")
+		if username == "" {
+			return fmt.Errorf("cannot get current user. SUDO_USER not set")
 		}
-		namespace = curUser.Username + "-" + envConfig.Name()
+		namespace = username + "-" + envConfig.Name()
 	}
 	if container == "" {
 		container = "lxc"
@@ -62,10 +56,16 @@ func migrateLocalProviderAgentConfig(context Context, target Target) error {
 	jobs := []params.MachineJob{params.JobHostUnits}
 	if target == StateServer {
 		dataDir = rootDir
-		// TODO(dimitern) create this (as root), so that rsyslog
-		// can create its certificates and logs in it.
 		logDir = fmt.Sprintf("/var/log/juju-%s", namespace)
 		jobs = []params.MachineJob{params.JobManageEnviron}
+	}
+
+	// We need to create the dirs if they don't exists.
+	if err := os.MkdirAll(dataDir, 0755); err != nil {
+		return fmt.Errorf("cannot create dataDir %q: %v", dataDir, err)
+	}
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		return fmt.Errorf("cannot create logDir %q: %v", logDir, err)
 	}
 
 	migrateParams := agent.AgentConfigParams{
