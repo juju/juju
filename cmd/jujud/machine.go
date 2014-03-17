@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"time"
 
 	"github.com/juju/loggo"
@@ -29,6 +28,7 @@ import (
 	"launchpad.net/juju-core/state/apiserver"
 	"launchpad.net/juju-core/upgrades"
 	"launchpad.net/juju-core/upstart"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/authenticationworker"
@@ -70,6 +70,7 @@ type MachineAgent struct {
 	runner          worker.Runner
 	upgradeComplete chan struct{}
 	stateOpened     chan struct{}
+	workersStarted	chan struct{}
 	st              *state.State
 }
 
@@ -97,6 +98,7 @@ func (a *MachineAgent) Init(args []string) error {
 	a.runner = newRunner(isFatal, moreImportant)
 	a.upgradeComplete = make(chan struct{})
 	a.stateOpened = make(chan struct{})
+	a.workersStarted = make(chan struct{})
 	return nil
 }
 
@@ -156,6 +158,8 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	a.runner.StartWorker("termination", func() (worker.Worker, error) {
 		return terminationworker.NewWorker(), nil
 	})
+	// At this point, all workers will have been configured to start
+	close(a.workersStarted)
 	err := a.runner.Wait()
 	if err == worker.ErrTerminateAgent {
 		err = a.uninstallAgent()
@@ -336,8 +340,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		case state.JobHostUnits:
 			// Implemented in APIWorker.
 		case state.JobManageEnviron:
-			logger.Debugf("setting GOMAXPROCS to %d to run the apiserver", runtime.NumCPU())
-			runtime.GOMAXPROCS(runtime.NumCPU())
+			utils.UseMultipleCPUs()
 			a.startWorkerAfterUpgrade(runner, "instancepoller", func() (worker.Worker, error) {
 				return instancepoller.NewWorker(st), nil
 			})

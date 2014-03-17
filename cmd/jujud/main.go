@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package main
@@ -15,6 +15,7 @@ import (
 	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/exec"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 
@@ -104,6 +105,8 @@ func jujuDMain(args []string) (code int, err error) {
 	jujud.Register(&MachineAgent{})
 	jujud.Register(&UnitAgent{})
 	jujud.Register(&cmd.VersionCommand{})
+	// TODO: jam 2014-03-17 explicitly test that this is being called in jujuDMain
+	utils.EnableMultipleCPUs()
 	code = cmd.Main(jujud, cmd.DefaultContext(), args[1:])
 	return code, nil
 }

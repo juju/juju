@@ -398,6 +398,61 @@ func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
 
 }
 
+func (s *MachineSuite) TestManageEnvironSetsGOMAXPROCS(c *gc.C) {
+	// If it has been enabled, the JobManageEnviron agent should call
+	// GOMAXPROCS with NumCPU()
+	s.PatchEnvironment("GOMAXPROCS", "")
+	usefulVersion := version.Current
+	usefulVersion.Series = "quantal"
+	envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), usefulVersion)
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	s.setFakeMachineAddresses(c, m)
+	numCPUResult := 2
+	numCPUFunc := func () int { return numCPUResult }
+	maxProcsChan := make(chan int, 1)
+	gomaxprocsFunc := func (maxprocs int) int {
+		maxProcsChan <- maxprocs
+		 return maxprocs
+	}
+	cleanup := utils.OverrideGOMAXPROCSFuncs(gomaxprocsFunc, numCPUFunc)
+	defer cleanup()
+	a := s.newAgent(c, m)
+	defer a.Stop()
+	go func() {
+		c.Check(a.Run(nil), gc.IsNil)
+	}()
+	// By default, the agent should try to call GOMAXPROCS(0) on startup,
+	// since setting it higher is not enabled.
+	c.Check(<-maxProcsChan, gc.Equals, int(0))
+	c.Check(a.Stop(), gc.IsNil)
+	// Now, enabled maxprocs, and observe the change (multiple CPUs will be
+	// disabled in the cleanup function, so it is safe to call)
+	utils.EnableMultipleCPUs()
+	a = s.newAgent(c, m)
+	defer a.Stop()
+	go func() {
+		c.Check(a.Run(nil), gc.IsNil)
+	}()
+	c.Check(<-maxProcsChan, gc.Equals, int(2))
+	c.Check(a.Stop(), gc.IsNil)
+	// An agent that just hosts units doesn't call GOMAXPROCS even when enabled
+	m2, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	s.setFakeMachineAddresses(c, m2)
+	a2 := s.newAgent(c, m2)
+	defer a2.Stop()
+	go func() {
+		c.Check(a2.Run(nil), gc.IsNil)
+	}()
+	// Wait until all the workers have been started, and then kill everything
+	<-a2.workersStarted
+	c.Check(a2.Stop(), gc.IsNil)
+	select {
+		case procs := <-maxProcsChan:
+			c.Errorf("we should not have called GOMAXPROCS(%d)", procs)
+		case <-time.After(coretesting.ShortWait):
+	}
+}
+
 func (s *MachineSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machine, instance.Id) {
 	c.Logf("waiting for unit %q to be provisioned", unit)
 	machineId, err := unit.AssignedMachineId()
