@@ -15,6 +15,7 @@ import (
 	lxctesting "launchpad.net/juju-core/container/lxc/testing"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/local"
@@ -306,6 +307,9 @@ func (s *prepareSuite) TestFastLXCClone(c *gc.C) {
 	})
 	s.PatchValue(&kvm.IsKVMSupported, func() (bool, error) {
 		return true, nil
+	})
+	s.PatchValue(&local.VerifyPrerequisites, func(containerType instance.ContainerType) error {
+		return nil
 	})
 	basecfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"type": "local",
