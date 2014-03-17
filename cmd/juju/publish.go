@@ -105,6 +105,10 @@ func (c *PublishCommand) Run(ctx *cmd.Context) (err error) {
 		}
 	}
 
+	if !curl.IsResolved() {
+		return fmt.Errorf("charm URL must contain a series: %q", curl)
+	}
+
 	pushLocation := charm.Store.BranchLocation(curl)
 	if c.changePushLocation != nil {
 		pushLocation = c.changePushLocation(pushLocation)

@@ -222,6 +222,13 @@ func (c *DeployCommand) run1dot16(ctx *cmd.Context) error {
 
 	repo = config.SpecializeCharmRepo(repo, conf)
 
+	if !curl.IsResolved() {
+		curl, err = repo.Resolve(curl)
+		if err != nil {
+			return err
+		}
+	}
+
 	// TODO(fwereade) it's annoying to roundtrip the bytes through the client
 	// here, but it's the original behaviour and not convenient to change.
 	// PutCharm will always be required in some form for local charms; and we

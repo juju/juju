@@ -146,7 +146,7 @@ func (s *CharmStore) Resolve(curl *URL) (*URL, error) {
 		return nil, err
 	}
 	if len(infos) == 0 {
-		return nil, fmt.Errorf("missing response when resolvinf charm URL: %q", curl)
+		return nil, fmt.Errorf("missing response when resolving charm URL: %q", curl)
 	}
 	if infos[0].CanonicalURL == "" {
 		// If the charm store does not provide a resolved URL, fall back on

@@ -99,10 +99,7 @@ func (s *MockStore) serveInfo(w http.ResponseWriter, r *http.Request) {
 	for _, url := range r.Form["charms"] {
 		cr := &charm.InfoResponse{}
 		response[url] = cr
-		charmURL, err := charm.ParseURL(url)
-		if err != nil {
-			panic(err)
-		}
+		charmURL := charm.MustParseURL(url)
 		if !charmURL.IsResolved() {
 			charmURL.Series = s.DefaultSeries
 		}
