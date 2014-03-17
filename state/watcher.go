@@ -1083,11 +1083,17 @@ func (e *Environment) Watch() NotifyWatcher {
 	return newEntityWatcher(e.st, e.st.environments, e.doc.UUID)
 }
 
-// WatchForEnvironConfigChanges return a NotifyWatcher waiting for the Environ
+// WatchForEnvironConfigChanges returns a NotifyWatcher waiting for the Environ
 // Config to change. This differs from WatchEnvironConfig in that the watcher
 // is a NotifyWatcher that does not give content during Changes()
 func (st *State) WatchForEnvironConfigChanges() NotifyWatcher {
 	return newEntityWatcher(st, st.settings, environGlobalKey)
+}
+
+// WatchAPIAddresses returns a NotifyWatcher that notifies
+// when the set of API addresses changes.
+func (st *State) WatchAPIAddresses() NotifyWatcher {
+	return newEntityWatcher(st, st.stateServers, apiAddressesKey)
 }
 
 // WatchConfigSettings returns a watcher for observing changes to the

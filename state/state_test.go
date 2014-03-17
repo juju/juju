@@ -2857,3 +2857,23 @@ func (s *StateSuite) TestSetAPIAddresses(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(gotAddrs, jc.DeepEquals, newAddrs)
 }
+
+func (s *StateSuite) TestWatchAPIAddresses(c *gc.C) {
+	w := s.State.WatchAPIAddresses()
+	defer statetesting.AssertStop(c, w)
+
+	// Initial event.
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+
+	err := s.State.SetAPIAddresses([]instance.Address{
+		instance.NewAddress("0.1.2.3"),
+	})
+	c.Assert(err, gc.IsNil)
+
+	wc.AssertOneChange()
+
+	// Stop, check closed.
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
+}
