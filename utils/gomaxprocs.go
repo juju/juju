@@ -32,7 +32,6 @@ func EnableMultipleCPUs() {
 	}
 }
 
-
 // UseMultipleCPUs is called when we have decided we want to set GOMAXPROCS to
 // the current number of CPU cores. This will not override the environment
 // variable if it is set.

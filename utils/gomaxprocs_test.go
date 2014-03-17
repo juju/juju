@@ -15,7 +15,7 @@ import (
 
 type gomaxprocsSuite struct {
 	testbase.LoggingSuite
-	setmaxprocs chan int
+	setmaxprocs    chan int
 	numCPUResponse int
 }
 
@@ -33,7 +33,7 @@ func (s *gomaxprocsSuite) SetUpTest(c *gc.C) {
 	}
 	numCPUFunc := func() int { return s.numCPUResponse }
 	cleanup := utils.OverrideGOMAXPROCSFuncs(maxprocsfunc, numCPUFunc)
-	s.AddCleanup(func(c *gc.C) { c.Logf("running cleanup"); cleanup(); })
+	s.AddCleanup(func(c *gc.C) { c.Logf("running cleanup"); cleanup() })
 	s.PatchEnvironment("GOMAXPROCS", "")
 }
 
