@@ -1815,9 +1815,11 @@ func (s *StateSuite) TestWatchEnvironConfigCorruptConfig(c *gc.C) {
 	}
 
 	// Fix the configuration.
-	err = s.State.UpdateEnvironConfig(cfg.AllAttrs(), nil, nil)
+	err = settings.Update(nil, bson.D{{"$set", bson.D{{"name", "foo"}}}})
 	c.Assert(err, gc.IsNil)
 	fixed := cfg.AllAttrs()
+	err = s.State.UpdateEnvironConfig(fixed, nil, nil)
+	c.Assert(err, gc.IsNil)
 
 	s.State.StartSync()
 	select {
