@@ -362,7 +362,7 @@ func (s *ConnSuite) TestPutBundledCharm(c *gc.C) {
 }
 
 func (s *ConnSuite) TestPutCharmUpload(c *gc.C) {
-	repo := &charm.LocalRepository{Path:c.MkDir()}
+	repo := &charm.LocalRepository{Path: c.MkDir()}
 	curl := coretesting.Charms.ClonedURL(repo.Path, "quantal", "riak")
 
 	// Put charm for the first time.

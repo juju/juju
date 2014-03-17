@@ -6,7 +6,7 @@ package testing
 import (
 	"bytes"
 	"encoding/json"
-"fmt"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
