@@ -28,7 +28,12 @@ type backingMachine machineDoc
 
 func (m *backingMachine) updated(st *State, store *multiwatcher.Store, id interface{}) error {
 	info := &params.MachineInfo{
-		Id: m.Id,
+		Id:     m.Id,
+		Life:   params.Life(m.Life.String()),
+		Series: m.Series,
+	}
+	if m.SupportedContainersKnown {
+		info.SupportedContainers = m.SupportedContainers
 	}
 	oldInfo := store.Get(info.EntityId())
 	if oldInfo == nil {

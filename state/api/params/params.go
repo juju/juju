@@ -446,11 +446,16 @@ type EntityId struct {
 // MachineInfo holds the information about a Machine
 // that is watched by StateWatcher.
 type MachineInfo struct {
-	Id         string `bson:"_id"`
-	InstanceId string
-	Status     Status
-	StatusInfo string
-	StatusData StatusData
+	Id                  string `bson:"_id"`
+	InstanceId          string
+	Status              Status
+	StatusInfo          string
+	StatusData          StatusData
+	Life                Life
+	Series              string
+	SupportedContainers []instance.ContainerType
+	//HardwareCharacteristics *instance.HardwareCharacteristics
+	//Jobs                    []string
 }
 
 func (i *MachineInfo) EntityId() EntityId {
