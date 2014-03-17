@@ -33,7 +33,7 @@ func migrateLocalProviderAgentConfig(context Context, target Target) error {
 	if namespace == "" {
 		username := os.Getenv("SUDO_USER")
 		if username == "" {
-			return fmt.Errorf("cannot get current user. SUDO_USER not set")
+			return fmt.Errorf("cannot get current user. SUDO_USER not set: %v", os.Environ())
 		}
 		namespace = username + "-" + envConfig.Name()
 	}
