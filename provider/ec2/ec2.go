@@ -229,6 +229,11 @@ func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Conf
 	return p.Open(cfg)
 }
 
+// supportedArches lists the CPU architectures supported by EC2.
+// TODO(wallyworld): EC2 could possibly support arm and ppc but we only record
+// instance metadata for amd64 and i386. See allInstanceTypes in instancetype.go
+var supportedArches = []string{utils.Arch_amd64, utils.Arch_i386}
+
 // MetadataLookupParams returns parameters which are used to query image metadata to
 // find matching image information.
 func (p environProvider) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
@@ -242,7 +247,7 @@ func (p environProvider) MetadataLookupParams(region string) (*simplestreams.Met
 	return &simplestreams.MetadataLookupParams{
 		Region:        region,
 		Endpoint:      ec2Region.EC2Endpoint,
-		Architectures: []string{"amd64", "i386"},
+		Architectures: supportedArches,
 	}, nil
 }
 
@@ -344,7 +349,7 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 		Series:        e.ecfg().DefaultSeries(),
 		Region:        region,
 		Endpoint:      ec2Region.EC2Endpoint,
-		Architectures: []string{"amd64", "i386", "arm", "arm64", "ppc64"},
+		Architectures: supportedArches,
 	}, nil
 }
 

@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -162,7 +163,7 @@ func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {
 				return err
 			}
 			params = &simplestreams.MetadataLookupParams{
-				Architectures: []string{"amd64", "arm", "i386", "arm64", "ppc64"},
+				Architectures: utils.AllSupportedArches,
 			}
 		}
 	} else {

@@ -225,6 +225,9 @@ func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Conf
 	return p.Open(cfg)
 }
 
+// supportedArches lists the CPU architectures supported by Openstack.
+var supportedArches = []string{utils.Arch_amd64, utils.Arch_arm, utils.Arch_arm64, utils.Arch_ppc64}
+
 // MetadataLookupParams returns parameters which are used to query image metadata to
 // find matching image information.
 func (p environProvider) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
@@ -233,7 +236,7 @@ func (p environProvider) MetadataLookupParams(region string) (*simplestreams.Met
 	}
 	return &simplestreams.MetadataLookupParams{
 		Region:        region,
-		Architectures: []string{"amd64", "arm", "arm64", "ppc64"},
+		Architectures: supportedArches,
 	}, nil
 }
 
@@ -1225,7 +1228,7 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 		Series:        e.ecfg().DefaultSeries(),
 		Region:        region,
 		Endpoint:      e.ecfg().authURL(),
-		Architectures: []string{"amd64", "arm", "arm64", "ppc64"},
+		Architectures: supportedArches,
 	}, nil
 }
 
