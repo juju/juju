@@ -14,6 +14,26 @@ var gomaxprocs = runtime.GOMAXPROCS
 var numcpu = runtime.NumCPU
 var enabledMultiCPUs = false
 
+// OverrideGOMAXPROCSFuncs allows you to override calling runtime.GOMAXPROCS
+// and runtime.NumCPU. This is exposed so that tests can poke at this without
+// actually changing the runtime behavior.
+func OverrideGOMAXPROCSFuncs(newGOMAXPROCS func(int) int, newNumCPU func() int) (cleanup func()) {
+	mu.Lock()
+	defer mu.Unlock()
+	origGOMAXPROCS := gomaxprocs
+	logger.Debugf("setting GOMAXPROCS to %#v", newGOMAXPROCS)
+	gomaxprocs = newGOMAXPROCS
+	origNumCPU := numcpu
+	numcpu = newNumCPU
+	return func() {
+		mu.Lock()
+		defer mu.Unlock()
+		gomaxprocs = origGOMAXPROCS
+		numcpu = origNumCPU
+		enabledMultiCPUs = false
+	}
+}
+
 // EnableMultipleCPUs is called when we want to allow the system to have
 // GOMAXPROCS>1. By default we only want to enable GOMAXPROCS>1 when running in
 // the jujud machine agents that are serving the API. We don't want to set it
