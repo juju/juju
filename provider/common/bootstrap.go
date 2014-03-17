@@ -70,7 +70,11 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, cons constra
 	}
 
 	fmt.Fprintln(ctx.GetStderr(), "Launching instance")
-	inst, hw, err := env.StartInstance(cons, selectedTools, machineConfig)
+	inst, hw, err := env.StartInstance(environs.StartInstanceParams{
+		Constraints:   cons,
+		Tools:         selectedTools,
+		MachineConfig: machineConfig,
+	})
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
