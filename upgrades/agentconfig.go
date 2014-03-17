@@ -8,8 +8,11 @@ import (
 	"os"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
 )
+
+var rootLogDir = "/var/log"
 
 func migrateLocalProviderAgentConfig(context Context, target Target) error {
 	st := context.State()
@@ -54,10 +57,31 @@ func migrateLocalProviderAgentConfig(context Context, target Target) error {
 	dataDir := agent.DefaultDataDir
 	logDir := agent.DefaultLogDir
 	jobs := []params.MachineJob{params.JobHostUnits}
+	tag := context.AgentConfig().Tag()
+	values := map[string]string{
+		// Delete the obsolete values.
+		"_DELETE_": "SHARED_STORAGE_ADDR,SHARED_STORAGE_DIR",
+		// Add new values from the environment.
+		agent.Namespace:        namespace,
+		agent.ContainerType:    container,
+		agent.AgentServiceName: "jujud-" + tag,
+	}
 	if target == StateServer {
 		dataDir = rootDir
-		logDir = fmt.Sprintf("/var/log/juju-%s", namespace)
+		// rsyslogd is restricted to write to /var/log
+		logDir = fmt.Sprintf("%s/juju-%s", rootLogDir, namespace)
 		jobs = []params.MachineJob{params.JobManageEnviron}
+		// This is unset for the bootstrap node.
+		values[agent.ContainerType] = ""
+
+		values[agent.AgentServiceName] = "juju-agent-" + namespace
+		values[agent.MongoServiceName] = "juju-db-" + namespace
+	}
+	if kind, _, err := names.ParseTag(tag, ""); err != nil {
+		return fmt.Errorf("invalid agent tag %q: %v", tag, err)
+	} else if kind == names.UnitTagKind {
+		// Unit agent config does not have AgentServiceName
+		delete(values, agent.AgentServiceName)
 	}
 
 	// We need to create the dirs if they don't exists.
@@ -72,15 +96,7 @@ func migrateLocalProviderAgentConfig(context Context, target Target) error {
 		DataDir: dataDir,
 		LogDir:  logDir,
 		Jobs:    jobs,
-		Values: map[string]string{
-			// Add new values from the environment.
-			agent.Namespace:        namespace,
-			agent.AgentServiceName: "juju-agent-" + namespace,
-			agent.MongoServiceName: "juju-db-" + namespace,
-			// Delete the obsolete values.
-			"SHARED_STORAGE_ADDR": "",
-			"SHARED_STORAGE_DIR":  "",
-		},
+		Values:  values,
 	}
 	return agent.MigrateConfig(context.AgentConfig(), migrateParams)
 }

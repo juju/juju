@@ -6,6 +6,7 @@ package upgrades
 var (
 	UpgradeOperations = &upgradeOperations
 	UbuntuHome        = &ubuntuHome
+	RootLogDir        = &rootLogDir
 
 	// 118 upgrade functions
 	StepsFor118                          = stepsFor118

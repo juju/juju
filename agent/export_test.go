@@ -67,7 +67,9 @@ func PatchConfig(c *gc.C, config Config, fieldName string, value interface{}) {
 	case "Values":
 		conf.values = make(map[string]string)
 		for k, v := range value.(map[string]string) {
-			conf.values[k] = v
+			if k != "_DELETE_" {
+				conf.values[k] = v
+			}
 		}
 	default:
 		c.Fatalf("unknown field %q", fieldName)

@@ -182,6 +182,7 @@ func (*suite) TestMigrateConfig(c *gc.C) {
 		Values: map[string]string{
 			"key1": "value1",
 			"key2": "value2",
+			"key3": "value3",
 		},
 	}
 
@@ -240,14 +241,16 @@ func (*suite) TestMigrateConfig(c *gc.C) {
 		fields:  []string{"Values"},
 		newParams: agent.AgentConfigParams{
 			Values: map[string]string{
-				"key1":     "new value1", // change
-				"key2":     "",           // delete
-				"new key3": "value3",     // add
+				"key1":     "new value1",     // change
+				"_DELETE_": " , key2 , key3", // delete (messy seps)
+				"new key3": "value3",         // add
+				"empty":    "",               // add empty val
 			},
 		},
 		expectValues: map[string]string{
 			"key1":     "new value1",
 			"new key3": "value3",
+			"empty":    "",
 		},
 	}}
 	for i, test := range migrateTests {

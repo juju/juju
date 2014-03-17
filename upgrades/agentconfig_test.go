@@ -5,6 +5,7 @@ package upgrades_test
 
 import (
 	"path/filepath"
+	"strings"
 
 	gc "launchpad.net/gocheck"
 
@@ -20,26 +21,26 @@ import (
 type migrateLocalProviderAgentConfigSuite struct {
 	jujutesting.JujuConnSuite
 	ctx upgrades.Context
-
-	rootDir string
-	dataDir string
-	logDir  string
 }
 
 var _ = gc.Suite(&migrateLocalProviderAgentConfigSuite{})
 
-func (s *migrateLocalProviderAgentConfigSuite) primeConfig(c *gc.C, job state.MachineJob, tag, rootDir string) {
-	s.rootDir = rootDir
-	s.dataDir = filepath.Join(s.rootDir, agent.DefaultDataDir)
-	s.logDir = filepath.Join(s.rootDir, agent.DefaultLogDir)
+func (s *migrateLocalProviderAgentConfigSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+	s.PatchEnvironment("SUDO_USER", "user")
+	s.PatchValue(&agent.DefaultDataDir, c.MkDir())
+	s.PatchValue(&agent.DefaultLogDir, c.MkDir())
+	s.PatchValue(upgrades.RootLogDir, c.MkDir())
+}
 
+func (s *migrateLocalProviderAgentConfigSuite) primeConfig(c *gc.C, job state.MachineJob, tag string) {
 	initialConfig, err := agent.NewAgentConfig(agent.AgentConfigParams{
 		Tag:               tag,
 		Password:          "blah",
 		CACert:            []byte(testing.CACert),
 		StateAddresses:    []string{"localhost:1111"},
-		DataDir:           s.dataDir,
-		LogDir:            s.logDir,
+		DataDir:           agent.DefaultDataDir,
+		LogDir:            agent.DefaultLogDir,
 		UpgradedToVersion: version.MustParse("1.16.0"),
 		Values: map[string]string{
 			"SHARED_STORAGE_ADDR": "blah",
@@ -62,12 +63,11 @@ func (s *migrateLocalProviderAgentConfigSuite) primeConfig(c *gc.C, job state.Ma
 	newCfg, err := envConfig.Apply(map[string]interface{}{
 		"type":     "local",
 		"name":     "mylocal",
-		"root-dir": filepath.Join(s.rootDir, "home", "juju", "local"),
+		"root-dir": c.MkDir(),
 	})
 	c.Assert(err, gc.IsNil)
 	err = s.State.SetEnvironConfig(newCfg, envConfig)
 	c.Assert(err, gc.IsNil)
-
 }
 
 func (s *migrateLocalProviderAgentConfigSuite) assertConfigProcessed(c *gc.C) {
@@ -75,20 +75,21 @@ func (s *migrateLocalProviderAgentConfigSuite) assertConfigProcessed(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	allAttrs := envConfig.AllAttrs()
 
-	expectedDataDir := filepath.Join(s.rootDir, agent.DefaultDataDir)
-	expectedLogDir := filepath.Join(s.rootDir, agent.DefaultLogDir)
+	expectedDataDir := filepath.Join(agent.DefaultDataDir)
+	expectedLogDir := filepath.Join(agent.DefaultLogDir)
 	expectedJobs := []params.MachineJob{params.JobHostUnits}
 	tag := s.ctx.AgentConfig().Tag()
+
+	namespace, _ := allAttrs["namespace"].(string)
+	c.Assert(namespace, gc.Equals, "user-mylocal")
+	container, _ := allAttrs["container"].(string)
+	c.Assert(container, gc.Equals, "lxc")
+
 	if tag == "machine-0" {
 		expectedDataDir, _ = allAttrs["root-dir"].(string)
-		expectedLogDir = filepath.Join(expectedDataDir, "log")
+		expectedLogDir = filepath.Join(*upgrades.RootLogDir, "juju-"+namespace)
 		expectedJobs = []params.MachineJob{params.JobManageEnviron}
 	}
-	namespace, _ := allAttrs["namespace"].(string)
-	c.Assert(namespace, gc.Matches, ".+-mylocal")
-
-	agentService := "juju-agent-" + namespace
-	mongoService := "juju-db-" + namespace
 
 	// We need to read the actual migrated agent config.
 	configFilePath := agent.ConfigPath(expectedDataDir, tag)
@@ -101,29 +102,48 @@ func (s *migrateLocalProviderAgentConfigSuite) assertConfigProcessed(c *gc.C) {
 	c.Assert(agentConfig.Value("SHARED_STORAGE_ADDR"), gc.Equals, "")
 	c.Assert(agentConfig.Value("SHARED_STORAGE_DIR"), gc.Equals, "")
 	c.Assert(agentConfig.Value(agent.Namespace), gc.Equals, namespace)
-	c.Assert(agentConfig.Value(agent.AgentServiceName), gc.Equals, agentService)
-	c.Assert(agentConfig.Value(agent.MongoServiceName), gc.Equals, mongoService)
-	c.Assert(allAttrs["container"], gc.Equals, "lxc")
+	switch {
+	case tag == "machine-0":
+		agentService := "juju-agent-user-mylocal"
+		mongoService := "juju-db-user-mylocal"
+		c.Assert(agentConfig.Value(agent.AgentServiceName), gc.Equals, agentService)
+		c.Assert(agentConfig.Value(agent.MongoServiceName), gc.Equals, mongoService)
+		c.Assert(agentConfig.Value(agent.ContainerType), gc.Equals, "")
+	case strings.HasPrefix(tag, "machine-"):
+		agentService := "jujud-" + tag
+		c.Assert(agentConfig.Value(agent.AgentServiceName), gc.Equals, agentService)
+		c.Assert(agentConfig.Value(agent.MongoServiceName), gc.Equals, "")
+		c.Assert(agentConfig.Value(agent.ContainerType), gc.Equals, container)
+	case strings.HasPrefix(tag, "unit-"):
+		c.Assert(agentConfig.Value(agent.AgentServiceName), gc.Equals, "")
+		c.Assert(agentConfig.Value(agent.MongoServiceName), gc.Equals, "")
+		c.Assert(agentConfig.Value(agent.ContainerType), gc.Equals, container)
+	}
 }
 
 func (s *migrateLocalProviderAgentConfigSuite) TestMigrateStateServer(c *gc.C) {
-	s.primeConfig(c, state.JobManageEnviron, "machine-0", c.MkDir())
+	s.primeConfig(c, state.JobManageEnviron, "machine-0")
 	err := upgrades.MigrateLocalProviderAgentConfig(s.ctx, upgrades.StateServer)
 	c.Assert(err, gc.IsNil)
 	s.assertConfigProcessed(c)
 }
 
 func (s *migrateLocalProviderAgentConfigSuite) TestMigrateHostMachine(c *gc.C) {
-	s.PatchValue(&agent.DefaultDataDir, c.MkDir())
-	s.PatchValue(&agent.DefaultLogDir, c.MkDir())
-	s.primeConfig(c, state.JobHostUnits, "machine-42", "")
+	s.primeConfig(c, state.JobHostUnits, "machine-42")
+	err := upgrades.MigrateLocalProviderAgentConfig(s.ctx, upgrades.HostMachine)
+	c.Assert(err, gc.IsNil)
+	s.assertConfigProcessed(c)
+}
+
+func (s *migrateLocalProviderAgentConfigSuite) TestMigrateHostMachineUnit(c *gc.C) {
+	s.primeConfig(c, state.JobHostUnits, "unit-foo-0")
 	err := upgrades.MigrateLocalProviderAgentConfig(s.ctx, upgrades.HostMachine)
 	c.Assert(err, gc.IsNil)
 	s.assertConfigProcessed(c)
 }
 
 func (s *migrateLocalProviderAgentConfigSuite) TestIdempotent(c *gc.C) {
-	s.primeConfig(c, state.JobManageEnviron, "machine-0", c.MkDir())
+	s.primeConfig(c, state.JobManageEnviron, "machine-0")
 	err := upgrades.MigrateLocalProviderAgentConfig(s.ctx, upgrades.StateServer)
 	c.Assert(err, gc.IsNil)
 	s.assertConfigProcessed(c)

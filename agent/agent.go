@@ -173,8 +173,11 @@ func MigrateConfig(currentConfig Config, newParams AgentConfigParams) error {
 		if config.values == nil {
 			config.values = make(map[string]string)
 		}
-		if value == "" {
-			delete(config.values, key)
+		if key == "_DELETE_" {
+			deleteKeys := strings.SplitN(value, ",", -1)
+			for _, deleteKey := range deleteKeys {
+				delete(config.values, strings.TrimSpace(deleteKey))
+			}
 		} else {
 			config.values[key] = value
 		}
