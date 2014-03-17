@@ -159,8 +159,12 @@ func Initialize(info *Info, cfg *config.Config, opts DialOpts, policy Policy) (r
 		createEnvironmentOp(st, cfg.Name(), uuid.String()),
 		{
 			C:      st.stateServers.Name,
-			Id:     "",
+			Id:     environGlobalKey,
 			Insert: &stateServersDoc{},
+		}, {
+			C:      st.stateServers.Name,
+			Id:    apiAddressesKey,
+			Insert: &apiAddressesDoc{},
 		},
 	}
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
