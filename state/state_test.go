@@ -2690,6 +2690,27 @@ func (s *StateSuite) TestOpenCreatesStateServersDoc(c *gc.C) {
 	c.Assert(info, gc.DeepEquals, expectStateServerInfo)
 }
 
+func (s *StateSuite) TestOpenCreatesAPIAddressesDoc(c *gc.C) {
+	// Delete the stateServers collection to pretend this
+	// is an older environment that had not created it
+	// already.
+	err := s.stateServers.DropCollection()
+	c.Assert(err, gc.IsNil)
+
+	// Sanity check that we have in fact deleted the right info.
+	addrs, err := s.State.APIAddresses()
+	c.Assert(err, gc.NotNil)
+	c.Assert(addrs, gc.IsNil)
+
+	st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts(), state.Policy(nil))
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+
+	addrs, err = s.State.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(addrs, gc.HasLen, 0)
+}
+
 func (s *StateSuite) TestReopenWithNoMachines(c *gc.C) {
 	info, err := s.State.StateServerInfo()
 	c.Assert(err, gc.IsNil)
@@ -2798,4 +2819,41 @@ func (s *StateSuite) TestEnsureAvailabilityAddsNewMachines(c *gc.C) {
 
 func newUint64(i uint64) *uint64 {
 	return &i
+}
+
+func (s *StateSuite) TestSetAPIAddresses(c *gc.C) {
+	addrs, err := s.State.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(addrs, gc.HasLen, 0)
+
+	newAddrs := []instance.Address{{
+		Value:        "0.2.4.6",
+		Type:         instance.Ipv4Address,
+		NetworkName:  "net",
+		NetworkScope: instance.NetworkCloudLocal,
+	}, {
+		Value:        "0.4.8.16",
+		Type:         instance.Ipv4Address,
+		NetworkName:  "foo",
+		NetworkScope: instance.NetworkPublic,
+	}}
+	err = s.State.SetAPIAddresses(newAddrs)
+	c.Assert(err, gc.IsNil)
+
+	gotAddrs, err := s.State.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(gotAddrs, jc.DeepEquals, newAddrs)
+
+	newAddrs = []instance.Address{{
+		Value:        "0.2.4.6",
+		Type:         instance.Ipv6Address,
+		NetworkName:  "net",
+		NetworkScope: instance.NetworkCloudLocal,
+	}}
+	err = s.State.SetAPIAddresses(newAddrs)
+	c.Assert(err, gc.IsNil)
+
+	gotAddrs, err = s.State.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(gotAddrs, jc.DeepEquals, newAddrs)
 }
