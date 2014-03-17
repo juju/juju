@@ -38,6 +38,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/utils/shell"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/terminationworker"
 )
@@ -177,10 +178,11 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 //
 // mcfg is supplied for testing purposes.
 var finishBootstrap = func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config, ctx environs.BootstrapContext) error {
-	script, err := sshinit.ConfigureScript(cloudcfg)
+	configScript, err := sshinit.ConfigureScript(cloudcfg)
 	if err != nil {
 		return nil
 	}
+	script := shell.DumpFileOnErrorScript(mcfg.CloudInitOutputLog) + configScript
 	cmd := exec.Command("sudo", "/bin/bash", "-s")
 	cmd.Stdin = strings.NewReader(script)
 	cmd.Stdout = ctx.GetStdout()
