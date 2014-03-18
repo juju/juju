@@ -67,7 +67,7 @@ func (u *mockUpgradeStep) Targets() []upgrades.Target {
 	return u.targets
 }
 
-func (u *mockUpgradeStep) Run(context upgrades.Context, target upgrades.Target) error {
+func (u *mockUpgradeStep) Run(context upgrades.Context) error {
 	if strings.HasSuffix(u.msg, "error") {
 		return errors.New("upgrade error occurred")
 	}

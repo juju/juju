@@ -531,7 +531,7 @@ func (c *configInternal) writeNewPassword() (string, error) {
 		other.apiDetails = &apiDetails
 	}
 	logger.Debugf("writing configuration file")
-	if err := other.Write(); err != nil {
+	if err := other.write(); err != nil {
 		return "", err
 	}
 	*c = other
@@ -594,6 +594,8 @@ func (c *configInternal) WriteCommands() ([]string, error) {
 }
 
 func (c *configInternal) OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassword string, err error) {
+	configMutex.Lock()
+	defer configMutex.Unlock()
 	info := api.Info{
 		Addrs:    c.apiDetails.addresses,
 		Password: c.apiDetails.password,

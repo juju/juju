@@ -33,7 +33,7 @@ func (s *rsyslogPortSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *rsyslogPortSuite) TestSyslogPortChanged(c *gc.C) {
-	err := upgrades.UpdateRsyslogPort(s.ctx, "")
+	err := upgrades.UpdateRsyslogPort(s.ctx)
 	c.Assert(err, gc.IsNil)
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
@@ -41,9 +41,9 @@ func (s *rsyslogPortSuite) TestSyslogPortChanged(c *gc.C) {
 }
 
 func (s *rsyslogPortSuite) TestIdempotent(c *gc.C) {
-	err := upgrades.UpdateRsyslogPort(s.ctx, "")
+	err := upgrades.UpdateRsyslogPort(s.ctx)
 	c.Assert(err, gc.IsNil)
-	err = upgrades.UpdateRsyslogPort(s.ctx, "")
+	err = upgrades.UpdateRsyslogPort(s.ctx)
 	c.Assert(err, gc.IsNil)
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)

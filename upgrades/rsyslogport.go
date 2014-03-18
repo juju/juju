@@ -7,7 +7,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 )
 
-func updateRsyslogPort(context Context, target Target) error {
+func updateRsyslogPort(context Context) error {
 	st := context.State()
 	old, err := st.EnvironConfig()
 	if err != nil {

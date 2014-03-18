@@ -33,7 +33,7 @@ func stepsFor118() []Step {
 		},
 		&upgradeStep{
 			description: "migrate local provider agent config",
-			targets:     []Target{AllMachines},
+			targets:     []Target{StateServer},
 			run:         migrateLocalProviderAgentConfig,
 		},
 	}

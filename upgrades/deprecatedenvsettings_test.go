@@ -69,17 +69,17 @@ func (s *processDeprecatedEnvSettingsSuite) assertConfigProcessed(c *gc.C) {
 }
 
 func (s *processDeprecatedEnvSettingsSuite) TestOldConfigRemoved(c *gc.C) {
-	err := upgrades.ProcessDeprecatedEnvSettings(s.ctx, "")
+	err := upgrades.ProcessDeprecatedEnvSettings(s.ctx)
 	c.Assert(err, gc.IsNil)
 	s.assertConfigProcessed(c)
 }
 
 func (s *processDeprecatedEnvSettingsSuite) TestIdempotent(c *gc.C) {
-	err := upgrades.ProcessDeprecatedEnvSettings(s.ctx, "")
+	err := upgrades.ProcessDeprecatedEnvSettings(s.ctx)
 	c.Assert(err, gc.IsNil)
 	s.assertConfigProcessed(c)
 
-	err = upgrades.ProcessDeprecatedEnvSettings(s.ctx, "")
+	err = upgrades.ProcessDeprecatedEnvSettings(s.ctx)
 	c.Assert(err, gc.IsNil)
 	s.assertConfigProcessed(c)
 }

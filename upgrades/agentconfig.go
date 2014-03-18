@@ -8,43 +8,18 @@ import (
 	"os"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
 )
 
 var rootLogDir = "/var/log"
 
-func getEnvironConfig(context Context) (*config.Config, error) {
+func migrateLocalProviderAgentConfig(context Context) error {
 	st := context.State()
-	if st != nil {
-		return st.EnvironConfig()
+	if st == nil {
+		// We're running on a different node than the state server.
+		return nil
 	}
-	apiState := context.APIState()
-	if apiState == nil {
-		return nil, fmt.Errorf("cannot connect to neither state nor API")
-	}
-	attrs, err := apiState.Client().EnvironmentGet()
-	if err != nil {
-		return nil, fmt.Errorf("cannot get environment attributes: %v", err)
-	}
-	return config.New(config.NoDefaults, attrs)
-}
-
-func setEnvironConfig(context Context, newConfig, oldConfig *config.Config) error {
-	st := context.State()
-	if st != nil {
-		return st.SetEnvironConfig(newConfig, oldConfig)
-	}
-	apiState := context.APIState()
-	if apiState == nil {
-		return fmt.Errorf("cannot connect to neither state nor API")
-	}
-	return apiState.Client().EnvironmentSet(newConfig.AllAttrs())
-}
-
-func migrateLocalProviderAgentConfig(context Context, target Target) error {
-	envConfig, err := getEnvironConfig(context)
+	envConfig, err := st.EnvironConfig()
 	if err != nil {
 		return fmt.Errorf("failed to read current config: %v", err)
 	}
@@ -80,42 +55,26 @@ func migrateLocalProviderAgentConfig(context Context, target Target) error {
 	if err != nil {
 		return fmt.Errorf("cannot apply environment config: %v", err)
 	}
-	if err := setEnvironConfig(context, newCfg, envConfig); err != nil {
+	if err := st.SetEnvironConfig(newCfg, envConfig); err != nil {
 		return fmt.Errorf("cannot set environment config: %v", err)
 	}
 
-	// These three change according to target.
-	dataDir := agent.DefaultDataDir
-	logDir := agent.DefaultLogDir
-	jobs := []params.MachineJob{params.JobHostUnits}
-	tag := context.AgentConfig().Tag()
+	dataDir := rootDir
+	// rsyslogd is restricted to write to /var/log
+	logDir := fmt.Sprintf("%s/juju-%s", rootLogDir, namespace)
+	jobs := []params.MachineJob{params.JobManageEnviron}
 	values := map[string]string{
 		// Delete the obsolete values.
 		"_DELETE_": "SHARED_STORAGE_ADDR,SHARED_STORAGE_DIR",
 		// Add new values from the environment.
-		agent.Namespace:        namespace,
-		agent.ContainerType:    container,
-		agent.AgentServiceName: "jujud-" + tag,
-	}
-	if target == StateServer {
-		dataDir = rootDir
-		// rsyslogd is restricted to write to /var/log
-		logDir = fmt.Sprintf("%s/juju-%s", rootLogDir, namespace)
-		jobs = []params.MachineJob{params.JobManageEnviron}
-		// This is unset for the bootstrap node.
-		values[agent.ContainerType] = ""
-
-		values[agent.AgentServiceName] = "juju-agent-" + namespace
-		values[agent.MongoServiceName] = "juju-db-" + namespace
-	}
-	if kind, _, err := names.ParseTag(tag, ""); err != nil {
-		return fmt.Errorf("invalid agent tag %q: %v", tag, err)
-	} else if kind == names.UnitTagKind {
-		// Unit agent config does not have AgentServiceName
-		delete(values, agent.AgentServiceName)
+		agent.Namespace: namespace,
+		// ContainerType is empty on the bootstrap node.
+		agent.ContainerType:    "",
+		agent.AgentServiceName: "juju-agent-" + namespace,
+		agent.MongoServiceName: "juju-db-" + namespace,
 	}
 
-	// We need to create the dirs if they don't exists.
+	// We need to create the dirs if they don't exist.
 	if err := os.MkdirAll(dataDir, 0755); err != nil {
 		return fmt.Errorf("cannot create dataDir %q: %v", dataDir, err)
 	}

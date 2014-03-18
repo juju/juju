@@ -9,7 +9,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 )
 
-func processDeprecatedEnvSettings(context Context, target Target) error {
+func processDeprecatedEnvSettings(context Context) error {
 	st := context.State()
 	cfg, err := st.EnvironConfig()
 	if err != nil {

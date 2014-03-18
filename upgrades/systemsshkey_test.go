@@ -64,19 +64,19 @@ func (s *systemSSHKeySuite) assertKeyCreation(c *gc.C) {
 }
 
 func (s *systemSSHKeySuite) TestSystemKeyCreated(c *gc.C) {
-	err := upgrades.EnsureSystemSSHKey(s.ctx, "")
+	err := upgrades.EnsureSystemSSHKey(s.ctx)
 	c.Assert(err, gc.IsNil)
 	s.assertKeyCreation(c)
 }
 
 func (s *systemSSHKeySuite) TestIdempotent(c *gc.C) {
-	err := upgrades.EnsureSystemSSHKey(s.ctx, "")
+	err := upgrades.EnsureSystemSSHKey(s.ctx)
 	c.Assert(err, gc.IsNil)
 
 	privateKey, err := ioutil.ReadFile(s.keyFile())
 	c.Assert(err, gc.IsNil)
 
-	err = upgrades.EnsureSystemSSHKey(s.ctx, "")
+	err = upgrades.EnsureSystemSSHKey(s.ctx)
 	c.Assert(err, gc.IsNil)
 
 	// Ensure we haven't generated the key again a second time.

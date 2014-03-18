@@ -26,7 +26,7 @@ type Step interface {
 	Targets() []Target
 
 	// Run executes the upgrade business logic.
-	Run(context Context, target Target) error
+	Run(context Context) error
 }
 
 // Operation defines what steps to perform to upgrade to a target version.
@@ -176,8 +176,8 @@ func runUpgradeSteps(context Context, target Target, upgradeOp Operation) *upgra
 		if !validTarget(target, step) {
 			continue
 		}
-		logger.Infof("Running upgrade step: %v", step.Description())
-		if err := step.Run(context, target); err != nil {
+		logger.Infof("running upgrade step on target %q: %v", target, step.Description())
+		if err := step.Run(context); err != nil {
 			logger.Errorf("upgrade step %q failed: %v", step.Description(), err)
 			return &upgradeError{
 				description: step.Description(),
@@ -192,7 +192,7 @@ func runUpgradeSteps(context Context, target Target, upgradeOp Operation) *upgra
 type upgradeStep struct {
 	description string
 	targets     []Target
-	run         func(Context, Target) error
+	run         func(Context) error
 }
 
 // Description is defined on the Step interface.
@@ -206,6 +206,6 @@ func (step *upgradeStep) Targets() []Target {
 }
 
 // Run is defined on the Step interface.
-func (step *upgradeStep) Run(context Context, target Target) error {
-	return step.run(context, target)
+func (step *upgradeStep) Run(context Context) error {
+	return step.run(context)
 }
