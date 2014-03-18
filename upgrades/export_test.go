@@ -9,7 +9,8 @@ var (
 	RootLogDir        = &rootLogDir
 	RootSpoolDir      = &rootSpoolDir
 
-	ChownPath = &chownPath
+	ChownPath      = &chownPath
+	IsLocalEnviron = &isLocalEnviron
 
 	// 118 upgrade functions
 	StepsFor118                          = stepsFor118

@@ -11,6 +11,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/environs/config"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -34,7 +35,8 @@ func (s *migrateLocalProviderAgentConfigSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(upgrades.RootLogDir, c.MkDir())
 	s.PatchValue(upgrades.RootSpoolDir, c.MkDir())
 	s.PatchValue(&agent.DefaultDataDir, c.MkDir())
-	s.PatchValue(upgrades.ChownPath, func(path, username string) error { return nil })
+	s.PatchValue(upgrades.ChownPath, func(_, _ string) error { return nil })
+	s.PatchValue(upgrades.IsLocalEnviron, func(_ *config.Config) bool { return true })
 }
 
 func (s *migrateLocalProviderAgentConfigSuite) primeConfig(c *gc.C, job state.MachineJob, tag string) {
@@ -67,16 +69,10 @@ func (s *migrateLocalProviderAgentConfigSuite) primeConfig(c *gc.C, job state.Ma
 		state:           s.State,
 	}
 
-	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	// Add in old environment settings.
-	newCfg, err := envConfig.Apply(map[string]interface{}{
-		"type":     "local",
-		"name":     "mylocal",
+	newCfg := (map[string]interface{}{
 		"root-dir": rootDir,
 	})
-	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(newCfg, envConfig)
+	err = s.State.UpdateEnvironConfig(newCfg, nil, nil)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -86,7 +82,7 @@ func (s *migrateLocalProviderAgentConfigSuite) assertConfigProcessed(c *gc.C) {
 	allAttrs := envConfig.AllAttrs()
 
 	namespace, _ := allAttrs["namespace"].(string)
-	c.Assert(namespace, gc.Equals, "user-mylocal")
+	c.Assert(namespace, gc.Equals, "user-dummyenv")
 	container, _ := allAttrs["container"].(string)
 	c.Assert(container, gc.Equals, "lxc")
 
@@ -110,8 +106,8 @@ func (s *migrateLocalProviderAgentConfigSuite) assertConfigProcessed(c *gc.C) {
 	c.Assert(agentConfig.Value("SHARED_STORAGE_ADDR"), gc.Equals, "")
 	c.Assert(agentConfig.Value("SHARED_STORAGE_DIR"), gc.Equals, "")
 	c.Assert(agentConfig.Value(agent.Namespace), gc.Equals, namespace)
-	agentService := "juju-agent-user-mylocal"
-	mongoService := "juju-db-user-mylocal"
+	agentService := "juju-agent-user-dummyenv"
+	mongoService := "juju-db-user-dummyenv"
 	c.Assert(agentConfig.Value(agent.AgentServiceName), gc.Equals, agentService)
 	c.Assert(agentConfig.Value(agent.MongoServiceName), gc.Equals, mongoService)
 	c.Assert(agentConfig.Value(agent.ContainerType), gc.Equals, "")

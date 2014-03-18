@@ -6,11 +6,11 @@ package agent_test
 import (
 	"reflect"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/state/api/params"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )

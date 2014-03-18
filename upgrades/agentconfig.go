@@ -11,6 +11,7 @@ import (
 	"strconv"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state/api/params"
 )
 
@@ -35,6 +36,10 @@ var chownPath = func(path, username string) error {
 	return os.Chown(path, uid, gid)
 }
 
+var isLocalEnviron = func(envConfig *config.Config) bool {
+	return envConfig.Type() != "local"
+}
+
 func migrateLocalProviderAgentConfig(context Context) error {
 	st := context.State()
 	if st == nil {
@@ -45,7 +50,7 @@ func migrateLocalProviderAgentConfig(context Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to read current config: %v", err)
 	}
-	if envConfig.Type() != "local" {
+	if !isLocalEnviron(envConfig) {
 		return nil
 	}
 	attrs := envConfig.AllAttrs()
@@ -123,15 +128,12 @@ func migrateLocalProviderAgentConfig(context Context) error {
 		return fmt.Errorf("cannot symlink %q to %q: %v", machine0Log, logDir, err)
 	}
 
-	newCfg, err := envConfig.Apply(map[string]interface{}{
+	newCfg := map[string]interface{}{
 		"namespace": namespace,
 		"container": container,
-	})
-	if err != nil {
-		return fmt.Errorf("cannot apply environment config: %v", err)
 	}
-	if err := st.SetEnvironConfig(newCfg, envConfig); err != nil {
-		return fmt.Errorf("cannot set environment config: %v", err)
+	if err := st.UpdateEnvironConfig(newCfg, nil, nil); err != nil {
+		return fmt.Errorf("cannot update environment config: %v", err)
 	}
 
 	migrateParams := agent.AgentConfigParams{
