@@ -4,8 +4,10 @@
 package upgrades_test
 
 import (
+	"os"
 	"path/filepath"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
@@ -30,10 +32,18 @@ func (s *migrateLocalProviderAgentConfigSuite) SetUpTest(c *gc.C) {
 	s.PatchEnvironment("USER", "root")
 	s.PatchEnvironment("SUDO_USER", "user")
 	s.PatchValue(upgrades.RootLogDir, c.MkDir())
+	s.PatchValue(upgrades.RootSpoolDir, c.MkDir())
 	s.PatchValue(&agent.DefaultDataDir, c.MkDir())
+	s.PatchValue(upgrades.ChownPath, func(path, username string) error { return nil })
 }
 
 func (s *migrateLocalProviderAgentConfigSuite) primeConfig(c *gc.C, job state.MachineJob, tag string) {
+	rootDir := c.MkDir()
+	sharedStorageDir := filepath.Join(rootDir, "shared-storage")
+	c.Assert(os.MkdirAll(sharedStorageDir, 0755), gc.IsNil)
+	localLogDir := filepath.Join(rootDir, "log")
+	c.Assert(os.MkdirAll(localLogDir, 0755), gc.IsNil)
+
 	initialConfig, err := agent.NewAgentConfig(agent.AgentConfigParams{
 		Tag:               tag,
 		Password:          "blah",
@@ -44,7 +54,7 @@ func (s *migrateLocalProviderAgentConfigSuite) primeConfig(c *gc.C, job state.Ma
 		UpgradedToVersion: version.MustParse("1.16.0"),
 		Values: map[string]string{
 			"SHARED_STORAGE_ADDR": "blah",
-			"SHARED_STORAGE_DIR":  "foo",
+			"SHARED_STORAGE_DIR":  sharedStorageDir,
 		},
 	})
 	c.Assert(err, gc.IsNil)
@@ -63,7 +73,7 @@ func (s *migrateLocalProviderAgentConfigSuite) primeConfig(c *gc.C, job state.Ma
 	newCfg, err := envConfig.Apply(map[string]interface{}{
 		"type":     "local",
 		"name":     "mylocal",
-		"root-dir": c.MkDir(),
+		"root-dir": rootDir,
 	})
 	c.Assert(err, gc.IsNil)
 	err = s.State.SetEnvironConfig(newCfg, envConfig)
@@ -81,6 +91,10 @@ func (s *migrateLocalProviderAgentConfigSuite) assertConfigProcessed(c *gc.C) {
 	c.Assert(container, gc.Equals, "lxc")
 
 	expectedDataDir, _ := allAttrs["root-dir"].(string)
+	expectedSharedStorageDir := filepath.Join(expectedDataDir, "shared-storage")
+	_, err = os.Lstat(expectedSharedStorageDir)
+	c.Assert(err, gc.NotNil)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 	expectedLogDir := filepath.Join(*upgrades.RootLogDir, "juju-"+namespace)
 	expectedJobs := []params.MachineJob{params.JobManageEnviron}
 	tag := s.ctx.AgentConfig().Tag()
