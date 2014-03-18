@@ -387,7 +387,7 @@ var _ = gc.Suite(&LocalRepoSuite{})
 func (s *LocalRepoSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	root := c.MkDir()
-	s.repo = &charm.LocalRepository{root}
+	s.repo = &charm.LocalRepository{Path: root}
 	s.seriesPath = filepath.Join(root, "quantal")
 	c.Assert(os.Mkdir(s.seriesPath, 0777), gc.IsNil)
 }

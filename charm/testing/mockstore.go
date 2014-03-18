@@ -35,13 +35,14 @@ type MockStore struct {
 	Metadata                []string
 	InfoRequestCount        int
 	InfoRequestCountNoStats int
+	DefaultSeries           string
 
 	charms map[string]int
 }
 
 // NewMockStore creates a mock charm store containing the specified charms.
 func NewMockStore(c *gc.C, charms map[string]int) *MockStore {
-	s := &MockStore{charms: charms}
+	s := &MockStore{charms: charms, DefaultSeries: "precise"}
 	f, err := os.Open(testing.Charms.BundlePath(c.MkDir(), "dummy"))
 	c.Assert(err, gc.IsNil)
 	defer f.Close()
@@ -99,6 +100,9 @@ func (s *MockStore) serveInfo(w http.ResponseWriter, r *http.Request) {
 		cr := &charm.InfoResponse{}
 		response[url] = cr
 		charmURL := charm.MustParseURL(url)
+		if !charmURL.IsResolved() {
+			charmURL.Series = s.DefaultSeries
+		}
 		switch charmURL.Name {
 		case "borken":
 			cr.Errors = append(cr.Errors, "badness")
@@ -115,6 +119,7 @@ func (s *MockStore) serveInfo(w http.ResponseWriter, r *http.Request) {
 					cr.Revision = charmURL.Revision
 				}
 				cr.Sha256 = s.bundleSha256
+				cr.CanonicalURL = charmURL.String()
 			} else {
 				cr.Errors = append(cr.Errors, "entry not found")
 			}
