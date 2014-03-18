@@ -10,6 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"labix.org/v2/mgo"
+
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/upstart"
 )
@@ -31,6 +33,7 @@ func (s *MongoSuite) SetUpSuite(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	s.PatchValue(&upstart.InitDir, c.MkDir())
+	s.PatchValue(&initiateReplicaSet, func(address string, info *mgo.DialInfo) error { return nil })
 }
 
 func (s *MongoSuite) TestJujuMongodPath(c *gc.C) {
@@ -113,6 +116,9 @@ func testJournalDirs(dir string, c *gc.C) {
 
 func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 	dir := c.MkDir()
+	address := "localhost"
+	info := &mgo.DialInfo{}
+
 	dbDir := filepath.Join(dir, "db")
 	err := os.MkdirAll(dbDir, 0777)
 	c.Assert(err, gc.IsNil)
@@ -122,7 +128,7 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 	oldsvc := makeService(oldMongoServiceName, c)
 	defer oldsvc.Remove()
 
-	err = EnsureMongoServer(dir, port)
+	err = EnsureMongoServer(address, dir, port, info)
 	c.Assert(err, gc.IsNil)
 	svc, err := mongoUpstartService(makeServiceName(mongoScriptVersion), dir, dbDir, port)
 	c.Assert(err, gc.IsNil)
@@ -133,13 +139,16 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 	c.Check(svc.Installed(), jc.IsTrue)
 
 	// now check we can call it multiple times without error
-	err = EnsureMongoServer(dir, port)
+	err = EnsureMongoServer(address, dir, port, info)
 	c.Assert(err, gc.IsNil)
 
 }
 
 func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
 	dir := c.MkDir()
+	address := "localhost"
+	info := &mgo.DialInfo{}
+
 	dbDir := filepath.Join(dir, "db")
 
 	// remove the directory so we use the path but it won't exist
@@ -147,7 +156,7 @@ func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
 	os.RemoveAll(dir)
 	port := 25252
 
-	err := EnsureMongoServer(dir, port)
+	err := EnsureMongoServer(address, dir, port, info)
 	c.Check(err, gc.IsNil)
 
 	_, err = os.Stat(dbDir)

@@ -29,6 +29,8 @@ var (
 
 	// JujuMongodPath holds the default path to the juju-specific mongod.
 	JujuMongodPath = "/usr/lib/juju/bin/mongod"
+
+	initiateReplicaSet = initiateReplicaSetImpl
 )
 
 // MongoPath returns the executable path to be used to run mongod on this
@@ -89,28 +91,30 @@ func ensureMongoServer(address, dataDir string, port int, info *mgo.DialInfo) er
 		return fmt.Errorf("failed to install mongo service %q: %v", service.Name, err)
 	}
 
+	if err := initiateReplicaSet(address, info); err != nil {
+		return fmt.Errorf("failed to initiate mongo replicaset: %v", err)
+	}
+	return nil
+}
+
+func initiateReplicaSetImpl(address string, info *mgo.DialInfo) error {
 	session, err := mgo.DialWithInfo(info)
 	if err != nil {
 		return err
 	}
+
 	defer session.Close()
-	session.SetMode(mgo.Monotonic, true)
 	_, err = replicaset.CurrentConfig(session)
 	if err != nil && err != mgo.ErrNotFound {
-		logger.Infof("Error from currentconfig: %v", err)
 		return err
 	}
 
 	if err == mgo.ErrNotFound {
-		logger.Infof("No replicaset config, calling initiate")
-
+		logger.Infof("no replicaset config, calling initiate")
 		if err := replicaset.Initiate(session, address, replicaSetName); err != nil {
-			logger.Infof("Error from initiate: %v", err)
 			return err
 		}
-		logger.Infof("initiate returned without error")
 	}
-
 	return nil
 }
 

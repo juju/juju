@@ -253,6 +253,7 @@ func CurrentMembers(session *mgo.Session) ([]Member, error) {
 // there is no current config, the error returned will be mgo.ErrNotFound.
 func CurrentConfig(session *mgo.Session) (*Config, error) {
 	cfg := &Config{}
+	session.SetMode(mgo.Monotonic, true)
 	err := session.DB("local").C("system.replset").Find(nil).One(cfg)
 	if err == mgo.ErrNotFound {
 		return nil, err
