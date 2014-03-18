@@ -6,6 +6,7 @@ package instance
 import (
 	"bytes"
 	"net"
+	"strconv"
 )
 
 // AddressType represents the possible ways of specifying a machine location by
@@ -38,6 +39,31 @@ type Address struct {
 	Type        AddressType
 	NetworkName string
 	NetworkScope
+}
+
+// HostPort associates an address with a port.
+type HostPort struct {
+	Address
+	Port int
+}
+
+// AddressesWithPort returns the given addresses all
+// associated with the given port.
+func AddressesWithPort(addrs []Address, port int) []HostPort {
+	hps := make([]HostPort, len(addrs))
+	for i, addr := range addrs {
+		hps[i] = HostPort{
+			Address: addr,
+			Port:    port,
+		}
+	}
+	return hps
+}
+
+// NetAddr returns the host-port as an address
+// suitable for calling net.Dial.
+func (hp HostPort) NetAddr() string {
+	return net.JoinHostPort(hp.Value, strconv.FormatInt(int64(hp.Port), 10))
 }
 
 // String returns a string representation of the address,

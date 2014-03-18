@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/testing/testbase"
@@ -241,5 +242,42 @@ var stringTests = []struct {
 func (s *AddressSuite) TestString(c *gc.C) {
 	for _, test := range stringTests {
 		c.Check(test.addr.String(), gc.Equals, test.str)
+	}
+}
+
+func (*AddressSuite) TestAddressesWithPort(c *gc.C) {
+	addrs := NewAddresses([]string{"0.1.2.3", "0.2.4.6"})
+	hps := AddressesWithPort(addrs, 999)
+	c.Assert(hps, jc.DeepEquals, []HostPort{{
+		Address: NewAddress("0.1.2.3"),
+		Port:    999,
+	}, {
+		Address: NewAddress("0.2.4.6"),
+		Port:    999,
+	}})
+}
+
+var netAddrTests = []struct {
+	addr   Address
+	port   int
+	expect string
+}{{
+	addr:   NewAddress("0.1.2.3"),
+	port:   99,
+	expect: "0.1.2.3:99",
+}, {
+	addr:   NewAddress("2001:DB8::1"),
+	port:   100,
+	expect: "[2001:DB8::1]:100",
+}}
+
+func (*AddressSuite) TestNetAddr(c *gc.C) {
+	for i, test := range netAddrTests {
+		c.Logf("test %d: %q", i, test.addr)
+		hp := HostPort{
+			Address: test.addr,
+			Port:    test.port,
+		}
+		c.Assert(hp.NetAddr(), gc.Equals, test.expect)
 	}
 }
