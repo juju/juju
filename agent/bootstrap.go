@@ -58,14 +58,17 @@ func (c *configInternal) InitializeState(dataDir string, envCfg *config.Config, 
 		return nil, nil, fmt.Errorf("InitializeState not called with bootstrap machine's configuration")
 	}
 
-	if err := mongo.EnsureMongoServer(dataDir, envCfg.StatePort()); err != nil {
-		return nil, nil, err
-	}
-
 	info := state.Info{
 		Addrs:  c.stateDetails.addresses,
 		CACert: c.caCert,
 	}
+
+	di, err := state.DialInfo(&info, timeout, policy)
+
+	if err := mongo.EnsureMongoServer(info.Addrs[0], dataDir, envCfg.StatePort(), di); err != nil {
+		return nil, nil, err
+	}
+
 	logger.Debugf("initializing address %v", info.Addrs)
 	st, err := state.Initialize(&info, envCfg, timeout, policy)
 	if err != nil {

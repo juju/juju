@@ -249,10 +249,14 @@ func CurrentMembers(session *mgo.Session) ([]Member, error) {
 	return cfg.Members, nil
 }
 
-// CurrentConfig returns the Config for the given session's replica set.
+// CurrentConfig returns the Config for the given session's replica set.  If
+// there is no current config, the error returned will be mgo.ErrNotFound.
 func CurrentConfig(session *mgo.Session) (*Config, error) {
 	cfg := &Config{}
 	err := session.DB("local").C("system.replset").Find(nil).One(cfg)
+	if err == mgo.ErrNotFound {
+		return nil, err
+	}
 	if err != nil {
 		return nil, fmt.Errorf("Error getting replset config : %s", err.Error())
 	}

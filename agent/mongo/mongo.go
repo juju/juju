@@ -8,7 +8,9 @@ import (
 	"path/filepath"
 
 	"github.com/juju/loggo"
+	"labix.org/v2/mgo"
 
+	"launchpad.net/juju-core/replicaset"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
 )
@@ -16,6 +18,8 @@ import (
 const (
 	maxFiles = 65000
 	maxProcs = 20000
+
+	replicaSetName = "juju"
 )
 
 var (
@@ -51,7 +55,7 @@ func MongodPath() (string, error) {
 // This is a variable so it can be overridden in tests
 var EnsureMongoServer = ensureMongoServer
 
-func ensureMongoServer(dataDir string, port int) error {
+func ensureMongoServer(address, dataDir string, port int, info *mgo.DialInfo) error {
 	dbDir := filepath.Join(dataDir, "db")
 	name := makeServiceName(mongoScriptVersion)
 	service, err := mongoUpstartService(name, dataDir, dbDir, port)
@@ -73,10 +77,34 @@ func ensureMongoServer(dataDir string, port int) error {
 	}
 
 	logger.Debugf("mongod upstart command: %s", service.Cmd)
-	if err := service.Install(); err != nil {
+	err = service.Install()
+	if err != nil {
 		return fmt.Errorf("failed to install mongo service %q: %v", service.Name, err)
 	}
-	return service.Start()
+
+	session, err := mgo.DialWithInfo(info)
+	if err != nil {
+		return err
+	}
+	defer session.Close()
+	session.SetMode(mgo.Monotonic, true)
+	_, err = replicaset.CurrentConfig(session)
+	if err != nil && err != mgo.ErrNotFound {
+		logger.Infof("Error from currentconfig: %v", err)
+		return err
+	}
+
+	if err == mgo.ErrNotFound {
+		logger.Infof("No replicaset config, calling initiate")
+
+		if err := replicaset.Initiate(session, address, replicaSetName); err != nil {
+			logger.Infof("Error from initiate: %v", err)
+			return err
+		}
+		logger.Infof("initiate returned without error")
+	}
+
+	return nil
 }
 
 func makeJournalDirs(dir string) error {
@@ -162,7 +190,7 @@ func mongoUpstartService(name, dataDir, dbDir string, port int) (*upstart.Conf, 
 			" --noprealloc" +
 			" --syslog" +
 			" --smallfiles" +
-			" --replSet juju",
+			" --replSet " + replicaSetName,
 	}
 	return conf, nil
 }

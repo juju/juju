@@ -76,6 +76,27 @@ func DefaultDialOpts() DialOpts {
 //
 // Open returns unauthorizedError if access is unauthorized.
 func Open(info *Info, opts DialOpts, policy Policy) (*State, error) {
+	di, err := DialInfo(info, opts, policy)
+	if err != nil {
+		return nil, err
+	}
+	logger.Infof("dialing mongo")
+	session, err := mgo.DialWithInfo(di)
+	if err != nil {
+		return nil, err
+	}
+	logger.Infof("connection established")
+
+	st, err := newState(session, info, policy)
+	if err != nil {
+		session.Close()
+		return nil, err
+	}
+	session.SetSocketTimeout(mongoSocketTimeout)
+	return st, nil
+}
+
+func DialInfo(info *Info, opts DialOpts, policy Policy) (*mgo.DialInfo, error) {
 	logger.Infof("opening state; mongo addresses: %q; entity %q", info.Addrs, info.Tag)
 	if len(info.Addrs) == 0 {
 		return nil, stderrors.New("no mongo addresses")
@@ -106,27 +127,19 @@ func Open(info *Info, opts DialOpts, policy Policy) (*State, error) {
 		}
 		return cc, nil
 	}
-	session, err := mgo.DialWithInfo(&mgo.DialInfo{
+
+	return &mgo.DialInfo{
 		Addrs:   info.Addrs,
 		Timeout: opts.Timeout,
 		Dial:    dial,
-	})
-	if err != nil {
-		return nil, err
-	}
-	logger.Infof("connection established")
-	st, err := newState(session, info, policy)
-	if err != nil {
-		session.Close()
-		return nil, err
-	}
-	session.SetSocketTimeout(mongoSocketTimeout)
-	return st, nil
+		Direct:  true,
+	}, nil
+
 }
 
 // Initialize sets up an initial empty state and returns it.
 // This needs to be performed only once for a given environment.
-// It returns unauthorizedError if access is unauthorized.
+// It  returns unauthorizedError if access is unauthorized.
 func Initialize(info *Info, cfg *config.Config, opts DialOpts, policy Policy) (rst *State, err error) {
 	st, err := Open(info, opts, policy)
 	if err != nil {

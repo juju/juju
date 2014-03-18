@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/container/kvm"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider"
@@ -341,7 +342,17 @@ func (a *MachineAgent) updateSupportedContainers(runner worker.Runner, st *api.S
 // StateJobs returns a worker running all the workers that require
 // a *state.State connection.
 func (a *MachineAgent) StateWorker(agentConfig agent.Config) (worker.Worker, error) {
-	err := mongo.EnsureMongoServer(a.Conf.dataDir, agentConfig.StatePort())
+	info := &state.Info{
+		Addrs:  agentConfig.StateAddresses(),
+		CACert: agentConfig.CACert(),
+	}
+
+	di, err := state.DialInfo(info, state.DefaultDialOpts(), environs.NewStatePolicy())
+	if err != nil {
+		return nil, err
+	}
+
+	err = mongo.EnsureMongoServer(info.Addrs[0], a.Conf.dataDir, agentConfig.StatePort(), di)
 	if err != nil {
 		return nil, err
 	}
