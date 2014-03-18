@@ -346,25 +346,31 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 		identityFile := cfg.dataFile(SystemIdentity)
 		c.AddFile(identityFile, cfg.SystemPrivateSSHKey, 0600)
 		if !cfg.DisablePackageCommands {
-			// Disable the default mongodb installed by the mongodb-server package.
-			// Only do this if the file doesn't exist already, so users can run
-			// their own mongodb server if they wish to.
-			c.AddBootCmd(
-				`[ -f /etc/default/mongodb ] ||
+			series := cfg.Tools.Version.Series
+			mongoPackage := mongo.MongoPackageForSeries(series)
+			if mongoPackage == "mongodb-server" {
+				// Disable the default mongodb installed by the mongodb-server package.
+				// Only do this if the file doesn't exist already, so users can run
+				// their own mongodb server if they wish to.
+				c.AddBootCmd(
+					`[ -f /etc/default/mongodb ] ||
              (echo ENABLE_MONGODB="no" > /etc/default/mongodb)`)
 
-			if cfg.NeedMongoPPA() {
-				const key = "" // key is loaded from PPA
-				c.AddAptSource("ppa:juju/stable", key, nil)
-			}
-			if cfg.Tools.Version.Series == "precise" {
-				// In precise we add the cloud-tools pocket and
-				// pin it with a lower priority, so we need to
-				// explicitly specify the target release when
-				// installing mongodb-server from there.
-				c.AddPackageFromTargetRelease("mongodb-server", "precise-updates/cloud-tools")
+				if cfg.NeedMongoPPA() {
+					const key = "" // key is loaded from PPA
+					c.AddAptSource("ppa:juju/stable", key, nil)
+				}
+				if series == "precise" {
+					// In precise we add the cloud-tools pocket and
+					// pin it with a lower priority, so we need to
+					// explicitly specify the target release when
+					// installing mongodb-server from there.
+					c.AddPackageFromTargetRelease("mongodb-server", "precise-updates/cloud-tools")
+				} else {
+					c.AddPackage("mongodb-server")
+				}
 			} else {
-				c.AddPackage("mongodb-server")
+				c.AddPackage(mongoPackage)
 			}
 		}
 		certKey := string(cfg.StateServerCert) + string(cfg.StateServerKey)
@@ -492,7 +498,8 @@ func (cfg *MachineConfig) addMongoToBoot(c *cloudinit.Config) error {
 	)
 
 	name := cfg.MongoServiceName
-	conf, err := mongo.MongoUpstartService(name, cfg.DataDir, cfg.StatePort)
+	mongodExec := mongo.MongodPathForSeries(cfg.Tools.Version.Series)
+	conf, err := mongo.MongoUpstartService(name, mongodExec, cfg.DataDir, cfg.StatePort)
 	if err != nil {
 		return err
 	}
