@@ -120,7 +120,8 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 
 	err := EnsureMongoServer(dir, port)
 	c.Assert(err, gc.IsNil)
-	svc, err := MongoUpstartService(makeServiceName(mongoScriptVersion), dir, port)
+	mongodPath := MongodPathForSeries("some-series")
+	svc, err := MongoUpstartService(makeServiceName(mongoScriptVersion), mongodPath, dir, port)
 	c.Assert(err, gc.IsNil)
 	defer svc.Remove()
 

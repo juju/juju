@@ -25,7 +25,27 @@ var (
 
 	// JujuMongodPath holds the default path to the juju-specific mongod.
 	JujuMongodPath = "/usr/lib/juju/bin/mongod"
+	// MongodbServerPath holds the default path to the generic mongod.
+	MongodbServerPath = "/usr/bin/mongod"
 )
+
+// MongoPackageForSeries returns the name of the mongo package for the series
+// of the machine that it is going to be running on.
+func MongoPackageForSeries(series string) string {
+	if series == "trusty" {
+		return "juju-mongodb"
+	}
+	return "mongodb-server"
+}
+
+// MongodPathForSeries returns the path to the mongod executable for the
+// series of the machine that it is going to be running on.
+func MongodPathForSeries(series string) string {
+	if series == "trusty" {
+		return JujuMongodPath
+	}
+	return MongodbServerPath
+}
 
 // MongoPath returns the executable path to be used to run mongod on this
 // machine. If the juju-bundled version of mongo exists, it will return that
@@ -48,8 +68,12 @@ func MongodPath() (string, error) {
 // This method will remove old versions of the mongo upstart script as necessary
 // before installing the new version.
 func EnsureMongoServer(dir string, port int) error {
+	// NOTE: ensure that the right package is installed?
 	name := makeServiceName(mongoScriptVersion)
-	service, err := MongoUpstartService(name, dir, port)
+	// TODO: get the series from somewhere, non trusty values return
+	// the existing default path.
+	mongodPath := MongodPathForSeries("some-series")
+	service, err := MongoUpstartService(name, mongodPath, dir, port)
 	if err != nil {
 		return err
 	}
@@ -132,7 +156,7 @@ const mongoScriptVersion = 2
 // MongoUpstartService returns the upstart config for the mongo state service.
 //
 // This method assumes there is a server.pem keyfile in dataDir.
-func MongoUpstartService(name, dataDir string, port int) (*upstart.Conf, error) {
+func MongoUpstartService(name, mongodExec, dataDir string, port int) (*upstart.Conf, error) {
 
 	keyFile := path.Join(dataDir, "server.pem")
 	svc := upstart.NewService(name)
@@ -146,7 +170,7 @@ func MongoUpstartService(name, dataDir string, port int) (*upstart.Conf, error) 
 			"nofile": fmt.Sprintf("%d %d", maxFiles, maxFiles),
 			"nproc":  fmt.Sprintf("%d %d", maxProcs, maxProcs),
 		},
-		Cmd: "/usr/bin/mongod" +
+		Cmd: mongodExec +
 			" --auth" +
 			" --dbpath=" + dbDir +
 			" --sslOnNormalPorts" +
