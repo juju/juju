@@ -9,11 +9,14 @@ import (
 
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/container/kvm"
 	lxctesting "launchpad.net/juju-core/container/lxc/testing"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/local"
@@ -295,5 +298,102 @@ func (s *prepareSuite) TestPrepareNamespace(c *gc.C) {
 		} else {
 			c.Assert(err, gc.ErrorMatches, test.err)
 		}
+	}
+}
+
+func (s *prepareSuite) TestFastLXCClone(c *gc.C) {
+	s.PatchValue(local.DetectAptProxies, func() (osenv.ProxySettings, error) {
+		return osenv.ProxySettings{}, nil
+	})
+	s.PatchValue(&kvm.IsKVMSupported, func() (bool, error) {
+		return true, nil
+	})
+	s.PatchValue(&local.VerifyPrerequisites, func(containerType instance.ContainerType) error {
+		return nil
+	})
+	basecfg, err := config.New(config.UseDefaults, map[string]interface{}{
+		"type": "local",
+		"name": "test",
+	})
+	provider, err := environs.Provider("local")
+	c.Assert(err, gc.IsNil)
+
+	type test struct {
+		systemDefault bool
+		extraConfig   map[string]interface{}
+		expectClone   string
+		expectAUFS    string
+	}
+	tests := []test{{
+		extraConfig: map[string]interface{}{
+			"container": "lxc",
+		},
+		expectClone: "false",
+		expectAUFS:  "false",
+	}, {
+		extraConfig: map[string]interface{}{
+			"container": "lxc",
+			"lxc-clone": "true",
+		},
+		expectClone: "true",
+		expectAUFS:  "false",
+	}, {
+		systemDefault: true,
+		extraConfig: map[string]interface{}{
+			"container": "lxc",
+		},
+		expectClone: "true",
+		expectAUFS:  "true",
+	}, {
+		systemDefault: true,
+		extraConfig: map[string]interface{}{
+			"container": "kvm",
+		},
+	}, {
+		systemDefault: true,
+		extraConfig: map[string]interface{}{
+			"container": "lxc",
+			"lxc-clone": "false",
+		},
+		expectClone: "false",
+		expectAUFS:  "true",
+	}, {
+		systemDefault: true,
+		extraConfig: map[string]interface{}{
+			"container":      "lxc",
+			"lxc-clone-aufs": "false",
+		},
+		expectClone: "true",
+		expectAUFS:  "false",
+	}}
+
+	for i, test := range tests {
+		c.Logf("test %d: %v", i, test)
+
+		releaseVersion := "12.04"
+		if test.systemDefault {
+			releaseVersion = "14.04"
+		}
+		s.PatchValue(local.ReleaseVersion, func() string { return releaseVersion })
+		testConfig, err := basecfg.Apply(test.extraConfig)
+		c.Assert(err, gc.IsNil)
+		env, err := provider.Open(testConfig)
+		c.Assert(err, gc.IsNil)
+		localAttributes := env.Config().UnknownAttrs()
+
+		if test.expectClone != "" {
+			c.Assert(localAttributes["lxc-clone"], gc.Equals, test.expectClone)
+		} else {
+			_, found := localAttributes["lxc-clone"]
+			c.Assert(found, jc.IsFalse)
+		}
+
+		if test.expectAUFS != "" {
+			c.Assert(localAttributes["lxc-clone-aufs"], gc.Equals, test.expectAUFS)
+		} else {
+			_, found := localAttributes["lxc-clone-aufs"]
+			c.Assert(found, jc.IsFalse)
+		}
+
 	}
 }

@@ -1026,13 +1026,6 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["tools-metadata-url"] = ""
 	attrs["tools-url"] = ""
 	attrs["image-stream"] = ""
-	attrs["http-proxy"] = ""
-	attrs["https-proxy"] = ""
-	attrs["ftp-proxy"] = ""
-	attrs["no-proxy"] = ""
-	attrs["apt-http-proxy"] = ""
-	attrs["apt-https-proxy"] = ""
-	attrs["apt-ftp-proxy"] = ""
 
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)

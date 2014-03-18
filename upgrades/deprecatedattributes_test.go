@@ -27,19 +27,16 @@ func (s *processDeprecatedAttributesSuite) SetUpTest(c *gc.C) {
 		apiState:    apiState,
 		state:       s.State,
 	}
-	cfg, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
 	// Add in old attributes.
-	newCfg, err := cfg.Apply(map[string]interface{}{
+	newCfg := map[string]interface{}{
 		"public-bucket":         "foo",
 		"public-bucket-region":  "bar",
 		"public-bucket-url":     "shazbot",
 		"default-instance-type": "vulch",
 		"default-image-id":      "1234",
 		"shared-storage-port":   1234,
-	})
-	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(newCfg, cfg)
+	}
+	err := s.State.UpdateEnvironConfig(newCfg, nil, nil)
 	c.Assert(err, gc.IsNil)
 }
 

@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"launchpad.net/juju-core/juju/arch"
 )
 
 var ErrNoDNSName = errors.New("DNS name not allocated")
@@ -173,10 +175,7 @@ func (hc *HardwareCharacteristics) setArch(str string) error {
 	if hc.Arch != nil {
 		return fmt.Errorf("already set")
 	}
-	switch str {
-	case "":
-	case "amd64", "i386", "arm", "arm64", "ppc64":
-	default:
+	if str != "" && !arch.IsSupportedArch(str) {
 		return fmt.Errorf("%q not recognized", str)
 	}
 	hc.Arch = &str

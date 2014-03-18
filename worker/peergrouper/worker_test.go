@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -62,7 +61,7 @@ func initState(c *gc.C, st *fakeState, numMachines int) {
 }
 
 func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
-	testing.PatchValue(&pollInterval, 5*time.Millisecond)
+	s.PatchValue(&pollInterval, 5*time.Millisecond)
 
 	st := newFakeState()
 	initState(c, st, 3)
@@ -175,7 +174,7 @@ var fatalErrorsTests = []struct {
 }}
 
 func (s *workerSuite) TestFatalErrors(c *gc.C) {
-	testing.PatchValue(&pollInterval, 5*time.Millisecond)
+	s.PatchValue(&pollInterval, 5*time.Millisecond)
 	for i, test := range fatalErrorsTests {
 		c.Logf("test %d: %s -> %s", i, test.errPattern, test.expectErr)
 		resetErrors()
@@ -208,7 +207,7 @@ func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
 		count++
 		return errors.New("sample")
 	})
-	testing.PatchValue(&retryInterval, 5*time.Millisecond)
+	s.PatchValue(&retryInterval, 5*time.Millisecond)
 	w := newWorker(st)
 	defer func() {
 		c.Check(worker.Stop(w), gc.IsNil)

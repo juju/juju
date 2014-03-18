@@ -5,11 +5,9 @@ package provisioner_test
 
 import (
 	"fmt"
-	"os/exec"
-
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
+	"os/exec"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/environs"
@@ -51,9 +49,8 @@ func noImportance(err0, err1 error) bool {
 func (s *ContainerSetupSuite) SetUpTest(c *gc.C) {
 	s.CommonProvisionerSuite.SetUpTest(c)
 	s.CommonProvisionerSuite.setupEnvironmentManager(c)
-	aptCmdChan, cleanup := testing.HookCommandOutput(&utils.AptCommandOutput, []byte{}, nil)
+	aptCmdChan := s.HookCommandOutput(&utils.AptCommandOutput, []byte{}, nil)
 	s.aptCmdChan = aptCmdChan
-	s.AddCleanup(func(*gc.C) { cleanup() })
 
 	// Set up provisioner for the state machine.
 	agentConfig := s.AgentConfigForTag(c, "machine-0")

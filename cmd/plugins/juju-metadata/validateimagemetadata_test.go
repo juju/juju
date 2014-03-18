@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"strings"
 
-	"github.com/juju/testing"
 	"launchpad.net/goamz/aws"
 	gc "launchpad.net/gocheck"
 
@@ -146,10 +145,10 @@ func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataUsingEnvironment(c *gc.
 }
 
 func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataUsingIncompleteEnvironment(c *gc.C) {
-	testing.PatchEnvironment("AWS_ACCESS_KEY_ID", "")
-	testing.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "")
-	testing.PatchEnvironment("EC2_ACCESS_KEY", "")
-	testing.PatchEnvironment("EC2_SECRET_KEY", "")
+	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "")
+	s.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "")
+	s.PatchEnvironment("EC2_ACCESS_KEY", "")
+	s.PatchEnvironment("EC2_SECRET_KEY", "")
 	s.setupEc2LocalMetadata(c, "us-east-1", "")
 	ctx := coretesting.Context(c)
 	code := cmd.Main(

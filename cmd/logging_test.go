@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
-	"github.com/juju/testing/logging"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
@@ -20,7 +19,7 @@ import (
 var logger = loggo.GetLogger("juju.test")
 
 type LogSuite struct {
-	logging.LoggingSuite
+	testing.CleanupSuite
 }
 
 var _ = gc.Suite(&LogSuite{})
@@ -61,7 +60,7 @@ func (s *LogSuite) TestFlags(c *gc.C) {
 
 func (s *LogSuite) TestLogConfigFromEnvironment(c *gc.C) {
 	config := "juju.cmd=INFO;juju.worker.deployer=DEBUG"
-	testing.PatchEnvironment(osenv.JujuLoggingConfigEnvKey, config)
+	s.PatchEnvironment(osenv.JujuLoggingConfigEnvKey, config)
 	log := newLogWithFlags(c, []string{})
 	c.Assert(log.Path, gc.Equals, "")
 	c.Assert(log.Verbose, gc.Equals, false)

@@ -15,12 +15,10 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
-	coreCloudinit "launchpad.net/juju-core/cloudinit"
-	"launchpad.net/juju-core/cloudinit/sshinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/manual"
 	envstorage "launchpad.net/juju-core/environs/storage"
 	ttesting "launchpad.net/juju-core/environs/tools/testing"
 	"launchpad.net/juju-core/errors"
@@ -1695,11 +1693,7 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	mcfg, err := statecmd.MachineConfig(s.State, machineId, apiParams.Nonce, "")
 	c.Assert(err, gc.IsNil)
-	cloudcfg := coreCloudinit.New()
-	err = cloudinit.ConfigureJuju(mcfg, cloudcfg)
-	c.Assert(err, gc.IsNil)
-	cloudcfg.SetAptUpgrade(false)
-	sshinitScript, err := sshinit.ConfigureScript(cloudcfg)
+	sshinitScript, err := manual.ProvisioningScript(mcfg)
 	c.Assert(err, gc.IsNil)
 	// ProvisioningScript internally calls MachineConfig,
 	// which allocates a new, random password. Everything
@@ -1747,18 +1741,9 @@ func (s *clientSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAddChar
 	store, restore := makeMockCharmStore()
 	defer restore()
 
-	oldConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-
-	attrs := coretesting.Attrs(oldConfig.AllAttrs())
-	attrs = attrs.Merge(coretesting.Attrs{
-		"charm-store-auth": "token=value",
-		"test-mode":        true})
-
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
-
-	err = s.State.SetEnvironConfig(cfg, oldConfig)
+	attrs := map[string]interface{}{"charm-store-auth": "token=value",
+		"test-mode": true}
+	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 
 	curl, _ := addCharm(c, store, "dummy")

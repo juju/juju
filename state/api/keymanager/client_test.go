@@ -14,7 +14,6 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	keymanagerserver "launchpad.net/juju-core/state/apiserver/keymanager"
 	keymanagertesting "launchpad.net/juju-core/state/apiserver/keymanager/testing"
-	"launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/utils/ssh"
 	sshtesting "launchpad.net/juju-core/utils/ssh/testing"
 )
@@ -35,7 +34,7 @@ func (s *keymanagerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *keymanagerSuite) setAuthorisedKeys(c *gc.C, keys string) {
-	err := testing.UpdateConfig(s.BackingState, map[string]interface{}{"authorized-keys": keys})
+	err := s.BackingState.UpdateEnvironConfig(map[string]interface{}{"authorized-keys": keys}, nil, nil)
 	c.Assert(err, gc.IsNil)
 }
 

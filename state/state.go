@@ -259,12 +259,33 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) error {
 	return ErrExcessiveContention
 }
 
-// SetEnvironConfig replaces the current configuration of the
-// environment with the provided configuration.
-func (st *State) SetEnvironConfig(cfg, old *config.Config) error {
-	if err := checkEnvironConfig(cfg); err != nil {
-		return err
+func (st *State) buildAndValidateEnvironConfig(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) (validCfg *config.Config, err error) {
+	newConfig, err := oldConfig.Apply(updateAttrs)
+	if err != nil {
+		return nil, err
 	}
+	if len(removeAttrs) != 0 {
+		newConfig, err = newConfig.Remove(removeAttrs)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if err := checkEnvironConfig(newConfig); err != nil {
+		return nil, err
+	}
+	return st.validate(newConfig, oldConfig)
+}
+
+type ValidateConfigFunc func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error
+
+// UpateEnvironConfig adds, updates or removes attributes in the current
+// configuration of the environment with the provided updateAttrs and
+// removeAttrs.
+func (st *State) UpdateEnvironConfig(updateAttrs map[string]interface{}, removeAttrs []string, additionalValidation ValidateConfigFunc) error {
+	if len(updateAttrs)+len(removeAttrs) == 0 {
+		return nil
+	}
+
 	// TODO(axw) 2013-12-6 #1167616
 	// Ensure that the settings on disk have not changed
 	// underneath us. The settings changes are actually
@@ -275,13 +296,30 @@ func (st *State) SetEnvironConfig(cfg, old *config.Config) error {
 	if err != nil {
 		return err
 	}
-	newattrs := cfg.AllAttrs()
-	for k, _ := range old.AllAttrs() {
-		if _, ok := newattrs[k]; !ok {
+
+	// Get the existing environment config from state.
+	oldConfig, err := config.New(config.NoDefaults, settings.Map())
+	if err != nil {
+		return err
+	}
+	if additionalValidation != nil {
+		err = additionalValidation(updateAttrs, removeAttrs, oldConfig)
+		if err != nil {
+			return err
+		}
+	}
+	validCfg, err := st.buildAndValidateEnvironConfig(updateAttrs, removeAttrs, oldConfig)
+	if err != nil {
+		return err
+	}
+
+	validAttrs := validCfg.AllAttrs()
+	for k, _ := range oldConfig.AllAttrs() {
+		if _, ok := validAttrs[k]; !ok {
 			settings.Delete(k)
 		}
 	}
-	settings.Update(newattrs)
+	settings.Update(validAttrs)
 	_, err = settings.Write()
 	return err
 }

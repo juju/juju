@@ -86,14 +86,14 @@ func (cs *NewAPIClientSuite) TearDownTest(c *gc.C) {
 	cs.LoggingSuite.TearDownTest(c)
 }
 
-func (*NewAPIClientSuite) TestNameDefault(c *gc.C) {
+func (s *NewAPIClientSuite) TestNameDefault(c *gc.C) {
 	defer coretesting.MakeMultipleEnvHome(c).Restore()
 	// The connection logic should not delay the config connection
 	// at all when there is no environment info available.
 	// Make sure of that by providing a suitably long delay
 	// and checking that the connection happens within that
 	// time.
-	defer testing.PatchValue(juju.ProviderConnectDelay, coretesting.LongWait).Restore()
+	s.PatchValue(juju.ProviderConnectDelay, coretesting.LongWait)
 	bootstrapEnv(c, coretesting.SampleEnvName, defaultConfigStore(c))
 
 	startTime := time.Now()
@@ -116,7 +116,7 @@ func (*NewAPIClientSuite) TestNameNotDefault(c *gc.C) {
 	assertEnvironmentName(c, apiclient, envName)
 }
 
-func (*NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
+func (s *NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 	defer coretesting.MakeEmptyFakeHome(c).Restore()
 	storeConfig := &environInfo{
 		creds: configstore.APICredentials{
@@ -142,7 +142,7 @@ func (*NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 	}
 	// Give NewAPIFromName a store interface that can report when the
 	// config was written to, to ensure the cache isn't updated.
-	defer testing.PatchValue(juju.APIOpen, apiOpen).Restore()
+	s.PatchValue(juju.APIOpen, apiOpen)
 	mockStore := &storageWithWriteNotify{store: store}
 	st, err := juju.NewAPIFromName("noconfig", mockStore)
 	c.Assert(err, gc.IsNil)
@@ -151,7 +151,7 @@ func (*NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 	c.Assert(mockStore.written, jc.IsFalse)
 }
 
-func (*NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
+func (s *NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
 
 	store := newConfigStore(coretesting.SampleEnvName, &environInfo{
@@ -186,7 +186,7 @@ func (*NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
 		called++
 		return expectState, nil
 	}
-	defer testing.PatchValue(juju.APIOpen, apiOpen).Restore()
+	s.PatchValue(juju.APIOpen, apiOpen)
 	st, err := juju.NewAPIFromName("myenv", store)
 	c.Assert(err, gc.IsNil)
 	c.Assert(st, gc.Equals, expectState)
@@ -205,11 +205,11 @@ func (*NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
 	c.Check(creds.Password, gc.Equals, "adminpass")
 }
 
-func (*NewAPIClientSuite) TestWithInfoError(c *gc.C) {
+func (s *NewAPIClientSuite) TestWithInfoError(c *gc.C) {
 	defer coretesting.MakeEmptyFakeHome(c).Restore()
 	expectErr := fmt.Errorf("an error")
 	store := newConfigStoreWithError(expectErr)
-	defer testing.PatchValue(juju.APIOpen, panicAPIOpen).Restore()
+	s.PatchValue(juju.APIOpen, panicAPIOpen)
 	client, err := juju.NewAPIFromName("noconfig", store)
 	c.Assert(err, gc.Equals, expectErr)
 	c.Assert(client, gc.IsNil)
@@ -219,7 +219,7 @@ func panicAPIOpen(apiInfo *api.Info, opts api.DialOpts) (*api.State, error) {
 	panic("api.Open called unexpectedly")
 }
 
-func (*NewAPIClientSuite) TestWithInfoNoAddresses(c *gc.C) {
+func (s *NewAPIClientSuite) TestWithInfoNoAddresses(c *gc.C) {
 	defer coretesting.MakeEmptyFakeHome(c).Restore()
 	store := newConfigStore("noconfig", &environInfo{
 		endpoint: configstore.APIEndpoint{
@@ -227,14 +227,14 @@ func (*NewAPIClientSuite) TestWithInfoNoAddresses(c *gc.C) {
 			CACert:    "certificated",
 		},
 	})
-	defer testing.PatchValue(juju.APIOpen, panicAPIOpen).Restore()
+	s.PatchValue(juju.APIOpen, panicAPIOpen)
 
 	st, err := juju.NewAPIFromName("noconfig", store)
 	c.Assert(err, gc.ErrorMatches, `environment "noconfig" not found`)
 	c.Assert(st, gc.IsNil)
 }
 
-func (*NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
+func (s *NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 	defer coretesting.MakeEmptyFakeHome(c).Restore()
 	store := newConfigStore("noconfig", &environInfo{
 		endpoint: configstore.APIEndpoint{
@@ -246,13 +246,13 @@ func (*NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (*api.State, error) {
 		return nil, expectErr
 	}
-	defer testing.PatchValue(juju.APIOpen, apiOpen).Restore()
+	s.PatchValue(juju.APIOpen, apiOpen)
 	st, err := juju.NewAPIFromName("noconfig", store)
 	c.Assert(err, gc.Equals, expectErr)
 	c.Assert(st, gc.IsNil)
 }
 
-func (*NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
+func (s *NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
 	store := configstore.NewMem()
 	bootstrapEnv(c, coretesting.SampleEnvName, store)
@@ -264,7 +264,7 @@ func (*NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 	// On a sample run with no delay, the logic took 45ms to run, so
 	// we make the delay slightly more than that, so that if the
 	// logic doesn't delay at all, the test will fail reasonably consistently.
-	defer testing.PatchValue(juju.ProviderConnectDelay, 50*time.Millisecond).Restore()
+	s.PatchValue(juju.ProviderConnectDelay, 50*time.Millisecond)
 	apiOpen := func(info *api.Info, opts api.DialOpts) (*api.State, error) {
 		if info.Addrs[0] == "infoapi.invalid" {
 			infoEndpointOpened <- struct{}{}
@@ -272,7 +272,7 @@ func (*NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 		}
 		return cfgOpenedState, nil
 	}
-	defer testing.PatchValue(juju.APIOpen, apiOpen).Restore()
+	s.PatchValue(juju.APIOpen, apiOpen)
 
 	stateClosed, restoreAPIClose := setAPIClosed()
 	defer restoreAPIClose.Restore()
@@ -313,7 +313,7 @@ func setEndpointAddress(c *gc.C, store configstore.Storage, envName string, addr
 	c.Assert(err, gc.IsNil)
 }
 
-func (*NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
+func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
 
 	store := configstore.NewMem()
@@ -325,7 +325,7 @@ func (*NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 	cfgOpenedState := new(api.State)
 	cfgEndpointOpened := make(chan struct{})
 
-	defer testing.PatchValue(juju.ProviderConnectDelay, 0*time.Second).Restore()
+	s.PatchValue(juju.ProviderConnectDelay, 0*time.Second)
 	apiOpen := func(info *api.Info, opts api.DialOpts) (*api.State, error) {
 		if info.Addrs[0] == "infoapi.invalid" {
 			infoEndpointOpened <- struct{}{}
@@ -336,7 +336,7 @@ func (*NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 		<-cfgEndpointOpened
 		return cfgOpenedState, nil
 	}
-	defer testing.PatchValue(juju.APIOpen, apiOpen).Restore()
+	s.PatchValue(juju.APIOpen, apiOpen)
 
 	stateClosed, restoreAPIClose := setAPIClosed()
 	defer restoreAPIClose.Restore()
@@ -380,20 +380,20 @@ func (*NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 	}
 }
 
-func (*NewAPIClientSuite) TestBothError(c *gc.C) {
+func (s *NewAPIClientSuite) TestBothError(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
 	store := configstore.NewMem()
 	bootstrapEnv(c, coretesting.SampleEnvName, store)
 	setEndpointAddress(c, store, coretesting.SampleEnvName, "infoapi.invalid")
 
-	defer testing.PatchValue(juju.ProviderConnectDelay, 0*time.Second).Restore()
+	s.PatchValue(juju.ProviderConnectDelay, 0*time.Second)
 	apiOpen := func(info *api.Info, opts api.DialOpts) (*api.State, error) {
 		if info.Addrs[0] == "infoapi.invalid" {
 			return nil, fmt.Errorf("info connect failed")
 		}
 		return nil, fmt.Errorf("config connect failed")
 	}
-	defer testing.PatchValue(juju.APIOpen, apiOpen).Restore()
+	s.PatchValue(juju.APIOpen, apiOpen)
 	st, err := juju.NewAPIFromName(coretesting.SampleEnvName, store)
 	c.Check(err, gc.ErrorMatches, "config connect failed")
 	c.Check(st, gc.IsNil)

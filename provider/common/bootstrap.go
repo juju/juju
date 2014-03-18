@@ -24,6 +24,7 @@ import (
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/parallel"
+	"launchpad.net/juju-core/utils/shell"
 	"launchpad.net/juju-core/utils/ssh"
 )
 
@@ -69,7 +70,11 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, cons constra
 	}
 
 	fmt.Fprintln(ctx.GetStderr(), "Launching instance")
-	inst, hw, err := env.StartInstance(cons, selectedTools, machineConfig)
+	inst, hw, err := env.StartInstance(environs.StartInstanceParams{
+		Constraints:   cons,
+		Tools:         selectedTools,
+		MachineConfig: machineConfig,
+	})
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
@@ -196,7 +201,12 @@ var FinishBootstrap = func(ctx environs.BootstrapContext, client ssh.Client, ins
 	if err := cloudinit.ConfigureJuju(machineConfig, cloudcfg); err != nil {
 		return err
 	}
-	return sshinit.Configure(sshinit.ConfigureParams{
+	configScript, err := sshinit.ConfigureScript(cloudcfg)
+	if err != nil {
+		return err
+	}
+	script := shell.DumpFileOnErrorScript(machineConfig.CloudInitOutputLog) + configScript
+	return sshinit.RunConfigureScript(script, sshinit.ConfigureParams{
 		Host:           "ubuntu@" + addr,
 		Client:         client,
 		Config:         cloudcfg,

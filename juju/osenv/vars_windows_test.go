@@ -3,15 +3,14 @@ package osenv_test
 import (
 	"os"
 
-	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/juju/osenv"
 )
 
-func (*importSuite) TestHome(c *gc.C) {
-	testing.PatchEnvironment("HOMEPATH", "")
-	testing.PatchEnvironment("HOMEDRIVE", "")
+func (s *importSuite) TestHome(c *gc.C) {
+	s.PatchEnvironment("HOMEPATH", "")
+	s.PatchEnvironment("HOMEDRIVE", "")
 
 	drive := "P:"
 	path := `\home\foo\bar`
