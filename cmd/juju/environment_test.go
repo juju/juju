@@ -11,6 +11,7 @@ import (
 
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/dummy"
+	_ "launchpad.net/juju-core/provider/local"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -163,7 +164,7 @@ func (s *SetEnvironmentSuite) TestChangeAsCommandPair(c *gc.C) {
 
 var immutableConfigTests = map[string]string{
 	"name":          "foo",
-	"type":          "foo",
+	"type":          "local",
 	"firewall-mode": "global",
 	"state-port":    "1",
 	"api-port":      "666",

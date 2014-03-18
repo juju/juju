@@ -46,30 +46,34 @@ func stopWatcher(c *gc.C, w state.NotifyWatcher) {
 }
 
 func (s *waitForEnvironSuite) TestInvalidConfig(c *gc.C) {
+	var oldType string
+	oldType = s.Conn.Environ.Config().AllAttrs()["type"].(string)
+
 	// Create an invalid config by taking the current config and
 	// tweaking the provider type.
-	var oldType string
-	testing.ChangeEnvironConfig(c, s.State, func(attrs coretesting.Attrs) coretesting.Attrs {
-		oldType = attrs["type"].(string)
-		return attrs.Merge(coretesting.Attrs{"type": "unknown"})
-	})
-	w := s.State.WatchForEnvironConfigChanges()
+	info := s.StateInfo(c)
+	opts := state.DefaultDialOpts()
+	st2, err := state.Open(info, opts, state.Policy(nil))
+	c.Assert(err, gc.IsNil)
+	defer st2.Close()
+	err = st2.UpdateEnvironConfig(map[string]interface{}{"type": "unknown"}, nil, nil)
+	c.Assert(err, gc.IsNil)
+
+	w := st2.WatchForEnvironConfigChanges()
 	defer stopWatcher(c, w)
 	done := make(chan environs.Environ)
 	go func() {
-		env, err := worker.WaitForEnviron(w, s.State, nil)
+		env, err := worker.WaitForEnviron(w, st2, nil)
 		c.Check(err, gc.IsNil)
 		done <- env
 	}()
 	// Wait for the loop to process the invalid configuratrion
 	<-worker.LoadedInvalid
 
-	testing.ChangeEnvironConfig(c, s.State, func(attrs coretesting.Attrs) coretesting.Attrs {
-		return attrs.Merge(coretesting.Attrs{
-			"type":   oldType,
-			"secret": "environ_test",
-		})
-	})
+	st2.UpdateEnvironConfig(map[string]interface{}{
+		"type":   oldType,
+		"secret": "environ_test",
+	}, nil, nil)
 
 	env := <-done
 	c.Assert(env, gc.NotNil)

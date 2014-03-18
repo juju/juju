@@ -1741,18 +1741,9 @@ func (s *clientSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAddChar
 	store, restore := makeMockCharmStore()
 	defer restore()
 
-	oldConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-
-	attrs := coretesting.Attrs(oldConfig.AllAttrs())
-	attrs = attrs.Merge(coretesting.Attrs{
-		"charm-store-auth": "token=value",
-		"test-mode":        true})
-
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
-
-	err = s.State.SetEnvironConfig(cfg, oldConfig)
+	attrs := map[string]interface{}{"charm-store-auth": "token=value",
+		"test-mode": true}
+	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 
 	curl, _ := addCharm(c, store, "dummy")
