@@ -29,8 +29,6 @@ var (
 
 	// JujuMongodPath holds the default path to the juju-specific mongod.
 	JujuMongodPath = "/usr/lib/juju/bin/mongod"
-
-	initiateReplicaSet = initiateReplicaSetImpl
 )
 
 // MongoPath returns the executable path to be used to run mongod on this
@@ -97,25 +95,20 @@ func ensureMongoServer(address, dataDir string, port int, info *mgo.DialInfo) er
 	return nil
 }
 
+var initiateReplicaSet = initiateReplicaSetImpl
+
 func initiateReplicaSetImpl(address string, info *mgo.DialInfo) error {
 	session, err := mgo.DialWithInfo(info)
 	if err != nil {
 		return err
 	}
-
 	defer session.Close()
-	_, err = replicaset.CurrentConfig(session)
-	if err != nil && err != mgo.ErrNotFound {
-		return err
-	}
 
+	_, err = replicaset.CurrentConfig(session)
 	if err == mgo.ErrNotFound {
-		logger.Infof("no replicaset config, calling initiate")
-		if err := replicaset.Initiate(session, address, replicaSetName); err != nil {
-			return err
-		}
+		return replicaset.Initiate(session, address, replicaSetName)
 	}
-	return nil
+	return err
 }
 
 func makeJournalDirs(dir string) error {
