@@ -12,6 +12,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 )
 
@@ -43,17 +44,18 @@ func (s *observerSuite) TestEnvironmentChanges(c *gc.C) {
 
 	env := obs.Environ()
 	c.Assert(env.Config().AllAttrs(), gc.DeepEquals, originalConfig.AllAttrs())
-
 	var oldType string
+	oldType = env.Config().AllAttrs()["type"].(string)
+
+	info := s.StateInfo(c)
+	opts := state.DefaultDialOpts()
+	st2, err := state.Open(info, opts, state.Policy(nil))
+	defer st2.Close()
+
 	// Change to an invalid configuration and check
 	// that the observer's environment remains the same.
-	testing.ChangeEnvironConfig(c, s.State, func(attrs coretesting.Attrs) coretesting.Attrs {
-		oldType = attrs["type"].(string)
-		return attrs.Merge(coretesting.Attrs{
-			"type": "invalid",
-		})
-	})
-	s.State.StartSync()
+	st2.UpdateEnvironConfig(map[string]interface{}{"type": "invalid"}, nil, nil)
+	st2.StartSync()
 
 	// Wait for the observer to register the invalid environment
 	timeout := time.After(coretesting.LongWait)
@@ -74,13 +76,8 @@ loop:
 
 	// Change the environment back to a valid configuration
 	// with a different name and check that we see it.
-	testing.ChangeEnvironConfig(c, s.State, func(attrs coretesting.Attrs) coretesting.Attrs {
-		return attrs.Merge(coretesting.Attrs{
-			"type": oldType,
-			"name": "a-new-name",
-		})
-	})
-	s.State.StartSync()
+	st2.UpdateEnvironConfig(map[string]interface{}{"type": oldType, "name": "a-new-name"}, nil, nil)
+	st2.StartSync()
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		env := obs.Environ()

@@ -97,7 +97,8 @@ func (s *ConnSuite) AddMetaCharm(c *gc.C, name, metaYaml string, revsion int) *s
 }
 
 type mockPolicy struct {
-	getPrechecker func(*config.Config) (state.Prechecker, error)
+	getPrechecker      func(*config.Config) (state.Prechecker, error)
+	getConfigValidator func(string) (state.ConfigValidator, error)
 }
 
 func (p *mockPolicy) Prechecker(cfg *config.Config) (state.Prechecker, error) {
@@ -105,4 +106,11 @@ func (p *mockPolicy) Prechecker(cfg *config.Config) (state.Prechecker, error) {
 		return p.getPrechecker(cfg)
 	}
 	return nil, errors.NewNotImplementedError("Prechecker")
+}
+
+func (p *mockPolicy) ConfigValidator(providerType string) (state.ConfigValidator, error) {
+	if p.getConfigValidator != nil {
+		return p.getConfigValidator(providerType)
+	}
+	return nil, errors.NewNotImplementedError("ConfigValidator")
 }
