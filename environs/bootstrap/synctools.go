@@ -30,6 +30,7 @@ You may want to use the 'tools-metadata-url' configuration setting to specify th
 // the environment storage, after which it sets the agent-version.
 // Not tested directly since there's numerous tests which use it in cmd/juju and bootstrapSuite.
 func UploadTools(env environs.Environ, toolsArch *string, allowRelease bool, bootstrapSeries ...string) error {
+	logger.Infof("checking that upload is possible")
 	// Check the series are valid.
 	for _, series := range bootstrapSeries {
 		if _, err := simplestreams.SeriesVersion(series); err != nil {
@@ -44,6 +45,7 @@ func UploadTools(env environs.Environ, toolsArch *string, allowRelease bool, boo
 	cfg := env.Config()
 	forceVersion := uploadVersion(version.Current.Number, nil)
 	uploadSeries := UploadSeries(cfg, bootstrapSeries)
+	logger.Infof("uploading tools for series %s", uploadSeries)
 	tools, err := sync.Upload(env.Storage(), &forceVersion, uploadSeries...)
 	if err != nil {
 		return err
@@ -158,8 +160,7 @@ func EnsureToolsAvailability(env environs.Environ, series string, toolsArch *str
 	}
 
 	// No tools available so our only hope is to build locally and upload.
-	// So we now know we can build/package tools for an architecture which can be hosted by the environment.
-	logger.Warningf("no tools available, attempting to upload")
+	logger.Warningf("no prepackaged tools available")
 	if err := UploadTools(env, toolsArch, false, series); err != nil {
 		logger.Errorf("%s", noToolsMessage)
 		return nil, fmt.Errorf("cannot upload bootstrap tools: %v", err)
