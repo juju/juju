@@ -16,6 +16,8 @@ import (
 	"launchpad.net/juju-core/log"
 )
 
+const DefaultSeries = "precise"
+
 // Server is an http.Handler that serves the HTTP API of juju
 // so that juju clients can retrieve published charms.
 type Server struct {
@@ -77,7 +79,7 @@ func charmStatsKey(curl *charm.URL, kind string) []string {
 func (s *Server) resolveSeries(curl *charm.URL) *charm.URL {
 	result := *curl
 	if !curl.IsResolved() {
-		curl.Series = "precise"
+		curl.Series = DefaultSeries
 	}
 	return &result
 }

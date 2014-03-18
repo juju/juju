@@ -130,7 +130,7 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 	var newURL *charm.URL
 	if c.SwitchURL != "" {
 		// A new charm URL was explicitly specified.
-		newURL, err = charm.ParseURL(c.SwitchURL)
+		newURL, err = charm.InferURL(c.SwitchURL, conf.DefaultSeries())
 		if err != nil {
 			return err
 		}
@@ -144,13 +144,6 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 	}
 
 	repo = config.SpecializeCharmRepo(repo, conf)
-
-	if !newURL.IsResolved() {
-		newURL, err = repo.Resolve(newURL)
-		if err != nil {
-			return err
-		}
-	}
 
 	// If no explicit revision was set with either SwitchURL
 	// or Revision flags, discover the latest.
@@ -205,7 +198,11 @@ func (c *UpgradeCharmCommand) run1dot16(ctx *cmd.Context) error {
 	var newURL *charm.URL
 	if c.SwitchURL != "" {
 		// A new charm URL was explicitly specified.
-		newURL, err = charm.ParseURL(c.SwitchURL)
+		conf, err := conn.State.EnvironConfig()
+		if err != nil {
+			return err
+		}
+		newURL, err = charm.InferURL(c.SwitchURL, conf.DefaultSeries())
 		if err != nil {
 			return err
 		}
@@ -231,14 +228,6 @@ func (c *UpgradeCharmCommand) run1dot16(ctx *cmd.Context) error {
 		}
 		newURL = newURL.WithRevision(latest)
 	}
-
-	if !newURL.IsResolved() {
-		newURL, err = repo.Resolve(newURL)
-		if err != nil {
-			return err
-		}
-	}
-
 	bumpRevision := false
 	if *newURL == *oldURL {
 		if explicitRevision {
@@ -259,7 +248,6 @@ func (c *UpgradeCharmCommand) run1dot16(ctx *cmd.Context) error {
 			return fmt.Errorf("cannot increment revision of charm %q: not a directory", newURL)
 		}
 	}
-
 	sch, err := conn.PutCharm(newURL, repo, bumpRevision)
 	if err != nil {
 		return err

@@ -30,6 +30,7 @@ var urlTests = []struct {
 	{"local:series/name", "", &charm.URL{"local", "", "series", "name", -1}},
 	{"local:series/n0-0n-n0", "", &charm.URL{"local", "", "series", "n0-0n-n0", -1}},
 	{"cs:~user/name", "", &charm.URL{"cs", "user", "", "name", -1}},
+	{"cs:name", "", &charm.URL{"cs", "", "", "name", -1}},
 	{"local:name", "", &charm.URL{"local", "", "", "name", -1}},
 
 	{"bs:~user/series/name-1", "charm URL has invalid schema: .*", nil},
@@ -197,6 +198,10 @@ func (s *URLSuite) TestMustParseURL(c *gc.C) {
 	c.Assert(url, gc.DeepEquals, &charm.URL{"cs", "", "series", "name", -1})
 	f := func() { charm.MustParseURL("local:@@/name") }
 	c.Assert(f, gc.PanicMatches, "charm URL has invalid series: .*")
+	f = func() { charm.MustParseURL("cs:~user") }
+	c.Assert(f, gc.PanicMatches, "charm URL without charm name: .*")
+	url = charm.MustParseURL("cs:name")
+	c.Assert(url.IsResolved(), gc.Equals, false)
 }
 
 func (s *URLSuite) TestWithRevision(c *gc.C) {

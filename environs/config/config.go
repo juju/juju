@@ -871,16 +871,9 @@ func (cfg *Config) GenerateStateServerCertAndKey() ([]byte, []byte, error) {
 	return cert.NewServer(caCert, caKey, time.Now().UTC().AddDate(10, 0, 0), noHostnames)
 }
 
-type AuthenticatedRepo interface {
+type Specializer interface {
 	WithAuthAttrs(string) charm.Repository
-}
-
-type TestableRepo interface {
 	WithTestMode(testMode bool) charm.Repository
-}
-
-type DefaultSeriesRepo interface {
-	WithDefaultSeries(defaultSeries string) charm.Repository
 }
 
 // SpecializeCharmRepo returns a repository customized for given configuration.
@@ -888,15 +881,12 @@ type DefaultSeriesRepo interface {
 func SpecializeCharmRepo(repo charm.Repository, cfg *Config) charm.Repository {
 	// If a charm store auth token is set, pass it on to the charm store
 	if auth, authSet := cfg.CharmStoreAuth(); authSet {
-		if r, ok := repo.(AuthenticatedRepo); ok {
-			repo = r.WithAuthAttrs(auth)
+		if CS, isCS := repo.(Specializer); isCS {
+			repo = CS.WithAuthAttrs(auth)
 		}
 	}
-	if r, ok := repo.(TestableRepo); ok {
-		repo = r.WithTestMode(cfg.TestMode())
-	}
-	if r, ok := repo.(DefaultSeriesRepo); ok {
-		repo = r.WithDefaultSeries(cfg.DefaultSeries())
+	if CS, isCS := repo.(Specializer); isCS {
+		repo = CS.WithTestMode(cfg.TestMode())
 	}
 	return repo
 }

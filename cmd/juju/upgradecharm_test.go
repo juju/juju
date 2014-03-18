@@ -75,7 +75,7 @@ func (s *UpgradeCharmErrorsSuite) deployService(c *gc.C) {
 func (s *UpgradeCharmErrorsSuite) TestInvalidSwitchURL(c *gc.C) {
 	s.deployService(c)
 	err := runUpgradeCharm(c, "riak", "--switch=blah")
-	c.Assert(err, gc.ErrorMatches, "charm not found: cs:blah")
+	c.Assert(err, gc.ErrorMatches, "charm not found: cs:precise/blah")
 	err = runUpgradeCharm(c, "riak", "--switch=cs:missing/one")
 	c.Assert(err, gc.ErrorMatches, "charm not found: cs:missing/one")
 	// TODO(dimitern): add tests with incompatible charms

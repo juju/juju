@@ -46,7 +46,7 @@ var inferRepoTests = []struct {
 func (s *CharmSuite) TestInferRepository(c *gc.C) {
 	for i, t := range inferRepoTests {
 		c.Logf("test %d", i)
-		curl, err := charm.ParseURL(t.url)
+		curl, err := charm.InferURL(t.url, "precise")
 		c.Assert(err, gc.IsNil)
 		repo, err := charm.InferRepository(curl, "/some/path")
 		c.Assert(err, gc.IsNil)
@@ -57,10 +57,7 @@ func (s *CharmSuite) TestInferRepository(c *gc.C) {
 			c.Assert(repo, gc.Equals, charm.Store)
 		}
 	}
-	curl, err := charm.ParseURL("local:whatever")
-	c.Assert(err, gc.IsNil)
-	c.Check(curl.IsResolved(), gc.Equals, false)
-	curl, err = charm.InferURL("local:whatever", "precise")
+	curl, err := charm.InferURL("local:whatever", "precise")
 	c.Assert(err, gc.IsNil)
 	_, err = charm.InferRepository(curl, "")
 	c.Assert(err, gc.ErrorMatches, "path to local repository not specified")

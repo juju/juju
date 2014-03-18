@@ -219,6 +219,11 @@ var clientCharmInfoTests = []struct {
 	},
 	{
 		about: "invalid URL",
+		url:   "not-valid",
+		err:   "charm URL not resolved",
+	},
+	{
+		about: "invalid schema",
 		url:   "not-valid:your-arguments",
 		err:   `charm URL has invalid schema: "not-valid:your-arguments"`,
 	},
@@ -661,8 +666,8 @@ func (s *clientSuite) TestClientServiceDeployCharmErrors(c *gc.C) {
 	defer restore()
 	for url, expect := range map[string]string{
 		// TODO(fwereade) make these errors consistent one day.
-		"wordpress":                   `charm URL not resolved`,
-		"cs:wordpress":                `charm URL not resolved`,
+		"wordpress":                   "charm URL not resolved",
+		"cs:wordpress":                "charm URL not resolved",
 		"cs:precise/wordpress":        "charm url must include revision",
 		"cs:precise/wordpress-999999": `cannot download charm ".*": charm not found in mock store: cs:precise/wordpress-999999`,
 	} {
@@ -839,8 +844,8 @@ func (s *clientSuite) TestClientServiceUpdateSetCharmErrors(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	for charmUrl, expect := range map[string]string{
 		// TODO(fwereade,Makyo) make these errors consistent one day.
-		"wordpress":                   `charm URL not resolved`,
-		"cs:wordpress":                `charm URL not resolved`,
+		"wordpress":                   "charm URL not resolved",
+		"cs:wordpress":                "charm URL not resolved",
 		"cs:precise/wordpress":        "charm url must include revision",
 		"cs:precise/wordpress-999999": `cannot download charm ".*": charm not found in mock store: cs:precise/wordpress-999999`,
 	} {
@@ -1073,8 +1078,8 @@ func (s *clientSuite) TestClientServiceSetCharmErrors(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	for url, expect := range map[string]string{
 		// TODO(fwereade,Makyo) make these errors consistent one day.
-		"wordpress":                   `charm URL not resolved`,
-		"cs:wordpress":                `charm URL not resolved`,
+		"wordpress":                   "charm URL not resolved",
+		"cs:wordpress":                "charm URL not resolved",
 		"cs:precise/wordpress":        "charm url must include revision",
 		"cs:precise/wordpress-999999": `cannot download charm ".*": charm not found in mock store: cs:precise/wordpress-999999`,
 	} {
@@ -1794,8 +1799,6 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "only charm store charm URLs are supported, with cs: schema")
 	err = client.AddCharm(charm.MustParseURL("cs:precise/wordpress"))
 	c.Assert(err, gc.ErrorMatches, "charm URL must include revision")
-	err = client.AddCharm(charm.MustParseURL("cs:wordpress"))
-	c.Assert(err, gc.ErrorMatches, "charm URL not resolved")
 
 	// Add a charm, without uploading it to storage, to
 	// check that AddCharm does not try to do it.

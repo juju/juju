@@ -152,10 +152,11 @@ func (s *MockCharmStore) WithDefaultSeries(series string) charm.Repository {
 }
 
 func (s *MockCharmStore) Resolve(curl *charm.URL) (*charm.URL, error) {
-	if curl.Series == "" && s.DefaultSeries != "" {
-		curl.Series = s.DefaultSeries
+	result := *curl
+	if result.Series == "" {
+		result.Series = s.DefaultSeries
 	}
-	return &*curl, nil
+	return &result, nil
 }
 
 // SetCharm adds and removes charms in s. The affected charm is identified by

@@ -111,7 +111,6 @@ func ParseURL(url string) (*URL, error) {
 		}
 		parts = parts[1:]
 	}
-
 	if len(parts) < 1 {
 		return nil, fmt.Errorf("charm URL without charm name: %q", url)
 	}
@@ -160,7 +159,7 @@ func InferURL(src, defaultSeries string) (*URL, error) {
 	if u, err := ParseURL(src); err != nil {
 		return nil, err
 	} else if u.IsResolved() {
-		// src was already a resolved charm URL
+		// src was a valid resolved charm URL already
 		return u, nil
 	}
 	if strings.HasPrefix(src, "~") {

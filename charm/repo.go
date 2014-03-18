@@ -151,12 +151,12 @@ func (s *CharmStore) Resolve(curl *URL) (*URL, error) {
 	if infos[0].CanonicalURL == "" {
 		// If the charm store does not provide a resolved URL, fall back on
 		// the original.
-		curl = &*curl
-	} else {
-		curl, err = ParseURL(infos[0].CanonicalURL)
-		if err != nil {
-			return nil, err
-		}
+		result := *curl
+		return &result, err
+	}
+	curl, err = ParseURL(infos[0].CanonicalURL)
+	if err != nil {
+		return nil, err
 	}
 	return curl, nil
 }
@@ -426,11 +426,11 @@ func (r *LocalRepository) WithDefaultSeries(defaultSeries string) Repository {
 
 // Resolve canonicalizes charm URLs, resolving references and implied series.
 func (r *LocalRepository) Resolve(curl *URL) (*URL, error) {
-	result := &*curl
+	result := *curl
 	if !result.IsResolved() {
 		result.Series = r.defaultSeries
 	}
-	return result, nil
+	return &result, nil
 }
 
 // Latest returns the latest revision of the charm referenced by curl, regardless

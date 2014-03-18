@@ -10,7 +10,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -61,7 +60,6 @@ type localEnviron struct {
 	localStorage     storage.Storage
 	storageListener  net.Listener
 	containerManager container.Manager
-	fastLXC          bool
 }
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
@@ -214,15 +212,16 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	env.config = ecfg
 	env.name = ecfg.Name()
 	containerType := ecfg.container()
-	env.fastLXC = useFastLXC(containerType)
-
+	managerConfig := container.ManagerConfig{
+		container.ConfigName:   env.config.namespace(),
+		container.ConfigLogDir: env.config.logDir(),
+	}
+	if containerType == instance.LXC {
+		managerConfig["use-clone"] = env.config.lxcClone()
+		managerConfig["use-aufs"] = env.config.lxcCloneAUFS()
+	}
 	env.containerManager, err = factory.NewContainerManager(
-		containerType,
-		container.ManagerConfig{
-			container.ConfigName:   env.config.namespace(),
-			container.ConfigLogDir: env.config.logDir(),
-			"use-clone":            strconv.FormatBool(env.fastLXC),
-		})
+		containerType, managerConfig)
 	if err != nil {
 		return err
 	}

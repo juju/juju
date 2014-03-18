@@ -99,14 +99,10 @@ func (c *PublishCommand) Run(ctx *cmd.Context) (err error) {
 			}
 		}
 	} else {
-		curl, err = charm.ParseURL(c.URL)
+		curl, err = charm.InferURL(c.URL, "")
 		if err != nil {
 			return err
 		}
-	}
-
-	if !curl.IsResolved() {
-		return fmt.Errorf("charm URL must contain a series: %q", curl)
 	}
 
 	pushLocation := charm.Store.BranchLocation(curl)
