@@ -7,11 +7,11 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"regexp"
 	"strconv"
 	"strings"
 
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/ssh"
 )
@@ -76,18 +76,11 @@ func DetectSeriesAndHardwareCharacteristics(host string) (hc instance.HardwareCh
 	lines := strings.Split(stdout.String(), "\n")
 	series = strings.TrimSpace(lines[0])
 
-	// Normalise arch.
-	arch := strings.TrimSpace(lines[1])
-	for _, re := range archREs {
-		if re.Match([]byte(arch)) {
-			hc.Arch = &re.arch
-			break
-		}
-	}
-	if hc.Arch == nil {
-		err = fmt.Errorf("unrecognised architecture: %s", arch)
+	arch, err := arch.NormaliseArch(lines[1])
+	if err != nil {
 		return hc, "", err
 	}
+	hc.Arch = &arch
 
 	// HardwareCharacteristics wants memory in megabytes,
 	// meminfo reports it in kilobytes.
@@ -126,19 +119,6 @@ func DetectSeriesAndHardwareCharacteristics(host string) (hc instance.HardwareCh
 	// TODO(axw) calculate CpuPower. What algorithm do we use?
 	logger.Infof("series: %s, characteristics: %s", series, hc)
 	return hc, series, nil
-}
-
-// archREs maps regular expressions for matching
-// `uname -m` to architectures recognised by Juju.
-var archREs = []struct {
-	*regexp.Regexp
-	arch string
-}{
-	{regexp.MustCompile("amd64|x86_64"), "amd64"},
-	{regexp.MustCompile("i[3-9]86"), "i386"},
-	{regexp.MustCompile("armv.*"), "arm"},
-	{regexp.MustCompile("aarch64"), "arm64"},
-	{regexp.MustCompile("ppc64el|ppc64le"), "ppc64"},
 }
 
 // InitUbuntuUser adds the ubuntu user if it doesn't

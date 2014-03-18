@@ -28,7 +28,6 @@ func (t *lxcTest) TestUseFastLXC(c *gc.C) {
 		message        string
 		releaseVersion string
 		expected       bool
-		overrideSlow   string
 	}{{
 		message: "missing release file",
 	}, {
@@ -45,14 +44,9 @@ func (t *lxcTest) TestUseFastLXC(c *gc.C) {
 	}, {
 		message:        "jaunty",
 		releaseVersion: "9.10",
-	}, {
-		message:        "env override",
-		releaseVersion: "14.04",
-		overrideSlow:   "value",
 	}} {
 		c.Logf("%v: %v", i, test.message)
 		t.PatchValue(local.ReleaseVersion, func() string { return test.releaseVersion })
-		t.PatchEnvironment(local.EnvKeyTestingForceSlow, test.overrideSlow)
 		value := local.UseFastLXC(instance.LXC)
 		c.Assert(value, gc.Equals, test.expected)
 	}

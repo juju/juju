@@ -1151,7 +1151,7 @@ func (s ensureStateWorker) step(c *gc.C, ctx *context) {
 	if err != nil || len(addresses) == 0 {
 		testing.AddStateServerMachine(c, ctx.st)
 	}
-	addresses, err = ctx.st.APIAddresses()
+	addresses, err = ctx.st.APIAddressesFromMachines()
 	c.Assert(err, gc.IsNil)
 	c.Assert(addresses, gc.HasLen, 1)
 }

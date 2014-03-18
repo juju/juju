@@ -4,6 +4,7 @@
 package testbase
 
 import (
+	"flag"
 	"fmt"
 	"time"
 
@@ -41,10 +42,15 @@ func (t *LoggingSuite) SetUpTest(c *gc.C) {
 	t.setUp(c)
 }
 
+var logConfig = flag.String("juju.log", "DEBUG", "logging configuration (see http://godoc.org/github.com/juju/loggo#ConfigureLoggers; also accepts a bare log level to configure the log level of the root module")
+
 func (t *LoggingSuite) setUp(c *gc.C) {
 	loggo.ResetWriters()
 	loggo.ReplaceDefaultWriter(&gocheckWriter{c})
 	loggo.ResetLoggers()
-	loggo.GetLogger("juju").SetLogLevel(loggo.DEBUG)
-	loggo.GetLogger("unit").SetLogLevel(loggo.DEBUG)
+	if _, ok := loggo.ParseLevel(*logConfig); ok {
+		*logConfig = "<root>=" + *logConfig
+	}
+	err := loggo.ConfigureLoggers(*logConfig)
+	c.Assert(err, gc.IsNil)
 }
