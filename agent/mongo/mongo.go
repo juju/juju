@@ -63,7 +63,14 @@ func ensureMongoServer(address, dataDir string, port int, info *mgo.DialInfo) er
 		return err
 	}
 	if service.Installed() {
-		logger.Infof("Mongod service %q already installed, nothing to do.", name)
+		if !service.Running() {
+			if err := service.Start(); err != nil {
+				return fmt.Errorf("Failed to start %q service: %v", name, err)
+			}
+			logger.Infof("Mongod service %q started.", name)
+		} else {
+			logger.Infof("Mongod service %q already running, nothing to do.", name)
+		}
 		return nil
 	}
 
