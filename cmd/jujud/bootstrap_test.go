@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	jc "github.com/juju/testing/checkers"
+	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
@@ -55,7 +56,7 @@ type fakeEnsure struct {
 	err  error
 }
 
-func (f *fakeEnsure) fakeEnsureMongo(dir string, port int) error {
+func (f *fakeEnsure) fakeEnsureMongo(address, dir string, port int, info *mgo.DialInfo) error {
 	f.dir = dir
 	f.port = port
 	return f.err

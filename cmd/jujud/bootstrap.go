@@ -86,6 +86,24 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 			params.JobHostUnits,
 		}
 	}
+
+	env, err := environs.New(envCfg)
+	if err != nil {
+		return err
+	}
+	insts, err := env.Instances([]instance.Id{bsState.StateInstances[0]})
+	if err != nil {
+		return err
+	}
+
+	// We are bootstrapping so we know we want the first
+	// and only instance.
+	inst := insts[0]
+	addresses, err := inst.Addresses()
+	if err != nil {
+		return err
+	}
+
 	var characteristics instance.HardwareCharacteristics
 	if len(bsState.Characteristics) > 0 {
 		characteristics = bsState.Characteristics[0]
@@ -95,6 +113,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		Jobs:            jobs,
 		InstanceId:      bsState.StateInstances[0],
 		Characteristics: characteristics,
+		Addresses:       addresses,
 	}, state.DefaultDialOpts(), environs.NewStatePolicy())
 	if err != nil {
 		return err
