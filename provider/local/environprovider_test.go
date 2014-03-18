@@ -8,7 +8,6 @@ import (
 	"os/user"
 
 	"github.com/juju/loggo"
-	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/container/kvm"
@@ -321,29 +320,25 @@ func (s *prepareSuite) TestFastLXCClone(c *gc.C) {
 	type test struct {
 		systemDefault bool
 		extraConfig   map[string]interface{}
-		expectClone   string
-		expectAUFS    string
+		expectClone   bool
+		expectAUFS    bool
 	}
 	tests := []test{{
 		extraConfig: map[string]interface{}{
 			"container": "lxc",
 		},
-		expectClone: "false",
-		expectAUFS:  "false",
 	}, {
 		extraConfig: map[string]interface{}{
 			"container": "lxc",
 			"lxc-clone": "true",
 		},
-		expectClone: "true",
-		expectAUFS:  "false",
+		expectClone: true,
 	}, {
 		systemDefault: true,
 		extraConfig: map[string]interface{}{
 			"container": "lxc",
 		},
-		expectClone: "true",
-		expectAUFS:  "true",
+		expectClone: true,
 	}, {
 		systemDefault: true,
 		extraConfig: map[string]interface{}{
@@ -353,18 +348,16 @@ func (s *prepareSuite) TestFastLXCClone(c *gc.C) {
 		systemDefault: true,
 		extraConfig: map[string]interface{}{
 			"container": "lxc",
-			"lxc-clone": "false",
+			"lxc-clone": false,
 		},
-		expectClone: "false",
-		expectAUFS:  "true",
 	}, {
 		systemDefault: true,
 		extraConfig: map[string]interface{}{
 			"container":      "lxc",
-			"lxc-clone-aufs": "false",
+			"lxc-clone-aufs": true,
 		},
-		expectClone: "true",
-		expectAUFS:  "false",
+		expectClone: true,
+		expectAUFS:  true,
 	}}
 
 	for i, test := range tests {
@@ -381,19 +374,9 @@ func (s *prepareSuite) TestFastLXCClone(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		localAttributes := env.Config().UnknownAttrs()
 
-		if test.expectClone != "" {
-			c.Assert(localAttributes["lxc-clone"], gc.Equals, test.expectClone)
-		} else {
-			_, found := localAttributes["lxc-clone"]
-			c.Assert(found, jc.IsFalse)
-		}
-
-		if test.expectAUFS != "" {
-			c.Assert(localAttributes["lxc-clone-aufs"], gc.Equals, test.expectAUFS)
-		} else {
-			_, found := localAttributes["lxc-clone-aufs"]
-			c.Assert(found, jc.IsFalse)
-		}
-
+		value, _ := localAttributes["lxc-clone"].(bool)
+		c.Assert(value, gc.Equals, test.expectClone)
+		value, _ = localAttributes["lxc-clone-aufs"].(bool)
+		c.Assert(value, gc.Equals, test.expectAUFS)
 	}
 }
