@@ -54,7 +54,10 @@ func initState(c *gc.C, st *fakeState, numMachines int) {
 		m.setStateHostPort(fmt.Sprintf("0.1.2.%d:%d", i, mongoPort))
 		ids = append(ids, id)
 		c.Assert(m.MongoHostPorts(), gc.HasLen, 1)
-		c.Logf("mongo host ports: %v", m.MongoHostPorts())
+
+		m.setAPIHostPorts(instance.AddressesWithPort(instance.NewAddresses([]string{
+			fmt.Sprintf("0.1.2.%d", i),
+		}), apiPort))
 	}
 	st.machine("10").SetHasVote(true)
 	st.setStateServers(ids...)
@@ -246,8 +249,14 @@ func (s *workerSuite) TestStateServersArePublishedInitially(c *gc.C) {
 		c.Check(worker.Stop(w), gc.IsNil)
 	}()
 	select {
-	case hps := <-publishCh:
-		c.Assert(hps, gc.HasLen, 3)
+	case servers := <-publishCh:
+		c.Assert(servers, gc.HasLen, 3)
+		for i, hps := range servers {
+			c.Assert(hps, gc.HasLen, 1)
+			c.Assert(hps[0].Port, gc.Equals, apiPort)
+			c.Assert(hps[0].Value, gc.Equals, fmt.Sprintf("0.1.2.%d", i+10))
+			c.Assert(hps[0].NetworkScope, gc.Equals, instance.NetworkUnknown)
+		}
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for publish")
 	}

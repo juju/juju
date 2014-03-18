@@ -98,6 +98,13 @@ type pgWorker struct {
 	publisher publisher
 }
 
+type publisher interface {
+	// publish publishes information about the given state servers
+	// to whomsoever it may concern. When it is called there
+	// is no guarantee that any of the information has actually changed.
+	publishAPIServers(apiServers [][]instance.HostPort) error
+}
+
 // New returns a new worker that maintains the mongo replica set
 // with respect to the given state.
 func New(st *state.State) (worker.Worker, error) {
@@ -133,13 +140,6 @@ func newWorker(st stateInterface, pub publisher) worker.Worker {
 		w.wg.Wait()
 	}()
 	return w
-}
-
-type publisher interface {
-	// publish publishes information about the given state servers
-	// to whomsoever it may concern. When it is called there
-	// is no guarantee that any of the information has actually changed.
-	publishAPIServers(apiServers [][]instance.HostPort) error
 }
 
 func (w *pgWorker) Kill() {
@@ -194,9 +194,11 @@ func (w *pgWorker) loop() error {
 }
 
 func (w *pgWorker) apiHostPorts() [][]instance.HostPort {
-	var servers [][]instance.HostPort
+	servers := make([][]instance.HostPort, 0, len(w.machines))
 	for _, m := range w.machines {
-		servers = append(servers, m.apiHostPorts)
+		if len(m.apiHostPorts) > 0 {
+			servers = append(servers, m.apiHostPorts)
+		}
 	}
 	return servers
 }

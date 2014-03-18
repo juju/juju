@@ -277,7 +277,7 @@ func (m *fakeMachine) MongoHostPorts() []instance.HostPort {
 }
 
 func (m *fakeMachine) APIHostPorts() []instance.HostPort {
-	return nil
+	return m.doc.apiHostPorts
 }
 
 // mutate atomically changes the machineDoc of
