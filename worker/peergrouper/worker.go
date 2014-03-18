@@ -31,7 +31,8 @@ type stateMachine interface {
 	WantsVote() bool
 	HasVote() bool
 	SetHasVote(hasVote bool) error
-	StateHostPort() string
+	APIHostPorts() []instance.HostPort
+	MongoHostPorts() []instance.HostPort
 }
 
 type mongoSession interface {
@@ -107,15 +108,16 @@ func New(st *state.State) (worker.Worker, error) {
 	return newWorker(&stateShim{
 		State:     st,
 		mongoPort: cfg.StatePort(),
-		apiPort: cfg.APIPort(),
-	}, noPublisher), nil
+		apiPort:   cfg.APIPort(),
+	}, noPublisher{}), nil
 }
 
 func newWorker(st stateInterface, pub publisher) worker.Worker {
 	w := &pgWorker{
-		st:       st,
-		notifyCh: make(chan notifyFunc),
-		machines: make(map[string]*machine),
+		st:        st,
+		notifyCh:  make(chan notifyFunc),
+		machines:  make(map[string]*machine),
+		publisher: pub,
 	}
 	logger.Infof("worker starting")
 	go func() {
@@ -168,7 +170,7 @@ func (w *pgWorker) loop() error {
 			// Try to update the replica set immediately.
 			retry.Reset(0)
 		case <-retry.C:
-			if err := w.pub.publishAPIServers(w.apiHostPorts()); err != nil {
+			if err := w.publisher.publishAPIServers(w.apiHostPorts()); err != nil {
 				logger.Errorf("cannot publish state server addresses: %v", err)
 				retry.Reset(retryInterval)
 			}
@@ -400,9 +402,9 @@ func (infow *serverInfoWatcher) updateMachines() (bool, error) {
 
 // machine represents a machine in State.
 type machine struct {
-	id        string
-	wantsVote bool
-	apiHostPorts []instance.HostPort
+	id             string
+	wantsVote      bool
+	apiHostPorts   []instance.HostPort
 	mongoHostPorts []instance.HostPort
 
 	worker         *pgWorker
@@ -411,15 +413,15 @@ type machine struct {
 }
 
 func (m *machine) mongoHostPort() string {
+	return instance.SelectInternalHostPort(m.mongoHostPorts, false)
 }
-
 
 func (m *machine) String() string {
 	return m.id
 }
 
 func (m *machine) GoString() string {
-	return fmt.Sprintf("&peergrouper.machine{id: %q, wantsVote: %v, hostPort: %q}", m.id, m.wantsVote, m.hostPort)
+	return fmt.Sprintf("&peergrouper.machine{id: %q, wantsVote: %v, hostPort: %q}", m.id, m.wantsVote, m.mongoHostPort())
 }
 
 func (w *pgWorker) newMachine(stm stateMachine) *machine {
@@ -427,7 +429,8 @@ func (w *pgWorker) newMachine(stm stateMachine) *machine {
 		worker:         w,
 		id:             stm.Id(),
 		stm:            stm,
-		hostPort:       stm.StateHostPort(),
+		apiHostPorts:   stm.APIHostPorts(),
+		mongoHostPorts: stm.MongoHostPorts(),
 		wantsVote:      stm.WantsVote(),
 		machineWatcher: stm.Watch(),
 	}
@@ -471,11 +474,27 @@ func (m *machine) refresh() (bool, error) {
 		m.wantsVote = wantsVote
 		changed = true
 	}
-	if hostPort := m.stm.StateHostPort(); hostPort != m.hostPort {
-		m.hostPort = hostPort
+	if hps := m.stm.MongoHostPorts(); !hostPortsEqual(hps, m.mongoHostPorts) {
+		m.mongoHostPorts = hps
+		changed = true
+	}
+	if hps := m.stm.APIHostPorts(); !hostPortsEqual(hps, m.apiHostPorts) {
+		m.apiHostPorts = hps
 		changed = true
 	}
 	return changed, nil
+}
+
+func hostPortsEqual(hps1, hps2 []instance.HostPort) bool {
+	if len(hps1) != len(hps2) {
+		return false
+	}
+	for i := range hps1 {
+		if hps1[i] != hps2[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func inStrings(t string, ss []string) bool {

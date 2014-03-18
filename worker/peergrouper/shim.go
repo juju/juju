@@ -18,7 +18,7 @@ import (
 type stateShim struct {
 	*state.State
 	mongoPort int
-	apiPort int
+	apiPort   int
 }
 
 func (s *stateShim) Machine(id string) (stateMachine, error) {
@@ -29,7 +29,7 @@ func (s *stateShim) Machine(id string) (stateMachine, error) {
 	return &machineShim{
 		Machine:   m,
 		mongoPort: s.mongoPort,
-		apiPort: s.apiPort,
+		apiPort:   s.apiPort,
 	}, nil
 }
 
@@ -37,18 +37,18 @@ func (s *stateShim) MongoSession() mongoSession {
 	return mongoSessionShim{s.State.MongoSession()}
 }
 
-func (m *machineShim) APIHostPorts() ([]instance.HostPort, error) {
+func (m *machineShim) APIHostPorts() []instance.HostPort {
 	return instance.AddressesWithPort(m.Addresses(), m.apiPort)
 }
 
-func (m *machineShim) MongoHostPorts([]instance.HostPort, error) {
+func (m *machineShim) MongoHostPorts() []instance.HostPort {
 	return instance.AddressesWithPort(m.Addresses(), m.mongoPort)
 }
 
 type machineShim struct {
 	*state.Machine
 	mongoPort int
-	apiPort int
+	apiPort   int
 }
 
 type mongoSessionShim struct {

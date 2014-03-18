@@ -52,6 +52,8 @@ func initState(c *gc.C, st *fakeState, numMachines int) {
 		m := st.addMachine(id, true)
 		m.setStateHostPort(fmt.Sprintf("0.1.2.%d:%d", i, mongoPort))
 		ids = append(ids, id)
+		c.Assert(m.MongoHostPorts(), gc.HasLen, 1)
+		c.Logf("mongo host ports: %v", m.MongoHostPorts())
 	}
 	st.machine("10").SetHasVote(true)
 	st.setStateServers(ids...)
@@ -71,7 +73,7 @@ func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
 	c.Assert(memberWatcher.Value(), jc.DeepEquals, mkMembers("0v"))
 
 	logger.Infof("starting worker")
-	w := newWorker(st)
+	w := newWorker(st, noPublisher{})
 	defer func() {
 		c.Check(worker.Stop(w), gc.IsNil)
 	}()
@@ -133,7 +135,7 @@ func (s *workerSuite) TestAddressChange(c *gc.C) {
 	c.Assert(memberWatcher.Value(), jc.DeepEquals, mkMembers("0v"))
 
 	logger.Infof("starting worker")
-	w := newWorker(st)
+	w := newWorker(st, noPublisher{})
 	defer func() {
 		c.Check(worker.Stop(w), gc.IsNil)
 	}()
@@ -182,7 +184,7 @@ func (s *workerSuite) TestFatalErrors(c *gc.C) {
 		st.session.InstantlyReady = true
 		initState(c, st, 3)
 		setErrorFor(test.errPattern, errors.New("sample"))
-		w := newWorker(st)
+		w := newWorker(st, noPublisher{})
 		done := make(chan error)
 		go func() {
 			done <- w.Wait()
@@ -208,7 +210,7 @@ func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
 		return errors.New("sample")
 	})
 	testbase.PatchValue(&retryInterval, 5*time.Millisecond)
-	w := newWorker(st)
+	w := newWorker(st, noPublisher{})
 	defer func() {
 		c.Check(worker.Stop(w), gc.IsNil)
 	}()
