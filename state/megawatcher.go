@@ -40,8 +40,8 @@ func (m *backingMachine) updated(st *State, store *multiwatcher.Store, id interf
 
 	oldInfo := store.Get(info.EntityId())
 	if oldInfo == nil {
-		// We're adding the entry for the first time, so fetch the associated
-		// machine status and hardware characteristics.
+		// We're adding the entry for the first time,
+		// so fetch the associated machine status.
 		sdoc, err := getStatus(st, machineGlobalKey(m.Id))
 		if err != nil {
 			return err
