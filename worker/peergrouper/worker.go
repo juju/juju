@@ -44,7 +44,7 @@ type mongoSession interface {
 // when something changes. It reports whether
 // the information has actually changed (and by implication
 // whether the replica set may need to be changed).
-type notifyFunc func() (bool, error)
+type notifyFunc func() (changed bool, err error)
 
 var (
 	// If we fail to set the mongo replica set members,
@@ -74,11 +74,11 @@ type pgWorker struct {
 	// before finishing.
 	wg sync.WaitGroup
 
-	// st represents the State. It is an interface for testing
-	// purposes only.
+	// st represents the State. It is an interface so we can swap
+	// out the implementation during testing.
 	st stateInterface
 
-	// When something changes that might might affect
+	// When something changes that might affect
 	// the peer group membership, it sends a function
 	// on notifyCh that is run inside the main worker
 	// goroutine to mutate the state. It reports whether
@@ -90,6 +90,10 @@ type pgWorker struct {
 	// associated goroutine that
 	// watches attributes of that machine.
 	machines map[string]*machine
+
+	// publisher holds the implementation of the API
+	// address publisher.
+	publisher publisher
 }
 
 // New returns a new worker that maintains the mongo replica set
@@ -102,15 +106,16 @@ func New(st *state.State) (worker.Worker, error) {
 	return newWorker(&stateShim{
 		State:     st,
 		mongoPort: cfg.StatePort(),
-	}), nil
+	}, noPublisher), nil
 }
 
-func newWorker(st stateInterface) worker.Worker {
+func newWorker(st stateInterface, pub publisher) worker.Worker {
 	w := &pgWorker{
 		st:       st,
 		notifyCh: make(chan notifyFunc),
 		machines: make(map[string]*machine),
 	}
+	logger.Infof("worker starting")
 	go func() {
 		defer w.tomb.Done()
 		if err := w.loop(); err != nil {
@@ -124,6 +129,13 @@ func newWorker(st stateInterface) worker.Worker {
 		w.wg.Wait()
 	}()
 	return w
+}
+
+type publisher interface {
+	// publish publishes information about the given state servers
+	// to whomsoever it may concern. When it is called there
+	// is no guarantee that any of the information has actually changed.
+	publishAPIServers(apiServers [][]instance.HostPort) error
 }
 
 func (w *pgWorker) Kill() {
@@ -154,6 +166,10 @@ func (w *pgWorker) loop() error {
 			// Try to update the replica set immediately.
 			retry.Reset(0)
 		case <-retry.C:
+			if err := w.pub.publishAPIServers(w.apiHostPorts()); err != nil {
+				logger.Errorf("cannot publish state server addresses: %v", err)
+				retry.Reset(retryInterval)
+			}
 			if err := w.updateReplicaset(); err != nil {
 				if _, isReplicaSetError := err.(*replicaSetError); !isReplicaSetError {
 					return err
@@ -173,6 +189,14 @@ func (w *pgWorker) loop() error {
 	}
 }
 
+func (w *pgWorker) apiHostPorts() [][]instance.HostPort {
+	var servers [][]instance.HostPort
+	for _, m := range w.machines {
+		servers = append(servers, m.apiHostPorts)
+	}
+	return servers
+}
+
 // notify sends the given notification function to
 // the worker main loop to be executed.
 func (w *pgWorker) notify(f notifyFunc) bool {
@@ -184,7 +208,7 @@ func (w *pgWorker) notify(f notifyFunc) bool {
 	}
 }
 
-// getPeerGroupInfo collates current session information about the
+// peerGroupInfo collates current session information about the
 // mongo peer group with information from state machines.
 func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
 	session := w.st.MongoSession()
@@ -289,7 +313,6 @@ func (w *pgWorker) start(loop func() error) {
 // setHasVote sets the HasVote status of all the given
 // machines to hasVote.
 func setHasVote(ms []*machine, hasVote bool) error {
-
 	for _, m := range ms {
 		if err := m.stm.SetHasVote(hasVote); err != nil {
 			return fmt.Errorf("cannot set voting status of %q to %v: %v", m.id, hasVote, err)
@@ -377,7 +400,8 @@ func (infow *serverInfoWatcher) updateMachines() (bool, error) {
 type machine struct {
 	id        string
 	wantsVote bool
-	hostPort  string
+	apiHostPorts []instance.HostPort
+	mongoHostPorts []instance.HostPort
 
 	worker         *pgWorker
 	stm            stateMachine
