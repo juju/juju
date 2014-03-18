@@ -4,11 +4,9 @@
 package arch
 
 import (
-	"fmt"
 	"regexp"
+	"runtime"
 	"strings"
-
-	"launchpad.net/juju-core/utils"
 )
 
 // The following constants define the machine architectures supported by Juju.
@@ -36,7 +34,7 @@ var archREs = []struct {
 	arch string
 }{
 	{regexp.MustCompile("amd64|x86_64"), AMD64},
-	{regexp.MustCompile("i[3-9]86"), I386},
+	{regexp.MustCompile("i?[3-9]86"), I386},
 	{regexp.MustCompile("armv.*"), ARM},
 	{regexp.MustCompile("aarch64"), ARM64},
 	{regexp.MustCompile("ppc64el|ppc64le"), PPC64},
@@ -46,25 +44,22 @@ var archREs = []struct {
 var HostArch = hostArch
 
 // HostArch returns the Juju architecture of the machine on which it is run.
-func hostArch() (string, error) {
-	rawArch, err := utils.RunCommand("uname", "-m")
-	if err != nil {
-		return "", err
-	}
-	return NormaliseArch(rawArch)
+func hostArch() string {
+	return NormaliseArch(runtime.GOARCH)
 }
 
-// NormaliseArch returns the Juju architecture corresponding to the
-// output of `uname -m`.
-func NormaliseArch(rawArch string) (string, error) {
+// NormaliseArch returns the Juju architecture corresponding to a machine's
+// reported architecture. The Juju architecture is used to filter simple
+// streams lookup of tools and images.
+func NormaliseArch(rawArch string) string {
 	rawArch = strings.TrimSpace(rawArch)
 	for _, re := range archREs {
 		if re.Match([]byte(rawArch)) {
-			return re.arch, nil
+			return re.arch
 			break
 		}
 	}
-	return "", fmt.Errorf("unrecognised architecture: %s", rawArch)
+	return rawArch
 }
 
 // IsSupportedArch returns true if arch is one supported by Juju.

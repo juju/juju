@@ -79,10 +79,7 @@ func detectSeriesAndHardwareCharacteristics(host string) (hc instance.HardwareCh
 	lines := strings.Split(stdout.String(), "\n")
 	series = strings.TrimSpace(lines[0])
 
-	arch, err := arch.NormaliseArch(lines[1])
-	if err != nil {
-		return hc, "", err
-	}
+	arch := arch.NormaliseArch(lines[1])
 	hc.Arch = &arch
 
 	// HardwareCharacteristics wants memory in megabytes,

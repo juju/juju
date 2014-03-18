@@ -73,10 +73,7 @@ func (e *localEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 
 // SupportedArchitectures is specified on the EnvironCapability interface.
 func (*localEnviron) SupportedArchitectures() ([]string, error) {
-	localArch, err := arch.HostArch()
-	if err != nil {
-		return nil, err
-	}
+	localArch := arch.HostArch()
 	return []string{localArch}, nil
 }
 

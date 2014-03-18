@@ -44,7 +44,7 @@ func UploadTools(env environs.Environ, toolsArch *string, allowRelease bool, boo
 
 	cfg := env.Config()
 	forceVersion := uploadVersion(version.Current.Number, nil)
-	uploadSeries := UploadSeries(cfg, bootstrapSeries)
+	uploadSeries := SeriesToUpload(cfg, bootstrapSeries)
 	logger.Infof("uploading tools for series %s", uploadSeries)
 	tools, err := sync.Upload(env.Storage(), &forceVersion, uploadSeries...)
 	if err != nil {
@@ -77,10 +77,10 @@ func uploadVersion(vers version.Number, existing coretools.List) version.Number 
 	return vers
 }
 
-// UploadSeries returns the supplied series with duplicates removed if
+// SeriesToUpload returns the supplied series with duplicates removed if
 // non-empty; otherwise it returns a default list of series we should
 // probably upload, based on cfg.
-func UploadSeries(cfg *config.Config, series []string) []string {
+func SeriesToUpload(cfg *config.Config, series []string) []string {
 	unique := set.NewStrings(series...)
 	if unique.IsEmpty() {
 		unique.Add(version.Current.Series)
@@ -101,11 +101,7 @@ func validateUploadAllowed(env environs.Environ, toolsArch *string, allowRelease
 
 	// Now check that the architecture for which we are setting up an
 	// environment matches that from which we are bootstrapping.
-	hostArch, err := arch.HostArch()
-	if err != nil {
-		return fmt.Errorf(
-			"no packaged tools available and cannot determine local architecure to build custom tools: %v", err)
-	}
+	hostArch := arch.HostArch()
 	// We can't build tools for a different architecture if one is specified.
 	if toolsArch != nil && *toolsArch != hostArch {
 		return fmt.Errorf("cannot build tools for %q using a machine running on %q", *toolsArch, hostArch)

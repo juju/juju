@@ -241,7 +241,7 @@ func (s *bootstrapSuite) TestEnsureToolsAvailabilityIncompatibleTargetArch(c *gc
 }
 
 func (s *bootstrapSuite) TestEnsureToolsAvailabilityAgentVersionAlreadySet(c *gc.C) {
-	// Can't upload tools is agent version already set.
+	// Can't upload tools if agent version already set.
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{"agent-version": "1.16.0"})
 	s.setDummyStorage(c, env)
 	envtesting.RemoveFakeTools(c, env.Storage())
@@ -318,17 +318,17 @@ func (s *bootstrapSuite) TestEnsureToolsAvailability(c *gc.C) {
 	c.Assert(agentTools[0].Version, gc.DeepEquals, expectedVers)
 }
 
-func (s *bootstrapSuite) TestUploadSeries(c *gc.C) {
+func (s *bootstrapSuite) TestSeriesToUpload(c *gc.C) {
 	vers := version.Current
 	vers.Series = "quantal"
 	s.PatchValue(&version.Current, vers)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	cfg := env.Config()
-	c.Assert(bootstrap.UploadSeries(cfg, nil), gc.DeepEquals, []string{"quantal", "precise"})
-	c.Assert(bootstrap.UploadSeries(cfg, []string{"quantal"}), gc.DeepEquals, []string{"quantal"})
+	c.Assert(bootstrap.SeriesToUpload(cfg, nil), gc.DeepEquals, []string{"quantal", "precise"})
+	c.Assert(bootstrap.SeriesToUpload(cfg, []string{"quantal"}), gc.DeepEquals, []string{"quantal"})
 	env = newEnviron("foo", useDefaultKeys, map[string]interface{}{"default-series": "lucid"})
 	cfg = env.Config()
-	c.Assert(bootstrap.UploadSeries(cfg, nil), gc.DeepEquals, []string{"quantal", "precise", "lucid"})
+	c.Assert(bootstrap.SeriesToUpload(cfg, nil), gc.DeepEquals, []string{"quantal", "precise", "lucid"})
 }
 
 type bootstrapEnviron struct {

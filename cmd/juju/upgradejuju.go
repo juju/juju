@@ -142,7 +142,7 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) (err error) {
 		return err
 	}
 	if c.UploadTools {
-		series := bootstrap.UploadSeries(cfg, c.Series)
+		series := bootstrap.SeriesToUpload(cfg, c.Series)
 		if err := context.uploadTools(series); err != nil {
 			return err
 		}
@@ -396,7 +396,7 @@ func (c *UpgradeJujuCommand) run1dot16() error {
 		return err
 	}
 	if c.UploadTools {
-		series := bootstrap.UploadSeries(cfg, c.Series)
+		series := bootstrap.SeriesToUpload(cfg, c.Series)
 		if err := context.uploadTools1dot16(env.Storage(), series); err != nil {
 			return err
 		}
