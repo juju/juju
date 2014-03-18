@@ -11,6 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
@@ -222,6 +223,34 @@ func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
 	n1, _ := mustNext(c, isSetWatcher)
 	c.Assert(n0.(int)-n0.(int), jc.LessThan, 11)
 	c.Assert(n1, jc.GreaterThan, n0)
+}
+
+type publisherFunc func(apiServers [][]instance.HostPort) error
+
+func (f publisherFunc) publishAPIServers(apiServers [][]instance.HostPort) error {
+	return f(apiServers)
+}
+
+func (s *workerSuite) TestStateServersArePublishedInitially(c *gc.C) {
+	st := newFakeState()
+	initState(c, st, 3)
+
+	publishCh := make(chan [][]instance.HostPort)
+	publish := func(apiServers [][]instance.HostPort) error {
+		publishCh <- apiServers
+		return nil
+	}
+
+	w := newWorker(st, publisherFunc(publish))
+	defer func() {
+		c.Check(worker.Stop(w), gc.IsNil)
+	}()
+	select {
+	case hps := <-publishCh:
+		c.Assert(hps, gc.HasLen, 3)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for publish")
+	}
 }
 
 func mustNext(c *gc.C, w *voyeur.Watcher) (val interface{}, ok bool) {

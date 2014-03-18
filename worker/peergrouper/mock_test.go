@@ -236,6 +236,14 @@ type fakeMachine struct {
 	checker invariantChecker
 }
 
+type machineDoc struct {
+	id             string
+	wantsVote      bool
+	hasVote        bool
+	mongoHostPorts []instance.HostPort
+	apiHostPorts   []instance.HostPort
+}
+
 func (m *fakeMachine) Refresh() error {
 	if err := errorFor("Machine.Refresh", m.doc.id); err != nil {
 		return err
@@ -304,6 +312,18 @@ func (m *fakeMachine) setStateHostPort(hostPort string) {
 	})
 }
 
+func (m *fakeMachine) setMongoHostPorts(hostPorts []instance.HostPort) {
+	m.mutate(func(doc *machineDoc) {
+		doc.mongoHostPorts = hostPorts
+	})
+}
+
+func (m *fakeMachine) setAPIHostPorts(hostPorts []instance.HostPort) {
+	m.mutate(func(doc *machineDoc) {
+		doc.apiHostPorts = hostPorts
+	})
+}
+
 // SetHasVote implements stateMachine.SetHasVote.
 func (m *fakeMachine) SetHasVote(hasVote bool) error {
 	if err := errorFor("Machine.SetHasVote", m.doc.id, hasVote); err != nil {
@@ -319,13 +339,6 @@ func (m *fakeMachine) setWantsVote(wantsVote bool) {
 	m.mutate(func(doc *machineDoc) {
 		doc.wantsVote = wantsVote
 	})
-}
-
-type machineDoc struct {
-	id             string
-	wantsVote      bool
-	hasVote        bool
-	mongoHostPorts []instance.HostPort
 }
 
 type fakeMongoSession struct {
