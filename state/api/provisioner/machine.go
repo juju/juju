@@ -163,13 +163,15 @@ func (m *Machine) Series() (string, error) {
 	return result.Result, nil
 }
 
-// PrincipalUnits returns the machine's assigned principal units.
-func (m *Machine) PrincipalUnits() ([]string, error) {
-	var results params.StringsResults
+// CommonServiceInstances returns a slice of instance.Ids
+// for instances containing units of the services deployed
+// to this machine.
+func (m *Machine) CommonServiceInstances() ([]instance.Id, error) {
+	var results params.CommonServiceInstancesResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.caller.Call("Provisioner", "", "PrincipalUnits", args, &results)
+	err := m.st.caller.Call("Provisioner", "", "CommonServiceInstances", args, &results)
 	if err != nil {
 		return nil, err
 	}

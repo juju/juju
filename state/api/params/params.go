@@ -572,3 +572,22 @@ type StatusParams struct {
 type SetRsyslogCertParams struct {
 	CACert []byte
 }
+
+// CommonServiceInstancesResult contains the parameters
+// for the CommonServiceInstances provisioner API call.
+type CommonServiceInstancesParams struct {
+	Machine Entity
+}
+
+// CommonServiceInstancesResult contains the result of
+// the CommonServiceInstances provisioner API call.
+type CommonServiceInstancesResult struct {
+	Error  *Error
+	Result []instance.Id
+}
+
+// CommonServiceInstancesResults is the bulk form of
+// CommonServiceInstancesResult.
+type CommonServiceInstancesResults struct {
+	Results []CommonServiceInstancesResult
+}

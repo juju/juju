@@ -11,7 +11,7 @@ import (
 )
 
 // StartInstanceParams holds parameters for the
-// InstanceBroker.StartInstace method.
+// InstanceBroker.StartInstance method.
 type StartInstanceParams struct {
 	// Constraints is a set of constraints on
 	// the kind of instance to create.
@@ -24,10 +24,12 @@ type StartInstanceParams struct {
 	// MachineConfig describes the machine's configuration.
 	MachineConfig *cloudinit.MachineConfig
 
-	// PrincipalUnits contains the names of the principal
-	// units initially associated with the machine for
-	// which the instance is being created.
-	PrincipalUnits []string
+	// DistributionInstances, if non-nil, is a function
+	// that returns a slice of instance.Ids that share
+	// some affinity with the instance being provisioned.
+	// The InstanceBroker may use this information to
+	// distribute instances for high availability.
+	DistributionInstances func() ([]instance.Id, error)
 }
 
 // TODO(wallyworld) - we want this in the environs/instance package but import loops

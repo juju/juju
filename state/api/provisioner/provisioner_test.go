@@ -204,18 +204,21 @@ func (s *provisionerSuite) TestSeries(c *gc.C) {
 	c.Assert(series, gc.Equals, "quantal")
 }
 
-func (s *provisionerSuite) TestPrincipalUnits(c *gc.C) {
+func (s *provisionerSuite) TestCommonServiceInstances(c *gc.C) {
 	apiMachine, err := s.provisioner.Machine(s.machine.Tag())
 	c.Assert(err, gc.IsNil)
-	units, err := apiMachine.PrincipalUnits()
+	instances, err := apiMachine.CommonServiceInstances()
 	c.Assert(err, gc.IsNil)
-	c.Assert(units, gc.IsNil)
+	c.Assert(instances, gc.HasLen, 0)
 
 	machine1, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	apiMachine, err = s.provisioner.Machine(machine1.Tag())
 	c.Assert(err, gc.IsNil)
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+
+	err = apiMachine.SetProvisioned("i-d", "fake", nil)
+	c.Assert(err, gc.IsNil)
 
 	var unitNames []string
 	for i := 0; i < 3; i++ {
@@ -224,9 +227,9 @@ func (s *provisionerSuite) TestPrincipalUnits(c *gc.C) {
 		unitNames = append(unitNames, unit.Name())
 		err = unit.AssignToMachine(machine1)
 		c.Assert(err, gc.IsNil)
-		units, err := apiMachine.PrincipalUnits()
+		instances, err := apiMachine.CommonServiceInstances()
 		c.Assert(err, gc.IsNil)
-		c.Assert(units, gc.DeepEquals, unitNames)
+		c.Assert(instances, gc.DeepEquals, []instance.Id{"i-d"})
 	}
 }
 

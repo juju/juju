@@ -534,7 +534,12 @@ func (s *withoutStateServerSuite) TestSeries(c *gc.C) {
 	})
 }
 
-func (s *withoutStateServerSuite) TestPrincipalUnits(c *gc.C) {
+func (s *withoutStateServerSuite) TestCommonServiceInstances(c *gc.C) {
+	// Add another machine.
+	machine3, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Check(err, gc.IsNil)
+	s.machines = append(s.machines, machine3)
+
 	addUnits := func(name string, machines ...*state.Machine) (units []*state.Unit) {
 		svc := s.AddTestingService(c, name, s.AddTestingCharm(c, name))
 		for _, m := range machines {
@@ -546,8 +551,18 @@ func (s *withoutStateServerSuite) TestPrincipalUnits(c *gc.C) {
 		}
 		return units
 	}
-	mysqlUnit := addUnits("mysql", s.machines[0])[0]
-	addUnits("wordpress", s.machines[0], s.machines[2])
+	mysqlUnit := addUnits("mysql", s.machines[0], s.machines[3])[0]
+	wordpressUnits := addUnits("wordpress", s.machines[0], s.machines[1], s.machines[2])
+	// Unassign wordpress/1 from machine-1.
+	// The unit should not show up in the results.
+	err = wordpressUnits[1].UnassignFromMachine()
+	c.Assert(err, gc.IsNil)
+	// Provision machine-2. The unit should still
+	// show up in the results, but it will have a blank instance.Id.
+	err = s.machines[2].SetProvisioned("machine-2-inst", "nonce", nil)
+	c.Assert(err, gc.IsNil)
+	err = s.machines[3].SetProvisioned("machine-3-inst", "nonce", nil)
+	c.Assert(err, gc.IsNil)
 
 	// Create a logging service, subordinate to mysql.
 	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
@@ -564,17 +579,19 @@ func (s *withoutStateServerSuite) TestPrincipalUnits(c *gc.C) {
 		{Tag: s.machines[0].Tag()},
 		{Tag: s.machines[1].Tag()},
 		{Tag: s.machines[2].Tag()},
+		{Tag: s.machines[3].Tag()},
 		{Tag: "machine-42"},
 		{Tag: "unit-foo-0"},
 		{Tag: "service-bar"},
 	}}
-	result, err := s.provisioner.PrincipalUnits(args)
+	result, err := s.provisioner.CommonServiceInstances(args)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.StringsResults{
-		Results: []params.StringsResult{
-			{Result: []string{"mysql/0", "wordpress/0"}},
-			{Result: nil},
-			{Result: []string{"wordpress/1"}},
+	c.Assert(result, gc.DeepEquals, params.CommonServiceInstancesResults{
+		Results: []params.CommonServiceInstancesResult{
+			{Result: []instance.Id{"machine-2-inst", "machine-3-inst"}},
+			{Result: []instance.Id{}},
+			{Result: []instance.Id{"machine-2-inst"}},
+			{Result: []instance.Id{"machine-3-inst"}},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
