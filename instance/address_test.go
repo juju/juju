@@ -46,34 +46,71 @@ func (s *AddressSuite) TestNewAddressHostname(c *gc.C) {
 	c.Check(addr.Type, gc.Equals, HostName)
 }
 
-type selectTests struct {
-	about     string
-	addresses []Address
-	expected  string
+type selectTest struct {
+	about         string
+	addresses     []Address
+	expectedIndex int
 }
 
-var selectPublicTests = []selectTests{{
+// expected returns the expected address for the test.
+func (t selectTest) expected() string {
+	if t.expectedIndex == -1 {
+		return ""
+	}
+	return t.addresses[t.expectedIndex].Value
+}
+
+type hostPortTest struct {
+	about         string
+	hostPorts     []HostPort
+	expectedIndex int
+}
+
+// hostPortTest returns the HostPort equivalent test to the
+// receiving selectTest.
+func (t selectTest) hostPortTest() hostPortTest {
+	hps := AddressesWithPort(t.addresses, 9999)
+	for i := range hps {
+		hps[i].Port = i + 1
+	}
+	return hostPortTest{
+		about:         t.about,
+		hostPorts:     hps,
+		expectedIndex: t.expectedIndex,
+	}
+}
+
+// expected returns the expected host:port result
+// of the test.
+func (t hostPortTest) expected() string {
+	if t.expectedIndex == -1 {
+		return ""
+	}
+	return t.hostPorts[t.expectedIndex].NetAddr()
+}
+
+var selectPublicTests = []selectTest{{
 	"no addresses gives empty string result",
 	[]Address{},
-	"",
+	-1,
 }, {
 	"a public address is selected",
 	[]Address{
 		{"8.8.8.8", Ipv4Address, "public", NetworkPublic},
 	},
-	"8.8.8.8",
+	0,
 }, {
 	"a machine local address is not selected",
 	[]Address{
 		{"127.0.0.1", Ipv4Address, "machine", NetworkMachineLocal},
 	},
-	"",
+	-1,
 }, {
 	"an ipv6 address is not selected",
 	[]Address{
 		{"2001:DB8::1", Ipv6Address, "", NetworkPublic},
 	},
-	"",
+	-1,
 }, {
 	"a public name is preferred to an unknown or cloud local address",
 	[]Address{
@@ -81,85 +118,109 @@ var selectPublicTests = []selectTests{{
 		{"10.0.0.1", Ipv4Address, "cloud", NetworkCloudLocal},
 		{"public.invalid.testing", HostName, "public", NetworkPublic},
 	},
-	"public.invalid.testing",
+	2,
 }, {
 	"last unknown address selected",
 	[]Address{
 		{"10.0.0.1", Ipv4Address, "cloud", NetworkUnknown},
 		{"8.8.8.8", Ipv4Address, "floating", NetworkUnknown},
 	},
-	"8.8.8.8",
+	1,
 }}
 
-func (s *AddressSuite) TestSelectPublicAddressEmpty(c *gc.C) {
+func (s *AddressSuite) TestSelectPublicAddress(c *gc.C) {
 	for i, t := range selectPublicTests {
 		c.Logf("test %d. %s", i, t.about)
-		c.Check(SelectPublicAddress(t.addresses), gc.Equals, t.expected)
+		c.Check(SelectPublicAddress(t.addresses), gc.Equals, t.expected())
 	}
 }
 
-var selectInternalTests = []selectTests{{
+func (s *AddressSuite) TestSelectPublicHostPort(c *gc.C) {
+	for i, t0 := range selectPublicTests {
+		t := t0.hostPortTest()
+		c.Logf("test %d. %s", i, t.about)
+		c.Assert(SelectPublicHostPort(t.hostPorts), gc.DeepEquals, t.expected())
+	}
+}
+
+var selectInternalTests = []selectTest{{
 	"no addresses gives empty string result",
 	[]Address{},
-	"",
+	-1,
 }, {
 	"a public address is selected",
 	[]Address{
 		{"8.8.8.8", Ipv4Address, "public", NetworkPublic},
 	},
-	"8.8.8.8",
+	0,
 }, {
 	"a cloud local address is selected",
 	[]Address{
 		{"10.0.0.1", Ipv4Address, "private", NetworkCloudLocal},
 	},
-	"10.0.0.1",
+	0,
 }, {
 	"a machine local address is not selected",
 	[]Address{
 		{"127.0.0.1", Ipv4Address, "machine", NetworkMachineLocal},
 	},
-	"",
+	-1,
 }, {
 	"ipv6 addresses are not selected",
 	[]Address{
 		{"::1", Ipv6Address, "", NetworkCloudLocal},
 	},
-	"",
+	-1,
 }, {
 	"a cloud local address is preferred to a public address",
 	[]Address{
 		{"10.0.0.1", Ipv4Address, "cloud", NetworkCloudLocal},
 		{"8.8.8.8", Ipv4Address, "public", NetworkPublic},
 	},
-	"10.0.0.1",
+	0,
 }}
 
 func (s *AddressSuite) TestSelectInternalAddress(c *gc.C) {
 	for i, t := range selectInternalTests {
 		c.Logf("test %d. %s", i, t.about)
-		c.Check(SelectInternalAddress(t.addresses, false), gc.Equals, t.expected)
+		c.Check(SelectInternalAddress(t.addresses, false), gc.Equals, t.expected())
 	}
 }
 
-var selectInternalMachineTests = []selectTests{{
+func (s *AddressSuite) TestSelectInternalHostPort(c *gc.C) {
+	for i, t0 := range selectInternalTests {
+		t := t0.hostPortTest()
+		c.Logf("test %d. %s", i, t.about)
+		c.Assert(SelectInternalHostPort(t.hostPorts, false), gc.DeepEquals, t.expected())
+	}
+}
+
+var selectInternalMachineTests = []selectTest{{
 	"a cloud local address is selected",
 	[]Address{
 		{"10.0.0.1", Ipv4Address, "cloud", NetworkCloudLocal},
 	},
-	"10.0.0.1",
+	0,
 }, {
 	"a machine local address is selected",
 	[]Address{
 		{"127.0.0.1", Ipv4Address, "container", NetworkMachineLocal},
 	},
-	"127.0.0.1",
+	0,
 }}
 
 func (s *AddressSuite) TestSelectInternalMachineAddress(c *gc.C) {
 	for i, t := range selectInternalMachineTests {
 		c.Logf("test %d. %s", i, t.about)
-		c.Check(SelectInternalAddress(t.addresses, true), gc.Equals, t.expected)
+		c.Check(SelectInternalAddress(t.addresses, true), gc.Equals, t.expected())
+	}
+}
+
+func (s *AddressSuite) TestSelectInternalMachineHostPort(c *gc.C) {
+	for i, t0 := range selectInternalMachineTests {
+		t := t0.hostPortTest()
+		c.Logf("test %d. %s", i, t.about)
+		c.Assert(SelectInternalHostPort(t.hostPorts, true), gc.DeepEquals, t.expected())
 	}
 }
 
