@@ -35,13 +35,19 @@ var marshalTestCases = []struct {
 	about: "MachineInfo Delta",
 	value: params.Delta{
 		Entity: &params.MachineInfo{
-			Id:         "Benji",
-			InstanceId: "Shazam",
-			Status:     "error",
-			StatusInfo: "foo",
+			Id:                      "Benji",
+			InstanceId:              "Shazam",
+			Status:                  "error",
+			StatusInfo:              "foo",
+			Life:                    params.Life(state.Alive.String()),
+			Series:                  "trusty",
+			SupportedContainers:     []instance.ContainerType{instance.LXC},
+			Jobs:                    []params.MachineJob{state.JobManageEnviron.ToParams()},
+			Addresses:               []instance.Address{},
+			HardwareCharacteristics: &instance.HardwareCharacteristics{},
 		},
 	},
-	json: `["machine","change",{"Id":"Benji","InstanceId":"Shazam","Status":"error","StatusInfo":"foo","StatusData":null}]`,
+	json: `["machine","change",{"Id":"Benji","InstanceId":"Shazam","Status":"error","StatusInfo":"foo","StatusData":null,"Life":"alive","Series":"trusty","SupportedContainers":["lxc"],"Jobs":["JobManageEnviron"],"Addresses":[],"HardwareCharacteristics":{"Arch":null,"Mem":null,"RootDisk":null,"CpuCores":null,"CpuPower":null,"Tags":null}}]`,
 }, {
 	about: "ServiceInfo Delta",
 	value: params.Delta{

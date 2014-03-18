@@ -1273,9 +1273,14 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	if !c.Check(deltas, gc.DeepEquals, []params.Delta{{
 		Entity: &params.MachineInfo{
-			Id:         m.Id(),
-			InstanceId: "i-0",
-			Status:     params.StatusPending,
+			Id:                      m.Id(),
+			InstanceId:              "i-0",
+			Status:                  params.StatusPending,
+			Life:                    params.Life(state.Alive.String()),
+			Series:                  "quantal",
+			Jobs:                    []params.MachineJob{state.JobManageEnviron.ToParams()},
+			Addresses:               []instance.Address{},
+			HardwareCharacteristics: &instance.HardwareCharacteristics{},
 		},
 	}}) {
 		c.Logf("got:")

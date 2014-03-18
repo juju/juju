@@ -76,10 +76,20 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 	c.Assert(m.Tag(), gc.Equals, "machine-0")
 	err = m.SetProvisioned(instance.Id("i-"+m.Tag()), "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
+	hc, err := m.HardwareCharacteristics()
+	c.Assert(err, gc.IsNil)
+	addresses := instance.NewAddresses([]string{"example.com"})
+	err = m.SetAddresses(addresses)
+	c.Assert(err, gc.IsNil)
 	add(&params.MachineInfo{
-		Id:         "0",
-		InstanceId: "i-machine-0",
-		Status:     params.StatusPending,
+		Id:                      "0",
+		InstanceId:              "i-machine-0",
+		Status:                  params.StatusPending,
+		Life:                    params.Life(Alive.String()),
+		Series:                  "quantal",
+		Jobs:                    []params.MachineJob{JobManageEnviron.ToParams()},
+		Addresses:               m.Addresses(),
+		HardwareCharacteristics: hc,
 	})
 
 	wordpress := AddTestingService(c, s.State, "wordpress", AddTestingCharm(c, s.State, "wordpress"))
@@ -158,11 +168,18 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		c.Assert(err, gc.IsNil)
 		err = m.SetStatus(params.StatusError, m.Tag(), nil)
 		c.Assert(err, gc.IsNil)
+		hc, err := m.HardwareCharacteristics()
+		c.Assert(err, gc.IsNil)
 		add(&params.MachineInfo{
-			Id:         fmt.Sprint(i + 1),
-			InstanceId: "i-" + m.Tag(),
-			Status:     params.StatusError,
-			StatusInfo: m.Tag(),
+			Id:                      fmt.Sprint(i + 1),
+			InstanceId:              "i-" + m.Tag(),
+			Status:                  params.StatusError,
+			StatusInfo:              m.Tag(),
+			Life:                    params.Life(Alive.String()),
+			Series:                  "quantal",
+			Jobs:                    []params.MachineJob{JobHostUnits.ToParams()},
+			Addresses:               []instance.Address{},
+			HardwareCharacteristics: hc,
 		})
 		err = wu.AssignToMachine(m)
 		c.Assert(err, gc.IsNil)
@@ -275,6 +292,10 @@ var allWatcherChangedTests = []struct {
 				Id:         "0",
 				Status:     params.StatusError,
 				StatusInfo: "failure",
+				Life:       params.Life(Alive.String()),
+				Series:     "quantal",
+				Jobs:       []params.MachineJob{JobHostUnits.ToParams()},
+				Addresses:  []instance.Address{},
 			},
 		},
 	},
@@ -289,9 +310,11 @@ var allWatcherChangedTests = []struct {
 			},
 		},
 		setUp: func(c *gc.C, st *State) {
-			m, err := st.AddMachine("quantal", JobManageEnviron)
+			m, err := st.AddMachine("trusty", JobManageEnviron)
 			c.Assert(err, gc.IsNil)
 			err = m.SetProvisioned("i-0", "bootstrap_nonce", nil)
+			c.Assert(err, gc.IsNil)
+			err = m.SetSupportedContainers([]instance.ContainerType{instance.LXC})
 			c.Assert(err, gc.IsNil)
 		},
 		change: watcher.Change{
@@ -300,10 +323,16 @@ var allWatcherChangedTests = []struct {
 		},
 		expectContents: []params.EntityInfo{
 			&params.MachineInfo{
-				Id:         "0",
-				InstanceId: "i-0",
-				Status:     params.StatusError,
-				StatusInfo: "another failure",
+				Id:                      "0",
+				InstanceId:              "i-0",
+				Status:                  params.StatusError,
+				StatusInfo:              "another failure",
+				Life:                    params.Life(Alive.String()),
+				Series:                  "trusty",
+				Jobs:                    []params.MachineJob{JobManageEnviron.ToParams()},
+				Addresses:               []instance.Address{},
+				HardwareCharacteristics: &instance.HardwareCharacteristics{},
+				SupportedContainers:     []instance.ContainerType{instance.LXC},
 			},
 		},
 	},
@@ -927,7 +956,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(m0.Id(), gc.Equals, "0")
 
-	m1, err := s.State.AddMachine("quantal", JobHostUnits)
+	m1, err := s.State.AddMachine("saucy", JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m1.Id(), gc.Equals, "1")
 
@@ -936,20 +965,35 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 	defer aw.Stop()
 	w := multiwatcher.NewWatcher(aw)
 	s.State.StartSync()
+	alive := params.Life(Alive.String())
 	checkNext(c, w, b, []params.Delta{{
 		Entity: &params.MachineInfo{
-			Id:     "0",
-			Status: params.StatusPending,
+			Id:        "0",
+			Status:    params.StatusPending,
+			Life:      alive,
+			Series:    "quantal",
+			Jobs:      []params.MachineJob{JobManageEnviron.ToParams()},
+			Addresses: []instance.Address{},
 		},
 	}, {
 		Entity: &params.MachineInfo{
-			Id:     "1",
-			Status: params.StatusPending,
+			Id:        "1",
+			Status:    params.StatusPending,
+			Life:      alive,
+			Series:    "saucy",
+			Jobs:      []params.MachineJob{JobHostUnits.ToParams()},
+			Addresses: []instance.Address{},
 		},
 	}}, "")
 
 	// Make some changes to the state.
-	err = m0.SetProvisioned("i-0", "bootstrap_nonce", nil)
+	arch := "amd64"
+	mem := uint64(4096)
+	hc := &instance.HardwareCharacteristics{
+		Arch: &arch,
+		Mem:  &mem,
+	}
+	err = m0.SetProvisioned("i-0", "bootstrap_nonce", hc)
 	c.Assert(err, gc.IsNil)
 	err = m1.Destroy()
 	c.Assert(err, gc.IsNil)
@@ -957,7 +1001,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = m1.Remove()
 	c.Assert(err, gc.IsNil)
-	m2, err := s.State.AddMachine("quantal", JobHostUnits)
+	m2, err := s.State.AddMachine("trusty", JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m2.Id(), gc.Equals, "2")
 	s.State.StartSync()
@@ -976,19 +1020,32 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 	checkDeltasEqual(c, b, deltas, []params.Delta{{
 		Removed: true,
 		Entity: &params.MachineInfo{
-			Id:     "1",
-			Status: params.StatusPending,
+			Id:        "1",
+			Status:    params.StatusPending,
+			Life:      alive,
+			Series:    "saucy",
+			Jobs:      []params.MachineJob{JobHostUnits.ToParams()},
+			Addresses: []instance.Address{},
 		},
 	}, {
 		Entity: &params.MachineInfo{
-			Id:     "2",
-			Status: params.StatusPending,
+			Id:        "2",
+			Status:    params.StatusPending,
+			Life:      alive,
+			Series:    "trusty",
+			Jobs:      []params.MachineJob{JobHostUnits.ToParams()},
+			Addresses: []instance.Address{},
 		},
 	}, {
 		Entity: &params.MachineInfo{
-			Id:         "0",
-			InstanceId: "i-0",
-			Status:     params.StatusPending,
+			Id:                      "0",
+			InstanceId:              "i-0",
+			Status:                  params.StatusPending,
+			Life:                    alive,
+			Series:                  "quantal",
+			Jobs:                    []params.MachineJob{JobManageEnviron.ToParams()},
+			Addresses:               []instance.Address{},
+			HardwareCharacteristics: hc,
 		},
 	}})
 

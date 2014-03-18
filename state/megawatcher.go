@@ -34,6 +34,7 @@ func (m *backingMachine) updated(st *State, store *multiwatcher.Store, id interf
 		Jobs:      jobsToParamsJobs(m.Jobs),
 		Addresses: addressesToInstanceAddresses(m.Addresses),
 	}
+	// The value is nil if the supported containers are not yet known.
 	if m.SupportedContainersKnown {
 		info.SupportedContainers = m.SupportedContainers
 	}
