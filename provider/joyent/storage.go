@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"path"
 	"strings"
 	"sync"
@@ -177,7 +178,11 @@ func (s *JoyentStorage) Put(name string, r io.Reader, length int64) error {
 			}
 		}
 	}
-	err := s.manta.PutObject(s.containerName, name, r)
+	object, err := ioutil.ReadAll(r)
+	if err != nil {
+		return fmt.Errorf("failed to read object %q: %v", name, err)
+	}
+	err = s.manta.PutObject(s.containerName, name, object)
 	if err != nil {
 		return fmt.Errorf("cannot write file %q to control container %q: %v", name, s.containerName, err)
 	}
