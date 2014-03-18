@@ -37,12 +37,13 @@ var chownPath = func(path, username string) error {
 }
 
 var isLocalEnviron = func(envConfig *config.Config) bool {
-	return envConfig.Type() != "local"
+	return envConfig.Type() == "local"
 }
 
 func migrateLocalProviderAgentConfig(context Context) error {
 	st := context.State()
 	if st == nil {
+		logger.Debugf("no state connection, skipping 1.16 to 1.18 migration")
 		// We're running on a different node than the state server.
 		return nil
 	}
@@ -51,6 +52,7 @@ func migrateLocalProviderAgentConfig(context Context) error {
 		return fmt.Errorf("failed to read current config: %v", err)
 	}
 	if !isLocalEnviron(envConfig) {
+		logger.Debugf("not a local environment, skipping 1.16 to 1.18 migration")
 		return nil
 	}
 	attrs := envConfig.AllAttrs()
