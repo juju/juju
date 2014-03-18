@@ -1428,7 +1428,7 @@ func (s *uniterSuite) TestAPIAddresses(c *gc.C) {
 		instance.NewAddress("0.1.2.3"),
 	})
 	c.Assert(err, gc.IsNil)
-	apiAddresses, err := s.State.APIAddresses()
+	apiAddresses, err := s.State.APIAddressesFromMachines()
 	c.Assert(err, gc.IsNil)
 
 	result, err := s.uniter.APIAddresses()

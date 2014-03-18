@@ -4,17 +4,11 @@
 package lxc
 
 import (
-	stdtesting "testing"
-
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 )
-
-func Test(t *stdtesting.T) {
-	gc.TestingT(t)
-}
 
 type InitialiserSuite struct {
 	testbase.LoggingSuite

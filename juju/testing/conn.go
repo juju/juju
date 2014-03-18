@@ -62,6 +62,7 @@ type JujuConnSuite struct {
 	oldHome      string
 	oldJujuHome  string
 	environ      environs.Environ
+	DummyConfig  testing.Attrs
 }
 
 const AdminSecret = "dummy-secret"
@@ -220,7 +221,10 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 }
 
 func (s *JujuConnSuite) writeSampleConfig(c *gc.C, path string) {
-	attrs := dummy.SampleConfig().Merge(testing.Attrs{
+	if s.DummyConfig == nil {
+		s.DummyConfig = dummy.SampleConfig()
+	}
+	attrs := s.DummyConfig.Merge(testing.Attrs{
 		"admin-secret":  AdminSecret,
 		"agent-version": version.Current.Number.String(),
 	}).Delete("name")

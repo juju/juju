@@ -683,13 +683,10 @@ func (s *withoutStateServerSuite) TestToolsNothing(c *gc.C) {
 }
 
 func (s *withoutStateServerSuite) TestContainerConfig(c *gc.C) {
-	cfg, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	newCfg, err := cfg.Apply(map[string]interface{}{
+	attrs := map[string]interface{}{
 		"http-proxy": "http://proxy.example.com:9000",
-	})
-	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(newCfg, cfg)
+	}
+	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 	expectedProxy := osenv.ProxySettings{
 		Http: "http://proxy.example.com:9000",
@@ -837,7 +834,7 @@ func (s *withStateServerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *withStateServerSuite) TestAPIAddresses(c *gc.C) {
-	addrs, err := s.State.APIAddresses()
+	addrs, err := s.State.APIAddressesFromMachines()
 	c.Assert(err, gc.IsNil)
 
 	result, err := s.provisioner.APIAddresses()

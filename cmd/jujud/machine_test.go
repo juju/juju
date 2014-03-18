@@ -32,7 +32,6 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	apirsyslog "launchpad.net/juju-core/state/api/rsyslog"
 	charmtesting "launchpad.net/juju-core/state/apiserver/charmrevisionupdater/testing"
-	statetesting "launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
 	coretesting "launchpad.net/juju-core/testing"
@@ -635,7 +634,7 @@ func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
 
 	// Update the keys in the environment.
 	sshKey := sshtesting.ValidKeyOne.Key + " user@host"
-	err := statetesting.UpdateConfig(s.BackingState, map[string]interface{}{"authorized-keys": sshKey})
+	err := s.BackingState.UpdateEnvironConfig(map[string]interface{}{"authorized-keys": sshKey}, nil, nil)
 	c.Assert(err, gc.IsNil)
 
 	// Wait for ssh keys file to be updated.
@@ -723,19 +722,15 @@ func (s *MachineSuite) TestMachineEnvirnWorker(c *gc.C) {
 
 	s.primeAgent(c, version.Current, state.JobHostUnits)
 	// Make sure there are some proxy settings to write.
-	oldConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-
 	proxySettings := osenv.ProxySettings{
 		Http:  "http proxy",
 		Https: "https proxy",
 		Ftp:   "ftp proxy",
 	}
 
-	envConfig, err := oldConfig.Apply(config.ProxyConfigMap(proxySettings))
-	c.Assert(err, gc.IsNil)
+	updateAttrs := config.ProxyConfigMap(proxySettings)
 
-	err = s.State.SetEnvironConfig(envConfig, oldConfig)
+	err := s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 
 	s.assertJobWithAPI(c, state.JobHostUnits, func(conf agent.Config, st *api.State) {

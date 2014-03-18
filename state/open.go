@@ -160,8 +160,12 @@ func Initialize(info *Info, cfg *config.Config, opts DialOpts, policy Policy) (r
 		createEnvironmentOp(st, cfg.Name(), uuid.String()),
 		{
 			C:      st.stateServers.Name,
-			Id:     "",
+			Id:     environGlobalKey,
 			Insert: &stateServersDoc{},
+		}, {
+			C:      st.stateServers.Name,
+			Id:     apiAddressesKey,
+			Insert: &apiAddressesDoc{},
 		},
 	}
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
@@ -289,6 +293,9 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 	if err := st.createStateServersDoc(); err != nil {
 		return nil, fmt.Errorf("cannot create state servers document: %v", err)
 	}
+	if err := st.createAPIAddressesDoc(); err != nil {
+		return nil, fmt.Errorf("cannot create API addresses document: %v", err)
+	}
 	return st, nil
 }
 
@@ -342,6 +349,21 @@ func (st *State) createStateServersDoc() error {
 	}}
 
 	return st.runTransaction(ops)
+}
+
+// createAPIAddressesDoc creates the API addresses document
+// if it does not already exist. This is necessary to cope with
+// legacy environments that have not created the document
+// at initialization time.
+func (st *State) createAPIAddressesDoc() error {
+	var doc apiAddressesDoc
+	ops := []txn.Op{{
+		C:      st.stateServers.Name,
+		Id:     apiAddressesKey,
+		Assert: txn.DocMissing,
+		Insert: &doc,
+	}}
+	return onAbort(st.runTransaction(ops), nil)
 }
 
 // CACert returns the certificate used to validate the state connection.
