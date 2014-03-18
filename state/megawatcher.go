@@ -40,8 +40,8 @@ func (m *backingMachine) updated(st *State, store *multiwatcher.Store, id interf
 
 	oldInfo := store.Get(info.EntityId())
 	if oldInfo == nil {
-		// We're adding the entry for the first time,
-		// so fetch the associated machine status.
+		// We're adding the entry for the first time, so fetch the associated
+		// machine status and hardware characteristics.
 		sdoc, err := getStatus(st, machineGlobalKey(m.Id))
 		if err != nil {
 			return err
@@ -49,13 +49,16 @@ func (m *backingMachine) updated(st *State, store *multiwatcher.Store, id interf
 		info.Status = sdoc.Status
 		info.StatusInfo = sdoc.StatusInfo
 	} else {
-		// The entry already exists, so preserve the current status and instance id.
+		// The entry already exists, so preserve the current status, instance
+		// id and hardware characteristics.
 		oldInfo := oldInfo.(*params.MachineInfo)
 		info.Status = oldInfo.Status
 		info.StatusInfo = oldInfo.StatusInfo
 		info.InstanceId = oldInfo.InstanceId
+		info.HardwareCharacteristics = oldInfo.HardwareCharacteristics
 	}
-	// If the machine is been provisioned, fetch the instance id if required.
+	// If the machine is been provisioned, fetch the instance id as required,
+	// and set instance id and hardware characteristics.
 	if m.Nonce != "" && info.InstanceId == "" {
 		instanceData, err := getInstanceData(st, m.Id)
 		if err == nil {
