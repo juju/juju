@@ -387,7 +387,9 @@ func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
 	stripped := strings.Replace(err.Error(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, "Juju cannot bootstrap because no tools are available for your environment.*")
+	c.Check(stripped,
+		gc.Matches,
+		"cannot upload bootstrap tools: Juju cannot bootstrap because no tools are available for your environment.*")
 }
 
 func (suite *environSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {

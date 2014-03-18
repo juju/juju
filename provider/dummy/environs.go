@@ -527,7 +527,7 @@ func (e *environ) Name() string {
 
 // SupportedArchitectures is specified on the EnvironCapability interface.
 func (*environ) SupportedArchitectures() ([]string, error) {
-	return []string{arch.AMD64}, nil
+	return []string{arch.AMD64, arch.PPC64}, nil
 }
 
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.

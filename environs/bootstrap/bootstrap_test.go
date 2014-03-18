@@ -219,7 +219,9 @@ func (s *bootstrapSuite) TestEnsureToolsAvailabilityIncompatibleHostArch(c *gc.C
 	_, err := bootstrap.EnsureToolsAvailability(env, env.Config().DefaultSeries(), &arch)
 	c.Assert(err, gc.NotNil)
 	stripped := strings.Replace(err.Error(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, `cannot build tools for "ppc64" using a machine running on "amd64"`)
+	c.Assert(stripped,
+		gc.Matches,
+		`cannot upload bootstrap tools: cannot build tools for "ppc64" using a machine running on "amd64"`)
 }
 
 func (s *bootstrapSuite) TestEnsureToolsAvailabilityIncompatibleTargetArch(c *gc.C) {
@@ -233,7 +235,9 @@ func (s *bootstrapSuite) TestEnsureToolsAvailabilityIncompatibleTargetArch(c *gc
 	_, err := bootstrap.EnsureToolsAvailability(env, env.Config().DefaultSeries(), nil)
 	c.Assert(err, gc.NotNil)
 	stripped := strings.Replace(err.Error(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, `environment "foo" of type dummy does not support instances running on "ppc64"`)
+	c.Assert(stripped,
+		gc.Matches,
+		`cannot upload bootstrap tools: environment "foo" of type dummy does not support instances running on "ppc64"`)
 }
 
 func (s *bootstrapSuite) TestEnsureToolsAvailabilityAgentVersionAlreadySet(c *gc.C) {
@@ -244,7 +248,9 @@ func (s *bootstrapSuite) TestEnsureToolsAvailabilityAgentVersionAlreadySet(c *gc
 	_, err := bootstrap.EnsureToolsAvailability(env, env.Config().DefaultSeries(), nil)
 	c.Assert(err, gc.NotNil)
 	stripped := strings.Replace(err.Error(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, "Juju cannot bootstrap because no tools are available for your environment.*")
+	c.Assert(stripped,
+		gc.Matches,
+		"cannot upload bootstrap tools: Juju cannot bootstrap because no tools are available for your environment.*")
 }
 
 func (s *bootstrapSuite) TestEnsureToolsAvailabilityNonDevVersion(c *gc.C) {
@@ -256,7 +262,9 @@ func (s *bootstrapSuite) TestEnsureToolsAvailabilityNonDevVersion(c *gc.C) {
 	_, err := bootstrap.EnsureToolsAvailability(env, env.Config().DefaultSeries(), nil)
 	c.Assert(err, gc.NotNil)
 	stripped := strings.Replace(err.Error(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, "Juju cannot bootstrap because no tools are available for your environment.*")
+	c.Assert(stripped,
+		gc.Matches,
+		"cannot upload bootstrap tools: Juju cannot bootstrap because no tools are available for your environment.*")
 }
 
 // getMockBuildTools returns a sync.BuildToolsTarballFunc implementation which generates
@@ -308,6 +316,19 @@ func (s *bootstrapSuite) TestEnsureToolsAvailability(c *gc.C) {
 	expectedVers.Number.Build++
 	expectedVers.Series = env.Config().DefaultSeries()
 	c.Assert(agentTools[0].Version, gc.DeepEquals, expectedVers)
+}
+
+func (s *bootstrapSuite) TestUploadSeries(c *gc.C) {
+	vers := version.Current
+	vers.Series = "quantal"
+	s.PatchValue(&version.Current, vers)
+	env := newEnviron("foo", useDefaultKeys, nil)
+	cfg := env.Config()
+	c.Assert(bootstrap.UploadSeries(cfg, nil), gc.DeepEquals, []string{"quantal", "precise"})
+	c.Assert(bootstrap.UploadSeries(cfg, []string{"quantal"}), gc.DeepEquals, []string{"quantal"})
+	env = newEnviron("foo", useDefaultKeys, map[string]interface{}{"default-series": "lucid"})
+	cfg = env.Config()
+	c.Assert(bootstrap.UploadSeries(cfg, nil), gc.DeepEquals, []string{"quantal", "precise", "lucid"})
 }
 
 type bootstrapEnviron struct {

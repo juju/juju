@@ -8,6 +8,7 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/sync"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
@@ -25,16 +26,25 @@ const noToolsNoUploadMessage = `Juju cannot bootstrap because no tools are avail
 You may want to use the 'tools-metadata-url' configuration setting to specify the tools location.
 `
 
-func uploadTools(env environs.Environ, bootstrapSeries string) error {
+// UploadTools uploads tools for the specified series and any other relevant series to
+// the environment storage, after which it sets the agent-version.
+// Not tested directly since there's numerous tests which use it in cmd/juju and bootstrapSuite.
+func UploadTools(env environs.Environ, toolsArch *string, allowRelease bool, bootstrapSeries ...string) error {
+	// Check the series are valid.
+	for _, series := range bootstrapSeries {
+		if _, err := simplestreams.SeriesVersion(series); err != nil {
+			return err
+		}
+	}
+	// See that we are allowed to upload the tools.
+	if err := validateUploadAllowed(env, toolsArch, allowRelease); err != nil {
+		return err
+	}
+
 	cfg := env.Config()
-	uploadVersion := version.Current.Number
-	uploadVersion.Build++
-	uploadSeries := set.NewStrings(
-		bootstrapSeries,
-		cfg.DefaultSeries(),
-		config.DefaultSeries,
-	)
-	tools, err := sync.Upload(env.Storage(), &uploadVersion, uploadSeries.Values()...)
+	forceVersion := uploadVersion(version.Current.Number, nil)
+	uploadSeries := UploadSeries(cfg, bootstrapSeries)
+	tools, err := sync.Upload(env.Storage(), &forceVersion, uploadSeries...)
 	if err != nil {
 		return err
 	}
@@ -46,6 +56,75 @@ func uploadTools(env environs.Environ, bootstrapSeries string) error {
 	}
 	if err != nil {
 		return fmt.Errorf("failed to update environment configuration: %v", err)
+	}
+	return nil
+}
+
+// uploadVersion returns a copy of the supplied version with a build number
+// higher than any of the supplied tools that share its major, minor and patch.
+func uploadVersion(vers version.Number, existing coretools.List) version.Number {
+	vers.Build++
+	for _, t := range existing {
+		if t.Version.Major != vers.Major || t.Version.Minor != vers.Minor || t.Version.Patch != vers.Patch {
+			continue
+		}
+		if t.Version.Build >= vers.Build {
+			vers.Build = t.Version.Build + 1
+		}
+	}
+	return vers
+}
+
+// UploadSeries returns the supplied series with duplicates removed if
+// non-empty; otherwise it returns a default list of series we should
+// probably upload, based on cfg.
+func UploadSeries(cfg *config.Config, series []string) []string {
+	unique := set.NewStrings(series...)
+	if unique.IsEmpty() {
+		unique.Add(version.Current.Series)
+		unique.Add(config.DefaultSeries)
+		unique.Add(cfg.DefaultSeries())
+	}
+	return unique.Values()
+}
+
+// validateUploadAllowed returns an error if an attempt to upload tools should
+// not be allowed.
+func validateUploadAllowed(env environs.Environ, toolsArch *string, allowRelease bool) error {
+	// First, check that there isn't already an agent version specified, and that we
+	// are running a development version.
+	if _, hasAgentVersion := env.Config().AgentVersion(); hasAgentVersion || (!allowRelease && !version.Current.IsDev()) {
+		return fmt.Errorf(noToolsNoUploadMessage)
+	}
+
+	// Now check that the architecture for which we are setting up an
+	// environment matches that from which we are bootstrapping.
+	hostArch, err := arch.HostArch()
+	if err != nil {
+		return fmt.Errorf(
+			"no packaged tools available and cannot determine local architecure to build custom tools: %v", err)
+	}
+	// We can't build tools for a different architecture if one is specified.
+	if toolsArch != nil && *toolsArch != hostArch {
+		return fmt.Errorf("cannot build tools for %q using a machine running on %q", *toolsArch, hostArch)
+	}
+	// If no architecture is specified, ensure the target provider supports instances matching our architecture.
+	supportedArchitectures, err := env.SupportedArchitectures()
+	if err != nil {
+		return fmt.Errorf(
+			"no packaged tools available and cannot determine environment's supported architectures: %v", err)
+	}
+	archSupported := false
+	for _, arch := range supportedArchitectures {
+		if hostArch == arch {
+			archSupported = true
+			break
+		}
+	}
+	if !archSupported {
+		envType := env.Config().Type()
+		return fmt.Errorf(
+			"environment %q of type %s does not support instances running on %q", env.Name(), envType, hostArch)
 	}
 	return nil
 }
@@ -79,43 +158,9 @@ func EnsureToolsAvailability(env environs.Environ, series string, toolsArch *str
 	}
 
 	// No tools available so our only hope is to build locally and upload.
-	// First, check that there isn't already an agent version specified, and that we
-	// are running a development version.
-	if _, hasAgentVersion := env.Config().AgentVersion(); hasAgentVersion || !version.Current.IsDev() {
-		return nil, fmt.Errorf(noToolsNoUploadMessage)
-	}
-
-	// Now check that the architecture for which we are setting up an
-	// environment matches that from which we are bootstrapping.
-	hostArch, err := arch.HostArch()
-	if err != nil {
-		return nil, fmt.Errorf(
-			"no packaged tools available and cannot determine local architecure to build custom tools: %v", err)
-	}
-	// We can't build tools for a different architecture if one is specified.
-	if toolsArch != nil && *toolsArch != hostArch {
-		return nil, fmt.Errorf("cannot build tools for %q using a machine running on %q", *toolsArch, hostArch)
-	}
-	// If no architecture is specified, ensure the target provider supports instances matching our architecture.
-	supportedArchitectures, err := env.SupportedArchitectures()
-	if err != nil {
-		return nil, fmt.Errorf(
-			"no packaged tools available and cannot determine environment's supported architectures: %v", err)
-	}
-	archSupported := false
-	for _, arch := range supportedArchitectures {
-		if hostArch == arch {
-			archSupported = true
-			break
-		}
-	}
-	if !archSupported {
-		return nil, fmt.Errorf(
-			"environment %q of type %s does not support instances running on %q", env.Name(), cfg.Type(), hostArch)
-	}
 	// So we now know we can build/package tools for an architecture which can be hosted by the environment.
 	logger.Warningf("no tools available, attempting to upload")
-	if err := uploadTools(env, series); err != nil {
+	if err := UploadTools(env, toolsArch, false, series); err != nil {
 		logger.Errorf("%s", noToolsMessage)
 		return nil, fmt.Errorf("cannot upload bootstrap tools: %v", err)
 	}
