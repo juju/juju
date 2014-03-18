@@ -254,7 +254,7 @@ func (s *deployerSuite) TestAPIAddresses(c *gc.C) {
 	err := s.machine.SetAddresses(addrs)
 	c.Assert(err, gc.IsNil)
 
-	stateAddresses, err := s.State.APIAddresses()
+	stateAddresses, err := s.State.APIAddressesFromMachines()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(stateAddresses), gc.Equals, 1)
 

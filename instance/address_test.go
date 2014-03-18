@@ -30,6 +30,15 @@ func (s *AddressSuite) TestNewAddressIpv6(c *gc.C) {
 	c.Check(addr.Type, gc.Equals, Ipv6Address)
 }
 
+func (s *AddressSuite) TestNewAddresses(c *gc.C) {
+	addresses := NewAddresses(
+		[]string{"127.0.0.1", "192.168.1.1", "192.168.178.255"})
+	c.Assert(len(addresses), gc.Equals, 3)
+	c.Assert(addresses[0].Value, gc.Equals, "127.0.0.1")
+	c.Assert(addresses[1].Value, gc.Equals, "192.168.1.1")
+	c.Assert(addresses[2].Value, gc.Equals, "192.168.178.255")
+}
+
 func (s *AddressSuite) TestNewAddressHostname(c *gc.C) {
 	addr := NewAddress("localhost")
 	c.Check(addr.Value, gc.Equals, "localhost")

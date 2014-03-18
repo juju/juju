@@ -10,7 +10,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -38,6 +37,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/utils/shell"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/terminationworker"
 )
@@ -60,7 +60,6 @@ type localEnviron struct {
 	localStorage     storage.Storage
 	storageListener  net.Listener
 	containerManager container.Manager
-	fastLXC          bool
 }
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
@@ -177,10 +176,11 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 //
 // mcfg is supplied for testing purposes.
 var finishBootstrap = func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config, ctx environs.BootstrapContext) error {
-	script, err := sshinit.ConfigureScript(cloudcfg)
+	configScript, err := sshinit.ConfigureScript(cloudcfg)
 	if err != nil {
 		return nil
 	}
+	script := shell.DumpFileOnErrorScript(mcfg.CloudInitOutputLog) + configScript
 	cmd := exec.Command("sudo", "/bin/bash", "-s")
 	cmd.Stdin = strings.NewReader(script)
 	cmd.Stdout = ctx.GetStdout()
@@ -212,15 +212,16 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	env.config = ecfg
 	env.name = ecfg.Name()
 	containerType := ecfg.container()
-	env.fastLXC = useFastLXC(containerType)
-
+	managerConfig := container.ManagerConfig{
+		container.ConfigName:   env.config.namespace(),
+		container.ConfigLogDir: env.config.logDir(),
+	}
+	if containerType == instance.LXC {
+		managerConfig["use-clone"] = env.config.lxcClone()
+		managerConfig["use-aufs"] = env.config.lxcCloneAUFS()
+	}
 	env.containerManager, err = factory.NewContainerManager(
-		containerType,
-		container.ManagerConfig{
-			container.ConfigName:   env.config.namespace(),
-			container.ConfigLogDir: env.config.logDir(),
-			"use-clone":            strconv.FormatBool(env.fastLXC),
-		})
+		containerType, managerConfig)
 	if err != nil {
 		return err
 	}

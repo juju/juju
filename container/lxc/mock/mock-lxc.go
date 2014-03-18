@@ -54,8 +54,10 @@ func (action Action) String() string {
 }
 
 type Event struct {
-	Action     Action
-	InstanceId string
+	Action       Action
+	InstanceId   string
+	Args         []string
+	TemplateArgs []string
 }
 
 type ContainerFactory interface {
@@ -124,7 +126,7 @@ func (mock *mockContainer) Create(configFile, template string, extraArgs []strin
 		return err
 	}
 	mock.setState(golxc.StateStopped)
-	mock.factory.notify(Created, mock.name)
+	mock.factory.notify(eventArgs(Created, mock.name, extraArgs, templateArgs))
 	return nil
 }
 
@@ -140,7 +142,7 @@ func (mock *mockContainer) Start(configFile, consoleFile string) error {
 		filepath.Join(container.ContainerDir, mock.name, "console.log"),
 		[]byte("fake console.log"), 0644)
 	mock.setState(golxc.StateRunning)
-	mock.factory.notify(Started, mock.name)
+	mock.factory.notify(event(Started, mock.name))
 	return nil
 }
 
@@ -153,7 +155,7 @@ func (mock *mockContainer) Stop() error {
 		return fmt.Errorf("container is already stopped")
 	}
 	mock.setState(golxc.StateStopped)
-	mock.factory.notify(Stopped, mock.name)
+	mock.factory.notify(event(Stopped, mock.name))
 	return nil
 }
 
@@ -183,7 +185,7 @@ func (mock *mockContainer) Clone(name string, extraArgs []string, templateArgs [
 		return nil, err
 	}
 
-	mock.factory.notify(Cloned, mock.name)
+	mock.factory.notify(eventArgs(Cloned, mock.name, extraArgs, templateArgs))
 	return container, nil
 }
 
@@ -209,7 +211,7 @@ func (mock *mockContainer) Destroy() error {
 	}
 	delete(mock.factory.instances, mock.name)
 	mock.setState(golxc.StateUnknown)
-	mock.factory.notify(Destroyed, mock.name)
+	mock.factory.notify(event(Destroyed, mock.name))
 	return nil
 }
 
@@ -290,8 +292,15 @@ func (mock *mockFactory) List() (result []golxc.Container, err error) {
 	return
 }
 
-func (mock *mockFactory) notify(action Action, instanceId string) {
-	event := Event{action, instanceId}
+func event(action Action, instanceId string) Event {
+	return Event{action, instanceId, nil, nil}
+}
+
+func eventArgs(action Action, instanceId string, args []string, template []string) Event {
+	return Event{action, instanceId, args, template}
+}
+
+func (mock *mockFactory) notify(event Event) {
 	for _, c := range mock.listeners {
 		c <- event
 	}

@@ -12,6 +12,7 @@ import (
 	"github.com/errgo/errgo"
 
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/arch"
 )
 
 // Value describes a user's requirements of the hardware on which units
@@ -279,10 +280,7 @@ func (v *Value) setArch(str string) error {
 	if v.Arch != nil {
 		return fmt.Errorf("already set")
 	}
-	switch str {
-	case "":
-	case "amd64", "i386", "arm", "arm64", "ppc64":
-	default:
+	if str != "" && !arch.IsSupportedArch(str) {
 		return fmt.Errorf("%q not recognized", str)
 	}
 	v.Arch = &str

@@ -59,7 +59,7 @@ func containerDirFilesystem() (string, error) {
 	// The filesystem is the second line.
 	lines := strings.Split(string(out), "\n")
 	if len(lines) < 2 {
-		logger.Errorf("unexpected output: ", out)
+		logger.Errorf("unexpected output: %q", out)
 		return "", fmt.Errorf("could not determine filesystem type")
 	}
 	return lines[1], nil
@@ -69,6 +69,7 @@ type containerManager struct {
 	name              string
 	logdir            string
 	createWithClone   bool
+	useAUFS           bool
 	backingFilesystem string
 }
 
@@ -91,6 +92,7 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 	// If it fails to parse, the value is false, and this suits
 	// us fine.
 	useClone, _ := strconv.ParseBool(conf.PopValue("use-clone"))
+	useAUFS, _ := strconv.ParseBool(conf.PopValue("use-aufs"))
 	backingFS, err := containerDirFilesystem()
 	if err != nil {
 		// Especially in tests, or a bot, the lxc dir may not exist
@@ -105,6 +107,7 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 		name:              name,
 		logdir:            logDir,
 		createWithClone:   useClone,
+		useAUFS:           useAUFS,
 		backingFilesystem: backingFS,
 	}, nil
 }
@@ -158,8 +161,11 @@ func (manager *containerManager) StartContainer(
 			"--userdata", userDataFilename, // Our groovey cloud-init
 			"--hostid", name, // Use the container name as the hostid
 		}
-		extraCloneArgs := []string{"--snapshot"}
-		if manager.backingFilesystem != Btrfs {
+		var extraCloneArgs []string
+		if manager.backingFilesystem == Btrfs || manager.useAUFS {
+			extraCloneArgs = append(extraCloneArgs, "--snapshot")
+		}
+		if manager.backingFilesystem != Btrfs && manager.useAUFS {
 			extraCloneArgs = append(extraCloneArgs, "--backingstore", "aufs")
 		}
 

@@ -14,7 +14,7 @@ type stateSuite struct {
 var _ = gc.Suite(&stateSuite{})
 
 func (s *stateSuite) TestAPIAddresses(c *gc.C) {
-	stateAPIAddresses, err := s.State.APIAddresses()
+	stateAPIAddresses, err := s.State.APIAddressesFromMachines()
 	c.Assert(err, gc.IsNil)
 	addresses, err := s.uniter.APIAddresses()
 	c.Assert(err, gc.IsNil)

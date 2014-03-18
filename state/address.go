@@ -6,6 +6,7 @@ package state
 import (
 	"fmt"
 
+	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/instance"
 )
 
@@ -105,9 +106,11 @@ func (st *State) Addresses() ([]string, error) {
 	return appendPort(addrs, config.StatePort()), nil
 }
 
-// APIAddresses returns the list of cloud-internal addresses that
+// APIAddressesFromMachines returns the list of cloud-internal addresses that
 // can be used to connect to the state API server.
-func (st *State) APIAddresses() ([]string, error) {
+// This method will be deprecated when API addresses are
+// stored independently in their own document.
+func (st *State) APIAddressesFromMachines() ([]string, error) {
 	addrs, err := st.stateServerAddresses()
 	if err != nil {
 		return nil, err
@@ -117,6 +120,41 @@ func (st *State) APIAddresses() ([]string, error) {
 		return nil, err
 	}
 	return appendPort(addrs, config.APIPort()), nil
+}
+
+const apiAddressesKey = "apiAddresses"
+
+type apiAddressesDoc struct {
+	APIAddresses []address
+}
+
+func (st *State) SetAPIAddresses(addrs []instance.Address) error {
+	doc := apiAddressesDoc{
+		APIAddresses: instanceAddressesToAddresses(addrs),
+	}
+	// We need to insert the document if it does not already
+	// exist to make this method work even on old environments
+	// where the document was not created by Initialize.
+	ops := []txn.Op{{
+		C:  st.stateServers.Name,
+		Id: apiAddressesKey,
+		Update: D{{"$set", D{
+			{"apiaddresses", doc.APIAddresses},
+		}}},
+	}}
+	if err := st.runTransaction(ops); err != nil {
+		return fmt.Errorf("cannot set API addresses: %v", err)
+	}
+	return nil
+}
+
+func (st *State) APIAddresses() ([]instance.Address, error) {
+	var doc apiAddressesDoc
+	err := st.stateServers.Find(D{{"_id", apiAddressesKey}}).One(&doc)
+	if err != nil {
+		return nil, err
+	}
+	return addressesToInstanceAddresses(doc.APIAddresses), nil
 }
 
 type DeployerConnectionValues struct {

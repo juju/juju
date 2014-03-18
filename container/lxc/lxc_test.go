@@ -38,6 +38,7 @@ type LxcSuite struct {
 
 	events   chan mock.Event
 	useClone bool
+	useAUFS  bool
 }
 
 var _ = gc.Suite(&LxcSuite{})
@@ -94,6 +95,9 @@ func (s *LxcSuite) makeManager(c *gc.C, name string) container.Manager {
 	}
 	if s.useClone {
 		params["use-clone"] = "true"
+	}
+	if s.useAUFS {
+		params["use-aufs"] = "true"
 	}
 	manager, err := lxc.NewContainerManager(params)
 	c.Assert(err, gc.IsNil)
@@ -226,8 +230,31 @@ func (s *LxcSuite) TestStartContainerEventsWithCloneExistingTemplate(c *gc.C) {
 	manager := s.makeManager(c, "test")
 	instance := containertesting.StartContainer(c, manager, "1")
 	name := string(instance.Id())
-	s.AssertEvent(c, <-s.events, mock.Cloned, "juju-series-template")
+	cloned := <-s.events
+	s.AssertEvent(c, cloned, mock.Cloned, "juju-series-template")
+	c.Assert(cloned.Args, gc.IsNil)
 	s.AssertEvent(c, <-s.events, mock.Started, name)
+}
+
+func (s *LxcSuite) TestStartContainerEventsWithCloneExistingTemplateAUFS(c *gc.C) {
+	s.createTemplate(c)
+	s.PatchValue(&s.useClone, true)
+	s.PatchValue(&s.useAUFS, true)
+	manager := s.makeManager(c, "test")
+	instance := containertesting.StartContainer(c, manager, "1")
+	name := string(instance.Id())
+	cloned := <-s.events
+	s.AssertEvent(c, cloned, mock.Cloned, "juju-series-template")
+	c.Assert(cloned.Args, gc.DeepEquals, []string{"--snapshot", "--backingstore", "aufs"})
+	s.AssertEvent(c, <-s.events, mock.Started, name)
+}
+
+func (s *LxcSuite) TestStartContainerWithCloneMountsAndAutostarts(c *gc.C) {
+	s.createTemplate(c)
+	s.PatchValue(&s.useClone, true)
+	manager := s.makeManager(c, "test")
+	instance := containertesting.StartContainer(c, manager, "1")
+	name := string(instance.Id())
 
 	autostartLink := lxc.RestartSymlink(name)
 	config, err := ioutil.ReadFile(lxc.ContainerConfigFilename(name))

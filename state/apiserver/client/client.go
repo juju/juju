@@ -13,11 +13,9 @@ import (
 	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/charm"
-	coreCloudinit "launchpad.net/juju-core/cloudinit"
-	"launchpad.net/juju-core/cloudinit/sshinit"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/manual"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -611,15 +609,7 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 		return result, err
 	}
 	mcfg.DisablePackageCommands = args.DisablePackageCommands
-	cloudcfg := coreCloudinit.New()
-	if err := cloudinit.ConfigureJuju(mcfg, cloudcfg); err != nil {
-		return result, err
-	}
-	// ProvisioningScript is run on an existing machine;
-	// we explicitly disable apt_upgrade so as not to
-	// trample the machine's existing configuration.
-	cloudcfg.SetAptUpgrade(false)
-	result.Script, err = sshinit.ConfigureScript(cloudcfg)
+	result.Script, err = manual.ProvisioningScript(mcfg)
 	return result, err
 }
 

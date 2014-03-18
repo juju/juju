@@ -31,6 +31,7 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
@@ -225,6 +226,9 @@ func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Conf
 	return p.Open(cfg)
 }
 
+// supportedArches lists the CPU architectures supported by Openstack.
+var supportedArches = []string{arch.AMD64, arch.ARM, arch.ARM64, arch.PPC64}
+
 // MetadataLookupParams returns parameters which are used to query image metadata to
 // find matching image information.
 func (p environProvider) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
@@ -233,7 +237,7 @@ func (p environProvider) MetadataLookupParams(region string) (*simplestreams.Met
 	}
 	return &simplestreams.MetadataLookupParams{
 		Region:        region,
-		Architectures: []string{"amd64", "arm", "arm64", "ppc64"},
+		Architectures: supportedArches,
 	}, nil
 }
 
@@ -1225,7 +1229,7 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 		Series:        e.ecfg().DefaultSeries(),
 		Region:        region,
 		Endpoint:      e.ecfg().authURL(),
-		Architectures: []string{"amd64", "arm", "arm64", "ppc64"},
+		Architectures: supportedArches,
 	}, nil
 }
 

@@ -9,7 +9,6 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
@@ -36,6 +35,9 @@ func (s *InitializeSuite) TearDownSuite(c *gc.C) {
 func (s *InitializeSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
+}
+
+func (s *InitializeSuite) openState(c *gc.C) {
 	var err error
 	s.State, err = state.Open(state.TestingStateInfo(), state.TestingDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.IsNil)
@@ -48,15 +50,6 @@ func (s *InitializeSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *InitializeSuite) TestInitialize(c *gc.C) {
-	_, err := s.State.EnvironConfig()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
-	_, err = s.State.FindEntity("environment-foo")
-	// TODO(axw) 2013-12-04 #1257587
-	// remove backwards compatibility for environment-tag; see state.go
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
-	_, err = s.State.EnvironConstraints()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
-
 	cfg := testing.EnvironConfig(c)
 	initial := cfg.AllAttrs()
 	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialOpts(), state.Policy(nil))
@@ -64,6 +57,8 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	c.Assert(st, gc.NotNil)
 	err = st.Close()
 	c.Assert(err, gc.IsNil)
+
+	s.openState(c)
 
 	cfg, err = s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
@@ -80,6 +75,14 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	cons, err := s.State.EnvironConstraints()
 	c.Assert(err, gc.IsNil)
 	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
+
+	addrs, err := s.State.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(addrs, gc.HasLen, 0)
+
+	info, err := s.State.StateServerInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(info, jc.DeepEquals, &state.StateServerInfo{})
 }
 
 func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
@@ -98,6 +101,7 @@ func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 	c.Assert(st, gc.NotNil)
 	st.Close()
 
+	s.openState(c)
 	cfg, err = s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
 	c.Assert(cfg.AllAttrs(), gc.DeepEquals, initial)
@@ -115,6 +119,8 @@ func (s *InitializeSuite) TestEnvironConfigWithAdminSecret(c *gc.C) {
 	// admin-secret blocks UpdateEnvironConfig.
 	st := state.TestingInitialize(c, good, state.Policy(nil))
 	st.Close()
+
+	s.openState(c)
 	err = s.State.UpdateEnvironConfig(badUpdateAttrs, nil, nil)
 	c.Assert(err, gc.ErrorMatches, "admin-secret should never be written to the state")
 
@@ -137,6 +143,8 @@ func (s *InitializeSuite) TestEnvironConfigWithoutAgentVersion(c *gc.C) {
 
 	st := state.TestingInitialize(c, good, state.Policy(nil))
 	st.Close()
+
+	s.openState(c)
 	err = s.State.UpdateEnvironConfig(map[string]interface{}{}, []string{"agent-version"}, nil)
 	c.Assert(err, gc.ErrorMatches, "agent-version must always be set in state")
 
