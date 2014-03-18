@@ -76,7 +76,6 @@ func DefaultDialOpts() DialOpts {
 //
 // Open returns unauthorizedError if access is unauthorized.
 func Open(info *Info, opts DialOpts, policy Policy) (*State, error) {
-
 	logger.Infof("opening state; mongo addresses: %q; entity %q", info.Addrs, info.Tag)
 	if len(info.Addrs) == 0 {
 		return nil, stderrors.New("no mongo addresses")
