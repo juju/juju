@@ -57,6 +57,7 @@ type State struct {
 	relations        *mgo.Collection
 	relationScopes   *mgo.Collection
 	services         *mgo.Collection
+	networks         *mgo.Collection
 	minUnits         *mgo.Collection
 	settings         *mgo.Collection
 	settingsrefs     *mgo.Collection
@@ -953,6 +954,7 @@ func (st *State) AddService(name, ownerTag string, ch *Charm) (service *Service,
 	ops := []txn.Op{
 		env.assertAliveOp(),
 		createConstraintsOp(st, svc.globalKey(), constraints.Value{}),
+		createNetworksOp(st, svc.globalKey(), []string{}, []string{}),
 		createSettingsOp(st, svc.settingsKey(), nil),
 		{
 			C:      st.users.Name,

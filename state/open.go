@@ -154,6 +154,7 @@ func Initialize(info *Info, cfg *config.Config, opts DialOpts, policy Policy) (r
 		return nil, fmt.Errorf("environment UUID cannot be created: %v", err)
 	}
 	ops := []txn.Op{
+		createNetworksOp(st, environGlobalKey, []string{}, []string{}),
 		createConstraintsOp(st, environGlobalKey, constraints.Value{}),
 		createSettingsOp(st, environGlobalKey, cfg.AllAttrs()),
 		createEnvironmentOp(st, cfg.Name(), uuid.String()),
@@ -254,6 +255,7 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 		relations:      db.C("relations"),
 		relationScopes: db.C("relationscopes"),
 		services:       db.C("services"),
+		networks:       db.C("networks"),
 		minUnits:       db.C("minunits"),
 		settings:       db.C("settings"),
 		settingsrefs:   db.C("settingsrefs"),
