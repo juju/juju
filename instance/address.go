@@ -63,7 +63,7 @@ func AddressesWithPort(addrs []Address, port int) []HostPort {
 // NetAddr returns the host-port as an address
 // suitable for calling net.Dial.
 func (hp HostPort) NetAddr() string {
-	return net.JoinHostPort(hp.Value, strconv.FormatInt(int64(hp.Port), 10))
+	return net.JoinHostPort(hp.Value, strconv.Itoa(hp.Port))
 }
 
 // String returns a string representation of the address,
