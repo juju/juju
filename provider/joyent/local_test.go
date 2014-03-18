@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	lc "github.com/joyent/gosdc/localservices/cloudapi"
 	lm "github.com/joyent/gomanta/localservices/manta"
@@ -28,7 +29,6 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/joyent"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
 

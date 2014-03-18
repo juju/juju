@@ -13,7 +13,6 @@ import (
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	keymanagerserver "launchpad.net/juju-core/state/apiserver/keymanager"
 	keymanagertesting "launchpad.net/juju-core/state/apiserver/keymanager/testing"
-	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 	sshtesting "launchpad.net/juju-core/utils/ssh/testing"
@@ -103,7 +102,7 @@ func (s *keySuiteBase) SetUpSuite(c *gc.C) {
 
 func (s *keySuiteBase) setAuthorisedKeys(c *gc.C, keys ...string) {
 	keyString := strings.Join(keys, "\n")
-	err := statetesting.UpdateConfig(s.State, map[string]interface{}{"authorized-keys": keyString})
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{"authorized-keys": keyString}, nil, nil)
 	c.Assert(err, gc.IsNil)
 	envConfig, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)

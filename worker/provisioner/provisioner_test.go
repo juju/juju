@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
@@ -23,7 +24,6 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/worker/provisioner"
@@ -96,11 +96,8 @@ func (s *CommonProvisionerSuite) APILogin(c *gc.C, machine *state.Machine) {
 // that causes the given environMethod of the dummy provider to return
 // an error, which is also returned as a message to be checked.
 func breakDummyProvider(c *gc.C, st *state.State, environMethod string) string {
-	oldCfg, err := st.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	cfg, err := oldCfg.Apply(map[string]interface{}{"broken": environMethod})
-	c.Assert(err, gc.IsNil)
-	err = st.SetEnvironConfig(cfg, oldCfg)
+	attrs := map[string]interface{}{"broken": environMethod}
+	err := st.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 	return fmt.Sprintf("dummy.%s is broken", environMethod)
 }
@@ -121,21 +118,21 @@ func (s *CommonProvisionerSuite) setupEnvironmentManager(c *gc.C) {
 // so the Settings returned from the watcher will not pass
 // validation.
 func (s *CommonProvisionerSuite) invalidateEnvironment(c *gc.C) {
-	attrs := s.cfg.AllAttrs()
-	attrs["type"] = "unknown"
-	invalidCfg, err := config.New(config.NoDefaults, attrs)
+	st, err := state.Open(s.StateInfo(c), state.DefaultDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(invalidCfg, s.cfg)
+	defer st.Close()
+	attrs := map[string]interface{}{"type": "unknown"}
+	err = st.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 }
 
 // fixEnvironment undoes the work of invalidateEnvironment.
-func (s *CommonProvisionerSuite) fixEnvironment() error {
-	cfg, err := s.State.EnvironConfig()
-	if err != nil {
-		return err
-	}
-	return s.State.SetEnvironConfig(s.cfg, cfg)
+func (s *CommonProvisionerSuite) fixEnvironment(c *gc.C) error {
+	st, err := state.Open(s.StateInfo(c), state.DefaultDialOpts(), state.Policy(nil))
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+	attrs := map[string]interface{}{"type": s.cfg.AllAttrs()["type"]}
+	return st.UpdateEnvironConfig(attrs, nil, nil)
 }
 
 // stopper is stoppable.
@@ -415,7 +412,7 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenStartInstanceFailed
 	}
 
 	// Unbreak the environ config.
-	err = s.fixEnvironment()
+	err = s.fixEnvironment(c)
 	c.Assert(err, gc.IsNil)
 
 	// Restart the PA to make sure the machine is skipped again.
@@ -480,7 +477,7 @@ func (s *ProvisionerSuite) TestProvisioningOccursWithFixedEnvironment(c *gc.C) {
 	// the PA should not create it
 	s.checkNoOperations(c)
 
-	err = s.fixEnvironment()
+	err = s.fixEnvironment(c)
 	c.Assert(err, gc.IsNil)
 
 	s.checkStartInstance(c, m)
@@ -611,20 +608,15 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	// the PA should create it using the old environment
 	s.checkStartInstance(c, m)
 
-	err = s.fixEnvironment()
+	err = s.fixEnvironment(c)
 	c.Assert(err, gc.IsNil)
 
 	// insert our observer
 	cfgObserver := make(chan *config.Config, 1)
 	provisioner.SetObserver(p, cfgObserver)
 
-	oldcfg, err := s.State.EnvironConfig()
+	err = s.State.UpdateEnvironConfig(map[string]interface{}{"secret": "beef"}, nil, nil)
 	c.Assert(err, gc.IsNil)
-	attrs := oldcfg.AllAttrs()
-	attrs["secret"] = "beef"
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(cfg, oldcfg)
 
 	s.BackingState.StartSync()
 
@@ -666,13 +658,9 @@ func (s *ProvisionerSuite) TestProvisioningSafeMode(c *gc.C) {
 	c.Assert(m1.Remove(), gc.IsNil)
 
 	// turn on safe mode
-	oldcfg, err := s.State.EnvironConfig()
+	attrs := map[string]interface{}{"provisioner-safe-mode": true}
+	err = s.State.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
-	attrs := oldcfg.AllAttrs()
-	attrs["provisioner-safe-mode"] = true
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(cfg, oldcfg)
 
 	// start a new provisioner to shut down only the machine still in state.
 	p = s.newEnvironProvisioner(c)
@@ -712,13 +700,9 @@ func (s *ProvisionerSuite) TestProvisioningSafeModeChange(c *gc.C) {
 	provisioner.SetObserver(p, cfgObserver)
 
 	// turn on safe mode
-	oldcfg, err := s.State.EnvironConfig()
+	attrs := map[string]interface{}{"provisioner-safe-mode": true}
+	err = s.State.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
-	attrs := oldcfg.AllAttrs()
-	attrs["provisioner-safe-mode"] = true
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(cfg, oldcfg)
 
 	s.BackingState.StartSync()
 

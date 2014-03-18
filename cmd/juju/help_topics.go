@@ -79,6 +79,24 @@ You deploy charms from the charm store using the following commands:
   juju deploy wordpress
   juju add-relation wordpress mysql
 
+As of trusty, the local provider will prefer to use lxc-clone to create
+the machines. A 'template' container is created with the name
+  juju-<series>-tempalte
+where <series> is the OS series, for example 'juju-precise-template'.
+You can override the use of clone by specifying
+  use-clone: true
+or
+  use-clone: false
+in the configuration for your local provider.  If you have the main container
+directory mounted on a btrfs partition, then the clone will be using btrfs
+snapshots to create the containers. This means that the clones use up much
+less disk space.  If you do not have btrfs, lxc will attempt to use aufs
+(which is an overlay type filesystem). You can explicitly ask Juju to create
+full containers and not overlays by specifying the following in the provider
+configuration:
+  use-clone-aufs: false
+
+
 References:
 
   http://askubuntu.com/questions/65359/how-do-i-configure-juju-for-local-usage

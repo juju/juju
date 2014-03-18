@@ -6,6 +6,7 @@ package uniter_test
 import (
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
@@ -21,7 +22,6 @@ import (
 	"launchpad.net/juju-core/state/apiserver/uniter"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 func Test(t *stdtesting.T) {
@@ -1428,7 +1428,7 @@ func (s *uniterSuite) TestAPIAddresses(c *gc.C) {
 		instance.NewAddress("0.1.2.3"),
 	})
 	c.Assert(err, gc.IsNil)
-	apiAddresses, err := s.State.APIAddresses()
+	apiAddresses, err := s.State.APIAddressesFromMachines()
 	c.Assert(err, gc.IsNil)
 
 	result, err := s.uniter.APIAddresses()

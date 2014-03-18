@@ -4,6 +4,7 @@
 package manual
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -24,6 +25,7 @@ import (
 	"launchpad.net/juju-core/state/statecmd"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/shell"
 )
 
 const manualInstancePrefix = "manual:"
@@ -143,7 +145,7 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 	} else {
 		mcfg, err := statecmd.MachineConfig(stateConn.State, machineId, machineParams.Nonce, args.DataDir)
 		if err == nil {
-			provisioningScript, err = generateProvisioningScript(mcfg)
+			provisioningScript, err = ProvisioningScript(mcfg)
 		}
 		if err != nil {
 			return "", err
@@ -199,9 +201,6 @@ func recordMachineInState1dot16(
 	if err != nil {
 		return "", err
 	}
-	//if p.Series == "" {
-	//	p.Series = defaultSeries
-	//}
 	template := state.MachineTemplate{
 		Series:      machineParams.Series,
 		Constraints: machineParams.Constraints,
@@ -294,14 +293,17 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 }
 
 var provisionMachineAgent = func(host string, mcfg *cloudinit.MachineConfig, progressWriter io.Writer) error {
-	script, err := generateProvisioningScript(mcfg)
+	script, err := ProvisioningScript(mcfg)
 	if err != nil {
 		return err
 	}
 	return runProvisionScript(script, host, progressWriter)
 }
 
-func generateProvisioningScript(mcfg *cloudinit.MachineConfig) (string, error) {
+// ProvisioningScript generates a bash script that can be
+// executed on a remote host to carry out the cloud-init
+// configuration.
+func ProvisioningScript(mcfg *cloudinit.MachineConfig) (string, error) {
 	cloudcfg := coreCloudinit.New()
 	if err := cloudinit.ConfigureJuju(mcfg, cloudcfg); err != nil {
 		return "", err
@@ -309,7 +311,18 @@ func generateProvisioningScript(mcfg *cloudinit.MachineConfig) (string, error) {
 	// Explicitly disabling apt_upgrade so as not to trample
 	// the target machine's existing configuration.
 	cloudcfg.SetAptUpgrade(false)
-	return sshinit.ConfigureScript(cloudcfg)
+	configScript, err := sshinit.ConfigureScript(cloudcfg)
+	if err != nil {
+		return "", err
+	}
+
+	var buf bytes.Buffer
+	// Always remove the cloud-init-output.log file first, if it exists.
+	fmt.Fprintf(&buf, "rm -f %s\n", utils.ShQuote(mcfg.CloudInitOutputLog))
+	// If something goes wrong, dump cloud-init-output.log to stderr.
+	buf.WriteString(shell.DumpFileOnErrorScript(mcfg.CloudInitOutputLog))
+	buf.WriteString(configScript)
+	return buf.String(), nil
 }
 
 func runProvisionScript(script, host string, progressWriter io.Writer) error {

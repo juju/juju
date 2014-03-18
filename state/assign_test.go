@@ -9,12 +9,12 @@ import (
 	"strconv"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type AssignSuite struct {

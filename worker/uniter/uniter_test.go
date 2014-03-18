@@ -17,6 +17,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
@@ -30,7 +31,6 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	apiuniter "launchpad.net/juju-core/state/api/uniter"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 	utilexec "launchpad.net/juju-core/utils/exec"
 	"launchpad.net/juju-core/utils/fslock"
@@ -1151,7 +1151,7 @@ func (s ensureStateWorker) step(c *gc.C, ctx *context) {
 	if err != nil || len(addresses) == 0 {
 		testing.AddStateServerMachine(c, ctx.st)
 	}
-	addresses, err = ctx.st.APIAddresses()
+	addresses, err = ctx.st.APIAddressesFromMachines()
 	c.Assert(err, gc.IsNil)
 	c.Assert(addresses, gc.HasLen, 1)
 }
@@ -1959,16 +1959,13 @@ var verifyHookSyncLockLocked = custom{func(c *gc.C, ctx *context) {
 type setProxySettings osenv.ProxySettings
 
 func (s setProxySettings) step(c *gc.C, ctx *context) {
-	old, err := ctx.st.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	cfg, err := old.Apply(map[string]interface{}{
+	attrs := map[string]interface{}{
 		"http-proxy":  s.Http,
 		"https-proxy": s.Https,
 		"ftp-proxy":   s.Ftp,
 		"no-proxy":    s.NoProxy,
-	})
-	c.Assert(err, gc.IsNil)
-	err = ctx.st.SetEnvironConfig(cfg, old)
+	}
+	err := ctx.st.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 	// wait for the new values...
 	expected := (osenv.ProxySettings)(s)

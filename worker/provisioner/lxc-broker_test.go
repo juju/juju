@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
@@ -24,7 +25,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/provisioner"
@@ -88,7 +88,11 @@ func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 	machineConfig := environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo)
 	cons := constraints.Value{}
 	possibleTools := s.broker.(coretools.HasTools).Tools()
-	lxc, _, err := s.broker.StartInstance(cons, possibleTools, machineConfig)
+	lxc, _, err := s.broker.StartInstance(environs.StartInstanceParams{
+		Constraints:   cons,
+		Tools:         possibleTools,
+		MachineConfig: machineConfig,
+	})
 	c.Assert(err, gc.IsNil)
 	return lxc
 }
@@ -204,6 +208,8 @@ func (s *lxcProvisionerSuite) SetUpTest(c *gc.C) {
 func (s *lxcProvisionerSuite) expectStarted(c *gc.C, machine *state.Machine) string {
 	s.State.StartSync()
 	event := <-s.events
+	c.Assert(event.Action, gc.Equals, mock.Created)
+	event = <-s.events
 	c.Assert(event.Action, gc.Equals, mock.Started)
 	err := machine.Refresh()
 	c.Assert(err, gc.IsNil)
@@ -215,6 +221,8 @@ func (s *lxcProvisionerSuite) expectStopped(c *gc.C, instId string) {
 	s.State.StartSync()
 	event := <-s.events
 	c.Assert(event.Action, gc.Equals, mock.Stopped)
+	event = <-s.events
+	c.Assert(event.Action, gc.Equals, mock.Destroyed)
 	c.Assert(event.InstanceId, gc.Equals, instId)
 }
 

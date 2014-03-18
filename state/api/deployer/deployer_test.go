@@ -6,6 +6,7 @@ package deployer_test
 import (
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/instance"
@@ -16,7 +17,6 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -254,7 +254,7 @@ func (s *deployerSuite) TestAPIAddresses(c *gc.C) {
 	err := s.machine.SetAddresses(addrs)
 	c.Assert(err, gc.IsNil)
 
-	stateAddresses, err := s.State.APIAddresses()
+	stateAddresses, err := s.State.APIAddressesFromMachines()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(stateAddresses), gc.Equals, 1)
 

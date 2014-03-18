@@ -55,7 +55,7 @@ func (fakeAddresses) Addresses() ([]string, error) {
 	return []string{"addresses:1", "addresses:2"}, nil
 }
 
-func (fakeAddresses) APIAddresses() ([]string, error) {
+func (fakeAddresses) APIAddressesFromMachines() ([]string, error) {
 	return []string{"apiaddresses:1", "apiaddresses:2"}, nil
 }
 

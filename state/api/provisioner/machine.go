@@ -206,8 +206,8 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 // SetPassword sets the machine's password.
 func (m *Machine) SetPassword(password string) error {
 	var result params.ErrorResults
-	args := params.PasswordChanges{
-		Changes: []params.PasswordChange{
+	args := params.EntityPasswords{
+		Changes: []params.EntityPassword{
 			{Tag: m.tag, Password: password},
 		},
 	}

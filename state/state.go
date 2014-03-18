@@ -38,7 +38,10 @@ var logger = loggo.GetLogger("juju.state")
 type D []bson.DocElem
 
 // BootstrapNonce is used as a nonce for the state server machine.
-const BootstrapNonce = "user-admin:bootstrap"
+const (
+	BootstrapNonce = "user-admin:bootstrap"
+	AdminUser      = "admin"
+)
 
 // State represents the state of an environment
 // managed by juju.
@@ -256,12 +259,33 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) error {
 	return ErrExcessiveContention
 }
 
-// SetEnvironConfig replaces the current configuration of the
-// environment with the provided configuration.
-func (st *State) SetEnvironConfig(cfg, old *config.Config) error {
-	if err := checkEnvironConfig(cfg); err != nil {
-		return err
+func (st *State) buildAndValidateEnvironConfig(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) (validCfg *config.Config, err error) {
+	newConfig, err := oldConfig.Apply(updateAttrs)
+	if err != nil {
+		return nil, err
 	}
+	if len(removeAttrs) != 0 {
+		newConfig, err = newConfig.Remove(removeAttrs)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if err := checkEnvironConfig(newConfig); err != nil {
+		return nil, err
+	}
+	return st.validate(newConfig, oldConfig)
+}
+
+type ValidateConfigFunc func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error
+
+// UpateEnvironConfig adds, updates or removes attributes in the current
+// configuration of the environment with the provided updateAttrs and
+// removeAttrs.
+func (st *State) UpdateEnvironConfig(updateAttrs map[string]interface{}, removeAttrs []string, additionalValidation ValidateConfigFunc) error {
+	if len(updateAttrs)+len(removeAttrs) == 0 {
+		return nil
+	}
+
 	// TODO(axw) 2013-12-6 #1167616
 	// Ensure that the settings on disk have not changed
 	// underneath us. The settings changes are actually
@@ -272,13 +296,30 @@ func (st *State) SetEnvironConfig(cfg, old *config.Config) error {
 	if err != nil {
 		return err
 	}
-	newattrs := cfg.AllAttrs()
-	for k, _ := range old.AllAttrs() {
-		if _, ok := newattrs[k]; !ok {
+
+	// Get the existing environment config from state.
+	oldConfig, err := config.New(config.NoDefaults, settings.Map())
+	if err != nil {
+		return err
+	}
+	if additionalValidation != nil {
+		err = additionalValidation(updateAttrs, removeAttrs, oldConfig)
+		if err != nil {
+			return err
+		}
+	}
+	validCfg, err := st.buildAndValidateEnvironConfig(updateAttrs, removeAttrs, oldConfig)
+	if err != nil {
+		return err
+	}
+
+	validAttrs := validCfg.AllAttrs()
+	for k, _ := range oldConfig.AllAttrs() {
+		if _, ok := validAttrs[k]; !ok {
 			settings.Delete(k)
 		}
 	}
-	settings.Update(newattrs)
+	settings.Update(validAttrs)
 	_, err = settings.Write()
 	return err
 }
@@ -1294,19 +1335,19 @@ func (st *State) StartSync() {
 // all subsequent attempts to access the state must
 // be authorized; otherwise no authorization is required.
 func (st *State) SetAdminMongoPassword(password string) error {
-	admin := st.db.Session.DB("admin")
+	admin := st.db.Session.DB(AdminUser)
 	if password != "" {
 		// On 2.2+, we get a "need to login" error without a code when
 		// adding the first user because we go from no-auth+no-login to
 		// auth+no-login. Not great. Hopefully being fixed in 2.4.
-		if err := admin.AddUser("admin", password, false); err != nil && err.Error() != "need to login" {
+		if err := admin.AddUser(AdminUser, password, false); err != nil && err.Error() != "need to login" {
 			return fmt.Errorf("cannot set admin password: %v", err)
 		}
-		if err := admin.Login("admin", password); err != nil {
+		if err := admin.Login(AdminUser, password); err != nil {
 			return fmt.Errorf("cannot login after setting password: %v", err)
 		}
 	} else {
-		if err := admin.RemoveUser("admin"); err != nil && err != mgo.ErrNotFound {
+		if err := admin.RemoveUser(AdminUser); err != nil && err != mgo.ErrNotFound {
 			return fmt.Errorf("cannot disable admin password: %v", err)
 		}
 	}

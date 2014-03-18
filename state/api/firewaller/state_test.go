@@ -4,13 +4,12 @@
 package firewaller_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	statetesting "launchpad.net/juju-core/state/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type stateSuite struct {
@@ -81,16 +80,14 @@ func (s *stateSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Change the environment configuration, check it's detected.
-	attrs := envConfig.AllAttrs()
-	attrs["type"] = "blah"
-	newConfig, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(newConfig, envConfig)
+	newAttrs := map[string]interface{}{"logging-config": "juju=ERROR"}
+	err = s.State.UpdateEnvironConfig(newAttrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 	wc.AssertOneChange()
 
 	// Change it back to the original config.
-	err = s.State.SetEnvironConfig(envConfig, newConfig)
+	oldAttrs := map[string]interface{}{"logging-config": envConfig.AllAttrs()["logging-config"]}
+	err = s.State.UpdateEnvironConfig(oldAttrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 	wc.AssertOneChange()
 

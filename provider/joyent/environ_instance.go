@@ -5,9 +5,6 @@ package joyent
 
 import (
 	"fmt"
-	//"io/ioutil"
-	//"os"
-	//"path"
 	"strings"
 	"sync"
 	"time"
@@ -15,9 +12,7 @@ import (
 	"github.com/joyent/gocommon/client"
 	"github.com/joyent/gosdc/cloudapi"
 
-	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
@@ -59,35 +54,34 @@ func (env *JoyentEnviron) machineFullName(machineId string) string {
 	return fmt.Sprintf("juju-%s-%s", env.Name(), names.MachineTag(machineId))
 }
 
-func (env *JoyentEnviron) StartInstance(cons constraints.Value, possibleTools tools.List,
-	machineConf *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (env *JoyentEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
 
-	arches := possibleTools.Arches()
-
-	series := possibleTools.OneSeries()
+	series := args.Tools.OneSeries()
+	arches := args.Tools.Arches()
 	spec, err := env.FindInstanceSpec(&instances.InstanceConstraint{
-		Region:      env.Ecfg().Region(),
-		Series:      series,
-		Arches:      arches,
-		Constraints: cons,
-	})
+			Region:      env.Ecfg().Region(),
+			Series:      series,
+			Arches:      arches,
+			Constraints: args.Constraints,
+		})
 	if err != nil {
 		return nil, nil, err
 	}
-	tools, err := possibleTools.Match(tools.Filter{Arch: spec.Image.Arch})
+	tools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
 		return nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
-	machineConf.Tools = tools[0]
-	if err := environs.FinishMachineConfig(machineConf, env.Config(), cons); err != nil {
+	args.MachineConfig.Tools = tools[0]
+
+	if err := environs.FinishMachineConfig(args.MachineConfig, env.Config(), args.Constraints); err != nil {
 		return nil, nil, err
 	}
-
-	userData, err := environs.ComposeUserData(machineConf)
+	userData, err := environs.ComposeUserData(args.MachineConfig)
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot make user data: %v", err)
 	}
+
 	// Unzipping as Joyent API expects it as string
 	userData, err = utils.Gunzip(userData)
 	if err != nil {

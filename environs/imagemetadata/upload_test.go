@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/filestorage"
@@ -16,7 +17,6 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata/testing"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
 

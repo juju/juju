@@ -4,6 +4,7 @@
 package testing
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
@@ -11,7 +12,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/watcher"
 	statetesting "launchpad.net/juju-core/state/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 const (
@@ -76,17 +76,26 @@ func (s *EnvironWatcherTest) TestWatchForEnvironConfigChanges(c *gc.C) {
 	// Initial event.
 	wc.AssertOneChange()
 
-	// Change the environment configuration, check it's detected.
-	attrs := envConfig.AllAttrs()
-	attrs["type"] = "blah"
-	newConfig, err := config.New(config.NoDefaults, attrs)
+	// Change the environment configuration by updating an existing attribute, check it's detected.
+	newAttrs := map[string]interface{}{"logging-config": "juju=ERROR"}
+	err = s.st.UpdateEnvironConfig(newAttrs, nil, nil)
 	c.Assert(err, gc.IsNil)
-	err = s.st.SetEnvironConfig(newConfig, envConfig)
+	wc.AssertOneChange()
+
+	// Change the environment configuration by adding a new attribute, check it's detected.
+	newAttrs = map[string]interface{}{"foo": "bar"}
+	err = s.st.UpdateEnvironConfig(newAttrs, nil, nil)
+	c.Assert(err, gc.IsNil)
+	wc.AssertOneChange()
+
+	// Change the environment configuration by removing an attribute, check it's detected.
+	err = s.st.UpdateEnvironConfig(map[string]interface{}{}, []string{"foo"}, nil)
 	c.Assert(err, gc.IsNil)
 	wc.AssertOneChange()
 
 	// Change it back to the original config.
-	err = s.st.SetEnvironConfig(envConfig, newConfig)
+	oldAttrs := map[string]interface{}{"logging-config": envConfig.AllAttrs()["logging-config"]}
+	err = s.st.UpdateEnvironConfig(oldAttrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 	wc.AssertOneChange()
 

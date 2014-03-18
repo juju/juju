@@ -7,6 +7,7 @@ import (
 	"fmt"
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
@@ -22,7 +23,6 @@ import (
 	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 )
 
@@ -114,8 +114,8 @@ func (s *withoutStateServerSuite) TestProvisionerFailsWithNonMachineAgentNonMana
 }
 
 func (s *withoutStateServerSuite) TestSetPasswords(c *gc.C) {
-	args := params.PasswordChanges{
-		Changes: []params.PasswordChange{
+	args := params.EntityPasswords{
+		Changes: []params.EntityPassword{
 			{Tag: s.machines[0].Tag(), Password: "xxx0-1234567890123457890"},
 			{Tag: s.machines[1].Tag(), Password: "xxx1-1234567890123457890"},
 			{Tag: s.machines[2].Tag(), Password: "xxx2-1234567890123457890"},
@@ -148,8 +148,8 @@ func (s *withoutStateServerSuite) TestSetPasswords(c *gc.C) {
 }
 
 func (s *withoutStateServerSuite) TestShortSetPasswords(c *gc.C) {
-	args := params.PasswordChanges{
-		Changes: []params.PasswordChange{
+	args := params.EntityPasswords{
+		Changes: []params.EntityPassword{
 			{Tag: s.machines[1].Tag(), Password: "xxx1"},
 		},
 	}
@@ -683,13 +683,10 @@ func (s *withoutStateServerSuite) TestToolsNothing(c *gc.C) {
 }
 
 func (s *withoutStateServerSuite) TestContainerConfig(c *gc.C) {
-	cfg, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	newCfg, err := cfg.Apply(map[string]interface{}{
+	attrs := map[string]interface{}{
 		"http-proxy": "http://proxy.example.com:9000",
-	})
-	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(newCfg, cfg)
+	}
+	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 	expectedProxy := osenv.ProxySettings{
 		Http: "http://proxy.example.com:9000",
@@ -837,7 +834,7 @@ func (s *withStateServerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *withStateServerSuite) TestAPIAddresses(c *gc.C) {
-	addrs, err := s.State.APIAddresses()
+	addrs, err := s.State.APIAddressesFromMachines()
 	c.Assert(err, gc.IsNil)
 
 	result, err := s.provisioner.APIAddresses()

@@ -180,15 +180,15 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 	localConfig := newEnvironConfig(cfg, validated)
 	// Before potentially creating directories, make sure that the
 	// root directory has not changed.
+	containerType := localConfig.container()
 	if old != nil {
 		oldLocalConfig, err := provider.newConfig(old)
 		if err != nil {
 			return nil, fmt.Errorf("old config is not a valid local config: %v", old)
 		}
-		if localConfig.container() != oldLocalConfig.container() {
+		if containerType != oldLocalConfig.container() {
 			return nil, fmt.Errorf("cannot change container from %q to %q",
-				oldLocalConfig.container(),
-				localConfig.container())
+				oldLocalConfig.container(), containerType)
 		}
 		if localConfig.rootDir() != oldLocalConfig.rootDir() {
 			return nil, fmt.Errorf("cannot change root-dir from %q to %q",
@@ -207,8 +207,8 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 		}
 	}
 	// Currently only supported containers are "lxc" and "kvm".
-	if localConfig.container() != instance.LXC && localConfig.container() != instance.KVM {
-		return nil, fmt.Errorf("unsupported container type: %q", localConfig.container())
+	if containerType != instance.LXC && containerType != instance.KVM {
+		return nil, fmt.Errorf("unsupported container type: %q", containerType)
 	}
 	dir, err := utils.NormalizePath(localConfig.rootDir())
 	if err != nil {
@@ -219,6 +219,13 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 	}
 	// Always assign the normalized path.
 	localConfig.attrs["root-dir"] = dir
+
+	if containerType != instance.KVM {
+		fastOptionAvailable := useFastLXC(containerType)
+		if _, found := localConfig.attrs["lxc-clone"]; !found {
+			localConfig.attrs["lxc-clone"] = fastOptionAvailable
+		}
+	}
 
 	// Apply the coerced unknown values back into the config.
 	return cfg.Apply(localConfig.attrs)

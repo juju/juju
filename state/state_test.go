@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
@@ -25,7 +26,6 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	statetesting "launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
@@ -111,7 +111,7 @@ func (s *StateSuite) TestAddresses(c *gc.C) {
 		fmt.Sprintf("10.0.0.3:%d", envConfig.StatePort()),
 	})
 
-	addrs, err = s.State.APIAddresses()
+	addrs, err = s.State.APIAddressesFromMachines()
 	c.Assert(err, gc.IsNil)
 	c.Assert(addrs, gc.HasLen, 3)
 	c.Assert(addrs, jc.SameContents, []string{
@@ -1032,7 +1032,7 @@ func (s *StateSuite) TestServiceNotFound(c *gc.C) {
 
 func (s *StateSuite) TestAddServiceNoTag(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	_, err := s.State.AddService("wordpress", "admin", charm)
+	_, err := s.State.AddService("wordpress", state.AdminUser, charm)
 	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": Invalid ownertag admin")
 }
 
@@ -1250,18 +1250,20 @@ func (s *StateSuite) TestInferEndpoints(c *gc.C) {
 }
 
 func (s *StateSuite) TestEnvironConfig(c *gc.C) {
-	cfg, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	change, err := cfg.Apply(map[string]interface{}{
+	attrs := map[string]interface{}{
 		"authorized-keys": "different-keys",
 		"arbitrary-key":   "shazam!",
-	})
+	}
+	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(change, cfg)
+	err = s.State.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
-	cfg, err = s.State.EnvironConfig()
+	cfg, err = cfg.Apply(attrs)
 	c.Assert(err, gc.IsNil)
-	c.Assert(cfg.AllAttrs(), gc.DeepEquals, change.AllAttrs())
+	oldCfg, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(oldCfg, gc.DeepEquals, cfg)
 }
 
 func (s *StateSuite) TestEnvironConstraints(c *gc.C) {
@@ -1681,6 +1683,37 @@ func (s *StateSuite) TestWatchStateServerInfo(c *gc.C) {
 	})
 }
 
+func (s *StateSuite) TestAdditionalValidation(c *gc.C) {
+	updateAttrs := map[string]interface{}{"logging-config": "juju=ERROR"}
+	configValidator1 := func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
+		c.Assert(updateAttrs, gc.DeepEquals, map[string]interface{}{"logging-config": "juju=ERROR"})
+		if _, found := updateAttrs["logging-config"]; found {
+			return fmt.Errorf("cannot change logging-config")
+		}
+		return nil
+	}
+	removeAttrs := []string{"logging-config"}
+	configValidator2 := func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
+		c.Assert(removeAttrs, gc.DeepEquals, []string{"logging-config"})
+		for _, i := range removeAttrs {
+			if i == "logging-config" {
+				return fmt.Errorf("cannot remove logging-config")
+			}
+		}
+		return nil
+	}
+	configValidator3 := func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
+		return nil
+	}
+
+	err := s.State.UpdateEnvironConfig(updateAttrs, nil, configValidator1)
+	c.Assert(err, gc.ErrorMatches, "cannot change logging-config")
+	err = s.State.UpdateEnvironConfig(nil, removeAttrs, configValidator2)
+	c.Assert(err, gc.ErrorMatches, "cannot remove logging-config")
+	err = s.State.UpdateEnvironConfig(updateAttrs, nil, configValidator3)
+	c.Assert(err, gc.IsNil)
+}
+
 type attrs map[string]interface{}
 
 func (s *StateSuite) TestWatchEnvironConfig(c *gc.C) {
@@ -1699,11 +1732,10 @@ func (s *StateSuite) TestWatchEnvironConfig(c *gc.C) {
 	assertChange := func(change attrs) {
 		cfg, err := s.State.EnvironConfig()
 		c.Assert(err, gc.IsNil)
+		cfg, err = cfg.Apply(change)
+		c.Assert(err, gc.IsNil)
 		if change != nil {
-			oldcfg := cfg
-			cfg, err = cfg.Apply(change)
-			c.Assert(err, gc.IsNil)
-			err = s.State.SetEnvironConfig(cfg, oldcfg)
+			err = s.State.UpdateEnvironConfig(change, nil, nil)
 			c.Assert(err, gc.IsNil)
 		}
 		s.State.StartSync()
@@ -1761,7 +1793,6 @@ func (s *StateSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
 func (s *StateSuite) TestWatchEnvironConfigCorruptConfig(c *gc.C) {
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
-	oldcfg := cfg
 
 	// Corrupt the environment configuration.
 	settings := s.Session.DB("juju").C("settings")
@@ -1797,9 +1828,11 @@ func (s *StateSuite) TestWatchEnvironConfigCorruptConfig(c *gc.C) {
 	}
 
 	// Fix the configuration.
-	err = s.State.SetEnvironConfig(cfg, oldcfg)
+	err = settings.UpdateId("e", bson.D{{"$set", bson.D{{"name", "foo"}}}})
 	c.Assert(err, gc.IsNil)
 	fixed := cfg.AllAttrs()
+	err = s.State.UpdateEnvironConfig(fixed, nil, nil)
+	c.Assert(err, gc.IsNil)
 
 	s.State.StartSync()
 	select {
@@ -2559,9 +2592,7 @@ func (s *StateSuite) prepareAgentVersionTests(c *gc.C) (*config.Config, string) 
 func (s *StateSuite) changeEnviron(c *gc.C, envConfig *config.Config, name string, value interface{}) {
 	attrs := envConfig.AllAttrs()
 	attrs[name] = value
-	newConfig, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
-	c.Assert(s.State.SetEnvironConfig(newConfig, envConfig), gc.IsNil)
+	c.Assert(s.State.UpdateEnvironConfig(attrs, nil, nil), gc.IsNil)
 }
 
 func (s *StateSuite) assertAgentVersion(c *gc.C, envConfig *config.Config, vers string) {
@@ -2690,6 +2721,27 @@ func (s *StateSuite) TestOpenCreatesStateServersDoc(c *gc.C) {
 	c.Assert(info, gc.DeepEquals, expectStateServerInfo)
 }
 
+func (s *StateSuite) TestOpenCreatesAPIAddressesDoc(c *gc.C) {
+	// Delete the stateServers collection to pretend this
+	// is an older environment that had not created it
+	// already.
+	err := s.stateServers.DropCollection()
+	c.Assert(err, gc.IsNil)
+
+	// Sanity check that we have in fact deleted the right info.
+	addrs, err := s.State.APIAddresses()
+	c.Assert(err, gc.NotNil)
+	c.Assert(addrs, gc.IsNil)
+
+	st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts(), state.Policy(nil))
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+
+	addrs, err = s.State.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(addrs, gc.HasLen, 0)
+}
+
 func (s *StateSuite) TestReopenWithNoMachines(c *gc.C) {
 	info, err := s.State.StateServerInfo()
 	c.Assert(err, gc.IsNil)
@@ -2798,4 +2850,61 @@ func (s *StateSuite) TestEnsureAvailabilityAddsNewMachines(c *gc.C) {
 
 func newUint64(i uint64) *uint64 {
 	return &i
+}
+
+func (s *StateSuite) TestSetAPIAddresses(c *gc.C) {
+	addrs, err := s.State.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(addrs, gc.HasLen, 0)
+
+	newAddrs := []instance.Address{{
+		Value:        "0.2.4.6",
+		Type:         instance.Ipv4Address,
+		NetworkName:  "net",
+		NetworkScope: instance.NetworkCloudLocal,
+	}, {
+		Value:        "0.4.8.16",
+		Type:         instance.Ipv4Address,
+		NetworkName:  "foo",
+		NetworkScope: instance.NetworkPublic,
+	}}
+	err = s.State.SetAPIAddresses(newAddrs)
+	c.Assert(err, gc.IsNil)
+
+	gotAddrs, err := s.State.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(gotAddrs, jc.DeepEquals, newAddrs)
+
+	newAddrs = []instance.Address{{
+		Value:        "0.2.4.6",
+		Type:         instance.Ipv6Address,
+		NetworkName:  "net",
+		NetworkScope: instance.NetworkCloudLocal,
+	}}
+	err = s.State.SetAPIAddresses(newAddrs)
+	c.Assert(err, gc.IsNil)
+
+	gotAddrs, err = s.State.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(gotAddrs, jc.DeepEquals, newAddrs)
+}
+
+func (s *StateSuite) TestWatchAPIAddresses(c *gc.C) {
+	w := s.State.WatchAPIAddresses()
+	defer statetesting.AssertStop(c, w)
+
+	// Initial event.
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+
+	err := s.State.SetAPIAddresses([]instance.Address{
+		instance.NewAddress("0.1.2.3"),
+	})
+	c.Assert(err, gc.IsNil)
+
+	wc.AssertOneChange()
+
+	// Stop, check closed.
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
 }
