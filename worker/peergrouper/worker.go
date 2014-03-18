@@ -11,6 +11,7 @@ import (
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/replicaset"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker"
@@ -106,6 +107,7 @@ func New(st *state.State) (worker.Worker, error) {
 	return newWorker(&stateShim{
 		State:     st,
 		mongoPort: cfg.StatePort(),
+		apiPort: cfg.APIPort(),
 	}, noPublisher), nil
 }
 
@@ -407,6 +409,10 @@ type machine struct {
 	stm            stateMachine
 	machineWatcher state.NotifyWatcher
 }
+
+func (m *machine) mongoHostPort() string {
+}
+
 
 func (m *machine) String() string {
 	return m.id
