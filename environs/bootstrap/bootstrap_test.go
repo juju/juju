@@ -15,17 +15,17 @@ import (
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
+	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
+	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
-	"launchpad.net/juju-core/juju/arch"
-	"launchpad.net/juju-core/environs/sync"
-	"launchpad.net/juju-core/environs/filestorage"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -139,10 +139,18 @@ var bootstrapSetAgentVersionTests = []envtesting.BootstrapToolsTest{
 		DefaultSeries: "precise",
 		Arch:          "i386",
 		Expect:        []version.Binary{envtesting.V120p32},
+	}, {
+		Info:          "dev cli has different arch to available",
+		Available:     envtesting.V1all,
+		CliVersion:    envtesting.V310qppc64,
+		DefaultSeries: "precise",
+		Expect:        []version.Binary{envtesting.V3101qppc64},
 	}}
 
 func (s *bootstrapSuite) TestBootstrapTools(c *gc.C) {
 	allTests := append(envtesting.BootstrapToolsTests, bootstrapSetAgentVersionTests...)
+	// version.Current is set in the loop so ensure it is restored later.
+	s.PatchValue(&version.Current, version.Current)
 	for i, test := range allTests {
 		c.Logf("\ntest %d: %s", i, test.Info)
 		dummy.Reset()

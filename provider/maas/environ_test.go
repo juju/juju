@@ -56,8 +56,6 @@ func (s *environSuite) TearDownSuite(c *gc.C) {
 	s.LoggingSuite.TearDownSuite(c)
 }
 
-var _ = gc.Suite(&environSuite{})
-
 func getSimpleTestConfig(c *gc.C, extraAttrs coretesting.Attrs) *config.Config {
 	attrs := coretesting.FakeConfig()
 	attrs["type"] = "maas"
@@ -194,4 +192,13 @@ func (*environSuite) TestNewEnvironSetsConfig(c *gc.C) {
 
 	c.Check(err, gc.IsNil)
 	c.Check(env.Name(), gc.Equals, "testenv")
+}
+
+func (*environSuite) TestSupportedArchitectures(c *gc.C) {
+	cfg := getSimpleTestConfig(c, nil)
+	env, err := maas.NewEnviron(cfg)
+	c.Assert(err, gc.IsNil)
+	a, err := env.SupportedArchitectures()
+	c.Assert(err, gc.IsNil)
+	c.Assert(a, gc.DeepEquals, []string{"amd64"})
 }

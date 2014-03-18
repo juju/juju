@@ -81,27 +81,30 @@ type bootstrapRetryTest struct {
 	addVersionToSource bool
 }
 
+var noToolsAvailableMessage = "Juju cannot bootstrap because no tools are available for your environment.*"
+var toolsNotFoundMessage = "cannot find bootstrap tools: tools not found"
+
 var bootstrapRetryTests = []bootstrapRetryTest{{
-	info:               "no tools uploaded, first check has no retries; no matching binary in source; sync fails with no second attempt",
+	info:               "no tools uploaded, first check has no retries; no matching binary in source; no second attempt",
 	expectedAllowRetry: []bool{false},
-	err:                "cannot find bootstrap tools: no matching tools available",
+	err:                noToolsAvailableMessage,
 	version:            "1.16.0-precise-amd64",
 }, {
-	info:               "no tools uploaded, first check has no retries; matching binary in source; check after sync has retries",
+	info:               "no tools uploaded, first check has no retries; matching binary in source; check after upload has retries",
 	expectedAllowRetry: []bool{false, true},
-	err:                "cannot find bootstrap tools: tools not found",
-	version:            "1.16.0-precise-amd64",
+	err:                toolsNotFoundMessage,
+	version:            "1.17.0-precise-amd64", // dev version to force upload
 	addVersionToSource: true,
 }, {
 	info:               "no tools uploaded, first check has no retries; no matching binary in source; check after upload has retries",
 	expectedAllowRetry: []bool{false, true},
-	err:                "cannot find bootstrap tools: tools not found",
+	err:                toolsNotFoundMessage,
 	version:            "1.15.1-precise-amd64", // dev version to force upload
 }, {
 	info:               "new tools uploaded, so we want to allow retries to give them a chance at showing up",
 	args:               []string{"--upload-tools"},
 	expectedAllowRetry: []bool{true},
-	err:                "cannot find bootstrap tools: no matching tools available",
+	err:                noToolsAvailableMessage,
 }}
 
 // Test test checks that bootstrap calls FindTools with the expected allowRetry flag.
@@ -141,7 +144,8 @@ func (s *BootstrapSuite) runAllowRetriesTest(c *gc.C, test bootstrapRetryTest) {
 	_, errc := runCommand(nullContext(), new(BootstrapCommand), test.args...)
 	err := <-errc
 	c.Check(findToolsRetryValues, gc.DeepEquals, test.expectedAllowRetry)
-	c.Check(err, gc.ErrorMatches, test.err)
+	stripped := strings.Replace(err.Error(), "\n", "", -1)
+	c.Check(stripped, gc.Matches, test.err)
 }
 
 // mockUploadTools simulates the effect of tools.Upload, but skips the time-
@@ -493,7 +497,8 @@ func (s *BootstrapSuite) TestAutoUploadOnlyForDev(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "precise")
 	_, errc := runCommand(nullContext(), new(BootstrapCommand))
 	err := <-errc
-	c.Assert(err, gc.ErrorMatches, "cannot find bootstrap tools: no matching tools available")
+	stripped := strings.Replace(err.Error(), "\n", "", -1)
+	c.Assert(stripped, gc.Matches, noToolsAvailableMessage)
 }
 
 func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
@@ -503,7 +508,7 @@ func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
 	c.Assert(code, gc.Equals, 1)
 	errText := context.Stderr.(*bytes.Buffer).String()
 	errText = strings.Replace(errText, "\n", "", -1)
-	expectedErrText := "error: cannot find bootstrap tools: no matching tools available"
+	expectedErrText := "error: Juju cannot bootstrap because no tools are available for your environment.*"
 	c.Assert(errText, gc.Matches, expectedErrText)
 }
 
@@ -519,7 +524,7 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 	c.Assert(code, gc.Equals, 1)
 	errText := context.Stderr.(*bytes.Buffer).String()
 	errText = strings.Replace(errText, "\n", "", -1)
-	expectedErrText := "error: cannot find bootstrap tools: an error"
+	expectedErrText := "error: cannot upload bootstrap tools: an error"
 	c.Assert(errText, gc.Matches, expectedErrText)
 }
 

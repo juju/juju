@@ -399,6 +399,13 @@ func (t *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 	c.Assert(strings.Contains(url, ec2.ControlBucketName(env)+"/tools"), jc.IsTrue)
 }
 
+func (t *localServerSuite) TestSupportedArchitectures(c *gc.C) {
+	env := t.Prepare(c)
+	a, err := env.SupportedArchitectures()
+	c.Assert(err, gc.IsNil)
+	c.Assert(a, gc.DeepEquals, []string{"amd64", "i386"})
+}
+
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server
 // behaves as if it is not in the us-east region.
 type localNonUSEastSuite struct {

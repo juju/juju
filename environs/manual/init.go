@@ -57,10 +57,13 @@ func checkProvisioned(host string) (bool, error) {
 	return provisioned, nil
 }
 
-// DetectSeriesAndHardwareCharacteristics detects the OS
+// Patch for testing.
+var DetectSeriesAndHardwareCharacteristics = detectSeriesAndHardwareCharacteristics
+
+// detectSeriesAndHardwareCharacteristics detects the OS
 // series and hardware characteristics of the remote machine
 // by connecting to the machine and executing a bash script.
-func DetectSeriesAndHardwareCharacteristics(host string) (hc instance.HardwareCharacteristics, series string, err error) {
+func detectSeriesAndHardwareCharacteristics(host string) (hc instance.HardwareCharacteristics, series string, err error) {
 	logger.Infof("Detecting series and characteristics on %s", host)
 	cmd := ssh.Command("ubuntu@"+host, []string{"/bin/bash"}, nil)
 	var stdout, stderr bytes.Buffer
