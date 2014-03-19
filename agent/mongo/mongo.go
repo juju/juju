@@ -33,7 +33,7 @@ var (
 // of the machine that it is going to be running on.
 func MongoPackageForSeries(series string) string {
 	switch series {
-	case "precise", "raring", "saucy":
+	case "precise", "quantal", "raring", "saucy":
 		return "mongodb-server"
 	default:
 		// trusty and onwards
