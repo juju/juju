@@ -156,7 +156,8 @@ func EnsureToolsAvailability(env environs.Environ, series string, toolsArch *str
 
 	// No tools available so our only hope is to build locally and upload.
 	logger.Warningf("no prepackaged tools available")
-	if err := UploadTools(env, toolsArch, false, series); err != nil {
+	uploadSeries := SeriesToUpload(cfg, nil)
+	if err := UploadTools(env, toolsArch, false,  append(uploadSeries, series)...); err != nil {
 		logger.Errorf("%s", noToolsMessage)
 		return nil, fmt.Errorf("cannot upload bootstrap tools: %v", err)
 	}
