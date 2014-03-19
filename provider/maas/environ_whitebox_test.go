@@ -315,8 +315,8 @@ var testNetworkValues = []struct {
 			ExcludedNetworks: []string{"excluded_net_1", "excluded_net_2"},
 		},
 		url.Values{
-			"networks":     {"included_net_1,included_net_2"},
-			"not_networks": {"excluded_net_1,excluded_net_2"},
+			"networks":     {"included_net_1", "included_net_2"},
+			"not_networks": {"excluded_net_1", "excluded_net_2"},
 		},
 	},
 }

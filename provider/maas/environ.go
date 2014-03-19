@@ -172,12 +172,14 @@ func convertConstraints(cons constraints.Value) url.Values {
 func addNetworks(params url.Values, nets environs.Networks) {
 	// Network Inclusion/Exclusion setup
 	if nets.IncludedNetworks != nil {
-		//XXX Is this suposed to be a comma separated list?
-		params.Add("networks", strings.Join(nets.IncludedNetworks, ","))
+		for _, network_name := range nets.IncludedNetworks{
+			params.Add("networks", network_name)
+		}
 	}
 	if nets.ExcludedNetworks != nil {
-		//XXX Is this suposed to be a comma separated list?
-		params.Add("not_networks", strings.Join(nets.ExcludedNetworks, ","))
+		for _, not_network_name := range nets.ExcludedNetworks{
+			params.Add("not_networks", not_network_name)
+		}
 	}
 
 }
