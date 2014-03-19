@@ -24,8 +24,8 @@ WIN_JUJU_CMD = os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
 
 class ErroredUnit(Exception):
 
-    def __init__(self, environment, unit_name, state):
-        msg = '<%s> %s is in state %s' % (environment, unit_name, state)
+    def __init__(self, unit_name, state):
+        msg = '%s is in state %s' % (unit_name, state)
         Exception.__init__(self, msg)
 
 
@@ -184,13 +184,13 @@ class Status:
         for item_name, item in self.agent_items():
             state_info = item.get('agent-state-info', '')
             if 'error' in state_info:
-                raise ErroredUnit(environment_name, item_name, state_info)
+                raise ErroredUnit(item_name, state_info)
         states = self.agent_states()
         if states.keys() == ['started']:
             return None
         for state, entries in states.items():
             if 'error' in state:
-                raise ErroredUnit(environment_name, entries[0],  state)
+                raise ErroredUnit(entries[0],  state)
         return states
 
     def get_agent_versions(self):
@@ -251,7 +251,7 @@ class Environment:
             states = status.check_agents_started(self.environment)
             if states is None:
                 break
-            print(format_listing(states, 'started', self.environment))
+            print(format_listing(states, 'started'))
             sys.stdout.flush()
         else:
             raise Exception('Timed out waiting for agents to start in %s.' %
@@ -267,7 +267,7 @@ class Environment:
                 continue
             if versions.keys() == [version]:
                 break
-            print(format_listing(versions, version, self.environment))
+            print(format_listing(versions, version))
             sys.stdout.flush()
         else:
             raise Exception('Some versions did not update.')
@@ -279,16 +279,16 @@ class Environment:
         return version_number
 
 
-def format_listing(listing, expected, environment):
+def format_listing(listing, expected):
     value_listing = []
     for value, entries in listing.items():
         if value == expected:
             continue
         value_listing.append('%s: %s' % (value, ', '.join(entries)))
-    return ('<%s> ' % environment) + ' | '.join(value_listing)
+    return ' | '.join(value_listing)
 
 
-def check_wordpress(environment, host):
+def check_wordpress(host):
     """"Check whether Wordpress has come up successfully.
 
     Times out after 30 seconds.
@@ -308,4 +308,4 @@ def check_wordpress(environment, host):
         sleep(1)
     else:
         raise Exception(
-            'Cannot get welcome screen at %s %s' % (url, environment))
+            'Cannot get welcome screen at %s' % (url))

@@ -1,9 +1,11 @@
 set -eu
+# For most jobs, this is localhost, so provide it.
+: ${LOCAL_JENKINS_URL=http://localhost:8080}
 if [ "$ENV" = "manual" ]; then
   export JUJU_HOME=$WORKSPACE/manual-provider-home
-  source $HOME/juju-ci/ec2rc
+  source $HOME/cloud-city/ec2rc
 else
-  export JUJU_HOME=$HOME/juju-ci
+  export JUJU_HOME=$HOME/cloud-city
 fi
 
 dump_logs(){
@@ -29,9 +31,9 @@ rm * -rf
 mkdir -p $artifacts_path
 touch $artifacts_path/empty
 afact='lastSuccessfulBuild/artifact'
-wget -q localhost:8080/job/publish-revision/$afact/new-precise.deb
+wget -q $LOCAL_JENKINS_URL/job/publish-revision/$afact/new-precise.deb
 # Determine BRANCH and REVNO
-wget -q localhost:8080/job/build-revision/$afact/buildvars.bash
+wget -q $LOCAL_JENKINS_URL/job/build-revision/$afact/buildvars.bash
 source buildvars.bash
 echo "Testing $BRANCH $REVNO on $ENV"
 dpkg-deb -x $PACKAGE extracted-bin

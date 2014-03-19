@@ -31,8 +31,8 @@ from jujupy import (
 class TestErroredUnit(TestCase):
 
     def test_output(self):
-        e = ErroredUnit('foo', 'bar', 'baz')
-        self.assertEqual('<foo> bar is in state baz', str(e))
+        e = ErroredUnit('bar', 'baz')
+        self.assertEqual('bar is in state baz', str(e))
 
 
 class TestUntilTimeout(TestCase):
@@ -336,7 +336,7 @@ class TestStatus(TestCase):
             'services': {}
         })
         with self.assertRaisesRegexp(ErroredUnit,
-                                     '<env1> 1 is in state any-error'):
+                                     '1 is in state any-error'):
             status.check_agents_started('env1')
 
     def test_check_agents_started_agent_info_error(self):
@@ -349,7 +349,7 @@ class TestStatus(TestCase):
             'services': {}
         })
         with self.assertRaisesRegexp(ErroredUnit,
-                                     '<env1> 1 is in state any-error'):
+                                     '1 is in state any-error'):
             status.check_agents_started('env1')
 
     def test_get_agent_versions(self):
@@ -537,8 +537,8 @@ class TestFormatListing(TestCase):
 
     def test_format_listing(self):
         result = format_listing(
-            {'1': ['a', 'b'], '2': ['c'], 'expected': ['d']}, 'expected', 'e')
-        self.assertEqual('<e> 1: a, b | 2: c', result)
+            {'1': ['a', 'b'], '2': ['c'], 'expected': ['d']}, 'expected')
+        self.assertEqual('1: a, b | 2: c', result)
 
 
 class TestCheckWordpress(TestCase):
@@ -547,7 +547,7 @@ class TestCheckWordpress(TestCase):
         out = StringIO('Welcome to the famous five minute WordPress'
                        ' installation process!')
         with patch('urllib2.urlopen', side_effect=lambda x: out) as mock:
-            check_wordpress('foo', 'host')
+            check_wordpress('host')
         mock.assert_called_with('http://host/wp-admin/install.php')
 
     def test_check_wordpress_failure(self):
@@ -557,5 +557,5 @@ class TestCheckWordpress(TestCase):
         timeout = patch('jujupy.until_timeout', lambda x: range(1))
         with sleep, urlopen, timeout:
             with self.assertRaisesRegexp(
-                    Exception, 'Cannot get welcome screen at .*host.* foo'):
-                check_wordpress('foo', 'host')
+                    Exception, 'Cannot get welcome screen at .*host.*'):
+                check_wordpress('host')
