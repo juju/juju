@@ -25,6 +25,7 @@ import (
 // ignored until you've got an environment bootstrapping successfully).
 
 type environ struct {
+	common.EnvironBase
 	name string
 	// All mutating operations should lock the mutex. Non-mutating operations
 	// should read all fields (other than name, which is immutable) from a

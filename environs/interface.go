@@ -15,14 +15,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 )
 
-// EnvironCapability implements access to metadata about the capabilities
-// of an environment.
-type EnvironCapability interface {
-	// SupportedArchitectures returns the image architectures which can
-	// be hosted by this environment.
-	SupportedArchitectures() ([]string, error)
-}
-
 // A EnvironProvider represents a computing and storage provider.
 type EnvironProvider interface {
 	// Prepare prepares an environment for use. Any additional
@@ -125,7 +117,7 @@ type Environ interface {
 	ConfigGetter
 
 	// EnvironCapability allows access to this environment's capabilities.
-	EnvironCapability
+	state.EnvironCapability
 
 	// SetConfig updates the Environ's configuration.
 	//
@@ -170,9 +162,7 @@ type Environ interface {
 	// Provider returns the EnvironProvider that created this Environ.
 	Provider() EnvironProvider
 
-	// TODO(axw) 2014-02-11 #pending-review
-	//     Embed state.Prechecker, and introduce an EnvironBase
-	//     that embeds a no-op prechecker implementation.
+	state.Prechecker
 }
 
 // BootstrapContext is an interface that is passed to

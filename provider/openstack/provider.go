@@ -309,6 +309,7 @@ func retryGet(uri string) (data []byte, err error) {
 }
 
 type environ struct {
+	common.EnvironBase
 	name string
 
 	ecfgMutex       sync.Mutex

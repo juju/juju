@@ -55,6 +55,7 @@ var _ environs.Environ = (*localEnviron)(nil)
 var _ envtools.SupportsCustomSources = (*localEnviron)(nil)
 
 type localEnviron struct {
+	common.EnvironBase
 	localMutex       sync.Mutex
 	config           *environConfig
 	name             string
