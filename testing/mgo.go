@@ -124,7 +124,6 @@ func (inst *MgoInstance) run() error {
 	mgoargs := []string{
 		"--auth",
 		"--dbpath", inst.dir,
-		"--logpath", filepath.Join(inst.dir, "server.log"),
 		"--port", mgoport,
 		"--nssize", "1",
 		"--noprealloc",
@@ -153,14 +152,15 @@ func (inst *MgoInstance) run() error {
 	started := make(chan struct{})
 	go func() {
 		<-started
-		lines := readLines(out, 20)
+		lines := readLines(fmt.Sprintf("mongod:%v", mgoport), out, 20)
 		err := server.Wait()
 		exitErr, _ := err.(*exec.ExitError)
 		if err == nil || exitErr != nil && exitErr.Exited() {
 			// mongodb has exited without being killed, so print the
 			// last few lines of its log output.
+			log.Errorf("mongodb has exited without being killed")
 			for _, line := range lines {
-				log.Infof("mongod: %s", line)
+				log.Errorf("mongod: %s", line)
 			}
 		}
 		close(exited)
@@ -227,13 +227,14 @@ func (s *MgoSuite) SetUpSuite(c *gc.C) {
 
 // readLines reads lines from the given reader and returns
 // the last n non-empty lines, ignoring empty lines.
-func readLines(r io.Reader, n int) []string {
+func readLines(prefix string, r io.Reader, n int) []string {
 	br := bufio.NewReader(r)
 	lines := make([]string, n)
 	i := 0
 	for {
 		line, err := br.ReadString('\n')
 		if line = strings.TrimRight(line, "\n"); line != "" {
+			logger.Tracef("%s: %s", prefix, line)
 			lines[i%n] = line
 			i++
 		}
@@ -260,7 +261,7 @@ func (s *MgoSuite) TearDownSuite(c *gc.C) {
 // MustDial returns a new connection to the MongoDB server, and panics on
 // errors.
 func (inst *MgoInstance) MustDial() *mgo.Session {
-	s, err := inst.dial(false)
+	s, err := mgo.DialWithInfo(inst.DialInfo())
 	if err != nil {
 		panic(err)
 	}
@@ -269,40 +270,49 @@ func (inst *MgoInstance) MustDial() *mgo.Session {
 
 // Dial returns a new connection to the MongoDB server.
 func (inst *MgoInstance) Dial() (*mgo.Session, error) {
-	return inst.dial(false)
+	return mgo.DialWithInfo(inst.DialInfo())
+}
+
+// DialInfo returns information suitable for dialling the
+// receiving MongoDB instance.
+func (inst *MgoInstance) DialInfo() *mgo.DialInfo {
+	return MgoDialInfo(inst.addr)
 }
 
 // DialDirect returns a new direct connection to the shared MongoDB server. This
 // must be used if you're connecting to a replicaset that hasn't been initiated
 // yet.
 func (inst *MgoInstance) DialDirect() (*mgo.Session, error) {
-	return inst.dial(true)
+	info := inst.DialInfo()
+	info.Direct = true
+	return mgo.DialWithInfo(info)
 }
 
 // MustDialDirect works like DialDirect, but panics on errors.
 func (inst *MgoInstance) MustDialDirect() *mgo.Session {
-	session, err := inst.dial(true)
+	session, err := inst.DialDirect()
 	if err != nil {
 		panic(err)
 	}
 	return session
 }
 
-func (inst *MgoInstance) DialInfo(direct bool) (*mgo.DialInfo, error) {
+// MgoDialInfo returns a DialInfo suitable
+// for dialling an MgoInstance at any of the
+// given addresses.
+func MgoDialInfo(addrs ...string) *mgo.DialInfo {
 	pool := x509.NewCertPool()
 	xcert, err := cert.ParseCert([]byte(CACert))
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 	pool.AddCert(xcert)
 	tlsConfig := &tls.Config{
 		RootCAs:    pool,
 		ServerName: "anything",
 	}
-
 	return &mgo.DialInfo{
-		Direct: direct,
-		Addrs:  []string{inst.addr},
+		Addrs: addrs,
 		Dial: func(addr net.Addr) (net.Conn, error) {
 			conn, err := tls.Dial("tcp", addr.String(), tlsConfig)
 			if err != nil {
@@ -312,17 +322,9 @@ func (inst *MgoInstance) DialInfo(direct bool) (*mgo.DialInfo, error) {
 			return conn, nil
 		},
 		Timeout: mgoDialTimeout,
-	}, nil
+	}
 }
 
-func (inst *MgoInstance) dial(direct bool) (*mgo.Session, error) {
-	info, err := inst.DialInfo(direct)
-	if err != nil {
-		return nil, err
-	}
-	session, err := mgo.DialWithInfo(info)
-	return session, err
-}
 
 func (s *MgoSuite) SetUpTest(c *gc.C) {
 	mgo.ResetStats()

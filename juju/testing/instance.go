@@ -98,5 +98,9 @@ func StartInstanceWithConstraints(
 	stateInfo := FakeStateInfo(machineId)
 	apiInfo := FakeAPIInfo(machineId)
 	machineConfig := environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo)
-	return env.StartInstance(cons, possibleTools, machineConfig)
+	return env.StartInstance(environs.StartInstanceParams{
+		Constraints:   cons,
+		Tools:         possibleTools,
+		MachineConfig: machineConfig,
+	})
 }

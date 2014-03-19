@@ -79,9 +79,8 @@ func (s *MachineSuite) TestMachineIsManualBootstrap(c *gc.C) {
 	manual, err := s.machine0.IsManual()
 	c.Assert(err, gc.IsNil)
 	c.Assert(manual, jc.IsFalse)
-	newcfg, err := cfg.Apply(map[string]interface{}{"type": "null"})
-	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(newcfg, cfg)
+	attrs := map[string]interface{}{"type": "null"}
+	err = s.State.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 	manual, err = s.machine0.IsManual()
 	c.Assert(err, gc.IsNil)

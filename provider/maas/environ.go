@@ -16,13 +16,13 @@ import (
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -131,6 +131,12 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
+// SupportedArchitectures is specified on the EnvironCapability interface.
+func (*maasEnviron) SupportedArchitectures() ([]string, error) {
+	// TODO(wallyworld) - how to find out what architectures a MAAS environ supports
+	return arch.AllSupportedArches, nil
+}
+
 // getMAASClient returns a MAAS client object to use for a request, in a
 // lock-protected fashion.
 func (env *maasEnviron) getMAASClient() *gomaasapi.MAASObject {
@@ -230,16 +236,15 @@ func linkBridgeInInterfaces() string {
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (environ *maasEnviron) StartInstance(cons constraints.Value, possibleTools tools.List,
-	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
 
 	var inst *maasInstance
 	var err error
-	if node, tools, err := environ.acquireNode(cons, possibleTools); err != nil {
+	if node, tools, err := environ.acquireNode(args.Constraints, args.Tools); err != nil {
 		return nil, nil, fmt.Errorf("cannot run instances: %v", err)
 	} else {
 		inst = &maasInstance{maasObject: &node, environ: environ}
-		machineConfig.Tools = tools
+		args.MachineConfig.Tools = tools
 	}
 	defer func() {
 		if err != nil {
@@ -258,16 +263,17 @@ func (environ *maasEnviron) StartInstance(cons constraints.Value, possibleTools 
 	if err != nil {
 		return nil, nil, err
 	}
-	if err := environs.FinishMachineConfig(machineConfig, environ.Config(), cons); err != nil {
+	if err := environs.FinishMachineConfig(args.MachineConfig, environ.Config(), args.Constraints); err != nil {
 		return nil, nil, err
 	}
 	// TODO(thumper): 2013-08-28 bug 1217614
 	// The machine envronment config values are being moved to the agent config.
 	// Explicitly specify that the lxc containers use the network bridge defined above.
-	machineConfig.AgentEnvironment[agent.LxcBridge] = "br0"
+	args.MachineConfig.AgentEnvironment[agent.LxcBridge] = "br0"
 	userdata, err := environs.ComposeUserData(
-		machineConfig,
+		args.MachineConfig,
 		runCmd,
+		"apt-get install bridge-utils",
 		createBridgeNetwork(),
 		linkBridgeInInterfaces(),
 		"service networking restart",
@@ -278,7 +284,7 @@ func (environ *maasEnviron) StartInstance(cons constraints.Value, possibleTools 
 	}
 	logger.Debugf("maas user data; %d bytes", len(userdata))
 
-	series := possibleTools.OneSeries()
+	series := args.Tools.OneSeries()
 	if err := environ.startNode(*inst.maasObject, series, userdata); err != nil {
 		return nil, nil, err
 	}

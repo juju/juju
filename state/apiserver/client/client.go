@@ -13,11 +13,9 @@ import (
 	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/charm"
-	coreCloudinit "launchpad.net/juju-core/cloudinit"
-	"launchpad.net/juju-core/cloudinit/sshinit"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/manual"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -182,6 +180,34 @@ func (c *Client) PublicAddress(p params.PublicAddress) (results params.PublicAdd
 			return results, fmt.Errorf("unit %q has no public address", unit)
 		}
 		return params.PublicAddressResults{PublicAddress: addr}, nil
+	}
+	return results, fmt.Errorf("unknown unit or machine %q", p.Target)
+}
+
+// PrivateAddress implements the server side of Client.PrivateAddress.
+func (c *Client) PrivateAddress(p params.PrivateAddress) (results params.PrivateAddressResults, err error) {
+	switch {
+	case names.IsMachine(p.Target):
+		machine, err := c.api.state.Machine(p.Target)
+		if err != nil {
+			return results, err
+		}
+		addr := instance.SelectInternalAddress(machine.Addresses(), false)
+		if addr == "" {
+			return results, fmt.Errorf("machine %q has no internal address", machine)
+		}
+		return params.PrivateAddressResults{PrivateAddress: addr}, nil
+
+	case names.IsUnit(p.Target):
+		unit, err := c.api.state.Unit(p.Target)
+		if err != nil {
+			return results, err
+		}
+		addr, ok := unit.PrivateAddress()
+		if !ok {
+			return results, fmt.Errorf("unit %q has no internal address", unit)
+		}
+		return params.PrivateAddressResults{PrivateAddress: addr}, nil
 	}
 	return results, fmt.Errorf("unknown unit or machine %q", p.Target)
 }
@@ -611,15 +637,7 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 		return result, err
 	}
 	mcfg.DisablePackageCommands = args.DisablePackageCommands
-	cloudcfg := coreCloudinit.New()
-	if err := cloudinit.ConfigureJuju(mcfg, cloudcfg); err != nil {
-		return result, err
-	}
-	// ProvisioningScript is run on an existing machine;
-	// we explicitly disable apt_upgrade so as not to
-	// trample the machine's existing configuration.
-	cloudcfg.SetAptUpgrade(false)
-	result.Script, err = sshinit.ConfigureScript(cloudcfg)
+	result.Script, err = manual.ProvisioningScript(mcfg)
 	return result, err
 }
 
@@ -771,38 +789,23 @@ func (c *Client) EnvironmentGet() (params.EnvironmentGetResults, error) {
 // EnvironmentSet implements the server-side part of the
 // set-environment CLI command.
 func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
-	// TODO(dimitern,thumper): 2013-11-06 bug #1167616
-	// SetEnvironConfig should take both new and old configs.
-
-	// Get the existing environment config from the state.
-	oldConfig, err := c.api.state.EnvironConfig()
-	if err != nil {
-		return err
-	}
 	// Make sure we don't allow changing agent-version.
-	if v, found := args.Config["agent-version"]; found {
-		oldVersion, _ := oldConfig.AgentVersion()
-		if v != oldVersion.String() {
-			return fmt.Errorf("agent-version cannot be changed")
+	checkAgentVersion := func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
+		if v, found := updateAttrs["agent-version"]; found {
+			oldVersion, _ := oldConfig.AgentVersion()
+			if v != oldVersion.String() {
+				return fmt.Errorf("agent-version cannot be changed")
+			}
 		}
+		return nil
 	}
-	// Apply the attributes specified for the command to the state config.
-	newConfig, err := oldConfig.Apply(args.Config)
-	if err != nil {
-		return err
-	}
-	env, err := environs.New(oldConfig)
-	if err != nil {
-		return err
-	}
-	// Now validate this new config against the existing config via the provider.
-	provider := env.Provider()
-	newProviderConfig, err := provider.Validate(newConfig, oldConfig)
-	if err != nil {
-		return err
-	}
-	// Now try to apply the new validated config.
-	return c.api.state.SetEnvironConfig(newProviderConfig, oldConfig)
+
+	// TODO(waigani) 2014-3-11 #1167616
+	// Add a txn retry loop to ensure that the settings on disk have not
+	// changed underneath us.
+
+	return c.api.state.UpdateEnvironConfig(args.Config, nil, checkAgentVersion)
+
 }
 
 // SetEnvironAgentVersion sets the environment agent version.

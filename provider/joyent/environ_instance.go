@@ -4,15 +4,11 @@
 package joyent
 
 import (
-	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs/cloudinit"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/tools"
 )
 
-func (env *environ) StartInstance(
-	cons constraints.Value, possibleTools tools.List, machineConf *cloudinit.MachineConfig,
-) (
+func (env *environ) StartInstance(args environs.StartInstanceParams) (
 	instance.Instance, *instance.HardwareCharacteristics, error,
 ) {
 	// Please note that in order to fulfil the demands made of Instances and

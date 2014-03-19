@@ -38,6 +38,10 @@ func (*mockEnviron) Name() string {
 	return "mock environment"
 }
 
+func (*mockEnviron) SupportedArchitectures() ([]string, error) {
+	return []string{"amd64", "arm64"}, nil
+}
+
 func (env *mockEnviron) Storage() storage.Storage {
 	return env.storage
 }
@@ -45,12 +49,8 @@ func (env *mockEnviron) Storage() storage.Storage {
 func (env *mockEnviron) AllInstances() ([]instance.Instance, error) {
 	return env.allInstances()
 }
-func (env *mockEnviron) StartInstance(
-	cons constraints.Value, possibleTools tools.List, mcfg *cloudinit.MachineConfig,
-) (
-	instance.Instance, *instance.HardwareCharacteristics, error,
-) {
-	return env.startInstance(cons, possibleTools, mcfg)
+func (env *mockEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
+	return env.startInstance(args.Constraints, args.Tools, args.MachineConfig)
 }
 
 func (env *mockEnviron) StopInstances(instances []instance.Instance) error {

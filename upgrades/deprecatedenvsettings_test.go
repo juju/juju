@@ -12,14 +12,14 @@ import (
 	"launchpad.net/juju-core/upgrades"
 )
 
-type processDeprecatedAttributesSuite struct {
+type processDeprecatedEnvSettingsSuite struct {
 	jujutesting.JujuConnSuite
 	ctx upgrades.Context
 }
 
-var _ = gc.Suite(&processDeprecatedAttributesSuite{})
+var _ = gc.Suite(&processDeprecatedEnvSettingsSuite{})
 
-func (s *processDeprecatedAttributesSuite) SetUpTest(c *gc.C) {
+func (s *processDeprecatedEnvSettingsSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	apiState, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
 	s.ctx = &mockContext{
@@ -27,23 +27,20 @@ func (s *processDeprecatedAttributesSuite) SetUpTest(c *gc.C) {
 		apiState:    apiState,
 		state:       s.State,
 	}
-	cfg, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	// Add in old attributes.
-	newCfg, err := cfg.Apply(map[string]interface{}{
+	// Add in old environment settings.
+	newCfg := map[string]interface{}{
 		"public-bucket":         "foo",
 		"public-bucket-region":  "bar",
 		"public-bucket-url":     "shazbot",
 		"default-instance-type": "vulch",
 		"default-image-id":      "1234",
 		"shared-storage-port":   1234,
-	})
-	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(newCfg, cfg)
+	}
+	err := s.State.UpdateEnvironConfig(newCfg, nil, nil)
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *processDeprecatedAttributesSuite) TestAttributesSet(c *gc.C) {
+func (s *processDeprecatedEnvSettingsSuite) TestEnvSettingsSet(c *gc.C) {
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
 	allAttrs := cfg.AllAttrs()
@@ -55,7 +52,7 @@ func (s *processDeprecatedAttributesSuite) TestAttributesSet(c *gc.C) {
 	c.Assert(allAttrs["shared-storage-port"], gc.Equals, 1234)
 }
 
-func (s *processDeprecatedAttributesSuite) assertConfigProcessed(c *gc.C) {
+func (s *processDeprecatedEnvSettingsSuite) assertConfigProcessed(c *gc.C) {
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
 	allAttrs := cfg.AllAttrs()
@@ -68,18 +65,18 @@ func (s *processDeprecatedAttributesSuite) assertConfigProcessed(c *gc.C) {
 	}
 }
 
-func (s *processDeprecatedAttributesSuite) TestOldConfigRemoved(c *gc.C) {
-	err := upgrades.ProcessDeprecatedAttributes(s.ctx)
+func (s *processDeprecatedEnvSettingsSuite) TestOldConfigRemoved(c *gc.C) {
+	err := upgrades.ProcessDeprecatedEnvSettings(s.ctx)
 	c.Assert(err, gc.IsNil)
 	s.assertConfigProcessed(c)
 }
 
-func (s *processDeprecatedAttributesSuite) TestIdempotent(c *gc.C) {
-	err := upgrades.ProcessDeprecatedAttributes(s.ctx)
+func (s *processDeprecatedEnvSettingsSuite) TestIdempotent(c *gc.C) {
+	err := upgrades.ProcessDeprecatedEnvSettings(s.ctx)
 	c.Assert(err, gc.IsNil)
 	s.assertConfigProcessed(c)
 
-	err = upgrades.ProcessDeprecatedAttributes(s.ctx)
+	err = upgrades.ProcessDeprecatedEnvSettings(s.ctx)
 	c.Assert(err, gc.IsNil)
 	s.assertConfigProcessed(c)
 }
