@@ -209,8 +209,8 @@ func (test bootstrapTest) run(c *gc.C) {
 
 	if test.hostArch != "" {
 		origVersion := arch.HostArch
-		arch.HostArch = func() (string, error) {
-			return test.hostArch, nil
+		arch.HostArch = func() string {
+			return test.hostArch
 		}
 		defer func() { arch.HostArch = origVersion }()
 	}
