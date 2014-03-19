@@ -20,8 +20,8 @@ type ManagerConfig map[string]string
 // Manager is responsible for starting containers, and stopping and listing
 // containers that it has started.
 type Manager interface {
-	// StartContainer creates and starts a new container for the specified machine.
-	StartContainer(
+	// CreateContainer creates and starts a new container for the specified machine.
+	CreateContainer(
 		machineConfig *cloudinit.MachineConfig,
 		series string,
 		network *NetworkConfig) (instance.Instance, *instance.HardwareCharacteristics, error)

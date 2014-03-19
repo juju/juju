@@ -310,7 +310,7 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (insta
 	// This limiation is why the constraints are assigned directly here.
 	args.MachineConfig.Constraints = args.Constraints
 	args.MachineConfig.AgentEnvironment[agent.Namespace] = env.config.namespace()
-	inst, hardware, err := env.containerManager.StartContainer(args.MachineConfig, series, network)
+	inst, hardware, err := env.containerManager.CreateContainer(args.MachineConfig, series, network)
 	if err != nil {
 		return nil, nil, err
 	}

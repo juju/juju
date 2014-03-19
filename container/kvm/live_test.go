@@ -81,7 +81,7 @@ func shutdownMachines(manager container.Manager) func(*gc.C) {
 	}
 }
 
-func startContainer(c *gc.C, manager container.Manager, machineId string) instance.Instance {
+func createContainer(c *gc.C, manager container.Manager, machineId string) instance.Instance {
 	machineNonce := "fake-nonce"
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
@@ -96,7 +96,7 @@ func startContainer(c *gc.C, manager container.Manager, machineId string) instan
 	err := environs.FinishMachineConfig(machineConfig, environConfig, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
-	inst, hardware, err := manager.StartContainer(machineConfig, "precise", network)
+	inst, hardware, err := manager.CreateContainer(machineConfig, "precise", network)
 	c.Assert(err, gc.IsNil)
 	c.Assert(hardware, gc.NotNil)
 	expected := fmt.Sprintf("arch=%s cpu-cores=1 mem=512M root-disk=8192M", version.Current.Arch)
@@ -106,8 +106,8 @@ func startContainer(c *gc.C, manager container.Manager, machineId string) instan
 
 func (s *LiveSuite) TestShutdownMachines(c *gc.C) {
 	manager := s.newManager(c, "test")
-	startContainer(c, manager, "1/kvm/0")
-	startContainer(c, manager, "1/kvm/1")
+	createContainer(c, manager, "1/kvm/0")
+	createContainer(c, manager, "1/kvm/1")
 	assertNumberOfContainers(c, manager, 2)
 
 	shutdownMachines(manager)(c)
@@ -118,13 +118,13 @@ func (s *LiveSuite) TestManagerIsolation(c *gc.C) {
 	firstManager := s.newManager(c, "first")
 	s.AddCleanup(shutdownMachines(firstManager))
 
-	startContainer(c, firstManager, "1/kvm/0")
-	startContainer(c, firstManager, "1/kvm/1")
+	createContainer(c, firstManager, "1/kvm/0")
+	createContainer(c, firstManager, "1/kvm/1")
 
 	secondManager := s.newManager(c, "second")
 	s.AddCleanup(shutdownMachines(secondManager))
 
-	startContainer(c, secondManager, "1/kvm/0")
+	createContainer(c, secondManager, "1/kvm/0")
 
 	assertNumberOfContainers(c, firstManager, 2)
 	assertNumberOfContainers(c, secondManager, 1)

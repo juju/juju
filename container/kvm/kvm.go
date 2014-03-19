@@ -78,7 +78,7 @@ type containerManager struct {
 
 var _ container.Manager = (*containerManager)(nil)
 
-func (manager *containerManager) StartContainer(
+func (manager *containerManager) CreateContainer(
 	machineConfig *cloudinit.MachineConfig,
 	series string,
 	network *container.NetworkConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {

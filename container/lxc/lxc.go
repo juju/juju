@@ -112,7 +112,7 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 	}, nil
 }
 
-func (manager *containerManager) StartContainer(
+func (manager *containerManager) CreateContainer(
 	machineConfig *cloudinit.MachineConfig,
 	series string,
 	network *container.NetworkConfig,

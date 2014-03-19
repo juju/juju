@@ -113,9 +113,9 @@ func (*LxcSuite) TestManagerWarnsAboutUnknownOption(c *gc.C) {
 	c.Assert(c.GetTestLog(), jc.Contains, `WARNING juju.container unused config option: "shazam" -> "Captain Marvel"`)
 }
 
-func (s *LxcSuite) TestStartContainer(c *gc.C) {
+func (s *LxcSuite) TestCreateContainer(c *gc.C) {
 	manager := s.makeManager(c, "test")
-	instance := containertesting.StartContainer(c, manager, "1/lxc/0")
+	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
 
 	name := string(instance.Id())
 	// Check our container config files.
@@ -171,22 +171,22 @@ func (s *LxcSuite) AssertEvent(c *gc.C, event mock.Event, expected mock.Action, 
 	c.Assert(event.InstanceId, gc.Equals, id)
 }
 
-func (s *LxcSuite) TestStartContainerEvents(c *gc.C) {
+func (s *LxcSuite) TestCreateContainerEvents(c *gc.C) {
 	manager := s.makeManager(c, "test")
-	instance := containertesting.StartContainer(c, manager, "1")
+	instance := containertesting.CreateContainer(c, manager, "1")
 	id := string(instance.Id())
 	s.AssertEvent(c, <-s.events, mock.Created, id)
 	s.AssertEvent(c, <-s.events, mock.Started, id)
 }
 
-func (s *LxcSuite) TestStartContainerEventsWithClone(c *gc.C) {
+func (s *LxcSuite) TestCreateContainerEventsWithClone(c *gc.C) {
 	s.PatchValue(&s.useClone, true)
 	// The template containers are created with an upstart job that
 	// stops them once cloud init has finished.  We emulate that here.
 	template := "juju-series-template"
 	s.ensureTemplateStopped(template)
 	manager := s.makeManager(c, "test")
-	instance := containertesting.StartContainer(c, manager, "1")
+	instance := containertesting.CreateContainer(c, manager, "1")
 	id := string(instance.Id())
 	s.AssertEvent(c, <-s.events, mock.Created, template)
 	s.AssertEvent(c, <-s.events, mock.Started, template)
@@ -224,11 +224,11 @@ lxc.network.flags = up
 	return template
 }
 
-func (s *LxcSuite) TestStartContainerEventsWithCloneExistingTemplate(c *gc.C) {
+func (s *LxcSuite) TestCreateContainerEventsWithCloneExistingTemplate(c *gc.C) {
 	s.createTemplate(c)
 	s.PatchValue(&s.useClone, true)
 	manager := s.makeManager(c, "test")
-	instance := containertesting.StartContainer(c, manager, "1")
+	instance := containertesting.CreateContainer(c, manager, "1")
 	name := string(instance.Id())
 	cloned := <-s.events
 	s.AssertEvent(c, cloned, mock.Cloned, "juju-series-template")
@@ -236,12 +236,12 @@ func (s *LxcSuite) TestStartContainerEventsWithCloneExistingTemplate(c *gc.C) {
 	s.AssertEvent(c, <-s.events, mock.Started, name)
 }
 
-func (s *LxcSuite) TestStartContainerEventsWithCloneExistingTemplateAUFS(c *gc.C) {
+func (s *LxcSuite) TestCreateContainerEventsWithCloneExistingTemplateAUFS(c *gc.C) {
 	s.createTemplate(c)
 	s.PatchValue(&s.useClone, true)
 	s.PatchValue(&s.useAUFS, true)
 	manager := s.makeManager(c, "test")
-	instance := containertesting.StartContainer(c, manager, "1")
+	instance := containertesting.CreateContainer(c, manager, "1")
 	name := string(instance.Id())
 	cloned := <-s.events
 	s.AssertEvent(c, cloned, mock.Cloned, "juju-series-template")
@@ -249,11 +249,11 @@ func (s *LxcSuite) TestStartContainerEventsWithCloneExistingTemplateAUFS(c *gc.C
 	s.AssertEvent(c, <-s.events, mock.Started, name)
 }
 
-func (s *LxcSuite) TestStartContainerWithCloneMountsAndAutostarts(c *gc.C) {
+func (s *LxcSuite) TestCreateContainerWithCloneMountsAndAutostarts(c *gc.C) {
 	s.createTemplate(c)
 	s.PatchValue(&s.useClone, true)
 	manager := s.makeManager(c, "test")
-	instance := containertesting.StartContainer(c, manager, "1")
+	instance := containertesting.CreateContainer(c, manager, "1")
 	name := string(instance.Id())
 
 	autostartLink := lxc.RestartSymlink(name)
@@ -267,7 +267,7 @@ func (s *LxcSuite) TestStartContainerWithCloneMountsAndAutostarts(c *gc.C) {
 func (s *LxcSuite) TestContainerState(c *gc.C) {
 	manager := s.makeManager(c, "test")
 	c.Logf("%#v", manager)
-	instance := containertesting.StartContainer(c, manager, "1/lxc/0")
+	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
 
 	// The mock container will be immediately "running".
 	c.Assert(instance.Status(), gc.Equals, string(golxc.StateRunning))
@@ -281,7 +281,7 @@ func (s *LxcSuite) TestContainerState(c *gc.C) {
 
 func (s *LxcSuite) TestStopContainer(c *gc.C) {
 	manager := s.makeManager(c, "test")
-	instance := containertesting.StartContainer(c, manager, "1/lxc/0")
+	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
 
 	err := manager.StopContainer(instance)
 	c.Assert(err, gc.IsNil)
@@ -295,7 +295,7 @@ func (s *LxcSuite) TestStopContainer(c *gc.C) {
 
 func (s *LxcSuite) TestStopContainerNameClash(c *gc.C) {
 	manager := s.makeManager(c, "test")
-	instance := containertesting.StartContainer(c, manager, "1/lxc/0")
+	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
 
 	name := string(instance.Id())
 	targetDir := filepath.Join(s.RemovedDir, name)
@@ -313,7 +313,7 @@ func (s *LxcSuite) TestStopContainerNameClash(c *gc.C) {
 
 func (s *LxcSuite) TestNamedManagerPrefix(c *gc.C) {
 	manager := s.makeManager(c, "eric")
-	instance := containertesting.StartContainer(c, manager, "1/lxc/0")
+	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
 	c.Assert(string(instance.Id()), gc.Equals, "eric-machine-1-lxc-0")
 }
 
@@ -321,12 +321,12 @@ func (s *LxcSuite) TestListContainers(c *gc.C) {
 	foo := s.makeManager(c, "foo")
 	bar := s.makeManager(c, "bar")
 
-	foo1 := containertesting.StartContainer(c, foo, "1/lxc/0")
-	foo2 := containertesting.StartContainer(c, foo, "1/lxc/1")
-	foo3 := containertesting.StartContainer(c, foo, "1/lxc/2")
+	foo1 := containertesting.CreateContainer(c, foo, "1/lxc/0")
+	foo2 := containertesting.CreateContainer(c, foo, "1/lxc/1")
+	foo3 := containertesting.CreateContainer(c, foo, "1/lxc/2")
 
-	bar1 := containertesting.StartContainer(c, bar, "1/lxc/0")
-	bar2 := containertesting.StartContainer(c, bar, "1/lxc/1")
+	bar1 := containertesting.CreateContainer(c, bar, "1/lxc/0")
+	bar2 := containertesting.CreateContainer(c, bar, "1/lxc/1")
 
 	result, err := foo.ListContainers()
 	c.Assert(err, gc.IsNil)
@@ -337,19 +337,19 @@ func (s *LxcSuite) TestListContainers(c *gc.C) {
 	instancetest.MatchInstances(c, result, bar1, bar2)
 }
 
-func (s *LxcSuite) TestStartContainerAutostarts(c *gc.C) {
+func (s *LxcSuite) TestCreateContainerAutostarts(c *gc.C) {
 	manager := s.makeManager(c, "test")
-	instance := containertesting.StartContainer(c, manager, "1/lxc/0")
+	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
 	autostartLink := lxc.RestartSymlink(string(instance.Id()))
 	c.Assert(autostartLink, jc.IsSymlink)
 }
 
-func (s *LxcSuite) TestStartContainerNoRestartDir(c *gc.C) {
+func (s *LxcSuite) TestCreateContainerNoRestartDir(c *gc.C) {
 	err := os.Remove(s.RestartDir)
 	c.Assert(err, gc.IsNil)
 
 	manager := s.makeManager(c, "test")
-	instance := containertesting.StartContainer(c, manager, "1/lxc/0")
+	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
 	name := string(instance.Id())
 	autostartLink := lxc.RestartSymlink(name)
 	config, err := ioutil.ReadFile(lxc.ContainerConfigFilename(name))
@@ -367,7 +367,7 @@ lxc.mount.entry=/var/log/juju var/log/juju none defaults,bind 0 0
 
 func (s *LxcSuite) TestStopContainerRemovesAutostartLink(c *gc.C) {
 	manager := s.makeManager(c, "test")
-	instance := containertesting.StartContainer(c, manager, "1/lxc/0")
+	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
 	err := manager.StopContainer(instance)
 	c.Assert(err, gc.IsNil)
 	autostartLink := lxc.RestartSymlink(string(instance.Id()))
@@ -379,7 +379,7 @@ func (s *LxcSuite) TestStopContainerNoRestartDir(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	manager := s.makeManager(c, "test")
-	instance := containertesting.StartContainer(c, manager, "1/lxc/0")
+	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
 	err = manager.StopContainer(instance)
 	c.Assert(err, gc.IsNil)
 }

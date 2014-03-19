@@ -88,15 +88,15 @@ func (s *KVMSuite) TestListMatchesRunningContainers(c *gc.C) {
 	c.Assert(string(containers[0].Id()), gc.Equals, running.Name())
 }
 
-func (s *KVMSuite) TestStartContainer(c *gc.C) {
-	instance := containertesting.StartContainer(c, s.manager, "1/kvm/0")
+func (s *KVMSuite) TestCreateContainer(c *gc.C) {
+	instance := containertesting.CreateContainer(c, s.manager, "1/kvm/0")
 	name := string(instance.Id())
 	cloudInitFilename := filepath.Join(s.ContainerDir, name, "cloud-init")
 	containertesting.AssertCloudInit(c, cloudInitFilename)
 }
 
 func (s *KVMSuite) TestStopContainer(c *gc.C) {
-	instance := containertesting.StartContainer(c, s.manager, "1/lxc/0")
+	instance := containertesting.CreateContainer(c, s.manager, "1/lxc/0")
 
 	err := s.manager.StopContainer(instance)
 	c.Assert(err, gc.IsNil)
