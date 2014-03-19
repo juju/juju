@@ -22,6 +22,7 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -128,6 +129,12 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	env.maasClientUnlocked = gomaasapi.NewMAAS(*authClient)
 
 	return nil
+}
+
+// SupportedArchitectures is specified on the EnvironCapability interface.
+func (*maasEnviron) SupportedArchitectures() ([]string, error) {
+	// TODO(wallyworld) - how to find out what architectures a MAAS environ supports
+	return arch.AllSupportedArches, nil
 }
 
 // getMAASClient returns a MAAS client object to use for a request, in a

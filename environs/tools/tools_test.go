@@ -240,7 +240,7 @@ func (s *SimpleStreamsToolsSuite) TestFindBootstrapTools(c *gc.C) {
 			Arch:    &test.Arch,
 		}
 		actual, err := envtools.FindBootstrapTools(s.env, params)
-		if test.Err != nil {
+		if test.Err != "" {
 			if len(actual) > 0 {
 				c.Logf(actual.String())
 			}

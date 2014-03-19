@@ -89,6 +89,17 @@ func (e *manualEnviron) Name() string {
 	return e.envConfig().Name()
 }
 
+// SupportedArchitectures is specified on the EnvironCapability interface.
+func (e *manualEnviron) SupportedArchitectures() ([]string, error) {
+	envConfig := e.envConfig()
+	host := envConfig.bootstrapHost()
+	hc, _, err := manual.DetectSeriesAndHardwareCharacteristics(host)
+	if err != nil {
+		return nil, err
+	}
+	return []string{*hc.Arch}, nil
+}
+
 func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
 	// Set "use-sshstorage" to false, so agents know not to use sshstorage.
 	cfg, err := e.Config().Apply(map[string]interface{}{"use-sshstorage": false})
