@@ -398,25 +398,17 @@ func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
 
 }
 
-func (s *MachineSuite) TestManageEnvironSetsGOMAXPROCS(c *gc.C) {
-	// If it has been enabled, the JobManageEnviron agent should call
-	// GOMAXPROCS with NumCPU()
-	s.PatchEnvironment("GOMAXPROCS", "")
+func (s *MachineSuite) TestManageEnvironCallsUseMultipleCPUs(c *gc.C) {
+	// If it has been enabled, the JobManageEnviron agent should call utils.UseMultipleCPUs
 	usefulVersion := version.Current
 	usefulVersion.Series = "quantal"
 	envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), usefulVersion)
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
 	s.setFakeMachineAddresses(c, m)
-	numCPUResult := 2
-	numCPUFunc := func() int { return numCPUResult }
-	maxProcsChan := make(chan int, 1)
-	gomaxprocsFunc := func(maxprocs int) int {
-		maxProcsChan <- maxprocs
-		return maxprocs
-	}
-	cleanup := utils.OverrideGOMAXPROCSFuncs(gomaxprocsFunc, numCPUFunc)
-	defer cleanup()
-	// Now, observe the change
+	calledChan := make(chan struct{}, 1)
+	s.PatchValue(&useMultipleCPUs, func() { calledChan <- struct{}{}; })
+	// Now, start the agent, and observe that a JobManageEnviron agent
+	// calls UseMultipleCPUs
 	a := s.newAgent(c, m)
 	defer a.Stop()
 	go func() {
@@ -424,9 +416,13 @@ func (s *MachineSuite) TestManageEnvironSetsGOMAXPROCS(c *gc.C) {
 	}()
 	// Wait for configuration to be finished
 	<-a.workersStarted
-	c.Check(<-maxProcsChan, gc.Equals, int(2))
+	select {
+		case <-calledChan:
+		case <-time.After(coretesting.LongWait):
+			c.Errorf("we failed to call UseMultipleCPUs()")
+	}
 	c.Check(a.Stop(), gc.IsNil)
-	// An agent that just hosts units doesn't call GOMAXPROCS
+	// However, an agent that just JobHostUnits doesn't call UseMultipleCPUs
 	m2, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
 	s.setFakeMachineAddresses(c, m2)
 	a2 := s.newAgent(c, m2)
@@ -438,8 +434,8 @@ func (s *MachineSuite) TestManageEnvironSetsGOMAXPROCS(c *gc.C) {
 	<-a2.workersStarted
 	c.Check(a2.Stop(), gc.IsNil)
 	select {
-	case procs := <-maxProcsChan:
-		c.Errorf("we should not have called GOMAXPROCS(%d)", procs)
+	case <-calledChan:
+		c.Errorf("we should not have called UseMultipleCPUs()")
 	case <-time.After(coretesting.ShortWait):
 	}
 }

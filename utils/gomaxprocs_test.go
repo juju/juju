@@ -31,7 +31,7 @@ func (s *gomaxprocsSuite) SetUpTest(c *gc.C) {
 		return 1
 	}
 	numCPUFunc := func() int { return s.numCPUResponse }
-	cleanup := utils.OverrideGOMAXPROCSFuncs(maxprocsfunc, numCPUFunc)
+	cleanup := utils.OverrideCPUFuncs(maxprocsfunc, numCPUFunc)
 	s.AddCleanup(func(c *gc.C) { c.Logf("running cleanup"); cleanup() })
 	s.PatchEnvironment("GOMAXPROCS", "")
 }

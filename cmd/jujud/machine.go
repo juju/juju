@@ -61,6 +61,8 @@ var retryDelay = 3 * time.Second
 
 var jujuRun = "/usr/local/bin/juju-run"
 
+var useMultipleCPUs = utils.UseMultipleCPUs
+
 // MachineAgent is a cmd.Command responsible for running a machine agent.
 type MachineAgent struct {
 	cmd.CommandBase
@@ -340,7 +342,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		case state.JobHostUnits:
 			// Implemented in APIWorker.
 		case state.JobManageEnviron:
-			utils.UseMultipleCPUs()
+			useMultipleCPUs()
 			a.startWorkerAfterUpgrade(runner, "instancepoller", func() (worker.Worker, error) {
 				return instancepoller.NewWorker(st), nil
 			})
