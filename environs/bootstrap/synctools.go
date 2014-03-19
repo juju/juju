@@ -28,7 +28,6 @@ You may want to use the 'tools-metadata-url' configuration setting to specify th
 
 // UploadTools uploads tools for the specified series and any other relevant series to
 // the environment storage, after which it sets the agent-version.
-// Not tested directly since there's numerous tests which use it in cmd/juju and bootstrapSuite.
 func UploadTools(env environs.Environ, toolsArch *string, allowRelease bool, bootstrapSeries ...string) error {
 	logger.Infof("checking that upload is possible")
 	// Check the series are valid.

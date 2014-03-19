@@ -11,10 +11,10 @@ import (
 
 	"launchpad.net/juju-core/environs/config"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/provider/maas"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
-	"launchpad.net/juju-core/juju/arch"
 )
 
 type environSuite struct {
