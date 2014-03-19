@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/url"
+	"strings"
 
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
@@ -385,7 +386,10 @@ func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	err = env.SetConfig(cfg)
 	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
-	c.Check(err, gc.ErrorMatches, "cannot find bootstrap tools.*")
+	stripped := strings.Replace(err.Error(), "\n", "", -1)
+	c.Check(stripped,
+		gc.Matches,
+		"cannot upload bootstrap tools: Juju cannot bootstrap because no tools are available for your environment.*")
 }
 
 func (suite *environSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {

@@ -163,6 +163,13 @@ func patchWithServiceListResponse(c *gc.C, services []gwacl.HostedServiceDescrip
 	return gwacl.PatchManagementAPIResponses(responses)
 }
 
+func (*environSuite) TestSupportedArchitectures(c *gc.C) {
+	env := makeEnviron(c)
+	a, err := env.SupportedArchitectures()
+	c.Assert(err, gc.IsNil)
+	c.Assert(a, gc.DeepEquals, []string{"amd64", "i386"})
+}
+
 func (suite *environSuite) TestGetEnvPrefixContainsEnvName(c *gc.C) {
 	env := makeEnviron(c)
 	c.Check(strings.Contains(env.getEnvPrefix(), env.Name()), jc.IsTrue)

@@ -25,6 +25,7 @@ var PingPeriod = 1 * time.Minute
 type State struct {
 	client *rpc.Conn
 	conn   *websocket.Conn
+	addr   string
 
 	// authTag holds the authenticated entity's tag after login.
 	authTag string
@@ -127,6 +128,7 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	st := &State{
 		client:     client,
 		conn:       conn,
+		addr:       cfg.Location.Host,
 		serverRoot: "https://" + cfg.Location.Host,
 		tag:        info.Tag,
 		password:   info.Password,
@@ -185,4 +187,9 @@ func (s *State) Broken() <-chan struct{} {
 // points don't reach. This is exported for testing purposes only.
 func (s *State) RPCClient() *rpc.Conn {
 	return s.client
+}
+
+// Addr returns the address used to connect to the RPC server.
+func (s *State) Addr() string {
+	return s.addr
 }

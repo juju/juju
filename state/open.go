@@ -163,8 +163,8 @@ func Initialize(info *Info, cfg *config.Config, opts DialOpts, policy Policy) (r
 			Insert: &stateServersDoc{},
 		}, {
 			C:      st.stateServers.Name,
-			Id:     apiAddressesKey,
-			Insert: &apiAddressesDoc{},
+			Id:     apiHostPortsKey,
+			Insert: &apiHostPortsDoc{},
 		},
 	}
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
@@ -355,10 +355,10 @@ func (st *State) createStateServersDoc() error {
 // legacy environments that have not created the document
 // at initialization time.
 func (st *State) createAPIAddressesDoc() error {
-	var doc apiAddressesDoc
+	var doc apiHostPortsDoc
 	ops := []txn.Op{{
 		C:      st.stateServers.Name,
-		Id:     apiAddressesKey,
+		Id:     apiHostPortsKey,
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}}

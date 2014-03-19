@@ -302,9 +302,6 @@ func attemptCreateService(azure *gwacl.ManagementAPI, prefix string, affinityGro
 	return req, nil
 }
 
-// supportedArches lists the CPU architectures supported by Azure.
-var supportedArches = []string{arch.AMD64, arch.I386}
-
 // newHostedService creates a hosted service.  It will make up a unique name,
 // starting with the given prefix.
 func newHostedService(azure *gwacl.ManagementAPI, prefix string, affinityGroupName string, location string) (*gwacl.CreateHostedService, error) {
@@ -320,6 +317,14 @@ func newHostedService(azure *gwacl.ManagementAPI, prefix string, affinityGroupNa
 		return nil, fmt.Errorf("could not come up with a unique hosted service name - is your randomizer initialized?")
 	}
 	return svc, nil
+}
+
+// supportedArches lists the CPU architectures supported by Azure.
+var supportedArches = []string{arch.AMD64, arch.I386}
+
+// SupportedArchitectures is specified on the EnvironCapability interface.
+func (*azureEnviron) SupportedArchitectures() ([]string, error) {
+	return supportedArches, nil
 }
 
 // selectInstanceTypeAndImage returns the appropriate instance-type name and
