@@ -16,6 +16,28 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
+// Entity identifies a single entity.
+type Entity struct {
+	Tag string
+}
+
+// Entities identifies multiple entities.
+type Entities struct {
+	Entities []Entity
+}
+
+// EntityPasswords holds the parameters for making a SetPasswords call.
+type EntityPasswords struct {
+	Changes []EntityPassword
+}
+
+// EntityPassword specifies a password change for the entity
+// with the given tag.
+type EntityPassword struct {
+	Tag      string
+	Password string
+}
+
 // ErrorResults holds the results of calling a bulk operation which
 // returns no data, only an error result. The order and
 // number of elements matches the operations specified in the request.

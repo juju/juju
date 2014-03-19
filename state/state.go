@@ -38,7 +38,10 @@ var logger = loggo.GetLogger("juju.state")
 type D []bson.DocElem
 
 // BootstrapNonce is used as a nonce for the state server machine.
-const BootstrapNonce = "user-admin:bootstrap"
+const (
+	BootstrapNonce = "user-admin:bootstrap"
+	AdminUser      = "admin"
+)
 
 // State represents the state of an environment
 // managed by juju.
@@ -1294,19 +1297,19 @@ func (st *State) StartSync() {
 // all subsequent attempts to access the state must
 // be authorized; otherwise no authorization is required.
 func (st *State) SetAdminMongoPassword(password string) error {
-	admin := st.db.Session.DB("admin")
+	admin := st.db.Session.DB(AdminUser)
 	if password != "" {
 		// On 2.2+, we get a "need to login" error without a code when
 		// adding the first user because we go from no-auth+no-login to
 		// auth+no-login. Not great. Hopefully being fixed in 2.4.
-		if err := admin.AddUser("admin", password, false); err != nil && err.Error() != "need to login" {
+		if err := admin.AddUser(AdminUser, password, false); err != nil && err.Error() != "need to login" {
 			return fmt.Errorf("cannot set admin password: %v", err)
 		}
-		if err := admin.Login("admin", password); err != nil {
+		if err := admin.Login(AdminUser, password); err != nil {
 			return fmt.Errorf("cannot login after setting password: %v", err)
 		}
 	} else {
-		if err := admin.RemoveUser("admin"); err != nil && err != mgo.ErrNotFound {
+		if err := admin.RemoveUser(AdminUser); err != nil && err != mgo.ErrNotFound {
 			return fmt.Errorf("cannot disable admin password: %v", err)
 		}
 	}

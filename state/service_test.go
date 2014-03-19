@@ -580,13 +580,13 @@ func (s *ServiceSuite) TestRiakEndpoints(c *gc.C) {
 		},
 	})
 
-	adminEP, err := riak.Endpoint("admin")
+	adminEP, err := riak.Endpoint(state.AdminUser)
 	c.Assert(err, gc.IsNil)
 	c.Assert(adminEP, gc.DeepEquals, state.Endpoint{
 		ServiceName: "myriak",
 		Relation: charm.Relation{
 			Interface: "http",
-			Name:      "admin",
+			Name:      state.AdminUser,
 			Role:      charm.RoleProvider,
 			Scope:     charm.ScopeGlobal,
 		},

@@ -156,8 +156,8 @@ func (s *agentSuite) TestGetNotFoundEntity(c *gc.C) {
 }
 
 func (s *agentSuite) TestSetPasswords(c *gc.C) {
-	results, err := s.agent.SetPasswords(params.PasswordChanges{
-		Changes: []params.PasswordChange{
+	results, err := s.agent.SetPasswords(params.EntityPasswords{
+		Changes: []params.EntityPassword{
 			{Tag: "machine-0", Password: "xxx-12345678901234567890"},
 			{Tag: "machine-1", Password: "yyy-12345678901234567890"},
 			{Tag: "machine-42", Password: "zzz-12345678901234567890"},
@@ -178,8 +178,8 @@ func (s *agentSuite) TestSetPasswords(c *gc.C) {
 }
 
 func (s *agentSuite) TestShortSetPasswords(c *gc.C) {
-	results, err := s.agent.SetPasswords(params.PasswordChanges{
-		Changes: []params.PasswordChange{
+	results, err := s.agent.SetPasswords(params.EntityPasswords{
+		Changes: []params.EntityPassword{
 			{Tag: "machine-1", Password: "yyy"},
 		},
 	})
