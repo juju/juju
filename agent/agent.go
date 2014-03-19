@@ -125,13 +125,24 @@ type Config interface {
 	StateInitializer
 }
 
+// MigrateConfigParams holds non-empty agent config values to change
+// in a MigrateConfig call. DeleteValues specifies a list of keys to
+// delete.
+type MigrateConfigParams struct {
+	DataDir      string
+	LogDir       string
+	Jobs         []params.MachineJob
+	DeleteValues []string
+	Values       map[string]string
+}
+
 // MigrateConfig takes an existing agent config and applies the given
 // newParams selectively. Only non-empty fields in newParams are used
 // to change existing config settings. All changes are written
 // atomically. UpgradedToVersion cannot be changed here, because
 // MigrateConfig is most likely called during an upgrade, so it will be
 // changed at the end of the upgrade anyway, if successful.
-func MigrateConfig(currentConfig Config, newParams AgentConfigParams) error {
+func MigrateConfig(currentConfig Config, newParams MigrateConfigParams) error {
 	configMutex.Lock()
 	defer configMutex.Unlock()
 	config := currentConfig.(*configInternal)
@@ -143,44 +154,17 @@ func MigrateConfig(currentConfig Config, newParams AgentConfigParams) error {
 		config.logDir = newParams.LogDir
 	}
 	if len(newParams.Jobs) > 0 {
-		config.jobs = newParams.Jobs[:]
+		config.jobs = make([]params.MachineJob, len(newParams.Jobs))
+		copy(config.jobs, newParams.Jobs)
 	}
-	if newParams.Tag != "" {
-		config.tag = newParams.Tag
-	}
-	if newParams.Nonce != "" {
-		config.nonce = newParams.Nonce
-	}
-	if newParams.Password != "" {
-		config.oldPassword = newParams.Password
-	}
-	if len(newParams.CACert) > 0 {
-		config.caCert = newParams.CACert[:]
-	}
-	if len(newParams.StateAddresses) > 0 {
-		if config.stateDetails == nil {
-			config.stateDetails = &connectionDetails{}
-		}
-		config.stateDetails.addresses = newParams.StateAddresses[:]
-	}
-	if len(newParams.APIAddresses) > 0 {
-		if config.apiDetails == nil {
-			config.apiDetails = &connectionDetails{}
-		}
-		config.apiDetails.addresses = newParams.APIAddresses[:]
+	for _, key := range newParams.DeleteValues {
+		delete(config.values, key)
 	}
 	for key, value := range newParams.Values {
 		if config.values == nil {
 			config.values = make(map[string]string)
 		}
-		if key == "_DELETE_" {
-			deleteKeys := strings.SplitN(value, ",", -1)
-			for _, deleteKey := range deleteKeys {
-				delete(config.values, strings.TrimSpace(deleteKey))
-			}
-		} else {
-			config.values[key] = value
-		}
+		config.values[key] = value
 	}
 	if err := config.check(); err != nil {
 		return fmt.Errorf("migrated agent config is invalid: %v", err)
@@ -202,19 +186,23 @@ func MigrateConfig(currentConfig Config, newParams AgentConfigParams) error {
 // Ensure that the configInternal struct implements the Config interface.
 var _ Config = (*configInternal)(nil)
 
-// The configMutex should be locked before any writing to disk during the
-// write commands, and unlocked when the writing is complete.  This process
-// wide lock should stop any unintended concurrent writes.  This may happen
-// when multiple go-routines may be adding things to the agent config, and
-// wanting to persist them to disk. To ensure that the correct data is written
-// to disk, the mutex should be locked prior to generating any disk state.
-// This way calls that might get interleaved would always write the most
-// recent state to disk.  Since we have different agent configs for each
-// agent, and there is only one process for each agent, a simple mutex is
-// enough for concurrency.  The mutex should also be locked around any access
-// to mutable values, either setting or getting.  The only mutable value is
-// the values map.  Retrieving and setting values here are protected by the
-// mutex.  New mutating methods should also be synchronized using this mutex.
+// The configMutex should be locked before any writing to disk during
+// the write commands, and unlocked when the writing is complete. This
+// process wide lock should stop any unintended concurrent writes.
+// This may happen when multiple go-routines may be adding things to
+// the agent config, and wanting to persist them to disk. To ensure
+// that the correct data is written to disk, the mutex should be
+// locked prior to generating any disk state. This way calls that
+// might get interleaved would always write the most recent state to
+// disk. Since we have different agent configs for each agent, and
+// there is only one process for each agent, a simple mutex is enough
+// for concurrency. The mutex should also be locked around any access
+// to mutable values, either setting or getting. The only mutable
+// value is the values map. Retrieving and setting values here are
+// protected by the mutex. New mutating methods should also be
+// synchronized using this mutex. Config is essentially a singleton
+// implementation, having a non-constructable-in-a-normal-way backing
+// type configInternal.
 var configMutex sync.Mutex
 
 type connectionDetails struct {

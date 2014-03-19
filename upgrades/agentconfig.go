@@ -43,7 +43,7 @@ var isLocalEnviron = func(envConfig *config.Config) bool {
 func migrateLocalProviderAgentConfig(context Context) error {
 	st := context.State()
 	if st == nil {
-		logger.Debugf("no state connection, skipping 1.16 to 1.18 migration")
+		logger.Debugf("no state connection, no migration required")
 		// We're running on a different node than the state server.
 		return nil
 	}
@@ -52,7 +52,7 @@ func migrateLocalProviderAgentConfig(context Context) error {
 		return fmt.Errorf("failed to read current config: %v", err)
 	}
 	if !isLocalEnviron(envConfig) {
-		logger.Debugf("not a local environment, skipping 1.16 to 1.18 migration")
+		logger.Debugf("not a local environment, no migration required")
 		return nil
 	}
 	attrs := envConfig.AllAttrs()
@@ -84,14 +84,15 @@ func migrateLocalProviderAgentConfig(context Context) error {
 	logDir := fmt.Sprintf("%s/juju-%s", rootLogDir, namespace)
 	jobs := []params.MachineJob{params.JobManageEnviron}
 	values := map[string]string{
-		// Delete the obsolete values.
-		"_DELETE_": "SHARED_STORAGE_ADDR,SHARED_STORAGE_DIR",
-		// Add new values from the environment.
 		agent.Namespace: namespace,
 		// ContainerType is empty on the bootstrap node.
 		agent.ContainerType:    "",
 		agent.AgentServiceName: "juju-agent-" + namespace,
 		agent.MongoServiceName: "juju-db-" + namespace,
+	}
+	deprecatedValues := []string{
+		"SHARED_STORAGE_ADDR",
+		"SHARED_STORAGE_DIR",
 	}
 
 	// Remove shared-storage dir if there.
@@ -138,11 +139,12 @@ func migrateLocalProviderAgentConfig(context Context) error {
 		return fmt.Errorf("cannot update environment config: %v", err)
 	}
 
-	migrateParams := agent.AgentConfigParams{
-		DataDir: dataDir,
-		LogDir:  logDir,
-		Jobs:    jobs,
-		Values:  values,
+	migrateParams := agent.MigrateConfigParams{
+		DataDir:      dataDir,
+		LogDir:       logDir,
+		Jobs:         jobs,
+		Values:       values,
+		DeleteValues: deprecatedValues,
 	}
 	return agent.MigrateConfig(context.AgentConfig(), migrateParams)
 }

@@ -187,64 +187,45 @@ func (*suite) TestMigrateConfig(c *gc.C) {
 	}
 
 	migrateTests := []struct {
-		comment              string
-		fields               []string
-		initialStatePassword string
-		initialAPIPassword   string
-		newParams            agent.AgentConfigParams
-		expectValues         map[string]string
+		comment      string
+		fields       []string
+		newParams    agent.MigrateConfigParams
+		expectValues map[string]string
+		expectErr    string
 	}{{
 		comment:   "nothing to change",
 		fields:    nil,
-		newParams: agent.AgentConfigParams{},
+		newParams: agent.MigrateConfigParams{},
 	}, {
 		fields: []string{"DataDir"},
-		newParams: agent.AgentConfigParams{
+		newParams: agent.MigrateConfigParams{
 			DataDir: c.MkDir(),
 		},
 	}, {
 		fields: []string{"DataDir", "LogDir"},
-		newParams: agent.AgentConfigParams{
+		newParams: agent.MigrateConfigParams{
 			DataDir: c.MkDir(),
 			LogDir:  c.MkDir(),
 		},
 	}, {
-		fields: []string{"Tag", "Jobs"},
-		newParams: agent.AgentConfigParams{
-			Tag:  "fake",
+		fields: []string{"Jobs"},
+		newParams: agent.MigrateConfigParams{
 			Jobs: []params.MachineJob{params.JobHostUnits},
 		},
 	}, {
-		fields: []string{"CACert", "APIAddresses", "Nonce"},
-		newParams: agent.AgentConfigParams{
-			CACert:       []byte("a new cert"),
-			APIAddresses: []string{"localhost:3333", "localhost:4444"},
-			Nonce:        "great",
-		},
-	}, {
-		fields: []string{"StateAddresses", "Password"},
-		newParams: agent.AgentConfigParams{
-			StateAddresses: []string{"localhost:1111"},
-			Password:       "very obscure",
-		},
-	}, {
-		comment:              "preserve state/API password when set",
-		fields:               []string{"StateAddresses", "APIAddresses"},
-		initialStatePassword: "geronimo",
-		initialAPIPassword:   "random",
-		newParams: agent.AgentConfigParams{
-			StateAddresses: []string{"localhost:1111"},
-			APIAddresses:   []string{"localhost:2233"},
-		},
+		comment:   "invalid/immutable field specified",
+		fields:    []string{"InvalidField"},
+		newParams: agent.MigrateConfigParams{},
+		expectErr: `unknown field "InvalidField"`,
 	}, {
 		comment: "Values can be added, changed or removed",
-		fields:  []string{"Values"},
-		newParams: agent.AgentConfigParams{
+		fields:  []string{"Values", "DeleteValues"},
+		newParams: agent.MigrateConfigParams{
+			DeleteValues: []string{"key2", "key3"}, // delete
 			Values: map[string]string{
-				"key1":     "new value1",     // change
-				"_DELETE_": " , key2 , key3", // delete (messy seps)
-				"new key3": "value3",         // add
-				"empty":    "",               // add empty val
+				"key1":     "new value1", // change
+				"new key3": "value3",     // add
+				"empty":    "",           // add empty val
 			},
 		},
 		expectValues: map[string]string{
@@ -266,22 +247,13 @@ func (*suite) TestMigrateConfig(c *gc.C) {
 		newConfig, err := agent.NewAgentConfig(initialParams)
 		c.Check(err, gc.IsNil)
 
-		if test.initialStatePassword != "" {
-			agent.PatchConfig(c, initialConfig, "StatePassword", test.initialStatePassword)
-			agent.PatchConfig(c, newConfig, "StatePassword", test.initialStatePassword)
-		}
-		if test.initialAPIPassword != "" {
-			agent.PatchConfig(c, initialConfig, "APIPassword", test.initialAPIPassword)
-			agent.PatchConfig(c, newConfig, "APIPassword", test.initialAPIPassword)
-		}
-
 		c.Check(initialConfig.Write(), gc.IsNil)
 		c.Check(agent.ConfigFileExists(initialConfig), jc.IsTrue)
 
 		err = agent.MigrateConfig(newConfig, test.newParams)
 		c.Check(err, gc.IsNil)
 		c.Check(agent.ConfigFileExists(newConfig), jc.IsTrue)
-		if test.newParams.DataDir != "" || test.newParams.Tag != "" {
+		if test.newParams.DataDir != "" {
 			// If we're changing where the new config is saved,
 			// we can verify the old config got removed.
 			c.Check(agent.ConfigFileExists(initialConfig), jc.IsFalse)
@@ -297,11 +269,22 @@ func (*suite) TestMigrateConfig(c *gc.C) {
 		// Make sure only the specified fields were changed and
 		// the rest matches.
 		for _, field := range test.fields {
-			if field == "Values" {
-				agent.PatchConfig(c, initialConfig, field, test.expectValues)
-			} else {
-				value := reflect.ValueOf(test.newParams).FieldByName(field).Interface()
-				agent.PatchConfig(c, initialConfig, field, value)
+			switch field {
+			case "Values":
+				err = agent.PatchConfig(initialConfig, field, test.expectValues)
+				c.Check(err, gc.IsNil)
+			case "DeleteValues":
+				err = agent.PatchConfig(initialConfig, field, test.newParams.DeleteValues)
+				c.Check(err, gc.IsNil)
+			default:
+				value := reflect.ValueOf(test.newParams).FieldByName(field)
+				if value.IsValid() && test.expectErr == "" {
+					err = agent.PatchConfig(initialConfig, field, value.Interface())
+					c.Check(err, gc.IsNil)
+				} else {
+					err = agent.PatchConfig(initialConfig, field, value)
+					c.Check(err, gc.ErrorMatches, test.expectErr)
+				}
 			}
 		}
 		c.Check(newConfig, jc.DeepEquals, initialConfig)

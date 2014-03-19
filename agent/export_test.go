@@ -4,9 +4,8 @@
 package agent
 
 import (
+	"fmt"
 	"os"
-
-	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/state/api/params"
 )
@@ -25,7 +24,7 @@ func WriteNewPassword(cfg Config) (string, error) {
 	return cfg.(*configInternal).writeNewPassword()
 }
 
-func PatchConfig(c *gc.C, config Config, fieldName string, value interface{}) {
+func PatchConfig(config Config, fieldName string, value interface{}) error {
 	conf := config.(*configInternal)
 	switch fieldName {
 	case "DataDir":
@@ -34,47 +33,22 @@ func PatchConfig(c *gc.C, config Config, fieldName string, value interface{}) {
 		conf.logDir = value.(string)
 	case "Jobs":
 		conf.jobs = value.([]params.MachineJob)[:]
-	case "Tag":
-		conf.tag = value.(string)
-	case "Nonce":
-		conf.nonce = value.(string)
-	case "Password":
-		conf.oldPassword = value.(string)
-	case "CACert":
-		conf.caCert = value.([]byte)[:]
-	case "StateAddresses":
-		addrs := value.([]string)[:]
-		if conf.stateDetails == nil {
-			conf.stateDetails = &connectionDetails{}
+	case "DeleteValues":
+		for _, key := range value.([]string) {
+			delete(conf.values, key)
 		}
-		conf.stateDetails.addresses = addrs
-	case "StatePassword":
-		if conf.stateDetails == nil {
-			conf.stateDetails = &connectionDetails{}
-		}
-		conf.stateDetails.password = value.(string)
-	case "APIAddresses":
-		addrs := value.([]string)[:]
-		if conf.apiDetails == nil {
-			conf.apiDetails = &connectionDetails{}
-		}
-		conf.apiDetails.addresses = addrs
-	case "APIPassword":
-		if conf.apiDetails == nil {
-			conf.apiDetails = &connectionDetails{}
-		}
-		conf.apiDetails.password = value.(string)
 	case "Values":
-		conf.values = make(map[string]string)
-		for k, v := range value.(map[string]string) {
-			if k != "_DELETE_" {
-				conf.values[k] = v
+		for key, val := range value.(map[string]string) {
+			if conf.values == nil {
+				conf.values = make(map[string]string)
 			}
+			conf.values[key] = val
 		}
 	default:
-		c.Fatalf("unknown field %q", fieldName)
+		return fmt.Errorf("unknown field %q", fieldName)
 	}
 	conf.configFilePath = ConfigPath(conf.dataDir, conf.tag)
+	return nil
 }
 
 func ConfigFileExists(config Config) bool {
