@@ -44,6 +44,9 @@ DEPS="build-essential bzr distro-info-data git-core mercurial zip rsyslog-gnutls
 ssh "$@" $remote_user@$instance_name  <<EOT
 set -eux
 sudo apt-get update
+if [[ $is_ephemeral == "true" ]]; then
+    sudo apt-get upgrade -y
+fi
 if [[ \$(apt-cache madison juju-mongodb) =~ .*juju-mongodb.* ]]; then
     juju_db="juju-mongodb"
 else
