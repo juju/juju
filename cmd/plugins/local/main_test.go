@@ -4,19 +4,20 @@
 package local_test
 
 import (
+	"os/exec"
 	"strings"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/cmd/plugins/local"
-	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
+	coretesting "launchpad.net/juju-core/testing"
 )
 
 type mainSuite struct {
-	testbase.LoggingSuite
+	testing.LoggingSuite
 }
 
 var _ = gc.Suite(&mainSuite{})
@@ -27,10 +28,10 @@ func (*mainSuite) TestRegisteredCommands(c *gc.C) {
 		// TODO: add some as they get registered
 	}
 	plugin := local.JujuLocalPlugin()
-	ctx, err := testing.RunCommand(c, plugin, []string{"help", "commands"})
+	ctx, err := coretesting.RunCommand(c, plugin, []string{"help", "commands"})
 	c.Assert(err, gc.IsNil)
 
-	lines := strings.Split(testing.Stdout(ctx), "\n")
+	lines := strings.Split(coretesting.Stdout(ctx), "\n")
 	var names []string
 	for _, line := range lines {
 		f := strings.Fields(line)
@@ -50,7 +51,25 @@ func (s *mainSuite) TestEnsureRootCallsFuncIfRoot(c *gc.C) {
 		called = true
 		return nil
 	}
-	err := local.EnsureRoot(testing.Context(c), call)
+	args := []string{"juju-magic", "ignored..."}
+	err := local.EnsureRoot(args, coretesting.Context(c), call)
 	c.Assert(err, gc.IsNil)
 	c.Assert(called, jc.IsTrue)
+}
+
+func (s *mainSuite) TestEnsureRootCallsSudoIfNotRoot(c *gc.C) {
+	s.PatchValue(local.CheckIfRoot, func() bool { return false })
+	testing.PatchExecutableAsEchoArgs(c, s, "sudo")
+	// the command needs to be in the path...
+	testing.PatchExecutableAsEchoArgs(c, s, "juju-magic")
+	magicPath, err := exec.LookPath("juju-magic")
+	c.Assert(err, gc.IsNil)
+	callIgnored = func(*cmd.Context) error {
+		panic("unreachable")
+	}
+	args := []string{"juju-magic", "passed"}
+	context := coretesting.Context(c)
+	err = local.EnsureRoot(args, context, callIgnored)
+	c.Assert(err, gc.IsNil)
+	c.Assert(coretesting.Stdout(context), gc.Equals, "omg")
 }

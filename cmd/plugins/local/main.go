@@ -45,7 +45,7 @@ var checkIfRoot = func() bool {
 	return os.Getuid() == 0
 }
 
-func ensureRoot(context *cmd.Context, call func(*cmd.Context) error) error {
+func ensureRoot(args []string, context *cmd.Context, call func(*cmd.Context) error) error {
 	if checkIfRoot() {
 		logger.Debugf("running as root")
 		return call(context)
@@ -53,15 +53,15 @@ func ensureRoot(context *cmd.Context, call func(*cmd.Context) error) error {
 
 	logger.Debugf("running as user")
 
-	fullpath, err := exec.LookPath(os.Args[0])
+	fullpath, err := exec.LookPath(args[0])
 	if err != nil {
 		return err
 	}
 
-	args := []string{"--preserve-env", fullpath}
-	args = append(args, os.Args[1:]...)
+	sudoArgs := []string{"--preserve-env", fullpath}
+	sudoArgs = append(args, args[1:]...)
 
-	command := exec.Command("sudo", args...)
+	command := exec.Command("sudo", sudoArgs...)
 	// Now hook up stdin, stdout, stderr
 	command.Stdin = context.Stdin
 	command.Stdout = context.Stdout
