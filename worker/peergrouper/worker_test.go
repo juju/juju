@@ -339,9 +339,3 @@ func mustNext(c *gc.C, w *voyeur.Watcher) (val interface{}, ok bool) {
 	}
 	panic("unreachable")
 }
-
-type noPublisher struct{}
-
-func (noPublisher) publishAPIServers(apiServers []instance.HostPort) error {
-	return nil
-}

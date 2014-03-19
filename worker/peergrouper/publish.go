@@ -8,12 +8,12 @@ import (
 //	st *state.State
 //}
 //
-//func (pub *publisher) publishAPIServers(apiServers [][]instance.HostPort) error {
-//
+//func (pub *publisher) publishAPIServers(apiServers []instance.HostPort) error {
+//	return pub.st.SetAPIAddresses(
 //}
 
 type noPublisher struct{}
 
-func (noPublisher) publishAPIServers(apiServers []instance.HostPort) error {
+func (noPublisher) publishAPIServers(apiServers [][]instance.HostPort) error {
 	return nil
 }

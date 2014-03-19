@@ -45,7 +45,7 @@ type publisherInterface interface {
 	// publish publishes information about the given state servers
 	// to whomsoever it may concern. When it is called there
 	// is no guarantee that any of the information has actually changed.
-	publishAPIServers(apiServers []instance.HostPort) error
+	publishAPIServers(apiServers [][]instance.HostPort) error
 }
 
 // notifyFunc holds a function that is sent
@@ -482,27 +482,15 @@ func (m *machine) refresh() (bool, error) {
 		m.wantsVote = wantsVote
 		changed = true
 	}
-	if hps := m.stm.MongoHostPorts(); !hostPortsSliceEqual(hps, m.mongoHostPorts) {
+	if hps := m.stm.MongoHostPorts(); !hostPortsEqual(hps, m.mongoHostPorts) {
 		m.mongoHostPorts = hps
 		changed = true
 	}
-	if hps := m.stm.APIHostPorts(); !hostPortsSliceEqual(hps, m.apiHostPorts) {
+	if hps := m.stm.APIHostPorts(); !hostPortsEqual(hps, m.apiHostPorts) {
 		m.apiHostPorts = hps
 		changed = true
 	}
 	return changed, nil
-}
-
-func hostPortsSliceEqual(hpss1, hpss2 [][]instance.HostPort) bool {
-	if len(hpss1) != len(hpss2) {
-		return false
-	}
-	for i := range hpss1 {
-		if !hostPortsEqual(hpss1[i] != hpss2[i] {
-			return false
-		}
-	}
-	return true
 }
 
 func hostPortsEqual(hps1, hps2 []instance.HostPort) bool {
