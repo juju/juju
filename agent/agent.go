@@ -28,10 +28,12 @@ import (
 var logger = loggo.GetLogger("juju.agent")
 
 // DefaultLogDir defines the default log directory for juju agents.
-const DefaultLogDir = "/var/log/juju"
+// It's defined as a variable so it could be overridden in tests.
+var DefaultLogDir = "/var/log/juju"
 
 // DefaultDataDir defines the default data directory for juju agents.
-const DefaultDataDir = "/var/lib/juju"
+// It's defined as a variable so it could be overridden in tests.
+var DefaultDataDir = "/var/lib/juju"
 
 const (
 	LxcBridge        = "LXC_BRIDGE"
@@ -123,22 +125,84 @@ type Config interface {
 	StateInitializer
 }
 
+// MigrateConfigParams holds agent config values to change in a
+// MigrateConfig call. Empty fields will be ignored. DeleteValues
+// specifies a list of keys to delete.
+type MigrateConfigParams struct {
+	DataDir      string
+	LogDir       string
+	Jobs         []params.MachineJob
+	DeleteValues []string
+	Values       map[string]string
+}
+
+// MigrateConfig takes an existing agent config and applies the given
+// newParams selectively. Only non-empty fields in newParams are used
+// to change existing config settings. All changes are written
+// atomically. UpgradedToVersion cannot be changed here, because
+// MigrateConfig is most likely called during an upgrade, so it will be
+// changed at the end of the upgrade anyway, if successful.
+func MigrateConfig(currentConfig Config, newParams MigrateConfigParams) error {
+	configMutex.Lock()
+	defer configMutex.Unlock()
+	config := currentConfig.(*configInternal)
+
+	if newParams.DataDir != "" {
+		config.dataDir = newParams.DataDir
+	}
+	if newParams.LogDir != "" {
+		config.logDir = newParams.LogDir
+	}
+	if len(newParams.Jobs) > 0 {
+		config.jobs = make([]params.MachineJob, len(newParams.Jobs))
+		copy(config.jobs, newParams.Jobs)
+	}
+	for _, key := range newParams.DeleteValues {
+		delete(config.values, key)
+	}
+	for key, value := range newParams.Values {
+		if config.values == nil {
+			config.values = make(map[string]string)
+		}
+		config.values[key] = value
+	}
+	if err := config.check(); err != nil {
+		return fmt.Errorf("migrated agent config is invalid: %v", err)
+	}
+	oldConfigFile := config.configFilePath
+	config.configFilePath = ConfigPath(config.dataDir, config.tag)
+	if err := config.write(); err != nil {
+		return fmt.Errorf("cannot migrate agent config: %v", err)
+	}
+	if oldConfigFile != config.configFilePath && oldConfigFile != "" {
+		err := os.Remove(oldConfigFile)
+		if err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("cannot remove old agent config %q: %v", oldConfigFile, err)
+		}
+	}
+	return nil
+}
+
 // Ensure that the configInternal struct implements the Config interface.
 var _ Config = (*configInternal)(nil)
 
-// The configMutex should be locked before any writing to disk during the
-// write commands, and unlocked when the writing is complete.  This process
-// wide lock should stop any unintended concurrent writes.  This may happen
-// when multiple go-routines may be adding things to the agent config, and
-// wanting to persist them to disk. To ensure that the correct data is written
-// to disk, the mutex should be locked prior to generating any disk state.
-// This way calls that might get interleaved would always write the most
-// recent state to disk.  Since we have different agent configs for each
-// agent, and there is only one process for each agent, a simple mutex is
-// enough for concurrency.  The mutex should also be locked around any access
-// to mutable values, either setting or getting.  The only mutable value is
-// the values map.  Retrieving and setting values here are protected by the
-// mutex.  New mutating methods should also be synchronized using this mutex.
+// The configMutex should be locked before any writing to disk during
+// the write commands, and unlocked when the writing is complete. This
+// process wide lock should stop any unintended concurrent writes.
+// This may happen when multiple go-routines may be adding things to
+// the agent config, and wanting to persist them to disk. To ensure
+// that the correct data is written to disk, the mutex should be
+// locked prior to generating any disk state. This way calls that
+// might get interleaved would always write the most recent state to
+// disk. Since we have different agent configs for each agent, and
+// there is only one process for each agent, a simple mutex is enough
+// for concurrency. The mutex should also be locked around any access
+// to mutable values, either setting or getting. The only mutable
+// value is the values map. Retrieving and setting values here are
+// protected by the mutex. New mutating methods should also be
+// synchronized using this mutex. Config is essentially a singleton
+// implementation, having a non-constructable-in-a-normal-way backing
+// type configInternal.
 var configMutex sync.Mutex
 
 type connectionDetails struct {
@@ -197,7 +261,7 @@ func NewAgentConfig(configParams AgentConfigParams) (Config, error) {
 	if configParams.Password == "" {
 		return nil, errgo.Trace(requiredError("password"))
 	}
-	if configParams.CACert == nil {
+	if len(configParams.CACert) == 0 {
 		return nil, errgo.Trace(requiredError("CA certificate"))
 	}
 	// Note that the password parts of the state and api information are
@@ -455,7 +519,7 @@ func (c *configInternal) writeNewPassword() (string, error) {
 		other.apiDetails = &apiDetails
 	}
 	logger.Debugf("writing configuration file")
-	if err := other.Write(); err != nil {
+	if err := other.write(); err != nil {
 		return "", err
 	}
 	*c = other
@@ -495,9 +559,11 @@ func (c *configInternal) Write() error {
 }
 
 func (c *configInternal) WriteUpgradedToVersion(newVersion version.Number) error {
+	configMutex.Lock()
+	defer configMutex.Unlock()
 	originalVersion := c.upgradedToVersion
 	c.upgradedToVersion = newVersion
-	err := c.Write()
+	err := c.write()
 	if err != nil {
 		// We don't want to retain the new version if there's been an error writing the file.
 		c.upgradedToVersion = originalVersion
@@ -516,6 +582,8 @@ func (c *configInternal) WriteCommands() ([]string, error) {
 }
 
 func (c *configInternal) OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassword string, err error) {
+	configMutex.Lock()
+	defer configMutex.Unlock()
 	info := api.Info{
 		Addrs:    c.apiDetails.addresses,
 		Password: c.apiDetails.password,

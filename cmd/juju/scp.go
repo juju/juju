@@ -106,5 +106,13 @@ func (c *SCPCommand) Run(ctx *cmd.Context) error {
 			targets = append(targets, arg)
 		}
 	}
-	return ssh.Copy(targets, extraArgs, nil)
+
+	var options *ssh.Options
+	if c.proxy {
+		options = new(ssh.Options)
+		if err := c.setProxyCommand(options); err != nil {
+			return err
+		}
+	}
+	return ssh.Copy(targets, extraArgs, options)
 }
