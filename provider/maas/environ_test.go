@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/provider/maas"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/juju/arch"
 )
 
 type environSuite struct {
@@ -200,5 +201,5 @@ func (*environSuite) TestSupportedArchitectures(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	a, err := env.SupportedArchitectures()
 	c.Assert(err, gc.IsNil)
-	c.Assert(a, gc.DeepEquals, []string{"amd64"})
+	c.Assert(a, gc.DeepEquals, arch.AllSupportedArches)
 }

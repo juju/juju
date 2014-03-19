@@ -134,7 +134,7 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 // SupportedArchitectures is specified on the EnvironCapability interface.
 func (*maasEnviron) SupportedArchitectures() ([]string, error) {
 	// TODO(wallyworld) - how to find out what architectures a MAAS environ supports
-	return []string{arch.AMD64}, nil
+	return arch.AllSupportedArches, nil
 }
 
 // getMAASClient returns a MAAS client object to use for a request, in a
