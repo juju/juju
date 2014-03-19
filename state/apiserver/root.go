@@ -56,10 +56,6 @@ type srvRoot struct {
 	entity taggedAuthenticator
 }
 
-type SrvRoot struct {
-	srvRoot
-}
-
 // newSrvRoot creates the client's connection representation
 // and starts a ping timeout for the monitoring of this
 // connection.
