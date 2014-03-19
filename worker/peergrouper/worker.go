@@ -116,7 +116,7 @@ func New(st *state.State) (worker.Worker, error) {
 		State:     st,
 		mongoPort: cfg.StatePort(),
 		apiPort:   cfg.APIPort(),
-	}, noPublisher{}), nil
+	}, newPublisher(st)), nil
 }
 
 func newWorker(st stateInterface, pub publisherInterface) worker.Worker {
