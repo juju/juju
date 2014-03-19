@@ -2896,6 +2896,7 @@ func (s *StateSuite) TestSetAPIHostPorts(c *gc.C) {
 			NetworkName:  "net",
 			NetworkScope: instance.NetworkCloudLocal,
 		},
+		Port: 13,
 	}}}
 	err = s.State.SetAPIHostPorts(newHostPorts)
 	c.Assert(err, gc.IsNil)
