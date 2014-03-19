@@ -482,15 +482,27 @@ func (m *machine) refresh() (bool, error) {
 		m.wantsVote = wantsVote
 		changed = true
 	}
-	if hps := m.stm.MongoHostPorts(); !hostPortsEqual(hps, m.mongoHostPorts) {
+	if hps := m.stm.MongoHostPorts(); !hostPortsSliceEqual(hps, m.mongoHostPorts) {
 		m.mongoHostPorts = hps
 		changed = true
 	}
-	if hps := m.stm.APIHostPorts(); !hostPortsEqual(hps, m.apiHostPorts) {
+	if hps := m.stm.APIHostPorts(); !hostPortsSliceEqual(hps, m.apiHostPorts) {
 		m.apiHostPorts = hps
 		changed = true
 	}
 	return changed, nil
+}
+
+func hostPortsSliceEqual(hpss1, hpss2 [][]instance.HostPort) bool {
+	if len(hpss1) != len(hpss2) {
+		return false
+	}
+	for i := range hpss1 {
+		if !hostPortsEqual(hpss1[i] != hpss2[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func hostPortsEqual(hps1, hps2 []instance.HostPort) bool {
@@ -498,6 +510,7 @@ func hostPortsEqual(hps1, hps2 []instance.HostPort) bool {
 		return false
 	}
 	for i := range hps1 {
+		
 		if hps1[i] != hps2[i] {
 			return false
 		}
