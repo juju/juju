@@ -199,11 +199,11 @@ func (w *pgWorker) loop() error {
 	}
 }
 
-func (w *pgWorker) apiHostPorts() []instance.HostPort {
-	servers := make([]instance.HostPort, 0, len(w.machines))
+func (w *pgWorker) apiHostPorts() [][]instance.HostPort {
+	servers := make([][]instance.HostPort, 0, len(w.machines))
 	for _, m := range w.machines {
 		if len(m.apiHostPorts) > 0 {
-			servers = append(servers, m.apiHostPorts...)
+			servers = append(servers, m.apiHostPorts)
 		}
 	}
 	return servers
