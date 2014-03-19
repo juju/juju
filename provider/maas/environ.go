@@ -172,12 +172,12 @@ func convertConstraints(cons constraints.Value) url.Values {
 func addNetworks(params url.Values, nets environs.Networks) {
 	// Network Inclusion/Exclusion setup
 	if nets.IncludedNetworks != nil {
-		for _, network_name := range nets.IncludedNetworks{
+		for _, network_name := range nets.IncludedNetworks {
 			params.Add("networks", network_name)
 		}
 	}
 	if nets.ExcludedNetworks != nil {
-		for _, not_network_name := range nets.ExcludedNetworks{
+		for _, not_network_name := range nets.ExcludedNetworks {
 			params.Add("not_networks", not_network_name)
 		}
 	}
