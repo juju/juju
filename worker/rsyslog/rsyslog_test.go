@@ -35,6 +35,8 @@ var _ = gc.Suite(&RsyslogSuite{})
 
 func (s *RsyslogSuite) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
+	// TODO(waigani) 2014-03-19 bug 1294462
+	// Add patch for suite functions
 	restore := testing.PatchValue(rsyslog.LookupUser, func(username string) (uid, gid int, err error) {
 		// worker will not attempt to chown files if uid/gid is 0
 		return 0, 0, nil

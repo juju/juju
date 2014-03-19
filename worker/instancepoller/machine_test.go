@@ -7,12 +7,13 @@ package instancepoller
 import (
 	stderrors "errors"
 	"fmt"
-	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
 	"math"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	jc "github.com/juju/testing/checkers"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"

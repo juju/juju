@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/juju/loggo"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -117,8 +116,7 @@ func (s *BootstrapSuite) runAllowRetriesTest(c *gc.C, test bootstrapRetryTest) {
 	toolsVersions := envtesting.VAll
 	if test.version != "" {
 		testVersion := version.MustParseBinary(test.version)
-		restore := testing.PatchValue(&version.Current, testVersion)
-		defer restore()
+		s.PatchValue(&version.Current, testVersion)
 		if test.addVersionToSource {
 			toolsVersions = append([]version.Binary{}, toolsVersions...)
 			toolsVersions = append(toolsVersions, testVersion)

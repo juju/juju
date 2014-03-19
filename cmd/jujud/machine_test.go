@@ -57,8 +57,7 @@ type commonMachineSuite struct {
 func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
 	s.agentSuite.SetUpSuite(c)
 	s.TestSuite.SetUpSuite(c)
-	restore := testing.PatchValue(&charm.CacheDir, c.MkDir())
-	s.AddSuiteCleanup(func(*gc.C) { restore() })
+	testing.PatchValue(&charm.CacheDir, c.MkDir())
 }
 
 func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
@@ -355,7 +354,7 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 }
 
 func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
-	testing.PatchValue(&instancepoller.ShortPoll, 500*time.Millisecond)
+	s.PatchValue(&instancepoller.ShortPoll, 500*time.Millisecond)
 	usefulVersion := version.Current
 	usefulVersion.Series = "quantal" // to match the charm created below
 	envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), usefulVersion)

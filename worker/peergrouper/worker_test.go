@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	jujutesting "launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils/voyeur"
@@ -19,7 +19,7 @@ import (
 )
 
 type workerJujuConnSuite struct {
-	jujutesting.JujuConnSuite
+	testing.JujuConnSuite
 }
 
 var _ = gc.Suite(&workerJujuConnSuite{})

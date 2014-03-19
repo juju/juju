@@ -55,6 +55,9 @@ func TestPackage(t *stdtesting.T) {
 	restore := testing.PatchValue(&deployer.InitDir, mkdtemp("juju-worker-deployer"))
 	defer restore()
 
+	// TODO(waigani) 2014-03-19 bug 1294458
+	// Refactor to use base suites
+
 	// Change the path to "juju-run", so that the
 	// tests don't try to write to /usr/local/bin.
 	jujuRun = mktemp("juju-run", "")

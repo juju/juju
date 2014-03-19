@@ -1,14 +1,13 @@
 package osenv_test
 
 import (
-	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/juju/osenv"
 )
 
-func (*importSuite) TestHomeLinux(c *gc.C) {
+func (s *importSuite) TestHomeLinux(c *gc.C) {
 	h := "/home/foo/bar"
-	testing.PatchEnvironment("HOME", h)
+	s.PatchEnvironment("HOME", h)
 	c.Check(osenv.Home(), gc.Equals, h)
 }

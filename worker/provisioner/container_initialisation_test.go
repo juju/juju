@@ -5,9 +5,10 @@ package provisioner_test
 
 import (
 	"fmt"
+	"os/exec"
+
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
-	"os/exec"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/environs"
