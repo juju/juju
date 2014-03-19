@@ -6,7 +6,7 @@ package utils
 // OverrideCPUFuncs changes what functions will be used for runtime.GOMAXPROCS
 // and runtime.NumCPU. The returned function will restore them to their
 // original values.
-func OverrideCPUFuncs(maxprocsfunc func(int) int, numCPUFunc func() int) (func()) {
+func OverrideCPUFuncs(maxprocsfunc func(int) int, numCPUFunc func() int) func() {
 	origGOMAXPROCS := gomaxprocs
 	gomaxprocs = maxprocsfunc
 	origNumCPU := numcpu

@@ -406,7 +406,7 @@ func (s *MachineSuite) TestManageEnvironCallsUseMultipleCPUs(c *gc.C) {
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
 	s.setFakeMachineAddresses(c, m)
 	calledChan := make(chan struct{}, 1)
-	s.PatchValue(&useMultipleCPUs, func() { calledChan <- struct{}{}; })
+	s.PatchValue(&useMultipleCPUs, func() { calledChan <- struct{}{} })
 	// Now, start the agent, and observe that a JobManageEnviron agent
 	// calls UseMultipleCPUs
 	a := s.newAgent(c, m)
@@ -417,9 +417,9 @@ func (s *MachineSuite) TestManageEnvironCallsUseMultipleCPUs(c *gc.C) {
 	// Wait for configuration to be finished
 	<-a.workersStarted
 	select {
-		case <-calledChan:
-		case <-time.After(coretesting.LongWait):
-			c.Errorf("we failed to call UseMultipleCPUs()")
+	case <-calledChan:
+	case <-time.After(coretesting.LongWait):
+		c.Errorf("we failed to call UseMultipleCPUs()")
 	}
 	c.Check(a.Stop(), gc.IsNil)
 	// However, an agent that just JobHostUnits doesn't call UseMultipleCPUs
