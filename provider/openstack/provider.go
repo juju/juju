@@ -520,6 +520,11 @@ func (e *environ) Name() string {
 	return e.name
 }
 
+// SupportedArchitectures is specified on the EnvironCapability interface.
+func (*environ) SupportedArchitectures() ([]string, error) {
+	return supportedArches, nil
+}
+
 func (e *environ) Storage() storage.Storage {
 	e.ecfgMutex.Lock()
 	stor := e.storageUnlocked

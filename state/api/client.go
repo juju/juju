@@ -143,6 +143,15 @@ func (c *Client) PublicAddress(target string) (string, error) {
 	return results.PublicAddress, err
 }
 
+// PrivateAddress returns the private address of the specified
+// machine or unit.
+func (c *Client) PrivateAddress(target string) (string, error) {
+	var results params.PrivateAddressResults
+	p := params.PrivateAddress{Target: target}
+	err := c.st.Call("Client", "", "PrivateAddress", p, &results)
+	return results.PrivateAddress, err
+}
+
 // ServiceSetYAML sets configuration options on a service
 // given options in YAML format.
 func (c *Client) ServiceSetYAML(service string, yaml string) error {

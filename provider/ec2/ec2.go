@@ -337,6 +337,11 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 	return common.StateInfo(e)
 }
 
+// SupportedArchitectures is specified on the EnvironCapability interface.
+func (*environ) SupportedArchitectures() ([]string, error) {
+	return supportedArches, nil
+}
+
 // MetadataLookupParams returns parameters which are used to query simplestreams metadata.
 func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
 	if region == "" {

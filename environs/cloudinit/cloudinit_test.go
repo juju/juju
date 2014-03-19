@@ -13,7 +13,6 @@ import (
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/agent/mongo"
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -71,9 +70,6 @@ func must(s string, err error) string {
 	}
 	return s
 }
-
-// mongodPath is the path where we should expect mongod in the environment.
-var mongodPath = must(mongo.MongodPath())
 
 // Each test gives a cloudinit config - we check the
 // output to see if it looks correct.
@@ -145,7 +141,7 @@ dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.0
 dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.1
 dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.2
 echo 'Starting MongoDB server \(juju-db\)'.*
-cat >> /etc/init/juju-db\.conf << 'EOF'\\ndescription "juju state database"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 65000 65000\\nlimit nproc 20000 20000\\n\\nexec ` + mongodPath + ` --auth --dbpath=/var/lib/juju/db --sslOnNormalPorts --sslPEMKeyFile '/var/lib/juju/server\.pem' --sslPEMKeyPassword ignored --bind_ip 0\.0\.0\.0 --port 37017 --noprealloc --syslog --smallfiles\\nEOF\\n
+cat >> /etc/init/juju-db\.conf << 'EOF'\\ndescription "juju state database"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 65000 65000\\nlimit nproc 20000 20000\\n\\nexec /usr/bin/mongod --auth --dbpath=/var/lib/juju/db --sslOnNormalPorts --sslPEMKeyFile '/var/lib/juju/server\.pem' --sslPEMKeyPassword ignored --bind_ip 0\.0\.0\.0 --port 37017 --noprealloc --syslog --smallfiles\\nEOF\\n
 start juju-db
 mkdir -p '/var/lib/juju/agents/bootstrap'
 install -m 600 /dev/null '/var/lib/juju/agents/bootstrap/agent\.conf'
@@ -203,6 +199,44 @@ printf %s '{"version":"1\.2\.3-raring-amd64","url":"http://foo\.com/tools/releas
 /var/lib/juju/tools/1\.2\.3-raring-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --constraints 'mem=2048M' --debug
 rm -rf '/var/lib/juju/agents/bootstrap'
 ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
+`,
+	}, {
+		// trusty state server - use the new mongo from juju-mongodb
+		cfg: cloudinit.MachineConfig{
+			MachineId:        "0",
+			AuthorizedKeys:   "sshkey1",
+			AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
+			// raring provides mongo in the archive
+			Tools:           newSimpleTools("1.2.3-trusty-amd64"),
+			StateServer:     true,
+			StateServerCert: serverCert,
+			StateServerKey:  serverKey,
+			StatePort:       37017,
+			APIPort:         17070,
+			MachineNonce:    "FAKE_NONCE",
+			StateInfo: &state.Info{
+				Password: "arble",
+				CACert:   []byte("CA CERT\n" + testing.CACert),
+			},
+			APIInfo: &api.Info{
+				Password: "bletch",
+				CACert:   []byte("CA CERT\n" + testing.CACert),
+			},
+			Constraints:             envConstraints,
+			DataDir:                 environs.DataDir,
+			LogDir:                  agent.DefaultLogDir,
+			Jobs:                    allMachineJobs,
+			CloudInitOutputLog:      environs.CloudInitOutputLog,
+			StateInfoURL:            "some-url",
+			SystemPrivateSSHKey:     "private rsa key",
+			MachineAgentServiceName: "jujud-machine-0",
+			MongoServiceName:        "juju-db",
+		},
+		setEnvConfig: true,
+		inexactMatch: true,
+		expectScripts: `
+echo 'Starting MongoDB server \(juju-db\)'.*
+cat >> /etc/init/juju-db\.conf << 'EOF'\\ndescription "juju state database"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 65000 65000\\nlimit nproc 20000 20000\\n\\nexec /usr/lib/juju/bin/mongod --auth --dbpath=/var/lib/juju/db --sslOnNormalPorts --sslPEMKeyFile '/var/lib/juju/server\.pem' --sslPEMKeyPassword ignored --bind_ip 0\.0\.0\.0 --port 37017 --noprealloc --syslog --smallfiles\\nEOF\\n
 `,
 	}, {
 		// non state server.
@@ -418,6 +452,12 @@ func checkEnvConfig(c *gc.C, cfg *config.Config, x map[interface{}]interface{}, 
 // TestCloudInit checks that the output from the various tests
 // in cloudinitTests is well formed.
 func (*cloudinitSuite) TestCloudInit(c *gc.C) {
+	expectedMongoPackage := map[string]string{
+		"precise": "mongodb-server",
+		"raring":  "mongodb-server",
+		"trusty":  "juju-mongodb",
+	}
+
 	for i, test := range cloudinitTests {
 		c.Logf("test %d", i)
 		if test.setEnvConfig {
@@ -451,7 +491,9 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		acfg := getAgentConfig(c, tag, scripts)
 		c.Assert(acfg, jc.Contains, "AGENT_SERVICE_NAME: jujud-"+tag)
 		if test.cfg.StateServer {
-			checkPackage(c, x, "mongodb-server", true)
+			series := test.cfg.Tools.Version.Series
+			mongoPackage := expectedMongoPackage[series]
+			checkPackage(c, x, mongoPackage, true)
 			source := "ppa:juju/stable"
 			checkAptSource(c, x, source, "", test.cfg.NeedMongoPPA())
 			c.Assert(acfg, jc.Contains, "MONGO_SERVICE_NAME: juju-db")

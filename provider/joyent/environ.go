@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -59,6 +60,11 @@ func (env *JoyentEnviron) Name() string {
 
 func (*JoyentEnviron) Provider() environs.EnvironProvider {
 	return providerInstance
+}
+
+// SupportedArchitectures is specified on the EnvironCapability interface.
+func (*JoyentEnviron) SupportedArchitectures() ([]string, error) {
+	return []string{arch.AMD64}, nil
 }
 
 func (env *JoyentEnviron) SetConfig(cfg *config.Config) error {
