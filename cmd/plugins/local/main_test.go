@@ -6,8 +6,10 @@ package local_test
 import (
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/cmd/plugins/local"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
@@ -39,4 +41,16 @@ func (*mainSuite) TestRegisteredCommands(c *gc.C) {
 	}
 	// The names should be output in alphabetical order, so don't sort.
 	c.Assert(names, gc.DeepEquals, expectedSubcommands)
+}
+
+func (s *mainSuite) TestEnsureRootCallsFuncIfRoot(c *gc.C) {
+	s.PatchValue(local.CheckIfRoot, func() bool { return true })
+	called := false
+	call := func(*cmd.Context) error {
+		called = true
+		return nil
+	}
+	err := local.EnsureRoot(testing.Context(c), call)
+	c.Assert(err, gc.IsNil)
+	c.Assert(called, jc.IsTrue)
 }

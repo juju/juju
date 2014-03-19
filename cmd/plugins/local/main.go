@@ -5,6 +5,7 @@ package local
 
 import (
 	"os"
+	"os/exec"
 
 	"github.com/juju/loggo"
 
@@ -38,4 +39,33 @@ func jujuLocalPlugin() cmd.Command {
 func Main(args []string) {
 	plugin := jujuLocalPlugin()
 	os.Exit(cmd.Main(plugin, cmd.DefaultContext(), args[1:]))
+}
+
+var checkIfRoot = func() bool {
+	return os.Getuid() == 0
+}
+
+func ensureRoot(context *cmd.Context, call func(*cmd.Context) error) error {
+	if checkIfRoot() {
+		logger.Debugf("running as root")
+		return call(context)
+	}
+
+	logger.Debugf("running as user")
+
+	fullpath, err := exec.LookPath(os.Args[0])
+	if err != nil {
+		return err
+	}
+
+	args := []string{"--preserve-env", fullpath}
+	args = append(args, os.Args[1:]...)
+
+	command := exec.Command("sudo", args...)
+	// Now hook up stdin, stdout, stderr
+	command.Stdin = context.Stdin
+	command.Stdout = context.Stdout
+	command.Stderr = context.Stderr
+	// And run it!
+	return command.Run()
 }
