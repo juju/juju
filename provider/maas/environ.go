@@ -143,7 +143,7 @@ func (env *maasEnviron) getMAASClient() *gomaasapi.MAASObject {
 // object suitable to pass to MAAS when acquiring a node.
 // CpuPower is ignored because it cannot translated into something
 // meaningful for MAAS right now.
-func convertConstraints(cons constraints.Value, nets environs.Networks) url.Values {
+func convertConstraints(cons constraints.Value) url.Values {
 	params := url.Values{}
 	if cons.Arch != nil {
 		params.Add("arch", *cons.Arch)
@@ -164,21 +164,28 @@ func convertConstraints(cons constraints.Value, nets environs.Networks) url.Valu
 	if cons.CpuPower != nil {
 		logger.Warningf("ignoring unsupported constraint 'cpu-power'")
 	}
-    // Network Inclusion/Exclusion setup
-    if nets.IncludedNetworks != nil {
-        //XXX Is this suposed to be a comma separated list?
-        params.Add("networks", strings.Join(nets.IncludedNetworks, ","))
-    }
-    if nets.ExcludedNetworks != nil {
-        //XXX Is this suposed to be a comma separated list?
-        params.Add("not_networks", strings.Join(nets.ExcludedNetworks, ","))
-    }
 	return params
+}
+
+// convertNetworks converts networks include/exclude information into
+// url.Values object suitable to pass to MAAS when acquiring a node.
+func convertNetworks(params *url.Values, nets environs.Networks) {
+	// Network Inclusion/Exclusion setup
+	if nets.IncludedNetworks != nil {
+		//XXX Is this suposed to be a comma separated list?
+		params.Add("networks", strings.Join(nets.IncludedNetworks, ","))
+	}
+	if nets.ExcludedNetworks != nil {
+		//XXX Is this suposed to be a comma separated list?
+		params.Add("not_networks", strings.Join(nets.ExcludedNetworks, ","))
+	}
+
 }
 
 // acquireNode allocates a node from the MAAS.
 func (environ *maasEnviron) acquireNode(cons constraints.Value, nets environs.Networks, possibleTools tools.List) (gomaasapi.MAASObject, *tools.Tools, error) {
-	acquireParams := convertConstraints(cons, nets)
+	acquireParams := convertConstraints(cons)
+	convertNetworks(&acquireParams, nets)
 	acquireParams.Add("agent_name", environ.ecfg().maasAgentName())
 	var result gomaasapi.JSONObject
 	var err error

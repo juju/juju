@@ -223,7 +223,7 @@ func (suite *environSuite) TestAcquireNode(c *gc.C) {
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 
 	_, _, err := env.acquireNode(constraints.Value{}, environs.Networks{},
-                                tools.List{fakeTools})
+		tools.List{fakeTools})
 
 	c.Check(err, gc.IsNil)
 	operations := suite.testMAASObject.TestServer.NodeOperations()
@@ -240,7 +240,7 @@ func (suite *environSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *gc.C) {
 	constraints := constraints.Value{Arch: stringp("arm"), Mem: uint64p(1024)}
 
 	_, _, err := env.acquireNode(constraints, environs.Networks{},
-                                tools.List{fakeTools})
+		tools.List{fakeTools})
 
 	c.Check(err, gc.IsNil)
 	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
@@ -257,7 +257,7 @@ func (suite *environSuite) TestAcquireNodePassedAgentName(c *gc.C) {
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 
 	_, _, err := env.acquireNode(constraints.Value{}, environs.Networks{},
-                                tools.List{fakeTools})
+		tools.List{fakeTools})
 
 	c.Check(err, gc.IsNil)
 	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
@@ -266,23 +266,66 @@ func (suite *environSuite) TestAcquireNodePassedAgentName(c *gc.C) {
 	c.Assert(nodeRequestValues[0].Get("agent_name"), gc.Equals, exampleAgentName)
 }
 
+var testValues = []struct {
+	constraints    constraints.Value
+	expectedResult url.Values
+}{
+	{constraints.Value{Arch: stringp("arm")}, url.Values{"arch": {"arm"}}},
+	{constraints.Value{CpuCores: uint64p(4)}, url.Values{"cpu_count": {"4"}}},
+	{constraints.Value{Mem: uint64p(1024)}, url.Values{"mem": {"1024"}}},
+
+	// CpuPower is ignored.
+	{constraints.Value{CpuPower: uint64p(1024)}, url.Values{}},
+
+	// RootDisk is ignored.
+	{constraints.Value{RootDisk: uint64p(8192)}, url.Values{}},
+	{constraints.Value{Tags: &[]string{"foo", "bar"}}, url.Values{"tags": {"foo,bar"}}},
+	{constraints.Value{Arch: stringp("arm"), CpuCores: uint64p(4), Mem: uint64p(1024), CpuPower: uint64p(1024), RootDisk: uint64p(8192), Tags: &[]string{"foo", "bar"}}, url.Values{"arch": {"arm"}, "cpu_count": {"4"}, "mem": {"1024"}, "tags": {"foo,bar"}}},
+}
+
 func (*environSuite) TestConvertConstraints(c *gc.C) {
-	var testValues = []struct {
-		constraints    constraints.Value
-		expectedResult url.Values
-	}{
-		{constraints.Value{Arch: stringp("arm")}, url.Values{"arch": {"arm"}}},
-		{constraints.Value{CpuCores: uint64p(4)}, url.Values{"cpu_count": {"4"}}},
-		{constraints.Value{Mem: uint64p(1024)}, url.Values{"mem": {"1024"}}},
-		// CpuPower is ignored.
-		{constraints.Value{CpuPower: uint64p(1024)}, url.Values{}},
-		// RootDisk is ignored.
-		{constraints.Value{RootDisk: uint64p(8192)}, url.Values{}},
-		{constraints.Value{Tags: &[]string{"foo", "bar"}}, url.Values{"tags": {"foo,bar"}}},
-		{constraints.Value{Arch: stringp("arm"), CpuCores: uint64p(4), Mem: uint64p(1024), CpuPower: uint64p(1024), RootDisk: uint64p(8192), Tags: &[]string{"foo", "bar"}}, url.Values{"arch": {"arm"}, "cpu_count": {"4"}, "mem": {"1024"}, "tags": {"foo,bar"}}},
-	}
 	for _, test := range testValues {
 		c.Check(convertConstraints(test.constraints), gc.DeepEquals, test.expectedResult)
+	}
+}
+
+var testNetworkValues = []struct {
+	networks       environs.Networks
+	expectedResult url.Values
+}{
+	{
+		environs.Networks{},
+		url.Values{},
+	},
+	{
+		environs.Networks{
+			IncludedNetworks: []string{"included_net_1"},
+		},
+		url.Values{"networks": {"included_net_1"}},
+	},
+	{
+		environs.Networks{
+			ExcludedNetworks: []string{"excluded_net_1"},
+		},
+		url.Values{"not_networks": {"excluded_net_1"}},
+	},
+	{
+		environs.Networks{
+			IncludedNetworks: []string{"included_net_1", "included_net_2"},
+			ExcludedNetworks: []string{"excluded_net_1", "excluded_net_2"},
+		},
+		url.Values{
+			"networks":     {"included_net_1,included_net_2"},
+			"not_networks": {"excluded_net_1,excluded_net_2"},
+		},
+	},
+}
+
+func (*environSuite) TestConvertNetworks(c *gc.C) {
+	for _, test := range testNetworkValues {
+		var vals = url.Values{}
+		convertNetworks(&vals, test.networks)
+		c.Check(vals, gc.DeepEquals, test.expectedResult)
 	}
 }
 
