@@ -176,7 +176,7 @@ func runUpgradeSteps(context Context, target Target, upgradeOp Operation) *upgra
 		if !validTarget(target, step) {
 			continue
 		}
-		logger.Infof("Running upgrade step: %v", step.Description())
+		logger.Infof("running upgrade step on target %q: %v", target, step.Description())
 		if err := step.Run(context); err != nil {
 			logger.Errorf("upgrade step %q failed: %v", step.Description(), err)
 			return &upgradeError{

@@ -73,6 +73,7 @@ func NewRsyslogConfigWorker(st *apirsyslog.State, mode RsyslogMode, tag, namespa
 	if err != nil {
 		return nil, err
 	}
+	logger.Debugf("starting rsyslog worker mode %v for %q %q", mode, tag, namespace)
 	return worker.NewNotifyWorker(handler), nil
 }
 
