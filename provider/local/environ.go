@@ -323,7 +323,7 @@ func (env *localEnviron) StopInstances(instances []instance.Instance) error {
 		if inst.Id() == bootstrapInstanceId {
 			return fmt.Errorf("cannot stop the bootstrap instance")
 		}
-		if err := env.containerManager.StopContainer(inst); err != nil {
+		if err := env.containerManager.DestroyContainer(inst); err != nil {
 			return err
 		}
 	}
@@ -419,7 +419,7 @@ func (env *localEnviron) Destroy() error {
 		return err
 	}
 	for _, inst := range containers {
-		if err := env.containerManager.StopContainer(inst); err != nil {
+		if err := env.containerManager.DestroyContainer(inst); err != nil {
 			return err
 		}
 	}

@@ -269,7 +269,7 @@ func mountHostLogDir(name, logDir string) error {
 	return appendToContainerConfig(name, line)
 }
 
-func (manager *containerManager) StopContainer(instance instance.Instance) error {
+func (manager *containerManager) DestroyContainer(instance instance.Instance) error {
 	start := time.Now()
 	name := string(instance.Id())
 	lxcContainer := LxcObjectFactory.New(name)

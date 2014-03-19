@@ -125,7 +125,7 @@ func (manager *containerManager) CreateContainer(
 	return &kvmInstance{kvmContainer, name}, &hardware, nil
 }
 
-func (manager *containerManager) StopContainer(instance instance.Instance) error {
+func (manager *containerManager) DestroyContainer(instance instance.Instance) error {
 	name := string(instance.Id())
 	kvmContainer := KvmObjectFactory.New(name)
 	if err := kvmContainer.Stop(); err != nil {

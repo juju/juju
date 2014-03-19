@@ -272,18 +272,18 @@ func (s *LxcSuite) TestContainerState(c *gc.C) {
 	// The mock container will be immediately "running".
 	c.Assert(instance.Status(), gc.Equals, string(golxc.StateRunning))
 
-	// StopContainer stops and then destroys the container, putting it
+	// DestroyContainer stops and then destroys the container, putting it
 	// into "unknown" state.
-	err := manager.StopContainer(instance)
+	err := manager.DestroyContainer(instance)
 	c.Assert(err, gc.IsNil)
 	c.Assert(instance.Status(), gc.Equals, string(golxc.StateUnknown))
 }
 
-func (s *LxcSuite) TestStopContainer(c *gc.C) {
+func (s *LxcSuite) TestDestroyContainer(c *gc.C) {
 	manager := s.makeManager(c, "test")
 	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
 
-	err := manager.StopContainer(instance)
+	err := manager.DestroyContainer(instance)
 	c.Assert(err, gc.IsNil)
 
 	name := string(instance.Id())
@@ -293,7 +293,7 @@ func (s *LxcSuite) TestStopContainer(c *gc.C) {
 	c.Assert(filepath.Join(s.RemovedDir, name), jc.IsDirectory)
 }
 
-func (s *LxcSuite) TestStopContainerNameClash(c *gc.C) {
+func (s *LxcSuite) TestDestroyContainerNameClash(c *gc.C) {
 	manager := s.makeManager(c, "test")
 	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
 
@@ -302,7 +302,7 @@ func (s *LxcSuite) TestStopContainerNameClash(c *gc.C) {
 	err := os.MkdirAll(targetDir, 0755)
 	c.Assert(err, gc.IsNil)
 
-	err = manager.StopContainer(instance)
+	err = manager.DestroyContainer(instance)
 	c.Assert(err, gc.IsNil)
 
 	// Check that the container dir is no longer in the container dir
@@ -365,22 +365,22 @@ lxc.mount.entry=/var/log/juju var/log/juju none defaults,bind 0 0
 	c.Assert(autostartLink, jc.DoesNotExist)
 }
 
-func (s *LxcSuite) TestStopContainerRemovesAutostartLink(c *gc.C) {
+func (s *LxcSuite) TestDestroyContainerRemovesAutostartLink(c *gc.C) {
 	manager := s.makeManager(c, "test")
 	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
-	err := manager.StopContainer(instance)
+	err := manager.DestroyContainer(instance)
 	c.Assert(err, gc.IsNil)
 	autostartLink := lxc.RestartSymlink(string(instance.Id()))
 	c.Assert(autostartLink, jc.SymlinkDoesNotExist)
 }
 
-func (s *LxcSuite) TestStopContainerNoRestartDir(c *gc.C) {
+func (s *LxcSuite) TestDestroyContainerNoRestartDir(c *gc.C) {
 	err := os.Remove(s.RestartDir)
 	c.Assert(err, gc.IsNil)
 
 	manager := s.makeManager(c, "test")
 	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
-	err = manager.StopContainer(instance)
+	err = manager.DestroyContainer(instance)
 	c.Assert(err, gc.IsNil)
 }
 

@@ -99,7 +99,7 @@ func (broker *kvmBroker) StopInstances(instances []instance.Instance) error {
 	// TODO: potentially parallelise.
 	for _, instance := range instances {
 		kvmLogger.Infof("stopping kvm container for instance: %s", instance.Id())
-		if err := broker.manager.StopContainer(instance); err != nil {
+		if err := broker.manager.DestroyContainer(instance); err != nil {
 			kvmLogger.Errorf("container did not stop: %v", err)
 			return err
 		}
