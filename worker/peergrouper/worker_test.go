@@ -55,15 +55,17 @@ func initState(c *gc.C, st *fakeState, numMachines int) {
 		ids = append(ids, id)
 		c.Assert(m.MongoHostPorts(), gc.HasLen, 1)
 
-		m.setAPIHostPorts(instance.AddressesWithPort(instance.NewAddresses([]string{
-			fmt.Sprintf("0.1.2.%d", i),
-		}), apiPort))
+		m.setAPIHostPorts(addressesWithPort(apiPort, fmt.Sprintf("0.1.2.%d", i)))
 	}
 	st.machine("10").SetHasVote(true)
 	st.setStateServers(ids...)
 	st.session.Set(mkMembers("0v"))
 	st.session.setStatus(mkStatuses("0p"))
 	st.check = checkInvariants
+}
+
+func addressesWithPort(port int, addrs ...string) []instance.HostPort {
+	return instance.AddressesWithPort(instance.NewAddresses(addrs), port)
 }
 
 func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
@@ -234,16 +236,15 @@ func (f publisherFunc) publishAPIServers(apiServers [][]instance.HostPort) error
 	return f(apiServers)
 }
 
-func (s *workerSuite) TestStateServersArePublishedInitially(c *gc.C) {
-	st := newFakeState()
-	initState(c, st, 3)
-
+func (s *workerSuite) TestStateServersArePublished(c *gc.C) {
 	publishCh := make(chan [][]instance.HostPort)
 	publish := func(apiServers [][]instance.HostPort) error {
 		publishCh <- apiServers
 		return nil
 	}
 
+	st := newFakeState()
+	initState(c, st, 3)
 	w := newWorker(st, publisherFunc(publish))
 	defer func() {
 		c.Check(worker.Stop(w), gc.IsNil)
@@ -259,6 +260,65 @@ func (s *workerSuite) TestStateServersArePublishedInitially(c *gc.C) {
 		}
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for publish")
+	}
+
+	// Change one of the servers' API addresses and check that it's published.
+
+	expectAPIHostPorts := addressesWithPort(apiPort, "0.2.8.124")
+	st.machine("10").setAPIHostPorts(expectAPIHostPorts)
+	select {
+	case servers := <-publishCh:
+		c.Assert(servers, gc.HasLen, 3)
+		for i, hps := range servers {
+			if i == 0 {
+				continue
+			}
+			c.Assert(hps, gc.HasLen, 1)
+			c.Assert(hps[0].Port, gc.Equals, apiPort)
+			c.Assert(hps[0].Value, gc.Equals, fmt.Sprintf("0.1.2.%d", i+10))
+			c.Assert(hps[0].NetworkScope, gc.Equals, instance.NetworkUnknown)
+		}
+		c.Assert(servers[0], gc.DeepEquals, expectAPIHostPorts)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for publish")
+	}
+}
+
+func (s *workerSuite) TestWorkerRetriesOnPublishError(c *gc.C) {
+	testbase.PatchValue(&pollInterval, coretesting.LongWait+time.Second)
+	testbase.PatchValue(&retryInterval, 5*time.Millisecond)
+
+	publishCh := make(chan [][]instance.HostPort, 100)
+
+	count := 0
+	publish := func(apiServers [][]instance.HostPort) error {
+		publishCh <- apiServers
+		count++
+		if count <= 3 {
+			return fmt.Errorf("publish error")
+		}
+		return nil
+	}
+	st := newFakeState()
+	initState(c, st, 3)
+
+	w := newWorker(st, publisherFunc(publish))
+	defer func() {
+		c.Check(worker.Stop(w), gc.IsNil)
+	}()
+
+	for i := 0; i < 4; i++ {
+		select {
+		case servers := <-publishCh:
+			c.Assert(servers, gc.HasLen, 3)
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("timed out waiting for publish #%d", i)
+		}
+	}
+	select {
+	case <-publishCh:
+		c.Errorf("unexpected publish event")
+	case <-time.After(coretesting.ShortWait):
 	}
 }
 

@@ -170,23 +170,27 @@ func (w *pgWorker) loop() error {
 			// Try to update the replica set immediately.
 			retry.Reset(0)
 		case <-retry.C:
+			ok := true
 			if err := w.publisher.publishAPIServers(w.apiHostPorts()); err != nil {
 				logger.Errorf("cannot publish state server addresses: %v", err)
-				retry.Reset(retryInterval)
+				ok = false
 			}
 			if err := w.updateReplicaset(); err != nil {
 				if _, isReplicaSetError := err.(*replicaSetError); !isReplicaSetError {
 					return err
 				}
 				logger.Errorf("cannot set replicaset: %v", err)
+				ok = false
+			}
+			if ok {
+				// Update the replica set members occasionally
+				// to keep them up to date with the current
+				// replica set member statuses.
+				retry.Reset(pollInterval)
+			} else {
 				retry.Reset(retryInterval)
-				break
 			}
 
-			// Update the replica set members occasionally
-			// to keep them up to date with the current
-			// replica set member statuses.
-			retry.Reset(pollInterval)
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		}
