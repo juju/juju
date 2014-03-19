@@ -20,7 +20,6 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
-
 )
 
 var (
@@ -59,11 +58,11 @@ func (env *JoyentEnviron) StartInstance(args environs.StartInstanceParams) (inst
 	series := args.Tools.OneSeries()
 	arches := args.Tools.Arches()
 	spec, err := env.FindInstanceSpec(&instances.InstanceConstraint{
-			Region:      env.Ecfg().Region(),
-			Series:      series,
-			Arches:      arches,
-			Constraints: args.Constraints,
-		})
+		Region:      env.Ecfg().Region(),
+		Series:      series,
+		Arches:      arches,
+		Constraints: args.Constraints,
+	})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -92,10 +91,10 @@ func (env *JoyentEnviron) StartInstance(args environs.StartInstanceParams) (inst
 	var machine *cloudapi.Machine
 	machine, err = env.compute.cloudapi.CreateMachine(cloudapi.CreateMachineOpts{
 		//Name:	 env.machineFullName(machineConf.MachineId),
-		Package: 	spec.InstanceType.Name,
-		Image:   	spec.Image.Id,
-		Metadata:   map[string]string{"metadata.cloud-init:user-data": string(userData)},
-		Tags:    	map[string]string{"tag.group": "juju", "tag.env": env.Name()},
+		Package:  spec.InstanceType.Name,
+		Image:    spec.Image.Id,
+		Metadata: map[string]string{"metadata.cloud-init:user-data": string(userData)},
+		Tags:     map[string]string{"tag.group": "juju", "tag.env": env.Name()},
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot create instances: %v", err)
