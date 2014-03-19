@@ -10,51 +10,6 @@ import (
 	"launchpad.net/juju-core/instance"
 )
 
-// address represents the location of a machine, including metadata about what
-// kind of location the address describes.
-type address struct {
-	Value        string
-	AddressType  instance.AddressType
-	NetworkName  string                `bson:",omitempty"`
-	NetworkScope instance.NetworkScope `bson:",omitempty"`
-}
-
-func newAddress(addr instance.Address) address {
-	stateaddr := address{
-		Value:        addr.Value,
-		AddressType:  addr.Type,
-		NetworkName:  addr.NetworkName,
-		NetworkScope: addr.NetworkScope,
-	}
-	return stateaddr
-}
-
-func (addr *address) InstanceAddress() instance.Address {
-	instanceaddr := instance.Address{
-		Value:        addr.Value,
-		Type:         addr.AddressType,
-		NetworkName:  addr.NetworkName,
-		NetworkScope: addr.NetworkScope,
-	}
-	return instanceaddr
-}
-
-func addressesToInstanceAddresses(addrs []address) []instance.Address {
-	instanceAddrs := make([]instance.Address, len(addrs))
-	for i, addr := range addrs {
-		instanceAddrs[i] = addr.InstanceAddress()
-	}
-	return instanceAddrs
-}
-
-func instanceAddressesToAddresses(instanceAddrs []instance.Address) []address {
-	addrs := make([]address, len(instanceAddrs))
-	for i, addr := range instanceAddrs {
-		addrs[i] = newAddress(addr)
-	}
-	return addrs
-}
-
 // stateServerAddresses returns the list of internal addresses of the state
 // server machines.
 func (st *State) stateServerAddresses() ([]string, error) {
@@ -122,24 +77,27 @@ func (st *State) APIAddressesFromMachines() ([]string, error) {
 	return appendPort(addrs, config.APIPort()), nil
 }
 
-const apiAddressesKey = "apiAddresses"
+const apiHostPortsKey = "apiHostPorts"
 
-type apiAddressesDoc struct {
-	APIAddresses []address
+type apiHostPortsDoc struct {
+	APIHostPorts [][]hostPort
 }
 
-func (st *State) SetAPIAddresses(addrs []instance.Address) error {
-	doc := apiAddressesDoc{
-		APIAddresses: instanceAddressesToAddresses(addrs),
+// SetAPIHostPorts sets the addresses of the API server
+// instances. Each server is represented by one element
+// in the top level slice.
+func (st *State) SetAPIHostPorts(hps [][]instance.HostPort) error {
+	doc := apiHostPortsDoc{
+		APIHostPorts: instanceHostPortsToHostPorts(hps),
 	}
 	// We need to insert the document if it does not already
 	// exist to make this method work even on old environments
 	// where the document was not created by Initialize.
 	ops := []txn.Op{{
 		C:  st.stateServers.Name,
-		Id: apiAddressesKey,
+		Id: apiHostPortsKey,
 		Update: D{{"$set", D{
-			{"apiaddresses", doc.APIAddresses},
+			{"apihostports", doc.APIHostPorts},
 		}}},
 	}}
 	if err := st.runTransaction(ops); err != nil {
@@ -148,13 +106,14 @@ func (st *State) SetAPIAddresses(addrs []instance.Address) error {
 	return nil
 }
 
-func (st *State) APIAddresses() ([]instance.Address, error) {
-	var doc apiAddressesDoc
-	err := st.stateServers.Find(D{{"_id", apiAddressesKey}}).One(&doc)
+// APIHostPorts returns the API addresses as set by SetAPIHostPorts.
+func (st *State) APIHostPorts() ([][]instance.HostPort, error) {
+	var doc apiHostPortsDoc
+	err := st.stateServers.Find(D{{"_id", apiHostPortsKey}}).One(&doc)
 	if err != nil {
 		return nil, err
 	}
-	return addressesToInstanceAddresses(doc.APIAddresses), nil
+	return hostPortsToInstanceHostPorts(doc.APIHostPorts), nil
 }
 
 type DeployerConnectionValues struct {
@@ -177,4 +136,99 @@ func (st *State) DeployerConnectionInfo() (*DeployerConnectionValues, error) {
 		StateAddresses: appendPort(addrs, config.StatePort()),
 		APIAddresses:   appendPort(addrs, config.APIPort()),
 	}, nil
+}
+
+// address represents the location of a machine, including metadata about what
+// kind of location the address describes.
+type address struct {
+	Value        string
+	AddressType  instance.AddressType
+	NetworkName  string                `bson:",omitempty"`
+	NetworkScope instance.NetworkScope `bson:",omitempty"`
+}
+
+type hostPort struct {
+	Value        string
+	AddressType  instance.AddressType
+	NetworkName  string                `bson:",omitempty"`
+	NetworkScope instance.NetworkScope `bson:",omitempty"`
+	Port         int
+}
+
+func newAddress(addr instance.Address) address {
+	return address{
+		Value:        addr.Value,
+		AddressType:  addr.Type,
+		NetworkName:  addr.NetworkName,
+		NetworkScope: addr.NetworkScope,
+	}
+}
+
+func (addr *address) InstanceAddress() instance.Address {
+	return instance.Address{
+		Value:        addr.Value,
+		Type:         addr.AddressType,
+		NetworkName:  addr.NetworkName,
+		NetworkScope: addr.NetworkScope,
+	}
+}
+
+func newHostPort(hp instance.HostPort) hostPort {
+	return hostPort{
+		Value:        hp.Value,
+		AddressType:  hp.Type,
+		NetworkName:  hp.NetworkName,
+		NetworkScope: hp.NetworkScope,
+		Port:         hp.Port,
+	}
+}
+
+func (hp *hostPort) InstanceHostPort() instance.HostPort {
+	return instance.HostPort{
+		Address: instance.Address{
+			Value:        hp.Value,
+			Type:         hp.AddressType,
+			NetworkName:  hp.NetworkName,
+			NetworkScope: hp.NetworkScope,
+		},
+		Port: hp.Port,
+	}
+}
+
+func addressesToInstanceAddresses(addrs []address) []instance.Address {
+	instanceAddrs := make([]instance.Address, len(addrs))
+	for i, addr := range addrs {
+		instanceAddrs[i] = addr.InstanceAddress()
+	}
+	return instanceAddrs
+}
+
+func instanceAddressesToAddresses(instanceAddrs []instance.Address) []address {
+	addrs := make([]address, len(instanceAddrs))
+	for i, addr := range instanceAddrs {
+		addrs[i] = newAddress(addr)
+	}
+	return addrs
+}
+
+func hostPortsToInstanceHostPorts(insts [][]hostPort) [][]instance.HostPort {
+	instanceHostPorts := make([][]instance.HostPort, len(insts))
+	for i, hps := range insts {
+		instanceHostPorts[i] = make([]instance.HostPort, len(hps))
+		for j, hp := range hps {
+			instanceHostPorts[i][j] = hp.InstanceHostPort()
+		}
+	}
+	return instanceHostPorts
+}
+
+func instanceHostPortsToHostPorts(instanceHostPorts [][]instance.HostPort) [][]hostPort {
+	hps := make([][]hostPort, len(instanceHostPorts))
+	for i, instanceHps := range instanceHostPorts {
+		hps[i] = make([]hostPort, len(instanceHps))
+		for j, hp := range instanceHps {
+			hps[i][j] = newHostPort(hp)
+		}
+	}
+	return hps
 }
