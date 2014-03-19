@@ -59,7 +59,7 @@ func ensureRoot(args []string, context *cmd.Context, call func(*cmd.Context) err
 	}
 
 	sudoArgs := []string{"--preserve-env", fullpath}
-	sudoArgs = append(args, args[1:]...)
+	sudoArgs = append(sudoArgs, args[1:]...)
 
 	command := exec.Command("sudo", sudoArgs...)
 	// Now hook up stdin, stdout, stderr

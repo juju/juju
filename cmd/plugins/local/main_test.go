@@ -4,6 +4,7 @@
 package local_test
 
 import (
+	"fmt"
 	"os/exec"
 	"strings"
 
@@ -14,10 +15,12 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/cmd/plugins/local"
 	coretesting "launchpad.net/juju-core/testing"
+	_ "launchpad.net/juju-core/testing/testbase"
 )
 
 type mainSuite struct {
-	testing.LoggingSuite
+	// TODO: make it use the testbase.LoggingSuite when it uses the testing LoggingSuite
+	testing.CleanupSuite
 }
 
 var _ = gc.Suite(&mainSuite{})
@@ -64,12 +67,13 @@ func (s *mainSuite) TestEnsureRootCallsSudoIfNotRoot(c *gc.C) {
 	testing.PatchExecutableAsEchoArgs(c, s, "juju-magic")
 	magicPath, err := exec.LookPath("juju-magic")
 	c.Assert(err, gc.IsNil)
-	callIgnored = func(*cmd.Context) error {
+	callIgnored := func(*cmd.Context) error {
 		panic("unreachable")
 	}
 	args := []string{"juju-magic", "passed"}
 	context := coretesting.Context(c)
 	err = local.EnsureRoot(args, context, callIgnored)
 	c.Assert(err, gc.IsNil)
-	c.Assert(coretesting.Stdout(context), gc.Equals, "omg")
+	expected := fmt.Sprintf("sudo \"--preserve-env\" %q \"passed\"\n", magicPath)
+	c.Assert(coretesting.Stdout(context), gc.Equals, expected)
 }
