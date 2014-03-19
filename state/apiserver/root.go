@@ -27,6 +27,7 @@ import (
 	"launchpad.net/juju-core/state/apiserver/rsyslog"
 	"launchpad.net/juju-core/state/apiserver/uniter"
 	"launchpad.net/juju-core/state/apiserver/upgrader"
+	"launchpad.net/juju-core/state/apiserver/usermanager"
 	"launchpad.net/juju-core/state/multiwatcher"
 )
 
@@ -106,6 +107,16 @@ func (r *srvRoot) KeyManager(id string) (*keymanager.KeyManagerAPI, error) {
 		return nil, common.ErrBadId
 	}
 	return keymanager.NewKeyManagerAPI(r.srv.state, r.resources, r)
+}
+
+// UserManager returns an object that provides access to the UserManager API
+// facade. The id argument is reserved for future use and currently
+// needs to be empty
+func (r *srvRoot) UserManager(id string) (*usermanager.UserManagerAPI, error) {
+	if id != "" {
+		return nil, common.ErrBadId
+	}
+	return usermanager.NewUserManagerAPI(r.srv.state, r)
 }
 
 // Machiner returns an object that provides access to the Machiner API

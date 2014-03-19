@@ -95,9 +95,11 @@ func ensureMongoServer(address, dataDir string, port int, info *mgo.DialInfo) er
 	return nil
 }
 
-var initiateReplicaSet = initiateReplicaSetImpl
-
-func initiateReplicaSetImpl(address string, info *mgo.DialInfo) error {
+// initiateReplicaSet checks for an existing mongo configuration using CurrentConfig.
+// If no existing configuration is found one is created using Initiate.
+//
+// This is a variable so it can be overridden in tests
+var initiateReplicaSet = func(address string, info *mgo.DialInfo) error {
 	session, err := mgo.DialWithInfo(info)
 	if err != nil {
 		return err

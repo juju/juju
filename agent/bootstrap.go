@@ -69,7 +69,12 @@ func (c *configInternal) InitializeState(dataDir string, envCfg *config.Config, 
 
 	di, err := state.DialInfo(&info, timeout, policy)
 
-	if err := mongo.EnsureMongoServer(info.Addrs[0], dataDir, envCfg.StatePort(), di); err != nil {
+	address := "127.0.0.1"
+	if len(machineCfg.Addresses) > 0 {
+		address = machineCfg.Addresses[0].Value
+	}
+
+	if err := mongo.EnsureMongoServer(address, dataDir, envCfg.StatePort(), di); err != nil {
 		return nil, nil, err
 	}
 
