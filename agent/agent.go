@@ -125,9 +125,9 @@ type Config interface {
 	StateInitializer
 }
 
-// MigrateConfigParams holds non-empty agent config values to change
-// in a MigrateConfig call. DeleteValues specifies a list of keys to
-// delete.
+// MigrateConfigParams holds agent config values to change in a
+// MigrateConfig call. Empty fields will be ignored. DeleteValues
+// specifies a list of keys to delete.
 type MigrateConfigParams struct {
 	DataDir      string
 	LogDir       string
