@@ -32,10 +32,13 @@ var (
 // MongoPackageForSeries returns the name of the mongo package for the series
 // of the machine that it is going to be running on.
 func MongoPackageForSeries(series string) string {
-	if series == "trusty" {
+	switch series {
+	case "precise", "raring", "saucy":
+		return "mongodb-server"
+	default:
+		// trusty and onwards
 		return "juju-mongodb"
 	}
-	return "mongodb-server"
 }
 
 // MongodPathForSeries returns the path to the mongod executable for the
