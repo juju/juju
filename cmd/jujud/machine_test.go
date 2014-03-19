@@ -416,6 +416,7 @@ func (s *MachineSuite) TestManageEnvironSetsGOMAXPROCS(c *gc.C) {
 	}
 	cleanup := utils.OverrideGOMAXPROCSFuncs(gomaxprocsFunc, numCPUFunc)
 	defer cleanup()
+	// Now, observe the change
 	a := s.newAgent(c, m)
 	defer a.Stop()
 	go func() {
@@ -423,21 +424,9 @@ func (s *MachineSuite) TestManageEnvironSetsGOMAXPROCS(c *gc.C) {
 	}()
 	// Wait for configuration to be finished
 	<-a.workersStarted
-	// By default, the agent should try to call GOMAXPROCS(0) on startup,
-	// since setting it higher is not enabled.
-	c.Check(<-maxProcsChan, gc.Equals, int(0))
-	c.Check(a.Stop(), gc.IsNil)
-	// Now, enabled maxprocs, and observe the change (multiple CPUs will be
-	// disabled in the cleanup function, so it is safe to call)
-	utils.EnableMultipleCPUs()
-	a = s.newAgent(c, m)
-	defer a.Stop()
-	go func() {
-		c.Check(a.Run(nil), gc.IsNil)
-	}()
 	c.Check(<-maxProcsChan, gc.Equals, int(2))
 	c.Check(a.Stop(), gc.IsNil)
-	// An agent that just hosts units doesn't call GOMAXPROCS even when enabled
+	// An agent that just hosts units doesn't call GOMAXPROCS
 	m2, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
 	s.setFakeMachineAddresses(c, m2)
 	a2 := s.newAgent(c, m2)

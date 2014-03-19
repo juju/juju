@@ -12,7 +12,6 @@ import (
 var mu = sync.Mutex{}
 var gomaxprocs = runtime.GOMAXPROCS
 var numcpu = runtime.NumCPU
-var enabledMultiCPUs = false
 
 // OverrideGOMAXPROCSFuncs allows you to override calling runtime.GOMAXPROCS
 // and runtime.NumCPU. This is exposed so that tests can poke at this without
@@ -30,25 +29,6 @@ func OverrideGOMAXPROCSFuncs(newGOMAXPROCS func(int) int, newNumCPU func() int) 
 		defer mu.Unlock()
 		gomaxprocs = origGOMAXPROCS
 		numcpu = origNumCPU
-		enabledMultiCPUs = false
-	}
-}
-
-// EnableMultipleCPUs is called when we want to allow the system to have
-// GOMAXPROCS>1. By default we only want to enable GOMAXPROCS>1 when running in
-// the jujud machine agents that are serving the API. We don't want to set it
-// in the test suite, etc.
-// So first you call EnableMultipleCPUs() when we determine we are running from
-// main(), and then later on you call UseMultipleCPUs() when we determine we
-// are running a machine agent that is serving the API.
-func EnableMultipleCPUs() {
-	mu.Lock()
-	defer mu.Unlock()
-	// We check to see if GOMAXPROCS is set in the environment. If it is,
-	// then we will just use the environment variable, and not override it
-	// ourselves
-	if os.Getenv("GOMAXPROCS") == "" {
-		enabledMultiCPUs = true
 	}
 }
 
@@ -58,9 +38,10 @@ func EnableMultipleCPUs() {
 func UseMultipleCPUs() {
 	mu.Lock()
 	defer mu.Unlock()
-	if !enabledMultiCPUs {
-		logger.Debugf("multiple CPUs not enabled, calling GOMAXPROCS(0)")
-		gomaxprocs(0)
+	if envGOMAXPROCS := os.Getenv("GOMAXPROCS"); envGOMAXPROCS != "" {
+		n := gomaxprocs(0)
+		logger.Debugf("GOMAXPROCS already set in environment to %q, %d internally",
+			envGOMAXPROCS, n)
 		return
 	}
 	n := numcpu()
