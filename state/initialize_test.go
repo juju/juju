@@ -76,7 +76,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
 
-	addrs, err := s.State.APIAddresses()
+	addrs, err := s.State.APIHostPorts()
 	c.Assert(err, gc.IsNil)
 	c.Assert(addrs, gc.HasLen, 0)
 
