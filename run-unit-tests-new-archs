@@ -82,6 +82,16 @@ EXIT_STATUS=$?
 
 set -e
 
+# Capture the jujud to make a tool.
+version=$(echo $juju_version | cut -d _ -f2)
+scp $remote_user@$instance_name:~/$juju_version/bin/jujud ./
+series_arch=$(ssh "$@" $remote_user@$instance_name \
+    "echo \$(lsb_release -sc)-\$(uname -p | sed -r 's/.*ppc.*/ppc64el/')")
+tool="./juju-${version}-${series_arch}.tgz"
+tar cvfz $tool jujud
+echo "Created $tool."
+
+
 if [[ $is_ephemeral == "true" ]]; then
     $SCRIPTS/ec2-terminate-job-instances
 fi
