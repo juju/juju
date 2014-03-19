@@ -222,7 +222,8 @@ func (suite *environSuite) TestAcquireNode(c *gc.C) {
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 
-	_, _, err := env.acquireNode(constraints.Value{}, tools.List{fakeTools})
+	_, _, err := env.acquireNode(constraints.Value{}, environs.Networks{},
+                                tools.List{fakeTools})
 
 	c.Check(err, gc.IsNil)
 	operations := suite.testMAASObject.TestServer.NodeOperations()
@@ -238,7 +239,8 @@ func (suite *environSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *gc.C) {
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 	constraints := constraints.Value{Arch: stringp("arm"), Mem: uint64p(1024)}
 
-	_, _, err := env.acquireNode(constraints, tools.List{fakeTools})
+	_, _, err := env.acquireNode(constraints, environs.Networks{},
+                                tools.List{fakeTools})
 
 	c.Check(err, gc.IsNil)
 	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
@@ -254,7 +256,8 @@ func (suite *environSuite) TestAcquireNodePassedAgentName(c *gc.C) {
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 
-	_, _, err := env.acquireNode(constraints.Value{}, tools.List{fakeTools})
+	_, _, err := env.acquireNode(constraints.Value{}, environs.Networks{},
+                                tools.List{fakeTools})
 
 	c.Check(err, gc.IsNil)
 	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
