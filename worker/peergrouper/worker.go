@@ -183,11 +183,13 @@ func (w *pgWorker) loop() error {
 				ok = false
 			}
 			if ok {
+				logger.Infof("polling after %v", pollInterval)
 				// Update the replica set members occasionally
 				// to keep them up to date with the current
 				// replica set member statuses.
 				retry.Reset(pollInterval)
 			} else {
+				logger.Infof("retrying after %v", retryInterval)
 				retry.Reset(retryInterval)
 			}
 
