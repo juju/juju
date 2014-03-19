@@ -30,19 +30,19 @@ type Policy interface {
 // to perform pre-flight checking of instance creation.
 type Prechecker interface {
 	// PrecheckInstance performs a preflight check on the specified
-	// series, constraints and principal units, ensuring that they
-	// are possibly valid for creating an instance in this environment.
+	// series and constraints, ensuring that they are possibly valid for
+	// creating an instance in this environment.
 	//
 	// PrecheckInstance is best effort, and not guaranteed to eliminate
 	// all invalid parameters. If PrecheckInstance returns nil, it is not
 	// guaranteed that the constraints are valid; if a non-nil error is
 	// returned, then the constraints are definitely invalid.
-	PrecheckInstance(series string, cons constraints.Value, principalUnits []string) error
+	PrecheckInstance(series string, cons constraints.Value) error
 }
 
 // precheckInstance calls the state's assigned policy, if non-nil, to obtain
 // a Prechecker, and calls PrecheckInstance if a non-nil Prechecker is returned.
-func (st *State) precheckInstance(series string, cons constraints.Value, principalUnits []string) error {
+func (st *State) precheckInstance(series string, cons constraints.Value) error {
 	if st.policy == nil {
 		return nil
 	}
@@ -59,5 +59,5 @@ func (st *State) precheckInstance(series string, cons constraints.Value, princip
 	if prechecker == nil {
 		return fmt.Errorf("policy returned nil prechecker without an error")
 	}
-	return prechecker.PrecheckInstance(series, cons, principalUnits)
+	return prechecker.PrecheckInstance(series, cons)
 }

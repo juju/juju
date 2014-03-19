@@ -232,7 +232,7 @@ func (e *manualEnviron) Destroy() error {
 	return err
 }
 
-func (*manualEnviron) PrecheckInstance(series string, cons constraints.Value, principalUnits []string) error {
+func (*manualEnviron) PrecheckInstance(series string, cons constraints.Value) error {
 	return errors.New(`use "juju add-machine ssh:[user@]<host>" to provision machines`)
 }
 

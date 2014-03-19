@@ -241,9 +241,9 @@ func (p *ProvisionerAPI) Series(args params.Entities) (params.StringResults, err
 	return result, nil
 }
 
-// CommonServiceInstances returns slices of instance.Ids which
-// contain units of the services deployed to each of the given
-// machine entities.
+// CommonServiceInstances returns, for each given machine entity,
+// the instances that contain units of the services deployed to
+// that machine.
 func (p *ProvisionerAPI) CommonServiceInstances(args params.Entities) (params.CommonServiceInstancesResults, error) {
 	result := params.CommonServiceInstancesResults{
 		Results: make([]params.CommonServiceInstancesResult, len(args.Entities)),

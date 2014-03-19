@@ -23,16 +23,14 @@ type PrecheckerSuite struct {
 var _ = gc.Suite(&PrecheckerSuite{})
 
 type mockPrechecker struct {
-	precheckInstanceError          error
-	precheckInstanceSeries         string
-	precheckInstanceConstraints    constraints.Value
-	precheckInstancePrincipalUnits []string
+	precheckInstanceError       error
+	precheckInstanceSeries      string
+	precheckInstanceConstraints constraints.Value
 }
 
-func (p *mockPrechecker) PrecheckInstance(series string, cons constraints.Value, principalUnits []string) error {
+func (p *mockPrechecker) PrecheckInstance(series string, cons constraints.Value) error {
 	p.precheckInstanceSeries = series
 	p.precheckInstanceConstraints = cons
-	p.precheckInstancePrincipalUnits = principalUnits
 	return p.precheckInstanceError
 }
 
@@ -55,7 +53,6 @@ func (s *PrecheckerSuite) TestPrecheckInstance(c *gc.C) {
 	c.Assert(s.prechecker.precheckInstanceSeries, gc.Equals, template.Series)
 	cons := template.Constraints.WithFallbacks(envCons)
 	c.Assert(s.prechecker.precheckInstanceConstraints, gc.DeepEquals, cons)
-	c.Assert(s.prechecker.precheckInstancePrincipalUnits, gc.IsNil)
 }
 
 func (s *PrecheckerSuite) TestPrecheckErrors(c *gc.C) {
@@ -132,15 +129,4 @@ func (s *PrecheckerSuite) TestPrecheckContainerNewMachine(c *gc.C) {
 	_, err := s.State.AddMachineInsideNewMachine(template, template, instance.LXC)
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.prechecker.precheckInstanceSeries, gc.Equals, template.Series)
-}
-
-func (s *PrecheckerSuite) TestPrecheckInstanceAddUnit(c *gc.C) {
-	// PrecheckInstance should be called with the unit passed
-	// to principalUnits parameter.
-	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	unit, err := wordpress.AddUnit()
-	c.Assert(err, gc.IsNil)
-	err = unit.AssignToNewMachine()
-	c.Assert(err, gc.IsNil)
-	c.Assert(s.prechecker.precheckInstancePrincipalUnits, gc.DeepEquals, []string{unit.Name()})
 }
