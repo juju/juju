@@ -9,6 +9,12 @@ type publisher struct {
 	st *state.State
 }
 
+func newPublisher(st *state.State) *publisher {
+	return &publisher{
+		st: st,
+	}
+}
+
 func (pub *publisher) publishAPIServers(apiServers [][]instance.HostPort) error {
 	// TODO publish API addresses (instance ids?) in environment storage.
 	return pub.st.SetAPIHostPorts(apiServers)

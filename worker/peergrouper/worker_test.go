@@ -39,7 +39,7 @@ func (s *workerJujuConnSuite) TestPublisherSetsAPIHostPorts(c *gc.C) {
 	watcher := s.State.WatchAPIHostPorts()
 	<-watcher.Changes()
 
-	statePublish := &publisher{s.State}
+	statePublish := newPublisher(s.State)
 
 	// Wrap the publisher so that we can call StartSync immediately
 	// after the publishAPIServers method is called.
