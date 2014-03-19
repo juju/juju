@@ -72,6 +72,7 @@ tar -xzvf $tarfile
 cd \$GOPATH/src/launchpad.net/juju-core
 bzr whoami 'J. Random Hacker <jrandom@example.org>'
 make build
+make install
 make check
 EOT
 EXIT_STATUS=$?
