@@ -167,9 +167,9 @@ func convertConstraints(cons constraints.Value) url.Values {
 	return params
 }
 
-// convertNetworks converts networks include/exclude information into
+// addNetworks converts networks include/exclude information into
 // url.Values object suitable to pass to MAAS when acquiring a node.
-func convertNetworks(params *url.Values, nets environs.Networks) {
+func addNetworks(params url.Values, nets environs.Networks) {
 	// Network Inclusion/Exclusion setup
 	if nets.IncludedNetworks != nil {
 		//XXX Is this suposed to be a comma separated list?
@@ -185,7 +185,7 @@ func convertNetworks(params *url.Values, nets environs.Networks) {
 // acquireNode allocates a node from the MAAS.
 func (environ *maasEnviron) acquireNode(cons constraints.Value, nets environs.Networks, possibleTools tools.List) (gomaasapi.MAASObject, *tools.Tools, error) {
 	acquireParams := convertConstraints(cons)
-	convertNetworks(&acquireParams, nets)
+	addNetworks(acquireParams, nets)
 	acquireParams.Add("agent_name", environ.ecfg().maasAgentName())
 	var result gomaasapi.JSONObject
 	var err error

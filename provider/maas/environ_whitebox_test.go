@@ -324,7 +324,7 @@ var testNetworkValues = []struct {
 func (*environSuite) TestConvertNetworks(c *gc.C) {
 	for _, test := range testNetworkValues {
 		var vals = url.Values{}
-		convertNetworks(&vals, test.networks)
+		addNetworks(vals, test.networks)
 		c.Check(vals, gc.DeepEquals, test.expectedResult)
 	}
 }
