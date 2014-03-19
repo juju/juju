@@ -238,6 +238,25 @@ func (c *Client) ServiceUnexpose(service string) error {
 	return c.st.Call("Client", "", "ServiceUnexpose", params, nil)
 }
 
+// ServiceDeployWithNetworks works exactly like ServiceDeploy, but
+// allows specifying networks to enable or disable on the machine
+// where the charm is deployed.
+func (c *Client) ServiceDeployWithNetworks(charmUrl string, serviceName string, numUnits int, configYAML string, cons constraints.Value, toMachineSpec string, enabledNetworks, disabledNetworks []string) error {
+	params := params.ServiceDeployWithNetworks{
+		ServiceDeploy: params.ServiceDeploy{
+			ServiceName:   serviceName,
+			CharmUrl:      charmUrl,
+			NumUnits:      numUnits,
+			ConfigYAML:    configYAML,
+			Constraints:   cons,
+			ToMachineSpec: toMachineSpec,
+		},
+		EnabledNetworks:  enabledNetworks,
+		DisabledNetworks: disabledNetworks,
+	}
+	return c.st.Call("Client", "", "ServiceDeployWithNetworks", params, nil)
+}
+
 // ServiceDeploy obtains the charm, either locally or from the charm store,
 // and deploys it.
 func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int, configYAML string, cons constraints.Value, toMachineSpec string) error {

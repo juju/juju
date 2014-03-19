@@ -676,6 +676,17 @@ func (s *clientSuite) TestClientServiceDeployCharmErrors(c *gc.C) {
 	}
 }
 
+func (s *clientSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
+	store, restore := makeMockCharmStore()
+	defer restore()
+	curl, _ := addCharm(c, store, "dummy")
+	mem4g := constraints.MustParse("mem=4G")
+	err := s.APIState.Client().ServiceDeployWithNetworks(
+		curl.String(), "service", 3, "", mem4g, "", nil, nil,
+	)
+	c.Assert(err, gc.ErrorMatches, "either EnabledNetworks or DisabledNetworks must be specified")
+}
+
 func (s *clientSuite) TestClientServiceDeployPrincipal(c *gc.C) {
 	// TODO(fwereade): test ToMachineSpec directly on srvClient, when we
 	// manage to extract it as a package and can thus do it conveniently.

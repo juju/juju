@@ -27,7 +27,9 @@ type DeployServiceParams struct {
 	// - an existing machine/container id eg "1" or "1/lxc/2"
 	// - a new container on an existing machine eg "lxc:1"
 	// Use string to avoid ambiguity around machine 0.
-	ToMachineSpec string
+	ToMachineSpec    string
+	EnabledNetworks  []string
+	DisabledNetworks []string
 }
 
 // DeployService takes a charm and various parameters and deploys it.
@@ -71,6 +73,9 @@ func DeployService(st *state.State, args DeployServiceParams) (*state.Service, e
 			return nil, err
 		}
 	}
+	// TODO(dimitern) Pass args.EnabledNetworks and
+	// args.DisabledNetworks down to the service document and/or
+	// MachineTemplate, once we have the networks in state.
 	return service, nil
 }
 

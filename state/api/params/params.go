@@ -151,6 +151,13 @@ type ServiceDeploy struct {
 	ToMachineSpec string
 }
 
+// ServiceDeployWithNetworks holds the parameters for making the ServiceDeployWithNetworks call.
+type ServiceDeployWithNetworks struct {
+	ServiceDeploy
+	EnabledNetworks  []string
+	DisabledNetworks []string
+}
+
 // ServiceUpdate holds the parameters for making the ServiceUpdate call.
 type ServiceUpdate struct {
 	ServiceName     string

@@ -239,6 +239,20 @@ var CharmStore charm.Repository = charm.Store
 // before calling ServiceDeploy, although for backward compatibility
 // this is not necessary until 1.16 support is removed.
 func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
+	return c.serviceDeploy(params.ServiceDeployWithNetworks{ServiceDeploy: args})
+}
+
+// ServiceDeployWithNetworks works exactly like ServiceDeploy, but
+// allows specifying networks to enable or disable on the machine
+// where the charm gets deployed.
+func (c *Client) ServiceDeployWithNetworks(args params.ServiceDeployWithNetworks) error {
+	if len(args.EnabledNetworks) == 0 && len(args.DisabledNetworks) == 0 {
+		return fmt.Errorf("either EnabledNetworks or DisabledNetworks must be specified")
+	}
+	return c.serviceDeploy(args)
+}
+
+func (c *Client) serviceDeploy(args params.ServiceDeployWithNetworks) error {
 	curl, err := charm.ParseURL(args.CharmUrl)
 	if err != nil {
 		return err
@@ -279,12 +293,14 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 
 	_, err = juju.DeployService(c.api.state,
 		juju.DeployServiceParams{
-			ServiceName:    args.ServiceName,
-			Charm:          ch,
-			NumUnits:       args.NumUnits,
-			ConfigSettings: settings,
-			Constraints:    args.Constraints,
-			ToMachineSpec:  args.ToMachineSpec,
+			ServiceName:      args.ServiceName,
+			Charm:            ch,
+			NumUnits:         args.NumUnits,
+			ConfigSettings:   settings,
+			Constraints:      args.Constraints,
+			ToMachineSpec:    args.ToMachineSpec,
+			EnabledNetworks:  args.EnabledNetworks,
+			DisabledNetworks: args.DisabledNetworks,
 		})
 	return err
 }
