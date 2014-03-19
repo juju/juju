@@ -9,6 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"labix.org/v2/mgo"
+
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/constraints"
@@ -59,7 +61,7 @@ type fakeEnsure struct {
 	err  error
 }
 
-func (f *fakeEnsure) fakeEnsureMongo(dir string, port int) error {
+func (f *fakeEnsure) fakeEnsureMongo(address string, dir string, port int, info *mgo.DialInfo) error {
 	f.dir = dir
 	f.port = port
 	return f.err
@@ -157,11 +159,13 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	expectConstraints := constraints.MustParse("mem=1024M")
 	expectHW := instance.MustParseHardware("mem=2048M")
+	address := instance.Address{"127.0.0.1", instance.Ipv4Address, "", instance.NetworkMachineLocal}
 	mcfg := agent.BootstrapMachineConfig{
 		Constraints:     expectConstraints,
 		Jobs:            []params.MachineJob{params.JobHostUnits},
 		InstanceId:      "i-bootstrap",
 		Characteristics: expectHW,
+		Addresses:       []instance.Address{address},
 	}
 	envAttrs := testing.FakeConfig().Delete("admin-secret").Merge(testing.Attrs{
 		"agent-version": version.Current.Number.String(),

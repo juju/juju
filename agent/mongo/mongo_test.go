@@ -12,6 +12,7 @@ import (
 
 	"labix.org/v2/mgo"
 
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/upstart"
 )
@@ -33,7 +34,6 @@ func (s *MongoSuite) SetUpSuite(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	s.PatchValue(&upstart.InitDir, c.MkDir())
-	s.PatchValue(&initiateReplicaSet, func(address string, info *mgo.DialInfo) error { return nil })
 }
 
 func (s *MongoSuite) TestJujuMongodPath(c *gc.C) {
@@ -115,6 +115,8 @@ func testJournalDirs(dir string, c *gc.C) {
 }
 
 func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
+	s.PatchValue(&initiateReplicaSet, func(address string, info *mgo.DialInfo) error { return nil })
+
 	dir := c.MkDir()
 	address := "localhost"
 	info := &mgo.DialInfo{}
@@ -145,6 +147,8 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 }
 
 func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
+	s.PatchValue(&initiateReplicaSet, func(address string, info *mgo.DialInfo) error { return nil })
+
 	dir := c.MkDir()
 	address := "localhost"
 	info := &mgo.DialInfo{}
@@ -165,6 +169,26 @@ func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
 	svc, err := mongoUpstartService(makeServiceName(mongoScriptVersion), dir, dbDir, port)
 	c.Assert(err, gc.IsNil)
 	defer svc.Remove()
+}
+
+func (s *MongoSuite) TestInitiateReplicaSet(c *gc.C) {
+	var err error
+	inst := &coretesting.MgoInstance{Params: []string{"--replSet", "juju"}}
+	err = inst.Start(true)
+	c.Assert(err, gc.IsNil)
+
+	info, err := inst.DialInfo(true)
+	c.Assert(err, gc.IsNil)
+
+	// Setup the inital ReplicaSet
+	err = initiateReplicaSet(inst.Addr(), info)
+	c.Assert(err, gc.IsNil)
+
+	// This would return a mgo.QueryError if a ReplicaSet
+	// configuration already existed but we tried to created
+	// one with replicaset.Initiate again.
+	err = initiateReplicaSet(inst.Addr(), info)
+	c.Assert(err, gc.IsNil)
 }
 
 func makeService(name string, c *gc.C) *upstart.Conf {

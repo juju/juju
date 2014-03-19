@@ -288,7 +288,7 @@ func (inst *MgoInstance) MustDialDirect() *mgo.Session {
 	return session
 }
 
-func (inst *MgoInstance) dial(direct bool) (*mgo.Session, error) {
+func (inst *MgoInstance) DialInfo(direct bool) (*mgo.DialInfo, error) {
 	pool := x509.NewCertPool()
 	xcert, err := cert.ParseCert([]byte(CACert))
 	if err != nil {
@@ -299,7 +299,8 @@ func (inst *MgoInstance) dial(direct bool) (*mgo.Session, error) {
 		RootCAs:    pool,
 		ServerName: "anything",
 	}
-	session, err := mgo.DialWithInfo(&mgo.DialInfo{
+
+	return &mgo.DialInfo{
 		Direct: direct,
 		Addrs:  []string{inst.addr},
 		Dial: func(addr net.Addr) (net.Conn, error) {
@@ -311,7 +312,15 @@ func (inst *MgoInstance) dial(direct bool) (*mgo.Session, error) {
 			return conn, nil
 		},
 		Timeout: mgoDialTimeout,
-	})
+	}, nil
+}
+
+func (inst *MgoInstance) dial(direct bool) (*mgo.Session, error) {
+	info, err := inst.DialInfo(direct)
+	if err != nil {
+		return nil, err
+	}
+	session, err := mgo.DialWithInfo(info)
 	return session, err
 }
 
