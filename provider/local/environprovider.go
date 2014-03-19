@@ -8,7 +8,6 @@ import (
 	"net"
 	"os"
 	"os/user"
-	"strconv"
 	"syscall"
 
 	"github.com/juju/loggo"
@@ -222,12 +221,9 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 	localConfig.attrs["root-dir"] = dir
 
 	if containerType != instance.KVM {
-		fastOptionAvailable := strconv.FormatBool(useFastLXC(containerType))
+		fastOptionAvailable := useFastLXC(containerType)
 		if _, found := localConfig.attrs["lxc-clone"]; !found {
 			localConfig.attrs["lxc-clone"] = fastOptionAvailable
-		}
-		if _, found := localConfig.attrs["lxc-clone-aufs"]; !found {
-			localConfig.attrs["lxc-clone-aufs"] = fastOptionAvailable
 		}
 	}
 

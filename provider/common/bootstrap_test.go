@@ -81,7 +81,7 @@ func (s *BootstrapSuite) TestCannotWriteStateFile(c *gc.C) {
 		Storage: newStorage(s, c),
 		putErr:  fmt.Errorf("noes!"),
 	}
-	env := &mockEnviron{storage: brokenStorage}
+	env := &mockEnviron{storage: brokenStorage, config: configGetter(c)}
 	ctx := coretesting.Context(c)
 	err := common.Bootstrap(ctx, env, constraints.Value{})
 	c.Assert(err, gc.ErrorMatches, "cannot create initial state file: noes!")

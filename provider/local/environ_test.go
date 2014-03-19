@@ -20,6 +20,7 @@ import (
 	"launchpad.net/juju-core/environs/jujutest"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider/local"
 	"launchpad.net/juju-core/state/api/params"
@@ -75,6 +76,18 @@ func (s *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 	url, err := sources[0].URL("")
 	c.Assert(err, gc.IsNil)
 	c.Assert(strings.Contains(url, "/tools"), jc.IsTrue)
+}
+
+func (*environSuite) TestSupportedArchitectures(c *gc.C) {
+	testConfig := minimalConfig(c)
+	environ, err := local.Provider.Open(testConfig)
+	c.Assert(err, gc.IsNil)
+	c.Assert(err, gc.IsNil)
+	arches, err := environ.SupportedArchitectures()
+	c.Assert(err, gc.IsNil)
+	for _, a := range arches {
+		c.Assert(arch.IsSupportedArch(a), jc.IsTrue)
+	}
 }
 
 type localJujuTestSuite struct {

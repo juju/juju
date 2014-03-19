@@ -38,6 +38,10 @@ func (*mockEnviron) Name() string {
 	return "mock environment"
 }
 
+func (*mockEnviron) SupportedArchitectures() ([]string, error) {
+	return []string{"amd64", "arm64"}, nil
+}
+
 func (env *mockEnviron) Storage() storage.Storage {
 	return env.storage
 }

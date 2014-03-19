@@ -41,6 +41,12 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, cons constra
 	var inst instance.Instance
 	defer func() { handleBootstrapError(err, ctx, inst, env) }()
 
+	// First thing, ensure we have tools otherwise there's no point.
+	selectedTools, err := EnsureBootstrapTools(env, env.Config().DefaultSeries(), cons.Arch)
+	if err != nil {
+		return err
+	}
+
 	// Get the bootstrap SSH client. Do this early, so we know
 	// not to bother with any of the below if we can't finish the job.
 	client := ssh.DefaultClient
@@ -63,11 +69,6 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, cons constra
 		return err
 	}
 	machineConfig := environs.NewBootstrapMachineConfig(stateFileURL, privateKey)
-
-	selectedTools, err := EnsureBootstrapTools(env, env.Config().DefaultSeries(), cons.Arch)
-	if err != nil {
-		return err
-	}
 
 	fmt.Fprintln(ctx.GetStderr(), "Launching instance")
 	inst, hw, err := env.StartInstance(environs.StartInstanceParams{
