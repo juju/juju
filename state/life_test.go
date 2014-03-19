@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/state"
@@ -117,14 +118,14 @@ func (s *LifeSuite) prepareFixture(living state.Living, lfix lifeFixture, cached
 	collName, id := lfix.id()
 	coll := s.MgoSuite.Session.DB("juju").C(collName)
 
-	err := coll.UpdateId(id, D{{"$set", D{
+	err := coll.UpdateId(id, bson.D{{"$set", bson.D{
 		{"life", cached},
 	}}})
 	c.Assert(err, gc.IsNil)
 	err = living.Refresh()
 	c.Assert(err, gc.IsNil)
 
-	err = coll.UpdateId(id, D{{"$set", D{
+	err = coll.UpdateId(id, bson.D{{"$set", bson.D{
 		{"life", dbinitial},
 	}}})
 	c.Assert(err, gc.IsNil)
