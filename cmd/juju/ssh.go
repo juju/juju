@@ -32,6 +32,7 @@ type SSHCommand struct {
 type SSHCommon struct {
 	cmd.EnvCommandBase
 	proxy     bool
+	pty       bool
 	Target    string
 	Args      []string
 	apiClient *api.Client
@@ -43,6 +44,7 @@ type SSHCommon struct {
 func (c *SSHCommon) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.BoolVar(&c.proxy, "proxy", true, "proxy through the API server")
+	f.BoolVar(&c.pty, "pty", true, "enable pseudo-tty allocation")
 }
 
 // setProxyCommand sets the proxy command option.
@@ -55,7 +57,7 @@ func (c *SSHCommon) setProxyCommand(options *ssh.Options) error {
 	if err != nil {
 		return fmt.Errorf("failed to get juju executable path: %v", err)
 	}
-	options.SetProxyCommand(juju, "ssh", "--proxy=false", apiServerHost, "-T", "nc -q0 %h %p")
+	options.SetProxyCommand(juju, "ssh", "--proxy=false", "--pty=false", apiServerHost, "nc", "-q0", "%h", "%p")
 	return nil
 }
 
@@ -123,7 +125,9 @@ func (c *SSHCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	var options ssh.Options
-	options.EnablePTY()
+	if c.pty {
+		options.EnablePTY()
+	}
 	if c.proxy {
 		if err := c.setProxyCommand(&options); err != nil {
 			return err
