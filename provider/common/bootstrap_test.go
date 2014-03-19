@@ -94,7 +94,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 	checkCons := constraints.MustParse("mem=8G")
 
 	startInstance := func(
-		cons constraints.Value, possibleTools tools.List, mcfg *cloudinit.MachineConfig,
+		cons constraints.Value, _ environs.Networks, possibleTools tools.List, mcfg *cloudinit.MachineConfig,
 	) (
 		instance.Instance, *instance.HardwareCharacteristics, error,
 	) {
@@ -119,7 +119,7 @@ func (s *BootstrapSuite) TestCannotRecordStartedInstance(c *gc.C) {
 	stor := &mockStorage{Storage: innerStorage}
 
 	startInstance := func(
-		_ constraints.Value, _ tools.List, _ *cloudinit.MachineConfig,
+		_ constraints.Value, _ environs.Networks, _ tools.List, _ *cloudinit.MachineConfig,
 	) (
 		instance.Instance, *instance.HardwareCharacteristics, error,
 	) {
@@ -152,7 +152,7 @@ func (s *BootstrapSuite) TestCannotRecordThenCannotStop(c *gc.C) {
 	stor := &mockStorage{Storage: innerStorage}
 
 	startInstance := func(
-		_ constraints.Value, _ tools.List, _ *cloudinit.MachineConfig,
+		_ constraints.Value, _ environs.Networks, _ tools.List, _ *cloudinit.MachineConfig,
 	) (
 		instance.Instance, *instance.HardwareCharacteristics, error,
 	) {
@@ -194,7 +194,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 
 	checkURL := ""
 	startInstance := func(
-		_ constraints.Value, _ tools.List, mcfg *cloudinit.MachineConfig,
+		_ constraints.Value, _ environs.Networks, _ tools.List, mcfg *cloudinit.MachineConfig,
 	) (
 		instance.Instance, *instance.HardwareCharacteristics, error,
 	) {

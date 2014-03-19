@@ -174,9 +174,27 @@ func convertConstraints(cons constraints.Value) url.Values {
 	return params
 }
 
+// addNetworks converts networks include/exclude information into
+// url.Values object suitable to pass to MAAS when acquiring a node.
+func addNetworks(params url.Values, nets environs.Networks) {
+	// Network Inclusion/Exclusion setup
+	if nets.IncludedNetworks != nil {
+		for _, network_name := range nets.IncludedNetworks {
+			params.Add("networks", network_name)
+		}
+	}
+	if nets.ExcludedNetworks != nil {
+		for _, not_network_name := range nets.ExcludedNetworks {
+			params.Add("not_networks", not_network_name)
+		}
+	}
+
+}
+
 // acquireNode allocates a node from the MAAS.
-func (environ *maasEnviron) acquireNode(cons constraints.Value, possibleTools tools.List) (gomaasapi.MAASObject, *tools.Tools, error) {
+func (environ *maasEnviron) acquireNode(cons constraints.Value, nets environs.Networks, possibleTools tools.List) (gomaasapi.MAASObject, *tools.Tools, error) {
 	acquireParams := convertConstraints(cons)
+	addNetworks(acquireParams, nets)
 	acquireParams.Add("agent_name", environ.ecfg().maasAgentName())
 	var result gomaasapi.JSONObject
 	var err error
@@ -240,7 +258,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (in
 
 	var inst *maasInstance
 	var err error
-	if node, tools, err := environ.acquireNode(args.Constraints, args.Tools); err != nil {
+	if node, tools, err := environ.acquireNode(args.Constraints, args.Networks, args.Tools); err != nil {
 		return nil, nil, fmt.Errorf("cannot run instances: %v", err)
 	} else {
 		inst = &maasInstance{maasObject: &node, environ: environ}
