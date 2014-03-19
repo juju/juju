@@ -230,15 +230,15 @@ func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
 	c.Assert(n1, jc.GreaterThan, n0)
 }
 
-type publisherFunc func(apiServers [][]instance.HostPort) error
+type publisherFunc func(apiServers []instance.HostPort) error
 
-func (f publisherFunc) publishAPIServers(apiServers [][]instance.HostPort) error {
+func (f publisherFunc) publishAPIServers(apiServers []instance.HostPort) error {
 	return f(apiServers)
 }
 
 func (s *workerSuite) TestStateServersArePublished(c *gc.C) {
-	publishCh := make(chan [][]instance.HostPort)
-	publish := func(apiServers [][]instance.HostPort) error {
+	publishCh := make(chan []instance.HostPort)
+	publish := func(apiServers []instance.HostPort) error {
 		publishCh <- apiServers
 		return nil
 	}
@@ -250,13 +250,12 @@ func (s *workerSuite) TestStateServersArePublished(c *gc.C) {
 		c.Check(worker.Stop(w), gc.IsNil)
 	}()
 	select {
-	case servers := <-publishCh:
-		c.Assert(servers, gc.HasLen, 3)
-		for i, hps := range servers {
-			c.Assert(hps, gc.HasLen, 1)
-			c.Assert(hps[0].Port, gc.Equals, apiPort)
-			c.Assert(hps[0].Value, gc.Equals, fmt.Sprintf("0.1.2.%d", i+10))
-			c.Assert(hps[0].NetworkScope, gc.Equals, instance.NetworkUnknown)
+	case hps := <-publishCh:
+		c.Assert(hps, gc.HasLen, 3)
+		for i, hp := range hps {
+			c.Assert(hp.Port, gc.Equals, apiPort)
+			c.Assert(hp.Value, gc.Equals, fmt.Sprintf("0.1.2.%d", i+10))
+			c.Assert(hp.NetworkScope, gc.Equals, instance.NetworkUnknown)
 		}
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for publish")
@@ -267,18 +266,17 @@ func (s *workerSuite) TestStateServersArePublished(c *gc.C) {
 	expectAPIHostPorts := addressesWithPort(apiPort, "0.2.8.124")
 	st.machine("10").setAPIHostPorts(expectAPIHostPorts)
 	select {
-	case servers := <-publishCh:
-		c.Assert(servers, gc.HasLen, 3)
-		for i, hps := range servers {
+	case hps := <-publishCh:
+		c.Assert(hps, gc.HasLen, 3)
+		for i, hp := range hps {
 			if i == 0 {
 				continue
 			}
-			c.Assert(hps, gc.HasLen, 1)
-			c.Assert(hps[0].Port, gc.Equals, apiPort)
-			c.Assert(hps[0].Value, gc.Equals, fmt.Sprintf("0.1.2.%d", i+10))
-			c.Assert(hps[0].NetworkScope, gc.Equals, instance.NetworkUnknown)
+			c.Assert(hp.Port, gc.Equals, apiPort)
+			c.Assert(hp.Value, gc.Equals, fmt.Sprintf("0.1.2.%d", i+10))
+			c.Assert(hp.NetworkScope, gc.Equals, instance.NetworkUnknown)
 		}
-		c.Assert(servers[0], gc.DeepEquals, expectAPIHostPorts)
+		c.Assert(hps[0], jc.DeepEquals, expectAPIHostPorts[0])
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for publish")
 	}
@@ -288,10 +286,10 @@ func (s *workerSuite) TestWorkerRetriesOnPublishError(c *gc.C) {
 	testbase.PatchValue(&pollInterval, coretesting.LongWait+time.Second)
 	testbase.PatchValue(&retryInterval, 5*time.Millisecond)
 
-	publishCh := make(chan [][]instance.HostPort, 100)
+	publishCh := make(chan []instance.HostPort, 100)
 
 	count := 0
-	publish := func(apiServers [][]instance.HostPort) error {
+	publish := func(apiServers []instance.HostPort) error {
 		publishCh <- apiServers
 		count++
 		if count <= 3 {
@@ -309,8 +307,8 @@ func (s *workerSuite) TestWorkerRetriesOnPublishError(c *gc.C) {
 
 	for i := 0; i < 4; i++ {
 		select {
-		case servers := <-publishCh:
-			c.Assert(servers, gc.HasLen, 3)
+		case hps := <-publishCh:
+			c.Assert(hps, gc.HasLen, 3)
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out waiting for publish #%d", i)
 		}

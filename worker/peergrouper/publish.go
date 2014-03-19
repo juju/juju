@@ -4,8 +4,16 @@ import (
 	"launchpad.net/juju-core/instance"
 )
 
+//type publisher struct {
+//	st *state.State
+//}
+//
+//func (pub *publisher) publishAPIServers(apiServers [][]instance.HostPort) error {
+//
+//}
+
 type noPublisher struct{}
 
-func (noPublisher) publishAPIServers(apiServers [][]instance.HostPort) error {
+func (noPublisher) publishAPIServers(apiServers []instance.HostPort) error {
 	return nil
 }

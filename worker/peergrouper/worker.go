@@ -41,6 +41,13 @@ type mongoSession interface {
 	Set([]replicaset.Member) error
 }
 
+type publisherInterface interface {
+	// publish publishes information about the given state servers
+	// to whomsoever it may concern. When it is called there
+	// is no guarantee that any of the information has actually changed.
+	publishAPIServers(apiServers []instance.HostPort) error
+}
+
 // notifyFunc holds a function that is sent
 // to the main worker loop to fetch new information
 // when something changes. It reports whether
@@ -95,14 +102,7 @@ type pgWorker struct {
 
 	// publisher holds the implementation of the API
 	// address publisher.
-	publisher publisher
-}
-
-type publisher interface {
-	// publish publishes information about the given state servers
-	// to whomsoever it may concern. When it is called there
-	// is no guarantee that any of the information has actually changed.
-	publishAPIServers(apiServers [][]instance.HostPort) error
+	publisher publisherInterface
 }
 
 // New returns a new worker that maintains the mongo replica set
@@ -119,7 +119,7 @@ func New(st *state.State) (worker.Worker, error) {
 	}, noPublisher{}), nil
 }
 
-func newWorker(st stateInterface, pub publisher) worker.Worker {
+func newWorker(st stateInterface, pub publisherInterface) worker.Worker {
 	w := &pgWorker{
 		st:        st,
 		notifyCh:  make(chan notifyFunc),
@@ -199,11 +199,11 @@ func (w *pgWorker) loop() error {
 	}
 }
 
-func (w *pgWorker) apiHostPorts() [][]instance.HostPort {
-	servers := make([][]instance.HostPort, 0, len(w.machines))
+func (w *pgWorker) apiHostPorts() []instance.HostPort {
+	servers := make([]instance.HostPort, 0, len(w.machines))
 	for _, m := range w.machines {
 		if len(m.apiHostPorts) > 0 {
-			servers = append(servers, m.apiHostPorts)
+			servers = append(servers, m.apiHostPorts...)
 		}
 	}
 	return servers
