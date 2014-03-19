@@ -498,7 +498,7 @@ func hostPortsEqual(hps1, hps2 []instance.HostPort) bool {
 		return false
 	}
 	for i := range hps1 {
-		
+
 		if hps1[i] != hps2[i] {
 			return false
 		}
