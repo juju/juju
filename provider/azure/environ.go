@@ -52,7 +52,6 @@ const (
 
 type azureEnviron struct {
 	common.NopPrechecker
-	common.DoesSupportUnitPlacement
 
 	// Except where indicated otherwise, all fields in this object should
 	// only be accessed using a lock or a snapshot.
@@ -896,4 +895,12 @@ func (env *azureEnviron) Region() (simplestreams.CloudSpec, error) {
 		Region:   ecfg.location(),
 		Endpoint: string(gwacl.GetEndpoint(ecfg.location())),
 	}, nil
+}
+
+// SupportsUnitPlacement is specified in the state.EnvironCapability interface.
+func (env *azureEnviron) SupportsUnitPlacement() error {
+	if env.getSnapshot().ecfg.availabilitySetsEnabled() {
+		return fmt.Errorf("unit placement is not permitted with availability-sets-enabled")
+	}
+	return nil
 }

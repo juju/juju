@@ -1285,3 +1285,18 @@ func (s *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 	c.Assert(len(sources), gc.Equals, 1)
 	assertSourceContents(c, sources[0], "filename", data)
 }
+
+func (s *environSuite) TestCheckUnitAssignment(c *gc.C) {
+	// If availability-sets-enabled is true, then placement is disabled.
+	attrs := makeAzureConfigMap(c)
+	attrs["availability-sets-enabled"] = true
+	env := environs.Environ(makeEnvironWithConfig(c, attrs))
+	err := env.SupportsUnitPlacement()
+	c.Assert(err, gc.ErrorMatches, "unit placement is not permitted with availability-sets-enabled")
+
+	// If the user disables availability sets, they can do what they want.
+	attrs["availability-sets-enabled"] = false
+	env = environs.Environ(makeEnvironWithConfig(c, attrs))
+	err = env.SupportsUnitPlacement()
+	c.Assert(err, gc.IsNil)
+}
