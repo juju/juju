@@ -26,7 +26,7 @@ type azureInstance struct {
 	roleName             string
 	maskStateServerPorts bool
 
-	mu           sync.RWMutex
+	mu           sync.Mutex
 	roleInstance *gwacl.RoleInstance
 }
 
@@ -48,8 +48,8 @@ func (azInstance *azureInstance) supportsLoadBalancing() bool {
 
 // Status is specified in the Instance interface.
 func (azInstance *azureInstance) Status() string {
-	azInstance.mu.RLock()
-	defer azInstance.mu.RUnlock()
+	azInstance.mu.Lock()
+	defer azInstance.mu.Unlock()
 	if azInstance.roleInstance == nil {
 		return ""
 	}
@@ -90,15 +90,15 @@ func (azInstance *azureInstance) Addresses() ([]instance.Address, error) {
 	for i := 0; i < 2; i++ {
 		if ip := azInstance.ipAddress(); ip != "" {
 			addrs = append(addrs, instance.Address{
-				ip,
-				instance.Ipv4Address,
-				azInstance.environ.getVirtualNetworkName(),
-				instance.NetworkCloudLocal})
+				Value:        ip,
+				Type:         instance.Ipv4Address,
+				NetworkName:  azInstance.environ.getVirtualNetworkName(),
+				NetworkScope: instance.NetworkCloudLocal,
+			})
 			break
-		} else {
-			if err := azInstance.Refresh(); err != nil {
-				return nil, err
-			}
+		}
+		if err := azInstance.Refresh(); err != nil {
+			return nil, err
 		}
 	}
 	name, err := azInstance.DNSName()
@@ -111,8 +111,8 @@ func (azInstance *azureInstance) Addresses() ([]instance.Address, error) {
 }
 
 func (azInstance *azureInstance) ipAddress() string {
-	azInstance.mu.RLock()
-	defer azInstance.mu.RUnlock()
+	azInstance.mu.Lock()
+	defer azInstance.mu.Unlock()
 	if azInstance.roleInstance == nil {
 		// RoleInstance hasn't finished deploying.
 		return ""

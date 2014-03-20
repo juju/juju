@@ -440,9 +440,8 @@ func (env *azureEnviron) ensureCloudService(azure *gwacl.ManagementAPI, label st
 	return service, label, nil
 }
 
-// createInstance creates all of the necessary Azure entities in order
-// to create a new instance. This includes Cloud Service, Deployment
-// and Role.
+// createInstance creates all of the Azure entities necessary for a
+// new instance. This includes Cloud Service, Deployment and Role.
 //
 // If label is non-empty, then createInstance will assign to a Cloud
 // Service with that label, if any, otherwise creating one with that
