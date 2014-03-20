@@ -61,7 +61,7 @@ type azureEnviron struct {
 	// for which images can be instantiated.
 	supportedArchitectures []string
 	// archMutex gates access to supportedArchitectures
-	archMutex              sync.Mutex
+	archMutex sync.Mutex
 
 	// ecfg is the environment's Azure-specific configuration.
 	ecfg *azureEnvironConfig

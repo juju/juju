@@ -312,7 +312,7 @@ type environ struct {
 	// for which images can be instantiated.
 	supportedArchitectures []string
 	// archMutex gates access to supportedArchitectures
-	archMutex       sync.Mutex
+	archMutex sync.Mutex
 
 	ecfgMutex       sync.Mutex
 	imageBaseMutex  sync.Mutex
