@@ -73,7 +73,7 @@ func MarshalImageMetadataProductsJSON(metadata []*ImageMetadata, updated time.Ti
 			Id:         t.Id,
 			RegionName: t.RegionName,
 			Endpoint:   t.Endpoint,
-			VType:      t.VType,
+			VirtType:   t.VirtType,
 		}
 		if catalog, ok := cloud.Products[t.productId()]; ok {
 			catalog.Items[itemsversion].Items[t.Id] = toWrite

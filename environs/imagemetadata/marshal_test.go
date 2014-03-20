@@ -104,10 +104,10 @@ var imageMetadataForTesting = []*imagemetadata.ImageMetadata{
 		Arch:    "arm",
 	},
 	&imagemetadata.ImageMetadata{
-		Id:      "abcd",
-		Version: "12.04",
-		Arch:    "amd64",
-		VType:   "virt",
+		Id:       "abcd",
+		Version:  "12.04",
+		Arch:     "amd64",
+		VirtType: "virt",
 	},
 }
 

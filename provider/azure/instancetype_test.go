@@ -238,7 +238,7 @@ func (s *instanceTypeSuite) setupEnvWithDummyMetadata(c *gc.C) *azureEnviron {
 	images := []*imagemetadata.ImageMetadata{
 		{
 			Id:         "image-id",
-			VType:      "Hyper-V",
+			VirtType:   "Hyper-V",
 			Arch:       "amd64",
 			RegionName: "West US",
 			Endpoint:   "https://management.core.windows.net/",
@@ -272,7 +272,7 @@ func (s *instanceTypeSuite) TestFindMatchingImagesReturnsDailyImages(c *gc.C) {
 	images := []*imagemetadata.ImageMetadata{
 		{
 			Id:         "image-id",
-			VType:      "Hyper-V",
+			VirtType:   "Hyper-V",
 			Arch:       "amd64",
 			RegionName: "West US",
 			Endpoint:   "https://management.core.windows.net/",
@@ -305,7 +305,7 @@ func (*instanceTypeSuite) TestNewInstanceTypeConvertsRoleSize(c *gc.C) {
 		Mem:      roleSize.Mem,
 		RootDisk: roleSize.OSDiskSpaceVirt,
 		Cost:     roleSize.Cost,
-		VType:    &vtype,
+		VirtType: &vtype,
 		CpuPower: &cpupower,
 	}
 	c.Assert(newInstanceType(roleSize), gc.DeepEquals, expectation)

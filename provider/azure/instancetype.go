@@ -161,7 +161,7 @@ func newInstanceType(roleSize gwacl.RoleSize) instances.InstanceType {
 		Mem:      roleSize.Mem,
 		RootDisk: roleSize.OSDiskSpaceVirt,
 		Cost:     roleSize.Cost,
-		VType:    &vtype,
+		VirtType: &vtype,
 		CpuPower: &cpuPower,
 		// tags are not currently supported by azure
 	}

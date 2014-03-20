@@ -1202,7 +1202,7 @@ func (s *environSuite) setupEnvWithDummyMetadata(c *gc.C) *azureEnviron {
 	images := []*imagemetadata.ImageMetadata{
 		{
 			Id:         "image-id",
-			VType:      "Hyper-V",
+			VirtType:   "Hyper-V",
 			Arch:       "ppc64",
 			RegionName: "North Europe",
 			Endpoint:   "https://management.core.windows.net/",

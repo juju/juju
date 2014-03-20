@@ -144,7 +144,7 @@ func (ic *ImageConstraint) Ids() ([]string, error) {
 type ImageMetadata struct {
 	Id          string `json:"id"`
 	Storage     string `json:"root_store,omitempty"`
-	VType       string `json:"virt,omitempty"`
+	VirtType    string `json:"virt,omitempty"`
 	Arch        string `json:"arch,omitempty"`
 	Version     string `json:"version,omitempty"`
 	RegionAlias string `json:"crsn,omitempty"`
@@ -217,14 +217,14 @@ func appendMatchingImages(source simplestreams.DataSource, matchingImages []inte
 	imagesMap := make(map[imageKey]*ImageMetadata, len(matchingImages))
 	for _, val := range matchingImages {
 		im := val.(*ImageMetadata)
-		imagesMap[imageKey{im.VType, im.Arch, im.Version, im.RegionName, im.Storage}] = im
+		imagesMap[imageKey{im.VirtType, im.Arch, im.Version, im.RegionName, im.Storage}] = im
 	}
 	for _, val := range images {
 		im := val.(*ImageMetadata)
 		if cons != nil && cons.Params().Region != "" && cons.Params().Region != im.RegionName {
 			continue
 		}
-		if _, ok := imagesMap[imageKey{im.VType, im.Arch, im.Version, im.RegionName, im.Storage}]; !ok {
+		if _, ok := imagesMap[imageKey{im.VirtType, im.Arch, im.Version, im.RegionName, im.Storage}]; !ok {
 			matchingImages = append(matchingImages, im)
 		}
 	}
