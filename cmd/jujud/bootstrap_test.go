@@ -5,6 +5,7 @@ package main
 
 import (
 	"encoding/base64"
+	"io"
 	"io/ioutil"
 	"path/filepath"
 
@@ -15,9 +16,12 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/agent/mongo"
+	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
+	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -29,6 +33,8 @@ import (
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
+
+var _ = configstore.Default
 
 // We don't want to use JujuConnSuite because it gives us
 // an already-bootstrapped environment.
@@ -89,11 +95,13 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.dataDir = c.MkDir()
 	s.logDir = c.MkDir()
+	testConfig = getTestConfig()
 }
 
 func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
+	dummy.Reset()
 }
 
 var testPassword = "my-admin-secret"
@@ -331,6 +339,33 @@ func (s *BootstrapSuite) TestBase64Config(c *gc.C) {
 	}
 }
 
+var testConfig = getTestConfig()
+
+func getTestConfig() string {
+	attrs := dummy.SampleConfig().Merge(
+		testing.Attrs{
+			"state-server":  false,
+			"agent-version": "3.4.5",
+		},
+	).Delete("admin-secret", "ca-private-key")
+
+	cfg, err := config.New(config.NoDefaults, attrs)
+	maybePanic(err)
+	provider, err := environs.Provider(cfg.Type())
+	maybePanic(err)
+	env, err := provider.Prepare(nullContext(), cfg)
+	maybePanic(err)
+	return b64yaml(env.Config().AllAttrs()).encode()
+}
+
+func nullContext() *cmd.Context {
+	ctx := cmd.DefaultContext()
+	ctx.Stdin = io.LimitReader(nil, 0)
+	ctx.Stdout = ioutil.Discard
+	ctx.Stderr = ioutil.Discard
+	return ctx
+}
+
 type b64yaml map[string]interface{}
 
 func (m b64yaml) encode() string {
@@ -341,10 +376,8 @@ func (m b64yaml) encode() string {
 	return base64.StdEncoding.EncodeToString(data)
 }
 
-var testConfig = b64yaml(
-	dummy.SampleConfig().Merge(
-		testing.Attrs{
-			"state-server":  false,
-			"agent-version": "3.4.5",
-		},
-	).Delete("admin-secret", "ca-private-key")).encode()
+func maybePanic(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
