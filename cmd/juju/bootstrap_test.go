@@ -26,6 +26,7 @@ import (
 	envtools "launchpad.net/juju-core/environs/tools"
 	ttesting "launchpad.net/juju-core/environs/tools/testing"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
@@ -81,27 +82,30 @@ type bootstrapRetryTest struct {
 	addVersionToSource bool
 }
 
+var noToolsAvailableMessage = "cannot upload bootstrap tools: Juju cannot bootstrap because no tools are available for your environment.*"
+var toolsNotFoundMessage = "cannot find bootstrap tools: tools not found"
+
 var bootstrapRetryTests = []bootstrapRetryTest{{
-	info:               "no tools uploaded, first check has no retries; no matching binary in source; sync fails with no second attempt",
+	info:               "no tools uploaded, first check has no retries; no matching binary in source; no second attempt",
 	expectedAllowRetry: []bool{false},
-	err:                "cannot find bootstrap tools: no matching tools available",
+	err:                noToolsAvailableMessage,
 	version:            "1.16.0-precise-amd64",
 }, {
-	info:               "no tools uploaded, first check has no retries; matching binary in source; check after sync has retries",
+	info:               "no tools uploaded, first check has no retries; matching binary in source; check after upload has retries",
 	expectedAllowRetry: []bool{false, true},
-	err:                "cannot find bootstrap tools: tools not found",
-	version:            "1.16.0-precise-amd64",
+	err:                toolsNotFoundMessage,
+	version:            "1.17.0-precise-amd64", // dev version to force upload
 	addVersionToSource: true,
 }, {
 	info:               "no tools uploaded, first check has no retries; no matching binary in source; check after upload has retries",
 	expectedAllowRetry: []bool{false, true},
-	err:                "cannot find bootstrap tools: tools not found",
+	err:                toolsNotFoundMessage,
 	version:            "1.15.1-precise-amd64", // dev version to force upload
 }, {
 	info:               "new tools uploaded, so we want to allow retries to give them a chance at showing up",
 	args:               []string{"--upload-tools"},
 	expectedAllowRetry: []bool{true},
-	err:                "cannot find bootstrap tools: no matching tools available",
+	err:                noToolsAvailableMessage,
 }}
 
 // Test test checks that bootstrap calls FindTools with the expected allowRetry flag.
@@ -141,7 +145,8 @@ func (s *BootstrapSuite) runAllowRetriesTest(c *gc.C, test bootstrapRetryTest) {
 	_, errc := runCommand(nullContext(), new(BootstrapCommand), test.args...)
 	err := <-errc
 	c.Check(findToolsRetryValues, gc.DeepEquals, test.expectedAllowRetry)
-	c.Check(err, gc.ErrorMatches, test.err)
+	stripped := strings.Replace(err.Error(), "\n", "", -1)
+	c.Check(stripped, gc.Matches, test.err)
 }
 
 // mockUploadTools simulates the effect of tools.Upload, but skips the time-
@@ -187,6 +192,7 @@ type bootstrapTest struct {
 	// will be uploaded before running the test.
 	uploads     []string
 	constraints constraints.Value
+	hostArch    string
 }
 
 func (test bootstrapTest) run(c *gc.C) {
@@ -201,6 +207,14 @@ func (test bootstrapTest) run(c *gc.C) {
 		defer func() { version.Current = origVersion }()
 	}
 
+	if test.hostArch != "" {
+		origVersion := arch.HostArch
+		arch.HostArch = func() string {
+			return test.hostArch
+		}
+		defer func() { arch.HostArch = origVersion }()
+	}
+
 	uploadCount := len(test.uploads)
 	if uploadCount == 0 {
 		usefulVersion := version.Current
@@ -210,6 +224,17 @@ func (test bootstrapTest) run(c *gc.C) {
 
 	// Run command and check for uploads.
 	opc, errc := runCommand(nullContext(), new(BootstrapCommand), test.args...)
+	// Check for remaining operations/errors.
+	if test.err != "" {
+		err := <-errc
+		stripped := strings.Replace(err.Error(), "\n", "", -1)
+		c.Check(stripped, gc.Matches, test.err)
+		return
+	}
+	if !c.Check(<-errc, gc.IsNil) {
+		return
+	}
+
 	if uploadCount > 0 {
 		for i := 0; i < uploadCount; i++ {
 			c.Check((<-opc).(dummy.OpPutFile).Env, gc.Equals, "peckham")
@@ -226,15 +251,6 @@ func (test bootstrapTest) run(c *gc.C) {
 			_, found := urls[vers]
 			c.Check(found, gc.Equals, true)
 		}
-	}
-
-	// Check for remaining operations/errors.
-	if test.err != "" {
-		c.Check(<-errc, gc.ErrorMatches, test.err)
-		return
-	}
-	if !c.Check(<-errc, gc.IsNil) {
-		return
 	}
 	if len(test.uploads) > 0 {
 		indexFile := (<-opc).(dummy.OpPutFile)
@@ -302,6 +318,17 @@ var bootstrapTests = []bootstrapTest{{
 		"1.2.3.1-precise-amd64", // from environs/config.DefaultSeries
 	},
 }, {
+	info:     "--upload-tools uses arch from constraint if it matches current version",
+	version:  "1.3.3-saucy-ppc64",
+	hostArch: "ppc64",
+	args:     []string{"--upload-tools", "--constraints", "arch=ppc64"},
+	uploads: []string{
+		"1.3.3.1-saucy-ppc64",   // from version.Current
+		"1.3.3.1-raring-ppc64",  // from env.Config().DefaultSeries()
+		"1.3.3.1-precise-ppc64", // from environs/config.DefaultSeries
+	},
+	constraints: constraints.MustParse("arch=ppc64"),
+}, {
 	info:    "--upload-tools only uploads each file once",
 	version: "1.2.3-precise-amd64",
 	args:    []string{"--upload-tools"},
@@ -314,6 +341,17 @@ var bootstrapTests = []bootstrapTest{{
 	version: "1.2.3-saucy-amd64",
 	args:    []string{"--upload-tools", "--series", "ping,ping,pong"},
 	err:     `invalid series "ping"`,
+}, {
+	info:    "--upload-tools rejects mismatched arch",
+	version: "1.3.3-saucy-amd64",
+	args:    []string{"--upload-tools", "--constraints", "arch=ppc64"},
+	err:     `cannot build tools for "ppc64" using a machine running on "amd64"`,
+}, {
+	info:     "--upload-tools rejects non-supported arch",
+	version:  "1.3.3-saucy-arm64",
+	hostArch: "arm64",
+	args:     []string{"--upload-tools"},
+	err:      `environment "peckham" of type dummy does not support instances running on "arm64"`,
 }, {
 	info:    "--upload-tools always bumps build number",
 	version: "1.2.3.4-raring-amd64",
@@ -493,7 +531,8 @@ func (s *BootstrapSuite) TestAutoUploadOnlyForDev(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "precise")
 	_, errc := runCommand(nullContext(), new(BootstrapCommand))
 	err := <-errc
-	c.Assert(err, gc.ErrorMatches, "cannot find bootstrap tools: no matching tools available")
+	stripped := strings.Replace(err.Error(), "\n", "", -1)
+	c.Assert(stripped, gc.Matches, noToolsAvailableMessage)
 }
 
 func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
@@ -503,7 +542,7 @@ func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
 	c.Assert(code, gc.Equals, 1)
 	errText := context.Stderr.(*bytes.Buffer).String()
 	errText = strings.Replace(errText, "\n", "", -1)
-	expectedErrText := "error: cannot find bootstrap tools: no matching tools available"
+	expectedErrText := "error: cannot upload bootstrap tools: Juju cannot bootstrap because no tools are available for your environment.*"
 	c.Assert(errText, gc.Matches, expectedErrText)
 }
 
@@ -519,7 +558,7 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 	c.Assert(code, gc.Equals, 1)
 	errText := context.Stderr.(*bytes.Buffer).String()
 	errText = strings.Replace(errText, "\n", "", -1)
-	expectedErrText := "error: cannot find bootstrap tools: an error"
+	expectedErrText := "error: cannot upload bootstrap tools: an error"
 	c.Assert(errText, gc.Matches, expectedErrText)
 }
 

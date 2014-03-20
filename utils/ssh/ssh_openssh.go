@@ -71,6 +71,9 @@ func opensshOptions(options *Options, commandKind opensshCommandKind) map[string
 	if options == nil {
 		options = &Options{}
 	}
+	if len(options.proxyCommand) > 0 {
+		args["-o"] = append(args["-o"], "ProxyCommand "+utils.CommandString(options.proxyCommand...))
+	}
 	if !options.passwordAuthAllowed {
 		args["-o"] = append(args["-o"], "PasswordAuthentication no")
 	}

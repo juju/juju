@@ -80,7 +80,7 @@ func (s *BootstrapSuite) TestCannotWriteStateFile(c *gc.C) {
 		Storage: newStorage(s, c),
 		putErr:  fmt.Errorf("noes!"),
 	}
-	env := &mockEnviron{storage: brokenStorage}
+	env := &mockEnviron{storage: brokenStorage, config: configGetter(c)}
 	ctx := coretesting.Context(c)
 	err := common.Bootstrap(ctx, env, constraints.Value{})
 	c.Assert(err, gc.ErrorMatches, "cannot create initial state file: noes!")
@@ -93,7 +93,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 	checkCons := constraints.MustParse("mem=8G")
 
 	startInstance := func(
-		cons constraints.Value, possibleTools tools.List, mcfg *cloudinit.MachineConfig,
+		cons constraints.Value, _ environs.Networks, possibleTools tools.List, mcfg *cloudinit.MachineConfig,
 	) (
 		instance.Instance, *instance.HardwareCharacteristics, error,
 	) {
@@ -118,7 +118,7 @@ func (s *BootstrapSuite) TestCannotRecordStartedInstance(c *gc.C) {
 	stor := &mockStorage{Storage: innerStorage}
 
 	startInstance := func(
-		_ constraints.Value, _ tools.List, _ *cloudinit.MachineConfig,
+		_ constraints.Value, _ environs.Networks, _ tools.List, _ *cloudinit.MachineConfig,
 	) (
 		instance.Instance, *instance.HardwareCharacteristics, error,
 	) {
@@ -151,7 +151,7 @@ func (s *BootstrapSuite) TestCannotRecordThenCannotStop(c *gc.C) {
 	stor := &mockStorage{Storage: innerStorage}
 
 	startInstance := func(
-		_ constraints.Value, _ tools.List, _ *cloudinit.MachineConfig,
+		_ constraints.Value, _ environs.Networks, _ tools.List, _ *cloudinit.MachineConfig,
 	) (
 		instance.Instance, *instance.HardwareCharacteristics, error,
 	) {
@@ -193,7 +193,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 
 	checkURL := ""
 	startInstance := func(
-		_ constraints.Value, _ tools.List, mcfg *cloudinit.MachineConfig,
+		_ constraints.Value, _ environs.Networks, _ tools.List, mcfg *cloudinit.MachineConfig,
 	) (
 		instance.Instance, *instance.HardwareCharacteristics, error,
 	) {

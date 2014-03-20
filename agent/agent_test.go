@@ -4,9 +4,13 @@
 package agent_test
 
 import (
+	"reflect"
+
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )
@@ -160,6 +164,133 @@ func (*suite) TestNewAgentConfig(c *gc.C) {
 	}
 }
 
+func (*suite) TestMigrateConfig(c *gc.C) {
+	initialParams := agent.AgentConfigParams{
+		DataDir:           c.MkDir(),
+		LogDir:            c.MkDir(),
+		Tag:               "omg",
+		Nonce:             "nonce",
+		Password:          "secret",
+		UpgradedToVersion: version.MustParse("1.16.5"),
+		Jobs: []params.MachineJob{
+			params.JobManageEnviron,
+			params.JobHostUnits,
+		},
+		CACert:         []byte("ca cert"),
+		StateAddresses: []string{"localhost:1234"},
+		APIAddresses:   []string{"localhost:4321"},
+		Values: map[string]string{
+			"key1": "value1",
+			"key2": "value2",
+			"key3": "value3",
+		},
+	}
+
+	migrateTests := []struct {
+		comment      string
+		fields       []string
+		newParams    agent.MigrateConfigParams
+		expectValues map[string]string
+		expectErr    string
+	}{{
+		comment:   "nothing to change",
+		fields:    nil,
+		newParams: agent.MigrateConfigParams{},
+	}, {
+		fields: []string{"DataDir"},
+		newParams: agent.MigrateConfigParams{
+			DataDir: c.MkDir(),
+		},
+	}, {
+		fields: []string{"DataDir", "LogDir"},
+		newParams: agent.MigrateConfigParams{
+			DataDir: c.MkDir(),
+			LogDir:  c.MkDir(),
+		},
+	}, {
+		fields: []string{"Jobs"},
+		newParams: agent.MigrateConfigParams{
+			Jobs: []params.MachineJob{params.JobHostUnits},
+		},
+	}, {
+		comment:   "invalid/immutable field specified",
+		fields:    []string{"InvalidField"},
+		newParams: agent.MigrateConfigParams{},
+		expectErr: `unknown field "InvalidField"`,
+	}, {
+		comment: "Values can be added, changed or removed",
+		fields:  []string{"Values", "DeleteValues"},
+		newParams: agent.MigrateConfigParams{
+			DeleteValues: []string{"key2", "key3"}, // delete
+			Values: map[string]string{
+				"key1":     "new value1", // change
+				"new key3": "value3",     // add
+				"empty":    "",           // add empty val
+			},
+		},
+		expectValues: map[string]string{
+			"key1":     "new value1",
+			"new key3": "value3",
+			"empty":    "",
+		},
+	}}
+	for i, test := range migrateTests {
+		summary := "migrate fields"
+		if test.comment != "" {
+			summary += " (" + test.comment + ") "
+		}
+		c.Logf("test %d: %s %v", i, summary, test.fields)
+
+		initialConfig, err := agent.NewAgentConfig(initialParams)
+		c.Check(err, gc.IsNil)
+
+		newConfig, err := agent.NewAgentConfig(initialParams)
+		c.Check(err, gc.IsNil)
+
+		c.Check(initialConfig.Write(), gc.IsNil)
+		c.Check(agent.ConfigFileExists(initialConfig), jc.IsTrue)
+
+		err = agent.MigrateConfig(newConfig, test.newParams)
+		c.Check(err, gc.IsNil)
+		c.Check(agent.ConfigFileExists(newConfig), jc.IsTrue)
+		if test.newParams.DataDir != "" {
+			// If we're changing where the new config is saved,
+			// we can verify the old config got removed.
+			c.Check(agent.ConfigFileExists(initialConfig), jc.IsFalse)
+		}
+
+		// Make sure we can read it back successfully and it
+		// matches what we wrote.
+		configPath := agent.ConfigPath(newConfig.DataDir(), newConfig.Tag())
+		readConfig, err := agent.ReadConf(configPath)
+		c.Check(err, gc.IsNil)
+		c.Check(newConfig, jc.DeepEquals, readConfig)
+
+		// Make sure only the specified fields were changed and
+		// the rest matches.
+		for _, field := range test.fields {
+			switch field {
+			case "Values":
+				err = agent.PatchConfig(initialConfig, field, test.expectValues)
+				c.Check(err, gc.IsNil)
+			case "DeleteValues":
+				err = agent.PatchConfig(initialConfig, field, test.newParams.DeleteValues)
+				c.Check(err, gc.IsNil)
+			default:
+				value := reflect.ValueOf(test.newParams).FieldByName(field)
+				if value.IsValid() && test.expectErr == "" {
+					err = agent.PatchConfig(initialConfig, field, value.Interface())
+					c.Check(err, gc.IsNil)
+				} else {
+					err = agent.PatchConfig(initialConfig, field, value)
+					c.Check(err, gc.ErrorMatches, test.expectErr)
+				}
+			}
+		}
+		c.Check(newConfig, jc.DeepEquals, initialConfig)
+	}
+}
+
 func (*suite) TestNewStateMachineConfig(c *gc.C) {
 	type testStruct struct {
 		about         string
@@ -238,16 +369,6 @@ func (s *suite) TestApiAddressesCantWriteBack(c *gc.C) {
 	c.Assert(newValue, gc.DeepEquals, []string{"localhost:1235"})
 }
 
-func assertConfigEqual(c *gc.C, c1, c2 agent.Config) {
-	// Since we can't directly poke the internals, we'll use the WriteCommands
-	// method.
-	conf1Commands, err := c1.WriteCommands()
-	c.Assert(err, gc.IsNil)
-	conf2Commands, err := c2.WriteCommands()
-	c.Assert(err, gc.IsNil)
-	c.Assert(conf1Commands, gc.DeepEquals, conf2Commands)
-}
-
 func (*suite) TestWriteAndRead(c *gc.C) {
 	testParams := attributeParams
 	testParams.DataDir = c.MkDir()
@@ -258,7 +379,7 @@ func (*suite) TestWriteAndRead(c *gc.C) {
 	c.Assert(conf.Write(), gc.IsNil)
 	reread, err := agent.ReadConf(agent.ConfigPath(conf.DataDir(), conf.Tag()))
 	c.Assert(err, gc.IsNil)
-	assertConfigEqual(c, conf, reread)
+	c.Assert(reread, jc.DeepEquals, conf)
 }
 
 func (*suite) TestWriteNewPassword(c *gc.C) {
@@ -325,7 +446,7 @@ func (*suite) TestWriteUpgradedToVersion(c *gc.C) {
 
 	// Show that the upgradedToVersion is saved.
 	reread, err := agent.ReadConf(agent.ConfigPath(conf.DataDir(), conf.Tag()))
-	assertConfigEqual(c, conf, reread)
+	c.Assert(reread, jc.DeepEquals, conf)
 }
 
 // Actual opening of state and api requires a lot more boiler plate to make

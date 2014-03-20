@@ -4,5 +4,5 @@ var (
 	APIOpen              = &apiOpen
 	APIClose             = &apiClose
 	ProviderConnectDelay = &providerConnectDelay
-	NewAPIFromName       = newAPIFromName
+	NewAPIFromStore      = newAPIFromStore
 )

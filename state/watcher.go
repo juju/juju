@@ -1091,10 +1091,10 @@ func (st *State) WatchForEnvironConfigChanges() NotifyWatcher {
 	return newEntityWatcher(st, st.settings, environGlobalKey)
 }
 
-// WatchAPIAddresses returns a NotifyWatcher that notifies
+// WatchAPIHostPorts returns a NotifyWatcher that notifies
 // when the set of API addresses changes.
-func (st *State) WatchAPIAddresses() NotifyWatcher {
-	return newEntityWatcher(st, st.stateServers, apiAddressesKey)
+func (st *State) WatchAPIHostPorts() NotifyWatcher {
+	return newEntityWatcher(st, st.stateServers, apiHostPortsKey)
 }
 
 // WatchConfigSettings returns a watcher for observing changes to the

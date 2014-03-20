@@ -39,6 +39,7 @@ echo $@ | tee $0.args
 
 func (s *SSHCommonSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
+	s.PatchValue(&getJujuExecutable, func() (string, error) { return "juju", nil })
 
 	s.bin = c.MkDir()
 	s.PatchEnvPathPrepend(s.bin)
@@ -53,8 +54,10 @@ func (s *SSHCommonSuite) SetUpTest(c *gc.C) {
 }
 
 const (
-	commonArgs = `-o StrictHostKeyChecking no -o PasswordAuthentication no `
-	sshArgs    = commonArgs + `-t -t `
+	commonArgsNoProxy = `-o StrictHostKeyChecking no -o PasswordAuthentication no `
+	commonArgs        = `-o StrictHostKeyChecking no -o ProxyCommand juju ssh --proxy=false 127.0.0.1 -T "nc -q0 %h %p" -o PasswordAuthentication no `
+	sshArgs           = commonArgs + `-t -t `
+	sshArgsNoProxy    = commonArgsNoProxy + `-t -t `
 )
 
 var sshTests = []struct {
@@ -81,6 +84,11 @@ var sshTests = []struct {
 		"connect to unit mongodb/1 and pass extra arguments",
 		[]string{"ssh", "mongodb/1", "ls", "/"},
 		sshArgs + "ubuntu@dummyenv-2.dns ls /\n",
+	},
+	{
+		"connect to unit mysql/0 without proxy",
+		[]string{"ssh", "--proxy=false", "mysql/0"},
+		sshArgsNoProxy + "ubuntu@dummyenv-0.dns\n",
 	},
 }
 

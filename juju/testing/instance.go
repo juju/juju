@@ -85,6 +85,31 @@ func StartInstanceWithConstraints(
 ) (
 	instance.Instance, *instance.HardwareCharacteristics, error,
 ) {
+	return StartInstanceWithConstraintsAndNetworks(env, machineId, cons, environs.Networks{})
+}
+
+// AssertStartInstanceWithNetworks is a test helper function that starts an
+// instance with the given networks, and a plausible but invalid
+// configuration, and returns the result of Environ.StartInstance.
+func AssertStartInstanceWithNetworks(
+	c *gc.C, env environs.Environ, machineId string, cons constraints.Value, nets environs.Networks,
+) (
+	instance.Instance, *instance.HardwareCharacteristics,
+) {
+	inst, hc, err := StartInstanceWithConstraintsAndNetworks(env, machineId, cons, nets)
+	c.Assert(err, gc.IsNil)
+	return inst, hc
+}
+
+// StartInstanceWithNetworks is a test helper function that starts an instance
+// with the given networks, and a plausible but invalid configuration, and
+// returns the result of Environ.StartInstance.
+func StartInstanceWithConstraintsAndNetworks(
+	env environs.Environ, machineId string, cons constraints.Value,
+	nets environs.Networks,
+) (
+	instance.Instance, *instance.HardwareCharacteristics, error,
+) {
 	series := env.Config().DefaultSeries()
 	agentVersion, ok := env.Config().AgentVersion()
 	if !ok {
@@ -100,6 +125,7 @@ func StartInstanceWithConstraints(
 	machineConfig := environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo)
 	return env.StartInstance(environs.StartInstanceParams{
 		Constraints:   cons,
+		Networks:      nets,
 		Tools:         possibleTools,
 		MachineConfig: machineConfig,
 	})
