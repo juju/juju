@@ -276,8 +276,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (in
 	if err != nil {
 		return nil, nil, err
 	}
-	info := machineInfo{hostname}
-	runCmd, err := info.cloudinitRunCmd()
+	additionalScripts, err := additionalScripts(hostname)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -288,14 +287,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (in
 	// The machine envronment config values are being moved to the agent config.
 	// Explicitly specify that the lxc containers use the network bridge defined above.
 	args.MachineConfig.AgentEnvironment[agent.LxcBridge] = "br0"
-	userdata, err := environs.ComposeUserData(
-		args.MachineConfig,
-		runCmd,
-		"apt-get install bridge-utils",
-		createBridgeNetwork(),
-		linkBridgeInInterfaces(),
-		"service networking restart",
-	)
+	userdata, err := environs.ComposeUserData(args.MachineConfig, additionalScripts...)
 	if err != nil {
 		msg := fmt.Errorf("could not compose userdata for bootstrap node: %v", err)
 		return nil, nil, msg
@@ -309,6 +301,25 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (in
 	logger.Debugf("started instance %q", inst.Id())
 	// TODO(bug 1193998) - return instance hardware characteristics as well
 	return inst, nil, nil
+}
+
+// additionalScripts is an additional set of commands
+// to run during cloud-init (before the synchronous phase).
+func additionalScripts(hostname string) ([]string, error) {
+	info := machineInfo{hostname}
+	runCmd, err := info.cloudinitRunCmd()
+	if err != nil {
+		return nil, err
+	}
+	return []string{
+		runCmd,
+		utils.CommandString(utils.AptGetCommand("update")...),
+		utils.CommandString(utils.AptGetCommand("install", "bridge-utils")...),
+		"ifdown eth0",
+		createBridgeNetwork(),
+		linkBridgeInInterfaces(),
+		"ifup br0",
+	}, nil
 }
 
 // StartInstance is specified in the InstanceBroker interface.
