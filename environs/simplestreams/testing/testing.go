@@ -554,7 +554,7 @@ func init() {
 type TestItem struct {
 	Id          string `json:"id"`
 	Storage     string `json:"root_store"`
-	VType       string `json:"virt"`
+	VirtType    string `json:"virt"`
 	Arch        string `json:"arch"`
 	RegionAlias string `json:"crsn"`
 	RegionName  string `json:"region"`
