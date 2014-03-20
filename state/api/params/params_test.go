@@ -52,14 +52,14 @@ var marshalTestCases = []struct {
 			Life:        params.Life(state.Dying.String()),
 			OwnerTag:    "test-owner",
 			MinUnits:    42,
-			Constraints: constraints.MustParse("arch=arm mem=1024M"),
+			Constraints: constraints.MustParse("arch=armhf mem=1024M"),
 			Config: charm.Settings{
 				"hello": "goodbye",
 				"foo":   false,
 			},
 		},
 	},
-	json: `["service","change",{"CharmURL": "cs:quantal/name","Name":"Benji","Exposed":true,"Life":"dying","OwnerTag":"test-owner","MinUnits":42,"Constraints":{"arch":"arm", "mem": 1024},"Config": {"hello":"goodbye","foo":false}}]`,
+	json: `["service","change",{"CharmURL": "cs:quantal/name","Name":"Benji","Exposed":true,"Life":"dying","OwnerTag":"test-owner","MinUnits":42,"Constraints":{"arch":"armhf", "mem": 1024},"Config": {"hello":"goodbye","foo":false}}]`,
 }, {
 	about: "UnitInfo Delta",
 	value: params.Delta{
