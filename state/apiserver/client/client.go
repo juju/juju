@@ -215,9 +215,6 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 	if err != nil {
 		return err
 	}
-	if !curl.IsResolved() {
-		return fmt.Errorf("charm URL not resolved")
-	}
 	if curl.Revision < 0 {
 		return fmt.Errorf("charm url must include revision")
 	}
@@ -306,9 +303,6 @@ func (c *Client) serviceSetCharm(service *state.Service, url string, force bool)
 	curl, err := charm.ParseURL(url)
 	if err != nil {
 		return err
-	}
-	if !curl.IsResolved() {
-		return fmt.Errorf("charm URL not resolved")
 	}
 	sch, err := c.api.state.Charm(curl)
 	if errors.IsNotFoundError(err) {
@@ -648,9 +642,6 @@ func (c *Client) CharmInfo(args params.CharmInfo) (api.CharmInfo, error) {
 	if err != nil {
 		return api.CharmInfo{}, err
 	}
-	if !curl.IsResolved() {
-		return api.CharmInfo{}, fmt.Errorf("charm URL not resolved")
-	}
 	charm, err := c.api.state.Charm(curl)
 	if err != nil {
 		return api.CharmInfo{}, err
@@ -852,9 +843,6 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 	}
 	if charmURL.Schema != "cs" {
 		return fmt.Errorf("only charm store charm URLs are supported, with cs: schema")
-	}
-	if !charmURL.IsResolved() {
-		return fmt.Errorf("charm URL not resolved")
 	}
 	if charmURL.Revision < 0 {
 		return fmt.Errorf("charm URL must include revision")

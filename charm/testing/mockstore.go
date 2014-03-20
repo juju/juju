@@ -6,6 +6,7 @@ package testing
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -99,9 +100,16 @@ func (s *MockStore) serveInfo(w http.ResponseWriter, r *http.Request) {
 	for _, url := range r.Form["charms"] {
 		cr := &charm.InfoResponse{}
 		response[url] = cr
-		charmURL := charm.MustParseURL(url)
-		if !charmURL.IsResolved() {
-			charmURL.Series = s.DefaultSeries
+		charmURL, err := charm.ParseURL(url)
+		if err == charm.ErrUnresolvedUrl {
+			ref, _, err := charm.ParseReference(url)
+			if err != nil {
+				panic(err)
+			}
+			if s.DefaultSeries == "" {
+				panic(fmt.Errorf("mock store lacks a default series cannot resolve charm URL: %q", url))
+			}
+			charmURL = &charm.URL{Reference: ref, Series: s.DefaultSeries}
 		}
 		switch charmURL.Name {
 		case "borken":

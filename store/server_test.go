@@ -40,7 +40,7 @@ func (s *StoreSuite) TestServerCharmInfo(c *gc.C) {
 	var tests = []struct{ url, canonical, sha, digest, err string }{
 		{curl.String(), curl.String(), fakeRevZeroSha, "some-digest", ""},
 		{"cs:oneiric/non-existent", "", "", "", "entry not found"},
-		{"cs:wordpress", curl.String(), "", "", "entry not found"},
+		{"cs:wordpress", curl.String(), fakeRevZeroSha, "some-digest", ""},
 		{"cs:/bad", "", "", "", `charm URL has invalid series: "cs:/bad"`},
 		{"gopher:archie-server", "", "", "", `charm URL has invalid schema: "gopher:archie-server"`},
 	}
@@ -71,7 +71,8 @@ func (s *StoreSuite) TestServerCharmInfo(c *gc.C) {
 		c.Assert(rec.Header().Get("Content-Type"), gc.Equals, "application/json")
 	}
 
-	s.checkCounterSum(c, []string{"charm-info", curl.Series, curl.Name}, false, 1)
+	// 2 charm-info events, one for resolved URL, one for the reference.
+	s.checkCounterSum(c, []string{"charm-info", curl.Series, curl.Name}, false, 2)
 	s.checkCounterSum(c, []string{"charm-missing", "oneiric", "non-existent"}, false, 1)
 }
 

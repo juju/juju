@@ -13,23 +13,42 @@ import (
 	"labix.org/v2/mgo/bson"
 )
 
-// A charm URL represents charm locations such as:
+// Location represents a charm location, which must declare a path component
+// and a string representaion.
+type Location interface {
+	Path() string
+	String() string
+}
+
+// Reference represents a charm location with an unresolved, untargeted series,
+// such as:
+//
+//     cs:~joe/wordpress
+//     cs:wordpress-42
+type Reference struct {
+	Schema   string // "cs" or "local"
+	User     string // "joe"
+	Name     string // "wordpress"
+	Revision int    // -1 if unset, N otherwise
+}
+
+// URL represents a fully resolved charm location with a specific series, such
+// as:
 //
 //     cs:~joe/oneiric/wordpress
 //     cs:oneiric/wordpress-42
 //     local:oneiric/wordpress
 //
 type URL struct {
-	Schema   string // "cs" or "local"
-	User     string // "joe"
-	Series   string // "oneiric"
-	Name     string // "wordpress"
-	Revision int    // -1 if unset, N otherwise
+	Reference
+	Series string // "oneiric"
 }
+
+var ErrUnresolvedUrl error = fmt.Errorf("charm url series is not resolved")
 
 var (
 	validUser   = regexp.MustCompile("^[a-z0-9][a-zA-Z0-9+.-]+$")
-	validSeries = regexp.MustCompile("^[a-z]+([a-z-]+[a-z])?$")
+	validSeries = regexp.MustCompile("^[a-z]+([a-z0-9-]+[a-z0-9])?$")
 	validName   = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*$")
 )
 
@@ -46,12 +65,6 @@ func IsValidSeries(series string) bool {
 // IsValidName returns whether name is a valid charm name.
 func IsValidName(name string) bool {
 	return validName.MatchString(name)
-}
-
-// IsResolved returns whether a charm URL has been resolved, containing no
-// implciit path components.
-func (url *URL) IsResolved() bool {
-	return url.Series != ""
 }
 
 // WithRevision returns a URL equivalent to url but with Revision set
@@ -74,69 +87,83 @@ func MustParseURL(url string) *URL {
 // ParseURL parses the provided charm URL string into its respective
 // structure.
 func ParseURL(url string) (*URL, error) {
-	u := &URL{Schema: "cs"}
+	r, series, err := ParseReference(url)
+	if err != nil {
+		return nil, err
+	}
+	if series == "" {
+		return nil, ErrUnresolvedUrl
+	}
+	return &URL{Reference: r, Series: series}, nil
+}
+
+// ParseReference parses the provided charm Reference string into its
+// respective structure and the targeted series, if present.
+func ParseReference(url string) (Reference, string, error) {
+	r := Reference{Schema: "cs"}
+	series := ""
 	i := strings.Index(url, ":")
 	if i >= 0 {
-		u.Schema = url[:i]
+		r.Schema = url[:i]
 		i++
 	} else {
 		i = 0
 	}
 	// cs: or local:
-	if u.Schema != "cs" && u.Schema != "local" {
-		return nil, fmt.Errorf("charm URL has invalid schema: %q", url)
+	if r.Schema != "cs" && r.Schema != "local" {
+		return Reference{}, "", fmt.Errorf("charm URL has invalid schema: %q", url)
 	}
 	parts := strings.Split(url[i:], "/")
 	if len(parts) < 1 || len(parts) > 3 {
-		return nil, fmt.Errorf("charm URL has invalid form: %q", url)
+		return Reference{}, "", fmt.Errorf("charm URL has invalid form: %q", url)
 	}
 
 	// ~<username>
 	if strings.HasPrefix(parts[0], "~") {
-		if u.Schema == "local" {
-			return nil, fmt.Errorf("local charm URL with user name: %q", url)
+		if r.Schema == "local" {
+			return Reference{}, "", fmt.Errorf("local charm URL with user name: %q", url)
 		}
-		u.User = parts[0][1:]
-		if !IsValidUser(u.User) {
-			return nil, fmt.Errorf("charm URL has invalid user name: %q", url)
+		r.User = parts[0][1:]
+		if !IsValidUser(r.User) {
+			return Reference{}, "", fmt.Errorf("charm URL has invalid user name: %q", url)
 		}
 		parts = parts[1:]
 	}
 
 	// <series>
 	if len(parts) == 2 {
-		u.Series = parts[0]
-		if !IsValidSeries(u.Series) {
-			return nil, fmt.Errorf("charm URL has invalid series: %q", url)
+		series = parts[0]
+		if !IsValidSeries(series) {
+			return Reference{}, "", fmt.Errorf("charm URL has invalid series: %q", url)
 		}
 		parts = parts[1:]
 	}
 	if len(parts) < 1 {
-		return nil, fmt.Errorf("charm URL without charm name: %q", url)
+		return Reference{}, "", fmt.Errorf("charm URL without charm name: %q", url)
 	}
 
 	// <name>[-<revision>]
-	u.Name = parts[0]
-	u.Revision = -1
-	for i := len(u.Name) - 1; i > 0; i-- {
-		c := u.Name[i]
+	r.Name = parts[0]
+	r.Revision = -1
+	for i := len(r.Name) - 1; i > 0; i-- {
+		c := r.Name[i]
 		if c >= '0' && c <= '9' {
 			continue
 		}
-		if c == '-' && i != len(u.Name)-1 {
+		if c == '-' && i != len(r.Name)-1 {
 			var err error
-			u.Revision, err = strconv.Atoi(u.Name[i+1:])
+			r.Revision, err = strconv.Atoi(r.Name[i+1:])
 			if err != nil {
 				panic(err) // We just checked it was right.
 			}
-			u.Name = u.Name[:i]
+			r.Name = r.Name[:i]
 		}
 		break
 	}
-	if !IsValidName(u.Name) {
-		return nil, fmt.Errorf("charm URL has invalid charm name: %q", url)
+	if !IsValidName(r.Name) {
+		return Reference{}, "", fmt.Errorf("charm URL has invalid charm name: %q", url)
 	}
-	return u, nil
+	return r, series, nil
 }
 
 // InferURL returns a charm URL inferred from src. The provided
@@ -156,11 +183,12 @@ func ParseURL(url string) (*URL, error) {
 // when src does not include that information; similarly, a missing
 // schema is assumed to be 'cs'.
 func InferURL(src, defaultSeries string) (*URL, error) {
-	if u, err := ParseURL(src); err != nil {
+	r, series, err := ParseReference(src)
+	if err != nil {
 		return nil, err
-	} else if u.IsResolved() {
-		// src was a valid resolved charm URL already
-		return u, nil
+	}
+	if series != "" {
+		return &URL{Reference: r, Series: series}, nil
 	}
 	if strings.HasPrefix(src, "~") {
 		return nil, fmt.Errorf("cannot infer charm URL with user but no schema: %q", src)
@@ -197,23 +225,35 @@ func InferURL(src, defaultSeries string) (*URL, error) {
 }
 
 func (u *URL) Path() string {
+	return u.path(u.Series)
+}
+
+func (r Reference) path(series string) string {
 	var parts []string
-	if u.User != "" {
-		parts = append(parts, fmt.Sprintf("~%s", u.User))
+	if r.User != "" {
+		parts = append(parts, fmt.Sprintf("~%s", r.User))
 	}
-	if u.IsResolved() {
-		parts = append(parts, u.Series)
+	if series != "" {
+		parts = append(parts, series)
 	}
-	if u.Revision >= 0 {
-		parts = append(parts, fmt.Sprintf("%s-%d", u.Name, u.Revision))
+	if r.Revision >= 0 {
+		parts = append(parts, fmt.Sprintf("%s-%d", r.Name, r.Revision))
 	} else {
-		parts = append(parts, u.Name)
+		parts = append(parts, r.Name)
 	}
 	return strings.Join(parts, "/")
 }
 
+func (r Reference) Path() string {
+	return r.path("")
+}
+
 func (u *URL) String() string {
 	return fmt.Sprintf("%s:%s", u.Schema, u.Path())
+}
+
+func (r Reference) String() string {
+	return fmt.Sprintf("%s:%s", r.Schema, r.Path())
 }
 
 // GetBSON turns u into a bson.Getter so it can be saved directly

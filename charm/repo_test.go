@@ -173,7 +173,7 @@ func (s *StoreSuite) TestGetTestModeFlag(c *gc.C) {
 // The following tests cover the low-level CharmStore-specific API.
 
 func (s *StoreSuite) TestInfo(c *gc.C) {
-	charmURLs := []*charm.URL{
+	charmURLs := []charm.Location{
 		charm.MustParseURL("cs:series/good"),
 		charm.MustParseURL("cs:series/better"),
 		charm.MustParseURL("cs:series/best"),

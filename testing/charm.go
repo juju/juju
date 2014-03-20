@@ -96,10 +96,12 @@ func (r *Repo) ClonedURL(dst, series, name string) *charm.URL {
 	}
 	clone(dst, r.DirPath(name))
 	return &charm.URL{
-		Schema:   "local",
-		Series:   series,
-		Name:     name,
-		Revision: -1,
+		Reference: charm.Reference{
+			Schema:   "local",
+			Name:     name,
+			Revision: -1,
+		},
+		Series: series,
 	}
 }
 
@@ -151,15 +153,11 @@ func (s *MockCharmStore) WithDefaultSeries(series string) charm.Repository {
 	return s
 }
 
-func (s *MockCharmStore) Resolve(curl *charm.URL) (*charm.URL, error) {
-	result := *curl
-	if result.Series == "" {
-		if s.DefaultSeries == "" {
-			return nil, fmt.Errorf("failed to resolve charm url: %q", curl)
-		}
-		result.Series = s.DefaultSeries
+func (s *MockCharmStore) Resolve(ref charm.Reference) (*charm.URL, error) {
+	if s.DefaultSeries == "" {
+		return nil, fmt.Errorf("missing default series, cannot resolve charm url: %q", ref)
 	}
-	return &result, nil
+	return &charm.URL{Reference: ref, Series: s.DefaultSeries}, nil
 }
 
 // SetCharm adds and removes charms in s. The affected charm is identified by

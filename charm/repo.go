@@ -54,7 +54,7 @@ type CharmRevision struct {
 type Repository interface {
 	Get(curl *URL) (Charm, error)
 	Latest(curls ...*URL) ([]CharmRevision, error)
-	Resolve(curl *URL) (*URL, error)
+	Resolve(ref Reference) (*URL, error)
 }
 
 // Latest returns the latest revision of the charm referenced by curl, regardless
@@ -140,21 +140,18 @@ func (s *CharmStore) get(url string) (resp *http.Response, err error) {
 }
 
 // Resolve canonicalizes charm URLs, resolving references and implied series.
-func (s *CharmStore) Resolve(curl *URL) (*URL, error) {
-	infos, err := s.Info(curl)
+func (s *CharmStore) Resolve(ref Reference) (*URL, error) {
+	infos, err := s.Info(ref)
 	if err != nil {
 		return nil, err
 	}
 	if len(infos) == 0 {
-		return nil, fmt.Errorf("missing response when resolving charm URL: %q", curl)
+		return nil, fmt.Errorf("missing response when resolving charm URL: %q", ref)
 	}
 	if infos[0].CanonicalURL == "" {
-		// If the charm store does not provide a resolved URL, fall back on
-		// the original.
-		result := *curl
-		return &result, err
+		return nil, fmt.Errorf("cannot resolve charm URL: %q", ref)
 	}
-	curl, err = ParseURL(infos[0].CanonicalURL)
+	curl, err := ParseURL(infos[0].CanonicalURL)
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +159,7 @@ func (s *CharmStore) Resolve(curl *URL) (*URL, error) {
 }
 
 // Info returns details for all the specified charms in the charm store.
-func (s *CharmStore) Info(curls ...*URL) ([]*InfoResponse, error) {
+func (s *CharmStore) Info(curls ...Location) ([]*InfoResponse, error) {
 	baseURL := s.BaseURL + "/charm-info?"
 	queryParams := make([]string, len(curls), len(curls)+1)
 	for i, curl := range curls {
@@ -242,7 +239,7 @@ func (s *CharmStore) Event(curl *URL, digest string) (*EventResponse, error) {
 }
 
 // revisions returns the revisions of the charms referenced by curls.
-func (s *CharmStore) revisions(curls ...*URL) (revisions []CharmRevision, err error) {
+func (s *CharmStore) revisions(curls ...Location) (revisions []CharmRevision, err error) {
 	infos, err := s.Info(curls...)
 	if err != nil {
 		return nil, err
@@ -270,7 +267,7 @@ func (s *CharmStore) revisions(curls ...*URL) (revisions []CharmRevision, err er
 // Latest returns the latest revision of the charms referenced by curls, regardless
 // of the revision set on each curl.
 func (s *CharmStore) Latest(curls ...*URL) ([]CharmRevision, error) {
-	baseCurls := make([]*URL, len(curls))
+	baseCurls := make([]Location, len(curls))
 	for i, curl := range curls {
 		baseCurls[i] = curl.WithRevision(-1)
 	}
@@ -425,12 +422,11 @@ func (r *LocalRepository) WithDefaultSeries(defaultSeries string) Repository {
 }
 
 // Resolve canonicalizes charm URLs, resolving references and implied series.
-func (r *LocalRepository) Resolve(curl *URL) (*URL, error) {
-	result := *curl
-	if !result.IsResolved() {
-		result.Series = r.defaultSeries
+func (r *LocalRepository) Resolve(ref Reference) (*URL, error) {
+	if r.defaultSeries == "" {
+		return nil, fmt.Errorf("cannot resolve, repository has no default series: %q", ref)
 	}
-	return &result, nil
+	return &URL{Reference: ref, Series: r.defaultSeries}, nil
 }
 
 // Latest returns the latest revision of the charm referenced by curl, regardless

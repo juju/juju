@@ -76,20 +76,19 @@ func charmStatsKey(curl *charm.URL, kind string) []string {
 	return []string{kind, curl.Series, curl.Name, curl.User}
 }
 
-func (s *Server) resolveSeries(curl *charm.URL) *charm.URL {
-	result := *curl
-	if !curl.IsResolved() {
-		curl.Series = DefaultSeries
-	}
-	return &result
+func (s *Server) resolveSeries(ref charm.Reference) *charm.URL {
+	return &charm.URL{Reference: ref, Series: DefaultSeries}
 }
 
 func (s *Server) resolveURL(url string) (*charm.URL, error) {
-	curl, err := charm.ParseURL(url)
+	ref, series, err := charm.ParseReference(url)
 	if err != nil {
 		return nil, err
 	}
-	return s.resolveSeries(curl), nil
+	if series == "" {
+		return &charm.URL{Reference: ref, Series: DefaultSeries}, nil
+	}
+	return &charm.URL{Reference: ref, Series: series}, nil
 }
 
 func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {

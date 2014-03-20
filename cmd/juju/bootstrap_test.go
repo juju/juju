@@ -277,8 +277,8 @@ var bootstrapTests = []bootstrapTest{{
 	err:  `invalid value "bad=wrong" for flag --constraints: unknown constraint "bad"`,
 }, {
 	info: "bad --series",
-	args: []string{"--series", "bad1"},
-	err:  `invalid value "bad1" for flag --series: invalid series name "bad1"`,
+	args: []string{"--series", "1bad1"},
+	err:  `invalid value "1bad1" for flag --series: invalid series name "1bad1"`,
 }, {
 	info: "lonely --series",
 	args: []string{"--series", "fine"},
