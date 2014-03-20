@@ -39,7 +39,7 @@ func NewAPIAddresser(getter AddressAndCertGetter, resources *Resources) *APIAddr
 func (api *APIAddresser) APIHostPorts() (params.APIHostPortsResult, error) {
 	servers, err := api.getter.APIHostPorts()
 	if err != nil {
-		return params.APIHostPortsResult{}, nil
+		return params.APIHostPortsResult{}, err
 	}
 	return params.APIHostPortsResult{
 		Servers: servers,
