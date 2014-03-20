@@ -16,10 +16,6 @@ func SupportedArchitectures(env environs.Environ, imageConstraint *imagemetadata
 	if err != nil {
 		return nil, err
 	}
-
-	logger.Infof("111111111111111111111111111111111")
-	logger.Infof("%v", sources)
-
 	matchingImages, _, err := imagemetadata.Fetch(sources, simplestreams.DefaultIndexPath, imageConstraint, false)
 	if err != nil {
 		return nil, err
