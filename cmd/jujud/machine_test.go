@@ -415,7 +415,7 @@ func (s *MachineSuite) TestManageEnvironCallsUseMultipleCPUs(c *gc.C) {
 		c.Check(a.Run(nil), gc.IsNil)
 	}()
 	// Wait for configuration to be finished
-	<-a.workersStarted
+	<-a.WorkersStarted()
 	select {
 	case <-calledChan:
 	case <-time.After(coretesting.LongWait):

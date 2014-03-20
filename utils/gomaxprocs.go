@@ -11,9 +11,8 @@ import (
 var gomaxprocs = runtime.GOMAXPROCS
 var numcpu = runtime.NumCPU
 
-// UseMultipleCPUs is called when we have decided we want to set GOMAXPROCS to
-// the current number of CPU cores. This will not override the environment
-// variable if it is set.
+// UseMultipleCPUs sets GOMAXPROCS to the number of CPU cores unless it has
+// already been overridden by the GOMAXPROCS environment variable.
 func UseMultipleCPUs() {
 	if envGOMAXPROCS := os.Getenv("GOMAXPROCS"); envGOMAXPROCS != "" {
 		n := gomaxprocs(0)

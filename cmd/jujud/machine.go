@@ -476,6 +476,13 @@ func (a *MachineAgent) runUpgrades(st *state.State, apiState *api.State, jobs []
 	return a.Conf.config.WriteUpgradedToVersion(version.Current.Number)
 }
 
+// WorkersStarted returns a channel that's closed once all top level workers
+// have been started. This is provided for testing purposes.
+func (a *MachineAgent) WorkersStarted() <-chan struct{} {
+	return a.workersStarted
+
+}
+
 func (a *MachineAgent) Entity(st *state.State) (AgentState, error) {
 	m, err := st.Machine(a.MachineId)
 	if err != nil {
