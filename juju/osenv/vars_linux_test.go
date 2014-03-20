@@ -4,11 +4,10 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/juju/osenv"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
-func (*importSuite) TestHomeLinux(c *gc.C) {
+func (s *importSuite) TestHomeLinux(c *gc.C) {
 	h := "/home/foo/bar"
-	testbase.PatchEnvironment("HOME", h)
+	s.PatchEnvironment("HOME", h)
 	c.Check(osenv.Home(), gc.Equals, h)
 }

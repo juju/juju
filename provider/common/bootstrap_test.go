@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -35,7 +36,7 @@ type BootstrapSuite struct {
 var _ = gc.Suite(&BootstrapSuite{})
 
 type cleaner interface {
-	AddCleanup(testbase.CleanupFunc)
+	AddCleanup(testing.CleanupFunc)
 }
 
 func (s *BootstrapSuite) SetUpTest(c *gc.C) {

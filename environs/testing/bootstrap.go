@@ -5,12 +5,12 @@ package testing
 
 import (
 	"github.com/juju/loggo"
+	"github.com/juju/testing"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/common"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils/ssh"
 )
 
@@ -24,5 +24,5 @@ func DisableFinishBootstrap() func() {
 		logger.Warningf("provider/common.FinishBootstrap is disabled")
 		return nil
 	}
-	return testbase.PatchValue(&common.FinishBootstrap, f)
+	return testing.PatchValue(&common.FinishBootstrap, f)
 }
