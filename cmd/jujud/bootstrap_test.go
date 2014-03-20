@@ -25,6 +25,7 @@ import (
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
+	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -68,6 +69,8 @@ func (f *fakeEnsure) fakeEnsureMongo(address, dir string, port int, info *mgo.Di
 	return f.err
 }
 
+const bootstrapInstanceId = "only-0"
+
 func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 	s.fakeEnsureMongo = &fakeEnsure{}
 	s.PatchValue(&mongo.EnsureMongoServer, s.fakeEnsureMongo.fakeEnsureMongo)
@@ -75,7 +78,7 @@ func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 	stateInfo := bootstrap.BootstrapState{
-		StateInstances: []instance.Id{instance.Id("dummy.instance.id")},
+		StateInstances: []instance.Id{instance.Id(bootstrapInstanceId)},
 	}
 	stateData, err := goyaml.Marshal(stateInfo)
 	c.Assert(err, gc.IsNil)
@@ -88,6 +91,7 @@ func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
 	s.MgoSuite.TearDownSuite(c)
 	s.LoggingSuite.TearDownSuite(c)
+	dummy.Reset()
 }
 
 func (s *BootstrapSuite) SetUpTest(c *gc.C) {
@@ -95,13 +99,11 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.dataDir = c.MkDir()
 	s.logDir = c.MkDir()
-	testConfig = getTestConfig()
 }
 
 func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
-	dummy.Reset()
 }
 
 var testPassword = "my-admin-secret"
@@ -167,7 +169,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 
 	instid, err := machines[0].InstanceId()
 	c.Assert(err, gc.IsNil)
-	c.Assert(instid, gc.Equals, instance.Id("dummy.instance.id"))
+	c.Assert(instid, gc.Equals, instance.Id(bootstrapInstanceId))
 
 	cons, err := st.EnvironConstraints()
 	c.Assert(err, gc.IsNil)
@@ -344,7 +346,6 @@ var testConfig = getTestConfig()
 func getTestConfig() string {
 	attrs := dummy.SampleConfig().Merge(
 		testing.Attrs{
-			"state-server":  false,
 			"agent-version": "3.4.5",
 		},
 	).Delete("admin-secret", "ca-private-key")
@@ -354,6 +355,8 @@ func getTestConfig() string {
 	provider, err := environs.Provider(cfg.Type())
 	maybePanic(err)
 	env, err := provider.Prepare(nullContext(), cfg)
+	maybePanic(err)
+	_, _, err = jujutesting.StartInstanceNoTools(env, "0")
 	maybePanic(err)
 	return b64yaml(env.Config().AllAttrs()).encode()
 }

@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
+	coretools "launchpad.net/juju-core/tools"
 )
 
 // FakeStateInfo holds information about no state - it will always
@@ -80,19 +81,30 @@ func AssertStartInstanceWithConstraints(
 // StartInstanceWithConstraints is a test helper function that starts an instance
 // with the given constraints, and a plausible but invalid configuration, and returns
 // the result of Environ.StartInstance.
-func StartInstanceWithConstraints(
-	env environs.Environ, machineId string, cons constraints.Value,
-) (
-	instance.Instance, *instance.HardwareCharacteristics, error,
-) {
+func StartInstanceWithConstraints(env environs.Environ, machineId string, cons constraints.Value) (instance.Instance, *instance.HardwareCharacteristics, error) {
+	return start(env, machineId, cons, true)
+}
+
+// StartInstanceNoTools is a test helper function that starts an instance with a plausible
+// but invalid configuration (and no tools), and returns the result of Environ.StartInstance.
+func StartInstanceNoTools(env environs.Environ, machineId string) (instance.Instance, *instance.HardwareCharacteristics, error) {
+	return start(env, machineId, constraints.Value{}, false)
+}
+
+func start(env environs.Environ, machineId string, cons constraints.Value, findTools bool) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	series := env.Config().DefaultSeries()
 	agentVersion, ok := env.Config().AgentVersion()
 	if !ok {
 		return nil, nil, fmt.Errorf("missing agent version in environment config")
 	}
-	possibleTools, err := tools.FindInstanceTools(env, agentVersion, series, cons.Arch)
-	if err != nil {
-		return nil, nil, err
+
+	var possibleTools coretools.List
+	var err error
+	if findTools {
+		possibleTools, err = tools.FindInstanceTools(env, agentVersion, series, cons.Arch)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 	machineNonce := "fake_nonce"
 	stateInfo := FakeStateInfo(machineId)
