@@ -13,21 +13,50 @@ type AddressAndCertGetter interface {
 	Addresses() ([]string, error)
 	APIAddressesFromMachines() ([]string, error)
 	CACert() []byte
+	APIHostPorts() ([][]instance.HostPort, error)
+	WatchAPIHostPorts() state.NotifyWatcher
 }
 
 // APIAddresser implements the APIAddresses method
 type APIAddresser struct {
+	resources         *Resources
 	getter AddressAndCertGetter
 }
 
 // NewAPIAddresser returns a new APIAddresser that uses the given getter to
 // fetch its addresses.
-func NewAPIAddresser(getter AddressAndCertGetter) *APIAddresser {
-	return &APIAddresser{getter}
+func NewAPIAddresser(getter AddressAndCertGetter, resources *Resources) *APIAddresser {
+	return &APIAddresser{
+		getter: getter,
+		resources: resources,
+	}
+}
+
+// APIHostPorts returns the API server addresses.
+func (api *APIAddresser) APIHostPorts() (params.APIHostPortsResults, error) {
+	servers, err := api.getter.APIHostPorts()
+	if err != nil {
+		return params.APIHostPortsResults{}, nil
+	}
+	return APIHostPortsResults{
+		Servers: servers,
+	}, nil
+}
+
+// WatchAPIHostPorts watches the API server addresses.
+func (api *APIAddresser) WatchAPIHostPorts() (params.NotifyWatchResult, error) {
+	watch := api.getter.WatchAPIHostPorts()
+	if _, ok := <-watch.Changes(); ok {
+		return params.NotifyWatchResult{
+			NotifyWatcherId: a.resources.Register(watch),
+		}, nil
+	}
+	return params.NotifyWatchResult{}, watcher.MustErr(watch)
 }
 
 // APIAddresses returns the list of addresses used to connect to the API.
 func (a *APIAddresser) APIAddresses() (params.StringsResult, error) {
+	// TODO(rog) change this to use api.st.APIHostPorts()
 	addrs, err := a.getter.APIAddressesFromMachines()
 	if err != nil {
 		return params.StringsResult{}, err
