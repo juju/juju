@@ -31,7 +31,7 @@ print filename
 EOT
 )
 ARTIFACT=$LOCAL_JENKINS_URL/job/build-revision/lastSuccessfulBuild/artifact
-wget -q $ARTIFACT/$TARFILE
+wget -q $ARTIFACT/$TARFILE -o $TARFILE
 VERSION=$(basename $TARFILE .tar.gz | cut -d '_' -f2)
 
 echo Starting instance $INSTANCE_ID
