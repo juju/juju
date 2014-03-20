@@ -46,7 +46,9 @@ var shortAttempt = utils.AttemptStrategy{
 }
 
 type maasEnviron struct {
-	common.EnvironBase
+	common.NopPrechecker
+	common.DoesSupportUnitPlacement
+
 	name string
 
 	// ecfgMutex protects the *Unlocked fields below.

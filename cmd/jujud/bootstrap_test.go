@@ -328,5 +328,7 @@ var testConfig = b64yaml(
 		testing.Attrs{
 			"state-server":  false,
 			"agent-version": "3.4.5",
+			// state-id is required to Open the config
+			"state-id": "1",
 		},
 	).Delete("admin-secret", "ca-private-key")).encode()

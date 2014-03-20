@@ -50,7 +50,9 @@ type environProvider struct{}
 var providerInstance environProvider
 
 type environ struct {
-	common.EnvironBase
+	common.NopPrechecker
+	common.DoesSupportUnitPlacement
+
 	name string
 
 	// ecfgMutex protects the *Unlocked fields below.

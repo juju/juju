@@ -51,7 +51,8 @@ const (
 )
 
 type azureEnviron struct {
-	common.EnvironBase
+	common.NopPrechecker
+	common.DoesSupportUnitPlacement
 
 	// Except where indicated otherwise, all fields in this object should
 	// only be accessed using a lock or a snapshot.
