@@ -434,7 +434,7 @@ func (a *MachineAgent) upgradeWorker(apiState *api.State, jobs []params.MachineJ
 		if err != nil {
 			return err
 		}
-		logger.Infof("Upgrade to %v completed.", version.Current)
+		logger.Infof("upgrade to %v completed.", version.Current)
 		close(a.upgradeComplete)
 		<-stop
 		return nil
@@ -447,7 +447,7 @@ func (a *MachineAgent) runUpgrades(st *state.State, apiState *api.State, jobs []
 	from := version.Current
 	from.Number = agentConfig.UpgradedToVersion()
 	if from == version.Current {
-		logger.Infof("Upgrade to %v already completed.", version.Current)
+		logger.Infof("upgrade to %v already completed.", version.Current)
 		return nil
 	}
 	context := upgrades.NewContext(agentConfig, apiState, st)
@@ -461,9 +461,9 @@ func (a *MachineAgent) runUpgrades(st *state.State, apiState *api.State, jobs []
 		default:
 			continue
 		}
-		logger.Infof("Starting upgrade from %v to %v for %v", from, version.Current, target)
+		logger.Infof("starting upgrade from %v to %v for %v %q", from, version.Current, target, a.Tag())
 		if err := upgrades.PerformUpgrade(from.Number, target, context); err != nil {
-			return fmt.Errorf("cannot perform upgrade from %v to %v for %v: %v", from, version.Current, target, err)
+			return fmt.Errorf("cannot perform upgrade from %v to %v for %v %q: %v", from, version.Current, target, a.Tag(), err)
 		}
 	}
 	return a.Conf.config.WriteUpgradedToVersion(version.Current.Number)

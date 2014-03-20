@@ -31,7 +31,7 @@ type machineSuite struct {
 
 var testAddrs = []instance.Address{instance.NewAddress("127.0.0.1")}
 
-func (*machineSuite) TestSetsInstanceInfoInitially(c *gc.C) {
+func (s *machineSuite) TestSetsInstanceInfoInitially(c *gc.C) {
 	context := &testMachineContext{
 		getInstanceInfo: instanceInfoGetter(c, "i1234", testAddrs, "running", nil),
 		dyingc:          make(chan struct{}),
@@ -45,8 +45,8 @@ func (*machineSuite) TestSetsInstanceInfoInitially(c *gc.C) {
 	died := make(chan machine)
 	// Change the poll intervals to be short, so that we know
 	// that we've polled (probably) at least a few times.
-	defer testbase.PatchValue(&ShortPoll, coretesting.ShortWait/10).Restore()
-	defer testbase.PatchValue(&LongPoll, coretesting.ShortWait/10).Restore()
+	s.PatchValue(&ShortPoll, coretesting.ShortWait/10)
+	s.PatchValue(&LongPoll, coretesting.ShortWait/10)
 
 	go runMachine(context, m, nil, died)
 	time.Sleep(coretesting.ShortWait)
@@ -58,31 +58,31 @@ func (*machineSuite) TestSetsInstanceInfoInitially(c *gc.C) {
 	c.Assert(m.instStatus, gc.Equals, "running")
 }
 
-func (*machineSuite) TestShortPollIntervalWhenNoAddress(c *gc.C) {
-	defer testbase.PatchValue(&ShortPoll, 1*time.Millisecond).Restore()
-	defer testbase.PatchValue(&LongPoll, coretesting.LongWait).Restore()
+func (s *machineSuite) TestShortPollIntervalWhenNoAddress(c *gc.C) {
+	s.PatchValue(&ShortPoll, 1*time.Millisecond)
+	s.PatchValue(&LongPoll, coretesting.LongWait)
 	count := countPolls(c, nil, "running", params.StatusStarted)
 	c.Assert(count, jc.GreaterThan, 2)
 }
 
-func (*machineSuite) TestShortPollIntervalWhenNoStatus(c *gc.C) {
-	defer testbase.PatchValue(&ShortPoll, 1*time.Millisecond).Restore()
-	defer testbase.PatchValue(&LongPoll, coretesting.LongWait).Restore()
+func (s *machineSuite) TestShortPollIntervalWhenNoStatus(c *gc.C) {
+	s.PatchValue(&ShortPoll, 1*time.Millisecond)
+	s.PatchValue(&LongPoll, coretesting.LongWait)
 	count := countPolls(c, testAddrs, "", params.StatusStarted)
 	c.Assert(count, jc.GreaterThan, 2)
 }
 
-func (*machineSuite) TestShortPollIntervalWhenNotStarted(c *gc.C) {
-	defer testbase.PatchValue(&ShortPoll, 1*time.Millisecond).Restore()
-	defer testbase.PatchValue(&LongPoll, coretesting.LongWait).Restore()
+func (s *machineSuite) TestShortPollIntervalWhenNotStarted(c *gc.C) {
+	s.PatchValue(&ShortPoll, 1*time.Millisecond)
+	s.PatchValue(&LongPoll, coretesting.LongWait)
 	count := countPolls(c, testAddrs, "pending", params.StatusPending)
 	c.Assert(count, jc.GreaterThan, 2)
 }
 
-func (*machineSuite) TestShortPollIntervalExponent(c *gc.C) {
-	defer testbase.PatchValue(&ShortPoll, 1*time.Microsecond).Restore()
-	defer testbase.PatchValue(&LongPoll, coretesting.LongWait).Restore()
-	defer testbase.PatchValue(&ShortPollBackoff, 2.0).Restore()
+func (s *machineSuite) TestShortPollIntervalExponent(c *gc.C) {
+	s.PatchValue(&ShortPoll, 1*time.Microsecond)
+	s.PatchValue(&LongPoll, coretesting.LongWait)
+	s.PatchValue(&ShortPollBackoff, 2.0)
 
 	// With an exponent of 2, the maximum number of polls that can
 	// occur within the given interval ShortWait is log to the base
@@ -95,9 +95,9 @@ func (*machineSuite) TestShortPollIntervalExponent(c *gc.C) {
 	c.Logf("actual count: %v; max %v", count, maxCount)
 }
 
-func (*machineSuite) TestLongPollIntervalWhenHasAllInstanceInfo(c *gc.C) {
-	defer testbase.PatchValue(&ShortPoll, coretesting.LongWait).Restore()
-	defer testbase.PatchValue(&LongPoll, 1*time.Millisecond).Restore()
+func (s *machineSuite) TestLongPollIntervalWhenHasAllInstanceInfo(c *gc.C) {
+	s.PatchValue(&ShortPoll, coretesting.LongWait)
+	s.PatchValue(&LongPoll, 1*time.Millisecond)
 	count := countPolls(c, testAddrs, "running", params.StatusStarted)
 	c.Assert(count, jc.GreaterThan, 2)
 }
@@ -138,9 +138,9 @@ func countPolls(c *gc.C, addrs []instance.Address, instStatus string, machineSta
 	return int(count)
 }
 
-func (*machineSuite) TestSinglePollWhenInstancInfoUnimplemented(c *gc.C) {
-	defer testbase.PatchValue(&ShortPoll, 1*time.Millisecond).Restore()
-	defer testbase.PatchValue(&LongPoll, 1*time.Millisecond).Restore()
+func (s *machineSuite) TestSinglePollWhenInstancInfoUnimplemented(c *gc.C) {
+	s.PatchValue(&ShortPoll, 1*time.Millisecond)
+	s.PatchValue(&LongPoll, 1*time.Millisecond)
 	count := int32(0)
 	getInstanceInfo := func(id instance.Id) (instanceInfo, error) {
 		c.Check(id, gc.Equals, instance.Id("i1234"))

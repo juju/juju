@@ -77,10 +77,11 @@ func (u *mockUpgradeStep) Run(context upgrades.Context) error {
 }
 
 type mockContext struct {
-	messages    []string
-	agentConfig *mockAgentConfig
-	apiState    *api.State
-	state       *state.State
+	messages        []string
+	agentConfig     *mockAgentConfig
+	realAgentConfig agent.Config
+	apiState        *api.State
+	state           *state.State
 }
 
 func (c *mockContext) APIState() *api.State {
@@ -92,6 +93,9 @@ func (c *mockContext) State() *state.State {
 }
 
 func (c *mockContext) AgentConfig() agent.Config {
+	if c.realAgentConfig != nil {
+		return c.realAgentConfig
+	}
 	return c.agentConfig
 }
 
@@ -100,9 +104,9 @@ type mockAgentConfig struct {
 	dataDir      string
 	logDir       string
 	tag          string
-	namespace    string
 	jobs         []params.MachineJob
 	apiAddresses []string
+	values       map[string]string
 }
 
 func (mock *mockAgentConfig) Tag() string {
@@ -126,10 +130,7 @@ func (mock *mockAgentConfig) APIAddresses() ([]string, error) {
 }
 
 func (mock *mockAgentConfig) Value(name string) string {
-	if name == agent.Namespace {
-		return mock.namespace
-	}
-	return ""
+	return mock.values[name]
 }
 
 func targets(targets ...upgrades.Target) (upgradeTargets []upgrades.Target) {
