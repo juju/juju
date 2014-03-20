@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"labix.org/v2/mgo/bson"
 	"sort"
 
 	jc "github.com/juju/testing/checkers"
@@ -79,9 +80,8 @@ func (s *MachineSuite) TestMachineIsManualBootstrap(c *gc.C) {
 	manual, err := s.machine0.IsManual()
 	c.Assert(err, gc.IsNil)
 	c.Assert(manual, jc.IsFalse)
-	newcfg, err := cfg.Apply(map[string]interface{}{"type": "null"})
-	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(newcfg, cfg)
+	attrs := map[string]interface{}{"type": "null"}
+	err = s.State.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 	manual, err = s.machine0.IsManual()
 	c.Assert(err, gc.IsNil)
@@ -352,8 +352,8 @@ func (s *MachineSuite) TestMachineInstanceId(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = s.machines.Update(
-		D{{"_id", machine.Id()}},
-		D{{"$set", D{{"instanceid", "spaceship/0"}}}},
+		bson.D{{"_id", machine.Id()}},
+		bson.D{{"$set", bson.D{{"instanceid", "spaceship/0"}}}},
 	)
 	c.Assert(err, gc.IsNil)
 
@@ -368,8 +368,8 @@ func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = s.machines.Update(
-		D{{"_id", machine.Id()}},
-		D{{"$set", D{{"instanceid", D{{"foo", "bar"}}}}}},
+		bson.D{{"_id", machine.Id()}},
+		bson.D{{"$set", bson.D{{"instanceid", bson.D{{"foo", "bar"}}}}}},
 	)
 	c.Assert(err, gc.IsNil)
 
@@ -390,8 +390,8 @@ func (s *MachineSuite) TestMachineInstanceIdBlank(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = s.machines.Update(
-		D{{"_id", machine.Id()}},
-		D{{"$set", D{{"instanceid", ""}}}},
+		bson.D{{"_id", machine.Id()}},
+		bson.D{{"$set", bson.D{{"instanceid", ""}}}},
 	)
 	c.Assert(err, gc.IsNil)
 

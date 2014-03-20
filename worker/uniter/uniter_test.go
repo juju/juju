@@ -1959,16 +1959,13 @@ var verifyHookSyncLockLocked = custom{func(c *gc.C, ctx *context) {
 type setProxySettings osenv.ProxySettings
 
 func (s setProxySettings) step(c *gc.C, ctx *context) {
-	old, err := ctx.st.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	cfg, err := old.Apply(map[string]interface{}{
+	attrs := map[string]interface{}{
 		"http-proxy":  s.Http,
 		"https-proxy": s.Https,
 		"ftp-proxy":   s.Ftp,
 		"no-proxy":    s.NoProxy,
-	})
-	c.Assert(err, gc.IsNil)
-	err = ctx.st.SetEnvironConfig(cfg, old)
+	}
+	err := ctx.st.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 	// wait for the new values...
 	expected := (osenv.ProxySettings)(s)

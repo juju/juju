@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -32,6 +33,7 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
@@ -67,6 +69,12 @@ func (e *localEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket.
 	return []simplestreams.DataSource{
 		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseToolsPath)}, nil
+}
+
+// SupportedArchitectures is specified on the EnvironCapability interface.
+func (*localEnviron) SupportedArchitectures() ([]string, error) {
+	localArch := arch.HostArch()
+	return []string{localArch}, nil
 }
 
 // Name is specified in the Environ interface.
@@ -217,8 +225,8 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 		container.ConfigLogDir: env.config.logDir(),
 	}
 	if containerType == instance.LXC {
-		managerConfig["use-clone"] = env.config.lxcClone()
-		managerConfig["use-aufs"] = env.config.lxcCloneAUFS()
+		managerConfig["use-clone"] = strconv.FormatBool(env.config.lxcClone())
+		managerConfig["use-aufs"] = strconv.FormatBool(env.config.lxcCloneAUFS())
 	}
 	env.containerManager, err = factory.NewContainerManager(
 		containerType, managerConfig)
@@ -302,7 +310,7 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (insta
 	// This limiation is why the constraints are assigned directly here.
 	args.MachineConfig.Constraints = args.Constraints
 	args.MachineConfig.AgentEnvironment[agent.Namespace] = env.config.namespace()
-	inst, hardware, err := env.containerManager.StartContainer(args.MachineConfig, series, network)
+	inst, hardware, err := env.containerManager.CreateContainer(args.MachineConfig, series, network)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -315,7 +323,7 @@ func (env *localEnviron) StopInstances(instances []instance.Instance) error {
 		if inst.Id() == bootstrapInstanceId {
 			return fmt.Errorf("cannot stop the bootstrap instance")
 		}
-		if err := env.containerManager.StopContainer(inst); err != nil {
+		if err := env.containerManager.DestroyContainer(inst); err != nil {
 			return err
 		}
 	}
@@ -411,7 +419,7 @@ func (env *localEnviron) Destroy() error {
 		return err
 	}
 	for _, inst := range containers {
-		if err := env.containerManager.StopContainer(inst); err != nil {
+		if err := env.containerManager.DestroyContainer(inst); err != nil {
 			return err
 		}
 	}

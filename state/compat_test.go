@@ -4,6 +4,7 @@
 package state
 
 import (
+	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 	gc "launchpad.net/gocheck"
 
@@ -54,7 +55,7 @@ func (s *compatSuite) TestEnvironAssertAlive(c *gc.C) {
 	ops := []txn.Op{{
 		C:      s.state.environments.Name,
 		Id:     s.env.doc.UUID,
-		Update: D{{"$unset", D{{"life", nil}}}},
+		Update: bson.D{{"$unset", bson.D{{"life", nil}}}},
 	}}
 	err := s.state.runTransaction(ops)
 	c.Assert(err, gc.IsNil)

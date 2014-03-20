@@ -9,15 +9,8 @@ import (
 
 func updateRsyslogPort(context Context) error {
 	st := context.State()
-	old, err := st.EnvironConfig()
-	if err != nil {
-		return err
-	}
-	cfg, err := old.Apply(map[string]interface{}{
+	attrs := map[string]interface{}{
 		"syslog-port": config.DefaultSyslogPort,
-	})
-	if err != nil {
-		return err
 	}
-	return st.SetEnvironConfig(cfg, old)
+	return st.UpdateEnvironConfig(attrs, nil, nil)
 }

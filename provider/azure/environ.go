@@ -20,7 +20,6 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -57,6 +56,12 @@ type azureEnviron struct {
 
 	// name is immutable; it does not need locking.
 	name string
+
+	// archMutex gates access to supportedArchitectures
+	archMutex sync.Mutex
+	// supportedArchitectures caches the architectures
+	// for which images can be instantiated.
+	supportedArchitectures []string
 
 	// ecfg is the environment's Azure-specific configuration.
 	ecfg *azureEnvironConfig
@@ -302,9 +307,6 @@ func attemptCreateService(azure *gwacl.ManagementAPI, prefix string, affinityGro
 	return req, nil
 }
 
-// supportedArches lists the CPU architectures supported by Azure.
-var supportedArches = []string{arch.AMD64, arch.I386}
-
 // newHostedService creates a hosted service.  It will make up a unique name,
 // starting with the given prefix.
 func newHostedService(azure *gwacl.ManagementAPI, prefix string, affinityGroupName string, location string) (*gwacl.CreateHostedService, error) {
@@ -322,9 +324,32 @@ func newHostedService(azure *gwacl.ManagementAPI, prefix string, affinityGroupNa
 	return svc, nil
 }
 
+// SupportedArchitectures is specified on the EnvironCapability interface.
+func (env *azureEnviron) SupportedArchitectures() ([]string, error) {
+	env.archMutex.Lock()
+	defer env.archMutex.Unlock()
+	if env.supportedArchitectures != nil {
+		return env.supportedArchitectures, nil
+	}
+	// Create a filter to get all images from our region and for the correct stream.
+	ecfg := env.getSnapshot().ecfg
+	region := ecfg.location()
+	cloudSpec := simplestreams.CloudSpec{
+		Region:   region,
+		Endpoint: getEndpoint(region),
+	}
+	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+		CloudSpec: cloudSpec,
+		Stream:    ecfg.ImageStream(),
+	})
+	var err error
+	env.supportedArchitectures, err = common.SupportedArchitectures(env, imageConstraint)
+	return env.supportedArchitectures, err
+}
+
 // selectInstanceTypeAndImage returns the appropriate instance-type name and
 // the OS image name for launching a virtual machine with the given parameters.
-func (env *azureEnviron) selectInstanceTypeAndImage(cons constraints.Value, series, location string) (string, string, error) {
+func (env *azureEnviron) selectInstanceTypeAndImage(constraint *instances.InstanceConstraint) (string, string, error) {
 	ecfg := env.getSnapshot().ecfg
 	sourceImageName := ecfg.forceImageName()
 	if sourceImageName != "" {
@@ -336,24 +361,14 @@ func (env *azureEnviron) selectInstanceTypeAndImage(cons constraints.Value, seri
 		// instance type either.
 		//
 		// Select the instance type using simple, Azure-specific code.
-		machineType, err := selectMachineType(gwacl.RoleSizes, defaultToBaselineSpec(cons))
+		machineType, err := selectMachineType(gwacl.RoleSizes, defaultToBaselineSpec(constraint.Constraints))
 		if err != nil {
 			return "", "", err
 		}
 		return machineType.Name, sourceImageName, nil
 	}
 
-	// Choose the most suitable instance type and OS image, based on
-	// simplestreams information.
-	//
-	// This should be the normal execution path.  The user is not expected
-	// to configure a source image name in normal use.
-	constraint := instances.InstanceConstraint{
-		Region:      location,
-		Series:      series,
-		Arches:      supportedArches,
-		Constraints: cons,
-	}
+	// Choose the most suitable instance type and OS image, based on simplestreams information.
 	spec, err := findInstanceSpec(env, constraint)
 	if err != nil {
 		return "", "", err
@@ -407,8 +422,12 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ ins
 		}
 	}()
 
-	series := args.Tools.OneSeries()
-	instanceType, sourceImageName, err := env.selectInstanceTypeAndImage(args.Constraints, series, location)
+	instanceType, sourceImageName, err := env.selectInstanceTypeAndImage(&instances.InstanceConstraint{
+		Region:      location,
+		Series:      args.Tools.OneSeries(),
+		Arches:      args.Tools.Arches(),
+		Constraints: args.Constraints,
+	})
 	if err != nil {
 		return nil, nil, err
 	}

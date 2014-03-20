@@ -587,6 +587,13 @@ func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
+func (s *localServerSuite) TestSupportedArchitectures(c *gc.C) {
+	env := s.Open(c)
+	a, err := env.SupportedArchitectures()
+	c.Assert(err, gc.IsNil)
+	c.Assert(a, gc.DeepEquals, []string{"amd64", "ppc64"})
+}
+
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 	// Prevent falling over to the public datasource.
 	s.PatchValue(&imagemetadata.DefaultBaseURL, "")

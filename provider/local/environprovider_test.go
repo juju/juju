@@ -8,7 +8,7 @@ import (
 	"os/user"
 
 	"github.com/juju/loggo"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/container/kvm"
@@ -19,20 +19,19 @@ import (
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/local"
-	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 )
 
 type baseProviderSuite struct {
 	lxctesting.TestSuite
-	home    *testing.FakeHome
+	home    *coretesting.FakeHome
 	restore func()
 }
 
 func (s *baseProviderSuite) SetUpTest(c *gc.C) {
 	s.TestSuite.SetUpTest(c)
-	s.home = testing.MakeFakeHomeNoEnvironments(c, "test")
+	s.home = coretesting.MakeFakeHomeNoEnvironments(c, "test")
 	loggo.GetLogger("juju.provider.local").SetLogLevel(loggo.TRACE)
 	s.restore = local.MockAddressForInterface()
 }
@@ -44,7 +43,7 @@ func (s *baseProviderSuite) TearDownTest(c *gc.C) {
 }
 
 type prepareSuite struct {
-	testing.FakeHomeSuite
+	coretesting.FakeHomeSuite
 }
 
 var _ = gc.Suite(&prepareSuite{})
@@ -225,17 +224,17 @@ Acquire::magic::Proxy "none";
 		c.Logf("\n%v: %s", i, test.message)
 		cleanup := []func(){}
 		for key, value := range test.env {
-			restore := testbase.PatchEnvironment(key, value)
+			restore := testing.PatchEnvironment(key, value)
 			cleanup = append(cleanup, restore)
 		}
-		_, restore := testbase.HookCommandOutput(&utils.AptCommandOutput, []byte(test.aptOutput), nil)
+		_, restore := testing.HookCommandOutput(&utils.AptCommandOutput, []byte(test.aptOutput), nil)
 		cleanup = append(cleanup, restore)
 		testConfig := baseConfig
 		if test.extraConfig != nil {
 			testConfig, err = baseConfig.Apply(test.extraConfig)
 			c.Assert(err, gc.IsNil)
 		}
-		env, err := provider.Prepare(testing.Context(c), testConfig)
+		env, err := provider.Prepare(coretesting.Context(c), testConfig)
 		c.Assert(err, gc.IsNil)
 
 		envConfig := env.Config()
@@ -290,7 +289,7 @@ func (s *prepareSuite) TestPrepareNamespace(c *gc.C) {
 		s.PatchValue(local.UserCurrent, func() (*user.User, error) {
 			return &user.User{Username: test.userOS}, test.userOSErr
 		})
-		env, err := provider.Prepare(testing.Context(c), basecfg)
+		env, err := provider.Prepare(coretesting.Context(c), basecfg)
 		if test.err == "" {
 			c.Assert(err, gc.IsNil)
 			cfg := env.Config()
@@ -321,29 +320,25 @@ func (s *prepareSuite) TestFastLXCClone(c *gc.C) {
 	type test struct {
 		systemDefault bool
 		extraConfig   map[string]interface{}
-		expectClone   string
-		expectAUFS    string
+		expectClone   bool
+		expectAUFS    bool
 	}
 	tests := []test{{
 		extraConfig: map[string]interface{}{
 			"container": "lxc",
 		},
-		expectClone: "false",
-		expectAUFS:  "false",
 	}, {
 		extraConfig: map[string]interface{}{
 			"container": "lxc",
 			"lxc-clone": "true",
 		},
-		expectClone: "true",
-		expectAUFS:  "false",
+		expectClone: true,
 	}, {
 		systemDefault: true,
 		extraConfig: map[string]interface{}{
 			"container": "lxc",
 		},
-		expectClone: "true",
-		expectAUFS:  "true",
+		expectClone: true,
 	}, {
 		systemDefault: true,
 		extraConfig: map[string]interface{}{
@@ -353,18 +348,16 @@ func (s *prepareSuite) TestFastLXCClone(c *gc.C) {
 		systemDefault: true,
 		extraConfig: map[string]interface{}{
 			"container": "lxc",
-			"lxc-clone": "false",
+			"lxc-clone": false,
 		},
-		expectClone: "false",
-		expectAUFS:  "true",
 	}, {
 		systemDefault: true,
 		extraConfig: map[string]interface{}{
 			"container":      "lxc",
-			"lxc-clone-aufs": "false",
+			"lxc-clone-aufs": true,
 		},
-		expectClone: "true",
-		expectAUFS:  "false",
+		expectClone: true,
+		expectAUFS:  true,
 	}}
 
 	for i, test := range tests {
@@ -381,19 +374,9 @@ func (s *prepareSuite) TestFastLXCClone(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		localAttributes := env.Config().UnknownAttrs()
 
-		if test.expectClone != "" {
-			c.Assert(localAttributes["lxc-clone"], gc.Equals, test.expectClone)
-		} else {
-			_, found := localAttributes["lxc-clone"]
-			c.Assert(found, jc.IsFalse)
-		}
-
-		if test.expectAUFS != "" {
-			c.Assert(localAttributes["lxc-clone-aufs"], gc.Equals, test.expectAUFS)
-		} else {
-			_, found := localAttributes["lxc-clone-aufs"]
-			c.Assert(found, jc.IsFalse)
-		}
-
+		value, _ := localAttributes["lxc-clone"].(bool)
+		c.Assert(value, gc.Equals, test.expectClone)
+		value, _ = localAttributes["lxc-clone-aufs"].(bool)
+		c.Assert(value, gc.Equals, test.expectAUFS)
 	}
 }

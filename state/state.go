@@ -34,9 +34,6 @@ import (
 
 var logger = loggo.GetLogger("juju.state")
 
-// TODO(niemeyer): This must not be exported.
-type D []bson.DocElem
-
 // BootstrapNonce is used as a nonce for the state server machine.
 const (
 	BootstrapNonce = "user-admin:bootstrap"
@@ -187,11 +184,11 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 	matchCurrent := "^" + regexp.QuoteMeta(currentVersion) + "-"
 	matchNew := "^" + regexp.QuoteMeta(newVersion) + "-"
 	// Get all machines and units with a different or empty version.
-	sel := D{{"$or", []D{
-		{{"tools", D{{"$exists", false}}}},
-		{{"$and", []D{
-			{{"tools.version", D{{"$not", bson.RegEx{matchCurrent, ""}}}}},
-			{{"tools.version", D{{"$not", bson.RegEx{matchNew, ""}}}}},
+	sel := bson.D{{"$or", []bson.D{
+		{{"tools", bson.D{{"$exists", false}}}},
+		{{"$and", []bson.D{
+			{{"tools.version", bson.D{{"$not", bson.RegEx{matchCurrent, ""}}}}},
+			{{"tools.version", bson.D{{"$not", bson.RegEx{matchNew, ""}}}}},
 		}}},
 	}}}
 	var agentTags []string
@@ -199,7 +196,7 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 		var doc struct {
 			Id string `bson:"_id"`
 		}
-		iter := collection.Find(sel).Select(D{{"_id", 1}}).Iter()
+		iter := collection.Find(sel).Select(bson.D{{"_id", 1}}).Iter()
 		for iter.Next(&doc) {
 			switch collection.Name {
 			case "machines":
@@ -247,8 +244,8 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) error {
 		ops := []txn.Op{{
 			C:      st.settings.Name,
 			Id:     environGlobalKey,
-			Assert: D{{"txn-revno", settings.txnRevno}},
-			Update: D{{"$set", D{{"agent-version", newVersion.String()}}}},
+			Assert: bson.D{{"txn-revno", settings.txnRevno}},
+			Update: bson.D{{"$set", bson.D{{"agent-version", newVersion.String()}}}},
 		}}
 		if err := st.runTransaction(ops); err == nil {
 			return nil
@@ -259,12 +256,33 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) error {
 	return ErrExcessiveContention
 }
 
-// SetEnvironConfig replaces the current configuration of the
-// environment with the provided configuration.
-func (st *State) SetEnvironConfig(cfg, old *config.Config) error {
-	if err := checkEnvironConfig(cfg); err != nil {
-		return err
+func (st *State) buildAndValidateEnvironConfig(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) (validCfg *config.Config, err error) {
+	newConfig, err := oldConfig.Apply(updateAttrs)
+	if err != nil {
+		return nil, err
 	}
+	if len(removeAttrs) != 0 {
+		newConfig, err = newConfig.Remove(removeAttrs)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if err := checkEnvironConfig(newConfig); err != nil {
+		return nil, err
+	}
+	return st.validate(newConfig, oldConfig)
+}
+
+type ValidateConfigFunc func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error
+
+// UpateEnvironConfig adds, updates or removes attributes in the current
+// configuration of the environment with the provided updateAttrs and
+// removeAttrs.
+func (st *State) UpdateEnvironConfig(updateAttrs map[string]interface{}, removeAttrs []string, additionalValidation ValidateConfigFunc) error {
+	if len(updateAttrs)+len(removeAttrs) == 0 {
+		return nil
+	}
+
 	// TODO(axw) 2013-12-6 #1167616
 	// Ensure that the settings on disk have not changed
 	// underneath us. The settings changes are actually
@@ -275,13 +293,30 @@ func (st *State) SetEnvironConfig(cfg, old *config.Config) error {
 	if err != nil {
 		return err
 	}
-	newattrs := cfg.AllAttrs()
-	for k, _ := range old.AllAttrs() {
-		if _, ok := newattrs[k]; !ok {
+
+	// Get the existing environment config from state.
+	oldConfig, err := config.New(config.NoDefaults, settings.Map())
+	if err != nil {
+		return err
+	}
+	if additionalValidation != nil {
+		err = additionalValidation(updateAttrs, removeAttrs, oldConfig)
+		if err != nil {
+			return err
+		}
+	}
+	validCfg, err := st.buildAndValidateEnvironConfig(updateAttrs, removeAttrs, oldConfig)
+	if err != nil {
+		return err
+	}
+
+	validAttrs := validCfg.AllAttrs()
+	for k, _ := range oldConfig.AllAttrs() {
+		if _, ok := validAttrs[k]; !ok {
 			settings.Delete(k)
 		}
 	}
-	settings.Update(newattrs)
+	settings.Update(validAttrs)
 	_, err = settings.Write()
 	return err
 }
@@ -374,7 +409,7 @@ func machineIdLessThan(id1, id2 string) bool {
 // Machine returns the machine with the given id.
 func (st *State) Machine(id string) (*Machine, error) {
 	mdoc := &machineDoc{}
-	sel := D{{"_id", id}}
+	sel := bson.D{{"_id", id}}
 	err := st.machines.Find(sel).One(mdoc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("machine %s", id)
@@ -465,7 +500,7 @@ func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, b
 	// check for that situation and update the existing charm record
 	// if necessary, otherwise add a new record.
 	var existing charmDoc
-	err = st.charms.Find(D{{"_id", curl.String()}, {"placeholder", true}}).One(&existing)
+	err = st.charms.Find(bson.D{{"_id", curl.String()}, {"placeholder", true}}).One(&existing)
 	if err == mgo.ErrNotFound {
 		cdoc := &charmDoc{
 			URL:          curl,
@@ -489,10 +524,10 @@ func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, b
 // to storage and placeholders are never returned.
 func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	cdoc := &charmDoc{}
-	what := D{
+	what := bson.D{
 		{"_id", curl},
-		{"placeholder", D{{"$ne", true}}},
-		{"pendingupload", D{{"$ne", true}}},
+		{"placeholder", bson.D{{"$ne", true}}},
+		{"pendingupload", bson.D{{"$ne", true}}},
 	}
 	err := st.charms.Find(what).One(&cdoc)
 	if err == mgo.ErrNotFound {
@@ -513,7 +548,7 @@ func (st *State) LatestPlaceholderCharm(curl *charm.URL) (*Charm, error) {
 	noRevURL := curl.WithRevision(-1)
 	curlRegex := "^" + regexp.QuoteMeta(noRevURL.String())
 	var docs []charmDoc
-	err := st.charms.Find(D{{"_id", D{{"$regex", curlRegex}}}, {"placeholder", true}}).All(&docs)
+	err := st.charms.Find(bson.D{{"_id", bson.D{{"$regex", curlRegex}}}, {"placeholder", true}}).All(&docs)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get charm %q: %v", curl, err)
 	}
@@ -551,7 +586,7 @@ func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL,
 	for attempt := 0; attempt < 3; attempt++ {
 		// Find the highest revision of that charm in state.
 		var docs []charmDoc
-		err = st.charms.Find(D{{"_id", D{{"$regex", curlRegex}}}}).Select(D{{"_id", 1}}).All(&docs)
+		err = st.charms.Find(bson.D{{"_id", bson.D{{"$regex", curlRegex}}}}).Select(bson.D{{"_id", 1}}).All(&docs)
 		if err != nil {
 			return nil, err
 		}
@@ -644,12 +679,12 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 			ops = []txn.Op{{
 				C:  st.charms.Name,
 				Id: curl,
-				Assert: D{
+				Assert: bson.D{
 					{"bundlesha256", ""},
 					{"pendingupload", false},
 					{"placeholder", true},
 				},
-				Update: D{{"$set", D{
+				Update: bson.D{{"$set", bson.D{
 					{"pendingupload", true},
 					{"placeholder", false},
 				}}},
@@ -681,8 +716,8 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 }
 
 var (
-	stillPending     = D{{"pendingupload", true}}
-	stillPlaceholder = D{{"placeholder", true}}
+	stillPending     = bson.D{{"pendingupload", true}}
+	stillPlaceholder = bson.D{{"placeholder", true}}
 )
 
 // AddStoreCharmPlaceholder creates a charm document in state for the given charm URL which
@@ -700,7 +735,7 @@ func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
 	for attempt := 0; attempt < 3; attempt++ {
 		// See if the charm already exists in state and exit early if that's the case.
 		var doc charmDoc
-		err = st.charms.Find(D{{"_id", curl.String()}}).Select(D{{"_id", 1}}).One(&doc)
+		err = st.charms.Find(bson.D{{"_id", curl.String()}}).Select(bson.D{{"_id", 1}}).One(&doc)
 		if err != nil && err != mgo.ErrNotFound {
 			return err
 		}
@@ -748,7 +783,7 @@ func (st *State) deleteOldPlaceholderCharmsOps(curl *charm.URL) ([]txn.Op, error
 	curlRegex := "^" + regexp.QuoteMeta(noRevURL.String())
 	var docs []charmDoc
 	err := st.charms.Find(
-		D{{"_id", D{{"$regex", curlRegex}}}, {"placeholder", true}}).Select(D{{"_id", 1}}).All(&docs)
+		bson.D{{"_id", bson.D{{"$regex", curlRegex}}}, {"placeholder", true}}).Select(bson.D{{"_id", 1}}).All(&docs)
 	if err != nil {
 		return nil, err
 	}
@@ -818,7 +853,7 @@ func (st *State) UpdateUploadedCharm(ch charm.Charm, curl *charm.URL, bundleURL 
 func (st *State) updateCharmDoc(
 	ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string, preReq interface{}) (*Charm, error) {
 
-	updateFields := D{{"$set", D{
+	updateFields := bson.D{{"$set", bson.D{
 		{"meta", ch.Meta()},
 		{"config", ch.Config()},
 		{"bundleurl", bundleURL},
@@ -971,7 +1006,7 @@ func (st *State) Service(name string) (service *Service, err error) {
 		return nil, fmt.Errorf("%q is not a valid service name", name)
 	}
 	sdoc := &serviceDoc{}
-	sel := D{{"_id", name}}
+	sel := bson.D{{"_id", name}}
 	err = st.services.Find(sel).One(sdoc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("service %q", name)
@@ -985,7 +1020,7 @@ func (st *State) Service(name string) (service *Service, err error) {
 // AllServices returns all deployed services in the environment.
 func (st *State) AllServices() (services []*Service, err error) {
 	sdocs := []serviceDoc{}
-	err = st.services.Find(D{}).All(&sdocs)
+	err = st.services.Find(bson.D{}).All(&sdocs)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get all services")
 	}
@@ -1167,8 +1202,8 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 			ops = append(ops, txn.Op{
 				C:      st.services.Name,
 				Id:     ep.ServiceName,
-				Assert: D{{"life", Alive}, {"charmurl", ch.URL()}},
-				Update: D{{"$inc", D{{"relationcount", 1}}}},
+				Assert: bson.D{{"life", Alive}, {"charmurl", ch.URL()}},
+				Update: bson.D{{"$inc", bson.D{{"relationcount", 1}}}},
 			})
 		}
 		if matchSeries && len(series) != 1 {
@@ -1214,7 +1249,7 @@ func (st *State) EndpointsRelation(endpoints ...Endpoint) (*Relation, error) {
 // be derived unambiguously from the relation's endpoints).
 func (st *State) KeyRelation(key string) (*Relation, error) {
 	doc := relationDoc{}
-	err := st.relations.Find(D{{"_id", key}}).One(&doc)
+	err := st.relations.Find(bson.D{{"_id", key}}).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("relation %q", key)
 	}
@@ -1227,7 +1262,7 @@ func (st *State) KeyRelation(key string) (*Relation, error) {
 // Relation returns the existing relation with the given id.
 func (st *State) Relation(id int) (*Relation, error) {
 	doc := relationDoc{}
-	err := st.relations.Find(D{{"id", id}}).One(&doc)
+	err := st.relations.Find(bson.D{{"id", id}}).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("relation %d", id)
 	}
@@ -1350,7 +1385,7 @@ type StateServerInfo struct {
 // the currently configured state server machines.
 func (st *State) StateServerInfo() (*StateServerInfo, error) {
 	var doc stateServersDoc
-	err := st.stateServers.Find(D{{"_id", environGlobalKey}}).One(&doc)
+	err := st.stateServers.Find(bson.D{{"_id", environGlobalKey}}).One(&doc)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get state servers document: %v", err)
 	}

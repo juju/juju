@@ -269,6 +269,9 @@ var (
 	V220q64 = version.MustParseBinary("2.2.0-quantal-amd64")
 	V220all = []version.Binary{V220p64, V220p32, V220q64, V220q32}
 	VAll    = append(V1all, V220all...)
+
+	V310qppc64  = version.MustParseBinary("3.1.0-quantal-ppc64")
+	V3101qppc64 = version.MustParseBinary("3.1.0.1-quantal-ppc64")
 )
 
 type BootstrapToolsTest struct {
@@ -280,15 +283,17 @@ type BootstrapToolsTest struct {
 	Development   bool
 	Arch          string
 	Expect        []version.Binary
-	Err           error
+	Err           string
 }
+
+var noToolsMessage = "Juju cannot bootstrap because no tools are available for your environment.*"
 
 var BootstrapToolsTests = []BootstrapToolsTest{
 	{
 		Info:          "no tools at all",
 		CliVersion:    V100p64,
 		DefaultSeries: "precise",
-		Err:           coretools.ErrNoMatches,
+		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli: use newest compatible release version",
 		Available:     VAll,
@@ -345,70 +350,70 @@ var BootstrapToolsTests = []BootstrapToolsTest{
 		Available:     V220all,
 		CliVersion:    V100p64,
 		DefaultSeries: "precise",
-		Err:           coretools.ErrNoMatches,
+		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli: minor upgrades bad",
 		Available:     V120all,
 		CliVersion:    V100p64,
 		DefaultSeries: "precise",
-		Err:           coretools.ErrNoMatches,
+		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli: major downgrades bad",
 		Available:     V100Xall,
 		CliVersion:    V220p64,
 		DefaultSeries: "precise",
-		Err:           coretools.ErrNoMatches,
+		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli: minor downgrades bad",
 		Available:     V100Xall,
 		CliVersion:    V120p64,
 		DefaultSeries: "quantal",
-		Err:           coretools.ErrNoMatches,
+		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli: no matching series",
 		Available:     VAll,
 		CliVersion:    V100p64,
 		DefaultSeries: "raring",
-		Err:           coretools.ErrNoMatches,
+		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli: no matching arches",
 		Available:     VAll,
 		CliVersion:    V100p64,
 		DefaultSeries: "precise",
 		Arch:          "arm",
-		Err:           coretools.ErrNoMatches,
+		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli: specific bad major 1",
 		Available:     VAll,
 		CliVersion:    V220p64,
 		AgentVersion:  V120,
 		DefaultSeries: "precise",
-		Err:           coretools.ErrNoMatches,
+		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli: specific bad major 2",
 		Available:     VAll,
 		CliVersion:    V120p64,
 		AgentVersion:  V220,
 		DefaultSeries: "precise",
-		Err:           coretools.ErrNoMatches,
+		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli: ignore dev tools 1",
 		Available:     V110all,
 		CliVersion:    V100p64,
 		DefaultSeries: "precise",
-		Err:           coretools.ErrNoMatches,
+		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli: ignore dev tools 2",
 		Available:     V110all,
 		CliVersion:    V120p64,
 		DefaultSeries: "precise",
-		Err:           coretools.ErrNoMatches,
+		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli: ignore dev tools 3",
 		Available:     []version.Binary{V1001p64},
 		CliVersion:    V100p64,
 		DefaultSeries: "precise",
-		Err:           coretools.ErrNoMatches,
+		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli with dev setting respects agent-version",
 		Available:     VAll,
@@ -442,12 +447,6 @@ var BootstrapToolsTests = []BootstrapToolsTest{
 	}}
 
 func SetSSLHostnameVerification(c *gc.C, st *state.State, SSLHostnameVerification bool) {
-	envConfig, err := st.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	attrs := envConfig.AllAttrs()
-	attrs["ssl-hostname-verification"] = SSLHostnameVerification
-	newConfig, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
-	err = st.SetEnvironConfig(newConfig, envConfig)
+	err := st.UpdateEnvironConfig(map[string]interface{}{"ssl-hostname-verification": SSLHostnameVerification}, nil, nil)
 	c.Assert(err, gc.IsNil)
 }
