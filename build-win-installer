@@ -12,6 +12,9 @@ usage() {
 : ${LOCAL_JENKINS_URL=$JENKINS_URL}
 test $# -eq 1 || usage
 
+# Remove previous tarballs and installers from the workspace
+rm $WORKSPACE/*
+
 INSTANCE_ID=$1
 TARFILE=$(python <<EOT
 import json
@@ -31,7 +34,7 @@ print filename
 EOT
 )
 ARTIFACT=$LOCAL_JENKINS_URL/job/build-revision/lastSuccessfulBuild/artifact
-wget -q -o $TARFILE $ARTIFACT/$TARFILE
+wget -q $ARTIFACT/$TARFILE
 VERSION=$(basename $TARFILE .tar.gz | cut -d '_' -f2)
 
 echo Starting instance $INSTANCE_ID
