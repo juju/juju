@@ -50,7 +50,6 @@ const (
 var logger = loggo.GetLogger("juju.provider.manual")
 
 type manualEnviron struct {
-	common.NopPrechecker
 	common.DoesSupportUnitPlacement
 
 	cfg                 *environConfig
