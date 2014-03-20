@@ -57,11 +57,11 @@ type azureEnviron struct {
 	// name is immutable; it does not need locking.
 	name string
 
+	// archMutex gates access to supportedArchitectures
+	archMutex sync.Mutex
 	// supportedArchitectures caches the architectures
 	// for which images can be instantiated.
 	supportedArchitectures []string
-	// archMutex gates access to supportedArchitectures
-	archMutex sync.Mutex
 
 	// ecfg is the environment's Azure-specific configuration.
 	ecfg *azureEnvironConfig

@@ -52,11 +52,11 @@ var providerInstance environProvider
 type environ struct {
 	name string
 
+	// archMutex gates access to supportedArchitectures
+	archMutex sync.Mutex
 	// supportedArchitectures caches the architectures
 	// for which images can be instantiated.
 	supportedArchitectures []string
-	// archMutex gates access to supportedArchitectures
-	archMutex sync.Mutex
 
 	// ecfgMutex protects the *Unlocked fields below.
 	ecfgMutex       sync.Mutex
