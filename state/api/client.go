@@ -242,9 +242,9 @@ func (c *Client) ServiceUnexpose(service string) error {
 // requires specifying networks to either include or exclude on the
 // machine where the charm is deployed.
 func (c *Client) ServiceDeployWithNetworks(charmURL string, serviceName string, numUnits int, configYAML string, cons constraints.Value, toMachineSpec string, includedNetworks, excludedNetworks []string) error {
-	params := params.ServiceDeployWithNetworks{
+	params := params.ServiceDeploy{
 		ServiceName:      serviceName,
-		CharmURL:         charmURL,
+		CharmUrl:         charmURL,
 		NumUnits:         numUnits,
 		ConfigYAML:       configYAML,
 		Constraints:      cons,

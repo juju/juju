@@ -13,7 +13,6 @@ import (
 	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/manual"
@@ -240,54 +239,7 @@ var CharmStore charm.Repository = charm.Store
 // before calling ServiceDeploy, although for backward compatibility
 // this is not necessary until 1.16 support is removed.
 func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
-	return c.serviceDeploy(&args, nil)
-}
-
-// ServiceDeployWithNetworks works exactly like ServiceDeploy, but
-// requires specifying networks to include or exclude on the machine
-// where the charm gets deployed.
-func (c *Client) ServiceDeployWithNetworks(args params.ServiceDeployWithNetworks) error {
-	if len(args.IncludedNetworks) == 0 && len(args.ExcludedNetworks) == 0 {
-		return fmt.Errorf("either IncludedNetworks or ExcludedNetworks must be specified")
-	}
-	return c.serviceDeploy(nil, &args)
-}
-
-func (c *Client) serviceDeploy(args0 *params.ServiceDeploy, args1 *params.ServiceDeployWithNetworks) error {
-	var (
-		charmURL         string
-		configMap        map[string]string
-		configYAML       string
-		serviceName      string
-		numUnits         int
-		cons             constraints.Value
-		toMachineSpec    string
-		includedNetworks []string
-		excludedNetworks []string
-	)
-	if args0 == nil && args1 != nil {
-		charmURL = args1.CharmURL
-		configMap = args1.Config
-		configYAML = args1.ConfigYAML
-		serviceName = args1.ServiceName
-		numUnits = args1.NumUnits
-		cons = args1.Constraints
-		toMachineSpec = args1.ToMachineSpec
-		includedNetworks = args1.IncludedNetworks
-		excludedNetworks = args1.ExcludedNetworks
-	} else if args1 == nil && args0 != nil {
-		charmURL = args0.CharmUrl
-		configMap = args0.Config
-		configYAML = args0.ConfigYAML
-		serviceName = args0.ServiceName
-		numUnits = args0.NumUnits
-		cons = args0.Constraints
-		toMachineSpec = args0.ToMachineSpec
-	} else {
-		panic("args0 and args1 cannot be both nil")
-	}
-
-	curl, err := charm.ParseURL(charmURL)
+	curl, err := charm.ParseURL(args.CharmUrl)
 	if err != nil {
 		return err
 	}
@@ -302,7 +254,7 @@ func (c *Client) serviceDeploy(args0 *params.ServiceDeploy, args1 *params.Servic
 		if curl.Schema != "cs" {
 			return fmt.Errorf(`charm url has unsupported schema %q`, curl.Schema)
 		}
-		err = c.AddCharm(params.CharmURL{charmURL})
+		err = c.AddCharm(params.CharmURL{args.CharmUrl})
 		if err != nil {
 			return err
 		}
@@ -315,11 +267,11 @@ func (c *Client) serviceDeploy(args0 *params.ServiceDeploy, args1 *params.Servic
 	}
 
 	var settings charm.Settings
-	if len(configYAML) > 0 {
-		settings, err = ch.Config().ParseSettingsYAML([]byte(configYAML), serviceName)
-	} else if len(configMap) > 0 {
+	if len(args.ConfigYAML) > 0 {
+		settings, err = ch.Config().ParseSettingsYAML([]byte(args.ConfigYAML), args.ServiceName)
+	} else if len(args.Config) > 0 {
 		// Parse config in a compatile way (see function comment).
-		settings, err = parseSettingsCompatible(ch, configMap)
+		settings, err = parseSettingsCompatible(ch, args.Config)
 	}
 	if err != nil {
 		return err
@@ -327,16 +279,26 @@ func (c *Client) serviceDeploy(args0 *params.ServiceDeploy, args1 *params.Servic
 
 	_, err = juju.DeployService(c.api.state,
 		juju.DeployServiceParams{
-			ServiceName:      serviceName,
+			ServiceName:      args.ServiceName,
 			Charm:            ch,
-			NumUnits:         numUnits,
+			NumUnits:         args.NumUnits,
 			ConfigSettings:   settings,
-			Constraints:      cons,
-			ToMachineSpec:    toMachineSpec,
-			IncludedNetworks: includedNetworks,
-			ExcludedNetworks: excludedNetworks,
+			Constraints:      args.Constraints,
+			ToMachineSpec:    args.ToMachineSpec,
+			IncludedNetworks: args.IncludedNetworks,
+			ExcludedNetworks: args.ExcludedNetworks,
 		})
 	return err
+}
+
+// ServiceDeployWithNetworks works exactly like ServiceDeploy, but
+// requires specifying networks to include or exclude on the machine
+// where the charm gets deployed.
+func (c *Client) ServiceDeployWithNetworks(args params.ServiceDeploy) error {
+	if len(args.IncludedNetworks) == 0 && len(args.ExcludedNetworks) == 0 {
+		return fmt.Errorf("either IncludedNetworks or ExcludedNetworks must be specified")
+	}
+	return c.ServiceDeploy(args)
 }
 
 // ServiceUpdate updates the service attributes, including charm URL,

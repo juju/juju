@@ -149,19 +149,10 @@ type ServiceDeploy struct {
 	ConfigYAML    string // Takes precedence over config if both are present.
 	Constraints   constraints.Value
 	ToMachineSpec string
-}
-
-// ServiceDeployWithNetworks holds the parameters for making the ServiceDeployWithNetworks call.
-type ServiceDeployWithNetworks struct {
-	ServiceName      string
-	CharmURL         string
-	NumUnits         int
-	Config           map[string]string
-	ConfigYAML       string // Takes precedence over config if both are present.
-	Constraints      constraints.Value
-	ToMachineSpec    string
-	IncludedNetworks []string // required
-	ExcludedNetworks []string // required
+	// The following fields are supported from 1.17.6 onwards and
+	// ignored before that.
+	IncludedNetworks []string
+	ExcludedNetworks []string
 }
 
 // ServiceUpdate holds the parameters for making the ServiceUpdate call.
