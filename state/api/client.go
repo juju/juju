@@ -239,30 +239,28 @@ func (c *Client) ServiceUnexpose(service string) error {
 }
 
 // ServiceDeployWithNetworks works exactly like ServiceDeploy, but
-// allows specifying networks to enable or disable on the machine
-// where the charm is deployed.
-func (c *Client) ServiceDeployWithNetworks(charmUrl string, serviceName string, numUnits int, configYAML string, cons constraints.Value, toMachineSpec string, enabledNetworks, disabledNetworks []string) error {
+// requires specifying networks to either include or exclude on the
+// machine where the charm is deployed.
+func (c *Client) ServiceDeployWithNetworks(charmURL string, serviceName string, numUnits int, configYAML string, cons constraints.Value, toMachineSpec string, includedNetworks, excludedNetworks []string) error {
 	params := params.ServiceDeployWithNetworks{
-		ServiceDeploy: params.ServiceDeploy{
-			ServiceName:   serviceName,
-			CharmUrl:      charmUrl,
-			NumUnits:      numUnits,
-			ConfigYAML:    configYAML,
-			Constraints:   cons,
-			ToMachineSpec: toMachineSpec,
-		},
-		EnabledNetworks:  enabledNetworks,
-		DisabledNetworks: disabledNetworks,
+		ServiceName:      serviceName,
+		CharmURL:         charmURL,
+		NumUnits:         numUnits,
+		ConfigYAML:       configYAML,
+		Constraints:      cons,
+		ToMachineSpec:    toMachineSpec,
+		IncludedNetworks: includedNetworks,
+		ExcludedNetworks: excludedNetworks,
 	}
 	return c.st.Call("Client", "", "ServiceDeployWithNetworks", params, nil)
 }
 
 // ServiceDeploy obtains the charm, either locally or from the charm store,
 // and deploys it.
-func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int, configYAML string, cons constraints.Value, toMachineSpec string) error {
+func (c *Client) ServiceDeploy(charmURL string, serviceName string, numUnits int, configYAML string, cons constraints.Value, toMachineSpec string) error {
 	params := params.ServiceDeploy{
 		ServiceName:   serviceName,
-		CharmUrl:      charmUrl,
+		CharmUrl:      charmURL,
 		NumUnits:      numUnits,
 		ConfigYAML:    configYAML,
 		Constraints:   cons,

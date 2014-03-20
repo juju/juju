@@ -69,6 +69,10 @@ var operationPermTests = []struct {
 	op:    opClientServiceDeploy,
 	allow: []string{"user-admin", "user-other"},
 }, {
+	about: "Client.ServiceDeployWithNetworks",
+	op:    opClientServiceDeployWithNetworks,
+	allow: []string{"user-admin", "user-other"},
+}, {
 	about: "Client.ServiceUpdate",
 	op:    opClientServiceUpdate,
 	allow: []string{"user-admin", "user-other"},
@@ -316,6 +320,14 @@ func opClientSetAnnotations(c *gc.C, st *api.State, mst *state.State) (func(), e
 func opClientServiceDeploy(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 	err := st.Client().ServiceDeploy("mad:bad/url-1", "x", 1, "", constraints.Value{}, "")
 	if err.Error() == `charm URL has invalid schema: "mad:bad/url-1"` {
+		err = nil
+	}
+	return func() {}, err
+}
+
+func opClientServiceDeployWithNetworks(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+	err := st.Client().ServiceDeployWithNetworks("local:quantal/wordpress-1", "x", 1, "", constraints.Value{}, "", nil, nil)
+	if err.Error() == "either IncludedNetworks or ExcludedNetworks must be specified" {
 		err = nil
 	}
 	return func() {}, err

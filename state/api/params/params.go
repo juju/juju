@@ -153,9 +153,15 @@ type ServiceDeploy struct {
 
 // ServiceDeployWithNetworks holds the parameters for making the ServiceDeployWithNetworks call.
 type ServiceDeployWithNetworks struct {
-	ServiceDeploy
-	EnabledNetworks  []string
-	DisabledNetworks []string
+	ServiceName      string
+	CharmURL         string
+	NumUnits         int
+	Config           map[string]string
+	ConfigYAML       string // Takes precedence over config if both are present.
+	Constraints      constraints.Value
+	ToMachineSpec    string
+	IncludedNetworks []string // required
+	ExcludedNetworks []string // required
 }
 
 // ServiceUpdate holds the parameters for making the ServiceUpdate call.
