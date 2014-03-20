@@ -11,6 +11,7 @@ import (
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/replicaset"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker"
@@ -30,7 +31,8 @@ type stateMachine interface {
 	WantsVote() bool
 	HasVote() bool
 	SetHasVote(hasVote bool) error
-	StateHostPort() string
+	APIHostPorts() []instance.HostPort
+	MongoHostPorts() []instance.HostPort
 }
 
 type mongoSession interface {
@@ -39,12 +41,19 @@ type mongoSession interface {
 	Set([]replicaset.Member) error
 }
 
+type publisherInterface interface {
+	// publish publishes information about the given state servers
+	// to whomsoever it may concern. When it is called there
+	// is no guarantee that any of the information has actually changed.
+	publishAPIServers(apiServers [][]instance.HostPort) error
+}
+
 // notifyFunc holds a function that is sent
 // to the main worker loop to fetch new information
 // when something changes. It reports whether
 // the information has actually changed (and by implication
 // whether the replica set may need to be changed).
-type notifyFunc func() (bool, error)
+type notifyFunc func() (changed bool, err error)
 
 var (
 	// If we fail to set the mongo replica set members,
@@ -74,11 +83,11 @@ type pgWorker struct {
 	// before finishing.
 	wg sync.WaitGroup
 
-	// st represents the State. It is an interface for testing
-	// purposes only.
+	// st represents the State. It is an interface so we can swap
+	// out the implementation during testing.
 	st stateInterface
 
-	// When something changes that might might affect
+	// When something changes that might affect
 	// the peer group membership, it sends a function
 	// on notifyCh that is run inside the main worker
 	// goroutine to mutate the state. It reports whether
@@ -90,6 +99,10 @@ type pgWorker struct {
 	// associated goroutine that
 	// watches attributes of that machine.
 	machines map[string]*machine
+
+	// publisher holds the implementation of the API
+	// address publisher.
+	publisher publisherInterface
 }
 
 // New returns a new worker that maintains the mongo replica set
@@ -102,15 +115,18 @@ func New(st *state.State) (worker.Worker, error) {
 	return newWorker(&stateShim{
 		State:     st,
 		mongoPort: cfg.StatePort(),
-	}), nil
+		apiPort:   cfg.APIPort(),
+	}, newPublisher(st)), nil
 }
 
-func newWorker(st stateInterface) worker.Worker {
+func newWorker(st stateInterface, pub publisherInterface) worker.Worker {
 	w := &pgWorker{
-		st:       st,
-		notifyCh: make(chan notifyFunc),
-		machines: make(map[string]*machine),
+		st:        st,
+		notifyCh:  make(chan notifyFunc),
+		machines:  make(map[string]*machine),
+		publisher: pub,
 	}
+	logger.Infof("worker starting")
 	go func() {
 		defer w.tomb.Done()
 		if err := w.loop(); err != nil {
@@ -154,23 +170,41 @@ func (w *pgWorker) loop() error {
 			// Try to update the replica set immediately.
 			retry.Reset(0)
 		case <-retry.C:
+			ok := true
+			if err := w.publisher.publishAPIServers(w.apiHostPorts()); err != nil {
+				logger.Errorf("cannot publish API server addresses: %v", err)
+				ok = false
+			}
 			if err := w.updateReplicaset(); err != nil {
 				if _, isReplicaSetError := err.(*replicaSetError); !isReplicaSetError {
 					return err
 				}
 				logger.Errorf("cannot set replicaset: %v", err)
+				ok = false
+			}
+			if ok {
+				// Update the replica set members occasionally
+				// to keep them up to date with the current
+				// replica set member statuses.
+				retry.Reset(pollInterval)
+			} else {
 				retry.Reset(retryInterval)
-				break
 			}
 
-			// Update the replica set members occasionally
-			// to keep them up to date with the current
-			// replica set member statuses.
-			retry.Reset(pollInterval)
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		}
 	}
+}
+
+func (w *pgWorker) apiHostPorts() [][]instance.HostPort {
+	servers := make([][]instance.HostPort, 0, len(w.machines))
+	for _, m := range w.machines {
+		if len(m.apiHostPorts) > 0 {
+			servers = append(servers, m.apiHostPorts)
+		}
+	}
+	return servers
 }
 
 // notify sends the given notification function to
@@ -184,7 +218,7 @@ func (w *pgWorker) notify(f notifyFunc) bool {
 	}
 }
 
-// getPeerGroupInfo collates current session information about the
+// peerGroupInfo collates current session information about the
 // mongo peer group with information from state machines.
 func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
 	session := w.st.MongoSession()
@@ -289,7 +323,6 @@ func (w *pgWorker) start(loop func() error) {
 // setHasVote sets the HasVote status of all the given
 // machines to hasVote.
 func setHasVote(ms []*machine, hasVote bool) error {
-
 	for _, m := range ms {
 		if err := m.stm.SetHasVote(hasVote); err != nil {
 			return fmt.Errorf("cannot set voting status of %q to %v: %v", m.id, hasVote, err)
@@ -375,13 +408,18 @@ func (infow *serverInfoWatcher) updateMachines() (bool, error) {
 
 // machine represents a machine in State.
 type machine struct {
-	id        string
-	wantsVote bool
-	hostPort  string
+	id             string
+	wantsVote      bool
+	apiHostPorts   []instance.HostPort
+	mongoHostPorts []instance.HostPort
 
 	worker         *pgWorker
 	stm            stateMachine
 	machineWatcher state.NotifyWatcher
+}
+
+func (m *machine) mongoHostPort() string {
+	return instance.SelectInternalHostPort(m.mongoHostPorts, false)
 }
 
 func (m *machine) String() string {
@@ -389,7 +427,7 @@ func (m *machine) String() string {
 }
 
 func (m *machine) GoString() string {
-	return fmt.Sprintf("&peergrouper.machine{id: %q, wantsVote: %v, hostPort: %q}", m.id, m.wantsVote, m.hostPort)
+	return fmt.Sprintf("&peergrouper.machine{id: %q, wantsVote: %v, hostPort: %q}", m.id, m.wantsVote, m.mongoHostPort())
 }
 
 func (w *pgWorker) newMachine(stm stateMachine) *machine {
@@ -397,7 +435,8 @@ func (w *pgWorker) newMachine(stm stateMachine) *machine {
 		worker:         w,
 		id:             stm.Id(),
 		stm:            stm,
-		hostPort:       stm.StateHostPort(),
+		apiHostPorts:   stm.APIHostPorts(),
+		mongoHostPorts: stm.MongoHostPorts(),
 		wantsVote:      stm.WantsVote(),
 		machineWatcher: stm.Watch(),
 	}
@@ -441,11 +480,27 @@ func (m *machine) refresh() (bool, error) {
 		m.wantsVote = wantsVote
 		changed = true
 	}
-	if hostPort := m.stm.StateHostPort(); hostPort != m.hostPort {
-		m.hostPort = hostPort
+	if hps := m.stm.MongoHostPorts(); !hostPortsEqual(hps, m.mongoHostPorts) {
+		m.mongoHostPorts = hps
+		changed = true
+	}
+	if hps := m.stm.APIHostPorts(); !hostPortsEqual(hps, m.apiHostPorts) {
+		m.apiHostPorts = hps
 		changed = true
 	}
 	return changed, nil
+}
+
+func hostPortsEqual(hps1, hps2 []instance.HostPort) bool {
+	if len(hps1) != len(hps2) {
+		return false
+	}
+	for i := range hps1 {
+		if hps1[i] != hps2[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func inStrings(t string, ss []string) bool {
