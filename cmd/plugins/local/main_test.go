@@ -15,12 +15,11 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/cmd/plugins/local"
 	coretesting "launchpad.net/juju-core/testing"
-	_ "launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type mainSuite struct {
-	// TODO: make it use the testbase.LoggingSuite when it uses the testing LoggingSuite
-	testing.CleanupSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&mainSuite{})
