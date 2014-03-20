@@ -154,6 +154,9 @@ func (s *MockCharmStore) WithDefaultSeries(series string) charm.Repository {
 func (s *MockCharmStore) Resolve(curl *charm.URL) (*charm.URL, error) {
 	result := *curl
 	if result.Series == "" {
+		if s.DefaultSeries == "" {
+			return nil, fmt.Errorf("failed to resolve charm url: %q", curl)
+		}
 		result.Series = s.DefaultSeries
 	}
 	return &result, nil

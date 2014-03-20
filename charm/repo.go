@@ -24,7 +24,7 @@ var CacheDir string
 
 // InfoResponse is sent by the charm store in response to charm-info requests.
 type InfoResponse struct {
-	CanonicalURL string   `json:"canonicalUrl,omitempty"`
+	CanonicalURL string   `json:"canonical-url,omitempty"`
 	Revision     int      `json:"revision"` // Zero is valid. Can't omitempty.
 	Sha256       string   `json:"sha256,omitempty"`
 	Digest       string   `json:"digest,omitempty"`

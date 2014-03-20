@@ -53,10 +53,10 @@ func (s *StoreSuite) TestServerCharmInfo(c *gc.C) {
 		expected := make(map[string]interface{})
 		if t.sha != "" {
 			expected[t.url] = map[string]interface{}{
-				"canonicalUrl": t.canonical,
-				"revision":     float64(0),
-				"sha256":       t.sha,
-				"digest":       t.digest,
+				"canonical-url": t.canonical,
+				"revision":      float64(0),
+				"sha256":        t.sha,
+				"digest":        t.digest,
 			}
 		} else {
 			expected[t.url] = map[string]interface{}{
