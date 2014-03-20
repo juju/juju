@@ -318,8 +318,8 @@ func (s *workerSuite) TestStateServersArePublished(c *gc.C) {
 }
 
 func (s *workerSuite) TestWorkerRetriesOnPublishError(c *gc.C) {
-	testbase.PatchValue(&pollInterval, coretesting.LongWait+time.Second)
-	testbase.PatchValue(&retryInterval, 5*time.Millisecond)
+	s.PatchValue(&pollInterval, coretesting.LongWait+time.Second)
+	s.PatchValue(&retryInterval, 5*time.Millisecond)
 
 	publishCh := make(chan [][]instance.HostPort, 100)
 
