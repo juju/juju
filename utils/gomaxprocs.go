@@ -9,7 +9,7 @@ import (
 )
 
 var gomaxprocs = runtime.GOMAXPROCS
-var numcpu = runtime.NumCPU
+var numCPU = runtime.NumCPU
 
 // UseMultipleCPUs sets GOMAXPROCS to the number of CPU cores unless it has
 // already been overridden by the GOMAXPROCS environment variable.
@@ -20,7 +20,7 @@ func UseMultipleCPUs() {
 			envGOMAXPROCS, n)
 		return
 	}
-	n := numcpu()
+	n := numCPU()
 	logger.Debugf("setting GOMAXPROCS to %d", n)
 	gomaxprocs(n)
 }

@@ -5,5 +5,5 @@ package utils
 
 var (
 	GOMAXPROCS = &gomaxprocs
-	NumCPU     = &numcpu
+	NumCPU     = &numCPU
 )
