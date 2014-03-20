@@ -24,12 +24,13 @@ type StartInstanceParams struct {
 	// MachineConfig describes the machine's configuration.
 	MachineConfig *cloudinit.MachineConfig
 
-	// DistributionInstances, if non-nil, is a function
-	// that returns a slice of instance.Ids that share
-	// some affinity with the instance being provisioned.
-	// The InstanceBroker may use this information to
-	// distribute instances for high availability.
-	DistributionInstances func() ([]instance.Id, error)
+	// DistributionGroup, if non-nil, is a function
+	// that returns a slice of instance.Ids that belong
+	// to the same distribution group as the machine
+	// being provisioned.. The InstanceBroker may use
+	// this information to distribute instances for
+	// high availability.
+	DistributionGroup func() ([]instance.Id, error)
 }
 
 // TODO(wallyworld) - we want this in the environs/instance package but import loops

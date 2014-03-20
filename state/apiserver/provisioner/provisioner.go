@@ -241,81 +241,101 @@ func (p *ProvisionerAPI) Series(args params.Entities) (params.StringResults, err
 	return result, nil
 }
 
-// CommonServiceInstances returns, for each given machine entity,
-// the instances that contain units of the services deployed to
-// that machine.
-func (p *ProvisionerAPI) CommonServiceInstances(args params.Entities) (params.CommonServiceInstancesResults, error) {
-	result := params.CommonServiceInstancesResults{
-		Results: make([]params.CommonServiceInstancesResult, len(args.Entities)),
+// DistributionGroup returns, for each given machine entity,
+// a slice of instance.Ids that belong to the same distribution
+// group as that machine. This information may be used to
+// distribute instances for high availability.
+func (p *ProvisionerAPI) DistributionGroup(args params.Entities) (params.DistributionGroupResults, error) {
+	result := params.DistributionGroupResults{
+		Results: make([]params.DistributionGroupResult, len(args.Entities)),
 	}
 	canAccess, err := p.getAuthFunc()
 	if err != nil {
 		return result, err
 	}
-
-	cache := make(map[string][]instance.Id) // service -> []instance.Id
-	getInstanceIds := func(m *state.Machine) ([]instance.Id, error) {
-		units, err := m.Units()
-		if err != nil {
-			return nil, err
-		}
-		var instanceIdSet set.Strings
-		for _, unit := range units {
-			if !unit.IsPrincipal() {
-				continue
-			}
-			service, err := unit.Service()
-			if err != nil {
-				return nil, err
-			}
-			instanceIds, ok := cache[service.Name()]
-			if !ok {
-				allUnits, err := service.AllUnits()
-				if err != nil {
-					return nil, err
-				}
-				for _, unit := range allUnits {
-					machineId, err := unit.AssignedMachineId()
-					if state.IsNotAssigned(err) {
-						continue
-					} else if err != nil {
-						return nil, err
-					}
-					machine, err := p.st.Machine(machineId)
-					if err != nil {
-						return nil, err
-					}
-					instanceId, err := machine.InstanceId()
-					if err == nil {
-						instanceIds = append(instanceIds, instanceId)
-					} else if state.IsNotProvisionedError(err) {
-						continue
-					} else {
-						return nil, err
-					}
-				}
-				cache[service.Name()] = instanceIds
-			}
-			for _, instanceId := range instanceIds {
-				instanceIdSet.Add(string(instanceId))
-			}
-		}
-		instanceIds := make([]instance.Id, instanceIdSet.Size())
-		// Sort values to simplify testing.
-		for i, instanceId := range instanceIdSet.SortedValues() {
-			instanceIds[i] = instance.Id(instanceId)
-		}
-		return instanceIds, nil
-	}
-
 	for i, entity := range args.Entities {
 		machine, err := p.getMachine(canAccess, entity.Tag)
 		if err == nil {
-			result.Results[i].Result, err = getInstanceIds(machine)
+			// If the machine is an environment manager, return
+			// environment manager instances. Otherwise, return
+			// instances with services in common with the machine
+			// being provisioned.
+			if machine.IsManager() {
+				result.Results[i].Result, err = environManagerInstances(p.st)
+			} else {
+				result.Results[i].Result, err = commonServiceInstances(p.st, machine)
+			}
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
+}
+
+// environManagerInstances returns all environ manager instances.
+func environManagerInstances(st *state.State) ([]instance.Id, error) {
+	machines, err := st.ManagerMachines()
+	if err != nil {
+		return nil, err
+	}
+	instances := make([]instance.Id, 0, len(machines))
+	for _, machine := range machines {
+		instanceId, err := machine.InstanceId()
+		if err == nil {
+			instances = append(instances, instanceId)
+		} else if !state.IsNotProvisionedError(err) {
+			return nil, err
+		}
+	}
+	return instances, nil
+}
+
+// commonServiceUnits returns instances with
+// services in common with the specified machine.
+func commonServiceInstances(st *state.State, m *state.Machine) ([]instance.Id, error) {
+	units, err := m.Units()
+	if err != nil {
+		return nil, err
+	}
+	var instanceIdSet set.Strings
+	for _, unit := range units {
+		if !unit.IsPrincipal() {
+			continue
+		}
+		service, err := unit.Service()
+		if err != nil {
+			return nil, err
+		}
+		allUnits, err := service.AllUnits()
+		if err != nil {
+			return nil, err
+		}
+		for _, unit := range allUnits {
+			machineId, err := unit.AssignedMachineId()
+			if state.IsNotAssigned(err) {
+				continue
+			} else if err != nil {
+				return nil, err
+			}
+			machine, err := st.Machine(machineId)
+			if err != nil {
+				return nil, err
+			}
+			instanceId, err := machine.InstanceId()
+			if err == nil {
+				instanceIdSet.Add(string(instanceId))
+			} else if state.IsNotProvisionedError(err) {
+				continue
+			} else {
+				return nil, err
+			}
+		}
+	}
+	instanceIds := make([]instance.Id, instanceIdSet.Size())
+	// Sort values to simplify testing.
+	for i, instanceId := range instanceIdSet.SortedValues() {
+		instanceIds[i] = instance.Id(instanceId)
+	}
+	return instanceIds, nil
 }
 
 // Constraints returns the constraints for each given machine entity.

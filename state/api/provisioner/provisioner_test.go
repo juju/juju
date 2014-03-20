@@ -204,12 +204,12 @@ func (s *provisionerSuite) TestSeries(c *gc.C) {
 	c.Assert(series, gc.Equals, "quantal")
 }
 
-func (s *provisionerSuite) TestCommonServiceInstances(c *gc.C) {
+func (s *provisionerSuite) TestDistributionGroup(c *gc.C) {
 	apiMachine, err := s.provisioner.Machine(s.machine.Tag())
 	c.Assert(err, gc.IsNil)
-	instances, err := apiMachine.CommonServiceInstances()
+	instances, err := apiMachine.DistributionGroup()
 	c.Assert(err, gc.IsNil)
-	c.Assert(instances, gc.HasLen, 0)
+	c.Assert(instances, gc.DeepEquals, []instance.Id{"i-manager"})
 
 	machine1, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
@@ -219,6 +219,9 @@ func (s *provisionerSuite) TestCommonServiceInstances(c *gc.C) {
 
 	err = apiMachine.SetProvisioned("i-d", "fake", nil)
 	c.Assert(err, gc.IsNil)
+	instances, err = apiMachine.DistributionGroup()
+	c.Assert(err, gc.IsNil)
+	c.Assert(instances, gc.HasLen, 0) // no units assigned
 
 	var unitNames []string
 	for i := 0; i < 3; i++ {
@@ -227,13 +230,13 @@ func (s *provisionerSuite) TestCommonServiceInstances(c *gc.C) {
 		unitNames = append(unitNames, unit.Name())
 		err = unit.AssignToMachine(machine1)
 		c.Assert(err, gc.IsNil)
-		instances, err := apiMachine.CommonServiceInstances()
+		instances, err := apiMachine.DistributionGroup()
 		c.Assert(err, gc.IsNil)
 		c.Assert(instances, gc.DeepEquals, []instance.Id{"i-d"})
 	}
 }
 
-func (s *provisionerSuite) TestCommonServiceInstancesMissing(c *gc.C) {
+func (s *provisionerSuite) TestDistributionGroupMachineNotFound(c *gc.C) {
 	stateMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	apiMachine, err := s.provisioner.Machine(stateMachine.Tag())
@@ -242,7 +245,7 @@ func (s *provisionerSuite) TestCommonServiceInstancesMissing(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = apiMachine.Remove()
 	c.Assert(err, gc.IsNil)
-	_, err = apiMachine.CommonServiceInstances()
+	_, err = apiMachine.DistributionGroup()
 	c.Assert(err, gc.ErrorMatches, "machine 1 not found")
 	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 }
