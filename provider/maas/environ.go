@@ -22,7 +22,6 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -47,6 +46,12 @@ var shortAttempt = utils.AttemptStrategy{
 
 type maasEnviron struct {
 	name string
+
+	// supportedArchitectures caches the architectures
+	// for which images can be instantiated.
+	supportedArchitectures []string
+	// archMutex gates access to supportedArchitectures
+	archMutex              sync.Mutex
 
 	// ecfgMutex protects the *Unlocked fields below.
 	ecfgMutex sync.Mutex
@@ -132,9 +137,19 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 }
 
 // SupportedArchitectures is specified on the EnvironCapability interface.
-func (*maasEnviron) SupportedArchitectures() ([]string, error) {
-	// TODO(wallyworld) - how to find out what architectures a MAAS environ supports
-	return arch.AllSupportedArches, nil
+func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
+	env.archMutex.Lock()
+	defer env.archMutex.Unlock()
+	if env.supportedArchitectures != nil {
+		return env.supportedArchitectures, nil
+	}
+	// Create a filter to get all images from our region and for the correct stream.
+	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+		Stream: env.Config().ImageStream(),
+	})
+	var err error
+	env.supportedArchitectures, err = common.SupportedArchitectures(env, imageConstraint)
+	return env.supportedArchitectures, err
 }
 
 // getMAASClient returns a MAAS client object to use for a request, in a
