@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 
 	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 	gc "launchpad.net/gocheck"
 
@@ -189,7 +190,7 @@ func ClearInstanceDocId(c *gc.C, m *Machine) {
 			C:      m.st.instanceData.Name,
 			Id:     m.doc.Id,
 			Assert: txn.DocExists,
-			Update: D{{"$set", D{{"instanceid", ""}}}},
+			Update: bson.D{{"$set", bson.D{{"instanceid", ""}}}},
 		},
 	}
 

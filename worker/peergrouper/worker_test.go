@@ -116,7 +116,7 @@ func addressesWithPort(port int, addrs ...string) []instance.HostPort {
 }
 
 func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
-	testbase.PatchValue(&pollInterval, 5*time.Millisecond)
+	s.PatchValue(&pollInterval, 5*time.Millisecond)
 
 	st := newFakeState()
 	initState(c, st, 3)
@@ -229,7 +229,7 @@ var fatalErrorsTests = []struct {
 }}
 
 func (s *workerSuite) TestFatalErrors(c *gc.C) {
-	testbase.PatchValue(&pollInterval, 5*time.Millisecond)
+	s.PatchValue(&pollInterval, 5*time.Millisecond)
 	for i, test := range fatalErrorsTests {
 		c.Logf("test %d: %s -> %s", i, test.errPattern, test.expectErr)
 		resetErrors()
@@ -262,7 +262,7 @@ func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
 		count++
 		return errors.New("sample")
 	})
-	testbase.PatchValue(&retryInterval, 5*time.Millisecond)
+	s.PatchValue(&retryInterval, 5*time.Millisecond)
 	w := newWorker(st, noPublisher{})
 	defer func() {
 		c.Check(worker.Stop(w), gc.IsNil)

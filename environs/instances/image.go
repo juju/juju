@@ -82,13 +82,13 @@ type Image struct {
 	Id   string
 	Arch string
 	// The type of virtualisation supported by this image.
-	VType string
+	VirtType string
 }
 
 // match returns true if the image can run on the supplied instance type.
 func (image Image) match(itype InstanceType) bool {
 	// The virtualisation type is optional.
-	if itype.VType != nil && image.VType != *itype.VType {
+	if itype.VirtType != nil && image.VirtType != *itype.VirtType {
 		return false
 	}
 	for _, arch := range itype.Arches {
@@ -106,9 +106,9 @@ func ImageMetadataToImages(inputs []*imagemetadata.ImageMetadata) []Image {
 	result := make([]Image, len(inputs))
 	for index, input := range inputs {
 		result[index] = Image{
-			Id:    input.Id,
-			VType: input.VType,
-			Arch:  input.Arch,
+			Id:       input.Id,
+			VirtType: input.VirtType,
+			Arch:     input.Arch,
 		}
 	}
 	return result

@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
 	"launchpad.net/juju-core/errors"
@@ -76,7 +77,7 @@ func updateStatusOp(st *State, globalKey string, doc statusDoc) txn.Op {
 		C:      st.statuses.Name,
 		Id:     globalKey,
 		Assert: txn.DocExists,
-		Update: D{{"$set", doc}},
+		Update: bson.D{{"$set", doc}},
 	}
 }
 

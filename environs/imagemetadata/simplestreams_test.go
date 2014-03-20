@@ -120,7 +120,7 @@ var fetchTests = []struct {
 		images: []*imagemetadata.ImageMetadata{
 			{
 				Id:         "ami-442ea674",
-				VType:      "hvm",
+				VirtType:   "hvm",
 				Arch:       "amd64",
 				RegionName: "us-east-1",
 				Endpoint:   "https://ec2.us-east-1.amazonaws.com",
@@ -128,7 +128,7 @@ var fetchTests = []struct {
 			},
 			{
 				Id:         "ami-442ea684",
-				VType:      "pv",
+				VirtType:   "pv",
 				Arch:       "amd64",
 				RegionName: "us-east-1",
 				Endpoint:   "https://ec2.us-east-1.amazonaws.com",
@@ -136,7 +136,7 @@ var fetchTests = []struct {
 			},
 			{
 				Id:         "ami-442ea699",
-				VType:      "pv",
+				VirtType:   "pv",
 				Arch:       "arm",
 				RegionName: "us-east-1",
 				Endpoint:   "https://ec2.us-east-1.amazonaws.com",
@@ -151,7 +151,7 @@ var fetchTests = []struct {
 		images: []*imagemetadata.ImageMetadata{
 			{
 				Id:         "ami-442ea674",
-				VType:      "hvm",
+				VirtType:   "hvm",
 				Arch:       "amd64",
 				RegionName: "us-east-1",
 				Endpoint:   "https://ec2.us-east-1.amazonaws.com",
@@ -159,7 +159,7 @@ var fetchTests = []struct {
 			},
 			{
 				Id:         "ami-442ea684",
-				VType:      "pv",
+				VirtType:   "pv",
 				Arch:       "amd64",
 				RegionName: "us-east-1",
 				Endpoint:   "https://ec2.us-east-1.amazonaws.com",
@@ -174,7 +174,7 @@ var fetchTests = []struct {
 		images: []*imagemetadata.ImageMetadata{
 			{
 				Id:         "ami-442ea699",
-				VType:      "pv",
+				VirtType:   "pv",
 				Arch:       "arm",
 				RegionName: "us-east-1",
 				Endpoint:   "https://ec2.us-east-1.amazonaws.com",
@@ -189,7 +189,7 @@ var fetchTests = []struct {
 		images: []*imagemetadata.ImageMetadata{
 			{
 				Id:         "ami-442ea674",
-				VType:      "hvm",
+				VirtType:   "hvm",
 				Arch:       "amd64",
 				RegionName: "us-east-1",
 				Endpoint:   "https://ec2.us-east-1.amazonaws.com",
@@ -197,7 +197,7 @@ var fetchTests = []struct {
 			},
 			{
 				Id:         "ami-442ea684",
-				VType:      "pv",
+				VirtType:   "pv",
 				Arch:       "amd64",
 				RegionName: "us-east-1",
 				Endpoint:   "https://ec2.us-east-1.amazonaws.com",
@@ -211,7 +211,7 @@ var fetchTests = []struct {
 		images: []*imagemetadata.ImageMetadata{
 			{
 				Id:         "ami-26745463",
-				VType:      "pv",
+				VirtType:   "pv",
 				Arch:       "amd64",
 				RegionName: "au-east-2",
 				Endpoint:   "https://somewhere-else",
@@ -219,7 +219,7 @@ var fetchTests = []struct {
 			},
 			{
 				Id:         "ami-26745464",
-				VType:      "pv",
+				VirtType:   "pv",
 				Arch:       "amd64",
 				RegionName: "au-east-1",
 				Endpoint:   "https://somewhere",
@@ -227,7 +227,7 @@ var fetchTests = []struct {
 			},
 			{
 				Id:         "ami-442ea674",
-				VType:      "hvm",
+				VirtType:   "hvm",
 				Arch:       "amd64",
 				RegionName: "us-east-1",
 				Endpoint:   "https://ec2.us-east-1.amazonaws.com",
@@ -235,7 +235,7 @@ var fetchTests = []struct {
 			},
 			{
 				Id:          "ami-442ea675",
-				VType:       "hvm",
+				VirtType:    "hvm",
 				Arch:        "amd64",
 				RegionAlias: "uswest3",
 				RegionName:  "us-west-3",
@@ -244,7 +244,7 @@ var fetchTests = []struct {
 			},
 			{
 				Id:         "ami-442ea684",
-				VType:      "pv",
+				VirtType:   "pv",
 				Arch:       "amd64",
 				RegionName: "us-east-1",
 				Endpoint:   "https://ec2.us-east-1.amazonaws.com",
