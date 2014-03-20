@@ -233,6 +233,20 @@ func (s *provisionerSuite) TestCommonServiceInstances(c *gc.C) {
 	}
 }
 
+func (s *provisionerSuite) TestCommonServiceInstancesMissing(c *gc.C) {
+	stateMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	apiMachine, err := s.provisioner.Machine(stateMachine.Tag())
+	c.Assert(err, gc.IsNil)
+	err = apiMachine.EnsureDead()
+	c.Assert(err, gc.IsNil)
+	err = apiMachine.Remove()
+	c.Assert(err, gc.IsNil)
+	_, err = apiMachine.CommonServiceInstances()
+	c.Assert(err, gc.ErrorMatches, "machine 1 not found")
+	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
+}
+
 func (s *provisionerSuite) TestConstraints(c *gc.C) {
 	// Create a fresh machine with some constraints.
 	template := state.MachineTemplate{
