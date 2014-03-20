@@ -8,6 +8,6 @@ var (
 	CheckIfRoot = &checkIfRoot
 
 	// function exports for tests
-	EnsureRoot      = ensureRoot
+	RunAsRoot       = runAsRoot
 	JujuLocalPlugin = jujuLocalPlugin
 )

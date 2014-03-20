@@ -46,20 +46,20 @@ func (*mainSuite) TestRegisteredCommands(c *gc.C) {
 	c.Assert(names, gc.DeepEquals, expectedSubcommands)
 }
 
-func (s *mainSuite) TestEnsureRootCallsFuncIfRoot(c *gc.C) {
+func (s *mainSuite) TestRunAsRootCallsFuncIfRoot(c *gc.C) {
 	s.PatchValue(local.CheckIfRoot, func() bool { return true })
 	called := false
 	call := func(*cmd.Context) error {
 		called = true
 		return nil
 	}
-	args := []string{"juju-magic", "ignored..."}
-	err := local.EnsureRoot(args, coretesting.Context(c), call)
+	args := []string{"ignored..."}
+	err := local.RunAsRoot("juju-magic", args, coretesting.Context(c), call)
 	c.Assert(err, gc.IsNil)
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *mainSuite) TestEnsureRootCallsSudoIfNotRoot(c *gc.C) {
+func (s *mainSuite) TestRunAsRootCallsSudoIfNotRoot(c *gc.C) {
 	s.PatchValue(local.CheckIfRoot, func() bool { return false })
 	testing.PatchExecutableAsEchoArgs(c, s, "sudo")
 	// the command needs to be in the path...
@@ -69,9 +69,9 @@ func (s *mainSuite) TestEnsureRootCallsSudoIfNotRoot(c *gc.C) {
 	callIgnored := func(*cmd.Context) error {
 		panic("unreachable")
 	}
-	args := []string{"juju-magic", "passed"}
+	args := []string{"passed"}
 	context := coretesting.Context(c)
-	err = local.EnsureRoot(args, context, callIgnored)
+	err = local.RunAsRoot("juju-magic", args, context, callIgnored)
 	c.Assert(err, gc.IsNil)
 	expected := fmt.Sprintf("sudo \"--preserve-env\" %q \"passed\"\n", magicPath)
 	c.Assert(coretesting.Stdout(context), gc.Equals, expected)
