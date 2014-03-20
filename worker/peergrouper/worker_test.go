@@ -13,6 +13,7 @@ import (
 
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
+	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils/voyeur"
@@ -37,7 +38,8 @@ func (s *workerJujuConnSuite) TestPublisherSetsAPIHostPorts(c *gc.C) {
 	initState(c, st, 3)
 
 	watcher := s.State.WatchAPIHostPorts()
-	<-watcher.Changes()
+	cwatch := statetesting.NewNotifyWatcherC(c, s.State, watcher)
+	cwatch.AssertOneChange()
 
 	statePublish := newPublisher(s.State)
 
@@ -54,14 +56,10 @@ func (s *workerJujuConnSuite) TestPublisherSetsAPIHostPorts(c *gc.C) {
 		c.Check(worker.Stop(w), gc.IsNil)
 	}()
 
-	select {
-	case <-watcher.Changes():
-		hps, err := s.State.APIHostPorts()
-		c.Assert(err, gc.IsNil)
-		c.Assert(hps, jc.DeepEquals, expectedAPIHostPorts(3))
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for addresses to be published")
-	}
+	cwatch.AssertOneChange()
+	hps, err := s.State.APIHostPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(hps, jc.DeepEquals, expectedAPIHostPorts(3))
 }
 
 type workerSuite struct {

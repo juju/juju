@@ -172,7 +172,7 @@ func (w *pgWorker) loop() error {
 		case <-retry.C:
 			ok := true
 			if err := w.publisher.publishAPIServers(w.apiHostPorts()); err != nil {
-				logger.Errorf("cannot publish state server addresses: %v", err)
+				logger.Errorf("cannot publish API server addresses: %v", err)
 				ok = false
 			}
 			if err := w.updateReplicaset(); err != nil {
@@ -183,13 +183,11 @@ func (w *pgWorker) loop() error {
 				ok = false
 			}
 			if ok {
-				logger.Infof("polling after %v", pollInterval)
 				// Update the replica set members occasionally
 				// to keep them up to date with the current
 				// replica set member statuses.
 				retry.Reset(pollInterval)
 			} else {
-				logger.Infof("retrying after %v", retryInterval)
 				retry.Reset(retryInterval)
 			}
 
@@ -498,7 +496,6 @@ func hostPortsEqual(hps1, hps2 []instance.HostPort) bool {
 		return false
 	}
 	for i := range hps1 {
-
 		if hps1[i] != hps2[i] {
 			return false
 		}
