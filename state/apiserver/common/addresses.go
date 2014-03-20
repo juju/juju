@@ -4,6 +4,9 @@
 package common
 
 import (
+	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/state/watcher"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 )
 
@@ -33,12 +36,12 @@ func NewAPIAddresser(getter AddressAndCertGetter, resources *Resources) *APIAddr
 }
 
 // APIHostPorts returns the API server addresses.
-func (api *APIAddresser) APIHostPorts() (params.APIHostPortsResults, error) {
+func (api *APIAddresser) APIHostPorts() (params.APIHostPortsResult, error) {
 	servers, err := api.getter.APIHostPorts()
 	if err != nil {
-		return params.APIHostPortsResults{}, nil
+		return params.APIHostPortsResult{}, nil
 	}
-	return APIHostPortsResults{
+	return params.APIHostPortsResult{
 		Servers: servers,
 	}, nil
 }
@@ -48,7 +51,7 @@ func (api *APIAddresser) WatchAPIHostPorts() (params.NotifyWatchResult, error) {
 	watch := api.getter.WatchAPIHostPorts()
 	if _, ok := <-watch.Changes(); ok {
 		return params.NotifyWatchResult{
-			NotifyWatcherId: a.resources.Register(watch),
+			NotifyWatcherId: api.resources.Register(watch),
 		}, nil
 	}
 	return params.NotifyWatchResult{}, watcher.MustErr(watch)

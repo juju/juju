@@ -42,7 +42,7 @@ func NewMachinerAPI(st *state.State, resources *common.Resources, authorizer com
 		StatusSetter:       common.NewStatusSetter(st, getCanModify),
 		DeadEnsurer:        common.NewDeadEnsurer(st, getCanModify),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, getCanRead),
-		APIAddresses: common.NewAPIAddresser(st, resources),
+		APIAddresser: common.NewAPIAddresser(st, resources),
 		st:                 st,
 		auth:               authorizer,
 		getCanModify:       getCanModify,
