@@ -193,3 +193,18 @@ func (*environSuite) TestNewEnvironSetsConfig(c *gc.C) {
 	c.Check(err, gc.IsNil)
 	c.Check(env.Name(), gc.Equals, "testenv")
 }
+
+func (*environSuite) TestAdditionalSCripts(c *gc.C) {
+	const aptGetPrefix = "env DEBIAN_FRONTEND=noninteractive apt-get --option=Dpkg::Options::=--force-confold --option=Dpkg::options::=--force-unsafe-io --assume-yes --quiet"
+	scripts, err := maas.AdditionalScripts("testing.invalid")
+	c.Assert(err, gc.IsNil)
+	c.Assert(scripts, gc.DeepEquals, []string{
+		"mkdir -p '/var/lib/juju'; echo -n 'hostname: testing.invalid\n' > '/var/lib/juju/MAASmachine.txt'",
+		aptGetPrefix + " update",
+		aptGetPrefix + " install bridge-utils",
+		"ifdown eth0",
+		"cat > /etc/network/eth0.config << EOF\niface eth0 inet manual\n\nauto br0\niface br0 inet dhcp\n  bridge_ports eth0\nEOF\n",
+		`sed -i "s/iface eth0 inet dhcp/source \/etc\/network\/eth0.config/" /etc/network/interfaces`,
+		"ifup br0",
+	})
+}

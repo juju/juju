@@ -178,7 +178,8 @@ func (s *SuperCommandSuite) TestLogging(c *gc.C) {
 	ctx := testing.Context(c)
 	code := cmd.Main(jc, ctx, []string{"blah", "--option", "error", "--debug"})
 	c.Assert(code, gc.Equals, 1)
-	c.Assert(bufferString(ctx.Stderr), gc.Matches, `^.* ERROR .* BAM!
+	c.Assert(bufferString(ctx.Stderr), gc.Matches, `^.* running juju-.*
+.* ERROR .* BAM!
 `)
 }
 

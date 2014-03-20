@@ -85,7 +85,7 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (insta
 		return nil, nil, err
 	}
 
-	inst, hardware, err := broker.manager.StartContainer(args.MachineConfig, series, network)
+	inst, hardware, err := broker.manager.CreateContainer(args.MachineConfig, series, network)
 	if err != nil {
 		kvmLogger.Errorf("failed to start container: %v", err)
 		return nil, nil, err
@@ -99,7 +99,7 @@ func (broker *kvmBroker) StopInstances(instances []instance.Instance) error {
 	// TODO: potentially parallelise.
 	for _, instance := range instances {
 		kvmLogger.Infof("stopping kvm container for instance: %s", instance.Id())
-		if err := broker.manager.StopContainer(instance); err != nil {
+		if err := broker.manager.DestroyContainer(instance); err != nil {
 			kvmLogger.Errorf("container did not stop: %v", err)
 			return err
 		}

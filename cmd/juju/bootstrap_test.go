@@ -120,8 +120,7 @@ func (s *BootstrapSuite) runAllowRetriesTest(c *gc.C, test bootstrapRetryTest) {
 	toolsVersions := envtesting.VAll
 	if test.version != "" {
 		testVersion := version.MustParseBinary(test.version)
-		restore := testbase.PatchValue(&version.Current, testVersion)
-		defer restore()
+		s.PatchValue(&version.Current, testVersion)
 		if test.addVersionToSource {
 			toolsVersions = append([]version.Binary{}, toolsVersions...)
 			toolsVersions = append(toolsVersions, testVersion)

@@ -96,7 +96,7 @@ openstack:
     # metadata. It defaults to the global public image metadata
     # location https://cloud-images.ubuntu.com/releases.
     #
-    # image-metadata-url:  https://your-tools-metadata-url
+    # image-metadata-url:  https://your-image-metadata-url
 
     # image-stream chooses a simplestreams stream to select OS images
     # from, for example daily or released images (or any other stream
