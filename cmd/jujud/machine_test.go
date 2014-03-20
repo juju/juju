@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -33,9 +34,7 @@ import (
 	apirsyslog "launchpad.net/juju-core/state/api/rsyslog"
 	charmtesting "launchpad.net/juju-core/state/apiserver/charmrevisionupdater/testing"
 	"launchpad.net/juju-core/state/watcher"
-	"launchpad.net/juju-core/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/ssh"
@@ -58,8 +57,9 @@ type commonMachineSuite struct {
 func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
 	s.agentSuite.SetUpSuite(c)
 	s.TestSuite.SetUpSuite(c)
-	restore := testbase.PatchValue(&charm.CacheDir, c.MkDir())
+	restore := testing.PatchValue(&charm.CacheDir, c.MkDir())
 	s.AddSuiteCleanup(func(*gc.C) { restore() })
+
 }
 
 func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
@@ -356,7 +356,7 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 }
 
 func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
-	defer testbase.PatchValue(&instancepoller.ShortPoll, 500*time.Millisecond).Restore()
+	s.PatchValue(&instancepoller.ShortPoll, 500*time.Millisecond)
 	usefulVersion := version.Current
 	usefulVersion.Series = "quantal" // to match the charm created below
 	envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), usefulVersion)
@@ -736,7 +736,7 @@ func (s *MachineSuite) TestMachineEnvirnWorker(c *gc.C) {
 	s.assertJobWithAPI(c, state.JobHostUnits, func(conf agent.Config, st *api.State) {
 		for {
 			select {
-			case <-time.After(testing.LongWait):
+			case <-time.After(coretesting.LongWait):
 				c.Fatalf("timeout while waiting for proxy settings to change")
 			case <-time.After(10 * time.Millisecond):
 				_, err := os.Stat(utils.AptConfFile)
@@ -781,7 +781,7 @@ func (s *MachineSuite) testMachineAgentRsyslogConfigWorker(c *gc.C, job state.Ma
 	})
 	s.assertJobWithAPI(c, job, func(conf agent.Config, st *api.State) {
 		select {
-		case <-time.After(testing.LongWait):
+		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timeout while waiting for rsyslog worker to be created")
 		case mode := <-created:
 			c.Assert(mode, gc.Equals, expectedMode)

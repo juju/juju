@@ -10,12 +10,23 @@ import (
 	"launchpad.net/juju-core/tools"
 )
 
+// Networks holds network include/exclude
+// configuration
+type Networks struct {
+	IncludedNetworks []string
+	ExcludedNetworks []string
+}
+
 // StartInstanceParams holds parameters for the
 // InstanceBroker.StartInstace method.
 type StartInstanceParams struct {
 	// Constraints is a set of constraints on
 	// the kind of instance to create.
 	Constraints constraints.Value
+
+	// Networks holds 2 string slices indicating
+	// respectively included and excluded Networks
+	Networks Networks
 
 	// Tools is a list of tools that may be used
 	// to start a Juju agent on the machine.

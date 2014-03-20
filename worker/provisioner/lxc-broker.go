@@ -82,7 +82,7 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (insta
 		return nil, nil, err
 	}
 
-	inst, hardware, err := broker.manager.StartContainer(args.MachineConfig, series, network)
+	inst, hardware, err := broker.manager.CreateContainer(args.MachineConfig, series, network)
 	if err != nil {
 		lxcLogger.Errorf("failed to start container: %v", err)
 		return nil, nil, err
@@ -96,7 +96,7 @@ func (broker *lxcBroker) StopInstances(instances []instance.Instance) error {
 	// TODO: potentially parallelise.
 	for _, instance := range instances {
 		lxcLogger.Infof("stopping lxc container for instance: %s", instance.Id())
-		if err := broker.manager.StopContainer(instance); err != nil {
+		if err := broker.manager.DestroyContainer(instance); err != nil {
 			lxcLogger.Errorf("container did not stop: %v", err)
 			return err
 		}
