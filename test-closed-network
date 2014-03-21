@@ -1,0 +1,67 @@
+#!/bin/bash
+set -eu
+SCRIPTS=$(readlink -f $(dirname $0))
+: ${JOB_NAME="testy"}
+export JOB_NAME
+export PATH="$SCRIPTS:$PATH"
+source $JUJU_HOME/ec2rc
+ec2-terminate-job-instances
+set -x
+export INSTANCE_TYPE=m1.large
+export AMI_IMAGE=ami-bd6d40d4
+instance_id=$(ec2-run-instance-get-id)
+ec2-tag-job-instances $instance_id
+instance_name=$(ec2-get-name $instance_id)
+wait-for-port $instance_name 22
+set +e
+ssh -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
+    ubuntu@$instance_name  <<"EOT"
+set -eux
+sudo apt-add-repository -y ppa:juju/stable
+apt_success=1
+for attempt in $(seq 10); do
+sudo apt-get update
+  if sudo apt-get install -y bzr juju lxc mongodb; then
+    apt_success=0
+    break
+  fi
+done
+if [ "$apt_success" != "0" ]; then
+  exit 1
+fi
+export JUJU_REPOSITORY="$HOME/repo"
+mkdir -p $JUJU_REPOSITORY/precise
+bzr branch lp:charms/ubuntu $JUJU_REPOSITORY/precise/ubuntu
+juju init
+ssh-keygen -t rsa -b 2048 -N "" -f ~/.ssh/id_rsa
+juju switch local
+juju sync-tools
+login_ip=$(sudo cat /proc/net/ip_conntrack|\
+  sed -nr 's/.*src=([^ ]*) .*dport=22 .*/\1/p')
+gateway=$(route -n | sed -rn 's/^0.0.0.0 *([0-7.]*) .*/\1/p')
+nameservers="$(sed /etc/resolv.conf -nr -e 's/nameserver (.*)/\1/p')"
+for ns in $nameservers; do
+  sudo route add $ns gw $gateway
+done
+sudo route add $login_ip gw $gateway
+for ip in $(dig archive.ubuntu.com ubuntu-cloud.archive.canonical.com\
+    security.ubuntu.com cloud-images.ubuntu.com +short |sort|uniq); do
+  sudo route add $ip gw $gateway
+done
+sudo route add -net 172.16.0.0 netmask 255.240.0.0 gw $gateway
+sudo route del default gw $gateway
+sudo juju bootstrap
+juju deploy local:precise/ubuntu
+for x in $(seq 30); do
+  # relying on the indentation of ubuntu/0's agent-state here...
+  if juju status | grep -E ' {8}agent-state: started'; then
+    exit 0;
+  fi
+  sleep 10
+done
+exit 1
+EOT
+result=$?
+set -e
+ec2-terminate-job-instances
+exit $result
