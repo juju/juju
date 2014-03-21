@@ -56,6 +56,8 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
+	err = s.machine.SetAddresses(instance.NewAddresses([]string{"0.1.2.3"}))
+	c.Assert(err, gc.IsNil)
 
 	// Create the provisioner API facade.
 	s.provisioner = s.st.Provisioner()
