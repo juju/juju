@@ -480,7 +480,7 @@ var testRoundTripper *jujutest.ProxyRoundTripper
 
 func init() {
 	testRoundTripper = &jujutest.ProxyRoundTripper{}
-	simplestreams.RegisterProtocol("test", testRoundTripper)
+	testRoundTripper.RegisterForScheme("test")
 }
 
 type TestDataSuite struct{}

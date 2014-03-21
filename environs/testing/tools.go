@@ -5,7 +5,6 @@ package testing
 
 import (
 	"bytes"
-	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -22,6 +21,7 @@ import (
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	coretools "launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/upgrader"
 )
@@ -84,7 +84,7 @@ func PrimeTools(c *gc.C, stor storage.Storage, dataDir string, vers version.Bina
 	c.Assert(err, gc.IsNil)
 	agentTools, err := uploadFakeToolsVersion(stor, vers)
 	c.Assert(err, gc.IsNil)
-	resp, err := http.Get(agentTools.URL)
+	resp, err := utils.GetValidatingHTTPClient().Get(agentTools.URL)
 	c.Assert(err, gc.IsNil)
 	defer resp.Body.Close()
 	err = agenttools.UnpackTools(dataDir, agentTools, resp.Body)

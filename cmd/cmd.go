@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -36,12 +35,6 @@ func IsRcPassthroughError(err error) bool {
 // there is an error.
 func NewRcPassthroughError(code int) error {
 	return &rcPassthroughError{code}
-}
-
-func init() {
-	// Don't replace the default transport as other init blocks
-	// register protocols.
-	http.DefaultTransport.(*http.Transport).DisableKeepAlives = true
 }
 
 // ErrSilent can be returned from Run to signal that Main should exit with

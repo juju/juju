@@ -32,6 +32,7 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -395,7 +396,7 @@ func (s *uploadSuite) assertUploadedTools(c *gc.C, t *coretools.Tools, uploadedS
 // downloadTools downloads the supplied tools and extracts them into a
 // new directory.
 func downloadTools(c *gc.C, t *coretools.Tools) string {
-	resp, err := http.Get(t.URL)
+	resp, err := utils.GetValidatingHTTPClient().Get(t.URL)
 	c.Assert(err, gc.IsNil)
 	defer resp.Body.Close()
 	cmd := exec.Command("tar", "xz")
@@ -408,7 +409,7 @@ func downloadTools(c *gc.C, t *coretools.Tools) string {
 
 // downloadToolsRaw downloads the supplied tools and returns the raw bytes.
 func downloadToolsRaw(c *gc.C, t *coretools.Tools) []byte {
-	resp, err := http.Get(t.URL)
+	resp, err := utils.GetValidatingHTTPClient().Get(t.URL)
 	c.Assert(err, gc.IsNil)
 	defer resp.Body.Close()
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)

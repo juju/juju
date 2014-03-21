@@ -20,6 +20,7 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/utils"
 )
 
 type StateSuite struct {
@@ -126,9 +127,9 @@ func (suite *StateSuite) TestLoadStateReadsStateFile(c *gc.C) {
 }
 
 func (suite *StateSuite) TestLoadStateFromURLReadsStateFile(c *gc.C) {
-	storage, dataDir := suite.newStorageWithDataDir(c)
+	stor, dataDir := suite.newStorageWithDataDir(c)
 	state := suite.setUpSavedState(c, dataDir)
-	url, err := storage.URL(bootstrap.StateFile)
+	url, err := stor.URL(bootstrap.StateFile)
 	c.Assert(err, gc.IsNil)
 	storedState, err := bootstrap.LoadStateFromURL(url, false)
 	c.Assert(err, gc.IsNil)
@@ -138,7 +139,7 @@ func (suite *StateSuite) TestLoadStateFromURLReadsStateFile(c *gc.C) {
 func (suite *StateSuite) TestLoadStateFromURLBadCert(c *gc.C) {
 	baseURL, _ := suite.testingHTTPSServer(c)
 	url := baseURL + "/" + bootstrap.StateFile
-	storedState, err := bootstrap.LoadStateFromURL(url, false)
+	storedState, err := bootstrap.LoadStateFromURL(url, utils.VerifySSLHostnames)
 	c.Assert(err, gc.ErrorMatches, ".*/provider-state:.* certificate signed by unknown authority")
 	c.Assert(storedState, gc.IsNil)
 }
@@ -147,7 +148,7 @@ func (suite *StateSuite) TestLoadStateFromURLBadCertPermitted(c *gc.C) {
 	baseURL, dataDir := suite.testingHTTPSServer(c)
 	state := suite.setUpSavedState(c, dataDir)
 	url := baseURL + "/" + bootstrap.StateFile
-	storedState, err := bootstrap.LoadStateFromURL(url, true)
+	storedState, err := bootstrap.LoadStateFromURL(url, utils.NoVerifySSLHostnames)
 	c.Assert(err, gc.IsNil)
 	c.Check(*storedState, gc.DeepEquals, state)
 }

@@ -22,6 +22,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/utils"
 )
 
 // Cloud-init write the URL to be used to load the bootstrap state into this file.
@@ -68,7 +69,11 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	stateInfoURL := strings.Split(string(data), "\n")[0]
-	bsState, err := bootstrap.LoadStateFromURL(stateInfoURL, !envCfg.SSLHostnameVerification())
+	verify := utils.VerifySSLHostnames
+	if !envCfg.SSLHostnameVerification() {
+		verify = utils.NoVerifySSLHostnames
+	}
+	bsState, err := bootstrap.LoadStateFromURL(stateInfoURL, verify)
 	if err != nil {
 		return fmt.Errorf("cannot load state from URL %q (read from %q): %v", stateInfoURL, providerStateURLFile, err)
 	}

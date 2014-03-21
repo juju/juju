@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/environs/simplestreams"
 	sstesting "launchpad.net/juju-core/environs/simplestreams/testing"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils"
 )
 
 func Test(t *testing.T) {
@@ -27,7 +28,7 @@ func Test(t *testing.T) {
 func registerSimpleStreamsTests() {
 	gc.Suite(&simplestreamsSuite{
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
-			Source:        simplestreams.NewURLDataSource("test", "test:", simplestreams.VerifySSLHostnames),
+			Source:        simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames),
 			RequireSigned: false,
 			DataType:      "image-ids",
 			ValidConstraint: sstesting.NewTestConstraint(simplestreams.LookupParams{
@@ -316,7 +317,7 @@ func (s *countingSource) URL(path string) (string, error) {
 func (s *simplestreamsSuite) TestGetMetadataNoMatching(c *gc.C) {
 	source := &countingSource{
 		DataSource: simplestreams.NewURLDataSource(
-			"test", "test:/daily", simplestreams.VerifySSLHostnames,
+			"test", "test:/daily", utils.VerifySSLHostnames,
 		),
 	}
 	sources := []simplestreams.DataSource{source, source, source}

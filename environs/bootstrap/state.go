@@ -39,24 +39,24 @@ type BootstrapState struct {
 
 // putState writes the given data to the state file on the given storage.
 // The file's name is as defined in StateFile.
-func putState(storage storage.StorageWriter, data []byte) error {
-	logger.Debugf("putting %q to bootstrap storage %T", StateFile, storage)
-	return storage.Put(StateFile, bytes.NewBuffer(data), int64(len(data)))
+func putState(stor storage.StorageWriter, data []byte) error {
+	logger.Debugf("putting %q to bootstrap storage %T", StateFile, stor)
+	return stor.Put(StateFile, bytes.NewBuffer(data), int64(len(data)))
 }
 
 // CreateStateFile creates an empty state file on the given storage, and
 // returns its URL.
-func CreateStateFile(storage storage.Storage) (string, error) {
-	err := putState(storage, []byte{})
+func CreateStateFile(stor storage.Storage) (string, error) {
+	err := putState(stor, []byte{})
 	if err != nil {
 		return "", fmt.Errorf("cannot create initial state file: %v", err)
 	}
-	return storage.URL(StateFile)
+	return stor.URL(StateFile)
 }
 
 // DeleteStateFile deletes the state file on the given storage.
-func DeleteStateFile(storage storage.Storage) error {
-	return storage.Remove(StateFile)
+func DeleteStateFile(stor storage.Storage) error {
+	return stor.Remove(StateFile)
 }
 
 // SaveState writes the given state to the given storage.
@@ -69,13 +69,9 @@ func SaveState(storage storage.StorageWriter, state *BootstrapState) error {
 }
 
 // LoadStateFromURL reads state from the given URL.
-func LoadStateFromURL(url string, disableSSLHostnameVerification bool) (*BootstrapState, error) {
+func LoadStateFromURL(url string, hostnameVerification utils.SSLHostnameVerification) (*BootstrapState, error) {
 	logger.Debugf("loading %q from %q", StateFile, url)
-	client := http.DefaultClient
-	if disableSSLHostnameVerification {
-		logger.Infof("hostname SSL verification disabled")
-		client = utils.GetNonValidatingHTTPClient()
-	}
+	client := utils.GetHTTPClient(hostnameVerification)
 	resp, err := client.Get(url)
 	if err != nil {
 		return nil, err
