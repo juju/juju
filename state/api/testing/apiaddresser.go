@@ -1,12 +1,16 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
+package testing
 
 type APIAddresserSuite struct {
-	
+	st *state.State
 }
 
 type APIAddresserFacade interface {
 	APIAddresses() ([]string, error)
+	CACert() ([]byte, error)
+	APIHostPorts() ([][]instance.HostPort, error)
+	WatchAPIHostPorts() (watcher.NotifyWatcher, error)
 }
 
 func (s *APIAddresserSuite) SetUpSuite(c *gc.C, jcSuite testing.JujuConnSuite) {
