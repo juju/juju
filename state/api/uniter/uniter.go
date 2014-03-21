@@ -18,6 +18,7 @@ const uniter = "Uniter"
 // State provides access to the Uniter API facade.
 type State struct {
 	*common.EnvironWatcher
+	*common.APIAddresser
 
 	caller base.Caller
 	// unitTag contains the authenticated unit's tag.
@@ -27,9 +28,11 @@ type State struct {
 // NewState creates a new client-side Uniter facade.
 func NewState(caller base.Caller, authTag string) *State {
 	return &State{
-		EnvironWatcher: common.NewEnvironWatcher(uniter, caller),
+		EnvironWatcher: common.NewEnvironWatcher("Uniter", caller),
+		APIAddresser: common.NewAPIAddresser("Uniter" , caller),
 		caller:         caller,
-		unitTag:        authTag}
+		unitTag:        authTag,
+	}
 }
 
 // life requests the lifecycle of the given entity from the server.
@@ -133,7 +136,7 @@ func (st *State) RelationById(id int) (*Relation, error) {
 	args := params.RelationIds{
 		RelationIds: []int{id},
 	}
-	err := st.caller.Call(uniter, "", "RelationById", args, &results)
+	err := st.caller.Call("Uniter", "", "RelationById", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -187,17 +190,4 @@ func (st *State) environment1dot16() (*Environment, error) {
 	return &Environment{
 		uuid: result.Result,
 	}, nil
-}
-
-// APIAddresses returns the list of addresses used to connect to the API.
-func (st *State) APIAddresses() ([]string, error) {
-	var result params.StringsResult
-	err := st.caller.Call(uniter, "", "APIAddresses", nil, &result)
-	if err != nil {
-		return nil, err
-	}
-	if err := result.Error; err != nil {
-		return nil, err
-	}
-	return result.Result, nil
 }

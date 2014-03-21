@@ -15,6 +15,14 @@ type AddressUpdater struct {
 	caller     base.Caller
 }
 
+// NewAddressUpdater returns 
+func NewAddressUpdater(facadeName string, caller base.Caller) *AddressUpdater {
+	return &AddressUpdater{
+		facadeName: facadeName,
+		caller: caller,
+	}
+}
+
 // APIAddresses returns the list of addresses used to connect to the API.
 func (a *AddressUpdater) APIAddresses() ([]string, error) {
 	var result params.StringsResult
@@ -30,11 +38,24 @@ func (a *AddressUpdater) APIAddresses() ([]string, error) {
 }
 
 // CACert returns the certificate used to validate the state connection.
-func (st *State) CACert() ([]byte, error) {
+func (a *AddressUpdater) CACert() ([]byte, error) {
 	var result params.BytesResult
-	err := st.caller.Call("Deployer", "", "CACert", nil, &result)
+	err := st.caller.Call(a.facadeName, "", "CACert", nil, &result)
 	if err != nil {
 		return nil, err
 	}
 	return result.Result, nil
+}
+
+func (a *AddressUpdater) APIHostPorts() ([][]instance.HostPort, error) {
+	var result params.APIHostPortsResult
+	err := st.caller.Call(a.facadeName, "", "CACert", nil, &result)
+	if err != nil {
+		return nil, err
+	}
+	return result.Result, nil
+}
+
+func (a *WatchAPIHostPorts() (state.NotifyWatcher, error) {
+	return nil, nil
 }
