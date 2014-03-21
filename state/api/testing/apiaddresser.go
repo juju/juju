@@ -22,20 +22,15 @@ type APIAddresserFacade interface {
 	WatchAPIHostPorts() (watcher.NotifyWatcher, error)
 }
 
-func NewAPIAddresserSuite(st *state.State, facade APIAddresserFacade) *APIAddresserSuite {
-	return &APIAddresserSuite{
-		state:     st,
-		facade: facade,
-	}
-}
-
 func (s *APIAddresserSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *APIAddresserSuite) TearDownSuite(c *gc.C) {
 }
 
-func (s *APIAddresserSuite) SetUpTest(c *gc.C) {
+func (s *APIAddresserSuite) SetUpTest(c *gc.C, st *state.State, facade APIAddresserFacade) {
+	s.state = st
+	s.facade = facade
 }
 
 func (s *APIAddresserSuite) TearDownTest(c *gc.C) {

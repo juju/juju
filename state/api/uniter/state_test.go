@@ -11,14 +11,13 @@ import (
 
 type stateSuite struct {
 	uniterSuite
-	*apitesting .APIAddresserSuite
+	apitesting.APIAddresserSuite
 }
 
 var _ = gc.Suite(&stateSuite{})
 
 func (s *stateSuite) SetUpSuite(c *gc.C) {
 	s.uniterSuite.SetUpSuite(c)
-	s.APIAddresserSuite = apitesting.NewAPIAddresserSuite(s.State, s.uniter)
 	s.APIAddresserSuite.SetUpSuite(c)
 }
 
@@ -29,7 +28,7 @@ func (s *stateSuite) TearDownSuite(c *gc.C) {
 
 func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.uniterSuite.SetUpTest(c)
-	s.APIAddresserSuite.SetUpTest(c)
+	s.APIAddresserSuite.SetUpTest(c, s.State, s.uniter)
 }
 
 func (s *stateSuite) TearDownTest(c *gc.C) {
