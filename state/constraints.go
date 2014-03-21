@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
 	"launchpad.net/juju-core/constraints"
@@ -63,7 +64,7 @@ func setConstraintsOp(st *State, id string, cons constraints.Value) txn.Op {
 		C:      st.constraints.Name,
 		Id:     id,
 		Assert: txn.DocExists,
-		Update: D{{"$set", newConstraintsDoc(cons)}},
+		Update: bson.D{{"$set", newConstraintsDoc(cons)}},
 	}
 }
 

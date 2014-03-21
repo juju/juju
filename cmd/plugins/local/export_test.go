@@ -3,4 +3,11 @@
 
 package local
 
-var JujuLocalPlugin = jujuLocalPlugin
+var (
+	// Variable is the address so we can PatchValue
+	CheckIfRoot = &checkIfRoot
+
+	// function exports for tests
+	RunAsRoot       = runAsRoot
+	JujuLocalPlugin = jujuLocalPlugin
+)

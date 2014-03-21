@@ -708,7 +708,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		return nil, nil, fmt.Errorf("entity tag must match started machine")
 	}
 	logger.Infof("would pick tools from %s", args.Tools)
-	series = args.Tools.OneSeries()
+	series := args.Tools.OneSeries()
 	i := &dummyInstance{
 		id:           instance.Id(fmt.Sprintf("%s-%d", e.name, estate.maxId)),
 		ports:        make(map[instance.Port]bool),

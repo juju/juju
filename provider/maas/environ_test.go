@@ -11,7 +11,6 @@ import (
 
 	"launchpad.net/juju-core/environs/config"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/provider/maas"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
@@ -195,11 +194,17 @@ func (*environSuite) TestNewEnvironSetsConfig(c *gc.C) {
 	c.Check(env.Name(), gc.Equals, "testenv")
 }
 
-func (*environSuite) TestSupportedArchitectures(c *gc.C) {
-	cfg := getSimpleTestConfig(c, nil)
-	env, err := maas.NewEnviron(cfg)
+func (*environSuite) TestAdditionalSCripts(c *gc.C) {
+	const aptGetPrefix = "env DEBIAN_FRONTEND=noninteractive apt-get --option=Dpkg::Options::=--force-confold --option=Dpkg::options::=--force-unsafe-io --assume-yes --quiet"
+	scripts, err := maas.AdditionalScripts("testing.invalid")
 	c.Assert(err, gc.IsNil)
-	a, err := env.SupportedArchitectures()
-	c.Assert(err, gc.IsNil)
-	c.Assert(a, gc.DeepEquals, arch.AllSupportedArches)
+	c.Assert(scripts, gc.DeepEquals, []string{
+		"mkdir -p '/var/lib/juju'; echo -n 'hostname: testing.invalid\n' > '/var/lib/juju/MAASmachine.txt'",
+		aptGetPrefix + " update",
+		aptGetPrefix + " install bridge-utils",
+		"ifdown eth0",
+		"cat > /etc/network/eth0.config << EOF\niface eth0 inet manual\n\nauto br0\niface br0 inet dhcp\n  bridge_ports eth0\nEOF\n",
+		`sed -i "s/iface eth0 inet dhcp/source \/etc\/network\/eth0.config/" /etc/network/interfaces`,
+		"ifup br0",
+	})
 }

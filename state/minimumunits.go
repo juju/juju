@@ -6,6 +6,7 @@ package state
 import (
 	"errors"
 
+	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
 	"launchpad.net/juju-core/utils"
@@ -73,7 +74,7 @@ func setMinUnitsOps(service *Service, minUnits int) []txn.Op {
 		C:      state.services.Name,
 		Id:     serviceName,
 		Assert: isAliveDoc,
-		Update: D{{"$set", D{{"minunits", minUnits}}}},
+		Update: bson.D{{"$set", bson.D{{"minunits", minUnits}}}},
 	}}
 	if service.doc.MinUnits == 0 {
 		return append(ops, txn.Op{
@@ -104,7 +105,7 @@ func minUnitsTriggerOp(st *State, serviceName string) txn.Op {
 	return txn.Op{
 		C:      st.minUnits.Name,
 		Id:     serviceName,
-		Update: D{{"$inc", D{{"revno", 1}}}},
+		Update: bson.D{{"$inc", bson.D{{"revno", 1}}}},
 	}
 }
 
@@ -180,7 +181,7 @@ func (s *Service) EnsureMinUnits() (err error) {
 
 // aliveUnitsCount returns the number a alive units for the service.
 func aliveUnitsCount(service *Service) (int, error) {
-	query := D{{"service", service.doc.Name}, {"life", Alive}}
+	query := bson.D{{"service", service.doc.Name}, {"life", Alive}}
 	return service.st.units.Find(query).Count()
 }
 
@@ -188,6 +189,6 @@ func aliveUnitsCount(service *Service) (int, error) {
 // service in MongoDB and the name for the new unit. The resulting transaction
 // will be aborted if the service document changes when running the operations.
 func ensureMinUnitsOps(service *Service) (string, []txn.Op, error) {
-	asserts := D{{"txn-revno", service.doc.TxnRevno}}
+	asserts := bson.D{{"txn-revno", service.doc.TxnRevno}}
 	return service.addUnitOps("", asserts)
 }

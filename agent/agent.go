@@ -339,7 +339,9 @@ func NewStateMachineConfig(configParams AgentConfigParams) (Config, error) {
 
 // Dir returns the agent-specific data directory.
 func Dir(dataDir, agentName string) string {
-	return filepath.Join(dataDir, "agents", agentName)
+	// Note: must use path, not filepath, as this
+	// function is used by the client on Windows.
+	return path.Join(dataDir, "agents", agentName)
 }
 
 // ConfigPath returns the full path to the agent config file.
