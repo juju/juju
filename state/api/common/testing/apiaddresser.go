@@ -10,9 +10,16 @@ import (
 	"launchpad.net/juju-core/state/api/watcher"
 )
 
-type APIAddresserSuite struct {
+type APIAddresserTests struct {
 	state     *state.State
 	facade APIAddresserFacade
+}
+
+func NewAPIAddresserTests(st *state.State, facade APIAddresserFacade) *APIAddresserTests {
+	return &APIAddresserTests{
+		state: st,
+		facade: facade,
+	}
 }
 
 type APIAddresserFacade interface {
@@ -22,21 +29,7 @@ type APIAddresserFacade interface {
 	WatchAPIHostPorts() (watcher.NotifyWatcher, error)
 }
 
-func (s *APIAddresserSuite) SetUpSuite(c *gc.C) {
-}
-
-func (s *APIAddresserSuite) TearDownSuite(c *gc.C) {
-}
-
-func (s *APIAddresserSuite) SetUpTest(c *gc.C, st *state.State, facade APIAddresserFacade) {
-	s.state = st
-	s.facade = facade
-}
-
-func (s *APIAddresserSuite) TearDownTest(c *gc.C) {
-}
-
-func (s *APIAddresserSuite) TestAPIAddresses(c *gc.C) {
+func (s *APIAddresserTests) TestAPIAddresses(c *gc.C) {
 	apiAddresses, err := s.state.APIAddressesFromMachines()
 	c.Assert(err, gc.IsNil)
 
@@ -45,7 +38,7 @@ func (s *APIAddresserSuite) TestAPIAddresses(c *gc.C) {
 	c.Assert(addresses, gc.DeepEquals, apiAddresses)
 }
 
-func (s *APIAddresserSuite) TestAPIHostPorts(c *gc.C) {
+func (s *APIAddresserTests) TestAPIHostPorts(c *gc.C) {
 	expectServerAddrs := [][]instance.HostPort{{{
 		Address: instance.NewAddress("0.1.2.24"),
 		Port:    999,
@@ -70,11 +63,12 @@ func (s *APIAddresserSuite) TestAPIHostPorts(c *gc.C) {
 	c.Assert(serverAddrs, gc.DeepEquals, expectServerAddrs)
 }
 
-func (s *APIAddresserSuite) TestCACert(c *gc.C) {
+func (s *APIAddresserTests) TestCACert(c *gc.C) {
 	caCert, err := s.facade.CACert()
 	c.Assert(err, gc.IsNil)
 	c.Assert(caCert, gc.DeepEquals, s.state.CACert())
 }
 
-func (s *APIAddresserSuite) TestWatchAPIHostPorts(c *gc.C) {
+func (s *APIAddresserTests) TestWatchAPIHostPorts(c *gc.C) {
+	
 }
