@@ -29,7 +29,7 @@ type State struct {
 func NewState(caller base.Caller, authTag string) *State {
 	return &State{
 		EnvironWatcher: common.NewEnvironWatcher("Uniter", caller),
-		APIAddresser: common.NewAPIAddresser("Uniter" , caller),
+		APIAddresser:   common.NewAPIAddresser("Uniter", caller),
 		caller:         caller,
 		unitTag:        authTag,
 	}

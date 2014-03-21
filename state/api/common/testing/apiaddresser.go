@@ -8,16 +8,17 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/watcher"
+	statetesting "launchpad.net/juju-core/state/testing"
 )
 
 type APIAddresserTests struct {
-	state     *state.State
+	state  *state.State
 	facade APIAddresserFacade
 }
 
 func NewAPIAddresserTests(st *state.State, facade APIAddresserFacade) *APIAddresserTests {
 	return &APIAddresserTests{
-		state: st,
+		state:  st,
 		facade: facade,
 	}
 }
@@ -70,5 +71,30 @@ func (s *APIAddresserTests) TestCACert(c *gc.C) {
 }
 
 func (s *APIAddresserTests) TestWatchAPIHostPorts(c *gc.C) {
-	
+	expectServerAddrs := [][]instance.HostPort{{{
+		Address: instance.NewAddress("0.1.2.3"),
+		Port:    1234,
+	}}}
+	err := s.state.SetAPIHostPorts(expectServerAddrs)
+	c.Assert(err, gc.IsNil)
+
+	w, err := s.facade.WatchAPIHostPorts()
+	c.Assert(err, gc.IsNil)
+	defer statetesting.AssertStop(c, w)
+
+	wc := statetesting.NewNotifyWatcherC(c, s.state, w)
+
+	// Initial event.
+	wc.AssertOneChange()
+
+	// Change the state addresses and check that we get a notification
+	expectServerAddrs[0][0].Value = "0.1.99.99"
+
+	err = s.state.SetAPIHostPorts(expectServerAddrs)
+	c.Assert(err, gc.IsNil)
+
+	wc.AssertOneChange()
+
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
 }

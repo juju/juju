@@ -5,9 +5,9 @@ package common
 
 import (
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/watcher"
 )
 
 // AddressAndCertGetter can be used to find out
@@ -22,15 +22,15 @@ type AddressAndCertGetter interface {
 
 // APIAddresser implements the APIAddresses method
 type APIAddresser struct {
-	resources         *Resources
-	getter AddressAndCertGetter
+	resources *Resources
+	getter    AddressAndCertGetter
 }
 
 // NewAPIAddresser returns a new APIAddresser that uses the given getter to
 // fetch its addresses.
 func NewAPIAddresser(getter AddressAndCertGetter, resources *Resources) *APIAddresser {
 	return &APIAddresser{
-		getter: getter,
+		getter:    getter,
 		resources: resources,
 	}
 }
