@@ -772,7 +772,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	if err := environs.FinishMachineConfig(args.MachineConfig, e.Config(), args.Constraints); err != nil {
 		return nil, nil, err
 	}
-	userData, err := environs.ComposeUserData(args.MachineConfig)
+	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot make user data: %v", err)
 	}

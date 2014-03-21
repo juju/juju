@@ -405,7 +405,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		return nil, nil, err
 	}
 
-	userData, err := environs.ComposeUserData(args.MachineConfig)
+	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot make user data: %v", err)
 	}

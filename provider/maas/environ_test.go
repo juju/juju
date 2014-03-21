@@ -6,6 +6,7 @@ package maas_test
 import (
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gomaasapi"
 
@@ -204,14 +205,13 @@ func (*environSuite) TestSupportedArchitectures(c *gc.C) {
 	c.Assert(a, gc.DeepEquals, arch.AllSupportedArches)
 }
 
-func (*environSuite) TestAdditionalSCripts(c *gc.C) {
-	const aptGetPrefix = "env DEBIAN_FRONTEND=noninteractive apt-get --option=Dpkg::Options::=--force-confold --option=Dpkg::options::=--force-unsafe-io --assume-yes --quiet"
-	scripts, err := maas.AdditionalScripts("testing.invalid")
+func (*environSuite) TestNewCloudinitConfig(c *gc.C) {
+	cloudcfg, err := maas.NewCloudinitConfig("testing.invalid")
 	c.Assert(err, gc.IsNil)
-	c.Assert(scripts, gc.DeepEquals, []string{
+	c.Assert(cloudcfg.AptUpdate(), jc.IsTrue)
+	c.Assert(cloudcfg.RunCmds(), gc.DeepEquals, []interface{}{
+		"set -xe",
 		"mkdir -p '/var/lib/juju'; echo -n 'hostname: testing.invalid\n' > '/var/lib/juju/MAASmachine.txt'",
-		aptGetPrefix + " update",
-		aptGetPrefix + " install bridge-utils",
 		"ifdown eth0",
 		"cat > /etc/network/eth0.config << EOF\niface eth0 inet manual\n\nauto br0\niface br0 inet dhcp\n  bridge_ports eth0\nEOF\n",
 		`sed -i "s/iface eth0 inet dhcp/source \/etc\/network\/eth0.config/" /etc/network/interfaces`,

@@ -156,25 +156,26 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 	return nil
 }
 
-// ComposeUserData puts together a binary (gzipped) blob of user data.
-// The additionalScripts are additional command lines that you need cloudinit
-// to run on the instance; they are executed before all other cloud-init
-// runcmds.  Use with care.
-func ComposeUserData(cfg *cloudinit.MachineConfig, additionalScripts ...string) ([]byte, error) {
-	cloudcfg := coreCloudinit.New()
-	for _, script := range additionalScripts {
-		cloudcfg.AddRunCmd(script)
-	}
+func configureCloudinit(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config) error {
 	// When bootstrapping, we only want to apt-get update/upgrade
 	// and setup the SSH keys. The rest we leave to cloudinit/sshinit.
-	if cfg.StateServer {
-		if err := cloudinit.ConfigureBasic(cfg, cloudcfg); err != nil {
-			return nil, err
-		}
-	} else {
-		if err := cloudinit.Configure(cfg, cloudcfg); err != nil {
-			return nil, err
-		}
+	if mcfg.StateServer {
+		return cloudinit.ConfigureBasic(mcfg, cloudcfg)
+	}
+	return cloudinit.Configure(mcfg, cloudcfg)
+}
+
+// ComposeUserData fills out the provided cloudinit configuration structure
+// so it is suitable for initialising a machine with the given configuration,
+// and then renders it and returns it as a binary (gzipped) blob of user data.
+//
+// If the provided cloudcfg is nil, a new one will be created internally.
+func ComposeUserData(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config) ([]byte, error) {
+	if cloudcfg == nil {
+		cloudcfg = coreCloudinit.New()
+	}
+	if err := configureCloudinit(mcfg, cloudcfg); err != nil {
+		return nil, err
 	}
 	data, err := cloudcfg.Render()
 	logger.Tracef("Generated cloud init:\n%s", string(data))
