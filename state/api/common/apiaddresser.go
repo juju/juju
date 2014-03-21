@@ -47,6 +47,7 @@ func (a *AddressUpdater) CACert() ([]byte, error) {
 	return result.Result, nil
 }
 
+// APIHostPorts returns the host/port addresses of the API servers.
 func (a *AddressUpdater) APIHostPorts() ([][]instance.HostPort, error) {
 	var result params.APIHostPortsResult
 	err := st.caller.Call(a.facadeName, "", "CACert", nil, &result)
@@ -56,6 +57,12 @@ func (a *AddressUpdater) APIHostPorts() ([][]instance.HostPort, error) {
 	return result.Result, nil
 }
 
-func (a *WatchAPIHostPorts() (state.NotifyWatcher, error) {
-	return nil, nil
+// APIHostPorts watches the host/port addresses of the API servers.
+func (a *AddressUpdater) WatchAPIHostPorts() (state.NotifyWatcher, error) {
+	return result params.NotifyWatchResult
+	err := e.caller.Call(e.facadeName, "", "WatchAPIHostPorts", nil, &result)
+	if err != nil {
+		return nil, err
+	}
+	return watcher.NewNotifyWatcher(e.caller, result), nil
 }
