@@ -28,8 +28,15 @@ type backingMachine machineDoc
 
 func (m *backingMachine) updated(st *State, store *multiwatcher.Store, id interface{}) error {
 	info := &params.MachineInfo{
-		Id: m.Id,
+		Id:                       m.Id,
+		Life:                     params.Life(m.Life.String()),
+		Series:                   m.Series,
+		Jobs:                     paramsJobsFromJobs(m.Jobs),
+		Addresses:                addressesToInstanceAddresses(m.Addresses),
+		SupportedContainers:      m.SupportedContainers,
+		SupportedContainersKnown: m.SupportedContainersKnown,
 	}
+
 	oldInfo := store.Get(info.EntityId())
 	if oldInfo == nil {
 		// We're adding the entry for the first time,
@@ -41,17 +48,21 @@ func (m *backingMachine) updated(st *State, store *multiwatcher.Store, id interf
 		info.Status = sdoc.Status
 		info.StatusInfo = sdoc.StatusInfo
 	} else {
-		// The entry already exists, so preserve the current status and instance id.
+		// The entry already exists, so preserve the current status and
+		// instance data.
 		oldInfo := oldInfo.(*params.MachineInfo)
 		info.Status = oldInfo.Status
 		info.StatusInfo = oldInfo.StatusInfo
 		info.InstanceId = oldInfo.InstanceId
+		info.HardwareCharacteristics = oldInfo.HardwareCharacteristics
 	}
-	// If the machine is been provisioned, fetch the instance id if required.
+	// If the machine is been provisioned, fetch the instance id as required,
+	// and set instance id and hardware characteristics.
 	if m.Nonce != "" && info.InstanceId == "" {
 		instanceData, err := getInstanceData(st, m.Id)
 		if err == nil {
 			info.InstanceId = string(instanceData.InstanceId)
+			info.HardwareCharacteristics = hardwareCharacteristics(instanceData)
 		} else if !errors.IsNotFoundError(err) {
 			return err
 		}
