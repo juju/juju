@@ -18,7 +18,7 @@ const provisioner = "Provisioner"
 // State provides access to the Machiner API facade.
 type State struct {
 	*common.EnvironWatcher
-	*common.AddressUpdater
+	*common.APIAddresser
 
 	caller base.Caller
 }
@@ -27,7 +27,7 @@ type State struct {
 func NewState(caller base.Caller) *State {
 	return &State{
 		EnvironWatcher: common.NewEnvironWatcher(provisioner, caller),
-		AddressUpdate:  common.NewAddressUpdater("Provisioner", caller),
+		APIAddresser:   common.NewAPIAddresser("Provisioner", caller),
 		caller:         caller}
 }
 
