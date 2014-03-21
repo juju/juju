@@ -11,29 +11,14 @@ import (
 
 type stateSuite struct {
 	uniterSuite
-	apitesting.APIAddresserSuite
+	*apitesting.APIAddresserTests
 }
 
 var _ = gc.Suite(&stateSuite{})
 
-func (s *stateSuite) SetUpSuite(c *gc.C) {
-	s.uniterSuite.SetUpSuite(c)
-	s.APIAddresserSuite.SetUpSuite(c)
-}
-
-func (s *stateSuite) TearDownSuite(c *gc.C) {
-	s.APIAddresserSuite.TearDownSuite(c)
-	s.uniterSuite.TearDownSuite(c)
-}
-
 func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.uniterSuite.SetUpTest(c)
-	s.APIAddresserSuite.SetUpTest(c, s.State, s.uniter)
-}
-
-func (s *stateSuite) TearDownTest(c *gc.C) {
-	s.APIAddresserSuite.TearDownTest(c)
-	s.uniterSuite.TearDownTest(c)
+	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.State, s.uniter)
 }
 
 func (s *stateSuite) TestProviderType(c *gc.C) {

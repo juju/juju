@@ -12,7 +12,7 @@ import (
 
 type rsyslogSuite struct {
 	jujutesting.JujuConnSuite
-	*commontesting.EnvironWatcherTest
+	*commontesting.EnvironWatcherTests
 }
 
 var _ = gc.Suite(&rsyslogSuite{})
@@ -24,9 +24,8 @@ func (s *rsyslogSuite) SetUpTest(c *gc.C) {
 	rsyslogAPI := stateAPI.Rsyslog()
 	c.Assert(rsyslogAPI, gc.NotNil)
 
-	s.EnvironWatcherTest = commontesting.NewEnvironWatcherTest(
+	s.EnvironWatcherTests = commontesting.NewEnvironWatcherTests(
 		rsyslogAPI,
-		s.State,
 		s.BackingState,
 		commontesting.NoSecrets,
 	)
