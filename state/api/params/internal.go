@@ -182,7 +182,6 @@ type EnvironConfig map[string]interface{}
 
 // EnvironConfigResult holds environment configuration or an error.
 type EnvironConfigResult struct {
-	Error  *Error
 	Config EnvironConfig
 }
 
