@@ -15,7 +15,6 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/storage"
@@ -76,21 +75,7 @@ func configGetter(c *gc.C) configFunc {
 	return func() *config.Config { return cfg }
 }
 
-func (s *BootstrapSuite) TestCannotWriteStateFile(c *gc.C) {
-	brokenStorage := &mockStorage{
-		Storage: newStorage(s, c),
-		putErr:  fmt.Errorf("noes!"),
-	}
-	env := &mockEnviron{storage: brokenStorage, config: configGetter(c)}
-	ctx := coretesting.Context(c)
-	err := common.Bootstrap(ctx, env, constraints.Value{})
-	c.Assert(err, gc.ErrorMatches, "cannot create initial state file: noes!")
-}
-
 func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
-	stor := newStorage(s, c)
-	checkURL, err := stor.URL(bootstrap.StateFile)
-	c.Assert(err, gc.IsNil)
 	checkCons := constraints.MustParse("mem=8G")
 
 	startInstance := func(
@@ -99,18 +84,18 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 		instance.Instance, *instance.HardwareCharacteristics, error,
 	) {
 		c.Assert(cons, gc.DeepEquals, checkCons)
-		c.Assert(mcfg, gc.DeepEquals, environs.NewBootstrapMachineConfig(checkURL, mcfg.SystemPrivateSSHKey))
+		c.Assert(mcfg, gc.DeepEquals, environs.NewBootstrapMachineConfig(mcfg.SystemPrivateSSHKey))
 		return nil, nil, fmt.Errorf("meh, not started")
 	}
 
 	env := &mockEnviron{
-		storage:       stor,
+		storage:       newStorage(s, c),
 		startInstance: startInstance,
 		config:        configGetter(c),
 	}
 
 	ctx := coretesting.Context(c)
-	err = common.Bootstrap(ctx, env, checkCons)
+	err := common.Bootstrap(ctx, env, checkCons)
 	c.Assert(err, gc.ErrorMatches, "cannot start bootstrap instance: meh, not started")
 }
 
@@ -192,13 +177,11 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	checkInstanceId := "i-success"
 	checkHardware := instance.MustParseHardware("mem=2T")
 
-	checkURL := ""
 	startInstance := func(
 		_ constraints.Value, _ environs.Networks, _ tools.List, mcfg *cloudinit.MachineConfig,
 	) (
 		instance.Instance, *instance.HardwareCharacteristics, error,
 	) {
-		checkURL = mcfg.StateInfoURL
 		return &mockInstance{id: checkInstanceId}, &checkHardware, nil
 	}
 	var mocksConfig = minimalConfig(c)
@@ -226,12 +209,6 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	err := common.Bootstrap(ctx, env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
-	savedState, err := bootstrap.LoadStateFromURL(checkURL, false)
-	c.Assert(err, gc.IsNil)
-	c.Assert(savedState, gc.DeepEquals, &bootstrap.BootstrapState{
-		StateInstances:  []instance.Id{instance.Id(checkInstanceId)},
-		Characteristics: []instance.HardwareCharacteristics{checkHardware},
-	})
 	authKeys := env.Config().AuthorizedKeys()
 	c.Assert(authKeys, gc.Not(gc.Equals), originalAuthKeys)
 	c.Assert(authKeys, jc.HasSuffix, "juju-system-key\n")

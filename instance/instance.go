@@ -112,6 +112,16 @@ func (hc HardwareCharacteristics) String() string {
 	return strings.Join(strs, " ")
 }
 
+// Implement gnuflag.Value
+func (hc *HardwareCharacteristics) Set(s string) error {
+	parsed, err := ParseHardware(s)
+	if err != nil {
+		return err
+	}
+	*hc = parsed
+	return nil
+}
+
 // MustParseHardware constructs a HardwareCharacteristics from the supplied arguments,
 // as Parse, but panics on failure.
 func MustParseHardware(args ...string) HardwareCharacteristics {
