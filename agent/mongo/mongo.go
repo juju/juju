@@ -89,7 +89,7 @@ func ensureMongoServer(address, dataDir string, port int, info *mgo.DialInfo) er
 		logger.Infof("Mongod service %q started.", name)
 	}
 
-	if err := initiateReplicaSet(address, info); err != nil {
+	if err := initiateReplicaSet(address, port, info); err != nil {
 		logger.Debugf("Error initiating replicaset: %v", err)
 		return fmt.Errorf("failed to initiate mongo replicaset: %v", err)
 	}
@@ -100,8 +100,7 @@ func ensureMongoServer(address, dataDir string, port int, info *mgo.DialInfo) er
 // If no existing configuration is found one is created using Initiate.
 //
 // This is a variable so it can be overridden in tests
-var initiateReplicaSet = func(address string, info *mgo.DialInfo) error {
-	logger.Debugf("Initiating replicaset")
+var initiateReplicaSet = func(address string, port int, info *mgo.DialInfo) error {
 	session, err := mgo.DialWithInfo(info)
 	if err != nil {
 		return err
@@ -110,6 +109,9 @@ var initiateReplicaSet = func(address string, info *mgo.DialInfo) error {
 
 	_, err = replicaset.CurrentConfig(session)
 	if err == mgo.ErrNotFound {
+		if address == "localhost" {
+			address = fmt.Sprintf("%s:%d", address, port)
+		}
 		return replicaset.Initiate(session, address, replicaSetName)
 	}
 	return err

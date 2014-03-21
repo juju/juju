@@ -121,7 +121,7 @@ func testJournalDirs(dir string, c *gc.C) {
 }
 
 func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
-	s.PatchValue(&initiateReplicaSet, func(address string, info *mgo.DialInfo) error { return nil })
+	s.PatchValue(&initiateReplicaSet, func(address string, port int, info *mgo.DialInfo) error { return nil })
 
 	dir := c.MkDir()
 	address := "localhost"
@@ -153,7 +153,7 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 }
 
 func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
-	s.PatchValue(&initiateReplicaSet, func(address string, info *mgo.DialInfo) error { return nil })
+	s.PatchValue(&initiateReplicaSet, func(address string, port int, info *mgo.DialInfo) error { return nil })
 
 	dir := c.MkDir()
 	address := "localhost"
@@ -187,13 +187,13 @@ func (s *MongoSuite) TestInitiateReplicaSet(c *gc.C) {
 	info.Direct = true
 
 	// Setup the inital ReplicaSet
-	err = initiateReplicaSet(inst.Addr(), info)
+	err = initiateReplicaSet(inst.Addr(), inst.Port(), info)
 	c.Assert(err, gc.IsNil)
 
 	// This would return a mgo.QueryError if a ReplicaSet
 	// configuration already existed but we tried to created
 	// one with replicaset.Initiate again.
-	err = initiateReplicaSet(inst.Addr(), info)
+	err = initiateReplicaSet(inst.Addr(), inst.Port(), info)
 	c.Assert(err, gc.IsNil)
 }
 
