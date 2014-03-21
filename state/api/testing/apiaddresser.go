@@ -75,3 +75,6 @@ func (s *APIAddresserSuite) TestCACert(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(caCert, gc.DeepEquals, s.state.CACert())
 }
+
+func (s *APIAddresserSuite) TestWatchAPIHostPorts(c *gc.C) {
+}
