@@ -9,9 +9,31 @@ import (
 
 type stateSuite struct {
 	uniterSuite
+	*APIAddresserSuite
 }
 
 var _ = gc.Suite(&stateSuite{})
+
+func (s *stateSuite) SetUpSuite(c *gc.C) {
+	s.uniterSuite.SetUpSuite(c)
+	s.APIAddresserSuite = apitesting.NewAPIAddresserSuite(s.State, s.uniter)
+	s.APIAddresserSuite.SetUpSuite(c)
+}
+
+func (s *stateSuite) TearDownSuite(c *gc.C) {
+	s.APIAddresserSuite.TearDownSuite(c)
+	s.uniterSuite.TearDownSuite(c)
+}
+
+func (s *stateSuite) SetUpTest(c *gc.C) {
+	s.uniterSuite.SetUpTest(c)
+	s.APIAddresserSuite.SetUpTest(c)
+}
+
+func (s *stateSuite) TearDownTest(c *gc.C) {
+	s.APIAddresserSuite.TearDownTest(c)
+	s.uniterSuite.TearDownTest(c)
+}
 
 func (s *stateSuite) TestAPIAddresses(c *gc.C) {
 	stateAPIAddresses, err := s.State.APIAddressesFromMachines()
