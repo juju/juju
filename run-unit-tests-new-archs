@@ -46,6 +46,8 @@ set -eux
 sudo apt-get update
 if [[ $is_ephemeral == "true" ]]; then
     sudo apt-get upgrade -y
+    # Looks like sources.list got changed after the upgrade on arm64.
+    sudo apt-get update
 fi
 if [[ \$(apt-cache madison juju-mongodb) =~ .*juju-mongodb.* ]]; then
     juju_db="juju-mongodb"
