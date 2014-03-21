@@ -11,6 +11,7 @@ PACKAGING_DIR="$TMP_DIR/packaging"
 BUILD_DIR="$TMP_DIR/build"
 DEFAULT_STABLE_PACKAGING_BRANCH="lp:ubuntu/juju-core"
 DEFAULT_DEVEL_PACKAGING_BRANCH="lp:~juju-qa/juju-core/devel-packaging"
+DEFAULT_DEVEL_MONGODB_PACKAGING_BRANCH="lp:~juju-qa/juju-core/devel-mongodb-packaging"
 DEFAULT_1_16_PACKAGING_BRANCH="lp:~juju-qa/juju-core/1.16-packaging"
 DEVEL_SERIES=$(distro-info --devel --codename)
 DEVEL_VERSION=$(distro-info --release --devel | cut -d ' ' -f1)
@@ -19,7 +20,7 @@ EXTRA_RELEASES="saucy:13.10 precise:12.04"
 
 usage() {
     echo "usage: $0 <PURPOSE> tarball 'name-email' [bug-number ...]"
-    echo "  PURPOSE: stable, devel, or testing,"
+    echo "  PURPOSE: stable, devel, devel-mongodb or testing,"
     echo "     which selects the packaging branch."
     echo "  tarball: The path to the juju-core tarball."
     echo "  name-email: The 'name <email>' string used in the changelog."
@@ -132,6 +133,9 @@ if [[ $VERSION =~ ^1\.16\.* ]]; then
 elif [[ $PURPOSE == "stable" ]]; then
     PACKAGING_BRANCH=$DEFAULT_STABLE_PACKAGING_BRANCH
     PPA="ppa:juju-packaging/stable"
+elif [[ $PURPOSE == "devel-mongodb" ]]; then
+    PACKAGING_BRANCH=$DEFAULT_DEVEL_MONGODB_PACKAGING_BRANCH
+    PPA="ppa:juju-packaging/devel"
 elif [[ $PURPOSE == "devel" || $PURPOSE == "testing" ]]; then
     PACKAGING_BRANCH=$DEFAULT_DEVEL_PACKAGING_BRANCH
     PPA="ppa:juju-packaging/devel"
