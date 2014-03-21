@@ -15,7 +15,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/state/api/params"
-	apitesting "launchpad.net/juju-core/state/api/common/testing"
+	apitesting "launchpad.net/juju-core/state/api/testing"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 )

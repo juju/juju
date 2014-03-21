@@ -14,7 +14,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	apitesting "launchpad.net/juju-core/state/api/common/testing"
+	apitesting "launchpad.net/juju-core/state/api/testing"
 	"launchpad.net/juju-core/state/api/machiner"
 	"launchpad.net/juju-core/state/api/params"
 	statetesting "launchpad.net/juju-core/state/testing"
