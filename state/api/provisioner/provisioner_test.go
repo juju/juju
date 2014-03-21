@@ -64,7 +64,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.provisioner, gc.NotNil)
 
 	s.EnvironWatcherTests = apitesting.NewEnvironWatcherTests(s.provisioner, s.BackingState, apitesting.HasSecrets)
-	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.BackingState, s.provisioner)
+	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.provisioner, s.BackingState)
 }
 
 func (s *provisionerSuite) TestMachineTagAndId(c *gc.C) {

@@ -46,9 +46,9 @@ var _ = gc.Suite(&deployerSuite{})
 func (s *deployerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.stateAPI, s.machine = s.OpenAPIAsNewMachine(c, state.JobManageEnviron, state.JobHostUnits)
-	s.machine.SetAddresses(instance.NewAddresses([]string{"0.1.2.3"}))
+	err := s.machine.SetAddresses(instance.NewAddresses([]string{"0.1.2.3"}))
+	c.Assert(err, gc.IsNil)
 
-	var err error
 	// Create the needed services and relate them.
 	s.service0 = s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	s.service1 = s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
@@ -73,7 +73,7 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	s.st = s.stateAPI.Deployer()
 	c.Assert(s.st, gc.NotNil)
 
-	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.BackingState, s.st)
+	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.st, s.BackingState)
 }
 
 // Note: This is really meant as a unit-test, this isn't a test that

@@ -16,7 +16,7 @@ type APIAddresserTests struct {
 	facade APIAddresserFacade
 }
 
-func NewAPIAddresserTests(st *state.State, facade APIAddresserFacade) *APIAddresserTests {
+func NewAPIAddresserTests(facade APIAddresserFacade, st *state.State) *APIAddresserTests {
 	return &APIAddresserTests{
 		state:  st,
 		facade: facade,

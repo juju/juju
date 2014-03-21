@@ -41,13 +41,14 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	m, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
-	m.SetAddresses(instance.NewAddresses([]string{"127.0.0.1"}))
+	err = m.SetAddresses(instance.NewAddresses([]string{"127.0.0.1"}))
+	c.Assert(err, gc.IsNil)
 
 	s.st, s.machine = s.OpenAPIAsNewMachine(c)
 	// Create the machiner API facade.
 	s.machiner = s.st.Machiner()
 	c.Assert(s.machiner, gc.NotNil)
-	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.BackingState, s.machiner)
+	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.machiner, s.BackingState)
 }
 
 func (s *machinerSuite) TestMachineAndMachineTag(c *gc.C) {
