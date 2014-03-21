@@ -41,6 +41,7 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.BackingState, s.machiner)
 	s.st, s.machine = s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	s.machine.SetAddresses(instance.NewAddresses([]string{"127.0.0.1"}))
 	// Create the machiner API facade.
 	s.machiner = s.st.Machiner()
 	c.Assert(s.machiner, gc.NotNil)
