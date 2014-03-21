@@ -67,3 +67,7 @@ func (fakeAddresses) CACert() []byte {
 func (fakeAddresses) APIHostPorts() ([][]instance.HostPort, error) {
 	panic("should never be called")
 }
+
+func (fakeAddresses) WatchAPIHostPorts() state.NotifyWatcher {
+	panic("should never be called")
+}
