@@ -12,7 +12,6 @@ type APIAddresserFacade interface {
 func (s *APIAddresserSuite) SetUpSuite(c *gc.C, jcSuite testing.JujuConnSuite) {
 }
 
-
 func (s *deployerSuite) TestAPIAddresses(c *gc.C) {
 	addrs := []instance.Address{
 		instance.NewAddress("0.1.2.3"),
