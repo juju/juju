@@ -8,7 +8,7 @@ func stepsFor118() []Step {
 	return []Step{
 		&upgradeStep{
 			description: "make $DATADIR/locks owned by ubuntu:ubuntu",
-			targets:     []Target{HostMachine},
+			targets:     []Target{AllMachines},
 			run:         ensureLockDirExistsAndUbuntuWritable,
 		},
 		&upgradeStep{
@@ -35,6 +35,11 @@ func stepsFor118() []Step {
 			description: "migrate local provider agent config",
 			targets:     []Target{StateServer},
 			run:         migrateLocalProviderAgentConfig,
+		},
+		&upgradeStep{
+			description: "make /home/ubuntu/.profile source .juju-proxy file",
+			targets:     []Target{AllMachines},
+			run:         ensureUbuntuDotProfileSourcesProxyFile,
 		},
 	}
 }
