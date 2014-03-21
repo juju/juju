@@ -117,7 +117,8 @@ func (*destroyEnvSuite) TestDestroyEnvironmentCommandConfirmationFlag(c *gc.C) {
 
 func (s *destroyEnvSuite) TestDestroyEnvironmentCommandConfirmation(c *gc.C) {
 	var stdin, stdout bytes.Buffer
-	ctx := cmd.DefaultContext()
+	ctx, err := cmd.DefaultContext()
+	c.Assert(err, gc.IsNil)
 	ctx.Stdout = &stdout
 	ctx.Stdin = &stdin
 

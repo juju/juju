@@ -123,7 +123,7 @@ func (*CmdSuite) TestEnvironmentInit(c *gc.C) {
 }
 
 func nullContext() *cmd.Context {
-	ctx := cmd.DefaultContext()
+	ctx, _ := cmd.DefaultContext()
 	ctx.Stdin = io.LimitReader(nil, 0)
 	ctx.Stdout = ioutil.Discard
 	ctx.Stderr = ioutil.Discard

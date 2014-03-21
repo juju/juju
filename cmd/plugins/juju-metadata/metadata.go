@@ -25,6 +25,11 @@ Juju environment.
 // to the cmd package. This function is not redundant with main, because it
 // provides an entry point for testing with arbitrary command line arguments.
 func Main(args []string) {
+	ctx, err := cmd.DefaultContext()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(2)
+	}
 	if err := juju.InitJujuHome(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %s\n", err)
 		os.Exit(2)
@@ -42,7 +47,7 @@ func Main(args []string) {
 	metadatacmd.Register(&ValidateToolsMetadataCommand{})
 	metadatacmd.Register(&SignMetadataCommand{})
 
-	os.Exit(cmd.Main(metadatacmd, cmd.DefaultContext(), args[1:]))
+	os.Exit(cmd.Main(metadatacmd, ctx, args[1:]))
 }
 
 func main() {
