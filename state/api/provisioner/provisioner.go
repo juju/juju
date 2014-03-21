@@ -18,6 +18,7 @@ const provisioner = "Provisioner"
 // State provides access to the Machiner API facade.
 type State struct {
 	*common.EnvironWatcher
+	*common.APIAddresser
 
 	caller base.Caller
 }
@@ -26,8 +27,8 @@ type State struct {
 func NewState(caller base.Caller) *State {
 	return &State{
 		EnvironWatcher: common.NewEnvironWatcher(provisioner, caller),
-
-		caller: caller}
+		APIAddresser:   common.NewAPIAddresser("Provisioner", caller),
+		caller:         caller}
 }
 
 // machineLife requests the lifecycle of the given machine from the server.
@@ -68,26 +69,6 @@ func (st *State) WatchEnvironMachines() (watcher.StringsWatcher, error) {
 func (st *State) StateAddresses() ([]string, error) {
 	var result params.StringsResult
 	err := st.caller.Call(provisioner, "", "StateAddresses", nil, &result)
-	if err != nil {
-		return nil, err
-	}
-	return result.Result, nil
-}
-
-// APIAddresses returns the list of addresses used to connect to the API.
-func (st *State) APIAddresses() ([]string, error) {
-	var result params.StringsResult
-	err := st.caller.Call(provisioner, "", "APIAddresses", nil, &result)
-	if err != nil {
-		return nil, err
-	}
-	return result.Result, nil
-}
-
-// CACert returns the certificate used to validate the state connection.
-func (st *State) CACert() ([]byte, error) {
-	var result params.BytesResult
-	err := st.caller.Call(provisioner, "", "CACert", nil, &result)
 	if err != nil {
 		return nil, err
 	}
