@@ -69,6 +69,13 @@ func (a *APIAddresser) APIAddresses() (params.StringsResult, error) {
 	}, nil
 }
 
+// CACert returns the certificate used to validate the state connection.
+func (a *APIAddresser) CACert() params.BytesResult {
+	return params.BytesResult{
+		Result: a.getter.CACert(),
+	}
+}
+
 // StateAddresser implements a common set of methods for getting state
 // server addresses, and the CA certificate used to authenticate them.
 type StateAddresser struct {
@@ -90,15 +97,4 @@ func (a *StateAddresser) StateAddresses() (params.StringsResult, error) {
 	return params.StringsResult{
 		Result: addrs,
 	}, nil
-}
-
-// CACert returns the certificate used to validate the state connection.
-// Note: there is an open bug that Uniter (which uses only APIAddresser) should
-// add CACert to its interface. When it does, this API si likely to move to
-// APIAddresser instead of StateAddresser. (All other users of StateAddresser
-// already also expose APIAddresser)
-func (a *StateAddresser) CACert() params.BytesResult {
-	return params.BytesResult{
-		Result: a.getter.CACert(),
-	}
 }
