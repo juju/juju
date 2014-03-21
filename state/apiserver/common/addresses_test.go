@@ -50,6 +50,8 @@ func (s *apiAddresserSuite) TestAPIAddresses(c *gc.C) {
 	c.Assert(result.Result, gc.DeepEquals, []string{"apiaddresses:1", "apiaddresses:2"})
 }
 
+var _ AddressAndCertGetter = fakeAddresses{}
+
 type fakeAddresses struct{}
 
 func (fakeAddresses) Addresses() ([]string, error) {
@@ -64,6 +66,6 @@ func (fakeAddresses) CACert() []byte {
 	return []byte("a cert")
 }
 
-func (fakeAdresses) APIHostPorts() ([][]instance.HostPort, error) {
+func (fakeAddresses) APIHostPorts() ([][]instance.HostPort, error) {
 	panic("should never be called")
 }
