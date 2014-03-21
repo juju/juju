@@ -4,7 +4,7 @@
 package uniter_test
 
 import (
-	apitesting "launchpad.net/juju-core/state/api/testing"
+	apitesting "launchpad.net/juju-core/state/api/common/testing"
 	
 	gc "launchpad.net/gocheck"
 )
