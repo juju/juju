@@ -86,7 +86,14 @@ func (s *Server) resolveURL(url string) (*charm.URL, error) {
 		return nil, err
 	}
 	if series == "" {
-		return &charm.URL{Reference: ref, Series: DefaultSeries}, nil
+		prefSeries, err := s.store.Series(ref)
+		if err != nil {
+			return nil, err
+		}
+		if len(prefSeries) == 0 {
+			return nil, ErrNotFound
+		}
+		return &charm.URL{Reference: ref, Series: prefSeries[0]}, nil
 	}
 	return &charm.URL{Reference: ref, Series: series}, nil
 }
