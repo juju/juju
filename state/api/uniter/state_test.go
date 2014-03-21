@@ -4,12 +4,14 @@
 package uniter_test
 
 import (
+	apitesting "launchpad.net/juju-core/state/api/testing"
+	
 	gc "launchpad.net/gocheck"
 )
 
 type stateSuite struct {
 	uniterSuite
-	*APIAddresserSuite
+	*apitesting .APIAddresserSuite
 }
 
 var _ = gc.Suite(&stateSuite{})
