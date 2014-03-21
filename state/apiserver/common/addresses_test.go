@@ -36,7 +36,7 @@ func (s *stateAddresserSuite) TestStateAddresses(c *gc.C) {
 }
 
 func (s *apiAddresserSuite) SetUpTest(c *gc.C) {
-	s.addresser = common.NewAPIAddresser(fakeAddresses{})
+	s.addresser = common.NewAPIAddresser(fakeAddresses{}, common.NewResources())
 }
 
 func (s *apiAddresserSuite) TestAPIAddresses(c *gc.C) {
@@ -50,7 +50,7 @@ func (s *apiAddresserSuite) TestCACert(c *gc.C) {
 	c.Assert(string(result.Result), gc.Equals, "a cert")
 }
 
-var _ AddressAndCertGetter = fakeAddresses{}
+var _ common.AddressAndCertGetter = fakeAddresses{}
 
 type fakeAddresses struct{}
 
@@ -67,5 +67,9 @@ func (fakeAddresses) CACert() []byte {
 }
 
 func (fakeAddresses) APIHostPorts() ([][]instance.HostPort, error) {
+	panic("should never be called")
+}
+
+func (fakeAddresses) WatchAPIHostPorts() state.NotifyWatcher {
 	panic("should never be called")
 }
