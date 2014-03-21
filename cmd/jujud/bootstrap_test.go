@@ -358,11 +358,8 @@ func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	maybePanic(err)
 	env, err := provider.Prepare(nullContext(), cfg)
 	maybePanic(err)
-	closer, stor, _ := envtesting.CreateLocalTestStorage(c)
 
-	s.AddCleanup(func(*gc.C) { closer.Close() })
-
-	envtesting.UploadFakeTools(c, stor)
+	envtesting.MustUploadFakeTools(env.Storage())
 	_, _, err = jujutesting.StartInstance(env, "0")
 	maybePanic(err)
 	s.testConfig = b64yaml(env.Config().AllAttrs()).encode()

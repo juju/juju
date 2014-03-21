@@ -146,9 +146,6 @@ type MachineConfig struct {
 	// MachineAgentServiceName is the Upstart service name for the Juju machine agent.
 	MachineAgentServiceName string
 
-	// MongoServiceName is the Upstart service name for the Mongo database.
-	MongoServiceName string
-
 	// ProxySettings define normal http, https and ftp proxies.
 	ProxySettings osenv.ProxySettings
 
@@ -447,9 +444,6 @@ func (cfg *MachineConfig) addAgentInfo(c *cloudinit.Config, tag string) (agent.C
 		return nil, err
 	}
 	acfg.SetValue(agent.AgentServiceName, cfg.MachineAgentServiceName)
-	if cfg.StateServer {
-		acfg.SetValue(agent.MongoServiceName, cfg.MongoServiceName)
-	}
 	cmds, err := acfg.WriteCommands()
 	if err != nil {
 		return nil, errgo.Annotate(err, "failed to write commands")
@@ -639,9 +633,6 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		return fmt.Errorf("missing machine agent service name")
 	}
 	if cfg.StateServer {
-		if cfg.MongoServiceName == "" {
-			return fmt.Errorf("missing mongo service name")
-		}
 		if cfg.Config == nil {
 			return fmt.Errorf("missing environment configuration")
 		}

@@ -62,6 +62,7 @@ type cloudinitTest struct {
 func minimalConfig(c *gc.C) *config.Config {
 	cfg, err := config.New(config.NoDefaults, testing.FakeConfig())
 	c.Assert(err, gc.IsNil)
+	c.Assert(cfg, gc.NotNil)
 	return cfg
 }
 
@@ -108,7 +109,6 @@ var cloudinitTests = []cloudinitTest{
 			StateInfoURL:            "some-url",
 			SystemPrivateSSHKey:     "private rsa key",
 			MachineAgentServiceName: "jujud-machine-0",
-			MongoServiceName:        "juju-db",
 		},
 		setEnvConfig: true,
 		expectScripts: `
@@ -181,7 +181,6 @@ start jujud-machine-0
 			StateInfoURL:            "some-url",
 			SystemPrivateSSHKey:     "private rsa key",
 			MachineAgentServiceName: "jujud-machine-0",
-			MongoServiceName:        "juju-db",
 		},
 		setEnvConfig: true,
 		inexactMatch: true,
@@ -347,7 +346,6 @@ curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{ti
 			StateInfoURL:            "some-url",
 			SystemPrivateSSHKey:     "private rsa key",
 			MachineAgentServiceName: "jujud-machine-0",
-			MongoServiceName:        "juju-db",
 		},
 		setEnvConfig: true,
 		inexactMatch: true,
@@ -446,9 +444,6 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 			checkPackage(c, x, "mongodb-server", true)
 			source := "ppa:juju/stable"
 			checkAptSource(c, x, source, "", test.cfg.NeedMongoPPA())
-			c.Assert(acfg, jc.Contains, "MONGO_SERVICE_NAME: juju-db")
-		} else {
-			c.Assert(acfg, gc.Not(jc.Contains), "MONGO_SERVICE_NAME")
 		}
 		source := "deb http://ubuntu-cloud.archive.canonical.com/ubuntu precise-updates/cloud-tools main"
 		needCloudArchive := test.cfg.Tools.Version.Series == "precise"
@@ -730,9 +725,6 @@ var verifyTests = []struct {
 	{"missing machine agent service name", func(cfg *cloudinit.MachineConfig) {
 		cfg.MachineAgentServiceName = ""
 	}},
-	{"missing mongo service name", func(cfg *cloudinit.MachineConfig) {
-		cfg.MongoServiceName = ""
-	}},
 }
 
 // TestCloudInitVerify checks that required fields are appropriately
@@ -765,7 +757,6 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		MachineNonce:            "FAKE_NONCE",
 		SystemPrivateSSHKey:     "private rsa key",
 		MachineAgentServiceName: "jujud-machine-99",
-		MongoServiceName:        "juju-db",
 	}
 	// check that the base configuration does not give an error
 	ci := coreCloudinit.New()
@@ -776,6 +767,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		c.Logf("test %d. %s", i, test.err)
 		cfg1 := *cfg
 		test.mutate(&cfg1)
+
 		err = cloudinit.Configure(&cfg1, ci)
 		c.Assert(err, gc.ErrorMatches, "invalid machine configuration: "+test.err)
 	}

@@ -88,7 +88,6 @@ func migrateLocalProviderAgentConfig(context Context) error {
 		// ContainerType is empty on the bootstrap node.
 		agent.ContainerType:    "",
 		agent.AgentServiceName: "juju-agent-" + namespace,
-		agent.MongoServiceName: "juju-db-" + namespace,
 	}
 	deprecatedValues := []string{
 		"SHARED_STORAGE_ADDR",

@@ -56,40 +56,41 @@ func MongodPath() (string, error) {
 var EnsureMongoServer = ensureMongoServer
 
 func ensureMongoServer(address, dataDir string, port int, info *mgo.DialInfo) error {
+	logger.Debugf("Ensuring mongo server is running.  address: %v, dir: %v, port: %v, dialinfo: %#v",
+		address, dataDir, port, *info)
 	dbDir := filepath.Join(dataDir, "db")
 	name := makeServiceName(mongoScriptVersion)
-	service, err := mongoUpstartService(name, dataDir, dbDir, port)
-	if err != nil {
-		return err
-	}
-	if service.Installed() {
-		if !service.Running() {
-			if err := service.Start(); err != nil {
-				return fmt.Errorf("Failed to start %q service: %v", name, err)
-			}
-			logger.Infof("Mongod service %q started.", name)
-		} else {
-			logger.Infof("Mongod service %q already running, nothing to do.", name)
-		}
-		return nil
-	}
 
-	logger.Infof("Installing mongod service %q", name)
 	if err := removeOldMongoServices(mongoScriptVersion); err != nil {
 		return err
 	}
 
-	if err := makeJournalDirs(dbDir); err != nil {
+	service, err := mongoUpstartService(name, dataDir, dbDir, port)
+	if err != nil {
 		return err
 	}
 
-	logger.Debugf("mongod upstart command: %s", service.Cmd)
-	err = service.Install()
-	if err != nil {
-		return fmt.Errorf("failed to install mongo service %q: %v", service.Name, err)
+	if !service.Installed() {
+		if err := makeJournalDirs(dbDir); err != nil {
+			return err
+		}
+
+		logger.Debugf("mongod upstart command: %s", service.Cmd)
+		err = service.Install()
+		if err != nil {
+			return fmt.Errorf("failed to install mongo service %q: %v", service.Name, err)
+		}
+	}
+
+	if !service.Running() {
+		if err := service.Start(); err != nil {
+			return fmt.Errorf("Failed to start %q service: %v", name, err)
+		}
+		logger.Infof("Mongod service %q started.", name)
 	}
 
 	if err := initiateReplicaSet(address, info); err != nil {
+		logger.Debugf("Error initiating replicaset: %v", err)
 		return fmt.Errorf("failed to initiate mongo replicaset: %v", err)
 	}
 	return nil
@@ -100,6 +101,7 @@ func ensureMongoServer(address, dataDir string, port int, info *mgo.DialInfo) er
 //
 // This is a variable so it can be overridden in tests
 var initiateReplicaSet = func(address string, info *mgo.DialInfo) error {
+	logger.Debugf("Initiating replicaset")
 	session, err := mgo.DialWithInfo(info)
 	if err != nil {
 		return err
@@ -164,6 +166,12 @@ func removeOldMongoServices(curVersion int) error {
 
 func makeServiceName(version int) string {
 	return fmt.Sprintf("juju-db-v%d", version)
+}
+
+// RemoveService will stop and remove Juju's mongo upstart service.
+func RemoveService() error {
+	svc := upstart.NewService(makeServiceName(mongoScriptVersion))
+	return svc.StopAndRemove()
 }
 
 // mongoScriptVersion keeps track of changes to the mongo upstart script.
