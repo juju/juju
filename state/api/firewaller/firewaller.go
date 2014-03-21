@@ -75,9 +75,6 @@ func (st *State) EnvironConfig() (*config.Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := result.Error; err != nil {
-		return nil, err
-	}
 	conf, err := config.New(config.NoDefaults, result.Config)
 	if err != nil {
 		return nil, err
