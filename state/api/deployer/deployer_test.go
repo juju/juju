@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/state/api/params"
+	apitesting "launchpad.net/juju-core/state/api/common/testing"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 )
@@ -25,6 +26,7 @@ func TestAll(t *stdtesting.T) {
 
 type deployerSuite struct {
 	testing.JujuConnSuite
+	*apitesting.APIAddresserTests
 
 	stateAPI *api.State
 
@@ -69,6 +71,8 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	// Create the deployer facade.
 	s.st = s.stateAPI.Deployer()
 	c.Assert(s.st, gc.NotNil)
+
+	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.BackingState, s.st)
 }
 
 // Note: This is really meant as a unit-test, this isn't a test that

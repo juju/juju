@@ -31,19 +31,3 @@ func (s *stateSuite) TestProviderType(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(providerType, gc.DeepEquals, cfg.Type())
 }
-
-type noStateServerSuite struct {
-	uniterSuite
-}
-
-var _ = gc.Suite(&noStateServerSuite{})
-
-func (s *noStateServerSuite) SetUpTest(c *gc.C) {
-	// avoid adding the state server machine.
-	s.setUpTest(c, false)
-}
-
-func (s *noStateServerSuite) TestAPIAddressesFailure(c *gc.C) {
-	_, err := s.uniter.APIAddresses()
-	c.Assert(err, gc.ErrorMatches, "no state server machines found")
-}

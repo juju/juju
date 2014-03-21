@@ -39,12 +39,15 @@ var _ = gc.Suite(&machinerSuite{})
 
 func (s *machinerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.BackingState, s.machiner)
-	s.st, s.machine = s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
-	s.machine.SetAddresses(instance.NewAddresses([]string{"127.0.0.1"}))
+	m, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
+	m.SetAddresses(instance.NewAddresses([]string{"127.0.0.1"}))
+
+	s.st, s.machine = s.OpenAPIAsNewMachine(c)
 	// Create the machiner API facade.
 	s.machiner = s.st.Machiner()
 	c.Assert(s.machiner, gc.NotNil)
+	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.BackingState, s.machiner)
 }
 
 func (s *machinerSuite) TestMachineAndMachineTag(c *gc.C) {
@@ -53,13 +56,13 @@ func (s *machinerSuite) TestMachineAndMachineTag(c *gc.C) {
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(machine, gc.IsNil)
 
-	machine, err = s.machiner.Machine("machine-0")
+	machine, err = s.machiner.Machine("machine-1")
 	c.Assert(err, gc.IsNil)
-	c.Assert(machine.Tag(), gc.Equals, "machine-0")
+	c.Assert(machine.Tag(), gc.Equals, "machine-1")
 }
 
 func (s *machinerSuite) TestSetStatus(c *gc.C) {
-	machine, err := s.machiner.Machine("machine-0")
+	machine, err := s.machiner.Machine("machine-1")
 	c.Assert(err, gc.IsNil)
 
 	status, info, data, err := s.machine.Status()
@@ -81,7 +84,7 @@ func (s *machinerSuite) TestSetStatus(c *gc.C) {
 func (s *machinerSuite) TestEnsureDead(c *gc.C) {
 	c.Assert(s.machine.Life(), gc.Equals, state.Alive)
 
-	machine, err := s.machiner.Machine("machine-0")
+	machine, err := s.machiner.Machine("machine-1")
 	c.Assert(err, gc.IsNil)
 
 	err = machine.EnsureDead()
@@ -103,12 +106,12 @@ func (s *machinerSuite) TestEnsureDead(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 
 	err = machine.EnsureDead()
-	c.Assert(err, gc.ErrorMatches, "machine 0 not found")
+	c.Assert(err, gc.ErrorMatches, "machine 1 not found")
 	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 }
 
 func (s *machinerSuite) TestRefresh(c *gc.C) {
-	machine, err := s.machiner.Machine("machine-0")
+	machine, err := s.machiner.Machine("machine-1")
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.Life(), gc.Equals, params.Alive)
 
@@ -122,7 +125,7 @@ func (s *machinerSuite) TestRefresh(c *gc.C) {
 }
 
 func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
-	machine, err := s.machiner.Machine("machine-0")
+	machine, err := s.machiner.Machine("machine-1")
 	c.Assert(err, gc.IsNil)
 
 	addr := s.machine.Addresses()
@@ -141,7 +144,7 @@ func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 }
 
 func (s *machinerSuite) TestWatch(c *gc.C) {
-	machine, err := s.machiner.Machine("machine-0")
+	machine, err := s.machiner.Machine("machine-1")
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.Life(), gc.Equals, params.Alive)
 
