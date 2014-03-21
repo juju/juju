@@ -35,11 +35,6 @@ func (s *stateAddresserSuite) TestStateAddresses(c *gc.C) {
 	c.Assert(result.Result, gc.DeepEquals, []string{"addresses:1", "addresses:2"})
 }
 
-func (s *stateAddresserSuite) TestCACert(c *gc.C) {
-	result := s.addresser.CACert()
-	c.Assert(string(result.Result), gc.Equals, "a cert")
-}
-
 func (s *apiAddresserSuite) SetUpTest(c *gc.C) {
 	s.addresser = common.NewAPIAddresser(fakeAddresses{})
 }
@@ -49,6 +44,13 @@ func (s *apiAddresserSuite) TestAPIAddresses(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Result, gc.DeepEquals, []string{"apiaddresses:1", "apiaddresses:2"})
 }
+
+func (s *apiAddresserSuite) TestCACert(c *gc.C) {
+	result := s.addresser.CACert()
+	c.Assert(string(result.Result), gc.Equals, "a cert")
+}
+
+var _ AddressAndCertGetter = fakeAddresses{}
 
 type fakeAddresses struct{}
 

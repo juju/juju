@@ -50,7 +50,7 @@ func (a *APIAddresser) CACert() ([]byte, error) {
 // APIHostPorts returns the host/port addresses of the API servers.
 func (a *APIAddresser) APIHostPorts() ([][]instance.HostPort, error) {
 	var result params.APIHostPortsResult
-	err := a.caller.Call(a.facadeName, "", "CACert", nil, &result)
+	err := a.caller.Call(a.facadeName, "", "APIHostPorts", nil, &result)
 	if err != nil {
 		return nil, err
 	}
