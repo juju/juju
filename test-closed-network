@@ -29,6 +29,8 @@ done
 if [ "$apt_success" != "0" ]; then
   exit 1
 fi
+# prevent spurious failure on success
+rm .bash_logout
 export JUJU_REPOSITORY="$HOME/repo"
 mkdir -p $JUJU_REPOSITORY/precise
 bzr branch lp:charms/ubuntu $JUJU_REPOSITORY/precise/ubuntu
