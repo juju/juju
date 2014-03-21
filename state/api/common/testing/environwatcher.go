@@ -26,7 +26,7 @@ type EnvironWatcherFacade interface {
 
 type EnvironWatcherTests struct {
 	facade     EnvironWatcherFacade
-	state         *state.State
+	state      *state.State
 	hasSecrets bool
 }
 
@@ -35,8 +35,8 @@ func NewEnvironWatcherTests(
 	st *state.State,
 	hasSecrets bool) *EnvironWatcherTests {
 	return &EnvironWatcherTests{
-		facade: facade,
-		state: st,
+		facade:     facade,
+		state:      st,
 		hasSecrets: hasSecrets,
 	}
 }

@@ -4,8 +4,8 @@
 package common
 
 import (
-	"launchpad.net/juju-core/state/api/base"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/state/api/base"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/watcher"
 )
@@ -15,11 +15,11 @@ type APIAddresser struct {
 	caller     base.Caller
 }
 
-// NewAPIAddresser returns 
+// NewAPIAddresser returns
 func NewAPIAddresser(facadeName string, caller base.Caller) *APIAddresser {
 	return &APIAddresser{
 		facadeName: facadeName,
-		caller: caller,
+		caller:     caller,
 	}
 }
 
@@ -30,7 +30,7 @@ func (a *APIAddresser) APIAddresses() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if err := result.Error; err != nil {
 		return nil, err
 	}
