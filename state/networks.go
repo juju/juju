@@ -23,28 +23,28 @@ func newServiceNetworksDoc(includeNetworks, excludeNetworks []string) serviceNet
 	}
 }
 
-func createNetworksOp(st *State, id string, includeNetworks, excludeNetworks []string) txn.Op {
+func createServiceNetworksOp(st *State, id string, includeNetworks, excludeNetworks []string) txn.Op {
 	return txn.Op{
-		C:      st.networks.Name,
+		C:      st.serviceNetworks.Name,
 		Id:     id,
 		Assert: txn.DocMissing,
 		Insert: newServiceNetworksDoc(includeNetworks, excludeNetworks),
 	}
 }
 
-// While networks are immutable, there is no setNetworksOp function
+// While networks are immutable, there is no setServiceNetworksOp function
 
-func removeNetworksOp(st *State, id string) txn.Op {
+func removeServiceNetworksOp(st *State, id string) txn.Op {
 	return txn.Op{
-		C:      st.networks.Name,
+		C:      st.serviceNetworks.Name,
 		Id:     id,
 		Remove: true,
 	}
 }
 
-func readNetworks(st *State, id string) (includeNetworks, excludeNetworks []string, err error) {
+func readServiceNetworks(st *State, id string) (includeNetworks, excludeNetworks []string, err error) {
 	doc := serviceNetworksDoc{}
-	if err = st.networks.FindId(id).One(&doc); err == mgo.ErrNotFound {
+	if err = st.serviceNetworks.FindId(id).One(&doc); err == mgo.ErrNotFound {
 		err = errors.NotFoundf("service networks")
 	} else if err == nil {
 		includeNetworks = *doc.NetworksToInclude
