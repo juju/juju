@@ -8,6 +8,7 @@ import (
 	"path"
 
 	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/testing"
@@ -64,4 +65,18 @@ func (s *ensureDotProfileSuite) TestIdempotent(c *gc.C) {
 	err = upgrades.EnsureUbuntuDotProfileSourcesProxyFile(s.ctx)
 	c.Assert(err, gc.IsNil)
 	s.assertProfile(c, expectedLine)
+}
+
+func (s *ensureDotProfileSuite) TestProfileUntouchedIfJujuProxyInSource(c *gc.C) {
+	content := "source .juju-proxy\n"
+	s.writeDotProfile(c, content)
+	err := upgrades.EnsureUbuntuDotProfileSourcesProxyFile(s.ctx)
+	c.Assert(err, gc.IsNil)
+	s.assertProfile(c, content)
+}
+
+func (s *ensureDotProfileSuite) TestSkippedIfDotProfileDoesntExist(c *gc.C) {
+	err := upgrades.EnsureUbuntuDotProfileSourcesProxyFile(s.ctx)
+	c.Assert(err, gc.IsNil)
+	c.Assert(path.Join(s.home, ".profile"), jc.DoesNotExist)
 }
