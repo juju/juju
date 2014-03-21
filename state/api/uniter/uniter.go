@@ -28,8 +28,8 @@ type State struct {
 // NewState creates a new client-side Uniter facade.
 func NewState(caller base.Caller, authTag string) *State {
 	return &State{
-		EnvironWatcher: common.NewEnvironWatcher("Uniter", caller),
-		APIAddresser:   common.NewAPIAddresser("Uniter", caller),
+		EnvironWatcher: common.NewEnvironWatcher(uniterFacade, caller),
+		APIAddresser:   common.NewAPIAddresser(uniterFacade, caller),
 		caller:         caller,
 		unitTag:        authTag,
 	}
@@ -41,7 +41,7 @@ func (st *State) call(method string, params, results interface{}) error {
 
 // life requests the lifecycle of the given entity from the server.
 func (st *State) life(tag string) (params.Life, error) {
-	return common.Life(st.caller, "Uniter", tag)
+	return common.Life(st.caller, uniterFacade, tag)
 }
 
 // relation requests relation information from the server.
