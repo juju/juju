@@ -2,8 +2,16 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 package testing
 
+import (
+	gc "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/watcher"
+)
+
 type APIAddresserSuite struct {
-	st *state.State
+	State     *state.State
 	facade APIAddresserFacade
 }
 
@@ -16,7 +24,7 @@ type APIAddresserFacade interface {
 
 func NewAPIAddresserSuite(st *state.State, facade APIAddresserFacade) *APIAddresserSuite {
 	return &APIAddresserSuite{
-		st: st,
+		State:     st,
 		facade: facade,
 	}
 }
@@ -43,30 +51,32 @@ func (s *APIAddresserSuite) TestAPIAddresses(c *gc.C) {
 }
 
 func (s *APIAddresserSuite) TestAPIHostPorts(c *gc.C) {
-	apiHostPorts, err := s.State.APIHostPorts()
+	expectServerAddrs := [][]instance.HostPort{{{
+		Address: instance.NewAddress("0.1.2.24"),
+		Port:    999,
+	}, {
+		Address: instance.NewAddress("example.com"),
+		Port:    1234,
+	}}, {{
+		Address: instance.Address{
+			Value:        "2001:DB8::1",
+			Type:         instance.Ipv6Address,
+			NetworkName:  "someNetwork",
+			NetworkScope: instance.NetworkCloudLocal,
+		},
+		Port: 999,
+	}}}
+
+	err := s.State.SetAPIHostPorts(expectServerAddrs)
 	c.Assert(err, gc.IsNil)
 
-	
-	c.Assert(apiHostPorts, gc.DeepEquals, apiH
+	serverAddrs, err := s.facade.APIHostPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(serverAddrs, gc.DeepEquals, expectServerAddrs)
 }
 
-	addrs := []instance.Address{
-		instance.NewAddress("0.1.2.3"),
-	}
-	err := s.machine.SetAddresses(addrs)
-	c.Assert(err, gc.IsNil)
-
-	stateAddresses, err := s.State.APIAddressesFromMachines()
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(stateAddresses), gc.Equals, 1)
-
-	addresses, err := s.st.APIAddresses()
-	c.Assert(err, gc.IsNil)
-	c.Assert(addresses, gc.DeepEquals, stateAddresses)
-}
-
-func (s *deployerSuite) TestCACert(c *gc.C) {
-	caCert, err := s.st.CACert()
+func (s *APIAddresserSuite) TestCACert(c *gc.C) {
+	caCert, err := s.facade.CACert()
 	c.Assert(err, gc.IsNil)
 	c.Assert(caCert, gc.DeepEquals, s.State.CACert())
 }
