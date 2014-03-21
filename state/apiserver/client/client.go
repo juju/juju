@@ -292,12 +292,9 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 }
 
 // ServiceDeployWithNetworks works exactly like ServiceDeploy, but
-// requires specifying networks to include or exclude on the machine
+// allows specifying networks to include or exclude on the machine
 // where the charm gets deployed.
 func (c *Client) ServiceDeployWithNetworks(args params.ServiceDeploy) error {
-	if len(args.IncludedNetworks) == 0 && len(args.ExcludedNetworks) == 0 {
-		return fmt.Errorf("either IncludedNetworks or ExcludedNetworks must be specified")
-	}
 	return c.ServiceDeploy(args)
 }
 

@@ -682,11 +682,6 @@ func (s *clientSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
 	curl, bundle := addCharm(c, store, "dummy")
 	mem4g := constraints.MustParse("mem=4G")
 	err := s.APIState.Client().ServiceDeployWithNetworks(
-		curl.String(), "service", 3, "", mem4g, "", nil, nil,
-	)
-	c.Assert(err, gc.ErrorMatches, "either IncludedNetworks or ExcludedNetworks must be specified")
-
-	err = s.APIState.Client().ServiceDeployWithNetworks(
 		curl.String(), "service", 3, "", mem4g, "", []string{"net1", "net2"}, []string{"net3"},
 	)
 	c.Assert(err, gc.IsNil)
