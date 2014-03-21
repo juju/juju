@@ -12,7 +12,7 @@ import (
 
 type environmentSuite struct {
 	jujutesting.JujuConnSuite
-	*commontesting.EnvironWatcherTest
+	*commontesting.EnvironWatcherTests
 }
 
 var _ = gc.Suite(&environmentSuite{})
