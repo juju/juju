@@ -11,7 +11,7 @@ import (
 )
 
 type APIAddresserSuite struct {
-	State     *state.State
+	state     *state.State
 	facade APIAddresserFacade
 }
 
@@ -24,7 +24,7 @@ type APIAddresserFacade interface {
 
 func NewAPIAddresserSuite(st *state.State, facade APIAddresserFacade) *APIAddresserSuite {
 	return &APIAddresserSuite{
-		State:     st,
+		state:     st,
 		facade: facade,
 	}
 }
@@ -42,7 +42,7 @@ func (s *APIAddresserSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *APIAddresserSuite) TestAPIAddresses(c *gc.C) {
-	apiAddresses, err := s.State.APIAddressesFromMachines()
+	apiAddresses, err := s.state.APIAddressesFromMachines()
 	c.Assert(err, gc.IsNil)
 
 	addresses, err := s.facade.APIAddresses()
@@ -67,7 +67,7 @@ func (s *APIAddresserSuite) TestAPIHostPorts(c *gc.C) {
 		Port: 999,
 	}}}
 
-	err := s.State.SetAPIHostPorts(expectServerAddrs)
+	err := s.state.SetAPIHostPorts(expectServerAddrs)
 	c.Assert(err, gc.IsNil)
 
 	serverAddrs, err := s.facade.APIHostPorts()
@@ -78,5 +78,5 @@ func (s *APIAddresserSuite) TestAPIHostPorts(c *gc.C) {
 func (s *APIAddresserSuite) TestCACert(c *gc.C) {
 	caCert, err := s.facade.CACert()
 	c.Assert(err, gc.IsNil)
-	c.Assert(caCert, gc.DeepEquals, s.State.CACert())
+	c.Assert(caCert, gc.DeepEquals, s.state.CACert())
 }
