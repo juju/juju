@@ -564,8 +564,10 @@ func (s *withoutStateServerSuite) TestDistributionGroup(c *gc.C) {
 	// The unit should not show up in the results.
 	err = wordpressUnits[1].UnassignFromMachine()
 	c.Assert(err, gc.IsNil)
-	// Provision machine-2. The unit should still
-	// show up in the results, but it will have a blank instance.Id.
+	// Provision machines 1, 2 and 3. Machine-0 remains
+	// unprovisioned, and machine-1 has no units, and so
+	// neither will show up in the results.
+	setProvisioned("1")
 	setProvisioned("2")
 	setProvisioned("3")
 	// Add a few state servers, provision two of them.
@@ -591,9 +593,6 @@ func (s *withoutStateServerSuite) TestDistributionGroup(c *gc.C) {
 		{Tag: s.machines[2].Tag()},
 		{Tag: s.machines[3].Tag()},
 		{Tag: "machine-4"},
-		{Tag: "machine-42"},
-		{Tag: "unit-foo-0"},
-		{Tag: "service-bar"},
 	}}
 	result, err := s.provisioner.DistributionGroup(args)
 	c.Assert(err, gc.IsNil)
@@ -604,8 +603,61 @@ func (s *withoutStateServerSuite) TestDistributionGroup(c *gc.C) {
 			{Result: []instance.Id{"machine-2-inst"}},
 			{Result: []instance.Id{"machine-3-inst"}},
 			{Result: []instance.Id{"machine-4-inst", "machine-6-inst"}},
+		},
+	})
+}
+
+func (s *withoutStateServerSuite) TestDistributionGroupEnvironManagerAuth(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "machine-0"},
+		{Tag: "machine-42"},
+		{Tag: "machine-0-lxc-99"},
+		{Tag: "unit-foo-0"},
+		{Tag: "service-bar"},
+	}}
+	result, err := s.provisioner.DistributionGroup(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.DistributionGroupResults{
+		Results: []params.DistributionGroupResult{
+			// environ manager may access any top-level machines.
+			{Result: []instance.Id{}},
 			{Error: apiservertesting.NotFoundError("machine 42")},
+			// only a machine agent for the container or its
+			// parent may access it.
 			{Error: apiservertesting.ErrUnauthorized},
+			// non-machines always unauthorized
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *withoutStateServerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C) {
+	anAuthorizer := s.authorizer
+	anAuthorizer.Tag = "machine-1"
+	anAuthorizer.EnvironManager = false
+	anAuthorizer.MachineAgent = true
+	provisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
+	c.Check(err, gc.IsNil)
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "machine-0"},
+		{Tag: "machine-1"},
+		{Tag: "machine-42"},
+		{Tag: "machine-0-lxc-99"},
+		{Tag: "machine-1-lxc-99"},
+		{Tag: "machine-1-lxc-99-lxc-100"},
+	}}
+	result, err := provisioner.DistributionGroup(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.DistributionGroupResults{
+		Results: []params.DistributionGroupResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Result: []instance.Id{}},
+			{Error: apiservertesting.ErrUnauthorized},
+			// only a machine agent for the container or its
+			// parent may access it.
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.NotFoundError("machine 1/lxc/99")},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
