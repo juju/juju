@@ -6,7 +6,7 @@ package common_test
 import (
 	gc "launchpad.net/gocheck"
 
-        "launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/apiserver/common"
 )
@@ -64,7 +64,6 @@ func (fakeAddresses) CACert() []byte {
 	return []byte("a cert")
 }
 
-func (fakeAdresses) ([][]instance.HostPort, error) {
-    panic("should never be called")
-    return nil, nil
+func (fakeAdresses) APIHostPorts() ([][]instance.HostPort, error) {
+	panic("should never be called")
 }
