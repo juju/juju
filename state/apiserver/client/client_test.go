@@ -1276,7 +1276,7 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 			Id:                      m.Id(),
 			InstanceId:              "i-0",
 			Status:                  params.StatusPending,
-			Life:                    params.Life(state.Alive.String()),
+			Life:                    params.Alive,
 			Series:                  "quantal",
 			Jobs:                    []params.MachineJob{state.JobManageEnviron.ToParams()},
 			Addresses:               []instance.Address{},

@@ -85,7 +85,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		Id:                      "0",
 		InstanceId:              "i-machine-0",
 		Status:                  params.StatusPending,
-		Life:                    params.Life(Alive.String()),
+		Life:                    params.Alive,
 		Series:                  "quantal",
 		Jobs:                    []params.MachineJob{JobManageEnviron.ToParams()},
 		Addresses:               m.Addresses(),
@@ -105,7 +105,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		Exposed:     true,
 		CharmURL:    serviceCharmURL(wordpress).String(),
 		OwnerTag:    "user-admin",
-		Life:        params.Life(Alive.String()),
+		Life:        params.Alive,
 		MinUnits:    3,
 		Constraints: constraints.MustParse("mem=100M"),
 		Config:      charm.Settings{"blog-title": "boring"},
@@ -123,7 +123,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		Name:     "logging",
 		CharmURL: serviceCharmURL(logging).String(),
 		OwnerTag: "user-admin",
-		Life:     params.Life(Alive.String()),
+		Life:     params.Alive,
 		Config:   charm.Settings{},
 	})
 
@@ -175,7 +175,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 			InstanceId:              "i-" + m.Tag(),
 			Status:                  params.StatusError,
 			StatusInfo:              m.Tag(),
-			Life:                    params.Life(Alive.String()),
+			Life:                    params.Alive,
 			Series:                  "quantal",
 			Jobs:                    []params.MachineJob{JobHostUnits.ToParams()},
 			Addresses:               []instance.Address{},
@@ -292,7 +292,7 @@ var allWatcherChangedTests = []struct {
 				Id:         "0",
 				Status:     params.StatusError,
 				StatusInfo: "failure",
-				Life:       params.Life(Alive.String()),
+				Life:       params.Alive,
 				Series:     "quantal",
 				Jobs:       []params.MachineJob{JobHostUnits.ToParams()},
 				Addresses:  []instance.Address{},
@@ -327,7 +327,7 @@ var allWatcherChangedTests = []struct {
 				InstanceId:              "i-0",
 				Status:                  params.StatusError,
 				StatusInfo:              "another failure",
-				Life:                    params.Life(Alive.String()),
+				Life:                    params.Alive,
 				Series:                  "trusty",
 				Jobs:                    []params.MachineJob{JobManageEnviron.ToParams()},
 				Addresses:               []instance.Address{},
@@ -455,7 +455,7 @@ var allWatcherChangedTests = []struct {
 				Exposed:  true,
 				CharmURL: "local:quantal/quantal-wordpress-3",
 				OwnerTag: "user-admin",
-				Life:     params.Life(Alive.String()),
+				Life:     params.Alive,
 				MinUnits: 42,
 				Config:   charm.Settings{},
 			},
@@ -483,7 +483,7 @@ var allWatcherChangedTests = []struct {
 				Name:        "wordpress",
 				CharmURL:    "local:quantal/quantal-wordpress-3",
 				OwnerTag:    "user-admin",
-				Life:        params.Life(Alive.String()),
+				Life:        params.Alive,
 				Constraints: constraints.MustParse("mem=99M"),
 				Config:      charm.Settings{"blog-title": "boring"},
 			},
@@ -510,7 +510,7 @@ var allWatcherChangedTests = []struct {
 				Name:     "wordpress",
 				CharmURL: "local:quantal/quantal-wordpress-3",
 				OwnerTag: "user-admin",
-				Life:     params.Life(Alive.String()),
+				Life:     params.Alive,
 				Config:   charm.Settings{"blog-title": "boring"},
 			},
 		},
@@ -965,12 +965,11 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 	defer aw.Stop()
 	w := multiwatcher.NewWatcher(aw)
 	s.State.StartSync()
-	alive := params.Life(Alive.String())
 	checkNext(c, w, b, []params.Delta{{
 		Entity: &params.MachineInfo{
 			Id:        "0",
 			Status:    params.StatusPending,
-			Life:      alive,
+			Life:      params.Alive,
 			Series:    "quantal",
 			Jobs:      []params.MachineJob{JobManageEnviron.ToParams()},
 			Addresses: []instance.Address{},
@@ -979,7 +978,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 		Entity: &params.MachineInfo{
 			Id:        "1",
 			Status:    params.StatusPending,
-			Life:      alive,
+			Life:      params.Alive,
 			Series:    "saucy",
 			Jobs:      []params.MachineJob{JobHostUnits.ToParams()},
 			Addresses: []instance.Address{},

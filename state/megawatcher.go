@@ -28,15 +28,13 @@ type backingMachine machineDoc
 
 func (m *backingMachine) updated(st *State, store *multiwatcher.Store, id interface{}) error {
 	info := &params.MachineInfo{
-		Id:        m.Id,
-		Life:      params.Life(m.Life.String()),
-		Series:    m.Series,
-		Jobs:      jobsToParamsJobs(m.Jobs),
-		Addresses: addressesToInstanceAddresses(m.Addresses),
-	}
-	// The value is nil if the supported containers are not yet known.
-	if m.SupportedContainersKnown {
-		info.SupportedContainers = m.SupportedContainers
+		Id:                       m.Id,
+		Life:                     params.Life(m.Life.String()),
+		Series:                   m.Series,
+		Jobs:                     paramsJobsFromJobs(m.Jobs),
+		Addresses:                addressesToInstanceAddresses(m.Addresses),
+		SupportedContainers:      m.SupportedContainers,
+		SupportedContainersKnown: m.SupportedContainersKnown,
 	}
 
 	oldInfo := store.Get(info.EntityId())
@@ -50,8 +48,8 @@ func (m *backingMachine) updated(st *State, store *multiwatcher.Store, id interf
 		info.Status = sdoc.Status
 		info.StatusInfo = sdoc.StatusInfo
 	} else {
-		// The entry already exists, so preserve the current status, instance
-		// id and hardware characteristics.
+		// The entry already exists, so preserve the current status and
+		// instance data.
 		oldInfo := oldInfo.(*params.MachineInfo)
 		info.Status = oldInfo.Status
 		info.StatusInfo = oldInfo.StatusInfo

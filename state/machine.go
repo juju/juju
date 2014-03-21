@@ -74,8 +74,8 @@ func MachineJobFromParams(job params.MachineJob) (MachineJob, error) {
 	return -1, fmt.Errorf("invalid machine job %q", job)
 }
 
-// jobsToParamsJobs converts state jobs to params jobs.
-func jobsToParamsJobs(jobs []MachineJob) []params.MachineJob {
+// paramsJobsFromJobs converts state jobs to params jobs.
+func paramsJobsFromJobs(jobs []MachineJob) []params.MachineJob {
 	paramsJobs := make([]params.MachineJob, len(jobs))
 	for i, machineJob := range jobs {
 		paramsJobs[i] = machineJob.ToParams()
