@@ -23,6 +23,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/jujutest"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
@@ -46,6 +47,7 @@ type BootstrapSuite struct {
 	logDir               string
 	providerStateURLFile string
 	fakeEnsureMongo      *fakeEnsure
+	testConfig           string
 }
 
 var _ = gc.Suite(&BootstrapSuite{})
@@ -86,6 +88,8 @@ func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 	testRoundTripper.Sub = jujutest.NewCannedRoundTripper(content, nil)
 	s.providerStateURLFile = filepath.Join(c.MkDir(), "provider-state-url")
 	providerStateURLFile = s.providerStateURLFile
+
+	s.makeTestEnv(c)
 }
 
 func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
@@ -151,7 +155,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob,
 }
 
 func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", testConfig)
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.testConfig)
 	c.Assert(err, gc.IsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
@@ -178,7 +182,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 
 func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 	tcons := constraints.Value{Mem: uint64p(2048), CpuCores: uint64p(2)}
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", testConfig, "--constraints", tcons.String())
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.testConfig, "--constraints", tcons.String())
 	c.Assert(err, gc.IsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
@@ -210,7 +214,7 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 	expectedJobs := []state.MachineJob{
 		state.JobManageEnviron, state.JobHostUnits,
 	}
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", testConfig)
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.testConfig)
 	c.Assert(err, gc.IsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
@@ -229,7 +233,7 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 
 func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 	jobs := []params.MachineJob{params.JobManageEnviron}
-	_, cmd, err := s.initBootstrapCommand(c, jobs, "--env-config", testConfig)
+	_, cmd, err := s.initBootstrapCommand(c, jobs, "--env-config", s.testConfig)
 	c.Assert(err, gc.IsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
@@ -259,7 +263,7 @@ func testOpenState(c *gc.C, info *state.Info, expectErrType error) {
 }
 
 func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
-	machineConf, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", testConfig)
+	machineConf, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.testConfig)
 	c.Assert(err, gc.IsNil)
 
 	err = cmd.Run(nil)
@@ -341,12 +345,10 @@ func (s *BootstrapSuite) TestBase64Config(c *gc.C) {
 	}
 }
 
-var testConfig = getTestConfig()
-
-func getTestConfig() string {
+func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	attrs := dummy.SampleConfig().Merge(
 		testing.Attrs{
-			"agent-version": "3.4.5",
+			"agent-version": version.Current.Number.String(),
 		},
 	).Delete("admin-secret", "ca-private-key")
 
@@ -356,9 +358,14 @@ func getTestConfig() string {
 	maybePanic(err)
 	env, err := provider.Prepare(nullContext(), cfg)
 	maybePanic(err)
-	_, _, err = jujutesting.StartInstanceNoTools(env, "0")
+	closer, stor, _ := envtesting.CreateLocalTestStorage(c)
+
+	s.AddCleanup(func(*gc.C) { closer.Close() })
+
+	envtesting.UploadFakeTools(c, stor)
+	_, _, err = jujutesting.StartInstance(env, "0")
 	maybePanic(err)
-	return b64yaml(env.Config().AllAttrs()).encode()
+	s.testConfig = b64yaml(env.Config().AllAttrs()).encode()
 }
 
 func nullContext() *cmd.Context {
