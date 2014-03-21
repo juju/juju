@@ -64,6 +64,6 @@ func (fakeAddresses) CACert() []byte {
 	return []byte("a cert")
 }
 
-func (fakeAdresses) APIHostPorts() ([][]instance.HostPort, error) {
+func (fakeAddresses) APIHostPorts() ([][]instance.HostPort, error) {
 	panic("should never be called")
 }
