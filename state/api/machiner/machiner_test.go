@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	apitesting "launchpad.net/juju-core/state/api/common/testing"
 	"launchpad.net/juju-core/state/api/machiner"
 	"launchpad.net/juju-core/state/api/params"
 	statetesting "launchpad.net/juju-core/state/testing"
@@ -26,6 +27,8 @@ func TestAll(t *stdtesting.T) {
 
 type machinerSuite struct {
 	testing.JujuConnSuite
+	*apitesting.APIAddresserTests
+
 	st      *api.State
 	machine *state.Machine
 
@@ -36,7 +39,8 @@ var _ = gc.Suite(&machinerSuite{})
 
 func (s *machinerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.st, s.machine = s.OpenAPIAsNewMachine(c)
+	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.BackingState, s.machiner)
+	s.st, s.machine = s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
 	// Create the machiner API facade.
 	s.machiner = s.st.Machiner()
 	c.Assert(s.machiner, gc.NotNil)
