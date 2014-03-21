@@ -335,6 +335,9 @@ func findFileInTar(r io.Reader, name string) (io.Reader, error) {
 	}
 }
 
+// The final sed has failsafe, since the rsyslog files are not present on certain
+// versions (>=1.18)
+// Redirections to /dev/null are to avoid confusing non fatal errors printed
 var agentAddressTemplate = mustParseTemplate(`
 set -exu
 cd /var/lib/juju/agents
@@ -347,11 +350,14 @@ do
 	}" $agent/agent.conf
 	if [[ $agent = unit-* ]]
 	then
- 		sed -i -r 's/change-version: [0-9]+$/change-version: 0/' $agent/state/relations/*/* || true
+		if [ "$(ls -A $agent/state/relations/)"]; then
+            sed -i -r 's/change-version: [0-9]+$/change-version: 0/' $agent/state/relations/*/*
+        fi
 	fi
 	initctl start jujud-$agent
 done
-sed -i -r 's/^(:syslogtag, startswith, "juju-" @)(.*)(:[0-9]+.*)$/\1{{.Address}}\3/' /etc/rsyslog.d/*-juju*.conf
+
+sed -i -r 's/^(:syslogtag, startswith, "juju-" @)(.*)(:[0-9]+.*)$/\1{{.Address}}\3/' /etc/rsyslog.d/*-juju*.conf 2>/dev/null || echo "WARN: rsyslog live editing failed"
 `)
 
 // setAgentAddressScript generates an ssh script argument to update state addresses
