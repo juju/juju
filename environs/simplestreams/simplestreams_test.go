@@ -372,7 +372,7 @@ func (s *simplestreamsSuite) TestItemCollection(c *gc.C) {
 	ti := ic.Items["usww2he"].(*sstesting.TestItem)
 	c.Check(ti.Id, gc.Equals, "ami-442ea674")
 	c.Check(ti.Storage, gc.Equals, "ebs")
-	c.Check(ti.VType, gc.Equals, "hvm")
+	c.Check(ti.VirtType, gc.Equals, "hvm")
 	c.Check(ti.RegionName, gc.Equals, "us-east-1")
 	c.Check(ti.Endpoint, gc.Equals, "https://ec2.us-east-1.amazonaws.com")
 }

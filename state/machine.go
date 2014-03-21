@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
 	"launchpad.net/juju-core/constraints"
@@ -238,7 +239,7 @@ func (m *Machine) SetHasVote(hasVote bool) error {
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
 		Assert: notDeadDoc,
-		Update: D{{"$set", D{{"hasvote", hasVote}}}},
+		Update: bson.D{{"$set", bson.D{{"hasvote", hasVote}}}},
 	}}
 	if err := m.st.runTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set HasVote of machine %v: %v", m, onAbort(err, errDead))
@@ -305,7 +306,7 @@ func (m *Machine) SetAgentVersion(v version.Binary) (err error) {
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
 		Assert: notDeadDoc,
-		Update: D{{"$set", D{{"tools", tools}}}},
+		Update: bson.D{{"$set", bson.D{{"tools", tools}}}},
 	}}
 	if err := m.st.runTransaction(ops); err != nil {
 		return onAbort(err, errDead)
@@ -337,7 +338,7 @@ func (m *Machine) setPasswordHash(passwordHash string) error {
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
 		Assert: notDeadDoc,
-		Update: D{{"$set", D{{"passwordhash", passwordHash}}}},
+		Update: bson.D{{"$set", bson.D{{"passwordhash", passwordHash}}}},
 	}}
 	if err := m.st.runTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set password of machine %v: %v", m, onAbort(err, errDead))
@@ -390,7 +391,7 @@ func (m *Machine) ForceDestroy() error {
 		ops := []txn.Op{{
 			C:      m.st.machines.Name,
 			Id:     m.doc.Id,
-			Assert: D{{"jobs", D{{"$nin", []MachineJob{JobManageEnviron}}}}},
+			Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageEnviron}}}}},
 		}, m.st.newCleanupOp("machine", m.doc.Id)}
 		if err := m.st.runTransaction(ops); err != txn.ErrAborted {
 			return err
@@ -490,15 +491,15 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 	op := txn.Op{
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
-		Update: D{{"$set", D{{"life", life}}}},
+		Update: bson.D{{"$set", bson.D{{"life", life}}}},
 	}
-	advanceAsserts := D{
-		{"jobs", D{{"$nin", []MachineJob{JobManageEnviron}}}},
-		{"$or", []D{
-			{{"principals", D{{"$size", 0}}}},
-			{{"principals", D{{"$exists", false}}}},
+	advanceAsserts := bson.D{
+		{"jobs", bson.D{{"$nin", []MachineJob{JobManageEnviron}}}},
+		{"$or", []bson.D{
+			{{"principals", bson.D{{"$size", 0}}}},
+			{{"principals", bson.D{{"$exists", false}}}},
 		}},
-		{"hasvote", D{{"$ne", true}}},
+		{"hasvote", bson.D{{"$ne", true}}},
 	}
 	// 3 attempts: one with original data, one with refreshed data, and a final
 	// one intended to determine the cause of failure of the preceding attempt.
@@ -690,13 +691,13 @@ func (m *Machine) SetInstanceStatus(status string) (err error) {
 
 	// SCHEMACHANGE - we can't do this yet until the schema is updated
 	// so just do a txn.DocExists for now.
-	// provisioned := D{{"instanceid", D{{"$ne", ""}}}}
+	// provisioned := bson.D{{"instanceid", bson.D{{"$ne", ""}}}}
 	ops := []txn.Op{
 		{
 			C:      m.st.instanceData.Name,
 			Id:     m.doc.Id,
 			Assert: txn.DocExists,
-			Update: D{{"$set", D{{"status", status}}}},
+			Update: bson.D{{"$set", bson.D{{"status", status}}}},
 		},
 	}
 
@@ -712,14 +713,14 @@ func (m *Machine) SetInstanceStatus(status string) (err error) {
 func (m *Machine) Units() (units []*Unit, err error) {
 	defer utils.ErrorContextf(&err, "cannot get units assigned to machine %v", m)
 	pudocs := []unitDoc{}
-	err = m.st.units.Find(D{{"machineid", m.doc.Id}}).All(&pudocs)
+	err = m.st.units.Find(bson.D{{"machineid", m.doc.Id}}).All(&pudocs)
 	if err != nil {
 		return nil, err
 	}
 	for _, pudoc := range pudocs {
 		units = append(units, newUnit(m.st, &pudoc))
 		docs := []unitDoc{}
-		err = m.st.units.Find(D{{"principal", pudoc.Name}}).All(&docs)
+		err = m.st.units.Find(bson.D{{"principal", pudoc.Name}}).All(&docs)
 		if err != nil {
 			return nil, err
 		}
@@ -760,13 +761,13 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 	}
 	// SCHEMACHANGE
 	// TODO(wallyworld) - do not check instanceId on machineDoc after schema is upgraded
-	notSetYet := D{{"instanceid", ""}, {"nonce", ""}}
+	notSetYet := bson.D{{"instanceid", ""}, {"nonce", ""}}
 	ops := []txn.Op{
 		{
 			C:      m.st.machines.Name,
 			Id:     m.doc.Id,
 			Assert: append(isAliveDoc, notSetYet...),
-			Update: D{{"$set", D{{"instanceid", id}, {"nonce", nonce}}}},
+			Update: bson.D{{"$set", bson.D{{"instanceid", id}, {"nonce", nonce}}}},
 		}, {
 			C:      m.st.instanceData.Name,
 			Id:     m.doc.Id,
@@ -839,7 +840,7 @@ func (m *Machine) SetAddresses(addresses []instance.Address) (err error) {
 			C:      m.st.machines.Name,
 			Id:     m.doc.Id,
 			Assert: notDeadDoc,
-			Update: D{{"$set", D{{"addresses", stateAddresses}}}},
+			Update: bson.D{{"$set", bson.D{{"addresses", stateAddresses}}}},
 		},
 	}
 
@@ -868,7 +869,7 @@ func (m *Machine) SetMachineAddresses(addresses []instance.Address) (err error) 
 			C:      m.st.machines.Name,
 			Id:     m.doc.Id,
 			Assert: notDeadDoc,
-			Update: D{{"$set", D{{"machineaddresses", stateAddresses}}}},
+			Update: bson.D{{"$set", bson.D{{"machineaddresses", stateAddresses}}}},
 		},
 	}
 
@@ -900,7 +901,7 @@ func (m *Machine) Constraints() (constraints.Value, error) {
 // is already provisioned.
 func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 	defer utils.ErrorContextf(&err, "cannot set constraints")
-	notSetYet := D{{"nonce", ""}}
+	notSetYet := bson.D{{"nonce", ""}}
 	ops := []txn.Op{
 		{
 			C:      m.st.machines.Name,
@@ -1019,8 +1020,8 @@ func (m *Machine) updateSupportedContainers(supportedContainers []instance.Conta
 			C:      m.st.machines.Name,
 			Id:     m.doc.Id,
 			Assert: notDeadDoc,
-			Update: D{
-				{"$set", D{
+			Update: bson.D{
+				{"$set", bson.D{
 					{"supportedcontainers", supportedContainers},
 					{"supportedcontainersknown", true},
 				}}},

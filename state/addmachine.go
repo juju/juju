@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
 	"launchpad.net/juju-core/constraints"
@@ -447,15 +448,15 @@ func (st *State) maintainStateServersOps(mdocs []*machineDoc, currentInfo *State
 	ops := []txn.Op{{
 		C:  st.stateServers.Name,
 		Id: environGlobalKey,
-		Assert: D{{
-			"$and", []D{
-				{{"machineids", D{{"$size", len(currentInfo.MachineIds)}}}},
-				{{"votingmachineids", D{{"$size", len(currentInfo.VotingMachineIds)}}}},
+		Assert: bson.D{{
+			"$and", []bson.D{
+				{{"machineids", bson.D{{"$size", len(currentInfo.MachineIds)}}}},
+				{{"votingmachineids", bson.D{{"$size", len(currentInfo.VotingMachineIds)}}}},
 			},
 		}},
-		Update: D{
-			{"$addToSet", D{{"machineids", D{{"$each", newIds}}}}},
-			{"$addToSet", D{{"votingmachineids", D{{"$each", newVotingIds}}}}},
+		Update: bson.D{
+			{"$addToSet", bson.D{{"machineids", bson.D{{"$each", newIds}}}}},
+			{"$addToSet", bson.D{{"votingmachineids", bson.D{{"$each", newVotingIds}}}}},
 		},
 	}}
 	return ops, nil

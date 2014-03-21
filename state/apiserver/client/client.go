@@ -184,6 +184,34 @@ func (c *Client) PublicAddress(p params.PublicAddress) (results params.PublicAdd
 	return results, fmt.Errorf("unknown unit or machine %q", p.Target)
 }
 
+// PrivateAddress implements the server side of Client.PrivateAddress.
+func (c *Client) PrivateAddress(p params.PrivateAddress) (results params.PrivateAddressResults, err error) {
+	switch {
+	case names.IsMachine(p.Target):
+		machine, err := c.api.state.Machine(p.Target)
+		if err != nil {
+			return results, err
+		}
+		addr := instance.SelectInternalAddress(machine.Addresses(), false)
+		if addr == "" {
+			return results, fmt.Errorf("machine %q has no internal address", machine)
+		}
+		return params.PrivateAddressResults{PrivateAddress: addr}, nil
+
+	case names.IsUnit(p.Target):
+		unit, err := c.api.state.Unit(p.Target)
+		if err != nil {
+			return results, err
+		}
+		addr, ok := unit.PrivateAddress()
+		if !ok {
+			return results, fmt.Errorf("unit %q has no internal address", unit)
+		}
+		return params.PrivateAddressResults{PrivateAddress: addr}, nil
+	}
+	return results, fmt.Errorf("unknown unit or machine %q", p.Target)
+}
+
 // ServiceExpose changes the juju-managed firewall to expose any ports that
 // were also explicitly marked by units as open.
 func (c *Client) ServiceExpose(args params.ServiceExpose) error {

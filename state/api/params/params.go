@@ -236,6 +236,16 @@ type PublicAddressResults struct {
 	PublicAddress string
 }
 
+// PrivateAddress holds parameters for the PrivateAddress call.
+type PrivateAddress struct {
+	Target string
+}
+
+// PrivateAddressResults holds results of the PrivateAddress call.
+type PrivateAddressResults struct {
+	PrivateAddress string
+}
+
 // Resolved holds parameters for the Resolved call.
 type Resolved struct {
 	UnitName string

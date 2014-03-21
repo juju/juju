@@ -53,7 +53,8 @@ var expectedProducts = `{
                 "19700101": {
                     "items": {
                         "abcd": {
-                            "id": "abcd"
+                            "id": "abcd",
+                            "virt": "virt"
                         }
                     }
                 }
@@ -103,9 +104,10 @@ var imageMetadataForTesting = []*imagemetadata.ImageMetadata{
 		Arch:    "arm",
 	},
 	&imagemetadata.ImageMetadata{
-		Id:      "abcd",
-		Version: "12.04",
-		Arch:    "amd64",
+		Id:       "abcd",
+		Version:  "12.04",
+		Arch:     "amd64",
+		VirtType: "virt",
 	},
 }
 

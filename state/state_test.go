@@ -30,8 +30,6 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
-type D []bson.DocElem
-
 var goodPassword = "foo-12345678901234567890"
 var alternatePassword = "bar-12345678901234567890"
 
@@ -299,7 +297,7 @@ func (s *StateSuite) TestPrepareStoreCharmUpload(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 		},
 		After: func() {
-			err := s.charms.UpdateId(curl, D{{"$set", D{
+			err := s.charms.UpdateId(curl, bson.D{{"$set", bson.D{
 				{"bundlesha256", "fake"}},
 			}})
 			c.Assert(err, gc.IsNil)
@@ -1457,8 +1455,8 @@ func (s *StateSuite) TestWatchMachinesIncludesOldMachines(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = s.machines.Update(
-		D{{"_id", machine.Id()}},
-		D{{"$unset", D{{"containertype", 1}}}},
+		bson.D{{"_id", machine.Id()}},
+		bson.D{{"$unset", bson.D{{"containertype", 1}}}},
 	)
 	c.Assert(err, gc.IsNil)
 
@@ -2721,7 +2719,7 @@ func (s *StateSuite) TestOpenCreatesStateServersDoc(c *gc.C) {
 	c.Assert(info, gc.DeepEquals, expectStateServerInfo)
 }
 
-func (s *StateSuite) TestOpenCreatesAPIAddressesDoc(c *gc.C) {
+func (s *StateSuite) TestOpenCreatesAPIHostPortsDoc(c *gc.C) {
 	// Delete the stateServers collection to pretend this
 	// is an older environment that had not created it
 	// already.
@@ -2729,7 +2727,7 @@ func (s *StateSuite) TestOpenCreatesAPIAddressesDoc(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Sanity check that we have in fact deleted the right info.
-	addrs, err := s.State.APIAddresses()
+	addrs, err := s.State.APIHostPorts()
 	c.Assert(err, gc.NotNil)
 	c.Assert(addrs, gc.IsNil)
 
@@ -2737,7 +2735,7 @@ func (s *StateSuite) TestOpenCreatesAPIAddressesDoc(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
-	addrs, err = s.State.APIAddresses()
+	addrs, err = s.State.APIHostPorts()
 	c.Assert(err, gc.IsNil)
 	c.Assert(addrs, gc.HasLen, 0)
 }
@@ -2852,54 +2850,72 @@ func newUint64(i uint64) *uint64 {
 	return &i
 }
 
-func (s *StateSuite) TestSetAPIAddresses(c *gc.C) {
-	addrs, err := s.State.APIAddresses()
+func (s *StateSuite) TestSetAPIHostPorts(c *gc.C) {
+	addrs, err := s.State.APIHostPorts()
 	c.Assert(err, gc.IsNil)
 	c.Assert(addrs, gc.HasLen, 0)
 
-	newAddrs := []instance.Address{{
-		Value:        "0.2.4.6",
-		Type:         instance.Ipv4Address,
-		NetworkName:  "net",
-		NetworkScope: instance.NetworkCloudLocal,
+	newHostPorts := [][]instance.HostPort{{{
+		Address: instance.Address{
+			Value:        "0.2.4.6",
+			Type:         instance.Ipv4Address,
+			NetworkName:  "net",
+			NetworkScope: instance.NetworkCloudLocal,
+		},
+		Port: 1,
 	}, {
-		Value:        "0.4.8.16",
-		Type:         instance.Ipv4Address,
-		NetworkName:  "foo",
-		NetworkScope: instance.NetworkPublic,
-	}}
-	err = s.State.SetAPIAddresses(newAddrs)
+		Address: instance.Address{
+			Value:        "0.4.8.16",
+			Type:         instance.Ipv4Address,
+			NetworkName:  "foo",
+			NetworkScope: instance.NetworkPublic,
+		},
+		Port: 2,
+	}}, {{
+		Address: instance.Address{
+			Value:        "0.6.1.2",
+			Type:         instance.Ipv4Address,
+			NetworkName:  "net",
+			NetworkScope: instance.NetworkCloudLocal,
+		},
+		Port: 5,
+	}}}
+	err = s.State.SetAPIHostPorts(newHostPorts)
 	c.Assert(err, gc.IsNil)
 
-	gotAddrs, err := s.State.APIAddresses()
+	gotHostPorts, err := s.State.APIHostPorts()
 	c.Assert(err, gc.IsNil)
-	c.Assert(gotAddrs, jc.DeepEquals, newAddrs)
+	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 
-	newAddrs = []instance.Address{{
-		Value:        "0.2.4.6",
-		Type:         instance.Ipv6Address,
-		NetworkName:  "net",
-		NetworkScope: instance.NetworkCloudLocal,
-	}}
-	err = s.State.SetAPIAddresses(newAddrs)
+	newHostPorts = [][]instance.HostPort{{{
+		Address: instance.Address{
+			Value:        "0.2.4.6",
+			Type:         instance.Ipv6Address,
+			NetworkName:  "net",
+			NetworkScope: instance.NetworkCloudLocal,
+		},
+		Port: 13,
+	}}}
+	err = s.State.SetAPIHostPorts(newHostPorts)
 	c.Assert(err, gc.IsNil)
 
-	gotAddrs, err = s.State.APIAddresses()
+	gotHostPorts, err = s.State.APIHostPorts()
 	c.Assert(err, gc.IsNil)
-	c.Assert(gotAddrs, jc.DeepEquals, newAddrs)
+	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 }
 
-func (s *StateSuite) TestWatchAPIAddresses(c *gc.C) {
-	w := s.State.WatchAPIAddresses()
+func (s *StateSuite) TestWatchAPIHostPorts(c *gc.C) {
+	w := s.State.WatchAPIHostPorts()
 	defer statetesting.AssertStop(c, w)
 
 	// Initial event.
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
-	err := s.State.SetAPIAddresses([]instance.Address{
-		instance.NewAddress("0.1.2.3"),
-	})
+	err := s.State.SetAPIHostPorts([][]instance.HostPort{{{
+		Address: instance.NewAddress("0.1.2.3"),
+		Port:    99,
+	}}})
 	c.Assert(err, gc.IsNil)
 
 	wc.AssertOneChange()
