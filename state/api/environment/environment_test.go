@@ -25,6 +25,6 @@ func (s *environmentSuite) SetUpTest(c *gc.C) {
 	environmentAPI := stateAPI.Environment()
 	c.Assert(environmentAPI, gc.NotNil)
 
-	s.EnvironWatcherTest = commontesting.NewEnvironWatcherTest(
-		environmentAPI, s.State, s.BackingState, commontesting.NoSecrets)
+	s.EnvironWatcherTests = commontesting.NewEnvironWatcherTests(
+		environmentAPI, s.BackingState, commontesting.NoSecrets)
 }
