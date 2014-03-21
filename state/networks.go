@@ -10,45 +10,46 @@ import (
 	"launchpad.net/juju-core/errors"
 )
 
-// serviceNetworksDoc represents the network restrictions for a service
-type serviceNetworksDoc struct {
-	NetworksToInclude *[]string
-	NetworksToExclude *[]string
+// networksDoc represents the network restrictions for a service or machine.
+// The document ID field is the globalKey of a service or a machine.
+type networksDoc struct {
+	NetworksToInclude []string
+	NetworksToExclude []string
 }
 
-func newServiceNetworksDoc(includeNetworks, excludeNetworks []string) serviceNetworksDoc {
-	return serviceNetworksDoc{
-		NetworksToInclude: &includeNetworks,
-		NetworksToExclude: &excludeNetworks,
+func newNetworksDoc(includeNetworks, excludeNetworks []string) networksDoc {
+	return networksDoc{
+		NetworksToInclude: includeNetworks,
+		NetworksToExclude: excludeNetworks,
 	}
 }
 
-func createServiceNetworksOp(st *State, id string, includeNetworks, excludeNetworks []string) txn.Op {
+func createNetworksOp(st *State, id string, includeNetworks, excludeNetworks []string) txn.Op {
 	return txn.Op{
-		C:      st.serviceNetworks.Name,
+		C:      st.networks.Name,
 		Id:     id,
 		Assert: txn.DocMissing,
-		Insert: newServiceNetworksDoc(includeNetworks, excludeNetworks),
+		Insert: newNetworksDoc(includeNetworks, excludeNetworks),
 	}
 }
 
-// While networks are immutable, there is no setServiceNetworksOp function
+// While networks are immutable, there is no setNetworksOp function.
 
-func removeServiceNetworksOp(st *State, id string) txn.Op {
+func removeNetworksOp(st *State, id string) txn.Op {
 	return txn.Op{
-		C:      st.serviceNetworks.Name,
+		C:      st.networks.Name,
 		Id:     id,
 		Remove: true,
 	}
 }
 
-func readServiceNetworks(st *State, id string) (includeNetworks, excludeNetworks []string, err error) {
-	doc := serviceNetworksDoc{}
-	if err = st.serviceNetworks.FindId(id).One(&doc); err == mgo.ErrNotFound {
+func readNetworks(st *State, id string) (includeNetworks, excludeNetworks []string, err error) {
+	doc := networksDoc{}
+	if err = st.networks.FindId(id).One(&doc); err == mgo.ErrNotFound {
 		err = errors.NotFoundf("service networks")
 	} else if err == nil {
-		includeNetworks = *doc.NetworksToInclude
-		excludeNetworks = *doc.NetworksToExclude
+		includeNetworks = doc.NetworksToInclude
+		excludeNetworks = doc.NetworksToExclude
 	}
 	return includeNetworks, excludeNetworks, err
 }
