@@ -24,20 +24,6 @@ import (
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
-func (s *provisionerSuite) TestAPIAddresses(c *gc.C) {
-	err := s.machine.SetAddresses([]instance.Address{
-		instance.NewAddress("0.1.2.3"),
-	})
-	c.Assert(err, gc.IsNil)
-
-	apiAddresses, err := s.State.APIAddressesFromMachines()
-	c.Assert(err, gc.IsNil)
-
-	addresses, err := s.provisioner.APIAddresses()
-	c.Assert(err, gc.IsNil)
-	c.Assert(addresses, gc.DeepEquals, apiAddresses)
-}
-
 
 func TestAll(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
