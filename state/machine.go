@@ -74,6 +74,15 @@ func MachineJobFromParams(job params.MachineJob) (MachineJob, error) {
 	return -1, fmt.Errorf("invalid machine job %q", job)
 }
 
+// paramsJobsFromJobs converts state jobs to params jobs.
+func paramsJobsFromJobs(jobs []MachineJob) []params.MachineJob {
+	paramsJobs := make([]params.MachineJob, len(jobs))
+	for i, machineJob := range jobs {
+		paramsJobs[i] = machineJob.ToParams()
+	}
+	return paramsJobs
+}
+
 func (job MachineJob) String() string {
 	return string(job.ToParams())
 }
@@ -161,20 +170,24 @@ type instanceData struct {
 	Tags       *[]string   `bson:"tags,omitempty"`
 }
 
+func hardwareCharacteristics(instData instanceData) *instance.HardwareCharacteristics {
+	return &instance.HardwareCharacteristics{
+		Arch:     instData.Arch,
+		Mem:      instData.Mem,
+		RootDisk: instData.RootDisk,
+		CpuCores: instData.CpuCores,
+		CpuPower: instData.CpuPower,
+		Tags:     instData.Tags,
+	}
+}
+
 // TODO(wallyworld): move this method to a service.
 func (m *Machine) HardwareCharacteristics() (*instance.HardwareCharacteristics, error) {
-	hc := &instance.HardwareCharacteristics{}
 	instData, err := getInstanceData(m.st, m.Id())
 	if err != nil {
 		return nil, err
 	}
-	hc.Arch = instData.Arch
-	hc.Mem = instData.Mem
-	hc.RootDisk = instData.RootDisk
-	hc.CpuCores = instData.CpuCores
-	hc.CpuPower = instData.CpuPower
-	hc.Tags = instData.Tags
-	return hc, nil
+	return hardwareCharacteristics(instData), nil
 }
 
 func getInstanceData(st *State, id string) (instanceData, error) {
