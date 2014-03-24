@@ -43,14 +43,16 @@ set +e
 DEPS="build-essential bzr distro-info-data git-core mercurial zip rsyslog-gnutls"
 ssh "$@" $remote_user@$instance_name  <<EOT
 set -eux
-for attempt in $(seq 10); do
-  if grep ec2.archive.ubuntu.com /etc/apt/sources.list > /dev/null; then
-    break
-  elif [ "$attempt" == "10" ]; then
-    exit 1
-  fi
-  sleep 10
-done
+if [[ $is_ephemeral == "true" ]]; then
+    for attempt in $(seq 10); do
+      if grep ec2.archive.ubuntu.com /etc/apt/sources.list > /dev/null; then
+        break
+      elif [ "$attempt" == "10" ]; then
+        exit 1
+      fi
+      sleep 10
+    done
+fi
 sudo apt-get update
 if [[ $is_ephemeral == "true" ]]; then
     sudo apt-get upgrade -y
