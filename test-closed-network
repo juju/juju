@@ -27,7 +27,7 @@ for attempt in $(seq 10); do
 done
 sudo apt-add-repository -y ppa:juju/stable
 sudo apt-get update
-sudo apt-get install -y bzr lxc mongodb
+sudo apt-get install -y bzr lxc mongodb rsyslog-gnutls
 
 # prevent spurious failure on success
 rm .bash_logout
