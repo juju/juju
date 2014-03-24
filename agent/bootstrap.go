@@ -52,7 +52,7 @@ type BootstrapMachineConfig struct {
 	Characteristics instance.HardwareCharacteristics
 
 	// Addresses holds a list of hostnames or ip addresses
-	// associated with the instance of teh bootstrap machine.
+	// associated with the instance of the bootstrap machine.
 	Addresses []instance.Address
 }
 
@@ -70,10 +70,17 @@ func (c *configInternal) InitializeState(dataDir string, envCfg *config.Config, 
 
 	di, err := state.DialInfo(&info, timeout, policy)
 
-	address := "127.0.0.1"
-	// TODO make a more reasoned choice of address.
-	if len(machineCfg.Addresses) > 0 {
-		address = machineCfg.Addresses[0].Value
+	address := ""
+	for _, addr := range machineCfg.Addresses {
+		if addr.NetworkScope == instance.NetworkCloudLocal &&
+			(addr.Type == instance.Ipv4Address || addr.Type == instance.Ipv4Address) {
+			address = addr.Value
+			break
+		}
+	}
+
+	if address == "" {
+		return nil, nil, fmt.Errorf("Failed to find cloud local address in machineConfig")
 	}
 
 	if err := mongo.EnsureMongoServer(mongo.EnsureMongoParams{
