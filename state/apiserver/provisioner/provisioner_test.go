@@ -560,16 +560,19 @@ func (s *withoutStateServerSuite) TestDistributionGroup(c *gc.C) {
 
 	mysqlUnit := addUnits("mysql", s.machines[0], s.machines[3])[0]
 	wordpressUnits := addUnits("wordpress", s.machines[0], s.machines[1], s.machines[2])
+
 	// Unassign wordpress/1 from machine-1.
 	// The unit should not show up in the results.
 	err = wordpressUnits[1].UnassignFromMachine()
 	c.Assert(err, gc.IsNil)
+
 	// Provision machines 1, 2 and 3. Machine-0 remains
 	// unprovisioned, and machine-1 has no units, and so
 	// neither will show up in the results.
 	setProvisioned("1")
 	setProvisioned("2")
 	setProvisioned("3")
+
 	// Add a few state servers, provision two of them.
 	err = s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
 	c.Assert(err, gc.IsNil)

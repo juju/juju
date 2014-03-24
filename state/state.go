@@ -318,24 +318,6 @@ func (st *State) AllMachines() (machines []*Machine, err error) {
 	return
 }
 
-// ManagerMachines returns all manager machines in the environment
-// ordered by id.
-func (st *State) ManagerMachines() (machines []*Machine, err error) {
-	mdocs := machineDocSlice{}
-	what := D{
-		{"jobs", D{{"$in", []MachineJob{JobManageEnviron}}}},
-	}
-	err = st.machines.Find(what).All(&mdocs)
-	if err != nil {
-		return nil, fmt.Errorf("cannot get manager machines: %v", err)
-	}
-	sort.Sort(mdocs)
-	for _, doc := range mdocs {
-		machines = append(machines, newMachine(st, &doc))
-	}
-	return
-}
-
 type machineDocSlice []machineDoc
 
 func (ms machineDocSlice) Len() int      { return len(ms) }

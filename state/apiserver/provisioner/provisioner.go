@@ -273,12 +273,16 @@ func (p *ProvisionerAPI) DistributionGroup(args params.Entities) (params.Distrib
 
 // environManagerInstances returns all environ manager instances.
 func environManagerInstances(st *state.State) ([]instance.Id, error) {
-	machines, err := st.ManagerMachines()
+	info, err := st.StateServerInfo()
 	if err != nil {
 		return nil, err
 	}
-	instances := make([]instance.Id, 0, len(machines))
-	for _, machine := range machines {
+	instances := make([]instance.Id, 0, len(info.MachineIds))
+	for _, id := range info.MachineIds {
+		machine, err := st.Machine(id)
+		if err != nil {
+			return nil, err
+		}
 		instanceId, err := machine.InstanceId()
 		if err == nil {
 			instances = append(instances, instanceId)
@@ -289,7 +293,7 @@ func environManagerInstances(st *state.State) ([]instance.Id, error) {
 	return instances, nil
 }
 
-// commonServiceUnits returns instances with
+// commonServiceInstances returns instances with
 // services in common with the specified machine.
 func commonServiceInstances(st *state.State, m *state.Machine) ([]instance.Id, error) {
 	units, err := m.Units()

@@ -964,27 +964,6 @@ func (s *StateSuite) TestAllMachines(c *gc.C) {
 	}
 }
 
-func (s *StateSuite) TestManagerMachines(c *gc.C) {
-	// machines {0,1,2} have JobManageEnviron
-	err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
-	c.Assert(err, gc.IsNil)
-	// machine 3 just has JobHostUnits
-	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
-	// machine {4,5} have JobManageEnviron
-	err = s.State.EnsureAvailability(5, constraints.Value{}, "quantal")
-	c.Assert(err, gc.IsNil)
-	s.AssertMachineCount(c, 6)
-	ms, err := s.State.ManagerMachines()
-	c.Assert(err, gc.IsNil)
-	c.Assert(ms, gc.HasLen, 5)
-	var ids []string
-	for _, m := range ms {
-		ids = append(ids, m.Id())
-	}
-	c.Assert(ids, gc.DeepEquals, []string{"0", "1", "2", "4", "5"})
-}
-
 func (s *StateSuite) TestAddService(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddService("haha/borken", "user-admin", charm)
