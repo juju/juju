@@ -30,33 +30,19 @@ type DataSource interface {
 	SetAllowRetry(allow bool)
 }
 
-// SSLHostnameVerification is used as a switch for when a given provider might
-// use self-signed credentials and we should not try to verify the hostname on
-// the TLS/SSL certificates
-type SSLHostnameVerification bool
-
-const (
-	// VerifySSLHostnames ensures we verify the hostname on the certificate
-	// matches the host we are connecting and is signed
-	VerifySSLHostnames = SSLHostnameVerification(true)
-	// NoVerifySSLHostnames informs us to skip verifying the hostname
-	// matches a valid certificate
-	NoVerifySSLHostnames = SSLHostnameVerification(false)
-)
-
 // A urlDataSource retrieves data from an HTTP URL.
 type urlDataSource struct {
 	description          string
 	baseURL              string
-	hostnameVerification SSLHostnameVerification
+	hostnameVerification utils.SSLHostnameVerification
 }
 
 // NewURLDataSource returns a new datasource reading from the specified baseURL.
-func NewURLDataSource(description, baseURL string, verify SSLHostnameVerification) DataSource {
+func NewURLDataSource(description, baseURL string, hostnameVerification utils.SSLHostnameVerification) DataSource {
 	return &urlDataSource{
 		description:          description,
 		baseURL:              baseURL,
-		hostnameVerification: verify,
+		hostnameVerification: hostnameVerification,
 	}
 }
 
@@ -83,11 +69,8 @@ func urlJoin(baseURL, relpath string) string {
 // Fetch is defined in simplestreams.DataSource.
 func (h *urlDataSource) Fetch(path string) (io.ReadCloser, string, error) {
 	dataURL := urlJoin(h.baseURL, path)
+	client := utils.GetHTTPClient(h.hostnameVerification)
 	// dataURL can be http:// or file://
-	client := http.DefaultClient
-	if !h.hostnameVerification {
-		client = utils.GetNonValidatingHTTPClient()
-	}
 	resp, err := client.Get(dataURL)
 	if err != nil {
 		logger.Debugf("Got error requesting %q: %v", dataURL, err)

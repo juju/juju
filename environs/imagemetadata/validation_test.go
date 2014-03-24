@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/utils"
 )
 
 type ValidateSuite struct {
@@ -58,7 +59,7 @@ func (s *ValidateSuite) assertMatch(c *gc.C, stream string) {
 		Endpoint:      "some-auth-url",
 		Stream:        stream,
 		Sources: []simplestreams.DataSource{
-			simplestreams.NewURLDataSource("test", "file://"+metadataPath, simplestreams.VerifySSLHostnames)},
+			simplestreams.NewURLDataSource("test", "file://"+metadataPath, utils.VerifySSLHostnames)},
 	}
 	imageIds, resolveInfo, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, gc.IsNil)
@@ -86,7 +87,7 @@ func (s *ValidateSuite) assertNoMatch(c *gc.C, stream string) {
 		Endpoint:      "some-auth-url",
 		Stream:        stream,
 		Sources: []simplestreams.DataSource{
-			simplestreams.NewURLDataSource("test", "file://"+s.metadataDir, simplestreams.VerifySSLHostnames)},
+			simplestreams.NewURLDataSource("test", "file://"+s.metadataDir, utils.VerifySSLHostnames)},
 	}
 	_, _, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, gc.Not(gc.IsNil))

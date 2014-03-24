@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -70,7 +71,7 @@ func (st *State) DesiredVersion(tag string) (version.Number, error) {
 
 // Tools returns the agent tools that should run on the given entity,
 // along with a flag whether to disable SSL hostname verification.
-func (st *State) Tools(tag string) (*tools.Tools, bool, error) {
+func (st *State) Tools(tag string) (*tools.Tools, utils.SSLHostnameVerification, error) {
 	var results params.ToolsResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
@@ -88,7 +89,11 @@ func (st *State) Tools(tag string) (*tools.Tools, bool, error) {
 	if err := result.Error; err != nil {
 		return nil, false, err
 	}
-	return result.Tools, result.DisableSSLHostnameVerification, nil
+	hostnameVerification := utils.VerifySSLHostnames
+	if result.DisableSSLHostnameVerification {
+		hostnameVerification = utils.NoVerifySSLHostnames
+	}
+	return result.Tools, hostnameVerification, nil
 }
 
 func (st *State) WatchAPIVersion(agentTag string) (watcher.NotifyWatcher, error) {

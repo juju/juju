@@ -13,6 +13,7 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils"
 )
 
 type CmdSuite struct{}
@@ -22,6 +23,8 @@ var _ = gc.Suite(&CmdSuite{})
 func (s *CmdSuite) TestHttpTransport(c *gc.C) {
 	transport := http.DefaultTransport.(*http.Transport)
 	c.Assert(transport.DisableKeepAlives, jc.IsTrue)
+	client := utils.GetNonValidatingHTTPClient()
+	c.Assert(client.Transport.(*http.Transport).DisableKeepAlives, jc.IsTrue)
 }
 
 func (s *CmdSuite) TestContext(c *gc.C) {

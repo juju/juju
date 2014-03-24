@@ -23,6 +23,7 @@ import (
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/parallel"
 )
 
@@ -879,7 +880,7 @@ func (env *azureEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
 	sources := make([]simplestreams.DataSource, 1+len(baseURLs))
 	sources[0] = storage.NewStorageSimpleStreamsDataSource("cloud storage", env.Storage(), storage.BaseImagesPath)
 	for i, url := range baseURLs {
-		sources[i+1] = simplestreams.NewURLDataSource("Azure base URL", url, simplestreams.VerifySSLHostnames)
+		sources[i+1] = simplestreams.NewURLDataSource("Azure base URL", url, utils.VerifySSLHostnames)
 	}
 	return sources, nil
 }
