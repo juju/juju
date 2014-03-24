@@ -291,6 +291,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 		// defined, and we determine this by the existance of the home dir.
 		fmt.Sprintf("[ -e /home/ubuntu ] && chown ubuntu:ubuntu %s", lockDir),
 		fmt.Sprintf("mkdir -p %s", cfg.LogDir),
+		fmt.Sprintf("chown syslog:adm %s", cfg.LogDir),
 	)
 
 	// Make a directory for the tools to live in, then fetch the
