@@ -108,18 +108,87 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if len(bsState.Characteristics) > 0 {
 		characteristics = bsState.Characteristics[0]
 	}
-	st, _, err := c.Conf.config.InitializeState(c.Conf.dataDir, envCfg, agent.BootstrapMachineConfig{
-		Constraints:     c.Constraints,
-		Jobs:            jobs,
-		InstanceId:      bsState.StateInstances[0],
-		Characteristics: characteristics,
-		Addresses:       addresses,
-	}, state.DefaultDialOpts(), environs.NewStatePolicy())
+	st, _, err := c.Conf.config.InitializeState(
+		envCfg,
+		agent.BootstrapMachineConfig{
+			Constraints:     c.Constraints,
+			Jobs:            jobs,
+			InstanceId:      bsState.StateInstances[0],
+			Characteristics: characteristics,
+			Addresses:       addresses,
+		},
+		state.DefaultDialOpts(),
+		environs.NewStatePolicy(),
+	)
 	if err != nil {
 		return err
 	}
+	info := st.Info()
 	st.Close()
+
+	preferredAddr, err := selectPreferredStateServerAddress(machineCfg.Addresses)
+	if err != nil {
+		return nil, err
+	}
+	dialInfo := state.DialInfo(c.Conf.config.StateInfo(), state.DefaultDialOpts())
+	if err := mongo.EnsureMongoServer(mongo.EnsureMongoParams{
+		HostPort: net.JoinHostPort(preferredAddr, fmt.Sprint(envCfg.StatePort())),
+		DataDir:  dataDir,
+		DialInfo: dialInfo,
+	}); err != nil {
+		return nil, nil, err
+	}
 	return nil
+}
+
+func selectPreferredStateServerAddress(addrs []instance.Address) (instance.Address, error) {
+	if len(addrs) == 0 {
+		return nil, nil, "no state server addresses"
+	}
+	addrs = append([]instance.Address(nil), addrs...)
+	sort.Stable(addrs)
+	return addrs[0], nil
+}
+
+// byAddressPreference is a slice that orders preferred
+// state server addresses earlier.
+type byAddressPreference []instance.Address
+
+func (a byAddressPreference) Len() int {
+	return len(a)
+}
+
+func (a byAddressPreference) Swap(i, j int) {
+	a[i], a[j] = a[j], a[i]
+}
+
+func (a byAddressPreference) Less(i, j int) {
+	a0, a1 := &a[i], &a[1]
+	if pref0, pref1 := scopePref(a0.NetworkScope, a1.NetworkScope); pref0 != pref1 {
+		return pref0 < pref1
+	}
+	if pref0, pref1 := netTypePref(a0.AddressType), netTypePref(a1.AddressType); pref0 != pref1 {
+		return pref0 < pref1
+	}
+	return false
+}
+
+func netScopePref(scope instance.NetworkScope) int {
+	switch scope {
+	case instance.NetworkCloudLocal:
+		return 0
+	case instance.NetworkUnknown:
+		return 1
+	}
+	return 2
+}
+
+func netTypePref(atype instance.AddressType) int {
+	switch atype {
+	case instance.HostName:
+		return 0
+	}
+	return 1
 }
 
 // yamlBase64Value implements gnuflag.Value on a map[string]interface{}.

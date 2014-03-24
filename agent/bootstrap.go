@@ -31,7 +31,7 @@ import (
 // InitializeState returns the newly initialized state and bootstrap
 // machine. If it fails, the state may well be irredeemably compromised.
 type StateInitializer interface {
-	InitializeState(dataDir string, envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts, policy state.Policy) (*state.State, *state.Machine, error)
+	InitializeState(envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts, policy state.Policy) (*state.State, *state.Machine, error)
 }
 
 // BootstrapMachineConfig holds configuration information
@@ -58,30 +58,15 @@ type BootstrapMachineConfig struct {
 
 const bootstrapMachineId = "0"
 
-func (c *configInternal) InitializeState(dataDir string, envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts, policy state.Policy) (*state.State, *state.Machine, error) {
+func (c *configInternal) InitializeState(
+	envCfg *config.Config,
+	machineCfg BootstrapMachineConfig,
+	timeout state.DialOpts,
+	policy state.Policy,
+) (*state.State, *state.Machine, error) {
 	if c.Tag() != names.MachineTag(bootstrapMachineId) {
 		return nil, nil, fmt.Errorf("InitializeState not called with bootstrap machine's configuration")
 	}
-
-	preferredAddr, err := selectPreferredStateServerAddress(machineCfg.Addresses)
-	if err != nil {
-		return nil, err
-	}
-
-	info := state.Info{
-		Addrs:  c.stateDetails.addresses,
-		CACert: c.caCert,
-	}
-
-	di, err := state.DialInfo(&info, timeout, policy)
-	if err := mongo.EnsureMongoServer(mongo.EnsureMongoParams{
-		HostPort: net.JoinHostPort(preferredAddr, fmt.Sprint(envCfg.StatePort())),
-		DataDir:  dataDir,
-		DialInfo: di,
-	}); err != nil {
-		return nil, nil, err
-	}
-
 	logger.Debugf("initializing address %v", info.Addrs)
 	st, err := state.Initialize(&info, envCfg, timeout, policy)
 	if err != nil {
@@ -94,56 +79,6 @@ func (c *configInternal) InitializeState(dataDir string, envCfg *config.Config, 
 		return nil, nil, err
 	}
 	return st, m, nil
-}
-
-func selectPreferredStateServerAddress(addrs []instance.Address) (instance.Address, error) {
-	if len(addrs) == 0 {
-		return nil, nil, "no state server addresses"
-	}
-	addrs = append([]instance.Address(nil), addrs...)
-	sort.Stable(addrs)
-	return addrs[0], nil
-}
-
-// byAddressPreference is a slice that orders preferred
-// state server addresses earlier.
-type byAddressPreference []instance.Address
-
-func (a byAddressPreference) Len() int {
-	return len(a)
-}
-
-func (a byAddressPreference) Swap(i, j int) {
-	a[i], a[j] = a[j], a[i]
-}
-
-func (a byAddressPreference) Less(i, j int) {
-	a0, a1 := &a[i], &a[1]
-	if pref0, pref1 := scopePref(a0.NetworkScope, a1.NetworkScope); pref0 != pref1 {
-		return pref0 < pref1
-	}
-	if pref0, pref1 := netTypePref(a0.AddressType), netTypePref(a1.AddressType); pref0 != pref1 {
-		return pref0 < pref1
-	}
-	return false
-}
-
-func netScopePref(scope instance.NetworkScope) int {
-	switch scope {
-	case instance.NetworkCloudLocal:
-		return 0
-	case instance.NetworkUnknown:
-		return 1
-	}
-	return 2
-}
-
-func netTypePref(atype instance.AddressType) int {
-	switch atype {
-	case instance.HostName:
-		return 0
-	}
-	return 1
 }
 
 func (c *configInternal) initUsersAndBootstrapMachine(st *state.State, cfg BootstrapMachineConfig) (*state.Machine, error) {
