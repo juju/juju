@@ -46,7 +46,7 @@ func (m *Machine) SetStatus(status params.Status, info string, data params.Statu
 			{Tag: m.tag, Status: status, Info: info, Data: data},
 		},
 	}
-	err := m.st.caller.Call("Machiner", "", "SetStatus", args, &result)
+	err := m.st.call("SetStatus", args, &result)
 	if err != nil {
 		return err
 	}
@@ -61,7 +61,7 @@ func (m *Machine) SetMachineAddresses(addresses []instance.Address) error {
 			{Tag: m.Tag(), Addresses: addresses},
 		},
 	}
-	err := m.st.caller.Call("Machiner", "", "SetMachineAddresses", args, &result)
+	err := m.st.call("SetMachineAddresses", args, &result)
 	if err != nil {
 		return err
 	}
@@ -75,7 +75,7 @@ func (m *Machine) EnsureDead() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.caller.Call("Machiner", "", "EnsureDead", args, &result)
+	err := m.st.call("EnsureDead", args, &result)
 	if err != nil {
 		return err
 	}
@@ -88,7 +88,7 @@ func (m *Machine) Watch() (watcher.NotifyWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.caller.Call("Machiner", "", "Watch", args, &results)
+	err := m.st.call("Watch", args, &results)
 	if err != nil {
 		return nil, err
 	}
