@@ -352,8 +352,10 @@ func (a *MachineAgent) updateSupportedContainers(runner worker.Runner, st *api.S
 // a *state.State connection.
 func (a *MachineAgent) StateWorker(agentConfig agent.Config) (worker.Worker, error) {
 	info := &state.Info{
-		Addrs:  agentConfig.StateAddresses(),
-		CACert: agentConfig.CACert(),
+		Addrs:    agentConfig.StateAddresses(),
+		CACert:   agentConfig.CACert(),
+		Tag:      agentConfig.Tag(),
+		Password: agentConfig.Password(),
 	}
 
 	di, err := state.DialInfo(info, state.DefaultDialOpts(), environs.NewStatePolicy())
