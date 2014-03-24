@@ -2,6 +2,7 @@ package mongo
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path"
@@ -72,7 +73,7 @@ func ensureMongoServer(address, dataDir string, port int, info *mgo.DialInfo) er
 
 	if !service.Installed() {
 		if err := makeJournalDirs(dbDir); err != nil {
-			return err
+			return fmt.Errorf("Error creating journal directories: %v", err)
 		}
 
 		logger.Debugf("mongod upstart command: %s", service.Cmd)
@@ -84,7 +85,7 @@ func ensureMongoServer(address, dataDir string, port int, info *mgo.DialInfo) er
 
 	if !service.Running() {
 		if err := service.Start(); err != nil {
-			return fmt.Errorf("Failed to start %q service: %v", name, err)
+			return fmt.Errorf("failed to start %q service: %v", name, err)
 		}
 		logger.Infof("Mongod service %q started.", name)
 	}
@@ -101,20 +102,30 @@ func ensureMongoServer(address, dataDir string, port int, info *mgo.DialInfo) er
 //
 // This is a variable so it can be overridden in tests
 var initiateReplicaSet = func(address string, port int, info *mgo.DialInfo) error {
+	logger.Debugf("Initiating mongo replicaset with address %q, port %d, dialinfo %#v", address, port, *info)
+
+	addrs, _ := net.InterfaceAddrs()
+	logger.Debugf("Interface addresses: %#v", addrs)
+
 	session, err := mgo.DialWithInfo(info)
 	if err != nil {
-		return err
+		return fmt.Errorf("can't dial mongo to initiate replicaset: %v", err)
 	}
 	defer session.Close()
 
 	_, err = replicaset.CurrentConfig(session)
 	if err == mgo.ErrNotFound {
-		if address == "localhost" {
-			address = fmt.Sprintf("%s:%d", address, port)
+		address = fmt.Sprintf("%s:%d", address, port)
+		err = replicaset.Initiate(session, address, replicaSetName)
+		if err != nil {
+			return fmt.Errorf("error from mongo initiate: %v", err)
 		}
-		return replicaset.Initiate(session, address, replicaSetName)
+		return nil
 	}
-	return err
+	if err != nil {
+		return fmt.Errorf("error getting replicaset config: %v", err)
+	}
+	return nil
 }
 
 func makeJournalDirs(dir string) error {
@@ -151,7 +162,7 @@ func makeJournalDirs(dir string) error {
 func removeOldMongoServices(curVersion int) error {
 	old := upstart.NewService(oldMongoServiceName)
 	if err := old.StopAndRemove(); err != nil {
-		logger.Errorf("Failed to remove old mongo upstart service %q: %v", old.Name, err)
+		logger.Errorf("failed to remove old mongo upstart service %q: %v", old.Name, err)
 		return err
 	}
 
@@ -159,7 +170,7 @@ func removeOldMongoServices(curVersion int) error {
 	for x := 2; x < curVersion; x++ {
 		old := upstart.NewService(makeServiceName(x))
 		if err := old.StopAndRemove(); err != nil {
-			logger.Errorf("Failed to remove old mongo upstart service %q: %v", old.Name, err)
+			logger.Errorf("failed to remove old mongo upstart service %q: %v", old.Name, err)
 			return err
 		}
 	}
