@@ -14,15 +14,13 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
-const upgraderFacade = "Upgrader"
-
 // State provides access to an upgrader worker's view of the state.
 type State struct {
 	caller base.Caller
 }
 
 func (st *State) call(method string, params, result interface{}) error {
-	return st.caller.Call(upgraderFacade, "", method, params, result)
+	return st.caller.Call("Upgrader", "", method, params, result)
 }
 
 // NewState returns a version of the state that provides functionality
