@@ -15,7 +15,7 @@ instance_name=$(ec2-get-name $instance_id)
 wait-for-port $instance_name 22
 set +e
 ssh -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
-    ubuntu@$instance_name  <<"EOT"
+    ubuntu@$instance_name  "JENKINS_URL=$JENKINS_URL bash"<<"EOT"
 set -eux
 for attempt in $(seq 10); do
   if grep ec2.archive.ubuntu.com /etc/apt/sources.list > /dev/null; then
@@ -27,10 +27,13 @@ for attempt in $(seq 10); do
 done
 sudo apt-add-repository -y ppa:juju/stable
 sudo apt-get update
-sudo apt-get install -y bzr juju lxc mongodb
+sudo apt-get install -y bzr lxc mongodb
 
 # prevent spurious failure on success
 rm .bash_logout
+afact=lastSuccessfulBuild/artifact
+wget -q $JENKINS_URL/job/publish-revision/$afact/new-precise.deb
+dpkg -i new-precise.deb
 export JUJU_REPOSITORY="$HOME/repo"
 mkdir -p $JUJU_REPOSITORY/precise
 bzr branch lp:charms/ubuntu $JUJU_REPOSITORY/precise/ubuntu
