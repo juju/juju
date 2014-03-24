@@ -15,7 +15,6 @@ import (
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -75,7 +74,7 @@ const bootstrapInstanceId = "only-0"
 
 func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 	s.fakeEnsureMongo = &fakeEnsure{}
-	s.PatchValue(&mongo.EnsureMongoServer, s.fakeEnsureMongo.fakeEnsureMongo)
+	s.PatchValue(&ensureMongoServer, s.fakeEnsureMongo.fakeEnsureMongo)
 
 	s.LoggingSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)

@@ -246,18 +246,25 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 	db := session.DB("juju")
 	pdb := session.DB("presence")
 	if info.Tag != "" {
+		logger.Infof("logging in as %q, password %q", info.Tag, info.Password)
 		if err := db.Login(info.Tag, info.Password); err != nil {
 			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to juju database as %q", info.Tag))
 		}
 		if err := pdb.Login(info.Tag, info.Password); err != nil {
 			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to presence database as %q", info.Tag))
 		}
+		admin := session.DB(AdminUser)
+		if err := admin.Login(info.Tag, info.Password); err != nil {
+			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to admin database as %q", info.Tag))
+		}
 	} else if info.Password != "" {
+		logger.Infof("logging in as %q, password %q", AdminUser, info.Password)
 		admin := session.DB(AdminUser)
 		if err := admin.Login(AdminUser, info.Password); err != nil {
 			return nil, maybeUnauthorized(err, "cannot log in to admin database")
 		}
 	}
+	logger.Infof("successfully logged in")
 	st := &State{
 		info:           info,
 		policy:         policy,

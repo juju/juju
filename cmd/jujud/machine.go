@@ -62,11 +62,12 @@ var newRunner = func(isFatal func(error) bool, moreImportant func(e0, e1 error) 
 
 const bootstrapMachineId = "0"
 
-var retryDelay = 3 * time.Second
-
-var jujuRun = "/usr/local/bin/juju-run"
-
-var useMultipleCPUs = utils.UseMultipleCPUs
+var (
+	retryDelay        = 3 * time.Second
+	jujuRun           = "/usr/local/bin/juju-run"
+	useMultipleCPUs   = utils.UseMultipleCPUs
+	ensureMongoServer = mongo.EnsureMongoServer
+)
 
 // MachineAgent is a cmd.Command responsible for running a machine agent.
 type MachineAgent struct {
@@ -360,7 +361,7 @@ func (a *MachineAgent) StateWorker(agentConfig agent.Config) (worker.Worker, err
 		return nil, err
 	}
 
-	err = mongo.EnsureMongoServer(info.Addrs[0], a.Conf.dataDir, agentConfig.StatePort(), di)
+	err = ensureMongoServer(info.Addrs[0], a.Conf.dataDir, agentConfig.StatePort(), di)
 	if err != nil {
 		return nil, err
 	}
