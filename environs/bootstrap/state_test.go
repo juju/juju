@@ -20,7 +20,6 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing/testbase"
-	"launchpad.net/juju-core/utils"
 )
 
 type StateSuite struct {
