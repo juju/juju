@@ -164,7 +164,7 @@ func (s *URLSuite) TestParseUnresolved(c *gc.C) {
 			c.Assert(series, gc.Equals, "")
 			_, err = charm.ParseURL(t.vague)
 			c.Assert(err, gc.NotNil)
-			c.Assert(err.Error(), gc.Equals, charm.ErrUnresolvedUrl.Error())
+			c.Assert(err, gc.Equals, charm.ErrUnresolvedUrl)
 		}
 	}
 }
@@ -205,12 +205,14 @@ var validTests = []struct {
 	{charm.IsValidSeries, "precise", true},
 	{charm.IsValidSeries, "Precise", false},
 	{charm.IsValidSeries, "pre cise", false},
-	{charm.IsValidSeries, "pre-cise", true},
+	{charm.IsValidSeries, "pre-cise", false},
 	{charm.IsValidSeries, "pre^cise", false},
 	{charm.IsValidSeries, "prec1se", true},
 	{charm.IsValidSeries, "-precise", false},
 	{charm.IsValidSeries, "precise-", false},
-	{charm.IsValidSeries, "pre-c1se", true},
+	{charm.IsValidSeries, "precise-1", false},
+	{charm.IsValidSeries, "precise1", true},
+	{charm.IsValidSeries, "pre-c1se", false},
 }
 
 func (s *URLSuite) TestValidCheckers(c *gc.C) {

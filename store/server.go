@@ -76,10 +76,6 @@ func charmStatsKey(curl *charm.URL, kind string) []string {
 	return []string{kind, curl.Series, curl.Name, curl.User}
 }
 
-func (s *Server) resolveSeries(ref charm.Reference) *charm.URL {
-	return &charm.URL{Reference: ref, Series: DefaultSeries}
-}
-
 func (s *Server) resolveURL(url string) (*charm.URL, error) {
 	ref, series, err := charm.ParseReference(url)
 	if err != nil {
