@@ -125,7 +125,7 @@ func (s *CmdSuite) TestDefaultContextReturnsErrorInDeletedDirectory(c *gc.C) {
 	err = os.Remove(missing)
 	c.Assert(err, gc.IsNil)
 	ctx, err = cmd.DefaultContext()
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, gc.ErrorMatches, `getwd: no such file or directory`)
 	c.Assert(ctx, gc.IsNil)
 }
 
