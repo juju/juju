@@ -5,6 +5,7 @@ package agent
 
 import (
 	"fmt"
+	"net"
 
 	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/constraints"
@@ -82,7 +83,11 @@ func (c *configInternal) InitializeState(dataDir string, envCfg *config.Config, 
 		return nil, nil, fmt.Errorf("Failed to find cloud local address in machineConfig")
 	}
 
-	if err := mongo.EnsureMongoServer(address, dataDir, envCfg.StatePort(), di); err != nil {
+	if err := mongo.EnsureMongoServer(mongo.EnsureMongoParams{
+		HostPort: net.JoinHostPort(address, fmt.Sprint(envCfg.StatePort())),
+		DataDir: dataDir,
+		DialInfo: di,
+	}); err != nil {
 		return nil, nil, err
 	}
 

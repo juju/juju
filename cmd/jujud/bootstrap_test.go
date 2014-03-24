@@ -10,11 +10,11 @@ import (
 	"path/filepath"
 
 	jc "github.com/juju/testing/checkers"
-	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -59,14 +59,12 @@ func init() {
 }
 
 type fakeEnsure struct {
-	dir  string
-	port int
-	err  error
+	params mongo.EnsureMongoParams
+	err    error
 }
 
-func (f *fakeEnsure) fakeEnsureMongo(address, dir string, port int, info *mgo.DialInfo) error {
-	f.dir = dir
-	f.port = port
+func (f *fakeEnsure) fakeEnsureMongo(p mongo.EnsureMongoParams) error {
+	f.params = p
 	return f.err
 }
 
