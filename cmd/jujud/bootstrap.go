@@ -62,7 +62,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	if err = c.Conf.read("machine-0"); err != nil {
+	if err := c.Conf.read("machine-0"); err != nil {
 		return err
 	}
 	// agent.Jobs is an optional field in the agent config, and was
