@@ -881,7 +881,7 @@ func (m *Machine) SetMachineAddresses(addresses []instance.Address) (err error) 
 	return nil
 }
 
-// Networks returns the list of networks the machine is on
+// Networks returns the list of networks the machine should be on
 // (includedNetworks) or not (excludedNetworks).
 func (m *Machine) Networks() (includedNetworks, excludedNetworks []string, err error) {
 	return readNetworks(m.st, m.globalKey())

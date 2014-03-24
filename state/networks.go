@@ -13,8 +13,8 @@ import (
 // networksDoc represents the network restrictions for a service or machine.
 // The document ID field is the globalKey of a service or a machine.
 type networksDoc struct {
-	NetworksToInclude []string
-	NetworksToExclude []string
+	NetworksToInclude []string `bson:"included"`
+	NetworksToExclude []string `bson:"excluded"`
 }
 
 func newNetworksDoc(includedNetworks, excludedNetworks []string) *networksDoc {
