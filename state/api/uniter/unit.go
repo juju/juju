@@ -62,7 +62,7 @@ func (u *Unit) SetStatus(status params.Status, info string, data params.StatusDa
 			{Tag: u.tag, Status: status, Info: info, Data: data},
 		},
 	}
-	err := u.st.caller.Call("Uniter", "", "SetStatus", args, &result)
+	err := u.st.call("SetStatus", args, &result)
 	if err != nil {
 		return err
 	}
@@ -76,7 +76,7 @@ func (u *Unit) EnsureDead() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},
 	}
-	err := u.st.caller.Call("Uniter", "", "EnsureDead", args, &result)
+	err := u.st.call("EnsureDead", args, &result)
 	if err != nil {
 		return err
 	}
@@ -89,7 +89,7 @@ func (u *Unit) Watch() (watcher.NotifyWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},
 	}
-	err := u.st.caller.Call("Uniter", "", "Watch", args, &results)
+	err := u.st.call("Watch", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +129,7 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},
 	}
-	err := u.st.caller.Call("Uniter", "", "ConfigSettings", args, &results)
+	err := u.st.call("ConfigSettings", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +163,7 @@ func (u *Unit) Destroy() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},
 	}
-	err := u.st.caller.Call("Uniter", "", "Destroy", args, &result)
+	err := u.st.call("Destroy", args, &result)
 	if err != nil {
 		return err
 	}
@@ -176,7 +176,7 @@ func (u *Unit) DestroyAllSubordinates() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},
 	}
-	err := u.st.caller.Call("Uniter", "", "DestroyAllSubordinates", args, &result)
+	err := u.st.call("DestroyAllSubordinates", args, &result)
 	if err != nil {
 		return err
 	}
@@ -192,7 +192,7 @@ func (u *Unit) Resolved() (params.ResolvedMode, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},
 	}
-	err := u.st.caller.Call("Uniter", "", "Resolved", args, &results)
+	err := u.st.call("Resolved", args, &results)
 	if err != nil {
 		return "", err
 	}
@@ -216,7 +216,7 @@ func (u *Unit) IsPrincipal() (bool, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},
 	}
-	err := u.st.caller.Call("Uniter", "", "GetPrincipal", args, &results)
+	err := u.st.call("GetPrincipal", args, &results)
 	if err != nil {
 		return false, err
 	}
@@ -237,7 +237,7 @@ func (u *Unit) HasSubordinates() (bool, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},
 	}
-	err := u.st.caller.Call("Uniter", "", "HasSubordinates", args, &results)
+	err := u.st.call("HasSubordinates", args, &results)
 	if err != nil {
 		return false, err
 	}
@@ -264,7 +264,7 @@ func (u *Unit) PublicAddress() (string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},
 	}
-	err := u.st.caller.Call("Uniter", "", "PublicAddress", args, &results)
+	err := u.st.call("PublicAddress", args, &results)
 	if err != nil {
 		return "", err
 	}
@@ -289,7 +289,7 @@ func (u *Unit) SetPublicAddress(address string) error {
 			{Tag: u.tag, Address: address},
 		},
 	}
-	err := u.st.caller.Call("Uniter", "", "SetPublicAddress", args, &result)
+	err := u.st.call("SetPublicAddress", args, &result)
 	if err != nil {
 		return err
 	}
@@ -309,7 +309,7 @@ func (u *Unit) PrivateAddress() (string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},
 	}
-	err := u.st.caller.Call("Uniter", "", "PrivateAddress", args, &results)
+	err := u.st.call("PrivateAddress", args, &results)
 	if err != nil {
 		return "", err
 	}
@@ -334,7 +334,7 @@ func (u *Unit) SetPrivateAddress(address string) error {
 			{Tag: u.tag, Address: address},
 		},
 	}
-	err := u.st.caller.Call("Uniter", "", "SetPrivateAddress", args, &result)
+	err := u.st.call("SetPrivateAddress", args, &result)
 	if err != nil {
 		return err
 	}
@@ -353,7 +353,7 @@ func (u *Unit) OpenPort(protocol string, number int) error {
 			{Tag: u.tag, Protocol: protocol, Port: number},
 		},
 	}
-	err := u.st.caller.Call("Uniter", "", "OpenPort", args, &result)
+	err := u.st.call("OpenPort", args, &result)
 	if err != nil {
 		return err
 	}
@@ -372,7 +372,7 @@ func (u *Unit) ClosePort(protocol string, number int) error {
 			{Tag: u.tag, Protocol: protocol, Port: number},
 		},
 	}
-	err := u.st.caller.Call("Uniter", "", "ClosePort", args, &result)
+	err := u.st.call("ClosePort", args, &result)
 	if err != nil {
 		return err
 	}
@@ -390,7 +390,7 @@ func (u *Unit) CharmURL() (*charm.URL, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},
 	}
-	err := u.st.caller.Call("Uniter", "", "CharmURL", args, &results)
+	err := u.st.call("CharmURL", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -423,7 +423,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 			{Tag: u.tag, CharmURL: curl.String()},
 		},
 	}
-	err := u.st.caller.Call("Uniter", "", "SetCharmURL", args, &result)
+	err := u.st.call("SetCharmURL", args, &result)
 	if err != nil {
 		return err
 	}
@@ -436,7 +436,7 @@ func (u *Unit) ClearResolved() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},
 	}
-	err := u.st.caller.Call("Uniter", "", "ClearResolved", args, &result)
+	err := u.st.call("ClearResolved", args, &result)
 	if err != nil {
 		return err
 	}
@@ -452,7 +452,7 @@ func (u *Unit) WatchConfigSettings() (watcher.NotifyWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},
 	}
-	err := u.st.caller.Call("Uniter", "", "WatchConfigSettings", args, &results)
+	err := u.st.call("WatchConfigSettings", args, &results)
 	if err != nil {
 		return nil, err
 	}
