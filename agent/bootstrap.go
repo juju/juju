@@ -5,6 +5,7 @@ package agent
 
 import (
 	"fmt"
+	"net"
 
 	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/constraints"
@@ -70,11 +71,16 @@ func (c *configInternal) InitializeState(dataDir string, envCfg *config.Config, 
 	di, err := state.DialInfo(&info, timeout, policy)
 
 	address := "127.0.0.1"
+	// TODO make a more reasoned choice of address.
 	if len(machineCfg.Addresses) > 0 {
 		address = machineCfg.Addresses[0].Value
 	}
 
-	if err := mongo.EnsureMongoServer(address, dataDir, envCfg.StatePort(), di); err != nil {
+	if err := mongo.EnsureMongoServer(mongo.EnsureMongoParams{
+		HostPort: net.JoinHostPort(address, fmt.Sprint(envCfg.StatePort())),
+		DataDir: dataDir,
+		DialInfo: di,
+	}); err != nil {
 		return nil, nil, err
 	}
 
