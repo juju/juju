@@ -4,8 +4,9 @@
 package state_test
 
 import (
-	"labix.org/v2/mgo/bson"
 	"sort"
+
+	"labix.org/v2/mgo/bson"
 
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
@@ -223,6 +224,8 @@ func (s *MachineSuite) TestRemove(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	_, err = s.machine.Containers()
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	_, _, err = s.machine.Networks()
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	err = s.machine.Remove()
 	c.Assert(err, gc.IsNil)
 }
@@ -346,6 +349,38 @@ func (s *MachineSuite) TestMachineWaitAgentAlive(c *gc.C) {
 	alive, err = s.machine.AgentAlive()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, false)
+}
+
+func (s *MachineSuite) TestMachineNetworks(c *gc.C) {
+	// s.machine is created without networks, so check
+	// they're empty when we read them.
+	included, excluded, err := s.machine.Networks()
+	c.Assert(err, gc.IsNil)
+	c.Assert(included, gc.HasLen, 0)
+	c.Assert(excluded, gc.HasLen, 0)
+
+	// Now create a machine with networks and read them back.
+	machine, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series:           "quantal",
+		Jobs:             []state.MachineJob{state.JobHostUnits},
+		IncludedNetworks: []string{"net1", "mynet"},
+		ExcludedNetworks: []string{"private-net", "logging"},
+	})
+	c.Assert(err, gc.IsNil)
+	included, excluded, err = machine.Networks()
+	c.Assert(err, gc.IsNil)
+	c.Assert(included, jc.DeepEquals, []string{"net1", "mynet"})
+	c.Assert(excluded, jc.DeepEquals, []string{"private-net", "logging"})
+
+	// Finally, networks should be removed with the machine.
+	err = machine.EnsureDead()
+	c.Assert(err, gc.IsNil)
+	err = machine.Remove()
+	c.Assert(err, gc.IsNil)
+	included, excluded, err = machine.Networks()
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(included, gc.HasLen, 0)
+	c.Assert(excluded, gc.HasLen, 0)
 }
 
 func (s *MachineSuite) TestMachineInstanceId(c *gc.C) {

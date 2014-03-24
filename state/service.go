@@ -823,7 +823,7 @@ func (s *Service) SetConstraints(cons constraints.Value) (err error) {
 }
 
 // Networks returns the networks a service is associated with.
-func (s *Service) Networks() (includeNetworks, excludeNetworks []string, err error) {
+func (s *Service) Networks() (includedNetworks, excludedNetworks []string, err error) {
 	return readNetworks(s.st, s.globalKey())
 }
 

@@ -17,19 +17,19 @@ type networksDoc struct {
 	NetworksToExclude []string
 }
 
-func newNetworksDoc(includeNetworks, excludeNetworks []string) networksDoc {
-	return networksDoc{
-		NetworksToInclude: includeNetworks,
-		NetworksToExclude: excludeNetworks,
+func newNetworksDoc(includedNetworks, excludedNetworks []string) *networksDoc {
+	return &networksDoc{
+		NetworksToInclude: includedNetworks,
+		NetworksToExclude: excludedNetworks,
 	}
 }
 
-func createNetworksOp(st *State, id string, includeNetworks, excludeNetworks []string) txn.Op {
+func createNetworksOp(st *State, id string, includedNetworks, excludedNetworks []string) txn.Op {
 	return txn.Op{
 		C:      st.networks.Name,
 		Id:     id,
 		Assert: txn.DocMissing,
-		Insert: newNetworksDoc(includeNetworks, excludeNetworks),
+		Insert: newNetworksDoc(includedNetworks, excludedNetworks),
 	}
 }
 
@@ -43,13 +43,13 @@ func removeNetworksOp(st *State, id string) txn.Op {
 	}
 }
 
-func readNetworks(st *State, id string) (includeNetworks, excludeNetworks []string, err error) {
+func readNetworks(st *State, id string) (includedNetworks, excludedNetworks []string, err error) {
 	doc := networksDoc{}
 	if err = st.networks.FindId(id).One(&doc); err == mgo.ErrNotFound {
-		err = errors.NotFoundf("service networks")
+		err = errors.NotFoundf("linked networks")
 	} else if err == nil {
-		includeNetworks = doc.NetworksToInclude
-		excludeNetworks = doc.NetworksToExclude
+		includedNetworks = doc.NetworksToInclude
+		excludedNetworks = doc.NetworksToExclude
 	}
-	return includeNetworks, excludeNetworks, err
+	return includedNetworks, excludedNetworks, err
 }
