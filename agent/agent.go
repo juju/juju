@@ -72,6 +72,9 @@ type Config interface {
 	// will be made.
 	Tag() string
 
+	// Password returns the agent's password.
+	Password() string
+
 	// Dir returns the agent's directory.
 	Dir() string
 
@@ -665,6 +668,10 @@ func (c *configInternal) OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassw
 		return nil, "", err
 	}
 	return st, password, nil
+}
+
+func (c *configInternal) Password() string {
+	return c.stateDetails.password
 }
 
 func (c *configInternal) OpenState(policy state.Policy) (*state.State, error) {
