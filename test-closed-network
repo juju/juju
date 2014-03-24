@@ -20,7 +20,7 @@ set -eux
 for attempt in $(seq 10); do
   if grep ec2.archive.ubuntu.com /etc/apt/sources.list; then
     break
-  elif "$attempt" == "10"; then
+  elif [ "$attempt" == "10" ]; then
     exit 1
   fi
   sleep 10
