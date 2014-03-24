@@ -71,6 +71,7 @@ for x in $(seq 30); do
   fi
   sleep 10
 done
+juju status
 exit 1
 EOT
 result=$?
