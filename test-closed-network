@@ -55,7 +55,7 @@ for ip in $(dig archive.ubuntu.com ubuntu-cloud.archive.canonical.com\
 done
 sudo route add -net 172.16.0.0 netmask 255.240.0.0 gw $gateway
 sudo route del default gw $gateway
-sudo juju bootstrap
+juju bootstrap
 juju deploy local:precise/ubuntu
 for x in $(seq 30); do
   # relying on the indentation of ubuntu/0's agent-state here...
