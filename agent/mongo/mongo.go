@@ -2,6 +2,7 @@ package mongo
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path"
@@ -46,6 +47,15 @@ func MongodPath() (string, error) {
 	return path, nil
 }
 
+type EnsureMongoParams struct {
+	Address string
+	Port int
+	DialInfo *mgo.DialInfo
+	DataDir string
+	User string
+	Password string
+}
+
 // EnsureMongoServer ensures that the correct mongo upstart script is installed
 // and running.
 //
@@ -53,19 +63,16 @@ func MongodPath() (string, error) {
 // before installing the new version.
 //
 // This is a variable so it can be overridden in tests
-var EnsureMongoServer = ensureMongoServer
-
-func ensureMongoServer(address, dataDir string, port int, info *mgo.DialInfo) error {
-	logger.Debugf("Ensuring mongo server is running.  address: %v, dir: %v, port: %v, dialinfo: %#v",
-		address, dataDir, port, *info)
-	dbDir := filepath.Join(dataDir, "db")
+func EnsureMongoServer(p EnsureMongoParams) error {
+	logger.Debugf("Ensuring mongo server is running.  params: %#v", p)
+	dbDir := filepath.Join(p.DataDir, "db")
 	name := makeServiceName(mongoScriptVersion)
 
 	if err := removeOldMongoServices(mongoScriptVersion); err != nil {
 		return err
 	}
 
-	service, err := mongoUpstartService(name, dataDir, dbDir, port)
+	service, err := mongoUpstartService(name, p.DataDir, dbDir, p.Port)
 	if err != nil {
 		return err
 	}
@@ -89,7 +96,7 @@ func ensureMongoServer(address, dataDir string, port int, info *mgo.DialInfo) er
 		logger.Infof("Mongod service %q started.", name)
 	}
 
-	if err := initiateReplicaSet(address, port, info); err != nil {
+	if err := initiateReplicaSet(p); err != nil {
 		logger.Debugf("Error initiating replicaset: %v", err)
 		return fmt.Errorf("failed to initiate mongo replicaset: %v", err)
 	}
@@ -100,19 +107,23 @@ func ensureMongoServer(address, dataDir string, port int, info *mgo.DialInfo) er
 // If no existing configuration is found one is created using Initiate.
 //
 // This is a variable so it can be overridden in tests
-var initiateReplicaSet = func(address string, port int, info *mgo.DialInfo) error {
-	session, err := mgo.DialWithInfo(info)
+var initiateReplicaSet = func(p EnsureMongoParams) error {
+	session, err := mgo.DialWithInfo(p.DialInfo)
 	if err != nil {
 		return err
 	}
 	defer session.Close()
 
+	if p.User != "" {
+		err := session.DB("admin").Login(p.User, p.Password)
+		if err != nil {
+			return fmt.Errorf("cannot login to admin db: %v", err)
+		}
+	}
 	_, err = replicaset.CurrentConfig(session)
 	if err == mgo.ErrNotFound {
-		if address == "localhost" {
-			address = fmt.Sprintf("%s:%d", address, port)
-		}
-		return replicaset.Initiate(session, address, replicaSetName)
+		hostPort := net.JoinHostPort(p.Address, fmt.Sprint(p.Port))
+		return replicaset.Initiate(session, hostPort, replicaSetName)
 	}
 	return err
 }
