@@ -4,7 +4,6 @@
 package firewaller
 
 import (
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state/api/base"
 	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
@@ -16,6 +15,7 @@ const firewallerFacade = "Firewaller"
 // State provides access to the Firewaller API facade.
 type State struct {
 	caller base.Caller
+	*common.EnvironWatcher
 }
 
 func (st *State) call(method string, params, result interface{}) error {
@@ -24,7 +24,10 @@ func (st *State) call(method string, params, result interface{}) error {
 
 // NewState creates a new client-side Firewaller facade.
 func NewState(caller base.Caller) *State {
-	return &State{caller}
+	return &State{
+		caller:         caller,
+		EnvironWatcher: common.NewEnvironWatcher(firewallerFacade, caller),
+	}
 }
 
 // life requests the life cycle of the given entity from the server.
@@ -57,35 +60,6 @@ func (st *State) Machine(tag string) (*Machine, error) {
 		life: life,
 		st:   st,
 	}, nil
-}
-
-// WatchForEnvironConfigChanges return a NotifyWatcher waiting for the
-// environment configuration to change.
-func (st *State) WatchForEnvironConfigChanges() (watcher.NotifyWatcher, error) {
-	var result params.NotifyWatchResult
-	err := st.call("WatchForEnvironConfigChanges", nil, &result)
-	if err != nil {
-		return nil, err
-	}
-	if err := result.Error; err != nil {
-		return nil, result.Error
-	}
-	w := watcher.NewNotifyWatcher(st.caller, result)
-	return w, nil
-}
-
-// EnvironConfig returns the current environment configuration.
-func (st *State) EnvironConfig() (*config.Config, error) {
-	var result params.EnvironConfigResult
-	err := st.call("EnvironConfig", nil, &result)
-	if err != nil {
-		return nil, err
-	}
-	conf, err := config.New(config.NoDefaults, result.Config)
-	if err != nil {
-		return nil, err
-	}
-	return conf, nil
 }
 
 // WatchEnvironMachines returns a StringsWatcher that notifies of
