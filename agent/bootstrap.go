@@ -51,7 +51,7 @@ type BootstrapMachineConfig struct {
 	Characteristics instance.HardwareCharacteristics
 
 	// Addresses holds a list of hostnames or ip addresses
-	// associated with the instance of teh bootstrap machine.
+	// associated with the instance of the bootstrap machine.
 	Addresses []instance.Address
 }
 

@@ -361,7 +361,13 @@ func (a *MachineAgent) StateWorker(agentConfig agent.Config) (worker.Worker, err
 		return nil, err
 	}
 
-	err = ensureMongoServer(info.Addrs[0], a.Conf.dataDir, agentConfig.StatePort(), di)
+	err = ensureMongoServer(mongo.EnsureMongoParams{
+		HostPort: info.Addrs[0],
+		DataDir: a.Conf.dataDir,
+		DialInfo: di,
+		User: info.Tag,
+		Password: info.Password,
+	})
 	if err != nil {
 		return nil, err
 	}

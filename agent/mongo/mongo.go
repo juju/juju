@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strconv"
 
 	"github.com/juju/loggo"
 	"labix.org/v2/mgo"
@@ -47,6 +48,14 @@ func MongodPath() (string, error) {
 	return path, nil
 }
 
+type EnsureMongoParams struct {
+	HostPort string
+	DialInfo *mgo.DialInfo
+	DataDir  string
+	User     string
+	Password string
+}
+
 // EnsureMongoServer ensures that the correct mongo upstart script is installed
 // and running.
 //
@@ -54,19 +63,25 @@ func MongodPath() (string, error) {
 // before installing the new version.
 //
 // This is a variable so it can be overridden in tests
-var EnsureMongoServer = ensureMongoServer
-
-func ensureMongoServer(address, dataDir string, port int, info *mgo.DialInfo) error {
-	logger.Debugf("Ensuring mongo server is running.  address: %v, dir: %v, port: %v, dialinfo: %#v",
-		address, dataDir, port, *info)
-	dbDir := filepath.Join(dataDir, "db")
+func EnsureMongoServer(p EnsureMongoParams) error {
+	logger.Debugf("Ensuring mongo server is running.  params: %#v", p)
+	dbDir := filepath.Join(p.DataDir, "db")
 	name := makeServiceName(mongoScriptVersion)
+
+	_, portStr, err := net.SplitHostPort(p.HostPort)
+	if err != nil {
+		return fmt.Errorf("invalid mongo address %q", p.HostPort)
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return fmt.Errorf("invalid port in mongo address %q", p.HostPort)
+	}
 
 	if err := removeOldMongoServices(mongoScriptVersion); err != nil {
 		return err
 	}
 
-	service, err := mongoUpstartService(name, dataDir, dbDir, port)
+	service, err := mongoUpstartService(name, p.DataDir, dbDir, port)
 	if err != nil {
 		return err
 	}
@@ -75,7 +90,6 @@ func ensureMongoServer(address, dataDir string, port int, info *mgo.DialInfo) er
 		if err := makeJournalDirs(dbDir); err != nil {
 			return fmt.Errorf("Error creating journal directories: %v", err)
 		}
-
 		logger.Debugf("mongod upstart command: %s", service.Cmd)
 		err = service.Install()
 		if err != nil {
@@ -90,7 +104,7 @@ func ensureMongoServer(address, dataDir string, port int, info *mgo.DialInfo) er
 		logger.Infof("Mongod service %q started.", name)
 	}
 
-	if err := initiateReplicaSet(address, port, info); err != nil {
+	if err := initiateReplicaSet(p); err != nil {
 		logger.Debugf("Error initiating replicaset: %v", err)
 		return fmt.Errorf("failed to initiate mongo replicaset: %v", err)
 	}
@@ -101,29 +115,39 @@ func ensureMongoServer(address, dataDir string, port int, info *mgo.DialInfo) er
 // If no existing configuration is found one is created using Initiate.
 //
 // This is a variable so it can be overridden in tests
-var initiateReplicaSet = func(address string, port int, info *mgo.DialInfo) error {
-	logger.Debugf("Initiating mongo replicaset with address %q, port %d, dialinfo %#v", address, port, *info)
+var initiateReplicaSet = func(p EnsureMongoParams) error {
+	logger.Debugf("Initiating mongo replicaset; params: %#v", p)
 
-	addrs, _ := net.InterfaceAddrs()
-	logger.Debugf("Interface addresses: %#v", addrs)
+	// TODO remove me
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		logger.Infof("cannot get interface addresses: %v", err)
+	} else {
+		logger.Debugf("Interface addresses: %#v", addrs)
+	}
 
-	session, err := mgo.DialWithInfo(info)
+	session, err := mgo.DialWithInfo(p.DialInfo)
 	if err != nil {
 		return fmt.Errorf("can't dial mongo to initiate replicaset: %v", err)
 	}
 	defer session.Close()
 
+	if p.User != "" {
+		err := session.DB("admin").Login(p.User, p.Password)
+		if err != nil {
+			return fmt.Errorf("cannot login to admin db: %v", err)
+		}
+	}
 	_, err = replicaset.CurrentConfig(session)
 	if err == mgo.ErrNotFound {
-		address = fmt.Sprintf("%s:%d", address, port)
-		err = replicaset.Initiate(session, address, replicaSetName)
+		err = replicaset.Initiate(session, p.HostPort, replicaSetName)
 		if err != nil {
-			return fmt.Errorf("error from mongo initiate: %v", err)
+			return fmt.Errorf("cannot initiate replica set: %v", err)
 		}
 		return nil
 	}
 	if err != nil {
-		return fmt.Errorf("error getting replicaset config: %v", err)
+		return fmt.Errorf("cannot get replica set configuration: %v", err)
 	}
 	return nil
 }

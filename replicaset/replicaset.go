@@ -260,7 +260,7 @@ func CurrentConfig(session *mgo.Session) (*Config, error) {
 		return nil, err
 	}
 	if err != nil {
-		return nil, fmt.Errorf("Error getting replset config : %s", err.Error())
+		return nil, fmt.Errorf("cannot get replset config: %s", err.Error())
 	}
 	return cfg, nil
 }
@@ -278,7 +278,7 @@ func CurrentStatus(session *mgo.Session) (*Status, error) {
 	status := &Status{}
 	err := session.Run("replSetGetStatus", status)
 	if err != nil {
-		return nil, fmt.Errorf("Error from replSetGetStatus: %v", err)
+		return nil, fmt.Errorf("replSetGetStatus error: %v", err)
 	}
 	return status, nil
 }
