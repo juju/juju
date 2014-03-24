@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strconv"
 
 	"github.com/juju/loggo"
 	"labix.org/v2/mgo"
@@ -48,11 +49,10 @@ func MongodPath() (string, error) {
 }
 
 type EnsureMongoParams struct {
-	Address string
-	Port int
+	HostPort string
 	DialInfo *mgo.DialInfo
-	DataDir string
-	User string
+	DataDir  string
+	User     string
 	Password string
 }
 
@@ -68,20 +68,28 @@ func EnsureMongoServer(p EnsureMongoParams) error {
 	dbDir := filepath.Join(p.DataDir, "db")
 	name := makeServiceName(mongoScriptVersion)
 
+	_, portStr, err := net.SplitHostPort(p.HostPort)
+	if err != nil {
+		return fmt.Errorf("invalid mongo address %q", p.HostPort)
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return fmt.Errorf("invalid port in mongo address %q", p.HostPort)
+	}
+
 	if err := removeOldMongoServices(mongoScriptVersion); err != nil {
 		return err
 	}
 
-	service, err := mongoUpstartService(name, p.DataDir, dbDir, p.Port)
+	service, err := mongoUpstartService(name, p.DataDir, dbDir, port)
 	if err != nil {
 		return err
 	}
 
 	if !service.Installed() {
 		if err := makeJournalDirs(dbDir); err != nil {
-			return err
+			return fmt.Errorf("Error creating journal directories: %v", err)
 		}
-
 		logger.Debugf("mongod upstart command: %s", service.Cmd)
 		err = service.Install()
 		if err != nil {
@@ -91,7 +99,7 @@ func EnsureMongoServer(p EnsureMongoParams) error {
 
 	if !service.Running() {
 		if err := service.Start(); err != nil {
-			return fmt.Errorf("Failed to start %q service: %v", name, err)
+			return fmt.Errorf("failed to start %q service: %v", name, err)
 		}
 		logger.Infof("Mongod service %q started.", name)
 	}
@@ -108,9 +116,19 @@ func EnsureMongoServer(p EnsureMongoParams) error {
 //
 // This is a variable so it can be overridden in tests
 var initiateReplicaSet = func(p EnsureMongoParams) error {
+	logger.Debugf("Initiating mongo replicaset; params: %#v", p)
+
+	// TODO remove me
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		logger.Infof("cannot get interface addresses: %v", err)
+	} else {
+		logger.Debugf("Interface addresses: %#v", addrs)
+	}
+
 	session, err := mgo.DialWithInfo(p.DialInfo)
 	if err != nil {
-		return err
+		return fmt.Errorf("can't dial mongo to initiate replicaset: %v", err)
 	}
 	defer session.Close()
 
@@ -122,10 +140,16 @@ var initiateReplicaSet = func(p EnsureMongoParams) error {
 	}
 	_, err = replicaset.CurrentConfig(session)
 	if err == mgo.ErrNotFound {
-		hostPort := net.JoinHostPort(p.Address, fmt.Sprint(p.Port))
-		return replicaset.Initiate(session, hostPort, replicaSetName)
+		err = replicaset.Initiate(session, p.HostPort, replicaSetName)
+		if err != nil {
+			return fmt.Errorf("cannot initiate replica set: %v", err)
+		}
+		return nil
 	}
-	return err
+	if err != nil {
+		return fmt.Errorf("cannot get replica set configuration: %v", err)
+	}
+	return nil
 }
 
 func makeJournalDirs(dir string) error {
@@ -162,7 +186,7 @@ func makeJournalDirs(dir string) error {
 func removeOldMongoServices(curVersion int) error {
 	old := upstart.NewService(oldMongoServiceName)
 	if err := old.StopAndRemove(); err != nil {
-		logger.Errorf("Failed to remove old mongo upstart service %q: %v", old.Name, err)
+		logger.Errorf("failed to remove old mongo upstart service %q: %v", old.Name, err)
 		return err
 	}
 
@@ -170,7 +194,7 @@ func removeOldMongoServices(curVersion int) error {
 	for x := 2; x < curVersion; x++ {
 		old := upstart.NewService(makeServiceName(x))
 		if err := old.StopAndRemove(); err != nil {
-			logger.Errorf("Failed to remove old mongo upstart service %q: %v", old.Name, err)
+			logger.Errorf("failed to remove old mongo upstart service %q: %v", old.Name, err)
 			return err
 		}
 	}

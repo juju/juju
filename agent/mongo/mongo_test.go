@@ -1,7 +1,9 @@
 package mongo
 
 import (
+	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"path"
 	"path/filepath"
@@ -134,14 +136,14 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	port := 25252
+	hostPort := net.JoinHostPort(address, fmt.Sprint(port))
 
 	oldsvc := makeService(oldMongoServiceName, c)
 	defer oldsvc.Remove()
 
 	err = EnsureMongoServer(EnsureMongoParams{
-		Address: address,
-		DataDir: dir,
-		Port: port,
+		HostPort: hostPort,
+		DataDir:  dir,
 		DialInfo: info,
 	})
 	c.Assert(err, gc.IsNil)
@@ -155,9 +157,8 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 
 	// now check we can call it multiple times without error
 	err = EnsureMongoServer(EnsureMongoParams{
-		Address: address,
-		DataDir: dir,
-		Port: port,
+		HostPort: hostPort,
+		DataDir:  dir,
 		DialInfo: info,
 	})
 	c.Assert(err, gc.IsNil)
@@ -179,11 +180,11 @@ func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
 	// that should make it get cleaned up at the end of the test if created
 	os.RemoveAll(dir)
 	port := 25252
+	hostPort := net.JoinHostPort(address, fmt.Sprint(port))
 
 	err := EnsureMongoServer(EnsureMongoParams{
-		Address: address,
-		DataDir: dir,
-		Port: port,
+		HostPort: hostPort,
+		DataDir:  dir,
 		DialInfo: info,
 	})
 	c.Check(err, gc.IsNil)
@@ -207,8 +208,7 @@ func (s *MongoSuite) TestInitiateReplicaSet(c *gc.C) {
 
 	// Set up the inital ReplicaSet
 	err = initiateReplicaSet(EnsureMongoParams{
-		Address: inst.Addr(),
-		Port: inst.Port(),
+		HostPort: inst.Addr(),
 		DialInfo: info,
 	})
 	c.Assert(err, gc.IsNil)
@@ -217,8 +217,7 @@ func (s *MongoSuite) TestInitiateReplicaSet(c *gc.C) {
 	// configuration already existed but we tried to created
 	// one with replicaset.Initiate again.
 	err = initiateReplicaSet(EnsureMongoParams{
-		Address: inst.Addr(),
-		Port: inst.Port(),
+		HostPort: inst.Addr(),
 		DialInfo: info,
 	})
 	c.Assert(err, gc.IsNil)

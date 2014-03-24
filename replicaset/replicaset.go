@@ -33,6 +33,7 @@ func Initiate(session *mgo.Session, address, name string) error {
 		Version: 1,
 		Members: []Member{{Id: 1, Address: address}},
 	}
+	logger.Infof("Initiating replicaset with config %#v", cfg)
 	return session.Run(bson.D{{"replSetInitiate", cfg}}, nil)
 }
 
