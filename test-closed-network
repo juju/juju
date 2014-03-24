@@ -18,7 +18,7 @@ ssh -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
     ubuntu@$instance_name  <<"EOT"
 set -eux
 for attempt in $(seq 10); do
-  if grep ec2.archive.ubuntu.com /etc/apt/sources.list; then
+  if grep ec2.archive.ubuntu.com /etc/apt/sources.list > /dev/null; then
     break
   elif [ "$attempt" == "10" ]; then
     exit 1
@@ -26,17 +26,9 @@ for attempt in $(seq 10); do
   sleep 10
 done
 sudo apt-add-repository -y ppa:juju/stable
-apt_success=1
-for attempt in $(seq 10); do
 sudo apt-get update
-  if sudo apt-get install -y bzr juju lxc mongodb; then
-    apt_success=0
-    break
-  fi
-done
-if [ "$apt_success" != "0" ]; then
-  exit 1
-fi
+sudo apt-get install -y bzr juju lxc mongodb
+
 # prevent spurious failure on success
 rm .bash_logout
 export JUJU_REPOSITORY="$HOME/repo"
