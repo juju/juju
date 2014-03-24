@@ -21,8 +21,7 @@ func init() {
 	registerFileProtocol(defaultTransport)
 }
 
-// registerFileProtocol registers support for file:// URLs on the
-// given transport.
+// registerFileProtocol registers support for file:// URLs on the given transport.
 func registerFileProtocol(transport *http.Transport) {
 	transport.RegisterProtocol("file", http.NewFileTransport(http.Dir("/")))
 }
