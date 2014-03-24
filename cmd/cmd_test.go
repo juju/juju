@@ -6,6 +6,7 @@ package cmd_test
 import (
 	"bytes"
 	"net/http"
+	"os"
 	"path/filepath"
 
 	jc "github.com/juju/testing/checkers"
@@ -112,6 +113,23 @@ func (s *CmdSuite) TestMainHelp(c *gc.C) {
 		c.Assert(bufferString(ctx.Stdout), gc.Equals, fullHelp)
 		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	}
+}
+
+func (s *CmdSuite) TestDefaultContextReturnsErrorInDeletedDirectory(c *gc.C) {
+	ctx := testing.Context(c)
+	wd, err := os.Getwd()
+	c.Assert(err, gc.IsNil)
+	missing := ctx.Dir + "/missing"
+	err = os.Mkdir(missing, 0700)
+	c.Assert(err, gc.IsNil)
+	err = os.Chdir(missing)
+	c.Assert(err, gc.IsNil)
+	defer os.Chdir(wd)
+	err = os.Remove(missing)
+	c.Assert(err, gc.IsNil)
+	ctx, err = cmd.DefaultContext()
+	c.Assert(err, gc.ErrorMatches, `getwd: no such file or directory`)
+	c.Assert(ctx, gc.IsNil)
 }
 
 func (s *CmdSuite) TestCheckEmpty(c *gc.C) {
