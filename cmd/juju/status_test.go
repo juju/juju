@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
@@ -176,6 +177,17 @@ var (
 		"series":      "quantal",
 		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
+	machine1WithNetworks = M{
+		"agent-state": "started",
+		"networks": M{
+			"enabled":  L{"net1", "net2"},
+			"disabled": L{"net3", "net4"},
+		},
+		"dns-name":    "dummyenv-1.dns",
+		"instance-id": "dummyenv-1",
+		"series":      "quantal",
+		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
+	}
 	machine1WithContainersScoped = M{
 		"agent-state": "started",
 		"containers": M{
@@ -299,8 +311,41 @@ var statusTests = []testCase{
 			},
 		},
 	), test(
+		"two machines, second one with networks set",
+		addMachine{machineId: "0", job: state.JobManageEnviron},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", params.StatusStarted, ""},
+		setAddresses{"0", []instance.Address{
+			instance.NewAddress("10.0.0.1"),
+			instance.NewAddress("dummyenv-0.dns"),
+		}},
+		addMachine{
+			machineId:       "1",
+			job:             state.JobHostUnits,
+			withNetworks:    []string{"net1", "net2"},
+			withoutNetworks: []string{"net3", "net4"},
+		},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", params.StatusStarted, ""},
+		setAddresses{"1", []instance.Address{
+			instance.NewAddress("10.0.0.2"),
+			instance.NewAddress("dummyenv-1.dns"),
+		}},
+
+		expect{
+			"simulate both machines started",
+			M{
+				"environment": "dummyenv",
+				"machines": M{
+					"0": machine0,
+					"1": machine1WithNetworks,
+				},
+				"services": M{},
+			},
+		},
+	), test(
 		"instance with different hardware characteristics",
-		addMachine{"0", machineCons, state.JobManageEnviron},
+		addMachine{machineId: "0", cons: machineCons, job: state.JobManageEnviron},
 		setAddresses{"0", []instance.Address{
 			instance.NewAddress("10.0.0.1"),
 			instance.NewAddress("dummyenv-0.dns"),
@@ -325,7 +370,7 @@ var statusTests = []testCase{
 		},
 	), test(
 		"instance without addresses",
-		addMachine{"0", machineCons, state.JobManageEnviron},
+		addMachine{machineId: "0", cons: machineCons, job: state.JobManageEnviron},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", params.StatusStarted, ""},
 		expect{
@@ -1487,16 +1532,20 @@ var statusTests = []testCase{
 // TODO(dfc) test failing components by destructively mutating the state under the hood
 
 type addMachine struct {
-	machineId string
-	cons      constraints.Value
-	job       state.MachineJob
+	machineId       string
+	cons            constraints.Value
+	job             state.MachineJob
+	withNetworks    []string
+	withoutNetworks []string
 }
 
 func (am addMachine) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.AddOneMachine(state.MachineTemplate{
-		Series:      "quantal",
-		Constraints: am.cons,
-		Jobs:        []state.MachineJob{am.job},
+		Series:           "quantal",
+		Constraints:      am.cons,
+		Jobs:             []state.MachineJob{am.job},
+		IncludedNetworks: am.withNetworks,
+		ExcludedNetworks: am.withoutNetworks,
 	})
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Id(), gc.Equals, am.machineId)
@@ -1876,7 +1925,7 @@ func (e scopedExpect) step(c *gc.C, ctx *context) {
 		actual := make(M)
 		err = format.unmarshal(stdout, &actual)
 		c.Assert(err, gc.IsNil)
-		c.Assert(actual, gc.DeepEquals, expected)
+		c.Assert(actual, jc.DeepEquals, expected)
 	}
 }
 

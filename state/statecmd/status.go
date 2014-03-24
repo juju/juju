@@ -310,6 +310,13 @@ func (context *statusContext) makeMachineStatus(machine *state.Machine) (status 
 		// in the output.
 		status.AgentState = ""
 	}
+	includedNetworks, excludedNetworks, err := machine.Networks()
+	if err == nil {
+		status.Networks = api.NetworksStatus{
+			Enabled:  includedNetworks,
+			Disabled: excludedNetworks,
+		}
+	}
 	hc, err := machine.HardwareCharacteristics()
 	if err != nil {
 		if !errors.IsNotFoundError(err) {

@@ -122,6 +122,7 @@ type machineStatus struct {
 	DNSName        string                   `json:"dns-name,omitempty" yaml:"dns-name,omitempty"`
 	InstanceId     instance.Id              `json:"instance-id,omitempty" yaml:"instance-id,omitempty"`
 	InstanceState  string                   `json:"instance-state,omitempty" yaml:"instance-state,omitempty"`
+	Networks       map[string][]string      `json:"networks,omitempty" yaml:"networks,omitempty"`
 	Life           string                   `json:"life,omitempty" yaml:"life,omitempty"`
 	Series         string                   `json:"series,omitempty" yaml:"series,omitempty"`
 	Id             string                   `json:"-" yaml:"-"`
@@ -237,11 +238,18 @@ func formatMachine(machine api.MachineStatus) machineStatus {
 		DNSName:        machine.DNSName,
 		InstanceId:     machine.InstanceId,
 		InstanceState:  machine.InstanceState,
+		Networks:       make(map[string][]string),
 		Life:           machine.Life,
 		Series:         machine.Series,
 		Id:             machine.Id,
 		Containers:     make(map[string]machineStatus),
 		Hardware:       machine.Hardware,
+	}
+	if len(machine.Networks.Enabled) > 0 {
+		out.Networks["enabled"] = machine.Networks.Enabled
+	}
+	if len(machine.Networks.Disabled) > 0 {
+		out.Networks["disabled"] = machine.Networks.Disabled
 	}
 	for k, m := range machine.Containers {
 		out.Containers[k] = formatMachine(m)

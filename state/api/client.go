@@ -26,6 +26,12 @@ type Client struct {
 	st *State
 }
 
+// NetworksStatus holds the enabled and disabled networks for a machine.
+type NetworksStatus struct {
+	Enabled  []string
+	Disabled []string
+}
+
 // MachineStatus holds status info about a machine.
 type MachineStatus struct {
 	Err            error
@@ -35,6 +41,7 @@ type MachineStatus struct {
 	DNSName        string
 	InstanceId     instance.Id
 	InstanceState  string
+	Networks       NetworksStatus
 	Life           string
 	Series         string
 	Id             string
