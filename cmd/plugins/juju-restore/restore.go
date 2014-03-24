@@ -38,11 +38,16 @@ func main() {
 }
 
 func Main(args []string) {
+	ctx, err := cmd.DefaultContext()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(2)
+	}
 	if err := juju.InitJujuHome(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %s\n", err)
 		os.Exit(2)
 	}
-	os.Exit(cmd.Main(&restoreCommand{}, cmd.DefaultContext(), args[1:]))
+	os.Exit(cmd.Main(&restoreCommand{}, ctx, args[1:]))
 }
 
 var logger = loggo.GetLogger("juju.plugins.restore")

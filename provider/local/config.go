@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/schema"
@@ -84,7 +85,7 @@ func (c *environConfig) mongoDir() string {
 }
 
 func (c *environConfig) logDir() string {
-	return filepath.Join(c.rootDir(), "log")
+	return fmt.Sprintf("%s-%s", agent.DefaultLogDir, c.namespace())
 }
 
 // bootstrapIPAddress returns the IP address of the bootstrap machine.

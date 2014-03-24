@@ -11,7 +11,6 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	commontesting "launchpad.net/juju-core/state/api/common/testing"
 	"launchpad.net/juju-core/state/api/uniter"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
@@ -100,18 +99,4 @@ func (s *uniterSuite) assertInScope(c *gc.C, relUnit *state.RelationUnit, inScop
 	ok, err := relUnit.InScope()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ok, gc.Equals, inScope)
-}
-
-type uniterCommonSuite struct {
-	uniterSuite
-
-	*commontesting.EnvironWatcherTest
-}
-
-var _ = gc.Suite(&uniterCommonSuite{})
-
-func (s *uniterCommonSuite) SetUpTest(c *gc.C) {
-	s.uniterSuite.SetUpTest(c)
-
-	s.EnvironWatcherTest = commontesting.NewEnvironWatcherTest(s.uniter, s.State, s.BackingState, commontesting.NoSecrets)
 }

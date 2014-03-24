@@ -12,11 +12,16 @@ import (
 // State provides access to the Machiner API facade.
 type State struct {
 	caller base.Caller
+	*common.APIAddresser
 }
 
 // NewState creates a new client-side Machiner facade.
 func NewState(caller base.Caller) *State {
-	return &State{caller}
+	return &State{
+		caller:       caller,
+		APIAddresser: common.NewAPIAddresser("Machiner", caller),
+	}
+
 }
 
 // machineLife requests the lifecycle of the given machine from the server.

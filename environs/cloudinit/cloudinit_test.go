@@ -117,6 +117,7 @@ test -e /proc/self/fd/9 \|\| exec 9>&2
 mkdir -p /var/lib/juju/locks
 \[ -e /home/ubuntu \] && chown ubuntu:ubuntu /var/lib/juju/locks
 mkdir -p /var/log/juju
+chown syslog:adm /var/log/juju
 echo 'Fetching tools.*
 bin='/var/lib/juju/tools/1\.2\.3-precise-amd64'
 mkdir -p \$bin
@@ -273,6 +274,7 @@ test -e /proc/self/fd/9 \|\| exec 9>&2
 mkdir -p /var/lib/juju/locks
 \[ -e /home/ubuntu \] && chown ubuntu:ubuntu /var/lib/juju/locks
 mkdir -p /var/log/juju
+chown syslog:adm /var/log/juju
 echo 'Fetching tools.*
 bin='/var/lib/juju/tools/1\.2\.3-linux-amd64'
 mkdir -p \$bin
