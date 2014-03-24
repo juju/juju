@@ -6,9 +6,8 @@ package state_test
 import (
 	"sort"
 
-	"labix.org/v2/mgo/bson"
-
 	jc "github.com/juju/testing/checkers"
+	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
