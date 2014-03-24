@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net/http"
 
 	"launchpad.net/goyaml"
 
@@ -16,7 +15,6 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/utils"
 )
 
 // StateFile is the name of the file where the provider's state is stored.
@@ -66,20 +64,6 @@ func SaveState(storage storage.StorageWriter, state *BootstrapState) error {
 		return err
 	}
 	return putState(storage, data)
-}
-
-// LoadStateFromURL reads state from the given URL.
-func LoadStateFromURL(url string, hostnameVerification utils.SSLHostnameVerification) (*BootstrapState, error) {
-	logger.Debugf("loading %q from %q", StateFile, url)
-	client := utils.GetHTTPClient(hostnameVerification)
-	resp, err := client.Get(url)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("could not load state from url: %v %s", url, resp.Status)
-	}
-	return loadState(resp.Body)
 }
 
 // LoadState reads state from the given storage.

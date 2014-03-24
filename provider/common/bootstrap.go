@@ -56,19 +56,11 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, cons constra
 		return fmt.Errorf("no SSH client available")
 	}
 
-	// Create an empty bootstrap state file so we can get its URL.
-	// It will be updated with the instance id and hardware characteristics
-	// after the bootstrap instance is started.
-	stateFileURL, err := bootstrap.CreateStateFile(env.Storage())
-	if err != nil {
-		return err
-	}
-
 	privateKey, err := GenerateSystemSSHKey(env)
 	if err != nil {
 		return err
 	}
-	machineConfig := environs.NewBootstrapMachineConfig(stateFileURL, privateKey)
+	machineConfig := environs.NewBootstrapMachineConfig(privateKey)
 
 	fmt.Fprintln(ctx.GetStderr(), "Launching instance")
 	inst, hw, err := env.StartInstance(environs.StartInstanceParams{
@@ -80,6 +72,8 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, cons constra
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
 	fmt.Fprintf(ctx.GetStderr(), " - %s\n", inst.Id())
+	machineConfig.InstanceId = inst.Id()
+	machineConfig.HardwareCharacteristics = hw
 
 	var characteristics []instance.HardwareCharacteristics
 	if hw != nil {
