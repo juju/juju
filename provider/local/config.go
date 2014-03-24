@@ -84,7 +84,7 @@ func (c *environConfig) mongoDir() string {
 }
 
 func (c *environConfig) logDir() string {
-	return filepath.Join(c.rootDir(), "log")
+	return fmt.Sprintf("/var/log/juju-%s", c.namespace())
 }
 
 // bootstrapIPAddress returns the IP address of the bootstrap machine.
