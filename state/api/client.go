@@ -26,8 +26,8 @@ type Client struct {
 	st *State
 }
 
-func (st *State) call(method string, params, result interface{}) error {
-	return st.caller.Call("Client", "", method, params, result)
+func (c *Client) call(method string, params, result interface{}) error {
+	return c.st.Call("Client", "", method, params, result)
 }
 
 // MachineStatus holds status info about a machine.
