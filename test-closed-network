@@ -32,8 +32,8 @@ sudo apt-get install -y bzr lxc mongodb
 # prevent spurious failure on success
 rm .bash_logout
 afact=lastSuccessfulBuild/artifact
-wget -q $JENKINS_URL/job/publish-revision/$afact/new-precise.deb
-dpkg -i new-precise.deb
+wget -q $JENKINS_URLjob/publish-revision/$afact/new-precise.deb
+sudo dpkg -i new-precise.deb
 export JUJU_REPOSITORY="$HOME/repo"
 mkdir -p $JUJU_REPOSITORY/precise
 bzr branch lp:charms/ubuntu $JUJU_REPOSITORY/precise/ubuntu
