@@ -325,7 +325,6 @@ func MgoDialInfo(addrs ...string) *mgo.DialInfo {
 	}
 }
 
-
 func (s *MgoSuite) SetUpTest(c *gc.C) {
 	mgo.ResetStats()
 	s.Session = MgoServer.MustDial()
