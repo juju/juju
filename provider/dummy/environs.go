@@ -180,8 +180,8 @@ type environState struct {
 // environ represents a client's connection to a given environment's
 // state.
 type environ struct {
-	common.NopPrechecker
-	common.DoesSupportUnitPlacement
+	common.NopPrecheckerPolicy
+	common.SupportsUnitPlacementPolicy
 
 	name         string
 	ecfgMutex    sync.Mutex

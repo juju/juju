@@ -50,8 +50,8 @@ type environProvider struct{}
 var providerInstance environProvider
 
 type environ struct {
-	common.NopPrechecker
-	common.DoesSupportUnitPlacement
+	common.NopPrecheckerPolicy
+	common.SupportsUnitPlacementPolicy
 
 	name string
 

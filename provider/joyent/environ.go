@@ -25,8 +25,8 @@ import (
 // ignored until you've got an environment bootstrapping successfully).
 
 type environ struct {
-	common.NopPrechecker
-	common.DoesSupportUnitPlacement
+	common.NopPrecheckerPolicy
+	common.SupportsUnitPlacementPolicy
 
 	name string
 	// All mutating operations should lock the mutex. Non-mutating operations

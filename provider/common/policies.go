@@ -8,23 +8,23 @@ import (
 	"launchpad.net/juju-core/state"
 )
 
-// DoesSupportUnitPlacement provides an
+// SupportsUnitPlacementPolicy provides an
 // implementation of SupportsUnitPlacement
 // that never returns an error, and is
 // intended for embedding in environs.Environ
 // implementations.
-type DoesSupportUnitPlacement struct{}
+type SupportsUnitPlacementPolicy struct{}
 
-func (*DoesSupportUnitPlacement) SupportsUnitPlacement() error {
+func (*SupportsUnitPlacementPolicy) SupportsUnitPlacement() error {
 	return nil
 }
 
-// NopPrechecker provides an implementation of the
+// NopPrecheckerPolicy provides an implementation of the
 // state.Prechecker interface that passes all checks.
-type NopPrechecker struct{}
+type NopPrecheckerPolicy struct{}
 
-var _ state.Prechecker = (*NopPrechecker)(nil)
+var _ state.Prechecker = (*NopPrecheckerPolicy)(nil)
 
-func (*NopPrechecker) PrecheckInstance(series string, cons constraints.Value) error {
+func (*NopPrecheckerPolicy) PrecheckInstance(series string, cons constraints.Value) error {
 	return nil
 }

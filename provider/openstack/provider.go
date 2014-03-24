@@ -309,8 +309,8 @@ func retryGet(uri string) (data []byte, err error) {
 }
 
 type environ struct {
-	common.NopPrechecker
-	common.DoesSupportUnitPlacement
+	common.NopPrecheckerPolicy
+	common.SupportsUnitPlacementPolicy
 
 	name string
 

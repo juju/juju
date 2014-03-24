@@ -50,7 +50,7 @@ const (
 var logger = loggo.GetLogger("juju.provider.manual")
 
 type manualEnviron struct {
-	common.DoesSupportUnitPlacement
+	common.SupportsUnitPlacementPolicy
 
 	cfg                 *environConfig
 	cfgmutex            sync.Mutex

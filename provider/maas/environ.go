@@ -46,8 +46,8 @@ var shortAttempt = utils.AttemptStrategy{
 }
 
 type maasEnviron struct {
-	common.NopPrechecker
-	common.DoesSupportUnitPlacement
+	common.NopPrecheckerPolicy
+	common.SupportsUnitPlacementPolicy
 
 	name string
 
