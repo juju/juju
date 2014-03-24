@@ -31,10 +31,10 @@ ssh-keygen -t rsa -b 2048 -N "" -f ~/.ssh/id_rsa
 tar -xzvf $tarfile
 export GOPATH=\$HOME/$juju_version
 cd \$GOPATH/src/launchpad.net/juju-core
-for attempt in $(seq 10); do
+for attempt in \$(seq 10); do
   if grep ec2.archive.ubuntu.com /etc/apt/sources.list > /dev/null; then
     break
-  elif [ "$attempt" == "10" ]; then
+  elif [ "\$attempt" == "10" ]; then
     exit 1
   fi
   sleep 10

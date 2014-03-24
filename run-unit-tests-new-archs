@@ -44,10 +44,10 @@ DEPS="build-essential bzr distro-info-data git-core mercurial zip rsyslog-gnutls
 ssh "$@" $remote_user@$instance_name  <<EOT
 set -eux
 if [[ $is_ephemeral == "true" ]]; then
-    for attempt in $(seq 10); do
+    for attempt in \$(seq 10); do
       if grep ec2.archive.ubuntu.com /etc/apt/sources.list > /dev/null; then
         break
-      elif [ "$attempt" == "10" ]; then
+      elif [ "\$attempt" == "10" ]; then
         exit 1
       fi
       sleep 10
