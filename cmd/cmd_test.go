@@ -21,9 +21,9 @@ type CmdSuite struct{}
 var _ = gc.Suite(&CmdSuite{})
 
 func (s *CmdSuite) TestHttpTransport(c *gc.C) {
-	client := utils.GetValidatingHTTPClient()
-	c.Assert(client.Transport.(*http.Transport).DisableKeepAlives, jc.IsTrue)
-	client = utils.GetNonValidatingHTTPClient()
+	transport := http.DefaultTransport.(*http.Transport)
+	c.Assert(transport.DisableKeepAlives, jc.IsTrue)
+	client := utils.GetNonValidatingHTTPClient()
 	c.Assert(client.Transport.(*http.Transport).DisableKeepAlives, jc.IsTrue)
 }
 

@@ -9,19 +9,16 @@ import (
 	"sync"
 )
 
-var clientMutex = sync.Mutex{}
 var insecureClient = (*http.Client)(nil)
-var secureClient = (*http.Client)(nil)
+var insecureClientMutex = sync.Mutex{}
 
 func init() {
-	// We expect GetHTTPClient() to be used normally but in case
-	// calls http.Get() are used we set up the transport here too.
 	// See https://code.google.com/p/go/issues/detail?id=4677
 	// We need to force the connection to close each time so that we don't
 	// hit the above Go bug.
 	defaultTransport := http.DefaultTransport.(*http.Transport)
 	defaultTransport.DisableKeepAlives = true
-	//	registerFileProtocol(defaultTransport)
+	registerFileProtocol(defaultTransport)
 }
 
 // registerFileProtocol registers support for file:// URLs on the
@@ -53,21 +50,19 @@ func GetHTTPClient(verify SSLHostnameVerification) *http.Client {
 	return GetNonValidatingHTTPClient()
 }
 
+// GetValidatingHTTPClient returns a new http.Client that
+// verifies the server's certificate chain and hostname.
 func GetValidatingHTTPClient() *http.Client {
 	logger.Infof("hostname SSL verification enabled")
-	clientMutex.Lock()
-	defer clientMutex.Unlock()
-	if secureClient == nil {
-		secureTransport := NewHttpTransport()
-		secureClient = &http.Client{Transport: secureTransport}
-	}
-	return secureClient
+	return http.DefaultClient
 }
 
+// GetNonValidatingHTTPClient returns a new http.Client that
+// does not verify the server's certificate chain and hostname.
 func GetNonValidatingHTTPClient() *http.Client {
 	logger.Infof("hostname SSL verification disabled")
-	clientMutex.Lock()
-	defer clientMutex.Unlock()
+	insecureClientMutex.Lock()
+	defer insecureClientMutex.Unlock()
 	if insecureClient == nil {
 		insecureConfig := &tls.Config{InsecureSkipVerify: true}
 		insecureTransport := NewHttpTLSTransport(insecureConfig)
@@ -84,20 +79,6 @@ func NewHttpTLSTransport(tlsConfig *tls.Config) *http.Transport {
 	// hit the above Go bug.
 	transport := &http.Transport{
 		TLSClientConfig:   tlsConfig,
-		DisableKeepAlives: true,
-	}
-	registerFileProtocol(transport)
-	return transport
-}
-
-// NewHttpTransport returns a new http.Transport constructed with the necessary
-// parameters for Juju.
-func NewHttpTransport() *http.Transport {
-	// See https://code.google.com/p/go/issues/detail?id=4677
-	// We need to force the connection to close each time so that we don't
-	// hit the above Go bug.
-	transport := &http.Transport{
-		Proxy:             http.ProxyFromEnvironment,
 		DisableKeepAlives: true,
 	}
 	registerFileProtocol(transport)
