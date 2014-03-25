@@ -120,6 +120,10 @@ func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, s.TestConfig)
 	c.Assert(err, gc.IsNil)
 	s.dbServiceName = "juju-db-" + local.ConfigNamespace(cfg)
+
+	s.PatchValue(local.FinishBootstrap, func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config, ctx environs.BootstrapContext) error {
+		return nil
+	})
 }
 
 func (s *localJujuTestSuite) TearDownTest(c *gc.C) {
@@ -177,9 +181,6 @@ func (s *localJujuTestSuite) TestBootstrap(c *gc.C) {
 }
 
 func (s *localJujuTestSuite) TestDestroy(c *gc.C) {
-	s.PatchValue(local.FinishBootstrap, func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config, ctx environs.BootstrapContext) error {
-		return nil
-	})
 	env := s.testBootstrap(c, minimalConfig(c))
 	err := env.Destroy()
 	// Succeeds because there's no "agents" directory,
@@ -190,9 +191,6 @@ func (s *localJujuTestSuite) TestDestroy(c *gc.C) {
 }
 
 func (s *localJujuTestSuite) TestDestroyCallSudo(c *gc.C) {
-	s.PatchValue(local.FinishBootstrap, func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config, ctx environs.BootstrapContext) error {
-		return nil
-	})
 	env := s.testBootstrap(c, minimalConfig(c))
 	rootDir := env.Config().AllAttrs()["root-dir"].(string)
 	agentsDir := filepath.Join(rootDir, "agents")
@@ -215,9 +213,6 @@ func (s *localJujuTestSuite) TestDestroyCallSudo(c *gc.C) {
 }
 
 func (s *localJujuTestSuite) TestBootstrapRemoveLeftovers(c *gc.C) {
-	s.PatchValue(local.FinishBootstrap, func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config, ctx environs.BootstrapContext) error {
-		return nil
-	})
 	cfg := minimalConfig(c)
 	rootDir := cfg.AllAttrs()["root-dir"].(string)
 
