@@ -1890,6 +1890,54 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	s.assertUploaded(c, storage, sch.BundleURL(), sch.BundleSha256())
 }
 
+var resolveCharmCases = []struct {
+	schema, defaultSeries, charmName string
+	parseErr                         string
+	resolveErr                       string
+}{
+	{"cs", "precise", "wordpress", "", ""},
+	{"cs", "trusty", "wordpress", "", ""},
+	{"cs", "", "wordpress", "", `missing default series, cannot resolve charm url: "cs:wordpress"`},
+	{"cs", "trusty", "", `charm URL has invalid charm name: "cs:"`, ""},
+	{"local", "trusty", "wordpress", "", `only charm store charm references are supported, with cs: schema`},
+	{"cs", "precise", "hl3", "", ""},
+	{"cs", "trusty", "hl3", "", ""},
+	{"cs", "", "hl3", "", `missing default series, cannot resolve charm url: \"cs:hl3\"`},
+}
+
+func (s *clientSuite) TestResolveCharm(c *gc.C) {
+	store, restore := makeMockCharmStore()
+	defer restore()
+
+	for _, t := range resolveCharmCases {
+		// Mock charm store will use this to resolve a charm reference.
+		store.DefaultSeries = t.defaultSeries
+
+		comment := gc.Commentf("defaultSeries:%s charmName:%s", t.defaultSeries, t.charmName)
+
+		client := s.APIState.Client()
+		ref, series, err := charm.ParseReference(fmt.Sprintf("%s:%s", t.schema, t.charmName))
+		if t.parseErr == "" {
+			c.Assert(err, gc.IsNil, comment) // All of these should parse
+		} else {
+			c.Assert(err, gc.NotNil, comment)
+			c.Check(err, gc.ErrorMatches, t.parseErr, comment)
+			continue
+		}
+		c.Check(series, gc.Equals, "")
+		c.Check(ref.String(), gc.Equals, fmt.Sprintf("%s:%s", t.schema, t.charmName))
+		curl, err := client.ResolveCharm(ref)
+		if err == nil {
+			// Only cs: schema should make it through here
+			c.Check(curl.String(), gc.Equals, fmt.Sprintf("cs:%s/%s", t.defaultSeries, t.charmName), comment)
+			c.Check(t.resolveErr, gc.Equals, "")
+		} else {
+			c.Check(curl, gc.IsNil)
+			c.Check(err, gc.ErrorMatches, t.resolveErr)
+		}
+	}
+}
+
 func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
 	store, restore := makeMockCharmStore()
 	defer restore()

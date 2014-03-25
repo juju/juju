@@ -942,6 +942,9 @@ func (c *Client) ResolveCharm(args params.CharmURL) (params.CharmURL, error) {
 	if err != nil {
 		return params.CharmURL{}, err
 	}
+	if ref.Schema != "cs" {
+		return params.CharmURL{}, fmt.Errorf("only charm store charm references are supported, with cs: schema")
+	}
 	if series != "" {
 		curl := charm.URL{Reference: ref, Series: series}
 		return params.CharmURL{URL: curl.String()}, nil
