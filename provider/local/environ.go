@@ -406,7 +406,7 @@ func (env *localEnviron) Destroy() error {
 			return err
 		}
 		args := []string{
-			osenv.JujuHomeEnvKey + "=" + osenv.JujuHome(),
+			"env", osenv.JujuHomeEnvKey + "=" + osenv.JujuHome(),
 			juju, "destroy-environment", "-y", "--force", env.Name(),
 		}
 		cmd := exec.Command("sudo", args...)
