@@ -32,7 +32,7 @@ type BootstrapState struct {
 	// This is used at bootstrap time so the state server knows what hardware it has.
 	// The state *may* be updated later without this information, but by then it's
 	// served its purpose.
-	Characteristics []instance.HardwareCharacteristics `yaml:"characteristics,omitempty"`
+	XCharacteristics []instance.HardwareCharacteristics `yaml:"characteristics,omitempty"`
 }
 
 // putState writes the given data to the state file on the given storage.
