@@ -380,7 +380,7 @@ func (s *workerSuite) TestWorkerPublishesInstanceIds(c *gc.C) {
 	select {
 	case instanceIds := <-publishCh:
 		c.Assert(instanceIds, jc.DeepEquals, []instance.Id{"id-10", "id-11", "id-12"})
-	case <-time.After(coretesting.ShortWait):
+	case <-time.After(coretesting.LongWait):
 		c.Errorf("timed out waiting for publish")
 	}
 }
