@@ -19,7 +19,6 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/container/kvm"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider"
@@ -358,7 +357,7 @@ func (a *MachineAgent) StateWorker(agentConfig agent.Config) (worker.Worker, err
 		Password: agentConfig.Password(),
 	}
 
-	di, err := state.DialInfo(info, state.DefaultDialOpts(), environs.NewStatePolicy())
+	di, err := state.DialInfo(info, state.DefaultDialOpts())
 	if err != nil {
 		return nil, err
 	}

@@ -7,12 +7,15 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
+	"net"
+	"sort"
 	"strings"
 
 	"launchpad.net/gnuflag"
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -108,18 +111,89 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if len(bsState.Characteristics) > 0 {
 		characteristics = bsState.Characteristics[0]
 	}
-	st, _, err := c.Conf.config.InitializeState(c.Conf.dataDir, envCfg, agent.BootstrapMachineConfig{
-		Constraints:     c.Constraints,
-		Jobs:            jobs,
-		InstanceId:      bsState.StateInstances[0],
-		Characteristics: characteristics,
-		Addresses:       addresses,
-	}, state.DefaultDialOpts(), environs.NewStatePolicy())
+	st, _, err := c.Conf.config.InitializeState(
+		envCfg,
+		agent.BootstrapMachineConfig{
+			Constraints:     c.Constraints,
+			Jobs:            jobs,
+			InstanceId:      bsState.StateInstances[0],
+			Characteristics: characteristics,
+			Addresses:       addresses,
+		},
+		state.DefaultDialOpts(),
+		environs.NewStatePolicy(),
+	)
 	if err != nil {
 		return err
 	}
 	st.Close()
+
+	preferredAddr, err := selectPreferredStateServerAddress(addresses)
+	if err != nil {
+		return err
+	}
+	dialInfo, err := state.DialInfo(c.Conf.config.StateInfo(), state.DefaultDialOpts())
+	if err != nil {
+		return err
+	}
+	if err := ensureMongoServer(mongo.EnsureMongoParams{
+		HostPort: net.JoinHostPort(preferredAddr.String(), fmt.Sprint(envCfg.StatePort())),
+		DataDir:  c.Conf.config.DataDir(),
+		DialInfo: dialInfo,
+	}); err != nil {
+		return err
+	}
 	return nil
+}
+
+func selectPreferredStateServerAddress(addrs []instance.Address) (instance.Address, error) {
+	if len(addrs) == 0 {
+		return instance.Address{}, fmt.Errorf("no state server addresses")
+	}
+	newAddrs := append(byAddressPreference{}, addrs...)
+	sort.Stable(newAddrs)
+	return newAddrs[0], nil
+}
+
+// byAddressPreference is a slice that orders preferred
+// state server addresses earlier.
+type byAddressPreference []instance.Address
+
+func (a byAddressPreference) Len() int {
+	return len(a)
+}
+
+func (a byAddressPreference) Swap(i, j int) {
+	a[i], a[j] = a[j], a[i]
+}
+
+func (a byAddressPreference) Less(i, j int) bool {
+	a0, a1 := &a[i], &a[j]
+	if pref0, pref1 := netScopePref(a0.NetworkScope), netScopePref(a1.NetworkScope); pref0 != pref1 {
+		return pref0 < pref1
+	}
+	if pref0, pref1 := netTypePref(a0.Type), netTypePref(a1.Type); pref0 != pref1 {
+		return pref0 < pref1
+	}
+	return false
+}
+
+func netScopePref(scope instance.NetworkScope) int {
+	switch scope {
+	case instance.NetworkCloudLocal:
+		return 0
+	case instance.NetworkUnknown:
+		return 1
+	}
+	return 2
+}
+
+func netTypePref(atype instance.AddressType) int {
+	switch atype {
+	case instance.HostName:
+		return 0
+	}
+	return 1
 }
 
 // yamlBase64Value implements gnuflag.Value on a map[string]interface{}.

@@ -5,9 +5,7 @@ package agent
 
 import (
 	"fmt"
-	"net"
 
-	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
@@ -31,7 +29,7 @@ import (
 // InitializeState returns the newly initialized state and bootstrap
 // machine. If it fails, the state may well be irredeemably compromised.
 type StateInitializer interface {
-	InitializeState(dataDir string, envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts, policy state.Policy) (*state.State, *state.Machine, error)
+	InitializeState(envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts, policy state.Policy) (*state.State, *state.Machine, error)
 }
 
 // BootstrapMachineConfig holds configuration information
@@ -58,41 +56,32 @@ type BootstrapMachineConfig struct {
 
 const bootstrapMachineId = "0"
 
-func (c *configInternal) InitializeState(dataDir string, envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts, policy state.Policy) (*state.State, *state.Machine, error) {
+func (c *configInternal) StateInfo() *state.Info {
+	return &state.Info{
+		Addrs:    c.stateDetails.addresses,
+		Password: c.stateDetails.password,
+		CACert:   c.caCert,
+		Tag:      c.tag,
+	}
+}
+
+func (c *configInternal) InitializeState(
+	envCfg *config.Config,
+	machineCfg BootstrapMachineConfig,
+	timeout state.DialOpts,
+	policy state.Policy,
+) (*state.State, *state.Machine, error) {
 	if c.Tag() != names.MachineTag(bootstrapMachineId) {
 		return nil, nil, fmt.Errorf("InitializeState not called with bootstrap machine's configuration")
 	}
-
-	info := state.Info{
-		Addrs:  c.stateDetails.addresses,
-		CACert: c.caCert,
-	}
-
-	di, err := state.DialInfo(&info, timeout, policy)
-
-	address := ""
-	for _, addr := range machineCfg.Addresses {
-		if addr.NetworkScope == instance.NetworkCloudLocal &&
-			(addr.Type == instance.Ipv4Address || addr.Type == instance.Ipv4Address) {
-			address = addr.Value
-			break
-		}
-	}
-
-	if address == "" {
-		return nil, nil, fmt.Errorf("Failed to find cloud local address in machineConfig")
-	}
-
-	if err := mongo.EnsureMongoServer(mongo.EnsureMongoParams{
-		HostPort: net.JoinHostPort(address, fmt.Sprint(envCfg.StatePort())),
-		DataDir: dataDir,
-		DialInfo: di,
-	}); err != nil {
-		return nil, nil, err
-	}
+	// N.B. no users are set up when we're initializing the state,
+	// so don't use any tag or password when opening it.
+	info := c.StateInfo()
+	info.Tag = ""
+	info.Password = ""
 
 	logger.Debugf("initializing address %v", info.Addrs)
-	st, err := state.Initialize(&info, envCfg, timeout, policy)
+	st, err := state.Initialize(info, envCfg, timeout, policy)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to initialize state: %v", err)
 	}

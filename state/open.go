@@ -77,12 +77,14 @@ func DefaultDialOpts() DialOpts {
 //
 // Open returns unauthorizedError if access is unauthorized.
 func Open(info *Info, opts DialOpts, policy Policy) (*State, error) {
-	di, err := DialInfo(info, opts, policy)
+	logger.Infof("opening state; mongo addresses: %q; entity %q", info.Addrs, info.Tag)
+	di, err := DialInfo(info, opts)
 	if err != nil {
 		return nil, err
 	}
 	logger.Infof("dialing mongo")
 	session, err := mgo.DialWithInfo(di)
+
 	if err != nil {
 		return nil, err
 	}
@@ -97,8 +99,10 @@ func Open(info *Info, opts DialOpts, policy Policy) (*State, error) {
 	return st, nil
 }
 
-func DialInfo(info *Info, opts DialOpts, policy Policy) (*mgo.DialInfo, error) {
-	logger.Infof("opening state; mongo addresses: %q; entity %q", info.Addrs, info.Tag)
+// DialInfo returns information on how to dial
+// the state;'s mongo server with the given info
+// and dial options.
+func DialInfo(info *Info, opts DialOpts) (*mgo.DialInfo, error) {
 	if len(info.Addrs) == 0 {
 		return nil, stderrors.New("no mongo addresses")
 	}
@@ -133,9 +137,7 @@ func DialInfo(info *Info, opts DialOpts, policy Policy) (*mgo.DialInfo, error) {
 		Addrs:   info.Addrs,
 		Timeout: opts.Timeout,
 		Dial:    dial,
-		Direct:  true,
 	}, nil
-
 }
 
 // Initialize sets up an initial empty state and returns it.
