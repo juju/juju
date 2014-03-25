@@ -358,6 +358,10 @@ func (s *workerSuite) TestWorkerRetriesOnPublishError(c *gc.C) {
 	}
 }
 
+func (s *workerSuite) TestWorkerPublishesInstanceIds(c *gc.C) {
+
+}
+
 func mustNext(c *gc.C, w *voyeur.Watcher) (val interface{}, ok bool) {
 	done := make(chan struct{})
 	go func() {
