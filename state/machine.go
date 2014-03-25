@@ -584,6 +584,7 @@ func (m *Machine) Remove() (err error) {
 		},
 		removeStatusOp(m.st, m.globalKey()),
 		removeConstraintsOp(m.st, m.globalKey()),
+		removeNetworksOp(m.st, m.globalKey()),
 		annotationRemoveOp(m.st, m.globalKey()),
 	}
 	ops = append(ops, removeContainerRefOps(m.st, m.Id())...)
@@ -878,6 +879,12 @@ func (m *Machine) SetMachineAddresses(addresses []instance.Address) (err error) 
 	}
 	m.doc.MachineAddresses = stateAddresses
 	return nil
+}
+
+// Networks returns the list of networks the machine should be on
+// (includeNetworks) or not (excludeNetworks).
+func (m *Machine) Networks() (includeNetworks, excludeNetworks []string, err error) {
+	return readNetworks(m.st, m.globalKey())
 }
 
 // CheckProvisioned returns true if the machine was provisioned with the given nonce.

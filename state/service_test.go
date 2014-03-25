@@ -1433,10 +1433,10 @@ func (s *ServiceSuite) TestOwnerTagSchemaProtection(c *gc.C) {
 func (s *ServiceSuite) TestNetworks(c *gc.C) {
 	service, err := s.State.Service(s.mysql.Name())
 	c.Assert(err, gc.IsNil)
-	includeNetworks, excludeNetworks, err := service.Networks()
+	include, exclude, err := service.Networks()
 	c.Assert(err, gc.IsNil)
-	c.Check(includeNetworks, gc.DeepEquals, []string{})
-	c.Check(excludeNetworks, gc.DeepEquals, []string{})
+	c.Check(include, gc.HasLen, 0)
+	c.Check(exclude, gc.HasLen, 0)
 }
 
 func (s *ServiceSuite) TestNetworksOnService(c *gc.C) {

@@ -21,7 +21,7 @@ import (
 )
 
 func (s *StoreSuite) prepareServer(c *gc.C) (*store.Server, *charm.URL) {
-	curl := charm.MustParseURL("cs:oneiric/wordpress")
+	curl := charm.MustParseURL("cs:precise/wordpress")
 	pub, err := s.store.CharmPublisher([]*charm.URL{curl}, "some-digest")
 	c.Assert(err, gc.IsNil)
 	err = pub.Publish(&FakeCharmDir{})
@@ -37,10 +37,12 @@ func (s *StoreSuite) TestServerCharmInfo(c *gc.C) {
 	req, err := http.NewRequest("GET", "/charm-info", nil)
 	c.Assert(err, gc.IsNil)
 
-	var tests = []struct{ url, sha, digest, err string }{
-		{curl.String(), fakeRevZeroSha, "some-digest", ""},
-		{"cs:oneiric/non-existent", "", "", "entry not found"},
-		{"cs:bad", "", "", `charm URL without series: "cs:bad"`},
+	var tests = []struct{ url, canonical, sha, digest, err string }{
+		{curl.String(), curl.String(), fakeRevZeroSha, "some-digest", ""},
+		{"cs:oneiric/non-existent", "", "", "", "entry not found"},
+		{"cs:wordpress", curl.String(), fakeRevZeroSha, "some-digest", ""},
+		{"cs:/bad", "", "", "", `charm URL has invalid series: "cs:/bad"`},
+		{"gopher:archie-server", "", "", "", `charm URL has invalid schema: "gopher:archie-server"`},
 	}
 
 	for _, t := range tests {
@@ -51,9 +53,10 @@ func (s *StoreSuite) TestServerCharmInfo(c *gc.C) {
 		expected := make(map[string]interface{})
 		if t.sha != "" {
 			expected[t.url] = map[string]interface{}{
-				"revision": float64(0),
-				"sha256":   t.sha,
-				"digest":   t.digest,
+				"canonical-url": t.canonical,
+				"revision":      float64(0),
+				"sha256":        t.sha,
+				"digest":        t.digest,
 			}
 		} else {
 			expected[t.url] = map[string]interface{}{
@@ -64,11 +67,12 @@ func (s *StoreSuite) TestServerCharmInfo(c *gc.C) {
 		obtained := map[string]interface{}{}
 		err = json.NewDecoder(rec.Body).Decode(&obtained)
 		c.Assert(err, gc.IsNil)
-		c.Assert(obtained, gc.DeepEquals, expected)
+		c.Assert(obtained, gc.DeepEquals, expected, gc.Commentf("URL: %s", t.url))
 		c.Assert(rec.Header().Get("Content-Type"), gc.Equals, "application/json")
 	}
 
-	s.checkCounterSum(c, []string{"charm-info", curl.Series, curl.Name}, false, 1)
+	// 2 charm-info events, one for resolved URL, one for the reference.
+	s.checkCounterSum(c, []string{"charm-info", curl.Series, curl.Name}, false, 2)
 	s.checkCounterSum(c, []string{"charm-missing", "oneiric", "non-existent"}, false, 1)
 }
 

@@ -337,10 +337,12 @@ func (s *ConnSuite) TestPutBundledCharm(c *gc.C) {
 	// Invent a URL that points to the bundled charm, and
 	// test putting that.
 	curl := &charm.URL{
-		Schema:   "local",
-		Series:   "quantal",
-		Name:     "riak",
-		Revision: -1,
+		Reference: charm.Reference{
+			Schema:   "local",
+			Name:     "riak",
+			Revision: -1,
+		},
+		Series: "quantal",
 	}
 	_, err = s.conn.PutCharm(curl, s.repo, true)
 	c.Assert(err, gc.ErrorMatches, `cannot increment revision of charm "local:quantal/riak-7": not a directory`)
@@ -356,7 +358,7 @@ func (s *ConnSuite) TestPutBundledCharm(c *gc.C) {
 }
 
 func (s *ConnSuite) TestPutCharmUpload(c *gc.C) {
-	repo := &charm.LocalRepository{c.MkDir()}
+	repo := &charm.LocalRepository{Path: c.MkDir()}
 	curl := coretesting.Charms.ClonedURL(repo.Path, "quantal", "riak")
 
 	// Put charm for the first time.
