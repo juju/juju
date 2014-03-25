@@ -25,6 +25,7 @@ for attempt in $(seq 10); do
   fi
   sleep 10
 done
+sudo add-apt-repository cloud-archive:tools
 sudo apt-add-repository -y ppa:juju/stable
 sudo apt-get update
 sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y
