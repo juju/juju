@@ -5,9 +5,7 @@ package agent
 
 import (
 	"fmt"
-	"net"
 
-	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
@@ -58,6 +56,15 @@ type BootstrapMachineConfig struct {
 
 const bootstrapMachineId = "0"
 
+func (c *configInternal) StateInfo() *state.Info {
+	return &state.Info{
+		Addrs:    c.stateDetails.addresses,
+		Password: c.stateDetails.password,
+		CACert:   c.caCert,
+		Tag:      c.tag,
+	}
+}
+
 func (c *configInternal) InitializeState(
 	envCfg *config.Config,
 	machineCfg BootstrapMachineConfig,
@@ -67,8 +74,14 @@ func (c *configInternal) InitializeState(
 	if c.Tag() != names.MachineTag(bootstrapMachineId) {
 		return nil, nil, fmt.Errorf("InitializeState not called with bootstrap machine's configuration")
 	}
+	// N.B. no users are set up when we're initializing the state,
+	// so don't use any tag or password when opening it.
+	info := c.StateInfo()
+	info.Tag = ""
+	info.Password = ""
+
 	logger.Debugf("initializing address %v", info.Addrs)
-	st, err := state.Initialize(&info, envCfg, timeout, policy)
+	st, err := state.Initialize(info, envCfg, timeout, policy)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to initialize state: %v", err)
 	}

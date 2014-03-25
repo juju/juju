@@ -129,6 +129,11 @@ type Config interface {
 	// state.
 	StateManager() bool
 
+	// StateInfo returns information suitable for connecting to the
+	// state server. It is only valid if the agent is actually authorized
+	// to connect.
+	StateInfo() *state.Info
+
 	// StatePort returns the port for connecting to the state db.
 	StatePort() int
 
@@ -675,14 +680,9 @@ func (c *configInternal) Password() string {
 }
 
 func (c *configInternal) OpenState(policy state.Policy) (*state.State, error) {
-	info := state.Info{
-		Addrs:    c.stateDetails.addresses,
-		Password: c.stateDetails.password,
-		CACert:   c.caCert,
-		Tag:      c.tag,
-	}
+	info := c.StateInfo()
 	if info.Password != "" {
-		st, err := state.Open(&info, state.DefaultDialOpts(), policy)
+		st, err := state.Open(info, state.DefaultDialOpts(), policy)
 		if err == nil {
 			return st, nil
 		}
@@ -693,5 +693,5 @@ func (c *configInternal) OpenState(policy state.Policy) (*state.State, error) {
 		}
 	}
 	info.Password = c.oldPassword
-	return state.Open(&info, state.DefaultDialOpts(), policy)
+	return state.Open(info, state.DefaultDialOpts(), policy)
 }

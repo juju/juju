@@ -7,12 +7,15 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
+	"net"
+	"sort"
 	"strings"
 
 	"launchpad.net/gnuflag"
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -123,31 +126,33 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	info := st.Info()
 	st.Close()
 
-	preferredAddr, err := selectPreferredStateServerAddress(machineCfg.Addresses)
+	preferredAddr, err := selectPreferredStateServerAddress(addresses)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	dialInfo := state.DialInfo(c.Conf.config.StateInfo(), state.DefaultDialOpts())
-	if err := mongo.EnsureMongoServer(mongo.EnsureMongoParams{
-		HostPort: net.JoinHostPort(preferredAddr, fmt.Sprint(envCfg.StatePort())),
-		DataDir:  dataDir,
+	dialInfo, err := state.DialInfo(c.Conf.config.StateInfo(), state.DefaultDialOpts())
+	if err != nil {
+		return err
+	}
+	if err := ensureMongoServer(mongo.EnsureMongoParams{
+		HostPort: net.JoinHostPort(preferredAddr.String(), fmt.Sprint(envCfg.StatePort())),
+		DataDir:  c.Conf.config.DataDir(),
 		DialInfo: dialInfo,
 	}); err != nil {
-		return nil, nil, err
+		return err
 	}
 	return nil
 }
 
 func selectPreferredStateServerAddress(addrs []instance.Address) (instance.Address, error) {
 	if len(addrs) == 0 {
-		return nil, nil, "no state server addresses"
+		return instance.Address{}, fmt.Errorf("no state server addresses")
 	}
-	addrs = append([]instance.Address(nil), addrs...)
-	sort.Stable(addrs)
-	return addrs[0], nil
+	newAddrs := append(byAddressPreference{}, addrs...)
+	sort.Stable(newAddrs)
+	return newAddrs[0], nil
 }
 
 // byAddressPreference is a slice that orders preferred
@@ -162,12 +167,12 @@ func (a byAddressPreference) Swap(i, j int) {
 	a[i], a[j] = a[j], a[i]
 }
 
-func (a byAddressPreference) Less(i, j int) {
-	a0, a1 := &a[i], &a[1]
-	if pref0, pref1 := scopePref(a0.NetworkScope, a1.NetworkScope); pref0 != pref1 {
+func (a byAddressPreference) Less(i, j int) bool {
+	a0, a1 := &a[i], &a[j]
+	if pref0, pref1 := netScopePref(a0.NetworkScope), netScopePref(a1.NetworkScope); pref0 != pref1 {
 		return pref0 < pref1
 	}
-	if pref0, pref1 := netTypePref(a0.AddressType), netTypePref(a1.AddressType); pref0 != pref1 {
+	if pref0, pref1 := netTypePref(a0.Type), netTypePref(a1.Type); pref0 != pref1 {
 		return pref0 < pref1
 	}
 	return false
