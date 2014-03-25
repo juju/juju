@@ -15,7 +15,7 @@ type updaterWorker struct {
 	tomb tomb.Tomb
 	*aggregator
 
-	observer *environObserver
+	observer *worker.EnvironObserver
 }
 
 // NewWorker returns a worker that keeps track of
@@ -42,11 +42,11 @@ func (u *updaterWorker) Wait() error {
 }
 
 func (u *updaterWorker) loop() (err error) {
-	u.observer, err = worker.NewEnvironObserver(u.st, u.tomb.Dying())
+	u.observer, err = worker.NewEnvironObserver(u.st)
 	if err != nil {
 		return err
 	}
-	u.aggregator = newAggregator(u.observer.environ)
+	u.aggregator = newAggregator(u.observer.Environ())
 	logger.Infof("instance poller received inital environment configuration")
 	defer func() {
 		obsErr := worker.Stop(u.observer)
