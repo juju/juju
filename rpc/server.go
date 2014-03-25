@@ -10,10 +10,12 @@ import (
 	"sync"
 	"time"
 
-	"launchpad.net/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/rpc/rpcreflect"
 )
+
+const CodeNotImplemented = "not implemented"
 
 var logger = loggo.GetLogger("juju.rpc")
 
@@ -373,7 +375,7 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 		}
 		// We don't transform the error because there
 		// may be no transformErrors function available.
-		return conn.writeErrorResponse(hdr, err)
+		return conn.writeErrorResponse(hdr, err, startTime)
 	}
 	var argp interface{}
 	var arg reflect.Value
@@ -399,7 +401,7 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 		// the error is actually a framing or syntax
 		// problem, then the next ReadHeader should pick
 		// up the problem and abort.
-		return conn.writeErrorResponse(hdr, req.transformErrors(err))
+		return conn.writeErrorResponse(hdr, req.transformErrors(err), startTime)
 	}
 	if conn.notifier != nil {
 		if req.ParamsType != nil {
@@ -417,12 +419,12 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 	conn.mutex.Unlock()
 	if closing {
 		// We're closing down - no new requests may be initiated.
-		return conn.writeErrorResponse(hdr, req.transformErrors(ErrShutdown))
+		return conn.writeErrorResponse(hdr, req.transformErrors(ErrShutdown), startTime)
 	}
 	return nil
 }
 
-func (conn *Conn) writeErrorResponse(reqHdr *Header, err error) error {
+func (conn *Conn) writeErrorResponse(reqHdr *Header, err error, startTime time.Time) error {
 	conn.sending.Lock()
 	defer conn.sending.Unlock()
 	hdr := &Header{
@@ -435,7 +437,7 @@ func (conn *Conn) writeErrorResponse(reqHdr *Header, err error) error {
 	}
 	hdr.Error = err.Error()
 	if conn.notifier != nil {
-		conn.notifier.ServerReply(reqHdr.Request, hdr, struct{}{}, 0)
+		conn.notifier.ServerReply(reqHdr.Request, hdr, struct{}{}, time.Since(startTime))
 	}
 	return conn.codec.WriteMessage(hdr, struct{}{})
 }
@@ -462,6 +464,12 @@ func (conn *Conn) bindRequest(hdr *Header) (boundRequest, error) {
 	}
 	caller, err := rootValue.MethodCaller(hdr.Request.Type, hdr.Request.Action)
 	if err != nil {
+		if _, ok := err.(*rpcreflect.CallNotImplementedError); ok {
+			err = &serverError{
+				Message: err.Error(),
+				Code:    CodeNotImplemented,
+			}
+		}
 		return boundRequest{}, err
 	}
 	return boundRequest{
@@ -476,7 +484,7 @@ func (conn *Conn) runRequest(req boundRequest, arg reflect.Value, startTime time
 	defer conn.srvPending.Done()
 	rv, err := req.Call(req.hdr.Request.Id, arg)
 	if err != nil {
-		err = conn.writeErrorResponse(&req.hdr, req.transformErrors(err))
+		err = conn.writeErrorResponse(&req.hdr, req.transformErrors(err), startTime)
 	} else {
 		hdr := &Header{
 			RequestId: req.hdr.RequestId,
@@ -488,8 +496,7 @@ func (conn *Conn) runRequest(req boundRequest, arg reflect.Value, startTime time
 			rvi = struct{}{}
 		}
 		if conn.notifier != nil {
-			timeSpent := time.Since(startTime)
-			conn.notifier.ServerReply(req.hdr.Request, hdr, rvi, timeSpent)
+			conn.notifier.ServerReply(req.hdr.Request, hdr, rvi, time.Since(startTime))
 		}
 		conn.sending.Lock()
 		err = conn.codec.WriteMessage(hdr, rvi)
@@ -498,4 +505,14 @@ func (conn *Conn) runRequest(req boundRequest, arg reflect.Value, startTime time
 	if err != nil {
 		logger.Errorf("error writing response: %v", err)
 	}
+}
+
+type serverError RequestError
+
+func (e *serverError) Error() string {
+	return e.Message
+}
+
+func (e *serverError) ErrorCode() string {
+	return e.Code
 }

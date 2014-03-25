@@ -8,22 +8,25 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	stdtesting "testing"
+	"time"
 
+	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/golxc"
 	"launchpad.net/goyaml"
-	"launchpad.net/loggo"
 
+	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/container/lxc"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/container/lxc/mock"
+	lxctesting "launchpad.net/juju-core/container/lxc/testing"
+	containertesting "launchpad.net/juju-core/container/testing"
 	instancetest "launchpad.net/juju-core/instance/testing"
-	jujutesting "launchpad.net/juju-core/juju/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing/testbase"
-	"launchpad.net/juju-core/tools"
-	"launchpad.net/juju-core/version"
 )
 
 func Test(t *stdtesting.T) {
@@ -31,58 +34,88 @@ func Test(t *stdtesting.T) {
 }
 
 type LxcSuite struct {
-	lxc.TestSuite
+	lxctesting.TestSuite
+
+	events   chan mock.Event
+	useClone bool
+	useAUFS  bool
 }
 
 var _ = gc.Suite(&LxcSuite{})
 
-func (s *LxcSuite) SetUpSuite(c *gc.C) {
-	s.TestSuite.SetUpSuite(c)
-	tmpDir := c.MkDir()
-	restore := testbase.PatchEnvironment("PATH", tmpDir)
-	s.AddSuiteCleanup(func(*gc.C) { restore() })
-	err := ioutil.WriteFile(
-		filepath.Join(tmpDir, "apt-config"),
-		[]byte(aptConfigScript),
-		0755)
-	c.Assert(err, gc.IsNil)
-}
-
 func (s *LxcSuite) SetUpTest(c *gc.C) {
 	s.TestSuite.SetUpTest(c)
 	loggo.GetLogger("juju.container.lxc").SetLogLevel(loggo.TRACE)
+	s.events = make(chan mock.Event, 25)
+	s.TestSuite.Factory.AddListener(s.events)
+	s.PatchValue(&lxc.TemplateLockDir, c.MkDir())
+	s.PatchValue(&lxc.TemplateStopTimeout, 500*time.Millisecond)
 }
 
-const (
-	aptHTTPProxy     = "http://1.2.3.4:3142"
-	configProxyExtra = `Acquire::https::Proxy "false";
-Acquire::ftp::Proxy "false";`
-)
+func (s *LxcSuite) TearDownTest(c *gc.C) {
+	s.TestSuite.Factory.RemoveListener(s.events)
+	close(s.events)
+	s.TestSuite.TearDownTest(c)
+}
 
-var (
-	configHttpProxy = fmt.Sprintf(`Acquire::http::Proxy "%s";`, aptHTTPProxy)
-	aptConfigScript = fmt.Sprintf("#!/bin/sh\n echo '%s\n%s'", configHttpProxy, configProxyExtra)
-)
-
-func StartContainer(c *gc.C, manager lxc.ContainerManager, machineId string) instance.Instance {
-	stateInfo := jujutesting.FakeStateInfo(machineId)
-	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	machineConfig := environs.NewMachineConfig(machineId, "fake-nonce", stateInfo, apiInfo)
-	machineConfig.Tools = &tools.Tools{
-		Version: version.MustParseBinary("2.3.4-foo-bar"),
-		URL:     "http://tools.testing.invalid/2.3.4-foo-bar.tgz",
+func (s *LxcSuite) TestContainerDirFilesystem(c *gc.C) {
+	for i, test := range []struct {
+		message    string
+		output     string
+		expected   string
+		errorMatch string
+	}{{
+		message:  "btrfs",
+		output:   "Type\nbtrfs\n",
+		expected: lxc.Btrfs,
+	}, {
+		message:  "ext4",
+		output:   "Type\next4\n",
+		expected: "ext4",
+	}, {
+		message:    "not enough output",
+		output:     "foo",
+		errorMatch: "could not determine filesystem type",
+	}} {
+		c.Logf("%v: %s", i, test.message)
+		s.HookCommandOutput(&lxc.FsCommandOutput, []byte(test.output), nil)
+		value, err := lxc.ContainerDirFilesystem()
+		if test.errorMatch == "" {
+			c.Check(err, gc.IsNil)
+			c.Check(value, gc.Equals, test.expected)
+		} else {
+			c.Check(err, gc.ErrorMatches, test.errorMatch)
+		}
 	}
-
-	series := "series"
-	network := lxc.BridgeNetworkConfig("nic42")
-	inst, err := manager.StartContainer(machineConfig, series, network)
-	c.Assert(err, gc.IsNil)
-	return inst
 }
 
-func (s *LxcSuite) TestStartContainer(c *gc.C) {
-	manager := lxc.NewContainerManager(lxc.ManagerConfig{})
-	instance := StartContainer(c, manager, "1/lxc/0")
+func (s *LxcSuite) makeManager(c *gc.C, name string) container.Manager {
+	params := container.ManagerConfig{
+		container.ConfigName: name,
+	}
+	if s.useClone {
+		params["use-clone"] = "true"
+	}
+	if s.useAUFS {
+		params["use-aufs"] = "true"
+	}
+	manager, err := lxc.NewContainerManager(params)
+	c.Assert(err, gc.IsNil)
+	return manager
+}
+
+func (*LxcSuite) TestManagerWarnsAboutUnknownOption(c *gc.C) {
+	_, err := lxc.NewContainerManager(container.ManagerConfig{
+		container.ConfigName: "BillyBatson",
+		"shazam":             "Captain Marvel",
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(c.GetTestLog(), jc.Contains, `WARNING juju.container unused config option: "shazam" -> "Captain Marvel"`)
+}
+
+func (s *LxcSuite) TestCreateContainer(c *gc.C) {
+	manager := s.makeManager(c, "test")
+	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
 
 	name := string(instance.Id())
 	// Check our container config files.
@@ -91,31 +124,24 @@ func (s *LxcSuite) TestStartContainer(c *gc.C) {
 	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.link = nic42")
 
 	cloudInitFilename := filepath.Join(s.ContainerDir, name, "cloud-init")
-	c.Assert(cloudInitFilename, jc.IsNonEmptyFile)
-	data, err := ioutil.ReadFile(cloudInitFilename)
-	c.Assert(err, gc.IsNil)
-	c.Assert(string(data), jc.HasPrefix, "#cloud-config\n")
+	data := containertesting.AssertCloudInit(c, cloudInitFilename)
 
 	x := make(map[interface{}]interface{})
 	err = goyaml.Unmarshal(data, &x)
 	c.Assert(err, gc.IsNil)
-
-	c.Assert(x["apt_proxy"], gc.Equals, aptHTTPProxy)
 
 	var scripts []string
 	for _, s := range x["runcmd"].([]interface{}) {
 		scripts = append(scripts, s.(string))
 	}
 
-	c.Assert(scripts[len(scripts)-4:], gc.DeepEquals, []string{
+	c.Assert(scripts[len(scripts)-2:], gc.DeepEquals, []string{
 		"start jujud-machine-1-lxc-0",
-		"install -m 644 /dev/null '/etc/apt/apt.conf.d/99proxy-extra'",
-		fmt.Sprintf(`printf '%%s\n' '%s' > '/etc/apt/apt.conf.d/99proxy-extra'`, configProxyExtra),
 		"ifconfig",
 	})
 
 	// Check the mount point has been created inside the container.
-	c.Assert(filepath.Join(s.LxcDir, name, "rootfs/var/log/juju"), jc.IsDirectory)
+	c.Assert(filepath.Join(s.LxcDir, name, "rootfs", agent.DefaultLogDir), jc.IsDirectory)
 	// Check that the config file is linked in the restart dir.
 	expectedLinkLocation := filepath.Join(s.RestartDir, name+".conf")
 	expectedTarget := filepath.Join(s.LxcDir, name, "config")
@@ -128,25 +154,136 @@ func (s *LxcSuite) TestStartContainer(c *gc.C) {
 	c.Assert(location, gc.Equals, expectedTarget)
 }
 
+func (s *LxcSuite) ensureTemplateStopped(name string) {
+	go func() {
+		for {
+			template := s.Factory.New(name)
+			if template.IsRunning() {
+				template.Stop()
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+	}()
+}
+
+func (s *LxcSuite) AssertEvent(c *gc.C, event mock.Event, expected mock.Action, id string) {
+	c.Assert(event.Action, gc.Equals, expected)
+	c.Assert(event.InstanceId, gc.Equals, id)
+}
+
+func (s *LxcSuite) TestCreateContainerEvents(c *gc.C) {
+	manager := s.makeManager(c, "test")
+	instance := containertesting.CreateContainer(c, manager, "1")
+	id := string(instance.Id())
+	s.AssertEvent(c, <-s.events, mock.Created, id)
+	s.AssertEvent(c, <-s.events, mock.Started, id)
+}
+
+func (s *LxcSuite) TestCreateContainerEventsWithClone(c *gc.C) {
+	s.PatchValue(&s.useClone, true)
+	// The template containers are created with an upstart job that
+	// stops them once cloud init has finished.  We emulate that here.
+	template := "juju-series-template"
+	s.ensureTemplateStopped(template)
+	manager := s.makeManager(c, "test")
+	instance := containertesting.CreateContainer(c, manager, "1")
+	id := string(instance.Id())
+	s.AssertEvent(c, <-s.events, mock.Created, template)
+	s.AssertEvent(c, <-s.events, mock.Started, template)
+	s.AssertEvent(c, <-s.events, mock.Stopped, template)
+	s.AssertEvent(c, <-s.events, mock.Cloned, template)
+	s.AssertEvent(c, <-s.events, mock.Started, id)
+}
+
+func (s *LxcSuite) createTemplate(c *gc.C) golxc.Container {
+	name := "juju-series-template"
+	s.ensureTemplateStopped(name)
+	network := container.BridgeNetworkConfig("nic42")
+	authorizedKeys := "authorized keys list"
+	aptProxy := osenv.ProxySettings{}
+	template, err := lxc.EnsureCloneTemplate(
+		"ext4", "series", network, authorizedKeys, aptProxy)
+	c.Assert(err, gc.IsNil)
+	c.Assert(template.Name(), gc.Equals, name)
+	s.AssertEvent(c, <-s.events, mock.Created, name)
+	s.AssertEvent(c, <-s.events, mock.Started, name)
+	s.AssertEvent(c, <-s.events, mock.Stopped, name)
+
+	autostartLink := lxc.RestartSymlink(name)
+	config, err := ioutil.ReadFile(lxc.ContainerConfigFilename(name))
+	c.Assert(err, gc.IsNil)
+	expected := `
+lxc.network.type = veth
+lxc.network.link = nic42
+lxc.network.flags = up
+`
+	// NOTE: no autostart, no mounting the log dir
+	c.Assert(string(config), gc.Equals, expected)
+	c.Assert(autostartLink, jc.DoesNotExist)
+
+	return template
+}
+
+func (s *LxcSuite) TestCreateContainerEventsWithCloneExistingTemplate(c *gc.C) {
+	s.createTemplate(c)
+	s.PatchValue(&s.useClone, true)
+	manager := s.makeManager(c, "test")
+	instance := containertesting.CreateContainer(c, manager, "1")
+	name := string(instance.Id())
+	cloned := <-s.events
+	s.AssertEvent(c, cloned, mock.Cloned, "juju-series-template")
+	c.Assert(cloned.Args, gc.IsNil)
+	s.AssertEvent(c, <-s.events, mock.Started, name)
+}
+
+func (s *LxcSuite) TestCreateContainerEventsWithCloneExistingTemplateAUFS(c *gc.C) {
+	s.createTemplate(c)
+	s.PatchValue(&s.useClone, true)
+	s.PatchValue(&s.useAUFS, true)
+	manager := s.makeManager(c, "test")
+	instance := containertesting.CreateContainer(c, manager, "1")
+	name := string(instance.Id())
+	cloned := <-s.events
+	s.AssertEvent(c, cloned, mock.Cloned, "juju-series-template")
+	c.Assert(cloned.Args, gc.DeepEquals, []string{"--snapshot", "--backingstore", "aufs"})
+	s.AssertEvent(c, <-s.events, mock.Started, name)
+}
+
+func (s *LxcSuite) TestCreateContainerWithCloneMountsAndAutostarts(c *gc.C) {
+	s.createTemplate(c)
+	s.PatchValue(&s.useClone, true)
+	manager := s.makeManager(c, "test")
+	instance := containertesting.CreateContainer(c, manager, "1")
+	name := string(instance.Id())
+
+	autostartLink := lxc.RestartSymlink(name)
+	config, err := ioutil.ReadFile(lxc.ContainerConfigFilename(name))
+	c.Assert(err, gc.IsNil)
+	mountLine := "lxc.mount.entry=/var/log/juju var/log/juju none defaults,bind 0 0"
+	c.Assert(string(config), jc.Contains, mountLine)
+	c.Assert(autostartLink, jc.IsSymlink)
+}
+
 func (s *LxcSuite) TestContainerState(c *gc.C) {
-	manager := lxc.NewContainerManager(lxc.ManagerConfig{})
-	instance := StartContainer(c, manager, "1/lxc/0")
+	manager := s.makeManager(c, "test")
+	c.Logf("%#v", manager)
+	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
 
 	// The mock container will be immediately "running".
 	c.Assert(instance.Status(), gc.Equals, string(golxc.StateRunning))
 
-	// StopContainer stops and then destroys the container, putting it
+	// DestroyContainer stops and then destroys the container, putting it
 	// into "unknown" state.
-	err := manager.StopContainer(instance)
+	err := manager.DestroyContainer(instance)
 	c.Assert(err, gc.IsNil)
 	c.Assert(instance.Status(), gc.Equals, string(golxc.StateUnknown))
 }
 
-func (s *LxcSuite) TestStopContainer(c *gc.C) {
-	manager := lxc.NewContainerManager(lxc.ManagerConfig{})
-	instance := StartContainer(c, manager, "1/lxc/0")
+func (s *LxcSuite) TestDestroyContainer(c *gc.C) {
+	manager := s.makeManager(c, "test")
+	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
 
-	err := manager.StopContainer(instance)
+	err := manager.DestroyContainer(instance)
 	c.Assert(err, gc.IsNil)
 
 	name := string(instance.Id())
@@ -156,16 +293,16 @@ func (s *LxcSuite) TestStopContainer(c *gc.C) {
 	c.Assert(filepath.Join(s.RemovedDir, name), jc.IsDirectory)
 }
 
-func (s *LxcSuite) TestStopContainerNameClash(c *gc.C) {
-	manager := lxc.NewContainerManager(lxc.ManagerConfig{})
-	instance := StartContainer(c, manager, "1/lxc/0")
+func (s *LxcSuite) TestDestroyContainerNameClash(c *gc.C) {
+	manager := s.makeManager(c, "test")
+	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
 
 	name := string(instance.Id())
 	targetDir := filepath.Join(s.RemovedDir, name)
 	err := os.MkdirAll(targetDir, 0755)
 	c.Assert(err, gc.IsNil)
 
-	err = manager.StopContainer(instance)
+	err = manager.DestroyContainer(instance)
 	c.Assert(err, gc.IsNil)
 
 	// Check that the container dir is no longer in the container dir
@@ -175,21 +312,21 @@ func (s *LxcSuite) TestStopContainerNameClash(c *gc.C) {
 }
 
 func (s *LxcSuite) TestNamedManagerPrefix(c *gc.C) {
-	manager := lxc.NewContainerManager(lxc.ManagerConfig{Name: "eric"})
-	instance := StartContainer(c, manager, "1/lxc/0")
+	manager := s.makeManager(c, "eric")
+	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
 	c.Assert(string(instance.Id()), gc.Equals, "eric-machine-1-lxc-0")
 }
 
 func (s *LxcSuite) TestListContainers(c *gc.C) {
-	foo := lxc.NewContainerManager(lxc.ManagerConfig{Name: "foo"})
-	bar := lxc.NewContainerManager(lxc.ManagerConfig{Name: "bar"})
+	foo := s.makeManager(c, "foo")
+	bar := s.makeManager(c, "bar")
 
-	foo1 := StartContainer(c, foo, "1/lxc/0")
-	foo2 := StartContainer(c, foo, "1/lxc/1")
-	foo3 := StartContainer(c, foo, "1/lxc/2")
+	foo1 := containertesting.CreateContainer(c, foo, "1/lxc/0")
+	foo2 := containertesting.CreateContainer(c, foo, "1/lxc/1")
+	foo3 := containertesting.CreateContainer(c, foo, "1/lxc/2")
 
-	bar1 := StartContainer(c, bar, "1/lxc/0")
-	bar2 := StartContainer(c, bar, "1/lxc/1")
+	bar1 := containertesting.CreateContainer(c, bar, "1/lxc/0")
+	bar2 := containertesting.CreateContainer(c, bar, "1/lxc/1")
 
 	result, err := foo.ListContainers()
 	c.Assert(err, gc.IsNil)
@@ -200,20 +337,51 @@ func (s *LxcSuite) TestListContainers(c *gc.C) {
 	instancetest.MatchInstances(c, result, bar1, bar2)
 }
 
-func (s *LxcSuite) TestStartContainerAutostarts(c *gc.C) {
-	manager := lxc.NewContainerManager(lxc.ManagerConfig{})
-	instance := StartContainer(c, manager, "1/lxc/0")
+func (s *LxcSuite) TestCreateContainerAutostarts(c *gc.C) {
+	manager := s.makeManager(c, "test")
+	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
 	autostartLink := lxc.RestartSymlink(string(instance.Id()))
 	c.Assert(autostartLink, jc.IsSymlink)
 }
 
-func (s *LxcSuite) TestStopContainerRemovesAutostartLink(c *gc.C) {
-	manager := lxc.NewContainerManager(lxc.ManagerConfig{})
-	instance := StartContainer(c, manager, "1/lxc/0")
-	err := manager.StopContainer(instance)
+func (s *LxcSuite) TestCreateContainerNoRestartDir(c *gc.C) {
+	err := os.Remove(s.RestartDir)
+	c.Assert(err, gc.IsNil)
+
+	manager := s.makeManager(c, "test")
+	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
+	name := string(instance.Id())
+	autostartLink := lxc.RestartSymlink(name)
+	config, err := ioutil.ReadFile(lxc.ContainerConfigFilename(name))
+	c.Assert(err, gc.IsNil)
+	expected := `
+lxc.network.type = veth
+lxc.network.link = nic42
+lxc.network.flags = up
+lxc.start.auto = 1
+lxc.mount.entry=/var/log/juju var/log/juju none defaults,bind 0 0
+`
+	c.Assert(string(config), gc.Equals, expected)
+	c.Assert(autostartLink, jc.DoesNotExist)
+}
+
+func (s *LxcSuite) TestDestroyContainerRemovesAutostartLink(c *gc.C) {
+	manager := s.makeManager(c, "test")
+	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
+	err := manager.DestroyContainer(instance)
 	c.Assert(err, gc.IsNil)
 	autostartLink := lxc.RestartSymlink(string(instance.Id()))
 	c.Assert(autostartLink, jc.SymlinkDoesNotExist)
+}
+
+func (s *LxcSuite) TestDestroyContainerNoRestartDir(c *gc.C) {
+	err := os.Remove(s.RestartDir)
+	c.Assert(err, gc.IsNil)
+
+	manager := s.makeManager(c, "test")
+	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
+	err = manager.DestroyContainer(instance)
+	c.Assert(err, gc.IsNil)
 }
 
 type NetworkSuite struct {
@@ -224,7 +392,7 @@ var _ = gc.Suite(&NetworkSuite{})
 
 func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 	for _, test := range []struct {
-		config *lxc.NetworkConfig
+		config *container.NetworkConfig
 		net    string
 		link   string
 	}{{
@@ -236,11 +404,11 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 		net:    "veth",
 		link:   "lxcbr0",
 	}, {
-		config: lxc.BridgeNetworkConfig("foo"),
+		config: container.BridgeNetworkConfig("foo"),
 		net:    "veth",
 		link:   "foo",
 	}, {
-		config: lxc.PhysicalNetworkConfig("foo"),
+		config: container.PhysicalNetworkConfig("foo"),
 		net:    "phys",
 		link:   "foo",
 	}} {
@@ -252,10 +420,20 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 
 func (*NetworkSuite) TestNetworkConfigTemplate(c *gc.C) {
 	config := lxc.NetworkConfigTemplate("foo", "bar")
-	expected := `
-lxc.network.type = foo
-lxc.network.link = bar
-lxc.network.flags = up
-`
-	c.Assert(config, gc.Equals, expected)
+	//In the past, the entire lxc.conf file was just networking. With the addition
+	//of the auto start, we now have to have better isolate this test. As such, we
+	//parse the conf template results and just get the results that start with
+	//'lxc.network' as that is what the test cares about.
+	obtained := []string{}
+	for _, value := range strings.Split(config, "\n") {
+		if strings.HasPrefix(value, "lxc.network") {
+			obtained = append(obtained, value)
+		}
+	}
+	expected := []string{
+		"lxc.network.type = foo",
+		"lxc.network.link = bar",
+		"lxc.network.flags = up",
+	}
+	c.Assert(obtained, gc.DeepEquals, expected)
 }

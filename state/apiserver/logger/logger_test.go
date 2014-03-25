@@ -37,8 +37,6 @@ func (s *loggerSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.rawMachine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	err = s.rawMachine.SetPassword("test-password")
-	c.Assert(err, gc.IsNil)
 
 	// The default auth is as the machine agent
 	s.authorizer = apiservertesting.FakeAuthorizer{
@@ -76,7 +74,7 @@ func (s *loggerSuite) TestWatchLoggingConfigNothing(c *gc.C) {
 }
 
 func (s *loggerSuite) setLoggingConfig(c *gc.C, loggingConfig string) {
-	err := statetesting.UpdateConfig(s.State, map[string]interface{}{"logging-config": loggingConfig})
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{"logging-config": loggingConfig}, nil, nil)
 	c.Assert(err, gc.IsNil)
 	envConfig, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
@@ -98,7 +96,8 @@ func (s *loggerSuite) TestWatchLoggingConfig(c *gc.C) {
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertNoChange()
 
-	s.setLoggingConfig(c, "<root>=WARN;juju.log.test=DEBUG")
+	newLoggingConfig := "<root>=WARN;juju.log.test=DEBUG;unit=INFO"
+	s.setLoggingConfig(c, newLoggingConfig)
 
 	wc.AssertOneChange()
 	statetesting.AssertStop(c, w)
@@ -134,8 +133,8 @@ func (s *loggerSuite) TestLoggingConfigRefusesWrongAgent(c *gc.C) {
 }
 
 func (s *loggerSuite) TestLoggingConfigForAgent(c *gc.C) {
-	loggingConfig := "<root>=WARN;juju.log.test=DEBUG"
-	s.setLoggingConfig(c, loggingConfig)
+	newLoggingConfig := "<root>=WARN;juju.log.test=DEBUG;unit=INFO"
+	s.setLoggingConfig(c, newLoggingConfig)
 
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawMachine.Tag()}},
@@ -144,5 +143,5 @@ func (s *loggerSuite) TestLoggingConfigForAgent(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
 	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.Result, gc.Equals, loggingConfig)
+	c.Assert(result.Result, gc.Equals, newLoggingConfig)
 }

@@ -4,7 +4,7 @@
 package minunitsworker
 
 import (
-	"launchpad.net/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/watcher"

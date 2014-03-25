@@ -6,26 +6,26 @@ package bootstrap
 import (
 	"fmt"
 
-	"launchpad.net/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/provider/common"
+	coretools "launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils/ssh"
 	"launchpad.net/juju-core/version"
 )
 
-var logger = loggo.GetLogger("juju.environs.boostrap")
+var logger = loggo.GetLogger("juju.environs.bootstrap")
 
 // Bootstrap bootstraps the given environment. The supplied constraints are
 // used to provision the instance, and are also set within the bootstrapped
 // environment.
-func Bootstrap(environ environs.Environ, cons constraints.Value) error {
+func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, cons constraints.Value) error {
 	cfg := environ.Config()
 	if secret := cfg.AdminSecret(); secret == "" {
 		return fmt.Errorf("environment configuration has no admin-secret")
 	}
-	if authKeys := cfg.AuthorizedKeys(); authKeys == "" {
+	if authKeys := ssh.SplitAuthorisedKeys(cfg.AuthorizedKeys()); len(authKeys) == 0 {
 		// Apparently this can never happen, so it's not tested. But, one day,
 		// Config will act differently (it's pretty crazy that, AFAICT, the
 		// authorized-keys are optional config settings... but it's impossible
@@ -43,51 +43,41 @@ func Bootstrap(environ environs.Environ, cons constraints.Value) error {
 	if err := environs.VerifyStorage(environ.Storage()); err != nil {
 		return err
 	}
-
 	logger.Infof("bootstrapping environment %q", environ.Name())
-	var vers *version.Number
-	if agentVersion, ok := cfg.AgentVersion(); ok {
-		vers = &agentVersion
-	}
-	params := tools.BootstrapToolsParams{
-		Version: vers,
-		Arch:    cons.Arch,
-	}
-	newestTools, err := tools.FindBootstrapTools(environ, params)
-	if err != nil {
-		return fmt.Errorf("cannot find bootstrap tools: %v", err)
-	}
+	return environ.Bootstrap(ctx, cons)
+}
 
-	// If agent version was not previously known, set it here using the latest compatible tools version.
-	if vers == nil {
-		// We probably still have a mix of versions available; discard older ones
-		// and update environment configuration to use only those remaining.
-		var newVersion version.Number
-		newVersion, newestTools = newestTools.Newest()
-		vers = &newVersion
-		logger.Infof("environs: picked newest version: %s", *vers)
-		cfg, err = cfg.Apply(map[string]interface{}{
-			"agent-version": vers.String(),
+// SetBootstrapTools returns the newest tools from the given tools list,
+// and updates the agent-version configuration attribute.
+func SetBootstrapTools(environ environs.Environ, possibleTools coretools.List) (coretools.List, error) {
+	if len(possibleTools) == 0 {
+		return nil, fmt.Errorf("no bootstrap tools available")
+	}
+	var newVersion version.Number
+	newVersion, toolsList := possibleTools.Newest()
+	logger.Infof("picked newest version: %s", newVersion)
+	cfg := environ.Config()
+	if agentVersion, _ := cfg.AgentVersion(); agentVersion != newVersion {
+		cfg, err := cfg.Apply(map[string]interface{}{
+			"agent-version": newVersion.String(),
 		})
 		if err == nil {
 			err = environ.SetConfig(cfg)
 		}
 		if err != nil {
-			return fmt.Errorf("failed to update environment configuration: %v", err)
+			return nil, fmt.Errorf("failed to update environment configuration: %v", err)
 		}
 	}
-	// ensure we have at least one valid tools
-	if len(newestTools) == 0 {
-		return fmt.Errorf("No bootstrap tools found")
-	}
-	return environ.Bootstrap(cons, newestTools)
+	return toolsList, nil
 }
 
-// EnsureNotBootstrapped returns null if the environment is not bootstrapped,
-// and an error if it is or if the function was not able to tell.
+// EnsureNotBootstrapped returns nil if the environment is not
+// bootstrapped, and an error if it is or if the function was not able
+// to tell.
 func EnsureNotBootstrapped(env environs.Environ) error {
-	_, err := common.LoadState(env.Storage())
-	// If there is no error loading the bootstrap state, then we are bootstrapped.
+	_, err := LoadState(env.Storage())
+	// If there is no error loading the bootstrap state, then we are
+	// bootstrapped.
 	if err == nil {
 		return fmt.Errorf("environment is already bootstrapped")
 	}

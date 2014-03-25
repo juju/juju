@@ -4,12 +4,10 @@
 package main
 
 import (
+	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/sync"
 	"launchpad.net/juju-core/version"
@@ -30,6 +28,7 @@ type SyncToolsCommand struct {
 	public       bool
 	source       string
 	localDir     string
+	destination  string
 }
 
 var _ cmd.Command = (*SyncToolsCommand)(nil)
@@ -37,12 +36,12 @@ var _ cmd.Command = (*SyncToolsCommand)(nil)
 func (c *SyncToolsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "sync-tools",
-		Purpose: "copy tools from the official bucket into a local environment",
+		Purpose: "copy tools from the official tool store into a local environment",
 		Doc: `
-This copies the Juju tools tarball from the official bucket into
-your environment. This is generally done when you want Juju to be able
-to run without having to access Amazon. Alternatively you can specify
-a local directory as source.
+This copies the Juju tools tarball from the official tools store (located
+at https://streams.canonical.com/juju) into your environment.
+This is generally done when you want Juju to be able to run without having to
+access the Internet. Alternatively you can specify a local directory as source.
 
 Sometimes this is because the environment does not have public access,
 and sometimes you just want to avoid having to access data outside of
@@ -60,12 +59,15 @@ func (c *SyncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.public, "public", false, "tools are for a public cloud, so generate mirrors information")
 	f.StringVar(&c.source, "source", "", "local source directory")
 	f.StringVar(&c.localDir, "local-dir", "", "local destination directory")
-
-	// BUG(lp:1163164)  jam 2013-04-2 we would like to add a "source"
-	// location, rather than only copying from us-east-1
+	f.StringVar(&c.destination, "destination", "", "local destination directory")
 }
 
 func (c *SyncToolsCommand) Init(args []string) error {
+	if c.destination != "" {
+		// Override localDir with destination as localDir now replaces destination
+		c.localDir = c.destination
+		logger.Warningf("Use of the --destination flag is deprecated in 1.18. Please use --local-dir instead.")
+	}
 	if c.versionStr != "" {
 		var err error
 		if c.majorVersion, c.minorVersion, err = version.ParseMajorMinor(c.versionStr); err != nil {
@@ -75,22 +77,18 @@ func (c *SyncToolsCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
+func (c *SyncToolsCommand) Run(ctx *cmd.Context) (resultErr error) {
 	// Register writer for output on screen.
 	loggo.RegisterWriter("synctools", cmd.NewCommandLogWriter("juju.environs.sync", ctx.Stdout, ctx.Stderr), loggo.INFO)
 	defer loggo.RemoveWriter("synctools")
-	store, err := configstore.Default()
+	environ, cleanup, err := environFromName(ctx, c.EnvName, &resultErr, "Sync-tools")
 	if err != nil {
 		return err
 	}
-	environ, err := environs.PrepareFromName(c.EnvName, store)
-	if err != nil {
-		return err
-	}
-
+	defer cleanup()
 	target := environ.Storage()
 	if c.localDir != "" {
-		target, err = filestorage.NewFileStorageWriter(c.localDir, filestorage.UseDefaultTmpDir)
+		target, err = filestorage.NewFileStorageWriter(c.localDir)
 		if err != nil {
 			return err
 		}

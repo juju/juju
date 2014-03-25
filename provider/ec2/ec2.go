@@ -11,14 +11,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/loggo"
 	"launchpad.net/goamz/aws"
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
@@ -26,6 +25,7 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -52,6 +52,12 @@ var providerInstance environProvider
 type environ struct {
 	name string
 
+	// archMutex gates access to supportedArchitectures
+	archMutex sync.Mutex
+	// supportedArchitectures caches the architectures
+	// for which images can be instantiated.
+	supportedArchitectures []string
+
 	// ecfgMutex protects the *Unlocked fields below.
 	ecfgMutex       sync.Mutex
 	ecfgUnlocked    *environConfig
@@ -67,64 +73,84 @@ var _ envtools.SupportsCustomSources = (*environ)(nil)
 
 type ec2Instance struct {
 	e *environ
+
+	mu sync.Mutex
 	*ec2.Instance
 }
 
 func (inst *ec2Instance) String() string {
-	return inst.InstanceId
+	return string(inst.Id())
 }
 
 var _ instance.Instance = (*ec2Instance)(nil)
 
+func (inst *ec2Instance) getInstance() *ec2.Instance {
+	inst.mu.Lock()
+	defer inst.mu.Unlock()
+	return inst.Instance
+}
+
 func (inst *ec2Instance) Id() instance.Id {
-	return instance.Id(inst.InstanceId)
+	return instance.Id(inst.getInstance().InstanceId)
 }
 
 func (inst *ec2Instance) Status() string {
-	return inst.State.Name
+	return inst.getInstance().State.Name
 }
 
-// refreshInstance requeries the Instance details over the ec2 api
-func (inst *ec2Instance) refreshInstance() error {
-	insts, err := inst.e.Instances([]instance.Id{inst.Id()})
+// Refresh implements instance.Refresh(), requerying the
+// Instance details over the ec2 api
+func (inst *ec2Instance) Refresh() error {
+	_, err := inst.refresh()
+	return err
+}
+
+// refresh requeries Instance details over the ec2 api.
+func (inst *ec2Instance) refresh() (*ec2.Instance, error) {
+	id := inst.Id()
+	insts, err := inst.e.Instances([]instance.Id{id})
 	if err != nil {
-		return err
+		return nil, err
 	}
+	inst.mu.Lock()
+	defer inst.mu.Unlock()
 	inst.Instance = insts[0].(*ec2Instance).Instance
-	return nil
+	return inst.Instance, nil
 }
 
 // Addresses implements instance.Addresses() returning generic address
 // details for the instance, and requerying the ec2 api if required.
 func (inst *ec2Instance) Addresses() ([]instance.Address, error) {
-	var addresses []instance.Address
 	// TODO(gz): Stop relying on this requerying logic, maybe remove error
-	if inst.Instance.DNSName == "" {
+	instInstance := inst.getInstance()
+	if instInstance.DNSName == "" {
 		// Fetch the instance information again, in case
 		// the DNS information has become available.
-		err := inst.refreshInstance()
+		var err error
+		instInstance, err = inst.refresh()
 		if err != nil {
 			return nil, err
 		}
 	}
+	var addresses []instance.Address
 	possibleAddresses := []instance.Address{
 		{
-			Value:        inst.Instance.DNSName,
+			Value:        instInstance.DNSName,
 			Type:         instance.HostName,
 			NetworkScope: instance.NetworkPublic,
 		},
 		{
-			Value:        inst.Instance.PrivateDNSName,
+			Value:        instInstance.PrivateDNSName,
 			Type:         instance.HostName,
 			NetworkScope: instance.NetworkCloudLocal,
 		},
 		{
-			Value:        inst.Instance.IPAddress,
+			Value:        instInstance.IPAddress,
 			Type:         instance.Ipv4Address,
 			NetworkScope: instance.NetworkPublic,
 		},
 		{
-			Value:        inst.Instance.PrivateIPAddress,
+			Value:        instInstance.PrivateIPAddress,
 			Type:         instance.Ipv4Address,
 			NetworkScope: instance.NetworkCloudLocal,
 		},
@@ -159,15 +185,26 @@ func (p environProvider) BoilerplateConfig() string {
 # https://juju.ubuntu.com/docs/config-aws.html
 amazon:
     type: ec2
-    # region specifies the ec2 region. It defaults to us-east-1.
+
+    # region specifies the EC2 region. It defaults to us-east-1.
+    #
     # region: us-east-1
+
+    # access-key holds the EC2 access key. It defaults to the
+    # environment variable AWS_ACCESS_KEY_ID.
     #
-    # access-key holds the ec2 access key. It defaults to the environment
-    # variable AWS_ACCESS_KEY_ID.
     # access-key: <secret>
+
+    # secret-key holds the EC2 secret key. It defaults to the
+    # environment variable AWS_SECRET_ACCESS_KEY.
     #
-    # secret-key holds the ec2 secret key. It defaults to the environment
-    # variable AWS_SECRET_ACCESS_KEY.
+    # secret-key: <secret>
+
+    # image-stream chooses a simplestreams stream to select OS images
+    # from, for example daily or released images (or any other stream
+    # available on simplestreams).
+    #
+    # image-stream: "released"
 
 `[1:]
 }
@@ -183,7 +220,7 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return e, nil
 }
 
-func (p environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	attrs := cfg.UnknownAttrs()
 	if _, ok := attrs["control-bucket"]; !ok {
 		uuid, err := utils.NewUUID()
@@ -212,7 +249,7 @@ func (p environProvider) MetadataLookupParams(region string) (*simplestreams.Met
 	return &simplestreams.MetadataLookupParams{
 		Region:        region,
 		Endpoint:      ec2Region.EC2Endpoint,
-		Architectures: []string{"amd64", "i386", "arm"},
+		Architectures: arch.AllSupportedArches,
 	}, nil
 }
 
@@ -282,18 +319,6 @@ func (e *environ) s3() *s3.S3 {
 	return s3
 }
 
-// PrecheckInstance is specified in the environs.Prechecker interface.
-func (e *environ) PrecheckInstance(series string, cons constraints.Value) error {
-	return nil
-}
-
-// PrecheckContainer is specified in the environs.Prechecker interface.
-func (e *environ) PrecheckContainer(series string, kind instance.ContainerType) error {
-	// This check can either go away or be relaxed when the ec2
-	// provider manages container addressibility.
-	return environs.NewContainersUnsupported("ec2 provider does not support containers")
-}
-
 func (e *environ) Name() string {
 	return e.name
 }
@@ -305,12 +330,32 @@ func (e *environ) Storage() storage.Storage {
 	return stor
 }
 
-func (e *environ) Bootstrap(cons constraints.Value, possibleTools tools.List) error {
-	return common.Bootstrap(e, cons, possibleTools)
+func (e *environ) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
+	return common.Bootstrap(ctx, e, cons)
 }
 
 func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 	return common.StateInfo(e)
+}
+
+// SupportedArchitectures is specified on the EnvironCapability interface.
+func (e *environ) SupportedArchitectures() ([]string, error) {
+	e.archMutex.Lock()
+	defer e.archMutex.Unlock()
+	if e.supportedArchitectures != nil {
+		return e.supportedArchitectures, nil
+	}
+	// Create a filter to get all images from our region and for the correct stream.
+	cloudSpec, err := e.Region()
+	if err != nil {
+		return nil, err
+	}
+	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+		CloudSpec: cloudSpec,
+		Stream:    e.Config().ImageStream(),
+	})
+	e.supportedArchitectures, err = common.SupportedArchitectures(e, imageConstraint)
+	return e.supportedArchitectures, err
 }
 
 // MetadataLookupParams returns parameters which are used to query simplestreams metadata.
@@ -318,21 +363,24 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 	if region == "" {
 		region = e.ecfg().region()
 	}
-	ec2Region, ok := allRegions[region]
-	if !ok {
-		return nil, fmt.Errorf("unknown region %q", region)
+	cloudSpec, err := e.cloudSpec(region)
+	if err != nil {
+		return nil, err
 	}
 	return &simplestreams.MetadataLookupParams{
 		Series:        e.ecfg().DefaultSeries(),
-		Region:        region,
-		Endpoint:      ec2Region.EC2Endpoint,
-		Architectures: []string{"amd64", "i386", "arm"},
+		Region:        cloudSpec.Region,
+		Endpoint:      cloudSpec.Endpoint,
+		Architectures: arch.AllSupportedArches,
 	}, nil
 }
 
 // Region is specified in the HasRegion interface.
 func (e *environ) Region() (simplestreams.CloudSpec, error) {
-	region := e.ecfg().region()
+	return e.cloudSpec(e.ecfg().region())
+}
+
+func (e *environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 	ec2Region, ok := allRegions[region]
 	if !ok {
 		return simplestreams.CloudSpec{}, fmt.Errorf("unknown region %q", region)
@@ -346,50 +394,49 @@ func (e *environ) Region() (simplestreams.CloudSpec, error) {
 const ebsStorage = "ebs"
 
 // StartInstance is specified in the InstanceBroker interface.
-func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List,
-	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
 
-	arches := possibleTools.Arches()
+	arches := args.Tools.Arches()
 	stor := ebsStorage
 	sources, err := imagemetadata.GetMetadataSources(e)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	series := possibleTools.OneSeries()
-	spec, err := findInstanceSpec(sources, &instances.InstanceConstraint{
+	series := args.Tools.OneSeries()
+	spec, err := findInstanceSpec(sources, e.Config().ImageStream(), &instances.InstanceConstraint{
 		Region:      e.ecfg().region(),
 		Series:      series,
 		Arches:      arches,
-		Constraints: cons,
+		Constraints: args.Constraints,
 		Storage:     &stor,
 	})
 	if err != nil {
 		return nil, nil, err
 	}
-	tools, err := possibleTools.Match(tools.Filter{Arch: spec.Image.Arch})
+	tools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
 		return nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
-	machineConfig.Tools = tools[0]
-	if err := environs.FinishMachineConfig(machineConfig, e.Config(), cons); err != nil {
+	args.MachineConfig.Tools = tools[0]
+	if err := environs.FinishMachineConfig(args.MachineConfig, e.Config(), args.Constraints); err != nil {
 		return nil, nil, err
 	}
 
-	userData, err := environs.ComposeUserData(machineConfig)
+	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot make user data: %v", err)
 	}
 	logger.Debugf("ec2 user data; %d bytes", len(userData))
 	cfg := e.Config()
-	groups, err := e.setUpGroups(machineConfig.MachineId, cfg.StatePort(), cfg.APIPort())
+	groups, err := e.setUpGroups(args.MachineConfig.MachineId, cfg.StatePort(), cfg.APIPort())
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
 	var instResp *ec2.RunInstancesResp
 
-	device, diskSize := getDiskSize(cons)
+	device, diskSize := getDiskSize(args.Constraints)
 	for a := shortAttempt.Start(); a.Next(); {
 		instResp, err = e.ec2().RunInstances(&ec2.RunInstances{
 			ImageId:             spec.Image.Id,
@@ -699,7 +746,7 @@ func (e *environ) portsInGroup(name string) (ports []instance.Port, err error) {
 			})
 		}
 	}
-	state.SortPorts(ports)
+	instance.SortPorts(ports)
 	return ports, nil
 }
 
@@ -1045,7 +1092,7 @@ func fetchMetadata(name string) (value string, err error) {
 func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket.
 	sources := []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseImagesPath)}
+		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseImagesPath)}
 	return sources, nil
 }
 
@@ -1053,6 +1100,6 @@ func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket.
 	sources := []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)}
+		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseToolsPath)}
 	return sources, nil
 }

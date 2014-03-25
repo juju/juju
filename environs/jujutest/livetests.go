@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
@@ -32,7 +33,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
@@ -117,7 +117,7 @@ func (t *LiveTests) PrepareOnce(c *gc.C) {
 	}
 	cfg, err := config.New(config.NoDefaults, t.TestConfig)
 	c.Assert(err, gc.IsNil)
-	e, err := environs.Prepare(cfg, t.ConfigStore)
+	e, err := environs.Prepare(cfg, coretesting.Context(c), t.ConfigStore)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", t.TestConfig))
 	c.Assert(e, gc.NotNil)
 	t.Env = e
@@ -139,7 +139,7 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	envtesting.UploadFakeTools(c, t.Env.Storage())
 	err := bootstrap.EnsureNotBootstrapped(t.Env)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(t.Env, cons)
+	err = bootstrap.Bootstrap(coretesting.Context(c), t.Env, cons)
 	c.Assert(err, gc.IsNil)
 	t.bootstrapped = true
 }
@@ -158,22 +158,12 @@ func (t *LiveTests) Destroy(c *gc.C) {
 func (t *LiveTests) TestPrechecker(c *gc.C) {
 	// Providers may implement Prechecker. If they do, then they should
 	// return nil for empty constraints (excluding the null provider).
-	prechecker, ok := t.Env.(environs.Prechecker)
+	prechecker, ok := t.Env.(state.Prechecker)
 	if !ok {
 		return
 	}
-
-	const series = "precise"
-	var cons constraints.Value
-	c.Check(prechecker.PrecheckInstance(series, cons), gc.IsNil)
-
-	err := prechecker.PrecheckContainer(series, instance.LXC)
-	// If err is nil, that is fine, some providers support containers.
-	if err != nil {
-		// But for ones that don't, they should have a standard error format.
-		c.Check(err, gc.ErrorMatches, ".*provider does not support .*containers")
-		c.Check(err, jc.Satisfies, environs.IsContainersUnsupportedError)
-	}
+	err := prechecker.PrecheckInstance("precise", constraints.Value{})
+	c.Assert(err, gc.IsNil)
 }
 
 // TestStartStop is similar to Tests.TestStartStop except
@@ -443,7 +433,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Check that the API connection is working.
-	status, err := apiConn.State.Client().Status()
+	status, err := apiConn.State.Client().Status(nil)
 	c.Assert(err, gc.IsNil)
 	c.Assert(status.Machines["0"].InstanceId, gc.Equals, string(instId0))
 
@@ -460,11 +450,11 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	c.Logf("deploying service")
 	repoDir := c.MkDir()
 	url := coretesting.Charms.ClonedURL(repoDir, mtools0.Version.Series, "dummy")
-	sch, err := conn.PutCharm(url, &charm.LocalRepository{repoDir}, false)
+	sch, err := conn.PutCharm(url, &charm.LocalRepository{Path: repoDir}, false)
 	c.Assert(err, gc.IsNil)
-	svc, err := conn.State.AddService("dummy", sch)
+	svc, err := conn.State.AddService("dummy", "user-admin", sch, nil, nil)
 	c.Assert(err, gc.IsNil)
-	units, err := conn.AddUnits(svc, 1, "")
+	units, err := juju.AddUnits(conn.State, svc, 1, "")
 	c.Assert(err, gc.IsNil)
 	unit := units[0]
 
@@ -869,7 +859,10 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 
 	t.PrepareOnce(c)
 	possibleTools := envtesting.AssertUploadFakeToolsVersions(c, t.Env.Storage(), version.MustParseBinary("5.4.5-precise-amd64"))
-	inst, _, err := t.Env.StartInstance(constraints.Value{}, possibleTools, machineConfig)
+	inst, _, err := t.Env.StartInstance(environs.StartInstanceParams{
+		Tools:         possibleTools,
+		MachineConfig: machineConfig,
+	})
 	if inst != nil {
 		err := t.Env.StopInstances([]instance.Instance{inst})
 		c.Check(err, gc.IsNil)
@@ -894,7 +887,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 		"state-server": false,
 		"name":         "dummy storage",
 	}))
-	dummyenv, err := environs.Prepare(dummyCfg, configstore.NewMem())
+	dummyenv, err := environs.Prepare(dummyCfg, coretesting.Context(c), configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	defer dummyenv.Destroy()
 
@@ -903,7 +896,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	attrs := t.TestConfig.Merge(coretesting.Attrs{"default-series": other.Series})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg, t.ConfigStore)
+	env, err := environs.Prepare(cfg, coretesting.Context(c), t.ConfigStore)
 	c.Assert(err, gc.IsNil)
 	defer environs.Destroy(env, t.ConfigStore)
 
@@ -923,7 +916,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	err = storageCopy(dummyStorage, currentName, envStorage, otherName)
 	c.Assert(err, gc.IsNil)
 
-	err = bootstrap.Bootstrap(env, constraints.Value{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
 	conn, err := juju.NewConn(env)

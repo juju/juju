@@ -6,12 +6,13 @@ package provisioner_test
 import (
 	"fmt"
 	"strings"
-	stdtesting "testing"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -23,16 +24,10 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
-	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/provisioner"
 )
-
-func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 type CommonProvisionerSuite struct {
 	testing.JujuConnSuite
@@ -56,14 +51,18 @@ var veryShortAttempt = utils.AttemptStrategy{
 	Delay: 80 * time.Millisecond,
 }
 
-var _ worker.Worker = (*provisioner.Provisioner)(nil)
-
 func (s *CommonProvisionerSuite) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
 	s.defaultConstraints = constraints.MustParse("arch=amd64 mem=4G cpu-cores=1 root-disk=8G")
 }
 
 func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
+	// Disable the default state policy, because the
+	// provisioner needs to be able to test pathological
+	// scenarios where a machine exists in state with
+	// invalid environment config.
+	dummy.SetStatePolicy(nil)
+
 	s.JujuConnSuite.SetUpTest(c)
 	// Create the operations channel with more than enough space
 	// for those tests that don't listen on it.
@@ -80,11 +79,13 @@ func (s *CommonProvisionerSuite) APILogin(c *gc.C, machine *state.Machine) {
 	if s.st != nil {
 		c.Assert(s.st.Close(), gc.IsNil)
 	}
-	err := machine.SetPassword("password")
+	password, err := utils.RandomPassword()
+	c.Assert(err, gc.IsNil)
+	err = machine.SetPassword(password)
 	c.Assert(err, gc.IsNil)
 	err = machine.SetProvisioned("i-fake", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAsMachine(c, machine.Tag(), "password", "fake_nonce")
+	s.st = s.OpenAPIAsMachine(c, machine.Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
 	c.Logf("API: login as %q successful", machine.Tag())
 	s.provisioner = s.st.Provisioner()
@@ -95,30 +96,43 @@ func (s *CommonProvisionerSuite) APILogin(c *gc.C, machine *state.Machine) {
 // that causes the given environMethod of the dummy provider to return
 // an error, which is also returned as a message to be checked.
 func breakDummyProvider(c *gc.C, st *state.State, environMethod string) string {
-	oldCfg, err := st.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	cfg, err := oldCfg.Apply(map[string]interface{}{"broken": environMethod})
-	c.Assert(err, gc.IsNil)
-	err = st.SetEnvironConfig(cfg)
+	attrs := map[string]interface{}{"broken": environMethod}
+	err := st.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 	return fmt.Sprintf("dummy.%s is broken", environMethod)
+}
+
+// setupEnvironment adds an environment manager machine and login to the API.
+func (s *CommonProvisionerSuite) setupEnvironmentManager(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.Id(), gc.Equals, "0")
+	err = machine.SetAddresses([]instance.Address{
+		instance.NewAddress("0.1.2.3"),
+	})
+	c.Assert(err, gc.IsNil)
+	s.APILogin(c, machine)
 }
 
 // invalidateEnvironment alters the environment configuration
 // so the Settings returned from the watcher will not pass
 // validation.
 func (s *CommonProvisionerSuite) invalidateEnvironment(c *gc.C) {
-	attrs := s.cfg.AllAttrs()
-	attrs["type"] = "unknown"
-	invalidCfg, err := config.New(config.NoDefaults, attrs)
+	st, err := state.Open(s.StateInfo(c), state.DefaultDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(invalidCfg)
+	defer st.Close()
+	attrs := map[string]interface{}{"type": "unknown"}
+	err = st.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 }
 
 // fixEnvironment undoes the work of invalidateEnvironment.
-func (s *CommonProvisionerSuite) fixEnvironment() error {
-	return s.State.SetEnvironConfig(s.cfg)
+func (s *CommonProvisionerSuite) fixEnvironment(c *gc.C) error {
+	st, err := state.Open(s.StateInfo(c), state.DefaultDialOpts(), state.Policy(nil))
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+	attrs := map[string]interface{}{"type": s.cfg.AllAttrs()["type"]}
+	return st.UpdateEnvironConfig(attrs, nil, nil)
 }
 
 // stopper is stoppable.
@@ -129,6 +143,21 @@ type stopper interface {
 // stop stops a stopper.
 func stop(c *gc.C, s stopper) {
 	c.Assert(s.Stop(), gc.IsNil)
+}
+
+func (s *CommonProvisionerSuite) startUnknownInstance(c *gc.C, id string) instance.Instance {
+	instance, _ := testing.AssertStartInstance(c, s.Conn.Environ, id)
+	select {
+	case o := <-s.op:
+		switch o := o.(type) {
+		case dummy.OpStartInstance:
+		default:
+			c.Fatalf("unexpected operation %#v", o)
+		}
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for startinstance operation")
+	}
+	return instance
 }
 
 func (s *CommonProvisionerSuite) checkStartInstance(c *gc.C, m *state.Machine) instance.Instance {
@@ -191,20 +220,35 @@ func (s *CommonProvisionerSuite) checkNoOperations(c *gc.C) {
 
 // checkStopInstances checks that an instance has been stopped.
 func (s *CommonProvisionerSuite) checkStopInstances(c *gc.C, instances ...instance.Instance) {
+	s.checkStopSomeInstances(c, instances, nil)
+}
+
+// checkStopSomeInstances checks that instancesToStop are stopped while instancesToKeep are not.
+func (s *CommonProvisionerSuite) checkStopSomeInstances(c *gc.C,
+	instancesToStop []instance.Instance, instancesToKeep []instance.Instance) {
+
 	s.BackingState.StartSync()
-	instanceIds := set.NewStrings()
-	for _, instance := range instances {
-		instanceIds.Add(string(instance.Id()))
+	instanceIdsToStop := set.NewStrings()
+	for _, instance := range instancesToStop {
+		instanceIdsToStop.Add(string(instance.Id()))
+	}
+	instanceIdsToKeep := set.NewStrings()
+	for _, instance := range instancesToKeep {
+		instanceIdsToKeep.Add(string(instance.Id()))
 	}
 	// Continue checking for stop instance calls until all the instances we
 	// are waiting on to finish, actually finish, or we time out.
-	for !instanceIds.IsEmpty() {
+	for !instanceIdsToStop.IsEmpty() {
 		select {
 		case o := <-s.op:
 			switch o := o.(type) {
 			case dummy.OpStopInstances:
 				for _, stoppedInstance := range o.Instances {
-					instanceIds.Remove(string(stoppedInstance.Id()))
+					instId := string(stoppedInstance.Id())
+					instanceIdsToStop.Remove(instId)
+					if instanceIdsToKeep.Contains(instId) {
+						c.Errorf("provisioner unexpectedly stopped instance %s", instId)
+					}
 				}
 			default:
 				c.Fatalf("unexpected operation %#v", o)
@@ -292,22 +336,13 @@ func (s *CommonProvisionerSuite) waitInstanceId(c *gc.C, m *state.Machine, expec
 
 func (s *ProvisionerSuite) SetUpTest(c *gc.C) {
 	s.CommonProvisionerSuite.SetUpTest(c)
-
-	// Add an environment manager machine and login to the API.
-	machine, err := s.State.AddMachine("quantal", state.JobManageEnviron, state.JobManageState)
-	c.Assert(err, gc.IsNil)
-	c.Assert(machine.Id(), gc.Equals, "0")
-	err = machine.SetAddresses([]instance.Address{
-		instance.NewAddress("0.1.2.3"),
-	})
-	c.Assert(err, gc.IsNil)
-	s.APILogin(c, machine)
+	s.CommonProvisionerSuite.setupEnvironmentManager(c)
 }
 
-func (s *ProvisionerSuite) newEnvironProvisioner(c *gc.C) *provisioner.Provisioner {
+func (s *ProvisionerSuite) newEnvironProvisioner(c *gc.C) provisioner.Provisioner {
 	machineTag := "machine-0"
 	agentConfig := s.AgentConfigForTag(c, machineTag)
-	return provisioner.NewProvisioner(provisioner.ENVIRON, s.provisioner, agentConfig)
+	return provisioner.NewEnvironProvisioner(s.provisioner, agentConfig)
 }
 
 func (s *ProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
@@ -316,12 +351,11 @@ func (s *ProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
 }
 
 func (s *ProvisionerSuite) addMachine() (*state.Machine, error) {
-	params := state.AddMachineParams{
+	return s.BackingState.AddOneMachine(state.MachineTemplate{
 		Series:      config.DefaultSeries,
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: s.defaultConstraints,
-	}
-	return s.BackingState.AddMachineWithConstraints(&params)
+	})
 }
 
 func (s *ProvisionerSuite) TestSimple(c *gc.C) {
@@ -378,7 +412,7 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenStartInstanceFailed
 	}
 
 	// Unbreak the environ config.
-	err = s.fixEnvironment()
+	err = s.fixEnvironment(c)
 	c.Assert(err, gc.IsNil)
 
 	// Restart the PA to make sure the machine is skipped again.
@@ -398,13 +432,11 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForContainers(c *gc.C) {
 	inst := s.checkStartInstance(c, m)
 
 	// make a container on the machine we just created
-	params := state.AddMachineParams{
-		ParentId:      m.Id(),
-		ContainerType: instance.LXC,
-		Series:        config.DefaultSeries,
-		Jobs:          []state.MachineJob{state.JobHostUnits},
+	template := state.MachineTemplate{
+		Series: config.DefaultSeries,
+		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := s.State.AddMachineWithConstraints(&params)
+	container, err := s.State.AddMachineInsideMachine(template, m.Id(), instance.LXC)
 	c.Assert(err, gc.IsNil)
 
 	// the PA should not attempt to create it
@@ -445,7 +477,7 @@ func (s *ProvisionerSuite) TestProvisioningOccursWithFixedEnvironment(c *gc.C) {
 	// the PA should not create it
 	s.checkNoOperations(c)
 
-	err = s.fixEnvironment()
+	err = s.fixEnvironment(c)
 	c.Assert(err, gc.IsNil)
 
 	s.checkStartInstance(c, m)
@@ -576,20 +608,15 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	// the PA should create it using the old environment
 	s.checkStartInstance(c, m)
 
-	err = s.fixEnvironment()
+	err = s.fixEnvironment(c)
 	c.Assert(err, gc.IsNil)
 
 	// insert our observer
 	cfgObserver := make(chan *config.Config, 1)
-	p.SetObserver(cfgObserver)
+	provisioner.SetObserver(p, cfgObserver)
 
-	cfg, err := s.State.EnvironConfig()
+	err = s.State.UpdateEnvironConfig(map[string]interface{}{"secret": "beef"}, nil, nil)
 	c.Assert(err, gc.IsNil)
-	attrs := cfg.AllAttrs()
-	attrs["secret"] = "beef"
-	cfg, err = config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(cfg)
 
 	s.BackingState.StartSync()
 
@@ -606,4 +633,131 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 
 	// the PA should create it using the new environment
 	s.checkStartInstanceCustom(c, m, "beef", s.defaultConstraints)
+}
+
+func (s *ProvisionerSuite) TestProvisioningSafeMode(c *gc.C) {
+	p := s.newEnvironProvisioner(c)
+	defer stop(c, p)
+
+	// create a machine
+	m0, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	i0 := s.checkStartInstance(c, m0)
+
+	// create a second machine
+	m1, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	i1 := s.checkStartInstance(c, m1)
+	stop(c, p)
+
+	// mark the first machine as dead
+	c.Assert(m0.EnsureDead(), gc.IsNil)
+
+	// remove the second machine entirely from state
+	c.Assert(m1.EnsureDead(), gc.IsNil)
+	c.Assert(m1.Remove(), gc.IsNil)
+
+	// turn on safe mode
+	attrs := map[string]interface{}{"provisioner-safe-mode": true}
+	err = s.State.UpdateEnvironConfig(attrs, nil, nil)
+	c.Assert(err, gc.IsNil)
+
+	// start a new provisioner to shut down only the machine still in state.
+	p = s.newEnvironProvisioner(c)
+	defer stop(c, p)
+	s.checkStopSomeInstances(c, []instance.Instance{i0}, []instance.Instance{i1})
+	s.waitRemoved(c, m0)
+}
+
+func (s *ProvisionerSuite) TestProvisioningSafeModeChange(c *gc.C) {
+	p := s.newEnvironProvisioner(c)
+	defer stop(c, p)
+
+	// First check that safe mode is initially off.
+
+	// create a machine
+	m0, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	i0 := s.checkStartInstance(c, m0)
+
+	// create a second machine
+	m1, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	i1 := s.checkStartInstance(c, m1)
+
+	// mark the first machine as dead
+	c.Assert(m0.EnsureDead(), gc.IsNil)
+
+	// remove the second machine entirely from state
+	c.Assert(m1.EnsureDead(), gc.IsNil)
+	c.Assert(m1.Remove(), gc.IsNil)
+
+	s.checkStopInstances(c, i0, i1)
+	s.waitRemoved(c, m0)
+
+	// insert our observer
+	cfgObserver := make(chan *config.Config, 1)
+	provisioner.SetObserver(p, cfgObserver)
+
+	// turn on safe mode
+	attrs := map[string]interface{}{"provisioner-safe-mode": true}
+	err = s.State.UpdateEnvironConfig(attrs, nil, nil)
+	c.Assert(err, gc.IsNil)
+
+	s.BackingState.StartSync()
+
+	// wait for the PA to load the new configuration
+	select {
+	case <-cfgObserver:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("PA did not action config change")
+	}
+
+	// Now check that the provisioner has noticed safe mode is on.
+
+	// create a machine
+	m3, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	i3 := s.checkStartInstance(c, m3)
+
+	// create an instance out of band
+	i4 := s.startUnknownInstance(c, "999")
+
+	// mark the machine as dead
+	c.Assert(m3.EnsureDead(), gc.IsNil)
+
+	// check the machine's instance is stopped, and the other isn't
+	s.checkStopSomeInstances(c, []instance.Instance{i3}, []instance.Instance{i4})
+	s.waitRemoved(c, m3)
+}
+
+func (s *ProvisionerSuite) newProvisionerTask(c *gc.C, safeMode bool) provisioner.ProvisionerTask {
+	env := s.APIConn.Environ
+	watcher, err := s.provisioner.WatchEnvironMachines()
+	c.Assert(err, gc.IsNil)
+	auth, err := environs.NewAPIAuthenticator(s.provisioner)
+	c.Assert(err, gc.IsNil)
+	return provisioner.NewProvisionerTask("machine-0", safeMode, s.provisioner, watcher, env, auth)
+}
+
+func (s *ProvisionerSuite) TestTurningOffSafeModeReapsUnknownInstances(c *gc.C) {
+	task := s.newProvisionerTask(c, true)
+	defer stop(c, task)
+
+	// Initially create a machine, and an unknown instance, with safe mode on.
+	m0, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	i0 := s.checkStartInstance(c, m0)
+	i1 := s.startUnknownInstance(c, "999")
+
+	// mark the first machine as dead
+	c.Assert(m0.EnsureDead(), gc.IsNil)
+
+	// with safe mode on, only one of the machines is stopped.
+	s.checkStopSomeInstances(c, []instance.Instance{i0}, []instance.Instance{i1})
+	s.waitRemoved(c, m0)
+
+	// turn off safe mode and check that the other machine is now stopped also.
+	task.SetSafeMode(false)
+	s.checkStopInstances(c, i1)
 }

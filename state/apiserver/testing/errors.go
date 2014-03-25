@@ -4,6 +4,8 @@
 package testing
 
 import (
+	"fmt"
+
 	"launchpad.net/juju-core/state/api/params"
 )
 
@@ -14,14 +16,28 @@ var ErrUnauthorized = &params.Error{
 
 func NotFoundError(prefixMessage string) *params.Error {
 	return &params.Error{
-		Message: prefixMessage + " not found",
+		Message: fmt.Sprintf("%s not found", prefixMessage),
 		Code:    params.CodeNotFound,
 	}
 }
 
 func NotProvisionedError(machineId string) *params.Error {
 	return &params.Error{
-		Message: "machine " + machineId + " is not provisioned",
+		Message: fmt.Sprintf("machine %s is not provisioned", machineId),
 		Code:    params.CodeNotProvisioned,
+	}
+}
+
+func NotAssignedError(unitName string) *params.Error {
+	return &params.Error{
+		Message: fmt.Sprintf("unit %q is not assigned to a machine", unitName),
+		Code:    params.CodeNotAssigned,
+	}
+}
+
+func ServerError(message string) *params.Error {
+	return &params.Error{
+		Message: message,
+		Code:    "",
 	}
 }

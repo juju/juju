@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/simplestreams"
 	sstesting "launchpad.net/juju-core/environs/simplestreams/testing"
+	"launchpad.net/juju-core/utils"
 )
 
 var live = flag.Bool("live", false, "Include live simplestreams tests")
@@ -66,7 +67,8 @@ func Test(t *testing.T) {
 func registerSimpleStreamsTests() {
 	gc.Suite(&simplestreamsSuite{
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
-			Source:        simplestreams.NewURLDataSource("test:", simplestreams.VerifySSLHostnames),
+			Source: simplestreams.NewURLDataSource(
+				"test roundtripper", "test:", utils.VerifySSLHostnames),
 			RequireSigned: false,
 			DataType:      imagemetadata.ImageIds,
 			ValidConstraint: imagemetadata.NewImageConstraint(simplestreams.LookupParams{
@@ -84,7 +86,7 @@ func registerSimpleStreamsTests() {
 
 func registerLiveSimpleStreamsTests(baseURL string, validImageConstraint simplestreams.LookupConstraint, requireSigned bool) {
 	gc.Suite(&sstesting.LocalLiveSimplestreamsSuite{
-		Source:          simplestreams.NewURLDataSource(baseURL, simplestreams.VerifySSLHostnames),
+		Source:          simplestreams.NewURLDataSource("test", baseURL, utils.VerifySSLHostnames),
 		RequireSigned:   requireSigned,
 		DataType:        imagemetadata.ImageIds,
 		ValidConstraint: validImageConstraint,
@@ -119,7 +121,7 @@ var fetchTests = []struct {
 		images: []*imagemetadata.ImageMetadata{
 			{
 				Id:         "ami-442ea674",
-				VType:      "hvm",
+				VirtType:   "hvm",
 				Arch:       "amd64",
 				RegionName: "us-east-1",
 				Endpoint:   "https://ec2.us-east-1.amazonaws.com",
@@ -127,7 +129,7 @@ var fetchTests = []struct {
 			},
 			{
 				Id:         "ami-442ea684",
-				VType:      "pv",
+				VirtType:   "pv",
 				Arch:       "amd64",
 				RegionName: "us-east-1",
 				Endpoint:   "https://ec2.us-east-1.amazonaws.com",
@@ -135,7 +137,7 @@ var fetchTests = []struct {
 			},
 			{
 				Id:         "ami-442ea699",
-				VType:      "pv",
+				VirtType:   "pv",
 				Arch:       "arm",
 				RegionName: "us-east-1",
 				Endpoint:   "https://ec2.us-east-1.amazonaws.com",
@@ -150,7 +152,7 @@ var fetchTests = []struct {
 		images: []*imagemetadata.ImageMetadata{
 			{
 				Id:         "ami-442ea674",
-				VType:      "hvm",
+				VirtType:   "hvm",
 				Arch:       "amd64",
 				RegionName: "us-east-1",
 				Endpoint:   "https://ec2.us-east-1.amazonaws.com",
@@ -158,7 +160,7 @@ var fetchTests = []struct {
 			},
 			{
 				Id:         "ami-442ea684",
-				VType:      "pv",
+				VirtType:   "pv",
 				Arch:       "amd64",
 				RegionName: "us-east-1",
 				Endpoint:   "https://ec2.us-east-1.amazonaws.com",
@@ -173,7 +175,7 @@ var fetchTests = []struct {
 		images: []*imagemetadata.ImageMetadata{
 			{
 				Id:         "ami-442ea699",
-				VType:      "pv",
+				VirtType:   "pv",
 				Arch:       "arm",
 				RegionName: "us-east-1",
 				Endpoint:   "https://ec2.us-east-1.amazonaws.com",
@@ -188,7 +190,7 @@ var fetchTests = []struct {
 		images: []*imagemetadata.ImageMetadata{
 			{
 				Id:         "ami-442ea674",
-				VType:      "hvm",
+				VirtType:   "hvm",
 				Arch:       "amd64",
 				RegionName: "us-east-1",
 				Endpoint:   "https://ec2.us-east-1.amazonaws.com",
@@ -196,7 +198,7 @@ var fetchTests = []struct {
 			},
 			{
 				Id:         "ami-442ea684",
-				VType:      "pv",
+				VirtType:   "pv",
 				Arch:       "amd64",
 				RegionName: "us-east-1",
 				Endpoint:   "https://ec2.us-east-1.amazonaws.com",
@@ -210,15 +212,23 @@ var fetchTests = []struct {
 		images: []*imagemetadata.ImageMetadata{
 			{
 				Id:         "ami-26745463",
-				VType:      "pv",
+				VirtType:   "pv",
 				Arch:       "amd64",
 				RegionName: "au-east-2",
 				Endpoint:   "https://somewhere-else",
 				Storage:    "ebs",
 			},
 			{
+				Id:         "ami-26745464",
+				VirtType:   "pv",
+				Arch:       "amd64",
+				RegionName: "au-east-1",
+				Endpoint:   "https://somewhere",
+				Storage:    "ebs",
+			},
+			{
 				Id:         "ami-442ea674",
-				VType:      "hvm",
+				VirtType:   "hvm",
 				Arch:       "amd64",
 				RegionName: "us-east-1",
 				Endpoint:   "https://ec2.us-east-1.amazonaws.com",
@@ -226,7 +236,7 @@ var fetchTests = []struct {
 			},
 			{
 				Id:          "ami-442ea675",
-				VType:       "hvm",
+				VirtType:    "hvm",
 				Arch:        "amd64",
 				RegionAlias: "uswest3",
 				RegionName:  "us-west-3",
@@ -234,16 +244,8 @@ var fetchTests = []struct {
 				Storage:     "ebs",
 			},
 			{
-				Id:         "ami-26745464",
-				VType:      "pv",
-				Arch:       "amd64",
-				RegionName: "au-east-1",
-				Endpoint:   "https://somewhere",
-				Storage:    "ebs",
-			},
-			{
 				Id:         "ami-442ea684",
-				VType:      "pv",
+				VirtType:   "pv",
 				Arch:       "amd64",
 				RegionName: "us-east-1",
 				Endpoint:   "https://ec2.us-east-1.amazonaws.com",
@@ -265,7 +267,11 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 			Series:    []string{"precise"},
 			Arches:    t.arches,
 		})
-		images, err := imagemetadata.Fetch([]simplestreams.DataSource{s.Source}, simplestreams.DefaultIndexPath, imageConstraint, s.RequireSigned)
+		// Add invalid datasource and check later that resolveInfo is correct.
+		invalidSource := simplestreams.NewURLDataSource("invalid", "file://invalid", utils.VerifySSLHostnames)
+		images, resolveInfo, err := imagemetadata.Fetch(
+			[]simplestreams.DataSource{invalidSource, s.Source}, simplestreams.DefaultIndexPath,
+			imageConstraint, s.RequireSigned)
 		if !c.Check(err, gc.IsNil) {
 			continue
 		}
@@ -273,6 +279,12 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 			testImage.Version = t.version
 		}
 		c.Check(images, gc.DeepEquals, t.images)
+		c.Check(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
+			Source:    "test roundtripper",
+			Signed:    s.RequireSigned,
+			IndexURL:  "test:/streams/v1/index.json",
+			MirrorURL: "",
+		})
 	}
 }
 
@@ -285,9 +297,12 @@ func (s *productSpecSuite) TestIdWithDefaultStream(c *gc.C) {
 		Series: []string{"precise"},
 		Arches: []string{"amd64"},
 	})
-	ids, err := imageConstraint.Ids()
-	c.Assert(err, gc.IsNil)
-	c.Assert(ids, gc.DeepEquals, []string{"com.ubuntu.cloud:server:12.04:amd64"})
+	for _, stream := range []string{"", "released"} {
+		imageConstraint.Stream = stream
+		ids, err := imageConstraint.Ids()
+		c.Assert(err, gc.IsNil)
+		c.Assert(ids, gc.DeepEquals, []string{"com.ubuntu.cloud:server:12.04:amd64"})
+	}
 }
 
 func (s *productSpecSuite) TestId(c *gc.C) {
@@ -322,7 +337,7 @@ var testRoundTripper *jujutest.ProxyRoundTripper
 
 func init() {
 	testRoundTripper = &jujutest.ProxyRoundTripper{}
-	simplestreams.RegisterProtocol("signedtest", testRoundTripper)
+	testRoundTripper.RegisterForScheme("signedtest")
 }
 
 func (s *signedSuite) SetUpSuite(c *gc.C) {
@@ -361,28 +376,34 @@ func (s *signedSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *signedSuite) TestSignedImageMetadata(c *gc.C) {
-	signedSource := simplestreams.NewURLDataSource("signedtest://host/signed", simplestreams.VerifySSLHostnames)
+	signedSource := simplestreams.NewURLDataSource("test", "signedtest://host/signed", utils.VerifySSLHostnames)
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
 		Series:    []string{"precise"},
 		Arches:    []string{"amd64"},
 	})
-	images, err := imagemetadata.Fetch(
+	images, resolveInfo, err := imagemetadata.Fetch(
 		[]simplestreams.DataSource{signedSource}, simplestreams.DefaultIndexPath, imageConstraint, true)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(images), gc.Equals, 1)
 	c.Assert(images[0].Id, gc.Equals, "ami-123456")
+	c.Check(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
+		Source:    "test",
+		Signed:    true,
+		IndexURL:  "signedtest://host/signed/streams/v1/index.sjson",
+		MirrorURL: "",
+	})
 }
 
 func (s *signedSuite) TestSignedImageMetadataInvalidSignature(c *gc.C) {
-	signedSource := simplestreams.NewURLDataSource("signedtest://host/signed", simplestreams.VerifySSLHostnames)
+	signedSource := simplestreams.NewURLDataSource("test", "signedtest://host/signed", utils.VerifySSLHostnames)
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
 		Series:    []string{"precise"},
 		Arches:    []string{"amd64"},
 	})
 	imagemetadata.SetSigningPublicKey(s.origKey)
-	_, err := imagemetadata.Fetch(
+	_, _, err := imagemetadata.Fetch(
 		[]simplestreams.DataSource{signedSource}, simplestreams.DefaultIndexPath, imageConstraint, true)
 	c.Assert(err, gc.ErrorMatches, "cannot read index data.*")
 }

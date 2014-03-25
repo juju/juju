@@ -7,25 +7,25 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
+	"github.com/juju/loggo"
+	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju/osenv"
-	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
+	coretesting "launchpad.net/juju-core/testing"
 )
 
 var logger = loggo.GetLogger("juju.test")
 
 type LogSuite struct {
-	testbase.CleanupSuite
+	testing.CleanupSuite
 }
 
 var _ = gc.Suite(&LogSuite{})
 
 func (s *LogSuite) SetUpTest(c *gc.C) {
-	s.PatchEnvironment(osenv.JujuLoggingConfig, "")
+	s.PatchEnvironment(osenv.JujuLoggingConfigEnvKey, "")
 	s.AddCleanup(func(_ *gc.C) {
 		loggo.ResetLoggers()
 		loggo.ResetWriters()
@@ -35,7 +35,7 @@ func (s *LogSuite) SetUpTest(c *gc.C) {
 
 func newLogWithFlags(c *gc.C, flags []string) *cmd.Log {
 	log := &cmd.Log{}
-	flagSet := testing.NewFlagSet()
+	flagSet := coretesting.NewFlagSet()
 	log.AddFlags(flagSet)
 	err := flagSet.Parse(false, flags)
 	c.Assert(err, gc.IsNil)
@@ -53,7 +53,7 @@ func (s *LogSuite) TestNoFlags(c *gc.C) {
 
 func (s *LogSuite) TestFlags(c *gc.C) {
 	log := newLogWithFlags(c, []string{"--log-file", "foo", "--verbose", "--debug",
-		"--log-config=juju.cmd=INFO;juju.worker.deployer=DEBUG"})
+		"--logging-config=juju.cmd=INFO;juju.worker.deployer=DEBUG"})
 	c.Assert(log.Path, gc.Equals, "foo")
 	c.Assert(log.Verbose, gc.Equals, true)
 	c.Assert(log.Debug, gc.Equals, true)
@@ -62,7 +62,7 @@ func (s *LogSuite) TestFlags(c *gc.C) {
 
 func (s *LogSuite) TestLogConfigFromEnvironment(c *gc.C) {
 	config := "juju.cmd=INFO;juju.worker.deployer=DEBUG"
-	testbase.PatchEnvironment(osenv.JujuLoggingConfig, config)
+	s.PatchEnvironment(osenv.JujuLoggingConfigEnvKey, config)
 	log := newLogWithFlags(c, []string{})
 	c.Assert(log.Path, gc.Equals, "")
 	c.Assert(log.Verbose, gc.Equals, false)
@@ -72,56 +72,56 @@ func (s *LogSuite) TestLogConfigFromEnvironment(c *gc.C) {
 
 func (s *LogSuite) TestDebugSetsLogLevel(c *gc.C) {
 	l := &cmd.Log{Debug: true}
-	ctx := testing.Context(c)
+	ctx := coretesting.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(loggo.GetLogger("").LogLevel(), gc.Equals, loggo.DEBUG)
-	c.Assert(testing.Stderr(ctx), gc.Equals, "")
-	c.Assert(testing.Stdout(ctx), gc.Equals, "")
+	c.Assert(coretesting.Stderr(ctx), gc.Equals, "")
+	c.Assert(coretesting.Stdout(ctx), gc.Equals, "")
 }
 
 func (s *LogSuite) TestShowLogSetsLogLevel(c *gc.C) {
 	l := &cmd.Log{ShowLog: true}
-	ctx := testing.Context(c)
+	ctx := coretesting.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(loggo.GetLogger("").LogLevel(), gc.Equals, loggo.INFO)
-	c.Assert(testing.Stderr(ctx), gc.Equals, "")
-	c.Assert(testing.Stdout(ctx), gc.Equals, "")
+	c.Assert(coretesting.Stderr(ctx), gc.Equals, "")
+	c.Assert(coretesting.Stdout(ctx), gc.Equals, "")
 }
 
 func (s *LogSuite) TestStderr(c *gc.C) {
 	l := &cmd.Log{ShowLog: true, Config: "<root>=INFO"}
-	ctx := testing.Context(c)
+	ctx := coretesting.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, gc.IsNil)
 	logger.Infof("hello")
-	c.Assert(testing.Stderr(ctx), gc.Matches, `^.* INFO .* hello\n`)
+	c.Assert(coretesting.Stderr(ctx), gc.Matches, `^.* INFO .* hello\n`)
 }
 
 func (s *LogSuite) TestRelPathLog(c *gc.C) {
 	l := &cmd.Log{Path: "foo.log", Config: "<root>=INFO"}
-	ctx := testing.Context(c)
+	ctx := coretesting.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, gc.IsNil)
 	logger.Infof("hello")
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "foo.log"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(content), gc.Matches, `^.* INFO .* hello\n`)
-	c.Assert(testing.Stderr(ctx), gc.Equals, "")
-	c.Assert(testing.Stdout(ctx), gc.Equals, "")
+	c.Assert(coretesting.Stderr(ctx), gc.Equals, "")
+	c.Assert(coretesting.Stdout(ctx), gc.Equals, "")
 }
 
 func (s *LogSuite) TestAbsPathLog(c *gc.C) {
 	path := filepath.Join(c.MkDir(), "foo.log")
 	l := &cmd.Log{Path: path, Config: "<root>=INFO"}
-	ctx := testing.Context(c)
+	ctx := coretesting.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, gc.IsNil)
 	logger.Infof("hello")
-	c.Assert(testing.Stderr(ctx), gc.Equals, "")
+	c.Assert(coretesting.Stderr(ctx), gc.Equals, "")
 	content, err := ioutil.ReadFile(path)
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(content), gc.Matches, `^.* INFO .* hello\n`)
@@ -129,28 +129,28 @@ func (s *LogSuite) TestAbsPathLog(c *gc.C) {
 
 func (s *LogSuite) TestLoggingToFileAndStderr(c *gc.C) {
 	l := &cmd.Log{Path: "foo.log", Config: "<root>=INFO", ShowLog: true}
-	ctx := testing.Context(c)
+	ctx := coretesting.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, gc.IsNil)
 	logger.Infof("hello")
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "foo.log"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(content), gc.Matches, `^.* INFO .* hello\n`)
-	c.Assert(testing.Stderr(ctx), gc.Matches, `^.* INFO .* hello\n`)
-	c.Assert(testing.Stdout(ctx), gc.Equals, "")
+	c.Assert(coretesting.Stderr(ctx), gc.Matches, `^.* INFO .* hello\n`)
+	c.Assert(coretesting.Stdout(ctx), gc.Equals, "")
 }
 
 func (s *LogSuite) TestErrorAndWarningLoggingToStderr(c *gc.C) {
 	// Error and warning go to stderr even with ShowLog=false
 	l := &cmd.Log{Config: "<root>=INFO", ShowLog: false}
-	ctx := testing.Context(c)
+	ctx := coretesting.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, gc.IsNil)
 	logger.Warningf("a warning")
 	logger.Errorf("an error")
 	logger.Infof("an info")
-	c.Assert(testing.Stderr(ctx), gc.Matches, `^.*WARNING a warning\n.*ERROR an error\n.*`)
-	c.Assert(testing.Stdout(ctx), gc.Equals, "")
+	c.Assert(coretesting.Stderr(ctx), gc.Matches, `^.*WARNING a warning\n.*ERROR an error\n.*`)
+	c.Assert(coretesting.Stdout(ctx), gc.Equals, "")
 }
 
 func (s *LogSuite) TestQuietAndVerbose(c *gc.C) {

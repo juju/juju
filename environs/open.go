@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/errgo/errgo"
+
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
@@ -44,16 +46,14 @@ const (
 	ConfigFromEnvirons
 )
 
-// ConfigForName returns the configuration for the environment with the
-// given name from the default environments file. If the name is blank,
-// the default environment will be used. If the configuration is not
-// found, an errors.NotFoundError is returned.
-// If the given store contains an entry for the environment
-// and it has associated bootstrap config, that configuration
-// will be returned.
-// ConfigForName also returns where the configuration
-// was sourced from (this is also valid even when there
-// is an error.
+// ConfigForName returns the configuration for the environment with
+// the given name from the default environments file. If the name is
+// blank, the default environment will be used. If the configuration
+// is not found, an errors.NotFoundError is returned. If the given
+// store contains an entry for the environment and it has associated
+// bootstrap config, that configuration will be returned.
+// ConfigForName also returns where the configuration was sourced from
+// (this is also valid even when there is an error.
 func ConfigForName(name string, store configstore.Storage) (*config.Config, ConfigSource, error) {
 	envs, err := ReadEnvirons("")
 	if err != nil {
@@ -84,6 +84,16 @@ func ConfigForName(name string, store configstore.Storage) (*config.Config, Conf
 	return cfg, ConfigFromEnvirons, err
 }
 
+// maybeNotBootstrapped takes an error and source, returned by
+// ConfigForName and returns ErrNotBootstrapped if it looks like the
+// environment is not bootstrapped, or err as-is otherwise.
+func maybeNotBootstrapped(err error, source ConfigSource) error {
+	if err != nil && source == ConfigFromEnvirons {
+		return ErrNotBootstrapped
+	}
+	return err
+}
+
 // NewFromName opens the environment with the given
 // name from the default environments file. If the
 // name is blank, the default environment will be used.
@@ -97,16 +107,16 @@ func NewFromName(name string, store configstore.Storage) (Environ, error) {
 	// configuration attributes don't exist which
 	// will be filled in by Prepare.
 	cfg, source, err := ConfigForName(name, store)
-	if err != nil && source == ConfigFromEnvirons {
-		err = ErrNotBootstrapped
+	if err := maybeNotBootstrapped(err, source); err != nil {
+		return nil, err
 	}
 	if err != nil {
 		return nil, err
 	}
 
 	env, err := New(cfg)
-	if err != nil && source == ConfigFromEnvirons {
-		err = ErrNotBootstrapped
+	if err := maybeNotBootstrapped(err, source); err != nil {
+		return nil, err
 	}
 	return env, err
 }
@@ -116,12 +126,12 @@ func NewFromName(name string, store configstore.Storage) (Environ, error) {
 // and environment information is created using the
 // given store. If the environment is already prepared,
 // it behaves like NewFromName.
-func PrepareFromName(name string, store configstore.Storage) (Environ, error) {
+func PrepareFromName(name string, ctx BootstrapContext, store configstore.Storage) (Environ, error) {
 	cfg, _, err := ConfigForName(name, store)
 	if err != nil {
 		return nil, err
 	}
-	return Prepare(cfg, store)
+	return Prepare(cfg, ctx, store)
 }
 
 // NewFromAttrs returns a new environment based on the provided configuration
@@ -146,7 +156,7 @@ func New(config *config.Config) (Environ, error) {
 
 // Prepare prepares a new environment based on the provided configuration.
 // If the environment is already prepared, it behaves like New.
-func Prepare(cfg *config.Config, store configstore.Storage) (Environ, error) {
+func Prepare(cfg *config.Config, ctx BootstrapContext, store configstore.Storage) (Environ, error) {
 	p, err := Provider(cfg.Type())
 	if err != nil {
 		return nil, err
@@ -173,15 +183,7 @@ func Prepare(cfg *config.Config, store configstore.Storage) (Environ, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot create new info for environment %q: %v", cfg.Name(), err)
 	}
-	cfg, err = ensureAdminSecret(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("cannot generate admin-secret: %v", err)
-	}
-	cfg, err = ensureCertificate(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("cannot ensure CA certificate: %v", err)
-	}
-	env, err := p.Prepare(cfg)
+	env, err := prepare(ctx, cfg, info, p)
 	if err != nil {
 		if err := info.Destroy(); err != nil {
 			logger.Warningf("cannot destroy newly created environment info: %v", err)
@@ -193,6 +195,18 @@ func Prepare(cfg *config.Config, store configstore.Storage) (Environ, error) {
 		return nil, fmt.Errorf("cannot create environment info %q: %v", env.Config().Name(), err)
 	}
 	return env, nil
+}
+
+func prepare(ctx BootstrapContext, cfg *config.Config, info configstore.EnvironInfo, p EnvironProvider) (Environ, error) {
+	cfg, err := ensureAdminSecret(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("cannot generate admin-secret: %v", err)
+	}
+	cfg, err = ensureCertificate(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("cannot ensure CA certificate: %v", err)
+	}
+	return p.Prepare(ctx, cfg)
 }
 
 // ensureAdminSecret returns a config with a non-empty admin-secret.
@@ -235,7 +249,13 @@ func Destroy(env Environ, store configstore.Storage) error {
 	if err := env.Destroy(); err != nil {
 		return err
 	}
-	info, err := store.ReadInfo(name)
+	return DestroyInfo(name, store)
+}
+
+// DestroyInfo destroys the configuration data for the named
+// environment from the given store.
+func DestroyInfo(envName string, store configstore.Storage) error {
+	info, err := store.ReadInfo(envName)
 	if err != nil {
 		if errors.IsNotFoundError(err) {
 			return nil
@@ -243,7 +263,7 @@ func Destroy(env Environ, store configstore.Storage) error {
 		return err
 	}
 	if err := info.Destroy(); err != nil {
-		return fmt.Errorf("cannot destroy environment configuration information: %v", err)
+		return errgo.Annotate(err, "cannot destroy environment configuration information")
 	}
 	return nil
 }

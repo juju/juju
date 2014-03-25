@@ -82,7 +82,7 @@ group is alphabetically sorted. eg:
 
         "labix.org/v2/mgo"
         gc "launchpad.net/gocheck"
-        "launchpad.net/loggo"
+        "github.com/juju/loggo"
 
         "launchpad.net/juju-core/state"
         "launchpad.net/juju-core/worker"

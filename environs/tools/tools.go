@@ -6,11 +6,12 @@ package tools
 import (
 	"fmt"
 
-	"launchpad.net/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/juju/arch"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
@@ -32,7 +33,7 @@ func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, majorVersion, minorV
 		if majorMismatch || minorMismacth {
 			return nil, coretools.ErrNoMatches
 		}
-		toolsConstraint = NewVersionedToolsConstraint(filter.Number.String(),
+		toolsConstraint = NewVersionedToolsConstraint(filter.Number,
 			simplestreams.LookupParams{CloudSpec: cloudSpec})
 	} else {
 		toolsConstraint = NewGeneralToolsConstraint(majorVersion, minorVersion, filter.Released,
@@ -42,7 +43,7 @@ func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, majorVersion, minorV
 		toolsConstraint.Arches = []string{filter.Arch}
 	} else {
 		logger.Debugf("no architecture specified when finding tools, looking for any")
-		toolsConstraint.Arches = []string{"amd64", "i386", "arm"}
+		toolsConstraint.Arches = arch.AllSupportedArches
 	}
 	// The old tools search allowed finding tools without needing to specify a series.
 	// The simplestreams metadata is keyed off series, so series must be specified in
@@ -102,18 +103,26 @@ func FindTools(cloudInst environs.ConfigGetter, majorVersion, minorVersion int,
 	if err != nil {
 		return nil, err
 	}
-	return findTools(sources, cloudSpec, majorVersion, minorVersion, filter)
+	return FindToolsForCloud(sources, cloudSpec, majorVersion, minorVersion, filter)
 }
 
-func findTools(sources []simplestreams.DataSource, cloudSpec simplestreams.CloudSpec,
+// FindToolsForCloud returns a List containing all tools with a given
+// major.minor version number and cloudSpec, filtered by filter.
+// If minorVersion = -1, then only majorVersion is considered.
+// If no *available* tools have the supplied major.minor version number, or match the
+// supplied filter, the function returns a *NotFoundError.
+func FindToolsForCloud(sources []simplestreams.DataSource, cloudSpec simplestreams.CloudSpec,
 	majorVersion, minorVersion int, filter coretools.Filter) (list coretools.List, err error) {
 
 	toolsConstraint, err := makeToolsConstraint(cloudSpec, majorVersion, minorVersion, filter)
 	if err != nil {
 		return nil, err
 	}
-	toolsMetadata, err := Fetch(sources, simplestreams.DefaultIndexPath, toolsConstraint, false)
+	toolsMetadata, _, err := Fetch(sources, simplestreams.DefaultIndexPath, toolsConstraint, false)
 	if err != nil {
+		if errors.IsNotFoundError(err) {
+			err = ErrNoTools
+		}
 		return nil, err
 	}
 	if len(toolsMetadata) == 0 {
@@ -153,6 +162,7 @@ func TestingPatchBootstrapFindTools(stub findtoolsfunc) func() {
 type BootstrapToolsParams struct {
 	Version    *version.Number
 	Arch       *string
+	Series     string
 	AllowRetry bool
 }
 
@@ -164,7 +174,7 @@ func FindBootstrapTools(cloudInst environs.ConfigGetter, params BootstrapToolsPa
 	cfg := cloudInst.Config()
 	cliVersion := version.Current.Number
 	filter := coretools.Filter{
-		Series: cfg.DefaultSeries(),
+		Series: params.Series,
 		Arch:   stringOrEmpty(params.Arch),
 	}
 	if params.Version != nil {

@@ -6,13 +6,13 @@ package main
 import (
 	"bytes"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type ConstraintsCommandsSuite struct {
@@ -59,8 +59,7 @@ func (s *ConstraintsCommandsSuite) TestSetEnviron(c *gc.C) {
 }
 
 func (s *ConstraintsCommandsSuite) TestSetService(c *gc.C) {
-	svc, err := s.State.AddService("svc", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "svc", s.AddTestingCharm(c, "dummy"))
 
 	// Set constraints.
 	assertSet(c, "-s", "svc", "mem=4G", "cpu-power=250")
@@ -111,15 +110,13 @@ func (s *ConstraintsCommandsSuite) TestGetEnvironValues(c *gc.C) {
 }
 
 func (s *ConstraintsCommandsSuite) TestGetServiceEmpty(c *gc.C) {
-	_, err := s.State.AddService("svc", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, gc.IsNil)
+	s.AddTestingService(c, "svc", s.AddTestingCharm(c, "dummy"))
 	assertGet(c, "", "svc")
 }
 
 func (s *ConstraintsCommandsSuite) TestGetServiceValues(c *gc.C) {
-	svc, err := s.State.AddService("svc", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, gc.IsNil)
-	err = svc.SetConstraints(constraints.Value{CpuCores: uint64p(64)})
+	svc := s.AddTestingService(c, "svc", s.AddTestingCharm(c, "dummy"))
+	err := svc.SetConstraints(constraints.Value{CpuCores: uint64p(64)})
 	c.Assert(err, gc.IsNil)
 	assertGet(c, "cpu-cores=64\n", "svc")
 }

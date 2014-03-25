@@ -8,7 +8,7 @@ import (
 
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/state/api/uniter"
-	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/utils"
 )
 
 type charmSuite struct {
@@ -46,17 +46,17 @@ func (s *charmSuite) TestURL(c *gc.C) {
 }
 
 func (s *charmSuite) TestArchiveURL(c *gc.C) {
-	archiveURL, disableSSLHostnameVerification, err := s.apiCharm.ArchiveURL()
+	archiveURL, hostnameVerification, err := s.apiCharm.ArchiveURL()
 	c.Assert(err, gc.IsNil)
 	c.Assert(archiveURL, gc.DeepEquals, s.wordpressCharm.BundleURL())
-	c.Assert(disableSSLHostnameVerification, jc.IsFalse)
+	c.Assert(hostnameVerification, gc.Equals, utils.VerifySSLHostnames)
 
 	envtesting.SetSSLHostnameVerification(c, s.State, false)
 
-	archiveURL, disableSSLHostnameVerification, err = s.apiCharm.ArchiveURL()
+	archiveURL, hostnameVerification, err = s.apiCharm.ArchiveURL()
 	c.Assert(err, gc.IsNil)
 	c.Assert(archiveURL, gc.DeepEquals, s.wordpressCharm.BundleURL())
-	c.Assert(disableSSLHostnameVerification, jc.IsTrue)
+	c.Assert(hostnameVerification, gc.Equals, utils.NoVerifySSLHostnames)
 }
 
 func (s *charmSuite) TestArchiveSha256(c *gc.C) {

@@ -15,21 +15,24 @@ import (
 	"strings"
 	"testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
+	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
+	ttesting "launchpad.net/juju-core/environs/tools/testing"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -40,11 +43,9 @@ func TestPackage(t *testing.T) {
 type syncSuite struct {
 	testbase.LoggingSuite
 	envtesting.ToolsFixture
-	home         *coretesting.FakeHome
 	targetEnv    environs.Environ
 	origVersion  version.Binary
-	origLocation string
-	storage      *envtesting.EC2HTTPTestStorage
+	storage      storage.Storage
 	localStorage string
 }
 
@@ -59,41 +60,44 @@ func (s *syncSuite) setUpTest(c *gc.C) {
 	version.Current.Number = version.MustParse("1.8.3")
 
 	// Create a target environments.yaml.
-	s.home = coretesting.MakeFakeHome(c, `
+	fakeHome := coretesting.MakeFakeHome(c, `
 environments:
     test-target:
         type: dummy
         state-server: false
         authorized-keys: "not-really-one"
 `)
+	s.AddCleanup(func(*gc.C) { fakeHome.Restore() })
 	var err error
-	s.targetEnv, err = environs.PrepareFromName("test-target", configstore.NewMem())
+	s.targetEnv, err = environs.PrepareFromName("test-target", coretesting.Context(c), configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	envtesting.RemoveAllTools(c, s.targetEnv)
 
 	// Create a source storage.
-	s.storage, err = envtesting.NewEC2HTTPTestStorage("127.0.0.1")
+	baseDir := c.MkDir()
+	stor, err := filestorage.NewFileStorageWriter(baseDir)
 	c.Assert(err, gc.IsNil)
+	s.storage = stor
 
 	// Create a local tools directory.
 	s.localStorage = c.MkDir()
 
-	// Populate both with the public tools.
-	for _, vers := range vAll {
-		s.storage.PutBinary(vers)
-		putBinary(c, s.localStorage, vers)
+	// Populate both local and default tools locations with the public tools.
+	versionStrings := make([]string, len(vAll))
+	for i, vers := range vAll {
+		versionStrings[i] = vers.String()
 	}
+	ttesting.MakeTools(c, baseDir, "releases", versionStrings)
+	ttesting.MakeTools(c, s.localStorage, "releases", versionStrings)
 
-	// Switch tools location.
-	s.origLocation = sync.DefaultToolsLocation
-	sync.DefaultToolsLocation = s.storage.Location()
+	// Switch the default tools location.
+	baseURL, err := s.storage.URL(storage.BaseToolsPath)
+	c.Assert(err, gc.IsNil)
+	s.PatchValue(&envtools.DefaultBaseURL, baseURL)
 }
 
 func (s *syncSuite) tearDownTest(c *gc.C) {
-	c.Assert(s.storage.Stop(), gc.IsNil)
-	sync.DefaultToolsLocation = s.origLocation
 	dummy.Reset()
-	s.home.Restore()
 	version.Current = s.origVersion
 	s.ToolsFixture.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
@@ -218,18 +222,6 @@ var (
 	vAll    = append(append(v1all, v200p64), v310p64, v320p64)
 )
 
-// putBinary stores a faked binary in the test directory.
-func putBinary(c *gc.C, storagePath string, v version.Binary) {
-	data := v.String()
-	name := envtools.StorageName(v)
-	filename := filepath.Join(storagePath, name)
-	dir := filepath.Dir(filename)
-	err := os.MkdirAll(dir, 0755)
-	c.Assert(err, gc.IsNil)
-	err = ioutil.WriteFile(filename, []byte(data), 0666)
-	c.Assert(err, gc.IsNil)
-}
-
 func assertNoUnexpectedTools(c *gc.C, stor storage.StorageReader) {
 	// We only expect v1.x tools, no v2.x tools.
 	list, err := envtools.ReadList(stor, 2, 0)
@@ -273,7 +265,7 @@ func (s *uploadSuite) SetUpTest(c *gc.C) {
 	// We only want to use simplestreams to find any synced tools.
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, gc.IsNil)
-	s.env, err = environs.Prepare(cfg, configstore.NewMem())
+	s.env, err = environs.Prepare(cfg, coretesting.Context(c), configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 }
 
@@ -301,21 +293,7 @@ func (s *uploadSuite) TestUploadFakeSeries(c *gc.C) {
 	}
 	t, err := sync.Upload(s.env.Storage(), nil, "quantal", seriesToUpload)
 	c.Assert(err, gc.IsNil)
-	c.Assert(t.Version, gc.Equals, version.Current)
-	expectRaw := downloadToolsRaw(c, t)
-
-	list, err := envtools.ReadList(s.env.Storage(), version.Current.Major, version.Current.Minor)
-	c.Assert(err, gc.IsNil)
-	c.Assert(list, gc.HasLen, 3)
-	expectSeries := []string{"quantal", seriesToUpload, version.Current.Series}
-	sort.Strings(expectSeries)
-	c.Assert(list.AllSeries(), gc.DeepEquals, expectSeries)
-	for _, t := range list {
-		c.Logf("checking %s", t.URL)
-		c.Assert(t.Version.Number, gc.Equals, version.Current.Number)
-		actualRaw := downloadToolsRaw(c, t)
-		c.Assert(string(actualRaw), gc.Equals, string(expectRaw))
-	}
+	s.assertUploadedTools(c, t, seriesToUpload)
 }
 
 func (s *uploadSuite) TestUploadAndForceVersion(c *gc.C) {
@@ -351,10 +329,74 @@ func (s *uploadSuite) TestUploadBadBuild(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `build command "go" failed: exit status 1; can't load package:(.|\n)*`)
 }
 
+func (s *uploadSuite) TestSyncTools(c *gc.C) {
+	builtTools, err := sync.BuildToolsTarball(nil)
+	c.Assert(err, gc.IsNil)
+	t, err := sync.SyncBuiltTools(s.env.Storage(), builtTools)
+	c.Assert(err, gc.IsNil)
+	c.Assert(t.Version, gc.Equals, version.Current)
+	c.Assert(t.URL, gc.Not(gc.Equals), "")
+	dir := downloadTools(c, t)
+	out, err := exec.Command(filepath.Join(dir, "jujud"), "version").CombinedOutput()
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(out), gc.Equals, version.Current.String()+"\n")
+}
+
+func (s *uploadSuite) TestSyncToolsFakeSeries(c *gc.C) {
+	seriesToUpload := "precise"
+	if seriesToUpload == version.Current.Series {
+		seriesToUpload = "raring"
+	}
+	builtTools, err := sync.BuildToolsTarball(nil)
+	c.Assert(err, gc.IsNil)
+
+	t, err := sync.SyncBuiltTools(s.env.Storage(), builtTools, "quantal", seriesToUpload)
+	c.Assert(err, gc.IsNil)
+	s.assertUploadedTools(c, t, seriesToUpload)
+}
+
+func (s *uploadSuite) TestSyncAndForceVersion(c *gc.C) {
+	// This test actually tests three things:
+	//   the writing of the FORCE-VERSION file;
+	//   the reading of the FORCE-VERSION file by the version package;
+	//   and the reading of the version from jujud.
+	vers := version.Current
+	vers.Patch++
+	builtTools, err := sync.BuildToolsTarball(&vers.Number)
+	c.Assert(err, gc.IsNil)
+	t, err := sync.SyncBuiltTools(s.env.Storage(), builtTools)
+	c.Assert(err, gc.IsNil)
+	c.Assert(t.Version, gc.Equals, vers)
+}
+
+func (s *uploadSuite) assertUploadedTools(c *gc.C, t *coretools.Tools, uploadedSeries string) {
+	c.Assert(t.Version, gc.Equals, version.Current)
+	expectRaw := downloadToolsRaw(c, t)
+
+	list, err := envtools.ReadList(s.env.Storage(), version.Current.Major, version.Current.Minor)
+	c.Assert(err, gc.IsNil)
+	c.Assert(list, gc.HasLen, 3)
+	expectSeries := []string{"quantal", uploadedSeries, version.Current.Series}
+	sort.Strings(expectSeries)
+	c.Assert(list.AllSeries(), gc.DeepEquals, expectSeries)
+	for _, t := range list {
+		c.Logf("checking %s", t.URL)
+		c.Assert(t.Version.Number, gc.Equals, version.Current.Number)
+		actualRaw := downloadToolsRaw(c, t)
+		c.Assert(string(actualRaw), gc.Equals, string(expectRaw))
+	}
+	metadata := ttesting.ParseMetadataFromStorage(c, s.env.Storage(), false)
+	c.Assert(metadata, gc.HasLen, 3)
+	for i, tm := range metadata {
+		c.Assert(tm.Release, gc.Equals, expectSeries[i])
+		c.Assert(tm.Version, gc.Equals, version.Current.Number.String())
+	}
+}
+
 // downloadTools downloads the supplied tools and extracts them into a
 // new directory.
 func downloadTools(c *gc.C, t *coretools.Tools) string {
-	resp, err := http.Get(t.URL)
+	resp, err := utils.GetValidatingHTTPClient().Get(t.URL)
 	c.Assert(err, gc.IsNil)
 	defer resp.Body.Close()
 	cmd := exec.Command("tar", "xz")
@@ -367,7 +409,7 @@ func downloadTools(c *gc.C, t *coretools.Tools) string {
 
 // downloadToolsRaw downloads the supplied tools and returns the raw bytes.
 func downloadToolsRaw(c *gc.C, t *coretools.Tools) []byte {
-	resp, err := http.Get(t.URL)
+	resp, err := utils.GetValidatingHTTPClient().Get(t.URL)
 	c.Assert(err, gc.IsNil)
 	defer resp.Body.Close()
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)

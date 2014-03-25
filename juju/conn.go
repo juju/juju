@@ -4,30 +4,22 @@
 package juju
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	stderrors "errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/url"
 	"os"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/ssh"
 )
 
 // Conn holds a connection to a juju environment and its
@@ -61,19 +53,19 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 
 	info.Password = password
 	opts := state.DefaultDialOpts()
-	st, err := state.Open(info, opts)
+	st, err := state.Open(info, opts, environs.NewStatePolicy())
 	if errors.IsUnauthorizedError(err) {
 		log.Noticef("juju: authorization error while connecting to state server; retrying")
 		// We can't connect with the administrator password,;
 		// perhaps this was the first connection and the
 		// password has not been changed yet.
-		info.Password = utils.PasswordHash(password)
+		info.Password = utils.UserPasswordHash(password, utils.CompatSalt)
 
 		// We try for a while because we might succeed in
 		// connecting to mongo before the state has been
 		// initialized and the initial password set.
 		for a := redialStrategy.Start(); a.Next(); {
-			st, err = state.Open(info, opts)
+			st, err = state.Open(info, opts, environs.NewStatePolicy())
 			if !errors.IsUnauthorizedError(err) {
 				break
 			}
@@ -151,20 +143,17 @@ func (c *Conn) updateSecrets() error {
 	if err != nil {
 		return err
 	}
+	secretAttrs := make(map[string]interface{})
 	attrs := cfg.AllAttrs()
 	for k, v := range secrets {
 		if _, exists := attrs[k]; exists {
 			// Environment already has secrets. Won't send again.
 			return nil
 		} else {
-			attrs[k] = v
+			secretAttrs[k] = v
 		}
 	}
-	cfg, err = config.New(config.NoDefaults, attrs)
-	if err != nil {
-		return err
-	}
-	return c.State.SetEnvironConfig(cfg)
+	return c.State.UpdateEnvironConfig(secretAttrs, nil, nil)
 }
 
 // PutCharm uploads the given charm to provider storage, and adds a
@@ -174,7 +163,7 @@ func (c *Conn) updateSecrets() error {
 // and the revision number will be incremented before pushing.
 func (conn *Conn) PutCharm(curl *charm.URL, repo charm.Repository, bumpRevision bool) (*state.Charm, error) {
 	if curl.Revision == -1 {
-		rev, err := repo.Latest(curl)
+		rev, err := charm.Latest(repo, curl)
 		if err != nil {
 			return nil, fmt.Errorf("cannot get latest charm revision: %v", err)
 		}
@@ -198,65 +187,6 @@ func (conn *Conn) PutCharm(curl *charm.URL, repo charm.Repository, bumpRevision 
 		return sch, nil
 	}
 	return conn.addCharm(curl, ch)
-}
-
-// DeployServiceParams contains the arguments required to deploy the referenced
-// charm.
-type DeployServiceParams struct {
-	ServiceName    string
-	Charm          *state.Charm
-	ConfigSettings charm.Settings
-	Constraints    constraints.Value
-	NumUnits       int
-	// ToMachineSpec is either:
-	// - an existing machine/container id eg "1" or "1/lxc/2"
-	// - a new container on an existing machine eg "lxc:1"
-	// Use string to avoid ambiguity around machine 0.
-	ToMachineSpec string
-}
-
-// DeployService takes a charm and various parameters and deploys it.
-func (conn *Conn) DeployService(args DeployServiceParams) (*state.Service, error) {
-	if args.NumUnits > 1 && args.ToMachineSpec != "" {
-		return nil, stderrors.New("cannot use --num-units with --to")
-	}
-	settings, err := args.Charm.Config().ValidateSettings(args.ConfigSettings)
-	if err != nil {
-		return nil, err
-	}
-	if args.Charm.Meta().Subordinate {
-		if args.NumUnits != 0 || args.ToMachineSpec != "" {
-			return nil, fmt.Errorf("subordinate service must be deployed without units")
-		}
-		if !constraints.IsEmpty(&args.Constraints) {
-			return nil, fmt.Errorf("subordinate service must be deployed without constraints")
-		}
-	}
-	// TODO(fwereade): transactional State.AddService including settings, constraints
-	// (minimumUnitCount, initialMachineIds?).
-	service, err := conn.State.AddService(args.ServiceName, args.Charm)
-	if err != nil {
-		return nil, err
-	}
-	if len(settings) > 0 {
-		if err := service.UpdateConfigSettings(settings); err != nil {
-			return nil, err
-		}
-	}
-	if args.Charm.Meta().Subordinate {
-		return service, nil
-	}
-	if !constraints.IsEmpty(&args.Constraints) {
-		if err := service.SetConstraints(args.Constraints); err != nil {
-			return nil, err
-		}
-	}
-	if args.NumUnits > 0 {
-		if _, err := conn.AddUnits(service, args.NumUnits, args.ToMachineSpec); err != nil {
-			return nil, err
-		}
-	}
-	return service, nil
 }
 
 func (conn *Conn) addCharm(curl *charm.URL, ch charm.Charm) (*state.Charm, error) {
@@ -286,12 +216,10 @@ func (conn *Conn) addCharm(curl *charm.URL, ch charm.Charm) (*state.Charm, error
 	default:
 		return nil, fmt.Errorf("unknown charm type %T", ch)
 	}
-	h := sha256.New()
-	size, err := io.Copy(h, f)
+	digest, size, err := utils.ReadSHA256(f)
 	if err != nil {
 		return nil, err
 	}
-	digest := hex.EncodeToString(h.Sum(nil))
 	if _, err := f.Seek(0, 0); err != nil {
 		return nil, err
 	}
@@ -316,73 +244,8 @@ func (conn *Conn) addCharm(curl *charm.URL, ch charm.Charm) (*state.Charm, error
 	return sch, nil
 }
 
-// AddUnits starts n units of the given service and allocates machines
-// to them as necessary.
-func (conn *Conn) AddUnits(svc *state.Service, n int, machineIdSpec string) ([]*state.Unit, error) {
-	units := make([]*state.Unit, n)
-	// Hard code for now till we implement a different approach.
-	policy := state.AssignCleanEmpty
-	// TODO what do we do if we fail half-way through this process?
-	for i := 0; i < n; i++ {
-		unit, err := svc.AddUnit()
-		if err != nil {
-			return nil, fmt.Errorf("cannot add unit %d/%d to service %q: %v", i+1, n, svc.Name(), err)
-		}
-		if machineIdSpec != "" {
-			if n != 1 {
-				return nil, fmt.Errorf("cannot add multiple units of service %q to a single machine", svc.Name())
-			}
-			// machineIdSpec may be an existing machine or container, eg 3/lxc/2
-			// or a new container on a machine, eg lxc:3
-			mid := machineIdSpec
-			var containerType instance.ContainerType
-			specParts := strings.Split(machineIdSpec, ":")
-			if len(specParts) > 1 {
-				firstPart := specParts[0]
-				var err error
-				if containerType, err = instance.ParseSupportedContainerType(firstPart); err == nil {
-					mid = strings.Join(specParts[1:], "/")
-				} else {
-					mid = machineIdSpec
-				}
-			}
-			if !names.IsMachine(mid) {
-				return nil, fmt.Errorf("invalid force machine id %q", mid)
-			}
-
-			var err error
-			var m *state.Machine
-			// If a container is to be used, create it.
-			if containerType != "" {
-				params := state.AddMachineParams{
-					Series:        unit.Series(),
-					ParentId:      mid,
-					ContainerType: containerType,
-					Jobs:          []state.MachineJob{state.JobHostUnits},
-				}
-				m, err = conn.State.AddMachineWithConstraints(&params)
-
-			} else {
-				m, err = conn.State.Machine(mid)
-			}
-			if err != nil {
-				return nil, fmt.Errorf("cannot assign unit %q to machine: %v", unit.Name(), err)
-			}
-			err = unit.AssignToMachine(m)
-
-			if err != nil {
-				return nil, err
-			}
-		} else if err := conn.State.AssignUnit(unit, policy); err != nil {
-			return nil, err
-		}
-		units[i] = unit
-	}
-	return units, nil
-}
-
-// InitJujuHome initializes the charm and environs/config packages to use
-// default paths based on the $JUJU_HOME or $HOME environment variables.
+// InitJujuHome initializes the charm, environs/config and utils/ssh packages
+// to use default paths based on the $JUJU_HOME or $HOME environment variables.
 // This function should be called before calling NewConn or Conn.Deploy.
 func InitJujuHome() error {
 	jujuHome := osenv.JujuHomeDir()
@@ -390,7 +253,10 @@ func InitJujuHome() error {
 		return stderrors.New(
 			"cannot determine juju home, required environment variables are not set")
 	}
-	config.SetJujuHome(jujuHome)
-	charm.CacheDir = filepath.Join(jujuHome, "charmcache")
+	osenv.SetJujuHome(jujuHome)
+	charm.CacheDir = osenv.JujuHomePath("charmcache")
+	if err := ssh.LoadClientKeys(osenv.JujuHomePath("ssh")); err != nil {
+		return fmt.Errorf("cannot load ssh client keys: %v", err)
+	}
 	return nil
 }

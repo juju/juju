@@ -4,14 +4,24 @@
 package environs
 
 import (
+	"io"
+	"os"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/tools"
 )
+
+// EnvironCapability implements access to metadata about the capabilities
+// of an environment.
+type EnvironCapability interface {
+	// SupportedArchitectures returns the image architectures which can
+	// be hosted by this environment.
+	SupportedArchitectures() ([]string, error)
+}
 
 // A EnvironProvider represents a computing and storage provider.
 type EnvironProvider interface {
@@ -19,7 +29,7 @@ type EnvironProvider interface {
 	// configuration attributes in the returned environment should
 	// be saved to be used later. If the environment is already
 	// prepared, this call is equivalent to Open.
-	Prepare(cfg *config.Config) (Environ, error)
+	Prepare(ctx BootstrapContext, cfg *config.Config) (Environ, error)
 
 	// Open opens the environment and returns it.
 	// The configuration must have come from a previously
@@ -61,48 +71,12 @@ type EnvironStorage interface {
 	Storage() storage.Storage
 }
 
-// BootstrapStorager is an interface through which an Environ may be
-// instructed to use a special "bootstrap storage". Bootstrap storage
-// is one that may be used before the bootstrap machine agent has been
-// provisioned.
-//
-// This is useful for environments where the storage is managed by the
-// machine agent once bootstrapped.
-type BootstrapStorager interface {
-	// EnableBootstrapStorage enables bootstrap storage, returning an
-	// error if enablement failed. If nil is returned, then calling
-	// this again will have no effect and will return nil.
-	EnableBootstrapStorage() error
-}
-
-// ConfigGetter implements access to an environments configuration.
+// ConfigGetter implements access to an environment's configuration.
 type ConfigGetter interface {
 	// Config returns the configuration data with which the Environ was created.
 	// Note that this is not necessarily current; the canonical location
 	// for the configuration data is stored in the state.
 	Config() *config.Config
-}
-
-// Prechecker is an optional interface that an Environ may implement,
-// in order to support pre-flight checking of instance/container creation.
-//
-// Prechecker's methods are best effort, and not guaranteed to eliminate
-// all invalid parameters. If a precheck method returns nil, it is not
-// guaranteed that the constraints are valid; if a non-nil error is
-// returned, then the constraints are definitely invalid.
-type Prechecker interface {
-	// PrecheckInstance performs a preflight check on the specified
-	// series and constraints, ensuring that they are possibly valid for
-	// creating an instance in this environment.
-	PrecheckInstance(series string, cons constraints.Value) error
-
-	// PrecheckContainer performs a preflight check on the container type,
-	// ensuring that the environment is possibly capable of creating a
-	// container of the specified type and series.
-	//
-	// The container type must be a valid ContainerType as specified
-	// in the instance package, and != instance.NONE.
-	PrecheckContainer(series string, kind instance.ContainerType) error
 }
 
 // An Environ represents a juju environment as specified
@@ -133,7 +107,11 @@ type Environ interface {
 	//
 	// The supplied constraints are used to choose the initial instance
 	// specification, and will be stored in the new environment's state.
-	Bootstrap(cons constraints.Value, possibleTools tools.List) error
+	//
+	// Bootstrap is responsible for selecting the appropriate tools,
+	// and setting the agent-version configuration attribute prior to
+	// bootstrapping the environment.
+	Bootstrap(ctx BootstrapContext, cons constraints.Value) error
 
 	// StateInfo returns information on the state initialized
 	// by Bootstrap.
@@ -145,6 +123,9 @@ type Environ interface {
 
 	// ConfigGetter allows the retrieval of the configuration data.
 	ConfigGetter
+
+	// EnvironCapability allows access to this environment's capabilities.
+	EnvironCapability
 
 	// SetConfig updates the Environ's configuration.
 	//
@@ -188,4 +169,29 @@ type Environ interface {
 
 	// Provider returns the EnvironProvider that created this Environ.
 	Provider() EnvironProvider
+
+	// TODO(axw) 2014-02-11 #pending-review
+	//     Embed state.Prechecker, and introduce an EnvironBase
+	//     that embeds a no-op prechecker implementation.
+}
+
+// BootstrapContext is an interface that is passed to
+// Environ.Bootstrap, providing a means of obtaining
+// information about and manipulating the context in which
+// it is being invoked.
+type BootstrapContext interface {
+	GetStdin() io.Reader
+	GetStdout() io.Writer
+	GetStderr() io.Writer
+
+	// InterruptNotify starts watching for interrupt signals
+	// on behalf of the caller, sending them to the supplied
+	// channel.
+	InterruptNotify(sig chan<- os.Signal)
+
+	// StopInterruptNotify undoes the effects of a previous
+	// call to InterruptNotify with the same channel. After
+	// StopInterruptNotify returns, no more signals will be
+	// delivered to the channel.
+	StopInterruptNotify(chan<- os.Signal)
 }

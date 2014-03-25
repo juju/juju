@@ -9,13 +9,13 @@ import (
 
 // FakeAuthorizer implements the common.Authorizer interface.
 type FakeAuthorizer struct {
-	Tag          string
-	LoggedIn     bool
-	Manager      bool
-	MachineAgent bool
-	UnitAgent    bool
-	Client       bool
-	Entity       state.Entity
+	Tag            string
+	LoggedIn       bool
+	EnvironManager bool
+	MachineAgent   bool
+	UnitAgent      bool
+	Client         bool
+	Entity         state.Entity
 }
 
 func (fa FakeAuthorizer) AuthOwner(tag string) bool {
@@ -23,7 +23,7 @@ func (fa FakeAuthorizer) AuthOwner(tag string) bool {
 }
 
 func (fa FakeAuthorizer) AuthEnvironManager() bool {
-	return fa.Manager
+	return fa.EnvironManager
 }
 
 func (fa FakeAuthorizer) AuthMachineAgent() bool {

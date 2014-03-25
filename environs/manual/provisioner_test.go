@@ -1,19 +1,26 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package manual
+package manual_test
 
 import (
 	"fmt"
 	"os"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	coreCloudinit "launchpad.net/juju-core/cloudinit"
+	"launchpad.net/juju-core/cloudinit/sshinit"
+	"launchpad.net/juju-core/environs/cloudinit"
+	"launchpad.net/juju-core/environs/manual"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/statecmd"
+	"launchpad.net/juju-core/utils/shell"
 	"launchpad.net/juju-core/version"
 )
 
@@ -23,12 +30,12 @@ type provisionerSuite struct {
 
 var _ = gc.Suite(&provisionerSuite{})
 
-func (s *provisionerSuite) getArgs(c *gc.C) ProvisionMachineArgs {
+func (s *provisionerSuite) getArgs(c *gc.C) manual.ProvisionMachineArgs {
 	hostname, err := os.Hostname()
 	c.Assert(err, gc.IsNil)
-	return ProvisionMachineArgs{
-		Host:  hostname,
-		State: s.State,
+	return manual.ProvisionMachineArgs{
+		Host:    hostname,
+		EnvName: "dummyenv",
 	}
 }
 
@@ -42,11 +49,15 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 
 	envtesting.RemoveTools(c, s.Conn.Environ.Storage())
 	defer fakeSSH{
-		series: series, arch: arch, skipProvisionAgent: true,
+		Series:             series,
+		Arch:               arch,
+		InitUbuntuUser:     true,
+		SkipProvisionAgent: true,
 	}.install(c).Restore()
-	m, err := ProvisionMachine(args)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
-	c.Assert(m, gc.IsNil)
+	// Attempt to provision a machine with no tools available, expect it to fail.
+	machineId, err := manual.ProvisionMachine(args)
+	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
+	c.Assert(machineId, gc.Equals, "")
 
 	cfg := s.Conn.Environ.Config()
 	number, ok := cfg.AgentVersion()
@@ -57,20 +68,23 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	for i, errorCode := range []int{255, 0} {
 		c.Logf("test %d: code %d", i, errorCode)
 		defer fakeSSH{
-			series: series,
-			arch:   arch,
-			provisionAgentExitCode: errorCode,
+			Series:                 series,
+			Arch:                   arch,
+			InitUbuntuUser:         true,
+			ProvisionAgentExitCode: errorCode,
 		}.install(c).Restore()
-		m, err = ProvisionMachine(args)
+		machineId, err = manual.ProvisionMachine(args)
 		if errorCode != 0 {
-			c.Assert(err, gc.ErrorMatches, fmt.Sprintf("exit status %d", errorCode))
-			c.Assert(m, gc.IsNil)
+			c.Assert(err, gc.ErrorMatches, fmt.Sprintf("rc: %d", errorCode))
+			c.Assert(machineId, gc.Equals, "")
 		} else {
 			c.Assert(err, gc.IsNil)
-			c.Assert(m, gc.NotNil)
+			c.Assert(machineId, gc.Not(gc.Equals), "")
 			// machine ID will be incremented. Even though we failed and the
 			// machine is removed, the ID is not reused.
-			c.Assert(m.Id(), gc.Equals, fmt.Sprint(i))
+			c.Assert(machineId, gc.Equals, fmt.Sprint(i+1))
+			m, err := s.State.Machine(machineId)
+			c.Assert(err, gc.IsNil)
 			instanceId, err := m.InstanceId()
 			c.Assert(err, gc.IsNil)
 			c.Assert(instanceId, gc.Equals, instance.Id("manual:"+hostname))
@@ -79,10 +93,73 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 
 	// Attempting to provision a machine twice should fail. We effect
 	// this by checking for existing juju upstart configurations.
-	defer installFakeSSH(c, "", "/etc/init/jujud-machine-0.conf", 0)()
-	_, err = ProvisionMachine(args)
-	c.Assert(err, gc.Equals, ErrProvisioned)
-	defer installFakeSSH(c, "", "/etc/init/jujud-machine-0.conf", 255)()
-	_, err = ProvisionMachine(args)
-	c.Assert(err, gc.ErrorMatches, "error checking if provisioned: exit status 255")
+	defer fakeSSH{
+		Provisioned:        true,
+		InitUbuntuUser:     true,
+		SkipDetection:      true,
+		SkipProvisionAgent: true,
+	}.install(c).Restore()
+	_, err = manual.ProvisionMachine(args)
+	c.Assert(err, gc.Equals, manual.ErrProvisioned)
+	defer fakeSSH{
+		Provisioned:              true,
+		CheckProvisionedExitCode: 255,
+		InitUbuntuUser:           true,
+		SkipDetection:            true,
+		SkipProvisionAgent:       true,
+	}.install(c).Restore()
+	_, err = manual.ProvisionMachine(args)
+	c.Assert(err, gc.ErrorMatches, "error checking if provisioned: rc: 255")
+}
+
+func (s *provisionerSuite) TestFinishMachineConfig(c *gc.C) {
+	const series = "precise"
+	const arch = "amd64"
+	defer fakeSSH{
+		Series:         series,
+		Arch:           arch,
+		InitUbuntuUser: true,
+	}.install(c).Restore()
+	machineId, err := manual.ProvisionMachine(s.getArgs(c))
+	c.Assert(err, gc.IsNil)
+
+	// Now check what we would've configured it with.
+	mcfg, err := statecmd.MachineConfig(s.State, machineId, state.BootstrapNonce, "/var/lib/juju")
+	c.Assert(err, gc.IsNil)
+	c.Check(mcfg, gc.NotNil)
+	c.Check(mcfg.APIInfo, gc.NotNil)
+	c.Check(mcfg.StateInfo, gc.NotNil)
+
+	stateInfo, apiInfo, err := s.APIConn.Environ.StateInfo()
+	c.Assert(err, gc.IsNil)
+	c.Check(mcfg.APIInfo.Addrs, gc.DeepEquals, apiInfo.Addrs)
+	c.Check(mcfg.StateInfo.Addrs, gc.DeepEquals, stateInfo.Addrs)
+}
+
+func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
+	const series = "precise"
+	const arch = "amd64"
+	defer fakeSSH{
+		Series:         series,
+		Arch:           arch,
+		InitUbuntuUser: true,
+	}.install(c).Restore()
+	machineId, err := manual.ProvisionMachine(s.getArgs(c))
+	c.Assert(err, gc.IsNil)
+
+	mcfg, err := statecmd.MachineConfig(s.State, machineId, state.BootstrapNonce, "/var/lib/juju")
+	c.Assert(err, gc.IsNil)
+	script, err := manual.ProvisioningScript(mcfg)
+	c.Assert(err, gc.IsNil)
+
+	cloudcfg := coreCloudinit.New()
+	err = cloudinit.ConfigureJuju(mcfg, cloudcfg)
+	c.Assert(err, gc.IsNil)
+	cloudcfg.SetAptUpgrade(false)
+	sshinitScript, err := sshinit.ConfigureScript(cloudcfg)
+	c.Assert(err, gc.IsNil)
+
+	removeLogFile := "rm -f '/var/log/cloud-init-output.log'\n"
+	expectedScript := removeLogFile + shell.DumpFileOnErrorScript("/var/log/cloud-init-output.log") + sshinitScript
+	c.Assert(script, gc.Equals, expectedScript)
 }

@@ -71,6 +71,11 @@ func (m *memStore) ReadInfo(envName string) (EnvironInfo, error) {
 	return nil, errors.NotFoundf("environment %q", envName)
 }
 
+// Location implements EnvironInfo.Location.
+func (info *memInfo) Location() string {
+	return "memory"
+}
+
 // Write implements EnvironInfo.Write.
 func (info *memInfo) Write() error {
 	m := info.store

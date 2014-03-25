@@ -11,7 +11,9 @@ import (
 	"time"
 
 	gc "launchpad.net/gocheck"
+	coretesting "launchpad.net/juju-core/testing"
 
+	jc "github.com/juju/testing/checkers"
 	"launchpad.net/juju-core/agent"
 	agenttools "launchpad.net/juju-core/agent/tools"
 	envtesting "launchpad.net/juju-core/environs/testing"
@@ -22,9 +24,8 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	statetesting "launchpad.net/juju-core/state/testing"
-	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	coretools "launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/upgrader"
 )
@@ -83,6 +84,7 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	stor := s.Conn.Environ.Storage()
 	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), vers)
+	s.PatchValue(&version.Current, agentTools.Version)
 	err = envtools.MergeAndWriteMetadata(stor, coretools.List{agentTools}, envtools.DoNotWriteMirrors)
 	_, err = s.machine.AgentTools()
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
@@ -97,7 +99,8 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 
 func (s *UpgraderSuite) TestUpgraderSetVersion(c *gc.C) {
 	vers := version.MustParseBinary("5.4.3-precise-amd64")
-	envtesting.PrimeTools(c, s.Conn.Environ.Storage(), s.DataDir(), vers)
+	agentTools := envtesting.PrimeTools(c, s.Conn.Environ.Storage(), s.DataDir(), vers)
+	s.PatchValue(&version.Current, agentTools.Version)
 	err := os.RemoveAll(filepath.Join(s.DataDir(), "tools"))
 	c.Assert(err, gc.IsNil)
 
@@ -117,11 +120,10 @@ func (s *UpgraderSuite) TestUpgraderSetVersion(c *gc.C) {
 func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
 	stor := s.Conn.Environ.Storage()
 	oldTools := envtesting.PrimeTools(c, stor, s.DataDir(), version.MustParseBinary("5.4.3-precise-amd64"))
+	s.PatchValue(&version.Current, oldTools.Version)
 	newTools := envtesting.AssertUploadFakeToolsVersions(
 		c, stor, version.MustParseBinary("5.4.5-precise-amd64"))[0]
-	err := envtools.MergeAndWriteMetadata(stor, coretools.List{oldTools, newTools}, envtools.DoNotWriteMirrors)
-	c.Assert(err, gc.IsNil)
-	err = statetesting.SetAgentVersion(s.State, newTools.Version.Number)
+	err := statetesting.SetAgentVersion(s.State, newTools.Version.Number)
 	c.Assert(err, gc.IsNil)
 
 	// Make the download take a while so that we verify that
@@ -133,8 +135,8 @@ func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
 	err = u.Stop()
 	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
 		AgentName: s.machine.Tag(),
-		OldTools:  oldTools,
-		NewTools:  newTools,
+		OldTools:  oldTools.Version,
+		NewTools:  newTools.Version,
 		DataDir:   s.DataDir(),
 	})
 	foundTools, err := agenttools.ReadTools(s.DataDir(), newTools.Version)
@@ -145,11 +147,10 @@ func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
 func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 	stor := s.Conn.Environ.Storage()
 	oldTools := envtesting.PrimeTools(c, stor, s.DataDir(), version.MustParseBinary("5.4.3-precise-amd64"))
+	s.PatchValue(&version.Current, oldTools.Version)
 	newTools := envtesting.AssertUploadFakeToolsVersions(
 		c, stor, version.MustParseBinary("5.4.5-precise-amd64"))[0]
-	err := envtools.MergeAndWriteMetadata(stor, coretools.List{oldTools, newTools}, envtools.DoNotWriteMirrors)
-	c.Assert(err, gc.IsNil)
-	err = statetesting.SetAgentVersion(s.State, newTools.Version.Number)
+	err := statetesting.SetAgentVersion(s.State, newTools.Version.Number)
 	c.Assert(err, gc.IsNil)
 
 	retryc := make(chan time.Time)
@@ -187,8 +188,8 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 	case err := <-done:
 		envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
 			AgentName: s.machine.Tag(),
-			OldTools:  oldTools,
-			NewTools:  newerTools,
+			OldTools:  oldTools.Version,
+			NewTools:  newerTools.Version,
 			DataDir:   s.DataDir(),
 		})
 	case <-time.After(coretesting.LongWait):
@@ -202,12 +203,13 @@ func (s *UpgraderSuite) TestChangeAgentTools(c *gc.C) {
 	}
 	stor := s.Conn.Environ.Storage()
 	newTools := envtesting.PrimeTools(c, stor, s.DataDir(), version.MustParseBinary("5.4.3-precise-amd64"))
+	s.PatchValue(&version.Current, newTools.Version)
 	err := envtools.MergeAndWriteMetadata(stor, coretools.List{newTools}, envtools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
 	ugErr := &upgrader.UpgradeReadyError{
 		AgentName: "anAgent",
-		OldTools:  oldTools,
-		NewTools:  newTools,
+		OldTools:  oldTools.Version,
+		NewTools:  newTools.Version,
 		DataDir:   s.DataDir(),
 	}
 	err = ugErr.ChangeAgentTools()
@@ -220,11 +222,12 @@ func (s *UpgraderSuite) TestChangeAgentTools(c *gc.C) {
 func (s *UpgraderSuite) TestEnsureToolsChecksBeforeDownloading(c *gc.C) {
 	stor := s.Conn.Environ.Storage()
 	newTools := envtesting.PrimeTools(c, stor, s.DataDir(), version.MustParseBinary("5.4.3-precise-amd64"))
+	s.PatchValue(&version.Current, newTools.Version)
 	// We've already downloaded the tools, so change the URL to be
 	// something invalid and ensure we don't actually get an error, because
 	// it doesn't actually do an HTTP request
 	u := s.makeUpgrader()
 	newTools.URL = "http://localhost:999999/invalid/path/tools.tgz"
-	err := upgrader.EnsureTools(u, newTools, true)
+	err := upgrader.EnsureTools(u, newTools, utils.VerifySSLHostnames)
 	c.Assert(err, gc.IsNil)
 }

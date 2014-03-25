@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"net/http"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gwacl"
 
 	"launchpad.net/juju-core/instance"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type instanceSuite struct{}
@@ -460,7 +460,7 @@ func (*instanceSuite) TestPorts(c *gc.C) {
 	c.Check(
 		ports,
 		gc.DeepEquals,
-		// The result is sorted using state.SortPorts() (i.e. first by protocol,
+		// The result is sorted using instance.SortPorts() (i.e. first by protocol,
 		// then by number).
 		[]instance.Port{
 			{Number: 4456, Protocol: "tcp"},

@@ -74,7 +74,7 @@ func (src List) Newest() (version.Number, List) {
 	var result List
 	var best version.Number
 	for _, tools := range src {
-		if best.Less(tools.Version.Number) {
+		if best.Compare(tools.Version.Number) < 0 {
 			// Found new best number; reset result list.
 			best = tools.Version.Number
 			result = append(result[:0], tools)
@@ -83,6 +83,26 @@ func (src List) Newest() (version.Number, List) {
 		}
 	}
 	return best, result
+}
+
+// NewestCompatible returns the most recent version compatible with
+// base, i.e. with the same major and minor numbers and greater or
+// equal patch and build numbers.
+func (src List) NewestCompatible(base version.Number) (newest version.Number, found bool) {
+	newest = base
+	found = false
+	for _, tool := range src {
+		toolVersion := tool.Version.Number
+		if newest == toolVersion {
+			found = true
+		} else if newest.Compare(toolVersion) < 0 &&
+			toolVersion.Major == newest.Major &&
+			toolVersion.Minor == newest.Minor {
+			newest = toolVersion
+			found = true
+		}
+	}
+	return newest, found
 }
 
 // Difference returns the tools in src that are not in excluded.

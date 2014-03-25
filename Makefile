@@ -9,15 +9,23 @@ endif
 PROJECT := launchpad.net/juju-core
 PROJECT_DIR := $(shell go list -e -f '{{.Dir}}' $(PROJECT))
 
+ifeq ($(shell uname -p | sed -r 's/.*(x86|armel|armhf).*/golang/'), golang)
+	GO_C := golang
+	INSTALL_FLAGS := 
+else
+	GO_C := gccgo-4.9  gccgo-go
+	INSTALL_FLAGS := -gccgoflags=-static-libgo
+endif
+
 define DEPENDENCIES
   build-essential
   bzr
   distro-info-data
   git-core
-  golang
   mercurial
-  mongodb-server
+  rsyslog-gnutls
   zip
+  $(GO_C)
 endef
 
 default: build
@@ -33,7 +41,7 @@ check:
 	go test $(PROJECT)/...
 
 install:
-	go install -v $(PROJECT)/...
+	go install $(INSTALL_FLAGS) -v $(PROJECT)/...
 
 clean:
 	go clean $(PROJECT)/...
@@ -67,15 +75,20 @@ simplify:
 # PPA includes the required mongodb-server binaries. However, neither
 # PPA works on Saucy just yet.
 install-dependencies:
-ifneq ($(shell lsb_release -cs),saucy)
+ifeq ($(shell lsb_release -cs|sed -r 's/precise|quantal|raring/old/'),old)
 	@echo Adding juju PPAs for golang and mongodb-server
 	@sudo apt-add-repository --yes ppa:juju/golang
 	@sudo apt-add-repository --yes ppa:juju/stable
 	@sudo apt-get update
 endif
 	@echo Installing dependencies
-	@sudo apt-get --yes install $(strip $(DEPENDENCIES))
+	@sudo apt-get --yes install $(strip $(DEPENDENCIES)) \
+	$(shell apt-cache madison juju-mongodb mongodb-server | head -1 | cut -d '|' -f1)
 
+# Install bash_completion
+install-etc:
+	@echo Installing bash completion
+	@sudo install -o root -g root -m 644 etc/bash_completion.d/juju-core /etc/bash_completion.d
 
 .PHONY: build check install
 .PHONY: clean format simplify

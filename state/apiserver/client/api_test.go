@@ -8,9 +8,11 @@ import (
 	stdtesting "testing"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -19,7 +21,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -93,7 +94,7 @@ func setDefaultPassword(c *gc.C, e apiAuthenticator) {
 }
 
 func defaultPassword(e apiAuthenticator) string {
-	return e.Tag() + " password"
+	return e.Tag() + " password-1234567890"
 }
 
 type setStatuser interface {
@@ -111,7 +112,7 @@ func (s *baseSuite) tryOpenState(c *gc.C, e apiAuthenticator, password string) e
 	stateInfo.Password = password
 	st, err := state.Open(stateInfo, state.DialOpts{
 		Timeout: 25 * time.Millisecond,
-	})
+	}, environs.NewStatePolicy())
 	if err == nil {
 		st.Close()
 	}
@@ -124,7 +125,8 @@ func (s *baseSuite) openAs(c *gc.C, tag string) *api.State {
 	_, info, err := s.APIConn.Environ.StateInfo()
 	c.Assert(err, gc.IsNil)
 	info.Tag = tag
-	info.Password = fmt.Sprintf("%s password", tag)
+	// Must match defaultPassword()
+	info.Password = fmt.Sprintf("%s password-1234567890", tag)
 	// Set this always, so that the login attempts as a machine will
 	// not fail with ErrNotProvisioned; it's not used otherwise.
 	info.Nonce = "fake_nonce"
@@ -137,16 +139,79 @@ func (s *baseSuite) openAs(c *gc.C, tag string) *api.State {
 
 // scenarioStatus describes the expected state
 // of the juju environment set up by setUpScenario.
+//
+// NOTE: AgentState: "down", AgentStateInfo: "(started)" here is due
+// to the scenario not calling SetAgentAlive on the respective entities,
+// but this behavior is already tested in cmd/juju/status_test.go and
+// also tested live and it works.
 var scenarioStatus = &api.Status{
-	Machines: map[string]api.MachineInfo{
+	EnvironmentName: "dummyenv",
+	Machines: map[string]api.MachineStatus{
 		"0": {
-			InstanceId: "i-machine-0",
+			Id:             "0",
+			InstanceId:     instance.Id("i-machine-0"),
+			AgentState:     "down",
+			AgentStateInfo: "(started)",
+			Series:         "quantal",
+			Containers:     map[string]api.MachineStatus{},
 		},
 		"1": {
-			InstanceId: "i-machine-1",
+			Id:             "1",
+			InstanceId:     instance.Id("i-machine-1"),
+			AgentState:     "down",
+			AgentStateInfo: "(started)",
+			Series:         "quantal",
+			Containers:     map[string]api.MachineStatus{},
 		},
 		"2": {
-			InstanceId: "i-machine-2",
+			Id:             "2",
+			InstanceId:     instance.Id("i-machine-2"),
+			AgentState:     "down",
+			AgentStateInfo: "(started)",
+			Series:         "quantal",
+			Containers:     map[string]api.MachineStatus{},
+		},
+	},
+	Services: map[string]api.ServiceStatus{
+		"logging": api.ServiceStatus{
+			Charm: "local:quantal/logging-1",
+			Relations: map[string][]string{
+				"logging-directory": []string{"wordpress"},
+			},
+			SubordinateTo: []string{"wordpress"},
+		},
+		"mysql": api.ServiceStatus{
+			Charm:         "local:quantal/mysql-1",
+			Relations:     map[string][]string{},
+			SubordinateTo: []string{},
+			Units:         map[string]api.UnitStatus{},
+		},
+		"wordpress": api.ServiceStatus{
+			Charm: "local:quantal/wordpress-3",
+			Relations: map[string][]string{
+				"logging-dir": []string{"logging"},
+			},
+			SubordinateTo: []string{},
+			Units: map[string]api.UnitStatus{
+				"wordpress/0": api.UnitStatus{
+					AgentState: "pending",
+					Machine:    "1",
+					Subordinates: map[string]api.UnitStatus{
+						"logging/0": api.UnitStatus{
+							AgentState: "pending",
+						},
+					},
+				},
+				"wordpress/1": api.UnitStatus{
+					AgentState: "pending",
+					Machine:    "2",
+					Subordinates: map[string]api.UnitStatus{
+						"logging/1": api.UnitStatus{
+							AgentState: "pending",
+						},
+					},
+				},
+			},
 		},
 	},
 }
@@ -197,7 +262,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []string) {
 	add := func(e state.Entity) {
 		entities = append(entities, e.Tag())
 	}
-	u, err := s.State.User("admin")
+	u, err := s.State.User(state.AdminUser)
 	c.Assert(err, gc.IsNil)
 	setDefaultPassword(c, u)
 	add(u)
@@ -215,16 +280,9 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []string) {
 	setDefaultPassword(c, m)
 	setDefaultStatus(c, m)
 	add(m)
-
-	_, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, gc.IsNil)
-
-	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
-
-	_, err = s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
-	c.Assert(err, gc.IsNil)
-
+	s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)

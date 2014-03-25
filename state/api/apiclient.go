@@ -25,6 +25,7 @@ var PingPeriod = 1 * time.Minute
 type State struct {
 	client *rpc.Conn
 	conn   *websocket.Conn
+	addr   string
 
 	// authTag holds the authenticated entity's tag after login.
 	authTag string
@@ -32,6 +33,13 @@ type State struct {
 	// broken is a channel that gets closed when the connection is
 	// broken.
 	broken chan struct{}
+
+	// tag and password hold the cached login credentials.
+	tag      string
+	password string
+	// serverRoot holds the cached API server address and port we used
+	// to login, with a https:// prefix.
+	serverRoot string
 }
 
 // Info encapsulates information about a server holding juju state and
@@ -56,11 +64,6 @@ type Info struct {
 	// Nonce holds the nonce used when provisioning the machine. Used
 	// only by the machine agent.
 	Nonce string `yaml:",omitempty"`
-}
-
-var openAttempt = utils.AttemptStrategy{
-	Total: 5 * time.Minute,
-	Delay: 500 * time.Millisecond,
 }
 
 // DialOpts holds configuration parameters that control the
@@ -123,8 +126,12 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	client := rpc.NewConn(jsoncodec.NewWebsocket(conn), nil)
 	client.Start()
 	st := &State{
-		client: client,
-		conn:   conn,
+		client:     client,
+		conn:       conn,
+		addr:       cfg.Location.Host,
+		serverRoot: "https://" + cfg.Location.Host,
+		tag:        info.Tag,
+		password:   info.Password,
 	}
 	if info.Tag != "" || info.Password != "" {
 		if err := st.Login(info.Tag, info.Password, info.Nonce); err != nil {
@@ -180,4 +187,9 @@ func (s *State) Broken() <-chan struct{} {
 // points don't reach. This is exported for testing purposes only.
 func (s *State) RPCClient() *rpc.Conn {
 	return s.client
+}
+
+// Addr returns the address used to connect to the RPC server.
+func (s *State) Addr() string {
+	return s.addr
 }

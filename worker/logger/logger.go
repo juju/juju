@@ -4,7 +4,7 @@
 package logger
 
 import (
-	"launchpad.net/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/state/api/logger"

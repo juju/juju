@@ -12,10 +12,27 @@ import (
 	gc "launchpad.net/gocheck"
 )
 
+const jujuPkgPrefix = "launchpad.net/juju-core/"
+
 // FindJujuCoreImports returns a sorted list of juju-core packages that are
 // imported by the packageName parameter.  The resulting list removes the
 // common prefix "launchpad.net/juju-core/" leaving just the short names.
 func FindJujuCoreImports(c *gc.C, packageName string) []string {
+	var result []string
+	allpkgs := make(map[string]bool)
+
+	findJujuCoreImports(c, packageName, allpkgs)
+	for name := range allpkgs {
+		result = append(result, name[len(jujuPkgPrefix):])
+	}
+	sort.Strings(result)
+	return result
+}
+
+// findJujuCoreImports recursively adds all imported packages of given
+// package (packageName) to allpkgs map.
+func findJujuCoreImports(c *gc.C, packageName string, allpkgs map[string]bool) {
+
 	var imports []string
 
 	for _, root := range build.Default.SrcDirs() {
@@ -30,13 +47,11 @@ func FindJujuCoreImports(c *gc.C, packageName string) []string {
 		c.Fatalf(packageName + " not found")
 	}
 
-	var result []string
-	const prefix = "launchpad.net/juju-core/"
 	for _, name := range imports {
-		if strings.HasPrefix(name, prefix) {
-			result = append(result, name[len(prefix):])
+		if strings.HasPrefix(name, jujuPkgPrefix) {
+			allpkgs[name] = true
+			findJujuCoreImports(c, name, allpkgs)
 		}
 	}
-	sort.Strings(result)
-	return result
+
 }

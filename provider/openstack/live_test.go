@@ -10,14 +10,18 @@ import (
 	"sort"
 
 	gc "launchpad.net/gocheck"
-
 	"launchpad.net/goose/client"
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 
+	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/openstack"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
@@ -210,4 +214,43 @@ func (t *LiveTests) TestSetupGlobalGroupExposesCorrectPorts(c *gc.C) {
 	sort.Strings(stringRules)
 	sort.Strings(expectedRules)
 	c.Check(stringRules, gc.DeepEquals, expectedRules)
+}
+
+func (s *LiveTests) assertStartInstanceDefaultSecurityGroup(c *gc.C, useDefault bool) {
+	attrs := s.TestConfig.Merge(coretesting.Attrs{
+		"name":                 "sample-" + randomName(),
+		"control-bucket":       "juju-test-" + randomName(),
+		"use-default-secgroup": useDefault,
+	})
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+	// Set up a test environment.
+	env, err := environs.New(cfg)
+	c.Assert(err, gc.IsNil)
+	c.Assert(env, gc.NotNil)
+	defer env.Destroy()
+	// Bootstrap and start an instance.
+	err = bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
+	c.Assert(err, gc.IsNil)
+	inst, _ := jujutesting.AssertStartInstance(c, env, "100")
+	// Check whether the instance has the default security group assigned.
+	novaClient := openstack.GetNovaClient(env)
+	groups, err := novaClient.GetServerSecurityGroups(string(inst.Id()))
+	c.Assert(err, gc.IsNil)
+	defaultGroupFound := false
+	for _, group := range groups {
+		if group.Name == "default" {
+			defaultGroupFound = true
+			break
+		}
+	}
+	c.Assert(defaultGroupFound, gc.Equals, useDefault)
+}
+
+func (s *LiveTests) TestStartInstanceWithDefaultSecurityGroup(c *gc.C) {
+	s.assertStartInstanceDefaultSecurityGroup(c, true)
+}
+
+func (s *LiveTests) TestStartInstanceWithoutDefaultSecurityGroup(c *gc.C) {
+	s.assertStartInstanceDefaultSecurityGroup(c, false)
 }

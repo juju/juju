@@ -7,6 +7,7 @@ import (
 	"launchpad.net/goamz/aws"
 
 	"launchpad.net/juju-core/environs/instances"
+	"launchpad.net/juju-core/juju/arch"
 )
 
 // Type of virtualisation used.
@@ -17,8 +18,8 @@ var (
 
 // all instance types can run amd64 images, and some can also run i386 ones.
 var (
-	amd64 = []string{"amd64"}
-	both  = []string{"amd64", "i386"}
+	amd64 = []string{arch.AMD64}
+	both  = []string{arch.AMD64, arch.I386}
 )
 
 // allRegions is defined here to allow tests to override the content.
@@ -35,43 +36,57 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 1,
 		CpuPower: instances.CpuPower(100),
 		Mem:      1740,
-		VType:    &paravirtual,
+		VirtType: &paravirtual,
 	}, {
 		Name:     "m1.medium",
 		Arches:   both,
 		CpuCores: 1,
 		CpuPower: instances.CpuPower(200),
 		Mem:      3840,
-		VType:    &paravirtual,
+		VirtType: &paravirtual,
 	}, {
 		Name:     "m1.large",
 		Arches:   amd64,
 		CpuCores: 2,
 		CpuPower: instances.CpuPower(400),
 		Mem:      7680,
-		VType:    &paravirtual,
+		VirtType: &paravirtual,
 	}, {
 		Name:     "m1.xlarge",
 		Arches:   amd64,
 		CpuCores: 4,
 		CpuPower: instances.CpuPower(800),
 		Mem:      15360,
-		VType:    &paravirtual,
+		VirtType: &paravirtual,
 	},
 	{ // Second generation.
+		Name:     "m3.medium",
+		Arches:   amd64,
+		CpuCores: 1,
+		CpuPower: instances.CpuPower(300),
+		Mem:      3840,
+		VirtType: &paravirtual,
+	}, {
+		Name:     "m3.large",
+		Arches:   amd64,
+		CpuCores: 2,
+		CpuPower: instances.CpuPower(6500),
+		Mem:      7680,
+		VirtType: &paravirtual,
+	}, {
 		Name:     "m3.xlarge",
 		Arches:   amd64,
 		CpuCores: 4,
 		CpuPower: instances.CpuPower(1300),
 		Mem:      15360,
-		VType:    &paravirtual,
+		VirtType: &paravirtual,
 	}, {
 		Name:     "m3.2xlarge",
 		Arches:   amd64,
 		CpuCores: 8,
 		CpuPower: instances.CpuPower(2600),
 		Mem:      30720,
-		VType:    &paravirtual,
+		VirtType: &paravirtual,
 	},
 	{ // Micro.
 		Name:     "t1.micro",
@@ -79,7 +94,7 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 1,
 		CpuPower: instances.CpuPower(20),
 		Mem:      613,
-		VType:    &paravirtual,
+		VirtType: &paravirtual,
 	},
 	{ // High-Memory.
 		Name:     "m2.xlarge",
@@ -87,21 +102,21 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 2,
 		CpuPower: instances.CpuPower(650),
 		Mem:      17408,
-		VType:    &paravirtual,
+		VirtType: &paravirtual,
 	}, {
 		Name:     "m2.2xlarge",
 		Arches:   amd64,
 		CpuCores: 4,
 		CpuPower: instances.CpuPower(1300),
 		Mem:      34816,
-		VType:    &paravirtual,
+		VirtType: &paravirtual,
 	}, {
 		Name:     "m2.4xlarge",
 		Arches:   amd64,
 		CpuCores: 8,
 		CpuPower: instances.CpuPower(2600),
 		Mem:      69632,
-		VType:    &paravirtual,
+		VirtType: &paravirtual,
 	},
 	{ // High-CPU.
 		Name:     "c1.medium",
@@ -109,14 +124,14 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 2,
 		CpuPower: instances.CpuPower(500),
 		Mem:      1740,
-		VType:    &paravirtual,
+		VirtType: &paravirtual,
 	}, {
 		Name:     "c1.xlarge",
 		Arches:   amd64,
 		CpuCores: 8,
 		CpuPower: instances.CpuPower(2000),
 		Mem:      7168,
-		VType:    &paravirtual,
+		VirtType: &paravirtual,
 	},
 	{ // Cluster compute.
 		Name:     "cc1.4xlarge",
@@ -124,14 +139,14 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 8,
 		CpuPower: instances.CpuPower(3350),
 		Mem:      23552,
-		VType:    &hvm,
+		VirtType: &hvm,
 	}, {
 		Name:     "cc2.8xlarge",
 		Arches:   amd64,
 		CpuCores: 16,
 		CpuPower: instances.CpuPower(8800),
 		Mem:      61952,
-		VType:    &hvm,
+		VirtType: &hvm,
 	},
 	{ // High Memory cluster.
 		Name:     "cr1.8xlarge",
@@ -139,7 +154,7 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 16,
 		CpuPower: instances.CpuPower(8800),
 		Mem:      249856,
-		VType:    &hvm,
+		VirtType: &hvm,
 	},
 	{ // Cluster GPU.
 		Name:     "cg1.4xlarge",
@@ -147,7 +162,7 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 8,
 		CpuPower: instances.CpuPower(3350),
 		Mem:      22528,
-		VType:    &hvm,
+		VirtType: &hvm,
 	},
 	{ // High I/O.
 		Name:     "hi1.4xlarge",
@@ -155,7 +170,7 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 16,
 		CpuPower: instances.CpuPower(3500),
 		Mem:      61952,
-		VType:    &paravirtual,
+		VirtType: &paravirtual,
 	},
 	{ // High storage.
 		Name:     "hs1.8xlarge",
@@ -163,7 +178,7 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 16,
 		CpuPower: instances.CpuPower(3500),
 		Mem:      119808,
-		VType:    &paravirtual,
+		VirtType: &paravirtual,
 	},
 }
 
@@ -178,8 +193,10 @@ var allRegionCosts = regionCosts{
 		"m1.medium":  175,
 		"m1.large":   350,
 		"m1.xlarge":  700,
-		"m3.xlarge":  760,
-		"m3.2xlarge": 1520,
+		"m3.medium":  171,
+		"m3.large":   342,
+		"m3.xlarge":  684,
+		"m3.2xlarge": 1368,
 		"t1.micro":   27,
 		"m2.xlarge":  505,
 		"m2.2xlarge": 1010,
@@ -192,8 +209,10 @@ var allRegionCosts = regionCosts{
 		"m1.medium":  160,
 		"m1.large":   320,
 		"m1.xlarge":  640,
-		"m3.xlarge":  700,
-		"m3.2xlarge": 1400,
+		"m3.medium":  158,
+		"m3.large":   315,
+		"m3.xlarge":  730,
+		"m3.2xlarge": 1260,
 		"t1.micro":   20,
 		"m2.xlarge":  495,
 		"m2.2xlarge": 990,
@@ -206,8 +225,10 @@ var allRegionCosts = regionCosts{
 		"m1.medium":  160,
 		"m1.large":   320,
 		"m1.xlarge":  640,
-		"m3.xlarge":  700,
-		"m3.2xlarge": 1400,
+		"m3.medium":  158,
+		"m3.large":   315,
+		"m3.xlarge":  730,
+		"m3.2xlarge": 1260,
 		"t1.micro":   20,
 		"m2.xlarge":  495,
 		"m2.2xlarge": 990,
@@ -220,8 +241,10 @@ var allRegionCosts = regionCosts{
 		"m1.medium":   130,
 		"m1.large":    260,
 		"m1.xlarge":   520,
-		"m3.xlarge":   550,
-		"m3.2xlarge":  1100,
+		"m3.medium":   124,
+		"m3.large":    248,
+		"m3.xlarge":   495,
+		"m3.2xlarge":  990,
 		"t1.micro":    20,
 		"m2.xlarge":   460,
 		"m2.2xlarge":  920,
@@ -238,6 +261,10 @@ var allRegionCosts = regionCosts{
 		"m1.large":   320,
 		"m1.xlarge":  640,
 		"t1.micro":   27,
+		"m3.medium":  153,
+		"m3.large":   306,
+		"m3.xlarge":  612,
+		"m3.2xlarge": 1224,
 		"m2.xlarge":  540,
 		"m2.2xlarge": 1080,
 		"m2.4xlarge": 2160,
@@ -249,8 +276,10 @@ var allRegionCosts = regionCosts{
 		"m1.medium":   120,
 		"m1.large":    240,
 		"m1.xlarge":   480,
-		"m3.xlarge":   500,
-		"m3.2xlarge":  1000,
+		"m3.medium":   113,
+		"m3.large":    225,
+		"m3.xlarge":   450,
+		"m3.2xlarge":  900,
 		"t1.micro":    20,
 		"m2.xlarge":   410,
 		"m2.2xlarge":  820,
@@ -269,8 +298,10 @@ var allRegionCosts = regionCosts{
 		"m1.medium":  130,
 		"m1.large":   260,
 		"m1.xlarge":  520,
-		"m3.xlarge":  550,
-		"m3.2xlarge": 1100,
+		"m3.medium":  124,
+		"m3.large":   248,
+		"m3.xlarge":  495,
+		"m3.2xlarge": 990,
 		"t1.micro":   25,
 		"m2.xlarge":  460,
 		"m2.2xlarge": 920,
@@ -283,8 +314,10 @@ var allRegionCosts = regionCosts{
 		"m1.medium":   120,
 		"m1.large":    240,
 		"m1.xlarge":   480,
-		"m3.xlarge":   500,
-		"m3.2xlarge":  1000,
+		"m3.medium":   113,
+		"m3.large":    225,
+		"m3.xlarge":   450,
+		"m3.2xlarge":  900,
 		"t1.micro":    20,
 		"m2.xlarge":   410,
 		"m2.2xlarge":  820,

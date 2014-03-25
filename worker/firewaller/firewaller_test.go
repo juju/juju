@@ -4,18 +4,22 @@
 package firewaller_test
 
 import (
+	"launchpad.net/juju-core/environs/config"
 	"reflect"
 	stdtesting "testing"
 	"time"
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
+	apifirewaller "launchpad.net/juju-core/state/api/firewaller"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/firewaller"
 )
@@ -28,6 +32,13 @@ type FirewallerSuite struct {
 	testing.JujuConnSuite
 	op    <-chan dummy.Operation
 	charm *state.Charm
+
+	st         *api.State
+	firewaller *apifirewaller.State
+}
+
+type FirewallerGlobalModeSuite struct {
+	FirewallerSuite
 }
 
 var _ worker.Worker = (*firewaller.Firewaller)(nil)
@@ -35,7 +46,7 @@ var _ worker.Worker = (*firewaller.Firewaller)(nil)
 // assertPorts retrieves the open ports of the instance and compares them
 // to the expected.
 func (s *FirewallerSuite) assertPorts(c *gc.C, inst instance.Instance, machineId string, expected []instance.Port) {
-	s.State.StartSync()
+	s.BackingState.StartSync()
 	start := time.Now()
 	for {
 		got, err := inst.Ports(machineId)
@@ -43,8 +54,8 @@ func (s *FirewallerSuite) assertPorts(c *gc.C, inst instance.Instance, machineId
 			c.Fatal(err)
 			return
 		}
-		state.SortPorts(got)
-		state.SortPorts(expected)
+		instance.SortPorts(got)
+		instance.SortPorts(expected)
 		if reflect.DeepEqual(got, expected) {
 			c.Succeed()
 			return
@@ -60,7 +71,7 @@ func (s *FirewallerSuite) assertPorts(c *gc.C, inst instance.Instance, machineId
 // assertEnvironPorts retrieves the open ports of environment and compares them
 // to the expected.
 func (s *FirewallerSuite) assertEnvironPorts(c *gc.C, expected []instance.Port) {
-	s.State.StartSync()
+	s.BackingState.StartSync()
 	start := time.Now()
 	for {
 		got, err := s.Conn.Environ.Ports()
@@ -68,8 +79,8 @@ func (s *FirewallerSuite) assertEnvironPorts(c *gc.C, expected []instance.Port) 
 			c.Fatal(err)
 			return
 		}
-		state.SortPorts(got)
-		state.SortPorts(expected)
+		instance.SortPorts(got)
+		instance.SortPorts(expected)
 		if reflect.DeepEqual(got, expected) {
 			c.Succeed()
 			return
@@ -84,18 +95,42 @@ func (s *FirewallerSuite) assertEnvironPorts(c *gc.C, expected []instance.Port) 
 
 var _ = gc.Suite(&FirewallerSuite{})
 
+func (s FirewallerGlobalModeSuite) SetUpTest(c *gc.C) {
+	add := map[string]interface{}{"firewall-mode": config.FwGlobal}
+	s.DummyConfig = dummy.SampleConfig().Merge(add).Delete("admin-secret", "ca-private-key")
+
+	s.FirewallerSuite.SetUpTest(c)
+}
+
 func (s *FirewallerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.charm = s.AddTestingCharm(c, "dummy")
+
+	// Create a manager machine and login to the API.
+	machine, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
+	password, err := utils.RandomPassword()
+	c.Assert(err, gc.IsNil)
+	err = machine.SetPassword(password)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetProvisioned("i-manager", "fake_nonce", nil)
+	c.Assert(err, gc.IsNil)
+	s.st = s.OpenAPIAsMachine(c, machine.Tag(), password, "fake_nonce")
+	c.Assert(s.st, gc.NotNil)
+
+	// Create the firewaller API facade.
+	s.firewaller = s.st.Firewaller()
+	c.Assert(s.firewaller, gc.NotNil)
 }
 
 func (s *FirewallerSuite) TestStartStop(c *gc.C) {
-	fw := firewaller.NewFirewaller(s.State)
+	fw, err := firewaller.NewFirewaller(s.firewaller)
+	c.Assert(err, gc.IsNil)
 	c.Assert(fw.Stop(), gc.IsNil)
 }
 
 func (s *FirewallerSuite) addUnit(c *gc.C, svc *state.Service) (*state.Unit, *state.Machine) {
-	units, err := s.Conn.AddUnits(svc, 1, "")
+	units, err := juju.AddUnits(s.State, svc, 1, "")
 	c.Assert(err, gc.IsNil)
 	u := units[0]
 	id, err := u.AssignedMachineId()
@@ -103,22 +138,6 @@ func (s *FirewallerSuite) addUnit(c *gc.C, svc *state.Service) (*state.Unit, *st
 	m, err := s.State.Machine(id)
 	c.Assert(err, gc.IsNil)
 	return u, m
-}
-
-func (s *FirewallerSuite) setGlobalMode(c *gc.C) {
-	// TODO(rog) This should not be possible - you shouldn't
-	// be able to set the firewalling mode after an environment
-	// has bootstrapped.
-	attrs := s.Conn.Environ.Config().AllAttrs()
-	delete(attrs, "admin-secret")
-	delete(attrs, "ca-private-key")
-	attrs["firewall-mode"] = config.FwGlobal
-	newConfig, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(newConfig)
-	c.Assert(err, gc.IsNil)
-	err = s.Conn.Environ.SetConfig(newConfig)
-	c.Assert(err, gc.IsNil)
 }
 
 // startInstance starts a new instance for the given machine.
@@ -130,11 +149,11 @@ func (s *FirewallerSuite) startInstance(c *gc.C, m *state.Machine) instance.Inst
 }
 
 func (s *FirewallerSuite) TestNotExposedService(c *gc.C) {
-	fw := firewaller.NewFirewaller(s.State)
+	fw, err := firewaller.NewFirewaller(s.firewaller)
+	c.Assert(err, gc.IsNil)
 	defer func() { c.Assert(fw.Stop(), gc.IsNil) }()
 
-	svc, err := s.State.AddService("wordpress", s.charm)
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "wordpress", s.charm)
 	u, m := s.addUnit(c, svc)
 	inst := s.startInstance(c, m)
 
@@ -152,11 +171,11 @@ func (s *FirewallerSuite) TestNotExposedService(c *gc.C) {
 }
 
 func (s *FirewallerSuite) TestExposedService(c *gc.C) {
-	fw := firewaller.NewFirewaller(s.State)
+	fw, err := firewaller.NewFirewaller(s.firewaller)
+	c.Assert(err, gc.IsNil)
 	defer func() { c.Assert(fw.Stop(), gc.IsNil) }()
 
-	svc, err := s.State.AddService("wordpress", s.charm)
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "wordpress", s.charm)
 
 	err = svc.SetExposed()
 	c.Assert(err, gc.IsNil)
@@ -177,11 +196,11 @@ func (s *FirewallerSuite) TestExposedService(c *gc.C) {
 }
 
 func (s *FirewallerSuite) TestMultipleExposedServices(c *gc.C) {
-	fw := firewaller.NewFirewaller(s.State)
+	fw, err := firewaller.NewFirewaller(s.firewaller)
+	c.Assert(err, gc.IsNil)
 	defer func() { c.Assert(fw.Stop(), gc.IsNil) }()
 
-	svc1, err := s.State.AddService("wordpress", s.charm)
-	c.Assert(err, gc.IsNil)
+	svc1 := s.AddTestingService(c, "wordpress", s.charm)
 	err = svc1.SetExposed()
 	c.Assert(err, gc.IsNil)
 
@@ -192,7 +211,7 @@ func (s *FirewallerSuite) TestMultipleExposedServices(c *gc.C) {
 	err = u1.OpenPort("tcp", 8080)
 	c.Assert(err, gc.IsNil)
 
-	svc2, err := s.State.AddService("mysql", s.charm)
+	svc2 := s.AddTestingService(c, "mysql", s.charm)
 	c.Assert(err, gc.IsNil)
 	err = svc2.SetExposed()
 	c.Assert(err, gc.IsNil)
@@ -215,11 +234,11 @@ func (s *FirewallerSuite) TestMultipleExposedServices(c *gc.C) {
 }
 
 func (s *FirewallerSuite) TestMachineWithoutInstanceId(c *gc.C) {
-	fw := firewaller.NewFirewaller(s.State)
+	fw, err := firewaller.NewFirewaller(s.firewaller)
+	c.Assert(err, gc.IsNil)
 	defer func() { c.Assert(fw.Stop(), gc.IsNil) }()
 
-	svc, err := s.State.AddService("wordpress", s.charm)
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "wordpress", s.charm)
 	err = svc.SetExposed()
 	c.Assert(err, gc.IsNil)
 	// add a unit but don't start its instance yet.
@@ -240,11 +259,11 @@ func (s *FirewallerSuite) TestMachineWithoutInstanceId(c *gc.C) {
 }
 
 func (s *FirewallerSuite) TestMultipleUnits(c *gc.C) {
-	fw := firewaller.NewFirewaller(s.State)
+	fw, err := firewaller.NewFirewaller(s.firewaller)
+	c.Assert(err, gc.IsNil)
 	defer func() { c.Assert(fw.Stop(), gc.IsNil) }()
 
-	svc, err := s.State.AddService("wordpress", s.charm)
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "wordpress", s.charm)
 	err = svc.SetExposed()
 	c.Assert(err, gc.IsNil)
 
@@ -271,9 +290,8 @@ func (s *FirewallerSuite) TestMultipleUnits(c *gc.C) {
 }
 
 func (s *FirewallerSuite) TestStartWithState(c *gc.C) {
-	svc, err := s.State.AddService("wordpress", s.charm)
-	c.Assert(err, gc.IsNil)
-	err = svc.SetExposed()
+	svc := s.AddTestingService(c, "wordpress", s.charm)
+	err := svc.SetExposed()
 	c.Assert(err, gc.IsNil)
 	u, m := s.addUnit(c, svc)
 	inst := s.startInstance(c, m)
@@ -287,7 +305,8 @@ func (s *FirewallerSuite) TestStartWithState(c *gc.C) {
 	s.assertPorts(c, inst, m.Id(), nil)
 
 	// Starting the firewaller opens the ports.
-	fw := firewaller.NewFirewaller(s.State)
+	fw, err := firewaller.NewFirewaller(s.firewaller)
+	c.Assert(err, gc.IsNil)
 	defer func() { c.Assert(fw.Stop(), gc.IsNil) }()
 
 	s.assertPorts(c, inst, m.Id(), []instance.Port{{"tcp", 80}, {"tcp", 8080}})
@@ -301,13 +320,13 @@ func (s *FirewallerSuite) TestStartWithPartialState(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	inst := s.startInstance(c, m)
 
-	svc, err := s.State.AddService("wordpress", s.charm)
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "wordpress", s.charm)
 	err = svc.SetExposed()
 	c.Assert(err, gc.IsNil)
 
 	// Starting the firewaller, no open ports.
-	fw := firewaller.NewFirewaller(s.State)
+	fw, err := firewaller.NewFirewaller(s.firewaller)
+	c.Assert(err, gc.IsNil)
 	defer func() { c.Assert(fw.Stop(), gc.IsNil) }()
 
 	s.assertPorts(c, inst, m.Id(), nil)
@@ -328,8 +347,7 @@ func (s *FirewallerSuite) TestStartWithUnexposedService(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	inst := s.startInstance(c, m)
 
-	svc, err := s.State.AddService("wordpress", s.charm)
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "wordpress", s.charm)
 	u, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 	err = u.AssignToMachine(m)
@@ -338,7 +356,8 @@ func (s *FirewallerSuite) TestStartWithUnexposedService(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Starting the firewaller, no open ports.
-	fw := firewaller.NewFirewaller(s.State)
+	fw, err := firewaller.NewFirewaller(s.firewaller)
+	c.Assert(err, gc.IsNil)
 	defer func() { c.Assert(fw.Stop(), gc.IsNil) }()
 
 	s.assertPorts(c, inst, m.Id(), nil)
@@ -350,11 +369,11 @@ func (s *FirewallerSuite) TestStartWithUnexposedService(c *gc.C) {
 }
 
 func (s *FirewallerSuite) TestSetClearExposedService(c *gc.C) {
-	fw := firewaller.NewFirewaller(s.State)
+	fw, err := firewaller.NewFirewaller(s.firewaller)
+	c.Assert(err, gc.IsNil)
 	defer func() { c.Assert(fw.Stop(), gc.IsNil) }()
 
-	svc, err := s.State.AddService("wordpress", s.charm)
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "wordpress", s.charm)
 
 	u, m := s.addUnit(c, svc)
 	inst := s.startInstance(c, m)
@@ -380,11 +399,11 @@ func (s *FirewallerSuite) TestSetClearExposedService(c *gc.C) {
 }
 
 func (s *FirewallerSuite) TestRemoveUnit(c *gc.C) {
-	fw := firewaller.NewFirewaller(s.State)
+	fw, err := firewaller.NewFirewaller(s.firewaller)
+	c.Assert(err, gc.IsNil)
 	defer func() { c.Assert(fw.Stop(), gc.IsNil) }()
 
-	svc, err := s.State.AddService("wordpress", s.charm)
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "wordpress", s.charm)
 	err = svc.SetExposed()
 	c.Assert(err, gc.IsNil)
 
@@ -412,11 +431,11 @@ func (s *FirewallerSuite) TestRemoveUnit(c *gc.C) {
 }
 
 func (s *FirewallerSuite) TestRemoveService(c *gc.C) {
-	fw := firewaller.NewFirewaller(s.State)
+	fw, err := firewaller.NewFirewaller(s.firewaller)
+	c.Assert(err, gc.IsNil)
 	defer func() { c.Assert(fw.Stop(), gc.IsNil) }()
 
-	svc, err := s.State.AddService("wordpress", s.charm)
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "wordpress", s.charm)
 	err = svc.SetExposed()
 	c.Assert(err, gc.IsNil)
 
@@ -438,11 +457,11 @@ func (s *FirewallerSuite) TestRemoveService(c *gc.C) {
 }
 
 func (s *FirewallerSuite) TestRemoveMultipleServices(c *gc.C) {
-	fw := firewaller.NewFirewaller(s.State)
+	fw, err := firewaller.NewFirewaller(s.firewaller)
+	c.Assert(err, gc.IsNil)
 	defer func() { c.Assert(fw.Stop(), gc.IsNil) }()
 
-	svc1, err := s.State.AddService("wordpress", s.charm)
-	c.Assert(err, gc.IsNil)
+	svc1 := s.AddTestingService(c, "wordpress", s.charm)
 	err = svc1.SetExposed()
 	c.Assert(err, gc.IsNil)
 
@@ -451,8 +470,7 @@ func (s *FirewallerSuite) TestRemoveMultipleServices(c *gc.C) {
 	err = u1.OpenPort("tcp", 80)
 	c.Assert(err, gc.IsNil)
 
-	svc2, err := s.State.AddService("mysql", s.charm)
-	c.Assert(err, gc.IsNil)
+	svc2 := s.AddTestingService(c, "mysql", s.charm)
 	err = svc2.SetExposed()
 	c.Assert(err, gc.IsNil)
 
@@ -484,11 +502,11 @@ func (s *FirewallerSuite) TestRemoveMultipleServices(c *gc.C) {
 }
 
 func (s *FirewallerSuite) TestDeadMachine(c *gc.C) {
-	fw := firewaller.NewFirewaller(s.State)
+	fw, err := firewaller.NewFirewaller(s.firewaller)
+	c.Assert(err, gc.IsNil)
 	defer func() { c.Assert(fw.Stop(), gc.IsNil) }()
 
-	svc, err := s.State.AddService("wordpress", s.charm)
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "wordpress", s.charm)
 	err = svc.SetExposed()
 	c.Assert(err, gc.IsNil)
 
@@ -517,11 +535,11 @@ func (s *FirewallerSuite) TestDeadMachine(c *gc.C) {
 }
 
 func (s *FirewallerSuite) TestRemoveMachine(c *gc.C) {
-	fw := firewaller.NewFirewaller(s.State)
+	fw, err := firewaller.NewFirewaller(s.firewaller)
+	c.Assert(err, gc.IsNil)
 	defer func() { c.Assert(fw.Stop(), gc.IsNil) }()
 
-	svc, err := s.State.AddService("wordpress", s.charm)
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "wordpress", s.charm)
 	err = svc.SetExposed()
 	c.Assert(err, gc.IsNil)
 
@@ -549,16 +567,13 @@ func (s *FirewallerSuite) TestRemoveMachine(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *FirewallerSuite) TestGlobalMode(c *gc.C) {
-	// Change configuration.
-	s.setGlobalMode(c)
-
-	// Start firewall and open ports.
-	fw := firewaller.NewFirewaller(s.State)
+func (s *FirewallerGlobalModeSuite) TestGlobalMode(c *gc.C) {
+	// Start firewaller and open ports.
+	fw, err := firewaller.NewFirewaller(s.firewaller)
+	c.Assert(err, gc.IsNil)
 	defer func() { c.Assert(fw.Stop(), gc.IsNil) }()
 
-	svc1, err := s.State.AddService("wordpress", s.charm)
-	c.Assert(err, gc.IsNil)
+	svc1 := s.AddTestingService(c, "wordpress", s.charm)
 	err = svc1.SetExposed()
 	c.Assert(err, gc.IsNil)
 
@@ -569,7 +584,7 @@ func (s *FirewallerSuite) TestGlobalMode(c *gc.C) {
 	err = u1.OpenPort("tcp", 8080)
 	c.Assert(err, gc.IsNil)
 
-	svc2, err := s.State.AddService("moinmoin", s.charm)
+	svc2 := s.AddTestingService(c, "moinmoin", s.charm)
 	c.Assert(err, gc.IsNil)
 	err = svc2.SetExposed()
 	c.Assert(err, gc.IsNil)
@@ -597,16 +612,12 @@ func (s *FirewallerSuite) TestGlobalMode(c *gc.C) {
 	s.assertEnvironPorts(c, nil)
 }
 
-func (s *FirewallerSuite) TestGlobalModeStartWithUnexposedService(c *gc.C) {
-	// Change configuration.
-	s.setGlobalMode(c)
-
+func (s *FirewallerGlobalModeSuite) TestGlobalModeStartWithUnexposedService(c *gc.C) {
 	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	s.startInstance(c, m)
 
-	svc, err := s.State.AddService("wordpress", s.charm)
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "wordpress", s.charm)
 	u, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 	err = u.AssignToMachine(m)
@@ -615,7 +626,8 @@ func (s *FirewallerSuite) TestGlobalModeStartWithUnexposedService(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Starting the firewaller, no open ports.
-	fw := firewaller.NewFirewaller(s.State)
+	fw, err := firewaller.NewFirewaller(s.firewaller)
+	c.Assert(err, gc.IsNil)
 	defer func() { c.Assert(fw.Stop(), gc.IsNil) }()
 
 	s.assertEnvironPorts(c, nil)
@@ -626,15 +638,12 @@ func (s *FirewallerSuite) TestGlobalModeStartWithUnexposedService(c *gc.C) {
 	s.assertEnvironPorts(c, []instance.Port{{"tcp", 80}})
 }
 
-func (s *FirewallerSuite) TestGlobalModeRestart(c *gc.C) {
-	// Change configuration.
-	s.setGlobalMode(c)
-
-	// Start firewall and open ports.
-	fw := firewaller.NewFirewaller(s.State)
-
-	svc, err := s.State.AddService("wordpress", s.charm)
+func (s *FirewallerGlobalModeSuite) TestGlobalModeRestart(c *gc.C) {
+	// Start firewaller and open ports.
+	fw, err := firewaller.NewFirewaller(s.firewaller)
 	c.Assert(err, gc.IsNil)
+
+	svc := s.AddTestingService(c, "wordpress", s.charm)
 	err = svc.SetExposed()
 	c.Assert(err, gc.IsNil)
 
@@ -647,7 +656,7 @@ func (s *FirewallerSuite) TestGlobalModeRestart(c *gc.C) {
 
 	s.assertEnvironPorts(c, []instance.Port{{"tcp", 80}, {"tcp", 8080}})
 
-	// Stop firewall and close one and open a different port.
+	// Stop firewaller and close one and open a different port.
 	err = fw.Stop()
 	c.Assert(err, gc.IsNil)
 
@@ -656,22 +665,20 @@ func (s *FirewallerSuite) TestGlobalModeRestart(c *gc.C) {
 	err = u.OpenPort("tcp", 8888)
 	c.Assert(err, gc.IsNil)
 
-	// Start firewall and check port.
-	fw = firewaller.NewFirewaller(s.State)
+	// Start firewaller and check port.
+	fw, err = firewaller.NewFirewaller(s.firewaller)
+	c.Assert(err, gc.IsNil)
 	defer func() { c.Assert(fw.Stop(), gc.IsNil) }()
 
 	s.assertEnvironPorts(c, []instance.Port{{"tcp", 80}, {"tcp", 8888}})
 }
 
-func (s *FirewallerSuite) TestGlobalModeRestartUnexposedService(c *gc.C) {
-	// Change configuration.
-	s.setGlobalMode(c)
-
-	// Start firewall and open ports.
-	fw := firewaller.NewFirewaller(s.State)
-
-	svc, err := s.State.AddService("wordpress", s.charm)
+func (s *FirewallerGlobalModeSuite) TestGlobalModeRestartUnexposedService(c *gc.C) {
+	// Start firewaller and open ports.
+	fw, err := firewaller.NewFirewaller(s.firewaller)
 	c.Assert(err, gc.IsNil)
+
+	svc := s.AddTestingService(c, "wordpress", s.charm)
 	err = svc.SetExposed()
 	c.Assert(err, gc.IsNil)
 
@@ -684,29 +691,27 @@ func (s *FirewallerSuite) TestGlobalModeRestartUnexposedService(c *gc.C) {
 
 	s.assertEnvironPorts(c, []instance.Port{{"tcp", 80}, {"tcp", 8080}})
 
-	// Stop firewall and clear exposed flag on service.
+	// Stop firewaller and clear exposed flag on service.
 	err = fw.Stop()
 	c.Assert(err, gc.IsNil)
 
 	err = svc.ClearExposed()
 	c.Assert(err, gc.IsNil)
 
-	// Start firewall and check port.
-	fw = firewaller.NewFirewaller(s.State)
+	// Start firewaller and check port.
+	fw, err = firewaller.NewFirewaller(s.firewaller)
+	c.Assert(err, gc.IsNil)
 	defer func() { c.Assert(fw.Stop(), gc.IsNil) }()
 
 	s.assertEnvironPorts(c, nil)
 }
 
-func (s *FirewallerSuite) TestGlobalModeRestartPortCount(c *gc.C) {
-	// Change configuration.
-	s.setGlobalMode(c)
-
-	// Start firewall and open ports.
-	fw := firewaller.NewFirewaller(s.State)
-
-	svc1, err := s.State.AddService("wordpress", s.charm)
+func (s *FirewallerGlobalModeSuite) TestGlobalModeRestartPortCount(c *gc.C) {
+	// Start firewaller and open ports.
+	fw, err := firewaller.NewFirewaller(s.firewaller)
 	c.Assert(err, gc.IsNil)
+
+	svc1 := s.AddTestingService(c, "wordpress", s.charm)
 	err = svc1.SetExposed()
 	c.Assert(err, gc.IsNil)
 
@@ -719,12 +724,11 @@ func (s *FirewallerSuite) TestGlobalModeRestartPortCount(c *gc.C) {
 
 	s.assertEnvironPorts(c, []instance.Port{{"tcp", 80}, {"tcp", 8080}})
 
-	// Stop firewall and add another service using the port.
+	// Stop firewaller and add another service using the port.
 	err = fw.Stop()
 	c.Assert(err, gc.IsNil)
 
-	svc2, err := s.State.AddService("moinmoin", s.charm)
-	c.Assert(err, gc.IsNil)
+	svc2 := s.AddTestingService(c, "moinmoin", s.charm)
 	err = svc2.SetExposed()
 	c.Assert(err, gc.IsNil)
 
@@ -733,8 +737,9 @@ func (s *FirewallerSuite) TestGlobalModeRestartPortCount(c *gc.C) {
 	err = u2.OpenPort("tcp", 80)
 	c.Assert(err, gc.IsNil)
 
-	// Start firewall and check port.
-	fw = firewaller.NewFirewaller(s.State)
+	// Start firewaller and check port.
+	fw, err = firewaller.NewFirewaller(s.firewaller)
+	c.Assert(err, gc.IsNil)
 	defer func() { c.Assert(fw.Stop(), gc.IsNil) }()
 
 	s.assertEnvironPorts(c, []instance.Port{{"tcp", 80}, {"tcp", 8080}})

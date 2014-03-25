@@ -5,24 +5,22 @@ package deployer
 
 import (
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/state/api/params"
 )
 
-type fakeAddresser struct{}
+type fakeAPI struct{}
 
-func (*fakeAddresser) StateAddresses() ([]string, error) {
-	return []string{"s1:123", "s2:123"}, nil
+func (*fakeAPI) ConnectionInfo() (params.DeployerConnectionValues, error) {
+	return params.DeployerConnectionValues{
+		StateAddresses: []string{"s1:123", "s2:123"},
+		APIAddresses:   []string{"a1:123", "a2:123"},
+	}, nil
 }
 
-func (*fakeAddresser) APIAddresses() ([]string, error) {
-	return []string{"a1:123", "a2:123"}, nil
-}
-
-func NewTestSimpleContext(agentConfig agent.Config, initDir, logDir, syslogConfigDir string) *SimpleContext {
+func NewTestSimpleContext(agentConfig agent.Config, initDir, logDir string) *SimpleContext {
 	return &SimpleContext{
-		addresser:       &fakeAddresser{},
-		agentConfig:     agentConfig,
-		initDir:         initDir,
-		logDir:          logDir,
-		syslogConfigDir: syslogConfigDir,
+		api:         &fakeAPI{},
+		agentConfig: agentConfig,
+		initDir:     initDir,
 	}
 }

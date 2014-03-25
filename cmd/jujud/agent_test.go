@@ -8,18 +8,20 @@ import (
 	"fmt"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
 	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
@@ -62,7 +64,7 @@ var isFatalTests = []struct {
 		Message: "blah",
 		Code:    params.CodeNotProvisioned,
 	},
-	isFatal: true,
+	isFatal: false,
 }, {
 	err:     &fatalError{"some fatal error"},
 	isFatal: true,
@@ -177,7 +179,10 @@ type agentSuite struct {
 
 func (s *agentSuite) SetUpSuite(c *gc.C) {
 	s.oldRestartDelay = worker.RestartDelay
-	worker.RestartDelay = coretesting.ShortWait
+	// We could use testing.ShortWait, but this thrashes quite
+	// a bit when some tests are restarting every 50ms for 10 seconds,
+	// so use a slightly more friendly delay.
+	worker.RestartDelay = 250 * time.Millisecond
 	s.JujuConnSuite.SetUpSuite(c)
 }
 
@@ -186,15 +191,15 @@ func (s *agentSuite) TearDownSuite(c *gc.C) {
 	worker.RestartDelay = s.oldRestartDelay
 }
 
-// primeAgent writes the configuration file and tools for an agent with the
-// given entity name.  It returns the agent's configuration and the current
-// tools.
-func (s *agentSuite) primeAgent(c *gc.C, tag, password string) (agent.Config, *coretools.Tools) {
+// primeAgent writes the configuration file and tools with version vers
+// for an agent with the given entity name.  It returns the agent's
+// configuration and the current tools.
+func (s *agentSuite) primeAgent(c *gc.C, tag, password string, vers version.Binary) (agent.Config, *coretools.Tools) {
 	stor := s.Conn.Environ.Storage()
-	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), version.Current)
+	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), vers)
 	err := envtools.MergeAndWriteMetadata(stor, coretools.List{agentTools}, envtools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
-	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag, version.Current)
+	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag, vers)
 	c.Assert(err, gc.IsNil)
 	c.Assert(tools1, gc.DeepEquals, agentTools)
 
@@ -202,47 +207,58 @@ func (s *agentSuite) primeAgent(c *gc.C, tag, password string) (agent.Config, *c
 	apiInfo := s.APIInfo(c)
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
-			DataDir:        s.DataDir(),
-			Tag:            tag,
-			Password:       password,
-			Nonce:          state.BootstrapNonce,
-			StateAddresses: stateInfo.Addrs,
-			APIAddresses:   apiInfo.Addrs,
-			CACert:         stateInfo.CACert,
+			DataDir:           s.DataDir(),
+			Tag:               tag,
+			UpgradedToVersion: vers.Number,
+			Password:          password,
+			Nonce:             state.BootstrapNonce,
+			StateAddresses:    stateInfo.Addrs,
+			APIAddresses:      apiInfo.Addrs,
+			CACert:            stateInfo.CACert,
 		})
 	c.Assert(conf.Write(), gc.IsNil)
 	return conf, agentTools
 }
 
-// primeStateAgent writes the configuration file and tools for an agent with the
-// given entity name.  It returns the agent's configuration and the current
-// tools.
-func (s *agentSuite) primeStateAgent(c *gc.C, tag, password string) (agent.Config, *coretools.Tools) {
-	agentTools := envtesting.PrimeTools(c, s.Conn.Environ.Storage(), s.DataDir(), version.Current)
-	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag, version.Current)
-	c.Assert(err, gc.IsNil)
-	c.Assert(tools1, gc.DeepEquals, agentTools)
-
-	stateInfo := s.StateInfo(c)
+// makeStateAgentConfig creates and writes a state agent config.
+func writeStateAgentConfig(c *gc.C, stateInfo *state.Info, dataDir, tag, password string, vers version.Binary) agent.Config {
 	port := coretesting.FindTCPPort()
 	apiAddr := []string{fmt.Sprintf("localhost:%d", port)}
 	conf, err := agent.NewStateMachineConfig(
 		agent.StateMachineConfigParams{
 			AgentConfigParams: agent.AgentConfigParams{
-				DataDir:        s.DataDir(),
-				Tag:            tag,
-				Password:       password,
-				Nonce:          state.BootstrapNonce,
-				StateAddresses: stateInfo.Addrs,
-				APIAddresses:   apiAddr,
-				CACert:         stateInfo.CACert,
+				DataDir:           dataDir,
+				Tag:               tag,
+				UpgradedToVersion: vers.Number,
+				Password:          password,
+				Nonce:             state.BootstrapNonce,
+				StateAddresses:    stateInfo.Addrs,
+				APIAddresses:      apiAddr,
+				CACert:            stateInfo.CACert,
 			},
 			StateServerCert: []byte(coretesting.ServerCert),
 			StateServerKey:  []byte(coretesting.ServerKey),
-			StatePort:       coretesting.MgoPort,
+			StatePort:       coretesting.MgoServer.Port(),
 			APIPort:         port,
 		})
+	c.Assert(err, gc.IsNil)
 	c.Assert(conf.Write(), gc.IsNil)
+	return conf
+}
+
+// primeStateAgent writes the configuration file and tools with version vers
+// for an agent with the given entity name.  It returns the agent's configuration
+// and the current tools.
+func (s *agentSuite) primeStateAgent(
+	c *gc.C, tag, password string, vers version.Binary) (agent.Config, *coretools.Tools) {
+
+	agentTools := envtesting.PrimeTools(c, s.Conn.Environ.Storage(), s.DataDir(), vers)
+	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag, vers)
+	c.Assert(err, gc.IsNil)
+	c.Assert(tools1, gc.DeepEquals, agentTools)
+
+	stateInfo := s.StateInfo(c)
+	conf := writeStateAgentConfig(c, stateInfo, s.DataDir(), tag, password, vers)
 	return conf, agentTools
 }
 
@@ -254,19 +270,8 @@ func (s *agentSuite) initAgent(c *gc.C, a cmd.Command, args ...string) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *agentSuite) proposeVersion(c *gc.C, vers version.Number) {
-	cfg, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	cfg, err = cfg.Apply(map[string]interface{}{
-		"agent-version": vers.String(),
-	})
-	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(cfg)
-	c.Assert(err, gc.IsNil)
-}
-
 func (s *agentSuite) testOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd Agent, initialPassword string) {
-	conf, err := agent.ReadConf(s.DataDir(), ent.Tag())
+	conf, err := agent.ReadConf(agent.ConfigPath(s.DataDir(), ent.Tag()))
 	c.Assert(err, gc.IsNil)
 
 	// Check that it starts initially and changes the password
@@ -290,38 +295,54 @@ func (s *agentSuite) testOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd A
 	assertOpen(conf)
 }
 
+type errorAPIOpener struct {
+	err error
+}
+
+func (e *errorAPIOpener) OpenAPI(_ api.DialOpts) (*api.State, string, error) {
+	return nil, "", e.err
+}
+
+func (s *agentSuite) testOpenAPIStateReplaceErrors(c *gc.C) {
+	for i, test := range []struct {
+		openErr    error
+		replaceErr error
+	}{{
+		fmt.Errorf("blah"), nil,
+	}, {
+		&params.Error{Code: params.CodeNotProvisioned}, worker.ErrTerminateAgent,
+	}, {
+		&params.Error{Code: params.CodeUnauthorized}, worker.ErrTerminateAgent,
+	}} {
+		c.Logf("test %d", i)
+		opener := &errorAPIOpener{test.openErr}
+		_, _, err := openAPIState(opener, nil)
+		if test.replaceErr == nil {
+			c.Check(err, gc.Equals, test.openErr)
+		} else {
+			c.Check(err, gc.Equals, test.replaceErr)
+		}
+	}
+}
+
 func (s *agentSuite) assertCanOpenState(c *gc.C, tag, dataDir string) {
-	config, err := agent.ReadConf(dataDir, tag)
+	config, err := agent.ReadConf(agent.ConfigPath(dataDir, tag))
 	c.Assert(err, gc.IsNil)
-	st, err := config.OpenState()
+	st, err := config.OpenState(environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	st.Close()
 }
 
 func (s *agentSuite) assertCannotOpenState(c *gc.C, tag, dataDir string) {
-	config, err := agent.ReadConf(dataDir, tag)
+	config, err := agent.ReadConf(agent.ConfigPath(dataDir, tag))
 	c.Assert(err, gc.IsNil)
-	_, err = config.OpenState()
+	_, err = config.OpenState(environs.NewStatePolicy())
 	expectErr := fmt.Sprintf("cannot log in to juju database as %q: unauthorized mongo access: auth fails", tag)
 	c.Assert(err, gc.ErrorMatches, expectErr)
 }
 
-func (s *agentSuite) testUpgrade(c *gc.C, agent runner, tag string, currentTools *coretools.Tools) {
-	newVers := version.Current
-	newVers.Patch++
-	newTools := envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), newVers)[0]
-	s.proposeVersion(c, newVers.Number)
-	err := runWithTimeout(agent)
-	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
-		AgentName: tag,
-		OldTools:  currentTools,
-		NewTools:  newTools,
-		DataDir:   s.DataDir(),
-	})
-}
-
 func refreshConfig(c *gc.C, config agent.Config) agent.Config {
-	config, err := agent.ReadConf(config.DataDir(), config.Tag())
+	config, err := agent.ReadConf(agent.ConfigPath(config.DataDir(), config.Tag()))
 	c.Assert(err, gc.IsNil)
 	return config
 }

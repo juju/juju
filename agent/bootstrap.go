@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/version"
 )
 
@@ -28,7 +29,7 @@ import (
 // InitializeState returns the newly initialized state and bootstrap
 // machine. If it fails, the state may well be irredeemably compromised.
 type StateInitializer interface {
-	InitializeState(envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts) (*state.State, *state.Machine, error)
+	InitializeState(envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts, policy state.Policy) (*state.State, *state.Machine, error)
 }
 
 // BootstrapMachineConfig holds configuration information
@@ -39,7 +40,7 @@ type BootstrapMachineConfig struct {
 	Constraints constraints.Value
 
 	// Jobs holds the jobs that the machine agent will run.
-	Jobs []state.MachineJob
+	Jobs []params.MachineJob
 
 	// InstanceId holds the instance id of the bootstrap machine.
 	InstanceId instance.Id
@@ -51,7 +52,7 @@ type BootstrapMachineConfig struct {
 
 const bootstrapMachineId = "0"
 
-func (c *configInternal) InitializeState(envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts) (*state.State, *state.Machine, error) {
+func (c *configInternal) InitializeState(envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts, policy state.Policy) (*state.State, *state.Machine, error) {
 	if c.Tag() != names.MachineTag(bootstrapMachineId) {
 		return nil, nil, fmt.Errorf("InitializeState not called with bootstrap machine's configuration")
 	}
@@ -60,7 +61,7 @@ func (c *configInternal) InitializeState(envCfg *config.Config, machineCfg Boots
 		CACert: c.caCert,
 	}
 	logger.Debugf("initializing address %v", info.Addrs)
-	st, err := state.Initialize(&info, envCfg, timeout)
+	st, err := state.Initialize(&info, envCfg, timeout, policy)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to initialize state: %v", err)
 	}
@@ -102,7 +103,13 @@ func initBootstrapUser(st *state.State, passwordHash string) error {
 	// connects to mongo, it changes the mongo password
 	// to the original password.
 	logger.Debugf("setting password hash for admin user")
-	if err := u.SetPasswordHash(passwordHash); err != nil {
+	// TODO(jam): http://pad.lv/1248839
+	// We could teach bootstrap how to generate a custom salt and apply
+	// that to the hash that was generated. At which point we'd need to set
+	// it here. For now, we pass "" so that on first login we will create a
+	// new salt, but the fixed-salt password is still available from
+	// cloud-init.
+	if err := u.SetPasswordHash(passwordHash, ""); err != nil {
 		return err
 	}
 	if err := st.SetAdminMongoPassword(passwordHash); err != nil {
@@ -113,13 +120,24 @@ func initBootstrapUser(st *state.State, passwordHash string) error {
 
 // initBootstrapMachine initializes the initial bootstrap machine in state.
 func (c *configInternal) initBootstrapMachine(st *state.State, cfg BootstrapMachineConfig) (*state.Machine, error) {
-	m, err := st.InjectMachine(&state.AddMachineParams{
+
+	logger.Infof("initialising bootstrap machine with config: %+v", cfg)
+
+	jobs := make([]state.MachineJob, len(cfg.Jobs))
+	for i, job := range cfg.Jobs {
+		machineJob, err := state.MachineJobFromParams(job)
+		if err != nil {
+			return nil, fmt.Errorf("invalid bootstrap machine job %q: %v", job, err)
+		}
+		jobs[i] = machineJob
+	}
+	m, err := st.AddOneMachine(state.MachineTemplate{
 		Series:                  version.Current.Series,
 		Nonce:                   state.BootstrapNonce,
 		Constraints:             cfg.Constraints,
 		InstanceId:              cfg.InstanceId,
 		HardwareCharacteristics: cfg.Characteristics,
-		Jobs: cfg.Jobs,
+		Jobs: jobs,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("cannot create bootstrap machine in state: %v", err)

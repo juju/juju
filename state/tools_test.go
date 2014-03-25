@@ -6,11 +6,11 @@ package state_test
 import (
 	"fmt"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
@@ -73,8 +73,7 @@ func (s *ToolsSuite) TestMachineAgentTools(c *gc.C) {
 
 func (s *ToolsSuite) TestUnitAgentTools(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	svc, err := s.State.AddService("wordpress", charm)
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "wordpress", charm)
 	unit, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 	preventUnitDestroyRemove(c, unit)

@@ -15,18 +15,16 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/juju/loggo"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/multiwatcher"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
@@ -36,16 +34,17 @@ import (
 
 var logger = loggo.GetLogger("juju.state")
 
-// TODO(niemeyer): This must not be exported.
-type D []bson.DocElem
-
 // BootstrapNonce is used as a nonce for the state server machine.
-const BootstrapNonce = "user-admin:bootstrap"
+const (
+	BootstrapNonce = "user-admin:bootstrap"
+	AdminUser      = "admin"
+)
 
 // State represents the state of an environment
 // managed by juju.
 type State struct {
 	info             *Info
+	policy           Policy
 	db               *mgo.Database
 	environments     *mgo.Collection
 	charms           *mgo.Collection
@@ -55,6 +54,7 @@ type State struct {
 	relations        *mgo.Collection
 	relationScopes   *mgo.Collection
 	services         *mgo.Collection
+	networks         *mgo.Collection
 	minUnits         *mgo.Collection
 	settings         *mgo.Collection
 	settingsrefs     *mgo.Collection
@@ -65,6 +65,7 @@ type State struct {
 	cleanups         *mgo.Collection
 	annotations      *mgo.Collection
 	statuses         *mgo.Collection
+	stateServers     *mgo.Collection
 	runner           *txn.Runner
 	transactionHooks chan ([]transactionHook)
 	watcher          *watcher.Watcher
@@ -88,9 +89,14 @@ func (st *State) runTransaction(ops []txn.Op) error {
 	transactionHooks := <-st.transactionHooks
 	st.transactionHooks <- nil
 	if len(transactionHooks) > 0 {
+		// Note that this code should only ever be triggered
+		// during tests. If we see the log messages below
+		// in a production run, something is wrong.
 		defer func() {
 			if transactionHooks[0].After != nil {
+				logger.Infof("transaction 'after' hook start")
 				transactionHooks[0].After()
+				logger.Infof("transaction 'after' hook end")
 			}
 			if <-st.transactionHooks != nil {
 				panic("concurrent use of transaction hooks")
@@ -98,7 +104,9 @@ func (st *State) runTransaction(ops []txn.Op) error {
 			st.transactionHooks <- transactionHooks[1:]
 		}()
 		if transactionHooks[0].Before != nil {
+			logger.Infof("transaction 'before' hook start")
 			transactionHooks[0].Before()
+			logger.Infof("transaction 'before' hook end")
 		}
 	}
 	return st.runner.Run(ops, "", nil)
@@ -108,6 +116,14 @@ func (st *State) runTransaction(ops []txn.Op) error {
 // that it is still alive.
 func (st *State) Ping() error {
 	return st.db.Session.Ping()
+}
+
+// MongoSession returns the underlying mongodb session
+// used by the state. It is exposed so that external code
+// can maintain the mongo replica set and should not
+// otherwise be used.
+func (st *State) MongoSession() *mgo.Session {
+	return st.db.Session
 }
 
 func (st *State) Watch() *multiwatcher.Watcher {
@@ -169,11 +185,11 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 	matchCurrent := "^" + regexp.QuoteMeta(currentVersion) + "-"
 	matchNew := "^" + regexp.QuoteMeta(newVersion) + "-"
 	// Get all machines and units with a different or empty version.
-	sel := D{{"$or", []D{
-		{{"tools", D{{"$exists", false}}}},
-		{{"$and", []D{
-			{{"tools.version", D{{"$not", bson.RegEx{matchCurrent, ""}}}}},
-			{{"tools.version", D{{"$not", bson.RegEx{matchNew, ""}}}}},
+	sel := bson.D{{"$or", []bson.D{
+		{{"tools", bson.D{{"$exists", false}}}},
+		{{"$and", []bson.D{
+			{{"tools.version", bson.D{{"$not", bson.RegEx{matchCurrent, ""}}}}},
+			{{"tools.version", bson.D{{"$not", bson.RegEx{matchNew, ""}}}}},
 		}}},
 	}}}
 	var agentTags []string
@@ -181,7 +197,7 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 		var doc struct {
 			Id string `bson:"_id"`
 		}
-		iter := collection.Find(sel).Select(D{{"_id", 1}}).Iter()
+		iter := collection.Find(sel).Select(bson.D{{"_id", 1}}).Iter()
 		for iter.Next(&doc) {
 			switch collection.Name {
 			case "machines":
@@ -229,8 +245,8 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) error {
 		ops := []txn.Op{{
 			C:      st.settings.Name,
 			Id:     environGlobalKey,
-			Assert: D{{"txn-revno", settings.txnRevno}},
-			Update: D{{"$set", D{{"agent-version", newVersion.String()}}}},
+			Assert: bson.D{{"txn-revno", settings.txnRevno}},
+			Update: bson.D{{"$set", bson.D{{"agent-version", newVersion.String()}}}},
 		}}
 		if err := st.runTransaction(ops); err == nil {
 			return nil
@@ -241,20 +257,67 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) error {
 	return ErrExcessiveContention
 }
 
-// SetEnvironConfig replaces the current configuration of the
-// environment with the provided configuration.
-func (st *State) SetEnvironConfig(cfg *config.Config) error {
-	if err := checkEnvironConfig(cfg); err != nil {
-		return err
+func (st *State) buildAndValidateEnvironConfig(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) (validCfg *config.Config, err error) {
+	newConfig, err := oldConfig.Apply(updateAttrs)
+	if err != nil {
+		return nil, err
 	}
-	// TODO(niemeyer): This isn't entirely right as the change is done as a
-	// delta that the user didn't ask for. Instead, take a (old, new) config
-	// pair, and apply *known* delta.
+	if len(removeAttrs) != 0 {
+		newConfig, err = newConfig.Remove(removeAttrs)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if err := checkEnvironConfig(newConfig); err != nil {
+		return nil, err
+	}
+	return st.validate(newConfig, oldConfig)
+}
+
+type ValidateConfigFunc func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error
+
+// UpateEnvironConfig adds, updates or removes attributes in the current
+// configuration of the environment with the provided updateAttrs and
+// removeAttrs.
+func (st *State) UpdateEnvironConfig(updateAttrs map[string]interface{}, removeAttrs []string, additionalValidation ValidateConfigFunc) error {
+	if len(updateAttrs)+len(removeAttrs) == 0 {
+		return nil
+	}
+
+	// TODO(axw) 2013-12-6 #1167616
+	// Ensure that the settings on disk have not changed
+	// underneath us. The settings changes are actually
+	// applied as a delta to what's on disk; if there has
+	// been a concurrent update, the change may not be what
+	// the user asked for.
 	settings, err := readSettings(st, environGlobalKey)
 	if err != nil {
 		return err
 	}
-	settings.Update(cfg.AllAttrs())
+
+	// Get the existing environment config from state.
+	oldConfig, err := config.New(config.NoDefaults, settings.Map())
+	if err != nil {
+		return err
+	}
+	if additionalValidation != nil {
+		err = additionalValidation(updateAttrs, removeAttrs, oldConfig)
+		if err != nil {
+			return err
+		}
+	}
+	validCfg, err := st.buildAndValidateEnvironConfig(updateAttrs, removeAttrs, oldConfig)
+	if err != nil {
+		return err
+	}
+
+	validAttrs := validCfg.AllAttrs()
+	for k, _ := range oldConfig.AllAttrs() {
+		if _, ok := validAttrs[k]; !ok {
+			settings.Delete(k)
+		}
+	}
+	settings.Update(validAttrs)
 	_, err = settings.Write()
 	return err
 }
@@ -267,226 +330,6 @@ func (st *State) EnvironConstraints() (constraints.Value, error) {
 // SetEnvironConstraints replaces the current environment constraints.
 func (st *State) SetEnvironConstraints(cons constraints.Value) error {
 	return writeConstraints(st, environGlobalKey, cons)
-}
-
-// AddMachine adds a new machine configured to run the supplied jobs on the
-// supplied series. The machine's constraints will be taken from the
-// environment constraints.
-func (st *State) AddMachine(series string, jobs ...MachineJob) (m *Machine, err error) {
-	return st.addMachine(&AddMachineParams{Series: series, Jobs: jobs})
-}
-
-// AddMachineWithConstraints adds a new machine configured to run the supplied jobs on the
-// supplied series. The machine's constraints and other configuration will be taken from
-// the supplied params struct.
-func (st *State) AddMachineWithConstraints(params *AddMachineParams) (m *Machine, err error) {
-	if params.InstanceId != "" {
-		return nil, fmt.Errorf("cannot specify an instance id when adding a new machine")
-	}
-	if params.Nonce != "" {
-		return nil, fmt.Errorf("cannot specify a nonce when adding a new machine")
-	}
-
-	// TODO(wallyworld) - if a container is required, and when the actual machine characteristics
-	// are made available, we need to check the machine constraints to ensure the container can be
-	// created on the specifed machine.
-	// ie it makes no sense asking for a 16G container on a machine with 8G.
-
-	return st.addMachine(params)
-}
-
-// InjectMachine adds a new machine, corresponding to an existing provider
-// instance, configured according to the supplied params struct.
-func (st *State) InjectMachine(params *AddMachineParams) (m *Machine, err error) {
-	if params.InstanceId == "" {
-		return nil, fmt.Errorf("cannot inject a machine without an instance id")
-	}
-	if params.Nonce == "" {
-		return nil, fmt.Errorf("cannot inject a machine without a nonce")
-	}
-	return st.addMachine(params)
-}
-
-// containerRefParams specify how a machineContainers document is to be created.
-type containerRefParams struct {
-	hostId      string
-	newHost     bool
-	hostOnly    bool
-	containerId string
-}
-
-func (st *State) addMachineOps(mdoc *machineDoc, metadata *instanceData, cons constraints.Value, containerParams *containerRefParams) (*machineDoc, []txn.Op, error) {
-	if mdoc.Series == "" {
-		return nil, nil, fmt.Errorf("no series specified")
-	}
-	if len(mdoc.Jobs) == 0 {
-		return nil, nil, fmt.Errorf("no jobs specified")
-	}
-	if containerParams.hostId != "" && mdoc.ContainerType == "" {
-		return nil, nil, fmt.Errorf("no container type specified")
-	}
-	jset := make(map[MachineJob]bool)
-	for _, j := range mdoc.Jobs {
-		if jset[j] {
-			return nil, nil, fmt.Errorf("duplicate job: %s", j)
-		}
-		jset[j] = true
-	}
-	if containerParams.hostId == "" {
-		// we are creating a new machine instance (not a container).
-		seq, err := st.sequence("machine")
-		if err != nil {
-			return nil, nil, err
-		}
-		mdoc.Id = strconv.Itoa(seq)
-		containerParams.hostId = mdoc.Id
-		containerParams.newHost = true
-	}
-	if mdoc.ContainerType != "" {
-		// we are creating a container so set up a namespaced id.
-		seq, err := st.sequence(fmt.Sprintf("machine%s%sContainer", containerParams.hostId, mdoc.ContainerType))
-		if err != nil {
-			return nil, nil, err
-		}
-		mdoc.Id = fmt.Sprintf("%s/%s/%d", containerParams.hostId, mdoc.ContainerType, seq)
-		containerParams.containerId = mdoc.Id
-	}
-	mdoc.Life = Alive
-	sdoc := statusDoc{
-		Status: params.StatusPending,
-	}
-	// Machine constraints do not use a container constraint value.
-	// Both provisioning and deployment constraints use the same constraints.Value struct
-	// so here we clear the container value. Provisioning ignores the container value but
-	// clearing it avoids potential confusion.
-	cons.Container = nil
-	ops := []txn.Op{
-		{
-			C:      st.machines.Name,
-			Id:     mdoc.Id,
-			Assert: txn.DocMissing,
-			Insert: *mdoc,
-		},
-		createConstraintsOp(st, machineGlobalKey(mdoc.Id), cons),
-		createStatusOp(st, machineGlobalKey(mdoc.Id), sdoc),
-	}
-	if metadata != nil {
-		ops = append(ops, txn.Op{
-			C:      st.instanceData.Name,
-			Id:     mdoc.Id,
-			Assert: txn.DocMissing,
-			Insert: *metadata,
-		})
-	}
-	ops = append(ops, createContainerRefOp(st, containerParams)...)
-	return mdoc, ops, nil
-}
-
-// AddMachineParams encapsulates the parameters used to create a new machine.
-type AddMachineParams struct {
-	Series                  string
-	Constraints             constraints.Value
-	ParentId                string
-	ContainerType           instance.ContainerType
-	InstanceId              instance.Id
-	HardwareCharacteristics instance.HardwareCharacteristics
-	Nonce                   string
-	Jobs                    []MachineJob
-}
-
-// addMachineContainerOps returns txn operations and associated Mongo records used to create a new machine,
-// accounting for the fact that a machine may require a container and may require instance data.
-// This method exists to cater for:
-// 1. InjectMachine, which is used to record in state an instantiated bootstrap node. When adding
-// a machine to state so that it is provisioned normally, the instance id is not known at this point.
-// 2. AssignToNewMachine, which is used to create a new machine on which to deploy a unit.
-func (st *State) addMachineContainerOps(params *AddMachineParams, cons constraints.Value) ([]txn.Op, *instanceData, *containerRefParams, error) {
-	var instData *instanceData
-	if params.InstanceId != "" {
-		instData = &instanceData{
-			InstanceId: params.InstanceId,
-			Arch:       params.HardwareCharacteristics.Arch,
-			Mem:        params.HardwareCharacteristics.Mem,
-			RootDisk:   params.HardwareCharacteristics.RootDisk,
-			CpuCores:   params.HardwareCharacteristics.CpuCores,
-			CpuPower:   params.HardwareCharacteristics.CpuPower,
-			Tags:       params.HardwareCharacteristics.Tags,
-		}
-	}
-	var ops []txn.Op
-	var containerParams = &containerRefParams{hostId: params.ParentId, hostOnly: true}
-	// If we are creating a container, first create the host (parent) machine if necessary.
-	if params.ContainerType != "" {
-		containerParams.hostOnly = false
-		if params.ParentId == "" {
-			// No parent machine is specified so create one.
-			mdoc := &machineDoc{
-				Series: params.Series,
-				Jobs:   params.Jobs,
-				Clean:  true,
-			}
-			mdoc, parentOps, err := st.addMachineOps(mdoc, instData, cons, &containerRefParams{})
-			if err != nil {
-				return nil, nil, nil, err
-			}
-			ops = parentOps
-			containerParams.hostId = mdoc.Id
-			containerParams.newHost = true
-		} else {
-			// If a parent machine is specified, make sure it exists.
-			_, err := st.Machine(containerParams.hostId)
-			if err != nil {
-				return nil, nil, nil, err
-			}
-		}
-	}
-	return ops, instData, containerParams, nil
-}
-
-// addMachine implements AddMachine and InjectMachine.
-func (st *State) addMachine(params *AddMachineParams) (m *Machine, err error) {
-	msg := "cannot add a new machine"
-	if params.ParentId != "" || params.ContainerType != "" {
-		msg = "cannot add a new container"
-	}
-	defer utils.ErrorContextf(&err, msg)
-
-	cons, err := st.EnvironConstraints()
-	if err != nil {
-		return nil, err
-	}
-	cons = params.Constraints.WithFallbacks(cons)
-
-	ops, instData, containerParams, err := st.addMachineContainerOps(params, cons)
-	if err != nil {
-		return nil, err
-	}
-	mdoc := &machineDoc{
-		Series:        params.Series,
-		ContainerType: string(params.ContainerType),
-		Jobs:          params.Jobs,
-		Clean:         true,
-	}
-	if mdoc.ContainerType == "" {
-		mdoc.InstanceId = params.InstanceId
-		mdoc.Nonce = params.Nonce
-	}
-	mdoc, machineOps, err := st.addMachineOps(mdoc, instData, cons, containerParams)
-	if err != nil {
-		return nil, err
-	}
-	ops = append(ops, machineOps...)
-
-	err = st.runTransaction(ops)
-	if err != nil {
-		return nil, err
-	}
-	// Refresh to pick the txn-revno.
-	m = newMachine(st, mdoc)
-	if err = m.Refresh(); err != nil {
-		return nil, err
-	}
-	return m, nil
 }
 
 var errDead = fmt.Errorf("not found or dead")
@@ -567,7 +410,7 @@ func machineIdLessThan(id1, id2 string) bool {
 // Machine returns the machine with the given id.
 func (st *State) Machine(id string) (*Machine, error) {
 	mdoc := &machineDoc{}
-	sel := D{{"_id", id}}
+	sel := bson.D{{"_id", id}}
 	err := st.machines.Find(sel).One(mdoc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("machine %s", id)
@@ -595,16 +438,29 @@ func (st *State) FindEntity(tag string) (Entity, error) {
 	case names.ServiceTagKind:
 		return st.Service(id)
 	case names.EnvironTagKind:
-		conf, err := st.EnvironConfig()
+		env, err := st.Environment()
 		if err != nil {
 			return nil, err
 		}
 		// Return an invalid entity error if the requested environment is not
 		// the current one.
-		if id != conf.Name() {
-			return nil, errors.NotFoundf("environment %q", id)
+		if id != env.UUID() {
+			if utils.IsValidUUIDString(id) {
+				return nil, errors.NotFoundf("environment %q", id)
+			}
+			// TODO(axw) 2013-12-04 #1257587
+			// We should not accept environment tags that do not match the
+			// environment's UUID. We accept anything for now, to cater
+			// both for past usage, and for potentially supporting aliases.
+			logger.Warningf("environment-tag does not match current environment UUID: %q != %q", id, env.UUID())
+			conf, err := st.EnvironConfig()
+			if err != nil {
+				logger.Warningf("EnvironConfig failed: %v", err)
+			} else if id != conf.Name() {
+				logger.Warningf("environment-tag does not match current environment name: %q != %q", id, conf.Name())
+			}
 		}
-		return st.Environment()
+		return env, nil
 	case names.RelationTagKind:
 		return st.KeyRelation(id)
 	}
@@ -629,34 +485,52 @@ func (st *State) parseTag(tag string) (coll string, id string, err error) {
 		coll = st.users.Name
 	case names.RelationTagKind:
 		coll = st.relations.Name
+	case names.EnvironTagKind:
+		coll = st.environments.Name
 	default:
 		return "", "", fmt.Errorf("%q is not a valid collection tag", tag)
 	}
 	return coll, id, nil
 }
 
-// AddCharm adds the ch charm with curl to the state.  bundleUrl must be
-// set to a URL where the bundle for ch may be downloaded from.
-// On success the newly added charm state is returned.
+// AddCharm adds the ch charm with curl to the state. bundleURL must
+// be set to a URL where the bundle for ch may be downloaded from. On
+// success the newly added charm state is returned.
 func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string) (stch *Charm, err error) {
-	cdoc := &charmDoc{
-		URL:          curl,
-		Meta:         ch.Meta(),
-		Config:       ch.Config(),
-		BundleURL:    bundleURL,
-		BundleSha256: bundleSha256,
+	// The charm may already exist in state as a placeholder, so we
+	// check for that situation and update the existing charm record
+	// if necessary, otherwise add a new record.
+	var existing charmDoc
+	err = st.charms.Find(bson.D{{"_id", curl.String()}, {"placeholder", true}}).One(&existing)
+	if err == mgo.ErrNotFound {
+		cdoc := &charmDoc{
+			URL:          curl,
+			Meta:         ch.Meta(),
+			Config:       ch.Config(),
+			BundleURL:    bundleURL,
+			BundleSha256: bundleSha256,
+		}
+		err = st.charms.Insert(cdoc)
+		if err != nil {
+			return nil, fmt.Errorf("cannot add charm %q: %v", curl, err)
+		}
+		return newCharm(st, cdoc)
+	} else if err != nil {
+		return nil, err
 	}
-	err = st.charms.Insert(cdoc)
-	if err != nil {
-		return nil, fmt.Errorf("cannot add charm %q: %v", curl, err)
-	}
-	return newCharm(st, cdoc)
+	return st.updateCharmDoc(ch, curl, bundleURL, bundleSha256, stillPlaceholder)
 }
 
-// Charm returns the charm with the given URL.
+// Charm returns the charm with the given URL. Charms pending upload
+// to storage and placeholders are never returned.
 func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	cdoc := &charmDoc{}
-	err := st.charms.Find(D{{"_id", curl}}).One(cdoc)
+	what := bson.D{
+		{"_id", curl},
+		{"placeholder", bson.D{{"$ne", true}}},
+		{"pendingupload", bson.D{{"$ne", true}}},
+	}
+	err := st.charms.Find(what).One(&cdoc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("charm %q", curl)
 	}
@@ -667,6 +541,337 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 		return nil, fmt.Errorf("malformed charm metadata found in state: %v", err)
 	}
 	return newCharm(st, cdoc)
+}
+
+// LatestPlaceholderCharm returns the latest charm described by the
+// given URL but which is not yet deployed.
+func (st *State) LatestPlaceholderCharm(curl *charm.URL) (*Charm, error) {
+	noRevURL := curl.WithRevision(-1)
+	curlRegex := "^" + regexp.QuoteMeta(noRevURL.String())
+	var docs []charmDoc
+	err := st.charms.Find(bson.D{{"_id", bson.D{{"$regex", curlRegex}}}, {"placeholder", true}}).All(&docs)
+	if err != nil {
+		return nil, fmt.Errorf("cannot get charm %q: %v", curl, err)
+	}
+	// Find the highest revision.
+	var latest charmDoc
+	for _, doc := range docs {
+		if latest.URL == nil || doc.URL.Revision > latest.URL.Revision {
+			latest = doc
+		}
+	}
+	if latest.URL == nil {
+		return nil, errors.NotFoundf("placeholder charm %q", noRevURL)
+	}
+	return newCharm(st, &latest)
+}
+
+// PrepareLocalCharmUpload must be called before a local charm is
+// uploaded to the provider storage in order to create a charm
+// document in state. It returns the chosen unique charm URL reserved
+// in state for the charm.
+//
+// The url's schema must be "local" and it must include a revision.
+func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL, err error) {
+	// Perform a few sanity checks first.
+	if curl.Schema != "local" {
+		return nil, fmt.Errorf("expected charm URL with local schema, got %q", curl)
+	}
+	if curl.Revision < 0 {
+		return nil, fmt.Errorf("expected charm URL with revision, got %q", curl)
+	}
+	// Get a regex with the charm URL and no revision.
+	noRevURL := curl.WithRevision(-1)
+	curlRegex := "^" + regexp.QuoteMeta(noRevURL.String())
+
+	for attempt := 0; attempt < 3; attempt++ {
+		// Find the highest revision of that charm in state.
+		var docs []charmDoc
+		err = st.charms.Find(bson.D{{"_id", bson.D{{"$regex", curlRegex}}}}).Select(bson.D{{"_id", 1}}).All(&docs)
+		if err != nil {
+			return nil, err
+		}
+		// Find the highest revision.
+		maxRevision := -1
+		for _, doc := range docs {
+			if doc.URL.Revision > maxRevision {
+				maxRevision = doc.URL.Revision
+			}
+		}
+
+		// Respect the local charm's revision first.
+		chosenRevision := curl.Revision
+		if maxRevision >= chosenRevision {
+			// More recent revision exists in state, pick the next.
+			chosenRevision = maxRevision + 1
+		}
+		chosenUrl = curl.WithRevision(chosenRevision)
+
+		uploadedCharm := &charmDoc{
+			URL:           chosenUrl,
+			PendingUpload: true,
+		}
+		ops := []txn.Op{{
+			C:      st.charms.Name,
+			Id:     uploadedCharm.URL,
+			Assert: txn.DocMissing,
+			Insert: uploadedCharm,
+		}}
+		// Run the transaction, and retry on abort.
+		if err = st.runTransaction(ops); err == txn.ErrAborted {
+			continue
+		} else if err != nil {
+			return nil, err
+		}
+		break
+	}
+	if err != nil {
+		return nil, ErrExcessiveContention
+	}
+	return chosenUrl, nil
+}
+
+// PrepareStoreCharmUpload must be called before a charm store charm
+// is uploaded to the provider storage in order to create a charm
+// document in state. If a charm with the same URL is already in
+// state, it will be returned as a *state.Charm (is can be still
+// pending or already uploaded). Otherwise, a new charm document is
+// added in state with just the given charm URL and
+// PendingUpload=true, which is then returned as a *state.Charm.
+//
+// The url's schema must be "cs" and it must include a revision.
+func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
+	// Perform a few sanity checks first.
+	if curl.Schema != "cs" {
+		return nil, fmt.Errorf("expected charm URL with cs schema, got %q", curl)
+	}
+	if curl.Revision < 0 {
+		return nil, fmt.Errorf("expected charm URL with revision, got %q", curl)
+	}
+
+	var (
+		uploadedCharm charmDoc
+		err           error
+	)
+	for attempt := 0; attempt < 3; attempt++ {
+		// Find an uploaded or pending charm with the given exact curl.
+		err = st.charms.FindId(curl).One(&uploadedCharm)
+		if err != nil && err != mgo.ErrNotFound {
+			return nil, err
+		} else if err == nil && !uploadedCharm.Placeholder {
+			// The charm exists and it's either uploaded or still
+			// pending, but it's not a placeholder. In any case, we
+			// just return what we got.
+			return newCharm(st, &uploadedCharm)
+		} else if err == mgo.ErrNotFound {
+			// Prepare the pending charm document for insertion.
+			uploadedCharm = charmDoc{
+				URL:           curl,
+				PendingUpload: true,
+				Placeholder:   false,
+			}
+		}
+
+		var ops []txn.Op
+		if uploadedCharm.Placeholder {
+			// Convert the placeholder to a pending charm, while
+			// asserting the fields updated after an upload have not
+			// changed yet.
+			ops = []txn.Op{{
+				C:  st.charms.Name,
+				Id: curl,
+				Assert: bson.D{
+					{"bundlesha256", ""},
+					{"pendingupload", false},
+					{"placeholder", true},
+				},
+				Update: bson.D{{"$set", bson.D{
+					{"pendingupload", true},
+					{"placeholder", false},
+				}}},
+			}}
+			// Update the fields of the document we're returning.
+			uploadedCharm.PendingUpload = true
+			uploadedCharm.Placeholder = false
+		} else {
+			// No charm document with this curl yet, insert it.
+			ops = []txn.Op{{
+				C:      st.charms.Name,
+				Id:     curl,
+				Assert: txn.DocMissing,
+				Insert: uploadedCharm,
+			}}
+		}
+
+		// Run the transaction, and retry on abort.
+		err = st.runTransaction(ops)
+		if err == txn.ErrAborted {
+			continue
+		} else if err != nil {
+			return nil, err
+		} else if err == nil {
+			return newCharm(st, &uploadedCharm)
+		}
+	}
+	return nil, ErrExcessiveContention
+}
+
+var (
+	stillPending     = bson.D{{"pendingupload", true}}
+	stillPlaceholder = bson.D{{"placeholder", true}}
+)
+
+// AddStoreCharmPlaceholder creates a charm document in state for the given charm URL which
+// must reference a charm from the store. The charm document is marked as a placeholder which
+// means that if the charm is to be deployed, it will need to first be uploaded to env storage.
+func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
+	// Perform sanity checks first.
+	if curl.Schema != "cs" {
+		return fmt.Errorf("expected charm URL with cs schema, got %q", curl)
+	}
+	if curl.Revision < 0 {
+		return fmt.Errorf("expected charm URL with revision, got %q", curl)
+	}
+
+	for attempt := 0; attempt < 3; attempt++ {
+		// See if the charm already exists in state and exit early if that's the case.
+		var doc charmDoc
+		err = st.charms.Find(bson.D{{"_id", curl.String()}}).Select(bson.D{{"_id", 1}}).One(&doc)
+		if err != nil && err != mgo.ErrNotFound {
+			return err
+		}
+		if err == nil {
+			return nil
+		}
+
+		// Delete all previous placeholders so we don't fill up the database with unused data.
+		var ops []txn.Op
+		ops, err = st.deleteOldPlaceholderCharmsOps(curl)
+		if err != nil {
+			return nil
+		}
+		// Add the new charm doc.
+		placeholderCharm := &charmDoc{
+			URL:         curl,
+			Placeholder: true,
+		}
+		ops = append(ops, txn.Op{
+			C:      st.charms.Name,
+			Id:     placeholderCharm.URL.String(),
+			Assert: txn.DocMissing,
+			Insert: placeholderCharm,
+		})
+
+		// Run the transaction, and retry on abort.
+		if err = st.runTransaction(ops); err == txn.ErrAborted {
+			continue
+		} else if err != nil {
+			return err
+		}
+		break
+	}
+	if err != nil {
+		return ErrExcessiveContention
+	}
+	return nil
+}
+
+// deleteOldPlaceholderCharmsOps returns the txn ops required to delete all placeholder charm
+// records older than the specified charm URL.
+func (st *State) deleteOldPlaceholderCharmsOps(curl *charm.URL) ([]txn.Op, error) {
+	// Get a regex with the charm URL and no revision.
+	noRevURL := curl.WithRevision(-1)
+	curlRegex := "^" + regexp.QuoteMeta(noRevURL.String())
+	var docs []charmDoc
+	err := st.charms.Find(
+		bson.D{{"_id", bson.D{{"$regex", curlRegex}}}, {"placeholder", true}}).Select(bson.D{{"_id", 1}}).All(&docs)
+	if err != nil {
+		return nil, err
+	}
+	var ops []txn.Op
+	for _, doc := range docs {
+		if doc.URL.Revision >= curl.Revision {
+			continue
+		}
+		ops = append(ops, txn.Op{
+			C:      st.charms.Name,
+			Id:     doc.URL.String(),
+			Assert: stillPlaceholder,
+			Remove: true,
+		})
+	}
+	return ops, nil
+}
+
+// ErrCharmAlreadyUploaded is returned by UpdateUploadedCharm() when
+// the given charm is already uploaded and marked as not pending in
+// state.
+type ErrCharmAlreadyUploaded struct {
+	curl *charm.URL
+}
+
+func (e *ErrCharmAlreadyUploaded) Error() string {
+	return fmt.Sprintf("charm %q already uploaded", e.curl)
+}
+
+// IsCharmAlreadyUploadedError returns if the given error is
+// ErrCharmAlreadyUploaded.
+func IsCharmAlreadyUploadedError(err interface{}) bool {
+	if err == nil {
+		return false
+	}
+	_, ok := err.(*ErrCharmAlreadyUploaded)
+	return ok
+}
+
+// ErrCharmRevisionAlreadyModified is returned when a pending or
+// placeholder charm is no longer pending or a placeholder, signaling
+// the charm is available in state with its full information.
+var ErrCharmRevisionAlreadyModified = fmt.Errorf("charm revision already modified")
+
+// UpdateUploadedCharm marks the given charm URL as uploaded and
+// updates the rest of its data, returning it as *state.Charm.
+func (st *State) UpdateUploadedCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string) (*Charm, error) {
+	doc := &charmDoc{}
+	err := st.charms.FindId(curl).One(&doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("charm %q", curl)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if !doc.PendingUpload {
+		return nil, &ErrCharmAlreadyUploaded{curl}
+	}
+
+	return st.updateCharmDoc(ch, curl, bundleURL, bundleSha256, stillPending)
+}
+
+// updateCharmDoc updates the charm with specified URL with the given
+// data, and resets the placeholder and pendingupdate flags.  If the
+// charm is no longer a placeholder or pending (depending on preReq),
+// it returns ErrCharmRevisionAlreadyModified.
+func (st *State) updateCharmDoc(
+	ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string, preReq interface{}) (*Charm, error) {
+
+	updateFields := bson.D{{"$set", bson.D{
+		{"meta", ch.Meta()},
+		{"config", ch.Config()},
+		{"bundleurl", bundleURL},
+		{"bundlesha256", bundleSha256},
+		{"pendingupload", false},
+		{"placeholder", false},
+	}}}
+	ops := []txn.Op{{
+		C:      st.charms.Name,
+		Id:     curl,
+		Assert: preReq,
+		Update: updateFields,
+	}}
+	if err := st.runTransaction(ops); err != nil {
+		return nil, onAbort(err, ErrCharmRevisionAlreadyModified)
+	}
+	return st.Charm(curl)
 }
 
 // addPeerRelationsOps returns the operations necessary to add the
@@ -702,8 +907,12 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 // AddService creates a new service, running the supplied charm, with the
 // supplied name (which must be unique). If the charm defines peer relations,
 // they will be created automatically.
-func (st *State) AddService(name string, ch *Charm) (service *Service, err error) {
+func (st *State) AddService(name, ownerTag string, ch *Charm, includeNetworks, excludeNetworks []string) (service *Service, err error) {
 	defer utils.ErrorContextf(&err, "cannot add service %q", name)
+	kind, ownerId, err := names.ParseTag(ownerTag, names.UserTagKind)
+	if err != nil || kind != names.UserTagKind {
+		return nil, fmt.Errorf("Invalid ownertag %s", ownerTag)
+	}
 	// Sanity checks.
 	if !names.IsService(name) {
 		return nil, fmt.Errorf("invalid name")
@@ -716,6 +925,17 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	} else if exists {
 		return nil, fmt.Errorf("service already exists")
 	}
+	env, err := st.Environment()
+	if err != nil {
+		return nil, err
+	} else if env.Life() != Alive {
+		return nil, fmt.Errorf("environment is no longer alive")
+	}
+	if userExists, err := st.checkUserExists(ownerId); err != nil {
+		return nil, err
+	} else if !userExists {
+		return nil, fmt.Errorf("user %v doesn't exist", ownerId)
+	}
 	// Create the service addition operations.
 	peers := ch.Meta().Peers
 	svcDoc := &serviceDoc{
@@ -725,17 +945,26 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 		CharmURL:      ch.URL(),
 		RelationCount: len(peers),
 		Life:          Alive,
+		OwnerTag:      ownerTag,
 	}
 	svc := newService(st, svcDoc)
 	ops := []txn.Op{
+		env.assertAliveOp(),
 		createConstraintsOp(st, svc.globalKey(), constraints.Value{}),
+		createNetworksOp(st, svc.globalKey(), includeNetworks, excludeNetworks),
 		createSettingsOp(st, svc.settingsKey(), nil),
+		{
+			C:      st.users.Name,
+			Id:     ownerId,
+			Assert: txn.DocExists,
+		},
 		{
 			C:      st.settingsrefs.Name,
 			Id:     svc.settingsKey(),
 			Assert: txn.DocMissing,
 			Insert: settingsRefsDoc{1},
-		}, {
+		},
+		{
 			C:      st.services.Name,
 			Id:     name,
 			Assert: txn.DocMissing,
@@ -748,10 +977,20 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	}
 	ops = append(ops, peerOps...)
 
-	// Run the transaction; happily, there's never any reason to retry,
-	// because all the possible failed assertions imply that the service
-	// already exists.
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
+		err := env.Refresh()
+		if (err == nil && env.Life() != Alive) || errors.IsNotFoundError(err) {
+			return nil, fmt.Errorf("environment is no longer alive")
+		} else if err != nil {
+			return nil, err
+		}
+
+		if userExists, ueErr := st.checkUserExists(ownerId); ueErr != nil {
+			return nil, ueErr
+		} else if !userExists {
+			return nil, fmt.Errorf("unknown user %q", ownerId)
+		}
+
 		return nil, fmt.Errorf("service already exists")
 	} else if err != nil {
 		return nil, err
@@ -769,7 +1008,7 @@ func (st *State) Service(name string) (service *Service, err error) {
 		return nil, fmt.Errorf("%q is not a valid service name", name)
 	}
 	sdoc := &serviceDoc{}
-	sel := D{{"_id", name}}
+	sel := bson.D{{"_id", name}}
 	err = st.services.Find(sel).One(sdoc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("service %q", name)
@@ -783,7 +1022,7 @@ func (st *State) Service(name string) (service *Service, err error) {
 // AllServices returns all deployed services in the environment.
 func (st *State) AllServices() (services []*Service, err error) {
 	sdocs := []serviceDoc{}
-	err = st.services.Find(D{}).All(&sdocs)
+	err = st.services.Find(bson.D{}).All(&sdocs)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get all services")
 	}
@@ -965,8 +1204,8 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 			ops = append(ops, txn.Op{
 				C:      st.services.Name,
 				Id:     ep.ServiceName,
-				Assert: D{{"life", Alive}, {"charmurl", ch.URL()}},
-				Update: D{{"$inc", D{{"relationcount", 1}}}},
+				Assert: bson.D{{"life", Alive}, {"charmurl", ch.URL()}},
+				Update: bson.D{{"$inc", bson.D{{"relationcount", 1}}}},
 			})
 		}
 		if matchSeries && len(series) != 1 {
@@ -1012,7 +1251,7 @@ func (st *State) EndpointsRelation(endpoints ...Endpoint) (*Relation, error) {
 // be derived unambiguously from the relation's endpoints).
 func (st *State) KeyRelation(key string) (*Relation, error) {
 	doc := relationDoc{}
-	err := st.relations.Find(D{{"_id", key}}).One(&doc)
+	err := st.relations.Find(bson.D{{"_id", key}}).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("relation %q", key)
 	}
@@ -1025,7 +1264,7 @@ func (st *State) KeyRelation(key string) (*Relation, error) {
 // Relation returns the existing relation with the given id.
 func (st *State) Relation(id int) (*Relation, error) {
 	doc := relationDoc{}
-	err := st.relations.Find(D{{"id", id}}).One(&doc)
+	err := st.relations.Find(bson.D{{"id", id}}).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("relation %d", id)
 	}
@@ -1049,63 +1288,6 @@ func (st *State) Unit(name string) (*Unit, error) {
 		return nil, fmt.Errorf("cannot get unit %q: %v", name, err)
 	}
 	return newUnit(st, &doc), nil
-}
-
-// DestroyUnits destroys the units with the specified names.
-func (st *State) DestroyUnits(names ...string) (err error) {
-	// TODO(rog) make this a transaction?
-	var errs []string
-	for _, name := range names {
-		unit, err := st.Unit(name)
-		switch {
-		case errors.IsNotFoundError(err):
-			err = fmt.Errorf("unit %q does not exist", name)
-		case err != nil:
-		case unit.Life() != Alive:
-			continue
-		case unit.IsPrincipal():
-			err = unit.Destroy()
-		default:
-			err = fmt.Errorf("unit %q is a subordinate", name)
-		}
-		if err != nil {
-			errs = append(errs, err.Error())
-		}
-	}
-	return destroyErr("units", names, errs)
-}
-
-// DestroyMachines destroys the machines with the specified ids.
-func (st *State) DestroyMachines(ids ...string) (err error) {
-	var errs []string
-	for _, id := range ids {
-		machine, err := st.Machine(id)
-		switch {
-		case errors.IsNotFoundError(err):
-			err = fmt.Errorf("machine %s does not exist", id)
-		case err != nil:
-		case machine.Life() != Alive:
-			continue
-		default:
-			err = machine.Destroy()
-		}
-		if err != nil {
-			errs = append(errs, err.Error())
-		}
-	}
-	return destroyErr("machines", ids, errs)
-}
-
-func destroyErr(desc string, ids, errs []string) error {
-	if len(errs) == 0 {
-		return nil
-	}
-	msg := "some %s were not destroyed"
-	if len(errs) == len(ids) {
-		msg = "no %s were destroyed"
-	}
-	msg = fmt.Sprintf(msg, desc)
-	return fmt.Errorf("%s: %s", msg, strings.Join(errs, "; "))
 }
 
 // AssignUnit places the unit on a machine. Depending on the policy, and the
@@ -1152,19 +1334,19 @@ func (st *State) StartSync() {
 // all subsequent attempts to access the state must
 // be authorized; otherwise no authorization is required.
 func (st *State) SetAdminMongoPassword(password string) error {
-	admin := st.db.Session.DB("admin")
+	admin := st.db.Session.DB(AdminUser)
 	if password != "" {
 		// On 2.2+, we get a "need to login" error without a code when
 		// adding the first user because we go from no-auth+no-login to
 		// auth+no-login. Not great. Hopefully being fixed in 2.4.
-		if err := admin.AddUser("admin", password, false); err != nil && err.Error() != "need to login" {
+		if err := admin.AddUser(AdminUser, password, false); err != nil && err.Error() != "need to login" {
 			return fmt.Errorf("cannot set admin password: %v", err)
 		}
-		if err := admin.Login("admin", password); err != nil {
+		if err := admin.Login(AdminUser, password); err != nil {
 			return fmt.Errorf("cannot login after setting password: %v", err)
 		}
 	} else {
-		if err := admin.RemoveUser("admin"); err != nil && err != mgo.ErrNotFound {
+		if err := admin.RemoveUser(AdminUser); err != nil && err != mgo.ErrNotFound {
 			return fmt.Errorf("cannot disable admin password: %v", err)
 		}
 	}
@@ -1181,104 +1363,38 @@ func (st *State) setMongoPassword(name, password string) error {
 	return nil
 }
 
-// cleanupDoc represents a potentially large set of documents that should be
-// removed.
-type cleanupDoc struct {
-	Id     bson.ObjectId `bson:"_id"`
-	Kind   string
-	Prefix string
+type stateServersDoc struct {
+	Id               string `bson:"_id"`
+	MachineIds       []string
+	VotingMachineIds []string
 }
 
-// newCleanupOp returns a txn.Op that creates a cleanup document with a unique
-// id and the supplied kind and prefix.
-func (st *State) newCleanupOp(kind, prefix string) txn.Op {
-	doc := &cleanupDoc{
-		Id:     bson.NewObjectId(),
-		Kind:   kind,
-		Prefix: prefix,
-	}
-	return txn.Op{
-		C:      st.cleanups.Name,
-		Id:     doc.Id,
-		Insert: doc,
-	}
+// StateServerInfo holds information about currently
+// configured state server machines.
+type StateServerInfo struct {
+	// MachineIds holds the ids of all machines configured
+	// to run a state server. It includes all the machine
+	// ids in VotingMachineIds.
+	MachineIds []string
+
+	// VotingMachineIds holds the ids of all machines
+	// configured to run a state server and to have a vote
+	// in peer election.
+	VotingMachineIds []string
 }
 
-// NeedsCleanup returns true if documents previously marked for removal exist.
-func (st *State) NeedsCleanup() (bool, error) {
-	count, err := st.cleanups.Count()
+// StateServerInfo returns returns information about
+// the currently configured state server machines.
+func (st *State) StateServerInfo() (*StateServerInfo, error) {
+	var doc stateServersDoc
+	err := st.stateServers.Find(bson.D{{"_id", environGlobalKey}}).One(&doc)
 	if err != nil {
-		return false, err
+		return nil, fmt.Errorf("cannot get state servers document: %v", err)
 	}
-	return count > 0, nil
-}
-
-// Cleanup removes all documents that were previously marked for removal, if
-// any such exist. It should be called periodically by at least one element
-// of the system.
-func (st *State) Cleanup() error {
-	doc := cleanupDoc{}
-	iter := st.cleanups.Find(nil).Iter()
-	for iter.Next(&doc) {
-		var err error
-		switch doc.Kind {
-		case "settings":
-			err = st.cleanupSettings(doc.Prefix)
-		case "units":
-			err = st.cleanupUnits(doc.Prefix)
-		default:
-			err = fmt.Errorf("unknown cleanup kind %q", doc.Kind)
-		}
-		if err != nil {
-			logger.Warningf("cleanup failed: %v", err)
-			continue
-		}
-		ops := []txn.Op{{
-			C:      st.cleanups.Name,
-			Id:     doc.Id,
-			Remove: true,
-		}}
-		if err := st.runTransaction(ops); err != nil {
-			return fmt.Errorf("cannot remove empty cleanup document: %v", err)
-		}
-	}
-	if err := iter.Err(); err != nil {
-		return fmt.Errorf("cannot read cleanup document: %v", err)
-	}
-	return nil
-}
-
-func (st *State) cleanupSettings(prefix string) error {
-	// Documents marked for cleanup are not otherwise referenced in the
-	// system, and will not be under watch, and are therefore safe to
-	// delete directly.
-	sel := D{{"_id", D{{"$regex", "^" + prefix}}}}
-	if count, err := st.settings.Find(sel).Count(); err != nil {
-		return fmt.Errorf("cannot detect cleanup targets: %v", err)
-	} else if count != 0 {
-		if _, err := st.settings.RemoveAll(sel); err != nil {
-			return fmt.Errorf("cannot remove documents marked for cleanup: %v", err)
-		}
-	}
-	return nil
-}
-
-func (st *State) cleanupUnits(prefix string) error {
-	// This won't miss units, because a Dying service cannot have units added
-	// to it. But we do have to remove the units themselves via individual
-	// transactions, because they could be in any state at all.
-	unit := &Unit{st: st}
-	sel := D{{"_id", D{{"$regex", "^" + prefix}}}, {"life", Alive}}
-	iter := st.units.Find(sel).Iter()
-	for iter.Next(&unit.doc) {
-		if err := unit.Destroy(); err != nil {
-			return err
-		}
-	}
-	if err := iter.Err(); err != nil {
-		return fmt.Errorf("cannot read unit document: %v", err)
-	}
-	return nil
+	return &StateServerInfo{
+		MachineIds:       doc.MachineIds,
+		VotingMachineIds: doc.VotingMachineIds,
+	}, nil
 }
 
 // ResumeTransactions resumes all pending transactions.

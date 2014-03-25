@@ -6,17 +6,19 @@ package machiner_test
 import (
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/machiner"
 	"launchpad.net/juju-core/state/api/params"
+	apitesting "launchpad.net/juju-core/state/api/testing"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -25,6 +27,8 @@ func TestAll(t *stdtesting.T) {
 
 type machinerSuite struct {
 	testing.JujuConnSuite
+	*apitesting.APIAddresserTests
+
 	st      *api.State
 	machine *state.Machine
 
@@ -35,10 +39,16 @@ var _ = gc.Suite(&machinerSuite{})
 
 func (s *machinerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
+	m, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
+	err = m.SetAddresses(instance.NewAddresses([]string{"127.0.0.1"}))
+	c.Assert(err, gc.IsNil)
+
 	s.st, s.machine = s.OpenAPIAsNewMachine(c)
 	// Create the machiner API facade.
 	s.machiner = s.st.Machiner()
 	c.Assert(s.machiner, gc.NotNil)
+	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.machiner, s.BackingState)
 }
 
 func (s *machinerSuite) TestMachineAndMachineTag(c *gc.C) {
@@ -47,13 +57,13 @@ func (s *machinerSuite) TestMachineAndMachineTag(c *gc.C) {
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(machine, gc.IsNil)
 
-	machine, err = s.machiner.Machine("machine-0")
+	machine, err = s.machiner.Machine("machine-1")
 	c.Assert(err, gc.IsNil)
-	c.Assert(machine.Tag(), gc.Equals, "machine-0")
+	c.Assert(machine.Tag(), gc.Equals, "machine-1")
 }
 
 func (s *machinerSuite) TestSetStatus(c *gc.C) {
-	machine, err := s.machiner.Machine("machine-0")
+	machine, err := s.machiner.Machine("machine-1")
 	c.Assert(err, gc.IsNil)
 
 	status, info, data, err := s.machine.Status()
@@ -75,7 +85,7 @@ func (s *machinerSuite) TestSetStatus(c *gc.C) {
 func (s *machinerSuite) TestEnsureDead(c *gc.C) {
 	c.Assert(s.machine.Life(), gc.Equals, state.Alive)
 
-	machine, err := s.machiner.Machine("machine-0")
+	machine, err := s.machiner.Machine("machine-1")
 	c.Assert(err, gc.IsNil)
 
 	err = machine.EnsureDead()
@@ -97,12 +107,12 @@ func (s *machinerSuite) TestEnsureDead(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 
 	err = machine.EnsureDead()
-	c.Assert(err, gc.ErrorMatches, "machine 0 not found")
+	c.Assert(err, gc.ErrorMatches, "machine 1 not found")
 	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 }
 
 func (s *machinerSuite) TestRefresh(c *gc.C) {
-	machine, err := s.machiner.Machine("machine-0")
+	machine, err := s.machiner.Machine("machine-1")
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.Life(), gc.Equals, params.Alive)
 
@@ -115,8 +125,27 @@ func (s *machinerSuite) TestRefresh(c *gc.C) {
 	c.Assert(machine.Life(), gc.Equals, params.Dead)
 }
 
+func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
+	machine, err := s.machiner.Machine("machine-1")
+	c.Assert(err, gc.IsNil)
+
+	addr := s.machine.Addresses()
+	c.Assert(addr, gc.HasLen, 0)
+
+	addresses := []instance.Address{
+		instance.NewAddress("127.0.0.1"),
+		instance.NewAddress("8.8.8.8"),
+	}
+	err = machine.SetMachineAddresses(addresses)
+	c.Assert(err, gc.IsNil)
+
+	err = s.machine.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.machine.MachineAddresses(), gc.DeepEquals, addresses)
+}
+
 func (s *machinerSuite) TestWatch(c *gc.C) {
-	machine, err := s.machiner.Machine("machine-0")
+	machine, err := s.machiner.Machine("machine-1")
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.Life(), gc.Equals, params.Alive)
 

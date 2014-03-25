@@ -1,9 +1,6 @@
 package testing
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -13,6 +10,7 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/utils"
 )
 
 // RepoSuite acts as a JujuConnSuite but also sets up
@@ -27,17 +25,20 @@ func (s *RepoSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	// Change the environ's config to ensure we're using the one in state,
 	// not the one in the local environments.yaml
-	cfg, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	cfg, err = cfg.Apply(map[string]interface{}{"default-series": "precise"})
-	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(cfg)
+	updateAttrs := map[string]interface{}{"default-series": "precise"}
+	err := s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 	s.RepoPath = os.Getenv("JUJU_REPOSITORY")
 	repoPath := c.MkDir()
 	os.Setenv("JUJU_REPOSITORY", repoPath)
 	s.SeriesPath = filepath.Join(repoPath, "precise")
 	err = os.Mkdir(s.SeriesPath, 0777)
+	c.Assert(err, gc.IsNil)
+	// Create a symlink "quantal" -> "precise", because most charms
+	// and machines are written with hard-coded "quantal" series,
+	// hence they interact badly with a local repository that assumes
+	// only "precise" charms are available.
+	err = os.Symlink(s.SeriesPath, filepath.Join(repoPath, "quantal"))
 	c.Assert(err, gc.IsNil)
 }
 
@@ -71,11 +72,8 @@ func (s *RepoSuite) AssertCharmUploaded(c *gc.C, curl *charm.URL) {
 	resp, err := http.Get(url.String())
 	c.Assert(err, gc.IsNil)
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	digest, _, err := utils.ReadSHA256(resp.Body)
 	c.Assert(err, gc.IsNil)
-	h := sha256.New()
-	h.Write(body)
-	digest := hex.EncodeToString(h.Sum(nil))
 	c.Assert(ch.BundleSha256(), gc.Equals, digest)
 }
 

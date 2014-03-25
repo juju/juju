@@ -6,11 +6,15 @@ package utils
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"strings"
+	"unicode"
 
 	"launchpad.net/goyaml"
 )
@@ -61,6 +65,38 @@ func ShQuote(s string) string {
 	return `'` + strings.Replace(s, `'`, `'"'"'`, -1) + `'`
 }
 
+// CommandString flattens a sequence of command arguments into a
+// string suitable for executing in a shell, escaping slashes,
+// variables and quotes as necessary; each argument is double-quoted
+// if and only if necessary.
+func CommandString(args ...string) string {
+	var buf bytes.Buffer
+	for i, arg := range args {
+		needsQuotes := false
+		var argBuf bytes.Buffer
+		for _, r := range arg {
+			if unicode.IsSpace(r) {
+				needsQuotes = true
+			} else if r == '"' || r == '$' || r == '\\' {
+				needsQuotes = true
+				argBuf.WriteByte('\\')
+			}
+			argBuf.WriteRune(r)
+		}
+		if i > 0 {
+			buf.WriteByte(' ')
+		}
+		if needsQuotes {
+			buf.WriteByte('"')
+			argBuf.WriteTo(&buf)
+			buf.WriteByte('"')
+		} else {
+			argBuf.WriteTo(&buf)
+		}
+	}
+	return buf.String()
+}
+
 // Gzip compresses the given data.
 func Gzip(data []byte) []byte {
 	var buf bytes.Buffer
@@ -84,4 +120,27 @@ func Gunzip(data []byte) ([]byte, error) {
 		return nil, err
 	}
 	return ioutil.ReadAll(r)
+}
+
+// ReadSHA256 returns the SHA256 hash of the contents read from source
+// (hex encoded) and the size of the source in bytes.
+func ReadSHA256(source io.Reader) (string, int64, error) {
+	hash := sha256.New()
+	size, err := io.Copy(hash, source)
+	if err != nil {
+		return "", 0, err
+	}
+	digest := hex.EncodeToString(hash.Sum(nil))
+	return digest, size, nil
+}
+
+// ReadFileSHA256 is like ReadSHA256 but reads the contents of the
+// given file.
+func ReadFileSHA256(filename string) (string, int64, error) {
+	f, err := os.Open(filename)
+	if err != nil {
+		return "", 0, err
+	}
+	defer f.Close()
+	return ReadSHA256(f)
 }

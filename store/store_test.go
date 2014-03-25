@@ -149,6 +149,57 @@ func (s *StoreSuite) TestCharmPublisher(c *gc.C) {
 	}
 }
 
+func (s *StoreSuite) TestDeleteCharm(c *gc.C) {
+	url := charm.MustParseURL("cs:oneiric/wordpress")
+	for i := 0; i < 4; i++ {
+		pub, err := s.store.CharmPublisher([]*charm.URL{url},
+			fmt.Sprintf("some-digest-%d", i))
+		c.Assert(err, gc.IsNil)
+		c.Assert(pub.Revision(), gc.Equals, i)
+
+		err = pub.Publish(testing.Charms.ClonedDir(c.MkDir(), "dummy"))
+		c.Assert(err, gc.IsNil)
+	}
+
+	// Verify charms were published
+	info, rc, err := s.store.OpenCharm(url)
+	c.Assert(err, gc.IsNil)
+	err = rc.Close()
+	c.Assert(err, gc.IsNil)
+	c.Assert(info.Revision(), gc.Equals, 3)
+
+	// Delete an arbitrary middle revision
+	url1 := url.WithRevision(1)
+	infos, err := s.store.DeleteCharm(url1)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(infos), gc.Equals, 1)
+
+	// Verify still published
+	info, rc, err = s.store.OpenCharm(url)
+	c.Assert(err, gc.IsNil)
+	err = rc.Close()
+	c.Assert(err, gc.IsNil)
+	c.Assert(info.Revision(), gc.Equals, 3)
+
+	// Delete all revisions
+	expectedRevs := map[int]bool{0: true, 2: true, 3: true}
+	infos, err = s.store.DeleteCharm(url)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(infos), gc.Equals, 3)
+	for _, deleted := range infos {
+		// We deleted the charm we expected to
+		c.Assert(info.Meta().Name, gc.Equals, deleted.Meta().Name)
+		_, has := expectedRevs[deleted.Revision()]
+		c.Assert(has, gc.Equals, true)
+		delete(expectedRevs, deleted.Revision())
+	}
+	c.Assert(len(expectedRevs), gc.Equals, 0)
+
+	// The charm is all gone
+	_, _, err = s.store.OpenCharm(url)
+	c.Assert(err, gc.Not(gc.IsNil))
+}
+
 func (s *StoreSuite) TestCharmPublishError(c *gc.C) {
 	url := charm.MustParseURL("cs:oneiric/wordpress")
 	urls := []*charm.URL{url}
@@ -282,6 +333,54 @@ func (s *StoreSuite) TestLockUpdatesExpires(c *gc.C) {
 	lock3, err := s.store.LockUpdates(urls)
 	c.Check(err, gc.Equals, store.ErrUpdateConflict)
 	c.Check(lock3, gc.IsNil)
+}
+
+var seriesSolverCharms = []struct {
+	series, name string
+}{
+	{"oneiric", "wordpress"},
+	{"precise", "wordpress"},
+	{"quantal", "wordpress"},
+	{"trusty", "wordpress"},
+	{"volumetric", "wordpress"},
+
+	{"def", "zebra"},
+	{"zef", "zebra"},
+}
+
+func (s *StoreSuite) TestSeriesSolver(c *gc.C) {
+	for _, t := range seriesSolverCharms {
+		url := charm.MustParseURL(fmt.Sprintf("cs:%s/%s", t.series, t.name))
+		urls := []*charm.URL{url}
+
+		pub, err := s.store.CharmPublisher(urls, fmt.Sprintf("some-%s-%s-digest", t.series, t.name))
+		c.Assert(err, gc.IsNil)
+		c.Assert(pub.Revision(), gc.Equals, 0)
+
+		err = pub.Publish(&FakeCharmDir{})
+		c.Assert(err, gc.IsNil)
+	}
+
+	// LTS, then non-LTS, reverse alphabetical order
+	ref, _, err := charm.ParseReference("cs:wordpress")
+	c.Assert(err, gc.IsNil)
+	series, err := s.store.Series(ref)
+	c.Assert(err, gc.IsNil)
+	c.Assert(series, gc.HasLen, 5)
+	c.Check(series[0], gc.Equals, "trusty")
+	c.Check(series[1], gc.Equals, "precise")
+	c.Check(series[2], gc.Equals, "volumetric")
+	c.Check(series[3], gc.Equals, "quantal")
+	c.Check(series[4], gc.Equals, "oneiric")
+
+	// No LTS, reverse alphabetical order
+	ref, _, err = charm.ParseReference("cs:zebra")
+	c.Assert(err, gc.IsNil)
+	series, err = s.store.Series(ref)
+	c.Assert(err, gc.IsNil)
+	c.Assert(series, gc.HasLen, 2)
+	c.Check(series[0], gc.Equals, "zef")
+	c.Check(series[1], gc.Equals, "def")
 }
 
 func (s *StoreSuite) TestConflictingUpdate(c *gc.C) {

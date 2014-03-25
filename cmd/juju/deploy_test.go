@@ -4,6 +4,9 @@
 package main
 
 import (
+	"strings"
+
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
@@ -13,7 +16,6 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type DeploySuite struct {
@@ -65,7 +67,7 @@ func (s *DeploySuite) TestInitErrors(c *gc.C) {
 
 func (s *DeploySuite) TestNoCharm(c *gc.C) {
 	err := runDeploy(c, "local:unknown-123")
-	c.Assert(err, gc.ErrorMatches, `cannot get charm: charm not found in ".*": local:precise/unknown-123`)
+	c.Assert(err, gc.ErrorMatches, `charm not found in ".*": local:precise/unknown-123`)
 }
 
 func (s *DeploySuite) TestCharmDir(c *gc.C) {
@@ -76,16 +78,32 @@ func (s *DeploySuite) TestCharmDir(c *gc.C) {
 	s.AssertService(c, "dummy", curl, 1, 0)
 }
 
-func (s *DeploySuite) TestUpgradeCharmDir(c *gc.C) {
-	dirPath := coretesting.Charms.ClonedDirPath(s.SeriesPath, "dummy")
-	err := runDeploy(c, "local:dummy", "-u")
+func (s *DeploySuite) TestUpgradeReportsDeprecated(c *gc.C) {
+	coretesting.Charms.ClonedDirPath(s.SeriesPath, "dummy")
+	ctx, err := coretesting.RunCommand(c, &DeployCommand{}, []string{"local:dummy", "-u"})
 	c.Assert(err, gc.IsNil)
-	curl := charm.MustParseURL("local:precise/dummy-2")
+
+	c.Assert(coretesting.Stderr(ctx), gc.Equals, "")
+	output := strings.Split(coretesting.Stdout(ctx), "\n")
+	c.Check(output[0], gc.Matches, `Added charm ".*" to the environment.`)
+	c.Check(output[1], gc.Equals, "--upgrade (or -u) is deprecated and ignored; charms are always deployed with a unique revision.")
+}
+
+func (s *DeploySuite) TestUpgradeCharmDir(c *gc.C) {
+	// Add the charm, so the url will exist and a new revision will be
+	// picked in ServiceDeploy.
+	dummyCharm := s.AddTestingCharm(c, "dummy")
+
+	dirPath := coretesting.Charms.ClonedDirPath(s.SeriesPath, "dummy")
+	err := runDeploy(c, "local:quantal/dummy")
+	c.Assert(err, gc.IsNil)
+	upgradedRev := dummyCharm.Revision() + 1
+	curl := dummyCharm.URL().WithRevision(upgradedRev)
 	s.AssertService(c, "dummy", curl, 1, 0)
-	// Check the charm really was upgraded.
+	// Check the charm dir was left untouched.
 	ch, err := charm.ReadDir(dirPath)
 	c.Assert(err, gc.IsNil)
-	c.Assert(ch.Revision(), gc.Equals, 2)
+	c.Assert(ch.Revision(), gc.Equals, 1)
 }
 
 func (s *DeploySuite) TestCharmBundle(c *gc.C) {
@@ -94,18 +112,6 @@ func (s *DeploySuite) TestCharmBundle(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
 	s.AssertService(c, "some-service-name", curl, 1, 0)
-}
-
-func (s *DeploySuite) TestCannotUpgradeCharmBundle(c *gc.C) {
-	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
-	err := runDeploy(c, "local:dummy", "-u")
-	c.Assert(err, gc.ErrorMatches, `cannot increment revision of charm "local:precise/dummy-1": not a directory`)
-	// Verify state not touched...
-	curl := charm.MustParseURL("local:precise/dummy-1")
-	_, err = s.State.Charm(curl)
-	c.Assert(err, gc.ErrorMatches, `charm "local:precise/dummy-1" not found`)
-	_, err = s.State.Service("dummy")
-	c.Assert(err, gc.ErrorMatches, `service "dummy" not found`)
 }
 
 func (s *DeploySuite) TestSubordinateCharm(c *gc.C) {
@@ -195,12 +201,11 @@ func (s *DeploySuite) TestForceMachine(c *gc.C) {
 
 func (s *DeploySuite) TestForceMachineExistingContainer(c *gc.C) {
 	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
-	params := &state.AddMachineParams{
-		Series:        "precise",
-		ContainerType: instance.LXC,
-		Jobs:          []state.MachineJob{state.JobHostUnits},
+	template := state.MachineTemplate{
+		Series: "precise",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := s.State.AddMachineWithConstraints(params)
+	container, err := s.State.AddMachineInsideNewMachine(template, template, instance.LXC)
 	c.Assert(err, gc.IsNil)
 	err = runDeploy(c, "--to", container.Id(), "local:dummy", "portlandia")
 	c.Assert(err, gc.IsNil)

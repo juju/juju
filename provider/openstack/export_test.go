@@ -153,6 +153,25 @@ var imagesData = `
        }
      }
    },
+   "com.ubuntu.cloud:server:12.04:ppc64": {
+     "release": "precise",
+     "version": "12.04",
+     "arch": "ppc64",
+     "versions": {
+       "20121111": {
+         "items": {
+           "inst33": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "some-region",
+             "id": "33"
+           }
+         },
+         "pubname": "ubuntu-precise-12.04-ppc64-server-20121111",
+         "label": "release"
+       }
+     }
+   },
    "com.ubuntu.cloud:server:12.10:amd64": {
      "release": "quantal",
      "version": "12.10",
@@ -306,4 +325,13 @@ func CreateCustomStorage(e environs.Environ, containerName string) storage.Stora
 		containerName: containerName,
 		swift:         swiftClient,
 	}
+}
+
+func GetNovaClient(e environs.Environ) *nova.Client {
+	return e.(*environ).nova()
+}
+
+// ResolveNetwork exposes environ helper function resolveNetwork for testing
+func ResolveNetwork(e environs.Environ, networkName string) (string, error) {
+	return e.(*environ).resolveNetwork(networkName)
 }

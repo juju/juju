@@ -4,6 +4,7 @@
 package provisioner
 
 import (
+	"errors"
 	"fmt"
 
 	"launchpad.net/juju-core/constraints"
@@ -62,7 +63,7 @@ func (m *Machine) SetStatus(status params.Status, info string) error {
 			{Tag: m.tag, Status: status, Info: info},
 		},
 	}
-	err := m.st.caller.Call("Provisioner", "", "SetStatus", args, &result)
+	err := m.st.call("SetStatus", args, &result)
 	if err != nil {
 		return err
 	}
@@ -75,7 +76,7 @@ func (m *Machine) Status() (params.Status, string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.caller.Call("Provisioner", "", "Status", args, &results)
+	err := m.st.call("Status", args, &results)
 	if err != nil {
 		return "", "", err
 	}
@@ -97,7 +98,7 @@ func (m *Machine) Constraints() (constraints.Value, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.caller.Call("Provisioner", "", "Constraints", args, &results)
+	err := m.st.call("Constraints", args, &results)
 	if err != nil {
 		return nothing, err
 	}
@@ -118,7 +119,7 @@ func (m *Machine) EnsureDead() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.caller.Call("Provisioner", "", "EnsureDead", args, &result)
+	err := m.st.call("EnsureDead", args, &result)
 	if err != nil {
 		return err
 	}
@@ -132,7 +133,7 @@ func (m *Machine) Remove() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.caller.Call("Provisioner", "", "Remove", args, &result)
+	err := m.st.call("Remove", args, &result)
 	if err != nil {
 		return err
 	}
@@ -148,7 +149,7 @@ func (m *Machine) Series() (string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.caller.Call("Provisioner", "", "Series", args, &results)
+	err := m.st.call("Series", args, &results)
 	if err != nil {
 		return "", err
 	}
@@ -174,7 +175,7 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 			Characteristics: characteristics,
 		}},
 	}
-	err := m.st.caller.Call("Provisioner", "", "SetProvisioned", args, &result)
+	err := m.st.call("SetProvisioned", args, &result)
 	if err != nil {
 		return err
 	}
@@ -188,7 +189,7 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.caller.Call("Provisioner", "", "InstanceId", args, &results)
+	err := m.st.call("InstanceId", args, &results)
 	if err != nil {
 		return "", err
 	}
@@ -205,12 +206,12 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 // SetPassword sets the machine's password.
 func (m *Machine) SetPassword(password string) error {
 	var result params.ErrorResults
-	args := params.PasswordChanges{
-		Changes: []params.PasswordChange{
+	args := params.EntityPasswords{
+		Changes: []params.EntityPassword{
 			{Tag: m.tag, Password: password},
 		},
 	}
-	err := m.st.caller.Call("Provisioner", "", "SetPasswords", args, &result)
+	err := m.st.call("SetPasswords", args, &result)
 	if err != nil {
 		return err
 	}
@@ -218,15 +219,28 @@ func (m *Machine) SetPassword(password string) error {
 }
 
 // WatchContainers returns a StringsWatcher that notifies of changes
-// to the lifecycles of containers on the machine.
+// to the lifecycles of containers of the specified type on the machine.
 func (m *Machine) WatchContainers(ctype instance.ContainerType) (watcher.StringsWatcher, error) {
+	if string(ctype) == "" {
+		return nil, errors.New("container type must be specified")
+	}
+	supported := false
+	for _, c := range instance.ContainerTypes {
+		if ctype == c {
+			supported = true
+			break
+		}
+	}
+	if !supported {
+		return nil, fmt.Errorf("unsupported container type %q", ctype)
+	}
 	var results params.StringsWatchResults
 	args := params.WatchContainers{
 		Params: []params.WatchContainer{
 			{MachineTag: m.tag, ContainerType: string(ctype)},
 		},
 	}
-	err := m.st.caller.Call("Provisioner", "", "WatchContainers", args, &results)
+	err := m.st.call("WatchContainers", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -239,4 +253,55 @@ func (m *Machine) WatchContainers(ctype instance.ContainerType) (watcher.Strings
 	}
 	w := watcher.NewStringsWatcher(m.st.caller, result)
 	return w, nil
+}
+
+// WatchAllContainers returns a StringsWatcher that notifies of changes
+// to the lifecycles of all containers on the machine.
+func (m *Machine) WatchAllContainers() (watcher.StringsWatcher, error) {
+	var results params.StringsWatchResults
+	args := params.WatchContainers{
+		Params: []params.WatchContainer{
+			{MachineTag: m.tag},
+		},
+	}
+	err := m.st.call("WatchContainers", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := watcher.NewStringsWatcher(m.st.caller, result)
+	return w, nil
+}
+
+// SetSupportedContainers updates the list of containers supported by this machine.
+func (m *Machine) SetSupportedContainers(containerTypes ...instance.ContainerType) error {
+	var results params.ErrorResults
+	args := params.MachineContainersParams{
+		Params: []params.MachineContainers{
+			{MachineTag: m.tag, ContainerTypes: containerTypes},
+		},
+	}
+	err := m.st.call("SetSupportedContainers", args, &results)
+	if err != nil {
+		return err
+	}
+	if len(results.Results) != 1 {
+		return fmt.Errorf("expected one result, got %d", len(results.Results))
+	}
+	apiError := results.Results[0].Error
+	if apiError != nil {
+		return apiError
+	}
+	return nil
+}
+
+// SupportsNoContainers records the fact that this machine doesn't support any containers.
+func (m *Machine) SupportsNoContainers() error {
+	return m.SetSupportedContainers([]instance.ContainerType{}...)
 }

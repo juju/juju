@@ -7,13 +7,13 @@ import (
 	"os"
 	"time"
 
+	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
@@ -55,8 +55,9 @@ type configTest struct {
 	envVars                 map[string]string
 	region                  string
 	controlBucket           string
-	toolsURL                string
 	useFloatingIP           bool
+	useDefaultSecurityGroup bool
+	network                 string
 	username                string
 	password                string
 	tenantName              string
@@ -150,15 +151,12 @@ func (t configTest) check(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		c.Assert(expected, gc.DeepEquals, actual)
 	}
-	if t.toolsURL != "" {
-		toolsURL, ok := ecfg.ToolsURL()
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(toolsURL, gc.Equals, t.toolsURL)
-	}
 	if t.firewallMode != "" {
 		c.Assert(ecfg.FirewallMode(), gc.Equals, t.firewallMode)
 	}
 	c.Assert(ecfg.useFloatingIP(), gc.Equals, t.useFloatingIP)
+	c.Assert(ecfg.useDefaultSecurityGroup(), gc.Equals, t.useDefaultSecurityGroup)
+	c.Assert(ecfg.network(), gc.Equals, t.network)
 	// Default should be true
 	expectedHostnameVerification := true
 	if t.sslHostnameSet {
@@ -372,6 +370,16 @@ var configTests = []configTest{
 		},
 		useFloatingIP: true,
 	}, {
+		summary: "default use default security group",
+		// Do not use default security group by default.
+		useDefaultSecurityGroup: false,
+	}, {
+		summary: "use default security group",
+		config: attrs{
+			"use-default-secgroup": true,
+		},
+		useDefaultSecurityGroup: true,
+	}, {
 		summary: "admin-secret given",
 		config: attrs{
 			"admin-secret": "Futumpsh",
@@ -418,6 +426,15 @@ var configTests = []configTest{
 		},
 		sslHostnameVerification: true,
 		sslHostnameSet:          true,
+	}, {
+		summary: "default network",
+		network: "",
+	}, {
+		summary: "network",
+		config: attrs{
+			"network": "a-network-label",
+		},
+		network: "a-network-label",
 	},
 }
 
@@ -429,6 +446,28 @@ func (s *ConfigSuite) TestConfig(c *gc.C) {
 	}
 }
 
+func (s *ConfigSuite) TestDeprecatedAttributesRemoved(c *gc.C) {
+	s.setupEnvCredentials()
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
+		"type":                  "openstack",
+		"control-bucket":        "x",
+		"default-image-id":      "id-1234",
+		"default-instance-type": "big",
+	})
+
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+	// Keep err for validation below.
+	valid, err := providerInstance.Validate(cfg, nil)
+	c.Assert(err, gc.IsNil)
+	// Check deprecated attributes removed.
+	allAttrs := valid.AllAttrs()
+	for _, attr := range []string{"default-image-id", "default-instance-type"} {
+		_, ok := allAttrs[attr]
+		c.Assert(ok, jc.IsFalse)
+	}
+}
+
 func (s *ConfigSuite) TestPrepareInsertsUniqueControlBucket(c *gc.C) {
 	s.setupEnvCredentials()
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
@@ -437,12 +476,13 @@ func (s *ConfigSuite) TestPrepareInsertsUniqueControlBucket(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
-	env0, err := providerInstance.Prepare(cfg)
+	ctx := testing.Context(c)
+	env0, err := providerInstance.Prepare(ctx, cfg)
 	c.Assert(err, gc.IsNil)
 	bucket0 := env0.(*environ).ecfg().controlBucket()
 	c.Assert(bucket0, gc.Matches, "[a-f0-9]{32}")
 
-	env1, err := providerInstance.Prepare(cfg)
+	env1, err := providerInstance.Prepare(ctx, cfg)
 	c.Assert(err, gc.IsNil)
 	bucket1 := env1.(*environ).ecfg().controlBucket()
 	c.Assert(bucket1, gc.Matches, "[a-f0-9]{32}")
@@ -459,7 +499,7 @@ func (s *ConfigSuite) TestPrepareDoesNotTouchExistingControlBucket(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
-	env, err := providerInstance.Prepare(cfg)
+	env, err := providerInstance.Prepare(testing.Context(c), cfg)
 	c.Assert(err, gc.IsNil)
 	bucket := env.(*environ).ecfg().controlBucket()
 	c.Assert(bucket, gc.Equals, "burblefoo")

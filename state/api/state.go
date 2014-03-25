@@ -5,11 +5,16 @@ package api
 
 import (
 	"launchpad.net/juju-core/state/api/agent"
+	"launchpad.net/juju-core/state/api/charmrevisionupdater"
 	"launchpad.net/juju-core/state/api/deployer"
+	"launchpad.net/juju-core/state/api/environment"
+	"launchpad.net/juju-core/state/api/firewaller"
+	"launchpad.net/juju-core/state/api/keyupdater"
 	"launchpad.net/juju-core/state/api/logger"
 	"launchpad.net/juju-core/state/api/machiner"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/provisioner"
+	"launchpad.net/juju-core/state/api/rsyslog"
 	"launchpad.net/juju-core/state/api/uniter"
 	"launchpad.net/juju-core/state/api/upgrader"
 )
@@ -54,6 +59,12 @@ func (st *State) Uniter() *uniter.State {
 	return uniter.NewState(st, st.authTag)
 }
 
+// Firewaller returns a version of the state that provides functionality
+// required by the firewaller worker.
+func (st *State) Firewaller() *firewaller.State {
+	return firewaller.NewState(st)
+}
+
 // Agent returns a version of the state that provides
 // functionality required by the agent code.
 func (st *State) Agent() *agent.State {
@@ -70,7 +81,27 @@ func (st *State) Deployer() *deployer.State {
 	return deployer.NewState(st)
 }
 
+// Environment returns access to the Environment API
+func (st *State) Environment() *environment.Facade {
+	return environment.NewFacade(st)
+}
+
 // Logger returns access to the Logger API
 func (st *State) Logger() *logger.State {
 	return logger.NewState(st)
+}
+
+// KeyUpdater returns access to the KeyUpdater API
+func (st *State) KeyUpdater() *keyupdater.State {
+	return keyupdater.NewState(st)
+}
+
+// CharmRevisionUpdater returns access to the CharmRevisionUpdater API
+func (st *State) CharmRevisionUpdater() *charmrevisionupdater.State {
+	return charmrevisionupdater.NewState(st)
+}
+
+// Rsyslog returns access to the Rsyslog API
+func (st *State) Rsyslog() *rsyslog.State {
+	return rsyslog.NewState(st)
 }

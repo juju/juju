@@ -6,7 +6,7 @@ package localstorage
 import (
 	"net"
 
-	"launchpad.net/loggo"
+	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/agent"
@@ -48,7 +48,7 @@ func (s *storageWorker) serveStorage(storageAddr, storageDir string, config *con
 		scheme = "https://"
 	}
 	logger.Infof("serving storage from %s to %s%s", storageDir, scheme, storageAddr)
-	storage, err := filestorage.NewFileStorageWriter(storageDir, filestorage.UseDefaultTmpDir)
+	storage, err := filestorage.NewFileStorageWriter(storageDir)
 	if err != nil {
 		return nil, err
 	}
@@ -78,17 +78,6 @@ func (s *storageWorker) waitForDeath() error {
 		return err
 	}
 	defer storageListener.Close()
-
-	if config.sharedStorageAddr != "" && config.sharedStorageDir != "" {
-		sharedStorageListener, err := s.serveStorage(config.sharedStorageAddr, config.sharedStorageDir, config)
-		if err != nil {
-			logger.Errorf("error with local storage: %v", err)
-			return err
-		}
-		defer sharedStorageListener.Close()
-	} else {
-		logger.Infof("no shared storage: dir=%q addr=%q", config.sharedStorageDir, config.sharedStorageAddr)
-	}
 
 	logger.Infof("storage routines started, awaiting death")
 

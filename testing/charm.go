@@ -9,15 +9,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
 
 	"launchpad.net/juju-core/charm"
 )
-
-func init() {
-	p, err := build.Import("launchpad.net/juju-core/testing", "", build.FindOnly)
-	check(err)
-	Charms = &Repo{Path: filepath.Join(p.Dir, "repo")}
-}
 
 func check(err error) {
 	if err != nil {
@@ -27,12 +22,27 @@ func check(err error) {
 
 // Repo represents a charm repository used for testing.
 type Repo struct {
-	Path string
+	once sync.Once
+	path string
+}
+
+func (r *Repo) Path() string {
+	r.once.Do(r.init)
+	return r.path
+}
+
+// init is called once when r.Path() is called for the first time, and
+// it initializes r.path to the location of the local testing
+// repository.
+func (r *Repo) init() {
+	p, err := build.Import("launchpad.net/juju-core/testing", "", build.FindOnly)
+	check(err)
+	r.path = filepath.Join(p.Dir, "repo")
 }
 
 // Charms represents the specific charm repository stored in this package and
 // used by the Juju unit tests. The series name is "quantal".
-var Charms *Repo
+var Charms = &Repo{}
 
 func clone(dst, src string) string {
 	check(exec.Command("cp", "-r", src, dst).Run())
@@ -42,7 +52,7 @@ func clone(dst, src string) string {
 // DirPath returns the path to a charm directory with the given name in the
 // default series
 func (r *Repo) DirPath(name string) string {
-	return filepath.Join(r.Path, "quantal", name)
+	return filepath.Join(r.Path(), "quantal", name)
 }
 
 // Dir returns the actual charm.Dir named name.
@@ -81,15 +91,17 @@ func (r *Repo) ClonedDir(dst, name string) *charm.Dir {
 // charm.
 func (r *Repo) ClonedURL(dst, series, name string) *charm.URL {
 	dst = filepath.Join(dst, series)
-	if err := os.MkdirAll(dst, 0777); err != nil {
+	if err := os.MkdirAll(dst, os.FileMode(0777)); err != nil {
 		panic(fmt.Errorf("cannot make destination directory: %v", err))
 	}
 	clone(dst, r.DirPath(name))
 	return &charm.URL{
-		Schema:   "local",
-		Series:   series,
-		Name:     name,
-		Revision: -1,
+		Reference: charm.Reference{
+			Schema:   "local",
+			Name:     name,
+			Revision: -1,
+		},
+		Series: series,
 	}
 }
 
@@ -116,11 +128,36 @@ func (r *Repo) Bundle(dst, name string) *charm.Bundle {
 // MockCharmStore implements charm.Repository and is used to isolate tests
 // that would otherwise need to hit the real charm store.
 type MockCharmStore struct {
-	charms map[string]map[int]*charm.Bundle
+	charms        map[string]map[int]*charm.Bundle
+	AuthAttrs     string
+	TestMode      bool
+	DefaultSeries string
 }
 
 func NewMockCharmStore() *MockCharmStore {
-	return &MockCharmStore{map[string]map[int]*charm.Bundle{}}
+	return &MockCharmStore{charms: map[string]map[int]*charm.Bundle{}}
+}
+
+func (s *MockCharmStore) WithAuthAttrs(auth string) charm.Repository {
+	s.AuthAttrs = auth
+	return s
+}
+
+func (s *MockCharmStore) WithTestMode(testMode bool) charm.Repository {
+	s.TestMode = testMode
+	return s
+}
+
+func (s *MockCharmStore) WithDefaultSeries(series string) charm.Repository {
+	s.DefaultSeries = series
+	return s
+}
+
+func (s *MockCharmStore) Resolve(ref charm.Reference) (*charm.URL, error) {
+	if s.DefaultSeries == "" {
+		return nil, fmt.Errorf("missing default series, cannot resolve charm url: %q", ref)
+	}
+	return &charm.URL{Reference: ref, Series: s.DefaultSeries}, nil
 }
 
 // SetCharm adds and removes charms in s. The affected charm is identified by
@@ -176,11 +213,16 @@ func (s *MockCharmStore) Get(charmURL *charm.URL) (charm.Charm, error) {
 }
 
 // Latest implements charm.Repository.Latest.
-func (s *MockCharmStore) Latest(charmURL *charm.URL) (int, error) {
-	charmURL = charmURL.WithRevision(-1)
-	base, rev := s.interpret(charmURL)
-	if _, found := s.charms[base][rev]; !found {
-		return 0, fmt.Errorf("charm not found in mock store: %s", charmURL)
+func (s *MockCharmStore) Latest(charmURLs ...*charm.URL) ([]charm.CharmRevision, error) {
+	result := make([]charm.CharmRevision, len(charmURLs))
+	for i, curl := range charmURLs {
+		charmURL := curl.WithRevision(-1)
+		base, rev := s.interpret(charmURL)
+		if _, found := s.charms[base][rev]; !found {
+			result[i].Err = fmt.Errorf("charm not found in mock store: %s", charmURL)
+		} else {
+			result[i].Revision = rev
+		}
 	}
-	return rev, nil
+	return result, nil
 }

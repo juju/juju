@@ -75,17 +75,21 @@ func (s *S) TestOneOf(c *gc.C) {
 func (s *S) TestBool(c *gc.C) {
 	sch := schema.Bool()
 
-	out, err := sch.Coerce(true, aPath)
-	c.Assert(err, gc.IsNil)
-	c.Assert(out, gc.Equals, true)
+	for _, trueValue := range []interface{}{true, "1", "true", "True", "TRUE"} {
+		out, err := sch.Coerce(trueValue, aPath)
+		c.Assert(err, gc.IsNil)
+		c.Assert(out, gc.Equals, true)
+	}
 
-	out, err = sch.Coerce(false, aPath)
-	c.Assert(err, gc.IsNil)
-	c.Assert(out, gc.Equals, false)
+	for _, falseValue := range []interface{}{false, "0", "false", "False", "FALSE"} {
+		out, err := sch.Coerce(falseValue, aPath)
+		c.Assert(err, gc.IsNil)
+		c.Assert(out, gc.Equals, false)
+	}
 
-	out, err = sch.Coerce(1, aPath)
+	out, err := sch.Coerce(42, aPath)
 	c.Assert(out, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, `<path>: expected bool, got int\(1\)`)
+	c.Assert(err, gc.ErrorMatches, `<path>: expected bool, got int\(42\)`)
 
 	out, err = sch.Coerce(nil, aPath)
 	c.Assert(out, gc.IsNil)
@@ -103,6 +107,10 @@ func (s *S) TestInt(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(out, gc.Equals, int64(42))
 
+	out, err = sch.Coerce("42", aPath)
+	c.Assert(err, gc.IsNil)
+	c.Assert(out, gc.Equals, int64(42))
+
 	out, err = sch.Coerce(true, aPath)
 	c.Assert(out, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, `<path>: expected int, got bool\(true\)`)
@@ -116,6 +124,14 @@ func (s *S) TestForceInt(c *gc.C) {
 	sch := schema.ForceInt()
 
 	out, err := sch.Coerce(42, aPath)
+	c.Assert(err, gc.IsNil)
+	c.Assert(out, gc.Equals, int(42))
+
+	out, err = sch.Coerce("42", aPath)
+	c.Assert(err, gc.IsNil)
+	c.Assert(out, gc.Equals, int(42))
+
+	out, err = sch.Coerce("42.66", aPath)
 	c.Assert(err, gc.IsNil)
 	c.Assert(out, gc.Equals, int(42))
 
@@ -361,7 +377,7 @@ func (s *S) TestStrictFieldMap(c *gc.C) {
 
 	out, err := sch.Coerce(map[string]interface{}{"a": "A", "b": "B", "d": "D"}, aPath)
 	c.Assert(out, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, `<path>.d: expected nothing, got string\("D"\)`)
+	c.Assert(err, gc.ErrorMatches, `<path>: unknown key "d" \(value "D"\)`)
 }
 
 func (s *S) TestSchemaMap(c *gc.C) {

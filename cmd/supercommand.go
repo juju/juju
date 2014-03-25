@@ -7,17 +7,24 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"runtime"
 	"sort"
 	"strings"
 
+	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
 
-	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/version"
 )
+
+var logger = loggo.GetLogger("juju.cmd")
 
 type topic struct {
 	short string
 	long  func() string
+	// Help aliases are not output when topics are listed, but are used
+	// to search for the help topic
+	alias bool
 }
 
 type UnrecognizedCommand struct {
@@ -78,6 +85,11 @@ type SuperCommand struct {
 	missingCallback MissingCallback
 }
 
+// IsSuperCommand implements Command.IsSuperCommand
+func (c *SuperCommand) IsSuperCommand() bool {
+	return true
+}
+
 // Because Go doesn't have constructors that initialize the object into a
 // ready state.
 func (c *SuperCommand) init() {
@@ -97,8 +109,8 @@ func (c *SuperCommand) init() {
 // param, and the full text being the long param.  The description is shown in
 // 'help topics', and the full text is shown when the command 'help <name>' is
 // called.
-func (c *SuperCommand) AddHelpTopic(name, short, long string) {
-	c.subcmds["help"].(*helpCommand).addTopic(name, short, echo(long))
+func (c *SuperCommand) AddHelpTopic(name, short, long string, aliases ...string) {
+	c.subcmds["help"].(*helpCommand).addTopic(name, short, echo(long), aliases...)
 }
 
 // AddHelpTopicCallback adds a new help topic with the description being the
@@ -179,10 +191,10 @@ func (c *SuperCommand) Info() *Info {
 
 const helpPurpose = "show help on a command or other topic"
 
-// setCommonFlags creates a new "commonflags" flagset, whose
+// SetCommonFlags creates a new "commonflags" flagset, whose
 // flags are shared with the argument f; this enables us to
 // add non-global flags to f, which do not carry into subcommands.
-func (c *SuperCommand) setCommonFlags(f *gnuflag.FlagSet) {
+func (c *SuperCommand) SetCommonFlags(f *gnuflag.FlagSet) {
 	if c.Log != nil {
 		c.Log.AddFlags(f)
 	}
@@ -193,7 +205,6 @@ func (c *SuperCommand) setCommonFlags(f *gnuflag.FlagSet) {
 	// The Purpose attribute will be printed (if defined), allowing
 	// plugins to provide a sensible line of text for 'juju help plugins'.
 	f.BoolVar(&c.showDescription, "description", false, "")
-
 	c.commonflags = gnuflag.NewFlagSet(c.Info().Name, gnuflag.ContinueOnError)
 	c.commonflags.SetOutput(ioutil.Discard)
 	f.VisitAll(func(flag *gnuflag.Flag) {
@@ -204,8 +215,8 @@ func (c *SuperCommand) setCommonFlags(f *gnuflag.FlagSet) {
 // SetFlags adds the options that apply to all commands, particularly those
 // due to logging.
 func (c *SuperCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.setCommonFlags(f)
-	// Only flags set by setCommonFlags are passed on to subcommands.
+	c.SetCommonFlags(f)
+	// Only flags set by SetCommonFlags are passed on to subcommands.
 	// Any flags added below only take effect when no subcommand is
 	// specified (e.g. juju --version).
 	f.BoolVar(&c.showVersion, "version", false, "Show the version of juju")
@@ -246,7 +257,13 @@ func (c *SuperCommand) Init(args []string) error {
 		return fmt.Errorf("unrecognized command: %s %s", c.Name, args[0])
 	}
 	args = args[1:]
-	c.subcmd.SetFlags(c.commonflags)
+	if c.subcmd.IsSuperCommand() {
+		f := gnuflag.NewFlagSet(c.Info().Name, gnuflag.ContinueOnError)
+		f.SetOutput(ioutil.Discard)
+		c.subcmd.SetFlags(f)
+	} else {
+		c.subcmd.SetFlags(c.commonflags)
+	}
 	if err := c.commonflags.Parse(c.subcmd.AllowInterspersedFlags(), args); err != nil {
 		return err
 	}
@@ -277,13 +294,16 @@ func (c *SuperCommand) Run(ctx *Context) error {
 			return err
 		}
 	}
+	logger.Infof("running juju-%s [%s]", version.Current, runtime.Compiler)
 	err := c.subcmd.Run(ctx)
 	if err != nil && err != ErrSilent {
-		log.Errorf("%v", err)
+		logger.Errorf("%v", err)
 		// Now that this has been logged, don't log again in cmd.Main.
-		err = ErrSilent
+		if !IsRcPassthroughError(err) {
+			err = ErrSilent
+		}
 	} else {
-		log.Infof("command finished")
+		logger.Infof("command finished")
 	}
 	return err
 }
@@ -340,11 +360,17 @@ func echo(s string) func() string {
 	return func() string { return s }
 }
 
-func (c *helpCommand) addTopic(name, short string, long func() string) {
+func (c *helpCommand) addTopic(name, short string, long func() string, aliases ...string) {
 	if _, found := c.topics[name]; found {
 		panic(fmt.Sprintf("help topic already added: %s", name))
 	}
-	c.topics[name] = topic{short, long}
+	c.topics[name] = topic{short, long, false}
+	for _, alias := range aliases {
+		if _, found := c.topics[alias]; found {
+			panic(fmt.Sprintf("help topic already added: %s", alias))
+		}
+		c.topics[alias] = topic{short, long, true}
+	}
 }
 
 func (c *helpCommand) globalOptions() string {
@@ -357,22 +383,23 @@ command.
 `)
 
 	f := gnuflag.NewFlagSet("", gnuflag.ContinueOnError)
-	c.super.setCommonFlags(f)
+	c.super.SetCommonFlags(f)
 	f.SetOutput(buf)
 	f.PrintDefaults()
 	return buf.String()
 }
 
 func (c *helpCommand) topicList() string {
-	topics := make([]string, len(c.topics))
-	i := 0
+	var topics []string
 	longest := 0
-	for name := range c.topics {
+	for name, topic := range c.topics {
+		if topic.alias {
+			continue
+		}
 		if len(name) > longest {
 			longest = len(name)
 		}
-		topics[i] = name
-		i++
+		topics = append(topics, name)
 	}
 	sort.Strings(topics)
 	for i, name := range topics {

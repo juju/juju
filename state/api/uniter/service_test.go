@@ -4,12 +4,12 @@
 package uniter_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/uniter"
 	statetesting "launchpad.net/juju-core/state/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type serviceSuite struct {
@@ -117,4 +117,10 @@ func (s *serviceSuite) TestCharmURL(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(curl, gc.DeepEquals, s.wordpressCharm.URL())
 	c.Assert(force, jc.IsFalse)
+}
+
+func (s *serviceSuite) TestGetOwnerTag(c *gc.C) {
+	tag, err := s.apiService.GetOwnerTag()
+	c.Assert(err, gc.IsNil)
+	c.Assert(tag, gc.Equals, "user-admin")
 }

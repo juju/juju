@@ -42,7 +42,7 @@ func (s *Service) Watch() (watcher.NotifyWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.tag}},
 	}
-	err := s.st.caller.Call("Uniter", "", "Watch", args, &results)
+	err := s.st.call("Watch", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func (s *Service) WatchRelations() (watcher.StringsWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.tag}},
 	}
-	err := s.st.caller.Call("Uniter", "", "WatchServiceRelations", args, &results)
+	err := s.st.call("WatchServiceRelations", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +106,7 @@ func (s *Service) CharmURL() (*charm.URL, bool, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.tag}},
 	}
-	err := s.st.caller.Call("Uniter", "", "CharmURL", args, &results)
+	err := s.st.call("CharmURL", args, &results)
 	if err != nil {
 		return nil, false, err
 	}
@@ -125,4 +125,21 @@ func (s *Service) CharmURL() (*charm.URL, bool, error) {
 		return curl, result.Ok, nil
 	}
 	return nil, false, fmt.Errorf("%q has no charm url set", s.tag)
+}
+
+// TODO(dimitern) bug #1270795 2014-01-20
+// Add a doc comment here.
+func (s *Service) GetOwnerTag() (string, error) {
+	var result params.StringResult
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: s.tag}},
+	}
+	err := s.st.call("GetOwnerTag", args, &result)
+	if err != nil {
+		return "", err
+	}
+	if result.Error != nil {
+		return "", result.Error
+	}
+	return result.Result, nil
 }

@@ -42,6 +42,7 @@ type serviceDoc struct {
 	RelationCount int
 	Exposed       bool
 	MinUnits      int
+	OwnerTag      string
 	TxnRevno      int64 `bson:"txn-revno"`
 }
 
@@ -156,7 +157,7 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 			relOps = []txn.Op{{
 				C:      s.st.relations.Name,
 				Id:     rel.doc.Key,
-				Assert: D{{"life", Dying}},
+				Assert: bson.D{{"life", Dying}},
 			}}
 		} else if err != nil {
 			return nil, err
@@ -169,7 +170,7 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 	// If the service has no units, and all its known relations will be
 	// removed, the service can also be removed.
 	if s.doc.UnitCount == 0 && s.doc.RelationCount == removeCount {
-		hasLastRefs := D{{"life", Alive}, {"unitcount", 0}, {"relationcount", removeCount}}
+		hasLastRefs := bson.D{{"life", Alive}, {"unitcount", 0}, {"relationcount", removeCount}}
 		return append(ops, s.removeOps(hasLastRefs)...), nil
 	}
 	// In all other cases, service removal will be handled as a consequence
@@ -179,7 +180,7 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 	// a destroy op for that relation too. In combination, it's enough to
 	// check for count equality: an add/remove will not touch the count, but
 	// will be caught by virtue of being a remove.
-	notLastRefs := D{
+	notLastRefs := bson.D{
 		{"life", Alive},
 		{"relationcount", s.doc.RelationCount},
 	}
@@ -189,13 +190,13 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 	// being removed: the difference between 1 unit and 1000 is irrelevant.
 	if s.doc.UnitCount > 0 {
 		ops = append(ops, s.st.newCleanupOp("units", s.doc.Name+"/"))
-		notLastRefs = append(notLastRefs, D{{"unitcount", D{{"$gt", 0}}}}...)
+		notLastRefs = append(notLastRefs, bson.D{{"unitcount", bson.D{{"$gt", 0}}}}...)
 	} else {
-		notLastRefs = append(notLastRefs, D{{"unitcount", 0}}...)
+		notLastRefs = append(notLastRefs, bson.D{{"unitcount", 0}}...)
 	}
-	update := D{{"$set", D{{"life", Dying}}}}
+	update := bson.D{{"$set", bson.D{{"life", Dying}}}}
 	if removeCount != 0 {
-		decref := D{{"$inc", D{{"relationcount", -removeCount}}}}
+		decref := bson.D{{"$inc", bson.D{{"relationcount", -removeCount}}}}
 		update = append(update, decref...)
 	}
 	return append(ops, txn.Op{
@@ -208,7 +209,7 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 
 // removeOps returns the operations required to remove the service. Supplied
 // asserts will be included in the operation on the service document.
-func (s *Service) removeOps(asserts D) []txn.Op {
+func (s *Service) removeOps(asserts bson.D) []txn.Op {
 	ops := []txn.Op{{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
@@ -223,6 +224,7 @@ func (s *Service) removeOps(asserts D) []txn.Op {
 		Id:     s.settingsKey(),
 		Remove: true,
 	}}
+	ops = append(ops, removeNetworksOp(s.st, s.globalKey()))
 	ops = append(ops, removeConstraintsOp(s.st, s.globalKey()))
 	return append(ops, annotationRemoveOp(s.st, s.globalKey()))
 }
@@ -251,7 +253,7 @@ func (s *Service) setExposed(exposed bool) (err error) {
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
 		Assert: isAliveDoc,
-		Update: D{{"$set", D{{"exposed", exposed}}}},
+		Update: bson.D{{"$set", bson.D{{"exposed", exposed}}}},
 	}}
 	if err := s.st.runTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set exposed flag for service %q to %v: %v", s, exposed, onAbort(err, errNotAlive))
@@ -405,7 +407,7 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 	}
 
 	// Build the transaction.
-	differentCharm := D{{"charmurl", D{{"$ne", ch.URL()}}}}
+	differentCharm := bson.D{{"charmurl", bson.D{{"$ne", ch.URL()}}}}
 	ops := []txn.Op{
 		// Old settings shouldn't change
 		oldSettings.assertUnchangedOp(),
@@ -418,7 +420,7 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 			C:      s.st.services.Name,
 			Id:     s.doc.Name,
 			Assert: append(isAliveDoc, differentCharm...),
-			Update: D{{"$set", D{{"charmurl", ch.URL()}, {"forcecharm", force}}}},
+			Update: bson.D{{"$set", bson.D{{"charmurl", ch.URL()}, {"forcecharm", force}}}},
 		},
 	}
 	// Add any extra peer relations that need creation.
@@ -434,7 +436,7 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 		return nil, err
 	}
 	// Make sure the relation count does not change.
-	sameRelCount := D{{"relationcount", len(relations)}}
+	sameRelCount := bson.D{{"relationcount", len(relations)}}
 
 	ops = append(ops, peerOps...)
 	// Update the relation count as well.
@@ -442,7 +444,7 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
 		Assert: append(isAliveDoc, sameRelCount...),
-		Update: D{{"$inc", D{{"relationcount", len(newPeers)}}}},
+		Update: bson.D{{"$inc", bson.D{{"relationcount", len(newPeers)}}}},
 	})
 	// Check relations to ensure no active relations are removed.
 	relOps, err := s.checkRelationsOps(ch, relations)
@@ -468,17 +470,17 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 	for i := 0; i < 5; i++ {
 		var ops []txn.Op
 		// Make sure the service doesn't have this charm already.
-		sel := D{{"_id", s.doc.Name}, {"charmurl", ch.URL()}}
+		sel := bson.D{{"_id", s.doc.Name}, {"charmurl", ch.URL()}}
 		if count, err := s.st.services.Find(sel).Count(); err != nil {
 			return err
 		} else if count == 1 {
 			// Charm URL already set; just update the force flag.
-			sameCharm := D{{"charmurl", ch.URL()}}
+			sameCharm := bson.D{{"charmurl", ch.URL()}}
 			ops = []txn.Op{{
 				C:      s.st.services.Name,
 				Id:     s.doc.Name,
 				Assert: append(isAliveDoc, sameCharm...),
-				Update: D{{"$set", D{{"forcecharm", force}}}},
+				Update: bson.D{{"$set", bson.D{{"forcecharm", force}}}},
 			}}
 		} else {
 			// Change the charm URL.
@@ -528,9 +530,9 @@ func (s *Service) Refresh() error {
 
 // newUnitName returns the next unit name.
 func (s *Service) newUnitName() (string, error) {
-	change := mgo.Change{Update: D{{"$inc", D{{"unitseq", 1}}}}}
+	change := mgo.Change{Update: bson.D{{"$inc", bson.D{{"unitseq", 1}}}}}
 	result := serviceDoc{}
-	if _, err := s.st.services.Find(D{{"_id", s.doc.Name}}).Apply(change, &result); err == mgo.ErrNotFound {
+	if _, err := s.st.services.Find(bson.D{{"_id", s.doc.Name}}).Apply(change, &result); err == mgo.ErrNotFound {
 		return "", errors.NotFoundf("service %q", s)
 	} else if err != nil {
 		return "", fmt.Errorf("cannot increment unit sequence: %v", err)
@@ -544,7 +546,7 @@ func (s *Service) newUnitName() (string, error) {
 // and only if s is a subordinate service. Only one subordinate of a given
 // service will be assigned to a given principal. The asserts param can be used
 // to include additional assertions for the service document.
-func (s *Service) addUnitOps(principalName string, asserts D) (string, []txn.Op, error) {
+func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []txn.Op, error) {
 	if s.doc.Subordinate && principalName == "" {
 		return "", nil, fmt.Errorf("service is a subordinate")
 	} else if !s.doc.Subordinate && principalName != "" {
@@ -577,16 +579,16 @@ func (s *Service) addUnitOps(principalName string, asserts D) (string, []txn.Op,
 			C:      s.st.services.Name,
 			Id:     s.doc.Name,
 			Assert: append(isAliveDoc, asserts...),
-			Update: D{{"$inc", D{{"unitcount", 1}}}},
+			Update: bson.D{{"$inc", bson.D{{"unitcount", 1}}}},
 		}}
 	if s.doc.Subordinate {
 		ops = append(ops, txn.Op{
 			C:  s.st.units.Name,
 			Id: principalName,
 			Assert: append(isAliveDoc, bson.DocElem{
-				"subordinates", D{{"$not", bson.RegEx{Pattern: "^" + s.doc.Name + "/"}}},
+				"subordinates", bson.D{{"$not", bson.RegEx{Pattern: "^" + s.doc.Name + "/"}}},
 			}),
-			Update: D{{"$addToSet", D{{"subordinates", name}}}},
+			Update: bson.D{{"$addToSet", bson.D{{"subordinates", name}}}},
 		})
 	} else {
 		scons, err := s.Constraints()
@@ -601,6 +603,22 @@ func (s *Service) addUnitOps(principalName string, asserts D) (string, []txn.Op,
 		ops = append(ops, createConstraintsOp(s.st, globalKey, cons))
 	}
 	return name, ops, nil
+}
+
+// GetOwnerTag returns the owner of this service
+// SCHEMACHANGE
+// TODO(mattyw) remove when schema upgrades are possible
+func (s *serviceDoc) GetOwnerTag() string {
+	if s.OwnerTag != "" {
+		return s.OwnerTag
+	}
+	return "user-admin"
+}
+
+// SCHEMACHANGE
+// TODO(mattyw) remove when schema upgrades are possible
+func (s *Service) GetOwnerTag() string {
+	return s.doc.GetOwnerTag()
 }
 
 // AddUnit adds a new principal unit to the service.
@@ -627,24 +645,24 @@ var ErrExcessiveContention = stderrors.New("state changing too quickly; try agai
 
 // removeUnitOps returns the operations necessary to remove the supplied unit,
 // assuming the supplied asserts apply to the unit document.
-func (s *Service) removeUnitOps(u *Unit, asserts D) ([]txn.Op, error) {
+func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	var ops []txn.Op
 	if s.doc.Subordinate {
 		ops = append(ops, txn.Op{
 			C:      s.st.units.Name,
 			Id:     u.doc.Principal,
 			Assert: txn.DocExists,
-			Update: D{{"$pull", D{{"subordinates", u.doc.Name}}}},
+			Update: bson.D{{"$pull", bson.D{{"subordinates", u.doc.Name}}}},
 		})
 	} else if u.doc.MachineId != "" {
 		ops = append(ops, txn.Op{
 			C:      s.st.machines.Name,
 			Id:     u.doc.MachineId,
 			Assert: txn.DocExists,
-			Update: D{{"$pull", D{{"principals", u.doc.Name}}}},
+			Update: bson.D{{"$pull", bson.D{{"principals", u.doc.Name}}}},
 		})
 	}
-	observedFieldsMatch := D{
+	observedFieldsMatch := bson.D{
 		{"charmurl", u.doc.CharmURL},
 		{"machineid", u.doc.MachineId},
 	}
@@ -668,22 +686,22 @@ func (s *Service) removeUnitOps(u *Unit, asserts D) ([]txn.Op, error) {
 		ops = append(ops, decOps...)
 	}
 	if s.doc.Life == Dying && s.doc.RelationCount == 0 && s.doc.UnitCount == 1 {
-		hasLastRef := D{{"life", Dying}, {"relationcount", 0}, {"unitcount", 1}}
+		hasLastRef := bson.D{{"life", Dying}, {"relationcount", 0}, {"unitcount", 1}}
 		return append(ops, s.removeOps(hasLastRef)...), nil
 	}
 	svcOp := txn.Op{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
-		Update: D{{"$inc", D{{"unitcount", -1}}}},
+		Update: bson.D{{"$inc", bson.D{{"unitcount", -1}}}},
 	}
 	if s.doc.Life == Alive {
-		svcOp.Assert = D{{"life", Alive}, {"unitcount", D{{"$gt", 0}}}}
+		svcOp.Assert = bson.D{{"life", Alive}, {"unitcount", bson.D{{"$gt", 0}}}}
 	} else {
-		svcOp.Assert = D{
+		svcOp.Assert = bson.D{
 			{"life", Dying},
-			{"$or", []D{
-				{{"unitcount", D{{"$gt", 1}}}},
-				{{"relationcount", D{{"$gt", 0}}}},
+			{"$or", []bson.D{
+				{{"unitcount", bson.D{{"$gt", 1}}}},
+				{{"relationcount", bson.D{{"$gt", 0}}}},
 			}},
 		}
 	}
@@ -696,7 +714,7 @@ func (s *Service) Unit(name string) (*Unit, error) {
 		return nil, fmt.Errorf("%q is not a valid unit name", name)
 	}
 	udoc := &unitDoc{}
-	sel := D{{"_id", name}, {"service", s.doc.Name}}
+	sel := bson.D{{"_id", name}, {"service", s.doc.Name}}
 	if err := s.st.units.Find(sel).One(udoc); err != nil {
 		return nil, fmt.Errorf("cannot get unit %q from service %q: %v", name, s.doc.Name, err)
 	}
@@ -706,7 +724,7 @@ func (s *Service) Unit(name string) (*Unit, error) {
 // AllUnits returns all units of the service.
 func (s *Service) AllUnits() (units []*Unit, err error) {
 	docs := []unitDoc{}
-	err = s.st.units.Find(D{{"service", s.doc.Name}}).All(&docs)
+	err = s.st.units.Find(bson.D{{"service", s.doc.Name}}).All(&docs)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get all units from service %q: %v", s, err)
 	}
@@ -718,14 +736,18 @@ func (s *Service) AllUnits() (units []*Unit, err error) {
 
 // Relations returns a Relation for every relation the service is in.
 func (s *Service) Relations() (relations []*Relation, err error) {
-	defer utils.ErrorContextf(&err, "can't get relations for service %q", s)
+	return serviceRelations(s.st, s.doc.Name)
+}
+
+func serviceRelations(st *State, name string) (relations []*Relation, err error) {
+	defer utils.ErrorContextf(&err, "can't get relations for service %q", name)
 	docs := []relationDoc{}
-	err = s.st.relations.Find(D{{"endpoints.servicename", s.doc.Name}}).All(&docs)
+	err = st.relations.Find(bson.D{{"endpoints.servicename", name}}).All(&docs)
 	if err != nil {
 		return nil, err
 	}
 	for _, v := range docs {
-		relations = append(relations, newRelation(s.st, &v))
+		relations = append(relations, newRelation(st, &v))
 	}
 	return relations, nil
 }
@@ -800,6 +822,11 @@ func (s *Service) SetConstraints(cons constraints.Value) (err error) {
 	return onAbort(s.st.runTransaction(ops), errNotAlive)
 }
 
+// Networks returns the networks a service is associated with.
+func (s *Service) Networks() (includeNetworks, excludeNetworks []string, err error) {
+	return readNetworks(s.st, s.globalKey())
+}
+
 // settingsIncRefOp returns an operation that increments the ref count
 // of the service settings identified by serviceName and curl. If
 // canCreate is false, a missing document will be treated as an error;
@@ -823,7 +850,7 @@ func settingsIncRefOp(st *State, serviceName string, curl *charm.URL, canCreate 
 		C:      st.settingsrefs.Name,
 		Id:     key,
 		Assert: txn.DocExists,
-		Update: D{{"$inc", D{{"refcount", 1}}}},
+		Update: bson.D{{"$inc", bson.D{{"refcount", 1}}}},
 	}, nil
 }
 
@@ -843,7 +870,7 @@ func settingsDecRefOps(st *State, serviceName string, curl *charm.URL) ([]txn.Op
 		return []txn.Op{{
 			C:      st.settingsrefs.Name,
 			Id:     key,
-			Assert: D{{"refcount", 1}},
+			Assert: bson.D{{"refcount", 1}},
 			Remove: true,
 		}, {
 			C:      st.settings.Name,
@@ -854,8 +881,8 @@ func settingsDecRefOps(st *State, serviceName string, curl *charm.URL) ([]txn.Op
 	return []txn.Op{{
 		C:      st.settingsrefs.Name,
 		Id:     key,
-		Assert: D{{"refcount", D{{"$gt", 1}}}},
-		Update: D{{"$inc", D{{"refcount", -1}}}},
+		Assert: bson.D{{"refcount", bson.D{{"$gt", 1}}}},
+		Update: bson.D{{"$inc", bson.D{{"refcount", -1}}}},
 	}}, nil
 }
 

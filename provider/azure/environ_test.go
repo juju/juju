@@ -16,21 +16,22 @@ import (
 	"strings"
 	"sync"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gwacl"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
+	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type environSuite struct {
@@ -42,6 +43,11 @@ var _ = gc.Suite(&environSuite{})
 // makeEnviron creates a fake azureEnviron with arbitrary configuration.
 func makeEnviron(c *gc.C) *azureEnviron {
 	attrs := makeAzureConfigMap(c)
+	return makeEnvironWithConfig(c, attrs)
+}
+
+// makeEnviron creates a fake azureEnviron with the specified configuration.
+func makeEnvironWithConfig(c *gc.C, attrs map[string]interface{}) *azureEnviron {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	env, err := NewEnviron(cfg)
@@ -58,6 +64,17 @@ func (s *environSuite) setDummyStorage(c *gc.C, env *azureEnviron) {
 	closer, storage, _ := envtesting.CreateLocalTestStorage(c)
 	env.storage = storage
 	s.AddCleanup(func(c *gc.C) { closer.Close() })
+}
+
+func (*environSuite) TestGetEndpoint(c *gc.C) {
+	c.Check(
+		getEndpoint("West US"),
+		gc.Equals,
+		"https://management.core.windows.net/")
+	c.Check(
+		getEndpoint("China East"),
+		gc.Equals,
+		"https://management.core.chinacloudapi.cn/")
 }
 
 func (*environSuite) TestGetSnapshot(c *gc.C) {
@@ -86,15 +103,6 @@ func (*environSuite) TestGetSnapshotLocksEnviron(c *gc.C) {
 func (*environSuite) TestName(c *gc.C) {
 	env := azureEnviron{name: "foo"}
 	c.Check(env.Name(), gc.Equals, env.name)
-}
-
-func (*environSuite) TestPrecheck(c *gc.C) {
-	env := azureEnviron{name: "foo"}
-	var cons constraints.Value
-	err := env.PrecheckInstance("saucy", cons)
-	c.Check(err, gc.IsNil)
-	err = env.PrecheckContainer("saucy", instance.LXC)
-	c.Check(err, gc.ErrorMatches, "azure provider does not support containers")
 }
 
 func (*environSuite) TestConfigReturnsConfig(c *gc.C) {
@@ -165,6 +173,13 @@ func getAzureServiceResponses(c *gc.C, service gwacl.HostedService) []gwacl.Disp
 func patchWithServiceListResponse(c *gc.C, services []gwacl.HostedServiceDescriptor) *[]*gwacl.X509Request {
 	responses := getAzureServiceListResponse(c, services)
 	return gwacl.PatchManagementAPIResponses(responses)
+}
+
+func (s *environSuite) TestSupportedArchitectures(c *gc.C) {
+	env := s.setupEnvWithDummyMetadata(c)
+	a, err := env.SupportedArchitectures()
+	c.Assert(err, gc.IsNil)
+	c.Assert(a, gc.DeepEquals, []string{"ppc64"})
 }
 
 func (suite *environSuite) TestGetEnvPrefixContainsEnvName(c *gc.C) {
@@ -456,9 +471,9 @@ func (s *environSuite) TestStateInfo(c *gc.C) {
 	}})
 	env := makeEnviron(c)
 	s.setDummyStorage(c, env)
-	err := common.SaveState(
+	err := bootstrap.SaveState(
 		env.Storage(),
-		&common.BootstrapState{StateInstances: []instance.Id{instance.Id(instanceID)}})
+		&bootstrap.BootstrapState{StateInstances: []instance.Id{instance.Id(instanceID)}})
 	c.Assert(err, gc.IsNil)
 
 	stateInfo, apiInfo, err := env.StateInfo()
@@ -787,9 +802,9 @@ func (s *environSuite) TestDestroyDoesNotCleanStorageIfError(c *gc.C) {
 	env := makeEnviron(c)
 	s.setDummyStorage(c, env)
 	// Populate storage.
-	err := common.SaveState(
+	err := bootstrap.SaveState(
 		env.Storage(),
-		&common.BootstrapState{StateInstances: []instance.Id{instance.Id("test-id")}})
+		&bootstrap.BootstrapState{StateInstances: []instance.Id{instance.Id("test-id")}})
 	c.Assert(err, gc.IsNil)
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(nil, http.StatusBadRequest, nil),
@@ -808,9 +823,9 @@ func (s *environSuite) TestDestroyCleansUpStorage(c *gc.C) {
 	env := makeEnviron(c)
 	s.setDummyStorage(c, env)
 	// Populate storage.
-	err := common.SaveState(
+	err := bootstrap.SaveState(
 		env.Storage(),
-		&common.BootstrapState{StateInstances: []instance.Id{instance.Id("test-id")}})
+		&bootstrap.BootstrapState{StateInstances: []instance.Id{instance.Id("test-id")}})
 	c.Assert(err, gc.IsNil)
 	services := []gwacl.HostedServiceDescriptor{}
 	responses := getAzureServiceListResponse(c, services)
@@ -1148,12 +1163,6 @@ func (*environSuite) TestGetAffinityGroupNameIsConstant(c *gc.C) {
 	c.Check(env.getAffinityGroupName(), gc.Equals, env.getAffinityGroupName())
 }
 
-func (*environSuite) TestGetImageStreamDefaultsToBlank(c *gc.C) {
-	env := makeEnviron(c)
-	// Hard-coded to default for now.
-	c.Check(env.getImageStream(), gc.Equals, "")
-}
-
 func (*environSuite) TestGetImageMetadataSigningRequiredDefaultsToTrue(c *gc.C) {
 	env := makeEnviron(c)
 	// Hard-coded to true for now.  Once we support other base URLs, this
@@ -1172,42 +1181,53 @@ func (*environSuite) TestSelectInstanceTypeAndImageUsesForcedImage(c *gc.C) {
 		Mem:      &aim.Mem,
 	}
 
-	instanceType, image, err := env.selectInstanceTypeAndImage(cons, "precise", "West US")
+	instanceType, image, err := env.selectInstanceTypeAndImage(&instances.InstanceConstraint{
+		Region:      "West US",
+		Series:      "precise",
+		Constraints: cons,
+	})
 	c.Assert(err, gc.IsNil)
 
 	c.Check(instanceType, gc.Equals, aim.Name)
 	c.Check(image, gc.Equals, forcedImage)
 }
 
-func (*environSuite) TestSelectInstanceTypeAndImageUsesSimplestreamsByDefault(c *gc.C) {
-	env := makeEnviron(c)
+func (s *environSuite) setupEnvWithDummyMetadata(c *gc.C) *azureEnviron {
+	envAttrs := makeAzureConfigMap(c)
+	envAttrs["location"] = "North Europe"
+	env := makeEnvironWithConfig(c, envAttrs)
+	s.setDummyStorage(c, env)
+	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
+	s.PatchValue(&signedImageDataOnly, false)
+	images := []*imagemetadata.ImageMetadata{
+		{
+			Id:         "image-id",
+			VirtType:   "Hyper-V",
+			Arch:       "ppc64",
+			RegionName: "North Europe",
+			Endpoint:   "https://management.core.windows.net/",
+		},
+	}
+	makeTestMetadata(c, env, "precise", "North Europe", images)
+	return env
+}
 
+func (s *environSuite) TestSelectInstanceTypeAndImageUsesSimplestreamsByDefault(c *gc.C) {
+	env := s.setupEnvWithDummyMetadata(c)
 	// We'll tailor our constraints so as to get a specific instance type.
 	aim := gwacl.RoleNameMap["ExtraSmall"]
 	cons := constraints.Value{
 		CpuCores: &aim.CpuCores,
 		Mem:      &aim.Mem,
 	}
-
-	// We have one image available.
-	images := []*imagemetadata.ImageMetadata{
-		{
-			Id:          "image",
-			VType:       "Hyper-V",
-			Arch:        "amd64",
-			RegionAlias: "North Europe",
-			RegionName:  "North Europe",
-			Endpoint:    "http://localhost/",
-		},
-	}
-	cleanup := patchFetchImageMetadata(images, nil)
-	defer cleanup()
-
-	instanceType, image, err := env.selectInstanceTypeAndImage(cons, "precise", "West US")
+	instanceType, image, err := env.selectInstanceTypeAndImage(&instances.InstanceConstraint{
+		Region:      "North Europe",
+		Series:      "precise",
+		Constraints: cons,
+	})
 	c.Assert(err, gc.IsNil)
-
-	c.Check(instanceType, gc.Equals, aim.Name)
-	c.Check(image, gc.Equals, "image")
+	c.Assert(instanceType, gc.Equals, aim.Name)
+	c.Assert(image, gc.Equals, "image-id")
 }
 
 func (*environSuite) TestConvertToInstances(c *gc.C) {
@@ -1250,8 +1270,12 @@ func assertSourceContents(c *gc.C, source simplestreams.DataSource, filename str
 	c.Assert(retrieved, gc.DeepEquals, content)
 }
 
-func (s *environSuite) TestGetImageMetadataSources(c *gc.C) {
-	env := makeEnviron(c)
+func (s *environSuite) assertGetImageMetadataSources(c *gc.C, stream, officialSourcePath string) {
+	envAttrs := makeAzureConfigMap(c)
+	if stream != "" {
+		envAttrs["image-stream"] = stream
+	}
+	env := makeEnvironWithConfig(c, envAttrs)
 	s.setDummyStorage(c, env)
 
 	data := []byte{1, 2, 3, 4}
@@ -1263,7 +1287,13 @@ func (s *environSuite) TestGetImageMetadataSources(c *gc.C) {
 	assertSourceContents(c, sources[0], "filename", data)
 	url, err := sources[1].URL("")
 	c.Assert(err, gc.IsNil)
-	c.Assert(url, gc.Equals, imagemetadata.DefaultBaseURL+"/")
+	c.Assert(url, gc.Equals, fmt.Sprintf("http://cloud-images.ubuntu.com/%s/", officialSourcePath))
+}
+
+func (s *environSuite) TestGetImageMetadataSources(c *gc.C) {
+	s.assertGetImageMetadataSources(c, "", "releases")
+	s.assertGetImageMetadataSources(c, "released", "releases")
+	s.assertGetImageMetadataSources(c, "daily", "daily")
 }
 
 func (s *environSuite) TestGetToolsMetadataSources(c *gc.C) {

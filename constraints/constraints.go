@@ -9,7 +9,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/errgo/errgo"
+
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/arch"
 )
 
 // Value describes a user's requirements of the hardware on which units
@@ -207,7 +210,7 @@ func (v *Value) setRaw(raw string) error {
 		return fmt.Errorf("unknown constraint %q", name)
 	}
 	if err != nil {
-		return fmt.Errorf("bad %q constraint: %v", name, err)
+		return errgo.Annotatef(err, "bad %q constraint", name)
 	}
 	return nil
 }
@@ -259,7 +262,7 @@ func (v *Value) setContainer(str string) error {
 		ctype := instance.ContainerType("")
 		v.Container = &ctype
 	} else {
-		ctype, err := instance.ParseSupportedContainerTypeOrNone(str)
+		ctype, err := instance.ParseContainerTypeOrNone(str)
 		if err != nil {
 			return err
 		}
@@ -277,10 +280,7 @@ func (v *Value) setArch(str string) error {
 	if v.Arch != nil {
 		return fmt.Errorf("already set")
 	}
-	switch str {
-	case "":
-	case "amd64", "i386", "arm":
-	default:
+	if str != "" && !arch.IsSupportedArch(str) {
 		return fmt.Errorf("%q not recognized", str)
 	}
 	v.Arch = &str

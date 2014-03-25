@@ -6,7 +6,7 @@ package storage
 import (
 	"fmt"
 	"io"
-	"path/filepath"
+	"path"
 
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/utils"
@@ -72,9 +72,10 @@ var BaseImagesPath = "images"
 
 // A storageSimpleStreamsDataSource retrieves data from a StorageReader.
 type storageSimpleStreamsDataSource struct {
-	basePath   string
-	storage    StorageReader
-	allowRetry bool
+	description string
+	basePath    string
+	storage     StorageReader
+	allowRetry  bool
 }
 
 // TestingGetAllowRetry is used in tests which need to see if allowRetry has been
@@ -87,16 +88,21 @@ func TestingGetAllowRetry(s simplestreams.DataSource) (bool, ok bool) {
 }
 
 // NewStorageSimpleStreamsDataSource returns a new datasource reading from the specified storage.
-func NewStorageSimpleStreamsDataSource(storage StorageReader, basePath string) simplestreams.DataSource {
-	return &storageSimpleStreamsDataSource{basePath, storage, false}
+func NewStorageSimpleStreamsDataSource(description string, storage StorageReader, basePath string) simplestreams.DataSource {
+	return &storageSimpleStreamsDataSource{description, basePath, storage, false}
 }
 
-func (s *storageSimpleStreamsDataSource) relpath(path string) string {
-	relpath := path
+func (s *storageSimpleStreamsDataSource) relpath(storagePath string) string {
+	relpath := storagePath
 	if s.basePath != "" {
-		relpath = filepath.Join(s.basePath, relpath)
+		relpath = path.Join(s.basePath, relpath)
 	}
 	return relpath
+}
+
+// Description is defined in simplestreams.DataSource.
+func (s *storageSimpleStreamsDataSource) Description() string {
+	return s.description
 }
 
 // Fetch is defined in simplestreams.DataSource.

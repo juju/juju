@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
@@ -30,10 +31,12 @@ func bufferString(w io.Writer) string {
 }
 
 type ContextSuite struct {
+	testbase.LoggingSuite
 	rels map[int]*ContextRelation
 }
 
 func (s *ContextSuite) SetUpTest(c *gc.C) {
+	s.LoggingSuite.SetUpTest(c)
 	s.rels = map[int]*ContextRelation{
 		0: {
 			id:   0,
@@ -133,6 +136,10 @@ func (c *Context) RelationIds() []int {
 		ids = append(ids, id)
 	}
 	return ids
+}
+
+func (c *Context) OwnerTag() string {
+	return "test-owner"
 }
 
 type ContextRelation struct {

@@ -53,17 +53,15 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	// machine 1 (authorized): mysql/0 (principal0), logging/0 (subordinate0)
 
 	var err error
-	s.machine0, err = s.State.AddMachine("quantal", state.JobManageState, state.JobHostUnits)
+	s.machine0, err = s.State.AddMachine("quantal", state.JobManageEnviron, state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	s.machine1, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
-	s.service0, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, gc.IsNil)
+	s.service0 = s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 
-	s.service1, err = s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
-	c.Assert(err, gc.IsNil)
+	s.service1 = s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints([]string{"mysql", "logging"})
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -91,7 +89,6 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:          names.MachineTag(s.machine1.Id()),
 		LoggedIn:     true,
-		Manager:      false,
 		MachineAgent: true,
 	}
 
@@ -150,12 +147,12 @@ func (s *deployerSuite) TestWatchUnits(c *gc.C) {
 }
 
 func (s *deployerSuite) TestSetPasswords(c *gc.C) {
-	args := params.PasswordChanges{
-		Changes: []params.PasswordChange{
-			{Tag: "unit-mysql-0", Password: "xxx"},
-			{Tag: "unit-mysql-1", Password: "yyy"},
-			{Tag: "unit-logging-0", Password: "zzz"},
-			{Tag: "unit-fake-42", Password: "abc"},
+	args := params.EntityPasswords{
+		Changes: []params.EntityPassword{
+			{Tag: "unit-mysql-0", Password: "xxx-12345678901234567890"},
+			{Tag: "unit-mysql-1", Password: "yyy-12345678901234567890"},
+			{Tag: "unit-logging-0", Password: "zzz-12345678901234567890"},
+			{Tag: "unit-fake-42", Password: "abc-12345678901234567890"},
 		},
 	}
 	results, err := s.deployer.SetPasswords(args)
@@ -170,11 +167,11 @@ func (s *deployerSuite) TestSetPasswords(c *gc.C) {
 	})
 	err = s.principal0.Refresh()
 	c.Assert(err, gc.IsNil)
-	changed := s.principal0.PasswordValid("xxx")
+	changed := s.principal0.PasswordValid("xxx-12345678901234567890")
 	c.Assert(changed, gc.Equals, true)
 	err = s.subordinate0.Refresh()
 	c.Assert(err, gc.IsNil)
-	changed = s.subordinate0.PasswordValid("zzz")
+	changed = s.subordinate0.PasswordValid("zzz-12345678901234567890")
 	c.Assert(changed, gc.Equals, true)
 
 	// Remove the subordinate and make sure it's detected.
@@ -185,9 +182,9 @@ func (s *deployerSuite) TestSetPasswords(c *gc.C) {
 	err = s.subordinate0.Refresh()
 	c.Assert(errors.IsNotFoundError(err), gc.Equals, true)
 
-	results, err = s.deployer.SetPasswords(params.PasswordChanges{
-		Changes: []params.PasswordChange{
-			{Tag: "unit-logging-0", Password: "blah"},
+	results, err = s.deployer.SetPasswords(params.EntityPasswords{
+		Changes: []params.EntityPassword{
+			{Tag: "unit-logging-0", Password: "blah-12345678901234567890"},
 		},
 	})
 	c.Assert(err, gc.IsNil)
@@ -324,7 +321,7 @@ func (s *deployerSuite) TestAPIAddresses(c *gc.C) {
 	})
 	c.Assert(err, gc.IsNil)
 
-	apiAddresses, err := s.State.APIAddresses()
+	apiAddresses, err := s.State.APIAddressesFromMachines()
 	c.Assert(err, gc.IsNil)
 
 	result, err := s.deployer.APIAddresses()

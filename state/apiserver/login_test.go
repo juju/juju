@@ -4,8 +4,9 @@
 package apiserver_test
 
 import (
+	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/loggo"
 
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -13,7 +14,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/utils"
 )
 
 type loginSuite struct {
@@ -49,6 +50,7 @@ func (s *loginSuite) setupServer(c *gc.C) (*api.Info, func()) {
 		"localhost:0",
 		[]byte(coretesting.ServerCert),
 		[]byte(coretesting.ServerKey),
+		"",
 	)
 	c.Assert(err, gc.IsNil)
 	info := &api.Info{
@@ -97,6 +99,31 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 	}
 }
 
+func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
+	info, cleanup := s.setupServer(c)
+	defer cleanup()
+
+	info.Tag = ""
+	info.Password = ""
+	st, err := api.Open(info, fastDialOpts)
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+	u, err := s.State.AddUser("inactive", "password")
+	c.Assert(err, gc.IsNil)
+	err = u.Deactivate()
+	c.Assert(err, gc.IsNil)
+
+	_, err = st.Client().Status([]string{})
+	c.Assert(err, gc.ErrorMatches, `unknown object type "Client"`)
+
+	// Since these are user login tests, the nonce is empty.
+	err = st.Login("user-inactive", "password", "")
+	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")
+
+	_, err = st.Client().Status([]string{})
+	c.Assert(err, gc.ErrorMatches, `unknown object type "Client"`)
+}
+
 func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {
 	info, cleanup := s.setupServer(c)
 	defer cleanup()
@@ -105,7 +132,9 @@ func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = machineInState.SetProvisioned("foo", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
-	err = machineInState.SetPassword("test-password")
+	password, err := utils.RandomPassword()
+	c.Assert(err, gc.IsNil)
+	err = machineInState.SetPassword(password)
 	c.Assert(err, gc.IsNil)
 	c.Assert(machineInState.Tag(), gc.Equals, "machine-0")
 
@@ -114,7 +143,7 @@ func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {
 	defer loggo.RemoveWriter("login-tester")
 
 	info.Tag = machineInState.Tag()
-	info.Password = "test-password"
+	info.Password = password
 	info.Nonce = "fake_nonce"
 
 	apiConn, err := api.Open(info, fastDialOpts)
@@ -125,14 +154,14 @@ func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {
 	apiConn.Close()
 
 	c.Assert(tw.Log, jc.LogMatches, []string{
-		`<- \[\d+\] <unknown> {"RequestId":1,"Type":"Admin","Request":"Login","Params":` +
-			`{"AuthTag":"machine-0","Password":"test-password","Nonce":"fake_nonce"}` +
+		`<- \[[0-9A-F]+\] <unknown> {"RequestId":1,"Type":"Admin","Request":"Login","Params":` +
+			`{"AuthTag":"machine-0","Password":"[^"]*","Nonce":"fake_nonce"}` +
 			`}`,
 		// Now that we are logged in, we see the entity's tag
 		// [0-9.umns] is to handle timestamps that are ns, us, ms, or s
 		// long, though we expect it to be in the 'ms' range.
-		`<- \[\d+\] machine-0 [0-9.]+[umn]?s {"RequestId":1,"Response":{}} Admin\[""\].Login`,
-		`<- \[\d+\] machine-0 {"RequestId":2,"Type":"Machiner","Request":"Life","Params":{"Entities":\[{"Tag":"machine-0"}\]}}`,
-		`<- \[\d+\] machine-0 [0-9.umns]+ {"RequestId":2,"Response":{"Results":\[{"Life":"alive","Error":null}\]}} Machiner\[""\]\.Life`,
+		`-> \[[0-9A-F]+\] machine-0 [0-9.]+[umn]?s {"RequestId":1,"Response":{}} Admin\[""\].Login`,
+		`<- \[[0-9A-F]+\] machine-0 {"RequestId":2,"Type":"Machiner","Request":"Life","Params":{"Entities":\[{"Tag":"machine-0"}\]}}`,
+		`-> \[[0-9A-F]+\] machine-0 [0-9.umns]+ {"RequestId":2,"Response":{"Results":\[{"Life":"alive","Error":null}\]}} Machiner\[""\]\.Life`,
 	})
 }

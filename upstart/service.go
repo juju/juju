@@ -11,34 +11,8 @@ import (
 )
 
 const (
-	maxMongoFiles = 65000
 	maxAgentFiles = 20000
 )
-
-// MongoUpstartService returns the upstart config for the mongo state service.
-func MongoUpstartService(name, dataDir, dbDir string, port int) *Conf {
-	keyFile := path.Join(dataDir, "server.pem")
-	svc := NewService(name)
-	return &Conf{
-		Service: *svc,
-		Desc:    "juju state database",
-		Limit: map[string]string{
-			"nofile": fmt.Sprintf("%d %d", maxMongoFiles, maxMongoFiles),
-			"nproc":  fmt.Sprintf("%d %d", maxAgentFiles, maxAgentFiles),
-		},
-		Cmd: "/usr/bin/mongod" +
-			" --auth" +
-			" --dbpath=" + dbDir +
-			" --sslOnNormalPorts" +
-			" --sslPEMKeyFile " + utils.ShQuote(keyFile) +
-			" --sslPEMKeyPassword ignored" +
-			" --bind_ip 0.0.0.0" +
-			" --port " + fmt.Sprint(port) +
-			" --noprealloc" +
-			" --syslog" +
-			" --smallfiles",
-	}
-}
 
 // MachineAgentUpstartService returns the upstart config for a machine agent
 // based on the tag and machineId passed in.

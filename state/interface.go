@@ -4,6 +4,8 @@
 package state
 
 import (
+	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
@@ -128,6 +130,7 @@ var (
 	_ NotifyWatcherFactory = (*Machine)(nil)
 	_ NotifyWatcherFactory = (*Unit)(nil)
 	_ NotifyWatcherFactory = (*Service)(nil)
+	_ NotifyWatcherFactory = (*Environment)(nil)
 )
 
 // AgentEntity represents an entity that can
@@ -148,3 +151,37 @@ var (
 	_ AgentEntity = (*Machine)(nil)
 	_ AgentEntity = (*Unit)(nil)
 )
+
+// EnvironAccessor defines the methods needed to watch for environment
+// config changes, and read the environment config.
+type EnvironAccessor interface {
+	WatchForEnvironConfigChanges() NotifyWatcher
+	EnvironConfig() (*config.Config, error)
+}
+
+var _ EnvironAccessor = (*State)(nil)
+
+// UnitsWatcher defines the methods needed to retrieve an entity (a
+// machine or a service) and watch its units.
+type UnitsWatcher interface {
+	Entity
+	WatchUnits() StringsWatcher
+}
+
+var _ UnitsWatcher = (*Machine)(nil)
+var _ UnitsWatcher = (*Service)(nil)
+
+// EnvironMachinesWatcher defines a single method -
+// WatchEnvironMachines.
+type EnvironMachinesWatcher interface {
+	WatchEnvironMachines() StringsWatcher
+}
+
+var _ EnvironMachinesWatcher = (*State)(nil)
+
+// InstanceIdGetter defines a single method - InstanceId.
+type InstanceIdGetter interface {
+	InstanceId() (instance.Id, error)
+}
+
+var _ InstanceIdGetter = (*Machine)(nil)

@@ -1,15 +1,21 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package main
 
 import (
 	"fmt"
+	"io"
 	"net/rpc"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/utils/exec"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 
 	// Import the providers.
@@ -76,7 +82,7 @@ func jujuCMain(commandName string, args []string) (code int, err error) {
 		return
 	}
 	defer client.Close()
-	var resp jujuc.Response
+	var resp exec.ExecResponse
 	err = client.Call("Jujuc.Main", req, &resp)
 	if err != nil {
 		return
@@ -88,17 +94,17 @@ func jujuCMain(commandName string, args []string) (code int, err error) {
 
 // Main registers subcommands for the jujud executable, and hands over control
 // to the cmd package.
-func jujuDMain(args []string) (code int, err error) {
+func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	jujud := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name: "jujud",
 		Doc:  jujudDoc,
-		Log:  &cmd.Log{},
+		Log:  &cmd.Log{Factory: &writerFactory{}},
 	})
 	jujud.Register(&BootstrapCommand{})
 	jujud.Register(&MachineAgent{})
 	jujud.Register(&UnitAgent{})
 	jujud.Register(&cmd.VersionCommand{})
-	code = cmd.Main(jujud, cmd.DefaultContext(), args[1:])
+	code = cmd.Main(jujud, ctx, args[1:])
 	return code, nil
 }
 
@@ -106,14 +112,20 @@ func jujuDMain(args []string) (code int, err error) {
 // for testing with arbitrary command line arguments.
 func Main(args []string) {
 	var code int = 1
-	var err error
+	ctx, err := cmd.DefaultContext()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(2)
+	}
 	commandName := filepath.Base(args[0])
 	if commandName == "jujud" {
-		code, err = jujuDMain(args)
+		code, err = jujuDMain(args, ctx)
 	} else if commandName == "jujuc" {
 		fmt.Fprint(os.Stderr, jujudDoc)
 		code = 2
 		err = fmt.Errorf("jujuc should not be called directly")
+	} else if commandName == "juju-run" {
+		code = cmd.Main(&RunCommand{}, ctx, args[1:])
 	} else {
 		code, err = jujuCMain(commandName, args)
 	}
@@ -125,4 +137,36 @@ func Main(args []string) {
 
 func main() {
 	Main(os.Args)
+}
+
+type writerFactory struct{}
+
+func (*writerFactory) NewWriter(target io.Writer) loggo.Writer {
+	return &jujudWriter{target: target}
+}
+
+type jujudWriter struct {
+	target           io.Writer
+	unitFormatter    simpleFormatter
+	defaultFormatter loggo.DefaultFormatter
+}
+
+var _ loggo.Writer = (*jujudWriter)(nil)
+
+func (w *jujudWriter) Write(level loggo.Level, module, filename string, line int, timestamp time.Time, message string) {
+	if strings.HasPrefix(module, "unit.") {
+		fmt.Fprintln(w.target, w.unitFormatter.Format(level, module, timestamp, message))
+	} else {
+		fmt.Fprintln(w.target, w.defaultFormatter.Format(level, module, filename, line, timestamp, message))
+	}
+}
+
+type simpleFormatter struct{}
+
+func (*simpleFormatter) Format(level loggo.Level, module string, timestamp time.Time, message string) string {
+	ts := timestamp.In(time.UTC).Format("2006-01-02 15:04:05")
+	// Just show the last element of the module.
+	lastDot := strings.LastIndex(module, ".")
+	module = module[lastDot+1:]
+	return fmt.Sprintf("%s %s %s %s", ts, level, module, message)
 }

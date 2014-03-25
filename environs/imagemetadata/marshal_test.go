@@ -53,7 +53,8 @@ var expectedProducts = `{
                 "19700101": {
                     "items": {
                         "abcd": {
-                            "id": "abcd"
+                            "id": "abcd",
+                            "virt": "virt"
                         }
                     }
                 }
@@ -87,7 +88,8 @@ var expectedProducts = `{
         }
     },
     "updated": "Thu, 01 Jan 1970 00:00:00 +0000",
-    "format": "products:1.0"
+    "format": "products:1.0",
+    "content_id": "com.ubuntu.cloud:custom"
 }`
 
 var imageMetadataForTesting = []*imagemetadata.ImageMetadata{
@@ -102,9 +104,10 @@ var imageMetadataForTesting = []*imagemetadata.ImageMetadata{
 		Arch:    "arm",
 	},
 	&imagemetadata.ImageMetadata{
-		Id:      "abcd",
-		Version: "12.04",
-		Arch:    "amd64",
+		Id:       "abcd",
+		Version:  "12.04",
+		Arch:     "amd64",
+		VirtType: "virt",
 	},
 }
 

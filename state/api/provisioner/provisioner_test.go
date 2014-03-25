@@ -6,10 +6,10 @@ package provisioner_test
 import (
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
@@ -17,10 +17,11 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/provisioner"
+	apitesting "launchpad.net/juju-core/state/api/testing"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -30,6 +31,9 @@ func TestAll(t *stdtesting.T) {
 
 type provisionerSuite struct {
 	testing.JujuConnSuite
+	*apitesting.EnvironWatcherTests
+	*apitesting.APIAddresserTests
+
 	st      *api.State
 	machine *state.Machine
 
@@ -42,18 +46,25 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	var err error
-	s.machine, err = s.State.AddMachine("quantal", state.JobManageEnviron, state.JobManageState)
+	s.machine, err = s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
-	err = s.machine.SetPassword("test-password")
+	password, err := utils.RandomPassword()
+	c.Assert(err, gc.IsNil)
+	err = s.machine.SetPassword(password)
 	c.Assert(err, gc.IsNil)
 	err = s.machine.SetProvisioned("i-manager", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), "test-password", "fake_nonce")
+	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
+	err = s.machine.SetAddresses(instance.NewAddresses([]string{"0.1.2.3"}))
+	c.Assert(err, gc.IsNil)
 
 	// Create the provisioner API facade.
 	s.provisioner = s.st.Provisioner()
 	c.Assert(s.provisioner, gc.NotNil)
+
+	s.EnvironWatcherTests = apitesting.NewEnvironWatcherTests(s.provisioner, s.BackingState, apitesting.HasSecrets)
+	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.provisioner, s.BackingState)
 }
 
 func (s *provisionerSuite) TestMachineTagAndId(c *gc.C) {
@@ -199,19 +210,19 @@ func (s *provisionerSuite) TestSeries(c *gc.C) {
 
 func (s *provisionerSuite) TestConstraints(c *gc.C) {
 	// Create a fresh machine with some constraints.
-	args := state.AddMachineParams{
+	template := state.MachineTemplate{
 		Series:      "quantal",
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: constraints.MustParse("cpu-cores=12", "mem=8G"),
 	}
-	consMachine, err := s.State.AddMachineWithConstraints(&args)
+	consMachine, err := s.State.AddOneMachine(template)
 	c.Assert(err, gc.IsNil)
 
 	apiMachine, err := s.provisioner.Machine(consMachine.Tag())
 	c.Assert(err, gc.IsNil)
 	cons, err := apiMachine.Constraints()
 	c.Assert(err, gc.IsNil)
-	c.Assert(cons, gc.DeepEquals, args.Constraints)
+	c.Assert(cons, gc.DeepEquals, template.Constraints)
 
 	// Now try machine 0.
 	apiMachine, err = s.provisioner.Machine(s.machine.Tag())
@@ -226,13 +237,11 @@ func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Add one LXC container.
-	args := state.AddMachineParams{
-		Series:        "quantal",
-		ParentId:      s.machine.Id(),
-		Jobs:          []state.MachineJob{state.JobHostUnits},
-		ContainerType: instance.LXC,
+	template := state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := s.State.AddMachineWithConstraints(&args)
+	container, err := s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXC)
 	c.Assert(err, gc.IsNil)
 
 	w, err := apiMachine.WatchContainers(instance.LXC)
@@ -250,19 +259,39 @@ func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Add a KVM container and make sure it's not detected.
-	args.ContainerType = instance.KVM
-	container, err = s.State.AddMachineWithConstraints(&args)
+	container, err = s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.KVM)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
 	// Add another LXC container and make sure it's detected.
-	args.ContainerType = instance.LXC
-	container, err = s.State.AddMachineWithConstraints(&args)
+	container, err = s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXC)
 	c.Assert(err, gc.IsNil)
 	wc.AssertChange(container.Id())
 
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
+}
+
+func (s *provisionerSuite) TestWatchContainersAcceptsSupportedContainers(c *gc.C) {
+	apiMachine, err := s.provisioner.Machine(s.machine.Tag())
+	c.Assert(err, gc.IsNil)
+
+	for _, ctype := range instance.ContainerTypes {
+		w, err := apiMachine.WatchContainers(ctype)
+		c.Assert(w, gc.NotNil)
+		c.Assert(err, gc.IsNil)
+	}
+}
+
+func (s *provisionerSuite) TestWatchContainersErrors(c *gc.C) {
+	apiMachine, err := s.provisioner.Machine(s.machine.Tag())
+	c.Assert(err, gc.IsNil)
+
+	_, err = apiMachine.WatchContainers(instance.NONE)
+	c.Assert(err, gc.ErrorMatches, `unsupported container type "none"`)
+
+	_, err = apiMachine.WatchContainers("")
+	c.Assert(err, gc.ErrorMatches, "container type must be specified")
 }
 
 func (s *provisionerSuite) TestWatchEnvironMachines(c *gc.C) {
@@ -287,54 +316,13 @@ func (s *provisionerSuite) TestWatchEnvironMachines(c *gc.C) {
 	wc.AssertChange("2")
 
 	// Add a container and make sure it's not detected.
-	args := state.AddMachineParams{
-		Series:        "quantal",
-		ParentId:      s.machine.Id(),
-		Jobs:          []state.MachineJob{state.JobHostUnits},
-		ContainerType: instance.LXC,
+	template := state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	_, err = s.State.AddMachineWithConstraints(&args)
+	_, err = s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXC)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
-}
-
-func (s *provisionerSuite) TestEnvironConfig(c *gc.C) {
-	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-
-	conf, err := s.provisioner.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	c.Assert(conf, gc.DeepEquals, envConfig)
-}
-
-func (s *provisionerSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
-	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-
-	w, err := s.provisioner.WatchForEnvironConfigChanges()
-	c.Assert(err, gc.IsNil)
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
-
-	// Initial event.
-	wc.AssertOneChange()
-
-	// Change the environment configuration, check it's detected.
-	attrs := envConfig.AllAttrs()
-	attrs["type"] = "blah"
-	newConfig, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(newConfig)
-	c.Assert(err, gc.IsNil)
-	wc.AssertOneChange()
-
-	// Change it back to the original config.
-	err = s.State.SetEnvironConfig(envConfig)
-	c.Assert(err, gc.IsNil)
-	wc.AssertOneChange()
 
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
@@ -354,32 +342,12 @@ func (s *provisionerSuite) TestStateAddresses(c *gc.C) {
 	c.Assert(addresses, gc.DeepEquals, stateAddresses)
 }
 
-func (s *provisionerSuite) TestAPIAddresses(c *gc.C) {
-	err := s.machine.SetAddresses([]instance.Address{
-		instance.NewAddress("0.1.2.3"),
-	})
-	c.Assert(err, gc.IsNil)
-
-	apiAddresses, err := s.State.APIAddresses()
-	c.Assert(err, gc.IsNil)
-
-	addresses, err := s.provisioner.APIAddresses()
-	c.Assert(err, gc.IsNil)
-	c.Assert(addresses, gc.DeepEquals, apiAddresses)
-}
-
 func (s *provisionerSuite) TestContainerConfig(c *gc.C) {
 	result, err := s.provisioner.ContainerConfig()
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.ProviderType, gc.Equals, "dummy")
-	c.Assert(result.AuthorizedKeys, gc.Equals, "my-keys")
+	c.Assert(result.AuthorizedKeys, gc.Equals, coretesting.FakeAuthKeys)
 	c.Assert(result.SSLHostnameVerification, jc.IsTrue)
-}
-
-func (s *provisionerSuite) TestCACert(c *gc.C) {
-	caCert, err := s.provisioner.CACert()
-	c.Assert(err, gc.IsNil)
-	c.Assert(caCert, gc.DeepEquals, s.State.CACert())
 }
 
 func (s *provisionerSuite) TestToolsWrongMachine(c *gc.C) {
@@ -400,4 +368,30 @@ func (s *provisionerSuite) TestTools(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(stateTools.Version, gc.Equals, cur)
 	c.Assert(stateTools.URL, gc.Not(gc.Equals), "")
+}
+
+func (s *provisionerSuite) TestSetSupportedContainers(c *gc.C) {
+	apiMachine, err := s.provisioner.Machine(s.machine.Tag())
+	c.Assert(err, gc.IsNil)
+	err = apiMachine.SetSupportedContainers(instance.LXC, instance.KVM)
+	c.Assert(err, gc.IsNil)
+
+	err = s.machine.Refresh()
+	c.Assert(err, gc.IsNil)
+	containers, ok := s.machine.SupportedContainers()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{instance.LXC, instance.KVM})
+}
+
+func (s *provisionerSuite) TestSupportsNoContainers(c *gc.C) {
+	apiMachine, err := s.provisioner.Machine(s.machine.Tag())
+	c.Assert(err, gc.IsNil)
+	err = apiMachine.SupportsNoContainers()
+	c.Assert(err, gc.IsNil)
+
+	err = s.machine.Refresh()
+	c.Assert(err, gc.IsNil)
+	containers, ok := s.machine.SupportedContainers()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{})
 }

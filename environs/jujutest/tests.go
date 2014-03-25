@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"sort"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
@@ -22,7 +23,6 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -60,7 +60,7 @@ func (t *Tests) Open(c *gc.C) environs.Environ {
 func (t *Tests) Prepare(c *gc.C) environs.Environ {
 	cfg, err := config.New(config.NoDefaults, t.TestConfig)
 	c.Assert(err, gc.IsNil)
-	e, err := environs.Prepare(cfg, t.ConfigStore)
+	e, err := environs.Prepare(cfg, coretesting.Context(c), t.ConfigStore)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", t.TestConfig))
 	c.Assert(e, gc.NotNil)
 	return e
@@ -133,7 +133,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	envtesting.UploadFakeTools(c, e.Storage())
 	err := bootstrap.EnsureNotBootstrapped(e)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(e, constraints.Value{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), e, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
 	info, apiInfo, err := e.StateInfo()
@@ -161,7 +161,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 
 	err = bootstrap.EnsureNotBootstrapped(e3)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(e3, constraints.Value{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), e3, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
 	err = bootstrap.EnsureNotBootstrapped(e3)
@@ -258,7 +258,7 @@ func checkFileHasContents(c *gc.C, stor storage.StorageReader, name string, cont
 
 	var resp *http.Response
 	for a := attempt.Start(); a.Next(); {
-		resp, err = http.Get(url)
+		resp, err = utils.GetValidatingHTTPClient().Get(url)
 		c.Assert(err, gc.IsNil)
 		if resp.StatusCode != 404 {
 			break

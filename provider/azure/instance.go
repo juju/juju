@@ -11,7 +11,6 @@ import (
 
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/common"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker/firewaller"
 )
 
@@ -35,6 +34,13 @@ func (azInstance *azureInstance) Status() string {
 }
 
 var AZURE_DOMAIN_NAME = "cloudapp.net"
+
+// Refresh is specified in the Instance interface.
+func (azInstance *azureInstance) Refresh() error {
+	// TODO(axw) 2013-12-16 #1261324
+	// Cache Addresses/netInfo, refresh here.
+	return nil
+}
 
 // Addresses is specified in the Instance interface.
 func (azInstance *azureInstance) Addresses() ([]instance.Address, error) {
@@ -237,7 +243,7 @@ func (azInstance *azureInstance) Ports(machineId string) (ports []instance.Port,
 		return err
 	})
 	if ports != nil {
-		state.SortPorts(ports)
+		instance.SortPorts(ports)
 	}
 	return ports, err
 }

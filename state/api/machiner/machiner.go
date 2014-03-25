@@ -4,39 +4,35 @@
 package machiner
 
 import (
-	"fmt"
-
+	"launchpad.net/juju-core/state/api/base"
 	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
 )
 
+const machinerFacade = "Machiner"
+
 // State provides access to the Machiner API facade.
 type State struct {
-	caller common.Caller
+	caller base.Caller
+	*common.APIAddresser
+}
+
+func (st *State) call(method string, params, result interface{}) error {
+	return st.caller.Call(machinerFacade, "", method, params, result)
 }
 
 // NewState creates a new client-side Machiner facade.
-func NewState(caller common.Caller) *State {
-	return &State{caller}
+func NewState(caller base.Caller) *State {
+	return &State{
+		caller:       caller,
+		APIAddresser: common.NewAPIAddresser(machinerFacade, caller),
+	}
+
 }
 
 // machineLife requests the lifecycle of the given machine from the server.
 func (st *State) machineLife(tag string) (params.Life, error) {
-	var result params.LifeResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: tag}},
-	}
-	err := st.caller.Call("Machiner", "", "Life", args, &result)
-	if err != nil {
-		return "", err
-	}
-	if len(result.Results) != 1 {
-		return "", fmt.Errorf("expected one result, got %d", len(result.Results))
-	}
-	if err := result.Results[0].Error; err != nil {
-		return "", err
-	}
-	return result.Results[0].Life, nil
+	return common.Life(st.caller, machinerFacade, tag)
 }
 
 // Machine provides access to methods of a state.Machine through the facade.

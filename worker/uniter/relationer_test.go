@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm/hooks"
@@ -19,7 +20,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	apiuniter "launchpad.net/juju-core/state/api/uniter"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/juju-core/worker/uniter/hook"
 	"launchpad.net/juju-core/worker/uniter/relation"
@@ -43,7 +44,7 @@ var _ = gc.Suite(&RelationerSuite{})
 func (s *RelationerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	var err error
-	s.svc, err = s.State.AddService("u", s.AddTestingCharm(c, "riak"))
+	s.svc = s.AddTestingService(c, "u", s.AddTestingCharm(c, "riak"))
 	c.Assert(err, gc.IsNil)
 	rels, err := s.svc.Relations()
 	c.Assert(err, gc.IsNil)
@@ -55,9 +56,11 @@ func (s *RelationerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.hooks = make(chan hook.Info)
 
-	err = unit.SetPassword("password")
+	password, err := utils.RandomPassword()
 	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAs(c, unit.Tag(), "password")
+	err = unit.SetPassword(password)
+	c.Assert(err, gc.IsNil)
+	s.st = s.OpenAPIAs(c, unit.Tag(), password)
 	s.uniter = s.st.Uniter()
 	c.Assert(s.uniter, gc.NotNil)
 
@@ -375,14 +378,12 @@ var _ = gc.Suite(&RelationerImplicitSuite{})
 
 func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	// Create a relationer for an implicit endpoint (mysql:juju-info).
-	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, gc.IsNil)
+	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	u, err := mysql.AddUnit()
 	c.Assert(err, gc.IsNil)
 	err = u.SetPrivateAddress("blah")
 	c.Assert(err, gc.IsNil)
-	logging, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
-	c.Assert(err, gc.IsNil)
+	logging := s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints([]string{"logging", "mysql"})
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -392,9 +393,11 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	hooks := make(chan hook.Info)
 
-	err = u.SetPassword("password")
+	password, err := utils.RandomPassword()
 	c.Assert(err, gc.IsNil)
-	st := s.OpenAPIAs(c, u.Tag(), "password")
+	err = u.SetPassword(password)
+	c.Assert(err, gc.IsNil)
+	st := s.OpenAPIAs(c, u.Tag(), password)
 	uniterState := st.Uniter()
 	c.Assert(uniterState, gc.NotNil)
 

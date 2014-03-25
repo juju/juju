@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
 	"launchpad.net/juju-core/constraints"
@@ -37,18 +38,22 @@ const (
 	_ MachineJob = iota
 	JobHostUnits
 	JobManageEnviron
-	JobManageState
+
+	// Deprecated in 1.18.
+	JobManageStateDeprecated
 )
 
 var jobNames = map[MachineJob]params.MachineJob{
 	JobHostUnits:     params.JobHostUnits,
 	JobManageEnviron: params.JobManageEnviron,
-	JobManageState:   params.JobManageState,
+
+	// Deprecated in 1.18.
+	JobManageStateDeprecated: params.JobManageStateDeprecated,
 }
 
 // AllJobs returns all supported machine jobs.
 func AllJobs() []MachineJob {
-	return []MachineJob{JobHostUnits, JobManageState, JobManageEnviron}
+	return []MachineJob{JobHostUnits, JobManageEnviron}
 }
 
 // ToParams returns the job as params.MachineJob.
@@ -57,6 +62,25 @@ func (job MachineJob) ToParams() params.MachineJob {
 		return paramsJob
 	}
 	return params.MachineJob(fmt.Sprintf("<unknown job %d>", int(job)))
+}
+
+// MachineJobFromParams returns the job corresponding to params.MachineJob.
+func MachineJobFromParams(job params.MachineJob) (MachineJob, error) {
+	for machineJob, paramJob := range jobNames {
+		if paramJob == job {
+			return machineJob, nil
+		}
+	}
+	return -1, fmt.Errorf("invalid machine job %q", job)
+}
+
+// paramsJobsFromJobs converts state jobs to params jobs.
+func paramsJobsFromJobs(jobs []MachineJob) []params.MachineJob {
+	paramsJobs := make([]params.MachineJob, len(jobs))
+	for i, machineJob := range jobs {
+		paramsJobs[i] = machineJob.ToParams()
+	}
+	return paramsJobs
 }
 
 func (job MachineJob) String() string {
@@ -73,11 +97,21 @@ type machineDoc struct {
 	Principals    []string
 	Life          Life
 	Tools         *tools.Tools `bson:",omitempty"`
-	TxnRevno      int64        `bson:"txn-revno"`
 	Jobs          []MachineJob
+	NoVote        bool
+	HasVote       bool
 	PasswordHash  string
 	Clean         bool
-	Addresses     []address
+	// We store 2 different sets of addresses for the machine, obtained
+	// from different sources.
+	// Addresses is the set of addresses obtained by asking the provider.
+	Addresses []address
+	// MachineAddresses is the set of addresses obtained from the machine itself.
+	MachineAddresses []address
+	// The SupportedContainers attributes are used to advertise what containers this
+	// machine is capable of hosting.
+	SupportedContainersKnown bool
+	SupportedContainers      []instance.ContainerType `bson:",omitempty"`
 	// Deprecated. InstanceId, now lives on instanceData.
 	// This attribute is retained so that data from existing machines can be read.
 	// SCHEMACHANGE
@@ -127,29 +161,33 @@ func (m *Machine) globalKey() string {
 type instanceData struct {
 	Id         string      `bson:"_id"`
 	InstanceId instance.Id `bson:"instanceid"`
+	Status     string      `bson:"status,omitempty"`
 	Arch       *string     `bson:"arch,omitempty"`
 	Mem        *uint64     `bson:"mem,omitempty"`
 	RootDisk   *uint64     `bson:"rootdisk,omitempty"`
 	CpuCores   *uint64     `bson:"cpucores,omitempty"`
 	CpuPower   *uint64     `bson:"cpupower,omitempty"`
 	Tags       *[]string   `bson:"tags,omitempty"`
-	TxnRevno   int64       `bson:"txn-revno"`
+}
+
+func hardwareCharacteristics(instData instanceData) *instance.HardwareCharacteristics {
+	return &instance.HardwareCharacteristics{
+		Arch:     instData.Arch,
+		Mem:      instData.Mem,
+		RootDisk: instData.RootDisk,
+		CpuCores: instData.CpuCores,
+		CpuPower: instData.CpuPower,
+		Tags:     instData.Tags,
+	}
 }
 
 // TODO(wallyworld): move this method to a service.
 func (m *Machine) HardwareCharacteristics() (*instance.HardwareCharacteristics, error) {
-	hc := &instance.HardwareCharacteristics{}
 	instData, err := getInstanceData(m.st, m.Id())
 	if err != nil {
 		return nil, err
 	}
-	hc.Arch = instData.Arch
-	hc.Mem = instData.Mem
-	hc.RootDisk = instData.RootDisk
-	hc.CpuCores = instData.CpuCores
-	hc.CpuPower = instData.CpuPower
-	hc.Tags = instData.Tags
-	return hc, nil
+	return hardwareCharacteristics(instData), nil
 }
 
 func getInstanceData(st *State, id string) (instanceData, error) {
@@ -181,14 +219,60 @@ func (m *Machine) Jobs() []MachineJob {
 	return m.doc.Jobs
 }
 
-// IsStateServer returns true if the machine has a JobManageState job.
-func (m *Machine) IsStateServer() bool {
-	for _, job := range m.doc.Jobs {
-		if job == JobManageState {
-			return true
-		}
+// WantsVote reports whether the machine is a state server
+// that wants to take part in peer voting.
+func (m *Machine) WantsVote() bool {
+	return hasJob(m.doc.Jobs, JobManageEnviron) && !m.doc.NoVote
+}
+
+// HasVote reports whether that machine is currently a voting
+// member of the replica set.
+func (m *Machine) HasVote() bool {
+	return m.doc.HasVote
+}
+
+// SetHasVote sets whether the machine is currently a voting
+// member of the replica set. It should only be called
+// from the worker that maintains the replica set.
+func (m *Machine) SetHasVote(hasVote bool) error {
+	ops := []txn.Op{{
+		C:      m.st.machines.Name,
+		Id:     m.doc.Id,
+		Assert: notDeadDoc,
+		Update: bson.D{{"$set", bson.D{{"hasvote", hasVote}}}},
+	}}
+	if err := m.st.runTransaction(ops); err != nil {
+		return fmt.Errorf("cannot set HasVote of machine %v: %v", m, onAbort(err, errDead))
 	}
-	return false
+	m.doc.HasVote = hasVote
+	return nil
+}
+
+// IsManager returns true if the machine has JobManageEnviron.
+func (m *Machine) IsManager() bool {
+	return hasJob(m.doc.Jobs, JobManageEnviron)
+}
+
+// IsManual returns true if the machine was manually provisioned.
+func (m *Machine) IsManual() (bool, error) {
+	// Apart from the bootstrap machine, manually provisioned
+	// machines have a nonce prefixed with "manual:". This is
+	// unique to manual provisioning.
+	if strings.HasPrefix(m.doc.Nonce, "manual:") {
+		return true, nil
+	}
+	// The bootstrap machine uses BootstrapNonce, so in that
+	// case we need to check if its provider type is "manual".
+	// We also check for "null", which is an alias for manual.
+	if m.doc.Id == "0" {
+		cfg, err := m.st.EnvironConfig()
+		if err != nil {
+			return false, err
+		}
+		t := cfg.Type()
+		return t == "null" || t == "manual", nil
+	}
+	return false, nil
 }
 
 // AgentTools returns the tools that the agent is currently running.
@@ -222,7 +306,7 @@ func (m *Machine) SetAgentVersion(v version.Binary) (err error) {
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
 		Assert: notDeadDoc,
-		Update: D{{"$set", D{{"tools", tools}}}},
+		Update: bson.D{{"$set", bson.D{{"tools", tools}}}},
 	}}
 	if err := m.st.runTransaction(ops); err != nil {
 		return onAbort(err, errDead)
@@ -240,24 +324,55 @@ func (m *Machine) SetMongoPassword(password string) error {
 
 // SetPassword sets the password for the machine's agent.
 func (m *Machine) SetPassword(password string) error {
-	hp := utils.PasswordHash(password)
+	if len(password) < utils.MinAgentPasswordLength {
+		return fmt.Errorf("password is only %d bytes long, and is not a valid Agent password", len(password))
+	}
+	return m.setPasswordHash(utils.AgentPasswordHash(password))
+}
+
+// setPasswordHash sets the underlying password hash in the database directly
+// to the value supplied. This is split out from SetPassword to allow direct
+// manipulation in tests (to check for backwards compatibility).
+func (m *Machine) setPasswordHash(passwordHash string) error {
 	ops := []txn.Op{{
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
 		Assert: notDeadDoc,
-		Update: D{{"$set", D{{"passwordhash", hp}}}},
+		Update: bson.D{{"$set", bson.D{{"passwordhash", passwordHash}}}},
 	}}
 	if err := m.st.runTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set password of machine %v: %v", m, onAbort(err, errDead))
 	}
-	m.doc.PasswordHash = hp
+	m.doc.PasswordHash = passwordHash
 	return nil
+}
+
+// Return the underlying PasswordHash stored in the database. Used by the test
+// suite to check that the PasswordHash gets properly updated to new values
+// when compatibility mode is detected.
+func (m *Machine) getPasswordHash() string {
+	return m.doc.PasswordHash
 }
 
 // PasswordValid returns whether the given password is valid
 // for the given machine.
 func (m *Machine) PasswordValid(password string) bool {
-	return utils.PasswordHash(password) == m.doc.PasswordHash
+	agentHash := utils.AgentPasswordHash(password)
+	if agentHash == m.doc.PasswordHash {
+		return true
+	}
+	// In Juju 1.16 and older we used the slower password hash for unit
+	// agents. So check to see if the supplied password matches the old
+	// path, and if so, update it to the new mechanism.
+	// We ignore any error in setting the password, as we'll just try again
+	// next time
+	if utils.UserPasswordHash(password, utils.CompatSalt) == m.doc.PasswordHash {
+		logger.Debugf("%s logged in with old password hash, changing to AgentPasswordHash",
+			m.Tag())
+		m.setPasswordHash(agentHash)
+		return true
+	}
+	return false
 }
 
 // Destroy sets the machine lifecycle to Dying if it is Alive. It does
@@ -267,6 +382,22 @@ func (m *Machine) PasswordValid(password string) bool {
 // a HasAssignedUnitsError.
 func (m *Machine) Destroy() error {
 	return m.advanceLifecycle(Dying)
+}
+
+// ForceDestroy queues the machine for complete removal, including the
+// destruction of all units and containers on the machine.
+func (m *Machine) ForceDestroy() error {
+	if !m.IsManager() {
+		ops := []txn.Op{{
+			C:      m.st.machines.Name,
+			Id:     m.doc.Id,
+			Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageEnviron}}}}},
+		}, m.st.newCleanupOp("machine", m.doc.Id)}
+		if err := m.st.runTransaction(ops); err != txn.ErrAborted {
+			return err
+		}
+	}
+	return fmt.Errorf("machine %s is required by the environment", m.doc.Id)
 }
 
 // EnsureDead sets the machine lifecycle to Dead if it is Alive or Dying.
@@ -360,14 +491,15 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 	op := txn.Op{
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
-		Update: D{{"$set", D{{"life", life}}}},
+		Update: bson.D{{"$set", bson.D{{"life", life}}}},
 	}
-	advanceAsserts := D{
-		{"jobs", D{{"$nin", []MachineJob{JobManageEnviron}}}},
-		{"$or", []D{
-			{{"principals", D{{"$size", 0}}}},
-			{{"principals", D{{"$exists", false}}}},
+	advanceAsserts := bson.D{
+		{"jobs", bson.D{{"$nin", []MachineJob{JobManageEnviron}}}},
+		{"$or", []bson.D{
+			{{"principals", bson.D{{"$size", 0}}}},
+			{{"principals", bson.D{{"$exists", false}}}},
 		}},
+		{"hasvote", bson.D{{"$ne", true}}},
 	}
 	// 3 attempts: one with original data, one with refreshed data, and a final
 	// one intended to determine the cause of failure of the preceding attempt.
@@ -403,13 +535,14 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 		}
 		// Check that the machine does not have any responsibilities that
 		// prevent a lifecycle change.
-		for _, j := range m.doc.Jobs {
-			if j == JobManageEnviron {
-				// (NOTE: When we enable multiple JobManageEnviron machines,
-				// the restriction will become "there must be at least one
-				// machine with this job".)
-				return fmt.Errorf("machine %s is required by the environment", m.doc.Id)
-			}
+		if hasJob(m.doc.Jobs, JobManageEnviron) {
+			// (NOTE: When we enable multiple JobManageEnviron machines,
+			// this restriction will be lifted, but we will assert that the
+			// machine is not voting)
+			return fmt.Errorf("machine %s is required by the environment", m.doc.Id)
+		}
+		if m.doc.HasVote {
+			return fmt.Errorf("machine %s is a voting replica set member", m.doc.Id)
 		}
 		if len(m.doc.Principals) != 0 {
 			return &HasAssignedUnitsError{
@@ -451,6 +584,7 @@ func (m *Machine) Remove() (err error) {
 		},
 		removeStatusOp(m.st, m.globalKey()),
 		removeConstraintsOp(m.st, m.globalKey()),
+		removeNetworksOp(m.st, m.globalKey()),
 		annotationRemoveOp(m.st, m.globalKey()),
 	}
 	ops = append(ops, removeContainerRefOps(m.st, m.Id())...)
@@ -522,7 +656,7 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 		return m.doc.InstanceId, nil
 	}
 	instData, err := getInstanceData(m.st, m.Id())
-	if (err == nil && instData.InstanceId == "") || (err != nil && errors.IsNotFoundError(err)) {
+	if (err == nil && instData.InstanceId == "") || errors.IsNotFoundError(err) {
 		err = NotProvisionedError(m.Id())
 	}
 	if err != nil {
@@ -531,18 +665,63 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 	return instData.InstanceId, nil
 }
 
+// InstanceStatus returns the provider specific instance status for this machine,
+// or a NotProvisionedError if instance is not yet provisioned.
+func (m *Machine) InstanceStatus() (string, error) {
+	// SCHEMACHANGE
+	// InstanceId may not be stored in the instanceData doc, so we
+	// get it using an API on machine which knows to look in the old
+	// place if necessary.
+	instId, err := m.InstanceId()
+	if err != nil {
+		return "", err
+	}
+	instData, err := getInstanceData(m.st, m.Id())
+	if (err == nil && instId == "") || errors.IsNotFoundError(err) {
+		err = NotProvisionedError(m.Id())
+	}
+	if err != nil {
+		return "", err
+	}
+	return instData.Status, nil
+}
+
+// SetInstanceStatus sets the provider specific instance status for a machine.
+func (m *Machine) SetInstanceStatus(status string) (err error) {
+	defer utils.ErrorContextf(&err, "cannot set instance status for machine %q", m)
+
+	// SCHEMACHANGE - we can't do this yet until the schema is updated
+	// so just do a txn.DocExists for now.
+	// provisioned := bson.D{{"instanceid", bson.D{{"$ne", ""}}}}
+	ops := []txn.Op{
+		{
+			C:      m.st.instanceData.Name,
+			Id:     m.doc.Id,
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", bson.D{{"status", status}}}},
+		},
+	}
+
+	if err = m.st.runTransaction(ops); err == nil {
+		return nil
+	} else if err != txn.ErrAborted {
+		return err
+	}
+	return NotProvisionedError(m.Id())
+}
+
 // Units returns all the units that have been assigned to the machine.
 func (m *Machine) Units() (units []*Unit, err error) {
 	defer utils.ErrorContextf(&err, "cannot get units assigned to machine %v", m)
 	pudocs := []unitDoc{}
-	err = m.st.units.Find(D{{"machineid", m.doc.Id}}).All(&pudocs)
+	err = m.st.units.Find(bson.D{{"machineid", m.doc.Id}}).All(&pudocs)
 	if err != nil {
 		return nil, err
 	}
 	for _, pudoc := range pudocs {
 		units = append(units, newUnit(m.st, &pudoc))
 		docs := []unitDoc{}
-		err = m.st.units.Find(D{{"principal", pudoc.Name}}).All(&docs)
+		err = m.st.units.Find(bson.D{{"principal", pudoc.Name}}).All(&docs)
 		if err != nil {
 			return nil, err
 		}
@@ -555,6 +734,12 @@ func (m *Machine) Units() (units []*Unit, err error) {
 
 // SetProvisioned sets the provider specific machine id, nonce and also metadata for
 // this machine. Once set, the instance id cannot be changed.
+//
+// When provisioning an instance, a nonce should be created and passed
+// when starting it, before adding the machine to the state. This means
+// that if the provisioner crashes (or its connection to the state is
+// lost) after starting the instance, we can be sure that only a single
+// instance will be able to act for that machine.
 func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics) (err error) {
 	defer utils.ErrorContextf(&err, "cannot set instance data for machine %q", m)
 
@@ -565,7 +750,7 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 	if characteristics == nil {
 		characteristics = &instance.HardwareCharacteristics{}
 	}
-	hc := &instanceData{
+	instData := &instanceData{
 		Id:         m.doc.Id,
 		InstanceId: id,
 		Arch:       characteristics.Arch,
@@ -577,18 +762,18 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 	}
 	// SCHEMACHANGE
 	// TODO(wallyworld) - do not check instanceId on machineDoc after schema is upgraded
-	notSetYet := D{{"instanceid", ""}, {"nonce", ""}}
+	notSetYet := bson.D{{"instanceid", ""}, {"nonce", ""}}
 	ops := []txn.Op{
 		{
 			C:      m.st.machines.Name,
 			Id:     m.doc.Id,
 			Assert: append(isAliveDoc, notSetYet...),
-			Update: D{{"$set", D{{"instanceid", id}, {"nonce", nonce}}}},
+			Update: bson.D{{"$set", bson.D{{"instanceid", id}, {"nonce", nonce}}}},
 		}, {
 			C:      m.st.instanceData.Name,
 			Id:     m.doc.Id,
 			Assert: txn.DocMissing,
-			Insert: hc,
+			Insert: instData,
 		},
 	}
 
@@ -628,27 +813,35 @@ func IsNotProvisionedError(err error) bool {
 	return ok
 }
 
-// Addresses returns any hostnames and ips associated with a machine
+// Addresses returns any hostnames and ips associated with a machine,
+// determined both by the machine itself, and by asking the provider.
+//
+// The addresses returned by the provider shadow any of the addresses
+// that the machine reported with the same address value.
 func (m *Machine) Addresses() (addresses []instance.Address) {
+	merged := make(map[string]instance.Address)
+	for _, address := range m.doc.MachineAddresses {
+		merged[address.Value] = address.InstanceAddress()
+	}
 	for _, address := range m.doc.Addresses {
-		addresses = append(addresses, address.InstanceAddress())
+		merged[address.Value] = address.InstanceAddress()
+	}
+	for _, address := range merged {
+		addresses = append(addresses, address)
 	}
 	return
 }
 
-// SetAddresses records any addresses related to the machine
+// SetAddresses records any addresses related to the machine, sourced
+// by asking the provider.
 func (m *Machine) SetAddresses(addresses []instance.Address) (err error) {
-	var stateAddresses []address
-	for _, address := range addresses {
-		stateAddresses = append(stateAddresses, NewAddress(address))
-	}
-
+	stateAddresses := instanceAddressesToAddresses(addresses)
 	ops := []txn.Op{
 		{
 			C:      m.st.machines.Name,
 			Id:     m.doc.Id,
 			Assert: notDeadDoc,
-			Update: D{{"$set", D{{"addresses", stateAddresses}}}},
+			Update: bson.D{{"$set", bson.D{{"addresses", stateAddresses}}}},
 		},
 	}
 
@@ -657,6 +850,41 @@ func (m *Machine) SetAddresses(addresses []instance.Address) (err error) {
 	}
 	m.doc.Addresses = stateAddresses
 	return nil
+}
+
+// MachineAddresses returns any hostnames and ips associated with a machine,
+// determined by asking the machine itself.
+func (m *Machine) MachineAddresses() (addresses []instance.Address) {
+	for _, address := range m.doc.MachineAddresses {
+		addresses = append(addresses, address.InstanceAddress())
+	}
+	return
+}
+
+// SetMachineAddresses records any addresses related to the machine, sourced
+// by asking the machine.
+func (m *Machine) SetMachineAddresses(addresses []instance.Address) (err error) {
+	stateAddresses := instanceAddressesToAddresses(addresses)
+	ops := []txn.Op{
+		{
+			C:      m.st.machines.Name,
+			Id:     m.doc.Id,
+			Assert: notDeadDoc,
+			Update: bson.D{{"$set", bson.D{{"machineaddresses", stateAddresses}}}},
+		},
+	}
+
+	if err = m.st.runTransaction(ops); err != nil {
+		return fmt.Errorf("cannot set machine addresses of machine %v: %v", m, onAbort(err, errDead))
+	}
+	m.doc.MachineAddresses = stateAddresses
+	return nil
+}
+
+// Networks returns the list of networks the machine should be on
+// (includeNetworks) or not (excludeNetworks).
+func (m *Machine) Networks() (includeNetworks, excludeNetworks []string, err error) {
+	return readNetworks(m.st, m.globalKey())
 }
 
 // CheckProvisioned returns true if the machine was provisioned with the given nonce.
@@ -680,7 +908,7 @@ func (m *Machine) Constraints() (constraints.Value, error) {
 // is already provisioned.
 func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 	defer utils.ErrorContextf(&err, "cannot set constraints")
-	notSetYet := D{{"nonce", ""}}
+	notSetYet := bson.D{{"nonce", ""}}
 	ops := []txn.Op{
 		{
 			C:      m.st.machines.Name,
@@ -751,4 +979,98 @@ func (m *Machine) SetStatus(status params.Status, info string, data params.Statu
 // Clean returns true if the machine does not have any deployed units or containers.
 func (m *Machine) Clean() bool {
 	return m.doc.Clean
+}
+
+// SupportedContainers returns any containers this machine is capable of hosting, and a bool
+// indicating if the supported containers have been determined or not.
+func (m *Machine) SupportedContainers() ([]instance.ContainerType, bool) {
+	return m.doc.SupportedContainers, m.doc.SupportedContainersKnown
+}
+
+// SupportsNoContainers records the fact that this machine doesn't support any containers.
+func (m *Machine) SupportsNoContainers() (err error) {
+	if err = m.updateSupportedContainers([]instance.ContainerType{}); err != nil {
+		return err
+	}
+	return m.markInvalidContainers()
+}
+
+// SetSupportedContainers sets the list of containers supported by this machine.
+func (m *Machine) SetSupportedContainers(containers []instance.ContainerType) (err error) {
+	if len(containers) == 0 {
+		return fmt.Errorf("at least one valid container type is required")
+	}
+	for _, container := range containers {
+		if container == instance.NONE {
+			return fmt.Errorf("%q is not a valid container type", container)
+		}
+	}
+	if err = m.updateSupportedContainers(containers); err != nil {
+		return err
+	}
+	return m.markInvalidContainers()
+}
+
+func isSupportedContainer(container instance.ContainerType, supportedContainers []instance.ContainerType) bool {
+	for _, supportedContainer := range supportedContainers {
+		if supportedContainer == container {
+			return true
+		}
+	}
+	return false
+}
+
+// updateSupportedContainers sets the supported containers on this host machine.
+func (m *Machine) updateSupportedContainers(supportedContainers []instance.ContainerType) (err error) {
+	ops := []txn.Op{
+		{
+			C:      m.st.machines.Name,
+			Id:     m.doc.Id,
+			Assert: notDeadDoc,
+			Update: bson.D{
+				{"$set", bson.D{
+					{"supportedcontainers", supportedContainers},
+					{"supportedcontainersknown", true},
+				}}},
+		},
+	}
+	if err = m.st.runTransaction(ops); err != nil {
+		return fmt.Errorf("cannot update supported containers of machine %v: %v", m, onAbort(err, errDead))
+	}
+	m.doc.SupportedContainers = supportedContainers
+	m.doc.SupportedContainersKnown = true
+	return nil
+}
+
+// markInvalidContainers sets the status of any container belonging to this machine
+// as being in error if the container type is not supported.
+func (m *Machine) markInvalidContainers() error {
+	currentContainers, err := m.Containers()
+	if err != nil {
+		return err
+	}
+	for _, containerId := range currentContainers {
+		if !isSupportedContainer(ContainerTypeFromId(containerId), m.doc.SupportedContainers) {
+			container, err := m.st.Machine(containerId)
+			if err != nil {
+				logger.Errorf("loading container %v to mark as invalid: %v", containerId, err)
+				continue
+			}
+			// There should never be a circumstance where an unsupported container is started.
+			// Nonetheless, we check and log an error if such a situation arises.
+			status, _, _, err := container.Status()
+			if err != nil {
+				logger.Errorf("finding status of container %v to mark as invalid: %v", containerId, err)
+				continue
+			}
+			if status == params.StatusPending {
+				containerType := ContainerTypeFromId(containerId)
+				container.SetStatus(
+					params.StatusError, "unsupported container", params.StatusData{"type": containerType})
+			} else {
+				logger.Errorf("unsupported container %v has unexpected status %v", containerId, status)
+			}
+		}
+	}
+	return nil
 }

@@ -4,16 +4,30 @@
 package apiserver
 
 import (
+	"errors"
+	"time"
+
+	"launchpad.net/tomb"
+
+	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/apiserver/agent"
+	"launchpad.net/juju-core/state/apiserver/charmrevisionupdater"
 	"launchpad.net/juju-core/state/apiserver/client"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/apiserver/deployer"
+	"launchpad.net/juju-core/state/apiserver/environment"
+	"launchpad.net/juju-core/state/apiserver/firewaller"
+	"launchpad.net/juju-core/state/apiserver/keymanager"
+	"launchpad.net/juju-core/state/apiserver/keyupdater"
 	loggerapi "launchpad.net/juju-core/state/apiserver/logger"
 	"launchpad.net/juju-core/state/apiserver/machine"
 	"launchpad.net/juju-core/state/apiserver/provisioner"
+	"launchpad.net/juju-core/state/apiserver/rsyslog"
 	"launchpad.net/juju-core/state/apiserver/uniter"
 	"launchpad.net/juju-core/state/apiserver/upgrader"
+	"launchpad.net/juju-core/state/apiserver/usermanager"
 	"launchpad.net/juju-core/state/multiwatcher"
 )
 
@@ -24,23 +38,35 @@ type taggedAuthenticator interface {
 	state.Authenticator
 }
 
+// maxPingInterval defines the timeframe until the ping
+// timeout closes the monitored connection.
+// TODO(mue): Idea by Roger: Move to API (e.g. params) so
+// that the pinging there may depend on the interval.
+var maxPingInterval = 3 * time.Minute
+
 // srvRoot represents a single client's connection to the state
 // after it has logged in.
 type srvRoot struct {
 	clientAPI
-	srv       *Server
-	resources *common.Resources
+	srv         *Server
+	rpcConn     *rpc.Conn
+	resources   *common.Resources
+	pingTimeout *pingTimeout
 
 	entity taggedAuthenticator
 }
 
-func newSrvRoot(srv *Server, entity taggedAuthenticator) *srvRoot {
+// newSrvRoot creates the client's connection representation
+// and starts a ping timeout for the monitoring of this
+// connection.
+func newSrvRoot(root *initialRoot, entity taggedAuthenticator) *srvRoot {
 	r := &srvRoot{
-		srv:       srv,
+		srv:       root.srv,
+		rpcConn:   root.rpcConn,
 		resources: common.NewResources(),
 		entity:    entity,
 	}
-	r.clientAPI.API = client.NewAPI(srv.state, r.resources, r)
+	r.clientAPI.API = client.NewAPI(r.srv.state, r.resources, r, r.srv.dataDir)
 	return r
 }
 
@@ -48,6 +74,9 @@ func newSrvRoot(srv *Server, entity taggedAuthenticator) *srvRoot {
 // cleaning up to ensure that all outstanding requests return.
 func (r *srvRoot) Kill() {
 	r.resources.StopAll()
+	if r.pingTimeout != nil {
+		r.pingTimeout.stop()
+	}
 }
 
 // requireAgent checks whether the current client is an agent and hence
@@ -68,6 +97,26 @@ func (r *srvRoot) requireClient() error {
 		return common.ErrPerm
 	}
 	return nil
+}
+
+// KeyManager returns an object that provides access to the KeyManager API
+// facade. The id argument is reserved for future use and currently
+// needs to be empty.
+func (r *srvRoot) KeyManager(id string) (*keymanager.KeyManagerAPI, error) {
+	if id != "" {
+		return nil, common.ErrBadId
+	}
+	return keymanager.NewKeyManagerAPI(r.srv.state, r.resources, r)
+}
+
+// UserManager returns an object that provides access to the UserManager API
+// facade. The id argument is reserved for future use and currently
+// needs to be empty
+func (r *srvRoot) UserManager(id string) (*usermanager.UserManagerAPI, error) {
+	if id != "" {
+		return nil, common.ErrBadId
+	}
+	return usermanager.NewUserManagerAPI(r.srv.state, r)
 }
 
 // Machiner returns an object that provides access to the Machiner API
@@ -92,17 +141,6 @@ func (r *srvRoot) Provisioner(id string) (*provisioner.ProvisionerAPI, error) {
 	return provisioner.NewProvisionerAPI(r.srv.state, r.resources, r)
 }
 
-// MachineAgent returns an object that provides access to the machine
-// agent API.  The id argument is reserved for future use and must currently
-// be empty.
-// DEPRECATED(v1.14)
-func (r *srvRoot) MachineAgent(id string) (*machine.AgentAPI, error) {
-	if id != "" {
-		return nil, common.ErrBadId
-	}
-	return machine.NewAgentAPI(r.srv.state, r)
-}
-
 // Uniter returns an object that provides access to the Uniter API
 // facade. The id argument is reserved for future use and currently
 // needs to be empty.
@@ -112,6 +150,17 @@ func (r *srvRoot) Uniter(id string) (*uniter.UniterAPI, error) {
 		return nil, common.ErrBadId
 	}
 	return uniter.NewUniterAPI(r.srv.state, r.resources, r)
+}
+
+// Firewaller returns an object that provides access to the Firewaller
+// API facade. The id argument is reserved for future use and
+// currently needs to be empty.
+func (r *srvRoot) Firewaller(id string) (*firewaller.FirewallerAPI, error) {
+	if id != "" {
+		// Safeguard id for possible future use.
+		return nil, common.ErrBadId
+	}
+	return firewaller.NewFirewallerAPI(r.srv.state, r.resources, r)
 }
 
 // Agent returns an object that provides access to the
@@ -134,6 +183,28 @@ func (r *srvRoot) Deployer(id string) (*deployer.DeployerAPI, error) {
 	return deployer.NewDeployerAPI(r.srv.state, r.resources, r)
 }
 
+// Environment returns an object that provides access to the Environment API
+// facade. The id argument is reserved for future use and currently needs to
+// be empty.
+func (r *srvRoot) Environment(id string) (*environment.EnvironmentAPI, error) {
+	if id != "" {
+		// Safeguard id for possible future use.
+		return nil, common.ErrBadId
+	}
+	return environment.NewEnvironmentAPI(r.srv.state, r.resources, r)
+}
+
+// Rsyslog returns an object that provides access to the Rsyslog API
+// facade. The id argument is reserved for future use and currently needs to
+// be empty.
+func (r *srvRoot) Rsyslog(id string) (*rsyslog.RsyslogAPI, error) {
+	if id != "" {
+		// Safeguard id for possible future use.
+		return nil, common.ErrBadId
+	}
+	return rsyslog.NewRsyslogAPI(r.srv.state, r.resources, r)
+}
+
 // Logger returns an object that provides access to the Logger API facade.
 // The id argument is reserved for future use and must be empty.
 func (r *srvRoot) Logger(id string) (*loggerapi.LoggerAPI, error) {
@@ -146,12 +217,47 @@ func (r *srvRoot) Logger(id string) (*loggerapi.LoggerAPI, error) {
 
 // Upgrader returns an object that provides access to the Upgrader API facade.
 // The id argument is reserved for future use and must be empty.
-func (r *srvRoot) Upgrader(id string) (*upgrader.UpgraderAPI, error) {
+func (r *srvRoot) Upgrader(id string) (upgrader.Upgrader, error) {
 	if id != "" {
 		// TODO: There is no direct test for this
 		return nil, common.ErrBadId
 	}
-	return upgrader.NewUpgraderAPI(r.srv.state, r.resources, r)
+	// The type of upgrader we return depends on who is asking.
+	// Machines get an UpgraderAPI, units get a UnitUpgraderAPI.
+	// This is tested in the state/api/upgrader package since there
+	// are currently no direct srvRoot tests.
+	tagKind, _, err := names.ParseTag(r.GetAuthTag(), "")
+	if err != nil {
+		return nil, common.ErrPerm
+	}
+	switch tagKind {
+	case names.MachineTagKind:
+		return upgrader.NewUpgraderAPI(r.srv.state, r.resources, r)
+	case names.UnitTagKind:
+		return upgrader.NewUnitUpgraderAPI(r.srv.state, r.resources, r, r.srv.dataDir)
+	}
+	// Not a machine or unit.
+	return nil, common.ErrPerm
+}
+
+// KeyUpdater returns an object that provides access to the KeyUpdater API facade.
+// The id argument is reserved for future use and must be empty.
+func (r *srvRoot) KeyUpdater(id string) (*keyupdater.KeyUpdaterAPI, error) {
+	if id != "" {
+		// TODO: There is no direct test for this
+		return nil, common.ErrBadId
+	}
+	return keyupdater.NewKeyUpdaterAPI(r.srv.state, r.resources, r)
+}
+
+// CharmRevisionUpdater returns an object that provides access to the CharmRevisionUpdater API facade.
+// The id argument is reserved for future use and must be empty.
+func (r *srvRoot) CharmRevisionUpdater(id string) (*charmrevisionupdater.CharmRevisionUpdaterAPI, error) {
+	if id != "" {
+		// TODO: There is no direct test for this
+		return nil, common.ErrBadId
+	}
+	return charmrevisionupdater.NewCharmRevisionUpdaterAPI(r.srv.state, r.resources, r)
 }
 
 // NotifyWatcher returns an object that provides
@@ -228,15 +334,20 @@ func (r *srvRoot) AllWatcher(id string) (*srvClientAllWatcher, error) {
 	}, nil
 }
 
-// Pinger returns object with a single "Ping" method that does nothing.
-func (r *srvRoot) Pinger(id string) (srvPinger, error) {
-	return srvPinger{}, nil
+// Pinger returns an object that can be pinged
+// by calling its Ping method. If this method
+// is not called frequently enough, the connection
+// will be dropped.
+func (r *srvRoot) Pinger(id string) (pinger, error) {
+	if r.pingTimeout == nil {
+		return nullPinger{}, nil
+	}
+	return r.pingTimeout, nil
 }
 
-type srvPinger struct{}
+type nullPinger struct{}
 
-// Ping is a no-op used by client heartbeat monitor.
-func (r srvPinger) Ping() {}
+func (nullPinger) Ping() {}
 
 // AuthMachineAgent returns whether the current client is a machine agent.
 func (r *srvRoot) AuthMachineAgent() bool {
@@ -276,4 +387,69 @@ func (r *srvRoot) GetAuthTag() string {
 // GetAuthEntity returns the authenticated entity.
 func (r *srvRoot) GetAuthEntity() state.Entity {
 	return r.entity
+}
+
+// pinger describes a type that can be pinged.
+type pinger interface {
+	Ping()
+}
+
+// pingTimeout listens for pings and will call the
+// passed action in case of a timeout. This way broken
+// or inactive connections can be closed.
+type pingTimeout struct {
+	tomb    tomb.Tomb
+	action  func()
+	timeout time.Duration
+	reset   chan struct{}
+}
+
+// newPingTimeout returns a new pingTimeout instance
+// that invokes the given action asynchronously if there
+// is more than the given timeout interval between calls
+// to its Ping method.
+func newPingTimeout(action func(), timeout time.Duration) *pingTimeout {
+	pt := &pingTimeout{
+		action:  action,
+		timeout: timeout,
+		reset:   make(chan struct{}),
+	}
+	go func() {
+		defer pt.tomb.Done()
+		pt.tomb.Kill(pt.loop())
+	}()
+	return pt
+}
+
+// Ping is used by the client heartbeat monitor and resets
+// the killer.
+func (pt *pingTimeout) Ping() {
+	select {
+	case <-pt.tomb.Dying():
+	case pt.reset <- struct{}{}:
+	}
+}
+
+// stop terminates the ping timeout.
+func (pt *pingTimeout) stop() error {
+	pt.tomb.Kill(nil)
+	return pt.tomb.Wait()
+}
+
+// loop waits for a reset signal, otherwise it performs
+// the initially passed action.
+func (pt *pingTimeout) loop() error {
+	timer := time.NewTimer(pt.timeout)
+	defer timer.Stop()
+	for {
+		select {
+		case <-pt.tomb.Dying():
+			return nil
+		case <-timer.C:
+			go pt.action()
+			return errors.New("ping timeout")
+		case <-pt.reset:
+			timer.Reset(pt.timeout)
+		}
+	}
 }

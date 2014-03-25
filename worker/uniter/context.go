@@ -15,12 +15,29 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/loggo"
+
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/uniter"
+	utilexec "launchpad.net/juju-core/utils/exec"
 	unitdebug "launchpad.net/juju-core/worker/uniter/debug"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
+
+type missingHookError struct {
+	hookName string
+}
+
+func (e *missingHookError) Error() string {
+	return e.hookName + " does not exist"
+}
+
+func IsMissingHookError(err error) bool {
+	_, ok := err.(*missingHookError)
+	return ok
+}
 
 // HookContext is the implementation of jujuc.Context.
 type HookContext struct {
@@ -43,6 +60,9 @@ type HookContext struct {
 	// uuid is the universally unique identifier of the environment.
 	uuid string
 
+	// envName is the human friendly name of the environment.
+	envName string
+
 	// relationId identifies the relation for which a relation hook is
 	// executing. If it is -1, the context is not running a relation hook;
 	// otherwise, its value must be a valid key into the relations map.
@@ -59,19 +79,28 @@ type HookContext struct {
 
 	// apiAddrs contains the API server addresses.
 	apiAddrs []string
+
+	// serviceOwner contains the owner of the service
+	serviceOwner string
+
+	// proxySettings are the current proxy settings that the uniter knows about
+	proxySettings osenv.ProxySettings
 }
 
-func NewHookContext(unit *uniter.Unit, id, uuid string, relationId int,
-	remoteUnitName string, relations map[int]*ContextRelation,
-	apiAddrs []string) (*HookContext, error) {
+func NewHookContext(unit *uniter.Unit, id, uuid, envName string,
+	relationId int, remoteUnitName string, relations map[int]*ContextRelation,
+	apiAddrs []string, serviceOwner string, proxySettings osenv.ProxySettings) (*HookContext, error) {
 	ctx := &HookContext{
 		unit:           unit,
 		id:             id,
 		uuid:           uuid,
+		envName:        envName,
 		relationId:     relationId,
 		remoteUnitName: remoteUnitName,
 		relations:      relations,
 		apiAddrs:       apiAddrs,
+		serviceOwner:   serviceOwner,
+		proxySettings:  proxySettings,
 	}
 	// Get and cache the addresses.
 	var err error
@@ -104,6 +133,10 @@ func (ctx *HookContext) OpenPort(protocol string, port int) error {
 
 func (ctx *HookContext) ClosePort(protocol string, port int) error {
 	return ctx.unit.ClosePort(protocol, port)
+}
+
+func (ctx *HookContext) OwnerTag() string {
+	return ctx.serviceOwner
 }
 
 func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
@@ -155,6 +188,7 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 		"JUJU_AGENT_SOCKET=" + socketPath,
 		"JUJU_UNIT_NAME=" + ctx.unit.Name(),
 		"JUJU_ENV_UUID=" + ctx.uuid,
+		"JUJU_ENV_NAME=" + ctx.envName,
 		"JUJU_API_ADDRESSES=" + strings.Join(ctx.apiAddrs, " "),
 	}
 	if r, found := ctx.HookRelation(); found {
@@ -163,28 +197,18 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 		name, _ := ctx.RemoteUnitName()
 		vars = append(vars, "JUJU_REMOTE_UNIT="+name)
 	}
+	vars = append(vars, ctx.proxySettings.AsEnvironmentValues()...)
 	return vars
 }
 
-// RunHook executes a hook in an environment which allows it to to call back
-// into ctx to execute jujuc tools.
-func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string) error {
-	var err error
-	env := ctx.hookVars(charmDir, toolsDir, socketPath)
-	debugctx := unitdebug.NewHooksContext(ctx.unit.Name())
-	if session, _ := debugctx.FindSession(); session != nil && session.MatchHook(hookName) {
-		logger.Infof("executing %s via debug-hooks", hookName)
-		err = session.RunHook(hookName, charmDir, env)
-	} else {
-		err = runCharmHook(hookName, charmDir, env)
-	}
-	write := err == nil
+func (ctx *HookContext) finalizeContext(process string, err error) error {
+	writeChanges := err == nil
 	for id, rctx := range ctx.relations {
-		if write {
+		if writeChanges {
 			if e := rctx.WriteSettings(); e != nil {
 				e = fmt.Errorf(
 					"could not write settings from %q to relation %d: %v",
-					hookName, id, e,
+					process, id, e,
 				)
 				logger.Errorf("%v", e)
 				if err == nil {
@@ -197,8 +221,48 @@ func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string)
 	return err
 }
 
-func runCharmHook(hookName, charmDir string, env []string) error {
-	ps := exec.Command(filepath.Join(charmDir, "hooks", hookName))
+// RunCommands executes the commands in an environment which allows it to to
+// call back into the hook context to execute jujuc tools.
+func (ctx *HookContext) RunCommands(commands, charmDir, toolsDir, socketPath string) (*utilexec.ExecResponse, error) {
+	env := ctx.hookVars(charmDir, toolsDir, socketPath)
+	result, err := utilexec.RunCommands(
+		utilexec.RunParams{
+			Commands:    commands,
+			WorkingDir:  charmDir,
+			Environment: env})
+	return result, ctx.finalizeContext("run commands", err)
+}
+
+func (ctx *HookContext) GetLogger(hookName string) loggo.Logger {
+	return loggo.GetLogger(fmt.Sprintf("unit.%s.%s", ctx.UnitName(), hookName))
+}
+
+// RunHook executes a hook in an environment which allows it to to call back
+// into the hook context to execute jujuc tools.
+func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string) error {
+	var err error
+	env := ctx.hookVars(charmDir, toolsDir, socketPath)
+	debugctx := unitdebug.NewHooksContext(ctx.unit.Name())
+	if session, _ := debugctx.FindSession(); session != nil && session.MatchHook(hookName) {
+		logger.Infof("executing %s via debug-hooks", hookName)
+		err = session.RunHook(hookName, charmDir, env)
+	} else {
+		err = ctx.runCharmHook(hookName, charmDir, env)
+	}
+	return ctx.finalizeContext(hookName, err)
+}
+
+func (ctx *HookContext) runCharmHook(hookName, charmDir string, env []string) error {
+	hook, err := exec.LookPath(filepath.Join(charmDir, "hooks", hookName))
+	if err != nil {
+		if ee, ok := err.(*exec.Error); ok && os.IsNotExist(ee.Err) {
+			// Missing hook is perfectly valid, but worth mentioning.
+			logger.Infof("skipped %q hook (not implemented)", hookName)
+			return &missingHookError{hookName}
+		}
+		return err
+	}
+	ps := exec.Command(hook)
 	ps.Env = env
 	ps.Dir = charmDir
 	outReader, outWriter, err := os.Pipe()
@@ -208,8 +272,9 @@ func runCharmHook(hookName, charmDir string, env []string) error {
 	ps.Stdout = outWriter
 	ps.Stderr = outWriter
 	hookLogger := &hookLogger{
-		r:    outReader,
-		done: make(chan struct{}),
+		r:      outReader,
+		done:   make(chan struct{}),
+		logger: ctx.GetLogger(hookName),
 	}
 	go hookLogger.run()
 	err = ps.Start()
@@ -218,13 +283,6 @@ func runCharmHook(hookName, charmDir string, env []string) error {
 		err = ps.Wait()
 	}
 	hookLogger.stop()
-	if ee, ok := err.(*exec.Error); ok && err != nil {
-		if os.IsNotExist(ee.Err) {
-			// Missing hook is perfectly valid, but worth mentioning.
-			logger.Infof("skipped %q hook (not implemented)", hookName)
-			return nil
-		}
-	}
 	return err
 }
 
@@ -233,6 +291,7 @@ type hookLogger struct {
 	done    chan struct{}
 	mu      sync.Mutex
 	stopped bool
+	logger  loggo.Logger
 }
 
 func (l *hookLogger) run() {
@@ -252,7 +311,7 @@ func (l *hookLogger) run() {
 			l.mu.Unlock()
 			return
 		}
-		logger.Infof("HOOK %s", line)
+		l.logger.Infof("%s", line)
 		l.mu.Unlock()
 	}
 }

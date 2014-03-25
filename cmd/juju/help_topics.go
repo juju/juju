@@ -24,11 +24,11 @@ Basic commands:
   juju help topics      list all help topics
 
 Provider information:
-  juju help azure       use on Windows Azure
-  juju help ec2         use on Amazon EC2
-  juju help hpcloud     use on HP Cloud
-  juju help local       use on this computer
-  juju help openstack   use on OpenStack
+  juju help azure-provider       use on Windows Azure
+  juju help ec2-provider         use on Amazon EC2
+  juju help hpcloud-provider     use on HP Cloud
+  juju help local-provider       use on this computer
+  juju help openstack-provider   use on OpenStack
 `
 
 const helpProviderStart = `
@@ -47,8 +47,8 @@ See Also:
 
 `
 
-const helpLocalProvider = `  
-The local provider is a linux-only Juju environment that uses LXC containers as
+const helpLocalProvider = `
+The local provider is a Linux-only Juju environment that uses LXC containers as
 a virtual cloud on the local machine.  Because of this, lxc and mongodb are
 required for the local provider to work.  If you don't already have lxc and
 mongodb installed, run the following commands:
@@ -64,20 +64,38 @@ SSH authorized/public key not found.
 Now you need to tell Juju to use the local provider and then bootstrap:
 
   juju switch local
-  sudo juju bootstrap
+  juju bootstrap
 
 The first time this runs it might take a bit, as it's doing a netinstall for
 the container, it's around a 300 megabyte download. Subsequent bootstraps
-should be much quicker. 'sudo' is needed because only root can create LXC
-containers. After the initial bootstrap, you do not need 'sudo' anymore,
-except to 'sudo juju destroy-environment' when you want to tear everything
-down.
+should be much quicker. You'll be asked for your 'sudo' password, which is
+needed because only root can create LXC containers. When you need to destroy
+the environment, do 'juju destroy-environment local' and you could be asked
+for your 'sudo' password again.
 
 You deploy charms from the charm store using the following commands:
 
   juju deploy mysql
   juju deploy wordpress
   juju add-relation wordpress mysql
+
+As of trusty, the local provider will prefer to use lxc-clone to create
+the machines. A 'template' container is created with the name
+  juju-<series>-tempalte
+where <series> is the OS series, for example 'juju-precise-template'.
+You can override the use of clone by specifying
+  use-clone: true
+or
+  use-clone: false
+in the configuration for your local provider.  If you have the main container
+directory mounted on a btrfs partition, then the clone will be using btrfs
+snapshots to create the containers. This means that the clones use up much
+less disk space.  If you do not have btrfs, lxc will attempt to use aufs
+(which is an overlay type filesystem). You can explicitly ask Juju to create
+full containers and not overlays by specifying the following in the provider
+configuration:
+  use-clone-aufs: false
+
 
 References:
 
@@ -90,28 +108,35 @@ Here's an example OpenStack configuration:
 
   sample_openstack:
     type: openstack
+
     # Specifies whether the use of a floating IP address is required to
     # give the nodes a public IP address. Some installations assign public
     # IP addresses by default without requiring a floating IP address.
     # use-floating-ip: false
-    admin-secret: 13850d1b9786065cadd0f477e8c97cd3
-    # Globally unique swift bucket name
-    control-bucket: juju-fd6ab8d02393af742bfbe8b9629707ee
+
+    # Specifies whether new machine instances should have the "default"
+    # Openstack security group assigned.
+    # use-default-secgroup: false
+
     # Usually set via the env variable OS_AUTH_URL, but can be specified here
     # auth-url: https://yourkeystoneurl:443/v2.0/
-    # override if your workstation is running a different series to which
-    # you are deploying
+
     # The following are used for userpass authentication (the default)
-    auth-mode: userpass
+    # auth-mode: userpass
+
     # Usually set via the env variable OS_USERNAME, but can be specified here
     # username: <your username>
+
     # Usually set via the env variable OS_PASSWORD, but can be specified here
     # password: <secret>
+
     # Usually set via the env variable OS_TENANT_NAME, but can be specified here
     # tenant-name: <your tenant name>
+
     # Usually set via the env variable OS_REGION_NAME, but can be specified here
     # region: <your region>
 
+If you have set the described OS_* environment variables, you only need "type:".
 References:
 
   http://juju.ubuntu.com/docs/provider-configuration-openstack.html
@@ -122,7 +147,7 @@ Other OpenStack Based Clouds:
 This answer is for generic OpenStack support, if you're using an OpenStack-based
 provider check these questions out for provider-specific information:
 
-  https://juju.ubuntu.com/docs/config-hpcloud.html 
+  https://juju.ubuntu.com/docs/config-hpcloud.html
 
 `
 
@@ -138,11 +163,8 @@ them out. For example:
     type: ec2
     # access-key: YOUR-ACCESS-KEY-GOES-HERE
     # secret-key: YOUR-SECRET-KEY-GOES-HERE
-    control-bucket: juju-faefb490d69a41f0a3616a4808e0766b
-    admin-secret: 81a1e7429e6847c4941fda7591246594
 
-See the EC2 provider documentation[2] for more options. The S3 bucket does not
-need to exist already.
+See the EC2 provider documentation[2] for more options.
 
 Note If you already have an AWS account, you can determine your access key by
 visiting your account page[3], clicking "Security Credentials" and then clicking
@@ -180,7 +202,7 @@ environment type for Juju, which would look something like this:
 
 See the online help for more information:
 
-  https://juju.ubuntu.com/docs/config-hpcloud.html 
+  https://juju.ubuntu.com/docs/config-hpcloud.html
 `
 
 const helpAzureProvider = `
@@ -188,17 +210,22 @@ A generic Windows Azure environment looks like this:
 
   sample_azure:
     type: azure
+
     # Location for instances, e.g. West US, North Europe.
     location: West US
+
     # http://msdn.microsoft.com/en-us/library/windowsazure
     # Windows Azure Management info.
     management-subscription-id: 886413e1-3b8a-5382-9b90-0c9aee199e5d
     management-certificate-path: /home/me/azure.pem
+
     # Windows Azure Storage info.
     storage-account-name: juju0useast0
+
     # Override OS image selection with a fixed image for all deployments.
     # Most useful for developers.
     # force-image-name: b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-13_10-amd64-server-DEVELOPMENT-20130713-Juju_ALPHA-en-us-30GB
+
     # Pick a simplestreams stream to select OS images from: daily or released
     # images, or any other stream available on simplestreams.  Leave blank for
     # released images.
@@ -216,7 +243,7 @@ See the online help for more information:
   https://juju.ubuntu.com/docs/config-azure.html
 `
 
-const helpConstraints = `  
+const helpConstraints = `
 Constraints constrain the possible instances that may be started by juju
 commands. They are usually passed as a flag to commands that provision a new
 machine (such as bootstrap, deploy, and add-machine).
@@ -269,7 +296,7 @@ mem
       T terabytes (1024 gigabytes)
       P petabytes (1024 terabytes)
 
-root-disk 
+root-disk
    Root-Disk is a float that defines the amount of space in megabytes that must
    be available in the machine's root partition.  For providers that have
    configurable root disk sizes (such as EC2) an instance with the specified
@@ -277,8 +304,8 @@ root-disk
    defaults to megabytes and may be specified in the same manner as the mem
    constraint.
 
-container 
-   Container defines that the machine must be a container of the specified type. 
+container
+   Container defines that the machine must be a container of the specified type.
    A container of that type may be created by juju to fulfill the request.
    Currently supported containers:
       none - (default) no container
@@ -291,7 +318,7 @@ cpu-power
    roughly, a single 2007-era Xeon).  Cpu-power is currently only supported by
    the Amazon EC2 environment.
 
-tags    
+tags
    Tags defines the list of tags that the machine must have applied to it.
    Multiple tags must be delimited by a comma. Tags are currently only supported
    by the MaaS environment.
@@ -371,7 +398,7 @@ Relation
   other, and the way in which the topology of Services is assembled. The Charm
   defines which Relations a given Service may establish, and what kind of
   interface these Relations require.
- 
+
   In many cases, the establishment of a Relation will result into an actual TCP
   connection being created between the Service Units, but that's not necessarily
   the case. Relations may also be established to inform Services of
@@ -417,4 +444,70 @@ Service Unit
 Service Unit Agent
   Software which manages all the lifecycle of a single Service Unit.
 
+`
+
+const helpLogging = `
+Juju has logging available for both client and server components. Most
+users' exposure to the logging mechanism is through either the 'debug-log'
+command, or through the log file stored on the bootstrap node at
+/var/log/juju/all-machines.log.
+
+All the agents have their own log files on the individual machines. So
+for the bootstrap node, there is the machine agent log file at
+/var/log/juju/machine-0.log.  When a unit is deployed on a machine,
+a unit agent is started. This agent also logs to /var/log/juju and the
+name of the log file is based on the id of the unit, so for wordpress/0
+the log file is unit-wordpress-0.log.
+
+Juju uses rsyslog to forward the content of all the log files on the machine
+back to the bootstrap node, and they are accumulated into the all-machines.log
+file.  Each line is prefixed with the source agent tag (also the same as
+the filename without the extension).
+
+Juju has a hierarchical logging system internally, and as a user you can
+control how much information is logged out.
+
+Output from the charm hook execution comes under the log name "unit".
+By default Juju makes sure that this information is logged out at
+the DEBUG level.  If you explicitly specify a value for unit, then
+this is used instead.
+
+Juju internal logging comes under the log name "juju".  Different areas
+of the codebase have different anmes. For example:
+  providers are under juju.provider
+  workers are under juju.worker
+  database parts are under juju.state
+
+All the agents are started with all logging set to DEBUG. Which means you
+see all the internal juju logging statements until the logging worker starts
+and updates the logging configuration to be what is stored for the environment.
+
+You can set the logging levels using a number of different mechanisms.
+
+environments.yaml
+ - all environments support 'logging-config' as a key
+ - logging-config: ...
+environment variable
+ - export JUJU_LOGGING_CONFIG='...'
+setting the logging-config at bootstrap time
+ - juju bootstrap --logging-config='...'
+juju set-environment logging-config='...'
+
+Configuration values are separated by semicolons.
+
+Examples:
+
+  juju set-environment logging-config "juju=WARNING; unit=INFO"
+
+Developers may well like:
+
+  export JUJU_LOGGING_CONFIG='juju=INFO; juju.current.work.area=TRACE'
+
+Valid logging levels:
+  CRITICAL
+  ERROR
+  WARNING
+  INFO
+  DEBUG
+  TRACE
 `

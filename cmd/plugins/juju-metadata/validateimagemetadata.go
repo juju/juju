@@ -13,19 +13,23 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/utils"
 )
 
 // ValidateImageMetadataCommand
 type ValidateImageMetadataCommand struct {
 	cmd.EnvCommandBase
+	out          cmd.Output
 	providerType string
 	metadataDir  string
 	series       string
 	region       string
 	endpoint     string
+	stream       string
 }
 
 var validateImagesMetadataDoc = `
@@ -77,11 +81,13 @@ func (c *ValidateImageMetadataCommand) Info() *cmd.Info {
 
 func (c *ValidateImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
+	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	f.StringVar(&c.providerType, "p", "", "the provider type eg ec2, openstack")
 	f.StringVar(&c.metadataDir, "d", "", "directory where metadata files are found")
 	f.StringVar(&c.series, "s", "", "the series for which to validate (overrides env config series)")
 	f.StringVar(&c.region, "r", "", "the region for which to validate (overrides env config region)")
 	f.StringVar(&c.endpoint, "u", "", "the cloud endpoint URL for which to validate (overrides env config endpoint)")
+	f.StringVar(&c.stream, "m", "", "the images stream (defaults to released)")
 }
 
 func (c *ValidateImageMetadataCommand) Init(args []string) error {
@@ -99,6 +105,30 @@ func (c *ValidateImageMetadataCommand) Init(args []string) error {
 	return c.EnvCommandBase.Init(args)
 }
 
+var _ environs.ConfigGetter = (*overrideEnvStream)(nil)
+
+// overrideEnvStream implements environs.ConfigGetter and
+// ensures that the environs.Config returned by Config()
+// has the specified stream.
+type overrideEnvStream struct {
+	env    environs.Environ
+	stream string
+}
+
+func (oes *overrideEnvStream) Config() *config.Config {
+	cfg := oes.env.Config()
+	// If no stream specified, just use default from environ.
+	if oes.stream == "" {
+		return cfg
+	}
+	newCfg, err := cfg.Apply(map[string]interface{}{"image-stream": oes.stream})
+	if err != nil {
+		// This should never happen.
+		panic(fmt.Errorf("unexpected error making override config: %v", err))
+	}
+	return newCfg
+}
+
 func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
 	var params *simplestreams.MetadataLookupParams
 
@@ -107,7 +137,7 @@ func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		environ, err := environs.PrepareFromName(c.EnvName, store)
+		environ, err := environs.PrepareFromName(c.EnvName, context, store)
 		if err != nil {
 			return err
 		}
@@ -119,7 +149,8 @@ func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		params.Sources, err = imagemetadata.GetMetadataSources(environ)
+		oes := &overrideEnvStream{environ, c.stream}
+		params.Sources, err = imagemetadata.GetMetadataSources(oes)
 		if err != nil {
 			return err
 		}
@@ -152,25 +183,43 @@ func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
 		if _, err := os.Stat(dir); err != nil {
 			return err
 		}
-		params.Sources = []simplestreams.DataSource{simplestreams.NewURLDataSource("file://"+dir, simplestreams.VerifySSLHostnames)}
+		params.Sources = []simplestreams.DataSource{
+			simplestreams.NewURLDataSource(
+				"local metadata directory", "file://"+dir, utils.VerifySSLHostnames),
+		}
 	}
+	params.Stream = c.stream
 
-	image_ids, err := imagemetadata.ValidateImageMetadata(params)
+	image_ids, resolveInfo, err := imagemetadata.ValidateImageMetadata(params)
 	if err != nil {
-		return err
-	}
-
-	if len(image_ids) > 0 {
-		fmt.Fprintf(context.Stdout, "matching image ids for region %q:\n%s\n", params.Region, strings.Join(image_ids, "\n"))
-	} else {
-		var urls []string
-		for _, s := range params.Sources {
-			url, err := s.URL("")
-			if err != nil {
-				urls = append(urls, url)
+		if resolveInfo != nil {
+			metadata := map[string]interface{}{
+				"Resolve Metadata": *resolveInfo,
+			}
+			if metadataYaml, yamlErr := cmd.FormatYaml(metadata); yamlErr == nil {
+				err = fmt.Errorf("%v\n%v", err, string(metadataYaml))
 			}
 		}
-		return fmt.Errorf("no matching image ids for region %s using URLs:\n%s", params.Region, strings.Join(urls, "\n"))
+		return err
+	}
+	if len(image_ids) > 0 {
+		metadata := map[string]interface{}{
+			"ImageIds":         image_ids,
+			"Region":           params.Region,
+			"Resolve Metadata": *resolveInfo,
+		}
+		c.out.Write(context, metadata)
+	} else {
+		var sources []string
+		for _, s := range params.Sources {
+			url, err := s.URL("")
+			if err == nil {
+				sources = append(sources, fmt.Sprintf("- %s (%s)", s.Description(), url))
+			}
+		}
+		return fmt.Errorf(
+			"no matching image ids for region %s using sources:\n%s",
+			params.Region, strings.Join(sources, "\n"))
 	}
 	return nil
 }

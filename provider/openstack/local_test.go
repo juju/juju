@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goose/client"
 	"launchpad.net/goose/identity"
@@ -32,10 +33,8 @@ import (
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/provider/openstack"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )
@@ -168,6 +167,8 @@ func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	s.srv.start(c, s.cred)
 	s.LiveTests.SetUpSuite(c)
 	openstack.UseTestImageData(openstack.ImageMetadataStorage(s.Env), s.cred)
+	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
+	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
 }
 
 func (s *localLiveSuite) TearDownSuite(c *gc.C) {
@@ -204,6 +205,8 @@ type localServerSuite struct {
 func (s *localServerSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.Tests.SetUpSuite(c)
+	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
+	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
 	c.Logf("Running local tests")
 }
 
@@ -249,17 +252,6 @@ func (s *localServerSuite) TearDownTest(c *gc.C) {
 	s.LoggingSuite.TearDownTest(c)
 }
 
-func (s *localServerSuite) TestPrecheck(c *gc.C) {
-	var cons constraints.Value
-	env := s.Prepare(c)
-	prechecker, ok := env.(environs.Prechecker)
-	c.Assert(ok, jc.IsTrue)
-	err := prechecker.PrecheckInstance("precise", cons)
-	c.Check(err, gc.IsNil)
-	err = prechecker.PrecheckContainer("precise", instance.LXC)
-	c.Check(err, gc.ErrorMatches, "openstack provider does not support containers")
-}
-
 // If the bootstrap node is configured to require a public IP address,
 // bootstrapping fails if an address cannot be allocated.
 func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *gc.C) {
@@ -278,7 +270,7 @@ func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(env, constraints.Value{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*cannot allocate a public IP as needed(.|\n)*")
 }
 
@@ -305,9 +297,9 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 		"use-floating-ip": false,
 	}))
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg, s.ConfigStore)
+	env, err := environs.Prepare(cfg, coretesting.Context(c), s.ConfigStore)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(env, constraints.Value{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	inst, _ := testing.AssertStartInstance(c, env, "100")
 	err = env.StopInstances([]instance.Instance{inst})
@@ -316,13 +308,55 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 
 func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := s.Prepare(c)
-	err := bootstrap.Bootstrap(env, constraints.Value{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	_, hc := testing.AssertStartInstanceWithConstraints(c, env, "100", constraints.MustParse("mem=1024"))
 	c.Check(*hc.Arch, gc.Equals, "amd64")
 	c.Check(*hc.Mem, gc.Equals, uint64(2048))
 	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
 	c.Assert(hc.CpuPower, gc.IsNil)
+}
+
+func (s *localServerSuite) TestStartInstanceNetwork(c *gc.C) {
+	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
+		// A label that corresponds to a nova test service network
+		"network": "net",
+	}))
+	c.Assert(err, gc.IsNil)
+	env, err := environs.New(cfg)
+	c.Assert(err, gc.IsNil)
+	inst, _ := testing.AssertStartInstance(c, env, "100")
+	err = env.StopInstances([]instance.Instance{inst})
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *localServerSuite) TestStartInstanceNetworkUnknownLabel(c *gc.C) {
+	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
+		// A label that has no related network in the nova test service
+		"network": "no-network-with-this-label",
+	}))
+	c.Assert(err, gc.IsNil)
+	env, err := environs.New(cfg)
+	c.Assert(err, gc.IsNil)
+	inst, _, err := testing.StartInstance(env, "100")
+	c.Check(inst, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "No networks exist with label .*")
+}
+
+func (s *localServerSuite) TestStartInstanceNetworkUnknownId(c *gc.C) {
+	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
+		// A valid UUID but no related network in the nova test service
+		"network": "f81d4fae-7dec-11d0-a765-00a0c91e6bf6",
+	}))
+	c.Assert(err, gc.IsNil)
+	env, err := environs.New(cfg)
+	c.Assert(err, gc.IsNil)
+	inst, _, err := testing.StartInstance(env, "100")
+	c.Check(inst, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "cannot run instance: (\\n|.)*"+
+		"caused by: "+
+		"request \\(.*/servers\\) returned unexpected status: "+
+		"404; error info: .*itemNotFound.*")
 }
 
 var instanceGathering = []struct {
@@ -473,15 +507,15 @@ func (s *localServerSuite) TestInstancesBuildSpawning(c *gc.C) {
 // It should be moved to environs.jujutests.Tests.
 func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := s.Prepare(c)
-	err := bootstrap.Bootstrap(env, constraints.Value{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
-	stateData, err := common.LoadState(env.Storage())
+	stateData, err := bootstrap.LoadState(env.Storage())
 	c.Assert(err, gc.IsNil)
 	c.Assert(stateData.StateInstances, gc.HasLen, 1)
 
-	expectedHardware := instance.MustParseHardware("arch=amd64 cpu-cores=1 mem=512M")
+	expectedHardware := instance.MustParseHardware("arch=amd64 cpu-cores=1 mem=2G")
 	insts, err := env.AllInstances()
 	c.Assert(err, gc.IsNil)
 	c.Assert(insts, gc.HasLen, 1)
@@ -499,8 +533,16 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	// ec2 tests).
 }
 
-func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
-	env := s.Open(c)
+func (s *localServerSuite) assertGetImageMetadataSources(c *gc.C, stream, officialSourcePath string) {
+	// Create a config that matches s.TestConfig but with the specified stream.
+	envAttrs := s.TestConfig
+	if stream != "" {
+		envAttrs = envAttrs.Merge(coretesting.Attrs{"image-stream": stream})
+	}
+	cfg, err := config.New(config.NoDefaults, envAttrs)
+	c.Assert(err, gc.IsNil)
+	env, err := environs.New(cfg)
+	c.Assert(err, gc.IsNil)
 	sources, err := imagemetadata.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(sources, gc.HasLen, 4)
@@ -516,7 +558,13 @@ func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
 	c.Check(strings.Contains(urls[1], openstack.ControlBucketName(env)+"/images"), jc.IsTrue)
 	// The product-streams URL ends with "/imagemetadata".
 	c.Check(strings.HasSuffix(urls[2], "/imagemetadata/"), jc.IsTrue)
-	c.Assert(urls[3], gc.Equals, imagemetadata.DefaultBaseURL+"/")
+	c.Assert(urls[3], gc.Equals, fmt.Sprintf("http://cloud-images.ubuntu.com/%s/", officialSourcePath))
+}
+
+func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
+	s.assertGetImageMetadataSources(c, "", "releases")
+	s.assertGetImageMetadataSources(c, "released", "releases")
+	s.assertGetImageMetadataSources(c, "daily", "daily")
 }
 
 func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
@@ -539,6 +587,13 @@ func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
+func (s *localServerSuite) TestSupportedArchitectures(c *gc.C) {
+	env := s.Open(c)
+	a, err := env.SupportedArchitectures()
+	c.Assert(err, gc.IsNil)
+	c.Assert(a, gc.DeepEquals, []string{"amd64", "ppc64"})
+}
+
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 	// Prevent falling over to the public datasource.
 	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
@@ -546,7 +601,7 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 	env := s.Open(c)
 
 	// An error occurs if no suitable image is found.
-	_, err := openstack.FindInstanceSpec(env, "saucy", "amd64", "mem=8G")
+	_, err := openstack.FindInstanceSpec(env, "saucy", "amd64", "mem=1G")
 	c.Assert(err, gc.ErrorMatches, `no "saucy" images in some-region with arches \[amd64\]`)
 }
 
@@ -557,7 +612,7 @@ func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	params.Sources, err = imagemetadata.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	params.Series = "raring"
-	image_ids, err := imagemetadata.ValidateImageMetadata(params)
+	image_ids, _, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, gc.IsNil)
 	c.Assert(image_ids, gc.DeepEquals, []string{"id-y"})
 }
@@ -697,7 +752,7 @@ func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
 	c.Assert(attrs["auth-url"].(string)[:8], gc.Equals, "https://")
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-	s.env, err = environs.Prepare(cfg, configstore.NewMem())
+	s.env, err = environs.Prepare(cfg, coretesting.Context(c), configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	s.attrs = s.env.Config().AllAttrs()
 }
@@ -741,6 +796,9 @@ func (s *localHTTPSServerSuite) TestMustDisableSSLVerify(c *gc.C) {
 }
 
 func (s *localHTTPSServerSuite) TestCanBootstrap(c *gc.C) {
+	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
+	defer restoreFinishBootstrap()
+
 	// For testing, we create a storage instance to which is uploaded tools and image metadata.
 	metadataStorage := openstack.MetadataStorage(s.env)
 	url, err := metadataStorage.URL("")
@@ -751,7 +809,7 @@ func (s *localHTTPSServerSuite) TestCanBootstrap(c *gc.C) {
 	openstack.UseTestImageData(metadataStorage, s.cred)
 	defer openstack.RemoveTestImageData(metadataStorage)
 
-	err = bootstrap.Bootstrap(s.env, constraints.Value{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), s.env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 }
 
@@ -891,3 +949,69 @@ func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
 	// We *don't* test Fetch for sources[3] because it points to
 	// streams.canonical.com
 }
+
+func (s *localServerSuite) TestAllInstancesIgnoresOtherMachines(c *gc.C) {
+	env := s.Prepare(c)
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
+	c.Assert(err, gc.IsNil)
+
+	// Check that we see 1 instance in the environment
+	insts, err := env.AllInstances()
+	c.Assert(err, gc.IsNil)
+	c.Check(insts, gc.HasLen, 1)
+
+	// Now start a machine 'manually' in the same account, with a similar
+	// but not matching name, and ensure it isn't seen by AllInstances
+	// See bug #1257481, for how similar names were causing them to get
+	// listed (and thus destroyed) at the wrong time
+	existingEnvName := s.TestConfig["name"]
+	newMachineName := fmt.Sprintf("juju-%s-2-machine-0", existingEnvName)
+
+	// We grab the Nova client directly from the env, just to save time
+	// looking all the stuff up
+	novaClient := openstack.GetNovaClient(env)
+	entity, err := novaClient.RunServer(nova.RunServerOpts{
+		Name:     newMachineName,
+		FlavorId: "1", // test service has 1,2,3 for flavor ids
+		ImageId:  "1", // UseTestImageData sets up images 1 and 2
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(entity, gc.NotNil)
+
+	// List all servers with no filter, we should see both instances
+	servers, err := novaClient.ListServersDetail(nova.NewFilter())
+	c.Assert(err, gc.IsNil)
+	c.Assert(servers, gc.HasLen, 2)
+
+	insts, err = env.AllInstances()
+	c.Assert(err, gc.IsNil)
+	c.Check(insts, gc.HasLen, 1)
+}
+
+func (s *localServerSuite) TestResolveNetworkUUID(c *gc.C) {
+	env := s.Prepare(c)
+	var sampleUUID = "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
+	networkId, err := openstack.ResolveNetwork(env, sampleUUID)
+	c.Assert(err, gc.IsNil)
+	c.Assert(networkId, gc.Equals, sampleUUID)
+}
+
+func (s *localServerSuite) TestResolveNetworkLabel(c *gc.C) {
+	env := s.Prepare(c)
+	// For now this test has to cheat and use knowledge of goose internals
+	var networkLabel = "net"
+	var expectNetworkId = "1"
+	networkId, err := openstack.ResolveNetwork(env, networkLabel)
+	c.Assert(err, gc.IsNil)
+	c.Assert(networkId, gc.Equals, expectNetworkId)
+}
+
+func (s *localServerSuite) TestResolveNetworkNotPresent(c *gc.C) {
+	env := s.Prepare(c)
+	var notPresentNetwork = "no-network-with-this-label"
+	networkId, err := openstack.ResolveNetwork(env, notPresentNetwork)
+	c.Check(networkId, gc.Equals, "")
+	c.Assert(err, gc.ErrorMatches, `No networks exist with label "no-network-with-this-label"`)
+}
+
+// TODO(gz): TestResolveNetworkMultipleMatching when can inject new networks

@@ -6,20 +6,31 @@ package environs
 import (
 	"fmt"
 
+	"github.com/errgo/errgo"
+
 	"launchpad.net/juju-core/agent"
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/juju/osenv"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
 )
 
-// Default data directory.
+// DataDir is the default data directory.
 // Tests can override this where needed, so they don't need to mess with global
 // system state.
-var DataDir = "/var/lib/juju"
+var DataDir = agent.DefaultDataDir
+
+// CloudInitOutputLog is the default cloud-init-output.log file path.
+const CloudInitOutputLog = "/var/log/cloud-init-output.log"
+
+// MongoServiceName is the default Upstart service name for Mongo.
+const MongoServiceName = "juju-db"
 
 // NewMachineConfig sets up a basic machine configuration, for a non-bootstrap
 // node.  You'll still need to supply more information, but this takes care of
@@ -28,7 +39,12 @@ func NewMachineConfig(machineID, machineNonce string,
 	stateInfo *state.Info, apiInfo *api.Info) *cloudinit.MachineConfig {
 	return &cloudinit.MachineConfig{
 		// Fixed entries.
-		DataDir: DataDir,
+		DataDir:                 DataDir,
+		LogDir:                  agent.DefaultLogDir,
+		Jobs:                    []params.MachineJob{params.JobHostUnits},
+		CloudInitOutputLog:      CloudInitOutputLog,
+		MachineAgentServiceName: "jujud-" + names.MachineTag(machineID),
+		MongoServiceName:        MongoServiceName,
 
 		// Parameter entries.
 		MachineId:    machineID,
@@ -41,20 +57,27 @@ func NewMachineConfig(machineID, machineNonce string,
 // NewBootstrapMachineConfig sets up a basic machine configuration for a
 // bootstrap node.  You'll still need to supply more information, but this
 // takes care of the fixed entries and the ones that are always needed.
-// stateInfoURL is the storage URL for the environment's state file.
-func NewBootstrapMachineConfig(stateInfoURL string) *cloudinit.MachineConfig {
+func NewBootstrapMachineConfig(privateSystemSSHKey string) *cloudinit.MachineConfig {
 	// For a bootstrap instance, FinishMachineConfig will provide the
 	// state.Info and the api.Info. The machine id must *always* be "0".
 	mcfg := NewMachineConfig("0", state.BootstrapNonce, nil, nil)
 	mcfg.StateServer = true
-	mcfg.StateInfoURL = stateInfoURL
+	mcfg.SystemPrivateSSHKey = privateSystemSSHKey
+	mcfg.Jobs = []params.MachineJob{params.JobManageEnviron, params.JobHostUnits}
 	return mcfg
 }
 
+// PopulateMachineConfig is called both from the FinishMachineConfig below,
+// which does have access to the environment config, and from the container
+// provisioners, which don't have access to the environment config. Everything
+// that is needed to provision a container needs to be returned to the
+// provisioner in the ContainerConfig structure. Those values are then used to
+// call this function.
 func PopulateMachineConfig(mcfg *cloudinit.MachineConfig,
 	providerType, authorizedKeys string,
-	sslHostnameVerification bool) error {
-
+	sslHostnameVerification bool,
+	proxy, aptProxy osenv.ProxySettings,
+) error {
 	if authorizedKeys == "" {
 		return fmt.Errorf("environment configuration has no authorized-keys")
 	}
@@ -65,6 +88,8 @@ func PopulateMachineConfig(mcfg *cloudinit.MachineConfig,
 	mcfg.AgentEnvironment[agent.ProviderType] = providerType
 	mcfg.AgentEnvironment[agent.ContainerType] = string(mcfg.MachineContainerType)
 	mcfg.DisableSSLHostnameVerification = !sslHostnameVerification
+	mcfg.ProxySettings = proxy
+	mcfg.AptProxySettings = aptProxy
 	return nil
 }
 
@@ -81,7 +106,14 @@ func PopulateMachineConfig(mcfg *cloudinit.MachineConfig,
 func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons constraints.Value) (err error) {
 	defer utils.ErrorContextf(&err, "cannot complete machine configuration")
 
-	if err := PopulateMachineConfig(mcfg, cfg.Type(), cfg.AuthorizedKeys(), cfg.SSLHostnameVerification()); err != nil {
+	if err := PopulateMachineConfig(
+		mcfg,
+		cfg.Type(),
+		cfg.AuthorizedKeys(),
+		cfg.SSLHostnameVerification(),
+		cfg.ProxySettings(),
+		cfg.AptProxySettings(),
+	); err != nil {
 		return err
 	}
 
@@ -102,7 +134,7 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 	if password == "" {
 		return fmt.Errorf("environment configuration has no admin-secret")
 	}
-	passwordHash := utils.PasswordHash(password)
+	passwordHash := utils.UserPasswordHash(password, utils.CompatSalt)
 	mcfg.APIInfo = &api.Info{Password: passwordHash, CACert: caCert}
 	mcfg.StateInfo = &state.Info{Password: passwordHash, CACert: caCert}
 	mcfg.StatePort = cfg.StatePort()
@@ -115,23 +147,32 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 	// These really are directly relevant to running a state server.
 	cert, key, err := cfg.GenerateStateServerCertAndKey()
 	if err != nil {
-		return fmt.Errorf("cannot generate state server certificate: %v", err)
+		return errgo.Annotate(err, "cannot generate state server certificate")
 	}
 	mcfg.StateServerCert = cert
 	mcfg.StateServerKey = key
 	return nil
 }
 
-// ComposeUserData puts together a binary (gzipped) blob of user data.
-// The additionalScripts are additional command lines that you need cloudinit
-// to run on the instance.  Use with care.
-func ComposeUserData(cfg *cloudinit.MachineConfig, additionalScripts ...string) ([]byte, error) {
-	cloudcfg := coreCloudinit.New()
-	for _, script := range additionalScripts {
-		cloudcfg.AddRunCmd(script)
+func configureCloudinit(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config) error {
+	// When bootstrapping, we only want to apt-get update/upgrade
+	// and setup the SSH keys. The rest we leave to cloudinit/sshinit.
+	if mcfg.StateServer {
+		return cloudinit.ConfigureBasic(mcfg, cloudcfg)
 	}
-	cloudcfg, err := cloudinit.Configure(cfg, cloudcfg)
-	if err != nil {
+	return cloudinit.Configure(mcfg, cloudcfg)
+}
+
+// ComposeUserData fills out the provided cloudinit configuration structure
+// so it is suitable for initialising a machine with the given configuration,
+// and then renders it and returns it as a binary (gzipped) blob of user data.
+//
+// If the provided cloudcfg is nil, a new one will be created internally.
+func ComposeUserData(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config) ([]byte, error) {
+	if cloudcfg == nil {
+		cloudcfg = coreCloudinit.New()
+	}
+	if err := configureCloudinit(mcfg, cloudcfg); err != nil {
 		return nil, err
 	}
 	data, err := cloudcfg.Render()

@@ -7,13 +7,13 @@ import (
 	"bytes"
 	"net/url"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type CharmSuite struct {
@@ -38,6 +38,7 @@ func (s *CharmSuite) TestCharm(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(dummy.BundleURL(), gc.DeepEquals, bundleURL)
 	c.Assert(dummy.BundleSha256(), gc.Equals, "quantal-dummy-1-sha256")
+	c.Assert(dummy.IsUploaded(), jc.IsTrue)
 	meta := dummy.Meta()
 	c.Assert(meta.Name, gc.Equals, "dummy")
 	config := dummy.Config()

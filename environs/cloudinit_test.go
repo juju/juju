@@ -6,20 +6,23 @@ package environs_test
 import (
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/cert"
+	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
@@ -65,7 +68,7 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 	})
 }
 
-func (s *CloudInitSuite) TestFinishMachineConfigNoSSLVerification(c *gc.C) {
+func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
 	attrs := dummySampleConfig().Merge(testing.Attrs{
 		"authorized-keys":           "we-are-the-keys",
 		"ssl-hostname-verification": false,
@@ -108,7 +111,7 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Check(mcfg.AuthorizedKeys, gc.Equals, "we-are-the-keys")
 	c.Check(mcfg.DisableSSLHostnameVerification, jc.IsFalse)
-	password := utils.PasswordHash("lisboan-pork")
+	password := utils.UserPasswordHash("lisboan-pork", utils.CompatSalt)
 	c.Check(mcfg.APIInfo, gc.DeepEquals, &api.Info{
 		Password: password, CACert: []byte(testing.CACert),
 	})
@@ -121,7 +124,6 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 
 	oldAttrs["ca-private-key"] = ""
 	oldAttrs["admin-secret"] = ""
-	delete(oldAttrs, "secret")
 	c.Check(mcfg.Config.AllAttrs(), gc.DeepEquals, oldAttrs)
 	srvCertPEM := mcfg.StateServerCert
 	srvKeyPEM := mcfg.StateServerKey
@@ -136,9 +138,17 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 }
 
-func (*CloudInitSuite) TestUserData(c *gc.C) {
+func (s *CloudInitSuite) TestUserData(c *gc.C) {
+	s.testUserData(c, false)
+}
+
+func (s *CloudInitSuite) TestStateServerUserData(c *gc.C) {
+	s.testUserData(c, true)
+}
+
+func (*CloudInitSuite) testUserData(c *gc.C, stateServer bool) {
 	testJujuHome := c.MkDir()
-	defer config.SetJujuHome(config.SetJujuHome(testJujuHome))
+	defer osenv.SetJujuHome(osenv.SetJujuHome(testJujuHome))
 	tools := &tools.Tools{
 		URL:     "http://foo.com/tools/releases/juju1.2.3-linux-amd64.tgz",
 		Version: version.MustParseBinary("1.2.3-linux-amd64"),
@@ -146,6 +156,10 @@ func (*CloudInitSuite) TestUserData(c *gc.C) {
 	envConfig, err := config.New(config.NoDefaults, dummySampleConfig())
 	c.Assert(err, gc.IsNil)
 
+	allJobs := []params.MachineJob{
+		params.JobManageEnviron,
+		params.JobHostUnits,
+	}
 	cfg := &cloudinit.MachineConfig{
 		MachineId:       "10",
 		MachineNonce:    "5432",
@@ -153,24 +167,35 @@ func (*CloudInitSuite) TestUserData(c *gc.C) {
 		StateServerCert: []byte(testing.ServerCert),
 		StateServerKey:  []byte(testing.ServerKey),
 		StateInfo: &state.Info{
+			Addrs:    []string{"127.0.0.1:1234"},
 			Password: "pw1",
 			CACert:   []byte("CA CERT\n" + testing.CACert),
+			Tag:      "machine-10",
 		},
 		APIInfo: &api.Info{
+			Addrs:    []string{"127.0.0.1:1234"},
 			Password: "pw2",
 			CACert:   []byte("CA CERT\n" + testing.CACert),
+			Tag:      "machine-10",
 		},
-		DataDir:          environs.DataDir,
-		Config:           envConfig,
-		StatePort:        envConfig.StatePort(),
-		APIPort:          envConfig.APIPort(),
-		StateServer:      true,
-		AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
+		DataDir:                 environs.DataDir,
+		LogDir:                  agent.DefaultLogDir,
+		Jobs:                    allJobs,
+		CloudInitOutputLog:      environs.CloudInitOutputLog,
+		Config:                  envConfig,
+		StatePort:               envConfig.StatePort(),
+		APIPort:                 envConfig.APIPort(),
+		StateServer:             stateServer,
+		AgentEnvironment:        map[string]string{agent.ProviderType: "dummy"},
+		AuthorizedKeys:          "wheredidileavemykeys",
+		MachineAgentServiceName: "jujud-machine-10",
 	}
 	script1 := "script1"
 	script2 := "script2"
-	scripts := []string{script1, script2}
-	result, err := environs.ComposeUserData(cfg, scripts...)
+	cloudcfg := coreCloudinit.New()
+	cloudcfg.AddRunCmd(script1)
+	cloudcfg.AddRunCmd(script2)
+	result, err := environs.ComposeUserData(cfg, cloudcfg)
 	c.Assert(err, gc.IsNil)
 
 	unzipped, err := utils.Gunzip(result)
@@ -180,11 +205,37 @@ func (*CloudInitSuite) TestUserData(c *gc.C) {
 	err = goyaml.Unmarshal(unzipped, &config)
 	c.Assert(err, gc.IsNil)
 
-	// Just check that the cloudinit config looks good.
-	c.Check(config["apt_upgrade"], gc.Equals, true)
 	// The scripts given to userData where added as the first
 	// commands to be run.
 	runCmd := config["runcmd"].([]interface{})
 	c.Check(runCmd[0], gc.Equals, script1)
 	c.Check(runCmd[1], gc.Equals, script2)
+
+	if stateServer {
+		// The cloudinit config should have nothing but the basics:
+		// SSH authorized keys, the additional runcmds, and log output.
+		//
+		// Note: the additional runcmds *do* belong here, at least
+		// for MAAS. MAAS needs to configure and then bounce the
+		// network interfaces, which would sever the SSH connection
+		// in the synchronous bootstrap phase.
+		c.Check(config, gc.DeepEquals, map[interface{}]interface{}{
+			"output": map[interface{}]interface{}{
+				"all": "| tee -a /var/log/cloud-init-output.log",
+			},
+			"runcmd": []interface{}{
+				"script1", "script2",
+				"set -xe",
+				"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
+				"printf '%s\\n' '5432' > '/var/lib/juju/nonce.txt'",
+			},
+			"ssh_authorized_keys": []interface{}{"wheredidileavemykeys"},
+		})
+	} else {
+		// Just check that the cloudinit config looks good,
+		// and that there are more runcmds than the additional
+		// ones we passed into ComposeUserData.
+		c.Check(config["apt_upgrade"], gc.Equals, true)
+		c.Check(len(runCmd) > 2, jc.IsTrue)
+	}
 }

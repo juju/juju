@@ -11,7 +11,32 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/osenv"
+	"launchpad.net/juju-core/utils/ssh"
+	"launchpad.net/juju-core/version"
 )
+
+// Entity identifies a single entity.
+type Entity struct {
+	Tag string
+}
+
+// Entities identifies multiple entities.
+type Entities struct {
+	Entities []Entity
+}
+
+// EntityPasswords holds the parameters for making a SetPasswords call.
+type EntityPasswords struct {
+	Changes []EntityPassword
+}
+
+// EntityPassword specifies a password change for the entity
+// with the given tag.
+type EntityPassword struct {
+	Tag      string
+	Password string
+}
 
 // ErrorResults holds the results of calling a bulk operation which
 // returns no data, only an error result. The order and
@@ -59,9 +84,60 @@ type DestroyRelation struct {
 	Endpoints []string
 }
 
+// AddMachineParams encapsulates the parameters used to create a new machine.
+type AddMachineParams struct {
+	// The following fields hold attributes that will be given to the
+	// new machine when it is created.
+	Series      string
+	Constraints constraints.Value
+	Jobs        []MachineJob
+
+	// If ParentId is non-empty, it specifies the id of the
+	// parent machine within which the new machine will
+	// be created. In that case, ContainerType must also be
+	// set.
+	ParentId string
+
+	// ContainerType optionally gives the container type of the
+	// new machine. If it is non-empty, the new machine
+	// will be implemented by a container. If it is specified
+	// but ParentId is empty, a new top level machine will
+	// be created to hold the container with given series,
+	// constraints and jobs.
+	ContainerType instance.ContainerType
+
+	// If InstanceId is non-empty, it will be associated with
+	// the new machine along with the given nonce,
+	// hardware characteristics and addresses.
+	// All the following fields will be ignored if ContainerType
+	// is set.
+	InstanceId              instance.Id
+	Nonce                   string
+	HardwareCharacteristics instance.HardwareCharacteristics
+	Addrs                   []instance.Address
+}
+
+// AddMachines holds the parameters for making the AddMachines call.
+type AddMachines struct {
+	MachineParams []AddMachineParams
+}
+
+// AddMachinesResults holds the results of an AddMachines call.
+type AddMachinesResults struct {
+	Machines []AddMachinesResult
+}
+
+// AddMachinesResults holds the name of a machine added by the
+// state.api.client.AddMachine call for a single machine.
+type AddMachinesResult struct {
+	Machine string
+	Error   *Error
+}
+
 // DestroyMachines holds parameters for the DestroyMachines call.
 type DestroyMachines struct {
 	MachineNames []string
+	Force        bool
 }
 
 // ServiceDeploy holds the parameters for making the ServiceDeploy call.
@@ -121,7 +197,8 @@ type ServiceUnset struct {
 	Options     []string
 }
 
-// ServiceGet holds parameters for making the ServiceGet call.
+// ServiceGet holds parameters for making the ServiceGet or
+// ServiceGetCharmURL calls.
 type ServiceGet struct {
 	ServiceName string
 }
@@ -134,9 +211,39 @@ type ServiceGetResults struct {
 	Constraints constraints.Value
 }
 
+// ServiceCharmRelations holds parameters for making the ServiceCharmRelations call.
+type ServiceCharmRelations struct {
+	ServiceName string
+}
+
+// ServiceCharmRelationsResults holds the results of the ServiceCharmRelations call.
+type ServiceCharmRelationsResults struct {
+	CharmRelations []string
+}
+
 // ServiceUnexpose holds parameters for the ServiceUnexpose call.
 type ServiceUnexpose struct {
 	ServiceName string
+}
+
+// PublicAddress holds parameters for the PublicAddress call.
+type PublicAddress struct {
+	Target string
+}
+
+// PublicAddressResults holds results of the PublicAddress call.
+type PublicAddressResults struct {
+	PublicAddress string
+}
+
+// PrivateAddress holds parameters for the PrivateAddress call.
+type PrivateAddress struct {
+	Target string
+}
+
+// PrivateAddressResults holds results of the PrivateAddress call.
+type PrivateAddressResults struct {
+	PrivateAddress string
 }
 
 // Resolved holds parameters for the Resolved call.
@@ -238,6 +345,18 @@ type Delta struct {
 	Entity EntityInfo
 }
 
+// ListSSHKeys stores parameters used for a KeyManager.ListKeys call.
+type ListSSHKeys struct {
+	Entities
+	Mode ssh.ListMode
+}
+
+// ModifySSHKeys stores parameters used for a KeyManager.Add|Delete|Import call for a user.
+type ModifyUserSSHKeys struct {
+	User string
+	Keys []string
+}
+
 // MarshalJSON implements json.Marshaler.
 func (d *Delta) MarshalJSON() ([]byte, error) {
 	b, err := json.Marshal(d.Entity)
@@ -337,11 +456,18 @@ type EntityId struct {
 // MachineInfo holds the information about a Machine
 // that is watched by StateWatcher.
 type MachineInfo struct {
-	Id         string `bson:"_id"`
-	InstanceId string
-	Status     Status
-	StatusInfo string
-	StatusData StatusData
+	Id                       string `bson:"_id"`
+	InstanceId               string
+	Status                   Status
+	StatusInfo               string
+	StatusData               StatusData
+	Life                     Life
+	Series                   string
+	SupportedContainers      []instance.ContainerType
+	SupportedContainersKnown bool
+	HardwareCharacteristics  *instance.HardwareCharacteristics `json:",omitempty"`
+	Jobs                     []MachineJob
+	Addresses                []instance.Address
 }
 
 func (i *MachineInfo) EntityId() EntityId {
@@ -355,6 +481,7 @@ type ServiceInfo struct {
 	Name        string `bson:"_id"`
 	Exposed     bool
 	CharmURL    string
+	OwnerTag    string
 	Life        Life
 	MinUnits    int
 	Constraints constraints.Value
@@ -419,10 +546,68 @@ func (i *AnnotationInfo) EntityId() EntityId {
 	}
 }
 
-// ContainerConfig contains information from the environment config that are
+// ContainerConfig contains information from the environment config that is
 // needed for container cloud-init.
 type ContainerConfig struct {
 	ProviderType            string
 	AuthorizedKeys          string
 	SSLHostnameVerification bool
+	Proxy                   osenv.ProxySettings
+	AptProxy                osenv.ProxySettings
+}
+
+// ProvisioningScriptParams contains the parameters for the
+// ProvisioningScript client API call.
+type ProvisioningScriptParams struct {
+	MachineId string
+	Nonce     string
+
+	// DataDir may be "", in which case the default will be used.
+	DataDir string
+
+	// DisablePackageCommands may be set to disable all package-related
+	// commands. It is then the responsibility of the provisioner to
+	// ensure that all the packages required by Juju are available.
+	DisablePackageCommands bool
+}
+
+// ProvisioningScriptResult contains the result of the
+// ProvisioningScript client API call.
+type ProvisioningScriptResult struct {
+	Script string
+}
+
+// EnvironmentGetResults contains the result of EnvironmentGet client
+// API call.
+type EnvironmentGetResults struct {
+	Config map[string]interface{}
+}
+
+// EnvironmentSet contains the arguments for EnvironmentSet client API
+// call.
+type EnvironmentSet struct {
+	Config map[string]interface{}
+}
+
+// SetEnvironAgentVersion contains the arguments for
+// SetEnvironAgentVersion client API call.
+type SetEnvironAgentVersion struct {
+	Version version.Number
+}
+
+// DeployerConnectionValues containers the result of deployer.ConnectionInfo
+// API call.
+type DeployerConnectionValues struct {
+	StateAddresses []string
+	APIAddresses   []string
+}
+
+// StatusParams holds parameters for the Status call.
+type StatusParams struct {
+	Patterns []string
+}
+
+// SetRsyslogCertParams holds parameters for the SetRsyslogCert call.
+type SetRsyslogCertParams struct {
+	CACert []byte
 }

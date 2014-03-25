@@ -9,7 +9,6 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
@@ -24,6 +23,8 @@ type UniterAPI struct {
 	*common.StatusSetter
 	*common.DeadEnsurer
 	*common.AgentEntityWatcher
+	*common.APIAddresser
+	*common.EnvironWatcher
 
 	st            *state.State
 	auth          common.Authorizer
@@ -50,33 +51,40 @@ func NewUniterAPI(st *state.State, resources *common.Resources, authorizer commo
 		}, nil
 	}
 	accessUnitOrService := common.AuthEither(accessUnit, accessService)
+	// Uniter can always watch for environ changes.
+	getCanWatch := common.AuthAlways(true)
+	// Uniter can not get the secrets.
+	getCanReadSecrets := common.AuthAlways(false)
 	return &UniterAPI{
 		LifeGetter:         common.NewLifeGetter(st, accessUnitOrService),
 		StatusSetter:       common.NewStatusSetter(st, accessUnit),
 		DeadEnsurer:        common.NewDeadEnsurer(st, accessUnit),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, accessUnitOrService),
-		st:                 st,
-		auth:               authorizer,
-		resources:          resources,
-		accessUnit:         accessUnit,
-		accessService:      accessService,
+		APIAddresser:       common.NewAPIAddresser(st, resources),
+		EnvironWatcher:     common.NewEnvironWatcher(st, resources, getCanWatch, getCanReadSecrets),
+
+		st:            st,
+		auth:          authorizer,
+		resources:     resources,
+		accessUnit:    accessUnit,
+		accessService: accessService,
 	}, nil
 }
 
 func (u *UniterAPI) getUnit(tag string) (*state.Unit, error) {
-	entity, err := u.st.FindEntity(tag)
+	_, name, err := names.ParseTag(tag, names.UnitTagKind)
 	if err != nil {
 		return nil, err
 	}
-	return entity.(*state.Unit), nil
+	return u.st.Unit(name)
 }
 
 func (u *UniterAPI) getService(tag string) (*state.Service, error) {
-	entity, err := u.st.FindEntity(tag)
+	_, name, err := names.ParseTag(tag, names.ServiceTagKind)
 	if err != nil {
 		return nil, err
 	}
-	return entity.(*state.Service), nil
+	return u.st.Service(name)
 }
 
 // PublicAddress returns the public address for each given unit, if set.
@@ -741,6 +749,17 @@ func (u *UniterAPI) CurrentEnvironUUID() (params.StringResult, error) {
 	return result, err
 }
 
+// CurrentEnvironment returns the name and UUID for the current juju environment.
+func (u *UniterAPI) CurrentEnvironment() (params.EnvironmentResult, error) {
+	result := params.EnvironmentResult{}
+	env, err := u.st.Environment()
+	if err == nil {
+		result.Name = env.Name()
+		result.UUID = env.UUID()
+	}
+	return result, err
+}
+
 // ProviderType returns the provider type used by the current juju
 // environment.
 //
@@ -846,17 +865,21 @@ func (u *UniterAPI) checkRemoteUnit(relUnit *state.RelationUnit, remoteUnitTag s
 	if remoteUnitTag == u.auth.GetAuthTag() {
 		return "", common.ErrPerm
 	}
-	remoteUnit, err := u.getUnit(remoteUnitTag)
+	// Check remoteUnit is indeed related. Note that we don't want to actually get
+	// the *Unit, because it might have been removed; but its relation settings will
+	// persist until the relation itself has been removed (and must remain accessible
+	// because the local unit's view of reality may be time-shifted).
+	_, remoteUnitName, err := names.ParseTag(remoteUnitTag, names.UnitTagKind)
 	if err != nil {
-		return "", common.ErrPerm
+		return "", err
 	}
-	// Check remoteUnit is indeed related.
+	remoteServiceName := names.UnitService(remoteUnitName)
 	rel := relUnit.Relation()
-	_, err = rel.RelatedEndpoints(remoteUnit.ServiceName())
+	_, err = rel.RelatedEndpoints(remoteServiceName)
 	if err != nil {
 		return "", common.ErrPerm
 	}
-	return remoteUnit.Name(), nil
+	return remoteUnitName, nil
 }
 
 // ReadRemoteSettings returns the remote settings of each given set of
@@ -952,28 +975,18 @@ func (u *UniterAPI) WatchRelationUnits(args params.RelationUnits) (params.Relati
 	return result, nil
 }
 
-// APIAddresses returns the list of addresses used to connect to the API.
-//
-// TODO(dimitern): Remove this once we have a way to get state/API
-// public addresses from state.
-// BUG(lp:1205371): This is temporary, until the Addresser worker
-// lands and we can take the addresses of all machines with
-// JobManageState.
-func (u *UniterAPI) APIAddresses() (params.StringsResult, error) {
-	nothing := params.StringsResult{}
-	cfg, err := u.st.EnvironConfig()
+// TODO(dimitern) bug #1270795 2014-01-20
+// Add a doc comment here and use u.accessService()
+// below in the body to check for permissions.
+func (u *UniterAPI) GetOwnerTag(args params.Entities) (params.StringResult, error) {
+
+	nothing := params.StringResult{}
+	service, err := u.getService(args.Entities[0].Tag)
 	if err != nil {
 		return nothing, err
 	}
-	env, err := environs.New(cfg)
-	if err != nil {
-		return nothing, err
-	}
-	_, apiInfo, err := env.StateInfo()
-	if err != nil {
-		return nothing, err
-	}
-	return params.StringsResult{
-		Result: apiInfo.Addrs,
+
+	return params.StringResult{
+		Result: service.GetOwnerTag(),
 	}, nil
 }

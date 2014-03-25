@@ -15,15 +15,20 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/configstore"
+	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 )
 
 var NoEnvironmentError = errors.New("no environment specified")
+var DoubleEnvironmentError = errors.New("you cannot supply both -e and the envname as a positional argument")
 
 // DestroyEnvironmentCommand destroys an environment.
 type DestroyEnvironmentCommand struct {
 	cmd.CommandBase
 	envName   string
 	assumeYes bool
+	force     bool
 }
 
 func (c *DestroyEnvironmentCommand) Info() *cmd.Info {
@@ -37,9 +42,12 @@ func (c *DestroyEnvironmentCommand) Info() *cmd.Info {
 func (c *DestroyEnvironmentCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.assumeYes, "y", false, "Do not ask for confirmation")
 	f.BoolVar(&c.assumeYes, "yes", false, "")
+	f.BoolVar(&c.force, "force", false, "Forcefully destroy the environment, directly through the environment provider")
+	f.StringVar(&c.envName, "e", "", "juju environment to operate in")
+	f.StringVar(&c.envName, "environment", "", "juju environment to operate in")
 }
 
-func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) error {
+func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
 	store, err := configstore.Default()
 	if err != nil {
 		return fmt.Errorf("cannot open environment info storage: %v", err)
@@ -59,26 +67,64 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) error {
 		}
 		answer := strings.ToLower(scanner.Text())
 		if answer != "y" && answer != "yes" {
-			return errors.New("Environment destruction aborted")
+			return errors.New("environment destruction aborted")
 		}
 	}
+	// If --force is supplied, then don't attempt to use the API.
+	// This is necessary to destroy broken environments, where the
+	// API server is inaccessible or faulty.
+	if !c.force {
+		defer func() {
+			if result == nil {
+				return
+			}
+			logger.Errorf(`failed to destroy environment %q
+        
+If the environment is unusable, then you may run
 
-	// TODO(axw) 2013-08-30 bug 1218688
-	// destroy manually provisioned machines, or otherwise
-	// block destroy-environment until all manually provisioned
-	// machines have been manually "destroyed".
+    juju destroy-environment --force
+
+to forcefully destroy the environment. Upon doing so, review
+your environment provider console for any resources that need
+to be cleaned up.
+
+`, c.envName)
+		}()
+		conn, err := juju.NewAPIConn(environ, api.DefaultDialOpts())
+		if err != nil {
+			return err
+		}
+		defer conn.Close()
+		err = conn.State.Client().DestroyEnvironment()
+		if err != nil && !params.IsCodeNotImplemented(err) {
+			return fmt.Errorf("destroying environment: %v", err)
+		}
+	}
 	return environs.Destroy(environ, store)
 }
 
 func (c *DestroyEnvironmentCommand) Init(args []string) error {
-	switch len(args) {
-	case 0:
-		return NoEnvironmentError
-	case 1:
-		c.envName = args[0]
-		return nil
-	default:
-		return cmd.CheckEmpty(args[1:])
+	if c.envName != "" {
+		logger.Warningf("-e/--environment flag is deprecated in 1.18, " +
+			"please supply environment as a positional parameter")
+		// They supplied the -e flag
+		if len(args) == 0 {
+			// We're happy, we have enough information
+			return nil
+		}
+		// You can't supply -e ENV and ENV as a positional argument
+		return DoubleEnvironmentError
+	} else {
+		// No -e flag means they must supply the environment positionally
+		switch len(args) {
+		case 0:
+			return NoEnvironmentError
+		case 1:
+			c.envName = args[0]
+			return nil
+		default:
+			return cmd.CheckEmpty(args[1:])
+		}
 	}
 }
 

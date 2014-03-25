@@ -713,8 +713,64 @@ func (ci *CharmInfo) Config() *charm.Config {
 	return ci.config
 }
 
-// CharmInfo retrieves the CharmInfo value for the charm at url.
-func (s *Store) CharmInfo(url *charm.URL) (info *CharmInfo, err error) {
+var ltsReleases = map[string]bool{
+	"lucid":   true,
+	"precise": true,
+	"trusty":  true,
+}
+
+type byPreferredSeries []string
+
+func (s byPreferredSeries) Len() int      { return len(s) }
+func (s byPreferredSeries) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+func (s byPreferredSeries) Less(i, j int) bool {
+	_, iLts := ltsReleases[s[i]]
+	_, jLts := ltsReleases[s[j]]
+	if iLts == jLts {
+		return sort.StringSlice(s).Less(j, i)
+	}
+	return iLts
+}
+
+// Series returns all the series available for a charm reference, in descending
+// order of preference. LTS releases preferred over non-LTS
+func (s *Store) Series(ref charm.Reference) ([]string, error) {
+	session := s.session.Copy()
+	defer session.Close()
+
+	patternURL := &charm.URL{Reference: ref, Series: ".*"}
+	patternURL = patternURL.WithRevision(-1)
+
+	charms := session.Charms()
+	q := charms.Find(bson.M{
+		"urls": bson.RegEx{Pattern: patternURL.String()},
+	})
+	var cdocs []charmDoc
+	err := q.All(&cdocs)
+	if err != nil {
+		return nil, err
+	}
+
+	// Unique set of series
+	seriesSet := make(map[string]bool)
+	for _, cdoc := range cdocs {
+		for _, url := range cdoc.URLs {
+			seriesSet[url.Series] = true
+		}
+	}
+
+	// Collect into a slice
+	var result []string
+	for series := range seriesSet {
+		result = append(result, series)
+	}
+	sort.Sort(byPreferredSeries(result))
+	return result, nil
+}
+
+// getRevisions returns at most the last n revisions for charm at url,
+// in descending revision order. For limit n=0, all revisions are returned.
+func (s *Store) getRevisions(url *charm.URL, n int) ([]*CharmInfo, error) {
 	session := s.session.Copy()
 	defer session.Close()
 
@@ -723,28 +779,46 @@ func (s *Store) CharmInfo(url *charm.URL) (info *CharmInfo, err error) {
 	url = url.WithRevision(-1)
 
 	charms := session.Charms()
-	var cdoc charmDoc
+	var cdocs []charmDoc
 	var qdoc interface{}
 	if rev == -1 {
 		qdoc = bson.D{{"urls", url}}
 	} else {
 		qdoc = bson.D{{"urls", url}, {"revision", rev}}
 	}
-	err = charms.Find(qdoc).Sort("-revision").One(&cdoc)
-	if err != nil {
+	q := charms.Find(qdoc).Sort("-revision")
+	if n > 0 {
+		q = q.Limit(n)
+	}
+	if err := q.All(&cdocs); err != nil {
 		log.Errorf("store: Failed to find charm %s: %v", url, err)
 		return nil, ErrNotFound
 	}
-	info = &CharmInfo{
-		cdoc.Revision,
-		cdoc.Digest,
-		cdoc.Sha256,
-		cdoc.Size,
-		cdoc.FileId,
-		cdoc.Meta,
-		cdoc.Config,
+	var infos []*CharmInfo
+	for _, cdoc := range cdocs {
+		infos = append(infos, &CharmInfo{
+			cdoc.Revision,
+			cdoc.Digest,
+			cdoc.Sha256,
+			cdoc.Size,
+			cdoc.FileId,
+			cdoc.Meta,
+			cdoc.Config,
+		})
 	}
-	return info, nil
+	return infos, nil
+}
+
+// CharmInfo retrieves the CharmInfo value for the charm at url.
+func (s *Store) CharmInfo(url *charm.URL) (*CharmInfo, error) {
+	infos, err := s.getRevisions(url, 1)
+	if err != nil {
+		log.Errorf("store: Failed to find charm %s: %v", url, err)
+		return nil, ErrNotFound
+	} else if len(infos) < 1 {
+		return nil, ErrNotFound
+	}
+	return infos[0], nil
 }
 
 // OpenCharm opens for reading via rc the charm currently available at url.
@@ -764,6 +838,37 @@ func (s *Store) OpenCharm(url *charm.URL) (info *CharmInfo, rc io.ReadCloser, er
 	}
 	rc = &reader{session, file}
 	return
+}
+
+// DeleteCharm deletes the charms matching url. If no revision is specified,
+// all revisions of the charm are deleted.
+func (s *Store) DeleteCharm(url *charm.URL) ([]*CharmInfo, error) {
+	log.Debugf("store: Deleting charm %s", url)
+	infos, err := s.getRevisions(url, 0)
+	if err != nil {
+		return nil, err
+	}
+	if len(infos) == 0 {
+		return nil, ErrNotFound
+	}
+	session := s.session.Copy()
+	defer session.Close()
+	var deleted []*CharmInfo
+	for _, info := range infos {
+		err := session.Charms().Remove(
+			bson.D{{"urls", url.WithRevision(-1)}, {"revision", info.Revision()}})
+		if err != nil {
+			log.Errorf("store: Failed to delete metadata for charm %s: %v", url, err)
+			return deleted, err
+		}
+		err = session.CharmFS().RemoveId(info.fileId)
+		if err != nil {
+			log.Errorf("store: Failed to delete GridFS file for charm %s: %v", url, err)
+			return deleted, err
+		}
+		deleted = append(deleted, info)
+	}
+	return deleted, err
 }
 
 type reader struct {

@@ -6,7 +6,7 @@ package tools
 import (
 	"io"
 
-	"launchpad.net/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
