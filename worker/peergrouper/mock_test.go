@@ -261,7 +261,6 @@ func (m *fakeMachine) Id() string {
 }
 
 func (m *fakeMachine) InstanceId() (instance.Id, error) {
-	panic("checking we get here")
 	if err := errorFor("Machine.InstanceId", m.doc.id); err != nil {
 		return "", err
 	}
