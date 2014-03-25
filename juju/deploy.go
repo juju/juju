@@ -50,7 +50,7 @@ func DeployService(st *state.State, args DeployServiceParams) (*state.Service, e
 	// TODO(fwereade): transactional State.AddService including settings, constraints
 	// (minimumUnitCount, initialMachineIds?).
 	// TODO(gz): pass through real includeNetworks and excludeNetworks vals
-	service, err := st.AddService(args.ServiceName, "user-admin", args.Charm, []string{}, []string{})
+	service, err := st.AddService(args.ServiceName, "user-admin", args.Charm, nil, nil)
 	if err != nil {
 		return nil, err
 	}

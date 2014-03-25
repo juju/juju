@@ -127,12 +127,12 @@ func (s *CharmSuite) SetupScenario(c *gc.C) {
 
 	// mysql is out of date
 	s.AddCharmWithRevision(c, "mysql", 22)
-	s.AddService(c, "mysql", "mysql", []string{}, []string{})
+	s.AddService(c, "mysql", "mysql", nil, nil)
 	s.AddUnit(c, "mysql", "1")
 
 	// wordpress is up to date
 	s.AddCharmWithRevision(c, "wordpress", 26)
-	s.AddService(c, "wordpress", "wordpress", []string{}, []string{})
+	s.AddService(c, "wordpress", "wordpress", nil, nil)
 	s.AddUnit(c, "wordpress", "2")
 	s.AddUnit(c, "wordpress", "2")
 	// wordpress/0 has a version, wordpress/1 is unknown
@@ -140,6 +140,6 @@ func (s *CharmSuite) SetupScenario(c *gc.C) {
 
 	// varnish is a charm that does not have a version in the mock store.
 	s.AddCharmWithRevision(c, "varnish", 5)
-	s.AddService(c, "varnish", "varnish", []string{}, []string{})
+	s.AddService(c, "varnish", "varnish", nil, nil)
 	s.AddUnit(c, "varnish", "3")
 }

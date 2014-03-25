@@ -293,7 +293,7 @@ func (s *JujuConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 }
 
 func (s *JujuConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm) *state.Service {
-	return s.AddTestingServiceWithNetworks(c, name, ch, []string{}, []string{})
+	return s.AddTestingServiceWithNetworks(c, name, ch, nil, nil)
 }
 
 func (s *JujuConnSuite) AddTestingServiceWithNetworks(c *gc.C, name string, ch *state.Charm, includeNetworks, excludeNetworks []string) *state.Service {

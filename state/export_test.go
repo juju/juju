@@ -142,7 +142,7 @@ func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
 }
 
 func AddTestingService(c *gc.C, st *State, name string, ch *Charm) *Service {
-	return AddTestingServiceWithNetworks(c, st, name, ch, []string{}, []string{})
+	return AddTestingServiceWithNetworks(c, st, name, ch, nil, nil)
 }
 
 func AddTestingServiceWithNetworks(c *gc.C, st *State, name string, ch *Charm, includeNetworks, excludeNetworks []string) *Service {

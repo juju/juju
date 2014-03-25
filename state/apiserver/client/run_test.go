@@ -76,16 +76,16 @@ func (s *runSuite) addUnit(c *gc.C, service *state.Service) *state.Unit {
 
 func (s *runSuite) TestGetAllUnitNames(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	magic, err := s.State.AddService("magic", "user-admin", charm, []string{}, []string{})
+	magic, err := s.State.AddService("magic", "user-admin", charm, nil, nil)
 	s.addUnit(c, magic)
 	s.addUnit(c, magic)
 
-	notAssigned, err := s.State.AddService("not-assigned", "user-admin", charm, []string{}, []string{})
+	notAssigned, err := s.State.AddService("not-assigned", "user-admin", charm, nil, nil)
 	c.Assert(err, gc.IsNil)
 	_, err = notAssigned.AddUnit()
 	c.Assert(err, gc.IsNil)
 
-	_, err = s.State.AddService("no-units", "user-admin", charm, []string{}, []string{})
+	_, err = s.State.AddService("no-units", "user-admin", charm, nil, nil)
 	c.Assert(err, gc.IsNil)
 
 	for i, test := range []struct {
@@ -241,7 +241,7 @@ func (s *runSuite) TestRunMachineAndService(c *gc.C) {
 	s.addMachineWithAddress(c, "10.3.2.1")
 
 	charm := s.AddTestingCharm(c, "dummy")
-	magic, err := s.State.AddService("magic", "user-admin", charm, []string{}, []string{})
+	magic, err := s.State.AddService("magic", "user-admin", charm, nil, nil)
 	s.addUnit(c, magic)
 	s.addUnit(c, magic)
 
