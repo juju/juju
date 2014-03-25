@@ -240,6 +240,7 @@ type machineDoc struct {
 	id             string
 	wantsVote      bool
 	hasVote        bool
+	instanceId     instance.Id
 	mongoHostPorts []instance.HostPort
 	apiHostPorts   []instance.HostPort
 }
@@ -264,7 +265,7 @@ func (m *fakeMachine) InstanceId() (instance.Id, error) {
 	if err := errorFor("Machine.InstanceId", m.doc.id); err != nil {
 		return "", err
 	}
-	return "", nil
+	return m.doc.instanceId, nil
 }
 
 func (m *fakeMachine) Watch() state.NotifyWatcher {
@@ -328,6 +329,12 @@ func (m *fakeMachine) setMongoHostPorts(hostPorts []instance.HostPort) {
 func (m *fakeMachine) setAPIHostPorts(hostPorts []instance.HostPort) {
 	m.mutate(func(doc *machineDoc) {
 		doc.apiHostPorts = hostPorts
+	})
+}
+
+func (m *fakeMachine) setInstanceId(instanceId instance.Id) {
+	m.mutate(func(doc *machineDoc) {
+		doc.instanceId = instanceId
 	})
 }
 
