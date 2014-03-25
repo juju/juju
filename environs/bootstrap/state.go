@@ -28,11 +28,6 @@ const StateFile = "provider-state"
 type BootstrapState struct {
 	// StateInstances are the state servers.
 	StateInstances []instance.Id `yaml:"state-instances"`
-	// Characteristics reflect the hardware each state server is running on.
-	// This is used at bootstrap time so the state server knows what hardware it has.
-	// The state *may* be updated later without this information, but by then it's
-	// served its purpose.
-	XCharacteristics []instance.HardwareCharacteristics `yaml:"characteristics,omitempty"`
 }
 
 // putState writes the given data to the state file on the given storage.
