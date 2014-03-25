@@ -46,7 +46,7 @@ type publisherInterface interface {
 	// publish publishes information about the given state servers
 	// to whomsoever it may concern. When it is called there
 	// is no guarantee that any of the information has actually changed.
-	publishAPIServers(apiServers [][]instance.HostPort, instanceIds []instance.Id) error {
+	publishAPIServers(apiServers [][]instance.HostPort, instanceIds []instance.Id) error
 }
 
 // notifyFunc holds a function that is sent
