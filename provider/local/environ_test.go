@@ -4,6 +4,7 @@
 package local_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -14,6 +15,9 @@ import (
 
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/container"
+	"launchpad.net/juju-core/container/lxc"
+	containertesting "launchpad.net/juju-core/container/testing"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
@@ -25,6 +29,7 @@ import (
 	"launchpad.net/juju-core/provider/local"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/upstart"
 )
 
 const echoCommandScript = "#!/bin/sh\necho $0 \"$@\" >> $0.args"
@@ -93,7 +98,6 @@ func (*environSuite) TestSupportedArchitectures(c *gc.C) {
 type localJujuTestSuite struct {
 	baseProviderSuite
 	jujutest.Tests
-	restoreRootCheck   func()
 	oldUpstartLocation string
 	testPath           string
 	dbServiceName      string
@@ -115,17 +119,20 @@ func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 
 	// Add in an admin secret
 	s.Tests.TestConfig["admin-secret"] = "sekrit"
-	s.restoreRootCheck = local.SetRootCheckFunction(func() bool { return false })
+	s.PatchValue(local.CheckIfRoot, func() bool { return false })
 	s.Tests.SetUpTest(c)
 
 	cfg, err := config.New(config.NoDefaults, s.TestConfig)
 	c.Assert(err, gc.IsNil)
 	s.dbServiceName = "juju-db-" + local.ConfigNamespace(cfg)
+
+	s.PatchValue(local.FinishBootstrap, func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config, ctx environs.BootstrapContext) error {
+		return nil
+	})
 }
 
 func (s *localJujuTestSuite) TearDownTest(c *gc.C) {
 	s.Tests.TearDownTest(c)
-	s.restoreRootCheck()
 	s.baseProviderSuite.TearDownTest(c)
 }
 
@@ -179,9 +186,6 @@ func (s *localJujuTestSuite) TestBootstrap(c *gc.C) {
 }
 
 func (s *localJujuTestSuite) TestDestroy(c *gc.C) {
-	s.PatchValue(local.FinishBootstrap, func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config, ctx environs.BootstrapContext) error {
-		return nil
-	})
 	env := s.testBootstrap(c, minimalConfig(c))
 	err := env.Destroy()
 	// Succeeds because there's no "agents" directory,
@@ -191,16 +195,17 @@ func (s *localJujuTestSuite) TestDestroy(c *gc.C) {
 	c.Assert(s.fakesudo+".args", jc.DoesNotExist)
 }
 
-func (s *localJujuTestSuite) TestDestroyCallSudo(c *gc.C) {
-	s.PatchValue(local.FinishBootstrap, func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config, ctx environs.BootstrapContext) error {
-		return nil
-	})
-	env := s.testBootstrap(c, minimalConfig(c))
+func (s *localJujuTestSuite) makeAgentsDir(c *gc.C, env environs.Environ) {
 	rootDir := env.Config().AllAttrs()["root-dir"].(string)
 	agentsDir := filepath.Join(rootDir, "agents")
 	err := os.Mkdir(agentsDir, 0755)
 	c.Assert(err, gc.IsNil)
-	err = env.Destroy()
+}
+
+func (s *localJujuTestSuite) TestDestroyCallSudo(c *gc.C) {
+	env := s.testBootstrap(c, minimalConfig(c))
+	s.makeAgentsDir(c, env)
+	err := env.Destroy()
 	c.Assert(err, gc.IsNil)
 	data, err := ioutil.ReadFile(s.fakesudo + ".args")
 	c.Assert(err, gc.IsNil)
@@ -217,10 +222,71 @@ func (s *localJujuTestSuite) TestDestroyCallSudo(c *gc.C) {
 	c.Assert(string(data), gc.Equals, strings.Join(expected, " ")+"\n")
 }
 
-func (s *localJujuTestSuite) TestBootstrapRemoveLeftovers(c *gc.C) {
-	s.PatchValue(local.FinishBootstrap, func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config, ctx environs.BootstrapContext) error {
-		return nil
+func (s *localJujuTestSuite) makeFakeUpstartScripts(c *gc.C, env environs.Environ,
+) (mongo *upstart.Service, machineAgent *upstart.Service) {
+	upstartDir := c.MkDir()
+	s.PatchValue(&upstart.InitDir, upstartDir)
+	s.MakeTool(c, "start", `echo "some-service start/running, process 123"`)
+
+	namespace := env.Config().AllAttrs()["namespace"].(string)
+	mongo = upstart.NewService(fmt.Sprintf("juju-db-%s", namespace))
+	mongoConf := upstart.Conf{
+		Service: *mongo,
+		Desc:    "fake mongo",
+		Cmd:     "echo FAKE",
+	}
+	err := mongoConf.Install()
+	c.Assert(err, gc.IsNil)
+	c.Assert(mongo.Installed(), jc.IsTrue)
+
+	machineAgent = upstart.NewService(fmt.Sprintf("juju-agent-%s", namespace))
+	agentConf := upstart.Conf{
+		Service: *machineAgent,
+		Desc:    "fake agent",
+		Cmd:     "echo FAKE",
+	}
+	err = agentConf.Install()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machineAgent.Installed(), jc.IsTrue)
+
+	return mongo, machineAgent
+}
+
+func (s *localJujuTestSuite) TestDestroyRemovesUpstartServices(c *gc.C) {
+	env := s.testBootstrap(c, minimalConfig(c))
+	s.makeAgentsDir(c, env)
+	mongo, machineAgent := s.makeFakeUpstartScripts(c, env)
+	s.PatchValue(local.CheckIfRoot, func() bool { return true })
+
+	err := env.Destroy()
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(mongo.Installed(), jc.IsFalse)
+	c.Assert(machineAgent.Installed(), jc.IsFalse)
+}
+
+func (s *localJujuTestSuite) TestDestroyRemovesContainers(c *gc.C) {
+	env := s.testBootstrap(c, minimalConfig(c))
+	s.makeAgentsDir(c, env)
+	s.PatchValue(local.CheckIfRoot, func() bool { return true })
+
+	namespace := env.Config().AllAttrs()["namespace"].(string)
+	manager, err := lxc.NewContainerManager(container.ManagerConfig{
+		container.ConfigName:   namespace,
+		container.ConfigLogDir: "logdir",
 	})
+	c.Assert(err, gc.IsNil)
+
+	machine1 := containertesting.CreateContainer(c, manager, "1")
+
+	err = env.Destroy()
+	c.Assert(err, gc.IsNil)
+
+	container := s.Factory.New(string(machine1.Id()))
+	c.Assert(container.IsConstructed(), jc.IsFalse)
+}
+
+func (s *localJujuTestSuite) TestBootstrapRemoveLeftovers(c *gc.C) {
 	cfg := minimalConfig(c)
 	rootDir := cfg.AllAttrs()["root-dir"].(string)
 
