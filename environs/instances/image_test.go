@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/utils"
 )
 
 type imageSuite struct {
@@ -241,7 +242,7 @@ func (s *imageSuite) TestFindInstanceSpec(c *gc.C) {
 		})
 		imageMeta, err := imagemetadata.GetLatestImageIdMetadata(
 			[]byte(jsonImagesContent),
-			simplestreams.NewURLDataSource("test", "some-url", simplestreams.VerifySSLHostnames), cons)
+			simplestreams.NewURLDataSource("test", "some-url", utils.VerifySSLHostnames), cons)
 		c.Assert(err, gc.IsNil)
 		var images []Image
 		for _, imageMetadata := range imageMeta {

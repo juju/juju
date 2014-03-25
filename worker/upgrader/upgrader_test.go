@@ -25,6 +25,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretools "launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/upgrader"
 )
@@ -227,6 +228,6 @@ func (s *UpgraderSuite) TestEnsureToolsChecksBeforeDownloading(c *gc.C) {
 	// it doesn't actually do an HTTP request
 	u := s.makeUpgrader()
 	newTools.URL = "http://localhost:999999/invalid/path/tools.tgz"
-	err := upgrader.EnsureTools(u, newTools, true)
+	err := upgrader.EnsureTools(u, newTools, utils.VerifySSLHostnames)
 	c.Assert(err, gc.IsNil)
 }

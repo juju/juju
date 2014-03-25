@@ -14,11 +14,11 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
-type insecureClientSuite struct {
+type httpSuite struct {
 	Server *httptest.Server
 }
 
-var _ = gc.Suite(&insecureClientSuite{})
+var _ = gc.Suite(&httpSuite{})
 
 type trivialResponseHandler struct{}
 
@@ -26,28 +26,46 @@ func (t *trivialResponseHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	fmt.Fprintf(w, "Greetings!\n")
 }
 
-func (s *insecureClientSuite) SetUpSuite(c *gc.C) {
+func (s *httpSuite) SetUpSuite(c *gc.C) {
 }
 
-func (s *insecureClientSuite) TearDownSuite(c *gc.C) {
+func (s *httpSuite) TearDownSuite(c *gc.C) {
 }
 
-func (s *insecureClientSuite) SetUpTest(c *gc.C) {
+func (s *httpSuite) SetUpTest(c *gc.C) {
 	s.Server = httptest.NewTLSServer(&trivialResponseHandler{})
 }
 
-func (s *insecureClientSuite) TearDownTest(c *gc.C) {
+func (s *httpSuite) TearDownTest(c *gc.C) {
 	if s.Server != nil {
 		s.Server.Close()
 	}
 }
 
-func (s *insecureClientSuite) TestDefaultClientFails(c *gc.C) {
+func (s *httpSuite) TestDefaultClientFails(c *gc.C) {
 	_, err := http.Get(s.Server.URL)
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*x509: certificate signed by unknown authority")
 }
 
-func (s *insecureClientSuite) TestInsecureClientSucceeds(c *gc.C) {
+func (s *httpSuite) TestValidatingClientGetter(c *gc.C) {
+	client1 := utils.GetValidatingHTTPClient()
+	client2 := utils.GetHTTPClient(utils.VerifySSLHostnames)
+	c.Check(client1, gc.Equals, client2)
+}
+
+func (s *httpSuite) TestNonValidatingClientGetter(c *gc.C) {
+	client1 := utils.GetNonValidatingHTTPClient()
+	client2 := utils.GetHTTPClient(utils.NoVerifySSLHostnames)
+	c.Check(client1, gc.Equals, client2)
+}
+
+func (s *httpSuite) TestValidatingClientFails(c *gc.C) {
+	client := utils.GetValidatingHTTPClient()
+	_, err := client.Get(s.Server.URL)
+	c.Assert(err, gc.ErrorMatches, "(.|\n)*x509: certificate signed by unknown authority")
+}
+
+func (s *httpSuite) TestInsecureClientSucceeds(c *gc.C) {
 	response, err := utils.GetNonValidatingHTTPClient().Get(s.Server.URL)
 	c.Assert(err, gc.IsNil)
 	defer response.Body.Close()
@@ -56,7 +74,7 @@ func (s *insecureClientSuite) TestInsecureClientSucceeds(c *gc.C) {
 	c.Check(string(body), gc.Equals, "Greetings!\n")
 }
 
-func (s *insecureClientSuite) TestInsecureClientCached(c *gc.C) {
+func (s *httpSuite) TestInsecureClientCached(c *gc.C) {
 	client1 := utils.GetNonValidatingHTTPClient()
 	client2 := utils.GetNonValidatingHTTPClient()
 	c.Check(client1, gc.Equals, client2)

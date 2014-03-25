@@ -31,12 +31,6 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
-// BootstrapStateURLFile is used to communicate to the first bootstrap node
-// the URL from which to obtain important state information (instance id and
-// hardware characteristics). It is a transient file, only used as the node
-// is bootstrapping.
-const BootstrapStateURLFile = "/tmp/provider-state-url"
-
 // SystemIdentity is the name of the file where the environment SSH key is kept.
 const SystemIdentity = "system-identity"
 
@@ -78,6 +72,15 @@ type MachineConfig struct {
 	// The entity name must match that of the machine being started,
 	// or be empty when starting a state server.
 	APIInfo *api.Info
+
+	// InstanceId is the instance ID of the machine being initialised.
+	// This is required when bootstrapping, and ignored otherwise.
+	InstanceId instance.Id
+
+	// HardwareCharacteristics contains the harrdware characteristics of
+	// the machine being initialised. This optional, and is only used by
+	// the bootstrap agent during state initialisation.
+	HardwareCharacteristics *instance.HardwareCharacteristics
 
 	// MachineNonce is set at provisioning/bootstrap time and used to
 	// ensure the agent is running on the correct instance.
@@ -127,9 +130,6 @@ type MachineConfig struct {
 
 	// Constraints holds the initial environment constraints.
 	Constraints constraints.Value
-
-	// StateInfoURL is the URL of a file which contains information about the state server machines.
-	StateInfoURL string
 
 	// DisableSSLHostnameVerification can be set to true to tell cloud-init
 	// that it shouldn't verify SSL certificates
@@ -291,6 +291,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 		// defined, and we determine this by the existance of the home dir.
 		fmt.Sprintf("[ -e /home/ubuntu ] && chown ubuntu:ubuntu %s", lockDir),
 		fmt.Sprintf("mkdir -p %s", cfg.LogDir),
+		fmt.Sprintf("chown syslog:adm %s", cfg.LogDir),
 	)
 
 	// Make a directory for the tools to live in, then fetch the
@@ -393,13 +394,20 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 		if cons != "" {
 			cons = " --constraints " + shquote(cons)
 		}
+		var hardware string
+		if cfg.HardwareCharacteristics != nil {
+			if hardware = cfg.HardwareCharacteristics.String(); hardware != "" {
+				hardware = " --hardware " + shquote(hardware)
+			}
+		}
 		c.AddRunCmd(cloudinit.LogProgressCmd("Bootstrapping Juju machine agent"))
 		c.AddScripts(
-			fmt.Sprintf("echo %s > %s", shquote(cfg.StateInfoURL), BootstrapStateURLFile),
 			// The bootstrapping is always run with debug on.
 			cfg.jujuTools()+"/jujud bootstrap-state"+
 				" --data-dir "+shquote(cfg.DataDir)+
 				" --env-config "+shquote(base64yaml(cfg.Config))+
+				" --instance-id "+shquote(string(cfg.InstanceId))+
+				hardware+
 				cons+
 				" --debug",
 			"rm -rf "+shquote(acfg.Dir()),
@@ -700,6 +708,9 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		}
 		if cfg.SystemPrivateSSHKey == "" {
 			return fmt.Errorf("missing system ssh identity")
+		}
+		if cfg.InstanceId == "" {
+			return fmt.Errorf("missing instance-id")
 		}
 	} else {
 		if len(cfg.StateInfo.Addrs) == 0 {

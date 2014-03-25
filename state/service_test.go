@@ -1429,3 +1429,12 @@ func (s *ServiceSuite) TestOwnerTagSchemaProtection(c *gc.C) {
 	c.Assert(state.GetServiceOwnerTag(service), gc.Equals, "")
 	c.Assert(service.GetOwnerTag(), gc.Equals, "user-admin")
 }
+
+func (s *ServiceSuite) TestNetworks(c *gc.C) {
+	service, err := s.State.Service(s.mysql.Name())
+	c.Assert(err, gc.IsNil)
+	includedNetworks, excludedNetworks, err := service.Networks()
+	c.Assert(err, gc.IsNil)
+	c.Check(includedNetworks, gc.DeepEquals, []string{})
+	c.Check(excludedNetworks, gc.DeepEquals, []string{})
+}

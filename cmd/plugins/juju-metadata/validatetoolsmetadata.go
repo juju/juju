@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/juju/arch"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -199,7 +200,7 @@ func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {
 			return err
 		}
 		params.Sources = []simplestreams.DataSource{simplestreams.NewURLDataSource(
-			"local metadata directory", toolsURL, simplestreams.VerifySSLHostnames),
+			"local metadata directory", toolsURL, utils.VerifySSLHostnames),
 		}
 	}
 

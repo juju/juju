@@ -645,9 +645,9 @@ func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams base URL from keystone if it is defined.
 	productStreamsURL, err := e.client.MakeServiceURL("product-streams", nil)
 	if err == nil {
-		verify := simplestreams.VerifySSLHostnames
+		verify := utils.VerifySSLHostnames
 		if !e.Config().SSLHostnameVerification() {
-			verify = simplestreams.NoVerifySSLHostnames
+			verify = utils.NoVerifySSLHostnames
 		}
 		source := simplestreams.NewURLDataSource("keystone catalog", productStreamsURL, verify)
 		e.imageSources = append(e.imageSources, source)
@@ -669,9 +669,9 @@ func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 			return nil, err
 		}
 	}
-	verify := simplestreams.VerifySSLHostnames
+	verify := utils.VerifySSLHostnames
 	if !e.Config().SSLHostnameVerification() {
-		verify = simplestreams.NoVerifySSLHostnames
+		verify = utils.NoVerifySSLHostnames
 	}
 	// Add the simplestreams source off the control bucket.
 	e.toolsSources = append(e.toolsSources, storage.NewStorageSimpleStreamsDataSource(

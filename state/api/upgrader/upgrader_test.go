@@ -19,6 +19,7 @@ import (
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -101,19 +102,19 @@ func (s *machineUpgraderSuite) TestTools(c *gc.C) {
 	s.rawMachine.SetAgentVersion(cur)
 	// Upgrader.Tools returns the *desired* set of tools, not the currently
 	// running set. We want to be upgraded to cur.Version
-	stateTools, disableSSLHostnameVerification, err := s.st.Tools(s.rawMachine.Tag())
+	stateTools, hostnameVerification, err := s.st.Tools(s.rawMachine.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(stateTools.Version, gc.Equals, cur)
 	c.Assert(stateTools.URL, gc.Not(gc.Equals), "")
-	c.Assert(disableSSLHostnameVerification, jc.IsFalse)
+	c.Assert(hostnameVerification, gc.Equals, utils.VerifySSLHostnames)
 
 	envtesting.SetSSLHostnameVerification(c, s.State, false)
 
-	stateTools, disableSSLHostnameVerification, err = s.st.Tools(s.rawMachine.Tag())
+	stateTools, hostnameVerification, err = s.st.Tools(s.rawMachine.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(stateTools.Version, gc.Equals, cur)
 	c.Assert(stateTools.URL, gc.Not(gc.Equals), "")
-	c.Assert(disableSSLHostnameVerification, jc.IsTrue)
+	c.Assert(hostnameVerification, gc.Equals, utils.NoVerifySSLHostnames)
 }
 
 func (s *machineUpgraderSuite) TestWatchAPIVersion(c *gc.C) {
