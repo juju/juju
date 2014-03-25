@@ -225,3 +225,15 @@ func (s *LogSuite) TestOutputDefaultLogsVerbose(c *gc.C) {
 	c.Assert(coretesting.Stderr(ctx), gc.Equals, "Writing info output\n")
 	c.Assert(string(content), gc.Matches, `^.*INFO .*Writing verbose output\n.*`)
 }
+
+func (s *LogSuite) TestOutputDebugForcesQuiet(c *gc.C) {
+	l := &cmd.Log{Verbose: true, Debug: true}
+	ctx := coretesting.Context(c)
+	err := l.Start(ctx)
+	c.Assert(err, gc.IsNil)
+
+	ctx.Infof("Writing info output")
+	ctx.Verbosef("Writing verbose output")
+
+	c.Assert(coretesting.Stderr(ctx), gc.Matches, `^.*INFO .* Writing info output\n.*INFO .*Writing verbose output\n.*`)
+}
