@@ -52,8 +52,9 @@ func UploadTools(ctx environs.BootstrapContext, env environs.Environ, toolsArch 
 	defer close(interrupted)
 	go func() {
 		defer close(interruptStorage) // closing interrupts all uploads
-		<-interrupted
-		fmt.Fprintln(ctx.GetStderr(), "cancelling tools upload")
+		if _, ok := <-interrupted; ok {
+			fmt.Fprintln(ctx.GetStderr(), "cancelling tools upload")
+		}
 	}()
 	stor := newInterruptibleStorage(env.Storage(), interruptStorage)
 
