@@ -882,8 +882,8 @@ func (m *Machine) SetMachineAddresses(addresses []instance.Address) (err error) 
 }
 
 // Networks returns the list of networks the machine should be on
-// (includedNetworks) or not (excludedNetworks).
-func (m *Machine) Networks() (includedNetworks, excludedNetworks []string, err error) {
+// (includeNetworks) or not (excludeNetworks).
+func (m *Machine) Networks() (includeNetworks, excludeNetworks []string, err error) {
 	return readNetworks(m.st, m.globalKey())
 }
 

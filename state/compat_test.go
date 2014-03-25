@@ -4,12 +4,9 @@
 package state
 
 import (
-	jc "github.com/juju/testing/checkers"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 	gc "launchpad.net/gocheck"
-
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
@@ -79,17 +76,15 @@ func (s *compatSuite) TestGetServiceWithoutNetworksIsOK(c *gc.C) {
 	// In 1.17.7+ all services have associated document in the
 	// networks collection. We remove it here to test backwards
 	// compatibility.
-	ops := []txn.Op{{
-		C:      s.state.networks.Name,
-		Id:     serviceGlobalKey(service.Name()),
-		Remove: true,
-	}}
+	ops := []txn.Op{removeNetworksOp(s.state, service.globalKey())}
 	err = s.state.runTransaction(ops)
 	c.Assert(err, gc.IsNil)
 
 	// Now check the trying to fetch service's networks is OK.
-	_, _, err = service.Networks()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	include, exclude, err := service.Networks()
+	c.Assert(err, gc.IsNil)
+	c.Assert(include, gc.HasLen, 0)
+	c.Assert(exclude, gc.HasLen, 0)
 }
 
 func (s *compatSuite) TestGetMachineWithoutNetworksIsOK(c *gc.C) {
@@ -98,15 +93,13 @@ func (s *compatSuite) TestGetMachineWithoutNetworksIsOK(c *gc.C) {
 	// In 1.17.7+ all machines have associated document in the
 	// networks collection. We remove it here to test backwards
 	// compatibility.
-	ops := []txn.Op{{
-		C:      s.state.networks.Name,
-		Id:     machineGlobalKey(machine.Id()),
-		Remove: true,
-	}}
+	ops := []txn.Op{removeNetworksOp(s.state, machine.globalKey())}
 	err = s.state.runTransaction(ops)
 	c.Assert(err, gc.IsNil)
 
 	// Now check the trying to fetch machine's networks is OK.
-	_, _, err = machine.Networks()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	include, exclude, err := machine.Networks()
+	c.Assert(err, gc.IsNil)
+	c.Assert(include, gc.HasLen, 0)
+	c.Assert(exclude, gc.HasLen, 0)
 }
