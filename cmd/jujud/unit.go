@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"runtime"
 
 	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
@@ -72,7 +73,7 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 	if err := a.Conf.read(a.Tag()); err != nil {
 		return err
 	}
-	agentLogger.Infof("unit agent %v start (%s)", a.Tag(), version.Current)
+	agentLogger.Infof("unit agent %v start (%s [%s])", a.Tag(), version.Current, runtime.Compiler)
 	a.runner.StartWorker("api", a.APIWorkers)
 	err := agentDone(a.runner.Wait())
 	a.tomb.Kill(err)

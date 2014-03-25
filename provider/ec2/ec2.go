@@ -52,6 +52,12 @@ var providerInstance environProvider
 type environ struct {
 	name string
 
+	// archMutex gates access to supportedArchitectures
+	archMutex sync.Mutex
+	// supportedArchitectures caches the architectures
+	// for which images can be instantiated.
+	supportedArchitectures []string
+
 	// ecfgMutex protects the *Unlocked fields below.
 	ecfgMutex       sync.Mutex
 	ecfgUnlocked    *environConfig
@@ -230,11 +236,6 @@ func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Conf
 	return p.Open(cfg)
 }
 
-// supportedArches lists the CPU architectures supported by EC2.
-// TODO(wallyworld): EC2 could possibly support arm and ppc but we only record
-// instance metadata for amd64 and i386. See allInstanceTypes in instancetype.go
-var supportedArches = []string{arch.AMD64, arch.I386}
-
 // MetadataLookupParams returns parameters which are used to query image metadata to
 // find matching image information.
 func (p environProvider) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
@@ -248,7 +249,7 @@ func (p environProvider) MetadataLookupParams(region string) (*simplestreams.Met
 	return &simplestreams.MetadataLookupParams{
 		Region:        region,
 		Endpoint:      ec2Region.EC2Endpoint,
-		Architectures: supportedArches,
+		Architectures: arch.AllSupportedArches,
 	}, nil
 }
 
@@ -338,8 +339,23 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 }
 
 // SupportedArchitectures is specified on the EnvironCapability interface.
-func (*environ) SupportedArchitectures() ([]string, error) {
-	return supportedArches, nil
+func (e *environ) SupportedArchitectures() ([]string, error) {
+	e.archMutex.Lock()
+	defer e.archMutex.Unlock()
+	if e.supportedArchitectures != nil {
+		return e.supportedArchitectures, nil
+	}
+	// Create a filter to get all images from our region and for the correct stream.
+	cloudSpec, err := e.Region()
+	if err != nil {
+		return nil, err
+	}
+	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+		CloudSpec: cloudSpec,
+		Stream:    e.Config().ImageStream(),
+	})
+	e.supportedArchitectures, err = common.SupportedArchitectures(e, imageConstraint)
+	return e.supportedArchitectures, err
 }
 
 // MetadataLookupParams returns parameters which are used to query simplestreams metadata.
@@ -347,21 +363,24 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 	if region == "" {
 		region = e.ecfg().region()
 	}
-	ec2Region, ok := allRegions[region]
-	if !ok {
-		return nil, fmt.Errorf("unknown region %q", region)
+	cloudSpec, err := e.cloudSpec(region)
+	if err != nil {
+		return nil, err
 	}
 	return &simplestreams.MetadataLookupParams{
 		Series:        e.ecfg().DefaultSeries(),
-		Region:        region,
-		Endpoint:      ec2Region.EC2Endpoint,
-		Architectures: supportedArches,
+		Region:        cloudSpec.Region,
+		Endpoint:      cloudSpec.Endpoint,
+		Architectures: arch.AllSupportedArches,
 	}, nil
 }
 
 // Region is specified in the HasRegion interface.
 func (e *environ) Region() (simplestreams.CloudSpec, error) {
-	region := e.ecfg().region()
+	return e.cloudSpec(e.ecfg().region())
+}
+
+func (e *environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 	ec2Region, ok := allRegions[region]
 	if !ok {
 		return simplestreams.CloudSpec{}, fmt.Errorf("unknown region %q", region)

@@ -6,13 +6,16 @@ package peergrouper
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"path"
 	"reflect"
+	"strconv"
 	"sync"
 
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/replicaset"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils/voyeur"
@@ -233,6 +236,14 @@ type fakeMachine struct {
 	checker invariantChecker
 }
 
+type machineDoc struct {
+	id             string
+	wantsVote      bool
+	hasVote        bool
+	mongoHostPorts []instance.HostPort
+	apiHostPorts   []instance.HostPort
+}
+
 func (m *fakeMachine) Refresh() error {
 	if err := errorFor("Machine.Refresh", m.doc.id); err != nil {
 		return err
@@ -261,8 +272,12 @@ func (m *fakeMachine) HasVote() bool {
 	return m.doc.hasVote
 }
 
-func (m *fakeMachine) StateHostPort() string {
-	return m.doc.hostPort
+func (m *fakeMachine) MongoHostPorts() []instance.HostPort {
+	return m.doc.mongoHostPorts
+}
+
+func (m *fakeMachine) APIHostPorts() []instance.HostPort {
+	return m.doc.apiHostPorts
 }
 
 // mutate atomically changes the machineDoc of
@@ -278,8 +293,34 @@ func (m *fakeMachine) mutate(f func(*machineDoc)) {
 }
 
 func (m *fakeMachine) setStateHostPort(hostPort string) {
+	var mongoHostPorts []instance.HostPort
+	if hostPort != "" {
+		host, portStr, err := net.SplitHostPort(hostPort)
+		if err != nil {
+			panic(err)
+		}
+		port, err := strconv.Atoi(portStr)
+		if err != nil {
+			panic(err)
+		}
+		mongoHostPorts = instance.AddressesWithPort(instance.NewAddresses([]string{host}), port)
+		mongoHostPorts[0].NetworkScope = instance.NetworkCloudLocal
+	}
+
 	m.mutate(func(doc *machineDoc) {
-		doc.hostPort = hostPort
+		doc.mongoHostPorts = mongoHostPorts
+	})
+}
+
+func (m *fakeMachine) setMongoHostPorts(hostPorts []instance.HostPort) {
+	m.mutate(func(doc *machineDoc) {
+		doc.mongoHostPorts = hostPorts
+	})
+}
+
+func (m *fakeMachine) setAPIHostPorts(hostPorts []instance.HostPort) {
+	m.mutate(func(doc *machineDoc) {
+		doc.apiHostPorts = hostPorts
 	})
 }
 
@@ -298,13 +339,6 @@ func (m *fakeMachine) setWantsVote(wantsVote bool) {
 	m.mutate(func(doc *machineDoc) {
 		doc.wantsVote = wantsVote
 	})
-}
-
-type machineDoc struct {
-	id        string
-	wantsVote bool
-	hasVote   bool
-	hostPort  string
 }
 
 type fakeMongoSession struct {

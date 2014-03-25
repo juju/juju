@@ -154,10 +154,9 @@ func (s *localJujuTestSuite) TestStartStop(c *gc.C) {
 	c.Skip("StartInstance not implemented yet.")
 }
 
-func (s *localJujuTestSuite) testBootstrap(c *gc.C) (env environs.Environ) {
-	testConfig := minimalConfig(c)
+func (s *localJujuTestSuite) testBootstrap(c *gc.C, cfg *config.Config) (env environs.Environ) {
 	ctx := coretesting.Context(c)
-	environ, err := local.Provider.Prepare(ctx, testConfig)
+	environ, err := local.Provider.Prepare(ctx, cfg)
 	c.Assert(err, gc.IsNil)
 	envtesting.UploadFakeTools(c, environ.Storage())
 	defer environ.Storage().RemoveAll()
@@ -176,14 +175,14 @@ func (s *localJujuTestSuite) TestBootstrap(c *gc.C) {
 		c.Assert(mcfg.Jobs, gc.DeepEquals, []params.MachineJob{params.JobManageEnviron})
 		return nil
 	})
-	s.testBootstrap(c)
+	s.testBootstrap(c, minimalConfig(c))
 }
 
 func (s *localJujuTestSuite) TestDestroy(c *gc.C) {
 	s.PatchValue(local.FinishBootstrap, func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config, ctx environs.BootstrapContext) error {
 		return nil
 	})
-	env := s.testBootstrap(c)
+	env := s.testBootstrap(c, minimalConfig(c))
 	err := env.Destroy()
 	// Succeeds because there's no "agents" directory,
 	// so destroy will just return without attempting
@@ -196,7 +195,7 @@ func (s *localJujuTestSuite) TestDestroyCallSudo(c *gc.C) {
 	s.PatchValue(local.FinishBootstrap, func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config, ctx environs.BootstrapContext) error {
 		return nil
 	})
-	env := s.testBootstrap(c)
+	env := s.testBootstrap(c, minimalConfig(c))
 	rootDir := env.Config().AllAttrs()["root-dir"].(string)
 	agentsDir := filepath.Join(rootDir, "agents")
 	err := os.Mkdir(agentsDir, 0755)
@@ -215,4 +214,28 @@ func (s *localJujuTestSuite) TestDestroyCallSudo(c *gc.C) {
 		env.Config().Name(),
 	}
 	c.Assert(string(data), gc.Equals, strings.Join(expected, " ")+"\n")
+}
+
+func (s *localJujuTestSuite) TestBootstrapRemoveLeftovers(c *gc.C) {
+	s.PatchValue(local.FinishBootstrap, func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config, ctx environs.BootstrapContext) error {
+		return nil
+	})
+	cfg := minimalConfig(c)
+	rootDir := cfg.AllAttrs()["root-dir"].(string)
+
+	// Create a dir inside local/log that should be removed by Bootstrap.
+	logThings := filepath.Join(rootDir, "log", "things")
+	err := os.MkdirAll(logThings, 0755)
+	c.Assert(err, gc.IsNil)
+
+	// Create a cloud-init-output.log in root-dir that should be
+	// removed/truncated by Bootstrap.
+	cloudInitOutputLog := filepath.Join(rootDir, "cloud-init-output.log")
+	err = ioutil.WriteFile(cloudInitOutputLog, []byte("ohai"), 0644)
+	c.Assert(err, gc.IsNil)
+
+	s.testBootstrap(c, cfg)
+	c.Assert(logThings, jc.DoesNotExist)
+	c.Assert(cloudInitOutputLog, jc.DoesNotExist)
+	c.Assert(filepath.Join(rootDir, "log"), jc.IsSymlink)
 }

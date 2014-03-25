@@ -517,3 +517,10 @@ func (suite *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 	c.Assert(len(sources), gc.Equals, 1)
 	assertSourceContents(c, sources[0], "filename", data)
 }
+
+func (suite *environSuite) TestSupportedArchitectures(c *gc.C) {
+	env := suite.makeEnviron()
+	a, err := env.SupportedArchitectures()
+	c.Assert(err, gc.IsNil)
+	c.Assert(a, gc.DeepEquals, []string{"amd64"})
+}

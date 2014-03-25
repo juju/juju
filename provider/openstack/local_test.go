@@ -591,7 +591,7 @@ func (s *localServerSuite) TestSupportedArchitectures(c *gc.C) {
 	env := s.Open(c)
 	a, err := env.SupportedArchitectures()
 	c.Assert(err, gc.IsNil)
-	c.Assert(a, gc.DeepEquals, []string{"amd64", "arm", "arm64", "ppc64"})
+	c.Assert(a, gc.DeepEquals, []string{"amd64", "ppc64"})
 }
 
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {

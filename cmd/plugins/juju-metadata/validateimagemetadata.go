@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/utils"
 )
 
 // ValidateImageMetadataCommand
@@ -184,7 +185,7 @@ func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
 		}
 		params.Sources = []simplestreams.DataSource{
 			simplestreams.NewURLDataSource(
-				"local metadata directory", "file://"+dir, simplestreams.VerifySSLHostnames),
+				"local metadata directory", "file://"+dir, utils.VerifySSLHostnames),
 		}
 	}
 	params.Stream = c.stream

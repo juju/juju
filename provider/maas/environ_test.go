@@ -12,7 +12,6 @@ import (
 
 	"launchpad.net/juju-core/environs/config"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/provider/maas"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
@@ -194,15 +193,6 @@ func (*environSuite) TestNewEnvironSetsConfig(c *gc.C) {
 
 	c.Check(err, gc.IsNil)
 	c.Check(env.Name(), gc.Equals, "testenv")
-}
-
-func (*environSuite) TestSupportedArchitectures(c *gc.C) {
-	cfg := getSimpleTestConfig(c, nil)
-	env, err := maas.NewEnviron(cfg)
-	c.Assert(err, gc.IsNil)
-	a, err := env.SupportedArchitectures()
-	c.Assert(err, gc.IsNil)
-	c.Assert(a, gc.DeepEquals, arch.AllSupportedArches)
 }
 
 func (*environSuite) TestNewCloudinitConfig(c *gc.C) {

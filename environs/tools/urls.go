@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
+	"launchpad.net/juju-core/utils"
 )
 
 // SupportsCustomSources represents an environment that
@@ -35,9 +36,9 @@ func GetMetadataSourcesWithRetries(env environs.ConfigGetter, allowRetry bool) (
 	var sources []simplestreams.DataSource
 	config := env.Config()
 	if userURL, ok := config.ToolsURL(); ok {
-		verify := simplestreams.VerifySSLHostnames
+		verify := utils.VerifySSLHostnames
 		if !config.SSLHostnameVerification() {
-			verify = simplestreams.NoVerifySSLHostnames
+			verify = utils.NoVerifySSLHostnames
 		}
 		sources = append(sources, simplestreams.NewURLDataSource("tools-metadata-url", userURL, verify))
 	}
@@ -54,7 +55,8 @@ func GetMetadataSourcesWithRetries(env environs.ConfigGetter, allowRetry bool) (
 		return nil, err
 	}
 	if defaultURL != "" {
-		sources = append(sources, simplestreams.NewURLDataSource("default simplestreams", defaultURL, simplestreams.VerifySSLHostnames))
+		sources = append(sources,
+			simplestreams.NewURLDataSource("default simplestreams", defaultURL, utils.VerifySSLHostnames))
 	}
 	for _, source := range sources {
 		source.SetAllowRetry(allowRetry)

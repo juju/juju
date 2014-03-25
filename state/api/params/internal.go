@@ -182,7 +182,6 @@ type EnvironConfig map[string]interface{}
 
 // EnvironConfigResult holds environment configuration or an error.
 type EnvironConfigResult struct {
-	Error  *Error
 	Config EnvironConfig
 }
 
@@ -525,8 +524,15 @@ type RunResult struct {
 	Error     string
 }
 
-// RunResults is used to return the slice of results.  Api server side calls
+// RunResults is used to return the slice of results.  API server side calls
 // need to return single structure values.
 type RunResults struct {
 	Results []RunResult
+}
+
+// APIHostPortsResult holds the result of an APIHostPorts
+// call. Each element in the top level slice holds
+// the addresses for one API server.
+type APIHostPortsResult struct {
+	Servers [][]instance.HostPort
 }

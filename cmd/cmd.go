@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -36,12 +35,6 @@ func IsRcPassthroughError(err error) bool {
 // there is an error.
 func NewRcPassthroughError(code int) error {
 	return &rcPassthroughError{code}
-}
-
-func init() {
-	// Don't replace the default transport as other init blocks
-	// register protocols.
-	http.DefaultTransport.(*http.Transport).DisableKeepAlives = true
 }
 
 // ErrSilent can be returned from Run to signal that Main should exit with
@@ -231,21 +224,21 @@ func Main(c Command, ctx *Context, args []string) int {
 }
 
 // DefaultContext returns a Context suitable for use in non-hosted situations.
-func DefaultContext() *Context {
+func DefaultContext() (*Context, error) {
 	dir, err := os.Getwd()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	abs, err := filepath.Abs(dir)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	return &Context{
 		Dir:    abs,
 		Stdin:  os.Stdin,
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
-	}
+	}, nil
 }
 
 // CheckEmpty is a utility function that returns an error if args is not empty.

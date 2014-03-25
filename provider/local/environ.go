@@ -109,10 +109,6 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 
 	// Before we write the agent config file, we need to make sure the
 	// instance is saved in the StateInfo.
-	stateFileURL, err := bootstrap.CreateStateFile(env.Storage())
-	if err != nil {
-		return err
-	}
 	if err := bootstrap.SaveState(env.Storage(), &bootstrap.BootstrapState{
 		StateInstances: []instance.Id{bootstrapInstanceId},
 	}); err != nil {
@@ -138,12 +134,13 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 		return err
 	}
 
-	mcfg := environs.NewBootstrapMachineConfig(stateFileURL, privateKey)
+	mcfg := environs.NewBootstrapMachineConfig(privateKey)
+	mcfg.InstanceId = bootstrapInstanceId
 	mcfg.Tools = selectedTools[0]
 	mcfg.DataDir = env.config.rootDir()
 	mcfg.LogDir = fmt.Sprintf("/var/log/juju-%s", env.config.namespace())
 	mcfg.Jobs = []params.MachineJob{params.JobManageEnviron}
-	mcfg.CloudInitOutputLog = filepath.Join(env.config.logDir(), "cloud-init-output.log")
+	mcfg.CloudInitOutputLog = filepath.Join(mcfg.DataDir, "cloud-init-output.log")
 	mcfg.DisablePackageCommands = true
 	mcfg.MachineAgentServiceName = env.machineAgentServiceName()
 	mcfg.MongoServiceName = env.mongoServiceName()
@@ -164,15 +161,20 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 	// Also, we leave the old all-machines.log file in
 	// /var/log/juju-{{namespace}} until we start the environment again. So
 	// potentially remove it at the start of the cloud-init.
-	os.RemoveAll(env.config.logDir())
-	os.MkdirAll(env.config.logDir(), 0755)
+	localLogDir := filepath.Join(mcfg.DataDir, "log")
+	if err := os.RemoveAll(localLogDir); err != nil {
+		return err
+	}
+	if err := os.Symlink(mcfg.LogDir, localLogDir); err != nil {
+		return err
+	}
+	if err := os.Remove(mcfg.CloudInitOutputLog); err != nil && !os.IsNotExist(err) {
+		return err
+	}
 	cloudcfg.AddScripts(
 		fmt.Sprintf("rm -fr %s", mcfg.LogDir),
-		fmt.Sprintf("mkdir -p %s", mcfg.LogDir),
-		fmt.Sprintf("chown syslog:adm %s", mcfg.LogDir),
 		fmt.Sprintf("rm -f /var/spool/rsyslog/machine-0-%s", env.config.namespace()),
-		fmt.Sprintf("ln -s %s/all-machines.log %s/", mcfg.LogDir, env.config.logDir()),
-		fmt.Sprintf("ln -s %s/machine-0.log %s/", env.config.logDir(), mcfg.LogDir))
+	)
 	if err := cloudinit.ConfigureJuju(mcfg, cloudcfg); err != nil {
 		return err
 	}
