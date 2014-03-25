@@ -78,7 +78,7 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, cons constra
 	err = bootstrap.SaveState(
 		env.Storage(),
 		&bootstrap.BootstrapState{
-			StateInstances:  []instance.Id{inst.Id()},
+			StateInstances: []instance.Id{inst.Id()},
 		})
 	if err != nil {
 		return fmt.Errorf("cannot save state: %v", err)
