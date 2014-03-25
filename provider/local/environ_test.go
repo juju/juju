@@ -4,7 +4,9 @@
 package local_test
 
 import (
+	"fmt"
 	"io/ioutil"
+	"launchpad.net/juju-core/upstart"
 	"os"
 	"path/filepath"
 	"strings"
@@ -190,13 +192,17 @@ func (s *localJujuTestSuite) TestDestroy(c *gc.C) {
 	c.Assert(s.fakesudo+".args", jc.DoesNotExist)
 }
 
-func (s *localJujuTestSuite) TestDestroyCallSudo(c *gc.C) {
-	env := s.testBootstrap(c, minimalConfig(c))
+func (s *localJujuTestSuite) makeAgentsDir(c *gc.C, env environs.Environ) {
 	rootDir := env.Config().AllAttrs()["root-dir"].(string)
 	agentsDir := filepath.Join(rootDir, "agents")
 	err := os.Mkdir(agentsDir, 0755)
 	c.Assert(err, gc.IsNil)
-	err = env.Destroy()
+}
+
+func (s *localJujuTestSuite) TestDestroyCallSudo(c *gc.C) {
+	env := s.testBootstrap(c, minimalConfig(c))
+	s.makeAgentsDir(c, env)
+	err := env.Destroy()
 	c.Assert(err, gc.IsNil)
 	data, err := ioutil.ReadFile(s.fakesudo + ".args")
 	c.Assert(err, gc.IsNil)
@@ -210,6 +216,49 @@ func (s *localJujuTestSuite) TestDestroyCallSudo(c *gc.C) {
 		env.Config().Name(),
 	}
 	c.Assert(string(data), gc.Equals, strings.Join(expected, " ")+"\n")
+}
+
+func (s *localJujuTestSuite) makeFakeUpstartScripts(c *gc.C, env environs.Environ,
+) (mongo *upstart.Service, machineAgent *upstart.Service) {
+	upstartDir := c.MkDir()
+	s.PatchValue(&upstart.InitDir, upstartDir)
+	s.MakeTool(c, "start", `echo "some-service start/running, process 123"`)
+
+	namespace := env.Config().AllAttrs()["namespace"].(string)
+	mongo = upstart.NewService(fmt.Sprintf("juju-db-%s", namespace))
+	mongoConf := upstart.Conf{
+		Service: *mongo,
+		Desc:    "fake mongo",
+		Cmd:     "echo FAKE",
+	}
+	err := mongoConf.Install()
+	c.Assert(err, gc.IsNil)
+	c.Assert(mongo.Installed(), jc.IsTrue)
+
+	machineAgent = upstart.NewService(fmt.Sprintf("juju-agent-%s", namespace))
+	agentConf := upstart.Conf{
+		Service: *machineAgent,
+		Desc:    "fake agent",
+		Cmd:     "echo FAKE",
+	}
+	err = agentConf.Install()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machineAgent.Installed(), jc.IsTrue)
+
+	return mongo, machineAgent
+}
+
+func (s *localJujuTestSuite) TestDestroyRemovesUpstartServices(c *gc.C) {
+	env := s.testBootstrap(c, minimalConfig(c))
+	s.makeAgentsDir(c, env)
+	mongo, machineAgent := s.makeFakeUpstartScripts(c, env)
+	s.PatchValue(local.CheckIfRoot, func() bool { return true })
+
+	err := env.Destroy()
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(mongo.Installed(), jc.IsFalse)
+	c.Assert(machineAgent.Installed(), jc.IsFalse)
 }
 
 func (s *localJujuTestSuite) TestBootstrapRemoveLeftovers(c *gc.C) {
