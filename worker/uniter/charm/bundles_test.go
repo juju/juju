@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package charm_test
@@ -11,7 +11,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	stdtesting "testing"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -26,10 +25,6 @@ import (
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker/uniter/charm"
 )
-
-func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 type BundlesDirSuite struct {
 	coretesting.HTTPSuite
@@ -155,8 +150,9 @@ func readHash(c *gc.C, path string) ([]byte, string) {
 	return data, hex.EncodeToString(hash.Sum(nil))
 }
 
-func assertCharm(c *gc.C, bun *corecharm.Bundle, sch *state.Charm) {
-	c.Assert(bun.Revision(), gc.Equals, sch.Revision())
-	c.Assert(bun.Meta(), gc.DeepEquals, sch.Meta())
-	c.Assert(bun.Config(), gc.DeepEquals, sch.Config())
+func assertCharm(c *gc.C, bun charm.Bundle, sch *state.Charm) {
+	actual := bun.(*corecharm.Bundle)
+	c.Assert(actual.Revision(), gc.Equals, sch.Revision())
+	c.Assert(actual.Meta(), gc.DeepEquals, sch.Meta())
+	c.Assert(actual.Config(), gc.DeepEquals, sch.Config())
 }

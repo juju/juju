@@ -1,10 +1,9 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package charm_test
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -16,16 +15,16 @@ import (
 	"launchpad.net/juju-core/worker/uniter/charm"
 )
 
-type DeployerSuite struct {
+type GitDeployerSuite struct {
 	testing.GitSuite
 	bundles    *bundleReader
 	targetPath string
 	deployer   charm.Deployer
 }
 
-var _ = gc.Suite(&DeployerSuite{})
+var _ = gc.Suite(&GitDeployerSuite{})
 
-func (s *DeployerSuite) SetUpTest(c *gc.C) {
+func (s *GitDeployerSuite) SetUpTest(c *gc.C) {
 	s.GitSuite.SetUpTest(c)
 	s.bundles = &bundleReader{}
 	s.targetPath = filepath.Join(c.MkDir(), "target")
@@ -33,14 +32,14 @@ func (s *DeployerSuite) SetUpTest(c *gc.C) {
 	s.deployer = charm.NewGitDeployer(s.targetPath, deployerPath, s.bundles)
 }
 
-func (s *DeployerSuite) TestUnsetCharm(c *gc.C) {
+func (s *GitDeployerSuite) TestUnsetCharm(c *gc.C) {
 	err := s.deployer.Deploy()
 	c.Assert(err, gc.ErrorMatches, "charm deployment failed: no charm set")
 }
 
-func (s *DeployerSuite) TestInstall(c *gc.C) {
+func (s *GitDeployerSuite) TestInstall(c *gc.C) {
 	// Prepare.
-	info := s.bundles.Add(c, corecharm.MustParseURL("cs:s/c-1"), func(path string) {
+	info := s.bundles.AddCustomBundle(c, corecharm.MustParseURL("cs:s/c-1"), func(path string) {
 		err := ioutil.WriteFile(filepath.Join(path, "some-file"), []byte("hello"), 0644)
 		c.Assert(err, gc.IsNil)
 	})
@@ -59,19 +58,19 @@ func (s *DeployerSuite) TestInstall(c *gc.C) {
 	c.Assert(string(data), gc.Equals, "hello")
 
 	target := charm.NewGitDir(s.targetPath)
-	url, err := charm.ReadCharmURL(target)
+	url, err := target.ReadCharmURL()
 	c.Assert(err, gc.IsNil)
 	c.Assert(url, gc.DeepEquals, corecharm.MustParseURL("cs:s/c-1"))
 	lines, err := target.Log()
 	c.Assert(err, gc.IsNil)
 	c.Assert(lines, gc.HasLen, 2)
-	c.Assert(lines[0], gc.Matches, `[0-9a-f]{7} Deployed charm "cs:s/c-1".`)
-	c.Assert(lines[1], gc.Matches, `[0-9a-f]{7} Imported charm "cs:s/c-1" from ".*".`)
+	c.Assert(lines[0], gc.Matches, `[0-9a-f]{7} Deployed charm "cs:s/c-1"\.`)
+	c.Assert(lines[1], gc.Matches, `[0-9a-f]{7} Imported charm "cs:s/c-1"\.`)
 }
 
-func (s *DeployerSuite) TestUpgrade(c *gc.C) {
+func (s *GitDeployerSuite) TestUpgrade(c *gc.C) {
 	// Install.
-	info1 := s.bundles.Add(c, corecharm.MustParseURL("cs:s/c-1"), func(path string) {
+	info1 := s.bundles.AddCustomBundle(c, corecharm.MustParseURL("cs:s/c-1"), func(path string) {
 		err := ioutil.WriteFile(filepath.Join(path, "some-file"), []byte("hello"), 0644)
 		c.Assert(err, gc.IsNil)
 		err = os.Symlink("./some-file", filepath.Join(path, "a-symlink"))
@@ -83,7 +82,7 @@ func (s *DeployerSuite) TestUpgrade(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Upgrade.
-	info2 := s.bundles.Add(c, corecharm.MustParseURL("cs:s/c-2"), func(path string) {
+	info2 := s.bundles.AddCustomBundle(c, corecharm.MustParseURL("cs:s/c-2"), func(path string) {
 		err := ioutil.WriteFile(filepath.Join(path, "some-file"), []byte("goodbye"), 0644)
 		c.Assert(err, gc.IsNil)
 		err = ioutil.WriteFile(filepath.Join(path, "a-symlink"), []byte("not any more!"), 0644)
@@ -105,7 +104,7 @@ func (s *DeployerSuite) TestUpgrade(c *gc.C) {
 	c.Assert(string(data), gc.Equals, "not any more!")
 
 	target := charm.NewGitDir(s.targetPath)
-	url, err := charm.ReadCharmURL(target)
+	url, err := target.ReadCharmURL()
 	c.Assert(err, gc.IsNil)
 	c.Assert(url, gc.DeepEquals, corecharm.MustParseURL("cs:s/c-2"))
 	lines, err := target.Log()
@@ -114,9 +113,9 @@ func (s *DeployerSuite) TestUpgrade(c *gc.C) {
 	c.Assert(lines[0], gc.Matches, `[0-9a-f]{7} Upgraded charm to "cs:s/c-2".`)
 }
 
-func (s *DeployerSuite) TestConflictRevertResolve(c *gc.C) {
+func (s *GitDeployerSuite) TestConflictRevertResolve(c *gc.C) {
 	// Install.
-	info1 := s.bundles.Add(c, corecharm.MustParseURL("cs:s/c-1"), func(path string) {
+	info1 := s.bundles.AddCustomBundle(c, corecharm.MustParseURL("cs:s/c-1"), func(path string) {
 		err := ioutil.WriteFile(filepath.Join(path, "some-file"), []byte("hello"), 0644)
 		c.Assert(err, gc.IsNil)
 	})
@@ -130,7 +129,7 @@ func (s *DeployerSuite) TestConflictRevertResolve(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Upgrade.
-	info2 := s.bundles.Add(c, corecharm.MustParseURL("cs:s/c-2"), func(path string) {
+	info2 := s.bundles.AddCustomBundle(c, corecharm.MustParseURL("cs:s/c-2"), func(path string) {
 		err := ioutil.WriteFile(filepath.Join(path, "some-file"), []byte("goodbye"), 0644)
 		c.Assert(err, gc.IsNil)
 	})
@@ -198,23 +197,6 @@ func (s *DeployerSuite) TestConflictRevertResolve(c *gc.C) {
 	c.Assert(lines[0], gc.Matches, `[0-9a-f]{7} Upgraded charm to "cs:s/c-2".`)
 }
 
-func bundle(c *gc.C, customize func(path string)) *corecharm.Bundle {
-	base := c.MkDir()
-	dirpath := testing.Charms.ClonedDirPath(base, "dummy")
-	customize(dirpath)
-	dir, err := corecharm.ReadDir(dirpath)
-	c.Assert(err, gc.IsNil)
-	bunpath := filepath.Join(base, "bundle")
-	file, err := os.Create(bunpath)
-	c.Assert(err, gc.IsNil)
-	defer file.Close()
-	err = dir.BundleTo(file)
-	c.Assert(err, gc.IsNil)
-	bundle, err := corecharm.ReadBundle(bunpath)
-	c.Assert(err, gc.IsNil)
-	return bundle
-}
-
 func checkCleanup(c *gc.C, d charm.Deployer) {
 	// Only one update dir should exist and be pointed to by the 'current'
 	// symlink since extra ones should have been cleaned up by
@@ -233,35 +215,4 @@ func checkCleanup(c *gc.C, d charm.Deployer) {
 	installDirs, err := filepath.Glob(filepath.Join(deployerPath, "install-*"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(installDirs, gc.HasLen, 0)
-}
-
-type bundleReader struct {
-	bundles map[string]*corecharm.Bundle
-}
-
-// Read implements the BundleReader interface.
-func (br *bundleReader) Read(info charm.BundleInfo, abort <-chan struct{}) (*corecharm.Bundle, error) {
-	bundle, ok := br.bundles[info.URL().String()]
-	if !ok {
-		return nil, fmt.Errorf("no such charm!")
-	}
-	return bundle, nil
-}
-
-func (br *bundleReader) Add(c *gc.C, url *corecharm.URL, customize func(path string)) charm.BundleInfo {
-	bundle := bundle(c, customize)
-	if br.bundles == nil {
-		br.bundles = map[string]*corecharm.Bundle{}
-	}
-	br.bundles[url.String()] = bundle
-	return &bundleInfo{nil, url}
-}
-
-type bundleInfo struct {
-	charm.BundleInfo
-	url *corecharm.URL
-}
-
-func (info *bundleInfo) URL() *corecharm.URL {
-	return info.url
 }
