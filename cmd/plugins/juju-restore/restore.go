@@ -359,7 +359,6 @@ do
 done
 `)
 
-
 // setAgentAddressScript generates an ssh script argument to update state addresses
 func setAgentAddressScript(stateAddr string) string {
 	return execTemplate(agentAddressTemplate, struct {
