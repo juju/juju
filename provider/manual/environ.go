@@ -112,7 +112,7 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraint
 	if err != nil {
 		return err
 	}
-	selectedTools, err := common.EnsureBootstrapTools(e, series, hc.Arch)
+	selectedTools, err := common.EnsureBootstrapTools(ctx, e, series, hc.Arch)
 	if err != nil {
 		return err
 	}

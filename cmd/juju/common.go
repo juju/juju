@@ -4,6 +4,8 @@
 package main
 
 import (
+	"fmt"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/configstore"
@@ -39,6 +41,7 @@ func environFromName(
 	}
 	cleanup := func() {
 		if !existing {
+			fmt.Fprintf(ctx.GetStderr(), "%s failed, destroying environment\n", action)
 			destroyPreparedEnviron(environ, store, resultErr, action)
 		}
 	}
