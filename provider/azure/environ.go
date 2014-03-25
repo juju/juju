@@ -900,7 +900,7 @@ func (env *azureEnviron) Region() (simplestreams.CloudSpec, error) {
 // SupportsUnitPlacement is specified in the state.EnvironCapability interface.
 func (env *azureEnviron) SupportsUnitPlacement() error {
 	if env.getSnapshot().ecfg.availabilitySetsEnabled() {
-		return fmt.Errorf("unit placement is not permitted with availability-sets-enabled")
+		return fmt.Errorf("unit placement is not supported with availability-sets-enabled")
 	}
 	return nil
 }

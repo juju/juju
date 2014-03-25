@@ -1292,7 +1292,7 @@ func (s *environSuite) TestCheckUnitAssignment(c *gc.C) {
 	attrs["availability-sets-enabled"] = true
 	env := environs.Environ(makeEnvironWithConfig(c, attrs))
 	err := env.SupportsUnitPlacement()
-	c.Assert(err, gc.ErrorMatches, "unit placement is not permitted with availability-sets-enabled")
+	c.Assert(err, gc.ErrorMatches, "unit placement is not supported with availability-sets-enabled")
 
 	// If the user disables availability sets, they can do what they want.
 	attrs["availability-sets-enabled"] = false
