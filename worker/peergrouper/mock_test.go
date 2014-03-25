@@ -260,8 +260,12 @@ func (m *fakeMachine) Id() string {
 	return m.doc.id
 }
 
-func (st *fakeMachine) InstanceId() (instance.Id, error) {
-	return instance.Id(""), nil
+func (m *fakeMachine) InstanceId() (instance.Id, error) {
+	panic("checking we get here")
+	if err := errorFor("Machine.InstanceId", m.doc.id); err != nil {
+		return "", err
+	}
+	return "", nil
 }
 
 func (m *fakeMachine) Watch() state.NotifyWatcher {
