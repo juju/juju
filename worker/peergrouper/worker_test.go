@@ -45,8 +45,8 @@ func (s *workerJujuConnSuite) TestPublisherSetsAPIHostPorts(c *gc.C) {
 
 	// Wrap the publisher so that we can call StartSync immediately
 	// after the publishAPIServers method is called.
-	publish := func(apiServers [][]instance.HostPort) error {
-		err := statePublish.publishAPIServers(apiServers)
+	publish := func(apiServers [][]instance.HostPort, instanceIds []instance.Id) error {
+		err := statePublish.publishAPIServers(apiServers, instanceIds)
 		s.State.StartSync()
 		return err
 	}
@@ -277,15 +277,15 @@ func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
 	c.Assert(n1, jc.GreaterThan, n0)
 }
 
-type publisherFunc func(apiServers [][]instance.HostPort) error
+type publisherFunc func(apiServers [][]instance.HostPort, instanceIds []instance.Id) error
 
-func (f publisherFunc) publishAPIServers(apiServers [][]instance.HostPort) error {
-	return f(apiServers)
+func (f publisherFunc) publishAPIServers(apiServers [][]instance.HostPort, instanceIds []instance.Id) error {
+	return f(apiServers, instanceIds)
 }
 
 func (s *workerSuite) TestStateServersArePublished(c *gc.C) {
 	publishCh := make(chan [][]instance.HostPort)
-	publish := func(apiServers [][]instance.HostPort) error {
+	publish := func(apiServers [][]instance.HostPort, instanceIds []instance.Id) error {
 		publishCh <- apiServers
 		return nil
 	}
@@ -324,7 +324,7 @@ func (s *workerSuite) TestWorkerRetriesOnPublishError(c *gc.C) {
 	publishCh := make(chan [][]instance.HostPort, 100)
 
 	count := 0
-	publish := func(apiServers [][]instance.HostPort) error {
+	publish := func(apiServers [][]instance.HostPort, instanceIds []instance.Id) error {
 		publishCh <- apiServers
 		count++
 		if count <= 3 {
@@ -375,6 +375,6 @@ func mustNext(c *gc.C, w *voyeur.Watcher) (val interface{}, ok bool) {
 
 type noPublisher struct{}
 
-func (noPublisher) publishAPIServers(apiServers [][]instance.HostPort) error {
+func (noPublisher) publishAPIServers(apiServers [][]instance.HostPort, instanceIds []instance.Id) error {
 	return nil
 }
