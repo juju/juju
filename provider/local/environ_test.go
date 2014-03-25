@@ -93,7 +93,6 @@ func (*environSuite) TestSupportedArchitectures(c *gc.C) {
 type localJujuTestSuite struct {
 	baseProviderSuite
 	jujutest.Tests
-	restoreRootCheck   func()
 	oldUpstartLocation string
 	testPath           string
 	dbServiceName      string
@@ -115,7 +114,7 @@ func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 
 	// Add in an admin secret
 	s.Tests.TestConfig["admin-secret"] = "sekrit"
-	s.restoreRootCheck = local.SetRootCheckFunction(func() bool { return false })
+	s.PatchValue(local.CheckIfRoot, func() bool { return false })
 	s.Tests.SetUpTest(c)
 
 	cfg, err := config.New(config.NoDefaults, s.TestConfig)
@@ -125,7 +124,6 @@ func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 
 func (s *localJujuTestSuite) TearDownTest(c *gc.C) {
 	s.Tests.TearDownTest(c)
-	s.restoreRootCheck()
 	s.baseProviderSuite.TearDownTest(c)
 }
 
