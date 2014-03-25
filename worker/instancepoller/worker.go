@@ -42,7 +42,7 @@ func (u *updaterWorker) Wait() error {
 }
 
 func (u *updaterWorker) loop() (err error) {
-	u.observer, err = newEnvironObserver(u.st, u.tomb.Dying())
+	u.observer, err = worker.NewEnvironObserver(u.st, u.tomb.Dying())
 	if err != nil {
 		return err
 	}
