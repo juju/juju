@@ -228,7 +228,7 @@ var fatalErrorsTests = []struct {
 	expectErr:  `cannot get machine "10": sample`,
 }, {
 	errPattern: "Machine.InstanceId *",
-	expectErr:  `cannot get machine "10": sample`,
+	expectErr:  `cannot get API server info: sample`,
 }}
 
 func (s *workerSuite) TestFatalErrors(c *gc.C) {

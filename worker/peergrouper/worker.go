@@ -174,8 +174,7 @@ func (w *pgWorker) loop() error {
 			ok := true
 			servers, instanceIds, err := w.apiPublishInfo()
 			if err != nil {
-				logger.Errorf("cannot publish API server addresses: %v", err)
-				ok = false
+				return fmt.Errorf("cannot get API server info: %v", err)
 			}
 			if err := w.publisher.publishAPIServers(servers, instanceIds); err != nil {
 				logger.Errorf("cannot publish API server addresses: %v", err)
