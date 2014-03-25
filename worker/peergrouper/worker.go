@@ -172,7 +172,12 @@ func (w *pgWorker) loop() error {
 			retry.Reset(0)
 		case <-retry.C:
 			ok := true
-			if err := w.publisher.publishAPIServers(w.apiPublishInfo()); err != nil {
+			servers, instanceIds, err := w.apiPublishInfo()
+			if err != nil {
+				logger.Errorf("cannot publish API server addresses: %v", err)
+				ok = false
+			}
+			if err := w.publisher.publishAPIServers(servers, instanceIds); err != nil {
 				logger.Errorf("cannot publish API server addresses: %v", err)
 				ok = false
 			}
@@ -198,14 +203,22 @@ func (w *pgWorker) loop() error {
 	}
 }
 
-func (w *pgWorker) apiPublishInfo() ([][]instance.HostPort, []instance.Id) {
+func (w *pgWorker) apiPublishInfo() ([][]instance.HostPort, []instance.Id, error) {
 	servers := make([][]instance.HostPort, 0, len(w.machines))
+	instanceIds := make([]instance.Id, 0, len(w.machines))
 	for _, m := range w.machines {
-		if len(m.apiHostPorts) > 0 {
-			servers = append(servers, m.apiHostPorts)
+		if len(m.apiHostPorts) == 0 {
+			continue
 		}
+		instanceId, err := m.stm.InstanceId()
+		if err != nil {
+			return nil, nil, err
+		}
+		instanceIds = append(instanceIds, instanceId)
+		servers = append(servers, m.apiHostPorts)
+
 	}
-	return servers
+	return servers, instanceIds, nil
 }
 
 // notify sends the given notification function to

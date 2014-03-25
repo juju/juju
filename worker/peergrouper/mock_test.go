@@ -260,6 +260,10 @@ func (m *fakeMachine) Id() string {
 	return m.doc.id
 }
 
+func (st *fakeMachine) InstanceId() (instance.Id, error) {
+	return instance.Id(""), nil
+}
+
 func (m *fakeMachine) Watch() state.NotifyWatcher {
 	return WatchValue(&m.val)
 }
