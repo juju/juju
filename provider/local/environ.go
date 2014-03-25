@@ -440,11 +440,9 @@ func (env *localEnviron) Destroy() error {
 			}
 		}
 	}
-	// Stop the mongo database. It's possible that the service
-	// doesn't exist or is not running, so don't check the error.
+	// Stop the mongo database and machine agent. It's possible that the
+	// service doesn't exist or is not running, so don't check the error.
 	upstart.NewService(env.mongoServiceName()).StopAndRemove()
-	// Stop the machine agent. It's possible that the service
-	// doesn't exist or is not running, so don't check the error.
 	upstart.NewService(env.machineAgentServiceName()).StopAndRemove()
 
 	// Finally, remove the data-dir.
