@@ -88,13 +88,63 @@ func (s *provisionerSuite) TestGetSetStatus(c *gc.C) {
 	c.Assert(status, gc.Equals, params.StatusPending)
 	c.Assert(info, gc.Equals, "")
 
-	err = apiMachine.SetStatus(params.StatusStarted, "blah")
+	err = apiMachine.SetStatus(params.StatusStarted, "blah", nil)
 	c.Assert(err, gc.IsNil)
 
 	status, info, err = apiMachine.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusStarted)
 	c.Assert(info, gc.Equals, "blah")
+	_, _, data, err := s.machine.Status()
+	c.Assert(err, gc.IsNil)
+	c.Assert(data, gc.HasLen, 0)
+}
+
+func (s *provisionerSuite) TestGetSetStatusWithData(c *gc.C) {
+	apiMachine, err := s.provisioner.Machine(s.machine.Tag())
+	c.Assert(err, gc.IsNil)
+
+	err = apiMachine.SetStatus(params.StatusError, "blah", params.StatusData{"foo": "bar"})
+	c.Assert(err, gc.IsNil)
+
+	status, info, err := apiMachine.Status()
+	c.Assert(err, gc.IsNil)
+	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(info, gc.Equals, "blah")
+	_, _, data, err := s.machine.Status()
+	c.Assert(err, gc.IsNil)
+	c.Assert(data, gc.DeepEquals, params.StatusData{"foo": "bar"})
+}
+
+func (s *provisionerSuite) TestMachinesWithTransientErrors(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetStatus(params.StatusError, "blah", params.StatusData{"transient": true})
+	c.Assert(err, gc.IsNil)
+	password, err := utils.RandomPassword()
+	c.Assert(err, gc.IsNil)
+	err = machine.SetPassword(password)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetProvisioned("i-manager", "fake_nonce", nil)
+	c.Assert(err, gc.IsNil)
+	st := s.OpenAPIAsMachine(c, machine.Tag(), password, "fake_nonce")
+	c.Assert(s.st, gc.NotNil)
+	p := st.Provisioner()
+
+	machines, info, err := p.MachinesWithTransientErrors()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machines, gc.HasLen, 2)
+	c.Assert(info, gc.HasLen, 2)
+	c.Assert(machines[0], gc.IsNil)
+	c.Assert(info[0].Error, gc.ErrorMatches, "permission denied")
+	c.Assert(info[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(info[1], gc.DeepEquals, params.StatusResult{
+		Id:     "1",
+		Life:   "alive",
+		Status: "error",
+		Info:   "blah",
+		Data:   params.StatusData{"transient": true},
+	})
 }
 
 func (s *provisionerSuite) TestEnsureDeadAndRemove(c *gc.C) {
@@ -254,7 +304,7 @@ func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
 
 	// Change something other than the containers and make sure it's
 	// not detected.
-	err = apiMachine.SetStatus(params.StatusStarted, "not really")
+	err = apiMachine.SetStatus(params.StatusStarted, "not really", nil)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 

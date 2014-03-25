@@ -6,6 +6,7 @@ package provisioner
 import (
 	"fmt"
 
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/base"
 	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
@@ -106,4 +107,26 @@ func (st *State) Tools(tag string) (*tools.Tools, error) {
 func (st *State) ContainerConfig() (result params.ContainerConfig, err error) {
 	err = st.call("ContainerConfig", nil, &result)
 	return result, err
+}
+
+// MachinesWithTransientErrors returns a slice of machines and corresponding status information
+// for those machines which have transient provisioning errors.
+func (st *State) MachinesWithTransientErrors() ([]*Machine, []params.StatusResult, error) {
+	var results params.StatusResults
+	err := st.call("MachinesWithTransientErrors", nil, &results)
+	if err != nil {
+		return nil, nil, err
+	}
+	machines := make([]*Machine, len(results.Results))
+	for i, status := range results.Results {
+		if status.Error != nil {
+			continue
+		}
+		machines[i] = &Machine{
+			tag:  names.MachineTag(status.Id),
+			life: status.Life,
+			st:   st,
+		}
+	}
+	return machines, results.Results, nil
 }
