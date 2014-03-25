@@ -6,6 +6,7 @@ package main
 import (
 	"encoding/base64"
 	"io"
+	"io/ioutil"
 
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
@@ -128,8 +129,10 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob,
 }
 
 func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
+	s.makeTestEnv(c)
+
 	hw := instance.MustParseHardware("arch=amd64 mem=8G")
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", testConfig, "--instance-id", bootstrapInstanceId, "--hardware", hw.String())
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.testConfig, "--instance-id", bootstrapInstanceId, "--hardware", hw.String())
 	c.Assert(err, gc.IsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
@@ -246,7 +249,7 @@ func testOpenState(c *gc.C, info *state.Info, expectErrType error) {
 }
 
 func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
-	machineConf, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.testConfig, "--instance-id", bootstrapInstanceIde)
+	machineConf, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.testConfig, "--instance-id", bootstrapInstanceId)
 	c.Assert(err, gc.IsNil)
 
 	err = cmd.Run(nil)
@@ -298,7 +301,7 @@ var bootstrapArgTests = []struct {
 	}, {
 		// empty env-config
 		input: []string{"--env-config", ""},
-		err:   "--env-config option must be set",
+		err:   "--env-config option must be not be an empty string",
 	}, {
 		// wrong, should be base64
 		input: []string{"--env-config", "name: banana\n"},
@@ -381,7 +384,7 @@ func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 }
 
 func nullContext() *cmd.Context {
-	ctx := cmd.DefaultContext()
+	ctx, _ := cmd.DefaultContext()
 	ctx.Stdin = io.LimitReader(nil, 0)
 	ctx.Stdout = ioutil.Discard
 	ctx.Stderr = ioutil.Discard
