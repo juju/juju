@@ -26,6 +26,7 @@ type stateInterface interface {
 
 type stateMachine interface {
 	Id() string
+	InstanceId() (instance.Id, error)
 	Refresh() error
 	Watch() state.NotifyWatcher
 	WantsVote() bool
@@ -45,7 +46,7 @@ type publisherInterface interface {
 	// publish publishes information about the given state servers
 	// to whomsoever it may concern. When it is called there
 	// is no guarantee that any of the information has actually changed.
-	publishAPIServers(apiServers [][]instance.HostPort) error
+	publishAPIServers(apiServers [][]instance.HostPort, instanceIds []instance.Id) error {
 }
 
 // notifyFunc holds a function that is sent
@@ -171,7 +172,7 @@ func (w *pgWorker) loop() error {
 			retry.Reset(0)
 		case <-retry.C:
 			ok := true
-			if err := w.publisher.publishAPIServers(w.apiHostPorts()); err != nil {
+			if err := w.publisher.publishAPIServers(w.apiPublishInfo()); err != nil {
 				logger.Errorf("cannot publish API server addresses: %v", err)
 				ok = false
 			}
@@ -197,7 +198,7 @@ func (w *pgWorker) loop() error {
 	}
 }
 
-func (w *pgWorker) apiHostPorts() [][]instance.HostPort {
+func (w *pgWorker) apiPublishInfo() ([][]instance.HostPort, []instance.Id) {
 	servers := make([][]instance.HostPort, 0, len(w.machines))
 	for _, m := range w.machines {
 		if len(m.apiHostPorts) > 0 {
