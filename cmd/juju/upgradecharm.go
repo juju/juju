@@ -130,15 +130,28 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 	var newURL *charm.URL
 	if c.SwitchURL != "" {
 		// A new charm URL was explicitly specified.
-		newURL, err = charm.InferURL(c.SwitchURL, conf.DefaultSeries())
+		ref, series, err := charm.ParseReference(c.SwitchURL)
 		if err != nil {
 			return err
+		}
+
+		if series == "" {
+			series = conf.DefaultSeries()
+		}
+		if series == "" {
+			newURL, err = client.ResolveCharm(ref)
+			if err != nil {
+				return err
+			}
+		} else {
+			newURL = &charm.URL{Reference: ref, Series: series}
 		}
 	} else {
 		// No new URL specified, but revision might have been.
 		newURL = oldURL.WithRevision(c.Revision)
 	}
-	repo, err := charm.InferRepository(newURL, ctx.AbsPath(c.RepoPath))
+
+	repo, err := charm.InferRepository(newURL.Reference, ctx.AbsPath(c.RepoPath))
 	if err != nil {
 		return err
 	}
@@ -196,26 +209,44 @@ func (c *UpgradeCharmCommand) run1dot16(ctx *cmd.Context) error {
 
 	oldURL, _ := service.CharmURL()
 	var newURL *charm.URL
+	var repo charm.Repository
 	if c.SwitchURL != "" {
 		// A new charm URL was explicitly specified.
 		conf, err := conn.State.EnvironConfig()
 		if err != nil {
 			return err
 		}
-		newURL, err = charm.InferURL(c.SwitchURL, conf.DefaultSeries())
+		ref, series, err := charm.ParseReference(c.SwitchURL)
 		if err != nil {
 			return err
+		}
+
+		repo, err := charm.InferRepository(ref, ctx.AbsPath(c.RepoPath))
+		if err != nil {
+			return err
+		}
+		repo = config.SpecializeCharmRepo(repo, conf)
+
+		if series == "" {
+			series = conf.DefaultSeries()
+		}
+		if series == "" {
+			newURL, err = repo.Resolve(ref)
+			if err != nil {
+				return err
+			}
+		} else {
+			newURL = &charm.URL{Reference: ref, Series: series}
 		}
 	} else {
 		// No new URL specified, but revision might have been.
 		newURL = oldURL.WithRevision(c.Revision)
+		repo, err := charm.InferRepository(newURL.Reference, ctx.AbsPath(c.RepoPath))
+		if err != nil {
+			return err
+		}
+		repo = config.SpecializeCharmRepo(repo, conf)
 	}
-	repo, err := charm.InferRepository(newURL, ctx.AbsPath(c.RepoPath))
-	if err != nil {
-		return err
-	}
-
-	repo = config.SpecializeCharmRepo(repo, conf)
 
 	// If no explicit revision was set with either SwitchURL
 	// or Revision flags, discover the latest.
