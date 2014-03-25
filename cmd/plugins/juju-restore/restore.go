@@ -409,10 +409,10 @@ func runMachineUpdate(m *state.Machine, sshArg string) error {
 }
 
 func runViaSsh(addr string, script string) error {
-    var cmd * ssh.Cmd
-    //This is taken from cmd/juju/ssh.go there is no other clear way to set user
-    userAddr := "ubuntu@" + addr
-    cmd = ssh.Command(userAddr, []string{"sudo", "-n", "bash", "-c " + utils.ShQuote(script)}, nil)
+	var cmd *ssh.Cmd
+	//This is taken from cmd/juju/ssh.go there is no other clear way to set user
+	userAddr := "ubuntu@" + addr
+	cmd = ssh.Command(userAddr, []string{"sudo", "-n", "bash", "-c " + utils.ShQuote(script)}, nil)
 	var stderrBuf bytes.Buffer
 	var stdoutBuf bytes.Buffer
 	cmd.Stderr = &stderrBuf
@@ -421,17 +421,17 @@ func runViaSsh(addr string, script string) error {
 	if err != nil {
 		return fmt.Errorf("ssh command failed: %v (%q)", err, stderrBuf.String())
 	}
-    progress("ssh command succedded: %q", stdoutBuf.String())
+	progress("ssh command succedded: %q", stdoutBuf.String())
 	return nil
 }
 
 func sendViaScp(file, host, destFile string) error {
 
-    err := ssh.Copy([]string{file, "ubuntu@"+host+":"+destFile}, nil, nil)
+	err := ssh.Copy([]string{file, "ubuntu@" + host + ":" + destFile}, nil, nil)
 	if err != nil {
 		return fmt.Errorf("scp command failed: (%q)", err)
 	}
-    return nil
+	return nil
 }
 
 func mustParseTemplate(templ string) *template.Template {
