@@ -26,10 +26,9 @@ for attempt in $(seq 10); do
   sleep 10
 done
 sudo add-apt-repository cloud-archive:tools
-sudo apt-add-repository -y ppa:juju/stable
 sudo apt-get update
 sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y
-sudo DEBIAN_FRONTEND=noninteractive apt-get install -y bzr lxc mongodb rsyslog-gnutls
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends bzr lxc mongodb rsyslog-gnutls
 
 # prevent spurious failure on success
 rm .bash_logout
