@@ -113,6 +113,8 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 	st.Close()
 
+	logger.Infof("%v", addresses)
+
 	preferredAddr, err := selectPreferredStateServerAddress(addresses)
 	if err != nil {
 		return err
