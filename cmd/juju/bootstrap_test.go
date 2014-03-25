@@ -141,7 +141,7 @@ func (s *BootstrapSuite) runAllowRetriesTest(c *gc.C, test bootstrapRetryTest) {
 	restore := envtools.TestingPatchBootstrapFindTools(mockFindTools)
 	defer restore()
 
-	_, errc := runCommand(nullContext(), new(BootstrapCommand), test.args...)
+	_, errc := runCommand(nullContext(c), new(BootstrapCommand), test.args...)
 	err := <-errc
 	c.Check(findToolsRetryValues, gc.DeepEquals, test.expectedAllowRetry)
 	stripped := strings.Replace(err.Error(), "\n", "", -1)
@@ -222,7 +222,7 @@ func (test bootstrapTest) run(c *gc.C) {
 	}
 
 	// Run command and check for uploads.
-	opc, errc := runCommand(nullContext(), new(BootstrapCommand), test.args...)
+	opc, errc := runCommand(nullContext(c), new(BootstrapCommand), test.args...)
 	// Check for remaining operations/errors.
 	if test.err != "" {
 		err := <-errc
@@ -292,8 +292,8 @@ var bootstrapTests = []bootstrapTest{{
 	err:  `invalid value "bad=wrong" for flag --constraints: unknown constraint "bad"`,
 }, {
 	info: "bad --series",
-	args: []string{"--series", "bad1"},
-	err:  `invalid value "bad1" for flag --series: invalid series name "bad1"`,
+	args: []string{"--series", "1bad1"},
+	err:  `invalid value "1bad1" for flag --series: invalid series name "1bad1"`,
 }, {
 	info: "lonely --series",
 	args: []string{"--series", "fine"},
@@ -507,7 +507,7 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	}
 	env := s.setupAutoUploadTest(c, "1.7.3", otherSeries)
 	// Run command and check for that upload has been run for tools matching the current juju version.
-	opc, errc := runCommand(nullContext(), new(BootstrapCommand))
+	opc, errc := runCommand(nullContext(c), new(BootstrapCommand))
 	c.Assert(<-errc, gc.IsNil)
 	c.Assert((<-opc).(dummy.OpPutFile).Env, gc.Equals, "peckham")
 	list, err := envtools.FindTools(env, version.Current.Major, version.Current.Minor, coretools.Filter{}, false)
@@ -528,7 +528,7 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 
 func (s *BootstrapSuite) TestAutoUploadOnlyForDev(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "precise")
-	_, errc := runCommand(nullContext(), new(BootstrapCommand))
+	_, errc := runCommand(nullContext(c), new(BootstrapCommand))
 	err := <-errc
 	stripped := strings.Replace(err.Error(), "\n", "", -1)
 	c.Assert(stripped, gc.Matches, noToolsAvailableMessage)
@@ -564,7 +564,7 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
 	_, fake := makeEmptyFakeHome(c)
 	defer fake.Restore()
-	opc, errc := runCommand(nullContext(), new(BootstrapCommand), "-e", "brokenenv")
+	opc, errc := runCommand(nullContext(c), new(BootstrapCommand), "-e", "brokenenv")
 	err := <-errc
 	c.Assert(err, gc.ErrorMatches, "dummy.Bootstrap is broken")
 	var opDestroy *dummy.OpDestroy
@@ -601,7 +601,7 @@ func makeEmptyFakeHome(c *gc.C) (environs.Environ, *coretesting.FakeHome) {
 	dummy.Reset()
 	store, err := configstore.Default()
 	c.Assert(err, gc.IsNil)
-	env, err := environs.PrepareFromName("peckham", nullContext(), store)
+	env, err := environs.PrepareFromName("peckham", nullContext(c), store)
 	c.Assert(err, gc.IsNil)
 	envtesting.RemoveAllTools(c, env)
 	return env, fake

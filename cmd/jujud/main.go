@@ -94,7 +94,7 @@ func jujuCMain(commandName string, args []string) (code int, err error) {
 
 // Main registers subcommands for the jujud executable, and hands over control
 // to the cmd package.
-func jujuDMain(args []string) (code int, err error) {
+func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	jujud := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name: "jujud",
 		Doc:  jujudDoc,
@@ -104,7 +104,7 @@ func jujuDMain(args []string) (code int, err error) {
 	jujud.Register(NewMachineAgent())
 	jujud.Register(&UnitAgent{})
 	jujud.Register(&cmd.VersionCommand{})
-	code = cmd.Main(jujud, cmd.DefaultContext(), args[1:])
+	code = cmd.Main(jujud, ctx, args[1:])
 	return code, nil
 }
 
@@ -112,16 +112,20 @@ func jujuDMain(args []string) (code int, err error) {
 // for testing with arbitrary command line arguments.
 func Main(args []string) {
 	var code int = 1
-	var err error
+	ctx, err := cmd.DefaultContext()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(2)
+	}
 	commandName := filepath.Base(args[0])
 	if commandName == "jujud" {
-		code, err = jujuDMain(args)
+		code, err = jujuDMain(args, ctx)
 	} else if commandName == "jujuc" {
 		fmt.Fprint(os.Stderr, jujudDoc)
 		code = 2
 		err = fmt.Errorf("jujuc should not be called directly")
 	} else if commandName == "juju-run" {
-		code = cmd.Main(&RunCommand{}, cmd.DefaultContext(), args[1:])
+		code = cmd.Main(&RunCommand{}, ctx, args[1:])
 	} else {
 		code, err = jujuCMain(commandName, args)
 	}

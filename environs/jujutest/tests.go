@@ -258,7 +258,7 @@ func checkFileHasContents(c *gc.C, stor storage.StorageReader, name string, cont
 
 	var resp *http.Response
 	for a := attempt.Start(); a.Next(); {
-		resp, err = http.Get(url)
+		resp, err = utils.GetValidatingHTTPClient().Get(url)
 		c.Assert(err, gc.IsNil)
 		if resp.StatusCode != 404 {
 			break

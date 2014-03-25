@@ -7,12 +7,12 @@ import (
 	gc "launchpad.net/gocheck"
 
 	jujutesting "launchpad.net/juju-core/juju/testing"
-	commontesting "launchpad.net/juju-core/state/api/common/testing"
+	apitesting "launchpad.net/juju-core/state/api/testing"
 )
 
 type rsyslogSuite struct {
 	jujutesting.JujuConnSuite
-	*commontesting.EnvironWatcherTest
+	*apitesting.EnvironWatcherTests
 }
 
 var _ = gc.Suite(&rsyslogSuite{})
@@ -24,11 +24,10 @@ func (s *rsyslogSuite) SetUpTest(c *gc.C) {
 	rsyslogAPI := stateAPI.Rsyslog()
 	c.Assert(rsyslogAPI, gc.NotNil)
 
-	s.EnvironWatcherTest = commontesting.NewEnvironWatcherTest(
+	s.EnvironWatcherTests = apitesting.NewEnvironWatcherTests(
 		rsyslogAPI,
-		s.State,
 		s.BackingState,
-		commontesting.NoSecrets,
+		apitesting.NoSecrets,
 	)
 }
 

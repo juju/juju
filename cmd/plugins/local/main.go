@@ -37,8 +37,13 @@ func jujuLocalPlugin() cmd.Command {
 
 // Main registers subcommands for the juju-local executable.
 func Main(args []string) {
+	ctx, err := cmd.DefaultContext()
+	if err != nil {
+		logger.Debugf("error: %v\n", err)
+		os.Exit(2)
+	}
 	plugin := jujuLocalPlugin()
-	os.Exit(cmd.Main(plugin, cmd.DefaultContext(), args[1:]))
+	os.Exit(cmd.Main(plugin, ctx, args[1:]))
 }
 
 var checkIfRoot = func() bool {

@@ -18,6 +18,7 @@ import (
 	"github.com/errgo/errgo"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/mongo"
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/cloudinit/sshinit"
 	"launchpad.net/juju-core/constraints"
@@ -39,6 +40,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils/shell"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/terminationworker"
@@ -105,10 +107,6 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 
 	// Before we write the agent config file, we need to make sure the
 	// instance is saved in the StateInfo.
-	stateFileURL, err := bootstrap.CreateStateFile(env.Storage())
-	if err != nil {
-		return err
-	}
 	if err := bootstrap.SaveState(env.Storage(), &bootstrap.BootstrapState{
 		StateInstances: []instance.Id{bootstrapInstanceId},
 	}); err != nil {
@@ -134,12 +132,13 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 		return err
 	}
 
-	mcfg := environs.NewBootstrapMachineConfig(stateFileURL, privateKey)
+	mcfg := environs.NewBootstrapMachineConfig(privateKey)
+	mcfg.InstanceId = bootstrapInstanceId
 	mcfg.Tools = selectedTools[0]
 	mcfg.DataDir = env.config.rootDir()
 	mcfg.LogDir = fmt.Sprintf("/var/log/juju-%s", env.config.namespace())
 	mcfg.Jobs = []params.MachineJob{params.JobManageEnviron}
-	mcfg.CloudInitOutputLog = filepath.Join(env.config.logDir(), "cloud-init-output.log")
+	mcfg.CloudInitOutputLog = filepath.Join(mcfg.DataDir, "cloud-init-output.log")
 	mcfg.DisablePackageCommands = true
 	mcfg.MachineAgentServiceName = env.machineAgentServiceName()
 	mcfg.AgentEnvironment = map[string]string{
@@ -159,15 +158,20 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 	// Also, we leave the old all-machines.log file in
 	// /var/log/juju-{{namespace}} until we start the environment again. So
 	// potentially remove it at the start of the cloud-init.
-	os.RemoveAll(env.config.logDir())
-	os.MkdirAll(env.config.logDir(), 0755)
+	localLogDir := filepath.Join(mcfg.DataDir, "log")
+	if err := os.RemoveAll(localLogDir); err != nil {
+		return err
+	}
+	if err := os.Symlink(mcfg.LogDir, localLogDir); err != nil {
+		return err
+	}
+	if err := os.Remove(mcfg.CloudInitOutputLog); err != nil && !os.IsNotExist(err) {
+		return err
+	}
 	cloudcfg.AddScripts(
 		fmt.Sprintf("rm -fr %s", mcfg.LogDir),
-		fmt.Sprintf("mkdir -p %s", mcfg.LogDir),
-		fmt.Sprintf("chown syslog:adm %s", mcfg.LogDir),
 		fmt.Sprintf("rm -f /var/spool/rsyslog/machine-0-%s", env.config.namespace()),
-		fmt.Sprintf("ln -s %s/all-machines.log %s/", mcfg.LogDir, env.config.logDir()),
-		fmt.Sprintf("ln -s %s/machine-0.log %s/", env.config.logDir(), mcfg.LogDir))
+	)
 	if err := cloudinit.ConfigureJuju(mcfg, cloudcfg); err != nil {
 		return err
 	}
@@ -399,7 +403,7 @@ func (env *localEnviron) Destroy() error {
 			return err
 		}
 		args := []string{
-			osenv.JujuHomeEnvKey + "=" + osenv.JujuHome(),
+			"env", osenv.JujuHomeEnvKey + "=" + osenv.JujuHome(),
 			juju, "destroy-environment", "-y", "--force", env.Name(),
 		}
 		cmd := exec.Command("sudo", args...)
@@ -432,6 +436,16 @@ func (env *localEnviron) Destroy() error {
 			}
 		}
 	}
+	// Stop the mongo database and machine agent. It's possible that the
+	// service doesn't exist or is not running, so don't check the error.
+	if err := mongo.RemoveService(); err != nil {
+		return err
+	}
+	if err := upstart.NewService(env.machineAgentServiceName()).StopAndRemove(); err != nil {
+		return err
+	}
+
+	// Finally, remove the data-dir.
 	if err := os.RemoveAll(env.config.rootDir()); err != nil && !os.IsNotExist(err) {
 		return err
 	}

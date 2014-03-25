@@ -300,20 +300,20 @@ var testNetworkValues = []struct {
 	},
 	{
 		environs.Networks{
-			IncludedNetworks: []string{"included_net_1"},
+			IncludeNetworks: []string{"included_net_1"},
 		},
 		url.Values{"networks": {"included_net_1"}},
 	},
 	{
 		environs.Networks{
-			ExcludedNetworks: []string{"excluded_net_1"},
+			ExcludeNetworks: []string{"excluded_net_1"},
 		},
 		url.Values{"not_networks": {"excluded_net_1"}},
 	},
 	{
 		environs.Networks{
-			IncludedNetworks: []string{"included_net_1", "included_net_2"},
-			ExcludedNetworks: []string{"excluded_net_1", "excluded_net_2"},
+			IncludeNetworks: []string{"included_net_1", "included_net_2"},
+			ExcludeNetworks: []string{"excluded_net_1", "excluded_net_2"},
 		},
 		url.Values{
 			"networks":     {"included_net_1", "included_net_2"},

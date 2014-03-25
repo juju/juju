@@ -41,7 +41,7 @@ type localStorage struct {
 func Client(addr string) storage.Storage {
 	return &localStorage{
 		addr:   addr,
-		client: http.DefaultClient,
+		client: utils.GetValidatingHTTPClient(),
 	}
 }
 
@@ -146,7 +146,7 @@ func (s *localStorage) URL(name string) (string, error) {
 
 // modURL returns a URL that can be used to modify the given storage file.
 func (s *localStorage) modURL(name string) (string, error) {
-	if s.client == http.DefaultClient {
+	if s.authkey == "" {
 		return s.URL(name)
 	}
 	s.httpsBaseURLOnce.Do(func() {

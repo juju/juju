@@ -47,7 +47,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	s.fake = &fakeEnsure{}
-	s.PatchValue(&mongo.EnsureMongoServer, s.fake.fakeEnsureMongo)
+	s.PatchValue(&ensureMongoServer, s.fake.fakeEnsureMongo)
 }
 
 func (s *bootstrapSuite) TearDownTest(c *gc.C) {

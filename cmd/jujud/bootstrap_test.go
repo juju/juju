@@ -6,8 +6,6 @@ package main
 import (
 	"encoding/base64"
 	"io"
-	"io/ioutil"
-	"path/filepath"
 
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
@@ -18,10 +16,8 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
-	"launchpad.net/juju-core/environs/jujutest"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -42,21 +38,13 @@ var _ = configstore.Default
 type BootstrapSuite struct {
 	testbase.LoggingSuite
 	testing.MgoSuite
-	dataDir              string
-	logDir               string
-	providerStateURLFile string
-	fakeEnsureMongo      *fakeEnsure
-	testConfig           string
+	dataDir         string
+	logDir          string
+	fakeEnsureMongo *fakeEnsure
+	testConfig      string
 }
 
 var _ = gc.Suite(&BootstrapSuite{})
-
-var testRoundTripper = &jujutest.ProxyRoundTripper{}
-
-func init() {
-	// Prepare mock http transport for provider-state output in tests.
-	testRoundTripper.RegisterForScheme("test")
-}
 
 type fakeEnsure struct {
 	params mongo.EnsureMongoParams
@@ -76,17 +64,6 @@ func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 
 	s.LoggingSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
-	stateInfo := bootstrap.BootstrapState{
-		StateInstances: []instance.Id{instance.Id(bootstrapInstanceId)},
-	}
-	stateData, err := goyaml.Marshal(stateInfo)
-	c.Assert(err, gc.IsNil)
-	content := map[string]string{"/" + bootstrap.StateFile: string(stateData)}
-	testRoundTripper.Sub = jujutest.NewCannedRoundTripper(content, nil)
-	s.providerStateURLFile = filepath.Join(c.MkDir(), "provider-state-url")
-	providerStateURLFile = s.providerStateURLFile
-
-	s.makeTestEnv(c)
 }
 
 func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
@@ -114,7 +91,6 @@ func testPasswordHash() string {
 }
 
 func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob, args ...string) (machineConf agent.Config, cmd *BootstrapCommand, err error) {
-	ioutil.WriteFile(s.providerStateURLFile, []byte("test://localhost/provider-state\n"), 0600)
 	if len(jobs) == 0 {
 		// Add default jobs.
 		jobs = []params.MachineJob{
@@ -152,7 +128,8 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob,
 }
 
 func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.testConfig)
+	hw := instance.MustParseHardware("arch=amd64 mem=8G")
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", testConfig, "--instance-id", bootstrapInstanceId, "--hardware", hw.String())
 	c.Assert(err, gc.IsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
@@ -172,6 +149,11 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(instid, gc.Equals, instance.Id(bootstrapInstanceId))
 
+	stateHw, err := machines[0].HardwareCharacteristics()
+	c.Assert(err, gc.IsNil)
+	c.Assert(stateHw, gc.NotNil)
+	c.Assert(*stateHw, gc.DeepEquals, hw)
+
 	cons, err := st.EnvironConstraints()
 	c.Assert(err, gc.IsNil)
 	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
@@ -179,7 +161,11 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 
 func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 	tcons := constraints.Value{Mem: uint64p(2048), CpuCores: uint64p(2)}
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.testConfig, "--constraints", tcons.String())
+	_, cmd, err := s.initBootstrapCommand(c, nil,
+		"--env-config", s.testConfig,
+		"--instance-id", "anything",
+		"--constraints", tcons.String(),
+	)
 	c.Assert(err, gc.IsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
@@ -211,7 +197,7 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 	expectedJobs := []state.MachineJob{
 		state.JobManageEnviron, state.JobHostUnits,
 	}
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.testConfig)
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.testConfig, "--instance-id", bootstrapInstanceId)
 	c.Assert(err, gc.IsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
@@ -230,7 +216,7 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 
 func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 	jobs := []params.MachineJob{params.JobManageEnviron}
-	_, cmd, err := s.initBootstrapCommand(c, jobs, "--env-config", s.testConfig)
+	_, cmd, err := s.initBootstrapCommand(c, jobs, "--env-config", s.testConfig, "--instance-id", bootstrapInstanceId)
 	c.Assert(err, gc.IsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
@@ -260,7 +246,7 @@ func testOpenState(c *gc.C, info *state.Info, expectErrType error) {
 }
 
 func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
-	machineConf, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.testConfig)
+	machineConf, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.testConfig, "--instance-id", bootstrapInstanceIde)
 	c.Assert(err, gc.IsNil)
 
 	err = cmd.Run(nil)
@@ -299,35 +285,65 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	defer st.Close()
 }
 
-var base64ConfigTests = []struct {
-	input    []string
-	err      string
-	expected map[string]interface{}
+var bootstrapArgTests = []struct {
+	input              []string
+	err                string
+	expectedInstanceId string
+	expectedHardware   instance.HardwareCharacteristics
+	expectedConfig     map[string]interface{}
 }{
 	{
-		// no value supplied
-		nil,
-		"--env-config option must be set",
-		nil,
+		// no value supplied for env-config
+		err: "--env-config option must be set",
 	}, {
-		// empty
-		[]string{"--env-config", ""},
-		"--env-config option must be set",
-		nil,
+		// empty env-config
+		input: []string{"--env-config", ""},
+		err:   "--env-config option must be set",
 	}, {
 		// wrong, should be base64
-		[]string{"--env-config", "name: banana\n"},
-		".*illegal base64 data at input byte.*",
-		nil,
+		input: []string{"--env-config", "name: banana\n"},
+		err:   ".*illegal base64 data at input byte.*",
 	}, {
-		[]string{"--env-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n"))},
-		"",
-		map[string]interface{}{"name": "banana"},
+		// no value supplied for instance-id
+		input: []string{
+			"--env-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
+		},
+		err: "--instance-id option must be set",
+	}, {
+		// empty instance-id
+		input: []string{
+			"--env-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
+			"--instance-id", "",
+		},
+		err: "--instance-id option must be set",
+	}, {
+		input: []string{
+			"--env-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
+			"--instance-id", "anything",
+		},
+		expectedInstanceId: "anything",
+		expectedConfig:     map[string]interface{}{"name": "banana"},
+	}, {
+		input: []string{
+			"--env-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
+			"--instance-id", "anything",
+			"--hardware", "nonsense",
+		},
+		err: `invalid value "nonsense" for flag --hardware: malformed characteristic "nonsense"`,
+	}, {
+		input: []string{
+			"--env-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
+			"--instance-id", "anything",
+			"--hardware", "arch=amd64 cpu-cores=4 root-disk=2T",
+		},
+		expectedInstanceId: "anything",
+		expectedHardware:   instance.MustParseHardware("arch=amd64 cpu-cores=4 root-disk=2T"),
+		expectedConfig:     map[string]interface{}{"name": "banana"},
 	},
 }
 
-func (s *BootstrapSuite) TestBase64Config(c *gc.C) {
-	for i, t := range base64ConfigTests {
+func (s *BootstrapSuite) TestBootstrapArgs(c *gc.C) {
+	for i, t := range bootstrapArgTests {
 		c.Logf("test %d", i)
 		var args []string
 		args = append(args, t.input...)
@@ -335,7 +351,9 @@ func (s *BootstrapSuite) TestBase64Config(c *gc.C) {
 		if t.err == "" {
 			c.Assert(cmd, gc.NotNil)
 			c.Assert(err, gc.IsNil)
-			c.Assert(cmd.EnvConfig, gc.DeepEquals, t.expected)
+			c.Assert(cmd.EnvConfig, gc.DeepEquals, t.expectedConfig)
+			c.Assert(cmd.InstanceId, gc.Equals, t.expectedInstanceId)
+			c.Assert(cmd.Hardware, gc.DeepEquals, t.expectedHardware)
 		} else {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		}
