@@ -7,6 +7,7 @@ import (
 	"sort"
 
 	jc "github.com/juju/testing/checkers"
+	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
@@ -222,6 +223,10 @@ func (s *MachineSuite) TestRemove(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	_, err = s.machine.Containers()
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	include, exclude, err := s.machine.Networks()
+	c.Assert(err, gc.IsNil)
+	c.Assert(include, gc.HasLen, 0)
+	c.Assert(exclude, gc.HasLen, 0)
 	err = s.machine.Remove()
 	c.Assert(err, gc.IsNil)
 }
@@ -347,12 +352,44 @@ func (s *MachineSuite) TestMachineWaitAgentAlive(c *gc.C) {
 	c.Assert(alive, gc.Equals, false)
 }
 
+func (s *MachineSuite) TestMachineNetworks(c *gc.C) {
+	// s.machine is created without networks, so check
+	// they're empty when we read them.
+	include, exclude, err := s.machine.Networks()
+	c.Assert(err, gc.IsNil)
+	c.Assert(include, gc.HasLen, 0)
+	c.Assert(exclude, gc.HasLen, 0)
+
+	// Now create a machine with networks and read them back.
+	machine, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series:          "quantal",
+		Jobs:            []state.MachineJob{state.JobHostUnits},
+		IncludeNetworks: []string{"net1", "mynet"},
+		ExcludeNetworks: []string{"private-net", "logging"},
+	})
+	c.Assert(err, gc.IsNil)
+	include, exclude, err = machine.Networks()
+	c.Assert(err, gc.IsNil)
+	c.Assert(include, jc.DeepEquals, []string{"net1", "mynet"})
+	c.Assert(exclude, jc.DeepEquals, []string{"private-net", "logging"})
+
+	// Finally, networks should be removed with the machine.
+	err = machine.EnsureDead()
+	c.Assert(err, gc.IsNil)
+	err = machine.Remove()
+	c.Assert(err, gc.IsNil)
+	include, exclude, err = machine.Networks()
+	c.Assert(err, gc.IsNil)
+	c.Assert(include, gc.HasLen, 0)
+	c.Assert(exclude, gc.HasLen, 0)
+}
+
 func (s *MachineSuite) TestMachineInstanceId(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = s.machines.Update(
-		D{{"_id", machine.Id()}},
-		D{{"$set", D{{"instanceid", "spaceship/0"}}}},
+		bson.D{{"_id", machine.Id()}},
+		bson.D{{"$set", bson.D{{"instanceid", "spaceship/0"}}}},
 	)
 	c.Assert(err, gc.IsNil)
 
@@ -367,8 +404,8 @@ func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = s.machines.Update(
-		D{{"_id", machine.Id()}},
-		D{{"$set", D{{"instanceid", D{{"foo", "bar"}}}}}},
+		bson.D{{"_id", machine.Id()}},
+		bson.D{{"$set", bson.D{{"instanceid", bson.D{{"foo", "bar"}}}}}},
 	)
 	c.Assert(err, gc.IsNil)
 
@@ -389,8 +426,8 @@ func (s *MachineSuite) TestMachineInstanceIdBlank(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = s.machines.Update(
-		D{{"_id", machine.Id()}},
-		D{{"$set", D{{"instanceid", ""}}}},
+		bson.D{{"_id", machine.Id()}},
+		bson.D{{"$set", bson.D{{"instanceid", ""}}}},
 	)
 	c.Assert(err, gc.IsNil)
 

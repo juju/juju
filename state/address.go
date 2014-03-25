@@ -6,6 +6,7 @@ package state
 import (
 	"fmt"
 
+	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/instance"
 )
@@ -18,7 +19,7 @@ func (st *State) stateServerAddresses() ([]string, error) {
 	}
 	var allAddresses []addressMachine
 	// TODO(rog) 2013/10/14 index machines on jobs.
-	err := st.machines.Find(D{{"jobs", JobManageEnviron}}).All(&allAddresses)
+	err := st.machines.Find(bson.D{{"jobs", JobManageEnviron}}).All(&allAddresses)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +97,7 @@ func (st *State) SetAPIHostPorts(hps [][]instance.HostPort) error {
 	ops := []txn.Op{{
 		C:  st.stateServers.Name,
 		Id: apiHostPortsKey,
-		Update: D{{"$set", D{
+		Update: bson.D{{"$set", bson.D{
 			{"apihostports", doc.APIHostPorts},
 		}}},
 	}}
@@ -109,7 +110,7 @@ func (st *State) SetAPIHostPorts(hps [][]instance.HostPort) error {
 // APIHostPorts returns the API addresses as set by SetAPIHostPorts.
 func (st *State) APIHostPorts() ([][]instance.HostPort, error) {
 	var doc apiHostPortsDoc
-	err := st.stateServers.Find(D{{"_id", apiHostPortsKey}}).One(&doc)
+	err := st.stateServers.Find(bson.D{{"_id", apiHostPortsKey}}).One(&doc)
 	if err != nil {
 		return nil, err
 	}

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/juju/loggo"
@@ -28,6 +29,7 @@ import (
 	"launchpad.net/juju-core/state/apiserver"
 	"launchpad.net/juju-core/upgrades"
 	"launchpad.net/juju-core/upstart"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/authenticationworker"
@@ -60,6 +62,8 @@ var retryDelay = 3 * time.Second
 
 var jujuRun = "/usr/local/bin/juju-run"
 
+var useMultipleCPUs = utils.UseMultipleCPUs
+
 // MachineAgent is a cmd.Command responsible for running a machine agent.
 type MachineAgent struct {
 	cmd.CommandBase
@@ -69,6 +73,7 @@ type MachineAgent struct {
 	runner          worker.Runner
 	upgradeComplete chan struct{}
 	stateOpened     chan struct{}
+	workersStarted  chan struct{}
 	st              *state.State
 }
 
@@ -96,6 +101,7 @@ func (a *MachineAgent) Init(args []string) error {
 	a.runner = newRunner(isFatal, moreImportant)
 	a.upgradeComplete = make(chan struct{})
 	a.stateOpened = make(chan struct{})
+	a.workersStarted = make(chan struct{})
 	return nil
 }
 
@@ -118,7 +124,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	// lines of all logging in the log file.
 	loggo.RemoveWriter("logfile")
 	defer a.tomb.Done()
-	logger.Infof("machine agent %v start (%s)", a.Tag(), version.Current)
+	logger.Infof("machine agent %v start (%s [%s])", a.Tag(), version.Current, runtime.Compiler)
 	if err := a.Conf.read(a.Tag()); err != nil {
 		return err
 	}
@@ -155,6 +161,8 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	a.runner.StartWorker("termination", func() (worker.Worker, error) {
 		return terminationworker.NewWorker(), nil
 	})
+	// At this point, all workers will have been configured to start
+	close(a.workersStarted)
 	err := a.runner.Wait()
 	if err == worker.ErrTerminateAgent {
 		err = a.uninstallAgent()
@@ -335,6 +343,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		case state.JobHostUnits:
 			// Implemented in APIWorker.
 		case state.JobManageEnviron:
+			useMultipleCPUs()
 			a.startWorkerAfterUpgrade(runner, "instancepoller", func() (worker.Worker, error) {
 				return instancepoller.NewWorker(st), nil
 			})
@@ -466,6 +475,13 @@ func (a *MachineAgent) runUpgrades(st *state.State, apiState *api.State, jobs []
 		}
 	}
 	return a.Conf.config.WriteUpgradedToVersion(version.Current.Number)
+}
+
+// WorkersStarted returns a channel that's closed once all top level workers
+// have been started. This is provided for testing purposes.
+func (a *MachineAgent) WorkersStarted() <-chan struct{} {
+	return a.workersStarted
+
 }
 
 func (a *MachineAgent) Entity(st *state.State) (AgentState, error) {

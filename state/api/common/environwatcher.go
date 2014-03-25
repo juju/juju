@@ -10,14 +10,14 @@ import (
 	"launchpad.net/juju-core/state/api/watcher"
 )
 
-// EnvironWatcher provides common client side api functions
-// to call into the apiserver.common.EnvironWatcher.
+// EnvironWatcher provides common client-side API functions
+// to call into apiserver.common.EnvironWatcher.
 type EnvironWatcher struct {
 	facadeName string
 	caller     base.Caller
 }
 
-// NewEnvironWatcher creates a EnvironWatcher on the specified façade,
+// NewEnvironWatcher creates a EnvironWatcher on the specified facade,
 // and uses this name when calling through the caller.
 func NewEnvironWatcher(facadeName string, caller base.Caller) *EnvironWatcher {
 	return &EnvironWatcher{facadeName, caller}

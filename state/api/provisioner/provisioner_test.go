@@ -15,9 +15,9 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	apitesting "launchpad.net/juju-core/state/api/testing"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/provisioner"
+	apitesting "launchpad.net/juju-core/state/api/testing"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/tools"
@@ -64,7 +64,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.provisioner, gc.NotNil)
 
 	s.EnvironWatcherTests = apitesting.NewEnvironWatcherTests(s.provisioner, s.BackingState, apitesting.HasSecrets)
-	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.BackingState, s.provisioner)
+	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.provisioner, s.BackingState)
 }
 
 func (s *provisionerSuite) TestMachineTagAndId(c *gc.C) {

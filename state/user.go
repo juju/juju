@@ -5,6 +5,7 @@ import (
 	"regexp"
 
 	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
 	"launchpad.net/juju-core/errors"
@@ -59,7 +60,7 @@ func (st *State) AddUser(name, password string) (*User, error) {
 // getUser fetches information about the user with the
 // given name into the provided userDoc.
 func (st *State) getUser(name string, udoc *userDoc) error {
-	err := st.users.Find(D{{"_id", name}}).One(udoc)
+	err := st.users.Find(bson.D{{"_id", name}}).One(udoc)
 	if err == mgo.ErrNotFound {
 		err = errors.NotFoundf("user %q", name)
 	}
@@ -116,7 +117,7 @@ func (u *User) SetPasswordHash(pwHash string, pwSalt string) error {
 	ops := []txn.Op{{
 		C:      u.st.users.Name,
 		Id:     u.Name(),
-		Update: D{{"$set", D{{"passwordhash", pwHash}, {"passwordsalt", pwSalt}}}},
+		Update: bson.D{{"$set", bson.D{{"passwordhash", pwHash}, {"passwordsalt", pwSalt}}}},
 	}}
 	if err := u.st.runTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set password of user %q: %v", u.Name(), err)
@@ -175,7 +176,7 @@ func (u *User) Deactivate() error {
 	ops := []txn.Op{{
 		C:      u.st.users.Name,
 		Id:     u.Name(),
-		Update: D{{"$set", D{{"deactivated", true}}}},
+		Update: bson.D{{"$set", bson.D{{"deactivated", true}}}},
 		Assert: txn.DocExists,
 	}}
 	if err := u.st.runTransaction(ops); err != nil {

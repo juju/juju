@@ -331,11 +331,13 @@ func (s *bootstrapSuite) TestSeriesToUpload(c *gc.C) {
 	c.Assert(bootstrap.SeriesToUpload(cfg, nil), gc.DeepEquals, []string{"quantal", "precise", "lucid"})
 }
 
-func (s *bootstrapSuite) assertUploadTools(c *gc.C, vers version.Binary, allowRelease bool, errMessage string) {
+func (s *bootstrapSuite) assertUploadTools(c *gc.C, vers version.Binary, allowRelease bool,
+	extraConfig map[string]interface{}, errMessage string) {
+
 	s.PatchValue(&version.Current, vers)
 	// If we allow released tools to be uploaded, the build number is incremented so in that case
 	// we need to ensure the environment is set up to allow dev tools to be used.
-	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{"development": allowRelease})
+	env := newEnviron("foo", useDefaultKeys, extraConfig)
 	s.setDummyStorage(c, env)
 	envtesting.RemoveFakeTools(c, env.Storage())
 
@@ -372,17 +374,24 @@ func (s *bootstrapSuite) assertUploadTools(c *gc.C, vers version.Binary, allowRe
 
 func (s *bootstrapSuite) TestUploadTools(c *gc.C) {
 	vers := version.MustParseBinary("1.19.0-trusty-arm64")
-	s.assertUploadTools(c, vers, false, "")
+	s.assertUploadTools(c, vers, false, nil, "")
 }
 
-func (s *bootstrapSuite) TestUploadToolsReleaseVersionAllowed(c *gc.C) {
+func (s *bootstrapSuite) TestUploadToolsForceVersionAllowsReleaseTools(c *gc.C) {
 	vers := version.MustParseBinary("1.18.0-trusty-arm64")
-	s.assertUploadTools(c, vers, true, "")
+	extraCfg := map[string]interface{}{"development": true}
+	s.assertUploadTools(c, vers, true, extraCfg, "")
+}
+
+func (s *bootstrapSuite) TestUploadToolsForceVersionAllowsAgentVersionSet(c *gc.C) {
+	vers := version.MustParseBinary("1.18.0-trusty-arm64")
+	extraCfg := map[string]interface{}{"agent-version": "1.18.0", "development": true}
+	s.assertUploadTools(c, vers, true, extraCfg, "")
 }
 
 func (s *bootstrapSuite) TestUploadToolsReleaseVersionDisallowed(c *gc.C) {
 	vers := version.MustParseBinary("1.18.0-trusty-arm64")
-	s.assertUploadTools(c, vers, false, "Juju cannot bootstrap because no tools are available for your environment.*")
+	s.assertUploadTools(c, vers, false, nil, "Juju cannot bootstrap because no tools are available for your environment.*")
 }
 
 type bootstrapEnviron struct {

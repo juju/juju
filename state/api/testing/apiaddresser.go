@@ -1,5 +1,6 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
+
 package testing
 
 import (
@@ -16,7 +17,7 @@ type APIAddresserTests struct {
 	facade APIAddresserFacade
 }
 
-func NewAPIAddresserTests(st *state.State, facade APIAddresserFacade) *APIAddresserTests {
+func NewAPIAddresserTests(facade APIAddresserFacade, st *state.State) *APIAddresserTests {
 	return &APIAddresserTests{
 		state:  st,
 		facade: facade,

@@ -335,6 +335,54 @@ func (s *StoreSuite) TestLockUpdatesExpires(c *gc.C) {
 	c.Check(lock3, gc.IsNil)
 }
 
+var seriesSolverCharms = []struct {
+	series, name string
+}{
+	{"oneiric", "wordpress"},
+	{"precise", "wordpress"},
+	{"quantal", "wordpress"},
+	{"trusty", "wordpress"},
+	{"volumetric", "wordpress"},
+
+	{"def", "zebra"},
+	{"zef", "zebra"},
+}
+
+func (s *StoreSuite) TestSeriesSolver(c *gc.C) {
+	for _, t := range seriesSolverCharms {
+		url := charm.MustParseURL(fmt.Sprintf("cs:%s/%s", t.series, t.name))
+		urls := []*charm.URL{url}
+
+		pub, err := s.store.CharmPublisher(urls, fmt.Sprintf("some-%s-%s-digest", t.series, t.name))
+		c.Assert(err, gc.IsNil)
+		c.Assert(pub.Revision(), gc.Equals, 0)
+
+		err = pub.Publish(&FakeCharmDir{})
+		c.Assert(err, gc.IsNil)
+	}
+
+	// LTS, then non-LTS, reverse alphabetical order
+	ref, _, err := charm.ParseReference("cs:wordpress")
+	c.Assert(err, gc.IsNil)
+	series, err := s.store.Series(ref)
+	c.Assert(err, gc.IsNil)
+	c.Assert(series, gc.HasLen, 5)
+	c.Check(series[0], gc.Equals, "trusty")
+	c.Check(series[1], gc.Equals, "precise")
+	c.Check(series[2], gc.Equals, "volumetric")
+	c.Check(series[3], gc.Equals, "quantal")
+	c.Check(series[4], gc.Equals, "oneiric")
+
+	// No LTS, reverse alphabetical order
+	ref, _, err = charm.ParseReference("cs:zebra")
+	c.Assert(err, gc.IsNil)
+	series, err = s.store.Series(ref)
+	c.Assert(err, gc.IsNil)
+	c.Assert(series, gc.HasLen, 2)
+	c.Check(series[0], gc.Equals, "zef")
+	c.Check(series[1], gc.Equals, "def")
+}
+
 func (s *StoreSuite) TestConflictingUpdate(c *gc.C) {
 	// This test checks that if for whatever reason the locking
 	// safety-net fails, adding two charms in parallel still

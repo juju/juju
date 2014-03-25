@@ -30,8 +30,6 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
-type D []bson.DocElem
-
 var goodPassword = "foo-12345678901234567890"
 var alternatePassword = "bar-12345678901234567890"
 
@@ -299,7 +297,7 @@ func (s *StateSuite) TestPrepareStoreCharmUpload(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 		},
 		After: func() {
-			err := s.charms.UpdateId(curl, D{{"$set", D{
+			err := s.charms.UpdateId(curl, bson.D{{"$set", bson.D{
 				{"bundlesha256", "fake"}},
 			}})
 			c.Assert(err, gc.IsNil)
@@ -1457,8 +1455,8 @@ func (s *StateSuite) TestWatchMachinesIncludesOldMachines(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = s.machines.Update(
-		D{{"_id", machine.Id()}},
-		D{{"$unset", D{{"containertype", 1}}}},
+		bson.D{{"_id", machine.Id()}},
+		bson.D{{"$unset", bson.D{{"containertype", 1}}}},
 	)
 	c.Assert(err, gc.IsNil)
 
@@ -2896,6 +2894,7 @@ func (s *StateSuite) TestSetAPIHostPorts(c *gc.C) {
 			NetworkName:  "net",
 			NetworkScope: instance.NetworkCloudLocal,
 		},
+		Port: 13,
 	}}}
 	err = s.State.SetAPIHostPorts(newHostPorts)
 	c.Assert(err, gc.IsNil)

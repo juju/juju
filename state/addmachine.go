@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
 	"launchpad.net/juju-core/constraints"
@@ -51,6 +52,14 @@ type MachineTemplate struct {
 	// HardwareCharacteristics holds the h/w characteristics to
 	// be associated with the machine.
 	HardwareCharacteristics instance.HardwareCharacteristics
+
+	// IncludeNetworks holds a list of networks the machine should be
+	// part of.
+	IncludeNetworks []string
+
+	// ExcludeNetworks holds a list of network the machine should not
+	// be part of.
+	ExcludeNetworks []string
 
 	// Nonce holds a unique value that can be used to check
 	// if a new instance was really started for this machine.
@@ -229,7 +238,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 	}
 	mdoc := machineDocForTemplate(template, strconv.Itoa(seq))
 	var ops []txn.Op
-	ops = append(ops, st.insertNewMachineOps(mdoc, template.Constraints)...)
+	ops = append(ops, st.insertNewMachineOps(mdoc, template)...)
 	ops = append(ops, st.insertNewContainerRefOp(mdoc.Id))
 	if template.InstanceId != "" {
 		ops = append(ops, txn.Op{
@@ -300,7 +309,7 @@ func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId s
 	mdoc := machineDocForTemplate(template, newId)
 	mdoc.ContainerType = string(containerType)
 	var ops []txn.Op
-	ops = append(ops, st.insertNewMachineOps(mdoc, template.Constraints)...)
+	ops = append(ops, st.insertNewMachineOps(mdoc, template)...)
 	ops = append(ops,
 		// Update containers record for host machine.
 		st.addChildToContainerRefOp(parentId, mdoc.Id),
@@ -357,8 +366,8 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineT
 	mdoc := machineDocForTemplate(template, newId)
 	mdoc.ContainerType = string(containerType)
 	var ops []txn.Op
-	ops = append(ops, st.insertNewMachineOps(parentDoc, parentTemplate.Constraints)...)
-	ops = append(ops, st.insertNewMachineOps(mdoc, template.Constraints)...)
+	ops = append(ops, st.insertNewMachineOps(parentDoc, parentTemplate)...)
+	ops = append(ops, st.insertNewMachineOps(mdoc, template)...)
 	ops = append(ops,
 		// The host machine doesn't exist yet, create a new containers record.
 		st.insertNewContainerRefOp(mdoc.Id),
@@ -384,8 +393,9 @@ func machineDocForTemplate(template MachineTemplate, id string) *machineDoc {
 }
 
 // insertNewMachineOps returns operations to insert the given machine
-// document and its associated constraints into the database.
-func (st *State) insertNewMachineOps(mdoc *machineDoc, cons constraints.Value) []txn.Op {
+// document into the database, based on the given template. Only the
+// constraints and networks are used from the template.
+func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate) []txn.Op {
 	return []txn.Op{
 		{
 			C:      st.machines.Name,
@@ -393,10 +403,14 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, cons constraints.Value) [
 			Assert: txn.DocMissing,
 			Insert: mdoc,
 		},
-		createConstraintsOp(st, machineGlobalKey(mdoc.Id), cons),
+		createConstraintsOp(st, machineGlobalKey(mdoc.Id), template.Constraints),
 		createStatusOp(st, machineGlobalKey(mdoc.Id), statusDoc{
 			Status: params.StatusPending,
 		}),
+		createNetworksOp(st, machineGlobalKey(mdoc.Id),
+			template.IncludeNetworks,
+			template.ExcludeNetworks,
+		),
 	}
 }
 
@@ -447,15 +461,15 @@ func (st *State) maintainStateServersOps(mdocs []*machineDoc, currentInfo *State
 	ops := []txn.Op{{
 		C:  st.stateServers.Name,
 		Id: environGlobalKey,
-		Assert: D{{
-			"$and", []D{
-				{{"machineids", D{{"$size", len(currentInfo.MachineIds)}}}},
-				{{"votingmachineids", D{{"$size", len(currentInfo.VotingMachineIds)}}}},
+		Assert: bson.D{{
+			"$and", []bson.D{
+				{{"machineids", bson.D{{"$size", len(currentInfo.MachineIds)}}}},
+				{{"votingmachineids", bson.D{{"$size", len(currentInfo.VotingMachineIds)}}}},
 			},
 		}},
-		Update: D{
-			{"$addToSet", D{{"machineids", D{{"$each", newIds}}}}},
-			{"$addToSet", D{{"votingmachineids", D{{"$each", newVotingIds}}}}},
+		Update: bson.D{
+			{"$addToSet", bson.D{{"machineids", bson.D{{"$each", newIds}}}}},
+			{"$addToSet", bson.D{{"votingmachineids", bson.D{{"$each", newVotingIds}}}}},
 		},
 	}}
 	return ops, nil

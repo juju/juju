@@ -4,6 +4,7 @@
 package state
 
 import (
+	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 	gc "launchpad.net/gocheck"
 
@@ -54,7 +55,7 @@ func (s *compatSuite) TestEnvironAssertAlive(c *gc.C) {
 	ops := []txn.Op{{
 		C:      s.state.environments.Name,
 		Id:     s.env.doc.UUID,
-		Update: D{{"$unset", D{{"life", nil}}}},
+		Update: bson.D{{"$unset", bson.D{{"life", nil}}}},
 	}}
 	err := s.state.runTransaction(ops)
 	c.Assert(err, gc.IsNil)
@@ -65,4 +66,41 @@ func (s *compatSuite) TestEnvironAssertAlive(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = s.env.Destroy()
 	c.Assert(err, gc.IsNil)
+}
+
+func (s *compatSuite) TestGetServiceWithoutNetworksIsOK(c *gc.C) {
+	_, err := s.state.AddUser(AdminUser, "pass")
+	c.Assert(err, gc.IsNil)
+	charm := addCharm(c, s.state, "quantal", testing.Charms.Dir("mysql"))
+	service, err := s.state.AddService("mysql", "user-admin", charm)
+	c.Assert(err, gc.IsNil)
+	// In 1.17.7+ all services have associated document in the
+	// networks collection. We remove it here to test backwards
+	// compatibility.
+	ops := []txn.Op{removeNetworksOp(s.state, service.globalKey())}
+	err = s.state.runTransaction(ops)
+	c.Assert(err, gc.IsNil)
+
+	// Now check the trying to fetch service's networks is OK.
+	include, exclude, err := service.Networks()
+	c.Assert(err, gc.IsNil)
+	c.Assert(include, gc.HasLen, 0)
+	c.Assert(exclude, gc.HasLen, 0)
+}
+
+func (s *compatSuite) TestGetMachineWithoutNetworksIsOK(c *gc.C) {
+	machine, err := s.state.AddMachine("quantal", JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	// In 1.17.7+ all machines have associated document in the
+	// networks collection. We remove it here to test backwards
+	// compatibility.
+	ops := []txn.Op{removeNetworksOp(s.state, machine.globalKey())}
+	err = s.state.runTransaction(ops)
+	c.Assert(err, gc.IsNil)
+
+	// Now check the trying to fetch machine's networks is OK.
+	include, exclude, err := machine.Networks()
+	c.Assert(err, gc.IsNil)
+	c.Assert(include, gc.HasLen, 0)
+	c.Assert(exclude, gc.HasLen, 0)
 }

@@ -13,10 +13,11 @@ var (
 	IsLocalEnviron = &isLocalEnviron
 
 	// 118 upgrade functions
-	StepsFor118                          = stepsFor118
-	EnsureLockDirExistsAndUbuntuWritable = ensureLockDirExistsAndUbuntuWritable
-	EnsureSystemSSHKey                   = ensureSystemSSHKey
-	UpdateRsyslogPort                    = updateRsyslogPort
-	ProcessDeprecatedEnvSettings         = processDeprecatedEnvSettings
-	MigrateLocalProviderAgentConfig      = migrateLocalProviderAgentConfig
+	StepsFor118                            = stepsFor118
+	EnsureLockDirExistsAndUbuntuWritable   = ensureLockDirExistsAndUbuntuWritable
+	EnsureSystemSSHKey                     = ensureSystemSSHKey
+	EnsureUbuntuDotProfileSourcesProxyFile = ensureUbuntuDotProfileSourcesProxyFile
+	UpdateRsyslogPort                      = updateRsyslogPort
+	ProcessDeprecatedEnvSettings           = processDeprecatedEnvSettings
+	MigrateLocalProviderAgentConfig        = migrateLocalProviderAgentConfig
 )

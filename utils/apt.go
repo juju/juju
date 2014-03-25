@@ -81,6 +81,16 @@ func targetRelease(series string) string {
 	}
 }
 
+// AptGetCommand returns a command to execute apt-get
+// with the specified arguments, and the appropriate
+// environment variables and options for a non-interactive
+// session.
+func AptGetCommand(args ...string) []string {
+	cmd := append([]string{"env"}, aptGetEnvOptions...)
+	cmd = append(cmd, aptGetCommand...)
+	return append(cmd, args...)
+}
+
 // AptGetPreparePackages returns a slice of installCommands. Each item
 // in the slice is suitable for passing directly to AptGetInstall.
 //

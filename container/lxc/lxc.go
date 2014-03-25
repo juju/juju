@@ -112,7 +112,7 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 	}, nil
 }
 
-func (manager *containerManager) StartContainer(
+func (manager *containerManager) CreateContainer(
 	machineConfig *cloudinit.MachineConfig,
 	series string,
 	network *container.NetworkConfig,
@@ -269,7 +269,7 @@ func mountHostLogDir(name, logDir string) error {
 	return appendToContainerConfig(name, line)
 }
 
-func (manager *containerManager) StopContainer(instance instance.Instance) error {
+func (manager *containerManager) DestroyContainer(instance instance.Instance) error {
 	start := time.Now()
 	name := string(instance.Id())
 	lxcContainer := LxcObjectFactory.New(name)

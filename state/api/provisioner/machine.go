@@ -63,7 +63,7 @@ func (m *Machine) SetStatus(status params.Status, info string) error {
 			{Tag: m.tag, Status: status, Info: info},
 		},
 	}
-	err := m.st.caller.Call("Provisioner", "", "SetStatus", args, &result)
+	err := m.st.call("SetStatus", args, &result)
 	if err != nil {
 		return err
 	}
@@ -76,7 +76,7 @@ func (m *Machine) Status() (params.Status, string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.caller.Call("Provisioner", "", "Status", args, &results)
+	err := m.st.call("Status", args, &results)
 	if err != nil {
 		return "", "", err
 	}
@@ -98,7 +98,7 @@ func (m *Machine) Constraints() (constraints.Value, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.caller.Call("Provisioner", "", "Constraints", args, &results)
+	err := m.st.call("Constraints", args, &results)
 	if err != nil {
 		return nothing, err
 	}
@@ -119,7 +119,7 @@ func (m *Machine) EnsureDead() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.caller.Call("Provisioner", "", "EnsureDead", args, &result)
+	err := m.st.call("EnsureDead", args, &result)
 	if err != nil {
 		return err
 	}
@@ -133,7 +133,7 @@ func (m *Machine) Remove() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.caller.Call("Provisioner", "", "Remove", args, &result)
+	err := m.st.call("Remove", args, &result)
 	if err != nil {
 		return err
 	}
@@ -149,7 +149,7 @@ func (m *Machine) Series() (string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.caller.Call("Provisioner", "", "Series", args, &results)
+	err := m.st.call("Series", args, &results)
 	if err != nil {
 		return "", err
 	}
@@ -175,7 +175,7 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 			Characteristics: characteristics,
 		}},
 	}
-	err := m.st.caller.Call("Provisioner", "", "SetProvisioned", args, &result)
+	err := m.st.call("SetProvisioned", args, &result)
 	if err != nil {
 		return err
 	}
@@ -189,7 +189,7 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.caller.Call("Provisioner", "", "InstanceId", args, &results)
+	err := m.st.call("InstanceId", args, &results)
 	if err != nil {
 		return "", err
 	}
@@ -211,7 +211,7 @@ func (m *Machine) SetPassword(password string) error {
 			{Tag: m.tag, Password: password},
 		},
 	}
-	err := m.st.caller.Call("Provisioner", "", "SetPasswords", args, &result)
+	err := m.st.call("SetPasswords", args, &result)
 	if err != nil {
 		return err
 	}
@@ -240,7 +240,7 @@ func (m *Machine) WatchContainers(ctype instance.ContainerType) (watcher.Strings
 			{MachineTag: m.tag, ContainerType: string(ctype)},
 		},
 	}
-	err := m.st.caller.Call("Provisioner", "", "WatchContainers", args, &results)
+	err := m.st.call("WatchContainers", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -264,7 +264,7 @@ func (m *Machine) WatchAllContainers() (watcher.StringsWatcher, error) {
 			{MachineTag: m.tag},
 		},
 	}
-	err := m.st.caller.Call("Provisioner", "", "WatchContainers", args, &results)
+	err := m.st.call("WatchContainers", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -287,7 +287,7 @@ func (m *Machine) SetSupportedContainers(containerTypes ...instance.ContainerTyp
 			{MachineTag: m.tag, ContainerTypes: containerTypes},
 		},
 	}
-	err := m.st.caller.Call("Provisioner", "", "SetSupportedContainers", args, &results)
+	err := m.st.call("SetSupportedContainers", args, &results)
 	if err != nil {
 		return err
 	}

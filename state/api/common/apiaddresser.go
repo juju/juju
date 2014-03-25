@@ -10,12 +10,15 @@ import (
 	"launchpad.net/juju-core/state/api/watcher"
 )
 
+// APIAddresser provides common client-side API
+// functions to call into apiserver.common.APIAddresser
 type APIAddresser struct {
 	facadeName string
 	caller     base.Caller
 }
 
-// NewAPIAddresser returns
+// NewAPIAddresser returns a new APIAddresser that makes API calls
+// using caller and the specified facade name.
 func NewAPIAddresser(facadeName string, caller base.Caller) *APIAddresser {
 	return &APIAddresser{
 		facadeName: facadeName,
@@ -37,7 +40,7 @@ func (a *APIAddresser) APIAddresses() ([]string, error) {
 	return result.Result, nil
 }
 
-// CACert returns the certificate used to validate the state connection.
+// CACert returns the certificate used to validate the API and state connections.
 func (a *APIAddresser) CACert() ([]byte, error) {
 	var result params.BytesResult
 	err := a.caller.Call(a.facadeName, "", "CACert", nil, &result)
