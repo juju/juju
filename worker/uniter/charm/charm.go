@@ -16,6 +16,8 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.uniter.charm")
 
+// charmURLPath is the path within a charm directory to which Deployers
+// commonly write the charm URL of the latest deployed charm.
 const charmURLPath = ".juju-charm"
 
 // Bundle allows access to a charm's files.
@@ -26,7 +28,9 @@ type Bundle interface {
 	Manifest() (set.Strings, error)
 
 	// ExpandTo unpacks the entities referenced in the manifest into the
-	// supplied directory.
+	// supplied directory. If it returns without error, every file referenced
+	// in the charm must be present in the directory; implementations may vary
+	// in the details of what they do with other files present.
 	ExpandTo(dir string) error
 }
 
