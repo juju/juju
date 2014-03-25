@@ -193,13 +193,13 @@ func convertConstraints(cons constraints.Value) url.Values {
 // url.Values object suitable to pass to MAAS when acquiring a node.
 func addNetworks(params url.Values, nets environs.Networks) {
 	// Network Inclusion/Exclusion setup
-	if nets.IncludedNetworks != nil {
-		for _, network_name := range nets.IncludedNetworks {
+	if nets.IncludeNetworks != nil {
+		for _, network_name := range nets.IncludeNetworks {
 			params.Add("networks", network_name)
 		}
 	}
-	if nets.ExcludedNetworks != nil {
-		for _, not_network_name := range nets.ExcludedNetworks {
+	if nets.ExcludeNetworks != nil {
+		for _, not_network_name := range nets.ExcludeNetworks {
 			params.Add("not_networks", not_network_name)
 		}
 	}

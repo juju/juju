@@ -6,30 +6,28 @@ package state
 import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
-
-	"launchpad.net/juju-core/errors"
 )
 
 // networksDoc represents the network restrictions for a service or machine.
 // The document ID field is the globalKey of a service or a machine.
 type networksDoc struct {
-	NetworksToInclude []string `bson:"included"`
-	NetworksToExclude []string `bson:"excluded"`
+	IncludeNetworks []string `bson:"include"`
+	ExcludeNetworks []string `bson:"exclude"`
 }
 
-func newNetworksDoc(includedNetworks, excludedNetworks []string) *networksDoc {
+func newNetworksDoc(includeNetworks, excludeNetworks []string) *networksDoc {
 	return &networksDoc{
-		NetworksToInclude: includedNetworks,
-		NetworksToExclude: excludedNetworks,
+		IncludeNetworks: includeNetworks,
+		ExcludeNetworks: excludeNetworks,
 	}
 }
 
-func createNetworksOp(st *State, id string, includedNetworks, excludedNetworks []string) txn.Op {
+func createNetworksOp(st *State, id string, includeNetworks, excludeNetworks []string) txn.Op {
 	return txn.Op{
 		C:      st.networks.Name,
 		Id:     id,
 		Assert: txn.DocMissing,
-		Insert: newNetworksDoc(includedNetworks, excludedNetworks),
+		Insert: newNetworksDoc(includeNetworks, excludeNetworks),
 	}
 }
 
@@ -43,13 +41,16 @@ func removeNetworksOp(st *State, id string) txn.Op {
 	}
 }
 
-func readNetworks(st *State, id string) (includedNetworks, excludedNetworks []string, err error) {
+func readNetworks(st *State, id string) (includeNetworks, excludeNetworks []string, err error) {
 	doc := networksDoc{}
 	if err = st.networks.FindId(id).One(&doc); err == mgo.ErrNotFound {
-		err = errors.NotFoundf("linked networks")
+		// In 1.17.7+ we always create a networksDoc for each service or
+		// machine we create, but in legacy databases this is not the
+		// case. We ignore the error here for backwards-compatibility.
+		err = nil
 	} else if err == nil {
-		includedNetworks = doc.NetworksToInclude
-		excludedNetworks = doc.NetworksToExclude
+		includeNetworks = doc.IncludeNetworks
+		excludeNetworks = doc.ExcludeNetworks
 	}
-	return includedNetworks, excludedNetworks, err
+	return includeNetworks, excludeNetworks, err
 }

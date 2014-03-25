@@ -53,13 +53,13 @@ type MachineTemplate struct {
 	// be associated with the machine.
 	HardwareCharacteristics instance.HardwareCharacteristics
 
-	// IncludedNetworks holds a list of networks the machine must be
+	// IncludeNetworks holds a list of networks the machine should be
 	// part of.
-	IncludedNetworks []string
+	IncludeNetworks []string
 
-	// ExcludedNetworks holds a list of network the machine must not
+	// ExcludeNetworks holds a list of network the machine should not
 	// be part of.
-	ExcludedNetworks []string
+	ExcludeNetworks []string
 
 	// Nonce holds a unique value that can be used to check
 	// if a new instance was really started for this machine.
@@ -408,8 +408,8 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 			Status: params.StatusPending,
 		}),
 		createNetworksOp(st, machineGlobalKey(mdoc.Id),
-			template.IncludedNetworks,
-			template.ExcludedNetworks,
+			template.IncludeNetworks,
+			template.ExcludeNetworks,
 		),
 	}
 }
