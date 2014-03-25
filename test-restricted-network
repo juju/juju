@@ -25,7 +25,7 @@ for attempt in $(seq 10); do
   fi
   sleep 10
 done
-sudo apt-add-repository -y ppa:juju/stable
+sudo add-apt-repository cloud-archive:tools
 sudo apt-get update
 sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y bzr lxc mongodb rsyslog-gnutls
