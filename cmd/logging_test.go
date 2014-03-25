@@ -25,11 +25,11 @@ type LogSuite struct {
 var _ = gc.Suite(&LogSuite{})
 
 func (s *LogSuite) SetUpTest(c *gc.C) {
+	s.CleanupSuite.SetUpTest(c)
 	s.PatchEnvironment(osenv.JujuLoggingConfigEnvKey, "")
 	s.AddCleanup(func(_ *gc.C) {
 		loggo.ResetLoggers()
 		loggo.ResetWriters()
-		cmd.ResetCommandWriters()
 	})
 }
 
@@ -155,73 +155,73 @@ func (s *LogSuite) TestErrorAndWarningLoggingToStderr(c *gc.C) {
 
 func (s *LogSuite) TestQuietAndVerbose(c *gc.C) {
 	l := &cmd.Log{Verbose: true, Quiet: true}
-	ctx := testing.Context(c)
+	ctx := coretesting.Context(c)
 	err := l.Start(ctx)
-	c.Assert(err, gc.ErrorMatches, `"verbose" and "quiet" flags clash`)
+	c.Assert(err, gc.ErrorMatches, `"verbose" and "quiet" flags clash, please use one or the other, not both`)
 }
 
 func (s *LogSuite) TestOutputDefault(c *gc.C) {
 	l := &cmd.Log{}
-	ctx := testing.Context(c)
+	ctx := coretesting.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, gc.IsNil)
 
-	cmd.Infof("Writing info output")
-	cmd.Verbosef("Writing verbose output")
+	ctx.Infof("Writing info output")
+	ctx.Verbosef("Writing verbose output")
 
-	c.Assert(testing.Stderr(ctx), gc.Equals, "Writing info output\n")
+	c.Assert(coretesting.Stderr(ctx), gc.Equals, "Writing info output\n")
 }
 
 func (s *LogSuite) TestOutputVerbose(c *gc.C) {
 	l := &cmd.Log{Verbose: true}
-	ctx := testing.Context(c)
+	ctx := coretesting.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, gc.IsNil)
 
-	cmd.Infof("Writing info output")
-	cmd.Verbosef("Writing verbose output")
+	ctx.Infof("Writing info output")
+	ctx.Verbosef("Writing verbose output")
 
-	c.Assert(testing.Stderr(ctx), gc.Equals, "Writing info output\nWriting verbose output\n")
+	c.Assert(coretesting.Stderr(ctx), gc.Equals, "Writing info output\nWriting verbose output\n")
 }
 
 func (s *LogSuite) TestOutputQuiet(c *gc.C) {
 	l := &cmd.Log{Quiet: true}
-	ctx := testing.Context(c)
+	ctx := coretesting.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, gc.IsNil)
 
-	cmd.Infof("Writing info output")
-	cmd.Verbosef("Writing verbose output")
+	ctx.Infof("Writing info output")
+	ctx.Verbosef("Writing verbose output")
 
-	c.Assert(testing.Stderr(ctx), gc.Equals, "")
+	c.Assert(coretesting.Stderr(ctx), gc.Equals, "")
 }
 
 func (s *LogSuite) TestOutputQuietLogs(c *gc.C) {
 	l := &cmd.Log{Quiet: true, Path: "foo.log", Config: "<root>=INFO"}
-	ctx := testing.Context(c)
+	ctx := coretesting.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, gc.IsNil)
 
-	cmd.Infof("Writing info output")
-	cmd.Verbosef("Writing verbose output")
+	ctx.Infof("Writing info output")
+	ctx.Verbosef("Writing verbose output")
 
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "foo.log"))
 	c.Assert(err, gc.IsNil)
-	c.Assert(testing.Stderr(ctx), gc.Equals, "")
+	c.Assert(coretesting.Stderr(ctx), gc.Equals, "")
 	c.Assert(string(content), gc.Matches, `^.*INFO .* Writing info output\n.*INFO .*Writing verbose output\n.*`)
 }
 
 func (s *LogSuite) TestOutputDefaultLogsVerbose(c *gc.C) {
 	l := &cmd.Log{Path: "foo.log", Config: "<root>=INFO"}
-	ctx := testing.Context(c)
+	ctx := coretesting.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, gc.IsNil)
 
-	cmd.Infof("Writing info output")
-	cmd.Verbosef("Writing verbose output")
+	ctx.Infof("Writing info output")
+	ctx.Verbosef("Writing verbose output")
 
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "foo.log"))
 	c.Assert(err, gc.IsNil)
-	c.Assert(testing.Stderr(ctx), gc.Equals, "Writing info output\n")
+	c.Assert(coretesting.Stderr(ctx), gc.Equals, "Writing info output\n")
 	c.Assert(string(content), gc.Matches, `^.*INFO .*Writing verbose output\n.*`)
 }

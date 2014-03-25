@@ -90,10 +90,40 @@ func (c *CommandBase) AllowInterspersedFlags() bool {
 // should interpret file names relative to Dir (see AbsPath below), and print
 // output and errors to Stdout and Stderr respectively.
 type Context struct {
-	Dir    string
-	Stdin  io.Reader
-	Stdout io.Writer
-	Stderr io.Writer
+	Dir     string
+	Stdin   io.Reader
+	Stdout  io.Writer
+	Stderr  io.Writer
+	quiet   bool
+	verbose bool
+}
+
+func (ctx *Context) write(format string, params ...interface{}) {
+	output := fmt.Sprintf(format, params...)
+	if !strings.HasSuffix(output, "\n") {
+		output = output + "\n"
+	}
+	fmt.Fprint(ctx.Stderr, output)
+}
+
+// Infof will write the formatted string to Stderr if quiet is false, and to
+// the logger if we are.
+func (ctx *Context) Infof(format string, params ...interface{}) {
+	if ctx.quiet {
+		logger.Infof(format, params...)
+	} else {
+		ctx.write(format, params...)
+	}
+}
+
+// Verbosef will write the formatted string to Stderr if the verbose is true,
+// and to the logger if not.
+func (ctx *Context) Verbosef(format string, params ...interface{}) {
+	if ctx.verbose {
+		ctx.write(format, params...)
+	} else {
+		logger.Infof(format, params...)
+	}
 }
 
 // AbsPath returns an absolute representation of path, with relative paths

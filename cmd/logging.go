@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/juju/loggo"
@@ -15,36 +14,6 @@ import (
 
 	"launchpad.net/juju-core/juju/osenv"
 )
-
-var (
-	logger        = loggo.GetLogger("juju.cmd")
-	infoWriter    io.Writer
-	verboseWriter io.Writer
-)
-
-func writeInternal(writer io.Writer, format string, params ...interface{}) {
-	if writer == nil {
-		logger.Infof(format, params...)
-	} else {
-		output := fmt.Sprintf(format, params...)
-		if !strings.HasSuffix(output, "\n") {
-			output = output + "\n"
-		}
-		fmt.Fprintf(writer, output)
-	}
-}
-
-// Infof will write the formatted string to the infoWriter if one has been
-// specified, or to the package logger if it hasn't.
-func Infof(format string, params ...interface{}) {
-	writeInternal(infoWriter, format, params...)
-}
-
-// Verbosef will write the formatted string to the verboseWriter if one has been
-// specified, or to the package logger if it hasn't.
-func Verbosef(format string, params ...interface{}) {
-	writeInternal(verboseWriter, format, params...)
-}
 
 // WriterFactory defines the single method to create a new
 // logging writer for a specified output target.
@@ -88,21 +57,17 @@ func (l *Log) AddFlags(f *gnuflag.FlagSet) {
 // Start starts logging using the given Context.
 func (log *Log) Start(ctx *Context) error {
 	if log.Verbose && log.Quiet {
-		return fmt.Errorf(`"verbose" and "quiet" flags clash`)
+		return fmt.Errorf(`"verbose" and "quiet" flags clash, please use one or the other, not both`)
 	}
-	if !log.Quiet {
-		infoWriter = ctx.Stderr
-		if log.Verbose {
-			verboseWriter = ctx.Stderr
-		}
-	}
+	ctx.quiet = log.Quiet
+	ctx.verbose = log.Verbose
 	if log.Path != "" {
 		path := ctx.AbsPath(log.Path)
 		target, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 		if err != nil {
 			return err
 		}
-		writer := l.GetLogWriter(target)
+		writer := log.GetLogWriter(target)
 		err = loggo.RegisterWriter("logfile", writer, loggo.TRACE)
 		if err != nil {
 			return err
@@ -115,11 +80,15 @@ func (log *Log) Start(ctx *Context) error {
 	if log.Debug {
 		log.ShowLog = true
 		level = loggo.DEBUG
+		// override quiet or verbose if set, this way all the information goes
+		// to the log file.
+		ctx.quiet = true
+		ctx.verbose = false
 	}
 
 	if log.ShowLog {
 		// We replace the default writer to use ctx.Stderr rather than os.Stderr.
-		writer := l.GetLogWriter(ctx.Stderr)
+		writer := log.GetLogWriter(ctx.Stderr)
 		_, err := loggo.ReplaceDefaultWriter(writer)
 		if err != nil {
 			return err
