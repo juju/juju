@@ -937,6 +937,30 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 	return err
 }
 
+func (c *Client) ResolveCharm(args params.CharmURL) (params.CharmURL, error) {
+	ref, series, err := charm.ParseReference(args.URL)
+	if err != nil {
+		return params.CharmURL{}, err
+	}
+	if series != "" {
+		curl := charm.URL{Reference: ref, Series: series}
+		return params.CharmURL{URL: curl.String()}, nil
+	}
+
+	// Resolve the charm location with the store.
+	envConfig, err := c.api.state.EnvironConfig()
+	if err != nil {
+		return params.CharmURL{}, err
+	}
+	store := config.SpecializeCharmRepo(CharmStore, envConfig)
+
+	curl, err := store.Resolve(ref)
+	if err != nil {
+		return params.CharmURL{}, err
+	}
+	return params.CharmURL{URL: curl.String()}, nil
+}
+
 // CharmArchiveName returns a string that is suitable as a file name
 // in a storage URL. It is constructed from the charm name, revision
 // and a random UUID string.

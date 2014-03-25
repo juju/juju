@@ -1097,8 +1097,12 @@ func makeMockCharmStore() (store *coretesting.MockCharmStore, restore func()) {
 }
 
 func addCharm(c *gc.C, store *coretesting.MockCharmStore, name string) (*charm.URL, charm.Charm) {
+	return addSeriesCharm(c, store, "precise", name)
+}
+
+func addSeriesCharm(c *gc.C, store *coretesting.MockCharmStore, series, name string) (*charm.URL, charm.Charm) {
 	bundle := coretesting.Charms.Bundle(c.MkDir(), name)
-	scurl := fmt.Sprintf("cs:precise/%s-%d", name, bundle.Revision())
+	scurl := fmt.Sprintf("cs:%s/%s-%d", series, name, bundle.Revision())
 	curl := charm.MustParseURL(scurl)
 	err := store.SetCharm(curl, bundle)
 	c.Assert(err, gc.IsNil)

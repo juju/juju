@@ -560,6 +560,17 @@ func (c *Client) AddCharm(curl *charm.URL) error {
 	return c.st.Call("Client", "", "AddCharm", args, nil)
 }
 
+// ResolveCharm resolves the best available series for a charm location without
+// a series defined.
+func (c *Client) ResolveCharm(ref charm.Reference) (*charm.URL, error) {
+	args := params.CharmURL{URL: ref.String()}
+	result := new(params.CharmURL)
+	if err := c.st.Call("Client", "", "ResolveCharm", args, result); err != nil {
+		return nil, err
+	}
+	return charm.MustParseURL(result.URL), nil
+}
+
 func (c *Client) UploadTools(
 	toolsFilename string, vers version.Binary, fakeSeries ...string,
 ) (
