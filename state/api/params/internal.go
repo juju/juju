@@ -332,8 +332,11 @@ type SetStatus struct {
 // error.
 type StatusResult struct {
 	Error  *Error
+	Id     string
+	Life   Life
 	Status Status
 	Info   string
+	Data   StatusData
 }
 
 // StatusResults holds multiple status results.
