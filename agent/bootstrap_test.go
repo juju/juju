@@ -129,13 +129,11 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	expectConstraints := constraints.MustParse("mem=1024M")
 	expectHW := instance.MustParseHardware("mem=2048M")
-	address := instance.Address{"127.0.0.1", instance.Ipv4Address, "", instance.NetworkMachineLocal}
 	mcfg := agent.BootstrapMachineConfig{
 		Constraints:     expectConstraints,
 		Jobs:            []params.MachineJob{params.JobHostUnits},
 		InstanceId:      "i-bootstrap",
 		Characteristics: expectHW,
-		Addresses:       []instance.Address{address},
 	}
 	envAttrs := testing.FakeConfig().Delete("admin-secret").Merge(testing.Attrs{
 		"agent-version": version.Current.Number.String(),
@@ -153,7 +151,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	if err == nil {
 		st.Close()
 	}
-	c.Assert(err, gc.ErrorMatches, "cannot initialize bootstrap user: user already exists")
+	c.Assert(err, gc.ErrorMatches, "failed to initialize state: cannot create log collection: unauthorized mongo access: unauthorized")
 }
 
 func (*bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, password string) {

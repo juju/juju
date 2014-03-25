@@ -259,14 +259,17 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 		if err := admin.Login(info.Tag, info.Password); err != nil {
 			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to admin database as %q", info.Tag))
 		}
+		logger.Infof("successfully logged in")
 	} else if info.Password != "" {
 		logger.Infof("logging in as %q, password %q", AdminUser, info.Password)
 		admin := session.DB(AdminUser)
 		if err := admin.Login(AdminUser, info.Password); err != nil {
 			return nil, maybeUnauthorized(err, "cannot log in to admin database")
 		}
+		logger.Infof("successfully logged in")
+	} else {
+		logger.Infof("Tag and password are both empty, not attempting db login")
 	}
-	logger.Infof("successfully logged in")
 	st := &State{
 		info:           info,
 		policy:         policy,
