@@ -45,12 +45,13 @@ ssh "$@" $remote_user@$instance_name  <<EOT
 set -eux
 if [[ $is_ephemeral == "true" ]]; then
     for attempt in \$(seq 10); do
-      if grep ec2.archive.ubuntu.com /etc/apt/sources.list > /dev/null; then
-        break
-      elif [ "\$attempt" == "10" ]; then
-        exit 1
-      fi
-      sleep 10
+        if grep -r '^deb .* universe$' /etc/apt/sources.list > /dev/null; then
+            break
+        elif [ "\$attempt" == "10" ]; then
+            echo "Universe is not available to install packages from."
+            exit 1
+        fi
+        sleep 10m
     done
 fi
 sudo apt-get update
