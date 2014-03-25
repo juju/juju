@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/loggo"
 	gc "launchpad.net/gocheck"
-	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/environs"
