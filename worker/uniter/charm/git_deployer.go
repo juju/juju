@@ -199,6 +199,7 @@ func collectGitOrphans(dataPath string) {
 	if os.IsNotExist(err) {
 		logger.Warningf("no current staging repo")
 	} else if err != nil {
+		logger.Warningf("cannot read current staging repo: %v", err)
 		return
 	} else if !filepath.IsAbs(current) {
 		current = filepath.Join(dataPath, current)
