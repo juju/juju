@@ -6,16 +6,19 @@ package local_test
 import (
 	"fmt"
 	"io/ioutil"
-	"launchpad.net/juju-core/upstart"
 	"os"
 	"path/filepath"
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
+	"launchpad.net/golxc"
 
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/container"
+	"launchpad.net/juju-core/container/lxc"
+	containertesting "launchpad.net/juju-core/container/testing"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
@@ -27,6 +30,7 @@ import (
 	"launchpad.net/juju-core/provider/local"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/upstart"
 )
 
 const echoCommandScript = "#!/bin/sh\necho $0 \"$@\" >> $0.args"
@@ -259,6 +263,27 @@ func (s *localJujuTestSuite) TestDestroyRemovesUpstartServices(c *gc.C) {
 
 	c.Assert(mongo.Installed(), jc.IsFalse)
 	c.Assert(machineAgent.Installed(), jc.IsFalse)
+}
+
+func (s *localJujuTestSuite) TestDestroyRemovesContainers(c *gc.C) {
+	env := s.testBootstrap(c, minimalConfig(c))
+	s.makeAgentsDir(c, env)
+	s.PatchValue(local.CheckIfRoot, func() bool { return true })
+
+	namespace := env.Config().AllAttrs()["namespace"].(string)
+	manager, err := lxc.NewContainerManager(container.ManagerConfig{
+		container.ConfigName:   namespace,
+		container.ConfigLogDir: "logdir",
+	})
+	c.Assert(err, gc.IsNil)
+
+	machine1 := containertesting.CreateContainer(c, manager, "1")
+
+	err = env.Destroy()
+	c.Assert(err, gc.IsNil)
+
+	container := s.Factory.New(string(machine1.Id()))
+	c.Assert(container.IsConstructed(), jc.IsFalse)
 }
 
 func (s *localJujuTestSuite) TestBootstrapRemoveLeftovers(c *gc.C) {
