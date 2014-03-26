@@ -137,11 +137,11 @@ func (c *Client) Resolved(unit string, retry bool) error {
 // ResolveProvisioningError updates the provisioning status of a machine allowing the
 // provisioner to retry.
 func (c *Client) ResolveProvisioningError(machine string) error {
-	p := params.SetStatus{
-		Entities: []params.EntityStatus{{Tag: machine, Data: params.StatusData{"transient": true}}},
+	p := params.Entities{
+		Entities: []params.Entity{{Tag: machine}},
 	}
 	var results params.ErrorResults
-	err := c.st.Call("Client", "", "UpdateMachineStatus", p, &results)
+	err := c.st.Call("Client", "", "ResolveProvisioningError", p, &results)
 	if err != nil {
 		return err
 	}
