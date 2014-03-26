@@ -238,8 +238,8 @@ var commandNames = []string{
 	"remove-relation", // alias for destroy-relation
 	"remove-service",  // alias for destroy-service
 	"remove-unit",     // alias for destroy-unit
-	"resolve-provisioning-error",
 	"resolved",
+	"retry-provisioning",
 	"run",
 	"scp",
 	"set",

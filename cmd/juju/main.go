@@ -98,7 +98,7 @@ func Main(args []string) {
 	jujucmd.Register(wrap(&ResolvedCommand{}))
 	jujucmd.Register(wrap(&DebugLogCommand{sshCmd: &SSHCommand{}}))
 	jujucmd.Register(wrap(&DebugHooksCommand{}))
-	jujucmd.Register(wrap(&ResolveProvisioningErrorCommand{}))
+	jujucmd.Register(wrap(&RetryProvisioningCommand{}))
 
 	// Configuration commands.
 	jujucmd.Register(wrap(&InitCommand{}))
