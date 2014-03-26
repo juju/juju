@@ -39,6 +39,7 @@ func environFromName(
 	}
 	cleanup := func() {
 		if !existing {
+			ctx.Infof("%s failed, destroying environment", action)
 			destroyPreparedEnviron(environ, store, resultErr, action)
 		}
 	}

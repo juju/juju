@@ -183,6 +183,8 @@ type BootstrapContext interface {
 	GetStdin() io.Reader
 	GetStdout() io.Writer
 	GetStderr() io.Writer
+	Infof(format string, params ...interface{})
+	Verbosef(format string, params ...interface{})
 
 	// InterruptNotify starts watching for interrupt signals
 	// on behalf of the caller, sending them to the supplied

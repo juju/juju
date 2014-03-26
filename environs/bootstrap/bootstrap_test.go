@@ -216,7 +216,7 @@ func (s *bootstrapSuite) TestEnsureToolsAvailabilityIncompatibleHostArch(c *gc.C
 	s.setDummyStorage(c, env)
 	envtesting.RemoveFakeTools(c, env.Storage())
 	arch := "ppc64"
-	_, err := bootstrap.EnsureToolsAvailability(env, env.Config().DefaultSeries(), &arch)
+	_, err := bootstrap.EnsureToolsAvailability(coretesting.Context(c), env, env.Config().DefaultSeries(), &arch)
 	c.Assert(err, gc.NotNil)
 	stripped := strings.Replace(err.Error(), "\n", "", -1)
 	c.Assert(stripped,
@@ -232,7 +232,7 @@ func (s *bootstrapSuite) TestEnsureToolsAvailabilityIncompatibleTargetArch(c *gc
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
 	envtesting.RemoveFakeTools(c, env.Storage())
-	_, err := bootstrap.EnsureToolsAvailability(env, env.Config().DefaultSeries(), nil)
+	_, err := bootstrap.EnsureToolsAvailability(coretesting.Context(c), env, env.Config().DefaultSeries(), nil)
 	c.Assert(err, gc.NotNil)
 	stripped := strings.Replace(err.Error(), "\n", "", -1)
 	c.Assert(stripped,
@@ -245,7 +245,7 @@ func (s *bootstrapSuite) TestEnsureToolsAvailabilityAgentVersionAlreadySet(c *gc
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{"agent-version": "1.16.0"})
 	s.setDummyStorage(c, env)
 	envtesting.RemoveFakeTools(c, env.Storage())
-	_, err := bootstrap.EnsureToolsAvailability(env, env.Config().DefaultSeries(), nil)
+	_, err := bootstrap.EnsureToolsAvailability(coretesting.Context(c), env, env.Config().DefaultSeries(), nil)
 	c.Assert(err, gc.NotNil)
 	stripped := strings.Replace(err.Error(), "\n", "", -1)
 	c.Assert(stripped,
@@ -259,7 +259,7 @@ func (s *bootstrapSuite) TestEnsureToolsAvailabilityNonDevVersion(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
 	envtesting.RemoveFakeTools(c, env.Storage())
-	_, err := bootstrap.EnsureToolsAvailability(env, env.Config().DefaultSeries(), nil)
+	_, err := bootstrap.EnsureToolsAvailability(coretesting.Context(c), env, env.Config().DefaultSeries(), nil)
 	c.Assert(err, gc.NotNil)
 	stripped := strings.Replace(err.Error(), "\n", "", -1)
 	c.Assert(stripped,
@@ -309,7 +309,7 @@ func (s *bootstrapSuite) TestEnsureToolsAvailability(c *gc.C) {
 		return "arm64"
 	})
 	arch := "arm64"
-	agentTools, err := bootstrap.EnsureToolsAvailability(env, env.Config().DefaultSeries(), &arch)
+	agentTools, err := bootstrap.EnsureToolsAvailability(coretesting.Context(c), env, env.Config().DefaultSeries(), &arch)
 	c.Assert(err, gc.IsNil)
 	c.Assert(agentTools, gc.HasLen, 1)
 	expectedVers := version.Current
@@ -352,7 +352,7 @@ func (s *bootstrapSuite) assertUploadTools(c *gc.C, vers version.Binary, allowRe
 		return "arm64"
 	})
 	arch := "arm64"
-	err := bootstrap.UploadTools(env, &arch, allowRelease, "precise")
+	err := bootstrap.UploadTools(coretesting.Context(c), env, &arch, allowRelease, "precise")
 	if errMessage != "" {
 		stripped := strings.Replace(err.Error(), "\n", "", -1)
 		c.Assert(stripped, gc.Matches, errMessage)
