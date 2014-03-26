@@ -315,19 +315,6 @@ type SetProvisioned struct {
 	Machines []MachineSetProvisioned
 }
 
-// SetEntityStatus holds an entity tag, status and extra info.
-type SetEntityStatus struct {
-	Tag    string
-	Status Status
-	Info   string
-	Data   StatusData
-}
-
-// SetStatus holds the parameters for making a SetStatus call.
-type SetStatus struct {
-	Entities []SetEntityStatus
-}
-
 // StatusResult holds an entity status, extra information, or an
 // error.
 type StatusResult struct {

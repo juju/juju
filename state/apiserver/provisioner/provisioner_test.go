@@ -317,7 +317,7 @@ func (s *withoutStateServerSuite) TestSetStatus(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	args := params.SetStatus{
-		Entities: []params.SetEntityStatus{
+		Entities: []params.EntityStatus{
 			{Tag: s.machines[0].Tag(), Status: params.StatusError, Info: "not really",
 				Data: params.StatusData{"foo": "bar"}},
 			{Tag: s.machines[1].Tag(), Status: params.StatusStopped, Info: "foobar"},
