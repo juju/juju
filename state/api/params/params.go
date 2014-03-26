@@ -66,6 +66,19 @@ type ErrorResult struct {
 // StatusData contains additional information for a status.
 type StatusData map[string]interface{}
 
+// EntityStatus holds an entity tag, status and extra info.
+type EntityStatus struct {
+	Tag    string
+	Status Status
+	Info   string
+	Data   StatusData
+}
+
+// SetStatus holds the parameters for making a Set/UpdateStatus call.
+type SetStatus struct {
+	Entities []EntityStatus
+}
+
 // AddRelation holds the parameters for making the AddRelation call.
 // The endpoints specified are unordered.
 type AddRelation struct {
