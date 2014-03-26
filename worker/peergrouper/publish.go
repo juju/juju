@@ -18,7 +18,7 @@ func newPublisher(st *state.State) *publisher {
 	}
 }
 
-func (pub *publisher) publishAPIServers(apiServers [][]instance.HostPort) error {
-	// TODO(rog) publish API addresses (instance ids?) in environment storage.
+func (pub *publisher) publishAPIServers(apiServers [][]instance.HostPort, instanceIds []instance.Id) error {
+	// TODO(rog) publish instanceIds in environment storage.
 	return pub.st.SetAPIHostPorts(apiServers)
 }
