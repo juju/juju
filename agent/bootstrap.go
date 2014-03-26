@@ -62,6 +62,7 @@ func (c *configInternal) StateInfo() *state.Info {
 		Password: c.stateDetails.password,
 		CACert:   c.caCert,
 		Tag:      c.tag,
+		Port:     c.statePort,
 	}
 }
 
