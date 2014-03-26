@@ -189,8 +189,12 @@ type UnsetEnvironmentCommand struct {
 }
 
 const unsetEnvHelpDoc = `
-Set one or more the environment configuration attributes to its default value
-in a running Juju instance.  Attributes without defaults are removed.
+Reset one or more the environment configuration attributes to its default
+value in a running Juju instance.  Attributes without defaults are removed,
+and attempting to remove a required attribute with no default will result
+in an error.
+
+Multiple attributes may be removed at once; keys are space-separated.
 `
 
 func (c *UnsetEnvironmentCommand) Info() *cmd.Info {
