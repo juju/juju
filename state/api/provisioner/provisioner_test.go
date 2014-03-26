@@ -133,12 +133,10 @@ func (s *provisionerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 
 	machines, info, err := p.MachinesWithTransientErrors()
 	c.Assert(err, gc.IsNil)
-	c.Assert(machines, gc.HasLen, 2)
-	c.Assert(info, gc.HasLen, 2)
-	c.Assert(machines[0], gc.IsNil)
-	c.Assert(info[0].Error, gc.ErrorMatches, "permission denied")
-	c.Assert(info[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
-	c.Assert(info[1], gc.DeepEquals, params.StatusResult{
+	c.Assert(machines, gc.HasLen, 1)
+	c.Assert(machines[0].Id(), gc.Equals, "1")
+	c.Assert(info, gc.HasLen, 1)
+	c.Assert(info[0], gc.DeepEquals, params.StatusResult{
 		Id:     "1",
 		Life:   "alive",
 		Status: "error",

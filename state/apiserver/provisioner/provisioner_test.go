@@ -369,6 +369,7 @@ func (s *withoutStateServerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 }
 
 func (s *withoutStateServerSuite) TestMachinesWithTransientErrorsPermission(c *gc.C) {
+	// Machines where there's permission issues are omitted.
 	anAuthorizer := s.authorizer
 	anAuthorizer.MachineAgent = true
 	anAuthorizer.EnvironManager = false
@@ -389,11 +390,8 @@ func (s *withoutStateServerSuite) TestMachinesWithTransientErrorsPermission(c *g
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
-			{Error: apiservertesting.ErrUnauthorized},
 			{Id: "1", Life: "alive", Status: "error", Info: "transient error",
 				Data: params.StatusData{"transient": true, "foo": "bar"}},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 }

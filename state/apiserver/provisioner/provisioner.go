@@ -235,26 +235,22 @@ func (p *ProvisionerAPI) MachinesWithTransientErrors() (params.StatusResults, er
 		return results, err
 	}
 	for _, machine := range machines {
-		err = common.ErrPerm
+		if !canAccessFunc(machine.Tag()) {
+			continue
+		}
 		result := params.StatusResult{}
-		canAccess := canAccessFunc(machine.Tag())
-		if canAccess {
-			result.Status, result.Info, result.Data, err = machine.Status()
+		if result.Status, result.Info, result.Data, err = machine.Status(); err != nil {
+			continue
 		}
-		if canAccess && err == nil {
-			if result.Status != params.StatusError {
-				continue
-			}
-			// Transient errors are marked as such in the status data.
-			if transient, ok := result.Data["transient"]; !ok || !transient.(bool) {
-				continue
-			}
+		if result.Status != params.StatusError {
+			continue
 		}
-		result.Error = common.ServerError(err)
-		if err == nil {
-			result.Id = machine.Id()
-			result.Life = params.Life(machine.Life().String())
+		// Transient errors are marked as such in the status data.
+		if transient, ok := result.Data["transient"].(bool); !ok || !transient {
+			continue
 		}
+		result.Id = machine.Id()
+		result.Life = params.Life(machine.Life().String())
 		results.Results = append(results.Results, result)
 	}
 	return results, nil
