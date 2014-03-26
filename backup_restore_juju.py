@@ -80,7 +80,6 @@ def restore_present_state_server(env, backup_file):
         print(
             "juju-restore correctly refused to restore "
             "because the state-server was still up.")
-        print(err)
         match = running_instance_pattern.search(err)
         if match is None:
             raise Exception("The instance was not found in output above.")
@@ -128,6 +127,7 @@ def restore_missing_state_server(env, backup_file):
     print(output)
     env.wait_for_started().status
     print("%s restored" % env.environment)
+    print("PASS")
 
 
 def main():
@@ -147,6 +147,7 @@ def main():
         restore_missing_state_server(env, backup_file)
     except Exception as e:
         print(e)
+        print("FAIL")
         sys.exit(1)
 
 
