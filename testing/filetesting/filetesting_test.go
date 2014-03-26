@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	ft "launchpad.net/juju-core/testing/filetesting"
@@ -170,4 +171,85 @@ func (s *EntrySuite) TestSymlinkCheckFailureDir(c *gc.C) {
 	ft.Dir{"link", 0755}.Create(c, s.basePath)
 	c.ExpectFailure("should not accept dir")
 	ft.Symlink{"link", "different"}.Check(c, s.basePath)
+}
+
+func (s *EntrySuite) TestRemovedCreate(c *gc.C) {
+	ft.File{"some-file", "content", 0644}.Create(c, s.basePath)
+	ft.Removed{"some-file"}.Create(c, s.basePath)
+	_, err := os.Lstat(s.join("some-file"))
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
+}
+
+func (s *EntrySuite) TestRemovedCreateNothing(c *gc.C) {
+	ft.Removed{"some-file"}.Create(c, s.basePath)
+	_, err := os.Lstat(s.join("some-file"))
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
+}
+
+func (s *EntrySuite) TestRemovedCreateFailure(c *gc.C) {
+	ft.File{"some-file", "content", 0644}.Create(c, s.basePath)
+	os.Chmod(s.basePath, 0444)
+	c.ExpectFailure("should fail to remove file")
+	ft.Removed{"some-file"}.Create(c, s.basePath)
+}
+
+func (s *EntrySuite) TestRemovedCheckFailureFile(c *gc.C) {
+	ft.File{"some-file", "", 0644}.Create(c, s.basePath)
+	c.ExpectFailure("should not accept file")
+	ft.Removed{"some-file"}.Check(c, s.basePath)
+}
+
+func (s *EntrySuite) TestRemovedCheckFailureDir(c *gc.C) {
+	ft.Dir{"some-dir", 0755}.Create(c, s.basePath)
+	c.ExpectFailure("should not accept dir")
+	ft.Removed{"some-dir"}.Check(c, s.basePath)
+}
+
+func (s *EntrySuite) TestRemovedCheckFailureSymlink(c *gc.C) {
+	ft.Symlink{"some-link", "target"}.Create(c, s.basePath)
+	c.ExpectFailure("should not accept symlink")
+	ft.Removed{"some-link"}.Check(c, s.basePath)
+}
+
+func (s *EntrySuite) TestEntries(c *gc.C) {
+	initial := ft.Entries{
+		ft.File{"some-file", "content", 0600},
+		ft.Dir{"some-dir", 0750},
+		ft.Symlink{"some-link", "target"},
+		ft.Removed{"missing"},
+	}
+	expectRemoveds := ft.Entries{
+		ft.Removed{"some-file"},
+		ft.Removed{"some-dir"},
+		ft.Removed{"some-link"},
+		ft.Removed{"missing"},
+	}
+	removeds := initial.Removeds()
+	c.Assert(removeds, jc.DeepEquals, expectRemoveds)
+
+	expectPaths := []string{"some-file", "some-dir", "some-link", "missing"}
+	c.Assert(initial.Paths(), jc.DeepEquals, expectPaths)
+	c.Assert(removeds.Paths(), jc.DeepEquals, expectPaths)
+
+	chainRemoveds := initial.Create(c, s.basePath).Check(c, s.basePath).Removeds()
+	c.Assert(chainRemoveds, jc.DeepEquals, expectRemoveds)
+	chainRemoveds = chainRemoveds.Create(c, s.basePath).Check(c, s.basePath)
+	c.Assert(chainRemoveds, jc.DeepEquals, expectRemoveds)
+}
+
+func (s *EntrySuite) TestEntriesCreateFailure(c *gc.C) {
+	c.ExpectFailure("cannot create an entry")
+	ft.Entries{
+		ft.File{"good", "good", 0750},
+		ft.File{"nodir/bad", "bad", 0640},
+	}.Create(c, s.basePath)
+}
+
+func (s *EntrySuite) TestEntriesCheckFailure(c *gc.C) {
+	goodFile := ft.File{"good", "good", 0751}.Create(c, s.basePath)
+	c.ExpectFailure("entry does not exist")
+	ft.Entries{
+		goodFile,
+		ft.File{"bad", "", 0750},
+	}.Check(c, s.basePath)
 }
