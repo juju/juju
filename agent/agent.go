@@ -231,6 +231,7 @@ type configInternal struct {
 	stateServerCert   []byte
 	stateServerKey    []byte
 	apiPort           int
+	statePort         int
 	values            map[string]string
 }
 
@@ -328,6 +329,7 @@ func NewStateMachineConfig(configParams StateMachineConfigParams) (Config, error
 	config.stateServerCert = configParams.StateServerCert
 	config.stateServerKey = configParams.StateServerKey
 	config.apiPort = configParams.APIPort
+	config.statePort = configParams.StatePort
 	return config, nil
 }
 
@@ -455,8 +457,18 @@ func (c *configInternal) SetValue(key, value string) {
 	}
 }
 
+// TODO: remove me and change callers to use StateServingInfo
 func (c *configInternal) APIServerDetails() (port int, cert, key []byte) {
 	return c.apiPort, c.stateServerCert, c.stateServerKey
+}
+
+func (c *configInternal) StateServingInfo() (params.StateServingInfo, bool) {
+	return &params.StateServingInfo{
+		APIPort:   c.apiPort,
+		StatePort: c.statePort,
+		Cert:      c.stateServerCert,
+		Key:       c.stateServerKey,
+	}
 }
 
 func (c *configInternal) APIAddresses() ([]string, error) {

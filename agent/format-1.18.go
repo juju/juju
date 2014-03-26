@@ -41,6 +41,7 @@ type format_1_18Serialization struct {
 	StateServerCert string `yaml:",omitempty"`
 	StateServerKey  string `yaml:",omitempty"`
 	APIPort         int    `yaml:",omitempty"`
+	StatePort       int    `yaml:",omitempty"`
 }
 
 func init() {
@@ -52,6 +53,8 @@ func (formatter_1_18) version() string {
 }
 
 func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
+	// NOTE: this needs to handle the absence of StatePort and get it from the
+	// address
 	var format format_1_18Serialization
 	if err := goyaml.Unmarshal(data, &format); err != nil {
 		return nil, err

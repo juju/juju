@@ -464,7 +464,7 @@ type StateServingInfo struct {
 	StatePort int
 	Cert      string
 	Key       string
-	KeyFile   string
+	//	KeyFile   string
 }
 
 // MachineInfo holds the information about a Machine

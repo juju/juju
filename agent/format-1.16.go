@@ -98,6 +98,7 @@ func (formatter_1_16) unmarshal(data []byte) (*configInternal, error) {
 		apiPort:           format.APIPort,
 		values:            format.Values,
 	}
+	//TODO: extract StatePort from address
 	if len(format.StateAddresses) > 0 {
 		config.stateDetails = &connectionDetails{
 			format.StateAddresses,
