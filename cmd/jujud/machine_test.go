@@ -886,6 +886,12 @@ func (s *MachineWithCharmsSuite) SetUpTest(c *gc.C) {
 func (s *MachineWithCharmsSuite) TestManageEnvironRunsCharmRevisionUpdater(c *gc.C) {
 	s.SetupScenario(c)
 
+	testpath := c.MkDir()
+	s.PatchEnvPathPrepend(testpath)
+	fakeCmd(filepath.Join(testpath, "start"))
+	fakeCmd(filepath.Join(testpath, "stop"))
+	s.PatchValue(&upstart.InitDir, c.MkDir())
+
 	// Start the machine agent.
 	a := NewMachineAgent()
 	args := []string{"--data-dir", s.DataDir(), "--machine-id", s.machine.Id()}
