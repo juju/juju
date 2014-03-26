@@ -427,7 +427,7 @@ func runViaSsh(addr string, script string) error {
 func sendViaScp(file, host, destFile string) error {
 	err := ssh.Copy([]string{file, "ubuntu@" + host + ":" + destFile}, nil, nil)
 	if err != nil {
-		return fmt.Errorf("scp command failed: (%q)", err)
+		return fmt.Errorf("scp command failed: %v", err)
 	}
 	return nil
 }
