@@ -282,14 +282,23 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 
 	_, err = juju.DeployService(c.api.state,
 		juju.DeployServiceParams{
-			ServiceName:    args.ServiceName,
-			Charm:          ch,
-			NumUnits:       args.NumUnits,
-			ConfigSettings: settings,
-			Constraints:    args.Constraints,
-			ToMachineSpec:  args.ToMachineSpec,
+			ServiceName:     args.ServiceName,
+			Charm:           ch,
+			NumUnits:        args.NumUnits,
+			ConfigSettings:  settings,
+			Constraints:     args.Constraints,
+			ToMachineSpec:   args.ToMachineSpec,
+			IncludeNetworks: args.IncludeNetworks,
+			ExcludeNetworks: args.ExcludeNetworks,
 		})
 	return err
+}
+
+// ServiceDeployWithNetworks works exactly like ServiceDeploy, but
+// allows specifying networks to include or exclude on the machine
+// where the charm gets deployed.
+func (c *Client) ServiceDeployWithNetworks(args params.ServiceDeploy) error {
+	return c.ServiceDeploy(args)
 }
 
 // ServiceUpdate updates the service attributes, including charm URL,

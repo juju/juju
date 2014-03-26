@@ -680,6 +680,50 @@ func (s *clientSuite) TestClientServiceDeployCharmErrors(c *gc.C) {
 	}
 }
 
+func (s *clientSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
+	store, restore := makeMockCharmStore()
+	defer restore()
+	curl, bundle := addCharm(c, store, "dummy")
+	mem4g := constraints.MustParse("mem=4G")
+	err := s.APIState.Client().ServiceDeployWithNetworks(
+		curl.String(), "service", 3, "", mem4g, "", []string{"net1", "net2"}, []string{"net3"},
+	)
+	c.Assert(err, gc.IsNil)
+	service := s.assertPrincipalDeployed(c, "service", curl, false, bundle, mem4g)
+
+	include, exclude, err := service.Networks()
+	c.Assert(err, gc.IsNil)
+	c.Assert(include, gc.DeepEquals, []string{"net1", "net2"})
+	c.Assert(exclude, gc.DeepEquals, []string{"net3"})
+}
+
+func (s *clientSuite) assertPrincipalDeployed(c *gc.C, serviceName string, curl *charm.URL, forced bool, bundle charm.Charm, cons constraints.Value) *state.Service {
+	service, err := s.State.Service(serviceName)
+	c.Assert(err, gc.IsNil)
+	charm, force, err := service.Charm()
+	c.Assert(err, gc.IsNil)
+	c.Assert(force, gc.Equals, forced)
+	c.Assert(charm.URL(), gc.DeepEquals, curl)
+	c.Assert(charm.Meta(), gc.DeepEquals, bundle.Meta())
+	c.Assert(charm.Config(), gc.DeepEquals, bundle.Config())
+
+	serviceCons, err := service.Constraints()
+	c.Assert(err, gc.IsNil)
+	c.Assert(serviceCons, gc.DeepEquals, cons)
+	units, err := service.AllUnits()
+	c.Assert(err, gc.IsNil)
+	for _, unit := range units {
+		mid, err := unit.AssignedMachineId()
+		c.Assert(err, gc.IsNil)
+		machine, err := s.State.Machine(mid)
+		c.Assert(err, gc.IsNil)
+		machineCons, err := machine.Constraints()
+		c.Assert(err, gc.IsNil)
+		c.Assert(machineCons, gc.DeepEquals, cons)
+	}
+	return service
+}
+
 func (s *clientSuite) TestClientServiceDeployPrincipal(c *gc.C) {
 	// TODO(fwereade): test ToMachineSpec directly on srvClient, when we
 	// manage to extract it as a package and can thus do it conveniently.
@@ -691,29 +735,7 @@ func (s *clientSuite) TestClientServiceDeployPrincipal(c *gc.C) {
 		curl.String(), "service", 3, "", mem4g, "",
 	)
 	c.Assert(err, gc.IsNil)
-	service, err := s.State.Service("service")
-	c.Assert(err, gc.IsNil)
-	charm, force, err := service.Charm()
-	c.Assert(err, gc.IsNil)
-	c.Assert(force, gc.Equals, false)
-	c.Assert(charm.URL(), gc.DeepEquals, curl)
-	c.Assert(charm.Meta(), gc.DeepEquals, bundle.Meta())
-	c.Assert(charm.Config(), gc.DeepEquals, bundle.Config())
-
-	cons, err := service.Constraints()
-	c.Assert(err, gc.IsNil)
-	c.Assert(cons, gc.DeepEquals, mem4g)
-	units, err := service.AllUnits()
-	c.Assert(err, gc.IsNil)
-	for _, unit := range units {
-		mid, err := unit.AssignedMachineId()
-		c.Assert(err, gc.IsNil)
-		machine, err := s.State.Machine(mid)
-		c.Assert(err, gc.IsNil)
-		cons, err := machine.Constraints()
-		c.Assert(err, gc.IsNil)
-		c.Assert(cons, gc.DeepEquals, mem4g)
-	}
+	s.assertPrincipalDeployed(c, "service", curl, false, bundle, mem4g)
 }
 
 func (s *clientSuite) TestClientServiceDeploySubordinate(c *gc.C) {
