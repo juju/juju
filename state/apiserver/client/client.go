@@ -799,13 +799,19 @@ func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
 		}
 		return nil
 	}
-
 	// TODO(waigani) 2014-3-11 #1167616
 	// Add a txn retry loop to ensure that the settings on disk have not
 	// changed underneath us.
-
 	return c.api.state.UpdateEnvironConfig(args.Config, nil, checkAgentVersion)
+}
 
+// EnvironmentUnset implements the server-side part of the
+// set-environment CLI command.
+func (c *Client) EnvironmentUnset(args params.EnvironmentUnset) error {
+	// TODO(waigani) 2014-3-11 #1167616
+	// Add a txn retry loop to ensure that the settings on disk have not
+	// changed underneath us.
+	return c.api.state.UpdateEnvironConfig(nil, args.Keys, nil)
 }
 
 // SetEnvironAgentVersion sets the environment agent version.

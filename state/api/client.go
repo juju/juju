@@ -427,6 +427,12 @@ func (c *Client) EnvironmentSet(config map[string]interface{}) error {
 	return c.call("EnvironmentSet", args, nil)
 }
 
+// EnvironmentUnset sets the given key-value pairs in the environment.
+func (c *Client) EnvironmentUnset(keys ...string) error {
+	args := params.EnvironmentUnset{Keys: keys}
+	return c.call("EnvironmentUnset", args, nil)
+}
+
 // SetEnvironAgentVersion sets the environment agent-version setting
 // to the given value.
 func (c *Client) SetEnvironAgentVersion(version version.Number) error {

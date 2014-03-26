@@ -253,6 +253,8 @@ var commandNames = []string{
 	"terminate-machine", // alias for destroy-machine
 	"unexpose",
 	"unset",
+	"unset-env", // alias for unset-environment
+	"unset-environment",
 	"upgrade-charm",
 	"upgrade-juju",
 	"version",

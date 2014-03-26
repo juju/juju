@@ -181,3 +181,61 @@ func (c *SetEnvironmentCommand) Run(ctx *cmd.Context) error {
 	}
 	return err
 }
+
+// UnsetEnvironment
+type UnsetEnvironmentCommand struct {
+	cmd.EnvCommandBase
+	keys []string
+}
+
+const unsetEnvHelpDoc = `
+Set one or more the environment configuration attributes to its default value
+in a running Juju instance.  Attributes without defaults are removed.
+`
+
+func (c *UnsetEnvironmentCommand) Info() *cmd.Info {
+	return &cmd.Info{
+		Name:    "unset-environment",
+		Args:    "<environment key> ...",
+		Purpose: "unset environment values",
+		Doc:     strings.TrimSpace(unsetEnvHelpDoc),
+		Aliases: []string{"unset-env"},
+	}
+}
+
+func (c *UnsetEnvironmentCommand) Init(args []string) (err error) {
+	if len(args) == 0 {
+		return fmt.Errorf("No keys specified")
+	}
+	c.keys = args
+	return nil
+}
+
+// run1dot16 runs matches client.EnvironmentUnset using a direct DB
+// connection to maintain compatibility with an API server running 1.16 or
+// older (when EnvironmentUnset was not available). This fallback can be removed
+// when we no longer maintain 1.16 compatibility.
+func (c *UnsetEnvironmentCommand) run1dot16() error {
+	conn, err := juju.NewConnFromName(c.EnvName)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	return conn.State.UpdateEnvironConfig(nil, c.keys, nil)
+}
+
+func (c *UnsetEnvironmentCommand) Run(ctx *cmd.Context) error {
+	client, err := juju.NewAPIClientFromName(c.EnvName)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	err = client.EnvironmentUnset(c.keys...)
+	if params.IsCodeNotImplemented(err) {
+		logger.Infof("EnvironmentUnset not supported by the API server, " +
+			"falling back to 1.16 compatibility mode (direct DB access)")
+		err = c.run1dot16()
+	}
+	return err
+}
