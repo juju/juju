@@ -106,8 +106,8 @@ func (ctx *Context) write(format string, params ...interface{}) {
 	fmt.Fprint(ctx.Stderr, output)
 }
 
-// Infof will write the formatted string to Stderr if quiet is false, and to
-// the logger if we are.
+// Infof will write the formatted string to Stderr if quiet is false, but if
+// quiet is true the message is logged.
 func (ctx *Context) Infof(format string, params ...interface{}) {
 	if ctx.quiet {
 		logger.Infof(format, params...)
