@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
@@ -309,7 +310,7 @@ var statusTests = []testCase{
 		}},
 		addCharm{"dummy"},
 		addService{
-			name:            "network-service",
+			name:            "networks-service",
 			charm:           "dummy",
 			withNetworks:    []string{"net1", "net2"},
 			withoutNetworks: []string{"net3", "net4"},
@@ -1919,15 +1920,13 @@ func (e scopedExpect) step(c *gc.C, ctx *context) {
 		c.Assert(err, gc.IsNil)
 		expected := make(M)
 		err = format.unmarshal(buf, &expected)
-		c.Logf("expected: %#v", expected)
 		c.Assert(err, gc.IsNil)
 
 		// Check the output is as expected.
 		actual := make(M)
 		err = format.unmarshal(stdout, &actual)
 		c.Assert(err, gc.IsNil)
-		c.Logf("actual: %#v", expected)
-		c.Assert(actual, gc.DeepEquals, expected)
+		c.Assert(actual, jc.DeepEquals, expected)
 	}
 }
 
