@@ -208,6 +208,31 @@ class TestJujuClientDevel(TestCase):
         self.assertEqual(Status, type(result))
         self.assertEqual(['a', 'b', 'c'], result.status)
 
+    def test_get_status_retries_on_error(self):
+        client = JujuClientDevelFake(None, None)
+        client.attempt = 0
+        def get_juju_output(environment, command):
+            if client.attempt == 1:
+                return '"hello"'
+            client.attempt += 1
+            raise subprocess.CalledProcessError(1, command)
+
+        env = Environment('foo', '')
+        with patch.object(client, 'get_juju_output', get_juju_output):
+            result = client.get_status(env)
+
+    def test_get_status_raises_on_timeout(self):
+        client = JujuClientDevelFake(None, None)
+        def get_juju_output(environment, command):
+            raise subprocess.CalledProcessError(1, command)
+
+        env = Environment('foo', '')
+        with patch.object(client, 'get_juju_output', get_juju_output):
+            with patch('jujupy.until_timeout', lambda x: iter([None, None])):
+                with self.assertRaisesRegexp(
+                        Exception, 'Timed out waiting for juju status'):
+                    result = client.get_status(env)
+
     def test_juju(self):
         env = Environment('qux', '')
         client = JujuClientDevel(None, None)
