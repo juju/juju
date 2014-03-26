@@ -65,6 +65,7 @@ func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 
 	s.LoggingSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
+	s.makeTestEnv(c)
 }
 
 func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
@@ -129,8 +130,6 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob,
 }
 
 func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
-	s.makeTestEnv(c)
-
 	hw := instance.MustParseHardware("arch=amd64 mem=8G")
 	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.testConfig, "--instance-id", bootstrapInstanceId, "--hardware", hw.String())
 	c.Assert(err, gc.IsNil)
@@ -166,7 +165,7 @@ func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 	tcons := constraints.Value{Mem: uint64p(2048), CpuCores: uint64p(2)}
 	_, cmd, err := s.initBootstrapCommand(c, nil,
 		"--env-config", s.testConfig,
-		"--instance-id", "anything",
+		"--instance-id", bootstrapInstanceId,
 		"--constraints", tcons.String(),
 	)
 	c.Assert(err, gc.IsNil)
@@ -200,6 +199,7 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 	expectedJobs := []state.MachineJob{
 		state.JobManageEnviron, state.JobHostUnits,
 	}
+
 	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.testConfig, "--instance-id", bootstrapInstanceId)
 	c.Assert(err, gc.IsNil)
 	err = cmd.Run(nil)
@@ -301,7 +301,7 @@ var bootstrapArgTests = []struct {
 	}, {
 		// empty env-config
 		input: []string{"--env-config", ""},
-		err:   "--env-config option must be not be an empty string",
+		err:   "--env-config option must be set",
 	}, {
 		// wrong, should be base64
 		input: []string{"--env-config", "name: banana\n"},
