@@ -122,7 +122,6 @@ type machineStatus struct {
 	DNSName        string                   `json:"dns-name,omitempty" yaml:"dns-name,omitempty"`
 	InstanceId     instance.Id              `json:"instance-id,omitempty" yaml:"instance-id,omitempty"`
 	InstanceState  string                   `json:"instance-state,omitempty" yaml:"instance-state,omitempty"`
-	Networks       map[string][]string      `json:"networks,omitempty" yaml:"networks,omitempty"`
 	Life           string                   `json:"life,omitempty" yaml:"life,omitempty"`
 	Series         string                   `json:"series,omitempty" yaml:"series,omitempty"`
 	Id             string                   `json:"-" yaml:"-"`
@@ -159,6 +158,7 @@ type serviceStatus struct {
 	Exposed       bool                  `json:"exposed" yaml:"exposed"`
 	Life          string                `json:"life,omitempty" yaml:"life,omitempty"`
 	Relations     map[string][]string   `json:"relations,omitempty" yaml:"relations,omitempty"`
+	Networks      map[string][]string   `json:"networks,omitempty" yaml:"networks,omitempty"`
 	SubordinateTo []string              `json:"subordinate-to,omitempty" yaml:"subordinate-to,omitempty"`
 	Units         map[string]unitStatus `json:"units,omitempty" yaml:"units,omitempty"`
 }
@@ -238,18 +238,11 @@ func formatMachine(machine api.MachineStatus) machineStatus {
 		DNSName:        machine.DNSName,
 		InstanceId:     machine.InstanceId,
 		InstanceState:  machine.InstanceState,
-		Networks:       make(map[string][]string),
 		Life:           machine.Life,
 		Series:         machine.Series,
 		Id:             machine.Id,
 		Containers:     make(map[string]machineStatus),
 		Hardware:       machine.Hardware,
-	}
-	if len(machine.Networks.Enabled) > 0 {
-		out.Networks["enabled"] = machine.Networks.Enabled
-	}
-	if len(machine.Networks.Disabled) > 0 {
-		out.Networks["disabled"] = machine.Networks.Disabled
 	}
 	for k, m := range machine.Containers {
 		out.Containers[k] = formatMachine(m)
@@ -264,9 +257,16 @@ func formatService(service api.ServiceStatus) serviceStatus {
 		Exposed:       service.Exposed,
 		Life:          service.Life,
 		Relations:     service.Relations,
+		Networks:      make(map[string][]string),
 		CanUpgradeTo:  service.CanUpgradeTo,
 		SubordinateTo: service.SubordinateTo,
 		Units:         make(map[string]unitStatus),
+	}
+	if len(service.Networks.Enabled) > 0 {
+		out.Networks["enabled"] = service.Networks.Enabled
+	}
+	if len(service.Networks.Disabled) > 0 {
+		out.Networks["disabled"] = service.Networks.Disabled
 	}
 	for k, m := range service.Units {
 		out.Units[k] = formatUnit(m)
