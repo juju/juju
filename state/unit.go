@@ -562,7 +562,7 @@ func (u *Unit) SetStatus(status params.Status, info string, data params.StatusDa
 		StatusInfo: info,
 		StatusData: data,
 	}
-	if err := doc.validateSet(); err != nil {
+	if err := doc.validateSet(false); err != nil {
 		return err
 	}
 	ops := []txn.Op{{
