@@ -134,25 +134,12 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	ref, series, err := charm.ParseReference(c.CharmName)
+	curl, err := resolveCharmURL(c.CharmName, client, conf)
 	if err != nil {
 		return err
 	}
 
-	var curl *charm.URL
-	if series == "" {
-		series = conf.DefaultSeries()
-	}
-	if series == "" {
-		curl, err = client.ResolveCharm(ref)
-		if err != nil {
-			return err
-		}
-	} else {
-		curl = &charm.URL{Reference: ref, Series: series}
-	}
-
-	repo, err := charm.InferRepository(ref, ctx.AbsPath(c.RepoPath))
+	repo, err := charm.InferRepository(curl.Reference, ctx.AbsPath(c.RepoPath))
 	if err != nil {
 		return err
 	}
@@ -220,30 +207,11 @@ func (c *DeployCommand) run1dot16(ctx *cmd.Context) error {
 		return err
 	}
 
-	var curl *charm.URL
-	ref, series, err := charm.ParseReference(c.CharmName)
+	curl, repo, err := resolveCharmRepo1dot16(c.CharmName, ctx.AbsPath(c.RepoPath), conf)
 	if err != nil {
 		return err
 	}
 
-	repo, err := charm.InferRepository(ref, ctx.AbsPath(c.RepoPath))
-	if err != nil {
-		return err
-	}
-
-	repo = config.SpecializeCharmRepo(repo, conf)
-
-	if series == "" {
-		series = conf.DefaultSeries()
-	}
-	if series == "" {
-		curl, err = repo.Resolve(ref)
-		if err != nil {
-			return err
-		}
-	} else {
-		curl = &charm.URL{Reference: ref, Series: series}
-	}
 	// TODO(fwereade) it's annoying to roundtrip the bytes through the client
 	// here, but it's the original behaviour and not convenient to change.
 	// PutCharm will always be required in some form for local charms; and we

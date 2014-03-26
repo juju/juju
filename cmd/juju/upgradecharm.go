@@ -129,22 +129,9 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 
 	var newURL *charm.URL
 	if c.SwitchURL != "" {
-		// A new charm URL was explicitly specified.
-		ref, series, err := charm.ParseReference(c.SwitchURL)
+		newURL, err = resolveCharmURL(c.SwitchURL, client, conf)
 		if err != nil {
 			return err
-		}
-
-		if series == "" {
-			series = conf.DefaultSeries()
-		}
-		if series == "" {
-			newURL, err = client.ResolveCharm(ref)
-			if err != nil {
-				return err
-			}
-		} else {
-			newURL = &charm.URL{Reference: ref, Series: series}
 		}
 	} else {
 		// No new URL specified, but revision might have been.
@@ -155,7 +142,6 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-
 	repo = config.SpecializeCharmRepo(repo, conf)
 
 	// If no explicit revision was set with either SwitchURL
@@ -216,27 +202,10 @@ func (c *UpgradeCharmCommand) run1dot16(ctx *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		ref, series, err := charm.ParseReference(c.SwitchURL)
+
+		newURL, repo, err = resolveCharmRepo1dot16(c.SwitchURL, ctx.AbsPath(c.RepoPath), conf)
 		if err != nil {
 			return err
-		}
-
-		repo, err := charm.InferRepository(ref, ctx.AbsPath(c.RepoPath))
-		if err != nil {
-			return err
-		}
-		repo = config.SpecializeCharmRepo(repo, conf)
-
-		if series == "" {
-			series = conf.DefaultSeries()
-		}
-		if series == "" {
-			newURL, err = repo.Resolve(ref)
-			if err != nil {
-				return err
-			}
-		} else {
-			newURL = &charm.URL{Reference: ref, Series: series}
 		}
 	} else {
 		// No new URL specified, but revision might have been.

@@ -4,10 +4,13 @@
 package main
 
 import (
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/state/api"
 )
 
 // destroyPreparedEnviron destroys the environment and logs an error if it fails.
@@ -43,4 +46,51 @@ func environFromName(
 		}
 	}
 	return environ, cleanup, nil
+}
+
+// resolveCharmURL returns a resolved charm URL, given a charm location string.
+// If the series is not resolved, the environment default-series is used, or if
+// not set, the series is resolved with the state server.
+func resolveCharmURL(url string, client *api.Client, conf *config.Config) (*charm.URL, error) {
+	ref, series, err := charm.ParseReference(url)
+	if err != nil {
+		return nil, err
+	}
+	if series == "" {
+		series = conf.DefaultSeries()
+	}
+	if series == "" {
+		return client.ResolveCharm(ref)
+	}
+	return &charm.URL{Reference: ref, Series: series}, nil
+}
+
+// resolveCharmRepo1dot16 returns a resolved charm URL and the repository that
+// contains it given a charm location string.  To resolve an unspecified series,
+// the environment default-series is used, or if not set, the series is
+// resolved with the repository directly.  Remove once the support for 1.16 is
+// dropped.
+func resolveCharmRepo1dot16(url, repoPath string, conf *config.Config) (*charm.URL, charm.Repository, error) {
+	ref, series, err := charm.ParseReference(url)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	repo, err := charm.InferRepository(ref, repoPath)
+	if err != nil {
+		return nil, nil, err
+	}
+	repo = config.SpecializeCharmRepo(repo, conf)
+
+	if series == "" {
+		series = conf.DefaultSeries()
+	}
+	if series == "" {
+		curl, err := repo.Resolve(ref)
+		if err != nil {
+			return nil, nil, err
+		}
+		return curl, repo, err
+	}
+	return &charm.URL{Reference: ref, Series: series}, repo, err
 }
