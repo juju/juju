@@ -282,14 +282,23 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 
 	_, err = juju.DeployService(c.api.state,
 		juju.DeployServiceParams{
-			ServiceName:    args.ServiceName,
-			Charm:          ch,
-			NumUnits:       args.NumUnits,
-			ConfigSettings: settings,
-			Constraints:    args.Constraints,
-			ToMachineSpec:  args.ToMachineSpec,
+			ServiceName:     args.ServiceName,
+			Charm:           ch,
+			NumUnits:        args.NumUnits,
+			ConfigSettings:  settings,
+			Constraints:     args.Constraints,
+			ToMachineSpec:   args.ToMachineSpec,
+			IncludeNetworks: args.IncludeNetworks,
+			ExcludeNetworks: args.ExcludeNetworks,
 		})
 	return err
+}
+
+// ServiceDeployWithNetworks works exactly like ServiceDeploy, but
+// allows specifying networks to include or exclude on the machine
+// where the charm gets deployed.
+func (c *Client) ServiceDeployWithNetworks(args params.ServiceDeploy) error {
+	return c.ServiceDeploy(args)
 }
 
 // ServiceUpdate updates the service attributes, including charm URL,
@@ -957,8 +966,8 @@ func CharmArchiveName(name string, revision int) (string, error) {
 	return charm.Quote(fmt.Sprintf("%s-%d-%s", name, revision, uuid)), nil
 }
 
-// ResolveProvisioningError marks a provisioning error as transient on the machines.
-func (c *Client) ResolveProvisioningError(p params.Entities) (params.ErrorResults, error) {
+// RetryProvisioning marks a provisioning error as transient on the machines.
+func (c *Client) RetryProvisioning(p params.Entities) (params.ErrorResults, error) {
 	entityStatus := make([]params.EntityStatus, len(p.Entities))
 	for i, entity := range p.Entities {
 		entityStatus[i] = params.EntityStatus{Tag: entity.Tag, Data: params.StatusData{"transient": true}}

@@ -90,7 +90,6 @@ func (s *environSuite) TestErrorWhenEnvironIsInvalid(c *gc.C) {
 	defer st.Close()
 	err = st.UpdateEnvironConfig(map[string]interface{}{"secret": 999}, nil, nil)
 	c.Assert(err, gc.IsNil)
-
 	obs, err := worker.NewEnvironObserver(s.State)
 	c.Assert(err, gc.ErrorMatches, `cannot make Environ: secret: expected string, got int\(999\)`)
 	c.Assert(obs, gc.IsNil)

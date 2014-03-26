@@ -27,10 +27,11 @@ type ProvisionerAPI struct {
 	*common.EnvironMachinesWatcher
 	*common.InstanceIdGetter
 
-	st          *state.State
-	resources   *common.Resources
-	authorizer  common.Authorizer
-	getAuthFunc common.GetAuthFunc
+	st                  *state.State
+	resources           *common.Resources
+	authorizer          common.Authorizer
+	getAuthFunc         common.GetAuthFunc
+	getCanWatchMachines common.GetAuthFunc
 }
 
 // NewProvisionerAPI creates a new server-side ProvisionerAPI facade.
@@ -87,6 +88,7 @@ func NewProvisionerAPI(
 		resources:              resources,
 		authorizer:             authorizer,
 		getAuthFunc:            getAuthFunc,
+		getCanWatchMachines:    getCanReadSecrets,
 	}, nil
 }
 
@@ -238,6 +240,11 @@ func (p *ProvisionerAPI) MachinesWithTransientErrors() (params.StatusResults, er
 		if !canAccessFunc(machine.Tag()) {
 			continue
 		}
+		if _, provisionedErr := machine.InstanceId(); provisionedErr == nil {
+			// Machine may have been provisioned but machiner hasn't set the
+			// status to Started yet.
+			continue
+		}
 		result := params.StatusResult{}
 		if result.Status, result.Info, result.Data, err = machine.Status(); err != nil {
 			continue
@@ -315,6 +322,27 @@ func (p *ProvisionerAPI) SetProvisioned(args params.SetProvisioned) (params.Erro
 			err = machine.SetProvisioned(arg.InstanceId, arg.Nonce, arg.Characteristics)
 		}
 		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// WatchMachineErrorRetry returns a NotifyWatcher that notifies when
+// the provisioner should retry provisioning machines with transient errors.
+func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, error) {
+	result := params.NotifyWatchResult{}
+	canWatch, err := p.getCanWatchMachines()
+	if err != nil {
+		return params.NotifyWatchResult{}, err
+	}
+	if !canWatch("") {
+		return result, common.ErrPerm
+	}
+	watch := newWatchMachineErrorRetry()
+	// Consume any initial event and forward it to the result.
+	if _, ok := <-watch.Changes(); ok {
+		result.NotifyWatcherId = p.resources.Register(watch)
+	} else {
+		return result, watcher.MustErr(watch)
 	}
 	return result, nil
 }
