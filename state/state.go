@@ -1405,7 +1405,7 @@ func (st *State) StateServingInfo() (params.StateServingInfo, error) {
 	var info params.StateServingInfo
 	err := st.stateServers.Find(bson.D{{"_id", stateServingInfoKey}}).One(&info)
 	if err != nil {
-		return nil, err
+		return info, err
 	}
 	return info, nil
 }
@@ -1422,16 +1422,9 @@ func (st *State) SetStateServingInfo(info params.StateServingInfo) error {
 	// created by
 	// Initialize.
 	ops := []txn.Op{{
-		C:  st.stateServers.Name,
-		Id: stateServingInfoKey,
-		Update: bson.D{{"$set", bson.D{
-			{
-				"APIPort":   info.APIPort,
-				"StatePort": info.StatePort,
-				"Cert":      info.Cert,
-				"Key":       info.Key,
-			},
-		}}},
+		C:      st.stateServers.Name,
+		Id:     stateServingInfoKey,
+		Update: bson.D{{"$set", info}},
 	}}
 	if err := st.runTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set state serving info: %v", err)

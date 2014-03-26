@@ -2850,6 +2850,25 @@ func newUint64(i uint64) *uint64 {
 	return &i
 }
 
+func (s *StateSuite) TestSetStateServingInfo(c *gc.C) {
+	info, err := s.State.StateServingInfo()
+	c.Assert(info, jc.DeepEquals, params.StateServingInfo{})
+	c.Assert(err, gc.NotNil)
+
+	data := params.StateServingInfo{
+		APIPort:   69,
+		StatePort: 80,
+		Cert:      "Some cert",
+		Key:       "Some key",
+	}
+	err = s.State.SetStateServingInfo(data)
+	c.Assert(err, gc.IsNil)
+
+	info, err = s.State.StateServingInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(info, jc.DeepEquals, data)
+}
+
 func (s *StateSuite) TestSetAPIHostPorts(c *gc.C) {
 	addrs, err := s.State.APIHostPorts()
 	c.Assert(err, gc.IsNil)
