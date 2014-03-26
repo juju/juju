@@ -26,8 +26,9 @@ type Client struct {
 	st *State
 }
 
-// NetworksStatus holds the enabled and disabled networks for a service.
-type NetworksStatus struct {
+// NetworksSpecification holds the enabled and disabled networks for a
+// service.
+type NetworksSpecification struct {
 	Enabled  []string
 	Disabled []string
 }
@@ -59,7 +60,7 @@ type ServiceStatus struct {
 	Exposed       bool
 	Life          string
 	Relations     map[string][]string
-	Networks      NetworksStatus
+	Networks      NetworksSpecification
 	CanUpgradeTo  string
 	SubordinateTo []string
 	Units         map[string]UnitStatus

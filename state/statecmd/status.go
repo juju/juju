@@ -348,7 +348,7 @@ func (context *statusContext) processService(service *state.Service) (status api
 	}
 	includeNetworks, excludeNetworks, err := service.Networks()
 	if err == nil {
-		status.Networks = api.NetworksStatus{
+		status.Networks = api.NetworksSpecification{
 			Enabled:  includeNetworks,
 			Disabled: excludeNetworks,
 		}
