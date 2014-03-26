@@ -17,7 +17,6 @@ import (
 	"github.com/errgo/errgo"
 	"github.com/juju/loggo"
 
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
@@ -666,18 +665,5 @@ func (c *configInternal) Password() string {
 }
 
 func (c *configInternal) OpenState(policy state.Policy) (*state.State, error) {
-	info := c.StateInfo()
-	if info.Password != "" {
-		st, err := state.Open(info, state.DefaultDialOpts(), policy)
-		if err == nil {
-			return st, nil
-		}
-		// TODO(rog) remove this fallback behaviour when
-		// all initial connections are via the API.
-		if !errors.IsUnauthorizedError(err) {
-			return nil, err
-		}
-	}
-	info.Password = c.oldPassword
-	return state.Open(info, state.DefaultDialOpts(), policy)
+	return state.Open(c.StateInfo(), state.DefaultDialOpts(), policy)
 }
