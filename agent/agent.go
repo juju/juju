@@ -17,7 +17,6 @@ import (
 	"github.com/errgo/errgo"
 	"github.com/juju/loggo"
 
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
