@@ -119,6 +119,7 @@ func (s *withoutStateServerSuite) TestSetPasswords(c *gc.C) {
 			{Tag: s.machines[0].Tag(), Password: "xxx0-1234567890123457890"},
 			{Tag: s.machines[1].Tag(), Password: "xxx1-1234567890123457890"},
 			{Tag: s.machines[2].Tag(), Password: "xxx2-1234567890123457890"},
+			{Tag: s.machines[3].Tag(), Password: "xxx3-1234567890123457890"},
 			{Tag: "machine-42", Password: "foo"},
 			{Tag: "unit-foo-0", Password: "zzz"},
 			{Tag: "service-bar", Password: "abc"},
@@ -128,6 +129,7 @@ func (s *withoutStateServerSuite) TestSetPasswords(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
+			{nil},
 			{nil},
 			{nil},
 			{nil},
@@ -705,7 +707,7 @@ func (s *withoutStateServerSuite) TestWatchEnvironMachines(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{
 		StringsWatcherId: "1",
-		Changes:          []string{"0", "1", "2"},
+		Changes:          []string{"0", "1", "2", "3"},
 	})
 
 	// Verify the resources were registered and stop them when done.
