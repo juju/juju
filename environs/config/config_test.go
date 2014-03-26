@@ -652,7 +652,6 @@ var configTests = []configTest{
 	authTokenConfigTest("token=value, =z", false),
 	authTokenConfigTest("token=value =z", false),
 	authTokenConfigTest("\t", false),
-	missingAttributeNoDefault("default-series"),
 	missingAttributeNoDefault("firewall-mode"),
 	missingAttributeNoDefault("development"),
 	missingAttributeNoDefault("ssl-hostname-verification"),
@@ -861,11 +860,9 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 	testmode, _ := test.attrs["test-mode"].(bool)
 	c.Assert(cfg.TestMode(), gc.Equals, testmode)
 
-	if series, _ := test.attrs["default-series"].(string); series != "" {
-		c.Assert(cfg.DefaultSeries(), gc.Equals, series)
-	} else {
-		c.Assert(cfg.DefaultSeries(), gc.Equals, config.DefaultSeries)
-	}
+	series, _ := test.attrs["default-series"].(string)
+	c.Assert(cfg.DefaultSeries(), gc.Equals, series)
+
 	if m, _ := test.attrs["firewall-mode"].(string); m != "" {
 		c.Assert(cfg.FirewallMode(), gc.Equals, m)
 	}

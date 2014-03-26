@@ -765,7 +765,7 @@ var alwaysOptional = schema.Defaults{
 	"image-metadata-url": "", // TODO(rog) omit
 	"tools-metadata-url": "", // TODO(rog) omit
 
-	"default-series": schema.Omit,
+	"default-series": "",
 
 	// For backward compatibility only - default ports were
 	// not filled out in previous versions of the configuration.
