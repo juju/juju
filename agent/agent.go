@@ -113,6 +113,9 @@ type Config interface {
 	// are available
 	StateServingInfo() (params.StateServingInfo, bool)
 
+	// SetStateServingInfo sets the state server related fields
+	SetStateServingInfo(info params.StateServingInfo)
+
 	// UpgradedToVersion returns the version for which all upgrade steps have been
 	// successfully run, which is also the same as the initially deployed version.
 	UpgradedToVersion() version.Number
@@ -468,7 +471,14 @@ func (c *configInternal) StateServingInfo() (params.StateServingInfo, bool) {
 		StatePort: c.statePort,
 		Cert:      c.stateServerCert,
 		Key:       c.stateServerKey,
-	}
+	}, true
+}
+
+func (c *configInteral) SetStateServingInfo(info params.StateServingInfo) {
+	c.apiPort = info.APIPort
+	c.statePort = info.StatePort
+	c.stateServerCert = info.Cert
+	c.stateServerKey = info.Key
 }
 
 func (c *configInternal) APIAddresses() ([]string, error) {
