@@ -59,8 +59,8 @@ func (w *machineErrorRetry) Changes() <-chan struct{} {
 	return w.out
 }
 
-// WaitDelay is the poll time currently used to trigger the watcher.
-var WaitDelay = 2 * time.Minute
+// ErrorRetryWaitDelay is the poll time currently used to trigger the watcher.
+var ErrorRetryWaitDelay = 2 * time.Minute
 
 // The initial implementation of this watcher simply acts as a poller,
 // triggering every 2 minutes.
@@ -70,7 +70,7 @@ func (w *machineErrorRetry) loop() error {
 		select {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
-		case <-time.After(WaitDelay):
+		case <-time.After(ErrorRetryWaitDelay):
 			out = w.out
 		case out <- struct{}{}:
 			out = nil

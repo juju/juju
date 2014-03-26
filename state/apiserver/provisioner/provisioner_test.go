@@ -928,3 +928,35 @@ func (s *withStateServerSuite) TestCACert(c *gc.C) {
 		Result: s.State.CACert(),
 	})
 }
+
+func (s *withoutStateServerSuite) TestWatchMachineErrorRetry(c *gc.C) {
+	s.PatchValue(&provisioner.ErrorRetryWaitDelay, 2*coretesting.ShortWait)
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	_, err := s.provisioner.WatchMachineErrorRetry()
+	c.Assert(err, gc.IsNil)
+
+	// Verify the resources were registered and stop them when done.
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	// Check that the Watch has consumed the initial event ("returned"
+	// in the Watch call)
+	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
+	wc.AssertNoChange()
+
+	// We should now get a time triggered change.
+	wc.AssertOneChange()
+
+	// Make sure WatchMachineErrorRetry fails with a machine agent login.
+	anAuthorizer := s.authorizer
+	anAuthorizer.MachineAgent = true
+	anAuthorizer.EnvironManager = false
+	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
+	c.Assert(err, gc.IsNil)
+
+	result, err := aProvisioner.WatchMachineErrorRetry()
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{})
+}

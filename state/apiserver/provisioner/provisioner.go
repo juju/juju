@@ -27,11 +27,11 @@ type ProvisionerAPI struct {
 	*common.EnvironMachinesWatcher
 	*common.InstanceIdGetter
 
-	st          *state.State
-	resources   *common.Resources
-	authorizer  common.Authorizer
-	getAuthFunc common.GetAuthFunc
-	getCanWatch common.GetAuthFunc
+	st                  *state.State
+	resources           *common.Resources
+	authorizer          common.Authorizer
+	getAuthFunc         common.GetAuthFunc
+	getCanWatchMachines common.GetAuthFunc
 }
 
 // NewProvisionerAPI creates a new server-side ProvisionerAPI facade.
@@ -68,7 +68,7 @@ func NewProvisionerAPI(
 			return isMachineAgent && names.MachineTag(parentId) == authEntityTag
 		}, nil
 	}
-	// The provisioner can always watch machines.
+	// Both provisioner types can watch the environment.
 	getCanWatch := common.AuthAlways(true)
 	// Only the environment provisioner can read secrets.
 	getCanReadSecrets := common.AuthAlways(authorizer.AuthEnvironManager())
@@ -88,7 +88,7 @@ func NewProvisionerAPI(
 		resources:              resources,
 		authorizer:             authorizer,
 		getAuthFunc:            getAuthFunc,
-		getCanWatch:            getCanWatch,
+		getCanWatchMachines:    getCanReadSecrets,
 	}, nil
 }
 
@@ -334,7 +334,7 @@ func (p *ProvisionerAPI) SetProvisioned(args params.SetProvisioned) (params.Erro
 // the provisioner should retry provisioning machines with transient errors.
 func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
-	canWatch, err := p.getCanWatch()
+	canWatch, err := p.getCanWatchMachines()
 	if err != nil {
 		return params.NotifyWatchResult{}, err
 	}
