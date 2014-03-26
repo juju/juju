@@ -4,6 +4,8 @@
 package common
 
 import (
+	"fmt"
+
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 )
@@ -83,6 +85,9 @@ func (s *StatusSetter) updateEntityStatusData(tag string, data params.StatusData
 	entity, ok := entity0.(state.StatusSetter)
 	if !ok {
 		return NotSupportedError(tag, "updating status")
+	}
+	if len(newData) > 0 && existingStatus != params.StatusError {
+		return fmt.Errorf("machine %q is not in an error state", tag)
 	}
 	return entity.SetStatus(existingStatus, existingInfo, newData)
 }

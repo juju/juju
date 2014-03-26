@@ -138,18 +138,17 @@ func (c *Client) Resolved(unit string, retry bool) error {
 	return c.call("Resolved", p, nil)
 }
 
-// ResolveProvisioningError updates the provisioning status of a machine allowing the
+// RetryProvisioning updates the provisioning status of a machine allowing the
 // provisioner to retry.
-func (c *Client) ResolveProvisioningError(machine string) error {
-	p := params.Entities{
-		Entities: []params.Entity{{Tag: machine}},
+func (c *Client) RetryProvisioning(machines ...string) ([]params.ErrorResult, error) {
+	p := params.Entities{}
+	p.Entities = make([]params.Entity, len(machines))
+	for i, machine := range machines {
+		p.Entities[i] = params.Entity{Tag: machine}
 	}
 	var results params.ErrorResults
-	err := c.st.Call("Client", "", "ResolveProvisioningError", p, &results)
-	if err != nil {
-		return err
-	}
-	return results.OneError()
+	err := c.st.Call("Client", "", "RetryProvisioning", p, &results)
+	return results.Results, err
 }
 
 // PublicAddress returns the public address of the specified
@@ -256,12 +255,29 @@ func (c *Client) ServiceUnexpose(service string) error {
 	return c.call("ServiceUnexpose", params, nil)
 }
 
+// ServiceDeployWithNetworks works exactly like ServiceDeploy, but
+// allows specifying networks to either include or exclude on the
+// machine where the charm is deployed.
+func (c *Client) ServiceDeployWithNetworks(charmURL string, serviceName string, numUnits int, configYAML string, cons constraints.Value, toMachineSpec string, includeNetworks, excludeNetworks []string) error {
+	params := params.ServiceDeploy{
+		ServiceName:     serviceName,
+		CharmUrl:        charmURL,
+		NumUnits:        numUnits,
+		ConfigYAML:      configYAML,
+		Constraints:     cons,
+		ToMachineSpec:   toMachineSpec,
+		IncludeNetworks: includeNetworks,
+		ExcludeNetworks: excludeNetworks,
+	}
+	return c.st.Call("Client", "", "ServiceDeployWithNetworks", params, nil)
+}
+
 // ServiceDeploy obtains the charm, either locally or from the charm store,
 // and deploys it.
-func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int, configYAML string, cons constraints.Value, toMachineSpec string) error {
+func (c *Client) ServiceDeploy(charmURL string, serviceName string, numUnits int, configYAML string, cons constraints.Value, toMachineSpec string) error {
 	params := params.ServiceDeploy{
 		ServiceName:   serviceName,
-		CharmUrl:      charmUrl,
+		CharmUrl:      charmURL,
 		NumUnits:      numUnits,
 		ConfigYAML:    configYAML,
 		Constraints:   cons,
