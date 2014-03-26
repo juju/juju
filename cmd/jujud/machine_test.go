@@ -4,6 +4,7 @@
 package main
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -36,6 +37,7 @@ import (
 	"launchpad.net/juju-core/state/watcher"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/ssh"
 	sshtesting "launchpad.net/juju-core/utils/ssh/testing"
@@ -70,11 +72,27 @@ func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
 func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	s.agentSuite.SetUpTest(c)
 	s.TestSuite.SetUpTest(c)
+
 	os.Remove(jujuRun) // ignore error; may not exist
 	// Fake $HOME, and ssh user to avoid touching ~ubuntu/.ssh/authorized_keys.
 	fakeHome := coretesting.MakeEmptyFakeHomeWithoutJuju(c)
 	s.AddCleanup(func(*gc.C) { fakeHome.Restore() })
 	s.PatchValue(&authenticationworker.SSHUser, "")
+
+	testpath := c.MkDir()
+	s.PatchEnvPathPrepend(testpath)
+	// mock out the start method so we can fake install services without sudo
+	fakeCmd(filepath.Join(testpath, "start"))
+	fakeCmd(filepath.Join(testpath, "stop"))
+
+	s.PatchValue(&upstart.InitDir, c.MkDir())
+}
+
+func fakeCmd(path string) {
+	err := ioutil.WriteFile(path, []byte("#!/bin/bash --norc\nexit 0"), 0755)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (s *commonMachineSuite) TearDownTest(c *gc.C) {
