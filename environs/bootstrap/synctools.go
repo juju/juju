@@ -53,7 +53,7 @@ func UploadTools(ctx environs.BootstrapContext, env environs.Environ, toolsArch 
 	go func() {
 		defer close(interruptStorage) // closing interrupts all uploads
 		if _, ok := <-interrupted; ok {
-			fmt.Fprintln(ctx.GetStderr(), "cancelling tools upload")
+			ctx.Infof("cancelling tools upload")
 		}
 	}()
 	stor := newInterruptibleStorage(env.Storage(), interruptStorage)
@@ -61,7 +61,7 @@ func UploadTools(ctx environs.BootstrapContext, env environs.Environ, toolsArch 
 	cfg := env.Config()
 	explicitVersion := uploadVersion(version.Current.Number, nil)
 	uploadSeries := SeriesToUpload(cfg, bootstrapSeries)
-	fmt.Fprintf(ctx.GetStderr(), "uploading tools for series %s\n", uploadSeries)
+	ctx.Infof("uploading tools for series %s", uploadSeries)
 	tools, err := sync.Upload(stor, &explicitVersion, uploadSeries...)
 	if err != nil {
 		return err

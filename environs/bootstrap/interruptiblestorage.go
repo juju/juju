@@ -32,7 +32,7 @@ type interruptibleReader struct {
 	interrupt <-chan struct{}
 }
 
-func (r *interruptibleReader) Read(p []byte) (n int, err error) {
+func (r *interruptibleReader) Read(p []byte) (int, error) {
 	// if the interrupt channel is already
 	// closed, just drop out immediately.
 	select {
@@ -42,6 +42,8 @@ func (r *interruptibleReader) Read(p []byte) (n int, err error) {
 	}
 
 	// read and wait for interruption concurrently
+	var n int
+	var err error
 	done := make(chan struct{})
 	go func() {
 		defer close(done)

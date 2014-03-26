@@ -109,7 +109,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	defer ctx.StopInterruptNotify(interrupted)
 	go func() {
 		for _ = range interrupted {
-			fmt.Fprintln(ctx.GetStderr(), "Interrupt signalled: waiting for bootstrap to exit")
+			ctx.Infof("Interrupt signalled: waiting for bootstrap to exit")
 		}
 	}()
 
