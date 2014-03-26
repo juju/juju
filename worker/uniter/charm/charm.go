@@ -27,7 +27,7 @@ type BundleReader interface {
 // BundleInfo holds bundle information for a charm.
 type BundleInfo interface {
 	URL() *charm.URL
-	ArchiveURL() (*url.URL, bool, error)
+	ArchiveURL() (*url.URL, utils.SSLHostnameVerification, error)
 	ArchiveSha256() (string, error)
 }
 
@@ -61,7 +61,7 @@ func (d *BundlesDir) Read(info BundleInfo, abort <-chan struct{}) (*charm.Bundle
 // hash, then copies it into the directory. If a value is received on abort, the
 // download will be stopped.
 func (d *BundlesDir) download(info BundleInfo, abort <-chan struct{}) (err error) {
-	archiveURL, disableSSLHostnameVerification, err := info.ArchiveURL()
+	archiveURL, hostnameVerification, err := info.ArchiveURL()
 	if err != nil {
 		return err
 	}
@@ -72,10 +72,10 @@ func (d *BundlesDir) download(info BundleInfo, abort <-chan struct{}) (err error
 	}
 	aurl := archiveURL.String()
 	log.Infof("worker/uniter/charm: downloading %s from %s", info.URL(), aurl)
-	if disableSSLHostnameVerification {
+	if hostnameVerification == utils.NoVerifySSLHostnames {
 		log.Infof("worker/uniter/charm: SSL hostname verification disabled")
 	}
-	dl := downloader.New(aurl, dir, disableSSLHostnameVerification)
+	dl := downloader.New(aurl, dir, hostnameVerification)
 	defer dl.Stop()
 	for {
 		select {
@@ -118,8 +118,8 @@ func (d *BundlesDir) bundlePath(info BundleInfo) string {
 
 // bundleURLPath returns the path to the location where the verified charm
 // bundle identified by url will be, or has been, saved.
-func (d *BundlesDir) bundleURLPath(url *charm.URL) string {
-	return path.Join(d.path, charm.Quote(url.String()))
+func (d *BundlesDir) bundleURLPath(charmURL *charm.URL) string {
+	return path.Join(d.path, charm.Quote(charmURL.String()))
 }
 
 // downloadsPath returns the path to the directory into which charms are

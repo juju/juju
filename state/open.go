@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
 	"launchpad.net/juju-core/cert"
@@ -254,6 +255,7 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 		relations:      db.C("relations"),
 		relationScopes: db.C("relationscopes"),
 		services:       db.C("services"),
+		networks:       db.C("linkednetworks"),
 		minUnits:       db.C("minunits"),
 		settings:       db.C("settings"),
 		settingsrefs:   db.C("settingsrefs"),
@@ -319,7 +321,7 @@ func (st *State) createStateServersDoc() error {
 	// we're concerned about, there is only ever one state connection
 	// (from the single bootstrap machine).
 	var machineDocs []machineDoc
-	err := st.machines.Find(D{{"jobs", JobManageEnviron}}).All(&machineDocs)
+	err := st.machines.Find(bson.D{{"jobs", JobManageEnviron}}).All(&machineDocs)
 	if err != nil {
 		return err
 	}
@@ -337,7 +339,7 @@ func (st *State) createStateServersDoc() error {
 	ops := []txn.Op{{
 		C:  st.stateServers.Name,
 		Id: environGlobalKey,
-		Update: D{{"$set", D{
+		Update: bson.D{{"$set", bson.D{
 			{"machineids", doc.MachineIds},
 			{"votingmachineids", doc.VotingMachineIds},
 		}}},

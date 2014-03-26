@@ -38,6 +38,8 @@ type API struct {
 	resources *common.Resources
 	client    *Client
 	dataDir   string
+	// statusSetter provides common methods for updating an entity's provisioning status.
+	statusSetter *common.StatusSetter
 }
 
 // Client serves client-specific API methods.
@@ -48,10 +50,11 @@ type Client struct {
 // NewAPI creates a new instance of the Client API.
 func NewAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer, datadir string) *API {
 	r := &API{
-		state:     st,
-		auth:      authorizer,
-		resources: resources,
-		dataDir:   datadir,
+		state:        st,
+		auth:         authorizer,
+		resources:    resources,
+		dataDir:      datadir,
+		statusSetter: common.NewStatusSetter(st, common.AuthAlways(true)),
 	}
 	r.client = &Client{
 		api: r,
@@ -279,14 +282,14 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 
 	_, err = juju.DeployService(c.api.state,
 		juju.DeployServiceParams{
-			ServiceName:      args.ServiceName,
-			Charm:            ch,
-			NumUnits:         args.NumUnits,
-			ConfigSettings:   settings,
-			Constraints:      args.Constraints,
-			ToMachineSpec:    args.ToMachineSpec,
-			IncludedNetworks: args.IncludedNetworks,
-			ExcludedNetworks: args.ExcludedNetworks,
+			ServiceName:     args.ServiceName,
+			Charm:           ch,
+			NumUnits:        args.NumUnits,
+			ConfigSettings:  settings,
+			Constraints:     args.Constraints,
+			ToMachineSpec:   args.ToMachineSpec,
+			IncludeNetworks: args.IncludeNetworks,
+			ExcludeNetworks: args.ExcludeNetworks,
 		})
 	return err
 }
@@ -808,13 +811,19 @@ func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
 		}
 		return nil
 	}
-
 	// TODO(waigani) 2014-3-11 #1167616
 	// Add a txn retry loop to ensure that the settings on disk have not
 	// changed underneath us.
-
 	return c.api.state.UpdateEnvironConfig(args.Config, nil, checkAgentVersion)
+}
 
+// EnvironmentUnset implements the server-side part of the
+// set-environment CLI command.
+func (c *Client) EnvironmentUnset(args params.EnvironmentUnset) error {
+	// TODO(waigani) 2014-3-11 #1167616
+	// Add a txn retry loop to ensure that the settings on disk have not
+	// changed underneath us.
+	return c.api.state.UpdateEnvironConfig(nil, args.Keys, nil)
 }
 
 // SetEnvironAgentVersion sets the environment agent version.
@@ -955,4 +964,15 @@ func CharmArchiveName(name string, revision int) (string, error) {
 		return "", err
 	}
 	return charm.Quote(fmt.Sprintf("%s-%d-%s", name, revision, uuid)), nil
+}
+
+// ResolveProvisioningError marks a provisioning error as transient on the machines.
+func (c *Client) ResolveProvisioningError(p params.Entities) (params.ErrorResults, error) {
+	entityStatus := make([]params.EntityStatus, len(p.Entities))
+	for i, entity := range p.Entities {
+		entityStatus[i] = params.EntityStatus{Tag: entity.Tag, Data: params.StatusData{"transient": true}}
+	}
+	return c.api.statusSetter.UpdateStatus(params.SetStatus{
+		Entities: entityStatus,
+	})
 }

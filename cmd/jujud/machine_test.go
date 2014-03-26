@@ -397,6 +397,48 @@ func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
 
 }
 
+func (s *MachineSuite) TestManageEnvironCallsUseMultipleCPUs(c *gc.C) {
+	// If it has been enabled, the JobManageEnviron agent should call utils.UseMultipleCPUs
+	usefulVersion := version.Current
+	usefulVersion.Series = "quantal"
+	envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), usefulVersion)
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	s.setFakeMachineAddresses(c, m)
+	calledChan := make(chan struct{}, 1)
+	s.PatchValue(&useMultipleCPUs, func() { calledChan <- struct{}{} })
+	// Now, start the agent, and observe that a JobManageEnviron agent
+	// calls UseMultipleCPUs
+	a := s.newAgent(c, m)
+	defer a.Stop()
+	go func() {
+		c.Check(a.Run(nil), gc.IsNil)
+	}()
+	// Wait for configuration to be finished
+	<-a.WorkersStarted()
+	select {
+	case <-calledChan:
+	case <-time.After(coretesting.LongWait):
+		c.Errorf("we failed to call UseMultipleCPUs()")
+	}
+	c.Check(a.Stop(), gc.IsNil)
+	// However, an agent that just JobHostUnits doesn't call UseMultipleCPUs
+	m2, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	s.setFakeMachineAddresses(c, m2)
+	a2 := s.newAgent(c, m2)
+	defer a2.Stop()
+	go func() {
+		c.Check(a2.Run(nil), gc.IsNil)
+	}()
+	// Wait until all the workers have been started, and then kill everything
+	<-a2.workersStarted
+	c.Check(a2.Stop(), gc.IsNil)
+	select {
+	case <-calledChan:
+		c.Errorf("we should not have called UseMultipleCPUs()")
+	case <-time.After(coretesting.ShortWait):
+	}
+}
+
 func (s *MachineSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machine, instance.Id) {
 	c.Logf("waiting for unit %q to be provisioned", unit)
 	machineId, err := unit.AssignedMachineId()

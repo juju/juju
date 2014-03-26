@@ -78,7 +78,7 @@ func NewProvisionerAPI(
 		PasswordChanger:        common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:             common.NewLifeGetter(st, getAuthFunc),
 		StateAddresser:         common.NewStateAddresser(st),
-		APIAddresser:           common.NewAPIAddresser(st),
+		APIAddresser:           common.NewAPIAddresser(st, resources),
 		ToolsGetter:            common.NewToolsGetter(st, getAuthFunc),
 		EnvironWatcher:         common.NewEnvironWatcher(st, resources, getCanWatch, getCanReadSecrets),
 		EnvironMachinesWatcher: common.NewEnvironMachinesWatcher(st, resources, getCanReadSecrets),
@@ -214,11 +214,46 @@ func (p *ProvisionerAPI) Status(args params.Entities) (params.StatusResults, err
 		machine, err := p.getMachine(canAccess, entity.Tag)
 		if err == nil {
 			r := &result.Results[i]
-			r.Status, r.Info, _, err = machine.Status()
+			r.Status, r.Info, r.Data, err = machine.Status()
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
+}
+
+// MachinesWithTransientErrors returns status data for machines with provisioning
+// errors which are transient.
+func (p *ProvisionerAPI) MachinesWithTransientErrors() (params.StatusResults, error) {
+	results := params.StatusResults{}
+	canAccessFunc, err := p.getAuthFunc()
+	if err != nil {
+		return results, err
+	}
+	// TODO (wallyworld) - add state.State API for more efficient machines query
+	machines, err := p.st.AllMachines()
+	if err != nil {
+		return results, err
+	}
+	for _, machine := range machines {
+		if !canAccessFunc(machine.Tag()) {
+			continue
+		}
+		result := params.StatusResult{}
+		if result.Status, result.Info, result.Data, err = machine.Status(); err != nil {
+			continue
+		}
+		if result.Status != params.StatusError {
+			continue
+		}
+		// Transient errors are marked as such in the status data.
+		if transient, ok := result.Data["transient"].(bool); !ok || !transient {
+			continue
+		}
+		result.Id = machine.Id()
+		result.Life = params.Life(machine.Life().String())
+		results.Results = append(results.Results, result)
+	}
+	return results, nil
 }
 
 // Series returns the deployed series for each given machine entity.

@@ -14,6 +14,7 @@ import (
 	"launchpad.net/gomaasapi"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -22,7 +23,6 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -47,6 +47,12 @@ var shortAttempt = utils.AttemptStrategy{
 
 type maasEnviron struct {
 	name string
+
+	// archMutex gates access to supportedArchitectures
+	archMutex sync.Mutex
+	// supportedArchitectures caches the architectures
+	// for which images can be instantiated.
+	supportedArchitectures []string
 
 	// ecfgMutex protects the *Unlocked fields below.
 	ecfgMutex sync.Mutex
@@ -132,9 +138,19 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 }
 
 // SupportedArchitectures is specified on the EnvironCapability interface.
-func (*maasEnviron) SupportedArchitectures() ([]string, error) {
-	// TODO(wallyworld) - how to find out what architectures a MAAS environ supports
-	return arch.AllSupportedArches, nil
+func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
+	env.archMutex.Lock()
+	defer env.archMutex.Unlock()
+	if env.supportedArchitectures != nil {
+		return env.supportedArchitectures, nil
+	}
+	// Create a filter to get all images from our region and for the correct stream.
+	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+		Stream: env.Config().ImageStream(),
+	})
+	var err error
+	env.supportedArchitectures, err = common.SupportedArchitectures(env, imageConstraint)
+	return env.supportedArchitectures, err
 }
 
 // getMAASClient returns a MAAS client object to use for a request, in a
@@ -178,13 +194,13 @@ func convertConstraints(cons constraints.Value) url.Values {
 // url.Values object suitable to pass to MAAS when acquiring a node.
 func addNetworks(params url.Values, nets environs.Networks) {
 	// Network Inclusion/Exclusion setup
-	if nets.IncludedNetworks != nil {
-		for _, network_name := range nets.IncludedNetworks {
+	if nets.IncludeNetworks != nil {
+		for _, network_name := range nets.IncludeNetworks {
 			params.Add("networks", network_name)
 		}
 	}
-	if nets.ExcludedNetworks != nil {
-		for _, not_network_name := range nets.ExcludedNetworks {
+	if nets.ExcludeNetworks != nil {
+		for _, not_network_name := range nets.ExcludeNetworks {
 			params.Add("not_networks", not_network_name)
 		}
 	}
@@ -276,11 +292,6 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (in
 	if err != nil {
 		return nil, nil, err
 	}
-	info := machineInfo{hostname}
-	runCmd, err := info.cloudinitRunCmd()
-	if err != nil {
-		return nil, nil, err
-	}
 	if err := environs.FinishMachineConfig(args.MachineConfig, environ.Config(), args.Constraints); err != nil {
 		return nil, nil, err
 	}
@@ -288,14 +299,11 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (in
 	// The machine envronment config values are being moved to the agent config.
 	// Explicitly specify that the lxc containers use the network bridge defined above.
 	args.MachineConfig.AgentEnvironment[agent.LxcBridge] = "br0"
-	userdata, err := environs.ComposeUserData(
-		args.MachineConfig,
-		runCmd,
-		"apt-get install bridge-utils",
-		createBridgeNetwork(),
-		linkBridgeInInterfaces(),
-		"service networking restart",
-	)
+	cloudcfg, err := newCloudinitConfig(hostname)
+	if err != nil {
+		return nil, nil, err
+	}
+	userdata, err := environs.ComposeUserData(args.MachineConfig, cloudcfg)
 	if err != nil {
 		msg := fmt.Errorf("could not compose userdata for bootstrap node: %v", err)
 		return nil, nil, msg
@@ -309,6 +317,28 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (in
 	logger.Debugf("started instance %q", inst.Id())
 	// TODO(bug 1193998) - return instance hardware characteristics as well
 	return inst, nil, nil
+}
+
+// newCloudinitConfig creates a cloudinit.Config structure
+// suitable as a base for initialising a MAAS node.
+func newCloudinitConfig(hostname string) (*cloudinit.Config, error) {
+	info := machineInfo{hostname}
+	runCmd, err := info.cloudinitRunCmd()
+	if err != nil {
+		return nil, err
+	}
+	cloudcfg := cloudinit.New()
+	cloudcfg.SetAptUpdate(true)
+	cloudcfg.AddPackage("bridge-utils")
+	cloudcfg.AddScripts(
+		"set -xe",
+		runCmd,
+		"ifdown eth0",
+		createBridgeNetwork(),
+		linkBridgeInInterfaces(),
+		"ifup br0",
+	)
+	return cloudcfg, nil
 }
 
 // StartInstance is specified in the InstanceBroker interface.

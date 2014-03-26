@@ -125,33 +125,6 @@ func (suite *StateSuite) TestLoadStateReadsStateFile(c *gc.C) {
 	c.Check(*storedState, gc.DeepEquals, state)
 }
 
-func (suite *StateSuite) TestLoadStateFromURLReadsStateFile(c *gc.C) {
-	storage, dataDir := suite.newStorageWithDataDir(c)
-	state := suite.setUpSavedState(c, dataDir)
-	url, err := storage.URL(bootstrap.StateFile)
-	c.Assert(err, gc.IsNil)
-	storedState, err := bootstrap.LoadStateFromURL(url, false)
-	c.Assert(err, gc.IsNil)
-	c.Check(*storedState, gc.DeepEquals, state)
-}
-
-func (suite *StateSuite) TestLoadStateFromURLBadCert(c *gc.C) {
-	baseURL, _ := suite.testingHTTPSServer(c)
-	url := baseURL + "/" + bootstrap.StateFile
-	storedState, err := bootstrap.LoadStateFromURL(url, false)
-	c.Assert(err, gc.ErrorMatches, ".*/provider-state:.* certificate signed by unknown authority")
-	c.Assert(storedState, gc.IsNil)
-}
-
-func (suite *StateSuite) TestLoadStateFromURLBadCertPermitted(c *gc.C) {
-	baseURL, dataDir := suite.testingHTTPSServer(c)
-	state := suite.setUpSavedState(c, dataDir)
-	url := baseURL + "/" + bootstrap.StateFile
-	storedState, err := bootstrap.LoadStateFromURL(url, true)
-	c.Assert(err, gc.IsNil)
-	c.Check(*storedState, gc.DeepEquals, state)
-}
-
 func (suite *StateSuite) TestLoadStateMissingFile(c *gc.C) {
 	stor := suite.newStorage(c)
 	_, err := bootstrap.LoadState(stor)

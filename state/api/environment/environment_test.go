@@ -7,12 +7,12 @@ import (
 	gc "launchpad.net/gocheck"
 
 	jujutesting "launchpad.net/juju-core/juju/testing"
-	commontesting "launchpad.net/juju-core/state/api/common/testing"
+	apitesting "launchpad.net/juju-core/state/api/testing"
 )
 
 type environmentSuite struct {
 	jujutesting.JujuConnSuite
-	*commontesting.EnvironWatcherTest
+	*apitesting.EnvironWatcherTests
 }
 
 var _ = gc.Suite(&environmentSuite{})
@@ -25,6 +25,6 @@ func (s *environmentSuite) SetUpTest(c *gc.C) {
 	environmentAPI := stateAPI.Environment()
 	c.Assert(environmentAPI, gc.NotNil)
 
-	s.EnvironWatcherTest = commontesting.NewEnvironWatcherTest(
-		environmentAPI, s.State, s.BackingState, commontesting.NoSecrets)
+	s.EnvironWatcherTests = apitesting.NewEnvironWatcherTests(
+		environmentAPI, s.BackingState, apitesting.NoSecrets)
 }

@@ -23,6 +23,7 @@ var expectedSteps = []string{
 	"install rsyslog-gnutls",
 	"remove deprecated environment config settings",
 	"migrate local provider agent config",
+	"make /home/ubuntu/.profile source .juju-proxy file",
 }
 
 func (s *steps118Suite) TestUpgradeOperationsContent(c *gc.C) {

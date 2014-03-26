@@ -28,10 +28,10 @@ type DeployServiceParams struct {
 	// - a new container on an existing machine eg "lxc:1"
 	// Use string to avoid ambiguity around machine 0.
 	ToMachineSpec string
-	// IncludedNetworks holds a list of networks to start on boot.
-	IncludedNetworks []string
-	// ExcludedNetworks holds a list of networks to disable on boot.
-	ExcludedNetworks []string
+	// IncludeNetworks holds a list of networks to start on boot.
+	IncludeNetworks []string
+	// ExcludeNetworks holds a list of networks to disable on boot.
+	ExcludeNetworks []string
 }
 
 // DeployService takes a charm and various parameters and deploys it.
@@ -53,7 +53,13 @@ func DeployService(st *state.State, args DeployServiceParams) (*state.Service, e
 	}
 	// TODO(fwereade): transactional State.AddService including settings, constraints
 	// (minimumUnitCount, initialMachineIds?).
-	service, err := st.AddService(args.ServiceName, "user-admin", args.Charm)
+	service, err := st.AddService(
+		args.ServiceName,
+		"user-admin",
+		args.Charm,
+		args.IncludedNetworks,
+		args.ExcludedNetworks,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -71,19 +77,22 @@ func DeployService(st *state.State, args DeployServiceParams) (*state.Service, e
 		}
 	}
 	if args.NumUnits > 0 {
-		if _, err := AddUnits(st, service, args.NumUnits, args.ToMachineSpec); err != nil {
+		if _, err := AddUnits(
+			st,
+			service,
+			args.NumUnits,
+			args.ToMachineSpec,
+			args.IncludedNetworks,
+			args.ExcludedNetworks); err != nil {
 			return nil, err
 		}
 	}
-	// TODO(dimitern) Pass args.IncludedNetworks and
-	// args.ExcludedNetworks down to the service document and/or
-	// MachineTemplate, once we have the networks in state.
 	return service, nil
 }
 
 // AddUnits starts n units of the given service and allocates machines
 // to them as necessary.
-func AddUnits(st *state.State, svc *state.Service, n int, machineIdSpec string) ([]*state.Unit, error) {
+func AddUnits(st *state.State, svc *state.Service, n int, machineIdSpec string, includeNetworks, excludeNetworks []string) ([]*state.Unit, error) {
 	units := make([]*state.Unit, n)
 	// Hard code for now till we implement a different approach.
 	policy := state.AssignCleanEmpty
@@ -122,9 +131,11 @@ func AddUnits(st *state.State, svc *state.Service, n int, machineIdSpec string) 
 				// Create the new machine marked as dirty so that
 				// nothing else will grab it before we assign the unit to it.
 				template := state.MachineTemplate{
-					Series: unit.Series(),
-					Jobs:   []state.MachineJob{state.JobHostUnits},
-					Dirty:  true,
+					Series:           unit.Series(),
+					Jobs:             []state.MachineJob{state.JobHostUnits},
+					Dirty:            true,
+					IncludedNetworks: includeNetworks,
+					ExcludedNetworks: excludeNetworks,
 				}
 				m, err = st.AddMachineInsideMachine(template, mid, containerType)
 			} else {

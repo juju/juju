@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/utils"
 )
 
 type ValidateSuite struct {
@@ -57,7 +58,7 @@ func (s *ValidateSuite) TestExactVersionMatch(c *gc.C) {
 			Architectures: []string{"amd64"},
 			Endpoint:      "some-auth-url",
 			Sources: []simplestreams.DataSource{
-				simplestreams.NewURLDataSource("test", s.toolsURL(), simplestreams.VerifySSLHostnames)},
+				simplestreams.NewURLDataSource("test", s.toolsURL(), utils.VerifySSLHostnames)},
 		},
 	}
 	versions, resolveInfo, err := ValidateToolsMetadata(params)
@@ -82,7 +83,7 @@ func (s *ValidateSuite) TestMajorVersionMatch(c *gc.C) {
 			Architectures: []string{"amd64"},
 			Endpoint:      "some-auth-url",
 			Sources: []simplestreams.DataSource{
-				simplestreams.NewURLDataSource("test", s.toolsURL(), simplestreams.VerifySSLHostnames)},
+				simplestreams.NewURLDataSource("test", s.toolsURL(), utils.VerifySSLHostnames)},
 		},
 	}
 	versions, resolveInfo, err := ValidateToolsMetadata(params)
@@ -107,7 +108,7 @@ func (s *ValidateSuite) TestMajorMinorVersionMatch(c *gc.C) {
 			Architectures: []string{"amd64"},
 			Endpoint:      "some-auth-url",
 			Sources: []simplestreams.DataSource{
-				simplestreams.NewURLDataSource("test", s.toolsURL(), simplestreams.VerifySSLHostnames)},
+				simplestreams.NewURLDataSource("test", s.toolsURL(), utils.VerifySSLHostnames)},
 		},
 	}
 	versions, resolveInfo, err := ValidateToolsMetadata(params)
@@ -131,7 +132,7 @@ func (s *ValidateSuite) TestNoMatch(c *gc.C) {
 			Architectures: []string{"amd64"},
 			Endpoint:      "some-auth-url",
 			Sources: []simplestreams.DataSource{
-				simplestreams.NewURLDataSource("test", s.toolsURL(), simplestreams.VerifySSLHostnames)},
+				simplestreams.NewURLDataSource("test", s.toolsURL(), utils.VerifySSLHostnames)},
 		},
 	}
 	_, _, err := ValidateToolsMetadata(params)
