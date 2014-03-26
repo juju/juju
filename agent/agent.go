@@ -134,12 +134,6 @@ type Config interface {
 	// to connect.
 	StateInfo() *state.Info
 
-	// StatePort returns the port for connecting to the state db.
-	StatePort() int
-
-	// StateAddresses returns the list of addresses for connecting to the state db.
-	StateAddresses() []string
-
 	Clone() Config
 
 	StateInitializer
@@ -490,14 +484,6 @@ func (c *configInternal) Dir() string {
 
 func (c *configInternal) StateManager() bool {
 	return c.caCert != nil
-}
-
-func (c *configInternal) StatePort() int {
-	return c.statePort
-}
-
-func (c *configInternal) StateAddresses() []string {
-	return c.stateDetails.addresses
 }
 
 func (c *configInternal) Clone() Config {

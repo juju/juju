@@ -351,7 +351,7 @@ func (a *MachineAgent) updateSupportedContainers(runner worker.Runner, st *api.S
 // a *state.State connection.
 func (a *MachineAgent) StateWorker(agentConfig agent.Config) (worker.Worker, error) {
 	info := &state.Info{
-		Addrs:    agentConfig.StateAddresses(),
+		Addrs:    agentConfig.StateInfo().Addrs,
 		CACert:   agentConfig.CACert(),
 		Tag:      agentConfig.Tag(),
 		Password: agentConfig.Password(),
