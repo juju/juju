@@ -219,7 +219,7 @@ func opClientStatus(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 		c.Check(status, gc.IsNil)
 		return func() {}, err
 	}
-	c.Assert(status, gc.DeepEquals, scenarioStatus)
+	c.Assert(status, jc.DeepEquals, scenarioStatus)
 	return func() {}, nil
 }
 
