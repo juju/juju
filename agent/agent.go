@@ -105,7 +105,13 @@ type Config interface {
 	WriteCommands() ([]string, error)
 
 	// APIServerDetails returns the details needed to run an API server.
+	// TODO: Delete this method and change callers to use StateServingInfo
 	APIServerDetails() (port int, cert, key []byte)
+
+	// StateServingInfo returns the details needed to run
+	// a state server and reports whether those details
+	// are available
+	StateServingInfo() (params.StateServingInfo, bool)
 
 	// UpgradedToVersion returns the version for which all upgrade steps have been
 	// successfully run, which is also the same as the initially deployed version.
