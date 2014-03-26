@@ -953,7 +953,11 @@ func (m *Machine) SetStatus(status params.Status, info string, data params.Statu
 		StatusInfo: info,
 		StatusData: data,
 	}
-	if err := doc.validateSet(); err != nil {
+	// If a machine is not yet provisioned, we allow its status
+	// to be set back to pending (when a retry is to occur).
+	_, err := m.InstanceId()
+	allowPending := IsNotProvisionedError(err)
+	if err := doc.validateSet(allowPending); err != nil {
 		return err
 	}
 	ops := []txn.Op{{

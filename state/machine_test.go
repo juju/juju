@@ -1016,8 +1016,6 @@ func (s *MachineSuite) TestConstraintsLifecycle(c *gc.C) {
 func (s *MachineSuite) TestGetSetStatusWhileAlive(c *gc.C) {
 	err := s.machine.SetStatus(params.StatusError, "", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status "error" without info`)
-	err = s.machine.SetStatus(params.StatusPending, "", nil)
-	c.Assert(err, gc.ErrorMatches, `cannot set status "pending"`)
 	err = s.machine.SetStatus(params.StatusDown, "", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status "down"`)
 	err = s.machine.SetStatus(params.Status("vliegkat"), "orville", nil)
@@ -1048,6 +1046,16 @@ func (s *MachineSuite) TestGetSetStatusWhileAlive(c *gc.C) {
 	c.Assert(data, gc.DeepEquals, params.StatusData{
 		"foo": "bar",
 	})
+}
+
+func (s *MachineSuite) TestSetStatusPending(c *gc.C) {
+	err := s.machine.SetStatus(params.StatusPending, "", nil)
+	c.Assert(err, gc.IsNil)
+	// Cannot set status to pending once a machine is provisioned.
+	err = s.machine.SetProvisioned("umbrella/0", "fake_nonce", nil)
+	c.Assert(err, gc.IsNil)
+	err = s.machine.SetStatus(params.StatusPending, "", nil)
+	c.Assert(err, gc.ErrorMatches, `cannot set status "pending"`)
 }
 
 func (s *MachineSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
