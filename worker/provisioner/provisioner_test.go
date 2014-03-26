@@ -770,7 +770,7 @@ func (s *ProvisionerSuite) TestTurningOffSafeModeReapsUnknownInstances(c *gc.C) 
 }
 
 func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
-	s.PatchValue(&apiserverprovisioner.ErrorRetryWaitDelay, 50*time.Millisecond)
+	s.PatchValue(&apiserverprovisioner.ErrorRetryWaitDelay, 5*time.Millisecond)
 	var e environs.Environ = &mockBroker{Environ: s.APIConn.Environ, retryCount: make(map[string]int)}
 	task := s.newProvisionerTask(c, false, e)
 	defer stop(c, task)
@@ -793,7 +793,7 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 			select {
 			case <-thatsAllFolks:
 				return
-			case <-time.After(100 * time.Millisecond):
+			case <-time.After(coretesting.ShortWait):
 				err := m3.SetStatus(params.StatusError, "info", params.StatusData{"transient": true})
 				c.Assert(err, gc.IsNil)
 			}
@@ -816,7 +816,8 @@ type mockBroker struct {
 
 func (b *mockBroker) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	// All machines except machines 3, 4 are provisioned successfully the first time.
-	// Machines 3, 4 are provisioned after some attempts have been made.
+	// Machines 3 is provisioned after some attempts have been made.
+	// Machine 4 is never provisioned.
 	id := args.MachineConfig.MachineId
 	retries := b.retryCount[id]
 	if (id != "3" && id != "4") || retries > 2 {

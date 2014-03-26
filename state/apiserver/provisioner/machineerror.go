@@ -63,7 +63,7 @@ func (w *machineErrorRetry) Changes() <-chan struct{} {
 var ErrorRetryWaitDelay = 1 * time.Minute
 
 // The initial implementation of this watcher simply acts as a poller,
-// triggering every 2 minutes.
+// triggering every ErrorRetryWaitDelay minutes.
 func (w *machineErrorRetry) loop() error {
 	out := w.out
 	for {
