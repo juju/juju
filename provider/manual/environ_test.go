@@ -84,9 +84,18 @@ func (s *environSuite) TestInstances(c *gc.C) {
 func (s *environSuite) TestDestroy(c *gc.C) {
 	var resultStderr string
 	var resultErr error
-	runSSHCommandTesting := func(host string, command []string) (string, error) {
+	runSSHCommandTesting := func(host string, command []string, stdin string) (string, error) {
 		c.Assert(host, gc.Equals, "ubuntu@hostname")
-		c.Assert(command, gc.DeepEquals, []string{"sudo", "pkill", "-6", "jujud"})
+		c.Assert(command, gc.DeepEquals, []string{"sudo", "/bin/bash"})
+		c.Assert(stdin, gc.DeepEquals, `
+set -x
+pkill -6 jujud && exit
+stop juju-db
+rm -f /etc/init/juju*
+rm -f /etc/rsyslog.d/*juju*
+rm -fr '/var/lib/juju' '/var/log/juju'
+exit 0
+`)
 		return resultStderr, resultErr
 	}
 	s.PatchValue(&runSSHCommand, runSSHCommandTesting)

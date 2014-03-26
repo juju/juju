@@ -110,6 +110,7 @@ func (s *MainSuite) TestParseErrors(c *gc.C) {
 	checkMessage(c, msga,
 		"bootstrap-state",
 		"--env-config", b64yaml{"blah": "blah"}.encode(),
+		"--instance-id", "inst",
 		"toastie")
 	checkMessage(c, msga, "unit",
 		"--unit-name", "un/0",

@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
+	apiwatcher "launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/worker"
 )
@@ -28,7 +29,7 @@ var _ Provisioner = (*containerProvisioner)(nil)
 type Provisioner interface {
 	worker.Worker
 	Stop() error
-	getWatcher() (Watcher, error)
+	getMachineWatcher() (apiwatcher.StringsWatcher, error)
 }
 
 // environProvisioner represents a running provisioning worker for machine nodes
@@ -103,7 +104,11 @@ func (p *provisioner) getStartTask(safeMode bool) (ProvisionerTask, error) {
 	}
 	// Start responding to changes in machines, and to any further updates
 	// to the environment config.
-	machineWatcher, err := p.getWatcher()
+	machineWatcher, err := p.getMachineWatcher()
+	if err != nil {
+		return nil, err
+	}
+	retryWatcher, err := p.st.WatchMachineErrorRetry()
 	if err != nil {
 		return nil, err
 	}
@@ -112,6 +117,7 @@ func (p *provisioner) getStartTask(safeMode bool) (ProvisionerTask, error) {
 		safeMode,
 		p.st,
 		machineWatcher,
+		retryWatcher,
 		p.broker,
 		auth)
 	return task, nil
@@ -183,7 +189,7 @@ func (p *environProvisioner) loop() error {
 	}
 }
 
-func (p *environProvisioner) getWatcher() (Watcher, error) {
+func (p *environProvisioner) getMachineWatcher() (apiwatcher.StringsWatcher, error) {
 	return p.st.WatchEnvironMachines()
 }
 
@@ -250,7 +256,7 @@ func (p *containerProvisioner) getMachine() (*apiprovisioner.Machine, error) {
 	return p.machine, nil
 }
 
-func (p *containerProvisioner) getWatcher() (Watcher, error) {
+func (p *containerProvisioner) getMachineWatcher() (apiwatcher.StringsWatcher, error) {
 	machine, err := p.getMachine()
 	if err != nil {
 		return nil, err

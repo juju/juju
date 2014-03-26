@@ -220,7 +220,12 @@ var clientCharmInfoTests = []struct {
 	{
 		about: "invalid URL",
 		url:   "not-valid",
-		err:   `charm URL has invalid schema: "not-valid"`,
+		err:   "charm url series is not resolved",
+	},
+	{
+		about: "invalid schema",
+		url:   "not-valid:your-arguments",
+		err:   `charm URL has invalid schema: "not-valid:your-arguments"`,
 	},
 	{
 		about: "unknown charm",
@@ -660,9 +665,8 @@ func (s *clientSuite) TestClientServiceDeployCharmErrors(c *gc.C) {
 	_, restore := makeMockCharmStore()
 	defer restore()
 	for url, expect := range map[string]string{
-		// TODO(fwereade) make these errors consistent one day.
-		"wordpress":                   `charm URL has invalid schema: "wordpress"`,
-		"cs:wordpress":                `charm URL without series: "cs:wordpress"`,
+		"wordpress":                   "charm url series is not resolved",
+		"cs:wordpress":                "charm url series is not resolved",
 		"cs:precise/wordpress":        "charm url must include revision",
 		"cs:precise/wordpress-999999": `cannot download charm ".*": charm not found in mock store: cs:precise/wordpress-999999`,
 	} {
@@ -838,9 +842,8 @@ func (s *clientSuite) TestClientServiceUpdateSetCharmErrors(c *gc.C) {
 	defer restore()
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	for charmUrl, expect := range map[string]string{
-		// TODO(fwereade,Makyo) make these errors consistent one day.
-		"wordpress":                   `charm URL has invalid schema: "wordpress"`,
-		"cs:wordpress":                `charm URL without series: "cs:wordpress"`,
+		"wordpress":                   "charm url series is not resolved",
+		"cs:wordpress":                "charm url series is not resolved",
 		"cs:precise/wordpress":        "charm url must include revision",
 		"cs:precise/wordpress-999999": `cannot download charm ".*": charm not found in mock store: cs:precise/wordpress-999999`,
 	} {
@@ -1073,8 +1076,8 @@ func (s *clientSuite) TestClientServiceSetCharmErrors(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	for url, expect := range map[string]string{
 		// TODO(fwereade,Makyo) make these errors consistent one day.
-		"wordpress":                   `charm URL has invalid schema: "wordpress"`,
-		"cs:wordpress":                `charm URL without series: "cs:wordpress"`,
+		"wordpress":                   "charm url series is not resolved",
+		"cs:wordpress":                "charm url series is not resolved",
 		"cs:precise/wordpress":        "charm url must include revision",
 		"cs:precise/wordpress-999999": `cannot download charm ".*": charm not found in mock store: cs:precise/wordpress-999999`,
 	} {
@@ -1539,6 +1542,47 @@ func (s *clientSuite) TestClientEnvironmentSetCannotChangeAgentVersion(c *gc.C) 
 	c.Assert(err, gc.IsNil)
 }
 
+func (s *clientSuite) TestClientEnvironmentUnset(c *gc.C) {
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{"abc": 123}, nil, nil)
+	c.Assert(err, gc.IsNil)
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	_, found := envConfig.AllAttrs()["abc"]
+	c.Assert(found, jc.IsTrue)
+
+	err = s.APIState.Client().EnvironmentUnset("abc")
+	c.Assert(err, gc.IsNil)
+	envConfig, err = s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	_, found = envConfig.AllAttrs()["abc"]
+	c.Assert(found, jc.IsFalse)
+}
+
+func (s *clientSuite) TestClientEnvironmentUnsetMissing(c *gc.C) {
+	// It's okay to unset a non-existent attribute.
+	err := s.APIState.Client().EnvironmentUnset("not_there")
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *clientSuite) TestClientEnvironmentUnsetError(c *gc.C) {
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{"abc": 123}, nil, nil)
+	c.Assert(err, gc.IsNil)
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	_, found := envConfig.AllAttrs()["abc"]
+	c.Assert(found, jc.IsTrue)
+
+	// "type" may not be removed, and this will cause an error.
+	// If any one attribute's removal causes an error, there
+	// should be no change.
+	err = s.APIState.Client().EnvironmentUnset("abc", "type")
+	c.Assert(err, gc.ErrorMatches, "type: expected string, got nothing")
+	envConfig, err = s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	_, found = envConfig.AllAttrs()["abc"]
+	c.Assert(found, jc.IsTrue)
+}
+
 func (s *clientSuite) TestClientFindTools(c *gc.C) {
 	result, err := s.APIState.Client().FindTools(2, -1, "", "")
 	c.Assert(err, gc.IsNil)
@@ -1844,8 +1888,8 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 
 	client := s.APIState.Client()
 	// First test the sanity checks.
-	err := client.AddCharm(&charm.URL{Name: "nonsense"})
-	c.Assert(err, gc.ErrorMatches, `charm URL has invalid schema: ":/nonsense-0"`)
+	err := client.AddCharm(&charm.URL{Reference: charm.Reference{Name: "nonsense"}})
+	c.Assert(err, gc.ErrorMatches, `charm URL has invalid schema: ":nonsense-0"`)
 	err = client.AddCharm(charm.MustParseURL("local:precise/dummy"))
 	c.Assert(err, gc.ErrorMatches, "only charm store charm URLs are supported, with cs: schema")
 	err = client.AddCharm(charm.MustParseURL("cs:precise/wordpress"))
@@ -2000,4 +2044,19 @@ func (s *clientSuite) assertUploaded(c *gc.C, storage envstorage.Storage, bundle
 
 func getArchiveName(bundleURL *url.URL) string {
 	return strings.TrimPrefix(bundleURL.RequestURI(), "/dummyenv/private/")
+}
+
+func (s *clientSuite) TestResolveProvisioningError(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetStatus(params.StatusError, "error", nil)
+	c.Assert(err, gc.IsNil)
+	err = s.APIState.Client().ResolveProvisioningError(machine.Tag())
+	c.Assert(err, gc.IsNil)
+
+	status, info, data, err := machine.Status()
+	c.Assert(err, gc.IsNil)
+	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(info, gc.Equals, "error")
+	c.Assert(data["transient"], gc.Equals, true)
 }

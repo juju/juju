@@ -182,7 +182,6 @@ type EnvironConfig map[string]interface{}
 
 // EnvironConfigResult holds environment configuration or an error.
 type EnvironConfigResult struct {
-	Error  *Error
 	Config EnvironConfig
 }
 
@@ -316,25 +315,28 @@ type SetProvisioned struct {
 	Machines []MachineSetProvisioned
 }
 
-// SetEntityStatus holds an entity tag, status and extra info.
-type SetEntityStatus struct {
+// EntityStatus holds an entity tag, status and extra info.
+type EntityStatus struct {
 	Tag    string
 	Status Status
 	Info   string
 	Data   StatusData
 }
 
-// SetStatus holds the parameters for making a SetStatus call.
+// SetStatus holds the parameters for making a SetStatus/UpdateStatus call.
 type SetStatus struct {
-	Entities []SetEntityStatus
+	Entities []EntityStatus
 }
 
 // StatusResult holds an entity status, extra information, or an
 // error.
 type StatusResult struct {
 	Error  *Error
+	Id     string
+	Life   Life
 	Status Status
 	Info   string
+	Data   StatusData
 }
 
 // StatusResults holds multiple status results.
@@ -525,8 +527,15 @@ type RunResult struct {
 	Error     string
 }
 
-// RunResults is used to return the slice of results.  Api server side calls
+// RunResults is used to return the slice of results.  API server side calls
 // need to return single structure values.
 type RunResults struct {
 	Results []RunResult
+}
+
+// APIHostPortsResult holds the result of an APIHostPorts
+// call. Each element in the top level slice holds
+// the addresses for one API server.
+type APIHostPortsResult struct {
+	Servers [][]instance.HostPort
 }

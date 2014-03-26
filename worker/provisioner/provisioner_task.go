@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
 	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
+	apiwatcher "launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/state/watcher"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
@@ -35,28 +36,25 @@ type ProvisionerTask interface {
 	SetSafeMode(safeMode bool)
 }
 
-type Watcher interface {
-	watcher.Errer
-	watcher.Stopper
-	Changes() <-chan []string
-}
-
 type MachineGetter interface {
 	Machine(tag string) (*apiprovisioner.Machine, error)
+	MachinesWithTransientErrors() ([]*apiprovisioner.Machine, []params.StatusResult, error)
 }
 
 func NewProvisionerTask(
 	machineTag string,
 	safeMode bool,
 	machineGetter MachineGetter,
-	watcher Watcher,
+	machineWatcher apiwatcher.StringsWatcher,
+	retryWatcher apiwatcher.NotifyWatcher,
 	broker environs.InstanceBroker,
 	auth environs.AuthenticationProvider,
 ) ProvisionerTask {
 	task := &provisionerTask{
 		machineTag:     machineTag,
 		machineGetter:  machineGetter,
-		machineWatcher: watcher,
+		machineWatcher: machineWatcher,
+		retryWatcher:   retryWatcher,
 		broker:         broker,
 		auth:           auth,
 		safeMode:       safeMode,
@@ -73,7 +71,8 @@ func NewProvisionerTask(
 type provisionerTask struct {
 	machineTag     string
 	machineGetter  MachineGetter
-	machineWatcher Watcher
+	machineWatcher apiwatcher.StringsWatcher
+	retryWatcher   apiwatcher.NotifyWatcher
 	broker         environs.InstanceBroker
 	tomb           tomb.Tomb
 	auth           environs.AuthenticationProvider
@@ -132,8 +131,6 @@ func (task *provisionerTask) loop() error {
 			if !ok {
 				return watcher.MustErr(task.machineWatcher)
 			}
-			// TODO(dfc; lp:1042717) fire process machines periodically to shut down unknown
-			// instances.
 			if err := task.processMachines(ids); err != nil {
 				return fmt.Errorf("failed to process updated machines: %v", err)
 			}
@@ -152,6 +149,10 @@ func (task *provisionerTask) loop() error {
 					return fmt.Errorf("failed to process machines after safe mode disabled: %v", err)
 				}
 			}
+		case <-task.retryWatcher.Changes():
+			if err := task.processMachinesWithTransientErrors(); err != nil {
+				return fmt.Errorf("failed to process machines with transient errors: %v", err)
+			}
 		}
 	}
 }
@@ -162,6 +163,29 @@ func (task *provisionerTask) SetSafeMode(safeMode bool) {
 	case task.safeModeChan <- safeMode:
 	case <-task.Dying():
 	}
+}
+
+func (task *provisionerTask) processMachinesWithTransientErrors() error {
+	machines, statusResults, err := task.machineGetter.MachinesWithTransientErrors()
+	if err != nil {
+		return nil
+	}
+	logger.Tracef("processMachinesWithTransientErrors(%v)", statusResults)
+	var pending []*apiprovisioner.Machine
+	for i, status := range statusResults {
+		if status.Error != nil {
+			logger.Errorf("cannot retry provisioning of machine %q: %v", status.Id, status.Error)
+			continue
+		}
+		machine := machines[i]
+		if err := machine.SetStatus(params.StatusPending, "", nil); err != nil {
+			logger.Errorf("cannot reset status of machine %q: %v", status.Id, err)
+			continue
+		}
+		task.machines[machine.Tag()] = machine
+		pending = append(pending, machine)
+	}
+	return task.startMachines(pending)
 }
 
 func (task *provisionerTask) processMachines(ids []string) error {
@@ -405,7 +429,7 @@ func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error
 		// time until the error is resolved, but don't return an
 		// error; just keep going with the other machines.
 		logger.Errorf("cannot start instance for machine %q: %v", machine, err)
-		if err1 := machine.SetStatus(params.StatusError, err.Error()); err1 != nil {
+		if err1 := machine.SetStatus(params.StatusError, err.Error(), nil); err1 != nil {
 			// Something is wrong with this machine, better report it back.
 			logger.Errorf("cannot set error status for machine %q: %v", machine, err1)
 			return err1

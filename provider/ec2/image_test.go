@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/utils"
 )
 
 type imageSuite struct {
@@ -129,7 +130,7 @@ func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 		stor := ebsStorage
 		spec, err := findInstanceSpec(
 			[]simplestreams.DataSource{
-				simplestreams.NewURLDataSource("test", "test:", simplestreams.VerifySSLHostnames)},
+				simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames)},
 			"released",
 			&instances.InstanceConstraint{
 				Region:      "test",
@@ -171,7 +172,7 @@ func (s *specSuite) TestFindInstanceSpecErrors(c *gc.C) {
 		c.Logf("test %d", i)
 		_, err := findInstanceSpec(
 			[]simplestreams.DataSource{
-				simplestreams.NewURLDataSource("test", "test:", simplestreams.VerifySSLHostnames)},
+				simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames)},
 			"released",
 			&instances.InstanceConstraint{
 				Region:      "test",

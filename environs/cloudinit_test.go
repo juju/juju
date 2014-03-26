@@ -12,6 +12,7 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/cert"
+	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
@@ -191,8 +192,10 @@ func (*CloudInitSuite) testUserData(c *gc.C, stateServer bool) {
 	}
 	script1 := "script1"
 	script2 := "script2"
-	scripts := []string{script1, script2}
-	result, err := environs.ComposeUserData(cfg, scripts...)
+	cloudcfg := coreCloudinit.New()
+	cloudcfg.AddRunCmd(script1)
+	cloudcfg.AddRunCmd(script2)
+	result, err := environs.ComposeUserData(cfg, cloudcfg)
 	c.Assert(err, gc.IsNil)
 
 	unzipped, err := utils.Gunzip(result)

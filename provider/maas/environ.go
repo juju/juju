@@ -14,6 +14,7 @@ import (
 	"launchpad.net/gomaasapi"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -193,13 +194,13 @@ func convertConstraints(cons constraints.Value) url.Values {
 // url.Values object suitable to pass to MAAS when acquiring a node.
 func addNetworks(params url.Values, nets environs.Networks) {
 	// Network Inclusion/Exclusion setup
-	if nets.IncludedNetworks != nil {
-		for _, network_name := range nets.IncludedNetworks {
+	if nets.IncludeNetworks != nil {
+		for _, network_name := range nets.IncludeNetworks {
 			params.Add("networks", network_name)
 		}
 	}
-	if nets.ExcludedNetworks != nil {
-		for _, not_network_name := range nets.ExcludedNetworks {
+	if nets.ExcludeNetworks != nil {
+		for _, not_network_name := range nets.ExcludeNetworks {
 			params.Add("not_networks", not_network_name)
 		}
 	}
@@ -291,10 +292,6 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (in
 	if err != nil {
 		return nil, nil, err
 	}
-	additionalScripts, err := additionalScripts(hostname)
-	if err != nil {
-		return nil, nil, err
-	}
 	if err := environs.FinishMachineConfig(args.MachineConfig, environ.Config(), args.Constraints); err != nil {
 		return nil, nil, err
 	}
@@ -302,7 +299,11 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (in
 	// The machine envronment config values are being moved to the agent config.
 	// Explicitly specify that the lxc containers use the network bridge defined above.
 	args.MachineConfig.AgentEnvironment[agent.LxcBridge] = "br0"
-	userdata, err := environs.ComposeUserData(args.MachineConfig, additionalScripts...)
+	cloudcfg, err := newCloudinitConfig(hostname)
+	if err != nil {
+		return nil, nil, err
+	}
+	userdata, err := environs.ComposeUserData(args.MachineConfig, cloudcfg)
 	if err != nil {
 		msg := fmt.Errorf("could not compose userdata for bootstrap node: %v", err)
 		return nil, nil, msg
@@ -318,23 +319,26 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (in
 	return inst, nil, nil
 }
 
-// additionalScripts is an additional set of commands
-// to run during cloud-init (before the synchronous phase).
-func additionalScripts(hostname string) ([]string, error) {
+// newCloudinitConfig creates a cloudinit.Config structure
+// suitable as a base for initialising a MAAS node.
+func newCloudinitConfig(hostname string) (*cloudinit.Config, error) {
 	info := machineInfo{hostname}
 	runCmd, err := info.cloudinitRunCmd()
 	if err != nil {
 		return nil, err
 	}
-	return []string{
+	cloudcfg := cloudinit.New()
+	cloudcfg.SetAptUpdate(true)
+	cloudcfg.AddPackage("bridge-utils")
+	cloudcfg.AddScripts(
+		"set -xe",
 		runCmd,
-		utils.CommandString(utils.AptGetCommand("update")...),
-		utils.CommandString(utils.AptGetCommand("install", "bridge-utils")...),
 		"ifdown eth0",
 		createBridgeNetwork(),
 		linkBridgeInInterfaces(),
 		"ifup br0",
-	}, nil
+	)
+	return cloudcfg, nil
 }
 
 // StartInstance is specified in the InstanceBroker interface.

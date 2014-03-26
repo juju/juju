@@ -45,8 +45,8 @@ func (s *workerJujuConnSuite) TestPublisherSetsAPIHostPorts(c *gc.C) {
 
 	// Wrap the publisher so that we can call StartSync immediately
 	// after the publishAPIServers method is called.
-	publish := func(apiServers [][]instance.HostPort) error {
-		err := statePublish.publishAPIServers(apiServers)
+	publish := func(apiServers [][]instance.HostPort, instanceIds []instance.Id) error {
+		err := statePublish.publishAPIServers(apiServers, instanceIds)
 		s.State.StartSync()
 		return err
 	}
@@ -81,6 +81,7 @@ func initState(c *gc.C, st *fakeState, numMachines int) {
 	for i := 10; i < 10+numMachines; i++ {
 		id := fmt.Sprint(i)
 		m := st.addMachine(id, true)
+		m.setInstanceId(instance.Id("id-" + id))
 		m.setStateHostPort(fmt.Sprintf("0.1.2.%d:%d", i, mongoPort))
 		ids = append(ids, id)
 		c.Assert(m.MongoHostPorts(), gc.HasLen, 1)
@@ -226,6 +227,9 @@ var fatalErrorsTests = []struct {
 }, {
 	errPattern: "State.Machine *",
 	expectErr:  `cannot get machine "10": sample`,
+}, {
+	errPattern: "Machine.InstanceId *",
+	expectErr:  `cannot get API server info: sample`,
 }}
 
 func (s *workerSuite) TestFatalErrors(c *gc.C) {
@@ -277,15 +281,15 @@ func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
 	c.Assert(n1, jc.GreaterThan, n0)
 }
 
-type publisherFunc func(apiServers [][]instance.HostPort) error
+type publisherFunc func(apiServers [][]instance.HostPort, instanceIds []instance.Id) error
 
-func (f publisherFunc) publishAPIServers(apiServers [][]instance.HostPort) error {
-	return f(apiServers)
+func (f publisherFunc) publishAPIServers(apiServers [][]instance.HostPort, instanceIds []instance.Id) error {
+	return f(apiServers, instanceIds)
 }
 
 func (s *workerSuite) TestStateServersArePublished(c *gc.C) {
 	publishCh := make(chan [][]instance.HostPort)
-	publish := func(apiServers [][]instance.HostPort) error {
+	publish := func(apiServers [][]instance.HostPort, instanceIds []instance.Id) error {
 		publishCh <- apiServers
 		return nil
 	}
@@ -324,7 +328,7 @@ func (s *workerSuite) TestWorkerRetriesOnPublishError(c *gc.C) {
 	publishCh := make(chan [][]instance.HostPort, 100)
 
 	count := 0
-	publish := func(apiServers [][]instance.HostPort) error {
+	publish := func(apiServers [][]instance.HostPort, instanceIds []instance.Id) error {
 		publishCh <- apiServers
 		count++
 		if count <= 3 {
@@ -355,6 +359,32 @@ func (s *workerSuite) TestWorkerRetriesOnPublishError(c *gc.C) {
 	}
 }
 
+func (s *workerSuite) TestWorkerPublishesInstanceIds(c *gc.C) {
+	s.PatchValue(&pollInterval, coretesting.LongWait+time.Second)
+	s.PatchValue(&retryInterval, 5*time.Millisecond)
+
+	publishCh := make(chan []instance.Id, 100)
+
+	publish := func(apiServers [][]instance.HostPort, instanceIds []instance.Id) error {
+		publishCh <- instanceIds
+		return nil
+	}
+	st := newFakeState()
+	initState(c, st, 3)
+
+	w := newWorker(st, publisherFunc(publish))
+	defer func() {
+		c.Check(worker.Stop(w), gc.IsNil)
+	}()
+
+	select {
+	case instanceIds := <-publishCh:
+		c.Assert(instanceIds, jc.DeepEquals, []instance.Id{"id-10", "id-11", "id-12"})
+	case <-time.After(coretesting.LongWait):
+		c.Errorf("timed out waiting for publish")
+	}
+}
+
 func mustNext(c *gc.C, w *voyeur.Watcher) (val interface{}, ok bool) {
 	done := make(chan struct{})
 	go func() {
@@ -375,6 +405,6 @@ func mustNext(c *gc.C, w *voyeur.Watcher) (val interface{}, ok bool) {
 
 type noPublisher struct{}
 
-func (noPublisher) publishAPIServers(apiServers [][]instance.HostPort) error {
+func (noPublisher) publishAPIServers(apiServers [][]instance.HostPort, instanceIds []instance.Id) error {
 	return nil
 }

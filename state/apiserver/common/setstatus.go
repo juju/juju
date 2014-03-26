@@ -58,3 +58,53 @@ func (s *StatusSetter) SetStatus(args params.SetStatus) (params.ErrorResults, er
 	}
 	return result, nil
 }
+
+func (s *StatusSetter) updateEntityStatusData(tag string, data params.StatusData) error {
+	entity0, err := s.st.FindEntity(tag)
+	if err != nil {
+		return err
+	}
+	statusGetter, ok := entity0.(state.StatusGetter)
+	if !ok {
+		return NotSupportedError(tag, "getting status")
+	}
+	existingStatus, existingInfo, existingData, err := statusGetter.Status()
+	if err != nil {
+		return err
+	}
+	newData := existingData
+	if newData == nil {
+		newData = data
+	} else {
+		for k, v := range data {
+			newData[k] = v
+		}
+	}
+	entity, ok := entity0.(state.StatusSetter)
+	if !ok {
+		return NotSupportedError(tag, "updating status")
+	}
+	return entity.SetStatus(existingStatus, existingInfo, newData)
+}
+
+// UpdateStatus updates the status data of each given entity.
+func (s *StatusSetter) UpdateStatus(args params.SetStatus) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	canModify, err := s.getCanModify()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	for i, arg := range args.Entities {
+		err := ErrPerm
+		if canModify(arg.Tag) {
+			err = s.updateEntityStatusData(arg.Tag, arg.Data)
+		}
+		result.Results[i].Error = ServerError(err)
+	}
+	return result, nil
+}

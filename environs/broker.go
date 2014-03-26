@@ -10,11 +10,10 @@ import (
 	"launchpad.net/juju-core/tools"
 )
 
-// Networks holds network include/exclude
-// configuration
+// Networks holds network include/exclude when starting an instance.
 type Networks struct {
-	IncludedNetworks []string
-	ExcludedNetworks []string
+	IncludeNetworks []string
+	ExcludeNetworks []string
 }
 
 // StartInstanceParams holds parameters for the
@@ -24,8 +23,7 @@ type StartInstanceParams struct {
 	// the kind of instance to create.
 	Constraints constraints.Value
 
-	// Networks holds 2 string slices indicating
-	// respectively included and excluded Networks
+	// Networks holds networks to include/exclude for the instance.
 	Networks Networks
 
 	// Tools is a list of tools that may be used

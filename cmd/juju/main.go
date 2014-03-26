@@ -33,7 +33,12 @@ var x = []byte("\x96\x8c\x99\x8a\x9c\x94\x96\x91\x98\xdf\x9e\x92\x9e\x85\x96\x91
 // to the cmd package. This function is not redundant with main, because it
 // provides an entry point for testing with arbitrary command line arguments.
 func Main(args []string) {
-	if err := juju.InitJujuHome(); err != nil {
+	ctx, err := cmd.DefaultContext()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(2)
+	}
+	if err = juju.InitJujuHome(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %s\n", err)
 		os.Exit(2)
 	}
@@ -103,6 +108,7 @@ func Main(args []string) {
 	jujucmd.Register(wrap(&SetConstraintsCommand{}))
 	jujucmd.Register(wrap(&GetEnvironmentCommand{}))
 	jujucmd.Register(wrap(&SetEnvironmentCommand{}))
+	jujucmd.Register(wrap(&UnsetEnvironmentCommand{}))
 	jujucmd.Register(wrap(&ExposeCommand{}))
 	jujucmd.Register(wrap(&SyncToolsCommand{}))
 	jujucmd.Register(wrap(&UnexposeCommand{}))
@@ -121,7 +127,7 @@ func Main(args []string) {
 	// Common commands.
 	jujucmd.Register(wrap(&cmd.VersionCommand{}))
 
-	os.Exit(cmd.Main(jujucmd, cmd.DefaultContext(), args[1:]))
+	os.Exit(cmd.Main(jujucmd, ctx, args[1:]))
 }
 
 // wrap encapsulates code that wraps some of the commands in a helper class

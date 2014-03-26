@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
+	"launchpad.net/juju-core/utils"
 )
 
 // SupportsCustomSources represents an environment that
@@ -27,9 +28,9 @@ func GetMetadataSources(env environs.ConfigGetter) ([]simplestreams.DataSource, 
 	var sources []simplestreams.DataSource
 	config := env.Config()
 	if userURL, ok := config.ImageMetadataURL(); ok {
-		verify := simplestreams.VerifySSLHostnames
+		verify := utils.VerifySSLHostnames
 		if !config.SSLHostnameVerification() {
-			verify = simplestreams.NoVerifySSLHostnames
+			verify = utils.NoVerifySSLHostnames
 		}
 		sources = append(sources, simplestreams.NewURLDataSource("image-metadata-url", userURL, verify))
 	}
@@ -46,7 +47,8 @@ func GetMetadataSources(env environs.ConfigGetter) ([]simplestreams.DataSource, 
 		return nil, err
 	}
 	if defaultURL != "" {
-		sources = append(sources, simplestreams.NewURLDataSource("default cloud images", defaultURL, simplestreams.VerifySSLHostnames))
+		sources = append(sources,
+			simplestreams.NewURLDataSource("default cloud images", defaultURL, utils.VerifySSLHostnames))
 	}
 	return sources, nil
 }
