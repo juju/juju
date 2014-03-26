@@ -316,6 +316,7 @@ var globalFlags = []string{
 	"-h, --help .*",
 	"--log-file .*",
 	"--logging-config .*",
+	"-q, --quiet .*",
 	"--show-log .*",
 	"-v, --verbose .*",
 }
