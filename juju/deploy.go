@@ -57,8 +57,8 @@ func DeployService(st *state.State, args DeployServiceParams) (*state.Service, e
 		args.ServiceName,
 		"user-admin",
 		args.Charm,
-		args.IncludedNetworks,
-		args.ExcludedNetworks,
+		args.IncludeNetworks,
+		args.ExcludeNetworks,
 	)
 	if err != nil {
 		return nil, err
@@ -77,13 +77,7 @@ func DeployService(st *state.State, args DeployServiceParams) (*state.Service, e
 		}
 	}
 	if args.NumUnits > 0 {
-		if _, err := AddUnits(
-			st,
-			service,
-			args.NumUnits,
-			args.ToMachineSpec,
-			args.IncludedNetworks,
-			args.ExcludedNetworks); err != nil {
+		if _, err := AddUnits(st, service, args.NumUnits, args.ToMachineSpec); err != nil {
 			return nil, err
 		}
 	}
@@ -92,10 +86,15 @@ func DeployService(st *state.State, args DeployServiceParams) (*state.Service, e
 
 // AddUnits starts n units of the given service and allocates machines
 // to them as necessary.
-func AddUnits(st *state.State, svc *state.Service, n int, machineIdSpec string, includeNetworks, excludeNetworks []string) ([]*state.Unit, error) {
+func AddUnits(st *state.State, svc *state.Service, n int, machineIdSpec string) ([]*state.Unit, error) {
 	units := make([]*state.Unit, n)
 	// Hard code for now till we implement a different approach.
 	policy := state.AssignCleanEmpty
+	// All units should have the same networks as the service.
+	includeNetworks, excludeNetworks, err := svc.Networks()
+	if err != nil {
+		return nil, fmt.Errorf("cannot get service %q networks: %v", svc.Name(), err)
+	}
 	// TODO what do we do if we fail half-way through this process?
 	for i := 0; i < n; i++ {
 		unit, err := svc.AddUnit()
@@ -131,11 +130,11 @@ func AddUnits(st *state.State, svc *state.Service, n int, machineIdSpec string, 
 				// Create the new machine marked as dirty so that
 				// nothing else will grab it before we assign the unit to it.
 				template := state.MachineTemplate{
-					Series:           unit.Series(),
-					Jobs:             []state.MachineJob{state.JobHostUnits},
-					Dirty:            true,
-					IncludedNetworks: includeNetworks,
-					ExcludedNetworks: excludeNetworks,
+					Series:          unit.Series(),
+					Jobs:            []state.MachineJob{state.JobHostUnits},
+					Dirty:           true,
+					IncludeNetworks: includeNetworks,
+					ExcludeNetworks: excludeNetworks,
 				}
 				m, err = st.AddMachineInsideMachine(template, mid, containerType)
 			} else {

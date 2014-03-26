@@ -991,11 +991,12 @@ func (u *Unit) constraints() (*constraints.Value, error) {
 	return &cons, nil
 }
 
-// AssignToNewMachineOrContainer assigns the unit to a new machine, with constraints
-// determined according to the service and environment constraints at the time of unit creation.
-// If a container is required, a clean, empty machine instance is required on which to create
-// the container. An existing clean, empty instance is first searched for, and if not found,
-// a new one is created.
+// AssignToNewMachineOrContainer assigns the unit to a new machine,
+// with constraints determined according to the service and
+// environment constraints at the time of unit creation. If a
+// container is required, a clean, empty machine instance is required
+// on which to create the container. An existing clean, empty instance
+// is first searched for, and if not found, a new one is created.
 func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 	defer assignContextf(&err, u, "new machine or container")
 	if u.doc.Principal != "" {
@@ -1026,10 +1027,20 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 	} else if err != nil {
 		return err
 	}
+	svc, err := u.Service()
+	if err != nil {
+		return err
+	}
+	includeNetworks, excludeNetworks, err := svc.Networks()
+	if err != nil {
+		return err
+	}
 	template := MachineTemplate{
-		Series:      u.doc.Series,
-		Constraints: *cons,
-		Jobs:        []MachineJob{JobHostUnits},
+		Series:          u.doc.Series,
+		Constraints:     *cons,
+		Jobs:            []MachineJob{JobHostUnits},
+		IncludeNetworks: includeNetworks,
+		ExcludeNetworks: excludeNetworks,
 	}
 	err = u.assignToNewMachine(template, host.Id, *cons.Container)
 	if err == machineNotCleanErr {
@@ -1059,10 +1070,20 @@ func (u *Unit) AssignToNewMachine() (err error) {
 	if cons.HasContainer() {
 		containerType = *cons.Container
 	}
+	svc, err := u.Service()
+	if err != nil {
+		return err
+	}
+	includeNetworks, excludeNetworks, err := svc.Networks()
+	if err != nil {
+		return err
+	}
 	template := MachineTemplate{
-		Series:      u.doc.Series,
-		Constraints: *cons,
-		Jobs:        []MachineJob{JobHostUnits},
+		Series:          u.doc.Series,
+		Constraints:     *cons,
+		Jobs:            []MachineJob{JobHostUnits},
+		IncludeNetworks: includeNetworks,
+		ExcludeNetworks: excludeNetworks,
 	}
 	return u.assignToNewMachine(template, "", containerType)
 }
