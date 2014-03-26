@@ -2851,9 +2851,8 @@ func newUint64(i uint64) *uint64 {
 }
 
 func (s *StateSuite) TestSetStateServingInfo(c *gc.C) {
-	info, err := s.State.StateServingInfo()
+	info, _ := s.State.StateServingInfo()
 	c.Assert(info, jc.DeepEquals, params.StateServingInfo{})
-	c.Assert(err, gc.NotNil)
 
 	data := params.StateServingInfo{
 		APIPort:   69,
@@ -2861,7 +2860,7 @@ func (s *StateSuite) TestSetStateServingInfo(c *gc.C) {
 		Cert:      "Some cert",
 		Key:       "Some key",
 	}
-	err = s.State.SetStateServingInfo(data)
+	err := s.State.SetStateServingInfo(data)
 	c.Assert(err, gc.IsNil)
 
 	info, err = s.State.StateServingInfo()
