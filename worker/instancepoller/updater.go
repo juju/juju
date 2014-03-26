@@ -220,8 +220,11 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo, err error) {
 	instInfo = instanceInfo{}
 	instId, err := m.InstanceId()
-	if err != nil && !state.IsNotProvisionedError(err) {
-		return instInfo, fmt.Errorf("cannot get machine's instance id: %v", err)
+	if err != nil {
+		if !state.IsNotProvisionedError(err) {
+			return instInfo, fmt.Errorf("cannot get machine's instance id: %v", err)
+		}
+		return instInfo, nil
 	}
 	instInfo, err = context.instanceInfo(instId)
 	if err != nil {
