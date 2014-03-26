@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"launchpad.net/gnuflag"
 
@@ -28,6 +29,8 @@ type DeployCommand struct {
 	ServiceName  string
 	Config       cmd.FileVar
 	Constraints  constraints.Value
+	Networks     string
+	NoNetworks   string
 	BumpRevision bool   // Remove this once the 1.16 support is dropped.
 	RepoPath     string // defaults to JUJU_REPOSITORY
 }
@@ -59,12 +62,21 @@ by set-constraints).
 
 Charms can be deployed to a specific machine using the --to argument.
 
+Like constraints, service-specific network requirements can be specified with
+--networks and --no-networks arguments, both can take a comma-delimited list
+of provider-specific network names/labels. These instruct juju to ensure all
+new machines deployed to host units of the service should be on all networks
+specified with --networks and should not be on any networks specified with
+--no-networks. Only supported when using the MaaS provider.
+
 Examples:
    juju deploy mysql --to 23       (Deploy to machine 23)
    juju deploy mysql --to 24/lxc/3 (Deploy to lxc container 3 on host machine 24)
    juju deploy mysql --to lxc:25   (Deploy to a new lxc container on host machine 25)
    
    juju deploy mysql -n 5 --constraints mem=8G (deploy 5 instances of mysql with at least 8 GB of RAM each)
+
+   juju deploy mysql --networks=storage,mynet --no-networks=logging
 
 See Also:
    juju help constraints
@@ -89,6 +101,8 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.BumpRevision, "upgrade", false, "")
 	f.Var(&c.Config, "config", "path to yaml-formatted service config")
 	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "set service constraints")
+	f.StringVar(&c.Networks, "networks", "", "enable networks for service")
+	f.StringVar(&c.NoNetworks, "no-networks", "", "disable networks for service")
 	f.StringVar(&c.RepoPath, "repository", os.Getenv(osenv.JujuRepositoryEnvKey), "local charm repository")
 }
 
@@ -152,6 +166,14 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if c.BumpRevision {
 		ctx.Infof("--upgrade (or -u) is deprecated and ignored; charms are always deployed with a unique revision.")
 	}
+	var includeNetworks []string
+	var excludeNetworks []string
+	if c.Networks != "" {
+		includeNetworks = parseNetworks(c.Networks)
+	}
+	if c.NoNetworks != "" {
+		excludeNetworks = parseNetworks(c.NoNetworks)
+	}
 
 	charmInfo, err := client.CharmInfo(curl.String())
 	if err != nil {
@@ -181,14 +203,28 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 			return err
 		}
 	}
-	return client.ServiceDeploy(
+	err = client.ServiceDeployWithNetworks(
 		curl.String(),
 		serviceName,
 		numUnits,
 		string(configYAML),
 		c.Constraints,
 		c.ToMachineSpec,
+		includeNetworks,
+		excludeNetworks,
 	)
+	if params.IsCodeNotImplemented(err) {
+		ctx.Infof("ignoring --networks/--no-networks as it is not supported by the API server")
+		err = client.ServiceDeploy(
+			curl.String(),
+			serviceName,
+			numUnits,
+			string(configYAML),
+			c.Constraints,
+			c.ToMachineSpec,
+		)
+	}
+	return err
 }
 
 // run1dot16 implements the deploy command in 1.16 compatibility mode,
@@ -295,4 +331,18 @@ func addCharmViaAPI(client *api.Client, ctx *cmd.Context, curl *charm.URL, repo 
 	}
 	ctx.Infof("Added charm %q to the environment.", curl)
 	return curl, nil
+}
+
+// parseNetworks returns a list of networks by parsing the
+// comma-delimited string value of --networks or --no-networks
+// arguments.
+func parseNetworks(networksValue string) (networks []string) {
+	parts := strings.Split(networksValue, ",")
+	for _, part := range parts {
+		network := strings.TrimSpace(part)
+		if network != "" {
+			networks = append(networks, network)
+		}
+	}
+	return networks
 }
