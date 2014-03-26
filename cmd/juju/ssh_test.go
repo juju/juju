@@ -14,6 +14,7 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -120,6 +121,38 @@ func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 		c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
 		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, t.result)
 	}
+}
+
+func (s *SSHSuite) TestSSHCommandEnvironProxySSH(c *gc.C) {
+	s.makeMachines(1, c, true)
+	// Setting proxy-ssh=false in the bootstrap context
+	// should override --proxy.
+	store, err := configstore.Default()
+	c.Assert(err, gc.IsNil)
+	info, err := store.ReadInfo("dummyenv")
+	c.Assert(err, gc.IsNil)
+	cfg := info.BootstrapConfig()
+	cfg["proxy-ssh"] = false
+	apiEndpoint := info.APIEndpoint()
+	apiCredentials := info.APICredentials()
+	err = info.Destroy()
+	c.Assert(err, gc.IsNil)
+
+	info, err = store.CreateInfo("dummyenv")
+	c.Assert(err, gc.IsNil)
+	info.SetBootstrapConfig(cfg)
+	info.SetAPIEndpoint(apiEndpoint)
+	info.SetAPICredentials(apiCredentials)
+	err = info.Write()
+	c.Assert(err, gc.IsNil)
+
+	ctx := coretesting.Context(c)
+	jujucmd := cmd.NewSuperCommand(cmd.SuperCommandParams{})
+	jujucmd.Register(&SSHCommand{})
+	code := cmd.Main(jujucmd, ctx, []string{"ssh", "0"})
+	c.Check(code, gc.Equals, 0)
+	c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
+	c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, sshArgsNoProxy+"ubuntu@dummyenv-0.dns\n")
 }
 
 type callbackAttemptStarter struct {

@@ -14,6 +14,8 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
@@ -128,7 +130,9 @@ func (c *SSHCommand) Run(ctx *cmd.Context) error {
 	if c.pty {
 		options.EnablePTY()
 	}
-	if c.proxy {
+	if proxy, err := c.proxySSH(); err != nil {
+		return err
+	} else if proxy {
 		if err := c.setProxyCommand(&options); err != nil {
 			return err
 		}
@@ -138,6 +142,27 @@ func (c *SSHCommand) Run(ctx *cmd.Context) error {
 	cmd.Stdout = ctx.Stdout
 	cmd.Stderr = ctx.Stderr
 	return cmd.Run()
+}
+
+// proxySSH returns true iff both c.proxy and
+// the proxy-ssh environment configuration
+// are true. We just check in the bootstrap
+// config, because proxy-ssh is immutable and
+// this avoids another API round-trip.
+func (c *SSHCommand) proxySSH() (bool, error) {
+	if !c.proxy {
+		return false, nil
+	}
+	store, err := configstore.Default()
+	if err != nil {
+		return false, fmt.Errorf("cannot open environment info storage: %v", err)
+	}
+	cfg, _, err := environs.ConfigForName(c.EnvironName(), store)
+	if err != nil {
+		return false, err
+	}
+	logger.Debugf("proxy-ssh is %v", cfg.ProxySSH())
+	return cfg.ProxySSH(), nil
 }
 
 // initAPIClient initialises the API connection.
