@@ -4,8 +4,8 @@
 package main
 
 import (
-	gc "launchpad.net/gocheck"
 	jc "github.com/juju/testing/checkers"
+	gc "launchpad.net/gocheck"
 
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -49,15 +49,15 @@ var resolvedMachineTests = []struct {
 
 func (s *resolveProvisioningErrorSuite) TestResolved(c *gc.C) {
 	m, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series:      "quantal",
-		Jobs:        []state.MachineJob{state.JobManageEnviron},
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobManageEnviron},
 	})
 	c.Assert(err, gc.IsNil)
 	err = m.SetStatus(params.StatusError, "broken", nil)
 	c.Assert(err, gc.IsNil)
 	_, err = s.State.AddOneMachine(state.MachineTemplate{
-		Series:      "quantal",
-		Jobs:        []state.MachineJob{state.JobHostUnits},
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
 	})
 	c.Assert(err, gc.IsNil)
 
