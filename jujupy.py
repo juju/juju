@@ -128,7 +128,14 @@ class JujuClientDevel:
 
     def get_status(self, environment):
         """Get the current status as a dict."""
-        return Status(yaml_loads(self.get_juju_output(environment, 'status')))
+        for ignored in until_timeout(30):
+            try:
+                return Status(yaml_loads(
+                    self.get_juju_output(environment, 'status')))
+            except subprocess.CalledProcessError as e:
+                pass
+        raise Exception(
+            'Timed out waiting for juju status to succeed: %s' % e)
 
     def juju(self, environment, command, args, sudo=False, check=True):
         """Run a command under juju for the current environment."""
