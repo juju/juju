@@ -485,13 +485,58 @@ func (e *maasEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseToolsPath)}, nil
 }
 
+type MAASNetworkDetails struct {
+	Name        string
+	Ip          string
+	NetworkMask string
+	VlanTag     string
+	Description string
+}
+
 // GetNetworksList returns a list of strings which contain networks for a gien maas node instance.
-func (e *maasEnviron) GetNetworksList(node *gomaasapi.MAASObject) (gomaasapi.JSONObject, error){
-	system_id, err :=  node.GetField("system_id")
+func (e *maasEnviron) GetNetworksList(inst instance.Instance) ([]MAASNetworkDetails, error) {
+	maasInst := inst.(*maasInstance)
+	maasObj := maasInst.maasObject
+	system_id, err := maasObj.GetField("system_id")
 	if err != nil {
-		return gomaasapi.JSONObject{}, err
+		return nil, err
 	}
 	params := url.Values{"node": {system_id}}
-	networks, err := node.CallGet("networks", params)
-	return networks, err
+	json, err := maasObj.CallGet("networks", params)
+	if err != nil {
+		return nil, err
+	}
+	jsonNets, err := json.GetArray()
+	if err != nil {
+		return nil, err
+	}
+	var attributeError error
+	getField := func(maasNet *gomaasapi.MAASObject, name string) (val string) {
+		if attributeError != nil {
+			return
+		}
+		val, attributeError = maasNet.GetField(name)
+		if attributeError != nil {
+			attributeError = fmt.Errorf("cannot get %q: %v", name, attributeError)
+		}
+		return val
+	}
+	networks := make([]MAASNetworkDetails, len(jsonNets))
+	for i, jsonNet := range jsonNets {
+		maasNet, err := jsonNet.GetMAASObject()
+		if err != nil {
+			return nil, err
+		}
+		networks[i] = MAASNetworkDetails{
+			Name:        getField(&maasNet, "name"),
+			Ip:          getField(&maasNet, "ip"),
+			NetworkMask: getField(&maasNet, "netmask"),
+			VlanTag:     getField(&maasNet, "vlan_tag"),
+			Description: getField(&maasNet, "description"),
+		}
+	}
+	if attributeError != nil {
+		return nil, attributeError
+	}
+	return networks, attributeError
 }
