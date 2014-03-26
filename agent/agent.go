@@ -505,15 +505,15 @@ func (c *configInternal) Clone() Config {
 	c2 := *c
 
 	// now overwrite all the pointer, slice, and map stuff inside with deep-copies
-	copy(c2.caCert, c.caCert)
+	c2.caCert = append([]byte{}, c.caCert...)
 	stateDetails := *c.stateDetails
 	c2.stateDetails = &stateDetails
-	copy(c2.stateDetails.addresses, c.stateDetails.addresses)
+	c2.stateDetails.addresses = append([]string{}, c.stateDetails.addresses...)
 	apiDetails := *c.apiDetails
 	c2.apiDetails = &apiDetails
-	copy(c2.apiDetails.addresses, c.apiDetails.addresses)
-	copy(c2.stateServerCert, c.stateServerCert)
-	copy(c2.stateServerKey, c.stateServerKey)
+	c2.apiDetails.addresses = append([]string{}, c.apiDetails.addresses...)
+	c2.stateServerCert = append([]byte{}, c.stateServerCert...)
+	c2.stateServerKey = append([]byte{}, c.stateServerKey...)
 	c2.values = map[string]string{}
 	for key, val := range c.values {
 		c2.values[key] = val
