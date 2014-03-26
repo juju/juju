@@ -358,7 +358,7 @@ do
     # fire.
 	if [[ $agent = unit-* ]]
 	then
-        find $agent/state/relations -type f | xargs sed -i -r 's/change-version: [0-9]+$/change-version: 0/'
+	find $agent/state/relations -type f -exec sed -i -r 's/change-version: [0-9]+$/change-version: 0/' {} \;
 	fi
 	initctl start jujud-$agent
 done
