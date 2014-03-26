@@ -56,8 +56,30 @@ func (s *ManifestDeployerSuite) assertFile(c *gc.C, path, content string) {
 	c.Assert(string(data), gc.Equals, content)
 }
 
-func (s *ManifestDeployerSuite) TestAbortStage(c *gc.C) {
-	c.Fatalf("not finished")
+func (s *ManifestDeployerSuite) TestAbortStageWhenClosed(c *gc.C) {
+	info := s.addMockCharm(c, 1, mockBundle{})
+	abort := make(chan struct{})
+	errors := make(chan error)
+	s.bundles.SetAbortWait()
+	go func() {
+		errors <- s.deployer.Stage(info, abort)
+	}()
+	close(abort)
+	err := <-errors
+	c.Assert(err, gc.ErrorMatches, "charm read aborted")
+}
+
+func (s *ManifestDeployerSuite) TestDontAbortStageWhenNotClosed(c *gc.C) {
+	info := s.addMockCharm(c, 1, mockBundle{})
+	abort := make(chan struct{})
+	errors := make(chan error)
+	wait := s.bundles.SetAbortWait()
+	go func() {
+		errors <- s.deployer.Stage(info, abort)
+	}()
+	close(wait)
+	err := <-errors
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *ManifestDeployerSuite) TestDeployWithoutStage(c *gc.C) {
@@ -112,7 +134,60 @@ func (s *ManifestDeployerSuite) TestSimpleUpgrade(c *gc.C) {
 }
 
 func (s *ManifestDeployerSuite) TestComplexUpgrade(c *gc.C) {
-	c.Fatalf("not finished")
+	// Install base.
+	info1 := s.addCharm(c, 1, func(path string) {
+		err := ioutil.WriteFile(filepath.Join(path, "charm-file"), []byte("x"), 0644)
+		c.Assert(err, gc.IsNil)
+		err := os.Symlink("some-file", filepath.Join(path, "charm-symlink"))
+		c.Assert(err, gc.IsNil)
+		err := os.MkdirAll(filepath.Join(path, "charm-remove-dir"), 0755)
+		c.Assert(err, gc.IsNil)
+		err := os.MkdirAll(filepath.Join(path, "charm-dir"), 0755)
+		c.Assert(err, gc.IsNil)
+		err := ioutil.WriteFile(filepath.Join(path, "charm-dir", "charm-file"), []byte("y"), 0644)
+		c.Assert(err, gc.IsNil)
+	})
+	err := s.deployer.Stage(info1, nil)
+	c.Assert(err, gc.IsNil)
+	err = s.deployer.Deploy()
+	c.Assert(err, gc.IsNil)
+	s.assertCharm(c, 1)
+
+	// Add user files that will not be removed.
+	err := ioutil.WriteFile(filepath.Join(path, "user-file"), []byte("z"), 0644)
+	c.Assert(err, gc.IsNil)
+	err := os.Symlink("user-file", filepath.Join(path, "user-symlink"))
+	c.Assert(err, gc.IsNil)
+	err := os.MkdirAll(filepath.Join(path, "user-dir"), 0755)
+	c.Assert(err, gc.IsNil)
+	err := ioutil.WriteFile(filepath.Join(path, "user-dir", "user-file"), []byte("a"), 0644)
+	c.Assert(err, gc.IsNil)
+
+	// Add user files that will be removed.
+	err := ioutil.WriteFile(filepath.Join(path, "charm-dir", "user-file"), []byte("b"), 0644)
+	c.Assert(err, gc.IsNil)
+	err := ioutil.WriteFile(filepath.Join(path, "charm-remove-dir", "user-file"), []byte("c"), 0644)
+	c.Assert(err, gc.IsNil)
+
+	// Upgrade with all file types changed.
+	info2 := s.addCharm(c, 2, func(path string) {
+		err := ioutil.WriteFile(filepath.Join(path, "charm-dir"), []byte("d"), 0644)
+		c.Assert(err, gc.IsNil)
+		err := os.Symlink("charm-file", filepath.Join(path, "charm-dir"))
+		c.Assert(err, gc.IsNil)
+		err := os.MkdirAll(filepath.Join(path, "charm-file"), 0755)
+		c.Assert(err, gc.IsNil)
+		err := ioutil.WriteFile(filepath.Join(path, "charm-file", "charm-file"), []byte("e"), 0644)
+		c.Assert(err, gc.IsNil)
+	})
+	err := s.deployer.Stage(info1, nil)
+	c.Assert(err, gc.IsNil)
+	err = s.deployer.Deploy()
+	c.Assert(err, gc.IsNil)
+	s.assertCharm(c, 1)
+
+	// Check new files are all in place.
+
 }
 
 func (s *ManifestDeployerSuite) TestUpgradeConflictResolveRetrySameCharm(c *gc.C) {

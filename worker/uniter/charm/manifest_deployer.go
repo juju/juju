@@ -14,7 +14,12 @@ import (
 )
 
 const (
-	deployingURLPath  = ".juju-deploying"
+	// deployingURLPath holds the path in the charm dir to which the manifest
+	// deployer writes what charm is currently being deployed.
+	deployingURLPath = ".juju-deploying"
+
+	// manifestsDataPath holds the path in the data dir in which the manifest
+	// deployer stores the manifests for its charms.
 	manifestsDataPath = "manifests"
 )
 
