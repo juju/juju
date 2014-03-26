@@ -457,6 +457,16 @@ type EntityId struct {
 	Id   interface{}
 }
 
+// StateServingInfo holds information needed by a state
+// server.
+type StateServingInfo struct {
+	APIPort   int
+	StatePort int
+	Cert      string
+	Key       string
+	//	KeyFile   string
+}
+
 // MachineInfo holds the information about a Machine
 // that is watched by StateWatcher.
 type MachineInfo struct {
