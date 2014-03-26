@@ -1412,15 +1412,6 @@ func (st *State) StateServingInfo() (params.StateServingInfo, error) {
 
 // SetStateServingInfo stores information needed for running a state server
 func (st *State) SetStateServingInfo(info params.StateServingInfo) error {
-	// We need to insert the document
-	// if it does not already
-	// exist to make this
-	// method work even on old
-	// environments
-	// where the
-	// document was not
-	// created by
-	// Initialize.
 	ops := []txn.Op{{
 		C:      st.stateServers.Name,
 		Id:     stateServingInfoKey,
