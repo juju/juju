@@ -108,6 +108,7 @@ func Main(args []string) {
 	jujucmd.Register(wrap(&SetConstraintsCommand{}))
 	jujucmd.Register(wrap(&GetEnvironmentCommand{}))
 	jujucmd.Register(wrap(&SetEnvironmentCommand{}))
+	jujucmd.Register(wrap(&UnsetEnvironmentCommand{}))
 	jujucmd.Register(wrap(&ExposeCommand{}))
 	jujucmd.Register(wrap(&SyncToolsCommand{}))
 	jujucmd.Register(wrap(&UnexposeCommand{}))

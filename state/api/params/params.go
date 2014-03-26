@@ -589,6 +589,12 @@ type EnvironmentSet struct {
 	Config map[string]interface{}
 }
 
+// EnvironmentUnset contains the arguments for EnvironmentUnset client API
+// call.
+type EnvironmentUnset struct {
+	Keys []string
+}
+
 // SetEnvironAgentVersion contains the arguments for
 // SetEnvironAgentVersion client API call.
 type SetEnvironAgentVersion struct {
