@@ -162,7 +162,6 @@ func (c *Config) fillInDefaults() error {
 	// For backward compatibility purposes, we treat as unset string
 	// valued attributes that are set to the empty string, and fill
 	// out their defaults accordingly.
-	c.fillInStringDefault("default-series")
 	c.fillInStringDefault("firewall-mode")
 
 	// Load authorized-keys-path into authorized-keys if necessary.
@@ -409,7 +408,10 @@ func (c *Config) Name() string {
 
 // DefaultSeries returns the default Ubuntu series for the environment.
 func (c *Config) DefaultSeries() string {
-	return c.mustString("default-series")
+	if s, ok := c.defined["default-series"]; ok {
+		return s.(string)
+	}
+	return ""
 }
 
 // StatePort returns the state server port for the environment.
@@ -763,6 +765,8 @@ var alwaysOptional = schema.Defaults{
 	"image-metadata-url": "", // TODO(rog) omit
 	"tools-metadata-url": "", // TODO(rog) omit
 
+	"default-series": schema.Omit,
+
 	// For backward compatibility only - default ports were
 	// not filled out in previous versions of the configuration.
 	"state-port":  DefaultStatePort,
@@ -786,7 +790,6 @@ var defaults = allDefaults()
 // UseDefaults.
 func allDefaults() schema.Defaults {
 	d := schema.Defaults{
-		"default-series":            DefaultSeries,
 		"firewall-mode":             FwInstance,
 		"development":               false,
 		"ssl-hostname-verification": true,

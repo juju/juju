@@ -145,11 +145,14 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	}
 	if series == "" {
 		curl, err = client.ResolveCharm(ref)
+		if err != nil {
+			return err
+		}
 	} else {
 		curl = &charm.URL{Reference: ref, Series: series}
 	}
 
-	repo, err := charm.InferRepository(curl.Reference, ctx.AbsPath(c.RepoPath))
+	repo, err := charm.InferRepository(ref, ctx.AbsPath(c.RepoPath))
 	if err != nil {
 		return err
 	}
