@@ -197,10 +197,12 @@ func (h *charmsHandler) processPost(r *http.Request) (*charm.URL, error) {
 	}
 	// We got it, now let's reserve a charm URL for it in state.
 	archiveURL := &charm.URL{
-		Schema:   "local",
-		Series:   series,
-		Name:     archive.Meta().Name,
-		Revision: archive.Revision(),
+		Reference: charm.Reference{
+			Schema:   "local",
+			Name:     archive.Meta().Name,
+			Revision: archive.Revision(),
+		},
+		Series: series,
 	}
 	preparedURL, err := h.state.PrepareLocalCharmUpload(archiveURL)
 	if err != nil {

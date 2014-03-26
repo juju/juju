@@ -14,6 +14,10 @@ type Client struct {
 	st *api.State
 }
 
+func (c *Client) call(method string, params, result interface{}) error {
+	return c.st.Call("UserManager", "", method, params, result)
+}
+
 func NewClient(st *api.State) *Client {
 	return &Client{st}
 }
@@ -26,7 +30,7 @@ func (c *Client) AddUser(tag, password string) error {
 	u := params.EntityPassword{Tag: tag, Password: password}
 	p := params.EntityPasswords{Changes: []params.EntityPassword{u}}
 	results := new(params.ErrorResults)
-	err := c.st.Call("UserManager", "", "AddUser", p, results)
+	err := c.call("AddUser", p, results)
 	if err != nil {
 		return err
 	}
@@ -37,7 +41,7 @@ func (c *Client) RemoveUser(tag string) error {
 	u := params.Entity{Tag: tag}
 	p := params.Entities{Entities: []params.Entity{u}}
 	results := new(params.ErrorResults)
-	err := c.st.Call("UserManager", "", "RemoveUser", p, results)
+	err := c.call("RemoveUser", p, results)
 	if err != nil {
 		return err
 	}

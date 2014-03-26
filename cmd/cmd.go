@@ -90,10 +90,40 @@ func (c *CommandBase) AllowInterspersedFlags() bool {
 // should interpret file names relative to Dir (see AbsPath below), and print
 // output and errors to Stdout and Stderr respectively.
 type Context struct {
-	Dir    string
-	Stdin  io.Reader
-	Stdout io.Writer
-	Stderr io.Writer
+	Dir     string
+	Stdin   io.Reader
+	Stdout  io.Writer
+	Stderr  io.Writer
+	quiet   bool
+	verbose bool
+}
+
+func (ctx *Context) write(format string, params ...interface{}) {
+	output := fmt.Sprintf(format, params...)
+	if !strings.HasSuffix(output, "\n") {
+		output = output + "\n"
+	}
+	fmt.Fprint(ctx.Stderr, output)
+}
+
+// Infof will write the formatted string to Stderr if quiet is false, but if
+// quiet is true the message is logged.
+func (ctx *Context) Infof(format string, params ...interface{}) {
+	if ctx.quiet {
+		logger.Infof(format, params...)
+	} else {
+		ctx.write(format, params...)
+	}
+}
+
+// Verbosef will write the formatted string to Stderr if the verbose is true,
+// and to the logger if not.
+func (ctx *Context) Verbosef(format string, params ...interface{}) {
+	if ctx.verbose {
+		ctx.write(format, params...)
+	} else {
+		logger.Infof(format, params...)
+	}
 }
 
 // AbsPath returns an absolute representation of path, with relative paths
@@ -224,21 +254,21 @@ func Main(c Command, ctx *Context, args []string) int {
 }
 
 // DefaultContext returns a Context suitable for use in non-hosted situations.
-func DefaultContext() *Context {
+func DefaultContext() (*Context, error) {
 	dir, err := os.Getwd()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	abs, err := filepath.Abs(dir)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	return &Context{
 		Dir:    abs,
 		Stdin:  os.Stdin,
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
-	}
+	}, nil
 }
 
 // CheckEmpty is a utility function that returns an error if args is not empty.

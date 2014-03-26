@@ -10,9 +10,9 @@ import (
 )
 
 var (
-	ShortAttempt      = &shortAttempt
-	APIVersion        = apiVersion
-	AdditionalScripts = additionalScripts
+	ShortAttempt       = &shortAttempt
+	APIVersion         = apiVersion
+	NewCloudinitConfig = newCloudinitConfig
 )
 
 func MAASAgentName(env environs.Environ) string {

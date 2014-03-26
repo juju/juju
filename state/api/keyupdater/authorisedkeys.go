@@ -16,6 +16,10 @@ type State struct {
 	caller base.Caller
 }
 
+func (st *State) call(method string, params, result interface{}) error {
+	return st.caller.Call("KeyUpdater", "", method, params, result)
+}
+
 // NewState returns a version of the state that provides functionality required by the worker.
 func NewState(caller base.Caller) *State {
 	return &State{caller}
@@ -27,7 +31,7 @@ func (st *State) AuthorisedKeys(machineTag string) ([]string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: machineTag}},
 	}
-	err := st.caller.Call("KeyUpdater", "", "AuthorisedKeys", args, &results)
+	err := st.call("AuthorisedKeys", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return nil, err
@@ -50,7 +54,7 @@ func (st *State) WatchAuthorisedKeys(machineTag string) (watcher.NotifyWatcher, 
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: machineTag}},
 	}
-	err := st.caller.Call("KeyUpdater", "", "WatchAuthorisedKeys", args, &results)
+	err := st.call("WatchAuthorisedKeys", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return nil, err

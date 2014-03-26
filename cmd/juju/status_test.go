@@ -1675,7 +1675,7 @@ type addService struct {
 func (as addService) step(c *gc.C, ctx *context) {
 	ch, ok := ctx.charms[as.charm]
 	c.Assert(ok, gc.Equals, true)
-	_, err := ctx.st.AddService(as.name, "user-admin", ch)
+	_, err := ctx.st.AddService(as.name, "user-admin", ch, nil, nil)
 	c.Assert(err, gc.IsNil)
 }
 
