@@ -484,3 +484,14 @@ func (e *maasEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 	return []simplestreams.DataSource{
 		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseToolsPath)}, nil
 }
+
+// GetNetworksList returns a list of strings which contain networks for a gien maas node instance.
+func (e *maasEnviron) GetNetworksList(node *gomaasapi.MAASObject) (gomaasapi.JSONObject, error){
+	system_id, err :=  node.GetField("system_id")
+	if err != nil {
+		return gomaasapi.JSONObject{}, err
+	}
+	params := url.Values{"node": {system_id}}
+	networks, err := node.CallGet("networks", params)
+	return networks, err
+}
