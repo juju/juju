@@ -54,6 +54,11 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
 	}
 	environ, err := environs.NewFromName(c.envName, store)
 	if err != nil {
+		if environs.IsEmptyConfig(err) {
+			// Delete the .jenv file and call it done.
+			ctx.Infof("removing empty environment file")
+			return environs.DestroyInfo(c.envName, store)
+		}
 		return err
 	}
 	if !c.assumeYes {

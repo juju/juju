@@ -70,6 +70,16 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandEFlag(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
+func (s *destroyEnvSuite) TestDestroyEnvironmentCommandEmptyJenv(c *gc.C) {
+	_, err := s.ConfigStore.CreateInfo("emptyenv")
+	c.Assert(err, gc.IsNil)
+
+	context, err := coretesting.RunCommand(c, new(DestroyEnvironmentCommand), []string{"-e", "emptyenv"})
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(coretesting.Stderr(context), gc.Equals, "removing empty environment file\n")
+}
+
 func (s *destroyEnvSuite) TestDestroyEnvironmentCommandBroken(c *gc.C) {
 	oldinfo, err := s.ConfigStore.ReadInfo("dummyenv")
 	c.Assert(err, gc.IsNil)
