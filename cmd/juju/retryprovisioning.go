@@ -22,7 +22,7 @@ func (c *RetryProvisioningCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "retry-provisioning",
 		Args:    "<machine> [...]",
-		Purpose: "",
+		Purpose: "retries provisioning for failed machines",
 	}
 }
 
