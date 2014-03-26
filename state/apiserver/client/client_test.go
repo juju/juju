@@ -2068,12 +2068,12 @@ func getArchiveName(bundleURL *url.URL) string {
 	return strings.TrimPrefix(bundleURL.RequestURI(), "/dummyenv/private/")
 }
 
-func (s *clientSuite) TestResolveProvisioningError(c *gc.C) {
+func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = machine.SetStatus(params.StatusError, "error", nil)
 	c.Assert(err, gc.IsNil)
-	err = s.APIState.Client().ResolveProvisioningError(machine.Tag())
+	_, err = s.APIState.Client().RetryProvisioning(machine.Tag())
 	c.Assert(err, gc.IsNil)
 
 	status, info, data, err := machine.Status()
