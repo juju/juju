@@ -770,7 +770,7 @@ func (s *ProvisionerSuite) TestTurningOffSafeModeReapsUnknownInstances(c *gc.C) 
 }
 
 func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
-	s.PatchValue(&apiserverprovisioner.WaitDelay, 50*time.Millisecond)
+	s.PatchValue(&apiserverprovisioner.ErrorRetryWaitDelay, 50*time.Millisecond)
 	var e environs.Environ = &mockBroker{Environ: s.APIConn.Environ, retryCount: make(map[string]int)}
 	task := s.newProvisionerTask(c, false, e)
 	defer stop(c, task)
