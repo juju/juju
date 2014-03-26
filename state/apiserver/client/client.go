@@ -38,6 +38,8 @@ type API struct {
 	resources *common.Resources
 	client    *Client
 	dataDir   string
+	// statusSetter provides common methods for updating an entity's provisioning status.
+	statusSetter *common.StatusSetter
 }
 
 // Client serves client-specific API methods.
@@ -48,10 +50,11 @@ type Client struct {
 // NewAPI creates a new instance of the Client API.
 func NewAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer, datadir string) *API {
 	r := &API{
-		state:     st,
-		auth:      authorizer,
-		resources: resources,
-		dataDir:   datadir,
+		state:        st,
+		auth:         authorizer,
+		resources:    resources,
+		dataDir:      datadir,
+		statusSetter: common.NewStatusSetter(st, common.AuthAlways(true)),
 	}
 	r.client = &Client{
 		api: r,
@@ -946,4 +949,15 @@ func CharmArchiveName(name string, revision int) (string, error) {
 		return "", err
 	}
 	return charm.Quote(fmt.Sprintf("%s-%d-%s", name, revision, uuid)), nil
+}
+
+// ResolveProvisioningError marks a provisioning error as transient on the machines.
+func (c *Client) ResolveProvisioningError(p params.Entities) (params.ErrorResults, error) {
+	entityStatus := make([]params.EntityStatus, len(p.Entities))
+	for i, entity := range p.Entities {
+		entityStatus[i] = params.EntityStatus{Tag: entity.Tag, Data: params.StatusData{"transient": true}}
+	}
+	return c.api.statusSetter.UpdateStatus(params.SetStatus{
+		Entities: entityStatus,
+	})
 }

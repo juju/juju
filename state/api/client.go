@@ -138,6 +138,20 @@ func (c *Client) Resolved(unit string, retry bool) error {
 	return c.call("Resolved", p, nil)
 }
 
+// ResolveProvisioningError updates the provisioning status of a machine allowing the
+// provisioner to retry.
+func (c *Client) ResolveProvisioningError(machine string) error {
+	p := params.Entities{
+		Entities: []params.Entity{{Tag: machine}},
+	}
+	var results params.ErrorResults
+	err := c.st.Call("Client", "", "ResolveProvisioningError", p, &results)
+	if err != nil {
+		return err
+	}
+	return results.OneError()
+}
+
 // PublicAddress returns the public address of the specified
 // machine or unit.
 func (c *Client) PublicAddress(target string) (string, error) {
