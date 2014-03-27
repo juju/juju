@@ -9,7 +9,7 @@ import (
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
-	"launchpad.net/juju-core/environs/configstore"
+	"launchpad.net/juju-core/environs/info"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/testing"
 )
@@ -42,7 +42,7 @@ func (s *AddUserSuite) TestNotEnoughArgs(c *gc.C) {
 }
 
 func (s *AddUserSuite) TestJenvOutput(c *gc.C) {
-	expected := configstore.EnvInfo{
+	expected := info.EnvironInfo{
 		User:         "foobar",
 		Password:     "password",
 		StateServers: []string{},
@@ -53,8 +53,8 @@ func (s *AddUserSuite) TestJenvOutput(c *gc.C) {
 	tempFile, err := ioutil.TempFile("", "adduser-test")
 	tempFile.Close()
 	c.Assert(err, gc.IsNil)
-	_, err = testing.RunCommand(c, &AddUserCommand{}, []string{"foobar", "password", "--file", tempFile.Name()})
+	_, err = testing.RunCommand(c, &AddUserCommand{}, []string{"foobar", "password", "-o", tempFile.Name()})
 	c.Assert(err, gc.IsNil)
 	data, err := ioutil.ReadFile(tempFile.Name())
-	c.Assert(data, gc.DeepEquals, expectedStr)
+	c.Assert(string(data), gc.DeepEquals, string(expectedStr))
 }
