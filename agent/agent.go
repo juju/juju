@@ -474,7 +474,7 @@ func (c *configInternal) StateServingInfo() (params.StateServingInfo, bool) {
 	}, true
 }
 
-func (c *configInteral) SetStateServingInfo(info params.StateServingInfo) {
+func (c *configInternal) SetStateServingInfo(info params.StateServingInfo) {
 	c.apiPort = info.APIPort
 	c.statePort = info.StatePort
 	c.stateServerCert = info.Cert
