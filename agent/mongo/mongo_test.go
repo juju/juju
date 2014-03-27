@@ -30,6 +30,10 @@ func (s *MongoSuite) SetUpSuite(c *gc.C) {
 	err := ioutil.WriteFile(start, []byte("#!/bin/bash --norc\nexit 0"), 0755)
 	c.Assert(err, gc.IsNil)
 
+	stop := filepath.Join(testpath, "stop")
+	err = ioutil.WriteFile(stop, []byte("#!/bin/bash --norc\nexit 0"), 0755)
+	c.Assert(err, gc.IsNil)
+
 	s.PatchValue(&upstart.InitDir, c.MkDir())
 }
 
