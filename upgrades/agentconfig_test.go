@@ -97,7 +97,7 @@ func (s *migrateLocalProviderAgentConfigSuite) assertConfigProcessed(c *gc.C) {
 
 	// We need to read the actual migrated agent config.
 	configFilePath := agent.ConfigPath(expectedDataDir, tag)
-	agentConfig, err := agent.ReadConf(configFilePath)
+	agentConfig, err := agent.ReadConfig(configFilePath)
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(agentConfig.DataDir(), gc.Equals, expectedDataDir)
@@ -131,7 +131,7 @@ func (s *migrateLocalProviderAgentConfigSuite) assertConfigNotProcessed(c *gc.C)
 
 	// We need to read the actual migrated agent config.
 	configFilePath := agent.ConfigPath(agent.DefaultDataDir, tag)
-	agentConfig, err := agent.ReadConf(configFilePath)
+	agentConfig, err := agent.ReadConfig(configFilePath)
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(agentConfig.DataDir(), gc.Equals, agent.DefaultDataDir)

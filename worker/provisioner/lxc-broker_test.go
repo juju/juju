@@ -38,7 +38,7 @@ type lxcSuite struct {
 type lxcBrokerSuite struct {
 	lxcSuite
 	broker      environs.InstanceBroker
-	agentConfig agent.Config
+	agentConfig agent.ConfigSetterWriter
 }
 
 var _ = gc.Suite(&lxcBrokerSuite{})
