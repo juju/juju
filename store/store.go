@@ -738,7 +738,7 @@ func (s *Store) Series(ref charm.Reference) ([]string, error) {
 	session := s.session.Copy()
 	defer session.Close()
 
-	patternURL := &charm.URL{Reference: ref, Series: ".*"}
+	patternURL := &charm.URL{Reference: ref, Series: "[a-z][^/]+"}
 	patternURL = patternURL.WithRevision(-1)
 
 	charms := session.Charms()
@@ -755,7 +755,9 @@ func (s *Store) Series(ref charm.Reference) ([]string, error) {
 	seriesSet := make(map[string]bool)
 	for _, cdoc := range cdocs {
 		for _, url := range cdoc.URLs {
-			seriesSet[url.Series] = true
+			if ref == url.Reference {
+				seriesSet[url.Series] = true
+			}
 		}
 	}
 
