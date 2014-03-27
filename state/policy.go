@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 )
 
 // Policy is an interface provided to State that may
@@ -24,6 +25,11 @@ type Policy interface {
 	// Prechecker takes a *config.Config and returns
 	// a (possibly nil) Prechecker or an error.
 	Prechecker(*config.Config) (Prechecker, error)
+
+	// InstanceDistributor takes a *config.Config
+	// and returns a (possibly nil) UnitDistributor
+	// or an error.
+	InstanceDistributor(*config.Config) (InstanceDistributor, error)
 }
 
 // Prechecker is a policy interface that is provided to State
@@ -60,4 +66,22 @@ func (st *State) precheckInstance(series string, cons constraints.Value) error {
 		return fmt.Errorf("policy returned nil prechecker without an error")
 	}
 	return prechecker.PrecheckInstance(series, cons)
+}
+
+// InstanceDistributor is a policy interface that is provided
+// to State to perform distribution of units across instances
+// for high availability.
+type InstanceDistributor interface {
+	// DistributeInstance takes a set of clean, empty
+	// instances, and a distribution group, and returns
+	// the subset of candidates which the policy will
+	// allow to enter into the distribution group.
+	//
+	// TODO(axw) move this comment
+	// The unit assigner will attempt to assign a unit
+	// to each of the resulting instances until it
+	// succeeds. If no instances can be assigned
+	// (e.g. because of concurrent deployments), then
+	// a new machine will be allocated.
+	DistributeInstances(candidates, distributionGroup []instance.Id) ([]instance.Id, error)
 }

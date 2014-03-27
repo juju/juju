@@ -32,3 +32,14 @@ func (environStatePolicy) Prechecker(cfg *config.Config) (state.Prechecker, erro
 	}
 	return nil, errors.NewNotImplementedError("Prechecker")
 }
+
+func (environStatePolicy) InstanceDistributor(cfg *config.Config) (state.InstanceDistributor, error) {
+	env, err := New(cfg)
+	if err != nil {
+		return nil, err
+	}
+	if p, ok := env.(state.InstanceDistributor); ok {
+		return p, nil
+	}
+	return nil, errors.NewNotImplementedError("InstanceDistributor")
+}
