@@ -48,9 +48,7 @@ func (s *ManifestDeployerSuite) addMockCharm(c *gc.C, revision int, bundle charm
 
 func (s *ManifestDeployerSuite) addCharm(c *gc.C, revision int, content ...ft.Entry) charm.BundleInfo {
 	return s.bundles.AddCustomBundle(c, s.charmURL(revision), func(path string) {
-		for _, entry := range content {
-			entry.Create(c, path)
-		}
+		ft.Entries(content).Create(c, path)
 	})
 }
 
@@ -68,9 +66,7 @@ func (s *ManifestDeployerSuite) assertCharm(c *gc.C, revision int, content ...ft
 	url, err := charm.ReadCharmURL(filepath.Join(s.targetPath, ".juju-charm"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(url, gc.DeepEquals, s.charmURL(revision))
-	for _, entry := range content {
-		entry.Check(c, s.targetPath)
-	}
+	ft.Entries(content).Check(c, s.targetPath)
 }
 
 func (s *ManifestDeployerSuite) TestAbortStageWhenClosed(c *gc.C) {
