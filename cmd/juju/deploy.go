@@ -207,10 +207,16 @@ func (c *DeployCommand) run1dot16(ctx *cmd.Context) error {
 		return err
 	}
 
-	curl, repo, err := resolveCharmRepo1dot16(c.CharmName, ctx.AbsPath(c.RepoPath), conf)
+	curl, err := resolveCharmURL1dot16(c.CharmName, conf)
 	if err != nil {
 		return err
 	}
+
+	repo, err := charm.InferRepository(curl.Reference, c.RepoPath)
+	if err != nil {
+		return err
+	}
+	repo = config.SpecializeCharmRepo(repo, conf)
 
 	// TODO(fwereade) it's annoying to roundtrip the bytes through the client
 	// here, but it's the original behaviour and not convenient to change.

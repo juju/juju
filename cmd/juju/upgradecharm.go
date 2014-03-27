@@ -195,27 +195,22 @@ func (c *UpgradeCharmCommand) run1dot16(ctx *cmd.Context) error {
 
 	oldURL, _ := service.CharmURL()
 	var newURL *charm.URL
-	var repo charm.Repository
 	if c.SwitchURL != "" {
 		// A new charm URL was explicitly specified.
-		conf, err := conn.State.EnvironConfig()
-		if err != nil {
-			return err
-		}
-
-		newURL, repo, err = resolveCharmRepo1dot16(c.SwitchURL, ctx.AbsPath(c.RepoPath), conf)
+		newURL, err = resolveCharmURL1dot16(c.SwitchURL, conf)
 		if err != nil {
 			return err
 		}
 	} else {
 		// No new URL specified, but revision might have been.
 		newURL = oldURL.WithRevision(c.Revision)
-		repo, err := charm.InferRepository(newURL.Reference, ctx.AbsPath(c.RepoPath))
-		if err != nil {
-			return err
-		}
-		repo = config.SpecializeCharmRepo(repo, conf)
 	}
+
+	repo, err := charm.InferRepository(newURL.Reference, c.RepoPath)
+	if err != nil {
+		return err
+	}
+	repo = config.SpecializeCharmRepo(repo, conf)
 
 	// If no explicit revision was set with either SwitchURL
 	// or Revision flags, discover the latest.

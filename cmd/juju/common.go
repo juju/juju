@@ -65,32 +65,21 @@ func resolveCharmURL(url string, client *api.Client, conf *config.Config) (*char
 	return &charm.URL{Reference: ref, Series: series}, nil
 }
 
-// resolveCharmRepo1dot16 returns a resolved charm URL and the repository that
-// contains it given a charm location string.  To resolve an unspecified series,
-// the environment default-series is used, or if not set, the series is
-// resolved with the repository directly.  Remove once the support for 1.16 is
-// dropped.
-func resolveCharmRepo1dot16(url, repoPath string, conf *config.Config) (*charm.URL, charm.Repository, error) {
+// resolveCharmURL1dot16 returns a resolved charm URL for older state servers
+// that do not support ResolveCharm. The default series "precise" is
+// appropriate for these environments.
+func resolveCharmURL1dot16(url string, conf *config.Config) (*charm.URL, error) {
 	ref, series, err := charm.ParseReference(url)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-
-	repo, err := charm.InferRepository(ref, repoPath)
-	if err != nil {
-		return nil, nil, err
-	}
-	repo = config.SpecializeCharmRepo(repo, conf)
 
 	if series == "" {
 		series = conf.DefaultSeries()
 	}
 	if series == "" {
-		curl, err := repo.Resolve(ref)
-		if err != nil {
-			return nil, nil, err
-		}
-		return curl, repo, err
+		logger.Warningf(`ResolveCharm not supported by the API server, falling back to default series "precise".`)
+		series = "precise"
 	}
-	return &charm.URL{Reference: ref, Series: series}, repo, err
+	return &charm.URL{Reference: ref, Series: series}, err
 }
