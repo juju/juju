@@ -464,9 +464,8 @@ type StateServingInfo struct {
 	StatePort  int
 	Cert       string
 	PrivateKey string
-	// TODO add KeyFile field to hold contents of
-	// mongo key file.
-	// KeyFile   string
+	// this will be passed as the KeyFile argument to MongoDB
+	SharedSecret string
 }
 
 // MachineInfo holds the information about a Machine
