@@ -30,7 +30,7 @@ type diskStore struct {
 	dir string
 }
 
-type environInfo struct {
+type EnvInfo struct {
 	path string
 	// initialized signifies whether the info has been written.
 	initialized bool
@@ -85,7 +85,7 @@ func (d *diskStore) CreateInfo(envName string) (EnvironInfo, error) {
 		return nil, err
 	}
 	file.Close()
-	return &environInfo{
+	return &EnvInfo{
 		created: true,
 		path:    path,
 	}, nil
@@ -101,7 +101,7 @@ func (d *diskStore) ReadInfo(envName string) (EnvironInfo, error) {
 		}
 		return nil, err
 	}
-	var info environInfo
+	var info EnvInfo
 	info.path = path
 	if len(data) == 0 {
 		return &info, nil
@@ -114,17 +114,17 @@ func (d *diskStore) ReadInfo(envName string) (EnvironInfo, error) {
 }
 
 // Initialized implements EnvironInfo.Initialized.
-func (info *environInfo) Initialized() bool {
+func (info *EnvInfo) Initialized() bool {
 	return info.initialized
 }
 
 // BootstrapConfig implements EnvironInfo.BootstrapConfig.
-func (info *environInfo) BootstrapConfig() map[string]interface{} {
+func (info *EnvInfo) BootstrapConfig() map[string]interface{} {
 	return info.Config
 }
 
 // APICredentials implements EnvironInfo.APICredentials.
-func (info *environInfo) APICredentials() APICredentials {
+func (info *EnvInfo) APICredentials() APICredentials {
 	return APICredentials{
 		User:     info.User,
 		Password: info.Password,
@@ -132,7 +132,7 @@ func (info *environInfo) APICredentials() APICredentials {
 }
 
 // APIEndpoint implements EnvironInfo.APIEndpoint.
-func (info *environInfo) APIEndpoint() APIEndpoint {
+func (info *EnvInfo) APIEndpoint() APIEndpoint {
 	return APIEndpoint{
 		Addresses: info.StateServers,
 		CACert:    info.CACert,
@@ -140,7 +140,7 @@ func (info *environInfo) APIEndpoint() APIEndpoint {
 }
 
 // SetExtraConfig implements EnvironInfo.SetBootstrapConfig.
-func (info *environInfo) SetBootstrapConfig(attrs map[string]interface{}) {
+func (info *EnvInfo) SetBootstrapConfig(attrs map[string]interface{}) {
 	if !info.created {
 		panic("bootstrap config set on environment info that has not just been created")
 	}
@@ -148,24 +148,24 @@ func (info *environInfo) SetBootstrapConfig(attrs map[string]interface{}) {
 }
 
 // SetAPIEndpoint implements EnvironInfo.SetAPIEndpoint.
-func (info *environInfo) SetAPIEndpoint(endpoint APIEndpoint) {
+func (info *EnvInfo) SetAPIEndpoint(endpoint APIEndpoint) {
 	info.StateServers = endpoint.Addresses
 	info.CACert = endpoint.CACert
 }
 
 // SetAPICredentials implements EnvironInfo.SetAPICredentials.
-func (info *environInfo) SetAPICredentials(creds APICredentials) {
+func (info *EnvInfo) SetAPICredentials(creds APICredentials) {
 	info.User = creds.User
 	info.Password = creds.Password
 }
 
-// Location returns the location of the environInfo in human readable format.
-func (info *environInfo) Location() string {
+// Location returns the location of the EnvInfo in human readable format.
+func (info *EnvInfo) Location() string {
 	return fmt.Sprintf("file %q", info.path)
 }
 
 // Write implements EnvironInfo.Write.
-func (info *environInfo) Write() error {
+func (info *EnvInfo) Write() error {
 	data, err := goyaml.Marshal(info)
 	if err != nil {
 		return errgo.Annotate(err, "cannot marshal environment info")
@@ -194,7 +194,7 @@ func (info *environInfo) Write() error {
 }
 
 // Destroy implements EnvironInfo.Destroy.
-func (info *environInfo) Destroy() error {
+func (info *EnvInfo) Destroy() error {
 	err := os.Remove(info.path)
 	if os.IsNotExist(err) {
 		return fmt.Errorf("environment info has already been removed")

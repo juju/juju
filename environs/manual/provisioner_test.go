@@ -105,7 +105,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 		SkipProvisionAgent:       true,
 	}.install(c).Restore()
 	_, err = manual.ProvisionMachine(args)
-	c.Assert(err, gc.ErrorMatches, "error checking if provisioned: rc: 255")
+	c.Assert(err, gc.ErrorMatches, "error checking if provisioned: subprocess encountered error code 255")
 }
 
 func (s *provisionerSuite) TestFinishMachineConfig(c *gc.C) {

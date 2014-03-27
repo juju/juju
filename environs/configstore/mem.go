@@ -18,7 +18,7 @@ type memStore struct {
 type memInfo struct {
 	store *memStore
 	name  string
-	environInfo
+	EnvInfo
 }
 
 // clone returns a copy of the given environment info, isolated

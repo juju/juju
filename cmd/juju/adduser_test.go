@@ -4,8 +4,12 @@
 package main
 
 import (
-	gc "launchpad.net/gocheck"
+	"io/ioutil"
 
+	gc "launchpad.net/gocheck"
+	"launchpad.net/goyaml"
+
+	"launchpad.net/juju-core/environs/configstore"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/testing"
 )
@@ -35,4 +39,22 @@ func (s *AddUserSuite) TestTooManyArgs(c *gc.C) {
 func (s *AddUserSuite) TestNotEnoughArgs(c *gc.C) {
 	_, err := testing.RunCommand(c, &AddUserCommand{}, []string{})
 	c.Assert(err, gc.ErrorMatches, `no username supplied`)
+}
+
+func (s *AddUserSuite) TestJenvOutput(c *gc.C) {
+	expected := configstore.EnvInfo{
+		User:         "foobar",
+		Password:     "password",
+		StateServers: []string{},
+		CACert:       "",
+	}
+	expectedStr, err := goyaml.Marshal(expected)
+	c.Assert(err, gc.IsNil)
+	tempFile, err := ioutil.TempFile("", "adduser-test")
+	tempFile.Close()
+	c.Assert(err, gc.IsNil)
+	_, err = testing.RunCommand(c, &AddUserCommand{}, []string{"foobar", "password", "--file", tempFile.Name()})
+	c.Assert(err, gc.IsNil)
+	data, err := ioutil.ReadFile(tempFile.Name())
+	c.Assert(data, gc.DeepEquals, expectedStr)
 }

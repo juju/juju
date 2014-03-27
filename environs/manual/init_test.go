@@ -43,7 +43,7 @@ func (s *initialisationSuite) TestDetectionError(c *gc.C) {
 	// will return an error. stderr will be included in the error message.
 	defer installFakeSSH(c, manual.DetectionScript, []string{scriptResponse, "oh noes"}, 33)()
 	hc, _, err := manual.DetectSeriesAndHardwareCharacteristics("hostname")
-	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code: 33 \\(oh noes\\)")
+	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 33 \\(oh noes\\)")
 	// if the script doesn't fail, stderr is simply ignored.
 	defer installFakeSSH(c, manual.DetectionScript, []string{scriptResponse, "non-empty-stderr"}, 0)()
 	hc, _, err = manual.DetectSeriesAndHardwareCharacteristics("hostname")
