@@ -149,6 +149,10 @@ type ServiceDeploy struct {
 	ConfigYAML    string // Takes precedence over config if both are present.
 	Constraints   constraints.Value
 	ToMachineSpec string
+	// The following fields are supported from 1.17.7 onwards and
+	// ignored before that.
+	IncludeNetworks []string
+	ExcludeNetworks []string
 }
 
 // ServiceUpdate holds the parameters for making the ServiceUpdate call.
@@ -587,6 +591,12 @@ type EnvironmentGetResults struct {
 // call.
 type EnvironmentSet struct {
 	Config map[string]interface{}
+}
+
+// EnvironmentUnset contains the arguments for EnvironmentUnset client API
+// call.
+type EnvironmentUnset struct {
+	Keys []string
 }
 
 // SetEnvironAgentVersion contains the arguments for

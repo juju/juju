@@ -83,8 +83,8 @@ func (s *DeploySuite) TestUpgradeReportsDeprecated(c *gc.C) {
 	ctx, err := coretesting.RunCommand(c, &DeployCommand{}, []string{"local:dummy", "-u"})
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(coretesting.Stderr(ctx), gc.Equals, "")
-	output := strings.Split(coretesting.Stdout(ctx), "\n")
+	c.Assert(coretesting.Stdout(ctx), gc.Equals, "")
+	output := strings.Split(coretesting.Stderr(ctx), "\n")
 	c.Check(output[0], gc.Matches, `Added charm ".*" to the environment.`)
 	c.Check(output[1], gc.Equals, "--upgrade (or -u) is deprecated and ignored; charms are always deployed with a unique revision.")
 }

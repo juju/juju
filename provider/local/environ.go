@@ -39,6 +39,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils/shell"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/terminationworker"
@@ -117,7 +118,7 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 	}
 
 	vers := version.Current
-	selectedTools, err := common.EnsureBootstrapTools(env, vers.Series, &vers.Arch)
+	selectedTools, err := common.EnsureBootstrapTools(ctx, env, vers.Series, &vers.Arch)
 	if err != nil {
 		return err
 	}
@@ -439,6 +440,12 @@ func (env *localEnviron) Destroy() error {
 			}
 		}
 	}
+	// Stop the mongo database and machine agent. It's possible that the
+	// service doesn't exist or is not running, so don't check the error.
+	upstart.NewService(env.mongoServiceName()).StopAndRemove()
+	upstart.NewService(env.machineAgentServiceName()).StopAndRemove()
+
+	// Finally, remove the data-dir.
 	if err := os.RemoveAll(env.config.rootDir()); err != nil && !os.IsNotExist(err) {
 		return err
 	}

@@ -584,6 +584,7 @@ func (m *Machine) Remove() (err error) {
 		},
 		removeStatusOp(m.st, m.globalKey()),
 		removeConstraintsOp(m.st, m.globalKey()),
+		removeNetworksOp(m.st, m.globalKey()),
 		annotationRemoveOp(m.st, m.globalKey()),
 	}
 	ops = append(ops, removeContainerRefOps(m.st, m.Id())...)
@@ -880,6 +881,12 @@ func (m *Machine) SetMachineAddresses(addresses []instance.Address) (err error) 
 	return nil
 }
 
+// Networks returns the list of networks the machine should be on
+// (includeNetworks) or not (excludeNetworks).
+func (m *Machine) Networks() (includeNetworks, excludeNetworks []string, err error) {
+	return readNetworks(m.st, m.globalKey())
+}
+
 // CheckProvisioned returns true if the machine was provisioned with the given nonce.
 func (m *Machine) CheckProvisioned(nonce string) bool {
 	return nonce == m.doc.Nonce && nonce != ""
@@ -953,7 +960,11 @@ func (m *Machine) SetStatus(status params.Status, info string, data params.Statu
 		StatusInfo: info,
 		StatusData: data,
 	}
-	if err := doc.validateSet(); err != nil {
+	// If a machine is not yet provisioned, we allow its status
+	// to be set back to pending (when a retry is to occur).
+	_, err := m.InstanceId()
+	allowPending := IsNotProvisionedError(err)
+	if err := doc.validateSet(allowPending); err != nil {
 		return err
 	}
 	ops := []txn.Op{{

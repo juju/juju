@@ -19,6 +19,10 @@ type State struct {
 	caller base.Caller
 }
 
+func (st *State) call(method string, params, result interface{}) error {
+	return st.caller.Call("Upgrader", "", method, params, result)
+}
+
 // NewState returns a version of the state that provides functionality
 // required by the upgrader worker.
 func NewState(caller base.Caller) *State {
@@ -36,7 +40,7 @@ func (st *State) SetVersion(tag string, v version.Binary) error {
 			Tools: &params.Version{v},
 		}},
 	}
-	err := st.caller.Call("Upgrader", "", "SetTools", args, &results)
+	err := st.call("SetTools", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return err
@@ -49,7 +53,7 @@ func (st *State) DesiredVersion(tag string) (version.Number, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
 	}
-	err := st.caller.Call("Upgrader", "", "DesiredVersion", args, &results)
+	err := st.call("DesiredVersion", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return version.Number{}, err
@@ -76,7 +80,7 @@ func (st *State) Tools(tag string) (*tools.Tools, utils.SSLHostnameVerification,
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
 	}
-	err := st.caller.Call("Upgrader", "", "Tools", args, &results)
+	err := st.call("Tools", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return nil, false, err
@@ -101,7 +105,7 @@ func (st *State) WatchAPIVersion(agentTag string) (watcher.NotifyWatcher, error)
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: agentTag}},
 	}
-	err := st.caller.Call("Upgrader", "", "WatchAPIVersion", args, &results)
+	err := st.call("WatchAPIVersion", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return nil, err

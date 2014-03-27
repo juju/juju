@@ -106,8 +106,7 @@ func (s *configSuite) TestNamespace(c *gc.C) {
 }
 
 func (s *configSuite) TestBootstrapAsRoot(c *gc.C) {
-	restore := local.SetRootCheckFunction(func() bool { return true })
-	defer restore()
+	s.PatchValue(local.CheckIfRoot, func() bool { return true })
 	env, err := local.Provider.Prepare(testing.Context(c), minimalConfig(c))
 	c.Assert(err, gc.IsNil)
 	err = env.Bootstrap(testing.Context(c), constraints.Value{})

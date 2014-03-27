@@ -14,10 +14,11 @@ import (
 )
 
 // destroyPreparedEnviron destroys the environment and logs an error if it fails.
-func destroyPreparedEnviron(env environs.Environ, store configstore.Storage, err *error, action string) {
+func destroyPreparedEnviron(ctx *cmd.Context, env environs.Environ, store configstore.Storage, err *error, action string) {
 	if *err == nil {
 		return
 	}
+	ctx.Infof("%s failed, destroying environment", action)
 	if err := environs.Destroy(env, store); err != nil {
 		logger.Errorf("%s failed, and the environment could not be destroyed: %v", action, err)
 	}
@@ -42,7 +43,7 @@ func environFromName(
 	}
 	cleanup := func() {
 		if !existing {
-			destroyPreparedEnviron(environ, store, resultErr, action)
+			destroyPreparedEnviron(ctx, environ, store, resultErr, action)
 		}
 	}
 	return environ, cleanup, nil

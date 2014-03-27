@@ -152,7 +152,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if c.BumpRevision {
-		ctx.Stdout.Write([]byte("--upgrade (or -u) is deprecated and ignored; charms are always deployed with a unique revision.\n"))
+		ctx.Infof("--upgrade (or -u) is deprecated and ignored; charms are always deployed with a unique revision.")
 	}
 
 	charmInfo, err := client.CharmInfo(curl.String())
@@ -296,7 +296,6 @@ func addCharmViaAPI(client *api.Client, ctx *cmd.Context, curl *charm.URL, repo 
 	default:
 		return nil, fmt.Errorf("unsupported charm URL schema: %q", curl.Schema)
 	}
-	report := fmt.Sprintf("Added charm %q to the environment.\n", curl)
-	ctx.Stdout.Write([]byte(report))
+	ctx.Infof("Added charm %q to the environment.", curl)
 	return curl, nil
 }
