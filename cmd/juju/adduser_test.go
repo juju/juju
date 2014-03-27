@@ -26,3 +26,13 @@ func (s *AddUserSuite) Testadduser(c *gc.C) {
 	_, err = testing.RunCommand(c, &AddUserCommand{}, []string{"foobar", "newpassword"})
 	c.Assert(err, gc.ErrorMatches, "Failed to create user: user already exists")
 }
+
+func (s *AddUserSuite) TestTooManyArgs(c *gc.C) {
+	_, err := testing.RunCommand(c, &AddUserCommand{}, []string{"foobar", "password", "whoops"})
+	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
+}
+
+func (s *AddUserSuite) TestNotEnoughArgs(c *gc.C) {
+	_, err := testing.RunCommand(c, &AddUserCommand{}, []string{})
+	c.Assert(err, gc.ErrorMatches, `no username supplied`)
+}

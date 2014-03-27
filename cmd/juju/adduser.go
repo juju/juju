@@ -55,10 +55,10 @@ func (c *AddUserCommand) Init(args []string) error {
 			return fmt.Errorf("Failed to read password %v", err)
 		}
 		c.Password = string(pass)
-	} else {
-		c.Password = args[1]
+		return nil
 	}
-	return nil
+	c.Password = args[1]
+	return cmd.CheckEmpty(args[2:])
 }
 
 func (c *AddUserCommand) Run(_ *cmd.Context) error {
