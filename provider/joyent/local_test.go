@@ -102,7 +102,7 @@ type localLiveSuite struct {
 
 func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
-	CreateTestKey()
+	s.AddSuiteCleanup(CreateTestKey(c))
 	s.cSrv = &localCloudAPIServer{}
 	s.mSrv = &localMantaServer{}
 	s.cSrv.setupServer(c)
@@ -124,7 +124,6 @@ func (s *localLiveSuite) TearDownSuite(c *gc.C) {
 	s.LiveTests.TearDownSuite(c)
 	s.cSrv.destroyServer()
 	s.mSrv.destroyServer()
-	RemoveTestKey()
 	s.LoggingSuite.TearDownSuite(c)
 }
 
@@ -159,7 +158,7 @@ func (s *localServerSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *localServerSuite) SetUpTest(c *gc.C) {
-	CreateTestKey()
+	s.AddSuiteCleanup(CreateTestKey(c))
 
 	s.cSrv = &localCloudAPIServer{}
 	s.mSrv = &localMantaServer{}
@@ -180,7 +179,6 @@ func (s *localServerSuite) TearDownTest(c *gc.C) {
 	s.Tests.TearDownTest(c)
 	s.cSrv.destroyServer()
 	s.mSrv.destroyServer()
-	RemoveTestKey()
 }
 
 func bootstrapContext(c *gc.C) environs.BootstrapContext {

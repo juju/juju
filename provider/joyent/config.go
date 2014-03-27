@@ -5,6 +5,7 @@ package joyent
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/url"
 	"os"
 	"strings"
@@ -69,12 +70,14 @@ var configFields = schema.Fields{
 	"key-file":     schema.String(),
 	"algorithm":    schema.String(),
 	"control-dir":  schema.String(),
+	"private-key":  schema.String(),
 }
 
 var configDefaultFields = schema.Defaults{
 	"sdc-url":   "https://us-west-1.api.joyentcloud.com",
 	"manta-url": "https://us-east.manta.joyent.com",
 	"algorithm": "rsa-sha256",
+	"private-key":  schema.Omit,
 }
 
 var configSecretFields = []string{
@@ -89,6 +92,7 @@ var configImmutableFields = []string{
 	"sdc-url",
 	"manta-url",
 	"key-file",
+	"private-key",
 	"algorithm",
 }
 
@@ -116,6 +120,17 @@ func prepareConfig(cfg *config.Config) (*config.Config, error) {
 			}
 		}
 	}
+
+	// Read the private key from the key file - this is used to sign requests.
+	keyFile, err := utils.NormalizePath(attrs["key-file"].(string))
+	if err != nil {
+		return nil, err
+	}
+	privateKey, err := ioutil.ReadFile(keyFile)
+	if err != nil {
+		return nil, err
+	}
+    attrs["private-key"] = string(privateKey)
 
 	return cfg.Apply(attrs)
 }
@@ -145,11 +160,6 @@ func validateConfig(cfg *config.Config, old *environConfig) (*environConfig, err
 	if err != nil {
 		return nil, err
 	}
-	for field := range configFields {
-		if newAttrs[field] == "" {
-			return nil, fmt.Errorf("%s: must not be empty", field)
-		}
-	}
 
 	// If an old config was supplied, check any immutable fields have not changed.
 	if old != nil {
@@ -169,6 +179,13 @@ func validateConfig(cfg *config.Config, old *environConfig) (*environConfig, err
 	if err != nil {
 		return nil, err
 	}
+
+	for field := range configFields {
+		if newAttrs[field] == "" {
+			return nil, fmt.Errorf("%s: must not be empty", field)
+		}
+	}
+
 	return &environConfig{
 		Config: newCfg,
 		attrs:  newAttrs,
@@ -208,8 +225,8 @@ func (ecfg *environConfig) mantaKeyId() string {
 	return ecfg.attrs["manta-key-id"].(string)
 }
 
-func (ecfg *environConfig) keyFile() string {
-	return ecfg.attrs["key-file"].(string)
+func (ecfg *environConfig) privateKey() string {
+	return ecfg.attrs["private-key"].(string)
 }
 
 func (ecfg *environConfig) algorithm() string {

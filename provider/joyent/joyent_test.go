@@ -17,6 +17,7 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
+	"launchpad.net/juju-core/utils"
 )
 
 const (
@@ -67,11 +68,10 @@ var _ = gc.Suite(&providerSuite{})
 func (s *providerSuite) SetUpSuite(c *gc.C) {
 	s.restoreTimeouts = envtesting.PatchAttemptStrategies()
 	s.LoggingSuite.SetUpSuite(c)
-	CreateTestKey()
+	s.AddSuiteCleanup(CreateTestKey(c))
 }
 
 func (s *providerSuite) TearDownSuite(c *gc.C) {
-	RemoveTestKey()
 	s.restoreTimeouts()
 	s.LoggingSuite.TearDownSuite(c)
 }
@@ -100,6 +100,7 @@ func GetFakeConfig(sdcUrl, mantaUrl string) coretesting.Attrs {
 		"algorithm":     "rsa-sha256",
 		"control-dir":   "juju-test",
 		"agent-version": version.Current.Number.String(),
+		"private-key":   "private",
 	})
 }
 
@@ -117,12 +118,15 @@ func MakeEnviron(sdcUrl, mantaUrl string) *jp.JoyentEnviron {
 	return env
 }
 
-func CreateTestKey() error {
-	keyFile := fmt.Sprintf("%s/.ssh/%s", os.Getenv("HOME"), testKeyFileName)
-	return ioutil.WriteFile(keyFile, []byte(testPrivateKey), 400)
-}
-
-func RemoveTestKey() error {
-	keyFile := fmt.Sprintf("%s/.ssh/%s", os.Getenv("HOME"), testKeyFileName)
-	return os.Remove(keyFile)
+func CreateTestKey(c *gc.C) func(*gc.C) {
+	keyFile := fmt.Sprintf("~/.ssh/%s", testKeyFileName)
+	keyFilePath, err := utils.NormalizePath(keyFile)
+	c.Assert(err, gc.IsNil)
+	err = ioutil.WriteFile(keyFilePath, []byte(testPrivateKey), 400)
+	c.Assert(err, gc.IsNil)
+	fmt.Println("aaaaaaaaaaaaaaaaaaaaaa")
+	fmt.Println(keyFilePath)
+	return func (c *gc.C) {
+		os.Remove(keyFilePath)
+	}
 }

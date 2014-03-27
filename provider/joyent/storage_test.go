@@ -52,7 +52,7 @@ func (s *storageSuite) assertStorage(name string, c *gc.C) *jp.JoyentStorage {
 }
 
 func (s *storageSuite) assertContainer(storage *jp.JoyentStorage, c *gc.C) {
-	err := storage.CreateContainer()
+	err := jp.CreateContainer(storage)
 	c.Assert(err, gc.IsNil)
 }
 

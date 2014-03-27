@@ -11,7 +11,6 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	jp "launchpad.net/juju-core/provider/joyent"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 func newConfig(c *gc.C, attrs coretesting.Attrs) *config.Config {
@@ -24,26 +23,26 @@ func newConfig(c *gc.C, attrs coretesting.Attrs) *config.Config {
 func validAttrs() coretesting.Attrs {
 	return coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"type":         "joyent",
-		"sdc-user":     "juju-test",
-		"sdc-key-id":   "00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff",
+		"sdc-user":     "juju-test","sdc-key-id":   "00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff",
 		"sdc-url":      "https://test.api.joyentcloud.com",
 		"manta-user":   "juju-test",
 		"manta-key-id": "00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff",
 		"manta-url":    "https://test.manta.joyent.com",
-		"key-file":     "~/.ssh/id_rsa",
+		"key-file":     "~/.ssh/provider_id_rsa",
 		"algorithm":    "rsa-sha256",
 		"control-dir":  "juju-test",
 	})
 }
 
 type ConfigSuite struct {
-	testbase.LoggingSuite
+	coretesting.FakeHomeSuite
 	originalValues map[string]testing.Restorer
 }
 
 var _ = gc.Suite(&ConfigSuite{})
 
 func (s *ConfigSuite) SetUpSuite(c *gc.C) {
+	s.FakeHomeSuite.SetUpSuite(c)
 	restoreSdcAccount := testing.PatchEnvironment(jp.SdcAccount, "tester")
 	s.AddSuiteCleanup(func(*gc.C) { restoreSdcAccount() })
 	restoreSdcKeyId := testing.PatchEnvironment(jp.SdcKeyId, "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00")
@@ -52,6 +51,11 @@ func (s *ConfigSuite) SetUpSuite(c *gc.C) {
 	s.AddSuiteCleanup(func(*gc.C) { restoreMantaUser() })
 	restoreMantaKeyId := testing.PatchEnvironment(jp.MantaKeyId, "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00")
 	s.AddSuiteCleanup(func(*gc.C) { restoreMantaKeyId() })
+}
+
+func (s *ConfigSuite) SetUpTest(c *gc.C) {
+	s.FakeHomeSuite.SetUpTest(c)
+	s.AddCleanup(CreateTestKey(c))
 }
 
 var newConfigTests = []struct {

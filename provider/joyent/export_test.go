@@ -163,3 +163,7 @@ func ControlBucketName(e environs.Environ) string {
 	env := e.(*JoyentEnviron)
 	return env.Storage().(*JoyentStorage).GetContainerName()
 }
+
+func CreateContainer(s *JoyentStorage) error {
+	return s.createContainer()
+}

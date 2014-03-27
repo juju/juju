@@ -50,7 +50,6 @@ func NewEnviron(cfg *config.Config) (*JoyentEnviron, error) {
 		return nil, err
 	}
 	env.name = cfg.Name()
-	env.creds = getCredentials(env)
 	env.storage = NewStorage(env, "")
 	env.compute = NewCompute(env)
 	return env, nil
@@ -141,12 +140,8 @@ func (env *JoyentEnviron) Credentials() *auth.Credentials {
 	return env.getSnapshot().creds
 }
 
-func (env *JoyentEnviron) SetCredentials() {
-	env.creds = getCredentials(env)
-}
-
 func getCredentials(env *JoyentEnviron) *auth.Credentials {
-	authentication := auth.Auth{User: env.ecfg.mantaUser(), KeyFile: env.ecfg.keyFile(), Algorithm: env.ecfg.algorithm()}
+	authentication := auth.Auth{User: env.ecfg.mantaUser(), PrivateKey: env.ecfg.privateKey(), Algorithm: env.ecfg.algorithm()}
 
 	return &auth.Credentials{
 		UserAuthentication: authentication,
