@@ -460,10 +460,10 @@ type EntityId struct {
 // StateServingInfo holds information needed by a state
 // server.
 type StateServingInfo struct {
-	APIPort   int
-	StatePort int
-	Cert      string
-	Key       string
+	APIPort    int
+	StatePort  int
+	Cert       string
+	PrivateKey string
 	// TODO add KeyFile field to hold contents of
 	// mongo key file.
 	// KeyFile   string

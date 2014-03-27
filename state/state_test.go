@@ -2857,10 +2857,10 @@ func (s *StateSuite) TestStateServingInfo(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	data := params.StateServingInfo{
-		APIPort:   69,
-		StatePort: 80,
-		Cert:      "Some cert",
-		Key:       "Some key",
+		APIPort:    69,
+		StatePort:  80,
+		Cert:       "Some cert",
+		PrivateKey: "Some key",
 	}
 	err = s.State.SetStateServingInfo(data)
 	c.Assert(err, gc.IsNil)
