@@ -234,7 +234,7 @@ func (env *JoyentEnviron) FindInstanceSpec(ic *instances.InstanceConstraint) (*i
 			Mem:      uint64(pkg.Memory),
 			CpuCores: uint64(pkg.VCPUs),
 			RootDisk: uint64(pkg.Disk * 1024),
-			VirtType:    &vTypeVirtualmachine,
+			VirtType: &vTypeVirtualmachine,
 		}
 		allInstanceTypes = append(allInstanceTypes, instanceType)
 	}

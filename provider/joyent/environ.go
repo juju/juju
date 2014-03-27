@@ -77,7 +77,7 @@ func (env *JoyentEnviron) SupportedArchitectures() ([]string, error) {
 	cfg := env.Ecfg()
 	// Create a filter to get all images from our region and for the correct stream.
 	cloudSpec := simplestreams.CloudSpec{
-		Region: cfg.Region(),
+		Region:   cfg.Region(),
 		Endpoint: cfg.SdcUrl(),
 	}
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{

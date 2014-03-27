@@ -293,6 +293,10 @@ var prepareConfigTests = []struct {
 	insert: coretesting.Attrs{"sdc-key-id": ""},
 	expect: coretesting.Attrs{"sdc-key-id": "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00"},
 }, {
+	info:   "can get sdc-key-id from env variable, missing from config",
+	remove: []string{"sdc-key-id"},
+	expect: coretesting.Attrs{"sdc-key-id": "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00"},
+}, {
 	info:   "can get manta-user from env variable",
 	insert: coretesting.Attrs{"manta-user": ""},
 	expect: coretesting.Attrs{"manta-user": "tester"},

@@ -112,7 +112,7 @@ func prepareConfig(cfg *config.Config) (*config.Config, error) {
 	// Read env variables
 	for _, field := range configSecretFields {
 		// If field is not set, get it from env variables
-		if attrs[field] == "" {
+		if fieldValue, ok := attrs[field]; !ok || fieldValue == "" {
 			localEnvVariable := os.Getenv(environmentVariables[field])
 			if localEnvVariable != "" {
 				attrs[field] = localEnvVariable
