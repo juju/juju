@@ -40,6 +40,15 @@ func (st *State) getEntity(tag string) (*params.AgentGetEntitiesResult, error) {
 	return &results.Entities[0], nil
 }
 
+func (st *State) StateServingInfo() (params.StateServingInfo, error) {
+	var results params.StateServingInfo
+	err := st.caller.Call("Agent", "", "StateServingInfo", nil, &results)
+	if err != nil {
+		return results, err
+	}
+	return results, err
+}
+
 type Entity struct {
 	st  *State
 	tag string
