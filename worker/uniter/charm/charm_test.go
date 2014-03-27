@@ -49,6 +49,10 @@ func (br *bundleReader) Read(info charm.BundleInfo, abort <-chan struct{}) (char
 	return bundle, nil
 }
 
+// SetAbortWait returns a channel that the next call to Read() will select on
+// alongside the supplied abort channel. By leaving the abortWait channel alone,
+// you can close the abort channel and force an aborted error without worrying
+// about timing.
 func (br *bundleReader) SetAbortWait() chan struct{} {
 	waitAbort := make(chan struct{})
 	br.waitAbort = waitAbort
