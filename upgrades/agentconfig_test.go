@@ -24,7 +24,7 @@ type migrateLocalProviderAgentConfigSuite struct {
 	jujutesting.JujuConnSuite
 
 	config agent.ConfigSetterWriter
-	ctx upgrades.Context
+	ctx    upgrades.Context
 }
 
 var _ = gc.Suite(&migrateLocalProviderAgentConfigSuite{})
