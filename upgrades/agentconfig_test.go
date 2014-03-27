@@ -22,6 +22,8 @@ import (
 
 type migrateLocalProviderAgentConfigSuite struct {
 	jujutesting.JujuConnSuite
+
+	config agent.ConfigSetterWriter
 	ctx upgrades.Context
 }
 
@@ -60,7 +62,8 @@ func (s *migrateLocalProviderAgentConfigSuite) primeConfig(c *gc.C, st *state.St
 		},
 	})
 	c.Assert(err, gc.IsNil)
-	c.Assert(initialConfig.Write(), gc.IsNil)
+	s.config = initialConfig
+	c.Assert(s.config.Write(), gc.IsNil)
 
 	apiState, _ := s.OpenAPIAsNewMachine(c, job)
 	s.ctx = &mockContext{
@@ -148,6 +151,8 @@ func (s *migrateLocalProviderAgentConfigSuite) TestMigrateStateServer(c *gc.C) {
 	s.primeConfig(c, s.State, state.JobManageEnviron, "machine-0")
 	err := upgrades.MigrateLocalProviderAgentConfig(s.ctx)
 	c.Assert(err, gc.IsNil)
+	err = s.config.Write()
+	c.Assert(err, gc.IsNil)
 	s.assertConfigProcessed(c)
 }
 
@@ -156,12 +161,16 @@ func (s *migrateLocalProviderAgentConfigSuite) TestMigrateNonLocalEnvNotDone(c *
 	s.primeConfig(c, s.State, state.JobManageEnviron, "machine-0")
 	err := upgrades.MigrateLocalProviderAgentConfig(s.ctx)
 	c.Assert(err, gc.IsNil)
+	err = s.config.Write()
+	c.Assert(err, gc.IsNil)
 	s.assertConfigNotProcessed(c)
 }
 
 func (s *migrateLocalProviderAgentConfigSuite) TestMigrateWithoutStateConnectionNotDone(c *gc.C) {
 	s.primeConfig(c, nil, state.JobManageEnviron, "machine-0")
 	err := upgrades.MigrateLocalProviderAgentConfig(s.ctx)
+	c.Assert(err, gc.IsNil)
+	err = s.config.Write()
 	c.Assert(err, gc.IsNil)
 	s.assertConfigNotProcessed(c)
 }
@@ -170,9 +179,13 @@ func (s *migrateLocalProviderAgentConfigSuite) TestIdempotent(c *gc.C) {
 	s.primeConfig(c, s.State, state.JobManageEnviron, "machine-0")
 	err := upgrades.MigrateLocalProviderAgentConfig(s.ctx)
 	c.Assert(err, gc.IsNil)
+	err = s.config.Write()
+	c.Assert(err, gc.IsNil)
 	s.assertConfigProcessed(c)
 
 	err = upgrades.MigrateLocalProviderAgentConfig(s.ctx)
+	c.Assert(err, gc.IsNil)
+	err = s.config.Write()
 	c.Assert(err, gc.IsNil)
 	s.assertConfigProcessed(c)
 }
