@@ -5,6 +5,7 @@ package bootstrap
 
 import (
 	"fmt"
+	"os"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -27,8 +28,10 @@ You may want to use the 'tools-metadata-url' configuration setting to specify th
 `
 
 // UploadTools uploads tools for the specified series and any other relevant series to
-// the environment storage, after which it sets the agent-version.
-func UploadTools(env environs.Environ, toolsArch *string, allowRelease bool, bootstrapSeries ...string) error {
+// the environment storage, after which it sets the agent-version. If forceVersion is true,
+// we allow uploading release tools versions and allow uploading even when the agent-version is
+// already set in the environment.
+func UploadTools(ctx environs.BootstrapContext, env environs.Environ, toolsArch *string, forceVersion bool, bootstrapSeries ...string) error {
 	logger.Infof("checking that upload is possible")
 	// Check the series are valid.
 	for _, series := range bootstrapSeries {
@@ -37,15 +40,29 @@ func UploadTools(env environs.Environ, toolsArch *string, allowRelease bool, boo
 		}
 	}
 	// See that we are allowed to upload the tools.
-	if err := validateUploadAllowed(env, toolsArch, allowRelease); err != nil {
+	if err := validateUploadAllowed(env, toolsArch, forceVersion); err != nil {
 		return err
 	}
 
+	// Make storage interruptible.
+	interrupted := make(chan os.Signal, 1)
+	interruptStorage := make(chan struct{})
+	ctx.InterruptNotify(interrupted)
+	defer ctx.StopInterruptNotify(interrupted)
+	defer close(interrupted)
+	go func() {
+		defer close(interruptStorage) // closing interrupts all uploads
+		if _, ok := <-interrupted; ok {
+			ctx.Infof("cancelling tools upload")
+		}
+	}()
+	stor := newInterruptibleStorage(env.Storage(), interruptStorage)
+
 	cfg := env.Config()
-	forceVersion := uploadVersion(version.Current.Number, nil)
+	explicitVersion := uploadVersion(version.Current.Number, nil)
 	uploadSeries := SeriesToUpload(cfg, bootstrapSeries)
-	logger.Infof("uploading tools for series %s", uploadSeries)
-	tools, err := sync.Upload(env.Storage(), &forceVersion, uploadSeries...)
+	ctx.Infof("uploading tools for series %s", uploadSeries)
+	tools, err := sync.Upload(stor, &explicitVersion, uploadSeries...)
 	if err != nil {
 		return err
 	}
@@ -91,13 +108,14 @@ func SeriesToUpload(cfg *config.Config, series []string) []string {
 
 // validateUploadAllowed returns an error if an attempt to upload tools should
 // not be allowed.
-func validateUploadAllowed(env environs.Environ, toolsArch *string, allowRelease bool) error {
-	// First, check that there isn't already an agent version specified, and that we
-	// are running a development version.
-	if _, hasAgentVersion := env.Config().AgentVersion(); hasAgentVersion || (!allowRelease && !version.Current.IsDev()) {
-		return fmt.Errorf(noToolsNoUploadMessage)
+func validateUploadAllowed(env environs.Environ, toolsArch *string, forceVersion bool) error {
+	if !forceVersion {
+		// First, check that there isn't already an agent version specified, and that we
+		// are running a development version.
+		if _, hasAgentVersion := env.Config().AgentVersion(); hasAgentVersion || !version.Current.IsDev() {
+			return fmt.Errorf(noToolsNoUploadMessage)
+		}
 	}
-
 	// Now check that the architecture for which we are setting up an
 	// environment matches that from which we are bootstrapping.
 	hostArch := arch.HostArch()
@@ -128,7 +146,7 @@ func validateUploadAllowed(env environs.Environ, toolsArch *string, allowRelease
 
 // EnsureToolsAvailability verifies the tools are available. If no tools are
 // found, it will automatically synchronize them.
-func EnsureToolsAvailability(env environs.Environ, series string, toolsArch *string) (coretools.List, error) {
+func EnsureToolsAvailability(ctx environs.BootstrapContext, env environs.Environ, series string, toolsArch *string) (coretools.List, error) {
 	cfg := env.Config()
 	var vers *version.Number
 	if agentVersion, ok := cfg.AgentVersion(); ok {
@@ -157,7 +175,7 @@ func EnsureToolsAvailability(env environs.Environ, series string, toolsArch *str
 	// No tools available so our only hope is to build locally and upload.
 	logger.Warningf("no prepackaged tools available")
 	uploadSeries := SeriesToUpload(cfg, nil)
-	if err := UploadTools(env, toolsArch, false, append(uploadSeries, series)...); err != nil {
+	if err := UploadTools(ctx, env, toolsArch, false, append(uploadSeries, series)...); err != nil {
 		logger.Errorf("%s", noToolsMessage)
 		return nil, fmt.Errorf("cannot upload bootstrap tools: %v", err)
 	}

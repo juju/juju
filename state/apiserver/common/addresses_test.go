@@ -6,6 +6,7 @@ package common_test
 import (
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/apiserver/common"
 )
@@ -34,13 +35,8 @@ func (s *stateAddresserSuite) TestStateAddresses(c *gc.C) {
 	c.Assert(result.Result, gc.DeepEquals, []string{"addresses:1", "addresses:2"})
 }
 
-func (s *stateAddresserSuite) TestCACert(c *gc.C) {
-	result := s.addresser.CACert()
-	c.Assert(string(result.Result), gc.Equals, "a cert")
-}
-
 func (s *apiAddresserSuite) SetUpTest(c *gc.C) {
-	s.addresser = common.NewAPIAddresser(fakeAddresses{})
+	s.addresser = common.NewAPIAddresser(fakeAddresses{}, common.NewResources())
 }
 
 func (s *apiAddresserSuite) TestAPIAddresses(c *gc.C) {
@@ -48,6 +44,13 @@ func (s *apiAddresserSuite) TestAPIAddresses(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Result, gc.DeepEquals, []string{"apiaddresses:1", "apiaddresses:2"})
 }
+
+func (s *apiAddresserSuite) TestCACert(c *gc.C) {
+	result := s.addresser.CACert()
+	c.Assert(string(result.Result), gc.Equals, "a cert")
+}
+
+var _ common.AddressAndCertGetter = fakeAddresses{}
 
 type fakeAddresses struct{}
 
@@ -61,4 +64,12 @@ func (fakeAddresses) APIAddressesFromMachines() ([]string, error) {
 
 func (fakeAddresses) CACert() []byte {
 	return []byte("a cert")
+}
+
+func (fakeAddresses) APIHostPorts() ([][]instance.HostPort, error) {
+	panic("should never be called")
+}
+
+func (fakeAddresses) WatchAPIHostPorts() state.NotifyWatcher {
+	panic("should never be called")
 }

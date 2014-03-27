@@ -76,7 +76,7 @@ func (env *JoyentEnviron) StartInstance(args environs.StartInstanceParams) (inst
 	if err := environs.FinishMachineConfig(args.MachineConfig, env.Config(), args.Constraints); err != nil {
 		return nil, nil, err
 	}
-	userData, err := environs.ComposeUserData(args.MachineConfig)
+	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot make user data: %v", err)
 	}
@@ -234,7 +234,7 @@ func (env *JoyentEnviron) FindInstanceSpec(ic *instances.InstanceConstraint) (*i
 			Mem:      uint64(pkg.Memory),
 			CpuCores: uint64(pkg.VCPUs),
 			RootDisk: uint64(pkg.Disk * 1024),
-			VType:    &vTypeVirtualmachine,
+			VirtType:    &vTypeVirtualmachine,
 		}
 		allInstanceTypes = append(allInstanceTypes, instanceType)
 	}

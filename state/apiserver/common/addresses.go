@@ -4,7 +4,10 @@
 package common
 
 import (
+	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/watcher"
 )
 
 // AddressAndCertGetter can be used to find out
@@ -13,21 +16,50 @@ type AddressAndCertGetter interface {
 	Addresses() ([]string, error)
 	APIAddressesFromMachines() ([]string, error)
 	CACert() []byte
+	APIHostPorts() ([][]instance.HostPort, error)
+	WatchAPIHostPorts() state.NotifyWatcher
 }
 
 // APIAddresser implements the APIAddresses method
 type APIAddresser struct {
-	getter AddressAndCertGetter
+	resources *Resources
+	getter    AddressAndCertGetter
 }
 
 // NewAPIAddresser returns a new APIAddresser that uses the given getter to
 // fetch its addresses.
-func NewAPIAddresser(getter AddressAndCertGetter) *APIAddresser {
-	return &APIAddresser{getter}
+func NewAPIAddresser(getter AddressAndCertGetter, resources *Resources) *APIAddresser {
+	return &APIAddresser{
+		getter:    getter,
+		resources: resources,
+	}
+}
+
+// APIHostPorts returns the API server addresses.
+func (api *APIAddresser) APIHostPorts() (params.APIHostPortsResult, error) {
+	servers, err := api.getter.APIHostPorts()
+	if err != nil {
+		return params.APIHostPortsResult{}, err
+	}
+	return params.APIHostPortsResult{
+		Servers: servers,
+	}, nil
+}
+
+// WatchAPIHostPorts watches the API server addresses.
+func (api *APIAddresser) WatchAPIHostPorts() (params.NotifyWatchResult, error) {
+	watch := api.getter.WatchAPIHostPorts()
+	if _, ok := <-watch.Changes(); ok {
+		return params.NotifyWatchResult{
+			NotifyWatcherId: api.resources.Register(watch),
+		}, nil
+	}
+	return params.NotifyWatchResult{}, watcher.MustErr(watch)
 }
 
 // APIAddresses returns the list of addresses used to connect to the API.
 func (a *APIAddresser) APIAddresses() (params.StringsResult, error) {
+	// TODO(rog) change this to use api.st.APIHostPorts()
 	addrs, err := a.getter.APIAddressesFromMachines()
 	if err != nil {
 		return params.StringsResult{}, err
@@ -35,6 +67,13 @@ func (a *APIAddresser) APIAddresses() (params.StringsResult, error) {
 	return params.StringsResult{
 		Result: addrs,
 	}, nil
+}
+
+// CACert returns the certificate used to validate the state connection.
+func (a *APIAddresser) CACert() params.BytesResult {
+	return params.BytesResult{
+		Result: a.getter.CACert(),
+	}
 }
 
 // StateAddresser implements a common set of methods for getting state
@@ -58,15 +97,4 @@ func (a *StateAddresser) StateAddresses() (params.StringsResult, error) {
 	return params.StringsResult{
 		Result: addrs,
 	}, nil
-}
-
-// CACert returns the certificate used to validate the state connection.
-// Note: there is an open bug that Uniter (which uses only APIAddresser) should
-// add CACert to its interface. When it does, this API si likely to move to
-// APIAddresser instead of StateAddresser. (All other users of StateAddresser
-// already also expose APIAddresser)
-func (a *StateAddresser) CACert() params.BytesResult {
-	return params.BytesResult{
-		Result: a.getter.CACert(),
-	}
 }

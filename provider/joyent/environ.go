@@ -11,9 +11,9 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
-	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -23,6 +23,11 @@ import (
 
 type JoyentEnviron struct {
 	name string
+
+	// supportedArchitectures caches the architectures
+	// for which images can be instantiated.
+	supportedArchitectures []string
+
 	// All mutating operations should lock the mutex. Non-mutating operations
 	// should read all fields (other than name, which is immutable) from a
 	// shallow copy taken with getSnapshot().
@@ -63,8 +68,25 @@ func (*JoyentEnviron) Provider() environs.EnvironProvider {
 }
 
 // SupportedArchitectures is specified on the EnvironCapability interface.
-func (*JoyentEnviron) SupportedArchitectures() ([]string, error) {
-	return []string{arch.AMD64}, nil
+func (env *JoyentEnviron) SupportedArchitectures() ([]string, error) {
+	env.lock.Lock()
+	defer env.lock.Unlock()
+	if env.supportedArchitectures != nil {
+		return env.supportedArchitectures, nil
+	}
+	cfg := env.Ecfg()
+	// Create a filter to get all images from our region and for the correct stream.
+	cloudSpec := simplestreams.CloudSpec{
+		Region: cfg.Region(),
+		Endpoint: cfg.SdcUrl(),
+	}
+	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+		CloudSpec: cloudSpec,
+		Stream:    cfg.ImageStream(),
+	})
+	var err error
+	env.supportedArchitectures, err = common.SupportedArchitectures(env, imageConstraint)
+	return env.supportedArchitectures, err
 }
 
 func (env *JoyentEnviron) SetConfig(cfg *config.Config) error {

@@ -14,13 +14,13 @@ import (
 	"strings"
 	stdtesting "testing"
 
+	"github.com/juju/testing"
 	"launchpad.net/gnuflag"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/deployer"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
@@ -52,8 +52,11 @@ func TestPackage(t *stdtesting.T) {
 	// Change the default init dir in worker/deployer,
 	// so the deployer doesn't try to remove upstart
 	// jobs from tests.
-	restore := testbase.PatchValue(&deployer.InitDir, mkdtemp("juju-worker-deployer"))
+	restore := testing.PatchValue(&deployer.InitDir, mkdtemp("juju-worker-deployer"))
 	defer restore()
+
+	// TODO(waigani) 2014-03-19 bug 1294458
+	// Refactor to use base suites
 
 	// Change the path to "juju-run", so that the
 	// tests don't try to write to /usr/local/bin.
@@ -61,10 +64,10 @@ func TestPackage(t *stdtesting.T) {
 	defer os.Remove(jujuRun)
 
 	// Create a CA certificate available for all tests.
-	caCertFile = mktemp("juju-test-cert", testing.CACert)
+	caCertFile = mktemp("juju-test-cert", coretesting.CACert)
 	defer os.Remove(caCertFile)
 
-	testing.MgoTestPackage(t)
+	coretesting.MgoTestPackage(t)
 }
 
 type MainSuite struct{}
@@ -107,6 +110,7 @@ func (s *MainSuite) TestParseErrors(c *gc.C) {
 	checkMessage(c, msga,
 		"bootstrap-state",
 		"--env-config", b64yaml{"blah": "blah"}.encode(),
+		"--instance-id", "inst",
 		"toastie")
 	checkMessage(c, msga, "unit",
 		"--unit-name", "un/0",

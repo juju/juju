@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
 	"launchpad.net/juju-core/errors"
@@ -25,12 +26,16 @@ type statusDoc struct {
 
 // validateSet returns an error if the statusDoc does not represent a sane
 // SetStatus operation.
-func (doc statusDoc) validateSet() error {
+func (doc statusDoc) validateSet(allowPending bool) error {
 	if !doc.Status.Valid() {
 		return fmt.Errorf("cannot set invalid status %q", doc.Status)
 	}
 	switch doc.Status {
-	case params.StatusPending, params.StatusDown:
+	case params.StatusPending:
+		if !allowPending {
+			return fmt.Errorf("cannot set status %q", doc.Status)
+		}
+	case params.StatusDown:
 		return fmt.Errorf("cannot set status %q", doc.Status)
 	case params.StatusError:
 		if doc.StatusInfo == "" {
@@ -76,7 +81,7 @@ func updateStatusOp(st *State, globalKey string, doc statusDoc) txn.Op {
 		C:      st.statuses.Name,
 		Id:     globalKey,
 		Assert: txn.DocExists,
-		Update: D{{"$set", doc}},
+		Update: bson.D{{"$set", doc}},
 	}
 }
 

@@ -6,12 +6,12 @@ package maas_test
 import (
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gomaasapi"
 
 	"launchpad.net/juju-core/environs/config"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/provider/maas"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
@@ -195,11 +195,16 @@ func (*environSuite) TestNewEnvironSetsConfig(c *gc.C) {
 	c.Check(env.Name(), gc.Equals, "testenv")
 }
 
-func (*environSuite) TestSupportedArchitectures(c *gc.C) {
-	cfg := getSimpleTestConfig(c, nil)
-	env, err := maas.NewEnviron(cfg)
+func (*environSuite) TestNewCloudinitConfig(c *gc.C) {
+	cloudcfg, err := maas.NewCloudinitConfig("testing.invalid")
 	c.Assert(err, gc.IsNil)
-	a, err := env.SupportedArchitectures()
-	c.Assert(err, gc.IsNil)
-	c.Assert(a, gc.DeepEquals, arch.AllSupportedArches)
+	c.Assert(cloudcfg.AptUpdate(), jc.IsTrue)
+	c.Assert(cloudcfg.RunCmds(), gc.DeepEquals, []interface{}{
+		"set -xe",
+		"mkdir -p '/var/lib/juju'; echo -n 'hostname: testing.invalid\n' > '/var/lib/juju/MAASmachine.txt'",
+		"ifdown eth0",
+		"cat > /etc/network/eth0.config << EOF\niface eth0 inet manual\n\nauto br0\niface br0 inet dhcp\n  bridge_ports eth0\nEOF\n",
+		`sed -i "s/iface eth0 inet dhcp/source \/etc\/network\/eth0.config/" /etc/network/interfaces`,
+		"ifup br0",
+	})
 }

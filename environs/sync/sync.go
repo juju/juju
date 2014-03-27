@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"path/filepath"
 
@@ -140,7 +139,7 @@ func selectSourceDatasource(syncContext *SyncContext) (simplestreams.DataSource,
 		return nil, err
 	}
 	logger.Infof("using sync tools source: %v", sourceURL)
-	return simplestreams.NewURLDataSource("sync tools source", sourceURL, simplestreams.VerifySSLHostnames), nil
+	return simplestreams.NewURLDataSource("sync tools source", sourceURL, utils.VerifySSLHostnames), nil
 }
 
 // copyTools copies a set of tools from the source to the target.
@@ -161,7 +160,7 @@ func copyTools(tools []*coretools.Tools, syncContext *SyncContext, dest storage.
 func copyOneToolsPackage(tool *coretools.Tools, dest storage.Storage) error {
 	toolsName := envtools.StorageName(tool.Version)
 	logger.Infof("copying %v", toolsName)
-	resp, err := http.Get(tool.URL)
+	resp, err := utils.GetValidatingHTTPClient().Get(tool.URL)
 	if err != nil {
 		return err
 	}
