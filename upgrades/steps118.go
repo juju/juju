@@ -8,7 +8,7 @@ func stepsFor118() []Step {
 	return []Step{
 		&upgradeStep{
 			description: "make $DATADIR/locks owned by ubuntu:ubuntu",
-			targets:     []Target{HostMachine},
+			targets:     []Target{AllMachines},
 			run:         ensureLockDirExistsAndUbuntuWritable,
 		},
 		&upgradeStep{
@@ -17,9 +17,29 @@ func stepsFor118() []Step {
 			run:         ensureSystemSSHKey,
 		},
 		&upgradeStep{
+			description: "update rsyslog port",
+			targets:     []Target{StateServer},
+			run:         updateRsyslogPort,
+		},
+		&upgradeStep{
 			description: "install rsyslog-gnutls",
 			targets:     []Target{AllMachines},
 			run:         installRsyslogGnutls,
+		},
+		&upgradeStep{
+			description: "remove deprecated environment config settings",
+			targets:     []Target{StateServer},
+			run:         processDeprecatedEnvSettings,
+		},
+		&upgradeStep{
+			description: "migrate local provider agent config",
+			targets:     []Target{StateServer},
+			run:         migrateLocalProviderAgentConfig,
+		},
+		&upgradeStep{
+			description: "make /home/ubuntu/.profile source .juju-proxy file",
+			targets:     []Target{AllMachines},
+			run:         ensureUbuntuDotProfileSourcesProxyFile,
 		},
 	}
 }

@@ -85,8 +85,8 @@ func (m *Entity) ContainerType() instance.ContainerType {
 // SetPassword sets the password associated with the agent's entity.
 func (m *Entity) SetPassword(password string) error {
 	var results params.ErrorResults
-	args := params.PasswordChanges{
-		Changes: []params.PasswordChange{{
+	args := params.EntityPasswords{
+		Changes: []params.EntityPassword{{
 			Tag:      m.tag,
 			Password: password,
 		}},

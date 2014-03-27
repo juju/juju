@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
@@ -33,7 +33,12 @@ var x = []byte("\x96\x8c\x99\x8a\x9c\x94\x96\x91\x98\xdf\x9e\x92\x9e\x85\x96\x91
 // to the cmd package. This function is not redundant with main, because it
 // provides an entry point for testing with arbitrary command line arguments.
 func Main(args []string) {
-	if err := juju.InitJujuHome(); err != nil {
+	ctx, err := cmd.DefaultContext()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(2)
+	}
+	if err = juju.InitJujuHome(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %s\n", err)
 		os.Exit(2)
 	}
@@ -51,16 +56,16 @@ func Main(args []string) {
 		MissingCallback: RunPlugin,
 	})
 	jujucmd.AddHelpTopic("basics", "Basic commands", helpBasics)
-	jujucmd.AddHelpTopic("local", "How to configure a local (LXC) provider",
+	jujucmd.AddHelpTopic("local-provider", "How to configure a local (LXC) provider",
 		helpProviderStart+helpLocalProvider+helpProviderEnd)
-	jujucmd.AddHelpTopic("openstack", "How to configure an OpenStack provider",
-		helpProviderStart+helpOpenstackProvider+helpProviderEnd)
-	jujucmd.AddHelpTopic("ec2", "How to configure an Amazon EC2 provider",
-		helpProviderStart+helpEC2Provider+helpProviderEnd)
-	jujucmd.AddHelpTopic("hpcloud", "How to configure an HP Cloud provider",
-		helpProviderStart+helpHPCloud+helpProviderEnd)
-	jujucmd.AddHelpTopic("azure", "How to configure a Windows Azure provider",
-		helpProviderStart+helpAzureProvider+helpProviderEnd)
+	jujucmd.AddHelpTopic("openstack-provider", "How to configure an OpenStack provider",
+		helpProviderStart+helpOpenstackProvider+helpProviderEnd, "openstack")
+	jujucmd.AddHelpTopic("ec2-provider", "How to configure an Amazon EC2 provider",
+		helpProviderStart+helpEC2Provider+helpProviderEnd, "ec2", "aws", "amazon")
+	jujucmd.AddHelpTopic("hpcloud-provider", "How to configure an HP Cloud provider",
+		helpProviderStart+helpHPCloud+helpProviderEnd, "hpcloud", "hp-cloud")
+	jujucmd.AddHelpTopic("azure-provider", "How to configure a Windows Azure provider",
+		helpProviderStart+helpAzureProvider+helpProviderEnd, "azure")
 	jujucmd.AddHelpTopic("constraints", "How to use commands with constraints", helpConstraints)
 	jujucmd.AddHelpTopic("glossary", "Glossary of terms", helpGlossary)
 	jujucmd.AddHelpTopic("logging", "How Juju handles logging", helpLogging)
@@ -93,6 +98,7 @@ func Main(args []string) {
 	jujucmd.Register(wrap(&ResolvedCommand{}))
 	jujucmd.Register(wrap(&DebugLogCommand{sshCmd: &SSHCommand{}}))
 	jujucmd.Register(wrap(&DebugHooksCommand{}))
+	jujucmd.Register(wrap(&RetryProvisioningCommand{}))
 
 	// Configuration commands.
 	jujucmd.Register(wrap(&InitCommand{}))
@@ -103,6 +109,7 @@ func Main(args []string) {
 	jujucmd.Register(wrap(&SetConstraintsCommand{}))
 	jujucmd.Register(wrap(&GetEnvironmentCommand{}))
 	jujucmd.Register(wrap(&SetEnvironmentCommand{}))
+	jujucmd.Register(wrap(&UnsetEnvironmentCommand{}))
 	jujucmd.Register(wrap(&ExposeCommand{}))
 	jujucmd.Register(wrap(&SyncToolsCommand{}))
 	jujucmd.Register(wrap(&UnexposeCommand{}))
@@ -121,7 +128,7 @@ func Main(args []string) {
 	// Common commands.
 	jujucmd.Register(wrap(&cmd.VersionCommand{}))
 
-	os.Exit(cmd.Main(jujucmd, cmd.DefaultContext(), args[1:]))
+	os.Exit(cmd.Main(jujucmd, ctx, args[1:]))
 }
 
 // wrap encapsulates code that wraps some of the commands in a helper class

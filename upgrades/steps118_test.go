@@ -19,7 +19,11 @@ var _ = gc.Suite(&steps118Suite{})
 var expectedSteps = []string{
 	"make $DATADIR/locks owned by ubuntu:ubuntu",
 	"generate system ssh key",
+	"update rsyslog port",
 	"install rsyslog-gnutls",
+	"remove deprecated environment config settings",
+	"migrate local provider agent config",
+	"make /home/ubuntu/.profile source .juju-proxy file",
 }
 
 func (s *steps118Suite) TestUpgradeOperationsContent(c *gc.C) {

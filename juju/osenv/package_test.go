@@ -4,18 +4,21 @@
 package osenv_test
 
 import (
-	"testing"
+	stdtesting "testing"
 
+	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/testing/testbase"
 )
 
-func Test(t *testing.T) {
+func Test(t *stdtesting.T) {
 	gc.TestingT(t)
 }
 
-type importSuite struct{}
+type importSuite struct {
+	testing.CleanupSuite
+}
 
 var _ = gc.Suite(&importSuite{})
 

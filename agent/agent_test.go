@@ -4,9 +4,13 @@
 package agent_test
 
 import (
+	"reflect"
+
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )
@@ -18,14 +22,15 @@ type suite struct {
 var _ = gc.Suite(&suite{})
 
 var agentConfigTests = []struct {
-	about    string
-	params   agent.AgentConfigParams
-	checkErr string
+	about         string
+	params        agent.AgentConfigParams
+	checkErr      string
+	inspectConfig func(*gc.C, agent.Config)
 }{{
 	about:    "missing data directory",
 	checkErr: "data directory not found in configuration",
 }, {
-	about: "missing tag directory",
+	about: "missing tag",
 	params: agent.AgentConfigParams{
 		DataDir: "/data/dir",
 	},
@@ -129,6 +134,21 @@ var agentConfigTests = []struct {
 		APIAddresses:      []string{"localhost:1235"},
 		Nonce:             "a nonce",
 	},
+}, {
+	about: "missing logDir sets default",
+	params: agent.AgentConfigParams{
+		DataDir:           "/data/dir",
+		Tag:               "omg",
+		Password:          "sekrit",
+		UpgradedToVersion: version.Current.Number,
+		CACert:            []byte("ca cert"),
+		StateAddresses:    []string{"localhost:1234"},
+		APIAddresses:      []string{"localhost:1235"},
+		Nonce:             "a nonce",
+	},
+	inspectConfig: func(c *gc.C, cfg agent.Config) {
+		c.Check(cfg.LogDir(), gc.Equals, agent.DefaultLogDir)
+	},
 }}
 
 func (*suite) TestNewAgentConfig(c *gc.C) {
@@ -144,11 +164,139 @@ func (*suite) TestNewAgentConfig(c *gc.C) {
 	}
 }
 
+func (*suite) TestMigrateConfig(c *gc.C) {
+	initialParams := agent.AgentConfigParams{
+		DataDir:           c.MkDir(),
+		LogDir:            c.MkDir(),
+		Tag:               "omg",
+		Nonce:             "nonce",
+		Password:          "secret",
+		UpgradedToVersion: version.MustParse("1.16.5"),
+		Jobs: []params.MachineJob{
+			params.JobManageEnviron,
+			params.JobHostUnits,
+		},
+		CACert:         []byte("ca cert"),
+		StateAddresses: []string{"localhost:1234"},
+		APIAddresses:   []string{"localhost:4321"},
+		Values: map[string]string{
+			"key1": "value1",
+			"key2": "value2",
+			"key3": "value3",
+		},
+	}
+
+	migrateTests := []struct {
+		comment      string
+		fields       []string
+		newParams    agent.MigrateConfigParams
+		expectValues map[string]string
+		expectErr    string
+	}{{
+		comment:   "nothing to change",
+		fields:    nil,
+		newParams: agent.MigrateConfigParams{},
+	}, {
+		fields: []string{"DataDir"},
+		newParams: agent.MigrateConfigParams{
+			DataDir: c.MkDir(),
+		},
+	}, {
+		fields: []string{"DataDir", "LogDir"},
+		newParams: agent.MigrateConfigParams{
+			DataDir: c.MkDir(),
+			LogDir:  c.MkDir(),
+		},
+	}, {
+		fields: []string{"Jobs"},
+		newParams: agent.MigrateConfigParams{
+			Jobs: []params.MachineJob{params.JobHostUnits},
+		},
+	}, {
+		comment:   "invalid/immutable field specified",
+		fields:    []string{"InvalidField"},
+		newParams: agent.MigrateConfigParams{},
+		expectErr: `unknown field "InvalidField"`,
+	}, {
+		comment: "Values can be added, changed or removed",
+		fields:  []string{"Values", "DeleteValues"},
+		newParams: agent.MigrateConfigParams{
+			DeleteValues: []string{"key2", "key3"}, // delete
+			Values: map[string]string{
+				"key1":     "new value1", // change
+				"new key3": "value3",     // add
+				"empty":    "",           // add empty val
+			},
+		},
+		expectValues: map[string]string{
+			"key1":     "new value1",
+			"new key3": "value3",
+			"empty":    "",
+		},
+	}}
+	for i, test := range migrateTests {
+		summary := "migrate fields"
+		if test.comment != "" {
+			summary += " (" + test.comment + ") "
+		}
+		c.Logf("test %d: %s %v", i, summary, test.fields)
+
+		initialConfig, err := agent.NewAgentConfig(initialParams)
+		c.Check(err, gc.IsNil)
+
+		newConfig, err := agent.NewAgentConfig(initialParams)
+		c.Check(err, gc.IsNil)
+
+		c.Check(initialConfig.Write(), gc.IsNil)
+		c.Check(agent.ConfigFileExists(initialConfig), jc.IsTrue)
+
+		err = agent.MigrateConfig(newConfig, test.newParams)
+		c.Check(err, gc.IsNil)
+		c.Check(agent.ConfigFileExists(newConfig), jc.IsTrue)
+		if test.newParams.DataDir != "" {
+			// If we're changing where the new config is saved,
+			// we can verify the old config got removed.
+			c.Check(agent.ConfigFileExists(initialConfig), jc.IsFalse)
+		}
+
+		// Make sure we can read it back successfully and it
+		// matches what we wrote.
+		configPath := agent.ConfigPath(newConfig.DataDir(), newConfig.Tag())
+		readConfig, err := agent.ReadConf(configPath)
+		c.Check(err, gc.IsNil)
+		c.Check(newConfig, jc.DeepEquals, readConfig)
+
+		// Make sure only the specified fields were changed and
+		// the rest matches.
+		for _, field := range test.fields {
+			switch field {
+			case "Values":
+				err = agent.PatchConfig(initialConfig, field, test.expectValues)
+				c.Check(err, gc.IsNil)
+			case "DeleteValues":
+				err = agent.PatchConfig(initialConfig, field, test.newParams.DeleteValues)
+				c.Check(err, gc.IsNil)
+			default:
+				value := reflect.ValueOf(test.newParams).FieldByName(field)
+				if value.IsValid() && test.expectErr == "" {
+					err = agent.PatchConfig(initialConfig, field, value.Interface())
+					c.Check(err, gc.IsNil)
+				} else {
+					err = agent.PatchConfig(initialConfig, field, value)
+					c.Check(err, gc.ErrorMatches, test.expectErr)
+				}
+			}
+		}
+		c.Check(newConfig, jc.DeepEquals, initialConfig)
+	}
+}
+
 func (*suite) TestNewStateMachineConfig(c *gc.C) {
 	type testStruct struct {
-		about    string
-		params   agent.StateMachineConfigParams
-		checkErr string
+		about         string
+		params        agent.StateMachineConfigParams
+		checkErr      string
+		inspectConfig func(*gc.C, agent.Config)
 	}
 	var tests = []testStruct{{
 		about:    "missing state server cert",
@@ -175,9 +323,12 @@ func (*suite) TestNewStateMachineConfig(c *gc.C) {
 
 	for i, test := range tests {
 		c.Logf("%v: %s", i, test.about)
-		_, err := agent.NewStateMachineConfig(test.params)
+		cfg, err := agent.NewStateMachineConfig(test.params)
 		if test.checkErr == "" {
 			c.Assert(err, gc.IsNil)
+			if test.inspectConfig != nil {
+				test.inspectConfig(c, cfg)
+			}
 		} else {
 			c.Assert(err, gc.ErrorMatches, test.checkErr)
 		}
@@ -218,26 +369,17 @@ func (s *suite) TestApiAddressesCantWriteBack(c *gc.C) {
 	c.Assert(newValue, gc.DeepEquals, []string{"localhost:1235"})
 }
 
-func assertConfigEqual(c *gc.C, c1, c2 agent.Config) {
-	// Since we can't directly poke the internals, we'll use the WriteCommands
-	// method.
-	conf1Commands, err := c1.WriteCommands()
-	c.Assert(err, gc.IsNil)
-	conf2Commands, err := c2.WriteCommands()
-	c.Assert(err, gc.IsNil)
-	c.Assert(conf1Commands, gc.DeepEquals, conf2Commands)
-}
-
 func (*suite) TestWriteAndRead(c *gc.C) {
 	testParams := attributeParams
 	testParams.DataDir = c.MkDir()
+	testParams.LogDir = c.MkDir()
 	conf, err := agent.NewAgentConfig(testParams)
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(conf.Write(), gc.IsNil)
-	reread, err := agent.ReadConf(conf.DataDir(), conf.Tag())
+	reread, err := agent.ReadConf(agent.ConfigPath(conf.DataDir(), conf.Tag()))
 	c.Assert(err, gc.IsNil)
-	assertConfigEqual(c, conf, reread)
+	c.Assert(reread, jc.DeepEquals, conf)
 }
 
 func (*suite) TestWriteNewPassword(c *gc.C) {
@@ -284,7 +426,7 @@ func (*suite) TestWriteNewPassword(c *gc.C) {
 		newPass, err := agent.WriteNewPassword(conf)
 		c.Assert(err, gc.IsNil)
 		// Show that the password is saved.
-		reread, err := agent.ReadConf(conf.DataDir(), conf.Tag())
+		reread, err := agent.ReadConf(agent.ConfigPath(conf.DataDir(), conf.Tag()))
 		c.Assert(agent.Password(conf), gc.Equals, agent.Password(reread))
 		c.Assert(newPass, gc.Equals, agent.Password(conf))
 	}
@@ -303,8 +445,8 @@ func (*suite) TestWriteUpgradedToVersion(c *gc.C) {
 	c.Assert(conf.UpgradedToVersion(), gc.DeepEquals, newVersion)
 
 	// Show that the upgradedToVersion is saved.
-	reread, err := agent.ReadConf(conf.DataDir(), conf.Tag())
-	assertConfigEqual(c, conf, reread)
+	reread, err := agent.ReadConf(agent.ConfigPath(conf.DataDir(), conf.Tag()))
+	c.Assert(reread, jc.DeepEquals, conf)
 }
 
 // Actual opening of state and api requires a lot more boiler plate to make

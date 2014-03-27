@@ -9,6 +9,7 @@ import (
 	"os"
 	"reflect"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
@@ -16,7 +17,6 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type CmdSuite struct {
@@ -122,8 +122,9 @@ func (*CmdSuite) TestEnvironmentInit(c *gc.C) {
 	}
 }
 
-func nullContext() *cmd.Context {
-	ctx := cmd.DefaultContext()
+func nullContext(c *gc.C) *cmd.Context {
+	ctx, err := cmd.DefaultContext()
+	c.Assert(err, gc.IsNil)
 	ctx.Stdin = io.LimitReader(nil, 0)
 	ctx.Stdout = ioutil.Discard
 	ctx.Stderr = ioutil.Discard

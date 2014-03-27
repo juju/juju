@@ -10,11 +10,11 @@ import (
 	"path/filepath"
 	"strconv"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 // These tests are copies of the old git-deployer-related tests, to test that

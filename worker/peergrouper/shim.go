@@ -4,9 +4,6 @@
 package peergrouper
 
 import (
-	"net"
-	"strconv"
-
 	"labix.org/v2/mgo"
 
 	"launchpad.net/juju-core/instance"
@@ -21,6 +18,7 @@ import (
 type stateShim struct {
 	*state.State
 	mongoPort int
+	apiPort   int
 }
 
 func (s *stateShim) Machine(id string) (stateMachine, error) {
@@ -31,6 +29,7 @@ func (s *stateShim) Machine(id string) (stateMachine, error) {
 	return &machineShim{
 		Machine:   m,
 		mongoPort: s.mongoPort,
+		apiPort:   s.apiPort,
 	}, nil
 }
 
@@ -38,17 +37,18 @@ func (s *stateShim) MongoSession() mongoSession {
 	return mongoSessionShim{s.State.MongoSession()}
 }
 
-func (m *machineShim) StateHostPort() string {
-	privateAddr := instance.SelectInternalAddress(m.Addresses(), false)
-	if privateAddr == "" {
-		return ""
-	}
-	return net.JoinHostPort(privateAddr, strconv.Itoa(m.mongoPort))
+func (m *machineShim) APIHostPorts() []instance.HostPort {
+	return instance.AddressesWithPort(m.Addresses(), m.apiPort)
+}
+
+func (m *machineShim) MongoHostPorts() []instance.HostPort {
+	return instance.AddressesWithPort(m.Addresses(), m.mongoPort)
 }
 
 type machineShim struct {
 	*state.Machine
 	mongoPort int
+	apiPort   int
 }
 
 type mongoSessionShim struct {

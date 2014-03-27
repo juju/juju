@@ -19,6 +19,9 @@ import (
 
 // Options is a client-implementation independent SSH options set.
 type Options struct {
+	// proxyCommand specifies the command to
+	// execute to proxy SSH traffic through.
+	proxyCommand []string
 	// ssh server port; zero means use the default (22)
 	port int
 	// no PTY forced by default
@@ -29,6 +32,11 @@ type Options struct {
 	// to use when attempting to login. A client implementaton may attempt
 	// with additional identities, but must give preference to these
 	identities []string
+}
+
+// SetProxyCommand sets a command to execute to proxy traffic through.
+func (o *Options) SetProxyCommand(command ...string) {
+	o.proxyCommand = append([]string{}, command...)
 }
 
 // SetPort sets the SSH server port to connect to.

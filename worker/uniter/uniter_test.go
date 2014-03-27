@@ -17,6 +17,8 @@ import (
 	stdtesting "testing"
 	"time"
 
+	gt "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
@@ -30,8 +32,6 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	apiuniter "launchpad.net/juju-core/state/api/uniter"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 	utilexec "launchpad.net/juju-core/utils/exec"
 	"launchpad.net/juju-core/utils/fslock"
@@ -248,7 +248,7 @@ var bootstrapTests = []uniterTest{
 		serveCharm{},
 		writeFile{"charm", 0644},
 		createUniter{},
-		waitUniterDead{`ModeInstalling cs:quantal/wordpress-0: cannot install charm: .*: not a directory`},
+		waitUniterDead{`ModeInstalling cs:quantal/wordpress-0: open .*: not a directory`},
 	), ut(
 		"charm cannot be downloaded",
 		createCharm{},
@@ -944,7 +944,7 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 		), ut(
 			"run commands: proxy settings set",
 			quickStartRelation{},
-			setProxySettings{Http: "http", Https: "https", Ftp: "ftp"},
+			setProxySettings{Http: "http", Https: "https", Ftp: "ftp", NoProxy: "localhost"},
 			runCommands{
 				fmt.Sprintf("echo $http_proxy > %s", testFile("proxy.output")),
 				fmt.Sprintf("echo $HTTP_PROXY >> %s", testFile("proxy.output")),
@@ -952,10 +952,12 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 				fmt.Sprintf("echo $HTTPS_PROXY >> %s", testFile("proxy.output")),
 				fmt.Sprintf("echo $ftp_proxy >> %s", testFile("proxy.output")),
 				fmt.Sprintf("echo $FTP_PROXY >> %s", testFile("proxy.output")),
+				fmt.Sprintf("echo $no_proxy >> %s", testFile("proxy.output")),
+				fmt.Sprintf("echo $NO_PROXY >> %s", testFile("proxy.output")),
 			},
 			verifyFile{
 				testFile("proxy.output"),
-				"http\nhttp\nhttps\nhttps\nftp\nftp\n",
+				"http\nhttp\nhttps\nhttps\nftp\nftp\nlocalhost\nlocalhost\n",
 			},
 		), ut(
 			"run commands: async using rpc client",
@@ -1219,7 +1221,7 @@ func (s ensureStateWorker) step(c *gc.C, ctx *context) {
 	if err != nil || len(addresses) == 0 {
 		testing.AddStateServerMachine(c, ctx.st)
 	}
-	addresses, err = ctx.st.APIAddresses()
+	addresses, err = ctx.st.APIAddressesFromMachines()
 	c.Assert(err, gc.IsNil)
 	c.Assert(addresses, gc.HasLen, 1)
 }
@@ -2014,15 +2016,13 @@ var verifyHookSyncLockLocked = custom{func(c *gc.C, ctx *context) {
 type setProxySettings osenv.ProxySettings
 
 func (s setProxySettings) step(c *gc.C, ctx *context) {
-	old, err := ctx.st.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	cfg, err := old.Apply(map[string]interface{}{
+	attrs := map[string]interface{}{
 		"http-proxy":  s.Http,
 		"https-proxy": s.Https,
 		"ftp-proxy":   s.Ftp,
-	})
-	c.Assert(err, gc.IsNil)
-	err = ctx.st.SetEnvironConfig(cfg, old)
+		"no-proxy":    s.NoProxy,
+	}
+	err := ctx.st.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 	// wait for the new values...
 	expected := (osenv.ProxySettings)(s)
@@ -2035,6 +2035,8 @@ func (s setProxySettings) step(c *gc.C, ctx *context) {
 			c.Assert(os.Getenv("HTTPS_PROXY"), gc.Equals, expected.Https)
 			c.Assert(os.Getenv("ftp_proxy"), gc.Equals, expected.Ftp)
 			c.Assert(os.Getenv("FTP_PROXY"), gc.Equals, expected.Ftp)
+			c.Assert(os.Getenv("no_proxy"), gc.Equals, expected.NoProxy)
+			c.Assert(os.Getenv("NO_PROXY"), gc.Equals, expected.NoProxy)
 			return
 		}
 	}
@@ -2137,13 +2139,13 @@ func (s prepareGitUniter) step(c *gc.C, ctx *context) {
 	newDeployer := func(charmPath, dataPath string, bundles charm.BundleReader) (charm.Deployer, error) {
 		return charm.NewGitDeployer(charmPath, dataPath, bundles), nil
 	}
-	restoreNewDeployer := testbase.PatchValue(&charm.NewDeployer, newDeployer)
+	restoreNewDeployer := gt.PatchValue(&charm.NewDeployer, newDeployer)
 	defer restoreNewDeployer()
 
 	fixDeployer := func(deployer *charm.Deployer) error {
 		return nil
 	}
-	restoreFixDeployer := testbase.PatchValue(&charm.FixDeployer, fixDeployer)
+	restoreFixDeployer := gt.PatchValue(&charm.FixDeployer, fixDeployer)
 	defer restoreFixDeployer()
 
 	for _, prepStep := range s.prepSteps {

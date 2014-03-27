@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
@@ -253,24 +253,4 @@ func (s *UpstartSuite) TestInstallAlreadyRunning(c *gc.C) {
 	err = conf.Install()
 	c.Assert(err, gc.IsNil)
 	c.Assert(&conf.Service, jc.Satisfies, (*upstart.Service).Running)
-}
-
-func (s *UpstartSuite) TestJujuMongodPath(c *gc.C) {
-	d := c.MkDir()
-	defer os.RemoveAll(d)
-	mongoPath := filepath.Join(d, "mongod")
-	upstart.JujuMongodPath = mongoPath
-
-	err := ioutil.WriteFile(mongoPath, []byte{}, 0777)
-	c.Assert(err, gc.IsNil)
-
-	obtained := upstart.MongodPath()
-	c.Assert(obtained, gc.Equals, mongoPath)
-}
-
-func (s *UpstartSuite) TestDefaultMongodPath(c *gc.C) {
-	upstart.JujuMongodPath = "/not/going/to/exist/mongod"
-
-	obtained := upstart.MongodPath()
-	c.Assert(obtained, gc.Equals, "mongod")
 }

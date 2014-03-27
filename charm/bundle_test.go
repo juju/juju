@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"syscall"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
@@ -74,7 +75,7 @@ func (s *BundleSuite) TestManifest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	manifest, err := bundle.Manifest()
 	c.Assert(err, gc.IsNil)
-	c.Assert(manifest, gc.DeepEquals, set.NewStrings(dummyManifest...))
+	c.Assert(manifest, jc.DeepEquals, set.NewStrings(dummyManifest...))
 }
 
 func (s *BundleSuite) TestManifestNoRevision(c *gc.C) {

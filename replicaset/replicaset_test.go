@@ -9,6 +9,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -52,11 +53,14 @@ func newServer() (*coretesting.MgoInstance, error) {
 	return inst, err
 }
 
-type MongoSuite struct{}
+type MongoSuite struct {
+	testbase.LoggingSuite
+}
 
 var _ = gc.Suite(&MongoSuite{})
 
 func (s *MongoSuite) SetUpSuite(c *gc.C) {
+	s.LoggingSuite.SetUpSuite(c)
 	var err error
 	// do all this stuff here, since we don't want to have to redo it for each test
 	root, err = newServer()
@@ -69,6 +73,7 @@ func (s *MongoSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *MongoSuite) TearDownTest(c *gc.C) {
+	s.LoggingSuite.TearDownTest(c)
 	// remove all secondaries from the replicaset on test teardown
 	session, err := root.DialDirect()
 	if err != nil {
@@ -138,6 +143,7 @@ func loadData(session *mgo.Session, c *gc.C) {
 }
 
 func (s *MongoSuite) TearDownSuite(c *gc.C) {
+	s.LoggingSuite.TearDownSuite(c)
 	root.Destroy()
 }
 
@@ -171,14 +177,21 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 
 	var err error
 
-	strategy := utils.AttemptStrategy{Total: time.Second * 30, Delay: time.Millisecond * 100}
+	// We use a delay of 31s. Our Mongo Dial timeout is 15s, so this gives
+	// us 2 attempts before we give up.
+	strategy := utils.AttemptStrategy{Total: time.Second * 31, Delay: time.Millisecond * 100}
+	start := time.Now()
+	attemptCount := 0
 	attempt := strategy.Start()
 	for attempt.Next() {
+		attemptCount += 1
 		err = Add(session, members...)
 		if err == nil || !attempt.HasNext() {
 			break
 		}
+		c.Logf("attempting to Add got error: %v", err)
 	}
+	c.Logf("Add() %d attempts in %s", attemptCount, time.Since(start))
 	c.Assert(err, gc.IsNil)
 
 	expectedMembers := make([]Member, len(members))
@@ -189,14 +202,18 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 	}
 
 	var cfg *Config
+	start = time.Now()
+	attemptCount = 0
 	attempt = strategy.Start()
 	for attempt.Next() {
+		attemptCount += 1
 		cfg, err = CurrentConfig(session)
 		if err == nil || !attempt.HasNext() {
 			break
 		}
+		c.Logf("attempting CurrentConfig got error: %v", err)
 	}
-
+	c.Logf("CurrentConfig() %d attempts in %s", attemptCount, time.Since(start))
 	c.Assert(err, gc.IsNil)
 	c.Assert(cfg.Name, gc.Equals, name)
 
@@ -208,18 +225,34 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 	c.Assert(mems, gc.DeepEquals, expectedMembers)
 
 	// Now remove the last two Members
+	start = time.Now()
+	attemptCount = 0
 	attempt = strategy.Start()
 	for attempt.Next() {
+		attemptCount += 1
 		err = Remove(session, members[3].Address, members[4].Address)
 		if err == nil || !attempt.HasNext() {
 			break
 		}
+		c.Logf("attempting Remove got error: %v", err)
 	}
+	c.Logf("Remove() %d attempts in %s", attemptCount, time.Since(start))
 	c.Assert(err, gc.IsNil)
 
 	expectedMembers = expectedMembers[0:3]
 
-	mems, err = CurrentMembers(session)
+	start = time.Now()
+	attemptCount = 0
+	attempt = strategy.Start()
+	for attempt.Next() {
+		attemptCount += 1
+		mems, err = CurrentMembers(session)
+		if err == nil || !attempt.HasNext() {
+			break
+		}
+		c.Logf("attempting CurrentMembers got error: %v", err)
+	}
+	c.Logf("CurrentMembers() %d attempts in %s", attemptCount, time.Since(start))
 	c.Assert(err, gc.IsNil)
 	c.Assert(mems, gc.DeepEquals, expectedMembers)
 
@@ -227,25 +260,34 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 	// plus the new arbiter
 	mems = []Member{members[3], mems[2], mems[0], members[4]}
 
+	start = time.Now()
+	attemptCount = 0
 	attempt = strategy.Start()
 	for attempt.Next() {
+		attemptCount += 1
 		err = Set(session, mems)
 		if err == nil || !attempt.HasNext() {
 			break
 		}
+		c.Logf("attempting Set got error: %v", err)
 	}
-
+	c.Logf("Set() %d attempts in %s", attemptCount, time.Since(start))
 	c.Assert(err, gc.IsNil)
 
+	start = time.Now()
+	attemptCount = 0
 	attempt = strategy.Start()
 	for attempt.Next() {
+		attemptCount += 1
 		// can dial whichever replica address here, mongo will figure it out
 		session = instances[0].MustDialDirect()
 		err = session.Ping()
 		if err == nil || !attempt.HasNext() {
 			break
 		}
+		c.Logf("attempting session.Ping() got error: %v after %s", err, time.Since(start))
 	}
+	c.Logf("session.Ping() %d attempts in %s", attemptCount, time.Since(start))
 	c.Assert(err, gc.IsNil)
 
 	expectedMembers = []Member{members[3], expectedMembers[2], expectedMembers[0], members[4]}
@@ -254,14 +296,19 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 	expectedMembers[0].Id = 4
 	expectedMembers[3].Id = 5
 
+	start = time.Now()
+	attemptCount = 0
 	attempt = strategy.Start()
 	for attempt.Next() {
+		attemptCount += 1
 		mems, err = CurrentMembers(session)
 		if err == nil || !attempt.HasNext() {
 			break
 		}
+		c.Logf("attempting CurrentMembers() got error: %v", err)
 	}
 	c.Assert(err, gc.IsNil)
+	c.Logf("CurrentMembers() %d attempts in %s", attemptCount, time.Since(start))
 	c.Assert(mems, gc.DeepEquals, expectedMembers)
 }
 
@@ -305,7 +352,7 @@ func (s *MongoSuite) TestCurrentStatus(c *gc.C) {
 	defer inst2.Destroy()
 	defer Remove(session, inst2.Addr())
 
-	strategy := utils.AttemptStrategy{Total: time.Second * 30, Delay: time.Millisecond * 100}
+	strategy := utils.AttemptStrategy{Total: time.Second * 31, Delay: time.Millisecond * 100}
 	attempt := strategy.Start()
 	for attempt.Next() {
 		err = Add(session, Member{Address: inst1.Addr()}, Member{Address: inst2.Addr()})
@@ -341,7 +388,7 @@ func (s *MongoSuite) TestCurrentStatus(c *gc.C) {
 		}},
 	}
 
-	strategy.Total = time.Second * 60
+	strategy.Total = time.Second * 90
 	attempt = strategy.Start()
 	var res *Status
 	for attempt.Next() {

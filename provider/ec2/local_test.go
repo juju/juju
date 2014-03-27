@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	"launchpad.net/goamz/aws"
 	amzec2 "launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/ec2/ec2test"
@@ -28,10 +29,10 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/ec2"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/ssh"
@@ -222,6 +223,11 @@ func (t *localServerSuite) TearDownSuite(c *gc.C) {
 func (t *localServerSuite) SetUpTest(c *gc.C) {
 	t.srv.startServer(c)
 	t.Tests.SetUpTest(c)
+	t.PatchValue(&version.Current, version.Binary{
+		Number: version.Current.Number,
+		Series: config.DefaultSeries,
+		Arch:   arch.AMD64,
+	})
 }
 
 func (t *localServerSuite) TearDownTest(c *gc.C) {
@@ -383,7 +389,7 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	params.Endpoint = "https://ec2.endpoint.com"
 	params.Sources, err = imagemetadata.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
-	image_ids, err := imagemetadata.ValidateImageMetadata(params)
+	image_ids, _, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, gc.IsNil)
 	sort.Strings(image_ids)
 	c.Assert(image_ids, gc.DeepEquals, []string{"ami-00000033", "ami-00000034", "ami-00000035"})
@@ -397,6 +403,13 @@ func (t *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 	url, err := sources[0].URL("")
 	// The control bucket URL contains the bucket name.
 	c.Assert(strings.Contains(url, ec2.ControlBucketName(env)+"/tools"), jc.IsTrue)
+}
+
+func (t *localServerSuite) TestSupportedArchitectures(c *gc.C) {
+	env := t.Prepare(c)
+	a, err := env.SupportedArchitectures()
+	c.Assert(err, gc.IsNil)
+	c.Assert(a, jc.SameContents, []string{"amd64", "i386"})
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server

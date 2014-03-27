@@ -6,13 +6,15 @@ package cmd_test
 import (
 	"bytes"
 	"net/http"
+	"os"
 	"path/filepath"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/utils"
 )
 
 type CmdSuite struct{}
@@ -22,6 +24,8 @@ var _ = gc.Suite(&CmdSuite{})
 func (s *CmdSuite) TestHttpTransport(c *gc.C) {
 	transport := http.DefaultTransport.(*http.Transport)
 	c.Assert(transport.DisableKeepAlives, jc.IsTrue)
+	client := utils.GetNonValidatingHTTPClient()
+	c.Assert(client.Transport.(*http.Transport).DisableKeepAlives, jc.IsTrue)
 }
 
 func (s *CmdSuite) TestContext(c *gc.C) {
@@ -109,6 +113,23 @@ func (s *CmdSuite) TestMainHelp(c *gc.C) {
 		c.Assert(bufferString(ctx.Stdout), gc.Equals, fullHelp)
 		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	}
+}
+
+func (s *CmdSuite) TestDefaultContextReturnsErrorInDeletedDirectory(c *gc.C) {
+	ctx := testing.Context(c)
+	wd, err := os.Getwd()
+	c.Assert(err, gc.IsNil)
+	missing := ctx.Dir + "/missing"
+	err = os.Mkdir(missing, 0700)
+	c.Assert(err, gc.IsNil)
+	err = os.Chdir(missing)
+	c.Assert(err, gc.IsNil)
+	defer os.Chdir(wd)
+	err = os.Remove(missing)
+	c.Assert(err, gc.IsNil)
+	ctx, err = cmd.DefaultContext()
+	c.Assert(err, gc.ErrorMatches, `getwd: no such file or directory`)
+	c.Assert(ctx, gc.IsNil)
 }
 
 func (s *CmdSuite) TestCheckEmpty(c *gc.C) {

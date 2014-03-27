@@ -7,6 +7,7 @@ import (
 	"launchpad.net/goamz/aws"
 
 	"launchpad.net/juju-core/environs/instances"
+	"launchpad.net/juju-core/juju/arch"
 )
 
 // Type of virtualisation used.
@@ -17,8 +18,8 @@ var (
 
 // all instance types can run amd64 images, and some can also run i386 ones.
 var (
-	amd64 = []string{"amd64"}
-	both  = []string{"amd64", "i386"}
+	amd64 = []string{arch.AMD64}
+	both  = []string{arch.AMD64, arch.I386}
 )
 
 // allRegions is defined here to allow tests to override the content.
@@ -35,28 +36,28 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 1,
 		CpuPower: instances.CpuPower(100),
 		Mem:      1740,
-		VType:    &paravirtual,
+		VirtType: &paravirtual,
 	}, {
 		Name:     "m1.medium",
 		Arches:   both,
 		CpuCores: 1,
 		CpuPower: instances.CpuPower(200),
 		Mem:      3840,
-		VType:    &paravirtual,
+		VirtType: &paravirtual,
 	}, {
 		Name:     "m1.large",
 		Arches:   amd64,
 		CpuCores: 2,
 		CpuPower: instances.CpuPower(400),
 		Mem:      7680,
-		VType:    &paravirtual,
+		VirtType: &paravirtual,
 	}, {
 		Name:     "m1.xlarge",
 		Arches:   amd64,
 		CpuCores: 4,
 		CpuPower: instances.CpuPower(800),
 		Mem:      15360,
-		VType:    &paravirtual,
+		VirtType: &paravirtual,
 	},
 	{ // Second generation.
 		Name:     "m3.medium",
@@ -64,28 +65,28 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 1,
 		CpuPower: instances.CpuPower(300),
 		Mem:      3840,
-		VType:    &paravirtual,
+		VirtType: &paravirtual,
 	}, {
 		Name:     "m3.large",
 		Arches:   amd64,
 		CpuCores: 2,
 		CpuPower: instances.CpuPower(6500),
 		Mem:      7680,
-		VType:    &paravirtual,
+		VirtType: &paravirtual,
 	}, {
 		Name:     "m3.xlarge",
 		Arches:   amd64,
 		CpuCores: 4,
 		CpuPower: instances.CpuPower(1300),
 		Mem:      15360,
-		VType:    &paravirtual,
+		VirtType: &paravirtual,
 	}, {
 		Name:     "m3.2xlarge",
 		Arches:   amd64,
 		CpuCores: 8,
 		CpuPower: instances.CpuPower(2600),
 		Mem:      30720,
-		VType:    &paravirtual,
+		VirtType: &paravirtual,
 	},
 	{ // Micro.
 		Name:     "t1.micro",
@@ -93,7 +94,7 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 1,
 		CpuPower: instances.CpuPower(20),
 		Mem:      613,
-		VType:    &paravirtual,
+		VirtType: &paravirtual,
 	},
 	{ // High-Memory.
 		Name:     "m2.xlarge",
@@ -101,21 +102,21 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 2,
 		CpuPower: instances.CpuPower(650),
 		Mem:      17408,
-		VType:    &paravirtual,
+		VirtType: &paravirtual,
 	}, {
 		Name:     "m2.2xlarge",
 		Arches:   amd64,
 		CpuCores: 4,
 		CpuPower: instances.CpuPower(1300),
 		Mem:      34816,
-		VType:    &paravirtual,
+		VirtType: &paravirtual,
 	}, {
 		Name:     "m2.4xlarge",
 		Arches:   amd64,
 		CpuCores: 8,
 		CpuPower: instances.CpuPower(2600),
 		Mem:      69632,
-		VType:    &paravirtual,
+		VirtType: &paravirtual,
 	},
 	{ // High-CPU.
 		Name:     "c1.medium",
@@ -123,14 +124,14 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 2,
 		CpuPower: instances.CpuPower(500),
 		Mem:      1740,
-		VType:    &paravirtual,
+		VirtType: &paravirtual,
 	}, {
 		Name:     "c1.xlarge",
 		Arches:   amd64,
 		CpuCores: 8,
 		CpuPower: instances.CpuPower(2000),
 		Mem:      7168,
-		VType:    &paravirtual,
+		VirtType: &paravirtual,
 	},
 	{ // Cluster compute.
 		Name:     "cc1.4xlarge",
@@ -138,14 +139,14 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 8,
 		CpuPower: instances.CpuPower(3350),
 		Mem:      23552,
-		VType:    &hvm,
+		VirtType: &hvm,
 	}, {
 		Name:     "cc2.8xlarge",
 		Arches:   amd64,
 		CpuCores: 16,
 		CpuPower: instances.CpuPower(8800),
 		Mem:      61952,
-		VType:    &hvm,
+		VirtType: &hvm,
 	},
 	{ // High Memory cluster.
 		Name:     "cr1.8xlarge",
@@ -153,7 +154,7 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 16,
 		CpuPower: instances.CpuPower(8800),
 		Mem:      249856,
-		VType:    &hvm,
+		VirtType: &hvm,
 	},
 	{ // Cluster GPU.
 		Name:     "cg1.4xlarge",
@@ -161,7 +162,7 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 8,
 		CpuPower: instances.CpuPower(3350),
 		Mem:      22528,
-		VType:    &hvm,
+		VirtType: &hvm,
 	},
 	{ // High I/O.
 		Name:     "hi1.4xlarge",
@@ -169,7 +170,7 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 16,
 		CpuPower: instances.CpuPower(3500),
 		Mem:      61952,
-		VType:    &paravirtual,
+		VirtType: &paravirtual,
 	},
 	{ // High storage.
 		Name:     "hs1.8xlarge",
@@ -177,7 +178,7 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 16,
 		CpuPower: instances.CpuPower(3500),
 		Mem:      119808,
-		VType:    &paravirtual,
+		VirtType: &paravirtual,
 	},
 }
 

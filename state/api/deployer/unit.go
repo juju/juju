@@ -51,7 +51,7 @@ func (u *Unit) Remove() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},
 	}
-	err := u.st.caller.Call("Deployer", "", "Remove", args, &result)
+	err := u.st.call("Remove", args, &result)
 	if err != nil {
 		return err
 	}
@@ -61,12 +61,12 @@ func (u *Unit) Remove() error {
 // SetPassword sets the unit's password.
 func (u *Unit) SetPassword(password string) error {
 	var result params.ErrorResults
-	args := params.PasswordChanges{
-		Changes: []params.PasswordChange{
+	args := params.EntityPasswords{
+		Changes: []params.EntityPassword{
 			{Tag: u.tag, Password: password},
 		},
 	}
-	err := u.st.caller.Call("Deployer", "", "SetPasswords", args, &result)
+	err := u.st.call("SetPasswords", args, &result)
 	if err != nil {
 		return err
 	}

@@ -9,7 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/environs/config"
@@ -135,13 +135,13 @@ func RegisterProvider(name string, p EnvironProvider, alias ...string) {
 }
 
 // Provider returns the previously registered provider with the given type.
-func Provider(typ string) (EnvironProvider, error) {
-	if alias, ok := providerAliases[typ]; ok {
-		typ = alias
+func Provider(providerType string) (EnvironProvider, error) {
+	if alias, ok := providerAliases[providerType]; ok {
+		providerType = alias
 	}
-	p, ok := providers[typ]
+	p, ok := providers[providerType]
 	if !ok {
-		return nil, fmt.Errorf("no registered provider for %q", typ)
+		return nil, fmt.Errorf("no registered provider for %q", providerType)
 	}
 	return p, nil
 }

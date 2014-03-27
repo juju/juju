@@ -6,11 +6,12 @@ package tools
 import (
 	"fmt"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/juju/arch"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
@@ -32,7 +33,7 @@ func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, majorVersion, minorV
 		if majorMismatch || minorMismacth {
 			return nil, coretools.ErrNoMatches
 		}
-		toolsConstraint = NewVersionedToolsConstraint(filter.Number.String(),
+		toolsConstraint = NewVersionedToolsConstraint(filter.Number,
 			simplestreams.LookupParams{CloudSpec: cloudSpec})
 	} else {
 		toolsConstraint = NewGeneralToolsConstraint(majorVersion, minorVersion, filter.Released,
@@ -42,7 +43,7 @@ func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, majorVersion, minorV
 		toolsConstraint.Arches = []string{filter.Arch}
 	} else {
 		logger.Debugf("no architecture specified when finding tools, looking for any")
-		toolsConstraint.Arches = []string{"amd64", "i386", "arm"}
+		toolsConstraint.Arches = arch.AllSupportedArches
 	}
 	// The old tools search allowed finding tools without needing to specify a series.
 	// The simplestreams metadata is keyed off series, so series must be specified in
@@ -117,7 +118,7 @@ func FindToolsForCloud(sources []simplestreams.DataSource, cloudSpec simplestrea
 	if err != nil {
 		return nil, err
 	}
-	toolsMetadata, err := Fetch(sources, simplestreams.DefaultIndexPath, toolsConstraint, false)
+	toolsMetadata, _, err := Fetch(sources, simplestreams.DefaultIndexPath, toolsConstraint, false)
 	if err != nil {
 		if errors.IsNotFoundError(err) {
 			err = ErrNoTools

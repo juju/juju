@@ -4,14 +4,12 @@
 package provisioner
 
 import (
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/tools"
@@ -26,13 +24,17 @@ type APICalls interface {
 	ContainerConfig() (params.ContainerConfig, error)
 }
 
-func NewLxcBroker(api APICalls, tools *tools.Tools, agentConfig agent.Config) environs.InstanceBroker {
+func NewLxcBroker(api APICalls, tools *tools.Tools, agentConfig agent.Config) (environs.InstanceBroker, error) {
+	manager, err := lxc.NewContainerManager(container.ManagerConfig{container.ConfigName: "juju"})
+	if err != nil {
+		return nil, err
+	}
 	return &lxcBroker{
-		manager:     lxc.NewContainerManager(container.ManagerConfig{Name: "juju"}),
+		manager:     manager,
 		api:         api,
 		tools:       tools,
 		agentConfig: agentConfig,
-	}
+	}, nil
 }
 
 type lxcBroker struct {
@@ -47,10 +49,9 @@ func (broker *lxcBroker) Tools() tools.List {
 }
 
 // StartInstance is specified in the Broker interface.
-func (broker *lxcBroker) StartInstance(cons constraints.Value, possibleTools tools.List,
-	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	// TODO: refactor common code out of the container brokers.
-	machineId := machineConfig.MachineId
+	machineId := args.MachineConfig.MachineId
 	lxcLogger.Infof("starting lxc container for machineId: %s", machineId)
 
 	// Default to using the host network until we can configure.
@@ -60,9 +61,9 @@ func (broker *lxcBroker) StartInstance(cons constraints.Value, possibleTools too
 	}
 	network := container.BridgeNetworkConfig(bridgeDevice)
 
-	series := possibleTools.OneSeries()
-	machineConfig.MachineContainerType = instance.LXC
-	machineConfig.Tools = possibleTools[0]
+	series := args.Tools.OneSeries()
+	args.MachineConfig.MachineContainerType = instance.LXC
+	args.MachineConfig.Tools = args.Tools[0]
 
 	config, err := broker.api.ContainerConfig()
 	if err != nil {
@@ -70,7 +71,7 @@ func (broker *lxcBroker) StartInstance(cons constraints.Value, possibleTools too
 		return nil, nil, err
 	}
 	if err := environs.PopulateMachineConfig(
-		machineConfig,
+		args.MachineConfig,
 		config.ProviderType,
 		config.AuthorizedKeys,
 		config.SSLHostnameVerification,
@@ -81,7 +82,7 @@ func (broker *lxcBroker) StartInstance(cons constraints.Value, possibleTools too
 		return nil, nil, err
 	}
 
-	inst, hardware, err := broker.manager.StartContainer(machineConfig, series, network)
+	inst, hardware, err := broker.manager.CreateContainer(args.MachineConfig, series, network)
 	if err != nil {
 		lxcLogger.Errorf("failed to start container: %v", err)
 		return nil, nil, err
@@ -95,7 +96,7 @@ func (broker *lxcBroker) StopInstances(instances []instance.Instance) error {
 	// TODO: potentially parallelise.
 	for _, instance := range instances {
 		lxcLogger.Infof("stopping lxc container for instance: %s", instance.Id())
-		if err := broker.manager.StopContainer(instance); err != nil {
+		if err := broker.manager.DestroyContainer(instance); err != nil {
 			lxcLogger.Errorf("container did not stop: %v", err)
 			return err
 		}

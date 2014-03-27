@@ -4,10 +4,10 @@
 package state_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/state"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -157,4 +157,23 @@ func (s *UserSuite) TestName(c *gc.C) {
 
 	c.Assert(u.Name(), gc.Equals, "someuser")
 	c.Assert(u.Tag(), gc.Equals, "user-someuser")
+}
+
+func (s *UserSuite) TestDeactivate(c *gc.C) {
+	u, err := s.State.AddUser("someuser", "")
+	c.Assert(err, gc.IsNil)
+	c.Assert(u.IsDeactivated(), gc.Equals, false)
+
+	err = u.Deactivate()
+	c.Assert(err, gc.IsNil)
+	c.Assert(u.IsDeactivated(), gc.Equals, true)
+	c.Assert(u.PasswordValid(""), gc.Equals, false)
+
+}
+
+func (s *UserSuite) TestCantDeactivateAdminUser(c *gc.C) {
+	u, err := s.State.User(state.AdminUser)
+	c.Assert(err, gc.IsNil)
+	err = u.Deactivate()
+	c.Assert(err, gc.ErrorMatches, "Can't deactivate admin user")
 }

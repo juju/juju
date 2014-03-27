@@ -33,7 +33,7 @@ func (s *Service) Watch() (watcher.NotifyWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.tag}},
 	}
-	err := s.st.caller.Call("Firewaller", "", "Watch", args, &results)
+	err := s.st.call("Watch", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +75,7 @@ func (s *Service) IsExposed() (bool, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.tag}},
 	}
-	err := s.st.caller.Call("Firewaller", "", "GetExposed", args, &results)
+	err := s.st.call("GetExposed", args, &results)
 	if err != nil {
 		return false, err
 	}

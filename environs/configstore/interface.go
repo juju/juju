@@ -74,6 +74,10 @@ type EnvironInfo interface {
 	// associated with the environment.
 	SetAPICredentials(APICredentials)
 
+	// Location returns the location of the source of the environment
+	// information in a human readable format.
+	Location() string
+
 	// Write writes the current information to persistent storage.
 	// A subsequent call to ConfigStorage.ReadInfo
 	// can retrieve it. After this call succeeds, Initialized will return true.

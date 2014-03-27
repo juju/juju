@@ -14,6 +14,7 @@ import (
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/mongo"
 	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
@@ -23,17 +24,12 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
-
-// BootstrapStateURLFile is used to communicate to the first bootstrap node
-// the URL from which to obtain important state information (instance id and
-// hardware characteristics). It is a transient file, only used as the node
-// is bootstrapping.
-const BootstrapStateURLFile = "/tmp/provider-state-url"
 
 // SystemIdentity is the name of the file where the environment SSH key is kept.
 const SystemIdentity = "system-identity"
@@ -77,6 +73,15 @@ type MachineConfig struct {
 	// or be empty when starting a state server.
 	APIInfo *api.Info
 
+	// InstanceId is the instance ID of the machine being initialised.
+	// This is required when bootstrapping, and ignored otherwise.
+	InstanceId instance.Id
+
+	// HardwareCharacteristics contains the harrdware characteristics of
+	// the machine being initialised. This optional, and is only used by
+	// the bootstrap agent during state initialisation.
+	HardwareCharacteristics *instance.HardwareCharacteristics
+
 	// MachineNonce is set at provisioning/bootstrap time and used to
 	// ensure the agent is running on the correct instance.
 	MachineNonce string
@@ -90,6 +95,9 @@ type MachineConfig struct {
 
 	// LogDir holds the directory that juju logs will be written to.
 	LogDir string
+
+	// Jobs holds what machine jobs to run.
+	Jobs []params.MachineJob
 
 	// CloudInitOutputLog specifies the path to the output log for cloud-init.
 	// The directory containing the log file must already exist.
@@ -122,9 +130,6 @@ type MachineConfig struct {
 
 	// Constraints holds the initial environment constraints.
 	Constraints constraints.Value
-
-	// StateInfoURL is the URL of a file which contains information about the state server machines.
-	StateInfoURL string
 
 	// DisableSSLHostnameVerification can be set to true to tell cloud-init
 	// that it shouldn't verify SSL certificates
@@ -206,6 +211,31 @@ func ConfigureBasic(cfg *MachineConfig, c *cloudinit.Config) error {
 	return nil
 }
 
+// AddAptCommands update the cloudinit.Config instance with the necessary
+// packages, the request to do the apt-get update/upgrade on boot, and adds
+// the apt proxy settings if there are any.
+func AddAptCommands(proxy osenv.ProxySettings, c *cloudinit.Config) {
+	// Bring packages up-to-date.
+	c.SetAptUpdate(true)
+	c.SetAptUpgrade(true)
+
+	// juju requires git for managing charm directories.
+	c.AddPackage("git")
+	c.AddPackage("cpu-checker")
+	c.AddPackage("bridge-utils")
+	c.AddPackage("rsyslog-gnutls")
+
+	// Write out the apt proxy settings
+	if (proxy != osenv.ProxySettings{}) {
+		filename := utils.AptConfFile
+		c.AddBootCmd(fmt.Sprintf(
+			`[ -f %s ] || (printf '%%s\n' %s > %s)`,
+			filename,
+			shquote(utils.AptProxyContent(proxy)),
+			filename))
+	}
+}
+
 // ConfigureJuju updates the provided cloudinit.Config with configuration
 // to initialise a Juju machine agent.
 func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
@@ -230,25 +260,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	}
 
 	if !cfg.DisablePackageCommands {
-		// Bring packages up-to-date.
-		c.SetAptUpdate(true)
-		c.SetAptUpgrade(true)
-
-		// juju requires git for managing charm directories.
-		c.AddPackage("git")
-		c.AddPackage("cpu-checker")
-		c.AddPackage("bridge-utils")
-		c.AddPackage("rsyslog-gnutls")
-
-		// Write out the apt proxy settings
-		if (cfg.AptProxySettings != osenv.ProxySettings{}) {
-			filename := utils.AptConfFile
-			c.AddBootCmd(fmt.Sprintf(
-				`[ -f %s ] || (printf '%%s\n' %s > %s)`,
-				filename,
-				shquote(utils.AptProxyContent(cfg.AptProxySettings)),
-				filename))
-		}
+		AddAptCommands(cfg.AptProxySettings, c)
 	}
 
 	// Write out the normal proxy settings so that the settings are
@@ -279,6 +291,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 		// defined, and we determine this by the existance of the home dir.
 		fmt.Sprintf("[ -e /home/ubuntu ] && chown ubuntu:ubuntu %s", lockDir),
 		fmt.Sprintf("mkdir -p %s", cfg.LogDir),
+		fmt.Sprintf("chown syslog:adm %s", cfg.LogDir),
 	)
 
 	// Make a directory for the tools to live in, then fetch the
@@ -287,9 +300,9 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	if strings.HasPrefix(cfg.Tools.URL, fileSchemePrefix) {
 		copyCmd = fmt.Sprintf("cp %s $bin/tools.tar.gz", shquote(cfg.Tools.URL[len(fileSchemePrefix):]))
 	} else {
-		curlCommand := "curl"
+		curlCommand := "curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; size %{size_download} bytes; speed %{speed_download} bytes/s '"
 		if cfg.DisableSSLHostnameVerification {
-			curlCommand = "curl --insecure"
+			curlCommand += " --insecure"
 		}
 		copyCmd = fmt.Sprintf("%s -o $bin/tools.tar.gz %s", curlCommand, shquote(cfg.Tools.URL))
 		c.AddRunCmd(cloudinit.LogProgressCmd("Fetching tools: %s", copyCmd))
@@ -326,32 +339,39 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	// for series that need it. This gives us up-to-date LXC,
 	// MongoDB, and other infrastructure.
 	if !cfg.DisablePackageCommands {
-		cfg.MaybeAddCloudArchiveCloudTools(c)
+		series := cfg.Tools.Version.Series
+		MaybeAddCloudArchiveCloudTools(c, series)
 	}
 
 	if cfg.StateServer {
 		identityFile := cfg.dataFile(SystemIdentity)
 		c.AddFile(identityFile, cfg.SystemPrivateSSHKey, 0600)
 		if !cfg.DisablePackageCommands {
-			// Disable the default mongodb installed by the mongodb-server package.
-			// Only do this if the file doesn't exist already, so users can run
-			// their own mongodb server if they wish to.
-			c.AddBootCmd(
-				`[ -f /etc/default/mongodb ] ||
+			series := cfg.Tools.Version.Series
+			mongoPackage := mongo.MongoPackageForSeries(series)
+			if mongoPackage == "mongodb-server" {
+				// Disable the default mongodb installed by the mongodb-server package.
+				// Only do this if the file doesn't exist already, so users can run
+				// their own mongodb server if they wish to.
+				c.AddBootCmd(
+					`[ -f /etc/default/mongodb ] ||
              (echo ENABLE_MONGODB="no" > /etc/default/mongodb)`)
 
-			if cfg.NeedMongoPPA() {
-				const key = "" // key is loaded from PPA
-				c.AddAptSource("ppa:juju/stable", key, nil)
-			}
-			if cfg.Tools.Version.Series == "precise" {
-				// In precise we add the cloud-tools pocket and
-				// pin it with a lower priority, so we need to
-				// explicitly specify the target release when
-				// installing mongodb-server from there.
-				c.AddPackageFromTargetRelease("mongodb-server", "precise-updates/cloud-tools")
+				if cfg.NeedMongoPPA() {
+					const key = "" // key is loaded from PPA
+					c.AddAptSource("ppa:juju/stable", key, nil)
+				}
+				if series == "precise" {
+					// In precise we add the cloud-tools pocket and
+					// pin it with a lower priority, so we need to
+					// explicitly specify the target release when
+					// installing mongodb-server from there.
+					c.AddPackageFromTargetRelease("mongodb-server", "precise-updates/cloud-tools")
+				} else {
+					c.AddPackage("mongodb-server")
+				}
 			} else {
-				c.AddPackage("mongodb-server")
+				c.AddPackage(mongoPackage)
 			}
 		}
 		certKey := string(cfg.StateServerCert) + string(cfg.StateServerKey)
@@ -374,13 +394,20 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 		if cons != "" {
 			cons = " --constraints " + shquote(cons)
 		}
+		var hardware string
+		if cfg.HardwareCharacteristics != nil {
+			if hardware = cfg.HardwareCharacteristics.String(); hardware != "" {
+				hardware = " --hardware " + shquote(hardware)
+			}
+		}
 		c.AddRunCmd(cloudinit.LogProgressCmd("Bootstrapping Juju machine agent"))
 		c.AddScripts(
-			fmt.Sprintf("echo %s > %s", shquote(cfg.StateInfoURL), BootstrapStateURLFile),
 			// The bootstrapping is always run with debug on.
 			cfg.jujuTools()+"/jujud bootstrap-state"+
 				" --data-dir "+shquote(cfg.DataDir)+
 				" --env-config "+shquote(base64yaml(cfg.Config))+
+				" --instance-id "+shquote(string(cfg.InstanceId))+
+				hardware+
 				cons+
 				" --debug",
 			"rm -rf "+shquote(acfg.Dir()),
@@ -406,6 +433,8 @@ func (cfg *MachineConfig) agentConfig(tag string) (agent.Config, error) {
 	}
 	configParams := agent.AgentConfigParams{
 		DataDir:           cfg.DataDir,
+		LogDir:            cfg.LogDir,
+		Jobs:              cfg.Jobs,
 		Tag:               tag,
 		UpgradedToVersion: version.Current.Number,
 		Password:          password,
@@ -477,7 +506,11 @@ func (cfg *MachineConfig) addMongoToBoot(c *cloudinit.Config) error {
 	)
 
 	name := cfg.MongoServiceName
-	conf := upstart.MongoUpstartService(name, cfg.DataDir, dbDir, cfg.StatePort)
+	mongodExec := mongo.MongodPathForSeries(cfg.Tools.Version.Series)
+	conf, err := mongo.MongoUpstartService(name, mongodExec, cfg.DataDir, cfg.StatePort)
+	if err != nil {
+		return err
+	}
 	cmds, err := conf.InstallCommands()
 	if err != nil {
 		return errgo.Annotate(err, "cannot make cloud-init upstart script for the state database")
@@ -573,8 +606,7 @@ p/+af/HU1smBrOfIeRoxb8jQoHu3
 
 // MaybeAddCloudArchiveCloudTools adds the cloud-archive cloud-tools
 // pocket to apt sources, if the series requires it.
-func (cfg *MachineConfig) MaybeAddCloudArchiveCloudTools(c *cloudinit.Config) {
-	series := cfg.Tools.Version.Series
+func MaybeAddCloudArchiveCloudTools(c *cloudinit.Config, series string) {
 	if series != "precise" {
 		// Currently only precise; presumably we'll
 		// need to add each LTS in here as they're
@@ -621,6 +653,9 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 	}
 	if cfg.LogDir == "" {
 		return fmt.Errorf("missing log directory")
+	}
+	if len(cfg.Jobs) == 0 {
+		return fmt.Errorf("missing machine jobs")
 	}
 	if cfg.CloudInitOutputLog == "" {
 		return fmt.Errorf("missing cloud-init output log path")
@@ -673,6 +708,9 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		}
 		if cfg.SystemPrivateSSHKey == "" {
 			return fmt.Errorf("missing system ssh identity")
+		}
+		if cfg.InstanceId == "" {
+			return fmt.Errorf("missing instance-id")
 		}
 	} else {
 		if len(cfg.StateInfo.Addrs) == 0 {

@@ -6,6 +6,7 @@ package rsyslog_test
 import (
 	"encoding/pem"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/juju/testing"
@@ -17,7 +18,6 @@ import (
 	"launchpad.net/juju-core/state/apiserver/rsyslog"
 	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type rsyslogSuite struct {

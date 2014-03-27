@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/agent/tools"
@@ -41,8 +41,7 @@ const (
 	// These work fine for linux, but should we need to work with windows
 	// workloads in the future, we'll need to move these into a file that is
 	// compiled conditionally for different targets and use tcp (most likely).
-	RunListenerNetType = "unix"
-	RunListenerFile    = "run.socket"
+	RunListenerFile = "run.socket"
 )
 
 // A UniterExecutionObserver gets the appropriate methods called when a hook
@@ -193,8 +192,8 @@ func (u *Uniter) init(unitTag string) (err error) {
 	u.envName = env.Name()
 
 	runListenerSocketPath := filepath.Join(u.baseDir, RunListenerFile)
-	logger.Debugf("starting juju-run listener on %s:%s", RunListenerNetType, runListenerSocketPath)
-	u.runListener, err = NewRunListener(u, RunListenerNetType, runListenerSocketPath)
+	logger.Debugf("starting juju-run listener on unix:%s", runListenerSocketPath)
+	u.runListener, err = NewRunListener(u, runListenerSocketPath)
 	if err != nil {
 		return err
 	}

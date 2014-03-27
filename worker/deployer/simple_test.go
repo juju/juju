@@ -13,13 +13,14 @@ import (
 	"sort"
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
@@ -133,9 +134,10 @@ func (s *SimpleContextSuite) TestOldDeployedUnitsCanBeRecalled(c *gc.C) {
 
 type SimpleToolsFixture struct {
 	testbase.LoggingSuite
+
 	dataDir  string
-	initDir  string
 	logDir   string
+	initDir  string
 	origPath string
 	binDir   string
 }
@@ -187,12 +189,12 @@ func (fix *SimpleToolsFixture) assertUpstartCount(c *gc.C, count int) {
 }
 
 func (fix *SimpleToolsFixture) getContext(c *gc.C) *deployer.SimpleContext {
-	config := agentConfig("machine-tag", fix.dataDir)
+	config := agentConfig("machine-tag", fix.dataDir, fix.logDir)
 	return deployer.NewTestSimpleContext(config, fix.initDir, fix.logDir)
 }
 
 func (fix *SimpleToolsFixture) getContextForMachine(c *gc.C, machineTag string) *deployer.SimpleContext {
-	config := agentConfig(machineTag, fix.dataDir)
+	config := agentConfig(machineTag, fix.dataDir, fix.logDir)
 	return deployer.NewTestSimpleContext(config, fix.initDir, fix.logDir)
 }
 
@@ -234,7 +236,7 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string
 		}
 	}
 
-	conf, err := agent.ReadConf(fix.dataDir, tag)
+	conf, err := agent.ReadConf(agent.ConfigPath(fix.dataDir, tag))
 	c.Assert(err, gc.IsNil)
 	c.Assert(conf.Tag(), gc.Equals, tag)
 	c.Assert(conf.DataDir(), gc.Equals, fix.dataDir)
@@ -268,8 +270,11 @@ func (fix *SimpleToolsFixture) injectUnit(c *gc.C, upstartConf, unitTag string) 
 
 type mockConfig struct {
 	agent.Config
-	tag     string
-	datadir string
+	tag               string
+	datadir           string
+	logdir            string
+	upgradedToVersion version.Number
+	jobs              []params.MachineJob
 }
 
 func (mock *mockConfig) Tag() string {
@@ -280,6 +285,23 @@ func (mock *mockConfig) DataDir() string {
 	return mock.datadir
 }
 
+func (mock *mockConfig) LogDir() string {
+	return mock.logdir
+}
+
+func (mock *mockConfig) Jobs() []params.MachineJob {
+	return mock.jobs
+}
+
+func (mock *mockConfig) UpgradedToVersion() version.Number {
+	return mock.upgradedToVersion
+}
+
+func (mock *mockConfig) WriteUpgradedToVersion(newVersion version.Number) error {
+	mock.upgradedToVersion = newVersion
+	return nil
+}
+
 func (mock *mockConfig) CACert() []byte {
 	return []byte(testing.CACert)
 }
@@ -288,6 +310,6 @@ func (mock *mockConfig) Value(_ string) string {
 	return ""
 }
 
-func agentConfig(tag, datadir string) agent.Config {
-	return &mockConfig{tag: tag, datadir: datadir}
+func agentConfig(tag, datadir, logdir string) agent.Config {
+	return &mockConfig{tag: tag, datadir: datadir, logdir: logdir}
 }

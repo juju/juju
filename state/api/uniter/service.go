@@ -42,7 +42,7 @@ func (s *Service) Watch() (watcher.NotifyWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.tag}},
 	}
-	err := s.st.caller.Call("Uniter", "", "Watch", args, &results)
+	err := s.st.call("Watch", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func (s *Service) WatchRelations() (watcher.StringsWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.tag}},
 	}
-	err := s.st.caller.Call("Uniter", "", "WatchServiceRelations", args, &results)
+	err := s.st.call("WatchServiceRelations", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +106,7 @@ func (s *Service) CharmURL() (*charm.URL, bool, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.tag}},
 	}
-	err := s.st.caller.Call("Uniter", "", "CharmURL", args, &results)
+	err := s.st.call("CharmURL", args, &results)
 	if err != nil {
 		return nil, false, err
 	}
@@ -134,7 +134,7 @@ func (s *Service) GetOwnerTag() (string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.tag}},
 	}
-	err := s.st.caller.Call("Uniter", "", "GetOwnerTag", args, &result)
+	err := s.st.call("GetOwnerTag", args, &result)
 	if err != nil {
 		return "", err
 	}

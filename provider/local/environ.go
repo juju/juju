@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2013, 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package local
@@ -10,8 +10,12 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
+	"syscall"
+
+	"github.com/errgo/errgo"
 
 	"launchpad.net/juju-core/agent"
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
@@ -29,11 +33,14 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/upstart"
+	"launchpad.net/juju-core/utils/shell"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/terminationworker"
 )
@@ -62,7 +69,13 @@ type localEnviron struct {
 func (e *localEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket.
 	return []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)}, nil
+		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseToolsPath)}, nil
+}
+
+// SupportedArchitectures is specified on the EnvironCapability interface.
+func (*localEnviron) SupportedArchitectures() ([]string, error) {
+	localArch := arch.HostArch()
+	return []string{localArch}, nil
 }
 
 // Name is specified in the Environ interface.
@@ -97,10 +110,6 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 
 	// Before we write the agent config file, we need to make sure the
 	// instance is saved in the StateInfo.
-	stateFileURL, err := bootstrap.CreateStateFile(env.Storage())
-	if err != nil {
-		return err
-	}
 	if err := bootstrap.SaveState(env.Storage(), &bootstrap.BootstrapState{
 		StateInstances: []instance.Id{bootstrapInstanceId},
 	}); err != nil {
@@ -109,7 +118,7 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 	}
 
 	vers := version.Current
-	selectedTools, err := common.EnsureBootstrapTools(env, vers.Series, &vers.Arch)
+	selectedTools, err := common.EnsureBootstrapTools(ctx, env, vers.Series, &vers.Arch)
 	if err != nil {
 		return err
 	}
@@ -126,24 +135,20 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 		return err
 	}
 
-	bootstrapJobs, err := agent.MarshalBootstrapJobs(state.JobManageEnviron)
-	if err != nil {
-		return err
-	}
-
-	mcfg := environs.NewBootstrapMachineConfig(stateFileURL, privateKey)
+	mcfg := environs.NewBootstrapMachineConfig(privateKey)
+	mcfg.InstanceId = bootstrapInstanceId
 	mcfg.Tools = selectedTools[0]
 	mcfg.DataDir = env.config.rootDir()
 	mcfg.LogDir = fmt.Sprintf("/var/log/juju-%s", env.config.namespace())
-	mcfg.CloudInitOutputLog = filepath.Join(env.config.logDir(), "cloud-init-output.log")
+	mcfg.Jobs = []params.MachineJob{params.JobManageEnviron}
+	mcfg.CloudInitOutputLog = filepath.Join(mcfg.DataDir, "cloud-init-output.log")
 	mcfg.DisablePackageCommands = true
 	mcfg.MachineAgentServiceName = env.machineAgentServiceName()
 	mcfg.MongoServiceName = env.mongoServiceName()
 	mcfg.AgentEnvironment = map[string]string{
-		agent.Namespace:     env.config.namespace(),
-		agent.StorageDir:    env.config.storageDir(),
-		agent.StorageAddr:   env.config.storageAddr(),
-		agent.BootstrapJobs: bootstrapJobs,
+		agent.Namespace:   env.config.namespace(),
+		agent.StorageDir:  env.config.storageDir(),
+		agent.StorageAddr: env.config.storageAddr(),
 	}
 	if err := environs.FinishMachineConfig(mcfg, cfg, cons); err != nil {
 		return err
@@ -157,14 +162,20 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 	// Also, we leave the old all-machines.log file in
 	// /var/log/juju-{{namespace}} until we start the environment again. So
 	// potentially remove it at the start of the cloud-init.
-	os.RemoveAll(env.config.logDir())
-	os.MkdirAll(env.config.logDir(), 0755)
+	localLogDir := filepath.Join(mcfg.DataDir, "log")
+	if err := os.RemoveAll(localLogDir); err != nil {
+		return err
+	}
+	if err := os.Symlink(mcfg.LogDir, localLogDir); err != nil {
+		return err
+	}
+	if err := os.Remove(mcfg.CloudInitOutputLog); err != nil && !os.IsNotExist(err) {
+		return err
+	}
 	cloudcfg.AddScripts(
 		fmt.Sprintf("rm -fr %s", mcfg.LogDir),
-		fmt.Sprintf("mkdir -p %s", mcfg.LogDir),
 		fmt.Sprintf("rm -f /var/spool/rsyslog/machine-0-%s", env.config.namespace()),
-		fmt.Sprintf("ln -s %s/all-machines.log %s/", mcfg.LogDir, env.config.logDir()),
-		fmt.Sprintf("ln -s %s/machine-0.log %s/", env.config.logDir(), mcfg.LogDir))
+	)
 	if err := cloudinit.ConfigureJuju(mcfg, cloudcfg); err != nil {
 		return err
 	}
@@ -176,10 +187,11 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 //
 // mcfg is supplied for testing purposes.
 var finishBootstrap = func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config, ctx environs.BootstrapContext) error {
-	script, err := sshinit.ConfigureScript(cloudcfg)
+	configScript, err := sshinit.ConfigureScript(cloudcfg)
 	if err != nil {
 		return nil
 	}
+	script := shell.DumpFileOnErrorScript(mcfg.CloudInitOutputLog) + configScript
 	cmd := exec.Command("sudo", "/bin/bash", "-s")
 	cmd.Stdin = strings.NewReader(script)
 	cmd.Stdout = ctx.GetStdout()
@@ -210,13 +222,17 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	defer env.localMutex.Unlock()
 	env.config = ecfg
 	env.name = ecfg.Name()
-
+	containerType := ecfg.container()
+	managerConfig := container.ManagerConfig{
+		container.ConfigName:   env.config.namespace(),
+		container.ConfigLogDir: env.config.logDir(),
+	}
+	if containerType == instance.LXC {
+		managerConfig["use-clone"] = strconv.FormatBool(env.config.lxcClone())
+		managerConfig["use-aufs"] = strconv.FormatBool(env.config.lxcCloneAUFS())
+	}
 	env.containerManager, err = factory.NewContainerManager(
-		ecfg.container(),
-		container.ManagerConfig{
-			Name:   env.config.namespace(),
-			LogDir: env.config.logDir(),
-		})
+		containerType, managerConfig)
 	if err != nil {
 		return err
 	}
@@ -272,7 +288,7 @@ func (env *localEnviron) resolveBridgeAddress(cfg *config.Config) error {
 // be synced and so forth without having a machine agent
 // running.
 func (env *localEnviron) setLocalStorage() error {
-	storage, err := filestorage.NewFileStorageWriter(env.config.storageDir(), filestorage.UseDefaultTmpDir)
+	storage, err := filestorage.NewFileStorageWriter(env.config.storageDir())
 	if err != nil {
 		return err
 	}
@@ -281,24 +297,23 @@ func (env *localEnviron) setLocalStorage() error {
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (env *localEnviron) StartInstance(cons constraints.Value, possibleTools tools.List,
-	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
 
-	series := possibleTools.OneSeries()
-	logger.Debugf("StartInstance: %q, %s", machineConfig.MachineId, series)
-	machineConfig.Tools = possibleTools[0]
-	machineConfig.MachineContainerType = env.config.container()
-	logger.Debugf("tools: %#v", machineConfig.Tools)
+	series := args.Tools.OneSeries()
+	logger.Debugf("StartInstance: %q, %s", args.MachineConfig.MachineId, series)
+	args.MachineConfig.Tools = args.Tools[0]
+	args.MachineConfig.MachineContainerType = env.config.container()
+	logger.Debugf("tools: %#v", args.MachineConfig.Tools)
 	network := container.BridgeNetworkConfig(env.config.networkBridge())
-	if err := environs.FinishMachineConfig(machineConfig, env.config.Config, cons); err != nil {
+	if err := environs.FinishMachineConfig(args.MachineConfig, env.config.Config, args.Constraints); err != nil {
 		return nil, nil, err
 	}
 	// TODO: evaluate the impact of setting the contstraints on the
 	// machineConfig for all machines rather than just state server nodes.
 	// This limiation is why the constraints are assigned directly here.
-	machineConfig.Constraints = cons
-	machineConfig.AgentEnvironment[agent.Namespace] = env.config.namespace()
-	inst, hardware, err := env.containerManager.StartContainer(machineConfig, series, network)
+	args.MachineConfig.Constraints = args.Constraints
+	args.MachineConfig.AgentEnvironment[agent.Namespace] = env.config.namespace()
+	inst, hardware, err := env.containerManager.CreateContainer(args.MachineConfig, series, network)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -311,7 +326,7 @@ func (env *localEnviron) StopInstances(instances []instance.Instance) error {
 		if inst.Id() == bootstrapInstanceId {
 			return fmt.Errorf("cannot stop the bootstrap instance")
 		}
-		if err := env.containerManager.StopContainer(inst); err != nil {
+		if err := env.containerManager.DestroyContainer(inst); err != nil {
 			return err
 		}
 	}
@@ -374,38 +389,67 @@ func (env *localEnviron) Storage() storage.Storage {
 
 // Destroy is specified in the Environ interface.
 func (env *localEnviron) Destroy() error {
-	// Kill all running instances. This must be done as
-	// root, or listing/stopping containers will fail.
+	// If bootstrap failed, for example because the user
+	// lacks sudo rights, then the agents won't have been
+	// installed. If that's the case, we can just remove
+	// the data-dir and exit.
+	agentsDir := filepath.Join(env.config.rootDir(), "agents")
+	if _, err := os.Stat(agentsDir); os.IsNotExist(err) {
+		// If we can't remove the root dir, then continue
+		// and attempt as root anyway.
+		if os.RemoveAll(env.config.rootDir()) == nil {
+			return nil
+		}
+	}
 	if !checkIfRoot() {
 		juju, err := exec.LookPath(os.Args[0])
 		if err != nil {
 			return err
 		}
-		args := []string{osenv.JujuHomeEnvKey + "=" + osenv.JujuHome()}
-		args = append(args, juju)
-		args = append(args, os.Args[1:]...)
-		args = append(args, "-y")
+		args := []string{
+			"env", osenv.JujuHomeEnvKey + "=" + osenv.JujuHome(),
+			juju, "destroy-environment", "-y", "--force", env.Name(),
+		}
 		cmd := exec.Command("sudo", args...)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		return cmd.Run()
-	} else {
-		containers, err := env.containerManager.ListContainers()
-		if err != nil {
+	}
+	// Kill all running instances. This must be done as
+	// root, or listing/stopping containers will fail.
+	containers, err := env.containerManager.ListContainers()
+	if err != nil {
+		return err
+	}
+	for _, inst := range containers {
+		if err := env.containerManager.DestroyContainer(inst); err != nil {
 			return err
 		}
-		for _, inst := range containers {
-			if err := env.containerManager.StopContainer(inst); err != nil {
-				return err
+	}
+	cmd := exec.Command(
+		"pkill",
+		fmt.Sprintf("-%d", terminationworker.TerminationSignal),
+		"-f", filepath.Join(regexp.QuoteMeta(env.config.rootDir()), ".*", "jujud"),
+	)
+	if err := cmd.Run(); err != nil {
+		if err, ok := err.(*exec.ExitError); ok {
+			// Exit status 1 means no processes were matched:
+			// we don't consider this an error here.
+			if err.ProcessState.Sys().(syscall.WaitStatus).ExitStatus() != 1 {
+				return errgo.Annotate(err, "failed to kill jujud")
 			}
 		}
-		cmd := exec.Command(
-			"pkill",
-			fmt.Sprintf("-%d", terminationworker.TerminationSignal),
-			"-f", filepath.Join(regexp.QuoteMeta(env.config.rootDir()), ".*", "jujud"),
-		)
-		return cmd.Run()
 	}
+	// Stop the mongo database and machine agent. It's possible that the
+	// service doesn't exist or is not running, so don't check the error.
+	upstart.NewService(env.mongoServiceName()).StopAndRemove()
+	upstart.NewService(env.machineAgentServiceName()).StopAndRemove()
+
+	// Finally, remove the data-dir.
+	if err := os.RemoveAll(env.config.rootDir()); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
 }
 
 // OpenPorts is specified in the Environ interface.

@@ -6,6 +6,7 @@ package main
 import (
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
@@ -15,7 +16,6 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type DeploySuite struct {
@@ -83,8 +83,8 @@ func (s *DeploySuite) TestUpgradeReportsDeprecated(c *gc.C) {
 	ctx, err := coretesting.RunCommand(c, &DeployCommand{}, []string{"local:dummy", "-u"})
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(coretesting.Stderr(ctx), gc.Equals, "")
-	output := strings.Split(coretesting.Stdout(ctx), "\n")
+	c.Assert(coretesting.Stdout(ctx), gc.Equals, "")
+	output := strings.Split(coretesting.Stderr(ctx), "\n")
 	c.Check(output[0], gc.Matches, `Added charm ".*" to the environment.`)
 	c.Check(output[1], gc.Equals, "--upgrade (or -u) is deprecated and ignored; charms are always deployed with a unique revision.")
 }

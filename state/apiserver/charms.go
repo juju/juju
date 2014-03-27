@@ -6,7 +6,6 @@ package apiserver
 import (
 	"archive/zip"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -25,17 +24,14 @@ import (
 	"github.com/errgo/errgo"
 
 	"launchpad.net/juju-core/charm"
-	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/apiserver/common"
 	ziputil "launchpad.net/juju-core/utils/zip"
 )
 
 // charmsHandler handles charm upload through HTTPS in the API server.
 type charmsHandler struct {
-	state   *state.State
+	httpHandler
 	dataDir string
 }
 
@@ -119,11 +115,10 @@ func (h *charmsHandler) manifestSender(w http.ResponseWriter, r *http.Request, b
 
 // fileSender returns a bundleContentSenderFunc which is responsible for sending
 // the contents of filePath included in the given charm bundle. If filePath does
-// not identify a file, or a symlink that resolves to a file, a 403 forbidden error
-// is returned.
+// not identify a file or a symlink, a 403 forbidden error is returned.
 func (h *charmsHandler) fileSender(filePath string) bundleContentSenderFunc {
 	return func(w http.ResponseWriter, r *http.Request, bundle *charm.Bundle) {
-		// TODO(fwereade) 20140127 lp:1285685
+		// TODO(fwereade) 2014-01-27 bug #1285685
 		// This doesn't handle symlinks helpfully, and should be talking in
 		// terms of bundles rather than zip readers; but this demands thought
 		// and design and is not amenable to a quick fix.
@@ -171,45 +166,6 @@ func (h *charmsHandler) sendError(w http.ResponseWriter, statusCode int, message
 	return h.sendJSON(w, statusCode, &params.CharmsResponse{Error: message})
 }
 
-// authenticate parses HTTP basic authentication and authorizes the
-// request by looking up the provided tag and password against state.
-func (h *charmsHandler) authenticate(r *http.Request) error {
-	parts := strings.Fields(r.Header.Get("Authorization"))
-	if len(parts) != 2 || parts[0] != "Basic" {
-		// Invalid header format or no header provided.
-		return fmt.Errorf("invalid request format")
-	}
-	// Challenge is a base64-encoded "tag:pass" string.
-	// See RFC 2617, Section 2.
-	challenge, err := base64.StdEncoding.DecodeString(parts[1])
-	if err != nil {
-		return fmt.Errorf("invalid request format")
-	}
-	tagPass := strings.SplitN(string(challenge), ":", 2)
-	if len(tagPass) != 2 {
-		return fmt.Errorf("invalid request format")
-	}
-	entity, err := checkCreds(h.state, params.Creds{
-		AuthTag:  tagPass[0],
-		Password: tagPass[1],
-	})
-	if err != nil {
-		return err
-	}
-	// Only allow users, not agents.
-	_, _, err = names.ParseTag(entity.Tag(), names.UserTagKind)
-	if err != nil {
-		return common.ErrBadCreds
-	}
-	return err
-}
-
-// authError sends an unauthorized error.
-func (h *charmsHandler) authError(w http.ResponseWriter) {
-	w.Header().Set("WWW-Authenticate", `Basic realm="juju"`)
-	h.sendError(w, http.StatusUnauthorized, "unauthorized")
-}
-
 // processPost handles a charm upload POST request after authentication.
 func (h *charmsHandler) processPost(r *http.Request) (*charm.URL, error) {
 	query := r.URL.Query()
@@ -241,10 +197,12 @@ func (h *charmsHandler) processPost(r *http.Request) (*charm.URL, error) {
 	}
 	// We got it, now let's reserve a charm URL for it in state.
 	archiveURL := &charm.URL{
-		Schema:   "local",
-		Series:   series,
-		Name:     archive.Meta().Name,
-		Revision: archive.Revision(),
+		Reference: charm.Reference{
+			Schema:   "local",
+			Name:     archive.Meta().Name,
+			Revision: archive.Revision(),
+		},
+		Series: series,
 	}
 	preparedURL, err := h.state.PrepareLocalCharmUpload(archiveURL)
 	if err != nil {
@@ -338,7 +296,7 @@ func (h *charmsHandler) findArchiveRootDir(zipr *zip.Reader) (string, error) {
 }
 
 func depth(path string) int {
-	return strings.Count(path, string(filepath.Separator))
+	return strings.Count(path, "/")
 }
 
 type byDepth []string
@@ -393,7 +351,7 @@ func (h *charmsHandler) repackageAndUploadCharm(archive *charm.Bundle, curl *cha
 	if _, err := repackagedArchive.Seek(0, 0); err != nil {
 		return errgo.Annotate(err, "cannot rewind the charm file reader")
 	}
-	storage, err := envtesting.GetEnvironStorage(h.state)
+	storage, err := environs.GetStorage(h.state)
 	if err != nil {
 		return errgo.Annotate(err, "cannot access provider storage")
 	}
@@ -456,7 +414,7 @@ func (h *charmsHandler) processGet(r *http.Request) (string, string, error) {
 // saves the corresponding zip archive to the given charmArchivePath.
 func (h *charmsHandler) downloadCharm(name, charmArchivePath string) error {
 	// Get the provider storage.
-	storage, err := envtesting.GetEnvironStorage(h.state)
+	storage, err := environs.GetStorage(h.state)
 	if err != nil {
 		return errgo.Annotate(err, "cannot access provider storage")
 	}
