@@ -8,7 +8,6 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
-	"local/runtime/debug"
 
 	"github.com/juju/loggo"
 	"labix.org/v2/mgo"
@@ -118,7 +117,6 @@ func EnsureMongoServer(p EnsureMongoParams) error {
 // This is a variable so it can be overridden in tests
 var initiateReplicaSet = func(p EnsureMongoParams) error {
 	logger.Debugf("Initiating mongo replicaset; params: %#v", p)
-	logger.Debugf("callers: %s", debug.Callers(0, 20))
 
 	// TODO remove me
 	addrs, err := net.InterfaceAddrs()
