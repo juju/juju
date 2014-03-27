@@ -117,6 +117,8 @@ func (s *commonMachineSuite) primeAgent(
 func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) *MachineAgent {
 	a := &MachineAgent{}
 	s.initAgent(c, a, "--machine-id", m.Id())
+	err := a.ReadConfig(m.Tag())
+	c.Assert(err, gc.IsNil)
 	return a
 }
 
@@ -757,7 +759,7 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 	})
 }
 
-func (s *MachineSuite) TestMachineEnvirnWorker(c *gc.C) {
+func (s *MachineSuite) TestMachineEnvironWorker(c *gc.C) {
 	proxyDir := c.MkDir()
 	s.PatchValue(&machineenvironmentworker.ProxyDirectory, proxyDir)
 	s.PatchValue(&utils.AptConfFile, filepath.Join(proxyDir, "juju-apt-proxy"))

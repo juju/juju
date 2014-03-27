@@ -26,7 +26,7 @@ var agentLogger = loggo.GetLogger("juju.jujud")
 // UnitAgent is a cmd.Command responsible for running a unit agent.
 type UnitAgent struct {
 	cmd.CommandBase
-	tomb     tomb.Tomb
+	tomb tomb.Tomb
 	AgentConf
 	UnitName string
 	runner   worker.Runner

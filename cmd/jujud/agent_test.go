@@ -216,6 +216,7 @@ func (s *agentSuite) primeAgent(c *gc.C, tag, password string, vers version.Bina
 			APIAddresses:      apiInfo.Addrs,
 			CACert:            stateInfo.CACert,
 		})
+	conf.SetPassword(password)
 	c.Assert(conf.Write(), gc.IsNil)
 	return conf, agentTools
 }
@@ -242,6 +243,7 @@ func writeStateAgentConfig(c *gc.C, stateInfo *state.Info, dataDir, tag, passwor
 			APIPort:         port,
 		})
 	c.Assert(err, gc.IsNil)
+	conf.SetPassword(password)
 	c.Assert(conf.Write(), gc.IsNil)
 	return conf
 }
@@ -272,6 +274,10 @@ func (s *agentSuite) initAgent(c *gc.C, a cmd.Command, args ...string) {
 
 func (s *agentSuite) testOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd Agent, initialPassword string) {
 	conf, err := agent.ReadConfig(agent.ConfigPath(s.DataDir(), ent.Tag()))
+	c.Assert(err, gc.IsNil)
+
+	conf.SetPassword("")
+	err = conf.Write()
 	c.Assert(err, gc.IsNil)
 
 	// Check that it starts initially and changes the password

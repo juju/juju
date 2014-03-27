@@ -66,6 +66,8 @@ func (s *UnitSuite) primeAgent(c *gc.C) (*state.Machine, *state.Unit, agent.Conf
 func (s *UnitSuite) newAgent(c *gc.C, unit *state.Unit) *UnitAgent {
 	a := &UnitAgent{}
 	s.initAgent(c, a, "--unit-name", unit.Name())
+	err := a.ReadConfig(unit.Tag())
+	c.Assert(err, gc.IsNil)
 	return a
 }
 
