@@ -25,7 +25,6 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/multiwatcher"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
@@ -1396,16 +1395,6 @@ func (st *State) StateServerInfo() (*StateServerInfo, error) {
 		MachineIds:       doc.MachineIds,
 		VotingMachineIds: doc.VotingMachineIds,
 	}, nil
-}
-
-//
-func (st *State) SetStateServingInfo(info params.StateServingInfo) error {
-
-}
-
-//
-func (st *State) StateServingInfo() (params.StateServingInfo, error) {
-
 }
 
 // ResumeTransactions resumes all pending transactions.
