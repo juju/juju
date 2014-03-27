@@ -11,6 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/agent"
 	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cmd"
@@ -178,12 +179,16 @@ type agentSuite struct {
 }
 
 func (s *agentSuite) SetUpSuite(c *gc.C) {
+	s.JujuConnSuite.SetUpSuite(c)
+
 	s.oldRestartDelay = worker.RestartDelay
 	// We could use testing.ShortWait, but this thrashes quite
 	// a bit when some tests are restarting every 50ms for 10 seconds,
 	// so use a slightly more friendly delay.
 	worker.RestartDelay = 250 * time.Millisecond
-	s.JujuConnSuite.SetUpSuite(c)
+	s.PatchValue(&ensureMongoServer, func(mongo.EnsureMongoParams) error {
+		return nil
+	})
 }
 
 func (s *agentSuite) TearDownSuite(c *gc.C) {
@@ -240,6 +245,7 @@ func writeStateAgentConfig(c *gc.C, stateInfo *state.Info, dataDir, tag, passwor
 			APIPort:           port,
 		})
 	c.Assert(err, gc.IsNil)
+	conf.SetPassword(password)
 	c.Assert(conf.StateManager(), jc.IsTrue)
 	c.Assert(conf.Write(), gc.IsNil)
 	return conf
