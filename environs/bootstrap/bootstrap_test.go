@@ -8,8 +8,8 @@ import (
 	"strings"
 	stdtesting "testing"
 
-	gc "launchpad.net/gocheck"
 	jc "github.com/juju/testing/checkers"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
