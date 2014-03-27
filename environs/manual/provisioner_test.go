@@ -71,7 +71,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 		}.install(c).Restore()
 		machineId, err = manual.ProvisionMachine(args)
 		if errorCode != 0 {
-			c.Assert(err, gc.ErrorMatches, fmt.Sprintf("rc: %d", errorCode))
+			c.Assert(err, gc.ErrorMatches, fmt.Sprintf("subprocess encountered error code %d", errorCode))
 			c.Assert(machineId, gc.Equals, "")
 		} else {
 			c.Assert(err, gc.IsNil)
