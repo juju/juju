@@ -445,10 +445,7 @@ func (c *Config) AuthorizedKeys() string {
 // ProxySSH returns a flag indicating whether SSH commands
 // should be proxied through the API server.
 func (c *Config) ProxySSH() bool {
-	value, ok := c.defined["proxy-ssh"].(bool)
-	if !ok {
-		panic(fmt.Errorf("proxy-ssh missing in configuration"))
-	}
+	value, _ := c.defined["proxy-ssh"].(bool)
 	return value
 }
 

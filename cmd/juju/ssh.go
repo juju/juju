@@ -15,6 +15,7 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
@@ -146,18 +147,26 @@ func (c *SSHCommand) Run(ctx *cmd.Context) error {
 
 // proxySSH returns true iff both c.proxy and
 // the proxy-ssh environment configuration
-// are true. We just check in the bootstrap
-// config, because proxy-ssh is immutable and
-// this avoids another API round-trip.
+// are true.
 func (c *SSHCommand) proxySSH() (bool, error) {
 	if !c.proxy {
 		return false, nil
 	}
+	// We first check in the bootstrap config, because proxy-ssh is immutable
+	// and this avoids another API round-trip. If bootstrap config is
+	// unavailable, then we must go to the API.
 	store, err := configstore.Default()
 	if err != nil {
 		return false, fmt.Errorf("cannot open environment info storage: %v", err)
 	}
-	cfg, _, err := environs.ConfigForName(c.EnvironName(), store)
+	cfg, source, err := environs.ConfigForName(c.EnvironName(), store)
+	if source == environs.ConfigFromNowhere {
+		var attrs map[string]interface{}
+		attrs, err = c.apiClient.EnvironmentGet()
+		if err == nil {
+			cfg, err = config.New(config.NoDefaults, attrs)
+		}
+	}
 	if err != nil {
 		return false, err
 	}
