@@ -44,7 +44,7 @@ func (s *clientSuite) TestClientStatus(c *gc.C) {
 	s.setUpScenario(c)
 	status, err := s.APIState.Client().Status(nil)
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.DeepEquals, scenarioStatus)
+	c.Assert(status, jc.DeepEquals, scenarioStatus)
 }
 
 func (s *clientSuite) TestCompatibleSettingsParsing(c *gc.C) {
@@ -2068,12 +2068,12 @@ func getArchiveName(bundleURL *url.URL) string {
 	return strings.TrimPrefix(bundleURL.RequestURI(), "/dummyenv/private/")
 }
 
-func (s *clientSuite) TestResolveProvisioningError(c *gc.C) {
+func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = machine.SetStatus(params.StatusError, "error", nil)
 	c.Assert(err, gc.IsNil)
-	err = s.APIState.Client().ResolveProvisioningError(machine.Tag())
+	_, err = s.APIState.Client().RetryProvisioning(machine.Tag())
 	c.Assert(err, gc.IsNil)
 
 	status, info, data, err := machine.Status()
