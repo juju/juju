@@ -26,6 +26,7 @@ type JoyentEnviron struct {
 
 	// supportedArchitectures caches the architectures
 	// for which images can be instantiated.
+	archLock               sync.Mutex
 	supportedArchitectures []string
 
 	// All mutating operations should lock the mutex. Non-mutating operations
@@ -69,8 +70,8 @@ func (*JoyentEnviron) Provider() environs.EnvironProvider {
 
 // SupportedArchitectures is specified on the EnvironCapability interface.
 func (env *JoyentEnviron) SupportedArchitectures() ([]string, error) {
-	env.lock.Lock()
-	defer env.lock.Unlock()
+	env.archLock.Lock()
+	defer env.archLock.Unlock()
 	if env.supportedArchitectures != nil {
 		return env.supportedArchitectures, nil
 	}
