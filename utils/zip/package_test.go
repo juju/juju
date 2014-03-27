@@ -4,6 +4,8 @@
 package zip_test
 
 import (
+	"testing"
+
 	gc "launchpad.net/gocheck"
 )
 
