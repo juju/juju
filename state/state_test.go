@@ -2850,9 +2850,11 @@ func newUint64(i uint64) *uint64 {
 	return &i
 }
 
-func (s *StateSuite) TestSetStateServingInfo(c *gc.C) {
-	info, _ := s.State.StateServingInfo()
+func (s *StateSuite) TestStateServingInfo(c *gc.C) {
+	info, err := s.State.StateServingInfo()
 	c.Assert(info, jc.DeepEquals, params.StateServingInfo{})
+	// no error because empty doc created by default
+	c.Assert(err, gc.IsNil)
 
 	data := params.StateServingInfo{
 		APIPort:   69,
@@ -2860,7 +2862,7 @@ func (s *StateSuite) TestSetStateServingInfo(c *gc.C) {
 		Cert:      "Some cert",
 		Key:       "Some key",
 	}
-	err := s.State.SetStateServingInfo(data)
+	err = s.State.SetStateServingInfo(data)
 	c.Assert(err, gc.IsNil)
 
 	info, err = s.State.StateServingInfo()
