@@ -66,7 +66,7 @@ type EnsureMongoParams struct {
 func EnsureMongoServer(p EnsureMongoParams) error {
 	logger.Debugf("Ensuring mongo server is running.  params: %#v", p)
 	dbDir := filepath.Join(p.DataDir, "db")
-	name := makeServiceName(mongoScriptVersion)
+	name := ServiceName()
 
 	_, portStr, err := net.SplitHostPort(p.HostPort)
 	if err != nil {
@@ -201,13 +201,18 @@ func removeOldMongoServices(curVersion int) error {
 	return nil
 }
 
+// ServiceName returns a string for the current juju db version
+func ServiceName() string {
+	return makeServiceName(mongoScriptVersion)
+}
+
 func makeServiceName(version int) string {
 	return fmt.Sprintf("juju-db-v%d", version)
 }
 
 // RemoveService will stop and remove Juju's mongo upstart service.
 func RemoveService() error {
-	svc := upstart.NewService(makeServiceName(mongoScriptVersion))
+	svc := upstart.NewService(ServiceName())
 	return svc.StopAndRemove()
 }
 
