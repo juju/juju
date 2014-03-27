@@ -116,6 +116,10 @@ func (c *ValidateToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *ValidateToolsMetadataCommand) Init(args []string) error {
+	err := c.EnsureEnvNameSet()
+	if err != nil {
+		return err
+	}
 	if c.providerType != "" {
 		if c.region == "" {
 			return fmt.Errorf("region required if provider type is specified")

@@ -45,11 +45,6 @@ func (s *UserSuite) TestAddUser(c *gc.C) {
 	c.Assert(u1.PasswordValid("b"), jc.IsTrue)
 }
 
-func (s *UserSuite) TestAddUserBlankPassword(c *gc.C) {
-	_, err := s.State.AddUser("blank", "")
-	c.Check(err, gc.ErrorMatches, "password can't be empty")
-}
-
 func (s *UserSuite) TestCheckUserExists(c *gc.C) {
 	u, err := s.State.AddUser("a", "b")
 	c.Check(u, gc.NotNil)

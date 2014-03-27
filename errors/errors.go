@@ -95,7 +95,7 @@ type RcPassthroughError struct {
 }
 
 func (e *RcPassthroughError) Error() string {
-	return fmt.Sprintf("rc: %v", e.Code)
+	return fmt.Sprintf("subprocess encountered error code %v", e.Code)
 }
 
 func IsRcPassthroughError(err error) bool {
@@ -123,6 +123,7 @@ func IsNotImplementedError(err error) bool {
 // NewRcPassthroughError creates an error that will have the code used at the
 // return code from the cmd.Main function rather than the default of 1 if
 // there is an error.
+// TODO (mattyw) It's odd that we're talking about cmd.Main in here.
 func NewRcPassthroughError(code int) error {
 	return &RcPassthroughError{code}
 }

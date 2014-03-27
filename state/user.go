@@ -28,9 +28,6 @@ func (st *State) AddUser(name, password string) (*User, error) {
 	if !validUser.MatchString(name) {
 		return nil, fmt.Errorf("invalid user name %q", name)
 	}
-	if name != "admin" && password == "" {
-		return nil, fmt.Errorf("password can't be empty")
-	}
 	salt, err := utils.RandomSalt()
 	if err != nil {
 		return nil, err
