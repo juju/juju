@@ -25,18 +25,19 @@ var _ = gc.Suite(&MongoSuite{})
 func (s *MongoSuite) SetUpSuite(c *gc.C) {
 	testpath := c.MkDir()
 	s.PatchEnvPathPrepend(testpath)
-	// mock out the start method so we can fake install services without sudo
-	start := filepath.Join(testpath, "start")
-	err := ioutil.WriteFile(start, []byte("#!/bin/bash --norc\nexit 0"), 0755)
-	c.Assert(err, gc.IsNil)
-
-	stop := filepath.Join(testpath, "stop")
-	err = ioutil.WriteFile(stop, []byte("#!/bin/bash --norc\nexit 0"), 0755)
-	c.Assert(err, gc.IsNil)
+	// mock out the upstart commands so we can fake install services without sudo
+	fakeCmd(filepath.Join(testpath, "start"))
+	fakeCmd(filepath.Join(testpath, "stop"))
 
 	s.PatchValue(&upstart.InitDir, c.MkDir())
 }
 
+func fakeCmd(path string) {
+	err := ioutil.WriteFile(path, []byte("#!/bin/bash --norc\nexit 0"), 0755)
+	if err != nil {
+		panic(err)
+	}
+}
 func (s *MongoSuite) TestJujuMongodPath(c *gc.C) {
 	d := c.MkDir()
 	defer os.RemoveAll(d)
