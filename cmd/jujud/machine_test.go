@@ -15,6 +15,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
@@ -61,7 +62,6 @@ func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
 	s.TestSuite.SetUpSuite(c)
 	restore := testing.PatchValue(&charm.CacheDir, c.MkDir())
 	s.AddSuiteCleanup(func(*gc.C) { restore() })
-
 }
 
 func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
@@ -862,6 +862,9 @@ var _ = gc.Suite(&MachineWithCharmsSuite{})
 
 func (s *MachineWithCharmsSuite) SetUpTest(c *gc.C) {
 	s.CharmSuite.SetUpTest(c)
+	s.PatchValue(&ensureMongoServer, func(mongo.EnsureMongoParams) error {
+		return nil
+	})
 
 	// Create a state server machine.
 	var err error

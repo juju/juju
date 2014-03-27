@@ -77,6 +77,8 @@ type Config interface {
 	// Dir returns the agent's directory.
 	Dir() string
 
+	SetPassword(newPassword string)
+
 	// Nonce returns the nonce saved when the machine was provisioned
 	// TODO: make this one of the key/value pairs.
 	Nonce() string
@@ -367,6 +369,7 @@ func ReadConf(configFilePath string) (Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot read agent config %q: %v", configFilePath, err)
 	}
+	logger.Debugf("config:\n-------------\n%s\n-----------------\n", configData)
 
 	// Try to read the legacy format file.
 	dir := filepath.Dir(configFilePath)
@@ -437,6 +440,9 @@ func (c *configInternal) Nonce() string {
 
 func (c *configInternal) UpgradedToVersion() version.Number {
 	return c.upgradedToVersion
+}
+func (c *configInternal) OldPassword() string {
+	return c.oldPassword
 }
 
 func (c *configInternal) CACert() []byte {
@@ -564,6 +570,15 @@ func (c *configInternal) writeNewPassword() (string, error) {
 	}
 	*c = other
 	return newPassword, nil
+}
+
+func (c *configInternal) SetPassword(newPassword string) {
+	if c.stateDetails != nil {
+		c.stateDetails.password = newPassword
+	}
+	if c.apiDetails != nil {
+		c.apiDetails.password = newPassword
+	}
 }
 
 func (c *configInternal) fileContents() ([]byte, error) {
