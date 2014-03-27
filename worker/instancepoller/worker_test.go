@@ -175,7 +175,7 @@ func (s *workerSuite) setupScenario(c *gc.C) ([]*state.Machine, []instance.Insta
 		dummy.SetInstanceStatus(insts[i], "running")
 	}
 	// Make sure the second half of the instances have no addresses.
-	for i := len(machines)/2; i < len(machines); i++ {
+	for i := len(machines) / 2; i < len(machines); i++ {
 		dummy.SetInstanceAddresses(insts[i], nil)
 	}
 	return machines, insts
