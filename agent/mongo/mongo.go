@@ -135,7 +135,7 @@ var initiateReplicaSet = func(p EnsureMongoParams) error {
 	if p.User != "" {
 		err := session.DB("admin").Login(p.User, p.Password)
 		if err != nil {
-			return fmt.Errorf("cannot login to admin db: %v", err)
+			logger.Errorf("cannot login to admin db as %q, password %q, falling back: %v", p.User, p.Password, err)
 		}
 	}
 	_, err = replicaset.CurrentConfig(session)
