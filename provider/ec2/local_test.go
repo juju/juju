@@ -409,7 +409,7 @@ func (t *localServerSuite) TestSupportedArchitectures(c *gc.C) {
 	env := t.Prepare(c)
 	a, err := env.SupportedArchitectures()
 	c.Assert(err, gc.IsNil)
-	c.Assert(a, gc.DeepEquals, []string{"amd64", "i386"})
+	c.Assert(a, jc.SameContents, []string{"amd64", "i386"})
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server

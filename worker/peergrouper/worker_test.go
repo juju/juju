@@ -124,7 +124,7 @@ func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
 
 	memberWatcher := st.session.members.Watch()
 	mustNext(c, memberWatcher)
-	c.Assert(memberWatcher.Value(), jc.DeepEquals, mkMembers("0v"))
+	assertMembers(c, memberWatcher.Value(), mkMembers("0v"))
 
 	logger.Infof("starting worker")
 	w := newWorker(st, noPublisher{})
@@ -134,14 +134,14 @@ func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
 
 	// Wait for the worker to set the initial members.
 	mustNext(c, memberWatcher)
-	c.Assert(memberWatcher.Value(), jc.DeepEquals, mkMembers("0v 1 2"))
+	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1 2"))
 
 	// Update the status of the new members
 	// and check that they become voting.
 	c.Logf("updating new member status")
 	st.session.setStatus(mkStatuses("0p 1s 2s"))
 	mustNext(c, memberWatcher)
-	c.Assert(memberWatcher.Value(), jc.DeepEquals, mkMembers("0v 1v 2v"))
+	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v"))
 
 	c.Logf("adding another machine")
 	// Add another machine.
@@ -151,7 +151,7 @@ func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
 
 	c.Logf("waiting for new member to be added")
 	mustNext(c, memberWatcher)
-	c.Assert(memberWatcher.Value(), jc.DeepEquals, mkMembers("0v 1v 2v 3"))
+	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v 3"))
 
 	// Remove vote from an existing member;
 	// and give it to the new machine.
@@ -167,7 +167,7 @@ func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
 	// old machine loses it.
 	c.Logf("waiting for vote switch")
 	mustNext(c, memberWatcher)
-	c.Assert(memberWatcher.Value(), jc.DeepEquals, mkMembers("0 1v 2v 3v"))
+	assertMembers(c, memberWatcher.Value(), mkMembers("0 1v 2v 3v"))
 
 	c.Logf("removing old machine")
 	// Remove the old machine.
@@ -177,7 +177,7 @@ func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
 	// Check that it's removed from the members.
 	c.Logf("waiting for removal")
 	mustNext(c, memberWatcher)
-	c.Assert(memberWatcher.Value(), jc.DeepEquals, mkMembers("1v 2v 3v"))
+	assertMembers(c, memberWatcher.Value(), mkMembers("1v 2v 3v"))
 }
 
 func (s *workerSuite) TestAddressChange(c *gc.C) {
@@ -186,7 +186,7 @@ func (s *workerSuite) TestAddressChange(c *gc.C) {
 
 	memberWatcher := st.session.members.Watch()
 	mustNext(c, memberWatcher)
-	c.Assert(memberWatcher.Value(), jc.DeepEquals, mkMembers("0v"))
+	assertMembers(c, memberWatcher.Value(), mkMembers("0v"))
 
 	logger.Infof("starting worker")
 	w := newWorker(st, noPublisher{})
@@ -196,7 +196,7 @@ func (s *workerSuite) TestAddressChange(c *gc.C) {
 
 	// Wait for the worker to set the initial members.
 	mustNext(c, memberWatcher)
-	c.Assert(memberWatcher.Value(), jc.DeepEquals, mkMembers("0v 1 2"))
+	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1 2"))
 
 	// Change an address and wait for it to be changed in the
 	// members.
@@ -205,7 +205,7 @@ func (s *workerSuite) TestAddressChange(c *gc.C) {
 	mustNext(c, memberWatcher)
 	expectMembers := mkMembers("0v 1 2")
 	expectMembers[1].Address = "0.1.99.99:9876"
-	c.Assert(memberWatcher.Value(), jc.DeepEquals, expectMembers)
+	assertMembers(c, memberWatcher.Value(), expectMembers)
 }
 
 var fatalErrorsTests = []struct {
