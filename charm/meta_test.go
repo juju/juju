@@ -5,6 +5,7 @@ package charm_test
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -237,6 +238,22 @@ requires:
 	check(prefix+`
 requires:
   innocuous: juju-info`, "")
+}
+
+func (s *MetaSuite) TestSeries(c *gc.C) {
+	noSeries := "name: a\nsummary: b\ndescription: c\n"
+
+	for _, seriesName := range []string{"precise", "trusty", "plan9"} {
+		meta, err := charm.ReadMeta(strings.NewReader(noSeries + fmt.Sprintf("series: %s\n", seriesName)))
+		c.Assert(err, gc.IsNil)
+		c.Check(meta.Series, gc.Equals, seriesName)
+	}
+
+	for _, seriesName := range []string{"pre-c1se", "pre^cise", "cp/m", "OpenVMS"} {
+		_, err := charm.ReadMeta(strings.NewReader(noSeries + fmt.Sprintf("series: %s\n", seriesName)))
+		c.Assert(err, gc.NotNil)
+		c.Check(err, gc.ErrorMatches, `charm "a" declares invalid series: .*`)
+	}
 }
 
 func (s *MetaSuite) TestCheckMismatchedRelationName(c *gc.C) {
