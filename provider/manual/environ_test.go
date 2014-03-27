@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
@@ -140,11 +141,7 @@ func (s *environSuite) TestEnvironSupportsCustomSources(c *gc.C) {
 }
 
 func (s *environSuite) TestSupportedArchitectures(c *gc.C) {
-	s.PatchValue(&manual.DetectSeriesAndHardwareCharacteristics, func(host string) (instance.HardwareCharacteristics, string, error) {
-		c.Assert(host, gc.Equals, "hostname")
-		return instance.MustParseHardware("arch=arm64"), "precise", nil
-	})
-	a, err := s.env.SupportedArchitectures()
+	arches, err := s.env.SupportedArchitectures()
 	c.Assert(err, gc.IsNil)
-	c.Assert(a, gc.DeepEquals, []string{"arm64"})
+	c.Assert(arches, gc.DeepEquals, arch.AllSupportedArches)
 }

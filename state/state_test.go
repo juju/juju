@@ -2850,6 +2850,43 @@ func newUint64(i uint64) *uint64 {
 	return &i
 }
 
+func (s *StateSuite) TestStateServingInfo(c *gc.C) {
+	info, err := s.State.StateServingInfo()
+	c.Assert(info, jc.DeepEquals, params.StateServingInfo{})
+	// no error because empty doc created by default
+	c.Assert(err, gc.IsNil)
+
+	data := params.StateServingInfo{
+		APIPort:      69,
+		StatePort:    80,
+		Cert:         "Some cert",
+		PrivateKey:   "Some key",
+		SharedSecret: "Some Keyfile",
+	}
+	err = s.State.SetStateServingInfo(data)
+	c.Assert(err, gc.IsNil)
+
+	info, err = s.State.StateServingInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(info, jc.DeepEquals, data)
+}
+
+func (s *StateSuite) TestOpenCreatesStateServingInfoDoc(c *gc.C) {
+	// Delete the stateServers collection to pretend this
+	// is an older environment that had not created it
+	// already.
+	err := s.stateServers.DropCollection()
+	c.Assert(err, gc.IsNil)
+
+	st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts(), state.Policy(nil))
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+
+	info, err := st.StateServingInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(info, gc.DeepEquals, params.StateServingInfo{})
+}
+
 func (s *StateSuite) TestSetAPIHostPorts(c *gc.C) {
 	addrs, err := s.State.APIHostPorts()
 	c.Assert(err, gc.IsNil)
