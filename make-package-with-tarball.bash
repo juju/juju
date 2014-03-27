@@ -56,7 +56,7 @@ make_source_package_branch() {
             message="New upstream point release."
         fi
         distro=$DEVEL_SERIES
-    elif [[ $PURPOSE == "devel" ]]; then
+    elif [[ $PURPOSE == "devel" || $PURPOSE == "devel-mongodb" ]]; then
         message="New upstream devel release."
         distro=$DEVEL_SERIES
     else
@@ -134,8 +134,11 @@ elif [[ $PURPOSE == "stable" ]]; then
     PACKAGING_BRANCH=$DEFAULT_STABLE_PACKAGING_BRANCH
     PPA="ppa:juju-packaging/stable"
 elif [[ $PURPOSE == "devel-mongodb" ]]; then
+    # This is a hack to support separate packaging rules for saucy and older.
     PACKAGING_BRANCH=$DEFAULT_DEVEL_MONGODB_PACKAGING_BRANCH
     PPA="ppa:juju-packaging/devel"
+    DEVEL_SERIES="saucy"
+    UBUNTU_VERSION="${UBUNTU_VERSION}~ubuntu13.10.1"
 elif [[ $PURPOSE == "devel" || $PURPOSE == "testing" ]]; then
     PACKAGING_BRANCH=$DEFAULT_DEVEL_PACKAGING_BRANCH
     PPA="ppa:juju-packaging/devel"

@@ -29,7 +29,7 @@ backport_packages() {
 }
 
 
-RELEASES="precise quantal saucy"
+RELEASES="precise quantal"
 SUFFIX="~juju1"
 
 test $# -ne 3 && usage
