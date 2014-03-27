@@ -103,6 +103,29 @@ func (s *MongoSuite) TestMakeJournalDirs(c *gc.C) {
 	testJournalDirs(dir, c)
 }
 
+func (s *MongoSuite) TestParsePort(c *gc.C) {
+	p := EnsureMongoParams{
+		HostPort: "foo:123",
+	}
+	port, err := parsePort(p)
+	c.Check(port, gc.Equals, 123)
+	c.Check(err, gc.IsNil)
+
+	p = EnsureMongoParams{
+		HostPort: "foo:bar",
+	}
+
+	_, err = parsePort(p)
+	c.Check(err, gc.ErrorMatches, "invalid port in mongo address.*")
+
+	p = EnsureMongoParams{
+		HostPort: "foo bar",
+	}
+
+	_, err = parsePort(p)
+	c.Check(err, gc.ErrorMatches, "invalid mongo address.*")
+}
+
 func testJournalDirs(dir string, c *gc.C) {
 	journalDir := path.Join(dir, "journal")
 

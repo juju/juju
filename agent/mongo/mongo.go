@@ -61,20 +61,14 @@ type EnsureMongoParams struct {
 //
 // This method will remove old versions of the mongo upstart script as necessary
 // before installing the new version.
-//
-// This is a variable so it can be overridden in tests
 func EnsureMongoServer(p EnsureMongoParams) error {
 	logger.Debugf("Ensuring mongo server is running.  params: %#v", p)
 	dbDir := filepath.Join(p.DataDir, "db")
 	name := makeServiceName(mongoScriptVersion)
 
-	_, portStr, err := net.SplitHostPort(p.HostPort)
+	port, err := parsePort(p)
 	if err != nil {
-		return fmt.Errorf("invalid mongo address %q", p.HostPort)
-	}
-	port, err := strconv.Atoi(portStr)
-	if err != nil {
-		return fmt.Errorf("invalid port in mongo address %q", p.HostPort)
+		return err
 	}
 
 	if err := removeOldMongoServices(mongoScriptVersion); err != nil {
@@ -105,10 +99,21 @@ func EnsureMongoServer(p EnsureMongoParams) error {
 	}
 
 	if err := initiateReplicaSet(p); err != nil {
-		logger.Debugf("Error initiating replicaset: %v", err)
 		return fmt.Errorf("failed to initiate mongo replicaset: %v", err)
 	}
 	return nil
+}
+
+func parsePort(p EnsureMongoParams) (port int, err error) {
+	_, portStr, err := net.SplitHostPort(p.HostPort)
+	if err != nil {
+		return 0, fmt.Errorf("invalid mongo address %q", p.HostPort)
+	}
+	port, err = strconv.Atoi(portStr)
+	if err != nil {
+		return 0, fmt.Errorf("invalid port in mongo address %q", p.HostPort)
+	}
+	return port, nil
 }
 
 // initiateReplicaSet checks for an existing mongo configuration using CurrentConfig.
@@ -117,14 +122,6 @@ func EnsureMongoServer(p EnsureMongoParams) error {
 // This is a variable so it can be overridden in tests
 var initiateReplicaSet = func(p EnsureMongoParams) error {
 	logger.Debugf("Initiating mongo replicaset; params: %#v", p)
-
-	// TODO remove me
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		logger.Infof("cannot get interface addresses: %v", err)
-	} else {
-		logger.Debugf("Interface addresses: %#v", addrs)
-	}
 
 	session, err := mgo.DialWithInfo(p.DialInfo)
 	if err != nil {

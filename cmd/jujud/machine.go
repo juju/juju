@@ -25,7 +25,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	apiagent "launchpad.net/juju-core/state/api/agent"
-	apimachiner "launchpad.net/juju-core/state/api/machiner"
 	"launchpad.net/juju-core/state/api/params"
 	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
 	"launchpad.net/juju-core/state/apiserver"
@@ -242,9 +241,6 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	a.startWorkerAfterUpgrade(runner, "rsyslog", func() (worker.Worker, error) {
 		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
-	// runner.StartWorker("configwatcher", func() (worker.Worker, error) {
-	// 	return a.newConfigWatcher(st.Machiner())
-	// })
 
 	// If not a local provider bootstrap machine, start the worker to manage SSH keys.
 	providerType := agentConfig.Value(agent.ProviderType)
@@ -287,15 +283,6 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		}
 	}
 	return newCloseWorker(runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
-}
-
-func (a *MachineAgent) newConfigWatcher(st *apimachiner.State) (worker.Worker, error) {
-	// TODO: (Nate) :
-	//	watch machine jobs
-	//  watch state addresses
-	//  watch API addresses
-	//	when any of them change, change the agent config, save it and call a.setAgentConfig
-	return nil, nil
 }
 
 // setupContainerSupport determines what containers can be run on this machine and
