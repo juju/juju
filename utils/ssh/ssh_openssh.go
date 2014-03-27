@@ -14,7 +14,7 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
-var opensshCommonOptions = map[string][]string{"-o": []string{"StrictHostKeyChecking no"}}
+var opensshCommonOptions = []string{"-o", "StrictHostKeyChecking no"}
 
 // default identities will not be attempted if
 // -i is specified and they are not explcitly
@@ -63,22 +63,19 @@ func NewOpenSSHClient() (*OpenSSHClient, error) {
 	return &c, nil
 }
 
-func opensshOptions(options *Options, commandKind opensshCommandKind) map[string][]string {
-	args := make(map[string][]string)
-	for k, v := range opensshCommonOptions {
-		args[k] = v
-	}
+func opensshOptions(options *Options, commandKind opensshCommandKind) []string {
+	args := append([]string{}, opensshCommonOptions...)
 	if options == nil {
 		options = &Options{}
 	}
 	if len(options.proxyCommand) > 0 {
-		args["-o"] = append(args["-o"], "ProxyCommand "+utils.CommandString(options.proxyCommand...))
+		args = append(args, "-o", "ProxyCommand "+utils.CommandString(options.proxyCommand...))
 	}
 	if !options.passwordAuthAllowed {
-		args["-o"] = append(args["-o"], "PasswordAuthentication no")
+		args = append(args, "-o", "PasswordAuthentication no")
 	}
 	if options.allocatePTY {
-		args["-t"] = []string{}
+		args = append(args, "-t", "-t") // twice to force
 	}
 	identities := append([]string{}, options.identities...)
 	if pk := PrivateKeyFiles(); len(pk) > 0 {
@@ -100,54 +97,29 @@ func opensshOptions(options *Options, commandKind opensshCommandKind) map[string
 		}
 	}
 	for _, identity := range identities {
-		args["-i"] = append(args["-i"], identity)
+		args = append(args, "-i", identity)
 	}
 	if options.port != 0 {
 		port := fmt.Sprint(options.port)
 		if commandKind == scpKind {
 			// scp uses -P instead of -p (-p means preserve).
-			args["-P"] = []string{port}
+			args = append(args, "-P", port)
 		} else {
-			args["-p"] = []string{port}
+			args = append(args, "-p", port)
 		}
 	}
 	return args
 }
 
-func expandArgs(args map[string][]string, quote bool) []string {
-	var list []string
-	for opt, vals := range args {
-		if len(vals) == 0 {
-			list = append(list, opt)
-			if opt == "-t" {
-				// In order to force a PTY to be allocated, we need to
-				// pass -t twice.
-				list = append(list, opt)
-			}
-		}
-		for _, val := range vals {
-			list = append(list, opt)
-			if quote {
-				val = fmt.Sprintf("%q", val)
-			}
-			list = append(list, val)
-		}
-	}
-	return list
-}
-
 // Command implements Client.Command.
 func (c *OpenSSHClient) Command(host string, command []string, options *Options) *Cmd {
-	opts := opensshOptions(options, sshKind)
-	args := expandArgs(opts, false)
+	args := opensshOptions(options, sshKind)
 	args = append(args, host)
 	if len(command) > 0 {
 		args = append(args, command...)
 	}
 	bin, args := sshpassWrap("ssh", args)
-	optsList := strings.Join(expandArgs(opts, true), " ")
-	fullCommand := strings.Join(command, " ")
-	logger.Debugf("running: %s %s %q '%s'", bin, optsList, host, fullCommand)
+	logger.Debugf("running: %s %s", bin, utils.CommandString(args...))
 	return &Cmd{impl: &opensshCmd{exec.Command(bin, args...)}}
 }
 
@@ -158,18 +130,14 @@ func (c *OpenSSHClient) Copy(targets, extraArgs []string, userOptions *Options) 
 		options = *userOptions
 		options.allocatePTY = false // doesn't make sense for scp
 	}
-	opts := opensshOptions(&options, scpKind)
-	args := expandArgs(opts, false)
+	args := opensshOptions(&options, scpKind)
 	args = append(args, extraArgs...)
 	args = append(args, targets...)
 	bin, args := sshpassWrap("scp", args)
 	cmd := exec.Command(bin, args...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
-	allOpts := append(expandArgs(opts, true), extraArgs...)
-	optsList := strings.Join(allOpts, " ")
-	targetList := `"` + strings.Join(targets, `" "`) + `"`
-	logger.Debugf("running: %s %s %s", bin, optsList, targetList)
+	logger.Debugf("running: %s %s", bin, utils.CommandString(args...))
 	if err := cmd.Run(); err != nil {
 		stderr := strings.TrimSpace(stderr.String())
 		if len(stderr) > 0 {
