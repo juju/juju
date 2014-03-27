@@ -44,13 +44,13 @@ type ConfigSuite struct {
 var _ = gc.Suite(&ConfigSuite{})
 
 func (s *ConfigSuite) SetUpSuite(c *gc.C) {
-	restoreSdcAccount := testbase.PatchEnvironment(jp.SdcAccount, "tester")
+	restoreSdcAccount := testing.PatchEnvironment(jp.SdcAccount, "tester")
 	s.AddSuiteCleanup(func(*gc.C) { restoreSdcAccount() })
-	restoreSdcKeyId := testbase.PatchEnvironment(jp.SdcKeyId, "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00")
+	restoreSdcKeyId := testing.PatchEnvironment(jp.SdcKeyId, "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00")
 	s.AddSuiteCleanup(func(*gc.C) { restoreSdcKeyId() })
-	restoreMantaUser := testbase.PatchEnvironment(jp.MantaUser, "tester")
+	restoreMantaUser := testing.PatchEnvironment(jp.MantaUser, "tester")
 	s.AddSuiteCleanup(func(*gc.C) { restoreMantaUser() })
-	restoreMantaKeyId := testbase.PatchEnvironment(jp.MantaKeyId, "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00")
+	restoreMantaKeyId := testing.PatchEnvironment(jp.MantaKeyId, "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00")
 	s.AddSuiteCleanup(func(*gc.C) { restoreMantaKeyId() })
 }
 
