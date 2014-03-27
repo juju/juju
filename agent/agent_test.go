@@ -164,7 +164,7 @@ func (*suite) TestNewAgentConfig(c *gc.C) {
 	}
 }
 
-func (*suite) TestMigrateConfig(c *gc.C) {
+func (*suite) TestMigrate(c *gc.C) {
 	initialParams := agent.AgentConfigParams{
 		DataDir:           c.MkDir(),
 		LogDir:            c.MkDir(),
@@ -189,38 +189,38 @@ func (*suite) TestMigrateConfig(c *gc.C) {
 	migrateTests := []struct {
 		comment      string
 		fields       []string
-		newParams    agent.MigrateConfigParams
+		newParams    agent.MigrateParams
 		expectValues map[string]string
 		expectErr    string
 	}{{
 		comment:   "nothing to change",
 		fields:    nil,
-		newParams: agent.MigrateConfigParams{},
+		newParams: agent.MigrateParams{},
 	}, {
 		fields: []string{"DataDir"},
-		newParams: agent.MigrateConfigParams{
+		newParams: agent.MigrateParams{
 			DataDir: c.MkDir(),
 		},
 	}, {
 		fields: []string{"DataDir", "LogDir"},
-		newParams: agent.MigrateConfigParams{
+		newParams: agent.MigrateParams{
 			DataDir: c.MkDir(),
 			LogDir:  c.MkDir(),
 		},
 	}, {
 		fields: []string{"Jobs"},
-		newParams: agent.MigrateConfigParams{
+		newParams: agent.MigrateParams{
 			Jobs: []params.MachineJob{params.JobHostUnits},
 		},
 	}, {
 		comment:   "invalid/immutable field specified",
 		fields:    []string{"InvalidField"},
-		newParams: agent.MigrateConfigParams{},
+		newParams: agent.MigrateParams{},
 		expectErr: `unknown field "InvalidField"`,
 	}, {
 		comment: "Values can be added, changed or removed",
 		fields:  []string{"Values", "DeleteValues"},
-		newParams: agent.MigrateConfigParams{
+		newParams: agent.MigrateParams{
 			DeleteValues: []string{"key2", "key3"}, // delete
 			Values: map[string]string{
 				"key1":     "new value1", // change
@@ -250,7 +250,7 @@ func (*suite) TestMigrateConfig(c *gc.C) {
 		c.Check(initialConfig.Write(), gc.IsNil)
 		c.Check(agent.ConfigFileExists(initialConfig), jc.IsTrue)
 
-		err = agent.MigrateConfig(newConfig, test.newParams)
+		err = newConfig.Migrate(test.newParams)
 		c.Check(err, gc.IsNil)
 		c.Check(agent.ConfigFileExists(newConfig), jc.IsTrue)
 		if test.newParams.DataDir != "" {
@@ -382,73 +382,14 @@ func (*suite) TestWriteAndRead(c *gc.C) {
 	c.Assert(reread, jc.DeepEquals, conf)
 }
 
-func (*suite) TestWriteNewPassword(c *gc.C) {
-
-	for i, test := range []struct {
-		about  string
-		params agent.AgentConfigParams
-	}{{
-		about: "good state addresses",
-		params: agent.AgentConfigParams{
-			DataDir:           c.MkDir(),
-			Tag:               "omg",
-			UpgradedToVersion: version.Current.Number,
-			Password:          "sekrit",
-			CACert:            []byte("ca cert"),
-			StateAddresses:    []string{"localhost:1234"},
-		},
-	}, {
-		about: "good api addresses",
-		params: agent.AgentConfigParams{
-			DataDir:           c.MkDir(),
-			Tag:               "omg",
-			UpgradedToVersion: version.Current.Number,
-			Password:          "sekrit",
-			CACert:            []byte("ca cert"),
-			APIAddresses:      []string{"localhost:1234"},
-		},
-	}, {
-		about: "both state and api addresses",
-		params: agent.AgentConfigParams{
-			DataDir:           c.MkDir(),
-			Tag:               "omg",
-			UpgradedToVersion: version.Current.Number,
-			Password:          "sekrit",
-			CACert:            []byte("ca cert"),
-			StateAddresses:    []string{"localhost:1234"},
-			APIAddresses:      []string{"localhost:1235"},
-		},
-	}} {
-		c.Logf("%v: %s", i, test.about)
-
-		conf, err := agent.NewAgentConfig(test.params)
-		c.Assert(err, gc.IsNil)
-		newPass, err := agent.WriteNewPassword(conf)
-		c.Assert(err, gc.IsNil)
-		// Show that the password is saved.
-		reread, err := agent.ReadConf(agent.ConfigPath(conf.DataDir(), conf.Tag()))
-		c.Assert(agent.Password(conf), gc.Equals, agent.Password(reread))
-		c.Assert(newPass, gc.Equals, agent.Password(conf))
-	}
+func (*suite) TestSetPassword(c *gc.C) {
+	c.FailNow()
 }
 
-func (*suite) TestWriteUpgradedToVersion(c *gc.C) {
-	testParams := attributeParams
-	testParams.DataDir = c.MkDir()
-	conf, err := agent.NewAgentConfig(testParams)
-	c.Assert(err, gc.IsNil)
-	c.Assert(conf.Write(), gc.IsNil)
-
-	newVersion := version.Current.Number
-	newVersion.Major++
-	c.Assert(conf.WriteUpgradedToVersion(newVersion), gc.IsNil)
-	c.Assert(conf.UpgradedToVersion(), gc.DeepEquals, newVersion)
-
-	// Show that the upgradedToVersion is saved.
-	reread, err := agent.ReadConf(agent.ConfigPath(conf.DataDir(), conf.Tag()))
-	c.Assert(reread, jc.DeepEquals, conf)
+func (*suite) TestSetOldPassword(c *gc.C) {
+	c.FailNow()
 }
 
-// Actual opening of state and api requires a lot more boiler plate to make
-// sure they are valid connections.  This is done in the cmd/jujud tests for
-// bootstrap, machine and unit tests.
+func (*suite) TestSetUpgradedToVersion(c *gc.C) {
+	c.FailNow()
+}

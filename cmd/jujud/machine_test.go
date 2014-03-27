@@ -87,7 +87,7 @@ func (s *commonMachineSuite) TearDownTest(c *gc.C) {
 // agent's configuration and the tools currently running.
 func (s *commonMachineSuite) primeAgent(
 	c *gc.C, vers version.Binary,
-	jobs ...state.MachineJob) (m *state.Machine, config agent.Config, tools *tools.Tools) {
+	jobs ...state.MachineJob) (m *state.Machine, config agent.ConfigSetterWriter, tools *tools.Tools) {
 
 	// Add a machine and ensure it is provisioned.
 	m, err := s.State.AddMachine("quantal", jobs...)
@@ -123,7 +123,7 @@ func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) *MachineAgent {
 func (s *MachineSuite) TestParseSuccess(c *gc.C) {
 	create := func() (cmd.Command, *AgentConf) {
 		a := &MachineAgent{}
-		return a, &a.Conf
+		return a, &a.AgentConf
 	}
 	a := CheckAgentCommand(c, create, []string{"--machine-id", "42"})
 	c.Assert(a.(*MachineAgent).MachineId, gc.Equals, "42")
@@ -589,7 +589,7 @@ func (s *MachineSuite) assertJobWithState(
 func (s *MachineSuite) TestManageEnvironServesAPI(c *gc.C) {
 	c.Skip("does not pass reliably on the bot (http://pad.lv/1219661")
 	s.assertJobWithState(c, state.JobManageEnviron, func(conf agent.Config, agentState *state.State) {
-		st, _, err := conf.OpenAPI(fastDialOpts)
+		st, err := api.Open(conf.APIInfo(), fastDialOpts)
 		c.Assert(err, gc.IsNil)
 		defer st.Close()
 		m, err := st.Machiner().Machine(conf.Tag())
