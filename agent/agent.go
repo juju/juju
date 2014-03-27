@@ -104,10 +104,6 @@ type Config interface {
 	// elements.
 	WriteCommands() ([]string, error)
 
-	// APIServerDetails returns the details needed to run an API server.
-	// TODO: Delete this method and change callers to use StateServingInfo
-	APIServerDetails() (port int, cert, key []byte)
-
 	// StateServingInfo returns the details needed to run
 	// a state server and reports whether those details
 	// are available
@@ -460,25 +456,20 @@ func (c *configInternal) SetValue(key, value string) {
 	}
 }
 
-// TODO: remove me and change callers to use StateServingInfo
-func (c *configInternal) APIServerDetails() (port int, cert, key []byte) {
-	return c.apiPort, c.stateServerCert, c.stateServerKey
-}
-
 func (c *configInternal) StateServingInfo() (params.StateServingInfo, bool) {
-	return &params.StateServingInfo{
-		APIPort:   c.apiPort,
-		StatePort: c.statePort,
-		Cert:      c.stateServerCert,
-		Key:       c.stateServerKey,
+	return params.StateServingInfo{
+		APIPort:    c.apiPort,
+		StatePort:  c.statePort,
+		Cert:       string(c.stateServerCert),
+		PrivateKey: string(c.stateServerKey),
 	}, true
 }
 
 func (c *configInternal) SetStateServingInfo(info params.StateServingInfo) {
 	c.apiPort = info.APIPort
 	c.statePort = info.StatePort
-	c.stateServerCert = info.Cert
-	c.stateServerKey = info.Key
+	c.stateServerCert = []byte(info.Cert)
+	c.stateServerKey = []byte(info.PrivateKey)
 }
 
 func (c *configInternal) APIAddresses() ([]string, error) {
