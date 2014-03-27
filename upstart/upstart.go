@@ -15,6 +15,7 @@ import (
 	"text/template"
 	"time"
 
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -76,7 +77,9 @@ func (s *Service) Start() error {
 }
 
 func runCommand(args ...string) error {
-	out, err := exec.Command(args[0], args[1:]...).CombinedOutput()
+	cmd := exec.Command(args[0], args[1:]...)
+	log.Infof("running %s %s", cmd.Path, cmd.Args)
+	out, err := cmd.CombinedOutput()
 	if err == nil {
 		return nil
 	}
