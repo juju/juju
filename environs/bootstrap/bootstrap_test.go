@@ -8,6 +8,7 @@ import (
 	"strings"
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
@@ -324,11 +325,11 @@ func (s *bootstrapSuite) TestSeriesToUpload(c *gc.C) {
 	s.PatchValue(&version.Current, vers)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	cfg := env.Config()
-	c.Assert(bootstrap.SeriesToUpload(cfg, nil), gc.DeepEquals, []string{"quantal", "precise"})
-	c.Assert(bootstrap.SeriesToUpload(cfg, []string{"quantal"}), gc.DeepEquals, []string{"quantal"})
+	c.Assert(bootstrap.SeriesToUpload(cfg, nil), jc.SameContents, []string{"quantal", "precise"})
+	c.Assert(bootstrap.SeriesToUpload(cfg, []string{"quantal"}), jc.SameContents, []string{"quantal"})
 	env = newEnviron("foo", useDefaultKeys, map[string]interface{}{"default-series": "lucid"})
 	cfg = env.Config()
-	c.Assert(bootstrap.SeriesToUpload(cfg, nil), gc.DeepEquals, []string{"quantal", "precise", "lucid"})
+	c.Assert(bootstrap.SeriesToUpload(cfg, nil), jc.SameContents, []string{"quantal", "precise", "lucid"})
 }
 
 func (s *bootstrapSuite) assertUploadTools(c *gc.C, vers version.Binary, allowRelease bool,
