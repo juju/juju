@@ -36,6 +36,12 @@ func (s *machineSuite) SetUpTest(c *gc.C) {
 	s.st, s.machine = s.OpenAPIAsNewMachine(c)
 }
 
+func (s *machineSuite) TestStateServingInfo(c *gc.C) {
+	info, err := s.st.Agent().StateServingInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(info, jc.DeepEquals, params.StateServingInfo{})
+}
+
 func (s *machineSuite) TestMachineEntity(c *gc.C) {
 	m, err := s.st.Agent().Entity("42")
 	c.Assert(err, gc.ErrorMatches, "permission denied")
