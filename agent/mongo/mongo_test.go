@@ -38,6 +38,7 @@ func fakeCmd(path string) {
 		panic(err)
 	}
 }
+
 func (s *MongoSuite) TestJujuMongodPath(c *gc.C) {
 	d := c.MkDir()
 	defer os.RemoveAll(d)
