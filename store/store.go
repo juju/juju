@@ -743,7 +743,7 @@ func (s *Store) Series(ref charm.Reference) ([]string, error) {
 
 	charms := session.Charms()
 	q := charms.Find(bson.M{
-		"urls": bson.RegEx{Pattern: patternURL.String()},
+		"urls": bson.RegEx{Pattern: fmt.Sprintf("^%s$", patternURL.String())},
 	})
 	var cdocs []charmDoc
 	err := q.All(&cdocs)
