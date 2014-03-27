@@ -45,18 +45,18 @@ const (
 	SdcAccount = "SDC_ACCOUNT"
 	SdcKeyId   = "SDC_KEY_ID"
 	SdcUrl     = "SDC_URL"
+	SdcKeyFile = "SDC_KEY_FILE"
 	MantaUser  = "MANTA_USER"
 	MantaKeyId = "MANTA_KEY_ID"
 	MantaUrl   = "MANTA_URL"
-	Home       = "HOME"
 )
 
 var environmentVariables = map[string]string{
 	"sdc-user":     SdcAccount,
 	"sdc-key-id":   SdcKeyId,
+	"key-file":     SdcKeyFile,
 	"manta-user":   MantaUser,
 	"manta-key-id": MantaKeyId,
-	"key-file":     Home,
 }
 
 var configFields = schema.Fields{
@@ -102,11 +102,6 @@ func prepareConfig(cfg *config.Config) (*config.Config, error) {
 			return nil, err
 		}
 		attrs["control-dir"] = fmt.Sprintf("%x", uuid.Raw())
-	}
-
-	if _, ok := attrs["key-file"]; !ok {
-		localEnvVariableHome := os.Getenv(environmentVariables["key-file"])
-		attrs["key-file"] = fmt.Sprintf("%s/.ssh/id_rsa", localEnvVariableHome)
 	}
 
 	// Read env variables

@@ -72,11 +72,11 @@ func (s *JoyentStorage) GetMantaUser() string {
 	return s.ecfg.mantaUser()
 }
 
-// CreateContainer makes the environment's control container, the
+// createContainer makes the environment's control container, the
 // place where bootstrap information and deployed charms
 // are stored. To avoid two round trips on every PUT operation,
 // we do this only once for each environ.
-func (s *JoyentStorage) CreateContainer() error {
+func (s *JoyentStorage) createContainer() error {
 	s.Lock()
 	defer s.Unlock()
 	if s.madeContainer {
@@ -123,6 +123,11 @@ func (s *JoyentStorage) List(prefix string) ([]string, error) {
 }
 
 func list(s *JoyentStorage, path string) ([]string, error) {
+	// TODO - we don't want to create the container here, but instead handle
+	// any 404 and return as if no files exist.
+	if err := s.createContainer(); err != nil {
+		return nil, fmt.Errorf("cannot make Manta control container: %v", err)
+	}
 	// use empty opts, i.e. default values
 	// -- might be added in the provider config?
 	contents, err := s.manta.ListDirectory(path, manta.ListDirectoryOpts{})
@@ -160,7 +165,7 @@ func (s *JoyentStorage) Get(name string) (io.ReadCloser, error) {
 }
 
 func (s *JoyentStorage) Put(name string, r io.Reader, length int64) error {
-	if err := s.CreateContainer(); err != nil {
+	if err := s.createContainer(); err != nil {
 		return fmt.Errorf("cannot make Manta control container: %v", err)
 	}
 	if strings.Contains(name, "/") {
