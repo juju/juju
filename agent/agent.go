@@ -143,6 +143,10 @@ type ConfigSetterOnly interface {
 	// changed at the end of the upgrade anyway, if successful.
 	//
 	// Migrate does not actually write the new configuration.
+	//
+	// Note that if the configuration file moves location,
+	// (if DataDir is set), the the caller is responsible for removing
+	// the old configuration.
 	Migrate(MigrateParams) error
 }
 
@@ -390,6 +394,7 @@ func (c0 *configInternal) Clone() Config {
 func (config *configInternal) Migrate(newParams MigrateParams) error {
 	if newParams.DataDir != "" {
 		config.dataDir = newParams.DataDir
+		config.configFilePath = ConfigPath(config.dataDir, config.tag)
 	}
 	if newParams.LogDir != "" {
 		config.logDir = newParams.LogDir
@@ -426,7 +431,7 @@ func (c *configInternal) SetValue(key, value string) {
 }
 
 func (c *configInternal) SetOldPassword(oldPassword string) {
-	c.oldPassword = c.oldPassword
+	c.oldPassword = oldPassword
 }
 
 func (c *configInternal) SetPassword(newPassword string) {
@@ -577,10 +582,9 @@ func (c *configInternal) APIInfo() *api.Info {
 
 func (c *configInternal) StateInfo() *state.Info {
 	return &state.Info{
-		Addrs: c.stateDetails.addresses,
+		Addrs:    c.stateDetails.addresses,
 		Password: c.stateDetails.password,
-		CACert: c.caCert,
-		Tag: c.tag,
+		CACert:   c.caCert,
+		Tag:      c.tag,
 	}
 }
-

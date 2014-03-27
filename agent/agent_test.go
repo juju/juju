@@ -10,6 +10,8 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
@@ -242,27 +244,24 @@ func (*suite) TestMigrate(c *gc.C) {
 		c.Logf("test %d: %s %v", i, summary, test.fields)
 
 		initialConfig, err := agent.NewAgentConfig(initialParams)
-		c.Check(err, gc.IsNil)
+		c.Assert(err, gc.IsNil)
 
 		newConfig, err := agent.NewAgentConfig(initialParams)
-		c.Check(err, gc.IsNil)
+		c.Assert(err, gc.IsNil)
 
-		c.Check(initialConfig.Write(), gc.IsNil)
-		c.Check(agent.ConfigFileExists(initialConfig), jc.IsTrue)
+		c.Assert(initialConfig.Write(), gc.IsNil)
+		c.Assert(agent.ConfigFileExists(initialConfig), jc.IsTrue)
 
 		err = newConfig.Migrate(test.newParams)
-		c.Check(err, gc.IsNil)
-		c.Check(agent.ConfigFileExists(newConfig), jc.IsTrue)
-		if test.newParams.DataDir != "" {
-			// If we're changing where the new config is saved,
-			// we can verify the old config got removed.
-			c.Check(agent.ConfigFileExists(initialConfig), jc.IsFalse)
-		}
+		c.Assert(err, gc.IsNil)
+		err = newConfig.Write()
+		c.Assert(err, gc.IsNil)
+		c.Assert(agent.ConfigFileExists(newConfig), jc.IsTrue)
 
 		// Make sure we can read it back successfully and it
 		// matches what we wrote.
 		configPath := agent.ConfigPath(newConfig.DataDir(), newConfig.Tag())
-		readConfig, err := agent.ReadConf(configPath)
+		readConfig, err := agent.ReadConfig(configPath)
 		c.Check(err, gc.IsNil)
 		c.Check(newConfig, jc.DeepEquals, readConfig)
 
@@ -377,19 +376,57 @@ func (*suite) TestWriteAndRead(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(conf.Write(), gc.IsNil)
-	reread, err := agent.ReadConf(agent.ConfigPath(conf.DataDir(), conf.Tag()))
+	reread, err := agent.ReadConfig(agent.ConfigPath(conf.DataDir(), conf.Tag()))
 	c.Assert(err, gc.IsNil)
 	c.Assert(reread, jc.DeepEquals, conf)
 }
 
 func (*suite) TestSetPassword(c *gc.C) {
-	c.FailNow()
+	params := attributeParams
+	conf, err := agent.NewAgentConfig(attributeParams)
+	c.Assert(err, gc.IsNil)
+
+	expectAPIInfo := &api.Info{
+		Addrs:    params.APIAddresses,
+		CACert:   params.CACert,
+		Tag:      params.Tag,
+		Password: "",
+		Nonce:    params.Nonce,
+	}
+	c.Assert(conf.APIInfo(), gc.DeepEquals, expectAPIInfo)
+	expectStateInfo := &state.Info{
+		Addrs:    params.StateAddresses,
+		CACert:   params.CACert,
+		Tag:      params.Tag,
+		Password: "",
+	}
+	c.Assert(conf.StateInfo(), gc.DeepEquals, expectStateInfo)
+
+	conf.SetPassword("newpassword")
+
+	expectAPIInfo.Password = "newpassword"
+	expectStateInfo.Password = "newpassword"
+
+	c.Assert(conf.APIInfo(), gc.DeepEquals, expectAPIInfo)
+	c.Assert(conf.StateInfo(), gc.DeepEquals, expectStateInfo)
 }
 
 func (*suite) TestSetOldPassword(c *gc.C) {
-	c.FailNow()
+	conf, err := agent.NewAgentConfig(attributeParams)
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(conf.OldPassword(), gc.Equals, attributeParams.Password)
+	conf.SetOldPassword("newoldpassword")
+	c.Assert(conf.OldPassword(), gc.Equals, "newoldpassword")
 }
 
 func (*suite) TestSetUpgradedToVersion(c *gc.C) {
-	c.FailNow()
+	conf, err := agent.NewAgentConfig(attributeParams)
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(conf.UpgradedToVersion(), gc.Equals, version.Current.Number)
+
+	expectVers := version.MustParse("3.4.5")
+	conf.SetUpgradedToVersion(expectVers)
+	c.Assert(conf.UpgradedToVersion(), gc.Equals, expectVers)
 }

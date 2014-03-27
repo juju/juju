@@ -78,6 +78,9 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
+	err = cfg.Write()
+	c.Assert(err, gc.IsNil)
+
 	// Check that initial admin user has been set up correctly.
 	s.assertCanLogInAsAdmin(c, pwHash)
 	user, err := st.User("admin")
@@ -104,7 +107,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 
 	// Check that the machine agent's config has been written
 	// and that we can use it to connect to the state.
-	newCfg, err := agent.ReadConf(agent.ConfigPath(dataDir, "machine-0"))
+	newCfg, err := agent.ReadConfig(agent.ConfigPath(dataDir, "machine-0"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(newCfg.Tag(), gc.Equals, "machine-0")
 	c.Assert(agent.Password(newCfg), gc.Not(gc.Equals), pwHash)
