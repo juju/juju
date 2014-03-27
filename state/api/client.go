@@ -26,6 +26,13 @@ type Client struct {
 	st *State
 }
 
+// NetworksSpecification holds the enabled and disabled networks for a
+// service.
+type NetworksSpecification struct {
+	Enabled  []string
+	Disabled []string
+}
+
 func (c *Client) call(method string, params, result interface{}) error {
 	return c.st.Call("Client", "", method, params, result)
 }
@@ -53,6 +60,7 @@ type ServiceStatus struct {
 	Exposed       bool
 	Life          string
 	Relations     map[string][]string
+	Networks      NetworksSpecification
 	CanUpgradeTo  string
 	SubordinateTo []string
 	Units         map[string]UnitStatus
