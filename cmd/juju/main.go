@@ -98,6 +98,7 @@ func Main(args []string) {
 	jujucmd.Register(wrap(&ResolvedCommand{}))
 	jujucmd.Register(wrap(&DebugLogCommand{sshCmd: &SSHCommand{}}))
 	jujucmd.Register(wrap(&DebugHooksCommand{}))
+	jujucmd.Register(wrap(&RetryProvisioningCommand{}))
 
 	// Configuration commands.
 	jujucmd.Register(wrap(&InitCommand{}))
@@ -123,6 +124,10 @@ func Main(args []string) {
 
 	// Manage authorised ssh keys.
 	jujucmd.Register(wrap(NewAuthorisedKeysCommand()))
+
+	// Manage state server availability.
+	// TODO: enable once the backend is ready for it.
+	//jujucmd.Register(wrap(&EnsureAvailabilityCommand{}))
 
 	// Common commands.
 	jujucmd.Register(wrap(&cmd.VersionCommand{}))

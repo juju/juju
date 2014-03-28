@@ -966,8 +966,8 @@ func CharmArchiveName(name string, revision int) (string, error) {
 	return charm.Quote(fmt.Sprintf("%s-%d-%s", name, revision, uuid)), nil
 }
 
-// ResolveProvisioningError marks a provisioning error as transient on the machines.
-func (c *Client) ResolveProvisioningError(p params.Entities) (params.ErrorResults, error) {
+// RetryProvisioning marks a provisioning error as transient on the machines.
+func (c *Client) RetryProvisioning(p params.Entities) (params.ErrorResults, error) {
 	entityStatus := make([]params.EntityStatus, len(p.Entities))
 	for i, entity := range p.Entities {
 		entityStatus[i] = params.EntityStatus{Tag: entity.Tag, Data: params.StatusData{"transient": true}}
@@ -975,4 +975,25 @@ func (c *Client) ResolveProvisioningError(p params.Entities) (params.ErrorResult
 	return c.api.statusSetter.UpdateStatus(params.SetStatus{
 		Entities: entityStatus,
 	})
+}
+
+// APIHostPOrts returns the API host/port addresses stored in state.
+func (c *Client) APIHostPorts() (result params.APIHostPortsResult, err error) {
+	if result.Servers, err = c.api.state.APIHostPorts(); err != nil {
+		return params.APIHostPortsResult{}, err
+	}
+	return result, nil
+}
+
+// EnsureAvailability ensures the availability of Juju state servers.
+func (c *Client) EnsureAvailability(args params.EnsureAvailability) error {
+	series := args.Series
+	if series == "" {
+		cfg, err := c.api.state.EnvironConfig()
+		if err != nil {
+			return err
+		}
+		series = cfg.DefaultSeries()
+	}
+	return c.api.state.EnsureAvailability(args.NumStateServers, args.Constraints, series)
 }

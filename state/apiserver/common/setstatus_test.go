@@ -122,16 +122,17 @@ func (*statusSetterSuite) TestUpdateStatus(c *gc.C) {
 	st := &fakeState{
 		entities: map[string]entityWithError{
 			"x0": &fakeStatusSetter{status: params.StatusPending, info: "blah", err: fmt.Errorf("x0 fails")},
-			"x1": &fakeStatusSetter{status: params.StatusStarted, info: "foo", data: params.StatusData{"foo": "blah"}},
+			"x1": &fakeStatusSetter{status: params.StatusError, info: "foo", data: params.StatusData{"foo": "blah"}},
 			"x2": &fakeStatusSetter{status: params.StatusError, info: "some info"},
 			"x3": &fakeStatusSetter{fetchError: "x3 error"},
-			"x4": &fakeStatusSetter{status: params.StatusStopped, info: ""},
+			"x4": &fakeStatusSetter{status: params.StatusStarted},
+			"x5": &fakeStatusSetter{status: params.StatusStopped, info: ""},
 		},
 	}
 	getCanModify := func() (common.AuthFunc, error) {
 		return func(tag string) bool {
 			switch tag {
-			case "x0", "x1", "x2", "x3":
+			case "x0", "x1", "x2", "x3", "x4":
 				return true
 			}
 			return false
@@ -145,7 +146,8 @@ func (*statusSetterSuite) TestUpdateStatus(c *gc.C) {
 			{Tag: "x2", Data: params.StatusData{"foo": "bar"}},
 			{Tag: "x3", Data: params.StatusData{"foo": "bar"}},
 			{Tag: "x4", Data: params.StatusData{"foo": "bar"}},
-			{Tag: "x5", Data: nil},
+			{Tag: "x5", Data: params.StatusData{"foo": "bar"}},
+			{Tag: "x6", Data: nil},
 		},
 	}
 	result, err := s.UpdateStatus(args)
@@ -156,6 +158,7 @@ func (*statusSetterSuite) TestUpdateStatus(c *gc.C) {
 			{nil},
 			{nil},
 			{&params.Error{Message: "x3 error"}},
+			{&params.Error{Message: `machine "x4" is not in an error state`}},
 			{apiservertesting.ErrUnauthorized},
 			{apiservertesting.ErrUnauthorized},
 		},
@@ -163,7 +166,7 @@ func (*statusSetterSuite) TestUpdateStatus(c *gc.C) {
 	get := func(tag string) *fakeStatusSetter {
 		return st.entities[tag].(*fakeStatusSetter)
 	}
-	c.Assert(get("x1").status, gc.Equals, params.StatusStarted)
+	c.Assert(get("x1").status, gc.Equals, params.StatusError)
 	c.Assert(get("x1").info, gc.Equals, "foo")
 	c.Assert(get("x1").data, gc.DeepEquals, params.StatusData{"foo": "blah"})
 	c.Assert(get("x2").status, gc.Equals, params.StatusError)

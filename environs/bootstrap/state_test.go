@@ -88,10 +88,9 @@ func (suite *StateSuite) TestDeleteStateFile(c *gc.C) {
 
 func (suite *StateSuite) TestSaveStateWritesStateFile(c *gc.C) {
 	stor := suite.newStorage(c)
-	arch := "amd64"
 	state := bootstrap.BootstrapState{
-		StateInstances:  []instance.Id{instance.Id("an-instance-id")},
-		Characteristics: []instance.HardwareCharacteristics{{Arch: &arch}}}
+		StateInstances: []instance.Id{instance.Id("an-instance-id")},
+	}
 	marshaledState, err := goyaml.Marshal(state)
 	c.Assert(err, gc.IsNil)
 
@@ -106,10 +105,9 @@ func (suite *StateSuite) TestSaveStateWritesStateFile(c *gc.C) {
 }
 
 func (suite *StateSuite) setUpSavedState(c *gc.C, dataDir string) bootstrap.BootstrapState {
-	arch := "amd64"
 	state := bootstrap.BootstrapState{
-		StateInstances:  []instance.Id{instance.Id("an-instance-id")},
-		Characteristics: []instance.HardwareCharacteristics{{Arch: &arch}}}
+		StateInstances: []instance.Id{instance.Id("an-instance-id")},
+	}
 	content, err := goyaml.Marshal(state)
 	c.Assert(err, gc.IsNil)
 	err = ioutil.WriteFile(filepath.Join(dataDir, bootstrap.StateFile), []byte(content), 0644)
@@ -133,10 +131,9 @@ func (suite *StateSuite) TestLoadStateMissingFile(c *gc.C) {
 
 func (suite *StateSuite) TestLoadStateIntegratesWithSaveState(c *gc.C) {
 	storage := suite.newStorage(c)
-	arch := "amd64"
 	state := bootstrap.BootstrapState{
-		StateInstances:  []instance.Id{instance.Id("an-instance-id")},
-		Characteristics: []instance.HardwareCharacteristics{{Arch: &arch}}}
+		StateInstances: []instance.Id{instance.Id("an-instance-id")},
+	}
 	err := bootstrap.SaveState(storage, &state)
 	c.Assert(err, gc.IsNil)
 	storedState, err := bootstrap.LoadState(storage)

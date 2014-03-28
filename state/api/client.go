@@ -26,6 +26,13 @@ type Client struct {
 	st *State
 }
 
+// NetworksSpecification holds the enabled and disabled networks for a
+// service.
+type NetworksSpecification struct {
+	Enabled  []string
+	Disabled []string
+}
+
 func (c *Client) call(method string, params, result interface{}) error {
 	return c.st.Call("Client", "", method, params, result)
 }
@@ -53,6 +60,7 @@ type ServiceStatus struct {
 	Exposed       bool
 	Life          string
 	Relations     map[string][]string
+	Networks      NetworksSpecification
 	CanUpgradeTo  string
 	SubordinateTo []string
 	Units         map[string]UnitStatus
@@ -138,18 +146,17 @@ func (c *Client) Resolved(unit string, retry bool) error {
 	return c.call("Resolved", p, nil)
 }
 
-// ResolveProvisioningError updates the provisioning status of a machine allowing the
+// RetryProvisioning updates the provisioning status of a machine allowing the
 // provisioner to retry.
-func (c *Client) ResolveProvisioningError(machine string) error {
-	p := params.Entities{
-		Entities: []params.Entity{{Tag: machine}},
+func (c *Client) RetryProvisioning(machines ...string) ([]params.ErrorResult, error) {
+	p := params.Entities{}
+	p.Entities = make([]params.Entity, len(machines))
+	for i, machine := range machines {
+		p.Entities[i] = params.Entity{Tag: machine}
 	}
 	var results params.ErrorResults
-	err := c.st.Call("Client", "", "ResolveProvisioningError", p, &results)
-	if err != nil {
-		return err
-	}
-	return results.OneError()
+	err := c.st.Call("Client", "", "RetryProvisioning", p, &results)
+	return results.Results, err
 }
 
 // PublicAddress returns the public address of the specified
@@ -658,4 +665,23 @@ func (c *Client) UploadTools(
 		return nil, fmt.Errorf("error uploading tools: %v", err)
 	}
 	return jsonResponse.Tools, nil
+}
+
+// APIHostPorts returns a slice of instance.HostPort for each API server.
+func (c *Client) APIHostPorts() ([][]instance.HostPort, error) {
+	var result params.APIHostPortsResult
+	if err := c.call("APIHostPorts", nil, &result); err != nil {
+		return nil, err
+	}
+	return result.Servers, nil
+}
+
+// EnsureAvailability ensures the availability of Juju state servers.
+func (c *Client) EnsureAvailability(numStateServers int, cons constraints.Value, series string) error {
+	args := params.EnsureAvailability{
+		NumStateServers: numStateServers,
+		Constraints:     cons,
+		Series:          series,
+	}
+	return c.call("EnsureAvailability", args, nil)
 }

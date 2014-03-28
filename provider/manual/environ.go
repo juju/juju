@@ -25,6 +25,7 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -89,13 +90,12 @@ func (e *manualEnviron) Name() string {
 
 // SupportedArchitectures is specified on the EnvironCapability interface.
 func (e *manualEnviron) SupportedArchitectures() ([]string, error) {
-	envConfig := e.envConfig()
-	host := envConfig.bootstrapHost()
-	hc, _, err := manual.DetectSeriesAndHardwareCharacteristics(host)
-	if err != nil {
-		return nil, err
-	}
-	return []string{*hc.Arch}, nil
+	return arch.AllSupportedArches, nil
+}
+
+// SupportNetworks is specified on the EnvironCapability interface.
+func (e *manualEnviron) SupportNetworks() bool {
+	return false
 }
 
 func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {

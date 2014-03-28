@@ -75,15 +75,10 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, cons constra
 	machineConfig.InstanceId = inst.Id()
 	machineConfig.HardwareCharacteristics = hw
 
-	var characteristics []instance.HardwareCharacteristics
-	if hw != nil {
-		characteristics = []instance.HardwareCharacteristics{*hw}
-	}
 	err = bootstrap.SaveState(
 		env.Storage(),
 		&bootstrap.BootstrapState{
-			StateInstances:  []instance.Id{inst.Id()},
-			Characteristics: characteristics,
+			StateInstances: []instance.Id{inst.Id()},
 		})
 	if err != nil {
 		return fmt.Errorf("cannot save state: %v", err)

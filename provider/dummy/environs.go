@@ -530,6 +530,12 @@ func (*environ) SupportedArchitectures() ([]string, error) {
 	return []string{arch.AMD64, arch.PPC64}, nil
 }
 
+// SupportNetworks is specified on the EnvironCapability interface.
+func (*environ) SupportNetworks() bool {
+	// We need to be able to test networks with the dummy provider.
+	return true
+}
+
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
 func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 	return []simplestreams.DataSource{
