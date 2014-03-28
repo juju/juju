@@ -1463,7 +1463,7 @@ func (s *clientSuite) TestClientPrivateAddressMachine(c *gc.C) {
 	cloudLocalAddress := instance.NewAddress("cloudlocal")
 	cloudLocalAddress.NetworkScope = instance.NetworkCloudLocal
 	publicAddress := instance.NewAddress("public")
-	publicAddress.NetworkScope = instance.NetworkCloudLocal
+	publicAddress.NetworkScope = instance.NetworkPublic
 	err = m1.SetAddresses([]instance.Address{publicAddress})
 	c.Assert(err, gc.IsNil)
 	addr, err := s.APIState.Client().PrivateAddress("1")
