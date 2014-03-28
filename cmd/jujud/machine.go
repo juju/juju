@@ -354,8 +354,8 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				// the agent's configuration file. In the future, we may retrieve
 				// the state server certificate and key from the state, and
 				// this should then change.
-				info := a.Conf.config.StateServingInfo()
-				port := info.apiPort
+				info, _ := a.Conf.config.StateServingInfo()
+				port := info.APIPort
 				cert := []byte(info.Cert)
 				key := []byte(info.PrivateKey)
 				if len(cert) == 0 || len(key) == 0 {

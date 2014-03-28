@@ -71,6 +71,12 @@ func (c *configInternal) InitializeState(envCfg *config.Config, machineCfg Boots
 		st.Close()
 		return nil, nil, err
 	}
+	st.SetStateServingInfo(params.StateServingInfo{
+		APIPort:    c.apiPort,
+		StatePort:  c.statePort,
+		Cert:       string(c.stateServerCert),
+		PrivateKey: string(c.stateServerKey),
+	})
 	return st, m, nil
 }
 
