@@ -497,12 +497,13 @@ type MAASNetworkDetails struct {
 func (e *maasEnviron) GetNetworksList(inst instance.Instance) ([]MAASNetworkDetails, error) {
 	maasInst := inst.(*maasInstance)
 	maasObj := maasInst.maasObject
+	networksClient := e.getMAASClient().GetSubObject("networks")
 	system_id, err := maasObj.GetField("system_id")
 	if err != nil {
 		return nil, err
 	}
 	params := url.Values{"node": {system_id}}
-	json, err := maasObj.CallGet("networks", params)
+	json, err := networksClient.CallGet("", params)
 	if err != nil {
 		return nil, err
 	}

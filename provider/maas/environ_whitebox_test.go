@@ -524,3 +524,10 @@ func (suite *environSuite) TestSupportedArchitectures(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(a, gc.DeepEquals, []string{"amd64"})
 }
+
+func (suite *environSuite) TestGetNetworksList(c *gc.C) {
+	test_instance := suite.getInstance("test1")
+	networks, err := suite.makeEnviron().GetNetworksList(test_instance)
+	c.Check(err, gc.IsNil)
+	fmt.Print(networks)
+}
