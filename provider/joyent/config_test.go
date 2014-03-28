@@ -221,16 +221,18 @@ func (*ConfigSuite) TestNewEnvironConfig(c *gc.C) {
 			os.Setenv(k, v)
 		}
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
+		// This test does not prepare the config so add in a private key manually.
+		attrs = attrs.Merge(coretesting.Attrs{"private-key": "key"})
 		testConfig := newConfig(c, attrs)
 		environ, err := environs.New(testConfig)
 		if test.err == "" {
-			c.Assert(err, gc.IsNil)
+			c.Check(err, gc.IsNil)
 			attrs := environ.Config().AllAttrs()
 			for field, value := range test.expect {
 				c.Check(attrs[field], gc.Equals, value)
 			}
 		} else {
-			c.Assert(environ, gc.IsNil)
+			c.Check(environ, gc.IsNil)
 			c.Check(err, gc.ErrorMatches, test.err)
 		}
 	}
@@ -283,20 +285,23 @@ func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 		testConfig := newConfig(c, attrs)
 		validatedConfig, err := jp.Provider.Validate(testConfig, baseConfig)
 		if test.err == "" {
-			c.Assert(err, gc.IsNil)
+			c.Check(err, gc.IsNil)
 			attrs := validatedConfig.AllAttrs()
 			for field, value := range test.expect {
 				c.Check(attrs[field], gc.Equals, value)
 			}
 		} else {
-			c.Assert(validatedConfig, gc.IsNil)
+			c.Check(validatedConfig, gc.IsNil)
 			c.Check(err, gc.ErrorMatches, "invalid config change: "+test.err)
 		}
 	}
 }
 
 func (s *ConfigSuite) TestSetConfig(c *gc.C) {
-	baseConfig := newConfig(c, validAttrs())
+	attrs := validAttrs()
+	// This test does not prepare the config so add in a private key manually.
+	attrs = attrs.Merge(coretesting.Attrs{"private-key": "key"})
+	baseConfig := newConfig(c, attrs)
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 		environ, err := environs.New(baseConfig)
@@ -306,7 +311,7 @@ func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 		err = environ.SetConfig(testConfig)
 		newAttrs := environ.Config().AllAttrs()
 		if test.err == "" {
-			c.Assert(err, gc.IsNil)
+			c.Check(err, gc.IsNil)
 			for field, value := range test.expect {
 				c.Check(newAttrs[field], gc.Equals, value)
 			}
@@ -342,13 +347,13 @@ func (s *ConfigSuite) TestPrepare(c *gc.C) {
 		testConfig := newConfig(c, attrs)
 		preparedConfig, err := jp.Provider.Prepare(ctx, testConfig)
 		if test.err == "" {
-			c.Assert(err, gc.IsNil)
+			c.Check(err, gc.IsNil)
 			attrs := preparedConfig.Config().AllAttrs()
 			for field, value := range test.expect {
 				c.Check(attrs[field], gc.Equals, value)
 			}
 		} else {
-			c.Assert(preparedConfig, gc.IsNil)
+			c.Check(preparedConfig, gc.IsNil)
 			c.Check(err, gc.ErrorMatches, "invalid prepare config: "+test.err)
 		}
 	}

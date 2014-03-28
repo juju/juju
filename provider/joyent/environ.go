@@ -44,7 +44,10 @@ type JoyentEnviron struct {
 
 var _ environs.Environ = (*JoyentEnviron)(nil)
 
-func NewEnviron(cfg *config.Config) (*JoyentEnviron, error) {
+// newEnviron create a new Joyent environ instance from config.
+// The config must have been prepared first in order to ensure that
+// the private key has been inserted into the config.
+func newEnviron(cfg *config.Config) (*JoyentEnviron, error) {
 	env := new(JoyentEnviron)
 	if err := env.SetConfig(cfg); err != nil {
 		return nil, err

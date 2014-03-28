@@ -52,7 +52,7 @@ func (joyentProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config)
 }
 
 func (joyentProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	env, err := NewEnviron(cfg)
+	env, err := newEnviron(cfg)
 	if err != nil {
 		return nil, err
 	}
