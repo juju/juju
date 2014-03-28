@@ -322,12 +322,10 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(stateData.StateInstances, gc.HasLen, 1)
 
-	expectedHardware := instance.MustParseHardware("arch=amd64 cpu-cores=1 mem=1024M root-disk=16384M")
 	insts, err := env.AllInstances()
 	c.Assert(err, gc.IsNil)
 	c.Assert(insts, gc.HasLen, 1)
 	c.Check(stateData.StateInstances[0], gc.Equals, insts[0].Id())
-	c.Check(stateData.Characteristics[0], gc.DeepEquals, expectedHardware)
 
 	bootstrapDNS, err := insts[0].DNSName()
 	c.Assert(err, gc.IsNil)

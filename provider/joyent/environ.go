@@ -145,7 +145,7 @@ func (env *JoyentEnviron) Credentials() *auth.Credentials {
 
 func (env *JoyentEnviron) setCredentials() error {
 	if env.ecfg.privateKey() == "" {
-		return errors.New("cannt set credentials without a private key")
+		return errors.New("cannot set credentials without a private key")
 	}
 	authentication := auth.Auth{User: env.ecfg.mantaUser(), PrivateKey: env.ecfg.privateKey(), Algorithm: env.ecfg.algorithm()}
 	env.creds = &auth.Credentials{
