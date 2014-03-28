@@ -7,7 +7,7 @@ package info
 type EnvironInfo struct {
 	User         string
 	Password     string
-	StateServers []string               `yaml:"state-servers"`
-	CACert       string                 `yaml:"ca-cert"`
-	Config       map[string]interface{} `yaml:"bootstrap-config,omitempty"`
+	StateServers []string               `json:"state-servers" yaml:"state-servers"`
+	CACert       string                 `json:"ca-cert" yaml:"ca-cert"`
+	Config       map[string]interface{} `json:"bootstrap-config,omitempty" yaml:"bootstrap-config,omitempty"`
 }
