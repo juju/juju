@@ -1,10 +1,10 @@
 code.google.com/p/go.crypto	hg	6478cc9340cbbe6c04511280c5007722269108e9	184
 code.google.com/p/go.net	hg	3591c18acabc99439c783463ef00e6dc277eee39	77
 github.com/errgo/errgo	git	93d72bf813883d1054cae1c001d3a46603f7f559	
-github.com/joyent/gocommon	git	a9a14eeb2252c30e5baf087c87fe9483ed71a7a0	
+github.com/joyent/gocommon	git	1bb46a3dc280d0f42fc84d5a9192bec348e8c1d9	
 github.com/joyent/gomanta	git	093314fbc7f3a9a650b44078c57919cacfd19b8b	
 github.com/joyent/gosdc	git	4586318d39d7bcd87ed572e40f5317717f579554	
-github.com/joyent/gosign	git	1f8b3cec14190ac215e2d9fe355d4d137e135c00	
+github.com/joyent/gosign	git	3262cfb5a1c7dd2b9d7c8b636122d10c46645d34	
 github.com/juju/loggo	git	fa3acf9ab9ed09aea29030558528e24a254d27af	
 github.com/juju/ratelimit	git	0025ab75db6c6eaa4ffff0240c2c9e617ad1a0eb	
 github.com/juju/testing	git	9c0e0686136637876ae659e9056897575236e11f	
