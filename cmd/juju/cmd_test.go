@@ -122,8 +122,9 @@ func (*CmdSuite) TestEnvironmentInit(c *gc.C) {
 	}
 }
 
-func nullContext() *cmd.Context {
-	ctx := cmd.DefaultContext()
+func nullContext(c *gc.C) *cmd.Context {
+	ctx, err := cmd.DefaultContext()
+	c.Assert(err, gc.IsNil)
 	ctx.Stdin = io.LimitReader(nil, 0)
 	ctx.Stdout = ioutil.Discard
 	ctx.Stderr = ioutil.Discard

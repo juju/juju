@@ -62,6 +62,7 @@ type JujuConnSuite struct {
 	oldHome      string
 	oldJujuHome  string
 	environ      environs.Environ
+	DummyConfig  testing.Attrs
 }
 
 const AdminSecret = "dummy-secret"
@@ -220,7 +221,10 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 }
 
 func (s *JujuConnSuite) writeSampleConfig(c *gc.C, path string) {
-	attrs := dummy.SampleConfig().Merge(testing.Attrs{
+	if s.DummyConfig == nil {
+		s.DummyConfig = dummy.SampleConfig()
+	}
+	attrs := s.DummyConfig.Merge(testing.Attrs{
 		"admin-secret":  AdminSecret,
 		"agent-version": version.Current.Number.String(),
 	}).Delete("name")
@@ -289,8 +293,12 @@ func (s *JujuConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 }
 
 func (s *JujuConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm) *state.Service {
+	return s.AddTestingServiceWithNetworks(c, name, ch, nil, nil)
+}
+
+func (s *JujuConnSuite) AddTestingServiceWithNetworks(c *gc.C, name string, ch *state.Charm, includeNetworks, excludeNetworks []string) *state.Service {
 	c.Assert(s.State, gc.NotNil)
-	service, err := s.State.AddService(name, "user-admin", ch)
+	service, err := s.State.AddService(name, "user-admin", ch, includeNetworks, excludeNetworks)
 	c.Assert(err, gc.IsNil)
 	return service
 }

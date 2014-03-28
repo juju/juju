@@ -6,6 +6,7 @@ package maas_test
 import (
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gomaasapi"
 
@@ -55,8 +56,6 @@ func (s *environSuite) TearDownSuite(c *gc.C) {
 	s.restoreTimeouts()
 	s.LoggingSuite.TearDownSuite(c)
 }
-
-var _ = gc.Suite(&environSuite{})
 
 func getSimpleTestConfig(c *gc.C, extraAttrs coretesting.Attrs) *config.Config {
 	attrs := coretesting.FakeConfig()
@@ -194,4 +193,18 @@ func (*environSuite) TestNewEnvironSetsConfig(c *gc.C) {
 
 	c.Check(err, gc.IsNil)
 	c.Check(env.Name(), gc.Equals, "testenv")
+}
+
+func (*environSuite) TestNewCloudinitConfig(c *gc.C) {
+	cloudcfg, err := maas.NewCloudinitConfig("testing.invalid")
+	c.Assert(err, gc.IsNil)
+	c.Assert(cloudcfg.AptUpdate(), jc.IsTrue)
+	c.Assert(cloudcfg.RunCmds(), gc.DeepEquals, []interface{}{
+		"set -xe",
+		"mkdir -p '/var/lib/juju'; echo -n 'hostname: testing.invalid\n' > '/var/lib/juju/MAASmachine.txt'",
+		"ifdown eth0",
+		"cat > /etc/network/eth0.config << EOF\niface eth0 inet manual\n\nauto br0\niface br0 inet dhcp\n  bridge_ports eth0\nEOF\n",
+		`sed -i "s/iface eth0 inet dhcp/source \/etc\/network\/eth0.config/" /etc/network/interfaces`,
+		"ifup br0",
+	})
 }

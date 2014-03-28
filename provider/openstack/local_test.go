@@ -515,12 +515,10 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(stateData.StateInstances, gc.HasLen, 1)
 
-	expectedHardware := instance.MustParseHardware("arch=amd64 cpu-cores=1 mem=2G")
 	insts, err := env.AllInstances()
 	c.Assert(err, gc.IsNil)
 	c.Assert(insts, gc.HasLen, 1)
 	c.Check(insts[0].Id(), gc.Equals, stateData.StateInstances[0])
-	c.Check(expectedHardware, gc.DeepEquals, stateData.Characteristics[0])
 
 	bootstrapDNS, err := insts[0].DNSName()
 	c.Assert(err, gc.IsNil)
@@ -585,6 +583,13 @@ func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 	// Check that the URL from keystone parses.
 	_, err = url.Parse(urls[2])
 	c.Assert(err, gc.IsNil)
+}
+
+func (s *localServerSuite) TestSupportedArchitectures(c *gc.C) {
+	env := s.Open(c)
+	a, err := env.SupportedArchitectures()
+	c.Assert(err, gc.IsNil)
+	c.Assert(a, gc.DeepEquals, []string{"amd64", "ppc64"})
 }
 
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {

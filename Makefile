@@ -11,8 +11,10 @@ PROJECT_DIR := $(shell go list -e -f '{{.Dir}}' $(PROJECT))
 
 ifeq ($(shell uname -p | sed -r 's/.*(x86|armel|armhf).*/golang/'), golang)
 	GO_C := golang
+	INSTALL_FLAGS := 
 else
 	GO_C := gccgo-4.9  gccgo-go
+	INSTALL_FLAGS := -gccgoflags=-static-libgo
 endif
 
 define DEPENDENCIES
@@ -39,7 +41,7 @@ check:
 	go test $(PROJECT)/...
 
 install:
-	go install -v $(PROJECT)/...
+	go install $(INSTALL_FLAGS) -v $(PROJECT)/...
 
 clean:
 	go clean $(PROJECT)/...

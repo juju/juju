@@ -17,6 +17,7 @@ import (
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/juju/osenv"
 	coretools "launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -63,7 +64,7 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		sourceDataSource := simplestreams.NewURLDataSource("local source", source, simplestreams.VerifySSLHostnames)
+		sourceDataSource := simplestreams.NewURLDataSource("local source", source, utils.VerifySSLHostnames)
 		toolsList, err = envtools.FindToolsForCloud(
 			[]simplestreams.DataSource{sourceDataSource}, simplestreams.CloudSpec{},
 			version.Current.Major, minorVersion, coretools.Filter{})

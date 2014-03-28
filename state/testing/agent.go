@@ -11,5 +11,5 @@ import (
 // SetAgentVersion sets the current agent version in the state's
 // environment configuration.
 func SetAgentVersion(st *state.State, vers version.Number) error {
-	return UpdateConfig(st, map[string]interface{}{"agent-version": vers.String()})
+	return st.UpdateEnvironConfig(map[string]interface{}{"agent-version": vers.String()}, nil, nil)
 }

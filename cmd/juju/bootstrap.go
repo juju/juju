@@ -14,15 +14,10 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
-	"launchpad.net/juju-core/environs/sync"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/provider"
-	"launchpad.net/juju-core/utils/set"
-	"launchpad.net/juju-core/version"
 )
 
 const bootstrapDoc = `
@@ -110,6 +105,19 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if err := bootstrap.EnsureNotBootstrapped(environ); err != nil {
 		return err
 	}
+
+	// Block interruption during bootstrap. Providers may also
+	// register for interrupt notification so they can exit early.
+	interrupted := make(chan os.Signal, 1)
+	defer close(interrupted)
+	ctx.InterruptNotify(interrupted)
+	defer ctx.StopInterruptNotify(interrupted)
+	go func() {
+		for _ = range interrupted {
+			ctx.Infof("Interrupt signalled: waiting for bootstrap to exit")
+		}
+	}()
+
 	// If --metadata-source is specified, override the default tools metadata source so
 	// SyncTools can use it, and also upload any image metadata.
 	if c.MetadataSource != "" {
@@ -132,34 +140,12 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		c.UploadTools = true
 	}
 	if c.UploadTools {
-		err = c.uploadTools(environ)
+		err = bootstrap.UploadTools(ctx, environ, c.Constraints.Arch, true, c.Series...)
 		if err != nil {
 			return err
 		}
 	}
 	return bootstrap.Bootstrap(ctx, environ, c.Constraints)
-}
-
-func (c *BootstrapCommand) uploadTools(environ environs.Environ) error {
-	// Force version.Current, for consistency with subsequent upgrade-juju
-	// (see UpgradeJujuCommand).
-	forceVersion := uploadVersion(version.Current.Number, nil)
-	cfg := environ.Config()
-	series := getUploadSeries(cfg, c.Series)
-	agenttools, err := sync.Upload(environ.Storage(), &forceVersion, series...)
-	if err != nil {
-		return err
-	}
-	cfg, err = cfg.Apply(map[string]interface{}{
-		"agent-version": agenttools.Version.Number.String(),
-	})
-	if err == nil {
-		err = environ.SetConfig(cfg)
-	}
-	if err != nil {
-		return fmt.Errorf("failed to update environment configuration: %v", err)
-	}
-	return nil
 }
 
 type seriesVar struct {
@@ -179,17 +165,4 @@ func (v seriesVar) Set(value string) error {
 
 func (v seriesVar) String() string {
 	return strings.Join(*v.target, ",")
-}
-
-// getUploadSeries returns the supplied series with duplicates removed if
-// non-empty; otherwise it returns a default list of series we should
-// probably upload, based on cfg.
-func getUploadSeries(cfg *config.Config, series []string) []string {
-	unique := set.NewStrings(series...)
-	if unique.IsEmpty() {
-		unique.Add(version.Current.Series)
-		unique.Add(config.DefaultSeries)
-		unique.Add(cfg.DefaultSeries())
-	}
-	return unique.Values()
 }

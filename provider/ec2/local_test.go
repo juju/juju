@@ -29,6 +29,7 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/ec2"
 	coretesting "launchpad.net/juju-core/testing"
@@ -222,6 +223,11 @@ func (t *localServerSuite) TearDownSuite(c *gc.C) {
 func (t *localServerSuite) SetUpTest(c *gc.C) {
 	t.srv.startServer(c)
 	t.Tests.SetUpTest(c)
+	t.PatchValue(&version.Current, version.Binary{
+		Number: version.Current.Number,
+		Series: config.DefaultSeries,
+		Arch:   arch.AMD64,
+	})
 }
 
 func (t *localServerSuite) TearDownTest(c *gc.C) {
@@ -240,12 +246,10 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(bootstrapState.StateInstances, gc.HasLen, 1)
 
-	expectedHardware := instance.MustParseHardware("arch=amd64 cpu-cores=1 cpu-power=100 mem=1740M root-disk=8192M")
 	insts, err := env.AllInstances()
 	c.Assert(err, gc.IsNil)
 	c.Assert(insts, gc.HasLen, 1)
 	c.Check(insts[0].Id(), gc.Equals, bootstrapState.StateInstances[0])
-	c.Check(expectedHardware, gc.DeepEquals, bootstrapState.Characteristics[0])
 
 	// check that the user data is configured to start zookeeper
 	// and the machine and provisioning agents.
@@ -397,6 +401,13 @@ func (t *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 	url, err := sources[0].URL("")
 	// The control bucket URL contains the bucket name.
 	c.Assert(strings.Contains(url, ec2.ControlBucketName(env)+"/tools"), jc.IsTrue)
+}
+
+func (t *localServerSuite) TestSupportedArchitectures(c *gc.C) {
+	env := t.Prepare(c)
+	a, err := env.SupportedArchitectures()
+	c.Assert(err, gc.IsNil)
+	c.Assert(a, jc.SameContents, []string{"amd64", "i386"})
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server

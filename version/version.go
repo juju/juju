@@ -12,17 +12,18 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strconv"
 	"strings"
 
 	"labix.org/v2/mgo/bson"
+
+	"launchpad.net/juju-core/juju/arch"
 )
 
 // The presence and format of this constant is very important.
 // The debian/rules build recipe uses this value for the version
 // number of the release package.
-const version = "1.17.5"
+const version = "1.17.8"
 
 // lsbReleaseFile is the name of the file that is read in order to determine
 // the release version of ubuntu.
@@ -34,7 +35,7 @@ var lsbReleaseFile = "/etc/lsb-release"
 var Current = Binary{
 	Number: MustParse(version),
 	Series: readSeries(lsbReleaseFile),
-	Arch:   ubuntuArch(runtime.GOARCH),
+	Arch:   arch.HostArch(),
 }
 
 func init() {
@@ -338,13 +339,6 @@ func ReleaseVersion() string {
 		}
 	}
 	return ""
-}
-
-func ubuntuArch(arch string) string {
-	if arch == "386" {
-		arch = "i386"
-	}
-	return arch
 }
 
 // ParseMajorMinor takes an argument of the form "major.minor" and returns ints major and minor.

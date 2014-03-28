@@ -42,6 +42,7 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 	// correctly.
 	s.PatchValue(&ShortPoll, 10*time.Millisecond)
 	s.PatchValue(&LongPoll, 10*time.Millisecond)
+	s.PatchValue(&gatherTime, 10*time.Millisecond)
 	machines, insts := s.setupScenario(c)
 	s.State.StartSync()
 	w := NewWorker(s.State)

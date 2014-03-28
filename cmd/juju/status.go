@@ -159,6 +159,7 @@ type serviceStatus struct {
 	Exposed       bool                  `json:"exposed" yaml:"exposed"`
 	Life          string                `json:"life,omitempty" yaml:"life,omitempty"`
 	Relations     map[string][]string   `json:"relations,omitempty" yaml:"relations,omitempty"`
+	Networks      map[string][]string   `json:"networks,omitempty" yaml:"networks,omitempty"`
 	SubordinateTo []string              `json:"subordinate-to,omitempty" yaml:"subordinate-to,omitempty"`
 	Units         map[string]unitStatus `json:"units,omitempty" yaml:"units,omitempty"`
 }
@@ -257,9 +258,16 @@ func formatService(service api.ServiceStatus) serviceStatus {
 		Exposed:       service.Exposed,
 		Life:          service.Life,
 		Relations:     service.Relations,
+		Networks:      make(map[string][]string),
 		CanUpgradeTo:  service.CanUpgradeTo,
 		SubordinateTo: service.SubordinateTo,
 		Units:         make(map[string]unitStatus),
+	}
+	if len(service.Networks.Enabled) > 0 {
+		out.Networks["enabled"] = service.Networks.Enabled
+	}
+	if len(service.Networks.Disabled) > 0 {
+		out.Networks["disabled"] = service.Networks.Disabled
 	}
 	for k, m := range service.Units {
 		out.Units[k] = formatUnit(m)

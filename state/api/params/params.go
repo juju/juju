@@ -149,6 +149,10 @@ type ServiceDeploy struct {
 	ConfigYAML    string // Takes precedence over config if both are present.
 	Constraints   constraints.Value
 	ToMachineSpec string
+	// The following fields are supported from 1.17.7 onwards and
+	// ignored before that.
+	IncludeNetworks []string
+	ExcludeNetworks []string
 }
 
 // ServiceUpdate holds the parameters for making the ServiceUpdate call.
@@ -234,6 +238,16 @@ type PublicAddress struct {
 // PublicAddressResults holds results of the PublicAddress call.
 type PublicAddressResults struct {
 	PublicAddress string
+}
+
+// PrivateAddress holds parameters for the PrivateAddress call.
+type PrivateAddress struct {
+	Target string
+}
+
+// PrivateAddressResults holds results of the PrivateAddress call.
+type PrivateAddressResults struct {
+	PrivateAddress string
 }
 
 // Resolved holds parameters for the Resolved call.
@@ -449,14 +463,32 @@ type EntityId struct {
 	Id   interface{}
 }
 
+// StateServingInfo holds information needed by a state
+// server.
+type StateServingInfo struct {
+	APIPort    int
+	StatePort  int
+	Cert       string
+	PrivateKey string
+	// this will be passed as the KeyFile argument to MongoDB
+	SharedSecret string
+}
+
 // MachineInfo holds the information about a Machine
 // that is watched by StateWatcher.
 type MachineInfo struct {
-	Id         string `bson:"_id"`
-	InstanceId string
-	Status     Status
-	StatusInfo string
-	StatusData StatusData
+	Id                       string `bson:"_id"`
+	InstanceId               string
+	Status                   Status
+	StatusInfo               string
+	StatusData               StatusData
+	Life                     Life
+	Series                   string
+	SupportedContainers      []instance.ContainerType
+	SupportedContainersKnown bool
+	HardwareCharacteristics  *instance.HardwareCharacteristics `json:",omitempty"`
+	Jobs                     []MachineJob
+	Addresses                []instance.Address
 }
 
 func (i *MachineInfo) EntityId() EntityId {
@@ -578,6 +610,12 @@ type EnvironmentSet struct {
 	Config map[string]interface{}
 }
 
+// EnvironmentUnset contains the arguments for EnvironmentUnset client API
+// call.
+type EnvironmentUnset struct {
+	Keys []string
+}
+
 // SetEnvironAgentVersion contains the arguments for
 // SetEnvironAgentVersion client API call.
 type SetEnvironAgentVersion struct {
@@ -599,4 +637,11 @@ type StatusParams struct {
 // SetRsyslogCertParams holds parameters for the SetRsyslogCert call.
 type SetRsyslogCertParams struct {
 	CACert []byte
+}
+
+// APIHostPortsResult holds the result of an APIHostPorts
+// call. Each element in the top level slice holds
+// the addresses for one API server.
+type APIHostPortsResult struct {
+	Servers [][]instance.HostPort
 }

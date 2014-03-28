@@ -85,7 +85,7 @@ var mongoVerRegex = regexp.MustCompile(`db version v(\d+\.\d+\.\d+)`)
 // VerifyPrerequisites verifies the prerequisites of
 // the local machine (machine 0) for running the local
 // provider.
-func VerifyPrerequisites(containerType instance.ContainerType) error {
+var VerifyPrerequisites = func(containerType instance.ContainerType) error {
 	if goos != "linux" {
 		return fmt.Errorf(errUnsupportedOS, goos)
 	}

@@ -12,12 +12,14 @@ import (
 	"time"
 
 	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils"
@@ -159,8 +161,12 @@ func Initialize(info *Info, cfg *config.Config, opts DialOpts, policy Policy) (r
 		createEnvironmentOp(st, cfg.Name(), uuid.String()),
 		{
 			C:      st.stateServers.Name,
-			Id:     "",
+			Id:     environGlobalKey,
 			Insert: &stateServersDoc{},
+		}, {
+			C:      st.stateServers.Name,
+			Id:     apiHostPortsKey,
+			Insert: &apiHostPortsDoc{},
 		},
 	}
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
@@ -250,6 +256,7 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 		relations:      db.C("relations"),
 		relationScopes: db.C("relationscopes"),
 		services:       db.C("services"),
+		networks:       db.C("linkednetworks"),
 		minUnits:       db.C("minunits"),
 		settings:       db.C("settings"),
 		settingsrefs:   db.C("settingsrefs"),
@@ -288,6 +295,12 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 	if err := st.createStateServersDoc(); err != nil {
 		return nil, fmt.Errorf("cannot create state servers document: %v", err)
 	}
+	if err := st.createAPIAddressesDoc(); err != nil {
+		return nil, fmt.Errorf("cannot create API addresses document: %v", err)
+	}
+	if err := st.createStateServingInfoDoc(); err != nil {
+		return nil, fmt.Errorf("cannot create state serving info document: %v", err)
+	}
 	return st, nil
 }
 
@@ -312,7 +325,7 @@ func (st *State) createStateServersDoc() error {
 	// we're concerned about, there is only ever one state connection
 	// (from the single bootstrap machine).
 	var machineDocs []machineDoc
-	err := st.machines.Find(D{{"jobs", JobManageEnviron}}).All(&machineDocs)
+	err := st.machines.Find(bson.D{{"jobs", JobManageEnviron}}).All(&machineDocs)
 	if err != nil {
 		return err
 	}
@@ -330,7 +343,7 @@ func (st *State) createStateServersDoc() error {
 	ops := []txn.Op{{
 		C:  st.stateServers.Name,
 		Id: environGlobalKey,
-		Update: D{{"$set", D{
+		Update: bson.D{{"$set", bson.D{
 			{"machineids", doc.MachineIds},
 			{"votingmachineids", doc.VotingMachineIds},
 		}}},
@@ -341,6 +354,34 @@ func (st *State) createStateServersDoc() error {
 	}}
 
 	return st.runTransaction(ops)
+}
+
+// createAPIAddressesDoc creates the API addresses document
+// if it does not already exist. This is necessary to cope with
+// legacy environments that have not created the document
+// at initialization time.
+func (st *State) createAPIAddressesDoc() error {
+	var doc apiHostPortsDoc
+	ops := []txn.Op{{
+		C:      st.stateServers.Name,
+		Id:     apiHostPortsKey,
+		Assert: txn.DocMissing,
+		Insert: &doc,
+	}}
+	return onAbort(st.runTransaction(ops), nil)
+}
+
+// createStateServingInfoDoc creates the state serving info document
+// if it does not already exist
+func (st *State) createStateServingInfoDoc() error {
+	var info params.StateServingInfo
+	ops := []txn.Op{{
+		C:      st.stateServers.Name,
+		Id:     stateServingInfoKey,
+		Assert: txn.DocMissing,
+		Insert: &info,
+	}}
+	return onAbort(st.runTransaction(ops), nil)
 }
 
 // CACert returns the certificate used to validate the state connection.

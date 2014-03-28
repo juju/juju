@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/sync"
@@ -146,7 +147,7 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) (err error) {
 		return err
 	}
 	if c.UploadTools {
-		series := getUploadSeries(cfg, c.Series)
+		series := bootstrap.SeriesToUpload(cfg, c.Series)
 		if err := context.uploadTools(series); err != nil {
 			return err
 		}
@@ -400,7 +401,7 @@ func (c *UpgradeJujuCommand) run1dot16() error {
 		return err
 	}
 	if c.UploadTools {
-		series := getUploadSeries(cfg, c.Series)
+		series := bootstrap.SeriesToUpload(cfg, c.Series)
 		if err := context.uploadTools1dot16(env.Storage(), series); err != nil {
 			return err
 		}
