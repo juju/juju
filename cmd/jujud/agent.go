@@ -28,6 +28,8 @@ import (
 	"launchpad.net/juju-core/worker/upgrader"
 )
 
+var apiOpen = api.Open
+
 // requiredError is useful when complaining about missing command-line options.
 func requiredError(name string) error {
 	return fmt.Errorf("--%s option must be set", name)
@@ -193,7 +195,7 @@ func openAPIState(
 	// then the worker that's calling this cannot
 	// be interrupted.
 	info := agentConfig.APIInfo()
-	st, err := api.Open(info, api.DialOpts{})
+	st, err := apiOpen(info, api.DialOpts{})
 	usedOldPassword := false
 	if params.IsCodeUnauthorized(err) {
 		// We've perhaps used the wrong password, so
@@ -201,7 +203,7 @@ func openAPIState(
 		info := *info
 		info.Password = agentConfig.OldPassword()
 		usedOldPassword = true
-		st, err = api.Open(&info, api.DialOpts{})
+		st, err = apiOpen(&info, api.DialOpts{})
 	}
 	if err != nil {
 		if params.IsCodeNotProvisioned(err) {

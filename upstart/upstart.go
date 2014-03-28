@@ -15,7 +15,6 @@ import (
 	"text/template"
 	"time"
 
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/utils"
 )
 

@@ -86,6 +86,52 @@ func (*toolSuite) TestIsFatal(c *gc.C) {
 	}
 }
 
+type apiOpenSuite struct {
+	testbase.LoggingSuite
+}
+
+type fakeAPIOpenConfig struct {
+	agent.Config
+}
+
+func (fakeAPIOpenConfig) APIInfo() *api.Info {
+	return &api.Info{}
+}
+
+func (fakeAPIOpenConfig) OldPassword() string {
+	return "old"
+}
+
+var _ = gc.Suite(&apiOpenSuite{})
+
+func (s *apiOpenSuite) TestOpenAPIStateReplaceErrors(c *gc.C) {
+	var apiError error
+	s.PatchValue(&apiOpen, func(info *api.Info, opts api.DialOpts) (*api.State, error) {
+		return nil, apiError
+	})
+	for i, test := range []struct {
+		openErr    error
+		replaceErr error
+	}{{
+		fmt.Errorf("blah"), nil,
+	}, {
+		openErr:    &params.Error{Code: params.CodeNotProvisioned},
+		replaceErr: worker.ErrTerminateAgent,
+	}, {
+		openErr:    &params.Error{Code: params.CodeUnauthorized},
+		replaceErr: worker.ErrTerminateAgent,
+	}} {
+		c.Logf("test %d", i)
+		apiError = test.openErr
+		_, _, err := openAPIState(fakeAPIOpenConfig{}, nil)
+		if test.replaceErr == nil {
+			c.Check(err, gc.Equals, test.openErr)
+		} else {
+			c.Check(err, gc.Equals, test.replaceErr)
+		}
+	}
+}
+
 type testPinger func() error
 
 func (f testPinger) Ping() error {
@@ -308,28 +354,6 @@ type errorAPIOpener struct {
 func (e *errorAPIOpener) OpenAPI(_ api.DialOpts) (*api.State, string, error) {
 	return nil, "", e.err
 }
-
-//func (s *agentSuite) testOpenAPIStateReplaceErrors(c *gc.C) {
-//	for i, test := range []struct {
-//		openErr    error
-//		replaceErr error
-//	}{{
-//		fmt.Errorf("blah"), nil,
-//	}, {
-//		&params.Error{Code: params.CodeNotProvisioned}, worker.ErrTerminateAgent,
-//	}, {
-//		&params.Error{Code: params.CodeUnauthorized}, worker.ErrTerminateAgent,
-//	}} {
-//		c.Logf("test %d", i)
-//		opener := &errorAPIOpener{test.openErr}
-//		_, _, err := openAPIState(opener, nil)
-//		if test.replaceErr == nil {
-//			c.Check(err, gc.Equals, test.openErr)
-//		} else {
-//			c.Check(err, gc.Equals, test.replaceErr)
-//		}
-//	}
-//}
 
 func (s *agentSuite) assertCanOpenState(c *gc.C, tag, dataDir string) {
 	config, err := agent.ReadConfig(agent.ConfigPath(dataDir, tag))
