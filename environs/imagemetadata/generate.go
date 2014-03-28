@@ -73,7 +73,7 @@ func mergeMetadata(seriesVersion string, cloudSpec *simplestreams.CloudSpec, new
 			continue
 		}
 		regions[im.RegionName] = true
-		existingCloudSpec := simplestreams.CloudSpec{im.RegionName, im.Endpoint}
+		existingCloudSpec := simplestreams.CloudSpec{Region: im.RegionName, Endpoint: im.Endpoint}
 		allCloudSpecs = append(allCloudSpecs, existingCloudSpec)
 	}
 	return toWrite, allCloudSpecs

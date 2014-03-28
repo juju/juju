@@ -78,7 +78,7 @@ func (c *AddMachineCommand) Info() *cmd.Info {
 func (c *AddMachineCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.StringVar(&c.Series, "series", "", "the charm series")
-	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "additional machine constraints")
+	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "additional machine constraints")
 }
 
 func (c *AddMachineCommand) Init(args []string) error {

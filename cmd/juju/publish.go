@@ -173,7 +173,6 @@ func (c *PublishCommand) Run(ctx *cmd.Context) (err error) {
 		}
 		return handleEvent(ctx, curl, newEvent)
 	}
-	return nil
 }
 
 func handleEvent(ctx *cmd.Context, curl *charm.URL, event *charm.EventResponse) error {

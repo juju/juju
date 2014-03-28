@@ -28,7 +28,7 @@ func ValidateImageMetadata(params *simplestreams.MetadataLookupParams) ([]string
 		return nil, nil, fmt.Errorf("required parameter sources not specified")
 	}
 	imageConstraint := NewImageConstraint(simplestreams.LookupParams{
-		CloudSpec: simplestreams.CloudSpec{params.Region, params.Endpoint},
+		CloudSpec: simplestreams.CloudSpec{Region: params.Region, Endpoint: params.Endpoint},
 		Series:    []string{params.Series},
 		Arches:    params.Architectures,
 		Stream:    params.Stream,

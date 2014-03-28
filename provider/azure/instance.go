@@ -51,17 +51,23 @@ func (azInstance *azureInstance) Addresses() ([]instance.Address, error) {
 	}
 	if ip != "" {
 		addrs = append(addrs, instance.Address{
-			ip,
-			instance.Ipv4Address,
-			netname,
-			instance.NetworkCloudLocal})
+			Value:        ip,
+			Type:         instance.Ipv4Address,
+			NetworkName:  netname,
+			NetworkScope: instance.NetworkCloudLocal,
+		})
 	}
 
 	name, err := azInstance.DNSName()
 	if err != nil {
 		return nil, err
 	}
-	host := instance.Address{name, instance.HostName, "", instance.NetworkPublic}
+	host := instance.Address{
+		Value:        name,
+		Type:         instance.HostName,
+		NetworkName:  "",
+		NetworkScope: instance.NetworkPublic,
+	}
 	addrs = append(addrs, host)
 	return addrs, nil
 }
