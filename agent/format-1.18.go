@@ -4,6 +4,9 @@
 package agent
 
 import (
+	"net"
+	"strconv"
+
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/version"
@@ -96,6 +99,17 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 			format.APIAddresses,
 			format.APIPassword,
 		}
+	}
+	if config.statePort == 0 && len(format.StateAddresses) > 0 {
+		_, portString, err := net.SplitHostPort(format.StateAddresses[0])
+		if err != nil {
+			return nil, err
+		}
+		statePort, err := strconv.Atoi(portString)
+		if err != nil {
+			return nil, err
+		}
+		config.statePort = statePort
 	}
 	return config, nil
 }

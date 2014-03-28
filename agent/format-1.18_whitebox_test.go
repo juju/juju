@@ -96,6 +96,7 @@ stateaddresses:
 statepassword: NB5imrDaWCCRW/4akSSvUxhX
 apiaddresses:
 - localhost:17070
+stateport: 37017
 apipassword: NB5imrDaWCCRW/4akSSvUxhX
 oldpassword: oBlMbFUGvCb2PMFgYVzjS6GD
 values:
