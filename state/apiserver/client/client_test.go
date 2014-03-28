@@ -2082,3 +2082,36 @@ func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
 	c.Assert(info, gc.Equals, "error")
 	c.Assert(data["transient"], gc.Equals, true)
 }
+
+func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
+	apiHostPorts, err := s.APIState.Client().APIHostPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(apiHostPorts, gc.HasLen, 0)
+
+	server1Addresses := []instance.Address{{
+		Value:        "server-1",
+		Type:         instance.HostName,
+		NetworkScope: instance.NetworkPublic,
+	}, {
+		Value:        "10.0.0.1",
+		Type:         instance.Ipv4Address,
+		NetworkName:  "internal",
+		NetworkScope: instance.NetworkCloudLocal,
+	}}
+	server2Addresses := []instance.Address{{
+		Value:        "::1",
+		Type:         instance.Ipv6Address,
+		NetworkName:  "loopback",
+		NetworkScope: instance.NetworkMachineLocal,
+	}}
+	stateAPIHostPorts := [][]instance.HostPort{
+		instance.AddressesWithPort(server1Addresses, 123),
+		instance.AddressesWithPort(server2Addresses, 456),
+	}
+
+	err = s.State.SetAPIHostPorts(stateAPIHostPorts)
+	c.Assert(err, gc.IsNil)
+	apiHostPorts, err = s.APIState.Client().APIHostPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(apiHostPorts, gc.DeepEquals, stateAPIHostPorts)
+}
