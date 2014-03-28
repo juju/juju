@@ -77,6 +77,8 @@ type Config interface {
 	// Dir returns the agent's directory.
 	Dir() string
 
+	SetPassword(newPassword string)
+
 	// Nonce returns the nonce saved when the machine was provisioned
 	// TODO: make this one of the key/value pairs.
 	Nonce() string
@@ -367,6 +369,7 @@ func ReadConf(configFilePath string) (Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot read agent config %q: %v", configFilePath, err)
 	}
+	logger.Debugf("config:\n-------------\n%s\n-----------------\n", configData)
 
 	// Try to read the legacy format file.
 	dir := filepath.Dir(configFilePath)
@@ -438,6 +441,9 @@ func (c *configInternal) Nonce() string {
 func (c *configInternal) UpgradedToVersion() version.Number {
 	return c.upgradedToVersion
 }
+func (c *configInternal) OldPassword() string {
+	return c.oldPassword
+}
 
 func (c *configInternal) CACert() []byte {
 	// Give the caller their own copy of the cert to avoid any possibility of
@@ -490,15 +496,15 @@ func (c *configInternal) Clone() Config {
 	c2 := *c
 
 	// now overwrite all the pointer, slice, and map stuff inside with deep-copies
-	copy(c2.caCert, c.caCert)
+	c2.caCert = append([]byte{}, c.caCert...)
 	stateDetails := *c.stateDetails
 	c2.stateDetails = &stateDetails
-	copy(c2.stateDetails.addresses, c.stateDetails.addresses)
+	c2.stateDetails.addresses = append([]string{}, c.stateDetails.addresses...)
 	apiDetails := *c.apiDetails
 	c2.apiDetails = &apiDetails
-	copy(c2.apiDetails.addresses, c.apiDetails.addresses)
-	copy(c2.stateServerCert, c.stateServerCert)
-	copy(c2.stateServerKey, c.stateServerKey)
+	c2.apiDetails.addresses = append([]string{}, c.apiDetails.addresses...)
+	c2.stateServerCert = append([]byte{}, c.stateServerCert...)
+	c2.stateServerKey = append([]byte{}, c.stateServerKey...)
 	c2.values = map[string]string{}
 	for key, val := range c.values {
 		c2.values[key] = val
@@ -564,6 +570,15 @@ func (c *configInternal) writeNewPassword() (string, error) {
 	}
 	*c = other
 	return newPassword, nil
+}
+
+func (c *configInternal) SetPassword(newPassword string) {
+	if c.stateDetails != nil {
+		c.stateDetails.password = newPassword
+	}
+	if c.apiDetails != nil {
+		c.apiDetails.password = newPassword
+	}
 }
 
 func (c *configInternal) fileContents() ([]byte, error) {

@@ -142,8 +142,7 @@ func selectPreferredStateServerAddress(addrs []instance.Address) (instance.Addre
 	return newAddrs[0], nil
 }
 
-// byAddressPreference is a slice that orders preferred
-// state server addresses earlier.
+// byAddressPreference sorts addresses, preferring numeric cloud local addresses.
 type byAddressPreference []instance.Address
 
 func (a byAddressPreference) Len() int {

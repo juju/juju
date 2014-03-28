@@ -80,7 +80,7 @@ func DefaultDialOpts() DialOpts {
 //
 // Open returns unauthorizedError if access is unauthorized.
 func Open(info *Info, opts DialOpts, policy Policy) (*State, error) {
-	logger.Infof("opening state; mongo addresses: %q; entity %q", info.Addrs, info.Tag)
+	logger.Infof("opening state, mongo addresses: %q; entity %q", info.Addrs, info.Tag)
 	di, err := DialInfo(info, opts)
 	if err != nil {
 		return nil, err
@@ -103,7 +103,7 @@ func Open(info *Info, opts DialOpts, policy Policy) (*State, error) {
 }
 
 // DialInfo returns information on how to dial
-// the state;'s mongo server with the given info
+// the state's mongo server with the given info
 // and dial options.
 func DialInfo(info *Info, opts DialOpts) (*mgo.DialInfo, error) {
 	if len(info.Addrs) == 0 {
