@@ -21,6 +21,10 @@ type EnvironCapability interface {
 	// SupportedArchitectures returns the image architectures which can
 	// be hosted by this environment.
 	SupportedArchitectures() ([]string, error)
+
+	// SupportNetworks returns whether the environment has support to
+	// specify networks for services and machines.
+	SupportNetworks() bool
 }
 
 // A EnvironProvider represents a computing and storage provider.

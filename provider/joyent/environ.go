@@ -74,6 +74,11 @@ func (e *environ) SupportedArchitectures() ([]string, error) {
 	return e.supportedArchitectures, err
 }
 
+// SupportNetworks is specified on the EnvironCapability interface.
+func (e *environ) SupportNetworks() bool {
+	return false
+}
+
 func (env *environ) SetConfig(cfg *config.Config) error {
 	env.lock.Lock()
 	defer env.lock.Unlock()

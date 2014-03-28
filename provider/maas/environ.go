@@ -153,6 +153,68 @@ func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
 	return env.supportedArchitectures, err
 }
 
+// SupportedArchitectures is specified on the EnvironCapability interface.
+func (env *maasEnviron) SupportNetworks() bool {
+	caps, err := env.getCapabilities()
+	if err != nil {
+		logger.Debugf(err.Error())
+		return false
+	}
+	for _, item := range caps {
+		if item == capNetworksManagement {
+			return true
+		}
+	}
+	return false
+}
+
+const capNetworksManagement = "networks-management"
+
+// getCapabilities asks the MAAS server for its capabilities, if
+// supported by the server.
+func (env *maasEnviron) getCapabilities() ([]string, error) {
+	var result gomaasapi.JSONObject
+	var err error
+
+	for a := shortAttempt.Start(); a.Next(); {
+		client := env.getMAASClient().GetSubObject("version/")
+		result, err = client.CallGet("", nil)
+		if err != nil {
+			err0, ok := err.(*gomaasapi.ServerError)
+			if ok && err0.StatusCode == 404 {
+				return nil, fmt.Errorf("MAAS does not support version info")
+			} else {
+				return nil, err
+			}
+			continue
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+	info, err := result.GetMap()
+	if err != nil {
+		return nil, err
+	}
+	capsObj, ok := info["capabilities"]
+	if !ok {
+		return nil, fmt.Errorf("MAAS does not report capabilities")
+	}
+	items, err := capsObj.GetArray()
+	if err != nil {
+		return nil, err
+	}
+	caps := make([]string, len(items))
+	for i, item := range items {
+		val, err := item.GetString()
+		if err != nil {
+			return nil, err
+		}
+		caps[i] = val
+	}
+	return caps, nil
+}
+
 // getMAASClient returns a MAAS client object to use for a request, in a
 // lock-protected fashion.
 func (env *maasEnviron) getMAASClient() *gomaasapi.MAASObject {

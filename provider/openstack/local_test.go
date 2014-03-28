@@ -594,6 +594,11 @@ func (s *localServerSuite) TestSupportedArchitectures(c *gc.C) {
 	c.Assert(a, gc.DeepEquals, []string{"amd64", "ppc64"})
 }
 
+func (s *localServerSuite) TestSupportNetworks(c *gc.C) {
+	env := s.Open(c)
+	c.Assert(env.SupportNetworks(), jc.IsFalse)
+}
+
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 	// Prevent falling over to the public datasource.
 	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
