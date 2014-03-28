@@ -55,9 +55,7 @@ import (
 
 var logger = loggo.GetLogger("juju.cmd.jujud")
 
-var newRunner = func(isFatal func(error) bool, moreImportant func(e0, e1 error) bool) worker.Runner {
-	return worker.NewRunner(isFatal, moreImportant)
-}
+var newRunner = worker.NewRunner
 
 const bootstrapMachineId = "0"
 
@@ -349,8 +347,8 @@ func (a *MachineAgent) updateSupportedContainers(
 
 // StateJobs returns a worker running all the workers that require
 // a *state.State connection.
-<<<<<<< TREE
-func (a *MachineAgent) StateWorker(agentConfig agent.Config) (worker.Worker, error) {
+func (a *MachineAgent) StateWorker() (worker.Worker, error) {
+	agentConfig := a.CurrentConfig()
 	info := &state.Info{
 		Addrs:    agentConfig.StateInfo().Addrs,
 		CACert:   agentConfig.CACert(),
@@ -362,7 +360,6 @@ func (a *MachineAgent) StateWorker(agentConfig agent.Config) (worker.Worker, err
 	if err != nil {
 		return nil, err
 	}
-
 	err = ensureMongoServer(mongo.EnsureMongoParams{
 		HostPort: info.Addrs[0],
 		DataDir:  a.Conf.dataDir,
@@ -375,12 +372,6 @@ func (a *MachineAgent) StateWorker(agentConfig agent.Config) (worker.Worker, err
 	}
 
 	st, entity, err := openState(agentConfig, a)
-=======
-func (a *MachineAgent) StateWorker() (worker.Worker, error) {
-	agentConfig := a.CurrentConfig()
-
-	st, m, err := openState(agentConfig)
->>>>>>> MERGE-SOURCE
 	if err != nil {
 		return nil, err
 	}
@@ -621,28 +612,11 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 	if err := os.Remove(jujuRun); err != nil && !os.IsNotExist(err) {
 		errors = append(errors, err)
 	}
-<<<<<<< TREE
 
 	if err := mongo.RemoveService(); err != nil {
 		errors = append(errors, err)
-=======
-	// The machine agent may terminate without knowing its jobs,
-	// for example if the machine's entry in state was removed.
-	// Thus, we do not rely on jobs here, and instead just check
-	// if the upstart config exists.
-	mongoServiceName := agentConfig.Value(agent.MongoServiceName)
-	if mongoServiceName != "" {
-		if err := upstart.NewService(mongoServiceName).StopAndRemove(); err != nil {
-			errors = append(errors, fmt.Errorf("cannot stop/remove service %q: %v", mongoServiceName, err))
-		}
->>>>>>> MERGE-SOURCE
 	}
-<<<<<<< TREE
-
-	if err := os.RemoveAll(a.Conf.dataDir); err != nil {
-=======
 	if err := os.RemoveAll(agentConfig.DataDir()); err != nil {
->>>>>>> MERGE-SOURCE
 		errors = append(errors, err)
 	}
 	if len(errors) == 0 {
