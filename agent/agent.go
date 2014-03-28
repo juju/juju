@@ -70,13 +70,8 @@ type Config interface {
 	// will be made.
 	Tag() string
 
-	// Password returns the agent's password.
-	Password() string
-
 	// Dir returns the agent's directory.
 	Dir() string
-
-	SetPassword(newPassword string)
 
 	// Nonce returns the nonce saved when the machine was provisioned
 	// TODO: make this one of the key/value pairs.
@@ -299,7 +294,7 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 
 // NewStateMachineConfig returns a configuration suitable for
 // a machine running the state server.
-func NewStateMachineConfig(configParams AgentConfigParams) (Config, error) {
+func NewStateMachineConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) {
 	if configParams.StateServerCert == nil {
 		return nil, errgo.Trace(requiredError("state server cert"))
 	}
@@ -493,9 +488,6 @@ func (c *configInternal) Nonce() string {
 func (c *configInternal) UpgradedToVersion() version.Number {
 	return c.upgradedToVersion
 }
-func (c *configInternal) OldPassword() string {
-	return c.oldPassword
-}
 
 func (c *configInternal) CACert() []byte {
 	// Give the caller their own copy of the cert to avoid any possibility of
@@ -533,27 +525,6 @@ func (c *configInternal) Dir() string {
 
 func (c *configInternal) StateManager() bool {
 	return c.caCert != nil
-}
-
-func (c *configInternal) Clone() Config {
-	// copy the value
-	c2 := *c
-
-	// now overwrite all the pointer, slice, and map stuff inside with deep-copies
-	c2.caCert = append([]byte{}, c.caCert...)
-	stateDetails := *c.stateDetails
-	c2.stateDetails = &stateDetails
-	c2.stateDetails.addresses = append([]string{}, c.stateDetails.addresses...)
-	apiDetails := *c.apiDetails
-	c2.apiDetails = &apiDetails
-	c2.apiDetails.addresses = append([]string{}, c.apiDetails.addresses...)
-	c2.stateServerCert = append([]byte{}, c.stateServerCert...)
-	c2.stateServerKey = append([]byte{}, c.stateServerKey...)
-	c2.values = map[string]string{}
-	for key, val := range c.values {
-		c2.values[key] = val
-	}
-	return &c2
 }
 
 func (c *configInternal) check() error {
@@ -624,6 +595,5 @@ func (c *configInternal) StateInfo() *state.Info {
 		Password: c.stateDetails.password,
 		CACert:   c.caCert,
 		Tag:      c.tag,
-		Port: ???really
 	}
 }
