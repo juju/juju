@@ -150,23 +150,24 @@ func (s *NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 	c.Assert(called, gc.Equals, 1)
 
 	// api.Open stores the address from api.Info,
-	// which will be returned by its Addr() method.
-	// Since we can only create the zero value, the
-	// addr will be ""; since it differs from what
-	// is in storeConfig.Addresses, the cache will
-	// be updated.
+	// which will be recorded by Login to be returned
+	// by its HostPorts() method.
+	//
+	// Since we can only create the zero value, and
+	// don't ever really call Login, HostPorts will
+	// return an empy slice. Since that differs from
+	// what is in storeConfig.Addresses, the cache will
+	// be updated (to an empty slice).
+	//
+	// We can't check that the cache *isn't* updated
+	// when there's no change in the same way, as once
+	// the addresses are nil, NewAPIFromStore will not
+	// connect.
 	c.Assert(mockStore.written, jc.IsTrue)
 	info, err := store.ReadInfo("noconfig")
 	c.Assert(err, gc.IsNil)
-	c.Assert(info.APIEndpoint().Addresses, gc.DeepEquals, []string{""})
-
-	// Now try again, and the cache should not be updated.
+	c.Assert(info.APIEndpoint().Addresses, gc.HasLen, 0)
 	mockStore.written = false
-	st, err = juju.NewAPIFromStore("noconfig", mockStore)
-	c.Assert(err, gc.IsNil)
-	c.Assert(st, gc.Equals, expectState)
-	c.Assert(called, gc.Equals, 2)
-	c.Assert(mockStore.written, jc.IsFalse)
 }
 
 func (s *NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {

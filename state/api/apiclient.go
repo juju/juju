@@ -11,6 +11,7 @@ import (
 	"code.google.com/p/go.net/websocket"
 
 	"launchpad.net/juju-core/cert"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/rpc/jsoncodec"
@@ -29,10 +30,9 @@ type State struct {
 	// addr is the address used to connect to the API server.
 	addr string
 
-	// addrs is the API server addresses returned from Login,
-	// which the client may cache and use for failover. This
-	// will be empty if the API server is older than 1.18.0.
-	addrs []string
+	// hostPorts is the API server addresses returned from Login,
+	// which the client may cache and use for failover.
+	hostPorts [][]instance.HostPort
 
 	// authTag holds the authenticated entity's tag after login.
 	authTag string
@@ -201,19 +201,14 @@ func (s *State) Addr() string {
 	return s.addr
 }
 
-// Addr returns addresses that may be used to connect to
+// HostPorts returns addresses that may be used to connect to
 // the API server, including the address used to connect.
-func (s *State) Addrs() []string {
-	addrs := append([]string{}, s.addrs...)
-	var found bool
-	for _, addr := range addrs {
-		if addr == s.addr {
-			found = true
-			break
-		}
-	}
-	if !found {
-		addrs = append(addrs, s.addr)
-	}
-	return addrs
+//
+// The addresses are scoped (public, cloud-internal, etc.), so
+// the client may choose which addresses to attempt. For the
+// Juju CLI, all addresses must be attempted, as the CLI may
+// be invoked both within and outside the environment (think
+// private clouds).
+func (s *State) HostPorts() [][]instance.HostPort {
+	return append([][]instance.HostPort{}, s.hostPorts...)
 }

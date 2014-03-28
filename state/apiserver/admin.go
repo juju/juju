@@ -84,16 +84,15 @@ func (a *srvAdmin) Login(c params.Creds) (params.LoginResult, error) {
 		return params.LoginResult{}, err
 	}
 
-	// Fetch the API server addresses from
-	// state; failure here is non-fatal.
+	// Fetch the API server addresses from state.
 	hostPorts, err := a.root.srv.state.APIHostPorts()
 	if err != nil {
-		logger.Warningf("error fetching api server host/port addresses from state: %v", err)
-		hostPorts = nil
+		return params.LoginResult{}, err
 	}
 	logger.Debugf("hostPorts: %v", hostPorts)
+
 	a.root.rpcConn.Serve(newRoot, serverError)
-	return params.LoginResult{params.APIHostPortsResult{hostPorts}}, nil
+	return params.LoginResult{hostPorts}, nil
 }
 
 func checkCreds(st *state.State, c params.Creds) (taggedAuthenticator, error) {

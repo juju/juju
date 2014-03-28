@@ -4,6 +4,9 @@
 package apiserver_test
 
 import (
+	"net"
+	"strconv"
+
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
@@ -176,11 +179,26 @@ func (s *loginSuite) TestLoginAddrs(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = machine.SetPassword(password)
 	c.Assert(err, gc.IsNil)
+	info, cleanup := s.setupServer(c)
+	defer cleanup()
+	info.Tag = machine.Tag()
+	info.Password = password
+	info.Nonce = "fake_nonce"
 
 	// Initially just the address we connect with is returned,
 	// despite there being no APIHostPorts in state.
-	connectedAddr, addrs := s.loginServerAddrs(c, machine.Tag(), password)
-	c.Assert(addrs, gc.DeepEquals, []string{connectedAddr})
+	connectedAddr, hostPorts := s.loginHostPorts(c, info)
+	connectedAddrHost, connectedAddrPortString, err := net.SplitHostPort(connectedAddr)
+	c.Assert(err, gc.IsNil)
+	connectedAddrPort, err := strconv.Atoi(connectedAddrPortString)
+	c.Assert(err, gc.IsNil)
+	connectedAddrHostPorts := [][]instance.HostPort{
+		[]instance.HostPort{{
+			instance.NewAddress(connectedAddrHost),
+			connectedAddrPort,
+		}},
+	}
+	c.Assert(hostPorts, gc.DeepEquals, connectedAddrHostPorts)
 
 	// After storing APIHostPorts in state, Login should store
 	// all of them and the address we connected with.
@@ -206,18 +224,14 @@ func (s *loginSuite) TestLoginAddrs(c *gc.C) {
 	}
 	err = s.State.SetAPIHostPorts(stateAPIHostPorts)
 	c.Assert(err, gc.IsNil)
-	connectedAddr, addrs = s.loginServerAddrs(c, machine.Tag(), password)
-	c.Assert(addrs, jc.SameContents, []string{"server-1:123", "10.0.0.1:123", "[::1]:456", connectedAddr})
+	connectedAddr, hostPorts = s.loginHostPorts(c, info)
+	stateAPIHostPorts = append(stateAPIHostPorts, connectedAddrHostPorts...)
+	c.Assert(hostPorts, gc.DeepEquals, stateAPIHostPorts)
 }
 
-func (s *loginSuite) loginServerAddrs(c *gc.C, tag, password string) (connectedAddr string, addrs []string) {
-	info, cleanup := s.setupServer(c)
-	defer cleanup()
-	info.Tag = tag
-	info.Password = password
-	info.Nonce = "fake_nonce"
+func (s *loginSuite) loginHostPorts(c *gc.C, info *api.Info) (connectedAddr string, hostPorts [][]instance.HostPort) {
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
-	return st.Addr(), st.Addrs()
+	return st.Addr(), st.HostPorts()
 }

@@ -6,7 +6,6 @@ package juju
 import (
 	"fmt"
 	"io"
-	"sort"
 	"time"
 
 	"github.com/juju/loggo"
@@ -199,7 +198,7 @@ func newAPIFromStore(envName string, store configstore.Storage) (*api.State, err
 		// as warnings, because they're not fatal.
 		err = cacheAPIInfo(info, val.cachedInfo)
 		if err != nil {
-			logger.Warningf(err.Error())
+			logger.Warningf("cannot cache API connection settings: %v", err.Error())
 		} else {
 			logger.Infof("updated API connection settings cache")
 		}
@@ -247,9 +246,15 @@ func apiInfoConnect(store configstore.Storage, info configstore.EnvironInfo, sto
 	if err != nil {
 		return apiState{}, &infoConnectError{err}
 	}
+	var addrs []string
+	for _, serverHostPorts := range st.HostPorts() {
+		for _, hostPort := range serverHostPorts {
+			addrs = append(addrs, hostPort.NetAddr())
+		}
+	}
 	// Update API addresses if they've changed. Error is non-fatal.
-	if err := cacheChangedAPIAddresses(info, st.Addrs()); err != nil {
-		logger.Warningf(err.Error())
+	if err := cacheChangedAPIAddresses(info, addrs); err != nil {
+		logger.Warningf("cannot cache API addresses: %v", err.Error())
 	}
 	return apiState{st, nil}, err
 }
@@ -317,16 +322,13 @@ func cacheAPIInfo(info configstore.EnvironInfo, apiInfo *api.Info) error {
 	})
 	_, username, err := names.ParseTag(apiInfo.Tag, names.UserTagKind)
 	if err != nil {
-		return fmt.Errorf("not caching API connection settings: invalid API user tag: %v", err)
+		return fmt.Errorf("invalid API user tag: %v", err)
 	}
 	info.SetAPICredentials(configstore.APICredentials{
 		User:     username,
 		Password: apiInfo.Password,
 	})
-	if err := info.Write(); err != nil {
-		return fmt.Errorf("cannot cache API connection settings: %v", err)
-	}
-	return nil
+	return info.Write()
 }
 
 // cacheChangedAPIAddresses updates the local environment settings (.jenv file)
@@ -340,21 +342,18 @@ func cacheChangedAPIAddresses(info configstore.EnvironInfo, addrs []string) erro
 	endpoint.Addresses = addrs
 	info.SetAPIEndpoint(endpoint)
 	if err := info.Write(); err != nil {
-		return fmt.Errorf("cannot cache API connection settings: %v", err)
-	} else {
-		logger.Infof("updated API connection settings cache")
+		return err
 	}
+	logger.Infof("updated API connection settings cache")
 	return nil
 }
 
+// addrsChanged returns true iff the two
+// slices are not equal. Order is important.
 func addrsChanged(a, b []string) bool {
 	if len(a) != len(b) {
 		return true
 	}
-	a = append([]string{}, a...)
-	b = append([]string{}, b...)
-	sort.Strings(a)
-	sort.Strings(b)
 	for i := range a {
 		if a[i] != b[i] {
 			return true

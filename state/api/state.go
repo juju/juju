@@ -4,6 +4,10 @@
 package api
 
 import (
+	"net"
+	"strconv"
+
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/agent"
 	"launchpad.net/juju-core/state/api/charmrevisionupdater"
 	"launchpad.net/juju-core/state/api/deployer"
@@ -32,17 +36,42 @@ func (st *State) Login(tag, password, nonce string) error {
 	}, &result)
 	if err == nil {
 		st.authTag = tag
-		// The client must attempt *all* addresses, or else
-		// it is necessary to assert that the client is either
-		// or external or internal to the environment.
-		st.addrs = nil
-		for _, server := range result.Servers {
-			for _, hp := range server {
-				st.addrs = append(st.addrs, hp.NetAddr())
-			}
+		st.hostPorts = result.Servers
+		if err := st.addAddrHostPort(); err != nil {
+			st.Close()
+			return err
 		}
 	}
 	return err
+}
+
+// Add the connecting host to st.hostPorts if it isn't already there.
+func (st *State) addAddrHostPort() error {
+	for _, server := range st.hostPorts {
+		for _, hostPort := range server {
+			if hostPort.NetAddr() == st.addr {
+				return nil
+			}
+		}
+	}
+	host, portString, err := net.SplitHostPort(st.addr)
+	if err != nil {
+		return err
+	}
+	port, err := strconv.Atoi(portString)
+	if err != nil {
+		return err
+	}
+	hostPort := instance.HostPort{
+		Address: instance.Address{
+			Value:        host,
+			Type:         instance.DeriveAddressType(host),
+			NetworkScope: instance.NetworkUnknown,
+		},
+		Port: port,
+	}
+	st.hostPorts = append(st.hostPorts, []instance.HostPort{hostPort})
+	return nil
 }
 
 // Client returns an object that can be used

@@ -642,5 +642,5 @@ type APIHostPortsResult struct {
 
 // LoginResult holds the result of a Login call.
 type LoginResult struct {
-	APIHostPortsResult
+	Servers [][]instance.HostPort
 }
