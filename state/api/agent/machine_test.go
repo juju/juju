@@ -23,17 +23,10 @@ func TestAll(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
 }
 
-type machineSuite struct {
-	testing.JujuConnSuite
-	machine *state.Machine
-	st      *api.State
-}
-
 type servingInfoSuite struct {
 	testing.JujuConnSuite
 }
 
-var _ = gc.Suite(&machineSuite{})
 var _ = gc.Suite(&servingInfoSuite{})
 
 func (s *servingInfoSuite) TestStateServingInfo(c *gc.C) {
@@ -58,6 +51,14 @@ func (s *servingInfoSuite) TestStateServingInfoPermission(c *gc.C) {
 	_, err := st.Agent().StateServingInfo()
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
+
+type machineSuite struct {
+	testing.JujuConnSuite
+	machine *state.Machine
+	st      *api.State
+}
+
+var _ = gc.Suite(&machineSuite{})
 
 func (s *machineSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
