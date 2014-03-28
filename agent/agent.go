@@ -384,6 +384,7 @@ func (c0 *configInternal) Clone() Config {
 	// by ConfigSetter methods.
 	c1.stateDetails = c0.stateDetails.clone()
 	c1.apiDetails = c0.apiDetails.clone()
+	c1.jobs = append([]params.MachineJob{}, c0.jobs...)
 	c1.values = make(map[string]string, len(c0.values))
 	for key, val := range c0.values {
 		c1.values[key] = val
