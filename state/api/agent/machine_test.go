@@ -33,7 +33,7 @@ var _ = gc.Suite(&machineSuite{})
 
 func (s *machineSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.st, s.machine = s.OpenAPIAsNewMachine(c)
+	s.st, s.machine = s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
 }
 
 func (s *machineSuite) TestStateServingInfo(c *gc.C) {
