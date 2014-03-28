@@ -157,7 +157,7 @@ func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
 func (env *maasEnviron) SupportNetworks() bool {
 	caps, err := env.getCapabilities()
 	if err != nil {
-		logger.Debugf(err.Error())
+		logger.Debugf("getCapabilities failed: %v", err)
 		return false
 	}
 	for _, item := range caps {
