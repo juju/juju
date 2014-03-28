@@ -25,6 +25,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/multiwatcher"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
@@ -907,7 +908,7 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 // AddService creates a new service, running the supplied charm, with the
 // supplied name (which must be unique). If the charm defines peer relations,
 // they will be created automatically.
-func (st *State) AddService(name, ownerTag string, ch *Charm) (service *Service, err error) {
+func (st *State) AddService(name, ownerTag string, ch *Charm, includeNetworks, excludeNetworks []string) (service *Service, err error) {
 	defer utils.ErrorContextf(&err, "cannot add service %q", name)
 	kind, ownerId, err := names.ParseTag(ownerTag, names.UserTagKind)
 	if err != nil || kind != names.UserTagKind {
@@ -951,7 +952,7 @@ func (st *State) AddService(name, ownerTag string, ch *Charm) (service *Service,
 	ops := []txn.Op{
 		env.assertAliveOp(),
 		createConstraintsOp(st, svc.globalKey(), constraints.Value{}),
-		createNetworksOp(st, svc.globalKey(), []string{}, []string{}),
+		createNetworksOp(st, svc.globalKey(), includeNetworks, excludeNetworks),
 		createSettingsOp(st, svc.settingsKey(), nil),
 		{
 			C:      st.users.Name,
@@ -1383,7 +1384,7 @@ type StateServerInfo struct {
 	VotingMachineIds []string
 }
 
-// StateServerInfo returns returns information about
+// StateServerInfo returns information about
 // the currently configured state server machines.
 func (st *State) StateServerInfo() (*StateServerInfo, error) {
 	var doc stateServersDoc
@@ -1395,6 +1396,31 @@ func (st *State) StateServerInfo() (*StateServerInfo, error) {
 		MachineIds:       doc.MachineIds,
 		VotingMachineIds: doc.VotingMachineIds,
 	}, nil
+}
+
+const stateServingInfoKey = "stateServingInfo"
+
+// StateServingInfo returns information for running a state server machine
+func (st *State) StateServingInfo() (params.StateServingInfo, error) {
+	var info params.StateServingInfo
+	err := st.stateServers.Find(bson.D{{"_id", stateServingInfoKey}}).One(&info)
+	if err != nil {
+		return info, err
+	}
+	return info, nil
+}
+
+// SetStateServingInfo stores information needed for running a state server
+func (st *State) SetStateServingInfo(info params.StateServingInfo) error {
+	ops := []txn.Op{{
+		C:      st.stateServers.Name,
+		Id:     stateServingInfoKey,
+		Update: bson.D{{"$set", info}},
+	}}
+	if err := st.runTransaction(ops); err != nil {
+		return fmt.Errorf("cannot set state serving info: %v", err)
+	}
+	return nil
 }
 
 // ResumeTransactions resumes all pending transactions.

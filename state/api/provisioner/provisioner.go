@@ -6,6 +6,7 @@ package provisioner
 import (
 	"fmt"
 
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/base"
 	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
@@ -69,6 +70,19 @@ func (st *State) WatchEnvironMachines() (watcher.StringsWatcher, error) {
 	return w, nil
 }
 
+func (st *State) WatchMachineErrorRetry() (watcher.NotifyWatcher, error) {
+	var result params.NotifyWatchResult
+	err := st.call("WatchMachineErrorRetry", nil, &result)
+	if err != nil {
+		return nil, err
+	}
+	if err := result.Error; err != nil {
+		return nil, result.Error
+	}
+	w := watcher.NewNotifyWatcher(st.caller, result)
+	return w, nil
+}
+
 // StateAddresses returns the list of addresses used to connect to the state.
 func (st *State) StateAddresses() ([]string, error) {
 	var result params.StringsResult
@@ -106,4 +120,26 @@ func (st *State) Tools(tag string) (*tools.Tools, error) {
 func (st *State) ContainerConfig() (result params.ContainerConfig, err error) {
 	err = st.call("ContainerConfig", nil, &result)
 	return result, err
+}
+
+// MachinesWithTransientErrors returns a slice of machines and corresponding status information
+// for those machines which have transient provisioning errors.
+func (st *State) MachinesWithTransientErrors() ([]*Machine, []params.StatusResult, error) {
+	var results params.StatusResults
+	err := st.call("MachinesWithTransientErrors", nil, &results)
+	if err != nil {
+		return nil, nil, err
+	}
+	machines := make([]*Machine, len(results.Results))
+	for i, status := range results.Results {
+		if status.Error != nil {
+			continue
+		}
+		machines[i] = &Machine{
+			tag:  names.MachineTag(status.Id),
+			life: status.Life,
+			st:   st,
+		}
+	}
+	return machines, results.Results, nil
 }

@@ -404,6 +404,13 @@ func parseDescr(s string) []descr {
 	return descrs
 }
 
+func assertMembers(c *gc.C, obtained interface{}, expected []replicaset.Member) {
+	c.Assert(obtained, gc.FitsTypeOf, []replicaset.Member{})
+	sort.Sort(membersById(obtained.([]replicaset.Member)))
+	sort.Sort(membersById(expected))
+	c.Assert(obtained, jc.DeepEquals, expected)
+}
+
 type membersById []replicaset.Member
 
 func (l membersById) Len() int           { return len(l) }

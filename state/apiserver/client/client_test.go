@@ -44,7 +44,7 @@ func (s *clientSuite) TestClientStatus(c *gc.C) {
 	s.setUpScenario(c)
 	status, err := s.APIState.Client().Status(nil)
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.DeepEquals, scenarioStatus)
+	c.Assert(status, jc.DeepEquals, scenarioStatus)
 }
 
 func (s *clientSuite) TestCompatibleSettingsParsing(c *gc.C) {
@@ -680,6 +680,50 @@ func (s *clientSuite) TestClientServiceDeployCharmErrors(c *gc.C) {
 	}
 }
 
+func (s *clientSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
+	store, restore := makeMockCharmStore()
+	defer restore()
+	curl, bundle := addCharm(c, store, "dummy")
+	mem4g := constraints.MustParse("mem=4G")
+	err := s.APIState.Client().ServiceDeployWithNetworks(
+		curl.String(), "service", 3, "", mem4g, "", []string{"net1", "net2"}, []string{"net3"},
+	)
+	c.Assert(err, gc.IsNil)
+	service := s.assertPrincipalDeployed(c, "service", curl, false, bundle, mem4g)
+
+	include, exclude, err := service.Networks()
+	c.Assert(err, gc.IsNil)
+	c.Assert(include, gc.DeepEquals, []string{"net1", "net2"})
+	c.Assert(exclude, gc.DeepEquals, []string{"net3"})
+}
+
+func (s *clientSuite) assertPrincipalDeployed(c *gc.C, serviceName string, curl *charm.URL, forced bool, bundle charm.Charm, cons constraints.Value) *state.Service {
+	service, err := s.State.Service(serviceName)
+	c.Assert(err, gc.IsNil)
+	charm, force, err := service.Charm()
+	c.Assert(err, gc.IsNil)
+	c.Assert(force, gc.Equals, forced)
+	c.Assert(charm.URL(), gc.DeepEquals, curl)
+	c.Assert(charm.Meta(), gc.DeepEquals, bundle.Meta())
+	c.Assert(charm.Config(), gc.DeepEquals, bundle.Config())
+
+	serviceCons, err := service.Constraints()
+	c.Assert(err, gc.IsNil)
+	c.Assert(serviceCons, gc.DeepEquals, cons)
+	units, err := service.AllUnits()
+	c.Assert(err, gc.IsNil)
+	for _, unit := range units {
+		mid, err := unit.AssignedMachineId()
+		c.Assert(err, gc.IsNil)
+		machine, err := s.State.Machine(mid)
+		c.Assert(err, gc.IsNil)
+		machineCons, err := machine.Constraints()
+		c.Assert(err, gc.IsNil)
+		c.Assert(machineCons, gc.DeepEquals, cons)
+	}
+	return service
+}
+
 func (s *clientSuite) TestClientServiceDeployPrincipal(c *gc.C) {
 	// TODO(fwereade): test ToMachineSpec directly on srvClient, when we
 	// manage to extract it as a package and can thus do it conveniently.
@@ -691,29 +735,7 @@ func (s *clientSuite) TestClientServiceDeployPrincipal(c *gc.C) {
 		curl.String(), "service", 3, "", mem4g, "",
 	)
 	c.Assert(err, gc.IsNil)
-	service, err := s.State.Service("service")
-	c.Assert(err, gc.IsNil)
-	charm, force, err := service.Charm()
-	c.Assert(err, gc.IsNil)
-	c.Assert(force, gc.Equals, false)
-	c.Assert(charm.URL(), gc.DeepEquals, curl)
-	c.Assert(charm.Meta(), gc.DeepEquals, bundle.Meta())
-	c.Assert(charm.Config(), gc.DeepEquals, bundle.Config())
-
-	cons, err := service.Constraints()
-	c.Assert(err, gc.IsNil)
-	c.Assert(cons, gc.DeepEquals, mem4g)
-	units, err := service.AllUnits()
-	c.Assert(err, gc.IsNil)
-	for _, unit := range units {
-		mid, err := unit.AssignedMachineId()
-		c.Assert(err, gc.IsNil)
-		machine, err := s.State.Machine(mid)
-		c.Assert(err, gc.IsNil)
-		cons, err := machine.Constraints()
-		c.Assert(err, gc.IsNil)
-		c.Assert(cons, gc.DeepEquals, mem4g)
-	}
+	s.assertPrincipalDeployed(c, "service", curl, false, bundle, mem4g)
 }
 
 func (s *clientSuite) TestClientServiceDeploySubordinate(c *gc.C) {
@@ -1542,6 +1564,47 @@ func (s *clientSuite) TestClientEnvironmentSetCannotChangeAgentVersion(c *gc.C) 
 	c.Assert(err, gc.IsNil)
 }
 
+func (s *clientSuite) TestClientEnvironmentUnset(c *gc.C) {
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{"abc": 123}, nil, nil)
+	c.Assert(err, gc.IsNil)
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	_, found := envConfig.AllAttrs()["abc"]
+	c.Assert(found, jc.IsTrue)
+
+	err = s.APIState.Client().EnvironmentUnset("abc")
+	c.Assert(err, gc.IsNil)
+	envConfig, err = s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	_, found = envConfig.AllAttrs()["abc"]
+	c.Assert(found, jc.IsFalse)
+}
+
+func (s *clientSuite) TestClientEnvironmentUnsetMissing(c *gc.C) {
+	// It's okay to unset a non-existent attribute.
+	err := s.APIState.Client().EnvironmentUnset("not_there")
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *clientSuite) TestClientEnvironmentUnsetError(c *gc.C) {
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{"abc": 123}, nil, nil)
+	c.Assert(err, gc.IsNil)
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	_, found := envConfig.AllAttrs()["abc"]
+	c.Assert(found, jc.IsTrue)
+
+	// "type" may not be removed, and this will cause an error.
+	// If any one attribute's removal causes an error, there
+	// should be no change.
+	err = s.APIState.Client().EnvironmentUnset("abc", "type")
+	c.Assert(err, gc.ErrorMatches, "type: expected string, got nothing")
+	envConfig, err = s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	_, found = envConfig.AllAttrs()["abc"]
+	c.Assert(found, jc.IsTrue)
+}
+
 func (s *clientSuite) TestClientFindTools(c *gc.C) {
 	result, err := s.APIState.Client().FindTools(2, -1, "", "")
 	c.Assert(err, gc.IsNil)
@@ -2003,4 +2066,19 @@ func (s *clientSuite) assertUploaded(c *gc.C, storage envstorage.Storage, bundle
 
 func getArchiveName(bundleURL *url.URL) string {
 	return strings.TrimPrefix(bundleURL.RequestURI(), "/dummyenv/private/")
+}
+
+func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetStatus(params.StatusError, "error", nil)
+	c.Assert(err, gc.IsNil)
+	_, err = s.APIState.Client().RetryProvisioning(machine.Tag())
+	c.Assert(err, gc.IsNil)
+
+	status, info, data, err := machine.Status()
+	c.Assert(err, gc.IsNil)
+	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(info, gc.Equals, "error")
+	c.Assert(data["transient"], gc.Equals, true)
 }
