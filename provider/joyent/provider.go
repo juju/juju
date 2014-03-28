@@ -63,20 +63,11 @@ func (joyentProvider) Validate(cfg, old *config.Config) (valid *config.Config, e
 	// You should almost certainly not change this method; if you need to change
 	// how configs are validated, you should edit validateConfig itself, to ensure
 	// that your checks are always applied.
-	newEcfg, err := validateConfig(cfg, nil)
+	newEcfg, err := validateConfig(cfg, old)
 	if err != nil {
 		return nil, fmt.Errorf("invalid Joyent provider config: %v", err)
 	}
-	if old != nil {
-		oldEcfg, err := validateConfig(old, nil)
-		if err != nil {
-			return nil, fmt.Errorf("original Joyent provider config is invalid: %v", err)
-		}
-		if newEcfg, err = validateConfig(cfg, oldEcfg); err != nil {
-			return nil, fmt.Errorf("invalid Joyent provider config change: %v", err)
-		}
-	}
-	return newEcfg.Config, nil
+	return cfg.Apply(newEcfg.attrs)
 }
 
 func (joyentProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
@@ -143,10 +134,9 @@ func (p joyentProvider) MetadataLookupParams(region string) (*simplestreams.Meta
 }
 
 func (p joyentProvider) newConfig(cfg *config.Config) (*environConfig, error) {
-	/*valid, err := p.Validate(cfg, nil)
+	valid, err := p.Validate(cfg, nil)
 	if err != nil {
 		return nil, err
 	}
-	return &environConfig{valid, valid.UnknownAttrs()}, nil*/
-	return validateConfig(cfg, nil)
+	return &environConfig{valid, valid.UnknownAttrs()}, nil
 }

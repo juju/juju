@@ -18,6 +18,7 @@ import (
 )
 
 var Provider environs.EnvironProvider = GetProviderInstance()
+var EnvironmentVariables = environmentVariables
 
 var indexData = `
 		{

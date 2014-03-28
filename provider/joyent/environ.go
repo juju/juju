@@ -4,6 +4,7 @@
 package joyent
 
 import (
+	"errors"
 	"sync"
 
 	"github.com/joyent/gosign/auth"
@@ -45,11 +46,13 @@ var _ environs.Environ = (*JoyentEnviron)(nil)
 
 func NewEnviron(cfg *config.Config) (*JoyentEnviron, error) {
 	env := new(JoyentEnviron)
-	err := env.SetConfig(cfg)
-	if err != nil {
+	if err := env.SetConfig(cfg); err != nil {
 		return nil, err
 	}
 	env.name = cfg.Name()
+	if err := env.setCredentials(); err != nil {
+		return nil, err
+	}
 	env.storage = NewStorage(env, "")
 	env.compute = NewCompute(env)
 	return env, nil
@@ -140,16 +143,19 @@ func (env *JoyentEnviron) Credentials() *auth.Credentials {
 	return env.getSnapshot().creds
 }
 
-func getCredentials(env *JoyentEnviron) *auth.Credentials {
+func (env *JoyentEnviron) setCredentials() error {
+	if env.ecfg.privateKey() == "" {
+		return errors.New("cannt set credentials without a private key")
+	}
 	authentication := auth.Auth{User: env.ecfg.mantaUser(), PrivateKey: env.ecfg.privateKey(), Algorithm: env.ecfg.algorithm()}
-
-	return &auth.Credentials{
+	env.creds = &auth.Credentials{
 		UserAuthentication: authentication,
 		MantaKeyId:         env.ecfg.mantaKeyId(),
 		MantaEndpoint:      auth.Endpoint{URL: env.ecfg.mantaUrl()},
 		SdcKeyId:           env.ecfg.sdcKeyId(),
 		SdcEndpoint:        auth.Endpoint{URL: env.ecfg.sdcUrl()},
 	}
+	return nil
 }
 
 // MetadataLookupParams returns parameters which are used to query simplestreams metadata.

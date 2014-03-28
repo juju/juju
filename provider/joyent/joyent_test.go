@@ -7,17 +7,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs/config"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	jp "launchpad.net/juju-core/provider/joyent"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
-	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 )
 
 const (
@@ -53,12 +49,8 @@ C+4FYwKBgQDE9yZTUpJjG2424z6bl/MHzwl5RB4pMronp0BbeVqPwhCBfj0W5I42
 	testKeyFingerprint = "66:ca:1c:09:75:99:35:69:be:91:08:25:03:c0:17:c0"
 )
 
-func TestJoyentProvider(t *stdtesting.T) {
-	gc.TestingT(t)
-}
-
 type providerSuite struct {
-	testbase.LoggingSuite
+	coretesting.FakeHomeSuite
 	envtesting.ToolsFixture
 	restoreTimeouts func()
 }
@@ -67,18 +59,19 @@ var _ = gc.Suite(&providerSuite{})
 
 func (s *providerSuite) SetUpSuite(c *gc.C) {
 	s.restoreTimeouts = envtesting.PatchAttemptStrategies()
-	s.LoggingSuite.SetUpSuite(c)
+	s.FakeHomeSuite.SetUpSuite(c)
 	s.AddSuiteCleanup(CreateTestKey(c))
 }
 
 func (s *providerSuite) TearDownSuite(c *gc.C) {
 	s.restoreTimeouts()
-	s.LoggingSuite.TearDownSuite(c)
+	s.FakeHomeSuite.TearDownSuite(c)
 }
 
 func (s *providerSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.FakeHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
+	s.AddCleanup(CreateTestKey(c))
 }
 
 func (s *providerSuite) TearDownTest(c *gc.C) {
@@ -100,22 +93,7 @@ func GetFakeConfig(sdcUrl, mantaUrl string) coretesting.Attrs {
 		"algorithm":     "rsa-sha256",
 		"control-dir":   "juju-test",
 		"agent-version": version.Current.Number.String(),
-		"private-key":   "private",
 	})
-}
-
-// makeEnviron creates a functional Joyent environ for a test.
-func MakeEnviron(sdcUrl, mantaUrl string) *jp.JoyentEnviron {
-	attrs := GetFakeConfig(sdcUrl, mantaUrl)
-	cfg, err := config.New(config.NoDefaults, attrs)
-	if err != nil {
-		panic(err)
-	}
-	env, err := jp.NewEnviron(cfg)
-	if err != nil {
-		panic(err)
-	}
-	return env
 }
 
 func CreateTestKey(c *gc.C) func(*gc.C) {
@@ -124,9 +102,7 @@ func CreateTestKey(c *gc.C) func(*gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = ioutil.WriteFile(keyFilePath, []byte(testPrivateKey), 400)
 	c.Assert(err, gc.IsNil)
-	fmt.Println("aaaaaaaaaaaaaaaaaaaaaa")
-	fmt.Println(keyFilePath)
-	return func (c *gc.C) {
+	return func(c *gc.C) {
 		os.Remove(keyFilePath)
 	}
 }

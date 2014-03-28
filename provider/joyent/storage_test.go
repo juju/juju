@@ -15,8 +15,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/configstore"
 	coreerrors "launchpad.net/juju-core/errors"
 	jp "launchpad.net/juju-core/provider/joyent"
+	"launchpad.net/juju-core/testing"
 )
 
 type storageSuite struct {
@@ -42,9 +46,19 @@ func (s *storageSuite) TearDownSuite(c *gc.C) {
 	s.providerSuite.TearDownSuite(c)
 }
 
+// makeEnviron creates a functional Joyent environ for a test.
+func makeEnviron(c *gc.C, sdcUrl, mantaUrl string) *jp.JoyentEnviron {
+	attrs := GetFakeConfig(sdcUrl, mantaUrl)
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+	env, err := environs.Prepare(cfg, testing.Context(c), configstore.NewMem())
+	c.Assert(err, gc.IsNil)
+	return env.(*jp.JoyentEnviron)
+}
+
 // s.makeStorage creates a Manta storage object for the running test.
 func (s *storageSuite) assertStorage(name string, c *gc.C) *jp.JoyentStorage {
-	env := MakeEnviron("localhost", s.localMantaServer.Server.URL)
+	env := makeEnviron(c, "localhost", s.localMantaServer.Server.URL)
 	env.SetName(name)
 	storage := jp.NewStorage(env, "").(*jp.JoyentStorage)
 	c.Assert(storage, gc.NotNil)
