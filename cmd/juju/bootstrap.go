@@ -63,7 +63,6 @@ type BootstrapCommand struct {
 	UploadTools    bool
 	Series         []string
 	MetadataSource string
-	DestroyOnError bool
 }
 
 func (c *BootstrapCommand) Info() *cmd.Info {
