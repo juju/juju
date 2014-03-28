@@ -491,7 +491,7 @@ func (a *MachineAgent) upgradeWorker(apiState *api.State, jobs []params.MachineJ
 	})
 }
 
-//  p runs the upgrade operations for each job type and updates the updatedToVersion on success.
+// runUpgrades runs the upgrade operations for each job type and updates the updatedToVersion on success.
 func (a *MachineAgent) runUpgrades(st *state.State, apiState *api.State, jobs []params.MachineJob) error {
 	agentConfig := a.CurrentConfig()
 	from := version.Current
