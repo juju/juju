@@ -19,7 +19,8 @@ const addUserDoc = `
 Add users to an existing environment
 The user information is stored within an existing environment, and will be lost
 when the environent is destroyed.
-An example jenv file will be output to allow you to use the environment as that user.
+A jenv file identifying the user and the environment will be written to stdout,
+or to a path you specify with --output.
 
 Examples:
   juju add-user foobar mypass      (Add user foobar with password mypass)
@@ -31,8 +32,8 @@ type AddUserCommand struct {
 	envcmd.EnvCommandBase
 	User             string
 	Password         string
+	GeneratePassword bool
 	out              cmd.Output
-	generatePassword bool
 }
 
 func (c *AddUserCommand) Info() *cmd.Info {
@@ -59,7 +60,7 @@ func (c *AddUserCommand) Init(args []string) error {
 	case 0:
 		return fmt.Errorf("no username supplied")
 	case 1:
-		c.generatePassword = true
+		c.GeneratePassword = true
 	case 2:
 		c.Password = args[1]
 	default:
@@ -84,7 +85,7 @@ func (c *AddUserCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	if c.generatePassword {
+	if c.GeneratePassword {
 		c.Password, err = utils.RandomPassword()
 		if err != nil {
 			return fmt.Errorf("Failed to generate password: %v", err)

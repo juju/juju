@@ -3,7 +3,6 @@
 
 package info
 
-// TODO add json tags
 type EnvironInfo struct {
 	User         string
 	Password     string

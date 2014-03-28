@@ -42,30 +42,36 @@ func (s *AddUserSuite) TestNotEnoughArgs(c *gc.C) {
 }
 
 func (s *AddUserSuite) TestJenvYamlFileOutput(c *gc.C) {
-	expected := `user: foobar
-password: password
-state-servers: []
-ca-cert: ""
-`
+	expected := map[string]interface{}{
+		"user":          "foobar",
+		"password":      "password",
+		"state-servers": []interface{}{},
+		"ca-cert":       ""}
 	tempFile, err := ioutil.TempFile("", "adduser-test")
 	tempFile.Close()
 	c.Assert(err, gc.IsNil)
 	_, err = testing.RunCommand(c, &AddUserCommand{}, []string{"foobar", "password", "-o", tempFile.Name()})
 	c.Assert(err, gc.IsNil)
 	data, err := ioutil.ReadFile(tempFile.Name())
-	c.Assert(string(data), gc.DeepEquals, expected)
+	result := map[string]interface{}{}
+	err = goyaml.Unmarshal(data, &result)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, expected)
 }
 
 func (s *AddUserSuite) TestJenvYamlOutput(c *gc.C) {
-	expected := `user: foobar
-password: password
-state-servers: []
-ca-cert: ""
-`
+	expected := map[string]interface{}{
+		"user":          "foobar",
+		"password":      "password",
+		"state-servers": []interface{}{},
+		"ca-cert":       ""}
 	ctx, err := testing.RunCommand(c, &AddUserCommand{}, []string{"foobar", "password"})
 	c.Assert(err, gc.IsNil)
-	stdout := ctx.Stdout.(*bytes.Buffer).String()
-	c.Assert(stdout, gc.DeepEquals, expected)
+	stdout := ctx.Stdout.(*bytes.Buffer).Bytes()
+	result := map[string]interface{}{}
+	err = goyaml.Unmarshal(stdout, &result)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, expected)
 }
 
 func (s *AddUserSuite) TestJenvJsonOutput(c *gc.C) {
