@@ -666,3 +666,12 @@ func (c *Client) UploadTools(
 	}
 	return jsonResponse.Tools, nil
 }
+
+// APIHostPorts returns a slice of instance.HostPort for each API server.
+func (c *Client) APIHostPorts() ([][]instance.HostPort, error) {
+	var result params.APIHostPortsResult
+	if err := c.call("APIHostPorts", nil, &result); err != nil {
+		return nil, err
+	}
+	return result.Servers, nil
+}
