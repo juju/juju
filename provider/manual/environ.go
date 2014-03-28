@@ -15,6 +15,7 @@ import (
 	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -232,7 +233,7 @@ func (e *manualEnviron) Destroy() error {
 	script := `
 set -x
 pkill -%d jujud && exit
-stop juju-db
+stop %s
 rm -f /etc/init/juju*
 rm -f /etc/rsyslog.d/*juju*
 rm -fr %s %s
@@ -241,6 +242,7 @@ exit 0
 	script = fmt.Sprintf(
 		script,
 		terminationworker.TerminationSignal,
+		mongo.ServiceName(""),
 		utils.ShQuote(agent.DefaultDataDir),
 		utils.ShQuote(agent.DefaultLogDir),
 	)

@@ -107,9 +107,7 @@ func (s *migrateLocalProviderAgentConfigSuite) assertConfigProcessed(c *gc.C) {
 	c.Assert(agentConfig.Value("SHARED_STORAGE_DIR"), gc.Equals, "")
 	c.Assert(agentConfig.Value(agent.Namespace), gc.Equals, namespace)
 	agentService := "juju-agent-user-dummyenv"
-	mongoService := "juju-db-user-dummyenv"
 	c.Assert(agentConfig.Value(agent.AgentServiceName), gc.Equals, agentService)
-	c.Assert(agentConfig.Value(agent.MongoServiceName), gc.Equals, mongoService)
 	c.Assert(agentConfig.Value(agent.ContainerType), gc.Equals, "")
 }
 
@@ -141,7 +139,6 @@ func (s *migrateLocalProviderAgentConfigSuite) assertConfigNotProcessed(c *gc.C)
 	c.Assert(agentConfig.Value("SHARED_STORAGE_DIR"), gc.Equals, expectedSharedStorageDir)
 	c.Assert(agentConfig.Value(agent.Namespace), gc.Equals, "")
 	c.Assert(agentConfig.Value(agent.AgentServiceName), gc.Equals, "")
-	c.Assert(agentConfig.Value(agent.MongoServiceName), gc.Equals, "")
 	c.Assert(agentConfig.Value(agent.ContainerType), gc.Equals, "")
 }
 func (s *migrateLocalProviderAgentConfigSuite) TestMigrateStateServer(c *gc.C) {

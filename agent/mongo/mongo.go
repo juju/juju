@@ -65,18 +65,26 @@ func MongodPath() (string, error) {
 	return path, nil
 }
 
+func RemoveService(namespace string) error {
+	// by passing current version as the actual version +1, we also remove the
+	// current version
+	return removeOldMongoServices(mongoScriptVersion+1, namespace)
+}
+
+func ServiceName(namespace string) string {
+	return makeServiceName(mongoScriptVersion, namespace)
+}
+
 // EnsureMongoServer ensures that the correct mongo upstart script is installed
 // and running.
 //
 // This method will remove old versions of the mongo upstart script as necessary
 // before installing the new version.
-func EnsureMongoServer(dir string, port int) error {
-	// NOTE: ensure that the right package is installed?
-	name := makeServiceName(mongoScriptVersion)
+func EnsureMongoServer(dir string, port int, namespace string) error {
 	// TODO: get the series from somewhere, non trusty values return
 	// the existing default path.
 	mongodPath := MongodPathForSeries("some-series")
-	service, err := MongoUpstartService(name, mongodPath, dir, port)
+	service, err := MongoUpstartService(namespace, mongodPath, dir, port)
 	if err != nil {
 		return err
 	}
@@ -84,7 +92,7 @@ func EnsureMongoServer(dir string, port int) error {
 		return nil
 	}
 
-	if err := removeOldMongoServices(mongoScriptVersion); err != nil {
+	if err := removeOldMongoServices(mongoScriptVersion, namespace); err != nil {
 		return err
 	}
 
@@ -129,16 +137,24 @@ func makeJournalDirs(dir string) error {
 
 // removeOldMongoServices looks for any old juju mongo upstart scripts and
 // removes them.
-func removeOldMongoServices(curVersion int) error {
+func removeOldMongoServices(curVersion int, namespace string) error {
 	old := upstart.NewService(oldMongoServiceName)
 	if err := old.StopAndRemove(); err != nil {
 		logger.Errorf("Failed to remove old mongo upstart service %q: %v", old.Name, err)
 		return err
 	}
 
-	// the new formatting for the script name started at version 2
-	for x := 2; x < curVersion; x++ {
-		old := upstart.NewService(makeServiceName(x))
+	if namespace != "" {
+		// this is the format of the old local provider mongo service name
+		old := upstart.NewService(fmt.Sprintf("%s-%s", oldMongoServiceName, namespace))
+		if err := old.StopAndRemove(); err != nil {
+			logger.Errorf("Failed to remove old mongo upstart service %q: %v", old.Name, err)
+			return err
+		}
+	}
+
+	for x := 1; x < curVersion; x++ {
+		old := upstart.NewService(makeServiceName(x, namespace))
 		if err := old.StopAndRemove(); err != nil {
 			logger.Errorf("Failed to remove old mongo upstart service %q: %v", old.Name, err)
 			return err
@@ -147,8 +163,12 @@ func removeOldMongoServices(curVersion int) error {
 	return nil
 }
 
-func makeServiceName(version int) string {
-	return fmt.Sprintf("juju-db-v%d", version)
+func makeServiceName(version int, namespace string) string {
+	name := fmt.Sprintf("juju-db-v%d", version)
+	if namespace != "" {
+		name = fmt.Sprintf("%s-%s", name, namespace)
+	}
+	return name
 }
 
 // mongoScriptVersion keeps track of changes to the mongo upstart script.
@@ -159,7 +179,9 @@ const mongoScriptVersion = 2
 // MongoUpstartService returns the upstart config for the mongo state service.
 //
 // This method assumes there is a server.pem keyfile in dataDir.
-func MongoUpstartService(name, mongodExec, dataDir string, port int) (*upstart.Conf, error) {
+func MongoUpstartService(namespace, mongodExec, dataDir string, port int) (*upstart.Conf, error) {
+	// NOTE: ensure that the right package is installed?
+	name := ServiceName(namespace)
 
 	keyFile := path.Join(dataDir, "server.pem")
 	svc := upstart.NewService(name)

@@ -70,24 +70,31 @@ func (s *MongoSuite) TestDefaultMongodPath(c *gc.C) {
 func (s *MongoSuite) TestRemoveOldMongoServices(c *gc.C) {
 	s.PatchValue(&oldMongoServiceName, "someNameThatShouldntExist")
 
+	namespace := "user-local"
+
 	// Make fake old services.
 	// We defer the removes manually just in case the test fails, we don't leave
 	// junk behind.
 	conf := makeService(oldMongoServiceName, c)
 	defer conf.Remove()
-	conf2 := makeService(makeServiceName(2), c)
+	conf2 := makeService(makeServiceName(2, namespace), c)
 	defer conf2.Remove()
-	conf3 := makeService(makeServiceName(3), c)
+	conf3 := makeService(makeServiceName(3, namespace), c)
 	defer conf3.Remove()
 
-	// Remove with current version = 4, which should remove all previous
-	// versions plus the old service name.
-	err := removeOldMongoServices(4)
-	c.Assert(err, gc.IsNil)
+	// old local provider name
+	conf4 := makeService(oldMongoServiceName+"-"+namespace, c)
+	defer conf4.Remove()
 
-	c.Assert(conf.Installed(), jc.IsFalse)
-	c.Assert(conf2.Installed(), jc.IsFalse)
-	c.Assert(conf3.Installed(), jc.IsFalse)
+	// Remove with current version = 5, which should remove all previous
+	// versions plus the old service name.
+	err := removeOldMongoServices(5, namespace)
+	c.Check(err, gc.IsNil)
+
+	c.Check(conf.Installed(), jc.IsFalse)
+	c.Check(conf2.Installed(), jc.IsFalse)
+	c.Check(conf3.Installed(), jc.IsFalse)
+	c.Check(conf4.Installed(), jc.IsFalse)
 }
 
 func (s *MongoSuite) TestMakeJournalDirs(c *gc.C) {
@@ -124,10 +131,10 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 	oldsvc := makeService(oldMongoServiceName, c)
 	defer oldsvc.Remove()
 
-	err := EnsureMongoServer(dir, port)
+	err := EnsureMongoServer(dir, port, "")
 	c.Assert(err, gc.IsNil)
 	mongodPath := MongodPathForSeries("some-series")
-	svc, err := MongoUpstartService(makeServiceName(mongoScriptVersion), mongodPath, dir, port)
+	svc, err := MongoUpstartService("", mongodPath, dir, port)
 	c.Assert(err, gc.IsNil)
 	defer svc.Remove()
 
@@ -136,9 +143,16 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 	c.Check(svc.Installed(), jc.IsTrue)
 
 	// now check we can call it multiple times without error
-	err = EnsureMongoServer(dir, port)
+	err = EnsureMongoServer(dir, port, "")
 	c.Assert(err, gc.IsNil)
 
+}
+
+func (s *MongoSuite) TestMakeServiceName(c *gc.C) {
+	name := makeServiceName(1, "foo")
+	c.Assert(name, gc.Equals, "juju-db-v1-foo")
+	name = makeServiceName(2, "")
+	c.Assert(name, gc.Equals, "juju-db-v2")
 }
 
 func makeService(name string, c *gc.C) *upstart.Conf {

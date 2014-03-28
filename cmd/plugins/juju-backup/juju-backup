@@ -43,15 +43,15 @@ remote_cmd() {
 
 	#---------------------------------------------------------------------
 	next_step 'Backing up mongo database'
-	execute 'Stopping mongo' stop juju-db
-	trap "start juju-db" 0		# ensure it starts again on failure
+	execute 'Stopping mongo' stop juju-db-v2
+	trap "start juju-db-v2" 0		# ensure it starts again on failure
 	execute 'Backing up mongo' mongodump --dbpath $LIBJUJU/db
 	execute 'Backing up environ config' mongoexport \
 		--dbpath $LIBJUJU/db \
 		--db juju \
 		--collection settings \
 		--out environconfig.json
-	execute 'Starting mongo' start juju-db
+	execute 'Starting mongo' start juju-db-v2
 	trap - 0
 
 	next_step 'Copying Juju configuration'
@@ -68,7 +68,7 @@ remote_cmd() {
 	#   - /etc/rsyslog.d/*juju* config files for the agents (ignore any unit agents)
 	#  - Juju logs for machine 0 and all machines.
 	execute 'Archiving selected files' copy_files \
-		/etc/init/juju-db.conf \
+		/etc/init/juju-db-v2.conf \
 		/etc/init/jujud-machine-*.conf \
 		$LIBJUJU/agents/machine-* \
 		$LIBJUJU/tools \
