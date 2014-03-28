@@ -389,10 +389,16 @@ func (s *Store) Counters(req *CounterRequest) ([]Counter, error) {
 	}
 	var query, tquery bson.D
 	if !req.Start.IsZero() {
-		tquery = append(tquery, bson.DocElem{Name: "$gte", Value: timeToStamp(req.Start)})
+		tquery = append(tquery, bson.DocElem{
+			Name:  "$gte",
+			Value: timeToStamp(req.Start),
+		})
 	}
 	if !req.Stop.IsZero() {
-		tquery = append(tquery, bson.DocElem{Name: "$lte", Value: timeToStamp(req.Stop)})
+		tquery = append(tquery, bson.DocElem{
+			Name:  "$lte",
+			Value: timeToStamp(req.Stop),
+		})
 	}
 	if len(tquery) == 0 {
 		query = bson.D{{"k", bson.D{{"$regex", regex}}}}
