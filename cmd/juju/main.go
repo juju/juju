@@ -125,6 +125,10 @@ func Main(args []string) {
 	// Manage authorised ssh keys.
 	jujucmd.Register(wrap(NewAuthorisedKeysCommand()))
 
+	// Manage state server availability.
+	// TODO: enable once the backend is ready for it.
+	//jujucmd.Register(wrap(&EnsureHACommand{}))
+
 	// Common commands.
 	jujucmd.Register(wrap(&cmd.VersionCommand{}))
 

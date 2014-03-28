@@ -632,3 +632,19 @@ type StatusParams struct {
 type SetRsyslogCertParams struct {
 	CACert []byte
 }
+
+// EnsureAvailability contains arguments for
+// the EnsureAvailability client API call.
+type EnsureAvailability struct {
+	NumStateServers int
+	Constraints     constraints.Value
+	// Series is the series to associate with new state server machines.
+	// If this is empty, then the environment's default series is used.
+	Series string
+}
+
+// EnsureAvailability contains the results
+// of the EnsureAvailability client API call.
+type EnsureAvailabilityResult struct {
+	Error *Error
+}
