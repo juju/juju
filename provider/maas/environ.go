@@ -28,6 +28,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/set"
 )
 
 const (
@@ -153,28 +154,23 @@ func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
 	return env.supportedArchitectures, err
 }
 
-// SupportedArchitectures is specified on the EnvironCapability interface.
+// SupportNetworks is specified on the EnvironCapability interface.
 func (env *maasEnviron) SupportNetworks() bool {
 	caps, err := env.getCapabilities()
 	if err != nil {
 		logger.Debugf("getCapabilities failed: %v", err)
 		return false
 	}
-	for _, item := range caps {
-		if item == capNetworksManagement {
-			return true
-		}
-	}
-	return false
+	return caps.Contains(capNetworksManagement)
 }
 
 const capNetworksManagement = "networks-management"
 
 // getCapabilities asks the MAAS server for its capabilities, if
 // supported by the server.
-func (env *maasEnviron) getCapabilities() ([]string, error) {
+func (env *maasEnviron) getCapabilities() (caps set.Strings, err error) {
 	var result gomaasapi.JSONObject
-	var err error
+	caps = set.NewStrings()
 
 	for a := shortAttempt.Start(); a.Next(); {
 		client := env.getMAASClient().GetSubObject("version/")
@@ -182,35 +178,34 @@ func (env *maasEnviron) getCapabilities() ([]string, error) {
 		if err != nil {
 			err0, ok := err.(*gomaasapi.ServerError)
 			if ok && err0.StatusCode == 404 {
-				return nil, fmt.Errorf("MAAS does not support version info")
+				return caps, fmt.Errorf("MAAS does not support version info")
 			} else {
-				return nil, err
+				return caps, err
 			}
 			continue
 		}
 	}
 	if err != nil {
-		return nil, err
+		return caps, err
 	}
 	info, err := result.GetMap()
 	if err != nil {
-		return nil, err
+		return caps, err
 	}
 	capsObj, ok := info["capabilities"]
 	if !ok {
-		return nil, fmt.Errorf("MAAS does not report capabilities")
+		return caps, fmt.Errorf("MAAS does not report capabilities")
 	}
 	items, err := capsObj.GetArray()
 	if err != nil {
-		return nil, err
+		return caps, err
 	}
-	caps := make([]string, len(items))
-	for i, item := range items {
+	for _, item := range items {
 		val, err := item.GetString()
 		if err != nil {
-			return nil, err
+			return set.NewStrings(), err
 		}
-		caps[i] = val
+		caps.Add(val)
 	}
 	return caps, nil
 }
