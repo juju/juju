@@ -306,14 +306,14 @@ func (w *Watcher) handle(req interface{}) {
 }
 
 type beingInfo struct {
-	Seq int64  `_id:"omitempty"`
-	Key string `key:"omitempty"`
+	Seq int64  "_id,omitempty"
+	Key string "key,omitempty"
 }
 
 type pingInfo struct {
-	Slot  int64            `_id:"Slot"`
-	Alive map[string]int64 `alive:"omitempty"`
-	Dead  map[string]int64 `dead:"omitempty"`
+	Slot  int64            "_id"
+	Alive map[string]int64 ",omitempty"
+	Dead  map[string]int64 ",omitempty"
 }
 
 func (w *Watcher) findAllBeings() (map[int64]beingInfo, error) {
@@ -611,10 +611,10 @@ func (p *Pinger) ping() error {
 // the local clock and the database clock.
 func clockDelta(c *mgo.Collection) (time.Duration, error) {
 	var server struct {
-		time.Time `time:"retval"`
+		time.Time "retval"
 	}
 	var isMaster struct {
-		LocalTime time.Time `time:"localTime"`
+		LocalTime time.Time "localTime"
 	}
 	var after time.Time
 	var before time.Time
