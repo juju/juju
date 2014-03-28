@@ -46,7 +46,6 @@ func (s *servingInfoSuite) TestStateServingInfo(c *gc.C) {
 		APIPort:      33,
 		StatePort:    44,
 	}
-
 	s.State.SetStateServingInfo(expected)
 	info, err := st.Agent().StateServingInfo()
 	c.Assert(err, gc.IsNil)
