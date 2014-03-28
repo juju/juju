@@ -112,6 +112,14 @@ func (s *machineSuite) TestEntitySetPassword(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsUnauthorizedError)
 }
 
+func (s *machineSuite) TestMongoMasterHostPort(c *gc.C) {
+}
+
+func (s *machineSuite) TestMongoMasterHostPortPermission(c *gc.C) {
+	_, err := s.st.Agent().MongoMasterHostPort()
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
 func tryOpenState(info *state.Info) error {
 	st, err := state.Open(info, state.DialOpts{}, environs.NewStatePolicy())
 	if err == nil {

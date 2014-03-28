@@ -46,6 +46,12 @@ func (st *State) StateServingInfo() (params.StateServingInfo, error) {
 	return results, err
 }
 
+func (st *State) MongoMasterHostPort() (string, error) {
+	var results string
+	err := st.caller.Call("Agent", "", "MongoMasterHostPort", nil, &results)
+	return results, err
+}
+
 type Entity struct {
 	st  *State
 	tag string

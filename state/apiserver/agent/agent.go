@@ -6,6 +6,7 @@
 package agent
 
 import (
+	"launchpad.net/juju-core/replicaset"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -79,6 +80,16 @@ func (api *API) StateServingInfo() (result params.StateServingInfo, err error) {
 		return
 	}
 	return api.st.StateServingInfo()
+}
+
+// MongoMasterHostPort returns a string host:port for the primary
+// mongo server in the replicaset.
+func (api *API) MongoMasterHostPort() (string, error) {
+	if !api.auth.AuthEnvironManager() {
+		return "", common.ErrPerm
+	}
+	session := api.st.MongoSession()
+	return replicaset.MasterHostPort(session)
 }
 
 func stateJobsToAPIParamsJobs(jobs []state.MachineJob) []params.MachineJob {
