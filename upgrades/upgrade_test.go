@@ -79,7 +79,7 @@ func (u *mockUpgradeStep) Run(context upgrades.Context) error {
 type mockContext struct {
 	messages        []string
 	agentConfig     *mockAgentConfig
-	realAgentConfig agent.Config
+	realAgentConfig agent.ConfigSetter
 	apiState        *api.State
 	state           *state.State
 }
@@ -92,7 +92,7 @@ func (c *mockContext) State() *state.State {
 	return c.state
 }
 
-func (c *mockContext) AgentConfig() agent.Config {
+func (c *mockContext) AgentConfig() agent.ConfigSetter {
 	if c.realAgentConfig != nil {
 		return c.realAgentConfig
 	}
@@ -100,7 +100,7 @@ func (c *mockContext) AgentConfig() agent.Config {
 }
 
 type mockAgentConfig struct {
-	agent.Config
+	agent.ConfigSetter
 	dataDir      string
 	logDir       string
 	tag          string

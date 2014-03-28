@@ -907,7 +907,7 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 // AddService creates a new service, running the supplied charm, with the
 // supplied name (which must be unique). If the charm defines peer relations,
 // they will be created automatically.
-func (st *State) AddService(name, ownerTag string, ch *Charm) (service *Service, err error) {
+func (st *State) AddService(name, ownerTag string, ch *Charm, includeNetworks, excludeNetworks []string) (service *Service, err error) {
 	defer utils.ErrorContextf(&err, "cannot add service %q", name)
 	kind, ownerId, err := names.ParseTag(ownerTag, names.UserTagKind)
 	if err != nil || kind != names.UserTagKind {
@@ -951,7 +951,7 @@ func (st *State) AddService(name, ownerTag string, ch *Charm) (service *Service,
 	ops := []txn.Op{
 		env.assertAliveOp(),
 		createConstraintsOp(st, svc.globalKey(), constraints.Value{}),
-		createNetworksOp(st, svc.globalKey(), []string{}, []string{}),
+		createNetworksOp(st, svc.globalKey(), includeNetworks, excludeNetworks),
 		createSettingsOp(st, svc.settingsKey(), nil),
 		{
 			C:      st.users.Name,

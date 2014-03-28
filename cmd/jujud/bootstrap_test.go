@@ -92,7 +92,7 @@ func testPasswordHash() string {
 	return utils.UserPasswordHash(testPassword, utils.CompatSalt)
 }
 
-func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob, args ...string) (machineConf agent.Config, cmd *BootstrapCommand, err error) {
+func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob, args ...string) (machineConf agent.ConfigSetterWriter, cmd *BootstrapCommand, err error) {
 	if len(jobs) == 0 {
 		// Add default jobs.
 		jobs = []params.MachineJob{
@@ -280,10 +280,10 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	// Check that the machine configuration has been given a new
 	// password and that we can connect to mongo as that machine
 	// and that the in-mongo password also verifies correctly.
-	machineConf1, err := agent.ReadConf(agent.ConfigPath(machineConf.DataDir(), "machine-0"))
+	machineConf1, err := agent.ReadConfig(agent.ConfigPath(machineConf.DataDir(), "machine-0"))
 	c.Assert(err, gc.IsNil)
 
-	st, err = machineConf1.OpenState(environs.NewStatePolicy())
+	st, err = state.Open(machineConf1.StateInfo(), state.DialOpts{}, environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 }

@@ -26,6 +26,13 @@ type Client struct {
 	st *State
 }
 
+// NetworksSpecification holds the enabled and disabled networks for a
+// service.
+type NetworksSpecification struct {
+	Enabled  []string
+	Disabled []string
+}
+
 func (c *Client) call(method string, params, result interface{}) error {
 	return c.st.Call("Client", "", method, params, result)
 }
@@ -53,6 +60,7 @@ type ServiceStatus struct {
 	Exposed       bool
 	Life          string
 	Relations     map[string][]string
+	Networks      NetworksSpecification
 	CanUpgradeTo  string
 	SubordinateTo []string
 	Units         map[string]UnitStatus
@@ -136,6 +144,19 @@ func (c *Client) Resolved(unit string, retry bool) error {
 		Retry:    retry,
 	}
 	return c.call("Resolved", p, nil)
+}
+
+// RetryProvisioning updates the provisioning status of a machine allowing the
+// provisioner to retry.
+func (c *Client) RetryProvisioning(machines ...string) ([]params.ErrorResult, error) {
+	p := params.Entities{}
+	p.Entities = make([]params.Entity, len(machines))
+	for i, machine := range machines {
+		p.Entities[i] = params.Entity{Tag: machine}
+	}
+	var results params.ErrorResults
+	err := c.st.Call("Client", "", "RetryProvisioning", p, &results)
+	return results.Results, err
 }
 
 // PublicAddress returns the public address of the specified
@@ -242,12 +263,29 @@ func (c *Client) ServiceUnexpose(service string) error {
 	return c.call("ServiceUnexpose", params, nil)
 }
 
+// ServiceDeployWithNetworks works exactly like ServiceDeploy, but
+// allows specifying networks to either include or exclude on the
+// machine where the charm is deployed.
+func (c *Client) ServiceDeployWithNetworks(charmURL string, serviceName string, numUnits int, configYAML string, cons constraints.Value, toMachineSpec string, includeNetworks, excludeNetworks []string) error {
+	params := params.ServiceDeploy{
+		ServiceName:     serviceName,
+		CharmUrl:        charmURL,
+		NumUnits:        numUnits,
+		ConfigYAML:      configYAML,
+		Constraints:     cons,
+		ToMachineSpec:   toMachineSpec,
+		IncludeNetworks: includeNetworks,
+		ExcludeNetworks: excludeNetworks,
+	}
+	return c.st.Call("Client", "", "ServiceDeployWithNetworks", params, nil)
+}
+
 // ServiceDeploy obtains the charm, either locally or from the charm store,
 // and deploys it.
-func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int, configYAML string, cons constraints.Value, toMachineSpec string) error {
+func (c *Client) ServiceDeploy(charmURL string, serviceName string, numUnits int, configYAML string, cons constraints.Value, toMachineSpec string) error {
 	params := params.ServiceDeploy{
 		ServiceName:   serviceName,
-		CharmUrl:      charmUrl,
+		CharmUrl:      charmURL,
 		NumUnits:      numUnits,
 		ConfigYAML:    configYAML,
 		Constraints:   cons,
@@ -425,6 +463,12 @@ func (c *Client) EnvironmentGet() (map[string]interface{}, error) {
 func (c *Client) EnvironmentSet(config map[string]interface{}) error {
 	args := params.EnvironmentSet{Config: config}
 	return c.call("EnvironmentSet", args, nil)
+}
+
+// EnvironmentUnset sets the given key-value pairs in the environment.
+func (c *Client) EnvironmentUnset(keys ...string) error {
+	args := params.EnvironmentUnset{Keys: keys}
+	return c.call("EnvironmentUnset", args, nil)
 }
 
 // SetEnvironAgentVersion sets the environment agent-version setting
