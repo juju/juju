@@ -29,17 +29,31 @@ type machineSuite struct {
 	st      *api.State
 }
 
+type servingInfoSuite struct {
+	testing.JujuConnSuite
+}
+
 var _ = gc.Suite(&machineSuite{})
+var _ = gc.Suite(&servingInfoSuite{})
+
+func (s *servingInfoSuite) TestStateServingInfo(c *gc.C) {
+	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+
+	info, err := st.Agent().StateServingInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(info, jc.DeepEquals, params.StateServingInfo{})
+}
+
+func (s *servingInfoSuite) TestStateServingInfoPermission(c *gc.C) {
+	st, _ := s.OpenAPIAsNewMachine(c)
+
+	_, err := st.Agent().StateServingInfo()
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
 
 func (s *machineSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.st, s.machine = s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
-}
-
-func (s *machineSuite) TestStateServingInfo(c *gc.C) {
-	info, err := s.st.Agent().StateServingInfo()
-	c.Assert(err, gc.IsNil)
-	c.Assert(info, jc.DeepEquals, params.StateServingInfo{})
+	s.st, s.machine = s.OpenAPIAsNewMachine(c)
 }
 
 func (s *machineSuite) TestMachineEntity(c *gc.C) {
