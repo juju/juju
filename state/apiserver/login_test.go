@@ -8,6 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -160,8 +161,63 @@ func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {
 		// Now that we are logged in, we see the entity's tag
 		// [0-9.umns] is to handle timestamps that are ns, us, ms, or s
 		// long, though we expect it to be in the 'ms' range.
-		`-> \[[0-9A-F]+\] machine-0 [0-9.]+[umn]?s {"RequestId":1,"Response":{}} Admin\[""\].Login`,
+		`-> \[[0-9A-F]+\] machine-0 [0-9.]+[umn]?s {"RequestId":1,"Response":{"Servers":\[\]}} Admin\[""\].Login`,
 		`<- \[[0-9A-F]+\] machine-0 {"RequestId":2,"Type":"Machiner","Request":"Life","Params":{"Entities":\[{"Tag":"machine-0"}\]}}`,
 		`-> \[[0-9A-F]+\] machine-0 [0-9.umns]+ {"RequestId":2,"Response":{"Results":\[{"Life":"alive","Error":null}\]}} Machiner\[""\]\.Life`,
 	})
+}
+
+func (s *loginSuite) TestLoginAddrs(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetProvisioned("foo", "fake_nonce", nil)
+	c.Assert(err, gc.IsNil)
+	password, err := utils.RandomPassword()
+	c.Assert(err, gc.IsNil)
+	err = machine.SetPassword(password)
+	c.Assert(err, gc.IsNil)
+
+	// Initially just the address we connect with is returned,
+	// despite there being no APIHostPorts in state.
+	connectedAddr, addrs := s.loginServerAddrs(c, machine.Tag(), password)
+	c.Assert(addrs, gc.DeepEquals, []string{connectedAddr})
+
+	// After storing APIHostPorts in state, Login should store
+	// all of them and the address we connected with.
+	server1Addresses := []instance.Address{{
+		Value:        "server-1",
+		Type:         instance.HostName,
+		NetworkScope: instance.NetworkPublic,
+	}, {
+		Value:        "10.0.0.1",
+		Type:         instance.Ipv4Address,
+		NetworkName:  "internal",
+		NetworkScope: instance.NetworkCloudLocal,
+	}}
+	server2Addresses := []instance.Address{{
+		Value:        "::1",
+		Type:         instance.Ipv6Address,
+		NetworkName:  "loopback",
+		NetworkScope: instance.NetworkMachineLocal,
+	}}
+	stateAPIHostPorts := [][]instance.HostPort{
+		instance.AddressesWithPort(server1Addresses, 123),
+		instance.AddressesWithPort(server2Addresses, 456),
+	}
+	err = s.State.SetAPIHostPorts(stateAPIHostPorts)
+	c.Assert(err, gc.IsNil)
+	connectedAddr, addrs = s.loginServerAddrs(c, machine.Tag(), password)
+	c.Assert(addrs, jc.SameContents, []string{"server-1:123", "10.0.0.1:123", "[::1]:456", connectedAddr})
+}
+
+func (s *loginSuite) loginServerAddrs(c *gc.C, tag, password string) (connectedAddr string, addrs []string) {
+	info, cleanup := s.setupServer(c)
+	defer cleanup()
+	info.Tag = tag
+	info.Password = password
+	info.Nonce = "fake_nonce"
+	st, err := api.Open(info, fastDialOpts)
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+	return st.Addr(), st.Addrs()
 }

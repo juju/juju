@@ -6,6 +6,7 @@ package juju
 import (
 	"fmt"
 	"io"
+	"sort"
 	"time"
 
 	"github.com/juju/loggo"
@@ -200,7 +201,7 @@ func newAPIFromStore(envName string, store configstore.Storage) (*api.State, err
 		if err != nil {
 			logger.Warningf(err.Error())
 		} else {
-			logger.Debugf("updated API connection settings cache")
+			logger.Infof("updated API connection settings cache")
 		}
 	}
 	return val.st, nil
@@ -245,6 +246,10 @@ func apiInfoConnect(store configstore.Storage, info configstore.EnvironInfo, sto
 	st, err := apiOpen(apiInfo, api.DefaultDialOpts())
 	if err != nil {
 		return apiState{}, &infoConnectError{err}
+	}
+	// Update API addresses if they've changed. Error is non-fatal.
+	if err := cacheChangedAPIAddresses(info, st.Addrs()); err != nil {
+		logger.Warningf(err.Error())
 	}
 	return apiState{st, nil}, err
 }
@@ -322,4 +327,38 @@ func cacheAPIInfo(info configstore.EnvironInfo, apiInfo *api.Info) error {
 		return fmt.Errorf("cannot cache API connection settings: %v", err)
 	}
 	return nil
+}
+
+// cacheChangedAPIAddresses updates the local environment settings (.jenv file)
+// with the provided API server addresses if they have changed.
+func cacheChangedAPIAddresses(info configstore.EnvironInfo, addrs []string) error {
+	endpoint := info.APIEndpoint()
+	if !addrsChanged(endpoint.Addresses, addrs) {
+		return nil
+	}
+	logger.Debugf("API addresses changed from %q to %q", endpoint.Addresses, addrs)
+	endpoint.Addresses = addrs
+	info.SetAPIEndpoint(endpoint)
+	if err := info.Write(); err != nil {
+		return fmt.Errorf("cannot cache API connection settings: %v", err)
+	} else {
+		logger.Infof("updated API connection settings cache")
+	}
+	return nil
+}
+
+func addrsChanged(a, b []string) bool {
+	if len(a) != len(b) {
+		return true
+	}
+	a = append([]string{}, a...)
+	b = append([]string{}, b...)
+	sort.Strings(a)
+	sort.Strings(b)
+	for i := range a {
+		if a[i] != b[i] {
+			return true
+		}
+	}
+	return false
 }

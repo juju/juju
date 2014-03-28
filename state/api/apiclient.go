@@ -25,7 +25,14 @@ var PingPeriod = 1 * time.Minute
 type State struct {
 	client *rpc.Conn
 	conn   *websocket.Conn
-	addr   string
+
+	// addr is the address used to connect to the API server.
+	addr string
+
+	// addrs is the API server addresses returned from Login,
+	// which the client may cache and use for failover. This
+	// will be empty if the API server is older than 1.18.0.
+	addrs []string
 
 	// authTag holds the authenticated entity's tag after login.
 	authTag string
@@ -189,7 +196,24 @@ func (s *State) RPCClient() *rpc.Conn {
 	return s.client
 }
 
-// Addr returns the address used to connect to the RPC server.
+// Addr returns the address used to connect to the API server.
 func (s *State) Addr() string {
 	return s.addr
+}
+
+// Addr returns addresses that may be used to connect to
+// the API server, including the address used to connect.
+func (s *State) Addrs() []string {
+	addrs := append([]string{}, s.addrs...)
+	var found bool
+	for _, addr := range addrs {
+		if addr == s.addr {
+			found = true
+			break
+		}
+	}
+	if !found {
+		addrs = append(addrs, s.addr)
+	}
+	return addrs
 }

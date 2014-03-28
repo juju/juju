@@ -141,13 +141,31 @@ func (s *NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 		return expectState, nil
 	}
 	// Give NewAPIFromStore a store interface that can report when the
-	// config was written to, to ensure the cache isn't updated.
+	// config was written to, to check if the cache is updated.
 	s.PatchValue(juju.APIOpen, apiOpen)
 	mockStore := &storageWithWriteNotify{store: store}
 	st, err := juju.NewAPIFromStore("noconfig", mockStore)
 	c.Assert(err, gc.IsNil)
 	c.Assert(st, gc.Equals, expectState)
 	c.Assert(called, gc.Equals, 1)
+
+	// api.Open stores the address from api.Info,
+	// which will be returned by its Addr() method.
+	// Since we can only create the zero value, the
+	// addr will be ""; since it differs from what
+	// is in storeConfig.Addresses, the cache will
+	// be updated.
+	c.Assert(mockStore.written, jc.IsTrue)
+	info, err := store.ReadInfo("noconfig")
+	c.Assert(err, gc.IsNil)
+	c.Assert(info.APIEndpoint().Addresses, gc.DeepEquals, []string{""})
+
+	// Now try again, and the cache should not be updated.
+	mockStore.written = false
+	st, err = juju.NewAPIFromStore("noconfig", mockStore)
+	c.Assert(err, gc.IsNil)
+	c.Assert(st, gc.Equals, expectState)
+	c.Assert(called, gc.Equals, 2)
 	c.Assert(mockStore.written, jc.IsFalse)
 }
 

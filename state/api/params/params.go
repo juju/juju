@@ -639,3 +639,8 @@ type SetRsyslogCertParams struct {
 type APIHostPortsResult struct {
 	Servers [][]instance.HostPort
 }
+
+// LoginResult holds the result of a Login call.
+type LoginResult struct {
+	APIHostPortsResult
+}

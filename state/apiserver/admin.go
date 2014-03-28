@@ -63,16 +63,16 @@ var errAlreadyLoggedIn = stderrors.New("already logged in")
 // Login logs in with the provided credentials.
 // All subsequent requests on the connection will
 // act as the authenticated user.
-func (a *srvAdmin) Login(c params.Creds) error {
+func (a *srvAdmin) Login(c params.Creds) (params.LoginResult, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if a.loggedIn {
 		// This can only happen if Login is called concurrently.
-		return errAlreadyLoggedIn
+		return params.LoginResult{}, errAlreadyLoggedIn
 	}
 	entity, err := checkCreds(a.root.srv.state, c)
 	if err != nil {
-		return err
+		return params.LoginResult{}, err
 	}
 	if a.reqNotifier != nil {
 		a.reqNotifier.login(entity.Tag())
@@ -81,11 +81,19 @@ func (a *srvAdmin) Login(c params.Creds) error {
 	// to serve to them.
 	newRoot, err := a.apiRootForEntity(entity, c)
 	if err != nil {
-		return err
+		return params.LoginResult{}, err
 	}
 
+	// Fetch the API server addresses from
+	// state; failure here is non-fatal.
+	hostPorts, err := a.root.srv.state.APIHostPorts()
+	if err != nil {
+		logger.Warningf("error fetching api server host/port addresses from state: %v", err)
+		hostPorts = nil
+	}
+	logger.Debugf("hostPorts: %v", hostPorts)
 	a.root.rpcConn.Serve(newRoot, serverError)
-	return nil
+	return params.LoginResult{params.APIHostPortsResult{hostPorts}}, nil
 }
 
 func checkCreds(st *state.State, c params.Creds) (taggedAuthenticator, error) {

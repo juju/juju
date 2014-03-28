@@ -24,13 +24,23 @@ import (
 // method is usually called automatically by Open. The machine nonce
 // should be empty unless logging in as a machine agent.
 func (st *State) Login(tag, password, nonce string) error {
+	var result params.LoginResult
 	err := st.Call("Admin", "", "Login", &params.Creds{
 		AuthTag:  tag,
 		Password: password,
 		Nonce:    nonce,
-	}, nil)
+	}, &result)
 	if err == nil {
 		st.authTag = tag
+		// The client must attempt *all* addresses, or else
+		// it is necessary to assert that the client is either
+		// or external or internal to the environment.
+		st.addrs = nil
+		for _, server := range result.Servers {
+			for _, hp := range server {
+				st.addrs = append(st.addrs, hp.NetAddr())
+			}
+		}
 	}
 	return err
 }
