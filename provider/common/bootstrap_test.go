@@ -275,7 +275,7 @@ type neverOpensPort struct {
 }
 
 func (n *neverOpensPort) Addresses() ([]instance.Address, error) {
-	return []instance.Address{instance.NewAddress(n.addr)}, nil
+	return instance.NewAddresses(n.addr), nil
 }
 
 func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForDial(c *gc.C) {

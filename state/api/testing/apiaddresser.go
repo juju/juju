@@ -42,10 +42,10 @@ func (s *APIAddresserTests) TestAPIAddresses(c *gc.C) {
 
 func (s *APIAddresserTests) TestAPIHostPorts(c *gc.C) {
 	expectServerAddrs := [][]instance.HostPort{{{
-		Address: instance.NewAddress("0.1.2.24"),
+		Address: instance.NewAddress("0.1.2.24", instance.NetworkUnknown),
 		Port:    999,
 	}, {
-		Address: instance.NewAddress("example.com"),
+		Address: instance.NewAddress("example.com", instance.NetworkUnknown),
 		Port:    1234,
 	}}, {{
 		Address: instance.Address{
@@ -73,7 +73,7 @@ func (s *APIAddresserTests) TestCACert(c *gc.C) {
 
 func (s *APIAddresserTests) TestWatchAPIHostPorts(c *gc.C) {
 	expectServerAddrs := [][]instance.HostPort{{{
-		Address: instance.NewAddress("0.1.2.3"),
+		Address: instance.NewAddress("0.1.2.3", instance.NetworkUnknown),
 		Port:    1234,
 	}}}
 	err := s.state.SetAPIHostPorts(expectServerAddrs)
