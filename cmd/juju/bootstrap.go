@@ -101,6 +101,19 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if err := bootstrap.EnsureNotBootstrapped(environ); err != nil {
 		return err
 	}
+
+	// Block interruption during bootstrap. Providers may also
+	// register for interrupt notification so they can exit early.
+	interrupted := make(chan os.Signal, 1)
+	defer close(interrupted)
+	ctx.InterruptNotify(interrupted)
+	defer ctx.StopInterruptNotify(interrupted)
+	go func() {
+		for _ = range interrupted {
+			ctx.Infof("Interrupt signalled: waiting for bootstrap to exit")
+		}
+	}()
+
 	// If --metadata-source is specified, override the default tools metadata source so
 	// SyncTools can use it, and also upload any image metadata.
 	if c.MetadataSource != "" {
@@ -123,7 +136,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		c.UploadTools = true
 	}
 	if c.UploadTools {
-		err = bootstrap.UploadTools(environ, c.Constraints.Arch, true, c.Series...)
+		err = bootstrap.UploadTools(ctx, environ, c.Constraints.Arch, true, c.Series...)
 		if err != nil {
 			return err
 		}

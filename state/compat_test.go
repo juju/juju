@@ -72,7 +72,7 @@ func (s *compatSuite) TestGetServiceWithoutNetworksIsOK(c *gc.C) {
 	_, err := s.state.AddUser(AdminUser, "pass")
 	c.Assert(err, gc.IsNil)
 	charm := addCharm(c, s.state, "quantal", testing.Charms.Dir("mysql"))
-	service, err := s.state.AddService("mysql", "user-admin", charm)
+	service, err := s.state.AddService("mysql", "user-admin", charm, nil, nil)
 	c.Assert(err, gc.IsNil)
 	// In 1.17.7+ all services have associated document in the
 	// networks collection. We remove it here to test backwards

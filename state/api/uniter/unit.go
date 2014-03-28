@@ -58,7 +58,7 @@ func (u *Unit) Refresh() error {
 func (u *Unit) SetStatus(status params.Status, info string, data params.StatusData) error {
 	var result params.ErrorResults
 	args := params.SetStatus{
-		Entities: []params.SetEntityStatus{
+		Entities: []params.EntityStatus{
 			{Tag: u.tag, Status: status, Info: info, Data: data},
 		},
 	}

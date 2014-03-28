@@ -42,7 +42,7 @@ func (m *Machine) Refresh() error {
 func (m *Machine) SetStatus(status params.Status, info string, data params.StatusData) error {
 	var result params.ErrorResults
 	args := params.SetStatus{
-		Entities: []params.SetEntityStatus{
+		Entities: []params.EntityStatus{
 			{Tag: m.tag, Status: status, Info: info, Data: data},
 		},
 	}

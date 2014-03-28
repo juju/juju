@@ -1438,3 +1438,13 @@ func (s *ServiceSuite) TestNetworks(c *gc.C) {
 	c.Check(include, gc.HasLen, 0)
 	c.Check(exclude, gc.HasLen, 0)
 }
+
+func (s *ServiceSuite) TestNetworksOnService(c *gc.C) {
+	includeNetworks := []string{"yes", "on"}
+	excludeNetworks := []string{"no", "off"}
+	service := s.AddTestingServiceWithNetworks(c, "withnets", s.charm, includeNetworks, excludeNetworks)
+	haveIncludeNetworks, haveExcludeNetworks, err := service.Networks()
+	c.Assert(err, gc.IsNil)
+	c.Check(haveIncludeNetworks, gc.DeepEquals, includeNetworks)
+	c.Check(haveExcludeNetworks, gc.DeepEquals, excludeNetworks)
+}

@@ -25,6 +25,7 @@ type LogSuite struct {
 var _ = gc.Suite(&LogSuite{})
 
 func (s *LogSuite) SetUpTest(c *gc.C) {
+	s.CleanupSuite.SetUpTest(c)
 	s.PatchEnvironment(osenv.JujuLoggingConfigEnvKey, "")
 	s.AddCleanup(func(_ *gc.C) {
 		loggo.ResetLoggers()
@@ -44,6 +45,7 @@ func newLogWithFlags(c *gc.C, flags []string) *cmd.Log {
 func (s *LogSuite) TestNoFlags(c *gc.C) {
 	log := newLogWithFlags(c, []string{})
 	c.Assert(log.Path, gc.Equals, "")
+	c.Assert(log.Quiet, gc.Equals, false)
 	c.Assert(log.Verbose, gc.Equals, false)
 	c.Assert(log.Debug, gc.Equals, false)
 	c.Assert(log.Config, gc.Equals, "")
@@ -66,17 +68,6 @@ func (s *LogSuite) TestLogConfigFromEnvironment(c *gc.C) {
 	c.Assert(log.Verbose, gc.Equals, false)
 	c.Assert(log.Debug, gc.Equals, false)
 	c.Assert(log.Config, gc.Equals, config)
-}
-
-func (s *LogSuite) TestVerboseSetsLogLevel(c *gc.C) {
-	l := &cmd.Log{Verbose: true}
-	ctx := coretesting.Context(c)
-	err := l.Start(ctx)
-	c.Assert(err, gc.IsNil)
-
-	c.Assert(loggo.GetLogger("").LogLevel(), gc.Equals, loggo.INFO)
-	c.Assert(coretesting.Stderr(ctx), gc.Equals, "")
-	c.Assert(coretesting.Stdout(ctx), gc.Equals, "Flag --verbose is deprecated with the current meaning, use --show-log\n")
 }
 
 func (s *LogSuite) TestDebugSetsLogLevel(c *gc.C) {
@@ -102,7 +93,7 @@ func (s *LogSuite) TestShowLogSetsLogLevel(c *gc.C) {
 }
 
 func (s *LogSuite) TestStderr(c *gc.C) {
-	l := &cmd.Log{Verbose: true, Config: "<root>=INFO"}
+	l := &cmd.Log{ShowLog: true, Config: "<root>=INFO"}
 	ctx := coretesting.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, gc.IsNil)
@@ -160,4 +151,89 @@ func (s *LogSuite) TestErrorAndWarningLoggingToStderr(c *gc.C) {
 	logger.Infof("an info")
 	c.Assert(coretesting.Stderr(ctx), gc.Matches, `^.*WARNING a warning\n.*ERROR an error\n.*`)
 	c.Assert(coretesting.Stdout(ctx), gc.Equals, "")
+}
+
+func (s *LogSuite) TestQuietAndVerbose(c *gc.C) {
+	l := &cmd.Log{Verbose: true, Quiet: true}
+	ctx := coretesting.Context(c)
+	err := l.Start(ctx)
+	c.Assert(err, gc.ErrorMatches, `"verbose" and "quiet" flags clash, please use one or the other, not both`)
+}
+
+func (s *LogSuite) TestOutputDefault(c *gc.C) {
+	l := &cmd.Log{}
+	ctx := coretesting.Context(c)
+	err := l.Start(ctx)
+	c.Assert(err, gc.IsNil)
+
+	ctx.Infof("Writing info output")
+	ctx.Verbosef("Writing verbose output")
+
+	c.Assert(coretesting.Stderr(ctx), gc.Equals, "Writing info output\n")
+}
+
+func (s *LogSuite) TestOutputVerbose(c *gc.C) {
+	l := &cmd.Log{Verbose: true}
+	ctx := coretesting.Context(c)
+	err := l.Start(ctx)
+	c.Assert(err, gc.IsNil)
+
+	ctx.Infof("Writing info output")
+	ctx.Verbosef("Writing verbose output")
+
+	c.Assert(coretesting.Stderr(ctx), gc.Equals, "Writing info output\nWriting verbose output\n")
+}
+
+func (s *LogSuite) TestOutputQuiet(c *gc.C) {
+	l := &cmd.Log{Quiet: true}
+	ctx := coretesting.Context(c)
+	err := l.Start(ctx)
+	c.Assert(err, gc.IsNil)
+
+	ctx.Infof("Writing info output")
+	ctx.Verbosef("Writing verbose output")
+
+	c.Assert(coretesting.Stderr(ctx), gc.Equals, "")
+}
+
+func (s *LogSuite) TestOutputQuietLogs(c *gc.C) {
+	l := &cmd.Log{Quiet: true, Path: "foo.log", Config: "<root>=INFO"}
+	ctx := coretesting.Context(c)
+	err := l.Start(ctx)
+	c.Assert(err, gc.IsNil)
+
+	ctx.Infof("Writing info output")
+	ctx.Verbosef("Writing verbose output")
+
+	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "foo.log"))
+	c.Assert(err, gc.IsNil)
+	c.Assert(coretesting.Stderr(ctx), gc.Equals, "")
+	c.Assert(string(content), gc.Matches, `^.*INFO .* Writing info output\n.*INFO .*Writing verbose output\n.*`)
+}
+
+func (s *LogSuite) TestOutputDefaultLogsVerbose(c *gc.C) {
+	l := &cmd.Log{Path: "foo.log", Config: "<root>=INFO"}
+	ctx := coretesting.Context(c)
+	err := l.Start(ctx)
+	c.Assert(err, gc.IsNil)
+
+	ctx.Infof("Writing info output")
+	ctx.Verbosef("Writing verbose output")
+
+	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "foo.log"))
+	c.Assert(err, gc.IsNil)
+	c.Assert(coretesting.Stderr(ctx), gc.Equals, "Writing info output\n")
+	c.Assert(string(content), gc.Matches, `^.*INFO .*Writing verbose output\n.*`)
+}
+
+func (s *LogSuite) TestOutputDebugForcesQuiet(c *gc.C) {
+	l := &cmd.Log{Verbose: true, Debug: true}
+	ctx := coretesting.Context(c)
+	err := l.Start(ctx)
+	c.Assert(err, gc.IsNil)
+
+	ctx.Infof("Writing info output")
+	ctx.Verbosef("Writing verbose output")
+
+	c.Assert(coretesting.Stderr(ctx), gc.Matches, `^.*INFO .* Writing info output\n.*INFO .*Writing verbose output\n.*`)
 }

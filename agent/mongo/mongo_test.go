@@ -30,7 +30,7 @@ var _ = gc.Suite(&MongoSuite{})
 func (s *MongoSuite) SetUpSuite(c *gc.C) {
 	testpath := c.MkDir()
 	s.PatchEnvPathPrepend(testpath)
-	// mock out the start method so we can fake install services without sudo
+	// mock out the upstart commands so we can fake install services without sudo
 	fakeCmd(filepath.Join(testpath, "start"))
 	fakeCmd(filepath.Join(testpath, "stop"))
 

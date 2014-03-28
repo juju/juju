@@ -19,6 +19,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils"
@@ -322,6 +323,9 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 	if err := st.createAPIAddressesDoc(); err != nil {
 		return nil, fmt.Errorf("cannot create API addresses document: %v", err)
 	}
+	if err := st.createStateServingInfoDoc(); err != nil {
+		return nil, fmt.Errorf("cannot create state serving info document: %v", err)
+	}
 	return st, nil
 }
 
@@ -388,6 +392,19 @@ func (st *State) createAPIAddressesDoc() error {
 		Id:     apiHostPortsKey,
 		Assert: txn.DocMissing,
 		Insert: &doc,
+	}}
+	return onAbort(st.runTransaction(ops), nil)
+}
+
+// createStateServingInfoDoc creates the state serving info document
+// if it does not already exist
+func (st *State) createStateServingInfoDoc() error {
+	var info params.StateServingInfo
+	ops := []txn.Op{{
+		C:      st.stateServers.Name,
+		Id:     stateServingInfoKey,
+		Assert: txn.DocMissing,
+		Insert: &info,
 	}}
 	return onAbort(st.runTransaction(ops), nil)
 }
