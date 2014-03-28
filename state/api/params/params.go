@@ -468,6 +468,12 @@ type StateServingInfo struct {
 	SharedSecret string
 }
 
+// MongoMasterHostPortResult holds the host:port string
+// for the primary mongo server in the replicaset.
+type MongoMasterHostPortResult struct {
+	HostPort string
+}
+
 // MachineInfo holds the information about a Machine
 // that is watched by StateWatcher.
 type MachineInfo struct {

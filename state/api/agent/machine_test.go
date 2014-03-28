@@ -113,6 +113,10 @@ func (s *machineSuite) TestEntitySetPassword(c *gc.C) {
 }
 
 func (s *machineSuite) TestMongoMasterHostPort(c *gc.C) {
+	expected := params.MongoMasterHostPortResult{HostPort: "localhost:27017"}
+	result, err := s.st.Agent().MongoMasterHostPort()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, jc.DeepEquals, expected)
 }
 
 func (s *machineSuite) TestMongoMasterHostPortPermission(c *gc.C) {

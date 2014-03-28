@@ -84,12 +84,13 @@ func (api *API) StateServingInfo() (result params.StateServingInfo, err error) {
 
 // MongoMasterHostPort returns a string host:port for the primary
 // mongo server in the replicaset.
-func (api *API) MongoMasterHostPort() (string, error) {
+func (api *API) MongoMasterHostPort() (params.MongoMasterHostPortResult, error) {
 	if !api.auth.AuthEnvironManager() {
-		return "", common.ErrPerm
+		return params.MongoMasterHostPortResult{}, common.ErrPerm
 	}
 	session := api.st.MongoSession()
-	return replicaset.MasterHostPort(session)
+	hostPort, err := replicaset.MasterHostPort(session)
+	return params.MongoMasterHostPortResult{HostPort: hostPort}, err
 }
 
 func stateJobsToAPIParamsJobs(jobs []state.MachineJob) []params.MachineJob {

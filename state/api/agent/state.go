@@ -46,8 +46,8 @@ func (st *State) StateServingInfo() (params.StateServingInfo, error) {
 	return results, err
 }
 
-func (st *State) MongoMasterHostPort() (string, error) {
-	var results string
+func (st *State) MongoMasterHostPort() (params.MongoMasterHostPortResult, error) {
+	var results params.MongoMasterHostPortResult
 	err := st.caller.Call("Agent", "", "MongoMasterHostPort", nil, &results)
 	return results, err
 }
