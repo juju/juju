@@ -90,8 +90,7 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	err = bootstrap.SaveState(
 		bootstrapStorage,
 		&bootstrap.BootstrapState{
-			StateInstances:  []instance.Id{BootstrapInstanceId},
-			Characteristics: []instance.HardwareCharacteristics{*args.HardwareCharacteristics},
+			StateInstances: []instance.Id{BootstrapInstanceId},
 		},
 	)
 	if err != nil {

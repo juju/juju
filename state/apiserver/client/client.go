@@ -976,3 +976,24 @@ func (c *Client) RetryProvisioning(p params.Entities) (params.ErrorResults, erro
 		Entities: entityStatus,
 	})
 }
+
+// APIHostPOrts returns the API host/port addresses stored in state.
+func (c *Client) APIHostPorts() (result params.APIHostPortsResult, err error) {
+	if result.Servers, err = c.api.state.APIHostPorts(); err != nil {
+		return params.APIHostPortsResult{}, err
+	}
+	return result, nil
+}
+
+// EnsureAvailability ensures the availability of Juju state servers.
+func (c *Client) EnsureAvailability(args params.EnsureAvailability) error {
+	series := args.Series
+	if series == "" {
+		cfg, err := c.api.state.EnvironConfig()
+		if err != nil {
+			return err
+		}
+		series = cfg.DefaultSeries()
+	}
+	return c.api.state.EnsureAvailability(args.NumStateServers, args.Constraints, series)
+}

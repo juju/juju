@@ -117,7 +117,7 @@ func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 			c.Revision = info.Revision()
 			c.Digest = info.Digest()
 		} else {
-			if err == ErrNotFound {
+			if err == ErrNotFound && curl != nil {
 				skey = charmStatsKey(curl, "charm-missing")
 			}
 			c.Errors = append(c.Errors, err.Error())
