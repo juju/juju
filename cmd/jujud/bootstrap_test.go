@@ -41,27 +41,38 @@ type BootstrapSuite struct {
 	testing.MgoSuite
 	dataDir         string
 	logDir          string
-	fakeEnsureMongo *fakeEnsure
+	fakeEnsureMongo fakeEnsure
 	testConfig      string
 }
 
 var _ = gc.Suite(&BootstrapSuite{})
 
 type fakeEnsure struct {
-	params mongo.EnsureMongoParams
+	ensureCount int
+	initiateCount int
+	dataDir string
+	port int
+	initiateParams mongo.InitiateMongoParams
 	err    error
 }
 
-func (f *fakeEnsure) fakeEnsureMongo(p mongo.EnsureMongoParams) error {
-	f.params = p
+func (f *fakeEnsure) fakeEnsureMongo(dataDir string, port int) error {
+	f.ensureCount++
+	f.dataDir, f.port = dataDir, port
 	return f.err
+}
+
+func (f *fakeEnsure) fakeInitiateMongo(p mongo.InitiateMongoParams) error {
+	f.initiateCount++
+	f.initiateParams = p
+	return nil
 }
 
 const bootstrapInstanceId = "only-0"
 
 func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
-	s.fakeEnsureMongo = &fakeEnsure{}
 	s.PatchValue(&ensureMongoServer, s.fakeEnsureMongo.fakeEnsureMongo)
+	s.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.fakeInitiateMongo)
 
 	s.LoggingSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
@@ -79,6 +90,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.dataDir = c.MkDir()
 	s.logDir = c.MkDir()
+	s.fakeEnsureMongo = fakeEnsure{}
 }
 
 func (s *BootstrapSuite) TearDownTest(c *gc.C) {

@@ -64,6 +64,7 @@ var (
 	jujuRun           = "/usr/local/bin/juju-run"
 	useMultipleCPUs   = utils.UseMultipleCPUs
 	ensureMongoServer = mongo.EnsureMongoServer
+	maybeInitiateMongoServer = mongo.MaybeInitiateMongoServer
 )
 
 // MachineAgent is a cmd.Command responsible for running a machine agent.
@@ -73,7 +74,7 @@ type MachineAgent struct {
 	AgentConf
 	MachineId       string
 	runner          worker.Runner
-	configVal       voyeur.Value
+	configChangedVal       voyeur.Value
 	upgradeComplete chan struct{}
 	stateOpened     chan struct{}
 	workersStarted  chan struct{}
@@ -131,6 +132,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	if err := a.ReadConfig(a.Tag()); err != nil {
 		return fmt.Errorf("cannot read agent configuration: %v", err)
 	}
+	a.configChanged()
 	agentConfig := a.CurrentConfig()
 	charm.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
 	if err := a.createJujuRun(agentConfig.DataDir()); err != nil {
@@ -152,6 +154,10 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	return err
 }
 
+func (a *MachineAgent) configChanged() {
+	a.configChangedVal.Set(struct{}{})
+}
+
 // newStateStarterWorker wraps stateStarter in a simple worker for use in
 // a.runner.StartWorker.
 func (a *MachineAgent) newStateStarterWorker() (worker.Worker, error) {
@@ -159,25 +165,32 @@ func (a *MachineAgent) newStateStarterWorker() (worker.Worker, error) {
 }
 
 // stateStarter watches for changes to the agent configuration, and starts or
-// stops the state worker as appropriate.  It will stop working as soon as
-// stopch is closed.
+// stops the state worker as appropriate.
+// We watch the agent configuration because the agent
+// configuration has all the details that we need to
+// start a state server, whether they have been cached
+// or read from the state.
+//
+// It will stop working as soon as stopch is closed.
 func (a *MachineAgent) stateStarter(stopch <-chan struct{}) error {
-	confWatch := a.configVal.Watch()
+	confWatch := a.configChangedVal.Watch()
 	defer confWatch.Close()
-	watchCh := make(chan agent.Config)
+	watchCh := make(chan struct{})
 	go func() {
 		for confWatch.Next() {
-			v, _ := confWatch.Value().(agent.Config)
-			watchCh <- v
+			watchCh <- struct{}{}
 		}
 	}()
 	for {
 		select {
-		case conf := <-watchCh:
+		case <-watchCh:
+			agentConfig := a.CurrentConfig()
+			// TODO(rog) check that the agent config has the
+			// required StateServingInfo.
 			// N.B. StartWorker and StopWorker are idempotent.
-			if conf.StateManager() {
+			if agentConfig.StateServer() {
 				a.runner.StartWorker("state", func() (worker.Worker, error) {
-					return a.StateWorker(conf)
+					return a.StateWorker()
 				})
 			} else {
 				a.runner.StopWorker("state")
@@ -191,18 +204,30 @@ func (a *MachineAgent) stateStarter(stopch <-chan struct{}) error {
 // APIWorker returns a Worker that connects to the API and starts any
 // workers that need an API connection.
 func (a *MachineAgent) APIWorker() (worker.Worker, error) {
-	agentConfig := a.Conf.config
+	agentConfig := a.CurrentConfig()
 	st, entity, err := openAPIState(agentConfig, a)
 	if err != nil {
 		return nil, err
 	}
 	reportOpenedAPI(st)
+
 	for _, job := range entity.Jobs() {
 		if job.NeedsState() {
-			a.setAgentConfig(agentConfig)
+//			info, err := st.StateServingInfo()
+//			if err != nil {
+//				return nil, fmt.Errorf("cannot get state serving info: %v", err)
+//			}
+//			err = a.ChangeConfig(func(config agent.ConfigSetter) {
+//				config.SetStateServingInfo(info)
+//			})
+//			if err != nil {
+//				return nil, err
+//			}
+			a.configChanged()
 			break
 		}
 	}
+
 	rsyslogMode := rsyslog.RsyslogModeForwarding
 	for _, job := range entity.Jobs() {
 		if job == params.JobManageEnviron {
@@ -340,29 +365,17 @@ func (a *MachineAgent) updateSupportedContainers(
 // a *state.State connection.
 func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
-	info := &state.Info{
-		Addrs:    agentConfig.StateInfo().Addrs,
-		CACert:   agentConfig.CACert(),
-		Tag:      agentConfig.Tag(),
-		Password: agentConfig.Password(),
-	}
 
-	di, err := state.DialInfo(info, state.DefaultDialOpts())
+	err := ensureMongoServer(agentConfig.DataDir(), 0)
+//agentConfig.StateServingInfo())
 	if err != nil {
 		return nil, err
 	}
-	err = ensureMongoServer(mongo.EnsureMongoParams{
-		HostPort: info.Addrs[0],
-		DataDir:  a.Conf.dataDir,
-		DialInfo: di,
-		User:     info.Tag,
-		Password: info.Password,
-	})
-	if err != nil {
-		return nil, err
-	}
+	// TODO(rog) call maybeInitiateMongoServer to upgrade mongo
+	// from old environments. We'll need to acquire a non-localhost
+	// address for the current instance before we do.
 
-	st, entity, err := openState(agentConfig, a)
+	st, m, err := openState(agentConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -647,12 +660,4 @@ func sendOpenedAPIs(dst chan<- *api.State) (undo func()) {
 	var original chan<- *api.State
 	original, apiReporter = apiReporter, dst
 	return func() { apiReporter = original }
-}
-
-func (a *MachineAgent) setAgentConfig(conf agent.Config) {
-	a.configVal.Set(conf.Clone())
-}
-
-func (a *MachineAgent) agentConfig() agent.Config {
-	return a.configVal.Get().(agent.Config)
 }

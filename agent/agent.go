@@ -92,9 +92,9 @@ type Config interface {
 	// APIInfo returns details for connecting to the API server.
 	APIInfo() *api.Info
 
-	// StateManager reports if this config is for a machine that should manage
+	// StateServer reports if this config is for a machine that should manage
 	// state.
-	StateManager() bool
+	StateServer() bool
 
 	// StateInfo returns details for connecting to the state server.
 	StateInfo() *state.Info
@@ -523,8 +523,8 @@ func (c *configInternal) Dir() string {
 	return Dir(c.dataDir, c.tag)
 }
 
-func (c *configInternal) StateManager() bool {
-	return c.caCert != nil
+func (c *configInternal) StateServer() bool {
+	return c.stateServerKey != nil
 }
 
 func (c *configInternal) check() error {

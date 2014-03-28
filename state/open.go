@@ -44,7 +44,8 @@ type Info struct {
 	CACert []byte
 
 	// Port is the port for connecting to the state db.
-	Port int
+	// TODO remove this.
+	//Port int
 
 	// Tag holds the name of the entity that is connecting.
 	// It should be empty when connecting as an administrator.

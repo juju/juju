@@ -101,7 +101,7 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		Log:  &cmd.Log{Factory: &writerFactory{}},
 	})
 	jujud.Register(&BootstrapCommand{})
-	jujud.Register(NewMachineAgent())
+	jujud.Register(&MachineAgent{})
 	jujud.Register(&UnitAgent{})
 	jujud.Register(&cmd.VersionCommand{})
 	code = cmd.Main(jujud, ctx, args[1:])

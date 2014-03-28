@@ -16,7 +16,6 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	lxctesting "launchpad.net/juju-core/container/lxc/testing"
@@ -133,7 +132,7 @@ func (s *commonMachineSuite) primeAgent(
 
 // newAgent returns a new MachineAgent instance
 func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) *MachineAgent {
-	a := NewMachineAgent()
+	a := &MachineAgent{}
 	s.initAgent(c, a, "--machine-id", m.Id())
 	err := a.ReadConfig(m.Tag())
 	c.Assert(err, gc.IsNil)
@@ -162,13 +161,13 @@ func (s *MachineSuite) TestParseNonsense(c *gc.C) {
 		{},
 		{"--machine-id", "-4004"},
 	} {
-		err := ParseAgentCommand(NewMachineAgent(), args)
+		err := ParseAgentCommand(&MachineAgent{}, args)
 		c.Assert(err, gc.ErrorMatches, "--machine-id option must be set, and expects a non-negative integer")
 	}
 }
 
 func (s *MachineSuite) TestParseUnknown(c *gc.C) {
-	a := NewMachineAgent()
+	a := &MachineAgent{}
 	err := ParseAgentCommand(a, []string{"--machine-id", "42", "blistering barnacles"})
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["blistering barnacles"\]`)
 }
@@ -864,7 +863,7 @@ var _ = gc.Suite(&MachineWithCharmsSuite{})
 
 func (s *MachineWithCharmsSuite) SetUpTest(c *gc.C) {
 	s.CharmSuite.SetUpTest(c)
-	s.PatchValue(&ensureMongoServer, func(mongo.EnsureMongoParams) error {
+	s.PatchValue(&ensureMongoServer, func(string, int) error {
 		return nil
 	})
 
@@ -898,7 +897,7 @@ func (s *MachineWithCharmsSuite) TestManageEnvironRunsCharmRevisionUpdater(c *gc
 	s.PatchValue(&upstart.InitDir, c.MkDir())
 
 	// Start the machine agent.
-	a := NewMachineAgent()
+	a := &MachineAgent{}
 	args := []string{"--data-dir", s.DataDir(), "--machine-id", s.machine.Id()}
 	err := coretesting.InitCommand(a, args)
 	c.Assert(err, gc.IsNil)

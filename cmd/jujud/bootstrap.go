@@ -129,18 +129,22 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	dialInfo, err := state.DialInfo(c.Conf.config.StateInfo(), state.DefaultDialOpts())
+	dialInfo, err := state.DialInfo(agentConfig.StateInfo(), state.DefaultDialOpts())
 	if err != nil {
 		return err
 	}
-	if err := ensureMongoServer(mongo.EnsureMongoParams{
-		HostPort: net.JoinHostPort(preferredAddr.String(), fmt.Sprint(envCfg.StatePort())),
-		DataDir:  c.Conf.config.DataDir(),
-		DialInfo: dialInfo,
-	}); err != nil {
+	// Use our preferred address to dial the mongo server, to
+	// ensure that it is actually usable locally within this machine
+	// (we'll have problems if not).
+	dialInfo.Addrs = []string{
+		net.JoinHostPort(preferredAddr.String(), fmt.Sprint(envCfg.StatePort())),
+	}
+	if err := ensureMongoServer(agentConfig.DataDir(), envCfg.StatePort()); err != nil {
 		return err
 	}
-	return nil
+	return mongo.MaybeInitiateMongoServer(mongo.InitiateMongoParams{
+		DialInfo: dialInfo,
+	})
 }
 
 func selectPreferredStateServerAddress(addrs []instance.Address) (instance.Address, error) {

@@ -12,7 +12,6 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/agent/mongo"
 	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
@@ -232,7 +231,7 @@ func (s *agentSuite) SetUpSuite(c *gc.C) {
 	// a bit when some tests are restarting every 50ms for 10 seconds,
 	// so use a slightly more friendly delay.
 	worker.RestartDelay = 250 * time.Millisecond
-	s.PatchValue(&ensureMongoServer, func(mongo.EnsureMongoParams) error {
+	s.PatchValue(&ensureMongoServer, func(string, int) error {
 		return nil
 	})
 }
@@ -293,7 +292,7 @@ func writeStateAgentConfig(c *gc.C, stateInfo *state.Info, dataDir, tag, passwor
 		})
 	c.Assert(err, gc.IsNil)
 	conf.SetPassword(password)
-	c.Assert(conf.StateManager(), jc.IsTrue)
+	c.Assert(conf.StateServer(), jc.IsTrue)
 	c.Assert(conf.Write(), gc.IsNil)
 	return conf
 }
