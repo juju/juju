@@ -1463,7 +1463,7 @@ func (s *clientSuite) TestClientPrivateAddressMachine(c *gc.C) {
 	cloudLocalAddress := instance.NewAddress("cloudlocal")
 	cloudLocalAddress.NetworkScope = instance.NetworkCloudLocal
 	publicAddress := instance.NewAddress("public")
-	publicAddress.NetworkScope = instance.NetworkCloudLocal
+	publicAddress.NetworkScope = instance.NetworkPublic
 	err = m1.SetAddresses([]instance.Address{publicAddress})
 	c.Assert(err, gc.IsNil)
 	addr, err := s.APIState.Client().PrivateAddress("1")
@@ -2137,4 +2137,37 @@ func (s *clientSuite) TestClientEnsureAvailabilityErrors(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = s.APIState.Client().EnsureAvailability(1, emptyCons, defaultSeries)
 	c.Assert(err, gc.ErrorMatches, "cannot reduce state server count")
+}
+
+func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
+	apiHostPorts, err := s.APIState.Client().APIHostPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(apiHostPorts, gc.HasLen, 0)
+
+	server1Addresses := []instance.Address{{
+		Value:        "server-1",
+		Type:         instance.HostName,
+		NetworkScope: instance.NetworkPublic,
+	}, {
+		Value:        "10.0.0.1",
+		Type:         instance.Ipv4Address,
+		NetworkName:  "internal",
+		NetworkScope: instance.NetworkCloudLocal,
+	}}
+	server2Addresses := []instance.Address{{
+		Value:        "::1",
+		Type:         instance.Ipv6Address,
+		NetworkName:  "loopback",
+		NetworkScope: instance.NetworkMachineLocal,
+	}}
+	stateAPIHostPorts := [][]instance.HostPort{
+		instance.AddressesWithPort(server1Addresses, 123),
+		instance.AddressesWithPort(server2Addresses, 456),
+	}
+
+	err = s.State.SetAPIHostPorts(stateAPIHostPorts)
+	c.Assert(err, gc.IsNil)
+	apiHostPorts, err = s.APIState.Client().APIHostPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(apiHostPorts, gc.DeepEquals, stateAPIHostPorts)
 }

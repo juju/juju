@@ -977,7 +977,15 @@ func (c *Client) RetryProvisioning(p params.Entities) (params.ErrorResults, erro
 	})
 }
 
-// RetryProvisioning marks a provisioning error as transient on the machines.
+// APIHostPOrts returns the API host/port addresses stored in state.
+func (c *Client) APIHostPorts() (result params.APIHostPortsResult, err error) {
+	if result.Servers, err = c.api.state.APIHostPorts(); err != nil {
+		return params.APIHostPortsResult{}, err
+	}
+	return result, nil
+}
+
+// EnsureAvailability ensures the availability of Juju state servers.
 func (c *Client) EnsureAvailability(args params.EnsureAvailability) error {
 	series := args.Series
 	if series == "" {

@@ -633,6 +633,13 @@ type SetRsyslogCertParams struct {
 	CACert []byte
 }
 
+// APIHostPortsResult holds the result of an APIHostPorts
+// call. Each element in the top level slice holds
+// the addresses for one API server.
+type APIHostPortsResult struct {
+	Servers [][]instance.HostPort
+}
+
 // EnsureAvailability contains arguments for
 // the EnsureAvailability client API call.
 type EnsureAvailability struct {
