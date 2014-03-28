@@ -52,6 +52,21 @@ func (s *servingInfoSuite) TestStateServingInfoPermission(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
+func (s *servingInfoSuite) TestMongoMasterHostPort(c *gc.C) {
+	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	expected := params.MongoMasterHostPortResult{HostPort: "localhost:27017"}
+	result, err := st.Agent().MongoMasterHostPort()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, jc.DeepEquals, expected)
+}
+
+func (s *servingInfoSuite) TestMongoMasterHostPortPermission(c *gc.C) {
+	st, _ := s.OpenAPIAsNewMachine(c)
+	_, err := st.Agent().MongoMasterHostPort()
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+
 type machineSuite struct {
 	testing.JujuConnSuite
 	machine *state.Machine
@@ -110,18 +125,6 @@ func (s *machineSuite) TestEntitySetPassword(c *gc.C) {
 	info.Password = "foo-12345678901234567890"
 	err = tryOpenState(info)
 	c.Assert(err, jc.Satisfies, errors.IsUnauthorizedError)
-}
-
-func (s *machineSuite) TestMongoMasterHostPort(c *gc.C) {
-	expected := params.MongoMasterHostPortResult{HostPort: "localhost:27017"}
-	result, err := s.st.Agent().MongoMasterHostPort()
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, jc.DeepEquals, expected)
-}
-
-func (s *machineSuite) TestMongoMasterHostPortPermission(c *gc.C) {
-	_, err := s.st.Agent().MongoMasterHostPort()
-	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func tryOpenState(info *state.Info) error {
