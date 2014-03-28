@@ -13,63 +13,65 @@ import (
 	"launchpad.net/juju-core/juju"
 )
 
-type EnsureHACommand struct {
+type EnsureAvailabilityCommand struct {
 	cmd.EnvCommandBase
 	NumStateServers int
-	// If specified, use this series, else use the environment default-series
+	// If specified, use this series for newly created machines,
+	// else use the environment's default-series
 	Series string
-	// If specified, these constraints are merged with those already in the environment.
+	// If specified, these constraints will be merged with those
+	// already in the environment when creating new machines.
 	Constraints constraints.Value
 }
 
-const ensureHADoc = `
+const ensureAvailabilityDoc = `
 To ensure availability of deployed services, the Juju infrastructure
-must itself be highly available.  Ensure-ha must be called to ensure
-that the specified number of state servers are made available.
+must itself be highly available.  Ensure-availability must be called
+to ensure that the specified number of state servers are made available.
 
 An odd number of state servers is required.
 
 Examples:
- juju ensure-ha -n 3
+ juju ensure-availability -n 3
      Ensure that 3 state servers are available,
      with newly created state server machines
      having the default series and constraints.
- juju ensure-ha -n 5 --series=trusty
+ juju ensure-availability -n 5 --series=trusty
      Ensure that 5 state servers are available,
      with newly created state server machines
      having the "trusty" series.
- juju ensure-ha -n 7 --constraints mem=8G
+ juju ensure-availability -n 7 --constraints mem=8G
      Ensure that 7 state servers are available,
      with newly created state server machines
      having the default series, and at least
      8GB RAM.
 `
 
-func (c *EnsureHACommand) Info() *cmd.Info {
+func (c *EnsureAvailabilityCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "ensure-ha",
+		Name:    "ensure-availability",
 		Purpose: "ensure the availability of Juju state servers",
-		Doc:     ensureHADoc,
+		Doc:     ensureAvailabilityDoc,
 	}
 }
 
-func (c *EnsureHACommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *EnsureAvailabilityCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
-	f.IntVar(&c.NumStateServers, "n", 1, "number of state servers to make available")
+	f.IntVar(&c.NumStateServers, "n", -1, "number of state servers to make available")
 	f.StringVar(&c.Series, "series", "", "the charm series")
 	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "additional machine constraints")
 }
 
-func (c *EnsureHACommand) Init(args []string) error {
+func (c *EnsureAvailabilityCommand) Init(args []string) error {
 	if c.NumStateServers%2 != 1 || c.NumStateServers <= 0 {
-		return fmt.Errorf("number of state servers must be odd and greater than zero")
+		return fmt.Errorf("must specify a number of state servers odd and greater than zero")
 	}
 	return cmd.CheckEmpty(args)
 }
 
 // Run connects to the environment specified on the command line
 // and calls EnsureAvailability.
-func (c *EnsureHACommand) Run(_ *cmd.Context) error {
+func (c *EnsureAvailabilityCommand) Run(_ *cmd.Context) error {
 	client, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
 		return err

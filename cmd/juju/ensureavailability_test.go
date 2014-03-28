@@ -15,19 +15,19 @@ import (
 	"launchpad.net/juju-core/testing"
 )
 
-type EnsureHASuite struct {
+type EnsureAvailabilitySuite struct {
 	jujutesting.RepoSuite
 }
 
-var _ = gc.Suite(&EnsureHASuite{})
+var _ = gc.Suite(&EnsureAvailabilitySuite{})
 
-func runEnsureHA(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, &EnsureHACommand{}, args)
+func runEnsureAvailability(c *gc.C, args ...string) error {
+	_, err := testing.RunCommand(c, &EnsureAvailabilityCommand{}, args)
 	return err
 }
 
-func (s *EnsureHASuite) TestEnsureHA(c *gc.C) {
-	err := runEnsureHA(c)
+func (s *EnsureAvailabilitySuite) TestEnsureAvailability(c *gc.C) {
+	err := runEnsureAvailability(c, "-n", "1")
 	c.Assert(err, gc.IsNil)
 	m, err := s.State.Machine("0")
 	c.Assert(err, gc.IsNil)
@@ -38,16 +38,16 @@ func (s *EnsureHASuite) TestEnsureHA(c *gc.C) {
 	c.Assert(&mcons, jc.Satisfies, constraints.IsEmpty)
 }
 
-func (s *EnsureHASuite) TestEnsureHAWithSeries(c *gc.C) {
-	err := runEnsureHA(c, "--series", "series")
+func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityWithSeries(c *gc.C) {
+	err := runEnsureAvailability(c, "--series", "series", "-n", "1")
 	c.Assert(err, gc.IsNil)
 	m, err := s.State.Machine("0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Series(), gc.DeepEquals, "series")
 }
 
-func (s *EnsureHASuite) TestEnsureHAWithConstraints(c *gc.C) {
-	err := runEnsureHA(c, "--constraints", "mem=4G")
+func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityWithConstraints(c *gc.C) {
+	err := runEnsureAvailability(c, "--constraints", "mem=4G", "-n", "1")
 	c.Assert(err, gc.IsNil)
 	m, err := s.State.Machine("0")
 	c.Assert(err, gc.IsNil)
@@ -57,9 +57,9 @@ func (s *EnsureHASuite) TestEnsureHAWithConstraints(c *gc.C) {
 	c.Assert(mcons, gc.DeepEquals, expectedCons)
 }
 
-func (s *EnsureHASuite) TestEnsureHAIdempotent(c *gc.C) {
+func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityIdempotent(c *gc.C) {
 	for i := 0; i < 2; i++ {
-		err := runEnsureHA(c, "-n", "1")
+		err := runEnsureAvailability(c, "-n", "1")
 		c.Assert(err, gc.IsNil)
 	}
 	m, err := s.State.Machine("0")
@@ -68,10 +68,10 @@ func (s *EnsureHASuite) TestEnsureHAIdempotent(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(&mcons, jc.Satisfies, constraints.IsEmpty)
 
-	// Running ensure-ha with constraints or series
+	// Running ensure-availability with constraints or series
 	// will have no effect unless new machines are
 	// created.
-	err = runEnsureHA(c, "-n", "1", "--constraints", "mem=4G")
+	err = runEnsureAvailability(c, "-n", "1", "--constraints", "mem=4G")
 	c.Assert(err, gc.IsNil)
 	m, err = s.State.Machine("0")
 	c.Assert(err, gc.IsNil)
@@ -80,10 +80,10 @@ func (s *EnsureHASuite) TestEnsureHAIdempotent(c *gc.C) {
 	c.Assert(&mcons, jc.Satisfies, constraints.IsEmpty)
 }
 
-func (s *EnsureHASuite) TestEnsureHAMultiple(c *gc.C) {
-	err := runEnsureHA(c, "-n", "1")
+func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityMultiple(c *gc.C) {
+	err := runEnsureAvailability(c, "-n", "1")
 	c.Assert(err, gc.IsNil)
-	err = runEnsureHA(c, "-n", "3", "--constraints", "mem=4G")
+	err = runEnsureAvailability(c, "-n", "3", "--constraints", "mem=4G")
 	c.Assert(err, gc.IsNil)
 
 	machines, err := s.State.AllMachines()
@@ -100,13 +100,15 @@ func (s *EnsureHASuite) TestEnsureHAMultiple(c *gc.C) {
 	}
 }
 
-func (s *EnsureHASuite) TestEnsureHAErrors(c *gc.C) {
+func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityErrors(c *gc.C) {
+	err := runEnsureAvailability(c)
+	c.Assert(err, gc.ErrorMatches, "must specify a number of state servers odd and greater than zero")
 	for _, n := range []int{-1, 0, 2} {
-		err := runEnsureHA(c, "-n", fmt.Sprint(n))
-		c.Assert(err, gc.ErrorMatches, "number of state servers must be odd and greater than zero")
+		err := runEnsureAvailability(c, "-n", fmt.Sprint(n))
+		c.Assert(err, gc.ErrorMatches, "must specify a number of state servers odd and greater than zero")
 	}
-	err := runEnsureHA(c, "-n", "3")
+	err = runEnsureAvailability(c, "-n", "3")
 	c.Assert(err, gc.IsNil)
-	err = runEnsureHA(c, "-n", "1")
-	c.Assert(err, gc.ErrorMatches, "error ensuring availability: cannot reduce state server count")
+	err = runEnsureAvailability(c, "-n", "1")
+	c.Assert(err, gc.ErrorMatches, "cannot reduce state server count")
 }

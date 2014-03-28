@@ -642,9 +642,3 @@ type EnsureAvailability struct {
 	// If this is empty, then the environment's default series is used.
 	Series string
 }
-
-// EnsureAvailability contains the results
-// of the EnsureAvailability client API call.
-type EnsureAvailabilityResult struct {
-	Error *Error
-}

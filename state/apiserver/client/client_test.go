@@ -2132,9 +2132,9 @@ func (s *clientSuite) TestClientEnsureAvailabilityErrors(c *gc.C) {
 	var emptyCons constraints.Value
 	defaultSeries := ""
 	err := s.APIState.Client().EnsureAvailability(0, emptyCons, defaultSeries)
-	c.Assert(err, gc.ErrorMatches, "error ensuring availability: number of state servers must be odd and greater than zero")
+	c.Assert(err, gc.ErrorMatches, "number of state servers must be odd and greater than zero")
 	err = s.APIState.Client().EnsureAvailability(3, emptyCons, defaultSeries)
 	c.Assert(err, gc.IsNil)
 	err = s.APIState.Client().EnsureAvailability(1, emptyCons, defaultSeries)
-	c.Assert(err, gc.ErrorMatches, "error ensuring availability: cannot reduce state server count")
+	c.Assert(err, gc.ErrorMatches, "cannot reduce state server count")
 }

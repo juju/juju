@@ -978,17 +978,14 @@ func (c *Client) RetryProvisioning(p params.Entities) (params.ErrorResults, erro
 }
 
 // RetryProvisioning marks a provisioning error as transient on the machines.
-func (c *Client) EnsureAvailability(args params.EnsureAvailability) (result params.EnsureAvailabilityResult, err error) {
+func (c *Client) EnsureAvailability(args params.EnsureAvailability) error {
 	series := args.Series
 	if series == "" {
 		cfg, err := c.api.state.EnvironConfig()
 		if err != nil {
-			return result, common.ServerError(err)
+			return err
 		}
 		series = cfg.DefaultSeries()
 	}
-	if err := c.api.state.EnsureAvailability(args.NumStateServers, args.Constraints, series); err != nil {
-		result.Error = common.ServerError(err)
-	}
-	return result, nil
+	return c.api.state.EnsureAvailability(args.NumStateServers, args.Constraints, series)
 }

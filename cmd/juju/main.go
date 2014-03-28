@@ -127,7 +127,7 @@ func Main(args []string) {
 
 	// Manage state server availability.
 	// TODO: enable once the backend is ready for it.
-	//jujucmd.Register(wrap(&EnsureHACommand{}))
+	//jujucmd.Register(wrap(&EnsureAvailabilityCommand{}))
 
 	// Common commands.
 	jujucmd.Register(wrap(&cmd.VersionCommand{}))

@@ -669,16 +669,10 @@ func (c *Client) UploadTools(
 
 // EnsureAvailability ensures the availability of Juju state servers.
 func (c *Client) EnsureAvailability(numStateServers int, cons constraints.Value, series string) error {
-	var result params.EnsureAvailabilityResult
 	args := params.EnsureAvailability{
 		NumStateServers: numStateServers,
 		Constraints:     cons,
 		Series:          series,
 	}
-	if err := c.call("EnsureAvailability", args, &result); err != nil {
-		return err
-	} else if err := result.Error; err != nil {
-		return fmt.Errorf("error ensuring availability: %v", err)
-	}
-	return nil
+	return c.call("EnsureAvailability", args, nil)
 }
