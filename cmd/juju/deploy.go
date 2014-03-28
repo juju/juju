@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/osenv"
@@ -168,11 +169,23 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	}
 	var includeNetworks []string
 	var excludeNetworks []string
+	haveNetworks := false
 	if c.Networks != "" {
 		includeNetworks = parseNetworks(c.Networks)
+		haveNetworks = true
 	}
 	if c.NoNetworks != "" {
 		excludeNetworks = parseNetworks(c.NoNetworks)
+		haveNetworks = true
+	}
+	if haveNetworks {
+		env, err := environs.New(conf)
+		if err != nil {
+			return err
+		}
+		if !env.SupportNetworks() {
+			return errors.New("cannot use --networks/--no-networks: not supported by the environment")
+		}
 	}
 
 	charmInfo, err := client.CharmInfo(curl.String())
@@ -213,18 +226,16 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		includeNetworks,
 		excludeNetworks,
 	)
-	if params.IsCodeNotImplemented(err) {
-		ctx.Infof("ignoring --networks/--no-networks as it is not supported by the API server")
-		err = client.ServiceDeploy(
-			curl.String(),
-			serviceName,
-			numUnits,
-			string(configYAML),
-			c.Constraints,
-			c.ToMachineSpec,
-		)
+	if params.IsCodeNotImplemented(err) && haveNetworks {
+		return errors.New("cannot use --networks/--no-networks: not supported by the API server")
 	}
-	return err
+	return client.ServiceDeploy(
+		curl.String(),
+		serviceName,
+		numUnits,
+		string(configYAML),
+		c.Constraints,
+		c.ToMachineSpec)
 }
 
 // run1dot16 implements the deploy command in 1.16 compatibility mode,
