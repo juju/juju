@@ -190,17 +190,8 @@ func (a *MachineAgent) stateStarter(stopch <-chan struct{}) error {
 
 // APIWorker returns a Worker that connects to the API and starts any
 // workers that need an API connection.
-<<<<<<< TREE
-// It is also responsible for maintaining the agent config
-// by saving it to disk and calling setAgentConfig.
 func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	agentConfig := a.Conf.config
-=======
-//
-// If a state worker is necessary, APIWorker calls ensureStateWorker.
-func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error) {
-	agentConfig := a.CurrentConfig()
->>>>>>> MERGE-SOURCE
 	st, entity, err := openAPIState(agentConfig, a)
 	if err != nil {
 		return nil, err
