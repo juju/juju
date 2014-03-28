@@ -77,6 +77,7 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 		stateServerKey:    []byte(format.StateServerKey),
 		apiPort:           format.APIPort,
 		values:            format.Values,
+		statePort:         format.StatePort,
 	}
 	if config.logDir == "" {
 		config.logDir = DefaultLogDir
@@ -113,6 +114,7 @@ func (formatter_1_18) marshal(config *configInternal) ([]byte, error) {
 		StateServerKey:    string(config.stateServerKey),
 		APIPort:           config.apiPort,
 		Values:            config.values,
+		StatePort:         config.statePort,
 	}
 	if config.stateDetails != nil {
 		format.StateAddresses = config.stateDetails.addresses
