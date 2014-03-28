@@ -208,7 +208,7 @@ func (f *fakeUnitAgent) Tag() string {
 }
 
 func (f *fakeUnitAgent) ChangeConfig(func(agent.ConfigSetter)) error {
-	return nil
+	panic("fakeUnitAgent.ChangeConfig called unexpectedly")
 }
 
 func (s *UnitSuite) TestOpenAPIStateWithDeadEntityTerminates(c *gc.C) {

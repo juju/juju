@@ -77,9 +77,7 @@ func (s *Service) Start() error {
 }
 
 func runCommand(args ...string) error {
-	cmd := exec.Command(args[0], args[1:]...)
-	log.Infof("running %s %s", cmd.Path, cmd.Args)
-	out, err := cmd.CombinedOutput()
+	out, err := exec.Command(args[0], args[1:]...).CombinedOutput()
 	if err == nil {
 		return nil
 	}

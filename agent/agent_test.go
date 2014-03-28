@@ -352,7 +352,7 @@ func (*suite) TestAttributes(c *gc.C) {
 	c.Assert(conf.Tag(), gc.Equals, "omg")
 	c.Assert(conf.Dir(), gc.Equals, "/data/dir/agents/omg")
 	c.Assert(conf.Nonce(), gc.Equals, "a nonce")
-	c.Assert(conf.UpgradedToVersion(), gc.DeepEquals, version.Current.Number)
+	c.Assert(conf.UpgradedToVersion(), jc.DeepEquals, version.Current.Number)
 }
 
 func (s *suite) TestApiAddressesCantWriteBack(c *gc.C) {
@@ -360,12 +360,12 @@ func (s *suite) TestApiAddressesCantWriteBack(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	value, err := conf.APIAddresses()
 	c.Assert(err, gc.IsNil)
-	c.Assert(value, gc.DeepEquals, []string{"localhost:1235"})
+	c.Assert(value, jc.DeepEquals, []string{"localhost:1235"})
 	value[0] = "invalidAdr"
 	//Check out change hasn't gone back into the internals
 	newValue, err := conf.APIAddresses()
 	c.Assert(err, gc.IsNil)
-	c.Assert(newValue, gc.DeepEquals, []string{"localhost:1235"})
+	c.Assert(newValue, jc.DeepEquals, []string{"localhost:1235"})
 }
 
 func (*suite) TestWriteAndRead(c *gc.C) {
@@ -393,22 +393,22 @@ func (*suite) TestSetPassword(c *gc.C) {
 		Password: "",
 		Nonce:    params.Nonce,
 	}
-	c.Assert(conf.APIInfo(), gc.DeepEquals, expectAPIInfo)
+	c.Assert(conf.APIInfo(), jc.DeepEquals, expectAPIInfo)
 	expectStateInfo := &state.Info{
 		Addrs:    params.StateAddresses,
 		CACert:   params.CACert,
 		Tag:      params.Tag,
 		Password: "",
 	}
-	c.Assert(conf.StateInfo(), gc.DeepEquals, expectStateInfo)
+	c.Assert(conf.StateInfo(), jc.DeepEquals, expectStateInfo)
 
 	conf.SetPassword("newpassword")
 
 	expectAPIInfo.Password = "newpassword"
 	expectStateInfo.Password = "newpassword"
 
-	c.Assert(conf.APIInfo(), gc.DeepEquals, expectAPIInfo)
-	c.Assert(conf.StateInfo(), gc.DeepEquals, expectStateInfo)
+	c.Assert(conf.APIInfo(), jc.DeepEquals, expectAPIInfo)
+	c.Assert(conf.StateInfo(), jc.DeepEquals, expectStateInfo)
 }
 
 func (*suite) TestSetOldPassword(c *gc.C) {
