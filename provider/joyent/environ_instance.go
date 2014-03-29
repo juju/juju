@@ -34,26 +34,23 @@ type joyentCompute struct {
 	cloudapi *cloudapi.Client
 }
 
-func NewCompute(env *JoyentEnviron) *joyentCompute {
-	if compute, err := newCompute(env); err == nil {
-		return compute
+func newCompute(cfg *environConfig) (*joyentCompute, error) {
+	creds, err := credentials(cfg)
+	if err != nil {
+		return nil, err
 	}
-	return nil
-}
-
-func newCompute(env *JoyentEnviron) (*joyentCompute, error) {
-	client := client.NewClient(env.ecfg.sdcUrl(), cloudapi.DefaultAPIVersion, env.creds, &logger)
+	client := client.NewClient(cfg.sdcUrl(), cloudapi.DefaultAPIVersion, creds, &logger)
 
 	return &joyentCompute{
-		ecfg:     env.ecfg,
+		ecfg:     cfg,
 		cloudapi: cloudapi.New(client)}, nil
 }
 
-func (env *JoyentEnviron) machineFullName(machineId string) string {
+func (env *joyentEnviron) machineFullName(machineId string) string {
 	return fmt.Sprintf("juju-%s-%s", env.Name(), names.MachineTag(machineId))
 }
 
-func (env *JoyentEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
 
 	series := args.Tools.OneSeries()
 	arches := args.Tools.Arches()
@@ -137,7 +134,7 @@ func (env *JoyentEnviron) StartInstance(args environs.StartInstanceParams) (inst
 	return inst, &hc, nil
 }
 
-func (env *JoyentEnviron) AllInstances() ([]instance.Instance, error) {
+func (env *joyentEnviron) AllInstances() ([]instance.Instance, error) {
 	instances := []instance.Instance{}
 
 	filter := cloudapi.NewFilter()
@@ -159,7 +156,7 @@ func (env *JoyentEnviron) AllInstances() ([]instance.Instance, error) {
 	return instances, nil
 }
 
-func (env *JoyentEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
+func (env *joyentEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -194,7 +191,7 @@ func (env *JoyentEnviron) Instances(ids []instance.Id) ([]instance.Instance, err
 	return instances, nil
 }
 
-func (env *JoyentEnviron) StopInstances(instances []instance.Instance) error {
+func (env *joyentEnviron) StopInstances(instances []instance.Instance) error {
 	// Remove all the instances in parallel so that we incur less round-trips.
 	var wg sync.WaitGroup
 	//var err error
@@ -220,7 +217,7 @@ func (env *JoyentEnviron) StopInstances(instances []instance.Instance) error {
 }
 
 // findInstanceSpec returns an InstanceSpec satisfying the supplied instanceConstraint.
-func (env *JoyentEnviron) FindInstanceSpec(ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+func (env *joyentEnviron) FindInstanceSpec(ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
 	packages, err := env.compute.cloudapi.ListPackages(nil)
 	if err != nil {
 		return nil, err

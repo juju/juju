@@ -9,12 +9,17 @@ import (
 	"text/template"
 
 	"github.com/joyent/gosign/auth"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/jujutest"
+	"launchpad.net/juju-core/environs/storage"
+	"launchpad.net/juju-core/testing"
 )
 
 var Provider environs.EnvironProvider = GetProviderInstance()
@@ -150,7 +155,7 @@ func UnregisterExternalTestImageMetadata() {
 }
 
 func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *instances.InstanceSpec, err error) {
-	env := e.(*JoyentEnviron)
+	env := e.(*joyentEnviron)
 	spec, err = env.FindInstanceSpec(&instances.InstanceConstraint{
 		Series:      series,
 		Arches:      []string{arch},
@@ -161,10 +166,33 @@ func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *inst
 }
 
 func ControlBucketName(e environs.Environ) string {
-	env := e.(*JoyentEnviron)
+	env := e.(*joyentEnviron)
 	return env.Storage().(*JoyentStorage).GetContainerName()
 }
 
 func CreateContainer(s *JoyentStorage) error {
 	return s.createContainer()
+}
+
+// MakeConfig creates a functional environConfig for a test.
+func MakeConfig(c *gc.C, attrs testing.Attrs) *environConfig {
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+	env, err := environs.Prepare(cfg, testing.Context(c), configstore.NewMem())
+	c.Assert(err, gc.IsNil)
+	return env.(*joyentEnviron).Ecfg()
+}
+
+// MakeCredentials creates credentials for a test.
+func MakeCredentials(c *gc.C, attrs testing.Attrs) *auth.Credentials {
+	creds, err := credentials(MakeConfig(c, attrs))
+	c.Assert(err, gc.IsNil)
+	return creds
+}
+
+// MakeStorage creates an env storage for a test.
+func MakeStorage(c *gc.C, attrs testing.Attrs) storage.Storage {
+	stor, err := newStorage(MakeConfig(c, attrs), "")
+	c.Assert(err, gc.IsNil)
+	return stor
 }

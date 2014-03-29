@@ -18,7 +18,7 @@ const (
 )
 
 // Helper method to create a firewall rule string for the given machine Id and port
-func createFirewallRuleVm(env *JoyentEnviron, machineId string, port instance.Port) string {
+func createFirewallRuleVm(env *joyentEnviron, machineId string, port instance.Port) string {
 	return fmt.Sprintf(firewallRuleVm, env.Name(), machineId, strings.ToLower(port.Protocol), port.Number)
 }
 

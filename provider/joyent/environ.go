@@ -4,10 +4,7 @@
 package joyent
 
 import (
-	"errors"
 	"sync"
-
-	"github.com/joyent/gosign/auth"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -22,7 +19,7 @@ import (
 
 // This file contains the core of the Joyent Environ implementation.
 
-type JoyentEnviron struct {
+type joyentEnviron struct {
 	name string
 
 	// supportedArchitectures caches the architectures
@@ -37,44 +34,36 @@ type JoyentEnviron struct {
 	// affected fields.
 	lock    sync.Mutex
 	ecfg    *environConfig
-	creds   *auth.Credentials
 	storage storage.Storage
 	compute *joyentCompute
 }
 
-var _ environs.Environ = (*JoyentEnviron)(nil)
+var _ environs.Environ = (*joyentEnviron)(nil)
 
 // newEnviron create a new Joyent environ instance from config.
-// The config must have been prepared first in order to ensure that
-// the private key has been inserted into the config.
-func newEnviron(cfg *config.Config) (*JoyentEnviron, error) {
-	env := new(JoyentEnviron)
+func newEnviron(cfg *config.Config) (*joyentEnviron, error) {
+	env := new(joyentEnviron)
 	if err := env.SetConfig(cfg); err != nil {
 		return nil, err
 	}
 	env.name = cfg.Name()
-	if err := env.setCredentials(); err != nil {
-		return nil, err
-	}
-	env.storage = NewStorage(env, "")
-	env.compute = NewCompute(env)
 	return env, nil
 }
 
-func (env *JoyentEnviron) SetName(envName string) {
+func (env *joyentEnviron) SetName(envName string) {
 	env.name = envName
 }
 
-func (env *JoyentEnviron) Name() string {
+func (env *joyentEnviron) Name() string {
 	return env.name
 }
 
-func (*JoyentEnviron) Provider() environs.EnvironProvider {
+func (*joyentEnviron) Provider() environs.EnvironProvider {
 	return providerInstance
 }
 
 // SupportedArchitectures is specified on the EnvironCapability interface.
-func (env *JoyentEnviron) SupportedArchitectures() ([]string, error) {
+func (env *joyentEnviron) SupportedArchitectures() ([]string, error) {
 	env.archLock.Lock()
 	defer env.archLock.Unlock()
 	if env.supportedArchitectures != nil {
@@ -95,7 +84,7 @@ func (env *JoyentEnviron) SupportedArchitectures() ([]string, error) {
 	return env.supportedArchitectures, err
 }
 
-func (env *JoyentEnviron) SetConfig(cfg *config.Config) error {
+func (env *joyentEnviron) SetConfig(cfg *config.Config) error {
 	env.lock.Lock()
 	defer env.lock.Unlock()
 	ecfg, err := providerInstance.newConfig(cfg)
@@ -106,7 +95,7 @@ func (env *JoyentEnviron) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (env *JoyentEnviron) getSnapshot() *JoyentEnviron {
+func (env *joyentEnviron) getSnapshot() *joyentEnviron {
 	env.lock.Lock()
 	clone := *env
 	env.lock.Unlock()
@@ -114,55 +103,36 @@ func (env *JoyentEnviron) getSnapshot() *JoyentEnviron {
 	return &clone
 }
 
-func (env *JoyentEnviron) Config() *config.Config {
+func (env *joyentEnviron) Config() *config.Config {
 	return env.getSnapshot().ecfg.Config
 }
 
-func (env *JoyentEnviron) Storage() storage.Storage {
+func (env *joyentEnviron) Storage() storage.Storage {
 	return env.getSnapshot().storage
 }
 
-func (env *JoyentEnviron) PublicStorage() storage.StorageReader {
+func (env *joyentEnviron) PublicStorage() storage.StorageReader {
 	return environs.EmptyStorage
 }
 
-func (env *JoyentEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
+func (env *joyentEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
 	return common.Bootstrap(ctx, env, cons)
 }
 
-func (env *JoyentEnviron) StateInfo() (*state.Info, *api.Info, error) {
+func (env *joyentEnviron) StateInfo() (*state.Info, *api.Info, error) {
 	return common.StateInfo(env)
 }
 
-func (env *JoyentEnviron) Destroy() error {
+func (env *joyentEnviron) Destroy() error {
 	return common.Destroy(env)
 }
 
-func (env *JoyentEnviron) Ecfg() *environConfig {
+func (env *joyentEnviron) Ecfg() *environConfig {
 	return env.getSnapshot().ecfg
 }
 
-func (env *JoyentEnviron) Credentials() *auth.Credentials {
-	return env.getSnapshot().creds
-}
-
-func (env *JoyentEnviron) setCredentials() error {
-	if env.ecfg.privateKey() == "" {
-		return errors.New("cannot set credentials without a private key")
-	}
-	authentication := auth.Auth{User: env.ecfg.mantaUser(), PrivateKey: env.ecfg.privateKey(), Algorithm: env.ecfg.algorithm()}
-	env.creds = &auth.Credentials{
-		UserAuthentication: authentication,
-		MantaKeyId:         env.ecfg.mantaKeyId(),
-		MantaEndpoint:      auth.Endpoint{URL: env.ecfg.mantaUrl()},
-		SdcKeyId:           env.ecfg.sdcKeyId(),
-		SdcEndpoint:        auth.Endpoint{URL: env.ecfg.sdcUrl()},
-	}
-	return nil
-}
-
 // MetadataLookupParams returns parameters which are used to query simplestreams metadata.
-func (env *JoyentEnviron) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
+func (env *joyentEnviron) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
 	if region == "" {
 		region = env.Ecfg().Region()
 	}
@@ -175,7 +145,7 @@ func (env *JoyentEnviron) MetadataLookupParams(region string) (*simplestreams.Me
 }
 
 // Region is specified in the HasRegion interface.
-func (env *JoyentEnviron) Region() (simplestreams.CloudSpec, error) {
+func (env *joyentEnviron) Region() (simplestreams.CloudSpec, error) {
 	return simplestreams.CloudSpec{
 		Region:   env.Ecfg().Region(),
 		Endpoint: env.Ecfg().sdcUrl(),
@@ -183,7 +153,7 @@ func (env *JoyentEnviron) Region() (simplestreams.CloudSpec, error) {
 }
 
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
-func (env *JoyentEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
+func (env *joyentEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket.
 	sources := []simplestreams.DataSource{
 		storage.NewStorageSimpleStreamsDataSource("cloud storage", env.Storage(), storage.BaseImagesPath)}
@@ -191,7 +161,7 @@ func (env *JoyentEnviron) GetImageSources() ([]simplestreams.DataSource, error) 
 }
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
-func (env *JoyentEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
+func (env *joyentEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket.
 	sources := []simplestreams.DataSource{
 		storage.NewStorageSimpleStreamsDataSource("cloud storage", env.Storage(), storage.BaseToolsPath)}

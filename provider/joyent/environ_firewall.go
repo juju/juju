@@ -19,7 +19,7 @@ const (
 )
 
 // Helper method to create a firewall rule string for the given port
-func createFirewallRuleAll(env *JoyentEnviron, port instance.Port) string {
+func createFirewallRuleAll(env *joyentEnviron, port instance.Port) string {
 	return fmt.Sprintf(firewallRuleAll, env.Name(), strings.ToLower(port.Protocol), port.Number)
 }
 
@@ -35,7 +35,7 @@ func ruleExists(rules []cloudapi.FirewallRule, rule string) (bool, string) {
 }
 
 // Helper method to get port from the given firewall rules
-func getPorts(env *JoyentEnviron, rules []cloudapi.FirewallRule) []instance.Port {
+func getPorts(env *joyentEnviron, rules []cloudapi.FirewallRule) []instance.Port {
 	ports := []instance.Port{}
 	for _, r := range rules {
 		rule := r.Rule
@@ -51,7 +51,7 @@ func getPorts(env *JoyentEnviron, rules []cloudapi.FirewallRule) []instance.Port
 	return ports
 }
 
-func (env *JoyentEnviron) OpenPorts(ports []instance.Port) error {
+func (env *joyentEnviron) OpenPorts(ports []instance.Port) error {
 	if env.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on environment", env.Config().FirewallMode())
 	}
@@ -84,7 +84,7 @@ func (env *JoyentEnviron) OpenPorts(ports []instance.Port) error {
 	return nil
 }
 
-func (env *JoyentEnviron) ClosePorts(ports []instance.Port) error {
+func (env *joyentEnviron) ClosePorts(ports []instance.Port) error {
 	if env.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on environment", env.Config().FirewallMode())
 	}
@@ -117,7 +117,7 @@ func (env *JoyentEnviron) ClosePorts(ports []instance.Port) error {
 	return nil
 }
 
-func (env *JoyentEnviron) Ports() ([]instance.Port, error) {
+func (env *joyentEnviron) Ports() ([]instance.Port, error) {
 	if env.Config().FirewallMode() != config.FwGlobal {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from environment", env.Config().FirewallMode())
 	}

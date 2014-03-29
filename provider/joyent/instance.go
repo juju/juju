@@ -16,7 +16,7 @@ import (
 
 type joyentInstance struct {
 	machine *cloudapi.Machine
-	env     *JoyentEnviron
+	env     *joyentEnviron
 }
 
 var _ instance.Instance = (*joyentInstance)(nil)

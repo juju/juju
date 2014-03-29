@@ -18,7 +18,6 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/simplestreams"
@@ -114,7 +113,8 @@ func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	})
 	s.LiveTests.SetUpSuite(c)
 
-	joyent.UseExternalTestImageMetadata(s.Env.(*joyent.JoyentEnviron).Credentials())
+	creds := joyent.MakeCredentials(c, s.TestConfig)
+	joyent.UseExternalTestImageMetadata(creds)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
 }
@@ -145,6 +145,7 @@ type localServerSuite struct {
 	jujutest.Tests
 	cSrv *localCloudAPIServer
 	mSrv *localMantaServer
+	env  environs.Environ
 }
 
 func (s *localServerSuite) SetUpSuite(c *gc.C) {
@@ -167,11 +168,11 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 
 	s.TestConfig = GetFakeConfig(s.cSrv.Server.URL, s.mSrv.Server.URL)
 	s.Tests.SetUpTest(c)
+	s.env = s.Prepare(c)
 
 	// Put some fake image metadata in place.
-	env := s.Prepare(c)
-
-	joyent.UseExternalTestImageMetadata(env.(*joyent.JoyentEnviron).Credentials())
+	creds := joyent.MakeCredentials(c, s.TestConfig)
+	joyent.UseExternalTestImageMetadata(creds)
 }
 
 func (s *localServerSuite) TearDownTest(c *gc.C) {
@@ -189,24 +190,23 @@ func bootstrapContext(c *gc.C) environs.BootstrapContext {
 // bootstrapping and starting an instance should occur without any attempt to
 // allocate a public address.
 func (s *localServerSuite) TestStartInstance(c *gc.C) {
-	cfg, err := config.New(config.NoDefaults, s.TestConfig)
+	//	cfg, err := config.New(config.NoDefaults, s.TestConfig)
+	//	c.Assert(err, gc.IsNil)
+	//	env, err := environs.Prepare(cfg, bootstrapContext(c), s.ConfigStore)
+	//	c.Assert(err, gc.IsNil)
+	envtesting.UploadFakeTools(c, s.env.Storage())
+	err := bootstrap.Bootstrap(bootstrapContext(c), s.env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg, bootstrapContext(c), s.ConfigStore)
-	c.Assert(err, gc.IsNil)
-	envtesting.UploadFakeTools(c, env.Storage())
-	err = bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
-	c.Assert(err, gc.IsNil)
-	inst, _ := testing.AssertStartInstance(c, env, "100")
-	err = env.StopInstances([]instance.Instance{inst})
+	inst, _ := testing.AssertStartInstance(c, s.env, "100")
+	err = s.env.StopInstances([]instance.Instance{inst})
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
-	env := s.Prepare(c)
-	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
+	envtesting.UploadFakeTools(c, s.env.Storage())
+	err := bootstrap.Bootstrap(bootstrapContext(c), s.env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
-	_, hc := testing.AssertStartInstanceWithConstraints(c, env, "100", constraints.MustParse("mem=1024"))
+	_, hc := testing.AssertStartInstanceWithConstraints(c, s.env, "100", constraints.MustParse("mem=1024"))
 	c.Check(*hc.Arch, gc.Equals, "amd64")
 	c.Check(*hc.Mem, gc.Equals, uint64(1024))
 	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
@@ -261,24 +261,22 @@ var instanceGathering = []struct {
 }
 
 func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
-	env := s.Prepare(c)
-	envtesting.UploadFakeTools(c, env.Storage())
-	inst, _ := testing.AssertStartInstance(c, env, "100")
+	envtesting.UploadFakeTools(c, s.env.Storage())
+	inst, _ := testing.AssertStartInstance(c, s.env, "100")
 	c.Assert(inst.Status(), gc.Equals, "running")
-	err := env.StopInstances([]instance.Instance{inst})
+	err := s.env.StopInstances([]instance.Instance{inst})
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
-	env := s.Prepare(c)
-	envtesting.UploadFakeTools(c, env.Storage())
-	inst0, _ := testing.AssertStartInstance(c, env, "100")
+	envtesting.UploadFakeTools(c, s.env.Storage())
+	inst0, _ := testing.AssertStartInstance(c, s.env, "100")
 	id0 := inst0.Id()
-	inst1, _ := testing.AssertStartInstance(c, env, "101")
+	inst1, _ := testing.AssertStartInstance(c, s.env, "101")
 	id1 := inst1.Id()
 	c.Logf("id0: %s, id1: %s", id0, id1)
 	defer func() {
-		err := env.StopInstances([]instance.Instance{inst0, inst1})
+		err := s.env.StopInstances([]instance.Instance{inst0, inst1})
 		c.Assert(err, gc.IsNil)
 	}()
 
@@ -293,7 +291,7 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 				ids[j] = id1
 			}
 		}
-		insts, err := env.Instances(ids)
+		insts, err := s.env.Instances(ids)
 		c.Assert(err, gc.Equals, test.err)
 		if err == environs.ErrNoInstances {
 			c.Assert(insts, gc.HasLen, 0)
@@ -312,17 +310,16 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 
 // It should be moved to environs.jujutests.Tests.
 func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
-	env := s.Prepare(c)
-	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
+	envtesting.UploadFakeTools(c, s.env.Storage())
+	err := bootstrap.Bootstrap(bootstrapContext(c), s.env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
-	stateData, err := bootstrap.LoadState(env.Storage())
+	stateData, err := bootstrap.LoadState(s.env.Storage())
 	c.Assert(err, gc.IsNil)
 	c.Assert(stateData.StateInstances, gc.HasLen, 1)
 
-	insts, err := env.AllInstances()
+	insts, err := s.env.AllInstances()
 	c.Assert(err, gc.IsNil)
 	c.Assert(insts, gc.HasLen, 1)
 	c.Check(stateData.StateInstances[0], gc.Equals, insts[0].Id())
@@ -333,8 +330,7 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 }
 
 func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
-	env := s.Open(c)
-	sources, err := imagemetadata.GetMetadataSources(env)
+	sources, err := imagemetadata.GetMetadataSources(s.env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(sources), gc.Equals, 2)
 	var urls = make([]string, len(sources))
@@ -344,12 +340,11 @@ func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
 		urls[i] = url
 	}
 	// The control bucket URL contains the bucket name.
-	c.Assert(strings.Contains(urls[0], joyent.ControlBucketName(env)+"/images"), jc.IsTrue)
+	c.Assert(strings.Contains(urls[0], joyent.ControlBucketName(s.env)+"/images"), jc.IsTrue)
 }
 
 func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
-	env := s.Open(c)
-	sources, err := tools.GetMetadataSources(env)
+	sources, err := tools.GetMetadataSources(s.env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(sources), gc.Equals, 1)
 	var urls = make([]string, len(sources))
@@ -359,22 +354,19 @@ func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 		urls[i] = url
 	}
 	// The control bucket URL contains the bucket name.
-	c.Assert(strings.Contains(urls[0], joyent.ControlBucketName(env)+"/tools"), jc.IsTrue)
+	c.Assert(strings.Contains(urls[0], joyent.ControlBucketName(s.env)+"/tools"), jc.IsTrue)
 }
 
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
-	env := s.Open(c)
-
 	// An error occurs if no suitable image is found.
-	_, err := joyent.FindInstanceSpec(env, "saucy", "amd64", "mem=4G")
+	_, err := joyent.FindInstanceSpec(s.env, "saucy", "amd64", "mem=4G")
 	c.Assert(err, gc.ErrorMatches, `no "saucy" images in some-region with arches \[amd64\]`)
 }
 
 func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
-	env := s.Open(c)
-	params, err := env.(simplestreams.MetadataValidator).MetadataLookupParams("some-region")
+	params, err := s.env.(simplestreams.MetadataValidator).MetadataLookupParams("some-region")
 	c.Assert(err, gc.IsNil)
-	params.Sources, err = imagemetadata.GetMetadataSources(env)
+	params.Sources, err = imagemetadata.GetMetadataSources(s.env)
 	c.Assert(err, gc.IsNil)
 	params.Series = "raring"
 	image_ids, _, err := imagemetadata.ValidateImageMetadata(params)
@@ -383,8 +375,7 @@ func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 }
 
 func (s *localServerSuite) TestRemoveAll(c *gc.C) {
-	env := s.Prepare(c)
-	stor := env.Storage()
+	stor := s.env.Storage()
 	for _, a := range []byte("abcdefghijklmnopqrstuvwxyz") {
 		content := []byte{a}
 		name := string(content)
@@ -404,8 +395,7 @@ func (s *localServerSuite) TestRemoveAll(c *gc.C) {
 }
 
 func (s *localServerSuite) TestDeleteMoreThan100(c *gc.C) {
-	env := s.Prepare(c)
-	stor := env.Storage()
+	stor := s.env.Storage()
 	// 6*26 = 156 items
 	for _, a := range []byte("abcdef") {
 		for _, b := range []byte("abcdefghijklmnopqrstuvwxyz") {

@@ -221,8 +221,6 @@ func (*ConfigSuite) TestNewEnvironConfig(c *gc.C) {
 			os.Setenv(k, v)
 		}
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
-		// This test does not prepare the config so add in a private key manually.
-		attrs = attrs.Merge(coretesting.Attrs{"private-key": "key"})
 		testConfig := newConfig(c, attrs)
 		environ, err := environs.New(testConfig)
 		if test.err == "" {
@@ -298,10 +296,7 @@ func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 }
 
 func (s *ConfigSuite) TestSetConfig(c *gc.C) {
-	attrs := validAttrs()
-	// This test does not prepare the config so add in a private key manually.
-	attrs = attrs.Merge(coretesting.Attrs{"private-key": "key"})
-	baseConfig := newConfig(c, attrs)
+	baseConfig := newConfig(c, validAttrs())
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 		environ, err := environs.New(baseConfig)

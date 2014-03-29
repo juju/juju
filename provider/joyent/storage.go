@@ -40,22 +40,19 @@ func (byteCloser) Close() error {
 
 var _ storage.Storage = (*JoyentStorage)(nil)
 
-func NewStorage(env *JoyentEnviron, name string) storage.Storage {
-	if stor, err := newStorage(env, name); err == nil {
-		return stor
+func newStorage(cfg *environConfig, name string) (storage.Storage, error) {
+	creds, err := credentials(cfg)
+	if err != nil {
+		return nil, err
 	}
-	return nil
-}
-
-func newStorage(env *JoyentEnviron, name string) (storage.Storage, error) {
-	client := client.NewClient(env.ecfg.mantaUrl(), "", env.creds, &logger)
+	client := client.NewClient(cfg.mantaUrl(), "", creds, &logger)
 
 	if name == "" {
-		name = env.ecfg.controlDir()
+		name = cfg.controlDir()
 	}
 
 	return &JoyentStorage{
-		ecfg:          env.ecfg,
+		ecfg:          cfg,
 		containerName: name,
 		manta:         manta.New(client)}, nil
 }

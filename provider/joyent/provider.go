@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/loggo"
 
+	"github.com/joyent/gosign/auth"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
@@ -23,32 +24,50 @@ type joyentProvider struct{}
 var providerInstance = joyentProvider{}
 var _ environs.EnvironProvider = providerInstance
 
-var _ simplestreams.HasRegion = (*JoyentEnviron)(nil)
-var _ imagemetadata.SupportsCustomSources = (*JoyentEnviron)(nil)
-var _ envtools.SupportsCustomSources = (*JoyentEnviron)(nil)
+var _ simplestreams.HasRegion = (*joyentEnviron)(nil)
+var _ imagemetadata.SupportsCustomSources = (*joyentEnviron)(nil)
+var _ envtools.SupportsCustomSources = (*joyentEnviron)(nil)
 
 func init() {
-	// This will only happen in binaries that actually import this provider
-	// somewhere. To enable a provider, import it in the "providers/all"
-	// package; please do *not* import individual providers anywhere else,
-	// except for tests for that provider.
 	environs.RegisterProvider("joyent", providerInstance)
 }
 
 var errNotImplemented = errors.New("not implemented in Joyent provider")
 
 func (joyentProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	// This method may be called with an incomplete cfg. It should make every
-	// reasonable effort to create a valid configuration based on the supplied,
-	// and open the resulting environment.
-	// You should implement this method to the best of your ability before
-	// expecting non-developers to use your provider, but it shouldn't be your
-	// first priority.
 	preparedCfg, err := prepareConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
-	return providerInstance.Open(preparedCfg)
+	env, err := providerInstance.Open(preparedCfg)
+	if err != nil {
+		return nil, err
+	}
+	jenv := env.(*joyentEnviron)
+	// We now have credentials so set up storage and compute instances.
+	jenv.storage, err = newStorage(jenv.ecfg, "")
+	if err != nil {
+		return nil, err
+	}
+	jenv.compute, err = newCompute(jenv.ecfg)
+	if err != nil {
+		return nil, err
+	}
+	return jenv, nil
+}
+
+func credentials(cfg *environConfig) (*auth.Credentials, error) {
+	if cfg.privateKey() == "" {
+		return nil, errors.New("cannot create credentials without a private key")
+	}
+	authentication := auth.Auth{User: cfg.mantaUser(), PrivateKey: cfg.privateKey(), Algorithm: cfg.algorithm()}
+	return &auth.Credentials{
+		UserAuthentication: authentication,
+		MantaKeyId:         cfg.mantaKeyId(),
+		MantaEndpoint:      auth.Endpoint{URL: cfg.mantaUrl()},
+		SdcKeyId:           cfg.sdcKeyId(),
+		SdcEndpoint:        auth.Endpoint{URL: cfg.sdcUrl()},
+	}, nil
 }
 
 func (joyentProvider) Open(cfg *config.Config) (environs.Environ, error) {
@@ -60,9 +79,6 @@ func (joyentProvider) Open(cfg *config.Config) (environs.Environ, error) {
 }
 
 func (joyentProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
-	// You should almost certainly not change this method; if you need to change
-	// how configs are validated, you should edit validateConfig itself, to ensure
-	// that your checks are always applied.
 	newEcfg, err := validateConfig(cfg, old)
 	if err != nil {
 		return nil, fmt.Errorf("invalid Joyent provider config: %v", err)

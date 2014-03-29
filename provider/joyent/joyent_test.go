@@ -89,7 +89,7 @@ func GetFakeConfig(sdcUrl, mantaUrl string) coretesting.Attrs {
 		"manta-user":    testUser,
 		"manta-key-id":  testKeyFingerprint,
 		"manta-url":     mantaUrl,
-		"key-file":      fmt.Sprintf("%s/.ssh/%s", os.Getenv("HOME"), testKeyFileName),
+		"key-file":      fmt.Sprintf("~/.ssh/%s", testKeyFileName),
 		"algorithm":     "rsa-sha256",
 		"control-dir":   "juju-test",
 		"agent-version": version.Current.Number.String(),

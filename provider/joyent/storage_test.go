@@ -15,12 +15,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/configstore"
 	coreerrors "launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/provider/joyent"
 	jp "launchpad.net/juju-core/provider/joyent"
-	"launchpad.net/juju-core/testing"
 )
 
 type storageSuite struct {
@@ -46,23 +43,10 @@ func (s *storageSuite) TearDownSuite(c *gc.C) {
 	s.providerSuite.TearDownSuite(c)
 }
 
-// makeEnviron creates a functional Joyent environ for a test.
-func makeEnviron(c *gc.C, sdcUrl, mantaUrl string) *jp.JoyentEnviron {
-	attrs := GetFakeConfig(sdcUrl, mantaUrl)
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg, testing.Context(c), configstore.NewMem())
-	c.Assert(err, gc.IsNil)
-	return env.(*jp.JoyentEnviron)
-}
-
-// s.makeStorage creates a Manta storage object for the running test.
-func (s *storageSuite) assertStorage(name string, c *gc.C) *jp.JoyentStorage {
-	env := makeEnviron(c, "localhost", s.localMantaServer.Server.URL)
-	env.SetName(name)
-	storage := jp.NewStorage(env, "").(*jp.JoyentStorage)
-	c.Assert(storage, gc.NotNil)
-	return storage
+// makeStorage creates a Manta storage object for the running test.
+func (s *storageSuite) makeStorage(name string, c *gc.C) *jp.JoyentStorage {
+	stor := joyent.MakeStorage(c, GetFakeConfig("localhost", s.localMantaServer.Server.URL))
+	return stor.(*jp.JoyentStorage)
 }
 
 func (s *storageSuite) assertContainer(storage *jp.JoyentStorage, c *gc.C) {
@@ -93,7 +77,7 @@ func makeResponse(content string, status int) *http.Response {
 }
 
 func (s *storageSuite) TestList(c *gc.C) {
-	mantaStorage := s.assertStorage(storageName, c)
+	mantaStorage := s.makeStorage(storageName, c)
 	s.assertContainer(mantaStorage, c)
 	s.assertFile(mantaStorage, c)
 
@@ -103,7 +87,7 @@ func (s *storageSuite) TestList(c *gc.C) {
 }
 
 func (s *storageSuite) TestListWithPrefix(c *gc.C) {
-	mantaStorage := s.assertStorage(storageName, c)
+	mantaStorage := s.makeStorage(storageName, c)
 	s.assertContainer(mantaStorage, c)
 	s.assertFile(mantaStorage, c)
 	err := mantaStorage.Put("pr/fileName", strings.NewReader(fileBlobContent), int64(len(fileBlobContent)))
@@ -115,7 +99,7 @@ func (s *storageSuite) TestListWithPrefix(c *gc.C) {
 }
 
 func (s *storageSuite) TestGet(c *gc.C) {
-	mantaStorage := s.assertStorage(storageName, c)
+	mantaStorage := s.makeStorage(storageName, c)
 	s.assertFile(mantaStorage, c)
 
 	reader, err := mantaStorage.Get(fileName)
@@ -129,7 +113,7 @@ func (s *storageSuite) TestGet(c *gc.C) {
 }
 
 func (s *storageSuite) TestGetFileNotExists(c *gc.C) {
-	mantaStorage := s.assertStorage(storageName, c)
+	mantaStorage := s.makeStorage(storageName, c)
 
 	_, err := mantaStorage.Get("noFile")
 	c.Assert(err, gc.NotNil)
@@ -137,13 +121,13 @@ func (s *storageSuite) TestGetFileNotExists(c *gc.C) {
 }
 
 func (s *storageSuite) TestPut(c *gc.C) {
-	mantaStorage := s.assertStorage(storageName, c)
+	mantaStorage := s.makeStorage(storageName, c)
 
 	s.assertFile(mantaStorage, c)
 }
 
 func (s *storageSuite) TestRemove(c *gc.C) {
-	mantaStorage := s.assertStorage(storageName, c)
+	mantaStorage := s.makeStorage(storageName, c)
 	s.assertFile(mantaStorage, c)
 
 	err := mantaStorage.Remove(fileName)
@@ -151,21 +135,21 @@ func (s *storageSuite) TestRemove(c *gc.C) {
 }
 
 func (s *storageSuite) TestRemoveFileNotExists(c *gc.C) {
-	mantaStorage := s.assertStorage(storageName, c)
+	mantaStorage := s.makeStorage(storageName, c)
 
 	err := mantaStorage.Remove("nofile")
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *storageSuite) TestRemoveAll(c *gc.C) {
-	mantaStorage := s.assertStorage(storageName, c)
+	mantaStorage := s.makeStorage(storageName, c)
 
 	err := mantaStorage.RemoveAll()
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *storageSuite) TestURL(c *gc.C) {
-	mantaStorage := s.assertStorage(storageName, c)
+	mantaStorage := s.makeStorage(storageName, c)
 
 	URL, err := mantaStorage.URL(fileName)
 	c.Assert(err, gc.IsNil)
@@ -176,20 +160,20 @@ func (s *storageSuite) TestURL(c *gc.C) {
 }
 
 func (s *storageSuite) TestCreateContainer(c *gc.C) {
-	mantaStorage := s.assertStorage(storageName, c)
+	mantaStorage := s.makeStorage(storageName, c)
 
 	s.assertContainer(mantaStorage, c)
 }
 
 func (s *storageSuite) TestCreateContainerAlreadyExists(c *gc.C) {
-	mantaStorage := s.assertStorage(storageName, c)
+	mantaStorage := s.makeStorage(storageName, c)
 
 	s.assertContainer(mantaStorage, c)
 	s.assertContainer(mantaStorage, c)
 }
 
 func (s *storageSuite) TestDeleteContainer(c *gc.C) {
-	mantaStorage := s.assertStorage(storageName, c)
+	mantaStorage := s.makeStorage(storageName, c)
 	s.assertContainer(mantaStorage, c)
 
 	err := mantaStorage.DeleteContainer(mantaStorage.GetContainerName())
@@ -197,7 +181,7 @@ func (s *storageSuite) TestDeleteContainer(c *gc.C) {
 }
 
 func (s *storageSuite) TestDeleteContainerNotEmpty(c *gc.C) {
-	mantaStorage := s.assertStorage(storageName, c)
+	mantaStorage := s.makeStorage(storageName, c)
 	s.assertContainer(mantaStorage, c)
 	s.assertFile(mantaStorage, c)
 
@@ -207,7 +191,7 @@ func (s *storageSuite) TestDeleteContainerNotEmpty(c *gc.C) {
 }
 
 func (s *storageSuite) TestDeleteContainerNotExists(c *gc.C) {
-	mantaStorage := s.assertStorage(storageName, c)
+	mantaStorage := s.makeStorage(storageName, c)
 
 	err := mantaStorage.DeleteContainer("noContainer")
 	c.Assert(err, gc.NotNil)
