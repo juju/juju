@@ -93,6 +93,11 @@ func (env *joyentEnviron) SupportedArchitectures() ([]string, error) {
 	return env.supportedArchitectures, err
 }
 
+// SupportNetworks is specified on the EnvironCapability interface.
+func (e *joyentEnviron) SupportNetworks() bool {
+	return false
+}
+
 func (env *joyentEnviron) SetConfig(cfg *config.Config) error {
 	env.lock.Lock()
 	defer env.lock.Unlock()

@@ -348,6 +348,11 @@ func (env *azureEnviron) SupportedArchitectures() ([]string, error) {
 	return env.supportedArchitectures, err
 }
 
+// SupportNetworks is specified on the EnvironCapability interface.
+func (env *azureEnviron) SupportNetworks() bool {
+	return false
+}
+
 // selectInstanceTypeAndImage returns the appropriate instance-type name and
 // the OS image name for launching a virtual machine with the given parameters.
 func (env *azureEnviron) selectInstanceTypeAndImage(constraint *instances.InstanceConstraint) (string, string, error) {
