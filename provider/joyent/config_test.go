@@ -36,6 +36,7 @@ func validAttrs() coretesting.Attrs {
 		"key-file":     "~/.ssh/provider_id_rsa",
 		"algorithm":    "rsa-sha256",
 		"control-dir":  "juju-test",
+		"private-key":  "key",
 	})
 }
 
@@ -319,6 +320,10 @@ func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 	}
 }
 
+func validPrepareAttrs() coretesting.Attrs {
+	return validAttrs().Delete("private-key")
+}
+
 var prepareConfigTests = []struct {
 	info   string
 	insert coretesting.Attrs
@@ -327,7 +332,7 @@ var prepareConfigTests = []struct {
 	err    string
 }{{
 	info:   "All value provided, nothig to do",
-	expect: validAttrs(),
+	expect: validPrepareAttrs(),
 }, {
 	info:   "private key is loaded from key file",
 	insert: coretesting.Attrs{"key-file": fmt.Sprintf("~/.ssh/%s", testKeyFileName)},
@@ -338,7 +343,7 @@ func (s *ConfigSuite) TestPrepare(c *gc.C) {
 	ctx := coretesting.Context(c)
 	for i, test := range prepareConfigTests {
 		c.Logf("test %d: %s", i, test.info)
-		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
+		attrs := validPrepareAttrs().Merge(test.insert).Delete(test.remove...)
 		testConfig := newConfig(c, attrs)
 		preparedConfig, err := jp.Provider.Prepare(ctx, testConfig)
 		if test.err == "" {

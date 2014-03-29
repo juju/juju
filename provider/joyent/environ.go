@@ -47,6 +47,15 @@ func newEnviron(cfg *config.Config) (*joyentEnviron, error) {
 		return nil, err
 	}
 	env.name = cfg.Name()
+	var err error
+	env.storage, err = newStorage(env.ecfg, "")
+	if err != nil {
+		return nil, err
+	}
+	env.compute, err = newCompute(env.ecfg)
+	if err != nil {
+		return nil, err
+	}
 	return env, nil
 }
 

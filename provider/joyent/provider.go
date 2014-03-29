@@ -39,21 +39,7 @@ func (joyentProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config)
 	if err != nil {
 		return nil, err
 	}
-	env, err := providerInstance.Open(preparedCfg)
-	if err != nil {
-		return nil, err
-	}
-	jenv := env.(*joyentEnviron)
-	// We now have credentials so set up storage and compute instances.
-	jenv.storage, err = newStorage(jenv.ecfg, "")
-	if err != nil {
-		return nil, err
-	}
-	jenv.compute, err = newCompute(jenv.ecfg)
-	if err != nil {
-		return nil, err
-	}
-	return jenv, nil
+	return providerInstance.Open(preparedCfg)
 }
 
 func credentials(cfg *environConfig) (*auth.Credentials, error) {
