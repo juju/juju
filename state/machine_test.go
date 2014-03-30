@@ -1225,7 +1225,7 @@ func (s *MachineSuite) TestSetAddresses(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = machine.Refresh()
 	c.Assert(err, gc.IsNil)
-	c.Assert(machine.Addresses(), gc.DeepEquals, addresses)
+	c.Assert(machine.Addresses(), jc.SameContents, addresses)
 }
 
 func (s *MachineSuite) TestSetMachineAddresses(c *gc.C) {

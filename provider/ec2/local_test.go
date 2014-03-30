@@ -246,12 +246,10 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(bootstrapState.StateInstances, gc.HasLen, 1)
 
-	expectedHardware := instance.MustParseHardware("arch=amd64 cpu-cores=1 cpu-power=100 mem=1740M root-disk=8192M")
 	insts, err := env.AllInstances()
 	c.Assert(err, gc.IsNil)
 	c.Assert(insts, gc.HasLen, 1)
 	c.Check(insts[0].Id(), gc.Equals, bootstrapState.StateInstances[0])
-	c.Check(expectedHardware, gc.DeepEquals, bootstrapState.Characteristics[0])
 
 	// check that the user data is configured to start zookeeper
 	// and the machine and provisioning agents.
@@ -410,6 +408,11 @@ func (t *localServerSuite) TestSupportedArchitectures(c *gc.C) {
 	a, err := env.SupportedArchitectures()
 	c.Assert(err, gc.IsNil)
 	c.Assert(a, jc.SameContents, []string{"amd64", "i386"})
+}
+
+func (t *localServerSuite) TestSupportNetworks(c *gc.C) {
+	env := t.Prepare(c)
+	c.Assert(env.SupportNetworks(), jc.IsFalse)
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server

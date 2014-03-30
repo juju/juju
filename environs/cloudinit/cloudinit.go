@@ -421,7 +421,7 @@ func (cfg *MachineConfig) dataFile(name string) string {
 	return path.Join(cfg.DataDir, name)
 }
 
-func (cfg *MachineConfig) agentConfig(tag string) (agent.Config, error) {
+func (cfg *MachineConfig) agentConfig(tag string) (agent.ConfigSetter, error) {
 	// TODO for HAState: the stateHostAddrs and apiHostAddrs here assume that
 	// if the machine is a stateServer then to use localhost.  This may be
 	// sufficient, but needs thought in the new world order.
