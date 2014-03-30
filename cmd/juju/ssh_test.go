@@ -163,7 +163,7 @@ func (s *SSHSuite) TestSSHCommandHostAddressRetry(c *gc.C) {
 func (s *SSHCommonSuite) setAddress(m *state.Machine, c *gc.C) {
 	addr := instance.NewAddress(fmt.Sprintf("dummyenv-%s.dns", m.Id()))
 	addr.NetworkScope = instance.NetworkPublic
-	err := m.SetAddresses([]instance.Address{addr})
+	err := m.SetAddresses(addr)
 	c.Assert(err, gc.IsNil)
 }
 

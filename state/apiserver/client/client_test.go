@@ -1404,12 +1404,12 @@ func (s *clientSuite) TestClientPublicAddressMachine(c *gc.C) {
 	cloudLocalAddress.NetworkScope = instance.NetworkCloudLocal
 	publicAddress := instance.NewAddress("public")
 	publicAddress.NetworkScope = instance.NetworkPublic
-	err = m1.SetAddresses([]instance.Address{cloudLocalAddress})
+	err = m1.SetAddresses(cloudLocalAddress)
 	c.Assert(err, gc.IsNil)
 	addr, err := s.APIState.Client().PublicAddress("1")
 	c.Assert(err, gc.IsNil)
 	c.Assert(addr, gc.Equals, "cloudlocal")
-	err = m1.SetAddresses([]instance.Address{cloudLocalAddress, publicAddress})
+	err = m1.SetAddresses(cloudLocalAddress, publicAddress)
 	addr, err = s.APIState.Client().PublicAddress("1")
 	c.Assert(err, gc.IsNil)
 	c.Assert(addr, gc.Equals, "public")
@@ -1423,7 +1423,7 @@ func (s *clientSuite) TestClientPublicAddressUnitWithMachine(c *gc.C) {
 	m1, err := s.State.Machine("1")
 	publicAddress := instance.NewAddress("public")
 	publicAddress.NetworkScope = instance.NetworkPublic
-	err = m1.SetAddresses([]instance.Address{publicAddress})
+	err = m1.SetAddresses(publicAddress)
 	c.Assert(err, gc.IsNil)
 	addr, err := s.APIState.Client().PublicAddress("wordpress/0")
 	c.Assert(err, gc.IsNil)
@@ -1464,12 +1464,12 @@ func (s *clientSuite) TestClientPrivateAddressMachine(c *gc.C) {
 	cloudLocalAddress.NetworkScope = instance.NetworkCloudLocal
 	publicAddress := instance.NewAddress("public")
 	publicAddress.NetworkScope = instance.NetworkCloudLocal
-	err = m1.SetAddresses([]instance.Address{publicAddress})
+	err = m1.SetAddresses(publicAddress)
 	c.Assert(err, gc.IsNil)
 	addr, err := s.APIState.Client().PrivateAddress("1")
 	c.Assert(err, gc.IsNil)
 	c.Assert(addr, gc.Equals, "public")
-	err = m1.SetAddresses([]instance.Address{cloudLocalAddress, publicAddress})
+	err = m1.SetAddresses(cloudLocalAddress, publicAddress)
 	addr, err = s.APIState.Client().PrivateAddress("1")
 	c.Assert(err, gc.IsNil)
 	c.Assert(addr, gc.Equals, "cloudlocal")
@@ -1483,7 +1483,7 @@ func (s *clientSuite) TestClientPrivateAddressUnitWithMachine(c *gc.C) {
 	m1, err := s.State.Machine("1")
 	publicAddress := instance.NewAddress("public")
 	publicAddress.NetworkScope = instance.NetworkCloudLocal
-	err = m1.SetAddresses([]instance.Address{publicAddress})
+	err = m1.SetAddresses(publicAddress)
 	c.Assert(err, gc.IsNil)
 	addr, err := s.APIState.Client().PrivateAddress("wordpress/0")
 	c.Assert(err, gc.IsNil)

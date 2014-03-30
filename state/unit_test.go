@@ -183,7 +183,7 @@ func (s *UnitSuite) TestGetPublicAddressFromMachine(c *gc.C) {
 		instance.NewAddress("127.0.0.1"),
 		instance.NewAddress("8.8.8.8"),
 	}
-	err = machine.SetAddresses(addresses)
+	err = machine.SetAddresses(addresses...)
 	c.Assert(err, gc.IsNil)
 
 	address, ok = s.unit.PublicAddress()
@@ -222,7 +222,7 @@ func (s *UnitSuite) TestGetPrivateAddressFromMachine(c *gc.C) {
 		instance.NewAddress("127.0.0.1"),
 		instance.NewAddress("8.8.8.8"),
 	}
-	err = machine.SetAddresses(addresses)
+	err = machine.SetAddresses(addresses...)
 	c.Assert(err, gc.IsNil)
 
 	address, ok = s.unit.PrivateAddress()
