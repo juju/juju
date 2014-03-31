@@ -42,16 +42,19 @@ func IsMaster(session *mgo.Session, m machine) (bool, error) {
 	addrs := m.Addresses()
 
 	masterHostPort, err := replicaset.MasterHostPort(session)
+	logger.Infof("masterHostPort: %v", masterHostPort)
 	if err != nil {
-		return false, nil
+		return false, err
 	}
 
 	masterAddr, _, err := net.SplitHostPort(masterHostPort)
 	if err != nil {
-		return false, nil
+		return false, err
 	}
+	logger.Infof("masterAddr: %v", masterAddr)
 
 	machinePeerAddr := SelectPeerAddress(addrs)
+	logger.Infof("machinePeerAddr: %v", machinePeerAddr)
 
 	return machinePeerAddr == masterAddr, nil
 }
