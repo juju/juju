@@ -504,6 +504,9 @@ func (c *configInternal) Value(key string) string {
 }
 
 func (c *configInternal) StateServingInfo() (params.StateServingInfo, bool) {
+	if c.statePort == 0 {
+		return params.StateServingInfo{}, false
+	}
 	return params.StateServingInfo{
 		APIPort:    c.apiPort,
 		StatePort:  c.statePort,
