@@ -4,6 +4,7 @@
 package agent
 
 import (
+	"fmt"
 	"net"
 	"strconv"
 
@@ -100,16 +101,20 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 			format.APIPassword,
 		}
 	}
-	if config.statePort == 0 && len(format.StateAddresses) > 0 {
-		_, portString, err := net.SplitHostPort(format.StateAddresses[0])
-		if err != nil {
-			return nil, err
+	if len(config.stateServerKey) != 0 {
+		if config.statePort == 0 && len(format.StateAddresses) > 0 {
+			_, portString, err := net.SplitHostPort(format.StateAddresses[0])
+			if err != nil {
+				return nil, err
+			}
+			statePort, err := strconv.Atoi(portString)
+			if err != nil {
+				return nil, err
+			}
+			config.statePort = statePort
+		} else if config.statePort == 0 {
+			return nil, fmt.Errorf("server key found but no state port")
 		}
-		statePort, err := strconv.Atoi(portString)
-		if err != nil {
-			return nil, err
-		}
-		config.statePort = statePort
 	}
 	return config, nil
 }

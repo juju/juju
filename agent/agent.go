@@ -305,6 +305,12 @@ func NewStateMachineConfig(configParams StateMachineConfigParams) (ConfigSetterW
 	if configParams.StateServerKey == nil {
 		return nil, errgo.Trace(requiredError("state server key"))
 	}
+	if configParams.StatePort == 0 {
+		return nil, errgo.Trace(requiredError("state port"))
+	}
+	if configParams.APIPort == 0 {
+		return nil, errgo.Trace(requiredError("api port"))
+	}
 	config0, err := NewAgentConfig(configParams.AgentConfigParams)
 	if err != nil {
 		return nil, err

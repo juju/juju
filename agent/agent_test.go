@@ -315,6 +315,7 @@ func (*suite) TestNewStateMachineConfig(c *gc.C) {
 				StateServerCert:   []byte("server cert"),
 				StateServerKey:    []byte("server key"),
 				AgentConfigParams: test.params,
+				StatePort:         3171,
 			},
 			checkErr: test.checkErr,
 		})
