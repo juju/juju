@@ -503,16 +503,6 @@ func (c *configInternal) Value(key string) string {
 	return c.values[key]
 }
 
-func (c *configInternal) SetValue(key, value string) {
-	configMutex.Lock()
-	defer configMutex.Unlock()
-	if value == "" {
-		delete(c.values, key)
-	} else {
-		c.values[key] = value
-	}
-}
-
 func (c *configInternal) StateServingInfo() (params.StateServingInfo, bool) {
 	return params.StateServingInfo{
 		APIPort:    c.apiPort,
