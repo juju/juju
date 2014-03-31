@@ -142,7 +142,8 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err := ensureMongoServer(agentConfig.DataDir(), envCfg.StatePort()); err != nil {
 		return err
 	}
-	return mongo.MaybeInitiateMongoServer(mongo.InitiateMongoParams{
+
+	return maybeInitiateMongoServer(mongo.InitiateMongoParams{
 		DialInfo: dialInfo,
 	})
 }

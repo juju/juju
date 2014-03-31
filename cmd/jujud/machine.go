@@ -60,10 +60,10 @@ var newRunner = worker.NewRunner
 const bootstrapMachineId = "0"
 
 var (
-	retryDelay        = 3 * time.Second
-	jujuRun           = "/usr/local/bin/juju-run"
-	useMultipleCPUs   = utils.UseMultipleCPUs
-	ensureMongoServer = mongo.EnsureMongoServer
+	retryDelay               = 3 * time.Second
+	jujuRun                  = "/usr/local/bin/juju-run"
+	useMultipleCPUs          = utils.UseMultipleCPUs
+	ensureMongoServer        = mongo.EnsureMongoServer
 	maybeInitiateMongoServer = mongo.MaybeInitiateMongoServer
 )
 
@@ -72,13 +72,13 @@ type MachineAgent struct {
 	cmd.CommandBase
 	tomb tomb.Tomb
 	AgentConf
-	MachineId       string
-	runner          worker.Runner
-	configChangedVal       voyeur.Value
-	upgradeComplete chan struct{}
-	stateOpened     chan struct{}
-	workersStarted  chan struct{}
-	st              *state.State
+	MachineId        string
+	runner           worker.Runner
+	configChangedVal voyeur.Value
+	upgradeComplete  chan struct{}
+	stateOpened      chan struct{}
+	workersStarted   chan struct{}
+	st               *state.State
 }
 
 // Info returns usage information for the command.
@@ -213,16 +213,16 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 
 	for _, job := range entity.Jobs() {
 		if job.NeedsState() {
-//			info, err := st.StateServingInfo()
-//			if err != nil {
-//				return nil, fmt.Errorf("cannot get state serving info: %v", err)
-//			}
-//			err = a.ChangeConfig(func(config agent.ConfigSetter) {
-//				config.SetStateServingInfo(info)
-//			})
-//			if err != nil {
-//				return nil, err
-//			}
+			//			info, err := st.StateServingInfo()
+			//			if err != nil {
+			//				return nil, fmt.Errorf("cannot get state serving info: %v", err)
+			//			}
+			//			err = a.ChangeConfig(func(config agent.ConfigSetter) {
+			//				config.SetStateServingInfo(info)
+			//			})
+			//			if err != nil {
+			//				return nil, err
+			//			}
 			a.configChanged()
 			break
 		}
@@ -367,7 +367,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
 
 	err := ensureMongoServer(agentConfig.DataDir(), 0)
-//agentConfig.StateServingInfo())
+	//agentConfig.StateServingInfo())
 	if err != nil {
 		return nil, err
 	}

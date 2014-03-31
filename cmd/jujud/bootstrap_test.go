@@ -48,12 +48,12 @@ type BootstrapSuite struct {
 var _ = gc.Suite(&BootstrapSuite{})
 
 type fakeEnsure struct {
-	ensureCount int
-	initiateCount int
-	dataDir string
-	port int
+	ensureCount    int
+	initiateCount  int
+	dataDir        string
+	port           int
 	initiateParams mongo.InitiateMongoParams
-	err    error
+	err            error
 }
 
 func (f *fakeEnsure) fakeEnsureMongo(dataDir string, port int) error {
