@@ -367,9 +367,7 @@ func (s *provisionerSuite) TestWatchEnvironMachines(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestStateAddresses(c *gc.C) {
-	err := s.machine.SetAddresses([]instance.Address{
-		instance.NewAddress("0.1.2.3"),
-	})
+	err := s.machine.SetAddresses(instance.NewAddress("0.1.2.3"))
 	c.Assert(err, gc.IsNil)
 
 	stateAddresses, err := s.State.Addresses()
