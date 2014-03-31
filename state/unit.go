@@ -499,6 +499,8 @@ func (u *Unit) PrincipalName() (string, bool) {
 // addressesOfMachine returns Addresses of the related machine if present.
 func (u *Unit) addressesOfMachine() []instance.Address {
 	id := u.doc.MachineId
+	// If a unit is a subordinate we get the address of the machine associated
+	// with the principal unit.
 	if id == "" && u.doc.Principal != "" {
 		principal, err := u.st.Unit(u.doc.Principal)
 		if err != nil {
