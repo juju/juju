@@ -568,15 +568,15 @@ func (c *Client) AddMachines(args params.AddMachines) (params.AddMachinesResults
 		Machines: make([]params.AddMachinesResult, len(args.MachineParams)),
 	}
 
-	var defaultSeries string
+	var prefSeries string
 	conf, err := c.api.state.EnvironConfig()
 	if err != nil {
 		return results, err
 	}
-	defaultSeries = conf.DefaultSeries()
+	prefSeries = conf.PreferredSeries()
 
 	for i, p := range args.MachineParams {
-		m, err := c.addOneMachine(p, defaultSeries)
+		m, err := c.addOneMachine(p, prefSeries)
 		results.Machines[i].Error = common.ServerError(err)
 		if err == nil {
 			results.Machines[i].Machine = m.Id()
@@ -590,9 +590,9 @@ func (c *Client) InjectMachines(args params.AddMachines) (params.AddMachinesResu
 	return c.AddMachines(args)
 }
 
-func (c *Client) addOneMachine(p params.AddMachineParams, defaultSeries string) (*state.Machine, error) {
+func (c *Client) addOneMachine(p params.AddMachineParams, prefSeries string) (*state.Machine, error) {
 	if p.Series == "" {
-		p.Series = defaultSeries
+		p.Series = prefSeries
 	}
 	if p.ContainerType != "" {
 		// Guard against dubious client by making sure that
@@ -709,7 +709,7 @@ func (c *Client) EnvironmentInfo() (api.EnvironmentInfo, error) {
 	}
 
 	info := api.EnvironmentInfo{
-		DefaultSeries: conf.DefaultSeries(),
+		DefaultSeries: conf.PreferredSeries(),
 		ProviderType:  conf.Type(),
 		Name:          conf.Name(),
 		UUID:          env.UUID(),

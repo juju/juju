@@ -261,7 +261,7 @@ func (s *clientSuite) TestClientEnvironmentInfo(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
-	c.Assert(info.DefaultSeries, gc.Equals, conf.DefaultSeries())
+	c.Assert(info.DefaultSeries, gc.Equals, conf.PreferredSeries())
 	c.Assert(info.ProviderType, gc.Equals, conf.Type())
 	c.Assert(info.Name, gc.Equals, conf.Name())
 	c.Assert(info.UUID, gc.Equals, env.UUID())

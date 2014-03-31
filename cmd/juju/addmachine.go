@@ -126,7 +126,7 @@ func (c *AddMachineCommand) addMachine1dot16() (string, error) {
 		if err != nil {
 			return "", err
 		}
-		series = conf.DefaultSeries()
+		series = conf.PreferredSeries()
 	}
 	template := state.MachineTemplate{
 		Series:      series,

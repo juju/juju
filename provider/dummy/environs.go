@@ -543,7 +543,7 @@ func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 }
 
 func (e *environ) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
-	selectedTools, err := common.EnsureBootstrapTools(ctx, e, e.Config().DefaultSeries(), cons.Arch)
+	selectedTools, err := common.EnsureBootstrapTools(ctx, e, e.Config().PreferredSeries(), cons.Arch)
 	if err != nil {
 		return err
 	}

@@ -110,7 +110,7 @@ func StartInstanceWithConstraintsAndNetworks(
 ) (
 	instance.Instance, *instance.HardwareCharacteristics, error,
 ) {
-	series := env.Config().DefaultSeries()
+	series := env.Config().PreferredSeries()
 	agentVersion, ok := env.Config().AgentVersion()
 	if !ok {
 		return nil, nil, fmt.Errorf("missing agent version in environment config")

@@ -217,7 +217,7 @@ func (test bootstrapTest) run(c *gc.C) {
 	uploadCount := len(test.uploads)
 	if uploadCount == 0 {
 		usefulVersion := version.Current
-		usefulVersion.Series = env.Config().DefaultSeries()
+		usefulVersion.Series = env.Config().PreferredSeries()
 		envtesting.AssertUploadFakeToolsVersions(c, env.Storage(), usefulVersion)
 	}
 
@@ -365,7 +365,7 @@ func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 	env, fake := makeEmptyFakeHome(c)
 	defer fake.Restore()
 	defaultSeriesVersion := version.Current
-	defaultSeriesVersion.Series = env.Config().DefaultSeries()
+	defaultSeriesVersion.Series = env.Config().PreferredSeries()
 
 	ctx := coretesting.Context(c)
 	code := cmd.Main(&BootstrapCommand{}, ctx, nil)
@@ -384,7 +384,7 @@ func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
 	env, fake := makeEmptyFakeHome(c)
 	defer fake.Restore()
 	defaultSeriesVersion := version.Current
-	defaultSeriesVersion.Series = env.Config().DefaultSeries()
+	defaultSeriesVersion.Series = env.Config().PreferredSeries()
 
 	store, err := configstore.Default()
 	c.Assert(err, gc.IsNil)

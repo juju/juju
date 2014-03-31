@@ -411,7 +411,7 @@ func (*environSuite) TestSetConfigUpdatesConfig(c *gc.C) {
 	err = env.SetConfig(cfg)
 	c.Assert(err, gc.IsNil)
 
-	c.Check(env.ecfg.Config.DefaultSeries(), gc.Equals, "feisty")
+	c.Check(env.ecfg.Config.PreferredSeries(), gc.Equals, "feisty")
 }
 
 func (*environSuite) TestSetConfigLocksEnviron(c *gc.C) {

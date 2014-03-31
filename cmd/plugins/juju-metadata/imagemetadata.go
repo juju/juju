@@ -96,7 +96,7 @@ func (c *ImageMetadataCommand) setParams(context *cmd.Context) error {
 			}
 			cfg := environ.Config()
 			if c.Series == "" {
-				c.Series = cfg.DefaultSeries()
+				c.Series = cfg.PreferredSeries()
 			}
 			if v, ok := cfg.AllAttrs()["control-bucket"]; ok {
 				c.privateStorage = v.(string)

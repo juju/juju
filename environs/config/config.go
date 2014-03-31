@@ -221,6 +221,15 @@ func (cfg *Config) processDeprecatedAttributes() {
 	}
 }
 
+// PreferredSeries returns the preferred series to use when a charm does not
+// explicitly specify a series.
+func (cfg *Config) PreferredSeries() string {
+	if series, ok := cfg.DefaultSeries(); ok {
+		return series
+	}
+	return DefaultSeries
+}
+
 // Validate ensures that config is a valid configuration.  If old is not nil,
 // it holds the previous environment configuration for consideration when
 // validating changes.
@@ -406,12 +415,16 @@ func (c *Config) Name() string {
 	return c.mustString("name")
 }
 
-// DefaultSeries returns the default Ubuntu series for the environment.
-func (c *Config) DefaultSeries() string {
+// DefaultSeries returns the configured default Ubuntu series for the environment,
+// and whether the default series was explicitly configured on the environment.
+func (c *Config) DefaultSeries() (string, bool) {
 	if s, ok := c.defined["default-series"]; ok {
-		return s.(string)
+		series := s.(string)
+		if series != "" {
+			return series, true
+		}
 	}
-	return ""
+	return "", false
 }
 
 // StatePort returns the state server port for the environment.

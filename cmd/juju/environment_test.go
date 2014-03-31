@@ -124,12 +124,22 @@ func (s *SetEnvironmentSuite) TestInit(c *gc.C) {
 }
 
 func (s *SetEnvironmentSuite) TestChangeDefaultSeries(c *gc.C) {
-	_, err := testing.RunCommand(c, &SetEnvironmentCommand{}, []string{"default-series=raring"})
-	c.Assert(err, gc.IsNil)
-
+	// default-series not set
 	stateConfig, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
-	c.Assert(stateConfig.DefaultSeries(), gc.Equals, "raring")
+	series, ok := stateConfig.DefaultSeries()
+	c.Assert(ok, gc.Equals, true)
+	c.Assert(series, gc.Equals, "precise") // default-series set in RepoSuite.SetUpTest
+
+	_, err = testing.RunCommand(c, &SetEnvironmentCommand{}, []string{"default-series=raring"})
+	c.Assert(err, gc.IsNil)
+
+	stateConfig, err = s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	series, ok = stateConfig.DefaultSeries()
+	c.Assert(ok, gc.Equals, true)
+	c.Assert(series, gc.Equals, "raring")
+	c.Assert(stateConfig.PreferredSeries(), gc.Equals, "raring")
 }
 
 func (s *SetEnvironmentSuite) TestChangeBooleanAttribute(c *gc.C) {

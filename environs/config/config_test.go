@@ -861,7 +861,12 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 	c.Assert(cfg.TestMode(), gc.Equals, testmode)
 
 	series, _ := test.attrs["default-series"].(string)
-	c.Assert(cfg.DefaultSeries(), gc.Equals, series)
+	if defaultSeries, ok := cfg.DefaultSeries(); ok {
+		c.Assert(defaultSeries, gc.Equals, series)
+	} else {
+		c.Assert(series, gc.Equals, "")
+		c.Assert(defaultSeries, gc.Equals, "")
+	}
 
 	if m, _ := test.attrs["firewall-mode"].(string); m != "" {
 		c.Assert(cfg.FirewallMode(), gc.Equals, m)

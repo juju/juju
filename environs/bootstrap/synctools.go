@@ -101,8 +101,8 @@ func SeriesToUpload(cfg *config.Config, series []string) []string {
 	if unique.IsEmpty() {
 		unique.Add(version.Current.Series)
 		unique.Add(config.DefaultSeries)
-		if cfg.DefaultSeries() != "" {
-			unique.Add(cfg.DefaultSeries())
+		if series, ok := cfg.DefaultSeries(); ok {
+			unique.Add(series)
 		}
 	}
 	return unique.Values()
