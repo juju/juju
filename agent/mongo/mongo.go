@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/loggo"
 
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
 )
@@ -28,6 +29,12 @@ var (
 	// MongodbServerPath holds the default path to the generic mongod.
 	MongodbServerPath = "/usr/bin/mongod"
 )
+
+// MongoSelectPeerAddress returns the address to use as the
+// mongo replica set peer address by selecting it from the given addresses.
+func MongoSelectPeerAddress(addrs []instance.Address) string {
+	return instance.SelectInternalAddress(addrs, false)
+}
 
 // MongoPackageForSeries returns the name of the mongo package for the series
 // of the machine that it is going to be running on.

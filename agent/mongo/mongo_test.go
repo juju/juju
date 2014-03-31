@@ -141,6 +141,16 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 
 }
 
+func (s *MongoSuite) TestMongoPackageForSeries(c *gc.C) {
+	var pkg string
+
+	pkg = MongoPackageForSeries("precise")
+	c.Assert(pkg, gc.Equals, "mongodb-server")
+
+	pkg = MongoPackageForSeries("trusty")
+	c.Assert(pkg, gc.Equals, "juju-mongodb")
+}
+
 func makeService(name string, c *gc.C) *upstart.Conf {
 	conf := &upstart.Conf{
 		Desc:    "foo",
