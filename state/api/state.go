@@ -10,7 +10,7 @@ import (
 	"launchpad.net/juju-core/state/api/environment"
 	"launchpad.net/juju-core/state/api/firewaller"
 	"launchpad.net/juju-core/state/api/keyupdater"
-	"launchpad.net/juju-core/state/api/logger"
+	apilogger "launchpad.net/juju-core/state/api/logger"
 	"launchpad.net/juju-core/state/api/machiner"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/provisioner"
@@ -87,8 +87,8 @@ func (st *State) Environment() *environment.Facade {
 }
 
 // Logger returns access to the Logger API
-func (st *State) Logger() *logger.State {
-	return logger.NewState(st)
+func (st *State) Logger() *apilogger.State {
+	return apilogger.NewState(st)
 }
 
 // KeyUpdater returns access to the KeyUpdater API

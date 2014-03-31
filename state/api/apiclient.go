@@ -10,15 +10,17 @@ import (
 	"time"
 
 	"code.google.com/p/go.net/websocket"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/cert"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/rpc/jsoncodec"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/parallel"
 )
+
+var logger = loggo.GetLogger("juju.state.api")
 
 // PingPeriod defines how often the internal connection health check
 // will run. It's a variable so it can be changed in tests.
@@ -115,7 +117,7 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 		return nil, err
 	}
 	conn := result.(*websocket.Conn)
-	log.Infof("state/api: connection established to %q", conn.RemoteAddr())
+	logger.Infof("connection established to %q", conn.RemoteAddr())
 
 	client := rpc.NewConn(jsoncodec.NewWebsocket(conn), nil)
 	client.Start()
@@ -139,8 +141,11 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 }
 
 func dialWebsocket(addr string, opts DialOpts, rootCAs *x509.CertPool, try *parallel.Try) error {
-	// TODO what does "origin" really mean, and is localhost always ok?
-	cfg, err := websocket.NewConfig("wss://"+addr+"/", "http://localhost/")
+	// origin is required by the WebSocket API, used for "origin policy"
+	// in websockets. We pass localhost to satisfy the API; it is
+	// inconsequential to us.
+	const origin = "http://localhost/"
+	cfg, err := websocket.NewConfig("wss://"+addr+"/", origin)
 	if err != nil {
 		return err
 	}
@@ -160,13 +165,13 @@ func dialWebsocket(addr string, opts DialOpts, rootCAs *x509.CertPool, try *para
 				break
 			default:
 			}
-			log.Infof("state/api: dialing %q", cfg.Location)
+			logger.Infof("dialing %q", cfg.Location)
 			var conn *websocket.Conn
 			conn, err = websocket.DialConfig(cfg)
 			if err == nil {
 				return conn, nil
 			}
-			log.Debugf("state/api: %v", err)
+			logger.Debugf("error dialing API server, will retry: %v", err)
 		}
 		return nil, err
 	})

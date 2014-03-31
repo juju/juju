@@ -7,7 +7,6 @@ import (
 	"io"
 	"net"
 
-	//jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	jujutesting "launchpad.net/juju-core/juju/testing"
