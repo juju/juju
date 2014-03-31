@@ -306,6 +306,21 @@ func (*suite) TestNewStateMachineConfig(c *gc.C) {
 			StateServerCert: []byte("server cert"),
 		},
 		checkErr: "state server key not found in configuration",
+	}, {
+		about: "missing state port",
+		params: agent.StateMachineConfigParams{
+			StateServerCert: []byte("server cert"),
+			StateServerKey:  []byte("server key"),
+		},
+		checkErr: "state port not found in configuration",
+	}, {
+		about: "missing api port",
+		params: agent.StateMachineConfigParams{
+			StateServerCert: []byte("server cert"),
+			StateServerKey:  []byte("server key"),
+			StatePort:       69,
+		},
+		checkErr: "api port not found in configuration",
 	}}
 
 	for _, test := range agentConfigTests {
