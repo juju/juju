@@ -416,3 +416,26 @@ type membersById []replicaset.Member
 func (l membersById) Len() int           { return len(l) }
 func (l membersById) Swap(i, j int)      { l[i], l[j] = l[j], l[i] }
 func (l membersById) Less(i, j int) bool { return l[i].Id < l[j].Id }
+
+func assertAPIHostPorts(c *gc.C, got, expected [][]instance.HostPort) {
+	a, b := flatten(got), flatten(expected)
+	sort.Sort(hostPortByAddr(a))
+	sort.Sort(hostPortByAddr(b))
+	c.Assert(a, gc.DeepEquals, b)
+}
+
+// flatten flattens a two dimentional [][]instance.HostPort into a single []instance.HostPort slice.
+// Duplicates are not removed.
+func flatten(v [][]instance.HostPort) []instance.HostPort {
+	var r []instance.HostPort
+	for _, s := range v {
+		r = append(r, s...)
+	}
+	return r
+}
+
+type hostPortByAddr []instance.HostPort
+
+func (l hostPortByAddr) Len() int           { return len(l) }
+func (l hostPortByAddr) Swap(i, j int)      { l[i], l[j] = l[j], l[i] }
+func (l hostPortByAddr) Less(i, j int) bool { return l[i].Address.Value < l[j].Address.Value }
