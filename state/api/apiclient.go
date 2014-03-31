@@ -6,22 +6,30 @@ package api
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"io"
 	"time"
 
 	"code.google.com/p/go.net/websocket"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/rpc/jsoncodec"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/parallel"
 )
+
+var logger = loggo.GetLogger("juju.state.api")
 
 // PingPeriod defines how often the internal connection health check
 // will run. It's a variable so it can be changed in tests.
 var PingPeriod = 1 * time.Minute
+
+// maxParallelDial defines the maximum number addresses to dial in
+// parallel.
+const maxParallelDial = 7
 
 type State struct {
 	client *rpc.Conn
@@ -95,48 +103,36 @@ func DefaultDialOpts() DialOpts {
 }
 
 func Open(info *Info, opts DialOpts) (*State, error) {
-	// TODO Select a random address from info.Addrs
-	// and only fail when we've tried all the addresses.
-	// TODO what does "origin" really mean, and is localhost always ok?
-	cfg, err := websocket.NewConfig("wss://"+info.Addrs[0]+"/", "http://localhost/")
-	if err != nil {
-		return nil, err
-	}
 	pool := x509.NewCertPool()
 	xcert, err := cert.ParseCert(info.CACert)
 	if err != nil {
 		return nil, err
 	}
 	pool.AddCert(xcert)
-	cfg.TlsConfig = &tls.Config{
-		RootCAs:    pool,
-		ServerName: "anything",
-	}
-	var conn *websocket.Conn
-	openAttempt := utils.AttemptStrategy{
-		Total: opts.Timeout,
-		Delay: opts.RetryDelay,
-	}
-	for a := openAttempt.Start(); a.Next(); {
-		log.Infof("state/api: dialing %q", cfg.Location)
-		conn, err = websocket.DialConfig(cfg)
-		if err == nil {
-			break
+
+	// Dial all addresses, with up to maxParallelDial in parallel.
+	try := parallel.NewTry(maxParallelDial, nil)
+	defer try.Kill()
+	for _, addr := range info.Addrs {
+		if err := dialWebsocket(addr, opts, pool, try); err != nil {
+			return nil, err
 		}
-		log.Errorf("state/api: %v", err)
 	}
+	try.Close()
+	result, err := try.Result()
 	if err != nil {
 		return nil, err
 	}
-	log.Infof("state/api: connection established")
+	conn := result.(*websocket.Conn)
+	logger.Infof("connection established to %q", conn.RemoteAddr())
 
 	client := rpc.NewConn(jsoncodec.NewWebsocket(conn), nil)
 	client.Start()
 	st := &State{
 		client:     client,
 		conn:       conn,
-		addr:       cfg.Location.Host,
-		serverRoot: "https://" + cfg.Location.Host,
+		addr:       conn.Config().Location.Host,
+		serverRoot: "https://" + conn.Config().Location.Host,
 		tag:        info.Tag,
 		password:   info.Password,
 	}
@@ -149,6 +145,43 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	st.broken = make(chan struct{})
 	go st.heartbeatMonitor()
 	return st, nil
+}
+
+func dialWebsocket(addr string, opts DialOpts, rootCAs *x509.CertPool, try *parallel.Try) error {
+	// origin is required by the WebSocket API, used for "origin policy"
+	// in websockets. We pass localhost to satisfy the API; it is
+	// inconsequential to us.
+	const origin = "http://localhost/"
+	cfg, err := websocket.NewConfig("wss://"+addr+"/", origin)
+	if err != nil {
+		return err
+	}
+	cfg.TlsConfig = &tls.Config{
+		RootCAs:    rootCAs,
+		ServerName: "anything",
+	}
+	openAttempt := utils.AttemptStrategy{
+		Total: opts.Timeout,
+		Delay: opts.RetryDelay,
+	}
+	return try.Start(func(stop <-chan struct{}) (io.Closer, error) {
+		err := parallel.ErrStopped
+		for a := openAttempt.Start(); a.Next(); {
+			select {
+			case <-stop:
+				break
+			default:
+			}
+			logger.Infof("dialing %q", cfg.Location)
+			var conn *websocket.Conn
+			conn, err = websocket.DialConfig(cfg)
+			if err == nil {
+				return conn, nil
+			}
+			logger.Debugf("error dialing API server, will retry: %v", err)
+		}
+		return nil, err
+	})
 }
 
 func (s *State) heartbeatMonitor() {
