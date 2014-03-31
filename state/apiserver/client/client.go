@@ -1020,7 +1020,7 @@ func (c *Client) EnsureAvailability(args params.EnsureAvailability) error {
 		if err != nil {
 			return err
 		}
-		series = cfg.DefaultSeries()
+		series = cfg.PreferredSeries()
 	}
 	return c.api.state.EnsureAvailability(args.NumStateServers, args.Constraints, series)
 }

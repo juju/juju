@@ -151,7 +151,7 @@ func (env *joyentEnviron) MetadataLookupParams(region string) (*simplestreams.Me
 		region = env.Ecfg().Region()
 	}
 	return &simplestreams.MetadataLookupParams{
-		Series:        env.Ecfg().DefaultSeries(),
+		Series:        env.Ecfg().PreferredSeries(),
 		Region:        region,
 		Endpoint:      env.Ecfg().sdcUrl(),
 		Architectures: []string{"amd64", "arm"},
