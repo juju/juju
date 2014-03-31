@@ -372,6 +372,28 @@ func (*suite) TestAttributes(c *gc.C) {
 	c.Assert(conf.UpgradedToVersion(), jc.DeepEquals, version.Current.Number)
 }
 
+func (*suite) TestStateServingInfo(c *gc.C) {
+	machineParams := agent.StateMachineConfigParams{
+		AgentConfigParams: attributeParams,
+		StateServerCert:   []byte("old cert"),
+		StateServerKey:    []byte("old key"),
+		StatePort:         69,
+		APIPort:           47,
+	}
+	conf, err := agent.NewStateMachineConfig(machineParams)
+	c.Assert(err, gc.IsNil)
+	newParams := params.StateServingInfo{
+		APIPort:    147,
+		StatePort:  169,
+		Cert:       "new cert",
+		PrivateKey: "new key",
+	}
+	conf.SetStateServingInfo(newParams)
+	result, available := conf.StateServingInfo()
+	c.Assert(available, gc.Equals, true)
+	c.Assert(result, jc.DeepEquals, newParams)
+}
+
 func (s *suite) TestApiAddressesCantWriteBack(c *gc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
 	c.Assert(err, gc.IsNil)
