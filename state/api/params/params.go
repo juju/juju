@@ -330,6 +330,14 @@ type CharmInfo struct {
 	CharmURL string
 }
 
+type ResolveCharms struct {
+	References []charm.Reference
+}
+
+type ResolveCharmResults struct {
+	URLs []charm.URL
+}
+
 // AllWatcherId holds the id of an AllWatcher.
 type AllWatcherId struct {
 	AllWatcherId string

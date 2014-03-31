@@ -955,31 +955,31 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 	return err
 }
 
-func (c *Client) ResolveCharm(args params.CharmURL) (params.CharmURL, error) {
-	ref, series, err := charm.ParseReference(args.URL)
-	if err != nil {
-		return params.CharmURL{}, err
+func (c *Client) ResolveCharms(args params.ResolveCharms) (params.ResolveCharmResults, error) {
+	var result params.ResolveCharmResults
+	for _, ref := range args.References {
+		curl, err := c.resolveCharm(ref)
+		if err != nil {
+			return params.ResolveCharmResults{}, err
+		}
+		result.URLs = append(result.URLs, *curl)
 	}
+	return result, nil
+}
+
+func (c *Client) resolveCharm(ref charm.Reference) (*charm.URL, error) {
 	if ref.Schema != "cs" {
-		return params.CharmURL{}, fmt.Errorf("only charm store charm references are supported, with cs: schema")
-	}
-	if series != "" {
-		curl := charm.URL{Reference: ref, Series: series}
-		return params.CharmURL{URL: curl.String()}, nil
+		return nil, fmt.Errorf("only charm store charm references are supported, with cs: schema")
 	}
 
 	// Resolve the charm location with the store.
 	envConfig, err := c.api.state.EnvironConfig()
 	if err != nil {
-		return params.CharmURL{}, err
+		return nil, err
 	}
 	store := config.SpecializeCharmRepo(CharmStore, envConfig)
 
-	curl, err := store.Resolve(ref)
-	if err != nil {
-		return params.CharmURL{}, err
-	}
-	return params.CharmURL{URL: curl.String()}, nil
+	return store.Resolve(ref)
 }
 
 // CharmArchiveName returns a string that is suitable as a file name

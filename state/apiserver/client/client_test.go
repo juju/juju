@@ -1991,6 +1991,7 @@ func (s *clientSuite) TestResolveCharm(c *gc.C) {
 		c.Check(ref.String(), gc.Equals, fmt.Sprintf("%s:%s", t.schema, t.charmName))
 		curl, err := client.ResolveCharm(ref)
 		if err == nil {
+			c.Assert(curl, gc.NotNil)
 			// Only cs: schema should make it through here
 			c.Check(curl.String(), gc.Equals, fmt.Sprintf("cs:%s/%s", t.defaultSeries, t.charmName), comment)
 			c.Check(t.resolveErr, gc.Equals, "")
