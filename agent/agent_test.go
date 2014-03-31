@@ -394,6 +394,14 @@ func (*suite) TestStateServingInfo(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, newParams)
 }
 
+func (*suite) TestStateServingInfoNotAvailable(c *gc.C) {
+	conf, err := agent.NewAgentConfig(attributeParams)
+	c.Assert(err, gc.IsNil)
+
+	_, available := conf.StateServingInfo()
+	c.Assert(available, gc.Equals, false)
+}
+
 func (s *suite) TestApiAddressesCantWriteBack(c *gc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
 	c.Assert(err, gc.IsNil)
