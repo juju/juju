@@ -13,13 +13,17 @@ import (
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/cloudinit"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
@@ -29,8 +33,10 @@ import (
 type BootstrapSuite struct {
 	testbase.LoggingSuite
 	testing.MgoSuite
-	dataDir string
-	logDir  string
+	envcfg     string
+	instanceId instance.Id
+	dataDir    string
+	logDir     string
 }
 
 var _ = gc.Suite(&BootstrapSuite{})
@@ -50,9 +56,40 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.dataDir = c.MkDir()
 	s.logDir = c.MkDir()
+
+	provider, err := environs.Provider("dummy")
+	c.Assert(err, gc.IsNil)
+	cfg, err := config.New(config.UseDefaults, dummy.SampleConfig())
+	c.Assert(err, gc.IsNil)
+	env, err := provider.Prepare(testing.Context(c), cfg)
+	c.Assert(err, gc.IsNil)
+	inst, _, err := env.StartInstance(environs.StartInstanceParams{
+		MachineConfig: &cloudinit.MachineConfig{
+			MachineId:    "0",
+			MachineNonce: state.BootstrapNonce,
+			StateInfo: &state.Info{
+				Tag: "machine-0",
+			},
+			APIInfo: &api.Info{
+				Tag: "machine-0",
+			},
+		},
+		Tools: []*tools.Tools{&tools.Tools{Version: version.Current}},
+	})
+	c.Assert(err, gc.IsNil)
+	s.instanceId = inst.Id()
+	attrs := testing.Attrs(env.Config().AllAttrs())
+	attrs = attrs.Merge(
+		testing.Attrs{
+			"state-server":  false,
+			"agent-version": "3.4.5",
+		},
+	).Delete("admin-secret", "ca-private-key")
+	s.envcfg = b64yaml(attrs).encode()
 }
 
 func (s *BootstrapSuite) TearDownTest(c *gc.C) {
+	dummy.Reset()
 	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }
@@ -102,7 +139,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob,
 
 func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	hw := instance.MustParseHardware("arch=amd64 mem=8G")
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", testConfig, "--instance-id", "anything", "--hardware", hw.String())
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.envcfg, "--instance-id", string(s.instanceId), "--hardware", hw.String())
 	c.Assert(err, gc.IsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
@@ -120,7 +157,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 
 	instid, err := machines[0].InstanceId()
 	c.Assert(err, gc.IsNil)
-	c.Assert(instid, gc.Equals, instance.Id("anything"))
+	c.Assert(instid, gc.Equals, instance.Id(string(s.instanceId)))
 
 	stateHw, err := machines[0].HardwareCharacteristics()
 	c.Assert(err, gc.IsNil)
@@ -135,8 +172,8 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 	tcons := constraints.Value{Mem: uint64p(2048), CpuCores: uint64p(2)}
 	_, cmd, err := s.initBootstrapCommand(c, nil,
-		"--env-config", testConfig,
-		"--instance-id", "anything",
+		"--env-config", s.envcfg,
+		"--instance-id", string(s.instanceId),
 		"--constraints", tcons.String(),
 	)
 	c.Assert(err, gc.IsNil)
@@ -170,7 +207,7 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 	expectedJobs := []state.MachineJob{
 		state.JobManageEnviron, state.JobHostUnits,
 	}
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", testConfig, "--instance-id", "anything")
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.envcfg, "--instance-id", string(s.instanceId))
 	c.Assert(err, gc.IsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
@@ -189,7 +226,7 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 
 func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 	jobs := []params.MachineJob{params.JobManageEnviron}
-	_, cmd, err := s.initBootstrapCommand(c, jobs, "--env-config", testConfig, "--instance-id", "anything")
+	_, cmd, err := s.initBootstrapCommand(c, jobs, "--env-config", s.envcfg, "--instance-id", string(s.instanceId))
 	c.Assert(err, gc.IsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
@@ -219,7 +256,7 @@ func testOpenState(c *gc.C, info *state.Info, expectErrType error) {
 }
 
 func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
-	machineConf, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", testConfig, "--instance-id", "anything")
+	machineConf, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.envcfg, "--instance-id", string(s.instanceId))
 	c.Assert(err, gc.IsNil)
 
 	err = cmd.Run(nil)
@@ -342,11 +379,3 @@ func (m b64yaml) encode() string {
 	}
 	return base64.StdEncoding.EncodeToString(data)
 }
-
-var testConfig = b64yaml(
-	dummy.SampleConfig().Merge(
-		testing.Attrs{
-			"state-server":  false,
-			"agent-version": "3.4.5",
-		},
-	).Delete("admin-secret", "ca-private-key")).encode()
