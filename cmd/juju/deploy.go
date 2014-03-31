@@ -26,14 +26,14 @@ import (
 type DeployCommand struct {
 	cmd.EnvCommandBase
 	UnitCommandBase
-	CharmName    string
-	ServiceName  string
-	Config       cmd.FileVar
-	Constraints  constraints.Value
+	CharmName       string
+	ServiceName     string
+	Config          cmd.FileVar
+	Constraints     constraints.Value
 	Networks        string
 	ExcludeNetworks string
-	BumpRevision bool   // Remove this once the 1.16 support is dropped.
-	RepoPath     string // defaults to JUJU_REPOSITORY
+	BumpRevision    bool   // Remove this once the 1.16 support is dropped.
+	RepoPath        string // defaults to JUJU_REPOSITORY
 }
 
 const deployDoc = `
@@ -227,16 +227,19 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		includeNetworks,
 		excludeNetworks,
 	)
-	if params.IsCodeNotImplemented(err) && haveNetworks {
-		return errors.New("cannot use --networks/--exclude-networks: not supported by the API server")
+	if params.IsCodeNotImplemented(err) {
+		if haveNetworks {
+			return errors.New("cannot use --networks/--exclude-networks: not supported by the API server")
+		}
+		err = client.ServiceDeploy(
+			curl.String(),
+			serviceName,
+			numUnits,
+			string(configYAML),
+			c.Constraints,
+			c.ToMachineSpec)
 	}
-	return client.ServiceDeploy(
-		curl.String(),
-		serviceName,
-		numUnits,
-		string(configYAML),
-		c.Constraints,
-		c.ToMachineSpec)
+	return err
 }
 
 // run1dot16 implements the deploy command in 1.16 compatibility mode,
