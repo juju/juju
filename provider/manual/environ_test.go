@@ -145,3 +145,7 @@ func (s *environSuite) TestSupportedArchitectures(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(arches, gc.DeepEquals, arch.AllSupportedArches)
 }
+
+func (s *environSuite) TestSupportNetworks(c *gc.C) {
+	c.Assert(s.env.SupportNetworks(), jc.IsFalse)
+}

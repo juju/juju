@@ -51,18 +51,24 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	dataDir := c.MkDir()
 
 	pwHash := utils.UserPasswordHash(testing.DefaultMongoPassword, utils.CompatSalt)
-	cfg, err := agent.NewAgentConfig(agent.AgentConfigParams{
-		DataDir:           dataDir,
-		Tag:               "machine-0",
-		UpgradedToVersion: version.Current.Number,
-		StateAddresses:    []string{testing.MgoServer.Addr()},
-		CACert:            []byte(testing.CACert),
-		Password:          pwHash,
+	cfg, err := agent.NewStateMachineConfig(agent.StateMachineConfigParams{
+		AgentConfigParams: agent.AgentConfigParams{
+			DataDir:           dataDir,
+			Tag:               "machine-0",
+			UpgradedToVersion: version.Current.Number,
+			StateAddresses:    []string{testing.MgoServer.Addr()},
+			CACert:            []byte(testing.CACert),
+			Password:          pwHash,
+		},
+		StateServerCert: []byte(testing.ServerCert),
+		StateServerKey:  []byte(testing.ServerKey),
+		APIPort:         1234,
 	})
 	c.Assert(err, gc.IsNil)
 	expectConstraints := constraints.MustParse("mem=1024M")
 	expectHW := instance.MustParseHardware("mem=2048M")
 	mcfg := agent.BootstrapMachineConfig{
+		Addresses:       instance.NewAddresses("0.1.2.3", "zeroonetwothree"),
 		Constraints:     expectConstraints,
 		Jobs:            []params.MachineJob{params.JobHostUnits},
 		InstanceId:      "i-bootstrap",
@@ -74,9 +80,12 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	envCfg, err := config.New(config.NoDefaults, envAttrs)
 	c.Assert(err, gc.IsNil)
 
-	st, m, err := cfg.InitializeState(envCfg, mcfg, state.DialOpts{}, environs.NewStatePolicy())
+	st, m, err := agent.InitializeState(cfg, envCfg, mcfg, state.DialOpts{}, environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
+
+	err = cfg.Write()
+	c.Assert(err, gc.IsNil)
 
 	// Check that initial admin user has been set up correctly.
 	s.assertCanLogInAsAdmin(c, pwHash)
@@ -94,6 +103,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobHostUnits})
 	c.Assert(m.Series(), gc.Equals, version.Current.Series)
 	c.Assert(m.CheckProvisioned(state.BootstrapNonce), jc.IsTrue)
+	c.Assert(m.Addresses(), gc.DeepEquals, mcfg.Addresses)
 	gotConstraints, err := m.Constraints()
 	c.Assert(err, gc.IsNil)
 	c.Assert(gotConstraints, gc.DeepEquals, expectConstraints)
@@ -102,14 +112,21 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(*gotHW, gc.DeepEquals, expectHW)
 
+	// Check that the API host ports are initialised correctly.
+	apiHostPorts, err := st.APIHostPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(apiHostPorts, gc.DeepEquals, [][]instance.HostPort{
+		instance.AddressesWithPort(mcfg.Addresses, 1234),
+	})
+
 	// Check that the machine agent's config has been written
 	// and that we can use it to connect to the state.
-	newCfg, err := agent.ReadConf(agent.ConfigPath(dataDir, "machine-0"))
+	newCfg, err := agent.ReadConfig(agent.ConfigPath(dataDir, "machine-0"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(newCfg.Tag(), gc.Equals, "machine-0")
 	c.Assert(agent.Password(newCfg), gc.Not(gc.Equals), pwHash)
 	c.Assert(agent.Password(newCfg), gc.Not(gc.Equals), testing.DefaultMongoPassword)
-	st1, err := cfg.OpenState(environs.NewStatePolicy())
+	st1, err := state.Open(cfg.StateInfo(), state.DialOpts{}, environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	defer st1.Close()
 }
@@ -140,13 +157,13 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	envCfg, err := config.New(config.NoDefaults, envAttrs)
 	c.Assert(err, gc.IsNil)
 
-	st, _, err := cfg.InitializeState(envCfg, mcfg, state.DialOpts{}, environs.NewStatePolicy())
+	st, _, err := agent.InitializeState(cfg, envCfg, mcfg, state.DialOpts{}, environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	err = st.SetAdminMongoPassword("")
 	c.Check(err, gc.IsNil)
 	st.Close()
 
-	st, _, err = cfg.InitializeState(envCfg, mcfg, state.DialOpts{}, environs.NewStatePolicy())
+	st, _, err = agent.InitializeState(cfg, envCfg, mcfg, state.DialOpts{}, environs.NewStatePolicy())
 	if err == nil {
 		st.Close()
 	}

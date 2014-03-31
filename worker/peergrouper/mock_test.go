@@ -311,7 +311,7 @@ func (m *fakeMachine) setStateHostPort(hostPort string) {
 		if err != nil {
 			panic(err)
 		}
-		mongoHostPorts = instance.AddressesWithPort(instance.NewAddresses([]string{host}), port)
+		mongoHostPorts = instance.AddressesWithPort(instance.NewAddresses(host), port)
 		mongoHostPorts[0].NetworkScope = instance.NetworkCloudLocal
 	}
 

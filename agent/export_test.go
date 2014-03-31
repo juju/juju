@@ -20,10 +20,6 @@ func Password(config Config) string {
 	return ""
 }
 
-func WriteNewPassword(cfg Config) (string, error) {
-	return cfg.(*configInternal).writeNewPassword()
-}
-
 func PatchConfig(config Config, fieldName string, value interface{}) error {
 	conf := config.(*configInternal)
 	switch fieldName {

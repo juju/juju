@@ -240,6 +240,16 @@ func IsMaster(session *mgo.Session) (*IsMasterResults, error) {
 	return results, nil
 }
 
+// MasterHostPort returns the "address:port" string for the
+// primary mongo server in the replicaset.
+func MasterHostPort(session *mgo.Session) (string, error) {
+	results, err := IsMaster(session)
+	if err != nil {
+		return "", err
+	}
+	return results.PrimaryAddress, nil
+}
+
 // CurrentMembers returns the current members of the replica set.
 func CurrentMembers(session *mgo.Session) ([]Member, error) {
 	cfg, err := CurrentConfig(session)

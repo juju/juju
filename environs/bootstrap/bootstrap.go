@@ -43,6 +43,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, cons con
 	if err := environs.VerifyStorage(environ.Storage()); err != nil {
 		return err
 	}
+	logger.Debugf("environment %q supports service/machine networks: %v", environ.Name(), environ.SupportNetworks())
 	logger.Infof("bootstrapping environment %q", environ.Name())
 	return environ.Bootstrap(ctx, cons)
 }

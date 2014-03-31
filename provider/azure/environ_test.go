@@ -182,6 +182,11 @@ func (s *environSuite) TestSupportedArchitectures(c *gc.C) {
 	c.Assert(a, gc.DeepEquals, []string{"ppc64"})
 }
 
+func (s *environSuite) TestSupportNetworks(c *gc.C) {
+	env := s.setupEnvWithDummyMetadata(c)
+	c.Assert(env.SupportNetworks(), jc.IsFalse)
+}
+
 func (suite *environSuite) TestGetEnvPrefixContainsEnvName(c *gc.C) {
 	env := makeEnviron(c)
 	c.Check(strings.Contains(env.getEnvPrefix(), env.Name()), jc.IsTrue)

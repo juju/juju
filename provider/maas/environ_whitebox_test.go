@@ -524,3 +524,10 @@ func (suite *environSuite) TestSupportedArchitectures(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(a, gc.DeepEquals, []string{"amd64"})
 }
+
+func (suite *environSuite) TestSupportNetworks(c *gc.C) {
+	env := suite.makeEnviron()
+	// TODO(dimitern) Change this to check for jc.IsTrue below
+	// once gomaasapi testing server supports networks.
+	c.Assert(env.SupportNetworks(), jc.IsFalse)
+}

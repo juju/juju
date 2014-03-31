@@ -680,3 +680,22 @@ func (c *Client) UploadTools(
 	}
 	return jsonResponse.Tools, nil
 }
+
+// APIHostPorts returns a slice of instance.HostPort for each API server.
+func (c *Client) APIHostPorts() ([][]instance.HostPort, error) {
+	var result params.APIHostPortsResult
+	if err := c.call("APIHostPorts", nil, &result); err != nil {
+		return nil, err
+	}
+	return result.Servers, nil
+}
+
+// EnsureAvailability ensures the availability of Juju state servers.
+func (c *Client) EnsureAvailability(numStateServers int, cons constraints.Value, series string) error {
+	args := params.EnsureAvailability{
+		NumStateServers: numStateServers,
+		Constraints:     cons,
+		Series:          series,
+	}
+	return c.call("EnsureAvailability", args, nil)
+}
