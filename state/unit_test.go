@@ -194,15 +194,15 @@ func (s *UnitSuite) setAssignedMachineAddresses(c *gc.C, u *state.Unit) {
 	c.Assert(err, gc.IsNil)
 	err = machine.SetProvisioned("i-exist", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
-	err = machine.SetAddresses([]instance.Address{{
+	err = machine.SetAddresses(instance.Address{
 		Type:         instance.Ipv4Address,
 		NetworkScope: instance.NetworkCloudLocal,
 		Value:        "private.address.example.com",
-	}, {
+	}, instance.Address{
 		Type:         instance.Ipv4Address,
 		NetworkScope: instance.NetworkPublic,
 		Value:        "public.address.example.com",
-	}})
+	})
 	c.Assert(err, gc.IsNil)
 }
 
