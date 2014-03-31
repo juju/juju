@@ -61,12 +61,6 @@ type EnvironProvider interface {
 	// which are considered sensitive. All of the values of these secret
 	// attributes need to be strings.
 	SecretAttrs(cfg *config.Config) (map[string]string, error)
-
-	// PublicAddress returns this machine's public host name.
-	PublicAddress() (string, error)
-
-	// PrivateAddress returns this machine's private host name.
-	PrivateAddress() (string, error)
 }
 
 // EnvironStorage implements storage access for an environment

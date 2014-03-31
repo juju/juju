@@ -4,6 +4,10 @@
 package api
 
 import (
+	"net"
+	"strconv"
+
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/agent"
 	"launchpad.net/juju-core/state/api/charmrevisionupdater"
 	"launchpad.net/juju-core/state/api/deployer"
@@ -24,15 +28,52 @@ import (
 // method is usually called automatically by Open. The machine nonce
 // should be empty unless logging in as a machine agent.
 func (st *State) Login(tag, password, nonce string) error {
+	var result params.LoginResult
 	err := st.Call("Admin", "", "Login", &params.Creds{
 		AuthTag:  tag,
 		Password: password,
 		Nonce:    nonce,
-	}, nil)
+	}, &result)
 	if err == nil {
 		st.authTag = tag
+		hostPorts, err := addAddress(result.Servers, st.addr)
+		if err != nil {
+			st.Close()
+			return err
+		}
+		st.hostPorts = hostPorts
 	}
 	return err
+}
+
+// addAddress appends a new server derived from the given
+// address to servers if the address is not already found
+// there.
+func addAddress(servers [][]instance.HostPort, addr string) ([][]instance.HostPort, error) {
+	for _, server := range servers {
+		for _, hostPort := range server {
+			if hostPort.NetAddr() == addr {
+				return servers, nil
+			}
+		}
+	}
+	host, portString, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nil, err
+	}
+	port, err := strconv.Atoi(portString)
+	if err != nil {
+		return nil, err
+	}
+	hostPort := instance.HostPort{
+		Address: instance.Address{
+			Value:        host,
+			Type:         instance.DeriveAddressType(host),
+			NetworkScope: instance.NetworkUnknown,
+		},
+		Port: port,
+	}
+	return append(servers, []instance.HostPort{hostPort}), nil
 }
 
 // Client returns an object that can be used

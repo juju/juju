@@ -13,6 +13,7 @@ import (
 	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/cert"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/rpc/jsoncodec"
 	"launchpad.net/juju-core/state/api/params"
@@ -33,7 +34,13 @@ const maxParallelDial = 7
 type State struct {
 	client *rpc.Conn
 	conn   *websocket.Conn
-	addr   string
+
+	// addr is the address used to connect to the API server.
+	addr string
+
+	// hostPorts is the API server addresses returned from Login,
+	// which the client may cache and use for failover.
+	hostPorts [][]instance.HostPort
 
 	// authTag holds the authenticated entity's tag after login.
 	authTag string
@@ -222,7 +229,23 @@ func (s *State) RPCClient() *rpc.Conn {
 	return s.client
 }
 
-// Addr returns the address used to connect to the RPC server.
+// Addr returns the address used to connect to the API server.
 func (s *State) Addr() string {
 	return s.addr
+}
+
+// APIHostPorts returns addresses that may be used to connect
+// to the API server, including the address used to connect.
+//
+// The addresses are scoped (public, cloud-internal, etc.), so
+// the client may choose which addresses to attempt. For the
+// Juju CLI, all addresses must be attempted, as the CLI may
+// be invoked both within and outside the environment (think
+// private clouds).
+func (s *State) APIHostPorts() [][]instance.HostPort {
+	hostPorts := make([][]instance.HostPort, len(s.hostPorts))
+	for i, server := range s.hostPorts {
+		hostPorts[i] = append([]instance.HostPort{}, server...)
+	}
+	return hostPorts
 }
