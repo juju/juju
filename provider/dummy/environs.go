@@ -711,7 +711,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	idString := fmt.Sprintf("%s-%d", e.name, estate.maxId)
 	i := &dummyInstance{
 		id:           instance.Id(idString),
-		addresses:    instance.NewAddresses([]string{idString + ".dns"}),
+		addresses:    instance.NewAddresses(idString + ".dns"),
 		ports:        make(map[instance.Port]bool),
 		machineId:    machineId,
 		series:       series,
