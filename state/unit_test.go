@@ -194,15 +194,15 @@ func (s *UnitSuite) setAssignedMachineAddresses(c *gc.C, u *state.Unit) {
 	c.Assert(err, gc.IsNil)
 	err = machine.SetProvisioned("i-exist", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
-	err = machine.SetAddresses([]instance.Address{{
+	err = machine.SetAddresses(instance.Address{
 		Type:         instance.Ipv4Address,
 		NetworkScope: instance.NetworkCloudLocal,
 		Value:        "private.address.example.com",
-	}, {
+	}, instance.Address{
 		Type:         instance.Ipv4Address,
 		NetworkScope: instance.NetworkPublic,
 		Value:        "public.address.example.com",
-	}})
+	})
 	c.Assert(err, gc.IsNil)
 }
 
@@ -233,8 +233,7 @@ func (s *UnitSuite) TestGetPublicAddressFromMachine(c *gc.C) {
 	private := instance.NewAddress("127.0.0.1")
 	private.NetworkScope = instance.NetworkCloudLocal
 
-	addresses := []instance.Address{public, private}
-	err = machine.SetAddresses(addresses)
+	err = machine.SetAddresses(public, private)
 	c.Assert(err, gc.IsNil)
 
 	address, ok = s.unit.PublicAddress()
@@ -286,8 +285,7 @@ func (s *UnitSuite) TestGetPrivateAddressFromMachine(c *gc.C) {
 	private := instance.NewAddress("127.0.0.1")
 	private.NetworkScope = instance.NetworkCloudLocal
 
-	addresses := []instance.Address{public, private}
-	err = machine.SetAddresses(addresses)
+	err = machine.SetAddresses(public, private)
 	c.Assert(err, gc.IsNil)
 
 	address, ok = s.unit.PrivateAddress()

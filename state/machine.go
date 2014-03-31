@@ -834,7 +834,7 @@ func (m *Machine) Addresses() (addresses []instance.Address) {
 
 // SetAddresses records any addresses related to the machine, sourced
 // by asking the provider.
-func (m *Machine) SetAddresses(addresses []instance.Address) (err error) {
+func (m *Machine) SetAddresses(addresses ...instance.Address) (err error) {
 	stateAddresses := instanceAddressesToAddresses(addresses)
 	ops := []txn.Op{
 		{
