@@ -79,6 +79,11 @@ func (*localEnviron) SupportedArchitectures() ([]string, error) {
 	return []string{localArch}, nil
 }
 
+// SupportNetworks is specified on the EnvironCapability interface.
+func (*localEnviron) SupportNetworks() bool {
+	return false
+}
+
 // Name is specified in the Environ interface.
 func (env *localEnviron) Name() string {
 	return env.name

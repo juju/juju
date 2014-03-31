@@ -5,9 +5,6 @@ package ec2
 
 import (
 	"fmt"
-	"io/ioutil"
-	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -264,14 +261,6 @@ func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error
 	return m, nil
 }
 
-func (environProvider) PublicAddress() (string, error) {
-	return fetchMetadata("public-hostname")
-}
-
-func (environProvider) PrivateAddress() (string, error) {
-	return fetchMetadata("local-hostname")
-}
-
 func (e *environ) Config() *config.Config {
 	return e.ecfg().Config
 }
@@ -356,6 +345,13 @@ func (e *environ) SupportedArchitectures() ([]string, error) {
 	})
 	e.supportedArchitectures, err = common.SupportedArchitectures(e, imageConstraint)
 	return e.supportedArchitectures, err
+}
+
+// SupportNetworks is specified on the EnvironCapability interface.
+func (e *environ) SupportNetworks() bool {
+	// TODO(dimitern) Once we have support for VPCs and advanced
+	// networking, return true here.
+	return false
 }
 
 // MetadataLookupParams returns parameters which are used to query simplestreams metadata.
@@ -1055,37 +1051,6 @@ func ec2ErrCode(err error) string {
 		return ""
 	}
 	return ec2err.Code
-}
-
-// metadataHost holds the address of the instance metadata service.
-// It is a variable so that tests can change it to refer to a local
-// server when needed.
-var metadataHost = "http://169.254.169.254"
-
-// fetchMetadata fetches a single atom of data from the ec2 instance metadata service.
-// http://docs.amazonwebservices.com/AWSEC2/latest/UserGuide/AESDG-chapter-instancedata.html
-func fetchMetadata(name string) (value string, err error) {
-	uri := fmt.Sprintf("%s/2011-01-01/meta-data/%s", metadataHost, name)
-	defer utils.ErrorContextf(&err, "cannot get %q", uri)
-	for a := shortAttempt.Start(); a.Next(); {
-		var resp *http.Response
-		resp, err = http.Get(uri)
-		if err != nil {
-			continue
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			err = fmt.Errorf("bad http response %v", resp.Status)
-			continue
-		}
-		var data []byte
-		data, err = ioutil.ReadAll(resp.Body)
-		if err != nil {
-			continue
-		}
-		return strings.TrimSpace(string(data)), nil
-	}
-	return
 }
 
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.

@@ -470,3 +470,7 @@ func (e *bootstrapEnviron) Storage() storage.Storage {
 func (e *bootstrapEnviron) SupportedArchitectures() ([]string, error) {
 	return []string{"amd64", "arm64"}, nil
 }
+
+func (e *bootstrapEnviron) SupportNetworks() bool {
+	return true
+}

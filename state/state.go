@@ -25,6 +25,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/multiwatcher"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
@@ -1386,7 +1387,7 @@ type StateServerInfo struct {
 	VotingMachineIds []string
 }
 
-// StateServerInfo returns returns information about
+// StateServerInfo returns information about
 // the currently configured state server machines.
 func (st *State) StateServerInfo() (*StateServerInfo, error) {
 	var doc stateServersDoc
@@ -1398,6 +1399,31 @@ func (st *State) StateServerInfo() (*StateServerInfo, error) {
 		MachineIds:       doc.MachineIds,
 		VotingMachineIds: doc.VotingMachineIds,
 	}, nil
+}
+
+const stateServingInfoKey = "stateServingInfo"
+
+// StateServingInfo returns information for running a state server machine
+func (st *State) StateServingInfo() (params.StateServingInfo, error) {
+	var info params.StateServingInfo
+	err := st.stateServers.Find(bson.D{{"_id", stateServingInfoKey}}).One(&info)
+	if err != nil {
+		return info, err
+	}
+	return info, nil
+}
+
+// SetStateServingInfo stores information needed for running a state server
+func (st *State) SetStateServingInfo(info params.StateServingInfo) error {
+	ops := []txn.Op{{
+		C:      st.stateServers.Name,
+		Id:     stateServingInfoKey,
+		Update: bson.D{{"$set", info}},
+	}}
+	if err := st.runTransaction(ops); err != nil {
+		return fmt.Errorf("cannot set state serving info: %v", err)
+	}
+	return nil
 }
 
 // ResumeTransactions resumes all pending transactions.
