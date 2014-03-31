@@ -91,26 +91,3 @@ func (prov maasEnvironProvider) SecretAttrs(cfg *config.Config) (map[string]stri
 	secretAttrs["maas-oauth"] = maasCfg.maasOAuth()
 	return secretAttrs, nil
 }
-
-func (maasEnvironProvider) hostname() (string, error) {
-	// Hack to get container ip addresses properly for MAAS demo.
-	if os.Getenv(osenv.JujuContainerTypeEnvKey) == string(instance.LXC) {
-		return utils.GetAddressForInterface("eth0")
-	}
-	info := machineInfo{}
-	err := info.load()
-	if err != nil {
-		return "", err
-	}
-	return info.Hostname, nil
-}
-
-// PublicAddress is specified in the EnvironProvider interface.
-func (prov maasEnvironProvider) PublicAddress() (string, error) {
-	return prov.hostname()
-}
-
-// PrivateAddress is specified in the EnvironProvider interface.
-func (prov maasEnvironProvider) PrivateAddress() (string, error) {
-	return prov.hostname()
-}
