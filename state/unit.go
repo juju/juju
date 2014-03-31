@@ -498,22 +498,10 @@ func (u *Unit) PrincipalName() (string, bool) {
 
 // addressesOfMachine returns Addresses of the related machine if present.
 func (u *Unit) addressesOfMachine() []instance.Address {
-	id := u.doc.MachineId
-	// If a unit is a subordinate we get the address of the machine associated
-	// with the principal unit.
-	if id == "" && u.doc.Principal != "" {
-		principal, err := u.st.Unit(u.doc.Principal)
-		if err != nil {
-			unitLogger.Errorf("unit %v cannot get principal unit %v: %v", u, u.doc.Principal, err)
-			return nil
-		}
-		id, err = principal.AssignedMachineId()
-		if err != nil {
-			unitLogger.Errorf("unit %v cannot get assigned machine: %v", principal, err)
-			return nil
-		}
-	}
-	if id != "" {
+	if id, err := u.AssignedMachineId(); err != nil {
+		unitLogger.Errorf("unit %v cannot get assigned machine: %v", u, err)
+		return nil
+	} else {
 		m, err := u.st.Machine(id)
 		if err == nil {
 			return m.Addresses()
