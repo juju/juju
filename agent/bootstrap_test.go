@@ -74,9 +74,12 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	envCfg, err := config.New(config.NoDefaults, envAttrs)
 	c.Assert(err, gc.IsNil)
 
-	st, m, err := cfg.InitializeState(envCfg, mcfg, state.DialOpts{}, environs.NewStatePolicy())
+	st, m, err := agent.InitializeState(cfg, envCfg, mcfg, state.DialOpts{}, environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
+
+	err = cfg.Write()
+	c.Assert(err, gc.IsNil)
 
 	// Check that initial admin user has been set up correctly.
 	s.assertCanLogInAsAdmin(c, pwHash)
@@ -104,12 +107,12 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 
 	// Check that the machine agent's config has been written
 	// and that we can use it to connect to the state.
-	newCfg, err := agent.ReadConf(agent.ConfigPath(dataDir, "machine-0"))
+	newCfg, err := agent.ReadConfig(agent.ConfigPath(dataDir, "machine-0"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(newCfg.Tag(), gc.Equals, "machine-0")
 	c.Assert(agent.Password(newCfg), gc.Not(gc.Equals), pwHash)
 	c.Assert(agent.Password(newCfg), gc.Not(gc.Equals), testing.DefaultMongoPassword)
-	st1, err := cfg.OpenState(environs.NewStatePolicy())
+	st1, err := state.Open(cfg.StateInfo(), state.DialOpts{}, environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	defer st1.Close()
 }
@@ -140,13 +143,13 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	envCfg, err := config.New(config.NoDefaults, envAttrs)
 	c.Assert(err, gc.IsNil)
 
-	st, _, err := cfg.InitializeState(envCfg, mcfg, state.DialOpts{}, environs.NewStatePolicy())
+	st, _, err := agent.InitializeState(cfg, envCfg, mcfg, state.DialOpts{}, environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	err = st.SetAdminMongoPassword("")
 	c.Check(err, gc.IsNil)
 	st.Close()
 
-	st, _, err = cfg.InitializeState(envCfg, mcfg, state.DialOpts{}, environs.NewStatePolicy())
+	st, _, err = agent.InitializeState(cfg, envCfg, mcfg, state.DialOpts{}, environs.NewStatePolicy())
 	if err == nil {
 		st.Close()
 	}
