@@ -137,17 +137,6 @@ func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 		return nil, err
 	}
 
-	// Extract validated provider-specific fields. All of configFields will be
-	// present in validated, and defaults will be inserted if necessary. If the
-	// schema you passed in doesn't quite express what you need, you can make
-	// whatever checks you need here, before continuing.
-	// In particular, if you want to extract (say) credentials from the user's
-	// shell environment variables, you'll need to allow missing values to pass
-	// through the schema by setting a value of schema.Omit in the configFields
-	// map, and then to set and check them at this point. These values *must* be
-	// stored in newAttrs: a Config will be generated on the user's machine only
-	// to begin with, and will subsequently be used on a different machine that
-	// will probably not have those variables set.
 	newAttrs, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
 	if err != nil {
 		return nil, err
@@ -272,7 +261,7 @@ func isLocalhost(u string) bool {
 	if err != nil {
 		return false
 	}
-	if strings.HasPrefix(parsedUrl.Host, "localhost") || strings.HasPrefix(parsedUrl.Host, "127.0.0.1") {
+	if strings.HasPrefix(parsedUrl.Host, "localhost") || strings.HasPrefix(parsedUrl.Host, "127.0.0.") {
 		return true
 	}
 
