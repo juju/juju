@@ -122,7 +122,7 @@ func StartInstanceWithConstraintsAndNetworks(
 	machineNonce := "fake_nonce"
 	stateInfo := FakeStateInfo(machineId)
 	apiInfo := FakeAPIInfo(machineId)
-	machineConfig := environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo)
+	machineConfig := environs.NewMachineConfig(machineId, machineNonce, &nets, stateInfo, apiInfo)
 	return env.StartInstance(environs.StartInstanceParams{
 		Constraints:   cons,
 		Networks:      nets,

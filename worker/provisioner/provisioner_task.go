@@ -484,7 +484,18 @@ func (task *provisionerTask) machineConfig(machine *apiprovisioner.Machine) (*cl
 	if err != nil {
 		return nil, err
 	}
+	var networks *environs.Networks
+	includeNetworks, excludeNetworks, err := machine.Networks()
+	if err != nil {
+		return nil, err
+	}
+	if len(includeNetworks) > 0 || len(excludeNetworks) > 0 {
+		networks = &environs.Networks{
+			IncludeNetworks: includeNetworks,
+			ExcludeNetworks: excludeNetworks,
+		}
+	}
 	nonce := fmt.Sprintf("%s:%s", task.machineTag, uuid.String())
-	machineConfig := environs.NewMachineConfig(machine.Id(), nonce, stateInfo, apiInfo)
+	machineConfig := environs.NewMachineConfig(machine.Id(), nonce, networks, stateInfo, apiInfo)
 	return machineConfig, nil
 }

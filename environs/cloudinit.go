@@ -35,9 +35,9 @@ const MongoServiceName = "juju-db"
 // NewMachineConfig sets up a basic machine configuration, for a non-bootstrap
 // node.  You'll still need to supply more information, but this takes care of
 // the fixed entries and the ones that are always needed.
-func NewMachineConfig(machineID, machineNonce string,
+func NewMachineConfig(machineID, machineNonce string, networks *Networks,
 	stateInfo *state.Info, apiInfo *api.Info) *cloudinit.MachineConfig {
-	return &cloudinit.MachineConfig{
+	mcfg := &cloudinit.MachineConfig{
 		// Fixed entries.
 		DataDir:                 DataDir,
 		LogDir:                  agent.DefaultLogDir,
@@ -52,6 +52,11 @@ func NewMachineConfig(machineID, machineNonce string,
 		StateInfo:    stateInfo,
 		APIInfo:      apiInfo,
 	}
+	if networks != nil {
+		mcfg.IncludeNetworks = networks.IncludeNetworks
+		mcfg.ExcludeNetworks = networks.ExcludeNetworks
+	}
+	return mcfg
 }
 
 // NewBootstrapMachineConfig sets up a basic machine configuration for a
@@ -60,7 +65,7 @@ func NewMachineConfig(machineID, machineNonce string,
 func NewBootstrapMachineConfig(privateSystemSSHKey string) *cloudinit.MachineConfig {
 	// For a bootstrap instance, FinishMachineConfig will provide the
 	// state.Info and the api.Info. The machine id must *always* be "0".
-	mcfg := NewMachineConfig("0", state.BootstrapNonce, nil, nil)
+	mcfg := NewMachineConfig("0", state.BootstrapNonce, nil, nil, nil)
 	mcfg.StateServer = true
 	mcfg.SystemPrivateSSHKey = privateSystemSSHKey
 	mcfg.Jobs = []params.MachineJob{params.JobManageEnviron, params.JobHostUnits}

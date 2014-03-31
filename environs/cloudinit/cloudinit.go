@@ -110,6 +110,12 @@ type MachineConfig struct {
 	// is.  If the machine is not a container, then the type is "".
 	MachineContainerType instance.ContainerType
 
+	// IncludeNetworks holds a list of networks the machine should be on.
+	IncludeNetworks []string
+
+	// ExcludeNetworks holds a list of networks the machine should not be on.
+	ExcludeNetworks []string
+
 	// AuthorizedKeys specifies the keys that are allowed to
 	// connect to the machine (see cloudinit.SSHAddAuthorizedKeys)
 	// If no keys are supplied, there can be no ssh access to the node.

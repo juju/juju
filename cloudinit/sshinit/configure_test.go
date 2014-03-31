@@ -59,7 +59,7 @@ func (s *configureSuite) getCloudConfig(c *gc.C, stateServer bool, vers version.
 		mcfg.InstanceId = "instance-id"
 		mcfg.Jobs = []params.MachineJob{params.JobManageEnviron, params.JobHostUnits}
 	} else {
-		mcfg = environs.NewMachineConfig("0", "ya", nil, nil)
+		mcfg = environs.NewMachineConfig("0", "ya", nil, nil, nil)
 		mcfg.Jobs = []params.MachineJob{params.JobHostUnits}
 	}
 	mcfg.Tools = &tools.Tools{
