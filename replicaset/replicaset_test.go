@@ -338,6 +338,18 @@ func (s *MongoSuite) TestIsMaster(c *gc.C) {
 	c.Check(*res, gc.DeepEquals, expected)
 }
 
+func (s *MongoSuite) TestMasterHostPort(c *gc.C) {
+	session := root.MustDial()
+	defer session.Close()
+
+	expected := root.Addr()
+	result, err := MasterHostPort(session)
+
+	c.Logf("TestMasterHostPort expected: %v, got: %v", expected, result)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.Equals, expected)
+}
+
 func (s *MongoSuite) TestCurrentStatus(c *gc.C) {
 	session := root.MustDial()
 	defer session.Close()
