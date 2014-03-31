@@ -30,9 +30,9 @@ var (
 	MongodbServerPath = "/usr/bin/mongod"
 )
 
-// MongoSelectPeerAddress returns the address to use as the
+// SelectPeerAddress returns the address to use as the
 // mongo replica set peer address by selecting it from the given addresses.
-func MongoSelectPeerAddress(addrs []instance.Address) string {
+func SelectPeerAddress(addrs []instance.Address) string {
 	return instance.SelectInternalAddress(addrs, false)
 }
 

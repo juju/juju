@@ -142,13 +142,23 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 
 }
 
-func (s *MongoSuite) TestMongoSelectPeerAddress(c *gc.C) {
+func (s *MongoSuite) TestSelectPeerAddress(c *gc.C) {
 	addresses := []instance.Address{
-		{"10.0.0.1", instance.Ipv4Address, "cloud", instance.NetworkCloudLocal},
-		{"8.8.8.8", instance.Ipv4Address, "public", instance.NetworkPublic},
+		{
+			Value:        "10.0.0.1",
+			Type:         instance.Ipv4Address,
+			NetworkName:  "cloud",
+			NetworkScope: instance.NetworkCloudLocal,
+		},
+		{
+			Value:        "8.8.8.8",
+			Type:         instance.Ipv4Address,
+			NetworkName:  "public",
+			NetworkScope: instance.NetworkPublic,
+		},
 	}
 
-	address := MongoSelectPeerAddress(addresses)
+	address := SelectPeerAddress(addresses)
 	c.Assert(address, gc.Equals, "10.0.0.1")
 }
 
