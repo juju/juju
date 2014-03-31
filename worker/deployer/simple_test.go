@@ -236,7 +236,7 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string
 		}
 	}
 
-	conf, err := agent.ReadConf(agent.ConfigPath(fix.dataDir, tag))
+	conf, err := agent.ReadConfig(agent.ConfigPath(fix.dataDir, tag))
 	c.Assert(err, gc.IsNil)
 	c.Assert(conf.Tag(), gc.Equals, tag)
 	c.Assert(conf.DataDir(), gc.Equals, fix.dataDir)
