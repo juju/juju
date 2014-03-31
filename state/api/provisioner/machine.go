@@ -55,6 +55,25 @@ func (m *Machine) Refresh() error {
 	return nil
 }
 
+// Networks returns a pair of lists of networks to enable/disable on
+// the machine.
+func (m *Machine) Networks() (includeNetworks, excludeNetworks []string, err error) {
+	var results params.NetworksResults
+	args := params.Entities{Entities: []params.Entity{{m.tag}}}
+	err = m.st.call("Networks", args, &results)
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, nil, result.Error
+	}
+	return result.IncludeNetworks, result.ExcludeNetworks, nil
+}
+
 // SetStatus sets the status of the machine.
 func (m *Machine) SetStatus(status params.Status, info string, data params.StatusData) error {
 	var result params.ErrorResults
