@@ -25,7 +25,7 @@ import (
 
 type BootstrapCommand struct {
 	cmd.CommandBase
-	Conf        AgentConf
+	AgentConf
 	EnvConfig   map[string]interface{}
 	Constraints constraints.Value
 	Hardware    instance.HardwareCharacteristics
@@ -41,7 +41,7 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 }
 
 func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.Conf.addFlags(f)
+	c.AgentConf.AddFlags(f)
 	yamlBase64Var(f, &c.EnvConfig, "env-config", "", "initial environment configuration (yaml, base64 encoded)")
 	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "initial environment constraints (space-separated strings)")
 	f.Var(&c.Hardware, "hardware", "hardware characteristics (space-separated strings)")
@@ -56,7 +56,7 @@ func (c *BootstrapCommand) Init(args []string) error {
 	if c.InstanceId == "" {
 		return requiredError("instance-id")
 	}
-	return c.Conf.checkArgs(args)
+	return c.AgentConf.CheckArgs(args)
 }
 
 // Run initializes state for an environment.
@@ -65,13 +65,15 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := c.Conf.read("machine-0"); err != nil {
+	err = c.ReadConfig("machine-0")
+	if err != nil {
 		return err
 	}
+	agentConfig := c.CurrentConfig()
 	// agent.Jobs is an optional field in the agent config, and was
 	// introduced after 1.17.2. We default to allowing units on
 	// machine-0 if missing.
-	jobs := c.Conf.config.Jobs()
+	jobs := agentConfig.Jobs()
 	if len(jobs) == 0 {
 		jobs = []params.MachineJob{
 			params.JobManageEnviron,
@@ -96,18 +98,26 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 
-	st, _, err := c.Conf.config.InitializeState(
-		envCfg,
-		agent.BootstrapMachineConfig{
-			Constraints:     c.Constraints,
-			Jobs:            jobs,
-			InstanceId:      instance.Id(c.InstanceId),
-			Characteristics: c.Hardware,
-			Addresses:       addresses,
-		},
-		state.DefaultDialOpts(),
-		environs.NewStatePolicy(),
-	)
+	var st *state.State
+	err = nil
+	writeErr := c.ChangeConfig(func(agentConfig agent.ConfigSetter) {
+		st, _, err = agent.InitializeState(
+			agentConfig,
+			envCfg,
+			agent.BootstrapMachineConfig{
+				Constraints:     c.Constraints,
+				Jobs:            jobs,
+				InstanceId:      instance.Id(c.InstanceId),
+				Characteristics: c.Hardware,
+				Addresses:       addresses,
+			},
+			state.DefaultDialOpts(),
+			environs.NewStatePolicy(),
+		)
+	})
+	if writeErr != nil {
+		return fmt.Errorf("cannot write initial configuration: %v", err)
+	}
 	if err != nil {
 		return err
 	}
@@ -119,18 +129,23 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	dialInfo, err := state.DialInfo(c.Conf.config.StateInfo(), state.DefaultDialOpts())
+	dialInfo, err := state.DialInfo(agentConfig.StateInfo(), state.DefaultDialOpts())
 	if err != nil {
 		return err
 	}
-	if err := ensureMongoServer(mongo.EnsureMongoParams{
-		HostPort: net.JoinHostPort(preferredAddr.String(), fmt.Sprint(envCfg.StatePort())),
-		DataDir:  c.Conf.config.DataDir(),
-		DialInfo: dialInfo,
-	}); err != nil {
+	// Use our preferred address to dial the mongo server, to
+	// ensure that it is actually usable locally within this machine
+	// (we'll have problems if not).
+	dialInfo.Addrs = []string{
+		net.JoinHostPort(preferredAddr.String(), fmt.Sprint(envCfg.StatePort())),
+	}
+	if err := ensureMongoServer(agentConfig.DataDir(), envCfg.StatePort()); err != nil {
 		return err
 	}
-	return nil
+
+	return maybeInitiateMongoServer(mongo.InitiateMongoParams{
+		DialInfo: dialInfo,
+	})
 }
 
 func selectPreferredStateServerAddress(addrs []instance.Address) (instance.Address, error) {

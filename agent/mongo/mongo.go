@@ -2,12 +2,10 @@ package mongo
 
 import (
 	"fmt"
-	"net"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
-	"strconv"
 
 	"github.com/juju/loggo"
 	"labix.org/v2/mgo"
@@ -48,12 +46,56 @@ func MongodPath() (string, error) {
 	return path, nil
 }
 
-type EnsureMongoParams struct {
-	HostPort string
+// InitiateMongoParams holds parameters for the MaybeInitiateMongo call.
+type InitiateMongoParams struct {
+	// DialInfo specifies how to connect to the mongo server.
+	// If the replica set has not been initiated, the first
+	// address of DialInfo.Addrs is used as the address
+	// of the first replica set member.
 	DialInfo *mgo.DialInfo
-	DataDir  string
+
+	// User holds the user to log as in to the mongo server.
+	// If it is empty, no login will take place.
 	User     string
 	Password string
+}
+
+// MaybeInitiateMongoServer checks for an existing mongo configuration.
+// If no existing configuration is found one is created using Initiate.
+func MaybeInitiateMongoServer(p InitiateMongoParams) error {
+	logger.Debugf("Initiating mongo replicaset; params: %#v", p)
+
+	if len(p.DialInfo.Addrs) > 1 {
+		logger.Infof("more than one member; replica set must be already initiated")
+		return nil
+	}
+
+	session, err := mgo.DialWithInfo(p.DialInfo)
+	if err != nil {
+		return fmt.Errorf("can't dial mongo to initiate replicaset: %v", err)
+	}
+	defer session.Close()
+
+	// TODO(rog) remove this code when we no longer need to upgrade
+	// from pre-HA-capable environments.
+	if p.User != "" {
+		err := session.DB("admin").Login(p.User, p.Password)
+		if err != nil {
+			logger.Errorf("cannot login to admin db as %q, password %q, falling back: %v", p.User, p.Password, err)
+		}
+	}
+	_, err = replicaset.CurrentConfig(session)
+	if err == mgo.ErrNotFound {
+		err := replicaset.Initiate(session, p.DialInfo.Addrs[0], replicaSetName)
+		if err != nil {
+			return fmt.Errorf("cannot initiate replica set: %v", err)
+		}
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("cannot get replica set configuration: %v", err)
+	}
+	return nil
 }
 
 // EnsureMongoServer ensures that the correct mongo upstart script is installed
@@ -61,25 +103,18 @@ type EnsureMongoParams struct {
 //
 // This method will remove old versions of the mongo upstart script as necessary
 // before installing the new version.
-func EnsureMongoServer(p EnsureMongoParams) error {
-	logger.Debugf("Ensuring mongo server is running.  params: %#v", p)
-	dbDir := filepath.Join(p.DataDir, "db")
-	name := ServiceName()
-
-	port, err := parsePort(p)
-	if err != nil {
-		return err
-	}
+func EnsureMongoServer(dataDir string, port int) error {
+	logger.Debugf("Ensuring mongo server is running; dataDir %s; port %d", dataDir, port)
+	dbDir := filepath.Join(dataDir, "db")
+	name := makeServiceName(mongoScriptVersion)
 
 	if err := removeOldMongoServices(mongoScriptVersion); err != nil {
 		return err
 	}
-
-	service, err := mongoUpstartService(name, p.DataDir, dbDir, port)
+	service, err := mongoUpstartService(name, dataDir, dbDir, port)
 	if err != nil {
 		return err
 	}
-
 	if !service.Installed() {
 		if err := makeJournalDirs(dbDir); err != nil {
 			return fmt.Errorf("Error creating journal directories: %v", err)
@@ -90,61 +125,11 @@ func EnsureMongoServer(p EnsureMongoParams) error {
 			return fmt.Errorf("failed to install mongo service %q: %v", service.Name, err)
 		}
 	}
-
 	if !service.Running() {
 		if err := service.Start(); err != nil {
 			return fmt.Errorf("failed to start %q service: %v", name, err)
 		}
 		logger.Infof("Mongod service %q started.", name)
-	}
-
-	if err := initiateReplicaSet(p); err != nil {
-		return fmt.Errorf("failed to initiate mongo replicaset: %v", err)
-	}
-	return nil
-}
-
-func parsePort(p EnsureMongoParams) (port int, err error) {
-	_, portStr, err := net.SplitHostPort(p.HostPort)
-	if err != nil {
-		return 0, fmt.Errorf("invalid mongo address %q", p.HostPort)
-	}
-	port, err = strconv.Atoi(portStr)
-	if err != nil {
-		return 0, fmt.Errorf("invalid port in mongo address %q", p.HostPort)
-	}
-	return port, nil
-}
-
-// initiateReplicaSet checks for an existing mongo configuration using CurrentConfig.
-// If no existing configuration is found one is created using Initiate.
-//
-// This is a variable so it can be overridden in tests
-var initiateReplicaSet = func(p EnsureMongoParams) error {
-	logger.Debugf("Initiating mongo replicaset; params: %#v", p)
-
-	session, err := mgo.DialWithInfo(p.DialInfo)
-	if err != nil {
-		return fmt.Errorf("can't dial mongo to initiate replicaset: %v", err)
-	}
-	defer session.Close()
-
-	if p.User != "" {
-		err := session.DB("admin").Login(p.User, p.Password)
-		if err != nil {
-			logger.Errorf("cannot login to admin db as %q, password %q, falling back: %v", p.User, p.Password, err)
-		}
-	}
-	_, err = replicaset.CurrentConfig(session)
-	if err == mgo.ErrNotFound {
-		err = replicaset.Initiate(session, p.HostPort, replicaSetName)
-		if err != nil {
-			return fmt.Errorf("cannot initiate replica set: %v", err)
-		}
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("cannot get replica set configuration: %v", err)
 	}
 	return nil
 }

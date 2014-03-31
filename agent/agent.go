@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"sync"
 
 	"github.com/errgo/errgo"
 	"github.com/juju/loggo"
@@ -71,42 +70,38 @@ type Config interface {
 	// will be made.
 	Tag() string
 
-	// Password returns the agent's password.
-	Password() string
-
 	// Dir returns the agent's directory.
 	Dir() string
-
-	SetPassword(newPassword string)
 
 	// Nonce returns the nonce saved when the machine was provisioned
 	// TODO: make this one of the key/value pairs.
 	Nonce() string
 
 	// CACert returns the CA certificate that is used to validate the state or
-	// API servier's certificate.
+	// API server's certificate.
 	CACert() []byte
-
-	// OpenAPI tries to connect to an API end-point.  If a non-empty
-	// newPassword is returned, OpenAPI will have written the configuration
-	// with the new password; the caller should set the connecting entity's
-	// password accordingly.
-	OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassword string, err error)
 
 	// APIAddresses returns the addresses needed to connect to the api server
 	APIAddresses() ([]string, error)
-
-	// OpenState tries to open a direct connection to the state database using
-	// the given Conf.
-	OpenState(policy state.Policy) (*state.State, error)
-
-	// Write writes the agent configuration.
-	Write() error
 
 	// WriteCommands returns shell commands to write the agent configuration.
 	// It returns an error if the configuration does not have all the right
 	// elements.
 	WriteCommands() ([]string, error)
+
+	// APIInfo returns details for connecting to the API server.
+	APIInfo() *api.Info
+
+	// StateServer reports if this config is for a machine that should manage
+	// state.
+	StateServer() bool
+
+	// StateInfo returns details for connecting to the state server.
+	StateInfo() *state.Info
+
+	// OldPassword returns the fallback password when connecting to the
+	// API server.
+	OldPassword() string
 
 	// APIServerDetails returns the details needed to run an API server.
 	APIServerDetails() (port int, cert, key []byte)
@@ -115,35 +110,70 @@ type Config interface {
 	// successfully run, which is also the same as the initially deployed version.
 	UpgradedToVersion() version.Number
 
-	// WriteUpgradedToVersion updates the config's UpgradedToVersion and writes
-	// the new agent configuration.
-	WriteUpgradedToVersion(newVersion version.Number) error
-
 	// Value returns the value associated with the key, or an empty string if
 	// the key is not found.
 	Value(key string) string
+}
+
+type ConfigSetterOnly interface {
+	// Clone returns a copy of the configuration that
+	// is unaffected by subsequent calls to the Set*
+	// methods
+	Clone() Config
+
+	// SetOldPassword sets the password that is currently
+	// valid but needs to be changed. This is used as
+	// a fallback.
+	SetOldPassword(oldPassword string)
+
+	// SetPassword sets the password to be used when
+	// connecting to the state.
+	SetPassword(newPassword string)
 
 	// SetValue updates the value for the specified key.
 	SetValue(key, value string)
 
-	// StateManager reports if this config is for a machine that should manage
-	// state.
-	StateManager() bool
+	// SetUpgradedToVerson sets the version that
+	// the agent has successfully upgraded to.
+	SetUpgradedToVersion(newVersion version.Number)
 
-	// StateInfo returns information suitable for connecting to the
-	// state server. It is only valid if the agent is actually authorized
-	// to connect.
-	StateInfo() *state.Info
-
-	Clone() Config
-
-	StateInitializer
+	// Migrate takes an existing agent config and applies the given
+	// parameters to change it.
+	//
+	// Only non-empty fields in newParams are used
+	// to change existing config settings. All changes are written
+	// atomically. UpgradedToVersion cannot be changed here, because
+	// Migrate is most likely called during an upgrade, so it will be
+	// changed at the end of the upgrade anyway, if successful.
+	//
+	// Migrate does not actually write the new configuration.
+	//
+	// Note that if the configuration file moves location,
+	// (if DataDir is set), the the caller is responsible for removing
+	// the old configuration.
+	Migrate(MigrateParams) error
 }
 
-// MigrateConfigParams holds agent config values to change in a
-// MigrateConfig call. Empty fields will be ignored. DeleteValues
+type ConfigWriter interface {
+	// Write writes the agent configuration.
+	Write() error
+}
+
+type ConfigSetter interface {
+	Config
+	ConfigSetterOnly
+}
+
+type ConfigSetterWriter interface {
+	Config
+	ConfigSetterOnly
+	ConfigWriter
+}
+
+// MigrateParams holds agent config values to change in a
+// Migrate call. Empty fields will be ignored. DeleteValues
 // specifies a list of keys to delete.
-type MigrateConfigParams struct {
+type MigrateParams struct {
 	DataDir      string
 	LogDir       string
 	Jobs         []params.MachineJob
@@ -151,78 +181,21 @@ type MigrateConfigParams struct {
 	Values       map[string]string
 }
 
-// MigrateConfig takes an existing agent config and applies the given
-// newParams selectively. Only non-empty fields in newParams are used
-// to change existing config settings. All changes are written
-// atomically. UpgradedToVersion cannot be changed here, because
-// MigrateConfig is most likely called during an upgrade, so it will be
-// changed at the end of the upgrade anyway, if successful.
-func MigrateConfig(currentConfig Config, newParams MigrateConfigParams) error {
-	configMutex.Lock()
-	defer configMutex.Unlock()
-	config := currentConfig.(*configInternal)
-
-	if newParams.DataDir != "" {
-		config.dataDir = newParams.DataDir
-	}
-	if newParams.LogDir != "" {
-		config.logDir = newParams.LogDir
-	}
-	if len(newParams.Jobs) > 0 {
-		config.jobs = make([]params.MachineJob, len(newParams.Jobs))
-		copy(config.jobs, newParams.Jobs)
-	}
-	for _, key := range newParams.DeleteValues {
-		delete(config.values, key)
-	}
-	for key, value := range newParams.Values {
-		if config.values == nil {
-			config.values = make(map[string]string)
-		}
-		config.values[key] = value
-	}
-	if err := config.check(); err != nil {
-		return fmt.Errorf("migrated agent config is invalid: %v", err)
-	}
-	oldConfigFile := config.configFilePath
-	config.configFilePath = ConfigPath(config.dataDir, config.tag)
-	if err := config.write(); err != nil {
-		return fmt.Errorf("cannot migrate agent config: %v", err)
-	}
-	if oldConfigFile != config.configFilePath && oldConfigFile != "" {
-		err := os.Remove(oldConfigFile)
-		if err != nil && !os.IsNotExist(err) {
-			return fmt.Errorf("cannot remove old agent config %q: %v", oldConfigFile, err)
-		}
-	}
-	return nil
-}
-
 // Ensure that the configInternal struct implements the Config interface.
 var _ Config = (*configInternal)(nil)
-
-// The configMutex should be locked before any writing to disk during
-// the write commands, and unlocked when the writing is complete. This
-// process wide lock should stop any unintended concurrent writes.
-// This may happen when multiple go-routines may be adding things to
-// the agent config, and wanting to persist them to disk. To ensure
-// that the correct data is written to disk, the mutex should be
-// locked prior to generating any disk state. This way calls that
-// might get interleaved would always write the most recent state to
-// disk. Since we have different agent configs for each agent, and
-// there is only one process for each agent, a simple mutex is enough
-// for concurrency. The mutex should also be locked around any access
-// to mutable values, either setting or getting. The only mutable
-// value is the values map. Retrieving and setting values here are
-// protected by the mutex. New mutating methods should also be
-// synchronized using this mutex. Config is essentially a singleton
-// implementation, having a non-constructable-in-a-normal-way backing
-// type configInternal.
-var configMutex sync.Mutex
 
 type connectionDetails struct {
 	addresses []string
 	password  string
+}
+
+func (d *connectionDetails) clone() *connectionDetails {
+	if d == nil {
+		return nil
+	}
+	newd := *d
+	newd.addresses = append([]string{}, d.addresses...)
+	return &newd
 }
 
 type configInternal struct {
@@ -266,7 +239,7 @@ type AgentConfigParams struct {
 
 // NewAgentConfig returns a new config object suitable for use for a
 // machine or unit agent.
-func NewAgentConfig(configParams AgentConfigParams) (Config, error) {
+func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) {
 	if configParams.DataDir == "" {
 		return nil, errgo.Trace(requiredError("data directory"))
 	}
@@ -321,7 +294,7 @@ func NewAgentConfig(configParams AgentConfigParams) (Config, error) {
 
 // NewStateMachineConfig returns a configuration suitable for
 // a machine running the state server.
-func NewStateMachineConfig(configParams AgentConfigParams) (Config, error) {
+func NewStateMachineConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) {
 	if configParams.StateServerCert == nil {
 		return nil, errgo.Trace(requiredError("state server cert"))
 	}
@@ -354,13 +327,8 @@ func ConfigPath(dataDir, agentName string) string {
 	return filepath.Join(Dir(dataDir, agentName), agentConfigFilename)
 }
 
-// ReadConf reads configuration data from the given location.
-func ReadConf(configFilePath string) (Config, error) {
-	// Even though the ReadConf is done at the start of the agent loading, and
-	// that this should not be called more than once by an agent, I feel that
-	// not locking the mutex that is used to protect writes is wrong.
-	configMutex.Lock()
-	defer configMutex.Unlock()
+// ReadConfig reads configuration data from the given location.
+func ReadConfig(configFilePath string) (ConfigSetterWriter, error) {
 	var (
 		format formatter
 		config *configInternal
@@ -401,7 +369,7 @@ func ReadConf(configFilePath string) (Config, error) {
 	config.configFilePath = configFilePath
 	if format != currentFormat {
 		// Migrate from a legacy format to the new one.
-		err := config.write()
+		err := config.Write()
 		if err != nil {
 			return nil, fmt.Errorf("cannot migrate %s agent config to %s: %v", format.version(), currentFormat.version(), err)
 		}
@@ -412,6 +380,85 @@ func ReadConf(configFilePath string) (Config, error) {
 		}
 	}
 	return config, nil
+}
+
+func (c0 *configInternal) Clone() Config {
+	c1 := *c0
+	// Deep copy only fields which may be affected
+	// by ConfigSetter methods.
+	c1.stateDetails = c0.stateDetails.clone()
+	c1.apiDetails = c0.apiDetails.clone()
+	c1.jobs = append([]params.MachineJob{}, c0.jobs...)
+	c1.values = make(map[string]string, len(c0.values))
+	for key, val := range c0.values {
+		c1.values[key] = val
+	}
+	return &c1
+}
+
+func (config *configInternal) Migrate(newParams MigrateParams) error {
+	if newParams.DataDir != "" {
+		config.dataDir = newParams.DataDir
+		config.configFilePath = ConfigPath(config.dataDir, config.tag)
+	}
+	if newParams.LogDir != "" {
+		config.logDir = newParams.LogDir
+	}
+	if len(newParams.Jobs) > 0 {
+		config.jobs = make([]params.MachineJob, len(newParams.Jobs))
+		copy(config.jobs, newParams.Jobs)
+	}
+	for _, key := range newParams.DeleteValues {
+		delete(config.values, key)
+	}
+	for key, value := range newParams.Values {
+		if config.values == nil {
+			config.values = make(map[string]string)
+		}
+		config.values[key] = value
+	}
+	if err := config.check(); err != nil {
+		return fmt.Errorf("migrated agent config is invalid: %v", err)
+	}
+	return nil
+}
+
+func (c *configInternal) SetUpgradedToVersion(newVersion version.Number) {
+	c.upgradedToVersion = newVersion
+}
+
+func (c *configInternal) SetValue(key, value string) {
+	if value == "" {
+		delete(c.values, key)
+	} else {
+		c.values[key] = value
+	}
+}
+
+func (c *configInternal) SetOldPassword(oldPassword string) {
+	c.oldPassword = oldPassword
+}
+
+func (c *configInternal) SetPassword(newPassword string) {
+	if c.stateDetails != nil {
+		c.stateDetails.password = newPassword
+	}
+	if c.apiDetails != nil {
+		c.apiDetails.password = newPassword
+	}
+}
+
+func (c *configInternal) Write() error {
+	data, err := c.fileContents()
+	if err != nil {
+		return err
+	}
+	// Make sure the config dir gets created.
+	configDir := filepath.Dir(c.configFilePath)
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return fmt.Errorf("cannot create agent config dir %q: %v", configDir, err)
+	}
+	return utils.AtomicWriteFile(c.configFilePath, data, 0600)
 }
 
 func requiredError(what string) error {
@@ -441,9 +488,6 @@ func (c *configInternal) Nonce() string {
 func (c *configInternal) UpgradedToVersion() version.Number {
 	return c.upgradedToVersion
 }
-func (c *configInternal) OldPassword() string {
-	return c.oldPassword
-}
 
 func (c *configInternal) CACert() []byte {
 	// Give the caller their own copy of the cert to avoid any possibility of
@@ -453,19 +497,7 @@ func (c *configInternal) CACert() []byte {
 }
 
 func (c *configInternal) Value(key string) string {
-	configMutex.Lock()
-	defer configMutex.Unlock()
 	return c.values[key]
-}
-
-func (c *configInternal) SetValue(key, value string) {
-	configMutex.Lock()
-	defer configMutex.Unlock()
-	if value == "" {
-		delete(c.values, key)
-	} else {
-		c.values[key] = value
-	}
 }
 
 func (c *configInternal) APIServerDetails() (port int, cert, key []byte) {
@@ -479,6 +511,10 @@ func (c *configInternal) APIAddresses() ([]string, error) {
 	return append([]string{}, c.apiDetails.addresses...), nil
 }
 
+func (c *configInternal) OldPassword() string {
+	return c.oldPassword
+}
+
 func (c *configInternal) Tag() string {
 	return c.tag
 }
@@ -487,29 +523,8 @@ func (c *configInternal) Dir() string {
 	return Dir(c.dataDir, c.tag)
 }
 
-func (c *configInternal) StateManager() bool {
-	return c.caCert != nil
-}
-
-func (c *configInternal) Clone() Config {
-	// copy the value
-	c2 := *c
-
-	// now overwrite all the pointer, slice, and map stuff inside with deep-copies
-	c2.caCert = append([]byte{}, c.caCert...)
-	stateDetails := *c.stateDetails
-	c2.stateDetails = &stateDetails
-	c2.stateDetails.addresses = append([]string{}, c.stateDetails.addresses...)
-	apiDetails := *c.apiDetails
-	c2.apiDetails = &apiDetails
-	c2.apiDetails.addresses = append([]string{}, c.apiDetails.addresses...)
-	c2.stateServerCert = append([]byte{}, c.stateServerCert...)
-	c2.stateServerKey = append([]byte{}, c.stateServerKey...)
-	c2.values = map[string]string{}
-	for key, val := range c.values {
-		c2.values[key] = val
-	}
-	return &c2
+func (c *configInternal) StateServer() bool {
+	return c.stateServerKey != nil
 }
 
 func (c *configInternal) check() error {
@@ -543,44 +558,6 @@ func checkAddrs(addrs []string, what string) error {
 	return nil
 }
 
-// writeNewPassword generates a new password and writes
-// the configuration with it in.
-func (c *configInternal) writeNewPassword() (string, error) {
-	newPassword, err := utils.RandomPassword()
-	if err != nil {
-		return "", err
-	}
-	// Make a copy of the configuration so that if we fail
-	// to write the configuration file, the configuration will
-	// still be valid.
-	other := *c
-	if c.stateDetails != nil {
-		stateDetails := *c.stateDetails
-		stateDetails.password = newPassword
-		other.stateDetails = &stateDetails
-	}
-	if c.apiDetails != nil {
-		apiDetails := *c.apiDetails
-		apiDetails.password = newPassword
-		other.apiDetails = &apiDetails
-	}
-	logger.Debugf("writing configuration file")
-	if err := other.write(); err != nil {
-		return "", err
-	}
-	*c = other
-	return newPassword, nil
-}
-
-func (c *configInternal) SetPassword(newPassword string) {
-	if c.stateDetails != nil {
-		c.stateDetails.password = newPassword
-	}
-	if c.apiDetails != nil {
-		c.apiDetails.password = newPassword
-	}
-}
-
 func (c *configInternal) fileContents() ([]byte, error) {
 	data, err := currentFormat.marshal(c)
 	if err != nil {
@@ -590,40 +567,6 @@ func (c *configInternal) fileContents() ([]byte, error) {
 	fmt.Fprintf(&buf, "%s%s\n", formatPrefix, currentFormat.version())
 	buf.Write(data)
 	return buf.Bytes(), nil
-}
-
-// write is the internal implementation of c.Write().
-func (c *configInternal) write() error {
-	data, err := c.fileContents()
-	if err != nil {
-		return err
-	}
-	// Make sure the config dir gets created.
-	configDir := filepath.Dir(c.configFilePath)
-	if err := os.MkdirAll(configDir, 0755); err != nil {
-		return fmt.Errorf("cannot create agent config dir %q: %v", configDir, err)
-	}
-	return utils.AtomicWriteFile(c.configFilePath, data, 0600)
-}
-
-func (c *configInternal) Write() error {
-	// Lock is taken prior to generating any content to write.
-	configMutex.Lock()
-	defer configMutex.Unlock()
-	return c.write()
-}
-
-func (c *configInternal) WriteUpgradedToVersion(newVersion version.Number) error {
-	configMutex.Lock()
-	defer configMutex.Unlock()
-	originalVersion := c.upgradedToVersion
-	c.upgradedToVersion = newVersion
-	err := c.write()
-	if err != nil {
-		// We don't want to retain the new version if there's been an error writing the file.
-		c.upgradedToVersion = originalVersion
-	}
-	return err
 }
 
 func (c *configInternal) WriteCommands() ([]string, error) {
@@ -636,49 +579,21 @@ func (c *configInternal) WriteCommands() ([]string, error) {
 	return commands, nil
 }
 
-func (c *configInternal) OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassword string, err error) {
-	configMutex.Lock()
-	defer configMutex.Unlock()
-	info := api.Info{
+func (c *configInternal) APIInfo() *api.Info {
+	return &api.Info{
 		Addrs:    c.apiDetails.addresses,
 		Password: c.apiDetails.password,
 		CACert:   c.caCert,
 		Tag:      c.tag,
 		Nonce:    c.nonce,
 	}
-	if info.Password != "" {
-		st, err := api.Open(&info, dialOpts)
-		if err == nil {
-			return st, "", nil
-		}
-		if !params.IsCodeUnauthorized(err) {
-			return nil, "", err
-		}
-		// Access isn't authorized even though we have a password
-		// This can happen if we crash after saving the
-		// password but before changing it, so we'll try again
-		// with the old password.
-	}
-	info.Password = c.oldPassword
-	st, err = api.Open(&info, dialOpts)
-	if err != nil {
-		return nil, "", err
-	}
-
-	// We've succeeded in connecting with the old password, so
-	// we can now change it to something more private.
-	password, err := c.writeNewPassword()
-	if err != nil {
-		st.Close()
-		return nil, "", err
-	}
-	return st, password, nil
 }
 
-func (c *configInternal) Password() string {
-	return c.stateDetails.password
-}
-
-func (c *configInternal) OpenState(policy state.Policy) (*state.State, error) {
-	return state.Open(c.StateInfo(), state.DefaultDialOpts(), policy)
+func (c *configInternal) StateInfo() *state.Info {
+	return &state.Info{
+		Addrs:    c.stateDetails.addresses,
+		Password: c.stateDetails.password,
+		CACert:   c.caCert,
+		Tag:      c.tag,
+	}
 }

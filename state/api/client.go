@@ -675,3 +675,13 @@ func (c *Client) APIHostPorts() ([][]instance.HostPort, error) {
 	}
 	return result.Servers, nil
 }
+
+// EnsureAvailability ensures the availability of Juju state servers.
+func (c *Client) EnsureAvailability(numStateServers int, cons constraints.Value, series string) error {
+	args := params.EnsureAvailability{
+		NumStateServers: numStateServers,
+		Constraints:     cons,
+		Series:          series,
+	}
+	return c.call("EnsureAvailability", args, nil)
+}

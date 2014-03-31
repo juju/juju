@@ -483,14 +483,6 @@ func (*environProvider) SecretAttrs(cfg *config.Config) (map[string]string, erro
 	}, nil
 }
 
-func (*environProvider) PublicAddress() (string, error) {
-	return "public.dummy.address.example.com", nil
-}
-
-func (*environProvider) PrivateAddress() (string, error) {
-	return "private.dummy.address.example.com", nil
-}
-
 func (*environProvider) BoilerplateConfig() string {
 	return `
 # Fake configuration for dummy provider.
@@ -528,6 +520,12 @@ func (e *environ) Name() string {
 // SupportedArchitectures is specified on the EnvironCapability interface.
 func (*environ) SupportedArchitectures() ([]string, error) {
 	return []string{arch.AMD64, arch.PPC64}, nil
+}
+
+// SupportNetworks is specified on the EnvironCapability interface.
+func (*environ) SupportNetworks() bool {
+	// We need to be able to test networks with the dummy provider.
+	return true
 }
 
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
@@ -713,7 +711,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	idString := fmt.Sprintf("%s-%d", e.name, estate.maxId)
 	i := &dummyInstance{
 		id:           instance.Id(idString),
-		addresses:    instance.NewAddresses([]string{idString + ".dns"}),
+		addresses:    instance.NewAddresses(idString + ".dns"),
 		ports:        make(map[instance.Port]bool),
 		machineId:    machineId,
 		series:       series,

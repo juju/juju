@@ -54,44 +54,6 @@ func (s *ProviderSuite) TearDownTest(c *gc.C) {
 	s.restoreTimeouts()
 }
 
-func (s *ProviderSuite) TestMetadata(c *gc.C) {
-	openstack.UseTestMetadata(openstack.MetadataTesting)
-	defer openstack.UseTestMetadata(nil)
-
-	p, err := environs.Provider("openstack")
-	c.Assert(err, gc.IsNil)
-
-	addr, err := p.PublicAddress()
-	c.Assert(err, gc.IsNil)
-	c.Assert(addr, gc.Equals, "203.1.1.2")
-
-	addr, err = p.PrivateAddress()
-	c.Assert(err, gc.IsNil)
-	c.Assert(addr, gc.Equals, "10.1.1.2")
-}
-
-func (s *ProviderSuite) TestPublicFallbackToPrivate(c *gc.C) {
-	openstack.UseTestMetadata(map[string]string{
-		"/latest/meta-data/public-ipv4": "203.1.1.2",
-		"/latest/meta-data/local-ipv4":  "10.1.1.2",
-	})
-	defer openstack.UseTestMetadata(nil)
-	p, err := environs.Provider("openstack")
-	c.Assert(err, gc.IsNil)
-
-	addr, err := p.PublicAddress()
-	c.Assert(err, gc.IsNil)
-	c.Assert(addr, gc.Equals, "203.1.1.2")
-
-	openstack.UseTestMetadata(map[string]string{
-		"/latest/meta-data/local-ipv4":  "10.1.1.2",
-		"/latest/meta-data/public-ipv4": "",
-	})
-	addr, err = p.PublicAddress()
-	c.Assert(err, gc.IsNil)
-	c.Assert(addr, gc.Equals, "10.1.1.2")
-}
-
 // Register tests to run against a test Openstack instance (service doubles).
 func registerLocalTests() {
 	cred := &identity.Credentials{
@@ -590,6 +552,11 @@ func (s *localServerSuite) TestSupportedArchitectures(c *gc.C) {
 	a, err := env.SupportedArchitectures()
 	c.Assert(err, gc.IsNil)
 	c.Assert(a, gc.DeepEquals, []string{"amd64", "ppc64"})
+}
+
+func (s *localServerSuite) TestSupportNetworks(c *gc.C) {
+	env := s.Open(c)
+	c.Assert(env.SupportNetworks(), jc.IsFalse)
 }
 
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {

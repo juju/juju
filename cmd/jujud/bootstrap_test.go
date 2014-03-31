@@ -41,27 +41,38 @@ type BootstrapSuite struct {
 	testing.MgoSuite
 	dataDir         string
 	logDir          string
-	fakeEnsureMongo *fakeEnsure
+	fakeEnsureMongo fakeEnsure
 	testConfig      string
 }
 
 var _ = gc.Suite(&BootstrapSuite{})
 
 type fakeEnsure struct {
-	params mongo.EnsureMongoParams
-	err    error
+	ensureCount    int
+	initiateCount  int
+	dataDir        string
+	port           int
+	initiateParams mongo.InitiateMongoParams
+	err            error
 }
 
-func (f *fakeEnsure) fakeEnsureMongo(p mongo.EnsureMongoParams) error {
-	f.params = p
+func (f *fakeEnsure) fakeEnsureMongo(dataDir string, port int) error {
+	f.ensureCount++
+	f.dataDir, f.port = dataDir, port
 	return f.err
+}
+
+func (f *fakeEnsure) fakeInitiateMongo(p mongo.InitiateMongoParams) error {
+	f.initiateCount++
+	f.initiateParams = p
+	return nil
 }
 
 const bootstrapInstanceId = "only-0"
 
 func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
-	s.fakeEnsureMongo = &fakeEnsure{}
 	s.PatchValue(&ensureMongoServer, s.fakeEnsureMongo.fakeEnsureMongo)
+	s.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.fakeInitiateMongo)
 
 	s.LoggingSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
@@ -79,6 +90,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.dataDir = c.MkDir()
 	s.logDir = c.MkDir()
+	s.fakeEnsureMongo = fakeEnsure{}
 }
 
 func (s *BootstrapSuite) TearDownTest(c *gc.C) {
@@ -92,7 +104,7 @@ func testPasswordHash() string {
 	return utils.UserPasswordHash(testPassword, utils.CompatSalt)
 }
 
-func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob, args ...string) (machineConf agent.Config, cmd *BootstrapCommand, err error) {
+func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob, args ...string) (machineConf agent.ConfigSetterWriter, cmd *BootstrapCommand, err error) {
 	if len(jobs) == 0 {
 		// Add default jobs.
 		jobs = []params.MachineJob{
@@ -280,10 +292,10 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	// Check that the machine configuration has been given a new
 	// password and that we can connect to mongo as that machine
 	// and that the in-mongo password also verifies correctly.
-	machineConf1, err := agent.ReadConf(agent.ConfigPath(machineConf.DataDir(), "machine-0"))
+	machineConf1, err := agent.ReadConfig(agent.ConfigPath(machineConf.DataDir(), "machine-0"))
 	c.Assert(err, gc.IsNil)
 
-	st, err = machineConf1.OpenState(environs.NewStatePolicy())
+	st, err = state.Open(machineConf1.StateInfo(), state.DialOpts{}, environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 }

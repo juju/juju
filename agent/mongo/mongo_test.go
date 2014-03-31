@@ -1,9 +1,7 @@
 package mongo
 
 import (
-	"fmt"
 	"io/ioutil"
-	"net"
 	"os"
 	"path"
 	"path/filepath"
@@ -11,8 +9,6 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
-
-	"labix.org/v2/mgo"
 
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
@@ -103,29 +99,6 @@ func (s *MongoSuite) TestMakeJournalDirs(c *gc.C) {
 	testJournalDirs(dir, c)
 }
 
-func (s *MongoSuite) TestParsePort(c *gc.C) {
-	p := EnsureMongoParams{
-		HostPort: "foo:123",
-	}
-	port, err := parsePort(p)
-	c.Check(port, gc.Equals, 123)
-	c.Check(err, gc.IsNil)
-
-	p = EnsureMongoParams{
-		HostPort: "foo:bar",
-	}
-
-	_, err = parsePort(p)
-	c.Check(err, gc.ErrorMatches, "invalid port in mongo address.*")
-
-	p = EnsureMongoParams{
-		HostPort: "foo bar",
-	}
-
-	_, err = parsePort(p)
-	c.Check(err, gc.ErrorMatches, "invalid mongo address.*")
-}
-
 func testJournalDirs(dir string, c *gc.C) {
 	journalDir := path.Join(dir, "journal")
 
@@ -142,33 +115,21 @@ func testJournalDirs(dir string, c *gc.C) {
 	info, err = os.Stat(filepath.Join(journalDir, "prealloc.2"))
 	c.Check(err, gc.IsNil)
 	c.Check(info.Size(), gc.Equals, size)
-
 }
 
 func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
-	s.PatchValue(&initiateReplicaSet, func(EnsureMongoParams) error {
-		return nil
-	})
-
 	dir := c.MkDir()
-	address := "localhost"
-	info := &mgo.DialInfo{}
 
 	dbDir := filepath.Join(dir, "db")
 	err := os.MkdirAll(dbDir, 0777)
 	c.Assert(err, gc.IsNil)
 
 	port := 25252
-	hostPort := net.JoinHostPort(address, fmt.Sprint(port))
 
 	oldsvc := makeService(oldMongoServiceName, c)
 	defer oldsvc.Remove()
 
-	err = EnsureMongoServer(EnsureMongoParams{
-		HostPort: hostPort,
-		DataDir:  dir,
-		DialInfo: info,
-	})
+	err = EnsureMongoServer(dir, port)
 	c.Assert(err, gc.IsNil)
 	svc, err := mongoUpstartService(makeServiceName(mongoScriptVersion), dir, dbDir, port)
 	c.Assert(err, gc.IsNil)
@@ -179,23 +140,12 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 	c.Check(svc.Installed(), jc.IsTrue)
 
 	// now check we can call it multiple times without error
-	err = EnsureMongoServer(EnsureMongoParams{
-		HostPort: hostPort,
-		DataDir:  dir,
-		DialInfo: info,
-	})
+	err = EnsureMongoServer(dir, port)
 	c.Assert(err, gc.IsNil)
-
 }
 
 func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
-	s.PatchValue(&initiateReplicaSet, func(EnsureMongoParams) error {
-		return nil
-	})
-
 	dir := c.MkDir()
-	address := "localhost"
-	info := &mgo.DialInfo{}
 
 	dbDir := filepath.Join(dir, "db")
 
@@ -203,13 +153,8 @@ func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
 	// that should make it get cleaned up at the end of the test if created
 	os.RemoveAll(dir)
 	port := 25252
-	hostPort := net.JoinHostPort(address, fmt.Sprint(port))
 
-	err := EnsureMongoServer(EnsureMongoParams{
-		HostPort: hostPort,
-		DataDir:  dir,
-		DialInfo: info,
-	})
+	err := EnsureMongoServer(dir, port)
 	c.Check(err, gc.IsNil)
 
 	_, err = os.Stat(dbDir)
@@ -220,6 +165,9 @@ func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
 	defer svc.Remove()
 }
 
+// TODO(natefinch) add a test that InitiateMongoServer works when
+// there's a configured user.
+
 func (s *MongoSuite) TestInitiateReplicaSet(c *gc.C) {
 	var err error
 	inst := &coretesting.MgoInstance{Params: []string{"--replSet", "juju"}}
@@ -229,9 +177,7 @@ func (s *MongoSuite) TestInitiateReplicaSet(c *gc.C) {
 	info := inst.DialInfo()
 	info.Direct = true
 
-	// Set up the inital ReplicaSet
-	err = initiateReplicaSet(EnsureMongoParams{
-		HostPort: inst.Addr(),
+	err = MaybeInitiateMongoServer(InitiateMongoParams{
 		DialInfo: info,
 	})
 	c.Assert(err, gc.IsNil)
@@ -239,8 +185,7 @@ func (s *MongoSuite) TestInitiateReplicaSet(c *gc.C) {
 	// This would return a mgo.QueryError if a ReplicaSet
 	// configuration already existed but we tried to created
 	// one with replicaset.Initiate again.
-	err = initiateReplicaSet(EnsureMongoParams{
-		HostPort: inst.Addr(),
+	err = MaybeInitiateMongoServer(InitiateMongoParams{
 		DialInfo: info,
 	})
 	c.Assert(err, gc.IsNil)

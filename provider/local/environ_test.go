@@ -88,12 +88,18 @@ func (*environSuite) TestSupportedArchitectures(c *gc.C) {
 	testConfig := minimalConfig(c)
 	environ, err := local.Provider.Open(testConfig)
 	c.Assert(err, gc.IsNil)
-	c.Assert(err, gc.IsNil)
 	arches, err := environ.SupportedArchitectures()
 	c.Assert(err, gc.IsNil)
 	for _, a := range arches {
 		c.Assert(arch.IsSupportedArch(a), jc.IsTrue)
 	}
+}
+
+func (*environSuite) TestSupportNetworks(c *gc.C) {
+	testConfig := minimalConfig(c)
+	environ, err := local.Provider.Open(testConfig)
+	c.Assert(err, gc.IsNil)
+	c.Assert(environ.SupportNetworks(), jc.IsFalse)
 }
 
 type localJujuTestSuite struct {

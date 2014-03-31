@@ -44,8 +44,6 @@ type Info struct {
 	// to validate the state server's certificate, in PEM format.
 	CACert []byte
 
-	// Port is the port for connecting to the state db.
-	Port int
 
 	// Tag holds the name of the entity that is connecting.
 	// It should be empty when connecting as an administrator.

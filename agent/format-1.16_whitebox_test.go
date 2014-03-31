@@ -33,7 +33,7 @@ func (s *format_1_16Suite) TestMissingAttributes(c *gc.C) {
 	configPath := filepath.Join(dataDir, agentConfigFilename)
 	err = utils.AtomicWriteFile(configPath, []byte(configDataWithoutNewAttributes), 0600)
 	c.Assert(err, gc.IsNil)
-	readConfig, err := ReadConf(configPath)
+	readConfig, err := ReadConfig(configPath)
 	c.Assert(err, gc.IsNil)
 	c.Assert(readConfig.UpgradedToVersion(), gc.Equals, version.MustParse("1.16.0"))
 	c.Assert(readConfig.LogDir(), gc.Equals, "/var/log/juju")
@@ -49,11 +49,11 @@ func (*format_1_16Suite) TestReadConfReadsLegacyFormatAndWritesNew(c *gc.C) {
 	err = utils.AtomicWriteFile(configPath, []byte(agentConfig1_16Contents), 0600)
 	c.Assert(err, gc.IsNil)
 
-	config, err := ReadConf(configPath)
+	config, err := ReadConfig(configPath)
 	c.Assert(err, gc.IsNil)
 	c.Assert(config, gc.NotNil)
 	// Test we wrote a currently valid config.
-	config, err = ReadConf(configPath)
+	config, err = ReadConfig(configPath)
 	c.Assert(err, gc.IsNil)
 	c.Assert(config, gc.NotNil)
 	c.Assert(config.UpgradedToVersion(), jc.DeepEquals, version.MustParse("1.16.0"))
