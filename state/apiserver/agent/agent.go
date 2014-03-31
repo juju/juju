@@ -73,6 +73,14 @@ func (api *API) getEntity(tag string) (result params.AgentGetEntitiesResult, err
 	return
 }
 
+func (api *API) StateServingInfo() (result params.StateServingInfo, err error) {
+	if !api.auth.AuthEnvironManager() {
+		err = common.ErrPerm
+		return
+	}
+	return api.st.StateServingInfo()
+}
+
 func stateJobsToAPIParamsJobs(jobs []state.MachineJob) []params.MachineJob {
 	pjobs := make([]params.MachineJob, len(jobs))
 	for i, job := range jobs {

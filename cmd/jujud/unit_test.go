@@ -66,13 +66,15 @@ func (s *UnitSuite) primeAgent(c *gc.C) (*state.Machine, *state.Unit, agent.Conf
 func (s *UnitSuite) newAgent(c *gc.C, unit *state.Unit) *UnitAgent {
 	a := &UnitAgent{}
 	s.initAgent(c, a, "--unit-name", unit.Name())
+	err := a.ReadConfig(unit.Tag())
+	c.Assert(err, gc.IsNil)
 	return a
 }
 
 func (s *UnitSuite) TestParseSuccess(c *gc.C) {
 	create := func() (cmd.Command, *AgentConf) {
 		a := &UnitAgent{}
-		return a, &a.Conf
+		return a, &a.AgentConf
 	}
 	uc := CheckAgentCommand(c, create, []string{"--unit-name", "w0rd-pre55/1"})
 	c.Assert(uc.(*UnitAgent).UnitName, gc.Equals, "w0rd-pre55/1")
@@ -201,12 +203,12 @@ type fakeUnitAgent struct {
 	unitName string
 }
 
-func (f *fakeUnitAgent) Entity(st *state.State) (AgentState, error) {
-	return st.Unit(f.unitName)
-}
-
 func (f *fakeUnitAgent) Tag() string {
 	return names.UnitTag(f.unitName)
+}
+
+func (f *fakeUnitAgent) ChangeConfig(func(agent.ConfigSetter)) error {
+	panic("fakeUnitAgent.ChangeConfig called unexpectedly")
 }
 
 func (s *UnitSuite) TestOpenAPIStateWithDeadEntityTerminates(c *gc.C) {

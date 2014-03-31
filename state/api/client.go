@@ -26,6 +26,13 @@ type Client struct {
 	st *State
 }
 
+// NetworksSpecification holds the enabled and disabled networks for a
+// service.
+type NetworksSpecification struct {
+	Enabled  []string
+	Disabled []string
+}
+
 func (c *Client) call(method string, params, result interface{}) error {
 	return c.st.Call("Client", "", method, params, result)
 }
@@ -53,6 +60,7 @@ type ServiceStatus struct {
 	Exposed       bool
 	Life          string
 	Relations     map[string][]string
+	Networks      NetworksSpecification
 	CanUpgradeTo  string
 	SubordinateTo []string
 	Units         map[string]UnitStatus
@@ -657,4 +665,23 @@ func (c *Client) UploadTools(
 		return nil, fmt.Errorf("error uploading tools: %v", err)
 	}
 	return jsonResponse.Tools, nil
+}
+
+// APIHostPorts returns a slice of instance.HostPort for each API server.
+func (c *Client) APIHostPorts() ([][]instance.HostPort, error) {
+	var result params.APIHostPortsResult
+	if err := c.call("APIHostPorts", nil, &result); err != nil {
+		return nil, err
+	}
+	return result.Servers, nil
+}
+
+// EnsureAvailability ensures the availability of Juju state servers.
+func (c *Client) EnsureAvailability(numStateServers int, cons constraints.Value, series string) error {
+	args := params.EnsureAvailability{
+		NumStateServers: numStateServers,
+		Constraints:     cons,
+		Series:          series,
+	}
+	return c.call("EnsureAvailability", args, nil)
 }

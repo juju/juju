@@ -540,3 +540,10 @@ func (suite *environSuite) TestGetNetworksList(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Check(networks, gc.DeepEquals, []MAASNetworkDetails{{Name: "test_network", Ip: "127.0.0.1", NetworkMask: "255.255.255.0", VlanTag: "1", Description: ""}})
 }
+
+func (suite *environSuite) TestSupportNetworks(c *gc.C) {
+	env := suite.makeEnviron()
+	// TODO(dimitern) Change this to check for jc.IsTrue below
+	// once gomaasapi testing server supports networks.
+	c.Assert(env.SupportNetworks(), jc.IsFalse)
+}

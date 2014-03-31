@@ -91,7 +91,7 @@ func assertWriteAndRead(c *gc.C, config *configInternal) {
 	err := config.Write()
 	c.Assert(err, gc.IsNil)
 	configPath := ConfigPath(config.DataDir(), config.Tag())
-	readConfig, err := ReadConf(configPath)
+	readConfig, err := ReadConfig(configPath)
 	c.Assert(err, gc.IsNil)
 	c.Assert(readConfig, jc.DeepEquals, config)
 }
