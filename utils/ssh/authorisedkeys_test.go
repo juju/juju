@@ -183,7 +183,7 @@ func (s *AuthorisedKeysKeysSuite) TestReplaceKeys(c *gc.C) {
 	anotherKey := sshtesting.ValidKeyTwo.Key
 	writeAuthKeysFile(c, []string{firstKey, anotherKey})
 
-	replaceKey := sshtesting.ValidKeyThree.Key + " anotheruser@host"
+	replaceKey := sshtesting.ValidKeyThree.Key
 	err := ssh.ReplaceKeys(testSSHUser, replaceKey)
 	c.Assert(err, gc.IsNil)
 	actual, err := ssh.ListKeys(testSSHUser, ssh.FullKeys)
