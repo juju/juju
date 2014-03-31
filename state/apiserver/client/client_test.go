@@ -1972,32 +1972,35 @@ func (s *clientSuite) TestResolveCharm(c *gc.C) {
 	store, restore := makeMockCharmStore()
 	defer restore()
 
-	for _, t := range resolveCharmCases {
+	for i, test := range resolveCharmCases {
+		c.Logf("test %d: %#v", i, test)
 		// Mock charm store will use this to resolve a charm reference.
-		store.DefaultSeries = t.defaultSeries
+		store.DefaultSeries = test.defaultSeries
 
-		comment := gc.Commentf("defaultSeries:%s charmName:%s", t.defaultSeries, t.charmName)
+		comment := gc.Commentf("defaultSeries:%s charmName:%s", test.defaultSeries, test.charmName)
 
 		client := s.APIState.Client()
-		ref, series, err := charm.ParseReference(fmt.Sprintf("%s:%s", t.schema, t.charmName))
-		if t.parseErr == "" {
-			c.Assert(err, gc.IsNil, comment) // All of these should parse
+		ref, series, err := charm.ParseReference(fmt.Sprintf("%s:%s", test.schema, test.charmName))
+		if test.parseErr == "" {
+			if !c.Check(err, gc.IsNil, comment) {
+				continue
+			}
 		} else {
 			c.Assert(err, gc.NotNil, comment)
-			c.Check(err, gc.ErrorMatches, t.parseErr, comment)
+			c.Check(err, gc.ErrorMatches, test.parseErr, comment)
 			continue
 		}
 		c.Check(series, gc.Equals, "")
-		c.Check(ref.String(), gc.Equals, fmt.Sprintf("%s:%s", t.schema, t.charmName))
+		c.Check(ref.String(), gc.Equals, fmt.Sprintf("%s:%s", test.schema, test.charmName))
 		curl, err := client.ResolveCharm(ref)
 		if err == nil {
 			c.Assert(curl, gc.NotNil)
 			// Only cs: schema should make it through here
-			c.Check(curl.String(), gc.Equals, fmt.Sprintf("cs:%s/%s", t.defaultSeries, t.charmName), comment)
-			c.Check(t.resolveErr, gc.Equals, "")
+			c.Check(curl.String(), gc.Equals, fmt.Sprintf("cs:%s/%s", test.defaultSeries, test.charmName), comment)
+			c.Check(test.resolveErr, gc.Equals, "")
 		} else {
 			c.Check(curl, gc.IsNil)
-			c.Check(err, gc.ErrorMatches, t.resolveErr)
+			c.Check(err, gc.ErrorMatches, test.resolveErr)
 		}
 	}
 }
