@@ -201,14 +201,18 @@ func (s *State) Addr() string {
 	return s.addr
 }
 
-// HostPorts returns addresses that may be used to connect to
-// the API server, including the address used to connect.
+// APIHostPorts returns addresses that may be used to connect
+// to the API server, including the address used to connect.
 //
 // The addresses are scoped (public, cloud-internal, etc.), so
 // the client may choose which addresses to attempt. For the
 // Juju CLI, all addresses must be attempted, as the CLI may
 // be invoked both within and outside the environment (think
 // private clouds).
-func (s *State) HostPorts() [][]instance.HostPort {
-	return append([][]instance.HostPort{}, s.hostPorts...)
+func (s *State) APIHostPorts() [][]instance.HostPort {
+	hostPorts := make([][]instance.HostPort, len(s.hostPorts))
+	for i, server := range s.hostPorts {
+		hostPorts[i] = append([]instance.HostPort{}, server...)
+	}
+	return hostPorts
 }

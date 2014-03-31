@@ -36,31 +36,34 @@ func (st *State) Login(tag, password, nonce string) error {
 	}, &result)
 	if err == nil {
 		st.authTag = tag
-		st.hostPorts = result.Servers
-		if err := st.addAddrHostPort(); err != nil {
+		hostPorts, err := addAddress(result.Servers, st.addr)
+		if err != nil {
 			st.Close()
 			return err
 		}
+		st.hostPorts = hostPorts
 	}
 	return err
 }
 
-// Add the connecting host to st.hostPorts if it isn't already there.
-func (st *State) addAddrHostPort() error {
-	for _, server := range st.hostPorts {
+// addAddress appends a new server derived from the given
+// address to servers if the address is not already found
+// there.
+func addAddress(servers [][]instance.HostPort, addr string) ([][]instance.HostPort, error) {
+	for _, server := range servers {
 		for _, hostPort := range server {
-			if hostPort.NetAddr() == st.addr {
-				return nil
+			if hostPort.NetAddr() == addr {
+				return servers, nil
 			}
 		}
 	}
-	host, portString, err := net.SplitHostPort(st.addr)
+	host, portString, err := net.SplitHostPort(addr)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	port, err := strconv.Atoi(portString)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	hostPort := instance.HostPort{
 		Address: instance.Address{
@@ -70,8 +73,7 @@ func (st *State) addAddrHostPort() error {
 		},
 		Port: port,
 	}
-	st.hostPorts = append(st.hostPorts, []instance.HostPort{hostPort})
-	return nil
+	return append(servers, []instance.HostPort{hostPort}), nil
 }
 
 // Client returns an object that can be used
