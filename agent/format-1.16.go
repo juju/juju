@@ -5,6 +5,9 @@ package agent
 
 import (
 	"encoding/base64"
+	"fmt"
+	"net"
+	"strconv"
 
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/version"
@@ -98,11 +101,25 @@ func (formatter_1_16) unmarshal(data []byte) (*configInternal, error) {
 		apiPort:           format.APIPort,
 		values:            format.Values,
 	}
-	//TODO: extract StatePort from address
 	if len(format.StateAddresses) > 0 {
 		config.stateDetails = &connectionDetails{
 			format.StateAddresses,
 			format.StatePassword,
+		}
+	}
+	if len(config.stateServerKey) != 0 {
+		if config.statePort == 0 && len(format.StateAddresses) > 0 {
+			_, portString, err := net.SplitHostPort(format.StateAddresses[0])
+			if err != nil {
+				return nil, err
+			}
+			statePort, err := strconv.Atoi(portString)
+			if err != nil {
+				return nil, err
+			}
+			config.statePort = statePort
+		} else if config.statePort == 0 {
+			return nil, fmt.Errorf("server key found but no state port")
 		}
 	}
 	if len(format.APIAddresses) > 0 {
