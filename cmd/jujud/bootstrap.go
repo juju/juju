@@ -67,6 +67,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	agentConfig := c.CurrentConfig()
+
 	// agent.Jobs is an optional field in the agent config, and was
 	// introduced after 1.17.2. We default to allowing units on
 	// machine-0 if missing.
@@ -77,6 +78,23 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 			params.JobHostUnits,
 		}
 	}
+
+	// Get the bootstrap machine's addresses from the provider.
+	env, err := environs.New(envCfg)
+	if err != nil {
+		return err
+	}
+	instanceId := instance.Id(c.InstanceId)
+	instances, err := env.Instances([]instance.Id{instanceId})
+	if err != nil {
+		return err
+	}
+	addrs, err := instances[0].Addresses()
+	if err != nil {
+		return err
+	}
+
+	// Initialise state, and store any agent config (e.g. password) changes.
 	var st *state.State
 	err = nil
 	writeErr := c.ChangeConfig(func(agentConfig agent.ConfigSetter) {
@@ -84,9 +102,10 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 			agentConfig,
 			envCfg,
 			agent.BootstrapMachineConfig{
+				Addresses:       addrs,
 				Constraints:     c.Constraints,
 				Jobs:            jobs,
-				InstanceId:      instance.Id(c.InstanceId),
+				InstanceId:      instanceId,
 				Characteristics: c.Hardware,
 			},
 			state.DefaultDialOpts(),
