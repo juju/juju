@@ -98,18 +98,6 @@ func UseTestInstanceTypeData(content instanceTypeCost) {
 	}
 }
 
-var origMetadataHost = metadataHost
-
-func UseTestMetadata(files map[string]string) {
-	if files != nil {
-		testRoundTripper.Sub = jujutest.NewCannedRoundTripper(files, nil)
-		metadataHost = "test:"
-	} else {
-		testRoundTripper.Sub = nil
-		metadataHost = origMetadataHost
-	}
-}
-
 var (
 	ShortAttempt   = &shortAttempt
 	StorageAttempt = &storageAttempt

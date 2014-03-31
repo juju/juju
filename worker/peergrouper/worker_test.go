@@ -113,7 +113,7 @@ func expectedAPIHostPorts(n int) [][]instance.HostPort {
 }
 
 func addressesWithPort(port int, addrs ...string) []instance.HostPort {
-	return instance.AddressesWithPort(instance.NewAddresses(addrs), port)
+	return instance.AddressesWithPort(instance.NewAddresses(addrs...), port)
 }
 
 func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {

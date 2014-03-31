@@ -157,6 +157,18 @@ func (s *DeploySuite) TestConstraints(c *gc.C) {
 	c.Assert(cons, gc.DeepEquals, constraints.MustParse("mem=2G cpu-cores=2"))
 }
 
+func (s *DeploySuite) TestNetworks(c *gc.C) {
+	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
+	err := runDeploy(c, "local:dummy", "--networks", ", net1, net2 , ", "--exclude-networks", "net3,net4")
+	c.Assert(err, gc.IsNil)
+	curl := charm.MustParseURL("local:precise/dummy-1")
+	service, _ := s.AssertService(c, "dummy", curl, 1, 0)
+	includeNetworks, excludeNetworks, err := service.Networks()
+	c.Assert(err, gc.IsNil)
+	c.Assert(includeNetworks, gc.DeepEquals, []string{"net1", "net2"})
+	c.Assert(excludeNetworks, gc.DeepEquals, []string{"net3", "net4"})
+}
+
 func (s *DeploySuite) TestSubordinateConstraints(c *gc.C) {
 	coretesting.Charms.BundlePath(s.SeriesPath, "logging")
 	err := runDeploy(c, "local:logging", "--constraints", "mem=1G")

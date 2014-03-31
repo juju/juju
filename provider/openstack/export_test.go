@@ -32,32 +32,6 @@ func init() {
 	testRoundTripper.RegisterForScheme("test")
 }
 
-var origMetadataHost = metadataHost
-
-var metadataContent = `"availability_zone": "nova", "hostname": "test.novalocal", ` +
-	`"launch_index": 0, "meta": {"priority": "low", "role": "webserver"}, ` +
-	`"public_keys": {"mykey": "ssh-rsa fake-key\n"}, "name": "test"}`
-
-// A group of canned responses for the "metadata server". These match
-// reasonably well with the results of making those requests on a Folsom+
-// Openstack service
-var MetadataTesting = map[string]string{
-	"/latest/meta-data/local-ipv4":         "10.1.1.2",
-	"/latest/meta-data/public-ipv4":        "203.1.1.2",
-	"/openstack/2012-08-10/meta_data.json": metadataContent,
-}
-
-// Set Metadata requests to be served by the filecontent supplied.
-func UseTestMetadata(metadata map[string]string) {
-	if len(metadata) != 0 {
-		testRoundTripper.Sub = jujutest.NewCannedRoundTripper(metadata, nil)
-		metadataHost = "test:"
-	} else {
-		testRoundTripper.Sub = nil
-		metadataHost = origMetadataHost
-	}
-}
-
 var (
 	ShortAttempt   = &shortAttempt
 	StorageAttempt = &storageAttempt
