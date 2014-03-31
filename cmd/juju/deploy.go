@@ -30,8 +30,8 @@ type DeployCommand struct {
 	ServiceName  string
 	Config       cmd.FileVar
 	Constraints  constraints.Value
-	Networks     string
-	NoNetworks   string
+	Networks        string
+	ExcludeNetworks string
 	BumpRevision bool   // Remove this once the 1.16 support is dropped.
 	RepoPath     string // defaults to JUJU_REPOSITORY
 }
@@ -63,12 +63,13 @@ by set-constraints).
 
 Charms can be deployed to a specific machine using the --to argument.
 
-Like constraints, service-specific network requirements can be specified with
---networks and --no-networks arguments, both can take a comma-delimited list
-of provider-specific network names/labels. These instruct juju to ensure all
-new machines deployed to host units of the service should be on all networks
-specified with --networks and should not be on any networks specified with
---no-networks. Only supported when using the MaaS provider.
+Like constraints, service-specific network requirements can be
+specified with --networks and --exclude-networks arguments, both can
+take a comma-delimited list of provider-specific network names/labels.
+These instruct juju to ensure to add all the networks specified with
+--networks to all new machines deployed to host units of the service
+and to ensure none of the networks in --exclude-networks are added to
+the service's machines. Not supported on all providers.
 
 Examples:
    juju deploy mysql --to 23       (Deploy to machine 23)
@@ -77,7 +78,7 @@ Examples:
    
    juju deploy mysql -n 5 --constraints mem=8G (deploy 5 instances of mysql with at least 8 GB of RAM each)
 
-   juju deploy mysql --networks=storage,mynet --no-networks=logging
+   juju deploy mysql --networks=storage,mynet --exclude-networks=logging
 
 See Also:
    juju help constraints
@@ -103,7 +104,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(&c.Config, "config", "path to yaml-formatted service config")
 	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "set service constraints")
 	f.StringVar(&c.Networks, "networks", "", "enable networks for service")
-	f.StringVar(&c.NoNetworks, "no-networks", "", "disable networks for service")
+	f.StringVar(&c.ExcludeNetworks, "exclude-networks", "", "disable networks for service")
 	f.StringVar(&c.RepoPath, "repository", os.Getenv(osenv.JujuRepositoryEnvKey), "local charm repository")
 }
 
@@ -174,8 +175,8 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		includeNetworks = parseNetworks(c.Networks)
 		haveNetworks = true
 	}
-	if c.NoNetworks != "" {
-		excludeNetworks = parseNetworks(c.NoNetworks)
+	if c.ExcludeNetworks != "" {
+		excludeNetworks = parseNetworks(c.ExcludeNetworks)
 		haveNetworks = true
 	}
 	if haveNetworks {
@@ -184,7 +185,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 			return err
 		}
 		if !env.SupportNetworks() {
-			return errors.New("cannot use --networks/--no-networks: not supported by the environment")
+			return errors.New("cannot use --networks/--exclude-networks: not supported by the environment")
 		}
 	}
 
@@ -227,7 +228,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		excludeNetworks,
 	)
 	if params.IsCodeNotImplemented(err) && haveNetworks {
-		return errors.New("cannot use --networks/--no-networks: not supported by the API server")
+		return errors.New("cannot use --networks/--exclude-networks: not supported by the API server")
 	}
 	return client.ServiceDeploy(
 		curl.String(),

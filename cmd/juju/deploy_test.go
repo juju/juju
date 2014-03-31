@@ -159,7 +159,7 @@ func (s *DeploySuite) TestConstraints(c *gc.C) {
 
 func (s *DeploySuite) TestNetworks(c *gc.C) {
 	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
-	err := runDeploy(c, "local:dummy", "--networks", ", net1, net2 , ", "--no-networks", "net3,net4")
+	err := runDeploy(c, "local:dummy", "--networks", ", net1, net2 , ", "--exclude-networks", "net3,net4")
 	c.Assert(err, gc.IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
 	service, _ := s.AssertService(c, "dummy", curl, 1, 0)
