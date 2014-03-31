@@ -410,6 +410,11 @@ func (t *localServerSuite) TestSupportedArchitectures(c *gc.C) {
 	c.Assert(a, jc.SameContents, []string{"amd64", "i386"})
 }
 
+func (t *localServerSuite) TestSupportNetworks(c *gc.C) {
+	env := t.Prepare(c)
+	c.Assert(env.SupportNetworks(), jc.IsFalse)
+}
+
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server
 // behaves as if it is not in the us-east region.
 type localNonUSEastSuite struct {

@@ -2083,6 +2083,62 @@ func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
 	c.Assert(data["transient"], gc.Equals, true)
 }
 
+func (s *clientSuite) TestClientEnsureAvailabilitySeries(c *gc.C) {
+	apiParams := []params.EnsureAvailability{{
+		NumStateServers: 1,
+	}, {
+		NumStateServers: 3,
+		Series:          "non-default",
+	}}
+	for _, p := range apiParams {
+		err := s.APIState.Client().EnsureAvailability(p.NumStateServers, p.Constraints, p.Series)
+		c.Assert(err, gc.IsNil)
+	}
+	machines, err := s.State.AllMachines()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machines, gc.HasLen, 3)
+	c.Assert(machines[0].Series(), gc.Equals, "precise")
+	c.Assert(machines[1].Series(), gc.Equals, "non-default")
+	c.Assert(machines[2].Series(), gc.Equals, "non-default")
+}
+
+func (s *clientSuite) TestClientEnsureAvailabilityConstraints(c *gc.C) {
+	apiParams := []params.EnsureAvailability{{
+		NumStateServers: 1,
+	}, {
+		NumStateServers: 3,
+		Constraints:     constraints.MustParse("mem=4G"),
+	}}
+	for _, p := range apiParams {
+		err := s.APIState.Client().EnsureAvailability(p.NumStateServers, p.Constraints, p.Series)
+		c.Assert(err, gc.IsNil)
+	}
+	machines, err := s.State.AllMachines()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machines, gc.HasLen, 3)
+	expectedCons := []constraints.Value{
+		constraints.Value{},
+		constraints.MustParse("mem=4G"),
+		constraints.MustParse("mem=4G"),
+	}
+	for i, m := range machines {
+		cons, err := m.Constraints()
+		c.Assert(err, gc.IsNil)
+		c.Check(cons, gc.DeepEquals, expectedCons[i])
+	}
+}
+
+func (s *clientSuite) TestClientEnsureAvailabilityErrors(c *gc.C) {
+	var emptyCons constraints.Value
+	defaultSeries := ""
+	err := s.APIState.Client().EnsureAvailability(0, emptyCons, defaultSeries)
+	c.Assert(err, gc.ErrorMatches, "number of state servers must be odd and greater than zero")
+	err = s.APIState.Client().EnsureAvailability(3, emptyCons, defaultSeries)
+	c.Assert(err, gc.IsNil)
+	err = s.APIState.Client().EnsureAvailability(1, emptyCons, defaultSeries)
+	c.Assert(err, gc.ErrorMatches, "cannot reduce state server count")
+}
+
 func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
 	apiHostPorts, err := s.APIState.Client().APIHostPorts()
 	c.Assert(err, gc.IsNil)

@@ -543,6 +543,13 @@ func (e *environ) SupportedArchitectures() ([]string, error) {
 	return e.supportedArchitectures, err
 }
 
+// SupportNetworks is specified on the EnvironCapability interface.
+func (e *environ) SupportNetworks() bool {
+	// TODO(dimitern) Once we have support for networking, inquire
+	// about capabilities and return true if supported.
+	return false
+}
+
 func (e *environ) Storage() storage.Storage {
 	e.ecfgMutex.Lock()
 	stor := e.storageUnlocked
