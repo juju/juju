@@ -52,20 +52,19 @@ func (s *servingInfoSuite) TestStateServingInfoPermission(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *servingInfoSuite) TestMongoMasterHostPort(c *gc.C) {
+func (s *servingInfoSuite) TestIsMaster(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
-	expected := params.MongoMasterHostPortResult{HostPort: "localhost:27017"}
-	result, err := st.Agent().MongoMasterHostPort()
+	expected := params.IsMasterResult{Master: true}
+	result, err := st.Agent().IsMaster()
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, jc.DeepEquals, expected)
 }
 
-func (s *servingInfoSuite) TestMongoMasterHostPortPermission(c *gc.C) {
+func (s *servingInfoSuite) TestIsMasterPermission(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c)
-	_, err := st.Agent().MongoMasterHostPort()
+	_, err := st.Agent().IsMaster()
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
-
 
 type machineSuite struct {
 	testing.JujuConnSuite

@@ -468,10 +468,11 @@ type StateServingInfo struct {
 	SharedSecret string
 }
 
-// MongoMasterHostPortResult holds the host:port string
-// for the primary mongo server in the replicaset.
-type MongoMasterHostPortResult struct {
-	HostPort string
+// IsMasterResult holds the boolean value Master
+// which represents if a Machines Peer address is pointing
+// to the primary mongo server of a replicaset.
+type IsMasterResult struct {
+	Master bool
 }
 
 // MachineInfo holds the information about a Machine

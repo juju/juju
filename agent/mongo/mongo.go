@@ -2,14 +2,16 @@ package mongo
 
 import (
 	"fmt"
+	"labix.org/v2/mgo"
+	"net"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 
 	"github.com/juju/loggo"
-
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/replicaset"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
 )
@@ -29,6 +31,30 @@ var (
 	// MongodbServerPath holds the default path to the generic mongod.
 	MongodbServerPath = "/usr/bin/mongod"
 )
+
+type machine interface {
+	Addresses() []instance.Address
+}
+
+// IsMaster returns a boolean that represents whether the given
+// machines peer address is the primary mongo host for the replicaset
+func IsMaster(session *mgo.Session, m machine) (bool, error) {
+	addrs := m.Addresses()
+
+	masterHostPort, err := replicaset.MasterHostPort(session)
+	if err != nil {
+		return false, nil
+	}
+
+	masterAddr, _, err := net.SplitHostPort(masterHostPort)
+	if err != nil {
+		return false, nil
+	}
+
+	machinePeerAddr := SelectPeerAddress(addrs)
+
+	return machinePeerAddr == masterAddr, nil
+}
 
 // SelectPeerAddress returns the address to use as the
 // mongo replica set peer address by selecting it from the given addresses.

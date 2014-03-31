@@ -6,7 +6,7 @@
 package agent
 
 import (
-	"launchpad.net/juju-core/replicaset"
+	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -82,15 +82,22 @@ func (api *API) StateServingInfo() (result params.StateServingInfo, err error) {
 	return api.st.StateServingInfo()
 }
 
-// MongoMasterHostPort returns a string host:port for the primary
-// mongo server in the replicaset.
-func (api *API) MongoMasterHostPort() (params.MongoMasterHostPortResult, error) {
+// IsMaster returns a IsMasterResult, that result contains
+// the Master boolean which represents if the current mongo peer
+// for a given machine is the primary mongo server for the replicaset.
+func (api *API) IsMaster() (params.IsMasterResult, error) {
 	if !api.auth.AuthEnvironManager() {
-		return params.MongoMasterHostPortResult{}, common.ErrPerm
+		return params.IsMasterResult{}, common.ErrPerm
 	}
 	session := api.st.MongoSession()
-	hostPort, err := replicaset.MasterHostPort(session)
-	return params.MongoMasterHostPortResult{HostPort: hostPort}, err
+	machine := api.auth.GetAuthEntity().(*state.Machine)
+
+	isMaster, err := mongo.IsMaster(session, machine)
+	if err != nil {
+		return params.IsMasterResult{}, err
+	}
+
+	return params.IsMasterResult{Master: isMaster}, err
 }
 
 func stateJobsToAPIParamsJobs(jobs []state.MachineJob) []params.MachineJob {
