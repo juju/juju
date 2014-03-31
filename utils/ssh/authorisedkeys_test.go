@@ -183,6 +183,11 @@ func (s *AuthorisedKeysKeysSuite) TestReplaceKeys(c *gc.C) {
 	anotherKey := sshtesting.ValidKeyTwo.Key
 	writeAuthKeysFile(c, []string{firstKey, anotherKey})
 
+	// replaceKey is created without a comment so test that
+	// ReplaceKeys handles keys without comments. This is
+	// because existing keys may not have a comment and
+	// ReplaceKeys is used to rewrite the entire authorized_keys
+	// file when adding new keys.
 	replaceKey := sshtesting.ValidKeyThree.Key
 	err := ssh.ReplaceKeys(testSSHUser, replaceKey)
 	c.Assert(err, gc.IsNil)
