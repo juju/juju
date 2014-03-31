@@ -10,6 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/upstart"
 )
@@ -139,6 +140,16 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 	err = EnsureMongoServer(dir, port)
 	c.Assert(err, gc.IsNil)
 
+}
+
+func (s *MongoSuite) TestMongoSelectPeerAddress(c *gc.C) {
+	addresses := []instance.Address{
+		{"10.0.0.1", instance.Ipv4Address, "cloud", instance.NetworkCloudLocal},
+		{"8.8.8.8", instance.Ipv4Address, "public", instance.NetworkPublic},
+	}
+
+	address := MongoSelectPeerAddress(addresses)
+	c.Assert(address, gc.Equals, "10.0.0.1")
 }
 
 func (s *MongoSuite) TestMongoPackageForSeries(c *gc.C) {
