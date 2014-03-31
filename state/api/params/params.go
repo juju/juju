@@ -647,6 +647,11 @@ type APIHostPortsResult struct {
 	Servers [][]instance.HostPort
 }
 
+// LoginResult holds the result of a Login call.
+type LoginResult struct {
+	Servers [][]instance.HostPort
+}
+
 // EnsureAvailability contains arguments for
 // the EnsureAvailability client API call.
 type EnsureAvailability struct {
