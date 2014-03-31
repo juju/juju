@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -52,21 +53,20 @@ type BootstrapMachineConfig struct {
 
 const bootstrapMachineId = "0"
 
-func (c *configInternal) InitializeState(envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts, policy state.Policy) (*state.State, *state.Machine, error) {
+func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts, policy state.Policy) (*state.State, *state.Machine, error) {
 	if c.Tag() != names.MachineTag(bootstrapMachineId) {
 		return nil, nil, fmt.Errorf("InitializeState not called with bootstrap machine's configuration")
 	}
-	info := state.Info{
-		Addrs:  c.stateDetails.addresses,
-		CACert: c.caCert,
-	}
+	info := c.StateInfo()
+	info.Tag = ""
+	info.Password = ""
 	logger.Debugf("initializing address %v", info.Addrs)
-	st, err := state.Initialize(&info, envCfg, timeout, policy)
+	st, err := state.Initialize(info, envCfg, timeout, policy)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to initialize state: %v", err)
 	}
 	logger.Debugf("connected to initial state")
-	m, err := c.initUsersAndBootstrapMachine(st, machineCfg)
+	m, err := initUsersAndBootstrapMachine(c, st, machineCfg)
 	if err != nil {
 		st.Close()
 		return nil, nil, err
@@ -74,14 +74,14 @@ func (c *configInternal) InitializeState(envCfg *config.Config, machineCfg Boots
 	return st, m, nil
 }
 
-func (c *configInternal) initUsersAndBootstrapMachine(st *state.State, cfg BootstrapMachineConfig) (*state.Machine, error) {
-	if err := initBootstrapUser(st, c.oldPassword); err != nil {
+func initUsersAndBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineConfig) (*state.Machine, error) {
+	if err := initBootstrapUser(st, c.OldPassword()); err != nil {
 		return nil, fmt.Errorf("cannot initialize bootstrap user: %v", err)
 	}
 	if err := st.SetEnvironConstraints(cfg.Constraints); err != nil {
 		return nil, fmt.Errorf("cannot set initial environ constraints: %v", err)
 	}
-	m, err := c.initBootstrapMachine(st, cfg)
+	m, err := initBootstrapMachine(c, st, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("cannot initialize bootstrap machine: %v", err)
 	}
@@ -119,7 +119,7 @@ func initBootstrapUser(st *state.State, passwordHash string) error {
 }
 
 // initBootstrapMachine initializes the initial bootstrap machine in state.
-func (c *configInternal) initBootstrapMachine(st *state.State, cfg BootstrapMachineConfig) (*state.Machine, error) {
+func initBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineConfig) (*state.Machine, error) {
 
 	logger.Infof("initialising bootstrap machine with config: %+v", cfg)
 
@@ -150,15 +150,16 @@ func (c *configInternal) initBootstrapMachine(st *state.State, cfg BootstrapMach
 	// via the API connection).
 	logger.Debugf("create new random password for machine %v", m.Id())
 
-	newPassword, err := c.writeNewPassword()
+	newPassword, err := utils.RandomPassword()
 	if err != nil {
-		return nil, err
-	}
-	if err := m.SetMongoPassword(newPassword); err != nil {
 		return nil, err
 	}
 	if err := m.SetPassword(newPassword); err != nil {
 		return nil, err
 	}
+	if err := m.SetMongoPassword(newPassword); err != nil {
+		return nil, err
+	}
+	c.SetPassword(newPassword)
 	return m, nil
 }

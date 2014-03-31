@@ -117,11 +117,11 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 	if err != nil {
 		return nil, err
 	}
-	charm, err := u.st.Charm(u.doc.CharmURL)
+	chrm, err := u.st.Charm(u.doc.CharmURL)
 	if err != nil {
 		return nil, err
 	}
-	result := charm.Config().DefaultSettings()
+	result := chrm.Config().DefaultSettings()
 	for name, value := range settings.Map() {
 		result[name] = value
 	}
@@ -498,8 +498,10 @@ func (u *Unit) PrincipalName() (string, bool) {
 
 // addressesOfMachine returns Addresses of the related machine if present.
 func (u *Unit) addressesOfMachine() []instance.Address {
-	id := u.doc.MachineId
-	if id != "" {
+	if id, err := u.AssignedMachineId(); err != nil {
+		unitLogger.Errorf("unit %v cannot get assigned machine: %v", u, err)
+		return nil
+	} else {
 		m, err := u.st.Machine(id)
 		if err == nil {
 			return m.Addresses()

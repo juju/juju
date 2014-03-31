@@ -233,5 +233,5 @@ func (s *loginSuite) loginHostPorts(c *gc.C, info *api.Info) (connectedAddr stri
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
-	return st.Addr(), st.HostPorts()
+	return st.Addr(), st.APIHostPorts()
 }

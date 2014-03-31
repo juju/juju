@@ -1047,7 +1047,8 @@ var statusTests = []testCase{
 								"agent-state": "started",
 								"subordinates": M{
 									"logging/0": M{
-										"agent-state": "started",
+										"agent-state":    "started",
+										"public-address": "dummyenv-1.dns",
 									},
 								},
 								"public-address": "dummyenv-1.dns",
@@ -1069,6 +1070,7 @@ var statusTests = []testCase{
 									"logging/1": M{
 										"agent-state":      "error",
 										"agent-state-info": "somehow lost in all those logs",
+										"public-address":   "dummyenv-2.dns",
 									},
 								},
 								"public-address": "dummyenv-2.dns",
@@ -1112,7 +1114,8 @@ var statusTests = []testCase{
 								"agent-state": "started",
 								"subordinates": M{
 									"logging/0": M{
-										"agent-state": "started",
+										"agent-state":    "started",
+										"public-address": "dummyenv-1.dns",
 									},
 								},
 								"public-address": "dummyenv-1.dns",
@@ -1134,6 +1137,7 @@ var statusTests = []testCase{
 									"logging/1": M{
 										"agent-state":      "error",
 										"agent-state-info": "somehow lost in all those logs",
+										"public-address":   "dummyenv-2.dns",
 									},
 								},
 								"public-address": "dummyenv-2.dns",
@@ -1176,7 +1180,8 @@ var statusTests = []testCase{
 								"agent-state": "started",
 								"subordinates": M{
 									"logging/0": M{
-										"agent-state": "started",
+										"agent-state":    "started",
+										"public-address": "dummyenv-1.dns",
 									},
 								},
 								"public-address": "dummyenv-1.dns",
@@ -1253,7 +1258,8 @@ var statusTests = []testCase{
 								"agent-state": "started",
 								"subordinates": M{
 									"monitoring/0": M{
-										"agent-state": "started",
+										"agent-state":    "started",
+										"public-address": "dummyenv-1.dns",
 									},
 								},
 								"public-address": "dummyenv-1.dns",
