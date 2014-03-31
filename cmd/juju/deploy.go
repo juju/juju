@@ -349,7 +349,7 @@ func addCharmViaAPI(client *api.Client, ctx *cmd.Context, curl *charm.URL, repo 
 }
 
 // parseNetworks returns a list of networks by parsing the
-// comma-delimited string value of --networks or --no-networks
+// comma-delimited string value of --networks or --exclude-networks
 // arguments.
 func parseNetworks(networksValue string) (networks []string) {
 	parts := strings.Split(networksValue, ",")
