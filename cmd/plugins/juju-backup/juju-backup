@@ -43,8 +43,8 @@ remote_cmd() {
 
 	#---------------------------------------------------------------------
 	next_step 'Backing up mongo database'
-	execute 'Stopping mongo' stop juju-db-v2
-	trap "start juju-db-v2" 0		# ensure it starts again on failure
+	execute 'Stopping mongo' stop juju-db
+	trap "start juju-db" 0		# ensure it starts again on failure
 	execute 'Backing up mongo' mongodump --dbpath $LIBJUJU/db
 	execute 'Backing up environ config' mongoexport \
 		--dbpath $LIBJUJU/db \

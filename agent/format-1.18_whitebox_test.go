@@ -101,7 +101,7 @@ oldpassword: oBlMbFUGvCb2PMFgYVzjS6GD
 values:
   AGENT_SERVICE_NAME: juju-agent-user-local
   CONTAINER_TYPE: ""
-  MONGO_SERVICE_NAME: juju-db-v2-user-local
+  MONGO_SERVICE_NAME: juju-db-user-local
   NAMESPACE: user-local
   PROVIDER_TYPE: local
   STORAGE_ADDR: 10.0.3.1:8040

@@ -68,33 +68,23 @@ func (s *MongoSuite) TestDefaultMongodPath(c *gc.C) {
 }
 
 func (s *MongoSuite) TestRemoveOldMongoServices(c *gc.C) {
-	s.PatchValue(&oldMongoServiceName, "someNameThatShouldntExist")
-
 	namespace := "user-local"
 
-	// Make fake old services.
+	// Make fake old service.
 	// We defer the removes manually just in case the test fails, we don't leave
 	// junk behind.
-	conf := makeService(oldMongoServiceName, c)
+	conf := makeService(ServiceName(namespace), c)
+
+	// now that the old service is installed, change the in-memory expected
+	// script to something different.
+	conf.Cmd = "echo something else"
 	defer conf.Remove()
-	conf2 := makeService(makeServiceName(2, namespace), c)
-	defer conf2.Remove()
-	conf3 := makeService(makeServiceName(3, namespace), c)
-	defer conf3.Remove()
 
-	// old local provider name
-	conf4 := makeService(oldMongoServiceName+"-"+namespace, c)
-	defer conf4.Remove()
-
-	// Remove with current version = 5, which should remove all previous
-	// versions plus the old service name.
-	err := removeOldMongoServices(5, namespace)
+	// this should remove the old service, because the contents now differ
+	err := removeOldService(conf)
 	c.Check(err, gc.IsNil)
 
 	c.Check(conf.Installed(), jc.IsFalse)
-	c.Check(conf2.Installed(), jc.IsFalse)
-	c.Check(conf3.Installed(), jc.IsFalse)
-	c.Check(conf4.Installed(), jc.IsFalse)
 }
 
 func (s *MongoSuite) TestMakeJournalDirs(c *gc.C) {
@@ -127,32 +117,41 @@ func testJournalDirs(dir string, c *gc.C) {
 func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 	dir := c.MkDir()
 	port := 25252
+	namespace := "namespace"
+	oldsvc := makeService(ServiceName(namespace), c)
+	defer oldsvc.StopAndRemove()
 
-	oldsvc := makeService(oldMongoServiceName, c)
-	defer oldsvc.Remove()
-
-	err := EnsureMongoServer(dir, port, "")
+	err := EnsureMongoServer(dir, port, namespace)
 	c.Assert(err, gc.IsNil)
 	mongodPath := MongodPathForSeries("some-series")
-	svc, err := MongoUpstartService("", mongodPath, dir, port)
+	svc, err := MongoUpstartService(namespace, mongodPath, dir, port)
 	c.Assert(err, gc.IsNil)
-	defer svc.Remove()
+	defer svc.StopAndRemove()
 
 	testJournalDirs(dir, c)
-	c.Check(oldsvc.Installed(), jc.IsFalse)
-	c.Check(svc.Installed(), jc.IsTrue)
+	c.Assert(svc.Installed(), jc.IsTrue)
+	conf, err := svc.ReadConf()
+	c.Assert(err, gc.IsNil)
+	expected, err := svc.Render()
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(conf), gc.Equals, string(expected))
 
 	// now check we can call it multiple times without error
-	err = EnsureMongoServer(dir, port, "")
+	err = EnsureMongoServer(dir, port, namespace)
 	c.Assert(err, gc.IsNil)
-
+	c.Assert(svc.Installed(), jc.IsTrue)
+	conf, err = svc.ReadConf()
+	c.Assert(err, gc.IsNil)
+	expected, err = svc.Render()
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(conf), gc.Equals, string(expected))
 }
 
-func (s *MongoSuite) TestMakeServiceName(c *gc.C) {
-	name := makeServiceName(1, "foo")
-	c.Assert(name, gc.Equals, "juju-db-v1-foo")
-	name = makeServiceName(2, "")
-	c.Assert(name, gc.Equals, "juju-db-v2")
+func (s *MongoSuite) TestServiceName(c *gc.C) {
+	name := ServiceName("foo")
+	c.Assert(name, gc.Equals, "juju-db-foo")
+	name = ServiceName("")
+	c.Assert(name, gc.Equals, "juju-db")
 }
 
 func makeService(name string, c *gc.C) *upstart.Conf {

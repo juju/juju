@@ -111,7 +111,7 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 	mkdir -p /var/lib/juju/db
 	export LC_ALL=C
 	mongorestore --drop --dbpath /var/lib/juju/db juju-backup/dump
-	initctl start juju-db-v2
+	initctl start juju-db
 
 	mongoEval() {
 		mongo --ssl -u {{.Creds.Tag}} -p {{.Creds.Password | shquote}} localhost:37017/juju --eval "$1"

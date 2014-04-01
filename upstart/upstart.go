@@ -38,6 +38,13 @@ func NewService(name string) *Service {
 	return &Service{Name: name, InitDir: InitDir}
 }
 
+// ReadConf returns the contents of the service's configuration file.  If the
+// service is not installed, it will return an error that fulfills
+// os.IsNotExist.
+func (s *Service) ReadConf() ([]byte, error) {
+	return ioutil.ReadFile(s.confPath())
+}
+
 // confPath returns the path to the service's configuration file.
 func (s *Service) confPath() string {
 	return path.Join(s.InitDir, s.Name+".conf")
@@ -165,8 +172,8 @@ func (c *Conf) validate() error {
 	return nil
 }
 
-// render returns the upstart configuration for the service as a string.
-func (c *Conf) render() ([]byte, error) {
+// Render returns the upstart configuration for the service as a slice of bytes.
+func (c *Conf) Render() ([]byte, error) {
 	if err := c.validate(); err != nil {
 		return nil, err
 	}
@@ -179,7 +186,7 @@ func (c *Conf) render() ([]byte, error) {
 
 // Install installs and starts the service.
 func (c *Conf) Install() error {
-	conf, err := c.render()
+	conf, err := c.Render()
 	if err != nil {
 		return err
 	}
@@ -204,7 +211,7 @@ func (c *Conf) Install() error {
 
 // InstallCommands returns shell commands to install and start the service.
 func (c *Conf) InstallCommands() ([]string, error) {
-	conf, err := c.render()
+	conf, err := c.Render()
 	if err != nil {
 		return nil, err
 	}

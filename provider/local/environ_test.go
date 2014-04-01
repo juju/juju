@@ -130,7 +130,7 @@ func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 
 	cfg, err := config.New(config.NoDefaults, s.TestConfig)
 	c.Assert(err, gc.IsNil)
-	s.dbServiceName = "juju-db-v2-" + local.ConfigNamespace(cfg)
+	s.dbServiceName = "juju-db-" + local.ConfigNamespace(cfg)
 
 	s.PatchValue(local.FinishBootstrap, func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config, ctx environs.BootstrapContext) error {
 		return nil
@@ -235,7 +235,7 @@ func (s *localJujuTestSuite) makeFakeUpstartScripts(c *gc.C, env environs.Enviro
 	s.MakeTool(c, "start", `echo "some-service start/running, process 123"`)
 
 	namespace := env.Config().AllAttrs()["namespace"].(string)
-	mongo = upstart.NewService(fmt.Sprintf("juju-db-v2-%s", namespace))
+	mongo = upstart.NewService(fmt.Sprintf("juju-db-%s", namespace))
 	mongoConf := upstart.Conf{
 		Service: *mongo,
 		Desc:    "fake mongo",

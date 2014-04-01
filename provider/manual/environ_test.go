@@ -91,7 +91,7 @@ func (s *environSuite) TestDestroy(c *gc.C) {
 		c.Assert(stdin, gc.DeepEquals, `
 set -x
 pkill -6 jujud && exit
-stop juju-db-v2
+stop juju-db
 rm -f /etc/init/juju*
 rm -f /etc/rsyslog.d/*juju*
 rm -fr '/var/lib/juju' '/var/log/juju'
