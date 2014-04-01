@@ -1,4 +1,4 @@
-// Copyright 2013, 2014 Canonical Ltd.
+// Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package apiserver
@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/juju/loggo"
 	"io"
 	"net/http"
 	"os"
@@ -14,7 +15,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 
 	"code.google.com/p/go.net/websocket"
 	"launchpad.net/tomb"
@@ -32,6 +32,16 @@ type debugLogHandler struct {
 	logDir string
 }
 
+// ServeHTTP will serve up connections as a websocket.
+// Args for the HTTP request are as follows:
+//   include -> []string - lists agent tags or modules to include in the response
+//      may include wild cards, eg: unit-mysql-*, machine-2, juju.provisioner
+//      - if none are set, then all lines are considered included
+//   exclude -> []string - lists agent tags or modules to exclude from the response
+//      as with include, it may contain wild cards
+//   limit -> int - show this many lines then exit
+//   level -> string one of [DEBUG, INFO, WARNING, ERROR]
+//   replay -> string - one of [true, false], if true, start the file from the start
 func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if err := h.authenticate(req); err != nil {
 		h.authError(w)
@@ -130,18 +140,54 @@ func (h *debugLogHandler) authError(w http.ResponseWriter) {
 	h.sendError(w, http.StatusUnauthorized, "unauthorized")
 }
 
+type logLine struct {
+	line   string
+	agent  string
+	level  loggo.Level
+	module string
+}
+
+func parseLogLine(line string) *logLine {
+	const (
+		agentField  = 0
+		levelField  = 3
+		moduleField = 4
+	)
+	fields := strings.Fields(line)
+	result := &logLine{
+		line: line,
+	}
+	logger.Infof("%#v", fields)
+	if len(fields) > agentField {
+		agent := fields[agentField]
+		logger.Infof("%q", agent)
+		if strings.HasSuffix(agent, ":") {
+			result.agent = agent[:len(agent)-1]
+		}
+	}
+	if len(fields) > moduleField {
+		if level, valid := loggo.ParseLevel(fields[levelField]); valid {
+			result.level = level
+			result.module = fields[moduleField]
+		}
+	}
+
+	return result
+}
+
 // logStream runs the tailer to read a log file and stream
 // it via a web socket.
 type logStream struct {
-	tomb     tomb.Tomb
-	mux      sync.Mutex
-	filterRx *regexp.Regexp
+	tomb        tomb.Tomb
+	filterRx    *regexp.Regexp
+	filterLevel *loggo.Level
+	includes    []string
+	excludes    []string
 }
 
 // loop starts the tailer with the log file and the web socket.
 func (stream *logStream) loop(logFile io.ReadSeeker, wsConn *websocket.Conn, lines int) error {
 	tailer := tailer.NewTailer(logFile, wsConn, lines, stream.filterLine)
-	go stream.handleRequests(wsConn)
 	select {
 	case <-tailer.Dead():
 		return tailer.Err()
@@ -153,39 +199,21 @@ func (stream *logStream) loop(logFile io.ReadSeeker, wsConn *websocket.Conn, lin
 
 // filterLine checks the received line for one of the confgured tags.
 func (stream *logStream) filterLine(line []byte) bool {
-	stream.mux.Lock()
-	defer stream.mux.Unlock()
-	// Check if no filter.
-	if stream.filterRx == nil {
-		return true
-	}
-	// Check if the filter matches.
-	return stream.filterRx.Match(line)
+	log := parseLogLine(string(line))
+	return stream.include(log) &&
+		!stream.exclude(log) &&
+		stream.checkLevel(log)
 }
 
-// setFilter configures the stream filtering by setting the
-// tags to filter.
-func (stream *logStream) setFilter(filter string) {
-	stream.mux.Lock()
-	defer stream.mux.Unlock()
-	filterRx, err := regexp.Compile(filter)
-	if err != nil {
-		// Keep filter untouched.
-		logger.Errorf("error setting filter: %v", err)
-		return
-	}
-	stream.filterRx = filterRx
+func (stream *logStream) include(line *logLine) bool {
+	return true
 }
 
-// handleRequests allows the stream to handle requests, so far only
-// the setting of the tags to filter.
-func (stream *logStream) handleRequests(wsConn *websocket.Conn) {
-	for {
-		var req params.DebugLogRequest
-		if err := websocket.JSON.Receive(wsConn, &req); err != nil {
-			stream.tomb.Kill(fmt.Errorf("error receiving packet: %v", err))
-			return
-		}
-		stream.setFilter(req.Filter)
-	}
+func (stream *logStream) exclude(line *logLine) bool {
+	return true
+}
+
+func (stream *logStream) checkLevel(line *logLine) bool {
+	return stream.filterLevel == nil ||
+		line.level >= *stream.filterLevel
 }
