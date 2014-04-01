@@ -15,8 +15,27 @@ import (
 	"strings"
 
 	"launchpad.net/gnuflag"
-	jujuerrors "launchpad.net/juju-core/errors"
 )
+
+type RcPassthroughError struct {
+	Code int
+}
+
+func (e *RcPassthroughError) Error() string {
+	return fmt.Sprintf("subprocess encountered error code %v", e.Code)
+}
+
+func IsRcPassthroughError(err error) bool {
+	_, ok := err.(*RcPassthroughError)
+	return ok
+}
+
+// NewRcPassthroughError creates an error that will have the code used at the
+// return code from the cmd.Main function rather than the default of 1 if
+// there is an error.
+func NewRcPassthroughError(code int) error {
+	return &RcPassthroughError{code}
+}
 
 // ErrSilent can be returned from Run to signal that Main should exit with
 // code 1 without producing error output.
@@ -223,8 +242,8 @@ func Main(c Command, ctx *Context, args []string) int {
 		return rc
 	}
 	if err := c.Run(ctx); err != nil {
-		if jujuerrors.IsRcPassthroughError(err) {
-			return err.(*jujuerrors.RcPassthroughError).Code
+		if IsRcPassthroughError(err) {
+			return err.(*RcPassthroughError).Code
 		}
 		if err != ErrSilent {
 			fmt.Fprintf(ctx.Stderr, "error: %v\n", err)

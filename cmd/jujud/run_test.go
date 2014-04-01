@@ -14,7 +14,6 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils/exec"
@@ -105,7 +104,7 @@ func startRunAsync(c *gc.C, params []string) <-chan *cmd.Context {
 	resultChannel := make(chan *cmd.Context)
 	go func() {
 		ctx, err := testing.RunCommand(c, &RunCommand{}, params)
-		c.Assert(err, jc.Satisfies, errors.IsRcPassthroughError)
+		c.Assert(err, jc.Satisfies, cmd.IsRcPassthroughError)
 		c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 0")
 		resultChannel <- ctx
 		close(resultChannel)
@@ -118,7 +117,7 @@ func (s *RunTestSuite) TestNoContext(c *gc.C) {
 	s.PatchValue(&AgentDir, c.MkDir())
 
 	ctx, err := testing.RunCommand(c, &RunCommand{}, []string{"--no-context", "echo done"})
-	c.Assert(err, jc.Satisfies, errors.IsRcPassthroughError)
+	c.Assert(err, jc.Satisfies, cmd.IsRcPassthroughError)
 	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 0")
 	c.Assert(testing.Stdout(ctx), gc.Equals, "done\n")
 }
@@ -168,7 +167,7 @@ func (s *RunTestSuite) TestRunning(c *gc.C) {
 	s.runListenerForAgent(c, "foo")
 
 	ctx, err := testing.RunCommand(c, &RunCommand{}, []string{"foo", "bar"})
-	c.Check(errors.IsRcPassthroughError(err), jc.IsTrue)
+	c.Check(cmd.IsRcPassthroughError(err), jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 42")
 	c.Assert(testing.Stdout(ctx), gc.Equals, "bar stdout")
 	c.Assert(testing.Stderr(ctx), gc.Equals, "bar stderr")

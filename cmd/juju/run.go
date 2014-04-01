@@ -15,7 +15,6 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/cmd/envcmd"
-	jujuerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
@@ -215,7 +214,7 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 			return fmt.Errorf("%s", result.Error)
 		}
 		if result.Code != 0 {
-			return jujuerrors.NewRcPassthroughError(result.Code)
+			return cmd.NewRcPassthroughError(result.Code)
 		}
 		return nil
 	}

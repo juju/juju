@@ -12,7 +12,6 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/utils/exec"
 	"launchpad.net/juju-core/utils/fslock"
@@ -104,7 +103,7 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 
 	ctx.Stdout.Write(result.Stdout)
 	ctx.Stderr.Write(result.Stderr)
-	return errors.NewRcPassthroughError(result.Code)
+	return cmd.NewRcPassthroughError(result.Code)
 }
 
 func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
