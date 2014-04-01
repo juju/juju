@@ -169,16 +169,3 @@ func (p manualProvider) SecretAttrs(cfg *config.Config) (map[string]string, erro
 	attrs["storage-auth-key"] = envConfig.storageAuthKey()
 	return attrs, nil
 }
-
-func (_ manualProvider) PublicAddress() (string, error) {
-	// TODO(axw) 2013-09-10 bug #1222643
-	//
-	// eth0 may not be the desired interface for traffic to route
-	// through. We should somehow make this configurable, and
-	// possibly also record the IP resolved during manual bootstrap.
-	return utils.GetAddressForInterface("eth0")
-}
-
-func (p manualProvider) PrivateAddress() (string, error) {
-	return p.PublicAddress()
-}
