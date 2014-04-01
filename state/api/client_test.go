@@ -68,16 +68,15 @@ func (s *clientSuite) TestAddLocalCharm(c *gc.C) {
 	// POST.
 	lis, err := net.Listen("tcp", ":0")
 	c.Assert(err, gc.IsNil)
-	port := lis.Addr().(*net.TCPAddr).Port
-	url := fmt.Sprintf("http://localhost:%d", port)
+	defer lis.Close()
+	url := fmt.Sprintf("http://%v", lis.Addr())
 	http.HandleFunc("/charms", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" {
 			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		}
 	})
 	go func() {
-		err = http.Serve(lis, nil)
-		c.Assert(err, gc.IsNil)
+		http.Serve(lis, nil)
 	}()
 
 	api.SetServerRoot(client, url)
