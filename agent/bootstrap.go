@@ -81,6 +81,8 @@ func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg Bootstrap
 	if !ok {
 		return nil, nil, fmt.Errorf("state serving information not available")
 	}
+	servingInfo.SharedSecret = machineCfg.SharedSecret
+	c.SetStateServingInfo(servingInfo)
 	if err = initAPIHostPorts(c, st, machineCfg.Addresses, servingInfo.APIPort); err != nil {
 		return nil, nil, err
 	}
