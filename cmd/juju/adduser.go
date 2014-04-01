@@ -95,6 +95,9 @@ func (c *AddUserCommand) Run(ctx *cmd.Context) error {
 	outputInfo.Password = c.Password
 	outputInfo.StateServers = storeInfo.APIEndpoint().Addresses
 	outputInfo.CACert = storeInfo.APIEndpoint().CACert
-	c.out.Write(ctx, outputInfo)
+	err = c.out.Write(ctx, outputInfo)
+	if err != nil {
+		return err
+	}
 	return client.AddUser(c.User, c.Password)
 }

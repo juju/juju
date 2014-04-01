@@ -217,6 +217,10 @@ func (c *UnsetEnvironmentCommand) Info() *cmd.Info {
 }
 
 func (c *UnsetEnvironmentCommand) Init(args []string) (err error) {
+	err = c.EnvCommandBase.Init()
+	if err != nil {
+		return
+	}
 	if len(args) == 0 {
 		return fmt.Errorf("No keys specified")
 	}
