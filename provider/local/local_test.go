@@ -34,7 +34,7 @@ func (*localSuite) TestProviderRegistered(c *gc.C) {
 
 func (*localSuite) TestCheckLocalPort(c *gc.C) {
 	// Listen on a random port.
-	ln, err := net.Listen("tcp", ":0")
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	c.Assert(err, gc.IsNil)
 	defer ln.Close()
 	port := ln.Addr().(*net.TCPAddr).Port
