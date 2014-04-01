@@ -89,6 +89,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 		Jobs:            []params.MachineJob{params.JobHostUnits},
 		InstanceId:      "i-bootstrap",
 		Characteristics: expectHW,
+		SharedSecret:    "abc123",
 	}
 	envAttrs := testing.FakeConfig().Delete("admin-secret").Merge(testing.Attrs{
 		"agent-version": version.Current.Number.String(),
@@ -133,6 +134,17 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(apiHostPorts, gc.DeepEquals, [][]instance.HostPort{
 		instance.AddressesWithPort(mcfg.Addresses, 1234),
+	})
+
+	// Check that the state serving info is initialised correctly.
+	stateServingInfo, err := st.StateServingInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(stateServingInfo, jc.DeepEquals, params.StateServingInfo{
+		APIPort:      1234,
+		StatePort:    3456,
+		Cert:         testing.ServerCert,
+		PrivateKey:   testing.ServerKey,
+		SharedSecret: "abc123",
 	})
 
 	// Check that the machine agent's config has been written
@@ -191,7 +203,7 @@ func (s *bootstrapSuite) TestInitializeStateServingInfoNotAvailable(c *gc.C) {
 
 	_, _, err = agent.InitializeState(cfg, envCfg, mcfg, state.DialOpts{}, environs.NewStatePolicy())
 	// InitializeState will fail attempting to get the api port information
-	c.Assert(err, gc.ErrorMatches, "api port information not available")
+	c.Assert(err, gc.ErrorMatches, "state serving information not available")
 }
 
 func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {

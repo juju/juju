@@ -1,6 +1,7 @@
 package mongo
 
 import (
+	"encoding/base64"
 	"io/ioutil"
 	"os"
 	"path"
@@ -170,6 +171,14 @@ func (s *MongoSuite) TestMongoPackageForSeries(c *gc.C) {
 
 	pkg = MongoPackageForSeries("trusty")
 	c.Assert(pkg, gc.Equals, "juju-mongodb")
+}
+
+func (s *MongoSuite) TestGenerateSharedSecret(c *gc.C) {
+	secret, err := GenerateSharedSecret()
+	c.Assert(err, gc.IsNil)
+	c.Assert(secret, gc.HasLen, 1024)
+	_, err = base64.StdEncoding.DecodeString(secret)
+	c.Assert(err, gc.IsNil)
 }
 
 func makeService(name string, c *gc.C) *upstart.Conf {

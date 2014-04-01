@@ -75,11 +75,9 @@ func (s *PublishSuite) TearDownSuite(c *gc.C) {
 func (s *PublishSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.HTTPSuite.SetUpTest(c)
-	s.home = testing.MakeFakeHomeWithFiles(c, []testing.TestFile{
-		{
-			Name: ".bazaar/bazaar.conf",
-			Data: "[DEFAULT]\nemail = Test <testing@testing.invalid>\n",
-		},
+	s.home = testing.MakeSampleHome(c, testing.TestFile{
+		Name: ".bazaar/bazaar.conf",
+		Data: "[DEFAULT]\nemail = Test <testing@testing.invalid>\n",
 	})
 
 	s.dir = c.MkDir()

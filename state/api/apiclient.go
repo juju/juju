@@ -6,6 +6,7 @@ package api
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"io"
 	"time"
 
@@ -84,6 +85,10 @@ type Info struct {
 // DialOpts holds configuration parameters that control the
 // Dialing behavior when connecting to a state server.
 type DialOpts struct {
+	// DialAddressInterval is the amount of time to wait
+	// before starting to dial another address.
+	DialAddressInterval time.Duration
+
 	// Timeout is the amount of time to wait contacting
 	// a state server.
 	Timeout time.Duration
@@ -97,8 +102,9 @@ type DialOpts struct {
 // parameters for contacting a state server.
 func DefaultDialOpts() DialOpts {
 	return DialOpts{
-		Timeout:    10 * time.Minute,
-		RetryDelay: 2 * time.Second,
+		DialAddressInterval: 50 * time.Millisecond,
+		Timeout:             10 * time.Minute,
+		RetryDelay:          2 * time.Second,
 	}
 }
 
@@ -114,8 +120,16 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	try := parallel.NewTry(maxParallelDial, nil)
 	defer try.Kill()
 	for _, addr := range info.Addrs {
-		if err := dialWebsocket(addr, opts, pool, try); err != nil {
+		err := dialWebsocket(addr, opts, pool, try)
+		if err == parallel.ErrStopped {
+			break
+		}
+		if err != nil {
 			return nil, err
+		}
+		select {
+		case <-time.After(opts.DialAddressInterval):
+		case <-try.Dead():
 		}
 	}
 	try.Close()
@@ -160,28 +174,36 @@ func dialWebsocket(addr string, opts DialOpts, rootCAs *x509.CertPool, try *para
 		RootCAs:    rootCAs,
 		ServerName: "anything",
 	}
+	return try.Start(newWebsocketDialer(cfg, opts))
+}
+
+// new WebsocketDialler returns a function that
+// can be passed to utils/parallel.Try.Start.
+func newWebsocketDialer(cfg *websocket.Config, opts DialOpts) func(<-chan struct{}) (io.Closer, error) {
 	openAttempt := utils.AttemptStrategy{
 		Total: opts.Timeout,
 		Delay: opts.RetryDelay,
 	}
-	return try.Start(func(stop <-chan struct{}) (io.Closer, error) {
-		err := parallel.ErrStopped
+	return func(stop <-chan struct{}) (io.Closer, error) {
 		for a := openAttempt.Start(); a.Next(); {
 			select {
 			case <-stop:
-				break
+				return nil, parallel.ErrStopped
 			default:
 			}
 			logger.Infof("dialing %q", cfg.Location)
-			var conn *websocket.Conn
-			conn, err = websocket.DialConfig(cfg)
+			conn, err := websocket.DialConfig(cfg)
 			if err == nil {
 				return conn, nil
 			}
-			logger.Debugf("error dialing API server, will retry: %v", err)
+			if a.HasNext() {
+				logger.Debugf("error dialing %q, will retry: %v", cfg.Location, err)
+			} else {
+				return nil, fmt.Errorf("timed out connecting to %q", cfg.Location)
+			}
 		}
-		return nil, err
-	})
+		panic("unreachable")
+	}
 }
 
 func (s *State) heartbeatMonitor() {
