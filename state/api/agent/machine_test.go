@@ -14,12 +14,11 @@ import (
 	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/replicaset"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
+	apiserveragent "launchpad.net/juju-core/state/apiserver/agent"
 	coretesting "launchpad.net/juju-core/testing"
 )
 
@@ -32,10 +31,6 @@ type servingInfoSuite struct {
 }
 
 var _ = gc.Suite(&servingInfoSuite{})
-
-func fakeMasterHostPort(session *mgo.Session) (string, error) {
-	return "localhost:27017", nil
-}
 
 func (s *servingInfoSuite) TestStateServingInfo(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
@@ -61,33 +56,13 @@ func (s *servingInfoSuite) TestStateServingInfoPermission(c *gc.C) {
 }
 
 func (s *servingInfoSuite) TestIsMaster(c *gc.C) {
-	replicaset.MasterHostPort = func(session *mgo.Session) (string, error) {
-		return "10.0.3.1:27017", nil
+	var fakeMongoIsMaster = func(session *mgo.Session, m mongo.ImplementsAddresses) (bool, error) {
+		return true, nil
 	}
-
-	mongo.SelectPeerAddress = func(addrs []instance.Address) string {
-		return "10.0.3.1"
-	}
+	s.PatchValue(&apiserveragent.MongoIsMaster, fakeMongoIsMaster)
 
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
 	expected := params.IsMasterResult{Master: true}
-	result, err := st.Agent().IsMaster()
-
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, jc.DeepEquals, expected)
-}
-
-func (s *servingInfoSuite) TestIsMasterFalse(c *gc.C) {
-	replicaset.MasterHostPort = func(session *mgo.Session) (string, error) {
-		return "10.0.3.1:27017", nil
-	}
-
-	mongo.SelectPeerAddress = func(addrs []instance.Address) string {
-		return "10.0.3.2"
-	}
-
-	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
-	expected := params.IsMasterResult{Master: false}
 	result, err := st.Agent().IsMaster()
 
 	c.Assert(err, gc.IsNil)

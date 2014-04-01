@@ -82,6 +82,9 @@ func (api *API) StateServingInfo() (result params.StateServingInfo, err error) {
 	return api.st.StateServingInfo()
 }
 
+// MongoIsMaster existis to be overridden in tests
+var MongoIsMaster = mongo.IsMaster
+
 // IsMaster returns a IsMasterResult, that result contains
 // the Master boolean which represents if the current mongo peer
 // for a given machine is the primary mongo server for the replicaset.
@@ -92,7 +95,7 @@ func (api *API) IsMaster() (params.IsMasterResult, error) {
 	session := api.st.MongoSession()
 	machine := api.auth.GetAuthEntity().(*state.Machine)
 
-	isMaster, err := mongo.IsMaster(session, machine)
+	isMaster, err := MongoIsMaster(session, machine)
 	if err != nil {
 		return params.IsMasterResult{}, err
 	}

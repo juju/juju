@@ -242,11 +242,7 @@ func IsMaster(session *mgo.Session) (*IsMasterResults, error) {
 
 // MasterHostPort returns the "address:port" string for the
 // primary mongo server in the replicaset.
-//
-// This is a variable to make testing easier.
-var MasterHostPort = masterHostPort
-
-func masterHostPort(session *mgo.Session) (string, error) {
+func MasterHostPort(session *mgo.Session) (string, error) {
 	results, err := IsMaster(session)
 	if err != nil {
 		return "", err
