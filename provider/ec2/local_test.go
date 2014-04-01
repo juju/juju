@@ -205,7 +205,7 @@ func (t *localServerSuite) SetUpTest(c *gc.C) {
 	t.Tests.SetUpTest(c)
 	t.PatchValue(&version.Current, version.Binary{
 		Number: version.Current.Number,
-		Series: config.DefaultSeries,
+		Series: config.LatestLtsSeries(),
 		Arch:   arch.AMD64,
 	})
 }

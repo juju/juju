@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -34,9 +35,6 @@ const (
 	// port opened.
 	FwGlobal = "global"
 
-	// DefaultSeries returns the most recent Ubuntu LTS release name.
-	DefaultSeries string = "precise"
-
 	// DefaultStatePort is the default port the state server is listening on.
 	DefaultStatePort int = 37017
 
@@ -59,7 +57,52 @@ const (
 	// refreshing the addresses, in seconds. Not too frequent, as we
 	// refresh addresses from the provider each time.
 	DefaultBootstrapSSHAddressesDelay int = 10
+
+	// fallbackLtsSeries is the latest LTS series we'll use, if we fail to
+	// obtain this information from the system.
+	fallbackLtsSeries string = "precise"
 )
+
+var latestLtsSeries string
+
+type HasDefaultSeries interface {
+	DefaultSeries() (string, bool)
+}
+
+// PreferredSeries returns the preferred series to use when a charm does not
+// explicitly specify a series.
+func PreferredSeries(cfg HasDefaultSeries) string {
+	if series, ok := cfg.DefaultSeries(); ok {
+		return series
+	}
+	return LatestLtsSeries()
+}
+
+func LatestLtsSeries() string {
+	if latestLtsSeries == "" {
+		series, err := distroLtsSeries()
+		if err != nil {
+			latestLtsSeries = fallbackLtsSeries
+		} else {
+			latestLtsSeries = series
+		}
+	}
+	return latestLtsSeries
+}
+
+// distroLtsSeries returns the latest LTS series, if this information is
+// available on this system.
+func distroLtsSeries() (string, error) {
+	out, err := exec.Command("distro-info", "--lts").Output()
+	if err != nil {
+		return "", err
+	}
+	series := strings.TrimSpace(string(out))
+	if !charm.IsValidSeries(series) {
+		return "", fmt.Errorf("not a valid LTS series: %q", series)
+	}
+	return series, nil
+}
 
 // Config holds an immutable environment configuration.
 type Config struct {
@@ -219,15 +262,6 @@ func (cfg *Config) processDeprecatedAttributes() {
 	if cfg.Type() == "null" {
 		cfg.defined["type"] = "manual"
 	}
-}
-
-// PreferredSeries returns the preferred series to use when a charm does not
-// explicitly specify a series.
-func (cfg *Config) PreferredSeries() string {
-	if series, ok := cfg.DefaultSeries(); ok {
-		return series
-	}
-	return DefaultSeries
 }
 
 // Validate ensures that config is a valid configuration.  If old is not nil,

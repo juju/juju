@@ -88,7 +88,7 @@ func (s *ContainerSetupSuite) createContainer(c *gc.C, host *state.Machine, ctyp
 
 	// make a container on the host machine
 	template := state.MachineTemplate{
-		Series: config.DefaultSeries,
+		Series: config.LatestLtsSeries(),
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideMachine(template, host.Id(), ctype)
@@ -131,7 +131,7 @@ func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
 	for _, ctype := range instance.ContainerTypes {
 		// create a machine to host the container.
 		m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
-			Series:      config.DefaultSeries,
+			Series:      config.LatestLtsSeries(),
 			Jobs:        []state.MachineJob{state.JobHostUnits},
 			Constraints: s.defaultConstraints,
 		})
@@ -154,7 +154,7 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, ctype instance
 
 	// create a machine to host the container.
 	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
-		Series:      config.DefaultSeries,
+		Series:      config.LatestLtsSeries(),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: s.defaultConstraints,
 	})

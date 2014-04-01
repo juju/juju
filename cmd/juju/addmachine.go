@@ -11,6 +11,7 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/manual"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
@@ -126,7 +127,7 @@ func (c *AddMachineCommand) addMachine1dot16() (string, error) {
 		if err != nil {
 			return "", err
 		}
-		series = conf.PreferredSeries()
+		series = config.PreferredSeries(conf)
 	}
 	template := state.MachineTemplate{
 		Series:      series,

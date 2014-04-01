@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/imagemetadata"
@@ -217,7 +218,7 @@ func (test bootstrapTest) run(c *gc.C) {
 	uploadCount := len(test.uploads)
 	if uploadCount == 0 {
 		usefulVersion := version.Current
-		usefulVersion.Series = env.Config().PreferredSeries()
+		usefulVersion.Series = config.PreferredSeries(env.Config())
 		envtesting.AssertUploadFakeToolsVersions(c, env.Storage(), usefulVersion)
 	}
 
@@ -365,7 +366,7 @@ func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 	env, fake := makeEmptyFakeHome(c)
 	defer fake.Restore()
 	defaultSeriesVersion := version.Current
-	defaultSeriesVersion.Series = env.Config().PreferredSeries()
+	defaultSeriesVersion.Series = config.PreferredSeries(env.Config())
 
 	ctx := coretesting.Context(c)
 	code := cmd.Main(&BootstrapCommand{}, ctx, nil)
@@ -384,7 +385,7 @@ func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
 	env, fake := makeEmptyFakeHome(c)
 	defer fake.Restore()
 	defaultSeriesVersion := version.Current
-	defaultSeriesVersion.Series = env.Config().PreferredSeries()
+	defaultSeriesVersion.Series = config.PreferredSeries(env.Config())
 
 	store, err := configstore.Default()
 	c.Assert(err, gc.IsNil)

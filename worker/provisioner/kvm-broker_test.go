@@ -161,7 +161,7 @@ func (s *kvmProvisionerSuite) SetUpTest(c *gc.C) {
 
 	// The kvm provisioner actually needs the machine it is being created on
 	// to be in state, in order to get the watcher.
-	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits, state.JobManageEnviron)
+	m, err := s.State.AddMachine(config.LatestLtsSeries(), state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	err = m.SetAddresses([]instance.Address{
 		instance.NewAddress("0.1.2.3"),
@@ -228,7 +228,7 @@ func (s *kvmProvisionerSuite) TestDoesNotStartEnvironMachines(c *gc.C) {
 	defer stop(c, p)
 
 	// Check that an instance is not provisioned when the machine is created.
-	_, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
+	_, err := s.State.AddMachine(config.LatestLtsSeries(), state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	s.expectNoEvents(c)
@@ -236,7 +236,7 @@ func (s *kvmProvisionerSuite) TestDoesNotStartEnvironMachines(c *gc.C) {
 
 func (s *kvmProvisionerSuite) addContainer(c *gc.C) *state.Machine {
 	template := state.MachineTemplate{
-		Series: config.DefaultSeries,
+		Series: config.LatestLtsSeries(),
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideMachine(template, s.machineId, instance.KVM)

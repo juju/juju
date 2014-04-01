@@ -100,7 +100,7 @@ func SeriesToUpload(cfg *config.Config, series []string) []string {
 	unique := set.NewStrings(series...)
 	if unique.IsEmpty() {
 		unique.Add(version.Current.Series)
-		unique.Add(config.DefaultSeries)
+		unique.Add(config.LatestLtsSeries())
 		if series, ok := cfg.DefaultSeries(); ok {
 			unique.Add(series)
 		}

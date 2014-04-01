@@ -58,7 +58,7 @@ func resolveCharmURL(url string, client *api.Client, conf *config.Config) (*char
 		return nil, err
 	}
 	if series == "" {
-		series = conf.PreferredSeries()
+		series = config.PreferredSeries(conf)
 	}
 	if series == "" {
 		return client.ResolveCharm(ref)
@@ -76,7 +76,7 @@ func resolveCharmURL1dot16(url string, conf *config.Config) (*charm.URL, error) 
 	}
 
 	if series == "" {
-		series = conf.PreferredSeries()
+		series = config.PreferredSeries(conf)
 	}
 	if series == "" {
 		logger.Warningf(`ResolveCharm not supported by the API server, falling back to default series "precise".`)

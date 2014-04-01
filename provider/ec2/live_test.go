@@ -101,7 +101,7 @@ func (t *LiveTests) SetUpTest(c *gc.C) {
 	t.LiveTests.SetUpTest(c)
 	t.PatchValue(&version.Current, version.Binary{
 		Number: version.Current.Number,
-		Series: config.DefaultSeries,
+		Series: config.LatestLtsSeries(),
 		Arch:   arch.AMD64,
 	})
 

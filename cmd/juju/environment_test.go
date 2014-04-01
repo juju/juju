@@ -139,7 +139,7 @@ func (s *SetEnvironmentSuite) TestChangeDefaultSeries(c *gc.C) {
 	series, ok = stateConfig.DefaultSeries()
 	c.Assert(ok, gc.Equals, true)
 	c.Assert(series, gc.Equals, "raring")
-	c.Assert(stateConfig.PreferredSeries(), gc.Equals, "raring")
+	c.Assert(config.PreferredSeries(stateConfig), gc.Equals, "raring")
 }
 
 func (s *SetEnvironmentSuite) TestChangeBooleanAttribute(c *gc.C) {

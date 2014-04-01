@@ -43,7 +43,7 @@ func FakeConfig() Attrs {
 		"development":               false,
 		"state-port":                19034,
 		"api-port":                  17777,
-		"default-series":            config.DefaultSeries,
+		"default-series":            config.LatestLtsSeries(),
 	}
 }
 

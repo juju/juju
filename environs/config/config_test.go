@@ -1021,7 +1021,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 
 	// These attributes are added if not set.
 	attrs["development"] = false
-	attrs["default-series"] = config.DefaultSeries
+	attrs["default-series"] = config.LatestLtsSeries()
 	attrs["logging-config"] = "<root>=WARNING;unit=DEBUG"
 	attrs["ca-private-key"] = ""
 	attrs["image-metadata-url"] = ""

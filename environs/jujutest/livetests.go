@@ -133,7 +133,7 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	// we could connect to (actual live tests, rather than local-only)
 	cons := constraints.MustParse("mem=2G")
 	if t.CanOpenState {
-		_, err := sync.Upload(t.Env.Storage(), nil, config.DefaultSeries)
+		_, err := sync.Upload(t.Env.Storage(), nil, config.LatestLtsSeries())
 		c.Assert(err, gc.IsNil)
 	}
 	envtesting.UploadFakeTools(c, t.Env.Storage())
@@ -442,7 +442,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 
 	// If the series has not been specified, we expect the most recent Ubuntu LTS release to be used.
 	expectedVersion := version.Current
-	expectedVersion.Series = config.DefaultSeries
+	expectedVersion.Series = config.LatestLtsSeries()
 
 	mtools0 := waitAgentTools(c, mw0, expectedVersion)
 

@@ -42,7 +42,7 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, cons constra
 	defer func() { handleBootstrapError(err, ctx, inst, env) }()
 
 	// First thing, ensure we have tools otherwise there's no point.
-	selectedTools, err := EnsureBootstrapTools(ctx, env, env.Config().PreferredSeries(), cons.Arch)
+	selectedTools, err := EnsureBootstrapTools(ctx, env, config.PreferredSeries(env.Config()), cons.Arch)
 	if err != nil {
 		return err
 	}

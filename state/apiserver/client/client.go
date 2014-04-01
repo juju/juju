@@ -573,7 +573,7 @@ func (c *Client) AddMachines(args params.AddMachines) (params.AddMachinesResults
 	if err != nil {
 		return results, err
 	}
-	prefSeries = conf.PreferredSeries()
+	prefSeries = config.PreferredSeries(conf)
 
 	for i, p := range args.MachineParams {
 		m, err := c.addOneMachine(p, prefSeries)
@@ -709,7 +709,7 @@ func (c *Client) EnvironmentInfo() (api.EnvironmentInfo, error) {
 	}
 
 	info := api.EnvironmentInfo{
-		DefaultSeries: conf.PreferredSeries(),
+		DefaultSeries: config.PreferredSeries(conf),
 		ProviderType:  conf.Type(),
 		Name:          conf.Name(),
 		UUID:          env.UUID(),
@@ -1020,7 +1020,7 @@ func (c *Client) EnsureAvailability(args params.EnsureAvailability) error {
 		if err != nil {
 			return err
 		}
-		series = cfg.PreferredSeries()
+		series = config.PreferredSeries(cfg)
 	}
 	return c.api.state.EnsureAvailability(args.NumStateServers, args.Constraints, series)
 }
