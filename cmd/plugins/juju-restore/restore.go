@@ -89,6 +89,10 @@ func (c *restoreCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *restoreCommand) Init(args []string) error {
+	err := c.EnvCommandBase.Init()
+	if err != nil {
+		return err
+	}
 	if c.showDescription {
 		return cmd.CheckEmpty(args)
 	}
