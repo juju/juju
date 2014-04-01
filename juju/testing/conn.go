@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/juju"
@@ -203,7 +204,13 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	c.Assert(environ.Name(), gc.Equals, "dummyenv")
 	s.PatchValue(&dummy.DataDir, s.DataDir())
 
-	envtesting.MustUploadFakeTools(environ.Storage())
+	prefVersion := version.Current
+	prefVersion.Series = config.PreferredSeries(environ.Config())
+	defaultVersion := version.Current
+	defaultVersion.Series = testing.FakeDefaultSeries
+
+	// Upload tools for both preferred and fake default series
+	envtesting.MustUploadFakeToolsVersions(environ.Storage(), prefVersion, defaultVersion)
 	c.Assert(bootstrap.Bootstrap(ctx, environ, constraints.Value{}), gc.IsNil)
 
 	s.BackingState = environ.(GetStater).GetStateInAPIServer()

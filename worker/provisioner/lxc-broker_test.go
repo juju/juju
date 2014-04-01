@@ -17,7 +17,6 @@ import (
 	"launchpad.net/juju-core/container/lxc/mock"
 	lxctesting "launchpad.net/juju-core/container/lxc/testing"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	instancetest "launchpad.net/juju-core/instance/testing"
 	jujutesting "launchpad.net/juju-core/juju/testing"
@@ -190,7 +189,7 @@ func (s *lxcProvisionerSuite) SetUpTest(c *gc.C) {
 
 	// The lxc provisioner actually needs the machine it is being created on
 	// to be in state, in order to get the watcher.
-	m, err := s.State.AddMachine(config.LatestLtsSeries(), state.JobHostUnits, state.JobManageEnviron)
+	m, err := s.State.AddMachine(coretesting.FakeDefaultSeries, state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	err = m.SetAddresses([]instance.Address{
 		instance.NewAddress("0.1.2.3"),
@@ -261,7 +260,7 @@ func (s *lxcProvisionerSuite) TestDoesNotStartEnvironMachines(c *gc.C) {
 	defer stop(c, p)
 
 	// Check that an instance is not provisioned when the machine is created.
-	_, err := s.State.AddMachine(config.LatestLtsSeries(), state.JobHostUnits)
+	_, err := s.State.AddMachine(coretesting.FakeDefaultSeries, state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	s.expectNoEvents(c)
@@ -269,7 +268,7 @@ func (s *lxcProvisionerSuite) TestDoesNotStartEnvironMachines(c *gc.C) {
 
 func (s *lxcProvisionerSuite) addContainer(c *gc.C) *state.Machine {
 	template := state.MachineTemplate{
-		Series: config.LatestLtsSeries(),
+		Series: coretesting.FakeDefaultSeries,
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideMachine(template, s.parentMachineId, instance.LXC)
