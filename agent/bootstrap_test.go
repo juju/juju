@@ -62,21 +62,22 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	dataDir := c.MkDir()
 
 	pwHash := utils.UserPasswordHash(testing.DefaultMongoPassword, utils.CompatSalt)
-	configParams := agent.StateMachineConfigParams{
-		AgentConfigParams: agent.AgentConfigParams{
-			DataDir:           dataDir,
-			Tag:               "machine-0",
-			UpgradedToVersion: version.Current.Number,
-			StateAddresses:    []string{testing.MgoServer.Addr()},
-			CACert:            []byte(testing.CACert),
-			Password:          pwHash,
-		},
-		StateServerCert: []byte(testing.ServerCert),
-		StateServerKey:  []byte(testing.ServerKey),
-		APIPort:         1234,
-		StatePort:       3456,
+	configParams := agent.AgentConfigParams{
+		DataDir:           dataDir,
+		Tag:               "machine-0",
+		UpgradedToVersion: version.Current.Number,
+		StateAddresses:    []string{testing.MgoServer.Addr()},
+		CACert:            []byte(testing.CACert),
+		Password:          pwHash,
 	}
-	cfg, err := agent.NewStateMachineConfig(configParams)
+	servingInfo := params.StateServingInfo{
+		Cert:       testing.ServerCert,
+		PrivateKey: testing.ServerKey,
+		APIPort:    1234,
+		StatePort:  3456,
+	}
+
+	cfg, err := agent.NewStateMachineConfig(configParams, servingInfo)
 	c.Assert(err, gc.IsNil)
 
 	_, available := cfg.StateServingInfo()
@@ -163,21 +164,21 @@ func (s *bootstrapSuite) TestInitializeStateServingInfoNotAvailable(c *gc.C) {
 	dataDir := c.MkDir()
 
 	pwHash := utils.UserPasswordHash(testing.DefaultMongoPassword, utils.CompatSalt)
-	configParams := agent.StateMachineConfigParams{
-		AgentConfigParams: agent.AgentConfigParams{
-			DataDir:           dataDir,
-			Tag:               "machine-0",
-			UpgradedToVersion: version.Current.Number,
-			StateAddresses:    []string{testing.MgoServer.Addr()},
-			CACert:            []byte(testing.CACert),
-			Password:          pwHash,
-		},
-		StateServerCert: []byte(testing.ServerCert),
-		StateServerKey:  []byte(testing.ServerKey),
-		APIPort:         1234,
-		StatePort:       3456,
+	configParams := agent.AgentConfigParams{
+		DataDir:           dataDir,
+		Tag:               "machine-0",
+		UpgradedToVersion: version.Current.Number,
+		StateAddresses:    []string{testing.MgoServer.Addr()},
+		CACert:            []byte(testing.CACert),
+		Password:          pwHash,
 	}
-	cfg, err := agent.NewStateMachineConfig(configParams)
+	servingInfo := params.StateServingInfo{
+		Cert:       testing.ServerCert,
+		PrivateKey: testing.ServerKey,
+		APIPort:    1234,
+		StatePort:  3456,
+	}
+	cfg, err := agent.NewStateMachineConfig(configParams, servingInfo)
 	c.Assert(err, gc.IsNil)
 
 	// we can't create a state machine config with missing serving info
