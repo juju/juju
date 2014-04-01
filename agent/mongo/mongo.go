@@ -61,7 +61,11 @@ func IsMaster(session *mgo.Session, m machine) (bool, error) {
 
 // SelectPeerAddress returns the address to use as the
 // mongo replica set peer address by selecting it from the given addresses.
-func SelectPeerAddress(addrs []instance.Address) string {
+//
+// This is a variable to make testing easier.
+var SelectPeerAddress = selectPeerAddress
+
+func selectPeerAddress(addrs []instance.Address) string {
 	return instance.SelectInternalAddress(addrs, false)
 }
 
