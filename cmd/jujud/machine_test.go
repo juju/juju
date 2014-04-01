@@ -298,7 +298,7 @@ func (s *MachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Machine) 
 	addrs := []instance.Address{
 		instance.NewAddress("0.1.2.3"),
 	}
-	err := machine.SetAddresses(addrs)
+	err := machine.SetAddresses(addrs...)
 	c.Assert(err, gc.IsNil)
 	// Set the addresses in the environ instance as well so that if the instance poller
 	// runs it won't overwrite them.

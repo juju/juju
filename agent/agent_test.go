@@ -10,6 +10,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
@@ -476,4 +477,37 @@ func (*suite) TestSetUpgradedToVersion(c *gc.C) {
 	expectVers := version.MustParse("3.4.5")
 	conf.SetUpgradedToVersion(expectVers)
 	c.Assert(conf.UpgradedToVersion(), gc.Equals, expectVers)
+}
+
+func (*suite) TestSetAPIHostPorts(c *gc.C) {
+	conf, err := agent.NewAgentConfig(attributeParams)
+	c.Assert(err, gc.IsNil)
+
+	addrs, err := conf.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(addrs, gc.DeepEquals, attributeParams.APIAddresses)
+
+	// The first cloud-local address for each server is used,
+	// else if there are none then the first public- or unknown-
+	// scope address.
+	//
+	// If a server has only machine-local addresses, or none
+	// at all, then it will be excluded.
+	server1 := instance.NewAddresses("0.1.2.3", "0.1.2.4", "zeroonetwothree")
+	server1[0].NetworkScope = instance.NetworkCloudLocal
+	server1[1].NetworkScope = instance.NetworkCloudLocal
+	server1[2].NetworkScope = instance.NetworkPublic
+	server2 := instance.NewAddresses("127.0.0.1")
+	server2[0].NetworkScope = instance.NetworkMachineLocal
+	server3 := instance.NewAddresses("0.1.2.5", "zeroonetwofive")
+	server3[0].NetworkScope = instance.NetworkUnknown
+	server3[1].NetworkScope = instance.NetworkUnknown
+	conf.SetAPIHostPorts([][]instance.HostPort{
+		instance.AddressesWithPort(server1, 123),
+		instance.AddressesWithPort(server2, 124),
+		instance.AddressesWithPort(server3, 125),
+	})
+	addrs, err = conf.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(addrs, gc.DeepEquals, []string{"0.1.2.3:123", "0.1.2.5:125"})
 }

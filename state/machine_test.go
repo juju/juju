@@ -1221,7 +1221,7 @@ func (s *MachineSuite) TestSetAddresses(c *gc.C) {
 		instance.NewAddress("127.0.0.1"),
 		instance.NewAddress("8.8.8.8"),
 	}
-	err = machine.SetAddresses(addresses)
+	err = machine.SetAddresses(addresses...)
 	c.Assert(err, gc.IsNil)
 	err = machine.Refresh()
 	c.Assert(err, gc.IsNil)

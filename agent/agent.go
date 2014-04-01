@@ -16,6 +16,7 @@ import (
 	"github.com/errgo/errgo"
 	"github.com/juju/loggo"
 
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
@@ -134,6 +135,9 @@ type ConfigSetterOnly interface {
 	// SetUpgradedToVerson sets the version that
 	// the agent has successfully upgraded to.
 	SetUpgradedToVersion(newVersion version.Number)
+
+	// SetAPIHostPorts sets the API host/port addresses to connect to.
+	SetAPIHostPorts(servers [][]instance.HostPort)
 
 	// Migrate takes an existing agent config and applies the given
 	// parameters to change it.
@@ -434,6 +438,20 @@ func (config *configInternal) Migrate(newParams MigrateParams) error {
 
 func (c *configInternal) SetUpgradedToVersion(newVersion version.Number) {
 	c.upgradedToVersion = newVersion
+}
+
+func (c *configInternal) SetAPIHostPorts(servers [][]instance.HostPort) {
+	if c.apiDetails == nil {
+		return
+	}
+	var addrs []string
+	for _, serverHostPorts := range servers {
+		addr := instance.SelectInternalHostPort(serverHostPorts, false)
+		if addr != "" {
+			addrs = append(addrs, addr)
+		}
+	}
+	c.apiDetails.addresses = addrs
 }
 
 func (c *configInternal) SetValue(key, value string) {

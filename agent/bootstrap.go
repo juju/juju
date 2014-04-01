@@ -36,6 +36,9 @@ type StateInitializer interface {
 // BootstrapMachineConfig holds configuration information
 // to attach to the bootstrap machine.
 type BootstrapMachineConfig struct {
+	// Addresses holds the bootstrap machine's addresses.
+	Addresses []instance.Address
+
 	// Constraints holds the bootstrap machine's constraints.
 	// This value is also used for the environment-level constraints.
 	Constraints constraints.Value
@@ -66,6 +69,10 @@ func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg Bootstrap
 		return nil, nil, fmt.Errorf("failed to initialize state: %v", err)
 	}
 	logger.Debugf("connected to initial state")
+	if err = initAPIHostPorts(c, st, machineCfg.Addresses); err != nil {
+		st.Close()
+		return nil, nil, err
+	}
 	m, err := initUsersAndBootstrapMachine(c, st, machineCfg)
 	if err != nil {
 		st.Close()
@@ -138,6 +145,7 @@ func initBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineC
 		jobs[i] = machineJob
 	}
 	m, err := st.AddOneMachine(state.MachineTemplate{
+		Addresses:               cfg.Addresses,
 		Series:                  version.Current.Series,
 		Nonce:                   state.BootstrapNonce,
 		Constraints:             cfg.Constraints,
@@ -168,4 +176,12 @@ func initBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineC
 	}
 	c.SetPassword(newPassword)
 	return m, nil
+}
+
+// initAPIHostPorts sets the initial API host/port addresses in state.
+func initAPIHostPorts(c ConfigSetter, st *state.State, addrs []instance.Address) error {
+	info, _ := c.StateServingInfo()
+	port := info.APIPort
+	hostPorts := instance.AddressesWithPort(addrs, port)
+	return st.SetAPIHostPorts([][]instance.HostPort{hostPorts})
 }
