@@ -37,7 +37,7 @@ type WithAddresses interface {
 }
 
 // IsMaster returns a boolean that represents whether the given
-// machines peer address is the primary mongo host for the replicaset
+// machine's peer address is the primary mongo host for the replicaset
 func IsMaster(session *mgo.Session, obj WithAddresses) (bool, error) {
 	addrs := obj.Addresses()
 
