@@ -52,11 +52,14 @@ type BootstrapMachineConfig struct {
 	// Characteristics holds hardware information on the
 	// bootstrap machine.
 	Characteristics instance.HardwareCharacteristics
+
+	// SharedSecret is the Mongo replica set shared secret (keyfile).
+	SharedSecret string
 }
 
 const bootstrapMachineId = "0"
 
-func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts, policy state.Policy) (*state.State, *state.Machine, error) {
+func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
 	if c.Tag() != names.MachineTag(bootstrapMachineId) {
 		return nil, nil, fmt.Errorf("InitializeState not called with bootstrap machine's configuration")
 	}
@@ -69,13 +72,23 @@ func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg Bootstrap
 		return nil, nil, fmt.Errorf("failed to initialize state: %v", err)
 	}
 	logger.Debugf("connected to initial state")
-	if err = initAPIHostPorts(c, st, machineCfg.Addresses); err != nil {
-		st.Close()
+	defer func() {
+		if resultErr != nil {
+			st.Close()
+		}
+	}()
+	servingInfo, ok := c.StateServingInfo()
+	if !ok {
+		return nil, nil, fmt.Errorf("state serving information not available")
+	}
+	if err = initAPIHostPorts(c, st, machineCfg.Addresses, servingInfo.APIPort); err != nil {
 		return nil, nil, err
+	}
+	if err := st.SetStateServingInfo(servingInfo); err != nil {
+		return nil, nil, fmt.Errorf("cannot set state serving info: %v", err)
 	}
 	m, err := initUsersAndBootstrapMachine(c, st, machineCfg)
 	if err != nil {
-		st.Close()
 		return nil, nil, err
 	}
 	stateServingInfo, available := c.StateServingInfo()
@@ -180,12 +193,7 @@ func initBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineC
 }
 
 // initAPIHostPorts sets the initial API host/port addresses in state.
-func initAPIHostPorts(c ConfigSetter, st *state.State, addrs []instance.Address) error {
-	info, available := c.StateServingInfo()
-	if !available {
-		return fmt.Errorf("api port information not available")
-	}
-	port := info.APIPort
-	hostPorts := instance.AddressesWithPort(addrs, port)
+func initAPIHostPorts(c ConfigSetter, st *state.State, addrs []instance.Address, apiPort int) error {
+	hostPorts := instance.AddressesWithPort(addrs, apiPort)
 	return st.SetAPIHostPorts([][]instance.HostPort{hostPorts})
 }
