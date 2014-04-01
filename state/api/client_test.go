@@ -79,7 +79,7 @@ func (s *clientSuite) TestAddLocalCharm(c *gc.C) {
 		http.Serve(lis, nil)
 	}()
 
-	api.SetServerRoot(client, url)
+	api.SetServerHostPort(client, url)
 	_, err = client.AddLocalCharm(curl, charmArchive)
 	c.Assert(err, jc.Satisfies, params.IsCodeNotImplemented)
 }
