@@ -703,7 +703,7 @@ func (c *Client) WatchDebugLog(lines int, filter string) (*ClientDebugLog, error
 	}
 	cfg.Location = &url.URL{
 		Scheme:   "wss",
-		Host:     c.st.serverHostPort,
+		Host:     c.st.addr,
 		Path:     "/log",
 		RawQuery: attrs.Encode(),
 	}
