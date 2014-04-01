@@ -59,7 +59,7 @@ func (s *workerJujuConnSuite) TestPublisherSetsAPIHostPorts(c *gc.C) {
 	cwatch.AssertOneChange()
 	hps, err := s.State.APIHostPorts()
 	c.Assert(err, gc.IsNil)
-	assertAPIHostPorts(c, hps, expectedAPIHostPorts(3))
+	c.Assert(hps, jc.DeepEquals, expectedAPIHostPorts(3))
 }
 
 type workerSuite struct {
@@ -302,7 +302,7 @@ func (s *workerSuite) TestStateServersArePublished(c *gc.C) {
 	}()
 	select {
 	case servers := <-publishCh:
-		assertAPIHostPorts(c, servers, expectedAPIHostPorts(3))
+		c.Assert(servers, gc.DeepEquals, expectedAPIHostPorts(3))
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for publish")
 	}
@@ -347,7 +347,7 @@ func (s *workerSuite) TestWorkerRetriesOnPublishError(c *gc.C) {
 	for i := 0; i < 4; i++ {
 		select {
 		case servers := <-publishCh:
-			assertAPIHostPorts(c, servers, expectedAPIHostPorts(3))
+			c.Assert(servers, jc.DeepEquals, expectedAPIHostPorts(3))
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out waiting for publish #%d", i)
 		}
