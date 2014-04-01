@@ -288,18 +288,6 @@ type LifeResults struct {
 	Results []LifeResult
 }
 
-// SetEntityAddress holds an entity tag and an address.
-type SetEntityAddress struct {
-	Tag     string
-	Address string
-}
-
-// SetEntityAddresses holds the parameters for making a Set*Address
-// call, where the address can be a public or a private one.
-type SetEntityAddresses struct {
-	Entities []SetEntityAddress
-}
-
 // MachineSetProvisioned holds a machine tag, provider-specific instance id,
 // a nonce, or an error.
 type MachineSetProvisioned struct {

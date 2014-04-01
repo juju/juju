@@ -113,9 +113,16 @@ func DeriveAddressType(value string) AddressType {
 	return HostName
 }
 
+// NewAddress returns a new Address with value.
 func NewAddress(value string) Address {
 	addresstype := DeriveAddressType(value)
 	return Address{value, addresstype, "", NetworkUnknown}
+}
+
+// NewAddressWithScope returns a new Address with value and the specifed network scope.
+func NewAddressWithScope(value string, scope NetworkScope) Address {
+	addresstype := DeriveAddressType(value)
+	return Address{value, addresstype, "", scope}
 }
 
 // netLookupIP is a var for testing.

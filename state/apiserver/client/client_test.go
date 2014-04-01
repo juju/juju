@@ -1400,10 +1400,8 @@ func (s *clientSuite) TestClientPublicAddressMachine(c *gc.C) {
 	// address is returned.
 	m1, err := s.State.Machine("1")
 	c.Assert(err, gc.IsNil)
-	cloudLocalAddress := instance.NewAddress("cloudlocal")
-	cloudLocalAddress.NetworkScope = instance.NetworkCloudLocal
-	publicAddress := instance.NewAddress("public")
-	publicAddress.NetworkScope = instance.NetworkPublic
+	cloudLocalAddress := instance.NewAddressWithScope("cloudlocal", instance.NetworkCloudLocal)
+	publicAddress := instance.NewAddressWithScope("public", instance.NetworkPublic)
 	err = m1.SetAddresses(cloudLocalAddress)
 	c.Assert(err, gc.IsNil)
 	addr, err := s.APIState.Client().PublicAddress("1")
@@ -1415,32 +1413,16 @@ func (s *clientSuite) TestClientPublicAddressMachine(c *gc.C) {
 	c.Assert(addr, gc.Equals, "public")
 }
 
-func (s *clientSuite) TestClientPublicAddressUnitWithMachine(c *gc.C) {
+func (s *clientSuite) TestClientPublicAddressUnit(c *gc.C) {
 	s.setUpScenario(c)
 
-	// Public address of unit is taken from its machine
-	// (if its machine has addresses).
 	m1, err := s.State.Machine("1")
-	publicAddress := instance.NewAddress("public")
-	publicAddress.NetworkScope = instance.NetworkPublic
+	publicAddress := instance.NewAddressWithScope("public", instance.NetworkPublic)
 	err = m1.SetAddresses(publicAddress)
 	c.Assert(err, gc.IsNil)
 	addr, err := s.APIState.Client().PublicAddress("wordpress/0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(addr, gc.Equals, "public")
-}
-
-func (s *clientSuite) TestClientPublicAddressUnitWithoutMachine(c *gc.C) {
-	s.setUpScenario(c)
-	// If the unit's machine has no addresses, the public address
-	// comes from the unit's document.
-	u, err := s.State.Unit("wordpress/1")
-	c.Assert(err, gc.IsNil)
-	err = u.SetPublicAddress("127.0.0.1")
-	c.Assert(err, gc.IsNil)
-	addr, err := s.APIState.Client().PublicAddress("wordpress/1")
-	c.Assert(err, gc.IsNil)
-	c.Assert(addr, gc.Equals, "127.0.0.1")
 }
 
 func (s *clientSuite) TestClientPrivateAddressErrors(c *gc.C) {
@@ -1453,17 +1435,15 @@ func (s *clientSuite) TestClientPrivateAddressErrors(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" has no internal address`)
 }
 
-func (s *clientSuite) TestClientPrivateAddressMachine(c *gc.C) {
+func (s *clientSuite) TestClientPrivateAddress(c *gc.C) {
 	s.setUpScenario(c)
 
 	// Internally, instance.SelectInternalAddress is used; the public
 	// address if no cloud-local one is available.
 	m1, err := s.State.Machine("1")
 	c.Assert(err, gc.IsNil)
-	cloudLocalAddress := instance.NewAddress("cloudlocal")
-	cloudLocalAddress.NetworkScope = instance.NetworkCloudLocal
-	publicAddress := instance.NewAddress("public")
-	publicAddress.NetworkScope = instance.NetworkPublic
+	cloudLocalAddress := instance.NewAddressWithScope("cloudlocal", instance.NetworkCloudLocal)
+	publicAddress := instance.NewAddressWithScope("public", instance.NetworkPublic)
 	err = m1.SetAddresses(publicAddress)
 	c.Assert(err, gc.IsNil)
 	addr, err := s.APIState.Client().PrivateAddress("1")
@@ -1475,32 +1455,16 @@ func (s *clientSuite) TestClientPrivateAddressMachine(c *gc.C) {
 	c.Assert(addr, gc.Equals, "cloudlocal")
 }
 
-func (s *clientSuite) TestClientPrivateAddressUnitWithMachine(c *gc.C) {
+func (s *clientSuite) TestClientPrivateAddressUnit(c *gc.C) {
 	s.setUpScenario(c)
 
-	// Private address of unit is taken from its machine
-	// (if its machine has addresses).
 	m1, err := s.State.Machine("1")
-	publicAddress := instance.NewAddress("public")
-	publicAddress.NetworkScope = instance.NetworkCloudLocal
-	err = m1.SetAddresses(publicAddress)
+	privateAddress := instance.NewAddressWithScope("public", instance.NetworkCloudLocal)
+	err = m1.SetAddresses(privateAddress)
 	c.Assert(err, gc.IsNil)
 	addr, err := s.APIState.Client().PrivateAddress("wordpress/0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(addr, gc.Equals, "public")
-}
-
-func (s *clientSuite) TestClientPrivateAddressUnitWithoutMachine(c *gc.C) {
-	s.setUpScenario(c)
-	// If the unit's machine has no addresses, the public address
-	// comes from the unit's document.
-	u, err := s.State.Unit("wordpress/1")
-	c.Assert(err, gc.IsNil)
-	err = u.SetPrivateAddress("127.0.0.1")
-	c.Assert(err, gc.IsNil)
-	addr, err := s.APIState.Client().PrivateAddress("wordpress/1")
-	c.Assert(err, gc.IsNil)
-	c.Assert(addr, gc.Equals, "127.0.0.1")
 }
 
 func (s *clientSuite) TestClientEnvironmentGet(c *gc.C) {

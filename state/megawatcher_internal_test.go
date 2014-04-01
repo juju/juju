@@ -358,10 +358,6 @@ var allWatcherChangedTests = []struct {
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit()
 			c.Assert(err, gc.IsNil)
-			err = u.SetPublicAddress("public")
-			c.Assert(err, gc.IsNil)
-			err = u.SetPrivateAddress("private")
-			c.Assert(err, gc.IsNil)
 			err = u.OpenPort("tcp", 12345)
 			c.Assert(err, gc.IsNil)
 			m, err := st.AddMachine("quantal", JobHostUnits)
@@ -377,15 +373,13 @@ var allWatcherChangedTests = []struct {
 		},
 		expectContents: []params.EntityInfo{
 			&params.UnitInfo{
-				Name:           "wordpress/0",
-				Service:        "wordpress",
-				Series:         "quantal",
-				PublicAddress:  "public",
-				PrivateAddress: "private",
-				MachineId:      "0",
-				Ports:          []instance.Port{{"tcp", 12345}},
-				Status:         params.StatusError,
-				StatusInfo:     "failure",
+				Name:       "wordpress/0",
+				Service:    "wordpress",
+				Series:     "quantal",
+				MachineId:  "0",
+				Ports:      []instance.Port{{"tcp", 12345}},
+				Status:     params.StatusError,
+				StatusInfo: "failure",
 			},
 		},
 	}, {
@@ -399,8 +393,6 @@ var allWatcherChangedTests = []struct {
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit()
 			c.Assert(err, gc.IsNil)
-			err = u.SetPublicAddress("public")
-			c.Assert(err, gc.IsNil)
 			err = u.OpenPort("udp", 17070)
 			c.Assert(err, gc.IsNil)
 		},
@@ -410,13 +402,12 @@ var allWatcherChangedTests = []struct {
 		},
 		expectContents: []params.EntityInfo{
 			&params.UnitInfo{
-				Name:          "wordpress/0",
-				Service:       "wordpress",
-				Series:        "quantal",
-				PublicAddress: "public",
-				Ports:         []instance.Port{{"udp", 17070}},
-				Status:        params.StatusError,
-				StatusInfo:    "another failure",
+				Name:       "wordpress/0",
+				Service:    "wordpress",
+				Series:     "quantal",
+				Ports:      []instance.Port{{"udp", 17070}},
+				Status:     params.StatusError,
+				StatusInfo: "another failure",
 			},
 		},
 	},
