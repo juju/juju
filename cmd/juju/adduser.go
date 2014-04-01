@@ -10,7 +10,6 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/environs/configstore"
-	"launchpad.net/juju-core/environs/info"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/utils"
 )
@@ -91,7 +90,7 @@ func (c *AddUserCommand) Run(ctx *cmd.Context) error {
 			return fmt.Errorf("Failed to generate password: %v", err)
 		}
 	}
-	outputInfo := info.EnvironInfo{}
+	outputInfo := configstore.EnvironInfoData{}
 	outputInfo.User = c.User
 	outputInfo.Password = c.Password
 	outputInfo.StateServers = storeInfo.APIEndpoint().Addresses

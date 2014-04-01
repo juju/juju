@@ -13,7 +13,6 @@ import (
 	"github.com/juju/loggo"
 	"launchpad.net/goyaml"
 
-	"launchpad.net/juju-core/environs/info"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/utils"
@@ -31,6 +30,14 @@ type diskStore struct {
 	dir string
 }
 
+type EnvironInfoData struct {
+	User         string
+	Password     string
+	StateServers []string               `json:"state-servers" yaml:"state-servers"`
+	CACert       string                 `json:"ca-cert" yaml:"ca-cert"`
+	Config       map[string]interface{} `json:"bootstrap-config,omitempty" yaml:"bootstrap-config,omitempty"`
+}
+
 type environInfo struct {
 	path string
 	// initialized signifies whether the info has been written.
@@ -40,7 +47,7 @@ type environInfo struct {
 	// a CreateInfo call.
 	created bool
 
-	EnvInfo info.EnvironInfo
+	EnvInfo EnvironInfoData
 }
 
 // NewDisk returns a ConfigStorage implementation that stores
