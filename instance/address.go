@@ -115,8 +115,8 @@ func DeriveAddressType(value string) AddressType {
 
 func NewAddress(value string, scope NetworkScope) Address {
 	return Address{
-		Value:value,
-		Type: DeriveAddressType(value),
+		Value:        value,
+		Type:         DeriveAddressType(value),
 		NetworkScope: scope,
 	}
 }

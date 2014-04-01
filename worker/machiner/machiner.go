@@ -81,8 +81,8 @@ func setMachineAddresses(m *machiner.Machine) error {
 			continue
 		}
 		address := instance.Address{
-			Value: ip.String(),
-			Type: instance.DeriveAddressType(ip.String()),
+			Value:        ip.String(),
+			Type:         instance.DeriveAddressType(ip.String()),
 			NetworkScope: instance.NetworkUnknown,
 		}
 		hostAddresses = append(hostAddresses, address)
