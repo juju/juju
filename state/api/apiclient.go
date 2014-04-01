@@ -52,10 +52,9 @@ type State struct {
 	// tag and password hold the cached login credentials.
 	tag      string
 	password string
-
-	// serverHostPort holds the cached API server address and port
-	// we used to login.
-	serverHostPort string
+	// serverRoot holds the cached API server address and port we used
+	// to login, with a https:// prefix.
+	serverRoot string
 
 	// websocketConfig holds the configuration for the websocket
 	// connection.
