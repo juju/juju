@@ -27,7 +27,7 @@ func (s *apiclientSuite) TestOpenMultiple(c *gc.C) {
 	server, err := net.Dial("tcp", serverAddr)
 	c.Assert(err, gc.IsNil)
 	defer server.Close()
-	listener, err := net.Listen("tcp", ":0")
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	c.Assert(err, gc.IsNil)
 	defer listener.Close()
 	go func() {
@@ -60,7 +60,7 @@ func (s *apiclientSuite) TestOpenMultiple(c *gc.C) {
 }
 
 func (s *apiclientSuite) TestOpenMultipleError(c *gc.C) {
-	listener, err := net.Listen("tcp", ":0")
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	c.Assert(err, gc.IsNil)
 	defer listener.Close()
 	go func() {
