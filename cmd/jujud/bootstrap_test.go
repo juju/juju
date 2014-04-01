@@ -109,8 +109,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob,
 	}
 	// NOTE: the old test used an equivalent of the NewAgentConfig, but it
 	// really should be using NewStateMachineConfig.
-	params := agent.StateMachineConfigParams{
-		AgentConfigParams: agent.AgentConfigParams{
+	agentParams := agent.AgentConfigParams{
 			LogDir:            s.logDir,
 			DataDir:           s.dataDir,
 			Jobs:              jobs,
@@ -121,19 +120,20 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob,
 			StateAddresses:    []string{testing.MgoServer.Addr()},
 			APIAddresses:      []string{"0.1.2.3:1234"},
 			CACert:            []byte(testing.CACert),
-		},
-		StateServerCert: []byte("some cert"),
-		StateServerKey:  []byte("some key"),
+	}
+	servingInfo := params.StateServingInfo{
+		Cert: "some cert",
+		PrivateKey:"some key",
 		APIPort:         3737,
 		StatePort:       1234,
-	}
-	bootConf, err := agent.NewStateMachineConfig(params)
+	} 
+	bootConf, err := agent.NewStateMachineConfig(agentParams, servingInfo)
 	c.Assert(err, gc.IsNil)
 	err = bootConf.Write()
 	c.Assert(err, gc.IsNil)
 
-	params.Tag = "machine-0"
-	machineConf, err = agent.NewStateMachineConfig(params)
+	agentParams.Tag = "machine-0"
+	machineConf, err = agent.NewStateMachineConfig(agentParams, servingInfo)
 	c.Assert(err, gc.IsNil)
 	err = machineConf.Write()
 	c.Assert(err, gc.IsNil)

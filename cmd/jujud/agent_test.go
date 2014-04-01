@@ -272,8 +272,7 @@ func writeStateAgentConfig(c *gc.C, stateInfo *state.Info, dataDir, tag, passwor
 	port := coretesting.FindTCPPort()
 	apiAddr := []string{fmt.Sprintf("localhost:%d", port)}
 	conf, err := agent.NewStateMachineConfig(
-		agent.StateMachineConfigParams{
-			AgentConfigParams: agent.AgentConfigParams{
+		agent.AgentConfigParams{
 				DataDir:           dataDir,
 				Tag:               tag,
 				UpgradedToVersion: vers.Number,
@@ -282,9 +281,10 @@ func writeStateAgentConfig(c *gc.C, stateInfo *state.Info, dataDir, tag, passwor
 				StateAddresses:    stateInfo.Addrs,
 				APIAddresses:      apiAddr,
 				CACert:            stateInfo.CACert,
-			},
-			StateServerCert: []byte(coretesting.ServerCert),
-			StateServerKey:  []byte(coretesting.ServerKey),
+		},
+		params.StateServingInfo{
+			Cert: coretesting.ServerCert,
+			PrivateKey:  coretesting.ServerKey,
 			StatePort:       coretesting.MgoServer.Port(),
 			APIPort:         port,
 		})
