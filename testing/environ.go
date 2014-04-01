@@ -240,12 +240,8 @@ func MakeFakeHomeWithFiles(c *gc.C, files []TestFile) *FakeHome {
 	return fake
 }
 
-func MakeSampleHome(c *gc.C) *FakeHome {
-	return MakeFakeHome(c, SingleEnvConfig, SampleCertName)
-}
-
-func MakeSampleHomeWithFiles(c *gc.C, files []TestFile) *FakeHome {
-	fake := MakeSampleHome(c)
+func MakeSampleHome(c *gc.C, files ...TestFile) *FakeHome {
+	fake := MakeFakeHome(c, SingleEnvConfig, SampleCertName)
 	fake.AddFiles(c, files)
 	return fake
 }
