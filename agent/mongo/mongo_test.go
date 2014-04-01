@@ -163,6 +163,33 @@ func (s *MongoSuite) TestSelectPeerAddress(c *gc.C) {
 	c.Assert(address, gc.Equals, "10.0.0.1")
 }
 
+func (s *MongoSuite) TestSelectPeerHostPort(c *gc.C) {
+
+	hostPorts := []instance.HostPort{
+		{
+			Address: instance.Address{
+				Value:        "10.0.0.1",
+				Type:         instance.Ipv4Address,
+				NetworkName:  "cloud",
+				NetworkScope: instance.NetworkCloudLocal,
+			},
+			Port: 37017,
+		},
+		{
+			Address: instance.Address{
+				Value:        "8.8.8.8",
+				Type:         instance.Ipv4Address,
+				NetworkName:  "public",
+				NetworkScope: instance.NetworkPublic,
+			},
+			Port: 37017,
+		},
+	}
+
+	address := SelectPeerHostPort(hostPorts)
+	c.Assert(address, gc.Equals, "10.0.0.1:37017")
+}
+
 func (s *MongoSuite) TestMongoPackageForSeries(c *gc.C) {
 	var pkg string
 
