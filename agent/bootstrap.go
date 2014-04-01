@@ -82,7 +82,7 @@ func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg Bootstrap
 	if !available {
 		// StateServingInfo not available and we need it!
 		st.Close()
-		panic("StateServingInfo not avilable in InitializeState")
+		return nil, nil, fmt.Errorf("StateServingInfo not available. Failed to initialize state")
 	}
 	st.SetStateServingInfo(stateServingInfo)
 	return st, m, nil

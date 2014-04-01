@@ -186,7 +186,8 @@ func (s *bootstrapSuite) TestInitializeStateServingInfoNotAvailable(c *gc.C) {
 	envCfg, err := config.New(config.NoDefaults, envAttrs)
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(func() { agent.InitializeState(cfg, envCfg, mcfg, state.DialOpts{}, environs.NewStatePolicy()) }, gc.PanicMatches, "StateServingInfo not avilable in InitializeState")
+	_, _, err = agent.InitializeState(cfg, envCfg, mcfg, state.DialOpts{}, environs.NewStatePolicy())
+	c.Assert(err, gc.ErrorMatches, "StateServingInfo not available. Failed to initialize state")
 }
 
 func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
