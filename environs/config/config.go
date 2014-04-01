@@ -59,10 +59,6 @@ const (
 	// refreshing the addresses, in seconds. Not too frequent, as we
 	// refresh addresses from the provider each time.
 	DefaultBootstrapSSHAddressesDelay int = 10
-
-	// DefaultLogLocation is the location of the aggregated log file. The
-	// local provider uses a different one.
-	DefaultLogLocation string = "/var/log/juju/all-machines.log"
 )
 
 // Config holds an immutable environment configuration.
@@ -159,13 +155,6 @@ func (c *Config) ensureUnitLogging() error {
 		loggingConfig = loggingConfig + ";unit=DEBUG"
 	}
 	c.defined["logging-config"] = loggingConfig
-	// Ensure default log location.
-	logLocation := c.asString("log-location")
-	// If the logging location hasn't been set fall back to
-	// the default location.
-	if logLocation == "" {
-		c.defined["log-location"] = DefaultLogLocation
-	}
 	return nil
 }
 
@@ -747,7 +736,6 @@ var alwaysOptional = schema.Defaults{
 	"authorized-keys-path":      schema.Omit,
 	"ca-cert-path":              schema.Omit,
 	"ca-private-key-path":       schema.Omit,
-	"log-location":              schema.Omit,
 	"logging-config":            schema.Omit,
 	"provisioner-safe-mode":     schema.Omit,
 	"bootstrap-timeout":         schema.Omit,
@@ -805,7 +793,6 @@ func allDefaults() schema.Defaults {
 		"state-port":                DefaultStatePort,
 		"api-port":                  DefaultAPIPort,
 		"syslog-port":               DefaultSyslogPort,
-		"log-location":              DefaultLogLocation,
 		"bootstrap-timeout":         DefaultBootstrapSSHTimeout,
 		"bootstrap-retry-delay":     DefaultBootstrapSSHRetryDelay,
 		"bootstrap-addresses-delay": DefaultBootstrapSSHAddressesDelay,
