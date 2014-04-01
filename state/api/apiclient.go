@@ -123,7 +123,8 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 		err := dialWebsocket(addr, opts, pool, try)
 		if err == parallel.ErrStopped {
 			break
-		} else if err != nil {
+		}
+		if err != nil {
 			return nil, err
 		}
 		select {
@@ -196,7 +197,7 @@ func newWebsocketDialer(cfg *websocket.Config, opts DialOpts) func(<-chan struct
 				return conn, nil
 			}
 			if a.HasNext() {
-				logger.Debugf("error dialing API server, will retry: %v", err)
+				logger.Debugf("error dialing %q, will retry: %v", cfg.Location, err)
 			} else {
 				return nil, fmt.Errorf("timed out connecting to %q", cfg.Location)
 			}
