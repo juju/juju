@@ -108,14 +108,16 @@ type OpDestroy struct {
 }
 
 type OpStartInstance struct {
-	Env          string
-	MachineId    string
-	MachineNonce string
-	Instance     instance.Instance
-	Constraints  constraints.Value
-	Info         *state.Info
-	APIInfo      *api.Info
-	Secret       string
+	Env             string
+	MachineId       string
+	MachineNonce    string
+	Instance        instance.Instance
+	Constraints     constraints.Value
+	IncludeNetworks []string
+	ExcludeNetworks []string
+	Info            *state.Info
+	APIInfo         *api.Info
+	Secret          string
 }
 
 type OpStopInstances struct {
@@ -531,8 +533,10 @@ func (*environ) SupportedArchitectures() ([]string, error) {
 }
 
 // SupportNetworks is specified on the EnvironCapability interface.
-func (*environ) SupportNetworks() bool {
-	// We need to be able to test networks with the dummy provider.
+func (env *environ) SupportNetworks() bool {
+	if err := env.checkBroken("SupportNetworks"); err != nil {
+		return false
+	}
 	return true
 }
 
@@ -755,17 +759,25 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 			hc.CpuCores = &cores
 		}
 	}
+	if len(args.MachineConfig.IncludeNetworks) > len(args.Networks.IncludeNetworks) {
+		args.Networks.IncludeNetworks = args.MachineConfig.IncludeNetworks
+	}
+	if len(args.MachineConfig.ExcludeNetworks) > len(args.Networks.ExcludeNetworks) {
+		args.Networks.ExcludeNetworks = args.MachineConfig.ExcludeNetworks
+	}
 	estate.insts[i.id] = i
 	estate.maxId++
 	estate.ops <- OpStartInstance{
-		Env:          e.name,
-		MachineId:    machineId,
-		MachineNonce: args.MachineConfig.MachineNonce,
-		Constraints:  args.Constraints,
-		Instance:     i,
-		Info:         args.MachineConfig.StateInfo,
-		APIInfo:      args.MachineConfig.APIInfo,
-		Secret:       e.ecfg().secret(),
+		Env:             e.name,
+		MachineId:       machineId,
+		MachineNonce:    args.MachineConfig.MachineNonce,
+		Constraints:     args.Constraints,
+		IncludeNetworks: args.Networks.IncludeNetworks,
+		ExcludeNetworks: args.Networks.ExcludeNetworks,
+		Instance:        i,
+		Info:            args.MachineConfig.StateInfo,
+		APIInfo:         args.MachineConfig.APIInfo,
+		Secret:          e.ecfg().secret(),
 	}
 	return i, hc, nil
 }
