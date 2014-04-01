@@ -292,38 +292,26 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 	return config, nil
 }
 
-type StateMachineConfigParams struct {
-	AgentConfigParams
-	StateServerCert []byte
-	StateServerKey  []byte
-	StatePort       int
-	APIPort         int
-}
-
 // NewStateMachineConfig returns a configuration suitable for
 // a machine running the state server.
-func NewStateMachineConfig(configParams StateMachineConfigParams) (ConfigSetterWriter, error) {
-	if configParams.StateServerCert == nil {
+func NewStateMachineConfig(configParams AgentConfigParams, serverInfo params.StateServingInfo) (ConfigSetterWriter, error) {
+	if serverInfo.Cert == "" {
 		return nil, errgo.Trace(requiredError("state server cert"))
 	}
-	if configParams.StateServerKey == nil {
+	if serverInfo.PrivateKey == "" {
 		return nil, errgo.Trace(requiredError("state server key"))
 	}
-	if configParams.StatePort == 0 {
+	if serverInfo.StatePort == 0 {
 		return nil, errgo.Trace(requiredError("state port"))
 	}
-	if configParams.APIPort == 0 {
+	if serverInfo.APIPort == 0 {
 		return nil, errgo.Trace(requiredError("api port"))
 	}
-	config0, err := NewAgentConfig(configParams.AgentConfigParams)
+	config, err := NewAgentConfig(configParams)
 	if err != nil {
 		return nil, err
 	}
-	config := config0.(*configInternal)
-	config.stateServerCert = configParams.StateServerCert
-	config.stateServerKey = configParams.StateServerKey
-	config.apiPort = configParams.APIPort
-	config.statePort = configParams.StatePort
+	config.SetStateServingInfo(serverInfo)
 	return config, nil
 }
 
