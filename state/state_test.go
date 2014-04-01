@@ -78,23 +78,23 @@ func (s *StateSuite) TestAddresses(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	for i, m := range machines {
-		err := m.SetAddresses([]instance.Address{{
+		err := m.SetAddresses(instance.Address{
 			Type:         instance.Ipv4Address,
 			NetworkScope: instance.NetworkCloudLocal,
 			Value:        fmt.Sprintf("10.0.0.%d", i),
-		}, {
+		}, instance.Address{
 			Type:         instance.Ipv6Address,
 			NetworkScope: instance.NetworkCloudLocal,
 			Value:        "::1",
-		}, {
+		}, instance.Address{
 			Type:         instance.Ipv4Address,
 			NetworkScope: instance.NetworkMachineLocal,
 			Value:        "127.0.0.1",
-		}, {
+		}, instance.Address{
 			Type:         instance.Ipv4Address,
 			NetworkScope: instance.NetworkPublic,
 			Value:        "5.4.3.2",
-		}})
+		})
 		c.Assert(err, gc.IsNil)
 	}
 	envConfig, err := s.State.EnvironConfig()

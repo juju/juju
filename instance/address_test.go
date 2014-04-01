@@ -34,8 +34,7 @@ func (s *AddressSuite) TestNewAddressIpv6(c *gc.C) {
 }
 
 func (s *AddressSuite) TestNewAddresses(c *gc.C) {
-	addresses := NewAddresses(
-		[]string{"127.0.0.1", "192.168.1.1", "192.168.178.255"})
+	addresses := NewAddresses("127.0.0.1", "192.168.1.1", "192.168.178.255")
 	c.Assert(len(addresses), gc.Equals, 3)
 	c.Assert(addresses[0].Value, gc.Equals, "127.0.0.1")
 	c.Assert(addresses[0].NetworkScope, gc.Equals, NetworkUnknown)
@@ -313,7 +312,7 @@ func (s *AddressSuite) TestString(c *gc.C) {
 }
 
 func (*AddressSuite) TestAddressesWithPort(c *gc.C) {
-	addrs := NewAddresses([]string{"0.1.2.3", "0.2.4.6"})
+	addrs := NewAddresses("0.1.2.3", "0.2.4.6")
 	hps := AddressesWithPort(addrs, 999)
 	c.Assert(hps, jc.DeepEquals, []HostPort{{
 		Address: NewAddress("0.1.2.3", NetworkUnknown),

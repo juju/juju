@@ -264,15 +264,6 @@ func ReplaceKeys(user string, newKeys ...string) error {
 			existingNonKeyLines = append(existingNonKeyLines, line)
 		}
 	}
-	for _, newKey := range newKeys {
-		_, comment, err := KeyFingerprint(newKey)
-		if err != nil {
-			return err
-		}
-		if comment == "" {
-			return fmt.Errorf("cannot add ssh key without comment")
-		}
-	}
 	return writeAuthorisedKeys(user, append(existingNonKeyLines, newKeys...))
 }
 

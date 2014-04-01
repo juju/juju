@@ -28,6 +28,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/set"
 )
 
 const (
@@ -151,6 +152,62 @@ func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
 	var err error
 	env.supportedArchitectures, err = common.SupportedArchitectures(env, imageConstraint)
 	return env.supportedArchitectures, err
+}
+
+// SupportNetworks is specified on the EnvironCapability interface.
+func (env *maasEnviron) SupportNetworks() bool {
+	caps, err := env.getCapabilities()
+	if err != nil {
+		logger.Debugf("getCapabilities failed: %v", err)
+		return false
+	}
+	return caps.Contains(capNetworksManagement)
+}
+
+const capNetworksManagement = "networks-management"
+
+// getCapabilities asks the MAAS server for its capabilities, if
+// supported by the server.
+func (env *maasEnviron) getCapabilities() (caps set.Strings, err error) {
+	var result gomaasapi.JSONObject
+	caps = set.NewStrings()
+
+	for a := shortAttempt.Start(); a.Next(); {
+		client := env.getMAASClient().GetSubObject("version/")
+		result, err = client.CallGet("", nil)
+		if err != nil {
+			err0, ok := err.(*gomaasapi.ServerError)
+			if ok && err0.StatusCode == 404 {
+				return caps, fmt.Errorf("MAAS does not support version info")
+			} else {
+				return caps, err
+			}
+			continue
+		}
+	}
+	if err != nil {
+		return caps, err
+	}
+	info, err := result.GetMap()
+	if err != nil {
+		return caps, err
+	}
+	capsObj, ok := info["capabilities"]
+	if !ok {
+		return caps, fmt.Errorf("MAAS does not report capabilities")
+	}
+	items, err := capsObj.GetArray()
+	if err != nil {
+		return caps, err
+	}
+	for _, item := range items {
+		val, err := item.GetString()
+		if err != nil {
+			return set.NewStrings(), err
+		}
+		caps.Add(val)
+	}
+	return caps, nil
 }
 
 // getMAASClient returns a MAAS client object to use for a request, in a

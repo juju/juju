@@ -1404,12 +1404,12 @@ func (s *clientSuite) TestClientPublicAddressMachine(c *gc.C) {
 	cloudLocalAddress.NetworkScope = instance.NetworkCloudLocal
 	publicAddress := instance.NewAddress("public")
 	publicAddress.NetworkScope = instance.NetworkPublic
-	err = m1.SetAddresses([]instance.Address{cloudLocalAddress})
+	err = m1.SetAddresses(cloudLocalAddress)
 	c.Assert(err, gc.IsNil)
 	addr, err := s.APIState.Client().PublicAddress("1")
 	c.Assert(err, gc.IsNil)
 	c.Assert(addr, gc.Equals, "cloudlocal")
-	err = m1.SetAddresses([]instance.Address{cloudLocalAddress, publicAddress})
+	err = m1.SetAddresses(cloudLocalAddress, publicAddress)
 	addr, err = s.APIState.Client().PublicAddress("1")
 	c.Assert(err, gc.IsNil)
 	c.Assert(addr, gc.Equals, "public")
@@ -1423,7 +1423,7 @@ func (s *clientSuite) TestClientPublicAddressUnitWithMachine(c *gc.C) {
 	m1, err := s.State.Machine("1")
 	publicAddress := instance.NewAddress("public")
 	publicAddress.NetworkScope = instance.NetworkPublic
-	err = m1.SetAddresses([]instance.Address{publicAddress})
+	err = m1.SetAddresses(publicAddress)
 	c.Assert(err, gc.IsNil)
 	addr, err := s.APIState.Client().PublicAddress("wordpress/0")
 	c.Assert(err, gc.IsNil)
@@ -1464,12 +1464,12 @@ func (s *clientSuite) TestClientPrivateAddressMachine(c *gc.C) {
 	cloudLocalAddress.NetworkScope = instance.NetworkCloudLocal
 	publicAddress := instance.NewAddress("public")
 	publicAddress.NetworkScope = instance.NetworkPublic
-	err = m1.SetAddresses([]instance.Address{publicAddress})
+	err = m1.SetAddresses(publicAddress)
 	c.Assert(err, gc.IsNil)
 	addr, err := s.APIState.Client().PrivateAddress("1")
 	c.Assert(err, gc.IsNil)
 	c.Assert(addr, gc.Equals, "public")
-	err = m1.SetAddresses([]instance.Address{cloudLocalAddress, publicAddress})
+	err = m1.SetAddresses(cloudLocalAddress, publicAddress)
 	addr, err = s.APIState.Client().PrivateAddress("1")
 	c.Assert(err, gc.IsNil)
 	c.Assert(addr, gc.Equals, "cloudlocal")
@@ -1483,7 +1483,7 @@ func (s *clientSuite) TestClientPrivateAddressUnitWithMachine(c *gc.C) {
 	m1, err := s.State.Machine("1")
 	publicAddress := instance.NewAddress("public")
 	publicAddress.NetworkScope = instance.NetworkCloudLocal
-	err = m1.SetAddresses([]instance.Address{publicAddress})
+	err = m1.SetAddresses(publicAddress)
 	c.Assert(err, gc.IsNil)
 	addr, err := s.APIState.Client().PrivateAddress("wordpress/0")
 	c.Assert(err, gc.IsNil)
@@ -2081,4 +2081,93 @@ func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "error")
 	c.Assert(data["transient"], gc.Equals, true)
+}
+
+func (s *clientSuite) TestClientEnsureAvailabilitySeries(c *gc.C) {
+	apiParams := []params.EnsureAvailability{{
+		NumStateServers: 1,
+	}, {
+		NumStateServers: 3,
+		Series:          "non-default",
+	}}
+	for _, p := range apiParams {
+		err := s.APIState.Client().EnsureAvailability(p.NumStateServers, p.Constraints, p.Series)
+		c.Assert(err, gc.IsNil)
+	}
+	machines, err := s.State.AllMachines()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machines, gc.HasLen, 3)
+	c.Assert(machines[0].Series(), gc.Equals, "precise")
+	c.Assert(machines[1].Series(), gc.Equals, "non-default")
+	c.Assert(machines[2].Series(), gc.Equals, "non-default")
+}
+
+func (s *clientSuite) TestClientEnsureAvailabilityConstraints(c *gc.C) {
+	apiParams := []params.EnsureAvailability{{
+		NumStateServers: 1,
+	}, {
+		NumStateServers: 3,
+		Constraints:     constraints.MustParse("mem=4G"),
+	}}
+	for _, p := range apiParams {
+		err := s.APIState.Client().EnsureAvailability(p.NumStateServers, p.Constraints, p.Series)
+		c.Assert(err, gc.IsNil)
+	}
+	machines, err := s.State.AllMachines()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machines, gc.HasLen, 3)
+	expectedCons := []constraints.Value{
+		constraints.Value{},
+		constraints.MustParse("mem=4G"),
+		constraints.MustParse("mem=4G"),
+	}
+	for i, m := range machines {
+		cons, err := m.Constraints()
+		c.Assert(err, gc.IsNil)
+		c.Check(cons, gc.DeepEquals, expectedCons[i])
+	}
+}
+
+func (s *clientSuite) TestClientEnsureAvailabilityErrors(c *gc.C) {
+	var emptyCons constraints.Value
+	defaultSeries := ""
+	err := s.APIState.Client().EnsureAvailability(0, emptyCons, defaultSeries)
+	c.Assert(err, gc.ErrorMatches, "number of state servers must be odd and greater than zero")
+	err = s.APIState.Client().EnsureAvailability(3, emptyCons, defaultSeries)
+	c.Assert(err, gc.IsNil)
+	err = s.APIState.Client().EnsureAvailability(1, emptyCons, defaultSeries)
+	c.Assert(err, gc.ErrorMatches, "cannot reduce state server count")
+}
+
+func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
+	apiHostPorts, err := s.APIState.Client().APIHostPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(apiHostPorts, gc.HasLen, 0)
+
+	server1Addresses := []instance.Address{{
+		Value:        "server-1",
+		Type:         instance.HostName,
+		NetworkScope: instance.NetworkPublic,
+	}, {
+		Value:        "10.0.0.1",
+		Type:         instance.Ipv4Address,
+		NetworkName:  "internal",
+		NetworkScope: instance.NetworkCloudLocal,
+	}}
+	server2Addresses := []instance.Address{{
+		Value:        "::1",
+		Type:         instance.Ipv6Address,
+		NetworkName:  "loopback",
+		NetworkScope: instance.NetworkMachineLocal,
+	}}
+	stateAPIHostPorts := [][]instance.HostPort{
+		instance.AddressesWithPort(server1Addresses, 123),
+		instance.AddressesWithPort(server2Addresses, 456),
+	}
+
+	err = s.State.SetAPIHostPorts(stateAPIHostPorts)
+	c.Assert(err, gc.IsNil)
+	apiHostPorts, err = s.APIState.Client().APIHostPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(apiHostPorts, gc.DeepEquals, stateAPIHostPorts)
 }

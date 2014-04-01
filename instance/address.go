@@ -91,7 +91,7 @@ func (a Address) String() string {
 }
 
 // NewAddresses is a convenience function to create addresses from a string slice
-func NewAddresses(inAddresses []string) (outAddresses []Address) {
+func NewAddresses(inAddresses ...string) (outAddresses []Address) {
 	for _, address := range inAddresses {
 		outAddresses = append(outAddresses, NewAddress(address, NetworkUnknown))
 	}

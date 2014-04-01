@@ -21,6 +21,10 @@ type EnvironCapability interface {
 	// SupportedArchitectures returns the image architectures which can
 	// be hosted by this environment.
 	SupportedArchitectures() ([]string, error)
+
+	// SupportNetworks returns whether the environment has support to
+	// specify networks for services and machines.
+	SupportNetworks() bool
 }
 
 // A EnvironProvider represents a computing and storage provider.
@@ -57,12 +61,6 @@ type EnvironProvider interface {
 	// which are considered sensitive. All of the values of these secret
 	// attributes need to be strings.
 	SecretAttrs(cfg *config.Config) (map[string]string, error)
-
-	// PublicAddress returns this machine's public host name.
-	PublicAddress() (string, error)
-
-	// PrivateAddress returns this machine's private host name.
-	PrivateAddress() (string, error)
 }
 
 // EnvironStorage implements storage access for an environment
