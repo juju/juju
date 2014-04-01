@@ -69,7 +69,7 @@ func (c *SSHCommand) Info() *cmd.Info {
 }
 
 func (c *SSHCommand) Init(args []string) error {
-	err := c.EnsureEnvNameSet()
+	err := c.EnvCommandBase.Init()
 	if err != nil {
 		return err
 	}

@@ -118,7 +118,7 @@ func (c *ValidateToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *ValidateToolsMetadataCommand) Init(args []string) error {
-	err := c.EnsureEnvNameSet()
+	err := c.EnvCommandBase.Init()
 	if err != nil {
 		return err
 	}
@@ -139,7 +139,7 @@ func (c *ValidateToolsMetadataCommand) Init(args []string) error {
 			return err
 		}
 	}
-	return c.EnvCommandBase.Init(args)
+	return nil
 }
 
 func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {

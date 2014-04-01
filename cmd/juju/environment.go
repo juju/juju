@@ -51,7 +51,7 @@ func (c *GetEnvironmentCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *GetEnvironmentCommand) Init(args []string) (err error) {
-	err = c.EnsureEnvNameSet()
+	err = c.EnvCommandBase.Init()
 	if err != nil {
 		return
 	}
@@ -132,7 +132,7 @@ func (c *SetEnvironmentCommand) Info() *cmd.Info {
 // SetFlags handled entirely by cmd.EnvCommandBase
 
 func (c *SetEnvironmentCommand) Init(args []string) (err error) {
-	err = c.EnsureEnvNameSet()
+	err = c.EnvCommandBase.Init()
 	if err != nil {
 		return
 	}

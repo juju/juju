@@ -38,7 +38,7 @@ func (c *EndpointCommand) Info() *cmd.Info {
 }
 
 func (c *EndpointCommand) Init(args []string) error {
-	err := c.EnsureEnvNameSet()
+	err := c.EnvCommandBase.Init()
 	if err != nil {
 		return err
 	}

@@ -94,7 +94,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *DeployCommand) Init(args []string) error {
-	err := c.EnsureEnvNameSet()
+	err := c.EnvCommandBase.Init()
 	if err != nil {
 		return err
 	}

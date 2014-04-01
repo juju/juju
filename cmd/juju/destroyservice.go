@@ -29,7 +29,7 @@ func (c *DestroyServiceCommand) Info() *cmd.Info {
 }
 
 func (c *DestroyServiceCommand) Init(args []string) error {
-	err := c.EnsureEnvNameSet()
+	err := c.EnvCommandBase.Init()
 	if err != nil {
 		return err
 	}

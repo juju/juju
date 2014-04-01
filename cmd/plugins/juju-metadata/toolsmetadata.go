@@ -42,6 +42,14 @@ func (c *ToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.public, "public", false, "tools are for a public cloud, so generate mirrors information")
 }
 
+func (c *ToolsMetadataCommand) Init(args []string) (err error) {
+	err = c.EnvCommandBase.Init()
+	if err != nil {
+		return
+	}
+	return cmd.CheckEmpty(args)
+}
+
 func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 	loggo.RegisterWriter("toolsmetadata", cmd.NewCommandLogWriter("juju.environs.tools", context.Stdout, context.Stderr), loggo.INFO)
 	defer loggo.RemoveWriter("toolsmetadata")

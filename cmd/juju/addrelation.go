@@ -26,7 +26,7 @@ func (c *AddRelationCommand) Info() *cmd.Info {
 }
 
 func (c *AddRelationCommand) Init(args []string) error {
-	err := c.EnsureEnvNameSet()
+	err := c.EnvCommandBase.Init()
 	if err != nil {
 		return err
 	}

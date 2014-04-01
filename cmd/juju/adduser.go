@@ -52,7 +52,7 @@ func (c *AddUserCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 }
 func (c *AddUserCommand) Init(args []string) error {
-	err := c.EnsureEnvNameSet()
+	err := c.EnvCommandBase.Init()
 	if err != nil {
 		return err
 	}

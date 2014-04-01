@@ -64,7 +64,7 @@ func (c *EnsureAvailabilityCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *EnsureAvailabilityCommand) Init(args []string) error {
-	err := c.EnsureEnvNameSet()
+	err := c.EnvCommandBase.Init()
 	if err != nil {
 		return err
 	}

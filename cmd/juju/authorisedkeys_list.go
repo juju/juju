@@ -43,7 +43,7 @@ func (c *ListKeysCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *ListKeysCommand) Init(args []string) error {
-	err := c.EnsureEnvNameSet()
+	err := c.EnvCommandBase.Init()
 	if err != nil {
 		return err
 	}

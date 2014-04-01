@@ -26,7 +26,7 @@ func (c *UnexposeCommand) Info() *cmd.Info {
 }
 
 func (c *UnexposeCommand) Init(args []string) error {
-	err := c.EnsureEnvNameSet()
+	err := c.EnvCommandBase.Init()
 	if err != nil {
 		return err
 	}

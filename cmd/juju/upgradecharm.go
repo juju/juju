@@ -85,7 +85,7 @@ func (c *UpgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *UpgradeCharmCommand) Init(args []string) error {
-	err := c.EnsureEnvNameSet()
+	err := c.EnvCommandBase.Init()
 	if err != nil {
 		return err
 	}
