@@ -7,18 +7,11 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
-	"strconv"
 
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/juju/osenv"
-	"launchpad.net/juju-core/provider"
 )
 
 type DebugLogCommand struct {
@@ -27,6 +20,8 @@ type DebugLogCommand struct {
 	lines  int
 	filter string
 }
+
+var DefaultLogLocation = "/var/log/juju/all-machines.log"
 
 // defaultLineCount is the default number of lines to
 // display, from the end of the consolidated log.
@@ -80,58 +75,15 @@ func (c *DebugLogCommand) Run(ctx *cmd.Context) (err error) {
 // watchDebugLog1dot16 runs in case of an older API server and uses ssh
 // but with server-side grep.
 func (c *DebugLogCommand) watchDebugLog1dot16(ctx *cmd.Context) error {
-	name, local, err := c.currentEnvironment()
-	if err != nil {
-		return err
-	}
-	// Work depending on the provider.
-	if local {
-		// Local provider tails local log file.
-		logLocation := fmt.Sprintf("%s/%s/log/all-machines.log", osenv.JujuHomeDir(), name)
-		tailCmd := exec.Command("tail", "-n", strconv.Itoa(c.lines), "-f", logLocation)
-		grepCmd := exec.Command("grep", "-E", c.filter)
-		r, w := io.Pipe()
-
-		tailCmd.Stdout = w
-		grepCmd.Stdin = r
-		grepCmd.Stdout = os.Stdout
-		grepCmd.Stderr = os.Stderr
-
-		err := tailCmd.Start()
-		if err != nil {
-			return err
-		}
-		err = grepCmd.Start()
-		if err != nil {
-			return err
-		}
-		return grepCmd.Wait()
-	}
-	// Any other provider uses ssh with tail.
-	logLocation := config.DefaultLogLocation
 	sshCmd := &SSHCommand{}
-	tailGrepCmd := fmt.Sprintf("tail -n %d -f %s", c.lines, logLocation)
+	tailGrepCmd := fmt.Sprintf("tail -n %d -f %s", c.lines, DefaultLogLocation)
 	if c.filter != "" {
 		tailGrepCmd += fmt.Sprintf("  | grep -E %s", c.filter)
 	}
 	args := []string{"0", tailGrepCmd}
-	err = sshCmd.Init(args)
+	err := sshCmd.Init(args)
 	if err != nil {
 		return err
 	}
 	return sshCmd.Run(ctx)
-}
-
-// currentEnvironment returns the name of the environment and if it is local.
-func (c *DebugLogCommand) currentEnvironment() (string, bool, error) {
-	store, err := configstore.Default()
-	if err != nil {
-		return "", false, fmt.Errorf("cannot open environment info storage: %v", err)
-	}
-	environ, err := environs.NewFromName(c.EnvironName(), store)
-	if err != nil {
-		return "", false, err
-	}
-	local := environ.Config().Type() == provider.Local
-	return environ.Name(), local, nil
 }
