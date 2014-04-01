@@ -30,12 +30,13 @@ type Server struct {
 	state   *state.State
 	addr    net.Addr
 	dataDir string
+	logDir  string
 }
 
 // Serve serves the given state by accepting requests on the given
 // listener, using the given certificate and key (in PEM format) for
 // authentication.
-func NewServer(s *state.State, addr string, cert, key []byte, datadir string) (*Server, error) {
+func NewServer(s *state.State, addr string, cert, key []byte, datadir, logDir string) (*Server, error) {
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, err
@@ -49,6 +50,7 @@ func NewServer(s *state.State, addr string, cert, key []byte, datadir string) (*
 		state:   s,
 		addr:    lis.Addr(),
 		dataDir: datadir,
+		logDir:  logDir,
 	}
 	// TODO(rog) check that *srvRoot is a valid type for using
 	// as an RPC server.
@@ -152,7 +154,7 @@ func (srv *Server) run(lis net.Listener) {
 	}()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", srv.apiHandler)
-	mux.Handle("/log", &debugLogHandler{srv.state})
+	mux.Handle("/log", &debugLogHandler{srv.state, srv.logDir})
 	charmHandler := &charmsHandler{httpHandler: httpHandler{state: srv.state}, dataDir: srv.dataDir}
 	// charmHandler itself provides the errorSender implementation for the embedded httpHandler.
 	charmHandler.httpHandler.errorSender = charmHandler

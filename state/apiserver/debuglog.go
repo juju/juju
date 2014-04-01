@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -27,7 +28,8 @@ import (
 
 // debugLogHandler takes requests to watch the debug log.
 type debugLogHandler struct {
-	state *state.State
+	state  *state.State
+	logDir string
 }
 
 func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -53,12 +55,7 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	// Open log file.
-	config, err := h.state.EnvironConfig()
-	if err != nil {
-		h.sendError(w, http.StatusBadRequest, "cannot get environment configuration: %v", err)
-		return
-	}
-	logLocation := config.LogLocation()
+	logLocation := filepath.Join(h.logDir, "all-machines.log")
 	logFile, err := os.Open(logLocation)
 	if err != nil {
 		h.sendError(w, http.StatusInternalServerError, "cannot open log file: %v", err)
