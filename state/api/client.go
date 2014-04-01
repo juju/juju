@@ -556,7 +556,7 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 	}
 
 	// Prepare the upload request.
-	url := fmt.Sprintf("https://%s/charms?series=%s", c.st.serverHostPort, curl.Series)
+	url := fmt.Sprintf("%s/charms?series=%s", c.st.serverRoot, curl.Series)
 	req, err := http.NewRequest("POST", url, archive)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create upload request: %v", err)
