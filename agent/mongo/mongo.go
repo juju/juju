@@ -50,7 +50,7 @@ func GenerateSharedSecret() (string, error) {
 	//   -- http://docs.mongodb.org/manual/tutorial/generate-key-file/
 	buf := make([]byte, base64.StdEncoding.DecodedLen(1024))
 	if _, err := rand.Read(buf); err != nil {
-		return "", err
+		return "", fmt.Errorf("cannot read random secret: %v", err)
 	}
 	return base64.StdEncoding.EncodeToString(buf), nil
 }

@@ -59,7 +59,7 @@ type BootstrapMachineConfig struct {
 
 const bootstrapMachineId = "0"
 
-func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts, policy state.Policy) (*state.State, *state.Machine, error) {
+func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
 	if c.Tag() != names.MachineTag(bootstrapMachineId) {
 		return nil, nil, fmt.Errorf("InitializeState not called with bootstrap machine's configuration")
 	}
@@ -72,17 +72,19 @@ func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg Bootstrap
 		return nil, nil, fmt.Errorf("failed to initialize state: %v", err)
 	}
 	logger.Debugf("connected to initial state")
+	defer func() {
+		if resultErr != nil {
+			st.Close()
+		}
+	}()
 	if err = initAPIHostPorts(c, st, machineCfg.Addresses); err != nil {
-		st.Close()
 		return nil, nil, err
 	}
 	if err = setStateServingInfo(c, st, envCfg.StatePort(), machineCfg.SharedSecret); err != nil {
-		st.Close()
 		return nil, nil, err
 	}
 	m, err := initUsersAndBootstrapMachine(c, st, machineCfg)
 	if err != nil {
-		st.Close()
 		return nil, nil, err
 	}
 	return st, m, nil
