@@ -181,7 +181,10 @@ func initBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineC
 
 // initAPIHostPorts sets the initial API host/port addresses in state.
 func initAPIHostPorts(c ConfigSetter, st *state.State, addrs []instance.Address) error {
-	info, _ := c.StateServingInfo()
+	info, available := c.StateServingInfo()
+	if !available {
+		return fmt.Errorf("api port information not available")
+	}
 	port := info.APIPort
 	hostPorts := instance.AddressesWithPort(addrs, port)
 	return st.SetAPIHostPorts([][]instance.HostPort{hostPorts})

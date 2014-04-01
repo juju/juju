@@ -168,9 +168,12 @@ func (s *bootstrapSuite) TestInitializeStateServingInfoNotAvailable(c *gc.C) {
 	cfg, err := agent.NewStateMachineConfig(configParams)
 	c.Assert(err, gc.IsNil)
 
+	// we can't create a state machine config with missing serving info
+	// so we need to set invalid data
 	cfg.SetStateServingInfo(params.StateServingInfo{})
 	_, available := cfg.StateServingInfo()
 	c.Assert(available, gc.Equals, false)
+
 	expectConstraints := constraints.MustParse("mem=1024M")
 	expectHW := instance.MustParseHardware("mem=2048M")
 	mcfg := agent.BootstrapMachineConfig{
@@ -187,7 +190,8 @@ func (s *bootstrapSuite) TestInitializeStateServingInfoNotAvailable(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	_, _, err = agent.InitializeState(cfg, envCfg, mcfg, state.DialOpts{}, environs.NewStatePolicy())
-	c.Assert(err, gc.ErrorMatches, "StateServingInfo not available. Failed to initialize state")
+	// InitializeState will fail attempting to get the api port information
+	c.Assert(err, gc.ErrorMatches, "api port information not available")
 }
 
 func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
