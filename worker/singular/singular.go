@@ -12,7 +12,7 @@ import (
 
 var logger = loggo.GetLogger("juju.worker")
 
-var pingInterval = 10 * time.Second
+var PingInterval = 10 * time.Second
 
 type runner struct {
 	tomb     tomb.Tomb
@@ -63,6 +63,14 @@ func New(underlying worker.Runner, conn Conn) (worker.Runner, error) {
 		}
 	}()
 	return r, nil
+}
+
+func (r *runner) Kill() {
+	r.tomb.Kill(nil)
+}
+
+func (r *runner) Wait() {
+	return r.tomb.Wait()
 }
 
 func (r *runner) pinger(conn Conn) {

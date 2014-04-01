@@ -31,6 +31,32 @@ func (*singularSuite) TestWithMasterError(c *gc.C) {
 	c.Check(r, gc.IsNil)
 }
 
+func (*singularSuite) TestWithIsMasterTrue(c *gc.C) {
+	// When IsMaster returns true, workers get started on the underlying
+	// runner as usual.
+	s.PatchValue(&singular.PingInterval, 1 * time.Millisecond)
+	underlyingRunner := newRunner()
+	conn := &fakeConn{
+		isMaster: true,
+	}
+	r, err := singular.New(underlyingRunner, conn)
+	c.Assert(err, gc.IsNil)
+
+	started := make(chan struct{}, 1)
+	err := r.StartWorker(func() (worker.Worker, error) {
+		return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
+			started <- struct{}{}
+			<-stop
+			return nil
+		})
+	})
+	select {
+	case <-started:
+	case <-testing.LongWait:
+		log.Fatalf("timed out waiting for worker to start")
+	}
+}
+
 func newRunner() worker.Runner {
 	return worker.NewRunner(
 		func(error) bool { return true },
