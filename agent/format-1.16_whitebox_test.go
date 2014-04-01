@@ -38,6 +38,10 @@ func (s *format_1_16Suite) TestMissingAttributes(c *gc.C) {
 	c.Assert(readConfig.UpgradedToVersion(), gc.Equals, version.MustParse("1.16.0"))
 	c.Assert(readConfig.LogDir(), gc.Equals, "/var/log/juju")
 	c.Assert(readConfig.DataDir(), gc.Equals, "/var/lib/juju")
+	// Test data doesn't include a StateServerKey so StateServingInfo
+	// should *not* be available
+	_, available := readConfig.StateServingInfo()
+	c.Assert(available, gc.Equals, false)
 }
 
 func (*format_1_16Suite) TestReadConfReadsLegacyFormatAndWritesNew(c *gc.C) {
