@@ -4,6 +4,8 @@
 package provisioner
 
 import (
+	"fmt"
+
 	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/agent"
@@ -50,6 +52,10 @@ func (broker *lxcBroker) Tools() tools.List {
 
 // StartInstance is specified in the Broker interface.
 func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
+	if len(args.MachineConfig.IncludeNetworks) > 0 ||
+		len(args.MachineConfig.ExcludeNetworks) > 0 {
+		return nil, nil, fmt.Errorf("starting lxc containers with networks is not supported yet.")
+	}
 	// TODO: refactor common code out of the container brokers.
 	machineId := args.MachineConfig.MachineId
 	lxcLogger.Infof("starting lxc container for machineId: %s", machineId)

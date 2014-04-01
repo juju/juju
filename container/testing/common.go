@@ -20,7 +20,7 @@ import (
 func CreateContainer(c *gc.C, manager container.Manager, machineId string) instance.Instance {
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	machineConfig := environs.NewMachineConfig(machineId, "fake-nonce", nil, stateInfo, apiInfo)
+	machineConfig := environs.NewMachineConfig(machineId, "fake-nonce", nil, nil, stateInfo, apiInfo)
 	machineConfig.Tools = &tools.Tools{
 		Version: version.MustParseBinary("2.3.4-foo-bar"),
 		URL:     "http://tools.testing.invalid/2.3.4-foo-bar.tgz",

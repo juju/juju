@@ -776,6 +776,11 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 // StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
 
+	if len(args.MachineConfig.IncludeNetworks) > 0 ||
+		len(args.MachineConfig.ExcludeNetworks) > 0 {
+		return nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
+	}
+
 	series := args.Tools.OneSeries()
 	arches := args.Tools.Arches()
 	spec, err := findInstanceSpec(e, &instances.InstanceConstraint{

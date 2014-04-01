@@ -402,7 +402,10 @@ const ebsStorage = "ebs"
 
 // StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
-
+	if len(args.MachineConfig.IncludeNetworks) > 0 ||
+		len(args.MachineConfig.ExcludeNetworks) > 0 {
+		return nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
+	}
 	arches := args.Tools.Arches()
 	stor := ebsStorage
 	sources, err := imagemetadata.GetMetadataSources(e)

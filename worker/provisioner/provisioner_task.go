@@ -4,7 +4,6 @@
 package provisioner
 
 import (
-	"errors"
 	"fmt"
 
 	"launchpad.net/tomb"
@@ -45,7 +44,6 @@ type MachineGetter interface {
 func NewProvisionerTask(
 	machineTag string,
 	safeMode bool,
-	supportNetworks bool,
 	machineGetter MachineGetter,
 	machineWatcher apiwatcher.StringsWatcher,
 	retryWatcher apiwatcher.NotifyWatcher,
@@ -53,16 +51,15 @@ func NewProvisionerTask(
 	auth environs.AuthenticationProvider,
 ) ProvisionerTask {
 	task := &provisionerTask{
-		machineTag:      machineTag,
-		machineGetter:   machineGetter,
-		machineWatcher:  machineWatcher,
-		retryWatcher:    retryWatcher,
-		broker:          broker,
-		auth:            auth,
-		safeMode:        safeMode,
-		safeModeChan:    make(chan bool, 1),
-		supportNetworks: supportNetworks,
-		machines:        make(map[string]*apiprovisioner.Machine),
+		machineTag:     machineTag,
+		machineGetter:  machineGetter,
+		machineWatcher: machineWatcher,
+		retryWatcher:   retryWatcher,
+		broker:         broker,
+		auth:           auth,
+		safeMode:       safeMode,
+		safeModeChan:   make(chan bool, 1),
+		machines:       make(map[string]*apiprovisioner.Machine),
 	}
 	go func() {
 		defer task.tomb.Done()
@@ -82,8 +79,6 @@ type provisionerTask struct {
 
 	safeMode     bool
 	safeModeChan chan bool
-
-	supportNetworks bool
 
 	// instance id -> instance
 	instances map[instance.Id]instance.Instance
@@ -398,18 +393,9 @@ func (task *provisionerTask) stopInstances(instances []instance.Instance) error 
 	return nil
 }
 
-var errNoNetworksSupport = errors.New("cannot provision machine with networks: not supported by the environment")
-
 func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) error {
 	for _, m := range machines {
 		if err := task.startMachine(m); err != nil {
-			if err == errNoNetworksSupport {
-				// Don't kill the task just because the user
-				// managed to get past CLI/API deploy sanity
-				// checks for networks support and is trying
-				// to deploy a machine with networks.
-				continue
-			}
 			return fmt.Errorf("cannot start machine %v: %v", m, err)
 		}
 	}
@@ -430,10 +416,6 @@ func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error
 		return err
 	}
 	machineConfig, err := task.machineConfig(machine)
-	if err == errNoNetworksSupport {
-		logger.Errorf(err.Error())
-		return err
-	}
 	if err != nil {
 		return err
 	}
@@ -441,10 +423,6 @@ func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error
 		Constraints:   cons,
 		Tools:         possibleTools,
 		MachineConfig: machineConfig,
-		Networks: environs.Networks{
-			IncludeNetworks: machineConfig.IncludeNetworks,
-			ExcludeNetworks: machineConfig.ExcludeNetworks,
-		},
 	})
 	if err != nil {
 		// Set the state to error, so the machine will be skipped next
@@ -506,22 +484,11 @@ func (task *provisionerTask) machineConfig(machine *apiprovisioner.Machine) (*cl
 	if err != nil {
 		return nil, err
 	}
-	var networks *environs.Networks
 	includeNetworks, excludeNetworks, err := machine.Networks()
 	if err != nil {
 		return nil, err
 	}
-	if len(includeNetworks) > 0 || len(excludeNetworks) > 0 {
-		networks = &environs.Networks{
-			IncludeNetworks: includeNetworks,
-			ExcludeNetworks: excludeNetworks,
-		}
-		// Make sure the environment supports networks.
-		if !task.supportNetworks {
-			return nil, errNoNetworksSupport
-		}
-	}
 	nonce := fmt.Sprintf("%s:%s", task.machineTag, uuid.String())
-	machineConfig := environs.NewMachineConfig(machine.Id(), nonce, networks, stateInfo, apiInfo)
+	machineConfig := environs.NewMachineConfig(machine.Id(), nonce, includeNetworks, excludeNetworks, stateInfo, apiInfo)
 	return machineConfig, nil
 }

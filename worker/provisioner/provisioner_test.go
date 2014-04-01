@@ -467,6 +467,23 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForContainers(c *gc.C) {
 	s.waitRemoved(c, m)
 }
 
+func (s *ProvisionerSuite) TestProvisioningMachinesWithNetworks(c *gc.C) {
+	p := s.newEnvironProvisioner(c)
+	defer stop(c, p)
+
+	// Add and provision a machine with networks specified.
+	includeNetworks := []string{"net1", "net2"}
+	excludeNetworks := []string{"net3", "net4"}
+	m, err := s.addMachineWithNetworks(includeNetworks, excludeNetworks)
+	c.Assert(err, gc.IsNil)
+	inst := s.checkStartInstanceCustom(c, m, "pork", s.defaultConstraints, includeNetworks, excludeNetworks)
+
+	// Cleanup.
+	c.Assert(m.EnsureDead(), gc.IsNil)
+	s.checkStopInstances(c, inst)
+	s.waitRemoved(c, m)
+}
+
 func (s *ProvisionerSuite) TestProvisioningDoesNotOccurWithAnInvalidEnvironment(c *gc.C) {
 	s.invalidateEnvironment(c)
 
@@ -748,9 +765,7 @@ func (s *ProvisionerSuite) TestProvisioningSafeModeChange(c *gc.C) {
 	s.waitRemoved(c, m3)
 }
 
-func (s *ProvisionerSuite) newProvisionerTask(c *gc.C, safeMode, supportNetworks bool,
-	broker environs.InstanceBroker) provisioner.ProvisionerTask {
-
+func (s *ProvisionerSuite) newProvisionerTask(c *gc.C, safeMode bool, broker environs.InstanceBroker) provisioner.ProvisionerTask {
 	machineWatcher, err := s.provisioner.WatchEnvironMachines()
 	c.Assert(err, gc.IsNil)
 	retryWatcher, err := s.provisioner.WatchMachineErrorRetry()
@@ -758,11 +773,12 @@ func (s *ProvisionerSuite) newProvisionerTask(c *gc.C, safeMode, supportNetworks
 	auth, err := environs.NewAPIAuthenticator(s.provisioner)
 	c.Assert(err, gc.IsNil)
 	return provisioner.NewProvisionerTask(
-		"machine-0", safeMode, supportNetworks, s.provisioner, machineWatcher, retryWatcher, broker, auth)
+		"machine-0", safeMode, s.provisioner,
+		machineWatcher, retryWatcher, broker, auth)
 }
 
 func (s *ProvisionerSuite) TestTurningOffSafeModeReapsUnknownInstances(c *gc.C) {
-	task := s.newProvisionerTask(c, true, true, s.APIConn.Environ)
+	task := s.newProvisionerTask(c, true, s.APIConn.Environ)
 	defer stop(c, task)
 
 	// Initially create a machine, and an unknown instance, with safe mode on.
@@ -783,54 +799,10 @@ func (s *ProvisionerSuite) TestTurningOffSafeModeReapsUnknownInstances(c *gc.C) 
 	s.checkStopInstances(c, i1)
 }
 
-func (s *ProvisionerSuite) TestNetworksWithAndWithoutSupport(c *gc.C) {
-	task := s.newProvisionerTask(c, false, false, s.APIConn.Environ)
-	defer func() {
-		stop(c, task)
-	}()
-
-	includeNetworks := []string{"net1", "net2"}
-	excludeNetworks := []string{"net3", "net4"}
-	machineWithNetworks, err := s.addMachineWithNetworks(includeNetworks, excludeNetworks)
-	c.Assert(err, gc.IsNil)
-
-	// No machine created.
-	s.checkNoOperations(c)
-
-	// A machine without networks gets provisioned OK.
-	machineWithoutNetworks, err := s.addMachine()
-	c.Assert(err, gc.IsNil)
-	s.checkStartInstanceCustom(c, machineWithoutNetworks, "pork", s.defaultConstraints, nil, nil)
-
-	// Restore networks support and retry.
-	stop(c, task)
-	task = s.newProvisionerTask(c, false, true, s.APIConn.Environ)
-	s.checkStartInstanceCustom(
-		c,
-		machineWithNetworks,
-		"pork",
-		s.defaultConstraints,
-		includeNetworks,
-		excludeNetworks,
-	)
-
-	// Add a container. For now, networks are not
-	// supported when provisioning containers. When
-	// this changes, fix the following test.
-	// make a container on the machine we just created
-	template := state.MachineTemplate{
-		Series: config.DefaultSeries,
-		Jobs:   []state.MachineJob{state.JobHostUnits},
-	}
-	_, err = s.State.AddMachineInsideMachine(template, machineWithoutNetworks.Id(), instance.LXC)
-	c.Assert(err, gc.IsNil)
-	s.checkNoOperations(c)
-}
-
 func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	s.PatchValue(&apiserverprovisioner.ErrorRetryWaitDelay, 5*time.Millisecond)
 	var e environs.Environ = &mockBroker{Environ: s.APIConn.Environ, retryCount: make(map[string]int)}
-	task := s.newProvisionerTask(c, false, true, e)
+	task := s.newProvisionerTask(c, false, e)
 	defer stop(c, task)
 
 	// Provision some machines, some will be started first time,
@@ -865,32 +837,6 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	c.Assert(status, gc.Equals, params.StatusError)
 	_, err = m4.InstanceId()
 	c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
-}
-
-type EnvironProvisionerSuite struct {
-	CommonProvisionerSuite
-}
-
-var _ = gc.Suite(&EnvironProvisionerSuite{})
-
-func (s *EnvironProvisionerSuite) TestEnvironProvisionerPassesSupportNetworksToTasks(c *gc.C) {
-	// Make the dummy provider to report no networks support.
-	// We need to do that before we start the environ provisioner,
-	// because it does the check once when starting up.
-	breakDummyProvider(c, s.State, "SupportNetworks")
-	s.CommonProvisionerSuite.setupEnvironmentManager(c)
-	p := s.newEnvironProvisioner(c)
-	defer stop(c, p)
-
-	// Check we can provision machines without networks..
-	machineWithoutNetworks, err := s.addMachine()
-	c.Assert(err, gc.IsNil)
-	s.checkStartInstanceCustom(c, machineWithoutNetworks, "pork", s.defaultConstraints, nil, nil)
-
-	// ...but can't provision with networks.
-	_, err = s.addMachineWithNetworks([]string{"net1", "net2"}, []string{"net3"})
-	c.Assert(err, gc.IsNil)
-	s.checkNoOperations(c)
 }
 
 type mockBroker struct {

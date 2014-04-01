@@ -533,10 +533,7 @@ func (*environ) SupportedArchitectures() ([]string, error) {
 }
 
 // SupportNetworks is specified on the EnvironCapability interface.
-func (env *environ) SupportNetworks() bool {
-	if err := env.checkBroken("SupportNetworks"); err != nil {
-		return false
-	}
+func (*environ) SupportNetworks() bool {
 	return true
 }
 
@@ -759,12 +756,6 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 			hc.CpuCores = &cores
 		}
 	}
-	if len(args.MachineConfig.IncludeNetworks) > len(args.Networks.IncludeNetworks) {
-		args.Networks.IncludeNetworks = args.MachineConfig.IncludeNetworks
-	}
-	if len(args.MachineConfig.ExcludeNetworks) > len(args.Networks.ExcludeNetworks) {
-		args.Networks.ExcludeNetworks = args.MachineConfig.ExcludeNetworks
-	}
 	estate.insts[i.id] = i
 	estate.maxId++
 	estate.ops <- OpStartInstance{
@@ -772,8 +763,8 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		MachineId:       machineId,
 		MachineNonce:    args.MachineConfig.MachineNonce,
 		Constraints:     args.Constraints,
-		IncludeNetworks: args.Networks.IncludeNetworks,
-		ExcludeNetworks: args.Networks.ExcludeNetworks,
+		IncludeNetworks: args.MachineConfig.IncludeNetworks,
+		ExcludeNetworks: args.MachineConfig.ExcludeNetworks,
 		Instance:        i,
 		Info:            args.MachineConfig.StateInfo,
 		APIInfo:         args.MachineConfig.APIInfo,

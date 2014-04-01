@@ -97,7 +97,7 @@ func (p *provisioner) Stop() error {
 }
 
 // getStartTask creates a new worker for the provisioner,
-func (p *provisioner) getStartTask(safeMode, supportNetworks bool) (ProvisionerTask, error) {
+func (p *provisioner) getStartTask(safeMode bool) (ProvisionerTask, error) {
 	auth, err := environs.NewAPIAuthenticator(p.st)
 	if err != nil {
 		return nil, err
@@ -113,14 +113,8 @@ func (p *provisioner) getStartTask(safeMode, supportNetworks bool) (ProvisionerT
 		return nil, err
 	}
 	task := NewProvisionerTask(
-		p.agentConfig.Tag(),
-		safeMode,
-		supportNetworks,
-		p.st,
-		machineWatcher,
-		retryWatcher,
-		p.broker,
-		auth)
+		p.agentConfig.Tag(), safeMode, p.st,
+		machineWatcher, retryWatcher, p.broker, auth)
 	return task, nil
 }
 
@@ -159,8 +153,7 @@ func (p *environProvisioner) loop() error {
 	p.broker = p.environ
 
 	safeMode := p.environ.Config().ProvisionerSafeMode()
-	supportNetworks := p.environ.SupportNetworks()
-	task, err := p.getStartTask(safeMode, supportNetworks)
+	task, err := p.getStartTask(safeMode)
 	if err != nil {
 		return err
 	}
@@ -229,9 +222,7 @@ func NewContainerProvisioner(containerType instance.ContainerType, st *apiprovis
 }
 
 func (p *containerProvisioner) loop() error {
-	// TODO(dimitern) When container networking and bridging works,
-	// enable provisioning containers with networks.
-	task, err := p.getStartTask(false, false)
+	task, err := p.getStartTask(false)
 	if err != nil {
 		return err
 	}
