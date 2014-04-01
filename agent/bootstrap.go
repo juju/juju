@@ -52,6 +52,9 @@ type BootstrapMachineConfig struct {
 	// Characteristics holds hardware information on the
 	// bootstrap machine.
 	Characteristics instance.HardwareCharacteristics
+
+	// SharedSecret is the Mongo replica set shared secret (keyfile).
+	SharedSecret string
 }
 
 const bootstrapMachineId = "0"
@@ -70,6 +73,10 @@ func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg Bootstrap
 	}
 	logger.Debugf("connected to initial state")
 	if err = initAPIHostPorts(c, st, machineCfg.Addresses); err != nil {
+		st.Close()
+		return nil, nil, err
+	}
+	if err = setStateServingInfo(c, st, envCfg.StatePort(), machineCfg.SharedSecret); err != nil {
 		st.Close()
 		return nil, nil, err
 	}
@@ -173,8 +180,20 @@ func initBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineC
 }
 
 // initAPIHostPorts sets the initial API host/port addresses in state.
-func initAPIHostPorts(c ConfigSetter, st *state.State, addrs []instance.Address) error {
+func initAPIHostPorts(c Config, st *state.State, addrs []instance.Address) error {
 	port, _, _ := c.APIServerDetails()
 	hostPorts := instance.AddressesWithPort(addrs, port)
 	return st.SetAPIHostPorts([][]instance.HostPort{hostPorts})
+}
+
+// setStateServingInfo sets the state serving info in state.
+func setStateServingInfo(c Config, st *state.State, statePort int, sharedSecret string) error {
+	apiPort, cert, key := c.APIServerDetails()
+	return st.SetStateServingInfo(params.StateServingInfo{
+		APIPort:      apiPort,
+		StatePort:    statePort,
+		Cert:         string(cert),
+		PrivateKey:   string(key),
+		SharedSecret: sharedSecret,
+	})
 }

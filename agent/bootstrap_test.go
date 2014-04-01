@@ -73,6 +73,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 		Jobs:            []params.MachineJob{params.JobHostUnits},
 		InstanceId:      "i-bootstrap",
 		Characteristics: expectHW,
+		SharedSecret:    "abc123",
 	}
 	envAttrs := testing.FakeConfig().Delete("admin-secret").Merge(testing.Attrs{
 		"agent-version": version.Current.Number.String(),
@@ -117,6 +118,17 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(apiHostPorts, gc.DeepEquals, [][]instance.HostPort{
 		instance.AddressesWithPort(mcfg.Addresses, 1234),
+	})
+
+	// Check that the state serving info is initialised correctly.
+	stateServingInfo, err := st.StateServingInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(stateServingInfo, gc.Equals, params.StateServingInfo{
+		APIPort:      1234,
+		StatePort:    envCfg.StatePort(),
+		Cert:         testing.ServerCert,
+		PrivateKey:   testing.ServerKey,
+		SharedSecret: "abc123",
 	})
 
 	// Check that the machine agent's config has been written
