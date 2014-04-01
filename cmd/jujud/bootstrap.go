@@ -6,11 +6,14 @@ package main
 import (
 	"encoding/base64"
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 
 	"launchpad.net/gnuflag"
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -94,6 +97,16 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 
+	// Generate a shared secret for the Mongo replica set, and write it out.
+	sharedSecret, err := mongo.GenerateSharedSecret()
+	if err != nil {
+		return err
+	}
+	sharedSecretFile := filepath.Join(c.dataDir, mongo.SharedSecretFile)
+	if err := ioutil.WriteFile(sharedSecretFile, []byte(sharedSecret), 0600); err != nil {
+		return err
+	}
+
 	// Initialise state, and store any agent config (e.g. password) changes.
 	var st *state.State
 	err = nil
@@ -107,6 +120,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 				Jobs:            jobs,
 				InstanceId:      instanceId,
 				Characteristics: c.Hardware,
+				SharedSecret:    sharedSecret,
 			},
 			state.DefaultDialOpts(),
 			environs.NewStatePolicy(),
