@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 
-	"launchpad.net/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -30,7 +30,7 @@ func init() {
 
 var errNotImplemented = errors.New("not implemented in Joyent provider")
 
-func (environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+func (environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	// This method may be called with an incomplete cfg. It should make every
 	// reasonable effort to create a valid configuration based on the supplied,
 	// and open the resulting environment.

@@ -50,6 +50,7 @@ func (c *GoCryptoClient) Command(host string, command []string, options *Options
 			port = options.port
 		}
 	}
+	logger.Debugf(`running (equivalent of): ssh "%s@%s" -p %d '%s'`, user, host, port, shellCommand)
 	return &Cmd{impl: &goCryptoCommand{
 		signers: signers,
 		user:    user,
@@ -61,8 +62,8 @@ func (c *GoCryptoClient) Command(host string, command []string, options *Options
 // Copy implements Client.Copy.
 //
 // Copy is currently unimplemented, and will always return an error.
-func (c *GoCryptoClient) Copy(source, dest string, options *Options) error {
-	return fmt.Errorf("Copy is not implemented")
+func (c *GoCryptoClient) Copy(targets, extraArgs []string, options *Options) error {
+	return fmt.Errorf("scp command is not implemented (OpenSSH scp not available in PATH)")
 }
 
 type goCryptoCommand struct {
@@ -76,6 +77,8 @@ type goCryptoCommand struct {
 	conn    *ssh.ClientConn
 	sess    *ssh.Session
 }
+
+var sshDial = ssh.Dial
 
 func (c *goCryptoCommand) ensureSession() (*ssh.Session, error) {
 	if c.sess != nil {
@@ -97,7 +100,7 @@ func (c *goCryptoCommand) ensureSession() (*ssh.Session, error) {
 			ssh.ClientAuthKeyring(keyring{c.signers}),
 		},
 	}
-	conn, err := ssh.Dial("tcp", c.addr, config)
+	conn, err := sshDial("tcp", c.addr, config)
 	if err != nil {
 		return nil, err
 	}

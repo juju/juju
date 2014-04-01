@@ -5,13 +5,12 @@ package ssh_test
 
 import (
 	"io/ioutil"
-	"os"
 	"path/filepath"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils/ssh"
 )
@@ -28,8 +27,7 @@ func (s *ExecuteSSHCommandSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.testbin = c.MkDir()
 	s.fakessh = filepath.Join(s.testbin, "ssh")
-	newPath := s.testbin + ":" + os.Getenv("PATH")
-	s.PatchEnvironment("PATH", newPath)
+	s.PatchEnvPathPrepend(s.testbin)
 }
 
 func (s *ExecuteSSHCommandSuite) fakeSSH(c *gc.C, cmd string) {
@@ -50,7 +48,7 @@ func (s *ExecuteSSHCommandSuite) TestCaptureOutput(c *gc.C) {
 	c.Assert(response.Code, gc.Equals, 0)
 	c.Assert(string(response.Stdout), gc.Equals, "sudo apt-get update\nsudo apt-get upgrade\n")
 	c.Assert(string(response.Stderr), gc.Equals,
-		"-o StrictHostKeyChecking no -o PasswordAuthentication no hostname -- /bin/bash -s\n")
+		"-o StrictHostKeyChecking no -o PasswordAuthentication no hostname /bin/bash -s\n")
 }
 
 func (s *ExecuteSSHCommandSuite) TestIdentityFile(c *gc.C) {

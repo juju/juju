@@ -14,6 +14,10 @@ type Client struct {
 	st *api.State
 }
 
+func (c *Client) call(method string, params, result interface{}) error {
+	return c.st.Call("KeyManager", "", method, params, result)
+}
+
 // NewClient returns a new keymanager client.
 func NewClient(st *api.State) *Client {
 	return &Client{st}
@@ -32,7 +36,7 @@ func (c *Client) ListKeys(mode ssh.ListMode, users ...string) ([]params.StringsR
 		p.Entities.Entities[i] = params.Entity{Tag: userName}
 	}
 	results := new(params.StringsResults)
-	err := c.st.Call("KeyManager", "", "ListKeys", p, results)
+	err := c.call("ListKeys", p, results)
 	return results.Results, err
 }
 
@@ -40,7 +44,7 @@ func (c *Client) ListKeys(mode ssh.ListMode, users ...string) ([]params.StringsR
 func (c *Client) AddKeys(user string, keys ...string) ([]params.ErrorResult, error) {
 	p := params.ModifyUserSSHKeys{User: user, Keys: keys}
 	results := new(params.ErrorResults)
-	err := c.st.Call("KeyManager", "", "AddKeys", p, results)
+	err := c.call("AddKeys", p, results)
 	return results.Results, err
 }
 
@@ -48,7 +52,7 @@ func (c *Client) AddKeys(user string, keys ...string) ([]params.ErrorResult, err
 func (c *Client) DeleteKeys(user string, keys ...string) ([]params.ErrorResult, error) {
 	p := params.ModifyUserSSHKeys{User: user, Keys: keys}
 	results := new(params.ErrorResults)
-	err := c.st.Call("KeyManager", "", "DeleteKeys", p, results)
+	err := c.call("DeleteKeys", p, results)
 	return results.Results, err
 }
 
@@ -56,6 +60,6 @@ func (c *Client) DeleteKeys(user string, keys ...string) ([]params.ErrorResult, 
 func (c *Client) ImportKeys(user string, keyIds ...string) ([]params.ErrorResult, error) {
 	p := params.ModifyUserSSHKeys{User: user, Keys: keyIds}
 	results := new(params.ErrorResults)
-	err := c.st.Call("KeyManager", "", "ImportKeys", p, results)
+	err := c.call("ImportKeys", p, results)
 	return results.Results, err
 }

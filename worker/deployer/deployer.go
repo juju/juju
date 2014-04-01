@@ -6,7 +6,7 @@ package deployer
 import (
 	"fmt"
 
-	"launchpad.net/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/names"

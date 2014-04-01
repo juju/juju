@@ -6,8 +6,8 @@ package jujuc_test
 import (
 	"fmt"
 
+	"github.com/juju/loggo"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"

@@ -12,7 +12,6 @@ type FakeAuthorizer struct {
 	Tag            string
 	LoggedIn       bool
 	EnvironManager bool
-	StateManager   bool
 	MachineAgent   bool
 	UnitAgent      bool
 	Client         bool
@@ -25,10 +24,6 @@ func (fa FakeAuthorizer) AuthOwner(tag string) bool {
 
 func (fa FakeAuthorizer) AuthEnvironManager() bool {
 	return fa.EnvironManager
-}
-
-func (fa FakeAuthorizer) AuthStateManager() bool {
-	return fa.StateManager
 }
 
 func (fa FakeAuthorizer) AuthMachineAgent() bool {

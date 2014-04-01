@@ -35,7 +35,9 @@ func filterImages(images []*imagemetadata.ImageMetadata) []*imagemetadata.ImageM
 }
 
 // findInstanceSpec returns an InstanceSpec satisfying the supplied instanceConstraint.
-func findInstanceSpec(sources []simplestreams.DataSource, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+func findInstanceSpec(
+	sources []simplestreams.DataSource, stream string, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+
 	if ic.Constraints.CpuPower == nil {
 		ic.Constraints.CpuPower = instances.CpuPower(defaultCpuPower)
 	}
@@ -44,8 +46,9 @@ func findInstanceSpec(sources []simplestreams.DataSource, ic *instances.Instance
 		CloudSpec: simplestreams.CloudSpec{ic.Region, ec2Region.EC2Endpoint},
 		Series:    []string{ic.Series},
 		Arches:    ic.Arches,
+		Stream:    stream,
 	})
-	matchingImages, err := imagemetadata.Fetch(
+	matchingImages, _, err := imagemetadata.Fetch(
 		sources, simplestreams.DefaultIndexPath, imageConstraint, signedImageDataOnly)
 	if err != nil {
 		return nil, err

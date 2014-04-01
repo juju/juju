@@ -5,6 +5,7 @@ package storage
 
 import (
 	"io"
+
 	"launchpad.net/juju-core/utils"
 )
 

@@ -9,8 +9,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/loggo"
 	"launchpad.net/goyaml"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
@@ -45,7 +45,7 @@ func validateEnvironmentKind(rawEnviron map[string]interface{}) error {
 	if kind == "" {
 		return fmt.Errorf("environment %q has no type", rawEnviron["name"])
 	}
-	p := providers[kind]
+	p, _ := Provider(kind)
 	if p == nil {
 		return fmt.Errorf("environment %q has an unknown provider type %q", rawEnviron["name"], kind)
 	}
@@ -90,6 +90,13 @@ func (envs *Environs) Config(name string) (*config.Config, error) {
 		}
 		logger.Warningf(msg)
 	}
+	// null has been renamed to manual (with an alias for existing config).
+	if oldType, _ := attrs["type"].(string); oldType == "null" {
+		logger.Warningf(
+			"Provider type \"null\" has been renamed to \"manual\".\n" +
+				"Please update your environment configuration.",
+		)
+	}
 
 	cfg, err := config.New(config.UseDefaults, attrs)
 	if err != nil {
@@ -100,25 +107,41 @@ func (envs *Environs) Config(name string) (*config.Config, error) {
 
 // providers maps from provider type to EnvironProvider for
 // each registered provider type.
+//
+// providers should not typically be used directly; the
+// Provider function will handle provider type aliases,
+// and should be used instead.
 var providers = make(map[string]EnvironProvider)
+
+// providerAliases is a map of provider type aliases.
+var providerAliases = make(map[string]string)
 
 // RegisterProvider registers a new environment provider. Name gives the name
 // of the provider, and p the interface to that provider.
 //
-// RegisterProvider will panic if the same provider name is registered more than
-// once.
-func RegisterProvider(name string, p EnvironProvider) {
-	if providers[name] != nil {
+// RegisterProvider will panic if the provider name or any of the aliases
+// are registered more than once.
+func RegisterProvider(name string, p EnvironProvider, alias ...string) {
+	if providers[name] != nil || providerAliases[name] != "" {
 		panic(fmt.Errorf("juju: duplicate provider name %q", name))
 	}
 	providers[name] = p
+	for _, alias := range alias {
+		if providers[alias] != nil || providerAliases[alias] != "" {
+			panic(fmt.Errorf("juju: duplicate provider alias %q", alias))
+		}
+		providerAliases[alias] = name
+	}
 }
 
 // Provider returns the previously registered provider with the given type.
-func Provider(typ string) (EnvironProvider, error) {
-	p, ok := providers[typ]
+func Provider(providerType string) (EnvironProvider, error) {
+	if alias, ok := providerAliases[providerType]; ok {
+		providerType = alias
+	}
+	p, ok := providers[providerType]
 	if !ok {
-		return nil, fmt.Errorf("no registered provider for %q", typ)
+		return nil, fmt.Errorf("no registered provider for %q", providerType)
 	}
 	return p, nil
 }

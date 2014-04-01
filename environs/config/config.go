@@ -12,7 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"launchpad.net/loggo"
+	"github.com/errgo/errgo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/charm"
@@ -42,17 +43,30 @@ const (
 	// DefaultApiPort is the default port the API server is listening on.
 	DefaultAPIPort int = 17070
 
-	// DefaultSyslogPort is the default port that the syslog UDP listener is
+	// DefaultSyslogPort is the default port that the syslog UDP/TCP listener is
 	// listening on.
-	DefaultSyslogPort int = 514
+	DefaultSyslogPort int = 6514
+
+	// DefaultBootstrapSSHTimeout is the amount of time to wait
+	// contacting a state server, in seconds.
+	DefaultBootstrapSSHTimeout int = 600
+
+	// DefaultBootstrapSSHRetryDelay is the amount of time between
+	// attempts to connect to an address, in seconds.
+	DefaultBootstrapSSHRetryDelay int = 5
+
+	// DefaultBootstrapSSHAddressesDelay is the amount of time between
+	// refreshing the addresses, in seconds. Not too frequent, as we
+	// refresh addresses from the provider each time.
+	DefaultBootstrapSSHAddressesDelay int = 10
 )
 
 // Config holds an immutable environment configuration.
 type Config struct {
-	// m holds the attributes that are defined for Config.
-	// t holds the other attributes that are passed in (aka UnknownAttrs).
+	// defined holds the attributes that are defined for Config.
+	// unknown holds the other attributes that are passed in (aka UnknownAttrs).
 	// the union of these two are AllAttrs
-	m, t map[string]interface{}
+	defined, unknown map[string]interface{}
 }
 
 // Defaulting is a value that specifies whether a configuration
@@ -92,13 +106,13 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 	if withDefaults {
 		checker = withDefaultsChecker
 	}
-	m, err := checker.Coerce(attrs, nil)
+	defined, err := checker.Coerce(attrs, nil)
 	if err != nil {
 		return nil, err
 	}
 	c := &Config{
-		m: m.(map[string]interface{}),
-		t: make(map[string]interface{}),
+		defined: defined.(map[string]interface{}),
+		unknown: make(map[string]interface{}),
 	}
 	if withDefaults {
 		if err := c.fillInDefaults(); err != nil {
@@ -115,7 +129,7 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 	// Copy unknown attributes onto the type-specific map.
 	for k, v := range attrs {
 		if _, ok := fields[k]; !ok {
-			c.t[k] = v
+			c.unknown[k] = v
 		}
 	}
 	return c, nil
@@ -140,7 +154,7 @@ func (c *Config) ensureUnitLogging() error {
 	if _, ok := levels["unit"]; !ok {
 		loggingConfig = loggingConfig + ";unit=DEBUG"
 	}
-	c.m["logging-config"] = loggingConfig
+	c.defined["logging-config"] = loggingConfig
 	return nil
 }
 
@@ -156,12 +170,12 @@ func (c *Config) fillInDefaults() error {
 	keys := c.asString("authorized-keys")
 	if path != "" || keys == "" {
 		var err error
-		c.m["authorized-keys"], err = ReadAuthorizedKeys(path)
+		c.defined["authorized-keys"], err = ReadAuthorizedKeys(path)
 		if err != nil {
 			return err
 		}
 	}
-	delete(c.m, "authorized-keys-path")
+	delete(c.defined, "authorized-keys-path")
 
 	// Don't use c.Name() because the name hasn't
 	// been verified yet.
@@ -169,11 +183,11 @@ func (c *Config) fillInDefaults() error {
 	if name == "" {
 		return fmt.Errorf("empty name in environment configuration")
 	}
-	err := maybeReadAttrFromFile(c.m, "ca-cert", name+"-cert.pem")
+	err := maybeReadAttrFromFile(c.defined, "ca-cert", name+"-cert.pem")
 	if err != nil {
 		return err
 	}
-	err = maybeReadAttrFromFile(c.m, "ca-private-key", name+"-private-key.pem")
+	err = maybeReadAttrFromFile(c.defined, "ca-private-key", name+"-private-key.pem")
 	if err != nil {
 		return err
 	}
@@ -182,7 +196,7 @@ func (c *Config) fillInDefaults() error {
 
 func (c *Config) fillInStringDefault(attr string) {
 	if c.asString(attr) == "" {
-		c.m[attr] = defaults[attr]
+		c.defined[attr] = defaults[attr]
 	}
 }
 
@@ -192,16 +206,20 @@ func (c *Config) fillInStringDefault(attr string) {
 func (cfg *Config) processDeprecatedAttributes() {
 	// The tools url has changed so ensure that both old and new values are in the config so that
 	// upgrades work. "tools-url" is the old attribute name.
-	if oldToolsURL := cfg.m["tools-url"]; oldToolsURL != nil && oldToolsURL.(string) != "" {
+	if oldToolsURL := cfg.defined["tools-url"]; oldToolsURL != nil && oldToolsURL.(string) != "" {
 		_, newToolsSpecified := cfg.ToolsURL()
 		// Ensure the new attribute name "tools-metadata-url" is set.
 		if !newToolsSpecified {
-			cfg.m["tools-metadata-url"] = oldToolsURL
+			cfg.defined["tools-metadata-url"] = oldToolsURL
 		}
 	}
 	// Even if the user has edited their environment yaml to remove the deprecated tools-url value,
 	// we still want it in the config for upgrades.
-	cfg.m["tools-url"], _ = cfg.ToolsURL()
+	cfg.defined["tools-url"], _ = cfg.ToolsURL()
+	// Update the provider type from null to manual.
+	if cfg.Type() == "null" {
+		cfg.defined["type"] = "manual"
+	}
 }
 
 // Validate ensures that config is a valid configuration.  If old is not nil,
@@ -210,20 +228,20 @@ func (cfg *Config) processDeprecatedAttributes() {
 func Validate(cfg, old *Config) error {
 	// Check that we don't have any disallowed fields.
 	for _, attr := range allowedWithDefaultsOnly {
-		if _, ok := cfg.m[attr]; ok {
+		if _, ok := cfg.defined[attr]; ok {
 			return fmt.Errorf("attribute %q is not allowed in configuration", attr)
 		}
 	}
 	// Check that mandatory fields are specified.
 	for _, attr := range mandatoryWithoutDefaults {
-		if _, ok := cfg.m[attr]; !ok {
+		if _, ok := cfg.defined[attr]; !ok {
 			return fmt.Errorf("%s missing from environment configuration", attr)
 		}
 	}
 
 	// Check that all other fields that have been specified are non-empty,
 	// unless they're allowed to be empty for backward compatibility,
-	for attr, val := range cfg.m {
+	for attr, val := range cfg.defined {
 		if !isEmpty(val) {
 			continue
 		}
@@ -238,14 +256,14 @@ func Validate(cfg, old *Config) error {
 
 	// Check that the agent version parses ok if set explicitly; otherwise leave
 	// it alone.
-	if v, ok := cfg.m["agent-version"].(string); ok {
+	if v, ok := cfg.defined["agent-version"].(string); ok {
 		if _, err := version.Parse(v); err != nil {
 			return fmt.Errorf("invalid agent version in environment configuration: %q", v)
 		}
 	}
 
 	// If the logging config is set, make sure it is valid.
-	if v, ok := cfg.m["logging-config"].(string); ok {
+	if v, ok := cfg.defined["logging-config"].(string); ok {
 		if _, err := loggo.ParseConfigurationString(v); err != nil {
 			return err
 		}
@@ -260,7 +278,7 @@ func Validate(cfg, old *Config) error {
 	caKey, caKeyOK := cfg.CAPrivateKey()
 	if caCertOK || caKeyOK {
 		if err := verifyKeyPair(caCert, caKey); err != nil {
-			return fmt.Errorf("bad CA certificate/key in configuration: %v", err)
+			return errgo.Annotate(err, "bad CA certificate/key in configuration")
 		}
 	}
 
@@ -275,7 +293,7 @@ func Validate(cfg, old *Config) error {
 	// Check the immutable config values.  These can't change
 	if old != nil {
 		for _, attr := range immutableAttributes {
-			if newv, oldv := cfg.m[attr], old.m[attr]; newv != oldv {
+			if newv, oldv := cfg.defined[attr], old.defined[attr]; newv != oldv {
 				return fmt.Errorf("cannot change %s from %#v to %#v", attr, oldv, newv)
 			}
 		}
@@ -307,22 +325,22 @@ func isEmpty(val interface{}) bool {
 	panic(fmt.Errorf("unexpected type %T in configuration", val))
 }
 
-// maybeReadAttrFromFile sets m[attr] to:
+// maybeReadAttrFromFile sets defined[attr] to:
 //
-// 1) The content of the file m[attr+"-path"], if that's set
-// 2) The value of m[attr] if it is already set.
-// 3) The content of defaultPath if it exists and m[attr] is unset
-// 4) Preserves the content of m[attr], otherwise
+// 1) The content of the file defined[attr+"-path"], if that's set
+// 2) The value of defined[attr] if it is already set.
+// 3) The content of defaultPath if it exists and defined[attr] is unset
+// 4) Preserves the content of defined[attr], otherwise
 //
-// The m[attr+"-path"] key is always deleted.
-func maybeReadAttrFromFile(m map[string]interface{}, attr, defaultPath string) error {
+// The defined[attr+"-path"] key is always deleted.
+func maybeReadAttrFromFile(defined map[string]interface{}, attr, defaultPath string) error {
 	pathAttr := attr + "-path"
-	path, _ := m[pathAttr].(string)
-	delete(m, pathAttr)
+	path, _ := defined[pathAttr].(string)
+	delete(defined, pathAttr)
 	hasPath := path != ""
 	if !hasPath {
 		// No path and attribute is already set; leave it be.
-		if s, _ := m[attr].(string); s != "" {
+		if s, _ := defined[attr].(string); s != "" {
 			return nil
 		}
 		path = defaultPath
@@ -346,7 +364,7 @@ func maybeReadAttrFromFile(m map[string]interface{}, attr, defaultPath string) e
 	if len(data) == 0 {
 		return fmt.Errorf("file %q is empty", path)
 	}
-	m[attr] = string(data)
+	defined[attr] = string(data)
 	return nil
 }
 
@@ -354,16 +372,16 @@ func maybeReadAttrFromFile(m map[string]interface{}, attr, defaultPath string) e
 // in once place. It returns the given named attribute as a string,
 // returning "" if it isn't found.
 func (c *Config) asString(name string) string {
-	value, _ := c.m[name].(string)
+	value, _ := c.defined[name].(string)
 	return value
 }
 
 // mustString returns the named attribute as an string, panicking if
 // it is not found or is empty.
 func (c *Config) mustString(name string) string {
-	value, _ := c.m[name].(string)
+	value, _ := c.defined[name].(string)
 	if value == "" {
-		panic(fmt.Errorf("empty value for %q found in configuration (type %T, val %v)", name, c.m[name], c.m[name]))
+		panic(fmt.Errorf("empty value for %q found in configuration (type %T, val %v)", name, c.defined[name], c.defined[name]))
 	}
 	return value
 }
@@ -372,7 +390,7 @@ func (c *Config) mustString(name string) string {
 // it is not found or is zero. Zero values should have been
 // diagnosed at Validate time.
 func (c *Config) mustInt(name string) int {
-	value, _ := c.m[name].(int)
+	value, _ := c.defined[name].(int)
 	if value == 0 {
 		panic(fmt.Errorf("empty value for %q found in configuration", name))
 	}
@@ -409,17 +427,29 @@ func (c *Config) SyslogPort() int {
 	return c.mustInt("syslog-port")
 }
 
+// RsyslogCACert returns the certificate of the CA that signed the
+// rsyslog certificate, in PEM format, or nil if one hasn't been
+// generated yet.
+func (c *Config) RsyslogCACert() []byte {
+	if s, ok := c.defined["rsyslog-ca-cert"]; ok {
+		return []byte(s.(string))
+	}
+	return nil
+}
+
 // AuthorizedKeys returns the content for ssh's authorized_keys file.
 func (c *Config) AuthorizedKeys() string {
 	return c.mustString("authorized-keys")
 }
 
-// ProxySettings returns all three proxy settings; http, https and ftp.
+// ProxySettings returns all four proxy settings; http, https, ftp, and no
+// proxy.
 func (c *Config) ProxySettings() osenv.ProxySettings {
 	return osenv.ProxySettings{
-		Http:  c.HttpProxy(),
-		Https: c.HttpsProxy(),
-		Ftp:   c.FtpProxy(),
+		Http:    c.HttpProxy(),
+		Https:   c.HttpsProxy(),
+		Ftp:     c.FtpProxy(),
+		NoProxy: c.NoProxy(),
 	}
 }
 
@@ -436,6 +466,11 @@ func (c *Config) HttpsProxy() string {
 // FtpProxy returns the ftp proxy for the environment.
 func (c *Config) FtpProxy() string {
 	return c.asString("ftp-proxy")
+}
+
+// NoProxy returns the 'no proxy' for the environment.
+func (c *Config) NoProxy() string {
+	return c.asString("no-proxy")
 }
 
 func (c *Config) getWithFallback(key, fallback string) string {
@@ -473,10 +508,30 @@ func (c *Config) AptFtpProxy() string {
 	return c.getWithFallback("apt-ftp-proxy", "ftp-proxy")
 }
 
+// BootstrapSSHOpts returns the SSH timeout and retry delays used
+// during bootstrap.
+func (c *Config) BootstrapSSHOpts() SSHTimeoutOpts {
+	opts := SSHTimeoutOpts{
+		Timeout:        time.Duration(DefaultBootstrapSSHTimeout) * time.Second,
+		RetryDelay:     time.Duration(DefaultBootstrapSSHRetryDelay) * time.Second,
+		AddressesDelay: time.Duration(DefaultBootstrapSSHAddressesDelay) * time.Second,
+	}
+	if v, ok := c.defined["bootstrap-timeout"].(int); ok && v != 0 {
+		opts.Timeout = time.Duration(v) * time.Second
+	}
+	if v, ok := c.defined["bootstrap-retry-delay"].(int); ok && v != 0 {
+		opts.RetryDelay = time.Duration(v) * time.Second
+	}
+	if v, ok := c.defined["bootstrap-addresses-delay"].(int); ok && v != 0 {
+		opts.AddressesDelay = time.Duration(v) * time.Second
+	}
+	return opts
+}
+
 // CACert returns the certificate of the CA that signed the state server
 // certificate, in PEM format, and whether the setting is available.
 func (c *Config) CACert() ([]byte, bool) {
-	if s, ok := c.m["ca-cert"]; ok {
+	if s, ok := c.defined["ca-cert"]; ok {
 		return []byte(s.(string)), true
 	}
 	return nil, false
@@ -485,7 +540,7 @@ func (c *Config) CACert() ([]byte, bool) {
 // CAPrivateKey returns the private key of the CA that signed the state
 // server certificate, in PEM format, and whether the setting is available.
 func (c *Config) CAPrivateKey() (key []byte, ok bool) {
-	if s, ok := c.m["ca-private-key"]; ok && s != "" {
+	if s, ok := c.defined["ca-private-key"]; ok && s != "" {
 		return []byte(s.(string)), true
 	}
 	return nil, false
@@ -494,7 +549,7 @@ func (c *Config) CAPrivateKey() (key []byte, ok bool) {
 // AdminSecret returns the administrator password.
 // It's empty if the password has not been set.
 func (c *Config) AdminSecret() string {
-	if s, ok := c.m["admin-secret"]; ok && s != "" {
+	if s, ok := c.defined["admin-secret"]; ok && s != "" {
 		return s.(string)
 	}
 	return ""
@@ -511,7 +566,7 @@ func (c *Config) FirewallMode() string {
 // and whether it has been set. Once an environment is bootstrapped, this
 // must always be valid.
 func (c *Config) AgentVersion() (version.Number, bool) {
-	if v, ok := c.m["agent-version"].(string); ok {
+	if v, ok := c.defined["agent-version"].(string); ok {
 		n, err := version.Parse(v)
 		if err != nil {
 			panic(err) // We should have checked it earlier.
@@ -524,7 +579,7 @@ func (c *Config) AgentVersion() (version.Number, bool) {
 // ToolsURL returns the URL that locates the tools tarballs and metadata,
 // and whether it has been set.
 func (c *Config) ToolsURL() (string, bool) {
-	if url, ok := c.m["tools-metadata-url"]; ok && url != "" {
+	if url, ok := c.defined["tools-metadata-url"]; ok && url != "" {
 		return url.(string), true
 	}
 	return "", false
@@ -533,7 +588,7 @@ func (c *Config) ToolsURL() (string, bool) {
 // ImageMetadataURL returns the URL at which the metadata used to locate image ids is located,
 // and wether it has been set.
 func (c *Config) ImageMetadataURL() (string, bool) {
-	if url, ok := c.m["image-metadata-url"]; ok && url != "" {
+	if url, ok := c.defined["image-metadata-url"]; ok && url != "" {
 		return url.(string), true
 	}
 	return "", false
@@ -541,13 +596,13 @@ func (c *Config) ImageMetadataURL() (string, bool) {
 
 // Development returns whether the environment is in development mode.
 func (c *Config) Development() bool {
-	return c.m["development"].(bool)
+	return c.defined["development"].(bool)
 }
 
 // SSLHostnameVerification returns weather the environment has requested
 // SSL hostname verification to be enabled.
 func (c *Config) SSLHostnameVerification() bool {
-	return c.m["ssl-hostname-verification"].(bool)
+	return c.defined["ssl-hostname-verification"].(bool)
 }
 
 // LoggingConfig returns the configuration string for the loggers.
@@ -564,8 +619,26 @@ func (c *Config) CharmStoreAuth() (string, bool) {
 // ProvisionerSafeMode reports whether the provisioner should not
 // destroy machines it does not know about.
 func (c *Config) ProvisionerSafeMode() bool {
-	v, _ := c.m["provisioner-safe-mode"].(bool)
+	v, _ := c.defined["provisioner-safe-mode"].(bool)
 	return v
+}
+
+// ImageStream returns the simplestreams stream
+// used to identify which image ids to search
+// when starting an instance.
+func (c *Config) ImageStream() string {
+	v, _ := c.defined["image-stream"].(string)
+	if v != "" {
+		return v
+	}
+	return "released"
+}
+
+// TestMode indicates if the environment is intended for testing.
+// In this case, accessing the charm store does not affect statistical
+// data of the store.
+func (c *Config) TestMode() bool {
+	return c.defined["test-mode"].(bool)
 }
 
 // UnknownAttrs returns a copy of the raw configuration attributes
@@ -573,29 +646,38 @@ func (c *Config) ProvisionerSafeMode() bool {
 // also be wrong attributes, though. Only the specific environment
 // implementation can tell.
 func (c *Config) UnknownAttrs() map[string]interface{} {
-	t := make(map[string]interface{})
-	for k, v := range c.t {
-		t[k] = v
+	newAttrs := make(map[string]interface{})
+	for k, v := range c.unknown {
+		newAttrs[k] = v
 	}
-	return t
+	return newAttrs
 }
 
 // AllAttrs returns a copy of the raw configuration attributes.
 func (c *Config) AllAttrs() map[string]interface{} {
-	m := c.UnknownAttrs()
-	for k, v := range c.m {
-		m[k] = v
+	allAttrs := c.UnknownAttrs()
+	for k, v := range c.defined {
+		allAttrs[k] = v
 	}
-	return m
+	return allAttrs
+}
+
+// Remove returns a new configuration that has the attributes of c minus attrs.
+func (c *Config) Remove(attrs []string) (*Config, error) {
+	defined := c.AllAttrs()
+	for _, k := range attrs {
+		delete(defined, k)
+	}
+	return New(NoDefaults, defined)
 }
 
 // Apply returns a new configuration that has the attributes of c plus attrs.
 func (c *Config) Apply(attrs map[string]interface{}) (*Config, error) {
-	m := c.AllAttrs()
+	defined := c.AllAttrs()
 	for k, v := range attrs {
-		m[k] = v
+		defined[k] = v
 	}
-	return New(NoDefaults, m)
+	return New(NoDefaults, defined)
 }
 
 var fields = schema.Fields{
@@ -604,6 +686,7 @@ var fields = schema.Fields{
 	"default-series":            schema.String(),
 	"tools-metadata-url":        schema.String(),
 	"image-metadata-url":        schema.String(),
+	"image-stream":              schema.String(),
 	"authorized-keys":           schema.String(),
 	"authorized-keys-path":      schema.String(),
 	"firewall-mode":             schema.String(),
@@ -618,15 +701,21 @@ var fields = schema.Fields{
 	"state-port":                schema.ForceInt(),
 	"api-port":                  schema.ForceInt(),
 	"syslog-port":               schema.ForceInt(),
+	"rsyslog-ca-cert":           schema.String(),
 	"logging-config":            schema.String(),
 	"charm-store-auth":          schema.String(),
 	"provisioner-safe-mode":     schema.Bool(),
 	"http-proxy":                schema.String(),
 	"https-proxy":               schema.String(),
 	"ftp-proxy":                 schema.String(),
+	"no-proxy":                  schema.String(),
 	"apt-http-proxy":            schema.String(),
 	"apt-https-proxy":           schema.String(),
 	"apt-ftp-proxy":             schema.String(),
+	"bootstrap-timeout":         schema.ForceInt(),
+	"bootstrap-retry-delay":     schema.ForceInt(),
+	"bootstrap-addresses-delay": schema.ForceInt(),
+	"test-mode":                 schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url": schema.String(),
@@ -641,20 +730,25 @@ var fields = schema.Fields{
 // but some fields listed as optional here are actually mandatory
 // with NoDefaults and are checked at the later Validate stage.
 var alwaysOptional = schema.Defaults{
-	"agent-version":         schema.Omit,
-	"ca-cert":               schema.Omit,
-	"authorized-keys":       schema.Omit,
-	"authorized-keys-path":  schema.Omit,
-	"ca-cert-path":          schema.Omit,
-	"ca-private-key-path":   schema.Omit,
-	"logging-config":        schema.Omit,
-	"provisioner-safe-mode": schema.Omit,
-	"http-proxy":            schema.Omit,
-	"https-proxy":           schema.Omit,
-	"ftp-proxy":             schema.Omit,
-	"apt-http-proxy":        schema.Omit,
-	"apt-https-proxy":       schema.Omit,
-	"apt-ftp-proxy":         schema.Omit,
+	"agent-version":             schema.Omit,
+	"ca-cert":                   schema.Omit,
+	"authorized-keys":           schema.Omit,
+	"authorized-keys-path":      schema.Omit,
+	"ca-cert-path":              schema.Omit,
+	"ca-private-key-path":       schema.Omit,
+	"logging-config":            schema.Omit,
+	"provisioner-safe-mode":     schema.Omit,
+	"bootstrap-timeout":         schema.Omit,
+	"bootstrap-retry-delay":     schema.Omit,
+	"bootstrap-addresses-delay": schema.Omit,
+	"rsyslog-ca-cert":           schema.Omit,
+	"http-proxy":                schema.Omit,
+	"https-proxy":               schema.Omit,
+	"ftp-proxy":                 schema.Omit,
+	"no-proxy":                  schema.Omit,
+	"apt-http-proxy":            schema.Omit,
+	"apt-https-proxy":           schema.Omit,
+	"apt-ftp-proxy":             schema.Omit,
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url": "",
@@ -676,6 +770,9 @@ var alwaysOptional = schema.Defaults{
 	"syslog-port": DefaultSyslogPort,
 	// Authentication string sent with requests to the charm store
 	"charm-store-auth": "",
+	// Previously image-stream could be set to an empty value
+	"image-stream": "",
+	"test-mode":    false,
 }
 
 func allowEmpty(attr string) bool {
@@ -684,6 +781,9 @@ func allowEmpty(attr string) bool {
 
 var defaults = allDefaults()
 
+// allDefaults returns a schema.Defaults that contains
+// defaults to be used when creating a new config with
+// UseDefaults.
 func allDefaults() schema.Defaults {
 	d := schema.Defaults{
 		"default-series":            DefaultSeries,
@@ -693,9 +793,14 @@ func allDefaults() schema.Defaults {
 		"state-port":                DefaultStatePort,
 		"api-port":                  DefaultAPIPort,
 		"syslog-port":               DefaultSyslogPort,
+		"bootstrap-timeout":         DefaultBootstrapSSHTimeout,
+		"bootstrap-retry-delay":     DefaultBootstrapSSHRetryDelay,
+		"bootstrap-addresses-delay": DefaultBootstrapSSHAddressesDelay,
 	}
 	for attr, val := range alwaysOptional {
-		d[attr] = val
+		if _, ok := d[attr]; !ok {
+			d[attr] = val
+		}
 	}
 	return d
 }
@@ -725,7 +830,9 @@ var immutableAttributes = []string{
 	"firewall-mode",
 	"state-port",
 	"api-port",
-	"syslog-port",
+	"bootstrap-timeout",
+	"bootstrap-retry-delay",
+	"bootstrap-addresses-delay",
 }
 
 var (
@@ -773,18 +880,67 @@ func (cfg *Config) GenerateStateServerCertAndKey() ([]byte, []byte, error) {
 	return cert.NewServer(caCert, caKey, time.Now().UTC().AddDate(10, 0, 0), noHostnames)
 }
 
-type Authorizer interface {
+type Specializer interface {
 	WithAuthAttrs(string) charm.Repository
+	WithTestMode(testMode bool) charm.Repository
 }
 
-// AuthorizeCharmRepo returns a repository with authentication added
-// from the specified configuration.
-func AuthorizeCharmRepo(repo charm.Repository, cfg *Config) charm.Repository {
+// SpecializeCharmRepo returns a repository customized for given configuration.
+// It adds authentication if necessary and sets a charm store's testMode flag.
+func SpecializeCharmRepo(repo charm.Repository, cfg *Config) charm.Repository {
 	// If a charm store auth token is set, pass it on to the charm store
 	if auth, authSet := cfg.CharmStoreAuth(); authSet {
-		if CS, isCS := repo.(Authorizer); isCS {
+		if CS, isCS := repo.(Specializer); isCS {
 			repo = CS.WithAuthAttrs(auth)
 		}
 	}
+	if CS, isCS := repo.(Specializer); isCS {
+		repo = CS.WithTestMode(cfg.TestMode())
+	}
 	return repo
+}
+
+// SSHTimeoutOpts lists the amount of time we will wait for various
+// parts of the SSH connection to complete. This is similar to
+// DialOpts, see http://pad.lv/1258889 about possibly deduplicating
+// them.
+type SSHTimeoutOpts struct {
+	// Timeout is the amount of time to wait contacting a state
+	// server.
+	Timeout time.Duration
+
+	// RetryDelay is the amount of time between attempts to connect to
+	// an address.
+	RetryDelay time.Duration
+
+	// AddressesDelay is the amount of time between refreshing the
+	// addresses.
+	AddressesDelay time.Duration
+}
+
+func addIfNotEmpty(settings map[string]interface{}, key, value string) {
+	if value != "" {
+		settings[key] = value
+	}
+}
+
+// ProxyConfigMap returns a map suitable to be applied to a Config to update
+// proxy settings.
+func ProxyConfigMap(proxy osenv.ProxySettings) map[string]interface{} {
+	settings := make(map[string]interface{})
+	addIfNotEmpty(settings, "http-proxy", proxy.Http)
+	addIfNotEmpty(settings, "https-proxy", proxy.Https)
+	addIfNotEmpty(settings, "ftp-proxy", proxy.Ftp)
+	addIfNotEmpty(settings, "no-proxy", proxy.NoProxy)
+	return settings
+}
+
+// AptProxyConfigMap returns a map suitable to be applied to a Config to update
+// proxy settings.
+func AptProxyConfigMap(proxy osenv.ProxySettings) map[string]interface{} {
+	settings := make(map[string]interface{})
+	addIfNotEmpty(settings, "apt-http-proxy", proxy.Http)
+	addIfNotEmpty(settings, "apt-https-proxy", proxy.Https)
+	addIfNotEmpty(settings, "apt-ftp-proxy", proxy.Ftp)
+	return settings
 }

@@ -16,6 +16,8 @@ import (
 	"math/big"
 	"net"
 	"time"
+
+	"github.com/errgo/errgo"
 )
 
 var KeyBits = 1024
@@ -61,11 +63,11 @@ func ParseCertAndKey(certPEM, keyPEM []byte) (*x509.Certificate, *rsa.PrivateKey
 func Verify(srvCertPEM, caCertPEM []byte, when time.Time) error {
 	caCert, err := ParseCert(caCertPEM)
 	if err != nil {
-		return fmt.Errorf("cannot parse CA certificate: %v", err)
+		return errgo.Annotate(err, "cannot parse CA certificate")
 	}
 	srvCert, err := ParseCert(srvCertPEM)
 	if err != nil {
-		return fmt.Errorf("cannot parse server certificate: %v", err)
+		return errgo.Annotate(err, "cannot parse server certificate")
 	}
 	pool := x509.NewCertPool()
 	pool.AddCert(caCert)
@@ -117,7 +119,7 @@ func NewCA(envName string, expiry time.Time) (certPEM, keyPEM []byte, err error)
 
 // NewServer generates a certificate/key pair suitable for use by a server.
 func NewServer(caCertPEM, caKeyPEM []byte, expiry time.Time, hostnames []string) (certPEM, keyPEM []byte, err error) {
-	return newLeaf(caCertPEM, caKeyPEM, expiry, hostnames, nil)
+	return newLeaf(caCertPEM, caKeyPEM, expiry, hostnames, []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth})
 }
 
 // NewClient generates a certificate/key pair suitable for client authentication.
@@ -162,7 +164,7 @@ func newLeaf(caCertPEM, caKeyPEM []byte, expiry time.Time, hostnames []string, e
 		NotAfter:  expiry.UTC(),
 
 		SubjectKeyId: bigIntHash(key.N),
-		KeyUsage:     x509.KeyUsageDataEncipherment,
+		KeyUsage:     x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageKeyAgreement,
 		ExtKeyUsage:  extKeyUsage,
 	}
 	for _, hostname := range hostnames {

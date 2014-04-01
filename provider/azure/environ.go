@@ -13,7 +13,6 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
@@ -24,7 +23,7 @@ import (
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/parallel"
 )
 
@@ -58,6 +57,12 @@ type azureEnviron struct {
 
 	// name is immutable; it does not need locking.
 	name string
+
+	// archMutex gates access to supportedArchitectures
+	archMutex sync.Mutex
+	// supportedArchitectures caches the architectures
+	// for which images can be instantiated.
+	supportedArchitectures []string
 
 	// ecfg is the environment's Azure-specific configuration.
 	ecfg *azureEnvironConfig
@@ -121,18 +126,6 @@ func (env *azureEnviron) queryStorageAccountKey() (string, error) {
 	}
 
 	return key, nil
-}
-
-// PrecheckInstance is specified in the environs.Prechecker interface.
-func (*azureEnviron) PrecheckInstance(series string, cons constraints.Value) error {
-	return nil
-}
-
-// PrecheckContainer is specified in the environs.Prechecker interface.
-func (*azureEnviron) PrecheckContainer(series string, kind instance.ContainerType) error {
-	// This check can either go away or be relaxed when the azure
-	// provider manages container addressibility.
-	return environs.NewContainersUnsupported("azure provider does not support containers")
 }
 
 // Name is specified in the Environ interface.
@@ -315,9 +308,6 @@ func attemptCreateService(azure *gwacl.ManagementAPI, prefix string, affinityGro
 	return req, nil
 }
 
-// architectures lists the CPU architectures supported by Azure.
-var architectures = []string{"amd64", "i386"}
-
 // newHostedService creates a hosted service.  It will make up a unique name,
 // starting with the given prefix.
 func newHostedService(azure *gwacl.ManagementAPI, prefix string, affinityGroupName string, location string) (*gwacl.CreateHostedService, error) {
@@ -335,9 +325,32 @@ func newHostedService(azure *gwacl.ManagementAPI, prefix string, affinityGroupNa
 	return svc, nil
 }
 
+// SupportedArchitectures is specified on the EnvironCapability interface.
+func (env *azureEnviron) SupportedArchitectures() ([]string, error) {
+	env.archMutex.Lock()
+	defer env.archMutex.Unlock()
+	if env.supportedArchitectures != nil {
+		return env.supportedArchitectures, nil
+	}
+	// Create a filter to get all images from our region and for the correct stream.
+	ecfg := env.getSnapshot().ecfg
+	region := ecfg.location()
+	cloudSpec := simplestreams.CloudSpec{
+		Region:   region,
+		Endpoint: getEndpoint(region),
+	}
+	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+		CloudSpec: cloudSpec,
+		Stream:    ecfg.ImageStream(),
+	})
+	var err error
+	env.supportedArchitectures, err = common.SupportedArchitectures(env, imageConstraint)
+	return env.supportedArchitectures, err
+}
+
 // selectInstanceTypeAndImage returns the appropriate instance-type name and
 // the OS image name for launching a virtual machine with the given parameters.
-func (env *azureEnviron) selectInstanceTypeAndImage(cons constraints.Value, series, location string) (string, string, error) {
+func (env *azureEnviron) selectInstanceTypeAndImage(constraint *instances.InstanceConstraint) (string, string, error) {
 	ecfg := env.getSnapshot().ecfg
 	sourceImageName := ecfg.forceImageName()
 	if sourceImageName != "" {
@@ -349,25 +362,15 @@ func (env *azureEnviron) selectInstanceTypeAndImage(cons constraints.Value, seri
 		// instance type either.
 		//
 		// Select the instance type using simple, Azure-specific code.
-		machineType, err := selectMachineType(gwacl.RoleSizes, defaultToBaselineSpec(cons))
+		machineType, err := selectMachineType(gwacl.RoleSizes, defaultToBaselineSpec(constraint.Constraints))
 		if err != nil {
 			return "", "", err
 		}
 		return machineType.Name, sourceImageName, nil
 	}
 
-	// Choose the most suitable instance type and OS image, based on
-	// simplestreams information.
-	//
-	// This should be the normal execution path.  The user is not expected
-	// to configure a source image name in normal use.
-	constraint := instances.InstanceConstraint{
-		Region:      location,
-		Series:      series,
-		Arches:      architectures,
-		Constraints: cons,
-	}
-	spec, err := findInstanceSpec(env, ecfg.imageStream(), constraint)
+	// Choose the most suitable instance type and OS image, based on simplestreams information.
+	spec, err := findInstanceSpec(env, constraint)
 	if err != nil {
 		return "", "", err
 	}
@@ -375,24 +378,23 @@ func (env *azureEnviron) selectInstanceTypeAndImage(cons constraints.Value, seri
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (env *azureEnviron) StartInstance(cons constraints.Value, possibleTools tools.List,
-	machineConfig *cloudinit.MachineConfig) (_ instance.Instance, _ *instance.HardwareCharacteristics, err error) {
+func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ instance.Instance, _ *instance.HardwareCharacteristics, err error) {
 
 	// Declaring "err" in the function signature so that we can "defer"
 	// any cleanup that needs to run during error returns.
 
-	err = environs.FinishMachineConfig(machineConfig, env.Config(), cons)
+	err = environs.FinishMachineConfig(args.MachineConfig, env.Config(), args.Constraints)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	// Pick envtools.  Needed for the custom data (which is what we normally
 	// call userdata).
-	machineConfig.Tools = possibleTools[0]
-	logger.Infof("picked tools %q", machineConfig.Tools)
+	args.MachineConfig.Tools = args.Tools[0]
+	logger.Infof("picked tools %q", args.MachineConfig.Tools)
 
 	// Compose userdata.
-	userData, err := makeCustomData(machineConfig)
+	userData, err := makeCustomData(args.MachineConfig)
 	if err != nil {
 		return nil, nil, fmt.Errorf("custom data: %v", err)
 	}
@@ -421,8 +423,12 @@ func (env *azureEnviron) StartInstance(cons constraints.Value, possibleTools too
 		}
 	}()
 
-	series := possibleTools.OneSeries()
-	instanceType, sourceImageName, err := env.selectInstanceTypeAndImage(cons, series, location)
+	instanceType, sourceImageName, err := env.selectInstanceTypeAndImage(&instances.InstanceConstraint{
+		Region:      location,
+		Series:      args.Tools.OneSeries(),
+		Arches:      args.Tools.Arches(),
+		Constraints: args.Constraints,
+	})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -867,18 +873,14 @@ func (env *azureEnviron) getStorageContext() (*gwacl.StorageContext, error) {
 // It contains the central databases for the released and daily streams, but this may
 // become more configurable.  This variable is here as a placeholder, but also
 // as an injection point for tests.
-//
-// Note: Due to datasource fallback issues, the default daily stream has been removed.
-//       This var now only serves as an injection point for tests. See also:
-//           https://bugs.launchpad.net/juju-core/+bug/1233924
 var baseURLs = []string{}
 
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
 func (env *azureEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
 	sources := make([]simplestreams.DataSource, 1+len(baseURLs))
-	sources[0] = storage.NewStorageSimpleStreamsDataSource(env.Storage(), storage.BaseImagesPath)
+	sources[0] = storage.NewStorageSimpleStreamsDataSource("cloud storage", env.Storage(), storage.BaseImagesPath)
 	for i, url := range baseURLs {
-		sources[i+1] = simplestreams.NewURLDataSource(url, simplestreams.VerifySSLHostnames)
+		sources[i+1] = simplestreams.NewURLDataSource("Azure base URL", url, utils.VerifySSLHostnames)
 	}
 	return sources, nil
 }
@@ -887,16 +889,8 @@ func (env *azureEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
 func (env *azureEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket.
 	sources := []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource(env.Storage(), storage.BaseToolsPath)}
+		storage.NewStorageSimpleStreamsDataSource("cloud storage", env.Storage(), storage.BaseToolsPath)}
 	return sources, nil
-}
-
-// getImageStream returns the name of the simplestreams stream from which
-// this environment wants its images, e.g. "releases" or "daily", or the
-// blank string for the default.
-func (env *azureEnviron) getImageStream() string {
-	// Hard-coded to the default for now.
-	return ""
 }
 
 // getImageMetadataSigningRequired returns whether this environment requires

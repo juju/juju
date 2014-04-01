@@ -7,9 +7,9 @@ package all
 import (
 	_ "launchpad.net/juju-core/provider/azure"
 	_ "launchpad.net/juju-core/provider/ec2"
+	//_ "launchpad.net/juju-core/provider/joyent"
 	_ "launchpad.net/juju-core/provider/local"
 	_ "launchpad.net/juju-core/provider/maas"
-	_ "launchpad.net/juju-core/provider/null"
+	_ "launchpad.net/juju-core/provider/manual"
 	_ "launchpad.net/juju-core/provider/openstack"
-	//_ "launchpad.net/juju-core/provider/joyent"
 )

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"sort"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
@@ -21,9 +22,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/provider/common"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -61,7 +60,7 @@ func (t *Tests) Open(c *gc.C) environs.Environ {
 func (t *Tests) Prepare(c *gc.C) environs.Environ {
 	cfg, err := config.New(config.NoDefaults, t.TestConfig)
 	c.Assert(err, gc.IsNil)
-	e, err := environs.Prepare(cfg, t.ConfigStore)
+	e, err := environs.Prepare(cfg, coretesting.Context(c), t.ConfigStore)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", t.TestConfig))
 	c.Assert(e, gc.NotNil)
 	return e
@@ -76,10 +75,6 @@ func (t *Tests) SetUpTest(c *gc.C) {
 func (t *Tests) TearDownTest(c *gc.C) {
 	t.ToolsFixture.TearDownTest(c)
 	t.LoggingSuite.TearDownTest(c)
-}
-
-func bootstrapContext(c *gc.C) environs.BootstrapContext {
-	return envtesting.NewBootstrapContext(coretesting.Context(c))
 }
 
 func (t *Tests) TestStartStop(c *gc.C) {
@@ -136,21 +131,21 @@ func (t *Tests) TestStartStop(c *gc.C) {
 func (t *Tests) TestBootstrap(c *gc.C) {
 	e := t.Prepare(c)
 	envtesting.UploadFakeTools(c, e.Storage())
-	err := common.EnsureNotBootstrapped(e)
+	err := bootstrap.EnsureNotBootstrapped(e)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(bootstrapContext(c), e, constraints.Value{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), e, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
 	info, apiInfo, err := e.StateInfo()
 	c.Check(info.Addrs, gc.Not(gc.HasLen), 0)
 	c.Check(apiInfo.Addrs, gc.Not(gc.HasLen), 0)
 
-	err = common.EnsureNotBootstrapped(e)
+	err = bootstrap.EnsureNotBootstrapped(e)
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 
 	e2 := t.Open(c)
 	envtesting.UploadFakeTools(c, e2.Storage())
-	err = common.EnsureNotBootstrapped(e2)
+	err = bootstrap.EnsureNotBootstrapped(e2)
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 
 	info2, apiInfo2, err := e2.StateInfo()
@@ -164,12 +159,12 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	e3 := t.Prepare(c)
 	envtesting.UploadFakeTools(c, e3.Storage())
 
-	err = common.EnsureNotBootstrapped(e3)
+	err = bootstrap.EnsureNotBootstrapped(e3)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(bootstrapContext(c), e3, constraints.Value{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), e3, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
-	err = common.EnsureNotBootstrapped(e3)
+	err = bootstrap.EnsureNotBootstrapped(e3)
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 }
 
@@ -263,7 +258,7 @@ func checkFileHasContents(c *gc.C, stor storage.StorageReader, name string, cont
 
 	var resp *http.Response
 	for a := attempt.Start(); a.Next(); {
-		resp, err = http.Get(url)
+		resp, err = utils.GetValidatingHTTPClient().Get(url)
 		c.Assert(err, gc.IsNil)
 		if resp.StatusCode != 404 {
 			break

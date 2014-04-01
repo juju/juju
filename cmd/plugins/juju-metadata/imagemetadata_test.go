@@ -11,11 +11,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
@@ -228,6 +228,6 @@ func (s *ImageMetadataSuite) TestImageMetadataBadArgs(c *gc.C) {
 		c.Logf("test: %d", i)
 		ctx := testing.Context(c)
 		code := cmd.Main(&ImageMetadataCommand{}, ctx, t.args)
-		c.Check(code, gc.Equals, 2)
+		c.Check(code, gc.Equals, 1)
 	}
 }

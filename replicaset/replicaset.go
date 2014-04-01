@@ -3,11 +3,18 @@ package replicaset
 import (
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
+	"github.com/juju/loggo"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 )
+
+// MaxPeers defines the maximum number of peers that mongo supports.
+const MaxPeers = 7
+
+var logger = loggo.GetLogger("juju.replicaset")
 
 // Initiate sets up a replica set with the given replica set name with the
 // single given member.  It need be called only once for a given mongo replica
@@ -72,6 +79,45 @@ type Member struct {
 	Votes *int `bson:"votes,omitempty"`
 }
 
+func fmtConfigForLog(config *Config) string {
+	memberInfo := make([]string, len(config.Members))
+	for i, member := range config.Members {
+		memberInfo[i] = fmt.Sprintf("Member{%d %q %v}", member.Id, member.Address, member.Tags)
+
+	}
+	return fmt.Sprintf("{Name: %s, Version: %d, Members: {%s}}",
+		config.Name, config.Version, strings.Join(memberInfo, ", "))
+}
+
+// applyRelSetConfig applies the new config to the mongo session. It also logs
+// what the changes are. It checks if the replica set changes cause the DB
+// connection to be dropped. If so, it Refreshes the session and tries to Ping
+// again.
+func applyRelSetConfig(cmd string, session *mgo.Session, oldconfig, newconfig *Config) error {
+	logger.Debugf("%s() changing replica set\nfrom %s\n  to %s",
+		cmd, fmtConfigForLog(oldconfig), fmtConfigForLog(newconfig))
+	err := session.Run(bson.D{{"replSetReconfig", newconfig}}, nil)
+	// We will only try to Ping 2 times
+	for i := 0; i < 2; i++ {
+		if err == io.EOF {
+			// If the primary changes due to replSetReconfig, then all
+			// current connections are dropped.
+			// Refreshing should fix us up.
+			logger.Debugf("got EOF while running %s(), calling session.Refresh()", cmd)
+			session.Refresh()
+		} else if err != nil {
+			// For all errors that aren't EOF, return immediately
+			return err
+		}
+		// err is either nil or EOF and we called Refresh, so Ping to
+		// make sure we're actually connected
+		err = session.Ping()
+		// Change the command because it is the new command we ran
+		cmd = "Ping"
+	}
+	return err
+}
+
 // Add adds the given members to the session's replica set.  Duplicates of
 // existing replicas will be ignored.
 //
@@ -82,6 +128,7 @@ func Add(session *mgo.Session, members ...Member) error {
 		return err
 	}
 
+	oldconfig := *config
 	config.Version++
 	max := 0
 	for _, member := range config.Members {
@@ -105,7 +152,7 @@ outerLoop:
 		}
 		config.Members = append(config.Members, newMember)
 	}
-	return session.Run(bson.D{{"replSetReconfig", config}}, nil)
+	return applyRelSetConfig("Add", session, &oldconfig, config)
 }
 
 // Remove removes members with the given addresses from the replica set. It is
@@ -115,6 +162,7 @@ func Remove(session *mgo.Session, addrs ...string) error {
 	if err != nil {
 		return err
 	}
+	oldconfig := *config
 	config.Version++
 	for _, rem := range addrs {
 		for n, repl := range config.Members {
@@ -124,14 +172,7 @@ func Remove(session *mgo.Session, addrs ...string) error {
 			}
 		}
 	}
-	err = session.Run(bson.D{{"replSetReconfig", config}}, nil)
-	if err == io.EOF {
-		// EOF means we got disconnected due to the Remove... this is normal.
-		// Refreshing should fix us up.
-		session.Refresh()
-		err = nil
-	}
-	return err
+	return applyRelSetConfig("Remove", session, &oldconfig, config)
 }
 
 // Set changes the current set of replica set members.  Members will have their
@@ -142,6 +183,8 @@ func Set(session *mgo.Session, members []Member) error {
 		return err
 	}
 
+	// Copy the current configuration for logging
+	oldconfig := *config
 	config.Version++
 
 	// Assign ids to members that did not previously exist, starting above the
@@ -167,14 +210,7 @@ func Set(session *mgo.Session, members []Member) error {
 
 	config.Members = members
 
-	err = session.Run(bson.D{{"replSetReconfig", config}}, nil)
-	if err == io.EOF {
-		// EOF means we got disconnected due to a Remove... this is normal.
-		// Refreshing should fix us up.
-		session.Refresh()
-		err = nil
-	}
-	return err
+	return applyRelSetConfig("Set", session, &oldconfig, config)
 }
 
 // Config reports information about the configuration of a given mongo node

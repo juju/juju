@@ -6,7 +6,7 @@ package log
 import (
 	"fmt"
 
-	"launchpad.net/loggo"
+	"github.com/juju/loggo"
 )
 
 var (

@@ -3,13 +3,13 @@ package state_test
 import (
 	"fmt"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type CleanupSuite struct {
@@ -132,8 +132,8 @@ func (s *CleanupSuite) TestCleanupRelationSettings(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot read settings for unit "riak/0" in relation "riak:ring": settings not found`)
 }
 
-func (s *CleanupSuite) testForceDestroyManagerError(c *gc.C, job state.MachineJob) {
-	manager, err := s.State.AddMachine("quantal", job)
+func (s *CleanupSuite) TestForceDestroyMachineErrors(c *gc.C) {
+	manager, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	s.assertDoesNotNeedCleanup(c)
 	err = manager.ForceDestroy()
@@ -141,11 +141,6 @@ func (s *CleanupSuite) testForceDestroyManagerError(c *gc.C, job state.MachineJo
 	c.Assert(err, gc.ErrorMatches, expect)
 	s.assertDoesNotNeedCleanup(c)
 	assertLife(c, manager, state.Alive)
-}
-
-func (s *CleanupSuite) TestForceDestroyMachineErrors(c *gc.C) {
-	s.testForceDestroyManagerError(c, state.JobManageState)
-	s.testForceDestroyManagerError(c, state.JobManageEnviron)
 }
 
 func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {

@@ -6,7 +6,7 @@ package bootstrap
 import (
 	"fmt"
 
-	"launchpad.net/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -71,8 +71,9 @@ func SetBootstrapTools(environ environs.Environ, possibleTools coretools.List) (
 	return toolsList, nil
 }
 
-// EnsureNotBootstrapped returns null if the environment is not bootstrapped,
-// and an error if it is or if the function was not able to tell.
+// EnsureNotBootstrapped returns nil if the environment is not
+// bootstrapped, and an error if it is or if the function was not able
+// to tell.
 func EnsureNotBootstrapped(env environs.Environ) error {
 	_, err := LoadState(env.Storage())
 	// If there is no error loading the bootstrap state, then we are

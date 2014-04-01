@@ -6,11 +6,13 @@ package environs_test
 import (
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/cert"
+	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
@@ -19,8 +21,8 @@ import (
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
@@ -63,7 +65,6 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 		StateInfo: &state.Info{Tag: "not touched"},
 		APIInfo:   &api.Info{Tag: "not touched"},
 		DisableSSLHostnameVerification: false,
-		SyslogPort:                     2345,
 	})
 }
 
@@ -71,7 +72,6 @@ func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
 	attrs := dummySampleConfig().Merge(testing.Attrs{
 		"authorized-keys":           "we-are-the-keys",
 		"ssl-hostname-verification": false,
-		"syslog-port":               8888,
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
@@ -90,7 +90,6 @@ func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
 		StateInfo: &state.Info{Tag: "not touched"},
 		APIInfo:   &api.Info{Tag: "not touched"},
 		DisableSSLHostnameVerification: true,
-		SyslogPort:                     8888,
 	})
 }
 
@@ -157,6 +156,10 @@ func (*CloudInitSuite) testUserData(c *gc.C, stateServer bool) {
 	envConfig, err := config.New(config.NoDefaults, dummySampleConfig())
 	c.Assert(err, gc.IsNil)
 
+	allJobs := []params.MachineJob{
+		params.JobManageEnviron,
+		params.JobHostUnits,
+	}
 	cfg := &cloudinit.MachineConfig{
 		MachineId:       "10",
 		MachineNonce:    "5432",
@@ -175,19 +178,24 @@ func (*CloudInitSuite) testUserData(c *gc.C, stateServer bool) {
 			CACert:   []byte("CA CERT\n" + testing.CACert),
 			Tag:      "machine-10",
 		},
-		DataDir:          environs.DataDir,
-		Config:           envConfig,
-		StatePort:        envConfig.StatePort(),
-		APIPort:          envConfig.APIPort(),
-		SyslogPort:       envConfig.SyslogPort(),
-		StateServer:      stateServer,
-		AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
-		AuthorizedKeys:   "wheredidileavemykeys",
+		DataDir:                 environs.DataDir,
+		LogDir:                  agent.DefaultLogDir,
+		Jobs:                    allJobs,
+		CloudInitOutputLog:      environs.CloudInitOutputLog,
+		Config:                  envConfig,
+		StatePort:               envConfig.StatePort(),
+		APIPort:                 envConfig.APIPort(),
+		StateServer:             stateServer,
+		AgentEnvironment:        map[string]string{agent.ProviderType: "dummy"},
+		AuthorizedKeys:          "wheredidileavemykeys",
+		MachineAgentServiceName: "jujud-machine-10",
 	}
 	script1 := "script1"
 	script2 := "script2"
-	scripts := []string{script1, script2}
-	result, err := environs.ComposeUserData(cfg, scripts...)
+	cloudcfg := coreCloudinit.New()
+	cloudcfg.AddRunCmd(script1)
+	cloudcfg.AddRunCmd(script2)
+	result, err := environs.ComposeUserData(cfg, cloudcfg)
 	c.Assert(err, gc.IsNil)
 
 	unzipped, err := utils.Gunzip(result)

@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
@@ -20,16 +21,14 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/replicaset"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	statetesting "launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
-
-type D []bson.DocElem
 
 var goodPassword = "foo-12345678901234567890"
 var alternatePassword = "bar-12345678901234567890"
@@ -53,20 +52,29 @@ var _ = gc.Suite(&StateSuite{})
 func (s *StateSuite) TestDialAgain(c *gc.C) {
 	// Ensure idempotent operations on Dial are working fine.
 	for i := 0; i < 2; i++ {
-		st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts())
+		st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts(), state.Policy(nil))
 		c.Assert(err, gc.IsNil)
 		c.Assert(st.Close(), gc.IsNil)
 	}
 }
 
+func (s *StateSuite) TestMongoSession(c *gc.C) {
+	session := s.State.MongoSession()
+	c.Assert(session.Ping(), gc.IsNil)
+}
+
 func (s *StateSuite) TestAddresses(c *gc.C) {
 	var err error
-	machines := make([]*state.Machine, 3)
-	machines[0], err = s.State.AddMachine("quantal", state.JobHostUnits)
+	machines := make([]*state.Machine, 4)
+	machines[0], err = s.State.AddMachine("quantal", state.JobManageEnviron, state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	machines[1], err = s.State.AddMachine("quantal", state.JobManageState, state.JobHostUnits)
+	machines[1], err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	machines[2], err = s.State.AddMachine("quantal", state.JobManageState)
+	err = s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	c.Assert(err, gc.IsNil)
+	machines[2], err = s.State.Machine("2")
+	c.Assert(err, gc.IsNil)
+	machines[3], err = s.State.Machine("3")
 	c.Assert(err, gc.IsNil)
 
 	for i, m := range machines {
@@ -94,18 +102,20 @@ func (s *StateSuite) TestAddresses(c *gc.C) {
 
 	addrs, err := s.State.Addresses()
 	c.Assert(err, gc.IsNil)
-	c.Assert(addrs, gc.HasLen, 2)
+	c.Assert(addrs, gc.HasLen, 3)
 	c.Assert(addrs, jc.SameContents, []string{
-		fmt.Sprintf("10.0.0.1:%d", envConfig.StatePort()),
+		fmt.Sprintf("10.0.0.0:%d", envConfig.StatePort()),
 		fmt.Sprintf("10.0.0.2:%d", envConfig.StatePort()),
+		fmt.Sprintf("10.0.0.3:%d", envConfig.StatePort()),
 	})
 
-	addrs, err = s.State.APIAddresses()
+	addrs, err = s.State.APIAddressesFromMachines()
 	c.Assert(err, gc.IsNil)
-	c.Assert(addrs, gc.HasLen, 2)
+	c.Assert(addrs, gc.HasLen, 3)
 	c.Assert(addrs, jc.SameContents, []string{
-		fmt.Sprintf("10.0.0.1:%d", envConfig.APIPort()),
+		fmt.Sprintf("10.0.0.0:%d", envConfig.APIPort()),
 		fmt.Sprintf("10.0.0.2:%d", envConfig.APIPort()),
+		fmt.Sprintf("10.0.0.3:%d", envConfig.APIPort()),
 	})
 }
 
@@ -122,15 +132,26 @@ func (s *StateSuite) TestIsNotFound(c *gc.C) {
 	c.Assert(err2, jc.Satisfies, errors.IsNotFoundError)
 }
 
+func (s *StateSuite) dummyCharm(c *gc.C, curlOverride string) (ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSHA256 string) {
+	var err error
+	ch = testing.Charms.Dir("dummy")
+	if curlOverride != "" {
+		curl = charm.MustParseURL(curlOverride)
+	} else {
+		curl = charm.MustParseURL(
+			fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
+		)
+	}
+	bundleURL, err = url.Parse("http://bundles.testing.invalid/dummy-1")
+	c.Assert(err, gc.IsNil)
+	bundleSHA256 = "dummy-1-sha256"
+	return ch, curl, bundleURL, bundleSHA256
+}
+
 func (s *StateSuite) TestAddCharm(c *gc.C) {
 	// Check that adding charms from scratch works correctly.
-	ch := testing.Charms.Dir("dummy")
-	curl := charm.MustParseURL(
-		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
-	)
-	bundleURL, err := url.Parse("http://bundles.testing.invalid/dummy-1")
-	c.Assert(err, gc.IsNil)
-	dummy, err := s.State.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
+	ch, curl, bundleURL, bundleSHA256 := s.dummyCharm(c, "")
+	dummy, err := s.State.AddCharm(ch, curl, bundleURL, bundleSHA256)
 	c.Assert(err, gc.IsNil)
 	c.Assert(dummy.URL().String(), gc.Equals, curl.String())
 
@@ -154,7 +175,8 @@ func (s *StateSuite) TestAddCharmUpdatesPlaceholder(c *gc.C) {
 	// Add a deployed charm.
 	bundleURL, err := url.Parse("http://bundles.testing.invalid/dummy-1")
 	c.Assert(err, gc.IsNil)
-	dummy, err := s.State.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
+	bundleSHA256 := "dummy-1-sha256"
+	dummy, err := s.State.AddCharm(ch, curl, bundleURL, bundleSHA256)
 	c.Assert(err, gc.IsNil)
 	c.Assert(dummy.URL().String(), gc.Equals, curl.String())
 
@@ -224,18 +246,78 @@ func (s *StateSuite) TestPrepareLocalCharmUpload(c *gc.C) {
 	c.Assert(curl.Revision, gc.Equals, 1234)
 }
 
-func (s *StateSuite) TestUpdateUploadedCharm(c *gc.C) {
-	ch := testing.Charms.Dir("dummy")
-	curl := charm.MustParseURL(
-		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
-	)
-	bundleURL, err := url.Parse("http://bundles.testing.invalid/dummy-1")
+func (s *StateSuite) TestPrepareStoreCharmUpload(c *gc.C) {
+	// First test the sanity checks.
+	sch, err := s.State.PrepareStoreCharmUpload(charm.MustParseURL("cs:quantal/dummy"))
+	c.Assert(err, gc.ErrorMatches, "expected charm URL with revision, got .*")
+	c.Assert(sch, gc.IsNil)
+	sch, err = s.State.PrepareStoreCharmUpload(charm.MustParseURL("local:quantal/dummy"))
+	c.Assert(err, gc.ErrorMatches, "expected charm URL with cs schema, got .*")
+	c.Assert(sch, gc.IsNil)
+
+	// No charm in state, so the call should respect given revision.
+	testCurl := charm.MustParseURL("cs:quantal/missing-123")
+	sch, err = s.State.PrepareStoreCharmUpload(testCurl)
 	c.Assert(err, gc.IsNil)
-	_, err = s.State.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
+	c.Assert(sch.URL(), gc.DeepEquals, testCurl)
+	c.Assert(sch.IsUploaded(), jc.IsFalse)
+
+	s.assertPendingCharmExists(c, sch.URL())
+
+	// Try adding it again with the same revision and ensure we get the same document.
+	schCopy, err := s.State.PrepareStoreCharmUpload(testCurl)
+	c.Assert(err, gc.IsNil)
+	c.Assert(sch, jc.DeepEquals, schCopy)
+
+	// Now add a charm and try again - we should get the same result
+	// as with AddCharm.
+	ch, curl, bundleURL, bundleSHA256 := s.dummyCharm(c, "cs:precise/dummy-2")
+	sch, err = s.State.AddCharm(ch, curl, bundleURL, bundleSHA256)
+	c.Assert(err, gc.IsNil)
+	schCopy, err = s.State.PrepareStoreCharmUpload(curl)
+	c.Assert(err, gc.IsNil)
+	c.Assert(sch, jc.DeepEquals, schCopy)
+
+	// Finally, try poking around the state with a placeholder and
+	// bundlesha256 to make sure we do the right thing.
+	curl = curl.WithRevision(999)
+	first := state.TransactionHook{
+		Before: func() {
+			err := s.State.AddStoreCharmPlaceholder(curl)
+			c.Assert(err, gc.IsNil)
+		},
+		After: func() {
+			err := s.charms.RemoveId(curl)
+			c.Assert(err, gc.IsNil)
+		},
+	}
+	second := state.TransactionHook{
+		Before: func() {
+			err := s.State.AddStoreCharmPlaceholder(curl)
+			c.Assert(err, gc.IsNil)
+		},
+		After: func() {
+			err := s.charms.UpdateId(curl, bson.D{{"$set", bson.D{
+				{"bundlesha256", "fake"}},
+			}})
+			c.Assert(err, gc.IsNil)
+		},
+	}
+	defer state.SetTransactionHooks(
+		c, s.State, first, second, first,
+	).Check()
+
+	_, err = s.State.PrepareStoreCharmUpload(curl)
+	c.Assert(err, gc.Equals, state.ErrExcessiveContention)
+}
+
+func (s *StateSuite) TestUpdateUploadedCharm(c *gc.C) {
+	ch, curl, bundleURL, bundleSHA256 := s.dummyCharm(c, "")
+	_, err := s.State.AddCharm(ch, curl, bundleURL, bundleSHA256)
 	c.Assert(err, gc.IsNil)
 
-	// First test with already uploaded and a missing charms.
-	sch, err := s.State.UpdateUploadedCharm(ch, curl, bundleURL, "dummy-1-sha256")
+	// Test with already uploaded and a missing charms.
+	sch, err := s.State.UpdateUploadedCharm(ch, curl, bundleURL, bundleSHA256)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("charm %q already uploaded", curl))
 	c.Assert(sch, gc.IsNil)
 	missingCurl := charm.MustParseURL("local:quantal/missing-1")
@@ -243,7 +325,7 @@ func (s *StateSuite) TestUpdateUploadedCharm(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	c.Assert(sch, gc.IsNil)
 
-	// Now try with an uploaded charm.
+	// Test with with an uploaded local charm.
 	_, err = s.State.PrepareLocalCharmUpload(missingCurl)
 	c.Assert(err, gc.IsNil)
 	sch, err = s.State.UpdateUploadedCharm(ch, missingCurl, bundleURL, "missing")
@@ -251,6 +333,7 @@ func (s *StateSuite) TestUpdateUploadedCharm(c *gc.C) {
 	c.Assert(sch.URL(), gc.DeepEquals, missingCurl)
 	c.Assert(sch.Revision(), gc.Equals, missingCurl.Revision)
 	c.Assert(sch.IsUploaded(), jc.IsTrue)
+	c.Assert(sch.IsPlaceholder(), jc.IsFalse)
 	c.Assert(sch.Meta(), gc.DeepEquals, ch.Meta())
 	c.Assert(sch.Config(), gc.DeepEquals, ch.Config())
 	c.Assert(sch.BundleURL(), gc.DeepEquals, bundleURL)
@@ -278,11 +361,8 @@ func (s *StateSuite) assertPlaceholderCharmExists(c *gc.C, curl *charm.URL) {
 
 func (s *StateSuite) TestLatestPlaceholderCharm(c *gc.C) {
 	// Add a deployed charm
-	ch := testing.Charms.Dir("dummy")
-	curl := charm.MustParseURL("cs:quantal/dummy-1")
-	bundleURL, err := url.Parse("http://bundles.testing.invalid/dummy-1")
-	c.Assert(err, gc.IsNil)
-	_, err = s.State.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
+	ch, curl, bundleURL, bundleSHA256 := s.dummyCharm(c, "cs:quantal/dummy-1")
+	_, err := s.State.AddCharm(ch, curl, bundleURL, bundleSHA256)
 	c.Assert(err, gc.IsNil)
 
 	// Deployed charm not found.
@@ -334,11 +414,8 @@ func (s *StateSuite) TestAddStoreCharmPlaceholder(c *gc.C) {
 
 func (s *StateSuite) assertAddStoreCharmPlaceholder(c *gc.C) (*charm.URL, *charm.URL, *state.Charm) {
 	// Add a deployed charm
-	ch := testing.Charms.Dir("dummy")
-	curl := charm.MustParseURL("cs:quantal/dummy-1")
-	bundleURL, err := url.Parse("http://bundles.testing.invalid/dummy-1")
-	c.Assert(err, gc.IsNil)
-	dummy, err := s.State.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
+	ch, curl, bundleURL, bundleSHA256 := s.dummyCharm(c, "cs:quantal/dummy-1")
+	dummy, err := s.State.AddCharm(ch, curl, bundleURL, bundleSHA256)
 	c.Assert(err, gc.IsNil)
 
 	// Add a charm placeholder
@@ -391,7 +468,7 @@ var jobStringTests = []struct {
 }{
 	{state.JobHostUnits, "JobHostUnits"},
 	{state.JobManageEnviron, "JobManageEnviron"},
-	{state.JobManageState, "JobManageState"},
+	{state.JobManageStateDeprecated, "JobManageState"},
 	{0, "<unknown job 0>"},
 	{5, "<unknown job 5>"},
 }
@@ -411,9 +488,12 @@ func (s *StateSuite) TestAddMachineErrors(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: duplicate job: .*")
 }
 
-func (s *StateSuite) TestAddMachines(c *gc.C) {
-	oneJob := []state.MachineJob{state.JobHostUnits}
-	m0, err := s.State.AddMachine("quantal", oneJob...)
+func (s *StateSuite) TestAddMachine(c *gc.C) {
+	allJobs := []state.MachineJob{
+		state.JobHostUnits,
+		state.JobManageEnviron,
+	}
+	m0, err := s.State.AddMachine("quantal", allJobs...)
 	c.Assert(err, gc.IsNil)
 	check := func(m *state.Machine, id, series string, jobs []state.MachineJob) {
 		c.Assert(m.Id(), gc.Equals, id)
@@ -421,29 +501,61 @@ func (s *StateSuite) TestAddMachines(c *gc.C) {
 		c.Assert(m.Jobs(), gc.DeepEquals, jobs)
 		s.assertMachineContainers(c, m, nil)
 	}
-	check(m0, "0", "quantal", oneJob)
+	check(m0, "0", "quantal", allJobs)
 	m0, err = s.State.Machine("0")
 	c.Assert(err, gc.IsNil)
-	check(m0, "0", "quantal", oneJob)
+	check(m0, "0", "quantal", allJobs)
 
-	allJobs := []state.MachineJob{
-		state.JobHostUnits,
-		state.JobManageEnviron,
-		state.JobManageState,
-	}
-	m1, err := s.State.AddMachine("blahblah", allJobs...)
+	oneJob := []state.MachineJob{state.JobHostUnits}
+	m1, err := s.State.AddMachine("blahblah", oneJob...)
 	c.Assert(err, gc.IsNil)
-	check(m1, "1", "blahblah", allJobs)
+	check(m1, "1", "blahblah", oneJob)
 
 	m1, err = s.State.Machine("1")
 	c.Assert(err, gc.IsNil)
-	check(m1, "1", "blahblah", allJobs)
+	check(m1, "1", "blahblah", oneJob)
 
 	m, err := s.State.AllMachines()
 	c.Assert(err, gc.IsNil)
 	c.Assert(m, gc.HasLen, 2)
-	check(m[0], "0", "quantal", oneJob)
-	check(m[1], "1", "blahblah", allJobs)
+	check(m[0], "0", "quantal", allJobs)
+	check(m[1], "1", "blahblah", oneJob)
+}
+
+func (s *StateSuite) TestAddMachines(c *gc.C) {
+	oneJob := []state.MachineJob{state.JobHostUnits}
+	cons := constraints.MustParse("mem=4G")
+	hc := instance.MustParseHardware("mem=2G")
+	machineTemplate := state.MachineTemplate{
+		Series:                  "precise",
+		Constraints:             cons,
+		HardwareCharacteristics: hc,
+		InstanceId:              "inst-id",
+		Nonce:                   "nonce",
+		Jobs:                    oneJob,
+	}
+	machines, err := s.State.AddMachines(machineTemplate)
+	c.Assert(err, gc.IsNil)
+	c.Assert(machines, gc.HasLen, 1)
+	m, err := s.State.Machine(machines[0].Id())
+	c.Assert(err, gc.IsNil)
+	instId, err := m.InstanceId()
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(instId), gc.Equals, "inst-id")
+	c.Assert(m.CheckProvisioned("nonce"), jc.IsTrue)
+	c.Assert(m.Series(), gc.Equals, "precise")
+	mcons, err := m.Constraints()
+	c.Assert(err, gc.IsNil)
+	c.Assert(mcons, gc.DeepEquals, cons)
+	mhc, err := m.HardwareCharacteristics()
+	c.Assert(err, gc.IsNil)
+	c.Assert(*mhc, gc.DeepEquals, hc)
+	// Clear the deprecated machineDoc InstanceId attribute and do it again.
+	// still works as expected with the new data model.
+	state.SetMachineInstanceId(m, "")
+	instId, err = m.InstanceId()
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(instId), gc.Equals, "inst-id")
 }
 
 func (s *StateSuite) TestAddMachinesEnvironmentDying(c *gc.C) {
@@ -767,6 +879,35 @@ func (s *StateSuite) TestAddContainerToInjectedMachine(c *gc.C) {
 	s.assertMachineContainers(c, m0, []string{"0/lxc/0", "0/lxc/1"})
 }
 
+func (s *StateSuite) TestAddMachineCanOnlyAddStateServerForMachine0(c *gc.C) {
+	template := state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobManageEnviron},
+	}
+	// Check that we can add the bootstrap machine.
+	m, err := s.State.AddOneMachine(template)
+	c.Assert(err, gc.IsNil)
+	c.Assert(m.Id(), gc.Equals, "0")
+	c.Assert(m.WantsVote(), jc.IsTrue)
+	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageEnviron})
+
+	// Check that the state server information is correct.
+	info, err := s.State.StateServerInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(info.MachineIds, gc.DeepEquals, []string{"0"})
+	c.Assert(info.VotingMachineIds, gc.DeepEquals, []string{"0"})
+
+	const errCannotAdd = "cannot add a new machine: state server jobs specified without calling EnsureAvailability"
+	m, err = s.State.AddOneMachine(template)
+	c.Assert(err, gc.ErrorMatches, errCannotAdd)
+
+	m, err = s.State.AddMachineInsideMachine(template, "0", instance.LXC)
+	c.Assert(err, gc.ErrorMatches, errCannotAdd)
+
+	m, err = s.State.AddMachineInsideNewMachine(template, template, instance.LXC)
+	c.Assert(err, gc.ErrorMatches, errCannotAdd)
+}
+
 func (s *StateSuite) TestReadMachine(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
@@ -823,19 +964,19 @@ func (s *StateSuite) TestAllMachines(c *gc.C) {
 
 func (s *StateSuite) TestAddService(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	_, err := s.State.AddService("haha/borken", "user-admin", charm)
+	_, err := s.State.AddService("haha/borken", "user-admin", charm, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add service "haha/borken": invalid name`)
 	_, err = s.State.Service("haha/borken")
 	c.Assert(err, gc.ErrorMatches, `"haha/borken" is not a valid service name`)
 
 	// set that a nil charm is handled correctly
-	_, err = s.State.AddService("umadbro", "user-admin", nil)
+	_, err = s.State.AddService("umadbro", "user-admin", nil, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add service "umadbro": charm is nil`)
 
-	wordpress, err := s.State.AddService("wordpress", "user-admin", charm)
+	wordpress, err := s.State.AddService("wordpress", "user-admin", charm, nil, nil)
 	c.Assert(err, gc.IsNil)
 	c.Assert(wordpress.Name(), gc.Equals, "wordpress")
-	mysql, err := s.State.AddService("mysql", "user-admin", charm)
+	mysql, err := s.State.AddService("mysql", "user-admin", charm, nil, nil)
 	c.Assert(err, gc.IsNil)
 	c.Assert(mysql.Name(), gc.Equals, "mysql")
 
@@ -862,7 +1003,7 @@ func (s *StateSuite) TestAddServiceEnvironmentDying(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = env.Destroy()
 	c.Assert(err, gc.IsNil)
-	_, err = s.State.AddService("s1", "user-admin", charm)
+	_, err = s.State.AddService("s1", "user-admin", charm, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": environment is no longer alive`)
 }
 
@@ -877,7 +1018,7 @@ func (s *StateSuite) TestAddServiceEnvironmentDyingAfterInitial(c *gc.C) {
 		c.Assert(env.Life(), gc.Equals, state.Alive)
 		c.Assert(env.Destroy(), gc.IsNil)
 	}).Check()
-	_, err = s.State.AddService("s1", "user-admin", charm)
+	_, err = s.State.AddService("s1", "user-admin", charm, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": environment is no longer alive`)
 }
 
@@ -889,19 +1030,19 @@ func (s *StateSuite) TestServiceNotFound(c *gc.C) {
 
 func (s *StateSuite) TestAddServiceNoTag(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	_, err := s.State.AddService("wordpress", "admin", charm)
+	_, err := s.State.AddService("wordpress", state.AdminUser, charm, nil, nil)
 	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": Invalid ownertag admin")
 }
 
 func (s *StateSuite) TestAddServiceNotUserTag(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	_, err := s.State.AddService("wordpress", "machine-3", charm)
+	_, err := s.State.AddService("wordpress", "machine-3", charm, nil, nil)
 	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": Invalid ownertag machine-3")
 }
 
 func (s *StateSuite) TestAddServiceNonExistentUser(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	_, err := s.State.AddService("wordpress", "user-notAuser", charm)
+	_, err := s.State.AddService("wordpress", "user-notAuser", charm, nil, nil)
 	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": user notAuser doesn't exist")
 }
 
@@ -912,13 +1053,13 @@ func (s *StateSuite) TestAllServices(c *gc.C) {
 	c.Assert(len(services), gc.Equals, 0)
 
 	// Check that after adding services the result is ok.
-	_, err = s.State.AddService("wordpress", "user-admin", charm)
+	_, err = s.State.AddService("wordpress", "user-admin", charm, nil, nil)
 	c.Assert(err, gc.IsNil)
 	services, err = s.State.AllServices()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(services), gc.Equals, 1)
 
-	_, err = s.State.AddService("mysql", "user-admin", charm)
+	_, err = s.State.AddService("mysql", "user-admin", charm, nil, nil)
 	c.Assert(err, gc.IsNil)
 	services, err = s.State.AllServices()
 	c.Assert(err, gc.IsNil)
@@ -1107,18 +1248,20 @@ func (s *StateSuite) TestInferEndpoints(c *gc.C) {
 }
 
 func (s *StateSuite) TestEnvironConfig(c *gc.C) {
-	cfg, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	change, err := cfg.Apply(map[string]interface{}{
+	attrs := map[string]interface{}{
 		"authorized-keys": "different-keys",
 		"arbitrary-key":   "shazam!",
-	})
+	}
+	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(change, cfg)
+	err = s.State.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
-	cfg, err = s.State.EnvironConfig()
+	cfg, err = cfg.Apply(attrs)
 	c.Assert(err, gc.IsNil)
-	c.Assert(cfg.AllAttrs(), gc.DeepEquals, change.AllAttrs())
+	oldCfg, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(oldCfg, gc.DeepEquals, cfg)
 }
 
 func (s *StateSuite) TestEnvironConstraints(c *gc.C) {
@@ -1312,8 +1455,8 @@ func (s *StateSuite) TestWatchMachinesIncludesOldMachines(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = s.machines.Update(
-		D{{"_id", machine.Id()}},
-		D{{"$unset", D{{"containertype", 1}}}},
+		bson.D{{"_id", machine.Id()}},
+		bson.D{{"$unset", bson.D{{"containertype", 1}}}},
 	)
 	c.Assert(err, gc.IsNil)
 
@@ -1507,6 +1650,68 @@ func (s *StateSuite) TestWatchMachineHardwareCharacteristics(c *gc.C) {
 	wc.AssertNoChange()
 }
 
+func (s *StateSuite) TestWatchStateServerInfo(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
+
+	w := s.State.WatchStateServerInfo()
+	defer statetesting.AssertStop(c, w)
+
+	// Initial event.
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+
+	info, err := s.State.StateServerInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(info, jc.DeepEquals, &state.StateServerInfo{
+		MachineIds:       []string{"0"},
+		VotingMachineIds: []string{"0"},
+	})
+
+	err = s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	c.Assert(err, gc.IsNil)
+
+	wc.AssertOneChange()
+
+	info, err = s.State.StateServerInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(info, jc.DeepEquals, &state.StateServerInfo{
+		MachineIds:       []string{"0", "1", "2"},
+		VotingMachineIds: []string{"0", "1", "2"},
+	})
+}
+
+func (s *StateSuite) TestAdditionalValidation(c *gc.C) {
+	updateAttrs := map[string]interface{}{"logging-config": "juju=ERROR"}
+	configValidator1 := func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
+		c.Assert(updateAttrs, gc.DeepEquals, map[string]interface{}{"logging-config": "juju=ERROR"})
+		if _, found := updateAttrs["logging-config"]; found {
+			return fmt.Errorf("cannot change logging-config")
+		}
+		return nil
+	}
+	removeAttrs := []string{"logging-config"}
+	configValidator2 := func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
+		c.Assert(removeAttrs, gc.DeepEquals, []string{"logging-config"})
+		for _, i := range removeAttrs {
+			if i == "logging-config" {
+				return fmt.Errorf("cannot remove logging-config")
+			}
+		}
+		return nil
+	}
+	configValidator3 := func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
+		return nil
+	}
+
+	err := s.State.UpdateEnvironConfig(updateAttrs, nil, configValidator1)
+	c.Assert(err, gc.ErrorMatches, "cannot change logging-config")
+	err = s.State.UpdateEnvironConfig(nil, removeAttrs, configValidator2)
+	c.Assert(err, gc.ErrorMatches, "cannot remove logging-config")
+	err = s.State.UpdateEnvironConfig(updateAttrs, nil, configValidator3)
+	c.Assert(err, gc.IsNil)
+}
+
 type attrs map[string]interface{}
 
 func (s *StateSuite) TestWatchEnvironConfig(c *gc.C) {
@@ -1525,11 +1730,10 @@ func (s *StateSuite) TestWatchEnvironConfig(c *gc.C) {
 	assertChange := func(change attrs) {
 		cfg, err := s.State.EnvironConfig()
 		c.Assert(err, gc.IsNil)
+		cfg, err = cfg.Apply(change)
+		c.Assert(err, gc.IsNil)
 		if change != nil {
-			oldcfg := cfg
-			cfg, err = cfg.Apply(change)
-			c.Assert(err, gc.IsNil)
-			err = s.State.SetEnvironConfig(cfg, oldcfg)
+			err = s.State.UpdateEnvironConfig(change, nil, nil)
 			c.Assert(err, gc.IsNil)
 		}
 		s.State.StartSync()
@@ -1587,7 +1791,6 @@ func (s *StateSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
 func (s *StateSuite) TestWatchEnvironConfigCorruptConfig(c *gc.C) {
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
-	oldcfg := cfg
 
 	// Corrupt the environment configuration.
 	settings := s.Session.DB("juju").C("settings")
@@ -1623,9 +1826,11 @@ func (s *StateSuite) TestWatchEnvironConfigCorruptConfig(c *gc.C) {
 	}
 
 	// Fix the configuration.
-	err = s.State.SetEnvironConfig(cfg, oldcfg)
+	err = settings.UpdateId("e", bson.D{{"$set", bson.D{{"name", "foo"}}}})
 	c.Assert(err, gc.IsNil)
 	fixed := cfg.AllAttrs()
+	err = s.State.UpdateEnvironConfig(fixed, nil, nil)
+	c.Assert(err, gc.IsNil)
 
 	s.State.StartSync()
 	select {
@@ -1680,7 +1885,7 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 }
 
 func tryOpenState(info *state.Info) error {
-	st, err := state.Open(info, state.TestingDialOpts())
+	st, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
 	if err == nil {
 		st.Close()
 	}
@@ -1707,7 +1912,7 @@ func (s *StateSuite) TestOpenBadAddress(c *gc.C) {
 	info.Addrs = []string{"0.1.2.3:1234"}
 	st, err := state.Open(info, state.DialOpts{
 		Timeout: 1 * time.Millisecond,
-	})
+	}, state.Policy(nil))
 	if err == nil {
 		st.Close()
 	}
@@ -1723,7 +1928,7 @@ func (s *StateSuite) TestOpenDelaysRetryBadAddress(c *gc.C) {
 	t0 := time.Now()
 	st, err := state.Open(info, state.DialOpts{
 		Timeout: 1 * time.Millisecond,
-	})
+	}, state.Policy(nil))
 	if err == nil {
 		st.Close()
 	}
@@ -1819,7 +2024,7 @@ type entity interface {
 
 func testSetMongoPassword(c *gc.C, getEntity func(st *state.State) (entity, error)) {
 	info := state.TestingStateInfo()
-	st, err := state.Open(info, state.TestingDialOpts())
+	st, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 	// Turn on fully-authenticated mode.
@@ -1840,7 +2045,7 @@ func testSetMongoPassword(c *gc.C, getEntity func(st *state.State) (entity, erro
 
 	// Check that we can log in with the correct password.
 	info.Password = "foo"
-	st1, err := state.Open(info, state.TestingDialOpts())
+	st1, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer st1.Close()
 
@@ -2319,7 +2524,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
 	// Add a service and 4 units: one with a different version, one
 	// with an empty version, one with the current version, and one
 	// with the new version.
-	service, err := s.State.AddService("wordpress", "user-admin", s.AddTestingCharm(c, "wordpress"))
+	service, err := s.State.AddService("wordpress", "user-admin", s.AddTestingCharm(c, "wordpress"), nil, nil)
 	c.Assert(err, gc.IsNil)
 	unit0, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)
@@ -2369,7 +2574,7 @@ func (s *StateSuite) prepareAgentVersionTests(c *gc.C) (*config.Config, string) 
 	// Add a machine and a unit with the current version.
 	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	service, err := s.State.AddService("wordpress", "user-admin", s.AddTestingCharm(c, "wordpress"))
+	service, err := s.State.AddService("wordpress", "user-admin", s.AddTestingCharm(c, "wordpress"), nil, nil)
 	c.Assert(err, gc.IsNil)
 	unit, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)
@@ -2385,9 +2590,7 @@ func (s *StateSuite) prepareAgentVersionTests(c *gc.C) (*config.Config, string) 
 func (s *StateSuite) changeEnviron(c *gc.C, envConfig *config.Config, name string, value interface{}) {
 	attrs := envConfig.AllAttrs()
 	attrs[name] = value
-	newConfig, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
-	c.Assert(s.State.SetEnvironConfig(newConfig, envConfig), gc.IsNil)
+	c.Assert(s.State.UpdateEnvironConfig(attrs, nil, nil), gc.IsNil)
 }
 
 func (s *StateSuite) assertAgentVersion(c *gc.C, envConfig *config.Config, vers string) {
@@ -2460,7 +2663,7 @@ type waiter interface {
 // interact with the closed state, causing it to return an
 // unexpected error (often "Closed explictly").
 func testWatcherDiesWhenStateCloses(c *gc.C, startWatcher func(c *gc.C, st *state.State) waiter) {
-	st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts())
+	st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	watcher := startWatcher(c, st)
 	err = st.Close()
@@ -2477,21 +2680,18 @@ func testWatcherDiesWhenStateCloses(c *gc.C, startWatcher func(c *gc.C, st *stat
 	}
 }
 
-func (s *StateSuite) TestStateServerMachineIds(c *gc.C) {
-	ids, err := state.StateServerMachineIds(s.State)
+func (s *StateSuite) TestStateServerInfo(c *gc.C) {
+	ids, err := s.State.StateServerInfo()
 	c.Assert(err, gc.IsNil)
-	c.Assert(ids, gc.HasLen, 0)
+	c.Assert(ids.MachineIds, gc.HasLen, 0)
+	c.Assert(ids.VotingMachineIds, gc.HasLen, 0)
 
 	// TODO(rog) more testing here when we can actually add
 	// state servers.
 }
 
 func (s *StateSuite) TestOpenCreatesStateServersDoc(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
-	m1, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageState)
-	c.Assert(err, gc.IsNil)
-	m2, err := s.State.AddMachine("quantal", state.JobManageEnviron, state.JobManageState)
+	m0, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 
 	// Delete the stateServers collection to pretend this
@@ -2501,23 +2701,263 @@ func (s *StateSuite) TestOpenCreatesStateServersDoc(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Sanity check that we have in fact deleted the right info.
-	ids, err := state.StateServerMachineIds(s.State)
+	info, err := s.State.StateServerInfo()
 	c.Assert(err, gc.NotNil)
-	c.Assert(ids, gc.HasLen, 0)
+	c.Assert(info, gc.IsNil)
 
-	st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts())
+	st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
-	expectIds := []string{m1.Id(), m2.Id()}
-	sort.Strings(expectIds)
-	ids, err = state.StateServerMachineIds(st)
+	expectIds := []string{m0.Id()}
+	expectStateServerInfo := &state.StateServerInfo{
+		MachineIds:       expectIds,
+		VotingMachineIds: expectIds,
+	}
+	info, err = st.StateServerInfo()
 	c.Assert(err, gc.IsNil)
-	sort.Strings(ids)
-	c.Assert(ids, gc.DeepEquals, expectIds)
+	c.Assert(info, gc.DeepEquals, expectStateServerInfo)
+}
 
-	// Check that it works with the original connection too.
-	ids, err = state.StateServerMachineIds(s.State)
+func (s *StateSuite) TestOpenCreatesAPIHostPortsDoc(c *gc.C) {
+	// Delete the stateServers collection to pretend this
+	// is an older environment that had not created it
+	// already.
+	err := s.stateServers.DropCollection()
 	c.Assert(err, gc.IsNil)
-	c.Assert(ids, gc.DeepEquals, expectIds)
+
+	// Sanity check that we have in fact deleted the right info.
+	addrs, err := s.State.APIHostPorts()
+	c.Assert(err, gc.NotNil)
+	c.Assert(addrs, gc.IsNil)
+
+	st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts(), state.Policy(nil))
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+
+	addrs, err = s.State.APIHostPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(addrs, gc.HasLen, 0)
+}
+
+func (s *StateSuite) TestReopenWithNoMachines(c *gc.C) {
+	info, err := s.State.StateServerInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(info, jc.DeepEquals, &state.StateServerInfo{})
+
+	st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts(), state.Policy(nil))
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+
+	info, err = s.State.StateServerInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(info, jc.DeepEquals, &state.StateServerInfo{})
+}
+
+func (s *StateSuite) TestOpenReplacesOldStateServersDoc(c *gc.C) {
+	m0, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
+
+	// Clear the voting machine ids from the stateServers collection
+	// to pretend this is a semi-old environment that had
+	// created the collection but not the voting ids.
+	_, err = s.stateServers.UpdateAll(nil, bson.D{{
+		"$set",
+		bson.D{
+			{"votingmachineids", nil},
+			{"machineids", nil},
+		},
+	}})
+	c.Assert(err, gc.IsNil)
+
+	// Sanity check that they have actually been removed.
+	info, err := s.State.StateServerInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(info.MachineIds, gc.HasLen, 0)
+	c.Assert(info.VotingMachineIds, gc.HasLen, 0)
+
+	st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts(), state.Policy(nil))
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+
+	info, err = s.State.StateServerInfo()
+	c.Assert(err, gc.IsNil)
+	expectIds := []string{m0.Id()}
+	c.Assert(info, gc.DeepEquals, &state.StateServerInfo{
+		MachineIds:       expectIds,
+		VotingMachineIds: expectIds,
+	})
+}
+
+func (s *StateSuite) TestEnsureAvailabilityFailsWithBadCount(c *gc.C) {
+	for _, n := range []int{-1, 0, 2, 6} {
+		err := s.State.EnsureAvailability(n, constraints.Value{}, "")
+		c.Assert(err, gc.ErrorMatches, "number of state servers must be odd and greater than zero")
+	}
+	err := s.State.EnsureAvailability(replicaset.MaxPeers+2, constraints.Value{}, "")
+	c.Assert(err, gc.ErrorMatches, `state server count is too large \(allowed \d+\)`)
+}
+
+func (s *StateSuite) TestEnsureAvailabilityAddsNewMachines(c *gc.C) {
+	ids := make([]string, 3)
+	m0, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
+	ids[0] = m0.Id()
+
+	// Add a non-state-server machine just to make sure.
+	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+
+	info, err := s.State.StateServerInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(info, gc.DeepEquals, &state.StateServerInfo{
+		MachineIds:       []string{m0.Id()},
+		VotingMachineIds: []string{m0.Id()},
+	})
+
+	cons := constraints.Value{
+		Mem: newUint64(100),
+	}
+	err = s.State.EnsureAvailability(3, cons, "quantal")
+	c.Assert(err, gc.IsNil)
+
+	for i := 1; i < 3; i++ {
+		m, err := s.State.Machine(fmt.Sprint(i + 1))
+		c.Assert(err, gc.IsNil)
+		c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{
+			state.JobHostUnits,
+			state.JobManageEnviron,
+		})
+		gotCons, err := m.Constraints()
+		c.Assert(err, gc.IsNil)
+		c.Assert(gotCons, gc.DeepEquals, cons)
+		c.Assert(m.WantsVote(), jc.IsTrue)
+		ids[i] = m.Id()
+	}
+	sort.Strings(ids)
+
+	info, err = s.State.StateServerInfo()
+	c.Assert(err, gc.IsNil)
+	sort.Strings(info.MachineIds)
+	sort.Strings(info.VotingMachineIds)
+	c.Assert(info, gc.DeepEquals, &state.StateServerInfo{
+		MachineIds:       ids,
+		VotingMachineIds: ids,
+	})
+}
+
+func newUint64(i uint64) *uint64 {
+	return &i
+}
+
+func (s *StateSuite) TestStateServingInfo(c *gc.C) {
+	info, err := s.State.StateServingInfo()
+	c.Assert(info, jc.DeepEquals, params.StateServingInfo{})
+	// no error because empty doc created by default
+	c.Assert(err, gc.IsNil)
+
+	data := params.StateServingInfo{
+		APIPort:      69,
+		StatePort:    80,
+		Cert:         "Some cert",
+		PrivateKey:   "Some key",
+		SharedSecret: "Some Keyfile",
+	}
+	err = s.State.SetStateServingInfo(data)
+	c.Assert(err, gc.IsNil)
+
+	info, err = s.State.StateServingInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(info, jc.DeepEquals, data)
+}
+
+func (s *StateSuite) TestOpenCreatesStateServingInfoDoc(c *gc.C) {
+	// Delete the stateServers collection to pretend this
+	// is an older environment that had not created it
+	// already.
+	err := s.stateServers.DropCollection()
+	c.Assert(err, gc.IsNil)
+
+	st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts(), state.Policy(nil))
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+
+	info, err := st.StateServingInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(info, gc.DeepEquals, params.StateServingInfo{})
+}
+
+func (s *StateSuite) TestSetAPIHostPorts(c *gc.C) {
+	addrs, err := s.State.APIHostPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(addrs, gc.HasLen, 0)
+
+	newHostPorts := [][]instance.HostPort{{{
+		Address: instance.Address{
+			Value:        "0.2.4.6",
+			Type:         instance.Ipv4Address,
+			NetworkName:  "net",
+			NetworkScope: instance.NetworkCloudLocal,
+		},
+		Port: 1,
+	}, {
+		Address: instance.Address{
+			Value:        "0.4.8.16",
+			Type:         instance.Ipv4Address,
+			NetworkName:  "foo",
+			NetworkScope: instance.NetworkPublic,
+		},
+		Port: 2,
+	}}, {{
+		Address: instance.Address{
+			Value:        "0.6.1.2",
+			Type:         instance.Ipv4Address,
+			NetworkName:  "net",
+			NetworkScope: instance.NetworkCloudLocal,
+		},
+		Port: 5,
+	}}}
+	err = s.State.SetAPIHostPorts(newHostPorts)
+	c.Assert(err, gc.IsNil)
+
+	gotHostPorts, err := s.State.APIHostPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
+
+	newHostPorts = [][]instance.HostPort{{{
+		Address: instance.Address{
+			Value:        "0.2.4.6",
+			Type:         instance.Ipv6Address,
+			NetworkName:  "net",
+			NetworkScope: instance.NetworkCloudLocal,
+		},
+		Port: 13,
+	}}}
+	err = s.State.SetAPIHostPorts(newHostPorts)
+	c.Assert(err, gc.IsNil)
+
+	gotHostPorts, err = s.State.APIHostPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
+}
+
+func (s *StateSuite) TestWatchAPIHostPorts(c *gc.C) {
+	w := s.State.WatchAPIHostPorts()
+	defer statetesting.AssertStop(c, w)
+
+	// Initial event.
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+
+	err := s.State.SetAPIHostPorts([][]instance.HostPort{{{
+		Address: instance.NewAddress("0.1.2.3"),
+		Port:    99,
+	}}})
+	c.Assert(err, gc.IsNil)
+
+	wc.AssertOneChange()
+
+	// Stop, check closed.
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
 }

@@ -49,6 +49,13 @@ func (f *fileStorageReader) fullPath(name string) string {
 
 // Get implements storage.StorageReader.Get.
 func (f *fileStorageReader) Get(name string) (io.ReadCloser, error) {
+	if isInternalPath(name) {
+		return nil, &os.PathError{
+			Op:   "Get",
+			Path: name,
+			Err:  os.ErrNotExist,
+		}
+	}
 	filename := f.fullPath(name)
 	fi, err := os.Stat(filename)
 	if err != nil {
@@ -66,11 +73,23 @@ func (f *fileStorageReader) Get(name string) (io.ReadCloser, error) {
 	return file, nil
 }
 
+// isInternalPath returns true if a path should be hidden from user visibility
+// filestorage uses ".tmp/" as a staging directory for uploads, so we don't
+// want it to be visible
+func isInternalPath(path string) bool {
+	// This blocks both ".tmp", ".tmp/foo" but also ".tmpdir", better to be
+	// overly restrictive to start with
+	return strings.HasPrefix(path, ".tmp")
+}
+
 // List implements storage.StorageReader.List.
 func (f *fileStorageReader) List(prefix string) ([]string, error) {
+	var names []string
+	if isInternalPath(prefix) {
+		return names, nil
+	}
 	prefix = filepath.Join(f.path, prefix)
 	dir := filepath.Dir(prefix)
-	var names []string
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -104,48 +123,36 @@ func (f *fileStorageReader) ShouldRetry(err error) bool {
 
 type fileStorageWriter struct {
 	fileStorageReader
-	tmpdir string
 }
-
-// UseDefaultTmpDir may be passed into NewFileStorageWriter
-// for the tmpdir argument, to signify that the default
-// value should be used. See NewFileStorageWriter for more.
-const UseDefaultTmpDir = ""
 
 // NewFileStorageWriter returns a new read/write storag for
 // a directory inside the local file system.
-//
-// A temporary directory may be specified, in which files will be written
-// to before moving to the final destination. If specified, the temporary
-// directory should be on the same filesystem as the storage directory
-// to ensure atomicity. If tmpdir == UseDefaultTmpDir (""), then path+".tmp"
-// will be used.
-//
-// If tmpdir == UseDefaultTmpDir, it will be created when Put is invoked,
-// and will be removed afterwards. If tmpdir != UseDefaultTmpDir, it must
-// already exist, and will never be removed.
-func NewFileStorageWriter(path, tmpdir string) (storage.Storage, error) {
+func NewFileStorageWriter(path string) (storage.Storage, error) {
 	reader, err := NewFileStorageReader(path)
 	if err != nil {
 		return nil, err
 	}
-	return &fileStorageWriter{*reader.(*fileStorageReader), tmpdir}, nil
+	return &fileStorageWriter{*reader.(*fileStorageReader)}, nil
 }
 
 func (f *fileStorageWriter) Put(name string, r io.Reader, length int64) error {
+	if isInternalPath(name) {
+		return &os.PathError{
+			Op:   "Put",
+			Path: name,
+			Err:  os.ErrPermission,
+		}
+	}
 	fullpath := f.fullPath(name)
 	dir := filepath.Dir(fullpath)
-	tmpdir := f.tmpdir
-	if tmpdir == UseDefaultTmpDir {
-		tmpdir = f.path + ".tmp"
-		if err := os.MkdirAll(tmpdir, 0755); err != nil && !os.IsExist(err) {
-			return err
-		}
-		defer os.Remove(tmpdir)
-	}
-	if err := os.MkdirAll(dir, 0755); err != nil && !os.IsExist(err) {
+	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
+	tmpdir := filepath.Join(f.path, ".tmp")
+	if err := os.MkdirAll(tmpdir, 0755); err != nil {
+		return err
+	}
+	defer os.Remove(tmpdir)
 	// Write to a temporary file first, and then move (atomically).
 	file, err := ioutil.TempFile(tmpdir, "juju-filestorage-")
 	if err != nil {

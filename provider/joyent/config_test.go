@@ -4,24 +4,25 @@
 package joyent_test
 
 import (
+	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/provider/joyent"
-	"launchpad.net/juju-core/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
-func newConfig(c *gc.C, attrs testing.Attrs) *config.Config {
-	attrs = testing.FakeConfig().Merge(attrs)
+func newConfig(c *gc.C, attrs coretesting.Attrs) *config.Config {
+	attrs = coretesting.FakeConfig().Merge(attrs)
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	return cfg
 }
 
-func validAttrs() testing.Attrs {
-	return testing.FakeConfig().Merge(testing.Attrs{
+func validAttrs() coretesting.Attrs {
+	return coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"type":         "joyent",
 		"sdc-user":     "dstroppa",
 		"sdc-key-id":   "12:c3:a7:cb:a2:29:e2:90:88:3f:04:53:3b:4e:75:40",
@@ -35,7 +36,7 @@ func validAttrs() testing.Attrs {
 
 type ConfigSuite struct {
 	testbase.LoggingSuite
-	originalValues map[string]testbase.Restorer
+	originalValues map[string]testing.Restorer
 }
 
 var _ = gc.Suite(&ConfigSuite{})
@@ -49,9 +50,9 @@ func (s *ConfigSuite) SetUpSuite(c *gc.C) {
 
 var newConfigTests = []struct {
 	info   string
-	insert testing.Attrs
+	insert coretesting.Attrs
 	remove []string
-	expect testing.Attrs
+	expect coretesting.Attrs
 	err    string
 }{{
 	info:   "sdc-user is required",
@@ -59,7 +60,7 @@ var newConfigTests = []struct {
 	err:    "sdc-user: expected string, got nothing",
 }, {
 	info:   "sdc-user cannot be empty",
-	insert: testing.Attrs{"sdc-user": ""},
+	insert: coretesting.Attrs{"sdc-user": ""},
 	err:    "sdc-user: must not be empty",
 }, {
 	info:   "sdc-key-id is required",
@@ -67,26 +68,26 @@ var newConfigTests = []struct {
 	err:    "sdc-key-id: expected string, got nothing",
 }, {
 	info:   "sdc-key-id cannot be empty",
-	insert: testing.Attrs{"sdc-key-id": ""},
+	insert: coretesting.Attrs{"sdc-key-id": ""},
 	err:    "sdc-key-id: must not be empty",
 }, {
 	info:   "sdc-region is inserted if missing",
-	expect: testing.Attrs{"sdc-region": "us-west-1"},
+	expect: coretesting.Attrs{"sdc-region": "us-west-1"},
 }, {
 	info:   "sdc-region cannot be empty",
-	insert: testing.Attrs{"sdc-region": ""},
+	insert: coretesting.Attrs{"sdc-region": ""},
 	err:    "sdc-region: must not be empty",
 }, {
 	info:   "sdc-region is untouched if present",
-	insert: testing.Attrs{"sdc-region": "us-west-1"},
-	expect: testing.Attrs{"sdc-region": "us-west-1"},
+	insert: coretesting.Attrs{"sdc-region": "us-west-1"},
+	expect: coretesting.Attrs{"sdc-region": "us-west-1"},
 }, {
 	info:   "manta-user is required",
 	remove: []string{"manta-user"},
 	err:    "manta-user: expected string, got nothing",
 }, {
 	info:   "manta-user cannot be empty",
-	insert: testing.Attrs{"manta-user": ""},
+	insert: coretesting.Attrs{"manta-user": ""},
 	err:    "manta-user: must not be empty",
 }, {
 	info:   "manta-key-id is required",
@@ -94,23 +95,23 @@ var newConfigTests = []struct {
 	err:    "manta-key-id: expected string, got nothing",
 }, {
 	info:   "manta-key-id cannot be empty",
-	insert: testing.Attrs{"manta-key-id": ""},
+	insert: coretesting.Attrs{"manta-key-id": ""},
 	err:    "manta-key-id: must not be empty",
 }, {
 	info:   "manta-region is inserted if missing",
-	expect: testing.Attrs{"manta-region": "us-east"},
+	expect: coretesting.Attrs{"manta-region": "us-east"},
 }, {
 	info:   "manta-region cannot be empty",
-	insert: testing.Attrs{"manta-region": ""},
+	insert: coretesting.Attrs{"manta-region": ""},
 	err:    "manta-region: must not be empty",
 }, {
 	info:   "manta-region is untouched if present",
-	insert: testing.Attrs{"manta-region": "us-east"},
-	expect: testing.Attrs{"manta-region": "us-east"},
+	insert: coretesting.Attrs{"manta-region": "us-east"},
+	expect: coretesting.Attrs{"manta-region": "us-east"},
 }, {
 	info:   "unknown field is not touched",
-	insert: testing.Attrs{"unknown-field": 12345},
-	expect: testing.Attrs{"unknown-field": 12345},
+	insert: coretesting.Attrs{"unknown-field": 12345},
+	expect: coretesting.Attrs{"unknown-field": 12345},
 }}
 
 func (*ConfigSuite) TestNewEnvironConfig(c *gc.C) {
@@ -173,41 +174,41 @@ func (*ConfigSuite) TestValidateOldConfig(c *gc.C) {
 
 var changeConfigTests = []struct {
 	info   string
-	insert testing.Attrs
+	insert coretesting.Attrs
 	remove []string
-	expect testing.Attrs
+	expect coretesting.Attrs
 	err    string
 }{{
 	info:   "no change, no error",
 	expect: validAttrs(),
 }, {
 	info:   "can change sdc-user",
-	insert: testing.Attrs{"sdc-user": "joyent_user"},
-	expect: testing.Attrs{"sdc-user": "joyent_user"},
+	insert: coretesting.Attrs{"sdc-user": "joyent_user"},
+	expect: coretesting.Attrs{"sdc-user": "joyent_user"},
 }, {
 	info:   "can change sdc-key-id",
-	insert: testing.Attrs{"sdc-key-id": "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a"},
-	expect: testing.Attrs{"sdc-key-id": "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a"},
+	insert: coretesting.Attrs{"sdc-key-id": "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a"},
+	expect: coretesting.Attrs{"sdc-key-id": "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a"},
 }, {
 	info:   "can change sdc-region",
-	insert: testing.Attrs{"sdc-region": "us-west-1"},
-	expect: testing.Attrs{"sdc-region": "us-west-1"},
+	insert: coretesting.Attrs{"sdc-region": "us-west-1"},
+	expect: coretesting.Attrs{"sdc-region": "us-west-1"},
 }, {
 	info:   "can change manta-user",
-	insert: testing.Attrs{"manta-user": "manta_user"},
-	expect: testing.Attrs{"manta-user": "manta_user"},
+	insert: coretesting.Attrs{"manta-user": "manta_user"},
+	expect: coretesting.Attrs{"manta-user": "manta_user"},
 }, {
 	info:   "can change manta-key-id",
-	insert: testing.Attrs{"manta-key-id": "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a"},
-	expect: testing.Attrs{"manta-key-id": "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a"},
+	insert: coretesting.Attrs{"manta-key-id": "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a"},
+	expect: coretesting.Attrs{"manta-key-id": "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a"},
 }, {
 	info:   "can change manta-region",
-	insert: testing.Attrs{"manta-region": "us-east"},
-	expect: testing.Attrs{"manta-region": "us-east"},
+	insert: coretesting.Attrs{"manta-region": "us-east"},
+	expect: coretesting.Attrs{"manta-region": "us-east"},
 }, {
 	info:   "can insert unknown field",
-	insert: testing.Attrs{"unknown": "ignoti"},
-	expect: testing.Attrs{"unknown": "ignoti"},
+	insert: coretesting.Attrs{"unknown": "ignoti"},
+	expect: coretesting.Attrs{"unknown": "ignoti"},
 }}
 
 func (s *ConfigSuite) TestValidateChange(c *gc.C) {
@@ -256,29 +257,29 @@ func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 
 var prepareConfigTests = []struct {
 	info   string
-	insert testing.Attrs
+	insert coretesting.Attrs
 	remove []string
-	expect testing.Attrs
+	expect coretesting.Attrs
 	err    string
 }{{
 	info:   "All value provided, nothig to do",
 	expect: validAttrs(),
 }, {
 	info:   "can get sdc-user from env variable",
-	insert: testing.Attrs{"sdc-user": ""},
-	expect: testing.Attrs{"sdc-user": "tester"},
+	insert: coretesting.Attrs{"sdc-user": ""},
+	expect: coretesting.Attrs{"sdc-user": "tester"},
 }, {
 	info:   "can get sdc-key-id from env variable",
-	insert: testing.Attrs{"sdc-key-id": ""},
-	expect: testing.Attrs{"sdc-key-id": "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a"},
+	insert: coretesting.Attrs{"sdc-key-id": ""},
+	expect: coretesting.Attrs{"sdc-key-id": "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a"},
 }, {
 	info:   "can get manta-user from env variable",
-	insert: testing.Attrs{"manta-user": ""},
-	expect: testing.Attrs{"manta-user": "tester"},
+	insert: coretesting.Attrs{"manta-user": ""},
+	expect: coretesting.Attrs{"manta-user": "tester"},
 }, {
 	info:   "can get manta-key-id from env variable",
-	insert: testing.Attrs{"manta-key-id": ""},
-	expect: testing.Attrs{"manta-key-id": "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a"},
+	insert: coretesting.Attrs{"manta-key-id": ""},
+	expect: coretesting.Attrs{"manta-key-id": "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a"},
 }}
 
 func (s *ConfigSuite) TestPrepare(c *gc.C) {
@@ -286,7 +287,7 @@ func (s *ConfigSuite) TestPrepare(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
 		testConfig := newConfig(c, attrs)
-		preparedConfig, err := joyent.Provider.Prepare(testConfig)
+		preparedConfig, err := joyent.Provider.Prepare(coretesting.Context(c), testConfig)
 		if test.err == "" {
 			c.Assert(err, gc.IsNil)
 			attrs := preparedConfig.Config().AllAttrs()

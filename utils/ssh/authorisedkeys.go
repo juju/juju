@@ -4,7 +4,6 @@
 package ssh
 
 import (
-	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -15,7 +14,8 @@ import (
 	"strings"
 	"sync"
 
-	"launchpad.net/loggo"
+	"code.google.com/p/go.crypto/ssh"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/utils"
 )
@@ -34,108 +34,21 @@ const (
 	authKeysFile = "authorized_keys"
 )
 
-// case-insensive public authorized_keys options
-var validOptions = [...]string{
-	"cert-authority",
-	"command",
-	"environment",
-	"from",
-	"no-agent",
-	"no-port-forwarding",
-	"no-pty",
-	"no-user",
-	"no-X11-forwarding",
-	"permitopen",
-	"principals",
-	"tunnel",
-}
-
-var validKeytypes = [...]string{
-	"ecdsa-sha2-nistp256",
-	"ecdsa-sha2-nistp384",
-	"ecdsa-sha2-nistp521",
-	"ssh-dss",
-	"ssh-rsa",
-}
-
 type AuthorisedKey struct {
-	KeyType string
 	Key     []byte
 	Comment string
-}
-
-// skipOptions takes a non-comment line from an
-// authorized_keys file, and returns the remainder
-// of the line after skipping any options at the
-// beginning of the line.
-func skipOptions(line string) string {
-	found := false
-	lower := strings.ToLower(line)
-	for _, o := range validOptions {
-		if strings.HasPrefix(lower, o) {
-			line = line[len(o):]
-			found = true
-			break
-		}
-	}
-	if !found {
-		return line
-	}
-	// Skip to the next unquoted whitespace, returning the remainder.
-	// Double quotes may be escaped with \".
-	var quoted bool
-	for i := 0; i < len(line); i++ {
-		switch line[i] {
-		case ' ', '\t':
-			if !quoted {
-				return strings.TrimLeft(line[i+1:], " \t")
-			}
-		case '\\':
-			if i+1 < len(line) && line[i+1] == '"' {
-				i++
-			}
-		case '"':
-			quoted = !quoted
-		}
-	}
-	return ""
 }
 
 // ParseAuthorisedKey parses a non-comment line from an
 // authorized_keys file and returns the constituent parts.
 // Based on description in "man sshd".
-//
-// TODO(axw) support version 1 format?
 func ParseAuthorisedKey(line string) (*AuthorisedKey, error) {
-	withoutOptions := skipOptions(line)
-	var keytype, key, comment string
-	if i := strings.IndexAny(withoutOptions, " \t"); i == -1 {
-		// There must be at least two fields: keytype and key.
-		return nil, fmt.Errorf("malformed line: %q", line)
-	} else {
-		keytype = withoutOptions[:i]
-		key = strings.TrimSpace(withoutOptions[i+1:])
+	key, comment, _, _, ok := ssh.ParseAuthorizedKey([]byte(line))
+	if !ok {
+		return nil, fmt.Errorf("invalid authorized_key %q", line)
 	}
-	validKeytype := false
-	for _, kt := range validKeytypes {
-		if keytype == kt {
-			validKeytype = true
-			break
-		}
-	}
-	if !validKeytype {
-		return nil, fmt.Errorf("invalid keytype %q in line %q", keytype, line)
-	}
-	// Split key/comment (if any)
-	if i := strings.IndexAny(key, " \t"); i != -1 {
-		key, comment = key[:i], key[i+1:]
-	}
-	keyBytes, err := base64.StdEncoding.DecodeString(key)
-	if err != nil {
-		return nil, err
-	}
+	keyBytes := ssh.MarshalPublicKey(key)
 	return &AuthorisedKey{
-		KeyType: keytype,
 		Key:     keyBytes,
 		Comment: comment,
 	}, nil
@@ -201,22 +114,16 @@ func writeAuthorisedKeys(username string, keys []string) error {
 	if err == nil {
 		perms = info.Mode().Perm()
 	}
-	// Write the data to a temp file
-	tempDir, err := ioutil.TempDir(keyDir, "")
-	if err != nil {
-		return err
-	}
-	tempFile := filepath.Join(tempDir, "newkeyfile")
-	defer os.RemoveAll(tempDir)
-	err = ioutil.WriteFile(tempFile, []byte(keyData), perms)
+
+	logger.Debugf("writing authorised keys file %s", sshKeyFile)
+	err = utils.AtomicWriteFile(sshKeyFile, []byte(keyData), perms)
 	if err != nil {
 		return err
 	}
 
-	// Rename temp file to the final location and ensure its owner
-	// is set correctly.
-	logger.Debugf("writing authorised keys file %s", sshKeyFile)
 	// TODO (wallyworld) - what to do on windows (if anything)
+	// TODO(dimitern) - no need to use user.Current() if username
+	// is "" - it will use the current user anyway.
 	if runtime.GOOS != "windows" {
 		// Ensure the resulting authorised keys file has its ownership
 		// set to the specified username.
@@ -238,12 +145,12 @@ func writeAuthorisedKeys(username string, keys []string) error {
 		if err != nil {
 			return err
 		}
-		err = os.Chown(tempFile, uid, gid)
+		err = os.Chown(sshKeyFile, uid, gid)
 		if err != nil {
 			return err
 		}
 	}
-	return os.Rename(tempFile, sshKeyFile)
+	return nil
 }
 
 // We need a mutex because updates to the authorised keys file are done by

@@ -9,15 +9,15 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )
@@ -45,7 +45,7 @@ func (s *ConfigSuite) SetUpTest(c *gc.C) {
 var sampleConfig = testing.Attrs{
 	"type":                      "my-type",
 	"name":                      "my-name",
-	"authorized-keys":           "my-keys",
+	"authorized-keys":           testing.FakeAuthKeys,
 	"firewall-mode":             config.FwInstance,
 	"admin-secret":              "foo",
 	"unknown":                   "my-unknown",
@@ -129,7 +129,7 @@ var configTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 		},
 	}, {
 		about:       "Load authorized-keys from path",
@@ -276,7 +276,7 @@ var configTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 			"agent-version":   "1.2.3",
 		},
 	}, {
@@ -285,7 +285,7 @@ var configTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 			"development":     true,
 		},
 	}, {
@@ -294,7 +294,7 @@ var configTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 			"development":     false,
 			"admin-secret":    "pork",
 		},
@@ -304,7 +304,7 @@ var configTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 			"development":     "invalid",
 		},
 		err: `development: expected bool, got string\("invalid"\)`,
@@ -314,7 +314,7 @@ var configTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 			"agent-version":   "2",
 		},
 		err: `invalid agent version in environment configuration: "2"`,
@@ -447,6 +447,21 @@ var configTests = []configTest{
 		},
 		err: `provisioner-safe-mode: expected bool, got string\("yes please"\)`,
 	}, {
+		about:       "default image stream",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+		},
+	}, {
+		about:       "explicit image stream",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":         "my-type",
+			"name":         "my-name",
+			"image-stream": "daily",
+		},
+	}, {
 		about:       "Explicit state port",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
@@ -497,6 +512,57 @@ var configTests = []configTest{
 			"syslog-port": "illegal",
 		},
 		err: `syslog-port: expected number, got string\("illegal"\)`,
+	}, {
+		about:       "Explicit bootstrap timeout",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":              "my-type",
+			"name":              "my-name",
+			"bootstrap-timeout": 300,
+		},
+	}, {
+		about:       "Invalid bootstrap timeout",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":              "my-type",
+			"name":              "my-name",
+			"bootstrap-timeout": "illegal",
+		},
+		err: `bootstrap-timeout: expected number, got string\("illegal"\)`,
+	}, {
+		about:       "Explicit bootstrap retry delay",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":                  "my-type",
+			"name":                  "my-name",
+			"bootstrap-retry-delay": 5,
+		},
+	}, {
+		about:       "Invalid bootstrap retry delay",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":                  "my-type",
+			"name":                  "my-name",
+			"bootstrap-retry-delay": "illegal",
+		},
+		err: `bootstrap-retry-delay: expected number, got string\("illegal"\)`,
+	}, {
+		about:       "Explicit bootstrap addresses delay",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"bootstrap-addresses-delay": 15,
+		},
+	}, {
+		about:       "Invalid bootstrap addresses delay",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"bootstrap-addresses-delay": "illegal",
+		},
+		err: `bootstrap-addresses-delay: expected number, got string\("illegal"\)`,
 	}, {
 		about:       "Invalid logging configuration",
 		useDefaults: config.UseDefaults,
@@ -555,6 +621,21 @@ var configTests = []configTest{
 			"ca-cert":                   caCert,
 			"firewall-mode":             "instance",
 			"type":                      "ec2",
+		},
+	}, {
+		about:       "Provider type null is replaced with manual",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "null",
+			"name": "my-name",
+		},
+	}, {
+		about:       "TestMode flag specified",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":      "my-type",
+			"name":      "my-name",
+			"test-mode": true,
 		},
 	},
 	authTokenConfigTest("token=value, tokensecret=value", true),
@@ -646,7 +727,7 @@ var noCertFilesTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 		},
 	}, {
 		about:       "Unspecified certificate, specified key",
@@ -654,7 +735,7 @@ var noCertFilesTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 			"ca-private-key":  caKey,
 		},
 		err: "bad CA certificate/key in configuration: crypto/tls:.*",
@@ -677,7 +758,7 @@ var emptyCertFilesTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 			"ca-private-key":  caKey,
 		},
 		err: `file ".*/my-name-cert.pem" is empty`,
@@ -687,7 +768,7 @@ var emptyCertFilesTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 		},
 		err: `file ".*/my-name-cert.pem" is empty`,
 	}, {
@@ -696,7 +777,7 @@ var emptyCertFilesTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 			"ca-cert":         caCert,
 		},
 		err: `file ".*/my-name-private-key.pem" is empty`,
@@ -706,7 +787,7 @@ var emptyCertFilesTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 			"ca-cert":         "",
 			"ca-private-key":  "",
 		},
@@ -716,7 +797,7 @@ var emptyCertFilesTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": "my-keys",
+			"authorized-keys": testing.FakeAuthKeys,
 			"ca-cert":         "",
 		},
 		err: "bad CA certificate/key in configuration: crypto/tls: .*",
@@ -747,6 +828,11 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 	c.Assert(err, gc.IsNil)
 
 	typ, _ := test.attrs["type"].(string)
+	// "null" has been deprecated in favour of "manual",
+	// and is automatically switched.
+	if typ == "null" {
+		typ = "manual"
+	}
 	name, _ := test.attrs["name"].(string)
 	c.Assert(cfg.Type(), gc.Equals, typ)
 	c.Assert(cfg.Name(), gc.Equals, name)
@@ -771,6 +857,9 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 
 	dev, _ := test.attrs["development"].(bool)
 	c.Assert(cfg.Development(), gc.Equals, dev)
+
+	testmode, _ := test.attrs["test-mode"].(bool)
+	c.Assert(cfg.TestMode(), gc.Equals, testmode)
 
 	if series, _ := test.attrs["default-series"].(string); series != "" {
 		c.Assert(cfg.DefaultSeries(), gc.Equals, series)
@@ -839,6 +928,31 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 	} else {
 		c.Assert(cfg.ProvisionerSafeMode(), gc.Equals, false)
 	}
+	sshOpts := cfg.BootstrapSSHOpts()
+	test.assertDuration(
+		c,
+		"bootstrap-timeout",
+		sshOpts.Timeout,
+		config.DefaultBootstrapSSHTimeout,
+	)
+	test.assertDuration(
+		c,
+		"bootstrap-retry-delay",
+		sshOpts.RetryDelay,
+		config.DefaultBootstrapSSHRetryDelay,
+	)
+	test.assertDuration(
+		c,
+		"bootstrap-addresses-delay",
+		sshOpts.AddressesDelay,
+		config.DefaultBootstrapSSHAddressesDelay,
+	)
+
+	if v, ok := test.attrs["image-stream"]; ok {
+		c.Assert(cfg.ImageStream(), gc.Equals, v)
+	} else {
+		c.Assert(cfg.ImageStream(), gc.Equals, "released")
+	}
 
 	url, urlPresent := cfg.ImageMetadataURL()
 	if v, _ := test.attrs["image-metadata-url"].(string); v != "" {
@@ -867,13 +981,22 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 	}
 }
 
+func (test configTest) assertDuration(c *gc.C, name string, actual time.Duration, defaultInSeconds int) {
+	value, ok := test.attrs[name].(int)
+	if !ok || value == 0 {
+		c.Assert(actual, gc.Equals, time.Duration(defaultInSeconds)*time.Second)
+	} else {
+		c.Assert(actual, gc.Equals, time.Duration(value)*time.Second)
+	}
+}
+
 func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	// Normally this is handled by testing.FakeHome
 	s.PatchEnvironment(osenv.JujuLoggingConfigEnvKey, "")
 	attrs := map[string]interface{}{
 		"type":                      "my-type",
 		"name":                      "my-name",
-		"authorized-keys":           "my-keys",
+		"authorized-keys":           testing.FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
 		"admin-secret":              "foo",
 		"unknown":                   "my-unknown",
@@ -884,8 +1007,12 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"state-port":                1234,
 		"api-port":                  4321,
 		"syslog-port":               2345,
+		"bootstrap-timeout":         3600,
+		"bootstrap-retry-delay":     30,
+		"bootstrap-addresses-delay": 10,
 		"default-series":            "precise",
 		"charm-store-auth":          "token=auth",
+		"test-mode":                 false,
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
@@ -898,19 +1025,22 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["image-metadata-url"] = ""
 	attrs["tools-metadata-url"] = ""
 	attrs["tools-url"] = ""
+	attrs["image-stream"] = ""
+
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
-	c.Assert(cfg.AllAttrs(), gc.DeepEquals, attrs)
-	c.Assert(cfg.UnknownAttrs(), gc.DeepEquals, map[string]interface{}{"unknown": "my-unknown"})
+	c.Assert(cfg.AllAttrs(), jc.DeepEquals, attrs)
+	c.Assert(cfg.UnknownAttrs(), jc.DeepEquals, map[string]interface{}{"unknown": "my-unknown"})
 
 	newcfg, err := cfg.Apply(map[string]interface{}{
 		"name":        "new-name",
 		"new-unknown": "my-new-unknown",
 	})
+	c.Assert(err, gc.IsNil)
 
 	attrs["name"] = "new-name"
 	attrs["new-unknown"] = "my-new-unknown"
-	c.Assert(newcfg.AllAttrs(), gc.DeepEquals, attrs)
+	c.Assert(newcfg.AllAttrs(), jc.DeepEquals, attrs)
 }
 
 type validationTest struct {
@@ -955,11 +1085,6 @@ var validationTests = []validationTest{{
 	new:   testing.Attrs{"api-port": 42},
 	err:   `cannot change api-port from 17070 to 42`,
 }, {
-	about: "Cannot change the syslog-port",
-	old:   testing.Attrs{"syslog-port": 345},
-	new:   testing.Attrs{"syslog-port": 42},
-	err:   `cannot change syslog-port from 345 to 42`,
-}, {
 	about: "Can change the state-port from explicit-default to implicit-default",
 	old:   testing.Attrs{"state-port": config.DefaultStatePort},
 }, {
@@ -980,9 +1105,9 @@ var validationTests = []validationTest{{
 	new:   testing.Attrs{"api-port": 42},
 	err:   `cannot change api-port from 17070 to 42`,
 }, {
-	about: "Cannot change the syslog-port from implicit-default to different value",
-	new:   testing.Attrs{"syslog-port": 42},
-	err:   `cannot change syslog-port from 514 to 42`,
+	about: "Cannot change the bootstrap-timeout from implicit-default to different value",
+	new:   testing.Attrs{"bootstrap-timeout": 5},
+	err:   `cannot change bootstrap-timeout from 600 to 5`,
 }}
 
 func (*ConfigSuite) TestValidateChange(c *gc.C) {
@@ -1097,6 +1222,7 @@ func (*ConfigSuite) TestProxyValuesWithFallback(c *gc.C) {
 		"http-proxy":  "http://user@10.0.0.1",
 		"https-proxy": "https://user@10.0.0.1",
 		"ftp-proxy":   "ftp://user@10.0.0.1",
+		"no-proxy":    "localhost,10.0.3.1",
 	})
 	c.Assert(config.HttpProxy(), gc.Equals, "http://user@10.0.0.1")
 	c.Assert(config.AptHttpProxy(), gc.Equals, "http://user@10.0.0.1")
@@ -1104,6 +1230,7 @@ func (*ConfigSuite) TestProxyValuesWithFallback(c *gc.C) {
 	c.Assert(config.AptHttpsProxy(), gc.Equals, "https://user@10.0.0.1")
 	c.Assert(config.FtpProxy(), gc.Equals, "ftp://user@10.0.0.1")
 	c.Assert(config.AptFtpProxy(), gc.Equals, "ftp://user@10.0.0.1")
+	c.Assert(config.NoProxy(), gc.Equals, "localhost,10.0.3.1")
 }
 
 func (*ConfigSuite) TestProxyValues(c *gc.C) {
@@ -1135,6 +1262,41 @@ func (*ConfigSuite) TestProxyValuesNotSet(c *gc.C) {
 	c.Assert(config.AptHttpsProxy(), gc.Equals, "")
 	c.Assert(config.FtpProxy(), gc.Equals, "")
 	c.Assert(config.AptFtpProxy(), gc.Equals, "")
+	c.Assert(config.NoProxy(), gc.Equals, "")
+}
+
+func (*ConfigSuite) TestProxyConfigMap(c *gc.C) {
+	defer makeFakeHome(c).Restore()
+
+	cfg := newTestConfig(c, testing.Attrs{})
+	proxy := osenv.ProxySettings{
+		Http:    "http proxy",
+		Https:   "https proxy",
+		Ftp:     "ftp proxy",
+		NoProxy: "no proxy",
+	}
+	cfg, err := cfg.Apply(config.ProxyConfigMap(proxy))
+	c.Assert(err, gc.IsNil)
+	c.Assert(cfg.ProxySettings(), gc.DeepEquals, proxy)
+	// Apt proxy and proxy differ by the content of the no-proxy values.
+	proxy.NoProxy = ""
+	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, proxy)
+}
+
+func (*ConfigSuite) TestAptProxyConfigMap(c *gc.C) {
+	defer makeFakeHome(c).Restore()
+
+	cfg := newTestConfig(c, testing.Attrs{})
+	proxy := osenv.ProxySettings{
+		Http:  "http proxy",
+		Https: "https proxy",
+		Ftp:   "ftp proxy",
+	}
+	cfg, err := cfg.Apply(config.AptProxyConfigMap(proxy))
+	c.Assert(err, gc.IsNil)
+	// The default proxy settings should still be empty.
+	c.Assert(cfg.ProxySettings(), gc.DeepEquals, osenv.ProxySettings{})
+	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, proxy)
 }
 
 func (*ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {

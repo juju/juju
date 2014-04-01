@@ -6,7 +6,6 @@ package local_test
 import (
 	"fmt"
 	"net"
-
 	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
@@ -34,15 +33,17 @@ func (*localSuite) TestProviderRegistered(c *gc.C) {
 }
 
 func (*localSuite) TestCheckLocalPort(c *gc.C) {
-	// Block a ports
-	addr := fmt.Sprintf(":%d", 65501)
-	ln, err := net.Listen("tcp", addr)
+	// Listen on a random port.
+	ln, err := net.Listen("tcp", ":0")
 	c.Assert(err, gc.IsNil)
 	defer ln.Close()
+	port := ln.Addr().(*net.TCPAddr).Port
 
-	err = local.CheckLocalPort(65501, "test port")
-	c.Assert(err, gc.ErrorMatches, "cannot use 65501 as test port, already in use")
+	checkLocalPort := *local.CheckLocalPort
+	err = checkLocalPort(port, "test port")
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("cannot use %d as test port, already in use", port))
 
-	err = local.CheckLocalPort(65502, "another test port")
+	ln.Close()
+	err = checkLocalPort(port, "test port, no longer in use")
 	c.Assert(err, gc.IsNil)
 }

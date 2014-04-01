@@ -60,7 +60,7 @@ func NewUniterAPI(st *state.State, resources *common.Resources, authorizer commo
 		StatusSetter:       common.NewStatusSetter(st, accessUnit),
 		DeadEnsurer:        common.NewDeadEnsurer(st, accessUnit),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, accessUnitOrService),
-		APIAddresser:       common.NewAPIAddresser(st),
+		APIAddresser:       common.NewAPIAddresser(st, resources),
 		EnvironWatcher:     common.NewEnvironWatcher(st, resources, getCanWatch, getCanReadSecrets),
 
 		st:            st,
@@ -72,19 +72,19 @@ func NewUniterAPI(st *state.State, resources *common.Resources, authorizer commo
 }
 
 func (u *UniterAPI) getUnit(tag string) (*state.Unit, error) {
-	entity, err := u.st.FindEntity(tag)
+	_, name, err := names.ParseTag(tag, names.UnitTagKind)
 	if err != nil {
 		return nil, err
 	}
-	return entity.(*state.Unit), nil
+	return u.st.Unit(name)
 }
 
 func (u *UniterAPI) getService(tag string) (*state.Service, error) {
-	entity, err := u.st.FindEntity(tag)
+	_, name, err := names.ParseTag(tag, names.ServiceTagKind)
 	if err != nil {
 		return nil, err
 	}
-	return entity.(*state.Service), nil
+	return u.st.Service(name)
 }
 
 // PublicAddress returns the public address for each given unit, if set.
@@ -749,6 +749,17 @@ func (u *UniterAPI) CurrentEnvironUUID() (params.StringResult, error) {
 	return result, err
 }
 
+// CurrentEnvironment returns the name and UUID for the current juju environment.
+func (u *UniterAPI) CurrentEnvironment() (params.EnvironmentResult, error) {
+	result := params.EnvironmentResult{}
+	env, err := u.st.Environment()
+	if err == nil {
+		result.Name = env.Name()
+		result.UUID = env.UUID()
+	}
+	return result, err
+}
+
 // ProviderType returns the provider type used by the current juju
 // environment.
 //
@@ -854,17 +865,21 @@ func (u *UniterAPI) checkRemoteUnit(relUnit *state.RelationUnit, remoteUnitTag s
 	if remoteUnitTag == u.auth.GetAuthTag() {
 		return "", common.ErrPerm
 	}
-	remoteUnit, err := u.getUnit(remoteUnitTag)
+	// Check remoteUnit is indeed related. Note that we don't want to actually get
+	// the *Unit, because it might have been removed; but its relation settings will
+	// persist until the relation itself has been removed (and must remain accessible
+	// because the local unit's view of reality may be time-shifted).
+	_, remoteUnitName, err := names.ParseTag(remoteUnitTag, names.UnitTagKind)
 	if err != nil {
-		return "", common.ErrPerm
+		return "", err
 	}
-	// Check remoteUnit is indeed related.
+	remoteServiceName := names.UnitService(remoteUnitName)
 	rel := relUnit.Relation()
-	_, err = rel.RelatedEndpoints(remoteUnit.ServiceName())
+	_, err = rel.RelatedEndpoints(remoteServiceName)
 	if err != nil {
 		return "", common.ErrPerm
 	}
-	return remoteUnit.Name(), nil
+	return remoteUnitName, nil
 }
 
 // ReadRemoteSettings returns the remote settings of each given set of

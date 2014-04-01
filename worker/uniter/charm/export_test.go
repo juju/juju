@@ -1,14 +1,14 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package charm
 
 // exported so we can get the deployer path from tests.
-func (d *Deployer) Path() string {
-	return d.path
+func GitDeployerDataPath(d Deployer) string {
+	return d.(*gitDeployer).dataPath
 }
 
 // exported so we can get the deployer current git repo from tests.
-func (d *Deployer) Current() *GitDir {
-	return d.current
+func GitDeployerCurrent(d Deployer) *GitDir {
+	return d.(*gitDeployer).current
 }

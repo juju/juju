@@ -5,15 +5,13 @@ package sync
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"path/filepath"
 
-	"launchpad.net/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/simplestreams"
@@ -141,7 +139,7 @@ func selectSourceDatasource(syncContext *SyncContext) (simplestreams.DataSource,
 		return nil, err
 	}
 	logger.Infof("using sync tools source: %v", sourceURL)
-	return simplestreams.NewURLDataSource(sourceURL, simplestreams.VerifySSLHostnames), nil
+	return simplestreams.NewURLDataSource("sync tools source", sourceURL, utils.VerifySSLHostnames), nil
 }
 
 // copyTools copies a set of tools from the source to the target.
@@ -162,26 +160,21 @@ func copyTools(tools []*coretools.Tools, syncContext *SyncContext, dest storage.
 func copyOneToolsPackage(tool *coretools.Tools, dest storage.Storage) error {
 	toolsName := envtools.StorageName(tool.Version)
 	logger.Infof("copying %v", toolsName)
-	resp, err := http.Get(tool.URL)
+	resp, err := utils.GetValidatingHTTPClient().Get(tool.URL)
 	if err != nil {
 		return err
 	}
+	buf := &bytes.Buffer{}
 	srcFile := resp.Body
 	defer srcFile.Close()
-	// We have to buffer the content, because Put requires the content
-	// length, but Get only returns us a ReadCloser
-	buf := &bytes.Buffer{}
-	nBytes, err := io.Copy(buf, srcFile)
+	tool.SHA256, tool.Size, err = utils.ReadSHA256(io.TeeReader(srcFile, buf))
 	if err != nil {
 		return err
 	}
-	logger.Infof("downloaded %v (%dkB), uploading", toolsName, (nBytes+512)/1024)
-	logger.Infof("download %dkB, uploading", (nBytes+512)/1024)
-	sha256hash := sha256.New()
-	sha256hash.Write(buf.Bytes())
-	tool.SHA256 = fmt.Sprintf("%x", sha256hash.Sum(nil))
-	tool.Size = nBytes
-	return dest.Put(toolsName, buf, nBytes)
+	sizeInKB := (tool.Size + 512) / 1024
+	logger.Infof("downloaded %v (%dkB), uploading", toolsName, sizeInKB)
+	logger.Infof("download %dkB, uploading", sizeInKB)
+	return dest.Put(toolsName, buf, tool.Size)
 }
 
 // UploadFunc is the type of Upload, which may be
@@ -199,10 +192,88 @@ type UploadFunc func(stor storage.Storage, forceVersion *version.Number, series 
 var Upload UploadFunc = upload
 
 func upload(stor storage.Storage, forceVersion *version.Number, fakeSeries ...string) (*coretools.Tools, error) {
+	builtTools, err := BuildToolsTarball(forceVersion)
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(builtTools.Dir)
+	logger.Debugf("Uploading tools for %v", fakeSeries)
+	return SyncBuiltTools(stor, builtTools, fakeSeries...)
+}
+
+// cloneToolsForSeries copies the built tools tarball into a tarball for the specified
+// series and generates corresponding metadata.
+func cloneToolsForSeries(toolsInfo *BuiltTools, series ...string) error {
+	// Copy the tools to the target storage, recording a Tools struct for each one.
+	var targetTools coretools.List
+	targetTools = append(targetTools, &coretools.Tools{
+		Version: toolsInfo.Version,
+		Size:    toolsInfo.Size,
+		SHA256:  toolsInfo.Sha256Hash,
+	})
+	putTools := func(vers version.Binary) (string, error) {
+		name := envtools.StorageName(vers)
+		src := filepath.Join(toolsInfo.Dir, toolsInfo.StorageName)
+		dest := filepath.Join(toolsInfo.Dir, name)
+		err := utils.CopyFile(dest, src)
+		if err != nil {
+			return "", err
+		}
+		// Append to targetTools the attributes required to write out tools metadata.
+		targetTools = append(targetTools, &coretools.Tools{
+			Version: vers,
+			Size:    toolsInfo.Size,
+			SHA256:  toolsInfo.Sha256Hash,
+		})
+		return name, nil
+	}
+	logger.Debugf("generating tarballs for %v", series)
+	for _, series := range series {
+		_, err := simplestreams.SeriesVersion(series)
+		if err != nil {
+			return err
+		}
+		if series != toolsInfo.Version.Series {
+			fakeVersion := toolsInfo.Version
+			fakeVersion.Series = series
+			if _, err := putTools(fakeVersion); err != nil {
+				return err
+			}
+		}
+	}
+	// The tools have been copied to a temp location from which they will be uploaded,
+	// now write out the matching simplestreams metadata so that SyncTools can find them.
+	metadataStore, err := filestorage.NewFileStorageWriter(toolsInfo.Dir)
+	if err != nil {
+		return err
+	}
+	logger.Debugf("generating tools metadata")
+	return envtools.MergeAndWriteMetadata(metadataStore, targetTools, false)
+}
+
+// BuiltTools contains metadata for a tools tarball resulting from
+// a call to BundleTools.
+type BuiltTools struct {
+	Version     version.Binary
+	Dir         string
+	StorageName string
+	Sha256Hash  string
+	Size        int64
+}
+
+// BuildToolsTarballFunc is a function which can build a tools tarball.
+type BuildToolsTarballFunc func(forceVersion *version.Number) (*BuiltTools, error)
+
+// Override for testing.
+var BuildToolsTarball BuildToolsTarballFunc = buildToolsTarball
+
+// buildToolsTarball bundles a tools tarball and places it in a temp directory in
+// the expected tools path.
+func buildToolsTarball(forceVersion *version.Number) (builtTools *BuiltTools, err error) {
 	// TODO(rog) find binaries from $PATH when not using a development
 	// version of juju within a $GOPATH.
 
-	logger.Debugf("Uploading tools for %v", fakeSeries)
+	logger.Debugf("Building tools")
 	// We create the entire archive before asking the environment to
 	// start uploading so that we can be sure we have archived
 	// correctly.
@@ -221,85 +292,63 @@ func upload(stor storage.Storage, forceVersion *version.Number, fakeSeries ...st
 		return nil, fmt.Errorf("cannot stat newly made tools archive: %v", err)
 	}
 	size := fileInfo.Size()
-	logger.Infof("built %v (%dkB)", toolsVersion, (size+512)/1024)
+	logger.Infof("built tools %v (%dkB)", toolsVersion, (size+512)/1024)
 	baseToolsDir, err := ioutil.TempDir("", "")
 	if err != nil {
 		return nil, err
 	}
-	defer os.RemoveAll(baseToolsDir)
 
-	// Copy the tools to the target storage, recording a Tools struct for each one.
-	var targetTools coretools.List
-	putTools := func(vers version.Binary) (string, error) {
-		name := envtools.StorageName(vers)
-		err = utils.CopyFile(filepath.Join(baseToolsDir, name), f.Name())
+	// If we exit with an error, clean up the built tools directory.
+	defer func() {
 		if err != nil {
-			return "", err
+			os.RemoveAll(baseToolsDir)
 		}
-		url, err := stor.URL(name)
-		if err != nil {
-			return "", err
-		}
-		targetTools = append(targetTools, &coretools.Tools{
-			Version: vers,
-			URL:     url,
-			Size:    size,
-			SHA256:  sha256Hash,
-		})
-		return name, nil
-	}
+	}()
+
 	err = os.MkdirAll(filepath.Join(baseToolsDir, storage.BaseToolsPath, "releases"), 0755)
 	if err != nil {
 		return nil, err
 	}
-	for _, series := range fakeSeries {
-		_, err := simplestreams.SeriesVersion(series)
-		if err != nil {
-			return nil, err
-		}
-		if series != toolsVersion.Series {
-			fakeVersion := toolsVersion
-			fakeVersion.Series = series
-			if _, err := putTools(fakeVersion); err != nil {
-				return nil, err
-			}
-		}
-	}
-	name, err := putTools(toolsVersion)
+	storageName := envtools.StorageName(toolsVersion)
+	err = utils.CopyFile(filepath.Join(baseToolsDir, storageName), f.Name())
 	if err != nil {
 		return nil, err
 	}
-	// The tools have been uploaded, now write out the matching simplestreams metadata so that SyncTools
-	// can find them.
-	metadataStore, err := filestorage.NewFileStorageWriter(baseToolsDir, filestorage.UseDefaultTmpDir)
-	if err != nil {
-		return nil, err
-	}
-	err = envtools.MergeAndWriteMetadata(metadataStore, targetTools, false)
-	if err != nil {
-		return nil, err
-	}
+	return &BuiltTools{
+		Version:     toolsVersion,
+		Dir:         baseToolsDir,
+		StorageName: storageName,
+		Size:        size,
+		Sha256Hash:  sha256Hash,
+	}, nil
+}
 
+// SyncBuiltTools copies to storage a tools tarball and cloned copies for each series.
+func SyncBuiltTools(stor storage.Storage, builtTools *BuiltTools, fakeSeries ...string) (*coretools.Tools, error) {
+	if err := cloneToolsForSeries(builtTools, fakeSeries...); err != nil {
+		return nil, err
+	}
 	syncContext := &SyncContext{
-		Source:       baseToolsDir,
+		Source:       builtTools.Dir,
 		Target:       stor,
 		AllVersions:  true,
-		Dev:          toolsVersion.IsDev(),
-		MajorVersion: toolsVersion.Major,
+		Dev:          builtTools.Version.IsDev(),
+		MajorVersion: builtTools.Version.Major,
 		MinorVersion: -1,
 	}
-	err = SyncTools(syncContext)
+	logger.Debugf("uploading tools to cloud storage")
+	err := SyncTools(syncContext)
 	if err != nil {
 		return nil, err
 	}
-	url, err := stor.URL(name)
+	url, err := stor.URL(builtTools.StorageName)
 	if err != nil {
 		return nil, err
 	}
 	return &coretools.Tools{
-		Version: toolsVersion,
+		Version: builtTools.Version,
 		URL:     url,
-		Size:    size,
-		SHA256:  sha256Hash,
+		Size:    builtTools.Size,
+		SHA256:  builtTools.Sha256Hash,
 	}, nil
 }

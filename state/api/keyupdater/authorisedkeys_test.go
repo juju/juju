@@ -32,7 +32,6 @@ func (s *keyupdaterSuite) SetUpTest(c *gc.C) {
 	c.Assert(stateAPI, gc.NotNil)
 	s.keyupdater = stateAPI.KeyUpdater()
 	c.Assert(s.keyupdater, gc.NotNil)
-
 }
 
 func (s *keyupdaterSuite) TestAuthorisedKeysNoSuchMachine(c *gc.C) {
@@ -41,7 +40,7 @@ func (s *keyupdaterSuite) TestAuthorisedKeysNoSuchMachine(c *gc.C) {
 }
 
 func (s *keyupdaterSuite) TestAuthorisedKeysForbiddenMachine(c *gc.C) {
-	m, err := s.State.AddMachine("quantal", state.JobManageEnviron, state.JobManageState)
+	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	_, err = s.keyupdater.AuthorisedKeys(m.Tag())
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -55,7 +54,7 @@ func (s *keyupdaterSuite) TestAuthorisedKeys(c *gc.C) {
 }
 
 func (s *keyupdaterSuite) setAuthorisedKeys(c *gc.C, keys string) {
-	err := testing.UpdateConfig(s.BackingState, map[string]interface{}{"authorized-keys": keys})
+	err := s.BackingState.UpdateEnvironConfig(map[string]interface{}{"authorized-keys": keys}, nil, nil)
 	c.Assert(err, gc.IsNil)
 }
 

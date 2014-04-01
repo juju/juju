@@ -8,10 +8,10 @@ import (
 	"os"
 	"path/filepath"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/schema"
-	"launchpad.net/juju-core/utils"
 )
 
 var checkIfRoot = func() bool {
@@ -20,48 +20,40 @@ var checkIfRoot = func() bool {
 
 var (
 	configFields = schema.Fields{
-		"root-dir":            schema.String(),
-		"bootstrap-ip":        schema.String(),
-		"network-bridge":      schema.String(),
-		"container":           schema.String(),
-		"storage-port":        schema.ForceInt(),
-		"shared-storage-port": schema.ForceInt(),
+		"root-dir":       schema.String(),
+		"bootstrap-ip":   schema.String(),
+		"network-bridge": schema.String(),
+		"container":      schema.String(),
+		"storage-port":   schema.ForceInt(),
+		"namespace":      schema.String(),
+		"lxc-clone":      schema.Bool(),
+		"lxc-clone-aufs": schema.Bool(),
 	}
 	// The port defaults below are not entirely arbitrary.  Local user web
 	// frameworks often use 8000 or 8080, so I didn't want to use either of
 	// these, but did want the familiarity of using something in the 8000
 	// range.
 	configDefaults = schema.Defaults{
-		"root-dir":            "",
-		"network-bridge":      "lxcbr0",
-		"container":           string(instance.LXC),
-		"bootstrap-ip":        schema.Omit,
-		"storage-port":        8040,
-		"shared-storage-port": 8041,
+		"root-dir":       "",
+		"network-bridge": "lxcbr0",
+		"container":      string(instance.LXC),
+		"bootstrap-ip":   schema.Omit,
+		"storage-port":   8040,
+		"namespace":      "",
+		"lxc-clone":      schema.Omit,
+		"lxc-clone-aufs": schema.Omit,
 	}
 )
 
 type environConfig struct {
 	*config.Config
-	user          string
-	attrs         map[string]interface{}
-	runningAsRoot bool
+	attrs map[string]interface{}
 }
 
 func newEnvironConfig(config *config.Config, attrs map[string]interface{}) *environConfig {
-	user := os.Getenv("USER")
-	root := checkIfRoot()
-	if root {
-		sudo_user := os.Getenv("SUDO_USER")
-		if sudo_user != "" {
-			user = sudo_user
-		}
-	}
 	return &environConfig{
-		Config:        config,
-		user:          user,
-		attrs:         attrs,
-		runningAsRoot: root,
+		Config: config,
+		attrs:  attrs,
 	}
 }
 
@@ -69,7 +61,7 @@ func newEnvironConfig(config *config.Config, attrs map[string]interface{}) *envi
 // have the same local provider name, we need to have a simple way to
 // namespace the file locations, but more importantly the containers.
 func (c *environConfig) namespace() string {
-	return fmt.Sprintf("%s-%s", c.user, c.Name())
+	return c.attrs["namespace"].(string)
 }
 
 func (c *environConfig) rootDir() string {
@@ -84,10 +76,6 @@ func (c *environConfig) networkBridge() string {
 	return c.attrs["network-bridge"].(string)
 }
 
-func (c *environConfig) sharedStorageDir() string {
-	return filepath.Join(c.rootDir(), "shared-storage")
-}
-
 func (c *environConfig) storageDir() string {
 	return filepath.Join(c.rootDir(), "storage")
 }
@@ -97,72 +85,47 @@ func (c *environConfig) mongoDir() string {
 }
 
 func (c *environConfig) logDir() string {
-	return filepath.Join(c.rootDir(), "log")
+	return fmt.Sprintf("%s-%s", agent.DefaultLogDir, c.namespace())
 }
 
-// A config is bootstrapped if the bootstrap-ip address has been set.
-func (c *environConfig) bootstrapped() bool {
-	_, found := c.attrs["bootstrap-ip"]
-	return found
-}
-
+// bootstrapIPAddress returns the IP address of the bootstrap machine.
+// As of 1.18 this is only set inside the environment, and not in the
+// .jenv file.
 func (c *environConfig) bootstrapIPAddress() string {
-	addr, found := c.attrs["bootstrap-ip"]
-	if found {
-		return addr.(string)
-	}
-	return ""
+	addr, _ := c.attrs["bootstrap-ip"].(string)
+	return addr
 }
 
 func (c *environConfig) storagePort() int {
 	return c.attrs["storage-port"].(int)
 }
 
-func (c *environConfig) sharedStoragePort() int {
-	return c.attrs["shared-storage-port"].(int)
-}
-
 func (c *environConfig) storageAddr() string {
 	return fmt.Sprintf("%s:%d", c.bootstrapIPAddress(), c.storagePort())
-}
-
-func (c *environConfig) sharedStorageAddr() string {
-	return fmt.Sprintf("%s:%d", c.bootstrapIPAddress(), c.sharedStoragePort())
 }
 
 func (c *environConfig) configFile(filename string) string {
 	return filepath.Join(c.rootDir(), filename)
 }
 
+func (c *environConfig) lxcClone() bool {
+	value, _ := c.attrs["lxc-clone"].(bool)
+	return value
+}
+
+func (c *environConfig) lxcCloneAUFS() bool {
+	value, _ := c.attrs["lxc-clone-aufs"].(bool)
+	return value
+}
+
 func (c *environConfig) createDirs() error {
 	for _, dirname := range []string{
-		c.sharedStorageDir(),
 		c.storageDir(),
 		c.mongoDir(),
-		c.logDir(),
 	} {
 		logger.Tracef("creating directory %s", dirname)
 		if err := os.MkdirAll(dirname, 0755); err != nil {
 			return err
-		}
-	}
-	if c.runningAsRoot {
-		// If we have SUDO_UID and SUDO_GID, start with rootDir(), and
-		// change ownership of the directories.
-		uid, gid, err := utils.SudoCallerIds()
-		if err != nil {
-			return err
-		}
-		if uid != 0 || gid != 0 {
-			filepath.Walk(c.rootDir(),
-				func(path string, info os.FileInfo, err error) error {
-					if info != nil && info.IsDir() {
-						if err := os.Chown(path, uid, gid); err != nil {
-							return err
-						}
-					}
-					return nil
-				})
 		}
 	}
 	return nil

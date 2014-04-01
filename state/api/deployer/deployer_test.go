@@ -6,16 +6,18 @@ package deployer_test
 import (
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/state/api/params"
+	apitesting "launchpad.net/juju-core/state/api/testing"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -24,6 +26,7 @@ func TestAll(t *stdtesting.T) {
 
 type deployerSuite struct {
 	testing.JujuConnSuite
+	*apitesting.APIAddresserTests
 
 	stateAPI *api.State
 
@@ -42,9 +45,10 @@ var _ = gc.Suite(&deployerSuite{})
 
 func (s *deployerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.stateAPI, s.machine = s.OpenAPIAsNewMachine(c)
+	s.stateAPI, s.machine = s.OpenAPIAsNewMachine(c, state.JobManageEnviron, state.JobHostUnits)
+	err := s.machine.SetAddresses(instance.NewAddresses([]string{"0.1.2.3"}))
+	c.Assert(err, gc.IsNil)
 
-	var err error
 	// Create the needed services and relate them.
 	s.service0 = s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	s.service1 = s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
@@ -68,6 +72,8 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	// Create the deployer facade.
 	s.st = s.stateAPI.Deployer()
 	c.Assert(s.st, gc.NotNil)
+
+	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.st, s.BackingState)
 }
 
 // Note: This is really meant as a unit-test, this isn't a test that
@@ -231,29 +237,17 @@ func (s *deployerSuite) TestUnitSetPassword(c *gc.C) {
 }
 
 func (s *deployerSuite) TestStateAddresses(c *gc.C) {
-	testing.AddStateServerMachine(c, s.State)
+	addrs := []instance.Address{
+		instance.NewAddress("0.1.2.3"),
+	}
+	err := s.machine.SetAddresses(addrs)
+	c.Assert(err, gc.IsNil)
 
 	stateAddresses, err := s.State.Addresses()
 	c.Assert(err, gc.IsNil)
+	c.Assert(len(stateAddresses), gc.Equals, 1)
 
 	addresses, err := s.st.StateAddresses()
 	c.Assert(err, gc.IsNil)
 	c.Assert(addresses, gc.DeepEquals, stateAddresses)
-}
-
-func (s *deployerSuite) TestAPIAddresses(c *gc.C) {
-	testing.AddStateServerMachine(c, s.State)
-
-	apiAddresses, err := s.State.APIAddresses()
-	c.Assert(err, gc.IsNil)
-
-	addresses, err := s.st.APIAddresses()
-	c.Assert(err, gc.IsNil)
-	c.Assert(addresses, gc.DeepEquals, apiAddresses)
-}
-
-func (s *deployerSuite) TestCACert(c *gc.C) {
-	caCert, err := s.st.CACert()
-	c.Assert(err, gc.IsNil)
-	c.Assert(caCert, gc.DeepEquals, s.State.CACert())
 }

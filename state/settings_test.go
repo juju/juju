@@ -4,14 +4,12 @@
 package state
 
 import (
-	"time"
-
+	jc "github.com/juju/testing/checkers"
 	"labix.org/v2/mgo/txn"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
@@ -37,7 +35,7 @@ func TestingStateInfo() *Info {
 // connecting to the testing state server.
 func TestingDialOpts() DialOpts {
 	return DialOpts{
-		Timeout: 100 * time.Millisecond,
+		Timeout: testing.LongWait,
 	}
 }
 
@@ -55,7 +53,7 @@ func (s *SettingsSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	// TODO(dfc) this logic is duplicated with the metawatcher_test.
-	state, err := Open(TestingStateInfo(), TestingDialOpts())
+	state, err := Open(TestingStateInfo(), TestingDialOpts(), Policy(nil))
 	c.Assert(err, gc.IsNil)
 
 	s.state = state

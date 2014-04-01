@@ -8,7 +8,7 @@ import (
 	"io"
 	"time"
 
-	"launchpad.net/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -100,17 +100,24 @@ func NewKeyManagerClient(envName string) (*keymanager.Client, error) {
 	return keymanager.NewClient(st), nil
 }
 
+// NewAPIFromName returns an api.State connected to the API Server for
+// the named environment. If envName is "", the default environment will
+// be used.
+func NewAPIFromName(envName string) (*api.State, error) {
+	return newAPIClient(envName)
+}
+
 func newAPIClient(envName string) (*api.State, error) {
 	store, err := configstore.NewDisk(osenv.JujuHome())
 	if err != nil {
 		return nil, err
 	}
-	return newAPIFromName(envName, store)
+	return newAPIFromStore(envName, store)
 }
 
-// newAPIFromName implements the bulk of NewAPIClientFromName
+// newAPIFromStore implements the bulk of NewAPIClientFromName
 // but is separate for testing purposes.
-func newAPIFromName(envName string, store configstore.Storage) (*api.State, error) {
+func newAPIFromStore(envName string, store configstore.Storage) (*api.State, error) {
 	// Try to read the default environment configuration file.
 	// If it doesn't exist, we carry on in case
 	// there's some environment info for that environment.

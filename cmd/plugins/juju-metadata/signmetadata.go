@@ -10,12 +10,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/utils"
 )
 
 var signMetadataDoc = `
@@ -63,16 +62,12 @@ func (c *SignMetadataCommand) Init(args []string) error {
 func (c *SignMetadataCommand) Run(context *cmd.Context) error {
 	loggo.RegisterWriter("signmetadata", cmd.NewCommandLogWriter("juju.plugins.metadata", context.Stdout, context.Stderr), loggo.INFO)
 	defer loggo.RemoveWriter("signmetadata")
-	var err error
-	c.dir, err = utils.NormalizePath(c.dir)
-	if err != nil {
-		return err
-	}
 	keyData, err := ioutil.ReadFile(c.keyFile)
 	if err != nil {
 		return err
 	}
-	return process(c.dir, string(keyData), c.passphrase)
+	dir := context.AbsPath(c.dir)
+	return process(dir, string(keyData), c.passphrase)
 }
 
 func process(dir, key, passphrase string) error {

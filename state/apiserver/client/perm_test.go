@@ -6,13 +6,13 @@ package client_test
 import (
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 )
 
@@ -67,6 +67,10 @@ var operationPermTests = []struct {
 }, {
 	about: "Client.ServiceDeploy",
 	op:    opClientServiceDeploy,
+	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.ServiceDeployWithNetworks",
+	op:    opClientServiceDeployWithNetworks,
 	allow: []string{"user-admin", "user-other"},
 }, {
 	about: "Client.ServiceUpdate",
@@ -215,7 +219,7 @@ func opClientStatus(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 		c.Check(status, gc.IsNil)
 		return func() {}, err
 	}
-	c.Assert(status, gc.DeepEquals, scenarioStatus)
+	c.Assert(status, jc.DeepEquals, scenarioStatus)
 	return func() {}, nil
 }
 
@@ -315,6 +319,14 @@ func opClientSetAnnotations(c *gc.C, st *api.State, mst *state.State) (func(), e
 
 func opClientServiceDeploy(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 	err := st.Client().ServiceDeploy("mad:bad/url-1", "x", 1, "", constraints.Value{}, "")
+	if err.Error() == `charm URL has invalid schema: "mad:bad/url-1"` {
+		err = nil
+	}
+	return func() {}, err
+}
+
+func opClientServiceDeployWithNetworks(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+	err := st.Client().ServiceDeployWithNetworks("mad:bad/url-1", "x", 1, "", constraints.Value{}, "", nil, nil)
 	if err.Error() == `charm URL has invalid schema: "mad:bad/url-1"` {
 		err = nil
 	}

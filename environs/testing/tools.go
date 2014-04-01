@@ -5,7 +5,6 @@ package testing
 
 import (
 	"bytes"
-	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -22,6 +21,7 @@ import (
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	coretools "launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/upgrader"
 )
@@ -67,15 +67,14 @@ func CheckTools(c *gc.C, obtained, expected *coretools.Tools) {
 	}
 }
 
-// CheckUpgraderReadyError ensures the obtained and expected errors are equal, allowing for the fact that
-// the error's tools attributes may not have size and checksum set.
+// CheckUpgraderReadyError ensures the obtained and expected errors are equal.
 func CheckUpgraderReadyError(c *gc.C, obtained error, expected *upgrader.UpgradeReadyError) {
 	c.Assert(obtained, gc.FitsTypeOf, &upgrader.UpgradeReadyError{})
 	err := obtained.(*upgrader.UpgradeReadyError)
 	c.Assert(err.AgentName, gc.Equals, expected.AgentName)
 	c.Assert(err.DataDir, gc.Equals, expected.DataDir)
-	CheckTools(c, err.OldTools, expected.OldTools)
-	CheckTools(c, err.NewTools, expected.NewTools)
+	c.Assert(err.OldTools, gc.Equals, expected.OldTools)
+	c.Assert(err.NewTools, gc.Equals, expected.NewTools)
 }
 
 // PrimeTools sets up the current version of the tools to vers and
@@ -83,10 +82,9 @@ func CheckUpgraderReadyError(c *gc.C, obtained error, expected *upgrader.Upgrade
 func PrimeTools(c *gc.C, stor storage.Storage, dataDir string, vers version.Binary) *coretools.Tools {
 	err := os.RemoveAll(filepath.Join(dataDir, "tools"))
 	c.Assert(err, gc.IsNil)
-	version.Current = vers
 	agentTools, err := uploadFakeToolsVersion(stor, vers)
 	c.Assert(err, gc.IsNil)
-	resp, err := http.Get(agentTools.URL)
+	resp, err := utils.GetValidatingHTTPClient().Get(agentTools.URL)
 	c.Assert(err, gc.IsNil)
 	defer resp.Body.Close()
 	err = agenttools.UnpackTools(dataDir, agentTools, resp.Body)
@@ -139,6 +137,8 @@ func UploadFakeToolsVersions(stor storage.Storage, versions ...version.Binary) (
 // AssertUploadFakeToolsVersions puts fake tools in the supplied storage for the supplied versions.
 func AssertUploadFakeToolsVersions(c *gc.C, stor storage.Storage, versions ...version.Binary) []*coretools.Tools {
 	agentTools, err := UploadFakeToolsVersions(stor, versions...)
+	c.Assert(err, gc.IsNil)
+	err = envtools.MergeAndWriteMetadata(stor, agentTools, envtools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
 	return agentTools
 }
@@ -269,6 +269,9 @@ var (
 	V220q64 = version.MustParseBinary("2.2.0-quantal-amd64")
 	V220all = []version.Binary{V220p64, V220p32, V220q64, V220q32}
 	VAll    = append(V1all, V220all...)
+
+	V310qppc64  = version.MustParseBinary("3.1.0-quantal-ppc64")
+	V3101qppc64 = version.MustParseBinary("3.1.0.1-quantal-ppc64")
 )
 
 type BootstrapToolsTest struct {
@@ -280,15 +283,17 @@ type BootstrapToolsTest struct {
 	Development   bool
 	Arch          string
 	Expect        []version.Binary
-	Err           error
+	Err           string
 }
+
+var noToolsMessage = "Juju cannot bootstrap because no tools are available for your environment.*"
 
 var BootstrapToolsTests = []BootstrapToolsTest{
 	{
 		Info:          "no tools at all",
 		CliVersion:    V100p64,
 		DefaultSeries: "precise",
-		Err:           coretools.ErrNoMatches,
+		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli: use newest compatible release version",
 		Available:     VAll,
@@ -345,70 +350,70 @@ var BootstrapToolsTests = []BootstrapToolsTest{
 		Available:     V220all,
 		CliVersion:    V100p64,
 		DefaultSeries: "precise",
-		Err:           coretools.ErrNoMatches,
+		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli: minor upgrades bad",
 		Available:     V120all,
 		CliVersion:    V100p64,
 		DefaultSeries: "precise",
-		Err:           coretools.ErrNoMatches,
+		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli: major downgrades bad",
 		Available:     V100Xall,
 		CliVersion:    V220p64,
 		DefaultSeries: "precise",
-		Err:           coretools.ErrNoMatches,
+		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli: minor downgrades bad",
 		Available:     V100Xall,
 		CliVersion:    V120p64,
 		DefaultSeries: "quantal",
-		Err:           coretools.ErrNoMatches,
+		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli: no matching series",
 		Available:     VAll,
 		CliVersion:    V100p64,
 		DefaultSeries: "raring",
-		Err:           coretools.ErrNoMatches,
+		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli: no matching arches",
 		Available:     VAll,
 		CliVersion:    V100p64,
 		DefaultSeries: "precise",
 		Arch:          "arm",
-		Err:           coretools.ErrNoMatches,
+		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli: specific bad major 1",
 		Available:     VAll,
 		CliVersion:    V220p64,
 		AgentVersion:  V120,
 		DefaultSeries: "precise",
-		Err:           coretools.ErrNoMatches,
+		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli: specific bad major 2",
 		Available:     VAll,
 		CliVersion:    V120p64,
 		AgentVersion:  V220,
 		DefaultSeries: "precise",
-		Err:           coretools.ErrNoMatches,
+		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli: ignore dev tools 1",
 		Available:     V110all,
 		CliVersion:    V100p64,
 		DefaultSeries: "precise",
-		Err:           coretools.ErrNoMatches,
+		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli: ignore dev tools 2",
 		Available:     V110all,
 		CliVersion:    V120p64,
 		DefaultSeries: "precise",
-		Err:           coretools.ErrNoMatches,
+		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli: ignore dev tools 3",
 		Available:     []version.Binary{V1001p64},
 		CliVersion:    V100p64,
 		DefaultSeries: "precise",
-		Err:           coretools.ErrNoMatches,
+		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli with dev setting respects agent-version",
 		Available:     VAll,
@@ -442,12 +447,6 @@ var BootstrapToolsTests = []BootstrapToolsTest{
 	}}
 
 func SetSSLHostnameVerification(c *gc.C, st *state.State, SSLHostnameVerification bool) {
-	envConfig, err := st.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	attrs := envConfig.AllAttrs()
-	attrs["ssl-hostname-verification"] = SSLHostnameVerification
-	newConfig, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
-	err = st.SetEnvironConfig(newConfig, envConfig)
+	err := st.UpdateEnvironConfig(map[string]interface{}{"ssl-hostname-verification": SSLHostnameVerification}, nil, nil)
 	c.Assert(err, gc.IsNil)
 }

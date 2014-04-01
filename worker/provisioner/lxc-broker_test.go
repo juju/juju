@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
@@ -24,7 +25,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/provisioner"
@@ -68,15 +68,17 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.agentConfig, err = agent.NewAgentConfig(
 		agent.AgentConfigParams{
-			DataDir:      "/not/used/here",
-			Tag:          "tag",
-			Password:     "dummy-secret",
-			Nonce:        "nonce",
-			APIAddresses: []string{"10.0.0.1:1234"},
-			CACert:       []byte(coretesting.CACert),
+			DataDir:           "/not/used/here",
+			Tag:               "tag",
+			UpgradedToVersion: version.Current.Number,
+			Password:          "dummy-secret",
+			Nonce:             "nonce",
+			APIAddresses:      []string{"10.0.0.1:1234"},
+			CACert:            []byte(coretesting.CACert),
 		})
 	c.Assert(err, gc.IsNil)
-	s.broker = provisioner.NewLxcBroker(&fakeAPI{}, tools, s.agentConfig)
+	s.broker, err = provisioner.NewLxcBroker(&fakeAPI{}, tools, s.agentConfig)
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string) instance.Instance {
@@ -86,7 +88,11 @@ func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 	machineConfig := environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo)
 	cons := constraints.Value{}
 	possibleTools := s.broker.(coretools.HasTools).Tools()
-	lxc, _, err := s.broker.StartInstance(cons, possibleTools, machineConfig)
+	lxc, _, err := s.broker.StartInstance(environs.StartInstanceParams{
+		Constraints:   cons,
+		Tools:         possibleTools,
+		MachineConfig: machineConfig,
+	})
 	c.Assert(err, gc.IsNil)
 	return lxc
 }
@@ -184,7 +190,7 @@ func (s *lxcProvisionerSuite) SetUpTest(c *gc.C) {
 
 	// The lxc provisioner actually needs the machine it is being created on
 	// to be in state, in order to get the watcher.
-	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits, state.JobManageState)
+	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	err = m.SetAddresses([]instance.Address{
 		instance.NewAddress("0.1.2.3"),
@@ -202,6 +208,8 @@ func (s *lxcProvisionerSuite) SetUpTest(c *gc.C) {
 func (s *lxcProvisionerSuite) expectStarted(c *gc.C, machine *state.Machine) string {
 	s.State.StartSync()
 	event := <-s.events
+	c.Assert(event.Action, gc.Equals, mock.Created)
+	event = <-s.events
 	c.Assert(event.Action, gc.Equals, mock.Started)
 	err := machine.Refresh()
 	c.Assert(err, gc.IsNil)
@@ -213,6 +221,8 @@ func (s *lxcProvisionerSuite) expectStopped(c *gc.C, instId string) {
 	s.State.StartSync()
 	event := <-s.events
 	c.Assert(event.Action, gc.Equals, mock.Stopped)
+	event = <-s.events
+	c.Assert(event.Action, gc.Equals, mock.Destroyed)
 	c.Assert(event.InstanceId, gc.Equals, instId)
 }
 
@@ -236,7 +246,8 @@ func (s *lxcProvisionerSuite) newLxcProvisioner(c *gc.C) provisioner.Provisioner
 	agentConfig := s.AgentConfigForTag(c, parentMachineTag)
 	tools, err := s.provisioner.Tools(agentConfig.Tag())
 	c.Assert(err, gc.IsNil)
-	broker := provisioner.NewLxcBroker(s.provisioner, tools, agentConfig)
+	broker, err := provisioner.NewLxcBroker(s.provisioner, tools, agentConfig)
+	c.Assert(err, gc.IsNil)
 	return provisioner.NewContainerProvisioner(instance.LXC, s.provisioner, agentConfig, broker)
 }
 
@@ -282,5 +293,8 @@ func (s *lxcProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 type fakeAPI struct{}
 
 func (*fakeAPI) ContainerConfig() (params.ContainerConfig, error) {
-	return params.ContainerConfig{"fake", "my-keys", true, 2345}, nil
+	return params.ContainerConfig{
+		ProviderType:            "fake",
+		AuthorizedKeys:          coretesting.FakeAuthKeys,
+		SSLHostnameVerification: true}, nil
 }

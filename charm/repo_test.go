@@ -43,6 +43,9 @@ func (s *StoreSuite) SetUpTest(c *gc.C) {
 	s.server.Downloads = nil
 	s.server.Authorizations = nil
 	s.server.Metadata = nil
+	s.server.DownloadsNoStats = nil
+	s.server.InfoRequestCount = 0
+	s.server.InfoRequestCountNoStats = 0
 }
 
 // Uses the TearDownTest from testbase.LoggingSuite
@@ -144,10 +147,33 @@ func (s *StoreSuite) TestGetBadCache(c *gc.C) {
 	s.assertCached(c, revCharmURL)
 }
 
+func (s *StoreSuite) TestGetTestModeFlag(c *gc.C) {
+	base := "cs:series/good-12"
+	charmURL := charm.MustParseURL(base)
+	ch, err := s.store.Get(charmURL)
+	c.Assert(err, gc.IsNil)
+	c.Assert(ch, gc.NotNil)
+	c.Assert(s.server.Downloads, gc.DeepEquals, []*charm.URL{charmURL})
+	c.Assert(s.server.DownloadsNoStats, gc.IsNil)
+	c.Assert(s.server.InfoRequestCount, gc.Equals, 1)
+	c.Assert(s.server.InfoRequestCountNoStats, gc.Equals, 0)
+
+	storeInTestMode := s.store.WithTestMode(true)
+	other := "cs:series/good-23"
+	otherURL := charm.MustParseURL(other)
+	ch, err = storeInTestMode.Get(otherURL)
+	c.Assert(err, gc.IsNil)
+	c.Assert(ch, gc.NotNil)
+	c.Assert(s.server.Downloads, gc.DeepEquals, []*charm.URL{charmURL})
+	c.Assert(s.server.DownloadsNoStats, gc.DeepEquals, []*charm.URL{otherURL})
+	c.Assert(s.server.InfoRequestCount, gc.Equals, 1)
+	c.Assert(s.server.InfoRequestCountNoStats, gc.Equals, 1)
+}
+
 // The following tests cover the low-level CharmStore-specific API.
 
 func (s *StoreSuite) TestInfo(c *gc.C) {
-	charmURLs := []*charm.URL{
+	charmURLs := []charm.Location{
 		charm.MustParseURL("cs:series/good"),
 		charm.MustParseURL("cs:series/better"),
 		charm.MustParseURL("cs:series/best"),
@@ -187,8 +213,23 @@ func (s *StoreSuite) TestInfoWarning(c *gc.C) {
 	c.Assert(info[0].Warnings, gc.DeepEquals, []string{"foolishness"})
 }
 
+func (s *StoreSuite) TestInfoTestModeFlag(c *gc.C) {
+	charmURL := charm.MustParseURL("cs:series/good")
+	_, err := s.store.Info(charmURL)
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.server.InfoRequestCount, gc.Equals, 1)
+	c.Assert(s.server.InfoRequestCountNoStats, gc.Equals, 0)
+
+	storeInTestMode, ok := s.store.WithTestMode(true).(*charm.CharmStore)
+	c.Assert(ok, gc.Equals, true)
+	_, err = storeInTestMode.Info(charmURL)
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.server.InfoRequestCount, gc.Equals, 1)
+	c.Assert(s.server.InfoRequestCountNoStats, gc.Equals, 1)
+}
+
 func (s *StoreSuite) TestInfoDNSError(c *gc.C) {
-	store := charm.NewStore("http://example.invalid")
+	store := charm.NewStore("http://0.1.2.3")
 	charmURL := charm.MustParseURL("cs:series/good")
 	resp, err := store.Info(charmURL)
 	c.Assert(resp, gc.IsNil)
@@ -238,7 +279,7 @@ func (s *StoreSuite) TestEventError(c *gc.C) {
 func (s *StoreSuite) TestAuthorization(c *gc.C) {
 	config := testing.CustomEnvironConfig(c,
 		testing.Attrs{"charm-store-auth": "token=value"})
-	store := env_config.AuthorizeCharmRepo(s.store, config)
+	store := env_config.SpecializeCharmRepo(s.store, config)
 
 	base := "cs:series/good"
 	charmURL := charm.MustParseURL(base)
@@ -252,7 +293,7 @@ func (s *StoreSuite) TestAuthorization(c *gc.C) {
 
 func (s *StoreSuite) TestNilAuthorization(c *gc.C) {
 	config := testing.EnvironConfig(c)
-	store := env_config.AuthorizeCharmRepo(s.store, config)
+	store := env_config.SpecializeCharmRepo(s.store, config)
 
 	base := "cs:series/good"
 	charmURL := charm.MustParseURL(base)
@@ -346,7 +387,7 @@ var _ = gc.Suite(&LocalRepoSuite{})
 func (s *LocalRepoSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	root := c.MkDir()
-	s.repo = &charm.LocalRepository{root}
+	s.repo = &charm.LocalRepository{Path: root}
 	s.seriesPath = filepath.Join(root, "quantal")
 	c.Assert(os.Mkdir(s.seriesPath, 0777), gc.IsNil)
 }

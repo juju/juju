@@ -15,7 +15,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/keyupdater"
-	"launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/ssh"
 	sshtesting "launchpad.net/juju-core/utils/ssh/testing"
@@ -90,7 +89,7 @@ func agentConfig(c *gc.C, tag string) *mockConfig {
 
 func (s *workerSuite) setAuthorisedKeys(c *gc.C, keys ...string) {
 	keyStr := strings.Join(keys, "\n")
-	err := testing.UpdateConfig(s.BackingState, map[string]interface{}{"authorized-keys": keyStr})
+	err := s.BackingState.UpdateEnvironConfig(map[string]interface{}{"authorized-keys": keyStr}, nil, nil)
 	c.Assert(err, gc.IsNil)
 	s.BackingState.StartSync()
 }

@@ -33,18 +33,18 @@ import (
 	"sync"
 	"time"
 
-	"launchpad.net/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
-	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/common"
@@ -53,7 +53,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/apiserver"
 	"launchpad.net/juju-core/testing"
-	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -65,7 +64,7 @@ func SampleConfig() testing.Attrs {
 	return testing.Attrs{
 		"type":                      "dummy",
 		"name":                      "only",
-		"authorized-keys":           "my-keys",
+		"authorized-keys":           testing.FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
 		"admin-secret":              testing.DefaultMongoPassword,
 		"ca-cert":                   testing.CACert,
@@ -97,17 +96,16 @@ func stateInfo() *state.Info {
 // Operation represents an action on the dummy provider.
 type Operation interface{}
 
-type GenericOperation struct {
-	Env string
-}
-
 type OpBootstrap struct {
 	Context     environs.BootstrapContext
 	Env         string
 	Constraints constraints.Value
 }
 
-type OpDestroy GenericOperation
+type OpDestroy struct {
+	Env   string
+	Error error
+}
 
 type OpStartInstance struct {
 	Env          string
@@ -147,8 +145,9 @@ type OpPutFile struct {
 // environProvider represents the dummy provider.  There is only ever one
 // instance of this type (providerInstance)
 type environProvider struct {
-	mu  sync.Mutex
-	ops chan<- Operation
+	mu          sync.Mutex
+	ops         chan<- Operation
+	statePolicy state.Policy
 	// We have one state for each environment name
 	state      map[int]*environState
 	maxStateId int
@@ -165,6 +164,7 @@ type environState struct {
 	id           int
 	name         string
 	ops          chan<- Operation
+	statePolicy  state.Policy
 	mu           sync.Mutex
 	maxId        int // maximum instance id allocated so far.
 	insts        map[instance.Id]*dummyInstance
@@ -226,6 +226,7 @@ func Reset() {
 	if testing.MgoServer.Addr() != "" {
 		testing.MgoServer.Reset()
 	}
+	providerInstance.statePolicy = environs.NewStatePolicy()
 }
 
 func (state *environState) destroy() {
@@ -263,10 +264,11 @@ func (e *environ) GetStateInAPIServer() *state.State {
 // newState creates the state for a new environment with the
 // given name and starts an http server listening for
 // storage requests.
-func newState(name string, ops chan<- Operation) *environState {
+func newState(name string, ops chan<- Operation, policy state.Policy) *environState {
 	s := &environState{
 		name:        name,
 		ops:         ops,
+		statePolicy: policy,
 		insts:       make(map[instance.Id]*dummyInstance),
 		globalPorts: make(map[instance.Port]bool),
 	}
@@ -286,6 +288,15 @@ func (s *environState) listen() {
 	mux := http.NewServeMux()
 	mux.Handle(s.storage.path+"/", http.StripPrefix(s.storage.path+"/", s.storage))
 	go http.Serve(l, mux)
+}
+
+// SetStatePolicy sets the state.Policy to use when a
+// state server is initialised by dummy.
+func SetStatePolicy(policy state.Policy) {
+	p := &providerInstance
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.statePolicy = policy
 }
 
 // Listen closes the previously registered listener (if any).
@@ -423,7 +434,7 @@ func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return env, nil
 }
 
-func (p *environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+func (p *environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	cfg, err := p.prepare(cfg)
 	if err != nil {
 		return nil, err
@@ -451,7 +462,7 @@ func (p *environProvider) prepare(cfg *config.Config) (*config.Config, error) {
 			panic(fmt.Errorf("cannot share a state between two dummy environs; old %q; new %q", old.name, name))
 		}
 	}
-	state := newState(name, p.ops)
+	state := newState(name, p.ops, p.statePolicy)
 	p.maxStateId++
 	state.id = p.maxStateId
 	p.state[state.id] = state
@@ -491,6 +502,9 @@ dummy:
 
 var errBroken = errors.New("broken environment")
 
+// Override for testing - the data directory with which the state api server is initialised.
+var DataDir = ""
+
 func (e *environ) ecfg() *environConfig {
 	e.ecfgMutex.Lock()
 	ecfg := e.ecfgUnlocked
@@ -511,20 +525,25 @@ func (e *environ) Name() string {
 	return e.name
 }
 
+// SupportedArchitectures is specified on the EnvironCapability interface.
+func (*environ) SupportedArchitectures() ([]string, error) {
+	return []string{arch.AMD64, arch.PPC64}, nil
+}
+
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
 func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 	return []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseImagesPath)}, nil
+		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseImagesPath)}, nil
 }
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
 func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 	return []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath)}, nil
+		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseToolsPath)}, nil
 }
 
 func (e *environ) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
-	selectedTools, err := common.EnsureBootstrapTools(e, e.Config().DefaultSeries(), cons.Arch)
+	selectedTools, err := common.EnsureBootstrapTools(ctx, e, e.Config().DefaultSeries(), cons.Arch)
 	if err != nil {
 		return err
 	}
@@ -572,7 +591,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, cons constraints.Valu
 		// so that we can call it here.
 
 		info := stateInfo()
-		st, err := state.Initialize(info, cfg, state.DefaultDialOpts())
+		st, err := state.Initialize(info, cfg, state.DefaultDialOpts(), estate.statePolicy)
 		if err != nil {
 			panic(err)
 		}
@@ -586,7 +605,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, cons constraints.Valu
 		if err != nil {
 			panic(err)
 		}
-		estate.apiServer, err = apiserver.NewServer(st, "localhost:0", []byte(testing.ServerCert), []byte(testing.ServerKey), "")
+		estate.apiServer, err = apiserver.NewServer(st, "localhost:0", []byte(testing.ServerCert), []byte(testing.ServerKey), DataDir)
 		if err != nil {
 			panic(err)
 		}
@@ -637,16 +656,17 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (e *environ) Destroy() error {
+func (e *environ) Destroy() (res error) {
 	defer delay()
-	if err := e.checkBroken("Destroy"); err != nil {
-		return err
-	}
 	estate, err := e.state()
 	if err != nil {
 		if err == provider.ErrDestroyed {
 			return nil
 		}
+		return err
+	}
+	defer func() { estate.ops <- OpDestroy{Env: estate.name, Error: res} }()
+	if err := e.checkBroken("Destroy"); err != nil {
 		return err
 	}
 	p := &providerInstance
@@ -656,17 +676,15 @@ func (e *environ) Destroy() error {
 
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
-	estate.ops <- OpDestroy{Env: estate.name}
 	estate.destroy()
 	return nil
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (e *environ) StartInstance(cons constraints.Value, possibleTools coretools.List,
-	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
 
 	defer delay()
-	machineId := machineConfig.MachineId
+	machineId := args.MachineConfig.MachineId
 	logger.Infof("dummy startinstance, machine %s", machineId)
 	if err := e.checkBroken("StartInstance"); err != nil {
 		return nil, nil, err
@@ -677,20 +695,20 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools coretools.
 	}
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
-	if machineConfig.MachineNonce == "" {
+	if args.MachineConfig.MachineNonce == "" {
 		return nil, nil, fmt.Errorf("cannot start instance: missing machine nonce")
 	}
 	if _, ok := e.Config().CACert(); !ok {
 		return nil, nil, fmt.Errorf("no CA certificate in environment configuration")
 	}
-	if machineConfig.StateInfo.Tag != names.MachineTag(machineId) {
+	if args.MachineConfig.StateInfo.Tag != names.MachineTag(machineId) {
 		return nil, nil, fmt.Errorf("entity tag must match started machine")
 	}
-	if machineConfig.APIInfo.Tag != names.MachineTag(machineId) {
+	if args.MachineConfig.APIInfo.Tag != names.MachineTag(machineId) {
 		return nil, nil, fmt.Errorf("entity tag must match started machine")
 	}
-	logger.Infof("would pick tools from %s", possibleTools)
-	series := possibleTools.OneSeries()
+	logger.Infof("would pick tools from %s", args.Tools)
+	series := args.Tools.OneSeries()
 	i := &dummyInstance{
 		id:           instance.Id(fmt.Sprintf("%s-%d", e.name, estate.maxId)),
 		ports:        make(map[instance.Port]bool),
@@ -706,12 +724,12 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools coretools.
 		// We will just assume the instance hardware characteristics exactly matches
 		// the supplied constraints (if specified).
 		hc = &instance.HardwareCharacteristics{
-			Arch:     cons.Arch,
-			Mem:      cons.Mem,
-			RootDisk: cons.RootDisk,
-			CpuCores: cons.CpuCores,
-			CpuPower: cons.CpuPower,
-			Tags:     cons.Tags,
+			Arch:     args.Constraints.Arch,
+			Mem:      args.Constraints.Mem,
+			RootDisk: args.Constraints.RootDisk,
+			CpuCores: args.Constraints.CpuCores,
+			CpuPower: args.Constraints.CpuPower,
+			Tags:     args.Constraints.Tags,
 		}
 		// Fill in some expected instance hardware characteristics if constraints not specified.
 		if hc.Arch == nil {
@@ -736,11 +754,11 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools coretools.
 	estate.ops <- OpStartInstance{
 		Env:          e.name,
 		MachineId:    machineId,
-		MachineNonce: machineConfig.MachineNonce,
-		Constraints:  cons,
+		MachineNonce: args.MachineConfig.MachineNonce,
+		Constraints:  args.Constraints,
 		Instance:     i,
-		Info:         machineConfig.StateInfo,
-		APIInfo:      machineConfig.APIInfo,
+		Info:         args.MachineConfig.StateInfo,
+		APIInfo:      args.MachineConfig.APIInfo,
 		Secret:       e.ecfg().secret(),
 	}
 	return i, hc, nil
@@ -873,6 +891,7 @@ type dummyInstance struct {
 	state        *environState
 	ports        map[instance.Port]bool
 	id           instance.Id
+	status       string
 	machineId    string
 	series       string
 	firewallMode string
@@ -886,7 +905,7 @@ func (inst *dummyInstance) Id() instance.Id {
 }
 
 func (inst *dummyInstance) Status() string {
-	return ""
+	return inst.status
 }
 
 // SetInstanceAddresses sets the addresses associated with the given
@@ -895,6 +914,15 @@ func SetInstanceAddresses(inst instance.Instance, addrs []instance.Address) {
 	inst0 := inst.(*dummyInstance)
 	inst0.mu.Lock()
 	inst0.addresses = append(inst0.addresses[:0], addrs...)
+	inst0.mu.Unlock()
+}
+
+// SetInstanceStatus sets the status associated with the given
+// dummy instance.
+func SetInstanceStatus(inst instance.Instance, status string) {
+	inst0 := inst.(*dummyInstance)
+	inst0.mu.Lock()
+	inst0.status = status
 	inst0.mu.Unlock()
 }
 

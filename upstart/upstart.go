@@ -20,6 +20,9 @@ import (
 
 var startedRE = regexp.MustCompile(`^.* start/running, process (\d+)\n$`)
 
+// InitDir holds the default init directory name.
+var InitDir = "/etc/init"
+
 var InstallStartRetryAttempts = utils.AttemptStrategy{
 	Total: 1 * time.Second,
 	Delay: 250 * time.Millisecond,
@@ -32,7 +35,7 @@ type Service struct {
 }
 
 func NewService(name string) *Service {
-	return &Service{Name: name, InitDir: "/etc/init"}
+	return &Service{Name: name, InitDir: InitDir}
 }
 
 // confPath returns the path to the service's configuration file.

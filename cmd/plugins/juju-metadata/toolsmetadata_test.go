@@ -10,8 +10,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/juju/loggo"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
@@ -43,7 +43,7 @@ func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 		dummy.Reset()
 		loggo.ResetLoggers()
 	})
-	env, err := environs.PrepareFromName("erewhemos", configstore.NewMem())
+	env, err := environs.PrepareFromName("erewhemos", coretesting.Context(c), configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	s.env = env
 	envtesting.RemoveAllTools(c, s.env)
@@ -72,7 +72,7 @@ var versionStrings = append([]string{
 var expectedOutputCommon = makeExpectedOutputCommon()
 
 func makeExpectedOutputCommon() string {
-	expected := `Finding tools\.\.\.
+	expected := `Finding tools in .*
 .*Fetching tools to generate hash: 1\.12\.0-precise-amd64
 .*Fetching tools to generate hash: 1\.12\.0-precise-i386
 .*Fetching tools to generate hash: 1\.12\.0-raring-amd64
@@ -104,7 +104,7 @@ func (s *ToolsMetadataSuite) TestGenerateDefaultDirectory(c *gc.C) {
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
 	c.Assert(output, gc.Matches, expectedOutputDirectory)
-	metadata := ttesting.ParseMetadata(c, metadataDir, false)
+	metadata := ttesting.ParseMetadataFromDir(c, metadataDir, false)
 	c.Assert(metadata, gc.HasLen, len(versionStrings))
 	obtainedVersionStrings := make([]string, len(versionStrings))
 	for i, metadata := range metadata {
@@ -122,7 +122,7 @@ func (s *ToolsMetadataSuite) TestGenerateDirectory(c *gc.C) {
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
 	c.Assert(output, gc.Matches, expectedOutputDirectory)
-	metadata := ttesting.ParseMetadata(c, metadataDir, false)
+	metadata := ttesting.ParseMetadataFromDir(c, metadataDir, false)
 	c.Assert(metadata, gc.HasLen, len(versionStrings))
 	obtainedVersionStrings := make([]string, len(versionStrings))
 	for i, metadata := range metadata {
@@ -141,7 +141,7 @@ func (s *ToolsMetadataSuite) TestGenerateWithPublicFallback(c *gc.C) {
 	metadataDir := c.MkDir()
 	code := cmd.Main(&ToolsMetadataCommand{}, ctx, []string{"-d", metadataDir})
 	c.Assert(code, gc.Equals, 0)
-	metadata := ttesting.ParseMetadata(c, metadataDir, false)
+	metadata := ttesting.ParseMetadataFromDir(c, metadataDir, false)
 	c.Assert(metadata, gc.HasLen, len(versionStrings))
 	obtainedVersionStrings := make([]string, len(versionStrings))
 	for i, metadata := range metadata {
@@ -159,7 +159,7 @@ func (s *ToolsMetadataSuite) TestGenerateWithMirrors(c *gc.C) {
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
 	c.Assert(output, gc.Matches, expectedOutputMirrors)
-	metadata := ttesting.ParseMetadata(c, metadataDir, true)
+	metadata := ttesting.ParseMetadataFromDir(c, metadataDir, true)
 	c.Assert(metadata, gc.HasLen, len(versionStrings))
 	obtainedVersionStrings := make([]string, len(versionStrings))
 	for i, metadata := range metadata {
@@ -174,7 +174,7 @@ func (s *ToolsMetadataSuite) TestNoTools(c *gc.C) {
 	code := cmd.Main(&ToolsMetadataCommand{}, ctx, nil)
 	c.Assert(code, gc.Equals, 1)
 	stdout := ctx.Stdout.(*bytes.Buffer).String()
-	c.Assert(stdout, gc.Matches, "Finding tools\\.\\.\\.\n")
+	c.Assert(stdout, gc.Matches, "Finding tools in .*\n")
 	stderr := ctx.Stderr.(*bytes.Buffer).String()
 	c.Assert(stderr, gc.Matches, "error: no tools available\n")
 }
@@ -193,14 +193,14 @@ func (s *ToolsMetadataSuite) TestPatchLevels(c *gc.C) {
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
 	expectedOutput := fmt.Sprintf(`
-Finding tools\.\.\.
+Finding tools in .*
 .*Fetching tools to generate hash: %s
 .*Fetching tools to generate hash: %s
 .*Writing tools/streams/v1/index\.json
 .*Writing tools/streams/v1/com\.ubuntu\.juju:released:tools\.json
 `[1:], regexp.QuoteMeta(versionStrings[0]), regexp.QuoteMeta(versionStrings[1]))
 	c.Assert(output, gc.Matches, expectedOutput)
-	metadata := ttesting.ParseMetadata(c, metadataDir, false)
+	metadata := ttesting.ParseMetadataFromDir(c, metadataDir, false)
 	c.Assert(metadata, gc.HasLen, 2)
 
 	filename := fmt.Sprintf("juju-%s-precise-amd64.tgz", currentVersion)

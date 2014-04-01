@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
@@ -299,8 +300,56 @@ var statusTests = []testCase{
 			},
 		},
 	), test(
+		"deploy two services with networks",
+		addMachine{machineId: "0", job: state.JobManageEnviron},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", params.StatusStarted, ""},
+		setAddresses{"0", []instance.Address{
+			instance.NewAddress("10.0.0.1"),
+			instance.NewAddress("dummyenv-0.dns"),
+		}},
+		addCharm{"dummy"},
+		addService{
+			name:            "networks-service",
+			charm:           "dummy",
+			withNetworks:    []string{"net1", "net2"},
+			withoutNetworks: []string{"net3", "net4"},
+		},
+		addService{
+			name:            "no-networks-service",
+			charm:           "dummy",
+			withoutNetworks: []string{"mynet"},
+		},
+
+		expect{
+			"simulate just the two services and a bootstrap node",
+			M{
+				"environment": "dummyenv",
+				"machines": M{
+					"0": machine0,
+				},
+				"services": M{
+					"networks-service": M{
+						"charm":   "cs:quantal/dummy-1",
+						"exposed": false,
+						"networks": M{
+							"enabled":  L{"net1", "net2"},
+							"disabled": L{"net3", "net4"},
+						},
+					},
+					"no-networks-service": M{
+						"charm":   "cs:quantal/dummy-1",
+						"exposed": false,
+						"networks": M{
+							"disabled": L{"mynet"},
+						},
+					},
+				},
+			},
+		},
+	), test(
 		"instance with different hardware characteristics",
-		addMachine{"0", machineCons, state.JobManageEnviron},
+		addMachine{machineId: "0", cons: machineCons, job: state.JobManageEnviron},
 		setAddresses{"0", []instance.Address{
 			instance.NewAddress("10.0.0.1"),
 			instance.NewAddress("dummyenv-0.dns"),
@@ -325,7 +374,7 @@ var statusTests = []testCase{
 		},
 	), test(
 		"instance without addresses",
-		addMachine{"0", machineCons, state.JobManageEnviron},
+		addMachine{machineId: "0", cons: machineCons, job: state.JobManageEnviron},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", params.StatusStarted, ""},
 		expect{
@@ -384,8 +433,8 @@ var statusTests = []testCase{
 		startAliveMachine{"0"},
 		setMachineStatus{"0", params.StatusStarted, ""},
 		addCharm{"dummy"},
-		addService{"dummy-service", "dummy"},
-		addService{"exposed-service", "dummy"},
+		addService{name: "dummy-service", charm: "dummy"},
+		addService{name: "exposed-service", charm: "dummy"},
 		expect{
 			"no services exposed yet",
 			M{
@@ -711,11 +760,10 @@ var statusTests = []testCase{
 				},
 			},
 		},
-	),
-	test(
+	), test(
 		"add a dying service",
 		addCharm{"dummy"},
-		addService{"dummy-service", "dummy"},
+		addService{name: "dummy-service", charm: "dummy"},
 		addMachine{machineId: "0", job: state.JobHostUnits},
 		addUnit{"dummy-service", "0"},
 		ensureDyingService{"dummy-service"},
@@ -757,7 +805,7 @@ var statusTests = []testCase{
 		addCharm{"mysql"},
 		addCharm{"varnish"},
 
-		addService{"project", "wordpress"},
+		addService{name: "project", charm: "wordpress"},
 		setServiceExposed{"project", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", []instance.Address{instance.NewAddress("dummyenv-1.dns")}},
@@ -766,7 +814,7 @@ var statusTests = []testCase{
 		addAliveUnit{"project", "1"},
 		setUnitStatus{"project/0", params.StatusStarted, ""},
 
-		addService{"mysql", "mysql"},
+		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
 		setAddresses{"2", []instance.Address{instance.NewAddress("dummyenv-2.dns")}},
@@ -775,7 +823,7 @@ var statusTests = []testCase{
 		addAliveUnit{"mysql", "2"},
 		setUnitStatus{"mysql/0", params.StatusStarted, ""},
 
-		addService{"varnish", "varnish"},
+		addService{name: "varnish", charm: "varnish"},
 		setServiceExposed{"varnish", true},
 		addMachine{machineId: "3", job: state.JobHostUnits},
 		setAddresses{"3", []instance.Address{instance.NewAddress("dummyenv-3.dns")}},
@@ -783,7 +831,7 @@ var statusTests = []testCase{
 		setMachineStatus{"3", params.StatusStarted, ""},
 		addUnit{"varnish", "3"},
 
-		addService{"private", "wordpress"},
+		addService{name: "private", charm: "wordpress"},
 		setServiceExposed{"private", true},
 		addMachine{machineId: "4", job: state.JobHostUnits},
 		setAddresses{"4", []instance.Address{instance.NewAddress("dummyenv-4.dns")}},
@@ -876,7 +924,7 @@ var statusTests = []testCase{
 		addCharm{"riak"},
 		addCharm{"wordpress"},
 
-		addService{"riak", "riak"},
+		addService{name: "riak", charm: "riak"},
 		setServiceExposed{"riak", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", []instance.Address{instance.NewAddress("dummyenv-1.dns")}},
@@ -948,7 +996,7 @@ var statusTests = []testCase{
 		addCharm{"mysql"},
 		addCharm{"logging"},
 
-		addService{"wordpress", "wordpress"},
+		addService{name: "wordpress", charm: "wordpress"},
 		setServiceExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", []instance.Address{instance.NewAddress("dummyenv-1.dns")}},
@@ -957,7 +1005,7 @@ var statusTests = []testCase{
 		addAliveUnit{"wordpress", "1"},
 		setUnitStatus{"wordpress/0", params.StatusStarted, ""},
 
-		addService{"mysql", "mysql"},
+		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
 		setAddresses{"2", []instance.Address{instance.NewAddress("dummyenv-2.dns")}},
@@ -966,7 +1014,7 @@ var statusTests = []testCase{
 		addAliveUnit{"mysql", "2"},
 		setUnitStatus{"mysql/0", params.StatusStarted, ""},
 
-		addService{"logging", "logging"},
+		addService{name: "logging", charm: "logging"},
 		setServiceExposed{"logging", true},
 
 		relateServices{"wordpress", "mysql"},
@@ -1160,7 +1208,7 @@ var statusTests = []testCase{
 		addCharm{"logging"},
 		addCharm{"monitoring"},
 
-		addService{"wordpress", "wordpress"},
+		addService{name: "wordpress", charm: "wordpress"},
 		setServiceExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", []instance.Address{instance.NewAddress("dummyenv-1.dns")}},
@@ -1169,9 +1217,9 @@ var statusTests = []testCase{
 		addAliveUnit{"wordpress", "1"},
 		setUnitStatus{"wordpress/0", params.StatusStarted, ""},
 
-		addService{"logging", "logging"},
+		addService{name: "logging", charm: "logging"},
 		setServiceExposed{"logging", true},
-		addService{"monitoring", "monitoring"},
+		addService{name: "monitoring", charm: "monitoring"},
 		setServiceExposed{"monitoring", true},
 
 		relateServices{"wordpress", "logging"},
@@ -1234,7 +1282,7 @@ var statusTests = []testCase{
 		startAliveMachine{"0"},
 		setMachineStatus{"0", params.StatusStarted, ""},
 		addCharm{"mysql"},
-		addService{"mysql", "mysql"},
+		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
@@ -1314,7 +1362,7 @@ var statusTests = []testCase{
 		},
 	), test(
 		"service with out of date charm",
-		addMachine{machineId: "0", job: state.JobManageState},
+		addMachine{machineId: "0", job: state.JobManageEnviron},
 		setAddresses{"0", []instance.Address{instance.NewAddress("dummyenv-0.dns")}},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", params.StatusStarted, ""},
@@ -1323,7 +1371,7 @@ var statusTests = []testCase{
 		startAliveMachine{"1"},
 		setMachineStatus{"1", params.StatusStarted, ""},
 		addCharm{"mysql"},
-		addService{"mysql", "mysql"},
+		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addCharmPlaceholder{"mysql", 23},
 		addAliveUnit{"mysql", "1"},
@@ -1354,7 +1402,7 @@ var statusTests = []testCase{
 		},
 	), test(
 		"unit with out of date charm",
-		addMachine{machineId: "0", job: state.JobManageState},
+		addMachine{machineId: "0", job: state.JobManageEnviron},
 		setAddresses{"0", []instance.Address{instance.NewAddress("dummyenv-0.dns")}},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", params.StatusStarted, ""},
@@ -1363,7 +1411,7 @@ var statusTests = []testCase{
 		startAliveMachine{"1"},
 		setMachineStatus{"1", params.StatusStarted, ""},
 		addCharm{"mysql"},
-		addService{"mysql", "mysql"},
+		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addAliveUnit{"mysql", "1"},
 		setUnitCharmURL{"mysql/0", "cs:quantal/mysql-1"},
@@ -1396,7 +1444,7 @@ var statusTests = []testCase{
 		},
 	), test(
 		"service and unit with out of date charms",
-		addMachine{machineId: "0", job: state.JobManageState},
+		addMachine{machineId: "0", job: state.JobManageEnviron},
 		setAddresses{"0", []instance.Address{instance.NewAddress("dummyenv-0.dns")}},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", params.StatusStarted, ""},
@@ -1405,7 +1453,7 @@ var statusTests = []testCase{
 		startAliveMachine{"1"},
 		setMachineStatus{"1", params.StatusStarted, ""},
 		addCharm{"mysql"},
-		addService{"mysql", "mysql"},
+		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addAliveUnit{"mysql", "1"},
 		setUnitCharmURL{"mysql/0", "cs:quantal/mysql-1"},
@@ -1440,7 +1488,7 @@ var statusTests = []testCase{
 		},
 	), test(
 		"service with local charm not shown as out of date",
-		addMachine{machineId: "0", job: state.JobManageState},
+		addMachine{machineId: "0", job: state.JobManageEnviron},
 		setAddresses{"0", []instance.Address{instance.NewAddress("dummyenv-0.dns")}},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", params.StatusStarted, ""},
@@ -1449,7 +1497,7 @@ var statusTests = []testCase{
 		startAliveMachine{"1"},
 		setMachineStatus{"1", params.StatusStarted, ""},
 		addCharm{"mysql"},
-		addService{"mysql", "mysql"},
+		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addAliveUnit{"mysql", "1"},
 		setUnitCharmURL{"mysql/0", "cs:quantal/mysql-1"},
@@ -1544,6 +1592,8 @@ func (sm startMissingMachine) step(c *gc.C, ctx *context) {
 	_, hc := testing.AssertStartInstanceWithConstraints(c, ctx.conn.Environ, m.Id(), cons)
 	err = m.SetProvisioned("i-missing", "fake_nonce", hc)
 	c.Assert(err, gc.IsNil)
+	err = m.SetInstanceStatus("missing")
+	c.Assert(err, gc.IsNil)
 }
 
 type startAliveMachine struct {
@@ -1617,14 +1667,16 @@ func (ac addCharmWithRevision) step(c *gc.C, ctx *context) {
 }
 
 type addService struct {
-	name  string
-	charm string
+	name            string
+	charm           string
+	withNetworks    []string
+	withoutNetworks []string
 }
 
 func (as addService) step(c *gc.C, ctx *context) {
 	ch, ok := ctx.charms[as.charm]
 	c.Assert(ok, gc.Equals, true)
-	_, err := ctx.st.AddService(as.name, "user-admin", ch)
+	_, err := ctx.st.AddService(as.name, "user-admin", ch, as.withNetworks, as.withoutNetworks)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -1874,7 +1926,7 @@ func (e scopedExpect) step(c *gc.C, ctx *context) {
 		actual := make(M)
 		err = format.unmarshal(stdout, &actual)
 		c.Assert(err, gc.IsNil)
-		c.Assert(actual, gc.DeepEquals, expected)
+		c.Assert(actual, jc.DeepEquals, expected)
 	}
 }
 
@@ -1899,7 +1951,7 @@ func (s *StatusSuite) TestStatusFilterErrors(c *gc.C) {
 		addMachine{machineId: "0", job: state.JobManageEnviron},
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		addCharm{"mysql"},
-		addService{"mysql", "mysql"},
+		addService{name: "mysql", charm: "mysql"},
 		addAliveUnit{"mysql", "1"},
 	}
 	ctx := s.newContext()

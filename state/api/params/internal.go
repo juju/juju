@@ -13,16 +13,6 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
-// Entity identifies a single entity.
-type Entity struct {
-	Tag string
-}
-
-// Entities identifies multiple entities.
-type Entities struct {
-	Entities []Entity
-}
-
 // MachineContainersParams holds the arguments for making a SetSupportedContainers
 // API call.
 type MachineContainersParams struct {
@@ -96,7 +86,7 @@ type StringResults struct {
 	Results []StringResult
 }
 
-// CharmArchiveURLResult holds a charm archive (bunle) URL, a
+// CharmArchiveURLResult holds a charm archive (bundle) URL, a
 // DisableSSLHostnameVerification flag or an error.
 type CharmArchiveURLResult struct {
 	Error                          *Error
@@ -109,6 +99,14 @@ type CharmArchiveURLResult struct {
 // DisableSSLHostnameVerification flag or an error.
 type CharmArchiveURLResults struct {
 	Results []CharmArchiveURLResult
+}
+
+// EnvironmentResult holds the result of an API call returning a name and UUID
+// for an environment.
+type EnvironmentResult struct {
+	Error *Error
+	Name  string
+	UUID  string
 }
 
 // ResolvedModeResult holds a resolved mode or an error.
@@ -184,7 +182,6 @@ type EnvironConfig map[string]interface{}
 
 // EnvironConfigResult holds environment configuration or an error.
 type EnvironConfigResult struct {
-	Error  *Error
 	Config EnvironConfig
 }
 
@@ -318,25 +315,28 @@ type SetProvisioned struct {
 	Machines []MachineSetProvisioned
 }
 
-// SetEntityStatus holds an entity tag, status and extra info.
-type SetEntityStatus struct {
+// EntityStatus holds an entity tag, status and extra info.
+type EntityStatus struct {
 	Tag    string
 	Status Status
 	Info   string
 	Data   StatusData
 }
 
-// SetStatus holds the parameters for making a SetStatus call.
+// SetStatus holds the parameters for making a SetStatus/UpdateStatus call.
 type SetStatus struct {
-	Entities []SetEntityStatus
+	Entities []EntityStatus
 }
 
 // StatusResult holds an entity status, extra information, or an
 // error.
 type StatusResult struct {
 	Error  *Error
+	Id     string
+	Life   Life
 	Status Status
 	Info   string
+	Data   StatusData
 }
 
 // StatusResults holds multiple status results.
@@ -406,6 +406,20 @@ type ToolsResults struct {
 	Results []ToolsResult
 }
 
+// FindToolsParams defines parameters for the FindTools method.
+type FindToolsParams struct {
+	MajorVersion int
+	MinorVersion int
+	Arch         string
+	Series       string
+}
+
+// FindToolsResults holds a list of tools from FindTools and any error.
+type FindToolsResults struct {
+	List  tools.List
+	Error *Error
+}
+
 // Version holds a specific binary version.
 type Version struct {
 	Version version.Binary
@@ -423,18 +437,6 @@ type EntityVersion struct {
 // multiple entities.
 type EntitiesVersion struct {
 	AgentTools []EntityVersion
-}
-
-// PasswordChanges holds the parameters for making a SetPasswords call.
-type PasswordChanges struct {
-	Changes []PasswordChange
-}
-
-// PasswordChange specifies a password change for the entity
-// with the given tag.
-type PasswordChange struct {
-	Tag      string
-	Password string
 }
 
 // NotifyWatchResult holds a NotifyWatcher id and an error (if any).
@@ -498,10 +500,11 @@ type RelationUnitsWatchResults struct {
 	Results []RelationUnitsWatchResult
 }
 
-// CharmsResponse is the server response to a charm upload request.
+// CharmsResponse is the server response to charm upload or GET requests.
 type CharmsResponse struct {
-	Error    string `json:",omitempty"`
-	CharmURL string `json:",omitempty"`
+	Error    string   `json:",omitempty"`
+	CharmURL string   `json:",omitempty"`
+	Files    []string `json:",omitempty"`
 }
 
 // RunParams is used to provide the parameters to the Run method.
@@ -524,8 +527,15 @@ type RunResult struct {
 	Error     string
 }
 
-// RunResults is used to return the slice of results.  Api server side calls
+// RunResults is used to return the slice of results.  API server side calls
 // need to return single structure values.
 type RunResults struct {
 	Results []RunResult
+}
+
+// APIHostPortsResult holds the result of an APIHostPorts
+// call. Each element in the top level slice holds
+// the addresses for one API server.
+type APIHostPortsResult struct {
+	Servers [][]instance.HostPort
 }

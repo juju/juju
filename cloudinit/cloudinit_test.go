@@ -177,7 +177,35 @@ var ctests = []struct {
 		"AptSources",
 		"apt_sources:\n- source: keyName\n  key: someKey\n",
 		func(cfg *cloudinit.Config) {
-			cfg.AddAptSource("keyName", "someKey")
+			cfg.AddAptSource("keyName", "someKey", nil)
+		},
+	},
+	{
+		"AptSources with preferences",
+		`apt_sources:
+- source: keyName
+  key: someKey
+runcmd:
+- install -D -m 644 /dev/null '/some/path'
+- 'printf ''%s\n'' ''Explanation: test
+
+  Package: *
+
+  Pin: release n=series
+
+  Pin-Priority: 123
+
+  '' > ''/some/path'''
+`,
+		func(cfg *cloudinit.Config) {
+			prefs := &cloudinit.AptPreferences{
+				Path:        "/some/path",
+				Explanation: "test",
+				Package:     "*",
+				Pin:         "release n=series",
+				PinPriority: 123,
+			}
+			cfg.AddAptSource("keyName", "someKey", prefs)
 		},
 	},
 	{
@@ -186,6 +214,13 @@ var ctests = []struct {
 		func(cfg *cloudinit.Config) {
 			cfg.AddPackage("juju")
 			cfg.AddPackage("ubuntu")
+		},
+	},
+	{
+		"Packages with --target-release",
+		"packages:\n- --target-release 'precise-updates/cloud-tools' 'mongodb-server'\n",
+		func(cfg *cloudinit.Config) {
+			cfg.AddPackageFromTargetRelease("mongodb-server", "precise-updates/cloud-tools")
 		},
 	},
 	{
@@ -276,7 +311,11 @@ func (S) TestPackages(c *gc.C) {
 	c.Assert(cfg.Packages(), gc.HasLen, 0)
 	cfg.AddPackage("a b c")
 	cfg.AddPackage("d!")
-	c.Assert(cfg.Packages(), gc.DeepEquals, []string{"a b c", "d!"})
+	expectedPackages := []string{"a b c", "d!"}
+	c.Assert(cfg.Packages(), gc.DeepEquals, expectedPackages)
+	cfg.AddPackageFromTargetRelease("package", "series")
+	expectedPackages = append(expectedPackages, "--target-release 'series' 'package'")
+	c.Assert(cfg.Packages(), gc.DeepEquals, expectedPackages)
 }
 
 func (S) TestSetOutput(c *gc.C) {

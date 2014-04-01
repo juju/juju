@@ -4,33 +4,46 @@
 package agent
 
 import (
+	"bytes"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"path"
+	"path/filepath"
 	"regexp"
+	"strings"
 	"sync"
 
-	"launchpad.net/loggo"
+	"github.com/errgo/errgo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 )
 
 var logger = loggo.GetLogger("juju.agent")
 
+// DefaultLogDir defines the default log directory for juju agents.
+// It's defined as a variable so it could be overridden in tests.
+var DefaultLogDir = "/var/log/juju"
+
+// DefaultDataDir defines the default data directory for juju agents.
+// It's defined as a variable so it could be overridden in tests.
+var DefaultDataDir = "/var/lib/juju"
+
 const (
-	LxcBridge         = "LXC_BRIDGE"
-	ProviderType      = "PROVIDER_TYPE"
-	ContainerType     = "CONTAINER_TYPE"
-	Namespace         = "NAMESPACE"
-	StorageDir        = "STORAGE_DIR"
-	StorageAddr       = "STORAGE_ADDR"
-	SharedStorageDir  = "SHARED_STORAGE_DIR"
-	SharedStorageAddr = "SHARED_STORAGE_ADDR"
-	AgentServiceName  = "AGENT_SERVICE_NAME"
-	MongoServiceName  = "MONGO_SERVICE_NAME"
+	LxcBridge        = "LXC_BRIDGE"
+	ProviderType     = "PROVIDER_TYPE"
+	ContainerType    = "CONTAINER_TYPE"
+	Namespace        = "NAMESPACE"
+	StorageDir       = "STORAGE_DIR"
+	StorageAddr      = "STORAGE_ADDR"
+	AgentServiceName = "AGENT_SERVICE_NAME"
+	MongoServiceName = "MONGO_SERVICE_NAME"
 )
 
 // The Config interface is the sole way that the agent gets access to the
@@ -47,6 +60,13 @@ type Config interface {
 	// DataDir returns the data directory. Each agent has a subdirectory
 	// containing the configuration files.
 	DataDir() string
+
+	// LogDir returns the log directory. All logs from all agents on
+	// the machine are written to this directory.
+	LogDir() string
+
+	// Jobs returns a list of MachineJobs that need to run.
+	Jobs() []params.MachineJob
 
 	// Tag returns the tag of the entity on whose behalf the state connection
 	// will be made.
@@ -74,7 +94,7 @@ type Config interface {
 
 	// OpenState tries to open a direct connection to the state database using
 	// the given Conf.
-	OpenState() (*state.State, error)
+	OpenState(policy state.Policy) (*state.State, error)
 
 	// Write writes the agent configuration.
 	Write() error
@@ -87,6 +107,14 @@ type Config interface {
 	// APIServerDetails returns the details needed to run an API server.
 	APIServerDetails() (port int, cert, key []byte)
 
+	// UpgradedToVersion returns the version for which all upgrade steps have been
+	// successfully run, which is also the same as the initially deployed version.
+	UpgradedToVersion() version.Number
+
+	// WriteUpgradedToVersion updates the config's UpgradedToVersion and writes
+	// the new agent configuration.
+	WriteUpgradedToVersion(newVersion version.Number) error
+
 	// Value returns the value associated with the key, or an empty string if
 	// the key is not found.
 	Value(key string) string
@@ -97,22 +125,84 @@ type Config interface {
 	StateInitializer
 }
 
+// MigrateConfigParams holds agent config values to change in a
+// MigrateConfig call. Empty fields will be ignored. DeleteValues
+// specifies a list of keys to delete.
+type MigrateConfigParams struct {
+	DataDir      string
+	LogDir       string
+	Jobs         []params.MachineJob
+	DeleteValues []string
+	Values       map[string]string
+}
+
+// MigrateConfig takes an existing agent config and applies the given
+// newParams selectively. Only non-empty fields in newParams are used
+// to change existing config settings. All changes are written
+// atomically. UpgradedToVersion cannot be changed here, because
+// MigrateConfig is most likely called during an upgrade, so it will be
+// changed at the end of the upgrade anyway, if successful.
+func MigrateConfig(currentConfig Config, newParams MigrateConfigParams) error {
+	configMutex.Lock()
+	defer configMutex.Unlock()
+	config := currentConfig.(*configInternal)
+
+	if newParams.DataDir != "" {
+		config.dataDir = newParams.DataDir
+	}
+	if newParams.LogDir != "" {
+		config.logDir = newParams.LogDir
+	}
+	if len(newParams.Jobs) > 0 {
+		config.jobs = make([]params.MachineJob, len(newParams.Jobs))
+		copy(config.jobs, newParams.Jobs)
+	}
+	for _, key := range newParams.DeleteValues {
+		delete(config.values, key)
+	}
+	for key, value := range newParams.Values {
+		if config.values == nil {
+			config.values = make(map[string]string)
+		}
+		config.values[key] = value
+	}
+	if err := config.check(); err != nil {
+		return fmt.Errorf("migrated agent config is invalid: %v", err)
+	}
+	oldConfigFile := config.configFilePath
+	config.configFilePath = ConfigPath(config.dataDir, config.tag)
+	if err := config.write(); err != nil {
+		return fmt.Errorf("cannot migrate agent config: %v", err)
+	}
+	if oldConfigFile != config.configFilePath && oldConfigFile != "" {
+		err := os.Remove(oldConfigFile)
+		if err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("cannot remove old agent config %q: %v", oldConfigFile, err)
+		}
+	}
+	return nil
+}
+
 // Ensure that the configInternal struct implements the Config interface.
 var _ Config = (*configInternal)(nil)
 
-// The configMutex should be locked before any writing to disk during the
-// write commands, and unlocked when the writing is complete.  This process
-// wide lock should stop any unintended concurrent writes.  This may happen
-// when multiple go-routines may be adding things to the agent config, and
-// wanting to persist them to disk. To ensure that the correct data is written
-// to disk, the mutex should be locked prior to generating any disk state.
-// This way calls that might get interleaved would always write the most
-// recent state to disk.  Since we have different agent configs for each
-// agent, and there is only one process for each agent, a simple mutex is
-// enough for concurrency.  The mutex should also be locked around any access
-// to mutable values, either setting or getting.  The only mutable value is
-// the values map.  Retrieving and setting values here are protected by the
-// mutex.  New mutating methods should also be synchronized using this mutex.
+// The configMutex should be locked before any writing to disk during
+// the write commands, and unlocked when the writing is complete. This
+// process wide lock should stop any unintended concurrent writes.
+// This may happen when multiple go-routines may be adding things to
+// the agent config, and wanting to persist them to disk. To ensure
+// that the correct data is written to disk, the mutex should be
+// locked prior to generating any disk state. This way calls that
+// might get interleaved would always write the most recent state to
+// disk. Since we have different agent configs for each agent, and
+// there is only one process for each agent, a simple mutex is enough
+// for concurrency. The mutex should also be locked around any access
+// to mutable values, either setting or getting. The only mutable
+// value is the values map. Retrieving and setting values here are
+// protected by the mutex. New mutating methods should also be
+// synchronized using this mutex. Config is essentially a singleton
+// implementation, having a non-constructable-in-a-normal-way backing
+// type configInternal.
 var configMutex sync.Mutex
 
 type connectionDetails struct {
@@ -121,63 +211,80 @@ type connectionDetails struct {
 }
 
 type configInternal struct {
-	dataDir         string
-	tag             string
-	nonce           string
-	caCert          []byte
-	stateDetails    *connectionDetails
-	apiDetails      *connectionDetails
-	oldPassword     string
-	stateServerCert []byte
-	stateServerKey  []byte
-	apiPort         int
-	values          map[string]string
+	configFilePath    string
+	dataDir           string
+	logDir            string
+	tag               string
+	nonce             string
+	jobs              []params.MachineJob
+	upgradedToVersion version.Number
+	caCert            []byte
+	stateDetails      *connectionDetails
+	apiDetails        *connectionDetails
+	oldPassword       string
+	stateServerCert   []byte
+	stateServerKey    []byte
+	apiPort           int
+	values            map[string]string
 }
 
 type AgentConfigParams struct {
-	DataDir        string
-	Tag            string
-	Password       string
-	Nonce          string
-	StateAddresses []string
-	APIAddresses   []string
-	CACert         []byte
-	Values         map[string]string
+	DataDir           string
+	LogDir            string
+	Jobs              []params.MachineJob
+	UpgradedToVersion version.Number
+	Tag               string
+	Password          string
+	Nonce             string
+	StateAddresses    []string
+	APIAddresses      []string
+	CACert            []byte
+	Values            map[string]string
 }
 
 // NewAgentConfig returns a new config object suitable for use for a
 // machine or unit agent.
-func NewAgentConfig(params AgentConfigParams) (Config, error) {
-	if params.DataDir == "" {
-		return nil, requiredError("data directory")
+func NewAgentConfig(configParams AgentConfigParams) (Config, error) {
+	if configParams.DataDir == "" {
+		return nil, errgo.Trace(requiredError("data directory"))
 	}
-	if params.Tag == "" {
-		return nil, requiredError("entity tag")
+	logDir := DefaultLogDir
+	if configParams.LogDir != "" {
+		logDir = configParams.LogDir
 	}
-	if params.Password == "" {
-		return nil, requiredError("password")
+	if configParams.Tag == "" {
+		return nil, errgo.Trace(requiredError("entity tag"))
 	}
-	if params.CACert == nil {
-		return nil, requiredError("CA certificate")
+	if configParams.UpgradedToVersion == version.Zero {
+		return nil, errgo.Trace(requiredError("upgradedToVersion"))
+	}
+	if configParams.Password == "" {
+		return nil, errgo.Trace(requiredError("password"))
+	}
+	if len(configParams.CACert) == 0 {
+		return nil, errgo.Trace(requiredError("CA certificate"))
 	}
 	// Note that the password parts of the state and api information are
 	// blank.  This is by design.
 	config := &configInternal{
-		dataDir:     params.DataDir,
-		tag:         params.Tag,
-		nonce:       params.Nonce,
-		caCert:      params.CACert,
-		oldPassword: params.Password,
-		values:      params.Values,
+		logDir:            logDir,
+		dataDir:           configParams.DataDir,
+		jobs:              configParams.Jobs,
+		upgradedToVersion: configParams.UpgradedToVersion,
+		tag:               configParams.Tag,
+		nonce:             configParams.Nonce,
+		caCert:            configParams.CACert,
+		oldPassword:       configParams.Password,
+		values:            configParams.Values,
 	}
-	if len(params.StateAddresses) > 0 {
+	if len(configParams.StateAddresses) > 0 {
 		config.stateDetails = &connectionDetails{
-			addresses: params.StateAddresses,
+			addresses: configParams.StateAddresses,
 		}
 	}
-	if len(params.APIAddresses) > 0 {
+	if len(configParams.APIAddresses) > 0 {
 		config.apiDetails = &connectionDetails{
-			addresses: params.APIAddresses,
+			addresses: configParams.APIAddresses,
 		}
 	}
 	if err := config.check(); err != nil {
@@ -186,6 +293,7 @@ func NewAgentConfig(params AgentConfigParams) (Config, error) {
 	if config.values == nil {
 		config.values = make(map[string]string)
 	}
+	config.configFilePath = ConfigPath(config.dataDir, config.tag)
 	return config, nil
 }
 
@@ -199,66 +307,94 @@ type StateMachineConfigParams struct {
 
 // NewStateMachineConfig returns a configuration suitable for
 // a machine running the state server.
-func NewStateMachineConfig(params StateMachineConfigParams) (Config, error) {
-	if params.StateServerCert == nil {
-		return nil, requiredError("state server cert")
+func NewStateMachineConfig(configParams StateMachineConfigParams) (Config, error) {
+	if configParams.StateServerCert == nil {
+		return nil, errgo.Trace(requiredError("state server cert"))
 	}
-	if params.StateServerKey == nil {
-		return nil, requiredError("state server key")
+	if configParams.StateServerKey == nil {
+		return nil, errgo.Trace(requiredError("state server key"))
 	}
-	config0, err := NewAgentConfig(params.AgentConfigParams)
+	config0, err := NewAgentConfig(configParams.AgentConfigParams)
 	if err != nil {
 		return nil, err
 	}
 	config := config0.(*configInternal)
-	config.stateServerCert = params.StateServerCert
-	config.stateServerKey = params.StateServerKey
-	config.apiPort = params.APIPort
+	config.stateServerCert = configParams.StateServerCert
+	config.stateServerKey = configParams.StateServerKey
+	config.apiPort = configParams.APIPort
 	return config, nil
 }
 
 // Dir returns the agent-specific data directory.
 func Dir(dataDir, agentName string) string {
+	// Note: must use path, not filepath, as this
+	// function is used by the client on Windows.
 	return path.Join(dataDir, "agents", agentName)
 }
 
-// ReadConf reads configuration data for the given
-// entity from the given data directory.
-func ReadConf(dataDir, tag string) (Config, error) {
+// ConfigPath returns the full path to the agent config file.
+// NOTE: Delete this once all agents accept --config instead
+// of --data-dir - it won't be needed anymore.
+func ConfigPath(dataDir, agentName string) string {
+	return filepath.Join(Dir(dataDir, agentName), agentConfigFilename)
+}
+
+// ReadConf reads configuration data from the given location.
+func ReadConf(configFilePath string) (Config, error) {
 	// Even though the ReadConf is done at the start of the agent loading, and
 	// that this should not be called more than once by an agent, I feel that
 	// not locking the mutex that is used to protect writes is wrong.
 	configMutex.Lock()
 	defer configMutex.Unlock()
-	dir := Dir(dataDir, tag)
-	format, err := readFormat(dir)
+	var (
+		format formatter
+		config *configInternal
+	)
+	configData, err := ioutil.ReadFile(configFilePath)
 	if err != nil {
-		return nil, err
-	}
-	logger.Debugf("Reading agent config, format: %s", format)
-	formatter, err := newFormatter(format)
-	if err != nil {
-		return nil, err
-	}
-	config, err := formatter.read(dir)
-	if err != nil {
-		return nil, err
-	}
-	config.dataDir = dataDir
-	if err := config.check(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot read agent config %q: %v", configFilePath, err)
 	}
 
-	if format != currentFormat {
-		// Migrate the config to the new format.
-		currentFormatter.migrate(config)
-		// Write the content out in the new format.
-		if err := currentFormatter.write(config); err != nil {
-			logger.Errorf("cannot write the agent config in format %s: %v", currentFormat, err)
+	// Try to read the legacy format file.
+	dir := filepath.Dir(configFilePath)
+	legacyFormatPath := filepath.Join(dir, legacyFormatFilename)
+	formatBytes, err := ioutil.ReadFile(legacyFormatPath)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, fmt.Errorf("cannot read format file: %v", err)
+	}
+	formatData := string(formatBytes)
+	if err == nil {
+		// It exists, so unmarshal with a legacy formatter.
+		// Drop the format prefix to leave the version only.
+		if !strings.HasPrefix(formatData, legacyFormatPrefix) {
+			return nil, fmt.Errorf("malformed agent config format %q", formatData)
+		}
+		format, err = getFormatter(strings.TrimPrefix(formatData, legacyFormatPrefix))
+		if err != nil {
 			return nil, err
 		}
+		config, err = format.unmarshal(configData)
+	} else {
+		// Does not exist, just parse the data.
+		format, config, err = parseConfigData(configData)
 	}
-
+	if err != nil {
+		return nil, err
+	}
+	logger.Debugf("read agent config, format %q", format.version())
+	config.configFilePath = configFilePath
+	if format != currentFormat {
+		// Migrate from a legacy format to the new one.
+		err := config.write()
+		if err != nil {
+			return nil, fmt.Errorf("cannot migrate %s agent config to %s: %v", format.version(), currentFormat.version(), err)
+		}
+		logger.Debugf("migrated agent config from %s to %s", format.version(), currentFormat.version())
+		err = os.Remove(legacyFormatPath)
+		if err != nil && !os.IsNotExist(err) {
+			return nil, fmt.Errorf("cannot remove legacy format file %q: %v", legacyFormatPath, err)
+		}
+	}
 	return config, nil
 }
 
@@ -274,8 +410,20 @@ func (c *configInternal) DataDir() string {
 	return c.dataDir
 }
 
+func (c *configInternal) LogDir() string {
+	return c.logDir
+}
+
+func (c *configInternal) Jobs() []params.MachineJob {
+	return c.jobs
+}
+
 func (c *configInternal) Nonce() string {
 	return c.nonce
+}
+
+func (c *configInternal) UpgradedToVersion() version.Number {
+	return c.upgradedToVersion
 }
 
 func (c *configInternal) CACert() []byte {
@@ -307,7 +455,7 @@ func (c *configInternal) APIServerDetails() (port int, cert, key []byte) {
 
 func (c *configInternal) APIAddresses() ([]string, error) {
 	if c.apiDetails == nil {
-		return []string{}, fmt.Errorf("No apidetails in config")
+		return []string{}, errgo.New("No apidetails in config")
 	}
 	return append([]string{}, c.apiDetails.addresses...), nil
 }
@@ -322,7 +470,7 @@ func (c *configInternal) Dir() string {
 
 func (c *configInternal) check() error {
 	if c.stateDetails == nil && c.apiDetails == nil {
-		return requiredError("state or API addresses")
+		return errgo.Trace(requiredError("state or API addresses"))
 	}
 	if c.stateDetails != nil {
 		if err := checkAddrs(c.stateDetails.addresses, "state server address"); err != nil {
@@ -341,11 +489,11 @@ var validAddr = regexp.MustCompile("^.+:[0-9]+$")
 
 func checkAddrs(addrs []string, what string) error {
 	if len(addrs) == 0 {
-		return requiredError(what)
+		return errgo.Trace(requiredError(what))
 	}
 	for _, a := range addrs {
 		if !validAddr.MatchString(a) {
-			return fmt.Errorf("invalid %s %q", what, a)
+			return errgo.New("invalid %s %q", what, a)
 		}
 	}
 	return nil
@@ -373,25 +521,71 @@ func (c *configInternal) writeNewPassword() (string, error) {
 		other.apiDetails = &apiDetails
 	}
 	logger.Debugf("writing configuration file")
-	if err := other.Write(); err != nil {
+	if err := other.write(); err != nil {
 		return "", err
 	}
 	*c = other
 	return newPassword, nil
 }
 
+func (c *configInternal) fileContents() ([]byte, error) {
+	data, err := currentFormat.marshal(c)
+	if err != nil {
+		return nil, err
+	}
+	var buf bytes.Buffer
+	fmt.Fprintf(&buf, "%s%s\n", formatPrefix, currentFormat.version())
+	buf.Write(data)
+	return buf.Bytes(), nil
+}
+
+// write is the internal implementation of c.Write().
+func (c *configInternal) write() error {
+	data, err := c.fileContents()
+	if err != nil {
+		return err
+	}
+	// Make sure the config dir gets created.
+	configDir := filepath.Dir(c.configFilePath)
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return fmt.Errorf("cannot create agent config dir %q: %v", configDir, err)
+	}
+	return utils.AtomicWriteFile(c.configFilePath, data, 0600)
+}
+
 func (c *configInternal) Write() error {
 	// Lock is taken prior to generating any content to write.
 	configMutex.Lock()
 	defer configMutex.Unlock()
-	return currentFormatter.write(c)
+	return c.write()
+}
+
+func (c *configInternal) WriteUpgradedToVersion(newVersion version.Number) error {
+	configMutex.Lock()
+	defer configMutex.Unlock()
+	originalVersion := c.upgradedToVersion
+	c.upgradedToVersion = newVersion
+	err := c.write()
+	if err != nil {
+		// We don't want to retain the new version if there's been an error writing the file.
+		c.upgradedToVersion = originalVersion
+	}
+	return err
 }
 
 func (c *configInternal) WriteCommands() ([]string, error) {
-	return currentFormatter.writeCommands(c)
+	data, err := c.fileContents()
+	if err != nil {
+		return nil, err
+	}
+	commands := []string{"mkdir -p " + utils.ShQuote(c.Dir())}
+	commands = append(commands, writeFileCommands(c.File(agentConfigFilename), data, 0600)...)
+	return commands, nil
 }
 
 func (c *configInternal) OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassword string, err error) {
+	configMutex.Lock()
+	defer configMutex.Unlock()
 	info := api.Info{
 		Addrs:    c.apiDetails.addresses,
 		Password: c.apiDetails.password,
@@ -428,7 +622,7 @@ func (c *configInternal) OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassw
 	return st, password, nil
 }
 
-func (c *configInternal) OpenState() (*state.State, error) {
+func (c *configInternal) OpenState(policy state.Policy) (*state.State, error) {
 	info := state.Info{
 		Addrs:    c.stateDetails.addresses,
 		Password: c.stateDetails.password,
@@ -436,7 +630,7 @@ func (c *configInternal) OpenState() (*state.State, error) {
 		Tag:      c.tag,
 	}
 	if info.Password != "" {
-		st, err := state.Open(&info, state.DefaultDialOpts())
+		st, err := state.Open(&info, state.DefaultDialOpts(), policy)
 		if err == nil {
 			return st, nil
 		}
@@ -447,5 +641,5 @@ func (c *configInternal) OpenState() (*state.State, error) {
 		}
 	}
 	info.Password = c.oldPassword
-	return state.Open(&info, state.DefaultDialOpts())
+	return state.Open(&info, state.DefaultDialOpts(), policy)
 }
