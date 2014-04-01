@@ -32,17 +32,16 @@ var (
 	MongodbServerPath = "/usr/bin/mongod"
 )
 
-type ImplementsAddresses interface {
+type WithAddresses interface {
 	Addresses() []instance.Address
 }
 
 // IsMaster returns a boolean that represents whether the given
 // machines peer address is the primary mongo host for the replicaset
-func IsMaster(session *mgo.Session, impl ImplementsAddresses) (bool, error) {
-	addrs := impl.Addresses()
+func IsMaster(session *mgo.Session, obj WithAddresses) (bool, error) {
+	addrs := obj.Addresses()
 
 	masterHostPort, err := replicaset.MasterHostPort(session)
-	logger.Infof("masterHostPort: %v", masterHostPort)
 	if err != nil {
 		return false, err
 	}
@@ -51,11 +50,8 @@ func IsMaster(session *mgo.Session, impl ImplementsAddresses) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	logger.Infof("masterAddr: %v", masterAddr)
 
 	machinePeerAddr := SelectPeerAddress(addrs)
-	logger.Infof("machinePeerAddr: %v", machinePeerAddr)
-
 	return machinePeerAddr == masterAddr, nil
 }
 

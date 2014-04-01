@@ -56,17 +56,20 @@ func (s *servingInfoSuite) TestStateServingInfoPermission(c *gc.C) {
 }
 
 func (s *servingInfoSuite) TestIsMaster(c *gc.C) {
-	var fakeMongoIsMaster = func(session *mgo.Session, m mongo.ImplementsAddresses) (bool, error) {
+	calledIsMaster := false
+	var fakeMongoIsMaster = func(session *mgo.Session, m mongo.WithAddresses) (bool, error) {
+		calledIsMaster = true
 		return true, nil
 	}
 	s.PatchValue(&apiserveragent.MongoIsMaster, fakeMongoIsMaster)
 
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
-	expected := params.IsMasterResult{Master: true}
+	expected := true
 	result, err := st.Agent().IsMaster()
 
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, jc.DeepEquals, expected)
+	c.Assert(result, gc.Equals, expected)
+	c.Assert(calledIsMaster, gc.Equals, true)
 }
 
 func (s *servingInfoSuite) TestIsMasterPermission(c *gc.C) {

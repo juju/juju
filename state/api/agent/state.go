@@ -46,10 +46,12 @@ func (st *State) StateServingInfo() (params.StateServingInfo, error) {
 	return results, err
 }
 
-func (st *State) IsMaster() (params.IsMasterResult, error) {
+// IsMaster returns a boolean which represents if the current mongo peer
+// for a given machine is the primary mongo server for the replicaset.
+func (st *State) IsMaster() (bool, error) {
 	var results params.IsMasterResult
 	err := st.caller.Call("Agent", "", "IsMaster", nil, &results)
-	return results, err
+	return results.Master, err
 }
 
 type Entity struct {
