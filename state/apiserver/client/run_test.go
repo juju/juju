@@ -70,7 +70,7 @@ func (s *runSuite) addUnit(c *gc.C, service *state.Service) *state.Unit {
 	c.Assert(err, gc.IsNil)
 	machine, err := s.State.Machine(mId)
 	c.Assert(err, gc.IsNil)
-	machine.SetAddresses(instance.NewAddress("10.3.2.1", instance.NetworkUknown))
+	machine.SetAddresses(instance.NewAddress("10.3.2.1", instance.NetworkUnknown))
 	return unit
 }
 

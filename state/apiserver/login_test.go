@@ -194,7 +194,7 @@ func (s *loginSuite) TestLoginAddrs(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	connectedAddrHostPorts := [][]instance.HostPort{
 		[]instance.HostPort{{
-			instance.NewAddress(connectedAddrHost),
+			instance.NewAddress(connectedAddrHost, instance.NetworkUnknown),
 			connectedAddrPort,
 		}},
 	}
