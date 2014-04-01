@@ -362,7 +362,7 @@ func (m *testMachine) SetInstanceStatus(status string) error {
 	return nil
 }
 
-func (m *testMachine) SetAddresses(addrs []instance.Address) error {
+func (m *testMachine) SetAddresses(addrs ...instance.Address) error {
 	if m.setAddressesErr != nil {
 		return m.setAddressesErr
 	}

@@ -374,8 +374,7 @@ func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 	ctx2 := coretesting.Context(c)
 	code2 := cmd.Main(&BootstrapCommand{}, ctx2, nil)
 	c.Check(code2, gc.Equals, 1)
-	expectedErrText := "Bootstrap failed, destroying environment\n"
-	expectedErrText += "error: environment is already bootstrapped\n"
+	expectedErrText := "error: environment is already bootstrapped\n"
 	c.Check(coretesting.Stderr(ctx2), gc.Equals, expectedErrText)
 	c.Check(coretesting.Stdout(ctx2), gc.Equals, "")
 }
@@ -542,8 +541,7 @@ func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
 	code := cmd.Main(&BootstrapCommand{}, context, nil)
 	c.Assert(code, gc.Equals, 1)
 	errText := context.Stderr.(*bytes.Buffer).String()
-	expectedErrText := "Bootstrap failed, destroying environment\n"
-	expectedErrText += "error: cannot upload bootstrap tools: Juju cannot bootstrap because no tools are available for your environment(.|\n)*"
+	expectedErrText := "error: cannot upload bootstrap tools: Juju cannot bootstrap because no tools are available for your environment(.|\n)*"
 	c.Assert(errText, gc.Matches, expectedErrText)
 }
 
@@ -559,7 +557,6 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 	c.Assert(code, gc.Equals, 1)
 	errText := context.Stderr.(*bytes.Buffer).String()
 	expectedErrText := "uploading tools for series \\[precise raring\\]\n"
-	expectedErrText += "Bootstrap failed, destroying environment\n"
 	expectedErrText += "error: cannot upload bootstrap tools: an error\n"
 	c.Assert(errText, gc.Matches, expectedErrText)
 }
