@@ -7,6 +7,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
@@ -14,7 +15,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/apiserver/charmrevisionupdater/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker/charmrevisionworker"
 )
@@ -40,7 +40,7 @@ func (s *RevisionUpdateSuite) SetUpSuite(c *gc.C) {
 func (s *RevisionUpdateSuite) SetUpTest(c *gc.C) {
 	s.CharmSuite.SetUpTest(c)
 
-	machine, err := s.State.AddMachine("quantal", state.JobManageState)
+	machine, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	password, err := utils.RandomPassword()
 	c.Assert(err, gc.IsNil)

@@ -33,19 +33,25 @@ func (*localInstance) Refresh() error {
 }
 
 func (inst *localInstance) Addresses() ([]instance.Address, error) {
+	if inst.id == bootstrapInstanceId {
+		addrs := []instance.Address{{
+			NetworkScope: instance.NetworkPublic,
+			Type:         instance.HostName,
+			Value:        "localhost",
+		}, {
+			NetworkScope: instance.NetworkCloudLocal,
+			Type:         instance.Ipv4Address,
+			Value:        inst.env.bridgeAddress,
+		}}
+		return addrs, nil
+	}
 	return nil, errors.NewNotImplementedError("localInstance.Addresses")
 }
 
 // DNSName implements instance.Instance.DNSName.
 func (inst *localInstance) DNSName() (string, error) {
-	if string(inst.id) == "localhost" {
-		// get the bridge address from the environment
-		addr, err := inst.env.findBridgeAddress(inst.env.config.networkBridge())
-		if err != nil {
-			logger.Errorf("failed to get bridge address: %v", err)
-			return "", instance.ErrNoDNSName
-		}
-		return addr, nil
+	if inst.id == bootstrapInstanceId {
+		return inst.env.bridgeAddress, nil
 	}
 	// Get the IPv4 address from eth0
 	return getAddressForInterface("eth0")

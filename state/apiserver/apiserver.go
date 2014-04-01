@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"code.google.com/p/go.net/websocket"
-	"launchpad.net/loggo"
+	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/rpc"
@@ -132,7 +132,7 @@ func (n *requestNotifier) join(req *http.Request) {
 }
 
 func (n *requestNotifier) leave() {
-	logger.Infof("[%X] API connection terminated after %v", n.id, time.Since(n.start))
+	logger.Infof("[%X] %s API connection terminated after %v", n.id, n.tag(), time.Since(n.start))
 }
 
 func (n requestNotifier) ClientRequest(hdr *rpc.Header, body interface{}) {
@@ -152,7 +152,14 @@ func (srv *Server) run(lis net.Listener) {
 	}()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", srv.apiHandler)
-	mux.Handle("/charms", &charmsHandler{state: srv.state})
+	charmHandler := &charmsHandler{httpHandler: httpHandler{state: srv.state}, dataDir: srv.dataDir}
+	// charmHandler itself provides the errorSender implementation for the embedded httpHandler.
+	charmHandler.httpHandler.errorSender = charmHandler
+	mux.Handle("/charms", charmHandler)
+	toolsHandler := &toolsHandler{httpHandler{state: srv.state}}
+	// toolsHandler itself provides the errorSender implementation for the embedded httpHandler.
+	toolsHandler.httpHandler.errorSender = toolsHandler
+	mux.Handle("/tools", toolsHandler)
 	// The error from http.Serve is not interesting.
 	http.Serve(lis, mux)
 }

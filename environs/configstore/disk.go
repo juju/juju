@@ -9,8 +9,9 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/errgo/errgo"
+	"github.com/juju/loggo"
 	"launchpad.net/goyaml"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/osenv"
@@ -58,29 +59,12 @@ func (d *diskStore) envPath(envName string) string {
 	return filepath.Join(d.dir, "environments", envName+".jenv")
 }
 
-func ensurePathOwnedByUser(path string) error {
-	uid, gid, err := utils.SudoCallerIds()
-	if err != nil {
-		return err
-	}
-	if uid != 0 {
-		logger.Debugf("Making %v owned by %d:%d", path, uid, gid)
-		if err := os.Chown(path, uid, gid); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (d *diskStore) mkEnvironmentsDir() error {
 	path := filepath.Join(d.dir, "environments")
 	logger.Debugf("Making %v", path)
 	err := os.Mkdir(path, 0700)
 	if os.IsExist(err) {
 		return nil
-	}
-	if err == nil {
-		err = ensurePathOwnedByUser(path)
 	}
 	return err
 }
@@ -101,9 +85,6 @@ func (d *diskStore) CreateInfo(envName string) (EnvironInfo, error) {
 		return nil, err
 	}
 	file.Close()
-	if err := ensurePathOwnedByUser(path); err != nil {
-		return nil, err
-	}
 	return &environInfo{
 		created: true,
 		path:    path,
@@ -178,18 +159,23 @@ func (info *environInfo) SetAPICredentials(creds APICredentials) {
 	info.Password = creds.Password
 }
 
+// Location returns the location of the environInfo in human readable format.
+func (info *environInfo) Location() string {
+	return fmt.Sprintf("file %q", info.path)
+}
+
 // Write implements EnvironInfo.Write.
 func (info *environInfo) Write() error {
 	data, err := goyaml.Marshal(info)
 	if err != nil {
-		return fmt.Errorf("cannot marshal environment info: %v", err)
+		return errgo.Annotate(err, "cannot marshal environment info")
 	}
 	// Create a temporary file and rename it, so that the data
 	// changes atomically.
 	parent, _ := filepath.Split(info.path)
 	tmpFile, err := ioutil.TempFile(parent, "")
 	if err != nil {
-		return fmt.Errorf("cannot create temporary file: %v", err)
+		return errgo.Annotate(err, "cannot create temporary file")
 	}
 	_, err = tmpFile.Write(data)
 	// N.B. We need to close the file before renaming it
@@ -197,14 +183,11 @@ func (info *environInfo) Write() error {
 	// error.
 	tmpFile.Close()
 	if err != nil {
-		return fmt.Errorf("cannot write temporary file: %v", err)
+		return errgo.Annotate(err, "cannot write temporary file")
 	}
 	if err := utils.ReplaceFile(tmpFile.Name(), info.path); err != nil {
 		os.Remove(tmpFile.Name())
-		return fmt.Errorf("cannot rename new environment info file: %v", err)
-	}
-	if err := ensurePathOwnedByUser(info.path); err != nil {
-		return err
+		return errgo.Annotate(err, "cannot rename new environment info file")
 	}
 	info.initialized = true
 	return nil

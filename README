@@ -121,3 +121,15 @@ a set of tools from source and upload them to the environment as part of the
 bootstrap process.
 
     juju bootstrap -e your-environment --upload-tools {--debug}
+
+Installing bash completion for juju
+===================================
+
+    make install-etc
+
+Will install Bash completion for `juju` cli to
+`/etc/bash_completion.d/juju-core` It does dynamic completion for commands
+requiring service, unit or machine names (like e.g. juju status <service>,
+juju ssh <instance>, juju terminate-machine <machine#>, etc),
+by parsing cached `juju status` output for speedup. It also does
+command flags completion by parsing `juju help ...` output.

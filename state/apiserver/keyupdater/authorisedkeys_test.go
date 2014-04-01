@@ -73,7 +73,7 @@ func (s *authorisedKeysSuite) TestWatchAuthorisedKeysNothing(c *gc.C) {
 }
 
 func (s *authorisedKeysSuite) setAuthorizedKeys(c *gc.C, keys string) {
-	err := statetesting.UpdateConfig(s.State, map[string]interface{}{"authorized-keys": keys})
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{"authorized-keys": keys}, nil, nil)
 	c.Assert(err, gc.IsNil)
 	envConfig, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)

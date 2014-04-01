@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 
 	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
+	"labix.org/v2/mgo/txn"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
@@ -93,14 +95,22 @@ func SetRetryHooks(c *gc.C, st *State, block, check func()) TransactionChecker {
 	})
 }
 
+// SetPolicy updates the State's policy field to the
+// given Policy, and returns the old value.
+func SetPolicy(st *State, p Policy) Policy {
+	old := st.policy
+	st.policy = p
+	return old
+}
+
 // TestingInitialize initializes the state and returns it. If state was not
 // already initialized, and cfg is nil, the minimal default environment
 // configuration will be used.
-func TestingInitialize(c *gc.C, cfg *config.Config) *State {
+func TestingInitialize(c *gc.C, cfg *config.Config, policy Policy) *State {
 	if cfg == nil {
 		cfg = testing.EnvironConfig(c)
 	}
-	st, err := Initialize(TestingStateInfo(), cfg, TestingDialOpts())
+	st, err := Initialize(TestingStateInfo(), cfg, TestingDialOpts(), policy)
 	c.Assert(err, gc.IsNil)
 	return st
 }
@@ -132,7 +142,11 @@ func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
 }
 
 func AddTestingService(c *gc.C, st *State, name string, ch *Charm) *Service {
-	service, err := st.AddService(name, "user-admin", ch)
+	return AddTestingServiceWithNetworks(c, st, name, ch, nil, nil)
+}
+
+func AddTestingServiceWithNetworks(c *gc.C, st *State, name string, ch *Charm, includeNetworks, excludeNetworks []string) *Service {
+	service, err := st.AddService(name, "user-admin", ch, includeNetworks, excludeNetworks)
 	c.Assert(err, gc.IsNil)
 	return service
 }
@@ -167,18 +181,34 @@ var MachineIdLessThan = machineIdLessThan
 var JobNames = jobNames
 
 // SCHEMACHANGE
-// This method is used to reset a deprecated machine attriute.
+// This method is used to reset a deprecated machine attribute.
 func SetMachineInstanceId(m *Machine, instanceId string) {
 	m.doc.InstanceId = instance.Id(instanceId)
 }
 
-//SCHEMACHANGE
+// SCHEMACHANGE
+// ClearInstanceDocId sets instanceid on instanceData for machine to "".
+func ClearInstanceDocId(c *gc.C, m *Machine) {
+	ops := []txn.Op{
+		{
+			C:      m.st.instanceData.Name,
+			Id:     m.doc.Id,
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", bson.D{{"instanceid", ""}}}},
+		},
+	}
+
+	err := m.st.runTransaction(ops)
+	c.Assert(err, gc.IsNil)
+}
+
+// SCHEMACHANGE
 // This method is used to reset the ownertag attribute
 func SetServiceOwnerTag(s *Service, ownerTag string) {
 	s.doc.OwnerTag = ownerTag
 }
 
-//SCHEMACHANGE
+// SCHEMACHANGE
 // Get the owner directly
 func GetServiceOwnerTag(s *Service) string {
 	return s.doc.OwnerTag
@@ -222,10 +252,6 @@ func ParseTag(st *State, tag string) (string, string, error) {
 // Return the PasswordSalt that goes along with the PasswordHash
 func GetUserPasswordSaltAndHash(u *User) (string, string) {
 	return u.doc.PasswordSalt, u.doc.PasswordHash
-}
-
-func StateServerMachineIds(st *State) ([]string, error) {
-	return st.stateServerMachineIds()
 }
 
 var NewAddress = newAddress

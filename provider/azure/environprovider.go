@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"launchpad.net/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -42,7 +42,7 @@ func (prov azureEnvironProvider) Open(cfg *config.Config) (environs.Environ, err
 }
 
 // Prepare is specified in the EnvironProvider interface.
-func (prov azureEnvironProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+func (prov azureEnvironProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	// TODO prepare environment as necessary
 	return prov.Open(cfg)
 }

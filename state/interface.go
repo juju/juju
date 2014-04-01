@@ -37,9 +37,15 @@ type StatusSetter interface {
 	SetStatus(status params.Status, info string, data params.StatusData) error
 }
 
+type StatusGetter interface {
+	Status() (status params.Status, info string, data params.StatusData, err error)
+}
+
 var (
 	_ StatusSetter = (*Machine)(nil)
 	_ StatusSetter = (*Unit)(nil)
+	_ StatusGetter = (*Machine)(nil)
+	_ StatusGetter = (*Unit)(nil)
 )
 
 // Lifer represents an entity with a life.

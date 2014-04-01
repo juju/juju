@@ -6,6 +6,7 @@ package common_test
 import (
 	"fmt"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/errors"
@@ -107,8 +108,7 @@ func (*passwordSuite) TestSetPasswords(c *gc.C) {
 			},
 			"x4": &fakeUnitAuthenticator{},
 			"x5": &fakeMachineAuthenticator{jobs: []state.MachineJob{state.JobHostUnits}},
-			"x6": &fakeMachineAuthenticator{jobs: []state.MachineJob{state.JobManageState}},
-			"x7": &fakeMachineAuthenticator{jobs: []state.MachineJob{state.JobManageEnviron}},
+			"x6": &fakeMachineAuthenticator{jobs: []state.MachineJob{state.JobManageEnviron}},
 		},
 	}
 	getCanChange := func() (common.AuthFunc, error) {
@@ -117,25 +117,24 @@ func (*passwordSuite) TestSetPasswords(c *gc.C) {
 		}, nil
 	}
 	pc := common.NewPasswordChanger(st, getCanChange)
-	var changes []params.PasswordChange
+	var changes []params.EntityPassword
 	for i := 0; i < len(st.entities); i++ {
 		tag := fmt.Sprintf("x%d", i)
-		changes = append(changes, params.PasswordChange{
+		changes = append(changes, params.EntityPassword{
 			Tag:      tag,
 			Password: fmt.Sprintf("%spass", tag),
 		})
 	}
-	results, err := pc.SetPasswords(params.PasswordChanges{
+	results, err := pc.SetPasswords(params.EntityPasswords{
 		Changes: changes,
 	})
 	c.Assert(err, gc.IsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+	c.Assert(results, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{apiservertesting.ErrUnauthorized},
 			{nil},
 			{&params.Error{Message: "x2 error"}},
 			{&params.Error{Message: "x3 error"}},
-			{nil},
 			{nil},
 			{nil},
 			{nil},
@@ -150,8 +149,6 @@ func (*passwordSuite) TestSetPasswords(c *gc.C) {
 	c.Check(st.entities["x5"].(*fakeMachineAuthenticator).mongoPass, gc.Equals, "")
 	c.Check(st.entities["x6"].(*fakeMachineAuthenticator).pass, gc.Equals, "x6pass")
 	c.Check(st.entities["x6"].(*fakeMachineAuthenticator).mongoPass, gc.Equals, "x6pass")
-	c.Check(st.entities["x7"].(*fakeMachineAuthenticator).pass, gc.Equals, "x7pass")
-	c.Check(st.entities["x7"].(*fakeMachineAuthenticator).mongoPass, gc.Equals, "x7pass")
 }
 
 func (*passwordSuite) TestSetPasswordsError(c *gc.C) {
@@ -159,15 +156,15 @@ func (*passwordSuite) TestSetPasswordsError(c *gc.C) {
 		return nil, fmt.Errorf("splat")
 	}
 	pc := common.NewPasswordChanger(&fakeState{}, getCanChange)
-	var changes []params.PasswordChange
+	var changes []params.EntityPassword
 	for i := 0; i < 4; i++ {
 		tag := fmt.Sprintf("x%d", i)
-		changes = append(changes, params.PasswordChange{
+		changes = append(changes, params.EntityPassword{
 			Tag:      tag,
 			Password: fmt.Sprintf("%spass", tag),
 		})
 	}
-	_, err := pc.SetPasswords(params.PasswordChanges{Changes: changes})
+	_, err := pc.SetPasswords(params.EntityPasswords{Changes: changes})
 	c.Assert(err, gc.ErrorMatches, "splat")
 }
 
@@ -176,7 +173,7 @@ func (*passwordSuite) TestSetPasswordsNoArgsNoError(c *gc.C) {
 		return nil, fmt.Errorf("splat")
 	}
 	pc := common.NewPasswordChanger(&fakeState{}, getCanChange)
-	result, err := pc.SetPasswords(params.PasswordChanges{})
+	result, err := pc.SetPasswords(params.EntityPasswords{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Results, gc.HasLen, 0)
 }

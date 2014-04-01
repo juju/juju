@@ -8,27 +8,29 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
-	coreCloudinit "launchpad.net/juju-core/cloudinit"
-	"launchpad.net/juju-core/cloudinit/sshinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
-	envtools "launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/environs/manual"
+	envstorage "launchpad.net/juju-core/environs/storage"
+	ttesting "launchpad.net/juju-core/environs/tools/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/client"
 	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
-	coretools "launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -42,7 +44,7 @@ func (s *clientSuite) TestClientStatus(c *gc.C) {
 	s.setUpScenario(c)
 	status, err := s.APIState.Client().Status(nil)
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.DeepEquals, scenarioStatus)
+	c.Assert(status, jc.DeepEquals, scenarioStatus)
 }
 
 func (s *clientSuite) TestCompatibleSettingsParsing(c *gc.C) {
@@ -218,7 +220,12 @@ var clientCharmInfoTests = []struct {
 	{
 		about: "invalid URL",
 		url:   "not-valid",
-		err:   `charm URL has invalid schema: "not-valid"`,
+		err:   "charm url series is not resolved",
+	},
+	{
+		about: "invalid schema",
+		url:   "not-valid:your-arguments",
+		err:   `charm URL has invalid schema: "not-valid:your-arguments"`,
 	},
 	{
 		about: "unknown charm",
@@ -504,9 +511,9 @@ func assertRemoved(c *gc.C, entity state.Living) {
 }
 
 func (s *clientSuite) setupDestroyMachinesTest(c *gc.C) (*state.Machine, *state.Machine, *state.Machine, *state.Unit) {
-	m0, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	m0, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
-	m1, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	m1, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	m2, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
@@ -515,7 +522,7 @@ func (s *clientSuite) setupDestroyMachinesTest(c *gc.C) (*state.Machine, *state.
 	wordpress := s.AddTestingService(c, "wordpress", sch)
 	u, err := wordpress.AddUnit()
 	c.Assert(err, gc.IsNil)
-	err = u.AssignToMachine(m0)
+	err = u.AssignToMachine(m1)
 	c.Assert(err, gc.IsNil)
 
 	return m0, m1, m2, u
@@ -525,7 +532,7 @@ func (s *clientSuite) TestDestroyMachines(c *gc.C) {
 	m0, m1, m2, u := s.setupDestroyMachinesTest(c)
 
 	err := s.APIState.Client().DestroyMachines("0", "1", "2")
-	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 has unit "wordpress/0" assigned; machine 1 is required by the environment`)
+	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 is required by the environment; machine 1 has unit "wordpress/0" assigned`)
 	assertLife(c, m0, state.Alive)
 	assertLife(c, m1, state.Alive)
 	assertLife(c, m2, state.Dying)
@@ -533,9 +540,9 @@ func (s *clientSuite) TestDestroyMachines(c *gc.C) {
 	err = u.UnassignFromMachine()
 	c.Assert(err, gc.IsNil)
 	err = s.APIState.Client().DestroyMachines("0", "1", "2")
-	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 1 is required by the environment`)
-	assertLife(c, m0, state.Dying)
-	assertLife(c, m1, state.Alive)
+	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 is required by the environment`)
+	assertLife(c, m0, state.Alive)
+	assertLife(c, m1, state.Dying)
 	assertLife(c, m2, state.Dying)
 }
 
@@ -543,7 +550,7 @@ func (s *clientSuite) TestForceDestroyMachines(c *gc.C) {
 	m0, m1, m2, u := s.setupDestroyMachinesTest(c)
 
 	err := s.APIState.Client().ForceDestroyMachines("0", "1", "2")
-	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 1 is required by the environment`)
+	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 is required by the environment`)
 	assertLife(c, m0, state.Alive)
 	assertLife(c, m1, state.Alive)
 	assertLife(c, m2, state.Alive)
@@ -551,8 +558,8 @@ func (s *clientSuite) TestForceDestroyMachines(c *gc.C) {
 
 	err = s.State.Cleanup()
 	c.Assert(err, gc.IsNil)
-	assertLife(c, m0, state.Dead)
-	assertLife(c, m1, state.Alive)
+	assertLife(c, m0, state.Alive)
+	assertLife(c, m1, state.Dead)
 	assertLife(c, m2, state.Dead)
 	assertRemoved(c, u)
 }
@@ -658,9 +665,8 @@ func (s *clientSuite) TestClientServiceDeployCharmErrors(c *gc.C) {
 	_, restore := makeMockCharmStore()
 	defer restore()
 	for url, expect := range map[string]string{
-		// TODO(fwereade) make these errors consistent one day.
-		"wordpress":                   `charm URL has invalid schema: "wordpress"`,
-		"cs:wordpress":                `charm URL without series: "cs:wordpress"`,
+		"wordpress":                   "charm url series is not resolved",
+		"cs:wordpress":                "charm url series is not resolved",
 		"cs:precise/wordpress":        "charm url must include revision",
 		"cs:precise/wordpress-999999": `cannot download charm ".*": charm not found in mock store: cs:precise/wordpress-999999`,
 	} {
@@ -674,6 +680,50 @@ func (s *clientSuite) TestClientServiceDeployCharmErrors(c *gc.C) {
 	}
 }
 
+func (s *clientSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
+	store, restore := makeMockCharmStore()
+	defer restore()
+	curl, bundle := addCharm(c, store, "dummy")
+	mem4g := constraints.MustParse("mem=4G")
+	err := s.APIState.Client().ServiceDeployWithNetworks(
+		curl.String(), "service", 3, "", mem4g, "", []string{"net1", "net2"}, []string{"net3"},
+	)
+	c.Assert(err, gc.IsNil)
+	service := s.assertPrincipalDeployed(c, "service", curl, false, bundle, mem4g)
+
+	include, exclude, err := service.Networks()
+	c.Assert(err, gc.IsNil)
+	c.Assert(include, gc.DeepEquals, []string{"net1", "net2"})
+	c.Assert(exclude, gc.DeepEquals, []string{"net3"})
+}
+
+func (s *clientSuite) assertPrincipalDeployed(c *gc.C, serviceName string, curl *charm.URL, forced bool, bundle charm.Charm, cons constraints.Value) *state.Service {
+	service, err := s.State.Service(serviceName)
+	c.Assert(err, gc.IsNil)
+	charm, force, err := service.Charm()
+	c.Assert(err, gc.IsNil)
+	c.Assert(force, gc.Equals, forced)
+	c.Assert(charm.URL(), gc.DeepEquals, curl)
+	c.Assert(charm.Meta(), gc.DeepEquals, bundle.Meta())
+	c.Assert(charm.Config(), gc.DeepEquals, bundle.Config())
+
+	serviceCons, err := service.Constraints()
+	c.Assert(err, gc.IsNil)
+	c.Assert(serviceCons, gc.DeepEquals, cons)
+	units, err := service.AllUnits()
+	c.Assert(err, gc.IsNil)
+	for _, unit := range units {
+		mid, err := unit.AssignedMachineId()
+		c.Assert(err, gc.IsNil)
+		machine, err := s.State.Machine(mid)
+		c.Assert(err, gc.IsNil)
+		machineCons, err := machine.Constraints()
+		c.Assert(err, gc.IsNil)
+		c.Assert(machineCons, gc.DeepEquals, cons)
+	}
+	return service
+}
+
 func (s *clientSuite) TestClientServiceDeployPrincipal(c *gc.C) {
 	// TODO(fwereade): test ToMachineSpec directly on srvClient, when we
 	// manage to extract it as a package and can thus do it conveniently.
@@ -685,29 +735,7 @@ func (s *clientSuite) TestClientServiceDeployPrincipal(c *gc.C) {
 		curl.String(), "service", 3, "", mem4g, "",
 	)
 	c.Assert(err, gc.IsNil)
-	service, err := s.State.Service("service")
-	c.Assert(err, gc.IsNil)
-	charm, force, err := service.Charm()
-	c.Assert(err, gc.IsNil)
-	c.Assert(force, gc.Equals, false)
-	c.Assert(charm.URL(), gc.DeepEquals, curl)
-	c.Assert(charm.Meta(), gc.DeepEquals, bundle.Meta())
-	c.Assert(charm.Config(), gc.DeepEquals, bundle.Config())
-
-	cons, err := service.Constraints()
-	c.Assert(err, gc.IsNil)
-	c.Assert(cons, gc.DeepEquals, mem4g)
-	units, err := service.AllUnits()
-	c.Assert(err, gc.IsNil)
-	for _, unit := range units {
-		mid, err := unit.AssignedMachineId()
-		c.Assert(err, gc.IsNil)
-		machine, err := s.State.Machine(mid)
-		c.Assert(err, gc.IsNil)
-		cons, err := machine.Constraints()
-		c.Assert(err, gc.IsNil)
-		c.Assert(cons, gc.DeepEquals, mem4g)
-	}
+	s.assertPrincipalDeployed(c, "service", curl, false, bundle, mem4g)
 }
 
 func (s *clientSuite) TestClientServiceDeploySubordinate(c *gc.C) {
@@ -836,9 +864,8 @@ func (s *clientSuite) TestClientServiceUpdateSetCharmErrors(c *gc.C) {
 	defer restore()
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	for charmUrl, expect := range map[string]string{
-		// TODO(fwereade,Makyo) make these errors consistent one day.
-		"wordpress":                   `charm URL has invalid schema: "wordpress"`,
-		"cs:wordpress":                `charm URL without series: "cs:wordpress"`,
+		"wordpress":                   "charm url series is not resolved",
+		"cs:wordpress":                "charm url series is not resolved",
 		"cs:precise/wordpress":        "charm url must include revision",
 		"cs:precise/wordpress-999999": `cannot download charm ".*": charm not found in mock store: cs:precise/wordpress-999999`,
 	} {
@@ -1071,8 +1098,8 @@ func (s *clientSuite) TestClientServiceSetCharmErrors(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	for url, expect := range map[string]string{
 		// TODO(fwereade,Makyo) make these errors consistent one day.
-		"wordpress":                   `charm URL has invalid schema: "wordpress"`,
-		"cs:wordpress":                `charm URL without series: "cs:wordpress"`,
+		"wordpress":                   "charm url series is not resolved",
+		"cs:wordpress":                "charm url series is not resolved",
 		"cs:precise/wordpress":        "charm url must include revision",
 		"cs:precise/wordpress-999999": `cannot download charm ".*": charm not found in mock store: cs:precise/wordpress-999999`,
 	} {
@@ -1271,9 +1298,14 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	if !c.Check(deltas, gc.DeepEquals, []params.Delta{{
 		Entity: &params.MachineInfo{
-			Id:         m.Id(),
-			InstanceId: "i-0",
-			Status:     params.StatusPending,
+			Id:                      m.Id(),
+			InstanceId:              "i-0",
+			Status:                  params.StatusPending,
+			Life:                    params.Alive,
+			Series:                  "quantal",
+			Jobs:                    []params.MachineJob{state.JobManageEnviron.ToParams()},
+			Addresses:               []instance.Address{},
+			HardwareCharacteristics: &instance.HardwareCharacteristics{},
 		},
 	}}) {
 		c.Logf("got:")
@@ -1411,6 +1443,66 @@ func (s *clientSuite) TestClientPublicAddressUnitWithoutMachine(c *gc.C) {
 	c.Assert(addr, gc.Equals, "127.0.0.1")
 }
 
+func (s *clientSuite) TestClientPrivateAddressErrors(c *gc.C) {
+	s.setUpScenario(c)
+	_, err := s.APIState.Client().PrivateAddress("wordpress")
+	c.Assert(err, gc.ErrorMatches, `unknown unit or machine "wordpress"`)
+	_, err = s.APIState.Client().PrivateAddress("0")
+	c.Assert(err, gc.ErrorMatches, `machine "0" has no internal address`)
+	_, err = s.APIState.Client().PrivateAddress("wordpress/0")
+	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" has no internal address`)
+}
+
+func (s *clientSuite) TestClientPrivateAddressMachine(c *gc.C) {
+	s.setUpScenario(c)
+
+	// Internally, instance.SelectInternalAddress is used; the public
+	// address if no cloud-local one is available.
+	m1, err := s.State.Machine("1")
+	c.Assert(err, gc.IsNil)
+	cloudLocalAddress := instance.NewAddress("cloudlocal")
+	cloudLocalAddress.NetworkScope = instance.NetworkCloudLocal
+	publicAddress := instance.NewAddress("public")
+	publicAddress.NetworkScope = instance.NetworkCloudLocal
+	err = m1.SetAddresses([]instance.Address{publicAddress})
+	c.Assert(err, gc.IsNil)
+	addr, err := s.APIState.Client().PrivateAddress("1")
+	c.Assert(err, gc.IsNil)
+	c.Assert(addr, gc.Equals, "public")
+	err = m1.SetAddresses([]instance.Address{cloudLocalAddress, publicAddress})
+	addr, err = s.APIState.Client().PrivateAddress("1")
+	c.Assert(err, gc.IsNil)
+	c.Assert(addr, gc.Equals, "cloudlocal")
+}
+
+func (s *clientSuite) TestClientPrivateAddressUnitWithMachine(c *gc.C) {
+	s.setUpScenario(c)
+
+	// Private address of unit is taken from its machine
+	// (if its machine has addresses).
+	m1, err := s.State.Machine("1")
+	publicAddress := instance.NewAddress("public")
+	publicAddress.NetworkScope = instance.NetworkCloudLocal
+	err = m1.SetAddresses([]instance.Address{publicAddress})
+	c.Assert(err, gc.IsNil)
+	addr, err := s.APIState.Client().PrivateAddress("wordpress/0")
+	c.Assert(err, gc.IsNil)
+	c.Assert(addr, gc.Equals, "public")
+}
+
+func (s *clientSuite) TestClientPrivateAddressUnitWithoutMachine(c *gc.C) {
+	s.setUpScenario(c)
+	// If the unit's machine has no addresses, the public address
+	// comes from the unit's document.
+	u, err := s.State.Unit("wordpress/1")
+	c.Assert(err, gc.IsNil)
+	err = u.SetPrivateAddress("127.0.0.1")
+	c.Assert(err, gc.IsNil)
+	addr, err := s.APIState.Client().PrivateAddress("wordpress/1")
+	c.Assert(err, gc.IsNil)
+	c.Assert(addr, gc.Equals, "127.0.0.1")
+}
+
 func (s *clientSuite) TestClientEnvironmentGet(c *gc.C) {
 	envConfig, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
@@ -1470,6 +1562,59 @@ func (s *clientSuite) TestClientEnvironmentSetCannotChangeAgentVersion(c *gc.C) 
 	c.Assert(cfg["agent-version"], gc.NotNil)
 	err = s.APIState.Client().EnvironmentSet(cfg)
 	c.Assert(err, gc.IsNil)
+}
+
+func (s *clientSuite) TestClientEnvironmentUnset(c *gc.C) {
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{"abc": 123}, nil, nil)
+	c.Assert(err, gc.IsNil)
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	_, found := envConfig.AllAttrs()["abc"]
+	c.Assert(found, jc.IsTrue)
+
+	err = s.APIState.Client().EnvironmentUnset("abc")
+	c.Assert(err, gc.IsNil)
+	envConfig, err = s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	_, found = envConfig.AllAttrs()["abc"]
+	c.Assert(found, jc.IsFalse)
+}
+
+func (s *clientSuite) TestClientEnvironmentUnsetMissing(c *gc.C) {
+	// It's okay to unset a non-existent attribute.
+	err := s.APIState.Client().EnvironmentUnset("not_there")
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *clientSuite) TestClientEnvironmentUnsetError(c *gc.C) {
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{"abc": 123}, nil, nil)
+	c.Assert(err, gc.IsNil)
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	_, found := envConfig.AllAttrs()["abc"]
+	c.Assert(found, jc.IsTrue)
+
+	// "type" may not be removed, and this will cause an error.
+	// If any one attribute's removal causes an error, there
+	// should be no change.
+	err = s.APIState.Client().EnvironmentUnset("abc", "type")
+	c.Assert(err, gc.ErrorMatches, "type: expected string, got nothing")
+	envConfig, err = s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	_, found = envConfig.AllAttrs()["abc"]
+	c.Assert(found, jc.IsTrue)
+}
+
+func (s *clientSuite) TestClientFindTools(c *gc.C) {
+	result, err := s.APIState.Client().FindTools(2, -1, "", "")
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Error, jc.Satisfies, params.IsCodeNotFound)
+	ttesting.UploadToStorage(c, s.Conn.Environ.Storage(), version.MustParseBinary("2.12.0-precise-amd64"))
+	result, err = s.APIState.Client().FindTools(2, 12, "precise", "amd64")
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.List, gc.HasLen, 1)
+	c.Assert(result.List[0].Version, gc.Equals, version.MustParseBinary("2.12.0-precise-amd64"))
 }
 
 func (s *clientSuite) checkMachine(c *gc.C, id, series, cons string) {
@@ -1654,71 +1799,6 @@ func (s *clientSuite) TestInjectMachinesStillExists(c *gc.C) {
 	c.Assert(results.Machines, gc.HasLen, 1)
 }
 
-func (s *clientSuite) TestMachineConfig(c *gc.C) {
-	addrs := []instance.Address{instance.NewAddress("1.2.3.4")}
-	hc := instance.MustParseHardware("mem=4G arch=amd64")
-	apiParams := params.AddMachineParams{
-		Jobs:       []params.MachineJob{params.JobHostUnits},
-		InstanceId: instance.Id("1234"),
-		Nonce:      "foo",
-		HardwareCharacteristics: hc,
-		Addrs: addrs,
-	}
-	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(machines), gc.Equals, 1)
-
-	machineId := machines[0].Machine
-	machineConfig, err := s.APIState.Client().MachineConfig(machineId)
-	c.Assert(err, gc.IsNil)
-
-	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	env, err := environs.New(envConfig)
-	c.Assert(err, gc.IsNil)
-	stateInfo, apiInfo, err := env.StateInfo()
-	c.Assert(err, gc.IsNil)
-	c.Assert(machineConfig.StateAddrs, gc.DeepEquals, stateInfo.Addrs)
-	c.Assert(machineConfig.APIAddrs, gc.DeepEquals, apiInfo.Addrs)
-	c.Assert(machineConfig.Tag, gc.Equals, "machine-0")
-	caCert, _ := envConfig.CACert()
-	c.Assert(machineConfig.CACert, gc.DeepEquals, caCert)
-	c.Assert(machineConfig.Password, gc.Not(gc.Equals), "")
-	c.Assert(machineConfig.Tools.URL, gc.Not(gc.Equals), "")
-	c.Assert(machineConfig.EnvironAttrs["name"], gc.Equals, "dummyenv")
-}
-
-func (s *clientSuite) TestMachineConfigNoArch(c *gc.C) {
-	apiParams := params.AddMachineParams{
-		Jobs:       []params.MachineJob{params.JobHostUnits},
-		InstanceId: instance.Id("1234"),
-		Nonce:      "foo",
-	}
-	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(machines), gc.Equals, 1)
-	_, err = s.APIState.Client().MachineConfig(machines[0].Machine)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("arch is not set for %q", "machine-"+machines[0].Machine))
-}
-
-func (s *clientSuite) TestMachineConfigNoTools(c *gc.C) {
-	s.PatchValue(&envtools.DefaultBaseURL, "")
-	addrs := []instance.Address{instance.NewAddress("1.2.3.4")}
-	hc := instance.MustParseHardware("mem=4G arch=amd64")
-	apiParams := params.AddMachineParams{
-		Series:     "quantal",
-		Jobs:       []params.MachineJob{params.JobHostUnits},
-		InstanceId: instance.Id("1234"),
-		Nonce:      "foo",
-		HardwareCharacteristics: hc,
-		Addrs: addrs,
-	}
-	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
-	c.Assert(err, gc.IsNil)
-	_, err = s.APIState.Client().MachineConfig(machines[0].Machine)
-	c.Assert(err, gc.ErrorMatches, coretools.ErrNoMatches.Error())
-}
-
 func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 	// Inject a machine and then call the ProvisioningScript API.
 	// The result should be the same as when calling MachineConfig,
@@ -1734,20 +1814,17 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(machines), gc.Equals, 1)
 	machineId := machines[0].Machine
-	machineConfig, err := s.APIState.Client().MachineConfig(machineId)
-	c.Assert(err, gc.IsNil)
 	// Call ProvisioningScript. Normally ProvisioningScript and
 	// MachineConfig are mutually exclusive; both of them will
 	// allocate a state/api password for the machine agent.
-	script, err := s.APIState.Client().ProvisioningScript(machineId, apiParams.Nonce)
+	script, err := s.APIState.Client().ProvisioningScript(params.ProvisioningScriptParams{
+		MachineId: machineId,
+		Nonce:     apiParams.Nonce,
+	})
 	c.Assert(err, gc.IsNil)
-	mcfg, err := statecmd.FinishMachineConfig(machineConfig, machineId, apiParams.Nonce, "")
+	mcfg, err := statecmd.MachineConfig(s.State, machineId, apiParams.Nonce, "")
 	c.Assert(err, gc.IsNil)
-	cloudcfg := coreCloudinit.New()
-	err = cloudinit.ConfigureJuju(mcfg, cloudcfg)
-	c.Assert(err, gc.IsNil)
-	cloudcfg.SetAptUpgrade(false)
-	sshinitScript, err := sshinit.ConfigureScript(cloudcfg)
+	sshinitScript, err := manual.ProvisioningScript(mcfg)
 	c.Assert(err, gc.IsNil)
 	// ProvisioningScript internally calls MachineConfig,
 	// which allocates a new, random password. Everything
@@ -1764,20 +1841,40 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 	}
 }
 
-func (s *clientSuite) TestClientAuthorizeStoreOnDeployServiceSetCharmAndAddCharm(c *gc.C) {
+func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
+	apiParams := params.AddMachineParams{
+		Jobs:       []params.MachineJob{params.JobHostUnits},
+		InstanceId: instance.Id("1234"),
+		Nonce:      "foo",
+		HardwareCharacteristics: instance.MustParseHardware("arch=amd64"),
+	}
+	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(machines), gc.Equals, 1)
+	machineId := machines[0].Machine
+	for _, disable := range []bool{false, true} {
+		script, err := s.APIState.Client().ProvisioningScript(params.ProvisioningScriptParams{
+			MachineId: machineId,
+			Nonce:     apiParams.Nonce,
+			DisablePackageCommands: disable,
+		})
+		c.Assert(err, gc.IsNil)
+		var checker gc.Checker = jc.Contains
+		if disable {
+			// We disabled package commands: there should be no "apt" commands in the script.
+			checker = gc.Not(checker)
+		}
+		c.Assert(script, checker, "apt-get")
+	}
+}
+
+func (s *clientSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAddCharm(c *gc.C) {
 	store, restore := makeMockCharmStore()
 	defer restore()
 
-	oldConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-
-	attrs := coretesting.Attrs(oldConfig.AllAttrs())
-	attrs = attrs.Merge(coretesting.Attrs{"charm-store-auth": "token=value"})
-
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
-
-	err = s.State.SetEnvironConfig(cfg, oldConfig)
+	attrs := map[string]interface{}{"charm-store-auth": "token=value",
+		"test-mode": true}
+	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 
 	curl, _ := addCharm(c, store, "dummy")
@@ -1788,6 +1885,7 @@ func (s *clientSuite) TestClientAuthorizeStoreOnDeployServiceSetCharmAndAddCharm
 
 	// check that the store's auth attributes were set
 	c.Assert(store.AuthAttrs, gc.Equals, "token=value")
+	c.Assert(store.TestMode, gc.Equals, true)
 
 	store.AuthAttrs = ""
 
@@ -1812,8 +1910,8 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 
 	client := s.APIState.Client()
 	// First test the sanity checks.
-	err := client.AddCharm(&charm.URL{Name: "nonsense"})
-	c.Assert(err, gc.ErrorMatches, `charm URL has invalid schema: ":/nonsense-0"`)
+	err := client.AddCharm(&charm.URL{Reference: charm.Reference{Name: "nonsense"}})
+	c.Assert(err, gc.ErrorMatches, `charm URL has invalid schema: ":nonsense-0"`)
 	err = client.AddCharm(charm.MustParseURL("local:precise/dummy"))
 	c.Assert(err, gc.ErrorMatches, "only charm store charm URLs are supported, with cs: schema")
 	err = client.AddCharm(charm.MustParseURL("cs:precise/wordpress"))
@@ -1827,6 +1925,7 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	bundleURL, err := url.Parse("http://bundles.testing.invalid/" + ident)
 	c.Assert(err, gc.IsNil)
 	sch, err := s.State.AddCharm(charmDir, curl, bundleURL, ident+"-sha256")
+	c.Assert(err, gc.IsNil)
 
 	name := charm.Quote(sch.URL().String())
 	storage := s.Conn.Environ.Storage()
@@ -1844,20 +1943,142 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	err = client.AddCharm(curl)
 	c.Assert(err, gc.IsNil)
 
-	// Verify it's in state.
+	// Verify it's in state and it got uploaded.
 	sch, err = s.State.Charm(curl)
 	c.Assert(err, gc.IsNil)
+	s.assertUploaded(c, storage, sch.BundleURL(), sch.BundleSha256())
+}
 
-	name = charm.Quote(curl.String())
-	storageURL, err := storage.URL(name)
+func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
+	store, restore := makeMockCharmStore()
+	defer restore()
+
+	client := s.APIState.Client()
+	curl, _ := addCharm(c, store, "wordpress")
+
+	// Expect storage Put() to be called once for each goroutine
+	// below.
+	ops := make(chan dummy.Operation, 500)
+	dummy.Listen(ops)
+	go s.assertPutCalled(c, ops, 10)
+
+	// Try adding the same charm concurrently from multiple goroutines
+	// to test no "duplicate key errors" are reported (see lp bug
+	// #1067979) and also at the end only one charm document is
+	// created.
+
+	var wg sync.WaitGroup
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+
+			c.Assert(client.AddCharm(curl), gc.IsNil, gc.Commentf("goroutine %d", index))
+			sch, err := s.State.Charm(curl)
+			c.Assert(err, gc.IsNil, gc.Commentf("goroutine %d", index))
+			c.Assert(sch.URL(), jc.DeepEquals, curl, gc.Commentf("goroutine %d", index))
+			expectedName := fmt.Sprintf("%s-%d-[0-9a-f-]+", curl.Name, curl.Revision)
+			c.Assert(getArchiveName(sch.BundleURL()), gc.Matches, expectedName)
+		}(i)
+	}
+	wg.Wait()
+	close(ops)
+
+	// Verify there is only a single uploaded charm remains and it
+	// contains the correct data.
+	sch, err := s.State.Charm(curl)
+	c.Assert(err, gc.IsNil)
+	storage, err := environs.GetStorage(s.State)
+	c.Assert(err, gc.IsNil)
+	uploads, err := storage.List(fmt.Sprintf("%s-%d-", curl.Name, curl.Revision))
+	c.Assert(err, gc.IsNil)
+	c.Assert(uploads, gc.HasLen, 1)
+	c.Assert(getArchiveName(sch.BundleURL()), gc.Equals, uploads[0])
+	s.assertUploaded(c, storage, sch.BundleURL(), sch.BundleSha256())
+}
+
+func (s *clientSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
+	store, restore := makeMockCharmStore()
+	defer restore()
+
+	client := s.APIState.Client()
+	curl, _ := addCharm(c, store, "wordpress")
+
+	// Add a placeholder with the same charm URL.
+	err := s.State.AddStoreCharmPlaceholder(curl)
+	c.Assert(err, gc.IsNil)
+	_, err = s.State.Charm(curl)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+
+	// Now try to add the charm, which will convert the placeholder to
+	// a pending charm.
+	err = client.AddCharm(curl)
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(sch.BundleURL().String(), gc.Equals, storageURL)
-	// We don't care about the exact value of the hash here, just that
-	// it's set.
-	c.Assert(sch.BundleSha256(), gc.Not(gc.Equals), "")
-
-	// Verify it's added to storage.
-	_, err = storage.Get(name)
+	// Make sure the document's flags were reset as expected.
+	sch, err := s.State.Charm(curl)
 	c.Assert(err, gc.IsNil)
+	c.Assert(sch.URL(), jc.DeepEquals, curl)
+	c.Assert(sch.IsPlaceholder(), jc.IsFalse)
+	c.Assert(sch.IsUploaded(), jc.IsTrue)
+}
+
+func (s *clientSuite) TestCharmArchiveName(c *gc.C) {
+	for rev, name := range []string{"Foo", "bar", "wordpress", "mysql"} {
+		archiveFormat := fmt.Sprintf("%s-%d-[0-9a-f-]+", name, rev)
+		archiveName, err := client.CharmArchiveName(name, rev)
+		c.Check(err, gc.IsNil)
+		c.Check(archiveName, gc.Matches, archiveFormat)
+	}
+}
+
+func (s *clientSuite) assertPutCalled(c *gc.C, ops chan dummy.Operation, numCalls int) {
+	calls := 0
+	select {
+	case op, ok := <-ops:
+		if !ok {
+			return
+		}
+		if op, ok := op.(dummy.OpPutFile); ok {
+			calls++
+			if calls > numCalls {
+				c.Fatalf("storage Put() called %d times, expected %d times", calls, numCalls)
+				return
+			}
+			nameFormat := "[0-9a-z-]+-[0-9]+-[0-9a-f-]+"
+			c.Assert(op.FileName, gc.Matches, nameFormat)
+		}
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out while waiting for a storage Put() calls")
+		return
+	}
+}
+
+func (s *clientSuite) assertUploaded(c *gc.C, storage envstorage.Storage, bundleURL *url.URL, expectedSHA256 string) {
+	archiveName := getArchiveName(bundleURL)
+	reader, err := storage.Get(archiveName)
+	c.Assert(err, gc.IsNil)
+	defer reader.Close()
+	downloadedSHA256, _, err := utils.ReadSHA256(reader)
+	c.Assert(err, gc.IsNil)
+	c.Assert(downloadedSHA256, gc.Equals, expectedSHA256)
+}
+
+func getArchiveName(bundleURL *url.URL) string {
+	return strings.TrimPrefix(bundleURL.RequestURI(), "/dummyenv/private/")
+}
+
+func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetStatus(params.StatusError, "error", nil)
+	c.Assert(err, gc.IsNil)
+	_, err = s.APIState.Client().RetryProvisioning(machine.Tag())
+	c.Assert(err, gc.IsNil)
+
+	status, info, data, err := machine.Status()
+	c.Assert(err, gc.IsNil)
+	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(info, gc.Equals, "error")
+	c.Assert(data["transient"], gc.Equals, true)
 }

@@ -15,6 +15,7 @@ import (
 	envcloudinit "launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	envtools "launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/tools"
@@ -54,9 +55,12 @@ func testConfig(c *gc.C, stateServer bool, vers version.Binary) *config.Config {
 func (s *configureSuite) getCloudConfig(c *gc.C, stateServer bool, vers version.Binary) *cloudinit.Config {
 	var mcfg *envcloudinit.MachineConfig
 	if stateServer {
-		mcfg = environs.NewBootstrapMachineConfig("http://whatever/dotcom", "private-key")
+		mcfg = environs.NewBootstrapMachineConfig("private-key")
+		mcfg.InstanceId = "instance-id"
+		mcfg.Jobs = []params.MachineJob{params.JobManageEnviron, params.JobHostUnits}
 	} else {
 		mcfg = environs.NewMachineConfig("0", "ya", nil, nil)
+		mcfg.Jobs = []params.MachineJob{params.JobHostUnits}
 	}
 	mcfg.Tools = &tools.Tools{
 		Version: vers,
@@ -103,6 +107,16 @@ func (s *configureSuite) TestAptSources(c *gc.C) {
 			checkIff(gc.Matches, needsCloudTools),
 			"(.|\n)*add-apt-repository.*cloud-tools(.|\n)*",
 		)
+		c.Assert(
+			script,
+			checkIff(gc.Matches, needsCloudTools),
+			"(.|\n)*Pin: release n=precise-updates/cloud-tools\nPin-Priority: 400(.|\n)*",
+		)
+		c.Assert(
+			script,
+			checkIff(gc.Matches, needsCloudTools),
+			"(.|\n)*install -D -m 644 /dev/null '/etc/apt/preferences.d/50-cloud-tools'(.|\n)*",
+		)
 
 		// Only Quantal requires the PPA (for mongo).
 		needsJujuPPA := series == "quantal"
@@ -143,7 +157,7 @@ func (s *configureSuite) TestAptUpdate(c *gc.C) {
 	cfg.SetAptUpdate(true)
 	assertScriptMatches(c, cfg, aptGetUpdatePattern, true)
 	cfg.SetAptUpdate(false)
-	cfg.AddAptSource("source", "key")
+	cfg.AddAptSource("source", "key", nil)
 	assertScriptMatches(c, cfg, aptGetUpdatePattern, true)
 }
 
@@ -152,7 +166,7 @@ func (s *configureSuite) TestAptUpgrade(c *gc.C) {
 	aptGetUpgradePattern := aptgetRegexp + "upgrade(.|\n)*"
 	cfg := cloudinit.New()
 	cfg.SetAptUpdate(true)
-	cfg.AddAptSource("source", "key")
+	cfg.AddAptSource("source", "key", nil)
 	assertScriptMatches(c, cfg, aptGetUpgradePattern, false)
 	cfg.SetAptUpgrade(true)
 	assertScriptMatches(c, cfg, aptGetUpgradePattern, true)

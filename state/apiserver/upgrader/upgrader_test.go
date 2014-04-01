@@ -4,6 +4,7 @@
 package upgrader_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	envtesting "launchpad.net/juju-core/environs/testing"
@@ -15,7 +16,6 @@ import (
 	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
 	"launchpad.net/juju-core/state/apiserver/upgrader"
 	statetesting "launchpad.net/juju-core/state/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 )
 
@@ -88,10 +88,9 @@ func (s *upgraderSuite) TestWatchAPIVersion(c *gc.C) {
 	wc.AssertClosed()
 }
 
-func (s *upgraderSuite) TestUpgraderAPIRefusesNonAgent(c *gc.C) {
-	// We aren't even a machine agent
+func (s *upgraderSuite) TestUpgraderAPIRefusesNonMachineAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
-	anAuthorizer.UnitAgent = false
+	anAuthorizer.UnitAgent = true
 	anAuthorizer.MachineAgent = false
 	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, gc.NotNil)

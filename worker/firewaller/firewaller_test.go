@@ -4,13 +4,13 @@
 package firewaller_test
 
 import (
+	"launchpad.net/juju-core/environs/config"
 	"reflect"
 	stdtesting "testing"
 	"time"
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
@@ -35,6 +35,10 @@ type FirewallerSuite struct {
 
 	st         *api.State
 	firewaller *apifirewaller.State
+}
+
+type FirewallerGlobalModeSuite struct {
+	FirewallerSuite
 }
 
 var _ worker.Worker = (*firewaller.Firewaller)(nil)
@@ -91,6 +95,13 @@ func (s *FirewallerSuite) assertEnvironPorts(c *gc.C, expected []instance.Port) 
 
 var _ = gc.Suite(&FirewallerSuite{})
 
+func (s FirewallerGlobalModeSuite) SetUpTest(c *gc.C) {
+	add := map[string]interface{}{"firewall-mode": config.FwGlobal}
+	s.DummyConfig = dummy.SampleConfig().Merge(add).Delete("admin-secret", "ca-private-key")
+
+	s.FirewallerSuite.SetUpTest(c)
+}
+
 func (s *FirewallerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.charm = s.AddTestingCharm(c, "dummy")
@@ -127,23 +138,6 @@ func (s *FirewallerSuite) addUnit(c *gc.C, svc *state.Service) (*state.Unit, *st
 	m, err := s.State.Machine(id)
 	c.Assert(err, gc.IsNil)
 	return u, m
-}
-
-func (s *FirewallerSuite) setGlobalMode(c *gc.C) {
-	// TODO(rog) This should not be possible - you shouldn't
-	// be able to set the firewalling mode after an environment
-	// has bootstrapped.
-	oldConfig := s.Conn.Environ.Config()
-	attrs := oldConfig.AllAttrs()
-	delete(attrs, "admin-secret")
-	delete(attrs, "ca-private-key")
-	attrs["firewall-mode"] = config.FwGlobal
-	newConfig, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(newConfig, oldConfig)
-	c.Assert(err, gc.IsNil)
-	err = s.Conn.Environ.SetConfig(newConfig)
-	c.Assert(err, gc.IsNil)
 }
 
 // startInstance starts a new instance for the given machine.
@@ -573,10 +567,7 @@ func (s *FirewallerSuite) TestRemoveMachine(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *FirewallerSuite) TestGlobalMode(c *gc.C) {
-	// Change configuration.
-	s.setGlobalMode(c)
-
+func (s *FirewallerGlobalModeSuite) TestGlobalMode(c *gc.C) {
 	// Start firewaller and open ports.
 	fw, err := firewaller.NewFirewaller(s.firewaller)
 	c.Assert(err, gc.IsNil)
@@ -621,10 +612,7 @@ func (s *FirewallerSuite) TestGlobalMode(c *gc.C) {
 	s.assertEnvironPorts(c, nil)
 }
 
-func (s *FirewallerSuite) TestGlobalModeStartWithUnexposedService(c *gc.C) {
-	// Change configuration.
-	s.setGlobalMode(c)
-
+func (s *FirewallerGlobalModeSuite) TestGlobalModeStartWithUnexposedService(c *gc.C) {
 	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	s.startInstance(c, m)
@@ -650,10 +638,7 @@ func (s *FirewallerSuite) TestGlobalModeStartWithUnexposedService(c *gc.C) {
 	s.assertEnvironPorts(c, []instance.Port{{"tcp", 80}})
 }
 
-func (s *FirewallerSuite) TestGlobalModeRestart(c *gc.C) {
-	// Change configuration.
-	s.setGlobalMode(c)
-
+func (s *FirewallerGlobalModeSuite) TestGlobalModeRestart(c *gc.C) {
 	// Start firewaller and open ports.
 	fw, err := firewaller.NewFirewaller(s.firewaller)
 	c.Assert(err, gc.IsNil)
@@ -688,10 +673,7 @@ func (s *FirewallerSuite) TestGlobalModeRestart(c *gc.C) {
 	s.assertEnvironPorts(c, []instance.Port{{"tcp", 80}, {"tcp", 8888}})
 }
 
-func (s *FirewallerSuite) TestGlobalModeRestartUnexposedService(c *gc.C) {
-	// Change configuration.
-	s.setGlobalMode(c)
-
+func (s *FirewallerGlobalModeSuite) TestGlobalModeRestartUnexposedService(c *gc.C) {
 	// Start firewaller and open ports.
 	fw, err := firewaller.NewFirewaller(s.firewaller)
 	c.Assert(err, gc.IsNil)
@@ -724,10 +706,7 @@ func (s *FirewallerSuite) TestGlobalModeRestartUnexposedService(c *gc.C) {
 	s.assertEnvironPorts(c, nil)
 }
 
-func (s *FirewallerSuite) TestGlobalModeRestartPortCount(c *gc.C) {
-	// Change configuration.
-	s.setGlobalMode(c)
-
+func (s *FirewallerGlobalModeSuite) TestGlobalModeRestartPortCount(c *gc.C) {
 	// Start firewaller and open ports.
 	fw, err := firewaller.NewFirewaller(s.firewaller)
 	c.Assert(err, gc.IsNil)

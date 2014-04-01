@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/cmd"
 )

@@ -11,10 +11,32 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/utils/ssh"
 	"launchpad.net/juju-core/version"
 )
+
+// Entity identifies a single entity.
+type Entity struct {
+	Tag string
+}
+
+// Entities identifies multiple entities.
+type Entities struct {
+	Entities []Entity
+}
+
+// EntityPasswords holds the parameters for making a SetPasswords call.
+type EntityPasswords struct {
+	Changes []EntityPassword
+}
+
+// EntityPassword specifies a password change for the entity
+// with the given tag.
+type EntityPassword struct {
+	Tag      string
+	Password string
+}
 
 // ErrorResults holds the results of calling a bulk operation which
 // returns no data, only an error result. The order and
@@ -127,6 +149,10 @@ type ServiceDeploy struct {
 	ConfigYAML    string // Takes precedence over config if both are present.
 	Constraints   constraints.Value
 	ToMachineSpec string
+	// The following fields are supported from 1.17.7 onwards and
+	// ignored before that.
+	IncludeNetworks []string
+	ExcludeNetworks []string
 }
 
 // ServiceUpdate holds the parameters for making the ServiceUpdate call.
@@ -212,6 +238,16 @@ type PublicAddress struct {
 // PublicAddressResults holds results of the PublicAddress call.
 type PublicAddressResults struct {
 	PublicAddress string
+}
+
+// PrivateAddress holds parameters for the PrivateAddress call.
+type PrivateAddress struct {
+	Target string
+}
+
+// PrivateAddressResults holds results of the PrivateAddress call.
+type PrivateAddressResults struct {
+	PrivateAddress string
 }
 
 // Resolved holds parameters for the Resolved call.
@@ -421,14 +457,32 @@ type EntityId struct {
 	Id   interface{}
 }
 
+// StateServingInfo holds information needed by a state
+// server.
+type StateServingInfo struct {
+	APIPort    int
+	StatePort  int
+	Cert       string
+	PrivateKey string
+	// this will be passed as the KeyFile argument to MongoDB
+	SharedSecret string
+}
+
 // MachineInfo holds the information about a Machine
 // that is watched by StateWatcher.
 type MachineInfo struct {
-	Id         string `bson:"_id"`
-	InstanceId string
-	Status     Status
-	StatusInfo string
-	StatusData StatusData
+	Id                       string `bson:"_id"`
+	InstanceId               string
+	Status                   Status
+	StatusInfo               string
+	StatusData               StatusData
+	Life                     Life
+	Series                   string
+	SupportedContainers      []instance.ContainerType
+	SupportedContainersKnown bool
+	HardwareCharacteristics  *instance.HardwareCharacteristics `json:",omitempty"`
+	Jobs                     []MachineJob
+	Addresses                []instance.Address
 }
 
 func (i *MachineInfo) EntityId() EntityId {
@@ -513,24 +567,8 @@ type ContainerConfig struct {
 	ProviderType            string
 	AuthorizedKeys          string
 	SSLHostnameVerification bool
-	SyslogPort              int
-}
-
-type MachineConfigParams struct {
-	MachineId string
-}
-
-// MachineConfig contains information from the environment config that is
-// needed for a machine cloud-init.
-type MachineConfig struct {
-	EnvironAttrs map[string]interface{}
-	Tools        *tools.Tools
-	// state.Info and api.Info attributes (cannot use state.Info, api.Info directly due to import loops)
-	StateAddrs []string
-	APIAddrs   []string
-	CACert     []byte
-	Tag        string
-	Password   string
+	Proxy                   osenv.ProxySettings
+	AptProxy                osenv.ProxySettings
 }
 
 // ProvisioningScriptParams contains the parameters for the
@@ -538,7 +576,14 @@ type MachineConfig struct {
 type ProvisioningScriptParams struct {
 	MachineId string
 	Nonce     string
-	DataDir   string
+
+	// DataDir may be "", in which case the default will be used.
+	DataDir string
+
+	// DisablePackageCommands may be set to disable all package-related
+	// commands. It is then the responsibility of the provisioner to
+	// ensure that all the packages required by Juju are available.
+	DisablePackageCommands bool
 }
 
 // ProvisioningScriptResult contains the result of the
@@ -559,6 +604,12 @@ type EnvironmentSet struct {
 	Config map[string]interface{}
 }
 
+// EnvironmentUnset contains the arguments for EnvironmentUnset client API
+// call.
+type EnvironmentUnset struct {
+	Keys []string
+}
+
 // SetEnvironAgentVersion contains the arguments for
 // SetEnvironAgentVersion client API call.
 type SetEnvironAgentVersion struct {
@@ -570,10 +621,14 @@ type SetEnvironAgentVersion struct {
 type DeployerConnectionValues struct {
 	StateAddresses []string
 	APIAddresses   []string
-	SyslogPort     int
 }
 
 // StatusParams holds parameters for the Status call.
 type StatusParams struct {
 	Patterns []string
+}
+
+// SetRsyslogCertParams holds parameters for the SetRsyslogCert call.
+type SetRsyslogCertParams struct {
+	CACert []byte
 }

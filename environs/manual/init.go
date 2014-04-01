@@ -7,14 +7,23 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"regexp"
 	"strconv"
 	"strings"
 
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/ssh"
 )
+
+// detectionScript is the script to run on the remote machine to
+// detect the OS series and hardware characteristics.
+const detectionScript = `#!/bin/bash
+set -e
+lsb_release -cs
+uname -m
+grep MemTotal /proc/meminfo
+cat /proc/cpuinfo`
 
 // checkProvisionedScript is the script to run on the remote machine
 // to check if a machine has already been provisioned.
@@ -48,10 +57,13 @@ func checkProvisioned(host string) (bool, error) {
 	return provisioned, nil
 }
 
-// DetectSeriesAndHardwareCharacteristics detects the OS
+// Patch for testing.
+var DetectSeriesAndHardwareCharacteristics = detectSeriesAndHardwareCharacteristics
+
+// detectSeriesAndHardwareCharacteristics detects the OS
 // series and hardware characteristics of the remote machine
 // by connecting to the machine and executing a bash script.
-func DetectSeriesAndHardwareCharacteristics(host string) (hc instance.HardwareCharacteristics, series string, err error) {
+func detectSeriesAndHardwareCharacteristics(host string) (hc instance.HardwareCharacteristics, series string, err error) {
 	logger.Infof("Detecting series and characteristics on %s", host)
 	cmd := ssh.Command("ubuntu@"+host, []string{"/bin/bash"}, nil)
 	var stdout, stderr bytes.Buffer
@@ -67,18 +79,8 @@ func DetectSeriesAndHardwareCharacteristics(host string) (hc instance.HardwareCh
 	lines := strings.Split(stdout.String(), "\n")
 	series = strings.TrimSpace(lines[0])
 
-	// Normalise arch.
-	arch := strings.TrimSpace(lines[1])
-	for _, re := range archREs {
-		if re.Match([]byte(arch)) {
-			hc.Arch = &re.arch
-			break
-		}
-	}
-	if hc.Arch == nil {
-		err = fmt.Errorf("unrecognised architecture: %s", arch)
-		return hc, "", err
-	}
+	arch := arch.NormaliseArch(lines[1])
+	hc.Arch = &arch
 
 	// HardwareCharacteristics wants memory in megabytes,
 	// meminfo reports it in kilobytes.
@@ -118,24 +120,6 @@ func DetectSeriesAndHardwareCharacteristics(host string) (hc instance.HardwareCh
 	logger.Infof("series: %s, characteristics: %s", series, hc)
 	return hc, series, nil
 }
-
-// archREs maps regular expressions for matching
-// `uname -m` to architectures recognised by Juju.
-var archREs = []struct {
-	*regexp.Regexp
-	arch string
-}{
-	{regexp.MustCompile("amd64|x86_64"), "amd64"},
-	{regexp.MustCompile("i[3-9]86"), "i386"},
-	{regexp.MustCompile("armv.*"), "arm"},
-}
-
-const detectionScript = `#!/bin/bash
-set -e
-lsb_release -cs
-uname -m
-grep MemTotal /proc/meminfo
-cat /proc/cpuinfo`
 
 // InitUbuntuUser adds the ubuntu user if it doesn't
 // already exist, updates its ~/.ssh/authorized_keys,

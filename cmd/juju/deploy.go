@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"launchpad.net/gnuflag"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
@@ -141,7 +142,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	repo = config.AuthorizeCharmRepo(repo, conf)
+	repo = config.SpecializeCharmRepo(repo, conf)
 
 	curl, err = addCharmViaAPI(client, ctx, curl, repo)
 	if err != nil {
@@ -149,7 +150,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if c.BumpRevision {
-		ctx.Stdout.Write([]byte("--upgrade (or -u) is deprecated and ignored; charms are always deployed with a unique revision.\n"))
+		ctx.Infof("--upgrade (or -u) is deprecated and ignored; charms are always deployed with a unique revision.")
 	}
 
 	charmInfo, err := client.CharmInfo(curl.String())
@@ -212,7 +213,7 @@ func (c *DeployCommand) run1dot16(ctx *cmd.Context) error {
 		return err
 	}
 
-	repo = config.AuthorizeCharmRepo(repo, conf)
+	repo = config.SpecializeCharmRepo(repo, conf)
 
 	// TODO(fwereade) it's annoying to roundtrip the bytes through the client
 	// here, but it's the original behaviour and not convenient to change.
@@ -292,7 +293,6 @@ func addCharmViaAPI(client *api.Client, ctx *cmd.Context, curl *charm.URL, repo 
 	default:
 		return nil, fmt.Errorf("unsupported charm URL schema: %q", curl.Schema)
 	}
-	report := fmt.Sprintf("Added charm %q to the environment.\n", curl)
-	ctx.Stdout.Write([]byte(report))
+	ctx.Infof("Added charm %q to the environment.", curl)
 	return curl, nil
 }

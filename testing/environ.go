@@ -13,7 +13,20 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/utils/ssh"
 )
+
+// FakeAuthKeys holds the authorized key used for testing
+// purposes in FakeConfig. It is valid for parsing with the utils/ssh
+// authorized-key utilities.
+const FakeAuthKeys = `ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAYQDP8fPSAMFm2PQGoVUks/FENVUMww1QTK6m++Y2qX9NGHm43kwEzxfoWR77wo6fhBhgFHsQ6ogE/cYLx77hOvjTchMEP74EVxSce0qtDjI7SwYbOpAButRId3g/Ef4STz8= joe@0.1.2.4`
+
+func init() {
+	_, err := ssh.ParseAuthorisedKey(FakeAuthKeys)
+	if err != nil {
+		panic("FakeAuthKeys does not hold a valid authorized key: " + err.Error())
+	}
+}
 
 // FakeConfig() returns an environment configuration for a
 // fake provider with all required attributes set.
@@ -21,7 +34,7 @@ func FakeConfig() Attrs {
 	return Attrs{
 		"type":                      "someprovider",
 		"name":                      "testenv",
-		"authorized-keys":           "my-keys",
+		"authorized-keys":           FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
 		"admin-secret":              "fish",
 		"ca-cert":                   CACert,

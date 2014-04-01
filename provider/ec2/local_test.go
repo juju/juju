@@ -4,10 +4,12 @@
 package ec2_test
 
 import (
+	"fmt"
 	"regexp"
 	"sort"
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	"launchpad.net/goamz/aws"
 	amzec2 "launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/ec2/ec2test"
@@ -27,16 +29,19 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/ec2"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/ssh"
 	"launchpad.net/juju-core/version"
 )
 
-type ProviderSuite struct{}
+type ProviderSuite struct {
+	testbase.LoggingSuite
+}
 
 var _ = gc.Suite(&ProviderSuite{})
 
@@ -58,6 +63,40 @@ func (s *ProviderSuite) TestMetadata(c *gc.C) {
 	addr, err = p.PrivateAddress()
 	c.Assert(err, gc.IsNil)
 	c.Assert(addr, gc.Equals, "private.dummy.address.invalid")
+}
+
+func (t *ProviderSuite) assertGetImageMetadataSources(c *gc.C, stream, officialSourcePath string) {
+	// Make an env configured with the stream.
+	envAttrs := localConfigAttrs
+	if stream != "" {
+		envAttrs = envAttrs.Merge(coretesting.Attrs{
+			"image-stream": stream,
+		})
+	}
+	cfg, err := config.New(config.NoDefaults, envAttrs)
+	c.Assert(err, gc.IsNil)
+	env, err := environs.Prepare(cfg, coretesting.Context(c), configstore.NewMem())
+	c.Assert(err, gc.IsNil)
+	c.Assert(env, gc.NotNil)
+
+	sources, err := imagemetadata.GetMetadataSources(env)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(sources), gc.Equals, 2)
+	var urls = make([]string, len(sources))
+	for i, source := range sources {
+		url, err := source.URL("")
+		c.Assert(err, gc.IsNil)
+		urls[i] = url
+	}
+	// The control bucket URL contains the bucket name.
+	c.Check(strings.Contains(urls[0], ec2.ControlBucketName(env)+"/images"), jc.IsTrue)
+	c.Assert(urls[1], gc.Equals, fmt.Sprintf("http://cloud-images.ubuntu.com/%s/", officialSourcePath))
+}
+
+func (t *ProviderSuite) TestGetImageMetadataSources(c *gc.C) {
+	t.assertGetImageMetadataSources(c, "", "releases")
+	t.assertGetImageMetadataSources(c, "released", "releases")
+	t.assertGetImageMetadataSources(c, "daily", "daily")
 }
 
 var localConfigAttrs = coretesting.FakeConfig().Merge(coretesting.Attrs{
@@ -184,6 +223,11 @@ func (t *localServerSuite) TearDownSuite(c *gc.C) {
 func (t *localServerSuite) SetUpTest(c *gc.C) {
 	t.srv.startServer(c)
 	t.Tests.SetUpTest(c)
+	t.PatchValue(&version.Current, version.Binary{
+		Number: version.Current.Number,
+		Series: config.DefaultSeries,
+		Arch:   arch.AMD64,
+	})
 }
 
 func (t *localServerSuite) TearDownTest(c *gc.C) {
@@ -191,25 +235,10 @@ func (t *localServerSuite) TearDownTest(c *gc.C) {
 	t.srv.stopServer(c)
 }
 
-func bootstrapContext(c *gc.C) environs.BootstrapContext {
-	return envtesting.NewBootstrapContext(coretesting.Context(c))
-}
-
-func (t *localServerSuite) TestPrecheck(c *gc.C) {
-	env := t.Prepare(c)
-	prechecker, ok := env.(environs.Prechecker)
-	c.Assert(ok, jc.IsTrue)
-	var cons constraints.Value
-	err := prechecker.PrecheckInstance("precise", cons)
-	c.Check(err, gc.IsNil)
-	err = prechecker.PrecheckContainer("precise", instance.LXC)
-	c.Check(err, gc.ErrorMatches, "ec2 provider does not support containers")
-}
-
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
@@ -240,12 +269,11 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	var userDataMap map[interface{}]interface{}
 	err = goyaml.Unmarshal(userData, &userDataMap)
 	c.Assert(err, gc.IsNil)
-	expectedAuthKeys := strings.TrimSpace(env.Config().AuthorizedKeys())
-	c.Assert(userDataMap, gc.DeepEquals, map[interface{}]interface{}{
+	c.Assert(userDataMap, jc.DeepEquals, map[interface{}]interface{}{
 		"output": map[interface{}]interface{}{
 			"all": "| tee -a /var/log/cloud-init-output.log",
 		},
-		"ssh_authorized_keys": []interface{}{expectedAuthKeys},
+		"ssh_authorized_keys": splitAuthKeys(env.Config().AuthorizedKeys()),
 		"runcmd": []interface{}{
 			"set -xe",
 			"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
@@ -280,10 +308,24 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 }
 
+// splitAuthKeys splits the given authorized keys
+// into the form expected to be found in the
+// user data.
+func splitAuthKeys(keys string) []interface{} {
+	slines := strings.FieldsFunc(keys, func(r rune) bool {
+		return r == '\n'
+	})
+	var lines []interface{}
+	for _, line := range slines {
+		lines = append(lines, ssh.EnsureJujuComment(strings.TrimSpace(line)))
+	}
+	return lines
+}
+
 func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	t.srv.ec2srv.SetInitialInstanceState(ec2test.Terminated)
 	inst, _ := testing.AssertStartInstance(c, env, "1")
@@ -294,7 +336,7 @@ func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	_, hc := testing.AssertStartInstance(c, env, "1")
 	c.Check(*hc.Arch, gc.Equals, "amd64")
@@ -306,7 +348,7 @@ func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 func (t *localServerSuite) TestAddresses(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	inst, _ := testing.AssertStartInstance(c, env, "1")
 	c.Assert(err, gc.IsNil)
@@ -347,26 +389,10 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	params.Endpoint = "https://ec2.endpoint.com"
 	params.Sources, err = imagemetadata.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
-	image_ids, err := imagemetadata.ValidateImageMetadata(params)
+	image_ids, _, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, gc.IsNil)
 	sort.Strings(image_ids)
 	c.Assert(image_ids, gc.DeepEquals, []string{"ami-00000033", "ami-00000034", "ami-00000035"})
-}
-
-func (t *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
-	env := t.Prepare(c)
-	sources, err := imagemetadata.GetMetadataSources(env)
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(sources), gc.Equals, 2)
-	var urls = make([]string, len(sources))
-	for i, source := range sources {
-		url, err := source.URL("")
-		c.Assert(err, gc.IsNil)
-		urls[i] = url
-	}
-	// The control bucket URL contains the bucket name.
-	c.Check(strings.Contains(urls[0], ec2.ControlBucketName(env)+"/images"), jc.IsTrue)
-	c.Assert(urls[1], gc.Equals, imagemetadata.DefaultBaseURL+"/")
 }
 
 func (t *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
@@ -377,6 +403,13 @@ func (t *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 	url, err := sources[0].URL("")
 	// The control bucket URL contains the bucket name.
 	c.Assert(strings.Contains(url, ec2.ControlBucketName(env)+"/tools"), jc.IsTrue)
+}
+
+func (t *localServerSuite) TestSupportedArchitectures(c *gc.C) {
+	env := t.Prepare(c)
+	a, err := env.SupportedArchitectures()
+	c.Assert(err, gc.IsNil)
+	c.Assert(a, jc.SameContents, []string{"amd64", "i386"})
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server
@@ -407,7 +440,7 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 
 	cfg, err := config.New(config.NoDefaults, localConfigAttrs)
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg, configstore.NewMem())
+	env, err := environs.Prepare(cfg, coretesting.Context(c), configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	t.env = env
 }

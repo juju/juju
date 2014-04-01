@@ -4,14 +4,13 @@
 package firewaller
 
 import (
-	"fmt"
-
+	"github.com/errgo/errgo"
+	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/names"
 	apifirewaller "launchpad.net/juju-core/state/api/firewaller"
 	"launchpad.net/juju-core/state/api/params"
@@ -19,6 +18,8 @@ import (
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/worker"
 )
+
+var logger = loggo.GetLogger("juju.worker.firewaller")
 
 // Firewaller watches the state for ports opened or closed
 // and reflects those changes onto the backing environment.
@@ -93,7 +94,7 @@ func (fw *Firewaller) loop() error {
 				return err
 			}
 			if err := fw.environ.SetConfig(config); err != nil {
-				log.Errorf("worker/firewaller: loaded invalid environment configuration: %v", err)
+				logger.Errorf("loaded invalid environment configuration: %v", err)
 			}
 		case change, ok := <-fw.machinesWatcher.Changes():
 			if !ok {
@@ -121,7 +122,7 @@ func (fw *Firewaller) loop() error {
 		case change := <-fw.portsChange:
 			change.unitd.ports = change.ports
 			if err := fw.flushUnits([]*unitData{change.unitd}); err != nil {
-				return fmt.Errorf("cannot change firewall ports: %v", err)
+				return errgo.Annotate(err, "cannot change firewall ports")
 			}
 		case change := <-fw.exposedChange:
 			change.serviced.exposed = change.exposed
@@ -130,7 +131,7 @@ func (fw *Firewaller) loop() error {
 				unitds = append(unitds, unitd)
 			}
 			if err := fw.flushUnits(unitds); err != nil {
-				return fmt.Errorf("cannot change firewall ports: %v", err)
+				return errgo.Annotate(err, "cannot change firewall ports")
 			}
 		}
 	}
@@ -139,7 +140,7 @@ func (fw *Firewaller) loop() error {
 // stop a watcher with logging of a possible error.
 func stop(what string, stopper watcher.Stopper) {
 	if err := stopper.Stop(); err != nil {
-		log.Errorf("worker/firewaller: error stopping %s: %v", what, err)
+		logger.Errorf("error stopping %s: %v", what, err)
 	}
 }
 
@@ -156,7 +157,7 @@ func (fw *Firewaller) startMachine(tag string) error {
 	if params.IsCodeNotFound(err) {
 		return nil
 	} else if err != nil {
-		return fmt.Errorf("worker/firewaller: cannot watch machine units: %v", err)
+		return errgo.Annotate(err, "cannot watch machine units")
 	}
 	unitw, err := m.WatchUnits()
 	if err != nil {
@@ -175,7 +176,8 @@ func (fw *Firewaller) startMachine(tag string) error {
 		err = fw.unitsChanged(&unitsChange{machined, change})
 		if err != nil {
 			stop("units watcher", unitw)
-			return fmt.Errorf("worker/firewaller: cannot respond to units changes for %q: %v", tag, err)
+			delete(fw.machineds, tag)
+			return errgo.Annotatef(err, "cannot respond to units changes for %q", tag)
 		}
 	}
 	go machined.watchLoop(unitw)
@@ -265,14 +267,14 @@ func (fw *Firewaller) reconcileGlobal() error {
 	toOpen := Diff(wantedPorts, initialPorts)
 	toClose := Diff(initialPorts, wantedPorts)
 	if len(toOpen) > 0 {
-		log.Infof("worker/firewaller: opening global ports %v", toOpen)
+		logger.Infof("opening global ports %v", toOpen)
 		if err := fw.environ.OpenPorts(toOpen); err != nil {
 			return err
 		}
 		instance.SortPorts(toOpen)
 	}
 	if len(toClose) > 0 {
-		log.Infof("worker/firewaller: closing global ports %v", toClose)
+		logger.Infof("closing global ports %v", toClose)
 		if err := fw.environ.ClosePorts(toClose); err != nil {
 			return err
 		}
@@ -317,7 +319,7 @@ func (fw *Firewaller) reconcileInstances() error {
 		toOpen := Diff(machined.ports, initialPorts)
 		toClose := Diff(initialPorts, machined.ports)
 		if len(toOpen) > 0 {
-			log.Infof("worker/firewaller: opening instance ports %v for %q",
+			logger.Infof("opening instance ports %v for %q",
 				toOpen, machined.tag)
 			if err := instances[0].OpenPorts(machineId, toOpen); err != nil {
 				// TODO(mue) Add local retry logic.
@@ -326,7 +328,7 @@ func (fw *Firewaller) reconcileInstances() error {
 			instance.SortPorts(toOpen)
 		}
 		if len(toClose) > 0 {
-			log.Infof("worker/firewaller: closing instance ports %v for %q",
+			logger.Infof("closing instance ports %v for %q",
 				toClose, machined.tag)
 			if err := instances[0].ClosePorts(machineId, toClose); err != nil {
 				// TODO(mue) Add local retry logic.
@@ -360,7 +362,7 @@ func (fw *Firewaller) unitsChanged(change *unitsChange) error {
 			if unit == nil || unit.Life() == params.Dead || machineTag != knownMachineTag {
 				fw.forgetUnit(unitd)
 				changed = append(changed, unitd)
-				log.Debugf("worker/firewaller: stopped watching unit %s", name)
+				logger.Debugf("stopped watching unit %s", name)
 			}
 		} else if unit != nil && unit.Life() != params.Dead && fw.machineds[machineTag] != nil {
 			err = fw.startUnit(unit, machineTag)
@@ -368,11 +370,11 @@ func (fw *Firewaller) unitsChanged(change *unitsChange) error {
 				return err
 			}
 			changed = append(changed, fw.unitds[name])
-			log.Debugf("worker/firewaller: started watching unit %s", name)
+			logger.Debugf("started watching unit %s", name)
 		}
 	}
 	if err := fw.flushUnits(changed); err != nil {
-		return fmt.Errorf("cannot change firewall ports: %v", err)
+		return errgo.Annotate(err, "cannot change firewall ports")
 	}
 	return nil
 }
@@ -441,7 +443,7 @@ func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose []instance.Port) error 
 			return err
 		}
 		instance.SortPorts(toOpen)
-		log.Infof("worker/firewaller: opened ports %v in environment", toOpen)
+		logger.Infof("opened ports %v in environment", toOpen)
 	}
 	if len(toClose) > 0 {
 		if err := fw.environ.ClosePorts(toClose); err != nil {
@@ -449,7 +451,7 @@ func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose []instance.Port) error 
 			return err
 		}
 		instance.SortPorts(toClose)
-		log.Infof("worker/firewaller: closed ports %v in environment", toClose)
+		logger.Infof("closed ports %v in environment", toClose)
 	}
 	return nil
 }
@@ -489,7 +491,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 			return err
 		}
 		instance.SortPorts(toOpen)
-		log.Infof("worker/firewaller: opened ports %v on %q", toOpen, machined.tag)
+		logger.Infof("opened ports %v on %q", toOpen, machined.tag)
 	}
 	if len(toClose) > 0 {
 		if err := instances[0].ClosePorts(machineId, toClose); err != nil {
@@ -497,7 +499,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 			return err
 		}
 		instance.SortPorts(toClose)
-		log.Infof("worker/firewaller: closed ports %v on %q", toClose, machined.tag)
+		logger.Infof("closed ports %v on %q", toClose, machined.tag)
 	}
 	return nil
 }
@@ -521,7 +523,7 @@ func (fw *Firewaller) machineLifeChanged(tag string) error {
 		if err != nil {
 			return err
 		}
-		log.Debugf("worker/firewaller: started watching %q", tag)
+		logger.Debugf("started watching %q", tag)
 	}
 	return nil
 }
@@ -538,7 +540,7 @@ func (fw *Firewaller) forgetMachine(machined *machineData) error {
 	if err := machined.Stop(); err != nil {
 		return err
 	}
-	log.Debugf("worker/firewaller: stopped watching %q", machined.tag)
+	logger.Debugf("stopped watching %q", machined.tag)
 	return nil
 }
 
@@ -548,7 +550,7 @@ func (fw *Firewaller) forgetUnit(unitd *unitData) {
 	serviced := unitd.serviced
 	machined := unitd.machined
 	if err := unitd.Stop(); err != nil {
-		log.Errorf("worker/firewaller: unit watcher %q returned error when stopping: %v", name, err)
+		logger.Errorf("unit watcher %q returned error when stopping: %v", name, err)
 	}
 	// Clean up after stopping.
 	delete(fw.unitds, name)
@@ -557,7 +559,7 @@ func (fw *Firewaller) forgetUnit(unitd *unitData) {
 	if len(serviced.unitds) == 0 {
 		// Stop service data after all units are removed.
 		if err := serviced.Stop(); err != nil {
-			log.Errorf("worker/firewaller: service watcher %q returned error when stopping: %v", serviced.service.Name(), err)
+			logger.Errorf("service watcher %q returned error when stopping: %v", serviced.service.Name(), err)
 		}
 		delete(fw.serviceds, serviced.service.Name())
 	}

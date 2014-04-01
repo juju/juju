@@ -15,7 +15,7 @@ import (
 	"sort"
 	"sync"
 
-	"launchpad.net/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/utils/exec"

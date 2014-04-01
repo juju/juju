@@ -8,8 +8,9 @@ import (
 	"os/exec"
 	"strings"
 
-	"launchpad.net/loggo"
+	"github.com/juju/loggo"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/environs/cloudinit"
@@ -55,13 +56,16 @@ var IsKVMSupported = func() (bool, error) {
 // containers. The containers that are created are namespaced by the name
 // parameter.
 func NewContainerManager(conf container.ManagerConfig) (container.Manager, error) {
-	if conf.Name == "" {
+	name := conf.PopValue(container.ConfigName)
+	if name == "" {
 		return nil, fmt.Errorf("name is required")
 	}
-	if conf.LogDir == "" {
-		conf.LogDir = "/var/log/juju"
+	logDir := conf.PopValue(container.ConfigLogDir)
+	if logDir == "" {
+		logDir = agent.DefaultLogDir
 	}
-	return &containerManager{name: conf.Name, logdir: conf.LogDir}, nil
+	conf.WarnAboutUnused()
+	return &containerManager{name: name, logdir: logDir}, nil
 }
 
 // containerManager handles all of the business logic at the juju specific
@@ -74,7 +78,7 @@ type containerManager struct {
 
 var _ container.Manager = (*containerManager)(nil)
 
-func (manager *containerManager) StartContainer(
+func (manager *containerManager) CreateContainer(
 	machineConfig *cloudinit.MachineConfig,
 	series string,
 	network *container.NetworkConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
@@ -121,7 +125,7 @@ func (manager *containerManager) StartContainer(
 	return &kvmInstance{kvmContainer, name}, &hardware, nil
 }
 
-func (manager *containerManager) StopContainer(instance instance.Instance) error {
+func (manager *containerManager) DestroyContainer(instance instance.Instance) error {
 	name := string(instance.Id())
 	kvmContainer := KvmObjectFactory.New(name)
 	if err := kvmContainer.Stop(); err != nil {

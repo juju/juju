@@ -62,6 +62,7 @@ type JujuConnSuite struct {
 	oldHome      string
 	oldJujuHome  string
 	environ      environs.Environ
+	DummyConfig  testing.Attrs
 }
 
 const AdminSecret = "dummy-secret"
@@ -147,8 +148,12 @@ func (s *JujuConnSuite) OpenAPIAsMachine(c *gc.C, tag, password, nonce string) *
 // OpenAPIAsNewMachine creates a new machine entry that lives in system state,
 // and then uses that to open the API. The returned *api.State should not be
 // closed by the caller as a cleanup function has been registered to do that.
-func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C) (*api.State, *state.Machine) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+// The machine will run the supplied jobs; if none are given, JobHostUnits is assumed.
+func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C, jobs ...state.MachineJob) (*api.State, *state.Machine) {
+	if len(jobs) == 0 {
+		jobs = []state.MachineJob{state.JobHostUnits}
+	}
+	machine, err := s.State.AddMachine("quantal", jobs...)
 	c.Assert(err, gc.IsNil)
 	password, err := utils.RandomPassword()
 	c.Assert(err, gc.IsNil)
@@ -173,9 +178,9 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	err = os.Mkdir(osenv.JujuHome(), 0777)
 	c.Assert(err, gc.IsNil)
 
-	dataDir := filepath.Join(s.RootDir, "/var/lib/juju")
-	err = os.MkdirAll(dataDir, 0777)
+	err = os.MkdirAll(s.DataDir(), 0777)
 	c.Assert(err, gc.IsNil)
+	s.PatchEnvironment(osenv.JujuEnvEnvKey, "")
 
 	// TODO(rog) remove these files and add them only when
 	// the tests specifically need them (in cmd/juju for example)
@@ -191,13 +196,14 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.ConfigStore = store
 
-	environ, err := environs.PrepareFromName("dummyenv", s.ConfigStore)
+	ctx := testing.Context(c)
+	environ, err := environs.PrepareFromName("dummyenv", ctx, s.ConfigStore)
 	c.Assert(err, gc.IsNil)
 	// sanity check we've got the correct environment.
 	c.Assert(environ.Name(), gc.Equals, "dummyenv")
+	s.PatchValue(&dummy.DataDir, s.DataDir())
 
 	envtesting.MustUploadFakeTools(environ.Storage())
-	ctx := envtesting.NewBootstrapContext(testing.Context(c))
 	c.Assert(bootstrap.Bootstrap(ctx, environ, constraints.Value{}), gc.IsNil)
 
 	s.BackingState = environ.(GetStater).GetStateInAPIServer()
@@ -215,7 +221,10 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 }
 
 func (s *JujuConnSuite) writeSampleConfig(c *gc.C, path string) {
-	attrs := dummy.SampleConfig().Merge(testing.Attrs{
+	if s.DummyConfig == nil {
+		s.DummyConfig = dummy.SampleConfig()
+	}
+	attrs := s.DummyConfig.Merge(testing.Attrs{
 		"admin-secret":  AdminSecret,
 		"agent-version": version.Current.Number.String(),
 	}).Delete("name")
@@ -276,7 +285,7 @@ func (s *JujuConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 	ch := testing.Charms.Dir(name)
 	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
 	curl := charm.MustParseURL("local:quantal/" + ident)
-	repo, err := charm.InferRepository(curl, testing.Charms.Path)
+	repo, err := charm.InferRepository(curl, testing.Charms.Path())
 	c.Assert(err, gc.IsNil)
 	sch, err := s.Conn.PutCharm(curl, repo, false)
 	c.Assert(err, gc.IsNil)
@@ -284,8 +293,12 @@ func (s *JujuConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 }
 
 func (s *JujuConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm) *state.Service {
+	return s.AddTestingServiceWithNetworks(c, name, ch, nil, nil)
+}
+
+func (s *JujuConnSuite) AddTestingServiceWithNetworks(c *gc.C, name string, ch *state.Charm, includeNetworks, excludeNetworks []string) *state.Service {
 	c.Assert(s.State, gc.NotNil)
-	service, err := s.State.AddService(name, "user-admin", ch)
+	service, err := s.State.AddService(name, "user-admin", ch, includeNetworks, excludeNetworks)
 	c.Assert(err, gc.IsNil)
 	return service
 }
@@ -295,13 +308,14 @@ func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag string) agent.Config {
 	c.Assert(err, gc.IsNil)
 	config, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
-			DataDir:        s.DataDir(),
-			Tag:            tag,
-			Password:       password,
-			Nonce:          "nonce",
-			StateAddresses: s.StateInfo(c).Addrs,
-			APIAddresses:   s.APIInfo(c).Addrs,
-			CACert:         []byte(testing.CACert),
+			DataDir:           s.DataDir(),
+			Tag:               tag,
+			UpgradedToVersion: version.Current.Number,
+			Password:          password,
+			Nonce:             "nonce",
+			StateAddresses:    s.StateInfo(c).Addrs,
+			APIAddresses:      s.APIInfo(c).Addrs,
+			CACert:            []byte(testing.CACert),
 		})
 	c.Assert(err, gc.IsNil)
 	return config

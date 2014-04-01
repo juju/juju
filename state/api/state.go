@@ -7,12 +7,14 @@ import (
 	"launchpad.net/juju-core/state/api/agent"
 	"launchpad.net/juju-core/state/api/charmrevisionupdater"
 	"launchpad.net/juju-core/state/api/deployer"
+	"launchpad.net/juju-core/state/api/environment"
 	"launchpad.net/juju-core/state/api/firewaller"
 	"launchpad.net/juju-core/state/api/keyupdater"
 	"launchpad.net/juju-core/state/api/logger"
 	"launchpad.net/juju-core/state/api/machiner"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/provisioner"
+	"launchpad.net/juju-core/state/api/rsyslog"
 	"launchpad.net/juju-core/state/api/uniter"
 	"launchpad.net/juju-core/state/api/upgrader"
 )
@@ -79,6 +81,11 @@ func (st *State) Deployer() *deployer.State {
 	return deployer.NewState(st)
 }
 
+// Environment returns access to the Environment API
+func (st *State) Environment() *environment.Facade {
+	return environment.NewFacade(st)
+}
+
 // Logger returns access to the Logger API
 func (st *State) Logger() *logger.State {
 	return logger.NewState(st)
@@ -92,4 +99,9 @@ func (st *State) KeyUpdater() *keyupdater.State {
 // CharmRevisionUpdater returns access to the CharmRevisionUpdater API
 func (st *State) CharmRevisionUpdater() *charmrevisionupdater.State {
 	return charmrevisionupdater.NewState(st)
+}
+
+// Rsyslog returns access to the Rsyslog API
+func (st *State) Rsyslog() *rsyslog.State {
+	return rsyslog.NewState(st)
 }

@@ -22,7 +22,6 @@ var allowedDiscardedMethods = []string{
 	"AuthEnvironManager",
 	"AuthMachineAgent",
 	"AuthOwner",
-	"AuthStateManager",
 	"AuthUnitAgent",
 	"GetAuthEntity",
 	"GetAuthTag",

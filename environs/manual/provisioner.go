@@ -4,13 +4,14 @@
 package manual
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
 	"net"
 	"strings"
 
-	"launchpad.net/loggo"
+	"github.com/juju/loggo"
 
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/cloudinit/sshinit"
@@ -24,6 +25,7 @@ import (
 	"launchpad.net/juju-core/state/statecmd"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/shell"
 )
 
 const manualInstancePrefix = "manual:"
@@ -131,23 +133,27 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 		return "", err
 	}
 
-	var configParameters params.MachineConfig
+	var provisioningScript string
 	if stateConn == nil {
-		configParameters, err = client.MachineConfig(machineId)
+		provisioningScript, err = client.ProvisioningScript(params.ProvisioningScriptParams{
+			MachineId: machineId,
+			Nonce:     machineParams.Nonce,
+		})
+		if err != nil {
+			return "", err
+		}
 	} else {
-		configParameters, err = statecmd.MachineConfig(stateConn.State, machineId)
-	}
-	if err != nil {
-		return "", err
-	}
-	// Gather the information needed by the machine agent to run the provisioning script.
-	mcfg, err := statecmd.FinishMachineConfig(configParameters, machineId, machineParams.Nonce, args.DataDir)
-	if err != nil {
-		return machineId, err
+		mcfg, err := statecmd.MachineConfig(stateConn.State, machineId, machineParams.Nonce, args.DataDir)
+		if err == nil {
+			provisioningScript, err = ProvisioningScript(mcfg)
+		}
+		if err != nil {
+			return "", err
+		}
 	}
 
 	// Finally, provision the machine agent.
-	err = provisionMachineAgent(hostname, mcfg, args.Stderr)
+	err = runProvisionScript(provisioningScript, hostname, args.Stderr)
 	if err != nil {
 		return machineId, err
 	}
@@ -195,9 +201,6 @@ func recordMachineInState1dot16(
 	if err != nil {
 		return "", err
 	}
-	//if p.Series == "" {
-	//	p.Series = defaultSeries
-	//}
 	template := state.MachineTemplate{
 		Series:      machineParams.Series,
 		Constraints: machineParams.Constraints,
@@ -249,7 +252,7 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 			// be using.
 		}
 	}
-	addrs, err := instance.HostAddresses(hostname)
+	addrs, err := HostAddresses(hostname)
 	if err != nil {
 		return nil, err
 	}
@@ -289,17 +292,43 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 	return machineParams, nil
 }
 
-func provisionMachineAgent(host string, mcfg *cloudinit.MachineConfig, stderr io.Writer) error {
+var provisionMachineAgent = func(host string, mcfg *cloudinit.MachineConfig, progressWriter io.Writer) error {
+	script, err := ProvisioningScript(mcfg)
+	if err != nil {
+		return err
+	}
+	return runProvisionScript(script, host, progressWriter)
+}
+
+// ProvisioningScript generates a bash script that can be
+// executed on a remote host to carry out the cloud-init
+// configuration.
+func ProvisioningScript(mcfg *cloudinit.MachineConfig) (string, error) {
 	cloudcfg := coreCloudinit.New()
 	if err := cloudinit.ConfigureJuju(mcfg, cloudcfg); err != nil {
-		return err
+		return "", err
 	}
 	// Explicitly disabling apt_upgrade so as not to trample
 	// the target machine's existing configuration.
 	cloudcfg.SetAptUpgrade(false)
-	return sshinit.Configure(sshinit.ConfigureParams{
-		Host:   "ubuntu@" + host,
-		Config: cloudcfg,
-		Stderr: stderr,
-	})
+	configScript, err := sshinit.ConfigureScript(cloudcfg)
+	if err != nil {
+		return "", err
+	}
+
+	var buf bytes.Buffer
+	// Always remove the cloud-init-output.log file first, if it exists.
+	fmt.Fprintf(&buf, "rm -f %s\n", utils.ShQuote(mcfg.CloudInitOutputLog))
+	// If something goes wrong, dump cloud-init-output.log to stderr.
+	buf.WriteString(shell.DumpFileOnErrorScript(mcfg.CloudInitOutputLog))
+	buf.WriteString(configScript)
+	return buf.String(), nil
+}
+
+func runProvisionScript(script, host string, progressWriter io.Writer) error {
+	params := sshinit.ConfigureParams{
+		Host:           "ubuntu@" + host,
+		ProgressWriter: progressWriter,
+	}
+	return sshinit.RunConfigureScript(script, params)
 }

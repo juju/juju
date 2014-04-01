@@ -8,8 +8,8 @@ import (
 	"regexp"
 	stdtesting "testing"
 
+	"github.com/juju/loggo"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/rpc/jsoncodec"

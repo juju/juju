@@ -25,6 +25,7 @@ import (
 	ttesting "launchpad.net/juju-core/environs/tools/testing"
 	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -62,7 +63,7 @@ func setupSimpleStreamsTests(t *testing.T) {
 			t.Fatalf("Unknown vendor %s. Must be one of %s", *vendor, keys)
 		}
 		registerLiveSimpleStreamsTests(testData.baseURL,
-			tools.NewVersionedToolsConstraint("1.13.0", simplestreams.LookupParams{
+			tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
 				CloudSpec: testData.validCloudSpec,
 				Series:    []string{version.Current.Series},
 				Arches:    []string{"amd64"},
@@ -74,10 +75,10 @@ func setupSimpleStreamsTests(t *testing.T) {
 func registerSimpleStreamsTests() {
 	gc.Suite(&simplestreamsSuite{
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
-			Source:        simplestreams.NewURLDataSource("test:", simplestreams.VerifySSLHostnames),
+			Source:        simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames),
 			RequireSigned: false,
 			DataType:      tools.ContentDownload,
-			ValidConstraint: tools.NewVersionedToolsConstraint("1.13.0", simplestreams.LookupParams{
+			ValidConstraint: tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
 				CloudSpec: simplestreams.CloudSpec{
 					Region:   "us-east-1",
 					Endpoint: "https://ec2.us-east-1.amazonaws.com",
@@ -92,7 +93,7 @@ func registerSimpleStreamsTests() {
 
 func registerLiveSimpleStreamsTests(baseURL string, validToolsConstraint simplestreams.LookupConstraint, requireSigned bool) {
 	gc.Suite(&sstesting.LocalLiveSimplestreamsSuite{
-		Source:          simplestreams.NewURLDataSource(baseURL, simplestreams.VerifySSLHostnames),
+		Source:          simplestreams.NewURLDataSource("test", baseURL, utils.VerifySSLHostnames),
 		RequireSigned:   requireSigned,
 		DataType:        tools.ContentDownload,
 		ValidConstraint: validToolsConstraint,
@@ -238,14 +239,18 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 				Arches:    t.arches,
 			})
 		} else {
-			toolsConstraint = tools.NewVersionedToolsConstraint(t.version, simplestreams.LookupParams{
-				CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
-				Series:    []string{t.series},
-				Arches:    t.arches,
-			})
+			toolsConstraint = tools.NewVersionedToolsConstraint(version.MustParse(t.version),
+				simplestreams.LookupParams{
+					CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
+					Series:    []string{t.series},
+					Arches:    t.arches,
+				})
 		}
-		tools, err := tools.Fetch(
-			[]simplestreams.DataSource{s.Source}, simplestreams.DefaultIndexPath, toolsConstraint, s.RequireSigned)
+		// Add invalid datasource and check later that resolveInfo is correct.
+		invalidSource := simplestreams.NewURLDataSource("invalid", "file://invalid", utils.VerifySSLHostnames)
+		tools, resolveInfo, err := tools.Fetch(
+			[]simplestreams.DataSource{invalidSource, s.Source},
+			simplestreams.DefaultIndexPath, toolsConstraint, s.RequireSigned)
 		if !c.Check(err, gc.IsNil) {
 			continue
 		}
@@ -254,6 +259,12 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 		}
 		c.Check(tools, gc.DeepEquals, t.tools)
+		c.Check(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
+			Source:    "test",
+			Signed:    s.RequireSigned,
+			IndexURL:  "test:/streams/v1/index.json",
+			MirrorURL: "",
+		})
 	}
 }
 
@@ -263,7 +274,7 @@ func (s *simplestreamsSuite) TestFetchWithMirror(c *gc.C) {
 		Series:    []string{"precise"},
 		Arches:    []string{"amd64"},
 	})
-	toolsMetadata, err := tools.Fetch(
+	toolsMetadata, resolveInfo, err := tools.Fetch(
 		[]simplestreams.DataSource{s.Source}, simplestreams.DefaultIndexPath, toolsConstraint, s.RequireSigned)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(toolsMetadata), gc.Equals, 1)
@@ -280,6 +291,12 @@ func (s *simplestreamsSuite) TestFetchWithMirror(c *gc.C) {
 	}
 	c.Assert(err, gc.IsNil)
 	c.Assert(toolsMetadata[0], gc.DeepEquals, expectedMetadata)
+	c.Assert(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
+		Source:    "test",
+		Signed:    s.RequireSigned,
+		IndexURL:  "test:/streams/v1/index.json",
+		MirrorURL: "test:/",
+	})
 }
 
 func assertMetadataMatches(c *gc.C, storageDir string, toolList coretools.List, metadata []*tools.ToolsMetadata) {
@@ -311,11 +328,11 @@ func (s *simplestreamsSuite) TestWriteMetadataNoFetch(c *gc.C) {
 		},
 	}
 	dir := c.MkDir()
-	writer, err := filestorage.NewFileStorageWriter(dir, filestorage.UseDefaultTmpDir)
+	writer, err := filestorage.NewFileStorageWriter(dir)
 	c.Assert(err, gc.IsNil)
 	err = tools.MergeAndWriteMetadata(writer, toolsList, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
-	metadata := ttesting.ParseMetadata(c, dir, false)
+	metadata := ttesting.ParseMetadataFromDir(c, dir, false)
 	assertMetadataMatches(c, dir, toolsList, metadata)
 }
 
@@ -339,7 +356,7 @@ func (s *simplestreamsSuite) assertWriteMetadata(c *gc.C, withMirrors bool) {
 			URL: "bogus://",
 		},
 	}
-	writer, err := filestorage.NewFileStorageWriter(dir, filestorage.UseDefaultTmpDir)
+	writer, err := filestorage.NewFileStorageWriter(dir)
 	c.Assert(err, gc.IsNil)
 	writeMirrors := tools.DoNotWriteMirrors
 	if withMirrors {
@@ -347,7 +364,7 @@ func (s *simplestreamsSuite) assertWriteMetadata(c *gc.C, withMirrors bool) {
 	}
 	err = tools.MergeAndWriteMetadata(writer, toolsList, writeMirrors)
 	c.Assert(err, gc.IsNil)
-	metadata := ttesting.ParseMetadata(c, dir, withMirrors)
+	metadata := ttesting.ParseMetadataFromDir(c, dir, withMirrors)
 	assertMetadataMatches(c, dir, toolsList, metadata)
 }
 
@@ -372,7 +389,7 @@ func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *gc.C) {
 			SHA256:  "xyz",
 		},
 	}
-	writer, err := filestorage.NewFileStorageWriter(dir, filestorage.UseDefaultTmpDir)
+	writer, err := filestorage.NewFileStorageWriter(dir)
 	c.Assert(err, gc.IsNil)
 	err = tools.MergeAndWriteMetadata(writer, existingToolsList, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
@@ -387,7 +404,7 @@ func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *gc.C) {
 	err = tools.MergeAndWriteMetadata(writer, newToolsList, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
 	requiredToolsList := append(existingToolsList, newToolsList[1])
-	metadata := ttesting.ParseMetadata(c, dir, false)
+	metadata := ttesting.ParseMetadataFromDir(c, dir, false)
 	assertMetadataMatches(c, dir, requiredToolsList, metadata)
 }
 
@@ -396,7 +413,7 @@ type productSpecSuite struct{}
 var _ = gc.Suite(&productSpecSuite{})
 
 func (s *productSpecSuite) TestId(c *gc.C) {
-	toolsConstraint := tools.NewVersionedToolsConstraint("1.13.0", simplestreams.LookupParams{
+	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
 		Series: []string{"precise"},
 		Arches: []string{"amd64"},
 	})
@@ -406,7 +423,7 @@ func (s *productSpecSuite) TestId(c *gc.C) {
 }
 
 func (s *productSpecSuite) TestIdMultiArch(c *gc.C) {
-	toolsConstraint := tools.NewVersionedToolsConstraint("1.11.3", simplestreams.LookupParams{
+	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.11.3"), simplestreams.LookupParams{
 		Series: []string{"precise"},
 		Arches: []string{"amd64", "arm"},
 	})
@@ -418,7 +435,7 @@ func (s *productSpecSuite) TestIdMultiArch(c *gc.C) {
 }
 
 func (s *productSpecSuite) TestIdMultiSeries(c *gc.C) {
-	toolsConstraint := tools.NewVersionedToolsConstraint("1.11.3", simplestreams.LookupParams{
+	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.11.3"), simplestreams.LookupParams{
 		Series: []string{"precise", "raring"},
 		Arches: []string{"amd64"},
 	})
@@ -517,7 +534,9 @@ func (*metadataHelperSuite) TestMetadataFromTools(c *gc.C) {
 		c.Assert(md.Release, gc.Equals, t.Version.Series)
 		c.Assert(md.Version, gc.Equals, t.Version.Number.String())
 		c.Assert(md.Arch, gc.Equals, t.Version.Arch)
-		c.Assert(md.FullPath, gc.Equals, t.URL)
+		// FullPath is only filled out when reading tools using simplestreams.
+		// It's not needed elsewhere and requires a URL() call.
+		c.Assert(md.FullPath, gc.Equals, "")
 		c.Assert(md.Path, gc.Equals, tools.StorageName(t.Version)[len("tools/"):])
 		c.Assert(md.FileType, gc.Equals, "tar.gz")
 		c.Assert(md.Size, gc.Equals, t.Size)
@@ -687,7 +706,7 @@ func (*metadataHelperSuite) TestReadWriteMetadata(c *gc.C) {
 		Path:    "path2",
 	}}
 
-	stor, err := filestorage.NewFileStorageWriter(c.MkDir(), filestorage.UseDefaultTmpDir)
+	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
 	c.Assert(err, gc.IsNil)
 	out, err := tools.ReadMetadata(stor)
 	c.Assert(out, gc.HasLen, 0)
@@ -711,7 +730,7 @@ var testRoundTripper *jujutest.ProxyRoundTripper
 
 func init() {
 	testRoundTripper = &jujutest.ProxyRoundTripper{}
-	simplestreams.RegisterProtocol("signedtest", testRoundTripper)
+	testRoundTripper.RegisterForScheme("signedtest")
 }
 
 func (s *signedSuite) SetUpSuite(c *gc.C) {
@@ -750,17 +769,23 @@ func (s *signedSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *signedSuite) TestSignedToolsMetadata(c *gc.C) {
-	signedSource := simplestreams.NewURLDataSource("signedtest://host/signed", simplestreams.VerifySSLHostnames)
-	toolsConstraint := tools.NewVersionedToolsConstraint("1.13.0", simplestreams.LookupParams{
+	signedSource := simplestreams.NewURLDataSource("test", "signedtest://host/signed", utils.VerifySSLHostnames)
+	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
 		Series:    []string{"precise"},
 		Arches:    []string{"amd64"},
 	})
-	toolsMetadata, err := tools.Fetch(
+	toolsMetadata, resolveInfo, err := tools.Fetch(
 		[]simplestreams.DataSource{signedSource}, simplestreams.DefaultIndexPath, toolsConstraint, true)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(toolsMetadata), gc.Equals, 1)
 	c.Assert(toolsMetadata[0].Path, gc.Equals, "tools/releases/20130806/juju-1.13.1-precise-amd64.tgz")
+	c.Assert(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
+		Source:    "test",
+		Signed:    true,
+		IndexURL:  "signedtest://host/signed/streams/v1/index.sjson",
+		MirrorURL: "",
+	})
 }
 
 var unsignedIndex = `

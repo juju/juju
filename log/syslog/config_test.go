@@ -6,14 +6,16 @@ package syslog_test
 import (
 	"io/ioutil"
 	"path/filepath"
-	"testing"
+	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/log/syslog"
+	syslogtesting "launchpad.net/juju-core/log/syslog/testing"
 )
 
-func Test(t *testing.T) {
+func Test(t *stdtesting.T) {
 	gc.TestingT(t)
 }
 
@@ -40,34 +42,17 @@ func (s *SyslogConfigSuite) assertRsyslogConfigContents(c *gc.C, slConfig *syslo
 	c.Assert(string(data), gc.Equals, expectedConf)
 }
 
-var expectedAccumulateSyslogConf = `
-$ModLoad imfile
-
-$InputFilePersistStateInterval 50
-$InputFilePollInterval 5
-$InputFileName /var/log/juju/some-machine.log
-$InputFileTag juju-some-machine:
-$InputFileStateFile some-machine
-$InputRunFileMonitor
-
-$ModLoad imudp
-$UDPServerRun 8888
-
-# Messages received from remote rsyslog machines have messages prefixed with a space,
-# so add one in for local messages too if needed.
-$template JujuLogFormat,"%syslogtag:6:$%%msg:::sp-if-no-1st-sp%%msg:::drop-last-lf%\n"
-
-:syslogtag, startswith, "juju-" /var/log/juju/all-machines.log;JujuLogFormat
-& ~
-`
-
 func (s *SyslogConfigSuite) TestAccumulateConfigRender(c *gc.C) {
-	syslogConfigRenderer := syslog.NewAccumulateConfig("some-machine", 8888, "")
-	s.assertRsyslogConfigContents(c, syslogConfigRenderer, expectedAccumulateSyslogConf)
+	syslogConfigRenderer := syslog.NewAccumulateConfig("some-machine", agent.DefaultLogDir, 8888, "")
+	s.assertRsyslogConfigContents(
+		c,
+		syslogConfigRenderer,
+		syslogtesting.ExpectedAccumulateSyslogConf(c, "some-machine", "", 8888),
+	)
 }
 
 func (s *SyslogConfigSuite) TestAccumulateConfigWrite(c *gc.C) {
-	syslogConfigRenderer := syslog.NewAccumulateConfig("some-machine", 8888, "")
+	syslogConfigRenderer := syslog.NewAccumulateConfig("some-machine", agent.DefaultLogDir, 8888, "")
 	syslogConfigRenderer.ConfigDir = s.configDir
 	syslogConfigRenderer.ConfigFileName = "rsyslog.conf"
 	s.assertRsyslogConfigPath(c, syslogConfigRenderer)
@@ -75,58 +60,49 @@ func (s *SyslogConfigSuite) TestAccumulateConfigWrite(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	syslogConfData, err := ioutil.ReadFile(syslogConfigRenderer.ConfigFilePath())
 	c.Assert(err, gc.IsNil)
-	c.Assert(string(syslogConfData), gc.Equals, expectedAccumulateSyslogConf)
+	c.Assert(
+		string(syslogConfData),
+		gc.Equals,
+		syslogtesting.ExpectedAccumulateSyslogConf(c, "some-machine", "", 8888),
+	)
 }
-
-var expectedAccumulateNamespaceSyslogConf = `
-$ModLoad imfile
-
-$InputFilePersistStateInterval 50
-$InputFilePollInterval 5
-$InputFileName /var/log/juju/some-machine.log
-$InputFileTag juju-namespace-some-machine:
-$InputFileStateFile some-machine-namespace
-$InputRunFileMonitor
-
-$ModLoad imudp
-$UDPServerRun 8888
-
-# Messages received from remote rsyslog machines have messages prefixed with a space,
-# so add one in for local messages too if needed.
-$template JujuLogFormat-namespace,"%syslogtag:16:$%%msg:::sp-if-no-1st-sp%%msg:::drop-last-lf%\n"
-
-:syslogtag, startswith, "juju-namespace-" /var/log/juju/all-machines.log;JujuLogFormat-namespace
-& ~
-`
 
 func (s *SyslogConfigSuite) TestAccumulateConfigRenderWithNamespace(c *gc.C) {
-	syslogConfigRenderer := syslog.NewAccumulateConfig("some-machine", 8888, "namespace")
-	s.assertRsyslogConfigContents(c, syslogConfigRenderer, expectedAccumulateNamespaceSyslogConf)
+	syslogConfigRenderer := syslog.NewAccumulateConfig("some-machine", agent.DefaultLogDir, 8888, "namespace")
+	syslogConfigRenderer.LogDir += "-namespace"
+	s.assertRsyslogConfigContents(
+		c, syslogConfigRenderer, syslogtesting.ExpectedAccumulateSyslogConf(
+			c, "some-machine", "namespace", 8888,
+		),
+	)
 }
 
-var expectedForwardSyslogConf = `
-$ModLoad imfile
-
-$InputFilePersistStateInterval 50
-$InputFilePollInterval 5
-$InputFileName /var/log/juju/some-machine.log
-$InputFileTag juju-some-machine:
-$InputFileStateFile some-machine
-$InputRunFileMonitor
-
-$template LongTagForwardFormat,"<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %syslogtag%%msg:::sp-if-no-1st-sp%%msg%"
-
-:syslogtag, startswith, "juju-" @server:999;LongTagForwardFormat
-& ~
-`
-
 func (s *SyslogConfigSuite) TestForwardConfigRender(c *gc.C) {
-	syslogConfigRenderer := syslog.NewForwardConfig("some-machine", 999, "", []string{"server"})
-	s.assertRsyslogConfigContents(c, syslogConfigRenderer, expectedForwardSyslogConf)
+	syslogConfigRenderer := syslog.NewForwardConfig(
+		"some-machine", agent.DefaultLogDir, 999, "", []string{"server"},
+	)
+	s.assertRsyslogConfigContents(
+		c, syslogConfigRenderer, syslogtesting.ExpectedForwardSyslogConf(
+			c, "some-machine", agent.DefaultLogDir, "", "server", 999,
+		),
+	)
+}
+
+func (s *SyslogConfigSuite) TestForwardConfigRenderWithNamespace(c *gc.C) {
+	syslogConfigRenderer := syslog.NewForwardConfig(
+		"some-machine", agent.DefaultLogDir, 999, "namespace", []string{"server"},
+	)
+	s.assertRsyslogConfigContents(
+		c, syslogConfigRenderer, syslogtesting.ExpectedForwardSyslogConf(
+			c, "some-machine", agent.DefaultLogDir, "namespace", "server", 999,
+		),
+	)
 }
 
 func (s *SyslogConfigSuite) TestForwardConfigWrite(c *gc.C) {
-	syslogConfigRenderer := syslog.NewForwardConfig("some-machine", 999, "", []string{"server"})
+	syslogConfigRenderer := syslog.NewForwardConfig(
+		"some-machine", agent.DefaultLogDir, 999, "", []string{"server"},
+	)
 	syslogConfigRenderer.ConfigDir = s.configDir
 	syslogConfigRenderer.ConfigFileName = "rsyslog.conf"
 	s.assertRsyslogConfigPath(c, syslogConfigRenderer)
@@ -134,5 +110,11 @@ func (s *SyslogConfigSuite) TestForwardConfigWrite(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	syslogConfData, err := ioutil.ReadFile(syslogConfigRenderer.ConfigFilePath())
 	c.Assert(err, gc.IsNil)
-	c.Assert(string(syslogConfData), gc.Equals, expectedForwardSyslogConf)
+	c.Assert(
+		string(syslogConfData),
+		gc.Equals,
+		syslogtesting.ExpectedForwardSyslogConf(
+			c, "some-machine", agent.DefaultLogDir, "", "server", 999,
+		),
+	)
 }

@@ -4,18 +4,18 @@
 package keymanager_test
 
 import (
+	"fmt"
 	"strings"
 
 	gc "launchpad.net/gocheck"
 
-	"fmt"
 	jujutesting "launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/apiserver/keymanager"
 	keymanagertesting "launchpad.net/juju-core/state/apiserver/keymanager/testing"
 	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
-	statetesting "launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/utils/ssh"
 	sshtesting "launchpad.net/juju-core/utils/ssh/testing"
 )
@@ -51,6 +51,14 @@ func (s *keyManagerSuite) TestNewKeyManagerAPIAcceptsClient(c *gc.C) {
 	c.Assert(endPoint, gc.NotNil)
 }
 
+func (s *keyManagerSuite) TestNewKeyManagerAPIAcceptsEnvironManager(c *gc.C) {
+	anAuthoriser := s.authoriser
+	anAuthoriser.EnvironManager = true
+	endPoint, err := keymanager.NewKeyManagerAPI(s.State, s.resources, anAuthoriser)
+	c.Assert(err, gc.IsNil)
+	c.Assert(endPoint, gc.NotNil)
+}
+
 func (s *keyManagerSuite) TestNewKeyManagerAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Client = false
@@ -59,8 +67,17 @@ func (s *keyManagerSuite) TestNewKeyManagerAPIRefusesNonClient(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
+func (s *keyManagerSuite) TestNewKeyManagerAPIRefusesNonEnvironManager(c *gc.C) {
+	anAuthoriser := s.authoriser
+	anAuthoriser.Client = false
+	anAuthoriser.MachineAgent = true
+	endPoint, err := keymanager.NewKeyManagerAPI(s.State, s.resources, anAuthoriser)
+	c.Assert(endPoint, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
 func (s *keyManagerSuite) setAuthorisedKeys(c *gc.C, keys string) {
-	err := statetesting.UpdateConfig(s.State, map[string]interface{}{"authorized-keys": keys})
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{"authorized-keys": keys}, nil, nil)
 	c.Assert(err, gc.IsNil)
 	envConfig, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
@@ -74,7 +91,7 @@ func (s *keyManagerSuite) TestListKeys(c *gc.C) {
 
 	args := params.ListSSHKeys{
 		Entities: params.Entities{[]params.Entity{
-			{Tag: "admin"},
+			{Tag: state.AdminUser},
 			{Tag: "invalid"},
 		}},
 		Mode: ssh.FullKeys,
@@ -104,7 +121,7 @@ func (s *keyManagerSuite) TestAddKeys(c *gc.C) {
 
 	newKey := sshtesting.ValidKeyThree.Key + " newuser@host"
 	args := params.ModifyUserSSHKeys{
-		User: "admin",
+		User: state.AdminUser,
 		Keys: []string{key2, newKey, "invalid-key"},
 	}
 	results, err := s.keymanager.AddKeys(args)
@@ -119,6 +136,55 @@ func (s *keyManagerSuite) TestAddKeys(c *gc.C) {
 	s.assertEnvironKeys(c, append(initialKeys, newKey))
 }
 
+func (s *keyManagerSuite) TestAddJujuSystemKey(c *gc.C) {
+	anAuthoriser := s.authoriser
+	anAuthoriser.Client = false
+	anAuthoriser.EnvironManager = true
+	anAuthoriser.Tag = "machine-0"
+	var err error
+	s.keymanager, err = keymanager.NewKeyManagerAPI(s.State, s.resources, anAuthoriser)
+	c.Assert(err, gc.IsNil)
+	key1 := sshtesting.ValidKeyOne.Key + " user@host"
+	key2 := sshtesting.ValidKeyTwo.Key
+	initialKeys := []string{key1, key2}
+	s.setAuthorisedKeys(c, strings.Join(initialKeys, "\n"))
+
+	newKey := sshtesting.ValidKeyThree.Key + " juju-system-key"
+	args := params.ModifyUserSSHKeys{
+		User: "juju-system-key",
+		Keys: []string{newKey},
+	}
+	results, err := s.keymanager.AddKeys(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+		},
+	})
+	s.assertEnvironKeys(c, append(initialKeys, newKey))
+}
+
+func (s *keyManagerSuite) TestAddJujuSystemKeyNotMachine(c *gc.C) {
+	anAuthoriser := s.authoriser
+	anAuthoriser.Client = false
+	anAuthoriser.EnvironManager = true
+	anAuthoriser.Tag = "unit-wordpress-0"
+	var err error
+	s.keymanager, err = keymanager.NewKeyManagerAPI(s.State, s.resources, anAuthoriser)
+	c.Assert(err, gc.IsNil)
+	key1 := sshtesting.ValidKeyOne.Key
+	s.setAuthorisedKeys(c, key1)
+
+	newKey := sshtesting.ValidKeyThree.Key + " juju-system-key"
+	args := params.ModifyUserSSHKeys{
+		User: "juju-system-key",
+		Keys: []string{newKey},
+	}
+	_, err = s.keymanager.AddKeys(args)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	s.assertEnvironKeys(c, []string{key1})
+}
+
 func (s *keyManagerSuite) TestDeleteKeys(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	key2 := sshtesting.ValidKeyTwo.Key
@@ -126,7 +192,7 @@ func (s *keyManagerSuite) TestDeleteKeys(c *gc.C) {
 	s.setAuthorisedKeys(c, strings.Join(initialKeys, "\n"))
 
 	args := params.ModifyUserSSHKeys{
-		User: "admin",
+		User: state.AdminUser,
 		Keys: []string{sshtesting.ValidKeyTwo.Fingerprint, sshtesting.ValidKeyThree.Fingerprint, "invalid-key"},
 	}
 	results, err := s.keymanager.DeleteKeys(args)
@@ -148,7 +214,7 @@ func (s *keyManagerSuite) TestCannotDeleteAllKeys(c *gc.C) {
 	s.setAuthorisedKeys(c, strings.Join(initialKeys, "\n"))
 
 	args := params.ModifyUserSSHKeys{
-		User: "admin",
+		User: state.AdminUser,
 		Keys: []string{sshtesting.ValidKeyTwo.Fingerprint, "user@host"},
 	}
 	_, err := s.keymanager.DeleteKeys(args)
@@ -198,7 +264,7 @@ func (s *keyManagerSuite) TestImportKeys(c *gc.C) {
 	s.setAuthorisedKeys(c, strings.Join(initialKeys, "\n"))
 
 	args := params.ModifyUserSSHKeys{
-		User: "admin",
+		User: state.AdminUser,
 		Keys: []string{"lp:existing", "lp:validuser", "invalid-key"},
 	}
 	results, err := s.keymanager.ImportKeys(args)

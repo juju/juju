@@ -6,7 +6,7 @@ package uniter
 import (
 	"sort"
 
-	"launchpad.net/loggo"
+	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/charm"

@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/utils"
 )
 
 type imageSuite struct {
@@ -119,6 +120,31 @@ var jsonImagesContent = `
          "label": "release"
        }
      }
+   },
+   "com.ubuntu.cloud.daily:server:12.04:amd64": {
+     "release": "precise",
+     "version": "12.04",
+     "arch": "amd64",
+     "versions": {
+       "20121218": {
+         "items": {
+           "apne1pe": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "ap-northeast-1",
+             "id": "ami-10000026"
+           },
+           "test1pe": {
+             "root_store": "ebs",
+             "virt": "hvm",
+             "region": "test",
+             "id": "ami-10000035"
+           }
+         },
+         "pubname": "ubuntu-precise-12.04-amd64-daily-20121218",
+         "label": "release"
+       }
+     }
    }
  },
  "format": "products:1.0"
@@ -129,6 +155,7 @@ type instanceSpecTestParams struct {
 	desc             string
 	region           string
 	arches           []string
+	stream           string
 	constraints      string
 	instanceTypes    []InstanceType
 	imageId          string
@@ -155,7 +182,25 @@ var findInstanceSpecTests = []instanceSpecTestParams{
 		region:  "test",
 		imageId: "ami-00000033",
 		instanceTypes: []InstanceType{
-			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, VType: &pv, Mem: 512},
+			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, VirtType: &pv, Mem: 512},
+		},
+	},
+	{
+		desc:    "explicit release stream",
+		region:  "test",
+		stream:  "released",
+		imageId: "ami-00000035",
+		instanceTypes: []InstanceType{
+			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, VirtType: &hvm, Mem: 512, CpuCores: 2},
+		},
+	},
+	{
+		desc:    "non-release stream",
+		region:  "test",
+		stream:  "daily",
+		imageId: "ami-10000035",
+		instanceTypes: []InstanceType{
+			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, VirtType: &hvm, Mem: 512, CpuCores: 2},
 		},
 	},
 	{
@@ -163,7 +208,7 @@ var findInstanceSpecTests = []instanceSpecTestParams{
 		region:  "test",
 		imageId: "ami-00000035",
 		instanceTypes: []InstanceType{
-			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, VType: &hvm, Mem: 512, CpuCores: 2},
+			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, VirtType: &hvm, Mem: 512, CpuCores: 2},
 		},
 	},
 	{
@@ -193,17 +238,19 @@ func (s *imageSuite) TestFindInstanceSpec(c *gc.C) {
 			CloudSpec: simplestreams.CloudSpec{t.region, "ep"},
 			Series:    []string{"precise"},
 			Arches:    t.arches,
+			Stream:    t.stream,
 		})
 		imageMeta, err := imagemetadata.GetLatestImageIdMetadata(
-			[]byte(jsonImagesContent), simplestreams.NewURLDataSource("some-url", simplestreams.VerifySSLHostnames), cons)
+			[]byte(jsonImagesContent),
+			simplestreams.NewURLDataSource("test", "some-url", utils.VerifySSLHostnames), cons)
 		c.Assert(err, gc.IsNil)
 		var images []Image
 		for _, imageMetadata := range imageMeta {
 			im := *imageMetadata
 			images = append(images, Image{
-				Id:    im.Id,
-				VType: im.VType,
-				Arch:  im.Arch,
+				Id:       im.Id,
+				VirtType: im.VirtType,
+				Arch:     im.Arch,
 			})
 		}
 		spec, err := FindInstanceSpec(images, &InstanceConstraint{
@@ -215,13 +262,14 @@ func (s *imageSuite) TestFindInstanceSpec(c *gc.C) {
 		if t.err != "" {
 			c.Check(err, gc.ErrorMatches, t.err)
 			continue
-		}
-		if !c.Check(err, gc.IsNil) {
-			continue
-		}
-		c.Check(spec.Image.Id, gc.Equals, t.imageId)
-		if len(t.instanceTypes) == 1 {
-			c.Check(spec.InstanceType, gc.DeepEquals, t.instanceTypes[0])
+		} else {
+			if !c.Check(err, gc.IsNil) {
+				continue
+			}
+			c.Check(spec.Image.Id, gc.Equals, t.imageId)
+			if len(t.instanceTypes) == 1 {
+				c.Check(spec.InstanceType, gc.DeepEquals, t.instanceTypes[0])
+			}
 		}
 	}
 }
@@ -240,19 +288,19 @@ var imageMatchtests = []struct {
 		itype: InstanceType{Arches: []string{"amd64", "arm"}},
 		match: true,
 	}, {
-		image: Image{Arch: "amd64", VType: hvm},
-		itype: InstanceType{Arches: []string{"amd64"}, VType: &hvm},
+		image: Image{Arch: "amd64", VirtType: hvm},
+		itype: InstanceType{Arches: []string{"amd64"}, VirtType: &hvm},
 		match: true,
 	}, {
 		image: Image{Arch: "arm"},
 		itype: InstanceType{Arches: []string{"amd64"}},
 	}, {
-		image: Image{Arch: "amd64", VType: hvm},
+		image: Image{Arch: "amd64", VirtType: hvm},
 		itype: InstanceType{Arches: []string{"amd64"}},
 		match: true,
 	}, {
-		image: Image{Arch: "amd64", VType: "pv"},
-		itype: InstanceType{Arches: []string{"amd64"}, VType: &hvm},
+		image: Image{Arch: "amd64", VirtType: "pv"},
+		itype: InstanceType{Arches: []string{"amd64"}, VirtType: &hvm},
 	},
 }
 
@@ -272,7 +320,7 @@ func (*imageSuite) TestImageMetadataToImagesConvertsSelectMetadata(c *gc.C) {
 		{
 			Id:          "id",
 			Storage:     "storage-is-ignored",
-			VType:       "vtype",
+			VirtType:    "vtype",
 			Arch:        "arch",
 			RegionAlias: "region-alias-is-ignored",
 			RegionName:  "region-name-is-ignored",
@@ -281,9 +329,9 @@ func (*imageSuite) TestImageMetadataToImagesConvertsSelectMetadata(c *gc.C) {
 	}
 	expectation := []Image{
 		{
-			Id:    "id",
-			VType: "vtype",
-			Arch:  "arch",
+			Id:       "id",
+			VirtType: "vtype",
+			Arch:     "arch",
 		},
 	}
 	c.Check(ImageMetadataToImages(input), gc.DeepEquals, expectation)

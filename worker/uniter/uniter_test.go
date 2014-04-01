@@ -5,10 +5,7 @@ package uniter_test
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/rpc"
 	"net/url"
@@ -20,19 +17,20 @@ import (
 	stdtesting "testing"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	apiuniter "launchpad.net/juju-core/state/api/uniter"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 	utilexec "launchpad.net/juju-core/utils/exec"
 	"launchpad.net/juju-core/utils/fslock"
@@ -754,7 +752,7 @@ var upgradeConflictsTests = []uniterTest{
 			status: params.StatusStarted,
 		},
 		waitHooks{"install", "config-changed", "start"},
-		verifyCharm{},
+		verifyCharm{dirty: true},
 
 		createCharm{
 			revision: 1,
@@ -850,7 +848,9 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 		return filepath.Join(testDir, name)
 	}
 	echoUnitNameToFile := func(name string) string {
-		return fmt.Sprintf("echo juju run ${JUJU_UNIT_NAME} > %s", filepath.Join(testDir, name))
+		path := filepath.Join(testDir, name)
+		template := "echo juju run ${JUJU_UNIT_NAME} > %s.tmp; mv %s.tmp %s"
+		return fmt.Sprintf(template, path, path, path)
 	}
 	tests := []uniterTest{
 		ut(
@@ -869,6 +869,24 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 			verifyFile{
 				testFile("jujuc.output"),
 				"user-admin\nprivate.dummy.address.example.com\npublic.dummy.address.example.com\n",
+			},
+		), ut(
+			"run commands: proxy settings set",
+			quickStartRelation{},
+			setProxySettings{Http: "http", Https: "https", Ftp: "ftp", NoProxy: "localhost"},
+			runCommands{
+				fmt.Sprintf("echo $http_proxy > %s", testFile("proxy.output")),
+				fmt.Sprintf("echo $HTTP_PROXY >> %s", testFile("proxy.output")),
+				fmt.Sprintf("echo $https_proxy >> %s", testFile("proxy.output")),
+				fmt.Sprintf("echo $HTTPS_PROXY >> %s", testFile("proxy.output")),
+				fmt.Sprintf("echo $ftp_proxy >> %s", testFile("proxy.output")),
+				fmt.Sprintf("echo $FTP_PROXY >> %s", testFile("proxy.output")),
+				fmt.Sprintf("echo $no_proxy >> %s", testFile("proxy.output")),
+				fmt.Sprintf("echo $NO_PROXY >> %s", testFile("proxy.output")),
+			},
+			verifyFile{
+				testFile("proxy.output"),
+				"http\nhttp\nhttps\nhttps\nftp\nftp\nlocalhost\nlocalhost\n",
 			},
 		), ut(
 			"run commands: async using rpc client",
@@ -1133,7 +1151,7 @@ func (s ensureStateWorker) step(c *gc.C, ctx *context) {
 	if err != nil || len(addresses) == 0 {
 		testing.AddStateServerMachine(c, ctx.st)
 	}
-	addresses, err = ctx.st.APIAddresses()
+	addresses, err = ctx.st.APIAddressesFromMachines()
 	c.Assert(err, gc.IsNil)
 	c.Assert(addresses, gc.HasLen, 1)
 }
@@ -1182,10 +1200,8 @@ func (s addCharm) step(c *gc.C, ctx *context) {
 	err := s.dir.BundleTo(&buf)
 	c.Assert(err, gc.IsNil)
 	body := buf.Bytes()
-	hasher := sha256.New()
-	_, err = io.Copy(hasher, &buf)
+	hash, _, err := utils.ReadSHA256(&buf)
 	c.Assert(err, gc.IsNil)
-	hash := hex.EncodeToString(hasher.Sum(nil))
 	key := fmt.Sprintf("/charms/%s/%d", s.dir.Meta().Name, s.dir.Revision())
 	hurl, err := url.Parse(coretesting.Server.URL + key)
 	c.Assert(err, gc.IsNil)
@@ -1609,7 +1625,7 @@ func (s startUpgradeError) step(c *gc.C, ctx *context) {
 			status: params.StatusStarted,
 		},
 		waitHooks{"install", "config-changed", "start"},
-		verifyCharm{},
+		verifyCharm{dirty: true},
 
 		createCharm{
 			revision: 1,
@@ -1939,6 +1955,36 @@ var verifyHookSyncLockLocked = custom{func(c *gc.C, ctx *context) {
 	lock := createHookLock(c, ctx.dataDir)
 	c.Assert(lock.IsLocked(), jc.IsTrue)
 }}
+
+type setProxySettings osenv.ProxySettings
+
+func (s setProxySettings) step(c *gc.C, ctx *context) {
+	attrs := map[string]interface{}{
+		"http-proxy":  s.Http,
+		"https-proxy": s.Https,
+		"ftp-proxy":   s.Ftp,
+		"no-proxy":    s.NoProxy,
+	}
+	err := ctx.st.UpdateEnvironConfig(attrs, nil, nil)
+	c.Assert(err, gc.IsNil)
+	// wait for the new values...
+	expected := (osenv.ProxySettings)(s)
+	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
+		if ctx.uniter.GetProxyValues() == expected {
+			// Also confirm that the values were specified for the environment.
+			c.Assert(os.Getenv("http_proxy"), gc.Equals, expected.Http)
+			c.Assert(os.Getenv("HTTP_PROXY"), gc.Equals, expected.Http)
+			c.Assert(os.Getenv("https_proxy"), gc.Equals, expected.Https)
+			c.Assert(os.Getenv("HTTPS_PROXY"), gc.Equals, expected.Https)
+			c.Assert(os.Getenv("ftp_proxy"), gc.Equals, expected.Ftp)
+			c.Assert(os.Getenv("FTP_PROXY"), gc.Equals, expected.Ftp)
+			c.Assert(os.Getenv("no_proxy"), gc.Equals, expected.NoProxy)
+			c.Assert(os.Getenv("NO_PROXY"), gc.Equals, expected.NoProxy)
+			return
+		}
+	}
+	c.Fatal("settings didn't get noticed by the uniter")
+}
 
 type runCommands []string
 

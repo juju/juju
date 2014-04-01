@@ -13,6 +13,7 @@ import (
 	"hash"
 	"io"
 	"path"
+	"sort"
 	"strings"
 	"time"
 
@@ -102,9 +103,8 @@ type ToolsConstraint struct {
 }
 
 // NewVersionedToolsConstraint returns a ToolsConstraint for a tools with a specific version.
-func NewVersionedToolsConstraint(vers string, params simplestreams.LookupParams) *ToolsConstraint {
-	versNum := version.MustParse(vers)
-	return &ToolsConstraint{LookupParams: params, Version: versNum}
+func NewVersionedToolsConstraint(vers version.Number, params simplestreams.LookupParams) *ToolsConstraint {
+	return &ToolsConstraint{LookupParams: params, Version: vers}
 }
 
 // NewGeneralToolsConstraint returns a ToolsConstraint for tools with matching major/minor version numbers.
@@ -168,7 +168,10 @@ func (t *ToolsMetadata) productId() (string, error) {
 // The base URL locations are as specified - the first location which has a file is the one used.
 // Signed data is preferred, but if there is no signed data available and onlySigned is false,
 // then unsigned data is used.
-func Fetch(sources []simplestreams.DataSource, indexPath string, cons *ToolsConstraint, onlySigned bool) ([]*ToolsMetadata, error) {
+func Fetch(
+	sources []simplestreams.DataSource, indexPath string, cons *ToolsConstraint,
+	onlySigned bool) ([]*ToolsMetadata, *simplestreams.ResolveInfo, error) {
+
 	params := simplestreams.ValueParams{
 		DataType:        ContentDownload,
 		FilterFunc:      appendMatchingTools,
@@ -176,16 +179,31 @@ func Fetch(sources []simplestreams.DataSource, indexPath string, cons *ToolsCons
 		ValueTemplate:   ToolsMetadata{},
 		PublicKey:       simplestreamsToolsPublicKey,
 	}
-	items, err := simplestreams.GetMetadata(sources, indexPath, cons, onlySigned, params)
+	items, resolveInfo, err := simplestreams.GetMetadata(sources, indexPath, cons, onlySigned, params)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	metadata := make([]*ToolsMetadata, len(items))
 	for i, md := range items {
 		metadata[i] = md.(*ToolsMetadata)
 	}
-	return metadata, nil
+	// Sorting the metadata is not strictly necessary, but it ensures consistent ordering for
+	// all compilers, and it just makes it easier to look at the data.
+	Sort(metadata)
+	return metadata, resolveInfo, nil
 }
+
+// Sort sorts a slice of ToolsMetadata in ascending order of their version
+// in order to ensure the results of Fetch are ordered deterministically.
+func Sort(metadata []*ToolsMetadata) {
+	sort.Sort(byVersion(metadata))
+}
+
+type byVersion []*ToolsMetadata
+
+func (b byVersion) Len() int           { return len(b) }
+func (b byVersion) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
+func (b byVersion) Less(i, j int) bool { return b[i].binary().String() < b[j].binary().String() }
 
 // appendMatchingTools updates matchingTools with tools metadata records from tools which belong to the
 // specified series. If a tools record already exists in matchingTools, it is not overwritten.
@@ -244,7 +262,6 @@ func MetadataFromTools(toolsList coretools.List) []*ToolsMetadata {
 			Release:  t.Version.Series,
 			Version:  t.Version.Number.String(),
 			Arch:     t.Version.Arch,
-			FullPath: t.URL,
 			Path:     path,
 			FileType: "tar.gz",
 			Size:     t.Size,
@@ -307,17 +324,19 @@ func MergeMetadata(tmlist1, tmlist2 []*ToolsMetadata) ([]*ToolsMetadata, error) 
 	for _, metadata := range merged {
 		list = append(list, metadata)
 	}
+	Sort(list)
 	return list, nil
 }
 
 // ReadMetadata returns the tools metadata from the given storage.
 func ReadMetadata(store storage.StorageReader) ([]*ToolsMetadata, error) {
-	dataSource := storage.NewStorageSimpleStreamsDataSource(store, storage.BaseToolsPath)
+	dataSource := storage.NewStorageSimpleStreamsDataSource("existing metadata", store, storage.BaseToolsPath)
 	toolsConstraint, err := makeToolsConstraint(simplestreams.CloudSpec{}, -1, -1, coretools.Filter{})
 	if err != nil {
 		return nil, err
 	}
-	metadata, err := Fetch([]simplestreams.DataSource{dataSource}, simplestreams.DefaultIndexPath, toolsConstraint, false)
+	metadata, _, err := Fetch(
+		[]simplestreams.DataSource{dataSource}, simplestreams.DefaultIndexPath, toolsConstraint, false)
 	if err != nil && !errors.IsNotFoundError(err) {
 		return nil, err
 	}

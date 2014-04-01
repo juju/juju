@@ -9,8 +9,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/juju/osenv"
 )
@@ -26,6 +26,7 @@ type WriterFactory interface {
 type Log struct {
 	Path    string
 	Verbose bool
+	Quiet   bool
 	Debug   bool
 	ShowLog bool
 	Config  string
@@ -43,45 +44,51 @@ func (l *Log) GetLogWriter(target io.Writer) loggo.Writer {
 // AddFlags adds appropriate flags to f.
 func (l *Log) AddFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&l.Path, "log-file", "", "path to write log to")
-	// TODO(thumper): rename verbose to --show-log
-	f.BoolVar(&l.Verbose, "v", false, "if set, log additional messages")
-	f.BoolVar(&l.Verbose, "verbose", false, "if set, log additional messages")
-	f.BoolVar(&l.Debug, "debug", false, "if set, log debugging messages")
+	f.BoolVar(&l.Verbose, "v", false, "show more verbose output")
+	f.BoolVar(&l.Verbose, "verbose", false, "show more verbose output")
+	f.BoolVar(&l.Quiet, "q", false, "show no informational output")
+	f.BoolVar(&l.Quiet, "quiet", false, "show no informational output")
+	f.BoolVar(&l.Debug, "debug", false, "equivalent to --show-log --log-config=<root>=DEBUG")
 	defaultLogConfig := os.Getenv(osenv.JujuLoggingConfigEnvKey)
 	f.StringVar(&l.Config, "logging-config", defaultLogConfig, "specify log levels for modules")
 	f.BoolVar(&l.ShowLog, "show-log", false, "if set, write the log file to stderr")
 }
 
 // Start starts logging using the given Context.
-func (l *Log) Start(ctx *Context) error {
-	if l.Path != "" {
-		path := ctx.AbsPath(l.Path)
+func (log *Log) Start(ctx *Context) error {
+	if log.Verbose && log.Quiet {
+		return fmt.Errorf(`"verbose" and "quiet" flags clash, please use one or the other, not both`)
+	}
+	ctx.quiet = log.Quiet
+	ctx.verbose = log.Verbose
+	if log.Path != "" {
+		path := ctx.AbsPath(log.Path)
 		target, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 		if err != nil {
 			return err
 		}
-		writer := l.GetLogWriter(target)
+		writer := log.GetLogWriter(target)
 		err = loggo.RegisterWriter("logfile", writer, loggo.TRACE)
 		if err != nil {
 			return err
 		}
 	}
 	level := loggo.WARNING
-	if l.Verbose {
-		ctx.Stdout.Write([]byte("verbose is deprecated with the current meaning, use show-log\n"))
-		l.ShowLog = true
-	}
-	if l.ShowLog {
+	if log.ShowLog {
 		level = loggo.INFO
 	}
-	if l.Debug {
-		l.ShowLog = true
+	if log.Debug {
+		log.ShowLog = true
 		level = loggo.DEBUG
+		// override quiet or verbose if set, this way all the information goes
+		// to the log file.
+		ctx.quiet = true
+		ctx.verbose = false
 	}
 
-	if l.ShowLog {
+	if log.ShowLog {
 		// We replace the default writer to use ctx.Stderr rather than os.Stderr.
-		writer := l.GetLogWriter(ctx.Stderr)
+		writer := log.GetLogWriter(ctx.Stderr)
 		_, err := loggo.ReplaceDefaultWriter(writer)
 		if err != nil {
 			return err
@@ -99,7 +106,7 @@ func (l *Log) Start(ctx *Context) error {
 	// Set the level on the root logger.
 	loggo.GetLogger("").SetLogLevel(level)
 	// Override the logging config with specified logging config.
-	loggo.ConfigureLoggers(l.Config)
+	loggo.ConfigureLoggers(log.Config)
 	return nil
 }
 

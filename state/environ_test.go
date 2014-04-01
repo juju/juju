@@ -28,6 +28,10 @@ func (s *EnvironSuite) TestTag(c *gc.C) {
 	c.Assert(s.env.Tag(), gc.Equals, expected)
 }
 
+func (s *EnvironSuite) TestName(c *gc.C) {
+	c.Assert(s.env.Name(), gc.Equals, "testenv")
+}
+
 func (s *EnvironSuite) TestUUID(c *gc.C) {
 	uuidA := s.env.UUID()
 	c.Assert(uuidA, gc.HasLen, 36)
@@ -36,7 +40,7 @@ func (s *EnvironSuite) TestUUID(c *gc.C) {
 	s.State.Close()
 	s.MgoSuite.TearDownTest(c)
 	s.MgoSuite.SetUpTest(c)
-	s.State = state.TestingInitialize(c, nil)
+	s.State = state.TestingInitialize(c, nil, state.Policy(nil))
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
 	uuidB := env.UUID()

@@ -8,128 +8,97 @@
 package agent
 
 import (
-	"os"
-	"path"
+	"io/ioutil"
+	"path/filepath"
+
+	jc "github.com/juju/testing/checkers"
 
 	gc "launchpad.net/gocheck"
-
-	"launchpad.net/juju-core/juju/osenv"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 )
 
 type format_1_16Suite struct {
 	testbase.LoggingSuite
-	formatter formatter_1_16
 }
 
 var _ = gc.Suite(&format_1_16Suite{})
 
-func (s *format_1_16Suite) TestWriteAgentConfig(c *gc.C) {
-	config := newTestConfig(c)
-	err := s.formatter.write(config)
+func (s *format_1_16Suite) TestMissingAttributes(c *gc.C) {
+	dataDir := c.MkDir()
+	formatPath := filepath.Join(dataDir, legacyFormatFilename)
+	err := utils.AtomicWriteFile(formatPath, []byte(legacyFormatFileContents), 0600)
 	c.Assert(err, gc.IsNil)
-
-	expectedLocation := path.Join(config.Dir(), "agent.conf")
-	fileInfo, err := os.Stat(expectedLocation)
+	configPath := filepath.Join(dataDir, agentConfigFilename)
+	err = utils.AtomicWriteFile(configPath, []byte(configDataWithoutNewAttributes), 0600)
 	c.Assert(err, gc.IsNil)
-	c.Assert(fileInfo.Mode().IsRegular(), jc.IsTrue)
-	c.Assert(fileInfo.Mode().Perm(), gc.Equals, os.FileMode(0600))
-	c.Assert(fileInfo.Size(), jc.GreaterThan, 0)
-
-	formatLocation := path.Join(config.Dir(), formatFilename)
-	fileInfo, err = os.Stat(formatLocation)
+	readConfig, err := ReadConf(configPath)
 	c.Assert(err, gc.IsNil)
-	c.Assert(fileInfo.Mode().IsRegular(), jc.IsTrue)
-	c.Assert(fileInfo.Mode().Perm(), gc.Equals, os.FileMode(0644))
-	c.Assert(fileInfo.Size(), jc.GreaterThan, 0)
-
-	formatContent, err := readFormat(config.Dir())
-	c.Assert(formatContent, gc.Equals, format_1_16)
+	c.Assert(readConfig.UpgradedToVersion(), gc.Equals, version.MustParse("1.16.0"))
+	c.Assert(readConfig.LogDir(), gc.Equals, "/var/log/juju")
+	c.Assert(readConfig.DataDir(), gc.Equals, "/var/lib/juju")
 }
 
-func (s *format_1_16Suite) assertWriteAndRead(c *gc.C, config *configInternal) {
-	err := s.formatter.write(config)
+func (*format_1_16Suite) TestReadConfReadsLegacyFormatAndWritesNew(c *gc.C) {
+	dataDir := c.MkDir()
+	formatPath := filepath.Join(dataDir, legacyFormatFilename)
+	err := utils.AtomicWriteFile(formatPath, []byte(legacyFormatFileContents), 0600)
 	c.Assert(err, gc.IsNil)
-	// The readConfig is missing the dataDir initially.
-	readConfig, err := s.formatter.read(config.Dir())
+	configPath := filepath.Join(dataDir, agentConfigFilename)
+	err = utils.AtomicWriteFile(configPath, []byte(agentConfig1_16Contents), 0600)
 	c.Assert(err, gc.IsNil)
-	c.Assert(readConfig.dataDir, gc.Equals, "")
-	// This is put in by the ReadConf method that we are avoiding using
-	// becuase it will have side-effects soon around migrating configs.
-	readConfig.dataDir = config.dataDir
-	c.Assert(readConfig, gc.DeepEquals, config)
-}
 
-func (s *format_1_16Suite) TestRead(c *gc.C) {
-	config := newTestConfig(c)
-	s.assertWriteAndRead(c, config)
-}
-
-func (s *format_1_16Suite) TestWriteCommands(c *gc.C) {
-	config := newTestConfig(c)
-	commands, err := s.formatter.writeCommands(config)
+	config, err := ReadConf(configPath)
 	c.Assert(err, gc.IsNil)
-	c.Assert(commands, gc.HasLen, 5)
-	c.Assert(commands[0], gc.Matches, `mkdir -p '\S+/agents/omg'`)
-	c.Assert(commands[1], gc.Matches, `install -m 644 /dev/null '\S+/agents/omg/format'`)
-	c.Assert(commands[2], gc.Matches, `printf '%s\\n' '.*' > '\S+/agents/omg/format'`)
-	c.Assert(commands[3], gc.Matches, `install -m 600 /dev/null '\S+/agents/omg/agent.conf'`)
-	c.Assert(commands[4], gc.Matches, `printf '%s\\n' '(.|\n)*' > '\S+/agents/omg/agent.conf'`)
-}
-
-func (s *format_1_16Suite) TestReadWriteStateConfig(c *gc.C) {
-	stateParams := StateMachineConfigParams{
-		AgentConfigParams: agentParams,
-		StateServerCert:   []byte("some special cert"),
-		StateServerKey:    []byte("a special key"),
-		StatePort:         12345,
-		APIPort:           23456,
-	}
-	stateParams.DataDir = c.MkDir()
-	stateParams.Values = map[string]string{"foo": "bar", "wibble": "wobble"}
-	configInterface, err := NewStateMachineConfig(stateParams)
+	c.Assert(config, gc.NotNil)
+	// Test we wrote a currently valid config.
+	config, err = ReadConf(configPath)
 	c.Assert(err, gc.IsNil)
-	config, ok := configInterface.(*configInternal)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(config, gc.NotNil)
+	c.Assert(config.UpgradedToVersion(), jc.DeepEquals, version.MustParse("1.16.0"))
+	c.Assert(config.Jobs(), gc.HasLen, 0)
 
-	s.assertWriteAndRead(c, config)
+	// Old format was deleted.
+	assertFileNotExist(c, formatPath)
+	// And new contents were written.
+	data, err := ioutil.ReadFile(configPath)
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(data), gc.Not(gc.Equals), agentConfig1_16Contents)
 }
 
-func (s *format_1_16Suite) TestMigrate(c *gc.C) {
-	s.PatchEnvironment(JujuLxcBridge, "lxc bridge")
-	s.PatchEnvironment(JujuProviderType, "provider type")
-	s.PatchEnvironment(osenv.JujuContainerTypeEnvKey, "container type")
-	s.PatchEnvironment(JujuStorageDir, "storage dir")
-	s.PatchEnvironment(JujuStorageAddr, "storage addr")
-	s.PatchEnvironment(JujuSharedStorageDir, "shared storage dir")
-	s.PatchEnvironment(JujuSharedStorageAddr, "shared storage addr")
+const legacyFormatFileContents = "format 1.16"
 
-	config := newTestConfig(c)
-	s.formatter.migrate(config)
+var agentConfig1_16Contents = `
+tag: machine-0
+nonce: user-admin:bootstrap
+cacert: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUNXekNDQWNhZ0F3SUJBZ0lCQURBTEJna3Foa2lHOXcwQkFRVXdRekVOTUFzR0ExVUVDaE1FYW5WcWRURXkKTURBR0ExVUVBd3dwYW5WcWRTMW5aVzVsY21GMFpXUWdRMEVnWm05eUlHVnVkbWx5YjI1dFpXNTBJQ0pzYjJOaApiQ0l3SGhjTk1UUXdNekExTVRJeE9ERTJXaGNOTWpRd016QTFNVEl5TXpFMldqQkRNUTB3Q3dZRFZRUUtFd1JxCmRXcDFNVEl3TUFZRFZRUUREQ2xxZFdwMUxXZGxibVZ5WVhSbFpDQkRRU0JtYjNJZ1pXNTJhWEp2Ym0xbGJuUWcKSW14dlkyRnNJakNCbnpBTkJna3Foa2lHOXcwQkFRRUZBQU9CalFBd2dZa0NnWUVBd3NaVUg3NUZGSW1QUWVGSgpaVnVYcmlUWmNYdlNQMnk0VDJaSU5WNlVrY2E5VFdXb01XaWlPYm4yNk03MjNGQllPczh3WHRYNEUxZ2l1amxYCmZGeHNFckloczEyVXQ1S3JOVkkyMlEydCtVOGViakZMUHJiUE5Fb3pzdnU3UzFjZklFbjBXTVg4MWRBaENOMnQKVkxGaC9hS3NqSHdDLzJ5Y3Z0VSttTngyVG5FQ0F3RUFBYU5qTUdFd0RnWURWUjBQQVFIL0JBUURBZ0NrTUE4RwpBMVVkRXdFQi93UUZNQU1CQWY4d0hRWURWUjBPQkJZRUZKVUxKZVlIbERsdlJ3T0owcWdyemcwclZGZUVNQjhHCkExVWRJd1FZTUJhQUZKVUxKZVlIbERsdlJ3T0owcWdyemcwclZGZUVNQXNHQ1NxR1NJYjNEUUVCQlFPQmdRQ2UKRlRZbThsWkVYZUp1cEdPc3pwc2pjaHNSMEFxeXROZ1dxQmE1cWUyMS9xS2R3TUFSQkNFMTU3eUxGVnl6MVoycQp2YVhVNy9VKzdKbGNiWmtHRHJ5djE2S2UwK2RIY3NEdG5jR2FOVkZKMTAxYnNJNG1sVEkzQWpQNDErNG5mQ0VlCmhwalRvYm1YdlBhOFN1NGhQYTBFc1E4bXFaZGFabmdwRU0vb1JiZ0RMdz09Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+stateaddresses:
+- localhost:37017
+statepassword: OlUMkte5J3Ss0CH9yxedilIC
+apiaddresses:
+- localhost:17070
+apipassword: OlUMkte5J3Ss0CH9yxedilIC
+oldpassword: oBlMbFUGvCb2PMFgYVzjS6GD
+values:
+  PROVIDER_TYPE: local
+  SHARED_STORAGE_ADDR: 10.0.3.1:8041
+  SHARED_STORAGE_DIR: /home/user/.juju/local/shared-storage
+  STORAGE_ADDR: 10.0.3.1:8040
+  STORAGE_DIR: /home/user/.juju/local/storage
+stateservercert: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUNJakNDQVkyZ0F3SUJBZ0lCQURBTEJna3Foa2lHOXcwQkFRVXdRekVOTUFzR0ExVUVDaE1FYW5WcWRURXkKTURBR0ExVUVBd3dwYW5WcWRTMW5aVzVsY21GMFpXUWdRMEVnWm05eUlHVnVkbWx5YjI1dFpXNTBJQ0pzYjJOaApiQ0l3SGhjTk1UUXdNekExTVRJeE9ESXlXaGNOTWpRd016QTFNVEl5TXpJeVdqQWJNUTB3Q3dZRFZRUUtFd1JxCmRXcDFNUW93Q0FZRFZRUURFd0VxTUlHZk1BMEdDU3FHU0liM0RRRUJBUVVBQTRHTkFEQ0JpUUtCZ1FDdVA0dTAKQjZtbGs0V0g3SHFvOXhkSFp4TWtCUVRqV2VLTkhERzFMb21SWmc2RHA4Z0VQK0ZNVm5IaUprZW1pQnJNSEk3OAo5bG4zSVRBT0NJT0xna0NkN3ZsaDJub2FheTlSeXpUaG9PZ0RMSzVpR0VidmZDeEFWZThhWDQvbThhOGNLWE9TCmJJZTZFNnVtb0wza0JNaEdiL1QrYW1xbHRjaHVNRXJhanJSVit3SURBUUFCbzFJd1VEQU9CZ05WSFE4QkFmOEUKQkFNQ0FCQXdIUVlEVlIwT0JCWUVGRTV1RFg3UlRjckF2ajFNcWpiU2w1M21pR0NITUI4R0ExVWRJd1FZTUJhQQpGSlVMSmVZSGxEbHZSd09KMHFncnpnMHJWRmVFTUFzR0NTcUdTSWIzRFFFQkJRT0JnUUJUNC8vZkpESUcxM2dxClBiamNnUTN6eHh6TG12STY5Ty8zMFFDbmIrUGZObDRET0U1SktwVE5OTjhkOEJEQWZPYStvWE5neEM3VTZXdjUKZjBYNzEyRnlNdUc3VXJEVkNDY0kxS3JSQ0F0THlPWUREL0ZPblBwSWdVQjF1bFRnOGlRUzdlTjM2d0NEL21wVApsUVVUS2FuU00yMnhnWWJKazlRY1dBSzQ0ZjA4SEE9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+stateserverkey: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlDV3dJQkFBS0JnUUN1UDR1MEI2bWxrNFdIN0hxbzl4ZEhaeE1rQlFUaldlS05IREcxTG9tUlpnNkRwOGdFClArRk1WbkhpSmtlbWlCck1ISTc4OWxuM0lUQU9DSU9MZ2tDZDd2bGgybm9hYXk5Unl6VGhvT2dETEs1aUdFYnYKZkN4QVZlOGFYNC9tOGE4Y0tYT1NiSWU2RTZ1bW9MM2tCTWhHYi9UK2FtcWx0Y2h1TUVyYWpyUlYrd0lEQVFBQgpBb0dBRERJZ2FoSmJPbDZQNndxUEwwSlVHOGhJRzY1S1FFdHJRdXNsUTRRbFZzcm8yeWdrSkwvLzJlTDNCNWdjClRiaWEvNHhFS2Nwb1U1YThFVTloUGFONU9EYnlkVEsxQ1I3R2JXSGkwWm1LbGZCUlR4bUpxakdKVU1CSmI4a0QKNStpMzlvcXdQS3dnaXoyTVR5SHZKZFFJVHB0ZDVrbEQyYjU1by9YWFRCTnk2NGtDUVFEbXRFWHNTL2kxTm5pSwozZVJkeHM4UVFGN0pKVG5SR042ZUh6ZHlXb242Zjl2ZkxrSDROWUdxcFUydjVBNUl1Nno3K3NJdXVHU2ZSeEI1CktrZVFXdlVQQWtFQXdWcVdlczdmc3NLbUFCZGxER3ozYzNxMjI2eVVaUE00R3lTb1cxYXZsYzJ1VDVYRm9vVUsKNjRpUjJuU2I1OHZ2bGY1RjRRMnJuRjh2cFRLcFJwK0lWUUpBTlcwZ0dFWEx0ZU9FYk54UUMydUQva1o1N09rRApCNnBUdTVpTkZaMWtBSy9sY2p6YktDanorMW5Hc09vR2FNK1ZrdEVTY1JGZ3RBWVlDWWRDQldzYS93SkFROWJXCnlVdmdMTVlpbkJHWlFKelN6VStXN01oR1lJejllSGlLSVZIdTFTNlBKQmsyZUdrWmhiNHEvbXkvYnJxYzJ4R1YKenZxTzVaUjRFUXdQWEZvSTZRSkFkeVdDMllOTTF2a1BuWnJqZzNQQXFHRHJQMHJwNEZ0bFV4alh0ay8vcW9hNgpRcXVYcE9vNjd4THRieW1PTlJTdDFiZGE5ZE5tbGljMFVNZ0JQRHgrYnc9PQotLS0tLUVORCBSU0EgUFJJVkFURSBLRVktLS0tLQo=
+apiport: 17070
+`[1:]
 
-	expected := map[string]string{
-		LxcBridge:         "lxc bridge",
-		ProviderType:      "provider type",
-		ContainerType:     "container type",
-		StorageDir:        "storage dir",
-		StorageAddr:       "storage addr",
-		SharedStorageDir:  "shared storage dir",
-		SharedStorageAddr: "shared storage addr",
-	}
-
-	c.Assert(config.values, gc.DeepEquals, expected)
-}
-
-func (s *format_1_16Suite) TestMigrateOnlySetsExisting(c *gc.C) {
-	s.PatchEnvironment(JujuProviderType, "provider type")
-
-	config := newTestConfig(c)
-	s.formatter.migrate(config)
-
-	expected := map[string]string{
-		ProviderType: "provider type",
-	}
-
-	c.Assert(config.values, gc.DeepEquals, expected)
-}
+const configDataWithoutNewAttributes = `
+tag: omg
+nonce: a nonce
+cacert: Y2EgY2VydA==
+stateaddresses:
+- localhost:1234
+apiaddresses:
+- localhost:1235
+oldpassword: sekrit
+values: {}
+`

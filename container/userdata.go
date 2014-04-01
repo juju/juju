@@ -6,27 +6,32 @@ package container
 import (
 	"io/ioutil"
 	"path/filepath"
-	"regexp"
-	"strings"
 
-	"launchpad.net/loggo"
+	"github.com/juju/loggo"
 
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/environs/cloudinit"
-	"launchpad.net/juju-core/utils"
 )
 
 var (
-	logger         = loggo.GetLogger("juju.container")
-	aptHTTPProxyRE = regexp.MustCompile(`(?i)^Acquire::HTTP::Proxy\s+"([^"]+)";$`)
+	logger = loggo.GetLogger("juju.container")
 )
 
+// WriteUserData generates the cloud init for the specified machine config,
+// and writes the serialized form out to a cloud-init file in the directory
+// specified.
 func WriteUserData(machineConfig *cloudinit.MachineConfig, directory string) (string, error) {
 	userData, err := cloudInitUserData(machineConfig)
 	if err != nil {
 		logger.Errorf("failed to create user data: %v", err)
 		return "", err
 	}
+	return WriteCloudInitFile(directory, userData)
+}
+
+// WriteCloudInitFile writes the data out to a cloud-init file in the
+// directory specified, and returns the filename.
+func WriteCloudInitFile(directory string, userData []byte) (string, error) {
 	userDataFilename := filepath.Join(directory, "cloud-init")
 	if err := ioutil.WriteFile(userDataFilename, userData, 0644); err != nil {
 		logger.Errorf("failed to write user data: %v", err)
@@ -36,39 +41,10 @@ func WriteUserData(machineConfig *cloudinit.MachineConfig, directory string) (st
 }
 
 func cloudInitUserData(machineConfig *cloudinit.MachineConfig) ([]byte, error) {
-	// consider not having this line hardcoded...
-	machineConfig.DataDir = "/var/lib/juju"
 	cloudConfig := coreCloudinit.New()
 	err := cloudinit.Configure(machineConfig, cloudConfig)
 	if err != nil {
 		return nil, err
-	}
-
-	// Run apt-config to fetch proxy settings from host. If no proxy
-	// settings are configured, then we don't set up any proxy information
-	// on the container.
-	proxyConfig, err := utils.AptConfigProxy()
-	if err != nil {
-		return nil, err
-	}
-	if proxyConfig != "" {
-		var proxyLines []string
-		for _, line := range strings.Split(proxyConfig, "\n") {
-			line = strings.TrimSpace(line)
-			if len(line) > 0 {
-				if m := aptHTTPProxyRE.FindStringSubmatch(line); m != nil {
-					cloudConfig.SetAptProxy(m[1])
-				} else {
-					proxyLines = append(proxyLines, line)
-				}
-			}
-		}
-		if len(proxyLines) > 0 {
-			cloudConfig.AddFile(
-				"/etc/apt/apt.conf.d/99proxy-extra",
-				strings.Join(proxyLines, "\n"),
-				0644)
-		}
 	}
 
 	// Run ifconfig to get the addresses of the internal container at least

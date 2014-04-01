@@ -4,13 +4,13 @@
 package main
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/errors"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type DestroyMachineSuite struct {
@@ -63,55 +63,56 @@ func (s *DestroyMachineSuite) TestDestroyEmptyMachine(c *gc.C) {
 
 func (s *DestroyMachineSuite) TestDestroyDeadMachine(c *gc.C) {
 	// Destroying a Dead machine is a no-op; destroying it alongside a JobManageEnviron
+	m0, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
 	// machine complains only about the JME machine.
-	m0, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	m1, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	err = m0.EnsureDead()
-	c.Assert(err, gc.IsNil)
-	m1, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	err = m1.EnsureDead()
 	c.Assert(err, gc.IsNil)
 	err = runDestroyMachine(c, "0", "1")
-	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 1 is required by the environment`)
-	err = m0.Refresh()
-	c.Assert(err, gc.IsNil)
-	c.Assert(m0.Life(), gc.Equals, state.Dead)
+	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 is required by the environment`)
 	err = m1.Refresh()
 	c.Assert(err, gc.IsNil)
-	c.Assert(m1.Life(), gc.Equals, state.Alive)
+	c.Assert(m1.Life(), gc.Equals, state.Dead)
+	err = m1.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(m0.Life(), gc.Equals, state.Alive)
 }
 
 func (s *DestroyMachineSuite) TestForce(c *gc.C) {
+	// Create a manager machine.
+	m0, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
+
 	// Create a machine running a unit.
 	testing.Charms.BundlePath(s.SeriesPath, "riak")
-	err := runDeploy(c, "local:riak", "riak")
+	err = runDeploy(c, "local:riak", "riak")
 	c.Assert(err, gc.IsNil)
 
 	// Get the state entities to allow sane testing.
 	u, err := s.State.Unit("riak/0")
 	c.Assert(err, gc.IsNil)
-	m0, err := s.State.Machine("0")
-	c.Assert(err, gc.IsNil)
-
-	// Create a manager machine.
-	m1, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	m1, err := s.State.Machine("1")
 	c.Assert(err, gc.IsNil)
 
 	// Try to force-destroy the machines.
 	err = runDestroyMachine(c, "0", "1", "--force")
-	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 1 is required by the environment`)
+	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 is required by the environment`)
 
 	// Clean up, check state.
 	err = s.State.Cleanup()
 	c.Assert(err, gc.IsNil)
 	err = u.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
-	err = m0.Refresh()
-	c.Assert(err, gc.IsNil)
-	c.Assert(m0.Life(), gc.Equals, state.Dead)
 
 	err = m1.Refresh()
 	c.Assert(err, gc.IsNil)
-	c.Assert(m1.Life(), gc.Equals, state.Alive)
+	c.Assert(m1.Life(), gc.Equals, state.Dead)
+
+	err = m0.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(m0.Life(), gc.Equals, state.Alive)
 }
 
 func (s *DestroyMachineSuite) TestBadArgs(c *gc.C) {

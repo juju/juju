@@ -6,13 +6,13 @@ package maas
 import (
 	"io/ioutil"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -52,7 +52,8 @@ func (suite *EnvironProviderSuite) TestUnknownAttrsContainAgentName(c *gc.C) {
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
-	environ, err := suite.makeEnviron().Provider().Prepare(config)
+	ctx := testing.Context(c)
+	environ, err := suite.makeEnviron().Provider().Prepare(ctx, config)
 	c.Assert(err, gc.IsNil)
 
 	preparedConfig := environ.Config()
@@ -76,7 +77,8 @@ func (suite *EnvironProviderSuite) TestAgentNameShouldNotBeSetByHand(c *gc.C) {
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
-	_, err = suite.makeEnviron().Provider().Prepare(config)
+	ctx := testing.Context(c)
+	_, err = suite.makeEnviron().Provider().Prepare(ctx, config)
 	c.Assert(err, gc.Equals, errAgentNameAlreadySet)
 }
 

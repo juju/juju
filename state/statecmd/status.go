@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
@@ -45,11 +44,6 @@ func Status(conn *juju.Conn, patterns []string) (*api.Status, error) {
 		return &nilStatus, err
 	}
 
-	context.instances, err = fetchAllInstances(conn.Environ)
-	if err != nil {
-		// XXX: return both err and result as both may be useful?
-		err = nil
-	}
 	return &api.Status{
 		EnvironmentName: conn.Environ.Name(),
 		Machines:        context.processMachines(),
@@ -58,7 +52,6 @@ func Status(conn *juju.Conn, patterns []string) (*api.Status, error) {
 }
 
 type statusContext struct {
-	instances    map[instance.Id]instance.Instance
 	machines     map[string][]*state.Machine
 	services     map[string]*state.Service
 	units        map[string]map[string]*state.Unit
@@ -152,19 +145,6 @@ func NewUnitMatcher(patterns []string) (unitMatcher, error) {
 		}
 	}
 	return unitMatcher{patterns}, nil
-}
-
-// fetchAllInstances returns a map from instance id to instance.
-func fetchAllInstances(env environs.Environ) (map[instance.Id]instance.Instance, error) {
-	m := make(map[instance.Id]instance.Instance)
-	insts, err := env.AllInstances()
-	if err != nil {
-		return nil, err
-	}
-	for _, i := range insts {
-		m[i.Id()] = i
-	}
-	return m, nil
 }
 
 // fetchMachines returns a map from top level machine id to machines, where machines[0] is the host
@@ -313,16 +293,11 @@ func (context *statusContext) makeMachineStatus(machine *state.Machine) (status 
 	instid, err := machine.InstanceId()
 	if err == nil {
 		status.InstanceId = instid
-		inst, ok := context.instances[instid]
-		if ok {
-			status.DNSName = instance.SelectPublicAddress(machine.Addresses())
-			status.InstanceState = inst.Status()
-		} else {
-			// Double plus ungood.  There is an instance id recorded
-			// for this machine in the state, yet the environ cannot
-			// find that id.
-			status.InstanceState = "missing"
+		status.InstanceState, err = machine.InstanceStatus()
+		if err != nil {
+			status.InstanceState = "error"
 		}
+		status.DNSName = instance.SelectPublicAddress(machine.Addresses())
 	} else {
 		if state.IsNotProvisionedError(err) {
 			status.InstanceId = "pending"
@@ -370,6 +345,13 @@ func (context *statusContext) processService(service *state.Service) (status api
 	if err != nil {
 		status.Err = err
 		return
+	}
+	includeNetworks, excludeNetworks, err := service.Networks()
+	if err == nil {
+		status.Networks = api.NetworksSpecification{
+			Enabled:  includeNetworks,
+			Disabled: excludeNetworks,
+		}
 	}
 	if service.IsPrincipal() {
 		status.Units = context.processUnits(context.units[service.Name()], serviceCharmURL.String())

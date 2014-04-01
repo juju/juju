@@ -5,12 +5,9 @@ package main
 
 import (
 	"fmt"
-	"net/url"
-	"path"
-	"strings"
 
+	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/filestorage"
@@ -49,34 +46,24 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 	defer loggo.RemoveWriter("toolsmetadata")
 	if c.metadataDir == "" {
 		c.metadataDir = osenv.JujuHome()
-	}
-	var err error
-	c.metadataDir, err = utils.NormalizePath(c.metadataDir)
-	if err != nil {
-		return err
+	} else {
+		c.metadataDir = context.AbsPath(c.metadataDir)
 	}
 
 	sourceStorage, err := filestorage.NewFileStorageReader(c.metadataDir)
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(context.Stdout, "Finding tools...")
+	fmt.Fprintf(context.Stdout, "Finding tools in %s\n", c.metadataDir)
 	const minorVersion = -1
 	toolsList, err := envtools.ReadList(sourceStorage, version.Current.Major, minorVersion)
 	if err == envtools.ErrNoTools {
-		source := envtools.DefaultBaseURL
-		var u *url.URL
-		u, err = url.Parse(source)
+		var source string
+		source, err = envtools.ToolsURL(envtools.DefaultBaseURL)
 		if err != nil {
-			return fmt.Errorf("invalid tools source %s: %v", source, err)
+			return err
 		}
-		if u.Scheme == "" {
-			source = "file://" + source
-			if !strings.HasSuffix(source, "/"+storage.BaseToolsPath) {
-				source = path.Join(source, storage.BaseToolsPath)
-			}
-		}
-		sourceDataSource := simplestreams.NewURLDataSource(source, simplestreams.VerifySSLHostnames)
+		sourceDataSource := simplestreams.NewURLDataSource("local source", source, utils.VerifySSLHostnames)
 		toolsList, err = envtools.FindToolsForCloud(
 			[]simplestreams.DataSource{sourceDataSource}, simplestreams.CloudSpec{},
 			version.Current.Major, minorVersion, coretools.Filter{})
@@ -85,7 +72,7 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 		return err
 	}
 
-	targetStorage, err := filestorage.NewFileStorageWriter(c.metadataDir, filestorage.UseDefaultTmpDir)
+	targetStorage, err := filestorage.NewFileStorageWriter(c.metadataDir)
 	if err != nil {
 		return err
 	}

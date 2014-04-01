@@ -10,9 +10,21 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+
+	"launchpad.net/juju-core/utils"
 )
 
 var opensshCommonOptions = []string{"-o", "StrictHostKeyChecking no"}
+
+// default identities will not be attempted if
+// -i is specified and they are not explcitly
+// included.
+var defaultIdentities = []string{
+	"~/.ssh/identity",
+	"~/.ssh/id_rsa",
+	"~/.ssh/id_dsa",
+	"~/.ssh/id_ecdsa",
+}
 
 type opensshCommandKind int
 
@@ -56,23 +68,45 @@ func opensshOptions(options *Options, commandKind opensshCommandKind) []string {
 	if options == nil {
 		options = &Options{}
 	}
+	if len(options.proxyCommand) > 0 {
+		args = append(args, "-o", "ProxyCommand "+utils.CommandString(options.proxyCommand...))
+	}
 	if !options.passwordAuthAllowed {
 		args = append(args, "-o", "PasswordAuthentication no")
 	}
 	if options.allocatePTY {
-		args = append(args, "-t")
+		args = append(args, "-t", "-t") // twice to force
 	}
-	for _, identity := range options.identities {
+	identities := append([]string{}, options.identities...)
+	if pk := PrivateKeyFiles(); len(pk) > 0 {
+		// Add client keys as implicit identities
+		identities = append(identities, pk...)
+	}
+	// If any identities are specified, the
+	// default ones must be explicitly specified.
+	if len(identities) > 0 {
+		for _, identity := range defaultIdentities {
+			path, err := utils.NormalizePath(identity)
+			if err != nil {
+				logger.Warningf("failed to normalize path %q: %v", identity, err)
+				continue
+			}
+			if _, err := os.Stat(path); err == nil {
+				identities = append(identities, path)
+			}
+		}
+	}
+	for _, identity := range identities {
 		args = append(args, "-i", identity)
 	}
 	if options.port != 0 {
+		port := fmt.Sprint(options.port)
 		if commandKind == scpKind {
 			// scp uses -P instead of -p (-p means preserve).
-			args = append(args, "-P")
+			args = append(args, "-P", port)
 		} else {
-			args = append(args, "-p")
+			args = append(args, "-p", port)
 		}
-		args = append(args, fmt.Sprint(options.port))
 	}
 	return args
 }
@@ -82,26 +116,28 @@ func (c *OpenSSHClient) Command(host string, command []string, options *Options)
 	args := opensshOptions(options, sshKind)
 	args = append(args, host)
 	if len(command) > 0 {
-		args = append(args, "--")
 		args = append(args, command...)
 	}
 	bin, args := sshpassWrap("ssh", args)
+	logger.Debugf("running: %s %s", bin, utils.CommandString(args...))
 	return &Cmd{impl: &opensshCmd{exec.Command(bin, args...)}}
 }
 
 // Copy implements Client.Copy.
-func (c *OpenSSHClient) Copy(source, dest string, userOptions *Options) error {
+func (c *OpenSSHClient) Copy(targets, extraArgs []string, userOptions *Options) error {
 	var options Options
 	if userOptions != nil {
 		options = *userOptions
 		options.allocatePTY = false // doesn't make sense for scp
 	}
 	args := opensshOptions(&options, scpKind)
-	args = append(args, source, dest)
+	args = append(args, extraArgs...)
+	args = append(args, targets...)
 	bin, args := sshpassWrap("scp", args)
 	cmd := exec.Command(bin, args...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
+	logger.Debugf("running: %s %s", bin, utils.CommandString(args...))
 	if err := cmd.Run(); err != nil {
 		stderr := strings.TrimSpace(stderr.String())
 		if len(stderr) > 0 {

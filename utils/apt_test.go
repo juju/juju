@@ -6,10 +6,10 @@ package utils_test
 import (
 	"fmt"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/juju/osenv"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 )
@@ -31,6 +31,12 @@ func (s *AptSuite) TestOnePackage(c *gc.C) {
 		"install", "test-package",
 	})
 	c.Assert(cmd.Env[len(cmd.Env)-1], gc.Equals, "DEBIAN_FRONTEND=noninteractive")
+}
+
+func (s *AptSuite) TestAptGetPreparePackages(c *gc.C) {
+	packagesList := utils.AptGetPreparePackages([]string{"lxc", "bridge-utils", "git", "mongodb"}, "precise")
+	c.Assert(packagesList[0], gc.DeepEquals, []string{"--target-release", "precise-updates/cloud-tools", "lxc", "mongodb"})
+	c.Assert(packagesList[1], gc.DeepEquals, []string{"bridge-utils", "git"})
 }
 
 func (s *AptSuite) TestAptGetError(c *gc.C) {
