@@ -468,10 +468,10 @@ type StateServingInfo struct {
 	SharedSecret string
 }
 
-// IsMasterResult holds the boolean value Master
-// which represents if a Machines Peer address is pointing
-// to the primary mongo server of a replicaset.
+// IsMasterResult holds the result of an IsMaster API call.
 type IsMasterResult struct {
+	// Master represents whether a Machine's mongo peer address is
+	// pointing to the mongo primary of the replica set.
 	Master bool
 }
 
