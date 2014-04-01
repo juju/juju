@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"launchpad.net/goyaml"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/version"
 )
 
@@ -96,10 +97,12 @@ func (formatter_1_16) unmarshal(data []byte) (*configInternal, error) {
 		upgradedToVersion: *format.UpgradedToVersion,
 		caCert:            caCert,
 		oldPassword:       format.OldPassword,
-		stateServerCert:   stateServerCert,
-		stateServerKey:    stateServerKey,
-		apiPort:           format.APIPort,
-		values:            format.Values,
+		servingInfo: params.StateServingInfo{
+			Cert:       string(stateServerCert),
+			PrivateKey: string(stateServerKey),
+			APIPort:    format.APIPort,
+		},
+		values: format.Values,
 	}
 	if len(format.StateAddresses) > 0 {
 		config.stateDetails = &connectionDetails{
@@ -107,8 +110,8 @@ func (formatter_1_16) unmarshal(data []byte) (*configInternal, error) {
 			format.StatePassword,
 		}
 	}
-	if len(config.stateServerKey) != 0 {
-		if config.statePort == 0 && len(format.StateAddresses) > 0 {
+	if len(config.servingInfo.PrivateKey) != 0 {
+		if len(format.StateAddresses) > 0 {
 			_, portString, err := net.SplitHostPort(format.StateAddresses[0])
 			if err != nil {
 				return nil, err
@@ -117,8 +120,8 @@ func (formatter_1_16) unmarshal(data []byte) (*configInternal, error) {
 			if err != nil {
 				return nil, err
 			}
-			config.statePort = statePort
-		} else if config.statePort == 0 {
+			config.servingInfo.StatePort = statePort
+		} else {
 			return nil, fmt.Errorf("server key found but no state port")
 		}
 	}

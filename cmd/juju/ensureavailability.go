@@ -9,12 +9,13 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/juju"
 )
 
 type EnsureAvailabilityCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	NumStateServers int
 	// If specified, use this series for newly created machines,
 	// else use the environment's default-series
@@ -63,6 +64,10 @@ func (c *EnsureAvailabilityCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *EnsureAvailabilityCommand) Init(args []string) error {
+	err := c.EnvCommandBase.Init()
+	if err != nil {
+		return err
+	}
 	if c.NumStateServers%2 != 1 || c.NumStateServers <= 0 {
 		return fmt.Errorf("must specify a number of state servers odd and greater than zero")
 	}

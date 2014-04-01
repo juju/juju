@@ -11,6 +11,7 @@ import (
 
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/utils/parallel"
 )
 
 type apiclientSuite struct {
@@ -26,7 +27,7 @@ func (s *apiclientSuite) TestOpenMultiple(c *gc.C) {
 	server, err := net.Dial("tcp", serverAddr)
 	c.Assert(err, gc.IsNil)
 	defer server.Close()
-	listener, err := net.Listen("tcp", ":0")
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	c.Assert(err, gc.IsNil)
 	defer listener.Close()
 	go func() {
@@ -59,7 +60,7 @@ func (s *apiclientSuite) TestOpenMultiple(c *gc.C) {
 }
 
 func (s *apiclientSuite) TestOpenMultipleError(c *gc.C) {
-	listener, err := net.Listen("tcp", ":0")
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	c.Assert(err, gc.IsNil)
 	defer listener.Close()
 	go func() {
@@ -76,5 +77,14 @@ func (s *apiclientSuite) TestOpenMultipleError(c *gc.C) {
 	c.Logf("addr: %q", addr)
 	info.Addrs = []string{addr, addr, addr}
 	_, err = api.Open(info, api.DialOpts{})
-	c.Assert(err, gc.ErrorMatches, "websocket.Dial .*: read tcp .*: connection reset by peer")
+	c.Assert(err, gc.ErrorMatches, `timed out connecting to "wss://.*/"`)
+}
+
+func (s *apiclientSuite) TestDialWebsocketStopped(c *gc.C) {
+	stopped := make(chan struct{})
+	f := api.NewWebsocketDialer(nil, api.DialOpts{})
+	close(stopped)
+	result, err := f(stopped)
+	c.Assert(err, gc.Equals, parallel.ErrStopped)
+	c.Assert(result, gc.IsNil)
 }

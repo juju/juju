@@ -216,10 +216,7 @@ type configInternal struct {
 	stateDetails      *connectionDetails
 	apiDetails        *connectionDetails
 	oldPassword       string
-	stateServerCert   []byte
-	stateServerKey    []byte
-	apiPort           int
-	statePort         int
+	servingInfo       params.StateServingInfo
 	values            map[string]string
 }
 
@@ -516,22 +513,14 @@ func (c *configInternal) Value(key string) string {
 }
 
 func (c *configInternal) StateServingInfo() (params.StateServingInfo, bool) {
-	if c.statePort == 0 {
+	if c.servingInfo.StatePort == 0 {
 		return params.StateServingInfo{}, false
 	}
-	return params.StateServingInfo{
-		APIPort:    c.apiPort,
-		StatePort:  c.statePort,
-		Cert:       string(c.stateServerCert),
-		PrivateKey: string(c.stateServerKey),
-	}, true
+	return c.servingInfo, true
 }
 
 func (c *configInternal) SetStateServingInfo(info params.StateServingInfo) {
-	c.apiPort = info.APIPort
-	c.statePort = info.StatePort
-	c.stateServerCert = []byte(info.Cert)
-	c.stateServerKey = []byte(info.PrivateKey)
+	c.servingInfo = info
 }
 
 func (c *configInternal) APIAddresses() ([]string, error) {
