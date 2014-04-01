@@ -71,14 +71,15 @@ func (*formatSuite) TestRead(c *gc.C) {
 
 func (*formatSuite) TestReadWriteStateConfig(c *gc.C) {
 	servingInfo := params.StateServingInfo{
-		Cert: "some special cert"
-		PrivateKey:"a special key"
+		Cert: "some special cert",
+		PrivateKey:"a special key",
 		StatePort:         12345,
 		APIPort:           23456,
 	}
-	stateParams.DataDir = c.MkDir()
-	stateParams.Values = map[string]string{"foo": "bar", "wibble": "wobble"}
-	configInterface, err := NewStateMachineConfig(agentParams, servingInfo)
+	params := agentParams
+	params.DataDir = c.MkDir()
+	params.Values = map[string]string{"foo": "bar", "wibble": "wobble"}
+	configInterface, err := NewStateMachineConfig(params, servingInfo)
 	c.Assert(err, gc.IsNil)
 	config, ok := configInterface.(*configInternal)
 	c.Assert(ok, jc.IsTrue)

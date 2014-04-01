@@ -294,7 +294,8 @@ func (*suite) TestMigrate(c *gc.C) {
 func (*suite) TestNewStateMachineConfig(c *gc.C) {
 	type testStruct struct {
 		about         string
-		params        agent.StateMachineConfigParams
+		params        agent.AgentConfigParams
+		servingInfo  params.StateServingInfo
 		checkErr      string
 		inspectConfig func(*gc.C, agent.Config)
 	}
@@ -303,7 +304,8 @@ func (*suite) TestNewStateMachineConfig(c *gc.C) {
 		checkErr: "state server cert not found in configuration",
 	}, {
 		about: "missing state server key",
-		params: agent.StateMachineConfigParams{
+		params: test.params,
+		servingInfo: params.StateServingInfo{
 			StateServerCert: []byte("server cert"),
 		},
 		checkErr: "state server key not found in configuration",
