@@ -532,10 +532,7 @@ func (c *configInternal) StateServingInfo() (params.StateServingInfo, bool) {
 }
 
 func (c *configInternal) SetStateServingInfo(info params.StateServingInfo) {
-	c.servingInfo.APIPort = info.APIPort
-	c.servingInfo.StatePort = info.StatePort
-	c.servingInfo.Cert = info.Cert
-	c.servingInfo.PrivateKey = info.PrivateKey
+	c.servingInfo = info
 }
 
 func (c *configInternal) APIAddresses() ([]string, error) {
