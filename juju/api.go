@@ -19,6 +19,7 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/keymanager"
+	"launchpad.net/juju-core/state/api/usermanager"
 	"launchpad.net/juju-core/utils/parallel"
 )
 
@@ -100,6 +101,14 @@ func NewKeyManagerClient(envName string) (*keymanager.Client, error) {
 		return nil, err
 	}
 	return keymanager.NewClient(st), nil
+}
+
+func NewUserManagerClient(envName string) (*usermanager.Client, error) {
+	st, err := newAPIClient(envName)
+	if err != nil {
+		return nil, err
+	}
+	return usermanager.NewClient(st), nil
 }
 
 // NewAPIFromName returns an api.State connected to the API Server for

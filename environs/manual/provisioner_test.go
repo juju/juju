@@ -75,7 +75,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 		}.install(c).Restore()
 		machineId, err = manual.ProvisionMachine(args)
 		if errorCode != 0 {
-			c.Assert(err, gc.ErrorMatches, fmt.Sprintf("rc: %d", errorCode))
+			c.Assert(err, gc.ErrorMatches, fmt.Sprintf("subprocess encountered error code %d", errorCode))
 			c.Assert(machineId, gc.Equals, "")
 		} else {
 			c.Assert(err, gc.IsNil)
@@ -109,7 +109,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 		SkipProvisionAgent:       true,
 	}.install(c).Restore()
 	_, err = manual.ProvisionMachine(args)
-	c.Assert(err, gc.ErrorMatches, "error checking if provisioned: rc: 255")
+	c.Assert(err, gc.ErrorMatches, "error checking if provisioned: subprocess encountered error code 255")
 }
 
 func (s *provisionerSuite) TestFinishMachineConfig(c *gc.C) {
