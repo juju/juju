@@ -216,10 +216,7 @@ type configInternal struct {
 	stateDetails      *connectionDetails
 	apiDetails        *connectionDetails
 	oldPassword       string
-	stateServerCert   []byte
-	stateServerKey    []byte
-	apiPort           int
-	statePort         int
+	servingInfo       params.StateServingInfo
 	values            map[string]string
 }
 
@@ -320,10 +317,10 @@ func NewStateMachineConfig(configParams StateMachineConfigParams) (ConfigSetterW
 		return nil, err
 	}
 	config := config0.(*configInternal)
-	config.stateServerCert = configParams.StateServerCert
-	config.stateServerKey = configParams.StateServerKey
-	config.apiPort = configParams.APIPort
-	config.statePort = configParams.StatePort
+	config.servingInfo.Cert = string(configParams.StateServerCert)
+	config.servingInfo.PrivateKey = string(configParams.StateServerKey)
+	config.servingInfo.APIPort = configParams.APIPort
+	config.servingInfo.StatePort = configParams.StatePort
 	return config, nil
 }
 
@@ -528,22 +525,17 @@ func (c *configInternal) Value(key string) string {
 }
 
 func (c *configInternal) StateServingInfo() (params.StateServingInfo, bool) {
-	if c.statePort == 0 {
+	if c.servingInfo.StatePort == 0 {
 		return params.StateServingInfo{}, false
 	}
-	return params.StateServingInfo{
-		APIPort:    c.apiPort,
-		StatePort:  c.statePort,
-		Cert:       string(c.stateServerCert),
-		PrivateKey: string(c.stateServerKey),
-	}, true
+	return c.servingInfo, true
 }
 
 func (c *configInternal) SetStateServingInfo(info params.StateServingInfo) {
-	c.apiPort = info.APIPort
-	c.statePort = info.StatePort
-	c.stateServerCert = []byte(info.Cert)
-	c.stateServerKey = []byte(info.PrivateKey)
+	c.servingInfo.APIPort = info.APIPort
+	c.servingInfo.StatePort = info.StatePort
+	c.servingInfo.Cert = info.Cert
+	c.servingInfo.PrivateKey = info.PrivateKey
 }
 
 func (c *configInternal) APIAddresses() ([]string, error) {
