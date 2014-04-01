@@ -6,6 +6,7 @@ package uniter_test
 import (
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
@@ -21,7 +22,6 @@ import (
 	"launchpad.net/juju-core/state/apiserver/uniter"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 func Test(t *stdtesting.T) {
@@ -109,7 +109,7 @@ func (s *uniterSuite) TestSetStatus(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	args := params.SetStatus{
-		Entities: []params.SetEntityStatus{
+		Entities: []params.EntityStatus{
 			{Tag: "unit-mysql-0", Status: params.StatusError, Info: "not really"},
 			{Tag: "unit-wordpress-0", Status: params.StatusStopped, Info: "foobar"},
 			{Tag: "unit-foo-42", Status: params.StatusStarted, Info: "blah"},
@@ -1205,6 +1205,7 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 		{Relation: rel.Tag(), LocalUnit: "user-admin", RemoteUnit: "unit-wordpress-0"},
 	}}
 	result, err := s.uniter.ReadRemoteSettings(args)
+
 	// We don't set the remote unit settings on purpose to test the error.
 	expectErr := `cannot read settings for unit "mysql/0" in relation "wordpress:db mysql:server": settings not found`
 	c.Assert(err, gc.IsNil)
@@ -1223,6 +1224,7 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
+
 	// Now leave the mysqlUnit and re-enter with new settings.
 	relUnit, err = rel.Unit(s.mysqlUnit)
 	c.Assert(err, gc.IsNil)
@@ -1242,15 +1244,27 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 		LocalUnit:  "unit-wordpress-0",
 		RemoteUnit: "unit-mysql-0",
 	}}}
-	result, err = s.uniter.ReadRemoteSettings(args)
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.RelationSettingsResults{
+	expect := params.RelationSettingsResults{
 		Results: []params.RelationSettingsResult{
 			{Settings: params.RelationSettings{
 				"other": "things",
 			}},
 		},
-	})
+	}
+	result, err = s.uniter.ReadRemoteSettings(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, expect)
+
+	// Now destroy the remote unit, and check its settings can still be read.
+	err = s.mysqlUnit.Destroy()
+	c.Assert(err, gc.IsNil)
+	err = s.mysqlUnit.EnsureDead()
+	c.Assert(err, gc.IsNil)
+	err = s.mysqlUnit.Remove()
+	c.Assert(err, gc.IsNil)
+	result, err = s.uniter.ReadRemoteSettings(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, expect)
 }
 
 func (s *uniterSuite) TestReadRemoteSettingsWithNonStringValuesFails(c *gc.C) {
@@ -1414,7 +1428,7 @@ func (s *uniterSuite) TestAPIAddresses(c *gc.C) {
 		instance.NewAddress("0.1.2.3"),
 	})
 	c.Assert(err, gc.IsNil)
-	apiAddresses, err := s.State.APIAddresses()
+	apiAddresses, err := s.State.APIAddressesFromMachines()
 	c.Assert(err, gc.IsNil)
 
 	result, err := s.uniter.APIAddresses()

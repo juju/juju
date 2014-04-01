@@ -9,7 +9,8 @@ import (
 	stdtesting "testing"
 	"time"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cert"
@@ -17,7 +18,6 @@ import (
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )
@@ -629,6 +629,14 @@ var configTests = []configTest{
 			"type": "null",
 			"name": "my-name",
 		},
+	}, {
+		about:       "TestMode flag specified",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":      "my-type",
+			"name":      "my-name",
+			"test-mode": true,
+		},
 	},
 	authTokenConfigTest("token=value, tokensecret=value", true),
 	authTokenConfigTest("token=value, ", true),
@@ -854,6 +862,9 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 	dev, _ := test.attrs["development"].(bool)
 	c.Assert(cfg.Development(), gc.Equals, dev)
 
+	testmode, _ := test.attrs["test-mode"].(bool)
+	c.Assert(cfg.TestMode(), gc.Equals, testmode)
+
 	if series, _ := test.attrs["default-series"].(string); series != "" {
 		c.Assert(cfg.DefaultSeries(), gc.Equals, series)
 	} else {
@@ -1006,6 +1017,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"bootstrap-addresses-delay": 10,
 		"default-series":            "precise",
 		"charm-store-auth":          "token=auth",
+		"test-mode":                 false,
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
@@ -1019,6 +1031,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["tools-metadata-url"] = ""
 	attrs["tools-url"] = ""
 	attrs["image-stream"] = ""
+
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
 	c.Assert(cfg.AllAttrs(), jc.DeepEquals, attrs)
@@ -1077,11 +1090,6 @@ var validationTests = []validationTest{{
 	new:   testing.Attrs{"api-port": 42},
 	err:   `cannot change api-port from 17070 to 42`,
 }, {
-	about: "Cannot change the syslog-port",
-	old:   testing.Attrs{"syslog-port": 345},
-	new:   testing.Attrs{"syslog-port": 42},
-	err:   `cannot change syslog-port from 345 to 42`,
-}, {
 	about: "Can change the state-port from explicit-default to implicit-default",
 	old:   testing.Attrs{"state-port": config.DefaultStatePort},
 }, {
@@ -1102,9 +1110,9 @@ var validationTests = []validationTest{{
 	new:   testing.Attrs{"api-port": 42},
 	err:   `cannot change api-port from 17070 to 42`,
 }, {
-	about: "Cannot change the syslog-port from implicit-default to different value",
-	new:   testing.Attrs{"syslog-port": 42},
-	err:   `cannot change syslog-port from 514 to 42`,
+	about: "Cannot change the bootstrap-timeout from implicit-default to different value",
+	new:   testing.Attrs{"bootstrap-timeout": 5},
+	err:   `cannot change bootstrap-timeout from 600 to 5`,
 }}
 
 func (*ConfigSuite) TestValidateChange(c *gc.C) {
@@ -1219,6 +1227,7 @@ func (*ConfigSuite) TestProxyValuesWithFallback(c *gc.C) {
 		"http-proxy":  "http://user@10.0.0.1",
 		"https-proxy": "https://user@10.0.0.1",
 		"ftp-proxy":   "ftp://user@10.0.0.1",
+		"no-proxy":    "localhost,10.0.3.1",
 	})
 	c.Assert(config.HttpProxy(), gc.Equals, "http://user@10.0.0.1")
 	c.Assert(config.AptHttpProxy(), gc.Equals, "http://user@10.0.0.1")
@@ -1226,6 +1235,7 @@ func (*ConfigSuite) TestProxyValuesWithFallback(c *gc.C) {
 	c.Assert(config.AptHttpsProxy(), gc.Equals, "https://user@10.0.0.1")
 	c.Assert(config.FtpProxy(), gc.Equals, "ftp://user@10.0.0.1")
 	c.Assert(config.AptFtpProxy(), gc.Equals, "ftp://user@10.0.0.1")
+	c.Assert(config.NoProxy(), gc.Equals, "localhost,10.0.3.1")
 }
 
 func (*ConfigSuite) TestProxyValues(c *gc.C) {
@@ -1257,6 +1267,7 @@ func (*ConfigSuite) TestProxyValuesNotSet(c *gc.C) {
 	c.Assert(config.AptHttpsProxy(), gc.Equals, "")
 	c.Assert(config.FtpProxy(), gc.Equals, "")
 	c.Assert(config.AptFtpProxy(), gc.Equals, "")
+	c.Assert(config.NoProxy(), gc.Equals, "")
 }
 
 func (*ConfigSuite) TestProxyConfigMap(c *gc.C) {
@@ -1264,13 +1275,16 @@ func (*ConfigSuite) TestProxyConfigMap(c *gc.C) {
 
 	cfg := newTestConfig(c, testing.Attrs{})
 	proxy := osenv.ProxySettings{
-		Http:  "http proxy",
-		Https: "https proxy",
-		Ftp:   "ftp proxy",
+		Http:    "http proxy",
+		Https:   "https proxy",
+		Ftp:     "ftp proxy",
+		NoProxy: "no proxy",
 	}
 	cfg, err := cfg.Apply(config.ProxyConfigMap(proxy))
 	c.Assert(err, gc.IsNil)
 	c.Assert(cfg.ProxySettings(), gc.DeepEquals, proxy)
+	// Apt proxy and proxy differ by the content of the no-proxy values.
+	proxy.NoProxy = ""
 	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, proxy)
 }
 

@@ -90,7 +90,7 @@ var instanceTypes = []InstanceType{
 		Mem:      23552,
 		Cost:     1300,
 		RootDisk: 32768,
-		VType:    &hvm,
+		VirtType: &hvm,
 	}, {
 		Name:     "cc2.8xlarge",
 		Arches:   []string{"amd64"},
@@ -99,7 +99,7 @@ var instanceTypes = []InstanceType{
 		Mem:      61952,
 		Cost:     2400,
 		RootDisk: 131072,
-		VType:    &hvm,
+		VirtType: &hvm,
 	},
 }
 

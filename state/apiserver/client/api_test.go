@@ -8,9 +8,11 @@ import (
 	stdtesting "testing"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -19,7 +21,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -111,7 +112,7 @@ func (s *baseSuite) tryOpenState(c *gc.C, e apiAuthenticator, password string) e
 	stateInfo.Password = password
 	st, err := state.Open(stateInfo, state.DialOpts{
 		Timeout: 25 * time.Millisecond,
-	})
+	}, environs.NewStatePolicy())
 	if err == nil {
 		st.Close()
 	}
@@ -261,7 +262,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []string) {
 	add := func(e state.Entity) {
 		entities = append(entities, e.Tag())
 	}
-	u, err := s.State.User("admin")
+	u, err := s.State.User(state.AdminUser)
 	c.Assert(err, gc.IsNil)
 	setDefaultPassword(c, u)
 	add(u)

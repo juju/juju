@@ -24,11 +24,12 @@ var CacheDir string
 
 // InfoResponse is sent by the charm store in response to charm-info requests.
 type InfoResponse struct {
-	Revision int      `json:"revision"` // Zero is valid. Can't omitempty.
-	Sha256   string   `json:"sha256,omitempty"`
-	Digest   string   `json:"digest,omitempty"`
-	Errors   []string `json:"errors,omitempty"`
-	Warnings []string `json:"warnings,omitempty"`
+	CanonicalURL string   `json:"canonical-url,omitempty"`
+	Revision     int      `json:"revision"` // Zero is valid. Can't omitempty.
+	Sha256       string   `json:"sha256,omitempty"`
+	Digest       string   `json:"digest,omitempty"`
+	Errors       []string `json:"errors,omitempty"`
+	Warnings     []string `json:"warnings,omitempty"`
 }
 
 // EventResponse is sent by the charm store in response to charm-event requests.
@@ -53,6 +54,7 @@ type CharmRevision struct {
 type Repository interface {
 	Get(curl *URL) (Charm, error)
 	Latest(curls ...*URL) ([]CharmRevision, error)
+	Resolve(ref Reference) (*URL, error)
 }
 
 // Latest returns the latest revision of the charm referenced by curl, regardless
@@ -87,6 +89,7 @@ type CharmStore struct {
 	BaseURL   string
 	authAttrs string // a list of attr=value pairs, comma separated
 	jujuAttrs string // a list of attr=value pairs, comma separated
+	testMode  bool
 }
 
 var _ Repository = (*CharmStore)(nil)
@@ -99,6 +102,14 @@ func (s *CharmStore) WithAuthAttrs(authAttrs string) Repository {
 	authCS := *s
 	authCS.authAttrs = authAttrs
 	return &authCS
+}
+
+// WithTestMode returns a Repository where testMode is set to value passed to
+// this method.
+func (s *CharmStore) WithTestMode(testMode bool) Repository {
+	newRepo := *s
+	newRepo.testMode = testMode
+	return &newRepo
 }
 
 // WithJujuAttrs returns a Repository with the Juju metadata attributes set.
@@ -128,14 +139,36 @@ func (s *CharmStore) get(url string) (resp *http.Response, err error) {
 	return http.DefaultClient.Do(req)
 }
 
-// Info returns details for all the specified charms in the charm store.
-func (s *CharmStore) Info(curls ...*URL) ([]*InfoResponse, error) {
-	baseURL := s.BaseURL + "/charm-info?"
-	charmSnippets := make([]string, len(curls))
-	for i, curl := range curls {
-		charmSnippets[i] = "charms=" + url.QueryEscape(curl.String())
+// Resolve canonicalizes charm URLs, resolving references and implied series.
+func (s *CharmStore) Resolve(ref Reference) (*URL, error) {
+	infos, err := s.Info(ref)
+	if err != nil {
+		return nil, err
 	}
-	resp, err := s.get(baseURL + strings.Join(charmSnippets, "&"))
+	if len(infos) == 0 {
+		return nil, fmt.Errorf("missing response when resolving charm URL: %q", ref)
+	}
+	if infos[0].CanonicalURL == "" {
+		return nil, fmt.Errorf("cannot resolve charm URL: %q", ref)
+	}
+	curl, err := ParseURL(infos[0].CanonicalURL)
+	if err != nil {
+		return nil, err
+	}
+	return curl, nil
+}
+
+// Info returns details for all the specified charms in the charm store.
+func (s *CharmStore) Info(curls ...Location) ([]*InfoResponse, error) {
+	baseURL := s.BaseURL + "/charm-info?"
+	queryParams := make([]string, len(curls), len(curls)+1)
+	for i, curl := range curls {
+		queryParams[i] = "charms=" + url.QueryEscape(curl.String())
+	}
+	if s.testMode {
+		queryParams = append(queryParams, "stats=0")
+	}
+	resp, err := s.get(baseURL + strings.Join(queryParams, "&"))
 	if err != nil {
 		if url_error, ok := err.(*url.Error); ok {
 			switch url_error.Err.(type) {
@@ -206,7 +239,7 @@ func (s *CharmStore) Event(curl *URL, digest string) (*EventResponse, error) {
 }
 
 // revisions returns the revisions of the charms referenced by curls.
-func (s *CharmStore) revisions(curls ...*URL) (revisions []CharmRevision, err error) {
+func (s *CharmStore) revisions(curls ...Location) (revisions []CharmRevision, err error) {
 	infos, err := s.Info(curls...)
 	if err != nil {
 		return nil, err
@@ -234,7 +267,7 @@ func (s *CharmStore) revisions(curls ...*URL) (revisions []CharmRevision, err er
 // Latest returns the latest revision of the charms referenced by curls, regardless
 // of the revision set on each curl.
 func (s *CharmStore) Latest(curls ...*URL) ([]CharmRevision, error) {
-	baseCurls := make([]*URL, len(curls))
+	baseCurls := make([]Location, len(curls))
 	for i, curl := range curls {
 		baseCurls[i] = curl.WithRevision(-1)
 	}
@@ -335,7 +368,11 @@ func (s *CharmStore) Get(curl *URL) (Charm, error) {
 	}
 	path := filepath.Join(CacheDir, Quote(curl.String())+".charm")
 	if verify(path, digest) != nil {
-		resp, err := s.get(s.BaseURL + "/charm/" + url.QueryEscape(curl.Path()))
+		store_url := s.BaseURL + "/charm/" + url.QueryEscape(curl.Path())
+		if s.testMode {
+			store_url = store_url + "?stats=0"
+		}
+		resp, err := s.get(store_url)
 		if err != nil {
 			return nil, err
 		}
@@ -371,10 +408,26 @@ func (s *CharmStore) Get(curl *URL) (Charm, error) {
 //   /path/to/repository/precise/mongodb.charm
 //   /path/to/repository/precise/wordpress/
 type LocalRepository struct {
-	Path string
+	Path          string
+	defaultSeries string
 }
 
 var _ Repository = (*LocalRepository)(nil)
+
+// WithDefaultSeries returns a Repository with the default series set.
+func (r *LocalRepository) WithDefaultSeries(defaultSeries string) Repository {
+	localRepo := *r
+	localRepo.defaultSeries = defaultSeries
+	return &localRepo
+}
+
+// Resolve canonicalizes charm URLs, resolving references and implied series.
+func (r *LocalRepository) Resolve(ref Reference) (*URL, error) {
+	if r.defaultSeries == "" {
+		return nil, fmt.Errorf("cannot resolve, repository has no default series: %q", ref)
+	}
+	return &URL{Reference: ref, Series: r.defaultSeries}, nil
+}
 
 // Latest returns the latest revision of the charm referenced by curl, regardless
 // of the revision set on curl itself.

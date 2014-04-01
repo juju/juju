@@ -10,14 +10,13 @@ import (
 	"strings"
 
 	"github.com/errgo/errgo"
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/charm"
-	coreCloudinit "launchpad.net/juju-core/cloudinit"
-	"launchpad.net/juju-core/cloudinit/sshinit"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/manual"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
@@ -27,6 +26,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/statecmd"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -38,6 +38,8 @@ type API struct {
 	resources *common.Resources
 	client    *Client
 	dataDir   string
+	// statusSetter provides common methods for updating an entity's provisioning status.
+	statusSetter *common.StatusSetter
 }
 
 // Client serves client-specific API methods.
@@ -48,10 +50,11 @@ type Client struct {
 // NewAPI creates a new instance of the Client API.
 func NewAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer, datadir string) *API {
 	r := &API{
-		state:     st,
-		auth:      authorizer,
-		resources: resources,
-		dataDir:   datadir,
+		state:        st,
+		auth:         authorizer,
+		resources:    resources,
+		dataDir:      datadir,
+		statusSetter: common.NewStatusSetter(st, common.AuthAlways(true)),
 	}
 	r.client = &Client{
 		api: r,
@@ -184,6 +187,34 @@ func (c *Client) PublicAddress(p params.PublicAddress) (results params.PublicAdd
 	return results, fmt.Errorf("unknown unit or machine %q", p.Target)
 }
 
+// PrivateAddress implements the server side of Client.PrivateAddress.
+func (c *Client) PrivateAddress(p params.PrivateAddress) (results params.PrivateAddressResults, err error) {
+	switch {
+	case names.IsMachine(p.Target):
+		machine, err := c.api.state.Machine(p.Target)
+		if err != nil {
+			return results, err
+		}
+		addr := instance.SelectInternalAddress(machine.Addresses(), false)
+		if addr == "" {
+			return results, fmt.Errorf("machine %q has no internal address", machine)
+		}
+		return params.PrivateAddressResults{PrivateAddress: addr}, nil
+
+	case names.IsUnit(p.Target):
+		unit, err := c.api.state.Unit(p.Target)
+		if err != nil {
+			return results, err
+		}
+		addr, ok := unit.PrivateAddress()
+		if !ok {
+			return results, fmt.Errorf("unit %q has no internal address", unit)
+		}
+		return params.PrivateAddressResults{PrivateAddress: addr}, nil
+	}
+	return results, fmt.Errorf("unknown unit or machine %q", p.Target)
+}
+
 // ServiceExpose changes the juju-managed firewall to expose any ports that
 // were also explicitly marked by units as open.
 func (c *Client) ServiceExpose(args params.ServiceExpose) error {
@@ -251,14 +282,23 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 
 	_, err = juju.DeployService(c.api.state,
 		juju.DeployServiceParams{
-			ServiceName:    args.ServiceName,
-			Charm:          ch,
-			NumUnits:       args.NumUnits,
-			ConfigSettings: settings,
-			Constraints:    args.Constraints,
-			ToMachineSpec:  args.ToMachineSpec,
+			ServiceName:     args.ServiceName,
+			Charm:           ch,
+			NumUnits:        args.NumUnits,
+			ConfigSettings:  settings,
+			Constraints:     args.Constraints,
+			ToMachineSpec:   args.ToMachineSpec,
+			IncludeNetworks: args.IncludeNetworks,
+			ExcludeNetworks: args.ExcludeNetworks,
 		})
 	return err
+}
+
+// ServiceDeployWithNetworks works exactly like ServiceDeploy, but
+// allows specifying networks to include or exclude on the machine
+// where the charm gets deployed.
+func (c *Client) ServiceDeployWithNetworks(args params.ServiceDeploy) error {
+	return c.ServiceDeploy(args)
 }
 
 // ServiceUpdate updates the service attributes, including charm URL,
@@ -609,15 +649,7 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 		return result, err
 	}
 	mcfg.DisablePackageCommands = args.DisablePackageCommands
-	cloudcfg := coreCloudinit.New()
-	if err := cloudinit.ConfigureJuju(mcfg, cloudcfg); err != nil {
-		return result, err
-	}
-	// ProvisioningScript is run on an existing machine;
-	// we explicitly disable apt_upgrade so as not to
-	// trample the machine's existing configuration.
-	cloudcfg.SetAptUpgrade(false)
-	result.Script, err = sshinit.ConfigureScript(cloudcfg)
+	result.Script, err = manual.ProvisioningScript(mcfg)
 	return result, err
 }
 
@@ -769,43 +801,55 @@ func (c *Client) EnvironmentGet() (params.EnvironmentGetResults, error) {
 // EnvironmentSet implements the server-side part of the
 // set-environment CLI command.
 func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
-	// TODO(dimitern,thumper): 2013-11-06 bug #1167616
-	// SetEnvironConfig should take both new and old configs.
-
-	// Get the existing environment config from the state.
-	oldConfig, err := c.api.state.EnvironConfig()
-	if err != nil {
-		return err
-	}
 	// Make sure we don't allow changing agent-version.
-	if v, found := args.Config["agent-version"]; found {
-		oldVersion, _ := oldConfig.AgentVersion()
-		if v != oldVersion.String() {
-			return fmt.Errorf("agent-version cannot be changed")
+	checkAgentVersion := func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
+		if v, found := updateAttrs["agent-version"]; found {
+			oldVersion, _ := oldConfig.AgentVersion()
+			if v != oldVersion.String() {
+				return fmt.Errorf("agent-version cannot be changed")
+			}
 		}
+		return nil
 	}
-	// Apply the attributes specified for the command to the state config.
-	newConfig, err := oldConfig.Apply(args.Config)
-	if err != nil {
-		return err
-	}
-	env, err := environs.New(oldConfig)
-	if err != nil {
-		return err
-	}
-	// Now validate this new config against the existing config via the provider.
-	provider := env.Provider()
-	newProviderConfig, err := provider.Validate(newConfig, oldConfig)
-	if err != nil {
-		return err
-	}
-	// Now try to apply the new validated config.
-	return c.api.state.SetEnvironConfig(newProviderConfig, oldConfig)
+	// TODO(waigani) 2014-3-11 #1167616
+	// Add a txn retry loop to ensure that the settings on disk have not
+	// changed underneath us.
+	return c.api.state.UpdateEnvironConfig(args.Config, nil, checkAgentVersion)
+}
+
+// EnvironmentUnset implements the server-side part of the
+// set-environment CLI command.
+func (c *Client) EnvironmentUnset(args params.EnvironmentUnset) error {
+	// TODO(waigani) 2014-3-11 #1167616
+	// Add a txn retry loop to ensure that the settings on disk have not
+	// changed underneath us.
+	return c.api.state.UpdateEnvironConfig(nil, args.Keys, nil)
 }
 
 // SetEnvironAgentVersion sets the environment agent version.
 func (c *Client) SetEnvironAgentVersion(args params.SetEnvironAgentVersion) error {
 	return c.api.state.SetEnvironAgentVersion(args.Version)
+}
+
+// FindTools returns a List containing all tools matching the given parameters.
+func (c *Client) FindTools(args params.FindToolsParams) (params.FindToolsResults, error) {
+	result := params.FindToolsResults{}
+	// Get the existing environment config from the state.
+	envConfig, err := c.api.state.EnvironConfig()
+	if err != nil {
+		return result, err
+	}
+	env, err := environs.New(envConfig)
+	if err != nil {
+		return result, err
+	}
+	filter := coretools.Filter{
+		Arch:   args.Arch,
+		Series: args.Series,
+	}
+	result.List, err = envtools.FindTools(env, args.MajorVersion, args.MinorVersion, filter, envtools.DoNotAllowRetry)
+	result.Error = common.ServerError(err)
+	return result, nil
 }
 
 func destroyErr(desc string, ids, errs []string) error {
@@ -849,7 +893,7 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 	if err != nil {
 		return err
 	}
-	store := config.AuthorizeCharmRepo(CharmStore, envConfig)
+	store := config.SpecializeCharmRepo(CharmStore, envConfig)
 	downloadedCharm, err := store.Get(charmURL)
 	if err != nil {
 		return errgo.Annotatef(err, "cannot download charm %q", charmURL.String())
@@ -920,4 +964,36 @@ func CharmArchiveName(name string, revision int) (string, error) {
 		return "", err
 	}
 	return charm.Quote(fmt.Sprintf("%s-%d-%s", name, revision, uuid)), nil
+}
+
+// RetryProvisioning marks a provisioning error as transient on the machines.
+func (c *Client) RetryProvisioning(p params.Entities) (params.ErrorResults, error) {
+	entityStatus := make([]params.EntityStatus, len(p.Entities))
+	for i, entity := range p.Entities {
+		entityStatus[i] = params.EntityStatus{Tag: entity.Tag, Data: params.StatusData{"transient": true}}
+	}
+	return c.api.statusSetter.UpdateStatus(params.SetStatus{
+		Entities: entityStatus,
+	})
+}
+
+// APIHostPOrts returns the API host/port addresses stored in state.
+func (c *Client) APIHostPorts() (result params.APIHostPortsResult, err error) {
+	if result.Servers, err = c.api.state.APIHostPorts(); err != nil {
+		return params.APIHostPortsResult{}, err
+	}
+	return result, nil
+}
+
+// EnsureAvailability ensures the availability of Juju state servers.
+func (c *Client) EnsureAvailability(args params.EnsureAvailability) error {
+	series := args.Series
+	if series == "" {
+		cfg, err := c.api.state.EnvironConfig()
+		if err != nil {
+			return err
+		}
+		series = cfg.DefaultSeries()
+	}
+	return c.api.state.EnsureAvailability(args.NumStateServers, args.Constraints, series)
 }

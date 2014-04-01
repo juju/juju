@@ -90,8 +90,7 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	err = bootstrap.SaveState(
 		bootstrapStorage,
 		&bootstrap.BootstrapState{
-			StateInstances:  []instance.Id{BootstrapInstanceId},
-			Characteristics: []instance.HardwareCharacteristics{*args.HardwareCharacteristics},
+			StateInstances: []instance.Id{BootstrapInstanceId},
 		},
 	)
 	if err != nil {
@@ -104,12 +103,13 @@ func Bootstrap(args BootstrapArgs) (err error) {
 		}
 	}()
 
-	// Get a file:// scheme tools URL for the tools, which will have been
-	// copied to the remote machine's storage directory.
+	// If the tools are on the machine already, get a file:// scheme tools URL.
 	tools := *possibleTools[0]
 	storageDir := args.Environ.StorageDir()
 	toolsStorageName := envtools.StorageName(tools.Version)
-	tools.URL = fmt.Sprintf("file://%s/%s", storageDir, toolsStorageName)
+	if url, _ := bootstrapStorage.URL(toolsStorageName); url == tools.URL {
+		tools.URL = fmt.Sprintf("file://%s/%s", storageDir, toolsStorageName)
+	}
 
 	// Add the local storage configuration.
 	agentEnv, err := localstorage.StoreConfig(args.Environ)
@@ -123,8 +123,9 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	}
 
 	// Finally, provision the machine agent.
-	stateFileURL := fmt.Sprintf("file://%s/%s", storageDir, bootstrap.StateFile)
-	mcfg := environs.NewBootstrapMachineConfig(stateFileURL, privateKey)
+	mcfg := environs.NewBootstrapMachineConfig(privateKey)
+	mcfg.InstanceId = BootstrapInstanceId
+	mcfg.HardwareCharacteristics = args.HardwareCharacteristics
 	if args.DataDir != "" {
 		mcfg.DataDir = args.DataDir
 	}
@@ -136,5 +137,5 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	for k, v := range agentEnv {
 		mcfg.AgentEnvironment[k] = v
 	}
-	return provisionMachineAgent(args.Host, mcfg, args.Context.Stderr())
+	return provisionMachineAgent(args.Host, mcfg, args.Context.GetStderr())
 }

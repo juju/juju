@@ -5,14 +5,16 @@ package manual_test
 
 import (
 	"fmt"
+	"io"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/provider/manual"
-	jc "launchpad.net/juju-core/testing/checkers"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 )
@@ -23,13 +25,20 @@ type providerSuite struct {
 
 var _ = gc.Suite(&providerSuite{})
 
+func (s *providerSuite) SetUpTest(c *gc.C) {
+	s.LoggingSuite.SetUpTest(c)
+	s.PatchValue(manual.InitUbuntuUser, func(host, user, keys string, stdin io.Reader, stdout io.Writer) error {
+		return nil
+	})
+}
+
 func (s *providerSuite) TestPrepare(c *gc.C) {
 	minimal := manual.MinimalConfigValues()
 	minimal["use-sshstorage"] = true
 	delete(minimal, "storage-auth-key")
 	testConfig, err := config.New(config.UseDefaults, minimal)
 	c.Assert(err, gc.IsNil)
-	env, err := manual.ProviderInstance.Prepare(testConfig)
+	env, err := manual.ProviderInstance.Prepare(coretesting.Context(c), testConfig)
 	c.Assert(err, gc.IsNil)
 	cfg := env.Config()
 	key, _ := cfg.UnknownAttrs()["storage-auth-key"].(string)
@@ -41,7 +50,7 @@ func (s *providerSuite) TestPrepareUseSSHStorage(c *gc.C) {
 	minimal["use-sshstorage"] = false
 	testConfig, err := config.New(config.UseDefaults, minimal)
 	c.Assert(err, gc.IsNil)
-	_, err = manual.ProviderInstance.Prepare(testConfig)
+	_, err = manual.ProviderInstance.Prepare(coretesting.Context(c), testConfig)
 	c.Assert(err, gc.ErrorMatches, "use-sshstorage must not be specified")
 
 	s.PatchValue(manual.NewSSHStorage, func(sshHost, storageDir, storageTmpdir string) (storage.Storage, error) {
@@ -50,7 +59,7 @@ func (s *providerSuite) TestPrepareUseSSHStorage(c *gc.C) {
 	minimal["use-sshstorage"] = true
 	testConfig, err = config.New(config.UseDefaults, minimal)
 	c.Assert(err, gc.IsNil)
-	_, err = manual.ProviderInstance.Prepare(testConfig)
+	_, err = manual.ProviderInstance.Prepare(coretesting.Context(c), testConfig)
 	c.Assert(err, gc.ErrorMatches, "initialising SSH storage failed: newSSHStorage failed")
 }
 

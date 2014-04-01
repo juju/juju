@@ -10,7 +10,6 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
-	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/local"
@@ -107,10 +106,9 @@ func (s *configSuite) TestNamespace(c *gc.C) {
 }
 
 func (s *configSuite) TestBootstrapAsRoot(c *gc.C) {
-	restore := local.SetRootCheckFunction(func() bool { return true })
-	defer restore()
-	env, err := local.Provider.Prepare(minimalConfig(c))
+	s.PatchValue(local.CheckIfRoot, func() bool { return true })
+	env, err := local.Provider.Prepare(testing.Context(c), minimalConfig(c))
 	c.Assert(err, gc.IsNil)
-	err = env.Bootstrap(envtesting.NewBootstrapContext(testing.Context(c)), constraints.Value{})
+	err = env.Bootstrap(testing.Context(c), constraints.Value{})
 	c.Assert(err, gc.ErrorMatches, "bootstrapping a local environment must not be done as root")
 }

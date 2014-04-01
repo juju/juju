@@ -4,7 +4,6 @@
 package agent
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"launchpad.net/juju-core/constraints"
@@ -12,6 +11,8 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -29,33 +30,21 @@ import (
 // InitializeState returns the newly initialized state and bootstrap
 // machine. If it fails, the state may well be irredeemably compromised.
 type StateInitializer interface {
-	InitializeState(envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts) (*state.State, *state.Machine, error)
-}
-
-// MarshalBootstrapJobs may be used to marshal a set of
-// machine jobs for the bootstrap agent, to be added
-// into the agent configuration.
-func MarshalBootstrapJobs(jobs ...state.MachineJob) (string, error) {
-	b, err := json.Marshal(jobs)
-	return string(b), err
-}
-
-// UnmarshalBootstrapJobs unmarshals a set of machine
-// jobs marshalled with MarshalBootstrapJobs.
-func UnmarshalBootstrapJobs(s string) (jobs []state.MachineJob, err error) {
-	err = json.Unmarshal([]byte(s), &jobs)
-	return jobs, err
+	InitializeState(envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts, policy state.Policy) (*state.State, *state.Machine, error)
 }
 
 // BootstrapMachineConfig holds configuration information
 // to attach to the bootstrap machine.
 type BootstrapMachineConfig struct {
+	// Addresses holds the bootstrap machine's addresses.
+	Addresses []instance.Address
+
 	// Constraints holds the bootstrap machine's constraints.
 	// This value is also used for the environment-level constraints.
 	Constraints constraints.Value
 
 	// Jobs holds the jobs that the machine agent will run.
-	Jobs []state.MachineJob
+	Jobs []params.MachineJob
 
 	// InstanceId holds the instance id of the bootstrap machine.
 	InstanceId instance.Id
@@ -67,21 +56,24 @@ type BootstrapMachineConfig struct {
 
 const bootstrapMachineId = "0"
 
-func (c *configInternal) InitializeState(envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts) (*state.State, *state.Machine, error) {
+func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts, policy state.Policy) (*state.State, *state.Machine, error) {
 	if c.Tag() != names.MachineTag(bootstrapMachineId) {
 		return nil, nil, fmt.Errorf("InitializeState not called with bootstrap machine's configuration")
 	}
-	info := state.Info{
-		Addrs:  c.stateDetails.addresses,
-		CACert: c.caCert,
-	}
+	info := c.StateInfo()
+	info.Tag = ""
+	info.Password = ""
 	logger.Debugf("initializing address %v", info.Addrs)
-	st, err := state.Initialize(&info, envCfg, timeout)
+	st, err := state.Initialize(info, envCfg, timeout, policy)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to initialize state: %v", err)
 	}
 	logger.Debugf("connected to initial state")
-	m, err := c.initUsersAndBootstrapMachine(st, machineCfg)
+	if err = initAPIHostPorts(c, st, machineCfg.Addresses); err != nil {
+		st.Close()
+		return nil, nil, err
+	}
+	m, err := initUsersAndBootstrapMachine(c, st, machineCfg)
 	if err != nil {
 		st.Close()
 		return nil, nil, err
@@ -89,14 +81,14 @@ func (c *configInternal) InitializeState(envCfg *config.Config, machineCfg Boots
 	return st, m, nil
 }
 
-func (c *configInternal) initUsersAndBootstrapMachine(st *state.State, cfg BootstrapMachineConfig) (*state.Machine, error) {
-	if err := initBootstrapUser(st, c.oldPassword); err != nil {
+func initUsersAndBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineConfig) (*state.Machine, error) {
+	if err := initBootstrapUser(st, c.OldPassword()); err != nil {
 		return nil, fmt.Errorf("cannot initialize bootstrap user: %v", err)
 	}
 	if err := st.SetEnvironConstraints(cfg.Constraints); err != nil {
 		return nil, fmt.Errorf("cannot set initial environ constraints: %v", err)
 	}
-	m, err := c.initBootstrapMachine(st, cfg)
+	m, err := initBootstrapMachine(c, st, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("cannot initialize bootstrap machine: %v", err)
 	}
@@ -134,17 +126,26 @@ func initBootstrapUser(st *state.State, passwordHash string) error {
 }
 
 // initBootstrapMachine initializes the initial bootstrap machine in state.
-func (c *configInternal) initBootstrapMachine(st *state.State, cfg BootstrapMachineConfig) (*state.Machine, error) {
+func initBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineConfig) (*state.Machine, error) {
 
 	logger.Infof("initialising bootstrap machine with config: %+v", cfg)
 
+	jobs := make([]state.MachineJob, len(cfg.Jobs))
+	for i, job := range cfg.Jobs {
+		machineJob, err := state.MachineJobFromParams(job)
+		if err != nil {
+			return nil, fmt.Errorf("invalid bootstrap machine job %q: %v", job, err)
+		}
+		jobs[i] = machineJob
+	}
 	m, err := st.AddOneMachine(state.MachineTemplate{
+		Addresses:               cfg.Addresses,
 		Series:                  version.Current.Series,
 		Nonce:                   state.BootstrapNonce,
 		Constraints:             cfg.Constraints,
 		InstanceId:              cfg.InstanceId,
 		HardwareCharacteristics: cfg.Characteristics,
-		Jobs: cfg.Jobs,
+		Jobs: jobs,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("cannot create bootstrap machine in state: %v", err)
@@ -157,15 +158,23 @@ func (c *configInternal) initBootstrapMachine(st *state.State, cfg BootstrapMach
 	// via the API connection).
 	logger.Debugf("create new random password for machine %v", m.Id())
 
-	newPassword, err := c.writeNewPassword()
+	newPassword, err := utils.RandomPassword()
 	if err != nil {
-		return nil, err
-	}
-	if err := m.SetMongoPassword(newPassword); err != nil {
 		return nil, err
 	}
 	if err := m.SetPassword(newPassword); err != nil {
 		return nil, err
 	}
+	if err := m.SetMongoPassword(newPassword); err != nil {
+		return nil, err
+	}
+	c.SetPassword(newPassword)
 	return m, nil
+}
+
+// initAPIHostPorts sets the initial API host/port addresses in state.
+func initAPIHostPorts(c ConfigSetter, st *state.State, addrs []instance.Address) error {
+	port, _, _ := c.APIServerDetails()
+	hostPorts := instance.AddressesWithPort(addrs, port)
+	return st.SetAPIHostPorts([][]instance.HostPort{hostPorts})
 }

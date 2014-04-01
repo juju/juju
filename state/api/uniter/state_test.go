@@ -5,24 +5,22 @@ package uniter_test
 
 import (
 	gc "launchpad.net/gocheck"
+
+	apitesting "launchpad.net/juju-core/state/api/testing"
 )
 
 type stateSuite struct {
 	uniterSuite
+	*apitesting.APIAddresserTests
+	*apitesting.EnvironWatcherTests
 }
 
 var _ = gc.Suite(&stateSuite{})
 
-func (s *stateSuite) TestAPIAddresses(c *gc.C) {
-	stateAPIAddresses, err := s.State.APIAddresses()
-	c.Assert(err, gc.IsNil)
-	addresses, err := s.uniter.APIAddresses()
-	c.Assert(err, gc.IsNil)
-	c.Assert(addresses, gc.DeepEquals, stateAPIAddresses)
-	// testing.AddStateServerMachine creates a machine which does *not*
-	// match the values in the Environ Config, so these don't match
-	apiInfo := s.APIInfo(c)
-	c.Assert(addresses, gc.Not(gc.DeepEquals), apiInfo.Addrs)
+func (s *stateSuite) SetUpTest(c *gc.C) {
+	s.uniterSuite.SetUpTest(c)
+	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.uniter, s.BackingState)
+	s.EnvironWatcherTests = apitesting.NewEnvironWatcherTests(s.uniter, s.BackingState, apitesting.NoSecrets)
 }
 
 func (s *stateSuite) TestProviderType(c *gc.C) {
@@ -32,20 +30,4 @@ func (s *stateSuite) TestProviderType(c *gc.C) {
 	providerType, err := s.uniter.ProviderType()
 	c.Assert(err, gc.IsNil)
 	c.Assert(providerType, gc.DeepEquals, cfg.Type())
-}
-
-type noStateServerSuite struct {
-	uniterSuite
-}
-
-var _ = gc.Suite(&noStateServerSuite{})
-
-func (s *noStateServerSuite) SetUpTest(c *gc.C) {
-	// avoid adding the state server machine.
-	s.setUpTest(c, false)
-}
-
-func (s *noStateServerSuite) TestAPIAddressesFailure(c *gc.C) {
-	_, err := s.uniter.APIAddresses()
-	c.Assert(err, gc.ErrorMatches, "no state server machines found")
 }

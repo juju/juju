@@ -1,3 +1,6 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package peergrouper
 
 import (
@@ -7,14 +10,17 @@ import (
 	"strings"
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/replicaset"
-	jc "launchpad.net/juju-core/testing/checkers"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
 func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
+	coretesting.MgoTestPackage(t)
 }
 
 type desiredPeerGroupSuite struct {
@@ -23,7 +29,10 @@ type desiredPeerGroupSuite struct {
 
 var _ = gc.Suite(&desiredPeerGroupSuite{})
 
-const mongoPort = 1234
+const (
+	mongoPort = 1234
+	apiPort   = 5678
+)
 
 var desiredPeerGroupTests = []struct {
 	about    string
@@ -35,6 +44,20 @@ var desiredPeerGroupTests = []struct {
 	expectVoting  []bool
 	expectErr     string
 }{{
+	// Note that this should never happen - mongo
+	// should always be bootstrapped with at least a single
+	// member in its member-set.
+	about:     "no members - error",
+	expectErr: "current member set is empty",
+}, {
+	about:    "one machine, two more proposed members",
+	machines: mkMachines("10v 11v 12v"),
+	statuses: mkStatuses("0p"),
+	members:  mkMembers("0v"),
+
+	expectMembers: mkMembers("0v 1 2"),
+	expectVoting:  []bool{true, false, false},
+}, {
 	about:         "single machine, no change",
 	machines:      mkMachines("11v"),
 	members:       mkMembers("1v"),
@@ -47,7 +70,7 @@ var desiredPeerGroupTests = []struct {
 	members:      mkMembers("1v 2vT"),
 	statuses:     mkStatuses("1p 2s"),
 	expectVoting: []bool{true},
-	expectErr:    "voting non-machine member found in peer group",
+	expectErr:    "voting non-machine member.* found in peer group",
 }, {
 	about:    "extra member with >1 votes",
 	machines: mkMachines("11v"),
@@ -58,7 +81,7 @@ var desiredPeerGroupTests = []struct {
 	}),
 	statuses:     mkStatuses("1p 2s"),
 	expectVoting: []bool{true},
-	expectErr:    "voting non-machine member found in peer group",
+	expectErr:    "voting non-machine member.* found in peer group",
 }, {
 	about:         "new machine with no associated member",
 	machines:      mkMachines("11v 12v"),
@@ -134,7 +157,14 @@ var desiredPeerGroupTests = []struct {
 	machines: append(mkMachines("11v 12v"), &machine{
 		id:        "13",
 		wantsVote: true,
-		hostPort:  "0.1.99.13:1234",
+		mongoHostPorts: []instance.HostPort{{
+			Address: instance.Address{
+				Value:        "0.1.99.13",
+				Type:         instance.Ipv4Address,
+				NetworkScope: instance.NetworkCloudLocal,
+			},
+			Port: 1234,
+		}},
 	}),
 	statuses:     mkStatuses("1s 2p 3p"),
 	members:      mkMembers("1v 2v 3v"),
@@ -144,13 +174,29 @@ var desiredPeerGroupTests = []struct {
 		Address: "0.1.99.13:1234",
 		Tags:    memberTag("13"),
 	}),
+}, {
+	about: "a machine's address is ignored if it changes to empty",
+	machines: append(mkMachines("11v 12v"), &machine{
+		id:             "13",
+		wantsVote:      true,
+		mongoHostPorts: nil,
+	}),
+	statuses:      mkStatuses("1s 2p 3p"),
+	members:       mkMembers("1v 2v 3v"),
+	expectVoting:  []bool{true, true, true},
+	expectMembers: nil,
 }}
 
 func (*desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 	for i, test := range desiredPeerGroupTests {
 		c.Logf("\ntest %d: %s", i, test.about)
+		machineMap := make(map[string]*machine)
+		for _, m := range test.machines {
+			c.Assert(machineMap[m.id], gc.IsNil)
+			machineMap[m.id] = m
+		}
 		info := &peerGroupInfo{
-			machines: test.machines,
+			machines: machineMap,
 			statuses: test.statuses,
 			members:  test.members,
 		}
@@ -165,7 +211,7 @@ func (*desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 		if len(members) == 0 {
 			continue
 		}
-		for i, m := range info.machines {
+		for i, m := range test.machines {
 			c.Assert(voting[m], gc.Equals, test.expectVoting[i], gc.Commentf("machine %s", m.id))
 		}
 		// Assure ourselves that the total number of desired votes is odd in
@@ -213,8 +259,15 @@ func mkMachines(description string) []*machine {
 	ms := make([]*machine, len(descrs))
 	for i, d := range descrs {
 		ms[i] = &machine{
-			id:        fmt.Sprint(d.id),
-			hostPort:  fmt.Sprintf("0.1.2.%d:%d", d.id, mongoPort),
+			id: fmt.Sprint(d.id),
+			mongoHostPorts: []instance.HostPort{{
+				Address: instance.Address{
+					Value:        fmt.Sprintf("0.1.2.%d", d.id),
+					Type:         instance.Ipv4Address,
+					NetworkScope: instance.NetworkCloudLocal,
+				},
+				Port: mongoPort,
+			}},
 			wantsVote: strings.Contains(d.flags, "v"),
 		}
 	}
@@ -349,6 +402,13 @@ func parseDescr(s string) []descr {
 		d.flags = field[i:]
 	}
 	return descrs
+}
+
+func assertMembers(c *gc.C, obtained interface{}, expected []replicaset.Member) {
+	c.Assert(obtained, gc.FitsTypeOf, []replicaset.Member{})
+	sort.Sort(membersById(obtained.([]replicaset.Member)))
+	sort.Sort(membersById(expected))
+	c.Assert(obtained, jc.DeepEquals, expected)
 }
 
 type membersById []replicaset.Member

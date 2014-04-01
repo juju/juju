@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
@@ -22,7 +23,6 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/provisioner"
@@ -66,12 +66,13 @@ func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.agentConfig, err = agent.NewAgentConfig(
 		agent.AgentConfigParams{
-			DataDir:      "/not/used/here",
-			Tag:          "tag",
-			Password:     "dummy-secret",
-			Nonce:        "nonce",
-			APIAddresses: []string{"10.0.0.1:1234"},
-			CACert:       []byte(coretesting.CACert),
+			DataDir:           "/not/used/here",
+			Tag:               "tag",
+			UpgradedToVersion: version.Current.Number,
+			Password:          "dummy-secret",
+			Nonce:             "nonce",
+			APIAddresses:      []string{"10.0.0.1:1234"},
+			CACert:            []byte(coretesting.CACert),
 		})
 	c.Assert(err, gc.IsNil)
 	s.broker, err = provisioner.NewKvmBroker(&fakeAPI{}, tools, s.agentConfig)
@@ -85,7 +86,11 @@ func (s *kvmBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 	machineConfig := environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo)
 	cons := constraints.Value{}
 	possibleTools := s.broker.(coretools.HasTools).Tools()
-	kvm, _, err := s.broker.StartInstance(cons, possibleTools, machineConfig)
+	kvm, _, err := s.broker.StartInstance(environs.StartInstanceParams{
+		Constraints:   cons,
+		Tools:         possibleTools,
+		MachineConfig: machineConfig,
+	})
 	c.Assert(err, gc.IsNil)
 	return kvm
 }

@@ -9,6 +9,7 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/manual"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -21,7 +22,19 @@ func init() {
 
 var errNoBootstrapHost = errors.New("bootstrap-host must be specified")
 
-func (p manualProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+var initUbuntuUser = manual.InitUbuntuUser
+
+func ensureBootstrapUbuntuUser(ctx environs.BootstrapContext, cfg *environConfig) error {
+	err := initUbuntuUser(cfg.bootstrapHost(), cfg.bootstrapUser(), cfg.AuthorizedKeys(), ctx.GetStdin(), ctx.GetStdout())
+	if err != nil {
+		logger.Errorf("initializing ubuntu user: %v", err)
+		return err
+	}
+	logger.Infof("initialized ubuntu user")
+	return nil
+}
+
+func (p manualProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	if _, ok := cfg.UnknownAttrs()["storage-auth-key"]; !ok {
 		uuid, err := utils.NewUUID()
 		if err != nil {
@@ -37,7 +50,14 @@ func (p manualProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
 	if use, ok := cfg.UnknownAttrs()["use-sshstorage"].(bool); ok && !use {
 		return nil, fmt.Errorf("use-sshstorage must not be specified")
 	}
-	return p.Open(cfg)
+	envConfig, err := p.validate(cfg, nil)
+	if err != nil {
+		return nil, err
+	}
+	if err := ensureBootstrapUbuntuUser(ctx, envConfig); err != nil {
+		return nil, err
+	}
+	return p.open(envConfig)
 }
 
 func (p manualProvider) Open(cfg *config.Config) (environs.Environ, error) {
@@ -148,17 +168,4 @@ func (p manualProvider) SecretAttrs(cfg *config.Config) (map[string]string, erro
 	attrs := make(map[string]string)
 	attrs["storage-auth-key"] = envConfig.storageAuthKey()
 	return attrs, nil
-}
-
-func (_ manualProvider) PublicAddress() (string, error) {
-	// TODO(axw) 2013-09-10 bug #1222643
-	//
-	// eth0 may not be the desired interface for traffic to route
-	// through. We should somehow make this configurable, and
-	// possibly also record the IP resolved during manual bootstrap.
-	return utils.GetAddressForInterface("eth0")
-}
-
-func (p manualProvider) PrivateAddress() (string, error) {
-	return p.PublicAddress()
 }

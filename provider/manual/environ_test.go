@@ -5,19 +5,17 @@ package manual
 
 import (
 	"errors"
-	"io"
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/manual"
 	"launchpad.net/juju-core/environs/storage"
-	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
@@ -87,9 +85,18 @@ func (s *environSuite) TestInstances(c *gc.C) {
 func (s *environSuite) TestDestroy(c *gc.C) {
 	var resultStderr string
 	var resultErr error
-	runSSHCommandTesting := func(host string, command []string) (string, error) {
+	runSSHCommandTesting := func(host string, command []string, stdin string) (string, error) {
 		c.Assert(host, gc.Equals, "ubuntu@hostname")
-		c.Assert(command, gc.DeepEquals, []string{"sudo", "pkill", "-6", "jujud"})
+		c.Assert(command, gc.DeepEquals, []string{"sudo", "/bin/bash"})
+		c.Assert(stdin, gc.DeepEquals, `
+set -x
+pkill -6 jujud && exit
+stop juju-db
+rm -f /etc/init/juju*
+rm -f /etc/rsyslog.d/*juju*
+rm -fr '/var/lib/juju' '/var/log/juju'
+exit 0
+`)
 		return resultStderr, resultErr
 	}
 	s.PatchValue(&runSSHCommand, runSSHCommandTesting)
@@ -133,19 +140,12 @@ func (s *environSuite) TestEnvironSupportsCustomSources(c *gc.C) {
 	c.Assert(strings.Contains(url, "/tools"), jc.IsTrue)
 }
 
-func (s *environSuite) TestEnvironBootstrapStorager(c *gc.C) {
-	var initUbuntuResult error
-	s.PatchValue(&initUbuntuUser, func(host, user, authorizedKeys string, stdin io.Reader, stdout io.Writer) error {
-		return initUbuntuResult
-	})
+func (s *environSuite) TestSupportedArchitectures(c *gc.C) {
+	arches, err := s.env.SupportedArchitectures()
+	c.Assert(err, gc.IsNil)
+	c.Assert(arches, gc.DeepEquals, arch.AllSupportedArches)
+}
 
-	ctx := envtesting.NewBootstrapContext(coretesting.Context(c))
-	initUbuntuResult = errors.New("failed to initialise ubuntu user")
-	c.Assert(s.env.EnableBootstrapStorage(ctx), gc.Equals, initUbuntuResult)
-	initUbuntuResult = nil
-	c.Assert(s.env.EnableBootstrapStorage(ctx), gc.IsNil)
-	// after the user is initialised once successfully,
-	// another attempt will not be made.
-	initUbuntuResult = errors.New("failed to initialise ubuntu user")
-	c.Assert(s.env.EnableBootstrapStorage(ctx), gc.IsNil)
+func (s *environSuite) TestSupportNetworks(c *gc.C) {
+	c.Assert(s.env.SupportNetworks(), jc.IsFalse)
 }

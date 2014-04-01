@@ -28,6 +28,10 @@ type DeployServiceParams struct {
 	// - a new container on an existing machine eg "lxc:1"
 	// Use string to avoid ambiguity around machine 0.
 	ToMachineSpec string
+	// IncludeNetworks holds a list of networks to start on boot.
+	IncludeNetworks []string
+	// ExcludeNetworks holds a list of networks to disable on boot.
+	ExcludeNetworks []string
 }
 
 // DeployService takes a charm and various parameters and deploys it.
@@ -49,7 +53,13 @@ func DeployService(st *state.State, args DeployServiceParams) (*state.Service, e
 	}
 	// TODO(fwereade): transactional State.AddService including settings, constraints
 	// (minimumUnitCount, initialMachineIds?).
-	service, err := st.AddService(args.ServiceName, "user-admin", args.Charm)
+	service, err := st.AddService(
+		args.ServiceName,
+		"user-admin",
+		args.Charm,
+		args.IncludeNetworks,
+		args.ExcludeNetworks,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -80,6 +90,11 @@ func AddUnits(st *state.State, svc *state.Service, n int, machineIdSpec string) 
 	units := make([]*state.Unit, n)
 	// Hard code for now till we implement a different approach.
 	policy := state.AssignCleanEmpty
+	// All units should have the same networks as the service.
+	includeNetworks, excludeNetworks, err := svc.Networks()
+	if err != nil {
+		return nil, fmt.Errorf("cannot get service %q networks: %v", svc.Name(), err)
+	}
 	// TODO what do we do if we fail half-way through this process?
 	for i := 0; i < n; i++ {
 		unit, err := svc.AddUnit()
@@ -115,9 +130,11 @@ func AddUnits(st *state.State, svc *state.Service, n int, machineIdSpec string) 
 				// Create the new machine marked as dirty so that
 				// nothing else will grab it before we assign the unit to it.
 				template := state.MachineTemplate{
-					Series: unit.Series(),
-					Jobs:   []state.MachineJob{state.JobHostUnits},
-					Dirty:  true,
+					Series:          unit.Series(),
+					Jobs:            []state.MachineJob{state.JobHostUnits},
+					Dirty:           true,
+					IncludeNetworks: includeNetworks,
+					ExcludeNetworks: excludeNetworks,
 				}
 				m, err = st.AddMachineInsideMachine(template, mid, containerType)
 			} else {

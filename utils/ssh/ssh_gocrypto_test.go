@@ -10,9 +10,9 @@ import (
 	"sync"
 
 	cryptossh "code.google.com/p/go.crypto/ssh"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils/ssh"
 )
@@ -145,6 +145,6 @@ func (s *SSHGoCryptoCommandSuite) TestCommand(c *gc.C) {
 func (s *SSHGoCryptoCommandSuite) TestCopy(c *gc.C) {
 	client, err := ssh.NewGoCryptoClient()
 	c.Assert(err, gc.IsNil)
-	err = client.Copy("0.1.2.3:b", c.MkDir(), nil)
-	c.Assert(err, gc.ErrorMatches, "Copy is not implemented")
+	err = client.Copy([]string{"0.1.2.3:b", c.MkDir()}, nil, nil)
+	c.Assert(err, gc.ErrorMatches, `scp command is not implemented \(OpenSSH scp not available in PATH\)`)
 }

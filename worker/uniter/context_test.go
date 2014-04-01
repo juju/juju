@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
@@ -20,7 +21,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	apiuniter "launchpad.net/juju-core/state/api/uniter"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
@@ -174,10 +174,11 @@ var runHookTests = []struct {
 			stdout: strings.Repeat("a", lineBufferSize+10),
 		},
 	}, {
-		summary:       "check shell environment for non-relation hook context",
-		relid:         -1,
-		spec:          hookSpec{perm: 0700},
-		proxySettings: osenv.ProxySettings{Http: "http", Https: "https", Ftp: "ftp"},
+		summary: "check shell environment for non-relation hook context",
+		relid:   -1,
+		spec:    hookSpec{perm: 0700},
+		proxySettings: osenv.ProxySettings{
+			Http: "http", Https: "https", Ftp: "ftp", NoProxy: "no proxy"},
 		env: map[string]string{
 			"JUJU_UNIT_NAME":     "u/0",
 			"JUJU_API_ADDRESSES": expectedApiAddrs,
@@ -188,6 +189,8 @@ var runHookTests = []struct {
 			"HTTPS_PROXY":        "https",
 			"ftp_proxy":          "ftp",
 			"FTP_PROXY":          "ftp",
+			"no_proxy":           "no proxy",
+			"NO_PROXY":           "no proxy",
 		},
 	}, {
 		summary: "check shell environment for relation-broken hook context",
@@ -431,7 +434,7 @@ func (s *ContextRelationSuite) TestChangeMembers(c *gc.C) {
 
 	// ...and that its settings are no longer cached.
 	_, err := ctx.ReadSettings("u/2")
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, gc.ErrorMatches, "cannot read settings for unit \"u/2\" in relation \"u:ring\": settings not found")
 }
 
 func (s *ContextRelationSuite) TestMemberCaching(c *gc.C) {

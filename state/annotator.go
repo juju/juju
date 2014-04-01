@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
 	"launchpad.net/juju-core/utils"
@@ -117,7 +118,7 @@ func (a *annotator) updateOps(toUpdate map[string]string, toRemove map[string]bo
 		C:      a.st.annotations.Name,
 		Id:     a.globalKey,
 		Assert: txn.DocExists,
-		Update: D{{"$set", toUpdate}, {"$unset", toRemove}},
+		Update: bson.D{{"$set", toUpdate}, {"$unset", toRemove}},
 	}}
 }
 

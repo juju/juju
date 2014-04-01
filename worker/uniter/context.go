@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju/osenv"
@@ -253,7 +253,16 @@ func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string)
 }
 
 func (ctx *HookContext) runCharmHook(hookName, charmDir string, env []string) error {
-	ps := exec.Command(filepath.Join(charmDir, "hooks", hookName))
+	hook, err := exec.LookPath(filepath.Join(charmDir, "hooks", hookName))
+	if err != nil {
+		if ee, ok := err.(*exec.Error); ok && os.IsNotExist(ee.Err) {
+			// Missing hook is perfectly valid, but worth mentioning.
+			logger.Infof("skipped %q hook (not implemented)", hookName)
+			return &missingHookError{hookName}
+		}
+		return err
+	}
+	ps := exec.Command(hook)
 	ps.Env = env
 	ps.Dir = charmDir
 	outReader, outWriter, err := os.Pipe()
@@ -274,13 +283,6 @@ func (ctx *HookContext) runCharmHook(hookName, charmDir string, env []string) er
 		err = ps.Wait()
 	}
 	hookLogger.stop()
-	if ee, ok := err.(*exec.Error); ok && err != nil {
-		if os.IsNotExist(ee.Err) {
-			// Missing hook is perfectly valid, but worth mentioning.
-			logger.Infof("skipped %q hook (not implemented)", hookName)
-			return &missingHookError{hookName}
-		}
-	}
 	return err
 }
 

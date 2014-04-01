@@ -4,12 +4,19 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"launchpad.net/juju-core/cmd"
 )
 
 func main() {
+	ctx, err := cmd.DefaultContext()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(2)
+	}
+
 	admcmd := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name: "charm-admin",
 		Log:  &cmd.Log{},
@@ -17,5 +24,5 @@ func main() {
 
 	admcmd.Register(&DeleteCharmCommand{})
 
-	os.Exit(cmd.Main(admcmd, cmd.DefaultContext(), os.Args[1:]))
+	os.Exit(cmd.Main(admcmd, ctx, os.Args[1:]))
 }

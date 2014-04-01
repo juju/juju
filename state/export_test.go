@@ -10,9 +10,10 @@ import (
 	"path/filepath"
 
 	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
+	"labix.org/v2/mgo/txn"
 	gc "launchpad.net/gocheck"
 
-	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
@@ -94,14 +95,22 @@ func SetRetryHooks(c *gc.C, st *State, block, check func()) TransactionChecker {
 	})
 }
 
+// SetPolicy updates the State's policy field to the
+// given Policy, and returns the old value.
+func SetPolicy(st *State, p Policy) Policy {
+	old := st.policy
+	st.policy = p
+	return old
+}
+
 // TestingInitialize initializes the state and returns it. If state was not
 // already initialized, and cfg is nil, the minimal default environment
 // configuration will be used.
-func TestingInitialize(c *gc.C, cfg *config.Config) *State {
+func TestingInitialize(c *gc.C, cfg *config.Config, policy Policy) *State {
 	if cfg == nil {
 		cfg = testing.EnvironConfig(c)
 	}
-	st, err := Initialize(TestingStateInfo(), cfg, TestingDialOpts())
+	st, err := Initialize(TestingStateInfo(), cfg, TestingDialOpts(), policy)
 	c.Assert(err, gc.IsNil)
 	return st
 }
@@ -133,7 +142,11 @@ func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
 }
 
 func AddTestingService(c *gc.C, st *State, name string, ch *Charm) *Service {
-	service, err := st.AddService(name, "user-admin", ch)
+	return AddTestingServiceWithNetworks(c, st, name, ch, nil, nil)
+}
+
+func AddTestingServiceWithNetworks(c *gc.C, st *State, name string, ch *Charm, includeNetworks, excludeNetworks []string) *Service {
+	service, err := st.AddService(name, "user-admin", ch, includeNetworks, excludeNetworks)
 	c.Assert(err, gc.IsNil)
 	return service
 }
@@ -181,7 +194,7 @@ func ClearInstanceDocId(c *gc.C, m *Machine) {
 			C:      m.st.instanceData.Name,
 			Id:     m.doc.Id,
 			Assert: txn.DocExists,
-			Update: D{{"$set", D{{"instanceid", ""}}}},
+			Update: bson.D{{"$set", bson.D{{"instanceid", ""}}}},
 		},
 	}
 

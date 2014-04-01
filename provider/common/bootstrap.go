@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/cloudinit/sshinit"
@@ -24,6 +24,7 @@ import (
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/parallel"
+	"launchpad.net/juju-core/utils/shell"
 	"launchpad.net/juju-core/utils/ssh"
 )
 
@@ -40,6 +41,12 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, cons constra
 	var inst instance.Instance
 	defer func() { handleBootstrapError(err, ctx, inst, env) }()
 
+	// First thing, ensure we have tools otherwise there's no point.
+	selectedTools, err := EnsureBootstrapTools(ctx, env, env.Config().DefaultSeries(), cons.Arch)
+	if err != nil {
+		return err
+	}
+
 	// Get the bootstrap SSH client. Do this early, so we know
 	// not to bother with any of the below if we can't finish the job.
 	client := ssh.DefaultClient
@@ -49,41 +56,29 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, cons constra
 		return fmt.Errorf("no SSH client available")
 	}
 
-	// Create an empty bootstrap state file so we can get its URL.
-	// It will be updated with the instance id and hardware characteristics
-	// after the bootstrap instance is started.
-	stateFileURL, err := bootstrap.CreateStateFile(env.Storage())
-	if err != nil {
-		return err
-	}
-
 	privateKey, err := GenerateSystemSSHKey(env)
 	if err != nil {
 		return err
 	}
-	machineConfig := environs.NewBootstrapMachineConfig(stateFileURL, privateKey)
+	machineConfig := environs.NewBootstrapMachineConfig(privateKey)
 
-	selectedTools, err := EnsureBootstrapTools(env, env.Config().DefaultSeries(), cons.Arch)
-	if err != nil {
-		return err
-	}
-
-	fmt.Fprintln(ctx.Stderr(), "Launching instance")
-	inst, hw, err := env.StartInstance(cons, selectedTools, machineConfig)
+	fmt.Fprintln(ctx.GetStderr(), "Launching instance")
+	inst, hw, err := env.StartInstance(environs.StartInstanceParams{
+		Constraints:   cons,
+		Tools:         selectedTools,
+		MachineConfig: machineConfig,
+	})
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
-	fmt.Fprintf(ctx.Stderr(), " - %s\n", inst.Id())
+	fmt.Fprintf(ctx.GetStderr(), " - %s\n", inst.Id())
+	machineConfig.InstanceId = inst.Id()
+	machineConfig.HardwareCharacteristics = hw
 
-	var characteristics []instance.HardwareCharacteristics
-	if hw != nil {
-		characteristics = []instance.HardwareCharacteristics{*hw}
-	}
 	err = bootstrap.SaveState(
 		env.Storage(),
 		&bootstrap.BootstrapState{
-			StateInstances:  []instance.Id{inst.Id()},
-			Characteristics: characteristics,
+			StateInstances: []instance.Id{inst.Id()},
 		})
 	if err != nil {
 		return fmt.Errorf("cannot save state: %v", err)
@@ -97,13 +92,13 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, cons constra
 func GenerateSystemSSHKey(env environs.Environ) (privateKey string, err error) {
 	logger.Debugf("generate a system ssh key")
 	// Create a new system ssh key and add that to the authorized keys.
-	privateKey, publicKey, err := ssh.GenerateKey("juju-system-key")
+	privateKey, publicKey, err := ssh.GenerateKey(config.JujuSystemKey)
 	if err != nil {
 		return "", fmt.Errorf("failed to create system key: %v", err)
 	}
-	authorized_keys := concatAuthKeys(env.Config().AuthorizedKeys(), publicKey)
+	authorized_keys := config.ConcatAuthKeys(env.Config().AuthorizedKeys(), publicKey)
 	newConfig, err := env.Config().Apply(map[string]interface{}{
-		"authorized-keys": authorized_keys,
+		config.AuthKeysConfig: authorized_keys,
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to create new config: %v", err)
@@ -112,23 +107,6 @@ func GenerateSystemSSHKey(env environs.Environ) (privateKey string, err error) {
 		return "", fmt.Errorf("failed to set new config: %v", err)
 	}
 	return privateKey, nil
-}
-
-// concatAuthKeys concatenates the two
-// sets of authorized keys, interposing
-// a newline if necessary, because authorized
-// keys are newline-separated.
-func concatAuthKeys(a, b string) string {
-	if a == "" {
-		return b
-	}
-	if b == "" {
-		return a
-	}
-	if a[len(a)-1] != '\n' {
-		return a + "\n" + b
-	}
-	return a + b
 }
 
 // handelBootstrapError cleans up after a failed bootstrap.
@@ -144,12 +122,12 @@ func handleBootstrapError(err error, ctx environs.BootstrapContext, inst instanc
 	defer close(ch)
 	go func() {
 		for _ = range ch {
-			fmt.Fprintln(ctx.Stderr(), "Cleaning up failed bootstrap")
+			fmt.Fprintln(ctx.GetStderr(), "Cleaning up failed bootstrap")
 		}
 	}()
 
 	if inst != nil {
-		fmt.Fprintln(ctx.Stderr(), "Stopping instance...")
+		fmt.Fprintln(ctx.GetStderr(), "Stopping instance...")
 		if stoperr := env.StopInstances([]instance.Instance{inst}); stoperr != nil {
 			logger.Errorf("cannot stop failed bootstrap instance %q: %v", inst.Id(), stoperr)
 		} else {
@@ -213,11 +191,16 @@ var FinishBootstrap = func(ctx environs.BootstrapContext, client ssh.Client, ins
 	if err := cloudinit.ConfigureJuju(machineConfig, cloudcfg); err != nil {
 		return err
 	}
-	return sshinit.Configure(sshinit.ConfigureParams{
+	configScript, err := sshinit.ConfigureScript(cloudcfg)
+	if err != nil {
+		return err
+	}
+	script := shell.DumpFileOnErrorScript(machineConfig.CloudInitOutputLog) + configScript
+	return sshinit.RunConfigureScript(script, sshinit.ConfigureParams{
 		Host:           "ubuntu@" + addr,
 		Client:         client,
 		Config:         cloudcfg,
-		ProgressWriter: ctx.Stderr(),
+		ProgressWriter: ctx.GetStderr(),
 	})
 }
 
@@ -365,14 +348,14 @@ func waitSSH(ctx environs.BootstrapContext, interrupted <-chan os.Signal, client
 	checker := parallelHostChecker{
 		Try:             parallel.NewTry(0, nil),
 		client:          client,
-		stderr:          ctx.Stderr(),
+		stderr:          ctx.GetStderr(),
 		active:          make(map[instance.Address]chan struct{}),
 		checkDelay:      timeout.RetryDelay,
 		checkHostScript: checkHostScript,
 	}
 	defer checker.Kill()
 
-	fmt.Fprintln(ctx.Stderr(), "Waiting for address")
+	fmt.Fprintln(ctx.GetStderr(), "Waiting for address")
 	for {
 		select {
 		case <-pollAddresses.C:
@@ -415,25 +398,10 @@ func waitSSH(ctx environs.BootstrapContext, interrupted <-chan os.Signal, client
 // EnsureBootstrapTools finds tools, syncing with an external tools source as
 // necessary; it then selects the newest tools to bootstrap with, and sets
 // agent-version.
-func EnsureBootstrapTools(env environs.Environ, series string, arch *string) (coretools.List, error) {
-	possibleTools, err := bootstrap.EnsureToolsAvailability(env, series, arch)
+func EnsureBootstrapTools(ctx environs.BootstrapContext, env environs.Environ, series string, arch *string) (coretools.List, error) {
+	possibleTools, err := bootstrap.EnsureToolsAvailability(ctx, env, series, arch)
 	if err != nil {
 		return nil, err
 	}
 	return bootstrap.SetBootstrapTools(env, possibleTools)
-}
-
-// EnsureNotBootstrapped returns null if the environment is not bootstrapped,
-// and an error if it is or if the function was not able to tell.
-func EnsureNotBootstrapped(env environs.Environ) error {
-	_, err := bootstrap.LoadState(env.Storage())
-	// If there is no error loading the bootstrap state, then we are
-	// bootstrapped.
-	if err == nil {
-		return fmt.Errorf("environment is already bootstrapped")
-	}
-	if err == environs.ErrNotBootstrapped {
-		return nil
-	}
-	return err
 }

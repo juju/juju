@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
@@ -24,6 +26,7 @@ import (
 	envtools "launchpad.net/juju-core/environs/tools"
 	ttesting "launchpad.net/juju-core/environs/tools/testing"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
@@ -79,27 +82,30 @@ type bootstrapRetryTest struct {
 	addVersionToSource bool
 }
 
+var noToolsAvailableMessage = "cannot upload bootstrap tools: Juju cannot bootstrap because no tools are available for your environment.*"
+var toolsNotFoundMessage = "cannot find bootstrap tools: tools not found"
+
 var bootstrapRetryTests = []bootstrapRetryTest{{
-	info:               "no tools uploaded, first check has no retries; no matching binary in source; sync fails with no second attempt",
+	info:               "no tools uploaded, first check has no retries; no matching binary in source; no second attempt",
 	expectedAllowRetry: []bool{false},
-	err:                "cannot find bootstrap tools: no matching tools available",
+	err:                noToolsAvailableMessage,
 	version:            "1.16.0-precise-amd64",
 }, {
-	info:               "no tools uploaded, first check has no retries; matching binary in source; check after sync has retries",
+	info:               "no tools uploaded, first check has no retries; matching binary in source; check after upload has retries",
 	expectedAllowRetry: []bool{false, true},
-	err:                "cannot find bootstrap tools: tools not found",
-	version:            "1.16.0-precise-amd64",
+	err:                toolsNotFoundMessage,
+	version:            "1.17.0-precise-amd64", // dev version to force upload
 	addVersionToSource: true,
 }, {
 	info:               "no tools uploaded, first check has no retries; no matching binary in source; check after upload has retries",
 	expectedAllowRetry: []bool{false, true},
-	err:                "cannot find bootstrap tools: tools not found",
+	err:                toolsNotFoundMessage,
 	version:            "1.15.1-precise-amd64", // dev version to force upload
 }, {
 	info:               "new tools uploaded, so we want to allow retries to give them a chance at showing up",
 	args:               []string{"--upload-tools"},
 	expectedAllowRetry: []bool{true},
-	err:                "cannot find bootstrap tools: no matching tools available",
+	err:                noToolsAvailableMessage,
 }}
 
 // Test test checks that bootstrap calls FindTools with the expected allowRetry flag.
@@ -114,8 +120,7 @@ func (s *BootstrapSuite) runAllowRetriesTest(c *gc.C, test bootstrapRetryTest) {
 	toolsVersions := envtesting.VAll
 	if test.version != "" {
 		testVersion := version.MustParseBinary(test.version)
-		restore := testbase.PatchValue(&version.Current, testVersion)
-		defer restore()
+		s.PatchValue(&version.Current, testVersion)
 		if test.addVersionToSource {
 			toolsVersions = append([]version.Binary{}, toolsVersions...)
 			toolsVersions = append(toolsVersions, testVersion)
@@ -136,10 +141,35 @@ func (s *BootstrapSuite) runAllowRetriesTest(c *gc.C, test bootstrapRetryTest) {
 	restore := envtools.TestingPatchBootstrapFindTools(mockFindTools)
 	defer restore()
 
-	_, errc := runCommand(nullContext(), new(BootstrapCommand), test.args...)
+	_, errc := runCommand(nullContext(c), new(BootstrapCommand), test.args...)
 	err := <-errc
 	c.Check(findToolsRetryValues, gc.DeepEquals, test.expectedAllowRetry)
-	c.Check(err, gc.ErrorMatches, test.err)
+	stripped := strings.Replace(err.Error(), "\n", "", -1)
+	c.Check(stripped, gc.Matches, test.err)
+}
+
+// mockUploadTools simulates the effect of tools.Upload, but skips the time-
+// consuming build from source.
+// TODO(fwereade) better factor agent/tools such that build logic is
+// exposed and can itself be neatly mocked?
+func mockUploadTools(stor storage.Storage, forceVersion *version.Number, series ...string) (*coretools.Tools, error) {
+	vers := version.Current
+	if forceVersion != nil {
+		vers.Number = *forceVersion
+	}
+	versions := []version.Binary{vers}
+	for _, series := range series {
+		if series != version.Current.Series {
+			newVers := vers
+			newVers.Series = series
+			versions = append(versions, newVers)
+		}
+	}
+	agentTools, err := envtesting.UploadFakeToolsVersions(stor, versions...)
+	if err != nil {
+		return nil, err
+	}
+	return agentTools[0], nil
 }
 
 func (s *BootstrapSuite) TestTest(c *gc.C) {
@@ -161,6 +191,7 @@ type bootstrapTest struct {
 	// will be uploaded before running the test.
 	uploads     []string
 	constraints constraints.Value
+	hostArch    string
 }
 
 func (test bootstrapTest) run(c *gc.C) {
@@ -175,6 +206,14 @@ func (test bootstrapTest) run(c *gc.C) {
 		defer func() { version.Current = origVersion }()
 	}
 
+	if test.hostArch != "" {
+		origVersion := arch.HostArch
+		arch.HostArch = func() string {
+			return test.hostArch
+		}
+		defer func() { arch.HostArch = origVersion }()
+	}
+
 	uploadCount := len(test.uploads)
 	if uploadCount == 0 {
 		usefulVersion := version.Current
@@ -183,7 +222,18 @@ func (test bootstrapTest) run(c *gc.C) {
 	}
 
 	// Run command and check for uploads.
-	opc, errc := runCommand(nullContext(), new(BootstrapCommand), test.args...)
+	opc, errc := runCommand(nullContext(c), new(BootstrapCommand), test.args...)
+	// Check for remaining operations/errors.
+	if test.err != "" {
+		err := <-errc
+		stripped := strings.Replace(err.Error(), "\n", "", -1)
+		c.Check(stripped, gc.Matches, test.err)
+		return
+	}
+	if !c.Check(<-errc, gc.IsNil) {
+		return
+	}
+
 	if uploadCount > 0 {
 		for i := 0; i < uploadCount; i++ {
 			c.Check((<-opc).(dummy.OpPutFile).Env, gc.Equals, "peckham")
@@ -200,15 +250,6 @@ func (test bootstrapTest) run(c *gc.C) {
 			_, found := urls[vers]
 			c.Check(found, gc.Equals, true)
 		}
-	}
-
-	// Check for remaining operations/errors.
-	if test.err != "" {
-		c.Check(<-errc, gc.ErrorMatches, test.err)
-		return
-	}
-	if !c.Check(<-errc, gc.IsNil) {
-		return
 	}
 	if len(test.uploads) > 0 {
 		indexFile := (<-opc).(dummy.OpPutFile)
@@ -251,8 +292,8 @@ var bootstrapTests = []bootstrapTest{{
 	err:  `invalid value "bad=wrong" for flag --constraints: unknown constraint "bad"`,
 }, {
 	info: "bad --series",
-	args: []string{"--series", "bad1"},
-	err:  `invalid value "bad1" for flag --series: invalid series name "bad1"`,
+	args: []string{"--series", "1bad1"},
+	err:  `invalid value "1bad1" for flag --series: invalid series name "1bad1"`,
 }, {
 	info: "lonely --series",
 	args: []string{"--series", "fine"},
@@ -276,6 +317,17 @@ var bootstrapTests = []bootstrapTest{{
 		"1.2.3.1-precise-amd64", // from environs/config.DefaultSeries
 	},
 }, {
+	info:     "--upload-tools uses arch from constraint if it matches current version",
+	version:  "1.3.3-saucy-ppc64",
+	hostArch: "ppc64",
+	args:     []string{"--upload-tools", "--constraints", "arch=ppc64"},
+	uploads: []string{
+		"1.3.3.1-saucy-ppc64",   // from version.Current
+		"1.3.3.1-raring-ppc64",  // from env.Config().DefaultSeries()
+		"1.3.3.1-precise-ppc64", // from environs/config.DefaultSeries
+	},
+	constraints: constraints.MustParse("arch=ppc64"),
+}, {
 	info:    "--upload-tools only uploads each file once",
 	version: "1.2.3-precise-amd64",
 	args:    []string{"--upload-tools"},
@@ -288,6 +340,17 @@ var bootstrapTests = []bootstrapTest{{
 	version: "1.2.3-saucy-amd64",
 	args:    []string{"--upload-tools", "--series", "ping,ping,pong"},
 	err:     `invalid series "ping"`,
+}, {
+	info:    "--upload-tools rejects mismatched arch",
+	version: "1.3.3-saucy-amd64",
+	args:    []string{"--upload-tools", "--constraints", "arch=ppc64"},
+	err:     `cannot build tools for "ppc64" using a machine running on "amd64"`,
+}, {
+	info:     "--upload-tools rejects non-supported arch",
+	version:  "1.3.3-saucy-arm64",
+	hostArch: "arm64",
+	args:     []string{"--upload-tools"},
+	err:      `environment "peckham" of type dummy does not support instances running on "arm64"`,
 }, {
 	info:    "--upload-tools always bumps build number",
 	version: "1.2.3.4-raring-amd64",
@@ -311,8 +374,31 @@ func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 	ctx2 := coretesting.Context(c)
 	code2 := cmd.Main(&BootstrapCommand{}, ctx2, nil)
 	c.Check(code2, gc.Equals, 1)
-	c.Check(coretesting.Stderr(ctx2), gc.Equals, "error: environment is already bootstrapped\n")
+	expectedErrText := "Bootstrap failed, destroying environment\n"
+	expectedErrText += "error: environment is already bootstrapped\n"
+	c.Check(coretesting.Stderr(ctx2), gc.Equals, expectedErrText)
 	c.Check(coretesting.Stdout(ctx2), gc.Equals, "")
+}
+
+func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
+	env, fake := makeEmptyFakeHome(c)
+	defer fake.Restore()
+	defaultSeriesVersion := version.Current
+	defaultSeriesVersion.Series = env.Config().DefaultSeries()
+
+	store, err := configstore.Default()
+	c.Assert(err, gc.IsNil)
+	ctx := coretesting.Context(c)
+	environs.PrepareFromName("peckham", ctx, store)
+
+	logger := "jenv.warning.test"
+	testWriter := &loggo.TestWriter{}
+	loggo.RegisterWriter(logger, testWriter, loggo.WARNING)
+	defer loggo.RemoveWriter(logger)
+
+	_, errc := runCommand(ctx, new(BootstrapCommand), "-e", "peckham")
+	c.Assert(<-errc, gc.IsNil)
+	c.Assert(testWriter.Log, jc.LogMatches, []string{"ignoring environments.yaml: using bootstrap config in .*"})
 }
 
 func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
@@ -349,7 +435,7 @@ func createImageMetadata(c *gc.C) (string, []*imagemetadata.ImageMetadata) {
 		Endpoint: "endpoint",
 	}
 	sourceDir := c.MkDir()
-	sourceStor, err := filestorage.NewFileStorageWriter(sourceDir, filestorage.UseDefaultTmpDir)
+	sourceStor, err := filestorage.NewFileStorageWriter(sourceDir)
 	c.Assert(err, gc.IsNil)
 	err = imagemetadata.MergeAndWriteMetadata("raring", im, cloudSpec, sourceStor)
 	c.Assert(err, gc.IsNil)
@@ -423,7 +509,7 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	}
 	env := s.setupAutoUploadTest(c, "1.7.3", otherSeries)
 	// Run command and check for that upload has been run for tools matching the current juju version.
-	opc, errc := runCommand(nullContext(), new(BootstrapCommand))
+	opc, errc := runCommand(nullContext(c), new(BootstrapCommand))
 	c.Assert(<-errc, gc.IsNil)
 	c.Assert((<-opc).(dummy.OpPutFile).Env, gc.Equals, "peckham")
 	list, err := envtools.FindTools(env, version.Current.Major, version.Current.Minor, coretools.Filter{}, false)
@@ -444,9 +530,10 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 
 func (s *BootstrapSuite) TestAutoUploadOnlyForDev(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "precise")
-	_, errc := runCommand(nullContext(), new(BootstrapCommand))
+	_, errc := runCommand(nullContext(c), new(BootstrapCommand))
 	err := <-errc
-	c.Assert(err, gc.ErrorMatches, "cannot find bootstrap tools: no matching tools available")
+	stripped := strings.Replace(err.Error(), "\n", "", -1)
+	c.Assert(stripped, gc.Matches, noToolsAvailableMessage)
 }
 
 func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
@@ -455,8 +542,8 @@ func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
 	code := cmd.Main(&BootstrapCommand{}, context, nil)
 	c.Assert(code, gc.Equals, 1)
 	errText := context.Stderr.(*bytes.Buffer).String()
-	errText = strings.Replace(errText, "\n", "", -1)
-	expectedErrText := "error: cannot find bootstrap tools: no matching tools available"
+	expectedErrText := "Bootstrap failed, destroying environment\n"
+	expectedErrText += "error: cannot upload bootstrap tools: Juju cannot bootstrap because no tools are available for your environment(.|\n)*"
 	c.Assert(errText, gc.Matches, expectedErrText)
 }
 
@@ -471,15 +558,16 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 	code := cmd.Main(&BootstrapCommand{}, context, nil)
 	c.Assert(code, gc.Equals, 1)
 	errText := context.Stderr.(*bytes.Buffer).String()
-	errText = strings.Replace(errText, "\n", "", -1)
-	expectedErrText := "error: cannot find bootstrap tools: an error"
+	expectedErrText := "uploading tools for series \\[precise raring\\]\n"
+	expectedErrText += "Bootstrap failed, destroying environment\n"
+	expectedErrText += "error: cannot upload bootstrap tools: an error\n"
 	c.Assert(errText, gc.Matches, expectedErrText)
 }
 
 func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
 	_, fake := makeEmptyFakeHome(c)
 	defer fake.Restore()
-	opc, errc := runCommand(nullContext(), new(BootstrapCommand), "-e", "brokenenv")
+	opc, errc := runCommand(nullContext(c), new(BootstrapCommand), "-e", "brokenenv")
 	err := <-errc
 	c.Assert(err, gc.ErrorMatches, "dummy.Bootstrap is broken")
 	var opDestroy *dummy.OpDestroy
@@ -516,7 +604,7 @@ func makeEmptyFakeHome(c *gc.C) (environs.Environ, *coretesting.FakeHome) {
 	dummy.Reset()
 	store, err := configstore.Default()
 	c.Assert(err, gc.IsNil)
-	env, err := environs.PrepareFromName("peckham", store)
+	env, err := environs.PrepareFromName("peckham", nullContext(c), store)
 	c.Assert(err, gc.IsNil)
 	envtesting.RemoveAllTools(c, env)
 	return env, fake

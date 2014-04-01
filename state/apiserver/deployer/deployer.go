@@ -60,7 +60,7 @@ func NewDeployerAPI(
 		PasswordChanger: common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:      common.NewLifeGetter(st, getAuthFunc),
 		StateAddresser:  common.NewStateAddresser(st),
-		APIAddresser:    common.NewAPIAddresser(st),
+		APIAddresser:    common.NewAPIAddresser(st, resources),
 		UnitsWatcher:    common.NewUnitsWatcher(st, resources, getCanWatch),
 		st:              st,
 		resources:       resources,
@@ -76,7 +76,6 @@ func (d *DeployerAPI) ConnectionInfo() (result params.DeployerConnectionValues, 
 		result = params.DeployerConnectionValues{
 			StateAddresses: info.StateAddresses,
 			APIAddresses:   info.APIAddresses,
-			SyslogPort:     info.SyslogPort,
 		}
 	}
 	return result, err

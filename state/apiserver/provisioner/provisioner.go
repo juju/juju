@@ -27,10 +27,11 @@ type ProvisionerAPI struct {
 	*common.EnvironMachinesWatcher
 	*common.InstanceIdGetter
 
-	st          *state.State
-	resources   *common.Resources
-	authorizer  common.Authorizer
-	getAuthFunc common.GetAuthFunc
+	st                  *state.State
+	resources           *common.Resources
+	authorizer          common.Authorizer
+	getAuthFunc         common.GetAuthFunc
+	getCanWatchMachines common.GetAuthFunc
 }
 
 // NewProvisionerAPI creates a new server-side ProvisionerAPI facade.
@@ -78,7 +79,7 @@ func NewProvisionerAPI(
 		PasswordChanger:        common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:             common.NewLifeGetter(st, getAuthFunc),
 		StateAddresser:         common.NewStateAddresser(st),
-		APIAddresser:           common.NewAPIAddresser(st),
+		APIAddresser:           common.NewAPIAddresser(st, resources),
 		ToolsGetter:            common.NewToolsGetter(st, getAuthFunc),
 		EnvironWatcher:         common.NewEnvironWatcher(st, resources, getCanWatch, getCanReadSecrets),
 		EnvironMachinesWatcher: common.NewEnvironMachinesWatcher(st, resources, getCanReadSecrets),
@@ -87,6 +88,7 @@ func NewProvisionerAPI(
 		resources:              resources,
 		authorizer:             authorizer,
 		getAuthFunc:            getAuthFunc,
+		getCanWatchMachines:    getCanReadSecrets,
 	}, nil
 }
 
@@ -196,7 +198,6 @@ func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	result.ProviderType = config.Type()
 	result.AuthorizedKeys = config.AuthorizedKeys()
 	result.SSLHostnameVerification = config.SSLHostnameVerification()
-	result.SyslogPort = config.SyslogPort()
 	result.Proxy = config.ProxySettings()
 	result.AptProxy = config.AptProxySettings()
 	return result, nil
@@ -215,11 +216,51 @@ func (p *ProvisionerAPI) Status(args params.Entities) (params.StatusResults, err
 		machine, err := p.getMachine(canAccess, entity.Tag)
 		if err == nil {
 			r := &result.Results[i]
-			r.Status, r.Info, _, err = machine.Status()
+			r.Status, r.Info, r.Data, err = machine.Status()
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
+}
+
+// MachinesWithTransientErrors returns status data for machines with provisioning
+// errors which are transient.
+func (p *ProvisionerAPI) MachinesWithTransientErrors() (params.StatusResults, error) {
+	results := params.StatusResults{}
+	canAccessFunc, err := p.getAuthFunc()
+	if err != nil {
+		return results, err
+	}
+	// TODO (wallyworld) - add state.State API for more efficient machines query
+	machines, err := p.st.AllMachines()
+	if err != nil {
+		return results, err
+	}
+	for _, machine := range machines {
+		if !canAccessFunc(machine.Tag()) {
+			continue
+		}
+		if _, provisionedErr := machine.InstanceId(); provisionedErr == nil {
+			// Machine may have been provisioned but machiner hasn't set the
+			// status to Started yet.
+			continue
+		}
+		result := params.StatusResult{}
+		if result.Status, result.Info, result.Data, err = machine.Status(); err != nil {
+			continue
+		}
+		if result.Status != params.StatusError {
+			continue
+		}
+		// Transient errors are marked as such in the status data.
+		if transient, ok := result.Data["transient"].(bool); !ok || !transient {
+			continue
+		}
+		result.Id = machine.Id()
+		result.Life = params.Life(machine.Life().String())
+		results.Results = append(results.Results, result)
+	}
+	return results, nil
 }
 
 // Series returns the deployed series for each given machine entity.
@@ -281,6 +322,27 @@ func (p *ProvisionerAPI) SetProvisioned(args params.SetProvisioned) (params.Erro
 			err = machine.SetProvisioned(arg.InstanceId, arg.Nonce, arg.Characteristics)
 		}
 		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// WatchMachineErrorRetry returns a NotifyWatcher that notifies when
+// the provisioner should retry provisioning machines with transient errors.
+func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, error) {
+	result := params.NotifyWatchResult{}
+	canWatch, err := p.getCanWatchMachines()
+	if err != nil {
+		return params.NotifyWatchResult{}, err
+	}
+	if !canWatch("") {
+		return result, common.ErrPerm
+	}
+	watch := newWatchMachineErrorRetry()
+	// Consume any initial event and forward it to the result.
+	if _, ok := <-watch.Changes(); ok {
+		result.NotifyWatcherId = p.resources.Register(watch)
+	} else {
+		return result, watcher.MustErr(watch)
 	}
 	return result, nil
 }

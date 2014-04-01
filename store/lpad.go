@@ -69,7 +69,10 @@ func PublishCharmsDistro(store *Store, apiBase lpad.APIBase) error {
 		urls := []*charm.URL{curl}
 		schema, name := curl.Schema, curl.Name
 		for _, series := range tip.OfficialSeries {
-			curl = &charm.URL{Schema: schema, Name: name, Series: series, Revision: -1}
+			curl = &charm.URL{
+				Reference: charm.Reference{Schema: schema, Name: name, Revision: -1},
+				Series:    series,
+			}
 			curl.Series = series
 			curl.User = ""
 			urls = append(urls, curl)
