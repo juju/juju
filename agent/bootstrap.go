@@ -63,6 +63,10 @@ func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg Bootstrap
 	if c.Tag() != names.MachineTag(bootstrapMachineId) {
 		return nil, nil, fmt.Errorf("InitializeState not called with bootstrap machine's configuration")
 	}
+	servingInfo, ok := c.StateServingInfo()
+	if !ok {
+		return nil, nil, fmt.Errorf("state serving information not available")
+	}
 	info := c.StateInfo()
 	info.Tag = ""
 	info.Password = ""
@@ -77,10 +81,6 @@ func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg Bootstrap
 			st.Close()
 		}
 	}()
-	servingInfo, ok := c.StateServingInfo()
-	if !ok {
-		return nil, nil, fmt.Errorf("state serving information not available")
-	}
 	servingInfo.SharedSecret = machineCfg.SharedSecret
 	c.SetStateServingInfo(servingInfo)
 	if err = initAPIHostPorts(c, st, machineCfg.Addresses, servingInfo.APIPort); err != nil {
