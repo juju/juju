@@ -476,8 +476,9 @@ type StateServingInfo struct {
 
 // IsMasterResult holds the result of an IsMaster API call.
 type IsMasterResult struct {
-	// Master represents whether a Machine's mongo peer address is
-	// pointing to the mongo primary of the replica set.
+	// Master reports whether the connected agent
+	// lives on the same instance as the mongo replica
+	// set master.
 	Master bool
 }
 

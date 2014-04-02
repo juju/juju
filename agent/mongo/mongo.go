@@ -38,6 +38,8 @@ var (
 	MongodbServerPath = "/usr/bin/mongod"
 )
 
+// WithAddresses represents an entity that has a set of
+// addresses. e.g. a state Machine object
 type WithAddresses interface {
 	Addresses() []instance.Address
 }

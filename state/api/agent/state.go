@@ -46,8 +46,12 @@ func (st *State) StateServingInfo() (params.StateServingInfo, error) {
 	return results, err
 }
 
-// IsMaster returns a boolean which represents if the current mongo peer
-// for a given machine is the primary mongo server for the replicaset.
+// IsMaster reports whether the connected machine
+// agent lives at the same network address as the primary
+// mongo server for the replica set.
+// This call will return an error if the connected
+// agent is not a machine agent with environment-manager
+// privileges.
 func (st *State) IsMaster() (bool, error) {
 	var results params.IsMasterResult
 	err := st.caller.Call("Agent", "", "IsMaster", nil, &results)
