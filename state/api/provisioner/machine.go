@@ -74,6 +74,18 @@ func (m *Machine) Networks() (includeNetworks, excludeNetworks []string, err err
 	return result.IncludeNetworks, result.ExcludeNetworks, nil
 }
 
+// SetNetworkInterfaces sets the actual discovered and configured
+// network interfaces for the machine (post-provisioning).
+func (m *Machine) SetNetworkInterfaces(ifaces []params.NetworkInterface) error {
+	var results params.ErrorResults
+	args := params.Entities{Entities: []params.Entity{{m.tag}}}
+	err = m.st.call("SetNetworkInterfaces", args, &results)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
+}
+
 // SetStatus sets the status of the machine.
 func (m *Machine) SetStatus(status params.Status, info string, data params.StatusData) error {
 	var result params.ErrorResults
