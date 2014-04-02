@@ -217,7 +217,8 @@ func (stream *logStream) loop() error {
 // filterLine checks the received line for one of the confgured tags.
 func (stream *logStream) filterLine(line []byte) bool {
 	log := parseLogLine(string(line))
-	result := stream.include(log) &&
+	result := stream.checkIncludeAgent(log) &&
+		stream.checkIncludeModule(log) &&
 		!stream.exclude(log) &&
 		stream.checkLevel(log)
 	if result && stream.maxLines > 0 {
@@ -228,8 +229,8 @@ func (stream *logStream) filterLine(line []byte) bool {
 	return result
 }
 
-func (stream *logStream) include(line *logLine) bool {
-	if len(stream.includeAgent) == 0 && len(stream.includeModule) == 0 {
+func (stream *logStream) checkIncludeAgent(line *logLine) bool {
+	if len(stream.includeAgent) == 0 {
 		return true
 	}
 	for _, value := range stream.includeAgent {
@@ -241,6 +242,13 @@ func (stream *logStream) include(line *logLine) bool {
 		} else if line.agent == value {
 			return true
 		}
+	}
+	return false
+}
+
+func (stream *logStream) checkIncludeModule(line *logLine) bool {
+	if len(stream.includeModule) == 0 {
+		return true
 	}
 	for _, value := range stream.includeModule {
 		if strings.HasPrefix(line.module, value) {

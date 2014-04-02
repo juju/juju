@@ -89,7 +89,7 @@ func (s *debugInternalSuite) TestCheckLevel(c *gc.C) {
 func checkIncludeAgent(logValue string, agent ...string) bool {
 	stream := &logStream{includeAgent: agent}
 	line := &logLine{agent: logValue}
-	return stream.include(line)
+	return stream.checkIncludeAgent(line)
 }
 
 func (s *debugInternalSuite) TestCheckIncludeAgent(c *gc.C) {
@@ -105,7 +105,7 @@ func (s *debugInternalSuite) TestCheckIncludeAgent(c *gc.C) {
 func checkIncludeModule(logValue string, module ...string) bool {
 	stream := &logStream{includeModule: module}
 	line := &logLine{module: logValue}
-	return stream.include(line)
+	return stream.checkIncludeModule(line)
 }
 
 func (s *debugInternalSuite) TestCheckIncludeModule(c *gc.C) {
@@ -154,6 +154,7 @@ func (s *debugInternalSuite) TestFilterLine(c *gc.C) {
 	stream := &logStream{
 		filterLevel:   loggo.INFO,
 		includeAgent:  []string{"machine-0", "unit-mysql*"},
+		includeModule: []string{"juju"},
 		excludeAgent:  []string{"unit-mysql-2"},
 		excludeModule: []string{"juju.foo"},
 	}
