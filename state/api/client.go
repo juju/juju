@@ -266,9 +266,10 @@ func (c *Client) ServiceUnexpose(service string) error {
 // ServiceDeployWithNetworks works exactly like ServiceDeploy, but
 // allows specifying networks to either include or exclude on the
 // machine where the charm is deployed.
-func (c *Client) ServiceDeployWithNetworks(charmURL string, serviceName string, numUnits int, configYAML string, cons constraints.Value, toMachineSpec string, includeNetworks, excludeNetworks []string) error {
+func (c *Client) ServiceDeployWithNetworks(charmURL string, serviceName, serviceOwner string, numUnits int, configYAML string, cons constraints.Value, toMachineSpec string, includeNetworks, excludeNetworks []string) error {
 	params := params.ServiceDeploy{
 		ServiceName:     serviceName,
+		ServiceOwner:    serviceOwner,
 		CharmUrl:        charmURL,
 		NumUnits:        numUnits,
 		ConfigYAML:      configYAML,
@@ -282,9 +283,10 @@ func (c *Client) ServiceDeployWithNetworks(charmURL string, serviceName string, 
 
 // ServiceDeploy obtains the charm, either locally or from the charm store,
 // and deploys it.
-func (c *Client) ServiceDeploy(charmURL string, serviceName string, numUnits int, configYAML string, cons constraints.Value, toMachineSpec string) error {
+func (c *Client) ServiceDeploy(charmURL string, serviceName, serviceOwner string, numUnits int, configYAML string, cons constraints.Value, toMachineSpec string) error {
 	params := params.ServiceDeploy{
 		ServiceName:   serviceName,
+		ServiceOwner:  serviceOwner,
 		CharmUrl:      charmURL,
 		NumUnits:      numUnits,
 		ConfigYAML:    configYAML,

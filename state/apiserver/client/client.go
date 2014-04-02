@@ -283,6 +283,7 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 	_, err = juju.DeployService(c.api.state,
 		juju.DeployServiceParams{
 			ServiceName:     args.ServiceName,
+			ServiceOwner:    args.ServiceOwner,
 			Charm:           ch,
 			NumUnits:        args.NumUnits,
 			ConfigSettings:  settings,
