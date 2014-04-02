@@ -150,23 +150,15 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 }
 
 func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *gc.C) {
-	dataDir := c.MkDir()
-
 	configParams := agent.AgentConfigParams{
-		DataDir:           dataDir,
+		DataDir:           c.MkDir(),
 		Tag:               "machine-0",
 		UpgradedToVersion: version.Current.Number,
 		StateAddresses:    []string{testing.MgoServer.Addr()},
 		CACert:            []byte(testing.CACert),
 		Password:          "fake",
 	}
-	servingInfo := params.StateServingInfo{
-		Cert:       testing.ServerCert,
-		PrivateKey: testing.ServerKey,
-		APIPort:    1234,
-		StatePort:  3456,
-	}
-	cfg, err := agent.NewStateMachineConfig(configParams, servingInfo)
+	cfg, err := agent.NewAgentConfig(configParams)
 	c.Assert(err, gc.IsNil)
 
 	_, available := cfg.StateServingInfo()
