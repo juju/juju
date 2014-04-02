@@ -17,19 +17,14 @@ import (
 	"launchpad.net/juju-core/state/api"
 )
 
-// This file contains the core of the joyent Environ implementation. You will
-// probably not need to change this file very much to begin with; and if you
-// never need to add any more fields, you may never need to touch it.
-//
-// The rest of the implementation is split into environ_instance.go (which
-// must be implemented ) and environ_firewall.go (which can be safely
-// ignored until you've got an environment bootstrapping successfully).
+// This file contains the core of the Joyent Environ implementation.
 
-type environ struct {
+type joyentEnviron struct {
 	name string
 
 	// supportedArchitectures caches the architectures
 	// for which images can be instantiated.
+	archLock               sync.Mutex
 	supportedArchitectures []string
 
 	// All mutating operations should lock the mutex. Non-mutating operations
@@ -40,57 +35,81 @@ type environ struct {
 	lock    sync.Mutex
 	ecfg    *environConfig
 	storage storage.Storage
+	compute *joyentCompute
 }
 
-var _ environs.Environ = (*environ)(nil)
+var _ environs.Environ = (*joyentEnviron)(nil)
 
-func (env *environ) Name() string {
+// newEnviron create a new Joyent environ instance from config.
+func newEnviron(cfg *config.Config) (*joyentEnviron, error) {
+	env := new(joyentEnviron)
+	if err := env.SetConfig(cfg); err != nil {
+		return nil, err
+	}
+	env.name = cfg.Name()
+	var err error
+	env.storage, err = newStorage(env.ecfg, "")
+	if err != nil {
+		return nil, err
+	}
+	env.compute, err = newCompute(env.ecfg)
+	if err != nil {
+		return nil, err
+	}
+	return env, nil
+}
+
+func (env *joyentEnviron) SetName(envName string) {
+	env.name = envName
+}
+
+func (env *joyentEnviron) Name() string {
 	return env.name
 }
 
-func (*environ) Provider() environs.EnvironProvider {
+func (*joyentEnviron) Provider() environs.EnvironProvider {
 	return providerInstance
 }
 
 // SupportedArchitectures is specified on the EnvironCapability interface.
-func (e *environ) SupportedArchitectures() ([]string, error) {
-	e.lock.Lock()
-	defer e.lock.Unlock()
-	if e.supportedArchitectures != nil {
-		return e.supportedArchitectures, nil
+func (env *joyentEnviron) SupportedArchitectures() ([]string, error) {
+	env.archLock.Lock()
+	defer env.archLock.Unlock()
+	if env.supportedArchitectures != nil {
+		return env.supportedArchitectures, nil
 	}
+	cfg := env.Ecfg()
 	// Create a filter to get all images from our region and for the correct stream.
 	cloudSpec := simplestreams.CloudSpec{
-	// TODO - add in region and url when known.
-	//		Region: e.Config().sdcRegion(),
-	//		Endpoint: "",
+		Region:   cfg.Region(),
+		Endpoint: cfg.SdcUrl(),
 	}
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: cloudSpec,
-		Stream:    e.Config().ImageStream(),
+		Stream:    cfg.ImageStream(),
 	})
 	var err error
-	e.supportedArchitectures, err = common.SupportedArchitectures(e, imageConstraint)
-	return e.supportedArchitectures, err
+	env.supportedArchitectures, err = common.SupportedArchitectures(env, imageConstraint)
+	return env.supportedArchitectures, err
 }
 
-func (env *environ) SetConfig(cfg *config.Config) error {
+// SupportNetworks is specified on the EnvironCapability interface.
+func (e *joyentEnviron) SupportNetworks() bool {
+	return false
+}
+
+func (env *joyentEnviron) SetConfig(cfg *config.Config) error {
 	env.lock.Lock()
 	defer env.lock.Unlock()
-	ecfg, err := validateConfig(cfg, env.ecfg)
-	if err != nil {
-		return err
-	}
-	storage, err := newStorage(ecfg)
+	ecfg, err := providerInstance.newConfig(cfg)
 	if err != nil {
 		return err
 	}
 	env.ecfg = ecfg
-	env.storage = storage
 	return nil
 }
 
-func (env *environ) getSnapshot() *environ {
+func (env *joyentEnviron) getSnapshot() *joyentEnviron {
 	env.lock.Lock()
 	clone := *env
 	env.lock.Unlock()
@@ -98,26 +117,67 @@ func (env *environ) getSnapshot() *environ {
 	return &clone
 }
 
-func (env *environ) Config() *config.Config {
+func (env *joyentEnviron) Config() *config.Config {
 	return env.getSnapshot().ecfg.Config
 }
 
-func (env *environ) Storage() storage.Storage {
+func (env *joyentEnviron) Storage() storage.Storage {
 	return env.getSnapshot().storage
 }
 
-func (env *environ) PublicStorage() storage.StorageReader {
+func (env *joyentEnviron) PublicStorage() storage.StorageReader {
 	return environs.EmptyStorage
 }
 
-func (env *environ) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
+func (env *joyentEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
 	return common.Bootstrap(ctx, env, cons)
 }
 
-func (env *environ) StateInfo() (*state.Info, *api.Info, error) {
+func (env *joyentEnviron) StateInfo() (*state.Info, *api.Info, error) {
 	return common.StateInfo(env)
 }
 
-func (env *environ) Destroy() error {
+func (env *joyentEnviron) Destroy() error {
 	return common.Destroy(env)
+}
+
+func (env *joyentEnviron) Ecfg() *environConfig {
+	return env.getSnapshot().ecfg
+}
+
+// MetadataLookupParams returns parameters which are used to query simplestreams metadata.
+func (env *joyentEnviron) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
+	if region == "" {
+		region = env.Ecfg().Region()
+	}
+	return &simplestreams.MetadataLookupParams{
+		Series:        env.Ecfg().DefaultSeries(),
+		Region:        region,
+		Endpoint:      env.Ecfg().sdcUrl(),
+		Architectures: []string{"amd64", "arm"},
+	}, nil
+}
+
+// Region is specified in the HasRegion interface.
+func (env *joyentEnviron) Region() (simplestreams.CloudSpec, error) {
+	return simplestreams.CloudSpec{
+		Region:   env.Ecfg().Region(),
+		Endpoint: env.Ecfg().sdcUrl(),
+	}, nil
+}
+
+// GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
+func (env *joyentEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
+	// Add the simplestreams source off the control bucket.
+	sources := []simplestreams.DataSource{
+		storage.NewStorageSimpleStreamsDataSource("cloud storage", env.Storage(), storage.BaseImagesPath)}
+	return sources, nil
+}
+
+// GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
+func (env *joyentEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
+	// Add the simplestreams source off the control bucket.
+	sources := []simplestreams.DataSource{
+		storage.NewStorageSimpleStreamsDataSource("cloud storage", env.Storage(), storage.BaseToolsPath)}
+	return sources, nil
 }

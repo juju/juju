@@ -38,7 +38,7 @@ type lxcSuite struct {
 type lxcBrokerSuite struct {
 	lxcSuite
 	broker      environs.InstanceBroker
-	agentConfig agent.Config
+	agentConfig agent.ConfigSetterWriter
 }
 
 var _ = gc.Suite(&lxcBrokerSuite{})
@@ -192,9 +192,7 @@ func (s *lxcProvisionerSuite) SetUpTest(c *gc.C) {
 	// to be in state, in order to get the watcher.
 	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
-	err = m.SetAddresses([]instance.Address{
-		instance.NewAddress("0.1.2.3"),
-	})
+	err = m.SetAddresses(instance.NewAddress("0.1.2.3"))
 	c.Assert(err, gc.IsNil)
 	s.parentMachineId = m.Id()
 	s.APILogin(c, m)

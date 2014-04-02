@@ -11,7 +11,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"regexp"
-	"strings"
 	"sync"
 	"time"
 
@@ -248,36 +247,6 @@ func (p environProvider) SecretAttrs(cfg *config.Config) (map[string]string, err
 	m["password"] = ecfg.password()
 	m["tenant-name"] = ecfg.tenantName()
 	return m, nil
-}
-
-func (p environProvider) PublicAddress() (string, error) {
-	if addr, err := fetchMetadata("public-ipv4"); err != nil {
-		return "", err
-	} else if addr != "" {
-		return addr, nil
-	}
-	return p.PrivateAddress()
-}
-
-func (p environProvider) PrivateAddress() (string, error) {
-	return fetchMetadata("local-ipv4")
-}
-
-// metadataHost holds the address of the instance metadata service.
-// It is a variable so that tests can change it to refer to a local
-// server when needed.
-var metadataHost = "http://169.254.169.254"
-
-// fetchMetadata fetches a single atom of data from the openstack instance metadata service.
-// http://docs.amazonwebservices.com/AWSEC2/latest/UserGuide/AESDG-chapter-instancedata.html
-// (the same specs is implemented in ec2, hence the reference)
-func fetchMetadata(name string) (value string, err error) {
-	uri := fmt.Sprintf("%s/latest/meta-data/%s", metadataHost, name)
-	data, err := retryGet(uri)
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(data)), nil
 }
 
 func retryGet(uri string) (data []byte, err error) {
@@ -541,6 +510,13 @@ func (e *environ) SupportedArchitectures() ([]string, error) {
 	})
 	e.supportedArchitectures, err = common.SupportedArchitectures(e, imageConstraint)
 	return e.supportedArchitectures, err
+}
+
+// SupportNetworks is specified on the EnvironCapability interface.
+func (e *environ) SupportNetworks() bool {
+	// TODO(dimitern) Once we have support for networking, inquire
+	// about capabilities and return true if supported.
+	return false
 }
 
 func (e *environ) Storage() storage.Storage {

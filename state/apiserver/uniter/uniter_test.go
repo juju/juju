@@ -1424,9 +1424,7 @@ func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 }
 
 func (s *uniterSuite) TestAPIAddresses(c *gc.C) {
-	err := s.machine0.SetAddresses([]instance.Address{
-		instance.NewAddress("0.1.2.3"),
-	})
+	err := s.machine0.SetAddresses(instance.NewAddress("0.1.2.3"))
 	c.Assert(err, gc.IsNil)
 	apiAddresses, err := s.State.APIAddressesFromMachines()
 	c.Assert(err, gc.IsNil)
