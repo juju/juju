@@ -26,17 +26,17 @@ func newConfig(c *gc.C, attrs coretesting.Attrs) *config.Config {
 
 func validAttrs() coretesting.Attrs {
 	return coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"type":         "joyent",
-		"sdc-user":     "juju-test",
-		"sdc-key-id":   "00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff",
-		"sdc-url":      "https://test.api.joyentcloud.com",
-		"manta-user":   "juju-test",
-		"manta-key-id": "00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff",
-		"manta-url":    "https://test.manta.joyent.com",
-		"key-file":     "~/.ssh/provider_id_rsa",
-		"algorithm":    "rsa-sha256",
-		"control-dir":  "juju-test",
-		"private-key":  "key",
+		"type":             "joyent",
+		"sdc-user":         "juju-test",
+		"sdc-key-id":       "00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff",
+		"sdc-url":          "https://test.api.joyentcloud.com",
+		"manta-user":       "juju-test",
+		"manta-key-id":     "00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff",
+		"manta-url":        "https://test.manta.joyent.com",
+		"private-key-path": "~/.ssh/provider_id_rsa",
+		"algorithm":        "rsa-sha256",
+		"control-dir":      "juju-test",
+		"private-key":      "key",
 	})
 }
 
@@ -185,20 +185,20 @@ var newConfigTests = []struct {
 	insert: coretesting.Attrs{"manta-url": "https://test.manta.joyent.com"},
 	expect: coretesting.Attrs{"manta-url": "https://test.manta.joyent.com"},
 }, {
-	info:   "key-file is inserted if missing",
-	remove: []string{"key-file"},
-	expect: coretesting.Attrs{"key-file": "~/.ssh/id_rsa"},
+	info:   "private-key-path is inserted if missing",
+	remove: []string{"private-key-path"},
+	expect: coretesting.Attrs{"private-key-path": "~/.ssh/id_rsa"},
 }, {
-	info:   "can get key-file from env variable",
-	insert: coretesting.Attrs{"key-file": ""},
-	expect: coretesting.Attrs{"key-file": "some-file"},
+	info:   "can get private-key-path from env variable",
+	insert: coretesting.Attrs{"private-key-path": ""},
+	expect: coretesting.Attrs{"private-key-path": "some-file"},
 	envVars: map[string]string{
 		"MANTA_KEY_FILE": "some-file",
 	},
 }, {
-	info:   "can get key-file from env variable, missing from config",
-	remove: []string{"key-file"},
-	expect: coretesting.Attrs{"key-file": "some-file"},
+	info:   "can get private-key-path from env variable, missing from config",
+	remove: []string{"private-key-path"},
+	expect: coretesting.Attrs{"private-key-path": "some-file"},
 	envVars: map[string]string{
 		"MANTA_KEY_FILE": "some-file",
 	},
@@ -335,7 +335,7 @@ var prepareConfigTests = []struct {
 	expect: validPrepareAttrs(),
 }, {
 	info:   "private key is loaded from key file",
-	insert: coretesting.Attrs{"key-file": fmt.Sprintf("~/.ssh/%s", testKeyFileName)},
+	insert: coretesting.Attrs{"private-key-path": fmt.Sprintf("~/.ssh/%s", testKeyFileName)},
 	expect: coretesting.Attrs{"private-key": testPrivateKey},
 }}
 

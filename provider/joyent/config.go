@@ -37,9 +37,10 @@ const boilerplateConfig = `joyent:
   # manta-url: https://us-east.manta.joyent.com
 
   # Auth config
-  # key-file is the private key used to sign Joyent requests.
+  # private-key-path is the private key used to sign Joyent requests.
   # Defaults to ~/.ssh/id_rsa, override if a different ssh key is used.
-  # key-file: ~/.ssh/id_rsa
+  # You can also "private-key" to the *content* of the private key, instead.
+  # private-key-path: ~/.ssh/id_rsa
   # algorithm defaults to rsa-sha256, override if required
   # algorithm: rsa-sha256
 `
@@ -55,38 +56,38 @@ const (
 )
 
 var environmentVariables = map[string]string{
-	"sdc-user":     SdcAccount,
-	"sdc-key-id":   SdcKeyId,
-	"sdc-url":      SdcUrl,
-	"manta-user":   MantaUser,
-	"manta-key-id": MantaKeyId,
-	"manta-url":    MantaUrl,
-	"key-file":     MantaKeyFile,
+	"sdc-user":         SdcAccount,
+	"sdc-key-id":       SdcKeyId,
+	"sdc-url":          SdcUrl,
+	"manta-user":       MantaUser,
+	"manta-key-id":     MantaKeyId,
+	"manta-url":        MantaUrl,
+	"private-key-path": MantaKeyFile,
 }
 
 var configFields = schema.Fields{
-	"sdc-user":     schema.String(),
-	"sdc-key-id":   schema.String(),
-	"sdc-url":      schema.String(),
-	"manta-user":   schema.String(),
-	"manta-key-id": schema.String(),
-	"manta-url":    schema.String(),
-	"key-file":     schema.String(),
-	"algorithm":    schema.String(),
-	"control-dir":  schema.String(),
-	"private-key":  schema.String(),
+	"sdc-user":         schema.String(),
+	"sdc-key-id":       schema.String(),
+	"sdc-url":          schema.String(),
+	"manta-user":       schema.String(),
+	"manta-key-id":     schema.String(),
+	"manta-url":        schema.String(),
+	"private-key-path": schema.String(),
+	"algorithm":        schema.String(),
+	"control-dir":      schema.String(),
+	"private-key":      schema.String(),
 }
 
 var configDefaults = schema.Defaults{
-	"sdc-url":      "https://us-west-1.api.joyentcloud.com",
-	"manta-url":    "https://us-east.manta.joyent.com",
-	"algorithm":    "rsa-sha256",
-	"key-file":     schema.Omit,
-	"sdc-user":     schema.Omit,
-	"sdc-key-id":   schema.Omit,
-	"manta-user":   schema.Omit,
-	"manta-key-id": schema.Omit,
-	"private-key":  schema.Omit,
+	"sdc-url":          "https://us-west-1.api.joyentcloud.com",
+	"manta-url":        "https://us-east.manta.joyent.com",
+	"algorithm":        "rsa-sha256",
+	"private-key-path": schema.Omit,
+	"sdc-user":         schema.Omit,
+	"sdc-key-id":       schema.Omit,
+	"manta-user":       schema.Omit,
+	"manta-key-id":     schema.Omit,
+	"private-key":      schema.Omit,
 }
 
 var configSecretFields = []string{
@@ -100,7 +101,7 @@ var configSecretFields = []string{
 var configImmutableFields = []string{
 	"sdc-url",
 	"manta-url",
-	"key-file",
+	"private-key-path",
 	"private-key",
 	"algorithm",
 }
@@ -118,7 +119,7 @@ func prepareConfig(cfg *config.Config) (*config.Config, error) {
 	}
 	// Set up the private key - this is used to sign requests.
 	if fieldValue, ok := attrs["private-key"]; !ok || fieldValue == "" {
-		keyFile, err := utils.NormalizePath(attrs["key-file"].(string))
+		keyFile, err := utils.NormalizePath(attrs["private-key-path"].(string))
 		if err != nil {
 			return nil, err
 		}
@@ -166,20 +167,20 @@ func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 			if localEnvVariable != "" {
 				envConfig.attrs[field] = localEnvVariable
 			} else {
-				if field != "key-file" {
+				if field != "private-key-path" {
 					return nil, fmt.Errorf("cannot get %s value from environment variable %s", field, envVar)
 				}
 			}
 		}
 	}
 
-	// Ensure key-file is set" - if it's not in config or an env var, use a default value.
-	if v, ok := envConfig.attrs["key-file"]; !ok || v == "" {
-		v = os.Getenv(environmentVariables["key-file"])
+	// Ensure private-key-path is set - if it's not in config or an env var, use a default value.
+	if v, ok := envConfig.attrs["private-key-path"]; !ok || v == "" {
+		v = os.Getenv(environmentVariables["private-key-path"])
 		if v == "" {
 			v = "~/.ssh/id_rsa"
 		}
-		envConfig.attrs["key-file"] = v
+		envConfig.attrs["private-key-path"] = v
 	}
 
 	// Check for missing fields.
