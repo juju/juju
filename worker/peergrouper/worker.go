@@ -8,13 +8,14 @@ import (
 	"sync"
 	"time"
 
+	"launchpad.net/tomb"
+
 	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/replicaset"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker"
-	"launchpad.net/tomb"
 )
 
 type stateInterface interface {
