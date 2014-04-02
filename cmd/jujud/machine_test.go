@@ -87,7 +87,7 @@ func (s *commonMachineSuite) TearDownTest(c *gc.C) {
 // agent's configuration and the tools currently running.
 func (s *commonMachineSuite) primeAgent(
 	c *gc.C, vers version.Binary,
-	jobs ...state.MachineJob) (m *state.Machine, config agent.Config, tools *tools.Tools) {
+	jobs ...state.MachineJob) (m *state.Machine, config agent.ConfigSetterWriter, tools *tools.Tools) {
 
 	// Add a machine and ensure it is provisioned.
 	m, err := s.State.AddMachine("quantal", jobs...)
@@ -117,13 +117,15 @@ func (s *commonMachineSuite) primeAgent(
 func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) *MachineAgent {
 	a := &MachineAgent{}
 	s.initAgent(c, a, "--machine-id", m.Id())
+	err := a.ReadConfig(m.Tag())
+	c.Assert(err, gc.IsNil)
 	return a
 }
 
 func (s *MachineSuite) TestParseSuccess(c *gc.C) {
 	create := func() (cmd.Command, *AgentConf) {
 		a := &MachineAgent{}
-		return a, &a.Conf
+		return a, &a.AgentConf
 	}
 	a := CheckAgentCommand(c, create, []string{"--machine-id", "42"})
 	c.Assert(a.(*MachineAgent).MachineId, gc.Equals, "42")
@@ -296,7 +298,7 @@ func (s *MachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Machine) 
 	addrs := []instance.Address{
 		instance.NewAddress("0.1.2.3"),
 	}
-	err := machine.SetAddresses(addrs)
+	err := machine.SetAddresses(addrs...)
 	c.Assert(err, gc.IsNil)
 	// Set the addresses in the environ instance as well so that if the instance poller
 	// runs it won't overwrite them.
@@ -589,7 +591,7 @@ func (s *MachineSuite) assertJobWithState(
 func (s *MachineSuite) TestManageEnvironServesAPI(c *gc.C) {
 	c.Skip("does not pass reliably on the bot (http://pad.lv/1219661")
 	s.assertJobWithState(c, state.JobManageEnviron, func(conf agent.Config, agentState *state.State) {
-		st, _, err := conf.OpenAPI(fastDialOpts)
+		st, err := api.Open(conf.APIInfo(), fastDialOpts)
 		c.Assert(err, gc.IsNil)
 		defer st.Close()
 		m, err := st.Machiner().Machine(conf.Tag())
@@ -757,7 +759,7 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 	})
 }
 
-func (s *MachineSuite) TestMachineEnvirnWorker(c *gc.C) {
+func (s *MachineSuite) TestMachineEnvironWorker(c *gc.C) {
 	proxyDir := c.MkDir()
 	s.PatchValue(&machineenvironmentworker.ProxyDirectory, proxyDir)
 	s.PatchValue(&utils.AptConfFile, filepath.Join(proxyDir, "juju-apt-proxy"))

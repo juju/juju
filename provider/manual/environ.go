@@ -93,6 +93,11 @@ func (e *manualEnviron) SupportedArchitectures() ([]string, error) {
 	return arch.AllSupportedArches, nil
 }
 
+// SupportNetworks is specified on the EnvironCapability interface.
+func (e *manualEnviron) SupportNetworks() bool {
+	return false
+}
+
 func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
 	// Set "use-sshstorage" to false, so agents know not to use sshstorage.
 	cfg, err := e.Config().Apply(map[string]interface{}{"use-sshstorage": false})

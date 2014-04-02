@@ -25,6 +25,7 @@ import (
 	"launchpad.net/juju-core/agent/tools"
 	corecharm "launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -927,7 +928,7 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 			},
 			verifyFile{
 				testFile("jujuc.output"),
-				"user-admin\nprivate.dummy.address.example.com\npublic.dummy.address.example.com\n",
+				"user-admin\nprivate.address.example.com\npublic.address.example.com\n",
 			},
 		), ut(
 			"run commands: proxy settings set",
@@ -1146,6 +1147,28 @@ func (s *UniterSuite) runUniterTests(c *gc.C, uniterTests []uniterTest) {
 	}
 }
 
+// Assign the unit to a provisioned machine with dummy addresses set.
+func assertAssignUnit(c *gc.C, st *state.State, u *state.Unit) {
+	err := u.AssignToNewMachine()
+	c.Assert(err, gc.IsNil)
+	mid, err := u.AssignedMachineId()
+	c.Assert(err, gc.IsNil)
+	machine, err := st.Machine(mid)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetProvisioned("i-exist", "fake_nonce", nil)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetAddresses(instance.Address{
+		Type:         instance.Ipv4Address,
+		NetworkScope: instance.NetworkCloudLocal,
+		Value:        "private.address.example.com",
+	}, instance.Address{
+		Type:         instance.Ipv4Address,
+		NetworkScope: instance.NetworkPublic,
+		Value:        "public.address.example.com",
+	})
+	c.Assert(err, gc.IsNil)
+}
+
 func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 	// Create a test context for later use.
 	ctx := &context{
@@ -1174,6 +1197,7 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
+	assertAssignUnit(c, s.State, wpu)
 
 	// Create the subordinate unit by entering scope as the principal.
 	wpru, err := rel.Unit(wpu)
@@ -1289,14 +1313,7 @@ func (csau createServiceAndUnit) step(c *gc.C, ctx *context) {
 	c.Assert(err, gc.IsNil)
 
 	// Assign the unit to a provisioned machine to match expected state.
-	err = unit.AssignToNewMachine()
-	c.Assert(err, gc.IsNil)
-	mid, err := unit.AssignedMachineId()
-	c.Assert(err, gc.IsNil)
-	machine, err := ctx.st.Machine(mid)
-	c.Assert(err, gc.IsNil)
-	err = machine.SetProvisioned("i-exist", "fake_nonce", nil)
-	c.Assert(err, gc.IsNil)
+	assertAssignUnit(c, ctx.st, unit)
 	ctx.svc = svc
 	ctx.unit = unit
 
@@ -1328,11 +1345,11 @@ func (waitAddresses) step(c *gc.C, ctx *context) {
 			// GZ 2013-07-10: Hardcoded values from dummy environ
 			//                special cased here, questionable.
 			private, _ := ctx.unit.PrivateAddress()
-			if private != "private.dummy.address.example.com" {
+			if private != "private.address.example.com" {
 				continue
 			}
 			public, _ := ctx.unit.PublicAddress()
-			if public != "public.dummy.address.example.com" {
+			if public != "public.address.example.com" {
 				continue
 			}
 			return
