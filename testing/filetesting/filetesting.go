@@ -32,6 +32,13 @@ type Entry interface {
 	Check(c *gc.C, basePath string) Entry
 }
 
+var (
+	_ Entry = Dir{}
+	_ Entry = File{}
+	_ Entry = Symlink{}
+	_ Entry = Removed{}
+)
+
 // Entries supplies convenience methods on Entry slices.
 type Entries []Entry
 
@@ -62,20 +69,15 @@ func (e Entries) Check(c *gc.C, basePath string) Entries {
 	return result
 }
 
-// Removeds returns a slice of Removed entries whose paths correspond to
+// AsRemoveds returns a slice of Removed entries whose paths correspond to
 // those in e.
-func (e Entries) Removeds() Entries {
+func (e Entries) AsRemoveds() Entries {
 	result := make([]Entry, len(e))
 	for i, entry := range e {
 		result[i] = Removed{entry.GetPath()}
 	}
 	return result
 }
-
-var _ Entry = Dir{}
-var _ Entry = File{}
-var _ Entry = Symlink{}
-var _ Entry = Removed{}
 
 // join joins a slash-separated path to a filesystem basePath.
 func join(basePath, path string) string {
