@@ -223,10 +223,13 @@ func (s *MachineSuite) TestRemove(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	_, err = s.machine.Containers()
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
-	include, exclude, err := s.machine.Networks()
+	include, exclude, err := s.machine.LinkedNetworks()
 	c.Assert(err, gc.IsNil)
 	c.Assert(include, gc.HasLen, 0)
 	c.Assert(exclude, gc.HasLen, 0)
+	ifaces, err := s.machine.NetworkInterfaces()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ifaces, gc.HasLen, 0)
 	err = s.machine.Remove()
 	c.Assert(err, gc.IsNil)
 }
@@ -352,10 +355,10 @@ func (s *MachineSuite) TestMachineWaitAgentAlive(c *gc.C) {
 	c.Assert(alive, gc.Equals, false)
 }
 
-func (s *MachineSuite) TestMachineNetworks(c *gc.C) {
-	// s.machine is created without networks, so check
-	// they're empty when we read them.
-	include, exclude, err := s.machine.Networks()
+func (s *MachineSuite) TestMachineLinkedNetworks(c *gc.C) {
+	// s.machine is created without linked networks, so check they're
+	// empty when we read them.
+	include, exclude, err := s.machine.LinkedNetworks()
 	c.Assert(err, gc.IsNil)
 	c.Assert(include, gc.HasLen, 0)
 	c.Assert(exclude, gc.HasLen, 0)
@@ -368,7 +371,7 @@ func (s *MachineSuite) TestMachineNetworks(c *gc.C) {
 		ExcludeNetworks: []string{"private-net", "logging"},
 	})
 	c.Assert(err, gc.IsNil)
-	include, exclude, err = machine.Networks()
+	include, exclude, err = machine.LinkedNetworks()
 	c.Assert(err, gc.IsNil)
 	c.Assert(include, jc.DeepEquals, []string{"net1", "mynet"})
 	c.Assert(exclude, jc.DeepEquals, []string{"private-net", "logging"})
@@ -378,7 +381,7 @@ func (s *MachineSuite) TestMachineNetworks(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = machine.Remove()
 	c.Assert(err, gc.IsNil)
-	include, exclude, err = machine.Networks()
+	include, exclude, err = machine.LinkedNetworks()
 	c.Assert(err, gc.IsNil)
 	c.Assert(include, gc.HasLen, 0)
 	c.Assert(exclude, gc.HasLen, 0)

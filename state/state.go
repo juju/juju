@@ -8,6 +8,7 @@ package state
 
 import (
 	"fmt"
+	"net"
 	"net/url"
 	"regexp"
 	"sort"
@@ -44,33 +45,35 @@ const (
 // State represents the state of an environment
 // managed by juju.
 type State struct {
-	info             *Info
-	policy           Policy
-	db               *mgo.Database
-	environments     *mgo.Collection
-	charms           *mgo.Collection
-	machines         *mgo.Collection
-	instanceData     *mgo.Collection
-	containerRefs    *mgo.Collection
-	relations        *mgo.Collection
-	relationScopes   *mgo.Collection
-	services         *mgo.Collection
-	networks         *mgo.Collection
-	minUnits         *mgo.Collection
-	settings         *mgo.Collection
-	settingsrefs     *mgo.Collection
-	constraints      *mgo.Collection
-	units            *mgo.Collection
-	users            *mgo.Collection
-	presence         *mgo.Collection
-	cleanups         *mgo.Collection
-	annotations      *mgo.Collection
-	statuses         *mgo.Collection
-	stateServers     *mgo.Collection
-	runner           *txn.Runner
-	transactionHooks chan ([]transactionHook)
-	watcher          *watcher.Watcher
-	pwatcher         *presence.Watcher
+	info              *Info
+	policy            Policy
+	db                *mgo.Database
+	environments      *mgo.Collection
+	charms            *mgo.Collection
+	machines          *mgo.Collection
+	instanceData      *mgo.Collection
+	containerRefs     *mgo.Collection
+	relations         *mgo.Collection
+	relationScopes    *mgo.Collection
+	services          *mgo.Collection
+	linkedNetworks    *mgo.Collection
+	machineNetworks   *mgo.Collection
+	networkInterfaces *mgo.Collection
+	minUnits          *mgo.Collection
+	settings          *mgo.Collection
+	settingsrefs      *mgo.Collection
+	constraints       *mgo.Collection
+	units             *mgo.Collection
+	users             *mgo.Collection
+	presence          *mgo.Collection
+	cleanups          *mgo.Collection
+	annotations       *mgo.Collection
+	statuses          *mgo.Collection
+	stateServers      *mgo.Collection
+	runner            *txn.Runner
+	transactionHooks  chan ([]transactionHook)
+	watcher           *watcher.Watcher
+	pwatcher          *presence.Watcher
 	// mu guards allManager.
 	mu         sync.Mutex
 	allManager *multiwatcher.StoreManager
@@ -952,7 +955,7 @@ func (st *State) AddService(name, ownerTag string, ch *Charm, includeNetworks, e
 	ops := []txn.Op{
 		env.assertAliveOp(),
 		createConstraintsOp(st, svc.globalKey(), constraints.Value{}),
-		createNetworksOp(st, svc.globalKey(), includeNetworks, excludeNetworks),
+		createLinkedNetworksOp(st, svc.globalKey(), includeNetworks, excludeNetworks),
 		createSettingsOp(st, svc.settingsKey(), nil),
 		{
 			C:      st.users.Name,
@@ -1001,6 +1004,49 @@ func (st *State) AddService(name, ownerTag string, ch *Charm, includeNetworks, e
 		return nil, err
 	}
 	return svc, nil
+}
+
+// AddMachineNetwork creates a new machine network with the given name, CIDR and VLAN tag.q
+func (st *State) AddMachineNetwork(name, cidr string, vlanTag int) (m *MachineNetwork, err error) {
+	defer utils.ErrorContextf(&err, "cannot add machine network %q", name)
+	if cidr != "" {
+		_, _, err := net.ParseCIDR(cidr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid CIDR %q: %v", cidr, err)
+		}
+	}
+	if vlanTag < 0 || vlanTag > 4094 {
+		return nil, fmt.Errorf("invalid VLAN tag %q: must be between 0 and 4094", vlanTag)
+	}
+	mdoc := &machineNetworkDoc{
+		Name:    name,
+		CIDR:    cidr,
+		VLANTag: vlanTag,
+	}
+	ops := []txn.Op{{
+		C:      st.machineNetworks.Name,
+		Id:     name,
+		Assert: txn.DocMissing,
+		Insert: mdoc,
+	}}
+	err = onAbort(st.runTransaction(ops), fmt.Errorf("already exists"))
+	if err != nil {
+		return nil, err
+	}
+	return newMachineNetwork(st, mdoc), nil
+}
+
+// MachineNetwork returns the machine network with the given name.
+func (st *State) MachineNetwork(name string) (*MachineNetwork, error) {
+	mdoc := &machineNetworkDoc{}
+	err := st.machineNetworks.FindId(name).One(mdoc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("machine network %q", name)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("cannot get machine network %q: %v", name, err)
+	}
+	return newMachineNetwork(st, mdoc), nil
 }
 
 // Service returns a service state by name.
