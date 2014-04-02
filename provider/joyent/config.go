@@ -45,13 +45,14 @@ const boilerplateConfig = `joyent:
 `
 
 const (
-	SdcAccount   = "SDC_ACCOUNT"
-	SdcKeyId     = "SDC_KEY_ID"
-	SdcUrl       = "SDC_URL"
-	MantaUser    = "MANTA_USER"
-	MantaKeyId   = "MANTA_KEY_ID"
-	MantaUrl     = "MANTA_URL"
-	MantaKeyFile = "MANTA_KEY_FILE"
+	SdcAccount        = "SDC_ACCOUNT"
+	SdcKeyId          = "SDC_KEY_ID"
+	SdcUrl            = "SDC_URL"
+	MantaUser         = "MANTA_USER"
+	MantaKeyId        = "MANTA_KEY_ID"
+	MantaUrl          = "MANTA_URL"
+	MantaKeyFile      = "MANTA_KEY_FILE"
+	DefaultPrivateKey = "~/.ssh/id_rsa"
 )
 
 var environmentVariables = map[string]string{
@@ -116,18 +117,6 @@ func prepareConfig(cfg *config.Config) (*config.Config, error) {
 		}
 		attrs["control-dir"] = fmt.Sprintf("%x", uuid.Raw())
 	}
-	// Set up the private key - this is used to sign requests.
-	if fieldValue, ok := attrs["private-key"]; !ok || fieldValue == "" {
-		keyFile, err := utils.NormalizePath(attrs["key-file"].(string))
-		if err != nil {
-			return nil, err
-		}
-		privateKey, err := ioutil.ReadFile(keyFile)
-		if err != nil {
-			return nil, err
-		}
-		attrs["private-key"] = string(privateKey)
-	}
 	return cfg.Apply(attrs)
 }
 
@@ -177,9 +166,22 @@ func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 	if v, ok := envConfig.attrs["key-file"]; !ok || v == "" {
 		v = os.Getenv(environmentVariables["key-file"])
 		if v == "" {
-			v = "~/.ssh/id_rsa"
+			v = DefaultPrivateKey
 		}
 		envConfig.attrs["key-file"] = v
+	}
+	// Now that we've ensured key-file is properly set, we go back and set
+	// up the private key - this is used to sign requests.
+	if fieldValue, ok := envConfig.attrs["private-key"]; !ok || fieldValue == "" {
+		keyFile, err := utils.NormalizePath(envConfig.attrs["key-file"].(string))
+		if err != nil {
+			return nil, err
+		}
+		privateKey, err := ioutil.ReadFile(keyFile)
+		if err != nil {
+			return nil, err
+		}
+		envConfig.attrs["private-key"] = string(privateKey)
 	}
 
 	// Check for missing fields.

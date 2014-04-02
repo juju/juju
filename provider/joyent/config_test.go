@@ -5,6 +5,7 @@ package joyent_test
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 
 	"github.com/juju/testing"
@@ -12,9 +13,9 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/provider/joyent"
 	jp "launchpad.net/juju-core/provider/joyent"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils"
 )
 
 func newConfig(c *gc.C, attrs coretesting.Attrs) *config.Config {
@@ -62,7 +63,7 @@ func (s *ConfigSuite) SetUpSuite(c *gc.C) {
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
 	s.FakeHomeSuite.SetUpTest(c)
 	s.AddCleanup(CreateTestKey(c))
-	for _, envVar := range joyent.EnvironmentVariables {
+	for _, envVar := range jp.EnvironmentVariables {
 		s.PatchEnvironment(envVar, "")
 	}
 }
@@ -337,6 +338,10 @@ var prepareConfigTests = []struct {
 	info:   "private key is loaded from key file",
 	insert: coretesting.Attrs{"key-file": fmt.Sprintf("~/.ssh/%s", testKeyFileName)},
 	expect: coretesting.Attrs{"private-key": testPrivateKey},
+}, {
+	info:   "bad key-file errors, not panics",
+	insert: coretesting.Attrs{"key-file": "~/.ssh/no-such-file"},
+	err:    "invalid Joyent provider config: open .*: no such file or directory",
 }}
 
 func (s *ConfigSuite) TestPrepare(c *gc.C) {
@@ -354,7 +359,24 @@ func (s *ConfigSuite) TestPrepare(c *gc.C) {
 			}
 		} else {
 			c.Check(preparedConfig, gc.IsNil)
-			c.Check(err, gc.ErrorMatches, "invalid prepare config: "+test.err)
+			c.Check(err, gc.ErrorMatches, test.err)
 		}
 	}
+}
+
+func (s *ConfigSuite) TestPrepareWithDefaultKeyFile(c *gc.C) {
+	ctx := coretesting.Context(c)
+	// By default "key-file" isn't set until after validateConfig has been called.
+	attrs := validAttrs().Delete("key-file", "private-key")
+	keyFilePath, err := utils.NormalizePath(jp.DefaultPrivateKey)
+	c.Assert(err, gc.IsNil)
+	err = ioutil.WriteFile(keyFilePath, []byte(testPrivateKey), 400)
+	c.Assert(err, gc.IsNil)
+	defer os.Remove(keyFilePath)
+	testConfig := newConfig(c, attrs)
+	preparedConfig, err := jp.Provider.Prepare(ctx, testConfig)
+	c.Assert(err, gc.IsNil)
+	attrs = preparedConfig.Config().AllAttrs()
+	c.Check(attrs["key-file"], gc.Equals, jp.DefaultPrivateKey)
+	c.Check(attrs["private-key"], gc.Equals, testPrivateKey)
 }
