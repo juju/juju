@@ -13,53 +13,64 @@ import (
 	"launchpad.net/juju-core/testing/testbase"
 )
 
+const (
+	invalidHost = "testing.invalid"
+	validHost   = "testing.valid"
+)
+
 type addressesSuite struct {
 	testbase.LoggingSuite
+	netLookupHostCalled int
 }
 
 var _ = gc.Suite(&addressesSuite{})
 
-func (s *addressesSuite) TestHostAddress(c *gc.C) {
-	var lookupHostArg string
-	var lookupHostError error
+func (s *addressesSuite) SetUpTest(c *gc.C) {
+	s.netLookupHostCalled = 0
 	s.PatchValue(manual.NetLookupHost, func(host string) ([]string, error) {
-		lookupHostArg = host
-		return nil, lookupHostError
+		s.netLookupHostCalled++
+		if host == invalidHost {
+			return nil, errors.New("invalid host: " + invalidHost)
+		}
+		return []string{"127.0.0.1"}, nil
 	})
+}
 
-	hostname := "boxen0"
-	addr, err := manual.HostAddress(hostname)
+func (s *addressesSuite) TestHostAddress(c *gc.C) {
+	addr, err := manual.HostAddress(validHost)
+	c.Assert(s.netLookupHostCalled, gc.Equals, 1)
 	c.Assert(err, gc.IsNil)
-	c.Assert(lookupHostArg, gc.Equals, hostname)
 	c.Assert(addr, gc.Equals, instance.Address{
-		Value:        hostname,
+		Value:        validHost,
 		Type:         instance.HostName,
 		NetworkScope: instance.NetworkPublic,
 	})
+}
 
-	lookupHostError = errors.New("whatever")
-	addr, err = manual.HostAddress(hostname)
-	c.Assert(err, gc.Equals, lookupHostError)
+func (s *addressesSuite) TestHostAddressError(c *gc.C) {
+	addr, err := manual.HostAddress(invalidHost)
+	c.Assert(s.netLookupHostCalled, gc.Equals, 1)
+	c.Assert(err, gc.ErrorMatches, "invalid host: "+invalidHost)
 	c.Assert(addr, gc.Equals, instance.Address{})
+}
 
-	lookupHostArg = ""
-	hostname = "127.0.0.1"
-	addr, err = manual.HostAddress(hostname)
+func (s *addressesSuite) TestHostAddressIPv4(c *gc.C) {
+	addr, err := manual.HostAddress("127.0.0.1")
+	c.Assert(s.netLookupHostCalled, gc.Equals, 0)
 	c.Assert(err, gc.IsNil)
-	c.Assert(lookupHostArg, gc.Equals, "") // no call to NetLookupHost
 	c.Assert(addr, gc.Equals, instance.Address{
-		Value:        hostname,
+		Value:        "127.0.0.1",
 		Type:         instance.Ipv4Address,
 		NetworkScope: instance.NetworkPublic,
 	})
+}
 
-	lookupHostArg = ""
-	hostname = "::1"
-	addr, err = manual.HostAddress(hostname)
+func (s *addressesSuite) TestHostAddressIPv6(c *gc.C) {
+	addr, err := manual.HostAddress("::1")
+	c.Assert(s.netLookupHostCalled, gc.Equals, 0)
 	c.Assert(err, gc.IsNil)
-	c.Assert(lookupHostArg, gc.Equals, "") // no call to NetLookupHost
 	c.Assert(addr, gc.Equals, instance.Address{
-		Value:        hostname,
+		Value:        "::1",
 		Type:         instance.Ipv6Address,
 		NetworkScope: instance.NetworkPublic,
 	})
