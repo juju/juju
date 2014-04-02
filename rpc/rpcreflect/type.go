@@ -145,7 +145,7 @@ func newRootMethod(m reflect.Method) *RootMethod {
 		out := rcvr.Method(m.Index).Call([]reflect.Value{reflect.ValueOf(id)})
 		if !out[1].IsNil() {
 			// Workaround LP 1251076.
-			// gccgo appears to get confused and things that out[1] is not nil when
+			// gccgo appears to get confused and thinks that out[1] is not nil when
 			// in fact it is an interface value of type error and value nil.
 			// This workaround solves the problem by leaving error as nil if in fact
 			// it was nil and causes no harm for gc because the predicates above
