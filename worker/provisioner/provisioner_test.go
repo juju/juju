@@ -110,9 +110,7 @@ func (s *CommonProvisionerSuite) setupEnvironmentManager(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.Id(), gc.Equals, "0")
-	err = machine.SetAddresses([]instance.Address{
-		instance.NewAddress("0.1.2.3"),
-	})
+	err = machine.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
 	c.Assert(err, gc.IsNil)
 	s.APILogin(c, machine)
 }

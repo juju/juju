@@ -17,16 +17,16 @@ import (
 	"launchpad.net/gnuflag"
 )
 
-type rcPassthroughError struct {
-	code int
+type RcPassthroughError struct {
+	Code int
 }
 
-func (e *rcPassthroughError) Error() string {
-	return fmt.Sprintf("rc: %v", e.code)
+func (e *RcPassthroughError) Error() string {
+	return fmt.Sprintf("subprocess encountered error code %v", e.Code)
 }
 
 func IsRcPassthroughError(err error) bool {
-	_, ok := err.(*rcPassthroughError)
+	_, ok := err.(*RcPassthroughError)
 	return ok
 }
 
@@ -34,7 +34,7 @@ func IsRcPassthroughError(err error) bool {
 // return code from the cmd.Main function rather than the default of 1 if
 // there is an error.
 func NewRcPassthroughError(code int) error {
-	return &rcPassthroughError{code}
+	return &RcPassthroughError{code}
 }
 
 // ErrSilent can be returned from Run to signal that Main should exit with
@@ -243,7 +243,7 @@ func Main(c Command, ctx *Context, args []string) int {
 	}
 	if err := c.Run(ctx); err != nil {
 		if IsRcPassthroughError(err) {
-			return err.(*rcPassthroughError).code
+			return err.(*RcPassthroughError).Code
 		}
 		if err != ErrSilent {
 			fmt.Fprintf(ctx.Stderr, "error: %v\n", err)

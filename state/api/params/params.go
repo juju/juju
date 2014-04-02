@@ -361,6 +361,12 @@ type ModifyUserSSHKeys struct {
 	Keys []string
 }
 
+// ModifyUser stores the parameters used for a UserManager.Add|Remove call
+type ModifyUser struct {
+	Tag      string
+	Password string
+}
+
 // MarshalJSON implements json.Marshaler.
 func (d *Delta) MarshalJSON() ([]byte, error) {
 	b, err := json.Marshal(d.Entity)
@@ -637,6 +643,11 @@ type SetRsyslogCertParams struct {
 // call. Each element in the top level slice holds
 // the addresses for one API server.
 type APIHostPortsResult struct {
+	Servers [][]instance.HostPort
+}
+
+// LoginResult holds the result of a Login call.
+type LoginResult struct {
 	Servers [][]instance.HostPort
 }
 

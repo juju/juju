@@ -10,6 +10,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state/api/params"
 )
@@ -17,7 +18,7 @@ import (
 // GetEnvironmentCommand is able to output either the entire environment or
 // the requested value in a format of the user's choosing.
 type GetEnvironmentCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	key string
 	out cmd.Output
 }
@@ -50,6 +51,10 @@ func (c *GetEnvironmentCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *GetEnvironmentCommand) Init(args []string) (err error) {
+	err = c.EnvCommandBase.Init()
+	if err != nil {
+		return
+	}
 	c.key, err = cmd.ZeroOrOneArgs(args)
 	return
 }
@@ -105,7 +110,7 @@ type attributes map[string]interface{}
 
 // SetEnvironment
 type SetEnvironmentCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	values attributes
 }
 
@@ -127,6 +132,10 @@ func (c *SetEnvironmentCommand) Info() *cmd.Info {
 // SetFlags handled entirely by cmd.EnvCommandBase
 
 func (c *SetEnvironmentCommand) Init(args []string) (err error) {
+	err = c.EnvCommandBase.Init()
+	if err != nil {
+		return
+	}
 	if len(args) == 0 {
 		return fmt.Errorf("No key, value pairs specified")
 	}
@@ -184,7 +193,7 @@ func (c *SetEnvironmentCommand) Run(ctx *cmd.Context) error {
 
 // UnsetEnvironment
 type UnsetEnvironmentCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	keys []string
 }
 
@@ -208,6 +217,10 @@ func (c *UnsetEnvironmentCommand) Info() *cmd.Info {
 }
 
 func (c *UnsetEnvironmentCommand) Init(args []string) (err error) {
+	err = c.EnvCommandBase.Init()
+	if err != nil {
+		return
+	}
 	if len(args) == 0 {
 		return fmt.Errorf("No keys specified")
 	}

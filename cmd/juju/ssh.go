@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
@@ -25,7 +26,7 @@ type SSHCommand struct {
 
 // SSHCommon provides common methods for SSHCommand, SCPCommand and DebugHooksCommand.
 type SSHCommon struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	Target    string
 	Args      []string
 	apiClient *api.Client
@@ -68,6 +69,10 @@ func (c *SSHCommand) Info() *cmd.Info {
 }
 
 func (c *SSHCommand) Init(args []string) error {
+	err := c.EnvCommandBase.Init()
+	if err != nil {
+		return err
+	}
 	if len(args) == 0 {
 		return errors.New("no target name specified")
 	}

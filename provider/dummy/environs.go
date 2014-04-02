@@ -483,14 +483,6 @@ func (*environProvider) SecretAttrs(cfg *config.Config) (map[string]string, erro
 	}, nil
 }
 
-func (*environProvider) PublicAddress() (string, error) {
-	return "public.dummy.address.example.com", nil
-}
-
-func (*environProvider) PrivateAddress() (string, error) {
-	return "private.dummy.address.example.com", nil
-}
-
 func (*environProvider) BoilerplateConfig() string {
 	return `
 # Fake configuration for dummy provider.

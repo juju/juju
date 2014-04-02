@@ -4,7 +4,7 @@
 package manual
 
 var (
-	InstanceHostAddresses = &instanceHostAddresses
+	NetLookupHost         = &netLookupHost
 	ProvisionMachineAgent = &provisionMachineAgent
 	CheckProvisioned      = checkProvisioned
 )

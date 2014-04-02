@@ -51,22 +51,29 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	dataDir := c.MkDir()
 
 	pwHash := utils.UserPasswordHash(testing.DefaultMongoPassword, utils.CompatSalt)
-	cfg, err := agent.NewAgentConfig(agent.AgentConfigParams{
-		DataDir:           dataDir,
-		Tag:               "machine-0",
-		UpgradedToVersion: version.Current.Number,
-		StateAddresses:    []string{testing.MgoServer.Addr()},
-		CACert:            []byte(testing.CACert),
-		Password:          pwHash,
+	cfg, err := agent.NewStateMachineConfig(agent.StateMachineConfigParams{
+		AgentConfigParams: agent.AgentConfigParams{
+			DataDir:           dataDir,
+			Tag:               "machine-0",
+			UpgradedToVersion: version.Current.Number,
+			StateAddresses:    []string{testing.MgoServer.Addr()},
+			CACert:            []byte(testing.CACert),
+			Password:          pwHash,
+		},
+		StateServerCert: []byte(testing.ServerCert),
+		StateServerKey:  []byte(testing.ServerKey),
+		APIPort:         1234,
 	})
 	c.Assert(err, gc.IsNil)
 	expectConstraints := constraints.MustParse("mem=1024M")
 	expectHW := instance.MustParseHardware("mem=2048M")
 	mcfg := agent.BootstrapMachineConfig{
+		Addresses:       instance.NewAddresses("0.1.2.3", "zeroonetwothree"),
 		Constraints:     expectConstraints,
 		Jobs:            []params.MachineJob{params.JobHostUnits},
 		InstanceId:      "i-bootstrap",
 		Characteristics: expectHW,
+		SharedSecret:    "abc123",
 	}
 	envAttrs := testing.FakeConfig().Delete("admin-secret").Merge(testing.Attrs{
 		"agent-version": version.Current.Number.String(),
@@ -97,6 +104,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobHostUnits})
 	c.Assert(m.Series(), gc.Equals, version.Current.Series)
 	c.Assert(m.CheckProvisioned(state.BootstrapNonce), jc.IsTrue)
+	c.Assert(m.Addresses(), gc.DeepEquals, mcfg.Addresses)
 	gotConstraints, err := m.Constraints()
 	c.Assert(err, gc.IsNil)
 	c.Assert(gotConstraints, gc.DeepEquals, expectConstraints)
@@ -104,6 +112,24 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	gotHW, err := m.HardwareCharacteristics()
 	c.Assert(err, gc.IsNil)
 	c.Assert(*gotHW, gc.DeepEquals, expectHW)
+
+	// Check that the API host ports are initialised correctly.
+	apiHostPorts, err := st.APIHostPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(apiHostPorts, gc.DeepEquals, [][]instance.HostPort{
+		instance.AddressesWithPort(mcfg.Addresses, 1234),
+	})
+
+	// Check that the state serving info is initialised correctly.
+	stateServingInfo, err := st.StateServingInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(stateServingInfo, gc.Equals, params.StateServingInfo{
+		APIPort:      1234,
+		StatePort:    envCfg.StatePort(),
+		Cert:         testing.ServerCert,
+		PrivateKey:   testing.ServerKey,
+		SharedSecret: "abc123",
+	})
 
 	// Check that the machine agent's config has been written
 	// and that we can use it to connect to the state.
