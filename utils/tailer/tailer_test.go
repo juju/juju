@@ -65,6 +65,7 @@ var tests = []struct {
 	injector              func(*tailer.Tailer, *readSeeker) func([]string)
 	initialCollectedData  []string
 	appendedCollectedData []string
+	fromStart             bool
 	err                   string
 }{{
 	description: "lines are longer than buffer size",
@@ -323,7 +324,7 @@ func (tailerSuite) TestTailer(c *gc.C) {
 		reader, writer := io.Pipe()
 		sigc := make(chan struct{}, 1)
 		rs := startReadSeeker(c, test.data, test.initialLinesWritten, sigc)
-		tailer := tailer.NewTestTailer(rs, writer, test.initialLinesRequested, test.filter, bufferSize, 2*time.Millisecond)
+		tailer := tailer.NewTestTailer(rs, writer, test.initialLinesRequested, test.filter, bufferSize, 2*time.Millisecond, !test.fromStart)
 		linec := startReading(c, tailer, reader, writer)
 
 		// Collect initial data.
