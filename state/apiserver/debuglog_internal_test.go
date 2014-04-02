@@ -269,3 +269,20 @@ line 5
 `
 	s.testStreamInternal(c, false, 0, expected, "")
 }
+
+func assertStreamParams(c *gc.C, obtained, expected *logStream) {
+	c.Check(obtained.includeAgent, jc.DeepEquals, expected.includeAgent)
+	c.Check(obtained.includeModule, jc.DeepEquals, expected.includeModule)
+	c.Check(obtained.excludeAgent, jc.DeepEquals, expected.excludeAgent)
+	c.Check(obtained.excludeModule, jc.DeepEquals, expected.excludeModule)
+	c.Check(obtained.maxLines, gc.Equals, expected.maxLines)
+	c.Check(obtained.fromTheStart, gc.Equals, expected.fromTheStart)
+	c.Check(obtained.filterLevel, gc.Equals, expected.filterLevel)
+	c.Check(obtained.backlog, gc.Equals, expected.backlog)
+}
+
+func (s *debugInternalSuite) TestNewLogStream(c *gc.C) {
+	obtained, err := newLogStream(nil)
+	c.Assert(err, gc.IsNil)
+	assertStreamParams(c, obtained, &logStream{})
+}

@@ -10,10 +10,10 @@ import (
 	"github.com/juju/loggo"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strconv"
+	_ "strconv"
 	"strings"
 
 	"code.google.com/p/go.net/websocket"
@@ -50,22 +50,9 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		h.authError(w)
 		return
 	}
-	// Get the arguments of the request.
-	values := req.URL.Query()
-	lines := 0
-	if linesAttr := values.Get("lines"); linesAttr != "" {
-		var err error
-		lines, err = strconv.Atoi(linesAttr)
-		if err != nil {
-			h.sendError(w, http.StatusBadRequest, "cannot parse number of lines: %v", err)
-			return
-		}
-	}
-	_ = lines
-	filter := values.Get("filter")
-	_, err := regexp.Compile(filter)
+	stream, err := newLogStream(req.URL.Query())
 	if err != nil {
-		h.sendError(w, http.StatusBadRequest, "cannot set filter: %v", err)
+		h.sendError(w, http.StatusBadRequest, "%v", err)
 		return
 	}
 	// Open log file.
@@ -79,7 +66,6 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// Start streaming.
 	wsServer := websocket.Server{
 		Handler: func(wsConn *websocket.Conn) {
-			stream := &logStream{}
 			stream.init(logFile, wsConn)
 			go func() {
 				defer stream.tomb.Done()
@@ -87,11 +73,49 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				stream.tomb.Kill(stream.loop())
 			}()
 			if err := stream.tomb.Wait(); err != nil {
+				// TODO: possibly have a special error code for max lines
+				// so we don't output noise
 				logger.Errorf("debug-log handler error: %v", err)
 			}
 		},
 	}
 	wsServer.ServeHTTP(w, req)
+}
+
+func newLogStream(queryMap url.Values) (*logStream, error) {
+	// Get the arguments of the request.
+
+	// values :=
+	// lines := 0
+	// if linesAttr := values.Get("lines"); linesAttr != "" {
+	// 	var err error
+	// 	lines, err = strconv.Atoi(linesAttr)
+	// 	if err != nil {
+
+	// 	}
+	// }
+	// _ = lines
+	// filter := values.Get("filter")
+	// _, err := regexp.Compile(filter)
+	// if err != nil {
+	// 	h.sendError(w, http.StatusBadRequest, "cannot set filter: %v", err)
+	// 	return
+	// }
+
+	//   includeAgent -> []string - lists agent tagsto include in the response
+	//      may finish with a '*' to match a prefix eg: unit-mysql-*, machine-2
+	//      - if none are set, then all lines are considered included
+	//   includeModule -> []string - lists logging modules to include in the response
+	//      - if none are set, then all lines are considered included
+	//   excludeAgent -> []string - lists agent tags to exclude from the response
+	//      as with include, it may finish with a '*'
+	//   excludeModule -> []string - lists logging modules to exclude from the response
+	//   limit -> int - show this many lines then exit
+	//   lines -> int - up to this many lines in the past
+	//   level -> string one of [TRACE, DEBUG, INFO, WARNING, ERROR]
+	//   replay -> string - one of [true, false], if true, start the file from the start
+
+	return &logStream{}, nil
 }
 
 // sendError sends a JSON-encoded error response.
@@ -190,6 +214,7 @@ type logStream struct {
 	includeModule []string
 	excludeAgent  []string
 	excludeModule []string
+	backlog       uint
 	maxLines      uint
 	lineCount     uint
 	fromTheStart  bool
@@ -199,7 +224,7 @@ func (stream *logStream) init(logFile io.ReadSeeker, writer io.Writer) {
 	if stream.fromTheStart {
 		stream.logTailer = tailer.NewTailer(logFile, writer, stream.filterLine)
 	} else {
-		stream.logTailer = tailer.NewTailerBacktrack(logFile, writer, 0, stream.filterLine)
+		stream.logTailer = tailer.NewTailerBacktrack(logFile, writer, stream.backlog, stream.filterLine)
 	}
 }
 
