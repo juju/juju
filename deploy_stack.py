@@ -38,12 +38,8 @@ def deploy_stack(environment, charm_prefix, already_bootstrapped):
         # The win client tests only verify the client to the state-server.
         return
     env.wait_for_version(env.get_matching_agent_version())
-    if env.config.get('type') == 'joyent':
-        env.juju('deploy', '--to', '0', charm_prefix + 'wordpress')
-        env.juju('deploy', '--to', '0', charm_prefix + 'mysql')
-    else:
-        env.juju('deploy', charm_prefix + 'wordpress')
-        env.juju('deploy', charm_prefix + 'mysql')
+    env.deploy(charm_prefix + 'wordpress')
+    env.deploy(charm_prefix + 'mysql')
     env.juju('add-relation', 'mysql', 'wordpress')
     env.juju('expose', 'wordpress')
     status = env.wait_for_started().status
@@ -63,7 +59,7 @@ def main():
     try:
         deploy_stack(args.env, args.charm_prefix, args.already_bootstrapped)
     except Exception as e:
-        print(e)
+        print('%s (%s)' % (e, type(e).__name__))
         sys.exit(1)
 
 

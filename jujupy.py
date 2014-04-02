@@ -241,6 +241,12 @@ class Environment:
     def destroy_environment(self):
         return self.client.destroy_environment(self)
 
+    def deploy(self, charm):
+        args = (charm,)
+        if self.config.get('type') == 'joyent':
+            args = ('--to', '0') + args
+        return self.juju('deploy', *args)
+
     def juju(self, command, *args):
         return self.client.juju(self, command, args)
 
