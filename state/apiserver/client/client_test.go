@@ -1977,26 +1977,36 @@ func (s *clientSuite) TestResolveCharm(c *gc.C) {
 		// Mock charm store will use this to resolve a charm reference.
 		store.DefaultSeries = test.defaultSeries
 
-		comment := gc.Commentf("defaultSeries:%s charmName:%s", test.defaultSeries, test.charmName)
-
 		client := s.APIState.Client()
 		ref, series, err := charm.ParseReference(fmt.Sprintf("%s:%s", test.schema, test.charmName))
 		if test.parseErr == "" {
-			if !c.Check(err, gc.IsNil, comment) {
+			if !c.Check(err, gc.IsNil) {
 				continue
 			}
 		} else {
-			c.Assert(err, gc.NotNil, comment)
-			c.Check(err, gc.ErrorMatches, test.parseErr, comment)
+			c.Assert(err, gc.NotNil)
+			c.Check(err, gc.ErrorMatches, test.parseErr)
 			continue
 		}
 		c.Check(series, gc.Equals, "")
 		c.Check(ref.String(), gc.Equals, fmt.Sprintf("%s:%s", test.schema, test.charmName))
-		curl, err := client.ResolveCharm(ref)
+
+		var curl *charm.URL
+		urlInfos, err := client.ResolveCharms(ref)
+		c.Log(urlInfos)
+		if err == nil {
+			urlInfo := urlInfos[0]
+			if urlInfo.Error != "" {
+				err = fmt.Errorf("%v", urlInfo.Error)
+			} else {
+				curl = urlInfo.URL
+			}
+		}
+
 		if err == nil {
 			c.Assert(curl, gc.NotNil)
 			// Only cs: schema should make it through here
-			c.Check(curl.String(), gc.Equals, fmt.Sprintf("cs:%s/%s", test.defaultSeries, test.charmName), comment)
+			c.Check(curl.String(), gc.Equals, fmt.Sprintf("cs:%s/%s", test.defaultSeries, test.charmName))
 			c.Check(test.resolveErr, gc.Equals, "")
 		} else {
 			c.Check(curl, gc.IsNil)

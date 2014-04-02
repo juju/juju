@@ -956,15 +956,18 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 }
 
 func (c *Client) ResolveCharms(args params.ResolveCharms) (params.ResolveCharmResults, error) {
-	var result params.ResolveCharmResults
+	var results params.ResolveCharmResults
 	for _, ref := range args.References {
+		result := params.ResolveCharmResult{}
 		curl, err := c.resolveCharm(ref)
 		if err != nil {
-			return params.ResolveCharmResults{}, err
+			result.Error = err.Error()
+		} else {
+			result.URL = curl
 		}
-		result.URLs = append(result.URLs, *curl)
+		results.URLs = append(results.URLs, result)
 	}
-	return result, nil
+	return results, nil
 }
 
 func (c *Client) resolveCharm(ref charm.Reference) (*charm.URL, error) {

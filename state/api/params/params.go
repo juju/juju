@@ -330,12 +330,20 @@ type CharmInfo struct {
 	CharmURL string
 }
 
+// ResolveCharms stores charm references for a ResolveCharms call.
 type ResolveCharms struct {
 	References []charm.Reference
 }
 
+// ResolveCharmResult holds the result of resolving a charm reference to a URL, or any error that occurred.
+type ResolveCharmResult struct {
+	URL   *charm.URL `json:",omitempty"`
+	Error string     `json:",omitempty"`
+}
+
+// ResolveCharmResults holds results of the ResolveCharms call.
 type ResolveCharmResults struct {
-	URLs []charm.URL
+	URLs []ResolveCharmResult
 }
 
 // AllWatcherId holds the id of an AllWatcher.

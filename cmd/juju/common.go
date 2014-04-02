@@ -4,6 +4,8 @@
 package main
 
 import (
+	"fmt"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
@@ -61,7 +63,15 @@ func resolveCharmURL(url string, client *api.Client, conf *config.Config) (*char
 		series = config.PreferredSeries(conf)
 	}
 	if series == "" {
-		return client.ResolveCharm(ref)
+		results, err := client.ResolveCharms(ref)
+		if err != nil {
+			return nil, err
+		}
+		urlInfo := results[0]
+		if urlInfo.Error != "" {
+			return nil, fmt.Errorf("%v", urlInfo.Error)
+		}
+		return urlInfo.URL, nil
 	}
 	return &charm.URL{Reference: ref, Series: series}, nil
 }
