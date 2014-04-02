@@ -120,7 +120,8 @@ func (s *BootstrapSuite) TestAllowRetries(c *gc.C) {
 func (s *BootstrapSuite) runAllowRetriesTest(c *gc.C, test bootstrapRetryTest) {
 	toolsVersions := envtesting.VAll
 	if test.version != "" {
-		testVersion := version.MustParseBinary(test.version)
+		useVersion := strings.Replace(test.version, "%LTS%", config.LatestLtsSeries(), 1)
+		testVersion := version.MustParseBinary(useVersion)
 		s.PatchValue(&version.Current, testVersion)
 		if test.addVersionToSource {
 			toolsVersions = append([]version.Binary{}, toolsVersions...)
@@ -202,8 +203,9 @@ func (test bootstrapTest) run(c *gc.C) {
 	defer fake.Restore()
 
 	if test.version != "" {
+		useVersion := strings.Replace(test.version, "%LTS%", config.LatestLtsSeries(), 1)
 		origVersion := version.Current
-		version.Current = version.MustParseBinary(test.version)
+		version.Current = version.MustParseBinary(useVersion)
 		defer func() { version.Current = origVersion }()
 	}
 
@@ -246,6 +248,7 @@ func (test bootstrapTest) run(c *gc.C) {
 		urls := list.URLs()
 		c.Check(urls, gc.HasLen, len(test.uploads))
 		for _, v := range test.uploads {
+			v := strings.Replace(v, "%LTS%", config.LatestLtsSeries(), 1)
 			c.Logf("seeking: " + v)
 			vers := version.MustParseBinary(v)
 			_, found := urls[vers]
@@ -300,10 +303,9 @@ var bootstrapTests = []bootstrapTest{{
 	args: []string{"--series", "fine"},
 	err:  `--series requires --upload-tools`,
 }, {
-	info:    "bad environment",
-	version: "1.2.3-precise-amd64",
-	args:    []string{"-e", "brokenenv"},
-	err:     `dummy.Bootstrap is broken`,
+	info: "bad environment",
+	args: []string{"-e", "brokenenv"},
+	err:  `dummy.Bootstrap is broken`,
 }, {
 	info:        "constraints",
 	args:        []string{"--constraints", "mem=4G cpu-cores=4"},
@@ -313,9 +315,9 @@ var bootstrapTests = []bootstrapTest{{
 	version: "1.2.3-saucy-amd64",
 	args:    []string{"--upload-tools"},
 	uploads: []string{
-		"1.2.3.1-saucy-amd64",   // from version.Current
-		"1.2.3.1-raring-amd64",  // from env.Config().DefaultSeries()
-		"1.2.3.1-precise-amd64", // from environs/config.DefaultSeries
+		"1.2.3.1-saucy-amd64",  // from version.Current
+		"1.2.3.1-raring-amd64", // from env.Config().DefaultSeries()
+		"1.2.3.1-%LTS%-amd64",  // from environs/config.DefaultSeries
 	},
 }, {
 	info:     "--upload-tools uses arch from constraint if it matches current version",
@@ -323,18 +325,18 @@ var bootstrapTests = []bootstrapTest{{
 	hostArch: "ppc64",
 	args:     []string{"--upload-tools", "--constraints", "arch=ppc64"},
 	uploads: []string{
-		"1.3.3.1-saucy-ppc64",   // from version.Current
-		"1.3.3.1-raring-ppc64",  // from env.Config().DefaultSeries()
-		"1.3.3.1-precise-ppc64", // from environs/config.DefaultSeries
+		"1.3.3.1-saucy-ppc64",  // from version.Current
+		"1.3.3.1-raring-ppc64", // from env.Config().DefaultSeries()
+		"1.3.3.1-%LTS%-ppc64",  // from environs/config.DefaultSeries
 	},
 	constraints: constraints.MustParse("arch=ppc64"),
 }, {
 	info:    "--upload-tools only uploads each file once",
-	version: "1.2.3-precise-amd64",
+	version: "1.2.3-%LTS%-amd64",
 	args:    []string{"--upload-tools"},
 	uploads: []string{
 		"1.2.3.1-raring-amd64",
-		"1.2.3.1-precise-amd64",
+		"1.2.3.1-%LTS%-amd64",
 	},
 }, {
 	info:    "--upload-tools rejects invalid series",
@@ -358,7 +360,7 @@ var bootstrapTests = []bootstrapTest{{
 	args:    []string{"--upload-tools"},
 	uploads: []string{
 		"1.2.3.5-raring-amd64",
-		"1.2.3.5-precise-amd64",
+		"1.2.3.5-%LTS%-amd64",
 	},
 }}
 
