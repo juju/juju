@@ -385,8 +385,7 @@ func (env *azureEnviron) selectInstanceTypeAndImage(constraint *instances.Instan
 // StartInstance is specified in the InstanceBroker interface.
 func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ instance.Instance, _ *instance.HardwareCharacteristics, err error) {
 
-	if len(args.MachineConfig.IncludeNetworks) > 0 ||
-		len(args.MachineConfig.ExcludeNetworks) > 0 {
+	if args.MachineConfig.HasNetworks() {
 		return nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
 	}
 

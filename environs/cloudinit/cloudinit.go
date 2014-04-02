@@ -639,6 +639,11 @@ func (cfg *MachineConfig) NeedMongoPPA() bool {
 	return series == "quantal"
 }
 
+// HasNetworks returns if there are any networks set.
+func (cfg *MachineConfig) HasNetworks() bool {
+	return len(cfg.IncludeNetworks) > 0 || len(cfg.ExcludeNetworks) > 0
+}
+
 func shquote(p string) string {
 	return utils.ShQuote(p)
 }

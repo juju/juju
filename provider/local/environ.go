@@ -303,8 +303,7 @@ func (env *localEnviron) setLocalStorage() error {
 
 // StartInstance is specified in the InstanceBroker interface.
 func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	if len(args.MachineConfig.IncludeNetworks) > 0 ||
-		len(args.MachineConfig.ExcludeNetworks) > 0 {
+	if args.MachineConfig.HasNetworks() {
 		return nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
 	}
 	series := args.Tools.OneSeries()

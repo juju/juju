@@ -185,14 +185,8 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(c *gc.C, m *state.Mach
 				c.Assert(nonceParts[1], jc.Satisfies, utils.IsValidUUIDString)
 				c.Assert(o.Secret, gc.Equals, secret)
 				c.Assert(o.Constraints, gc.DeepEquals, cons)
-				c.Assert(o.IncludeNetworks, gc.HasLen, len(includeNetworks))
-				c.Assert(o.ExcludeNetworks, gc.HasLen, len(excludeNetworks))
-				if len(includeNetworks) > 0 {
-					c.Assert(o.IncludeNetworks, gc.DeepEquals, includeNetworks)
-				}
-				if len(excludeNetworks) > 0 {
-					c.Assert(o.ExcludeNetworks, gc.DeepEquals, excludeNetworks)
-				}
+				c.Assert(o.IncludeNetworks, jc.DeepEquals, includeNetworks)
+				c.Assert(o.ExcludeNetworks, jc.DeepEquals, excludeNetworks)
 
 				// All provisioned machines in this test suite have their hardware characteristics
 				// attributes set to the same values as the constraints due to the dummy environment being used.
