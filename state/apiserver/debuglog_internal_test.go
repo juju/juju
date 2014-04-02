@@ -190,15 +190,16 @@ func (s *debugInternalSuite) TestFilterLineWithLimit(c *gc.C) {
 	c.Check(stream.filterLine(line), jc.IsFalse)
 }
 
-func (s *debugInternalSuite) testStreamInternal(c *gc.C, fromTheStart bool, maxLines uint, expected string) {
+func (s *debugInternalSuite) testStreamInternal(c *gc.C, fromTheStart bool, maxLines uint, expected, errMatch string) {
 
 	dir := c.MkDir()
 	logPath := filepath.Join(dir, "logfile.txt")
 	logFile, err := os.Create(logPath)
 	c.Assert(err, gc.IsNil)
+	defer logFile.Close()
 	logFileReader, err := os.Open(logPath)
 	c.Assert(err, gc.IsNil)
-	defer logFile.Close()
+	defer logFileReader.Close()
 
 	logFile.WriteString(`line 1
 line 2
@@ -233,10 +234,14 @@ line 3
 		}
 	}
 
-	logFile.Close()
+	stream.logTailer.Stop()
 
-	//err = stream.tomb.Wait()
-	//c.Assert(err, gc.IsNil)
+	err = stream.tomb.Wait()
+	if errMatch == "" {
+		c.Assert(err, gc.IsNil)
+	} else {
+		c.Assert(err, gc.ErrorMatches, errMatch)
+	}
 }
 
 func (s *debugInternalSuite) TestLogStreamLoopFromTheStart(c *gc.C) {
@@ -246,7 +251,7 @@ line 3
 line 4
 line 5
 `
-	s.testStreamInternal(c, true, 0, expected)
+	s.testStreamInternal(c, true, 0, expected, "")
 }
 
 func (s *debugInternalSuite) TestLogStreamLoopFromTheStartMaxLines(c *gc.C) {
@@ -254,12 +259,12 @@ func (s *debugInternalSuite) TestLogStreamLoopFromTheStartMaxLines(c *gc.C) {
 line 2
 line 3
 `
-	s.testStreamInternal(c, true, 3, expected)
+	s.testStreamInternal(c, true, 3, expected, "max lines reached")
 }
 
 func (s *debugInternalSuite) TestLogStreamLoopJustTail(c *gc.C) {
 	expected := `line 4
 line 5
 `
-	s.testStreamInternal(c, false, 0, expected)
+	s.testStreamInternal(c, false, 0, expected, "")
 }
