@@ -115,13 +115,8 @@ func (p *provisioner) getStartTask(safeMode bool) (ProvisionerTask, error) {
 		return nil, err
 	}
 	task := NewProvisionerTask(
-		p.agentConfig.Tag(),
-		safeMode,
-		p.st,
-		machineWatcher,
-		retryWatcher,
-		p.broker,
-		auth)
+		p.agentConfig.Tag(), safeMode, p.st,
+		machineWatcher, retryWatcher, p.broker, auth)
 	return task, nil
 }
 
