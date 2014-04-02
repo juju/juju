@@ -51,7 +51,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	dataDir := c.MkDir()
 
 	pwHash := utils.UserPasswordHash(testing.DefaultMongoPassword, utils.CompatSalt)
-	cfg, err := agent.NewStateMachineConfig(agent.StateMachineConfigParams{
+	configParams := agent.StateMachineConfigParams{
 		AgentConfigParams: agent.AgentConfigParams{
 			DataDir:           dataDir,
 			Tag:               "machine-0",
@@ -63,8 +63,13 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 		StateServerCert: []byte(testing.ServerCert),
 		StateServerKey:  []byte(testing.ServerKey),
 		APIPort:         1234,
-	})
+		StatePort:       3456,
+	}
+	cfg, err := agent.NewStateMachineConfig(configParams)
 	c.Assert(err, gc.IsNil)
+
+	_, available := cfg.StateServingInfo()
+	c.Assert(available, gc.Equals, true)
 	expectConstraints := constraints.MustParse("mem=1024M")
 	expectHW := instance.MustParseHardware("mem=2048M")
 	mcfg := agent.BootstrapMachineConfig{
@@ -123,9 +128,9 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	// Check that the state serving info is initialised correctly.
 	stateServingInfo, err := st.StateServingInfo()
 	c.Assert(err, gc.IsNil)
-	c.Assert(stateServingInfo, gc.Equals, params.StateServingInfo{
+	c.Assert(stateServingInfo, jc.DeepEquals, params.StateServingInfo{
 		APIPort:      1234,
-		StatePort:    envCfg.StatePort(),
+		StatePort:    3456,
 		Cert:         testing.ServerCert,
 		PrivateKey:   testing.ServerKey,
 		SharedSecret: "abc123",
@@ -143,18 +148,44 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	defer st1.Close()
 }
 
+func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *gc.C) {
+	dataDir := c.MkDir()
+
+	configParams := agent.AgentConfigParams{
+		DataDir:           dataDir,
+		Tag:               "machine-0",
+		UpgradedToVersion: version.Current.Number,
+		StateAddresses:    []string{testing.MgoServer.Addr()},
+		CACert:            []byte(testing.CACert),
+		Password:          "fake",
+	}
+	cfg, err := agent.NewAgentConfig(configParams)
+	c.Assert(err, gc.IsNil)
+
+	_, available := cfg.StateServingInfo()
+	c.Assert(available, gc.Equals, false)
+
+	_, _, err = agent.InitializeState(cfg, nil, agent.BootstrapMachineConfig{}, state.DialOpts{}, environs.NewStatePolicy())
+	// InitializeState will fail attempting to get the api port information
+	c.Assert(err, gc.ErrorMatches, "state serving information not available")
+}
+
 func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	dataDir := c.MkDir()
 	pwHash := utils.UserPasswordHash(testing.DefaultMongoPassword, utils.CompatSalt)
-	cfg, err := agent.NewAgentConfig(agent.AgentConfigParams{
+	configParams := agent.AgentConfigParams{
 		DataDir:           dataDir,
 		Tag:               "machine-0",
 		UpgradedToVersion: version.Current.Number,
 		StateAddresses:    []string{testing.MgoServer.Addr()},
 		CACert:            []byte(testing.CACert),
 		Password:          pwHash,
-	})
+	}
+	cfg, err := agent.NewAgentConfig(configParams)
 	c.Assert(err, gc.IsNil)
+	cfg.SetStateServingInfo(params.StateServingInfo{
+		StatePort: testing.MgoServer.Port(),
+	})
 	expectConstraints := constraints.MustParse("mem=1024M")
 	expectHW := instance.MustParseHardware("mem=2048M")
 	mcfg := agent.BootstrapMachineConfig{

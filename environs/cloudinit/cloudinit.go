@@ -110,6 +110,12 @@ type MachineConfig struct {
 	// is.  If the machine is not a container, then the type is "".
 	MachineContainerType instance.ContainerType
 
+	// IncludeNetworks holds a list of networks the machine should be on.
+	IncludeNetworks []string
+
+	// ExcludeNetworks holds a list of networks the machine should not be on.
+	ExcludeNetworks []string
+
 	// AuthorizedKeys specifies the keys that are allowed to
 	// connect to the machine (see cloudinit.SSHAddAuthorizedKeys)
 	// If no keys are supplied, there can be no ssh access to the node.
@@ -631,6 +637,11 @@ func (cfg *MachineConfig) NeedMongoPPA() bool {
 	// 12.04 can get a compatible version from the cloud-archive.
 	// 13.04 and later ship a compatible version in the archive.
 	return series == "quantal"
+}
+
+// HasNetworks returns if there are any networks set.
+func (cfg *MachineConfig) HasNetworks() bool {
+	return len(cfg.IncludeNetworks) > 0 || len(cfg.ExcludeNetworks) > 0
 }
 
 func shquote(p string) string {

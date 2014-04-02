@@ -270,6 +270,33 @@ func (s *provisionerSuite) TestConstraints(c *gc.C) {
 	c.Assert(cons, gc.DeepEquals, constraints.Value{})
 }
 
+func (s *provisionerSuite) TestNetworks(c *gc.C) {
+	// Create a fresh machine with some networks.
+	template := state.MachineTemplate{
+		Series:          "quantal",
+		Jobs:            []state.MachineJob{state.JobHostUnits},
+		IncludeNetworks: []string{"net1", "net2"},
+		ExcludeNetworks: []string{"net3", "net4"},
+	}
+	netsMachine, err := s.State.AddOneMachine(template)
+	c.Assert(err, gc.IsNil)
+
+	apiMachine, err := s.provisioner.Machine(netsMachine.Tag())
+	c.Assert(err, gc.IsNil)
+	includeNetworks, excludeNetworks, err := apiMachine.Networks()
+	c.Assert(err, gc.IsNil)
+	c.Assert(includeNetworks, gc.DeepEquals, template.IncludeNetworks)
+	c.Assert(excludeNetworks, gc.DeepEquals, template.ExcludeNetworks)
+
+	// Now try machine 0.
+	apiMachine, err = s.provisioner.Machine(s.machine.Tag())
+	c.Assert(err, gc.IsNil)
+	includeNetworks, excludeNetworks, err = apiMachine.Networks()
+	c.Assert(err, gc.IsNil)
+	c.Assert(includeNetworks, gc.HasLen, 0)
+	c.Assert(excludeNetworks, gc.HasLen, 0)
+}
+
 func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
 	apiMachine, err := s.provisioner.Machine(s.machine.Tag())
 	c.Assert(err, gc.IsNil)

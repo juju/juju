@@ -833,6 +833,32 @@ func (s *MachineSuite) testMachineAgentRsyslogConfigWorker(c *gc.C, job state.Ma
 	})
 }
 
+func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+
+	// Update the API addresses.
+	updatedServers := [][]instance.HostPort{instance.AddressesWithPort(
+		instance.NewAddresses("localhost"), 1234,
+	)}
+	err := s.BackingState.SetAPIHostPorts(updatedServers)
+	c.Assert(err, gc.IsNil)
+
+	// Wait for config to be updated.
+	s.BackingState.StartSync()
+	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
+		addrs, err := a.CurrentConfig().APIAddresses()
+		c.Assert(err, gc.IsNil)
+		if reflect.DeepEqual(addrs, []string{"localhost:1234"}) {
+			return
+		}
+	}
+	c.Fatalf("timeout while waiting for agent config to change")
+}
+
 // MachineWithCharmsSuite provides infrastructure for tests which need to
 // work with charms.
 type MachineWithCharmsSuite struct {
