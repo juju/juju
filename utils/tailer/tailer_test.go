@@ -59,7 +59,7 @@ var tests = []struct {
 	description           string
 	data                  []string
 	initialLinesWritten   int
-	initialLinesRequested int
+	initialLinesRequested uint
 	bufferSize            int
 	filter                tailer.TailerFilterFunc
 	injector              func(*tailer.Tailer, *readSeeker) func([]string)

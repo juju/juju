@@ -35,7 +35,7 @@ type Tailer struct {
 	reader      *bufio.Reader
 	writeCloser io.WriteCloser
 	writer      *bufio.Writer
-	lines       int
+	lines       uint
 	filter      TailerFilterFunc
 	bufferSize  int
 	polltime    time.Duration
@@ -50,7 +50,7 @@ type Tailer struct {
 // lines are filtered. The matching lines are written to the passed
 // Writer. The reading begins the specified number of matching lines
 // from the end.
-func NewTailerBacktrack(readSeeker io.ReadSeeker, writer io.Writer, lines int, filter TailerFilterFunc) *Tailer {
+func NewTailerBacktrack(readSeeker io.ReadSeeker, writer io.Writer, lines uint, filter TailerFilterFunc) *Tailer {
 	return newTailer(readSeeker, writer, lines, filter, bufferSize, polltime, true)
 }
 
@@ -64,7 +64,7 @@ func NewTailer(readSeeker io.ReadSeeker, writer io.Writer, filter TailerFilterFu
 
 // newTailer starts a Tailer like NewTailer but allows the setting of
 // the read buffer size and the time between pollings for testing.
-func newTailer(readSeeker io.ReadSeeker, writer io.Writer, lines int, filter TailerFilterFunc,
+func newTailer(readSeeker io.ReadSeeker, writer io.Writer, lines uint, filter TailerFilterFunc,
 	bufferSize int, polltime time.Duration, lookBack bool) *Tailer {
 	t := &Tailer{
 		readSeeker: readSeeker,
@@ -162,7 +162,7 @@ func (t *Tailer) seekLastLines() error {
 		return nil
 	}
 	seekPos := int64(0)
-	found := 0
+	found := uint(0)
 	buffer := make([]byte, t.bufferSize)
 SeekLoop:
 	for offset > 0 {
