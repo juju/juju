@@ -382,6 +382,12 @@ func (env *azureEnviron) selectInstanceTypeAndImage(constraint *instances.Instan
 	return spec.InstanceType.Id, spec.Image.Id, nil
 }
 
+// PrecheckInstance is defined on the state.Prechecker interface.
+func (environ *azureEnviron) PrecheckInstance(series string, cons constraints.Value) error {
+	common.InstanceTypeUnsupported(logger, environ, cons)
+	return nil
+}
+
 // StartInstance is specified in the InstanceBroker interface.
 func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ instance.Instance, _ *instance.HardwareCharacteristics, err error) {
 

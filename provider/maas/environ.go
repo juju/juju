@@ -326,6 +326,12 @@ func linkBridgeInInterfaces() string {
 	return `sed -i "s/iface eth0 inet dhcp/source \/etc\/network\/eth0.config/" /etc/network/interfaces`
 }
 
+// PrecheckInstance is defined on the state.Prechecker interface.
+func (environ *maasEnviron) PrecheckInstance(series string, cons constraints.Value) error {
+	common.InstanceTypeUnsupported(logger, environ, cons)
+	return nil
+}
+
 // StartInstance is specified in the InstanceBroker interface.
 func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
 

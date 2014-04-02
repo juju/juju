@@ -263,13 +263,26 @@ var parseConstraintsTests = []struct {
 		args:    []string{"tags="},
 	},
 
+	// instance type
+	{
+		summary: "set instance type",
+		args:    []string{"instance-type=foo"},
+	}, {
+		summary: "instance type empty",
+		args:    []string{"instance-type="},
+	},
+
 	// Everything at once.
 	{
 		summary: "kitchen sink together",
-		args:    []string{" root-disk=8G mem=2T  arch=i386  cpu-cores=4096 cpu-power=9001 container=lxc tags=foo,bar"},
+		args: []string{
+			"root-disk=8G mem=2T  arch=i386  cpu-cores=4096 cpu-power=9001 container=lxc " +
+				"tags=foo,bar instance-type=foo"},
 	}, {
 		summary: "kitchen sink separately",
-		args:    []string{"root-disk=8G", "mem=2T", "cpu-cores=4096", "cpu-power=9001", "arch=arm", "container=lxc", "tags=foo,bar"},
+		args: []string{
+			"root-disk=8G", "mem=2T", "cpu-cores=4096", "cpu-power=9001", "arch=arm",
+			"container=lxc", "tags=foo,bar", "instance-type=foo"},
 	},
 }
 
@@ -321,6 +334,8 @@ func (s *ConstraintsSuite) TestIsEmpty(c *gc.C) {
 	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
 	con = constraints.MustParse("container=")
 	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
+	con = constraints.MustParse("instance-type=")
+	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
 }
 
 func uint64p(i uint64) *uint64 {
@@ -363,14 +378,17 @@ var constraintsRoundtripTests = []roundTrip{
 	{"Tags1", constraints.Value{Tags: nil}},
 	{"Tags2", constraints.Value{Tags: &[]string{}}},
 	{"Tags3", constraints.Value{Tags: &[]string{"foo", "bar"}}},
+	{"InstanceType1", constraints.Value{InstanceType: strp("")}},
+	{"InstanceType2", constraints.Value{InstanceType: strp("foo")}},
 	{"All", constraints.Value{
-		Arch:      strp("i386"),
-		Container: ctypep("lxc"),
-		CpuCores:  uint64p(4096),
-		CpuPower:  uint64p(9001),
-		Mem:       uint64p(18000000000),
-		RootDisk:  uint64p(24000000000),
-		Tags:      &[]string{"foo", "bar"},
+		Arch:         strp("i386"),
+		Container:    ctypep("lxc"),
+		CpuCores:     uint64p(4096),
+		CpuPower:     uint64p(9001),
+		Mem:          uint64p(18000000000),
+		RootDisk:     uint64p(24000000000),
+		Tags:         &[]string{"foo", "bar"},
+		InstanceType: strp("foo"),
 	}},
 }
 
@@ -447,6 +465,29 @@ var withFallbacksTests = []struct {
 		desc:      "arch from fallback",
 		fallbacks: "arch=i386",
 		final:     "arch=i386",
+	}, {
+		desc:    "instance type with empty fallback",
+		initial: "instance-type=foo",
+		final:   "instance-type=foo",
+	}, {
+		desc:      "instance type with ignored fallback",
+		initial:   "instance-type=foo",
+		fallbacks: "instance-type=bar",
+		final:     "instance-type=foo",
+	}, {
+		desc:      "instance type from fallback",
+		fallbacks: "instance-type=foo",
+		final:     "instance-type=foo",
+	}, {
+		desc:      "fallbacks ignored if instance type set",
+		initial:   "instance-type=foo",
+		fallbacks: "cpu-power=1000 cpu-cores=4",
+		final:     "instance-type=foo",
+	}, {
+		desc:      "fallback instance ignored if non empty constraint",
+		initial:   "arch=amd64",
+		fallbacks: "instance-type=foo cpu-cores=2",
+		final:     "arch=amd64 cpu-cores=2",
 	}, {
 		desc:    "cpu-cores with empty fallback",
 		initial: "cpu-cores=2",
@@ -561,4 +602,11 @@ func (s *ConstraintsSuite) TestHasContainer(c *gc.C) {
 		cons := constraints.MustParse(t.constraints)
 		c.Check(cons.HasContainer(), gc.Equals, t.hasContainer)
 	}
+}
+
+func (s *ConstraintsSuite) TestHasInstanceType(c *gc.C) {
+	cons := constraints.MustParse("arch=amd64")
+	c.Check(cons.HasInstanceType(), jc.IsFalse)
+	cons = constraints.MustParse("arch=amd64 instance-type=foo")
+	c.Check(cons.HasInstanceType(), jc.IsTrue)
 }

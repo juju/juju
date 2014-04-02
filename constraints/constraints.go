@@ -52,6 +52,10 @@ type Value struct {
 	// An empty list is treated the same as a nil (unspecified) list, except an
 	// empty list will override any default tags, where a nil list will not.
 	Tags *[]string `json:"tags,omitempty" yaml:"tags,omitempty"`
+
+	// InstanceType, if not nil, indicates that the specified cloud instance type
+	// be used. Only valid for clouds which support instance types.
+	InstanceType *string `json:"instance-type,omitempty" yaml:"instance-type,omitempty"`
 }
 
 // IsEmpty returns if the given constraints value has no constraints set
@@ -63,7 +67,13 @@ func IsEmpty(v *Value) bool {
 			v.CpuPower == nil &&
 			v.Mem == nil &&
 			v.RootDisk == nil &&
-			v.Tags == nil
+			v.Tags == nil &&
+			v.InstanceType == nil
+}
+
+// HasInstanceType returns true if the constraints.Value specifies an instance type.
+func (v *Value) HasInstanceType() bool {
+	return v.InstanceType != nil && *v.InstanceType != ""
 }
 
 // String expresses a constraints.Value in the language in which it was specified.
@@ -80,6 +90,9 @@ func (v Value) String() string {
 	}
 	if v.CpuPower != nil {
 		strs = append(strs, "cpu-power="+uintStr(*v.CpuPower))
+	}
+	if v.InstanceType != nil {
+		strs = append(strs, "instance-type="+string(*v.InstanceType))
 	}
 	if v.Mem != nil {
 		s := uintStr(*v.Mem)
@@ -104,7 +117,16 @@ func (v Value) String() string {
 
 // WithFallbacks returns a copy of v with nil values taken from v0.
 func (v Value) WithFallbacks(v0 Value) Value {
+	// Use v.InstanceType if it is specified in v, otherwise only
+	// use the fallback InstanceType if v is empty, since
+	// specifying any other constraint term overrides instance type.
+	if v.InstanceType != nil {
+		return v
+	}
 	v1 := v0
+	if !IsEmpty(&v) {
+		v1.InstanceType = nil
+	}
 	if v.Arch != nil {
 		v1.Arch = v.Arch
 	}
@@ -206,6 +228,8 @@ func (v *Value) setRaw(raw string) error {
 		err = v.setRootDisk(str)
 	case "tags":
 		err = v.setTags(str)
+	case "instance-type":
+		err = v.setInstanceType(str)
 	default:
 		return fmt.Errorf("unknown constraint %q", name)
 	}
@@ -234,6 +258,8 @@ func (v *Value) SetYAML(tag string, value interface{}) bool {
 		case "container":
 			ctype := instance.ContainerType(vstr)
 			v.Container = &ctype
+		case "instance-type":
+			v.InstanceType = &vstr
 		case "cpu-cores":
 			v.CpuCores, err = parseUint64(vstr)
 		case "cpu-power":
@@ -301,6 +327,14 @@ func (v *Value) setCpuPower(str string) (err error) {
 	}
 	v.CpuPower, err = parseUint64(str)
 	return
+}
+
+func (v *Value) setInstanceType(str string) error {
+	if v.InstanceType != nil {
+		return fmt.Errorf("already set")
+	}
+	v.InstanceType = &str
+	return nil
 }
 
 func (v *Value) setMem(str string) (err error) {

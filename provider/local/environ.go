@@ -301,6 +301,12 @@ func (env *localEnviron) setLocalStorage() error {
 	return nil
 }
 
+// PrecheckInstance is defined on the state.Prechecker interface.
+func (environ *localEnviron) PrecheckInstance(series string, cons constraints.Value) error {
+	common.InstanceTypeUnsupported(logger, environ, cons)
+	return nil
+}
+
 // StartInstance is specified in the InstanceBroker interface.
 func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
 

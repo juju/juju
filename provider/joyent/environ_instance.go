@@ -12,12 +12,14 @@ import (
 	"github.com/joyent/gocommon/client"
 	"github.com/joyent/gosdc/cloudapi"
 
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 )
@@ -48,6 +50,12 @@ func newCompute(cfg *environConfig) (*joyentCompute, error) {
 
 func (env *joyentEnviron) machineFullName(machineId string) string {
 	return fmt.Sprintf("juju-%s-%s", env.Name(), names.MachineTag(machineId))
+}
+
+// PrecheckInstance is defined on the state.Prechecker interface.
+func (environ *joyentEnviron) PrecheckInstance(series string, cons constraints.Value) error {
+	common.InstanceTypeUnsupported(logger, environ, cons)
+	return nil
 }
 
 func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
