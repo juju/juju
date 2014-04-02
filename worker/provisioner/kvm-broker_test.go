@@ -17,6 +17,7 @@ import (
 	kvmtesting "launchpad.net/juju-core/container/kvm/testing"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	instancetest "launchpad.net/juju-core/instance/testing"
 	jujutesting "launchpad.net/juju-core/juju/testing"
@@ -230,6 +231,15 @@ func (s *kvmProvisionerSuite) TestDoesNotStartEnvironMachines(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	s.expectNoEvents(c)
+}
+
+func (s *kvmProvisionerSuite) TestDoesNotHaveRetryWatcher(c *gc.C) {
+	p := s.newKvmProvisioner(c)
+	defer stop(c, p)
+
+	w, err := provisioner.GetRetryWatcher(p)
+	c.Assert(w, gc.IsNil)
+	c.Assert(errors.IsNotImplementedError(err), jc.IsTrue)
 }
 
 func (s *kvmProvisionerSuite) addContainer(c *gc.C) *state.Machine {
