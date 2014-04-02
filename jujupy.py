@@ -128,7 +128,7 @@ class JujuClientDevel:
 
     def get_status(self, environment):
         """Get the current status as a dict."""
-        for ignored in until_timeout(30):
+        for ignored in until_timeout(60):
             try:
                 return Status(yaml_loads(
                     self.get_juju_output(environment, 'status')))
