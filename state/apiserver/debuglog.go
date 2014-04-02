@@ -13,7 +13,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	_ "strconv"
+	"strconv"
 	"strings"
 
 	"code.google.com/p/go.net/websocket"
@@ -85,37 +85,53 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 func newLogStream(queryMap url.Values) (*logStream, error) {
 	// Get the arguments of the request.
 
-	// values :=
-	// lines := 0
-	// if linesAttr := values.Get("lines"); linesAttr != "" {
-	// 	var err error
-	// 	lines, err = strconv.Atoi(linesAttr)
-	// 	if err != nil {
+	maxLines := uint(0)
+	if value := queryMap.Get("maxLines"); value != "" {
+		num, err := strconv.ParseUint(value, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("maxLines is not a valid unsigned number: %v", err)
+		}
+		maxLines = uint(num)
+	}
 
-	// 	}
-	// }
-	// _ = lines
-	// filter := values.Get("filter")
-	// _, err := regexp.Compile(filter)
-	// if err != nil {
-	// 	h.sendError(w, http.StatusBadRequest, "cannot set filter: %v", err)
-	// 	return
-	// }
+	fromTheStart := false
+	if value := queryMap.Get("replay"); value != "" {
+		replay, err := strconv.ParseBool(value)
+		if err != nil {
+			return nil, fmt.Errorf("replay is not a valid boolean: %v", err)
+		}
+		fromTheStart = replay
+	}
 
-	//   includeAgent -> []string - lists agent tagsto include in the response
-	//      may finish with a '*' to match a prefix eg: unit-mysql-*, machine-2
-	//      - if none are set, then all lines are considered included
-	//   includeModule -> []string - lists logging modules to include in the response
-	//      - if none are set, then all lines are considered included
-	//   excludeAgent -> []string - lists agent tags to exclude from the response
-	//      as with include, it may finish with a '*'
-	//   excludeModule -> []string - lists logging modules to exclude from the response
-	//   limit -> int - show this many lines then exit
-	//   lines -> int - up to this many lines in the past
-	//   level -> string one of [TRACE, DEBUG, INFO, WARNING, ERROR]
-	//   replay -> string - one of [true, false], if true, start the file from the start
+	backlog := uint(0)
+	if value := queryMap.Get("backlog"); value != "" {
+		num, err := strconv.ParseUint(value, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("backlog is not a valid unsigned number: %v", err)
+		}
+		backlog = uint(num)
+	}
 
-	return &logStream{}, nil
+	level := loggo.UNSPECIFIED
+	if value := queryMap.Get("level"); value != "" {
+		var ok bool
+		level, ok = loggo.ParseLevel(value)
+		if !ok || level < loggo.TRACE || level > loggo.ERROR {
+			return nil, fmt.Errorf("level must be one of %q, %q, %q, %q, %q",
+				loggo.TRACE, loggo.DEBUG, loggo.INFO, loggo.WARNING, loggo.ERROR)
+		}
+	}
+
+	return &logStream{
+		includeAgent:  queryMap["includeAgent"],
+		includeModule: queryMap["includeModule"],
+		excludeAgent:  queryMap["excludeAgent"],
+		excludeModule: queryMap["excludeModule"],
+		maxLines:      maxLines,
+		fromTheStart:  fromTheStart,
+		backlog:       backlog,
+		filterLevel:   level,
+	}, nil
 }
 
 // sendError sends a JSON-encoded error response.

@@ -11,6 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/testing"
+	"net/url"
 	"os"
 	"path/filepath"
 	"time"
@@ -285,4 +286,29 @@ func (s *debugInternalSuite) TestNewLogStream(c *gc.C) {
 	obtained, err := newLogStream(nil)
 	c.Assert(err, gc.IsNil)
 	assertStreamParams(c, obtained, &logStream{})
+
+	values := url.Values{
+		"includeAgent":  []string{"machine-1*", "machine-2"},
+		"includeModule": []string{"juju", "unit"},
+		"excludeAgent":  []string{"machine-1-lxc*"},
+		"excludeModule": []string{"juju.provisioner"},
+		"maxLines":      []string{"300"},
+		"backlog":       []string{"100"},
+		"level":         []string{"INFO"},
+		// OK, just a little nonsense
+		"replay": []string{"true"},
+	}
+	expected := &logStream{
+		includeAgent:  []string{"machine-1*", "machine-2"},
+		includeModule: []string{"juju", "unit"},
+		excludeAgent:  []string{"machine-1-lxc*"},
+		excludeModule: []string{"juju.provisioner"},
+		maxLines:      300,
+		backlog:       100,
+		filterLevel:   loggo.INFO,
+		fromTheStart:  true,
+	}
+	obtained, err = newLogStream(values)
+	c.Assert(err, gc.IsNil)
+	assertStreamParams(c, obtained, expected)
 }
