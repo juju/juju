@@ -384,6 +384,27 @@ func (s *MachineSuite) TestMachineNetworks(c *gc.C) {
 	c.Assert(exclude, gc.HasLen, 0)
 }
 
+func (s *MachineSuite) TestMachineNetworkInterfaces(c *gc.C) {
+	// s.machine is created without network interfaces, so check
+	// they're empty when we read them.
+	c.Assert(s.machine.NetworkInterfaces(), gc.HasLen, 0)
+
+	// Now create a machine to test setting NICs.
+	machine, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	})
+	c.Assert(err, gc.IsNil)
+	ifaces := []state.NetworkInterface{
+		{Name: "eth0", MACAddress: "aa:bb:cc:dd:ee:f0", CIDR: "0.1.2.0/24"},
+		{Name: "eth0.42", MACAddress: "aa:bb:cc:dd:ee:f1", CIDR: "0.1.2.0/30", VLANTag: 42},
+		{Name: "eth1", MACAddress: "aa:bb:cc:dd:ee:f2", CIDR: "0.2.1.0/4"},
+	}
+	err = machine.SetNetworkInterfaces(ifaces)
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.NetworkInterfaces(), jc.DeepEquals, ifaces)
+}
+
 func (s *MachineSuite) TestMachineInstanceId(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)

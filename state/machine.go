@@ -87,6 +87,16 @@ func (job MachineJob) String() string {
 	return string(job.ToParams())
 }
 
+// NetworkInterface represents a configured machine network interface card.
+type NetworkInterface struct {
+	Name       string
+	MACAddress string
+	CIDR       string
+	// VLANTag needs to be between 1 and 4096 for VLANs or 0 for
+	// normal networks.
+	VLANTag int
+}
+
 // machineDoc represents the internal state of a machine in MongoDB.
 // Note the correspondence with MachineInfo in state/api/params.
 type machineDoc struct {
@@ -116,7 +126,8 @@ type machineDoc struct {
 	// This attribute is retained so that data from existing machines can be read.
 	// SCHEMACHANGE
 	// TODO(wallyworld): remove this attribute when schema upgrades are possible.
-	InstanceId instance.Id
+	InstanceId        instance.Id
+	NetworkInterfaces []NetworkInterface
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {
@@ -885,6 +896,31 @@ func (m *Machine) SetMachineAddresses(addresses []instance.Address) (err error) 
 // (includeNetworks) or not (excludeNetworks).
 func (m *Machine) Networks() (includeNetworks, excludeNetworks []string, err error) {
 	return readNetworks(m.st, m.globalKey())
+}
+
+// NetworkInterfaces returns the list of configured network interfaces
+// of the machine. These can be set only after provisioning.
+func (m *Machine) NetworkInterfaces() []NetworkInterface {
+	return m.doc.NetworkInterfaces
+}
+
+// SetNetworkInterfaces sets all configured network interfaces of the
+// machine.
+func (m *Machine) SetNetworkInterfaces(ifaces []NetworkInterface) error {
+	ops := []txn.Op{
+		{
+			C:      m.st.machines.Name,
+			Id:     m.doc.Id,
+			Assert: notDeadDoc,
+			Update: bson.D{{"$set", bson.D{{"networkinterfaces", ifaces}}}},
+		},
+	}
+
+	if err := m.st.runTransaction(ops); err != nil {
+		return fmt.Errorf("cannot set network interfaces of machine %v: %v", m, onAbort(err, errDead))
+	}
+	m.doc.NetworkInterfaces = ifaces
+	return nil
 }
 
 // CheckProvisioned returns true if the machine was provisioned with the given nonce.
