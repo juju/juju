@@ -517,7 +517,13 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Logf("found: " + list.String())
 	urls := list.URLs()
-	c.Assert(urls, gc.HasLen, 2)
+	expectedUrlCount := 2
+
+	// There will be distinct tools for each of these if they are different
+	if config.LatestLtsSeries() != coretesting.FakeDefaultSeries {
+		expectedUrlCount++
+	}
+	c.Assert(urls, gc.HasLen, expectedUrlCount)
 	expectedVers := []version.Binary{
 		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", otherSeries, version.Current.Arch)),
 		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", version.Current.Series, version.Current.Arch)),
@@ -559,7 +565,11 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 	code := cmd.Main(&BootstrapCommand{}, context, nil)
 	c.Assert(code, gc.Equals, 1)
 	errText := context.Stderr.(*bytes.Buffer).String()
-	expectedErrText := "uploading tools for series \\[precise raring\\]\n"
+	expectedErrText := "uploading tools for series \\[precise "
+	if config.LatestLtsSeries() != coretesting.FakeDefaultSeries {
+		expectedErrText += config.LatestLtsSeries() + " "
+	}
+	expectedErrText += "raring\\]\n"
 	expectedErrText += "Bootstrap failed, destroying environment\n"
 	expectedErrText += "error: cannot upload bootstrap tools: an error\n"
 	c.Assert(errText, gc.Matches, expectedErrText)
