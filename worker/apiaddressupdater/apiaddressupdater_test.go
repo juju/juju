@@ -72,26 +72,26 @@ func (s *APIAddressUpdaterSuite) TestAddressChange(c *gc.C) {
 	worker := apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), setter)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
-
+	s.BackingState.StartSync()
 	updatedServers := [][]instance.HostPort{instance.AddressesWithPort(
 		instance.NewAddresses("localhost", "127.0.0.1"),
 		1234,
 	)}
-	err := s.State.SetAPIHostPorts(updatedServers)
-	c.Assert(err, gc.IsNil)
-
 	// SetAPIHostPorts should be called with the initial value (empty),
 	// and then the updated value.
-	n := 0
 	select {
 	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for SetAPIHostPorts to be called")
+		c.Fatalf("timed out waiting for SetAPIHostPorts to be called first")
 	case servers := <-setter.servers:
-		if n == 0 {
-			c.Assert(servers, gc.HasLen, 0)
-		} else {
-			c.Assert(servers, gc.DeepEquals, updatedServers)
-		}
-		n++
+		c.Assert(servers, gc.HasLen, 0)
+	}
+	err := s.State.SetAPIHostPorts(updatedServers)
+	c.Assert(err, gc.IsNil)
+	s.BackingState.StartSync()
+	select {
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for SetAPIHostPorts to be called second")
+	case servers := <-setter.servers:
+		c.Assert(servers, gc.DeepEquals, updatedServers)
 	}
 }
