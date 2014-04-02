@@ -5,6 +5,7 @@ package provisioner
 
 import (
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/state/api/watcher"
 )
 
 func SetObserver(p Provisioner, observer chan<- *config.Config) {
@@ -12,4 +13,8 @@ func SetObserver(p Provisioner, observer chan<- *config.Config) {
 	ep.Lock()
 	ep.observer = observer
 	ep.Unlock()
+}
+
+func GetRetryWatcher(p Provisioner) (watcher.NotifyWatcher, error) {
+	return p.getRetryWatcher()
 }
