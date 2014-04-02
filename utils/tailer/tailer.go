@@ -40,6 +40,9 @@ type Tailer struct {
 	bufferSize  int
 	polltime    time.Duration
 	lookBack    bool
+	// StartedListening is purely a hook point for tests. It is a function
+	// that is called after the initial seek prior to reading.
+	StartedTailing func()
 }
 
 // NewTailerBacktrack starts a Tailer which reads strings from the passed
@@ -113,6 +116,9 @@ func (t *Tailer) loop() error {
 			return err
 		}
 	}
+	if t.StartedTailing != nil {
+		t.StartedTailing()
+	}
 	// Start polling.
 	// TODO(mue) 2013-12-06
 	// Handling of read-seeker/files being truncated during
@@ -150,6 +156,10 @@ func (t *Tailer) seekLastLines() error {
 	offset, err := t.readSeeker.Seek(0, os.SEEK_END)
 	if err != nil {
 		return err
+	}
+	if t.lines == 0 {
+		// We are done, just seeking to the end is sufficient.
+		return nil
 	}
 	seekPos := int64(0)
 	found := 0

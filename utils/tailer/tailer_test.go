@@ -183,10 +183,15 @@ var tests = []struct {
 	},
 	appendedCollectedData: alphabetData[5:],
 }, {
+	description:           "ignore current lines",
+	data:                  alphabetData,
+	initialLinesWritten:   5,
+	bufferSize:            5,
+	appendedCollectedData: alphabetData[5:],
+}, {
 	description:           "start from the start",
 	data:                  alphabetData,
 	initialLinesWritten:   5,
-	initialLinesRequested: 0,
 	bufferSize:            5,
 	appendedCollectedData: alphabetData,
 	fromStart:             true,
