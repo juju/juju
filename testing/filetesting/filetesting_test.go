@@ -198,6 +198,15 @@ func (s *EntrySuite) TestRemovedCreateFailure(c *gc.C) {
 	ft.Removed{"some-file"}.Create(c, s.basePath)
 }
 
+func (s *EntrySuite) TestRemovedCheck(c *gc.C) {
+	ft.Removed{"some-file"}.Check(c, s.basePath)
+}
+
+func (s *EntrySuite) TestRemovedCheckParentNotDir(c *gc.C) {
+	ft.File{"some-dir", "lol-not-a-file", 0644}.Create(c, s.basePath)
+	ft.Removed{"some-dir/some-file"}.Check(c, s.basePath)
+}
+
 func (s *EntrySuite) TestRemovedCheckFailureFile(c *gc.C) {
 	ft.File{"some-file", "", 0644}.Create(c, s.basePath)
 	c.ExpectFailure("should not accept file")

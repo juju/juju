@@ -10,6 +10,8 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/utils"
 )
 
 // Entry represents a filesystem entity that can be created; and whose
@@ -185,6 +187,6 @@ func (r Removed) Create(c *gc.C, basePath string) Entry {
 
 func (r Removed) Check(c *gc.C, basePath string) Entry {
 	_, err := os.Lstat(join(basePath, r.Path))
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
+	c.Assert(err, jc.Satisfies, utils.IsNotExist)
 	return r
 }
