@@ -1400,10 +1400,8 @@ func (s *clientSuite) TestClientPublicAddressMachine(c *gc.C) {
 	// address is returned.
 	m1, err := s.State.Machine("1")
 	c.Assert(err, gc.IsNil)
-	cloudLocalAddress := instance.NewAddress("cloudlocal")
-	cloudLocalAddress.NetworkScope = instance.NetworkCloudLocal
-	publicAddress := instance.NewAddress("public")
-	publicAddress.NetworkScope = instance.NetworkPublic
+	cloudLocalAddress := instance.NewAddress("cloudlocal", instance.NetworkCloudLocal)
+	publicAddress := instance.NewAddress("public", instance.NetworkPublic)
 	err = m1.SetAddresses(cloudLocalAddress)
 	c.Assert(err, gc.IsNil)
 	addr, err := s.APIState.Client().PublicAddress("1")
@@ -1421,8 +1419,7 @@ func (s *clientSuite) TestClientPublicAddressUnitWithMachine(c *gc.C) {
 	// Public address of unit is taken from its machine
 	// (if its machine has addresses).
 	m1, err := s.State.Machine("1")
-	publicAddress := instance.NewAddress("public")
-	publicAddress.NetworkScope = instance.NetworkPublic
+	publicAddress := instance.NewAddress("public", instance.NetworkPublic)
 	err = m1.SetAddresses(publicAddress)
 	c.Assert(err, gc.IsNil)
 	addr, err := s.APIState.Client().PublicAddress("wordpress/0")
@@ -1460,10 +1457,8 @@ func (s *clientSuite) TestClientPrivateAddressMachine(c *gc.C) {
 	// address if no cloud-local one is available.
 	m1, err := s.State.Machine("1")
 	c.Assert(err, gc.IsNil)
-	cloudLocalAddress := instance.NewAddress("cloudlocal")
-	cloudLocalAddress.NetworkScope = instance.NetworkCloudLocal
-	publicAddress := instance.NewAddress("public")
-	publicAddress.NetworkScope = instance.NetworkPublic
+	cloudLocalAddress := instance.NewAddress("cloudlocal", instance.NetworkCloudLocal)
+	publicAddress := instance.NewAddress("public", instance.NetworkPublic)
 	err = m1.SetAddresses(publicAddress)
 	c.Assert(err, gc.IsNil)
 	addr, err := s.APIState.Client().PrivateAddress("1")
@@ -1481,8 +1476,7 @@ func (s *clientSuite) TestClientPrivateAddressUnitWithMachine(c *gc.C) {
 	// Private address of unit is taken from its machine
 	// (if its machine has addresses).
 	m1, err := s.State.Machine("1")
-	publicAddress := instance.NewAddress("public")
-	publicAddress.NetworkScope = instance.NetworkCloudLocal
+	publicAddress := instance.NewAddress("public", instance.NetworkCloudLocal)
 	err = m1.SetAddresses(publicAddress)
 	c.Assert(err, gc.IsNil)
 	addr, err := s.APIState.Client().PrivateAddress("wordpress/0")
@@ -1739,7 +1733,7 @@ func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 
 func (s *clientSuite) TestClientAddMachinesWithInstanceIdSomeErrors(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 3)
-	addrs := []instance.Address{instance.NewAddress("1.2.3.4")}
+	addrs := []instance.Address{instance.NewAddress("1.2.3.4", instance.NetworkUnknown)}
 	hc := instance.MustParseHardware("mem=4G")
 	for i := 0; i < 3; i++ {
 		apiParams[i] = params.AddMachineParams{

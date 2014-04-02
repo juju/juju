@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
+	"launchpad.net/juju-core/worker/apiaddressupdater"
 	workerlogger "launchpad.net/juju-core/worker/logger"
 	"launchpad.net/juju-core/worker/rsyslog"
 	"launchpad.net/juju-core/worker/uniter"
@@ -95,6 +96,9 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 	})
 	runner.StartWorker("uniter", func() (worker.Worker, error) {
 		return uniter.NewUniter(st.Uniter(), entity.Tag(), dataDir), nil
+	})
+	runner.StartWorker("apiaddressupdater", func() (worker.Worker, error) {
+		return apiaddressupdater.NewAPIAddressUpdater(st.Uniter(), a), nil
 	})
 	runner.StartWorker("rsyslog", func() (worker.Worker, error) {
 		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslog.RsyslogModeForwarding)
