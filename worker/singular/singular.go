@@ -59,6 +59,10 @@ func New(underlying worker.Runner, conn Conn) (worker.Runner, error) {
 	}, nil
 }
 
+// pinger periodically pings the connection to make sure that the
+// master-status has not changed. When the ping fails, it sets r.pingErr
+// to the error and closes r.pingerDied to signal the other workers to
+// quit.
 func (r *runner) pinger() {
 	underlyingDead := make(chan struct{})
 	go func() {
