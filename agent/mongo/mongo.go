@@ -188,6 +188,7 @@ const mongoScriptVersion = 2
 func MongoUpstartService(name, mongodExec, dataDir string, port int) (*upstart.Conf, error) {
 
 	sslKeyFile := path.Join(dataDir, "server.pem")
+	// TODO(Nate): uncomment when we commit HA stuff
 	//keyFile := path.Join(dataDir, SharedSecretFile)
 	svc := upstart.NewService(name)
 
