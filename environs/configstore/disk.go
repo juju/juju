@@ -9,7 +9,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/loggo/loggo"
+	"github.com/errgo/errgo"
+	"github.com/juju/loggo"
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/errors"
@@ -29,6 +30,14 @@ type diskStore struct {
 	dir string
 }
 
+type EnvironInfoData struct {
+	User         string
+	Password     string
+	StateServers []string               `json:"state-servers" yaml:"state-servers"`
+	CACert       string                 `json:"ca-cert" yaml:"ca-cert"`
+	Config       map[string]interface{} `json:"bootstrap-config,omitempty" yaml:"bootstrap-config,omitempty"`
+}
+
 type environInfo struct {
 	path string
 	// initialized signifies whether the info has been written.
@@ -36,12 +45,9 @@ type environInfo struct {
 
 	// created signifies whether the info was returned from
 	// a CreateInfo call.
-	created      bool
-	User         string
-	Password     string
-	StateServers []string               `yaml:"state-servers"`
-	CACert       string                 `yaml:"ca-cert"`
-	Config       map[string]interface{} `yaml:"bootstrap-config,omitempty"`
+	created bool
+
+	EnvInfo EnvironInfoData
 }
 
 // NewDisk returns a ConfigStorage implementation that stores
@@ -105,7 +111,7 @@ func (d *diskStore) ReadInfo(envName string) (EnvironInfo, error) {
 	if len(data) == 0 {
 		return &info, nil
 	}
-	if err := goyaml.Unmarshal(data, &info); err != nil {
+	if err := goyaml.Unmarshal(data, &info.EnvInfo); err != nil {
 		return nil, fmt.Errorf("error unmarshalling %q: %v", path, err)
 	}
 	info.initialized = true
@@ -119,22 +125,22 @@ func (info *environInfo) Initialized() bool {
 
 // BootstrapConfig implements EnvironInfo.BootstrapConfig.
 func (info *environInfo) BootstrapConfig() map[string]interface{} {
-	return info.Config
+	return info.EnvInfo.Config
 }
 
 // APICredentials implements EnvironInfo.APICredentials.
 func (info *environInfo) APICredentials() APICredentials {
 	return APICredentials{
-		User:     info.User,
-		Password: info.Password,
+		User:     info.EnvInfo.User,
+		Password: info.EnvInfo.Password,
 	}
 }
 
 // APIEndpoint implements EnvironInfo.APIEndpoint.
 func (info *environInfo) APIEndpoint() APIEndpoint {
 	return APIEndpoint{
-		Addresses: info.StateServers,
-		CACert:    info.CACert,
+		Addresses: info.EnvInfo.StateServers,
+		CACert:    info.EnvInfo.CACert,
 	}
 }
 
@@ -143,33 +149,38 @@ func (info *environInfo) SetBootstrapConfig(attrs map[string]interface{}) {
 	if !info.created {
 		panic("bootstrap config set on environment info that has not just been created")
 	}
-	info.Config = attrs
+	info.EnvInfo.Config = attrs
 }
 
 // SetAPIEndpoint implements EnvironInfo.SetAPIEndpoint.
 func (info *environInfo) SetAPIEndpoint(endpoint APIEndpoint) {
-	info.StateServers = endpoint.Addresses
-	info.CACert = endpoint.CACert
+	info.EnvInfo.StateServers = endpoint.Addresses
+	info.EnvInfo.CACert = endpoint.CACert
 }
 
 // SetAPICredentials implements EnvironInfo.SetAPICredentials.
 func (info *environInfo) SetAPICredentials(creds APICredentials) {
-	info.User = creds.User
-	info.Password = creds.Password
+	info.EnvInfo.User = creds.User
+	info.EnvInfo.Password = creds.Password
+}
+
+// Location returns the location of the environInfo in human readable format.
+func (info *environInfo) Location() string {
+	return fmt.Sprintf("file %q", info.path)
 }
 
 // Write implements EnvironInfo.Write.
 func (info *environInfo) Write() error {
-	data, err := goyaml.Marshal(info)
+	data, err := goyaml.Marshal(info.EnvInfo)
 	if err != nil {
-		return fmt.Errorf("cannot marshal environment info: %v", err)
+		return errgo.Annotate(err, "cannot marshal environment info")
 	}
 	// Create a temporary file and rename it, so that the data
 	// changes atomically.
 	parent, _ := filepath.Split(info.path)
 	tmpFile, err := ioutil.TempFile(parent, "")
 	if err != nil {
-		return fmt.Errorf("cannot create temporary file: %v", err)
+		return errgo.Annotate(err, "cannot create temporary file")
 	}
 	_, err = tmpFile.Write(data)
 	// N.B. We need to close the file before renaming it
@@ -177,11 +188,11 @@ func (info *environInfo) Write() error {
 	// error.
 	tmpFile.Close()
 	if err != nil {
-		return fmt.Errorf("cannot write temporary file: %v", err)
+		return errgo.Annotate(err, "cannot write temporary file")
 	}
 	if err := utils.ReplaceFile(tmpFile.Name(), info.path); err != nil {
 		os.Remove(tmpFile.Name())
-		return fmt.Errorf("cannot rename new environment info file: %v", err)
+		return errgo.Annotate(err, "cannot rename new environment info file")
 	}
 	info.initialized = true
 	return nil

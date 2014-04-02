@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
@@ -25,7 +26,7 @@ type SSHCommand struct {
 
 // SSHCommon provides common methods for SSHCommand, SCPCommand and DebugHooksCommand.
 type SSHCommon struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	Target    string
 	Args      []string
 	apiClient *api.Client
@@ -39,15 +40,23 @@ Launch an ssh shell on the machine identified by the <target> parameter.
 "machines" section or a unit name as listed in the "services" section.
 Any extra parameters are passsed as extra parameters to the ssh command.
 
-Examples
+Examples:
 
 Connect to machine 0:
 
     juju ssh 0
 
+Connect to machine 1 and run 'uname -a':
+
+    juju ssh 1 uname -a
+
 Connect to the first mysql unit:
 
     juju ssh mysql/0
+
+Connect to the first mysql unit and run 'ls -la /var/log/juju':
+
+    juju ssh mysql/0 ls -la /var/log/juju
 `
 
 func (c *SSHCommand) Info() *cmd.Info {
@@ -60,6 +69,10 @@ func (c *SSHCommand) Info() *cmd.Info {
 }
 
 func (c *SSHCommand) Init(args []string) error {
+	err := c.EnvCommandBase.Init()
+	if err != nil {
+		return err
+	}
 	if len(args) == 0 {
 		return errors.New("no target name specified")
 	}
@@ -82,15 +95,9 @@ func (c *SSHCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	args := c.Args
-	if len(args) > 0 && args[0] == "--" {
-		// utils/ssh adds "--"; we will continue to accept
-		// it from the CLI for backwards compatibility.
-		args = args[1:]
-	}
 	var options ssh.Options
 	options.EnablePTY()
-	cmd := ssh.Command("ubuntu@"+host, args, &options)
+	cmd := ssh.Command("ubuntu@"+host, c.Args, &options)
 	cmd.Stdin = ctx.Stdin
 	cmd.Stdout = ctx.Stdout
 	cmd.Stderr = ctx.Stderr

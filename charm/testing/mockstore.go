@@ -6,6 +6,7 @@ package testing
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -13,7 +14,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
@@ -25,20 +26,24 @@ var logger = loggo.GetLogger("juju.charm.testing.mockstore")
 
 // MockStore provides a mock charm store implementation useful when testing.
 type MockStore struct {
-	mux            *http.ServeMux
-	listener       net.Listener
-	bundleBytes    []byte
-	bundleSha256   string
-	Downloads      []*charm.URL
-	Authorizations []string
-	Metadata       []string
+	mux                     *http.ServeMux
+	listener                net.Listener
+	bundleBytes             []byte
+	bundleSha256            string
+	Downloads               []*charm.URL
+	DownloadsNoStats        []*charm.URL
+	Authorizations          []string
+	Metadata                []string
+	InfoRequestCount        int
+	InfoRequestCountNoStats int
+	DefaultSeries           string
 
 	charms map[string]int
 }
 
 // NewMockStore creates a mock charm store containing the specified charms.
 func NewMockStore(c *gc.C, charms map[string]int) *MockStore {
-	s := &MockStore{charms: charms}
+	s := &MockStore{charms: charms, DefaultSeries: "precise"}
 	f, err := os.Open(testing.Charms.BundlePath(c.MkDir(), "dummy"))
 	c.Assert(err, gc.IsNil)
 	defer f.Close()
@@ -85,11 +90,27 @@ func (s *MockStore) serveInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	r.ParseForm()
+	if r.Form.Get("stats") == "0" {
+		s.InfoRequestCountNoStats += 1
+	} else {
+		s.InfoRequestCount += 1
+	}
+
 	response := map[string]*charm.InfoResponse{}
 	for _, url := range r.Form["charms"] {
 		cr := &charm.InfoResponse{}
 		response[url] = cr
-		charmURL := charm.MustParseURL(url)
+		charmURL, err := charm.ParseURL(url)
+		if err == charm.ErrUnresolvedUrl {
+			ref, _, err := charm.ParseReference(url)
+			if err != nil {
+				panic(err)
+			}
+			if s.DefaultSeries == "" {
+				panic(fmt.Errorf("mock store lacks a default series cannot resolve charm URL: %q", url))
+			}
+			charmURL = &charm.URL{Reference: ref, Series: s.DefaultSeries}
+		}
 		switch charmURL.Name {
 		case "borken":
 			cr.Errors = append(cr.Errors, "badness")
@@ -106,6 +127,7 @@ func (s *MockStore) serveInfo(w http.ResponseWriter, r *http.Request) {
 					cr.Revision = charmURL.Revision
 				}
 				cr.Sha256 = s.bundleSha256
+				cr.CanonicalURL = charmURL.String()
 			} else {
 				cr.Errors = append(cr.Errors, "entry not found")
 			}
@@ -170,7 +192,13 @@ func (s *MockStore) serveEvent(w http.ResponseWriter, r *http.Request) {
 
 func (s *MockStore) serveCharm(w http.ResponseWriter, r *http.Request) {
 	charmURL := charm.MustParseURL("cs:" + r.URL.Path[len("/charm/"):])
-	s.Downloads = append(s.Downloads, charmURL)
+
+	r.ParseForm()
+	if r.Form.Get("stats") == "0" {
+		s.DownloadsNoStats = append(s.DownloadsNoStats, charmURL)
+	} else {
+		s.Downloads = append(s.Downloads, charmURL)
+	}
 
 	if auth := r.Header.Get("Authorization"); auth != "" {
 		s.Authorizations = append(s.Authorizations, auth)

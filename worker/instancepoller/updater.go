@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -35,7 +35,7 @@ type machine interface {
 	Id() string
 	InstanceId() (instance.Id, error)
 	Addresses() []instance.Address
-	SetAddresses([]instance.Address) error
+	SetAddresses(...instance.Address) error
 	InstanceStatus() (string, error)
 	SetInstanceStatus(status string) error
 	String() string
@@ -247,7 +247,7 @@ func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo,
 	}
 	if !addressesEqual(m.Addresses(), instInfo.addresses) {
 		logger.Infof("machine %q has new addresses: %v", m.Id(), instInfo.addresses)
-		if err = m.SetAddresses(instInfo.addresses); err != nil {
+		if err = m.SetAddresses(instInfo.addresses...); err != nil {
 			logger.Errorf("cannot set addresses on %q: %v", m, err)
 		}
 	}

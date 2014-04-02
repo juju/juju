@@ -6,7 +6,7 @@ package bootstrap
 import (
 	"fmt"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -43,6 +43,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, cons con
 	if err := environs.VerifyStorage(environ.Storage()); err != nil {
 		return err
 	}
+	logger.Debugf("environment %q supports service/machine networks: %v", environ.Name(), environ.SupportNetworks())
 	logger.Infof("bootstrapping environment %q", environ.Name())
 	return environ.Bootstrap(ctx, cons)
 }
@@ -71,8 +72,9 @@ func SetBootstrapTools(environ environs.Environ, possibleTools coretools.List) (
 	return toolsList, nil
 }
 
-// EnsureNotBootstrapped returns null if the environment is not bootstrapped,
-// and an error if it is or if the function was not able to tell.
+// EnsureNotBootstrapped returns nil if the environment is not
+// bootstrapped, and an error if it is or if the function was not able
+// to tell.
 func EnsureNotBootstrapped(env environs.Environ) error {
 	_, err := LoadState(env.Storage())
 	// If there is no error loading the bootstrap state, then we are

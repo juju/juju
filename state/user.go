@@ -1,6 +1,3 @@
-// Copyright 2013 Canonical Ltd.
-// Licensed under the AGPLv3, see LICENCE file for details.
-
 package state
 
 import (
@@ -8,6 +5,7 @@ import (
 	"regexp"
 
 	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
 	"launchpad.net/juju-core/errors"
@@ -62,7 +60,7 @@ func (st *State) AddUser(name, password string) (*User, error) {
 // getUser fetches information about the user with the
 // given name into the provided userDoc.
 func (st *State) getUser(name string, udoc *userDoc) error {
-	err := st.users.Find(D{{"_id", name}}).One(udoc)
+	err := st.users.Find(bson.D{{"_id", name}}).One(udoc)
 	if err == mgo.ErrNotFound {
 		err = errors.NotFoundf("user %q", name)
 	}
@@ -86,6 +84,7 @@ type User struct {
 
 type userDoc struct {
 	Name         string `bson:"_id_"`
+	Deactivated  bool   // Removing users means they still exist, but are marked deactivated
 	PasswordHash string
 	PasswordSalt string
 }
@@ -118,7 +117,7 @@ func (u *User) SetPasswordHash(pwHash string, pwSalt string) error {
 	ops := []txn.Op{{
 		C:      u.st.users.Name,
 		Id:     u.Name(),
-		Update: D{{"$set", D{{"passwordhash", pwHash}, {"passwordsalt", pwSalt}}}},
+		Update: bson.D{{"$set", bson.D{{"passwordhash", pwHash}, {"passwordsalt", pwSalt}}}},
 	}}
 	if err := u.st.runTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set password of user %q: %v", u.Name(), err)
@@ -131,6 +130,10 @@ func (u *User) SetPasswordHash(pwHash string, pwSalt string) error {
 // PasswordValid returns whether the given password
 // is valid for the user.
 func (u *User) PasswordValid(password string) bool {
+	// If the user is deactivated, no point in carrying on
+	if u.IsDeactivated() {
+		return false
+	}
 	// Since these are potentially set by a User, we intentionally use the
 	// slower pbkdf2 style hashing. Also, we don't expect to have thousands
 	// of Users trying to log in at the same time (which we *do* expect of
@@ -146,7 +149,10 @@ func (u *User) PasswordValid(password string) bool {
 		// fails because we will try again at the next request
 		logger.Debugf("User %s logged in with CompatSalt resetting password for new salt",
 			u.Name())
-		u.SetPassword(password)
+		err := u.SetPassword(password)
+		if err != nil {
+			logger.Errorf("Cannot set resalted password for user %q", u.Name())
+		}
 		return true
 	}
 	return false
@@ -161,4 +167,28 @@ func (u *User) Refresh() error {
 	}
 	u.doc = udoc
 	return nil
+}
+
+func (u *User) Deactivate() error {
+	if u.doc.Name == AdminUser {
+		return errors.Unauthorizedf("Can't deactivate admin user")
+	}
+	ops := []txn.Op{{
+		C:      u.st.users.Name,
+		Id:     u.Name(),
+		Update: bson.D{{"$set", bson.D{{"deactivated", true}}}},
+		Assert: txn.DocExists,
+	}}
+	if err := u.st.runTransaction(ops); err != nil {
+		if err == txn.ErrAborted {
+			err = fmt.Errorf("user no longer exists")
+		}
+		return fmt.Errorf("cannot deactivate user %q: %v", u.Name(), err)
+	}
+	u.doc.Deactivated = true
+	return nil
+}
+
+func (u *User) IsDeactivated() bool {
+	return u.doc.Deactivated
 }

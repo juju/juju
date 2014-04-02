@@ -121,10 +121,6 @@ func getEndpoint(location string) string {
 // this setting.
 var signedImageDataOnly = true
 
-// fetchImageMetadata is a pointer to the imagemetadata.Fetch function.  It's
-// only needed as an injection point where tests can substitute fakes.
-var fetchImageMetadata = imagemetadata.Fetch
-
 // findMatchingImages queries simplestreams for OS images that match the given
 // requirements.
 //
@@ -142,7 +138,7 @@ func findMatchingImages(e *azureEnviron, location, series string, arches []strin
 		return nil, err
 	}
 	indexPath := simplestreams.DefaultIndexPath
-	images, err := fetchImageMetadata(sources, indexPath, constraint, signedImageDataOnly)
+	images, _, err := imagemetadata.Fetch(sources, indexPath, constraint, signedImageDataOnly)
 	if len(images) == 0 || errors.IsNotFoundError(err) {
 		return nil, fmt.Errorf("no OS images found for location %q, series %q, architectures %q (and endpoint: %q)", location, series, arches, endpoint)
 	} else if err != nil {
@@ -161,12 +157,11 @@ func newInstanceType(roleSize gwacl.RoleSize) instances.InstanceType {
 	return instances.InstanceType{
 		Id:       roleSize.Name,
 		Name:     roleSize.Name,
-		Arches:   architectures,
 		CpuCores: roleSize.CpuCores,
 		Mem:      roleSize.Mem,
 		RootDisk: roleSize.OSDiskSpaceVirt,
 		Cost:     roleSize.Cost,
-		VType:    &vtype,
+		VirtType: &vtype,
 		CpuPower: &cpuPower,
 		// tags are not currently supported by azure
 	}
@@ -174,23 +169,31 @@ func newInstanceType(roleSize gwacl.RoleSize) instances.InstanceType {
 
 // listInstanceTypes describes the available instance types based on a
 // description in gwacl's terms.
-func listInstanceTypes(roleSizes []gwacl.RoleSize) []instances.InstanceType {
+func listInstanceTypes(env *azureEnviron, roleSizes []gwacl.RoleSize) ([]instances.InstanceType, error) {
+	arches, err := env.SupportedArchitectures()
+	if err != nil {
+		return nil, err
+	}
 	types := make([]instances.InstanceType, len(roleSizes))
 	for index, roleSize := range roleSizes {
 		types[index] = newInstanceType(roleSize)
+		types[index].Arches = arches
 	}
-	return types
+	return types, nil
 }
 
 // findInstanceSpec returns the InstanceSpec that best satisfies the supplied
 // InstanceConstraint.
-func findInstanceSpec(env *azureEnviron, constraint instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+func findInstanceSpec(env *azureEnviron, constraint *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
 	constraint.Constraints = defaultToBaselineSpec(constraint.Constraints)
 	imageData, err := findMatchingImages(env, constraint.Region, constraint.Series, constraint.Arches)
 	if err != nil {
 		return nil, err
 	}
 	images := instances.ImageMetadataToImages(imageData)
-	instanceTypes := listInstanceTypes(gwacl.RoleSizes)
-	return instances.FindInstanceSpec(images, &constraint, instanceTypes)
+	instanceTypes, err := listInstanceTypes(env, gwacl.RoleSizes)
+	if err != nil {
+		return nil, err
+	}
+	return instances.FindInstanceSpec(images, constraint, instanceTypes)
 }

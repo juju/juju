@@ -5,16 +5,18 @@ package main
 
 import (
 	"fmt"
+	"runtime"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
 	workerlogger "launchpad.net/juju-core/worker/logger"
+	"launchpad.net/juju-core/worker/rsyslog"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/juju-core/worker/upgrader"
 )
@@ -24,8 +26,8 @@ var agentLogger = loggo.GetLogger("juju.jujud")
 // UnitAgent is a cmd.Command responsible for running a unit agent.
 type UnitAgent struct {
 	cmd.CommandBase
-	tomb     tomb.Tomb
-	Conf     AgentConf
+	tomb tomb.Tomb
+	AgentConf
 	UnitName string
 	runner   worker.Runner
 }
@@ -39,7 +41,7 @@ func (a *UnitAgent) Info() *cmd.Info {
 }
 
 func (a *UnitAgent) SetFlags(f *gnuflag.FlagSet) {
-	a.Conf.addFlags(f)
+	a.AgentConf.AddFlags(f)
 	f.StringVar(&a.UnitName, "unit-name", "", "name of the unit to run")
 }
 
@@ -51,7 +53,7 @@ func (a *UnitAgent) Init(args []string) error {
 	if !names.IsUnit(a.UnitName) {
 		return fmt.Errorf(`--unit-name option expects "<service>/<n>" argument`)
 	}
-	if err := a.Conf.checkArgs(args); err != nil {
+	if err := a.AgentConf.CheckArgs(args); err != nil {
 		return err
 	}
 	a.runner = worker.NewRunner(isFatal, moreImportant)
@@ -67,10 +69,10 @@ func (a *UnitAgent) Stop() error {
 // Run runs a unit agent.
 func (a *UnitAgent) Run(ctx *cmd.Context) error {
 	defer a.tomb.Done()
-	if err := a.Conf.read(a.Tag()); err != nil {
+	if err := a.ReadConfig(a.Tag()); err != nil {
 		return err
 	}
-	agentLogger.Infof("unit agent %v start", a.Tag())
+	agentLogger.Infof("unit agent %v start (%s [%s])", a.Tag(), version.Current, runtime.Compiler)
 	a.runner.StartWorker("api", a.APIWorkers)
 	err := agentDone(a.runner.Wait())
 	a.tomb.Kill(err)
@@ -78,12 +80,12 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 }
 
 func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
-	agentConfig := a.Conf.config
+	agentConfig := a.CurrentConfig()
 	st, entity, err := openAPIState(agentConfig, a)
 	if err != nil {
 		return nil, err
 	}
-	dataDir := a.Conf.dataDir
+	dataDir := agentConfig.DataDir()
 	runner := worker.NewRunner(connectionIsFatal(st), moreImportant)
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
 		return upgrader.NewUpgrader(st.Upgrader(), agentConfig), nil
@@ -94,11 +96,10 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 	runner.StartWorker("uniter", func() (worker.Worker, error) {
 		return uniter.NewUniter(st.Uniter(), entity.Tag(), dataDir), nil
 	})
+	runner.StartWorker("rsyslog", func() (worker.Worker, error) {
+		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslog.RsyslogModeForwarding)
+	})
 	return newCloseWorker(runner, st), nil
-}
-
-func (a *UnitAgent) Entity(st *state.State) (AgentState, error) {
-	return st.Unit(a.UnitName)
 }
 
 func (a *UnitAgent) Tag() string {

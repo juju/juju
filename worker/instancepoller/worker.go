@@ -6,7 +6,6 @@ package instancepoller
 import (
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker"
 )
@@ -14,8 +13,9 @@ import (
 type updaterWorker struct {
 	st   *state.State
 	tomb tomb.Tomb
+	*aggregator
 
-	observer *environObserver
+	observer *worker.EnvironObserver
 }
 
 // NewWorker returns a worker that keeps track of
@@ -42,10 +42,11 @@ func (u *updaterWorker) Wait() error {
 }
 
 func (u *updaterWorker) loop() (err error) {
-	u.observer, err = newEnvironObserver(u.st, u.tomb.Dying())
+	u.observer, err = worker.NewEnvironObserver(u.st)
 	if err != nil {
 		return err
 	}
+	u.aggregator = newAggregator(u.observer.Environ())
 	logger.Infof("instance poller received inital environment configuration")
 	defer func() {
 		obsErr := worker.Stop(u.observer)
@@ -70,20 +71,4 @@ func (u *updaterWorker) dying() <-chan struct{} {
 
 func (u *updaterWorker) killAll(err error) {
 	u.tomb.Kill(err)
-}
-
-func (u *updaterWorker) instanceInfo(id instance.Id) (instanceInfo, error) {
-	env := u.observer.Environ()
-	insts, err := env.Instances([]instance.Id{id})
-	if err != nil {
-		return instanceInfo{}, err
-	}
-	addr, err := insts[0].Addresses()
-	if err != nil {
-		return instanceInfo{}, err
-	}
-	return instanceInfo{
-		addr,
-		insts[0].Status(),
-	}, nil
 }

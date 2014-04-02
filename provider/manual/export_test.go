@@ -5,4 +5,6 @@ package manual
 
 var (
 	ProviderInstance = manualProvider{}
+	NewSSHStorage    = &newSSHStorage
+	InitUbuntuUser   = &initUbuntuUser
 )

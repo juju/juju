@@ -13,7 +13,6 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/osenv"
@@ -54,7 +53,7 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 
 	info.Password = password
 	opts := state.DefaultDialOpts()
-	st, err := state.Open(info, opts)
+	st, err := state.Open(info, opts, environs.NewStatePolicy())
 	if errors.IsUnauthorizedError(err) {
 		log.Noticef("juju: authorization error while connecting to state server; retrying")
 		// We can't connect with the administrator password,;
@@ -66,7 +65,7 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 		// connecting to mongo before the state has been
 		// initialized and the initial password set.
 		for a := redialStrategy.Start(); a.Next(); {
-			st, err = state.Open(info, opts)
+			st, err = state.Open(info, opts, environs.NewStatePolicy())
 			if !errors.IsUnauthorizedError(err) {
 				break
 			}
@@ -144,20 +143,17 @@ func (c *Conn) updateSecrets() error {
 	if err != nil {
 		return err
 	}
+	secretAttrs := make(map[string]interface{})
 	attrs := cfg.AllAttrs()
 	for k, v := range secrets {
 		if _, exists := attrs[k]; exists {
 			// Environment already has secrets. Won't send again.
 			return nil
 		} else {
-			attrs[k] = v
+			secretAttrs[k] = v
 		}
 	}
-	newcfg, err := config.New(config.NoDefaults, attrs)
-	if err != nil {
-		return err
-	}
-	return c.State.SetEnvironConfig(newcfg, cfg)
+	return c.State.UpdateEnvironConfig(secretAttrs, nil, nil)
 }
 
 // PutCharm uploads the given charm to provider storage, and adds a

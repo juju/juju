@@ -7,19 +7,49 @@ import (
 	"fmt"
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 func TestAll(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
+}
+
+type servingInfoSuite struct {
+	testing.JujuConnSuite
+}
+
+var _ = gc.Suite(&servingInfoSuite{})
+
+func (s *servingInfoSuite) TestStateServingInfo(c *gc.C) {
+	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+
+	expected := params.StateServingInfo{
+		PrivateKey:   "some key",
+		Cert:         "Some cert",
+		SharedSecret: "really, really secret",
+		APIPort:      33,
+		StatePort:    44,
+	}
+	s.State.SetStateServingInfo(expected)
+	info, err := st.Agent().StateServingInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(info, jc.DeepEquals, expected)
+}
+
+func (s *servingInfoSuite) TestStateServingInfoPermission(c *gc.C) {
+	st, _ := s.OpenAPIAsNewMachine(c)
+
+	_, err := st.Agent().StateServingInfo()
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 type machineSuite struct {
@@ -83,7 +113,7 @@ func (s *machineSuite) TestEntitySetPassword(c *gc.C) {
 }
 
 func tryOpenState(info *state.Info) error {
-	st, err := state.Open(info, state.DialOpts{})
+	st, err := state.Open(info, state.DialOpts{}, environs.NewStatePolicy())
 	if err == nil {
 		st.Close()
 	}

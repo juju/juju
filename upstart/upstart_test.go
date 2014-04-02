@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
@@ -29,9 +29,8 @@ type UpstartSuite struct {
 var _ = gc.Suite(&UpstartSuite{})
 
 func (s *UpstartSuite) SetUpTest(c *gc.C) {
-	origPath := os.Getenv("PATH")
 	s.testPath = c.MkDir()
-	s.PatchEnvironment("PATH", s.testPath+":"+origPath)
+	s.PatchEnvPathPrepend(s.testPath)
 	s.PatchValue(&upstart.InstallStartRetryAttempts, utils.AttemptStrategy{})
 	s.service = &upstart.Service{Name: "some-service", InitDir: c.MkDir()}
 	_, err := os.Create(filepath.Join(s.service.InitDir, "some-service.conf"))

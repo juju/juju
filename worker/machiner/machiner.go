@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/instance"
@@ -80,7 +80,12 @@ func setMachineAddresses(m *machiner.Machine) error {
 		if ip.IsLoopback() {
 			continue
 		}
-		hostAddresses = append(hostAddresses, instance.NewAddress(ip.String()))
+		address := instance.Address{
+			Value:        ip.String(),
+			Type:         instance.DeriveAddressType(ip.String()),
+			NetworkScope: instance.NetworkUnknown,
+		}
+		hostAddresses = append(hostAddresses, address)
 	}
 	if len(hostAddresses) == 0 {
 		return nil

@@ -19,8 +19,6 @@ type factorySuite struct {
 var _ = gc.Suite(&factorySuite{})
 
 func (*factorySuite) TestNewContainerManager(c *gc.C) {
-	conf := container.ManagerConfig{Name: "test"}
-
 	for _, test := range []struct {
 		containerType instance.ContainerType
 		valid         bool
@@ -37,6 +35,7 @@ func (*factorySuite) TestNewContainerManager(c *gc.C) {
 		containerType: instance.ContainerType("other"),
 		valid:         false,
 	}} {
+		conf := container.ManagerConfig{container.ConfigName: "test"}
 		manager, err := factory.NewContainerManager(test.containerType, conf)
 		if test.valid {
 			c.Assert(err, gc.IsNil)

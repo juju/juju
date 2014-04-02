@@ -1,0 +1,220 @@
+package mongo
+
+import (
+	"crypto/rand"
+	"encoding/base64"
+	"fmt"
+	"os"
+	"os/exec"
+	"path"
+	"path/filepath"
+
+	"github.com/juju/loggo"
+
+	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/upstart"
+	"launchpad.net/juju-core/utils"
+)
+
+const (
+	maxFiles = 65000
+	maxProcs = 20000
+
+	// SharedSecretFile is the name of the Mongo shared secret file
+	// located within the Juju data directory.
+	SharedSecretFile = "shared-secret"
+)
+
+var (
+	logger = loggo.GetLogger("juju.agent.mongo")
+
+	oldMongoServiceName = "juju-db"
+
+	// JujuMongodPath holds the default path to the juju-specific mongod.
+	JujuMongodPath = "/usr/lib/juju/bin/mongod"
+	// MongodbServerPath holds the default path to the generic mongod.
+	MongodbServerPath = "/usr/bin/mongod"
+)
+
+// SelectPeerAddress returns the address to use as the
+// mongo replica set peer address by selecting it from the given addresses.
+func SelectPeerAddress(addrs []instance.Address) string {
+	return instance.SelectInternalAddress(addrs, false)
+}
+
+// GenerateSharedSecret generates a pseudo-random shared secret (keyfile)
+// for use with Mongo replica sets.
+func GenerateSharedSecret() (string, error) {
+	// "A key’s length must be between 6 and 1024 characters and may
+	// only contain characters in the base64 set."
+	//   -- http://docs.mongodb.org/manual/tutorial/generate-key-file/
+	buf := make([]byte, base64.StdEncoding.DecodedLen(1024))
+	if _, err := rand.Read(buf); err != nil {
+		return "", fmt.Errorf("cannot read random secret: %v", err)
+	}
+	return base64.StdEncoding.EncodeToString(buf), nil
+}
+
+// MongoPackageForSeries returns the name of the mongo package for the series
+// of the machine that it is going to be running on.
+func MongoPackageForSeries(series string) string {
+	switch series {
+	case "precise", "quantal", "raring", "saucy":
+		return "mongodb-server"
+	default:
+		// trusty and onwards
+		return "juju-mongodb"
+	}
+}
+
+// MongodPathForSeries returns the path to the mongod executable for the
+// series of the machine that it is going to be running on.
+func MongodPathForSeries(series string) string {
+	if series == "trusty" {
+		return JujuMongodPath
+	}
+	return MongodbServerPath
+}
+
+// MongoPath returns the executable path to be used to run mongod on this
+// machine. If the juju-bundled version of mongo exists, it will return that
+// path, otherwise it will return the command to run mongod from the path.
+func MongodPath() (string, error) {
+	if _, err := os.Stat(JujuMongodPath); err == nil {
+		return JujuMongodPath, nil
+	}
+
+	path, err := exec.LookPath("mongod")
+	if err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
+// EnsureMongoServer ensures that the correct mongo upstart script is installed
+// and running.
+//
+// This method will remove old versions of the mongo upstart script as necessary
+// before installing the new version.
+func EnsureMongoServer(dir string, port int) error {
+	// NOTE: ensure that the right package is installed?
+	name := makeServiceName(mongoScriptVersion)
+	// TODO: get the series from somewhere, non trusty values return
+	// the existing default path.
+	mongodPath := MongodPathForSeries("some-series")
+	service, err := MongoUpstartService(name, mongodPath, dir, port)
+	if err != nil {
+		return err
+	}
+	if service.Installed() {
+		return nil
+	}
+
+	if err := removeOldMongoServices(mongoScriptVersion); err != nil {
+		return err
+	}
+
+	if err := makeJournalDirs(dir); err != nil {
+		return err
+	}
+
+	if err := service.Install(); err != nil {
+		return fmt.Errorf("failed to install mongo service %q: %v", service.Name, err)
+	}
+	return service.Start()
+}
+
+func makeJournalDirs(dir string) error {
+	journalDir := path.Join(dir, "journal")
+
+	if err := os.MkdirAll(journalDir, 0700); err != nil {
+		logger.Errorf("failed to make mongo journal dir %s: %v", journalDir, err)
+		return err
+	}
+
+	// manually create the prealloc files, since otherwise they get created as 100M files.
+	zeroes := make([]byte, 64*1024) // should be enough for anyone
+	for x := 0; x < 3; x++ {
+		name := fmt.Sprintf("prealloc.%d", x)
+		filename := filepath.Join(journalDir, name)
+		f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0700)
+		if err != nil {
+			return fmt.Errorf("failed to open mongo prealloc file %q: %v", filename, err)
+		}
+		defer f.Close()
+		for total := 0; total < 1024*1024; {
+			n, err := f.Write(zeroes)
+			if err != nil {
+				return fmt.Errorf("failed to write to mongo prealloc file %q: %v", filename, err)
+			}
+			total += n
+		}
+	}
+	return nil
+}
+
+// removeOldMongoServices looks for any old juju mongo upstart scripts and
+// removes them.
+func removeOldMongoServices(curVersion int) error {
+	old := upstart.NewService(oldMongoServiceName)
+	if err := old.StopAndRemove(); err != nil {
+		logger.Errorf("Failed to remove old mongo upstart service %q: %v", old.Name, err)
+		return err
+	}
+
+	// the new formatting for the script name started at version 2
+	for x := 2; x < curVersion; x++ {
+		old := upstart.NewService(makeServiceName(x))
+		if err := old.StopAndRemove(); err != nil {
+			logger.Errorf("Failed to remove old mongo upstart service %q: %v", old.Name, err)
+			return err
+		}
+	}
+	return nil
+}
+
+func makeServiceName(version int) string {
+	return fmt.Sprintf("juju-db-v%d", version)
+}
+
+// mongoScriptVersion keeps track of changes to the mongo upstart script.
+// Update this version when you update the script that gets installed from
+// MongoUpstartService.
+const mongoScriptVersion = 2
+
+// MongoUpstartService returns the upstart config for the mongo state service.
+//
+// This method assumes there exist "server.pem" and "shared_secret" keyfiles in dataDir.
+func MongoUpstartService(name, mongodExec, dataDir string, port int) (*upstart.Conf, error) {
+
+	sslKeyFile := path.Join(dataDir, "server.pem")
+	keyFile := path.Join(dataDir, SharedSecretFile)
+	svc := upstart.NewService(name)
+
+	dbDir := path.Join(dataDir, "db")
+
+	conf := &upstart.Conf{
+		Service: *svc,
+		Desc:    "juju state database",
+		Limit: map[string]string{
+			"nofile": fmt.Sprintf("%d %d", maxFiles, maxFiles),
+			"nproc":  fmt.Sprintf("%d %d", maxProcs, maxProcs),
+		},
+		Cmd: mongodExec +
+			" --auth" +
+			" --dbpath=" + dbDir +
+			" --sslOnNormalPorts" +
+			" --sslPEMKeyFile " + utils.ShQuote(sslKeyFile) +
+			" --sslPEMKeyPassword ignored" +
+			" --bind_ip 0.0.0.0" +
+			" --port " + fmt.Sprint(port) +
+			" --noprealloc" +
+			" --syslog" +
+			" --smallfiles" +
+			" --keyFile " + utils.ShQuote(keyFile),
+		// TODO(Nate): uncomment when we commit HA stuff
+		// +
+		//	" --replSet juju",
+	}
+	return conf, nil
+}

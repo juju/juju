@@ -4,12 +4,11 @@
 package main
 
 import (
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/configstore"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/sync"
 	"launchpad.net/juju-core/version"
@@ -20,7 +19,7 @@ var syncTools = sync.SyncTools
 // SyncToolsCommand copies all the tools from the us-east-1 bucket to the local
 // bucket.
 type SyncToolsCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	allVersions  bool
 	versionStr   string
 	majorVersion int
@@ -30,6 +29,7 @@ type SyncToolsCommand struct {
 	public       bool
 	source       string
 	localDir     string
+	destination  string
 }
 
 var _ cmd.Command = (*SyncToolsCommand)(nil)
@@ -60,9 +60,19 @@ func (c *SyncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.public, "public", false, "tools are for a public cloud, so generate mirrors information")
 	f.StringVar(&c.source, "source", "", "local source directory")
 	f.StringVar(&c.localDir, "local-dir", "", "local destination directory")
+	f.StringVar(&c.destination, "destination", "", "local destination directory")
 }
 
 func (c *SyncToolsCommand) Init(args []string) error {
+	err := c.EnvCommandBase.Init()
+	if err != nil {
+		return err
+	}
+	if c.destination != "" {
+		// Override localDir with destination as localDir now replaces destination
+		c.localDir = c.destination
+		logger.Warningf("Use of the --destination flag is deprecated in 1.18. Please use --local-dir instead.")
+	}
 	if c.versionStr != "" {
 		var err error
 		if c.majorVersion, c.minorVersion, err = version.ParseMajorMinor(c.versionStr); err != nil {
@@ -72,22 +82,18 @@ func (c *SyncToolsCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
+func (c *SyncToolsCommand) Run(ctx *cmd.Context) (resultErr error) {
 	// Register writer for output on screen.
 	loggo.RegisterWriter("synctools", cmd.NewCommandLogWriter("juju.environs.sync", ctx.Stdout, ctx.Stderr), loggo.INFO)
 	defer loggo.RemoveWriter("synctools")
-	store, err := configstore.Default()
+	environ, cleanup, err := environFromName(ctx, c.EnvName, &resultErr, "Sync-tools")
 	if err != nil {
 		return err
 	}
-	environ, err := environs.PrepareFromName(c.EnvName, store)
-	if err != nil {
-		return err
-	}
-
+	defer cleanup()
 	target := environ.Storage()
 	if c.localDir != "" {
-		target, err = filestorage.NewFileStorageWriter(c.localDir, filestorage.UseDefaultTmpDir)
+		target, err = filestorage.NewFileStorageWriter(c.localDir)
 		if err != nil {
 			return err
 		}

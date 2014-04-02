@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils/exec"
 )
 
@@ -321,7 +321,7 @@ func (s *RunSuite) TestSingleResponse(c *gc.C) {
 		message:    "smart (default)",
 		stdout:     "stdout\n",
 		stderr:     "stderr\n",
-		errorMatch: "rc: 42",
+		errorMatch: "subprocess encountered error code 42",
 	}, {
 		message: "yaml output",
 		format:  "yaml",

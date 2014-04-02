@@ -147,8 +147,8 @@ func (s *deployerSuite) TestWatchUnits(c *gc.C) {
 }
 
 func (s *deployerSuite) TestSetPasswords(c *gc.C) {
-	args := params.PasswordChanges{
-		Changes: []params.PasswordChange{
+	args := params.EntityPasswords{
+		Changes: []params.EntityPassword{
 			{Tag: "unit-mysql-0", Password: "xxx-12345678901234567890"},
 			{Tag: "unit-mysql-1", Password: "yyy-12345678901234567890"},
 			{Tag: "unit-logging-0", Password: "zzz-12345678901234567890"},
@@ -182,8 +182,8 @@ func (s *deployerSuite) TestSetPasswords(c *gc.C) {
 	err = s.subordinate0.Refresh()
 	c.Assert(errors.IsNotFoundError(err), gc.Equals, true)
 
-	results, err = s.deployer.SetPasswords(params.PasswordChanges{
-		Changes: []params.PasswordChange{
+	results, err = s.deployer.SetPasswords(params.EntityPasswords{
+		Changes: []params.EntityPassword{
 			{Tag: "unit-logging-0", Password: "blah-12345678901234567890"},
 		},
 	})
@@ -300,9 +300,7 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 }
 
 func (s *deployerSuite) TestStateAddresses(c *gc.C) {
-	err := s.machine0.SetAddresses([]instance.Address{
-		instance.NewAddress("0.1.2.3"),
-	})
+	err := s.machine0.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
 	c.Assert(err, gc.IsNil)
 
 	addresses, err := s.State.Addresses()
@@ -316,12 +314,10 @@ func (s *deployerSuite) TestStateAddresses(c *gc.C) {
 }
 
 func (s *deployerSuite) TestAPIAddresses(c *gc.C) {
-	err := s.machine0.SetAddresses([]instance.Address{
-		instance.NewAddress("0.1.2.3"),
-	})
+	err := s.machine0.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
 	c.Assert(err, gc.IsNil)
 
-	apiAddresses, err := s.State.APIAddresses()
+	apiAddresses, err := s.State.APIAddressesFromMachines()
 	c.Assert(err, gc.IsNil)
 
 	result, err := s.deployer.APIAddresses()

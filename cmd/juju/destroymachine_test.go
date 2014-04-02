@@ -4,13 +4,13 @@
 package main
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/errors"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type DestroyMachineSuite struct {
@@ -105,6 +105,7 @@ func (s *DestroyMachineSuite) TestForce(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = u.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+
 	err = m1.Refresh()
 	c.Assert(err, gc.IsNil)
 	c.Assert(m1.Life(), gc.Equals, state.Dead)

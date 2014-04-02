@@ -40,6 +40,12 @@ func (st *State) getEntity(tag string) (*params.AgentGetEntitiesResult, error) {
 	return &results.Entities[0], nil
 }
 
+func (st *State) StateServingInfo() (params.StateServingInfo, error) {
+	var results params.StateServingInfo
+	err := st.caller.Call("Agent", "", "StateServingInfo", nil, &results)
+	return results, err
+}
+
 type Entity struct {
 	st  *State
 	tag string
@@ -85,8 +91,8 @@ func (m *Entity) ContainerType() instance.ContainerType {
 // SetPassword sets the password associated with the agent's entity.
 func (m *Entity) SetPassword(password string) error {
 	var results params.ErrorResults
-	args := params.PasswordChanges{
-		Changes: []params.PasswordChange{{
+	args := params.EntityPasswords{
+		Changes: []params.EntityPassword{{
 			Tag:      m.tag,
 			Password: password,
 		}},

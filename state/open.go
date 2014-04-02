@@ -12,16 +12,25 @@ import (
 	"time"
 
 	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils"
 )
+
+// mongoSocketTimeout should be long enough that
+// even a slow mongo server will respond in that
+// length of time. Since mongo servers ping themselves
+// every 10 seconds, that seems like a reasonable
+// default.
+const mongoSocketTimeout = 10 * time.Second
 
 // Info encapsulates information about cluster of
 // servers holding juju state and can be used to make a
@@ -62,8 +71,13 @@ func DefaultDialOpts() DialOpts {
 // Open connects to the server described by the given
 // info, waits for it to be initialized, and returns a new State
 // representing the environment connected to.
-// It returns unauthorizedError if access is unauthorized.
-func Open(info *Info, opts DialOpts) (*State, error) {
+//
+// A policy may be provided, which will be used to validate and
+// modify behaviour of certain operations in state. A nil policy
+// may be provided.
+//
+// Open returns unauthorizedError if access is unauthorized.
+func Open(info *Info, opts DialOpts, policy Policy) (*State, error) {
 	logger.Infof("opening state; mongo addresses: %q; entity %q", info.Addrs, info.Tag)
 	if len(info.Addrs) == 0 {
 		return nil, stderrors.New("no mongo addresses")
@@ -103,19 +117,20 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 		return nil, err
 	}
 	logger.Infof("connection established")
-	st, err := newState(session, info)
+	st, err := newState(session, info, policy)
 	if err != nil {
 		session.Close()
 		return nil, err
 	}
+	session.SetSocketTimeout(mongoSocketTimeout)
 	return st, nil
 }
 
 // Initialize sets up an initial empty state and returns it.
 // This needs to be performed only once for a given environment.
 // It returns unauthorizedError if access is unauthorized.
-func Initialize(info *Info, cfg *config.Config, opts DialOpts) (rst *State, err error) {
-	st, err := Open(info, opts)
+func Initialize(info *Info, cfg *config.Config, opts DialOpts, policy Policy) (rst *State, err error) {
+	st, err := Open(info, opts, policy)
 	if err != nil {
 		return nil, err
 	}
@@ -146,8 +161,12 @@ func Initialize(info *Info, cfg *config.Config, opts DialOpts) (rst *State, err 
 		createEnvironmentOp(st, cfg.Name(), uuid.String()),
 		{
 			C:      st.stateServers.Name,
-			Id:     "",
+			Id:     environGlobalKey,
 			Insert: &stateServersDoc{},
+		}, {
+			C:      st.stateServers.Name,
+			Id:     apiHostPortsKey,
+			Insert: &apiHostPortsDoc{},
 		},
 	}
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
@@ -209,7 +228,7 @@ func isUnauthorized(err error) bool {
 	return false
 }
 
-func newState(session *mgo.Session, info *Info) (*State, error) {
+func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 	db := session.DB("juju")
 	pdb := session.DB("presence")
 	if info.Tag != "" {
@@ -220,13 +239,14 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to presence database as %q", info.Tag))
 		}
 	} else if info.Password != "" {
-		admin := session.DB("admin")
-		if err := admin.Login("admin", info.Password); err != nil {
+		admin := session.DB(AdminUser)
+		if err := admin.Login(AdminUser, info.Password); err != nil {
 			return nil, maybeUnauthorized(err, "cannot log in to admin database")
 		}
 	}
 	st := &State{
 		info:           info,
+		policy:         policy,
 		db:             db,
 		environments:   db.C("environments"),
 		charms:         db.C("charms"),
@@ -236,6 +256,7 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 		relations:      db.C("relations"),
 		relationScopes: db.C("relationscopes"),
 		services:       db.C("services"),
+		networks:       db.C("linkednetworks"),
 		minUnits:       db.C("minunits"),
 		settings:       db.C("settings"),
 		settingsrefs:   db.C("settingsrefs"),
@@ -274,6 +295,12 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 	if err := st.createStateServersDoc(); err != nil {
 		return nil, fmt.Errorf("cannot create state servers document: %v", err)
 	}
+	if err := st.createAPIAddressesDoc(); err != nil {
+		return nil, fmt.Errorf("cannot create API addresses document: %v", err)
+	}
+	if err := st.createStateServingInfoDoc(); err != nil {
+		return nil, fmt.Errorf("cannot create state serving info document: %v", err)
+	}
 	return st, nil
 }
 
@@ -298,7 +325,7 @@ func (st *State) createStateServersDoc() error {
 	// we're concerned about, there is only ever one state connection
 	// (from the single bootstrap machine).
 	var machineDocs []machineDoc
-	err := st.machines.Find(D{{"jobs", JobManageEnviron}}).All(&machineDocs)
+	err := st.machines.Find(bson.D{{"jobs", JobManageEnviron}}).All(&machineDocs)
 	if err != nil {
 		return err
 	}
@@ -316,7 +343,7 @@ func (st *State) createStateServersDoc() error {
 	ops := []txn.Op{{
 		C:  st.stateServers.Name,
 		Id: environGlobalKey,
-		Update: D{{"$set", D{
+		Update: bson.D{{"$set", bson.D{
 			{"machineids", doc.MachineIds},
 			{"votingmachineids", doc.VotingMachineIds},
 		}}},
@@ -327,6 +354,34 @@ func (st *State) createStateServersDoc() error {
 	}}
 
 	return st.runTransaction(ops)
+}
+
+// createAPIAddressesDoc creates the API addresses document
+// if it does not already exist. This is necessary to cope with
+// legacy environments that have not created the document
+// at initialization time.
+func (st *State) createAPIAddressesDoc() error {
+	var doc apiHostPortsDoc
+	ops := []txn.Op{{
+		C:      st.stateServers.Name,
+		Id:     apiHostPortsKey,
+		Assert: txn.DocMissing,
+		Insert: &doc,
+	}}
+	return onAbort(st.runTransaction(ops), nil)
+}
+
+// createStateServingInfoDoc creates the state serving info document
+// if it does not already exist
+func (st *State) createStateServingInfoDoc() error {
+	var info params.StateServingInfo
+	ops := []txn.Op{{
+		C:      st.stateServers.Name,
+		Id:     stateServingInfoKey,
+		Assert: txn.DocMissing,
+		Insert: &info,
+	}}
+	return onAbort(st.runTransaction(ops), nil)
 }
 
 // CACert returns the certificate used to validate the state connection.

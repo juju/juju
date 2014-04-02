@@ -12,16 +12,19 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/utils"
 )
 
 // ValidateImageMetadataCommand
 type ValidateImageMetadataCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
+	out          cmd.Output
 	providerType string
 	metadataDir  string
 	series       string
@@ -79,6 +82,7 @@ func (c *ValidateImageMetadataCommand) Info() *cmd.Info {
 
 func (c *ValidateImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
+	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	f.StringVar(&c.providerType, "p", "", "the provider type eg ec2, openstack")
 	f.StringVar(&c.metadataDir, "d", "", "directory where metadata files are found")
 	f.StringVar(&c.series, "s", "", "the series for which to validate (overrides env config series)")
@@ -88,6 +92,10 @@ func (c *ValidateImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *ValidateImageMetadataCommand) Init(args []string) error {
+	err := c.EnvCommandBase.Init()
+	if err != nil {
+		return err
+	}
 	if c.providerType != "" {
 		if c.series == "" {
 			return fmt.Errorf("series required if provider type is specified")
@@ -99,7 +107,7 @@ func (c *ValidateImageMetadataCommand) Init(args []string) error {
 			return fmt.Errorf("metadata directory required if provider type is specified")
 		}
 	}
-	return c.EnvCommandBase.Init(args)
+	return nil
 }
 
 var _ environs.ConfigGetter = (*overrideEnvStream)(nil)
@@ -134,7 +142,7 @@ func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		environ, err := environs.PrepareFromName(c.EnvName, store)
+		environ, err := environs.PrepareFromName(c.EnvName, context, store)
 		if err != nil {
 			return err
 		}
@@ -180,26 +188,43 @@ func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
 		if _, err := os.Stat(dir); err != nil {
 			return err
 		}
-		params.Sources = []simplestreams.DataSource{simplestreams.NewURLDataSource("file://"+dir, simplestreams.VerifySSLHostnames)}
+		params.Sources = []simplestreams.DataSource{
+			simplestreams.NewURLDataSource(
+				"local metadata directory", "file://"+dir, utils.VerifySSLHostnames),
+		}
 	}
 	params.Stream = c.stream
 
-	image_ids, err := imagemetadata.ValidateImageMetadata(params)
+	image_ids, resolveInfo, err := imagemetadata.ValidateImageMetadata(params)
 	if err != nil {
-		return err
-	}
-
-	if len(image_ids) > 0 {
-		fmt.Fprintf(context.Stdout, "matching image ids for region %q:\n%s\n", params.Region, strings.Join(image_ids, "\n"))
-	} else {
-		var urls []string
-		for _, s := range params.Sources {
-			url, err := s.URL("")
-			if err != nil {
-				urls = append(urls, url)
+		if resolveInfo != nil {
+			metadata := map[string]interface{}{
+				"Resolve Metadata": *resolveInfo,
+			}
+			if metadataYaml, yamlErr := cmd.FormatYaml(metadata); yamlErr == nil {
+				err = fmt.Errorf("%v\n%v", err, string(metadataYaml))
 			}
 		}
-		return fmt.Errorf("no matching image ids for region %s using URLs:\n%s", params.Region, strings.Join(urls, "\n"))
+		return err
+	}
+	if len(image_ids) > 0 {
+		metadata := map[string]interface{}{
+			"ImageIds":         image_ids,
+			"Region":           params.Region,
+			"Resolve Metadata": *resolveInfo,
+		}
+		c.out.Write(context, metadata)
+	} else {
+		var sources []string
+		for _, s := range params.Sources {
+			url, err := s.URL("")
+			if err == nil {
+				sources = append(sources, fmt.Sprintf("- %s (%s)", s.Description(), url))
+			}
+		}
+		return fmt.Errorf(
+			"no matching image ids for region %s using sources:\n%s",
+			params.Region, strings.Join(sources, "\n"))
 	}
 	return nil
 }

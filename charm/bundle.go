@@ -12,7 +12,9 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
+
+	"launchpad.net/juju-core/utils/set"
+	ziputil "launchpad.net/juju-core/utils/zip"
 )
 
 // The Bundle type encapsulates access to data and operations
@@ -140,125 +142,102 @@ func (b *Bundle) Config() *Config {
 	return b.config
 }
 
+type zipReadCloser struct {
+	io.Closer
+	*zip.Reader
+}
+
+// zipOpen returns a zipReadCloser.
+func (b *Bundle) zipOpen() (*zipReadCloser, error) {
+	// If we don't have a Path, try to use the original ReaderAt.
+	if b.Path == "" {
+		r, err := zip.NewReader(b.r, b.size)
+		if err != nil {
+			return nil, err
+		}
+		return &zipReadCloser{Closer: ioutil.NopCloser(nil), Reader: r}, nil
+	}
+	f, err := os.Open(b.Path)
+	if err != nil {
+		return nil, err
+	}
+	fi, err := f.Stat()
+	if err != nil {
+		f.Close()
+		return nil, err
+	}
+	r, err := zip.NewReader(f, fi.Size())
+	if err != nil {
+		f.Close()
+		return nil, err
+	}
+	return &zipReadCloser{Closer: f, Reader: r}, nil
+}
+
+// Manifest returns a set of the charm's contents.
+func (b *Bundle) Manifest() (set.Strings, error) {
+	zipr, err := b.zipOpen()
+	if err != nil {
+		return set.NewStrings(), err
+	}
+	defer zipr.Close()
+	paths, err := ziputil.Find(zipr.Reader, "*")
+	if err != nil {
+		return set.NewStrings(), err
+	}
+	manifest := set.NewStrings(paths...)
+	// We always write out a revision file, even if there isn't one in the
+	// bundle; and we always strip ".", because that's sometimes not present.
+	manifest.Add("revision")
+	manifest.Remove(".")
+	return manifest, nil
+}
+
 // ExpandTo expands the charm bundle into dir, creating it if necessary.
 // If any errors occur during the expansion procedure, the process will
-// continue. Only the last error found is returned.
+// abort.
 func (b *Bundle) ExpandTo(dir string) (err error) {
-	// If we have a Path, reopen the file. Otherwise, try to use
-	// the original ReaderAt.
-	r := b.r
-	size := b.size
-	if b.Path != "" {
-		f, err := os.Open(b.Path)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		fi, err := f.Stat()
-		if err != nil {
-			return err
-		}
-		r = f
-		size = fi.Size()
-	}
-
-	zipr, err := zip.NewReader(r, size)
+	zipr, err := b.zipOpen()
 	if err != nil {
 		return err
 	}
-
-	hooks := b.meta.Hooks()
-	var lasterr error
-	for _, zfile := range zipr.File {
-		if err := b.expand(hooks, dir, zfile); err != nil {
-			lasterr = err
+	defer zipr.Close()
+	if err := ziputil.ExtractAll(zipr.Reader, dir); err != nil {
+		return err
+	}
+	hooksDir := filepath.Join(dir, "hooks")
+	fixHook := fixHookFunc(hooksDir, b.meta.Hooks())
+	if err := filepath.Walk(hooksDir, fixHook); err != nil {
+		if !os.IsNotExist(err) {
+			return err
 		}
 	}
-
 	revFile, err := os.Create(filepath.Join(dir, "revision"))
 	if err != nil {
 		return err
 	}
 	_, err = revFile.Write([]byte(strconv.Itoa(b.revision)))
 	revFile.Close()
-	if err != nil {
-		return err
-	}
-	return lasterr
-}
-
-// expand unpacks a charm's zip file into the given directory.
-// The hooks map holds all the possible hook names in the
-// charm.
-func (b *Bundle) expand(hooks map[string]bool, dir string, zfile *zip.File) error {
-	cleanName := filepath.Clean(zfile.Name)
-	if cleanName == "revision" {
-		return nil
-	}
-
-	r, err := zfile.Open()
-	if err != nil {
-		return err
-	}
-	defer r.Close()
-
-	mode := zfile.Mode()
-	path := filepath.Join(dir, cleanName)
-	if strings.HasSuffix(zfile.Name, "/") || mode&os.ModeDir != 0 {
-		err = os.MkdirAll(path, mode&0777)
-		if err != nil {
-			return err
-		}
-		return nil
-	}
-
-	base, _ := filepath.Split(path)
-	err = os.MkdirAll(base, 0755)
-	if err != nil {
-		return err
-	}
-
-	if mode&os.ModeSymlink != 0 {
-		data, err := ioutil.ReadAll(r)
-		if err != nil {
-			return err
-		}
-		target := string(data)
-		if err := checkSymlinkTarget(dir, cleanName, target); err != nil {
-			return err
-		}
-		return os.Symlink(target, path)
-	}
-	if filepath.Dir(cleanName) == "hooks" {
-		hookName := filepath.Base(cleanName)
-		if _, ok := hooks[hookName]; mode&os.ModeType == 0 && ok {
-			// Set all hooks executable (by owner)
-			mode = mode | 0100
-		}
-	}
-
-	if err := checkFileType(cleanName, mode); err != nil {
-		return err
-	}
-
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, mode&0777)
-	if err != nil {
-		return err
-	}
-	_, err = io.Copy(f, r)
-	f.Close()
 	return err
 }
 
-func checkSymlinkTarget(basedir, symlink, target string) error {
-	if filepath.IsAbs(target) {
-		return fmt.Errorf("symlink %q is absolute: %q", symlink, target)
+// fixHookFunc returns a WalkFunc that makes sure hooks are owner-executable.
+func fixHookFunc(hooksDir string, hookNames map[string]bool) filepath.WalkFunc {
+	return func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		mode := info.Mode()
+		if path != hooksDir && mode.IsDir() {
+			return filepath.SkipDir
+		}
+		if name := filepath.Base(path); hookNames[name] {
+			if mode&0100 == 0 {
+				return os.Chmod(path, mode|0100)
+			}
+		}
+		return nil
 	}
-	p := filepath.Join(filepath.Dir(symlink), target)
-	if p == ".." || strings.HasPrefix(p, "../") {
-		return fmt.Errorf("symlink %q links out of charm: %q", symlink, target)
-	}
-	return nil
 }
 
 // FWIW, being able to do this is awesome.

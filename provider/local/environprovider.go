@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/user"
 	"syscall"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -32,6 +33,8 @@ func init() {
 	environs.RegisterProvider(provider.Local, providerInstance)
 }
 
+var userCurrent = user.Current
+
 // Open implements environs.EnvironProvider.Open.
 func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	logger.Infof("opening environment %q", cfg.Name())
@@ -48,8 +51,16 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	// for backwards compatibility: older versions did not store the namespace
 	// in config.
 	if namespace, _ := cfg.UnknownAttrs()["namespace"].(string); namespace == "" {
+		username := os.Getenv("USER")
+		if username == "" {
+			u, err := userCurrent()
+			if err != nil {
+				return nil, fmt.Errorf("failed to determine username for namespace: %v", err)
+			}
+			username = u.Username
+		}
 		var err error
-		namespace = fmt.Sprintf("%s-%s", os.Getenv("USER"), cfg.Name())
+		namespace = fmt.Sprintf("%s-%s", username, cfg.Name())
 		cfg, err = cfg.Apply(map[string]interface{}{"namespace": namespace})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create namespace: %v", err)
@@ -72,8 +83,16 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return environ, nil
 }
 
+var detectAptProxies = utils.DetectAptProxies
+
 // Prepare implements environs.EnvironProvider.Prepare.
-func (p environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+	// The user must not set bootstrap-ip; this is determined by the provider,
+	// and its presence used to determine whether the environment has yet been
+	// bootstrapped.
+	if _, ok := cfg.UnknownAttrs()["bootstrap-ip"]; ok {
+		return nil, fmt.Errorf("bootstrap-ip must not be specified")
+	}
 	err := checkLocalPort(cfg.StatePort(), "state port")
 	if err != nil {
 		return nil, err
@@ -93,17 +112,19 @@ func (p environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
 	logger.Tracef("Look for proxies?")
 	if cfg.HttpProxy() == "" &&
 		cfg.HttpsProxy() == "" &&
-		cfg.FtpProxy() == "" {
+		cfg.FtpProxy() == "" &&
+		cfg.NoProxy() == "" {
 		proxy := osenv.DetectProxies()
 		logger.Tracef("Proxies detected %#v", proxy)
 		setIfNotBlank("http-proxy", proxy.Http)
 		setIfNotBlank("https-proxy", proxy.Https)
 		setIfNotBlank("ftp-proxy", proxy.Ftp)
+		setIfNotBlank("no-proxy", proxy.NoProxy)
 	}
 	if cfg.AptHttpProxy() == "" &&
 		cfg.AptHttpsProxy() == "" &&
 		cfg.AptFtpProxy() == "" {
-		proxy, err := utils.DetectAptProxies()
+		proxy, err := detectAptProxies()
 		if err != nil {
 			return nil, err
 		}
@@ -122,7 +143,7 @@ func (p environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
 }
 
 // checkLocalPort checks that the passed port is not used so far.
-func checkLocalPort(port int, description string) error {
+var checkLocalPort = func(port int, description string) error {
 	logger.Infof("checking %s", description)
 	// Try to connect the port on localhost.
 	address := fmt.Sprintf("localhost:%d", port)
@@ -159,15 +180,15 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 	localConfig := newEnvironConfig(cfg, validated)
 	// Before potentially creating directories, make sure that the
 	// root directory has not changed.
+	containerType := localConfig.container()
 	if old != nil {
 		oldLocalConfig, err := provider.newConfig(old)
 		if err != nil {
 			return nil, fmt.Errorf("old config is not a valid local config: %v", old)
 		}
-		if localConfig.container() != oldLocalConfig.container() {
+		if containerType != oldLocalConfig.container() {
 			return nil, fmt.Errorf("cannot change container from %q to %q",
-				oldLocalConfig.container(),
-				localConfig.container())
+				oldLocalConfig.container(), containerType)
 		}
 		if localConfig.rootDir() != oldLocalConfig.rootDir() {
 			return nil, fmt.Errorf("cannot change root-dir from %q to %q",
@@ -184,15 +205,10 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 				oldLocalConfig.storagePort(),
 				localConfig.storagePort())
 		}
-		if localConfig.sharedStoragePort() != oldLocalConfig.sharedStoragePort() {
-			return nil, fmt.Errorf("cannot change shared-storage-port from %v to %v",
-				oldLocalConfig.sharedStoragePort(),
-				localConfig.sharedStoragePort())
-		}
 	}
 	// Currently only supported containers are "lxc" and "kvm".
-	if localConfig.container() != instance.LXC && localConfig.container() != instance.KVM {
-		return nil, fmt.Errorf("unsupported container type: %q", localConfig.container())
+	if containerType != instance.LXC && containerType != instance.KVM {
+		return nil, fmt.Errorf("unsupported container type: %q", containerType)
 	}
 	dir, err := utils.NormalizePath(localConfig.rootDir())
 	if err != nil {
@@ -204,6 +220,13 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 	// Always assign the normalized path.
 	localConfig.attrs["root-dir"] = dir
 
+	if containerType != instance.KVM {
+		fastOptionAvailable := useFastLXC(containerType)
+		if _, found := localConfig.attrs["lxc-clone"]; !found {
+			localConfig.attrs["lxc-clone"] = fastOptionAvailable
+		}
+	}
+
 	// Apply the coerced unknown values back into the config.
 	return cfg.Apply(localConfig.attrs)
 }
@@ -214,21 +237,23 @@ func (environProvider) BoilerplateConfig() string {
 # https://juju.ubuntu.com/docs/config-local.html
 local:
     type: local
-    # Override the directory that is used for the storage files and database.
-    # The default location is $JUJU_HOME/<ENV>.
-    
-    # $JUJU_HOME defaults to ~/.juju
+
+    # root-dir holds the directory that is used for the storage files and
+    # database. The default location is $JUJU_HOME/<env-name>.
+    # $JUJU_HOME defaults to ~/.juju. Override if needed.
+    #
     # root-dir: ~/.juju/local
-    
-    # Override the storage port if you have multiple local providers, or if the
-    # default port is used by another program.
+
+    # storage-port holds the port where the local provider starts the
+    # HTTP file server. Override the value if you have multiple local
+    # providers, or if the default port is used by another program.
+    #
     # storage-port: 8040
-    
-    # Override the shared storage port if you have multiple local providers, or if the
-    # default port is used by another program.
-    # shared-storage-port: 8041
-    
-    # Override the network bridge if you have changed the default lxc bridge
+
+    # network-bridge holds the name of the LXC network bridge to use.
+    # Override if the default LXC network bridge is different.
+    #
+    #
     # network-bridge: lxcbr0
 
 `[1:]
@@ -238,22 +263,6 @@ local:
 func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
 	// don't have any secret attrs
 	return nil, nil
-}
-
-// Location specific methods that are able to be called by any instance that
-// has been created by this provider type.  So a machine agent may well call
-// these methods to find out its own address or instance id.
-
-// PublicAddress implements environs.EnvironProvider.PublicAddress.
-func (environProvider) PublicAddress() (string, error) {
-	// Get the IPv4 address from eth0
-	return getAddressForInterface("eth0")
-}
-
-// PrivateAddress implements environs.EnvironProvider.PrivateAddress.
-func (environProvider) PrivateAddress() (string, error) {
-	// Get the IPv4 address from eth0
-	return getAddressForInterface("eth0")
 }
 
 func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {

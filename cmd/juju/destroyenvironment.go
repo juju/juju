@@ -47,13 +47,18 @@ func (c *DestroyEnvironmentCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.envName, "environment", "", "juju environment to operate in")
 }
 
-func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) error {
+func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
 	store, err := configstore.Default()
 	if err != nil {
 		return fmt.Errorf("cannot open environment info storage: %v", err)
 	}
 	environ, err := environs.NewFromName(c.envName, store)
 	if err != nil {
+		if environs.IsEmptyConfig(err) {
+			// Delete the .jenv file and call it done.
+			ctx.Infof("removing empty environment file")
+			return environs.DestroyInfo(c.envName, store)
+		}
 		return err
 	}
 	if !c.assumeYes {
@@ -67,13 +72,29 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) error {
 		}
 		answer := strings.ToLower(scanner.Text())
 		if answer != "y" && answer != "yes" {
-			return errors.New("Environment destruction aborted")
+			return errors.New("environment destruction aborted")
 		}
 	}
 	// If --force is supplied, then don't attempt to use the API.
 	// This is necessary to destroy broken environments, where the
 	// API server is inaccessible or faulty.
 	if !c.force {
+		defer func() {
+			if result == nil {
+				return
+			}
+			logger.Errorf(`failed to destroy environment %q
+        
+If the environment is unusable, then you may run
+
+    juju destroy-environment --force
+
+to forcefully destroy the environment. Upon doing so, review
+your environment provider console for any resources that need
+to be cleaned up.
+
+`, c.envName)
+		}()
 		conn, err := juju.NewAPIConn(environ, api.DefaultDialOpts())
 		if err != nil {
 			return err

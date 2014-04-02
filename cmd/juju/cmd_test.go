@@ -9,6 +9,7 @@ import (
 	"os"
 	"reflect"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
@@ -16,7 +17,6 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type CmdSuite struct {
@@ -97,7 +97,7 @@ func (*CmdSuite) TestEnvironmentInit(c *gc.C) {
 		c.Logf("test %d", i)
 		com, args := cmdFunc()
 		testInit(c, com, args, "")
-		assertConnName(c, com, "")
+		assertConnName(c, com, "peckham")
 
 		com, args = cmdFunc()
 		testInit(c, com, append(args, "-e", "walthamstow"), "")
@@ -122,8 +122,9 @@ func (*CmdSuite) TestEnvironmentInit(c *gc.C) {
 	}
 }
 
-func nullContext() *cmd.Context {
-	ctx := cmd.DefaultContext()
+func nullContext(c *gc.C) *cmd.Context {
+	ctx, err := cmd.DefaultContext()
+	c.Assert(err, gc.IsNil)
 	ctx.Stdin = io.LimitReader(nil, 0)
 	ctx.Stdout = ioutil.Discard
 	ctx.Stderr = ioutil.Discard
@@ -191,6 +192,7 @@ func initExpectations(com *DeployCommand) {
 	if com.RepoPath == "" {
 		com.RepoPath = "/path/to/repo"
 	}
+	com.EnvCommandBase.EnvName = "peckham"
 }
 
 func initDeployCommand(args ...string) (*DeployCommand, error) {

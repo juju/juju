@@ -12,7 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/loggo/loggo"
+	"github.com/errgo/errgo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/charm"
@@ -42,9 +43,9 @@ const (
 	// DefaultApiPort is the default port the API server is listening on.
 	DefaultAPIPort int = 17070
 
-	// DefaultSyslogPort is the default port that the syslog UDP listener is
+	// DefaultSyslogPort is the default port that the syslog UDP/TCP listener is
 	// listening on.
-	DefaultSyslogPort int = 514
+	DefaultSyslogPort int = 6514
 
 	// DefaultBootstrapSSHTimeout is the amount of time to wait
 	// contacting a state server, in seconds.
@@ -277,7 +278,7 @@ func Validate(cfg, old *Config) error {
 	caKey, caKeyOK := cfg.CAPrivateKey()
 	if caCertOK || caKeyOK {
 		if err := verifyKeyPair(caCert, caKey); err != nil {
-			return fmt.Errorf("bad CA certificate/key in configuration: %v", err)
+			return errgo.Annotate(err, "bad CA certificate/key in configuration")
 		}
 	}
 
@@ -426,17 +427,29 @@ func (c *Config) SyslogPort() int {
 	return c.mustInt("syslog-port")
 }
 
+// RsyslogCACert returns the certificate of the CA that signed the
+// rsyslog certificate, in PEM format, or nil if one hasn't been
+// generated yet.
+func (c *Config) RsyslogCACert() []byte {
+	if s, ok := c.defined["rsyslog-ca-cert"]; ok {
+		return []byte(s.(string))
+	}
+	return nil
+}
+
 // AuthorizedKeys returns the content for ssh's authorized_keys file.
 func (c *Config) AuthorizedKeys() string {
 	return c.mustString("authorized-keys")
 }
 
-// ProxySettings returns all three proxy settings; http, https and ftp.
+// ProxySettings returns all four proxy settings; http, https, ftp, and no
+// proxy.
 func (c *Config) ProxySettings() osenv.ProxySettings {
 	return osenv.ProxySettings{
-		Http:  c.HttpProxy(),
-		Https: c.HttpsProxy(),
-		Ftp:   c.FtpProxy(),
+		Http:    c.HttpProxy(),
+		Https:   c.HttpsProxy(),
+		Ftp:     c.FtpProxy(),
+		NoProxy: c.NoProxy(),
 	}
 }
 
@@ -453,6 +466,11 @@ func (c *Config) HttpsProxy() string {
 // FtpProxy returns the ftp proxy for the environment.
 func (c *Config) FtpProxy() string {
 	return c.asString("ftp-proxy")
+}
+
+// NoProxy returns the 'no proxy' for the environment.
+func (c *Config) NoProxy() string {
+	return c.asString("no-proxy")
 }
 
 func (c *Config) getWithFallback(key, fallback string) string {
@@ -609,11 +627,18 @@ func (c *Config) ProvisionerSafeMode() bool {
 // used to identify which image ids to search
 // when starting an instance.
 func (c *Config) ImageStream() string {
-	v, ok := c.defined["image-stream"].(string)
-	if ok {
+	v, _ := c.defined["image-stream"].(string)
+	if v != "" {
 		return v
 	}
 	return "released"
+}
+
+// TestMode indicates if the environment is intended for testing.
+// In this case, accessing the charm store does not affect statistical
+// data of the store.
+func (c *Config) TestMode() bool {
+	return c.defined["test-mode"].(bool)
 }
 
 // UnknownAttrs returns a copy of the raw configuration attributes
@@ -635,6 +660,15 @@ func (c *Config) AllAttrs() map[string]interface{} {
 		allAttrs[k] = v
 	}
 	return allAttrs
+}
+
+// Remove returns a new configuration that has the attributes of c minus attrs.
+func (c *Config) Remove(attrs []string) (*Config, error) {
+	defined := c.AllAttrs()
+	for _, k := range attrs {
+		delete(defined, k)
+	}
+	return New(NoDefaults, defined)
 }
 
 // Apply returns a new configuration that has the attributes of c plus attrs.
@@ -667,18 +701,21 @@ var fields = schema.Fields{
 	"state-port":                schema.ForceInt(),
 	"api-port":                  schema.ForceInt(),
 	"syslog-port":               schema.ForceInt(),
+	"rsyslog-ca-cert":           schema.String(),
 	"logging-config":            schema.String(),
 	"charm-store-auth":          schema.String(),
 	"provisioner-safe-mode":     schema.Bool(),
 	"http-proxy":                schema.String(),
 	"https-proxy":               schema.String(),
 	"ftp-proxy":                 schema.String(),
+	"no-proxy":                  schema.String(),
 	"apt-http-proxy":            schema.String(),
 	"apt-https-proxy":           schema.String(),
 	"apt-ftp-proxy":             schema.String(),
 	"bootstrap-timeout":         schema.ForceInt(),
 	"bootstrap-retry-delay":     schema.ForceInt(),
 	"bootstrap-addresses-delay": schema.ForceInt(),
+	"test-mode":                 schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url": schema.String(),
@@ -701,16 +738,17 @@ var alwaysOptional = schema.Defaults{
 	"ca-private-key-path":       schema.Omit,
 	"logging-config":            schema.Omit,
 	"provisioner-safe-mode":     schema.Omit,
-	"http-proxy":                schema.Omit,
-	"https-proxy":               schema.Omit,
-	"ftp-proxy":                 schema.Omit,
-	"apt-http-proxy":            schema.Omit,
-	"apt-https-proxy":           schema.Omit,
-	"apt-ftp-proxy":             schema.Omit,
-	"image-stream":              schema.Omit,
 	"bootstrap-timeout":         schema.Omit,
 	"bootstrap-retry-delay":     schema.Omit,
 	"bootstrap-addresses-delay": schema.Omit,
+	"rsyslog-ca-cert":           schema.Omit,
+	"http-proxy":                schema.Omit,
+	"https-proxy":               schema.Omit,
+	"ftp-proxy":                 schema.Omit,
+	"no-proxy":                  schema.Omit,
+	"apt-http-proxy":            schema.Omit,
+	"apt-https-proxy":           schema.Omit,
+	"apt-ftp-proxy":             schema.Omit,
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url": "",
@@ -732,6 +770,9 @@ var alwaysOptional = schema.Defaults{
 	"syslog-port": DefaultSyslogPort,
 	// Authentication string sent with requests to the charm store
 	"charm-store-auth": "",
+	// Previously image-stream could be set to an empty value
+	"image-stream": "",
+	"test-mode":    false,
 }
 
 func allowEmpty(attr string) bool {
@@ -740,6 +781,9 @@ func allowEmpty(attr string) bool {
 
 var defaults = allDefaults()
 
+// allDefaults returns a schema.Defaults that contains
+// defaults to be used when creating a new config with
+// UseDefaults.
 func allDefaults() schema.Defaults {
 	d := schema.Defaults{
 		"default-series":            DefaultSeries,
@@ -754,7 +798,9 @@ func allDefaults() schema.Defaults {
 		"bootstrap-addresses-delay": DefaultBootstrapSSHAddressesDelay,
 	}
 	for attr, val := range alwaysOptional {
-		d[attr] = val
+		if _, ok := d[attr]; !ok {
+			d[attr] = val
+		}
 	}
 	return d
 }
@@ -784,7 +830,6 @@ var immutableAttributes = []string{
 	"firewall-mode",
 	"state-port",
 	"api-port",
-	"syslog-port",
 	"bootstrap-timeout",
 	"bootstrap-retry-delay",
 	"bootstrap-addresses-delay",
@@ -835,18 +880,22 @@ func (cfg *Config) GenerateStateServerCertAndKey() ([]byte, []byte, error) {
 	return cert.NewServer(caCert, caKey, time.Now().UTC().AddDate(10, 0, 0), noHostnames)
 }
 
-type Authorizer interface {
+type Specializer interface {
 	WithAuthAttrs(string) charm.Repository
+	WithTestMode(testMode bool) charm.Repository
 }
 
-// AuthorizeCharmRepo returns a repository with authentication added
-// from the specified configuration.
-func AuthorizeCharmRepo(repo charm.Repository, cfg *Config) charm.Repository {
+// SpecializeCharmRepo returns a repository customized for given configuration.
+// It adds authentication if necessary and sets a charm store's testMode flag.
+func SpecializeCharmRepo(repo charm.Repository, cfg *Config) charm.Repository {
 	// If a charm store auth token is set, pass it on to the charm store
 	if auth, authSet := cfg.CharmStoreAuth(); authSet {
-		if CS, isCS := repo.(Authorizer); isCS {
+		if CS, isCS := repo.(Specializer); isCS {
 			repo = CS.WithAuthAttrs(auth)
 		}
+	}
+	if CS, isCS := repo.(Specializer); isCS {
+		repo = CS.WithTestMode(cfg.TestMode())
 	}
 	return repo
 }
@@ -869,22 +918,29 @@ type SSHTimeoutOpts struct {
 	AddressesDelay time.Duration
 }
 
+func addIfNotEmpty(settings map[string]interface{}, key, value string) {
+	if value != "" {
+		settings[key] = value
+	}
+}
+
 // ProxyConfigMap returns a map suitable to be applied to a Config to update
 // proxy settings.
 func ProxyConfigMap(proxy osenv.ProxySettings) map[string]interface{} {
-	return map[string]interface{}{
-		"http-proxy":  proxy.Http,
-		"https-proxy": proxy.Https,
-		"ftp-proxy":   proxy.Ftp,
-	}
+	settings := make(map[string]interface{})
+	addIfNotEmpty(settings, "http-proxy", proxy.Http)
+	addIfNotEmpty(settings, "https-proxy", proxy.Https)
+	addIfNotEmpty(settings, "ftp-proxy", proxy.Ftp)
+	addIfNotEmpty(settings, "no-proxy", proxy.NoProxy)
+	return settings
 }
 
 // AptProxyConfigMap returns a map suitable to be applied to a Config to update
 // proxy settings.
 func AptProxyConfigMap(proxy osenv.ProxySettings) map[string]interface{} {
-	return map[string]interface{}{
-		"apt-http-proxy":  proxy.Http,
-		"apt-https-proxy": proxy.Https,
-		"apt-ftp-proxy":   proxy.Ftp,
-	}
+	settings := make(map[string]interface{})
+	addIfNotEmpty(settings, "apt-http-proxy", proxy.Http)
+	addIfNotEmpty(settings, "apt-https-proxy", proxy.Https)
+	addIfNotEmpty(settings, "apt-ftp-proxy", proxy.Ftp)
+	return settings
 }

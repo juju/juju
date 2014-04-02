@@ -26,7 +26,11 @@ func (manualBootstrapInstance) Refresh() error {
 }
 
 func (inst manualBootstrapInstance) Addresses() (addresses []instance.Address, err error) {
-	return manual.HostAddresses(inst.host)
+	addr, err := manual.HostAddress(inst.host)
+	if err != nil {
+		return nil, err
+	}
+	return []instance.Address{addr}, nil
 }
 
 func (inst manualBootstrapInstance) DNSName() (string, error) {

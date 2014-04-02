@@ -11,6 +11,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
@@ -18,11 +19,12 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
+	"launchpad.net/juju-core/juju/arch"
 )
 
 // ImageMetadataCommand is used to write out simplestreams image metadata information.
 type ImageMetadataCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	Dir            string
 	Series         string
 	Arch           string
@@ -53,7 +55,7 @@ func (c *ImageMetadataCommand) Info() *cmd.Info {
 func (c *ImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.StringVar(&c.Series, "s", "", "the charm series")
-	f.StringVar(&c.Arch, "a", "amd64", "the image achitecture")
+	f.StringVar(&c.Arch, "a", arch.AMD64, "the image achitecture")
 	f.StringVar(&c.Dir, "d", "", "the destination directory in which to place the metadata files")
 	f.StringVar(&c.ImageId, "i", "", "the image id")
 	f.StringVar(&c.Region, "r", "", "the region")
@@ -61,10 +63,16 @@ func (c *ImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *ImageMetadataCommand) Init(args []string) error {
+	return cmd.CheckEmpty(args)
+}
+
+// setParams sets parameters based on the environment configuration
+// for those which have not been explicitly specified.
+func (c *ImageMetadataCommand) setParams(context *cmd.Context) error {
 	c.privateStorage = "<private storage name>"
 	var environ environs.Environ
 	if store, err := configstore.Default(); err == nil {
-		if environ, err = environs.PrepareFromName(c.EnvName, store); err == nil {
+		if environ, err = environs.PrepareFromName(c.EnvName, context, store); err == nil {
 			logger.Infof("creating image metadata for environment %q", environ.Name())
 			// If the user has not specified region and endpoint, try and get it from the environment.
 			if c.Region == "" || c.Endpoint == "" {
@@ -120,8 +128,7 @@ func (c *ImageMetadataCommand) Init(args []string) error {
 			return err
 		}
 	}
-
-	return cmd.CheckEmpty(args)
+	return nil
 }
 
 var helpDoc = `
@@ -143,8 +150,10 @@ and set the value of image-metadata-url accordingly.
 `
 
 func (c *ImageMetadataCommand) Run(context *cmd.Context) error {
+	if err := c.setParams(context); err != nil {
+		return err
+	}
 	out := context.Stdout
-
 	im := &imagemetadata.ImageMetadata{
 		Id:   c.ImageId,
 		Arch: c.Arch,
@@ -153,7 +162,7 @@ func (c *ImageMetadataCommand) Run(context *cmd.Context) error {
 		Region:   c.Region,
 		Endpoint: c.Endpoint,
 	}
-	targetStorage, err := filestorage.NewFileStorageWriter(c.Dir, filestorage.UseDefaultTmpDir)
+	targetStorage, err := filestorage.NewFileStorageWriter(c.Dir)
 	if err != nil {
 		return err
 	}

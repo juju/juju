@@ -14,7 +14,9 @@ import (
 	"strings"
 
 	"launchpad.net/gnuflag"
+
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/log"
 )
@@ -71,7 +73,7 @@ func RunPlugin(ctx *cmd.Context, subcommand string, args []string) error {
 }
 
 type PluginCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	name string
 	args []string
 }
@@ -84,7 +86,7 @@ func (*PluginCommand) Info() *cmd.Info {
 
 func (c *PluginCommand) Init(args []string) error {
 	c.args = args
-	return nil
+	return c.EnvCommandBase.Init()
 }
 
 func (c *PluginCommand) SetFlags(f *gnuflag.FlagSet) {

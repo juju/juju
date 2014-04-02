@@ -346,6 +346,13 @@ func (context *statusContext) processService(service *state.Service) (status api
 		status.Err = err
 		return
 	}
+	includeNetworks, excludeNetworks, err := service.Networks()
+	if err == nil {
+		status.Networks = api.NetworksSpecification{
+			Enabled:  includeNetworks,
+			Disabled: excludeNetworks,
+		}
+	}
 	if service.IsPrincipal() {
 		status.Units = context.processUnits(context.units[service.Name()], serviceCharmURL.String())
 	}

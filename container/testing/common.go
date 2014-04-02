@@ -6,22 +6,21 @@ package testing
 import (
 	"io/ioutil"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
-func StartContainer(c *gc.C, manager container.Manager, machineId string) instance.Instance {
+func CreateContainer(c *gc.C, manager container.Manager, machineId string) instance.Instance {
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	machineConfig := environs.NewMachineConfig(machineId, "fake-nonce", stateInfo, apiInfo)
-	machineConfig.SyslogPort = 2345
 	machineConfig.Tools = &tools.Tools{
 		Version: version.MustParseBinary("2.3.4-foo-bar"),
 		URL:     "http://tools.testing.invalid/2.3.4-foo-bar.tgz",
@@ -29,7 +28,7 @@ func StartContainer(c *gc.C, manager container.Manager, machineId string) instan
 
 	series := "series"
 	network := container.BridgeNetworkConfig("nic42")
-	inst, hardware, err := manager.StartContainer(machineConfig, series, network)
+	inst, hardware, err := manager.CreateContainer(machineConfig, series, network)
 	c.Assert(err, gc.IsNil)
 	c.Assert(hardware, gc.NotNil)
 	c.Assert(hardware.String(), gc.Not(gc.Equals), "")

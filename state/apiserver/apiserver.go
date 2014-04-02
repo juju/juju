@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"code.google.com/p/go.net/websocket"
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/rpc"
@@ -154,7 +154,14 @@ func (srv *Server) run(lis net.Listener) {
 	}()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", srv.apiHandler)
-	mux.Handle("/charms", &charmsHandler{state: srv.state})
+	charmHandler := &charmsHandler{httpHandler: httpHandler{state: srv.state}, dataDir: srv.dataDir}
+	// charmHandler itself provides the errorSender implementation for the embedded httpHandler.
+	charmHandler.httpHandler.errorSender = charmHandler
+	mux.Handle("/charms", charmHandler)
+	toolsHandler := &toolsHandler{httpHandler{state: srv.state}}
+	// toolsHandler itself provides the errorSender implementation for the embedded httpHandler.
+	toolsHandler.httpHandler.errorSender = toolsHandler
+	mux.Handle("/tools", toolsHandler)
 	// The error from http.Serve is not interesting.
 	http.Serve(lis, mux)
 }

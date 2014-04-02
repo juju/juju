@@ -12,11 +12,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/httpstorage"
 	"launchpad.net/juju-core/environs/manual"
@@ -25,19 +25,17 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/ssh"
 	"launchpad.net/juju-core/worker/localstorage"
 	"launchpad.net/juju-core/worker/terminationworker"
 )
 
 const (
-	// TODO(axw) make this configurable?
-	dataDir = "/var/lib/juju"
-
 	// storageSubdir is the subdirectory of
 	// dataDir in which storage will be located.
 	storageSubdir = "storage"
@@ -51,21 +49,19 @@ const (
 var logger = loggo.GetLogger("juju.provider.manual")
 
 type manualEnviron struct {
-	cfg                   *environConfig
-	cfgmutex              sync.Mutex
-	bootstrapStorage      storage.Storage
-	bootstrapStorageMutex sync.Mutex
-	ubuntuUserInited      bool
-	ubuntuUserInitMutex   sync.Mutex
+	cfg                 *environConfig
+	cfgmutex            sync.Mutex
+	storage             storage.Storage
+	ubuntuUserInited    bool
+	ubuntuUserInitMutex sync.Mutex
 }
 
-var _ environs.BootstrapStorager = (*manualEnviron)(nil)
 var _ envtools.SupportsCustomSources = (*manualEnviron)(nil)
 
 var errNoStartInstance = errors.New("manual provider cannot start instances")
 var errNoStopInstance = errors.New("manual provider cannot stop instances")
 
-func (*manualEnviron) StartInstance(constraints.Value, tools.List, *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (*manualEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	return nil, nil, errNoStartInstance
 }
 
@@ -92,27 +88,23 @@ func (e *manualEnviron) Name() string {
 	return e.envConfig().Name()
 }
 
-var initUbuntuUser = manual.InitUbuntuUser
+// SupportedArchitectures is specified on the EnvironCapability interface.
+func (e *manualEnviron) SupportedArchitectures() ([]string, error) {
+	return arch.AllSupportedArches, nil
+}
 
-func (e *manualEnviron) ensureBootstrapUbuntuUser(ctx environs.BootstrapContext) error {
-	e.ubuntuUserInitMutex.Lock()
-	defer e.ubuntuUserInitMutex.Unlock()
-	if e.ubuntuUserInited {
-		return nil
-	}
-	cfg := e.envConfig()
-	err := initUbuntuUser(cfg.bootstrapHost(), cfg.bootstrapUser(), cfg.AuthorizedKeys(), ctx.Stdin(), ctx.Stdout())
-	if err != nil {
-		logger.Errorf("initializing ubuntu user: %v", err)
-		return err
-	}
-	logger.Infof("initialized ubuntu user")
-	e.ubuntuUserInited = true
-	return nil
+// SupportNetworks is specified on the EnvironCapability interface.
+func (e *manualEnviron) SupportNetworks() bool {
+	return false
 }
 
 func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
-	if err := e.ensureBootstrapUbuntuUser(ctx); err != nil {
+	// Set "use-sshstorage" to false, so agents know not to use sshstorage.
+	cfg, err := e.Config().Apply(map[string]interface{}{"use-sshstorage": false})
+	if err != nil {
+		return err
+	}
+	if err := e.SetConfig(cfg); err != nil {
 		return err
 	}
 	envConfig := e.envConfig()
@@ -121,14 +113,14 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraint
 	if err != nil {
 		return err
 	}
-	selectedTools, err := common.EnsureBootstrapTools(e, series, hc.Arch)
+	selectedTools, err := common.EnsureBootstrapTools(ctx, e, series, hc.Arch)
 	if err != nil {
 		return err
 	}
 	return manual.Bootstrap(manual.BootstrapArgs{
 		Context:                 ctx,
 		Host:                    host,
-		DataDir:                 dataDir,
+		DataDir:                 agent.DefaultDataDir,
 		Environ:                 e,
 		PossibleTools:           selectedTools,
 		Series:                  series,
@@ -146,6 +138,35 @@ func (e *manualEnviron) SetConfig(cfg *config.Config) error {
 	envConfig, err := manualProvider{}.validate(cfg, e.cfg.Config)
 	if err != nil {
 		return err
+	}
+	// Set storage. If "use-sshstorage" is true then use the SSH storage.
+	// Otherwise, use HTTP storage.
+	//
+	// We don't change storage once it's been set. Storage parameters
+	// are fixed at bootstrap time, and it is not possible to change
+	// them.
+	if e.storage == nil {
+		var stor storage.Storage
+		if envConfig.useSSHStorage() {
+			storageDir := e.StorageDir()
+			storageTmpdir := path.Join(agent.DefaultDataDir, storageTmpSubdir)
+			stor, err = newSSHStorage("ubuntu@"+e.cfg.bootstrapHost(), storageDir, storageTmpdir)
+			if err != nil {
+				return fmt.Errorf("initialising SSH storage failed: %v", err)
+			}
+		} else {
+			caCertPEM, ok := envConfig.CACert()
+			if !ok {
+				// should not be possible to validate base config
+				return fmt.Errorf("ca-cert not set")
+			}
+			authkey := envConfig.storageAuthKey()
+			stor, err = httpstorage.ClientTLS(envConfig.storageAddr(), caCertPEM, authkey)
+			if err != nil {
+				return fmt.Errorf("initialising HTTPS storage failed: %v", err)
+			}
+		}
+		e.storage = stor
 	}
 	e.cfg = envConfig
 	return nil
@@ -175,6 +196,7 @@ func (e *manualEnviron) Instances(ids []instance.Id) (instances []instance.Insta
 }
 
 var newSSHStorage = func(sshHost, storageDir, storageTmpdir string) (storage.Storage, error) {
+	logger.Debugf("using ssh storage at host %q dir %q", sshHost, storageDir)
 	return sshstorage.NewSSHStorage(sshstorage.NewSSHStorageParams{
 		Host:       sshHost,
 		StorageDir: storageDir,
@@ -182,69 +204,49 @@ var newSSHStorage = func(sshHost, storageDir, storageTmpdir string) (storage.Sto
 	})
 }
 
-// Implements environs.BootstrapStorager.
-func (e *manualEnviron) EnableBootstrapStorage(ctx environs.BootstrapContext) error {
-	e.bootstrapStorageMutex.Lock()
-	defer e.bootstrapStorageMutex.Unlock()
-	if e.bootstrapStorage != nil {
-		return nil
-	}
-	if err := e.ensureBootstrapUbuntuUser(ctx); err != nil {
-		return err
-	}
-	cfg := e.envConfig()
-	storageDir := e.StorageDir()
-	storageTmpdir := path.Join(dataDir, storageTmpSubdir)
-	bootstrapStorage, err := newSSHStorage("ubuntu@"+cfg.bootstrapHost(), storageDir, storageTmpdir)
-	if err != nil {
-		return err
-	}
-	e.bootstrapStorage = bootstrapStorage
-	return nil
-}
-
 // GetToolsSources returns a list of sources which are
 // used to search for simplestreams tools metadata.
 func (e *manualEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off private storage.
 	return []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource(e.Storage(), storage.BaseToolsPath),
+		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseToolsPath),
 	}, nil
 }
 
 func (e *manualEnviron) Storage() storage.Storage {
-	e.bootstrapStorageMutex.Lock()
-	defer e.bootstrapStorageMutex.Unlock()
-	if e.bootstrapStorage != nil {
-		return e.bootstrapStorage
-	}
-	caCertPEM, authkey := e.StorageCACert(), e.StorageAuthKey()
-	if caCertPEM != nil && authkey != "" {
-		storage, err := httpstorage.ClientTLS(e.envConfig().storageAddr(), caCertPEM, authkey)
-		if err != nil {
-			// Should be impossible, since ca-cert will always be validated.
-			logger.Errorf("initialising HTTPS storage failed: %v", err)
-		} else {
-			return storage
-		}
-	} else {
-		logger.Errorf("missing CA cert or auth-key")
-	}
-	return nil
+	e.cfgmutex.Lock()
+	defer e.cfgmutex.Unlock()
+	return e.storage
 }
 
-var runSSHCommand = func(host string, command []string) (stderr string, err error) {
+var runSSHCommand = func(host string, command []string, stdin string) (stderr string, err error) {
 	cmd := ssh.Command(host, command, nil)
 	var stderrBuf bytes.Buffer
+	cmd.Stdin = strings.NewReader(stdin)
 	cmd.Stderr = &stderrBuf
 	err = cmd.Run()
 	return stderrBuf.String(), err
 }
 
 func (e *manualEnviron) Destroy() error {
+	script := `
+set -x
+pkill -%d jujud && exit
+stop juju-db
+rm -f /etc/init/juju*
+rm -f /etc/rsyslog.d/*juju*
+rm -fr %s %s
+exit 0
+`
+	script = fmt.Sprintf(
+		script,
+		terminationworker.TerminationSignal,
+		utils.ShQuote(agent.DefaultDataDir),
+		utils.ShQuote(agent.DefaultLogDir),
+	)
 	stderr, err := runSSHCommand(
 		"ubuntu@"+e.envConfig().bootstrapHost(),
-		[]string{"sudo", "pkill", fmt.Sprintf("-%d", terminationworker.TerminationSignal), "jujud"},
+		[]string{"sudo", "/bin/bash"}, script,
 	)
 	if err != nil {
 		if stderr := strings.TrimSpace(stderr); len(stderr) > 0 {
@@ -252,6 +254,10 @@ func (e *manualEnviron) Destroy() error {
 		}
 	}
 	return err
+}
+
+func (*manualEnviron) PrecheckInstance(series string, cons constraints.Value) error {
+	return errors.New(`use "juju add-machine ssh:[user@]<host>" to provision machines`)
 }
 
 func (e *manualEnviron) OpenPorts(ports []instance.Port) error {
@@ -275,7 +281,7 @@ func (e *manualEnviron) StorageAddr() string {
 }
 
 func (e *manualEnviron) StorageDir() string {
-	return path.Join(dataDir, storageSubdir)
+	return path.Join(agent.DefaultDataDir, storageSubdir)
 }
 
 func (e *manualEnviron) SharedStorageAddr() string {

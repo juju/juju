@@ -4,8 +4,9 @@
 package upgrader_test
 
 import (
-	coretesting "launchpad.net/juju-core/testing"
 	stdtesting "testing"
+
+	coretesting "launchpad.net/juju-core/testing"
 )
 
 func TestAll(t *stdtesting.T) {

@@ -10,7 +10,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/loggo/loggo"
+	"github.com/juju/loggo"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
@@ -43,7 +43,7 @@ func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 		dummy.Reset()
 		loggo.ResetLoggers()
 	})
-	env, err := environs.PrepareFromName("erewhemos", configstore.NewMem())
+	env, err := environs.PrepareFromName("erewhemos", coretesting.Context(c), configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	s.env = env
 	envtesting.RemoveAllTools(c, s.env)

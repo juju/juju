@@ -4,16 +4,13 @@
 package testing
 
 import (
-	"io"
+	"github.com/juju/loggo"
+	"github.com/juju/testing"
 
-	"github.com/loggo/loggo"
-
-	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/common"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils/ssh"
 )
 
@@ -27,25 +24,5 @@ func DisableFinishBootstrap() func() {
 		logger.Warningf("provider/common.FinishBootstrap is disabled")
 		return nil
 	}
-	return testbase.PatchValue(&common.FinishBootstrap, f)
-}
-
-type bootstrapContext struct {
-	*cmd.Context
-}
-
-func (c bootstrapContext) Stdin() io.Reader {
-	return c.Context.Stdin
-}
-
-func (c bootstrapContext) Stdout() io.Writer {
-	return c.Context.Stdout
-}
-
-func (c bootstrapContext) Stderr() io.Writer {
-	return c.Context.Stderr
-}
-
-func NewBootstrapContext(ctx *cmd.Context) environs.BootstrapContext {
-	return bootstrapContext{ctx}
+	return testing.PatchValue(&common.FinishBootstrap, f)
 }
