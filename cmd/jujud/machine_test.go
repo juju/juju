@@ -848,20 +848,15 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Wait for config to be updated.
-	s.State.StartSync()
-	timeout := time.After(coretesting.LongWait)
-	for {
-		select {
-		case <-timeout:
-			c.Fatalf("timeout while waiting for agent config to change")
-		case <-time.After(coretesting.ShortWait):
-			addrs, err := a.CurrentConfig().APIAddresses()
-			c.Assert(err, gc.IsNil)
-			if reflect.DeepEqual(addrs, []string{"localhost:1234"}) {
-				return
-			}
+	s.BackingState.StartSync()
+	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
+		addrs, err := a.CurrentConfig().APIAddresses()
+		c.Assert(err, gc.IsNil)
+		if reflect.DeepEqual(addrs, []string{"localhost:1234"}) {
+			return
 		}
 	}
+	c.Fatalf("timeout while waiting for agent config to change")
 }
 
 // MachineWithCharmsSuite provides infrastructure for tests which need to
