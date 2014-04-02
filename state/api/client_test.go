@@ -5,6 +5,7 @@ package api_test
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 
 	jc "github.com/juju/testing/checkers"
@@ -65,17 +66,20 @@ func (s *clientSuite) TestAddLocalCharm(c *gc.C) {
 	// Finally, try the NotImplementedError by mocking the server
 	// address to a handler that returns 405 Method Not Allowed for
 	// POST.
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	c.Assert(err, gc.IsNil)
+	defer lis.Close()
+	url := fmt.Sprintf("http://%v", lis.Addr())
 	http.HandleFunc("/charms", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" {
 			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		}
 	})
 	go func() {
-		err = http.ListenAndServe(":8900", nil)
-		c.Assert(err, gc.IsNil)
+		http.Serve(lis, nil)
 	}()
 
-	api.SetServerRoot(client, "http://localhost:8900")
+	api.SetServerRoot(client, url)
 	_, err = client.AddLocalCharm(curl, charmArchive)
 	c.Assert(err, jc.Satisfies, params.IsCodeNotImplemented)
 }

@@ -13,6 +13,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
+	"launchpad.net/gomaasapi"
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/constraints"
@@ -331,6 +332,12 @@ func (suite *environSuite) getInstance(systemId string) *maasInstance {
 	return &maasInstance{maasObject: &node, environ: suite.makeEnviron()}
 }
 
+func (suite *environSuite) getNetwork(name string) *gomaasapi.MAASObject {
+	input := `{"name": "` + name + `", "ip":"127.0.0.1", "netmask": "255.255.255.0", "vlan_tag": "1", "description": "" }`
+	network := suite.testMAASObject.TestServer.NewNetwork(input)
+	return &network
+}
+
 func (suite *environSuite) TestStopInstancesReturnsIfParameterEmpty(c *gc.C) {
 	suite.getInstance("test1")
 
@@ -518,6 +525,15 @@ func (suite *environSuite) TestSupportedArchitectures(c *gc.C) {
 	a, err := env.SupportedArchitectures()
 	c.Assert(err, gc.IsNil)
 	c.Assert(a, gc.DeepEquals, []string{"amd64"})
+}
+
+func (suite *environSuite) TestGetNetworksList(c *gc.C) {
+	suite.getNetwork("test_network")
+	test_instance := suite.getInstance("instance_for_network")
+	suite.testMAASObject.TestServer.ConnectNodeToNetwork("instance_for_network", "test_network")
+	networks, err := suite.makeEnviron().GetNetworksList(test_instance)
+	c.Assert(err, gc.IsNil)
+	c.Check(networks, gc.DeepEquals, []MAASNetworkDetails{{Name: "test_network", Ip: "127.0.0.1", NetworkMask: "255.255.255.0", VlanTag: "1", Description: ""}})
 }
 
 func (suite *environSuite) TestSupportNetworks(c *gc.C) {

@@ -275,7 +275,7 @@ type neverOpensPort struct {
 }
 
 func (n *neverOpensPort) Addresses() ([]instance.Address, error) {
-	return []instance.Address{instance.NewAddress(n.addr)}, nil
+	return instance.NewAddresses(n.addr), nil
 }
 
 func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForDial(c *gc.C) {
@@ -303,7 +303,7 @@ func (i *interruptOnDial) Addresses() ([]instance.Address, error) {
 	} else {
 		i.interrupted <- os.Interrupt
 	}
-	return []instance.Address{instance.NewAddress(i.name)}, nil
+	return []instance.Address{instance.NewAddress(i.name, instance.NetworkUnknown)}, nil
 }
 
 func (s *BootstrapSuite) TestWaitSSHKilledWaitingForDial(c *gc.C) {
@@ -333,7 +333,7 @@ func (ac *addressesChange) Refresh() error {
 func (ac *addressesChange) Addresses() ([]instance.Address, error) {
 	var addrs []instance.Address
 	for _, addr := range ac.addrs[0] {
-		addrs = append(addrs, instance.NewAddress(addr))
+		addrs = append(addrs, instance.NewAddress(addr, instance.NetworkUnknown))
 	}
 	return addrs, nil
 }

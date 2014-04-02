@@ -36,6 +36,9 @@ type StateInitializer interface {
 // BootstrapMachineConfig holds configuration information
 // to attach to the bootstrap machine.
 type BootstrapMachineConfig struct {
+	// Addresses holds the bootstrap machine's addresses.
+	Addresses []instance.Address
+
 	// Constraints holds the bootstrap machine's constraints.
 	// This value is also used for the environment-level constraints.
 	Constraints constraints.Value
@@ -49,11 +52,14 @@ type BootstrapMachineConfig struct {
 	// Characteristics holds hardware information on the
 	// bootstrap machine.
 	Characteristics instance.HardwareCharacteristics
+
+	// SharedSecret is the Mongo replica set shared secret (keyfile).
+	SharedSecret string
 }
 
 const bootstrapMachineId = "0"
 
-func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts, policy state.Policy) (*state.State, *state.Machine, error) {
+func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
 	if c.Tag() != names.MachineTag(bootstrapMachineId) {
 		return nil, nil, fmt.Errorf("InitializeState not called with bootstrap machine's configuration")
 	}
@@ -66,9 +72,19 @@ func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg Bootstrap
 		return nil, nil, fmt.Errorf("failed to initialize state: %v", err)
 	}
 	logger.Debugf("connected to initial state")
+	defer func() {
+		if resultErr != nil {
+			st.Close()
+		}
+	}()
+	if err = initAPIHostPorts(c, st, machineCfg.Addresses); err != nil {
+		return nil, nil, err
+	}
+	if err = setStateServingInfo(c, st, envCfg.StatePort(), machineCfg.SharedSecret); err != nil {
+		return nil, nil, err
+	}
 	m, err := initUsersAndBootstrapMachine(c, st, machineCfg)
 	if err != nil {
-		st.Close()
 		return nil, nil, err
 	}
 	return st, m, nil
@@ -132,6 +148,7 @@ func initBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineC
 		jobs[i] = machineJob
 	}
 	m, err := st.AddOneMachine(state.MachineTemplate{
+		Addresses:               cfg.Addresses,
 		Series:                  version.Current.Series,
 		Nonce:                   state.BootstrapNonce,
 		Constraints:             cfg.Constraints,
@@ -162,4 +179,23 @@ func initBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineC
 	}
 	c.SetPassword(newPassword)
 	return m, nil
+}
+
+// initAPIHostPorts sets the initial API host/port addresses in state.
+func initAPIHostPorts(c Config, st *state.State, addrs []instance.Address) error {
+	port, _, _ := c.APIServerDetails()
+	hostPorts := instance.AddressesWithPort(addrs, port)
+	return st.SetAPIHostPorts([][]instance.HostPort{hostPorts})
+}
+
+// setStateServingInfo sets the state serving info in state.
+func setStateServingInfo(c Config, st *state.State, statePort int, sharedSecret string) error {
+	apiPort, cert, key := c.APIServerDetails()
+	return st.SetStateServingInfo(params.StateServingInfo{
+		APIPort:      apiPort,
+		StatePort:    statePort,
+		Cert:         string(cert),
+		PrivateKey:   string(key),
+		SharedSecret: sharedSecret,
+	})
 }
