@@ -40,7 +40,7 @@ def deploy_stack(environment, charm_prefix, already_bootstrapped):
     env.wait_for_version(env.get_matching_agent_version())
     env.juju('deploy', charm_prefix + 'wordpress')
     if env.config.get('type') == 'joyent':
-        env.juju('deploy', '-to', '1', charm_prefix + 'mysql')
+        env.juju('deploy', '--to', '1', charm_prefix + 'mysql')
     else:
         env.juju('deploy', charm_prefix + 'mysql')
     env.juju('add-relation', 'mysql', 'wordpress')
