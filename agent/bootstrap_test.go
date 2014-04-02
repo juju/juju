@@ -162,7 +162,6 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 func (s *bootstrapSuite) TestInitializeStateServingInfoNotAvailable(c *gc.C) {
 	dataDir := c.MkDir()
 
-	pwHash := utils.UserPasswordHash(testing.DefaultMongoPassword, utils.CompatSalt)
 	configParams := agent.StateMachineConfigParams{
 		AgentConfigParams: agent.AgentConfigParams{
 			DataDir:           dataDir,
@@ -170,7 +169,7 @@ func (s *bootstrapSuite) TestInitializeStateServingInfoNotAvailable(c *gc.C) {
 			UpgradedToVersion: version.Current.Number,
 			StateAddresses:    []string{testing.MgoServer.Addr()},
 			CACert:            []byte(testing.CACert),
-			Password:          pwHash,
+			Password:          "fake",
 		},
 		StateServerCert: []byte(testing.ServerCert),
 		StateServerKey:  []byte(testing.ServerKey),
@@ -186,22 +185,7 @@ func (s *bootstrapSuite) TestInitializeStateServingInfoNotAvailable(c *gc.C) {
 	_, available := cfg.StateServingInfo()
 	c.Assert(available, gc.Equals, false)
 
-	expectConstraints := constraints.MustParse("mem=1024M")
-	expectHW := instance.MustParseHardware("mem=2048M")
-	mcfg := agent.BootstrapMachineConfig{
-		Addresses:       instance.NewAddresses("0.1.2.3", "zeroonetwothree"),
-		Constraints:     expectConstraints,
-		Jobs:            []params.MachineJob{params.JobHostUnits},
-		InstanceId:      "i-bootstrap",
-		Characteristics: expectHW,
-	}
-	envAttrs := testing.FakeConfig().Delete("admin-secret").Merge(testing.Attrs{
-		"agent-version": version.Current.Number.String(),
-	})
-	envCfg, err := config.New(config.NoDefaults, envAttrs)
-	c.Assert(err, gc.IsNil)
-
-	_, _, err = agent.InitializeState(cfg, envCfg, mcfg, state.DialOpts{}, environs.NewStatePolicy())
+	_, _, err = agent.InitializeState(cfg, nil, agent.BootstrapMachineConfig{}, state.DialOpts{}, environs.NewStatePolicy())
 	// InitializeState will fail attempting to get the api port information
 	c.Assert(err, gc.ErrorMatches, "state serving information not available")
 }
