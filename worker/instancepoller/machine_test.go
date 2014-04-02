@@ -29,7 +29,7 @@ type machineSuite struct {
 	testbase.LoggingSuite
 }
 
-var testAddrs = []instance.Address{instance.NewAddress("127.0.0.1")}
+var testAddrs = instance.NewAddresses("127.0.0.1")
 
 func (s *machineSuite) TestSetsInstanceInfoInitially(c *gc.C) {
 	context := &testMachineContext{

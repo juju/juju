@@ -133,7 +133,7 @@ func (s *NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 	called := 0
 	expectState := &mockAPIState{
 		apiHostPorts: [][]instance.HostPort{
-			instance.AddressesWithPort([]instance.Address{instance.NewAddress("0.1.2.3")}, 1234),
+			instance.AddressesWithPort([]instance.Address{instance.NewAddress("0.1.2.3", instance.NetworkUnknown)}, 1234),
 		},
 	}
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {

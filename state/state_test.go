@@ -2950,7 +2950,7 @@ func (s *StateSuite) TestWatchAPIHostPorts(c *gc.C) {
 	wc.AssertOneChange()
 
 	err := s.State.SetAPIHostPorts([][]instance.HostPort{{{
-		Address: instance.NewAddress("0.1.2.3"),
+		Address: instance.NewAddress("0.1.2.3", instance.NetworkUnknown),
 		Port:    99,
 	}}})
 	c.Assert(err, gc.IsNil)
