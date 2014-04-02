@@ -102,11 +102,16 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 			Cert:       format.StateServerCert,
 			PrivateKey: format.StateServerKey,
 			APIPort:    format.APIPort,
-			StatePort:  format.StatePort}
+			StatePort:  format.StatePort,
+		}
 		// There's a private key, then we need the state port,
 		// which wasn't always in the  1.18 format. If it's not present
 		// we can infer it from the ports in the state addresses.
-		if config.servingInfo.StatePort == 0 && len(format.StateAddresses) > 0 {
+		if config.servingInfo.StatePort == 0 {
+			if len(format.StateAddresses) == 0 {
+				return nil, fmt.Errorf("server key found but no state port")
+			}
+
 			_, portString, err := net.SplitHostPort(format.StateAddresses[0])
 			if err != nil {
 				return nil, err
@@ -116,9 +121,8 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 				return nil, err
 			}
 			config.servingInfo.StatePort = statePort
-		} else if config.servingInfo.StatePort == 0 {
-			return nil, fmt.Errorf("server key found but no state port")
 		}
+
 	}
 	return config, nil
 }

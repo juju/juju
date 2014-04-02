@@ -99,9 +99,6 @@ func (formatter_1_16) unmarshal(data []byte) (*configInternal, error) {
 		oldPassword:       format.OldPassword,
 		values:            format.Values,
 	}
-	if len(stateServerKey) != 0 {
-
-	}
 	if len(format.StateAddresses) > 0 {
 		config.stateDetails = &connectionDetails{
 			format.StateAddresses,

@@ -313,17 +313,17 @@ func NewStateMachineConfig(configParams StateMachineConfigParams) (ConfigSetterW
 	if configParams.APIPort == 0 {
 		return nil, errgo.Trace(requiredError("api port"))
 	}
-	config0, err := NewAgentConfig(configParams.AgentConfigParams)
+	config, err := NewAgentConfig(configParams.AgentConfigParams)
 	if err != nil {
 		return nil, err
 	}
-	config0.SetStateServingInfo(params.StateServingInfo{
+	config.SetStateServingInfo(params.StateServingInfo{
 		Cert:       string(configParams.StateServerCert),
 		PrivateKey: string(configParams.StateServerKey),
 		APIPort:    configParams.APIPort,
 		StatePort:  configParams.StatePort,
 	})
-	return config0, nil
+	return config, nil
 }
 
 // Dir returns the agent-specific data directory.
