@@ -74,7 +74,6 @@ func (s *apiclientSuite) TestOpenMultipleError(c *gc.C) {
 	}()
 	info := s.APIInfo(c)
 	addr := listener.Addr().String()
-	c.Logf("addr: %q", addr)
 	info.Addrs = []string{addr, addr, addr}
 	_, err = api.Open(info, api.DialOpts{})
 	c.Assert(err, gc.ErrorMatches, `timed out connecting to "wss://.*/"`)
