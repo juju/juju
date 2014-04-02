@@ -631,6 +631,46 @@ func (s *withoutStateServerSuite) TestConstraints(c *gc.C) {
 	})
 }
 
+func (s *withoutStateServerSuite) TestNetworks(c *gc.C) {
+	// Add a machine with some networks.
+	template := state.MachineTemplate{
+		Series:          "quantal",
+		Jobs:            []state.MachineJob{state.JobHostUnits},
+		IncludeNetworks: []string{"net1", "net2"},
+		ExcludeNetworks: []string{"net3", "net4"},
+	}
+	netsMachine, err := s.State.AddOneMachine(template)
+	c.Assert(err, gc.IsNil)
+
+	includeNetsMachine0, excludeNetsMachine0, err := s.machines[0].Networks()
+	c.Assert(err, gc.IsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: s.machines[0].Tag()},
+		{Tag: netsMachine.Tag()},
+		{Tag: "machine-42"},
+		{Tag: "unit-foo-0"},
+		{Tag: "service-bar"},
+	}}
+	result, err := s.provisioner.Networks(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.NetworksResults{
+		Results: []params.NetworkResult{
+			{
+				IncludeNetworks: includeNetsMachine0,
+				ExcludeNetworks: excludeNetsMachine0,
+			},
+			{
+				IncludeNetworks: template.IncludeNetworks,
+				ExcludeNetworks: template.ExcludeNetworks,
+			},
+			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
 func (s *withoutStateServerSuite) TestSetProvisioned(c *gc.C) {
 	// Provision machine 0 first.
 	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")

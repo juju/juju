@@ -305,6 +305,31 @@ func (p *ProvisionerAPI) Constraints(args params.Entities) (params.ConstraintsRe
 	return result, nil
 }
 
+// Networks returns the networks for each given machine entity.
+func (p *ProvisionerAPI) Networks(args params.Entities) (params.NetworksResults, error) {
+	result := params.NetworksResults{
+		Results: make([]params.NetworkResult, len(args.Entities)),
+	}
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		return result, err
+	}
+	for i, entity := range args.Entities {
+		machine, err := p.getMachine(canAccess, entity.Tag)
+		if err == nil {
+			var includeNetworks []string
+			var excludeNetworks []string
+			includeNetworks, excludeNetworks, err = machine.Networks()
+			if err == nil {
+				result.Results[i].IncludeNetworks = includeNetworks
+				result.Results[i].ExcludeNetworks = excludeNetworks
+			}
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
 // SetProvisioned sets the provider specific machine id, nonce and
 // metadata for each given machine. Once set, the instance id cannot
 // be changed.

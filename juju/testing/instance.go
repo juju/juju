@@ -85,18 +85,20 @@ func StartInstanceWithConstraints(
 ) (
 	instance.Instance, *instance.HardwareCharacteristics, error,
 ) {
-	return StartInstanceWithConstraintsAndNetworks(env, machineId, cons, environs.Networks{})
+	return StartInstanceWithConstraintsAndNetworks(env, machineId, cons, nil, nil)
 }
 
 // AssertStartInstanceWithNetworks is a test helper function that starts an
 // instance with the given networks, and a plausible but invalid
 // configuration, and returns the result of Environ.StartInstance.
 func AssertStartInstanceWithNetworks(
-	c *gc.C, env environs.Environ, machineId string, cons constraints.Value, nets environs.Networks,
+	c *gc.C, env environs.Environ, machineId string, cons constraints.Value,
+	includeNetworks, excludeNetworks []string,
 ) (
 	instance.Instance, *instance.HardwareCharacteristics,
 ) {
-	inst, hc, err := StartInstanceWithConstraintsAndNetworks(env, machineId, cons, nets)
+	inst, hc, err := StartInstanceWithConstraintsAndNetworks(
+		env, machineId, cons, includeNetworks, excludeNetworks)
 	c.Assert(err, gc.IsNil)
 	return inst, hc
 }
@@ -106,7 +108,7 @@ func AssertStartInstanceWithNetworks(
 // returns the result of Environ.StartInstance.
 func StartInstanceWithConstraintsAndNetworks(
 	env environs.Environ, machineId string, cons constraints.Value,
-	nets environs.Networks,
+	includeNetworks, excludeNetworks []string,
 ) (
 	instance.Instance, *instance.HardwareCharacteristics, error,
 ) {
@@ -122,10 +124,12 @@ func StartInstanceWithConstraintsAndNetworks(
 	machineNonce := "fake_nonce"
 	stateInfo := FakeStateInfo(machineId)
 	apiInfo := FakeAPIInfo(machineId)
-	machineConfig := environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo)
+	machineConfig := environs.NewMachineConfig(
+		machineId, machineNonce,
+		includeNetworks, excludeNetworks,
+		stateInfo, apiInfo)
 	return env.StartInstance(environs.StartInstanceParams{
 		Constraints:   cons,
-		Networks:      nets,
 		Tools:         possibleTools,
 		MachineConfig: machineConfig,
 	})
