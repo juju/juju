@@ -39,7 +39,8 @@ const boilerplateConfig = `joyent:
   # Auth config
   # private-key-path is the private key used to sign Joyent requests.
   # Defaults to ~/.ssh/id_rsa, override if a different ssh key is used.
-  # You can also "private-key" to the *content* of the private key, instead.
+  # Alternatively, you can supply "private-key" with the content of the private
+  # key instead supplying the path to a file.
   # private-key-path: ~/.ssh/id_rsa
   # algorithm defaults to rsa-sha256, override if required
   # algorithm: rsa-sha256
