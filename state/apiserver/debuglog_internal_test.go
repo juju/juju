@@ -61,6 +61,7 @@ func (s *debugInternalSuite) TestCheckLevelUnset(c *gc.C) {
 	line.level = loggo.ERROR
 	c.Assert(stream.checkLevel(line), jc.IsTrue)
 }
+
 func (s *debugInternalSuite) TestCheckLevelSet(c *gc.C) {
 	level := loggo.INFO
 	stream := &logStream{filterLevel: &level}
@@ -76,4 +77,36 @@ func (s *debugInternalSuite) TestCheckLevelSet(c *gc.C) {
 	c.Assert(stream.checkLevel(line), jc.IsTrue)
 	line.level = loggo.ERROR
 	c.Assert(stream.checkLevel(line), jc.IsTrue)
+}
+
+func checkIncludeAgent(logValue string, includeAgent ...string) bool {
+	stream := &logStream{includeAgent: includeAgent}
+	line := &logLine{agent: logValue}
+	return stream.include(line)
+}
+
+func (s *debugInternalSuite) TestCheckIncludeAgent(c *gc.C) {
+	c.Check(checkIncludeAgent("machine-0"), jc.IsTrue)
+	c.Check(checkIncludeAgent("machine-0", "machine-0"), jc.IsTrue)
+	c.Check(checkIncludeAgent("machine-1", "machine-0"), jc.IsFalse)
+	c.Check(checkIncludeAgent("machine-1", "machine-0", "machine-1"), jc.IsTrue)
+	c.Check(checkIncludeAgent("machine-0-lxc-0", "machine-0"), jc.IsFalse)
+	c.Check(checkIncludeAgent("machine-0-lxc-0", "machine-0*"), jc.IsTrue)
+	c.Check(checkIncludeAgent("machine-0-lxc-0", "machine-0-lxc-*"), jc.IsTrue)
+}
+
+func checkIncludeModule(logValue string, module ...string) bool {
+	stream := &logStream{includeModule: module}
+	line := &logLine{module: logValue}
+	return stream.include(line)
+}
+
+func (s *debugInternalSuite) TestCheckIncludeModule(c *gc.C) {
+	c.Check(checkIncludeModule("juju"), jc.IsTrue)
+	c.Check(checkIncludeModule("juju", "juju"), jc.IsTrue)
+	c.Check(checkIncludeModule("juju", "juju.environ"), jc.IsFalse)
+	c.Check(checkIncludeModule("juju.provisioner", "juju"), jc.IsTrue)
+	c.Check(checkIncludeModule("juju.provisioner", "juju*"), jc.IsFalse)
+	c.Check(checkIncludeModule("juju.provisioner", "juju.environ"), jc.IsFalse)
+	c.Check(checkIncludeModule("unit.mysql/1", "juju", "unit"), jc.IsTrue)
 }

@@ -178,11 +178,13 @@ func parseLogLine(line string) *logLine {
 // logStream runs the tailer to read a log file and stream
 // it via a web socket.
 type logStream struct {
-	tomb        tomb.Tomb
-	filterRx    *regexp.Regexp
-	filterLevel *loggo.Level
-	includes    []string
-	excludes    []string
+	tomb          tomb.Tomb
+	filterRx      *regexp.Regexp
+	filterLevel   *loggo.Level
+	includeAgent  []string
+	includeModule []string
+	excludeAgent  []string
+	excludeModule []string
 }
 
 // loop starts the tailer with the log file and the web socket.
@@ -206,7 +208,25 @@ func (stream *logStream) filterLine(line []byte) bool {
 }
 
 func (stream *logStream) include(line *logLine) bool {
-	return true
+	if len(stream.includeAgent) == 0 && len(stream.includeModule) == 0 {
+		return true
+	}
+	for _, value := range stream.includeAgent {
+		// special handling, if ends with '*', check prefix
+		if strings.HasSuffix(value, "*") {
+			if strings.HasPrefix(line.agent, value[:len(value)-1]) {
+				return true
+			}
+		} else if line.agent == value {
+			return true
+		}
+	}
+	for _, value := range stream.includeModule {
+		if strings.HasPrefix(line.module, value) {
+			return true
+		}
+	}
+	return false
 }
 
 func (stream *logStream) exclude(line *logLine) bool {
