@@ -148,29 +148,20 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	defer st1.Close()
 }
 
-func (s *bootstrapSuite) TestInitializeWithStateServingInfoNotAvailable(c *gc.C) {
+func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *gc.C) {
 	dataDir := c.MkDir()
 
-	configParams := agent.StateMachineConfigParams{
-		AgentConfigParams: agent.AgentConfigParams{
-			DataDir:           dataDir,
-			Tag:               "machine-0",
-			UpgradedToVersion: version.Current.Number,
-			StateAddresses:    []string{testing.MgoServer.Addr()},
-			CACert:            []byte(testing.CACert),
-			Password:          "fake",
-		},
-		StateServerCert: []byte(testing.ServerCert),
-		StateServerKey:  []byte(testing.ServerKey),
-		APIPort:         1234,
-		StatePort:       3456,
+	configParams := agent.AgentConfigParams{
+		DataDir:           dataDir,
+		Tag:               "machine-0",
+		UpgradedToVersion: version.Current.Number,
+		StateAddresses:    []string{testing.MgoServer.Addr()},
+		CACert:            []byte(testing.CACert),
+		Password:          "fake",
 	}
-	cfg, err := agent.NewStateMachineConfig(configParams)
+	cfg, err := agent.NewAgentConfig(configParams)
 	c.Assert(err, gc.IsNil)
 
-	// we can't create a state machine config with missing serving info
-	// so we need to set invalid data
-	cfg.SetStateServingInfo(params.StateServingInfo{})
 	_, available := cfg.StateServingInfo()
 	c.Assert(available, gc.Equals, false)
 

@@ -217,7 +217,7 @@ type configInternal struct {
 	stateDetails      *connectionDetails
 	apiDetails        *connectionDetails
 	oldPassword       string
-	servingInfo       params.StateServingInfo
+	servingInfo       *params.StateServingInfo
 	values            map[string]string
 }
 
@@ -527,14 +527,14 @@ func (c *configInternal) Value(key string) string {
 }
 
 func (c *configInternal) StateServingInfo() (params.StateServingInfo, bool) {
-	if c.servingInfo.SharedSecret == "" {
+	if c.servingInfo == nil {
 		return params.StateServingInfo{}, false
 	}
-	return c.servingInfo, true
+	return *c.servingInfo, true
 }
 
 func (c *configInternal) SetStateServingInfo(info params.StateServingInfo) {
-	c.servingInfo = info
+	c.servingInfo = &info
 }
 
 func (c *configInternal) APIAddresses() ([]string, error) {
