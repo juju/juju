@@ -390,8 +390,8 @@ func (*suite) TestStateServingInfo(c *gc.C) {
 		PrivateKey: "new key",
 	}
 	conf.SetStateServingInfo(newParams)
-	result, available := conf.StateServingInfo()
-	c.Assert(available, gc.Equals, true)
+	result, ok := conf.StateServingInfo()
+	c.Assert(ok, gc.Equals, true)
 	c.Assert(result, jc.DeepEquals, newParams)
 }
 

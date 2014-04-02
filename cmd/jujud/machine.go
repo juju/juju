@@ -365,9 +365,9 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				// the agent's configuration file. In the future, we may retrieve
 				// the state server certificate and key from the state, and
 				// this should then change.
-				info, available := agentConfig.StateServingInfo()
-				if !available {
-					panic("StateServingInfo not avilable and we need it")
+				info, ok := agentConfig.StateServingInfo()
+				if !ok {
+					return nil, &fatalError{"StateServingInfo not available and we need it"}
 				}
 				port := info.APIPort
 				cert := []byte(info.Cert)

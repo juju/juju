@@ -155,7 +155,8 @@ type ConfigSetterOnly interface {
 	// the old configuration.
 	Migrate(MigrateParams) error
 
-	// SetStateServingInfo sets the state server related fields
+	// SetStateServingInfo sets the information needed
+	// to run a state server
 	SetStateServingInfo(info params.StateServingInfo)
 }
 
@@ -316,12 +317,13 @@ func NewStateMachineConfig(configParams StateMachineConfigParams) (ConfigSetterW
 	if err != nil {
 		return nil, err
 	}
-	config := config0.(*configInternal)
-	config.servingInfo.Cert = string(configParams.StateServerCert)
-	config.servingInfo.PrivateKey = string(configParams.StateServerKey)
-	config.servingInfo.APIPort = configParams.APIPort
-	config.servingInfo.StatePort = configParams.StatePort
-	return config, nil
+	config0.SetStateServingInfo(params.StateServingInfo{
+		Cert:       string(configParams.StateServerCert),
+		PrivateKey: string(configParams.StateServerKey),
+		APIPort:    configParams.APIPort,
+		StatePort:  configParams.StatePort,
+	})
+	return config0, nil
 }
 
 // Dir returns the agent-specific data directory.
