@@ -306,7 +306,6 @@ func (s *BundleSuite) TestExpandToWithBadLink(c *gc.C) {
 
 func extBundleDirPath(c *gc.C, dirpath string) string {
 	path := filepath.Join(c.MkDir(), "bundle.charm")
-	c.Logf("%#v", fmt.Sprintf("cd %s; zip --fifo --symlinks -r %s .", dirpath, path))
 	cmd := exec.Command("/bin/sh", "-c", fmt.Sprintf("cd %s; zip --fifo --symlinks -r %s .", dirpath, path))
 	output, err := cmd.CombinedOutput()
 	c.Assert(err, gc.IsNil, gc.Commentf("Command output: %s", output))
