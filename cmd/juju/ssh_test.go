@@ -14,7 +14,6 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -125,27 +124,9 @@ func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 
 func (s *SSHSuite) TestSSHCommandEnvironProxySSH(c *gc.C) {
 	s.makeMachines(1, c, true)
-	// Setting proxy-ssh=false in the bootstrap context
-	// should override --proxy.
-	store, err := configstore.Default()
+	// Setting proxy-ssh=false in the environment overrides --proxy.
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{"proxy-ssh": false}, nil, nil)
 	c.Assert(err, gc.IsNil)
-	info, err := store.ReadInfo("dummyenv")
-	c.Assert(err, gc.IsNil)
-	cfg := info.BootstrapConfig()
-	cfg["proxy-ssh"] = false
-	apiEndpoint := info.APIEndpoint()
-	apiCredentials := info.APICredentials()
-	err = info.Destroy()
-	c.Assert(err, gc.IsNil)
-
-	info, err = store.CreateInfo("dummyenv")
-	c.Assert(err, gc.IsNil)
-	info.SetBootstrapConfig(cfg)
-	info.SetAPIEndpoint(apiEndpoint)
-	info.SetAPICredentials(apiCredentials)
-	err = info.Write()
-	c.Assert(err, gc.IsNil)
-
 	ctx := coretesting.Context(c)
 	jujucmd := cmd.NewSuperCommand(cmd.SuperCommandParams{})
 	jujucmd.Register(&SSHCommand{})
@@ -172,10 +153,16 @@ func (a callbackAttempt) Next() bool {
 }
 
 func (s *SSHSuite) TestSSHCommandHostAddressRetry(c *gc.C) {
+	s.testSSHCommandHostAddressRetry(c, false)
+}
+
+func (s *SSHSuite) TestSSHCommandHostAddressRetryProxy(c *gc.C) {
+	s.testSSHCommandHostAddressRetry(c, true)
+}
+
+func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 	m := s.makeMachines(1, c, false)
 	ctx := coretesting.Context(c)
-	jujucmd := cmd.NewSuperCommand(cmd.SuperCommandParams{})
-	jujucmd.Register(&SSHCommand{})
 
 	var called int
 	next := func() bool {
@@ -187,18 +174,21 @@ func (s *SSHSuite) TestSSHCommandHostAddressRetry(c *gc.C) {
 
 	// Ensure that the ssh command waits for a public address, or the attempt
 	// strategy's Done method returns false.
-	code := cmd.Main(jujucmd, ctx, []string{"ssh", "0"})
+	args := []string{"--proxy=" + fmt.Sprint(proxy), "0"}
+	code := cmd.Main(&SSHCommand{}, ctx, args)
 	c.Check(code, gc.Equals, 1)
 	c.Assert(called, gc.Equals, 2)
 	called = 0
 	attemptStarter.next = func() bool {
 		called++
-		s.setAddress(m[0], c)
-		return false
+		if called > 1 {
+			s.setAddress(m[0], c)
+		}
+		return true
 	}
-	code = cmd.Main(jujucmd, ctx, []string{"ssh", "0"})
+	code = cmd.Main(&SSHCommand{}, ctx, args)
 	c.Check(code, gc.Equals, 0)
-	c.Assert(called, gc.Equals, 1)
+	c.Assert(called, gc.Equals, 2)
 }
 
 func (s *SSHCommonSuite) setAddress(m *state.Machine, c *gc.C) {

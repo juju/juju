@@ -843,7 +843,6 @@ var immutableAttributes = []string{
 	"bootstrap-timeout",
 	"bootstrap-retry-delay",
 	"bootstrap-addresses-delay",
-	"proxy-ssh",
 }
 
 var (
