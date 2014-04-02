@@ -33,6 +33,7 @@ import (
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
+	"launchpad.net/juju-core/worker/apiaddressupdater"
 	"launchpad.net/juju-core/worker/authenticationworker"
 	"launchpad.net/juju-core/worker/charmrevisionworker"
 	"launchpad.net/juju-core/worker/cleaner"
@@ -211,6 +212,9 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	// All other workers must wait for the upgrade steps to complete before starting.
 	a.startWorkerAfterUpgrade(runner, "machiner", func() (worker.Worker, error) {
 		return machiner.NewMachiner(st.Machiner(), agentConfig), nil
+	})
+	a.startWorkerAfterUpgrade(runner, "apiaddressupdater", func() (worker.Worker, error) {
+		return apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), a), nil
 	})
 	a.startWorkerAfterUpgrade(runner, "logger", func() (worker.Worker, error) {
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil

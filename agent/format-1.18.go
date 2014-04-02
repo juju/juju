@@ -77,12 +77,7 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 		nonce:             format.Nonce,
 		caCert:            []byte(format.CACert),
 		oldPassword:       format.OldPassword,
-		servingInfo: params.StateServingInfo{
-			Cert:       format.StateServerCert,
-			PrivateKey: format.StateServerKey,
-			APIPort:    format.APIPort,
-			StatePort:  format.StatePort},
-		values: format.Values,
+		values:            format.Values,
 	}
 	if config.logDir == "" {
 		config.logDir = DefaultLogDir
@@ -102,11 +97,21 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 			format.APIPassword,
 		}
 	}
-	if len(config.servingInfo.PrivateKey) != 0 {
+	if len(format.StateServerKey) != 0 {
+		config.servingInfo = &params.StateServingInfo{
+			Cert:       format.StateServerCert,
+			PrivateKey: format.StateServerKey,
+			APIPort:    format.APIPort,
+			StatePort:  format.StatePort,
+		}
 		// There's a private key, then we need the state port,
 		// which wasn't always in the  1.18 format. If it's not present
 		// we can infer it from the ports in the state addresses.
-		if config.servingInfo.StatePort == 0 && len(format.StateAddresses) > 0 {
+		if config.servingInfo.StatePort == 0 {
+			if len(format.StateAddresses) == 0 {
+				return nil, fmt.Errorf("server key found but no state port")
+			}
+
 			_, portString, err := net.SplitHostPort(format.StateAddresses[0])
 			if err != nil {
 				return nil, err
@@ -116,9 +121,8 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 				return nil, err
 			}
 			config.servingInfo.StatePort = statePort
-		} else if config.servingInfo.StatePort == 0 {
-			return nil, fmt.Errorf("server key found but no state port")
 		}
+
 	}
 	return config, nil
 }
@@ -133,11 +137,13 @@ func (formatter_1_18) marshal(config *configInternal) ([]byte, error) {
 		Nonce:             config.nonce,
 		CACert:            string(config.caCert),
 		OldPassword:       config.oldPassword,
-		StateServerCert:   config.servingInfo.Cert,
-		StateServerKey:    config.servingInfo.PrivateKey,
-		APIPort:           config.servingInfo.APIPort,
 		Values:            config.values,
-		StatePort:         config.servingInfo.StatePort,
+	}
+	if config.servingInfo != nil {
+		format.StateServerCert = config.servingInfo.Cert
+		format.StateServerKey = config.servingInfo.PrivateKey
+		format.APIPort = config.servingInfo.APIPort
+		format.StatePort = config.servingInfo.StatePort
 	}
 	if config.stateDetails != nil {
 		format.StateAddresses = config.stateDetails.addresses

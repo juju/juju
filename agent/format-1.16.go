@@ -97,12 +97,7 @@ func (formatter_1_16) unmarshal(data []byte) (*configInternal, error) {
 		upgradedToVersion: *format.UpgradedToVersion,
 		caCert:            caCert,
 		oldPassword:       format.OldPassword,
-		servingInfo: params.StateServingInfo{
-			Cert:       string(stateServerCert),
-			PrivateKey: string(stateServerKey),
-			APIPort:    format.APIPort,
-		},
-		values: format.Values,
+		values:            format.Values,
 	}
 	if len(format.StateAddresses) > 0 {
 		config.stateDetails = &connectionDetails{
@@ -110,7 +105,13 @@ func (formatter_1_16) unmarshal(data []byte) (*configInternal, error) {
 			format.StatePassword,
 		}
 	}
-	if len(config.servingInfo.PrivateKey) != 0 {
+
+	if len(stateServerKey) != 0 {
+		config.servingInfo = &params.StateServingInfo{
+			Cert:       string(stateServerCert),
+			PrivateKey: string(stateServerKey),
+			APIPort:    format.APIPort,
+		}
 		// There's a private key, then we need the state
 		// port, which wasn't directly available in the 1.16 format,
 		// but we can infer it from the ports in the state addresses.

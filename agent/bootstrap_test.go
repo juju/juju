@@ -149,7 +149,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	defer st1.Close()
 }
 
-func (s *bootstrapSuite) TestInitializeWithStateServingInfoNotAvailable(c *gc.C) {
+func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *gc.C) {
 	dataDir := c.MkDir()
 
 	configParams := agent.AgentConfigParams{
@@ -169,9 +169,6 @@ func (s *bootstrapSuite) TestInitializeWithStateServingInfoNotAvailable(c *gc.C)
 	cfg, err := agent.NewStateMachineConfig(configParams, servingInfo)
 	c.Assert(err, gc.IsNil)
 
-	// we can't create a state machine config with missing serving info
-	// so we need to set invalid data
-	cfg.SetStateServingInfo(params.StateServingInfo{})
 	_, available := cfg.StateServingInfo()
 	c.Assert(available, gc.Equals, false)
 
