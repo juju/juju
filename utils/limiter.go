@@ -7,7 +7,7 @@ import (
 	"fmt"
 )
 
-type empty struct {}
+type empty struct{}
 type limiter chan empty
 
 // Limiter represents a limited resource (eg a semaphore)
@@ -35,10 +35,10 @@ func NewLimiter(max int) Limiter {
 func (l limiter) Acquire() bool {
 	e := empty{}
 	select {
-		case l <- e:
-		  return true
-		default:
-		  return false
+	case l <- e:
+		return true
+	default:
+		return false
 	}
 }
 
@@ -49,11 +49,9 @@ func (l limiter) AcquireWait() {
 
 func (l limiter) Release() error {
 	select {
-		case <- l:
-		  return nil
-		default:
-		  return fmt.Errorf("Release without an associated Acquire")
+	case <-l:
+		return nil
+	default:
+		return fmt.Errorf("Release without an associated Acquire")
 	}
 }
-
-

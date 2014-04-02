@@ -8,12 +8,11 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/utils"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/utils"
 )
 
-
-type limiterSuite struct {}
+type limiterSuite struct{}
 
 var _ = gc.Suite(&limiterSuite{})
 

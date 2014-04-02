@@ -6,6 +6,8 @@ package apiserver_test
 import (
 	"net"
 	"strconv"
+	"sync"
+	"time"
 
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -67,6 +69,23 @@ func (s *loginSuite) setupServer(c *gc.C) (*api.Info, func()) {
 		err := srv.Stop()
 		c.Assert(err, gc.IsNil)
 	}
+}
+
+func (s *loginSuite) setupMachineAndServer(c *gc.C) (*api.Info, func()) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetProvisioned("foo", "fake_nonce", nil)
+	c.Assert(err, gc.IsNil)
+	password, err := utils.RandomPassword()
+	c.Assert(err, gc.IsNil)
+	err = machine.SetPassword(password)
+	c.Assert(err, gc.IsNil)
+	info, cleanup := s.setupServer(c)
+	defer cleanup()
+	info.Tag = machine.Tag()
+	info.Password = password
+	info.Nonce = "fake_nonce"
+	return info, cleanup
 }
 
 func (s *loginSuite) TestBadLogin(c *gc.C) {
@@ -171,19 +190,8 @@ func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {
 }
 
 func (s *loginSuite) TestLoginAddrs(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
-	err = machine.SetProvisioned("foo", "fake_nonce", nil)
-	c.Assert(err, gc.IsNil)
-	password, err := utils.RandomPassword()
-	c.Assert(err, gc.IsNil)
-	err = machine.SetPassword(password)
-	c.Assert(err, gc.IsNil)
-	info, cleanup := s.setupServer(c)
+	info, cleanup := s.setupMachineAndServer(c)
 	defer cleanup()
-	info.Tag = machine.Tag()
-	info.Password = password
-	info.Nonce = "fake_nonce"
 
 	// Initially just the address we connect with is returned,
 	// despite there being no APIHostPorts in state.
@@ -234,4 +242,102 @@ func (s *loginSuite) loginHostPorts(c *gc.C, info *api.Info) (connectedAddr stri
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 	return st.Addr(), st.APIHostPorts()
+}
+
+type loginResult struct {
+	requestNum int
+	err        error
+}
+
+func (s *loginSuite) TestDelayLogins(c *gc.C) {
+	info, cleanup := s.setupMachineAndServer(c)
+	defer cleanup()
+	delayChan, cleanup := apiserver.DelayCheckCreds()
+	defer cleanup()
+
+	// Trigger a bunch of login requests
+	errResults := make(chan loginResult, 100)
+	var wg sync.WaitGroup
+	for i := 0; i < 10; i++ {
+		i := i
+		wg.Add(1)
+		go func() {
+			st, err := api.Open(info, fastDialOpts)
+			if err == nil {
+				st.Close()
+			}
+			errResults <- loginResult{i, err}
+			wg.Done()
+		}()
+	}
+	select {
+	case result := <-errResults:
+		c.Fatalf("we should not have gotten any logins yet: %v", result)
+	case <-time.After(coretesting.ShortWait):
+	}
+	// Now allow the logins to proceed
+	for i := 0; i < 10; i++ {
+		delayChan <- struct{}{}
+	}
+	wg.Wait()
+	close(errResults)
+	successCount := 0
+	errorCount := 0
+	for result := range errResults {
+		if result.err != nil {
+			errorCount += 1
+		} else {
+			successCount += 1
+		}
+	}
+	c.Check(errorCount, gc.Equals, 0)
+	c.Check(successCount, gc.Equals, 10)
+}
+
+func (s *loginSuite) TestLoginRateLimited(c *gc.C) {
+	info, cleanup := s.setupMachineAndServer(c)
+	defer cleanup()
+	delayChan, cleanup := apiserver.DelayCheckCreds()
+	defer cleanup()
+
+	// Start a bunch of login requests, that shouldn't complete yet
+	errResults := make(chan error, 100)
+	var doneWG sync.WaitGroup
+	var startedWG sync.WaitGroup
+	for i := 0; i < 10; i++ {
+		startedWG.Add(1)
+		doneWG.Add(1)
+		go func() {
+			startedWG.Done()
+			st, err := api.Open(info, fastDialOpts)
+			if err != nil {
+				errResults <- err
+			} else {
+				st.Close()
+			}
+			doneWG.Done()
+		}()
+	}
+	select {
+	case err := <-errResults:
+		c.Fatalf("we should not have gotten any logins yet: %v", err)
+	case <-time.After(coretesting.ShortWait):
+	}
+	startedWG.Wait()
+	// We now have a bunch of pending Login requests, the next login
+	// request should be immediately bounced
+	_, err := api.Open(info, fastDialOpts)
+	c.Check(err, gc.ErrorMatches, "login")
+	// Let all the other logins finish
+	for i := 0; i < 10; i++ {
+		delayChan <- struct{}{}
+	}
+	doneWG.Wait()
+	// None of the original requests should have failed
+	select {
+	case err := <-errResults:
+		c.Fatalf("we got an unexpected login failure: %v", err)
+	case <-time.After(coretesting.ShortWait):
+	}
+	close(errResults)
 }

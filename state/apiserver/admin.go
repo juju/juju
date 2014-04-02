@@ -70,7 +70,7 @@ func (a *srvAdmin) Login(c params.Creds) (params.LoginResult, error) {
 		// This can only happen if Login is called concurrently.
 		return params.LoginResult{}, errAlreadyLoggedIn
 	}
-	entity, err := checkCreds(a.root.srv.state, c)
+	entity, err := doCheckCreds(a.root.srv.state, c)
 	if err != nil {
 		return params.LoginResult{}, err
 	}
@@ -94,6 +94,8 @@ func (a *srvAdmin) Login(c params.Creds) (params.LoginResult, error) {
 	a.root.rpcConn.Serve(newRoot, serverError)
 	return params.LoginResult{hostPorts}, nil
 }
+
+var doCheckCreds = checkCreds
 
 func checkCreds(st *state.State, c params.Creds) (taggedAuthenticator, error) {
 	entity0, err := st.FindEntity(c.AuthTag)
