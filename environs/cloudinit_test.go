@@ -161,9 +161,9 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 		params.JobHostUnits,
 	}
 	cfg := &cloudinit.MachineConfig{
-		MachineId:       "10",
-		MachineNonce:    "5432",
-		Tools:           tools,
+		MachineId:    "10",
+		MachineNonce: "5432",
+		Tools:        tools,
 		StateInfo: &state.Info{
 			Addrs:    []string{"127.0.0.1:1234"},
 			Password: "pw1",
@@ -188,10 +188,10 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 	if bootstrap {
 		cfg.Bootstrap = true
 		cfg.StateServingInfo = &params.StateServingInfo{
-			StatePort:               envConfig.StatePort(),
-			APIPort:                 envConfig.APIPort(),
-			Cert: testing.ServerCert,
-			PrivateKey:  testing.ServerKey,
+			StatePort:  envConfig.StatePort(),
+			APIPort:    envConfig.APIPort(),
+			Cert:       testing.ServerCert,
+			PrivateKey: testing.ServerKey,
 		}
 	}
 	script1 := "script1"

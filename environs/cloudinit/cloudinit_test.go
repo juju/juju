@@ -301,7 +301,7 @@ start jujud-machine-99
 			LogDir:               agent.DefaultLogDir,
 			Jobs:                 normalMachineJobs,
 			CloudInitOutputLog:   environs.CloudInitOutputLog,
-			Bootstrap:          false,
+			Bootstrap:            false,
 			Tools:                newSimpleTools("1.2.3-linux-amd64"),
 			MachineNonce:         "FAKE_NONCE",
 			StateInfo: &state.Info{
@@ -337,7 +337,7 @@ start jujud-machine-2-lxc-1
 			LogDir:             agent.DefaultLogDir,
 			Jobs:               normalMachineJobs,
 			CloudInitOutputLog: environs.CloudInitOutputLog,
-			Bootstrap:        false,
+			Bootstrap:          false,
 			Tools:              newSimpleTools("1.2.3-linux-amd64"),
 			MachineNonce:       "FAKE_NONCE",
 			StateInfo: &state.Info{
@@ -805,7 +805,7 @@ var verifyTests = []struct {
 // checked for by NewCloudInit.
 func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 	cfg := &cloudinit.MachineConfig{
-		Bootstrap:      true,
+		Bootstrap:        true,
 		StateServingInfo: stateServingInfo,
 		MachineId:        "99",
 		Tools:            newSimpleTools("9.9.9-linux-arble"),
@@ -847,7 +847,6 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		err = cloudinit.Configure(&cfg1, ci)
 		c.Assert(err, gc.ErrorMatches, "invalid machine configuration: "+test.err)
 
-		
 	}
 }
 

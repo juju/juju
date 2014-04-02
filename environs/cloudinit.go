@@ -145,9 +145,9 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 	}
 
 	srvInfo := params.StateServingInfo{
-		StatePort: cfg.StatePort(),
-		APIPort: cfg.APIPort(),
-		Cert: string(cert),
+		StatePort:  cfg.StatePort(),
+		APIPort:    cfg.APIPort(),
+		Cert:       string(cert),
 		PrivateKey: string(key),
 	}
 	mcfg.StateServingInfo = &srvInfo

@@ -273,20 +273,20 @@ func writeStateAgentConfig(c *gc.C, stateInfo *state.Info, dataDir, tag, passwor
 	apiAddr := []string{fmt.Sprintf("localhost:%d", port)}
 	conf, err := agent.NewStateMachineConfig(
 		agent.AgentConfigParams{
-				DataDir:           dataDir,
-				Tag:               tag,
-				UpgradedToVersion: vers.Number,
-				Password:          password,
-				Nonce:             state.BootstrapNonce,
-				StateAddresses:    stateInfo.Addrs,
-				APIAddresses:      apiAddr,
-				CACert:            stateInfo.CACert,
+			DataDir:           dataDir,
+			Tag:               tag,
+			UpgradedToVersion: vers.Number,
+			Password:          password,
+			Nonce:             state.BootstrapNonce,
+			StateAddresses:    stateInfo.Addrs,
+			APIAddresses:      apiAddr,
+			CACert:            stateInfo.CACert,
 		},
 		params.StateServingInfo{
-			Cert: coretesting.ServerCert,
-			PrivateKey:  coretesting.ServerKey,
-			StatePort:       coretesting.MgoServer.Port(),
-			APIPort:         port,
+			Cert:       coretesting.ServerCert,
+			PrivateKey: coretesting.ServerKey,
+			StatePort:  coretesting.MgoServer.Port(),
+			APIPort:    port,
 		})
 	c.Assert(err, gc.IsNil)
 	conf.SetPassword(password)
