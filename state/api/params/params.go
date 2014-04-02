@@ -474,6 +474,14 @@ type StateServingInfo struct {
 	SharedSecret string
 }
 
+// IsMasterResult holds the result of an IsMaster API call.
+type IsMasterResult struct {
+	// Master reports whether the connected agent
+	// lives on the same instance as the mongo replica
+	// set master.
+	Master bool
+}
+
 // MachineInfo holds the information about a Machine
 // that is watched by StateWatcher.
 type MachineInfo struct {
