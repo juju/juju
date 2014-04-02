@@ -27,17 +27,17 @@ func newConfig(c *gc.C, attrs coretesting.Attrs) *config.Config {
 
 func validAttrs() coretesting.Attrs {
 	return coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"type":         "joyent",
-		"sdc-user":     "juju-test",
-		"sdc-key-id":   "00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff",
-		"sdc-url":      "https://test.api.joyentcloud.com",
-		"manta-user":   "juju-test",
-		"manta-key-id": "00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff",
-		"manta-url":    "https://test.manta.joyent.com",
-		"key-file":     "~/.ssh/provider_id_rsa",
-		"algorithm":    "rsa-sha256",
-		"control-dir":  "juju-test",
-		"private-key":  "key",
+		"type":             "joyent",
+		"sdc-user":         "juju-test",
+		"sdc-key-id":       "00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff",
+		"sdc-url":          "https://test.api.joyentcloud.com",
+		"manta-user":       "juju-test",
+		"manta-key-id":     "00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff",
+		"manta-url":        "https://test.manta.joyent.com",
+		"private-key-path": "~/.ssh/provider_id_rsa",
+		"algorithm":        "rsa-sha256",
+		"control-dir":      "juju-test",
+		"private-key":      "key",
 	})
 }
 
@@ -186,22 +186,22 @@ var newConfigTests = []struct {
 	insert: coretesting.Attrs{"manta-url": "https://test.manta.joyent.com"},
 	expect: coretesting.Attrs{"manta-url": "https://test.manta.joyent.com"},
 }, {
-	info:   "key-file is inserted if missing",
-	remove: []string{"key-file"},
-	expect: coretesting.Attrs{"key-file": "~/.ssh/id_rsa"},
+	info:   "private-key-path is inserted if missing",
+	remove: []string{"private-key-path"},
+	expect: coretesting.Attrs{"private-key-path": "~/.ssh/id_rsa"},
 }, {
-	info:   "can get key-file from env variable",
-	insert: coretesting.Attrs{"key-file": ""},
-	expect: coretesting.Attrs{"key-file": "some-file"},
+	info:   "can get private-key-path from env variable",
+	insert: coretesting.Attrs{"private-key-path": ""},
+	expect: coretesting.Attrs{"private-key-path": "some-file"},
 	envVars: map[string]string{
-		"MANTA_KEY_FILE": "some-file",
+		"MANTA_PRIVATE_KEY_FILE": "some-file",
 	},
 }, {
-	info:   "can get key-file from env variable, missing from config",
-	remove: []string{"key-file"},
-	expect: coretesting.Attrs{"key-file": "some-file"},
+	info:   "can get private-key-path from env variable, missing from config",
+	remove: []string{"private-key-path"},
+	expect: coretesting.Attrs{"private-key-path": "some-file"},
 	envVars: map[string]string{
-		"MANTA_KEY_FILE": "some-file",
+		"MANTA_PRIVATE_KEY_FILE": "some-file",
 	},
 }, {
 	info:   "algorithm is inserted if missing",
@@ -336,11 +336,11 @@ var prepareConfigTests = []struct {
 	expect: validPrepareAttrs(),
 }, {
 	info:   "private key is loaded from key file",
-	insert: coretesting.Attrs{"key-file": fmt.Sprintf("~/.ssh/%s", testKeyFileName)},
+	insert: coretesting.Attrs{"private-key-path": fmt.Sprintf("~/.ssh/%s", testKeyFileName)},
 	expect: coretesting.Attrs{"private-key": testPrivateKey},
 }, {
-	info:   "bad key-file errors, not panics",
-	insert: coretesting.Attrs{"key-file": "~/.ssh/no-such-file"},
+	info:   "bad private-key-path errors, not panics",
+	insert: coretesting.Attrs{"private-key-path": "~/.ssh/no-such-file"},
 	err:    "invalid Joyent provider config: open .*: no such file or directory",
 }}
 
@@ -366,8 +366,8 @@ func (s *ConfigSuite) TestPrepare(c *gc.C) {
 
 func (s *ConfigSuite) TestPrepareWithDefaultKeyFile(c *gc.C) {
 	ctx := coretesting.Context(c)
-	// By default "key-file" isn't set until after validateConfig has been called.
-	attrs := validAttrs().Delete("key-file", "private-key")
+	// By default "private-key-path isn't set until after validateConfig has been called.
+	attrs := validAttrs().Delete("private-key-path", "private-key")
 	keyFilePath, err := utils.NormalizePath(jp.DefaultPrivateKey)
 	c.Assert(err, gc.IsNil)
 	err = ioutil.WriteFile(keyFilePath, []byte(testPrivateKey), 400)
@@ -377,6 +377,6 @@ func (s *ConfigSuite) TestPrepareWithDefaultKeyFile(c *gc.C) {
 	preparedConfig, err := jp.Provider.Prepare(ctx, testConfig)
 	c.Assert(err, gc.IsNil)
 	attrs = preparedConfig.Config().AllAttrs()
-	c.Check(attrs["key-file"], gc.Equals, jp.DefaultPrivateKey)
+	c.Check(attrs["private-key-path"], gc.Equals, jp.DefaultPrivateKey)
 	c.Check(attrs["private-key"], gc.Equals, testPrivateKey)
 }
