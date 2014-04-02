@@ -15,6 +15,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
@@ -61,6 +62,7 @@ func (s *ImageMetadataSuite) TearDownTest(c *gc.C) {
 var seriesVersions map[string]string = map[string]string{
 	"precise": "12.04",
 	"raring":  "13.04",
+	"trusty":  "14.04",
 }
 
 type expectedMetadata struct {
@@ -146,7 +148,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesDefaultSeries(c *gc.C) {
 	c.Assert(code, gc.Equals, 0)
 	out := testing.Stdout(ctx)
 	expected := expectedMetadata{
-		series: "precise",
+		series: config.LatestLtsSeries(),
 		arch:   "arch",
 	}
 	s.assertCommandOutput(c, expected, out, defaultIndexFileName, defaultImageFileName)
