@@ -39,6 +39,17 @@ func (s *format_1_18Suite) TestMissingAttributes(c *gc.C) {
 	c.Assert(readConfig.DataDir(), gc.Equals, "/var/lib/juju")
 }
 
+func (s *format_1_18Suite) TestStatePortNotParsedWithoutSecret(c *gc.C) {
+	dataDir := c.MkDir()
+	configPath := filepath.Join(dataDir, agentConfigFilename)
+	err := utils.AtomicWriteFile(configPath, []byte(agentConfig1_18NotStateMachine), 0600)
+	c.Assert(err, gc.IsNil)
+	readConfig, err := ReadConfig(configPath)
+	c.Assert(err, gc.IsNil)
+	_, available := readConfig.StateServingInfo()
+	c.Assert(available, gc.Equals, false)
+}
+
 func (*format_1_18Suite) TestReadConfWithExisting1_18ConfigFileContents(c *gc.C) {
 	dataDir := c.MkDir()
 	configPath := filepath.Join(dataDir, agentConfigFilename)
@@ -166,5 +177,63 @@ stateserverkey: '-----BEGIN RSA PRIVATE KEY-----
   -----END RSA PRIVATE KEY-----
 
 '
+apiport: 17070
+`[1:]
+
+var agentConfig1_18NotStateMachine = `
+# format 1.18
+tag: machine-1
+datadir: /home/user/.juju/local
+logdir: /var/log/juju-user-local
+nonce: user-admin:bootstrap
+jobs:
+- JobManageEnviron
+upgradedToVersion: 1.17.5.1
+cacert: '-----BEGIN CERTIFICATE-----
+
+  MIICWzCCAcagAwIBAgIBADALBgkqhkiG9w0BAQUwQzENMAsGA1UEChMEanVqdTEy
+
+  MDAGA1UEAwwpanVqdS1nZW5lcmF0ZWQgQ0EgZm9yIGVudmlyb25tZW50ICJsb2Nh
+
+  bCIwHhcNMTQwMzA1MTQxOTA3WhcNMjQwMzA1MTQyNDA3WjBDMQ0wCwYDVQQKEwRq
+
+  dWp1MTIwMAYDVQQDDClqdWp1LWdlbmVyYXRlZCBDQSBmb3IgZW52aXJvbm1lbnQg
+
+  ImxvY2FsIjCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEAwHsKV7fKfmSQt2QL
+
+  P4+hrqQJhDTMifgNkIY9nTlLHegV5jl5XJ8lRYjZBXJEMz0AzW/RbrDElkn5+4Do
+
+  pIWPNDAT0eztXBvVwL6qQOUtiBsA7vHQJMQaLVAmZNKvrHyuhcoG+hpf8EMaLdbA
+
+  iCGKifs+Y0MFt5AeriVDH5lGlzcCAwEAAaNjMGEwDgYDVR0PAQH/BAQDAgCkMA8G
+
+  A1UdEwEB/wQFMAMBAf8wHQYDVR0OBBYEFB3Td3SP66UToZkOjVh3Wy8b6HR6MB8G
+
+  A1UdIwQYMBaAFB3Td3SP66UToZkOjVh3Wy8b6HR6MAsGCSqGSIb3DQEBBQOBgQB4
+
+  izvSRSpimi40aEOnZIsSMHVBiSCclpBg5cq7lGyiUSsDROTIbsRAKPBmrflB/qbf
+
+  J70rWFwh/d/5ssCAYrZviFL6WvpuLD3j3m4PYampNMmvJf2s6zVRIMotEY+bVwfU
+
+  z4jGaVpODac0i0bE0/Uh9qXK1UXcYY57vNNAgkaYAQ==
+
+  -----END CERTIFICATE-----
+
+'
+stateaddresses:
+- localhost:37017
+statepassword: NB5imrDaWCCRW/4akSSvUxhX
+apiaddresses:
+- localhost:17070
+apipassword: NB5imrDaWCCRW/4akSSvUxhX
+oldpassword: oBlMbFUGvCb2PMFgYVzjS6GD
+values:
+  AGENT_SERVICE_NAME: juju-agent-user-local
+  CONTAINER_TYPE: ""
+  MONGO_SERVICE_NAME: juju-db-user-local
+  NAMESPACE: user-local
+  PROVIDER_TYPE: local
+  STORAGE_ADDR: 10.0.3.1:8040
+  STORAGE_DIR: /home/user/.juju/local/storage
 apiport: 17070
 `[1:]
