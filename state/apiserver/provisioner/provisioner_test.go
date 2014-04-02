@@ -710,12 +710,14 @@ func (s *withoutStateServerSuite) TestInstanceId(c *gc.C) {
 func (s *withoutStateServerSuite) TestWatchEnvironMachines(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
-	result, err := s.provisioner.WatchEnvironMachines()
+	got, err := s.provisioner.WatchEnvironMachines()
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{
+	want := params.StringsWatchResult{
 		StringsWatcherId: "1",
 		Changes:          []string{"0", "1", "2", "3", "4"},
-	})
+	}
+	c.Assert(got.StringsWatcherId, gc.Equals, want.StringsWatcherId)
+	c.Assert(got.Changes, jc.SameContents, want.Changes)
 
 	// Verify the resources were registered and stop them when done.
 	c.Assert(s.resources.Count(), gc.Equals, 1)
@@ -734,7 +736,7 @@ func (s *withoutStateServerSuite) TestWatchEnvironMachines(c *gc.C) {
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, gc.IsNil)
 
-	result, err = aProvisioner.WatchEnvironMachines()
+	result, err := aProvisioner.WatchEnvironMachines()
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{})
 }

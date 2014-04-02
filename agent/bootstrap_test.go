@@ -4,9 +4,6 @@
 package agent_test
 
 import (
-	"net"
-	"strconv"
-
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -22,14 +19,6 @@ import (
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
-
-func parseStatePort(c *gc.C, address string) int {
-	_, portString, err := net.SplitHostPort(address)
-	c.Assert(err, gc.IsNil)
-	statePort, err := strconv.Atoi(portString)
-	c.Assert(err, gc.IsNil)
-	return statePort
-}
 
 type bootstrapSuite struct {
 	testbase.LoggingSuite
@@ -160,7 +149,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	defer st1.Close()
 }
 
-func (s *bootstrapSuite) TestInitializeStateServingInfoNotAvailable(c *gc.C) {
+func (s *bootstrapSuite) TestInitializeWithStateServingInfoNotAvailable(c *gc.C) {
 	dataDir := c.MkDir()
 
 	configParams := agent.AgentConfigParams{
@@ -205,7 +194,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	cfg, err := agent.NewAgentConfig(configParams)
 	c.Assert(err, gc.IsNil)
 	cfg.SetStateServingInfo(params.StateServingInfo{
-		StatePort: parseStatePort(c, configParams.StateAddresses[0]),
+		StatePort: testing.MgoServer.Port(),
 	})
 	expectConstraints := constraints.MustParse("mem=1024M")
 	expectHW := instance.MustParseHardware("mem=2048M")

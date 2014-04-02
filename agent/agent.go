@@ -155,7 +155,8 @@ type ConfigSetterOnly interface {
 	// the old configuration.
 	Migrate(MigrateParams) error
 
-	// SetStateServingInfo sets the state server related fields
+	// SetStateServingInfo sets the information needed
+	// to run a state server
 	SetStateServingInfo(info params.StateServingInfo)
 }
 

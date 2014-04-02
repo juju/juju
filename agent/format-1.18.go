@@ -103,6 +103,9 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 		}
 	}
 	if len(config.servingInfo.PrivateKey) != 0 {
+		// There's a private key, then we need the state port,
+		// which wasn't always in the  1.18 format. If it's not present
+		// we can infer it from the ports in the state addresses.
 		if config.servingInfo.StatePort == 0 && len(format.StateAddresses) > 0 {
 			_, portString, err := net.SplitHostPort(format.StateAddresses[0])
 			if err != nil {
