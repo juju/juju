@@ -46,14 +46,14 @@ const boilerplateConfig = `joyent:
 `
 
 const (
-	SdcAccount        = "SDC_ACCOUNT"
-	SdcKeyId          = "SDC_KEY_ID"
-	SdcUrl            = "SDC_URL"
-	MantaUser         = "MANTA_USER"
-	MantaKeyId        = "MANTA_KEY_ID"
-	MantaUrl          = "MANTA_URL"
-	MantaKeyFile      = "MANTA_KEY_FILE"
-	DefaultPrivateKey = "~/.ssh/id_rsa"
+	SdcAccount          = "SDC_ACCOUNT"
+	SdcKeyId            = "SDC_KEY_ID"
+	SdcUrl              = "SDC_URL"
+	MantaUser           = "MANTA_USER"
+	MantaKeyId          = "MANTA_KEY_ID"
+	MantaUrl            = "MANTA_URL"
+	MantaPrivateKeyPath = "MANTA_PRIVATE_KEY_PATH"
+	DefaultPrivateKey   = "~/.ssh/id_rsa"
 )
 
 var environmentVariables = map[string]string{
@@ -63,7 +63,7 @@ var environmentVariables = map[string]string{
 	"manta-user":       MantaUser,
 	"manta-key-id":     MantaKeyId,
 	"manta-url":        MantaUrl,
-	"private-key-path": MantaKeyFile,
+	"private-key-path": MantaPrivateKeyPath,
 }
 
 var configFields = schema.Fields{
