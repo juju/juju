@@ -307,6 +307,21 @@ func (*suite) TestNewStateMachineConfig(c *gc.C) {
 			StateServerCert: []byte("server cert"),
 		},
 		checkErr: "state server key not found in configuration",
+	}, {
+		about: "missing state port",
+		params: agent.StateMachineConfigParams{
+			StateServerCert: []byte("server cert"),
+			StateServerKey:  []byte("server key"),
+		},
+		checkErr: "state port not found in configuration",
+	}, {
+		about: "missing api port",
+		params: agent.StateMachineConfigParams{
+			StateServerCert: []byte("server cert"),
+			StateServerKey:  []byte("server key"),
+			StatePort:       69,
+		},
+		checkErr: "api port not found in configuration",
 	}}
 
 	for _, test := range agentConfigTests {
@@ -316,6 +331,8 @@ func (*suite) TestNewStateMachineConfig(c *gc.C) {
 				StateServerCert:   []byte("server cert"),
 				StateServerKey:    []byte("server key"),
 				AgentConfigParams: test.params,
+				StatePort:         3171,
+				APIPort:           300,
 			},
 			checkErr: test.checkErr,
 		})
@@ -354,6 +371,36 @@ func (*suite) TestAttributes(c *gc.C) {
 	c.Assert(conf.Dir(), gc.Equals, "/data/dir/agents/omg")
 	c.Assert(conf.Nonce(), gc.Equals, "a nonce")
 	c.Assert(conf.UpgradedToVersion(), jc.DeepEquals, version.Current.Number)
+}
+
+func (*suite) TestStateServingInfo(c *gc.C) {
+	machineParams := agent.StateMachineConfigParams{
+		AgentConfigParams: attributeParams,
+		StateServerCert:   []byte("old cert"),
+		StateServerKey:    []byte("old key"),
+		StatePort:         69,
+		APIPort:           47,
+	}
+	conf, err := agent.NewStateMachineConfig(machineParams)
+	c.Assert(err, gc.IsNil)
+	newParams := params.StateServingInfo{
+		APIPort:    147,
+		StatePort:  169,
+		Cert:       "new cert",
+		PrivateKey: "new key",
+	}
+	conf.SetStateServingInfo(newParams)
+	result, ok := conf.StateServingInfo()
+	c.Assert(ok, gc.Equals, true)
+	c.Assert(result, jc.DeepEquals, newParams)
+}
+
+func (*suite) TestStateServingInfoNotAvailable(c *gc.C) {
+	conf, err := agent.NewAgentConfig(attributeParams)
+	c.Assert(err, gc.IsNil)
+
+	_, available := conf.StateServingInfo()
+	c.Assert(available, gc.Equals, false)
 }
 
 func (s *suite) TestApiAddressesCantWriteBack(c *gc.C) {
