@@ -1218,10 +1218,10 @@ func (s *MachineSuite) TestSetAddresses(c *gc.C) {
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
 	addresses := []instance.Address{
-		instance.NewAddress("127.0.0.1"),
-		instance.NewAddress("8.8.8.8"),
+		instance.NewAddress("127.0.0.1", instance.NetworkUnknown),
+		instance.NewAddress("8.8.8.8", instance.NetworkUnknown),
 	}
-	err = machine.SetAddresses(addresses)
+	err = machine.SetAddresses(addresses...)
 	c.Assert(err, gc.IsNil)
 	err = machine.Refresh()
 	c.Assert(err, gc.IsNil)
@@ -1234,8 +1234,8 @@ func (s *MachineSuite) TestSetMachineAddresses(c *gc.C) {
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
 	addresses := []instance.Address{
-		instance.NewAddress("127.0.0.1"),
-		instance.NewAddress("8.8.8.8"),
+		instance.NewAddress("127.0.0.1", instance.NetworkUnknown),
+		instance.NewAddress("8.8.8.8", instance.NetworkUnknown),
 	}
 	err = machine.SetMachineAddresses(addresses)
 	c.Assert(err, gc.IsNil)

@@ -361,6 +361,12 @@ type ModifyUserSSHKeys struct {
 	Keys []string
 }
 
+// ModifyUser stores the parameters used for a UserManager.Add|Remove call
+type ModifyUser struct {
+	Tag      string
+	Password string
+}
+
 // MarshalJSON implements json.Marshaler.
 func (d *Delta) MarshalJSON() ([]byte, error) {
 	b, err := json.Marshal(d.Entity)

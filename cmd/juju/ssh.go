@@ -6,14 +6,19 @@ package main
 import (
 	"errors"
 	"fmt"
+	"net"
+	"os"
+	"os/exec"
 	"time"
 
+	"launchpad.net/gnuflag"
+
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/cmd/envcmd"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/ssh"
 )
@@ -25,12 +30,33 @@ type SSHCommand struct {
 
 // SSHCommon provides common methods for SSHCommand, SCPCommand and DebugHooksCommand.
 type SSHCommon struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
+	proxy     bool
+	pty       bool
 	Target    string
 	Args      []string
 	apiClient *api.Client
-	// Only used for compatibility with 1.16
-	rawConn *juju.Conn
+	apiAddr   string
+}
+
+func (c *SSHCommon) SetFlags(f *gnuflag.FlagSet) {
+	c.EnvCommandBase.SetFlags(f)
+	f.BoolVar(&c.proxy, "proxy", true, "proxy through the API server")
+	f.BoolVar(&c.pty, "pty", true, "enable pseudo-tty allocation")
+}
+
+// setProxyCommand sets the proxy command option.
+func (c *SSHCommon) setProxyCommand(options *ssh.Options) error {
+	apiServerHost, _, err := net.SplitHostPort(c.apiAddr)
+	if err != nil {
+		return fmt.Errorf("failed to get proxy address: %v", err)
+	}
+	juju, err := getJujuExecutable()
+	if err != nil {
+		return fmt.Errorf("failed to get juju executable path: %v", err)
+	}
+	options.SetProxyCommand(juju, "ssh", "--proxy=false", "--pty=false", apiServerHost, "nc", "-q0", "%h", "%p")
+	return nil
 }
 
 const sshDoc = `
@@ -68,6 +94,10 @@ func (c *SSHCommand) Info() *cmd.Info {
 }
 
 func (c *SSHCommand) Init(args []string) error {
+	err := c.EnvCommandBase.Init()
+	if err != nil {
+		return err
+	}
 	if len(args) == 0 {
 		return errors.New("no target name specified")
 	}
@@ -75,23 +105,40 @@ func (c *SSHCommand) Init(args []string) error {
 	return nil
 }
 
+// getJujuExecutable returns the path to the juju
+// executable, or an error if it could not be found.
+var getJujuExecutable = func() (string, error) {
+	return exec.LookPath(os.Args[0])
+}
+
 // Run resolves c.Target to a machine, to the address of a i
 // machine or unit forks ssh passing any arguments provided.
 func (c *SSHCommand) Run(ctx *cmd.Context) error {
 	if c.apiClient == nil {
-		var err error
-		c.apiClient, err = c.initAPIClient()
-		if err != nil {
-			return err
-		}
-		defer c.apiClient.Close()
+		// If the apClient is not already opened and it is opened
+		// by ensureAPIClient, then close it when we're done.
+		defer func() {
+			if c.apiClient != nil {
+				c.apiClient.Close()
+				c.apiClient = nil
+			}
+		}()
 	}
 	host, err := c.hostFromTarget(c.Target)
 	if err != nil {
 		return err
 	}
 	var options ssh.Options
-	options.EnablePTY()
+	if c.pty {
+		options.EnablePTY()
+	}
+	if proxy, err := c.proxySSH(); err != nil {
+		return err
+	} else if proxy {
+		if err := c.setProxyCommand(&options); err != nil {
+			return err
+		}
+	}
 	cmd := ssh.Command("ubuntu@"+host, c.Args, &options)
 	cmd.Stdin = ctx.Stdin
 	cmd.Stdout = ctx.Stdout
@@ -99,12 +146,45 @@ func (c *SSHCommand) Run(ctx *cmd.Context) error {
 	return cmd.Run()
 }
 
+// proxySSH returns true iff both c.proxy and
+// the proxy-ssh environment configuration
+// are true.
+func (c *SSHCommon) proxySSH() (bool, error) {
+	if !c.proxy {
+		return false, nil
+	}
+	if _, err := c.ensureAPIClient(); err != nil {
+		return false, err
+	}
+	var cfg *config.Config
+	attrs, err := c.apiClient.EnvironmentGet()
+	if err == nil {
+		cfg, err = config.New(config.NoDefaults, attrs)
+	}
+	if err != nil {
+		return false, err
+	}
+	logger.Debugf("proxy-ssh is %v", cfg.ProxySSH())
+	return cfg.ProxySSH(), nil
+}
+
+func (c *SSHCommon) ensureAPIClient() (*api.Client, error) {
+	if c.apiClient != nil {
+		return c.apiClient, nil
+	}
+	return c.initAPIClient()
+}
+
 // initAPIClient initialises the API connection.
 // It is the caller's responsibility to close the connection.
 func (c *SSHCommon) initAPIClient() (*api.Client, error) {
-	var err error
-	c.apiClient, err = juju.NewAPIClientFromName(c.EnvName)
-	return c.apiClient, err
+	st, err := juju.NewAPIFromName(c.EnvName)
+	if err != nil {
+		return nil, err
+	}
+	c.apiClient = st.Client()
+	c.apiAddr = st.Addr()
+	return c.apiClient, nil
 }
 
 // attemptStarter is an interface corresponding to utils.AttemptStrategy
@@ -127,86 +207,31 @@ var sshHostFromTargetAttemptStrategy attemptStarter = attemptStrategy{
 	Delay: 500 * time.Millisecond,
 }
 
-// ensureRawConn ensures that c.rawConn is valid (or returns an error)
-// This is only for compatibility with a 1.16 API server (that doesn't have
-// some of the API added more recently.) It can be removed once we no longer
-// need compatibility with direct access to the state database
-func (c *SSHCommon) ensureRawConn() error {
-	if c.rawConn != nil {
-		return nil
-	}
-	var err error
-	c.rawConn, err = juju.NewConnFromName(c.EnvName)
-	return err
-}
-
-func (c *SSHCommon) hostFromTarget1dot16(target string) (string, error) {
-	err := c.ensureRawConn()
-	if err != nil {
-		return "", err
-	}
-	// is the target the id of a machine ?
-	if names.IsMachine(target) {
-		logger.Infof("looking up address for machine %s...", target)
-		// This is not the exact code from the 1.16 client
-		// (machinePublicAddress), however it is the code used in the
-		// apiserver behind the PublicAddress call. (1.16 didn't know
-		// about SelectPublicAddress)
-		// The old code watched for changes on the Machine until it had
-		// an InstanceId and then would return the instance.WaitDNS()
-		machine, err := c.rawConn.State.Machine(target)
-		if err != nil {
-			return "", err
-		}
-		addr := instance.SelectPublicAddress(machine.Addresses())
-		if addr == "" {
-			return "", fmt.Errorf("machine %q has no public address", machine)
-		}
-		return addr, nil
-	}
-	// maybe the target is a unit ?
-	if names.IsUnit(target) {
-		logger.Infof("looking up address for unit %q...", c.Target)
-		unit, err := c.rawConn.State.Unit(target)
-		if err != nil {
-			return "", err
-		}
-		addr, ok := unit.PublicAddress()
-		if !ok {
-			return "", fmt.Errorf("unit %q has no public address", unit)
-		}
-		return addr, nil
-	}
-	return "", fmt.Errorf("unknown unit or machine %q", target)
-}
-
 func (c *SSHCommon) hostFromTarget(target string) (string, error) {
-	var addr string
-	var err error
-	var useStateConn bool
+	// If the target is neither a machine nor a unit,
+	// assume it's a hostname and try it directly.
+	if !names.IsMachine(target) && !names.IsUnit(target) {
+		return target, nil
+	}
 	// A target may not initially have an address (e.g. the
 	// address updater hasn't yet run), so we must do this in
 	// a loop.
-	for a := sshHostFromTargetAttemptStrategy.Start(); a.Next(); {
-		if !useStateConn {
-			addr, err = c.apiClient.PublicAddress(target)
-			if params.IsCodeNotImplemented(err) {
-				logger.Infof("API server does not support Client.PublicAddress falling back to 1.16 compatibility mode (direct DB access)")
-				useStateConn = true
-			}
-		}
-		if useStateConn {
-			addr, err = c.hostFromTarget1dot16(target)
-		}
-		if err == nil {
-			break
-		}
-	}
-	if err != nil {
+	if _, err := c.ensureAPIClient(); err != nil {
 		return "", err
 	}
-	logger.Infof("Resolved public address of %q: %q", target, addr)
-	return addr, nil
+	var err error
+	for a := sshHostFromTargetAttemptStrategy.Start(); a.Next(); {
+		var addr string
+		if c.proxy {
+			addr, err = c.apiClient.PrivateAddress(target)
+		} else {
+			addr, err = c.apiClient.PublicAddress(target)
+		}
+		if err == nil {
+			return addr, nil
+		}
+	}
+	return "", err
 }
 
 // AllowInterspersedFlags for ssh/scp is set to false so that

@@ -366,6 +366,18 @@ type ConstraintsResults struct {
 	Results []ConstraintsResult
 }
 
+// NetworkResult holds machine networks or an error.
+type NetworkResult struct {
+	Error           *Error
+	IncludeNetworks []string
+	ExcludeNetworks []string
+}
+
+// NetworksResults holds multiple networks results.
+type NetworksResults struct {
+	Results []NetworkResult
+}
+
 // AgentGetEntitiesResults holds the results of a
 // agent.API.GetEntities call.
 type AgentGetEntitiesResults struct {

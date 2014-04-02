@@ -1,6 +1,8 @@
 package mongo
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"labix.org/v2/mgo"
 	"net"
@@ -19,6 +21,10 @@ import (
 const (
 	maxFiles = 65000
 	maxProcs = 20000
+
+	// SharedSecretFile is the name of the Mongo shared secret file
+	// located within the Juju data directory.
+	SharedSecretFile = "shared-secret"
 )
 
 var (
@@ -59,6 +65,19 @@ func IsMaster(session *mgo.Session, obj WithAddresses) (bool, error) {
 // mongo replica set peer address by selecting it from the given addresses.
 func SelectPeerAddress(addrs []instance.Address) string {
 	return instance.SelectInternalAddress(addrs, false)
+}
+
+// GenerateSharedSecret generates a pseudo-random shared secret (keyfile)
+// for use with Mongo replica sets.
+func GenerateSharedSecret() (string, error) {
+	// "A key’s length must be between 6 and 1024 characters and may
+	// only contain characters in the base64 set."
+	//   -- http://docs.mongodb.org/manual/tutorial/generate-key-file/
+	buf := make([]byte, base64.StdEncoding.DecodedLen(1024))
+	if _, err := rand.Read(buf); err != nil {
+		return "", fmt.Errorf("cannot read random secret: %v", err)
+	}
+	return base64.StdEncoding.EncodeToString(buf), nil
 }
 
 // MongoPackageForSeries returns the name of the mongo package for the series
@@ -190,10 +209,12 @@ const mongoScriptVersion = 2
 
 // MongoUpstartService returns the upstart config for the mongo state service.
 //
-// This method assumes there is a server.pem keyfile in dataDir.
+// This method assumes there exist "server.pem" and "shared_secret" keyfiles in dataDir.
 func MongoUpstartService(name, mongodExec, dataDir string, port int) (*upstart.Conf, error) {
 
-	keyFile := path.Join(dataDir, "server.pem")
+	sslKeyFile := path.Join(dataDir, "server.pem")
+	// TODO(Nate): uncomment when we commit HA stuff
+	//keyFile := path.Join(dataDir, SharedSecretFile)
 	svc := upstart.NewService(name)
 
 	dbDir := path.Join(dataDir, "db")
@@ -209,7 +230,7 @@ func MongoUpstartService(name, mongodExec, dataDir string, port int) (*upstart.C
 			" --auth" +
 			" --dbpath=" + dbDir +
 			" --sslOnNormalPorts" +
-			" --sslPEMKeyFile " + utils.ShQuote(keyFile) +
+			" --sslPEMKeyFile " + utils.ShQuote(sslKeyFile) +
 			" --sslPEMKeyPassword ignored" +
 			" --bind_ip 0.0.0.0" +
 			" --port " + fmt.Sprint(port) +
@@ -218,7 +239,8 @@ func MongoUpstartService(name, mongodExec, dataDir string, port int) (*upstart.C
 			" --smallfiles",
 		// TODO(Nate): uncomment when we commit HA stuff
 		// +
-		//	" --replSet juju",
+		//	" --replSet juju" +
+		//	" --keyFile " + utils.ShQuote(keyFile),
 	}
 	return conf, nil
 }

@@ -52,6 +52,10 @@ func (env *joyentEnviron) machineFullName(machineId string) string {
 
 func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
 
+	if args.MachineConfig.HasNetworks() {
+		return nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
+	}
+
 	series := args.Tools.OneSeries()
 	arches := args.Tools.Arches()
 	spec, err := env.FindInstanceSpec(&instances.InstanceConstraint{

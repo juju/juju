@@ -89,8 +89,8 @@ func (s *instanceTest) TestAddresses(c *gc.C) {
 
 	expected := []instance.Address{
 		{Value: "testing.invalid", Type: instance.HostName, NetworkScope: instance.NetworkPublic},
-		instance.NewAddress("1.2.3.4"),
-		instance.NewAddress("fe80::d806:dbff:fe23:1199"),
+		instance.NewAddress("1.2.3.4", instance.NetworkUnknown),
+		instance.NewAddress("fe80::d806:dbff:fe23:1199", instance.NetworkUnknown),
 	}
 
 	addr, err := inst.Addresses()
