@@ -568,7 +568,7 @@ class TestEnvironment(TestCase):
         env.client.version = '1.234-76'
         env.deploy('mondogb')
         env.client.juju.assert_called_with(
-            env, 'deploy', ('--to', '0', 'mondogb'))
+            env, 'deploy', ('mondogb',))
 
 class TestFormatListing(TestCase):
 
