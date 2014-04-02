@@ -239,10 +239,10 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 	if u.s.Op != Continue {
 		return nil, fmt.Errorf("insane uniter state: %#v", u.s)
 	}
-	if err = u.unit.SetStatus(params.StatusStarted, "", nil); err != nil {
+	if err := u.fixDeployer(); err != nil {
 		return nil, err
 	}
-	if err := u.fixDeployer(); err != nil {
+	if err = u.unit.SetStatus(params.StatusStarted, "", nil); err != nil {
 		return nil, err
 	}
 	u.f.WantUpgradeEvent(false)

@@ -591,7 +591,7 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 		if rel.Life() != params.Alive {
 			continue
 		}
-		// Make sure we ignore relations not implemented by the unit's charm
+		// Make sure we ignore relations not implemented by the unit's charm.
 		ch, err := corecharm.ReadDir(u.charmPath)
 		if err != nil {
 			return nil, err
@@ -678,6 +678,9 @@ func (u *Uniter) addRelation(rel *uniter.Relation, dir *relation.StateDir) error
 	}
 }
 
+// fixDeployer replaces the uniter's git-based charm deployer with a manifest-
+// based one, if necessary. It should not be called unless the existing charm
+// deployment is known to be in a stable state.
 func (u *Uniter) fixDeployer() error {
 	if err := charm.FixDeployer(&u.deployer); err != nil {
 		return fmt.Errorf("cannot convert git deployment to manifest deployment: %v", err)

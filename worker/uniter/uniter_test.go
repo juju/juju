@@ -32,6 +32,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	apiuniter "launchpad.net/juju-core/state/api/uniter"
 	coretesting "launchpad.net/juju-core/testing"
+	ft "launchpad.net/juju-core/testing/filetesting"
 	"launchpad.net/juju-core/utils"
 	utilexec "launchpad.net/juju-core/utils/exec"
 	"launchpad.net/juju-core/utils/fslock"
@@ -658,24 +659,20 @@ func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *gc.C) {
 }
 
 func (s *UniterSuite) TestUniterUpgradeOverwrite(c *gc.C) {
-	makeTest := func(
-		name string,
-		customizeCharm func(c *gc.C, ctx *context, path string),
-		checkCharm func(c *gc.C, ctx *context),
-	) uniterTest {
-		return ut(name,
+	makeTest := func(description string, content, extraChecks ft.Entries) uniterTest {
+		return ut(description,
 			createCharm{
+				// This is the base charm which all upgrade tests start out running.
 				customize: func(c *gc.C, ctx *context, path string) {
-					dir := filepath.Join(path, "dir")
-					err := os.MkdirAll(dir, 0755)
-					c.Assert(err, gc.IsNil)
-					file := filepath.Join(path, "file")
-					err = ioutil.WriteFile(file, []byte("blah"), 0644)
-					c.Assert(err, gc.IsNil)
-					symlink := filepath.Join(path, "symlink")
-					err = os.Symlink("file", symlink)
-					c.Assert(err, gc.IsNil)
-					appendHook(c, path, "config-changed", "echo oldcontent > dir/oldfile")
+					ft.Entries{
+						ft.Dir{"dir", 0755},
+						ft.File{"file", "blah", 0644},
+						ft.Symlink{"symlink", "file"},
+					}.Create(c, path)
+					// Note that it creates "dir/user-file" at runtime, which may be
+					// preserved or removed depending on the test.
+					script := "echo content > dir/user-file && chmod 755 dir/user-file"
+					appendHook(c, path, "start", script)
 				},
 			},
 			serveCharm{},
@@ -686,8 +683,10 @@ func (s *UniterSuite) TestUniterUpgradeOverwrite(c *gc.C) {
 			waitHooks{"install", "config-changed", "start"},
 
 			createCharm{
-				revision:  1,
-				customize: customizeCharm,
+				revision: 1,
+				customize: func(c *gc.C, _ *context, path string) {
+					content.Create(c, path)
+				},
 			},
 			serveCharm{},
 			upgradeCharm{revision: 1},
@@ -697,7 +696,11 @@ func (s *UniterSuite) TestUniterUpgradeOverwrite(c *gc.C) {
 			},
 			waitHooks{"upgrade-charm", "config-changed"},
 			verifyCharm{revision: 1},
-			custom{checkCharm},
+			custom{func(c *gc.C, ctx *context) {
+				path := filepath.Join(ctx.path, "charm")
+				content.Check(c, path)
+				extraChecks.Check(c, path)
+			}},
 			verifyRunning{},
 		)
 	}
@@ -705,68 +708,34 @@ func (s *UniterSuite) TestUniterUpgradeOverwrite(c *gc.C) {
 	s.runUniterTests(c, []uniterTest{
 		makeTest(
 			"files overwite files, dirs, symlinks",
-			func(c *gc.C, ctx *context, path string) {
-				for i, name := range []string{"dir", "file", "symlink"} {
-					name = filepath.Join(path, name)
-					content := fmt.Sprintf("content %d", i)
-					err := ioutil.WriteFile(name, []byte(content), 0644)
-					c.Assert(err, gc.IsNil)
-				}
+			ft.Entries{
+				ft.File{"file", "new", 0755},
+				ft.File{"dir", "new", 0755},
+				ft.File{"symlink", "new", 0755},
 			},
-			func(c *gc.C, ctx *context) {
-				for i, name := range []string{"dir", "file", "symlink"} {
-					name = filepath.Join(ctx.path, "charm", name)
-					expect := fmt.Sprintf("content %d", i)
-					actual, err := ioutil.ReadFile(name)
-					c.Assert(err, gc.IsNil)
-					c.Assert(string(actual), gc.Equals, expect)
-				}
+			ft.Entries{
+				ft.Removed{"dir/user-file"},
 			},
 		), makeTest(
 			"symlinks overwite files, dirs, symlinks",
-			func(c *gc.C, ctx *context, path string) {
-				for i, name := range []string{"dir", "file", "symlink"} {
-					name = filepath.Join(path, name)
-					target := fmt.Sprintf("target %d", i)
-					err := os.Symlink(target, name)
-					c.Assert(err, gc.IsNil)
-				}
+			ft.Entries{
+				ft.Symlink{"file", "new"},
+				ft.Symlink{"dir", "new"},
+				ft.Symlink{"symlink", "new"},
 			},
-			func(c *gc.C, ctx *context) {
-				for i, name := range []string{"dir", "file", "symlink"} {
-					name = filepath.Join(ctx.path, "charm", name)
-					expect := fmt.Sprintf("target %d", i)
-					actual, err := os.Readlink(name)
-					c.Assert(err, gc.IsNil)
-					c.Assert(actual, gc.Equals, expect)
-				}
+			ft.Entries{
+				ft.Removed{"dir/user-file"},
 			},
 		), makeTest(
 			"dirs overwite files, symlinks; merge dirs",
-			func(c *gc.C, ctx *context, path string) {
-				for _, name := range []string{"dir", "file", "symlink"} {
-					name = filepath.Join(path, name)
-					err := os.MkdirAll(name, 0755)
-					c.Assert(err, gc.IsNil)
-				}
-				addedFileName := filepath.Join(path, "dir", "newfile")
-				err := ioutil.WriteFile(addedFileName, []byte("newcontent\n"), 0644)
-				c.Assert(err, gc.IsNil)
+			ft.Entries{
+				ft.Dir{"file", 0755},
+				ft.Dir{"dir", 0755},
+				ft.File{"dir/charm-file", "charm-content", 0644},
+				ft.Dir{"symlink", 0755},
 			},
-			func(c *gc.C, ctx *context) {
-				for _, name := range []string{"dir", "file", "symlink"} {
-					name = filepath.Join(ctx.path, "charm", name)
-					fileInfo, err := os.Stat(name)
-					c.Assert(err, gc.IsNil)
-					c.Assert(fileInfo.IsDir(), gc.Equals, true)
-				}
-				for _, badge := range []string{"old", "new"} {
-					name := filepath.Join(ctx.path, "charm", "dir", badge+"file")
-					expect := badge + "content\n"
-					actual, err := ioutil.ReadFile(name)
-					c.Assert(err, gc.IsNil)
-					c.Assert(string(actual), gc.Equals, expect)
-				}
+			ft.Entries{
+				ft.File{"dir/user-file", "content\n", 0755},
 			},
 		),
 	})
@@ -835,6 +804,25 @@ var errorUpgradeTests = []uniterTest{
 
 func (s *UniterSuite) TestUniterErrorStateUpgrade(c *gc.C) {
 	s.runUniterTests(c, errorUpgradeTests)
+}
+
+func (s *UniterSuite) TestUniterDeployerConversion(c *gc.C) {
+	deployerConversionTests := []uniterTest{
+		ut(
+			"install with git, restart in steady state",
+			custom{func(c *gc.C, ctx *context) {
+				c.Fatalf("not done")
+			}},
+		), ut(
+			"install with git, ",
+		),
+	}
+
+	//
+
+	//
+
+	s.runUniterTests(c, deployerConversionTests)
 }
 
 var upgradeConflictsTests = []uniterTest{
