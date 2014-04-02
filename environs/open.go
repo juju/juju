@@ -46,6 +46,17 @@ const (
 	ConfigFromEnvirons
 )
 
+// EmptyConfig indicates the .jenv file is empty.
+type EmptyConfig struct {
+	error
+}
+
+// IsEmptyConfig reports whether err is a EmptyConfig.
+func IsEmptyConfig(err error) bool {
+	_, ok := err.(EmptyConfig)
+	return ok
+}
+
 // ConfigForName returns the configuration for the environment with
 // the given name from the default environments file. If the name is
 // blank, the default environment will be used. If the configuration
@@ -70,7 +81,7 @@ func ConfigForName(name string, store configstore.Storage) (*config.Config, Conf
 		info, err := store.ReadInfo(name)
 		if err == nil {
 			if len(info.BootstrapConfig()) == 0 {
-				return nil, ConfigFromNowhere, fmt.Errorf("environment has no bootstrap configuration data")
+				return nil, ConfigFromNowhere, EmptyConfig{fmt.Errorf("environment has no bootstrap configuration data")}
 			}
 			logger.Debugf("ConfigForName found bootstrap config %#v", info.BootstrapConfig())
 			cfg, err := config.New(config.NoDefaults, info.BootstrapConfig())

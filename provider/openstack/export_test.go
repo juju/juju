@@ -32,32 +32,6 @@ func init() {
 	testRoundTripper.RegisterForScheme("test")
 }
 
-var origMetadataHost = metadataHost
-
-var metadataContent = `"availability_zone": "nova", "hostname": "test.novalocal", ` +
-	`"launch_index": 0, "meta": {"priority": "low", "role": "webserver"}, ` +
-	`"public_keys": {"mykey": "ssh-rsa fake-key\n"}, "name": "test"}`
-
-// A group of canned responses for the "metadata server". These match
-// reasonably well with the results of making those requests on a Folsom+
-// Openstack service
-var MetadataTesting = map[string]string{
-	"/latest/meta-data/local-ipv4":         "10.1.1.2",
-	"/latest/meta-data/public-ipv4":        "203.1.1.2",
-	"/openstack/2012-08-10/meta_data.json": metadataContent,
-}
-
-// Set Metadata requests to be served by the filecontent supplied.
-func UseTestMetadata(metadata map[string]string) {
-	if len(metadata) != 0 {
-		testRoundTripper.Sub = jujutest.NewCannedRoundTripper(metadata, nil)
-		metadataHost = "test:"
-	} else {
-		testRoundTripper.Sub = nil
-		metadataHost = origMetadataHost
-	}
-}
-
 var (
 	ShortAttempt   = &shortAttempt
 	StorageAttempt = &storageAttempt
@@ -149,6 +123,25 @@ var imagesData = `
            }
          },
          "pubname": "ubuntu-precise-12.04-amd64-server-20121111",
+         "label": "release"
+       }
+     }
+   },
+   "com.ubuntu.cloud:server:12.04:ppc64": {
+     "release": "precise",
+     "version": "12.04",
+     "arch": "ppc64",
+     "versions": {
+       "20121111": {
+         "items": {
+           "inst33": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "some-region",
+             "id": "33"
+           }
+         },
+         "pubname": "ubuntu-precise-12.04-ppc64-server-20121111",
          "label": "release"
        }
      }

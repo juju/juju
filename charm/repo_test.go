@@ -173,7 +173,7 @@ func (s *StoreSuite) TestGetTestModeFlag(c *gc.C) {
 // The following tests cover the low-level CharmStore-specific API.
 
 func (s *StoreSuite) TestInfo(c *gc.C) {
-	charmURLs := []*charm.URL{
+	charmURLs := []charm.Location{
 		charm.MustParseURL("cs:series/good"),
 		charm.MustParseURL("cs:series/better"),
 		charm.MustParseURL("cs:series/best"),
@@ -387,7 +387,7 @@ var _ = gc.Suite(&LocalRepoSuite{})
 func (s *LocalRepoSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	root := c.MkDir()
-	s.repo = &charm.LocalRepository{root}
+	s.repo = &charm.LocalRepository{Path: root}
 	s.seriesPath = filepath.Join(root, "quantal")
 	c.Assert(os.Mkdir(s.seriesPath, 0777), gc.IsNil)
 }

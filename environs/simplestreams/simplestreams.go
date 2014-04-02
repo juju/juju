@@ -15,7 +15,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"path"
 	"reflect"
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/utils"
 )
 
 var logger = loggo.GetLogger("juju.environs.simplestreams")
@@ -375,16 +375,6 @@ func (entries IndexMetadataSlice) filter(match func(*IndexMetadata) bool) IndexM
 	return result
 }
 
-func init() {
-	RegisterProtocol("file", http.NewFileTransport(http.Dir("/")))
-}
-
-// RegisterProtocol registers a new protocol with the simplestreams http client.
-// Exported for testing.
-func RegisterProtocol(scheme string, rt http.RoundTripper) {
-	http.DefaultTransport.(*http.Transport).RegisterProtocol(scheme, rt)
-}
-
 // noMatchingProductsError is used to indicate that metadata files have been located,
 // but there is no metadata satisfying a product criteria.
 // It is used to distinguish from the situation where the metadata files could not be found.
@@ -552,7 +542,7 @@ func GetIndexWithFormat(source DataSource, indexPath, indexFormat string, requir
 			source, mirrors, params.DataType, params.MirrorContentId, cloudSpec, requireSigned, params.PublicKey)
 		if err == nil {
 			logger.Debugf("using mirrored products path: %s", path.Join(mirrorInfo.MirrorURL, mirrorInfo.Path))
-			indexRef.Source = NewURLDataSource("mirror", mirrorInfo.MirrorURL, VerifySSLHostnames)
+			indexRef.Source = NewURLDataSource("mirror", mirrorInfo.MirrorURL, utils.VerifySSLHostnames)
 			indexRef.MirroredProductsPath = mirrorInfo.Path
 		} else {
 			logger.Debugf("no mirror information available for %s: %v", cloudSpec, err)

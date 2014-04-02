@@ -78,7 +78,7 @@ type containerManager struct {
 
 var _ container.Manager = (*containerManager)(nil)
 
-func (manager *containerManager) StartContainer(
+func (manager *containerManager) CreateContainer(
 	machineConfig *cloudinit.MachineConfig,
 	series string,
 	network *container.NetworkConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
@@ -125,7 +125,7 @@ func (manager *containerManager) StartContainer(
 	return &kvmInstance{kvmContainer, name}, &hardware, nil
 }
 
-func (manager *containerManager) StopContainer(instance instance.Instance) error {
+func (manager *containerManager) DestroyContainer(instance instance.Instance) error {
 	name := string(instance.Id())
 	kvmContainer := KvmObjectFactory.New(name)
 	if err := kvmContainer.Stop(); err != nil {

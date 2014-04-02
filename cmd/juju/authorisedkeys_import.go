@@ -10,6 +10,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju"
 )
 
@@ -20,7 +21,7 @@ The keys are imported using ssh-import-id.
 
 // ImportKeysCommand is used to add new authorized ssh keys for a user.
 type ImportKeysCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	user      string
 	sshKeyIds []string
 }
@@ -35,6 +36,10 @@ func (c *ImportKeysCommand) Info() *cmd.Info {
 }
 
 func (c *ImportKeysCommand) Init(args []string) error {
+	err := c.EnvCommandBase.Init()
+	if err != nil {
+		return err
+	}
 	switch len(args) {
 	case 0:
 		return errors.New("no ssh key id specified")

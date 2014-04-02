@@ -14,6 +14,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
@@ -29,7 +30,7 @@ type SSHCommand struct {
 
 // SSHCommon provides common methods for SSHCommand, SCPCommand and DebugHooksCommand.
 type SSHCommon struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	proxy     bool
 	pty       bool
 	Target    string
@@ -93,6 +94,10 @@ func (c *SSHCommand) Info() *cmd.Info {
 }
 
 func (c *SSHCommand) Init(args []string) error {
+	err := c.EnvCommandBase.Init()
+	if err != nil {
+		return err
+	}
 	if len(args) == 0 {
 		return errors.New("no target name specified")
 	}

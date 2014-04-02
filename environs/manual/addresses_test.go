@@ -22,9 +22,9 @@ func (s *addressesSuite) TestHostAddresses(c *gc.C) {
 	s.PatchValue(manual.InstanceHostAddresses, func(host string) ([]instance.Address, error) {
 		c.Check(host, gc.Equals, hostname)
 		return []instance.Address{
-			instance.NewAddress("192.168.0.1"),
-			instance.NewAddress("nickname"),
-			instance.NewAddress(hostname),
+			instance.NewAddress("192.168.0.1", instance.NetworkUnknown),
+			instance.NewAddress("nickname", instance.NetworkUnknown),
+			instance.NewAddress(hostname, instance.NetworkUnknown),
 		}, nil
 	})
 	addrs, err := manual.HostAddresses(hostname)

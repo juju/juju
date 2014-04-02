@@ -18,8 +18,7 @@ type archSuite struct {
 var _ = gc.Suite(&archSuite{})
 
 func (s *archSuite) TestHostArch(c *gc.C) {
-	a, err := arch.HostArch()
-	c.Assert(err, gc.IsNil)
+	a := arch.HostArch()
 	c.Assert(arch.IsSupportedArch(a), jc.IsTrue)
 }
 
@@ -28,9 +27,10 @@ func (s *archSuite) TestNormaliseArch(c *gc.C) {
 		raw  string
 		arch string
 	}{
-		{"invalid", ""},
+		{"windows", "windows"},
 		{"amd64", "amd64"},
 		{"x86_64", "amd64"},
+		{"386", "i386"},
 		{"i386", "i386"},
 		{"i486", "i386"},
 		{"armv", "arm"},
@@ -39,12 +39,8 @@ func (s *archSuite) TestNormaliseArch(c *gc.C) {
 		{"ppc64el", "ppc64"},
 		{"ppc64le", "ppc64"},
 	} {
-		arch, err := arch.NormaliseArch(test.raw)
-		if test.arch == "" {
-			c.Check(err, gc.ErrorMatches, "unrecognised architecture:.*")
-		} else {
-			c.Check(arch, gc.Equals, test.arch)
-		}
+		arch := arch.NormaliseArch(test.raw)
+		c.Check(arch, gc.Equals, test.arch)
 	}
 }
 

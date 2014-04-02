@@ -44,6 +44,7 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/common"
@@ -482,14 +483,6 @@ func (*environProvider) SecretAttrs(cfg *config.Config) (map[string]string, erro
 	}, nil
 }
 
-func (*environProvider) PublicAddress() (string, error) {
-	return "public.dummy.address.example.com", nil
-}
-
-func (*environProvider) PrivateAddress() (string, error) {
-	return "private.dummy.address.example.com", nil
-}
-
 func (*environProvider) BoilerplateConfig() string {
 	return `
 # Fake configuration for dummy provider.
@@ -524,6 +517,17 @@ func (e *environ) Name() string {
 	return e.name
 }
 
+// SupportedArchitectures is specified on the EnvironCapability interface.
+func (*environ) SupportedArchitectures() ([]string, error) {
+	return []string{arch.AMD64, arch.PPC64}, nil
+}
+
+// SupportNetworks is specified on the EnvironCapability interface.
+func (*environ) SupportNetworks() bool {
+	// We need to be able to test networks with the dummy provider.
+	return true
+}
+
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
 func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 	return []simplestreams.DataSource{
@@ -537,7 +541,7 @@ func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 }
 
 func (e *environ) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
-	selectedTools, err := common.EnsureBootstrapTools(e, e.Config().DefaultSeries(), cons.Arch)
+	selectedTools, err := common.EnsureBootstrapTools(ctx, e, e.Config().DefaultSeries(), cons.Arch)
 	if err != nil {
 		return err
 	}

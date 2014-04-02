@@ -271,22 +271,6 @@ func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error
 	return nil, nil
 }
 
-// Location specific methods that are able to be called by any instance that
-// has been created by this provider type.  So a machine agent may well call
-// these methods to find out its own address or instance id.
-
-// PublicAddress implements environs.EnvironProvider.PublicAddress.
-func (environProvider) PublicAddress() (string, error) {
-	// Get the IPv4 address from eth0
-	return getAddressForInterface("eth0")
-}
-
-// PrivateAddress implements environs.EnvironProvider.PrivateAddress.
-func (environProvider) PrivateAddress() (string, error) {
-	// Get the IPv4 address from eth0
-	return getAddressForInterface("eth0")
-}
-
 func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
 	valid, err := p.Validate(cfg, nil)
 	if err != nil {

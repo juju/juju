@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/loggo"
 	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/environs/config"
@@ -141,7 +142,7 @@ type lifecycleWatcher struct {
 	// coll is the collection holding all interesting entities.
 	coll *mgo.Collection
 	// members is used to select the initial set of interesting entities.
-	members D
+	members bson.D
 	// filter is used to exclude events not affecting interesting entities.
 	filter func(interface{}) bool
 	// life holds the most recent known life states of interesting entities.
@@ -157,7 +158,7 @@ func (st *State) WatchServices() StringsWatcher {
 // WatchUnits returns a StringsWatcher that notifies of changes to the
 // lifecycles of units of s.
 func (s *Service) WatchUnits() StringsWatcher {
-	members := D{{"service", s.doc.Name}}
+	members := bson.D{{"service", s.doc.Name}}
 	prefix := s.doc.Name + "/"
 	filter := func(id interface{}) bool {
 		return strings.HasPrefix(id.(string), prefix)
@@ -168,7 +169,7 @@ func (s *Service) WatchUnits() StringsWatcher {
 // WatchRelations returns a StringsWatcher that notifies of changes to the
 // lifecycles of relations involving s.
 func (s *Service) WatchRelations() StringsWatcher {
-	members := D{{"endpoints.servicename", s.doc.Name}}
+	members := bson.D{{"endpoints.servicename", s.doc.Name}}
 	prefix := s.doc.Name + ":"
 	infix := " " + prefix
 	filter := func(key interface{}) bool {
@@ -181,9 +182,9 @@ func (s *Service) WatchRelations() StringsWatcher {
 // WatchEnvironMachines returns a StringsWatcher that notifies of changes to
 // the lifecycles of the machines (but not containers) in the environment.
 func (st *State) WatchEnvironMachines() StringsWatcher {
-	members := D{{"$or", []D{
+	members := bson.D{{"$or", []bson.D{
 		{{"containertype", ""}},
-		{{"containertype", D{{"$exists", false}}}},
+		{{"containertype", bson.D{{"$exists", false}}}},
 	}}}
 	filter := func(id interface{}) bool {
 		return !strings.Contains(id.(string), "/")
@@ -206,7 +207,7 @@ func (m *Machine) WatchAllContainers() StringsWatcher {
 }
 
 func (m *Machine) containersWatcher(isChildRegexp string) StringsWatcher {
-	members := D{{"_id", D{{"$regex", isChildRegexp}}}}
+	members := bson.D{{"_id", bson.D{{"$regex", isChildRegexp}}}}
 	compiled := regexp.MustCompile(isChildRegexp)
 	filter := func(key interface{}) bool {
 		return compiled.MatchString(key.(string))
@@ -214,7 +215,7 @@ func (m *Machine) containersWatcher(isChildRegexp string) StringsWatcher {
 	return newLifecycleWatcher(m.st, m.st.machines, members, filter)
 }
 
-func newLifecycleWatcher(st *State, coll *mgo.Collection, members D, filter func(key interface{}) bool) StringsWatcher {
+func newLifecycleWatcher(st *State, coll *mgo.Collection, members bson.D, filter func(key interface{}) bool) StringsWatcher {
 	w := &lifecycleWatcher{
 		commonWatcher: commonWatcher{st: st},
 		coll:          coll,
@@ -236,7 +237,7 @@ type lifeDoc struct {
 	Life Life
 }
 
-var lifeFields = D{{"_id", 1}, {"life", 1}}
+var lifeFields = bson.D{{"_id", 1}, {"life", 1}}
 
 // Changes returns the event channel for the LifecycleWatcher.
 func (w *lifecycleWatcher) Changes() <-chan []string {
@@ -276,7 +277,7 @@ func (w *lifecycleWatcher) merge(ids *set.Strings, updates map[interface{}]bool)
 	// exist are ignored (we'll hear about them in the next set of updates --
 	// all that's actually happened in that situation is that the watcher
 	// events have lagged a little behind reality).
-	iter := w.coll.Find(D{{"_id", D{{"$in", changed}}}}).Select(lifeFields).Iter()
+	iter := w.coll.Find(bson.D{{"_id", bson.D{{"$in", changed}}}}).Select(lifeFields).Iter()
 	var doc lifeDoc
 	for iter.Next(&doc) {
 		latest[doc.Id] = doc.Life
@@ -520,7 +521,7 @@ func (w *RelationScopeWatcher) mergeChange(changes *RelationScopeChange, ch watc
 func (w *RelationScopeWatcher) getInitialEvent() (initial *RelationScopeChange, err error) {
 	changes := &RelationScopeChange{}
 	docs := []relationScopeDoc{}
-	sel := D{{"_id", D{{"$regex", "^" + w.prefix}}}}
+	sel := bson.D{{"_id", bson.D{{"$regex", "^" + w.prefix}}}}
 	err = w.st.relationScopes.Find(sel).All(&docs)
 	if err != nil {
 		return nil, err
@@ -789,7 +790,7 @@ type lifeWatchDoc struct {
 }
 
 // lifeWatchFields specifies the fields of a lifeWatchDoc.
-var lifeWatchFields = D{{"_id", 1}, {"life", 1}, {"txn-revno", 1}}
+var lifeWatchFields = bson.D{{"_id", 1}, {"life", 1}, {"txn-revno", 1}}
 
 // initial returns every member of the tracked set.
 func (w *unitsWatcher) initial() ([]string, error) {
@@ -798,7 +799,7 @@ func (w *unitsWatcher) initial() ([]string, error) {
 		return nil, err
 	}
 	docs := []lifeWatchDoc{}
-	query := D{{"_id", D{{"$in", initial}}}}
+	query := bson.D{{"_id", bson.D{{"$in", initial}}}}
 	if err := w.st.units.Find(query).Select(lifeWatchFields).All(&docs); err != nil {
 		return nil, err
 	}
@@ -1090,10 +1091,10 @@ func (st *State) WatchForEnvironConfigChanges() NotifyWatcher {
 	return newEntityWatcher(st, st.settings, environGlobalKey)
 }
 
-// WatchAPIAddresses returns a NotifyWatcher that notifies
+// WatchAPIHostPorts returns a NotifyWatcher that notifies
 // when the set of API addresses changes.
-func (st *State) WatchAPIAddresses() NotifyWatcher {
-	return newEntityWatcher(st, st.stateServers, apiAddressesKey)
+func (st *State) WatchAPIHostPorts() NotifyWatcher {
+	return newEntityWatcher(st, st.stateServers, apiHostPortsKey)
 }
 
 // WatchConfigSettings returns a watcher for observing changes to the
@@ -1136,7 +1137,7 @@ func getTxnRevno(coll *mgo.Collection, key string) (int64, error) {
 	doc := &struct {
 		TxnRevno int64 `bson:"txn-revno"`
 	}{}
-	fields := D{{"txn-revno", 1}}
+	fields := bson.D{{"txn-revno", 1}}
 	if err := coll.FindId(key).Select(fields).One(doc); err == mgo.ErrNotFound {
 		return -1, nil
 	} else if err != nil {

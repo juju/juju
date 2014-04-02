@@ -335,6 +335,109 @@ func (s *StoreSuite) TestLockUpdatesExpires(c *gc.C) {
 	c.Check(lock3, gc.IsNil)
 }
 
+var seriesSolverCharms = []struct {
+	series, name string
+}{
+	{"oneiric", "wordpress"},
+	{"precise", "wordpress"},
+	{"quantal", "wordpress"},
+	{"trusty", "wordpress"},
+	{"volumetric", "wordpress"},
+
+	{"precise", "mysql"},
+	{"trusty", "mysqladmin"},
+
+	{"def", "zebra"},
+	{"zef", "zebra"},
+}
+
+func (s *StoreSuite) TestSeriesSolver(c *gc.C) {
+	for _, t := range seriesSolverCharms {
+		url := charm.MustParseURL(fmt.Sprintf("cs:%s/%s", t.series, t.name))
+		urls := []*charm.URL{url}
+
+		pub, err := s.store.CharmPublisher(urls, fmt.Sprintf("some-%s-%s-digest", t.series, t.name))
+		c.Assert(err, gc.IsNil)
+		c.Assert(pub.Revision(), gc.Equals, 0)
+
+		err = pub.Publish(&FakeCharmDir{})
+		c.Assert(err, gc.IsNil)
+	}
+
+	// LTS, then non-LTS, reverse alphabetical order
+	ref, _, err := charm.ParseReference("cs:wordpress")
+	c.Assert(err, gc.IsNil)
+	series, err := s.store.Series(ref)
+	c.Assert(err, gc.IsNil)
+	c.Assert(series, gc.HasLen, 5)
+	c.Check(series[0], gc.Equals, "trusty")
+	c.Check(series[1], gc.Equals, "precise")
+	c.Check(series[2], gc.Equals, "volumetric")
+	c.Check(series[3], gc.Equals, "quantal")
+	c.Check(series[4], gc.Equals, "oneiric")
+
+	// Ensure that the full charm name matches, not just prefix
+	ref, _, err = charm.ParseReference("cs:mysql")
+	c.Assert(err, gc.IsNil)
+	series, err = s.store.Series(ref)
+	c.Assert(err, gc.IsNil)
+	c.Assert(series, gc.HasLen, 1)
+	c.Check(series[0], gc.Equals, "precise")
+
+	// No LTS, reverse alphabetical order
+	ref, _, err = charm.ParseReference("cs:zebra")
+	c.Assert(err, gc.IsNil)
+	series, err = s.store.Series(ref)
+	c.Assert(err, gc.IsNil)
+	c.Assert(series, gc.HasLen, 2)
+	c.Check(series[0], gc.Equals, "zef")
+	c.Check(series[1], gc.Equals, "def")
+}
+
+var mysqlSeriesCharms = []struct {
+	fakeDigest string
+	urls       []string
+}{
+	{"533224069221503992aaa726", []string{"cs:~charmers/oneiric/mysql", "cs:oneiric/mysql"}},
+	{"533224c79221503992aaa7ea", []string{"cs:~charmers/precise/mysql", "cs:precise/mysql"}},
+	{"533223a69221503992aaa6be", []string{"cs:~bjornt/trusty/mysql"}},
+	{"533225b49221503992aaa8e5", []string{"cs:~clint-fewbar/precise/mysql"}},
+	{"5332261b9221503992aaa96b", []string{"cs:~gandelman-a/precise/mysql"}},
+	{"533226289221503992aaa97d", []string{"cs:~gandelman-a/quantal/mysql"}},
+	{"5332264d9221503992aaa9b0", []string{"cs:~hazmat/precise/mysql"}},
+	{"5332272d9221503992aaaa4d", []string{"cs:~jmit/oneiric/mysql"}},
+	{"53328a439221503992aaad28", []string{"cs:~landscape/trusty/mysql"}},
+	{"533228ae9221503992aaab96", []string{"cs:~negronjl/precise/mysql-file-permissions"}},
+	{"533228f39221503992aaabde", []string{"cs:~openstack-ubuntu-testing/oneiric/mysql"}},
+	{"533229029221503992aaabed", []string{"cs:~openstack-ubuntu-testing/precise/mysql"}},
+	{"5332291e9221503992aaac09", []string{"cs:~openstack-ubuntu-testing/quantal/mysql"}},
+	{"53327f4f9221503992aaad1e", []string{"cs:~tribaal/trusty/mysql"}},
+}
+
+func (s *StoreSuite) TestMysqlSeriesSolver(c *gc.C) {
+	for _, t := range mysqlSeriesCharms {
+		var urls []*charm.URL
+		for _, url := range t.urls {
+			urls = append(urls, charm.MustParseURL(url))
+		}
+
+		pub, err := s.store.CharmPublisher(urls, t.fakeDigest)
+		c.Assert(err, gc.IsNil)
+		c.Assert(pub.Revision(), gc.Equals, 0)
+
+		err = pub.Publish(&FakeCharmDir{})
+		c.Assert(err, gc.IsNil)
+	}
+
+	ref, _, err := charm.ParseReference("cs:mysql")
+	c.Assert(err, gc.IsNil)
+	series, err := s.store.Series(ref)
+	c.Assert(err, gc.IsNil)
+	c.Assert(series, gc.HasLen, 2)
+	c.Check(series[0], gc.Equals, "precise")
+	c.Check(series[1], gc.Equals, "oneiric")
+}
+
 func (s *StoreSuite) TestConflictingUpdate(c *gc.C) {
 	// This test checks that if for whatever reason the locking
 	// safety-net fails, adding two charms in parallel still

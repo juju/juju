@@ -60,7 +60,7 @@ func NewDeployerAPI(
 		PasswordChanger: common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:      common.NewLifeGetter(st, getAuthFunc),
 		StateAddresser:  common.NewStateAddresser(st),
-		APIAddresser:    common.NewAPIAddresser(st),
+		APIAddresser:    common.NewAPIAddresser(st, resources),
 		UnitsWatcher:    common.NewUnitsWatcher(st, resources, getCanWatch),
 		st:              st,
 		resources:       resources,

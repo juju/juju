@@ -109,7 +109,7 @@ func (s *uniterSuite) TestSetStatus(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	args := params.SetStatus{
-		Entities: []params.SetEntityStatus{
+		Entities: []params.EntityStatus{
 			{Tag: "unit-mysql-0", Status: params.StatusError, Info: "not really"},
 			{Tag: "unit-wordpress-0", Status: params.StatusStopped, Info: "foobar"},
 			{Tag: "unit-foo-42", Status: params.StatusStarted, Info: "blah"},
@@ -1424,9 +1424,7 @@ func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 }
 
 func (s *uniterSuite) TestAPIAddresses(c *gc.C) {
-	err := s.machine0.SetAddresses([]instance.Address{
-		instance.NewAddress("0.1.2.3"),
-	})
+	err := s.machine0.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
 	c.Assert(err, gc.IsNil)
 	apiAddresses, err := s.State.APIAddressesFromMachines()
 	c.Assert(err, gc.IsNil)

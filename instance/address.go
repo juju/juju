@@ -6,6 +6,7 @@ package instance
 import (
 	"bytes"
 	"net"
+	"strconv"
 )
 
 // AddressType represents the possible ways of specifying a machine location by
@@ -40,6 +41,31 @@ type Address struct {
 	NetworkScope
 }
 
+// HostPort associates an address with a port.
+type HostPort struct {
+	Address
+	Port int
+}
+
+// AddressesWithPort returns the given addresses all
+// associated with the given port.
+func AddressesWithPort(addrs []Address, port int) []HostPort {
+	hps := make([]HostPort, len(addrs))
+	for i, addr := range addrs {
+		hps[i] = HostPort{
+			Address: addr,
+			Port:    port,
+		}
+	}
+	return hps
+}
+
+// NetAddr returns the host-port as an address
+// suitable for calling net.Dial.
+func (hp HostPort) NetAddr() string {
+	return net.JoinHostPort(hp.Value, strconv.Itoa(hp.Port))
+}
+
 // String returns a string representation of the address,
 // in the form: scope:address(network name);
 // for example:
@@ -65,9 +91,9 @@ func (a Address) String() string {
 }
 
 // NewAddresses is a convenience function to create addresses from a string slice
-func NewAddresses(inAddresses []string) (outAddresses []Address) {
+func NewAddresses(inAddresses ...string) (outAddresses []Address) {
 	for _, address := range inAddresses {
-		outAddresses = append(outAddresses, NewAddress(address))
+		outAddresses = append(outAddresses, NewAddress(address, NetworkUnknown))
 	}
 	return outAddresses
 }
@@ -87,9 +113,12 @@ func DeriveAddressType(value string) AddressType {
 	return HostName
 }
 
-func NewAddress(value string) Address {
-	addresstype := DeriveAddressType(value)
-	return Address{value, addresstype, "", NetworkUnknown}
+func NewAddress(value string, scope NetworkScope) Address {
+	return Address{
+		Value:        value,
+		Type:         DeriveAddressType(value),
+		NetworkScope: scope,
+	}
 }
 
 // netLookupIP is a var for testing.
@@ -101,7 +130,7 @@ var netLookupIP = net.LookupIP
 // The argument passed in is always added ast the final
 // address in the resulting slice.
 func HostAddresses(host string) (addrs []Address, err error) {
-	hostAddr := NewAddress(host)
+	hostAddr := NewAddress(host, NetworkUnknown)
 	if hostAddr.Type != HostName {
 		// IPs shouldn't be fed into LookupIP.
 		return []Address{hostAddr}, nil
@@ -134,40 +163,90 @@ func HostAddresses(host string) (addrs []Address, err error) {
 // be appropriate to display as a publicly accessible endpoint.
 // If there are no suitable addresses, the empty string is returned.
 func SelectPublicAddress(addresses []Address) string {
-	mostpublic := ""
-	for _, addr := range addresses {
+	index := publicAddressIndex(len(addresses), func(i int) Address {
+		return addresses[i]
+	})
+	if index < 0 {
+		return ""
+	}
+	return addresses[index].Value
+}
+
+func SelectPublicHostPort(hps []HostPort) string {
+	index := publicAddressIndex(len(hps), func(i int) Address {
+		return hps[i].Address
+	})
+	if index < 0 {
+		return ""
+	}
+	return hps[index].NetAddr()
+}
+
+// publicAddressIndex is the internal version of SelectPublicAddress.
+// It returns the index the selected address, or -1 if not found.
+func publicAddressIndex(numAddr int, getAddr func(i int) Address) int {
+	mostPublicIndex := -1
+	for i := 0; i < numAddr; i++ {
+		addr := getAddr(i)
 		if addr.Type != Ipv6Address {
 			switch addr.NetworkScope {
 			case NetworkPublic:
-				return addr.Value
+				return i
 			case NetworkCloudLocal, NetworkUnknown:
-				mostpublic = addr.Value
+				mostPublicIndex = i
 			}
 		}
 	}
-	return mostpublic
+	return mostPublicIndex
 }
 
 // SelectInternalAddress picks one address from a slice that can be
 // used as an endpoint for juju internal communication.
 // If there are no suitable addresses, the empty string is returned.
 func SelectInternalAddress(addresses []Address, machineLocal bool) string {
-	usableAddress := ""
-	for _, addr := range addresses {
+	index := internalAddressIndex(len(addresses), func(i int) Address {
+		return addresses[i]
+	}, machineLocal)
+	if index < 0 {
+		return ""
+	}
+	return addresses[index].Value
+}
+
+// SelectInternalAddress picks one HostPort from a slice that can be
+// used as an endpoint for juju internal communication
+// and returns it in its NetAddr form.
+// If there are no suitable addresses, the empty string is returned.
+func SelectInternalHostPort(hps []HostPort, machineLocal bool) string {
+	index := internalAddressIndex(len(hps), func(i int) Address {
+		return hps[i].Address
+	}, machineLocal)
+	if index < 0 {
+		return ""
+	}
+	return hps[index].NetAddr()
+}
+
+// internalAddressIndex is the internal version of SelectInternalAddress.
+// It returns the index the selected address, or -1 if not found.
+func internalAddressIndex(numAddr int, getAddr func(i int) Address, machineLocal bool) int {
+	usableAddressIndex := -1
+	for i := 0; i < numAddr; i++ {
+		addr := getAddr(i)
 		if addr.Type != Ipv6Address {
 			switch addr.NetworkScope {
 			case NetworkCloudLocal:
-				return addr.Value
+				return i
 			case NetworkMachineLocal:
 				if machineLocal {
-					return addr.Value
+					return i
 				}
 			case NetworkPublic, NetworkUnknown:
-				if usableAddress == "" {
-					usableAddress = addr.Value
+				if usableAddressIndex == -1 {
+					usableAddressIndex = i
 				}
 			}
 		}
 	}
-	return usableAddress
+	return usableAddressIndex
 }

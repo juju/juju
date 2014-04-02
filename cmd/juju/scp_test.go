@@ -110,7 +110,7 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 		Type:         instance.Ipv4Address, // ..because SelectPublicAddress ignores IPv6 addresses
 		NetworkScope: instance.NetworkPublic,
 	}
-	err = m[3].SetAddresses([]instance.Address{ipv6Addr})
+	err = m[3].SetAddresses(ipv6Addr)
 	c.Assert(err, gc.IsNil)
 	srv = s.AddTestingService(c, "ipv6-svc", dummyCharm)
 	s.addUnit(srv, m[3], c)

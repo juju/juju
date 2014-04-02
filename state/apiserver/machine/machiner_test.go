@@ -57,7 +57,7 @@ func (s *machinerSuite) TestSetStatus(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	args := params.SetStatus{
-		Entities: []params.SetEntityStatus{
+		Entities: []params.EntityStatus{
 			{Tag: "machine-1", Status: params.StatusError, Info: "not really"},
 			{Tag: "machine-0", Status: params.StatusStopped, Info: "foobar"},
 			{Tag: "machine-42", Status: params.StatusStarted, Info: "blah"},
@@ -154,8 +154,8 @@ func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 	c.Assert(s.machine1.Addresses(), gc.HasLen, 0)
 
 	addresses := []instance.Address{
-		instance.NewAddress("127.0.0.1"),
-		instance.NewAddress("8.8.8.8"),
+		instance.NewAddress("127.0.0.1", instance.NetworkUnknown),
+		instance.NewAddress("8.8.8.8", instance.NetworkUnknown),
 	}
 
 	args := params.SetMachinesAddresses{MachineAddresses: []params.MachineAddresses{

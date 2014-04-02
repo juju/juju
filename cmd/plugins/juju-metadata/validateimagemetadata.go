@@ -12,16 +12,18 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/utils"
 )
 
 // ValidateImageMetadataCommand
 type ValidateImageMetadataCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	out          cmd.Output
 	providerType string
 	metadataDir  string
@@ -90,6 +92,10 @@ func (c *ValidateImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *ValidateImageMetadataCommand) Init(args []string) error {
+	err := c.EnvCommandBase.Init()
+	if err != nil {
+		return err
+	}
 	if c.providerType != "" {
 		if c.series == "" {
 			return fmt.Errorf("series required if provider type is specified")
@@ -101,7 +107,7 @@ func (c *ValidateImageMetadataCommand) Init(args []string) error {
 			return fmt.Errorf("metadata directory required if provider type is specified")
 		}
 	}
-	return c.EnvCommandBase.Init(args)
+	return nil
 }
 
 var _ environs.ConfigGetter = (*overrideEnvStream)(nil)
@@ -184,7 +190,7 @@ func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
 		}
 		params.Sources = []simplestreams.DataSource{
 			simplestreams.NewURLDataSource(
-				"local metadata directory", "file://"+dir, simplestreams.VerifySSLHostnames),
+				"local metadata directory", "file://"+dir, utils.VerifySSLHostnames),
 		}
 	}
 	params.Stream = c.stream

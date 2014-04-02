@@ -41,6 +41,12 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, cons constra
 	var inst instance.Instance
 	defer func() { handleBootstrapError(err, ctx, inst, env) }()
 
+	// First thing, ensure we have tools otherwise there's no point.
+	selectedTools, err := EnsureBootstrapTools(ctx, env, env.Config().DefaultSeries(), cons.Arch)
+	if err != nil {
+		return err
+	}
+
 	// Get the bootstrap SSH client. Do this early, so we know
 	// not to bother with any of the below if we can't finish the job.
 	client := ssh.DefaultClient
@@ -50,24 +56,11 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, cons constra
 		return fmt.Errorf("no SSH client available")
 	}
 
-	// Create an empty bootstrap state file so we can get its URL.
-	// It will be updated with the instance id and hardware characteristics
-	// after the bootstrap instance is started.
-	stateFileURL, err := bootstrap.CreateStateFile(env.Storage())
-	if err != nil {
-		return err
-	}
-
 	privateKey, err := GenerateSystemSSHKey(env)
 	if err != nil {
 		return err
 	}
-	machineConfig := environs.NewBootstrapMachineConfig(stateFileURL, privateKey)
-
-	selectedTools, err := EnsureBootstrapTools(env, env.Config().DefaultSeries(), cons.Arch)
-	if err != nil {
-		return err
-	}
+	machineConfig := environs.NewBootstrapMachineConfig(privateKey)
 
 	fmt.Fprintln(ctx.GetStderr(), "Launching instance")
 	inst, hw, err := env.StartInstance(environs.StartInstanceParams{
@@ -79,16 +72,13 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, cons constra
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
 	fmt.Fprintf(ctx.GetStderr(), " - %s\n", inst.Id())
+	machineConfig.InstanceId = inst.Id()
+	machineConfig.HardwareCharacteristics = hw
 
-	var characteristics []instance.HardwareCharacteristics
-	if hw != nil {
-		characteristics = []instance.HardwareCharacteristics{*hw}
-	}
 	err = bootstrap.SaveState(
 		env.Storage(),
 		&bootstrap.BootstrapState{
-			StateInstances:  []instance.Id{inst.Id()},
-			Characteristics: characteristics,
+			StateInstances: []instance.Id{inst.Id()},
 		})
 	if err != nil {
 		return fmt.Errorf("cannot save state: %v", err)
@@ -408,8 +398,8 @@ func waitSSH(ctx environs.BootstrapContext, interrupted <-chan os.Signal, client
 // EnsureBootstrapTools finds tools, syncing with an external tools source as
 // necessary; it then selects the newest tools to bootstrap with, and sets
 // agent-version.
-func EnsureBootstrapTools(env environs.Environ, series string, arch *string) (coretools.List, error) {
-	possibleTools, err := bootstrap.EnsureToolsAvailability(env, series, arch)
+func EnsureBootstrapTools(ctx environs.BootstrapContext, env environs.Environ, series string, arch *string) (coretools.List, error) {
+	possibleTools, err := bootstrap.EnsureToolsAvailability(ctx, env, series, arch)
 	if err != nil {
 		return nil, err
 	}

@@ -4,9 +4,16 @@
 package agent_test
 
 import (
+	"reflect"
+
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )
@@ -160,6 +167,130 @@ func (*suite) TestNewAgentConfig(c *gc.C) {
 	}
 }
 
+func (*suite) TestMigrate(c *gc.C) {
+	initialParams := agent.AgentConfigParams{
+		DataDir:           c.MkDir(),
+		LogDir:            c.MkDir(),
+		Tag:               "omg",
+		Nonce:             "nonce",
+		Password:          "secret",
+		UpgradedToVersion: version.MustParse("1.16.5"),
+		Jobs: []params.MachineJob{
+			params.JobManageEnviron,
+			params.JobHostUnits,
+		},
+		CACert:         []byte("ca cert"),
+		StateAddresses: []string{"localhost:1234"},
+		APIAddresses:   []string{"localhost:4321"},
+		Values: map[string]string{
+			"key1": "value1",
+			"key2": "value2",
+			"key3": "value3",
+		},
+	}
+
+	migrateTests := []struct {
+		comment      string
+		fields       []string
+		newParams    agent.MigrateParams
+		expectValues map[string]string
+		expectErr    string
+	}{{
+		comment:   "nothing to change",
+		fields:    nil,
+		newParams: agent.MigrateParams{},
+	}, {
+		fields: []string{"DataDir"},
+		newParams: agent.MigrateParams{
+			DataDir: c.MkDir(),
+		},
+	}, {
+		fields: []string{"DataDir", "LogDir"},
+		newParams: agent.MigrateParams{
+			DataDir: c.MkDir(),
+			LogDir:  c.MkDir(),
+		},
+	}, {
+		fields: []string{"Jobs"},
+		newParams: agent.MigrateParams{
+			Jobs: []params.MachineJob{params.JobHostUnits},
+		},
+	}, {
+		comment:   "invalid/immutable field specified",
+		fields:    []string{"InvalidField"},
+		newParams: agent.MigrateParams{},
+		expectErr: `unknown field "InvalidField"`,
+	}, {
+		comment: "Values can be added, changed or removed",
+		fields:  []string{"Values", "DeleteValues"},
+		newParams: agent.MigrateParams{
+			DeleteValues: []string{"key2", "key3"}, // delete
+			Values: map[string]string{
+				"key1":     "new value1", // change
+				"new key3": "value3",     // add
+				"empty":    "",           // add empty val
+			},
+		},
+		expectValues: map[string]string{
+			"key1":     "new value1",
+			"new key3": "value3",
+			"empty":    "",
+		},
+	}}
+	for i, test := range migrateTests {
+		summary := "migrate fields"
+		if test.comment != "" {
+			summary += " (" + test.comment + ") "
+		}
+		c.Logf("test %d: %s %v", i, summary, test.fields)
+
+		initialConfig, err := agent.NewAgentConfig(initialParams)
+		c.Assert(err, gc.IsNil)
+
+		newConfig, err := agent.NewAgentConfig(initialParams)
+		c.Assert(err, gc.IsNil)
+
+		c.Assert(initialConfig.Write(), gc.IsNil)
+		c.Assert(agent.ConfigFileExists(initialConfig), jc.IsTrue)
+
+		err = newConfig.Migrate(test.newParams)
+		c.Assert(err, gc.IsNil)
+		err = newConfig.Write()
+		c.Assert(err, gc.IsNil)
+		c.Assert(agent.ConfigFileExists(newConfig), jc.IsTrue)
+
+		// Make sure we can read it back successfully and it
+		// matches what we wrote.
+		configPath := agent.ConfigPath(newConfig.DataDir(), newConfig.Tag())
+		readConfig, err := agent.ReadConfig(configPath)
+		c.Check(err, gc.IsNil)
+		c.Check(newConfig, jc.DeepEquals, readConfig)
+
+		// Make sure only the specified fields were changed and
+		// the rest matches.
+		for _, field := range test.fields {
+			switch field {
+			case "Values":
+				err = agent.PatchConfig(initialConfig, field, test.expectValues)
+				c.Check(err, gc.IsNil)
+			case "DeleteValues":
+				err = agent.PatchConfig(initialConfig, field, test.newParams.DeleteValues)
+				c.Check(err, gc.IsNil)
+			default:
+				value := reflect.ValueOf(test.newParams).FieldByName(field)
+				if value.IsValid() && test.expectErr == "" {
+					err = agent.PatchConfig(initialConfig, field, value.Interface())
+					c.Check(err, gc.IsNil)
+				} else {
+					err = agent.PatchConfig(initialConfig, field, value)
+					c.Check(err, gc.ErrorMatches, test.expectErr)
+				}
+			}
+		}
+		c.Check(newConfig, jc.DeepEquals, initialConfig)
+	}
+}
+
 func (*suite) TestNewStateMachineConfig(c *gc.C) {
 	type testStruct struct {
 		about         string
@@ -222,7 +353,7 @@ func (*suite) TestAttributes(c *gc.C) {
 	c.Assert(conf.Tag(), gc.Equals, "omg")
 	c.Assert(conf.Dir(), gc.Equals, "/data/dir/agents/omg")
 	c.Assert(conf.Nonce(), gc.Equals, "a nonce")
-	c.Assert(conf.UpgradedToVersion(), gc.DeepEquals, version.Current.Number)
+	c.Assert(conf.UpgradedToVersion(), jc.DeepEquals, version.Current.Number)
 }
 
 func (s *suite) TestApiAddressesCantWriteBack(c *gc.C) {
@@ -230,22 +361,12 @@ func (s *suite) TestApiAddressesCantWriteBack(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	value, err := conf.APIAddresses()
 	c.Assert(err, gc.IsNil)
-	c.Assert(value, gc.DeepEquals, []string{"localhost:1235"})
+	c.Assert(value, jc.DeepEquals, []string{"localhost:1235"})
 	value[0] = "invalidAdr"
 	//Check out change hasn't gone back into the internals
 	newValue, err := conf.APIAddresses()
 	c.Assert(err, gc.IsNil)
-	c.Assert(newValue, gc.DeepEquals, []string{"localhost:1235"})
-}
-
-func assertConfigEqual(c *gc.C, c1, c2 agent.Config) {
-	// Since we can't directly poke the internals, we'll use the WriteCommands
-	// method.
-	conf1Commands, err := c1.WriteCommands()
-	c.Assert(err, gc.IsNil)
-	conf2Commands, err := c2.WriteCommands()
-	c.Assert(err, gc.IsNil)
-	c.Assert(conf1Commands, gc.DeepEquals, conf2Commands)
+	c.Assert(newValue, jc.DeepEquals, []string{"localhost:1235"})
 }
 
 func (*suite) TestWriteAndRead(c *gc.C) {
@@ -256,78 +377,90 @@ func (*suite) TestWriteAndRead(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(conf.Write(), gc.IsNil)
-	reread, err := agent.ReadConf(agent.ConfigPath(conf.DataDir(), conf.Tag()))
+	reread, err := agent.ReadConfig(agent.ConfigPath(conf.DataDir(), conf.Tag()))
 	c.Assert(err, gc.IsNil)
-	assertConfigEqual(c, conf, reread)
+	c.Assert(reread, jc.DeepEquals, conf)
 }
 
-func (*suite) TestWriteNewPassword(c *gc.C) {
+func (*suite) TestSetPassword(c *gc.C) {
+	params := attributeParams
+	conf, err := agent.NewAgentConfig(attributeParams)
+	c.Assert(err, gc.IsNil)
 
-	for i, test := range []struct {
-		about  string
-		params agent.AgentConfigParams
-	}{{
-		about: "good state addresses",
-		params: agent.AgentConfigParams{
-			DataDir:           c.MkDir(),
-			Tag:               "omg",
-			UpgradedToVersion: version.Current.Number,
-			Password:          "sekrit",
-			CACert:            []byte("ca cert"),
-			StateAddresses:    []string{"localhost:1234"},
-		},
-	}, {
-		about: "good api addresses",
-		params: agent.AgentConfigParams{
-			DataDir:           c.MkDir(),
-			Tag:               "omg",
-			UpgradedToVersion: version.Current.Number,
-			Password:          "sekrit",
-			CACert:            []byte("ca cert"),
-			APIAddresses:      []string{"localhost:1234"},
-		},
-	}, {
-		about: "both state and api addresses",
-		params: agent.AgentConfigParams{
-			DataDir:           c.MkDir(),
-			Tag:               "omg",
-			UpgradedToVersion: version.Current.Number,
-			Password:          "sekrit",
-			CACert:            []byte("ca cert"),
-			StateAddresses:    []string{"localhost:1234"},
-			APIAddresses:      []string{"localhost:1235"},
-		},
-	}} {
-		c.Logf("%v: %s", i, test.about)
-
-		conf, err := agent.NewAgentConfig(test.params)
-		c.Assert(err, gc.IsNil)
-		newPass, err := agent.WriteNewPassword(conf)
-		c.Assert(err, gc.IsNil)
-		// Show that the password is saved.
-		reread, err := agent.ReadConf(agent.ConfigPath(conf.DataDir(), conf.Tag()))
-		c.Assert(agent.Password(conf), gc.Equals, agent.Password(reread))
-		c.Assert(newPass, gc.Equals, agent.Password(conf))
+	expectAPIInfo := &api.Info{
+		Addrs:    params.APIAddresses,
+		CACert:   params.CACert,
+		Tag:      params.Tag,
+		Password: "",
+		Nonce:    params.Nonce,
 	}
+	c.Assert(conf.APIInfo(), jc.DeepEquals, expectAPIInfo)
+	expectStateInfo := &state.Info{
+		Addrs:    params.StateAddresses,
+		CACert:   params.CACert,
+		Tag:      params.Tag,
+		Password: "",
+	}
+	c.Assert(conf.StateInfo(), jc.DeepEquals, expectStateInfo)
+
+	conf.SetPassword("newpassword")
+
+	expectAPIInfo.Password = "newpassword"
+	expectStateInfo.Password = "newpassword"
+
+	c.Assert(conf.APIInfo(), jc.DeepEquals, expectAPIInfo)
+	c.Assert(conf.StateInfo(), jc.DeepEquals, expectStateInfo)
 }
 
-func (*suite) TestWriteUpgradedToVersion(c *gc.C) {
-	testParams := attributeParams
-	testParams.DataDir = c.MkDir()
-	conf, err := agent.NewAgentConfig(testParams)
+func (*suite) TestSetOldPassword(c *gc.C) {
+	conf, err := agent.NewAgentConfig(attributeParams)
 	c.Assert(err, gc.IsNil)
-	c.Assert(conf.Write(), gc.IsNil)
 
-	newVersion := version.Current.Number
-	newVersion.Major++
-	c.Assert(conf.WriteUpgradedToVersion(newVersion), gc.IsNil)
-	c.Assert(conf.UpgradedToVersion(), gc.DeepEquals, newVersion)
-
-	// Show that the upgradedToVersion is saved.
-	reread, err := agent.ReadConf(agent.ConfigPath(conf.DataDir(), conf.Tag()))
-	assertConfigEqual(c, conf, reread)
+	c.Assert(conf.OldPassword(), gc.Equals, attributeParams.Password)
+	conf.SetOldPassword("newoldpassword")
+	c.Assert(conf.OldPassword(), gc.Equals, "newoldpassword")
 }
 
-// Actual opening of state and api requires a lot more boiler plate to make
-// sure they are valid connections.  This is done in the cmd/jujud tests for
-// bootstrap, machine and unit tests.
+func (*suite) TestSetUpgradedToVersion(c *gc.C) {
+	conf, err := agent.NewAgentConfig(attributeParams)
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(conf.UpgradedToVersion(), gc.Equals, version.Current.Number)
+
+	expectVers := version.MustParse("3.4.5")
+	conf.SetUpgradedToVersion(expectVers)
+	c.Assert(conf.UpgradedToVersion(), gc.Equals, expectVers)
+}
+
+func (*suite) TestSetAPIHostPorts(c *gc.C) {
+	conf, err := agent.NewAgentConfig(attributeParams)
+	c.Assert(err, gc.IsNil)
+
+	addrs, err := conf.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(addrs, gc.DeepEquals, attributeParams.APIAddresses)
+
+	// The first cloud-local address for each server is used,
+	// else if there are none then the first public- or unknown-
+	// scope address.
+	//
+	// If a server has only machine-local addresses, or none
+	// at all, then it will be excluded.
+	server1 := instance.NewAddresses("0.1.2.3", "0.1.2.4", "zeroonetwothree")
+	server1[0].NetworkScope = instance.NetworkCloudLocal
+	server1[1].NetworkScope = instance.NetworkCloudLocal
+	server1[2].NetworkScope = instance.NetworkPublic
+	server2 := instance.NewAddresses("127.0.0.1")
+	server2[0].NetworkScope = instance.NetworkMachineLocal
+	server3 := instance.NewAddresses("0.1.2.5", "zeroonetwofive")
+	server3[0].NetworkScope = instance.NetworkUnknown
+	server3[1].NetworkScope = instance.NetworkUnknown
+	conf.SetAPIHostPorts([][]instance.HostPort{
+		instance.AddressesWithPort(server1, 123),
+		instance.AddressesWithPort(server2, 124),
+		instance.AddressesWithPort(server3, 125),
+	})
+	addrs, err = conf.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(addrs, gc.DeepEquals, []string{"0.1.2.3:123", "0.1.2.5:125"})
+}

@@ -83,8 +83,8 @@ func (s *DeploySuite) TestUpgradeReportsDeprecated(c *gc.C) {
 	ctx, err := coretesting.RunCommand(c, &DeployCommand{}, []string{"local:dummy", "-u"})
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(coretesting.Stderr(ctx), gc.Equals, "")
-	output := strings.Split(coretesting.Stdout(ctx), "\n")
+	c.Assert(coretesting.Stdout(ctx), gc.Equals, "")
+	output := strings.Split(coretesting.Stderr(ctx), "\n")
 	c.Check(output[0], gc.Matches, `Added charm ".*" to the environment.`)
 	c.Check(output[1], gc.Equals, "--upgrade (or -u) is deprecated and ignored; charms are always deployed with a unique revision.")
 }
@@ -155,6 +155,18 @@ func (s *DeploySuite) TestConstraints(c *gc.C) {
 	cons, err := service.Constraints()
 	c.Assert(err, gc.IsNil)
 	c.Assert(cons, gc.DeepEquals, constraints.MustParse("mem=2G cpu-cores=2"))
+}
+
+func (s *DeploySuite) TestNetworks(c *gc.C) {
+	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
+	err := runDeploy(c, "local:dummy", "--networks", ", net1, net2 , ", "--exclude-networks", "net3,net4")
+	c.Assert(err, gc.IsNil)
+	curl := charm.MustParseURL("local:precise/dummy-1")
+	service, _ := s.AssertService(c, "dummy", curl, 1, 0)
+	includeNetworks, excludeNetworks, err := service.Networks()
+	c.Assert(err, gc.IsNil)
+	c.Assert(includeNetworks, gc.DeepEquals, []string{"net1", "net2"})
+	c.Assert(excludeNetworks, gc.DeepEquals, []string{"net3", "net4"})
 }
 
 func (s *DeploySuite) TestSubordinateConstraints(c *gc.C) {

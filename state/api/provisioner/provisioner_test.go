@@ -15,9 +15,9 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	commontesting "launchpad.net/juju-core/state/api/common/testing"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/provisioner"
+	apitesting "launchpad.net/juju-core/state/api/testing"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/tools"
@@ -31,7 +31,8 @@ func TestAll(t *stdtesting.T) {
 
 type provisionerSuite struct {
 	testing.JujuConnSuite
-	*commontesting.EnvironWatcherTest
+	*apitesting.EnvironWatcherTests
+	*apitesting.APIAddresserTests
 
 	st      *api.State
 	machine *state.Machine
@@ -55,12 +56,15 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
+	err = s.machine.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
+	c.Assert(err, gc.IsNil)
 
 	// Create the provisioner API facade.
 	s.provisioner = s.st.Provisioner()
 	c.Assert(s.provisioner, gc.NotNil)
 
-	s.EnvironWatcherTest = commontesting.NewEnvironWatcherTest(s.provisioner, s.State, s.BackingState, commontesting.HasSecrets)
+	s.EnvironWatcherTests = apitesting.NewEnvironWatcherTests(s.provisioner, s.BackingState, apitesting.HasSecrets)
+	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.provisioner, s.BackingState)
 }
 
 func (s *provisionerSuite) TestMachineTagAndId(c *gc.C) {
@@ -84,13 +88,51 @@ func (s *provisionerSuite) TestGetSetStatus(c *gc.C) {
 	c.Assert(status, gc.Equals, params.StatusPending)
 	c.Assert(info, gc.Equals, "")
 
-	err = apiMachine.SetStatus(params.StatusStarted, "blah")
+	err = apiMachine.SetStatus(params.StatusStarted, "blah", nil)
 	c.Assert(err, gc.IsNil)
 
 	status, info, err = apiMachine.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusStarted)
 	c.Assert(info, gc.Equals, "blah")
+	_, _, data, err := s.machine.Status()
+	c.Assert(err, gc.IsNil)
+	c.Assert(data, gc.HasLen, 0)
+}
+
+func (s *provisionerSuite) TestGetSetStatusWithData(c *gc.C) {
+	apiMachine, err := s.provisioner.Machine(s.machine.Tag())
+	c.Assert(err, gc.IsNil)
+
+	err = apiMachine.SetStatus(params.StatusError, "blah", params.StatusData{"foo": "bar"})
+	c.Assert(err, gc.IsNil)
+
+	status, info, err := apiMachine.Status()
+	c.Assert(err, gc.IsNil)
+	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(info, gc.Equals, "blah")
+	_, _, data, err := s.machine.Status()
+	c.Assert(err, gc.IsNil)
+	c.Assert(data, gc.DeepEquals, params.StatusData{"foo": "bar"})
+}
+
+func (s *provisionerSuite) TestMachinesWithTransientErrors(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetStatus(params.StatusError, "blah", params.StatusData{"transient": true})
+	c.Assert(err, gc.IsNil)
+	machines, info, err := s.provisioner.MachinesWithTransientErrors()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machines, gc.HasLen, 1)
+	c.Assert(machines[0].Id(), gc.Equals, "1")
+	c.Assert(info, gc.HasLen, 1)
+	c.Assert(info[0], gc.DeepEquals, params.StatusResult{
+		Id:     "1",
+		Life:   "alive",
+		Status: "error",
+		Info:   "blah",
+		Data:   params.StatusData{"transient": true},
+	})
 }
 
 func (s *provisionerSuite) TestEnsureDeadAndRemove(c *gc.C) {
@@ -250,7 +292,7 @@ func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
 
 	// Change something other than the containers and make sure it's
 	// not detected.
-	err = apiMachine.SetStatus(params.StatusStarted, "not really")
+	err = apiMachine.SetStatus(params.StatusStarted, "not really", nil)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
@@ -325,9 +367,7 @@ func (s *provisionerSuite) TestWatchEnvironMachines(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestStateAddresses(c *gc.C) {
-	err := s.machine.SetAddresses([]instance.Address{
-		instance.NewAddress("0.1.2.3"),
-	})
+	err := s.machine.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
 	c.Assert(err, gc.IsNil)
 
 	stateAddresses, err := s.State.Addresses()
@@ -338,32 +378,12 @@ func (s *provisionerSuite) TestStateAddresses(c *gc.C) {
 	c.Assert(addresses, gc.DeepEquals, stateAddresses)
 }
 
-func (s *provisionerSuite) TestAPIAddresses(c *gc.C) {
-	err := s.machine.SetAddresses([]instance.Address{
-		instance.NewAddress("0.1.2.3"),
-	})
-	c.Assert(err, gc.IsNil)
-
-	apiAddresses, err := s.State.APIAddressesFromMachines()
-	c.Assert(err, gc.IsNil)
-
-	addresses, err := s.provisioner.APIAddresses()
-	c.Assert(err, gc.IsNil)
-	c.Assert(addresses, gc.DeepEquals, apiAddresses)
-}
-
 func (s *provisionerSuite) TestContainerConfig(c *gc.C) {
 	result, err := s.provisioner.ContainerConfig()
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.ProviderType, gc.Equals, "dummy")
 	c.Assert(result.AuthorizedKeys, gc.Equals, coretesting.FakeAuthKeys)
 	c.Assert(result.SSLHostnameVerification, jc.IsTrue)
-}
-
-func (s *provisionerSuite) TestCACert(c *gc.C) {
-	caCert, err := s.provisioner.CACert()
-	c.Assert(err, gc.IsNil)
-	c.Assert(caCert, gc.DeepEquals, s.State.CACert())
 }
 
 func (s *provisionerSuite) TestToolsWrongMachine(c *gc.C) {
