@@ -52,7 +52,7 @@ const (
 	MantaUser           = "MANTA_USER"
 	MantaKeyId          = "MANTA_KEY_ID"
 	MantaUrl            = "MANTA_URL"
-	MantaPrivateKeyPath = "MANTA_PRIVATE_KEY_PATH"
+	MantaPrivateKeyFile = "MANTA_PRIVATE_KEY_FILE"
 	DefaultPrivateKey   = "~/.ssh/id_rsa"
 )
 
@@ -63,7 +63,7 @@ var environmentVariables = map[string]string{
 	"manta-user":       MantaUser,
 	"manta-key-id":     MantaKeyId,
 	"manta-url":        MantaUrl,
-	"private-key-path": MantaPrivateKeyPath,
+	"private-key-path": MantaPrivateKeyFile,
 }
 
 var configFields = schema.Fields{

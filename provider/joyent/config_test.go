@@ -194,14 +194,14 @@ var newConfigTests = []struct {
 	insert: coretesting.Attrs{"private-key-path": ""},
 	expect: coretesting.Attrs{"private-key-path": "some-file"},
 	envVars: map[string]string{
-		"MANTA_PRIVATE_KEY_PATH": "some-file",
+		"MANTA_PRIVATE_KEY_FILE": "some-file",
 	},
 }, {
 	info:   "can get private-key-path from env variable, missing from config",
 	remove: []string{"private-key-path"},
 	expect: coretesting.Attrs{"private-key-path": "some-file"},
 	envVars: map[string]string{
-		"MANTA_PRIVATE_KEY_PATH": "some-file",
+		"MANTA_PRIVATE_KEY_FILE": "some-file",
 	},
 }, {
 	info:   "algorithm is inserted if missing",
