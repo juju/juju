@@ -183,6 +183,23 @@ func (s *StoreSuite) TestServerCharmEvent(c *gc.C) {
 	s.checkCounterSum(c, []string{"charm-event", "oneiric", "mysql"}, false, 1)
 }
 
+func (s *StoreSuite) TestSeriesNotFound(c *gc.C) {
+	server, err := store.NewServer(s.store)
+	req, err := http.NewRequest("GET", "/charm-info?charms=cs:not-found", nil)
+	c.Assert(err, gc.IsNil)
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+	c.Assert(rec.Code, gc.Equals, http.StatusOK)
+
+	expected := map[string]interface{}{"cs:not-found": map[string]interface{}{
+		"revision": float64(0),
+		"errors":   []interface{}{"entry not found"}}}
+	obtained := map[string]interface{}{}
+	err = json.NewDecoder(rec.Body).Decode(&obtained)
+	c.Assert(err, gc.IsNil)
+	c.Assert(obtained, gc.DeepEquals, expected)
+}
+
 // checkCounterSum checks that statistics are properly collected.
 // It retries a few times as they are generally collected in background.
 func (s *StoreSuite) checkCounterSum(c *gc.C, key []string, prefix bool, expected int64) {

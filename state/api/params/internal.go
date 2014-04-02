@@ -532,10 +532,3 @@ type RunResult struct {
 type RunResults struct {
 	Results []RunResult
 }
-
-// APIHostPortsResult holds the result of an APIHostPorts
-// call. Each element in the top level slice holds
-// the addresses for one API server.
-type APIHostPortsResult struct {
-	Servers [][]instance.HostPort
-}

@@ -4,13 +4,16 @@
 package bzr_test
 
 import (
+	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/bzr"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 func Test(t *testing.T) {
@@ -20,10 +23,24 @@ func Test(t *testing.T) {
 var _ = gc.Suite(&BzrSuite{})
 
 type BzrSuite struct {
+	testbase.LoggingSuite
 	b *bzr.Branch
 }
 
+const bzr_config = `[DEFAULT]
+email = testing <test@example.com>
+`
+
 func (s *BzrSuite) SetUpTest(c *gc.C) {
+	s.LoggingSuite.SetUpTest(c)
+	bzrdir := c.MkDir()
+	s.PatchEnvironment("BZR_HOME", bzrdir)
+	err := os.Mkdir(filepath.Join(bzrdir, ".bazaar"), 0755)
+	c.Assert(err, gc.IsNil)
+	err = ioutil.WriteFile(
+		filepath.Join(bzrdir, ".bazaar", "bazaar.conf"),
+		[]byte(bzr_config), 0644)
+	c.Assert(err, gc.IsNil)
 	s.b = bzr.New(c.MkDir())
 	c.Assert(s.b.Init(), gc.IsNil)
 }

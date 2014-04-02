@@ -162,8 +162,8 @@ func (s *ManifestDeployerSuite) TestUpgradePreserveUserFiles(c *gc.C) {
 	// ...and other files are preserved or removed according to
 	// source and location.
 	preserveUserContent.Check(c, s.targetPath)
-	removeUserContent.Removeds().Check(c, s.targetPath)
-	originalCharmContent.Removeds().Check(c, s.targetPath)
+	removeUserContent.AsRemoveds().Check(c, s.targetPath)
+	originalCharmContent.AsRemoveds().Check(c, s.targetPath)
 }
 
 func (s *ManifestDeployerSuite) TestUpgradeConflictResolveRetrySameCharm(c *gc.C) {

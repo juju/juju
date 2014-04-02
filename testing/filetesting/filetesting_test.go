@@ -198,6 +198,15 @@ func (s *EntrySuite) TestRemovedCreateFailure(c *gc.C) {
 	ft.Removed{"some-file"}.Create(c, s.basePath)
 }
 
+func (s *EntrySuite) TestRemovedCheck(c *gc.C) {
+	ft.Removed{"some-file"}.Check(c, s.basePath)
+}
+
+func (s *EntrySuite) TestRemovedCheckParentNotDir(c *gc.C) {
+	ft.File{"some-dir", "lol-not-a-file", 0644}.Create(c, s.basePath)
+	ft.Removed{"some-dir/some-file"}.Check(c, s.basePath)
+}
+
 func (s *EntrySuite) TestRemovedCheckFailureFile(c *gc.C) {
 	ft.File{"some-file", "", 0644}.Create(c, s.basePath)
 	c.ExpectFailure("should not accept file")
@@ -243,14 +252,14 @@ func (s *EntrySuite) TestEntries(c *gc.C) {
 		ft.Removed{"some-link"},
 		ft.Removed{"missing"},
 	}
-	removeds := initial.Removeds()
+	removeds := initial.AsRemoveds()
 	c.Assert(removeds, jc.DeepEquals, expectRemoveds)
 
 	expectPaths := []string{"some-file", "some-dir", "some-link", "missing"}
 	c.Assert(initial.Paths(), jc.DeepEquals, expectPaths)
 	c.Assert(removeds.Paths(), jc.DeepEquals, expectPaths)
 
-	chainRemoveds := initial.Create(c, s.basePath).Check(c, s.basePath).Removeds()
+	chainRemoveds := initial.Create(c, s.basePath).Check(c, s.basePath).AsRemoveds()
 	c.Assert(chainRemoveds, jc.DeepEquals, expectRemoveds)
 	chainRemoveds = chainRemoveds.Create(c, s.basePath).Check(c, s.basePath)
 	c.Assert(chainRemoveds, jc.DeepEquals, expectRemoveds)

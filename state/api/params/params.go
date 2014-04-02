@@ -457,6 +457,17 @@ type EntityId struct {
 	Id   interface{}
 }
 
+// StateServingInfo holds information needed by a state
+// server.
+type StateServingInfo struct {
+	APIPort    int
+	StatePort  int
+	Cert       string
+	PrivateKey string
+	// this will be passed as the KeyFile argument to MongoDB
+	SharedSecret string
+}
+
 // MachineInfo holds the information about a Machine
 // that is watched by StateWatcher.
 type MachineInfo struct {
@@ -620,4 +631,26 @@ type StatusParams struct {
 // SetRsyslogCertParams holds parameters for the SetRsyslogCert call.
 type SetRsyslogCertParams struct {
 	CACert []byte
+}
+
+// APIHostPortsResult holds the result of an APIHostPorts
+// call. Each element in the top level slice holds
+// the addresses for one API server.
+type APIHostPortsResult struct {
+	Servers [][]instance.HostPort
+}
+
+// LoginResult holds the result of a Login call.
+type LoginResult struct {
+	Servers [][]instance.HostPort
+}
+
+// EnsureAvailability contains arguments for
+// the EnsureAvailability client API call.
+type EnsureAvailability struct {
+	NumStateServers int
+	Constraints     constraints.Value
+	// Series is the series to associate with new state server machines.
+	// If this is empty, then the environment's default series is used.
+	Series string
 }
