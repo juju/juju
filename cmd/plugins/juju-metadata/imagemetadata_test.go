@@ -140,7 +140,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesDefaultArch(c *gc.C) {
 	s.assertCommandOutput(c, expected, out, defaultIndexFileName, defaultImageFileName)
 }
 
-func (s *ImageMetadataSuite) TestImageMetadataFilesDefaultSeries(c *gc.C) {
+func (s *ImageMetadataSuite) TestImageMetadataFilesLatestLts(c *gc.C) {
 	ctx := testing.Context(c)
 	code := cmd.Main(
 		&ImageMetadataCommand{}, ctx, []string{
