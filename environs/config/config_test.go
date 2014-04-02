@@ -1012,7 +1012,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"bootstrap-timeout":         3600,
 		"bootstrap-retry-delay":     30,
 		"bootstrap-addresses-delay": 10,
-		"default-series":            "precise",
+		"default-series":            testing.FakeDefaultSeries,
 		"charm-store-auth":          "token=auth",
 		"test-mode":                 false,
 	}
@@ -1021,7 +1021,6 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 
 	// These attributes are added if not set.
 	attrs["development"] = false
-	attrs["default-series"] = config.LatestLtsSeries()
 	attrs["logging-config"] = "<root>=WARNING;unit=DEBUG"
 	attrs["ca-private-key"] = ""
 	attrs["image-metadata-url"] = ""

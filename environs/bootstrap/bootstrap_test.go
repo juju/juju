@@ -325,11 +325,18 @@ func (s *bootstrapSuite) TestSeriesToUpload(c *gc.C) {
 	s.PatchValue(&version.Current, vers)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	cfg := env.Config()
-	c.Assert(bootstrap.SeriesToUpload(cfg, nil), jc.SameContents, []string{"quantal", "precise"})
+
+	prefSeries := config.PreferredSeries(cfg)
+	expect := []string{"quantal", prefSeries}
+	if prefSeries != config.LatestLtsSeries() {
+		expect = append(expect, config.LatestLtsSeries())
+	}
+	c.Assert(bootstrap.SeriesToUpload(cfg, nil), jc.SameContents, expect)
+
 	c.Assert(bootstrap.SeriesToUpload(cfg, []string{"quantal"}), jc.SameContents, []string{"quantal"})
 	env = newEnviron("foo", useDefaultKeys, map[string]interface{}{"default-series": "lucid"})
 	cfg = env.Config()
-	c.Assert(bootstrap.SeriesToUpload(cfg, nil), jc.SameContents, []string{"quantal", "precise", "lucid"})
+	c.Assert(bootstrap.SeriesToUpload(cfg, nil), jc.SameContents, []string{"quantal", config.LatestLtsSeries(), "lucid"})
 }
 
 func (s *bootstrapSuite) assertUploadTools(c *gc.C, vers version.Binary, allowRelease bool,

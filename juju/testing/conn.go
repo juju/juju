@@ -165,6 +165,14 @@ func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C, jobs ...state.MachineJob) (
 	return s.openAPIAs(c, machine.Tag(), password, "fake_nonce"), machine
 }
 
+func PreferredDefaultVersions(conf *config.Config, template version.Binary) []version.Binary {
+	prefVersion := template
+	prefVersion.Series = config.PreferredSeries(conf)
+	defaultVersion := template
+	defaultVersion.Series = testing.FakeDefaultSeries
+	return []version.Binary{prefVersion, defaultVersion}
+}
+
 func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	if s.RootDir != "" {
 		panic("JujuConnSuite.setUpConn without teardown")
@@ -204,13 +212,11 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	c.Assert(environ.Name(), gc.Equals, "dummyenv")
 	s.PatchValue(&dummy.DataDir, s.DataDir())
 
-	prefVersion := version.Current
-	prefVersion.Series = config.PreferredSeries(environ.Config())
-	defaultVersion := version.Current
-	defaultVersion.Series = testing.FakeDefaultSeries
+	versions := PreferredDefaultVersions(environ.Config(), version.Current)
+	versions = append(versions, version.Current)
 
 	// Upload tools for both preferred and fake default series
-	envtesting.MustUploadFakeToolsVersions(environ.Storage(), prefVersion, defaultVersion)
+	envtesting.MustUploadFakeToolsVersions(environ.Storage(), versions...)
 	c.Assert(bootstrap.Bootstrap(ctx, environ, constraints.Value{}), gc.IsNil)
 
 	s.BackingState = environ.(GetStater).GetStateInAPIServer()
