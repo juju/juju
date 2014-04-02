@@ -34,13 +34,16 @@ type debugLogHandler struct {
 
 // ServeHTTP will serve up connections as a websocket.
 // Args for the HTTP request are as follows:
-//   include -> []string - lists agent tags or modules to include in the response
-//      may include wild cards, eg: unit-mysql-*, machine-2, juju.provisioner
+//   includeAgent -> []string - lists agent tagsto include in the response
+//      may finish with a '*' to match a prefix eg: unit-mysql-*, machine-2
 //      - if none are set, then all lines are considered included
-//   exclude -> []string - lists agent tags or modules to exclude from the response
-//      as with include, it may contain wild cards
+//   includeModule -> []string - lists logging modules to include in the response
+//      - if none are set, then all lines are considered included
+//   excludeAgent -> []string - lists agent tags to exclude from the response
+//      as with include, it may finish with a '*'
+//   excludeModule -> []string - lists logging modules to exclude from the response
 //   limit -> int - show this many lines then exit
-//   level -> string one of [DEBUG, INFO, WARNING, ERROR]
+//   level -> string one of [TRACE, DEBUG, INFO, WARNING, ERROR]
 //   replay -> string - one of [true, false], if true, start the file from the start
 func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if err := h.authenticate(req); err != nil {
@@ -230,7 +233,22 @@ func (stream *logStream) include(line *logLine) bool {
 }
 
 func (stream *logStream) exclude(line *logLine) bool {
-	return true
+	for _, value := range stream.excludeAgent {
+		// special handling, if ends with '*', check prefix
+		if strings.HasSuffix(value, "*") {
+			if strings.HasPrefix(line.agent, value[:len(value)-1]) {
+				return true
+			}
+		} else if line.agent == value {
+			return true
+		}
+	}
+	for _, value := range stream.excludeModule {
+		if strings.HasPrefix(line.module, value) {
+			return true
+		}
+	}
+	return false
 }
 
 func (stream *logStream) checkLevel(line *logLine) bool {

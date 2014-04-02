@@ -46,37 +46,39 @@ func (s *debugInternalSuite) TestParseLogLineInvalid(c *gc.C) {
 	c.Assert(logLine.module, gc.Equals, "")
 }
 
-func (s *debugInternalSuite) TestCheckLevelUnset(c *gc.C) {
+func checkLevel(logValue, streamValue loggo.Level) bool {
 	stream := &logStream{}
-	line := &logLine{level: loggo.UNSPECIFIED}
-	c.Assert(stream.checkLevel(line), jc.IsTrue)
-	line.level = loggo.TRACE
-	c.Assert(stream.checkLevel(line), jc.IsTrue)
-	line.level = loggo.DEBUG
-	c.Assert(stream.checkLevel(line), jc.IsTrue)
-	line.level = loggo.INFO
-	c.Assert(stream.checkLevel(line), jc.IsTrue)
-	line.level = loggo.WARNING
-	c.Assert(stream.checkLevel(line), jc.IsTrue)
-	line.level = loggo.ERROR
-	c.Assert(stream.checkLevel(line), jc.IsTrue)
+	if streamValue != loggo.UNSPECIFIED {
+		stream.filterLevel = &streamValue
+	}
+	line := &logLine{level: logValue}
+	return stream.checkLevel(line)
 }
 
-func (s *debugInternalSuite) TestCheckLevelSet(c *gc.C) {
-	level := loggo.INFO
-	stream := &logStream{filterLevel: &level}
-	line := &logLine{level: loggo.UNSPECIFIED}
-	c.Assert(stream.checkLevel(line), jc.IsFalse)
-	line.level = loggo.TRACE
-	c.Assert(stream.checkLevel(line), jc.IsFalse)
-	line.level = loggo.DEBUG
-	c.Assert(stream.checkLevel(line), jc.IsFalse)
-	line.level = loggo.INFO
-	c.Assert(stream.checkLevel(line), jc.IsTrue)
-	line.level = loggo.WARNING
-	c.Assert(stream.checkLevel(line), jc.IsTrue)
-	line.level = loggo.ERROR
-	c.Assert(stream.checkLevel(line), jc.IsTrue)
+func (s *debugInternalSuite) TestCheckLevel(c *gc.C) {
+	c.Check(checkLevel(loggo.UNSPECIFIED, loggo.UNSPECIFIED), jc.IsTrue)
+	c.Check(checkLevel(loggo.TRACE, loggo.UNSPECIFIED), jc.IsTrue)
+	c.Check(checkLevel(loggo.DEBUG, loggo.UNSPECIFIED), jc.IsTrue)
+	c.Check(checkLevel(loggo.INFO, loggo.UNSPECIFIED), jc.IsTrue)
+	c.Check(checkLevel(loggo.WARNING, loggo.UNSPECIFIED), jc.IsTrue)
+	c.Check(checkLevel(loggo.ERROR, loggo.UNSPECIFIED), jc.IsTrue)
+	c.Check(checkLevel(loggo.CRITICAL, loggo.UNSPECIFIED), jc.IsTrue)
+
+	c.Check(checkLevel(loggo.UNSPECIFIED, loggo.TRACE), jc.IsFalse)
+	c.Check(checkLevel(loggo.TRACE, loggo.TRACE), jc.IsTrue)
+	c.Check(checkLevel(loggo.DEBUG, loggo.TRACE), jc.IsTrue)
+	c.Check(checkLevel(loggo.INFO, loggo.TRACE), jc.IsTrue)
+	c.Check(checkLevel(loggo.WARNING, loggo.TRACE), jc.IsTrue)
+	c.Check(checkLevel(loggo.ERROR, loggo.TRACE), jc.IsTrue)
+	c.Check(checkLevel(loggo.CRITICAL, loggo.TRACE), jc.IsTrue)
+
+	c.Check(checkLevel(loggo.UNSPECIFIED, loggo.INFO), jc.IsFalse)
+	c.Check(checkLevel(loggo.TRACE, loggo.INFO), jc.IsFalse)
+	c.Check(checkLevel(loggo.DEBUG, loggo.INFO), jc.IsFalse)
+	c.Check(checkLevel(loggo.INFO, loggo.INFO), jc.IsTrue)
+	c.Check(checkLevel(loggo.WARNING, loggo.INFO), jc.IsTrue)
+	c.Check(checkLevel(loggo.ERROR, loggo.INFO), jc.IsTrue)
+	c.Check(checkLevel(loggo.CRITICAL, loggo.INFO), jc.IsTrue)
 }
 
 func checkIncludeAgent(logValue string, includeAgent ...string) bool {
