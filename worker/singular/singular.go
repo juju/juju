@@ -2,9 +2,9 @@ package singular
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
-	"launchpad.net/tomb"
 	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/worker"
@@ -15,9 +15,12 @@ var logger = loggo.GetLogger("juju.worker")
 var PingInterval = 10 * time.Second
 
 type runner struct {
-	tomb     tomb.Tomb
-	isMaster bool
+	pingErr         error
+	pingerDied      chan struct{}
+	startPingerOnce sync.Once
+	isMaster        bool
 	worker.Runner
+	conn Conn
 }
 
 // Conn represents a connection to some resource.
@@ -36,55 +39,45 @@ type Conn interface {
 // run a single instance. The conn value is used to determine whether to
 // run the workers or not.
 //
-// Any workers started will be started on the underlying runner, but
-// will do nothing if the connection is not currently held by the master
-// of the resource.
+// If conn.IsMaster returns true, any workers started will be started on the
+// underlying runner.
+//
+// If conn.IsMaster returns false, any workers started will actually
+// start do-nothing placeholder workers on the underlying runner
+// that continually ping the connection until a ping fails and then exit
+// with that error.
 func New(underlying worker.Runner, conn Conn) (worker.Runner, error) {
 	isMaster, err := conn.IsMaster()
 	if err != nil {
 		return nil, fmt.Errorf("cannot get master status: %v", err)
 	}
-	r := &runner{
-		isMaster: isMaster,
-		Runner:   underlying,
-	}
+	return &runner{
+		isMaster:   isMaster,
+		Runner:     underlying,
+		conn:       conn,
+		pingerDied: make(chan struct{}),
+	}, nil
+}
+
+func (r *runner) pinger() {
+	underlyingDead := make(chan struct{})
 	go func() {
-		defer r.tomb.Done()
-		if !isMaster {
-			// We're not master, so start a pinger so that we know when
-			// the connection master changes.
-			r.pinger(conn)
-		} else {
-			// We *are* master; the started workers should
-			// encounter an error as they do what they're supposed
-			// to do - no need for an extra pinger to tell us.
-			// We just wait to be killed.
-			<-r.tomb.Dying()
-		}
+		r.Runner.Wait()
+		close(underlyingDead)
 	}()
-	return r, nil
-}
-
-func (r *runner) Kill() {
-	r.tomb.Kill(nil)
-}
-
-func (r *runner) Wait() {
-	return r.tomb.Wait()
-}
-
-func (r *runner) pinger(conn Conn) {
 	timer := time.NewTimer(0)
 	for {
-		err := conn.Ping()
-		if err != nil {
-			logger.Infof("ping error: %v", err)
+		if err := r.conn.Ping(); err != nil {
+			// The ping has failed: cause all other workers
+			// to exit with the ping error.
+			r.pingErr = err
+			close(r.pingerDied)
 			return
 		}
-		timer.Reset(pingInterval)
+		timer.Reset(PingInterval)
 		select {
 		case <-timer.C:
-		case <-r.tomb.Dying():
+		case <-underlyingDead:
 			return
 		}
 	}
@@ -92,16 +85,27 @@ func (r *runner) pinger(conn Conn) {
 
 func (r *runner) StartWorker(id string, startFunc func() (worker.Worker, error)) error {
 	if r.isMaster {
+		// We are master; the started workers should
+		// encounter an error as they do what they're supposed
+		// to do - we can just start the worker in the
+		// underlying runner.
 		return r.Runner.StartWorker(id, startFunc)
 	}
-	return r.Runner.StartWorker(id, func() (worker.Worker, error) {
-		return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
-			logger.Infof("not starting %q because we are not master", id)
-			select {
-			case <-stop:
-			case <-r.tomb.Dying():
-			}
-			return nil
-		}), nil
+	// We're not master, so don't start the worker, but start a pinger so
+	// that we know when the connection master changes.
+	r.startPingerOnce.Do(func() {
+		go r.pinger()
 	})
+	return r.Runner.StartWorker(id, func() (worker.Worker, error) {
+		return worker.NewSimpleWorker(r.waitPinger), nil
+	})
+}
+
+func (r *runner) waitPinger(stop <-chan struct{}) error {
+	select {
+	case <-stop:
+		return nil
+	case <-r.pingerDied:
+		return r.pingErr
+	}
 }
