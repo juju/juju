@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
 	apiwatcher "launchpad.net/juju-core/state/api/watcher"
@@ -30,6 +31,7 @@ type Provisioner interface {
 	worker.Worker
 	Stop() error
 	getMachineWatcher() (apiwatcher.StringsWatcher, error)
+	getRetryWatcher() (apiwatcher.NotifyWatcher, error)
 }
 
 // environProvisioner represents a running provisioning worker for machine nodes
@@ -108,8 +110,8 @@ func (p *provisioner) getStartTask(safeMode bool) (ProvisionerTask, error) {
 	if err != nil {
 		return nil, err
 	}
-	retryWatcher, err := p.st.WatchMachineErrorRetry()
-	if err != nil {
+	retryWatcher, err := p.getRetryWatcher()
+	if err != nil && !errors.IsNotImplementedError(err) {
 		return nil, err
 	}
 	task := NewProvisionerTask(
@@ -193,6 +195,10 @@ func (p *environProvisioner) getMachineWatcher() (apiwatcher.StringsWatcher, err
 	return p.st.WatchEnvironMachines()
 }
 
+func (p *environProvisioner) getRetryWatcher() (apiwatcher.NotifyWatcher, error) {
+	return p.st.WatchMachineErrorRetry()
+}
+
 // setConfig updates the environment configuration and notifies
 // the config observer.
 func (p *environProvisioner) setConfig(environConfig *config.Config) error {
@@ -262,4 +268,8 @@ func (p *containerProvisioner) getMachineWatcher() (apiwatcher.StringsWatcher, e
 		return nil, err
 	}
 	return machine.WatchContainers(p.containerType)
+}
+
+func (p *containerProvisioner) getRetryWatcher() (apiwatcher.NotifyWatcher, error) {
+	return nil, errors.NewNotImplementedError("getRetryWatcher")
 }
