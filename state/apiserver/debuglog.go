@@ -61,6 +61,7 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 	}
+	_ = lines
 	filter := values.Get("filter")
 	_, err := regexp.Compile(filter)
 	if err != nil {
@@ -79,10 +80,11 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	wsServer := websocket.Server{
 		Handler: func(wsConn *websocket.Conn) {
 			stream := &logStream{}
+			stream.init(logFile, wsConn)
 			go func() {
 				defer stream.tomb.Done()
 				defer wsConn.Close()
-				stream.tomb.Kill(stream.loop(logFile, wsConn, lines))
+				stream.tomb.Kill(stream.loop())
 			}()
 			if err := stream.tomb.Wait(); err != nil {
 				logger.Errorf("debug-log handler error: %v", err)
@@ -182,6 +184,7 @@ func parseLogLine(line string) *logLine {
 // it via a web socket.
 type logStream struct {
 	tomb          tomb.Tomb
+	logTailer     *tailer.Tailer
 	filterLevel   loggo.Level
 	includeAgent  []string
 	includeModule []string
@@ -189,16 +192,24 @@ type logStream struct {
 	excludeModule []string
 	maxLines      uint
 	lineCount     uint
+	fromTheStart  bool
+}
+
+func (stream *logStream) init(logFile io.ReadSeeker, writer io.Writer) {
+	if stream.fromTheStart {
+		stream.logTailer = tailer.NewTailer(logFile, writer, stream.filterLine)
+	} else {
+		stream.logTailer = tailer.NewTailerBacktrack(logFile, writer, 0, stream.filterLine)
+	}
 }
 
 // loop starts the tailer with the log file and the web socket.
-func (stream *logStream) loop(logFile io.ReadSeeker, wsConn *websocket.Conn, lines int) error {
-	tailer := tailer.NewTailer(logFile, wsConn, lines, stream.filterLine)
+func (stream *logStream) loop() error {
 	select {
-	case <-tailer.Dead():
-		return tailer.Err()
+	case <-stream.logTailer.Dead():
+		return stream.logTailer.Err()
 	case <-stream.tomb.Dying():
-		tailer.Stop()
+		stream.logTailer.Stop()
 	}
 	return nil
 }

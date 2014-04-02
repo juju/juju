@@ -6,9 +6,14 @@
 package apiserver
 
 import (
+	"bytes"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
+	"launchpad.net/juju-core/testing"
+	"os"
+	"path/filepath"
+	"time"
 
 	"launchpad.net/juju-core/testing/testbase"
 )
@@ -183,4 +188,70 @@ func (s *debugInternalSuite) TestFilterLineWithLimit(c *gc.C) {
 	c.Check(stream.filterLine(line), jc.IsTrue)
 	c.Check(stream.filterLine(line), jc.IsFalse)
 	c.Check(stream.filterLine(line), jc.IsFalse)
+}
+
+func (s *debugInternalSuite) testStreamInternal(c *gc.C, fromTheStart bool, expected string) {
+
+	dir := c.MkDir()
+	logPath := filepath.Join(dir, "logfile.txt")
+	logFile, err := os.Create(logPath)
+	c.Assert(err, gc.IsNil)
+	logFileReader, err := os.Open(logPath)
+	c.Assert(err, gc.IsNil)
+	defer logFile.Close()
+
+	logFile.WriteString(`line 1
+line 2
+line 3
+`)
+	stream := &logStream{fromTheStart: fromTheStart}
+	output := &bytes.Buffer{}
+	stream.init(logFileReader, output)
+
+	tailingStarted := make(chan struct{})
+	stream.logTailer.StartedTailing = func() {
+		close(tailingStarted)
+	}
+
+	go func() {
+		defer stream.tomb.Done()
+		stream.tomb.Kill(stream.loop())
+	}()
+	// wait for the tailer to have started tailing before writing more
+	<-tailingStarted
+
+	logFile.WriteString("line 4\n")
+	logFile.WriteString("line 5\n")
+
+	timeout := time.After(testing.LongWait)
+	for output.String() != expected {
+		select {
+		case <-time.After(testing.ShortWait):
+			// do nothing
+		case <-timeout:
+			c.Fatalf("expected data didn't arrive:\n\tobtained: %#v\n\texpected: %#v", output.String(), expected)
+		}
+	}
+
+	logFile.Close()
+
+	//err = stream.tomb.Wait()
+	//c.Assert(err, gc.IsNil)
+}
+
+func (s *debugInternalSuite) TestLogStreamLoopFromTheStart(c *gc.C) {
+	expected := `line 1
+line 2
+line 3
+line 4
+line 5
+`
+	s.testStreamInternal(c, true, expected)
+}
+
+func (s *debugInternalSuite) TestLogStreamLoopJustTail(c *gc.C) {
+	expected := `line 4
+line 5
+`
+	s.testStreamInternal(c, false, expected)
 }
