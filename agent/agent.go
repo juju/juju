@@ -527,7 +527,7 @@ func (c *configInternal) Value(key string) string {
 }
 
 func (c *configInternal) StateServingInfo() (params.StateServingInfo, bool) {
-	if c.servingInfo.StatePort == 0 {
+	if c.servingInfo.SharedSecret == "" {
 		return params.StateServingInfo{}, false
 	}
 	return c.servingInfo, true
