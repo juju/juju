@@ -69,6 +69,12 @@ func SelectPeerAddress(addrs []instance.Address) string {
 	return instance.SelectInternalAddress(addrs, false)
 }
 
+// SelectPeerHostPort returns the HostPort to use as the
+// mongo replica set peer by selecting it from the given hostPorts.
+func SelectPeerHostPort(hostPorts []instance.HostPort) string {
+	return instance.SelectInternalHostPort(hostPorts, false)
+}
+
 // GenerateSharedSecret generates a pseudo-random shared secret (keyfile)
 // for use with Mongo replica sets.
 func GenerateSharedSecret() (string, error) {
