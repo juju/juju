@@ -59,9 +59,13 @@ func resolveCharmURL(url string, client *api.Client, conf *config.Config) (*char
 	if err != nil {
 		return nil, err
 	}
+	// If series is not set, use configured default series
 	if series == "" {
-		series = config.PreferredSeries(conf)
+		if defaultSeries, ok := conf.DefaultSeries(); ok {
+			series = defaultSeries
+		}
 	}
+	// Otherwise, look up the best supported series for this charm
 	if series == "" {
 		results, err := client.ResolveCharms(ref)
 		if err != nil {
