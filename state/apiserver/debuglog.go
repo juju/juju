@@ -62,7 +62,7 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	filter := values.Get("filter")
-	filterRx, err := regexp.Compile(filter)
+	_, err := regexp.Compile(filter)
 	if err != nil {
 		h.sendError(w, http.StatusBadRequest, "cannot set filter: %v", err)
 		return
@@ -78,7 +78,7 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// Start streaming.
 	wsServer := websocket.Server{
 		Handler: func(wsConn *websocket.Conn) {
-			stream := &logStream{filterRx: filterRx}
+			stream := &logStream{}
 			go func() {
 				defer stream.tomb.Done()
 				defer wsConn.Close()
@@ -182,12 +182,13 @@ func parseLogLine(line string) *logLine {
 // it via a web socket.
 type logStream struct {
 	tomb          tomb.Tomb
-	filterRx      *regexp.Regexp
-	filterLevel   *loggo.Level
+	filterLevel   loggo.Level
 	includeAgent  []string
 	includeModule []string
 	excludeAgent  []string
 	excludeModule []string
+	maxLines      uint
+	lineCount     uint
 }
 
 // loop starts the tailer with the log file and the web socket.
@@ -205,9 +206,15 @@ func (stream *logStream) loop(logFile io.ReadSeeker, wsConn *websocket.Conn, lin
 // filterLine checks the received line for one of the confgured tags.
 func (stream *logStream) filterLine(line []byte) bool {
 	log := parseLogLine(string(line))
-	return stream.include(log) &&
+	result := stream.include(log) &&
 		!stream.exclude(log) &&
 		stream.checkLevel(log)
+	if result && stream.maxLines > 0 {
+		stream.lineCount++
+		result = stream.lineCount <= stream.maxLines
+		stream.tomb.Kill(fmt.Errorf("max lines reached"))
+	}
+	return result
 }
 
 func (stream *logStream) include(line *logLine) bool {
@@ -252,6 +259,5 @@ func (stream *logStream) exclude(line *logLine) bool {
 }
 
 func (stream *logStream) checkLevel(line *logLine) bool {
-	return stream.filterLevel == nil ||
-		line.level >= *stream.filterLevel
+	return line.level >= stream.filterLevel
 }

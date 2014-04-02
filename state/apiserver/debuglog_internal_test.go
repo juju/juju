@@ -49,7 +49,7 @@ func (s *debugInternalSuite) TestParseLogLineInvalid(c *gc.C) {
 func checkLevel(logValue, streamValue loggo.Level) bool {
 	stream := &logStream{}
 	if streamValue != loggo.UNSPECIFIED {
-		stream.filterLevel = &streamValue
+		stream.filterLevel = streamValue
 	}
 	line := &logLine{level: logValue}
 	return stream.checkLevel(line)
@@ -81,8 +81,8 @@ func (s *debugInternalSuite) TestCheckLevel(c *gc.C) {
 	c.Check(checkLevel(loggo.CRITICAL, loggo.INFO), jc.IsTrue)
 }
 
-func checkIncludeAgent(logValue string, includeAgent ...string) bool {
-	stream := &logStream{includeAgent: includeAgent}
+func checkIncludeAgent(logValue string, agent ...string) bool {
+	stream := &logStream{includeAgent: agent}
 	line := &logLine{agent: logValue}
 	return stream.include(line)
 }
@@ -111,4 +111,76 @@ func (s *debugInternalSuite) TestCheckIncludeModule(c *gc.C) {
 	c.Check(checkIncludeModule("juju.provisioner", "juju*"), jc.IsFalse)
 	c.Check(checkIncludeModule("juju.provisioner", "juju.environ"), jc.IsFalse)
 	c.Check(checkIncludeModule("unit.mysql/1", "juju", "unit"), jc.IsTrue)
+}
+
+func checkExcludeAgent(logValue string, agent ...string) bool {
+	stream := &logStream{excludeAgent: agent}
+	line := &logLine{agent: logValue}
+	return stream.exclude(line)
+}
+
+func (s *debugInternalSuite) TestCheckExcludeAgent(c *gc.C) {
+	c.Check(checkExcludeAgent("machine-0"), jc.IsFalse)
+	c.Check(checkExcludeAgent("machine-0", "machine-0"), jc.IsTrue)
+	c.Check(checkExcludeAgent("machine-1", "machine-0"), jc.IsFalse)
+	c.Check(checkExcludeAgent("machine-1", "machine-0", "machine-1"), jc.IsTrue)
+	c.Check(checkExcludeAgent("machine-0-lxc-0", "machine-0"), jc.IsFalse)
+	c.Check(checkExcludeAgent("machine-0-lxc-0", "machine-0*"), jc.IsTrue)
+	c.Check(checkExcludeAgent("machine-0-lxc-0", "machine-0-lxc-*"), jc.IsTrue)
+}
+
+func checkExcludeModule(logValue string, module ...string) bool {
+	stream := &logStream{excludeModule: module}
+	line := &logLine{module: logValue}
+	return stream.exclude(line)
+}
+
+func (s *debugInternalSuite) TestCheckExcludeModule(c *gc.C) {
+	c.Check(checkExcludeModule("juju"), jc.IsFalse)
+	c.Check(checkExcludeModule("juju", "juju"), jc.IsTrue)
+	c.Check(checkExcludeModule("juju", "juju.environ"), jc.IsFalse)
+	c.Check(checkExcludeModule("juju.provisioner", "juju"), jc.IsTrue)
+	c.Check(checkExcludeModule("juju.provisioner", "juju*"), jc.IsFalse)
+	c.Check(checkExcludeModule("juju.provisioner", "juju.environ"), jc.IsFalse)
+	c.Check(checkExcludeModule("unit.mysql/1", "juju", "unit"), jc.IsTrue)
+}
+
+func (s *debugInternalSuite) TestFilterLine(c *gc.C) {
+	stream := &logStream{
+		filterLevel:   loggo.INFO,
+		includeAgent:  []string{"machine-0", "unit-mysql*"},
+		excludeAgent:  []string{"unit-mysql-2"},
+		excludeModule: []string{"juju.foo"},
+	}
+	c.Check(stream.filterLine([]byte(
+		"machine-0: date time WARNING juju")), jc.IsTrue)
+	c.Check(stream.filterLine([]byte(
+		"machine-1: date time WARNING juju")), jc.IsFalse)
+	c.Check(stream.filterLine([]byte(
+		"unit-mysql-0: date time WARNING juju")), jc.IsTrue)
+	c.Check(stream.filterLine([]byte(
+		"unit-mysql-1: date time WARNING juju")), jc.IsTrue)
+	c.Check(stream.filterLine([]byte(
+		"unit-mysql-2: date time WARNING juju")), jc.IsFalse)
+	c.Check(stream.filterLine([]byte(
+		"unit-wordpress-0: date time WARNING juju")), jc.IsFalse)
+	c.Check(stream.filterLine([]byte(
+		"machine-0: date time DEBUG juju")), jc.IsFalse)
+	c.Check(stream.filterLine([]byte(
+		"machine-0: date time WARNING juju.foo.bar")), jc.IsFalse)
+}
+
+func (s *debugInternalSuite) TestFilterLineWithLimit(c *gc.C) {
+	stream := &logStream{
+		filterLevel: loggo.INFO,
+		maxLines:    5,
+	}
+	line := []byte("machine-0: date time WARNING juju")
+	c.Check(stream.filterLine(line), jc.IsTrue)
+	c.Check(stream.filterLine(line), jc.IsTrue)
+	c.Check(stream.filterLine(line), jc.IsTrue)
+	c.Check(stream.filterLine(line), jc.IsTrue)
+	c.Check(stream.filterLine(line), jc.IsTrue)
+	c.Check(stream.filterLine(line), jc.IsFalse)
+	c.Check(stream.filterLine(line), jc.IsFalse)
 }
