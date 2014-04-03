@@ -63,6 +63,10 @@ func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg Bootstrap
 	if c.Tag() != names.MachineTag(bootstrapMachineId) {
 		return nil, nil, fmt.Errorf("InitializeState not called with bootstrap machine's configuration")
 	}
+	servingInfo, ok := c.StateServingInfo()
+	if !ok {
+		return nil, nil, fmt.Errorf("state serving information not available")
+	}
 	info := c.StateInfo()
 	info.Tag = ""
 	info.Password = ""
@@ -77,11 +81,13 @@ func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg Bootstrap
 			st.Close()
 		}
 	}()
-	if err = initAPIHostPorts(c, st, machineCfg.Addresses); err != nil {
+	servingInfo.SharedSecret = machineCfg.SharedSecret
+	c.SetStateServingInfo(servingInfo)
+	if err = initAPIHostPorts(c, st, machineCfg.Addresses, servingInfo.APIPort); err != nil {
 		return nil, nil, err
 	}
-	if err = setStateServingInfo(c, st, envCfg.StatePort(), machineCfg.SharedSecret); err != nil {
-		return nil, nil, err
+	if err := st.SetStateServingInfo(servingInfo); err != nil {
+		return nil, nil, fmt.Errorf("cannot set state serving info: %v", err)
 	}
 	m, err := initUsersAndBootstrapMachine(c, st, machineCfg)
 	if err != nil {
@@ -182,20 +188,7 @@ func initBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineC
 }
 
 // initAPIHostPorts sets the initial API host/port addresses in state.
-func initAPIHostPorts(c Config, st *state.State, addrs []instance.Address) error {
-	port, _, _ := c.APIServerDetails()
-	hostPorts := instance.AddressesWithPort(addrs, port)
+func initAPIHostPorts(c ConfigSetter, st *state.State, addrs []instance.Address, apiPort int) error {
+	hostPorts := instance.AddressesWithPort(addrs, apiPort)
 	return st.SetAPIHostPorts([][]instance.HostPort{hostPorts})
-}
-
-// setStateServingInfo sets the state serving info in state.
-func setStateServingInfo(c Config, st *state.State, statePort int, sharedSecret string) error {
-	apiPort, cert, key := c.APIServerDetails()
-	return st.SetStateServingInfo(params.StateServingInfo{
-		APIPort:      apiPort,
-		StatePort:    statePort,
-		Cert:         string(cert),
-		PrivateKey:   string(key),
-		SharedSecret: sharedSecret,
-	})
 }
