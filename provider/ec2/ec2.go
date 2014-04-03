@@ -47,6 +47,9 @@ type environProvider struct{}
 var providerInstance environProvider
 
 type environ struct {
+	common.NopPrecheckerPolicy
+	common.SupportsUnitPlacementPolicy
+
 	name string
 
 	// archMutex gates access to supportedArchitectures

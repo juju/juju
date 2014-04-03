@@ -64,7 +64,7 @@ func NewBootstrapMachineConfig(privateSystemSSHKey string) *cloudinit.MachineCon
 	// For a bootstrap instance, FinishMachineConfig will provide the
 	// state.Info and the api.Info. The machine id must *always* be "0".
 	mcfg := NewMachineConfig("0", state.BootstrapNonce, nil, nil, nil, nil)
-	mcfg.StateServer = true
+	mcfg.Bootstrap = true
 	mcfg.SystemPrivateSSHKey = privateSystemSSHKey
 	mcfg.Jobs = []params.MachineJob{params.JobManageEnviron, params.JobHostUnits}
 	return mcfg
@@ -123,7 +123,7 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 	// The following settings are only appropriate at bootstrap time. At the
 	// moment, the only state server is the bootstrap node, but this
 	// will probably change.
-	if !mcfg.StateServer {
+	if !mcfg.Bootstrap {
 		return nil
 	}
 	if mcfg.APIInfo != nil || mcfg.StateInfo != nil {
@@ -140,27 +140,32 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 	passwordHash := utils.UserPasswordHash(password, utils.CompatSalt)
 	mcfg.APIInfo = &api.Info{Password: passwordHash, CACert: caCert}
 	mcfg.StateInfo = &state.Info{Password: passwordHash, CACert: caCert}
-	mcfg.StatePort = cfg.StatePort()
-	mcfg.APIPort = cfg.APIPort()
-	mcfg.Constraints = cons
-	if mcfg.Config, err = BootstrapConfig(cfg); err != nil {
-		return err
-	}
 
 	// These really are directly relevant to running a state server.
 	cert, key, err := cfg.GenerateStateServerCertAndKey()
 	if err != nil {
 		return errgo.Annotate(err, "cannot generate state server certificate")
 	}
-	mcfg.StateServerCert = cert
-	mcfg.StateServerKey = key
+
+	srvInfo := params.StateServingInfo{
+		StatePort:  cfg.StatePort(),
+		APIPort:    cfg.APIPort(),
+		Cert:       string(cert),
+		PrivateKey: string(key),
+	}
+	mcfg.StateServingInfo = &srvInfo
+	mcfg.Constraints = cons
+	if mcfg.Config, err = BootstrapConfig(cfg); err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func configureCloudinit(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config) error {
 	// When bootstrapping, we only want to apt-get update/upgrade
 	// and setup the SSH keys. The rest we leave to cloudinit/sshinit.
-	if mcfg.StateServer {
+	if mcfg.Bootstrap {
 		return cloudinit.ConfigureBasic(mcfg, cloudcfg)
 	}
 	return cloudinit.Configure(mcfg, cloudcfg)

@@ -81,18 +81,18 @@ func (s *providerSuite) TearDownTest(c *gc.C) {
 
 func GetFakeConfig(sdcUrl, mantaUrl string) coretesting.Attrs {
 	return coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"name":          "joyent test environment",
-		"type":          "joyent",
-		"sdc-user":      testUser,
-		"sdc-key-id":    testKeyFingerprint,
-		"sdc-url":       sdcUrl,
-		"manta-user":    testUser,
-		"manta-key-id":  testKeyFingerprint,
-		"manta-url":     mantaUrl,
-		"key-file":      fmt.Sprintf("~/.ssh/%s", testKeyFileName),
-		"algorithm":     "rsa-sha256",
-		"control-dir":   "juju-test",
-		"agent-version": version.Current.Number.String(),
+		"name":             "joyent test environment",
+		"type":             "joyent",
+		"sdc-user":         testUser,
+		"sdc-key-id":       testKeyFingerprint,
+		"sdc-url":          sdcUrl,
+		"manta-user":       testUser,
+		"manta-key-id":     testKeyFingerprint,
+		"manta-url":        mantaUrl,
+		"private-key-path": fmt.Sprintf("~/.ssh/%s", testKeyFileName),
+		"algorithm":        "rsa-sha256",
+		"control-dir":      "juju-test",
+		"agent-version":    version.Current.Number.String(),
 	})
 }
 

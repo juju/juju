@@ -4,14 +4,16 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"labix.org/v2/mgo"
+	"net"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 
 	"github.com/juju/loggo"
-
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/replicaset"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
 )
@@ -36,10 +38,41 @@ var (
 	MongodbServerPath = "/usr/bin/mongod"
 )
 
+// WithAddresses represents an entity that has a set of
+// addresses. e.g. a state Machine object
+type WithAddresses interface {
+	Addresses() []instance.Address
+}
+
+// IsMaster returns a boolean that represents whether the given
+// machine's peer address is the primary mongo host for the replicaset
+func IsMaster(session *mgo.Session, obj WithAddresses) (bool, error) {
+	addrs := obj.Addresses()
+
+	masterHostPort, err := replicaset.MasterHostPort(session)
+	if err != nil {
+		return false, err
+	}
+
+	masterAddr, _, err := net.SplitHostPort(masterHostPort)
+	if err != nil {
+		return false, err
+	}
+
+	machinePeerAddr := SelectPeerAddress(addrs)
+	return machinePeerAddr == masterAddr, nil
+}
+
 // SelectPeerAddress returns the address to use as the
 // mongo replica set peer address by selecting it from the given addresses.
 func SelectPeerAddress(addrs []instance.Address) string {
 	return instance.SelectInternalAddress(addrs, false)
+}
+
+// SelectPeerHostPort returns the HostPort to use as the
+// mongo replica set peer by selecting it from the given hostPorts.
+func SelectPeerHostPort(hostPorts []instance.HostPort) string {
+	return instance.SelectInternalHostPort(hostPorts, false)
 }
 
 // GenerateSharedSecret generates a pseudo-random shared secret (keyfile)
@@ -188,7 +221,8 @@ const mongoScriptVersion = 2
 func MongoUpstartService(name, mongodExec, dataDir string, port int) (*upstart.Conf, error) {
 
 	sslKeyFile := path.Join(dataDir, "server.pem")
-	keyFile := path.Join(dataDir, SharedSecretFile)
+	// TODO(Nate): uncomment when we commit HA stuff
+	//keyFile := path.Join(dataDir, SharedSecretFile)
 	svc := upstart.NewService(name)
 
 	dbDir := path.Join(dataDir, "db")
@@ -210,11 +244,11 @@ func MongoUpstartService(name, mongodExec, dataDir string, port int) (*upstart.C
 			" --port " + fmt.Sprint(port) +
 			" --noprealloc" +
 			" --syslog" +
-			" --smallfiles" +
-			" --keyFile " + utils.ShQuote(keyFile),
+			" --smallfiles",
 		// TODO(Nate): uncomment when we commit HA stuff
 		// +
-		//	" --replSet juju",
+		//	" --replSet juju" +
+		//	" --keyFile " + utils.ShQuote(keyFile),
 	}
 	return conf, nil
 }
