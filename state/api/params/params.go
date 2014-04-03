@@ -377,6 +377,12 @@ type ModifyUserSSHKeys struct {
 	Keys []string
 }
 
+// ModifyUser stores the parameters used for a UserManager.Add|Remove call
+type ModifyUser struct {
+	Tag      string
+	Password string
+}
+
 // MarshalJSON implements json.Marshaler.
 func (d *Delta) MarshalJSON() ([]byte, error) {
 	b, err := json.Marshal(d.Entity)
@@ -482,6 +488,14 @@ type StateServingInfo struct {
 	PrivateKey string
 	// this will be passed as the KeyFile argument to MongoDB
 	SharedSecret string
+}
+
+// IsMasterResult holds the result of an IsMaster API call.
+type IsMasterResult struct {
+	// Master reports whether the connected agent
+	// lives on the same instance as the mongo replica
+	// set master.
+	Master bool
 }
 
 // MachineInfo holds the information about a Machine
@@ -647,6 +661,19 @@ type StatusParams struct {
 // SetRsyslogCertParams holds parameters for the SetRsyslogCert call.
 type SetRsyslogCertParams struct {
 	CACert []byte
+}
+
+// DistributionGroupResult contains the result of
+// the DistributionGroup provisioner API call.
+type DistributionGroupResult struct {
+	Error  *Error
+	Result []instance.Id
+}
+
+// DistributionGroupResults is the bulk form of
+// DistributionGroupResult.
+type DistributionGroupResults struct {
+	Results []DistributionGroupResult
 }
 
 // APIHostPortsResult holds the result of an APIHostPorts

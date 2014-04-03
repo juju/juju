@@ -491,6 +491,13 @@ func (c *Config) AuthorizedKeys() string {
 	return c.mustString("authorized-keys")
 }
 
+// ProxySSH returns a flag indicating whether SSH commands
+// should be proxied through the API server.
+func (c *Config) ProxySSH() bool {
+	value, _ := c.defined["proxy-ssh"].(bool)
+	return value
+}
+
 // ProxySettings returns all four proxy settings; http, https, ftp, and no
 // proxy.
 func (c *Config) ProxySettings() osenv.ProxySettings {
@@ -765,6 +772,7 @@ var fields = schema.Fields{
 	"bootstrap-retry-delay":     schema.ForceInt(),
 	"bootstrap-addresses-delay": schema.ForceInt(),
 	"test-mode":                 schema.Bool(),
+	"proxy-ssh":                 schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url": schema.String(),
@@ -824,6 +832,7 @@ var alwaysOptional = schema.Defaults{
 	// Previously image-stream could be set to an empty value
 	"image-stream": "",
 	"test-mode":    false,
+	"proxy-ssh":    false,
 }
 
 func allowEmpty(attr string) bool {
@@ -846,6 +855,7 @@ func allDefaults() schema.Defaults {
 		"bootstrap-timeout":         DefaultBootstrapSSHTimeout,
 		"bootstrap-retry-delay":     DefaultBootstrapSSHRetryDelay,
 		"bootstrap-addresses-delay": DefaultBootstrapSSHAddressesDelay,
+		"proxy-ssh":                 true,
 	}
 	for attr, val := range alwaysOptional {
 		if _, ok := d[attr]; !ok {

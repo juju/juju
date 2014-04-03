@@ -20,6 +20,9 @@ import (
 // This file contains the core of the Joyent Environ implementation.
 
 type joyentEnviron struct {
+	common.NopPrecheckerPolicy
+	common.SupportsUnitPlacementPolicy
+
 	name string
 
 	// supportedArchitectures caches the architectures

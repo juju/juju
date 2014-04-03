@@ -108,14 +108,16 @@ type OpDestroy struct {
 }
 
 type OpStartInstance struct {
-	Env          string
-	MachineId    string
-	MachineNonce string
-	Instance     instance.Instance
-	Constraints  constraints.Value
-	Info         *state.Info
-	APIInfo      *api.Info
-	Secret       string
+	Env             string
+	MachineId       string
+	MachineNonce    string
+	Instance        instance.Instance
+	Constraints     constraints.Value
+	IncludeNetworks []string
+	ExcludeNetworks []string
+	Info            *state.Info
+	APIInfo         *api.Info
+	Secret          string
 }
 
 type OpStopInstances struct {
@@ -180,6 +182,9 @@ type environState struct {
 // environ represents a client's connection to a given environment's
 // state.
 type environ struct {
+	common.NopPrecheckerPolicy
+	common.SupportsUnitPlacementPolicy
+
 	name         string
 	ecfgMutex    sync.Mutex
 	ecfgUnlocked *environConfig
@@ -524,7 +529,6 @@ func (*environ) SupportedArchitectures() ([]string, error) {
 
 // SupportNetworks is specified on the EnvironCapability interface.
 func (*environ) SupportNetworks() bool {
-	// We need to be able to test networks with the dummy provider.
 	return true
 }
 
@@ -750,14 +754,16 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	estate.insts[i.id] = i
 	estate.maxId++
 	estate.ops <- OpStartInstance{
-		Env:          e.name,
-		MachineId:    machineId,
-		MachineNonce: args.MachineConfig.MachineNonce,
-		Constraints:  args.Constraints,
-		Instance:     i,
-		Info:         args.MachineConfig.StateInfo,
-		APIInfo:      args.MachineConfig.APIInfo,
-		Secret:       e.ecfg().secret(),
+		Env:             e.name,
+		MachineId:       machineId,
+		MachineNonce:    args.MachineConfig.MachineNonce,
+		Constraints:     args.Constraints,
+		IncludeNetworks: args.MachineConfig.IncludeNetworks,
+		ExcludeNetworks: args.MachineConfig.ExcludeNetworks,
+		Instance:        i,
+		Info:            args.MachineConfig.StateInfo,
+		APIInfo:         args.MachineConfig.APIInfo,
+		Secret:          e.ecfg().secret(),
 	}
 	return i, hc, nil
 }
