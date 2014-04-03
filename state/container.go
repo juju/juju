@@ -6,6 +6,7 @@ package state
 import (
 	"strings"
 
+	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
 	"launchpad.net/juju-core/instance"
@@ -23,7 +24,7 @@ func (st *State) addChildToContainerRefOp(parentId string, childId string) txn.O
 		C:      st.containerRefs.Name,
 		Id:     parentId,
 		Assert: txn.DocExists,
-		Update: D{{"$addToSet", D{{"children", childId}}}},
+		Update: bson.D{{"$addToSet", bson.D{{"children", childId}}}},
 	}
 }
 
@@ -57,7 +58,7 @@ func removeContainerRefOps(st *State, machineId string) []txn.Op {
 		C:      st.containerRefs.Name,
 		Id:     parentId,
 		Assert: txn.DocExists,
-		Update: D{{"$pull", D{{"children", machineId}}}},
+		Update: bson.D{{"$pull", bson.D{{"children", machineId}}}},
 	}
 	return []txn.Op{removeRefOp, removeParentRefOp}
 }

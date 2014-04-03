@@ -7,12 +7,13 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju"
 )
 
 // DestroyRelationCommand causes an existing service relation to be shut down.
 type DestroyRelationCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	Endpoints []string
 }
 
@@ -26,6 +27,10 @@ func (c *DestroyRelationCommand) Info() *cmd.Info {
 }
 
 func (c *DestroyRelationCommand) Init(args []string) error {
+	err := c.EnvCommandBase.Init()
+	if err != nil {
+		return err
+	}
 	if len(args) != 2 {
 		return fmt.Errorf("a relation must involve two services")
 	}

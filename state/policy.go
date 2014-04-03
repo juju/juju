@@ -61,6 +61,10 @@ type EnvironCapability interface {
 	// be hosted by this environment.
 	SupportedArchitectures() ([]string, error)
 
+	// SupportNetworks returns whether the environment has support to
+	// specify networks for services and machines.
+	SupportNetworks() bool
+
 	// SupportsUnitAssignment returns an error which, if non-nil, indicates
 	// that the environment does not support unit placement. If the environment
 	// does not support unit placement, then machines may not be created

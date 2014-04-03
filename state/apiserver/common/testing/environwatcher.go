@@ -48,7 +48,6 @@ func (s *EnvironWatcherTest) AssertEnvironConfig(c *gc.C, envWatcher Environment
 
 	result, err := envWatcher.EnvironConfig()
 	c.Assert(err, gc.IsNil)
-	c.Assert(result.Error, gc.IsNil)
 
 	configAttributes := envConfig.AllAttrs()
 	// If the implementor doesn't provide secrets, we need to replace the config

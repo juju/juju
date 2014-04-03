@@ -3,13 +3,14 @@
 package local
 
 import (
+	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 var (
+	CheckIfRoot      = &checkIfRoot
 	CheckLocalPort   = &checkLocalPort
 	DetectAptProxies = &detectAptProxies
 	FinishBootstrap  = &finishBootstrap
@@ -18,14 +19,6 @@ var (
 	UseFastLXC       = useFastLXC
 	UserCurrent      = &userCurrent
 )
-
-// SetRootCheckFunction allows tests to override the check for a root user.
-// The return value is the function to restore the old value.
-func SetRootCheckFunction(f func() bool) func() {
-	old := checkIfRoot
-	checkIfRoot = f
-	return func() { checkIfRoot = old }
-}
 
 // ConfigNamespace returns the result of the namespace call on the
 // localConfig.
@@ -55,7 +48,7 @@ func CheckDirs(c *gc.C, cfg *config.Config) []string {
 // MockAddressForInterface replaces the getAddressForInterface with a function
 // that returns a constant localhost ip address.
 func MockAddressForInterface() func() {
-	return testbase.PatchValue(&getAddressForInterface, func(name string) (string, error) {
+	return testing.PatchValue(&getAddressForInterface, func(name string) (string, error) {
 		logger.Debugf("getAddressForInterface called for %s", name)
 		return "127.0.0.1", nil
 	})

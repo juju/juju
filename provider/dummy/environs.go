@@ -108,14 +108,16 @@ type OpDestroy struct {
 }
 
 type OpStartInstance struct {
-	Env          string
-	MachineId    string
-	MachineNonce string
-	Instance     instance.Instance
-	Constraints  constraints.Value
-	Info         *state.Info
-	APIInfo      *api.Info
-	Secret       string
+	Env             string
+	MachineId       string
+	MachineNonce    string
+	Instance        instance.Instance
+	Constraints     constraints.Value
+	IncludeNetworks []string
+	ExcludeNetworks []string
+	Info            *state.Info
+	APIInfo         *api.Info
+	Secret          string
 }
 
 type OpStopInstances struct {
@@ -180,8 +182,8 @@ type environState struct {
 // environ represents a client's connection to a given environment's
 // state.
 type environ struct {
-	common.NopPrechecker
-	common.DoesSupportUnitPlacement
+	common.NopPrecheckerPolicy
+	common.SupportsUnitPlacementPolicy
 
 	name         string
 	ecfgMutex    sync.Mutex
@@ -486,14 +488,6 @@ func (*environProvider) SecretAttrs(cfg *config.Config) (map[string]string, erro
 	}, nil
 }
 
-func (*environProvider) PublicAddress() (string, error) {
-	return "public.dummy.address.example.com", nil
-}
-
-func (*environProvider) PrivateAddress() (string, error) {
-	return "private.dummy.address.example.com", nil
-}
-
 func (*environProvider) BoilerplateConfig() string {
 	return `
 # Fake configuration for dummy provider.
@@ -533,6 +527,11 @@ func (*environ) SupportedArchitectures() ([]string, error) {
 	return []string{arch.AMD64, arch.PPC64}, nil
 }
 
+// SupportNetworks is specified on the EnvironCapability interface.
+func (*environ) SupportNetworks() bool {
+	return true
+}
+
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
 func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 	return []simplestreams.DataSource{
@@ -546,7 +545,7 @@ func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 }
 
 func (e *environ) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
-	selectedTools, err := common.EnsureBootstrapTools(e, e.Config().DefaultSeries(), cons.Arch)
+	selectedTools, err := common.EnsureBootstrapTools(ctx, e, e.Config().DefaultSeries(), cons.Arch)
 	if err != nil {
 		return err
 	}
@@ -755,14 +754,16 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	estate.insts[i.id] = i
 	estate.maxId++
 	estate.ops <- OpStartInstance{
-		Env:          e.name,
-		MachineId:    machineId,
-		MachineNonce: args.MachineConfig.MachineNonce,
-		Constraints:  args.Constraints,
-		Instance:     i,
-		Info:         args.MachineConfig.StateInfo,
-		APIInfo:      args.MachineConfig.APIInfo,
-		Secret:       e.ecfg().secret(),
+		Env:             e.name,
+		MachineId:       machineId,
+		MachineNonce:    args.MachineConfig.MachineNonce,
+		Constraints:     args.Constraints,
+		IncludeNetworks: args.MachineConfig.IncludeNetworks,
+		ExcludeNetworks: args.MachineConfig.ExcludeNetworks,
+		Instance:        i,
+		Info:            args.MachineConfig.StateInfo,
+		APIInfo:         args.MachineConfig.APIInfo,
+		Secret:          e.ecfg().secret(),
 	}
 	return i, hc, nil
 }

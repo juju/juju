@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"strings"
 
 	"github.com/juju/loggo"
@@ -229,34 +228,13 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 	if err != nil {
 		return nil, err
 	}
-	// First, gather the parameters needed to inject the existing host into state.
-	if ip := net.ParseIP(hostname); ip != nil {
-		// Do a reverse-lookup on the IP. The IP may not have
-		// a DNS entry, so just log a warning if this fails.
-		names, err := net.LookupAddr(ip.String())
-		if err != nil {
-			logger.Infof("failed to resolve %v: %v", ip, err)
-		} else {
-			logger.Infof("resolved %v to %v", ip, names)
-			hostname = names[0]
-			// TODO: jam 2014-01-09 https://bugs.launchpad.net/bugs/1267387
-			// We change what 'hostname' we are using here (rather
-			// than an IP address we use the DNS name). I'm not
-			// sure why that is better, but if we are changing the
-			// host, we should probably be returning the hostname
-			// to the parent function.
-			// Also, we don't seem to try and compare if 'ip' is in
-			// the list of addrs returned from
-			// instance.HostAddresses in case you might get
-			// multiple and one of them is what you are supposed to
-			// be using.
-		}
+
+	var addrs []instance.Address
+	if addr, err := HostAddress(hostname); err != nil {
+		logger.Warningf("failed to compute public address for %q: %v", hostname, err)
+	} else {
+		addrs = append(addrs, addr)
 	}
-	addrs, err := HostAddresses(hostname)
-	if err != nil {
-		return nil, err
-	}
-	logger.Infof("addresses for %v: %v", hostname, addrs)
 
 	provisioned, err := checkProvisioned(hostname)
 	if err != nil {

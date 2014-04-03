@@ -57,7 +57,7 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withStateServer bool) {
 	if withStateServer {
 		s.machines = append(s.machines, testing.AddStateServerMachine(c, s.State))
 	}
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 5; i++ {
 		machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 		c.Check(err, gc.IsNil)
 		s.machines = append(s.machines, machine)
@@ -119,6 +119,8 @@ func (s *withoutStateServerSuite) TestSetPasswords(c *gc.C) {
 			{Tag: s.machines[0].Tag(), Password: "xxx0-1234567890123457890"},
 			{Tag: s.machines[1].Tag(), Password: "xxx1-1234567890123457890"},
 			{Tag: s.machines[2].Tag(), Password: "xxx2-1234567890123457890"},
+			{Tag: s.machines[3].Tag(), Password: "xxx3-1234567890123457890"},
+			{Tag: s.machines[4].Tag(), Password: "xxx4-1234567890123457890"},
 			{Tag: "machine-42", Password: "foo"},
 			{Tag: "unit-foo-0", Password: "zzz"},
 			{Tag: "service-bar", Password: "abc"},
@@ -128,6 +130,8 @@ func (s *withoutStateServerSuite) TestSetPasswords(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
+			{nil},
+			{nil},
 			{nil},
 			{nil},
 			{nil},
@@ -317,8 +321,9 @@ func (s *withoutStateServerSuite) TestSetStatus(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	args := params.SetStatus{
-		Entities: []params.SetEntityStatus{
-			{Tag: s.machines[0].Tag(), Status: params.StatusError, Info: "not really"},
+		Entities: []params.EntityStatus{
+			{Tag: s.machines[0].Tag(), Status: params.StatusError, Info: "not really",
+				Data: params.StatusData{"foo": "bar"}},
 			{Tag: s.machines[1].Tag(), Status: params.StatusStopped, Info: "foobar"},
 			{Tag: s.machines[2].Tag(), Status: params.StatusStarted, Info: "again"},
 			{Tag: "machine-42", Status: params.StatusStarted, Info: "blah"},
@@ -339,9 +344,65 @@ func (s *withoutStateServerSuite) TestSetStatus(c *gc.C) {
 	})
 
 	// Verify the changes.
-	s.assertStatus(c, 0, params.StatusError, "not really")
-	s.assertStatus(c, 1, params.StatusStopped, "foobar")
-	s.assertStatus(c, 2, params.StatusStarted, "again")
+	s.assertStatus(c, 0, params.StatusError, "not really", params.StatusData{"foo": "bar"})
+	s.assertStatus(c, 1, params.StatusStopped, "foobar", params.StatusData{})
+	s.assertStatus(c, 2, params.StatusStarted, "again", params.StatusData{})
+}
+
+func (s *withoutStateServerSuite) TestMachinesWithTransientErrors(c *gc.C) {
+	err := s.machines[0].SetStatus(params.StatusStarted, "blah", nil)
+	c.Assert(err, gc.IsNil)
+	err = s.machines[1].SetStatus(params.StatusError, "transient error",
+		params.StatusData{"transient": true, "foo": "bar"})
+	c.Assert(err, gc.IsNil)
+	err = s.machines[2].SetStatus(params.StatusError, "error", params.StatusData{"transient": false})
+	c.Assert(err, gc.IsNil)
+	err = s.machines[3].SetStatus(params.StatusError, "error", nil)
+	c.Assert(err, gc.IsNil)
+	// Machine 4 is provisioned but error not reset yet.
+	err = s.machines[4].SetStatus(params.StatusError, "transient error",
+		params.StatusData{"transient": true, "foo": "bar"})
+	c.Assert(err, gc.IsNil)
+	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
+	err = s.machines[4].SetProvisioned("i-am", "fake_nonce", &hwChars)
+	c.Assert(err, gc.IsNil)
+
+	result, err := s.provisioner.MachinesWithTransientErrors()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StatusResults{
+		Results: []params.StatusResult{
+			{Id: "1", Life: "alive", Status: "error", Info: "transient error",
+				Data: params.StatusData{"transient": true, "foo": "bar"}},
+		},
+	})
+}
+
+func (s *withoutStateServerSuite) TestMachinesWithTransientErrorsPermission(c *gc.C) {
+	// Machines where there's permission issues are omitted.
+	anAuthorizer := s.authorizer
+	anAuthorizer.MachineAgent = true
+	anAuthorizer.EnvironManager = false
+	anAuthorizer.Tag = "machine-1"
+	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources,
+		anAuthorizer)
+	err = s.machines[0].SetStatus(params.StatusStarted, "blah", nil)
+	c.Assert(err, gc.IsNil)
+	err = s.machines[1].SetStatus(params.StatusError, "transient error",
+		params.StatusData{"transient": true, "foo": "bar"})
+	c.Assert(err, gc.IsNil)
+	err = s.machines[2].SetStatus(params.StatusError, "error", params.StatusData{"transient": false})
+	c.Assert(err, gc.IsNil)
+	err = s.machines[3].SetStatus(params.StatusError, "error", nil)
+	c.Assert(err, gc.IsNil)
+
+	result, err := aProvisioner.MachinesWithTransientErrors()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StatusResults{
+		Results: []params.StatusResult{
+			{Id: "1", Life: "alive", Status: "error", Info: "transient error",
+				Data: params.StatusData{"transient": true, "foo": "bar"}},
+		},
+	})
 }
 
 func (s *withoutStateServerSuite) TestEnsureDead(c *gc.C) {
@@ -384,11 +445,14 @@ func (s *withoutStateServerSuite) assertLife(c *gc.C, index int, expectLife stat
 	c.Assert(s.machines[index].Life(), gc.Equals, expectLife)
 }
 
-func (s *withoutStateServerSuite) assertStatus(c *gc.C, index int, expectStatus params.Status, expectInfo string) {
-	status, info, _, err := s.machines[index].Status()
+func (s *withoutStateServerSuite) assertStatus(c *gc.C, index int, expectStatus params.Status, expectInfo string,
+	expectData params.StatusData) {
+
+	status, info, data, err := s.machines[index].Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, expectStatus)
 	c.Assert(info, gc.Equals, expectInfo)
+	c.Assert(data, gc.DeepEquals, expectData)
 }
 
 func (s *withoutStateServerSuite) TestWatchContainers(c *gc.C) {
@@ -482,7 +546,7 @@ func (s *withoutStateServerSuite) TestStatus(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = s.machines[1].SetStatus(params.StatusStopped, "foo", nil)
 	c.Assert(err, gc.IsNil)
-	err = s.machines[2].SetStatus(params.StatusError, "not really", nil)
+	err = s.machines[2].SetStatus(params.StatusError, "not really", params.StatusData{"foo": "bar"})
 	c.Assert(err, gc.IsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -497,9 +561,9 @@ func (s *withoutStateServerSuite) TestStatus(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
-			{Status: params.StatusStarted, Info: "blah"},
-			{Status: params.StatusStopped, Info: "foo"},
-			{Status: params.StatusError, Info: "not really"},
+			{Status: params.StatusStarted, Info: "blah", Data: params.StatusData{}},
+			{Status: params.StatusStopped, Info: "foo", Data: params.StatusData{}},
+			{Status: params.StatusError, Info: "not really", Data: params.StatusData{"foo": "bar"}},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -534,6 +598,133 @@ func (s *withoutStateServerSuite) TestSeries(c *gc.C) {
 	})
 }
 
+func (s *withoutStateServerSuite) TestDistributionGroup(c *gc.C) {
+	addUnits := func(name string, machines ...*state.Machine) (units []*state.Unit) {
+		svc := s.AddTestingService(c, name, s.AddTestingCharm(c, name))
+		for _, m := range machines {
+			unit, err := svc.AddUnit()
+			c.Assert(err, gc.IsNil)
+			err = unit.AssignToMachine(m)
+			c.Assert(err, gc.IsNil)
+			units = append(units, unit)
+		}
+		return units
+	}
+	setProvisioned := func(id string) {
+		m, err := s.State.Machine(id)
+		c.Assert(err, gc.IsNil)
+		err = m.SetProvisioned(instance.Id("machine-"+id+"-inst"), "nonce", nil)
+		c.Assert(err, gc.IsNil)
+	}
+
+	mysqlUnit := addUnits("mysql", s.machines[0], s.machines[3])[0]
+	wordpressUnits := addUnits("wordpress", s.machines[0], s.machines[1], s.machines[2])
+
+	// Unassign wordpress/1 from machine-1.
+	// The unit should not show up in the results.
+	err := wordpressUnits[1].UnassignFromMachine()
+	c.Assert(err, gc.IsNil)
+
+	// Provision machines 1, 2 and 3. Machine-0 remains
+	// unprovisioned, and machine-1 has no units, and so
+	// neither will show up in the results.
+	setProvisioned("1")
+	setProvisioned("2")
+	setProvisioned("3")
+
+	// Add a few state servers, provision two of them.
+	err = s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	c.Assert(err, gc.IsNil)
+	setProvisioned("5")
+	setProvisioned("7")
+
+	// Create a logging service, subordinate to mysql.
+	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
+	eps, err := s.State.InferEndpoints([]string{"mysql", "logging"})
+	c.Assert(err, gc.IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, gc.IsNil)
+	ru, err := rel.Unit(mysqlUnit)
+	c.Assert(err, gc.IsNil)
+	err = ru.EnterScope(nil)
+	c.Assert(err, gc.IsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: s.machines[0].Tag()},
+		{Tag: s.machines[1].Tag()},
+		{Tag: s.machines[2].Tag()},
+		{Tag: s.machines[3].Tag()},
+		{Tag: "machine-5"},
+	}}
+	result, err := s.provisioner.DistributionGroup(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.DistributionGroupResults{
+		Results: []params.DistributionGroupResult{
+			{Result: []instance.Id{"machine-2-inst", "machine-3-inst"}},
+			{Result: []instance.Id{}},
+			{Result: []instance.Id{"machine-2-inst"}},
+			{Result: []instance.Id{"machine-3-inst"}},
+			{Result: []instance.Id{"machine-5-inst", "machine-7-inst"}},
+		},
+	})
+}
+
+func (s *withoutStateServerSuite) TestDistributionGroupEnvironManagerAuth(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "machine-0"},
+		{Tag: "machine-42"},
+		{Tag: "machine-0-lxc-99"},
+		{Tag: "unit-foo-0"},
+		{Tag: "service-bar"},
+	}}
+	result, err := s.provisioner.DistributionGroup(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.DistributionGroupResults{
+		Results: []params.DistributionGroupResult{
+			// environ manager may access any top-level machines.
+			{Result: []instance.Id{}},
+			{Error: apiservertesting.NotFoundError("machine 42")},
+			// only a machine agent for the container or its
+			// parent may access it.
+			{Error: apiservertesting.ErrUnauthorized},
+			// non-machines always unauthorized
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *withoutStateServerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C) {
+	anAuthorizer := s.authorizer
+	anAuthorizer.Tag = "machine-1"
+	anAuthorizer.EnvironManager = false
+	anAuthorizer.MachineAgent = true
+	provisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
+	c.Check(err, gc.IsNil)
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "machine-0"},
+		{Tag: "machine-1"},
+		{Tag: "machine-42"},
+		{Tag: "machine-0-lxc-99"},
+		{Tag: "machine-1-lxc-99"},
+		{Tag: "machine-1-lxc-99-lxc-100"},
+	}}
+	result, err := provisioner.DistributionGroup(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.DistributionGroupResults{
+		Results: []params.DistributionGroupResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Result: []instance.Id{}},
+			{Error: apiservertesting.ErrUnauthorized},
+			// only a machine agent for the container or its
+			// parent may access it.
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.NotFoundError("machine 1/lxc/99")},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
 func (s *withoutStateServerSuite) TestConstraints(c *gc.C) {
 	// Add a machine with some constraints.
 	template := state.MachineTemplate{
@@ -560,6 +751,46 @@ func (s *withoutStateServerSuite) TestConstraints(c *gc.C) {
 		Results: []params.ConstraintsResult{
 			{Constraints: machine0Constraints},
 			{Constraints: template.Constraints},
+			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *withoutStateServerSuite) TestNetworks(c *gc.C) {
+	// Add a machine with some networks.
+	template := state.MachineTemplate{
+		Series:          "quantal",
+		Jobs:            []state.MachineJob{state.JobHostUnits},
+		IncludeNetworks: []string{"net1", "net2"},
+		ExcludeNetworks: []string{"net3", "net4"},
+	}
+	netsMachine, err := s.State.AddOneMachine(template)
+	c.Assert(err, gc.IsNil)
+
+	includeNetsMachine0, excludeNetsMachine0, err := s.machines[0].Networks()
+	c.Assert(err, gc.IsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: s.machines[0].Tag()},
+		{Tag: netsMachine.Tag()},
+		{Tag: "machine-42"},
+		{Tag: "unit-foo-0"},
+		{Tag: "service-bar"},
+	}}
+	result, err := s.provisioner.Networks(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.NetworksResults{
+		Results: []params.NetworkResult{
+			{
+				IncludeNetworks: includeNetsMachine0,
+				ExcludeNetworks: excludeNetsMachine0,
+			},
+			{
+				IncludeNetworks: template.IncludeNetworks,
+				ExcludeNetworks: template.ExcludeNetworks,
+			},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -646,12 +877,14 @@ func (s *withoutStateServerSuite) TestInstanceId(c *gc.C) {
 func (s *withoutStateServerSuite) TestWatchEnvironMachines(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
-	result, err := s.provisioner.WatchEnvironMachines()
+	got, err := s.provisioner.WatchEnvironMachines()
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{
+	want := params.StringsWatchResult{
 		StringsWatcherId: "1",
-		Changes:          []string{"0", "1", "2"},
-	})
+		Changes:          []string{"0", "1", "2", "3", "4"},
+	}
+	c.Assert(got.StringsWatcherId, gc.Equals, want.StringsWatcherId)
+	c.Assert(got.Changes, jc.SameContents, want.Changes)
 
 	// Verify the resources were registered and stop them when done.
 	c.Assert(s.resources.Count(), gc.Equals, 1)
@@ -670,7 +903,7 @@ func (s *withoutStateServerSuite) TestWatchEnvironMachines(c *gc.C) {
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, gc.IsNil)
 
-	result, err = aProvisioner.WatchEnvironMachines()
+	result, err := aProvisioner.WatchEnvironMachines()
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{})
 }
@@ -860,4 +1093,36 @@ func (s *withStateServerSuite) TestCACert(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.BytesResult{
 		Result: s.State.CACert(),
 	})
+}
+
+func (s *withoutStateServerSuite) TestWatchMachineErrorRetry(c *gc.C) {
+	s.PatchValue(&provisioner.ErrorRetryWaitDelay, 2*coretesting.ShortWait)
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	_, err := s.provisioner.WatchMachineErrorRetry()
+	c.Assert(err, gc.IsNil)
+
+	// Verify the resources were registered and stop them when done.
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	// Check that the Watch has consumed the initial event ("returned"
+	// in the Watch call)
+	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
+	wc.AssertNoChange()
+
+	// We should now get a time triggered change.
+	wc.AssertOneChange()
+
+	// Make sure WatchMachineErrorRetry fails with a machine agent login.
+	anAuthorizer := s.authorizer
+	anAuthorizer.MachineAgent = true
+	anAuthorizer.EnvironManager = false
+	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
+	c.Assert(err, gc.IsNil)
+
+	result, err := aProvisioner.WatchMachineErrorRetry()
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{})
 }

@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package charm
@@ -9,37 +9,13 @@ import (
 	"os"
 	"path/filepath"
 	"time"
-
-	"launchpad.net/juju-core/log"
 )
 
 const (
-	updatePrefix  = "update-"
-	installPrefix = "install-"
+	gitUpdatePrefix  = "update-"
+	gitInstallPrefix = "install-"
+	gitCurrentPath   = "current"
 )
-
-// Deployer is responsible for installing and upgrading charms.
-type Deployer interface {
-
-	// Stage must be called to prime the Deployer to install or upgrade the
-	// bundle identified by the supplied info. The abort chan can be used to
-	// notify an implementation that it need not complete the operation, and
-	// can immediately error out if it convenient to do so. It must always
-	// be safe to restage the same bundle, or to stage a new bundle.
-	Stage(info BundleInfo, abort <-chan struct{}) error
-
-	// Deploy will install or upgrade the most recently staged bundle.
-	// Behaviour is undefined if Stage has not been called.
-	Deploy() error
-
-	// NotifyRevert must be called when a conflicted deploy is abandoned, in
-	// preparation for a new upgrade.
-	NotifyRevert() error
-
-	// NotifyResolved must be called when the cause of a deploy conflict has
-	// been resolved, and a new deploy attempt will be made.
-	NotifyResolved() error
-}
 
 // gitDeployer maintains a git repository tracking a series of charm versions,
 // and can install and upgrade charm deployments to the current version.
@@ -57,7 +33,7 @@ func NewGitDeployer(charmPath, dataPath string, bundles BundleReader) Deployer {
 		target:   NewGitDir(charmPath),
 		dataPath: dataPath,
 		bundles:  bundles,
-		current:  NewGitDir(filepath.Join(dataPath, "current")),
+		current:  NewGitDir(filepath.Join(dataPath, gitCurrentPath)),
 	}
 }
 
@@ -72,14 +48,14 @@ func (d *gitDeployer) Stage(info BundleInfo, abort <-chan struct{}) error {
 	if err := os.MkdirAll(d.dataPath, 0755); err != nil {
 		return err
 	}
-	defer d.collectOrphans()
+	defer collectGitOrphans(d.dataPath)
 	srcExists, err := d.current.Exists()
 	if err != nil {
 		return err
 	}
 	url := info.URL()
 	if srcExists {
-		prevURL, err := ReadCharmURL(d.current)
+		prevURL, err := d.current.ReadCharmURL()
 		if err != nil {
 			return err
 		}
@@ -90,7 +66,7 @@ func (d *gitDeployer) Stage(info BundleInfo, abort <-chan struct{}) error {
 
 	// Prepare a fresh repository for the update, using current's history
 	// if it exists.
-	updatePath, err := d.newDir(updatePrefix)
+	updatePath, err := d.newDir(gitUpdatePrefix)
 	if err != nil {
 		return err
 	}
@@ -109,10 +85,10 @@ func (d *gitDeployer) Stage(info BundleInfo, abort <-chan struct{}) error {
 	if err = bundle.ExpandTo(updatePath); err != nil {
 		return err
 	}
-	if err = WriteCharmURL(repo, url); err != nil {
+	if err = repo.WriteCharmURL(url); err != nil {
 		return err
 	}
-	if err = repo.Snapshotf("Imported charm %q from %q.", url, bundle.Path); err != nil {
+	if err = repo.Snapshotf("Imported charm %q.", url); err != nil {
 		return err
 	}
 
@@ -127,12 +103,12 @@ func (d *gitDeployer) Stage(info BundleInfo, abort <-chan struct{}) error {
 func (d *gitDeployer) Deploy() (err error) {
 	defer func() {
 		if err == ErrConflict {
-			log.Warningf("worker/uniter/charm: charm deployment completed with conflicts")
+			logger.Warningf("charm deployment completed with conflicts")
 		} else if err != nil {
 			err = fmt.Errorf("charm deployment failed: %s", err)
-			log.Errorf("worker/uniter/charm: %v", err)
+			logger.Errorf("%v", err)
 		} else {
-			log.Infof("worker/uniter/charm: charm deployment succeeded")
+			logger.Infof("charm deployment succeeded")
 		}
 	}()
 	if exists, err := d.current.Exists(); err != nil {
@@ -159,13 +135,13 @@ func (d *gitDeployer) NotifyResolved() error {
 // install creates a new deployment of current, and atomically moves it to
 // target.
 func (d *gitDeployer) install() error {
-	defer d.collectOrphans()
-	log.Infof("worker/uniter/charm: preparing new charm deployment")
-	url, err := ReadCharmURL(d.current)
+	defer collectGitOrphans(d.dataPath)
+	logger.Infof("preparing new charm deployment")
+	url, err := d.current.ReadCharmURL()
 	if err != nil {
 		return err
 	}
-	installPath, err := d.newDir(installPrefix)
+	installPath, err := d.newDir(gitInstallPrefix)
 	if err != nil {
 		return err
 	}
@@ -179,15 +155,15 @@ func (d *gitDeployer) install() error {
 	if err = repo.Snapshotf("Deployed charm %q.", url); err != nil {
 		return err
 	}
-	log.Infof("worker/uniter/charm: deploying charm")
+	logger.Infof("deploying charm")
 	return os.Rename(installPath, d.target.Path())
 }
 
 // upgrade pulls from current into target. If target has local changes, but
 // no conflicts, it will be snapshotted before any changes are made.
 func (d *gitDeployer) upgrade() error {
-	log.Infof("worker/uniter/charm: preparing charm upgrade")
-	url, err := ReadCharmURL(d.current)
+	logger.Infof("preparing charm upgrade")
+	url, err := d.current.ReadCharmURL()
 	if err != nil {
 		return err
 	}
@@ -200,42 +176,47 @@ func (d *gitDeployer) upgrade() error {
 		if conflicted, err := d.target.Conflicted(); err != nil {
 			return err
 		} else if !conflicted {
-			log.Infof("worker/uniter/charm: snapshotting dirty charm before upgrade")
+			logger.Infof("snapshotting dirty charm before upgrade")
 			if err = d.target.Snapshotf("Pre-upgrade snapshot."); err != nil {
 				return err
 			}
 		}
 	}
-	log.Infof("worker/uniter/charm: deploying charm")
+	logger.Infof("deploying charm")
 	if err := d.target.Pull(d.current); err != nil {
 		return err
 	}
 	return d.target.Snapshotf("Upgraded charm to %q.", url)
 }
 
-// collectOrphans deletes all repos in dataPath except the one pointed to by current.
-// Errors are generally ignored; some are logged.
-func (d *gitDeployer) collectOrphans() {
-	current, err := os.Readlink(d.current.Path())
+// collectGitOrphans deletes all repos in dataPath except the one pointed to by
+// a git deployer's "current" symlink.
+// Errors are generally ignored; some are logged. If current does not exist, *all*
+// repos are orphans, and all will be deleted; this should only be the case when
+// converting a gitDeployer to a manifestDeployer.
+func collectGitOrphans(dataPath string) {
+	current, err := os.Readlink(filepath.Join(dataPath, gitCurrentPath))
+	if os.IsNotExist(err) {
+		logger.Warningf("no current staging repo")
+	} else if err != nil {
+		logger.Warningf("cannot read current staging repo: %v", err)
+		return
+	} else if !filepath.IsAbs(current) {
+		current = filepath.Join(dataPath, current)
+	}
+	orphans, err := filepath.Glob(filepath.Join(dataPath, fmt.Sprintf("%s*", gitUpdatePrefix)))
 	if err != nil {
 		return
 	}
-	if !filepath.IsAbs(current) {
-		current = filepath.Join(d.dataPath, current)
-	}
-	orphans, err := filepath.Glob(filepath.Join(d.dataPath, fmt.Sprintf("%s*", updatePrefix)))
-	if err != nil {
-		return
-	}
-	installOrphans, err := filepath.Glob(filepath.Join(d.dataPath, fmt.Sprintf("%s*", installPrefix)))
+	installOrphans, err := filepath.Glob(filepath.Join(dataPath, fmt.Sprintf("%s*", gitInstallPrefix)))
 	if err != nil {
 		return
 	}
 	orphans = append(orphans, installOrphans...)
 	for _, repoPath := range orphans {
-		if repoPath != d.dataPath && repoPath != current {
+		if repoPath != dataPath && repoPath != current {
 			if err = os.RemoveAll(repoPath); err != nil {
-				log.Warningf("worker/uniter/charm: failed to remove orphan repo at %s: %s", repoPath, err)
+				logger.Warningf("failed to remove orphan repo at %s: %s", repoPath, err)
 			}
 		}
 	}

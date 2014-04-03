@@ -12,8 +12,10 @@ import (
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
+	apiwatcher "launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/worker"
 )
@@ -28,7 +30,8 @@ var _ Provisioner = (*containerProvisioner)(nil)
 type Provisioner interface {
 	worker.Worker
 	Stop() error
-	getWatcher() (Watcher, error)
+	getMachineWatcher() (apiwatcher.StringsWatcher, error)
+	getRetryWatcher() (apiwatcher.NotifyWatcher, error)
 }
 
 // environProvisioner represents a running provisioning worker for machine nodes
@@ -103,17 +106,17 @@ func (p *provisioner) getStartTask(safeMode bool) (ProvisionerTask, error) {
 	}
 	// Start responding to changes in machines, and to any further updates
 	// to the environment config.
-	machineWatcher, err := p.getWatcher()
+	machineWatcher, err := p.getMachineWatcher()
 	if err != nil {
 		return nil, err
 	}
+	retryWatcher, err := p.getRetryWatcher()
+	if err != nil && !errors.IsNotImplementedError(err) {
+		return nil, err
+	}
 	task := NewProvisionerTask(
-		p.agentConfig.Tag(),
-		safeMode,
-		p.st,
-		machineWatcher,
-		p.broker,
-		auth)
+		p.agentConfig.Tag(), safeMode, p.st,
+		machineWatcher, retryWatcher, p.broker, auth)
 	return task, nil
 }
 
@@ -183,8 +186,12 @@ func (p *environProvisioner) loop() error {
 	}
 }
 
-func (p *environProvisioner) getWatcher() (Watcher, error) {
+func (p *environProvisioner) getMachineWatcher() (apiwatcher.StringsWatcher, error) {
 	return p.st.WatchEnvironMachines()
+}
+
+func (p *environProvisioner) getRetryWatcher() (apiwatcher.NotifyWatcher, error) {
+	return p.st.WatchMachineErrorRetry()
 }
 
 // setConfig updates the environment configuration and notifies
@@ -250,10 +257,14 @@ func (p *containerProvisioner) getMachine() (*apiprovisioner.Machine, error) {
 	return p.machine, nil
 }
 
-func (p *containerProvisioner) getWatcher() (Watcher, error) {
+func (p *containerProvisioner) getMachineWatcher() (apiwatcher.StringsWatcher, error) {
 	machine, err := p.getMachine()
 	if err != nil {
 		return nil, err
 	}
 	return machine.WatchContainers(p.containerType)
+}
+
+func (p *containerProvisioner) getRetryWatcher() (apiwatcher.NotifyWatcher, error) {
+	return nil, errors.NewNotImplementedError("getRetryWatcher")
 }

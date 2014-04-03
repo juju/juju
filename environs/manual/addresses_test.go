@@ -4,6 +4,8 @@
 package manual_test
 
 import (
+	"errors"
+
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/manual"
@@ -11,27 +13,65 @@ import (
 	"launchpad.net/juju-core/testing/testbase"
 )
 
+const (
+	invalidHost = "testing.invalid"
+	validHost   = "testing.valid"
+)
+
 type addressesSuite struct {
 	testbase.LoggingSuite
+	netLookupHostCalled int
 }
 
 var _ = gc.Suite(&addressesSuite{})
 
-func (s *addressesSuite) TestHostAddresses(c *gc.C) {
-	const hostname = "boxen0"
-	s.PatchValue(manual.InstanceHostAddresses, func(host string) ([]instance.Address, error) {
-		c.Check(host, gc.Equals, hostname)
-		return []instance.Address{
-			instance.NewAddress("192.168.0.1"),
-			instance.NewAddress("nickname"),
-			instance.NewAddress(hostname),
-		}, nil
+func (s *addressesSuite) SetUpTest(c *gc.C) {
+	s.netLookupHostCalled = 0
+	s.PatchValue(manual.NetLookupHost, func(host string) ([]string, error) {
+		s.netLookupHostCalled++
+		if host == invalidHost {
+			return nil, errors.New("invalid host: " + invalidHost)
+		}
+		return []string{"127.0.0.1"}, nil
 	})
-	addrs, err := manual.HostAddresses(hostname)
+}
+
+func (s *addressesSuite) TestHostAddress(c *gc.C) {
+	addr, err := manual.HostAddress(validHost)
+	c.Assert(s.netLookupHostCalled, gc.Equals, 1)
 	c.Assert(err, gc.IsNil)
-	c.Assert(addrs, gc.HasLen, 3)
-	// The last address is marked public, all others are unknown.
-	c.Assert(addrs[0].NetworkScope, gc.Equals, instance.NetworkUnknown)
-	c.Assert(addrs[1].NetworkScope, gc.Equals, instance.NetworkUnknown)
-	c.Assert(addrs[2].NetworkScope, gc.Equals, instance.NetworkPublic)
+	c.Assert(addr, gc.Equals, instance.Address{
+		Value:        validHost,
+		Type:         instance.HostName,
+		NetworkScope: instance.NetworkPublic,
+	})
+}
+
+func (s *addressesSuite) TestHostAddressError(c *gc.C) {
+	addr, err := manual.HostAddress(invalidHost)
+	c.Assert(s.netLookupHostCalled, gc.Equals, 1)
+	c.Assert(err, gc.ErrorMatches, "invalid host: "+invalidHost)
+	c.Assert(addr, gc.Equals, instance.Address{})
+}
+
+func (s *addressesSuite) TestHostAddressIPv4(c *gc.C) {
+	addr, err := manual.HostAddress("127.0.0.1")
+	c.Assert(s.netLookupHostCalled, gc.Equals, 0)
+	c.Assert(err, gc.IsNil)
+	c.Assert(addr, gc.Equals, instance.Address{
+		Value:        "127.0.0.1",
+		Type:         instance.Ipv4Address,
+		NetworkScope: instance.NetworkPublic,
+	})
+}
+
+func (s *addressesSuite) TestHostAddressIPv6(c *gc.C) {
+	addr, err := manual.HostAddress("::1")
+	c.Assert(s.netLookupHostCalled, gc.Equals, 0)
+	c.Assert(err, gc.IsNil)
+	c.Assert(addr, gc.Equals, instance.Address{
+		Value:        "::1",
+		Type:         instance.Ipv6Address,
+		NetworkScope: instance.NetworkPublic,
+	})
 }

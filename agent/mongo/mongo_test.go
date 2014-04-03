@@ -1,6 +1,7 @@
 package mongo
 
 import (
+	"encoding/base64"
 	"io/ioutil"
 	"os"
 	"path"
@@ -10,6 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/upstart"
 )
@@ -25,12 +27,18 @@ var _ = gc.Suite(&MongoSuite{})
 func (s *MongoSuite) SetUpSuite(c *gc.C) {
 	testpath := c.MkDir()
 	s.PatchEnvPathPrepend(testpath)
-	// mock out the start method so we can fake install services without sudo
-	start := filepath.Join(testpath, "start")
-	err := ioutil.WriteFile(start, []byte("#!/bin/bash --norc\nexit 0"), 0755)
-	c.Assert(err, gc.IsNil)
+	// mock out the upstart commands so we can fake install services without sudo
+	fakeCmd(filepath.Join(testpath, "start"))
+	fakeCmd(filepath.Join(testpath, "stop"))
 
 	s.PatchValue(&upstart.InitDir, c.MkDir())
+}
+
+func fakeCmd(path string) {
+	err := ioutil.WriteFile(path, []byte("#!/bin/bash --norc\nexit 0"), 0755)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (s *MongoSuite) TestJujuMongodPath(c *gc.C) {
@@ -133,6 +141,61 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 	err = EnsureMongoServer(dir, port)
 	c.Assert(err, gc.IsNil)
 
+}
+
+func (s *MongoSuite) TestSelectPeerAddress(c *gc.C) {
+	addresses := []instance.Address{{
+		Value:        "10.0.0.1",
+		Type:         instance.Ipv4Address,
+		NetworkName:  "cloud",
+		NetworkScope: instance.NetworkCloudLocal}, {
+		Value:        "8.8.8.8",
+		Type:         instance.Ipv4Address,
+		NetworkName:  "public",
+		NetworkScope: instance.NetworkPublic}}
+
+	address := SelectPeerAddress(addresses)
+	c.Assert(address, gc.Equals, "10.0.0.1")
+}
+
+func (s *MongoSuite) TestSelectPeerHostPort(c *gc.C) {
+
+	hostPorts := []instance.HostPort{{
+		Address: instance.Address{
+			Value:        "10.0.0.1",
+			Type:         instance.Ipv4Address,
+			NetworkName:  "cloud",
+			NetworkScope: instance.NetworkCloudLocal,
+		},
+		Port: 37017}, {
+		Address: instance.Address{
+			Value:        "8.8.8.8",
+			Type:         instance.Ipv4Address,
+			NetworkName:  "public",
+			NetworkScope: instance.NetworkPublic,
+		},
+		Port: 37017}}
+
+	address := SelectPeerHostPort(hostPorts)
+	c.Assert(address, gc.Equals, "10.0.0.1:37017")
+}
+
+func (s *MongoSuite) TestMongoPackageForSeries(c *gc.C) {
+	var pkg string
+
+	pkg = MongoPackageForSeries("precise")
+	c.Assert(pkg, gc.Equals, "mongodb-server")
+
+	pkg = MongoPackageForSeries("trusty")
+	c.Assert(pkg, gc.Equals, "juju-mongodb")
+}
+
+func (s *MongoSuite) TestGenerateSharedSecret(c *gc.C) {
+	secret, err := GenerateSharedSecret()
+	c.Assert(err, gc.IsNil)
+	c.Assert(secret, gc.HasLen, 1024)
+	_, err = base64.StdEncoding.DecodeString(secret)
+	c.Assert(err, gc.IsNil)
 }
 
 func makeService(name string, c *gc.C) *upstart.Conf {

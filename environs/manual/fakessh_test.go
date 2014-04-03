@@ -9,10 +9,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/manual"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 // sshscript should only print the result on the first execution,
@@ -53,7 +53,7 @@ fi`
 //    - nil (no output)
 //    - a string (stdout)
 //    - a slice of strings, of length two (stdout, stderr)
-func installFakeSSH(c *gc.C, input, output interface{}, rc int) testbase.Restorer {
+func installFakeSSH(c *gc.C, input, output interface{}, rc int) testing.Restorer {
 	fakebin := c.MkDir()
 	ssh := filepath.Join(fakebin, "ssh")
 	switch input := input.(type) {
@@ -78,13 +78,13 @@ func installFakeSSH(c *gc.C, input, output interface{}, rc int) testbase.Restore
 	script := fmt.Sprintf(sshscript, stdout, stderr, rc)
 	err := ioutil.WriteFile(ssh, []byte(script), 0777)
 	c.Assert(err, gc.IsNil)
-	return testbase.PatchEnvPathPrepend(fakebin)
+	return testing.PatchEnvPathPrepend(fakebin)
 }
 
 // installDetectionFakeSSH installs a fake SSH command, which will respond
 // to the series/hardware detection script with the specified
 // series/arch.
-func installDetectionFakeSSH(c *gc.C, series, arch string) testbase.Restorer {
+func installDetectionFakeSSH(c *gc.C, series, arch string) testing.Restorer {
 	if series == "" {
 		series = "precise"
 	}
@@ -133,8 +133,8 @@ type fakeSSH struct {
 // install installs fake SSH commands, which will respond to
 // manual provisioning/bootstrapping commands with the specified
 // output and exit codes.
-func (r fakeSSH) install(c *gc.C) testbase.Restorer {
-	var restore testbase.Restorer
+func (r fakeSSH) install(c *gc.C) testing.Restorer {
+	var restore testing.Restorer
 	add := func(input, output interface{}, rc int) {
 		restore = restore.Add(installFakeSSH(c, input, output, rc))
 	}

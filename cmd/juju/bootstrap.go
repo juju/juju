@@ -12,6 +12,7 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/imagemetadata"
@@ -58,7 +59,7 @@ See Also:
 // BootstrapCommand is responsible for launching the first machine in a juju
 // environment, and setting up everything necessary to continue working.
 type BootstrapCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	Constraints    constraints.Value
 	UploadTools    bool
 	Series         []string
@@ -82,6 +83,10 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *BootstrapCommand) Init(args []string) (err error) {
+	err = c.EnvCommandBase.Init()
+	if err != nil {
+		return
+	}
 	if len(c.Series) > 0 && !c.UploadTools {
 		return fmt.Errorf("--series requires --upload-tools")
 	}
@@ -100,6 +105,19 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if err := bootstrap.EnsureNotBootstrapped(environ); err != nil {
 		return err
 	}
+
+	// Block interruption during bootstrap. Providers may also
+	// register for interrupt notification so they can exit early.
+	interrupted := make(chan os.Signal, 1)
+	defer close(interrupted)
+	ctx.InterruptNotify(interrupted)
+	defer ctx.StopInterruptNotify(interrupted)
+	go func() {
+		for _ = range interrupted {
+			ctx.Infof("Interrupt signalled: waiting for bootstrap to exit")
+		}
+	}()
+
 	// If --metadata-source is specified, override the default tools metadata source so
 	// SyncTools can use it, and also upload any image metadata.
 	if c.MetadataSource != "" {
@@ -122,7 +140,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		c.UploadTools = true
 	}
 	if c.UploadTools {
-		err = bootstrap.UploadTools(environ, c.Constraints.Arch, true, c.Series...)
+		err = bootstrap.UploadTools(ctx, environ, c.Constraints.Arch, true, c.Series...)
 		if err != nil {
 			return err
 		}

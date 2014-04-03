@@ -5,6 +5,7 @@ package state
 
 import (
 	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
 	"launchpad.net/juju-core/errors"
@@ -102,7 +103,7 @@ func (e *Environment) Destroy() error {
 	ops := []txn.Op{{
 		C:      e.st.environments.Name,
 		Id:     e.doc.UUID,
-		Update: D{{"$set", D{{"life", Dying}}}},
+		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
 		Assert: isEnvAliveDoc,
 	}, e.st.newCleanupOp("services", "")}
 	err := e.st.runTransaction(ops)
@@ -144,6 +145,6 @@ func (e *Environment) assertAliveOp() txn.Op {
 // Environment documents from versions of Juju prior to 1.17
 // do not have the life field; if it does not exist, it should
 // be considered to have the value Alive.
-var isEnvAliveDoc = D{
-	{"life", D{{"$in", []interface{}{Alive, nil}}}},
+var isEnvAliveDoc = bson.D{
+	{"life", bson.D{{"$in", []interface{}{Alive, nil}}}},
 }

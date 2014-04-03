@@ -13,6 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/replicaset"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
@@ -28,7 +29,10 @@ type desiredPeerGroupSuite struct {
 
 var _ = gc.Suite(&desiredPeerGroupSuite{})
 
-const mongoPort = 1234
+const (
+	mongoPort = 1234
+	apiPort   = 5678
+)
 
 var desiredPeerGroupTests = []struct {
 	about    string
@@ -153,7 +157,14 @@ var desiredPeerGroupTests = []struct {
 	machines: append(mkMachines("11v 12v"), &machine{
 		id:        "13",
 		wantsVote: true,
-		hostPort:  "0.1.99.13:1234",
+		mongoHostPorts: []instance.HostPort{{
+			Address: instance.Address{
+				Value:        "0.1.99.13",
+				Type:         instance.Ipv4Address,
+				NetworkScope: instance.NetworkCloudLocal,
+			},
+			Port: 1234,
+		}},
 	}),
 	statuses:     mkStatuses("1s 2p 3p"),
 	members:      mkMembers("1v 2v 3v"),
@@ -166,9 +177,9 @@ var desiredPeerGroupTests = []struct {
 }, {
 	about: "a machine's address is ignored if it changes to empty",
 	machines: append(mkMachines("11v 12v"), &machine{
-		id:        "13",
-		wantsVote: true,
-		hostPort:  "",
+		id:             "13",
+		wantsVote:      true,
+		mongoHostPorts: nil,
 	}),
 	statuses:      mkStatuses("1s 2p 3p"),
 	members:       mkMembers("1v 2v 3v"),
@@ -248,8 +259,15 @@ func mkMachines(description string) []*machine {
 	ms := make([]*machine, len(descrs))
 	for i, d := range descrs {
 		ms[i] = &machine{
-			id:        fmt.Sprint(d.id),
-			hostPort:  fmt.Sprintf("0.1.2.%d:%d", d.id, mongoPort),
+			id: fmt.Sprint(d.id),
+			mongoHostPorts: []instance.HostPort{{
+				Address: instance.Address{
+					Value:        fmt.Sprintf("0.1.2.%d", d.id),
+					Type:         instance.Ipv4Address,
+					NetworkScope: instance.NetworkCloudLocal,
+				},
+				Port: mongoPort,
+			}},
 			wantsVote: strings.Contains(d.flags, "v"),
 		}
 	}
@@ -384,6 +402,13 @@ func parseDescr(s string) []descr {
 		d.flags = field[i:]
 	}
 	return descrs
+}
+
+func assertMembers(c *gc.C, obtained interface{}, expected []replicaset.Member) {
+	c.Assert(obtained, gc.FitsTypeOf, []replicaset.Member{})
+	sort.Sort(membersById(obtained.([]replicaset.Member)))
+	sort.Sort(membersById(expected))
+	c.Assert(obtained, jc.DeepEquals, expected)
 }
 
 type membersById []replicaset.Member

@@ -31,12 +31,6 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
-// BootstrapStateURLFile is used to communicate to the first bootstrap node
-// the URL from which to obtain important state information (instance id and
-// hardware characteristics). It is a transient file, only used as the node
-// is bootstrapping.
-const BootstrapStateURLFile = "/tmp/provider-state-url"
-
 // SystemIdentity is the name of the file where the environment SSH key is kept.
 const SystemIdentity = "system-identity"
 
@@ -45,25 +39,16 @@ const fileSchemePrefix = "file://"
 
 // MachineConfig represents initialization information for a new juju machine.
 type MachineConfig struct {
-	// StateServer specifies whether the new machine will run the
-	// mongo and API servers.
-	StateServer bool
+	// Bootstrap specifies whether the new machine is the bootstrap
+	// machine. When this is true, StateServingInfo should be set
+	// and filled out.
+	Bootstrap bool
 
-	// StateServerCert and StateServerKey hold the state server
-	// certificate and private key in PEM format; they are required when
-	// StateServer is set, and ignored otherwise.
-	StateServerCert []byte
-	StateServerKey  []byte
-
-	// StatePort specifies the TCP port that will be used
-	// by the MongoDB server. It must be non-zero
-	// if StateServer is true.
-	StatePort int
-
-	// APIPort specifies the TCP port that will be used
-	// by the API server. It must be non-zero
-	// if StateServer is true.
-	APIPort int
+	// StateServingInfo holds the information for serving the state.
+	// This must only be set if the Bootstrap field is true
+	// (state servers started subsequently will acquire their serving info
+	// from another server)
+	StateServingInfo *params.StateServingInfo
 
 	// StateInfo holds the means for the new instance to communicate with the
 	// juju state. Unless the new machine is running a state server (StateServer is
@@ -78,6 +63,15 @@ type MachineConfig struct {
 	// The entity name must match that of the machine being started,
 	// or be empty when starting a state server.
 	APIInfo *api.Info
+
+	// InstanceId is the instance ID of the machine being initialised.
+	// This is required when bootstrapping, and ignored otherwise.
+	InstanceId instance.Id
+
+	// HardwareCharacteristics contains the harrdware characteristics of
+	// the machine being initialised. This optional, and is only used by
+	// the bootstrap agent during state initialisation.
+	HardwareCharacteristics *instance.HardwareCharacteristics
 
 	// MachineNonce is set at provisioning/bootstrap time and used to
 	// ensure the agent is running on the correct instance.
@@ -107,6 +101,12 @@ type MachineConfig struct {
 	// is.  If the machine is not a container, then the type is "".
 	MachineContainerType instance.ContainerType
 
+	// IncludeNetworks holds a list of networks the machine should be on.
+	IncludeNetworks []string
+
+	// ExcludeNetworks holds a list of networks the machine should not be on.
+	ExcludeNetworks []string
+
 	// AuthorizedKeys specifies the keys that are allowed to
 	// connect to the machine (see cloudinit.SSHAddAuthorizedKeys)
 	// If no keys are supplied, there can be no ssh access to the node.
@@ -127,9 +127,6 @@ type MachineConfig struct {
 
 	// Constraints holds the initial environment constraints.
 	Constraints constraints.Value
-
-	// StateInfoURL is the URL of a file which contains information about the state server machines.
-	StateInfoURL string
 
 	// DisableSSLHostnameVerification can be set to true to tell cloud-init
 	// that it shouldn't verify SSL certificates
@@ -221,6 +218,7 @@ func AddAptCommands(proxy osenv.ProxySettings, c *cloudinit.Config) {
 
 	// juju requires git for managing charm directories.
 	c.AddPackage("git")
+	c.AddPackage("curl")
 	c.AddPackage("cpu-checker")
 	c.AddPackage("bridge-utils")
 	c.AddPackage("rsyslog-gnutls")
@@ -291,6 +289,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 		// defined, and we determine this by the existance of the home dir.
 		fmt.Sprintf("[ -e /home/ubuntu ] && chown ubuntu:ubuntu %s", lockDir),
 		fmt.Sprintf("mkdir -p %s", cfg.LogDir),
+		fmt.Sprintf("chown syslog:adm %s", cfg.LogDir),
 	)
 
 	// Make a directory for the tools to live in, then fetch the
@@ -342,7 +341,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 		MaybeAddCloudArchiveCloudTools(c, series)
 	}
 
-	if cfg.StateServer {
+	if cfg.Bootstrap {
 		identityFile := cfg.dataFile(SystemIdentity)
 		c.AddFile(identityFile, cfg.SystemPrivateSSHKey, 0600)
 		if !cfg.DisablePackageCommands {
@@ -373,7 +372,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 				c.AddPackage(mongoPackage)
 			}
 		}
-		certKey := string(cfg.StateServerCert) + string(cfg.StateServerKey)
+		certKey := string(cfg.StateServingInfo.Cert) + string(cfg.StateServingInfo.PrivateKey)
 		c.AddFile(cfg.dataFile("server.pem"), certKey, 0600)
 		if err := cfg.addMongoToBoot(c); err != nil {
 			return err
@@ -393,13 +392,20 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 		if cons != "" {
 			cons = " --constraints " + shquote(cons)
 		}
+		var hardware string
+		if cfg.HardwareCharacteristics != nil {
+			if hardware = cfg.HardwareCharacteristics.String(); hardware != "" {
+				hardware = " --hardware " + shquote(hardware)
+			}
+		}
 		c.AddRunCmd(cloudinit.LogProgressCmd("Bootstrapping Juju machine agent"))
 		c.AddScripts(
-			fmt.Sprintf("echo %s > %s", shquote(cfg.StateInfoURL), BootstrapStateURLFile),
 			// The bootstrapping is always run with debug on.
 			cfg.jujuTools()+"/jujud bootstrap-state"+
 				" --data-dir "+shquote(cfg.DataDir)+
 				" --env-config "+shquote(base64yaml(cfg.Config))+
+				" --instance-id "+shquote(string(cfg.InstanceId))+
+				hardware+
 				cons+
 				" --debug",
 			"rm -rf "+shquote(acfg.Dir()),
@@ -413,7 +419,7 @@ func (cfg *MachineConfig) dataFile(name string) string {
 	return path.Join(cfg.DataDir, name)
 }
 
-func (cfg *MachineConfig) agentConfig(tag string) (agent.Config, error) {
+func (cfg *MachineConfig) agentConfig(tag string) (agent.ConfigSetter, error) {
 	// TODO for HAState: the stateHostAddrs and apiHostAddrs here assume that
 	// if the machine is a stateServer then to use localhost.  This may be
 	// sufficient, but needs thought in the new world order.
@@ -436,16 +442,10 @@ func (cfg *MachineConfig) agentConfig(tag string) (agent.Config, error) {
 		CACert:            cfg.StateInfo.CACert,
 		Values:            cfg.AgentEnvironment,
 	}
-	if !cfg.StateServer {
+	if !cfg.Bootstrap {
 		return agent.NewAgentConfig(configParams)
 	}
-	return agent.NewStateMachineConfig(agent.StateMachineConfigParams{
-		AgentConfigParams: configParams,
-		StateServerCert:   cfg.StateServerCert,
-		StateServerKey:    cfg.StateServerKey,
-		StatePort:         cfg.StatePort,
-		APIPort:           cfg.APIPort,
-	})
+	return agent.NewStateMachineConfig(configParams, *cfg.StateServingInfo)
 }
 
 // addAgentInfo adds agent-required information to the agent's directory
@@ -456,7 +456,7 @@ func (cfg *MachineConfig) addAgentInfo(c *cloudinit.Config, tag string) (agent.C
 		return nil, err
 	}
 	acfg.SetValue(agent.AgentServiceName, cfg.MachineAgentServiceName)
-	if cfg.StateServer {
+	if cfg.Bootstrap {
 		acfg.SetValue(agent.MongoServiceName, cfg.MongoServiceName)
 	}
 	cmds, err := acfg.WriteCommands()
@@ -499,7 +499,7 @@ func (cfg *MachineConfig) addMongoToBoot(c *cloudinit.Config) error {
 
 	name := cfg.MongoServiceName
 	mongodExec := mongo.MongodPathForSeries(cfg.Tools.Version.Series)
-	conf, err := mongo.MongoUpstartService(name, mongodExec, cfg.DataDir, cfg.StatePort)
+	conf, err := mongo.MongoUpstartService(name, mongodExec, cfg.DataDir, cfg.StateServingInfo.StatePort)
 	if err != nil {
 		return err
 	}
@@ -527,8 +527,8 @@ func (cfg *MachineConfig) jujuTools() string {
 
 func (cfg *MachineConfig) stateHostAddrs() []string {
 	var hosts []string
-	if cfg.StateServer {
-		hosts = append(hosts, fmt.Sprintf("localhost:%d", cfg.StatePort))
+	if cfg.Bootstrap {
+		hosts = append(hosts, fmt.Sprintf("localhost:%d", cfg.StateServingInfo.StatePort))
 	}
 	if cfg.StateInfo != nil {
 		hosts = append(hosts, cfg.StateInfo.Addrs...)
@@ -538,8 +538,8 @@ func (cfg *MachineConfig) stateHostAddrs() []string {
 
 func (cfg *MachineConfig) apiHostAddrs() []string {
 	var hosts []string
-	if cfg.StateServer {
-		hosts = append(hosts, fmt.Sprintf("localhost:%d", cfg.APIPort))
+	if cfg.Bootstrap {
+		hosts = append(hosts, fmt.Sprintf("localhost:%d", cfg.StateServingInfo.APIPort))
 	}
 	if cfg.APIInfo != nil {
 		hosts = append(hosts, cfg.APIInfo.Addrs...)
@@ -625,6 +625,11 @@ func (cfg *MachineConfig) NeedMongoPPA() bool {
 	return series == "quantal"
 }
 
+// HasNetworks returns if there are any networks set.
+func (cfg *MachineConfig) HasNetworks() bool {
+	return len(cfg.IncludeNetworks) > 0 || len(cfg.ExcludeNetworks) > 0
+}
+
 func shquote(p string) string {
 	return utils.ShQuote(p)
 }
@@ -673,7 +678,7 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 	if cfg.MachineAgentServiceName == "" {
 		return fmt.Errorf("missing machine agent service name")
 	}
-	if cfg.StateServer {
+	if cfg.Bootstrap {
 		if cfg.MongoServiceName == "" {
 			return fmt.Errorf("missing mongo service name")
 		}
@@ -686,20 +691,26 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		if cfg.APIInfo.Tag != "" {
 			return fmt.Errorf("entity tag must be blank when starting a state server")
 		}
-		if len(cfg.StateServerCert) == 0 {
+		if cfg.StateServingInfo == nil {
+			return fmt.Errorf("missing state serving info")
+		}
+		if len(cfg.StateServingInfo.Cert) == 0 {
 			return fmt.Errorf("missing state server certificate")
 		}
-		if len(cfg.StateServerKey) == 0 {
+		if len(cfg.StateServingInfo.PrivateKey) == 0 {
 			return fmt.Errorf("missing state server private key")
 		}
-		if cfg.StatePort == 0 {
+		if cfg.StateServingInfo.StatePort == 0 {
 			return fmt.Errorf("missing state port")
 		}
-		if cfg.APIPort == 0 {
+		if cfg.StateServingInfo.APIPort == 0 {
 			return fmt.Errorf("missing API port")
 		}
 		if cfg.SystemPrivateSSHKey == "" {
 			return fmt.Errorf("missing system ssh identity")
+		}
+		if cfg.InstanceId == "" {
+			return fmt.Errorf("missing instance-id")
 		}
 	} else {
 		if len(cfg.StateInfo.Addrs) == 0 {
@@ -713,6 +724,9 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		}
 		if cfg.APIInfo.Tag != names.MachineTag(cfg.MachineId) {
 			return fmt.Errorf("entity tag must match started machine")
+		}
+		if cfg.StateServingInfo != nil {
+			return fmt.Errorf("state serving info unexpectedly present")
 		}
 	}
 	if cfg.MachineNonce == "" {

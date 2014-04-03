@@ -85,7 +85,7 @@ func (st *State) cleanupSettings(prefix string) error {
 	// Documents marked for cleanup are not otherwise referenced in the
 	// system, and will not be under watch, and are therefore safe to
 	// delete directly.
-	sel := D{{"_id", D{{"$regex", "^" + prefix}}}}
+	sel := bson.D{{"_id", bson.D{{"$regex", "^" + prefix}}}}
 	if count, err := st.settings.Find(sel).Count(); err != nil {
 		return fmt.Errorf("cannot detect cleanup targets: %v", err)
 	} else if count != 0 {
@@ -103,7 +103,7 @@ func (st *State) cleanupServices() error {
 	// services added to it. But we do have to remove the services themselves
 	// via individual transactions, because they could be in any state at all.
 	service := &Service{st: st}
-	sel := D{{"life", Alive}}
+	sel := bson.D{{"life", Alive}}
 	iter := st.services.Find(sel).Iter()
 	for iter.Next(&service.doc) {
 		if err := service.Destroy(); err != nil {
@@ -123,7 +123,7 @@ func (st *State) cleanupUnits(prefix string) error {
 	// to it. But we do have to remove the units themselves via individual
 	// transactions, because they could be in any state at all.
 	unit := &Unit{st: st}
-	sel := D{{"_id", D{{"$regex", "^" + prefix}}}, {"life", Alive}}
+	sel := bson.D{{"_id", bson.D{{"$regex", "^" + prefix}}}, {"life", Alive}}
 	iter := st.units.Find(sel).Iter()
 	for iter.Next(&unit.doc) {
 		if err := unit.Destroy(); err != nil {
@@ -152,6 +152,9 @@ func (st *State) cleanupMachine(machineId string) error {
 	// destruction while dependencies exist; so we just have to deal with that
 	// possibility below.
 	if err := st.cleanupContainers(machine); err != nil {
+		return err
+	}
+	if err := st.cleanupNetworks(machineGlobalKey(machineId)); err != nil {
 		return err
 	}
 	for _, unitName := range machine.doc.Principals {
@@ -202,6 +205,16 @@ func (st *State) cleanupContainers(machine *Machine) error {
 		if err := container.Remove(); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// cleanupNetworks removes associated networks for a machine or
+// service, given by its global key.
+func (st *State) cleanupNetworks(globalKey string) error {
+	op := removeNetworksOp(st, globalKey)
+	if err := st.runTransaction([]txn.Op{op}); err != nil {
+		logger.Warningf("cannot remove networks document for %q: %v", globalKey, err)
 	}
 	return nil
 }

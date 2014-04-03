@@ -55,7 +55,7 @@ func (s *SSHCommonSuite) SetUpTest(c *gc.C) {
 
 const (
 	commonArgsNoProxy = `-o StrictHostKeyChecking no -o PasswordAuthentication no `
-	commonArgs        = `-o StrictHostKeyChecking no -o ProxyCommand juju ssh --proxy=false 127.0.0.1 -T "nc -q0 %h %p" -o PasswordAuthentication no `
+	commonArgs        = `-o StrictHostKeyChecking no -o ProxyCommand juju ssh --proxy=false --pty=false 127.0.0.1 nc -q0 %h %p -o PasswordAuthentication no `
 	sshArgs           = commonArgs + `-t -t `
 	sshArgsNoProxy    = commonArgsNoProxy + `-t -t `
 )
@@ -122,6 +122,20 @@ func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 	}
 }
 
+func (s *SSHSuite) TestSSHCommandEnvironProxySSH(c *gc.C) {
+	s.makeMachines(1, c, true)
+	// Setting proxy-ssh=false in the environment overrides --proxy.
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{"proxy-ssh": false}, nil, nil)
+	c.Assert(err, gc.IsNil)
+	ctx := coretesting.Context(c)
+	jujucmd := cmd.NewSuperCommand(cmd.SuperCommandParams{})
+	jujucmd.Register(&SSHCommand{})
+	code := cmd.Main(jujucmd, ctx, []string{"ssh", "0"})
+	c.Check(code, gc.Equals, 0)
+	c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
+	c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, sshArgsNoProxy+"ubuntu@dummyenv-0.dns\n")
+}
+
 type callbackAttemptStarter struct {
 	next func() bool
 }
@@ -139,10 +153,16 @@ func (a callbackAttempt) Next() bool {
 }
 
 func (s *SSHSuite) TestSSHCommandHostAddressRetry(c *gc.C) {
+	s.testSSHCommandHostAddressRetry(c, false)
+}
+
+func (s *SSHSuite) TestSSHCommandHostAddressRetryProxy(c *gc.C) {
+	s.testSSHCommandHostAddressRetry(c, true)
+}
+
+func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 	m := s.makeMachines(1, c, false)
 	ctx := coretesting.Context(c)
-	jujucmd := cmd.NewSuperCommand(cmd.SuperCommandParams{})
-	jujucmd.Register(&SSHCommand{})
 
 	var called int
 	next := func() bool {
@@ -154,24 +174,26 @@ func (s *SSHSuite) TestSSHCommandHostAddressRetry(c *gc.C) {
 
 	// Ensure that the ssh command waits for a public address, or the attempt
 	// strategy's Done method returns false.
-	code := cmd.Main(jujucmd, ctx, []string{"ssh", "0"})
+	args := []string{"--proxy=" + fmt.Sprint(proxy), "0"}
+	code := cmd.Main(&SSHCommand{}, ctx, args)
 	c.Check(code, gc.Equals, 1)
 	c.Assert(called, gc.Equals, 2)
 	called = 0
 	attemptStarter.next = func() bool {
 		called++
-		s.setAddress(m[0], c)
-		return false
+		if called > 1 {
+			s.setAddress(m[0], c)
+		}
+		return true
 	}
-	code = cmd.Main(jujucmd, ctx, []string{"ssh", "0"})
+	code = cmd.Main(&SSHCommand{}, ctx, args)
 	c.Check(code, gc.Equals, 0)
-	c.Assert(called, gc.Equals, 1)
+	c.Assert(called, gc.Equals, 2)
 }
 
 func (s *SSHCommonSuite) setAddress(m *state.Machine, c *gc.C) {
-	addr := instance.NewAddress(fmt.Sprintf("dummyenv-%s.dns", m.Id()))
-	addr.NetworkScope = instance.NetworkPublic
-	err := m.SetAddresses([]instance.Address{addr})
+	addr := instance.NewAddress(fmt.Sprintf("dummyenv-%s.dns", m.Id()), instance.NetworkPublic)
+	err := m.SetAddresses(addr)
 	c.Assert(err, gc.IsNil)
 }
 
