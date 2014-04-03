@@ -52,6 +52,15 @@ func (s *EnvironCapabilitySuite) addOneMachine(c *gc.C) (*state.Machine, error) 
 	})
 }
 
+func (s *EnvironCapabilitySuite) addOneMachineWithInstanceId(c *gc.C) (*state.Machine, error) {
+	return s.State.AddOneMachine(state.MachineTemplate{
+		Series:     "quantal",
+		Jobs:       []state.MachineJob{state.JobHostUnits},
+		InstanceId: "i-rate",
+		Nonce:      "ya",
+	})
+}
+
 func (s *EnvironCapabilitySuite) addMachineInsideNewMachine(c *gc.C) error {
 	template := state.MachineTemplate{
 		Series: "quantal",
@@ -62,7 +71,7 @@ func (s *EnvironCapabilitySuite) addMachineInsideNewMachine(c *gc.C) error {
 }
 
 func (s *EnvironCapabilitySuite) TestSupportsUnitPlacementAddMachine(c *gc.C) {
-	// Ensure that AddOneMachine fails when PrecheckInstance returns an error.
+	// Ensure that AddOneMachine fails when SupportsUnitPlacement returns an error.
 	s.capability.supportsUnitPlacementError = fmt.Errorf("no add-machine for you")
 	_, err := s.addOneMachine(c)
 	c.Assert(err, gc.ErrorMatches, ".*no add-machine for you")
@@ -74,6 +83,13 @@ func (s *EnvironCapabilitySuite) TestSupportsUnitPlacementAddMachine(c *gc.C) {
 	}
 	_, err = s.addOneMachine(c)
 	c.Assert(err, gc.ErrorMatches, ".*incapable of EnvironCapability")
+}
+
+func (s *EnvironCapabilitySuite) TestSupportsUnitPlacementAddMachineInstanceId(c *gc.C) {
+	// Ensure that AddOneMachine with a non-empty InstanceId does not fail.
+	s.capability.supportsUnitPlacementError = fmt.Errorf("no add-machine for you")
+	_, err := s.addOneMachineWithInstanceId(c)
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *EnvironCapabilitySuite) TestSupportsUnitPlacementUnitAssignment(c *gc.C) {
