@@ -90,6 +90,11 @@ type Config interface {
 	// elements.
 	WriteCommands() ([]string, error)
 
+	// StateServingInfo returns the details needed to run
+	// a state server and reports whether those details
+	// are available
+	StateServingInfo() (params.StateServingInfo, bool)
+
 	// APIInfo returns details for connecting to the API server.
 	APIInfo() *api.Info
 
@@ -99,9 +104,6 @@ type Config interface {
 	// OldPassword returns the fallback password when connecting to the
 	// API server.
 	OldPassword() string
-
-	// APIServerDetails returns the details needed to run an API server.
-	APIServerDetails() (port int, cert, key []byte)
 
 	// UpgradedToVersion returns the version for which all upgrade steps have been
 	// successfully run, which is also the same as the initially deployed version.
@@ -152,6 +154,10 @@ type ConfigSetterOnly interface {
 	// (if DataDir is set), the the caller is responsible for removing
 	// the old configuration.
 	Migrate(MigrateParams) error
+
+	// SetStateServingInfo sets the information needed
+	// to run a state server
+	SetStateServingInfo(info params.StateServingInfo)
 }
 
 type ConfigWriter interface {
@@ -211,9 +217,7 @@ type configInternal struct {
 	stateDetails      *connectionDetails
 	apiDetails        *connectionDetails
 	oldPassword       string
-	stateServerCert   []byte
-	stateServerKey    []byte
-	apiPort           int
+	servingInfo       *params.StateServingInfo
 	values            map[string]string
 }
 
@@ -286,31 +290,26 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 	return config, nil
 }
 
-type StateMachineConfigParams struct {
-	AgentConfigParams
-	StateServerCert []byte
-	StateServerKey  []byte
-	StatePort       int
-	APIPort         int
-}
-
 // NewStateMachineConfig returns a configuration suitable for
 // a machine running the state server.
-func NewStateMachineConfig(configParams StateMachineConfigParams) (ConfigSetterWriter, error) {
-	if configParams.StateServerCert == nil {
+func NewStateMachineConfig(configParams AgentConfigParams, serverInfo params.StateServingInfo) (ConfigSetterWriter, error) {
+	if serverInfo.Cert == "" {
 		return nil, errgo.Trace(requiredError("state server cert"))
 	}
-	if configParams.StateServerKey == nil {
+	if serverInfo.PrivateKey == "" {
 		return nil, errgo.Trace(requiredError("state server key"))
 	}
-	config0, err := NewAgentConfig(configParams.AgentConfigParams)
+	if serverInfo.StatePort == 0 {
+		return nil, errgo.Trace(requiredError("state port"))
+	}
+	if serverInfo.APIPort == 0 {
+		return nil, errgo.Trace(requiredError("api port"))
+	}
+	config, err := NewAgentConfig(configParams)
 	if err != nil {
 		return nil, err
 	}
-	config := config0.(*configInternal)
-	config.stateServerCert = configParams.StateServerCert
-	config.stateServerKey = configParams.StateServerKey
-	config.apiPort = configParams.APIPort
+	config.SetStateServingInfo(serverInfo)
 	return config, nil
 }
 
@@ -514,8 +513,15 @@ func (c *configInternal) Value(key string) string {
 	return c.values[key]
 }
 
-func (c *configInternal) APIServerDetails() (port int, cert, key []byte) {
-	return c.apiPort, c.stateServerCert, c.stateServerKey
+func (c *configInternal) StateServingInfo() (params.StateServingInfo, bool) {
+	if c.servingInfo == nil {
+		return params.StateServingInfo{}, false
+	}
+	return *c.servingInfo, true
+}
+
+func (c *configInternal) SetStateServingInfo(info params.StateServingInfo) {
+	c.servingInfo = &info
 }
 
 func (c *configInternal) APIAddresses() ([]string, error) {

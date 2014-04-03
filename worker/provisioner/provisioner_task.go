@@ -426,9 +426,10 @@ func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error
 		return err
 	}
 	inst, metadata, err := task.broker.StartInstance(environs.StartInstanceParams{
-		Constraints:   cons,
-		Tools:         possibleTools,
-		MachineConfig: machineConfig,
+		Constraints:       cons,
+		Tools:             possibleTools,
+		MachineConfig:     machineConfig,
+		DistributionGroup: machine.DistributionGroup,
 	})
 	if err != nil {
 		// Set the state to error, so the machine will be skipped next
@@ -490,7 +491,11 @@ func (task *provisionerTask) machineConfig(machine *apiprovisioner.Machine) (*cl
 	if err != nil {
 		return nil, err
 	}
+	includeNetworks, excludeNetworks, err := machine.Networks()
+	if err != nil {
+		return nil, err
+	}
 	nonce := fmt.Sprintf("%s:%s", task.machineTag, uuid.String())
-	machineConfig := environs.NewMachineConfig(machine.Id(), nonce, stateInfo, apiInfo)
+	machineConfig := environs.NewMachineConfig(machine.Id(), nonce, includeNetworks, excludeNetworks, stateInfo, apiInfo)
 	return machineConfig, nil
 }
