@@ -284,8 +284,6 @@ func (u *URL) SetBSON(raw bson.Raw) error {
 	return nil
 }
 
-var jsonNull = []byte("null")
-
 func (u *URL) MarshalJSON() ([]byte, error) {
 	if u == nil {
 		panic("cannot marshal nil *charm.URL")
@@ -303,6 +301,23 @@ func (u *URL) UnmarshalJSON(b []byte) error {
 		return err
 	}
 	*u = *url
+	return nil
+}
+
+func (r *Reference) MarshalJSON() ([]byte, error) {
+	return json.Marshal(r.String())
+}
+
+func (r *Reference) UnmarshalJSON(b []byte) error {
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return err
+	}
+	ref, _, err := ParseReference(s)
+	if err != nil {
+		return err
+	}
+	*r = ref
 	return nil
 }
 

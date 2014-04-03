@@ -28,6 +28,8 @@ func init() {
 	}
 }
 
+const FakeDefaultSeries = "precise"
+
 // FakeConfig() returns an environment configuration for a
 // fake provider with all required attributes set.
 func FakeConfig() Attrs {
@@ -43,7 +45,7 @@ func FakeConfig() Attrs {
 		"development":               false,
 		"state-port":                19034,
 		"api-port":                  17777,
-		"default-series":            config.DefaultSeries,
+		"default-series":            FakeDefaultSeries,
 	}
 }
 
