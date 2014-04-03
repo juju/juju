@@ -73,7 +73,7 @@ func (*customDataSuite) TestMakeCustomDataEncodesUserData(c *gc.C) {
 
 	data, err := base64.StdEncoding.DecodeString(encodedData)
 	c.Assert(err, gc.IsNil)
-	reference, err := environs.ComposeUserData(cfg)
+	reference, err := environs.ComposeUserData(cfg, nil)
 	c.Assert(err, gc.IsNil)
 	c.Check(data, gc.DeepEquals, reference)
 }

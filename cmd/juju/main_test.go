@@ -239,6 +239,7 @@ var commandNames = []string{
 	"remove-service",  // alias for destroy-service
 	"remove-unit",     // alias for destroy-unit
 	"resolved",
+	"retry-provisioning",
 	"run",
 	"scp",
 	"set",
@@ -253,6 +254,8 @@ var commandNames = []string{
 	"terminate-machine", // alias for destroy-machine
 	"unexpose",
 	"unset",
+	"unset-env", // alias for unset-environment
+	"unset-environment",
 	"upgrade-charm",
 	"upgrade-juju",
 	"version",
@@ -316,6 +319,7 @@ var globalFlags = []string{
 	"-h, --help .*",
 	"--log-file .*",
 	"--logging-config .*",
+	"-q, --quiet .*",
 	"--show-log .*",
 	"-v, --verbose .*",
 }

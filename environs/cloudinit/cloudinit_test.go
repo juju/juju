@@ -71,6 +71,13 @@ func must(s string, err error) string {
 	return s
 }
 
+var stateServingInfo = &params.StateServingInfo{
+	Cert:       string(serverCert),
+	PrivateKey: string(serverKey),
+	StatePort:  37017,
+	APIPort:    17070,
+}
+
 // Each test gives a cloudinit config - we check the
 // output to see if it looks correct.
 var cloudinitTests = []cloudinitTest{
@@ -81,13 +88,10 @@ var cloudinitTests = []cloudinitTest{
 			AuthorizedKeys:   "sshkey1",
 			AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
 			// precise currently needs mongo from PPA
-			Tools:           newSimpleTools("1.2.3-precise-amd64"),
-			StateServer:     true,
-			StateServerCert: serverCert,
-			StateServerKey:  serverKey,
-			StatePort:       37017,
-			APIPort:         17070,
-			MachineNonce:    "FAKE_NONCE",
+			Tools:            newSimpleTools("1.2.3-precise-amd64"),
+			Bootstrap:        true,
+			StateServingInfo: stateServingInfo,
+			MachineNonce:     "FAKE_NONCE",
 			StateInfo: &state.Info{
 				Password: "arble",
 				CACert:   []byte("CA CERT\n" + testing.CACert),
@@ -101,7 +105,7 @@ var cloudinitTests = []cloudinitTest{
 			LogDir:                  agent.DefaultLogDir,
 			Jobs:                    allMachineJobs,
 			CloudInitOutputLog:      environs.CloudInitOutputLog,
-			StateInfoURL:            "some-url",
+			InstanceId:              "i-bootstrap",
 			SystemPrivateSSHKey:     "private rsa key",
 			MachineAgentServiceName: "jujud-machine-0",
 			MongoServiceName:        "juju-db",
@@ -117,6 +121,7 @@ test -e /proc/self/fd/9 \|\| exec 9>&2
 mkdir -p /var/lib/juju/locks
 \[ -e /home/ubuntu \] && chown ubuntu:ubuntu /var/lib/juju/locks
 mkdir -p /var/log/juju
+chown syslog:adm /var/log/juju
 echo 'Fetching tools.*
 bin='/var/lib/juju/tools/1\.2\.3-precise-amd64'
 mkdir -p \$bin
@@ -147,8 +152,7 @@ mkdir -p '/var/lib/juju/agents/bootstrap'
 install -m 600 /dev/null '/var/lib/juju/agents/bootstrap/agent\.conf'
 printf '%s\\n' '.*' > '/var/lib/juju/agents/bootstrap/agent\.conf'
 echo 'Bootstrapping Juju machine agent'.*
-echo 'some-url' > /tmp/provider-state-url
-/var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --constraints 'mem=2048M' --debug
+/var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --instance-id 'i-bootstrap' --constraints 'mem=2048M' --debug
 rm -rf '/var/lib/juju/agents/bootstrap'
 ln -s 1\.2\.3-precise-amd64 '/var/lib/juju/tools/machine-0'
 echo 'Starting Juju machine agent \(jujud-machine-0\)'.*
@@ -162,13 +166,10 @@ start jujud-machine-0
 			AuthorizedKeys:   "sshkey1",
 			AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
 			// raring provides mongo in the archive
-			Tools:           newSimpleTools("1.2.3-raring-amd64"),
-			StateServer:     true,
-			StateServerCert: serverCert,
-			StateServerKey:  serverKey,
-			StatePort:       37017,
-			APIPort:         17070,
-			MachineNonce:    "FAKE_NONCE",
+			Tools:            newSimpleTools("1.2.3-raring-amd64"),
+			Bootstrap:        true,
+			StateServingInfo: stateServingInfo,
+			MachineNonce:     "FAKE_NONCE",
 			StateInfo: &state.Info{
 				Password: "arble",
 				CACert:   []byte("CA CERT\n" + testing.CACert),
@@ -182,7 +183,7 @@ start jujud-machine-0
 			LogDir:                  agent.DefaultLogDir,
 			Jobs:                    allMachineJobs,
 			CloudInitOutputLog:      environs.CloudInitOutputLog,
-			StateInfoURL:            "some-url",
+			InstanceId:              "i-bootstrap",
 			SystemPrivateSSHKey:     "private rsa key",
 			MachineAgentServiceName: "jujud-machine-0",
 			MongoServiceName:        "juju-db",
@@ -196,7 +197,7 @@ sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-raring-amd64\.sha256
 grep '1234' \$bin/juju1\.2\.3-raring-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
 rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-raring-amd64\.sha256
 printf %s '{"version":"1\.2\.3-raring-amd64","url":"http://foo\.com/tools/releases/juju1\.2\.3-raring-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
-/var/lib/juju/tools/1\.2\.3-raring-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --constraints 'mem=2048M' --debug
+/var/lib/juju/tools/1\.2\.3-raring-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --instance-id 'i-bootstrap' --constraints 'mem=2048M' --debug
 rm -rf '/var/lib/juju/agents/bootstrap'
 ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
 `,
@@ -207,13 +208,10 @@ ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
 			AuthorizedKeys:   "sshkey1",
 			AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
 			// raring provides mongo in the archive
-			Tools:           newSimpleTools("1.2.3-trusty-amd64"),
-			StateServer:     true,
-			StateServerCert: serverCert,
-			StateServerKey:  serverKey,
-			StatePort:       37017,
-			APIPort:         17070,
-			MachineNonce:    "FAKE_NONCE",
+			Tools:            newSimpleTools("1.2.3-trusty-amd64"),
+			Bootstrap:        true,
+			StateServingInfo: stateServingInfo,
+			MachineNonce:     "FAKE_NONCE",
 			StateInfo: &state.Info{
 				Password: "arble",
 				CACert:   []byte("CA CERT\n" + testing.CACert),
@@ -227,7 +225,7 @@ ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
 			LogDir:                  agent.DefaultLogDir,
 			Jobs:                    allMachineJobs,
 			CloudInitOutputLog:      environs.CloudInitOutputLog,
-			StateInfoURL:            "some-url",
+			InstanceId:              "i-bootstrap",
 			SystemPrivateSSHKey:     "private rsa key",
 			MachineAgentServiceName: "jujud-machine-0",
 			MongoServiceName:        "juju-db",
@@ -248,7 +246,7 @@ cat >> /etc/init/juju-db\.conf << 'EOF'\\ndescription "juju state database"\\nau
 			LogDir:             agent.DefaultLogDir,
 			Jobs:               normalMachineJobs,
 			CloudInitOutputLog: environs.CloudInitOutputLog,
-			StateServer:        false,
+			Bootstrap:          false,
 			Tools:              newSimpleTools("1.2.3-linux-amd64"),
 			MachineNonce:       "FAKE_NONCE",
 			StateInfo: &state.Info{
@@ -274,6 +272,7 @@ test -e /proc/self/fd/9 \|\| exec 9>&2
 mkdir -p /var/lib/juju/locks
 \[ -e /home/ubuntu \] && chown ubuntu:ubuntu /var/lib/juju/locks
 mkdir -p /var/log/juju
+chown syslog:adm /var/log/juju
 echo 'Fetching tools.*
 bin='/var/lib/juju/tools/1\.2\.3-linux-amd64'
 mkdir -p \$bin
@@ -302,7 +301,7 @@ start jujud-machine-99
 			LogDir:               agent.DefaultLogDir,
 			Jobs:                 normalMachineJobs,
 			CloudInitOutputLog:   environs.CloudInitOutputLog,
-			StateServer:          false,
+			Bootstrap:            false,
 			Tools:                newSimpleTools("1.2.3-linux-amd64"),
 			MachineNonce:         "FAKE_NONCE",
 			StateInfo: &state.Info{
@@ -338,7 +337,7 @@ start jujud-machine-2-lxc-1
 			LogDir:             agent.DefaultLogDir,
 			Jobs:               normalMachineJobs,
 			CloudInitOutputLog: environs.CloudInitOutputLog,
-			StateServer:        false,
+			Bootstrap:          false,
 			Tools:              newSimpleTools("1.2.3-linux-amd64"),
 			MachineNonce:       "FAKE_NONCE",
 			StateInfo: &state.Info{
@@ -367,13 +366,10 @@ curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{ti
 			AuthorizedKeys:   "sshkey1",
 			AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
 			// precise currently needs mongo from PPA
-			Tools:           newSimpleTools("1.2.3-precise-amd64"),
-			StateServer:     true,
-			StateServerCert: serverCert,
-			StateServerKey:  serverKey,
-			StatePort:       37017,
-			APIPort:         17070,
-			MachineNonce:    "FAKE_NONCE",
+			Tools:            newSimpleTools("1.2.3-precise-amd64"),
+			Bootstrap:        true,
+			StateServingInfo: stateServingInfo,
+			MachineNonce:     "FAKE_NONCE",
 			StateInfo: &state.Info{
 				Password: "arble",
 				CACert:   []byte("CA CERT\n" + testing.CACert),
@@ -386,7 +382,7 @@ curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{ti
 			LogDir:                  agent.DefaultLogDir,
 			Jobs:                    allMachineJobs,
 			CloudInitOutputLog:      environs.CloudInitOutputLog,
-			StateInfoURL:            "some-url",
+			InstanceId:              "i-bootstrap",
 			SystemPrivateSSHKey:     "private rsa key",
 			MachineAgentServiceName: "jujud-machine-0",
 			MongoServiceName:        "juju-db",
@@ -394,7 +390,7 @@ curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{ti
 		setEnvConfig: true,
 		inexactMatch: true,
 		expectScripts: `
-/var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --debug
+/var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --instance-id 'i-bootstrap' --debug
 `,
 	},
 }
@@ -444,7 +440,7 @@ func checkEnvConfig(c *gc.C, cfg *config.Config, x map[interface{}]interface{}, 
 		var actual map[string]interface{}
 		err = goyaml.Unmarshal(buf, &actual)
 		c.Assert(err, gc.IsNil)
-		c.Assert(cfg.AllAttrs(), gc.DeepEquals, actual)
+		c.Assert(cfg.AllAttrs(), jc.DeepEquals, actual)
 	}
 	c.Assert(found, gc.Equals, true)
 }
@@ -490,7 +486,7 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		tag := names.MachineTag(test.cfg.MachineId)
 		acfg := getAgentConfig(c, tag, scripts)
 		c.Assert(acfg, jc.Contains, "AGENT_SERVICE_NAME: jujud-"+tag)
-		if test.cfg.StateServer {
+		if test.cfg.Bootstrap {
 			series := test.cfg.Tools.Version.Series
 			mongoPackage := expectedMongoPackage[series]
 			checkPackage(c, x, mongoPackage, true)
@@ -680,7 +676,7 @@ var verifyTests = []struct {
 		cfg.APIInfo = nil
 	}},
 	{"missing state hosts", func(cfg *cloudinit.MachineConfig) {
-		cfg.StateServer = false
+		cfg.Bootstrap = false
 		cfg.StateInfo = &state.Info{
 			Tag:    "machine-99",
 			CACert: []byte(testing.CACert),
@@ -692,7 +688,7 @@ var verifyTests = []struct {
 		}
 	}},
 	{"missing API hosts", func(cfg *cloudinit.MachineConfig) {
-		cfg.StateServer = false
+		cfg.Bootstrap = false
 		cfg.StateInfo = &state.Info{
 			Addrs:  []string{"foo:35"},
 			Tag:    "machine-99",
@@ -707,17 +703,31 @@ var verifyTests = []struct {
 		cfg.StateInfo = &state.Info{Addrs: []string{"host:98765"}}
 	}},
 	{"missing CA certificate", func(cfg *cloudinit.MachineConfig) {
-		cfg.StateServer = false
+		cfg.Bootstrap = false
 		cfg.StateInfo = &state.Info{
 			Tag:   "machine-99",
 			Addrs: []string{"host:98765"},
 		}
 	}},
 	{"missing state server certificate", func(cfg *cloudinit.MachineConfig) {
-		cfg.StateServerCert = []byte{}
+		info := *cfg.StateServingInfo
+		info.Cert = ""
+		cfg.StateServingInfo = &info
 	}},
 	{"missing state server private key", func(cfg *cloudinit.MachineConfig) {
-		cfg.StateServerKey = []byte{}
+		info := *cfg.StateServingInfo
+		info.PrivateKey = ""
+		cfg.StateServingInfo = &info
+	}},
+	{"missing state port", func(cfg *cloudinit.MachineConfig) {
+		info := *cfg.StateServingInfo
+		info.StatePort = 0
+		cfg.StateServingInfo = &info
+	}},
+	{"missing API port", func(cfg *cloudinit.MachineConfig) {
+		info := *cfg.StateServingInfo
+		info.APIPort = 0
+		cfg.StateServingInfo = &info
 	}},
 	{"missing var directory", func(cfg *cloudinit.MachineConfig) {
 		cfg.DataDir = ""
@@ -735,25 +745,25 @@ var verifyTests = []struct {
 		cfg.Tools = &tools.Tools{}
 	}},
 	{"entity tag must match started machine", func(cfg *cloudinit.MachineConfig) {
-		cfg.StateServer = false
+		cfg.Bootstrap = false
 		info := *cfg.StateInfo
 		info.Tag = "machine-0"
 		cfg.StateInfo = &info
 	}},
 	{"entity tag must match started machine", func(cfg *cloudinit.MachineConfig) {
-		cfg.StateServer = false
+		cfg.Bootstrap = false
 		info := *cfg.StateInfo
 		info.Tag = ""
 		cfg.StateInfo = &info
 	}},
 	{"entity tag must match started machine", func(cfg *cloudinit.MachineConfig) {
-		cfg.StateServer = false
+		cfg.Bootstrap = false
 		info := *cfg.APIInfo
 		info.Tag = "machine-0"
 		cfg.APIInfo = &info
 	}},
 	{"entity tag must match started machine", func(cfg *cloudinit.MachineConfig) {
-		cfg.StateServer = false
+		cfg.Bootstrap = false
 		info := *cfg.APIInfo
 		info.Tag = ""
 		cfg.APIInfo = &info
@@ -767,12 +777,6 @@ var verifyTests = []struct {
 		info := *cfg.APIInfo
 		info.Tag = "machine-0"
 		cfg.APIInfo = &info
-	}},
-	{"missing state port", func(cfg *cloudinit.MachineConfig) {
-		cfg.StatePort = 0
-	}},
-	{"missing API port", func(cfg *cloudinit.MachineConfig) {
-		cfg.APIPort = 0
 	}},
 	{"missing machine nonce", func(cfg *cloudinit.MachineConfig) {
 		cfg.MachineNonce = ""
@@ -783,17 +787,26 @@ var verifyTests = []struct {
 	{"missing mongo service name", func(cfg *cloudinit.MachineConfig) {
 		cfg.MongoServiceName = ""
 	}},
+	{"missing instance-id", func(cfg *cloudinit.MachineConfig) {
+		cfg.InstanceId = ""
+	}},
+	{"state serving info unexpectedly present", func(cfg *cloudinit.MachineConfig) {
+		cfg.Bootstrap = false
+		apiInfo := *cfg.APIInfo
+		apiInfo.Tag = "machine-99"
+		cfg.APIInfo = &apiInfo
+		stateInfo := *cfg.StateInfo
+		stateInfo.Tag = "machine-99"
+		cfg.StateInfo = &stateInfo
+	}},
 }
 
 // TestCloudInitVerify checks that required fields are appropriately
 // checked for by NewCloudInit.
 func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 	cfg := &cloudinit.MachineConfig{
-		StateServer:      true,
-		StateServerCert:  serverCert,
-		StateServerKey:   serverKey,
-		StatePort:        1234,
-		APIPort:          1235,
+		Bootstrap:        true,
+		StateServingInfo: stateServingInfo,
 		MachineId:        "99",
 		Tools:            newSimpleTools("9.9.9-linux-arble"),
 		AuthorizedKeys:   "sshkey1",
@@ -812,6 +825,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		LogDir:                  agent.DefaultLogDir,
 		Jobs:                    normalMachineJobs,
 		CloudInitOutputLog:      environs.CloudInitOutputLog,
+		InstanceId:              "i-bootstrap",
 		MachineNonce:            "FAKE_NONCE",
 		SystemPrivateSSHKey:     "private rsa key",
 		MachineAgentServiceName: "jujud-machine-99",
@@ -819,15 +833,20 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 	}
 	// check that the base configuration does not give an error
 	ci := coreCloudinit.New()
-	err := cloudinit.Configure(cfg, ci)
-	c.Assert(err, gc.IsNil)
 
 	for i, test := range verifyTests {
+		// check that the base configuration does not give an error
+		// and that a previous test hasn't mutated it accidentially.
+		err := cloudinit.Configure(cfg, ci)
+		c.Assert(err, gc.IsNil)
+
 		c.Logf("test %d. %s", i, test.err)
+
 		cfg1 := *cfg
 		test.mutate(&cfg1)
 		err = cloudinit.Configure(&cfg1, ci)
 		c.Assert(err, gc.ErrorMatches, "invalid machine configuration: "+test.err)
+
 	}
 }
 
@@ -836,7 +855,7 @@ func (*cloudinitSuite) createMachineConfig(c *gc.C, environConfig *config.Config
 	machineNonce := "fake-nonce"
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	machineConfig := environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo)
+	machineConfig := environs.NewMachineConfig(machineId, machineNonce, nil, nil, stateInfo, apiInfo)
 	machineConfig.Tools = &tools.Tools{
 		Version: version.MustParseBinary("2.3.4-foo-bar"),
 		URL:     "http://tools.testing.invalid/2.3.4-foo-bar.tgz",
@@ -854,7 +873,7 @@ func (s *cloudinitSuite) TestAptProxyNotWrittenIfNotSet(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	cmds := cloudcfg.BootCmds()
-	c.Assert(cmds, gc.DeepEquals, []interface{}{})
+	c.Assert(cmds, jc.DeepEquals, []interface{}{})
 }
 
 func (s *cloudinitSuite) TestAptProxyWritten(c *gc.C) {
@@ -870,7 +889,7 @@ func (s *cloudinitSuite) TestAptProxyWritten(c *gc.C) {
 
 	cmds := cloudcfg.BootCmds()
 	expected := "[ -f /etc/apt/apt.conf.d/42-juju-proxy-settings ] || (printf '%s\\n' 'Acquire::http::Proxy \"http://user@10.0.0.1\";' > /etc/apt/apt.conf.d/42-juju-proxy-settings)"
-	c.Assert(cmds, gc.DeepEquals, []interface{}{expected})
+	c.Assert(cmds, jc.DeepEquals, []interface{}{expected})
 }
 
 func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {

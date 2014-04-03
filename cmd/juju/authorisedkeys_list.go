@@ -10,6 +10,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/utils/ssh"
 )
@@ -22,7 +23,7 @@ By default, just the key fingerprint is printed. Use --full to display the entir
 
 // ListKeysCommand is used to list the authorized ssh keys.
 type ListKeysCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	showFullKey bool
 	user        string
 }
@@ -39,6 +40,14 @@ func (c *ListKeysCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.BoolVar(&c.showFullKey, "full", false, "show full key instead of just the key fingerprint")
 	f.StringVar(&c.user, "user", "admin", "the user for which to list the keys")
+}
+
+func (c *ListKeysCommand) Init(args []string) error {
+	err := c.EnvCommandBase.Init()
+	if err != nil {
+		return err
+	}
+	return cmd.CheckEmpty(args)
 }
 
 func (c *ListKeysCommand) Run(context *cmd.Context) error {

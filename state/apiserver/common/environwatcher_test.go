@@ -16,7 +16,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
-	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
@@ -103,7 +102,7 @@ func (*environWatcherSuite) TestWatchAuthError(c *gc.C) {
 	)
 	result, err := e.WatchForEnvironConfigChanges()
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(result.Error, jc.DeepEquals, apiservertesting.ErrUnauthorized)
+	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{})
 	c.Assert(resources.Count(), gc.Equals, 0)
 }
 
@@ -123,7 +122,6 @@ func (*environWatcherSuite) TestEnvironConfigSuccess(c *gc.C) {
 	)
 	result, err := e.EnvironConfig()
 	c.Assert(err, gc.IsNil)
-	c.Assert(result.Error, gc.IsNil)
 	// Make sure we can read the secret attribute (i.e. it's not masked).
 	c.Check(result.Config["secret"], gc.Equals, "pork")
 	c.Check(map[string]interface{}(result.Config), jc.DeepEquals, testingEnvConfig.AllAttrs())
@@ -177,7 +175,6 @@ func (*environWatcherSuite) TestEnvironConfigReadSecretsFalse(c *gc.C) {
 	)
 	result, err := e.EnvironConfig()
 	c.Assert(err, gc.IsNil)
-	c.Assert(result.Error, gc.IsNil)
 	// Make sure the secret attribute is masked.
 	c.Check(result.Config["secret"], gc.Equals, "not available")
 	// And only that is masked.

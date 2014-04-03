@@ -25,6 +25,7 @@ import (
 	ttesting "launchpad.net/juju-core/environs/tools/testing"
 	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -74,7 +75,7 @@ func setupSimpleStreamsTests(t *testing.T) {
 func registerSimpleStreamsTests() {
 	gc.Suite(&simplestreamsSuite{
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
-			Source:        simplestreams.NewURLDataSource("test", "test:", simplestreams.VerifySSLHostnames),
+			Source:        simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames),
 			RequireSigned: false,
 			DataType:      tools.ContentDownload,
 			ValidConstraint: tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
@@ -92,7 +93,7 @@ func registerSimpleStreamsTests() {
 
 func registerLiveSimpleStreamsTests(baseURL string, validToolsConstraint simplestreams.LookupConstraint, requireSigned bool) {
 	gc.Suite(&sstesting.LocalLiveSimplestreamsSuite{
-		Source:          simplestreams.NewURLDataSource("test", baseURL, simplestreams.VerifySSLHostnames),
+		Source:          simplestreams.NewURLDataSource("test", baseURL, utils.VerifySSLHostnames),
 		RequireSigned:   requireSigned,
 		DataType:        tools.ContentDownload,
 		ValidConstraint: validToolsConstraint,
@@ -246,7 +247,7 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 				})
 		}
 		// Add invalid datasource and check later that resolveInfo is correct.
-		invalidSource := simplestreams.NewURLDataSource("invalid", "file://invalid", simplestreams.VerifySSLHostnames)
+		invalidSource := simplestreams.NewURLDataSource("invalid", "file://invalid", utils.VerifySSLHostnames)
 		tools, resolveInfo, err := tools.Fetch(
 			[]simplestreams.DataSource{invalidSource, s.Source},
 			simplestreams.DefaultIndexPath, toolsConstraint, s.RequireSigned)
@@ -729,7 +730,7 @@ var testRoundTripper *jujutest.ProxyRoundTripper
 
 func init() {
 	testRoundTripper = &jujutest.ProxyRoundTripper{}
-	simplestreams.RegisterProtocol("signedtest", testRoundTripper)
+	testRoundTripper.RegisterForScheme("signedtest")
 }
 
 func (s *signedSuite) SetUpSuite(c *gc.C) {
@@ -768,7 +769,7 @@ func (s *signedSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *signedSuite) TestSignedToolsMetadata(c *gc.C) {
-	signedSource := simplestreams.NewURLDataSource("test", "signedtest://host/signed", simplestreams.VerifySSLHostnames)
+	signedSource := simplestreams.NewURLDataSource("test", "signedtest://host/signed", utils.VerifySSLHostnames)
 	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
 		Series:    []string{"precise"},

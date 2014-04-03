@@ -9,6 +9,7 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/utils"
 )
 
 // This module implements a subset of the interface provided by
@@ -35,7 +36,7 @@ func (c *Charm) getArchiveInfo(apiCall string) (string, error) {
 	args := params.CharmURLs{
 		URLs: []params.CharmURL{{URL: c.url}},
 	}
-	err := c.st.caller.Call("Uniter", "", apiCall, args, &results)
+	err := c.st.call(apiCall, args, &results)
 	if err != nil {
 		return "", err
 	}
@@ -59,12 +60,12 @@ func (c *Charm) getArchiveInfo(apiCall string) (string, error) {
 // TODO(dimitern): 2013-09-06 bug 1221834
 // Cache the result after getting it once for the same charm URL,
 // because it's immutable.
-func (c *Charm) ArchiveURL() (*url.URL, bool, error) {
+func (c *Charm) ArchiveURL() (*url.URL, utils.SSLHostnameVerification, error) {
 	var results params.CharmArchiveURLResults
 	args := params.CharmURLs{
 		URLs: []params.CharmURL{{URL: c.url}},
 	}
-	err := c.st.caller.Call("Uniter", "", "CharmArchiveURL", args, &results)
+	err := c.st.call("CharmArchiveURL", args, &results)
 	if err != nil {
 		return nil, false, err
 	}
@@ -79,7 +80,11 @@ func (c *Charm) ArchiveURL() (*url.URL, bool, error) {
 	if err != nil {
 		return nil, false, err
 	}
-	return archiveURL, result.DisableSSLHostnameVerification, nil
+	hostnameVerification := utils.VerifySSLHostnames
+	if result.DisableSSLHostnameVerification {
+		hostnameVerification = utils.NoVerifySSLHostnames
+	}
+	return archiveURL, hostnameVerification, nil
 }
 
 // ArchiveSha256 returns the SHA256 digest of the charm archive

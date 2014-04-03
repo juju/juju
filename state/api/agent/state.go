@@ -40,6 +40,24 @@ func (st *State) getEntity(tag string) (*params.AgentGetEntitiesResult, error) {
 	return &results.Entities[0], nil
 }
 
+func (st *State) StateServingInfo() (params.StateServingInfo, error) {
+	var results params.StateServingInfo
+	err := st.caller.Call("Agent", "", "StateServingInfo", nil, &results)
+	return results, err
+}
+
+// IsMaster reports whether the connected machine
+// agent lives at the same network address as the primary
+// mongo server for the replica set.
+// This call will return an error if the connected
+// agent is not a machine agent with environment-manager
+// privileges.
+func (st *State) IsMaster() (bool, error) {
+	var results params.IsMasterResult
+	err := st.caller.Call("Agent", "", "IsMaster", nil, &results)
+	return results.Master, err
+}
+
 type Entity struct {
 	st  *State
 	tag string

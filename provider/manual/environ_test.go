@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
@@ -84,9 +85,18 @@ func (s *environSuite) TestInstances(c *gc.C) {
 func (s *environSuite) TestDestroy(c *gc.C) {
 	var resultStderr string
 	var resultErr error
-	runSSHCommandTesting := func(host string, command []string) (string, error) {
+	runSSHCommandTesting := func(host string, command []string, stdin string) (string, error) {
 		c.Assert(host, gc.Equals, "ubuntu@hostname")
-		c.Assert(command, gc.DeepEquals, []string{"sudo", "pkill", "-6", "jujud"})
+		c.Assert(command, gc.DeepEquals, []string{"sudo", "/bin/bash"})
+		c.Assert(stdin, gc.DeepEquals, `
+set -x
+pkill -6 jujud && exit
+stop juju-db
+rm -f /etc/init/juju*
+rm -f /etc/rsyslog.d/*juju*
+rm -fr '/var/lib/juju' '/var/log/juju'
+exit 0
+`)
 		return resultStderr, resultErr
 	}
 	s.PatchValue(&runSSHCommand, runSSHCommandTesting)
@@ -131,11 +141,11 @@ func (s *environSuite) TestEnvironSupportsCustomSources(c *gc.C) {
 }
 
 func (s *environSuite) TestSupportedArchitectures(c *gc.C) {
-	s.PatchValue(&manual.DetectSeriesAndHardwareCharacteristics, func(host string) (instance.HardwareCharacteristics, string, error) {
-		c.Assert(host, gc.Equals, "hostname")
-		return instance.MustParseHardware("arch=arm64"), "precise", nil
-	})
-	a, err := s.env.SupportedArchitectures()
+	arches, err := s.env.SupportedArchitectures()
 	c.Assert(err, gc.IsNil)
-	c.Assert(a, gc.DeepEquals, []string{"arm64"})
+	c.Assert(arches, gc.DeepEquals, arch.AllSupportedArches)
+}
+
+func (s *environSuite) TestSupportNetworks(c *gc.C) {
+	c.Assert(s.env.SupportNetworks(), jc.IsFalse)
 }

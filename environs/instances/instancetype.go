@@ -20,7 +20,7 @@ type InstanceType struct {
 	Cost     uint64
 	RootDisk uint64
 	// These attributes are not supported by all clouds.
-	VType    *string // The type of virtualisation used by the hypervisor, must match the image.
+	VirtType *string // The type of virtualisation used by the hypervisor, must match the image.
 	CpuPower *uint64
 	Tags     []string
 }

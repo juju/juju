@@ -25,6 +25,7 @@ import (
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
+	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
@@ -63,6 +64,17 @@ func (s *environSuite) setDummyStorage(c *gc.C, env *azureEnviron) {
 	closer, storage, _ := envtesting.CreateLocalTestStorage(c)
 	env.storage = storage
 	s.AddCleanup(func(c *gc.C) { closer.Close() })
+}
+
+func (*environSuite) TestGetEndpoint(c *gc.C) {
+	c.Check(
+		getEndpoint("West US"),
+		gc.Equals,
+		"https://management.core.windows.net/")
+	c.Check(
+		getEndpoint("China East"),
+		gc.Equals,
+		"https://management.core.chinacloudapi.cn/")
 }
 
 func (*environSuite) TestGetSnapshot(c *gc.C) {
@@ -163,11 +175,16 @@ func patchWithServiceListResponse(c *gc.C, services []gwacl.HostedServiceDescrip
 	return gwacl.PatchManagementAPIResponses(responses)
 }
 
-func (*environSuite) TestSupportedArchitectures(c *gc.C) {
-	env := makeEnviron(c)
+func (s *environSuite) TestSupportedArchitectures(c *gc.C) {
+	env := s.setupEnvWithDummyMetadata(c)
 	a, err := env.SupportedArchitectures()
 	c.Assert(err, gc.IsNil)
-	c.Assert(a, gc.DeepEquals, []string{"amd64", "i386"})
+	c.Assert(a, gc.DeepEquals, []string{"ppc64"})
+}
+
+func (s *environSuite) TestSupportNetworks(c *gc.C) {
+	env := s.setupEnvWithDummyMetadata(c)
+	c.Assert(env.SupportNetworks(), jc.IsFalse)
 }
 
 func (suite *environSuite) TestGetEnvPrefixContainsEnvName(c *gc.C) {
@@ -1169,42 +1186,53 @@ func (*environSuite) TestSelectInstanceTypeAndImageUsesForcedImage(c *gc.C) {
 		Mem:      &aim.Mem,
 	}
 
-	instanceType, image, err := env.selectInstanceTypeAndImage(cons, "precise", "West US")
+	instanceType, image, err := env.selectInstanceTypeAndImage(&instances.InstanceConstraint{
+		Region:      "West US",
+		Series:      "precise",
+		Constraints: cons,
+	})
 	c.Assert(err, gc.IsNil)
 
 	c.Check(instanceType, gc.Equals, aim.Name)
 	c.Check(image, gc.Equals, forcedImage)
 }
 
-func (*environSuite) TestSelectInstanceTypeAndImageUsesSimplestreamsByDefault(c *gc.C) {
-	env := makeEnviron(c)
+func (s *environSuite) setupEnvWithDummyMetadata(c *gc.C) *azureEnviron {
+	envAttrs := makeAzureConfigMap(c)
+	envAttrs["location"] = "North Europe"
+	env := makeEnvironWithConfig(c, envAttrs)
+	s.setDummyStorage(c, env)
+	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
+	s.PatchValue(&signedImageDataOnly, false)
+	images := []*imagemetadata.ImageMetadata{
+		{
+			Id:         "image-id",
+			VirtType:   "Hyper-V",
+			Arch:       "ppc64",
+			RegionName: "North Europe",
+			Endpoint:   "https://management.core.windows.net/",
+		},
+	}
+	makeTestMetadata(c, env, "precise", "North Europe", images)
+	return env
+}
 
+func (s *environSuite) TestSelectInstanceTypeAndImageUsesSimplestreamsByDefault(c *gc.C) {
+	env := s.setupEnvWithDummyMetadata(c)
 	// We'll tailor our constraints so as to get a specific instance type.
 	aim := gwacl.RoleNameMap["ExtraSmall"]
 	cons := constraints.Value{
 		CpuCores: &aim.CpuCores,
 		Mem:      &aim.Mem,
 	}
-
-	// We have one image available.
-	images := []*imagemetadata.ImageMetadata{
-		{
-			Id:          "image",
-			VType:       "Hyper-V",
-			Arch:        "amd64",
-			RegionAlias: "North Europe",
-			RegionName:  "North Europe",
-			Endpoint:    "http://localhost/",
-		},
-	}
-	cleanup := patchFetchImageMetadata(images, nil)
-	defer cleanup()
-
-	instanceType, image, err := env.selectInstanceTypeAndImage(cons, "precise", "West US")
+	instanceType, image, err := env.selectInstanceTypeAndImage(&instances.InstanceConstraint{
+		Region:      "North Europe",
+		Series:      "precise",
+		Constraints: cons,
+	})
 	c.Assert(err, gc.IsNil)
-
-	c.Check(instanceType, gc.Equals, aim.Name)
-	c.Check(image, gc.Equals, "image")
+	c.Assert(instanceType, gc.Equals, aim.Name)
+	c.Assert(image, gc.Equals, "image-id")
 }
 
 func (*environSuite) TestConvertToInstances(c *gc.C) {

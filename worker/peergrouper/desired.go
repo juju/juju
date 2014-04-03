@@ -149,12 +149,13 @@ func updateAddresses(members map[*machine]*replicaset.Member, machines map[strin
 	changed := false
 	// Make sure all members' machine addresses are up to date.
 	for _, m := range machines {
-		if m.hostPort == "" {
+		hp := m.mongoHostPort()
+		if hp == "" {
 			continue
 		}
 		// TODO ensure that replicaset works correctly with IPv6 [host]:port addresses.
-		if m.hostPort != members[m].Address {
-			members[m].Address = m.hostPort
+		if hp != members[m].Address {
+			members[m].Address = hp
 			changed = true
 		}
 	}
@@ -206,7 +207,8 @@ func addNewMembers(
 	setVoting func(*machine, bool),
 ) {
 	for _, m := range toKeep {
-		if members[m] == nil && m.hostPort != "" {
+		hasAddress := m.mongoHostPort() != ""
+		if members[m] == nil && hasAddress {
 			// This machine was not previously in the members list,
 			// so add it (as non-voting). We maintain the
 			// id manually to make it easier for tests.
@@ -219,7 +221,7 @@ func addNewMembers(
 			}
 			members[m] = member
 			setVoting(m, false)
-		} else if m.hostPort == "" {
+		} else if !hasAddress {
 			logger.Debugf("ignoring machine %q with no address", m.id)
 		}
 	}

@@ -108,7 +108,9 @@ func (c *SCPCommand) Run(ctx *cmd.Context) error {
 	}
 
 	var options *ssh.Options
-	if c.proxy {
+	if proxy, err := c.proxySSH(); err != nil {
+		return err
+	} else if proxy {
 		options = new(ssh.Options)
 		if err := c.setProxyCommand(options); err != nil {
 			return err

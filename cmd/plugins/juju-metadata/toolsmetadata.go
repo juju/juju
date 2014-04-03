@@ -10,18 +10,20 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/juju/osenv"
 	coretools "launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
 // ToolsMetadataCommand is used to generate simplestreams metadata for juju tools.
 type ToolsMetadataCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	fetch       bool
 	metadataDir string
 	public      bool
@@ -38,6 +40,14 @@ func (c *ToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.StringVar(&c.metadataDir, "d", "", "local directory in which to store metadata")
 	f.BoolVar(&c.public, "public", false, "tools are for a public cloud, so generate mirrors information")
+}
+
+func (c *ToolsMetadataCommand) Init(args []string) (err error) {
+	err = c.EnvCommandBase.Init()
+	if err != nil {
+		return
+	}
+	return cmd.CheckEmpty(args)
 }
 
 func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
@@ -62,7 +72,7 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		sourceDataSource := simplestreams.NewURLDataSource("local source", source, simplestreams.VerifySSLHostnames)
+		sourceDataSource := simplestreams.NewURLDataSource("local source", source, utils.VerifySSLHostnames)
 		toolsList, err = envtools.FindToolsForCloud(
 			[]simplestreams.DataSource{sourceDataSource}, simplestreams.CloudSpec{},
 			version.Current.Major, minorVersion, coretools.Filter{})

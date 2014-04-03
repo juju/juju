@@ -29,6 +29,10 @@ func (p *mockEnvironCapability) SupportedArchitectures() ([]string, error) {
 	panic("unused")
 }
 
+func (p *mockEnvironCapability) SupportNetworks() bool {
+	panic("unused")
+}
+
 func (p *mockEnvironCapability) SupportsUnitPlacement() error {
 	return p.supportsUnitPlacementError
 }

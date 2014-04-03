@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 
 	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 	gc "launchpad.net/gocheck"
 
@@ -141,7 +142,11 @@ func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
 }
 
 func AddTestingService(c *gc.C, st *State, name string, ch *Charm) *Service {
-	service, err := st.AddService(name, "user-admin", ch)
+	return AddTestingServiceWithNetworks(c, st, name, ch, nil, nil)
+}
+
+func AddTestingServiceWithNetworks(c *gc.C, st *State, name string, ch *Charm, includeNetworks, excludeNetworks []string) *Service {
+	service, err := st.AddService(name, "user-admin", ch, includeNetworks, excludeNetworks)
 	c.Assert(err, gc.IsNil)
 	return service
 }
@@ -189,7 +194,7 @@ func ClearInstanceDocId(c *gc.C, m *Machine) {
 			C:      m.st.instanceData.Name,
 			Id:     m.doc.Id,
 			Assert: txn.DocExists,
-			Update: D{{"$set", D{{"instanceid", ""}}}},
+			Update: bson.D{{"$set", bson.D{{"instanceid", ""}}}},
 		},
 	}
 
