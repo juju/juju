@@ -426,9 +426,10 @@ func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error
 		return err
 	}
 	inst, metadata, err := task.broker.StartInstance(environs.StartInstanceParams{
-		Constraints:   cons,
-		Tools:         possibleTools,
-		MachineConfig: machineConfig,
+		Constraints:       cons,
+		Tools:             possibleTools,
+		MachineConfig:     machineConfig,
+		DistributionGroup: machine.DistributionGroup,
 	})
 	if err != nil {
 		// Set the state to error, so the machine will be skipped next

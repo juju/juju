@@ -11,7 +11,7 @@ import (
 )
 
 // StartInstanceParams holds parameters for the
-// InstanceBroker.StartInstace method.
+// InstanceBroker.StartInstance method.
 type StartInstanceParams struct {
 	// Constraints is a set of constraints on
 	// the kind of instance to create.
@@ -23,6 +23,14 @@ type StartInstanceParams struct {
 
 	// MachineConfig describes the machine's configuration.
 	MachineConfig *cloudinit.MachineConfig
+
+	// DistributionGroup, if non-nil, is a function
+	// that returns a slice of instance.Ids that belong
+	// to the same distribution group as the machine
+	// being provisioned. The InstanceBroker may use
+	// this information to distribute instances for
+	// high availability.
+	DistributionGroup func() ([]instance.Id, error)
 }
 
 // TODO(wallyworld) - we want this in the environs/instance package but import loops

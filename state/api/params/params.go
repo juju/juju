@@ -647,6 +647,19 @@ type SetRsyslogCertParams struct {
 	CACert []byte
 }
 
+// DistributionGroupResult contains the result of
+// the DistributionGroup provisioner API call.
+type DistributionGroupResult struct {
+	Error  *Error
+	Result []instance.Id
+}
+
+// DistributionGroupResults is the bulk form of
+// DistributionGroupResult.
+type DistributionGroupResults struct {
+	Results []DistributionGroupResult
+}
+
 // APIHostPortsResult holds the result of an APIHostPorts
 // call. Each element in the top level slice holds
 // the addresses for one API server.
