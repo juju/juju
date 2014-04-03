@@ -453,9 +453,10 @@ func (c *Config) Name() string {
 // and whether the default series was explicitly configured on the environment.
 func (c *Config) DefaultSeries() (string, bool) {
 	if s, ok := c.defined["default-series"]; ok {
-		series := s.(string)
-		if series != "" {
+		if series, ok := s.(string); ok && series != "" {
 			return series, true
+		} else if !ok {
+			logger.Warningf("invalid default-series: %q", s)
 		}
 	}
 	return "", false
