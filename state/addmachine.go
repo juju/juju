@@ -407,7 +407,7 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 		createStatusOp(st, machineGlobalKey(mdoc.Id), statusDoc{
 			Status: params.StatusPending,
 		}),
-		createNetworksOp(st, machineGlobalKey(mdoc.Id),
+		createLinkedNetworksOp(st, machineGlobalKey(mdoc.Id),
 			template.IncludeNetworks,
 			template.ExcludeNetworks,
 		),

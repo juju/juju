@@ -224,7 +224,7 @@ func (s *Service) removeOps(asserts bson.D) []txn.Op {
 		Id:     s.settingsKey(),
 		Remove: true,
 	}}
-	ops = append(ops, removeNetworksOp(s.st, s.globalKey()))
+	ops = append(ops, removeLinkedNetworksOp(s.st, s.globalKey()))
 	ops = append(ops, removeConstraintsOp(s.st, s.globalKey()))
 	return append(ops, annotationRemoveOp(s.st, s.globalKey()))
 }
@@ -824,7 +824,7 @@ func (s *Service) SetConstraints(cons constraints.Value) (err error) {
 
 // Networks returns the networks a service is associated with.
 func (s *Service) Networks() (includeNetworks, excludeNetworks []string, err error) {
-	return readNetworks(s.st, s.globalKey())
+	return readLinkedNetworks(s.st, s.globalKey())
 }
 
 // settingsIncRefOp returns an operation that increments the ref count

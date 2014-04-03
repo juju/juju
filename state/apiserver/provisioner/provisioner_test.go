@@ -642,7 +642,7 @@ func (s *withoutStateServerSuite) TestNetworks(c *gc.C) {
 	netsMachine, err := s.State.AddOneMachine(template)
 	c.Assert(err, gc.IsNil)
 
-	includeNetsMachine0, excludeNetsMachine0, err := s.machines[0].Networks()
+	includeNetsMachine0, excludeNetsMachine0, err := s.machines[0].LinkedNetworks()
 	c.Assert(err, gc.IsNil)
 
 	args := params.Entities{Entities: []params.Entity{
