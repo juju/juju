@@ -311,4 +311,16 @@ func (s *debugInternalSuite) TestNewLogStream(c *gc.C) {
 	obtained, err = newLogStream(values)
 	c.Assert(err, gc.IsNil)
 	assertStreamParams(c, obtained, expected)
+
+	_, err = newLogStream(url.Values{"maxLines": []string{"foo"}})
+	c.Assert(err, gc.ErrorMatches, `maxLines value "foo" is not a valid unsigned number`)
+
+	_, err = newLogStream(url.Values{"backlog": []string{"foo"}})
+	c.Assert(err, gc.ErrorMatches, `backlog value "foo" is not a valid unsigned number`)
+
+	_, err = newLogStream(url.Values{"replay": []string{"foo"}})
+	c.Assert(err, gc.ErrorMatches, `replay value "foo" is not a valid boolean`)
+
+	_, err = newLogStream(url.Values{"level": []string{"foo"}})
+	c.Assert(err, gc.ErrorMatches, `level value "foo" is not one of "TRACE", "DEBUG", "INFO", "WARNING", "ERROR"`)
 }

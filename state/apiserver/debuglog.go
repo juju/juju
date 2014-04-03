@@ -89,7 +89,7 @@ func newLogStream(queryMap url.Values) (*logStream, error) {
 	if value := queryMap.Get("maxLines"); value != "" {
 		num, err := strconv.ParseUint(value, 10, 64)
 		if err != nil {
-			return nil, fmt.Errorf("maxLines is not a valid unsigned number: %v", err)
+			return nil, fmt.Errorf("maxLines value %q is not a valid unsigned number", value)
 		}
 		maxLines = uint(num)
 	}
@@ -98,7 +98,7 @@ func newLogStream(queryMap url.Values) (*logStream, error) {
 	if value := queryMap.Get("replay"); value != "" {
 		replay, err := strconv.ParseBool(value)
 		if err != nil {
-			return nil, fmt.Errorf("replay is not a valid boolean: %v", err)
+			return nil, fmt.Errorf("replay value %q is not a valid boolean", value)
 		}
 		fromTheStart = replay
 	}
@@ -107,7 +107,7 @@ func newLogStream(queryMap url.Values) (*logStream, error) {
 	if value := queryMap.Get("backlog"); value != "" {
 		num, err := strconv.ParseUint(value, 10, 64)
 		if err != nil {
-			return nil, fmt.Errorf("backlog is not a valid unsigned number: %v", err)
+			return nil, fmt.Errorf("backlog value %q is not a valid unsigned number", value)
 		}
 		backlog = uint(num)
 	}
@@ -117,8 +117,8 @@ func newLogStream(queryMap url.Values) (*logStream, error) {
 		var ok bool
 		level, ok = loggo.ParseLevel(value)
 		if !ok || level < loggo.TRACE || level > loggo.ERROR {
-			return nil, fmt.Errorf("level must be one of %q, %q, %q, %q, %q",
-				loggo.TRACE, loggo.DEBUG, loggo.INFO, loggo.WARNING, loggo.ERROR)
+			return nil, fmt.Errorf("level value %q is not one of %q, %q, %q, %q, %q",
+				value, loggo.TRACE, loggo.DEBUG, loggo.INFO, loggo.WARNING, loggo.ERROR)
 		}
 	}
 
