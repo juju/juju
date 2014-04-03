@@ -125,7 +125,8 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 	for i in $(seq 1 60)
 	do
 		mongoEval ' ' && break
-		sleep 2
+		#Used to be 2, that is not enough when we are too close in terms of network
+		sleep 10
 	done
 	mongoEval '
 		db = db.getSiblingDB("juju")
