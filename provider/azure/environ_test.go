@@ -571,7 +571,7 @@ func (*environSuite) TestAttemptCreateServiceCreatesService(c *gc.C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
 	c.Assert(err, gc.IsNil)
 
-	service, err := attemptCreateService(azure, prefix, affinityGroup)
+	service, err := attemptCreateService(azure, prefix, affinityGroup, "")
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(*requests, gc.HasLen, 2)
@@ -591,7 +591,7 @@ func (*environSuite) TestAttemptCreateServiceReturnsNilIfNameNotUnique(c *gc.C) 
 	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
 	c.Assert(err, gc.IsNil)
 
-	service, err := attemptCreateService(azure, "service", "affinity-group")
+	service, err := attemptCreateService(azure, "service", "affinity-group", "")
 	c.Check(err, gc.IsNil)
 	c.Check(service, gc.IsNil)
 }
@@ -605,7 +605,7 @@ func (*environSuite) TestAttemptCreateServicePropagatesOtherFailure(c *gc.C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
 	c.Assert(err, gc.IsNil)
 
-	_, err = attemptCreateService(azure, "service", "affinity-group")
+	_, err = attemptCreateService(azure, "service", "affinity-group", "")
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, ".*Not Found.*")
 }
@@ -626,7 +626,7 @@ func (*environSuite) TestNewHostedServiceCreatesService(c *gc.C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
 	c.Assert(err, gc.IsNil)
 
-	service, err := newHostedService(azure, prefix, affinityGroup)
+	service, err := newHostedService(azure, prefix, affinityGroup, "")
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(*requests, gc.HasLen, 3)
@@ -659,7 +659,7 @@ func (*environSuite) TestNewHostedServiceRetriesIfNotUnique(c *gc.C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
 	c.Assert(err, gc.IsNil)
 
-	service, err := newHostedService(azure, "service", "affinity-group")
+	service, err := newHostedService(azure, "service", "affinity-group", "")
 	c.Check(err, gc.IsNil)
 
 	c.Assert(*requests, gc.HasLen, 5)
@@ -697,7 +697,7 @@ func (*environSuite) TestNewHostedServiceFailsIfUnableToFindUniqueName(c *gc.C) 
 	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
 	c.Assert(err, gc.IsNil)
 
-	_, err = newHostedService(azure, "service", "affinity-group")
+	_, err = newHostedService(azure, "service", "affinity-group", "")
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, "could not come up with a unique hosted service name.*")
 }

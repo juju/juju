@@ -323,7 +323,7 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 // name it chooses (based on the given prefix), but recognizes that the name
 // may not be available.  If the name is not available, it does not treat that
 // as an error but just returns nil.
-func attemptCreateService(azure *gwacl.ManagementAPI, prefix, affinityGroupName string) (*gwacl.CreateHostedService, error) {
+func attemptCreateService(azure *gwacl.ManagementAPI, prefix, affinityGroupName, label string) (*gwacl.CreateHostedService, error) {
 	var err error
 	name := gwacl.MakeRandomHostedServiceName(prefix)
 	err = azure.CheckHostedServiceNameAvailability(name)
@@ -331,7 +331,10 @@ func attemptCreateService(azure *gwacl.ManagementAPI, prefix, affinityGroupName 
 		// The calling function should retry.
 		return nil, nil
 	}
-	req := gwacl.NewCreateHostedServiceWithLocation(name, name, "")
+	if label == "" {
+		label = name
+	}
+	req := gwacl.NewCreateHostedServiceWithLocation(name, label, "")
 	req.AffinityGroup = affinityGroupName
 	err = azure.AddHostedService(req)
 	if err != nil {
@@ -342,11 +345,11 @@ func attemptCreateService(azure *gwacl.ManagementAPI, prefix, affinityGroupName 
 
 // newHostedService creates a hosted service.  It will make up a unique name,
 // starting with the given prefix.
-func newHostedService(azure *gwacl.ManagementAPI, prefix, affinityGroupName string) (*gwacl.HostedService, error) {
+func newHostedService(azure *gwacl.ManagementAPI, prefix, affinityGroupName, label string) (*gwacl.HostedService, error) {
 	var err error
 	var createdService *gwacl.CreateHostedService
 	for tries := 10; tries > 0 && err == nil && createdService == nil; tries-- {
-		createdService, err = attemptCreateService(azure, prefix, affinityGroupName)
+		createdService, err = attemptCreateService(azure, prefix, affinityGroupName, label)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("could not create hosted service: %v", err)
@@ -420,7 +423,7 @@ func (env *azureEnviron) selectInstanceTypeAndImage(constraint *instances.Instan
 // If serviceName is non-empty, then createInstance will assign to
 // the Cloud Service with that name. Otherwise, a new Cloud Service
 // will be created.
-func (env *azureEnviron) createInstance(azure *gwacl.ManagementAPI, role *gwacl.Role, serviceName string) (resultInst instance.Instance, resultErr error) {
+func (env *azureEnviron) createInstance(azure *gwacl.ManagementAPI, role *gwacl.Role, serviceName string, stateServer bool) (resultInst instance.Instance, resultErr error) {
 	var inst instance.Instance
 	defer func() {
 		if inst != nil && resultErr != nil {
@@ -435,7 +438,15 @@ func (env *azureEnviron) createInstance(azure *gwacl.ManagementAPI, role *gwacl.
 	if serviceName != "" {
 		service, err = azure.GetHostedServiceProperties(serviceName, true)
 	} else {
-		service, err = newHostedService(azure, env.getEnvPrefix(), env.getAffinityGroupName())
+		// If we're creating a cloud service for state servers,
+		// we will want to open additional ports. We need to
+		// record this against the cloud service, so we use a
+		// special label for the purpose.
+		var label string
+		if stateServer {
+			label = stateServerLabel
+		}
+		service, err = newHostedService(azure, env.getEnvPrefix(), env.getAffinityGroupName(), label)
 	}
 	if err != nil {
 		return nil, err
@@ -550,6 +561,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ ins
 				break
 			}
 		}
+		logger.Debugf("using existing cloud service: %q", cloudServiceName)
 	}
 
 	vhd := env.newOSDisk(sourceImageName)
@@ -563,7 +575,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ ins
 		}
 	}
 	role := env.newRole(instanceType, vhd, userData, stateServer)
-	inst, err := env.createInstance(azure.ManagementAPI, role, cloudServiceName)
+	inst, err := env.createInstance(azure.ManagementAPI, role, cloudServiceName, stateServer)
 	if err != nil {
 		return nil, nil, err
 	}
