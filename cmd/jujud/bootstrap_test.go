@@ -422,7 +422,7 @@ func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	maybePanic(err)
 	s.instanceId = inst.Id()
 	s.envcfg = b64yaml(env.Config().AllAttrs()).encode()
-
+}
 
 func nullContext() *cmd.Context {
 	ctx, _ := cmd.DefaultContext()
