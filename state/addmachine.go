@@ -133,6 +133,13 @@ func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err er
 	var ops []txn.Op
 	var mdocs []*machineDoc
 	for _, template := range templates {
+		// Adding a machine without any principals is
+		// only permitted unit placement is supported.
+		if len(template.principals) == 0 {
+			if err := st.supportsUnitPlacement(); err != nil {
+				return nil, err
+			}
+		}
 		mdoc, addOps, err := st.addMachineOps(template)
 		if err != nil {
 			return nil, err
@@ -292,6 +299,10 @@ func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId s
 	if containerType == "" {
 		return nil, nil, fmt.Errorf("no container type specified")
 	}
+	// Adding a machine within a machine implies add-machine or placement.
+	if err := st.supportsUnitPlacement(); err != nil {
+		return nil, nil, err
+	}
 
 	// If a parent machine is specified, make sure it exists
 	// and can support the requested container type.
@@ -350,6 +361,10 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineT
 	}
 	if parentTemplate.InstanceId == "" {
 		if err := st.precheckInstance(parentTemplate.Series, parentTemplate.Constraints); err != nil {
+			return nil, nil, err
+		}
+		// Adding a machine within a machine implies add-machine or placement.
+		if err := st.supportsUnitPlacement(); err != nil {
 			return nil, nil, err
 		}
 	}

@@ -51,6 +51,9 @@ const (
 )
 
 type azureEnviron struct {
+	common.NopPrecheckerPolicy
+	common.SupportsUnitPlacementPolicy
+
 	// Except where indicated otherwise, all fields in this object should
 	// only be accessed using a lock or a snapshot.
 	sync.Mutex
