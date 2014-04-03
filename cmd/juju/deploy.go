@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
@@ -215,6 +216,16 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		serviceName = charmInfo.Meta.Name
 	}
 
+	store, err := configstore.Default()
+	if err != nil {
+		return fmt.Errorf("cannot open environment info storage: %v", err)
+	}
+	info, err := store.ReadInfo(c.EnvName)
+	if err != nil {
+		return err
+	}
+	serviceOwner := names.UserTag(info.APICredentials().User)
+
 	var configYAML []byte
 	if c.Config.Path != "" {
 		configYAML, err = c.Config.Read(ctx)
@@ -225,6 +236,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	err = client.ServiceDeployWithNetworks(
 		curl.String(),
 		serviceName,
+		serviceOwner,
 		numUnits,
 		string(configYAML),
 		c.Constraints,
@@ -239,6 +251,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		err = client.ServiceDeploy(
 			curl.String(),
 			serviceName,
+			serviceOwner,
 			numUnits,
 			string(configYAML),
 			c.Constraints,
