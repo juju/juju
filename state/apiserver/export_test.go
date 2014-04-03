@@ -16,12 +16,12 @@ var (
 	MaxPingInterval = &maxPingInterval
 )
 
-// DelayCheckCreds overwrites the internal structures with an alternative
-// checkCreds implementation. The new implementation waits on a channel before
-// actually processing credentials. After calling this function, Logins will
-// not be processed until a message is sent down nextChan. Restore the original
-// behavior by calling the cleanup() function.
-func DelayCheckCreds() (nextChan chan struct{}, cleanup func()) {
+// DelayLogins changes how the Login code works so that logins won't proceed
+// until they get a message on the returned channel.
+// After calling this function, the caller is responsible for sending messages
+// on the nextChan in order for Logins to succeed. The original behavior can be
+// restored by calling the cleanup function.
+func DelayLogins() (nextChan chan struct{}, cleanup func()) {
 	nextChan = make(chan struct{}, 0)
 	cleanup = func() {
 		doCheckCreds = checkCreds

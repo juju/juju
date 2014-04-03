@@ -243,11 +243,6 @@ func (s *loginSuite) loginHostPorts(c *gc.C, info *api.Info) (connectedAddr stri
 	return st.Addr(), st.APIHostPorts()
 }
 
-type loginResult struct {
-	requestNum int
-	err        error
-}
-
 // slowDialOpts is used in the Delay and Rate limiting tests so that we can see
 // that a login is requested and stuck in 'pending' but if there is a bug in
 // the test, we won't wait DefaultDialOpts() [10m] before discovering this
@@ -259,27 +254,29 @@ var slowDialOpts = api.DialOpts{
 func (s *loginSuite) TestDelayLogins(c *gc.C) {
 	info, cleanup := s.setupMachineAndServer(c)
 	defer cleanup()
-	delayChan, cleanup := apiserver.DelayCheckCreds()
+	delayChan, cleanup := apiserver.DelayLogins()
 	defer cleanup()
 
 	// Trigger a bunch of login requests
-	errResults := make(chan loginResult, 100)
+	errResults := make(chan error, 100)
 	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
-		i := i
 		wg.Add(1)
 		go func() {
+			// We can use fastDialOpts because we should connect
+			// immediately, it is just the Login RPC that will take
+			// a while to respond.
 			st, err := api.Open(info, fastDialOpts)
 			if err == nil {
 				st.Close()
 			}
-			errResults <- loginResult{i, err}
+			errResults <- err
 			wg.Done()
 		}()
 	}
 	select {
-	case result := <-errResults:
-		c.Fatalf("we should not have gotten any logins yet: req %v err: %v", result.requestNum, result.err)
+	case err := <-errResults:
+		c.Fatalf("we should not have gotten any logins yet: %v", err)
 	case <-time.After(coretesting.ShortWait):
 	}
 	// Now allow the logins to proceed
@@ -290,13 +287,15 @@ func (s *loginSuite) TestDelayLogins(c *gc.C) {
 	close(errResults)
 	successCount := 0
 	errorCount := 0
-	for result := range errResults {
-		if result.err != nil {
+	for err := range errResults {
+		if err != nil {
 			errorCount += 1
 		} else {
 			successCount += 1
 		}
 	}
+	// All the logins should succeed, they were just delayed after
+	// connecting.
 	c.Check(errorCount, gc.Equals, 0)
 	c.Check(successCount, gc.Equals, 10)
 }
@@ -304,7 +303,7 @@ func (s *loginSuite) TestDelayLogins(c *gc.C) {
 func (s *loginSuite) TestLoginRateLimited(c *gc.C) {
 	info, cleanup := s.setupMachineAndServer(c)
 	defer cleanup()
-	delayChan, cleanup := apiserver.DelayCheckCreds()
+	delayChan, cleanup := apiserver.DelayLogins()
 	defer cleanup()
 
 	// Start a bunch of login requests, that shouldn't complete yet
