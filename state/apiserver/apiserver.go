@@ -113,19 +113,17 @@ func (n *requestNotifier) tag() (tag string) {
 }
 
 func (n *requestNotifier) ServerRequest(hdr *rpc.Header, body interface{}) {
-	/// UNLEASH THE FLOOD
-	///if hdr.Request.Type == "Pinger" && hdr.Request.Action == "Ping" {
-	///	return
-	///}
+	if hdr.Request.Type == "Pinger" && hdr.Request.Action == "Ping" {
+		return
+	}
 	// TODO(rog) 2013-10-11 remove secrets from some requests.
 	logger.Debugf("<- [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, body))
 }
 
 func (n *requestNotifier) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}, timeSpent time.Duration) {
-	/// UNLEASH THE FLOOD
-	/// if req.Type == "Pinger" && req.Action == "Ping" {
-	/// 	return
-	/// }
+	if req.Type == "Pinger" && req.Action == "Ping" {
+		return
+	}
 	logger.Debugf("-> [%X] %s %s %s %s[%q].%s", n.id, n.tag(), timeSpent, jsoncodec.DumpRequest(hdr, body), req.Type, req.Id, req.Action)
 }
 
