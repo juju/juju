@@ -32,7 +32,7 @@ func (m *backingMachine) updated(st *State, store *multiwatcher.Store, id interf
 		Life:                     params.Life(m.Life.String()),
 		Series:                   m.Series,
 		Jobs:                     paramsJobsFromJobs(m.Jobs),
-		Addresses:                addressesToInstanceAddresses(m.Addresses),
+		Addresses:                mergedAddresses(m.MachineAddresses, m.Addresses),
 		SupportedContainers:      m.SupportedContainers,
 		SupportedContainersKnown: m.SupportedContainersKnown,
 	}
@@ -87,13 +87,11 @@ type backingUnit unitDoc
 
 func (u *backingUnit) updated(st *State, store *multiwatcher.Store, id interface{}) error {
 	info := &params.UnitInfo{
-		Name:           u.Name,
-		Service:        u.Service,
-		Series:         u.Series,
-		PublicAddress:  u.PublicAddress,
-		PrivateAddress: u.PrivateAddress,
-		MachineId:      u.MachineId,
-		Ports:          u.Ports,
+		Name:      u.Name,
+		Service:   u.Service,
+		Series:    u.Series,
+		MachineId: u.MachineId,
+		Ports:     u.Ports,
 	}
 	if u.CharmURL != nil {
 		info.CharmURL = u.CharmURL.String()
@@ -114,8 +112,27 @@ func (u *backingUnit) updated(st *State, store *multiwatcher.Store, id interface
 		info.Status = oldInfo.Status
 		info.StatusInfo = oldInfo.StatusInfo
 	}
+	publicAddress, privateAddress, err := getUnitAddresses(st, u.Name)
+	if err != nil {
+		return err
+	}
+	info.PublicAddress = publicAddress
+	info.PrivateAddress = privateAddress
 	store.Update(info)
 	return nil
+}
+
+// getUnitAddresses returns the public and private addresses on a given unit.
+// As of 1.18, the addresses are stored on the assigned machine but we retain
+// this approach for backwards compatibility.
+func getUnitAddresses(st *State, unitName string) (publicAddress, privateAddress string, err error) {
+	u, err := st.Unit(unitName)
+	if err != nil {
+		return "", "", err
+	}
+	publicAddress, _ = u.PublicAddress()
+	privateAddress, _ = u.PrivateAddress()
+	return publicAddress, privateAddress, nil
 }
 
 func (svc *backingUnit) removed(st *State, store *multiwatcher.Store, id interface{}) error {

@@ -420,6 +420,44 @@ var allWatcherChangedTests = []struct {
 				StatusInfo:    "another failure",
 			},
 		},
+	}, {
+		about: "unit addresses are read from the assigned machine for recent Juju releases",
+		setUp: func(c *gc.C, st *State) {
+			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+			u, err := wordpress.AddUnit()
+			c.Assert(err, gc.IsNil)
+			err = u.OpenPort("tcp", 12345)
+			c.Assert(err, gc.IsNil)
+			m, err := st.AddMachine("quantal", JobHostUnits)
+			c.Assert(err, gc.IsNil)
+			err = u.AssignToMachine(m)
+			c.Assert(err, gc.IsNil)
+			publicAddress := instance.NewAddress("public")
+			publicAddress.NetworkScope = instance.NetworkPublic
+			privateAddress := instance.NewAddress("private")
+			privateAddress.NetworkScope = instance.NetworkCloudLocal
+			err = m.SetAddresses([]instance.Address{publicAddress, privateAddress})
+			c.Assert(err, gc.IsNil)
+			err = u.SetStatus(params.StatusError, "failure", nil)
+			c.Assert(err, gc.IsNil)
+		},
+		change: watcher.Change{
+			C:  "units",
+			Id: "wordpress/0",
+		},
+		expectContents: []params.EntityInfo{
+			&params.UnitInfo{
+				Name:           "wordpress/0",
+				Service:        "wordpress",
+				Series:         "quantal",
+				PublicAddress:  "public",
+				PrivateAddress: "private",
+				MachineId:      "0",
+				Ports:          []instance.Port{{"tcp", 12345}},
+				Status:         params.StatusError,
+				StatusInfo:     "failure",
+			},
+		},
 	},
 	// Service changes
 	{

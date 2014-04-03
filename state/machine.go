@@ -105,6 +105,8 @@ type machineDoc struct {
 	// We store 2 different sets of addresses for the machine, obtained
 	// from different sources.
 	// Addresses is the set of addresses obtained by asking the provider.
+	// As of 1.18, provider addresses are not gathered anymore so this field
+	// will not be populated. It is retained for backwards compatibility.
 	Addresses []address
 	// MachineAddresses is the set of addresses obtained from the machine itself.
 	MachineAddresses []address
@@ -813,23 +815,29 @@ func IsNotProvisionedError(err error) bool {
 	return ok
 }
 
+func mergedAddresses(machineAddresses, providerAddresses []address) []instance.Address {
+	merged := make(map[string]instance.Address)
+	for _, address := range machineAddresses {
+		merged[address.Value] = address.InstanceAddress()
+	}
+	for _, address := range providerAddresses {
+		merged[address.Value] = address.InstanceAddress()
+	}
+	addresses := make([]instance.Address, len(merged))
+	for _, address := range merged {
+		addresses = append(addresses, address)
+	}
+	return addresses
+}
+
 // Addresses returns any hostnames and ips associated with a machine,
 // determined both by the machine itself, and by asking the provider.
 //
 // The addresses returned by the provider shadow any of the addresses
 // that the machine reported with the same address value.
+// Note: As of 1.18, provider addresses are no longer populated.
 func (m *Machine) Addresses() (addresses []instance.Address) {
-	merged := make(map[string]instance.Address)
-	for _, address := range m.doc.MachineAddresses {
-		merged[address.Value] = address.InstanceAddress()
-	}
-	for _, address := range m.doc.Addresses {
-		merged[address.Value] = address.InstanceAddress()
-	}
-	for _, address := range merged {
-		addresses = append(addresses, address)
-	}
-	return
+	return mergedAddresses(m.doc.MachineAddresses, m.doc.Addresses)
 }
 
 // SetAddresses records any addresses related to the machine, sourced
