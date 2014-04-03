@@ -28,12 +28,6 @@ var _ = gc.Suite(&StoreSuite{})
 
 func (s *StoreSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
-	s.PatchEnvironment("http-proxy", "")
-	s.PatchEnvironment("HTTP-PROXY", "")
-	s.PatchEnvironment("http-proxys", "")
-	s.PatchEnvironment("HTTP-PROXYS", "")
-	s.PatchEnvironment("NO-PROXY", "")
-	s.PatchEnvironment("no-proxy", "")
 	s.server = charmtesting.NewMockStore(c, map[string]int{
 		"cs:series/good":   23,
 		"cs:series/unwise": 23,
