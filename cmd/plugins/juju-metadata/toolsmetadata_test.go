@@ -57,7 +57,7 @@ func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 var currentVersionStrings = []string{
 	// only these ones will make it into the JSON files.
 	version.Current.Number.String() + "-quantal-amd64",
-	version.Current.Number.String() + "-quantal-arm",
+	version.Current.Number.String() + "-quantal-armhf",
 	version.Current.Number.String() + "-quantal-i386",
 }
 
