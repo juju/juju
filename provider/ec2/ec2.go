@@ -389,12 +389,6 @@ func (e *environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 
 const ebsStorage = "ebs"
 
-// PrecheckInstance is defined on the state.Prechecker interface.
-func (e *environ) PrecheckInstance(series string, cons constraints.Value) error {
-	common.InstanceTypeUnsupported(logger, e, cons)
-	return nil
-}
-
 // StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
 

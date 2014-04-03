@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/provider/common"
 )
 
 // signedImageDataOnly is defined here to allow tests to override the content.
@@ -38,14 +39,16 @@ func filterImages(images []*imagemetadata.ImageMetadata) []*imagemetadata.ImageM
 func findInstanceSpec(
 	sources []simplestreams.DataSource, stream string, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
 
-	if ic.Constraints.CpuPower == nil {
-		ic.Constraints.CpuPower = instances.CpuPower(defaultCpuPower)
+	cons := *ic
+	cons.Constraints = common.ImageMatchConstraint(cons.Constraints)
+	if cons.Constraints.CpuPower == nil && !cons.Constraints.HasInstanceType() {
+		cons.Constraints.CpuPower = instances.CpuPower(defaultCpuPower)
 	}
-	ec2Region := allRegions[ic.Region]
+	ec2Region := allRegions[cons.Region]
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		CloudSpec: simplestreams.CloudSpec{ic.Region, ec2Region.EC2Endpoint},
-		Series:    []string{ic.Series},
-		Arches:    ic.Arches,
+		CloudSpec: simplestreams.CloudSpec{cons.Region, ec2Region.EC2Endpoint},
+		Series:    []string{cons.Series},
+		Arches:    cons.Arches,
 		Stream:    stream,
 	})
 	matchingImages, _, err := imagemetadata.Fetch(
@@ -54,15 +57,15 @@ func findInstanceSpec(
 		return nil, err
 	}
 	if len(matchingImages) == 0 {
-		logger.Warningf("no matching image meta data for constraints: %v", ic)
+		logger.Warningf("no matching image meta data for constraints: %v", cons)
 	}
 	suitableImages := filterImages(matchingImages)
 	images := instances.ImageMetadataToImages(suitableImages)
 
 	// Make a copy of the known EC2 instance types, filling in the cost for the specified region.
-	regionCosts := allRegionCosts[ic.Region]
+	regionCosts := allRegionCosts[cons.Region]
 	if len(regionCosts) == 0 && len(allRegionCosts) > 0 {
-		return nil, fmt.Errorf("no instance types found in %s", ic.Region)
+		return nil, fmt.Errorf("no instance types found in %s", cons.Region)
 	}
 
 	var itypesWithCosts []instances.InstanceType
@@ -75,5 +78,5 @@ func findInstanceSpec(
 		itWithCost.Cost = cost
 		itypesWithCosts = append(itypesWithCosts, itWithCost)
 	}
-	return instances.FindInstanceSpec(images, ic, itypesWithCosts)
+	return instances.FindInstanceSpec(images, &cons, itypesWithCosts)
 }
