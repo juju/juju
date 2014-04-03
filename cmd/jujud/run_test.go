@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils/exec"
 	"launchpad.net/juju-core/utils/fslock"
@@ -105,7 +105,7 @@ func startRunAsync(c *gc.C, params []string) <-chan *cmd.Context {
 	go func() {
 		ctx, err := testing.RunCommand(c, &RunCommand{}, params)
 		c.Assert(err, jc.Satisfies, cmd.IsRcPassthroughError)
-		c.Assert(err, gc.ErrorMatches, "rc: 0")
+		c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 0")
 		resultChannel <- ctx
 		close(resultChannel)
 	}()
@@ -118,7 +118,7 @@ func (s *RunTestSuite) TestNoContext(c *gc.C) {
 
 	ctx, err := testing.RunCommand(c, &RunCommand{}, []string{"--no-context", "echo done"})
 	c.Assert(err, jc.Satisfies, cmd.IsRcPassthroughError)
-	c.Assert(err, gc.ErrorMatches, "rc: 0")
+	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 0")
 	c.Assert(testing.Stdout(ctx), gc.Equals, "done\n")
 }
 
@@ -168,7 +168,7 @@ func (s *RunTestSuite) TestRunning(c *gc.C) {
 
 	ctx, err := testing.RunCommand(c, &RunCommand{}, []string{"foo", "bar"})
 	c.Check(cmd.IsRcPassthroughError(err), jc.IsTrue)
-	c.Assert(err, gc.ErrorMatches, "rc: 42")
+	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 42")
 	c.Assert(testing.Stdout(ctx), gc.Equals, "bar stdout")
 	c.Assert(testing.Stderr(ctx), gc.Equals, "bar stderr")
 }

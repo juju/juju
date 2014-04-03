@@ -12,6 +12,7 @@ import (
 	"strings"
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
@@ -29,7 +30,6 @@ import (
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
@@ -140,7 +140,8 @@ func (*NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
 	info, _, err := env.StateInfo()
 	c.Assert(err, gc.IsNil)
 	info.Password = utils.UserPasswordHash("side-effect secret", utils.CompatSalt)
-	st, err := state.Open(info, state.DefaultDialOpts(), environs.NewStatePolicy())
+	// Use a state without a nil policy, which will allow us to set an invalid config.
+	st, err := state.Open(info, state.DefaultDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer assertClose(c, st)
 
@@ -151,15 +152,8 @@ func (*NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
 
 	// Remove the secret from state, and then make sure it gets
 	// pushed back again.
-	attrs = statecfg.AllAttrs()
-	delete(attrs, "secret")
-	newcfg, err := config.New(config.NoDefaults, attrs)
+	err = st.UpdateEnvironConfig(map[string]interface{}{}, []string{"secret"}, nil)
 	c.Assert(err, gc.IsNil)
-	err = st.SetEnvironConfig(newcfg, statecfg)
-	c.Assert(err, gc.IsNil)
-	statecfg, err = st.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	c.Assert(statecfg.UnknownAttrs()["secret"], gc.IsNil)
 
 	// Make a new Conn, which will push the secrets.
 	conn, err := juju.NewConn(env)
@@ -343,10 +337,12 @@ func (s *ConnSuite) TestPutBundledCharm(c *gc.C) {
 	// Invent a URL that points to the bundled charm, and
 	// test putting that.
 	curl := &charm.URL{
-		Schema:   "local",
-		Series:   "quantal",
-		Name:     "riak",
-		Revision: -1,
+		Reference: charm.Reference{
+			Schema:   "local",
+			Name:     "riak",
+			Revision: -1,
+		},
+		Series: "quantal",
 	}
 	_, err = s.conn.PutCharm(curl, s.repo, true)
 	c.Assert(err, gc.ErrorMatches, `cannot increment revision of charm "local:quantal/riak-7": not a directory`)
@@ -362,7 +358,7 @@ func (s *ConnSuite) TestPutBundledCharm(c *gc.C) {
 }
 
 func (s *ConnSuite) TestPutCharmUpload(c *gc.C) {
-	repo := &charm.LocalRepository{c.MkDir()}
+	repo := &charm.LocalRepository{Path: c.MkDir()}
 	curl := coretesting.Charms.ClonedURL(repo.Path, "quantal", "riak")
 
 	// Put charm for the first time.
@@ -402,15 +398,30 @@ func (s *ConnSuite) TestPutCharmUpload(c *gc.C) {
 	c.Assert(sch.Revision(), gc.Equals, rev+1)
 }
 
+func (s *ConnSuite) assertAssignedMachineNetworks(c *gc.C, unit *state.Unit, expectInclude, expectExclude []string) {
+	machineId, err := unit.AssignedMachineId()
+	c.Assert(err, gc.IsNil)
+	machine, err := s.conn.State.Machine(machineId)
+	c.Assert(err, gc.IsNil)
+	include, exclude, err := machine.Networks()
+	c.Assert(err, gc.IsNil)
+	c.Assert(include, jc.DeepEquals, expectInclude)
+	c.Assert(exclude, jc.DeepEquals, expectExclude)
+}
+
 func (s *ConnSuite) TestAddUnits(c *gc.C) {
+	withNets := []string{"net1", "net2"}
+	withoutNets := []string{"net3", "net4"}
 	curl := coretesting.Charms.ClonedURL(s.repo.Path, "quantal", "riak")
 	sch, err := s.conn.PutCharm(curl, s.repo, false)
 	c.Assert(err, gc.IsNil)
-	svc, err := s.conn.State.AddService("testriak", "user-admin", sch)
+	svc, err := s.conn.State.AddService("testriak", "user-admin", sch, withNets, withoutNets)
 	c.Assert(err, gc.IsNil)
 	units, err := juju.AddUnits(s.conn.State, svc, 2, "")
 	c.Assert(err, gc.IsNil)
 	c.Assert(units, gc.HasLen, 2)
+	s.assertAssignedMachineNetworks(c, units[0], withNets, withoutNets)
+	s.assertAssignedMachineNetworks(c, units[1], withNets, withoutNets)
 
 	id0, err := units[0].AssignedMachineId()
 	c.Assert(err, gc.IsNil)
@@ -423,16 +434,19 @@ func (s *ConnSuite) TestAddUnits(c *gc.C) {
 
 	units, err = juju.AddUnits(s.conn.State, svc, 1, "0")
 	c.Assert(err, gc.IsNil)
+	s.assertAssignedMachineNetworks(c, units[0], withNets, withoutNets)
 	id2, err := units[0].AssignedMachineId()
 	c.Assert(id2, gc.Equals, id0)
 
 	units, err = juju.AddUnits(s.conn.State, svc, 1, "lxc:0")
 	c.Assert(err, gc.IsNil)
+	s.assertAssignedMachineNetworks(c, units[0], withNets, withoutNets)
 	id3, err := units[0].AssignedMachineId()
 	c.Assert(id3, gc.Equals, id0+"/lxc/0")
 
 	units, err = juju.AddUnits(s.conn.State, svc, 1, "lxc:"+id3)
 	c.Assert(err, gc.IsNil)
+	s.assertAssignedMachineNetworks(c, units[0], withNets, withoutNets)
 	id4, err := units[0].AssignedMachineId()
 	c.Assert(id4, gc.Equals, id0+"/lxc/0/lxc/0")
 

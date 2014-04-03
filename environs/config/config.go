@@ -442,6 +442,13 @@ func (c *Config) AuthorizedKeys() string {
 	return c.mustString("authorized-keys")
 }
 
+// ProxySSH returns a flag indicating whether SSH commands
+// should be proxied through the API server.
+func (c *Config) ProxySSH() bool {
+	value, _ := c.defined["proxy-ssh"].(bool)
+	return value
+}
+
 // ProxySettings returns all four proxy settings; http, https, ftp, and no
 // proxy.
 func (c *Config) ProxySettings() osenv.ProxySettings {
@@ -662,6 +669,15 @@ func (c *Config) AllAttrs() map[string]interface{} {
 	return allAttrs
 }
 
+// Remove returns a new configuration that has the attributes of c minus attrs.
+func (c *Config) Remove(attrs []string) (*Config, error) {
+	defined := c.AllAttrs()
+	for _, k := range attrs {
+		delete(defined, k)
+	}
+	return New(NoDefaults, defined)
+}
+
 // Apply returns a new configuration that has the attributes of c plus attrs.
 func (c *Config) Apply(attrs map[string]interface{}) (*Config, error) {
 	defined := c.AllAttrs()
@@ -707,6 +723,7 @@ var fields = schema.Fields{
 	"bootstrap-retry-delay":     schema.ForceInt(),
 	"bootstrap-addresses-delay": schema.ForceInt(),
 	"test-mode":                 schema.Bool(),
+	"proxy-ssh":                 schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url": schema.String(),
@@ -733,15 +750,13 @@ var alwaysOptional = schema.Defaults{
 	"bootstrap-retry-delay":     schema.Omit,
 	"bootstrap-addresses-delay": schema.Omit,
 	"rsyslog-ca-cert":           schema.Omit,
-
-	// Proxy values default to "", otherwise they can't be set to blank.
-	"http-proxy":      "",
-	"https-proxy":     "",
-	"ftp-proxy":       "",
-	"no-proxy":        "",
-	"apt-http-proxy":  "",
-	"apt-https-proxy": "",
-	"apt-ftp-proxy":   "",
+	"http-proxy":                schema.Omit,
+	"https-proxy":               schema.Omit,
+	"ftp-proxy":                 schema.Omit,
+	"no-proxy":                  schema.Omit,
+	"apt-http-proxy":            schema.Omit,
+	"apt-https-proxy":           schema.Omit,
+	"apt-ftp-proxy":             schema.Omit,
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url": "",
@@ -766,6 +781,7 @@ var alwaysOptional = schema.Defaults{
 	// Previously image-stream could be set to an empty value
 	"image-stream": "",
 	"test-mode":    false,
+	"proxy-ssh":    false,
 }
 
 func allowEmpty(attr string) bool {
@@ -789,6 +805,7 @@ func allDefaults() schema.Defaults {
 		"bootstrap-timeout":         DefaultBootstrapSSHTimeout,
 		"bootstrap-retry-delay":     DefaultBootstrapSSHRetryDelay,
 		"bootstrap-addresses-delay": DefaultBootstrapSSHAddressesDelay,
+		"proxy-ssh":                 true,
 	}
 	for attr, val := range alwaysOptional {
 		if _, ok := d[attr]; !ok {
@@ -911,23 +928,29 @@ type SSHTimeoutOpts struct {
 	AddressesDelay time.Duration
 }
 
+func addIfNotEmpty(settings map[string]interface{}, key, value string) {
+	if value != "" {
+		settings[key] = value
+	}
+}
+
 // ProxyConfigMap returns a map suitable to be applied to a Config to update
 // proxy settings.
 func ProxyConfigMap(proxy osenv.ProxySettings) map[string]interface{} {
-	return map[string]interface{}{
-		"http-proxy":  proxy.Http,
-		"https-proxy": proxy.Https,
-		"ftp-proxy":   proxy.Ftp,
-		"no-proxy":    proxy.NoProxy,
-	}
+	settings := make(map[string]interface{})
+	addIfNotEmpty(settings, "http-proxy", proxy.Http)
+	addIfNotEmpty(settings, "https-proxy", proxy.Https)
+	addIfNotEmpty(settings, "ftp-proxy", proxy.Ftp)
+	addIfNotEmpty(settings, "no-proxy", proxy.NoProxy)
+	return settings
 }
 
 // AptProxyConfigMap returns a map suitable to be applied to a Config to update
 // proxy settings.
 func AptProxyConfigMap(proxy osenv.ProxySettings) map[string]interface{} {
-	return map[string]interface{}{
-		"apt-http-proxy":  proxy.Http,
-		"apt-https-proxy": proxy.Https,
-		"apt-ftp-proxy":   proxy.Ftp,
-	}
+	settings := make(map[string]interface{})
+	addIfNotEmpty(settings, "apt-http-proxy", proxy.Http)
+	addIfNotEmpty(settings, "apt-https-proxy", proxy.Https)
+	addIfNotEmpty(settings, "apt-ftp-proxy", proxy.Ftp)
+	return settings
 }

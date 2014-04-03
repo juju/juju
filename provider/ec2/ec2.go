@@ -5,9 +5,6 @@ package ec2
 
 import (
 	"fmt"
-	"io/ioutil"
-	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -25,6 +22,7 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -50,6 +48,12 @@ var providerInstance environProvider
 
 type environ struct {
 	name string
+
+	// archMutex gates access to supportedArchitectures
+	archMutex sync.Mutex
+	// supportedArchitectures caches the architectures
+	// for which images can be instantiated.
+	supportedArchitectures []string
 
 	// ecfgMutex protects the *Unlocked fields below.
 	ecfgMutex       sync.Mutex
@@ -242,7 +246,7 @@ func (p environProvider) MetadataLookupParams(region string) (*simplestreams.Met
 	return &simplestreams.MetadataLookupParams{
 		Region:        region,
 		Endpoint:      ec2Region.EC2Endpoint,
-		Architectures: []string{"amd64", "i386"},
+		Architectures: arch.AllSupportedArches,
 	}, nil
 }
 
@@ -255,14 +259,6 @@ func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error
 	m["access-key"] = ecfg.accessKey()
 	m["secret-key"] = ecfg.secretKey()
 	return m, nil
-}
-
-func (environProvider) PublicAddress() (string, error) {
-	return fetchMetadata("public-hostname")
-}
-
-func (environProvider) PrivateAddress() (string, error) {
-	return fetchMetadata("local-hostname")
 }
 
 func (e *environ) Config() *config.Config {
@@ -331,26 +327,56 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 	return common.StateInfo(e)
 }
 
+// SupportedArchitectures is specified on the EnvironCapability interface.
+func (e *environ) SupportedArchitectures() ([]string, error) {
+	e.archMutex.Lock()
+	defer e.archMutex.Unlock()
+	if e.supportedArchitectures != nil {
+		return e.supportedArchitectures, nil
+	}
+	// Create a filter to get all images from our region and for the correct stream.
+	cloudSpec, err := e.Region()
+	if err != nil {
+		return nil, err
+	}
+	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+		CloudSpec: cloudSpec,
+		Stream:    e.Config().ImageStream(),
+	})
+	e.supportedArchitectures, err = common.SupportedArchitectures(e, imageConstraint)
+	return e.supportedArchitectures, err
+}
+
+// SupportNetworks is specified on the EnvironCapability interface.
+func (e *environ) SupportNetworks() bool {
+	// TODO(dimitern) Once we have support for VPCs and advanced
+	// networking, return true here.
+	return false
+}
+
 // MetadataLookupParams returns parameters which are used to query simplestreams metadata.
 func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
 	if region == "" {
 		region = e.ecfg().region()
 	}
-	ec2Region, ok := allRegions[region]
-	if !ok {
-		return nil, fmt.Errorf("unknown region %q", region)
+	cloudSpec, err := e.cloudSpec(region)
+	if err != nil {
+		return nil, err
 	}
 	return &simplestreams.MetadataLookupParams{
 		Series:        e.ecfg().DefaultSeries(),
-		Region:        region,
-		Endpoint:      ec2Region.EC2Endpoint,
-		Architectures: []string{"amd64", "i386", "arm", "arm64", "ppc64"},
+		Region:        cloudSpec.Region,
+		Endpoint:      cloudSpec.Endpoint,
+		Architectures: arch.AllSupportedArches,
 	}, nil
 }
 
 // Region is specified in the HasRegion interface.
 func (e *environ) Region() (simplestreams.CloudSpec, error) {
-	region := e.ecfg().region()
+	return e.cloudSpec(e.ecfg().region())
+}
+
+func (e *environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 	ec2Region, ok := allRegions[region]
 	if !ok {
 		return simplestreams.CloudSpec{}, fmt.Errorf("unknown region %q", region)
@@ -365,7 +391,9 @@ const ebsStorage = "ebs"
 
 // StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
-
+	if args.MachineConfig.HasNetworks() {
+		return nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
+	}
 	arches := args.Tools.Arches()
 	stor := ebsStorage
 	sources, err := imagemetadata.GetMetadataSources(e)
@@ -394,7 +422,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		return nil, nil, err
 	}
 
-	userData, err := environs.ComposeUserData(args.MachineConfig)
+	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot make user data: %v", err)
 	}
@@ -1025,37 +1053,6 @@ func ec2ErrCode(err error) string {
 		return ""
 	}
 	return ec2err.Code
-}
-
-// metadataHost holds the address of the instance metadata service.
-// It is a variable so that tests can change it to refer to a local
-// server when needed.
-var metadataHost = "http://169.254.169.254"
-
-// fetchMetadata fetches a single atom of data from the ec2 instance metadata service.
-// http://docs.amazonwebservices.com/AWSEC2/latest/UserGuide/AESDG-chapter-instancedata.html
-func fetchMetadata(name string) (value string, err error) {
-	uri := fmt.Sprintf("%s/2011-01-01/meta-data/%s", metadataHost, name)
-	defer utils.ErrorContextf(&err, "cannot get %q", uri)
-	for a := shortAttempt.Start(); a.Next(); {
-		var resp *http.Response
-		resp, err = http.Get(uri)
-		if err != nil {
-			continue
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			err = fmt.Errorf("bad http response %v", resp.Status)
-			continue
-		}
-		var data []byte
-		data, err = ioutil.ReadAll(resp.Body)
-		if err != nil {
-			continue
-		}
-		return strings.TrimSpace(string(data)), nil
-	}
-	return
 }
 
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.

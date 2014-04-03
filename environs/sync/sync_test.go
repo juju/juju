@@ -15,6 +15,7 @@ import (
 	"strings"
 	"testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
@@ -29,9 +30,9 @@ import (
 	ttesting "launchpad.net/juju-core/environs/tools/testing"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -292,27 +293,7 @@ func (s *uploadSuite) TestUploadFakeSeries(c *gc.C) {
 	}
 	t, err := sync.Upload(s.env.Storage(), nil, "quantal", seriesToUpload)
 	c.Assert(err, gc.IsNil)
-	c.Assert(t.Version, gc.Equals, version.Current)
-	expectRaw := downloadToolsRaw(c, t)
-
-	list, err := envtools.ReadList(s.env.Storage(), version.Current.Major, version.Current.Minor)
-	c.Assert(err, gc.IsNil)
-	c.Assert(list, gc.HasLen, 3)
-	expectSeries := []string{"quantal", seriesToUpload, version.Current.Series}
-	sort.Strings(expectSeries)
-	c.Assert(list.AllSeries(), gc.DeepEquals, expectSeries)
-	for _, t := range list {
-		c.Logf("checking %s", t.URL)
-		c.Assert(t.Version.Number, gc.Equals, version.Current.Number)
-		actualRaw := downloadToolsRaw(c, t)
-		c.Assert(string(actualRaw), gc.Equals, string(expectRaw))
-	}
-	metadata := ttesting.ParseMetadataFromStorage(c, s.env.Storage(), false)
-	c.Assert(metadata, gc.HasLen, 3)
-	for i, tm := range metadata {
-		c.Assert(tm.Release, gc.Equals, expectSeries[i])
-		c.Assert(tm.Version, gc.Equals, version.Current.Number.String())
-	}
+	s.assertUploadedTools(c, t, seriesToUpload)
 }
 
 func (s *uploadSuite) TestUploadAndForceVersion(c *gc.C) {
@@ -348,10 +329,74 @@ func (s *uploadSuite) TestUploadBadBuild(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `build command "go" failed: exit status 1; can't load package:(.|\n)*`)
 }
 
+func (s *uploadSuite) TestSyncTools(c *gc.C) {
+	builtTools, err := sync.BuildToolsTarball(nil)
+	c.Assert(err, gc.IsNil)
+	t, err := sync.SyncBuiltTools(s.env.Storage(), builtTools)
+	c.Assert(err, gc.IsNil)
+	c.Assert(t.Version, gc.Equals, version.Current)
+	c.Assert(t.URL, gc.Not(gc.Equals), "")
+	dir := downloadTools(c, t)
+	out, err := exec.Command(filepath.Join(dir, "jujud"), "version").CombinedOutput()
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(out), gc.Equals, version.Current.String()+"\n")
+}
+
+func (s *uploadSuite) TestSyncToolsFakeSeries(c *gc.C) {
+	seriesToUpload := "precise"
+	if seriesToUpload == version.Current.Series {
+		seriesToUpload = "raring"
+	}
+	builtTools, err := sync.BuildToolsTarball(nil)
+	c.Assert(err, gc.IsNil)
+
+	t, err := sync.SyncBuiltTools(s.env.Storage(), builtTools, "quantal", seriesToUpload)
+	c.Assert(err, gc.IsNil)
+	s.assertUploadedTools(c, t, seriesToUpload)
+}
+
+func (s *uploadSuite) TestSyncAndForceVersion(c *gc.C) {
+	// This test actually tests three things:
+	//   the writing of the FORCE-VERSION file;
+	//   the reading of the FORCE-VERSION file by the version package;
+	//   and the reading of the version from jujud.
+	vers := version.Current
+	vers.Patch++
+	builtTools, err := sync.BuildToolsTarball(&vers.Number)
+	c.Assert(err, gc.IsNil)
+	t, err := sync.SyncBuiltTools(s.env.Storage(), builtTools)
+	c.Assert(err, gc.IsNil)
+	c.Assert(t.Version, gc.Equals, vers)
+}
+
+func (s *uploadSuite) assertUploadedTools(c *gc.C, t *coretools.Tools, uploadedSeries string) {
+	c.Assert(t.Version, gc.Equals, version.Current)
+	expectRaw := downloadToolsRaw(c, t)
+
+	list, err := envtools.ReadList(s.env.Storage(), version.Current.Major, version.Current.Minor)
+	c.Assert(err, gc.IsNil)
+	c.Assert(list, gc.HasLen, 3)
+	expectSeries := []string{"quantal", uploadedSeries, version.Current.Series}
+	sort.Strings(expectSeries)
+	c.Assert(list.AllSeries(), gc.DeepEquals, expectSeries)
+	for _, t := range list {
+		c.Logf("checking %s", t.URL)
+		c.Assert(t.Version.Number, gc.Equals, version.Current.Number)
+		actualRaw := downloadToolsRaw(c, t)
+		c.Assert(string(actualRaw), gc.Equals, string(expectRaw))
+	}
+	metadata := ttesting.ParseMetadataFromStorage(c, s.env.Storage(), false)
+	c.Assert(metadata, gc.HasLen, 3)
+	for i, tm := range metadata {
+		c.Assert(tm.Release, gc.Equals, expectSeries[i])
+		c.Assert(tm.Version, gc.Equals, version.Current.Number.String())
+	}
+}
+
 // downloadTools downloads the supplied tools and extracts them into a
 // new directory.
 func downloadTools(c *gc.C, t *coretools.Tools) string {
-	resp, err := http.Get(t.URL)
+	resp, err := utils.GetValidatingHTTPClient().Get(t.URL)
 	c.Assert(err, gc.IsNil)
 	defer resp.Body.Close()
 	cmd := exec.Command("tar", "xz")
@@ -364,7 +409,7 @@ func downloadTools(c *gc.C, t *coretools.Tools) string {
 
 // downloadToolsRaw downloads the supplied tools and returns the raw bytes.
 func downloadToolsRaw(c *gc.C, t *coretools.Tools) []byte {
-	resp, err := http.Get(t.URL)
+	resp, err := utils.GetValidatingHTTPClient().Get(t.URL)
 	c.Assert(err, gc.IsNil)
 	defer resp.Body.Close()
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)

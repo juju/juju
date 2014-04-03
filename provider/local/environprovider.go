@@ -103,7 +103,13 @@ func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Conf
 	}
 	// If the user has specified no values for any of the three normal
 	// proxies, then look in the environment and set them.
-	attrs := make(map[string]interface{})
+	attrs := map[string]interface{}{
+		// We must not proxy SSH through the API server in a
+		// local provider environment. Besides not being useful,
+		// it may not work; there is no requirement for sshd to
+		// be available on machine-0.
+		"proxy-ssh": false,
+	}
 	setIfNotBlank := func(key, value string) {
 		if value != "" {
 			attrs[key] = value
@@ -180,15 +186,15 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 	localConfig := newEnvironConfig(cfg, validated)
 	// Before potentially creating directories, make sure that the
 	// root directory has not changed.
+	containerType := localConfig.container()
 	if old != nil {
 		oldLocalConfig, err := provider.newConfig(old)
 		if err != nil {
 			return nil, fmt.Errorf("old config is not a valid local config: %v", old)
 		}
-		if localConfig.container() != oldLocalConfig.container() {
+		if containerType != oldLocalConfig.container() {
 			return nil, fmt.Errorf("cannot change container from %q to %q",
-				oldLocalConfig.container(),
-				localConfig.container())
+				oldLocalConfig.container(), containerType)
 		}
 		if localConfig.rootDir() != oldLocalConfig.rootDir() {
 			return nil, fmt.Errorf("cannot change root-dir from %q to %q",
@@ -207,8 +213,8 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 		}
 	}
 	// Currently only supported containers are "lxc" and "kvm".
-	if localConfig.container() != instance.LXC && localConfig.container() != instance.KVM {
-		return nil, fmt.Errorf("unsupported container type: %q", localConfig.container())
+	if containerType != instance.LXC && containerType != instance.KVM {
+		return nil, fmt.Errorf("unsupported container type: %q", containerType)
 	}
 	dir, err := utils.NormalizePath(localConfig.rootDir())
 	if err != nil {
@@ -219,6 +225,13 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 	}
 	// Always assign the normalized path.
 	localConfig.attrs["root-dir"] = dir
+
+	if containerType != instance.KVM {
+		fastOptionAvailable := useFastLXC(containerType)
+		if _, found := localConfig.attrs["lxc-clone"]; !found {
+			localConfig.attrs["lxc-clone"] = fastOptionAvailable
+		}
+	}
 
 	// Apply the coerced unknown values back into the config.
 	return cfg.Apply(localConfig.attrs)
@@ -256,22 +269,6 @@ local:
 func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
 	// don't have any secret attrs
 	return nil, nil
-}
-
-// Location specific methods that are able to be called by any instance that
-// has been created by this provider type.  So a machine agent may well call
-// these methods to find out its own address or instance id.
-
-// PublicAddress implements environs.EnvironProvider.PublicAddress.
-func (environProvider) PublicAddress() (string, error) {
-	// Get the IPv4 address from eth0
-	return getAddressForInterface("eth0")
-}
-
-// PrivateAddress implements environs.EnvironProvider.PrivateAddress.
-func (environProvider) PrivateAddress() (string, error) {
-	// Get the IPv4 address from eth0
-	return getAddressForInterface("eth0")
 }
 
 func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {

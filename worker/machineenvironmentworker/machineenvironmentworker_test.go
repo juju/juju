@@ -9,6 +9,7 @@ import (
 	"path"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
@@ -21,7 +22,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/environment"
 	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/machineenvironmentworker"
@@ -119,8 +119,6 @@ func (s *MachineEnvironmentWatcherSuite) TestRunStop(c *gc.C) {
 }
 
 func (s *MachineEnvironmentWatcherSuite) updateConfig(c *gc.C) (osenv.ProxySettings, osenv.ProxySettings) {
-	oldConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
 
 	proxySettings := osenv.ProxySettings{
 		Http:    "http proxy",
@@ -128,9 +126,10 @@ func (s *MachineEnvironmentWatcherSuite) updateConfig(c *gc.C) (osenv.ProxySetti
 		Ftp:     "ftp proxy",
 		NoProxy: "no proxy",
 	}
-
-	envConfig, err := oldConfig.Apply(config.ProxyConfigMap(proxySettings))
-	c.Assert(err, gc.IsNil)
+	attrs := map[string]interface{}{}
+	for k, v := range config.ProxyConfigMap(proxySettings) {
+		attrs[k] = v
+	}
 
 	// We explicitly set apt proxy settings as well to show that it is the apt
 	// settings that are used for the apt config, and not just the normal
@@ -141,10 +140,11 @@ func (s *MachineEnvironmentWatcherSuite) updateConfig(c *gc.C) (osenv.ProxySetti
 		Https: "apt https proxy",
 		Ftp:   "apt ftp proxy",
 	}
-	envConfig, err = envConfig.Apply(config.AptProxyConfigMap(aptProxySettings))
-	c.Assert(err, gc.IsNil)
+	for k, v := range config.AptProxyConfigMap(aptProxySettings) {
+		attrs[k] = v
+	}
 
-	err = s.State.SetEnvironConfig(envConfig, oldConfig)
+	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 
 	return proxySettings, aptProxySettings

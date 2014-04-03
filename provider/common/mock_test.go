@@ -17,7 +17,7 @@ import (
 )
 
 type allInstancesFunc func() ([]instance.Instance, error)
-type startInstanceFunc func(constraints.Value, tools.List, *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error)
+type startInstanceFunc func(constraints.Value, []string, []string, tools.List, *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error)
 type stopInstancesFunc func([]instance.Instance) error
 type getToolsSourcesFunc func() ([]simplestreams.DataSource, error)
 type configFunc func() *config.Config
@@ -38,6 +38,10 @@ func (*mockEnviron) Name() string {
 	return "mock environment"
 }
 
+func (*mockEnviron) SupportedArchitectures() ([]string, error) {
+	return []string{"amd64", "arm64"}, nil
+}
+
 func (env *mockEnviron) Storage() storage.Storage {
 	return env.storage
 }
@@ -46,7 +50,12 @@ func (env *mockEnviron) AllInstances() ([]instance.Instance, error) {
 	return env.allInstances()
 }
 func (env *mockEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	return env.startInstance(args.Constraints, args.Tools, args.MachineConfig)
+	return env.startInstance(
+		args.Constraints,
+		args.MachineConfig.IncludeNetworks,
+		args.MachineConfig.ExcludeNetworks,
+		args.Tools,
+		args.MachineConfig)
 }
 
 func (env *mockEnviron) StopInstances(instances []instance.Instance) error {
@@ -69,6 +78,11 @@ func (env *mockEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 		return env.getToolsSources()
 	}
 	datasource := storage.NewStorageSimpleStreamsDataSource("test cloud storage", env.Storage(), storage.BaseToolsPath)
+	return []simplestreams.DataSource{datasource}, nil
+}
+
+func (env *mockEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
+	datasource := storage.NewStorageSimpleStreamsDataSource("test cloud storage", env.Storage(), storage.BaseImagesPath)
 	return []simplestreams.DataSource{datasource}, nil
 }
 

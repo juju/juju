@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/instance"
@@ -16,7 +17,6 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/client"
 	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils/exec"
 	"launchpad.net/juju-core/utils/ssh"
 )
@@ -35,7 +35,7 @@ func (s *runSuite) addMachine(c *gc.C) *state.Machine {
 
 func (s *runSuite) addMachineWithAddress(c *gc.C, address string) *state.Machine {
 	machine := s.addMachine(c)
-	machine.SetAddresses([]instance.Address{instance.NewAddress(address)})
+	machine.SetAddresses(instance.NewAddress(address, instance.NetworkUnknown))
 	return machine
 }
 
@@ -70,22 +70,22 @@ func (s *runSuite) addUnit(c *gc.C, service *state.Service) *state.Unit {
 	c.Assert(err, gc.IsNil)
 	machine, err := s.State.Machine(mId)
 	c.Assert(err, gc.IsNil)
-	machine.SetAddresses([]instance.Address{instance.NewAddress("10.3.2.1")})
+	machine.SetAddresses(instance.NewAddress("10.3.2.1", instance.NetworkUnknown))
 	return unit
 }
 
 func (s *runSuite) TestGetAllUnitNames(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	magic, err := s.State.AddService("magic", "user-admin", charm)
+	magic, err := s.State.AddService("magic", "user-admin", charm, nil, nil)
 	s.addUnit(c, magic)
 	s.addUnit(c, magic)
 
-	notAssigned, err := s.State.AddService("not-assigned", "user-admin", charm)
+	notAssigned, err := s.State.AddService("not-assigned", "user-admin", charm, nil, nil)
 	c.Assert(err, gc.IsNil)
 	_, err = notAssigned.AddUnit()
 	c.Assert(err, gc.IsNil)
 
-	_, err = s.State.AddService("no-units", "user-admin", charm)
+	_, err = s.State.AddService("no-units", "user-admin", charm, nil, nil)
 	c.Assert(err, gc.IsNil)
 
 	for i, test := range []struct {
@@ -241,7 +241,7 @@ func (s *runSuite) TestRunMachineAndService(c *gc.C) {
 	s.addMachineWithAddress(c, "10.3.2.1")
 
 	charm := s.AddTestingCharm(c, "dummy")
-	magic, err := s.State.AddService("magic", "user-admin", charm)
+	magic, err := s.State.AddService("magic", "user-admin", charm, nil, nil)
 	s.addUnit(c, magic)
 	s.addUnit(c, magic)
 

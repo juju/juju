@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/instance"
@@ -16,7 +17,6 @@ import (
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/worker"
 )
 
@@ -31,9 +31,7 @@ func (*workerSuite) instId(i int) instance.Id {
 }
 
 func (*workerSuite) addressesForIndex(i int) []instance.Address {
-	return []instance.Address{
-		instance.NewAddress(fmt.Sprintf("127.0.0.%d", i)),
-	}
+	return instance.NewAddresses(fmt.Sprintf("127.0.0.%d", i))
 }
 
 func (s *workerSuite) TestWorker(c *gc.C) {
@@ -42,6 +40,7 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 	// correctly.
 	s.PatchValue(&ShortPoll, 10*time.Millisecond)
 	s.PatchValue(&LongPoll, 10*time.Millisecond)
+	s.PatchValue(&gatherTime, 10*time.Millisecond)
 	machines, insts := s.setupScenario(c)
 	s.State.StartSync()
 	w := NewWorker(s.State)

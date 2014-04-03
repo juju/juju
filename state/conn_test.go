@@ -59,7 +59,7 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	cs.services = cs.MgoSuite.Session.DB("juju").C("services")
 	cs.units = cs.MgoSuite.Session.DB("juju").C("units")
 	cs.stateServers = cs.MgoSuite.Session.DB("juju").C("stateServers")
-	cs.State.AddUser("admin", "pass")
+	cs.State.AddUser(state.AdminUser, "pass")
 }
 
 func (cs *ConnSuite) TearDownTest(c *gc.C) {
@@ -77,6 +77,10 @@ func (s *ConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 
 func (s *ConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm) *state.Service {
 	return state.AddTestingService(c, s.State, name, ch)
+}
+
+func (s *ConnSuite) AddTestingServiceWithNetworks(c *gc.C, name string, ch *state.Charm, includeNetworks, excludeNetworks []string) *state.Service {
+	return state.AddTestingServiceWithNetworks(c, s.State, name, ch, includeNetworks, excludeNetworks)
 }
 
 func (s *ConnSuite) AddSeriesCharm(c *gc.C, name, series string) *state.Charm {
@@ -97,7 +101,8 @@ func (s *ConnSuite) AddMetaCharm(c *gc.C, name, metaYaml string, revsion int) *s
 }
 
 type mockPolicy struct {
-	getPrechecker func(*config.Config) (state.Prechecker, error)
+	getPrechecker      func(*config.Config) (state.Prechecker, error)
+	getConfigValidator func(string) (state.ConfigValidator, error)
 }
 
 func (p *mockPolicy) Prechecker(cfg *config.Config) (state.Prechecker, error) {
@@ -105,4 +110,11 @@ func (p *mockPolicy) Prechecker(cfg *config.Config) (state.Prechecker, error) {
 		return p.getPrechecker(cfg)
 	}
 	return nil, errors.NewNotImplementedError("Prechecker")
+}
+
+func (p *mockPolicy) ConfigValidator(providerType string) (state.ConfigValidator, error) {
+	if p.getConfigValidator != nil {
+		return p.getConfigValidator(providerType)
+	}
+	return nil, errors.NewNotImplementedError("ConfigValidator")
 }

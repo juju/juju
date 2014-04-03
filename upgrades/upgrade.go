@@ -85,7 +85,7 @@ type Context interface {
 
 	// AgentConfig returns the agent config for the machine that is being
 	// upgraded.
-	AgentConfig() agent.Config
+	AgentConfig() agent.ConfigSetter
 }
 
 // upgradeContext is a default Context implementation.
@@ -95,7 +95,7 @@ type upgradeContext struct {
 	// implementation evolves.
 	api         *api.State
 	st          *state.State
-	agentConfig agent.Config
+	agentConfig agent.ConfigSetter
 }
 
 // APIState is defined on the Context interface.
@@ -109,12 +109,12 @@ func (c *upgradeContext) State() *state.State {
 }
 
 // AgentConfig is defined on the Context interface.
-func (c *upgradeContext) AgentConfig() agent.Config {
+func (c *upgradeContext) AgentConfig() agent.ConfigSetter {
 	return c.agentConfig
 }
 
 // NewContext returns a new upgrade context.
-func NewContext(agentConfig agent.Config, api *api.State, st *state.State) Context {
+func NewContext(agentConfig agent.ConfigSetter, api *api.State, st *state.State) Context {
 	return &upgradeContext{
 		api:         api,
 		st:          st,
@@ -176,7 +176,7 @@ func runUpgradeSteps(context Context, target Target, upgradeOp Operation) *upgra
 		if !validTarget(target, step) {
 			continue
 		}
-		logger.Infof("Running upgrade step: %v", step.Description())
+		logger.Infof("running upgrade step on target %q: %v", target, step.Description())
 		if err := step.Run(context); err != nil {
 			logger.Errorf("upgrade step %q failed: %v", step.Description(), err)
 			return &upgradeError{

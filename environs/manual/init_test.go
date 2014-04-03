@@ -6,10 +6,10 @@ package manual_test
 import (
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/manual"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
@@ -43,7 +43,7 @@ func (s *initialisationSuite) TestDetectionError(c *gc.C) {
 	// will return an error. stderr will be included in the error message.
 	defer installFakeSSH(c, manual.DetectionScript, []string{scriptResponse, "oh noes"}, 33)()
 	hc, _, err := manual.DetectSeriesAndHardwareCharacteristics("hostname")
-	c.Assert(err, gc.ErrorMatches, "rc: 33 \\(oh noes\\)")
+	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 33 \\(oh noes\\)")
 	// if the script doesn't fail, stderr is simply ignored.
 	defer installFakeSSH(c, manual.DetectionScript, []string{scriptResponse, "non-empty-stderr"}, 0)()
 	hc, _, err = manual.DetectSeriesAndHardwareCharacteristics("hostname")
@@ -134,7 +134,7 @@ func (s *initialisationSuite) TestCheckProvisioned(c *gc.C) {
 	// will return an error. stderr will be included in the error message.
 	defer installFakeSSH(c, manual.CheckProvisionedScript, []string{"non-empty-stdout", "non-empty-stderr"}, 255)()
 	_, err = manual.CheckProvisioned("example.com")
-	c.Assert(err, gc.ErrorMatches, "rc: 255 \\(non-empty-stderr\\)")
+	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 255 \\(non-empty-stderr\\)")
 }
 
 func (s *initialisationSuite) TestInitUbuntuUserNonExisting(c *gc.C) {
@@ -153,5 +153,5 @@ func (s *initialisationSuite) TestInitUbuntuUserError(c *gc.C) {
 	defer installFakeSSH(c, "", []string{"", "failed to create ubuntu user"}, 123)()
 	defer installFakeSSH(c, "", "", 1)() // simulate failure of ubuntu@ login
 	err := manual.InitUbuntuUser("testhost", "testuser", "", nil, nil)
-	c.Assert(err, gc.ErrorMatches, "rc: 123 \\(failed to create ubuntu user\\)")
+	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 123 \\(failed to create ubuntu user\\)")
 }

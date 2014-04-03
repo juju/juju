@@ -4,10 +4,10 @@
 package manual
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"strings"
 
 	"github.com/juju/loggo"
@@ -24,6 +24,7 @@ import (
 	"launchpad.net/juju-core/state/statecmd"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/shell"
 )
 
 const manualInstancePrefix = "manual:"
@@ -143,7 +144,7 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 	} else {
 		mcfg, err := statecmd.MachineConfig(stateConn.State, machineId, machineParams.Nonce, args.DataDir)
 		if err == nil {
-			provisioningScript, err = generateProvisioningScript(mcfg)
+			provisioningScript, err = ProvisioningScript(mcfg)
 		}
 		if err != nil {
 			return "", err
@@ -199,9 +200,6 @@ func recordMachineInState1dot16(
 	if err != nil {
 		return "", err
 	}
-	//if p.Series == "" {
-	//	p.Series = defaultSeries
-	//}
 	template := state.MachineTemplate{
 		Series:      machineParams.Series,
 		Constraints: machineParams.Constraints,
@@ -230,34 +228,13 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 	if err != nil {
 		return nil, err
 	}
-	// First, gather the parameters needed to inject the existing host into state.
-	if ip := net.ParseIP(hostname); ip != nil {
-		// Do a reverse-lookup on the IP. The IP may not have
-		// a DNS entry, so just log a warning if this fails.
-		names, err := net.LookupAddr(ip.String())
-		if err != nil {
-			logger.Infof("failed to resolve %v: %v", ip, err)
-		} else {
-			logger.Infof("resolved %v to %v", ip, names)
-			hostname = names[0]
-			// TODO: jam 2014-01-09 https://bugs.launchpad.net/bugs/1267387
-			// We change what 'hostname' we are using here (rather
-			// than an IP address we use the DNS name). I'm not
-			// sure why that is better, but if we are changing the
-			// host, we should probably be returning the hostname
-			// to the parent function.
-			// Also, we don't seem to try and compare if 'ip' is in
-			// the list of addrs returned from
-			// instance.HostAddresses in case you might get
-			// multiple and one of them is what you are supposed to
-			// be using.
-		}
+
+	var addrs []instance.Address
+	if addr, err := HostAddress(hostname); err != nil {
+		logger.Warningf("failed to compute public address for %q: %v", hostname, err)
+	} else {
+		addrs = append(addrs, addr)
 	}
-	addrs, err := HostAddresses(hostname)
-	if err != nil {
-		return nil, err
-	}
-	logger.Infof("addresses for %v: %v", hostname, addrs)
 
 	provisioned, err := checkProvisioned(hostname)
 	if err != nil {
@@ -294,14 +271,17 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 }
 
 var provisionMachineAgent = func(host string, mcfg *cloudinit.MachineConfig, progressWriter io.Writer) error {
-	script, err := generateProvisioningScript(mcfg)
+	script, err := ProvisioningScript(mcfg)
 	if err != nil {
 		return err
 	}
 	return runProvisionScript(script, host, progressWriter)
 }
 
-func generateProvisioningScript(mcfg *cloudinit.MachineConfig) (string, error) {
+// ProvisioningScript generates a bash script that can be
+// executed on a remote host to carry out the cloud-init
+// configuration.
+func ProvisioningScript(mcfg *cloudinit.MachineConfig) (string, error) {
 	cloudcfg := coreCloudinit.New()
 	if err := cloudinit.ConfigureJuju(mcfg, cloudcfg); err != nil {
 		return "", err
@@ -309,7 +289,18 @@ func generateProvisioningScript(mcfg *cloudinit.MachineConfig) (string, error) {
 	// Explicitly disabling apt_upgrade so as not to trample
 	// the target machine's existing configuration.
 	cloudcfg.SetAptUpgrade(false)
-	return sshinit.ConfigureScript(cloudcfg)
+	configScript, err := sshinit.ConfigureScript(cloudcfg)
+	if err != nil {
+		return "", err
+	}
+
+	var buf bytes.Buffer
+	// Always remove the cloud-init-output.log file first, if it exists.
+	fmt.Fprintf(&buf, "rm -f %s\n", utils.ShQuote(mcfg.CloudInitOutputLog))
+	// If something goes wrong, dump cloud-init-output.log to stderr.
+	buf.WriteString(shell.DumpFileOnErrorScript(mcfg.CloudInitOutputLog))
+	buf.WriteString(configScript)
+	return buf.String(), nil
 }
 
 func runProvisionScript(script, host string, progressWriter io.Writer) error {

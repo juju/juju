@@ -7,8 +7,12 @@ import (
 	"fmt"
 	"os"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	coreCloudinit "launchpad.net/juju-core/cloudinit"
+	"launchpad.net/juju-core/cloudinit/sshinit"
+	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/manual"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
@@ -16,7 +20,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/statecmd"
-	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/utils/shell"
 	"launchpad.net/juju-core/version"
 )
 
@@ -71,7 +75,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 		}.install(c).Restore()
 		machineId, err = manual.ProvisionMachine(args)
 		if errorCode != 0 {
-			c.Assert(err, gc.ErrorMatches, fmt.Sprintf("rc: %d", errorCode))
+			c.Assert(err, gc.ErrorMatches, fmt.Sprintf("subprocess encountered error code %d", errorCode))
 			c.Assert(machineId, gc.Equals, "")
 		} else {
 			c.Assert(err, gc.IsNil)
@@ -105,7 +109,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 		SkipProvisionAgent:       true,
 	}.install(c).Restore()
 	_, err = manual.ProvisionMachine(args)
-	c.Assert(err, gc.ErrorMatches, "error checking if provisioned: rc: 255")
+	c.Assert(err, gc.ErrorMatches, "error checking if provisioned: subprocess encountered error code 255")
 }
 
 func (s *provisionerSuite) TestFinishMachineConfig(c *gc.C) {
@@ -130,4 +134,32 @@ func (s *provisionerSuite) TestFinishMachineConfig(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Check(mcfg.APIInfo.Addrs, gc.DeepEquals, apiInfo.Addrs)
 	c.Check(mcfg.StateInfo.Addrs, gc.DeepEquals, stateInfo.Addrs)
+}
+
+func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
+	const series = "precise"
+	const arch = "amd64"
+	defer fakeSSH{
+		Series:         series,
+		Arch:           arch,
+		InitUbuntuUser: true,
+	}.install(c).Restore()
+	machineId, err := manual.ProvisionMachine(s.getArgs(c))
+	c.Assert(err, gc.IsNil)
+
+	mcfg, err := statecmd.MachineConfig(s.State, machineId, state.BootstrapNonce, "/var/lib/juju")
+	c.Assert(err, gc.IsNil)
+	script, err := manual.ProvisioningScript(mcfg)
+	c.Assert(err, gc.IsNil)
+
+	cloudcfg := coreCloudinit.New()
+	err = cloudinit.ConfigureJuju(mcfg, cloudcfg)
+	c.Assert(err, gc.IsNil)
+	cloudcfg.SetAptUpgrade(false)
+	sshinitScript, err := sshinit.ConfigureScript(cloudcfg)
+	c.Assert(err, gc.IsNil)
+
+	removeLogFile := "rm -f '/var/log/cloud-init-output.log'\n"
+	expectedScript := removeLogFile + shell.DumpFileOnErrorScript("/var/log/cloud-init-output.log") + sshinitScript
+	c.Assert(script, gc.Equals, expectedScript)
 }

@@ -90,8 +90,7 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	err = bootstrap.SaveState(
 		bootstrapStorage,
 		&bootstrap.BootstrapState{
-			StateInstances:  []instance.Id{BootstrapInstanceId},
-			Characteristics: []instance.HardwareCharacteristics{*args.HardwareCharacteristics},
+			StateInstances: []instance.Id{BootstrapInstanceId},
 		},
 	)
 	if err != nil {
@@ -124,8 +123,9 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	}
 
 	// Finally, provision the machine agent.
-	stateFileURL := fmt.Sprintf("file://%s/%s", storageDir, bootstrap.StateFile)
-	mcfg := environs.NewBootstrapMachineConfig(stateFileURL, privateKey)
+	mcfg := environs.NewBootstrapMachineConfig(privateKey)
+	mcfg.InstanceId = BootstrapInstanceId
+	mcfg.HardwareCharacteristics = args.HardwareCharacteristics
 	if args.DataDir != "" {
 		mcfg.DataDir = args.DataDir
 	}

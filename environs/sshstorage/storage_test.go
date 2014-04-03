@@ -16,11 +16,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/storage"
 	coreerrors "launchpad.net/juju-core/errors"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/ssh"
@@ -70,7 +71,7 @@ func (s *storageSuite) SetUpSuite(c *gc.C) {
 		"#!/bin/sh\nshift; export SUDO_UID=`id -u` SUDO_GID=`id -g`; exec \"$@\"",
 	), 0755)
 	c.Assert(err, gc.IsNil)
-	restoreSshCommand := testbase.PatchValue(&sshCommand, func(host string, command ...string) *ssh.Cmd {
+	restoreSshCommand := testing.PatchValue(&sshCommand, func(host string, command ...string) *ssh.Cmd {
 		return s.sshCommand(c, host, command...)
 	})
 	s.AddSuiteCleanup(func(*gc.C) { restoreSshCommand() })

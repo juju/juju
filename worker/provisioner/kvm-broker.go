@@ -4,6 +4,8 @@
 package provisioner
 
 import (
+	"fmt"
+
 	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/agent"
@@ -49,7 +51,9 @@ func (broker *kvmBroker) Tools() tools.List {
 
 // StartInstance is specified in the Broker interface.
 func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
-
+	if args.MachineConfig.HasNetworks() {
+		return nil, nil, fmt.Errorf("starting kvm containers with networks is not supported yet.")
+	}
 	// TODO: refactor common code out of the container brokers.
 	machineId := args.MachineConfig.MachineId
 	kvmLogger.Infof("starting kvm container for machineId: %s", machineId)
@@ -85,7 +89,7 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (insta
 		return nil, nil, err
 	}
 
-	inst, hardware, err := broker.manager.StartContainer(args.MachineConfig, series, network)
+	inst, hardware, err := broker.manager.CreateContainer(args.MachineConfig, series, network)
 	if err != nil {
 		kvmLogger.Errorf("failed to start container: %v", err)
 		return nil, nil, err
@@ -99,7 +103,7 @@ func (broker *kvmBroker) StopInstances(instances []instance.Instance) error {
 	// TODO: potentially parallelise.
 	for _, instance := range instances {
 		kvmLogger.Infof("stopping kvm container for instance: %s", instance.Id())
-		if err := broker.manager.StopContainer(instance); err != nil {
+		if err := broker.manager.DestroyContainer(instance); err != nil {
 			kvmLogger.Errorf("container did not stop: %v", err)
 			return err
 		}

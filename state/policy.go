@@ -24,6 +24,10 @@ type Policy interface {
 	// Prechecker takes a *config.Config and returns
 	// a (possibly nil) Prechecker or an error.
 	Prechecker(*config.Config) (Prechecker, error)
+
+	// ConfigValidator takes a string (environ type) and returns
+	// a (possibly nil) ConfigValidator or an error.
+	ConfigValidator(string) (ConfigValidator, error)
 }
 
 // Prechecker is a policy interface that is provided to State
@@ -38,6 +42,12 @@ type Prechecker interface {
 	// guaranteed that the constraints are valid; if a non-nil error is
 	// returned, then the constraints are definitely invalid.
 	PrecheckInstance(series string, cons constraints.Value) error
+}
+
+// ConfigValidator is a policy interface that is provided to State
+// to check validity of new configuration attributes before applying them to state.
+type ConfigValidator interface {
+	Validate(cfg, old *config.Config) (valid *config.Config, err error)
 }
 
 // precheckInstance calls the state's assigned policy, if non-nil, to obtain
@@ -60,4 +70,22 @@ func (st *State) precheckInstance(series string, cons constraints.Value) error {
 		return fmt.Errorf("policy returned nil prechecker without an error")
 	}
 	return prechecker.PrecheckInstance(series, cons)
+}
+
+// validate calls the state's assigned policy, if non-nil, to obtain
+// a Validator, and calls validate if a non-nil Validator is returned.
+func (st *State) validate(cfg, old *config.Config) (valid *config.Config, err error) {
+	if st.policy == nil {
+		return cfg, nil
+	}
+	configValidator, err := st.policy.ConfigValidator(cfg.Type())
+	if errors.IsNotImplementedError(err) {
+		return cfg, nil
+	} else if err != nil {
+		return nil, err
+	}
+	if configValidator == nil {
+		return nil, fmt.Errorf("policy returned nil configValidator without an error")
+	}
+	return configValidator.Validate(cfg, old)
 }

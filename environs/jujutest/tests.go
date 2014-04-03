@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"sort"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
@@ -22,7 +23,6 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -258,7 +258,7 @@ func checkFileHasContents(c *gc.C, stor storage.StorageReader, name string, cont
 
 	var resp *http.Response
 	for a := attempt.Start(); a.Next(); {
-		resp, err = http.Get(url)
+		resp, err = utils.GetValidatingHTTPClient().Get(url)
 		c.Assert(err, gc.IsNil)
 		if resp.StatusCode != 404 {
 			break

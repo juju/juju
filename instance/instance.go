@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"launchpad.net/juju-core/juju/arch"
 )
 
 var ErrNoDNSName = errors.New("DNS name not allocated")
@@ -72,12 +74,12 @@ type Instance interface {
 // HardwareCharacteristics represents the characteristics of the instance (if known).
 // Attributes that are nil are unknown or not supported.
 type HardwareCharacteristics struct {
-	Arch     *string   `yaml:"arch,omitempty"`
-	Mem      *uint64   `yaml:"mem,omitempty"`
-	RootDisk *uint64   `yaml:"rootdisk,omitempty"`
-	CpuCores *uint64   `yaml:"cpucores,omitempty"`
-	CpuPower *uint64   `yaml:"cpupower,omitempty"`
-	Tags     *[]string `yaml:"tags,omitempty"`
+	Arch     *string   `json:",omitempty" yaml:"arch,omitempty"`
+	Mem      *uint64   `json:",omitempty" yaml:"mem,omitempty"`
+	RootDisk *uint64   `json:",omitempty" yaml:"rootdisk,omitempty"`
+	CpuCores *uint64   `json:",omitempty" yaml:"cpucores,omitempty"`
+	CpuPower *uint64   `json:",omitempty" yaml:"cpupower,omitempty"`
+	Tags     *[]string `json:",omitempty" yaml:"tags,omitempty"`
 }
 
 func uintStr(i uint64) string {
@@ -108,6 +110,16 @@ func (hc HardwareCharacteristics) String() string {
 		strs = append(strs, fmt.Sprintf("tags=%s", strings.Join(*hc.Tags, ",")))
 	}
 	return strings.Join(strs, " ")
+}
+
+// Implement gnuflag.Value
+func (hc *HardwareCharacteristics) Set(s string) error {
+	parsed, err := ParseHardware(s)
+	if err != nil {
+		return err
+	}
+	*hc = parsed
+	return nil
 }
 
 // MustParseHardware constructs a HardwareCharacteristics from the supplied arguments,
@@ -173,10 +185,7 @@ func (hc *HardwareCharacteristics) setArch(str string) error {
 	if hc.Arch != nil {
 		return fmt.Errorf("already set")
 	}
-	switch str {
-	case "":
-	case "amd64", "i386", "arm", "arm64", "ppc64":
-	default:
+	if str != "" && !arch.IsSupportedArch(str) {
 		return fmt.Errorf("%q not recognized", str)
 	}
 	hc.Arch = &str

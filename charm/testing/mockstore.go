@@ -6,6 +6,7 @@ package testing
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -35,13 +36,14 @@ type MockStore struct {
 	Metadata                []string
 	InfoRequestCount        int
 	InfoRequestCountNoStats int
+	DefaultSeries           string
 
 	charms map[string]int
 }
 
 // NewMockStore creates a mock charm store containing the specified charms.
 func NewMockStore(c *gc.C, charms map[string]int) *MockStore {
-	s := &MockStore{charms: charms}
+	s := &MockStore{charms: charms, DefaultSeries: "precise"}
 	f, err := os.Open(testing.Charms.BundlePath(c.MkDir(), "dummy"))
 	c.Assert(err, gc.IsNil)
 	defer f.Close()
@@ -98,7 +100,17 @@ func (s *MockStore) serveInfo(w http.ResponseWriter, r *http.Request) {
 	for _, url := range r.Form["charms"] {
 		cr := &charm.InfoResponse{}
 		response[url] = cr
-		charmURL := charm.MustParseURL(url)
+		charmURL, err := charm.ParseURL(url)
+		if err == charm.ErrUnresolvedUrl {
+			ref, _, err := charm.ParseReference(url)
+			if err != nil {
+				panic(err)
+			}
+			if s.DefaultSeries == "" {
+				panic(fmt.Errorf("mock store lacks a default series cannot resolve charm URL: %q", url))
+			}
+			charmURL = &charm.URL{Reference: ref, Series: s.DefaultSeries}
+		}
 		switch charmURL.Name {
 		case "borken":
 			cr.Errors = append(cr.Errors, "badness")
@@ -115,6 +127,7 @@ func (s *MockStore) serveInfo(w http.ResponseWriter, r *http.Request) {
 					cr.Revision = charmURL.Revision
 				}
 				cr.Sha256 = s.bundleSha256
+				cr.CanonicalURL = charmURL.String()
 			} else {
 				cr.Errors = append(cr.Errors, "entry not found")
 			}

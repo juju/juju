@@ -36,6 +36,9 @@ func NewEnvironWatcher(st state.EnvironAccessor, resources *Resources, getCanWat
 
 // WatchForEnvironConfigChanges returns a NotifyWatcher that observes
 // changes to the environment configuration.
+// Note that although the NotifyWatchResult contains an Error field,
+// it's not used because we are only returning a single watcher,
+// so we use the regular error return.
 func (e *EnvironWatcher) WatchForEnvironConfigChanges() (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
 
@@ -46,7 +49,6 @@ func (e *EnvironWatcher) WatchForEnvironConfigChanges() (params.NotifyWatchResul
 	// TODO(dimitern) If we have multiple environments in state, use a
 	// tag argument here and as a method argument.
 	if !canWatch("") {
-		result.Error = ServerError(ErrPerm)
 		return result, ErrPerm
 	}
 

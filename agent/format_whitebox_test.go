@@ -7,10 +7,10 @@ import (
 	"os"
 	"path/filepath"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/state/api/params"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )
@@ -70,16 +70,16 @@ func (*formatSuite) TestRead(c *gc.C) {
 }
 
 func (*formatSuite) TestReadWriteStateConfig(c *gc.C) {
-	stateParams := StateMachineConfigParams{
-		AgentConfigParams: agentParams,
-		StateServerCert:   []byte("some special cert"),
-		StateServerKey:    []byte("a special key"),
-		StatePort:         12345,
-		APIPort:           23456,
+	servingInfo := params.StateServingInfo{
+		Cert:       "some special cert",
+		PrivateKey: "a special key",
+		StatePort:  12345,
+		APIPort:    23456,
 	}
-	stateParams.DataDir = c.MkDir()
-	stateParams.Values = map[string]string{"foo": "bar", "wibble": "wobble"}
-	configInterface, err := NewStateMachineConfig(stateParams)
+	params := agentParams
+	params.DataDir = c.MkDir()
+	params.Values = map[string]string{"foo": "bar", "wibble": "wobble"}
+	configInterface, err := NewStateMachineConfig(params, servingInfo)
 	c.Assert(err, gc.IsNil)
 	config, ok := configInterface.(*configInternal)
 	c.Assert(ok, jc.IsTrue)
@@ -91,7 +91,7 @@ func assertWriteAndRead(c *gc.C, config *configInternal) {
 	err := config.Write()
 	c.Assert(err, gc.IsNil)
 	configPath := ConfigPath(config.DataDir(), config.Tag())
-	readConfig, err := ReadConf(configPath)
+	readConfig, err := ReadConfig(configPath)
 	c.Assert(err, gc.IsNil)
 	c.Assert(readConfig, jc.DeepEquals, config)
 }

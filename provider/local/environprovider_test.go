@@ -8,28 +8,30 @@ import (
 	"os/user"
 
 	"github.com/juju/loggo"
+	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/container/kvm"
 	lxctesting "launchpad.net/juju-core/container/lxc/testing"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/local"
-	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 )
 
 type baseProviderSuite struct {
 	lxctesting.TestSuite
-	home    *testing.FakeHome
+	home    *coretesting.FakeHome
 	restore func()
 }
 
 func (s *baseProviderSuite) SetUpTest(c *gc.C) {
 	s.TestSuite.SetUpTest(c)
-	s.home = testing.MakeFakeHomeNoEnvironments(c, "test")
+	s.home = coretesting.MakeFakeHomeNoEnvironments(c, "test")
 	loggo.GetLogger("juju.provider.local").SetLogLevel(loggo.TRACE)
 	s.restore = local.MockAddressForInterface()
 }
@@ -41,7 +43,7 @@ func (s *baseProviderSuite) TearDownTest(c *gc.C) {
 }
 
 type prepareSuite struct {
-	testing.FakeHomeSuite
+	coretesting.FakeHomeSuite
 }
 
 var _ = gc.Suite(&prepareSuite{})
@@ -222,17 +224,17 @@ Acquire::magic::Proxy "none";
 		c.Logf("\n%v: %s", i, test.message)
 		cleanup := []func(){}
 		for key, value := range test.env {
-			restore := testbase.PatchEnvironment(key, value)
+			restore := testing.PatchEnvironment(key, value)
 			cleanup = append(cleanup, restore)
 		}
-		_, restore := testbase.HookCommandOutput(&utils.AptCommandOutput, []byte(test.aptOutput), nil)
+		_, restore := testing.HookCommandOutput(&utils.AptCommandOutput, []byte(test.aptOutput), nil)
 		cleanup = append(cleanup, restore)
 		testConfig := baseConfig
 		if test.extraConfig != nil {
 			testConfig, err = baseConfig.Apply(test.extraConfig)
 			c.Assert(err, gc.IsNil)
 		}
-		env, err := provider.Prepare(testing.Context(c), testConfig)
+		env, err := provider.Prepare(coretesting.Context(c), testConfig)
 		c.Assert(err, gc.IsNil)
 
 		envConfig := env.Config()
@@ -287,7 +289,7 @@ func (s *prepareSuite) TestPrepareNamespace(c *gc.C) {
 		s.PatchValue(local.UserCurrent, func() (*user.User, error) {
 			return &user.User{Username: test.userOS}, test.userOSErr
 		})
-		env, err := provider.Prepare(testing.Context(c), basecfg)
+		env, err := provider.Prepare(coretesting.Context(c), basecfg)
 		if test.err == "" {
 			c.Assert(err, gc.IsNil)
 			cfg := env.Config()
@@ -296,4 +298,101 @@ func (s *prepareSuite) TestPrepareNamespace(c *gc.C) {
 			c.Assert(err, gc.ErrorMatches, test.err)
 		}
 	}
+}
+
+func (s *prepareSuite) TestFastLXCClone(c *gc.C) {
+	s.PatchValue(local.DetectAptProxies, func() (osenv.ProxySettings, error) {
+		return osenv.ProxySettings{}, nil
+	})
+	s.PatchValue(&kvm.IsKVMSupported, func() (bool, error) {
+		return true, nil
+	})
+	s.PatchValue(&local.VerifyPrerequisites, func(containerType instance.ContainerType) error {
+		return nil
+	})
+	basecfg, err := config.New(config.UseDefaults, map[string]interface{}{
+		"type": "local",
+		"name": "test",
+	})
+	provider, err := environs.Provider("local")
+	c.Assert(err, gc.IsNil)
+
+	type test struct {
+		systemDefault bool
+		extraConfig   map[string]interface{}
+		expectClone   bool
+		expectAUFS    bool
+	}
+	tests := []test{{
+		extraConfig: map[string]interface{}{
+			"container": "lxc",
+		},
+	}, {
+		extraConfig: map[string]interface{}{
+			"container": "lxc",
+			"lxc-clone": "true",
+		},
+		expectClone: true,
+	}, {
+		systemDefault: true,
+		extraConfig: map[string]interface{}{
+			"container": "lxc",
+		},
+		expectClone: true,
+	}, {
+		systemDefault: true,
+		extraConfig: map[string]interface{}{
+			"container": "kvm",
+		},
+	}, {
+		systemDefault: true,
+		extraConfig: map[string]interface{}{
+			"container": "lxc",
+			"lxc-clone": false,
+		},
+	}, {
+		systemDefault: true,
+		extraConfig: map[string]interface{}{
+			"container":      "lxc",
+			"lxc-clone-aufs": true,
+		},
+		expectClone: true,
+		expectAUFS:  true,
+	}}
+
+	for i, test := range tests {
+		c.Logf("test %d: %v", i, test)
+
+		releaseVersion := "12.04"
+		if test.systemDefault {
+			releaseVersion = "14.04"
+		}
+		s.PatchValue(local.ReleaseVersion, func() string { return releaseVersion })
+		testConfig, err := basecfg.Apply(test.extraConfig)
+		c.Assert(err, gc.IsNil)
+		env, err := provider.Open(testConfig)
+		c.Assert(err, gc.IsNil)
+		localAttributes := env.Config().UnknownAttrs()
+
+		value, _ := localAttributes["lxc-clone"].(bool)
+		c.Assert(value, gc.Equals, test.expectClone)
+		value, _ = localAttributes["lxc-clone-aufs"].(bool)
+		c.Assert(value, gc.Equals, test.expectAUFS)
+	}
+}
+
+func (s *prepareSuite) TestPrepareProxySSH(c *gc.C) {
+	s.PatchValue(local.DetectAptProxies, func() (osenv.ProxySettings, error) {
+		return osenv.ProxySettings{}, nil
+	})
+	basecfg, err := config.New(config.UseDefaults, map[string]interface{}{
+		"type": "local",
+		"name": "test",
+	})
+	provider, err := environs.Provider("local")
+	c.Assert(err, gc.IsNil)
+	env, err := provider.Prepare(coretesting.Context(c), basecfg)
+	c.Assert(err, gc.IsNil)
+	// local provider sets proxy-ssh to false
+	c.Assert(env.Config().ProxySSH(), gc.Equals, false)
 }

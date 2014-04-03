@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
@@ -15,7 +16,6 @@ import (
 	kvmtesting "launchpad.net/juju-core/container/kvm/testing"
 	containertesting "launchpad.net/juju-core/container/testing"
 	"launchpad.net/juju-core/instance"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )
@@ -46,7 +46,7 @@ func (*KVMSuite) TestManagerWarnsAboutUnknownOption(c *gc.C) {
 		"shazam":             "Captain Marvel",
 	})
 	c.Assert(err, gc.IsNil)
-	c.Assert(c.GetTestLog(), gc.Matches, `^.*WARNING juju.container.kvm Found unused config option with key: "shazam" and value: "Captain Marvel"\n*`)
+	c.Assert(c.GetTestLog(), jc.Contains, `WARNING juju.container unused config option: "shazam" -> "Captain Marvel"`)
 }
 
 func (s *KVMSuite) TestListInitiallyEmpty(c *gc.C) {
@@ -88,17 +88,17 @@ func (s *KVMSuite) TestListMatchesRunningContainers(c *gc.C) {
 	c.Assert(string(containers[0].Id()), gc.Equals, running.Name())
 }
 
-func (s *KVMSuite) TestStartContainer(c *gc.C) {
-	instance := containertesting.StartContainer(c, s.manager, "1/kvm/0")
+func (s *KVMSuite) TestCreateContainer(c *gc.C) {
+	instance := containertesting.CreateContainer(c, s.manager, "1/kvm/0")
 	name := string(instance.Id())
 	cloudInitFilename := filepath.Join(s.ContainerDir, name, "cloud-init")
 	containertesting.AssertCloudInit(c, cloudInitFilename)
 }
 
-func (s *KVMSuite) TestStopContainer(c *gc.C) {
-	instance := containertesting.StartContainer(c, s.manager, "1/lxc/0")
+func (s *KVMSuite) TestDestroyContainer(c *gc.C) {
+	instance := containertesting.CreateContainer(c, s.manager, "1/lxc/0")
 
-	err := s.manager.StopContainer(instance)
+	err := s.manager.DestroyContainer(instance)
 	c.Assert(err, gc.IsNil)
 
 	name := string(instance.Id())
