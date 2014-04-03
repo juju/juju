@@ -81,7 +81,6 @@ func (s *loginSuite) setupMachineAndServer(c *gc.C) (*api.Info, func()) {
 	err = machine.SetPassword(password)
 	c.Assert(err, gc.IsNil)
 	info, cleanup := s.setupServer(c)
-	defer cleanup()
 	info.Tag = machine.Tag()
 	info.Password = password
 	info.Nonce = "fake_nonce"
@@ -249,6 +248,14 @@ type loginResult struct {
 	err        error
 }
 
+// slowDialOpts is used in the Delay and Rate limiting tests so that we can see
+// that a login is requested and stuck in 'pending' but if there is a bug in
+// the test, we won't wait DefaultDialOpts() [10m] before discovering this
+var slowDialOpts = api.DialOpts{
+	Timeout:    coretesting.LongWait * 2,
+	RetryDelay: coretesting.ShortWait * 2,
+}
+
 func (s *loginSuite) TestDelayLogins(c *gc.C) {
 	info, cleanup := s.setupMachineAndServer(c)
 	defer cleanup()
@@ -272,7 +279,7 @@ func (s *loginSuite) TestDelayLogins(c *gc.C) {
 	}
 	select {
 	case result := <-errResults:
-		c.Fatalf("we should not have gotten any logins yet: %v", result)
+		c.Fatalf("we should not have gotten any logins yet: req %v err: %v", result.requestNum, result.err)
 	case <-time.After(coretesting.ShortWait):
 	}
 	// Now allow the logins to proceed
