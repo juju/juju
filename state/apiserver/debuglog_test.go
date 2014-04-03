@@ -71,8 +71,7 @@ func (s *debugLogSuite) dialWebsocket(c *gc.C, queryParams url.Values) (*websock
 	}
 	caCerts := x509.NewCertPool()
 	c.Assert(caCerts.AppendCertsFromPEM([]byte(testing.CACert)), jc.IsTrue)
-	config.TlsConfig = &tls.Config{RootCAs: caCerts}
-
+	config.TlsConfig = &tls.Config{RootCAs: caCerts, ServerName: "anything"}
 	return websocket.DialConfig(config)
 }
 
