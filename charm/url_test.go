@@ -291,10 +291,11 @@ func (s *URLSuite) TestReferenceJSON(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Check(parsed, gc.DeepEquals, ref)
 
-	// unmarshalling json gibberish
-	err = json.Unmarshal([]byte(`"cs:{}+<"`), &parsed)
-	c.Log(err)
-	c.Check(err, gc.NotNil)
+	// unmarshalling json gibberish and invalid charm reference strings
+	for _, value := range []string{":{", `"cs:{}+<"`, `"cs:~_~/f00^^&^/baaaar$%-?"`} {
+		err = json.Unmarshal([]byte(value), &parsed)
+		c.Check(err, gc.NotNil)
+	}
 }
 
 type QuoteSuite struct{}
