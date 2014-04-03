@@ -285,14 +285,15 @@ func writeStateAgentConfig(c *gc.C, stateInfo *state.Info, dataDir, tag, passwor
 			StateAddresses:    stateInfo.Addrs,
 			APIAddresses:      apiAddr,
 			CACert:            stateInfo.CACert,
-			StateServerCert:   []byte(coretesting.ServerCert),
-			StateServerKey:    []byte(coretesting.ServerKey),
-			StatePort:         coretesting.MgoServer.Port(),
-			APIPort:           port,
+		},
+		params.StateServingInfo{
+			Cert:       coretesting.ServerCert,
+			PrivateKey: coretesting.ServerKey,
+			StatePort:  coretesting.MgoServer.Port(),
+			APIPort:    port,
 		})
 	c.Assert(err, gc.IsNil)
 	conf.SetPassword(password)
-	c.Assert(conf.StateServer(), jc.IsTrue)
 	c.Assert(conf.Write(), gc.IsNil)
 	return conf
 }

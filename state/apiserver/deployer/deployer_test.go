@@ -300,9 +300,7 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 }
 
 func (s *deployerSuite) TestStateAddresses(c *gc.C) {
-	err := s.machine0.SetAddresses([]instance.Address{
-		instance.NewAddress("0.1.2.3"),
-	})
+	err := s.machine0.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
 	c.Assert(err, gc.IsNil)
 
 	addresses, err := s.State.Addresses()
@@ -316,9 +314,7 @@ func (s *deployerSuite) TestStateAddresses(c *gc.C) {
 }
 
 func (s *deployerSuite) TestAPIAddresses(c *gc.C) {
-	err := s.machine0.SetAddresses([]instance.Address{
-		instance.NewAddress("0.1.2.3"),
-	})
+	err := s.machine0.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
 	c.Assert(err, gc.IsNil)
 
 	apiAddresses, err := s.State.APIAddressesFromMachines()

@@ -10,6 +10,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
@@ -294,6 +295,7 @@ func (*suite) TestNewStateMachineConfig(c *gc.C) {
 	type testStruct struct {
 		about         string
 		params        agent.AgentConfigParams
+		servingInfo   params.StateServingInfo
 		checkErr      string
 		inspectConfig func(*gc.C, agent.Config)
 	}
@@ -302,27 +304,43 @@ func (*suite) TestNewStateMachineConfig(c *gc.C) {
 		checkErr: "state server cert not found in configuration",
 	}, {
 		about: "missing state server key",
-		params: agent.AgentConfigParams{
-			StateServerCert: []byte("server cert"),
+		servingInfo: params.StateServingInfo{
+			Cert: "server cert",
 		},
 		checkErr: "state server key not found in configuration",
+	}, {
+		about: "missing state port",
+		servingInfo: params.StateServingInfo{
+			Cert:       "server cert",
+			PrivateKey: "server key",
+		},
+		checkErr: "state port not found in configuration",
+	}, {
+		about: "params api port",
+		servingInfo: params.StateServingInfo{
+			Cert:       "server cert",
+			PrivateKey: "server key",
+			StatePort:  69,
+		},
+		checkErr: "api port not found in configuration",
 	}}
-
 	for _, test := range agentConfigTests {
-		p := test.params
-		p.StateServerCert = []byte("server cert")
-		p.StateServerKey = []byte("server key")
-
 		tests = append(tests, testStruct{
-			about:    test.about,
-			params:   p,
+			about:  test.about,
+			params: test.params,
+			servingInfo: params.StateServingInfo{
+				Cert:       "server cert",
+				PrivateKey: "server key",
+				StatePort:  3171,
+				APIPort:    300,
+			},
 			checkErr: test.checkErr,
 		})
 	}
 
 	for i, test := range tests {
 		c.Logf("%v: %s", i, test.about)
-		cfg, err := agent.NewStateMachineConfig(test.params)
+		cfg, err := agent.NewStateMachineConfig(test.params, test.servingInfo)
 		if test.checkErr == "" {
 			c.Assert(err, gc.IsNil)
 			if test.inspectConfig != nil {
@@ -355,7 +373,41 @@ func (*suite) TestAttributes(c *gc.C) {
 	c.Assert(conf.UpgradedToVersion(), jc.DeepEquals, version.Current.Number)
 }
 
-func (s *suite) TestApiAddressesCantWriteBack(c *gc.C) {
+func (*suite) TestStateServingInfo(c *gc.C) {
+	servingInfo := params.StateServingInfo{
+		Cert:         "old cert",
+		PrivateKey:   "old key",
+		StatePort:    69,
+		APIPort:      47,
+		SharedSecret: "shared",
+	}
+	conf, err := agent.NewStateMachineConfig(attributeParams, servingInfo)
+	c.Assert(err, gc.IsNil)
+	gotInfo, ok := conf.StateServingInfo()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(gotInfo, jc.DeepEquals, servingInfo)
+	newInfo := params.StateServingInfo{
+		APIPort:      147,
+		StatePort:    169,
+		Cert:         "new cert",
+		PrivateKey:   "new key",
+		SharedSecret: "new shared",
+	}
+	conf.SetStateServingInfo(newInfo)
+	gotInfo, ok = conf.StateServingInfo()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(gotInfo, jc.DeepEquals, newInfo)
+}
+
+func (*suite) TestStateServingInfoNotAvailable(c *gc.C) {
+	conf, err := agent.NewAgentConfig(attributeParams)
+	c.Assert(err, gc.IsNil)
+
+	_, available := conf.StateServingInfo()
+	c.Assert(available, gc.Equals, false)
+}
+
+func (s *suite) TestAPIAddressesCannotWriteBack(c *gc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
 	c.Assert(err, gc.IsNil)
 	value, err := conf.APIAddresses()
@@ -429,4 +481,37 @@ func (*suite) TestSetUpgradedToVersion(c *gc.C) {
 	expectVers := version.MustParse("3.4.5")
 	conf.SetUpgradedToVersion(expectVers)
 	c.Assert(conf.UpgradedToVersion(), gc.Equals, expectVers)
+}
+
+func (*suite) TestSetAPIHostPorts(c *gc.C) {
+	conf, err := agent.NewAgentConfig(attributeParams)
+	c.Assert(err, gc.IsNil)
+
+	addrs, err := conf.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(addrs, gc.DeepEquals, attributeParams.APIAddresses)
+
+	// The first cloud-local address for each server is used,
+	// else if there are none then the first public- or unknown-
+	// scope address.
+	//
+	// If a server has only machine-local addresses, or none
+	// at all, then it will be excluded.
+	server1 := instance.NewAddresses("0.1.2.3", "0.1.2.4", "zeroonetwothree")
+	server1[0].NetworkScope = instance.NetworkCloudLocal
+	server1[1].NetworkScope = instance.NetworkCloudLocal
+	server1[2].NetworkScope = instance.NetworkPublic
+	server2 := instance.NewAddresses("127.0.0.1")
+	server2[0].NetworkScope = instance.NetworkMachineLocal
+	server3 := instance.NewAddresses("0.1.2.5", "zeroonetwofive")
+	server3[0].NetworkScope = instance.NetworkUnknown
+	server3[1].NetworkScope = instance.NetworkUnknown
+	conf.SetAPIHostPorts([][]instance.HostPort{
+		instance.AddressesWithPort(server1, 123),
+		instance.AddressesWithPort(server2, 124),
+		instance.AddressesWithPort(server3, 125),
+	})
+	addrs, err = conf.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(addrs, gc.DeepEquals, []string{"0.1.2.3:123", "0.1.2.5:125"})
 }

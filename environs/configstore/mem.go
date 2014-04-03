@@ -28,10 +28,10 @@ func (info *memInfo) clone() *memInfo {
 	// references, which makes this OK to do.
 	info1 := *info
 	newAttrs := make(map[string]interface{})
-	for name, attr := range info.Config {
+	for name, attr := range info.EnvInfo.Config {
 		newAttrs[name] = attr
 	}
-	info1.Config = newAttrs
+	info1.EnvInfo.Config = newAttrs
 	info1.created = false
 	return &info1
 }

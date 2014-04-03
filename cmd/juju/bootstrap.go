@@ -12,6 +12,7 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/imagemetadata"
@@ -58,7 +59,7 @@ See Also:
 // BootstrapCommand is responsible for launching the first machine in a juju
 // environment, and setting up everything necessary to continue working.
 type BootstrapCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	Constraints    constraints.Value
 	UploadTools    bool
 	Series         []string
@@ -83,6 +84,10 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *BootstrapCommand) Init(args []string) (err error) {
+	err = c.EnvCommandBase.Init()
+	if err != nil {
+		return
+	}
 	if len(c.Series) > 0 && !c.UploadTools {
 		return fmt.Errorf("--series requires --upload-tools")
 	}

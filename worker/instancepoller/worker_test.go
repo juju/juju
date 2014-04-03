@@ -31,9 +31,7 @@ func (*workerSuite) instId(i int) instance.Id {
 }
 
 func (*workerSuite) addressesForIndex(i int) []instance.Address {
-	return []instance.Address{
-		instance.NewAddress(fmt.Sprintf("127.0.0.%d", i)),
-	}
+	return instance.NewAddresses(fmt.Sprintf("127.0.0.%d", i))
 }
 
 func (s *workerSuite) TestWorker(c *gc.C) {

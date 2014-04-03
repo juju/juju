@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"io"
 	"io/ioutil"
+	"path/filepath"
 
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
@@ -39,10 +40,11 @@ var _ = configstore.Default
 type BootstrapSuite struct {
 	testbase.LoggingSuite
 	testing.MgoSuite
+	envcfg          string
+	instanceId      instance.Id
 	dataDir         string
 	logDir          string
 	fakeEnsureMongo fakeEnsure
-	testConfig      string
 }
 
 var _ = gc.Suite(&BootstrapSuite{})
@@ -67,8 +69,6 @@ func (f *fakeEnsure) fakeInitiateMongo(p mongo.InitiateMongoParams) error {
 	f.initiateParams = p
 	return nil
 }
-
-const bootstrapInstanceId = "only-0"
 
 func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 	s.PatchValue(&ensureMongoServer, s.fakeEnsureMongo.fakeEnsureMongo)
@@ -113,7 +113,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob,
 	}
 	// NOTE: the old test used an equivalent of the NewAgentConfig, but it
 	// really should be using NewStateMachineConfig.
-	params := agent.AgentConfigParams{
+	agentParams := agent.AgentConfigParams{
 		LogDir:            s.logDir,
 		DataDir:           s.dataDir,
 		Jobs:              jobs,
@@ -125,25 +125,32 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob,
 		APIAddresses:      []string{"0.1.2.3:1234"},
 		CACert:            []byte(testing.CACert),
 	}
-	bootConf, err := agent.NewAgentConfig(params)
+	servingInfo := params.StateServingInfo{
+		Cert:       "some cert",
+		PrivateKey: "some key",
+		APIPort:    3737,
+		StatePort:  1234,
+	}
+	bootConf, err := agent.NewStateMachineConfig(agentParams, servingInfo)
 	c.Assert(err, gc.IsNil)
 	err = bootConf.Write()
 	c.Assert(err, gc.IsNil)
 
-	params.Tag = "machine-0"
-	machineConf, err = agent.NewAgentConfig(params)
+	agentParams.Tag = "machine-0"
+	machineConf, err = agent.NewStateMachineConfig(agentParams, servingInfo)
 	c.Assert(err, gc.IsNil)
 	err = machineConf.Write()
 	c.Assert(err, gc.IsNil)
 
 	cmd = &BootstrapCommand{}
+
 	err = testing.InitCommand(cmd, append([]string{"--data-dir", s.dataDir}, args...))
 	return machineConf, cmd, err
 }
 
 func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	hw := instance.MustParseHardware("arch=amd64 mem=8G")
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.testConfig, "--instance-id", bootstrapInstanceId, "--hardware", hw.String())
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.envcfg, "--instance-id", string(s.instanceId), "--hardware", hw.String())
 	c.Assert(err, gc.IsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
@@ -161,7 +168,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 
 	instid, err := machines[0].InstanceId()
 	c.Assert(err, gc.IsNil)
-	c.Assert(instid, gc.Equals, instance.Id(bootstrapInstanceId))
+	c.Assert(instid, gc.Equals, instance.Id(string(s.instanceId)))
 
 	stateHw, err := machines[0].HardwareCharacteristics()
 	c.Assert(err, gc.IsNil)
@@ -176,8 +183,8 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 	tcons := constraints.Value{Mem: uint64p(2048), CpuCores: uint64p(2)}
 	_, cmd, err := s.initBootstrapCommand(c, nil,
-		"--env-config", s.testConfig,
-		"--instance-id", bootstrapInstanceId,
+		"--env-config", s.envcfg,
+		"--instance-id", string(s.instanceId),
 		"--constraints", tcons.String(),
 	)
 	c.Assert(err, gc.IsNil)
@@ -211,8 +218,7 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 	expectedJobs := []state.MachineJob{
 		state.JobManageEnviron, state.JobHostUnits,
 	}
-
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.testConfig, "--instance-id", bootstrapInstanceId)
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.envcfg, "--instance-id", string(s.instanceId))
 	c.Assert(err, gc.IsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
@@ -231,7 +237,7 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 
 func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 	jobs := []params.MachineJob{params.JobManageEnviron}
-	_, cmd, err := s.initBootstrapCommand(c, jobs, "--env-config", s.testConfig, "--instance-id", bootstrapInstanceId)
+	_, cmd, err := s.initBootstrapCommand(c, jobs, "--env-config", s.envcfg, "--instance-id", string(s.instanceId))
 	c.Assert(err, gc.IsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
@@ -248,6 +254,28 @@ func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageEnviron})
 }
 
+func (s *BootstrapSuite) TestSharedSecret(c *gc.C) {
+	jobs := []params.MachineJob{params.JobManageEnviron}
+	_, cmd, err := s.initBootstrapCommand(c, jobs, "--env-config", s.envcfg, "--instance-id", string(s.instanceId))
+	c.Assert(err, gc.IsNil)
+	err = cmd.Run(nil)
+	c.Assert(err, gc.IsNil)
+	sharedSecret, err := ioutil.ReadFile(filepath.Join(s.dataDir, mongo.SharedSecretFile))
+	c.Assert(err, gc.IsNil)
+
+	st, err := state.Open(&state.Info{
+		Addrs:    []string{testing.MgoServer.Addr()},
+		CACert:   []byte(testing.CACert),
+		Password: testPasswordHash(),
+	}, state.DefaultDialOpts(), environs.NewStatePolicy())
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+
+	stateServingInfo, err := st.StateServingInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(stateServingInfo.SharedSecret, gc.Equals, string(sharedSecret))
+}
+
 func testOpenState(c *gc.C, info *state.Info, expectErrType error) {
 	st, err := state.Open(info, state.DefaultDialOpts(), environs.NewStatePolicy())
 	if st != nil {
@@ -261,7 +289,7 @@ func testOpenState(c *gc.C, info *state.Info, expectErrType error) {
 }
 
 func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
-	machineConf, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.testConfig, "--instance-id", bootstrapInstanceId)
+	machineConf, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.envcfg, "--instance-id", string(s.instanceId))
 	c.Assert(err, gc.IsNil)
 
 	err = cmd.Run(nil)
@@ -390,10 +418,11 @@ func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	maybePanic(err)
 
 	envtesting.MustUploadFakeTools(env.Storage())
-	_, _, err = jujutesting.StartInstance(env, "0")
+	inst, _, err := jujutesting.StartInstance(env, "0")
 	maybePanic(err)
-	s.testConfig = b64yaml(env.Config().AllAttrs()).encode()
-}
+	s.instanceId = inst.Id()
+	s.envcfg = b64yaml(env.Config().AllAttrs()).encode()
+
 
 func nullContext() *cmd.Context {
 	ctx, _ := cmd.DefaultContext()

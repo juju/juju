@@ -16,6 +16,7 @@ import (
 	"github.com/errgo/errgo"
 	"github.com/juju/loggo"
 
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
@@ -89,12 +90,17 @@ type Config interface {
 	// elements.
 	WriteCommands() ([]string, error)
 
+	// StateServingInfo returns the details needed to run
+	// a state server and reports whether those details
+	// are available
+	StateServingInfo() (params.StateServingInfo, bool)
+
 	// APIInfo returns details for connecting to the API server.
 	APIInfo() *api.Info
 
 	// StateServer reports if this config is for a machine that should manage
 	// state.
-	StateServer() bool
+	// StateServer() bool
 
 	// StateInfo returns details for connecting to the state server.
 	StateInfo() *state.Info
@@ -102,9 +108,6 @@ type Config interface {
 	// OldPassword returns the fallback password when connecting to the
 	// API server.
 	OldPassword() string
-
-	// APIServerDetails returns the details needed to run an API server.
-	APIServerDetails() (port int, cert, key []byte)
 
 	// UpgradedToVersion returns the version for which all upgrade steps have been
 	// successfully run, which is also the same as the initially deployed version.
@@ -137,6 +140,9 @@ type ConfigSetterOnly interface {
 	// the agent has successfully upgraded to.
 	SetUpgradedToVersion(newVersion version.Number)
 
+	// SetAPIHostPorts sets the API host/port addresses to connect to.
+	SetAPIHostPorts(servers [][]instance.HostPort)
+
 	// Migrate takes an existing agent config and applies the given
 	// parameters to change it.
 	//
@@ -152,6 +158,10 @@ type ConfigSetterOnly interface {
 	// (if DataDir is set), the the caller is responsible for removing
 	// the old configuration.
 	Migrate(MigrateParams) error
+
+	// SetStateServingInfo sets the information needed
+	// to run a state server
+	SetStateServingInfo(info params.StateServingInfo)
 }
 
 type ConfigWriter interface {
@@ -210,10 +220,7 @@ type configInternal struct {
 	stateDetails      *connectionDetails
 	apiDetails        *connectionDetails
 	oldPassword       string
-	stateServerCert   []byte
-	stateServerKey    []byte
-	apiPort           int
-	statePort         int
+	servingInfo       *params.StateServingInfo
 	values            map[string]string
 }
 
@@ -294,22 +301,24 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 
 // NewStateMachineConfig returns a configuration suitable for
 // a machine running the state server.
-func NewStateMachineConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) {
-	if configParams.StateServerCert == nil {
+func NewStateMachineConfig(configParams AgentConfigParams, serverInfo params.StateServingInfo) (ConfigSetterWriter, error) {
+	if serverInfo.Cert == "" {
 		return nil, errgo.Trace(requiredError("state server cert"))
 	}
-	if configParams.StateServerKey == nil {
+	if serverInfo.PrivateKey == "" {
 		return nil, errgo.Trace(requiredError("state server key"))
 	}
-	config0, err := NewAgentConfig(configParams)
+	if serverInfo.StatePort == 0 {
+		return nil, errgo.Trace(requiredError("state port"))
+	}
+	if serverInfo.APIPort == 0 {
+		return nil, errgo.Trace(requiredError("api port"))
+	}
+	config, err := NewAgentConfig(configParams)
 	if err != nil {
 		return nil, err
 	}
-	config := config0.(*configInternal)
-	config.stateServerCert = configParams.StateServerCert
-	config.stateServerKey = configParams.StateServerKey
-	config.apiPort = configParams.APIPort
-	config.statePort = configParams.StatePort
+	config.SetStateServingInfo(serverInfo)
 	return config, nil
 }
 
@@ -427,6 +436,20 @@ func (c *configInternal) SetUpgradedToVersion(newVersion version.Number) {
 	c.upgradedToVersion = newVersion
 }
 
+func (c *configInternal) SetAPIHostPorts(servers [][]instance.HostPort) {
+	if c.apiDetails == nil {
+		return
+	}
+	var addrs []string
+	for _, serverHostPorts := range servers {
+		addr := instance.SelectInternalHostPort(serverHostPorts, false)
+		if addr != "" {
+			addrs = append(addrs, addr)
+		}
+	}
+	c.apiDetails.addresses = addrs
+}
+
 func (c *configInternal) SetValue(key, value string) {
 	if value == "" {
 		delete(c.values, key)
@@ -500,8 +523,15 @@ func (c *configInternal) Value(key string) string {
 	return c.values[key]
 }
 
-func (c *configInternal) APIServerDetails() (port int, cert, key []byte) {
-	return c.apiPort, c.stateServerCert, c.stateServerKey
+func (c *configInternal) StateServingInfo() (params.StateServingInfo, bool) {
+	if c.servingInfo == nil {
+		return params.StateServingInfo{}, false
+	}
+	return *c.servingInfo, true
+}
+
+func (c *configInternal) SetStateServingInfo(info params.StateServingInfo) {
+	c.servingInfo = &info
 }
 
 func (c *configInternal) APIAddresses() ([]string, error) {
@@ -523,9 +553,9 @@ func (c *configInternal) Dir() string {
 	return Dir(c.dataDir, c.tag)
 }
 
-func (c *configInternal) StateServer() bool {
-	return c.stateServerKey != nil
-}
+// func (c *configInternal) StateServer() bool {
+// 	return c.stateServerKey != nil
+// }
 
 func (c *configInternal) check() error {
 	if c.stateDetails == nil && c.apiDetails == nil {
