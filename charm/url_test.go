@@ -292,7 +292,8 @@ func (s *URLSuite) TestReferenceJSON(c *gc.C) {
 	c.Check(parsed, gc.DeepEquals, ref)
 
 	// unmarshalling json gibberish
-	err = json.Unmarshal([]byte(":{"), &parsed)
+	err = json.Unmarshal([]byte(`"cs:{}+<"`), &parsed)
+	c.Log(err)
 	c.Check(err, gc.NotNil)
 }
 
