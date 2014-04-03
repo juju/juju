@@ -384,6 +384,9 @@ func ModeConflicted(curl *charm.URL) Mode {
 			if err := u.deployer.NotifyRevert(); err != nil {
 				return nil, err
 			}
+			if err := u.fixDeployer(); err != nil {
+				return nil, err
+			}
 		}
 		return ModeUpgrading(curl), nil
 	}

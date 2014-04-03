@@ -47,6 +47,7 @@ func fixDeployer(deployer *Deployer) error {
 	if !ok {
 		return fmt.Errorf("cannot fix unknown deployer type: %T", *deployer)
 	}
+	logger.Infof("converting git-based deployer to manifest deployer")
 	manifestDeployer := &manifestDeployer{
 		charmPath: gitDeployer.target.Path(),
 		dataPath:  gitDeployer.dataPath,
@@ -101,6 +102,7 @@ func ensureCurrentGitCharm(gitDeployer *gitDeployer, expectURL *charm.URL) error
 		if err != nil {
 			return err
 		}
+		logger.Debugf("staged url: %s", stagedURL)
 		if *stagedURL == *expectURL {
 			return nil
 		}
@@ -117,9 +119,13 @@ func ensureCurrentGitCharm(gitDeployer *gitDeployer, expectURL *charm.URL) error
 //    * charmURLPath, because we don't ever want to remove that: that's how
 //      the manifestDeployer keeps track of what version it's upgrading from.
 // All paths are slash-separated, to match the bundle manifest format.
-func gitManifest(dirPath string) (set.Strings, error) {
+func gitManifest(linkPath string) (set.Strings, error) {
+	dirPath, err := os.Readlink(linkPath)
+	if err != nil {
+		return set.NewStrings(), err
+	}
 	manifest := set.NewStrings()
-	err := filepath.Walk(dirPath, func(path string, fileInfo os.FileInfo, err error) error {
+	err = filepath.Walk(dirPath, func(path string, fileInfo os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}

@@ -103,7 +103,6 @@ func (d *manifestDeployer) Deploy() (err error) {
 	}
 
 	// Move the deploying file over the charm URL file, and we're done.
-	logger.Debugf("finishing deploy of charm %q", d.staged.url)
 	return d.finishDeploy()
 }
 
@@ -143,6 +142,7 @@ func (d *manifestDeployer) removeDiff(oldManifest, newManifest set.Strings) erro
 
 // finishDeploy persists the fact that we've finished deploying the staged bundle.
 func (d *manifestDeployer) finishDeploy() error {
+	logger.Debugf("finishing deploy of charm %q", d.staged.url)
 	oldPath := d.CharmPath(deployingURLPath)
 	newPath := d.CharmPath(charmURLPath)
 	return utils.ReplaceFile(oldPath, newPath)

@@ -15,6 +15,7 @@ import (
 
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
+	ft "launchpad.net/juju-core/testing/filetesting"
 )
 
 // These tests are copies of the old git-deployer-related tests, to test that
@@ -205,12 +206,8 @@ func (s startGitUpgradeError) step(c *gc.C, ctx *context) {
 		createCharm{
 			revision: 1,
 			customize: func(c *gc.C, ctx *context, path string) {
-				data := filepath.Join(path, "data")
-				err := ioutil.WriteFile(data, []byte("<nelson>ha ha</nelson>"), 0644)
-				c.Assert(err, gc.IsNil)
-				ignore := filepath.Join(path, "ignore")
-				err = ioutil.WriteFile(ignore, []byte("anything"), 0644)
-				c.Assert(err, gc.IsNil)
+				ft.File{"data", "<nelson>ha ha</nelson>", 0644}.Create(c, path)
+				ft.File{"ignore", "anything", 0644}.Create(c, path)
 			},
 		},
 		serveCharm{},

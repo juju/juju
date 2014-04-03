@@ -811,11 +811,81 @@ func (s *UniterSuite) TestUniterDeployerConversion(c *gc.C) {
 	deployerConversionTests := []uniterTest{
 		ut(
 			"install with git, restart in steady state",
-			custom{func(c *gc.C, ctx *context) {
-				c.Fatalf("not done")
+			prepareGitUniter{[]stepper{
+				quickStart{},
+				verifyGitCharm{},
+				stopUniter{},
 			}},
+			startUniter{},
+			waitHooks{"config-changed"},
+
+			// At this point, the deployer has been converted, but the
+			// charm directory itself hasn't; the *next* deployment will
+			// actually hit the charm directory and strip out the git
+			// stuff.
+
+			createCharm{revision: 1},
+			upgradeCharm{revision: 1},
+			waitHooks{"upgrade-charm", "config-changed"},
+			waitUnit{
+				status: params.StatusStarted,
+				charm:  1,
+			},
+			verifyCharm{
+				revision:   1,
+				checkFiles: ft.Entries{ft.Removed{".git"}},
+			},
+			verifyRunning{},
 		), ut(
-			"install with git, ",
+			"install with git, get conflicted, force an upgrade",
+			prepareGitUniter{[]stepper{
+				startGitUpgradeError{},
+				stopUniter{},
+			}},
+			startUniter{},
+
+			createCharm{
+				revision: 2,
+				customize: func(c *gc.C, ctx *context, path string) {
+					ft.File{"data", "OVERWRITE!", 0644}.Create(c, path)
+				},
+			},
+			serveCharm{},
+			upgradeCharm{revision: 2, forced: true},
+			waitHooks{"upgrade-charm", "config-changed"},
+			waitUnit{
+				status: params.StatusStarted,
+				charm:  2,
+			},
+			verifyCharm{
+				revision: 2,
+				checkFiles: ft.Entries{
+					ft.Removed{".git"},
+					ft.File{"data", "OVERWRITE!", 0644},
+				},
+			},
+			verifyRunning{},
+		), ut(
+			"install with git, get conflicted, mark resolved",
+			prepareGitUniter{[]stepper{
+				startGitUpgradeError{},
+				stopUniter{},
+			}},
+			startUniter{},
+
+			resolveError{state.ResolvedNoHooks},
+			waitHooks{"upgrade-charm", "config-changed"},
+			waitUnit{
+				status: params.StatusStarted,
+				charm:  1,
+			},
+			verifyCharm{
+				revision: 1,
+				checkFiles: ft.Entries{
+					ft.Removed{".git"},
+				},
+			},
+			verifyRunning{},
 		),
 	}
 
@@ -1656,9 +1726,11 @@ func (s upgradeCharm) step(c *gc.C, ctx *context) {
 type verifyCharm struct {
 	revision          int
 	attemptedRevision int
+	checkFiles        ft.Entries
 }
 
 func (s verifyCharm) step(c *gc.C, ctx *context) {
+	s.checkFiles.Check(c, filepath.Join(ctx.path, "charm"))
 	path := filepath.Join(ctx.path, "charm", "revision")
 	content, err := ioutil.ReadFile(path)
 	c.Assert(err, gc.IsNil)
