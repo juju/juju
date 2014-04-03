@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package cmd
+package envcmd
 
 import (
 	"fmt"
@@ -12,6 +12,8 @@ import (
 
 	"launchpad.net/gnuflag"
 
+	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju/osenv"
 )
 
@@ -20,7 +22,7 @@ const CurrentEnvironmentFilename = "current-environment"
 // The purpose of EnvCommandBase is to provide a default member and flag
 // setting for commands that deal across different environments.
 type EnvCommandBase struct {
-	CommandBase
+	cmd.CommandBase
 	EnvName string
 }
 
@@ -60,6 +62,17 @@ func getDefaultEnvironment() string {
 		return defaultEnv
 	}
 	return ReadCurrentEnvironment()
+}
+
+func (c *EnvCommandBase) Init() error {
+	if c.EnvName == "" {
+		envs, err := environs.ReadEnvirons("")
+		if err != nil {
+			return err
+		}
+		c.EnvName = envs.Default
+	}
+	return nil
 }
 
 func (c *EnvCommandBase) SetFlags(f *gnuflag.FlagSet) {

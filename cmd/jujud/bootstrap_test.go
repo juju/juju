@@ -5,12 +5,15 @@ package main
 
 import (
 	"encoding/base64"
+	"io/ioutil"
+	"path/filepath"
 
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
@@ -109,7 +112,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob,
 	}
 	// NOTE: the old test used an equivalent of the NewAgentConfig, but it
 	// really should be using NewStateMachineConfig.
-	params := agent.AgentConfigParams{
+	agentParams := agent.AgentConfigParams{
 		LogDir:            s.logDir,
 		DataDir:           s.dataDir,
 		Jobs:              jobs,
@@ -121,13 +124,19 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob,
 		APIAddresses:      []string{"0.1.2.3:1234"},
 		CACert:            []byte(testing.CACert),
 	}
-	bootConf, err := agent.NewAgentConfig(params)
+	servingInfo := params.StateServingInfo{
+		Cert:       "some cert",
+		PrivateKey: "some key",
+		APIPort:    3737,
+		StatePort:  1234,
+	}
+	bootConf, err := agent.NewStateMachineConfig(agentParams, servingInfo)
 	c.Assert(err, gc.IsNil)
 	err = bootConf.Write()
 	c.Assert(err, gc.IsNil)
 
-	params.Tag = "machine-0"
-	machineConf, err = agent.NewAgentConfig(params)
+	agentParams.Tag = "machine-0"
+	machineConf, err = agent.NewStateMachineConfig(agentParams, servingInfo)
 	c.Assert(err, gc.IsNil)
 	err = machineConf.Write()
 	c.Assert(err, gc.IsNil)
@@ -241,6 +250,28 @@ func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 	m, err := st.Machine("0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageEnviron})
+}
+
+func (s *BootstrapSuite) TestSharedSecret(c *gc.C) {
+	jobs := []params.MachineJob{params.JobManageEnviron}
+	_, cmd, err := s.initBootstrapCommand(c, jobs, "--env-config", s.envcfg, "--instance-id", string(s.instanceId))
+	c.Assert(err, gc.IsNil)
+	err = cmd.Run(nil)
+	c.Assert(err, gc.IsNil)
+	sharedSecret, err := ioutil.ReadFile(filepath.Join(s.dataDir, mongo.SharedSecretFile))
+	c.Assert(err, gc.IsNil)
+
+	st, err := state.Open(&state.Info{
+		Addrs:    []string{testing.MgoServer.Addr()},
+		CACert:   []byte(testing.CACert),
+		Password: testPasswordHash(),
+	}, state.DefaultDialOpts(), environs.NewStatePolicy())
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+
+	stateServingInfo, err := st.StateServingInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(stateServingInfo.SharedSecret, gc.Equals, string(sharedSecret))
 }
 
 func testOpenState(c *gc.C, info *state.Info, expectErrType error) {

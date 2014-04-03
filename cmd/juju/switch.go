@@ -12,6 +12,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/environs"
 )
 
@@ -96,7 +97,7 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	currentEnv := cmd.ReadCurrentEnvironment()
+	currentEnv := envcmd.ReadCurrentEnvironment()
 	if currentEnv == "" {
 		currentEnv = environments.Default
 	}
@@ -114,7 +115,7 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 		if !validEnvironmentName(c.EnvName, names) {
 			return fmt.Errorf("%q is not a name of an existing defined environment", c.EnvName)
 		}
-		if err := cmd.WriteCurrentEnvironment(c.EnvName); err != nil {
+		if err := envcmd.WriteCurrentEnvironment(c.EnvName); err != nil {
 			return err
 		}
 		if currentEnv == "" {

@@ -47,6 +47,9 @@ type environProvider struct{}
 var providerInstance environProvider
 
 type environ struct {
+	common.NopPrecheckerPolicy
+	common.SupportsUnitPlacementPolicy
+
 	name string
 
 	// archMutex gates access to supportedArchitectures
@@ -391,7 +394,9 @@ const ebsStorage = "ebs"
 
 // StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
-
+	if args.MachineConfig.HasNetworks() {
+		return nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
+	}
 	arches := args.Tools.Arches()
 	stor := ebsStorage
 	sources, err := imagemetadata.GetMetadataSources(e)

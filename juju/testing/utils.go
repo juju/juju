@@ -20,7 +20,7 @@ import (
 func AddStateServerMachine(c *gc.C, st *state.State) *state.Machine {
 	machine, err := st.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
-	err = machine.SetAddresses(instance.NewAddress("0.1.2.3"))
+	err = machine.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
 	c.Assert(err, gc.IsNil)
 	return machine
 }

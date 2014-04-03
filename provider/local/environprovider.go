@@ -103,7 +103,13 @@ func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Conf
 	}
 	// If the user has specified no values for any of the three normal
 	// proxies, then look in the environment and set them.
-	attrs := make(map[string]interface{})
+	attrs := map[string]interface{}{
+		// We must not proxy SSH through the API server in a
+		// local provider environment. Besides not being useful,
+		// it may not work; there is no requirement for sshd to
+		// be available on machine-0.
+		"proxy-ssh": false,
+	}
 	setIfNotBlank := func(key, value string) {
 		if value != "" {
 			attrs[key] = value

@@ -4,20 +4,33 @@
 package manual
 
 import (
+	"net"
+
 	"launchpad.net/juju-core/instance"
 )
 
-var instanceHostAddresses = instance.HostAddresses
+var netLookupHost = net.LookupHost
 
-// HostAddresses returns the addresses for the specified
-// hostname, and marks the input address as being public;
-// all other addresses have "unknown" scope.
-func HostAddresses(hostname string) ([]instance.Address, error) {
-	addrs, err := instanceHostAddresses(hostname)
-	if err != nil {
-		return nil, err
+// HostAddress returns an instance.Address for the specified
+// hostname, depending on whether it is an IP or a resolvable
+// hostname. The address is given public scope.
+func HostAddress(hostname string) (instance.Address, error) {
+	if ip := net.ParseIP(hostname); ip != nil {
+		addr := instance.Address{
+			Value:        ip.String(),
+			Type:         instance.DeriveAddressType(ip.String()),
+			NetworkScope: instance.NetworkPublic,
+		}
+		return addr, nil
 	}
-	// The final address is the one we fed in: mark it as public.
-	addrs[len(addrs)-1].NetworkScope = instance.NetworkPublic
-	return addrs, nil
+	// Only a resolvable hostname may be used as a public address.
+	if _, err := netLookupHost(hostname); err != nil {
+		return instance.Address{}, err
+	}
+	addr := instance.Address{
+		Value:        hostname,
+		Type:         instance.HostName,
+		NetworkScope: instance.NetworkPublic,
+	}
+	return addr, nil
 }

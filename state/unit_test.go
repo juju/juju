@@ -227,11 +227,9 @@ func (s *UnitSuite) TestGetPublicAddressFromMachine(c *gc.C) {
 	c.Check(address, gc.Equals, "")
 	c.Assert(ok, gc.Equals, false)
 
-	public := instance.NewAddress("8.8.8.8")
-	public.NetworkScope = instance.NetworkPublic
+	public := instance.NewAddress("8.8.8.8", instance.NetworkPublic)
 
-	private := instance.NewAddress("127.0.0.1")
-	private.NetworkScope = instance.NetworkCloudLocal
+	private := instance.NewAddress("127.0.0.1", instance.NetworkCloudLocal)
 
 	err = machine.SetAddresses(public, private)
 	c.Assert(err, gc.IsNil)
@@ -279,11 +277,9 @@ func (s *UnitSuite) TestGetPrivateAddressFromMachine(c *gc.C) {
 	c.Check(address, gc.Equals, "")
 	c.Assert(ok, gc.Equals, false)
 
-	public := instance.NewAddress("8.8.8.8")
-	public.NetworkScope = instance.NetworkPublic
+	public := instance.NewAddress("8.8.8.8", instance.NetworkPublic)
 
-	private := instance.NewAddress("127.0.0.1")
-	private.NetworkScope = instance.NetworkCloudLocal
+	private := instance.NewAddress("127.0.0.1", instance.NetworkCloudLocal)
 
 	err = machine.SetAddresses(public, private)
 	c.Assert(err, gc.IsNil)
