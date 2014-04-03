@@ -134,7 +134,7 @@ func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err er
 	var mdocs []*machineDoc
 	for _, template := range templates {
 		// Adding a machine without any principals is
-		// only permitted unit placement is supported.
+		// only permitted if unit placement is supported.
 		if len(template.principals) == 0 && template.InstanceId == "" {
 			if err := st.supportsUnitPlacement(); err != nil {
 				return nil, err
