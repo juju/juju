@@ -53,9 +53,13 @@ const (
 	stateServerLabel = "juju-state-server"
 )
 
+// vars for testing purposes.
+var (
+	createInstance = (*azureEnviron).createInstance
+)
+
 type azureEnviron struct {
 	common.NopPrecheckerPolicy
-	common.SupportsUnitPlacementPolicy
 
 	// Except where indicated otherwise, all fields in this object should
 	// only be accessed using a lock or a snapshot.
@@ -436,8 +440,10 @@ func (env *azureEnviron) createInstance(azure *gwacl.ManagementAPI, role *gwacl.
 	var err error
 	var service *gwacl.HostedService
 	if serviceName != "" {
+		logger.Debugf("creating instance in existing cloud service %q", serviceName)
 		service, err = azure.GetHostedServiceProperties(serviceName, true)
 	} else {
+		logger.Debugf("creating instance in new cloud service")
 		// If we're creating a cloud service for state servers,
 		// we will want to open additional ports. We need to
 		// record this against the cloud service, so we use a
@@ -503,13 +509,9 @@ func deploymentNameV2(serviceName string) string {
 
 // StartInstance is specified in the InstanceBroker interface.
 func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ instance.Instance, _ *instance.HardwareCharacteristics, err error) {
-
 	if args.MachineConfig.HasNetworks() {
 		return nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
 	}
-
-	// Declaring "err" in the function signature so that we can "defer"
-	// any cleanup that needs to run during error returns.
 
 	err = environs.FinishMachineConfig(args.MachineConfig, env.Config(), args.Constraints)
 	if err != nil {
@@ -533,7 +535,8 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ ins
 	}
 	defer env.releaseManagementAPI(azure)
 
-	location := env.getSnapshot().ecfg.location()
+	snapshot := env.getSnapshot()
+	location := snapshot.ecfg.location()
 	instanceType, sourceImageName, err := env.selectInstanceTypeAndImage(&instances.InstanceConstraint{
 		Region:      location,
 		Series:      args.Tools.OneSeries(),
@@ -548,9 +551,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ ins
 	// the same affinity, so that machines can be be allocated to the
 	// same availability set.
 	var cloudServiceName string
-	// TODO(axw) replace "false &&" with mode check once
-	// availability-sets-enabled change is landed.
-	if false && args.DistributionGroup != nil {
+	if args.DistributionGroup != nil && snapshot.ecfg.availabilitySetsEnabled() {
 		instanceIds, err := args.DistributionGroup()
 		if err != nil {
 			return nil, nil, err
@@ -561,7 +562,6 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ ins
 				break
 			}
 		}
-		logger.Debugf("using existing cloud service: %q", cloudServiceName)
 	}
 
 	vhd := env.newOSDisk(sourceImageName)
@@ -575,7 +575,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ ins
 		}
 	}
 	role := env.newRole(instanceType, vhd, userData, stateServer)
-	inst, err := env.createInstance(azure.ManagementAPI, role, cloudServiceName, stateServer)
+	inst, err := createInstance(env, azure.ManagementAPI, role, cloudServiceName, stateServer)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1164,4 +1164,12 @@ func (env *azureEnviron) Region() (simplestreams.CloudSpec, error) {
 		Region:   ecfg.location(),
 		Endpoint: string(gwacl.GetEndpoint(ecfg.location())),
 	}, nil
+}
+
+// SupportsUnitPlacement is specified in the state.EnvironCapability interface.
+func (env *azureEnviron) SupportsUnitPlacement() error {
+	if env.getSnapshot().ecfg.availabilitySetsEnabled() {
+		return fmt.Errorf("unit placement is not supported with availability-sets-enabled")
+	}
+	return nil
 }

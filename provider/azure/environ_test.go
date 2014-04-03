@@ -31,6 +31,9 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
+	apiparams "launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -1392,4 +1395,78 @@ func (s *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(sources), gc.Equals, 1)
 	assertSourceContents(c, sources[0], "filename", data)
+}
+
+func (s *environSuite) TestCheckUnitAssignment(c *gc.C) {
+	// If availability-sets-enabled is true, then placement is disabled.
+	attrs := makeAzureConfigMap(c)
+	attrs["availability-sets-enabled"] = true
+	env := environs.Environ(makeEnvironWithConfig(c, attrs))
+	err := env.SupportsUnitPlacement()
+	c.Assert(err, gc.ErrorMatches, "unit placement is not supported with availability-sets-enabled")
+
+	// If the user disables availability sets, they can do what they want.
+	attrs["availability-sets-enabled"] = false
+	env = environs.Environ(makeEnvironWithConfig(c, attrs))
+	err = env.SupportsUnitPlacement()
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *environSuite) TestStartInstance(c *gc.C) {
+	env := makeEnviron(c)
+	s.setDummyStorage(c, env)
+	env.ecfg.attrs["force-image-name"] = "my-image"
+	stateInfo := &state.Info{
+		Addrs:    []string{"localhost:123"},
+		CACert:   []byte(testing.CACert),
+		Password: "password",
+		Tag:      "machine-1",
+	}
+	apiInfo := &api.Info{
+		Addrs:    []string{"localhost:124"},
+		CACert:   []byte(testing.CACert),
+		Password: "admin",
+		Tag:      "machine-1",
+	}
+	var params environs.StartInstanceParams
+	params.Tools = envtesting.AssertUploadFakeToolsVersions(c, env.storage, envtesting.V120p...)
+	params.MachineConfig = environs.NewMachineConfig("1", "yanonce", nil, nil, stateInfo, apiInfo)
+
+	// Start out with availability sets disabled.
+	env.ecfg.attrs["availability-sets-enabled"] = false
+
+	var expectServiceName string
+	var expectStateServer bool
+	s.PatchValue(&createInstance, func(env *azureEnviron, azure *gwacl.ManagementAPI, role *gwacl.Role, serviceName string, stateServer bool) (instance.Instance, error) {
+		c.Assert(serviceName, gc.Equals, expectServiceName)
+		c.Assert(stateServer, gc.Equals, expectStateServer)
+		return nil, nil
+	})
+	env.StartInstance(params)
+
+	// DistributionGroup won't have an effect if availability-sets-enabled=false.
+	expectServiceName = ""
+	params.DistributionGroup = func() ([]instance.Id, error) {
+		return []instance.Id{instance.Id(env.getEnvPrefix() + "whatever-role0")}, nil
+	}
+	env.StartInstance(params)
+
+	env.ecfg.attrs["availability-sets-enabled"] = true
+	expectServiceName = "juju-testenv-whatever"
+	env.StartInstance(params)
+
+	expectServiceName = ""
+	params.DistributionGroup = nil
+	env.StartInstance(params)
+
+	// Empty distribution group is equivalent to no DistributionGroup function.
+	params.DistributionGroup = func() ([]instance.Id, error) {
+		return nil, nil
+	}
+	env.StartInstance(params)
+
+	// If the machine has the JobManagesEnviron job, we should see stateServer==true.
+	expectStateServer = true
+	params.MachineConfig.Jobs = []apiparams.MachineJob{apiparams.JobHostUnits, apiparams.JobManageEnviron}
+	env.StartInstance(params)
 }
