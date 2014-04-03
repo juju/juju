@@ -15,6 +15,7 @@ import (
 	envcloudinit "launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	envtools "launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/tools"
@@ -54,9 +55,12 @@ func testConfig(c *gc.C, stateServer bool, vers version.Binary) *config.Config {
 func (s *configureSuite) getCloudConfig(c *gc.C, stateServer bool, vers version.Binary) *cloudinit.Config {
 	var mcfg *envcloudinit.MachineConfig
 	if stateServer {
-		mcfg = environs.NewBootstrapMachineConfig("http://whatever/dotcom", "private-key")
+		mcfg = environs.NewBootstrapMachineConfig("private-key")
+		mcfg.InstanceId = "instance-id"
+		mcfg.Jobs = []params.MachineJob{params.JobManageEnviron, params.JobHostUnits}
 	} else {
-		mcfg = environs.NewMachineConfig("0", "ya", nil, nil)
+		mcfg = environs.NewMachineConfig("0", "ya", nil, nil, nil, nil)
+		mcfg.Jobs = []params.MachineJob{params.JobHostUnits}
 	}
 	mcfg.Tools = &tools.Tools{
 		Version: vers,

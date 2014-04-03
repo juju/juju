@@ -6,13 +6,12 @@ package maas
 import (
 	"io/ioutil"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -91,31 +90,6 @@ func createTempFile(c *gc.C, content []byte) string {
 	err = ioutil.WriteFile(filename, content, 0644)
 	c.Assert(err, gc.IsNil)
 	return filename
-}
-
-// PublicAddress and PrivateAddress return the hostname of the machine read
-// from the file _MAASInstanceFilename.
-func (suite *EnvironProviderSuite) TestPrivatePublicAddressReadsHostnameFromMachineFile(c *gc.C) {
-	hostname := "myhostname"
-	info := machineInfo{hostname}
-	yaml, err := goyaml.Marshal(info)
-	c.Assert(err, gc.IsNil)
-	// Create a temporary file to act as the file where the instanceID
-	// is stored.
-	filename := createTempFile(c, yaml)
-	// "Monkey patch" the value of _MAASInstanceFilename with the path
-	// to the temporary file.
-	old_MAASInstanceFilename := _MAASInstanceFilename
-	_MAASInstanceFilename = filename
-	defer func() { _MAASInstanceFilename = old_MAASInstanceFilename }()
-
-	provider := suite.makeEnviron().Provider()
-	publicAddress, err := provider.PublicAddress()
-	c.Assert(err, gc.IsNil)
-	c.Check(publicAddress, gc.Equals, hostname)
-	privateAddress, err := provider.PrivateAddress()
-	c.Assert(err, gc.IsNil)
-	c.Check(privateAddress, gc.Equals, hostname)
 }
 
 func (suite *EnvironProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *gc.C) {

@@ -33,6 +33,6 @@ func (s *TestSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&lxc.LxcContainerDir, s.LxcDir)
 	s.RestartDir = c.MkDir()
 	s.PatchValue(&lxc.LxcRestartDir, s.RestartDir)
-	s.Factory = mock.MockFactory()
+	s.Factory = mock.MockFactory(s.LxcDir)
 	s.PatchValue(&lxc.LxcObjectFactory, s.Factory)
 }

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
@@ -17,6 +18,7 @@ import (
 	lxctesting "launchpad.net/juju-core/container/lxc/testing"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	instancetest "launchpad.net/juju-core/instance/testing"
 	jujutesting "launchpad.net/juju-core/juju/testing"
@@ -24,7 +26,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/provisioner"
@@ -38,7 +39,7 @@ type lxcSuite struct {
 type lxcBrokerSuite struct {
 	lxcSuite
 	broker      environs.InstanceBroker
-	agentConfig agent.Config
+	agentConfig agent.ConfigSetterWriter
 }
 
 var _ = gc.Suite(&lxcBrokerSuite{})
@@ -85,10 +86,14 @@ func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 	machineNonce := "fake-nonce"
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	machineConfig := environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo)
+	machineConfig := environs.NewMachineConfig(machineId, machineNonce, nil, nil, stateInfo, apiInfo)
 	cons := constraints.Value{}
 	possibleTools := s.broker.(coretools.HasTools).Tools()
-	lxc, _, err := s.broker.StartInstance(cons, possibleTools, machineConfig)
+	lxc, _, err := s.broker.StartInstance(environs.StartInstanceParams{
+		Constraints:   cons,
+		Tools:         possibleTools,
+		MachineConfig: machineConfig,
+	})
 	c.Assert(err, gc.IsNil)
 	return lxc
 }
@@ -188,9 +193,7 @@ func (s *lxcProvisionerSuite) SetUpTest(c *gc.C) {
 	// to be in state, in order to get the watcher.
 	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
-	err = m.SetAddresses([]instance.Address{
-		instance.NewAddress("0.1.2.3"),
-	})
+	err = m.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
 	c.Assert(err, gc.IsNil)
 	s.parentMachineId = m.Id()
 	s.APILogin(c, m)
@@ -204,6 +207,8 @@ func (s *lxcProvisionerSuite) SetUpTest(c *gc.C) {
 func (s *lxcProvisionerSuite) expectStarted(c *gc.C, machine *state.Machine) string {
 	s.State.StartSync()
 	event := <-s.events
+	c.Assert(event.Action, gc.Equals, mock.Created)
+	event = <-s.events
 	c.Assert(event.Action, gc.Equals, mock.Started)
 	err := machine.Refresh()
 	c.Assert(err, gc.IsNil)
@@ -215,6 +220,8 @@ func (s *lxcProvisionerSuite) expectStopped(c *gc.C, instId string) {
 	s.State.StartSync()
 	event := <-s.events
 	c.Assert(event.Action, gc.Equals, mock.Stopped)
+	event = <-s.events
+	c.Assert(event.Action, gc.Equals, mock.Destroyed)
 	c.Assert(event.InstanceId, gc.Equals, instId)
 }
 
@@ -257,6 +264,15 @@ func (s *lxcProvisionerSuite) TestDoesNotStartEnvironMachines(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	s.expectNoEvents(c)
+}
+
+func (s *lxcProvisionerSuite) TestDoesNotHaveRetryWatcher(c *gc.C) {
+	p := s.newLxcProvisioner(c)
+	defer stop(c, p)
+
+	w, err := provisioner.GetRetryWatcher(p)
+	c.Assert(w, gc.IsNil)
+	c.Assert(errors.IsNotImplementedError(err), jc.IsTrue)
 }
 
 func (s *lxcProvisionerSuite) addContainer(c *gc.C) *state.Machine {

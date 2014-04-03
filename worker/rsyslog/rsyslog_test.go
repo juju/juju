@@ -10,16 +10,16 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cert"
-	"launchpad.net/juju-core/juju/testing"
+	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/worker/rsyslog"
 )
 
@@ -28,14 +28,16 @@ func TestPackage(t *stdtesting.T) {
 }
 
 type RsyslogSuite struct {
-	testing.JujuConnSuite
+	jujutesting.JujuConnSuite
 }
 
 var _ = gc.Suite(&RsyslogSuite{})
 
 func (s *RsyslogSuite) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
-	restore := testbase.PatchValue(rsyslog.LookupUser, func(username string) (uid, gid int, err error) {
+	// TODO(waigani) 2014-03-19 bug 1294462
+	// Add patch for suite functions
+	restore := testing.PatchValue(rsyslog.LookupUser, func(username string) (uid, gid int, err error) {
 		// worker will not attempt to chown files if uid/gid is 0
 		return 0, 0, nil
 	})
@@ -120,8 +122,7 @@ func (s *RsyslogSuite) TestModeForwarding(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	syslogPort := s.Conn.Environ.Config().SyslogPort()
-	syslogConfig := syslog.NewForwardConfig(m.Tag(), syslogPort, "", addrs)
-	syslogConfig.LogDir = *rsyslog.LogDir
+	syslogConfig := syslog.NewForwardConfig(m.Tag(), *rsyslog.LogDir, syslogPort, "", addrs)
 	syslogConfig.ConfigDir = *rsyslog.RsyslogConfDir
 	rendered, err := syslogConfig.Render()
 	c.Assert(err, gc.IsNil)
@@ -154,8 +155,7 @@ func (s *RsyslogSuite) TestModeAccumulate(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	syslogPort := s.Conn.Environ.Config().SyslogPort()
-	syslogConfig := syslog.NewAccumulateConfig(m.Tag(), syslogPort, "")
-	syslogConfig.LogDir = *rsyslog.LogDir
+	syslogConfig := syslog.NewAccumulateConfig(m.Tag(), *rsyslog.LogDir, syslogPort, "")
 	syslogConfig.ConfigDir = *rsyslog.RsyslogConfDir
 	rendered, err := syslogConfig.Render()
 	c.Assert(err, gc.IsNil)

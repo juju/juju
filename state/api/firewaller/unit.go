@@ -49,7 +49,7 @@ func (u *Unit) Watch() (watcher.NotifyWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},
 	}
-	err := u.st.caller.Call("Firewaller", "", "Watch", args, &results)
+	err := u.st.call("Watch", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +89,7 @@ func (u *Unit) OpenedPorts() ([]instance.Port, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},
 	}
-	err := u.st.caller.Call("Firewaller", "", "OpenedPorts", args, &results)
+	err := u.st.call("OpenedPorts", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +110,7 @@ func (u *Unit) AssignedMachine() (string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},
 	}
-	err := u.st.caller.Call("Firewaller", "", "GetAssignedMachine", args, &results)
+	err := u.st.call("GetAssignedMachine", args, &results)
 	if err != nil {
 		return "", err
 	}

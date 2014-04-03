@@ -38,13 +38,13 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
-	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/common"
@@ -53,7 +53,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/apiserver"
 	"launchpad.net/juju-core/testing"
-	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -109,14 +108,16 @@ type OpDestroy struct {
 }
 
 type OpStartInstance struct {
-	Env          string
-	MachineId    string
-	MachineNonce string
-	Instance     instance.Instance
-	Constraints  constraints.Value
-	Info         *state.Info
-	APIInfo      *api.Info
-	Secret       string
+	Env             string
+	MachineId       string
+	MachineNonce    string
+	Instance        instance.Instance
+	Constraints     constraints.Value
+	IncludeNetworks []string
+	ExcludeNetworks []string
+	Info            *state.Info
+	APIInfo         *api.Info
+	Secret          string
 }
 
 type OpStopInstances struct {
@@ -181,6 +182,9 @@ type environState struct {
 // environ represents a client's connection to a given environment's
 // state.
 type environ struct {
+	common.NopPrecheckerPolicy
+	common.SupportsUnitPlacementPolicy
+
 	name         string
 	ecfgMutex    sync.Mutex
 	ecfgUnlocked *environConfig
@@ -484,14 +488,6 @@ func (*environProvider) SecretAttrs(cfg *config.Config) (map[string]string, erro
 	}, nil
 }
 
-func (*environProvider) PublicAddress() (string, error) {
-	return "public.dummy.address.example.com", nil
-}
-
-func (*environProvider) PrivateAddress() (string, error) {
-	return "private.dummy.address.example.com", nil
-}
-
 func (*environProvider) BoilerplateConfig() string {
 	return `
 # Fake configuration for dummy provider.
@@ -526,6 +522,16 @@ func (e *environ) Name() string {
 	return e.name
 }
 
+// SupportedArchitectures is specified on the EnvironCapability interface.
+func (*environ) SupportedArchitectures() ([]string, error) {
+	return []string{arch.AMD64, arch.PPC64}, nil
+}
+
+// SupportNetworks is specified on the EnvironCapability interface.
+func (*environ) SupportNetworks() bool {
+	return true
+}
+
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
 func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 	return []simplestreams.DataSource{
@@ -539,7 +545,7 @@ func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 }
 
 func (e *environ) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
-	selectedTools, err := common.EnsureBootstrapTools(e, e.Config().DefaultSeries(), cons.Arch)
+	selectedTools, err := common.EnsureBootstrapTools(ctx, e, e.Config().DefaultSeries(), cons.Arch)
 	if err != nil {
 		return err
 	}
@@ -677,11 +683,10 @@ func (e *environ) Destroy() (res error) {
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (e *environ) StartInstance(cons constraints.Value, possibleTools coretools.List,
-	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
 
 	defer delay()
-	machineId := machineConfig.MachineId
+	machineId := args.MachineConfig.MachineId
 	logger.Infof("dummy startinstance, machine %s", machineId)
 	if err := e.checkBroken("StartInstance"); err != nil {
 		return nil, nil, err
@@ -692,20 +697,20 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools coretools.
 	}
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
-	if machineConfig.MachineNonce == "" {
+	if args.MachineConfig.MachineNonce == "" {
 		return nil, nil, fmt.Errorf("cannot start instance: missing machine nonce")
 	}
 	if _, ok := e.Config().CACert(); !ok {
 		return nil, nil, fmt.Errorf("no CA certificate in environment configuration")
 	}
-	if machineConfig.StateInfo.Tag != names.MachineTag(machineId) {
+	if args.MachineConfig.StateInfo.Tag != names.MachineTag(machineId) {
 		return nil, nil, fmt.Errorf("entity tag must match started machine")
 	}
-	if machineConfig.APIInfo.Tag != names.MachineTag(machineId) {
+	if args.MachineConfig.APIInfo.Tag != names.MachineTag(machineId) {
 		return nil, nil, fmt.Errorf("entity tag must match started machine")
 	}
-	logger.Infof("would pick tools from %s", possibleTools)
-	series := possibleTools.OneSeries()
+	logger.Infof("would pick tools from %s", args.Tools)
+	series := args.Tools.OneSeries()
 	i := &dummyInstance{
 		id:           instance.Id(fmt.Sprintf("%s-%d", e.name, estate.maxId)),
 		ports:        make(map[instance.Port]bool),
@@ -721,12 +726,12 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools coretools.
 		// We will just assume the instance hardware characteristics exactly matches
 		// the supplied constraints (if specified).
 		hc = &instance.HardwareCharacteristics{
-			Arch:     cons.Arch,
-			Mem:      cons.Mem,
-			RootDisk: cons.RootDisk,
-			CpuCores: cons.CpuCores,
-			CpuPower: cons.CpuPower,
-			Tags:     cons.Tags,
+			Arch:     args.Constraints.Arch,
+			Mem:      args.Constraints.Mem,
+			RootDisk: args.Constraints.RootDisk,
+			CpuCores: args.Constraints.CpuCores,
+			CpuPower: args.Constraints.CpuPower,
+			Tags:     args.Constraints.Tags,
 		}
 		// Fill in some expected instance hardware characteristics if constraints not specified.
 		if hc.Arch == nil {
@@ -749,14 +754,16 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools coretools.
 	estate.insts[i.id] = i
 	estate.maxId++
 	estate.ops <- OpStartInstance{
-		Env:          e.name,
-		MachineId:    machineId,
-		MachineNonce: machineConfig.MachineNonce,
-		Constraints:  cons,
-		Instance:     i,
-		Info:         machineConfig.StateInfo,
-		APIInfo:      machineConfig.APIInfo,
-		Secret:       e.ecfg().secret(),
+		Env:             e.name,
+		MachineId:       machineId,
+		MachineNonce:    args.MachineConfig.MachineNonce,
+		Constraints:     args.Constraints,
+		IncludeNetworks: args.MachineConfig.IncludeNetworks,
+		ExcludeNetworks: args.MachineConfig.ExcludeNetworks,
+		Instance:        i,
+		Info:            args.MachineConfig.StateInfo,
+		APIInfo:         args.MachineConfig.APIInfo,
+		Secret:          e.ecfg().secret(),
 	}
 	return i, hc, nil
 }

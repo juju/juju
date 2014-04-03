@@ -7,11 +7,13 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"runtime"
 	"sort"
 	"strings"
 
 	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
+	"launchpad.net/juju-core/version"
 )
 
 var logger = loggo.GetLogger("juju.cmd")
@@ -291,6 +293,7 @@ func (c *SuperCommand) Run(ctx *Context) error {
 			return err
 		}
 	}
+	logger.Infof("running juju-%s [%s]", version.Current, runtime.Compiler)
 	err := c.subcmd.Run(ctx)
 	if err != nil && err != ErrSilent {
 		logger.Errorf("%v", err)

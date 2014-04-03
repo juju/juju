@@ -4,21 +4,37 @@
 package azure
 
 import (
-	"fmt"
-
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gwacl"
 
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
-	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/testing"
 )
 
-type instanceTypeSuite struct{}
+type instanceTypeSuite struct {
+	providerSuite
+}
 
 var _ = gc.Suite(&instanceTypeSuite{})
+
+func (s *instanceTypeSuite) SetUpTest(c *gc.C) {
+	s.providerSuite.SetUpTest(c)
+	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
+	s.PatchValue(&signedImageDataOnly, false)
+}
+
+// setDummyStorage injects the local provider's fake storage implementation
+// into the given environment, so that tests can manipulate storage as if it
+// were real.
+func (s *instanceTypeSuite) setDummyStorage(c *gc.C, env *azureEnviron) {
+	closer, storage, _ := testing.CreateLocalTestStorage(c)
+	env.storage = storage
+	s.AddCleanup(func(c *gc.C) { closer.Close() })
+}
 
 func (*instanceTypeSuite) TestNewPreferredTypesAcceptsNil(c *gc.C) {
 	types := newPreferredTypes(nil)
@@ -214,209 +230,60 @@ func (*instanceTypeSuite) TestSelectMachineTypeReturnsCheapestMatch(c *gc.C) {
 	c.Check(choice.Name, gc.Equals, "Lambo")
 }
 
-// fakeSimpleStreamsScheme is a fake protocol which tests can use for their
-// simplestreams base URLs.
-const fakeSimpleStreamsScheme = "azure-simplestreams-test"
-
-// testRoundTripper is a fake http-like transport for injecting fake
-// simplestream responses into these tests.
-var testRoundTripper = jujutest.ProxyRoundTripper{}
-
-func init() {
-	// Route any request for a URL on the fakeSimpleStreamsScheme protocol
-	// to testRoundTripper.
-	testRoundTripper.RegisterForScheme(fakeSimpleStreamsScheme)
-}
-
-// prepareSimpleStreamsResponse sets up a fake response for our query to
-// SimpleStreams.
-//
-// It returns a cleanup function, which you must call to reset things when
-// done.
-func prepareSimpleStreamsResponse(stream, location, series, release, arch, json string) func() {
-	fakeURL := fakeSimpleStreamsScheme + "://"
-	originalAzureURLs := baseURLs
-	originalDefaultURL := imagemetadata.DefaultBaseURL
-	baseURLs = []string{fakeURL}
-	imagemetadata.DefaultBaseURL = ""
-
-	originalSignedOnly := signedImageDataOnly
-	signedImageDataOnly = false
-
-	azureName := fmt.Sprintf("com.ubuntu.cloud:%s:azure", stream)
-	streamSuffix := ""
-	if stream != "released" {
-		streamSuffix = "." + stream
-	}
-
-	// Generate an index.  It will point to an Azure index with the
-	// caller's json.
-	index := fmt.Sprintf(`
+func (s *instanceTypeSuite) setupEnvWithDummyMetadata(c *gc.C) *azureEnviron {
+	envAttrs := makeAzureConfigMap(c)
+	envAttrs["location"] = "West US"
+	env := makeEnvironWithConfig(c, envAttrs)
+	s.setDummyStorage(c, env)
+	images := []*imagemetadata.ImageMetadata{
 		{
-		 "index": {
-		   %q: {
-		    "updated": "Thu, 08 Aug 2013 07:55:58 +0000",
-		    "clouds": [
-			{
-			 "region": %q,
-			 "endpoint": "https://management.core.windows.net/"
-			}
-		    ],
-		    "format": "products:1.0",
-		    "datatype": "image-ids",
-		    "cloudname": "azure",
-		    "products": [
-			"com.ubuntu.cloud%s:server:%s:%s"
-		    ],
-		    "path": "/v1/%s.json"
-		   }
-		 },
-		 "updated": "Thu, 08 Aug 2013 07:55:58 +0000",
-		 "format": "index:1.0"
-		}
-		`, azureName, location, streamSuffix, release, arch, azureName)
-	files := map[string]string{
-		"/v1/index.json":             index,
-		"/v1/" + azureName + ".json": json,
+			Id:         "image-id",
+			VirtType:   "Hyper-V",
+			Arch:       "amd64",
+			RegionName: "West US",
+			Endpoint:   "https://management.core.windows.net/",
+		},
 	}
-	testRoundTripper.Sub = jujutest.NewCannedRoundTripper(files, nil)
-	return func() {
-		baseURLs = originalAzureURLs
-		imagemetadata.DefaultBaseURL = originalDefaultURL
-		signedImageDataOnly = originalSignedOnly
-		testRoundTripper.Sub = nil
-	}
+	makeTestMetadata(c, env, "precise", "West US", images)
+	return env
 }
 
-func (*environSuite) TestGetEndpoint(c *gc.C) {
-	c.Check(
-		getEndpoint("West US"),
-		gc.Equals,
-		"https://management.core.windows.net/")
-	c.Check(
-		getEndpoint("China East"),
-		gc.Equals,
-		"https://management.core.chinacloudapi.cn/")
-}
-
-func (*instanceTypeSuite) TestFindMatchingImagesReturnsErrorIfNoneFound(c *gc.C) {
-	emptyResponse := `
-		{
-		 "format": "products:1.0"
-		}
-		`
-	cleanup := prepareSimpleStreamsResponse("released", "West US", "precise", "12.04", "amd64", emptyResponse)
-	defer cleanup()
-
-	env := makeEnviron(c)
+func (s *instanceTypeSuite) TestFindMatchingImagesReturnsErrorIfNoneFound(c *gc.C) {
+	env := s.setupEnvWithDummyMetadata(c)
 	_, err := findMatchingImages(env, "West US", "saucy", []string{"amd64"})
 	c.Assert(err, gc.NotNil)
-
-	c.Check(err, gc.ErrorMatches, "no OS images found for location .*")
+	c.Assert(err, gc.ErrorMatches, "no OS images found for location .*")
 }
 
-func (*instanceTypeSuite) TestFindMatchingImagesReturnsReleasedImages(c *gc.C) {
-	// Based on real-world simplestreams data, pared down to a minimum:
-	response := `
-	{
-	 "updated": "Tue, 09 Jul 2013 22:35:10 +0000",
-	 "datatype": "image-ids",
-	 "content_id": "com.ubuntu.cloud:released",
-	 "products": {
-	  "com.ubuntu.cloud:server:12.04:amd64": {
-	   "release": "precise",
-	   "version": "12.04",
-	   "arch": "amd64",
-	   "versions": {
-	    "20130603": {
-	     "items": {
-	      "euww1i3": {
-	       "virt": "Hyper-V",
-	       "crsn": "West Europe",
-	       "root_size": "30GB",
-	       "id": "MATCHING-IMAGE"
-	      }
-	     },
-	     "pub_name": "b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-12_04_2-LTS-amd64-server-20130603-en-us-30GB",
-	     "publabel": "Ubuntu Server 12.04.2 LTS",
-	     "label": "release"
-	    }
-	   }
-	  }
-	 },
-	 "format": "products:1.0",
-	 "_aliases": {
-	  "crsn": {
-	   "West Europe": {
-	    "region": "West Europe",
-	    "endpoint": "https://management.core.windows.net/"
-	   }
-	  }
-	 }
-	}
-	`
-	cleanup := prepareSimpleStreamsResponse("released", "West Europe", "precise", "12.04", "amd64", response)
-	defer cleanup()
-
-	env := makeEnviron(c)
-	images, err := findMatchingImages(env, "West Europe", "precise", []string{"amd64"})
+func (s *instanceTypeSuite) TestFindMatchingImagesReturnsReleasedImages(c *gc.C) {
+	env := s.setupEnvWithDummyMetadata(c)
+	images, err := findMatchingImages(env, "West US", "precise", []string{"amd64"})
 	c.Assert(err, gc.IsNil)
-
 	c.Assert(images, gc.HasLen, 1)
-	c.Check(images[0].Id, gc.Equals, "MATCHING-IMAGE")
+	c.Check(images[0].Id, gc.Equals, "image-id")
 }
 
-func (*instanceTypeSuite) TestFindMatchingImagesReturnsDailyImages(c *gc.C) {
-	// Based on real-world simplestreams data, pared down to a minimum:
-	response := `
-	{
-	 "updated": "Tue, 09 Jul 2013 22:35:10 +0000",
-	 "datatype": "image-ids",
-	 "content_id": "com.ubuntu.cloud:daily:azure",
-	 "products": {
-	  "com.ubuntu.cloud.daily:server:12.04:amd64": {
-	   "release": "precise",
-	   "version": "12.04",
-	   "arch": "amd64",
-	   "versions": {
-	    "20130603": {
-	     "items": {
-	      "euww1i3": {
-	       "virt": "Hyper-V",
-	       "crsn": "West Europe",
-	       "root_size": "30GB",
-	       "id": "MATCHING-IMAGE"
-	      }
-	     },
-	     "pub_name": "b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-12_04_2-LTS-amd64-server-20130603-en-us-30GB",
-	     "publabel": "Ubuntu Server 12.04.2 LTS",
-	     "label": "release"
-	    }
-	   }
-	  }
-	 },
-	 "format": "products:1.0",
-	 "_aliases": {
-	  "crsn": {
-	   "West Europe": {
-	    "region": "West Europe",
-	    "endpoint": "https://management.core.windows.net/"
-	   }
-	  }
-	 }
-	}
-	`
-	cleanup := prepareSimpleStreamsResponse("daily", "West Europe", "precise", "12.04", "amd64", response)
-	defer cleanup()
-
+func (s *instanceTypeSuite) TestFindMatchingImagesReturnsDailyImages(c *gc.C) {
 	envAttrs := makeAzureConfigMap(c)
 	envAttrs["image-stream"] = "daily"
+	envAttrs["location"] = "West US"
 	env := makeEnvironWithConfig(c, envAttrs)
-	images, err := findMatchingImages(env, "West Europe", "precise", []string{"amd64"})
+	s.setDummyStorage(c, env)
+	images := []*imagemetadata.ImageMetadata{
+		{
+			Id:         "image-id",
+			VirtType:   "Hyper-V",
+			Arch:       "amd64",
+			RegionName: "West US",
+			Endpoint:   "https://management.core.windows.net/",
+			Stream:     "daily",
+		},
+	}
+	makeTestMetadata(c, env, "precise", "West US", images)
+	images, err := findMatchingImages(env, "West US", "precise", []string{"amd64"})
 	c.Assert(err, gc.IsNil)
-
 	c.Assert(images, gc.HasLen, 1)
-	c.Check(images[0].Id, gc.Equals, "MATCHING-IMAGE")
+	c.Assert(images[0].Id, gc.Equals, "image-id")
 }
 
 func (*instanceTypeSuite) TestNewInstanceTypeConvertsRoleSize(c *gc.C) {
@@ -434,22 +301,24 @@ func (*instanceTypeSuite) TestNewInstanceTypeConvertsRoleSize(c *gc.C) {
 	expectation := instances.InstanceType{
 		Id:       roleSize.Name,
 		Name:     roleSize.Name,
-		Arches:   []string{"amd64", "i386"},
 		CpuCores: roleSize.CpuCores,
 		Mem:      roleSize.Mem,
 		RootDisk: roleSize.OSDiskSpaceVirt,
 		Cost:     roleSize.Cost,
-		VType:    &vtype,
+		VirtType: &vtype,
 		CpuPower: &cpupower,
 	}
-	c.Check(newInstanceType(roleSize), gc.DeepEquals, expectation)
+	c.Assert(newInstanceType(roleSize), gc.DeepEquals, expectation)
 }
 
-func (*instanceTypeSuite) TestListInstanceTypesAcceptsNil(c *gc.C) {
-	c.Check(listInstanceTypes(nil), gc.HasLen, 0)
+func (s *instanceTypeSuite) TestListInstanceTypesAcceptsNil(c *gc.C) {
+	env := s.setupEnvWithDummyMetadata(c)
+	types, err := listInstanceTypes(env, nil)
+	c.Assert(err, gc.IsNil)
+	c.Check(types, gc.HasLen, 0)
 }
 
-func (*instanceTypeSuite) TestListInstanceTypesMaintainsOrder(c *gc.C) {
+func (s *instanceTypeSuite) TestListInstanceTypesMaintainsOrder(c *gc.C) {
 	roleSizes := []gwacl.RoleSize{
 		{Name: "Biggish"},
 		{Name: "Tiny"},
@@ -460,13 +329,17 @@ func (*instanceTypeSuite) TestListInstanceTypesMaintainsOrder(c *gc.C) {
 	expectation := make([]instances.InstanceType, len(roleSizes))
 	for index, roleSize := range roleSizes {
 		expectation[index] = newInstanceType(roleSize)
+		expectation[index].Arches = []string{"amd64"}
 	}
 
-	c.Check(listInstanceTypes(roleSizes), gc.DeepEquals, expectation)
+	env := s.setupEnvWithDummyMetadata(c)
+	types, err := listInstanceTypes(env, roleSizes)
+	c.Assert(err, gc.IsNil)
+	c.Assert(types, gc.DeepEquals, expectation)
 }
 
 func (*instanceTypeSuite) TestFindInstanceSpecFailsImpossibleRequest(c *gc.C) {
-	impossibleConstraint := instances.InstanceConstraint{
+	impossibleConstraint := &instances.InstanceConstraint{
 		Series: "precise",
 		Arches: []string{"axp"},
 	}
@@ -477,37 +350,22 @@ func (*instanceTypeSuite) TestFindInstanceSpecFailsImpossibleRequest(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "no OS images found for .*")
 }
 
-// patchFetchImageMetadata temporarily replaces imagemetadata.Fetch() with a
-// fake that returns the given canned answer.
-// It returns a cleanup function, which you must call when done.
-func patchFetchImageMetadata(cannedResponse []*imagemetadata.ImageMetadata, cannedError error) func() {
-	original := fetchImageMetadata
-	fetchImageMetadata = func([]simplestreams.DataSource, string, *imagemetadata.ImageConstraint, bool) (
-		[]*imagemetadata.ImageMetadata, *simplestreams.ResolveInfo, error) {
-		return cannedResponse, nil, cannedError
+func makeTestMetadata(c *gc.C, env environs.Environ, series, location string, im []*imagemetadata.ImageMetadata) {
+	cloudSpec := simplestreams.CloudSpec{
+		Region:   location,
+		Endpoint: "https://management.core.windows.net/",
 	}
-	return func() { fetchImageMetadata = original }
+	err := imagemetadata.MergeAndWriteMetadata(series, im, &cloudSpec, env.Storage())
+	c.Assert(err, gc.IsNil)
 }
 
-func (*instanceTypeSuite) TestFindInstanceSpecFindsMatch(c *gc.C) {
-	// We have one OS image.
-	images := []*imagemetadata.ImageMetadata{
-		{
-			Id:          "image-id",
-			VType:       "Hyper-V",
-			Arch:        "amd64",
-			RegionAlias: "West US",
-			RegionName:  "West US",
-			Endpoint:    "http://localhost/",
-		},
-	}
-	cleanup := patchFetchImageMetadata(images, nil)
-	defer cleanup()
+func (s *instanceTypeSuite) TestFindInstanceSpecFindsMatch(c *gc.C) {
+	env := s.setupEnvWithDummyMetadata(c)
 
 	// We'll tailor our constraints to describe one particular Azure
 	// instance type:
 	aim := gwacl.RoleNameMap["Large"]
-	constraints := instances.InstanceConstraint{
+	constraints := &instances.InstanceConstraint{
 		Region: "West US",
 		Series: "precise",
 		Arches: []string{"amd64"},
@@ -518,7 +376,6 @@ func (*instanceTypeSuite) TestFindInstanceSpecFindsMatch(c *gc.C) {
 	}
 
 	// Find a matching instance type and image.
-	env := makeEnviron(c)
 	spec, err := findInstanceSpec(env, constraints)
 	c.Assert(err, gc.IsNil)
 
@@ -528,30 +385,18 @@ func (*instanceTypeSuite) TestFindInstanceSpecFindsMatch(c *gc.C) {
 	c.Check(spec.Image.Id, gc.Equals, "image-id")
 }
 
-func (*instanceTypeSuite) TestFindInstanceSpecSetsBaseline(c *gc.C) {
-	images := []*imagemetadata.ImageMetadata{
-		{
-			Id:          "image-id",
-			VType:       "Hyper-V",
-			Arch:        "amd64",
-			RegionAlias: "West US",
-			RegionName:  "West US",
-			Endpoint:    "http://localhost/",
-		},
-	}
-	cleanup := patchFetchImageMetadata(images, nil)
-	defer cleanup()
+func (s *instanceTypeSuite) TestFindInstanceSpecSetsBaseline(c *gc.C) {
+	env := s.setupEnvWithDummyMetadata(c)
 
 	// findInstanceSpec sets baseline constraints, so that it won't pick
 	// ExtraSmall (which is too small for routine tasks) if you fail to
 	// set sufficient hardware constraints.
-	anyInstanceType := instances.InstanceConstraint{
+	anyInstanceType := &instances.InstanceConstraint{
 		Region: "West US",
 		Series: "precise",
 		Arches: []string{"amd64"},
 	}
 
-	env := makeEnviron(c)
 	spec, err := findInstanceSpec(env, anyInstanceType)
 	c.Assert(err, gc.IsNil)
 

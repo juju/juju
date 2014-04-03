@@ -49,12 +49,6 @@ type EnvironProvider interface {
 	// which are considered sensitive. All of the values of these secret
 	// attributes need to be strings.
 	SecretAttrs(cfg *config.Config) (map[string]string, error)
-
-	// PublicAddress returns this machine's public host name.
-	PublicAddress() (string, error)
-
-	// PrivateAddress returns this machine's private host name.
-	PrivateAddress() (string, error)
 }
 
 // EnvironStorage implements storage access for an environment
@@ -63,7 +57,7 @@ type EnvironStorage interface {
 	Storage() storage.Storage
 }
 
-// ConfigGetter implements access to an environments configuration.
+// ConfigGetter implements access to an environment's configuration.
 type ConfigGetter interface {
 	// Config returns the configuration data with which the Environ was created.
 	// Note that this is not necessarily current; the canonical location
@@ -116,6 +110,9 @@ type Environ interface {
 	// ConfigGetter allows the retrieval of the configuration data.
 	ConfigGetter
 
+	// EnvironCapability allows access to this environment's capabilities.
+	state.EnvironCapability
+
 	// SetConfig updates the Environ's configuration.
 	//
 	// Calls to SetConfig do not affect the configuration of
@@ -159,9 +156,7 @@ type Environ interface {
 	// Provider returns the EnvironProvider that created this Environ.
 	Provider() EnvironProvider
 
-	// TODO(axw) 2014-02-11 #pending-review
-	//     Embed state.Prechecker, and introduce an EnvironBase
-	//     that embeds a no-op prechecker implementation.
+	state.Prechecker
 }
 
 // BootstrapContext is an interface that is passed to
@@ -172,6 +167,8 @@ type BootstrapContext interface {
 	GetStdin() io.Reader
 	GetStdout() io.Writer
 	GetStderr() io.Writer
+	Infof(format string, params ...interface{})
+	Verbosef(format string, params ...interface{})
 
 	// InterruptNotify starts watching for interrupt signals
 	// on behalf of the caller, sending them to the supplied

@@ -14,9 +14,9 @@ import (
 	"launchpad.net/gomaasapi"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
@@ -28,6 +28,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/set"
 )
 
 const (
@@ -46,7 +47,16 @@ var shortAttempt = utils.AttemptStrategy{
 }
 
 type maasEnviron struct {
+	common.NopPrecheckerPolicy
+	common.SupportsUnitPlacementPolicy
+
 	name string
+
+	// archMutex gates access to supportedArchitectures
+	archMutex sync.Mutex
+	// supportedArchitectures caches the architectures
+	// for which images can be instantiated.
+	supportedArchitectures []string
 
 	// ecfgMutex protects the *Unlocked fields below.
 	ecfgMutex sync.Mutex
@@ -131,6 +141,78 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
+// SupportedArchitectures is specified on the EnvironCapability interface.
+func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
+	env.archMutex.Lock()
+	defer env.archMutex.Unlock()
+	if env.supportedArchitectures != nil {
+		return env.supportedArchitectures, nil
+	}
+	// Create a filter to get all images from our region and for the correct stream.
+	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+		Stream: env.Config().ImageStream(),
+	})
+	var err error
+	env.supportedArchitectures, err = common.SupportedArchitectures(env, imageConstraint)
+	return env.supportedArchitectures, err
+}
+
+// SupportNetworks is specified on the EnvironCapability interface.
+func (env *maasEnviron) SupportNetworks() bool {
+	caps, err := env.getCapabilities()
+	if err != nil {
+		logger.Debugf("getCapabilities failed: %v", err)
+		return false
+	}
+	return caps.Contains(capNetworksManagement)
+}
+
+const capNetworksManagement = "networks-management"
+
+// getCapabilities asks the MAAS server for its capabilities, if
+// supported by the server.
+func (env *maasEnviron) getCapabilities() (caps set.Strings, err error) {
+	var result gomaasapi.JSONObject
+	caps = set.NewStrings()
+
+	for a := shortAttempt.Start(); a.Next(); {
+		client := env.getMAASClient().GetSubObject("version/")
+		result, err = client.CallGet("", nil)
+		if err != nil {
+			err0, ok := err.(*gomaasapi.ServerError)
+			if ok && err0.StatusCode == 404 {
+				return caps, fmt.Errorf("MAAS does not support version info")
+			} else {
+				return caps, err
+			}
+			continue
+		}
+	}
+	if err != nil {
+		return caps, err
+	}
+	info, err := result.GetMap()
+	if err != nil {
+		return caps, err
+	}
+	capsObj, ok := info["capabilities"]
+	if !ok {
+		return caps, fmt.Errorf("MAAS does not report capabilities")
+	}
+	items, err := capsObj.GetArray()
+	if err != nil {
+		return caps, err
+	}
+	for _, item := range items {
+		val, err := item.GetString()
+		if err != nil {
+			return set.NewStrings(), err
+		}
+		caps.Add(val)
+	}
+	return caps, nil
+}
+
 // getMAASClient returns a MAAS client object to use for a request, in a
 // lock-protected fashion.
 func (env *maasEnviron) getMAASClient() *gomaasapi.MAASObject {
@@ -168,9 +250,27 @@ func convertConstraints(cons constraints.Value) url.Values {
 	return params
 }
 
+// addNetworks converts networks include/exclude information into
+// url.Values object suitable to pass to MAAS when acquiring a node.
+func addNetworks(params url.Values, includeNetworks, excludeNetworks []string) {
+	// Network Inclusion/Exclusion setup
+	if len(includeNetworks) > 0 {
+		for _, name := range includeNetworks {
+			params.Add("networks", name)
+		}
+	}
+	if len(excludeNetworks) > 0 {
+		for _, name := range excludeNetworks {
+			params.Add("not_networks", name)
+		}
+	}
+
+}
+
 // acquireNode allocates a node from the MAAS.
-func (environ *maasEnviron) acquireNode(cons constraints.Value, possibleTools tools.List) (gomaasapi.MAASObject, *tools.Tools, error) {
+func (environ *maasEnviron) acquireNode(cons constraints.Value, includeNetworks, excludeNetworks []string, possibleTools tools.List) (gomaasapi.MAASObject, *tools.Tools, error) {
 	acquireParams := convertConstraints(cons)
+	addNetworks(acquireParams, includeNetworks, excludeNetworks)
 	acquireParams.Add("agent_name", environ.ecfg().maasAgentName())
 	var result gomaasapi.JSONObject
 	var err error
@@ -230,16 +330,20 @@ func linkBridgeInInterfaces() string {
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (environ *maasEnviron) StartInstance(cons constraints.Value, possibleTools tools.List,
-	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
 
 	var inst *maasInstance
 	var err error
-	if node, tools, err := environ.acquireNode(cons, possibleTools); err != nil {
+	node, tools, err := environ.acquireNode(
+		args.Constraints,
+		args.MachineConfig.IncludeNetworks,
+		args.MachineConfig.ExcludeNetworks,
+		args.Tools)
+	if err != nil {
 		return nil, nil, fmt.Errorf("cannot run instances: %v", err)
 	} else {
 		inst = &maasInstance{maasObject: &node, environ: environ}
-		machineConfig.Tools = tools
+		args.MachineConfig.Tools = tools
 	}
 	defer func() {
 		if err != nil {
@@ -253,38 +357,53 @@ func (environ *maasEnviron) StartInstance(cons constraints.Value, possibleTools 
 	if err != nil {
 		return nil, nil, err
 	}
-	info := machineInfo{hostname}
-	runCmd, err := info.cloudinitRunCmd()
-	if err != nil {
-		return nil, nil, err
-	}
-	if err := environs.FinishMachineConfig(machineConfig, environ.Config(), cons); err != nil {
+	if err := environs.FinishMachineConfig(args.MachineConfig, environ.Config(), args.Constraints); err != nil {
 		return nil, nil, err
 	}
 	// TODO(thumper): 2013-08-28 bug 1217614
 	// The machine envronment config values are being moved to the agent config.
 	// Explicitly specify that the lxc containers use the network bridge defined above.
-	machineConfig.AgentEnvironment[agent.LxcBridge] = "br0"
-	userdata, err := environs.ComposeUserData(
-		machineConfig,
-		runCmd,
-		createBridgeNetwork(),
-		linkBridgeInInterfaces(),
-		"service networking restart",
-	)
+	args.MachineConfig.AgentEnvironment[agent.LxcBridge] = "br0"
+	cloudcfg, err := newCloudinitConfig(hostname)
+	if err != nil {
+		return nil, nil, err
+	}
+	userdata, err := environs.ComposeUserData(args.MachineConfig, cloudcfg)
 	if err != nil {
 		msg := fmt.Errorf("could not compose userdata for bootstrap node: %v", err)
 		return nil, nil, msg
 	}
 	logger.Debugf("maas user data; %d bytes", len(userdata))
 
-	series := possibleTools.OneSeries()
+	series := args.Tools.OneSeries()
 	if err := environ.startNode(*inst.maasObject, series, userdata); err != nil {
 		return nil, nil, err
 	}
 	logger.Debugf("started instance %q", inst.Id())
 	// TODO(bug 1193998) - return instance hardware characteristics as well
 	return inst, nil, nil
+}
+
+// newCloudinitConfig creates a cloudinit.Config structure
+// suitable as a base for initialising a MAAS node.
+func newCloudinitConfig(hostname string) (*cloudinit.Config, error) {
+	info := machineInfo{hostname}
+	runCmd, err := info.cloudinitRunCmd()
+	if err != nil {
+		return nil, err
+	}
+	cloudcfg := cloudinit.New()
+	cloudcfg.SetAptUpdate(true)
+	cloudcfg.AddPackage("bridge-utils")
+	cloudcfg.AddScripts(
+		"set -xe",
+		runCmd,
+		"ifdown eth0",
+		createBridgeNetwork(),
+		linkBridgeInInterfaces(),
+		"ifup br0",
+	)
+	return cloudcfg, nil
 }
 
 // StartInstance is specified in the InstanceBroker interface.
@@ -429,4 +548,61 @@ func (e *maasEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket.
 	return []simplestreams.DataSource{
 		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseToolsPath)}, nil
+}
+
+type MAASNetworkDetails struct {
+	Name        string
+	Ip          string
+	NetworkMask string
+	VlanTag     string
+	Description string
+}
+
+// GetNetworksList returns a list of strings which contain networks for a gien maas node instance.
+func (e *maasEnviron) GetNetworksList(inst instance.Instance) ([]MAASNetworkDetails, error) {
+	maasInst := inst.(*maasInstance)
+	maasObj := maasInst.maasObject
+	networksClient := e.getMAASClient().GetSubObject("networks")
+	system_id, err := maasObj.GetField("system_id")
+	if err != nil {
+		return nil, err
+	}
+	params := url.Values{"node": {system_id}}
+	json, err := networksClient.CallGet("", params)
+	if err != nil {
+		return nil, err
+	}
+	jsonNets, err := json.GetArray()
+	if err != nil {
+		return nil, err
+	}
+	var attributeError error
+	getField := func(maasNet *gomaasapi.MAASObject, name string) (val string) {
+		if attributeError != nil {
+			return
+		}
+		val, attributeError = maasNet.GetField(name)
+		if attributeError != nil {
+			attributeError = fmt.Errorf("cannot get %q: %v", name, attributeError)
+		}
+		return val
+	}
+	networks := make([]MAASNetworkDetails, len(jsonNets))
+	for i, jsonNet := range jsonNets {
+		maasNet, err := jsonNet.GetMAASObject()
+		if err != nil {
+			return nil, err
+		}
+		networks[i] = MAASNetworkDetails{
+			Name:        getField(&maasNet, "name"),
+			Ip:          getField(&maasNet, "ip"),
+			NetworkMask: getField(&maasNet, "netmask"),
+			VlanTag:     getField(&maasNet, "vlan_tag"),
+			Description: getField(&maasNet, "description"),
+		}
+	}
+	if attributeError != nil {
+		return nil, attributeError
+	}
+	return networks, attributeError
 }

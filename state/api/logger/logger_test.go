@@ -50,7 +50,7 @@ func (s *loggerSuite) TestLoggingConfig(c *gc.C) {
 }
 
 func (s *loggerSuite) setLoggingConfig(c *gc.C, loggingConfig string) {
-	err := testing.UpdateConfig(s.BackingState, map[string]interface{}{"logging-config": loggingConfig})
+	err := s.BackingState.UpdateEnvironConfig(map[string]interface{}{"logging-config": loggingConfig}, nil, nil)
 	c.Assert(err, gc.IsNil)
 }
 

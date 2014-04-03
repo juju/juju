@@ -5,14 +5,11 @@ package maas
 
 import (
 	"errors"
-	"os"
 
 	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -64,12 +61,14 @@ var boilerplateYAML = `
 # https://juju.ubuntu.com/docs/config-maas.html
 maas:
     type: maas
-  
+
     # maas-server specifies the location of the MAAS server. It must
     # specify the base path.
+    #
     maas-server: 'http://192.168.1.1/MAAS/'
-    
+
     # maas-oauth holds the OAuth credentials from MAAS.
+    #
     maas-oauth: '<add your OAuth credentials from MAAS here>'
 
 `[1:]
@@ -88,27 +87,4 @@ func (prov maasEnvironProvider) SecretAttrs(cfg *config.Config) (map[string]stri
 	}
 	secretAttrs["maas-oauth"] = maasCfg.maasOAuth()
 	return secretAttrs, nil
-}
-
-func (maasEnvironProvider) hostname() (string, error) {
-	// Hack to get container ip addresses properly for MAAS demo.
-	if os.Getenv(osenv.JujuContainerTypeEnvKey) == string(instance.LXC) {
-		return utils.GetAddressForInterface("eth0")
-	}
-	info := machineInfo{}
-	err := info.load()
-	if err != nil {
-		return "", err
-	}
-	return info.Hostname, nil
-}
-
-// PublicAddress is specified in the EnvironProvider interface.
-func (prov maasEnvironProvider) PublicAddress() (string, error) {
-	return prov.hostname()
-}
-
-// PrivateAddress is specified in the EnvironProvider interface.
-func (prov maasEnvironProvider) PrivateAddress() (string, error) {
-	return prov.hostname()
 }

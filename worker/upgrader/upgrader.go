@@ -91,10 +91,10 @@ func (u *Upgrader) loop() error {
 	// that we attempt an upgrade even if other workers are dying
 	// all around us.
 	var (
-		dying                          <-chan struct{}
-		wantTools                      *coretools.Tools
-		wantVersion                    version.Number
-		disableSSLHostnameVerification bool
+		dying                <-chan struct{}
+		wantTools            *coretools.Tools
+		wantVersion          version.Number
+		hostnameVerification utils.SSLHostnameVerification
 	)
 	for {
 		select {
@@ -117,7 +117,7 @@ func (u *Upgrader) loop() error {
 			// TODO(dimitern) 2013-10-03 bug #1234715
 			// Add a testing HTTPS storage to verify the
 			// disableSSLHostnameVerification behavior here.
-			wantTools, disableSSLHostnameVerification, err = u.st.Tools(u.tag)
+			wantTools, hostnameVerification, err = u.st.Tools(u.tag)
 			if err != nil {
 				// Not being able to lookup Tools is considered fatal
 				return err
@@ -127,7 +127,7 @@ func (u *Upgrader) loop() error {
 			// repeatedly (causing the agent to be stopped), as long
 			// as we have got as far as this, we will still be able to
 			// upgrade the agent.
-			err := u.ensureTools(wantTools, disableSSLHostnameVerification)
+			err := u.ensureTools(wantTools, hostnameVerification)
 			if err == nil {
 				return &UpgradeReadyError{
 					OldTools:  version.Current,
@@ -142,17 +142,13 @@ func (u *Upgrader) loop() error {
 	}
 }
 
-func (u *Upgrader) ensureTools(agentTools *coretools.Tools, disableSSLHostnameVerification bool) error {
+func (u *Upgrader) ensureTools(agentTools *coretools.Tools, hostnameVerification utils.SSLHostnameVerification) error {
 	if _, err := agenttools.ReadTools(u.dataDir, agentTools.Version); err == nil {
 		// Tools have already been downloaded
 		return nil
 	}
-	client := http.DefaultClient
 	logger.Infof("fetching tools from %q", agentTools.URL)
-	if disableSSLHostnameVerification {
-		logger.Infof("hostname SSL verification disabled")
-		client = utils.GetNonValidatingHTTPClient()
-	}
+	client := utils.GetHTTPClient(hostnameVerification)
 	resp, err := client.Get(agentTools.URL)
 	if err != nil {
 		return err
@@ -165,5 +161,6 @@ func (u *Upgrader) ensureTools(agentTools *coretools.Tools, disableSSLHostnameVe
 	if err != nil {
 		return fmt.Errorf("cannot unpack tools: %v", err)
 	}
+	logger.Infof("unpacked tools %s to %s", agentTools.Version, u.dataDir)
 	return nil
 }

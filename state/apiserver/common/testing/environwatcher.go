@@ -4,6 +4,7 @@
 package testing
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
@@ -11,7 +12,6 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	statetesting "launchpad.net/juju-core/state/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 const (
@@ -48,7 +48,6 @@ func (s *EnvironWatcherTest) AssertEnvironConfig(c *gc.C, envWatcher Environment
 
 	result, err := envWatcher.EnvironConfig()
 	c.Assert(err, gc.IsNil)
-	c.Assert(result.Error, gc.IsNil)
 
 	configAttributes := envConfig.AllAttrs()
 	// If the implementor doesn't provide secrets, we need to replace the config

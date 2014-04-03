@@ -9,12 +9,13 @@ import (
 	"strings"
 	"testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/simplestreams"
 	sstesting "launchpad.net/juju-core/environs/simplestreams/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/utils"
 )
 
 func Test(t *testing.T) {
@@ -27,7 +28,7 @@ func Test(t *testing.T) {
 func registerSimpleStreamsTests() {
 	gc.Suite(&simplestreamsSuite{
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
-			Source:        simplestreams.NewURLDataSource("test", "test:", simplestreams.VerifySSLHostnames),
+			Source:        simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames),
 			RequireSigned: false,
 			DataType:      "image-ids",
 			ValidConstraint: sstesting.NewTestConstraint(simplestreams.LookupParams{
@@ -316,7 +317,7 @@ func (s *countingSource) URL(path string) (string, error) {
 func (s *simplestreamsSuite) TestGetMetadataNoMatching(c *gc.C) {
 	source := &countingSource{
 		DataSource: simplestreams.NewURLDataSource(
-			"test", "test:/daily", simplestreams.VerifySSLHostnames,
+			"test", "test:/daily", utils.VerifySSLHostnames,
 		),
 	}
 	sources := []simplestreams.DataSource{source, source, source}
@@ -372,7 +373,7 @@ func (s *simplestreamsSuite) TestItemCollection(c *gc.C) {
 	ti := ic.Items["usww2he"].(*sstesting.TestItem)
 	c.Check(ti.Id, gc.Equals, "ami-442ea674")
 	c.Check(ti.Storage, gc.Equals, "ebs")
-	c.Check(ti.VType, gc.Equals, "hvm")
+	c.Check(ti.VirtType, gc.Equals, "hvm")
 	c.Check(ti.RegionName, gc.Equals, "us-east-1")
 	c.Check(ti.Endpoint, gc.Equals, "https://ec2.us-east-1.amazonaws.com")
 }

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
 	"launchpad.net/juju-core/charm"
@@ -95,7 +96,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 		C:      ru.st.relations.Name,
 		Id:     relationKey,
 		Assert: isAliveDoc,
-		Update: D{{"$inc", D{{"unitcount", 1}}}},
+		Update: bson.D{{"$inc", bson.D{{"unitcount", 1}}}},
 	}}
 
 	// * Create the unit settings in this relation, if they do not already
@@ -202,7 +203,7 @@ func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
 		return nil, "", fmt.Errorf("expected single related endpoint, got %v", related)
 	}
 	serviceName, unitName := related[0].ServiceName, ru.unit.doc.Name
-	selSubordinate := D{{"service", serviceName}, {"principal", unitName}}
+	selSubordinate := bson.D{{"service", serviceName}, {"principal", unitName}}
 	var lDoc lifeDoc
 	if err := ru.st.units.Find(selSubordinate).One(&lDoc); err == mgo.ErrNotFound {
 		service, err := ru.st.Service(serviceName)
@@ -273,15 +274,15 @@ func (ru *RelationUnit) LeaveScope() error {
 			ops = append(ops, txn.Op{
 				C:      ru.st.relations.Name,
 				Id:     ru.relation.doc.Key,
-				Assert: D{{"life", Alive}},
-				Update: D{{"$inc", D{{"unitcount", -1}}}},
+				Assert: bson.D{{"life", Alive}},
+				Update: bson.D{{"$inc", bson.D{{"unitcount", -1}}}},
 			})
 		} else if ru.relation.doc.UnitCount > 1 {
 			ops = append(ops, txn.Op{
 				C:      ru.st.relations.Name,
 				Id:     ru.relation.doc.Key,
-				Assert: D{{"unitcount", D{{"$gt", 1}}}},
-				Update: D{{"$inc", D{{"unitcount", -1}}}},
+				Assert: bson.D{{"unitcount", bson.D{{"$gt", 1}}}},
+				Update: bson.D{{"$inc", bson.D{{"unitcount", -1}}}},
 			})
 		} else {
 			relOps, err := ru.relation.removeOps("", ru.unit)

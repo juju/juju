@@ -4,210 +4,277 @@
 package joyent_test
 
 import (
+	"fmt"
+	"io/ioutil"
+	"os"
+
+	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/provider/joyent"
-	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
+	jp "launchpad.net/juju-core/provider/joyent"
+	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils"
 )
 
-func newConfig(c *gc.C, attrs testing.Attrs) *config.Config {
-	attrs = testing.FakeConfig().Merge(attrs)
-	cfg, err := config.New(config.NoDefaults, attrs)
+func newConfig(c *gc.C, attrs coretesting.Attrs) *config.Config {
+	attrs = coretesting.FakeConfig().Merge(attrs)
+	cfg, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	return cfg
 }
 
-func validAttrs() testing.Attrs {
-	return testing.FakeConfig().Merge(testing.Attrs{
-		"type":         "joyent",
-		"sdc-user":     "dstroppa",
-		"sdc-key-id":   "12:c3:a7:cb:a2:29:e2:90:88:3f:04:53:3b:4e:75:40",
-		"sdc-region":   "us-west-1",
-		"manta-user":   "dstroppa",
-		"manta-key-id": "12:c3:a7:cb:a2:29:e2:90:88:3f:04:53:3b:4e:75:40",
-		"manta-region": "us-east",
-		"control-dir":  "juju-test",
+func validAttrs() coretesting.Attrs {
+	return coretesting.FakeConfig().Merge(coretesting.Attrs{
+		"type":             "joyent",
+		"sdc-user":         "juju-test",
+		"sdc-key-id":       "00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff",
+		"sdc-url":          "https://test.api.joyentcloud.com",
+		"manta-user":       "juju-test",
+		"manta-key-id":     "00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff",
+		"manta-url":        "https://test.manta.joyent.com",
+		"private-key-path": "~/.ssh/provider_id_rsa",
+		"algorithm":        "rsa-sha256",
+		"control-dir":      "juju-test",
+		"private-key":      "key",
 	})
 }
 
 type ConfigSuite struct {
-	testbase.LoggingSuite
-	originalValues map[string]testbase.Restorer
+	coretesting.FakeHomeSuite
+	originalValues map[string]testing.Restorer
 }
 
 var _ = gc.Suite(&ConfigSuite{})
 
 func (s *ConfigSuite) SetUpSuite(c *gc.C) {
-	s.PatchEnvironment(joyent.SdcAccount, "tester")
-	s.PatchEnvironment(joyent.SdcKeyId, "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a")
-	s.PatchEnvironment(joyent.MantaUser, "tester")
-	s.PatchEnvironment(joyent.MantaKeyId, "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a")
+	s.FakeHomeSuite.SetUpSuite(c)
+	restoreSdcAccount := testing.PatchEnvironment(jp.SdcAccount, "tester")
+	s.AddSuiteCleanup(func(*gc.C) { restoreSdcAccount() })
+	restoreSdcKeyId := testing.PatchEnvironment(jp.SdcKeyId, "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00")
+	s.AddSuiteCleanup(func(*gc.C) { restoreSdcKeyId() })
+	restoreMantaUser := testing.PatchEnvironment(jp.MantaUser, "tester")
+	s.AddSuiteCleanup(func(*gc.C) { restoreMantaUser() })
+	restoreMantaKeyId := testing.PatchEnvironment(jp.MantaKeyId, "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00")
+	s.AddSuiteCleanup(func(*gc.C) { restoreMantaKeyId() })
+}
+
+func (s *ConfigSuite) SetUpTest(c *gc.C) {
+	s.FakeHomeSuite.SetUpTest(c)
+	s.AddCleanup(CreateTestKey(c))
+	for _, envVar := range jp.EnvironmentVariables {
+		s.PatchEnvironment(envVar, "")
+	}
 }
 
 var newConfigTests = []struct {
-	info   string
-	insert testing.Attrs
-	remove []string
-	expect testing.Attrs
-	err    string
+	info    string
+	insert  coretesting.Attrs
+	remove  []string
+	envVars map[string]string
+	expect  coretesting.Attrs
+	err     string
 }{{
 	info:   "sdc-user is required",
 	remove: []string{"sdc-user"},
-	err:    "sdc-user: expected string, got nothing",
+	err:    ".* cannot get sdc-user value from environment variable .*",
 }, {
 	info:   "sdc-user cannot be empty",
-	insert: testing.Attrs{"sdc-user": ""},
-	err:    "sdc-user: must not be empty",
+	insert: coretesting.Attrs{"sdc-user": ""},
+	err:    ".* cannot get sdc-user value from environment variable .*",
+}, {
+	info:   "can get sdc-user from env variable",
+	insert: coretesting.Attrs{"sdc-user": ""},
+	expect: coretesting.Attrs{"sdc-user": "tester"},
+	envVars: map[string]string{
+		"SDC_ACCOUNT": "tester",
+	},
+}, {
+	info:   "can get sdc-user from env variable, missing from config",
+	remove: []string{"sdc-user"},
+	expect: coretesting.Attrs{"sdc-user": "tester"},
+	envVars: map[string]string{
+		"SDC_ACCOUNT": "tester",
+	},
 }, {
 	info:   "sdc-key-id is required",
 	remove: []string{"sdc-key-id"},
-	err:    "sdc-key-id: expected string, got nothing",
+	err:    ".* cannot get sdc-key-id value from environment variable .*",
 }, {
 	info:   "sdc-key-id cannot be empty",
-	insert: testing.Attrs{"sdc-key-id": ""},
-	err:    "sdc-key-id: must not be empty",
+	insert: coretesting.Attrs{"sdc-key-id": ""},
+	err:    ".* cannot get sdc-key-id value from environment variable .*",
 }, {
-	info:   "sdc-region is inserted if missing",
-	expect: testing.Attrs{"sdc-region": "us-west-1"},
+	info:   "can get sdc-key-id from env variable",
+	insert: coretesting.Attrs{"sdc-key-id": ""},
+	expect: coretesting.Attrs{"sdc-key-id": "key"},
+	envVars: map[string]string{
+		"SDC_KEY_ID": "key",
+	},
 }, {
-	info:   "sdc-region cannot be empty",
-	insert: testing.Attrs{"sdc-region": ""},
-	err:    "sdc-region: must not be empty",
+	info:   "can get sdc-key-id from env variable, missing from config",
+	remove: []string{"sdc-key-id"},
+	expect: coretesting.Attrs{"sdc-key-id": "key"},
+	envVars: map[string]string{
+		"SDC_KEY_ID": "key",
+	},
 }, {
-	info:   "sdc-region is untouched if present",
-	insert: testing.Attrs{"sdc-region": "us-west-1"},
-	expect: testing.Attrs{"sdc-region": "us-west-1"},
+	info:   "sdc-url is inserted if missing",
+	expect: coretesting.Attrs{"sdc-url": "https://test.api.joyentcloud.com"},
+}, {
+	info:   "sdc-url cannot be empty",
+	insert: coretesting.Attrs{"sdc-url": ""},
+	err:    ".* cannot get sdc-url value from environment variable .*",
+}, {
+	info:   "sdc-url is untouched if present",
+	insert: coretesting.Attrs{"sdc-url": "https://test.api.joyentcloud.com"},
+	expect: coretesting.Attrs{"sdc-url": "https://test.api.joyentcloud.com"},
 }, {
 	info:   "manta-user is required",
 	remove: []string{"manta-user"},
-	err:    "manta-user: expected string, got nothing",
+	err:    ".* cannot get manta-user value from environment variable .*",
 }, {
 	info:   "manta-user cannot be empty",
-	insert: testing.Attrs{"manta-user": ""},
-	err:    "manta-user: must not be empty",
+	insert: coretesting.Attrs{"manta-user": ""},
+	err:    ".* cannot get manta-user value from environment variable .*",
+}, {
+	info:   "can get manta-user from env variable",
+	insert: coretesting.Attrs{"manta-user": ""},
+	expect: coretesting.Attrs{"manta-user": "tester"},
+	envVars: map[string]string{
+		"MANTA_USER": "tester",
+	},
+}, {
+	info:   "can get manta-user from env variable, missing from config",
+	remove: []string{"manta-user"},
+	expect: coretesting.Attrs{"manta-user": "tester"},
+	envVars: map[string]string{
+		"MANTA_USER": "tester",
+	},
 }, {
 	info:   "manta-key-id is required",
 	remove: []string{"manta-key-id"},
-	err:    "manta-key-id: expected string, got nothing",
+	err:    ".* cannot get manta-key-id value from environment variable .*",
 }, {
 	info:   "manta-key-id cannot be empty",
-	insert: testing.Attrs{"manta-key-id": ""},
-	err:    "manta-key-id: must not be empty",
+	insert: coretesting.Attrs{"manta-key-id": ""},
+	err:    ".* cannot get manta-key-id value from environment variable .*",
 }, {
-	info:   "manta-region is inserted if missing",
-	expect: testing.Attrs{"manta-region": "us-east"},
+	info:   "can get manta-key-id from env variable",
+	insert: coretesting.Attrs{"manta-key-id": ""},
+	expect: coretesting.Attrs{"manta-key-id": "key"},
+	envVars: map[string]string{
+		"MANTA_KEY_ID": "key",
+	},
 }, {
-	info:   "manta-region cannot be empty",
-	insert: testing.Attrs{"manta-region": ""},
-	err:    "manta-region: must not be empty",
+	info:   "can get manta-key-id from env variable, missing from config",
+	remove: []string{"manta-key-id"},
+	expect: coretesting.Attrs{"manta-key-id": "key"},
+	envVars: map[string]string{
+		"MANTA_KEY_ID": "key",
+	},
 }, {
-	info:   "manta-region is untouched if present",
-	insert: testing.Attrs{"manta-region": "us-east"},
-	expect: testing.Attrs{"manta-region": "us-east"},
+	info:   "manta-url is inserted if missing",
+	expect: coretesting.Attrs{"manta-url": "https://test.manta.joyent.com"},
+}, {
+	info:   "manta-url cannot be empty",
+	insert: coretesting.Attrs{"manta-url": ""},
+	err:    ".* cannot get manta-url value from environment variable .*",
+}, {
+	info:   "manta-url is untouched if present",
+	insert: coretesting.Attrs{"manta-url": "https://test.manta.joyent.com"},
+	expect: coretesting.Attrs{"manta-url": "https://test.manta.joyent.com"},
+}, {
+	info:   "private-key-path is inserted if missing",
+	remove: []string{"private-key-path"},
+	expect: coretesting.Attrs{"private-key-path": "~/.ssh/id_rsa"},
+}, {
+	info:   "can get private-key-path from env variable",
+	insert: coretesting.Attrs{"private-key-path": ""},
+	expect: coretesting.Attrs{"private-key-path": "some-file"},
+	envVars: map[string]string{
+		"MANTA_PRIVATE_KEY_FILE": "some-file",
+	},
+}, {
+	info:   "can get private-key-path from env variable, missing from config",
+	remove: []string{"private-key-path"},
+	expect: coretesting.Attrs{"private-key-path": "some-file"},
+	envVars: map[string]string{
+		"MANTA_PRIVATE_KEY_FILE": "some-file",
+	},
+}, {
+	info:   "algorithm is inserted if missing",
+	expect: coretesting.Attrs{"algorithm": "rsa-sha256"},
+}, {
+	info:   "algorithm cannot be empty",
+	insert: coretesting.Attrs{"algorithm": ""},
+	err:    ".* algorithm: must not be empty",
 }, {
 	info:   "unknown field is not touched",
-	insert: testing.Attrs{"unknown-field": 12345},
-	expect: testing.Attrs{"unknown-field": 12345},
+	insert: coretesting.Attrs{"unknown-field": 12345},
+	expect: coretesting.Attrs{"unknown-field": 12345},
 }}
 
 func (*ConfigSuite) TestNewEnvironConfig(c *gc.C) {
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
+		for k, v := range test.envVars {
+			os.Setenv(k, v)
+		}
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
 		testConfig := newConfig(c, attrs)
 		environ, err := environs.New(testConfig)
 		if test.err == "" {
-			c.Assert(err, gc.IsNil)
+			c.Check(err, gc.IsNil)
 			attrs := environ.Config().AllAttrs()
 			for field, value := range test.expect {
 				c.Check(attrs[field], gc.Equals, value)
 			}
 		} else {
-			c.Assert(environ, gc.IsNil)
+			c.Check(environ, gc.IsNil)
 			c.Check(err, gc.ErrorMatches, test.err)
-		}
-	}
-}
-
-func (*ConfigSuite) TestValidateNewConfig(c *gc.C) {
-	for i, test := range newConfigTests {
-		c.Logf("test %d: %s", i, test.info)
-		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
-		testConfig := newConfig(c, attrs)
-		validatedConfig, err := joyent.Provider.Validate(testConfig, nil)
-		if test.err == "" {
-			c.Assert(err, gc.IsNil)
-			attrs := validatedConfig.AllAttrs()
-			for field, value := range test.expect {
-				c.Check(attrs[field], gc.Equals, value)
-			}
-		} else {
-			c.Assert(validatedConfig, gc.IsNil)
-			c.Check(err, gc.ErrorMatches, "invalid Joyent provider config: "+test.err)
-		}
-	}
-}
-
-func (*ConfigSuite) TestValidateOldConfig(c *gc.C) {
-	knownGoodConfig := newConfig(c, validAttrs())
-	for i, test := range newConfigTests {
-		c.Logf("test %d: %s", i, test.info)
-		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
-		testConfig := newConfig(c, attrs)
-		validatedConfig, err := joyent.Provider.Validate(knownGoodConfig, testConfig)
-		if test.err == "" {
-			c.Assert(err, gc.IsNil)
-			attrs := validatedConfig.AllAttrs()
-			for field, value := range validAttrs() {
-				c.Check(attrs[field], gc.Equals, value)
-			}
-		} else {
-			c.Assert(validatedConfig, gc.IsNil)
-			c.Check(err, gc.ErrorMatches, "original Joyent provider config is invalid: "+test.err)
 		}
 	}
 }
 
 var changeConfigTests = []struct {
 	info   string
-	insert testing.Attrs
+	insert coretesting.Attrs
 	remove []string
-	expect testing.Attrs
+	expect coretesting.Attrs
 	err    string
 }{{
 	info:   "no change, no error",
 	expect: validAttrs(),
 }, {
 	info:   "can change sdc-user",
-	insert: testing.Attrs{"sdc-user": "joyent_user"},
-	expect: testing.Attrs{"sdc-user": "joyent_user"},
+	insert: coretesting.Attrs{"sdc-user": "joyent_user"},
+	expect: coretesting.Attrs{"sdc-user": "joyent_user"},
 }, {
 	info:   "can change sdc-key-id",
-	insert: testing.Attrs{"sdc-key-id": "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a"},
-	expect: testing.Attrs{"sdc-key-id": "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a"},
+	insert: coretesting.Attrs{"sdc-key-id": "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00"},
+	expect: coretesting.Attrs{"sdc-key-id": "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00"},
 }, {
-	info:   "can change sdc-region",
-	insert: testing.Attrs{"sdc-region": "us-west-1"},
-	expect: testing.Attrs{"sdc-region": "us-west-1"},
+	info:   "can change sdc-url",
+	insert: coretesting.Attrs{"sdc-url": "https://test.api.joyentcloud.com"},
+	expect: coretesting.Attrs{"sdc-url": "https://test.api.joyentcloud.com"},
 }, {
 	info:   "can change manta-user",
-	insert: testing.Attrs{"manta-user": "manta_user"},
-	expect: testing.Attrs{"manta-user": "manta_user"},
+	insert: coretesting.Attrs{"manta-user": "manta_user"},
+	expect: coretesting.Attrs{"manta-user": "manta_user"},
 }, {
 	info:   "can change manta-key-id",
-	insert: testing.Attrs{"manta-key-id": "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a"},
-	expect: testing.Attrs{"manta-key-id": "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a"},
+	insert: coretesting.Attrs{"manta-key-id": "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00"},
+	expect: coretesting.Attrs{"manta-key-id": "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00"},
 }, {
-	info:   "can change manta-region",
-	insert: testing.Attrs{"manta-region": "us-east"},
-	expect: testing.Attrs{"manta-region": "us-east"},
+	info:   "can change manta-url",
+	insert: coretesting.Attrs{"manta-url": "https://test.manta.joyent.com"},
+	expect: coretesting.Attrs{"manta-url": "https://test.manta.joyent.com"},
 }, {
 	info:   "can insert unknown field",
-	insert: testing.Attrs{"unknown": "ignoti"},
-	expect: testing.Attrs{"unknown": "ignoti"},
+	insert: coretesting.Attrs{"unknown": "ignoti"},
+	expect: coretesting.Attrs{"unknown": "ignoti"},
 }}
 
 func (s *ConfigSuite) TestValidateChange(c *gc.C) {
@@ -216,15 +283,15 @@ func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
 		testConfig := newConfig(c, attrs)
-		validatedConfig, err := joyent.Provider.Validate(testConfig, baseConfig)
+		validatedConfig, err := jp.Provider.Validate(testConfig, baseConfig)
 		if test.err == "" {
-			c.Assert(err, gc.IsNil)
+			c.Check(err, gc.IsNil)
 			attrs := validatedConfig.AllAttrs()
 			for field, value := range test.expect {
 				c.Check(attrs[field], gc.Equals, value)
 			}
 		} else {
-			c.Assert(validatedConfig, gc.IsNil)
+			c.Check(validatedConfig, gc.IsNil)
 			c.Check(err, gc.ErrorMatches, "invalid config change: "+test.err)
 		}
 	}
@@ -241,7 +308,7 @@ func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 		err = environ.SetConfig(testConfig)
 		newAttrs := environ.Config().AllAttrs()
 		if test.err == "" {
-			c.Assert(err, gc.IsNil)
+			c.Check(err, gc.IsNil)
 			for field, value := range test.expect {
 				c.Check(newAttrs[field], gc.Equals, value)
 			}
@@ -254,48 +321,62 @@ func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 	}
 }
 
+func validPrepareAttrs() coretesting.Attrs {
+	return validAttrs().Delete("private-key")
+}
+
 var prepareConfigTests = []struct {
 	info   string
-	insert testing.Attrs
+	insert coretesting.Attrs
 	remove []string
-	expect testing.Attrs
+	expect coretesting.Attrs
 	err    string
 }{{
 	info:   "All value provided, nothig to do",
-	expect: validAttrs(),
+	expect: validPrepareAttrs(),
 }, {
-	info:   "can get sdc-user from env variable",
-	insert: testing.Attrs{"sdc-user": ""},
-	expect: testing.Attrs{"sdc-user": "tester"},
+	info:   "private key is loaded from key file",
+	insert: coretesting.Attrs{"private-key-path": fmt.Sprintf("~/.ssh/%s", testKeyFileName)},
+	expect: coretesting.Attrs{"private-key": testPrivateKey},
 }, {
-	info:   "can get sdc-key-id from env variable",
-	insert: testing.Attrs{"sdc-key-id": ""},
-	expect: testing.Attrs{"sdc-key-id": "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a"},
-}, {
-	info:   "can get manta-user from env variable",
-	insert: testing.Attrs{"manta-user": ""},
-	expect: testing.Attrs{"manta-user": "tester"},
-}, {
-	info:   "can get manta-key-id from env variable",
-	insert: testing.Attrs{"manta-key-id": ""},
-	expect: testing.Attrs{"manta-key-id": "11:c4:b6:c0:a3:24:22:96:a8:1f:07:53:3f:8e:14:7a"},
+	info:   "bad private-key-path errors, not panics",
+	insert: coretesting.Attrs{"private-key-path": "~/.ssh/no-such-file"},
+	err:    "invalid Joyent provider config: open .*: no such file or directory",
 }}
 
 func (s *ConfigSuite) TestPrepare(c *gc.C) {
+	ctx := coretesting.Context(c)
 	for i, test := range prepareConfigTests {
 		c.Logf("test %d: %s", i, test.info)
-		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
+		attrs := validPrepareAttrs().Merge(test.insert).Delete(test.remove...)
 		testConfig := newConfig(c, attrs)
-		preparedConfig, err := joyent.Provider.Prepare(testing.Context(c), testConfig)
+		preparedConfig, err := jp.Provider.Prepare(ctx, testConfig)
 		if test.err == "" {
-			c.Assert(err, gc.IsNil)
+			c.Check(err, gc.IsNil)
 			attrs := preparedConfig.Config().AllAttrs()
 			for field, value := range test.expect {
 				c.Check(attrs[field], gc.Equals, value)
 			}
 		} else {
-			c.Assert(preparedConfig, gc.IsNil)
-			c.Check(err, gc.ErrorMatches, "invalid prepare config: "+test.err)
+			c.Check(preparedConfig, gc.IsNil)
+			c.Check(err, gc.ErrorMatches, test.err)
 		}
 	}
+}
+
+func (s *ConfigSuite) TestPrepareWithDefaultKeyFile(c *gc.C) {
+	ctx := coretesting.Context(c)
+	// By default "private-key-path isn't set until after validateConfig has been called.
+	attrs := validAttrs().Delete("private-key-path", "private-key")
+	keyFilePath, err := utils.NormalizePath(jp.DefaultPrivateKey)
+	c.Assert(err, gc.IsNil)
+	err = ioutil.WriteFile(keyFilePath, []byte(testPrivateKey), 400)
+	c.Assert(err, gc.IsNil)
+	defer os.Remove(keyFilePath)
+	testConfig := newConfig(c, attrs)
+	preparedConfig, err := jp.Provider.Prepare(ctx, testConfig)
+	c.Assert(err, gc.IsNil)
+	attrs = preparedConfig.Config().AllAttrs()
+	c.Check(attrs["private-key-path"], gc.Equals, jp.DefaultPrivateKey)
+	c.Check(attrs["private-key"], gc.Equals, testPrivateKey)
 }

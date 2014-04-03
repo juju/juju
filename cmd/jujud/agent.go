@@ -6,26 +6,30 @@ package main
 import (
 	"fmt"
 	"io"
+	"sync"
 	"time"
 
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	apiagent "launchpad.net/juju-core/state/api/agent"
 	apideployer "launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/state/api/params"
 	apirsyslog "launchpad.net/juju-core/state/api/rsyslog"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/deployer"
 	"launchpad.net/juju-core/worker/rsyslog"
 	"launchpad.net/juju-core/worker/upgrader"
 )
+
+var apiOpen = api.Open
 
 // requiredError is useful when complaining about missing command-line options.
 func requiredError(name string) error {
@@ -35,24 +39,55 @@ func requiredError(name string) error {
 // AgentConf handles command-line flags shared by all agents.
 type AgentConf struct {
 	dataDir string
-	config  agent.Config
+	mu      sync.Mutex
+	_config agent.ConfigSetterWriter
 }
 
-// addFlags injects common agent flags into f.
-func (c *AgentConf) addFlags(f *gnuflag.FlagSet) {
+// AddFlags injects common agent flags into f.
+func (c *AgentConf) AddFlags(f *gnuflag.FlagSet) {
+	// TODO(dimitern) 2014-02-19 bug 1282025
+	// We need to pass a config location here instead and
+	// use it to locate the conf and the infer the data-dir
+	// from there instead of passing it like that.
 	f.StringVar(&c.dataDir, "data-dir", "/var/lib/juju", "directory for juju data")
 }
 
-func (c *AgentConf) checkArgs(args []string) error {
+func (c *AgentConf) CheckArgs(args []string) error {
 	if c.dataDir == "" {
 		return requiredError("data-dir")
 	}
 	return cmd.CheckEmpty(args)
 }
 
-func (c *AgentConf) read(tag string) (err error) {
-	c.config, err = agent.ReadConf(c.dataDir, tag)
-	return
+func (c *AgentConf) ReadConfig(tag string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	conf, err := agent.ReadConfig(agent.ConfigPath(c.dataDir, tag))
+	if err != nil {
+		return err
+	}
+	c._config = conf
+	return nil
+}
+
+func (ch *AgentConf) ChangeConfig(change func(c agent.ConfigSetter)) error {
+	ch.mu.Lock()
+	defer ch.mu.Unlock()
+	change(ch._config)
+	return ch._config.Write()
+}
+
+func (ch *AgentConf) CurrentConfig() agent.Config {
+	ch.mu.Lock()
+	defer ch.mu.Unlock()
+	return ch._config.Clone()
+}
+
+// SetAPIHostPorts satisfies worker/apiaddressupdater/APIAddressSetter.
+func (a *AgentConf) SetAPIHostPorts(servers [][]instance.HostPort) error {
+	return a.ChangeConfig(func(c agent.ConfigSetter) {
+		c.SetAPIHostPorts(servers)
+	})
 }
 
 func importance(err error) int {
@@ -81,8 +116,8 @@ func isUpgraded(err error) bool {
 }
 
 type Agent interface {
-	Entity(st *state.State) (AgentState, error)
 	Tag() string
+	ChangeConfig(func(agent.ConfigSetter)) error
 }
 
 // The AgentState interface is implemented by state types
@@ -148,53 +183,80 @@ func isleep(d time.Duration, stop <-chan struct{}) bool {
 	return true
 }
 
-func openState(agentConfig agent.Config, a Agent) (*state.State, AgentState, error) {
-	st, err := agentConfig.OpenState(environs.NewStatePolicy())
-	if err != nil {
-		return nil, nil, err
-	}
-	entity, err := a.Entity(st)
-	if errors.IsNotFoundError(err) || err == nil && entity.Life() == state.Dead {
-		err = worker.ErrTerminateAgent
-	}
-	if err != nil {
-		st.Close()
-		return nil, nil, err
-	}
-	return st, entity, nil
-}
-
 type apiOpener interface {
 	OpenAPI(api.DialOpts) (*api.State, string, error)
 }
 
-func openAPIState(agentConfig apiOpener, a Agent) (*api.State, *apiagent.Entity, error) {
+type configChanger func(c *agent.Config)
+
+// openAPIState opens the API using the given information, and
+// returns the opened state and the api entity with
+// the given tag. The given changeConfig function is
+// called if the password changes to set the password.
+func openAPIState(
+	agentConfig agent.Config,
+	a Agent,
+) (_ *api.State, _ *apiagent.Entity, err error) {
 	// We let the API dial fail immediately because the
 	// runner's loop outside the caller of openAPIState will
 	// keep on retrying. If we block for ages here,
 	// then the worker that's calling this cannot
 	// be interrupted.
-	st, newPassword, err := agentConfig.OpenAPI(api.DialOpts{})
+	info := agentConfig.APIInfo()
+	st, err := apiOpen(info, api.DialOpts{})
+	usedOldPassword := false
+	if params.IsCodeUnauthorized(err) {
+		// We've perhaps used the wrong password, so
+		// try again with the fallback password.
+		info := *info
+		info.Password = agentConfig.OldPassword()
+		usedOldPassword = true
+		st, err = apiOpen(&info, api.DialOpts{})
+	}
 	if err != nil {
 		if params.IsCodeNotProvisioned(err) {
-			err = worker.ErrTerminateAgent
+			return nil, nil, worker.ErrTerminateAgent
 		}
 		if params.IsCodeUnauthorized(err) {
-			err = worker.ErrTerminateAgent
+			return nil, nil, worker.ErrTerminateAgent
 		}
 		return nil, nil, err
 	}
+	defer func() {
+		if err != nil {
+			st.Close()
+		}
+	}()
 	entity, err := st.Agent().Entity(a.Tag())
-	unauthorized := params.IsCodeUnauthorized(err)
-	dead := err == nil && entity.Life() == params.Dead
-	if unauthorized || dead {
-		err = worker.ErrTerminateAgent
+	if err == nil && entity.Life() == params.Dead {
+		return nil, nil, worker.ErrTerminateAgent
 	}
 	if err != nil {
-		st.Close()
+		if params.IsCodeUnauthorized(err) {
+			return nil, nil, worker.ErrTerminateAgent
+		}
 		return nil, nil, err
 	}
-	if newPassword != "" {
+	if usedOldPassword {
+		// We succeeded in connecting with the fallback
+		// password, so we need to create a new password
+		// for the future.
+
+		newPassword, err := utils.RandomPassword()
+		if err != nil {
+			return nil, nil, err
+		}
+		// Change the configuration *before* setting the entity
+		// password, so that we avoid the possibility that
+		// we might successfully change the entity's
+		// password but fail to write the configuration,
+		// thus locking us out completely.
+		if err := a.ChangeConfig(func(c agent.ConfigSetter) {
+			c.SetPassword(newPassword)
+			c.SetOldPassword(info.Password)
+		}); err != nil {
+			return nil, nil, err
+		}
 		if err := entity.SetPassword(newPassword); err != nil {
 			return nil, nil, err
 		}
@@ -211,7 +273,7 @@ func agentDone(err error) error {
 	if ug, ok := err.(*upgrader.UpgradeReadyError); ok {
 		if err := ug.ChangeAgentTools(); err != nil {
 			// Return and let upstart deal with the restart.
-			return err
+			return log.LoggedErrorf(logger, "cannot change agent tools: %v", err)
 		}
 	}
 	return err

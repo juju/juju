@@ -5,7 +5,6 @@ package environs
 
 import (
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 )
 
@@ -23,12 +22,16 @@ func NewStatePolicy() state.Policy {
 }
 
 func (environStatePolicy) Prechecker(cfg *config.Config) (state.Prechecker, error) {
-	env, err := New(cfg)
-	if err != nil {
-		return nil, err
-	}
-	if p, ok := env.(state.Prechecker); ok {
-		return p, nil
-	}
-	return nil, errors.NewNotImplementedError("Prechecker")
+	// Environ implements state.Prechecker.
+	return New(cfg)
+}
+
+func (environStatePolicy) ConfigValidator(providerType string) (state.ConfigValidator, error) {
+	// EnvironProvider implements state.ConfigValidator.
+	return Provider(providerType)
+}
+
+func (environStatePolicy) EnvironCapability(cfg *config.Config) (state.EnvironCapability, error) {
+	// Environ implements state.EnvironCapability.
+	return New(cfg)
 }

@@ -10,6 +10,29 @@ import (
 	"launchpad.net/juju-core/tools"
 )
 
+// StartInstanceParams holds parameters for the
+// InstanceBroker.StartInstance method.
+type StartInstanceParams struct {
+	// Constraints is a set of constraints on
+	// the kind of instance to create.
+	Constraints constraints.Value
+
+	// Tools is a list of tools that may be used
+	// to start a Juju agent on the machine.
+	Tools tools.List
+
+	// MachineConfig describes the machine's configuration.
+	MachineConfig *cloudinit.MachineConfig
+
+	// DistributionGroup, if non-nil, is a function
+	// that returns a slice of instance.Ids that belong
+	// to the same distribution group as the machine
+	// being provisioned. The InstanceBroker may use
+	// this information to distribute instances for
+	// high availability.
+	DistributionGroup func() ([]instance.Id, error)
+}
+
 // TODO(wallyworld) - we want this in the environs/instance package but import loops
 // stop that from being possible right now.
 type InstanceBroker interface {
@@ -19,10 +42,7 @@ type InstanceBroker interface {
 	// unique within an environment, is used by juju to protect against the
 	// consequences of multiple instances being started with the same machine
 	// id.
-	StartInstance(
-		cons constraints.Value, possibleTools tools.List,
-		machineConfig *cloudinit.MachineConfig,
-	) (instance.Instance, *instance.HardwareCharacteristics, error)
+	StartInstance(args StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error)
 
 	// StopInstances shuts down the given instances.
 	StopInstances([]instance.Instance) error

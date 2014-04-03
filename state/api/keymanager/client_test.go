@@ -14,7 +14,6 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	keymanagerserver "launchpad.net/juju-core/state/apiserver/keymanager"
 	keymanagertesting "launchpad.net/juju-core/state/apiserver/keymanager/testing"
-	"launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/utils/ssh"
 	sshtesting "launchpad.net/juju-core/utils/ssh/testing"
 )
@@ -35,7 +34,7 @@ func (s *keymanagerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *keymanagerSuite) setAuthorisedKeys(c *gc.C, keys string) {
-	err := testing.UpdateConfig(s.BackingState, map[string]interface{}{"authorized-keys": keys})
+	err := s.BackingState.UpdateEnvironConfig(map[string]interface{}{"authorized-keys": keys}, nil, nil)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -44,7 +43,7 @@ func (s *keymanagerSuite) TestListKeys(c *gc.C) {
 	key2 := sshtesting.ValidKeyTwo.Key
 	s.setAuthorisedKeys(c, strings.Join([]string{key1, key2}, "\n"))
 
-	keyResults, err := s.keymanager.ListKeys(ssh.Fingerprints, "admin")
+	keyResults, err := s.keymanager.ListKeys(ssh.Fingerprints, state.AdminUser)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(keyResults), gc.Equals, 1)
 	result := keyResults[0]
@@ -80,7 +79,7 @@ func (s *keymanagerSuite) TestAddKeys(c *gc.C) {
 	s.setAuthorisedKeys(c, key1)
 
 	newKeys := []string{sshtesting.ValidKeyTwo.Key, sshtesting.ValidKeyThree.Key, "invalid"}
-	errResults, err := s.keymanager.AddKeys("admin", newKeys...)
+	errResults, err := s.keymanager.AddKeys(state.AdminUser, newKeys...)
 	c.Assert(err, gc.IsNil)
 	c.Assert(errResults, gc.DeepEquals, []params.ErrorResult{
 		{Error: nil},
@@ -124,7 +123,7 @@ func (s *keymanagerSuite) TestDeleteKeys(c *gc.C) {
 	initialKeys := []string{key1, key2, key3, "invalid"}
 	s.setAuthorisedKeys(c, strings.Join(initialKeys, "\n"))
 
-	errResults, err := s.keymanager.DeleteKeys("admin", sshtesting.ValidKeyTwo.Fingerprint, "user@host", "missing")
+	errResults, err := s.keymanager.DeleteKeys(state.AdminUser, sshtesting.ValidKeyTwo.Fingerprint, "user@host", "missing")
 	c.Assert(err, gc.IsNil)
 	c.Assert(errResults, gc.DeepEquals, []params.ErrorResult{
 		{Error: nil},
@@ -141,7 +140,7 @@ func (s *keymanagerSuite) TestImportKeys(c *gc.C) {
 	s.setAuthorisedKeys(c, key1)
 
 	keyIds := []string{"lp:validuser", "invalid-key"}
-	errResults, err := s.keymanager.ImportKeys("admin", keyIds...)
+	errResults, err := s.keymanager.ImportKeys(state.AdminUser, keyIds...)
 	c.Assert(err, gc.IsNil)
 	c.Assert(errResults, gc.DeepEquals, []params.ErrorResult{
 		{Error: nil},

@@ -5,7 +5,10 @@ package joyent
 
 import (
 	"fmt"
+	"io/ioutil"
+	"net/url"
 	"os"
+	"strings"
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/schema"
@@ -22,47 +25,71 @@ const boilerplateConfig = `joyent:
   # sdc-user: <secret>
   # Can be set via env variables, or specified here
   # sdc-key-id: <secret>
-  # region defaults to us-west-1, override if required
-  # sdc-region: us-west-1
+  # url defaults to us-west-1 DC, override if required
+  # sdc-url: https://us-west-1.api.joyentcloud.com
 
   # Manta config
   # Can be set via env variables, or specified here
   # manta-user: <secret>
   # Can be set via env variables, or specified here
   # manta-key-id: <secret>
-  # region defaults to us-east, override if required
-  # manta-region: us-east
+  # url defaults to us-east DC, override if required
+  # manta-url: https://us-east.manta.joyent.com
+
+  # Auth config
+  # private-key-path is the private key used to sign Joyent requests.
+  # Defaults to ~/.ssh/id_rsa, override if a different ssh key is used.
+  # Alternatively, you can supply "private-key" with the content of the private
+  # key instead supplying the path to a file.
+  # private-key-path: ~/.ssh/id_rsa
+  # algorithm defaults to rsa-sha256, override if required
+  # algorithm: rsa-sha256
 `
 
 const (
-	SdcAccount = "SDC_ACCOUNT"
-	SdcKeyId   = "SDC_KEY_ID"
-	SdcUrl     = "SDC_URL"
-	MantaUser  = "MANTA_USER"
-	MantaKeyId = "MANTA_KEY_ID"
-	MantaUrl   = "MANTA_URL"
+	SdcAccount          = "SDC_ACCOUNT"
+	SdcKeyId            = "SDC_KEY_ID"
+	SdcUrl              = "SDC_URL"
+	MantaUser           = "MANTA_USER"
+	MantaKeyId          = "MANTA_KEY_ID"
+	MantaUrl            = "MANTA_URL"
+	MantaPrivateKeyFile = "MANTA_PRIVATE_KEY_FILE"
+	DefaultPrivateKey   = "~/.ssh/id_rsa"
 )
 
 var environmentVariables = map[string]string{
-	"sdc-user":     SdcAccount,
-	"sdc-key-id":   SdcKeyId,
-	"manta-user":   MantaUser,
-	"manta-key-id": MantaKeyId,
+	"sdc-user":         SdcAccount,
+	"sdc-key-id":       SdcKeyId,
+	"sdc-url":          SdcUrl,
+	"manta-user":       MantaUser,
+	"manta-key-id":     MantaKeyId,
+	"manta-url":        MantaUrl,
+	"private-key-path": MantaPrivateKeyFile,
 }
 
 var configFields = schema.Fields{
-	"sdc-user":     schema.String(),
-	"sdc-key-id":   schema.String(),
-	"sdc-region":   schema.String(),
-	"manta-user":   schema.String(),
-	"manta-key-id": schema.String(),
-	"manta-region": schema.String(),
-	"control-dir":  schema.String(),
+	"sdc-user":         schema.String(),
+	"sdc-key-id":       schema.String(),
+	"sdc-url":          schema.String(),
+	"manta-user":       schema.String(),
+	"manta-key-id":     schema.String(),
+	"manta-url":        schema.String(),
+	"private-key-path": schema.String(),
+	"algorithm":        schema.String(),
+	"control-dir":      schema.String(),
+	"private-key":      schema.String(),
 }
 
-var configDefaultFields = schema.Defaults{
-	"sdc-region":   "us-west-1",
-	"manta-region": "us-east",
+var configDefaults = schema.Defaults{
+	"sdc-url":          "https://us-west-1.api.joyentcloud.com",
+	"manta-url":        "https://us-east.manta.joyent.com",
+	"algorithm":        "rsa-sha256",
+	"private-key-path": schema.Omit,
+	"sdc-user":         schema.Omit,
+	"sdc-key-id":       schema.Omit,
+	"manta-user":       schema.Omit,
+	"manta-key-id":     schema.Omit,
+	"private-key":      schema.Omit,
 }
 
 var configSecretFields = []string{
@@ -70,11 +97,15 @@ var configSecretFields = []string{
 	"sdc-key-id",
 	"manta-user",
 	"manta-key-id",
+	"private-key",
 }
 
 var configImmutableFields = []string{
-	"sdc-region",
-	"manta-region",
+	"sdc-url",
+	"manta-url",
+	"private-key-path",
+	"private-key",
+	"algorithm",
 }
 
 func prepareConfig(cfg *config.Config) (*config.Config, error) {
@@ -86,78 +117,82 @@ func prepareConfig(cfg *config.Config) (*config.Config, error) {
 		if err != nil {
 			return nil, err
 		}
-		attrs["control-bucket"] = fmt.Sprintf("%x", uuid.Raw())
+		attrs["control-dir"] = fmt.Sprintf("%x", uuid.Raw())
 	}
-
-	// Read env variables
-	for _, field := range configSecretFields {
-		// If field is not set, get it from env variables
-		if attrs[field] == "" {
-			localEnvVariable := os.Getenv(environmentVariables[field])
-			if localEnvVariable != "" {
-				attrs[field] = localEnvVariable
-			} else {
-				return nil, fmt.Errorf("cannot get %s value from environment variables %s", field, environmentVariables[field])
-			}
-		}
-	}
-
 	return cfg.Apply(attrs)
 }
 
-func validateConfig(cfg *config.Config, old *environConfig) (*environConfig, error) {
-	// Check sanity of juju-level fields.
-	var oldCfg *config.Config
-	if old != nil {
-		oldCfg = old.Config
-	}
-	if err := config.Validate(cfg, oldCfg); err != nil {
+func validateConfig(cfg, old *config.Config) (*environConfig, error) {
+	// Check for valid changes for the base config values.
+	if err := config.Validate(cfg, old); err != nil {
 		return nil, err
 	}
 
-	// Extract validated provider-specific fields. All of configFields will be
-	// present in validated, and defaults will be inserted if necessary. If the
-	// schema you passed in doesn't quite express what you need, you can make
-	// whatever checks you need here, before continuing.
-	// In particular, if you want to extract (say) credentials from the user's
-	// shell environment variables, you'll need to allow missing values to pass
-	// through the schema by setting a value of schema.Omit in the configFields
-	// map, and then to set and check them at this point. These values *must* be
-	// stored in newAttrs: a Config will be generated on the user's machine only
-	// to begin with, and will subsequently be used on a different machine that
-	// will probably not have those variables set.
-	newAttrs, err := cfg.ValidateUnknownAttrs(configFields, configDefaultFields)
+	newAttrs, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
 	if err != nil {
 		return nil, err
 	}
-	for field := range configFields {
-		if newAttrs[field] == "" {
-			return nil, fmt.Errorf("%s: must not be empty", field)
-		}
-	}
-
+	envConfig := &environConfig{cfg, newAttrs}
 	// If an old config was supplied, check any immutable fields have not changed.
 	if old != nil {
+		oldEnvConfig, err := validateConfig(old, nil)
+		if err != nil {
+			return nil, err
+		}
 		for _, field := range configImmutableFields {
-			if old.attrs[field] != newAttrs[field] {
+			if oldEnvConfig.attrs[field] != envConfig.attrs[field] {
 				return nil, fmt.Errorf(
 					"%s: cannot change from %v to %v",
-					field, old.attrs[field], newAttrs[field],
+					field, oldEnvConfig.attrs[field], envConfig.attrs[field],
 				)
 			}
 		}
 	}
 
-	// Merge the validated provider-specific fields into the original config,
-	// to ensure the object we return is internally consistent.
-	newCfg, err := cfg.Apply(newAttrs)
-	if err != nil {
-		return nil, err
+	// Read env variables to fill in any missing fields.
+	for field, envVar := range environmentVariables {
+		// If field is not set, get it from env variables
+		if fieldValue, ok := envConfig.attrs[field]; !ok || fieldValue == "" {
+			localEnvVariable := os.Getenv(envVar)
+			if localEnvVariable != "" {
+				envConfig.attrs[field] = localEnvVariable
+			} else {
+				if field != "private-key-path" {
+					return nil, fmt.Errorf("cannot get %s value from environment variable %s", field, envVar)
+				}
+			}
+		}
 	}
-	return &environConfig{
-		Config: newCfg,
-		attrs:  newAttrs,
-	}, nil
+
+	// Ensure private-key-path is set - if it's not in config or an env var, use a default value.
+	if v, ok := envConfig.attrs["private-key-path"]; !ok || v == "" {
+		v = os.Getenv(environmentVariables["private-key-path"])
+		if v == "" {
+			v = DefaultPrivateKey
+		}
+		envConfig.attrs["private-key-path"] = v
+	}
+	// Now that we've ensured private-key-path is properly set, we go back and set
+	// up the private key - this is used to sign requests.
+	if fieldValue, ok := envConfig.attrs["private-key"]; !ok || fieldValue == "" {
+		keyFile, err := utils.NormalizePath(envConfig.attrs["private-key-path"].(string))
+		if err != nil {
+			return nil, err
+		}
+		privateKey, err := ioutil.ReadFile(keyFile)
+		if err != nil {
+			return nil, err
+		}
+		envConfig.attrs["private-key"] = string(privateKey)
+	}
+
+	// Check for missing fields.
+	for field := range configFields {
+		if envConfig.attrs[field] == "" {
+			return nil, fmt.Errorf("%s: must not be empty", field)
+		}
+	}
+	return envConfig, nil
 }
 
 type environConfig struct {
@@ -165,8 +200,12 @@ type environConfig struct {
 	attrs map[string]interface{}
 }
 
-func (ecfg *environConfig) sdcRegion() string {
-	return ecfg.attrs["sdc-region"].(string)
+func (ecfg *environConfig) GetAttrs() map[string]interface{} {
+	return ecfg.attrs
+}
+
+func (ecfg *environConfig) sdcUrl() string {
+	return ecfg.attrs["sdc-url"].(string)
 }
 
 func (ecfg *environConfig) sdcUser() string {
@@ -177,8 +216,8 @@ func (ecfg *environConfig) sdcKeyId() string {
 	return ecfg.attrs["sdc-key-id"].(string)
 }
 
-func (ecfg *environConfig) mantaRegion() string {
-	return ecfg.attrs["manta-region"].(string)
+func (ecfg *environConfig) mantaUrl() string {
+	return ecfg.attrs["manta-url"].(string)
 }
 
 func (ecfg *environConfig) mantaUser() string {
@@ -189,6 +228,46 @@ func (ecfg *environConfig) mantaKeyId() string {
 	return ecfg.attrs["manta-key-id"].(string)
 }
 
+func (ecfg *environConfig) privateKey() string {
+	if v, ok := ecfg.attrs["private-key"]; ok {
+		return v.(string)
+	}
+	return ""
+}
+
+func (ecfg *environConfig) algorithm() string {
+	return ecfg.attrs["algorithm"].(string)
+}
+
 func (c *environConfig) controlDir() string {
 	return c.attrs["control-dir"].(string)
+}
+
+func (c *environConfig) ControlDir() string {
+	return c.controlDir()
+}
+
+func (ecfg *environConfig) SdcUrl() string {
+	return ecfg.sdcUrl()
+}
+
+func (ecfg *environConfig) Region() string {
+	sdcUrl := ecfg.sdcUrl()
+	// Check if running against local services
+	if isLocalhost(sdcUrl) {
+		return "some-region"
+	}
+	return sdcUrl[strings.LastIndex(sdcUrl, "/")+1 : strings.Index(sdcUrl, ".")]
+}
+
+func isLocalhost(u string) bool {
+	parsedUrl, err := url.Parse(u)
+	if err != nil {
+		return false
+	}
+	if strings.HasPrefix(parsedUrl.Host, "localhost") || strings.HasPrefix(parsedUrl.Host, "127.0.0.") {
+		return true
+	}
+
+	return false
 }

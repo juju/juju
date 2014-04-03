@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
@@ -16,7 +17,6 @@ import (
 	"launchpad.net/juju-core/environs/sync"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
@@ -125,7 +125,7 @@ var syncToolsCommandTests = []struct {
 func (s *syncToolsSuite) TestSyncToolsCommand(c *gc.C) {
 	for i, test := range syncToolsCommandTests {
 		c.Logf("test %d: %s", i, test.description)
-		targetEnv, err := environs.PrepareFromName("test-target", nullContext(), s.configStore)
+		targetEnv, err := environs.PrepareFromName("test-target", nullContext(c), s.configStore)
 		c.Assert(err, gc.IsNil)
 		called := false
 		syncTools = func(sctx *sync.SyncContext) error {

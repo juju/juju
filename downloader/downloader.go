@@ -26,19 +26,19 @@ type Status struct {
 
 // Download can download a file from the network.
 type Download struct {
-	tomb                           tomb.Tomb
-	done                           chan Status
-	disableSSLHostnameVerification bool
+	tomb                 tomb.Tomb
+	done                 chan Status
+	hostnameVerification utils.SSLHostnameVerification
 }
 
 // New returns a new Download instance downloading from the given URL
 // to the given directory. If dir is empty, it defaults to
 // os.TempDir(). If disableSSLHostnameVerification is true then a non-
 // validating http client will be used.
-func New(url, dir string, disableSSLHostnameVerification bool) *Download {
+func New(url, dir string, hostnameVerification utils.SSLHostnameVerification) *Download {
 	d := &Download{
-		done: make(chan Status),
-		disableSSLHostnameVerification: disableSSLHostnameVerification,
+		done:                 make(chan Status),
+		hostnameVerification: hostnameVerification,
 	}
 	go d.run(url, dir)
 	return d
@@ -62,7 +62,7 @@ func (d *Download) run(url, dir string) {
 	// TODO(dimitern) 2013-10-03 bug #1234715
 	// Add a testing HTTPS storage to verify the
 	// disableSSLHostnameVerification behavior here.
-	file, err := download(url, dir, d.disableSSLHostnameVerification)
+	file, err := download(url, dir, d.hostnameVerification)
 	if err != nil {
 		err = fmt.Errorf("cannot download %q: %v", url, err)
 	}
@@ -77,7 +77,7 @@ func (d *Download) run(url, dir string) {
 	}
 }
 
-func download(url, dir string, disableSSLHostnameVerification bool) (file *os.File, err error) {
+func download(url, dir string, hostnameVerification utils.SSLHostnameVerification) (file *os.File, err error) {
 	if dir == "" {
 		dir = os.TempDir()
 	}
@@ -91,10 +91,7 @@ func download(url, dir string, disableSSLHostnameVerification bool) (file *os.Fi
 		}
 	}()
 	// TODO(rog) make the download operation interruptible.
-	client := http.DefaultClient
-	if disableSSLHostnameVerification {
-		client = utils.GetNonValidatingHTTPClient()
-	}
+	client := utils.GetHTTPClient(hostnameVerification)
 	resp, err := client.Get(url)
 	if err != nil {
 		return nil, err

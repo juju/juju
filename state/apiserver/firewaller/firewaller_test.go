@@ -6,6 +6,7 @@ package firewaller_test
 import (
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/errors"
@@ -19,7 +20,6 @@ import (
 	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 func Test(t *stdtesting.T) {
@@ -189,12 +189,14 @@ func (s *firewallerSuite) TestInstanceId(c *gc.C) {
 func (s *firewallerSuite) TestWatchEnvironMachines(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
-	result, err := s.firewaller.WatchEnvironMachines()
+	got, err := s.firewaller.WatchEnvironMachines()
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, jc.DeepEquals, params.StringsWatchResult{
+	want := params.StringsWatchResult{
 		StringsWatcherId: "1",
 		Changes:          []string{"0", "1", "2"},
-	})
+	}
+	c.Assert(got.StringsWatcherId, gc.Equals, want.StringsWatcherId)
+	c.Assert(got.Changes, jc.SameContents, want.Changes)
 
 	// Verify the resources were registered and stop them when done.
 	c.Assert(s.resources.Count(), gc.Equals, 1)

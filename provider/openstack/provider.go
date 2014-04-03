@@ -11,7 +11,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"regexp"
-	"strings"
 	"sync"
 	"time"
 
@@ -24,7 +23,6 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
@@ -32,6 +30,7 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
@@ -67,59 +66,75 @@ func (p environProvider) BoilerplateConfig() string {
 # https://juju.ubuntu.com/docs/config-openstack.html
 openstack:
     type: openstack
-    # use-floating-ip specifies whether a floating IP address is required
-    # to give the nodes a public IP address. Some installations assign public IP
-    # addresses by default without requiring a floating IP address.
+
+    # use-floating-ip specifies whether a floating IP address is
+    # required to give the nodes a public IP address. Some
+    # installations assign public IP addresses by default without
+    # requiring a floating IP address.
+    #
     # use-floating-ip: false
 
-    # use-default-secgroup specifies whether new machine instances should have the "default"
-    # Openstack security group assigned.
+    # use-default-secgroup specifies whether new machine instances
+    # should have the "default" Openstack security group assigned.
+    #
     # use-default-secgroup: false
 
-    # network specifies the network label or uuid to bring machines up on, in
-    # the case where multiple networks exist. It may be omitted otherwise.
+    # network specifies the network label or uuid to bring machines up
+    # on, in the case where multiple networks exist. It may be omitted
+    # otherwise.
+    #
     # network: <your network label or uuid>
 
-    # tools-metadata-url specifies the location of the Juju tools and metadata. It defaults to the
-    # global public tools metadata location https://streams.canonical.com/tools.
-    # tools-metadata-url:  https://you-tools-metadata-url
+    # tools-metadata-url specifies the location of the Juju tools and
+    # metadata. It defaults to the global public tools metadata
+    # location https://streams.canonical.com/tools.
+    #
+    # tools-metadata-url:  https://your-tools-metadata-url
 
-    # image-metadata-url specifies the location of Ubuntu cloud image metadata. It defaults to the
-    # global public image metadata location https://cloud-images.ubuntu.com/releases.
-    # image-metadata-url:  https://you-tools-metadata-url
+    # image-metadata-url specifies the location of Ubuntu cloud image
+    # metadata. It defaults to the global public image metadata
+    # location https://cloud-images.ubuntu.com/releases.
+    #
+    # image-metadata-url:  https://your-image-metadata-url
 
-    # image-stream chooses a simplestreams stream to select OS images from,
-    # for example daily or released images (or any other stream available on simplestreams).
+    # image-stream chooses a simplestreams stream to select OS images
+    # from, for example daily or released images (or any other stream
+    # available on simplestreams).
+    #
     # image-stream: "released"
 
-    # auth-url defaults to the value of the environment variable OS_AUTH_URL,
-    # but can be specified here.
+    # auth-url defaults to the value of the environment variable
+    # OS_AUTH_URL, but can be specified here.
+    #
     # auth-url: https://yourkeystoneurl:443/v2.0/
 
-    # tenant-name holds the openstack tenant name. It defaults to
-    # the environment variable OS_TENANT_NAME.
+    # tenant-name holds the openstack tenant name. It defaults to the
+    # environment variable OS_TENANT_NAME.
+    #
     # tenant-name: <your tenant name>
 
-    # region holds the openstack region.  It defaults to
-    # the environment variable OS_REGION_NAME.
+    # region holds the openstack region. It defaults to the
+    # environment variable OS_REGION_NAME.
+    #
     # region: <your region>
 
-    # The auth-mode, username and password attributes
-    # are used for userpass authentication (the default).
-
+    # The auth-mode, username and password attributes are used for
+    # userpass authentication (the default).
+    #
     # auth-mode holds the authentication mode. For user-password
-    # authentication, auth-mode should be "userpass" and username
-    # and password should be set appropriately; they default to
-    # the environment variables OS_USERNAME and OS_PASSWORD
-     # respectively.
+    # authentication, auth-mode should be "userpass" and username and
+    # password should be set appropriately; they default to the
+    # environment variables OS_USERNAME and OS_PASSWORD respectively.
+    #
     # auth-mode: userpass
     # username: <your username>
     # password: <secret>
-     
-    # For key-pair authentication, auth-mode should  be "keypair"
-    # and access-key and secret-key should be  set appropriately; they default to
-    # the environment variables OS_ACCESS_KEY and OS_SECRET_KEY
-    # respectively.
+
+    # For key-pair authentication, auth-mode should be "keypair" and
+    # access-key and secret-key should be set appropriately; they
+    # default to the environment variables OS_ACCESS_KEY and
+    # OS_SECRET_KEY respectively.
+    #
     # auth-mode: keypair
     # access-key: <secret>
     # secret-key: <secret>
@@ -127,45 +142,59 @@ openstack:
 # https://juju.ubuntu.com/docs/config-hpcloud.html
 hpcloud:
     type: openstack
-    
-    # use-floating-ip specifies whether a floating IP address is required
-    # to give the nodes a public IP address. Some installations assign public IP
-    # addresses by default without requiring a floating IP address.
+
+    # use-floating-ip specifies whether a floating IP address is
+    # required to give the nodes a public IP address. Some
+    # installations assign public IP addresses by default without
+    # requiring a floating IP address.
+    #
     # use-floating-ip: false
 
-    # use-default-secgroup specifies whether new machine instances should have the "default"
-    # Openstack security group assigned.
+    # use-default-secgroup specifies whether new machine instances
+    # should have the "default" Openstack security group assigned.
+    #
     # use-default-secgroup: false
 
-    # tenant-name holds the openstack tenant name. In HPCloud, this is 
-    # synonymous with the project-name  It defaults to
-    # the environment variable OS_TENANT_NAME.
+    # tenant-name holds the openstack tenant name. In HPCloud, this is
+    # synonymous with the project-name It defaults to the environment
+    # variable OS_TENANT_NAME.
+    #
     # tenant-name: <your tenant name>
-    
-    # auth-url holds the keystone url for authentication. 
-    # It defaults to the value of the environment variable OS_AUTH_URL.
+
+    # image-stream chooses a simplestreams stream to select OS images
+    # from, for example daily or released images (or any other stream
+    # available on simplestreams).
+    #
+    # image-stream: "released"
+
+    # auth-url holds the keystone url for authentication. It defaults
+    # to the value of the environment variable OS_AUTH_URL.
+    #
     # auth-url: https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0/
 
-    # region holds the HP Cloud region (e.g. az-1.region-a.geo-1).  
-    # It defaults to the environment variable OS_REGION_NAME.
+    # region holds the HP Cloud region (e.g. az-1.region-a.geo-1). It
+    # defaults to the environment variable OS_REGION_NAME.
+    #
     # region: <your region>
-    
+
     # auth-mode holds the authentication mode. For user-password
-    # authentication, auth-mode should be "userpass" and username
-    # and password should be set appropriately; they default to
-    # the environment variables OS_USERNAME and OS_PASSWORD
-    # respectively.
+    # authentication, auth-mode should be "userpass" and username and
+    # password should be set appropriately; they default to the
+    # environment variables OS_USERNAME and OS_PASSWORD respectively.
+    #
     # auth-mode: userpass
     # username: <your_username>
     # password: <your_password>
-    
-    # For key-pair authentication, auth-mode should  be "keypair"
-    # and access-key and secret-key should be  set appropriately; they default to
-    # the environment variables OS_ACCESS_KEY and OS_SECRET_KEY
-    # respectively.
+
+    # For key-pair authentication, auth-mode should be "keypair" and
+    # access-key and secret-key should be set appropriately; they
+    # default to the environment variables OS_ACCESS_KEY and
+    # OS_SECRET_KEY respectively.
+    #
     # auth-mode: keypair
     # access-key: <secret>
     # secret-key: <secret>
+
 `[1:]
 }
 
@@ -204,7 +233,7 @@ func (p environProvider) MetadataLookupParams(region string) (*simplestreams.Met
 	}
 	return &simplestreams.MetadataLookupParams{
 		Region:        region,
-		Architectures: []string{"amd64", "arm", "arm64"},
+		Architectures: arch.AllSupportedArches,
 	}, nil
 }
 
@@ -218,36 +247,6 @@ func (p environProvider) SecretAttrs(cfg *config.Config) (map[string]string, err
 	m["password"] = ecfg.password()
 	m["tenant-name"] = ecfg.tenantName()
 	return m, nil
-}
-
-func (p environProvider) PublicAddress() (string, error) {
-	if addr, err := fetchMetadata("public-ipv4"); err != nil {
-		return "", err
-	} else if addr != "" {
-		return addr, nil
-	}
-	return p.PrivateAddress()
-}
-
-func (p environProvider) PrivateAddress() (string, error) {
-	return fetchMetadata("local-ipv4")
-}
-
-// metadataHost holds the address of the instance metadata service.
-// It is a variable so that tests can change it to refer to a local
-// server when needed.
-var metadataHost = "http://169.254.169.254"
-
-// fetchMetadata fetches a single atom of data from the openstack instance metadata service.
-// http://docs.amazonwebservices.com/AWSEC2/latest/UserGuide/AESDG-chapter-instancedata.html
-// (the same specs is implemented in ec2, hence the reference)
-func fetchMetadata(name string) (value string, err error) {
-	uri := fmt.Sprintf("%s/latest/meta-data/%s", metadataHost, name)
-	data, err := retryGet(uri)
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(data)), nil
 }
 
 func retryGet(uri string) (data []byte, err error) {
@@ -276,7 +275,16 @@ func retryGet(uri string) (data []byte, err error) {
 }
 
 type environ struct {
+	common.NopPrecheckerPolicy
+	common.SupportsUnitPlacementPolicy
+
 	name string
+
+	// archMutex gates access to supportedArchitectures
+	archMutex sync.Mutex
+	// supportedArchitectures caches the architectures
+	// for which images can be instantiated.
+	supportedArchitectures []string
 
 	ecfgMutex       sync.Mutex
 	imageBaseMutex  sync.Mutex
@@ -487,6 +495,33 @@ func (e *environ) Name() string {
 	return e.name
 }
 
+// SupportedArchitectures is specified on the EnvironCapability interface.
+func (e *environ) SupportedArchitectures() ([]string, error) {
+	e.archMutex.Lock()
+	defer e.archMutex.Unlock()
+	if e.supportedArchitectures != nil {
+		return e.supportedArchitectures, nil
+	}
+	// Create a filter to get all images from our region and for the correct stream.
+	cloudSpec, err := e.Region()
+	if err != nil {
+		return nil, err
+	}
+	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+		CloudSpec: cloudSpec,
+		Stream:    e.Config().ImageStream(),
+	})
+	e.supportedArchitectures, err = common.SupportedArchitectures(e, imageConstraint)
+	return e.supportedArchitectures, err
+}
+
+// SupportNetworks is specified on the EnvironCapability interface.
+func (e *environ) SupportNetworks() bool {
+	// TODO(dimitern) Once we have support for networking, inquire
+	// about capabilities and return true if supported.
+	return false
+}
+
 func (e *environ) Storage() storage.Storage {
 	e.ecfgMutex.Lock()
 	stor := e.storageUnlocked
@@ -589,9 +624,9 @@ func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams base URL from keystone if it is defined.
 	productStreamsURL, err := e.client.MakeServiceURL("product-streams", nil)
 	if err == nil {
-		verify := simplestreams.VerifySSLHostnames
+		verify := utils.VerifySSLHostnames
 		if !e.Config().SSLHostnameVerification() {
-			verify = simplestreams.NoVerifySSLHostnames
+			verify = utils.NoVerifySSLHostnames
 		}
 		source := simplestreams.NewURLDataSource("keystone catalog", productStreamsURL, verify)
 		e.imageSources = append(e.imageSources, source)
@@ -613,9 +648,9 @@ func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 			return nil, err
 		}
 	}
-	verify := simplestreams.VerifySSLHostnames
+	verify := utils.VerifySSLHostnames
 	if !e.Config().SSLHostnameVerification() {
-		verify = simplestreams.NoVerifySSLHostnames
+		verify = utils.NoVerifySSLHostnames
 	}
 	// Add the simplestreams source off the control bucket.
 	e.toolsSources = append(e.toolsSources, storage.NewStorageSimpleStreamsDataSource(
@@ -711,31 +746,34 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List,
-	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
 
-	series := possibleTools.OneSeries()
-	arches := possibleTools.Arches()
+	if args.MachineConfig.HasNetworks() {
+		return nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
+	}
+
+	series := args.Tools.OneSeries()
+	arches := args.Tools.Arches()
 	spec, err := findInstanceSpec(e, &instances.InstanceConstraint{
 		Region:      e.ecfg().region(),
 		Series:      series,
 		Arches:      arches,
-		Constraints: cons,
+		Constraints: args.Constraints,
 	})
 	if err != nil {
 		return nil, nil, err
 	}
-	tools, err := possibleTools.Match(tools.Filter{Arch: spec.Image.Arch})
+	tools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
 		return nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
-	machineConfig.Tools = tools[0]
+	args.MachineConfig.Tools = tools[0]
 
-	if err := environs.FinishMachineConfig(machineConfig, e.Config(), cons); err != nil {
+	if err := environs.FinishMachineConfig(args.MachineConfig, e.Config(), args.Constraints); err != nil {
 		return nil, nil, err
 	}
-	userData, err := environs.ComposeUserData(machineConfig)
+	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot make user data: %v", err)
 	}
@@ -761,7 +799,7 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 		}
 	}
 	cfg := e.Config()
-	groups, err := e.setUpGroups(machineConfig.MachineId, cfg.StatePort(), cfg.APIPort())
+	groups, err := e.setUpGroups(args.MachineConfig.MachineId, cfg.StatePort(), cfg.APIPort())
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
@@ -770,7 +808,7 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List
 		groupNames[i] = nova.SecurityGroupName{g.Name}
 	}
 	var opts = nova.RunServerOpts{
-		Name:               e.machineFullName(machineConfig.MachineId),
+		Name:               e.machineFullName(args.MachineConfig.MachineId),
 		FlavorId:           spec.InstanceType.Id,
 		ImageId:            spec.Image.Id,
 		UserData:           userData,
@@ -1193,18 +1231,26 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 	if region == "" {
 		region = e.ecfg().region()
 	}
+	cloudSpec, err := e.cloudSpec(region)
+	if err != nil {
+		return nil, err
+	}
 	return &simplestreams.MetadataLookupParams{
 		Series:        e.ecfg().DefaultSeries(),
-		Region:        region,
-		Endpoint:      e.ecfg().authURL(),
-		Architectures: []string{"amd64", "arm", "arm64"},
+		Region:        cloudSpec.Region,
+		Endpoint:      cloudSpec.Endpoint,
+		Architectures: arch.AllSupportedArches,
 	}, nil
 }
 
 // Region is specified in the HasRegion interface.
 func (e *environ) Region() (simplestreams.CloudSpec, error) {
+	return e.cloudSpec(e.ecfg().region())
+}
+
+func (e *environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 	return simplestreams.CloudSpec{
-		Region:   e.ecfg().region(),
+		Region:   region,
 		Endpoint: e.ecfg().authURL(),
 	}, nil
 }

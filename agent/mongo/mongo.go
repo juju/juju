@@ -1,14 +1,19 @@
 package mongo
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
+	"labix.org/v2/mgo"
+	"net"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 
-	"github.com/loggo/loggo"
-
+	"github.com/juju/loggo"
+	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/replicaset"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
 )
@@ -16,6 +21,10 @@ import (
 const (
 	maxFiles = 65000
 	maxProcs = 20000
+
+	// SharedSecretFile is the name of the Mongo shared secret file
+	// located within the Juju data directory.
+	SharedSecretFile = "shared-secret"
 )
 
 var (
@@ -25,7 +34,80 @@ var (
 
 	// JujuMongodPath holds the default path to the juju-specific mongod.
 	JujuMongodPath = "/usr/lib/juju/bin/mongod"
+	// MongodbServerPath holds the default path to the generic mongod.
+	MongodbServerPath = "/usr/bin/mongod"
 )
+
+// WithAddresses represents an entity that has a set of
+// addresses. e.g. a state Machine object
+type WithAddresses interface {
+	Addresses() []instance.Address
+}
+
+// IsMaster returns a boolean that represents whether the given
+// machine's peer address is the primary mongo host for the replicaset
+func IsMaster(session *mgo.Session, obj WithAddresses) (bool, error) {
+	addrs := obj.Addresses()
+
+	masterHostPort, err := replicaset.MasterHostPort(session)
+	if err != nil {
+		return false, err
+	}
+
+	masterAddr, _, err := net.SplitHostPort(masterHostPort)
+	if err != nil {
+		return false, err
+	}
+
+	machinePeerAddr := SelectPeerAddress(addrs)
+	return machinePeerAddr == masterAddr, nil
+}
+
+// SelectPeerAddress returns the address to use as the
+// mongo replica set peer address by selecting it from the given addresses.
+func SelectPeerAddress(addrs []instance.Address) string {
+	return instance.SelectInternalAddress(addrs, false)
+}
+
+// SelectPeerHostPort returns the HostPort to use as the
+// mongo replica set peer by selecting it from the given hostPorts.
+func SelectPeerHostPort(hostPorts []instance.HostPort) string {
+	return instance.SelectInternalHostPort(hostPorts, false)
+}
+
+// GenerateSharedSecret generates a pseudo-random shared secret (keyfile)
+// for use with Mongo replica sets.
+func GenerateSharedSecret() (string, error) {
+	// "A key’s length must be between 6 and 1024 characters and may
+	// only contain characters in the base64 set."
+	//   -- http://docs.mongodb.org/manual/tutorial/generate-key-file/
+	buf := make([]byte, base64.StdEncoding.DecodedLen(1024))
+	if _, err := rand.Read(buf); err != nil {
+		return "", fmt.Errorf("cannot read random secret: %v", err)
+	}
+	return base64.StdEncoding.EncodeToString(buf), nil
+}
+
+// MongoPackageForSeries returns the name of the mongo package for the series
+// of the machine that it is going to be running on.
+func MongoPackageForSeries(series string) string {
+	switch series {
+	case "precise", "quantal", "raring", "saucy":
+		return "mongodb-server"
+	default:
+		// trusty and onwards
+		return "juju-mongodb"
+	}
+}
+
+// MongodPathForSeries returns the path to the mongod executable for the
+// series of the machine that it is going to be running on.
+func MongodPathForSeries(series string) string {
+	if series == "trusty" {
+		return JujuMongodPath
+	}
+	return MongodbServerPath
+}
 
 // MongoPath returns the executable path to be used to run mongod on this
 // machine. If the juju-bundled version of mongo exists, it will return that
@@ -48,8 +130,12 @@ func MongodPath() (string, error) {
 // This method will remove old versions of the mongo upstart script as necessary
 // before installing the new version.
 func EnsureMongoServer(dir string, port int) error {
+	// NOTE: ensure that the right package is installed?
 	name := makeServiceName(mongoScriptVersion)
-	service, err := MongoUpstartService(name, dir, port)
+	// TODO: get the series from somewhere, non trusty values return
+	// the existing default path.
+	mongodPath := MongodPathForSeries("some-series")
+	service, err := MongoUpstartService(name, mongodPath, dir, port)
 	if err != nil {
 		return err
 	}
@@ -131,18 +217,15 @@ const mongoScriptVersion = 2
 
 // MongoUpstartService returns the upstart config for the mongo state service.
 //
-// This method assumes there is a server.pem keyfile in dataDir.
-func MongoUpstartService(name, dataDir string, port int) (*upstart.Conf, error) {
+// This method assumes there exist "server.pem" and "shared_secret" keyfiles in dataDir.
+func MongoUpstartService(name, mongodExec, dataDir string, port int) (*upstart.Conf, error) {
 
-	keyFile := path.Join(dataDir, "server.pem")
+	sslKeyFile := path.Join(dataDir, "server.pem")
+	// TODO(Nate): uncomment when we commit HA stuff
+	//keyFile := path.Join(dataDir, SharedSecretFile)
 	svc := upstart.NewService(name)
 
 	dbDir := path.Join(dataDir, "db")
-
-	mongodpath, err := MongodPath()
-	if err != nil {
-		return nil, err
-	}
 
 	conf := &upstart.Conf{
 		Service: *svc,
@@ -151,11 +234,11 @@ func MongoUpstartService(name, dataDir string, port int) (*upstart.Conf, error) 
 			"nofile": fmt.Sprintf("%d %d", maxFiles, maxFiles),
 			"nproc":  fmt.Sprintf("%d %d", maxProcs, maxProcs),
 		},
-		Cmd: mongodpath +
+		Cmd: mongodExec +
 			" --auth" +
 			" --dbpath=" + dbDir +
 			" --sslOnNormalPorts" +
-			" --sslPEMKeyFile " + utils.ShQuote(keyFile) +
+			" --sslPEMKeyFile " + utils.ShQuote(sslKeyFile) +
 			" --sslPEMKeyPassword ignored" +
 			" --bind_ip 0.0.0.0" +
 			" --port " + fmt.Sprint(port) +
@@ -164,7 +247,8 @@ func MongoUpstartService(name, dataDir string, port int) (*upstart.Conf, error) 
 			" --smallfiles",
 		// TODO(Nate): uncomment when we commit HA stuff
 		// +
-		//	" --replSet juju",
+		//	" --replSet juju" +
+		//	" --keyFile " + utils.ShQuote(keyFile),
 	}
 	return conf, nil
 }

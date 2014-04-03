@@ -8,13 +8,14 @@ import (
 	"strings"
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/upgrades"
 	"launchpad.net/juju-core/version"
@@ -76,10 +77,11 @@ func (u *mockUpgradeStep) Run(context upgrades.Context) error {
 }
 
 type mockContext struct {
-	messages    []string
-	agentConfig *mockAgentConfig
-	apiState    *api.State
-	state       *state.State
+	messages        []string
+	agentConfig     *mockAgentConfig
+	realAgentConfig agent.ConfigSetter
+	apiState        *api.State
+	state           *state.State
 }
 
 func (c *mockContext) APIState() *api.State {
@@ -90,16 +92,21 @@ func (c *mockContext) State() *state.State {
 	return c.state
 }
 
-func (c *mockContext) AgentConfig() agent.Config {
+func (c *mockContext) AgentConfig() agent.ConfigSetter {
+	if c.realAgentConfig != nil {
+		return c.realAgentConfig
+	}
 	return c.agentConfig
 }
 
 type mockAgentConfig struct {
-	agent.Config
+	agent.ConfigSetter
 	dataDir      string
+	logDir       string
 	tag          string
-	namespace    string
+	jobs         []params.MachineJob
 	apiAddresses []string
+	values       map[string]string
 }
 
 func (mock *mockAgentConfig) Tag() string {
@@ -110,15 +117,20 @@ func (mock *mockAgentConfig) DataDir() string {
 	return mock.dataDir
 }
 
+func (mock *mockAgentConfig) LogDir() string {
+	return mock.logDir
+}
+
+func (mock *mockAgentConfig) Jobs() []params.MachineJob {
+	return mock.jobs
+}
+
 func (mock *mockAgentConfig) APIAddresses() ([]string, error) {
 	return mock.apiAddresses, nil
 }
 
 func (mock *mockAgentConfig) Value(name string) string {
-	if name == agent.Namespace {
-		return mock.namespace
-	}
-	return ""
+	return mock.values[name]
 }
 
 func targets(targets ...upgrades.Target) (upgradeTargets []upgrades.Target) {

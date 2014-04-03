@@ -6,7 +6,6 @@ package rsyslog
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/user"
 	"strconv"
@@ -15,11 +14,13 @@ import (
 	"github.com/errgo/errgo"
 	"github.com/juju/loggo"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/names"
 	apirsyslog "launchpad.net/juju-core/state/api/rsyslog"
 	"launchpad.net/juju-core/state/api/watcher"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker"
 )
 
@@ -27,7 +28,7 @@ var logger = loggo.GetLogger("juju.worker.rsyslog")
 
 var (
 	rsyslogConfDir = "/etc/rsyslog.d"
-	logDir         = "/var/log/juju"
+	logDir         = agent.DefaultLogDir
 )
 
 // RsyslogMode describes how to configure rsyslog.
@@ -72,15 +73,20 @@ func NewRsyslogConfigWorker(st *apirsyslog.State, mode RsyslogMode, tag, namespa
 	if err != nil {
 		return nil, err
 	}
+	logger.Debugf("starting rsyslog worker mode %v for %q %q", mode, tag, namespace)
 	return worker.NewNotifyWorker(handler), nil
 }
 
 func newRsyslogConfigHandler(st *apirsyslog.State, mode RsyslogMode, tag, namespace string, stateServerAddrs []string) (*RsyslogConfigHandler, error) {
 	var syslogConfig *syslog.SyslogConfig
 	if mode == RsyslogModeAccumulate {
-		syslogConfig = syslog.NewAccumulateConfig(tag, 0, namespace)
+		syslogConfig = syslog.NewAccumulateConfig(
+			tag, logDir, 0, namespace,
+		)
 	} else {
-		syslogConfig = syslog.NewForwardConfig(tag, 0, namespace, stateServerAddrs)
+		syslogConfig = syslog.NewForwardConfig(
+			tag, logDir, 0, namespace, stateServerAddrs,
+		)
 	}
 
 	// Historically only machine-0 includes the namespace in the log
@@ -244,14 +250,16 @@ func (h *RsyslogConfigHandler) ensureCertificates() error {
 }
 
 func writeFileAtomic(path string, data []byte, mode os.FileMode, uid, gid int) error {
-	temp := path + ".temp"
-	if err := ioutil.WriteFile(temp, data, mode); err != nil {
-		return err
-	}
-	if uid != 0 {
-		if err := os.Chown(temp, uid, gid); err != nil {
+	chmodAndChown := func(f *os.File) error {
+		if err := f.Chmod(mode); err != nil {
 			return err
 		}
+		if uid != 0 {
+			if err := f.Chown(uid, gid); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
-	return os.Rename(temp, path)
+	return utils.AtomicWriteFileAndChange(path, data, chmodAndChown)
 }

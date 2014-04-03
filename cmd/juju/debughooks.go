@@ -12,7 +12,6 @@ import (
 	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state/api/params"
 	unitdebug "launchpad.net/juju-core/worker/uniter/debug"
 )
 
@@ -55,52 +54,12 @@ func (c *DebugHooksCommand) Init(args []string) error {
 	return nil
 }
 
-// getRelationNames1dot16 gets the list of relation hooks directly from the
-// database, in a fashion compatible with the API server in Juju 1.16 (which
-// doesn't have the ServiceCharmRelations API). This function can be removed
-// when we no longer maintain compatibility with 1.16
-func (c *DebugHooksCommand) getRelationNames1dot16() ([]string, error) {
-	err := c.ensureRawConn()
-	if err != nil {
-		return nil, err
-	}
-	unit, err := c.rawConn.State.Unit(c.Target)
-	if err != nil {
-		return nil, err
-	}
-	service, err := unit.Service()
-	if err != nil {
-		return nil, err
-	}
-	endpoints, err := service.Endpoints()
-	if err != nil {
-		return nil, err
-	}
-	relations := make([]string, len(endpoints))
-	for i, endpoint := range endpoints {
-		relations[i] = endpoint.Relation.Name
-	}
-	return relations, nil
-}
-
-func (c *DebugHooksCommand) getRelationNames(serviceName string) ([]string, error) {
-	relations, err := c.apiClient.ServiceCharmRelations(serviceName)
-	if params.IsCodeNotImplemented(err) {
-		logger.Infof("API server does not support Client.ServiceCharmRelations falling back to 1.16 compatibility mode (direct DB access)")
-		return c.getRelationNames1dot16()
-	}
-	if err != nil {
-		return nil, err
-	}
-	return relations, err
-}
-
 func (c *DebugHooksCommand) validateHooks() error {
 	if len(c.hooks) == 0 {
 		return nil
 	}
 	service := names.UnitService(c.Target)
-	relations, err := c.getRelationNames(service)
+	relations, err := c.apiClient.ServiceCharmRelations(service)
 	if err != nil {
 		return err
 	}

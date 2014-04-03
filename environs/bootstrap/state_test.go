@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
@@ -18,7 +19,6 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
@@ -88,10 +88,9 @@ func (suite *StateSuite) TestDeleteStateFile(c *gc.C) {
 
 func (suite *StateSuite) TestSaveStateWritesStateFile(c *gc.C) {
 	stor := suite.newStorage(c)
-	arch := "amd64"
 	state := bootstrap.BootstrapState{
-		StateInstances:  []instance.Id{instance.Id("an-instance-id")},
-		Characteristics: []instance.HardwareCharacteristics{{Arch: &arch}}}
+		StateInstances: []instance.Id{instance.Id("an-instance-id")},
+	}
 	marshaledState, err := goyaml.Marshal(state)
 	c.Assert(err, gc.IsNil)
 
@@ -106,10 +105,9 @@ func (suite *StateSuite) TestSaveStateWritesStateFile(c *gc.C) {
 }
 
 func (suite *StateSuite) setUpSavedState(c *gc.C, dataDir string) bootstrap.BootstrapState {
-	arch := "amd64"
 	state := bootstrap.BootstrapState{
-		StateInstances:  []instance.Id{instance.Id("an-instance-id")},
-		Characteristics: []instance.HardwareCharacteristics{{Arch: &arch}}}
+		StateInstances: []instance.Id{instance.Id("an-instance-id")},
+	}
 	content, err := goyaml.Marshal(state)
 	c.Assert(err, gc.IsNil)
 	err = ioutil.WriteFile(filepath.Join(dataDir, bootstrap.StateFile), []byte(content), 0644)
@@ -125,33 +123,6 @@ func (suite *StateSuite) TestLoadStateReadsStateFile(c *gc.C) {
 	c.Check(*storedState, gc.DeepEquals, state)
 }
 
-func (suite *StateSuite) TestLoadStateFromURLReadsStateFile(c *gc.C) {
-	storage, dataDir := suite.newStorageWithDataDir(c)
-	state := suite.setUpSavedState(c, dataDir)
-	url, err := storage.URL(bootstrap.StateFile)
-	c.Assert(err, gc.IsNil)
-	storedState, err := bootstrap.LoadStateFromURL(url, false)
-	c.Assert(err, gc.IsNil)
-	c.Check(*storedState, gc.DeepEquals, state)
-}
-
-func (suite *StateSuite) TestLoadStateFromURLBadCert(c *gc.C) {
-	baseURL, _ := suite.testingHTTPSServer(c)
-	url := baseURL + "/" + bootstrap.StateFile
-	storedState, err := bootstrap.LoadStateFromURL(url, false)
-	c.Assert(err, gc.ErrorMatches, ".*/provider-state:.* certificate signed by unknown authority")
-	c.Assert(storedState, gc.IsNil)
-}
-
-func (suite *StateSuite) TestLoadStateFromURLBadCertPermitted(c *gc.C) {
-	baseURL, dataDir := suite.testingHTTPSServer(c)
-	state := suite.setUpSavedState(c, dataDir)
-	url := baseURL + "/" + bootstrap.StateFile
-	storedState, err := bootstrap.LoadStateFromURL(url, true)
-	c.Assert(err, gc.IsNil)
-	c.Check(*storedState, gc.DeepEquals, state)
-}
-
 func (suite *StateSuite) TestLoadStateMissingFile(c *gc.C) {
 	stor := suite.newStorage(c)
 	_, err := bootstrap.LoadState(stor)
@@ -160,10 +131,9 @@ func (suite *StateSuite) TestLoadStateMissingFile(c *gc.C) {
 
 func (suite *StateSuite) TestLoadStateIntegratesWithSaveState(c *gc.C) {
 	storage := suite.newStorage(c)
-	arch := "amd64"
 	state := bootstrap.BootstrapState{
-		StateInstances:  []instance.Id{instance.Id("an-instance-id")},
-		Characteristics: []instance.HardwareCharacteristics{{Arch: &arch}}}
+		StateInstances: []instance.Id{instance.Id("an-instance-id")},
+	}
 	err := bootstrap.SaveState(storage, &state)
 	c.Assert(err, gc.IsNil)
 	storedState, err := bootstrap.LoadState(storage)

@@ -9,6 +9,7 @@ import (
 	"io"
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	amzec2 "launchpad.net/goamz/ec2"
 	gc "launchpad.net/gocheck"
 
@@ -19,10 +20,10 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/ec2"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )
@@ -98,6 +99,12 @@ func (t *LiveTests) TearDownSuite(c *gc.C) {
 func (t *LiveTests) SetUpTest(c *gc.C) {
 	t.LoggingSuite.SetUpTest(c)
 	t.LiveTests.SetUpTest(c)
+	t.PatchValue(&version.Current, version.Binary{
+		Number: version.Current.Number,
+		Series: config.DefaultSeries,
+		Arch:   arch.AMD64,
+	})
+
 }
 
 func (t *LiveTests) TearDownTest(c *gc.C) {

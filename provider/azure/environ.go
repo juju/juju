@@ -16,7 +16,6 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
@@ -27,7 +26,7 @@ import (
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
 )
@@ -55,12 +54,21 @@ const (
 )
 
 type azureEnviron struct {
+	common.NopPrecheckerPolicy
+	common.SupportsUnitPlacementPolicy
+
 	// Except where indicated otherwise, all fields in this object should
 	// only be accessed using a lock or a snapshot.
 	sync.Mutex
 
 	// name is immutable; it does not need locking.
 	name string
+
+	// archMutex gates access to supportedArchitectures
+	archMutex sync.Mutex
+	// supportedArchitectures caches the architectures
+	// for which images can be instantiated.
+	supportedArchitectures []string
 
 	// ecfg is the environment's Azure-specific configuration.
 	ecfg *azureEnvironConfig
@@ -315,10 +323,7 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 // name it chooses (based on the given prefix), but recognizes that the name
 // may not be available.  If the name is not available, it does not treat that
 // as an error but just returns nil.
-//
-// If label is non-empty, it will be used for the cloud service's label;
-// otherwise, the randomly generated name will be used.
-func attemptCreateService(azure *gwacl.ManagementAPI, prefix, affinityGroupName, label string) (*gwacl.CreateHostedService, error) {
+func attemptCreateService(azure *gwacl.ManagementAPI, prefix, affinityGroupName string) (*gwacl.CreateHostedService, error) {
 	var err error
 	name := gwacl.MakeRandomHostedServiceName(prefix)
 	err = azure.CheckHostedServiceNameAvailability(name)
@@ -326,10 +331,7 @@ func attemptCreateService(azure *gwacl.ManagementAPI, prefix, affinityGroupName,
 		// The calling function should retry.
 		return nil, nil
 	}
-	if label == "" {
-		label = name
-	}
-	req := gwacl.NewCreateHostedServiceWithLocation(name, label, "")
+	req := gwacl.NewCreateHostedServiceWithLocation(name, name, "")
 	req.AffinityGroup = affinityGroupName
 	err = azure.AddHostedService(req)
 	if err != nil {
@@ -338,29 +340,54 @@ func attemptCreateService(azure *gwacl.ManagementAPI, prefix, affinityGroupName,
 	return req, nil
 }
 
-// architectures lists the CPU architectures supported by Azure.
-var architectures = []string{"amd64", "i386"}
-
 // newHostedService creates a hosted service.  It will make up a unique name,
 // starting with the given prefix.
-func newHostedService(azure *gwacl.ManagementAPI, prefix, affinityGroupName, label string) (*gwacl.CreateHostedService, error) {
+func newHostedService(azure *gwacl.ManagementAPI, prefix, affinityGroupName string) (*gwacl.HostedService, error) {
 	var err error
-	var svc *gwacl.CreateHostedService
-	for tries := 10; tries > 0 && err == nil && svc == nil; tries-- {
-		svc, err = attemptCreateService(azure, prefix, affinityGroupName, label)
+	var createdService *gwacl.CreateHostedService
+	for tries := 10; tries > 0 && err == nil && createdService == nil; tries-- {
+		createdService, err = attemptCreateService(azure, prefix, affinityGroupName)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("could not create hosted service: %v", err)
 	}
-	if svc == nil {
+	if createdService == nil {
 		return nil, fmt.Errorf("could not come up with a unique hosted service name - is your randomizer initialized?")
 	}
-	return svc, nil
+	return azure.GetHostedServiceProperties(createdService.ServiceName, true)
+}
+
+// SupportedArchitectures is specified on the EnvironCapability interface.
+func (env *azureEnviron) SupportedArchitectures() ([]string, error) {
+	env.archMutex.Lock()
+	defer env.archMutex.Unlock()
+	if env.supportedArchitectures != nil {
+		return env.supportedArchitectures, nil
+	}
+	// Create a filter to get all images from our region and for the correct stream.
+	ecfg := env.getSnapshot().ecfg
+	region := ecfg.location()
+	cloudSpec := simplestreams.CloudSpec{
+		Region:   region,
+		Endpoint: getEndpoint(region),
+	}
+	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+		CloudSpec: cloudSpec,
+		Stream:    ecfg.ImageStream(),
+	})
+	var err error
+	env.supportedArchitectures, err = common.SupportedArchitectures(env, imageConstraint)
+	return env.supportedArchitectures, err
+}
+
+// SupportNetworks is specified on the EnvironCapability interface.
+func (env *azureEnviron) SupportNetworks() bool {
+	return false
 }
 
 // selectInstanceTypeAndImage returns the appropriate instance-type name and
 // the OS image name for launching a virtual machine with the given parameters.
-func (env *azureEnviron) selectInstanceTypeAndImage(cons constraints.Value, series, location string) (string, string, error) {
+func (env *azureEnviron) selectInstanceTypeAndImage(constraint *instances.InstanceConstraint) (string, string, error) {
 	ecfg := env.getSnapshot().ecfg
 	sourceImageName := ecfg.forceImageName()
 	if sourceImageName != "" {
@@ -372,24 +399,14 @@ func (env *azureEnviron) selectInstanceTypeAndImage(cons constraints.Value, seri
 		// instance type either.
 		//
 		// Select the instance type using simple, Azure-specific code.
-		machineType, err := selectMachineType(gwacl.RoleSizes, defaultToBaselineSpec(cons))
+		machineType, err := selectMachineType(gwacl.RoleSizes, defaultToBaselineSpec(constraint.Constraints))
 		if err != nil {
 			return "", "", err
 		}
 		return machineType.Name, sourceImageName, nil
 	}
 
-	// Choose the most suitable instance type and OS image, based on
-	// simplestreams information.
-	//
-	// This should be the normal execution path.  The user is not expected
-	// to configure a source image name in normal use.
-	constraint := instances.InstanceConstraint{
-		Region:      location,
-		Series:      series,
-		Arches:      architectures,
-		Constraints: cons,
-	}
+	// Choose the most suitable instance type and OS image, based on simplestreams information.
 	spec, err := findInstanceSpec(env, constraint)
 	if err != nil {
 		return "", "", err
@@ -397,56 +414,13 @@ func (env *azureEnviron) selectInstanceTypeAndImage(cons constraints.Value, seri
 	return spec.InstanceType.Id, spec.Image.Id, nil
 }
 
-// ensureCloudService returns the cloud service with
-// the specified label, or creates one if there is none
-// or no label is specified.
-func (env *azureEnviron) ensureCloudService(azure *gwacl.ManagementAPI, label string) (service *gwacl.HostedService, serviceLabel string, err error) {
-	affinityGroup := env.getAffinityGroupName()
-	var serviceName string
-	if label != "" {
-		labelBase64 := base64.StdEncoding.EncodeToString([]byte(label))
-		services, err := azure.ListHostedServices()
-		if err != nil {
-			return nil, "", err
-		}
-		for _, service := range services {
-			if service.AffinityGroup != affinityGroup {
-				continue
-			}
-			if service.Label == labelBase64 {
-				serviceName = service.ServiceName
-				break
-			}
-		}
-	}
-	if serviceName == "" {
-		createdService, err := newHostedService(azure, env.getEnvPrefix(), affinityGroup, label)
-		if err != nil {
-			return nil, "", err
-		}
-		serviceName = createdService.ServiceName
-	}
-	service, err = azure.GetHostedServiceProperties(serviceName, true)
-	if err != nil {
-		return nil, "", err
-	}
-	if label == "" {
-		labelBytes, err := base64.StdEncoding.DecodeString(service.Label)
-		if err != nil {
-			return nil, "", err
-		}
-		label = string(labelBytes)
-	}
-	return service, label, nil
-}
-
 // createInstance creates all of the Azure entities necessary for a
 // new instance. This includes Cloud Service, Deployment and Role.
 //
-// If label is non-empty, then createInstance will assign to a Cloud
-// Service with that label, if any, otherwise creating one with that
-// label.
-func (env *azureEnviron) createInstance(azure *gwacl.ManagementAPI, role *gwacl.Role, label string) (resultInst instance.Instance, resultErr error) {
+// If serviceName is non-empty, then createInstance will assign to
+// the Cloud Service with that name. Otherwise, a new Cloud Service
+// will be created.
+func (env *azureEnviron) createInstance(azure *gwacl.ManagementAPI, role *gwacl.Role, serviceName string) (resultInst instance.Instance, resultErr error) {
 	var inst instance.Instance
 	defer func() {
 		if inst != nil && resultErr != nil {
@@ -456,7 +430,13 @@ func (env *azureEnviron) createInstance(azure *gwacl.ManagementAPI, role *gwacl.
 			}
 		}
 	}()
-	service, label, err := env.ensureCloudService(azure, label)
+	var err error
+	var service *gwacl.HostedService
+	if serviceName != "" {
+		service, err = azure.GetHostedServiceProperties(serviceName, true)
+	} else {
+		service, err = newHostedService(azure, env.getEnvPrefix(), env.getAffinityGroupName())
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -475,7 +455,7 @@ func (env *azureEnviron) createInstance(azure *gwacl.ManagementAPI, role *gwacl.
 		deployment := gwacl.NewDeploymentForCreateVMDeployment(
 			deploymentNameV2(service.ServiceName),
 			deploymentSlot,
-			label,
+			deploymentNameV2(service.ServiceName),
 			[]gwacl.Role{*role},
 			env.getVirtualNetworkName(),
 		)
@@ -511,24 +491,27 @@ func deploymentNameV2(serviceName string) string {
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (env *azureEnviron) StartInstance(cons constraints.Value, possibleTools tools.List,
-	machineConfig *cloudinit.MachineConfig) (_ instance.Instance, _ *instance.HardwareCharacteristics, err error) {
+func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ instance.Instance, _ *instance.HardwareCharacteristics, err error) {
+
+	if args.MachineConfig.HasNetworks() {
+		return nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
+	}
 
 	// Declaring "err" in the function signature so that we can "defer"
 	// any cleanup that needs to run during error returns.
 
-	err = environs.FinishMachineConfig(machineConfig, env.Config(), cons)
+	err = environs.FinishMachineConfig(args.MachineConfig, env.Config(), args.Constraints)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	// Pick envtools.  Needed for the custom data (which is what we normally
 	// call userdata).
-	machineConfig.Tools = possibleTools[0]
-	logger.Infof("picked tools %q", machineConfig.Tools)
+	args.MachineConfig.Tools = args.Tools[0]
+	logger.Infof("picked tools %q", args.MachineConfig.Tools)
 
 	// Compose userdata.
-	userData, err := makeCustomData(machineConfig)
+	userData, err := makeCustomData(args.MachineConfig)
 	if err != nil {
 		return nil, nil, fmt.Errorf("custom data: %v", err)
 	}
@@ -540,8 +523,12 @@ func (env *azureEnviron) StartInstance(cons constraints.Value, possibleTools too
 	defer env.releaseManagementAPI(azure)
 
 	location := env.getSnapshot().ecfg.location()
-	series := possibleTools.OneSeries()
-	instanceType, sourceImageName, err := env.selectInstanceTypeAndImage(cons, series, location)
+	instanceType, sourceImageName, err := env.selectInstanceTypeAndImage(&instances.InstanceConstraint{
+		Region:      location,
+		Series:      args.Tools.OneSeries(),
+		Arches:      args.Tools.Arches(),
+		Constraints: args.Constraints,
+	})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -549,21 +536,34 @@ func (env *azureEnviron) StartInstance(cons constraints.Value, possibleTools too
 	// We use the cloud service label as a way to group instances with
 	// the same affinity, so that machines can be be allocated to the
 	// same availability set.
-	var label string
-	if machineConfig.StateServer {
-		// All state servers are grouped together.
-		label = stateServerLabel
-	} else {
-		// TODO(axw) 2014-03-10 #1229411
-		// Choose a label based on the service name of the unit
-		// that is deployed to the machine.
+	var cloudServiceName string
+	// TODO(axw) replace "false &&" with mode check once
+	// availability-sets-enabled change is landed.
+	if false && args.DistributionGroup != nil {
+		instanceIds, err := args.DistributionGroup()
+		if err != nil {
+			return nil, nil, err
+		}
+		for _, id := range instanceIds {
+			cloudServiceName, _ = env.splitInstanceId(id)
+			if cloudServiceName != "" {
+				break
+			}
+		}
 	}
 
 	vhd := env.newOSDisk(sourceImageName)
 	// If we're creating machine-0, we'll want to expose port 22.
 	// All other machines get an auto-generated public port for SSH.
-	role := env.newRole(instanceType, vhd, userData, machineConfig.StateServer)
-	inst, err := env.createInstance(azure.ManagementAPI, role, label)
+	stateServer := false
+	for _, job := range args.MachineConfig.Jobs {
+		if job == params.JobManageEnviron {
+			stateServer = true
+			break
+		}
+	}
+	role := env.newRole(instanceType, vhd, userData, stateServer)
+	inst, err := env.createInstance(azure.ManagementAPI, role, cloudServiceName)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -794,6 +794,23 @@ func (env *azureEnviron) destroyAllServices() error {
 	return nil
 }
 
+// splitInstanceId splits the specified instance.Id into its
+// cloud-service and role parts. Both values will be empty
+// if the instance-id is non-matching, and role will be empty
+// for legacy instance-ids.
+func (env *azureEnviron) splitInstanceId(id instance.Id) (service, role string) {
+	prefix := env.getEnvPrefix()
+	if !strings.HasPrefix(string(id), prefix) {
+		return "", ""
+	}
+	fields := strings.Split(string(id)[len(prefix):], "-")
+	service = prefix + fields[0]
+	if len(fields) > 1 {
+		role = fields[1]
+	}
+	return service, role
+}
+
 // Instances is specified in the Environ interface.
 func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	context, err := env.getManagementAPI()
@@ -806,18 +823,12 @@ func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 		serviceName, roleName string
 	}
 
-	prefix := env.getEnvPrefix()
 	instancesIds := make([]instanceId, len(ids))
 	var serviceNames set.Strings
 	for i, id := range ids {
-		if !strings.HasPrefix(string(id), prefix) {
+		serviceName, roleName := env.splitInstanceId(id)
+		if serviceName == "" {
 			continue
-		}
-		fields := strings.Split(string(id)[len(prefix):], "-")
-		serviceName := prefix + fields[0]
-		var roleName string
-		if len(fields) > 1 {
-			roleName = fields[1]
 		}
 		instancesIds[i] = instanceId{
 			serviceName: serviceName,
@@ -1113,7 +1124,7 @@ func (env *azureEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
 	sources := make([]simplestreams.DataSource, 1+len(baseURLs))
 	sources[0] = storage.NewStorageSimpleStreamsDataSource("cloud storage", env.Storage(), storage.BaseImagesPath)
 	for i, url := range baseURLs {
-		sources[i+1] = simplestreams.NewURLDataSource("Azure base URL", url, simplestreams.VerifySSLHostnames)
+		sources[i+1] = simplestreams.NewURLDataSource("Azure base URL", url, utils.VerifySSLHostnames)
 	}
 	return sources, nil
 }

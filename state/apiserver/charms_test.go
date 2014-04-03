@@ -15,27 +15,26 @@ import (
 	"path/filepath"
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
-	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/environs"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 )
 
-type charmsSuite struct {
+type authHttpSuite struct {
 	jujutesting.JujuConnSuite
-	userTag  string
-	password string
+	userTag            string
+	password           string
+	archiveContentType string
 }
 
-var _ = gc.Suite(&charmsSuite{})
-
-func (s *charmsSuite) SetUpTest(c *gc.C) {
+func (s *authHttpSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	password, err := utils.RandomPassword()
 	c.Assert(err, gc.IsNil)
@@ -43,6 +42,49 @@ func (s *charmsSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.userTag = user.Tag()
 	s.password = password
+}
+
+func (s *authHttpSuite) sendRequest(c *gc.C, tag, password, method, uri, contentType string, body io.Reader) (*http.Response, error) {
+	req, err := http.NewRequest(method, uri, body)
+	c.Assert(err, gc.IsNil)
+	if tag != "" && password != "" {
+		req.SetBasicAuth(tag, password)
+	}
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+	return utils.GetNonValidatingHTTPClient().Do(req)
+}
+
+func (s *authHttpSuite) authRequest(c *gc.C, method, uri, contentType string, body io.Reader) (*http.Response, error) {
+	return s.sendRequest(c, s.userTag, s.password, method, uri, contentType, body)
+}
+
+func (s *authHttpSuite) uploadRequest(c *gc.C, uri string, asZip bool, path string) (*http.Response, error) {
+	contentType := "application/octet-stream"
+	if asZip {
+		contentType = s.archiveContentType
+	}
+
+	if path == "" {
+		return s.authRequest(c, "POST", uri, contentType, nil)
+	}
+
+	file, err := os.Open(path)
+	c.Assert(err, gc.IsNil)
+	defer file.Close()
+	return s.authRequest(c, "POST", uri, contentType, file)
+}
+
+type charmsSuite struct {
+	authHttpSuite
+}
+
+var _ = gc.Suite(&charmsSuite{})
+
+func (s *charmsSuite) SetUpSuite(c *gc.C) {
+	s.JujuConnSuite.SetUpSuite(c)
+	s.archiveContentType = "application/zip"
 }
 
 func (s *charmsSuite) TestCharmsServedSecurely(c *gc.C) {
@@ -168,7 +210,7 @@ func (s *charmsSuite) TestUploadRespectsLocalRevision(c *gc.C) {
 	expectedSHA256, _, err := utils.ReadSHA256(tempFile)
 	c.Assert(err, gc.IsNil)
 	name := charm.Quote(expectedURL.String())
-	storage, err := envtesting.GetEnvironStorage(s.State)
+	storage, err := environs.GetStorage(s.State)
 	c.Assert(err, gc.IsNil)
 	expectedUploadURL, err := storage.URL(name)
 	c.Assert(err, gc.IsNil)
@@ -219,7 +261,7 @@ func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *gc.C) {
 	// should succeed, because it was repackaged during upload to
 	// strip nested dirs.
 	archiveName := strings.TrimPrefix(sch.BundleURL().RequestURI(), "/dummyenv/private/")
-	storage, err := envtesting.GetEnvironStorage(s.State)
+	storage, err := environs.GetStorage(s.State)
 	c.Assert(err, gc.IsNil)
 	reader, err := storage.Get(archiveName)
 	c.Assert(err, gc.IsNil)
@@ -378,38 +420,6 @@ func (s *charmsSuite) charmsURI(c *gc.C, query string) string {
 	_, info, err := s.APIConn.Environ.StateInfo()
 	c.Assert(err, gc.IsNil)
 	return "https://" + info.Addrs[0] + "/charms" + query
-}
-
-func (s *charmsSuite) sendRequest(c *gc.C, tag, password, method, uri, contentType string, body io.Reader) (*http.Response, error) {
-	req, err := http.NewRequest(method, uri, body)
-	c.Assert(err, gc.IsNil)
-	if tag != "" && password != "" {
-		req.SetBasicAuth(tag, password)
-	}
-	if contentType != "" {
-		req.Header.Set("Content-Type", contentType)
-	}
-	return utils.GetNonValidatingHTTPClient().Do(req)
-}
-
-func (s *charmsSuite) authRequest(c *gc.C, method, uri, contentType string, body io.Reader) (*http.Response, error) {
-	return s.sendRequest(c, s.userTag, s.password, method, uri, contentType, body)
-}
-
-func (s *charmsSuite) uploadRequest(c *gc.C, uri string, asZip bool, path string) (*http.Response, error) {
-	contentType := "application/octet-stream"
-	if asZip {
-		contentType = "application/zip"
-	}
-
-	if path == "" {
-		return s.authRequest(c, "POST", uri, contentType, nil)
-	}
-
-	file, err := os.Open(path)
-	c.Assert(err, gc.IsNil)
-	defer file.Close()
-	return s.authRequest(c, "POST", uri, contentType, file)
 }
 
 func (s *charmsSuite) assertUploadResponse(c *gc.C, resp *http.Response, expCharmURL string) {

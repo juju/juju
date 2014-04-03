@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gwacl"
 
@@ -24,13 +25,13 @@ import (
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
+	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type environSuite struct {
@@ -63,6 +64,17 @@ func (s *environSuite) setDummyStorage(c *gc.C, env *azureEnviron) {
 	closer, storage, _ := envtesting.CreateLocalTestStorage(c)
 	env.storage = storage
 	s.AddCleanup(func(c *gc.C) { closer.Close() })
+}
+
+func (*environSuite) TestGetEndpoint(c *gc.C) {
+	c.Check(
+		getEndpoint("West US"),
+		gc.Equals,
+		"https://management.core.windows.net/")
+	c.Check(
+		getEndpoint("China East"),
+		gc.Equals,
+		"https://management.core.chinacloudapi.cn/")
 }
 
 func (*environSuite) TestGetSnapshot(c *gc.C) {
@@ -144,18 +156,12 @@ func getAzureServiceListResponse(c *gc.C, services ...gwacl.HostedServiceDescrip
 	return responses
 }
 
-// getAzureServiceResponses returns the slice of responses
-// (gwacl.DispatcherResponse) which correspond to the API requests used to
-// get the properties of a Service.
-func getAzureServiceResponses(c *gc.C, service gwacl.HostedService) []gwacl.DispatcherResponse {
+// getAzureServiceResponses returns a gwacl.DispatcherResponse corresponding
+// to the API request used to get the properties of a Service.
+func getAzureServiceResponse(c *gc.C, service gwacl.HostedService) gwacl.DispatcherResponse {
 	serviceXML, err := service.Serialize()
 	c.Assert(err, gc.IsNil)
-	responses := []gwacl.DispatcherResponse{gwacl.NewDispatcherResponse(
-		[]byte(serviceXML),
-		http.StatusOK,
-		nil,
-	)}
-	return responses
+	return gwacl.NewDispatcherResponse([]byte(serviceXML), http.StatusOK, nil)
 }
 
 func patchWithServiceListResponse(c *gc.C, services []gwacl.HostedServiceDescriptor) *[]*gwacl.X509Request {
@@ -179,6 +185,18 @@ func patchInstancesResponses(c *gc.C, prefix string, services ...*gwacl.HostedSe
 		responses = append(responses, serviceGetResponse)
 	}
 	return gwacl.PatchManagementAPIResponses(responses)
+}
+
+func (s *environSuite) TestSupportedArchitectures(c *gc.C) {
+	env := s.setupEnvWithDummyMetadata(c)
+	a, err := env.SupportedArchitectures()
+	c.Assert(err, gc.IsNil)
+	c.Assert(a, gc.DeepEquals, []string{"ppc64"})
+}
+
+func (s *environSuite) TestSupportNetworks(c *gc.C) {
+	env := s.setupEnvWithDummyMetadata(c)
+	c.Assert(env.SupportNetworks(), jc.IsFalse)
 }
 
 func (suite *environSuite) TestGetEnvPrefixContainsEnvName(c *gc.C) {
@@ -514,6 +532,14 @@ func parseCreateServiceRequest(c *gc.C, request *gwacl.X509Request) *gwacl.Creat
 	return &body
 }
 
+// getHostedServicePropertiesServiceName extracts the service name parameter
+// from the GetHostedServiceProperties request URL.
+func getHostedServicePropertiesServiceName(c *gc.C, request *gwacl.X509Request) string {
+	url, err := url.Parse(request.URL)
+	c.Assert(err, gc.IsNil)
+	return path.Base(url.Path)
+}
+
 // makeNonAvailabilityResponse simulates a reply to the
 // CheckHostedServiceNameAvailability call saying that a name is not available.
 func makeNonAvailabilityResponse(c *gc.C) []byte {
@@ -536,7 +562,6 @@ func makeAvailabilityResponse(c *gc.C) []byte {
 func (*environSuite) TestAttemptCreateServiceCreatesService(c *gc.C) {
 	prefix := "myservice"
 	affinityGroup := "affinity-group"
-	label := "anything"
 
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(makeAvailabilityResponse(c), http.StatusOK, nil),
@@ -546,7 +571,7 @@ func (*environSuite) TestAttemptCreateServiceCreatesService(c *gc.C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
 	c.Assert(err, gc.IsNil)
 
-	service, err := attemptCreateService(azure, prefix, affinityGroup, label)
+	service, err := attemptCreateService(azure, prefix, affinityGroup)
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(*requests, gc.HasLen, 2)
@@ -556,10 +581,6 @@ func (*environSuite) TestAttemptCreateServiceCreatesService(c *gc.C) {
 	c.Check(service.ServiceName, gc.Matches, prefix+".*")
 	// We specify AffinityGroup, so Location should be empty.
 	c.Check(service.Location, gc.Equals, "")
-
-	decodedLabel, err := base64.StdEncoding.DecodeString(service.Label)
-	c.Assert(err, gc.IsNil)
-	c.Check(string(decodedLabel), gc.Equals, label)
 }
 
 func (*environSuite) TestAttemptCreateServiceReturnsNilIfNameNotUnique(c *gc.C) {
@@ -570,7 +591,7 @@ func (*environSuite) TestAttemptCreateServiceReturnsNilIfNameNotUnique(c *gc.C) 
 	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
 	c.Assert(err, gc.IsNil)
 
-	service, err := attemptCreateService(azure, "service", "affinity-group", "location")
+	service, err := attemptCreateService(azure, "service", "affinity-group")
 	c.Check(err, gc.IsNil)
 	c.Check(service, gc.IsNil)
 }
@@ -584,7 +605,7 @@ func (*environSuite) TestAttemptCreateServicePropagatesOtherFailure(c *gc.C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
 	c.Assert(err, gc.IsNil)
 
-	_, err = attemptCreateService(azure, "service", "affinity-group", "location")
+	_, err = attemptCreateService(azure, "service", "affinity-group")
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, ".*Not Found.*")
 }
@@ -592,23 +613,29 @@ func (*environSuite) TestAttemptCreateServicePropagatesOtherFailure(c *gc.C) {
 func (*environSuite) TestNewHostedServiceCreatesService(c *gc.C) {
 	prefix := "myservice"
 	affinityGroup := "affinity-group"
-	label := "label"
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(makeAvailabilityResponse(c), http.StatusOK, nil),
 		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
+		getAzureServiceResponse(c, gwacl.HostedService{
+			HostedServiceDescriptor: gwacl.HostedServiceDescriptor{
+				ServiceName: "anything",
+			},
+		}),
 	}
 	requests := gwacl.PatchManagementAPIResponses(responses)
 	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
 	c.Assert(err, gc.IsNil)
 
-	service, err := newHostedService(azure, prefix, affinityGroup, label)
+	service, err := newHostedService(azure, prefix, affinityGroup)
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(*requests, gc.HasLen, 2)
+	c.Assert(*requests, gc.HasLen, 3)
 	body := parseCreateServiceRequest(c, (*requests)[1])
-	c.Check(body.ServiceName, gc.Equals, service.ServiceName)
+	requestedServiceName := getHostedServicePropertiesServiceName(c, (*requests)[2])
+	c.Check(body.ServiceName, gc.Matches, prefix+".*")
+	c.Check(body.ServiceName, gc.Equals, requestedServiceName)
 	c.Check(body.AffinityGroup, gc.Equals, affinityGroup)
-	c.Check(service.ServiceName, gc.Matches, prefix+".*")
+	c.Check(service.ServiceName, gc.Equals, "anything")
 	c.Check(service.Location, gc.Equals, "")
 }
 
@@ -620,17 +647,22 @@ func (*environSuite) TestNewHostedServiceRetriesIfNotUnique(c *gc.C) {
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(errorBody, http.StatusOK, nil),
 		gwacl.NewDispatcherResponse(errorBody, http.StatusOK, nil),
-		gwacl.NewDispatcherResponse(okBody, http.StatusOK, nil),
-		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
+		gwacl.NewDispatcherResponse(okBody, http.StatusOK, nil), // name is unique
+		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),    // create service
+		getAzureServiceResponse(c, gwacl.HostedService{
+			HostedServiceDescriptor: gwacl.HostedServiceDescriptor{
+				ServiceName: "anything",
+			},
+		}),
 	}
 	requests := gwacl.PatchManagementAPIResponses(responses)
 	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
 	c.Assert(err, gc.IsNil)
 
-	service, err := newHostedService(azure, "service", "affinity-group", "location")
+	service, err := newHostedService(azure, "service", "affinity-group")
 	c.Check(err, gc.IsNil)
 
-	c.Assert(*requests, gc.HasLen, 4)
+	c.Assert(*requests, gc.HasLen, 5)
 	// How many names have been attempted, and how often?
 	// There is a minute chance that this tries the same name twice, and
 	// then this test will fail.  If that happens, try seeding the
@@ -651,11 +683,8 @@ func (*environSuite) TestNewHostedServiceRetriesIfNotUnique(c *gc.C) {
 	c.Check(attemptedNames, gc.HasLen, 3)
 
 	// Once newHostedService succeeds, we get a hosted service with the
-	// last requested name.
-	c.Check(
-		service.ServiceName,
-		gc.Equals,
-		parseCreateServiceRequest(c, (*requests)[3]).ServiceName)
+	// name returned from GetHostedServiceProperties.
+	c.Check(service.ServiceName, gc.Equals, "anything")
 }
 
 func (*environSuite) TestNewHostedServiceFailsIfUnableToFindUniqueName(c *gc.C) {
@@ -668,7 +697,7 @@ func (*environSuite) TestNewHostedServiceFailsIfUnableToFindUniqueName(c *gc.C) 
 	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
 	c.Assert(err, gc.IsNil)
 
-	_, err = newHostedService(azure, "service", "affinity-group", "location")
+	_, err = newHostedService(azure, "service", "affinity-group")
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, "could not come up with a unique hosted service name.*")
 }
@@ -1249,42 +1278,53 @@ func (*environSuite) TestSelectInstanceTypeAndImageUsesForcedImage(c *gc.C) {
 		Mem:      &aim.Mem,
 	}
 
-	instanceType, image, err := env.selectInstanceTypeAndImage(cons, "precise", "West US")
+	instanceType, image, err := env.selectInstanceTypeAndImage(&instances.InstanceConstraint{
+		Region:      "West US",
+		Series:      "precise",
+		Constraints: cons,
+	})
 	c.Assert(err, gc.IsNil)
 
 	c.Check(instanceType, gc.Equals, aim.Name)
 	c.Check(image, gc.Equals, forcedImage)
 }
 
-func (*environSuite) TestSelectInstanceTypeAndImageUsesSimplestreamsByDefault(c *gc.C) {
-	env := makeEnviron(c)
+func (s *environSuite) setupEnvWithDummyMetadata(c *gc.C) *azureEnviron {
+	envAttrs := makeAzureConfigMap(c)
+	envAttrs["location"] = "North Europe"
+	env := makeEnvironWithConfig(c, envAttrs)
+	s.setDummyStorage(c, env)
+	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
+	s.PatchValue(&signedImageDataOnly, false)
+	images := []*imagemetadata.ImageMetadata{
+		{
+			Id:         "image-id",
+			VirtType:   "Hyper-V",
+			Arch:       "ppc64",
+			RegionName: "North Europe",
+			Endpoint:   "https://management.core.windows.net/",
+		},
+	}
+	makeTestMetadata(c, env, "precise", "North Europe", images)
+	return env
+}
 
+func (s *environSuite) TestSelectInstanceTypeAndImageUsesSimplestreamsByDefault(c *gc.C) {
+	env := s.setupEnvWithDummyMetadata(c)
 	// We'll tailor our constraints so as to get a specific instance type.
 	aim := gwacl.RoleNameMap["ExtraSmall"]
 	cons := constraints.Value{
 		CpuCores: &aim.CpuCores,
 		Mem:      &aim.Mem,
 	}
-
-	// We have one image available.
-	images := []*imagemetadata.ImageMetadata{
-		{
-			Id:          "image",
-			VType:       "Hyper-V",
-			Arch:        "amd64",
-			RegionAlias: "North Europe",
-			RegionName:  "North Europe",
-			Endpoint:    "http://localhost/",
-		},
-	}
-	cleanup := patchFetchImageMetadata(images, nil)
-	defer cleanup()
-
-	instanceType, image, err := env.selectInstanceTypeAndImage(cons, "precise", "West US")
+	instanceType, image, err := env.selectInstanceTypeAndImage(&instances.InstanceConstraint{
+		Region:      "North Europe",
+		Series:      "precise",
+		Constraints: cons,
+	})
 	c.Assert(err, gc.IsNil)
-
-	c.Check(instanceType, gc.Equals, aim.Name)
-	c.Check(image, gc.Equals, "image")
+	c.Assert(instanceType, gc.Equals, aim.Name)
+	c.Assert(image, gc.Equals, "image-id")
 }
 
 func (*environSuite) TestExtractStorageKeyPicksPrimaryKeyIfSet(c *gc.C) {

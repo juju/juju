@@ -1,162 +1,89 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package charm_test
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
-	"io/ioutil"
-	"net/url"
 	"os"
 	"path/filepath"
 	stdtesting "testing"
-	"time"
 
 	gc "launchpad.net/gocheck"
 
 	corecharm "launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/api/uniter"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
-	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/worker/uniter/charm"
 )
 
 func TestPackage(t *stdtesting.T) {
+	// TODO(fwereade) 2014-03-21 not-worth-a-bug-number
+	// rewrite BundlesDir tests to use the mocks below and not require an API
+	// server and associated gubbins.
 	coretesting.MgoTestPackage(t)
 }
 
-type BundlesDirSuite struct {
-	coretesting.HTTPSuite
-	testing.JujuConnSuite
-
-	st     *api.State
-	uniter *uniter.State
+// bundleReader is a charm.BundleReader that lets us mock out the bundles we
+// deploy to test the Deployers.
+type bundleReader struct {
+	bundles map[string]charm.Bundle
 }
 
-var _ = gc.Suite(&BundlesDirSuite{})
-
-func (s *BundlesDirSuite) SetUpSuite(c *gc.C) {
-	s.HTTPSuite.SetUpSuite(c)
-	s.JujuConnSuite.SetUpSuite(c)
-}
-
-func (s *BundlesDirSuite) TearDownSuite(c *gc.C) {
-	s.JujuConnSuite.TearDownSuite(c)
-	s.HTTPSuite.TearDownSuite(c)
-}
-
-func (s *BundlesDirSuite) SetUpTest(c *gc.C) {
-	s.HTTPSuite.SetUpTest(c)
-	s.JujuConnSuite.SetUpTest(c)
-
-	// Add a charm, service and unit to login to the API with.
-	charm := s.AddTestingCharm(c, "wordpress")
-	service := s.AddTestingService(c, "wordpress", charm)
-	unit, err := service.AddUnit()
-	c.Assert(err, gc.IsNil)
-	password, err := utils.RandomPassword()
-	c.Assert(err, gc.IsNil)
-	err = unit.SetPassword(password)
-	c.Assert(err, gc.IsNil)
-
-	s.st = s.OpenAPIAs(c, unit.Tag(), password)
-	c.Assert(s.st, gc.NotNil)
-	s.uniter = s.st.Uniter()
-	c.Assert(s.uniter, gc.NotNil)
-}
-
-func (s *BundlesDirSuite) TearDownTest(c *gc.C) {
-	err := s.st.Close()
-	c.Assert(err, gc.IsNil)
-	s.JujuConnSuite.TearDownTest(c)
-	s.HTTPSuite.TearDownTest(c)
-}
-
-func (s *BundlesDirSuite) AddCharm(c *gc.C) (*uniter.Charm, *state.Charm, []byte) {
-	curl := corecharm.MustParseURL("cs:quantal/dummy-1")
-	surl, err := url.Parse(s.URL("/some/charm.bundle"))
-	c.Assert(err, gc.IsNil)
-	bunpath := coretesting.Charms.BundlePath(c.MkDir(), "dummy")
-	bun, err := corecharm.ReadBundle(bunpath)
-	c.Assert(err, gc.IsNil)
-	bundata, hash := readHash(c, bunpath)
-	sch, err := s.State.AddCharm(bun, curl, surl, hash)
-	c.Assert(err, gc.IsNil)
-	apiCharm, err := s.uniter.Charm(sch.URL())
-	c.Assert(err, gc.IsNil)
-	return apiCharm, sch, bundata
-}
-
-func (s *BundlesDirSuite) TestGet(c *gc.C) {
-	basedir := c.MkDir()
-	bunsdir := filepath.Join(basedir, "random", "bundles")
-	d := charm.NewBundlesDir(bunsdir)
-
-	// Check it doesn't get created until it's needed.
-	_, err := os.Stat(bunsdir)
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
-
-	// Add a charm to state that we can try to get.
-	apiCharm, sch, bundata := s.AddCharm(c)
-
-	// Try to get the charm when the content doesn't match.
-	coretesting.Server.Response(200, nil, []byte("roflcopter"))
-	_, err = d.Read(apiCharm, nil)
-	prefix := fmt.Sprintf(`failed to download charm "cs:quantal/dummy-1" from %q: `, sch.BundleURL())
-	c.Assert(err, gc.ErrorMatches, prefix+fmt.Sprintf(`expected sha256 %q, got ".*"`, sch.BundleSha256()))
-
-	// Try to get a charm whose bundle doesn't exist.
-	coretesting.Server.Response(404, nil, nil)
-	_, err = d.Read(apiCharm, nil)
-	c.Assert(err, gc.ErrorMatches, prefix+`.* 404 Not Found`)
-
-	// Get a charm whose bundle exists and whose content matches.
-	coretesting.Server.Response(200, nil, bundata)
-	ch, err := d.Read(apiCharm, nil)
-	c.Assert(err, gc.IsNil)
-	assertCharm(c, ch, sch)
-
-	// Get the same charm again, without preparing a response from the server.
-	ch, err = d.Read(apiCharm, nil)
-	c.Assert(err, gc.IsNil)
-	assertCharm(c, ch, sch)
-
-	// Abort a download.
-	err = os.RemoveAll(bunsdir)
-	c.Assert(err, gc.IsNil)
-	abort := make(chan struct{})
-	done := make(chan bool)
-	go func() {
-		ch, err := d.Read(apiCharm, abort)
-		c.Assert(ch, gc.IsNil)
-		c.Assert(err, gc.ErrorMatches, prefix+"aborted")
-		close(done)
-	}()
-	close(abort)
-	coretesting.Server.Response(500, nil, nil)
-	select {
-	case <-done:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for abort")
+// Read implements the BundleReader interface.
+func (br *bundleReader) Read(info charm.BundleInfo, abort <-chan struct{}) (charm.Bundle, error) {
+	bundle, ok := br.bundles[info.URL().String()]
+	if !ok {
+		return nil, fmt.Errorf("no such charm!")
 	}
+	return bundle, nil
 }
 
-func readHash(c *gc.C, path string) ([]byte, string) {
-	data, err := ioutil.ReadFile(path)
+func (br *bundleReader) AddCustomBundle(c *gc.C, url *corecharm.URL, customize func(path string)) charm.BundleInfo {
+	base := c.MkDir()
+	dirpath := coretesting.Charms.ClonedDirPath(base, "dummy")
+	customize(dirpath)
+	dir, err := corecharm.ReadDir(dirpath)
 	c.Assert(err, gc.IsNil)
-	hash := sha256.New()
-	hash.Write(data)
-	return data, hex.EncodeToString(hash.Sum(nil))
+	err = dir.SetDiskRevision(url.Revision)
+	c.Assert(err, gc.IsNil)
+	bunpath := filepath.Join(base, "bundle")
+	file, err := os.Create(bunpath)
+	c.Assert(err, gc.IsNil)
+	defer file.Close()
+	err = dir.BundleTo(file)
+	c.Assert(err, gc.IsNil)
+	bundle, err := corecharm.ReadBundle(bunpath)
+	c.Assert(err, gc.IsNil)
+	return br.AddBundle(c, url, bundle)
 }
 
-func assertCharm(c *gc.C, bun *corecharm.Bundle, sch *state.Charm) {
-	c.Assert(bun.Revision(), gc.Equals, sch.Revision())
-	c.Assert(bun.Meta(), gc.DeepEquals, sch.Meta())
-	c.Assert(bun.Config(), gc.DeepEquals, sch.Config())
+func (br *bundleReader) AddBundle(c *gc.C, url *corecharm.URL, bundle charm.Bundle) charm.BundleInfo {
+	if br.bundles == nil {
+		br.bundles = map[string]charm.Bundle{}
+	}
+	br.bundles[url.String()] = bundle
+	return &bundleInfo{nil, url}
+}
+
+type bundleInfo struct {
+	charm.BundleInfo
+	url *corecharm.URL
+}
+
+func (info *bundleInfo) URL() *corecharm.URL {
+	return info.url
+}
+
+type mockBundle struct {
+	paths  set.Strings
+	expand func(dir string) error
+}
+
+func (b mockBundle) Manifest() (set.Strings, error) {
+	return set.NewStrings(b.paths.Values()...), nil
+}
+
+func (b mockBundle) ExpandTo(dir string) error {
+	return b.expand(dir)
 }

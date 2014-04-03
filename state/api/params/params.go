@@ -16,6 +16,28 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
+// Entity identifies a single entity.
+type Entity struct {
+	Tag string
+}
+
+// Entities identifies multiple entities.
+type Entities struct {
+	Entities []Entity
+}
+
+// EntityPasswords holds the parameters for making a SetPasswords call.
+type EntityPasswords struct {
+	Changes []EntityPassword
+}
+
+// EntityPassword specifies a password change for the entity
+// with the given tag.
+type EntityPassword struct {
+	Tag      string
+	Password string
+}
+
 // ErrorResults holds the results of calling a bulk operation which
 // returns no data, only an error result. The order and
 // number of elements matches the operations specified in the request.
@@ -127,6 +149,10 @@ type ServiceDeploy struct {
 	ConfigYAML    string // Takes precedence over config if both are present.
 	Constraints   constraints.Value
 	ToMachineSpec string
+	// The following fields are supported from 1.17.7 onwards and
+	// ignored before that.
+	IncludeNetworks []string
+	ExcludeNetworks []string
 }
 
 // ServiceUpdate holds the parameters for making the ServiceUpdate call.
@@ -212,6 +238,16 @@ type PublicAddress struct {
 // PublicAddressResults holds results of the PublicAddress call.
 type PublicAddressResults struct {
 	PublicAddress string
+}
+
+// PrivateAddress holds parameters for the PrivateAddress call.
+type PrivateAddress struct {
+	Target string
+}
+
+// PrivateAddressResults holds results of the PrivateAddress call.
+type PrivateAddressResults struct {
+	PrivateAddress string
 }
 
 // Resolved holds parameters for the Resolved call.
@@ -325,6 +361,12 @@ type ModifyUserSSHKeys struct {
 	Keys []string
 }
 
+// ModifyUser stores the parameters used for a UserManager.Add|Remove call
+type ModifyUser struct {
+	Tag      string
+	Password string
+}
+
 // MarshalJSON implements json.Marshaler.
 func (d *Delta) MarshalJSON() ([]byte, error) {
 	b, err := json.Marshal(d.Entity)
@@ -421,14 +463,40 @@ type EntityId struct {
 	Id   interface{}
 }
 
+// StateServingInfo holds information needed by a state
+// server.
+type StateServingInfo struct {
+	APIPort    int
+	StatePort  int
+	Cert       string
+	PrivateKey string
+	// this will be passed as the KeyFile argument to MongoDB
+	SharedSecret string
+}
+
+// IsMasterResult holds the result of an IsMaster API call.
+type IsMasterResult struct {
+	// Master reports whether the connected agent
+	// lives on the same instance as the mongo replica
+	// set master.
+	Master bool
+}
+
 // MachineInfo holds the information about a Machine
 // that is watched by StateWatcher.
 type MachineInfo struct {
-	Id         string `bson:"_id"`
-	InstanceId string
-	Status     Status
-	StatusInfo string
-	StatusData StatusData
+	Id                       string `bson:"_id"`
+	InstanceId               string
+	Status                   Status
+	StatusInfo               string
+	StatusData               StatusData
+	Life                     Life
+	Series                   string
+	SupportedContainers      []instance.ContainerType
+	SupportedContainersKnown bool
+	HardwareCharacteristics  *instance.HardwareCharacteristics `json:",omitempty"`
+	Jobs                     []MachineJob
+	Addresses                []instance.Address
 }
 
 func (i *MachineInfo) EntityId() EntityId {
@@ -550,6 +618,12 @@ type EnvironmentSet struct {
 	Config map[string]interface{}
 }
 
+// EnvironmentUnset contains the arguments for EnvironmentUnset client API
+// call.
+type EnvironmentUnset struct {
+	Keys []string
+}
+
 // SetEnvironAgentVersion contains the arguments for
 // SetEnvironAgentVersion client API call.
 type SetEnvironAgentVersion struct {
@@ -571,4 +645,39 @@ type StatusParams struct {
 // SetRsyslogCertParams holds parameters for the SetRsyslogCert call.
 type SetRsyslogCertParams struct {
 	CACert []byte
+}
+
+// DistributionGroupResult contains the result of
+// the DistributionGroup provisioner API call.
+type DistributionGroupResult struct {
+	Error  *Error
+	Result []instance.Id
+}
+
+// DistributionGroupResults is the bulk form of
+// DistributionGroupResult.
+type DistributionGroupResults struct {
+	Results []DistributionGroupResult
+}
+
+// APIHostPortsResult holds the result of an APIHostPorts
+// call. Each element in the top level slice holds
+// the addresses for one API server.
+type APIHostPortsResult struct {
+	Servers [][]instance.HostPort
+}
+
+// LoginResult holds the result of a Login call.
+type LoginResult struct {
+	Servers [][]instance.HostPort
+}
+
+// EnsureAvailability contains arguments for
+// the EnsureAvailability client API call.
+type EnsureAvailability struct {
+	NumStateServers int
+	Constraints     constraints.Value
+	// Series is the series to associate with new state server machines.
+	// If this is empty, then the environment's default series is used.
+	Series string
 }

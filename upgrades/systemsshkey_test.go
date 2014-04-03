@@ -8,11 +8,11 @@ import (
 	"os"
 	"path/filepath"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/upgrades"
 	"launchpad.net/juju-core/utils/ssh"
 )

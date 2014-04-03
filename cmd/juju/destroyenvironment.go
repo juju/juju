@@ -54,6 +54,11 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
 	}
 	environ, err := environs.NewFromName(c.envName, store)
 	if err != nil {
+		if environs.IsEmptyConfig(err) {
+			// Delete the .jenv file and call it done.
+			ctx.Infof("removing empty environment file")
+			return environs.DestroyInfo(c.envName, store)
+		}
 		return err
 	}
 	if !c.assumeYes {
@@ -67,7 +72,7 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
 		}
 		answer := strings.ToLower(scanner.Text())
 		if answer != "y" && answer != "yes" {
-			return errors.New("Environment destruction aborted")
+			return errors.New("environment destruction aborted")
 		}
 	}
 	// If --force is supplied, then don't attempt to use the API.
