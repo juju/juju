@@ -290,6 +290,10 @@ func (s *URLSuite) TestReferenceJSON(c *gc.C) {
 	err = json.Unmarshal(data, &parsed)
 	c.Assert(err, gc.IsNil)
 	c.Check(parsed, gc.DeepEquals, ref)
+
+	// unmarshalling json gibberish
+	err = json.Unmarshal([]byte(":{"), &parsed)
+	c.Check(err, gc.NotNil)
 }
 
 type QuoteSuite struct{}
