@@ -78,7 +78,8 @@ func RemoveService(namespace string) error {
 // before installing the new version.
 //
 // The namespace is a unique identifier to prevent multiple instances of mongo
-// on this machine from colliding (only really needed by the local provider).
+// on this machine from colliding. This should be empty unless using
+// the local provider.
 func EnsureMongoServer(dir string, port int, namespace string) error {
 	// TODO: get the series from somewhere, non trusty values return
 	// the existing default path.
@@ -88,46 +89,15 @@ func EnsureMongoServer(dir string, port int, namespace string) error {
 		return err
 	}
 
-	if err := removeOldService(service); err != nil {
-		return err
-	}
-
 	if err := makeJournalDirs(dir); err != nil {
 		return err
 	}
 
-	if !service.Installed() {
-		if err := service.Install(); err != nil {
-			return fmt.Errorf("failed to install mongo service %q: %v", service.Name, err)
-		}
-	}
-	return service.Start()
+	return service.Install()
 }
 
-func removeOldService(service *upstart.Conf) error {
-	contents, err := service.ReadConf()
-	switch {
-	case err == nil:
-		// check that the contents are what we want them to be
-		expected, err := service.Render()
-		if err != nil {
-			return fmt.Errorf("Error rendering jujudb upstart script: %v", err)
-		}
-		if string(contents) != string(expected) {
-			logger.Infof("Cleaning up old %q service", service.Name)
-			if err := service.StopAndRemove(); err != nil {
-				return fmt.Errorf("Error removing old mongodb upstart config: %v", err)
-			}
-		}
-		return nil
-	case os.IsNotExist(err):
-		// service doesn't exist, no problem
-		return nil
-	default:
-		return fmt.Errorf("Error reading contents of mongodb upstart config: %v", err)
-	}
-}
-
+// ServiceName returns the name of the upstart service config for mongo using
+// the given namespace.
 func ServiceName(namespace string) string {
 	if namespace != "" {
 		return fmt.Sprintf("%s-%s", serviceName, namespace)

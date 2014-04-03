@@ -38,13 +38,6 @@ func NewService(name string) *Service {
 	return &Service{Name: name, InitDir: InitDir}
 }
 
-// ReadConf returns the contents of the service's configuration file.  If the
-// service is not installed, it will return an error that fulfills
-// os.IsNotExist.
-func (s *Service) ReadConf() ([]byte, error) {
-	return ioutil.ReadFile(s.confPath())
-}
-
 // confPath returns the path to the service's configuration file.
 func (s *Service) confPath() string {
 	return path.Join(s.InitDir, s.Name+".conf")
@@ -173,7 +166,7 @@ func (c *Conf) validate() error {
 }
 
 // Render returns the upstart configuration for the service as a slice of bytes.
-func (c *Conf) Render() ([]byte, error) {
+func (c *Conf) render() ([]byte, error) {
 	if err := c.validate(); err != nil {
 		return nil, err
 	}
@@ -186,19 +179,21 @@ func (c *Conf) Render() ([]byte, error) {
 
 // Install installs and starts the service.
 func (c *Conf) Install() error {
-	conf, err := c.Render()
+	conf, err := c.render()
+	if err != nil {
+		return fmt.Errorf("Error rendering jujudb upstart script: %v", err)
+	}
+
+	exists, err := c.removeOld(conf)
 	if err != nil {
 		return err
 	}
-	if c.Installed() {
-		if err := c.StopAndRemove(); err != nil {
-			return fmt.Errorf("upstart: could not remove installed service: %s", err)
+	if !exists {
+		if err := ioutil.WriteFile(c.confPath(), conf, 0644); err != nil {
+			return err
 		}
 	}
 
-	if err := ioutil.WriteFile(c.confPath(), conf, 0644); err != nil {
-		return err
-	}
 	// On slower disks, upstart may take a short time to realise
 	// that there is a service there.
 	for attempt := InstallStartRetryAttempts.Start(); attempt.Next(); {
@@ -209,9 +204,29 @@ func (c *Conf) Install() error {
 	return err
 }
 
+func (c *Conf) removeOld(expected []byte) (exists bool, err error) {
+	current, err := ioutil.ReadFile(c.confPath())
+	if os.IsNotExist(err) {
+		// no existing config
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("upstart: could not read existing service config: %v", err)
+	}
+
+	// if we have a current config on disk, check to see if it's different
+	if bytes.Equal(current, expected) {
+		return true, nil
+	}
+	if err := c.StopAndRemove(); err != nil {
+		return false, fmt.Errorf("upstart: could not remove installed service: %s", err)
+	}
+	return false, nil
+}
+
 // InstallCommands returns shell commands to install and start the service.
 func (c *Conf) InstallCommands() ([]string, error) {
-	conf, err := c.Render()
+	conf, err := c.render()
 	if err != nil {
 		return nil, err
 	}
