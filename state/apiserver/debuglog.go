@@ -83,8 +83,6 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func newLogStream(queryMap url.Values) (*logStream, error) {
-	// Get the arguments of the request.
-
 	maxLines := uint(0)
 	if value := queryMap.Get("maxLines"); value != "" {
 		num, err := strconv.ParseUint(value, 10, 64)
@@ -136,6 +134,7 @@ func newLogStream(queryMap url.Values) (*logStream, error) {
 
 // sendError sends a JSON-encoded error response.
 func (h *debugLogHandler) sendError(w http.ResponseWriter, statusCode int, message string, args ...interface{}) error {
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 	response := &params.SimpleError{Error: fmt.Sprintf(message, args...)}
 	body, err := json.Marshal(response)

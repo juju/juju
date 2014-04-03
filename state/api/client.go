@@ -707,8 +707,9 @@ func (c *Client) WatchDebugLog(lines int, filter string) (*ClientDebugLog, error
 		Path:     "/log",
 		RawQuery: attrs.Encode(),
 	}
-	cfg.Header = make(http.Header)
-	setBasicAuth(cfg.Header, c.st.tag, c.st.password)
+	cfg.Header = http.Header{
+		"Authorization": {"Basic " + basicAuth(c.st.tag, c.st.password)},
+	}
 
 	wsConn, err := websocket.DialConfig(&cfg)
 	if err != nil {
@@ -719,34 +720,7 @@ func (c *Client) WatchDebugLog(lines int, filter string) (*ClientDebugLog, error
 
 // ClientDebugLog represents a stream of debug log messages.
 type ClientDebugLog struct {
-	wsConn *websocket.Conn
-}
-
-// Close closes the log.
-func (c *ClientDebugLog) Close() error {
-	return c.wsConn.Close()
-}
-
-// SetFilter sets the filter regular expression. This
-// setting will not take place immediately - messages
-// already in the pipeline will still be received.
-func (c *ClientDebugLog) SetFilter(filter string) error {
-	req := params.DebugLogRequest{Filter: filter}
-	if err := websocket.JSON.Send(c.wsConn, &req); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Read implements io.Reader.Read.
-func (c *ClientDebugLog) Read(buf []byte) (int, error) {
-	return c.wsConn.Read(buf)
-}
-
-// setBasicAuth creates an Authorization header for HTTP Basic
-// Authentication, using the given username and password.
-func setBasicAuth(h http.Header, username, password string) {
-	h.Set("Authorization", "Basic "+basicAuth(username, password))
+	*websocket.Conn
 }
 
 // basicAuth is copied from net/http.

@@ -4,19 +4,99 @@
 package apiserver_test
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/base64"
+	"encoding/json"
+	"net/http"
+	"net/url"
+
+	"code.google.com/p/go.net/websocket"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/testing"
 )
 
-type streamSuite struct {
-	testbase.LoggingSuite
+type debugLogSuite struct {
+	authHttpSuite
 }
 
-var _ = gc.Suite(&stateSuite{})
+var _ = gc.Suite(&debugLogSuite{})
 
-func (s *stateSuite) TestFilterInclude(c *gc.C) {
+func (s *debugLogSuite) TestServeHTTPNeedsHTTPS(c *gc.C) {
+	url := s.logURL(c, "http", nil)
+	c.Logf("%#v", *url)
+	uri := s.logURL(c, "http", nil).String()
+	_, err := s.sendRequest(c, "", "", "GET", uri, "", nil)
+	c.Assert(err, gc.ErrorMatches, `.*malformed HTTP response.*`)
+}
 
+func (s *debugLogSuite) TestServeHTTPNoAuth(c *gc.C) {
+	uri := s.logURL(c, "https", nil).String()
+	response, err := s.sendRequest(c, "", "", "GET", uri, "", nil)
+	c.Assert(err, gc.IsNil)
+	s.assertErrorResponse(c, response, http.StatusUnauthorized, "unauthorized")
+}
+
+func (s *debugLogSuite) TestServeHTTPNoLogfile(c *gc.C) {
+	uri := s.logURL(c, "https", nil).String()
+	response, err := s.sendRequest(c, s.userTag, s.password, "GET", uri, "", nil)
+	c.Assert(err, gc.IsNil)
+	s.assertErrorResponse(c, response, http.StatusInternalServerError,
+		"cannot open log file: .*: no such file or directory")
+}
+
+func (s *debugLogSuite) TestServeHTTPBadParams(c *gc.C) {
+	uri := s.logURL(c, "https", url.Values{"backlog": {"foo"}}).String()
+	response, err := s.sendRequest(c, s.userTag, s.password, "GET", uri, "", nil)
+	c.Assert(err, gc.IsNil)
+	s.assertErrorResponse(c, response, http.StatusBadRequest,
+		`backlog value "foo" is not a valid unsigned number`)
+}
+
+func (s *debugLogSuite) TestServeHTTPWebsocketNoLogfile(c *gc.C) {
+	conn, err := s.dialWebsocket(c, nil)
+	c.Assert(err, gc.IsNil)
+	c.Assert(conn, gc.NotNil)
+}
+
+func (s *debugLogSuite) dialWebsocket(c *gc.C, queryParams url.Values) (*websocket.Conn, error) {
+	server := s.logURL(c, "wss", queryParams).String()
+	config, err := websocket.NewConfig(server, "http://localhost")
+	c.Assert(err, gc.IsNil)
+	config.Header = http.Header{
+		"Authorization": {"Basic " + base64.StdEncoding.EncodeToString([]byte(s.userTag+":"+s.password))},
+	}
+	caCerts := x509.NewCertPool()
+	c.Assert(caCerts.AppendCertsFromPEM([]byte(testing.CACert)), jc.IsTrue)
+	config.TlsConfig = &tls.Config{RootCAs: caCerts}
+
+	return websocket.DialConfig(config)
+}
+
+func (s *debugLogSuite) logURL(c *gc.C, scheme string, queryParams url.Values) *url.URL {
+	_, info, err := s.APIConn.Environ.StateInfo()
+	c.Assert(err, gc.IsNil)
+	query := ""
+	if queryParams != nil {
+		query = queryParams.Encode()
+	}
+	return &url.URL{
+		Scheme:   scheme,
+		Host:     info.Addrs[0],
+		Path:     "/log",
+		RawQuery: query,
+	}
+}
+
+func (s *debugLogSuite) assertErrorResponse(c *gc.C, resp *http.Response, expCode int, expError string) {
+	body := assertResponse(c, resp, expCode, "application/json")
+	var simpleError params.SimpleError
+	err := json.Unmarshal(body, &simpleError)
+	c.Assert(err, gc.IsNil)
+	c.Check(simpleError.Error, gc.Matches, expError)
 }
 
 var logLines = `
