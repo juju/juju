@@ -180,7 +180,7 @@ func ReadMeta(r io.Reader) (meta *Meta, err error) {
 		// Obsolete
 		meta.OldRevision = int(m["revision"].(int64))
 	}
-	if series := m["series"]; series != nil {
+	if series, ok := m["series"]; ok && series != nil {
 		meta.Series = series.(string)
 	}
 	if err := meta.Check(); err != nil {
