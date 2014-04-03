@@ -181,7 +181,7 @@ func (c *Conf) render() ([]byte, error) {
 func (c *Conf) Install() error {
 	conf, err := c.render()
 	if err != nil {
-		return fmt.Errorf("Error rendering jujudb upstart script: %v", err)
+		return err
 	}
 
 	exists, err := c.removeOld(conf)
