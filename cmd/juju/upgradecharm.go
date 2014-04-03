@@ -211,7 +211,7 @@ func (c *UpgradeCharmCommand) run1dot16(ctx *cmd.Context) error {
 		newURL = oldURL.WithRevision(c.Revision)
 	}
 
-	repo, err := charm.InferRepository(newURL.Reference, c.RepoPath)
+	repo, err := charm.InferRepository(newURL.Reference, ctx.AbsPath(c.RepoPath))
 	if err != nil {
 		return err
 	}
