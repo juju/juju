@@ -162,6 +162,8 @@ func MaybeInitiateMongoServer(p InitiateMongoParams) error {
 // This method will remove old versions of the mongo upstart script as necessary
 // before installing the new version.
 func EnsureMongoServer(dataDir string, port int) error {
+	// TODO(natefinch): write out keyfile and shared secret
+
 	logger.Debugf("Ensuring mongo server is running; dataDir %s; port %d", dataDir, port)
 	dbDir := filepath.Join(dataDir, "db")
 	name := makeServiceName(mongoScriptVersion)
@@ -266,7 +268,9 @@ const mongoScriptVersion = 2
 // This method assumes there exist "server.pem" and "shared_secret" keyfiles in dataDir.
 func mongoUpstartService(name, dataDir, dbDir string, port int) (*upstart.Conf, error) {
 	sslKeyFile := path.Join(dataDir, "server.pem")
-	keyFile := path.Join(dataDir, SharedSecretFile)
+
+	// TODO (natefinch) uncomment when we have the keyfile
+	// keyFile := path.Join(dataDir, SharedSecretFile)
 	svc := upstart.NewService(name)
 
 	mongopath, err := MongodPath()
@@ -291,8 +295,9 @@ func mongoUpstartService(name, dataDir, dbDir string, port int) (*upstart.Conf, 
 			" --noprealloc" +
 			" --syslog" +
 			" --smallfiles" +
-			" --replSet " + replicaSetName +
-			" --keyFile " + utils.ShQuote(keyFile),
+			" --replSet " + replicaSetName,
+		// TODO(natefinch) uncomment when we have the keyfile
+		//" --keyFile " + utils.ShQuote(keyFile),
 	}
 	return conf, nil
 }

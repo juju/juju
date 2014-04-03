@@ -362,6 +362,9 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 				c.AddPackage("mongodb-server")
 			}
 		}
+
+		// TODO(natefinch) remove this once we write it from agent config
+
 		certKey := string(cfg.StateServingInfo.Cert) + string(cfg.StateServingInfo.PrivateKey)
 		c.AddFile(cfg.dataFile("server.pem"), certKey, 0600)
 

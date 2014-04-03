@@ -236,12 +236,6 @@ type AgentConfigParams struct {
 	APIAddresses      []string
 	CACert            []byte
 	Values            map[string]string
-
-	// These are only used by agents that are going to be managing state.
-	StateServerCert []byte
-	StateServerKey  []byte
-	StatePort       int
-	APIPort         int
 }
 
 // NewAgentConfig returns a new config object suitable for use for a
@@ -552,10 +546,6 @@ func (c *configInternal) Tag() string {
 func (c *configInternal) Dir() string {
 	return Dir(c.dataDir, c.tag)
 }
-
-// func (c *configInternal) StateServer() bool {
-// 	return c.stateServerKey != nil
-// }
 
 func (c *configInternal) check() error {
 	if c.stateDetails == nil && c.apiDetails == nil {

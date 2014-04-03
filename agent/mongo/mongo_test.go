@@ -168,7 +168,7 @@ func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
 }
 
 // TODO(natefinch) add a test that InitiateMongoServer works when
-// there's a configured user.
+// we support upgrading of existing environments.
 
 func (s *MongoSuite) TestInitiateReplicaSet(c *gc.C) {
 	var err error

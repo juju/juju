@@ -371,7 +371,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
 
 	err := ensureMongoServer(agentConfig.DataDir(), 0)
-	//agentConfig.StateServingInfo())
 	if err != nil {
 		return nil, err
 	}

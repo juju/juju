@@ -13,7 +13,6 @@ import (
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/agent/mongo"
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -72,9 +71,6 @@ func must(s string, err error) string {
 	}
 	return s
 }
-
-// mongodPath is the path where we should expect mongod in the environment.
-var mongodPath = must(mongo.MongodPath())
 
 var stateServingInfo = &params.StateServingInfo{
 	Cert:       string(serverCert),
