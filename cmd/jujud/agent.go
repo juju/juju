@@ -13,6 +13,7 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -80,6 +81,13 @@ func (ch *AgentConf) CurrentConfig() agent.Config {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
 	return ch._config.Clone()
+}
+
+// SetAPIHostPorts satisfies worker/apiaddressupdater/APIAddressSetter.
+func (a *AgentConf) SetAPIHostPorts(servers [][]instance.HostPort) error {
+	return a.ChangeConfig(func(c agent.ConfigSetter) {
+		c.SetAPIHostPorts(servers)
+	})
 }
 
 func importance(err error) int {

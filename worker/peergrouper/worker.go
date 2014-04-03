@@ -10,6 +10,7 @@ import (
 
 	"launchpad.net/tomb"
 
+	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/replicaset"
@@ -432,7 +433,7 @@ type machine struct {
 }
 
 func (m *machine) mongoHostPort() string {
-	return instance.SelectInternalHostPort(m.mongoHostPorts, false)
+	return mongo.SelectPeerHostPort(m.mongoHostPorts)
 }
 
 func (m *machine) String() string {

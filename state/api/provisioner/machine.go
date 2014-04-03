@@ -194,6 +194,29 @@ func (m *Machine) Series() (string, error) {
 	return result.Result, nil
 }
 
+// DistributionGroup returns a slice of instance.Ids
+// that belong to the same distribution group as this
+// Machine. The provisioner may use this information
+// to distribute instances for high availability.
+func (m *Machine) DistributionGroup() ([]instance.Id, error) {
+	var results params.DistributionGroupResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: m.tag}},
+	}
+	err := m.st.caller.Call("Provisioner", "", "DistributionGroup", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return result.Result, nil
+}
+
 // SetProvisioned sets the provider specific machine id, nonce and also metadata for
 // this machine. Once set, the instance id cannot be changed.
 func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics) error {
