@@ -83,8 +83,8 @@ var parseConstraintsTests = []struct {
 		summary: "set arch i386",
 		args:    []string{"arch=i386"},
 	}, {
-		summary: "set arch arm",
-		args:    []string{"arch=arm"},
+		summary: "set arch armhf",
+		args:    []string{"arch=armhf"},
 	}, {
 		summary: "set nonsense arch 1",
 		args:    []string{"arch=cheese"},
@@ -99,7 +99,7 @@ var parseConstraintsTests = []struct {
 		err:     `bad "arch" constraint: already set`,
 	}, {
 		summary: "double set arch separately",
-		args:    []string{"arch=arm", "arch="},
+		args:    []string{"arch=armhf", "arch="},
 		err:     `bad "arch" constraint: already set`,
 	},
 
@@ -269,7 +269,7 @@ var parseConstraintsTests = []struct {
 		args:    []string{" root-disk=8G mem=2T  arch=i386  cpu-cores=4096 cpu-power=9001 container=lxc tags=foo,bar"},
 	}, {
 		summary: "kitchen sink separately",
-		args:    []string{"root-disk=8G", "mem=2T", "cpu-cores=4096", "cpu-power=9001", "arch=arm", "container=lxc", "tags=foo,bar"},
+		args:    []string{"root-disk=8G", "mem=2T", "cpu-cores=4096", "cpu-power=9001", "arch=armhf", "container=lxc", "tags=foo,bar"},
 	},
 }
 
