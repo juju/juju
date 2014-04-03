@@ -53,6 +53,11 @@ const (
 	stateServerLabel = "juju-state-server"
 )
 
+// vars for testing purposes.
+var (
+	createInstance = (*azureEnviron).createInstance
+)
+
 type azureEnviron struct {
 	common.NopPrecheckerPolicy
 
@@ -504,13 +509,9 @@ func deploymentNameV2(serviceName string) string {
 
 // StartInstance is specified in the InstanceBroker interface.
 func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ instance.Instance, _ *instance.HardwareCharacteristics, err error) {
-
 	if args.MachineConfig.HasNetworks() {
 		return nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
 	}
-
-	// Declaring "err" in the function signature so that we can "defer"
-	// any cleanup that needs to run during error returns.
 
 	err = environs.FinishMachineConfig(args.MachineConfig, env.Config(), args.Constraints)
 	if err != nil {
@@ -574,7 +575,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ ins
 		}
 	}
 	role := env.newRole(instanceType, vhd, userData, stateServer)
-	inst, err := env.createInstance(azure.ManagementAPI, role, cloudServiceName, stateServer)
+	inst, err := createInstance(env, azure.ManagementAPI, role, cloudServiceName, stateServer)
 	if err != nil {
 		return nil, nil, err
 	}
