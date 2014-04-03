@@ -185,8 +185,7 @@ func (s *CharmStore) Info(curls ...Location) ([]*InfoResponse, error) {
 		if err != nil {
 			return nil, readErr
 		}
-		bodyString := string(body)
-		log.Debugf("%v Response body: %v", errMsg, bodyString)
+		log.Debugf("%v Response body: %s", errMsg, body)
 		return nil, errMsg
 	}
 	body, err := ioutil.ReadAll(resp.Body)
