@@ -178,10 +178,17 @@ func (s *CharmStore) Info(curls ...Location) ([]*InfoResponse, error) {
 		}
 		return nil, err
 	}
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("Cannot access the charm store. Invalid response code: %q", resp.Status)
-	}
 	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		errMsg := fmt.Errorf("Cannot access the charm store. Invalid response code: %q", resp.Status)
+		body, readErr := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, readErr
+		}
+		bodyString := string(body)
+		log.Debugf("%v Response body: %v", errMsg, bodyString)
+		return nil, errMsg
+	}
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
