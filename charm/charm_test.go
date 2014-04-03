@@ -48,7 +48,7 @@ func (s *CharmSuite) TestInferRepository(c *gc.C) {
 		c.Logf("test %d", i)
 		curl, err := charm.InferURL(t.url, "precise")
 		c.Assert(err, gc.IsNil)
-		repo, err := charm.InferRepository(curl, "/some/path")
+		repo, err := charm.InferRepository(curl.Reference, "/some/path")
 		c.Assert(err, gc.IsNil)
 		switch repo := repo.(type) {
 		case *charm.LocalRepository:
@@ -59,11 +59,11 @@ func (s *CharmSuite) TestInferRepository(c *gc.C) {
 	}
 	curl, err := charm.InferURL("local:whatever", "precise")
 	c.Assert(err, gc.IsNil)
-	_, err = charm.InferRepository(curl, "")
+	_, err = charm.InferRepository(curl.Reference, "")
 	c.Assert(err, gc.ErrorMatches, "path to local repository not specified")
 	curl.Schema = "foo"
-	_, err = charm.InferRepository(curl, "")
-	c.Assert(err, gc.ErrorMatches, "unknown schema for charm URL.*")
+	_, err = charm.InferRepository(curl.Reference, "")
+	c.Assert(err, gc.ErrorMatches, "unknown schema for charm reference.*")
 }
 
 func checkDummy(c *gc.C, f charm.Charm, path string) {

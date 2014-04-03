@@ -10,7 +10,9 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/manual"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
@@ -56,7 +58,7 @@ See Also:
 
 // AddMachineCommand starts a new machine and registers it in the environment.
 type AddMachineCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	// If specified, use this series, else use the environment default-series
 	Series string
 	// If specified, these constraints are merged with those already in the environment.
@@ -82,6 +84,10 @@ func (c *AddMachineCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *AddMachineCommand) Init(args []string) error {
+	err := c.EnvCommandBase.Init()
+	if err != nil {
+		return err
+	}
 	if c.Constraints.Container != nil {
 		return fmt.Errorf("container constraint %q not allowed when adding a machine", *c.Constraints.Container)
 	}
@@ -126,7 +132,7 @@ func (c *AddMachineCommand) addMachine1dot16() (string, error) {
 		if err != nil {
 			return "", err
 		}
-		series = conf.DefaultSeries()
+		series = config.PreferredSeries(conf)
 	}
 	template := state.MachineTemplate{
 		Series:      series,

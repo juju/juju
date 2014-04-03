@@ -50,6 +50,8 @@ const (
 var logger = loggo.GetLogger("juju.provider.manual")
 
 type manualEnviron struct {
+	common.SupportsUnitPlacementPolicy
+
 	cfg                 *environConfig
 	cfgmutex            sync.Mutex
 	storage             storage.Storage
@@ -58,6 +60,7 @@ type manualEnviron struct {
 }
 
 var _ envtools.SupportsCustomSources = (*manualEnviron)(nil)
+var _ state.Prechecker = (*manualEnviron)(nil)
 
 var errNoStartInstance = errors.New("manual provider cannot start instances")
 var errNoStopInstance = errors.New("manual provider cannot stop instances")

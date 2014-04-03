@@ -17,7 +17,7 @@ import (
 	"launchpad.net/juju-core/container/lxc/mock"
 	lxctesting "launchpad.net/juju-core/container/lxc/testing"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	instancetest "launchpad.net/juju-core/instance/testing"
 	jujutesting "launchpad.net/juju-core/juju/testing"
@@ -38,7 +38,7 @@ type lxcSuite struct {
 type lxcBrokerSuite struct {
 	lxcSuite
 	broker      environs.InstanceBroker
-	agentConfig agent.Config
+	agentConfig agent.ConfigSetterWriter
 }
 
 var _ = gc.Suite(&lxcBrokerSuite{})
@@ -85,7 +85,7 @@ func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 	machineNonce := "fake-nonce"
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	machineConfig := environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo)
+	machineConfig := environs.NewMachineConfig(machineId, machineNonce, nil, nil, stateInfo, apiInfo)
 	cons := constraints.Value{}
 	possibleTools := s.broker.(coretools.HasTools).Tools()
 	lxc, _, err := s.broker.StartInstance(environs.StartInstanceParams{
@@ -190,11 +190,9 @@ func (s *lxcProvisionerSuite) SetUpTest(c *gc.C) {
 
 	// The lxc provisioner actually needs the machine it is being created on
 	// to be in state, in order to get the watcher.
-	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits, state.JobManageEnviron)
+	m, err := s.State.AddMachine(coretesting.FakeDefaultSeries, state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
-	err = m.SetAddresses([]instance.Address{
-		instance.NewAddress("0.1.2.3"),
-	})
+	err = m.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
 	c.Assert(err, gc.IsNil)
 	s.parentMachineId = m.Id()
 	s.APILogin(c, m)
@@ -261,15 +259,24 @@ func (s *lxcProvisionerSuite) TestDoesNotStartEnvironMachines(c *gc.C) {
 	defer stop(c, p)
 
 	// Check that an instance is not provisioned when the machine is created.
-	_, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
+	_, err := s.State.AddMachine(coretesting.FakeDefaultSeries, state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	s.expectNoEvents(c)
 }
 
+func (s *lxcProvisionerSuite) TestDoesNotHaveRetryWatcher(c *gc.C) {
+	p := s.newLxcProvisioner(c)
+	defer stop(c, p)
+
+	w, err := provisioner.GetRetryWatcher(p)
+	c.Assert(w, gc.IsNil)
+	c.Assert(errors.IsNotImplementedError(err), jc.IsTrue)
+}
+
 func (s *lxcProvisionerSuite) addContainer(c *gc.C) *state.Machine {
 	template := state.MachineTemplate{
-		Series: config.DefaultSeries,
+		Series: coretesting.FakeDefaultSeries,
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideMachine(template, s.parentMachineId, instance.LXC)

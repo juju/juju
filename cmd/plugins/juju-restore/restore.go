@@ -19,6 +19,7 @@ import (
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
@@ -64,7 +65,7 @@ to choose the new instance.
 `
 
 type restoreCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	Log             cmd.Log
 	Constraints     constraints.Value
 	backupFile      string
@@ -88,6 +89,10 @@ func (c *restoreCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *restoreCommand) Init(args []string) error {
+	err := c.EnvCommandBase.Init()
+	if err != nil {
+		return err
+	}
 	if c.showDescription {
 		return cmd.CheckEmpty(args)
 	}

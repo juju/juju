@@ -138,12 +138,11 @@ func migrateLocalProviderAgentConfig(context Context) error {
 		return fmt.Errorf("cannot update environment config: %v", err)
 	}
 
-	migrateParams := agent.MigrateConfigParams{
+	return context.AgentConfig().Migrate(agent.MigrateParams{
 		DataDir:      dataDir,
 		LogDir:       logDir,
 		Jobs:         jobs,
 		Values:       values,
 		DeleteValues: deprecatedValues,
-	}
-	return agent.MigrateConfig(context.AgentConfig(), migrateParams)
+	})
 }

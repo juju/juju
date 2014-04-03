@@ -113,7 +113,7 @@ func expectedAPIHostPorts(n int) [][]instance.HostPort {
 }
 
 func addressesWithPort(port int, addrs ...string) []instance.HostPort {
-	return instance.AddressesWithPort(instance.NewAddresses(addrs), port)
+	return instance.AddressesWithPort(instance.NewAddresses(addrs...), port)
 }
 
 func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
@@ -379,7 +379,7 @@ func (s *workerSuite) TestWorkerPublishesInstanceIds(c *gc.C) {
 
 	select {
 	case instanceIds := <-publishCh:
-		c.Assert(instanceIds, jc.DeepEquals, []instance.Id{"id-10", "id-11", "id-12"})
+		c.Assert(instanceIds, jc.SameContents, []instance.Id{"id-10", "id-11", "id-12"})
 	case <-time.After(coretesting.LongWait):
 		c.Errorf("timed out waiting for publish")
 	}

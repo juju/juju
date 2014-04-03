@@ -12,6 +12,7 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
@@ -20,7 +21,7 @@ import (
 
 // UpgradeCharm is responsible for upgrading a service's charm.
 type UpgradeCharmCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	ServiceName string
 	Force       bool
 	RepoPath    string // defaults to JUJU_REPOSITORY
@@ -84,6 +85,10 @@ func (c *UpgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *UpgradeCharmCommand) Init(args []string) error {
+	err := c.EnvCommandBase.Init()
+	if err != nil {
+		return err
+	}
 	switch len(args) {
 	case 1:
 		if !names.IsService(args[0]) {
@@ -129,8 +134,7 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 
 	var newURL *charm.URL
 	if c.SwitchURL != "" {
-		// A new charm URL was explicitly specified.
-		newURL, err = charm.InferURL(c.SwitchURL, conf.DefaultSeries())
+		newURL, err = resolveCharmURL(c.SwitchURL, client, conf)
 		if err != nil {
 			return err
 		}
@@ -138,11 +142,11 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 		// No new URL specified, but revision might have been.
 		newURL = oldURL.WithRevision(c.Revision)
 	}
-	repo, err := charm.InferRepository(newURL, ctx.AbsPath(c.RepoPath))
+
+	repo, err := charm.InferRepository(newURL.Reference, ctx.AbsPath(c.RepoPath))
 	if err != nil {
 		return err
 	}
-
 	repo = config.SpecializeCharmRepo(repo, conf)
 
 	// If no explicit revision was set with either SwitchURL
@@ -198,11 +202,7 @@ func (c *UpgradeCharmCommand) run1dot16(ctx *cmd.Context) error {
 	var newURL *charm.URL
 	if c.SwitchURL != "" {
 		// A new charm URL was explicitly specified.
-		conf, err := conn.State.EnvironConfig()
-		if err != nil {
-			return err
-		}
-		newURL, err = charm.InferURL(c.SwitchURL, conf.DefaultSeries())
+		newURL, err = resolveCharmURL1dot16(c.SwitchURL, conf)
 		if err != nil {
 			return err
 		}
@@ -210,11 +210,11 @@ func (c *UpgradeCharmCommand) run1dot16(ctx *cmd.Context) error {
 		// No new URL specified, but revision might have been.
 		newURL = oldURL.WithRevision(c.Revision)
 	}
-	repo, err := charm.InferRepository(newURL, ctx.AbsPath(c.RepoPath))
+
+	repo, err := charm.InferRepository(newURL.Reference, ctx.AbsPath(c.RepoPath))
 	if err != nil {
 		return err
 	}
-
 	repo = config.SpecializeCharmRepo(repo, conf)
 
 	// If no explicit revision was set with either SwitchURL

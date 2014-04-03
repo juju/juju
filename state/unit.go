@@ -117,11 +117,11 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 	if err != nil {
 		return nil, err
 	}
-	charm, err := u.st.Charm(u.doc.CharmURL)
+	chrm, err := u.st.Charm(u.doc.CharmURL)
 	if err != nil {
 		return nil, err
 	}
-	result := charm.Config().DefaultSettings()
+	result := chrm.Config().DefaultSettings()
 	for name, value := range settings.Map() {
 		result[name] = value
 	}
@@ -498,8 +498,10 @@ func (u *Unit) PrincipalName() (string, bool) {
 
 // addressesOfMachine returns Addresses of the related machine if present.
 func (u *Unit) addressesOfMachine() []instance.Address {
-	id := u.doc.MachineId
-	if id != "" {
+	if id, err := u.AssignedMachineId(); err != nil {
+		unitLogger.Errorf("unit %v cannot get assigned machine: %v", u, err)
+		return nil
+	} else {
 		m, err := u.st.Machine(id)
 		if err == nil {
 			return m.Addresses()
@@ -820,6 +822,11 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 	}
 	if !canHost {
 		return fmt.Errorf("machine %q cannot host units", m)
+	}
+	// assignToMachine implies assignment to an existing machine,
+	// which is only permitted if unit placement is supported.
+	if err := u.st.supportsUnitPlacement(); err != nil {
+		return err
 	}
 	assert := append(isAliveDoc, bson.D{
 		{"$or", []bson.D{

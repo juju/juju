@@ -10,21 +10,12 @@ import (
 	"launchpad.net/juju-core/tools"
 )
 
-// Networks holds network include/exclude when starting an instance.
-type Networks struct {
-	IncludeNetworks []string
-	ExcludeNetworks []string
-}
-
 // StartInstanceParams holds parameters for the
-// InstanceBroker.StartInstace method.
+// InstanceBroker.StartInstance method.
 type StartInstanceParams struct {
 	// Constraints is a set of constraints on
 	// the kind of instance to create.
 	Constraints constraints.Value
-
-	// Networks holds networks to include/exclude for the instance.
-	Networks Networks
 
 	// Tools is a list of tools that may be used
 	// to start a Juju agent on the machine.
@@ -32,6 +23,14 @@ type StartInstanceParams struct {
 
 	// MachineConfig describes the machine's configuration.
 	MachineConfig *cloudinit.MachineConfig
+
+	// DistributionGroup, if non-nil, is a function
+	// that returns a slice of instance.Ids that belong
+	// to the same distribution group as the machine
+	// being provisioned. The InstanceBroker may use
+	// this information to distribute instances for
+	// high availability.
+	DistributionGroup func() ([]instance.Id, error)
 }
 
 // TODO(wallyworld) - we want this in the environs/instance package but import loops

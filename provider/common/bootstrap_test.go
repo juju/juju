@@ -79,7 +79,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 	checkCons := constraints.MustParse("mem=8G")
 
 	startInstance := func(
-		cons constraints.Value, _ environs.Networks, possibleTools tools.List, mcfg *cloudinit.MachineConfig,
+		cons constraints.Value, _, _ []string, possibleTools tools.List, mcfg *cloudinit.MachineConfig,
 	) (
 		instance.Instance, *instance.HardwareCharacteristics, error,
 	) {
@@ -104,7 +104,7 @@ func (s *BootstrapSuite) TestCannotRecordStartedInstance(c *gc.C) {
 	stor := &mockStorage{Storage: innerStorage}
 
 	startInstance := func(
-		_ constraints.Value, _ environs.Networks, _ tools.List, _ *cloudinit.MachineConfig,
+		_ constraints.Value, _, _ []string, _ tools.List, _ *cloudinit.MachineConfig,
 	) (
 		instance.Instance, *instance.HardwareCharacteristics, error,
 	) {
@@ -137,7 +137,7 @@ func (s *BootstrapSuite) TestCannotRecordThenCannotStop(c *gc.C) {
 	stor := &mockStorage{Storage: innerStorage}
 
 	startInstance := func(
-		_ constraints.Value, _ environs.Networks, _ tools.List, _ *cloudinit.MachineConfig,
+		_ constraints.Value, _, _ []string, _ tools.List, _ *cloudinit.MachineConfig,
 	) (
 		instance.Instance, *instance.HardwareCharacteristics, error,
 	) {
@@ -178,7 +178,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	checkHardware := instance.MustParseHardware("mem=2T")
 
 	startInstance := func(
-		_ constraints.Value, _ environs.Networks, _ tools.List, mcfg *cloudinit.MachineConfig,
+		_ constraints.Value, _, _ []string, _ tools.List, mcfg *cloudinit.MachineConfig,
 	) (
 		instance.Instance, *instance.HardwareCharacteristics, error,
 	) {
@@ -275,7 +275,7 @@ type neverOpensPort struct {
 }
 
 func (n *neverOpensPort) Addresses() ([]instance.Address, error) {
-	return []instance.Address{instance.NewAddress(n.addr)}, nil
+	return instance.NewAddresses(n.addr), nil
 }
 
 func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForDial(c *gc.C) {
@@ -303,7 +303,7 @@ func (i *interruptOnDial) Addresses() ([]instance.Address, error) {
 	} else {
 		i.interrupted <- os.Interrupt
 	}
-	return []instance.Address{instance.NewAddress(i.name)}, nil
+	return []instance.Address{instance.NewAddress(i.name, instance.NetworkUnknown)}, nil
 }
 
 func (s *BootstrapSuite) TestWaitSSHKilledWaitingForDial(c *gc.C) {
@@ -333,7 +333,7 @@ func (ac *addressesChange) Refresh() error {
 func (ac *addressesChange) Addresses() ([]instance.Address, error) {
 	var addrs []instance.Address
 	for _, addr := range ac.addrs[0] {
-		addrs = append(addrs, instance.NewAddress(addr))
+		addrs = append(addrs, instance.NewAddress(addr, instance.NetworkUnknown))
 	}
 	return addrs, nil
 }

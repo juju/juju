@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
+	"os"
+	"os/exec"
 	"os/user"
 	"strings"
 
@@ -45,17 +48,20 @@ func (c *GoCryptoClient) Command(host string, command []string, options *Options
 	}
 	user, host := splitUserHost(host)
 	port := sshDefaultPort
+	var proxyCommand []string
 	if options != nil {
 		if options.port != 0 {
 			port = options.port
 		}
+		proxyCommand = options.proxyCommand
 	}
 	logger.Debugf(`running (equivalent of): ssh "%s@%s" -p %d '%s'`, user, host, port, shellCommand)
 	return &Cmd{impl: &goCryptoCommand{
-		signers: signers,
-		user:    user,
-		addr:    fmt.Sprintf("%s:%d", host, port),
-		command: shellCommand,
+		signers:      signers,
+		user:         user,
+		addr:         fmt.Sprintf("%s:%d", host, port),
+		command:      shellCommand,
+		proxyCommand: proxyCommand,
 	}}
 }
 
@@ -67,18 +73,49 @@ func (c *GoCryptoClient) Copy(targets, extraArgs []string, options *Options) err
 }
 
 type goCryptoCommand struct {
-	signers []ssh.Signer
-	user    string
-	addr    string
-	command string
-	stdin   io.Reader
-	stdout  io.Writer
-	stderr  io.Writer
-	conn    *ssh.ClientConn
-	sess    *ssh.Session
+	signers      []ssh.Signer
+	user         string
+	addr         string
+	command      string
+	proxyCommand []string
+	stdin        io.Reader
+	stdout       io.Writer
+	stderr       io.Writer
+	conn         *ssh.ClientConn
+	sess         *ssh.Session
 }
 
 var sshDial = ssh.Dial
+
+var sshDialWithProxy = func(addr string, proxyCommand []string, config *ssh.ClientConfig) (*ssh.ClientConn, error) {
+	if len(proxyCommand) == 0 {
+		return sshDial("tcp", addr, config)
+	}
+	// User has specified a proxy. Create a pipe and
+	// redirect the proxy command's stdin/stdout to it.
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		host = addr
+	}
+	for i, arg := range proxyCommand {
+		arg = strings.Replace(arg, "%h", host, -1)
+		if port != "" {
+			arg = strings.Replace(arg, "%p", port, -1)
+		}
+		arg = strings.Replace(arg, "%r", config.User, -1)
+		proxyCommand[i] = arg
+	}
+	client, server := net.Pipe()
+	logger.Debugf(`executing proxy command %q`, proxyCommand)
+	cmd := exec.Command(proxyCommand[0], proxyCommand[1:]...)
+	cmd.Stdin = server
+	cmd.Stdout = server
+	cmd.Stderr = os.Stderr
+	if err := cmd.Start(); err != nil {
+		return nil, err
+	}
+	return ssh.Client(client, config)
+}
 
 func (c *goCryptoCommand) ensureSession() (*ssh.Session, error) {
 	if c.sess != nil {
@@ -100,7 +137,7 @@ func (c *goCryptoCommand) ensureSession() (*ssh.Session, error) {
 			ssh.ClientAuthKeyring(keyring{c.signers}),
 		},
 	}
-	conn, err := sshDial("tcp", c.addr, config)
+	conn, err := sshDialWithProxy(c.addr, c.proxyCommand, config)
 	if err != nil {
 		return nil, err
 	}

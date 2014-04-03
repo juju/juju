@@ -45,26 +45,6 @@ type ProviderSuite struct {
 
 var _ = gc.Suite(&ProviderSuite{})
 
-func (s *ProviderSuite) TestMetadata(c *gc.C) {
-	metadataContent := map[string]string{
-		"/2011-01-01/meta-data/public-hostname": "public.dummy.address.invalid",
-		"/2011-01-01/meta-data/local-hostname":  "private.dummy.address.invalid",
-	}
-	ec2.UseTestMetadata(metadataContent)
-	defer ec2.UseTestMetadata(nil)
-
-	p, err := environs.Provider("ec2")
-	c.Assert(err, gc.IsNil)
-
-	addr, err := p.PublicAddress()
-	c.Assert(err, gc.IsNil)
-	c.Assert(addr, gc.Equals, "public.dummy.address.invalid")
-
-	addr, err = p.PrivateAddress()
-	c.Assert(err, gc.IsNil)
-	c.Assert(addr, gc.Equals, "private.dummy.address.invalid")
-}
-
 func (t *ProviderSuite) assertGetImageMetadataSources(c *gc.C, stream, officialSourcePath string) {
 	// Make an env configured with the stream.
 	envAttrs := localConfigAttrs
@@ -225,7 +205,7 @@ func (t *localServerSuite) SetUpTest(c *gc.C) {
 	t.Tests.SetUpTest(c)
 	t.PatchValue(&version.Current, version.Binary{
 		Number: version.Current.Number,
-		Series: config.DefaultSeries,
+		Series: coretesting.FakeDefaultSeries,
 		Arch:   arch.AMD64,
 	})
 }

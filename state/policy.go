@@ -25,9 +25,13 @@ type Policy interface {
 	// a (possibly nil) Prechecker or an error.
 	Prechecker(*config.Config) (Prechecker, error)
 
-	// ConfigValidator takes a string (environ type) and returns
+	// ConfigValidator takes a provider type name and returns
 	// a (possibly nil) ConfigValidator or an error.
-	ConfigValidator(string) (ConfigValidator, error)
+	ConfigValidator(providerType string) (ConfigValidator, error)
+
+	// EnvironCapability takes a *config.Config and returns
+	// a (possibly nil) EnvironCapability or an error.
+	EnvironCapability(*config.Config) (EnvironCapability, error)
 }
 
 // Prechecker is a policy interface that is provided to State
@@ -48,6 +52,24 @@ type Prechecker interface {
 // to check validity of new configuration attributes before applying them to state.
 type ConfigValidator interface {
 	Validate(cfg, old *config.Config) (valid *config.Config, err error)
+}
+
+// EnvironCapability implements access to metadata about the capabilities
+// of an environment.
+type EnvironCapability interface {
+	// SupportedArchitectures returns the image architectures which can
+	// be hosted by this environment.
+	SupportedArchitectures() ([]string, error)
+
+	// SupportNetworks returns whether the environment has support to
+	// specify networks for services and machines.
+	SupportNetworks() bool
+
+	// SupportsUnitAssignment returns an error which, if non-nil, indicates
+	// that the environment does not support unit placement. If the environment
+	// does not support unit placement, then machines may not be created
+	// without units, and units cannot be placed explcitly.
+	SupportsUnitPlacement() error
 }
 
 // precheckInstance calls the state's assigned policy, if non-nil, to obtain
@@ -73,7 +95,8 @@ func (st *State) precheckInstance(series string, cons constraints.Value) error {
 }
 
 // validate calls the state's assigned policy, if non-nil, to obtain
-// a Validator, and calls validate if a non-nil Validator is returned.
+// a ConfigValidator, and calls Validate if a non-nil ConfigValidator is
+// returned.
 func (st *State) validate(cfg, old *config.Config) (valid *config.Config, err error) {
 	if st.policy == nil {
 		return cfg, nil
@@ -88,4 +111,27 @@ func (st *State) validate(cfg, old *config.Config) (valid *config.Config, err er
 		return nil, fmt.Errorf("policy returned nil configValidator without an error")
 	}
 	return configValidator.Validate(cfg, old)
+}
+
+// supportsUnitPlacement calls the state's assigned policy, if non-nil,
+// to obtain an EnvironCapability, and calls SupportsUnitPlacement if a
+// non-nil EnvironCapability is returned.
+func (st *State) supportsUnitPlacement() error {
+	if st.policy == nil {
+		return nil
+	}
+	cfg, err := st.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	capability, err := st.policy.EnvironCapability(cfg)
+	if errors.IsNotImplementedError(err) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	if capability == nil {
+		return fmt.Errorf("policy returned nil EnvironCapability without an error")
+	}
+	return capability.SupportsUnitPlacement()
 }
