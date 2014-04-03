@@ -239,7 +239,7 @@ func (s *StoreSuite) TestInfoDNSError(c *gc.C) {
 	charmURL := charm.MustParseURL("cs:series/good")
 	resp, err := store.Info(charmURL)
 	c.Assert(resp, gc.IsNil)
-	expect := `Cannot access the charm store. Are you connected to the internet. Error details:.*`
+	expect := `Cannot access the charm store. .*`
 	c.Assert(err, gc.ErrorMatches, expect)
 }
 

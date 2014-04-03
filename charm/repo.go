@@ -178,6 +178,9 @@ func (s *CharmStore) Info(curls ...Location) ([]*InfoResponse, error) {
 		}
 		return nil, err
 	}
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("Cannot access the charm store. Invalid response code: %q", resp.Status)
+	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
