@@ -44,7 +44,7 @@ default: local
 environments:
   local:
     type: local
-    tools-url: http://juju-dist.s3.amazonaws.com/testing/tools
+    tools-metadata-url: http://juju-dist.s3.amazonaws.com/testing/tools
 EOT2
 ssh-keygen -t rsa -b 2048 -N "" -f ~/.ssh/id_rsa
 juju sync-tools
