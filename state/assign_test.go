@@ -329,7 +329,7 @@ func (s *AssignSuite) assertAssignedUnit(c *gc.C, unit *state.Unit) string {
 	// Check that the principal is set on the machine.
 	machine, err := s.State.Machine(machineId)
 	c.Assert(err, gc.IsNil)
-	include, exclude, err := machine.Networks()
+	include, exclude, err := machine.LinkedNetworks()
 	c.Assert(err, gc.IsNil)
 	c.Assert(include, gc.DeepEquals, includeNetworks)
 	c.Assert(exclude, gc.DeepEquals, excludeNetworks)

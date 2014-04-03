@@ -6,8 +6,6 @@ package state_test
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
-
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 )
 
@@ -35,7 +33,7 @@ func (s *MachineNetworkSuite) TestRemove(c *gc.C) {
 	// Add an interface and verify we can't remove the network.
 	iface, err := s.machine.AddNetworkInterface("aa:bb:cc:dd:ee:ff", "eth0", "net1")
 	c.Assert(err, gc.IsNil)
-	err := s.network.Remove()
+	err = s.network.Remove()
 	c.Assert(err, gc.ErrorMatches, `cannot remove machine network "net1" with existing interfaces`)
 	// Now remove it and retry.
 	err = iface.Remove()
@@ -43,7 +41,7 @@ func (s *MachineNetworkSuite) TestRemove(c *gc.C) {
 	err = s.network.Remove()
 	c.Assert(err, gc.IsNil)
 	err = s.network.Remove()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *MachineNetworkSuite) TestGetterMethods(c *gc.C) {
@@ -51,8 +49,8 @@ func (s *MachineNetworkSuite) TestGetterMethods(c *gc.C) {
 	c.Assert(s.network.CIDR(), gc.Equals, "0.1.2.3/24")
 	c.Assert(s.network.VLANTag(), gc.Equals, 0)
 	c.Assert(s.vlan.VLANTag(), gc.Equals, 42)
-	c.Assert(s.network.IsVLANg(), jc.IsFalse)
-	c.Assert(s.vlan.IsVLAN(), gc.IsFalse)
+	c.Assert(s.network.IsVLAN(), jc.IsFalse)
+	c.Assert(s.vlan.IsVLAN(), jc.IsTrue)
 }
 
 func (s *MachineNetworkSuite) TestInterfaces(c *gc.C) {
@@ -67,5 +65,6 @@ func (s *MachineNetworkSuite) TestInterfaces(c *gc.C) {
 
 	ifaces, err = s.network.Interfaces()
 	c.Assert(err, gc.IsNil)
-	c.Assert(ifaces, jc.SameContents, []*state.NetworkInterfaces{iface0, iface1})
+	c.Assert(ifaces, gc.HasLen, 2)
+	c.Assert(ifaces, jc.DeepEquals, []*state.NetworkInterface{iface0, iface1})
 }

@@ -22,7 +22,7 @@ type NetworkInterface struct {
 // a given network.
 type networkInterfaceDoc struct {
 	MACAddress string `bson:"_id"`
-	// Name is the network interface name
+	// Name is the network interface name (e.g. "eth0").
 	Name        string
 	NetworkName string
 	MachineId   string

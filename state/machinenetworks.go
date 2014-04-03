@@ -61,20 +61,21 @@ func (m *MachineNetwork) IsVLAN() bool {
 // Remove deletes the network from state, only if no network
 // interfaces are using it.
 func (m *MachineNetwork) Remove() error {
-	noNICs := bson.D{{"networkname", bson.D{{"$ne", m.doc.Name}}}}
+	existingNICs := bson.D{{"networkname", m.doc.Name}}
 	ops := []txn.Op{{
 		C:      m.st.machineNetworks.Name,
 		Id:     m.doc.Name,
 		Remove: true,
-	}, {
-		C:      m.st.networkInterfaces.Name,
-		Assert: noNICs,
 	}}
-	err := m.st.runTransaction(ops)
-	switch err {
-	case mgo.ErrAborted:
-		return fmt.Errorf("cannot remove machine network %q with existing interfaces")
-	case mgo.ErrNotFound:
+	num, err := m.st.networkInterfaces.Find(existingNICs).Count()
+	if err != nil {
+		return err
+	}
+	if num > 0 {
+		return fmt.Errorf("cannot remove machine network %q with existing interfaces", m.doc.Name)
+	}
+	err = m.st.runTransaction(ops)
+	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("machine network %q", m.doc.Name)
 	}
 	return err
@@ -84,7 +85,7 @@ func (m *MachineNetwork) Remove() error {
 func (m *MachineNetwork) Interfaces() ([]*NetworkInterface, error) {
 	docs := []networkInterfaceDoc{}
 	sel := bson.D{{"networkname", m.doc.Name}}
-	err := m.st.networkInterfaces.Find(bson.D{{"networkname", m.doc.Name}}).All(&docs)
+	err := m.st.networkInterfaces.Find(sel).All(&docs)
 	if err != nil {
 		return nil, err
 	}

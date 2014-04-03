@@ -224,7 +224,7 @@ func (s *Service) removeOps(asserts bson.D) []txn.Op {
 		Id:     s.settingsKey(),
 		Remove: true,
 	}}
-	ops = append(ops, removeNetworksOp(s.st, s.globalKey()))
+	ops = append(ops, removeLinkedNetworksOp(s.st, s.globalKey()))
 	ops = append(ops, removeConstraintsOp(s.st, s.globalKey()))
 	return append(ops, annotationRemoveOp(s.st, s.globalKey()))
 }

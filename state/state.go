@@ -1012,11 +1012,14 @@ func (st *State) AddMachineNetwork(name, cidr string, vlanTag int) (m *MachineNe
 	if cidr != "" {
 		_, _, err := net.ParseCIDR(cidr)
 		if err != nil {
-			return nil, fmt.Errorf("invalid CIDR %q: %v", cidr, err)
+			return nil, err
 		}
 	}
+	if name == "" {
+		return nil, fmt.Errorf("name must be not empty")
+	}
 	if vlanTag < 0 || vlanTag > 4094 {
-		return nil, fmt.Errorf("invalid VLAN tag %q: must be between 0 and 4094", vlanTag)
+		return nil, fmt.Errorf("invalid VLAN tag %d: must be between 0 and 4094", vlanTag)
 	}
 	mdoc := &machineNetworkDoc{
 		Name:    name,

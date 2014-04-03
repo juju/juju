@@ -75,7 +75,7 @@ func MachineConfig(st *state.State, machineId, nonce, dataDir string) (*cloudini
 	}
 
 	// Find networks.
-	includeNetworks, excludeNetworks, err := machine.Networks()
+	includeNetworks, excludeNetworks, err := machine.LinkedNetworks()
 	if err != nil {
 		return nil, err
 	}

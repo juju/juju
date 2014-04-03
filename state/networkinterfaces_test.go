@@ -4,10 +4,7 @@
 package state_test
 
 import (
-	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
-
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 )
 
@@ -34,8 +31,6 @@ func (s *NetworkInterfaceSuite) SetUpTest(c *gc.C) {
 func (s *NetworkInterfaceSuite) TestRemove(c *gc.C) {
 	err := s.iface.Remove()
 	c.Assert(err, gc.IsNil)
-	err = s.iface.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	err = s.iface.Remove()
 	c.Assert(err, gc.IsNil)
 }

@@ -11,6 +11,7 @@ import (
 // linkedNetworksDoc represents the network restrictions for a service or machine.
 // The document ID field is the globalKey of a service or a machine.
 type linkedNetworksDoc struct {
+	Id              string   `bson:"_id"`
 	IncludeNetworks []string `bson:"include"`
 	ExcludeNetworks []string `bson:"exclude"`
 }
@@ -24,7 +25,7 @@ func newLinkedNetworksDoc(includeNetworks, excludeNetworks []string) *linkedNetw
 
 func createLinkedNetworksOp(st *State, id string, includeNetworks, excludeNetworks []string) txn.Op {
 	return txn.Op{
-		C:      st.linkedNetworksDoc.Name,
+		C:      st.linkedNetworks.Name,
 		Id:     id,
 		Assert: txn.DocMissing,
 		Insert: newLinkedNetworksDoc(includeNetworks, excludeNetworks),

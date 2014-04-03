@@ -57,7 +57,7 @@ func (m *Machine) Refresh() error {
 
 // Networks returns a pair of lists of networks to enable/disable on
 // the machine.
-func (m *Machine) Networks() (includeNetworks, excludeNetworks []string, err error) {
+func (m *Machine) LinkedNetworks() (includeNetworks, excludeNetworks []string, err error) {
 	var results params.NetworksResults
 	args := params.Entities{Entities: []params.Entity{{m.tag}}}
 	err = m.st.call("Networks", args, &results)

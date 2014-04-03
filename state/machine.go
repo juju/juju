@@ -586,9 +586,9 @@ func (m *Machine) Remove() (err error) {
 		removeStatusOp(m.st, m.globalKey()),
 		removeConstraintsOp(m.st, m.globalKey()),
 		removeLinkedNetworksOp(m.st, m.globalKey()),
-		removeNetworkInterfacesOp(m.st, m.Id()),
 		annotationRemoveOp(m.st, m.globalKey()),
 	}
+	ops = append(ops, removeNetworkInterfacesOps(m.st, m.Id())...)
 	ops = append(ops, removeContainerRefOps(m.st, m.Id())...)
 	// The only abort conditions in play indicate that the machine has already
 	// been removed.
@@ -891,13 +891,13 @@ func (m *Machine) LinkedNetworks() (includeNetworks, excludeNetworks []string, e
 
 // MachineNetworks returns the list of configured networks on the machine.
 func (m *Machine) MachineNetworks() ([]*MachineNetwork, error) {
-	includeNetworks, _, err := m.Networks()
+	includeNetworks, _, err := m.LinkedNetworks()
 	if err != nil {
 		return nil, err
 	}
 	docs := []machineNetworkDoc{}
 	sel := bson.D{{"_id", bson.D{{"$in", includeNetworks}}}}
-	err := m.st.machineNetworks.Find(sel).All(&docs)
+	err = m.st.machineNetworks.Find(sel).All(&docs)
 	if err != nil {
 		return nil, err
 	}
@@ -925,14 +925,14 @@ func (m *Machine) NetworkInterfaces() ([]*NetworkInterface, error) {
 
 // AddNetworkInterface creates a new network interface on the given
 // network for the machine.
-func (m *Machine) AddNetworkInterface(macAddress, name, networkName string) (err error) {
+func (m *Machine) AddNetworkInterface(macAddress, name, networkName string) (iface *NetworkInterface, err error) {
 	defer utils.ErrorContextf(&err, "cannot add network interface to machine %s", m.doc.Id)
 
 	if _, err := net.ParseMAC(macAddress); err != nil {
-		return fmt.Errorf("invalid MAC address %q: %v", macAddress, err)
+		return nil, err
 	}
 	if name == "" {
-		return fmt.Errorf("name must be not empty")
+		return nil, fmt.Errorf("name must be not empty")
 	}
 	doc := &networkInterfaceDoc{
 		MACAddress:  macAddress,
@@ -954,17 +954,20 @@ func (m *Machine) AddNetworkInterface(macAddress, name, networkName string) (err
 	for i := 0; i < 5; i++ {
 		err = m.st.runTransaction(ops)
 		switch err {
-		case mgo.ErrAborted:
-			_, err = m.st.MachineNetwork(network)
+		case txn.ErrAborted:
+			_, err = m.st.MachineNetwork(networkName)
 			if err != nil {
-				return err
+				return nil, err
 			}
-			return fmt.Errorf("interface with MAC address %q already exists", macAddress)
+			// Network is valid, so the other assert must have failed.
+			return nil, fmt.Errorf("interface with MAC address %q already exists", macAddress)
 		case nil:
-			return nil
+			return newNetworkInterface(m.st, doc), nil
+		default:
+			return nil, err
 		}
 	}
-	return ErrExcessiveContention
+	return nil, ErrExcessiveContention
 }
 
 // CheckProvisioned returns true if the machine was provisioned with the given nonce.
