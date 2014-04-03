@@ -53,7 +53,6 @@ func (azInstance *azureInstance) Status() string {
 	if azInstance.roleInstance == nil {
 		return ""
 	}
-	// TODO(axw) map instance status to something more useful?
 	return azInstance.roleInstance.InstanceStatus
 }
 
