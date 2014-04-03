@@ -610,13 +610,20 @@ func (c *Client) AddCharm(curl *charm.URL) error {
 
 // ResolveCharms resolves the best available charm URLs with series, for charm
 // locations without a series specified.
-func (c *Client) ResolveCharms(refs ...charm.Reference) ([]params.ResolveCharmResult, error) {
-	args := params.ResolveCharms{References: refs}
+func (c *Client) ResolveCharm(ref charm.Reference) (*charm.URL, error) {
+	args := params.ResolveCharms{References: []charm.Reference{ref}}
 	result := new(params.ResolveCharmResults)
 	if err := c.st.Call("Client", "", "ResolveCharms", args, result); err != nil {
 		return nil, err
 	}
-	return result.URLs, nil
+	if len(result.URLs) == 0 {
+		return nil, fmt.Errorf("unexpected empty response")
+	}
+	urlInfo := result.URLs[0]
+	if urlInfo.Error != "" {
+		return nil, fmt.Errorf("%v", urlInfo.Error)
+	}
+	return urlInfo.URL, nil
 }
 
 func (c *Client) UploadTools(

@@ -1985,18 +1985,7 @@ func (s *clientSuite) TestResolveCharm(c *gc.C) {
 		c.Check(series, gc.Equals, "")
 		c.Check(ref.String(), gc.Equals, fmt.Sprintf("%s:%s", test.schema, test.charmName))
 
-		var curl *charm.URL
-		urlInfos, err := client.ResolveCharms(ref)
-		c.Log(urlInfos)
-		if err == nil {
-			urlInfo := urlInfos[0]
-			if urlInfo.Error != "" {
-				err = fmt.Errorf("%v", urlInfo.Error)
-			} else {
-				curl = urlInfo.URL
-			}
-		}
-
+		curl, err := client.ResolveCharm(ref)
 		if err == nil {
 			c.Assert(curl, gc.NotNil)
 			// Only cs: schema should make it through here

@@ -567,16 +567,8 @@ func (c *Client) AddMachines(args params.AddMachines) (params.AddMachinesResults
 	results := params.AddMachinesResults{
 		Machines: make([]params.AddMachinesResult, len(args.MachineParams)),
 	}
-
-	var prefSeries string
-	conf, err := c.api.state.EnvironConfig()
-	if err != nil {
-		return results, err
-	}
-	prefSeries = config.PreferredSeries(conf)
-
 	for i, p := range args.MachineParams {
-		m, err := c.addOneMachine(p, prefSeries)
+		m, err := c.addOneMachine(p)
 		results.Machines[i].Error = common.ServerError(err)
 		if err == nil {
 			results.Machines[i].Machine = m.Id()
@@ -590,9 +582,13 @@ func (c *Client) InjectMachines(args params.AddMachines) (params.AddMachinesResu
 	return c.AddMachines(args)
 }
 
-func (c *Client) addOneMachine(p params.AddMachineParams, prefSeries string) (*state.Machine, error) {
+func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error) {
 	if p.Series == "" {
-		p.Series = prefSeries
+		conf, err := c.api.state.EnvironConfig()
+		if err != nil {
+			return nil, err
+		}
+		p.Series = config.PreferredSeries(conf)
 	}
 	if p.ContainerType != "" {
 		// Guard against dubious client by making sure that
@@ -957,9 +953,16 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 
 func (c *Client) ResolveCharms(args params.ResolveCharms) (params.ResolveCharmResults, error) {
 	var results params.ResolveCharmResults
+
+	envConfig, err := c.api.state.EnvironConfig()
+	if err != nil {
+		return params.ResolveCharmResults{}, err
+	}
+	repo := config.SpecializeCharmRepo(CharmStore, envConfig)
+
 	for _, ref := range args.References {
 		result := params.ResolveCharmResult{}
-		curl, err := c.resolveCharm(ref)
+		curl, err := c.resolveCharm(ref, repo)
 		if err != nil {
 			result.Error = err.Error()
 		} else {
@@ -970,19 +973,13 @@ func (c *Client) ResolveCharms(args params.ResolveCharms) (params.ResolveCharmRe
 	return results, nil
 }
 
-func (c *Client) resolveCharm(ref charm.Reference) (*charm.URL, error) {
+func (c *Client) resolveCharm(ref charm.Reference, repo charm.Repository) (*charm.URL, error) {
 	if ref.Schema != "cs" {
 		return nil, fmt.Errorf("only charm store charm references are supported, with cs: schema")
 	}
 
-	// Resolve the charm location with the store.
-	envConfig, err := c.api.state.EnvironConfig()
-	if err != nil {
-		return nil, err
-	}
-	store := config.SpecializeCharmRepo(CharmStore, envConfig)
-
-	return store.Resolve(ref)
+	// Resolve the charm location with the repository.
+	return repo.Resolve(ref)
 }
 
 // CharmArchiveName returns a string that is suitable as a file name
