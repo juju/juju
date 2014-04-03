@@ -13,15 +13,17 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/presence"
+	"launchpad.net/juju-core/utils"
 )
 
-func newStateServer(srv *Server, rpcConn *rpc.Conn, reqNotifier *requestNotifier) *initialRoot {
+func newStateServer(srv *Server, rpcConn *rpc.Conn, reqNotifier *requestNotifier, limiter utils.Limiter) *initialRoot {
 	r := &initialRoot{
 		srv:     srv,
 		rpcConn: rpcConn,
 	}
 	r.admin = &srvAdmin{
 		root:        r,
+		limiter:     limiter,
 		reqNotifier: reqNotifier,
 	}
 	return r
@@ -53,6 +55,7 @@ func (r *initialRoot) Admin(id string) (*srvAdmin, error) {
 // that are needed to log in.
 type srvAdmin struct {
 	mu          sync.Mutex
+	limiter     utils.Limiter
 	root        *initialRoot
 	loggedIn    bool
 	reqNotifier *requestNotifier
@@ -70,6 +73,11 @@ func (a *srvAdmin) Login(c params.Creds) (params.LoginResult, error) {
 		// This can only happen if Login is called concurrently.
 		return params.LoginResult{}, errAlreadyLoggedIn
 	}
+	if !a.limiter.Acquire() {
+		logger.Debugf("rate limiting, try again later")
+		return params.LoginResult{}, common.ErrTryAgain
+	}
+	defer a.limiter.Release()
 	entity, err := doCheckCreds(a.root.srv.state, c)
 	if err != nil {
 		return params.LoginResult{}, err

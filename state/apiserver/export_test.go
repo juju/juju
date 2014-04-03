@@ -16,6 +16,8 @@ var (
 	MaxPingInterval = &maxPingInterval
 )
 
+const LoginRateLimit = loginRateLimit
+
 // DelayLogins changes how the Login code works so that logins won't proceed
 // until they get a message on the returned channel.
 // After calling this function, the caller is responsible for sending messages
