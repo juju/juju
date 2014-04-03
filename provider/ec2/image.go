@@ -57,7 +57,7 @@ func findInstanceSpec(
 		return nil, err
 	}
 	if len(matchingImages) == 0 {
-		logger.Warningf("no matching image meta data for constraints: %v", cons)
+		logger.Warningf("no matching image metadata for constraints: %v", cons)
 	}
 	suitableImages := filterImages(matchingImages)
 	images := instances.ImageMetadataToImages(suitableImages)

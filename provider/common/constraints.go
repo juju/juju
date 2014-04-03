@@ -5,6 +5,7 @@ package common
 
 import (
 	"github.com/juju/loggo"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 )
@@ -12,8 +13,8 @@ import (
 // InstanceTypeUnsupported logs a warning if cons contains an instance type value.
 func InstanceTypeUnsupported(logger loggo.Logger, e environs.Environ, cons constraints.Value) {
 	if cons.HasInstanceType() {
-		logger.Warningf("instance-type constraint %s not supported for %s provider %q",
-			cons.InstanceType, e.Config().Type(), e.Name())
+		logger.Warningf("instance-type constraint %q not supported for %s provider %q",
+			*cons.InstanceType, e.Config().Type(), e.Name())
 	}
 }
 

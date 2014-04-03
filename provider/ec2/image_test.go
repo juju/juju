@@ -121,6 +121,18 @@ var findInstanceSpecTests = []struct {
 		cons:   "arch=amd64",
 		itype:  "cc1.4xlarge",
 		image:  "ami-01000035",
+	}, {
+		series: "quantal",
+		arches: both,
+		cons:   "instance-type=cc1.4xlarge",
+		itype:  "cc1.4xlarge",
+		image:  "ami-01000035",
+	}, {
+		series: "precise",
+		arches: []string{"i386"},
+		cons:   "instance-type=cc1.4xlarge cpu-power=400",
+		itype:  "c1.medium",
+		image:  "ami-00000034",
 	},
 }
 
@@ -164,6 +176,11 @@ var findInstanceSpecErrorTests = []struct {
 		arches: both,
 		cons:   "mem=4G",
 		err:    `no "raring" images in test matching instance types \[m1.large m1.xlarge c1.xlarge cc1.4xlarge cc2.8xlarge\]`,
+	}, {
+		series: "raring",
+		arches: both,
+		cons:   "instance-type=invalid",
+		err:    `invalid instance type "invalid"`,
 	},
 }
 
