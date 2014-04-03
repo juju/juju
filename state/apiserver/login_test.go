@@ -243,12 +243,30 @@ func (s *loginSuite) loginHostPorts(c *gc.C, info *api.Info) (connectedAddr stri
 	return st.Addr(), st.APIHostPorts()
 }
 
-// slowDialOpts is used in the Delay and Rate limiting tests so that we can see
-// that a login is requested and stuck in 'pending' but if there is a bug in
-// the test, we won't wait DefaultDialOpts() [10m] before discovering this
-var slowDialOpts = api.DialOpts{
-	Timeout:    coretesting.LongWait * 2,
-	RetryDelay: coretesting.ShortWait * 2,
+func startNLogins(c *gc.C, n int, info *api.Info) (chan error, *sync.WaitGroup) {
+	errResults := make(chan error, 100)
+	var doneWG sync.WaitGroup
+	var startedWG sync.WaitGroup
+	c.Logf("starting %d concurrent logins to %v", n, info.Addrs)
+	for i := 0; i < n; i++ {
+		i := i
+		c.Logf("starting login request %d", i)
+		startedWG.Add(1)
+		doneWG.Add(1)
+		go func() {
+			c.Logf("started login %d", i)
+			startedWG.Done()
+			st, err := api.Open(info, fastDialOpts)
+			errResults <- err
+			if err == nil {
+				st.Close()
+			}
+			doneWG.Done()
+			c.Logf("finished login %d: %v", i, err)
+		}()
+	}
+	startedWG.Wait()
+	return errResults, &doneWG
 }
 
 func (s *loginSuite) TestDelayLogins(c *gc.C) {
@@ -260,47 +278,53 @@ func (s *loginSuite) TestDelayLogins(c *gc.C) {
 	// numConcurrentLogins is how many logins will fire off simultaneously.
 	// It doesn't really matter, as long as it is less than LoginRateLimit
 	const numConcurrentLogins = 5
+	c.Assert(numConcurrentLogins, jc.LessThan, apiserver.LoginRateLimit)
 	// Trigger a bunch of login requests
-	errResults := make(chan error, 100)
-	var wg sync.WaitGroup
-	for i := 0; i < numConcurrentLogins; i++ {
-		wg.Add(1)
-		go func() {
-			// We can use fastDialOpts because we should connect
-			// immediately, it is just the Login RPC that will take
-			// a while to respond.
-			st, err := api.Open(info, fastDialOpts)
-			if err == nil {
-				st.Close()
-			}
-			errResults <- err
-			wg.Done()
-		}()
-	}
+	errResults, wg := startNLogins(c, numConcurrentLogins, info)
 	select {
 	case err := <-errResults:
 		c.Fatalf("we should not have gotten any logins yet: %v", err)
 	case <-time.After(coretesting.ShortWait):
 	}
-	// Now allow the logins to proceed
-	for i := 0; i < numConcurrentLogins; i++ {
+	// Allow one login to proceed
+	c.Logf("letting one login through")
+	select {
+	case delayChan <- struct{}{}:
+	default:
+		c.Fatalf("we should have been able to unblock a login")
+	}
+	select {
+	case err := <-errResults:
+		c.Check(err, gc.IsNil)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out while waiting for Login to finish")
+	}
+	c.Logf("checking no other logins succeeded")
+	// It should have only let 1 login through
+	select {
+	case err := <-errResults:
+		c.Fatalf("we should not have gotten more logins: %v", err)
+	case <-time.After(coretesting.ShortWait):
+	}
+	// Now allow the rest of the logins to proceed
+	c.Logf("letting %d logins through", numConcurrentLogins-1)
+	for i := 0; i < numConcurrentLogins-1; i++ {
 		delayChan <- struct{}{}
 	}
+	c.Logf("waiting for Logins to finish")
 	wg.Wait()
 	close(errResults)
 	successCount := 0
-	errorCount := 0
 	for err := range errResults {
-		if err != nil {
-			errorCount += 1
-		} else {
+		c.Check(err, gc.IsNil)
+		if err == nil {
 			successCount += 1
 		}
 	}
 	// All the logins should succeed, they were just delayed after
 	// connecting.
-	c.Check(errorCount, gc.Equals, 0)
-	c.Check(successCount, gc.Equals, numConcurrentLogins)
+	c.Check(successCount, gc.Equals, numConcurrentLogins-1)
+	c.Logf("done")
 }
 
 func (s *loginSuite) TestLoginRateLimited(c *gc.C) {
@@ -311,28 +335,14 @@ func (s *loginSuite) TestLoginRateLimited(c *gc.C) {
 
 	// Start enough concurrent Login requests so that we max out our
 	// LoginRateLimit
-	errResults := make(chan error, 100)
-	var doneWG sync.WaitGroup
-	var startedWG sync.WaitGroup
-	for i := 0; i < apiserver.LoginRateLimit; i++ {
-		startedWG.Add(1)
-		doneWG.Add(1)
-		go func() {
-			startedWG.Done()
-			st, err := api.Open(info, fastDialOpts)
-			errResults <- err
-			if err == nil {
-				st.Close()
-			}
-			doneWG.Done()
-		}()
-	}
+	errResults, wg := startNLogins(c, apiserver.LoginRateLimit, info)
+	// All of them should have started, none of them should have succeeded
+	// (or failed) yet
 	select {
 	case err := <-errResults:
 		c.Fatalf("we should not have gotten any logins yet: %v", err)
 	case <-time.After(coretesting.ShortWait):
 	}
-	startedWG.Wait()
 	// We now have a bunch of pending Login requests, the next login
 	// request should be immediately bounced
 	_, err := api.Open(info, fastDialOpts)
@@ -348,14 +358,14 @@ func (s *loginSuite) TestLoginRateLimited(c *gc.C) {
 		c.Fatalf("timed out expecting one login to succeed")
 	}
 	chOne := make(chan error, 1)
-	doneWG.Add(1)
+	wg.Add(1)
 	go func() {
 		st, err := api.Open(info, fastDialOpts)
 		chOne <- err
 		if err == nil {
 			st.Close()
 		}
-		doneWG.Done()
+		wg.Done()
 	}()
 	select {
 	case err := <-chOne:
@@ -368,7 +378,82 @@ func (s *loginSuite) TestLoginRateLimited(c *gc.C) {
 	for i := 0; i < apiserver.LoginRateLimit; i++ {
 		delayChan <- struct{}{}
 	}
-	doneWG.Wait()
+	wg.Wait()
+	close(errResults)
+	for err := range errResults {
+		c.Check(err, gc.IsNil)
+	}
+}
+
+func (s *loginSuite) TestUsersLoginWhileRateLimited(c *gc.C) {
+	info, cleanup := s.setupMachineAndServer(c)
+	defer cleanup()
+	delayChan, cleanup := apiserver.DelayLogins()
+	defer cleanup()
+
+	// Start enough concurrent Login requests so that we max out our
+	// LoginRateLimit. Do one extra so we know we are in overload
+	machineResults, machineWG := startNLogins(c, apiserver.LoginRateLimit+1, info)
+	select {
+	case err := <-machineResults:
+		c.Check(err, jc.Satisfies, params.IsCodeTryAgain)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for login to get rejected.")
+	}
+
+	userInfo := *info
+	userInfo.Tag = "user-admin"
+	userInfo.Password = "dummy-secret"
+	userResults, userWG := startNLogins(c, apiserver.LoginRateLimit+1, &userInfo)
+	// all of them should have started, and none of them in TryAgain state
+	select {
+	case err := <-userResults:
+		c.Fatalf("we should not have gotten any logins yet: %v", err)
+	case <-time.After(coretesting.ShortWait):
+	}
+	totalLogins := apiserver.LoginRateLimit*2 + 1
+	for i := 0; i < totalLogins; i++ {
+		delayChan <- struct{}{}
+	}
+	machineWG.Wait()
+	close(machineResults)
+	userWG.Wait()
+	close(userResults)
+	machineCount := 0
+	for err := range machineResults {
+		machineCount += 1
+		c.Check(err, gc.IsNil)
+	}
+	c.Check(machineCount, gc.Equals, apiserver.LoginRateLimit)
+	userCount := 0
+	for err := range userResults {
+		userCount += 1
+		c.Check(err, gc.IsNil)
+	}
+	c.Check(userCount, gc.Equals, apiserver.LoginRateLimit+1)
+}
+
+func (s *loginSuite) TestUsersAreNotRateLimited(c *gc.C) {
+	info, cleanup := s.setupServer(c)
+	info.Tag = "user-admin"
+	info.Password = "dummy-secret"
+	defer cleanup()
+	delayChan, cleanup := apiserver.DelayLogins()
+	defer cleanup()
+	// We can login more than LoginRateLimit users
+	nLogins := apiserver.LoginRateLimit * 2
+	errResults, wg := startNLogins(c, nLogins, info)
+	select {
+	case err := <-errResults:
+		c.Fatalf("we should not have gotten any logins yet: %v", err)
+	case <-time.After(coretesting.ShortWait):
+	}
+	c.Logf("letting %d logins complete", nLogins)
+	for i := 0; i < nLogins; i++ {
+		delayChan <- struct{}{}
+	}
+	c.Logf("waiting for original requests to finish")
+	wg.Wait()
 	close(errResults)
 	for err := range errResults {
 		c.Check(err, gc.IsNil)

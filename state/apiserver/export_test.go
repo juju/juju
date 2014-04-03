@@ -24,7 +24,7 @@ const LoginRateLimit = loginRateLimit
 // on the nextChan in order for Logins to succeed. The original behavior can be
 // restored by calling the cleanup function.
 func DelayLogins() (nextChan chan struct{}, cleanup func()) {
-	nextChan = make(chan struct{}, 0)
+	nextChan = make(chan struct{}, 10)
 	cleanup = func() {
 		doCheckCreds = checkCreds
 	}

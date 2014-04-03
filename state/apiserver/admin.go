@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -73,11 +74,14 @@ func (a *srvAdmin) Login(c params.Creds) (params.LoginResult, error) {
 		// This can only happen if Login is called concurrently.
 		return params.LoginResult{}, errAlreadyLoggedIn
 	}
-	if !a.limiter.Acquire() {
-		logger.Debugf("rate limiting, try again later")
-		return params.LoginResult{}, common.ErrTryAgain
+	// Users are not rate limited, all other entities are
+	if kind, err := names.TagKind(c.AuthTag); err != nil || kind != names.UserTagKind {
+		if !a.limiter.Acquire() {
+			logger.Debugf("rate limiting, try again later")
+			return params.LoginResult{}, common.ErrTryAgain
+		}
+		defer a.limiter.Release()
 	}
-	defer a.limiter.Release()
 	entity, err := doCheckCreds(a.root.srv.state, c)
 	if err != nil {
 		return params.LoginResult{}, err
