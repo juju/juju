@@ -67,26 +67,6 @@ func (s *MongoSuite) TestDefaultMongodPath(c *gc.C) {
 	c.Check(obtained, gc.Equals, filename)
 }
 
-func (s *MongoSuite) TestRemoveOldMongoServices(c *gc.C) {
-	namespace := "user-local"
-
-	// Make fake old service.
-	// We defer the removes manually just in case the test fails, we don't leave
-	// junk behind.
-	conf := makeService(ServiceName(namespace), c)
-
-	// now that the old service is installed, change the in-memory expected
-	// script to something different.
-	conf.Cmd = "echo something else"
-	defer conf.Remove()
-
-	// this should remove the old service, because the contents now differ
-	err := removeOldService(conf)
-	c.Check(err, gc.IsNil)
-
-	c.Check(conf.Installed(), jc.IsFalse)
-}
-
 func (s *MongoSuite) TestMakeJournalDirs(c *gc.C) {
 	dir := c.MkDir()
 	err := makeJournalDirs(dir)
@@ -130,21 +110,11 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 
 	testJournalDirs(dir, c)
 	c.Assert(svc.Installed(), jc.IsTrue)
-	conf, err := svc.ReadConf()
-	c.Assert(err, gc.IsNil)
-	expected, err := svc.Render()
-	c.Assert(err, gc.IsNil)
-	c.Assert(string(conf), gc.Equals, string(expected))
 
 	// now check we can call it multiple times without error
 	err = EnsureMongoServer(dir, port, namespace)
 	c.Assert(err, gc.IsNil)
 	c.Assert(svc.Installed(), jc.IsTrue)
-	conf, err = svc.ReadConf()
-	c.Assert(err, gc.IsNil)
-	expected, err = svc.Render()
-	c.Assert(err, gc.IsNil)
-	c.Assert(string(conf), gc.Equals, string(expected))
 }
 
 func (s *MongoSuite) TestServiceName(c *gc.C) {
