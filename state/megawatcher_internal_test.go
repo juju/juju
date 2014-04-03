@@ -78,7 +78,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 	c.Assert(err, gc.IsNil)
 	hc, err := m.HardwareCharacteristics()
 	c.Assert(err, gc.IsNil)
-	err = m.SetAddresses(instance.NewAddress("example.com"))
+	err = m.SetAddresses(instance.NewAddress("example.com", instance.NetworkUnknown))
 	c.Assert(err, gc.IsNil)
 	add(&params.MachineInfo{
 		Id:                      "0",

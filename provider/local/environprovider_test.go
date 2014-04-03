@@ -380,3 +380,19 @@ func (s *prepareSuite) TestFastLXCClone(c *gc.C) {
 		c.Assert(value, gc.Equals, test.expectAUFS)
 	}
 }
+
+func (s *prepareSuite) TestPrepareProxySSH(c *gc.C) {
+	s.PatchValue(local.DetectAptProxies, func() (osenv.ProxySettings, error) {
+		return osenv.ProxySettings{}, nil
+	})
+	basecfg, err := config.New(config.UseDefaults, map[string]interface{}{
+		"type": "local",
+		"name": "test",
+	})
+	provider, err := environs.Provider("local")
+	c.Assert(err, gc.IsNil)
+	env, err := provider.Prepare(coretesting.Context(c), basecfg)
+	c.Assert(err, gc.IsNil)
+	// local provider sets proxy-ssh to false
+	c.Assert(env.Config().ProxySSH(), gc.Equals, false)
+}
