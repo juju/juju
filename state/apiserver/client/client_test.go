@@ -672,7 +672,7 @@ func (s *clientSuite) TestClientServiceDeployCharmErrors(c *gc.C) {
 	} {
 		c.Logf("test %s", url)
 		err := s.APIState.Client().ServiceDeploy(
-			url, "service", "user-admin", 1, "", constraints.Value{}, "",
+			url, "service", 1, "", constraints.Value{}, "",
 		)
 		c.Check(err, gc.ErrorMatches, expect)
 		_, err = s.State.Service("service")
@@ -686,7 +686,7 @@ func (s *clientSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
 	curl, bundle := addCharm(c, store, "dummy")
 	mem4g := constraints.MustParse("mem=4G")
 	err := s.APIState.Client().ServiceDeployWithNetworks(
-		curl.String(), "service", "user-admin", 3, "", mem4g, "", []string{"net1", "net2"}, []string{"net3"},
+		curl.String(), "service", 3, "", mem4g, "", []string{"net1", "net2"}, []string{"net3"},
 	)
 	c.Assert(err, gc.IsNil)
 	service := s.assertPrincipalDeployed(c, "service", curl, false, bundle, mem4g)
@@ -732,7 +732,7 @@ func (s *clientSuite) TestClientServiceDeployPrincipal(c *gc.C) {
 	curl, bundle := addCharm(c, store, "dummy")
 	mem4g := constraints.MustParse("mem=4G")
 	err := s.APIState.Client().ServiceDeploy(
-		curl.String(), "service", "user-admin", 3, "", mem4g, "",
+		curl.String(), "service", 3, "", mem4g, "",
 	)
 	c.Assert(err, gc.IsNil)
 	s.assertPrincipalDeployed(c, "service", curl, false, bundle, mem4g)
@@ -743,7 +743,7 @@ func (s *clientSuite) TestClientServiceDeploySubordinate(c *gc.C) {
 	defer restore()
 	curl, bundle := addCharm(c, store, "logging")
 	err := s.APIState.Client().ServiceDeploy(
-		curl.String(), "service-name", "user-admin", 0, "", constraints.Value{}, "",
+		curl.String(), "service-name", 0, "", constraints.Value{}, "",
 	)
 	service, err := s.State.Service("service-name")
 	c.Assert(err, gc.IsNil)
@@ -766,7 +766,7 @@ func (s *clientSuite) TestClientServiceDeployConfig(c *gc.C) {
 	defer restore()
 	curl, _ := addCharm(c, store, "dummy")
 	err := s.APIState.Client().ServiceDeploy(
-		curl.String(), "service-name", "user-admin", 1, "service-name:\n  username: fred", constraints.Value{}, "",
+		curl.String(), "service-name", 1, "service-name:\n  username: fred", constraints.Value{}, "",
 	)
 	c.Assert(err, gc.IsNil)
 	service, err := s.State.Service("service-name")
@@ -783,7 +783,7 @@ func (s *clientSuite) TestClientServiceDeployConfigError(c *gc.C) {
 	defer restore()
 	curl, _ := addCharm(c, store, "dummy")
 	err := s.APIState.Client().ServiceDeploy(
-		curl.String(), "service-name", "user-admin", 1, "service-name:\n  skill-level: fred", constraints.Value{}, "",
+		curl.String(), "service-name", 1, "service-name:\n  skill-level: fred", constraints.Value{}, "",
 	)
 	c.Assert(err, gc.ErrorMatches, `option "skill-level" expected int, got "fred"`)
 	_, err = s.State.Service("service-name")
@@ -798,7 +798,7 @@ func (s *clientSuite) TestClientServiceDeployToMachine(c *gc.C) {
 	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = s.APIState.Client().ServiceDeploy(
-		curl.String(), "service-name", "user-admin", 1, "service-name:\n  username: fred", constraints.Value{}, machine.Id(),
+		curl.String(), "service-name", 1, "service-name:\n  username: fred", constraints.Value{}, machine.Id(),
 	)
 	c.Assert(err, gc.IsNil)
 
@@ -822,7 +822,7 @@ func (s *clientSuite) TestClientServiceDeployToMachine(c *gc.C) {
 func (s *clientSuite) deployServiceForTests(c *gc.C, store *coretesting.MockCharmStore) {
 	curl, _ := addCharm(c, store, "dummy")
 	err := s.APIState.Client().ServiceDeploy(curl.String(),
-		"service", "user-admin", 1, "", constraints.Value{}, "",
+		"service", 1, "", constraints.Value{}, "",
 	)
 	c.Assert(err, gc.IsNil)
 }
@@ -1042,7 +1042,7 @@ func (s *clientSuite) TestClientServiceSetCharm(c *gc.C) {
 	defer restore()
 	curl, _ := addCharm(c, store, "dummy")
 	err := s.APIState.Client().ServiceDeploy(
-		curl.String(), "service", "user-admin", 3, "", constraints.Value{}, "",
+		curl.String(), "service", 3, "", constraints.Value{}, "",
 	)
 	c.Assert(err, gc.IsNil)
 	addCharm(c, store, "wordpress")
@@ -1065,7 +1065,7 @@ func (s *clientSuite) TestClientServiceSetCharmForce(c *gc.C) {
 	defer restore()
 	curl, _ := addCharm(c, store, "dummy")
 	err := s.APIState.Client().ServiceDeploy(
-		curl.String(), "service", "user-admin", 3, "", constraints.Value{}, "",
+		curl.String(), "service", 3, "", constraints.Value{}, "",
 	)
 	c.Assert(err, gc.IsNil)
 	addCharm(c, store, "wordpress")
@@ -1873,7 +1873,7 @@ func (s *clientSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAddChar
 
 	curl, _ := addCharm(c, store, "dummy")
 	err = s.APIState.Client().ServiceDeploy(
-		curl.String(), "service", "user-admin", 3, "", constraints.Value{}, "",
+		curl.String(), "service", 3, "", constraints.Value{}, "",
 	)
 	c.Assert(err, gc.IsNil)
 
