@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/provider/common"
 )
 
 // findInstanceSpec returns an image and instance type satisfying the constraint.
@@ -48,7 +49,10 @@ func findInstanceSpec(e *environ, ic *instances.InstanceConstraint) (*instances.
 		return nil, err
 	}
 	images := instances.ImageMetadataToImages(matchingImages)
-	spec, err := instances.FindInstanceSpec(images, ic, allInstanceTypes)
+
+	cons := *ic
+	cons.Constraints = common.ImageMatchConstraint(cons.Constraints)
+	spec, err := instances.FindInstanceSpec(images, &cons, allInstanceTypes)
 	if err != nil {
 		return nil, err
 	}

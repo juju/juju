@@ -28,7 +28,7 @@ func ImageMatchConstraint(cons constraints.Value) constraints.Value {
 	consWithoutInstType := cons
 	consWithoutInstType.InstanceType = nil
 	// If the original constraint has attributes besides instances constraint,
-	// we used those, ignoring instance constraint.
+	// we use those, ignoring instance constraint.
 	if !constraints.IsEmpty(&consWithoutInstType) {
 		logger.Warningf("instance-type constraint %q ignored since other constraints are specified", cons.InstanceType)
 		return consWithoutInstType

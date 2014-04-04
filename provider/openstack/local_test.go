@@ -570,6 +570,25 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `no "saucy" images in some-region with arches \[amd64\]`)
 }
 
+func (s *localServerSuite) TestFindImageInstanceConstraint(c *gc.C) {
+	// Prevent falling over to the public datasource.
+	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
+
+	env := s.Open(c)
+	spec, err := openstack.FindInstanceSpec(env, "precise", "amd64", "instance-type=m1.tiny")
+	c.Assert(err, gc.IsNil)
+	c.Assert(spec.InstanceType.Name, gc.Equals, "m1.tiny")
+}
+
+func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {
+	// Prevent falling over to the public datasource.
+	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
+
+	env := s.Open(c)
+	_, err := openstack.FindInstanceSpec(env, "precise", "amd64", "instance-type=m1.large")
+	c.Assert(err, gc.ErrorMatches, `invalid instance type "m1.large"`)
+}
+
 func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	env := s.Open(c)
 	params, err := env.(simplestreams.MetadataValidator).MetadataLookupParams("some-region")
