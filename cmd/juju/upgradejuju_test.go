@@ -14,6 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/sync"
@@ -225,14 +226,14 @@ var upgradeJujuTests = []struct {
 	agentVersion:   "2.0.0",
 	args:           []string{"--upload-tools"},
 	expectVersion:  "2.2.0.1",
-	expectUploaded: []string{"2.2.0.1-quantal-amd64", "2.2.0.1-precise-amd64", "2.2.0.1-raring-amd64"},
+	expectUploaded: []string{"2.2.0.1-quantal-amd64", "2.2.0.1-%LTS%-amd64", "2.2.0.1-raring-amd64"},
 }, {
 	about:          "upload with explicit version",
 	currentVersion: "2.2.0-quantal-amd64",
 	agentVersion:   "2.0.0",
 	args:           []string{"--upload-tools", "--version", "2.7.3"},
 	expectVersion:  "2.7.3.1",
-	expectUploaded: []string{"2.7.3.1-quantal-amd64", "2.7.3.1-precise-amd64", "2.7.3.1-raring-amd64"},
+	expectUploaded: []string{"2.7.3.1-quantal-amd64", "2.7.3.1-%LTS%-amd64", "2.7.3.1-raring-amd64"},
 }, {
 	about:          "upload with explicit series",
 	currentVersion: "2.2.0-quantal-amd64",
@@ -246,7 +247,7 @@ var upgradeJujuTests = []struct {
 	agentVersion:   "2.0.0",
 	args:           []string{"--upload-tools"},
 	expectVersion:  "2.1.0.1",
-	expectUploaded: []string{"2.1.0.1-quantal-amd64", "2.1.0.1-precise-amd64", "2.1.0.1-raring-amd64"},
+	expectUploaded: []string{"2.1.0.1-quantal-amd64", "2.1.0.1-%LTS%-amd64", "2.1.0.1-raring-amd64"},
 }, {
 	about:          "upload bumps version when necessary",
 	tools:          []string{"2.4.6-quantal-amd64", "2.4.8-quantal-amd64"},
@@ -254,7 +255,7 @@ var upgradeJujuTests = []struct {
 	agentVersion:   "2.4.0",
 	args:           []string{"--upload-tools"},
 	expectVersion:  "2.4.6.1",
-	expectUploaded: []string{"2.4.6.1-quantal-amd64", "2.4.6.1-precise-amd64", "2.4.6.1-raring-amd64"},
+	expectUploaded: []string{"2.4.6.1-quantal-amd64", "2.4.6.1-%LTS%-amd64", "2.4.6.1-raring-amd64"},
 }, {
 	about:          "upload re-bumps version when necessary",
 	tools:          []string{"2.4.6-quantal-amd64", "2.4.6.2-saucy-i386", "2.4.8-quantal-amd64"},
@@ -262,7 +263,7 @@ var upgradeJujuTests = []struct {
 	agentVersion:   "2.4.6.2",
 	args:           []string{"--upload-tools"},
 	expectVersion:  "2.4.6.3",
-	expectUploaded: []string{"2.4.6.3-quantal-amd64", "2.4.6.3-precise-amd64", "2.4.6.3-raring-amd64"},
+	expectUploaded: []string{"2.4.6.3-quantal-amd64", "2.4.6.3-%LTS%-amd64", "2.4.6.3-raring-amd64"},
 }, {
 	about:          "upload with explicit version bumps when necessary",
 	currentVersion: "2.2.0-quantal-amd64",
@@ -270,7 +271,7 @@ var upgradeJujuTests = []struct {
 	agentVersion:   "2.0.0",
 	args:           []string{"--upload-tools", "--version", "2.7.3"},
 	expectVersion:  "2.7.3.2",
-	expectUploaded: []string{"2.7.3.2-quantal-amd64", "2.7.3.2-precise-amd64", "2.7.3.2-raring-amd64"},
+	expectUploaded: []string{"2.7.3.2-quantal-amd64", "2.7.3.2-%LTS%-amd64", "2.7.3.2-raring-amd64"},
 }}
 
 // getMockBuildTools returns a sync.BuildToolsTarballFunc implementation which generates
@@ -356,6 +357,9 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		c.Check(agentVersion, gc.Equals, version.MustParse(test.expectVersion))
 
 		for _, uploaded := range test.expectUploaded {
+			// Substitute latest LTS for placeholder in expected series for uploaded tools
+			uploaded = strings.Replace(uploaded, "%LTS%", config.LatestLtsSeries(), 1)
+
 			vers := version.MustParseBinary(uploaded)
 			r, err := storage.Get(s.Conn.Environ.Storage(), envtools.StorageName(vers))
 			if !c.Check(err, gc.IsNil) {
