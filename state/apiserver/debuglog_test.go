@@ -33,20 +33,20 @@ type debugLogSuite struct {
 
 var _ = gc.Suite(&debugLogSuite{})
 
-func (s *debugLogSuite) TestServeHTTPWithHTTP(c *gc.C) {
+func (s *debugLogSuite) TestWithHTTP(c *gc.C) {
 	uri := s.logURL(c, "http", nil).String()
 	_, err := s.sendRequest(c, "", "", "GET", uri, "", nil)
 	c.Assert(err, gc.ErrorMatches, `.*malformed HTTP response.*`)
 }
 
-func (s *debugLogSuite) TestServeHTTPWithHTTPS(c *gc.C) {
+func (s *debugLogSuite) TestWithHTTPS(c *gc.C) {
 	uri := s.logURL(c, "https", nil).String()
 	response, err := s.sendRequest(c, "", "", "GET", uri, "", nil)
 	c.Assert(err, gc.IsNil)
 	c.Assert(response.StatusCode, gc.Equals, http.StatusBadRequest)
 }
 
-func (s *debugLogSuite) TestServeHTTPWebsocketNoAuth(c *gc.C) {
+func (s *debugLogSuite) TestNoAuth(c *gc.C) {
 	conn, err := s.dialWebsocketInternal(c, nil, nil)
 	c.Assert(err, gc.IsNil)
 	defer conn.Close()
@@ -56,32 +56,108 @@ func (s *debugLogSuite) TestServeHTTPWebsocketNoAuth(c *gc.C) {
 	s.assertWebsocketClosed(c, reader)
 }
 
-func (s *debugLogSuite) TestServeHTTPWebsocketNoLogfile(c *gc.C) {
-	conn, err := s.dialWebsocket(c, nil)
-	c.Assert(err, gc.IsNil)
-	defer conn.Close()
-	reader := bufio.NewReader(conn)
+func (s *debugLogSuite) TestNoLogfile(c *gc.C) {
+	reader := s.openWebsocket(c, nil)
 	s.assertErrorResponse(c, reader, "cannot open log file: .*: no such file or directory")
 	s.assertWebsocketClosed(c, reader)
 }
 
-func (s *debugLogSuite) TestServeHTTPWebsocketServesLog(c *gc.C) {
+func (s *debugLogSuite) TestBadParams(c *gc.C) {
+	reader := s.openWebsocket(c, url.Values{"maxLines": {"foo"}})
+	s.assertErrorResponse(c, reader, `maxLines value "foo" is not a valid unsigned number`)
+	s.assertWebsocketClosed(c, reader)
+}
+
+func (s *debugLogSuite) TestServesLog(c *gc.C) {
 	s.ensureLogFile(c)
-	conn, err := s.dialWebsocket(c, nil)
-	c.Assert(err, gc.IsNil)
-	defer conn.Close()
-	reader := bufio.NewReader(conn)
+	reader := s.openWebsocket(c, nil)
 	s.assertLogFollowing(c, reader)
 	s.writeLogLines(c, logLineCount)
 
-	linesRead := []string{}
-	for len(linesRead) < logLineCount {
+	linesRead := s.readLogLines(c, reader, logLineCount)
+	c.Assert(linesRead, jc.DeepEquals, logLines)
+}
+
+func (s *debugLogSuite) TestReadsFromEnd(c *gc.C) {
+	s.ensureLogFile(c)
+	s.writeLogLines(c, 10)
+
+	reader := s.openWebsocket(c, nil)
+	s.assertLogFollowing(c, reader)
+	s.writeLogLines(c, logLineCount)
+
+	linesRead := s.readLogLines(c, reader, logLineCount-10)
+	c.Assert(linesRead, jc.DeepEquals, logLines[10:])
+}
+
+func (s *debugLogSuite) TestReplayFromStart(c *gc.C) {
+	s.ensureLogFile(c)
+	s.writeLogLines(c, 10)
+
+	reader := s.openWebsocket(c, url.Values{"replay": {"true"}})
+	s.assertLogFollowing(c, reader)
+	s.writeLogLines(c, logLineCount)
+
+	linesRead := s.readLogLines(c, reader, logLineCount)
+	c.Assert(linesRead, jc.DeepEquals, logLines)
+}
+
+func (s *debugLogSuite) TestBacklog(c *gc.C) {
+	s.ensureLogFile(c)
+	s.writeLogLines(c, 10)
+
+	reader := s.openWebsocket(c, url.Values{"backlog": {"5"}})
+	s.assertLogFollowing(c, reader)
+	s.writeLogLines(c, logLineCount)
+
+	linesRead := s.readLogLines(c, reader, logLineCount-5)
+	c.Assert(linesRead, jc.DeepEquals, logLines[5:])
+}
+
+func (s *debugLogSuite) TestMaxLines(c *gc.C) {
+	s.ensureLogFile(c)
+	s.writeLogLines(c, 10)
+
+	reader := s.openWebsocket(c, url.Values{"maxLines": {"10"}})
+	s.assertLogFollowing(c, reader)
+	s.writeLogLines(c, logLineCount)
+
+	linesRead := s.readLogLines(c, reader, 10)
+	c.Assert(linesRead, jc.DeepEquals, logLines[10:20])
+	s.assertWebsocketClosed(c, reader)
+}
+
+func (s *debugLogSuite) TestFilter(c *gc.C) {
+	s.ensureLogFile(c)
+
+	reader := s.openWebsocket(c, url.Values{
+		"includeAgent":  {"machine-0", "unit-ubuntu-0"},
+		"includeModule": {"juju.cmd"},
+		"excludeModule": {"juju.cmd.jujud"},
+	})
+	s.assertLogFollowing(c, reader)
+	s.writeLogLines(c, logLineCount)
+
+	expected := []string{logLines[0], logLines[40]}
+	linesRead := s.readLogLines(c, reader, len(expected))
+	c.Assert(linesRead, jc.DeepEquals, expected)
+}
+
+func (s *debugLogSuite) readLogLines(c *gc.C, reader *bufio.Reader, count int) (linesRead []string) {
+	for len(linesRead) < count {
 		line, err := reader.ReadString('\n')
 		c.Assert(err, gc.IsNil)
 		// Trim off the trailing \n
 		linesRead = append(linesRead, line[:len(line)-1])
 	}
-	c.Assert(linesRead, jc.DeepEquals, logLines)
+	return linesRead
+}
+
+func (s *debugLogSuite) openWebsocket(c *gc.C, values url.Values) *bufio.Reader {
+	conn, err := s.dialWebsocket(c, values)
+	c.Assert(err, gc.IsNil)
+	s.AddCleanup(func(_ *gc.C) { conn.Close() })
+	return bufio.NewReader(conn)
 }
 
 func (s *debugLogSuite) ensureLogFile(c *gc.C) {
