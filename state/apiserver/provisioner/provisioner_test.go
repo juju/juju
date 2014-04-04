@@ -810,41 +810,65 @@ func (s *withoutStateServerSuite) TestAddNetwork(c *gc.C) {
 	}}
 	result, err := s.provisioner.AddNetwork(args)
 	c.Assert(err, gc.IsNil)
-	expectErr := apiservertesting.ServerError // for short.
+	prefix := "cannot add network %q: "
 	c.Assert(result, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
 			{Error: nil},
-			{Error: expectErr(`cannot add network "": name must be not empty`)},
-			{Error: expectErr(`cannot add network "net2": invalid CIDR address: invalid`)},
-			{Error: expectErr(`cannot add network "net1": already exists`)},
-			{Error: expectErr(`cannot add network "net2": invalid VLAN tag -1: must be between 0 and 4094`)},
-		},
-	})
+			{Error: apiservertesting.PrefixedError(
+				fmt.Sprintf(prefix, ""),
+				"name must be not empty")},
+			{Error: apiservertesting.PrefixedError(
+				fmt.Sprintf(prefix, "net2"),
+				"invalid CIDR address: invalid")},
+			{Error: apiservertesting.PrefixedError(
+				fmt.Sprintf(prefix, "net1"),
+				"already exists")},
+			{Error: apiservertesting.PrefixedError(
+				fmt.Sprintf(prefix, "net2"),
+				"invalid VLAN tag -1: must be between 0 and 4094")},
+		}})
 
 	// Check add networks are there and failed ones are not.
 	net, err := s.State.Network("vlan42")
 	c.Assert(err, gc.IsNil)
-	c.Assert(net.Name(), gc.Equals, "vlan42")
-	c.Assert(net.CIDR(), gc.Equals, "0.1.2.0/24")
-	c.Assert(net.VLANTag(), gc.Equals, 42)
+	c.Check(net.Name(), gc.Equals, "vlan42")
+	c.Check(net.CIDR(), gc.Equals, "0.1.2.0/24")
+	c.Check(net.VLANTag(), gc.Equals, 42)
 	net, err = s.State.Network("net1")
 	c.Assert(err, gc.IsNil)
-	c.Assert(net.Name(), gc.Equals, "net1")
-	c.Assert(net.CIDR(), gc.Equals, "0.2.1.0/24")
-	c.Assert(net.VLANTag(), gc.Equals, 0)
+	c.Check(net.Name(), gc.Equals, "net1")
+	c.Check(net.CIDR(), gc.Equals, "0.2.1.0/24")
+	c.Check(net.VLANTag(), gc.Equals, 0)
 	_, err = s.State.Network("net2")
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+}
 
-	// Test it fails with a non-environment-manager.
+func (s *withoutStateServerSuite) TestAddNetworkFailsWithNonEnvironManager(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.MachineAgent = true
 	anAuthorizer.EnvironManager = false
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, gc.IsNil)
 	c.Assert(aProvisioner, gc.NotNil)
-	_, err = aProvisioner.AddNetwork(args)
+	_, err = aProvisioner.AddNetwork(params.AddNetworkParams{})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func assertInterfaces(c *gc.C, machine *state.Machine, expect ...params.NetworkInterfaceParams) {
+	ifaces, err := machine.NetworkInterfaces()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ifaces, gc.HasLen, len(expect))
+	actual := make([]params.NetworkInterfaceParams, len(expect))
+	for i, iface := range ifaces {
+		actual[i] = params.NetworkInterfaceParams{
+			MACAddress:    iface.MACAddress(),
+			MachineTag:    names.MachineTag(iface.MachineId()),
+			InterfaceName: iface.InterfaceName(),
+			NetworkName:   iface.NetworkName(),
+		}
+	}
+	c.Assert(actual, jc.SameContents, expect)
 }
 
 func (s *withoutStateServerSuite) TestAddNetworkInterface(c *gc.C) {
@@ -870,31 +894,29 @@ func (s *withoutStateServerSuite) TestAddNetworkInterface(c *gc.C) {
 	err = s.machines[2].SetProvisioned("i-am", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
 
+	prefix := "cannot add network interface to machine %s: "
+	prefixM1 := fmt.Sprintf(prefix, s.machines[1].Id())
 	result, err := s.provisioner.AddNetworkInterface(args)
 	c.Assert(err, gc.IsNil)
-	expectErr := func(id, message string) *params.Error {
-		if id == "" {
-			id = s.machines[1].Id()
-		}
-		return apiservertesting.ServerError(
-			fmt.Sprintf("cannot add network interface to machine %s: ", id) + message,
-		)
-	}
 	c.Assert(result, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
 			{Error: nil},
 			{Error: nil},
-			{Error: expectErr("", "invalid MAC address: invalid")},
-			{Error: expectErr("", "interface name must be not empty")},
-			{Error: expectErr("", `network "invalid" not found`)},
-			{Error: expectErr("", `network "" not found`)},
-			{Error: expectErr(
-				"",
+			{Error: apiservertesting.PrefixedError(
+				prefixM1, "invalid MAC address: invalid")},
+			{Error: apiservertesting.PrefixedError(
+				prefixM1, "interface name must be not empty")},
+			{Error: apiservertesting.PrefixedError(
+				prefixM1, `network "invalid" not found`)},
+			{Error: apiservertesting.PrefixedError(
+				prefixM1, `network "" not found`)},
+			{Error: apiservertesting.PrefixedError(
+				prefixM1,
 				`interface with MAC address "aa:bb:cc:dd:ee:f1" already exists`),
 			},
-			{Error: expectErr(
-				s.machines[2].Id(),
+			{Error: apiservertesting.PrefixedError(
+				fmt.Sprintf(prefix, s.machines[2].Id()),
 				`machine already provisioned: dynamic network interfaces not currently supported`,
 			)},
 			{Error: apiservertesting.NotFoundError("machine 42")},
@@ -903,24 +925,9 @@ func (s *withoutStateServerSuite) TestAddNetworkInterface(c *gc.C) {
 	})
 
 	// Now check the added interfaces are there.
-	assertInterfaces := func(machine *state.Machine, expect ...params.NetworkInterfaceParams) {
-		ifaces, err := machine.NetworkInterfaces()
-		c.Assert(err, gc.IsNil)
-		c.Assert(ifaces, gc.HasLen, len(expect))
-		actual := make([]params.NetworkInterfaceParams, len(expect))
-		for i, iface := range ifaces {
-			actual[i] = params.NetworkInterfaceParams{
-				MACAddress:    iface.MACAddress(),
-				MachineTag:    names.MachineTag(iface.MachineId()),
-				InterfaceName: iface.InterfaceName(),
-				NetworkName:   iface.NetworkName(),
-			}
-		}
-		c.Assert(actual, jc.SameContents, expect)
-	}
-	assertInterfaces(s.machines[0], args.Interfaces[0])
-	assertInterfaces(s.machines[1], args.Interfaces[1], args.Interfaces[2])
-	assertInterfaces(s.machines[2]) // None
+	assertInterfaces(c, s.machines[0], args.Interfaces[0])
+	assertInterfaces(c, s.machines[1], args.Interfaces[1], args.Interfaces[2])
+	assertInterfaces(c, s.machines[2]) // None
 }
 
 func (s *withoutStateServerSuite) TestSetProvisioned(c *gc.C) {

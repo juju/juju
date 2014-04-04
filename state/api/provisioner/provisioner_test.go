@@ -355,9 +355,9 @@ func (s *provisionerSuite) TestAddNetworks(c *gc.C) {
 	assertNetwork := func(name string, expectParams params.NetworkParams) {
 		net, err := s.State.Network(name)
 		c.Assert(err, gc.IsNil)
-		c.Assert(net.CIDR(), gc.Equals, expectParams.CIDR)
-		c.Assert(net.Name(), gc.Equals, expectParams.Name)
-		c.Assert(net.VLANTag(), gc.Equals, expectParams.VLANTag)
+		c.Check(net.CIDR(), gc.Equals, expectParams.CIDR)
+		c.Check(net.Name(), gc.Equals, expectParams.Name)
+		c.Check(net.VLANTag(), gc.Equals, expectParams.VLANTag)
 	}
 	assertNetwork("vlan42", args[0])
 	assertNetwork("net1", args[1])
@@ -374,24 +374,28 @@ func (s *provisionerSuite) TestAddNetworks(c *gc.C) {
 	assertNetwork("net2", args[0])
 }
 
-func (s *provisionerSuite) TestMachineAddNetworkInterfaces(c *gc.C) {
-	// Add some networks and a machine.
+func (s *provisionerSuite) addMachineAndNetworks(c *gc.C) (*state.Machine, *provisioner.Machine) {
 	err := s.provisioner.AddNetworks([]params.NetworkParams{
 		{Name: "vlan42", CIDR: "0.1.2.0/24", VLANTag: 42},
 		{Name: "net1", CIDR: "0.2.1.0/24", VLANTag: 0},
 	})
 	c.Assert(err, gc.IsNil)
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-
+	c.Assert(err, gc.IsNil)
 	apiMachine, err := s.provisioner.Machine(machine.Tag())
 	c.Assert(err, gc.IsNil)
+	return machine, apiMachine
+}
+
+func (s *provisionerSuite) TestMachineAddNetworkInterfaces(c *gc.C) {
+	machine, apiMachine := s.addMachineAndNetworks(c)
 
 	args := []params.NetworkInterfaceParams{
 		{"aa:bb:cc:dd:ee:f0", machine.Tag(), "eth0", "net1"},
 		{"aa:bb:cc:dd:ee:f1", "", "eth0", "net1"},             // tag filled in when empty
 		{"aa:bb:cc:dd:ee:f2", "machine-42", "eth2", "vlan42"}, // tag overwritten
 	}
-	err = apiMachine.AddNetworkInterfaces(args)
+	err := apiMachine.AddNetworkInterfaces(args)
 	c.Assert(err, gc.IsNil)
 
 	// Check the interfaces are there.
@@ -408,20 +412,27 @@ func (s *provisionerSuite) TestMachineAddNetworkInterfaces(c *gc.C) {
 		}
 	}
 	c.Assert(actual, jc.SameContents, args)
+}
+
+func (s *provisionerSuite) TestMachineAddNetworkInterfacesReportsFirstError(c *gc.C) {
+	machine, apiMachine := s.addMachineAndNetworks(c)
 
 	// Ensure only the first error is reported.
-	args = []params.NetworkInterfaceParams{
+	args := []params.NetworkInterfaceParams{
 		{"aa:bb:cc:dd:ee:f3", "", "eth3", "net1"},
 		{"aa:bb:cc:dd:ee:f4", "", "eth0", "missing"},
 		{"invalid", "", "eth42", "net1"},
 	}
-	err = apiMachine.AddNetworkInterfaces(args)
+	err := apiMachine.AddNetworkInterfaces(args)
 	c.Assert(err, gc.ErrorMatches, `cannot add network interface to machine 1: network "missing" not found`)
 
-	ifaces, err = machine.NetworkInterfaces()
+	ifaces, err := machine.NetworkInterfaces()
 	c.Assert(err, gc.IsNil)
-	c.Assert(ifaces, gc.HasLen, 4)
-	c.Assert(ifaces[3].InterfaceName(), gc.Equals, "eth3")
+	c.Assert(ifaces, gc.HasLen, 1)
+	c.Assert(ifaces[0].MachineId(), gc.Equals, machine.Id())
+	c.Assert(ifaces[0].MACAddress(), gc.Equals, args[0].MACAddress)
+	c.Assert(ifaces[0].InterfaceName(), gc.Equals, args[0].InterfaceName)
+	c.Assert(ifaces[0].NetworkName(), gc.Equals, args[0].NetworkName)
 }
 
 func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
