@@ -255,6 +255,14 @@ func (state *environState) destroy() {
 	state.bootstrapped = false
 }
 
+// mongoAlive reports whether the mongo server is
+// still alive (i.e. has not been deliberately destroyed).
+// If it has been deliberately destroyed, we will
+// expect some errors when closing things down.
+func mongoAlive() bool {
+	return testing.MgoServer.Addr() != ""
+}
+
 // GetStateInAPIServer returns the state connection used by the API server
 // This is so code in the test suite can trigger Syncs, etc that the API server
 // will see, which will then trigger API watchers, etc.
@@ -681,10 +689,6 @@ func (e *environ) Destroy() (res error) {
 	defer estate.mu.Unlock()
 	estate.destroy()
 	return nil
-}
-
-func mongoAlive() bool {
-	return testing.MgoServer.Addr() != ""
 }
 
 // StartInstance is specified in the InstanceBroker interface.

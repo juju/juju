@@ -110,13 +110,10 @@ func (s *mongoPingerSuite) TestAgentConnectionsShutDownWhenStateDies(c *gc.C) {
 		Delay: coretesting.ShortWait,
 	}
 	for a := attempt.Start(); a.Next(); {
-		err := st.Ping()
-		if err != nil {
+		if err := st.Ping(); err != nil {
 			c.Assert(err, gc.ErrorMatches, "connection is shut down")
-			break
-		}
-		if !a.HasNext() {
-			c.Fatalf("timed out waiting for API server to die")
+			return
 		}
 	}
+	c.Fatalf("timed out waiting for API server to die")
 }
