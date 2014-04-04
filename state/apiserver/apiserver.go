@@ -19,9 +19,14 @@ import (
 	"launchpad.net/juju-core/rpc/jsoncodec"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/apiserver/common"
+	"launchpad.net/juju-core/utils"
 )
 
 var logger = loggo.GetLogger("juju.state.apiserver")
+
+// loginRateLimit defines how many concurrent Login requests we will
+// accept
+const loginRateLimit = 10
 
 // Server holds the server side of the API.
 type Server struct {
@@ -31,6 +36,7 @@ type Server struct {
 	addr    net.Addr
 	dataDir string
 	logDir  string
+	limiter utils.Limiter
 }
 
 // Serve serves the given state by accepting requests on the given
@@ -51,6 +57,7 @@ func NewServer(s *state.State, addr string, cert, key []byte, datadir, logDir st
 		addr:    lis.Addr(),
 		dataDir: datadir,
 		logDir:  logDir,
+		limiter: utils.NewLimiter(loginRateLimit),
 	}
 	// TODO(rog) check that *srvRoot is a valid type for using
 	// as an RPC server.
@@ -206,7 +213,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifie
 		notifier = reqNotifier
 	}
 	conn := rpc.NewConn(codec, notifier)
-	conn.Serve(newStateServer(srv, conn, reqNotifier), serverError)
+	conn.Serve(newStateServer(srv, conn, reqNotifier, srv.limiter), serverError)
 	conn.Start()
 	select {
 	case <-conn.Dead():
