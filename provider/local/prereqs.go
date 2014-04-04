@@ -40,13 +40,13 @@ installed to enable the local provider:
 
     sudo apt-get install lxc`
 
-const installRsyslogGnutlsUbuntu = `
-rsyslog-gnutls must be installed to enable the local provider:
+const installJujuLocalUbuntu = `
+juju-local must be installed to enable the local provider:
 
-    sudo apt-get install rsyslog-gnutls`
+    sudo apt-get install juju-local`
 
-const installRsyslogGnutlsGeneric = `
-rsyslog-gnutls must be installed to enable the local provider.
+const installJujuLocalGeneric = `
+juju-local must be installed to enable the local provider.
 Please consult your operating system distribution's documentation
 for instructions on installing this package.`
 
@@ -148,12 +148,12 @@ func verifyLxc() error {
 	return nil
 }
 
-func verifyRsyslogGnutls() error {
-	if isPackageInstalled("rsyslog-gnutls") {
+func verifyJujuLocal() error {
+	if isPackageInstalled("juju-local") {
 		return nil
 	}
 	if utils.IsUbuntu() {
-		return errors.New(installRsyslogGnutlsUbuntu)
+		return errors.New(installJujuLocalUbuntu)
 	}
 	// Not all Linuxes will distribute the module
 	// in the same way. Check if it's in the default

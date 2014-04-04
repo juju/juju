@@ -221,7 +221,7 @@ func AddAptCommands(proxy osenv.ProxySettings, c *cloudinit.Config) {
 	c.AddPackage("curl")
 	c.AddPackage("cpu-checker")
 	c.AddPackage("bridge-utils")
-	c.AddPackage("rsyslog-gnutls")
+	c.AddPackage("juju-local")
 
 	// Write out the apt proxy settings
 	if (proxy != osenv.ProxySettings{}) {
