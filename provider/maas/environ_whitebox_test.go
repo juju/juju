@@ -205,7 +205,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 
 	// Trash the tools and try to start another instance.
 	envtesting.RemoveTools(c, env.Storage())
-	instance, _, err = testing.StartInstance(env, "2")
+	instance, _, _, err = testing.StartInstance(env, "2")
 	c.Check(instance, gc.IsNil)
 	c.Check(err, jc.Satisfies, errors.IsNotFoundError)
 }

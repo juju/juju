@@ -87,7 +87,7 @@ func (s *kvmBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 	machineConfig := environs.NewMachineConfig(machineId, machineNonce, nil, nil, stateInfo, apiInfo)
 	cons := constraints.Value{}
 	possibleTools := s.broker.(coretools.HasTools).Tools()
-	kvm, _, err := s.broker.StartInstance(environs.StartInstanceParams{
+	kvm, _, _, err := s.broker.StartInstance(environs.StartInstanceParams{
 		Constraints:   cons,
 		Tools:         possibleTools,
 		MachineConfig: machineConfig,

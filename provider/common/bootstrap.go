@@ -63,7 +63,7 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, cons constra
 	machineConfig := environs.NewBootstrapMachineConfig(privateKey)
 
 	fmt.Fprintln(ctx.GetStderr(), "Launching instance")
-	inst, hw, err := env.StartInstance(environs.StartInstanceParams{
+	inst, hw, _, err := env.StartInstance(environs.StartInstanceParams{
 		Constraints:   cons,
 		Tools:         selectedTools,
 		MachineConfig: machineConfig,

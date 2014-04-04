@@ -66,7 +66,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	env, err := provider.Prepare(testing.Context(c), cfg)
 	c.Assert(err, gc.IsNil)
-	inst, _, err := env.StartInstance(environs.StartInstanceParams{
+	inst, _, _, err := env.StartInstance(environs.StartInstanceParams{
 		MachineConfig: &cloudinit.MachineConfig{
 			MachineId:    "0",
 			MachineNonce: state.BootstrapNonce,

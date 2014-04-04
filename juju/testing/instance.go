@@ -49,7 +49,7 @@ func AssertStartInstance(
 ) (
 	instance.Instance, *instance.HardwareCharacteristics,
 ) {
-	inst, hc, err := StartInstance(env, machineId)
+	inst, hc, _, err := StartInstance(env, machineId)
 	c.Assert(err, gc.IsNil)
 	return inst, hc
 }
@@ -59,7 +59,7 @@ func AssertStartInstance(
 func StartInstance(
 	env environs.Environ, machineId string,
 ) (
-	instance.Instance, *instance.HardwareCharacteristics, error,
+	instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error,
 ) {
 	return StartInstanceWithConstraints(env, machineId, constraints.Value{})
 }
@@ -72,7 +72,7 @@ func AssertStartInstanceWithConstraints(
 ) (
 	instance.Instance, *instance.HardwareCharacteristics,
 ) {
-	inst, hc, err := StartInstanceWithConstraints(env, machineId, cons)
+	inst, hc, _, err := StartInstanceWithConstraints(env, machineId, cons)
 	c.Assert(err, gc.IsNil)
 	return inst, hc
 }
@@ -83,7 +83,7 @@ func AssertStartInstanceWithConstraints(
 func StartInstanceWithConstraints(
 	env environs.Environ, machineId string, cons constraints.Value,
 ) (
-	instance.Instance, *instance.HardwareCharacteristics, error,
+	instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error,
 ) {
 	return StartInstanceWithConstraintsAndNetworks(env, machineId, cons, nil, nil)
 }
@@ -97,7 +97,7 @@ func AssertStartInstanceWithNetworks(
 ) (
 	instance.Instance, *instance.HardwareCharacteristics,
 ) {
-	inst, hc, err := StartInstanceWithConstraintsAndNetworks(
+	inst, hc, _, err := StartInstanceWithConstraintsAndNetworks(
 		env, machineId, cons, includeNetworks, excludeNetworks)
 	c.Assert(err, gc.IsNil)
 	return inst, hc
@@ -110,16 +110,16 @@ func StartInstanceWithConstraintsAndNetworks(
 	env environs.Environ, machineId string, cons constraints.Value,
 	includeNetworks, excludeNetworks []string,
 ) (
-	instance.Instance, *instance.HardwareCharacteristics, error,
+	instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error,
 ) {
 	series := env.Config().DefaultSeries()
 	agentVersion, ok := env.Config().AgentVersion()
 	if !ok {
-		return nil, nil, fmt.Errorf("missing agent version in environment config")
+		return nil, nil, nil, fmt.Errorf("missing agent version in environment config")
 	}
 	possibleTools, err := tools.FindInstanceTools(env, agentVersion, series, cons.Arch)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	machineNonce := "fake_nonce"
 	stateInfo := FakeStateInfo(machineId)

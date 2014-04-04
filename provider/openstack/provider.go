@@ -746,10 +746,10 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error) {
 
 	if args.MachineConfig.HasNetworks() {
-		return nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
+		return nil, nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
 	}
 
 	series := args.Tools.OneSeries()
@@ -761,21 +761,21 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		Constraints: args.Constraints,
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	tools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
-		return nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
+		return nil, nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
 	args.MachineConfig.Tools = tools[0]
 
 	if err := environs.FinishMachineConfig(args.MachineConfig, e.Config(), args.Constraints); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot make user data: %v", err)
+		return nil, nil, nil, fmt.Errorf("cannot make user data: %v", err)
 	}
 	logger.Debugf("openstack user data; %d bytes", len(userData))
 	var networks = []nova.ServerNetworks{}
@@ -783,7 +783,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	if usingNetwork != "" {
 		networkId, err := e.resolveNetwork(usingNetwork)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		logger.Debugf("using network id %q", networkId)
 		networks = append(networks, nova.ServerNetworks{NetworkId: networkId})
@@ -792,7 +792,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	var publicIP *nova.FloatingIP
 	if withPublicIP {
 		if fip, err := e.allocatePublicIP(); err != nil {
-			return nil, nil, fmt.Errorf("cannot allocate a public IP as needed: %v", err)
+			return nil, nil, nil, fmt.Errorf("cannot allocate a public IP as needed: %v", err)
 		} else {
 			publicIP = fip
 			logger.Infof("allocated public IP %s", publicIP.IP)
@@ -801,7 +801,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	cfg := e.Config()
 	groups, err := e.setUpGroups(args.MachineConfig.MachineId, cfg.StatePort(), cfg.APIPort())
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot set up groups: %v", err)
+		return nil, nil, nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
 	var groupNames = make([]nova.SecurityGroupName, len(groups))
 	for i, g := range groups {
@@ -823,11 +823,11 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		}
 	}
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot run instance: %v", err)
+		return nil, nil, nil, fmt.Errorf("cannot run instance: %v", err)
 	}
 	detail, err := e.nova().GetServer(server.Id)
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot get started instance: %v", err)
+		return nil, nil, nil, fmt.Errorf("cannot get started instance: %v", err)
 	}
 	inst := &openstackInstance{
 		e:            e,
@@ -842,11 +842,11 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 				// ignore the failure at this stage, just log it
 				logger.Debugf("failed to terminate instance %q: %v", inst.Id(), err)
 			}
-			return nil, nil, fmt.Errorf("cannot assign public address %s to instance %q: %v", publicIP.IP, inst.Id(), err)
+			return nil, nil, nil, fmt.Errorf("cannot assign public address %s to instance %q: %v", publicIP.IP, inst.Id(), err)
 		}
 		logger.Infof("assigned public IP %s to %q", publicIP.IP, inst.Id())
 	}
-	return inst, inst.hardwareCharacteristics(), nil
+	return inst, inst.hardwareCharacteristics(), nil, nil
 }
 
 func (e *environ) StopInstances(insts []instance.Instance) error {

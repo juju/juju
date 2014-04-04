@@ -425,7 +425,7 @@ func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error
 	if err != nil {
 		return err
 	}
-	inst, metadata, err := task.broker.StartInstance(environs.StartInstanceParams{
+	inst, metadata, _, err := task.broker.StartInstance(environs.StartInstanceParams{
 		Constraints:       cons,
 		Tools:             possibleTools,
 		MachineConfig:     machineConfig,
