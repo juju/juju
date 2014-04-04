@@ -468,7 +468,9 @@ func (s *BootstrapSuite) TestUploadLocalImageMetadata(c *gc.C) {
 	defer fake.Restore()
 
 	// Bootstrap the environment with the valid source.
-	// First fake a dev version so tools can be uploaded.
+	// Force a dev version by having an odd minor version number.
+	// This is because we have not uploaded any tools and auto
+	// upload is only enabled for dev versions.
 	devVersion := version.Current
 	devVersion.Minor = 11
 	s.PatchValue(&version.Current, devVersion)
