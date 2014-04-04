@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	"crypto/tls"
+	"fmt"
 	"net"
 	"net/http"
 	"sync"
@@ -159,6 +160,13 @@ func (srv *Server) run(lis net.Listener) {
 		lis.Close()
 		srv.wg.Done()
 	}()
+	srv.wg.Add(1)
+	go func() {
+		logger.Infof("mongo ping interval %v", mongoPingInterval)
+		err := srv.mongoPinger()
+		srv.tomb.Kill(err)
+		srv.wg.Done()
+	}()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", srv.apiHandler)
 	charmHandler := &charmsHandler{httpHandler: httpHandler{state: srv.state}, dataDir: srv.dataDir}
@@ -220,6 +228,24 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifie
 	case <-srv.tomb.Dying():
 	}
 	return conn.Close()
+}
+
+func (srv *Server) mongoPinger() error {
+	timer := time.NewTimer(0)
+	session := srv.state.MongoSession()
+	for {
+		select {
+		case <-timer.C:
+		case <-srv.tomb.Dying():
+			return tomb.ErrDying
+		}
+		logger.Infof("pinging mongo")
+		if err := session.Ping(); err != nil {
+			logger.Infof("got error pinging mongo: %v", err)
+			return fmt.Errorf("error pinging mongo: %v", err)
+		}
+		timer.Reset(mongoPingInterval)
+	}
 }
 
 func serverError(err error) error {

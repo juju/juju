@@ -86,7 +86,19 @@ func (s *stateSuite) TestAgentConnectionShutsDownWithNoPing(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "connection is shut down")
 }
 
-func (s *stateSuite) TestAgentConnectionsShutDownWhenStateDies(c *gc.C) {
+type mongoPingerSuite struct {
+	testing.JujuConnSuite
+}
+
+var _ = gc.Suite(&mongoPingerSuite{})
+
+func (s *mongoPingerSuite) SetUpTest(c *gc.C) {
+	// We need to set the ping interval before the server is started.
+	s.PatchValue(apiserver.MongoPingInterval, coretesting.ShortWait)
+	s.JujuConnSuite.SetUpTest(c)
+}
+
+func (s *mongoPingerSuite) TestAgentConnectionsShutDownWhenStateDies(c *gc.C) {
 	s.PatchValue(apiserver.MongoPingInterval, coretesting.ShortWait)
 	st, _ := s.OpenAPIAsNewMachine(c)
 	err := st.Ping()
@@ -100,7 +112,7 @@ func (s *stateSuite) TestAgentConnectionsShutDownWhenStateDies(c *gc.C) {
 	for a := attempt.Start(); a.Next(); {
 		err := st.Ping()
 		if err != nil {
-			c.Assert(err, gc.ErrorMatches, "connection died?")
+			c.Assert(err, gc.ErrorMatches, "connection is shut down")
 			break
 		}
 		if !a.HasNext() {

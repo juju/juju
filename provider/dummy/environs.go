@@ -228,7 +228,7 @@ func Reset() {
 		s.destroy()
 	}
 	providerInstance.state = make(map[int]*environState)
-	if testing.MgoServer.Addr() != "" {
+	if mongoAlive() {
 		testing.MgoServer.Reset()
 	}
 	providerInstance.statePolicy = environs.NewStatePolicy()
@@ -240,16 +240,16 @@ func (state *environState) destroy() {
 		return
 	}
 	if state.apiServer != nil {
-		if err := state.apiServer.Stop(); err != nil {
+		if err := state.apiServer.Stop(); err != nil && mongoAlive() {
 			panic(err)
 		}
 		state.apiServer = nil
-		if err := state.apiState.Close(); err != nil {
+		if err := state.apiState.Close(); err != nil && mongoAlive() {
 			panic(err)
 		}
 		state.apiState = nil
 	}
-	if testing.MgoServer.Addr() != "" {
+	if mongoAlive() {
 		testing.MgoServer.Reset()
 	}
 	state.bootstrapped = false
@@ -681,6 +681,10 @@ func (e *environ) Destroy() (res error) {
 	defer estate.mu.Unlock()
 	estate.destroy()
 	return nil
+}
+
+func mongoAlive() bool {
+	return testing.MgoServer.Addr() != ""
 }
 
 // StartInstance is specified in the InstanceBroker interface.
