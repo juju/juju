@@ -47,13 +47,8 @@ func (*mongoSuite) TestMongoMastership(c *gc.C) {
 	for _, inst := range insts {
 		defer inst.Destroy()
 	}
-
 	notifyCh := make(chan event, 100)
-	expect := func(possible ...event) event {
-		return expectNotification(c, notifyCh, possible...)
-	}
-
-	globalState := newGlobalAgentState(len(insts), expect)
+	globalState := newGlobalAgentState(len(insts), notifyCh)
 
 	agents := startAgents(c, notifyCh, insts)
 
@@ -207,24 +202,41 @@ func (a *agent) worker(session *mgo.Session, stop <-chan struct{}) error {
 	}
 }
 
+// globalAgentState keeps track of the global state
+// of all the running "agents". The state is
+// updated by the waitEvent method.
+// The slices (connected, started and quit) hold an entry for each
+// agent - the entry for the agent with id x is held at index x-1.
 type globalAgentState struct {
-	expect func(...event) event
-
 	numAgents int
+	notifyCh  <-chan event
+
+	// connected reports which agents have ever connected.
 	connected []bool
-	started   []bool
-	quit      []bool
-	activeId  int
+
+	// started reports which agents have started.
+	started []bool
+
+	// quit reports which agents have quit.
+	quit []bool
+
+	// activeId holds the id of the agent that is
+	// currently performing operations.
+	activeId int
 }
 
-func newGlobalAgentState(n int, expect func(...event) event) *globalAgentState {
+// newGlobalAgentState returns a globalAgentState instance that keeps track
+// of the given number of agents which all send events on notifyCh.
+func newGlobalAgentState(numAgents int, notifyCh <-chan event) *globalAgentState {
 	return &globalAgentState{
-		expect:    expect,
-		numAgents: n,
-		connected: make([]bool, n),
-		started:   make([]bool, n),
-		quit:      make([]bool, n),
-		activeId:  -1,
+		notifyCh:  notifyCh,
+		numAgents: numAgents,
+		connected: make([]bool, numAgents),
+
+		started: make([]bool, numAgents),
+
+		quit:     make([]bool, numAgents),
+		activeId: -1,
 	}
 }
 
@@ -249,13 +261,17 @@ func boolsToStr(b []bool) string {
 	return string(d)
 }
 
+// waitEvent waits for any event to happen and updates g
+// accordingly. It ensures that expected invariants are
+// maintained - if an invariant is violated, a fatal error
+// will be generated using c.
 func (g *globalAgentState) waitEvent(c *gc.C) event {
 	c.Logf("awaiting event; current state %s", g)
 
 	possible := g.possibleEvents()
 	c.Logf("possible: %q", possible)
 
-	got := g.expect(possible...)
+	got := expectNotification(c, g.notifyCh, possible)
 	index := got.id - 1
 	switch got.kind {
 	case "connect":
@@ -290,12 +306,26 @@ func (g *globalAgentState) possibleEvents() []event {
 		if isConnected {
 			if isStarted {
 				if g.activeId == -1 || id == g.activeId {
+					// If there's no active worker, then we allow
+					// any worker to run an operation, but
+					// once a worker has successfully run an
+					// operation, it will be an error if any
+					// other worker runs an operation before
+					// the first worker has stopped.
 					addPossible("operation")
 				}
+				// It's always ok for a started worker to stop.
 				addPossible("stop")
 			} else {
-				addPossible("start")
+				// connect followed by connect is possible for a worker
+				// that's not master.
 				addPossible("connect")
+
+				// We allow any number of workers to start - it's
+				// ok as long as none of the extra workers actually
+				// manage to complete an operation successfully.
+				addPossible("start")
+
 				if !hasQuit {
 					addPossible("quit")
 				}
@@ -341,7 +371,7 @@ func oneOf(possible ...string) string {
 	return strings.Join(possible, "|")
 }
 
-func expectNotification(c *gc.C, notifyCh <-chan event, possible ...event) event {
+func expectNotification(c *gc.C, notifyCh <-chan event, possible []event) event {
 	select {
 	case e := <-notifyCh:
 		c.Logf("received notification %q", e)
