@@ -83,3 +83,10 @@ func (s *clientSuite) TestAddLocalCharm(c *gc.C) {
 	_, err = client.AddLocalCharm(curl, charmArchive)
 	c.Assert(err, jc.Satisfies, params.IsCodeNotImplemented)
 }
+
+func (s *clientSuite) TestWatchDebugLog(c *gc.C) {
+	client := s.APIState.Client()
+	conn, err := client.WatchDebugLog(10, "")
+	c.Assert(err, gc.IsNil)
+	c.Assert(conn, gc.IsNil)
+}

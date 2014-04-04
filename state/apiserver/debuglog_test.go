@@ -4,12 +4,18 @@
 package apiserver_test
 
 import (
+	"bufio"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"io"
+	"launchpad.net/juju-core/cert"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"code.google.com/p/go.net/websocket"
 	jc "github.com/juju/testing/checkers"
@@ -21,58 +27,105 @@ import (
 
 type debugLogSuite struct {
 	authHttpSuite
+	logFile *os.File
+	last    int
 }
 
 var _ = gc.Suite(&debugLogSuite{})
 
-func (s *debugLogSuite) TestServeHTTPNeedsHTTPS(c *gc.C) {
-	url := s.logURL(c, "http", nil)
-	c.Logf("%#v", *url)
+func (s *debugLogSuite) TestServeHTTPWithHTTP(c *gc.C) {
 	uri := s.logURL(c, "http", nil).String()
 	_, err := s.sendRequest(c, "", "", "GET", uri, "", nil)
 	c.Assert(err, gc.ErrorMatches, `.*malformed HTTP response.*`)
 }
 
-func (s *debugLogSuite) TestServeHTTPNoAuth(c *gc.C) {
+func (s *debugLogSuite) TestServeHTTPWithHTTPS(c *gc.C) {
 	uri := s.logURL(c, "https", nil).String()
 	response, err := s.sendRequest(c, "", "", "GET", uri, "", nil)
 	c.Assert(err, gc.IsNil)
-	s.assertErrorResponse(c, response, http.StatusUnauthorized, "unauthorized")
+	c.Assert(response.StatusCode, gc.Equals, http.StatusBadRequest)
 }
 
-func (s *debugLogSuite) TestServeHTTPNoLogfile(c *gc.C) {
-	uri := s.logURL(c, "https", nil).String()
-	response, err := s.sendRequest(c, s.userTag, s.password, "GET", uri, "", nil)
+func (s *debugLogSuite) TestServeHTTPWebsocketNoAuth(c *gc.C) {
+	conn, err := s.dialWebsocketInternal(c, nil, nil)
 	c.Assert(err, gc.IsNil)
-	s.assertErrorResponse(c, response, http.StatusInternalServerError,
-		"cannot open log file: .*: no such file or directory")
-}
+	defer conn.Close()
+	reader := bufio.NewReader(conn)
 
-func (s *debugLogSuite) TestServeHTTPBadParams(c *gc.C) {
-	uri := s.logURL(c, "https", url.Values{"backlog": {"foo"}}).String()
-	response, err := s.sendRequest(c, s.userTag, s.password, "GET", uri, "", nil)
-	c.Assert(err, gc.IsNil)
-	s.assertErrorResponse(c, response, http.StatusBadRequest,
-		`backlog value "foo" is not a valid unsigned number`)
+	s.assertErrorResponse(c, reader, "auth failed: invalid request format")
+	s.assertWebsocketClosed(c, reader)
 }
 
 func (s *debugLogSuite) TestServeHTTPWebsocketNoLogfile(c *gc.C) {
 	conn, err := s.dialWebsocket(c, nil)
 	c.Assert(err, gc.IsNil)
-	c.Assert(conn, gc.NotNil)
+	defer conn.Close()
+	reader := bufio.NewReader(conn)
+	s.assertErrorResponse(c, reader, "cannot open log file: .*: no such file or directory")
+	s.assertWebsocketClosed(c, reader)
+}
+
+func (s *debugLogSuite) TestServeHTTPWebsocketServesLog(c *gc.C) {
+	s.ensureLogFile(c)
+	conn, err := s.dialWebsocket(c, nil)
+	c.Assert(err, gc.IsNil)
+	defer conn.Close()
+	reader := bufio.NewReader(conn)
+	s.assertLogFollowing(c, reader)
+	s.writeLogLines(c, logLineCount)
+
+	linesRead := []string{}
+	for len(linesRead) < logLineCount {
+		line, err := reader.ReadString('\n')
+		c.Assert(err, gc.IsNil)
+		// Trim off the trailing \n
+		linesRead = append(linesRead, line[:len(line)-1])
+	}
+	c.Assert(linesRead, jc.DeepEquals, logLines)
+}
+
+func (s *debugLogSuite) ensureLogFile(c *gc.C) {
+	if s.logFile != nil {
+		return
+	}
+	path := filepath.Join(s.LogDir, "all-machines.log")
+	var err error
+	s.logFile, err = os.Create(path)
+	c.Assert(err, gc.IsNil)
+	s.AddCleanup(func(c *gc.C) {
+		s.logFile.Close()
+		s.logFile = nil
+		s.last = 0
+	})
+}
+
+func (s *debugLogSuite) writeLogLines(c *gc.C, count int) {
+	s.ensureLogFile(c)
+	for i := 0; i < count && s.last < logLineCount; i++ {
+		s.logFile.WriteString(logLines[s.last] + "\n")
+		s.last++
+	}
+}
+
+func (s *debugLogSuite) dialWebsocketInternal(c *gc.C, queryParams url.Values, header http.Header) (*websocket.Conn, error) {
+	server := s.logURL(c, "wss", queryParams).String()
+	c.Logf("dialing %v", server)
+	config, err := websocket.NewConfig(server, "http://localhost/")
+	c.Assert(err, gc.IsNil)
+	config.Header = header
+	caCerts := x509.NewCertPool()
+	xcert, err := cert.ParseCert([]byte(testing.CACert))
+	c.Assert(err, gc.IsNil)
+	caCerts.AddCert(xcert)
+	config.TlsConfig = &tls.Config{RootCAs: caCerts, ServerName: "anything"}
+	return websocket.DialConfig(config)
 }
 
 func (s *debugLogSuite) dialWebsocket(c *gc.C, queryParams url.Values) (*websocket.Conn, error) {
-	server := s.logURL(c, "wss", queryParams).String()
-	config, err := websocket.NewConfig(server, "http://localhost")
-	c.Assert(err, gc.IsNil)
-	config.Header = http.Header{
+	header := http.Header{
 		"Authorization": {"Basic " + base64.StdEncoding.EncodeToString([]byte(s.userTag+":"+s.password))},
 	}
-	caCerts := x509.NewCertPool()
-	c.Assert(caCerts.AppendCertsFromPEM([]byte(testing.CACert)), jc.IsTrue)
-	config.TlsConfig = &tls.Config{RootCAs: caCerts, ServerName: "anything"}
-	return websocket.DialConfig(config)
+	return s.dialWebsocketInternal(c, queryParams, header)
 }
 
 func (s *debugLogSuite) logURL(c *gc.C, scheme string, queryParams url.Values) *url.URL {
@@ -90,15 +143,33 @@ func (s *debugLogSuite) logURL(c *gc.C, scheme string, queryParams url.Values) *
 	}
 }
 
-func (s *debugLogSuite) assertErrorResponse(c *gc.C, resp *http.Response, expCode int, expError string) {
-	body := assertResponse(c, resp, expCode, "application/json")
-	var simpleError params.SimpleError
-	err := json.Unmarshal(body, &simpleError)
-	c.Assert(err, gc.IsNil)
-	c.Check(simpleError.Error, gc.Matches, expError)
+func (s *debugLogSuite) assertWebsocketClosed(c *gc.C, reader *bufio.Reader) {
+	_, err := reader.ReadByte()
+	c.Assert(err, gc.Equals, io.EOF)
 }
 
-var logLines = `
+func (s *debugLogSuite) assertLogFollowing(c *gc.C, reader *bufio.Reader) {
+	errResult := s.getErrorResult(c, reader)
+	c.Assert(errResult.Error, gc.IsNil)
+}
+
+func (s *debugLogSuite) assertErrorResponse(c *gc.C, reader *bufio.Reader, expected string) {
+	errResult := s.getErrorResult(c, reader)
+	c.Assert(errResult.Error, gc.NotNil)
+	c.Assert(errResult.Error.Message, gc.Matches, expected)
+}
+
+func (s *debugLogSuite) getErrorResult(c *gc.C, reader *bufio.Reader) params.ErrorResult {
+	line, err := reader.ReadSlice('\n')
+	c.Assert(err, gc.IsNil)
+	var errResult params.ErrorResult
+	err = json.Unmarshal(line, &errResult)
+	c.Assert(err, gc.IsNil)
+	return errResult
+}
+
+var (
+	logLines = strings.Split(`
 machine-0: 2014-03-24 22:34:25 INFO juju.cmd supercommand.go:297 running juju-1.17.7.1-trusty-amd64 [gc]
 machine-0: 2014-03-24 22:34:25 INFO juju.cmd.jujud machine.go:127 machine agent machine-0 start (1.17.7.1-trusty-amd64 [gc])
 machine-0: 2014-03-24 22:34:25 DEBUG juju.agent agent.go:384 read agent config, format "1.18"
@@ -153,4 +224,6 @@ unit-ubuntu-0: 2014-03-24 22:36:28 INFO juju runner.go:262 worker: start "uniter
 unit-ubuntu-0: 2014-03-24 22:36:28 DEBUG juju.worker.logger logger.go:60 logger setup
 unit-ubuntu-0: 2014-03-24 22:36:28 INFO juju runner.go:262 worker: start "rsyslog"
 unit-ubuntu-0: 2014-03-24 22:36:28 DEBUG juju.worker.rsyslog worker.go:76 starting rsyslog worker mode 1 for "unit-ubuntu-0" "tim-local"
-`[1:]
+`[1:], "\n")
+	logLineCount = len(logLines)
+)

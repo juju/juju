@@ -154,7 +154,7 @@ func (srv *Server) run(lis net.Listener) {
 	}()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", srv.apiHandler)
-	mux.Handle("/log", &debugLogHandler{srv.state, srv.logDir})
+	mux.Handle("/log", &debugLogHandler{state: srv.state, logDir: srv.logDir})
 	charmHandler := &charmsHandler{httpHandler: httpHandler{state: srv.state}, dataDir: srv.dataDir}
 	// charmHandler itself provides the errorSender implementation for the embedded httpHandler.
 	charmHandler.httpHandler.errorSender = charmHandler

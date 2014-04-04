@@ -28,9 +28,12 @@ import (
 
 // debugLogHandler takes requests to watch the debug log.
 type debugLogHandler struct {
-	state  *state.State
-	logDir string
+	state   *state.State
+	request *http.Request
+	logDir  string
 }
+
+var maxLinesReached = fmt.Errorf("max lines reached")
 
 // ServeHTTP will serve up connections as a websocket.
 // Args for the HTTP request are as follows:
@@ -46,40 +49,56 @@ type debugLogHandler struct {
 //   level -> string one of [TRACE, DEBUG, INFO, WARNING, ERROR]
 //   replay -> string - one of [true, false], if true, start the file from the start
 func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	if err := h.authenticate(req); err != nil {
-		h.authError(w)
+	h.request = req
+	wsServer := websocket.Server{
+		Handler: h.handleWebsocket,
+	}
+	wsServer.ServeHTTP(w, req)
+}
+
+func (h *debugLogHandler) handleWebsocket(socket *websocket.Conn) {
+	logger.Infof("debug log handler starting")
+	if err := h.authenticate(h.request); err != nil {
+		h.sendError(socket, fmt.Errorf("auth failed: %v", err))
+		socket.Close()
 		return
 	}
-	stream, err := newLogStream(req.URL.Query())
+	stream, err := newLogStream(h.request.URL.Query())
 	if err != nil {
-		h.sendError(w, http.StatusBadRequest, "%v", err)
+		h.sendError(socket, err)
+		socket.Close()
 		return
 	}
 	// Open log file.
 	logLocation := filepath.Join(h.logDir, "all-machines.log")
 	logFile, err := os.Open(logLocation)
 	if err != nil {
-		h.sendError(w, http.StatusInternalServerError, "cannot open log file: %v", err)
+		h.sendError(socket, fmt.Errorf("cannot open log file: %v", err))
+		socket.Close()
 		return
 	}
 	defer logFile.Close()
-	// Start streaming.
-	wsServer := websocket.Server{
-		Handler: func(wsConn *websocket.Conn) {
-			stream.init(logFile, wsConn)
-			go func() {
-				defer stream.tomb.Done()
-				defer wsConn.Close()
-				stream.tomb.Kill(stream.loop())
-			}()
-			if err := stream.tomb.Wait(); err != nil {
-				// TODO: possibly have a special error code for max lines
-				// so we don't output noise
-				logger.Errorf("debug-log handler error: %v", err)
-			}
-		},
+
+	// If we get to here, no more errors to report, so we report a nil
+	// error.  This way the first line of the socket is always a json
+	// formatted simple error.
+	if err := h.sendError(socket, nil); err != nil {
+		logger.Errorf("could not send good log stream start")
+		socket.Close()
+		return
 	}
-	wsServer.ServeHTTP(w, req)
+
+	stream.init(logFile, socket)
+	go func() {
+		defer stream.tomb.Done()
+		defer socket.Close()
+		stream.tomb.Kill(stream.loop())
+	}()
+	if err := stream.tomb.Wait(); err != nil {
+		if err != maxLinesReached {
+			logger.Errorf("debug-log handler error: %v", err)
+		}
+	}
 }
 
 func newLogStream(queryMap url.Values) (*logStream, error) {
@@ -133,16 +152,20 @@ func newLogStream(queryMap url.Values) (*logStream, error) {
 }
 
 // sendError sends a JSON-encoded error response.
-func (h *debugLogHandler) sendError(w http.ResponseWriter, statusCode int, message string, args ...interface{}) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	response := &params.SimpleError{Error: fmt.Sprintf(message, args...)}
-	body, err := json.Marshal(response)
+func (h *debugLogHandler) sendError(w io.Writer, err error) error {
+	response := &params.ErrorResult{}
 	if err != nil {
+		response.Error = &params.Error{Message: fmt.Sprint(err)}
+	}
+	message, err := json.Marshal(response)
+	if err != nil {
+		// If we are having trouble marshalling the error, we are in big trouble.
+		logger.Errorf("failure to marshal SimpleError: %v", err)
 		return err
 	}
-	w.Write(body)
-	return nil
+	message = append(message, []byte("\n")...)
+	_, err = w.Write(message)
+	return err
 }
 
 // authenticate parses HTTP basic authentication and authorizes the
@@ -176,12 +199,6 @@ func (h *debugLogHandler) authenticate(r *http.Request) error {
 		return common.ErrBadCreds
 	}
 	return err
-}
-
-// authError sends an unauthorized error.
-func (h *debugLogHandler) authError(w http.ResponseWriter) {
-	w.Header().Set("WWW-Authenticate", `Basic realm="juju"`)
-	h.sendError(w, http.StatusUnauthorized, "unauthorized")
 }
 
 type logLine struct {
@@ -264,7 +281,7 @@ func (stream *logStream) filterLine(line []byte) bool {
 	if result && stream.maxLines > 0 {
 		stream.lineCount++
 		result = stream.lineCount <= stream.maxLines
-		stream.tomb.Kill(fmt.Errorf("max lines reached"))
+		stream.tomb.Kill(maxLinesReached)
 	}
 	return result
 }
