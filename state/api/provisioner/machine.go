@@ -81,9 +81,9 @@ func (m *Machine) RequestedNetworks() (includeNetworks, excludeNetworks []string
 // error is returned.
 func (m *Machine) AddNetworkInterfaces(interfaces []params.NetworkInterfaceParams) error {
 	var results params.ErrorResults
-	for _, iface := range interfaces {
-		if iface.MachineTag != m.tag {
-			iface.MachineTag = m.tag
+	for i, _ := range interfaces {
+		if interfaces[i].MachineTag != m.tag {
+			interfaces[i].MachineTag = m.tag
 		}
 	}
 	args := params.AddNetworkInterfaceParams{Interfaces: interfaces}
@@ -91,8 +91,8 @@ func (m *Machine) AddNetworkInterfaces(interfaces []params.NetworkInterfaceParam
 	if err != nil {
 		return err
 	}
-	if n := len(results.Results); n != len(ifaces) {
-		return fmt.Errorf("expected %d result(s), got %d", len(ifaces), n)
+	if n := len(results.Results); n != len(interfaces) {
+		return fmt.Errorf("expected %d result(s), got %d", len(interfaces), n)
 	}
 	for _, result := range results.Results {
 		if err := result.Error; err != nil {
