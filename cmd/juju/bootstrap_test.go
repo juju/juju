@@ -366,6 +366,9 @@ func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 	defer fake.Restore()
 	defaultSeriesVersion := version.Current
 	defaultSeriesVersion.Series = env.Config().DefaultSeries()
+	// Force a dev version by having an odd minor version number.
+	defaultSeriesVersion.Minor = 11
+	s.PatchValue(&version.Current, defaultSeriesVersion)
 
 	ctx := coretesting.Context(c)
 	code := cmd.Main(&BootstrapCommand{}, ctx, nil)
@@ -385,6 +388,9 @@ func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
 	defer fake.Restore()
 	defaultSeriesVersion := version.Current
 	defaultSeriesVersion.Series = env.Config().DefaultSeries()
+	// Force a dev version by having an odd minor version number.
+	defaultSeriesVersion.Minor = 11
+	s.PatchValue(&version.Current, defaultSeriesVersion)
 
 	store, err := configstore.Default()
 	c.Assert(err, gc.IsNil)
@@ -455,6 +461,10 @@ func (s *BootstrapSuite) TestUploadLocalImageMetadata(c *gc.C) {
 	defer fake.Restore()
 
 	// Bootstrap the environment with the valid source.
+	// First fake a dev version so tools can be uploaded.
+	devVersion := version.Current
+	devVersion.Minor = 11
+	s.PatchValue(&version.Current, devVersion)
 	ctx := coretesting.Context(c)
 	code := cmd.Main(&BootstrapCommand{}, ctx, []string{"--metadata-source", sourceDir})
 	c.Check(code, gc.Equals, 0)
@@ -567,6 +577,10 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
 	_, fake := makeEmptyFakeHome(c)
 	defer fake.Restore()
+	devVersion := version.Current
+	// Force a dev version by having an odd minor version number.
+	devVersion.Minor = 11
+	s.PatchValue(&version.Current, devVersion)
 	opc, errc := runCommand(nullContext(c), new(BootstrapCommand), "-e", "brokenenv")
 	err := <-errc
 	c.Assert(err, gc.ErrorMatches, "dummy.Bootstrap is broken")

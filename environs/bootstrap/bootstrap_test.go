@@ -213,6 +213,10 @@ func (s *bootstrapSuite) TestEnsureToolsAvailabilityIncompatibleHostArch(c *gc.C
 	s.PatchValue(&arch.HostArch, func() string {
 		return "amd64"
 	})
+	// Fake a dev version so tools can be uploaded.
+	devVersion := version.Current
+	devVersion.Minor = 11
+	s.PatchValue(&version.Current, devVersion)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
 	envtesting.RemoveFakeTools(c, env.Storage())
@@ -230,6 +234,10 @@ func (s *bootstrapSuite) TestEnsureToolsAvailabilityIncompatibleTargetArch(c *gc
 	s.PatchValue(&arch.HostArch, func() string {
 		return "ppc64"
 	})
+	// Fake a dev version so tools can be uploaded.
+	devVersion := version.Current
+	devVersion.Minor = 11
+	s.PatchValue(&version.Current, devVersion)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
 	envtesting.RemoveFakeTools(c, env.Storage())
