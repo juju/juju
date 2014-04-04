@@ -8,13 +8,11 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"regexp"
 	"runtime"
 
 	"launchpad.net/juju-core/container/kvm"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/version"
 )
 
 var notLinuxError = errors.New("The local provider is currently only available for Linux")
@@ -56,10 +54,11 @@ var lxclsPath = "lxc-ls"
 // isPackageInstalled is a variable to support testing.
 var isPackageInstalled = utils.IsPackageInstalled
 
-// defaultRsyslogGnutlsPath is the default path to the
+// defaultJujuLocalPath is the default path to the
 // rsyslog GnuTLS module. This is a variable only to
 // support unit testing.
-var defaultRsyslogGnutlsPath = "/usr/lib/rsyslog/lmnsd_gtls.so"
+// I'm not sure what the path should be?
+var defaultJujuLocalPath = "/home/ubuntu/go/bin/juju-local"
 
 // The operating system the process is running in.
 // This is a variable only to support unit testing.
@@ -102,11 +101,11 @@ func verifyJujuLocal() error {
 	// Not all Linuxes will distribute the module
 	// in the same way. Check if it's in the default
 	// location too.
-	_, err := os.Stat(defaultRsyslogGnutlsPath)
+	_, err := os.Stat(defaultJujuLocalPath)
 	if err == nil {
 		return nil
 	}
-	return fmt.Errorf("%v\n%s", err, installRsyslogGnutlsGeneric)
+	return fmt.Errorf("%v\n%s", err, installJujuLocalGeneric)
 }
 
 func wrapLxcNotFound(err error) error {
