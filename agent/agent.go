@@ -98,10 +98,6 @@ type Config interface {
 	// APIInfo returns details for connecting to the API server.
 	APIInfo() *api.Info
 
-	// StateServer reports if this config is for a machine that should manage
-	// state.
-	// StateServer() bool
-
 	// StateInfo returns details for connecting to the state server.
 	StateInfo() *state.Info
 
