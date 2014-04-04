@@ -3,11 +3,6 @@
 
 package state
 
-import (
-	"labix.org/v2/mgo/bson"
-	"labix.org/v2/mgo/txn"
-)
-
 // NetworkInterface represents the state of a machine network
 // interface.
 type NetworkInterface struct {
@@ -47,24 +42,4 @@ func (ni *NetworkInterface) NetworkName() string {
 // MachineId returns the machine id of the interface.
 func (ni *NetworkInterface) MachineId() string {
 	return ni.doc.MachineId
-}
-
-func removeNetworkInterfacesOps(st *State, machineId string) ([]txn.Op, error) {
-	var doc struct {
-		MACAddress string `bson:"_id"`
-	}
-	ops := []txn.Op{}
-	sel := bson.D{{"machineid", machineId}}
-	iter := st.networkInterfaces.Find(sel).Select(bson.D{{"_id", 1}}).Iter()
-	for iter.Next(&doc) {
-		ops = append(ops, txn.Op{
-			C:      st.networkInterfaces.Name,
-			Id:     doc.MACAddress,
-			Remove: true,
-		})
-	}
-	if err := iter.Err(); err != nil {
-		return nil, err
-	}
-	return ops, nil
 }
