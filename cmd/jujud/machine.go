@@ -72,7 +72,7 @@ var NewSingularRunner = singular.New
 // conn is used to create "singular runners" that only actually start
 // workers on the master agent.
 type singularAPIConn struct {
-	state      *state.State
+	apiState   *api.State
 	agentState *apiagent.State
 }
 
@@ -81,12 +81,12 @@ func (c singularAPIConn) IsMaster() (bool, error) {
 }
 
 func (c singularAPIConn) Ping() error {
-	return c.state.Ping()
+	return c.apiState.Ping()
 }
 
-func NewSingularAPIConn(stateState *state.State, agentState *apiagent.State) singularAPIConn {
+func NewSingularAPIConn(apiState *api.State, agentState *apiagent.State) singularAPIConn {
 	newConn := singularAPIConn{
-		state:      stateState,
+		apiState:   apiState,
 		agentState: agentState,
 	}
 	return newConn
@@ -226,7 +226,7 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 		}
 	}
 	runner := newRunner(connectionIsFatal(st), moreImportant)
-	conn := NewSingularAPIConn(a.st, st.Agent())
+	conn := NewSingularAPIConn(st, st.Agent())
 	singularRunner, err := NewSingularRunner(runner, conn)
 	if err != nil {
 		return nil, err
