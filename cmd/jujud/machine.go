@@ -133,7 +133,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	if err := a.ReadConfig(a.Tag()); err != nil {
 		return fmt.Errorf("cannot read agent configuration: %v", err)
 	}
-	a.configChanged()
+	a.configChangedVal.Set(struct{}{})
 	agentConfig := a.CurrentConfig()
 	charm.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
 	if err := a.createJujuRun(agentConfig.DataDir()); err != nil {
@@ -155,8 +155,10 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	return err
 }
 
-func (a *MachineAgent) configChanged() {
+func (a *MachineAgent) ChangeConfig(mutate func(config agent.ConfigSetter)) error {
+	err := a.AgentConf.ChangeConfig(mutate)
 	a.configChangedVal.Set(struct{}{})
+	return err
 }
 
 // newStateStarterWorker wraps stateStarter in a simple worker for use in
@@ -165,11 +167,10 @@ func (a *MachineAgent) newStateStarterWorker() (worker.Worker, error) {
 	return worker.NewSimpleWorker(a.stateStarter), nil
 }
 
-// stateStarter watches for changes to the agent configuration, and starts or
-// stops the state worker as appropriate.
-// We watch the agent configuration because the agent
-// configuration has all the details that we need to
-// start a state server, whether they have been cached
+// stateStarter watches for changes to the agent configuration, and
+// starts or stops the state worker as appropriate. We watch the agent
+// configuration because the agent configuration has all the details
+// that we need to start a state server, whether they have been cached
 // or read from the state.
 //
 // It will stop working as soon as stopch is closed.
@@ -214,17 +215,16 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 
 	for _, job := range entity.Jobs() {
 		if job.NeedsState() {
-			//			info, err := st.StateServingInfo()
-			//			if err != nil {
-			//				return nil, fmt.Errorf("cannot get state serving info: %v", err)
-			//			}
-			//			err = a.ChangeConfig(func(config agent.ConfigSetter) {
-			//				config.SetStateServingInfo(info)
-			//			})
-			//			if err != nil {
-			//				return nil, err
-			//			}
-			a.configChanged()
+			info, err := st.Agent().StateServingInfo()
+			if err != nil {
+				return nil, fmt.Errorf("cannot get state serving info: %v", err)
+			}
+			err = a.ChangeConfig(func(config agent.ConfigSetter) {
+				config.SetStateServingInfo(info)
+			})
+			if err != nil {
+				return nil, err
+			}
 			break
 		}
 	}
