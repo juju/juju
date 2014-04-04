@@ -108,6 +108,10 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 
+	if err := c.startMongo(addrs, envCfg.StatePort()); err != nil {
+		return err
+	}
+
 	// Initialise state, and store any agent config (e.g. password) changes.
 	var st *state.State
 	err = nil
@@ -134,11 +138,15 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	st.Close()
+	return nil
+}
 
+func (c *BootstrapCommand) startMongo(addrs []instance.Address, port int) error {
 	preferredAddr, err := selectPreferredStateServerAddress(addrs)
 	if err != nil {
 		return err
 	}
+	agentConfig := c.CurrentConfig()
 	dialInfo, err := state.DialInfo(agentConfig.StateInfo(), state.DefaultDialOpts())
 	if err != nil {
 		return err
@@ -147,9 +155,9 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	// ensure that it is actually usable locally within this machine
 	// (we'll have problems if not).
 	dialInfo.Addrs = []string{
-		instance.HostPort{preferredAddr, envCfg.StatePort()}.NetAddr(),
+		instance.HostPort{preferredAddr, port}.NetAddr(),
 	}
-	if err := ensureMongoServer(agentConfig.DataDir(), envCfg.StatePort()); err != nil {
+	if err := ensureMongoServer(agentConfig.DataDir(), port); err != nil {
 		return err
 	}
 
