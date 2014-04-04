@@ -430,10 +430,10 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				return apiserver.NewServer(
 					st, fmt.Sprintf(":%d", port), cert, key, dataDir, logDir)
 			})
-			a.startWorkerAfterUpgrade(runner, "cleaner", func() (worker.Worker, error) {
+			a.startWorkerAfterUpgrade(singularRunner, "cleaner", func() (worker.Worker, error) {
 				return cleaner.NewCleaner(st), nil
 			})
-			a.startWorkerAfterUpgrade(runner, "resumer", func() (worker.Worker, error) {
+			a.startWorkerAfterUpgrade(singularRunner, "resumer", func() (worker.Worker, error) {
 				// The action of resumer is so subtle that it is not tested,
 				// because we can't figure out how to do so without brutalising
 				// the transaction log.
