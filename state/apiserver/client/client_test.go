@@ -261,7 +261,7 @@ func (s *clientSuite) TestClientEnvironmentInfo(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
-	c.Assert(info.DefaultSeries, gc.Equals, conf.DefaultSeries())
+	c.Assert(info.DefaultSeries, gc.Equals, config.PreferredSeries(conf))
 	c.Assert(info.ProviderType, gc.Equals, conf.Type())
 	c.Assert(info.Name, gc.Equals, conf.Name())
 	c.Assert(info.UUID, gc.Equals, env.UUID())
@@ -1119,8 +1119,12 @@ func makeMockCharmStore() (store *coretesting.MockCharmStore, restore func()) {
 }
 
 func addCharm(c *gc.C, store *coretesting.MockCharmStore, name string) (*charm.URL, charm.Charm) {
+	return addSeriesCharm(c, store, "precise", name)
+}
+
+func addSeriesCharm(c *gc.C, store *coretesting.MockCharmStore, series, name string) (*charm.URL, charm.Charm) {
 	bundle := coretesting.Charms.Bundle(c.MkDir(), name)
-	scurl := fmt.Sprintf("cs:precise/%s-%d", name, bundle.Revision())
+	scurl := fmt.Sprintf("cs:%s/%s-%d", series, name, bundle.Revision())
 	curl := charm.MustParseURL(scurl)
 	err := store.SetCharm(curl, bundle)
 	c.Assert(err, gc.IsNil)
@@ -1634,7 +1638,7 @@ func (s *clientSuite) TestClientAddMachinesDefaultSeries(c *gc.C) {
 	c.Assert(len(machines), gc.Equals, 3)
 	for i, machineResult := range machines {
 		c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
-		s.checkMachine(c, machineResult.Machine, config.DefaultSeries, apiParams[i].Constraints.String())
+		s.checkMachine(c, machineResult.Machine, coretesting.FakeDefaultSeries, apiParams[i].Constraints.String())
 	}
 }
 
@@ -1684,7 +1688,7 @@ func (s *clientSuite) TestClientAddMachinesWithConstraints(c *gc.C) {
 	c.Assert(len(machines), gc.Equals, 3)
 	for i, machineResult := range machines {
 		c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
-		s.checkMachine(c, machineResult.Machine, config.DefaultSeries, apiParams[i].Constraints.String())
+		s.checkMachine(c, machineResult.Machine, coretesting.FakeDefaultSeries, apiParams[i].Constraints.String())
 	}
 }
 
@@ -1755,7 +1759,7 @@ func (s *clientSuite) TestClientAddMachinesWithInstanceIdSomeErrors(c *gc.C) {
 			c.Assert(machineResult.Error, gc.ErrorMatches, "cannot add a new machine: cannot add a machine with an instance id and no nonce")
 		} else {
 			c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
-			s.checkMachine(c, machineResult.Machine, config.DefaultSeries, apiParams[i].Constraints.String())
+			s.checkMachine(c, machineResult.Machine, coretesting.FakeDefaultSeries, apiParams[i].Constraints.String())
 			instanceId := fmt.Sprintf("1234-%d", i)
 			s.checkInstance(c, machineResult.Machine, instanceId, "foo", hc, addrs)
 		}
@@ -1941,6 +1945,57 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	sch, err = s.State.Charm(curl)
 	c.Assert(err, gc.IsNil)
 	s.assertUploaded(c, storage, sch.BundleURL(), sch.BundleSha256())
+}
+
+var resolveCharmCases = []struct {
+	schema, defaultSeries, charmName string
+	parseErr                         string
+	resolveErr                       string
+}{
+	{"cs", "precise", "wordpress", "", ""},
+	{"cs", "trusty", "wordpress", "", ""},
+	{"cs", "", "wordpress", "", `missing default series, cannot resolve charm url: "cs:wordpress"`},
+	{"cs", "trusty", "", `charm URL has invalid charm name: "cs:"`, ""},
+	{"local", "trusty", "wordpress", "", `only charm store charm references are supported, with cs: schema`},
+	{"cs", "precise", "hl3", "", ""},
+	{"cs", "trusty", "hl3", "", ""},
+	{"cs", "", "hl3", "", `missing default series, cannot resolve charm url: \"cs:hl3\"`},
+}
+
+func (s *clientSuite) TestResolveCharm(c *gc.C) {
+	store, restore := makeMockCharmStore()
+	defer restore()
+
+	for i, test := range resolveCharmCases {
+		c.Logf("test %d: %#v", i, test)
+		// Mock charm store will use this to resolve a charm reference.
+		store.DefaultSeries = test.defaultSeries
+
+		client := s.APIState.Client()
+		ref, series, err := charm.ParseReference(fmt.Sprintf("%s:%s", test.schema, test.charmName))
+		if test.parseErr == "" {
+			if !c.Check(err, gc.IsNil) {
+				continue
+			}
+		} else {
+			c.Assert(err, gc.NotNil)
+			c.Check(err, gc.ErrorMatches, test.parseErr)
+			continue
+		}
+		c.Check(series, gc.Equals, "")
+		c.Check(ref.String(), gc.Equals, fmt.Sprintf("%s:%s", test.schema, test.charmName))
+
+		curl, err := client.ResolveCharm(ref)
+		if err == nil {
+			c.Assert(curl, gc.NotNil)
+			// Only cs: schema should make it through here
+			c.Check(curl.String(), gc.Equals, fmt.Sprintf("cs:%s/%s", test.defaultSeries, test.charmName))
+			c.Check(test.resolveErr, gc.Equals, "")
+		} else {
+			c.Check(curl, gc.IsNil)
+			c.Check(err, gc.ErrorMatches, test.resolveErr)
+		}
+	}
 }
 
 func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
