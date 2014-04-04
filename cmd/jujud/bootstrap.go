@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"path/filepath"
 	"sort"
 
@@ -148,7 +147,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	// ensure that it is actually usable locally within this machine
 	// (we'll have problems if not).
 	dialInfo.Addrs = []string{
-		net.JoinHostPort(preferredAddr.String(), fmt.Sprint(envCfg.StatePort())),
+		instance.HostPort{preferredAddr, envCfg.StatePort()}.NetAddr(),
 	}
 	if err := ensureMongoServer(agentConfig.DataDir(), envCfg.StatePort()); err != nil {
 		return err

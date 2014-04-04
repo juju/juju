@@ -177,7 +177,6 @@ func (s *MongoSuite) TestInitiateReplicaSet(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	info := inst.DialInfo()
-	info.Direct = true
 
 	err = MaybeInitiateMongoServer(InitiateMongoParams{
 		DialInfo: info,

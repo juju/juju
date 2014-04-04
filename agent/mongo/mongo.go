@@ -127,7 +127,7 @@ func MaybeInitiateMongoServer(p InitiateMongoParams) error {
 		logger.Infof("more than one member; replica set must be already initiated")
 		return nil
 	}
-
+	p.DialInfo.Direct = true
 	session, err := mgo.DialWithInfo(p.DialInfo)
 	if err != nil {
 		return fmt.Errorf("can't dial mongo to initiate replicaset: %v", err)
