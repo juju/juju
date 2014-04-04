@@ -7,15 +7,17 @@ package apiserver
 
 import (
 	"bytes"
-	"github.com/juju/loggo"
-	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
-	"launchpad.net/juju-core/testing"
+	"io"
 	"net/url"
 	"os"
 	"path/filepath"
 	"time"
 
+	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
+	gc "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
@@ -192,6 +194,20 @@ func (s *debugInternalSuite) TestFilterLineWithLimit(c *gc.C) {
 	c.Check(stream.filterLine(line), jc.IsFalse)
 }
 
+type seekWaitReader struct {
+	io.ReadSeeker
+	wait chan struct{}
+}
+
+func (w *seekWaitReader) Seek(offset int64, whence int) (int64, error) {
+	pos, err := w.ReadSeeker.Seek(offset, whence)
+	if w.wait != nil {
+		close(w.wait)
+		w.wait = nil
+	}
+	return pos, err
+}
+
 func (s *debugInternalSuite) testStreamInternal(c *gc.C, fromTheStart bool, maxLines uint, expected, errMatch string) {
 
 	dir := c.MkDir()
@@ -209,19 +225,15 @@ line 3
 `)
 	stream := &logStream{fromTheStart: fromTheStart, maxLines: maxLines}
 	output := &bytes.Buffer{}
-	stream.init(logFileReader, output)
-
-	tailingStarted := make(chan struct{})
-	stream.logTailer.StartedTailing = func() {
-		close(tailingStarted)
-	}
+	waitReader := &seekWaitReader{logFileReader, make(chan struct{})}
+	stream.init(waitReader, output)
 
 	go func() {
 		defer stream.tomb.Done()
 		stream.tomb.Kill(stream.loop())
 	}()
 	// wait for the tailer to have started tailing before writing more
-	<-tailingStarted
+	<-waitReader.wait
 
 	logFile.WriteString("line 4\n")
 	logFile.WriteString("line 5\n")
