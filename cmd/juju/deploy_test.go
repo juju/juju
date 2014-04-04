@@ -256,12 +256,3 @@ func (s *DeploySuite) TestForceMachineSubordinate(c *gc.C) {
 	_, err = s.State.Service("dummy")
 	c.Assert(err, gc.ErrorMatches, `service "dummy" not found`)
 }
-
-func (s *DeploySuite) TestDeployServiceOwner(c *gc.C) {
-	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
-	err := runDeploy(c, "local:dummy")
-	c.Assert(err, gc.IsNil)
-	service, err := s.State.Service("dummy")
-	c.Assert(err, gc.IsNil)
-	c.Assert(service.GetOwnerTag(), gc.Equals, "user-admin")
-}
