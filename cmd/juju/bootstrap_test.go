@@ -303,9 +303,10 @@ var bootstrapTests = []bootstrapTest{{
 	args: []string{"--series", "fine"},
 	err:  `--series requires --upload-tools`,
 }, {
-	info: "bad environment",
-	args: []string{"-e", "brokenenv"},
-	err:  `dummy.Bootstrap is broken`,
+	info:    "bad environment",
+	version: "1.2.3-%LTS%-amd64",
+	args:    []string{"-e", "brokenenv"},
+	err:     `dummy.Bootstrap is broken`,
 }, {
 	info:        "constraints",
 	args:        []string{"--constraints", "mem=4G cpu-cores=4"},
