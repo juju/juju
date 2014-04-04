@@ -83,14 +83,6 @@ func (c singularAPIConn) Ping() error {
 	return c.apiState.Ping()
 }
 
-func NewSingularAPIConn(apiState *api.State, agentState *apiagent.State) singularAPIConn {
-	newConn := singularAPIConn{
-		apiState:   apiState,
-		agentState: agentState,
-	}
-	return newConn
-}
-
 type singularStateConn struct {
 	state   *state.State
 	machine *state.Machine
@@ -102,14 +94,6 @@ func (c singularStateConn) IsMaster() (bool, error) {
 
 func (c singularStateConn) Ping() error {
 	return c.state.Ping()
-}
-
-func NewSingularStateConn(state *state.State, machine *state.Machine) singularStateConn {
-	newConn := singularStateConn{
-		state:   state,
-		machine: machine,
-	}
-	return newConn
 }
 
 // MachineAgent is a cmd.Command responsible for running a machine agent.
@@ -246,7 +230,7 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 		}
 	}
 	runner := newRunner(connectionIsFatal(st), moreImportant)
-	conn := NewSingularAPIConn(st, st.Agent())
+	conn := singularAPIConn{st, st.Agent()}
 	singularRunner, err := NewSingularRunner(runner, conn)
 	if err != nil {
 		return nil, err
@@ -396,7 +380,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	close(a.stateOpened)
 	reportOpenedState(st)
 
-	singularStateConn := NewSingularStateConn(st, m)
+	singularStateConn := singularStateConn{st, m}
 	runner := newRunner(connectionIsFatal(st), moreImportant)
 	singularRunner, err := NewSingularRunner(runner, singularStateConn)
 	if err != nil {
