@@ -5,6 +5,7 @@ package charm_test
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -237,6 +238,37 @@ requires:
 	check(prefix+`
 requires:
   innocuous: juju-info`, "")
+}
+
+// dummyMetadata contains a minimally valid charm metadata.yaml
+// for testing valid and invalid series.
+const dummyMetadata = "name: a\nsummary: b\ndescription: c"
+
+// TestSeries ensures that valid series values are parsed correctly when specified
+// in the charm metadata.
+func (s *MetaSuite) TestSeries(c *gc.C) {
+	// series not specified
+	meta, err := charm.ReadMeta(strings.NewReader(dummyMetadata))
+	c.Assert(err, gc.IsNil)
+	c.Check(meta.Series, gc.Equals, "")
+
+	for _, seriesName := range []string{"precise", "trusty", "plan9"} {
+		meta, err := charm.ReadMeta(strings.NewReader(
+			fmt.Sprintf("%s\nseries: %s\n", dummyMetadata, seriesName)))
+		c.Assert(err, gc.IsNil)
+		c.Check(meta.Series, gc.Equals, seriesName)
+	}
+}
+
+// TestInvalidSeries ensures that invalid series values cause a parse error
+// when specified in the charm metadata.
+func (s *MetaSuite) TestInvalidSeries(c *gc.C) {
+	for _, seriesName := range []string{"pre-c1se", "pre^cise", "cp/m", "OpenVMS"} {
+		_, err := charm.ReadMeta(strings.NewReader(
+			fmt.Sprintf("%s\nseries: %s\n", dummyMetadata, seriesName)))
+		c.Assert(err, gc.NotNil)
+		c.Check(err, gc.ErrorMatches, `charm "a" declares invalid series: .*`)
+	}
 }
 
 func (s *MetaSuite) TestCheckMismatchedRelationName(c *gc.C) {

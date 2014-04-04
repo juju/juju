@@ -652,7 +652,6 @@ var configTests = []configTest{
 	authTokenConfigTest("token=value, =z", false),
 	authTokenConfigTest("token=value =z", false),
 	authTokenConfigTest("\t", false),
-	missingAttributeNoDefault("default-series"),
 	missingAttributeNoDefault("firewall-mode"),
 	missingAttributeNoDefault("development"),
 	missingAttributeNoDefault("ssl-hostname-verification"),
@@ -861,11 +860,14 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 	testmode, _ := test.attrs["test-mode"].(bool)
 	c.Assert(cfg.TestMode(), gc.Equals, testmode)
 
-	if series, _ := test.attrs["default-series"].(string); series != "" {
-		c.Assert(cfg.DefaultSeries(), gc.Equals, series)
+	series, _ := test.attrs["default-series"].(string)
+	if defaultSeries, ok := cfg.DefaultSeries(); ok {
+		c.Assert(defaultSeries, gc.Equals, series)
 	} else {
-		c.Assert(cfg.DefaultSeries(), gc.Equals, config.DefaultSeries)
+		c.Assert(series, gc.Equals, "")
+		c.Assert(defaultSeries, gc.Equals, "")
 	}
+
 	if m, _ := test.attrs["firewall-mode"].(string); m != "" {
 		c.Assert(cfg.FirewallMode(), gc.Equals, m)
 	}
@@ -1010,7 +1012,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"bootstrap-timeout":         3600,
 		"bootstrap-retry-delay":     30,
 		"bootstrap-addresses-delay": 10,
-		"default-series":            "precise",
+		"default-series":            testing.FakeDefaultSeries,
 		"charm-store-auth":          "token=auth",
 		"test-mode":                 false,
 	}
@@ -1019,7 +1021,6 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 
 	// These attributes are added if not set.
 	attrs["development"] = false
-	attrs["default-series"] = config.DefaultSeries
 	attrs["logging-config"] = "<root>=WARNING;unit=DEBUG"
 	attrs["ca-private-key"] = ""
 	attrs["image-metadata-url"] = ""

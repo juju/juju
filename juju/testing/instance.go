@@ -10,6 +10,7 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
@@ -110,7 +111,7 @@ func StartInstanceWithConstraintsAndNetworks(
 ) (
 	instance.Instance, *instance.HardwareCharacteristics, error,
 ) {
-	series := env.Config().DefaultSeries()
+	series := config.PreferredSeries(env.Config())
 	agentVersion, ok := env.Config().AgentVersion()
 	if !ok {
 		return nil, nil, fmt.Errorf("missing agent version in environment config")

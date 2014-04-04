@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/imagemetadata"
@@ -119,7 +120,8 @@ func (s *BootstrapSuite) TestAllowRetries(c *gc.C) {
 func (s *BootstrapSuite) runAllowRetriesTest(c *gc.C, test bootstrapRetryTest) {
 	toolsVersions := envtesting.VAll
 	if test.version != "" {
-		testVersion := version.MustParseBinary(test.version)
+		useVersion := strings.Replace(test.version, "%LTS%", config.LatestLtsSeries(), 1)
+		testVersion := version.MustParseBinary(useVersion)
 		s.PatchValue(&version.Current, testVersion)
 		if test.addVersionToSource {
 			toolsVersions = append([]version.Binary{}, toolsVersions...)
@@ -201,8 +203,9 @@ func (test bootstrapTest) run(c *gc.C) {
 	defer fake.Restore()
 
 	if test.version != "" {
+		useVersion := strings.Replace(test.version, "%LTS%", config.LatestLtsSeries(), 1)
 		origVersion := version.Current
-		version.Current = version.MustParseBinary(test.version)
+		version.Current = version.MustParseBinary(useVersion)
 		defer func() { version.Current = origVersion }()
 	}
 
@@ -217,7 +220,7 @@ func (test bootstrapTest) run(c *gc.C) {
 	uploadCount := len(test.uploads)
 	if uploadCount == 0 {
 		usefulVersion := version.Current
-		usefulVersion.Series = env.Config().DefaultSeries()
+		usefulVersion.Series = config.PreferredSeries(env.Config())
 		envtesting.AssertUploadFakeToolsVersions(c, env.Storage(), usefulVersion)
 	}
 
@@ -245,6 +248,7 @@ func (test bootstrapTest) run(c *gc.C) {
 		urls := list.URLs()
 		c.Check(urls, gc.HasLen, len(test.uploads))
 		for _, v := range test.uploads {
+			v := strings.Replace(v, "%LTS%", config.LatestLtsSeries(), 1)
 			c.Logf("seeking: " + v)
 			vers := version.MustParseBinary(v)
 			_, found := urls[vers]
@@ -299,10 +303,9 @@ var bootstrapTests = []bootstrapTest{{
 	args: []string{"--series", "fine"},
 	err:  `--series requires --upload-tools`,
 }, {
-	info:    "bad environment",
-	version: "1.2.3-precise-amd64",
-	args:    []string{"-e", "brokenenv"},
-	err:     `dummy.Bootstrap is broken`,
+	info: "bad environment",
+	args: []string{"-e", "brokenenv"},
+	err:  `dummy.Bootstrap is broken`,
 }, {
 	info:        "constraints",
 	args:        []string{"--constraints", "mem=4G cpu-cores=4"},
@@ -312,9 +315,9 @@ var bootstrapTests = []bootstrapTest{{
 	version: "1.2.3-saucy-amd64",
 	args:    []string{"--upload-tools"},
 	uploads: []string{
-		"1.2.3.1-saucy-amd64",   // from version.Current
-		"1.2.3.1-raring-amd64",  // from env.Config().DefaultSeries()
-		"1.2.3.1-precise-amd64", // from environs/config.DefaultSeries
+		"1.2.3.1-saucy-amd64",  // from version.Current
+		"1.2.3.1-raring-amd64", // from env.Config().DefaultSeries()
+		"1.2.3.1-%LTS%-amd64",  // from environs/config.DefaultSeries
 	},
 }, {
 	info:     "--upload-tools uses arch from constraint if it matches current version",
@@ -322,18 +325,18 @@ var bootstrapTests = []bootstrapTest{{
 	hostArch: "ppc64",
 	args:     []string{"--upload-tools", "--constraints", "arch=ppc64"},
 	uploads: []string{
-		"1.3.3.1-saucy-ppc64",   // from version.Current
-		"1.3.3.1-raring-ppc64",  // from env.Config().DefaultSeries()
-		"1.3.3.1-precise-ppc64", // from environs/config.DefaultSeries
+		"1.3.3.1-saucy-ppc64",  // from version.Current
+		"1.3.3.1-raring-ppc64", // from env.Config().DefaultSeries()
+		"1.3.3.1-%LTS%-ppc64",  // from environs/config.DefaultSeries
 	},
 	constraints: constraints.MustParse("arch=ppc64"),
 }, {
 	info:    "--upload-tools only uploads each file once",
-	version: "1.2.3-precise-amd64",
+	version: "1.2.3-%LTS%-amd64",
 	args:    []string{"--upload-tools"},
 	uploads: []string{
 		"1.2.3.1-raring-amd64",
-		"1.2.3.1-precise-amd64",
+		"1.2.3.1-%LTS%-amd64",
 	},
 }, {
 	info:    "--upload-tools rejects invalid series",
@@ -357,7 +360,7 @@ var bootstrapTests = []bootstrapTest{{
 	args:    []string{"--upload-tools"},
 	uploads: []string{
 		"1.2.3.5-raring-amd64",
-		"1.2.3.5-precise-amd64",
+		"1.2.3.5-%LTS%-amd64",
 	},
 }}
 
@@ -365,7 +368,7 @@ func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 	env, fake := makeEmptyFakeHome(c)
 	defer fake.Restore()
 	defaultSeriesVersion := version.Current
-	defaultSeriesVersion.Series = env.Config().DefaultSeries()
+	defaultSeriesVersion.Series = config.PreferredSeries(env.Config())
 	// Force a dev version by having an odd minor version number.
 	// This is because we have not uploaded any tools and auto
 	// upload is only enabled for dev versions.
@@ -389,7 +392,7 @@ func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
 	env, fake := makeEmptyFakeHome(c)
 	defer fake.Restore()
 	defaultSeriesVersion := version.Current
-	defaultSeriesVersion.Series = env.Config().DefaultSeries()
+	defaultSeriesVersion.Series = config.PreferredSeries(env.Config())
 	// Force a dev version by having an odd minor version number.
 	// This is because we have not uploaded any tools and auto
 	// upload is only enabled for dev versions.
@@ -530,7 +533,13 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Logf("found: " + list.String())
 	urls := list.URLs()
-	c.Assert(urls, gc.HasLen, 2)
+	expectedUrlCount := 2
+
+	// There will be distinct tools for each of these if they are different
+	if config.LatestLtsSeries() != coretesting.FakeDefaultSeries {
+		expectedUrlCount++
+	}
+	c.Assert(urls, gc.HasLen, expectedUrlCount)
 	expectedVers := []version.Binary{
 		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", otherSeries, version.Current.Arch)),
 		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", version.Current.Series, version.Current.Arch)),
@@ -572,7 +581,11 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 	code := cmd.Main(&BootstrapCommand{}, context, nil)
 	c.Assert(code, gc.Equals, 1)
 	errText := context.Stderr.(*bytes.Buffer).String()
-	expectedErrText := "uploading tools for series \\[precise raring\\]\n"
+	expectedErrText := "uploading tools for series \\[precise "
+	if config.LatestLtsSeries() != coretesting.FakeDefaultSeries {
+		expectedErrText += config.LatestLtsSeries() + " "
+	}
+	expectedErrText += "raring\\]\n"
 	expectedErrText += "Bootstrap failed, destroying environment\n"
 	expectedErrText += "error: cannot upload bootstrap tools: an error\n"
 	c.Assert(errText, gc.Matches, expectedErrText)

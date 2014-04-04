@@ -99,8 +99,10 @@ func SeriesToUpload(cfg *config.Config, series []string) []string {
 	unique := set.NewStrings(series...)
 	if unique.IsEmpty() {
 		unique.Add(version.Current.Series)
-		unique.Add(config.DefaultSeries)
-		unique.Add(cfg.DefaultSeries())
+		unique.Add(config.LatestLtsSeries())
+		if series, ok := cfg.DefaultSeries(); ok {
+			unique.Add(series)
+		}
 	}
 	return unique.Values()
 }
@@ -178,7 +180,10 @@ func EnsureToolsAvailability(ctx environs.BootstrapContext, env environs.Environ
 	// No tools available so our only hope is to build locally and upload.
 	logger.Warningf("no prepackaged tools available")
 	uploadSeries := SeriesToUpload(cfg, nil)
-	if err := UploadTools(ctx, env, toolsArch, false, append(uploadSeries, series)...); err != nil {
+	if series != "" {
+		uploadSeries = append(uploadSeries, series)
+	}
+	if err := UploadTools(ctx, env, toolsArch, false, uploadSeries...); err != nil {
 		logger.Errorf("%s", noToolsMessage)
 		return nil, fmt.Errorf("cannot upload bootstrap tools: %v", err)
 	}
