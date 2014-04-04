@@ -378,6 +378,32 @@ type NetworksResults struct {
 	Results []NetworkResult
 }
 
+// NetworkParams holds a single network definition.
+type NetworkParams struct {
+	Name    string
+	CIDR    string
+	VLANTag int
+}
+
+// AddNetworkParams holds the parameters for making an AddNetwork call.
+type AddNetworkParams struct {
+	Networks []NetworkParams
+}
+
+// NetworkInterfaceParams holds a single network interface definition.
+type NetworkInterfaceParams struct {
+	MACAddress    string
+	MachineTag    string
+	InterfaceName string
+	NetworkName   string
+}
+
+// AddNetworkInterfaceParams holds the parameters for making an
+// AddNetworkInterface call.
+type AddNetworkInterfaceParams struct {
+	Interfaces []NetworkInterfaceParams
+}
+
 // AgentGetEntitiesResults holds the results of a
 // agent.API.GetEntities call.
 type AgentGetEntitiesResults struct {
