@@ -77,7 +77,7 @@ func (s *compatSuite) TestGetServiceWithoutNetworksIsOK(c *gc.C) {
 	// In 1.17.7+ all services have associated document in the linked
 	// networks collection. We remove it here to test backwards
 	// compatibility.
-	ops := []txn.Op{removeLinkedNetworksOp(s.state, service.globalKey())}
+	ops := []txn.Op{removeRequestedNetworksOp(s.state, service.globalKey())}
 	err = s.state.runTransaction(ops)
 	c.Assert(err, gc.IsNil)
 
@@ -88,18 +88,18 @@ func (s *compatSuite) TestGetServiceWithoutNetworksIsOK(c *gc.C) {
 	c.Assert(exclude, gc.HasLen, 0)
 }
 
-func (s *compatSuite) TestGetMachineWithoutLinkedNetworksIsOK(c *gc.C) {
+func (s *compatSuite) TestGetMachineWithoutRequestedNetworksIsOK(c *gc.C) {
 	machine, err := s.state.AddMachine("quantal", JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	// In 1.17.7+ all machines have associated document in the linked
+	// In 1.17.7+ all machines have associated document in the requested
 	// networks collection. We remove it here to test backwards
 	// compatibility.
-	ops := []txn.Op{removeLinkedNetworksOp(s.state, machine.globalKey())}
+	ops := []txn.Op{removeRequestedNetworksOp(s.state, machine.globalKey())}
 	err = s.state.runTransaction(ops)
 	c.Assert(err, gc.IsNil)
 
 	// Now check the trying to fetch machine's networks is OK.
-	include, exclude, err := machine.LinkedNetworks()
+	include, exclude, err := machine.RequestedNetworks()
 	c.Assert(err, gc.IsNil)
 	c.Assert(include, gc.HasLen, 0)
 	c.Assert(exclude, gc.HasLen, 0)

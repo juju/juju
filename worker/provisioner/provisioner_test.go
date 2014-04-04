@@ -344,10 +344,10 @@ func (s *CommonProvisionerSuite) newEnvironProvisioner(c *gc.C) provisioner.Prov
 }
 
 func (s *CommonProvisionerSuite) addMachine() (*state.Machine, error) {
-	return s.addMachineWithNetworks(nil, nil)
+	return s.addMachineWithRequestedNetworks(nil, nil)
 }
 
-func (s *CommonProvisionerSuite) addMachineWithNetworks(includeNetworks, excludeNetworks []string) (*state.Machine, error) {
+func (s *CommonProvisionerSuite) addMachineWithRequestedNetworks(includeNetworks, excludeNetworks []string) (*state.Machine, error) {
 	return s.BackingState.AddOneMachine(state.MachineTemplate{
 		Series:          config.DefaultSeries,
 		Jobs:            []state.MachineJob{state.JobHostUnits},
@@ -459,14 +459,14 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForContainers(c *gc.C) {
 	s.waitRemoved(c, m)
 }
 
-func (s *ProvisionerSuite) TestProvisioningMachinesWithNetworks(c *gc.C) {
+func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedNetworks(c *gc.C) {
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)
 
 	// Add and provision a machine with networks specified.
 	includeNetworks := []string{"net1", "net2"}
 	excludeNetworks := []string{"net3", "net4"}
-	m, err := s.addMachineWithNetworks(includeNetworks, excludeNetworks)
+	m, err := s.addMachineWithRequestedNetworks(includeNetworks, excludeNetworks)
 	c.Assert(err, gc.IsNil)
 	inst := s.checkStartInstanceCustom(c, m, "pork", s.defaultConstraints, includeNetworks, excludeNetworks)
 

@@ -56,8 +56,8 @@ type State struct {
 	relations         *mgo.Collection
 	relationScopes    *mgo.Collection
 	services          *mgo.Collection
-	linkedNetworks    *mgo.Collection
-	machineNetworks   *mgo.Collection
+	requestedNetworks *mgo.Collection
+	networks          *mgo.Collection
 	networkInterfaces *mgo.Collection
 	minUnits          *mgo.Collection
 	settings          *mgo.Collection
@@ -955,7 +955,7 @@ func (st *State) AddService(name, ownerTag string, ch *Charm, includeNetworks, e
 	ops := []txn.Op{
 		env.assertAliveOp(),
 		createConstraintsOp(st, svc.globalKey(), constraints.Value{}),
-		createLinkedNetworksOp(st, svc.globalKey(), includeNetworks, excludeNetworks),
+		createRequestedNetworksOp(st, svc.globalKey(), includeNetworks, excludeNetworks),
 		createSettingsOp(st, svc.settingsKey(), nil),
 		{
 			C:      st.users.Name,
@@ -1006,9 +1006,9 @@ func (st *State) AddService(name, ownerTag string, ch *Charm, includeNetworks, e
 	return svc, nil
 }
 
-// AddMachineNetwork creates a new machine network with the given name, CIDR and VLAN tag.q
-func (st *State) AddMachineNetwork(name, cidr string, vlanTag int) (m *MachineNetwork, err error) {
-	defer utils.ErrorContextf(&err, "cannot add machine network %q", name)
+// AddNetwork creates a new network with the given name, CIDR and VLAN tag.
+func (st *State) AddNetwork(name, cidr string, vlanTag int) (n *Network, err error) {
+	defer utils.ErrorContextf(&err, "cannot add network %q", name)
 	if cidr != "" {
 		_, _, err := net.ParseCIDR(cidr)
 		if err != nil {
@@ -1021,35 +1021,35 @@ func (st *State) AddMachineNetwork(name, cidr string, vlanTag int) (m *MachineNe
 	if vlanTag < 0 || vlanTag > 4094 {
 		return nil, fmt.Errorf("invalid VLAN tag %d: must be between 0 and 4094", vlanTag)
 	}
-	mdoc := &machineNetworkDoc{
+	doc := &networkDoc{
 		Name:    name,
 		CIDR:    cidr,
 		VLANTag: vlanTag,
 	}
 	ops := []txn.Op{{
-		C:      st.machineNetworks.Name,
+		C:      st.networks.Name,
 		Id:     name,
 		Assert: txn.DocMissing,
-		Insert: mdoc,
+		Insert: doc,
 	}}
 	err = onAbort(st.runTransaction(ops), fmt.Errorf("already exists"))
 	if err != nil {
 		return nil, err
 	}
-	return newMachineNetwork(st, mdoc), nil
+	return newNetwork(st, doc), nil
 }
 
-// MachineNetwork returns the machine network with the given name.
-func (st *State) MachineNetwork(name string) (*MachineNetwork, error) {
-	mdoc := &machineNetworkDoc{}
-	err := st.machineNetworks.FindId(name).One(mdoc)
+// Network returns the network with the given name.
+func (st *State) Network(name string) (*Network, error) {
+	doc := &networkDoc{}
+	err := st.networks.FindId(name).One(doc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("machine network %q", name)
+		return nil, errors.NotFoundf("network %q", name)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("cannot get machine network %q: %v", name, err)
+		return nil, fmt.Errorf("cannot get network %q: %v", name, err)
 	}
-	return newMachineNetwork(st, mdoc), nil
+	return newNetwork(st, doc), nil
 }
 
 // Service returns a service state by name.

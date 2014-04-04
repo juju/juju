@@ -4,11 +4,8 @@
 package state
 
 import (
-	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
-
-	"launchpad.net/juju-core/errors"
 )
 
 // NetworkInterface represents the state of a machine network
@@ -22,10 +19,10 @@ type NetworkInterface struct {
 // a given network.
 type networkInterfaceDoc struct {
 	MACAddress string `bson:"_id"`
-	// Name is the network interface name (e.g. "eth0").
-	Name        string
-	NetworkName string
-	MachineId   string
+	// InterfaceName is the network interface name (e.g. "eth0").
+	InterfaceName string
+	NetworkName   string
+	MachineId     string
 }
 
 func newNetworkInterface(st *State, doc *networkInterfaceDoc) *NetworkInterface {
@@ -37,9 +34,9 @@ func (ni *NetworkInterface) MACAddress() string {
 	return ni.doc.MACAddress
 }
 
-// Name returns the name of the interface.
-func (ni *NetworkInterface) Name() string {
-	return ni.doc.Name
+// InterfaceName returns the name of the interface.
+func (ni *NetworkInterface) InterfaceName() string {
+	return ni.doc.InterfaceName
 }
 
 // NetworkName returns the machine network name of the interface.
@@ -52,21 +49,7 @@ func (ni *NetworkInterface) MachineId() string {
 	return ni.doc.MachineId
 }
 
-// Remove deletes the network interface from state.
-func (ni *NetworkInterface) Remove() error {
-	ops := []txn.Op{{
-		C:      ni.st.networkInterfaces.Name,
-		Id:     ni.doc.MACAddress,
-		Remove: true,
-	}}
-	err := ni.st.runTransaction(ops)
-	if err == mgo.ErrNotFound {
-		return errors.NotFoundf("network interface %q", ni.doc.MACAddress)
-	}
-	return err
-}
-
-func removeNetworkInterfacesOps(st *State, machineId string) []txn.Op {
+func removeNetworkInterfacesOps(st *State, machineId string) ([]txn.Op, error) {
 	var doc struct {
 		MACAddress string `bson:"_id"`
 	}
@@ -80,5 +63,8 @@ func removeNetworkInterfacesOps(st *State, machineId string) []txn.Op {
 			Remove: true,
 		})
 	}
-	return ops
+	if err := iter.Err(); err != nil {
+		return nil, err
+	}
+	return ops, nil
 }

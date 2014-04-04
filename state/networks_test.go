@@ -6,45 +6,31 @@ package state_test
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/state"
 )
 
-type MachineNetworkSuite struct {
+type NetworkSuite struct {
 	ConnSuite
 	machine *state.Machine
-	network *state.MachineNetwork
-	vlan    *state.MachineNetwork
+	network *state.Network
+	vlan    *state.Network
 }
 
-var _ = gc.Suite(&MachineNetworkSuite{})
+var _ = gc.Suite(&NetworkSuite{})
 
-func (s *MachineNetworkSuite) SetUpTest(c *gc.C) {
+func (s *NetworkSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	var err error
 	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	s.network, err = s.State.AddMachineNetwork("net1", "0.1.2.3/24", 0)
+	s.network, err = s.State.AddNetwork("net1", "0.1.2.3/24", 0)
 	c.Assert(err, gc.IsNil)
-	s.vlan, err = s.State.AddMachineNetwork("vlan", "0.1.2.3/30", 42)
-	c.Assert(err, gc.IsNil)
-}
-
-func (s *MachineNetworkSuite) TestRemove(c *gc.C) {
-	// Add an interface and verify we can't remove the network.
-	iface, err := s.machine.AddNetworkInterface("aa:bb:cc:dd:ee:ff", "eth0", "net1")
-	c.Assert(err, gc.IsNil)
-	err = s.network.Remove()
-	c.Assert(err, gc.ErrorMatches, `cannot remove machine network "net1" with existing interfaces`)
-	// Now remove it and retry.
-	err = iface.Remove()
-	c.Assert(err, gc.IsNil)
-	err = s.network.Remove()
-	c.Assert(err, gc.IsNil)
-	err = s.network.Remove()
+	s.vlan, err = s.State.AddNetwork("vlan", "0.1.2.3/30", 42)
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *MachineNetworkSuite) TestGetterMethods(c *gc.C) {
+func (s *NetworkSuite) TestGetterMethods(c *gc.C) {
 	c.Assert(s.network.Name(), gc.Equals, "net1")
 	c.Assert(s.network.CIDR(), gc.Equals, "0.1.2.3/24")
 	c.Assert(s.network.VLANTag(), gc.Equals, 0)
@@ -53,7 +39,7 @@ func (s *MachineNetworkSuite) TestGetterMethods(c *gc.C) {
 	c.Assert(s.vlan.IsVLAN(), jc.IsTrue)
 }
 
-func (s *MachineNetworkSuite) TestInterfaces(c *gc.C) {
+func (s *NetworkSuite) TestInterfaces(c *gc.C) {
 	ifaces, err := s.network.Interfaces()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ifaces, gc.HasLen, 0)

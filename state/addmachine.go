@@ -422,7 +422,10 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 		createStatusOp(st, machineGlobalKey(mdoc.Id), statusDoc{
 			Status: params.StatusPending,
 		}),
-		createLinkedNetworksOp(st, machineGlobalKey(mdoc.Id),
+		// TODO(dimitern) Once we can add networks independently
+		// of machine provisioning, we should check the given
+		// networks are valid and known before setting them.
+		createRequestedNetworksOp(st, machineGlobalKey(mdoc.Id),
 			template.IncludeNetworks,
 			template.ExcludeNetworks,
 		),

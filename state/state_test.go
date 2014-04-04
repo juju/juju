@@ -962,7 +962,7 @@ func (s *StateSuite) TestAllMachines(c *gc.C) {
 	}
 }
 
-func (s *StateSuite) TestMachineNetworksAddAndGet(c *gc.C) {
+func (s *StateSuite) TestAddAndGetNetwork(c *gc.C) {
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series:          "quantal",
 		Jobs:            []state.MachineJob{state.JobHostUnits},
@@ -976,27 +976,27 @@ func (s *StateSuite) TestMachineNetworksAddAndGet(c *gc.C) {
 		"net1", "0.1.2.0/24", 0,
 		"aa:bb:cc:dd:ee:f0", "eth0")
 
-	net, err := s.State.MachineNetwork("net1")
+	net, err := s.State.Network("net1")
 	c.Assert(err, gc.IsNil)
 	c.Assert(net, gc.DeepEquals, net1)
-	_, err = s.State.MachineNetwork("missing")
+	_, err = s.State.Network("missing")
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
-	c.Assert(err, gc.ErrorMatches, `machine network "missing" not found`)
+	c.Assert(err, gc.ErrorMatches, `network "missing" not found`)
 
-	_, err = s.State.AddMachineNetwork("", "0.3.1.0/24", 0)
-	expectErr := `cannot add machine network "": name must be not empty`
+	_, err = s.State.AddNetwork("", "0.3.1.0/24", 0)
+	expectErr := `cannot add network "": name must be not empty`
 	c.Assert(err, gc.ErrorMatches, expectErr)
-	_, err = s.State.AddMachineNetwork("net42", "invalid", 0)
-	expectErr = `cannot add machine network "net42": invalid CIDR address: invalid`
+	_, err = s.State.AddNetwork("net42", "invalid", 0)
+	expectErr = `cannot add network "net42": invalid CIDR address: invalid`
 	c.Assert(err, gc.ErrorMatches, expectErr)
-	_, err = s.State.AddMachineNetwork("net69", "0.3.1.0/30", -1)
-	expectErr = `cannot add machine network "net69": invalid VLAN tag -1: must be between 0 and 4094`
+	_, err = s.State.AddNetwork("net69", "0.3.1.0/30", -1)
+	expectErr = `cannot add network "net69": invalid VLAN tag -1: must be between 0 and 4094`
 	c.Assert(err, gc.ErrorMatches, expectErr)
-	_, err = s.State.AddMachineNetwork("net69", "0.3.1.0/30", 9999)
-	expectErr = `cannot add machine network "net69": invalid VLAN tag 9999: must be between 0 and 4094`
+	_, err = s.State.AddNetwork("net69", "0.3.1.0/30", 9999)
+	expectErr = `cannot add network "net69": invalid VLAN tag 9999: must be between 0 and 4094`
 	c.Assert(err, gc.ErrorMatches, expectErr)
-	_, err = s.State.AddMachineNetwork("net1", "0.1.2.0/24", 0)
-	expectErr = `cannot add machine network "net1": already exists`
+	_, err = s.State.AddNetwork("net1", "0.1.2.0/24", 0)
+	expectErr = `cannot add network "net1": already exists`
 	c.Assert(err, gc.ErrorMatches, expectErr)
 }
 
