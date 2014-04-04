@@ -506,7 +506,7 @@ func (s *MachineSuite) TestAddNetworkInterfaceErrors(c *gc.C) {
 	err = machine.SetProvisioned("i-am", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
 	_, err = machine.AddNetworkInterface("aa:bb:cc:dd:ee:ff", "eth2", "net1")
-	expectErr = errorPrefix + "machine already provisioned"
+	expectErr = errorPrefix + "machine already provisioned: dynamic network interfaces not currently supported"
 	c.Assert(err, gc.ErrorMatches, expectErr)
 
 	err = machine.EnsureDead()

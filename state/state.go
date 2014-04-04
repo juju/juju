@@ -955,6 +955,10 @@ func (st *State) AddService(name, ownerTag string, ch *Charm, includeNetworks, e
 	ops := []txn.Op{
 		env.assertAliveOp(),
 		createConstraintsOp(st, svc.globalKey(), constraints.Value{}),
+		// TODO(dimitern) 2014-04-04 bug #1302498
+		// Once we can add networks independently of machine
+		// provisioning, we should check the given networks are valid
+		// and known before setting them.
 		createRequestedNetworksOp(st, svc.globalKey(), includeNetworks, excludeNetworks),
 		createSettingsOp(st, svc.settingsKey(), nil),
 		{

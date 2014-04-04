@@ -564,8 +564,28 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 	return fmt.Errorf("machine %s cannot advance lifecycle: %v", m, ErrExcessiveContention)
 }
 
-// Remove sets the machine to Dead. It will fail if the machine is not
-// Dead.
+func (m *Machine) removeNetworkInterfacesOps() ([]txn.Op, error) {
+	var doc struct {
+		MACAddress string `bson:"_id"`
+	}
+	ops := []txn.Op{}
+	sel := bson.D{{"machineid", m.doc.Id}}
+	iter := m.st.networkInterfaces.Find(sel).Select(bson.D{{"_id", 1}}).Iter()
+	for iter.Next(&doc) {
+		ops = append(ops, txn.Op{
+			C:      m.st.networkInterfaces.Name,
+			Id:     doc.MACAddress,
+			Remove: true,
+		})
+	}
+	if err := iter.Err(); err != nil {
+		return nil, err
+	}
+	return ops, nil
+}
+
+// Remove removes the machine from state. It will fail if the machine
+// is not Dead.
 func (m *Machine) Remove() (err error) {
 	defer utils.ErrorContextf(&err, "cannot remove machine %s", m.doc.Id)
 	if m.doc.Life != Dead {
@@ -588,7 +608,7 @@ func (m *Machine) Remove() (err error) {
 		removeRequestedNetworksOp(m.st, m.globalKey()),
 		annotationRemoveOp(m.st, m.globalKey()),
 	}
-	ifacesOps, err := removeNetworkInterfacesOps(m.st, m.Id())
+	ifacesOps, err := m.removeNetworkInterfacesOps()
 	if err != nil {
 		return err
 	}
@@ -928,7 +948,9 @@ func (m *Machine) NetworkInterfaces() ([]*NetworkInterface, error) {
 }
 
 // AddNetworkInterface creates a new network interface on the given
-// network for the machine.
+// network for the machine. The machine must be alive and not yet
+// provisioned, and there must be no other interface with the same MAC
+// address for this to succeed.
 func (m *Machine) AddNetworkInterface(macAddress, name, networkName string) (iface *NetworkInterface, err error) {
 	defer utils.ErrorContextf(&err, "cannot add network interface to machine %s", m.doc.Id)
 
@@ -973,7 +995,7 @@ func (m *Machine) AddNetworkInterface(macAddress, name, networkName string) (ifa
 			} else if m.doc.Life != Alive {
 				return nil, fmt.Errorf("machine is not alive")
 			} else if m.doc.Nonce != "" {
-				return nil, fmt.Errorf("machine already provisioned")
+				return nil, fmt.Errorf("machine already provisioned: dynamic network interfaces not currently supported")
 			}
 			// Network and machine both OK, so the other assert must have failed.
 			return nil, fmt.Errorf("interface with MAC address %q already exists", macAddress)

@@ -422,9 +422,10 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 		createStatusOp(st, machineGlobalKey(mdoc.Id), statusDoc{
 			Status: params.StatusPending,
 		}),
-		// TODO(dimitern) Once we can add networks independently
-		// of machine provisioning, we should check the given
-		// networks are valid and known before setting them.
+		// TODO(dimitern) 2014-04-04 bug #1302498
+		// Once we can add networks independently of machine
+		// provisioning, we should check the given networks are valid
+		// and known before setting them.
 		createRequestedNetworksOp(st, machineGlobalKey(mdoc.Id),
 			template.IncludeNetworks,
 			template.ExcludeNetworks,
