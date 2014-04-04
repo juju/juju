@@ -381,7 +381,9 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 					return nil, &fatalError{"configuration does not have state server cert/key"}
 				}
 				dataDir := agentConfig.DataDir()
-				return apiserver.NewServer(st, fmt.Sprintf(":%d", port), cert, key, dataDir)
+				logDir := agentConfig.LogDir()
+				return apiserver.NewServer(
+					st, fmt.Sprintf(":%d", port), cert, key, dataDir, logDir)
 			})
 			a.startWorkerAfterUpgrade(runner, "cleaner", func() (worker.Worker, error) {
 				return cleaner.NewCleaner(st), nil

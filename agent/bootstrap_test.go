@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
@@ -51,21 +52,22 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	dataDir := c.MkDir()
 
 	pwHash := utils.UserPasswordHash(testing.DefaultMongoPassword, utils.CompatSalt)
-	configParams := agent.StateMachineConfigParams{
-		AgentConfigParams: agent.AgentConfigParams{
-			DataDir:           dataDir,
-			Tag:               "machine-0",
-			UpgradedToVersion: version.Current.Number,
-			StateAddresses:    []string{testing.MgoServer.Addr()},
-			CACert:            []byte(testing.CACert),
-			Password:          pwHash,
-		},
-		StateServerCert: []byte(testing.ServerCert),
-		StateServerKey:  []byte(testing.ServerKey),
-		APIPort:         1234,
-		StatePort:       3456,
+	configParams := agent.AgentConfigParams{
+		DataDir:           dataDir,
+		Tag:               "machine-0",
+		UpgradedToVersion: version.Current.Number,
+		StateAddresses:    []string{testing.MgoServer.Addr()},
+		CACert:            []byte(testing.CACert),
+		Password:          pwHash,
 	}
-	cfg, err := agent.NewStateMachineConfig(configParams)
+	servingInfo := params.StateServingInfo{
+		Cert:       testing.ServerCert,
+		PrivateKey: testing.ServerKey,
+		APIPort:    1234,
+		StatePort:  3456,
+	}
+
+	cfg, err := agent.NewStateMachineConfig(configParams, servingInfo)
 	c.Assert(err, gc.IsNil)
 
 	_, available := cfg.StateServingInfo()
@@ -80,8 +82,9 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 		Characteristics: expectHW,
 		SharedSecret:    "abc123",
 	}
-	envAttrs := testing.FakeConfig().Delete("admin-secret").Merge(testing.Attrs{
+	envAttrs := dummy.SampleConfig().Delete("admin-secret").Merge(testing.Attrs{
 		"agent-version": version.Current.Number.String(),
+		"state-id":      "1", // needed so policy can Open config
 	})
 	envCfg, err := config.New(config.NoDefaults, envAttrs)
 	c.Assert(err, gc.IsNil)
@@ -149,10 +152,8 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 }
 
 func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *gc.C) {
-	dataDir := c.MkDir()
-
 	configParams := agent.AgentConfigParams{
-		DataDir:           dataDir,
+		DataDir:           c.MkDir(),
 		Tag:               "machine-0",
 		UpgradedToVersion: version.Current.Number,
 		StateAddresses:    []string{testing.MgoServer.Addr()},
@@ -194,8 +195,9 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		InstanceId:      "i-bootstrap",
 		Characteristics: expectHW,
 	}
-	envAttrs := testing.FakeConfig().Delete("admin-secret").Merge(testing.Attrs{
+	envAttrs := dummy.SampleConfig().Delete("admin-secret").Merge(testing.Attrs{
 		"agent-version": version.Current.Number.String(),
+		"state-id":      "1", // needed so policy can Open config
 	})
 	envCfg, err := config.New(config.NoDefaults, envAttrs)
 	c.Assert(err, gc.IsNil)

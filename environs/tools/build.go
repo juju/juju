@@ -186,13 +186,10 @@ func copyExistingJujud(dir string) error {
 func buildJujud(dir string) error {
 	logger.Infof("building jujud")
 	cmds := [][]string{
-		{"go", "install", "launchpad.net/juju-core/cmd/jujud"},
-		{"strip", dir + "/jujud"},
+		{"go", "build", "-gccgoflags=-static-libgo", "-o", filepath.Join(dir, "jujud"), "launchpad.net/juju-core/cmd/jujud"},
 	}
-	env := setenv(os.Environ(), "GOBIN="+dir)
 	for _, args := range cmds {
 		cmd := exec.Command(args[0], args[1:]...)
-		cmd.Env = env
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("build command %q failed: %v; %s", args[0], err, out)
