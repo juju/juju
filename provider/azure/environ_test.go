@@ -1429,44 +1429,62 @@ func (s *environSuite) TestStartInstance(c *gc.C) {
 		Tag:      "machine-1",
 	}
 	var params environs.StartInstanceParams
-	params.Tools = envtesting.AssertUploadFakeToolsVersions(c, env.storage, envtesting.V120p...)
-	params.MachineConfig = environs.NewMachineConfig("1", "yanonce", nil, nil, stateInfo, apiInfo)
+	params.Tools = envtesting.AssertUploadFakeToolsVersions(
+		c, env.storage, envtesting.V120p...,
+	)
+	params.MachineConfig = environs.NewMachineConfig(
+		"1", "yanonce", nil, nil, stateInfo, apiInfo,
+	)
 
 	// Start out with availability sets disabled.
 	env.ecfg.attrs["availability-sets-enabled"] = false
 
 	var expectServiceName string
 	var expectStateServer bool
+	var called int
 	s.PatchValue(&createInstance, func(env *azureEnviron, azure *gwacl.ManagementAPI, role *gwacl.Role, serviceName string, stateServer bool) (instance.Instance, error) {
 		c.Assert(serviceName, gc.Equals, expectServiceName)
 		c.Assert(stateServer, gc.Equals, expectStateServer)
+		called++
 		return nil, nil
 	})
 	env.StartInstance(params)
+	c.Assert(called, gc.Equals, 1)
 
-	// DistributionGroup won't have an effect if availability-sets-enabled=false.
+	// DistributionGroup won't have an effect if
+	// availability-sets-enabled=false.
 	expectServiceName = ""
 	params.DistributionGroup = func() ([]instance.Id, error) {
-		return []instance.Id{instance.Id(env.getEnvPrefix() + "whatever-role0")}, nil
+		return []instance.Id{
+			instance.Id(env.getEnvPrefix() + "whatever-role0"),
+		}, nil
 	}
 	env.StartInstance(params)
+	c.Assert(called, gc.Equals, 2)
 
 	env.ecfg.attrs["availability-sets-enabled"] = true
 	expectServiceName = "juju-testenv-whatever"
 	env.StartInstance(params)
+	c.Assert(called, gc.Equals, 3)
 
 	expectServiceName = ""
 	params.DistributionGroup = nil
 	env.StartInstance(params)
+	c.Assert(called, gc.Equals, 4)
 
 	// Empty distribution group is equivalent to no DistributionGroup function.
 	params.DistributionGroup = func() ([]instance.Id, error) {
 		return nil, nil
 	}
 	env.StartInstance(params)
+	c.Assert(called, gc.Equals, 5)
 
-	// If the machine has the JobManagesEnviron job, we should see stateServer==true.
+	// If the machine has the JobManagesEnviron job, we should see
+	// stateServer==true.
 	expectStateServer = true
-	params.MachineConfig.Jobs = []apiparams.MachineJob{apiparams.JobHostUnits, apiparams.JobManageEnviron}
+	params.MachineConfig.Jobs = []apiparams.MachineJob{
+		apiparams.JobHostUnits, apiparams.JobManageEnviron,
+	}
 	env.StartInstance(params)
+	c.Assert(called, gc.Equals, 6)
 }
