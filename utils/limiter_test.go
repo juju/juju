@@ -5,10 +5,12 @@ package utils_test
 
 import (
 	"fmt"
+	"time"
 
 	gc "launchpad.net/gocheck"
 
-	jc "launchpad.net/juju-core/testing/checkers"
+	jc "github.com/juju/testing/checkers"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -59,9 +61,17 @@ func (*limiterSuite) TestAcquireWaitBlocksUntilRelease(c *gc.C) {
 	}()
 	// Start the routine, and wait for it to get to the first checkpoint
 	start <- true
-	<-waiting
+	select {
+	case <-waiting:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for 'waiting' to trigger")
+	}
 	c.Check(l.Acquire(), jc.IsFalse)
 	l.Release()
-	<-done
+	select {
+	case <-done:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for 'done' to trigger")
+	}
 	c.Check(calls, gc.DeepEquals, []string{"true", "true", "false", "waited", "false"})
 }

@@ -10,17 +10,17 @@ import (
 type empty struct{}
 type limiter chan empty
 
-// Limiter represents a limited resource (eg a semaphore)
+// Limiter represents a limited resource (eg a semaphore).
 type Limiter interface {
 	// Acquire another unit of the resource.
 	// Acquire returns false to indicate there is no more availability,
-	// until another entity calls Release
+	// until another entity calls Release.
 	Acquire() bool
 	// AcquireWait requests a unit of resource, but blocks until one is
-	// available
+	// available.
 	AcquireWait()
 	// Release returns a unit of the resource. Calling Release when there
-	// are no units Acquired is an error
+	// are no units Acquired is an error.
 	Release() error
 }
 
@@ -31,7 +31,7 @@ func NewLimiter(max int) Limiter {
 // Acquire requests some resources that you can return later
 // It returns 'true' if there are resources available, but false if they are
 // not. Callers are responsible for calling Release if this returns true, but
-// should not release if this returns false
+// should not release if this returns false.
 func (l limiter) Acquire() bool {
 	e := empty{}
 	select {
@@ -42,11 +42,13 @@ func (l limiter) Acquire() bool {
 	}
 }
 
+// AcquireWait waits for the resource to become available before returning.
 func (l limiter) AcquireWait() {
 	e := empty{}
 	l <- e
 }
 
+// Release returns the resource to the available pool.
 func (l limiter) Release() error {
 	select {
 	case <-l:
