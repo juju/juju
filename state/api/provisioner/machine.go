@@ -74,16 +74,32 @@ func (m *Machine) RequestedNetworks() (includeNetworks, excludeNetworks []string
 	return result.IncludeNetworks, result.ExcludeNetworks, nil
 }
 
-// SetNetworkInterfaces sets the actual discovered and configured
-// network interfaces for the machine (post-provisioning).
-func (m *Machine) SetNetworkInterfaces(ifaces []params.NetworkInterface) error {
+// AddNetworkInterfaces creates one or more network interfaces each on
+// an existing network and bound to the machine, which must not be
+// provisioned yet. MachineTag inside interfaces params is always set
+// to the current machine's tag. If any operation fails, the first
+// error is returned.
+func (m *Machine) AddNetworkInterfaces(interfaces []params.NetworkInterfaceParams) error {
 	var results params.ErrorResults
-	args := params.Entities{Entities: []params.Entity{{m.tag}}}
-	err = m.st.call("SetNetworkInterfaces", args, &results)
+	for _, iface := range interfaces {
+		if iface.MachineTag != m.tag {
+			iface.MachineTag = m.tag
+		}
+	}
+	args := params.AddNetworkInterfaceParams{Interfaces: interfaces}
+	err := m.st.call("AddNetworkInterface", args, &results)
 	if err != nil {
 		return err
 	}
-	return result.OneError()
+	if n := len(results.Results); n != len(ifaces) {
+		return fmt.Errorf("expected %d result(s), got %d", len(ifaces), n)
+	}
+	for _, result := range results.Results {
+		if err := result.Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // SetStatus sets the status of the machine.

@@ -432,6 +432,15 @@ func (p *ProvisionerAPI) RequestedNetworks(args params.Entities) (params.Network
 	return result, nil
 }
 
+// AddNetwork creates one or more new networks with the given parameters.
+func (p *ProvisionerAPI) AddNetwork(args params.AddNetworkParams) (params.ErrorResults, error) {
+}
+
+// AddNetworkInterface creates one or more new network interfaces with
+// the given parameters.
+func (p *ProvisionerAPI) AddNetworkInterface(args params.AddNetworkInterfaceParams) (params.ErrorResults, error) {
+}
+
 // SetProvisioned sets the provider specific machine id, nonce and
 // metadata for each given machine. Once set, the instance id cannot
 // be changed.
