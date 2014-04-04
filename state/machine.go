@@ -599,6 +599,11 @@ func (m *Machine) Remove() (err error) {
 			Remove: true,
 		},
 		{
+			C:      m.st.machines.Name,
+			Id:     m.doc.Id,
+			Assert: isDeadDoc,
+		},
+		{
 			C:      m.st.instanceData.Name,
 			Id:     m.doc.Id,
 			Remove: true,
