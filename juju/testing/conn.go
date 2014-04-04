@@ -60,6 +60,7 @@ type JujuConnSuite struct {
 	ConfigStore  configstore.Storage
 	BackingState *state.State // The State being used by the API server
 	RootDir      string       // The faked-up root directory.
+	LogDir       string
 	oldHome      string
 	oldJujuHome  string
 	environ      environs.Environ
@@ -211,6 +212,8 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	// sanity check we've got the correct environment.
 	c.Assert(environ.Name(), gc.Equals, "dummyenv")
 	s.PatchValue(&dummy.DataDir, s.DataDir())
+	s.LogDir = c.MkDir()
+	s.PatchValue(&dummy.LogDir, s.LogDir)
 
 	versions := PreferredDefaultVersions(environ.Config(), version.Current)
 	versions = append(versions, version.Current)
