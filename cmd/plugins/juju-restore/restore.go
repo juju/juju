@@ -122,11 +122,10 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 		mongo --ssl -u {{.Creds.Tag}} -p {{.Creds.Password | shquote}} localhost:37017/juju --eval "$1"
 	}
 	# wait for mongo to come up after starting the juju-db upstart service.
-	for i in $(seq 1 60)
+	for i in $(seq 1 100)
 	do
 		mongoEval ' ' && break
-		#Used to be 2, that is not enough when we are too close in terms of network
-		sleep 10
+		sleep 5
 	done
 	mongoEval '
 		db = db.getSiblingDB("juju")
