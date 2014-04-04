@@ -49,8 +49,8 @@ var parseHardwareTests = []struct {
 		summary: "set arch i386",
 		args:    []string{"arch=i386"},
 	}, {
-		summary: "set arch arm",
-		args:    []string{"arch=arm"},
+		summary: "set arch armhf",
+		args:    []string{"arch=armhf"},
 	}, {
 		summary: "set nonsense arch 1",
 		args:    []string{"arch=cheese"},
@@ -65,7 +65,7 @@ var parseHardwareTests = []struct {
 		err:     `bad "arch" characteristic: already set`,
 	}, {
 		summary: "double set arch separately",
-		args:    []string{"arch=arm", "arch="},
+		args:    []string{"arch=armhf", "arch="},
 		err:     `bad "arch" characteristic: already set`,
 	},
 
@@ -223,7 +223,7 @@ var parseHardwareTests = []struct {
 		args:    []string{" root-disk=4G mem=2T  arch=i386  cpu-cores=4096 cpu-power=9001"},
 	}, {
 		summary: "kitchen sink separately",
-		args:    []string{"root-disk=4G", "mem=2T", "cpu-cores=4096", "cpu-power=9001", "arch=arm"},
+		args:    []string{"root-disk=4G", "mem=2T", "cpu-cores=4096", "cpu-power=9001", "arch=armhf"},
 	},
 }
 

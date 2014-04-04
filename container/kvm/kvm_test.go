@@ -169,14 +169,14 @@ func (s *ConstraintsSuite) TestDefaults(c *gc.C) {
 			RootDisk: 4,
 		},
 	}, {
-		cons: "arch=arm",
+		cons: "arch=armhf",
 		expected: kvm.StartParams{
 			Memory:   kvm.DefaultMemory,
 			CpuCores: kvm.DefaultCpu,
 			RootDisk: kvm.DefaultDisk,
 		},
 		infoLog: []string{
-			`arch constraint of "arm" being ignored as not supported`,
+			`arch constraint of "armhf" being ignored as not supported`,
 		},
 	}, {
 		cons: "container=lxc",
@@ -209,14 +209,14 @@ func (s *ConstraintsSuite) TestDefaults(c *gc.C) {
 			`tags constraint of "foo,bar" being ignored as not supported`,
 		},
 	}, {
-		cons: "mem=4G cpu-cores=4 root-disk=20G arch=arm cpu-power=100 container=lxc tags=foo,bar",
+		cons: "mem=4G cpu-cores=4 root-disk=20G arch=armhf cpu-power=100 container=lxc tags=foo,bar",
 		expected: kvm.StartParams{
 			Memory:   4 * 1024,
 			CpuCores: 4,
 			RootDisk: 20,
 		},
 		infoLog: []string{
-			`arch constraint of "arm" being ignored as not supported`,
+			`arch constraint of "armhf" being ignored as not supported`,
 			`container constraint of "lxc" being ignored as not supported`,
 			`cpu-power constraint of 100 being ignored as not supported`,
 			`tags constraint of "foo,bar" being ignored as not supported`,

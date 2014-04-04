@@ -48,7 +48,7 @@ func (s *initialisationSuite) TestDetectionError(c *gc.C) {
 	defer installFakeSSH(c, manual.DetectionScript, []string{scriptResponse, "non-empty-stderr"}, 0)()
 	hc, _, err = manual.DetectSeriesAndHardwareCharacteristics("hostname")
 	c.Assert(err, gc.IsNil)
-	c.Assert(hc.String(), gc.Equals, "arch=arm cpu-cores=1 mem=4M")
+	c.Assert(hc.String(), gc.Equals, "arch=armhf cpu-cores=1 mem=4M")
 }
 
 func (s *initialisationSuite) TestDetectHardwareCharacteristics(c *gc.C) {
@@ -59,7 +59,7 @@ func (s *initialisationSuite) TestDetectHardwareCharacteristics(c *gc.C) {
 	}{{
 		"Single CPU socket, single core, no hyper-threading",
 		[]string{"edgy", "armv4", "MemTotal: 4096 kB", "processor: 0"},
-		"arch=arm cpu-cores=1 mem=4M",
+		"arch=armhf cpu-cores=1 mem=4M",
 	}, {
 		"Single CPU socket, single core, hyper-threading",
 		[]string{
@@ -71,7 +71,7 @@ func (s *initialisationSuite) TestDetectHardwareCharacteristics(c *gc.C) {
 			"physical id: 0",
 			"cpu cores: 1",
 		},
-		"arch=arm cpu-cores=1 mem=4M",
+		"arch=armhf cpu-cores=1 mem=4M",
 	}, {
 		"Single CPU socket, dual-core, no hyper-threading",
 		[]string{
@@ -83,7 +83,7 @@ func (s *initialisationSuite) TestDetectHardwareCharacteristics(c *gc.C) {
 			"physical id: 0",
 			"cpu cores: 2",
 		},
-		"arch=arm cpu-cores=2 mem=4M",
+		"arch=armhf cpu-cores=2 mem=4M",
 	}, {
 		"Dual CPU socket, each single-core, hyper-threading",
 		[]string{
@@ -101,7 +101,7 @@ func (s *initialisationSuite) TestDetectHardwareCharacteristics(c *gc.C) {
 			"physical id: 1",
 			"cpu cores: 1",
 		},
-		"arch=arm cpu-cores=2 mem=4M",
+		"arch=armhf cpu-cores=2 mem=4M",
 	}}
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.summary)
