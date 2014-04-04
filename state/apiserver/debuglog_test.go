@@ -10,7 +10,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"io"
-	"launchpad.net/juju-core/cert"
 	"net/http"
 	"net/url"
 	"os"
@@ -190,9 +189,7 @@ func (s *debugLogSuite) dialWebsocketInternal(c *gc.C, queryParams url.Values, h
 	c.Assert(err, gc.IsNil)
 	config.Header = header
 	caCerts := x509.NewCertPool()
-	xcert, err := cert.ParseCert([]byte(testing.CACert))
-	c.Assert(err, gc.IsNil)
-	caCerts.AddCert(xcert)
+	c.Assert(caCerts.AppendCertsFromPEM([]byte(testing.CACert)), jc.IsTrue)
 	config.TlsConfig = &tls.Config{RootCAs: caCerts, ServerName: "anything"}
 	return websocket.DialConfig(config)
 }
