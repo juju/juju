@@ -162,7 +162,6 @@ func (srv *Server) run(lis net.Listener) {
 	}()
 	srv.wg.Add(1)
 	go func() {
-		logger.Infof("mongo ping interval %v", mongoPingInterval)
 		err := srv.mongoPinger()
 		srv.tomb.Kill(err)
 		srv.wg.Done()
@@ -239,7 +238,6 @@ func (srv *Server) mongoPinger() error {
 		case <-srv.tomb.Dying():
 			return tomb.ErrDying
 		}
-		logger.Infof("pinging mongo")
 		if err := session.Ping(); err != nil {
 			logger.Infof("got error pinging mongo: %v", err)
 			return fmt.Errorf("error pinging mongo: %v", err)
