@@ -367,6 +367,8 @@ func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 	defaultSeriesVersion := version.Current
 	defaultSeriesVersion.Series = env.Config().DefaultSeries()
 	// Force a dev version by having an odd minor version number.
+	// This is because we have not uploaded any tools and auto
+	// upload is only enabled for dev versions.
 	defaultSeriesVersion.Minor = 11
 	s.PatchValue(&version.Current, defaultSeriesVersion)
 
@@ -389,6 +391,8 @@ func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
 	defaultSeriesVersion := version.Current
 	defaultSeriesVersion.Series = env.Config().DefaultSeries()
 	// Force a dev version by having an odd minor version number.
+	// This is because we have not uploaded any tools and auto
+	// upload is only enabled for dev versions.
 	defaultSeriesVersion.Minor = 11
 	s.PatchValue(&version.Current, defaultSeriesVersion)
 
@@ -579,6 +583,8 @@ func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
 	defer fake.Restore()
 	devVersion := version.Current
 	// Force a dev version by having an odd minor version number.
+	// This is because we have not uploaded any tools and auto
+	// upload is only enabled for dev versions.
 	devVersion.Minor = 11
 	s.PatchValue(&version.Current, devVersion)
 	opc, errc := runCommand(nullContext(c), new(BootstrapCommand), "-e", "brokenenv")
