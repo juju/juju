@@ -216,7 +216,9 @@ func (s *bootstrapSuite) TestEnsureToolsAvailabilityIncompatibleHostArch(c *gc.C
 	s.PatchValue(&arch.HostArch, func() string {
 		return "amd64"
 	})
-	// Fake a dev version so tools can be automatically uploaded.
+	// Force a dev version by having an odd minor version number.
+	// This is because we have not uploaded any tools and auto
+	// upload is only enabled for dev versions.
 	devVersion := version.Current
 	devVersion.Minor = 11
 	s.PatchValue(&version.Current, devVersion)
@@ -237,7 +239,9 @@ func (s *bootstrapSuite) TestEnsureToolsAvailabilityIncompatibleTargetArch(c *gc
 	s.PatchValue(&arch.HostArch, func() string {
 		return "ppc64"
 	})
-	// Fake a dev version so tools can be automatically uploaded.
+	// Force a dev version by having an odd minor version number.
+	// This is because we have not uploaded any tools and auto
+	// upload is only enabled for dev versions.
 	devVersion := version.Current
 	devVersion.Minor = 11
 	s.PatchValue(&version.Current, devVersion)
