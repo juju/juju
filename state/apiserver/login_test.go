@@ -54,7 +54,7 @@ func (s *loginSuite) setupServer(c *gc.C) (*api.Info, func()) {
 		"localhost:0",
 		[]byte(coretesting.ServerCert),
 		[]byte(coretesting.ServerKey),
-		"",
+		"", "",
 	)
 	c.Assert(err, gc.IsNil)
 	info := &api.Info{
