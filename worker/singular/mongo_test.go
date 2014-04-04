@@ -1,3 +1,6 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package singular_test
 
 import (
@@ -8,8 +11,8 @@ import (
 
 	"github.com/juju/loggo"
 	"labix.org/v2/mgo"
-
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/replicaset"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
@@ -61,7 +64,7 @@ func (*mongoSuite) TestMongoMastership(c *gc.C) {
 	c.Logf("agent %d started; waiting for servers to sync", globalState.activeId)
 	time.Sleep(1 * time.Minute)
 
-	// Try to hoose a different agent than the primary to
+	// Try to choose a different agent than the primary to
 	// make master.
 	nextId := ((globalState.activeId+1)-1)%len(insts) + 1
 
@@ -303,35 +306,35 @@ func (g *globalAgentState) possibleEvents() []event {
 		addPossible := func(kind string) {
 			possible = append(possible, event{kind: kind, id: id})
 		}
-		if isConnected {
-			if isStarted {
-				if g.activeId == -1 || id == g.activeId {
-					// If there's no active worker, then we allow
-					// any worker to run an operation, but
-					// once a worker has successfully run an
-					// operation, it will be an error if any
-					// other worker runs an operation before
-					// the first worker has stopped.
-					addPossible("operation")
-				}
-				// It's always ok for a started worker to stop.
-				addPossible("stop")
-			} else {
-				// connect followed by connect is possible for a worker
-				// that's not master.
-				addPossible("connect")
-
-				// We allow any number of workers to start - it's
-				// ok as long as none of the extra workers actually
-				// manage to complete an operation successfully.
-				addPossible("start")
-
-				if !hasQuit {
-					addPossible("quit")
-				}
-			}
-		} else {
+		if !isConnected {
 			addPossible("connect")
+			continue
+		}
+		if isStarted {
+			if g.activeId == -1 || id == g.activeId {
+				// If there's no active worker, then we allow
+				// any worker to run an operation, but
+				// once a worker has successfully run an
+				// operation, it will be an error if any
+				// other worker runs an operation before
+				// the first worker has stopped.
+				addPossible("operation")
+			}
+			// It's always ok for a started worker to stop.
+			addPossible("stop")
+		} else {
+			// connect followed by connect is possible for a worker
+			// that's not master.
+			addPossible("connect")
+
+			// We allow any number of workers to start - it's
+			// ok as long as none of the extra workers actually
+			// manage to complete an operation successfully.
+			addPossible("start")
+
+			if !hasQuit {
+				addPossible("quit")
+			}
 		}
 	}
 	return possible
