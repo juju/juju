@@ -88,7 +88,7 @@ func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *gc.C) {
 
 func uploadTools(c *gc.C, env environs.Environ) {
 	usefulVersion := version.Current
-	usefulVersion.Series = env.Config().DefaultSeries()
+	usefulVersion.Series = config.PreferredSeries(env.Config())
 	envtesting.AssertUploadFakeToolsVersions(c, env.Storage(), usefulVersion)
 }
 
@@ -217,7 +217,7 @@ func (s *bootstrapSuite) TestEnsureToolsAvailabilityIncompatibleHostArch(c *gc.C
 	s.setDummyStorage(c, env)
 	envtesting.RemoveFakeTools(c, env.Storage())
 	arch := "ppc64"
-	_, err := bootstrap.EnsureToolsAvailability(coretesting.Context(c), env, env.Config().DefaultSeries(), &arch)
+	_, err := bootstrap.EnsureToolsAvailability(coretesting.Context(c), env, config.PreferredSeries(env.Config()), &arch)
 	c.Assert(err, gc.NotNil)
 	stripped := strings.Replace(err.Error(), "\n", "", -1)
 	c.Assert(stripped,
@@ -233,7 +233,7 @@ func (s *bootstrapSuite) TestEnsureToolsAvailabilityIncompatibleTargetArch(c *gc
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
 	envtesting.RemoveFakeTools(c, env.Storage())
-	_, err := bootstrap.EnsureToolsAvailability(coretesting.Context(c), env, env.Config().DefaultSeries(), nil)
+	_, err := bootstrap.EnsureToolsAvailability(coretesting.Context(c), env, config.PreferredSeries(env.Config()), nil)
 	c.Assert(err, gc.NotNil)
 	stripped := strings.Replace(err.Error(), "\n", "", -1)
 	c.Assert(stripped,
@@ -246,7 +246,7 @@ func (s *bootstrapSuite) TestEnsureToolsAvailabilityAgentVersionAlreadySet(c *gc
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{"agent-version": "1.16.0"})
 	s.setDummyStorage(c, env)
 	envtesting.RemoveFakeTools(c, env.Storage())
-	_, err := bootstrap.EnsureToolsAvailability(coretesting.Context(c), env, env.Config().DefaultSeries(), nil)
+	_, err := bootstrap.EnsureToolsAvailability(coretesting.Context(c), env, config.PreferredSeries(env.Config()), nil)
 	c.Assert(err, gc.NotNil)
 	stripped := strings.Replace(err.Error(), "\n", "", -1)
 	c.Assert(stripped,
@@ -260,7 +260,7 @@ func (s *bootstrapSuite) TestEnsureToolsAvailabilityNonDevVersion(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
 	envtesting.RemoveFakeTools(c, env.Storage())
-	_, err := bootstrap.EnsureToolsAvailability(coretesting.Context(c), env, env.Config().DefaultSeries(), nil)
+	_, err := bootstrap.EnsureToolsAvailability(coretesting.Context(c), env, config.PreferredSeries(env.Config()), nil)
 	c.Assert(err, gc.NotNil)
 	stripped := strings.Replace(err.Error(), "\n", "", -1)
 	c.Assert(stripped,
@@ -310,12 +310,12 @@ func (s *bootstrapSuite) TestEnsureToolsAvailability(c *gc.C) {
 		return "arm64"
 	})
 	arch := "arm64"
-	agentTools, err := bootstrap.EnsureToolsAvailability(coretesting.Context(c), env, env.Config().DefaultSeries(), &arch)
+	agentTools, err := bootstrap.EnsureToolsAvailability(coretesting.Context(c), env, config.PreferredSeries(env.Config()), &arch)
 	c.Assert(err, gc.IsNil)
 	c.Assert(agentTools, gc.HasLen, 1)
 	expectedVers := version.Current
 	expectedVers.Number.Build++
-	expectedVers.Series = env.Config().DefaultSeries()
+	expectedVers.Series = config.PreferredSeries(env.Config())
 	c.Assert(agentTools[0].Version, gc.DeepEquals, expectedVers)
 }
 
@@ -325,11 +325,18 @@ func (s *bootstrapSuite) TestSeriesToUpload(c *gc.C) {
 	s.PatchValue(&version.Current, vers)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	cfg := env.Config()
-	c.Assert(bootstrap.SeriesToUpload(cfg, nil), jc.SameContents, []string{"quantal", "precise"})
+
+	prefSeries := config.PreferredSeries(cfg)
+	expect := []string{"quantal", prefSeries}
+	if prefSeries != config.LatestLtsSeries() {
+		expect = append(expect, config.LatestLtsSeries())
+	}
+	c.Assert(bootstrap.SeriesToUpload(cfg, nil), jc.SameContents, expect)
+
 	c.Assert(bootstrap.SeriesToUpload(cfg, []string{"quantal"}), jc.SameContents, []string{"quantal"})
 	env = newEnviron("foo", useDefaultKeys, map[string]interface{}{"default-series": "lucid"})
 	cfg = env.Config()
-	c.Assert(bootstrap.SeriesToUpload(cfg, nil), jc.SameContents, []string{"quantal", "precise", "lucid"})
+	c.Assert(bootstrap.SeriesToUpload(cfg, nil), jc.SameContents, []string{"quantal", config.LatestLtsSeries(), "lucid"})
 }
 
 func (s *bootstrapSuite) assertUploadTools(c *gc.C, vers version.Binary, allowRelease bool,

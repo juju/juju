@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/config"
@@ -201,4 +202,36 @@ func (*configSuite) TestEmptyImageStream1dot16Compat(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	_, err = provider.Validate(cfg, nil)
 	c.Assert(err, gc.IsNil)
+}
+
+func (*configSuite) TestAvailabilitySetsEnabledDefault(c *gc.C) {
+	userValues := []interface{}{nil, false, true}
+	for _, userValue := range userValues {
+		attrs := makeAzureConfigMap(c)
+		// If availability-sets-enabled isn't specified, it's set to true.
+		checker := jc.IsTrue
+		if userValue, ok := userValue.(bool); ok {
+			attrs["availability-sets-enabled"] = userValue
+			if !userValue {
+				checker = jc.IsFalse
+			}
+		}
+		cfg, err := config.New(config.UseDefaults, attrs)
+		c.Assert(err, gc.IsNil)
+		env, err := azureEnvironProvider{}.Prepare(testing.Context(c), cfg)
+		c.Assert(err, gc.IsNil)
+		azureEnv := env.(*azureEnviron)
+		c.Assert(azureEnv.ecfg.availabilitySetsEnabled(), checker)
+	}
+}
+
+func (*configSuite) TestAvailabilitySetsEnabledImmutable(c *gc.C) {
+	cfg, err := config.New(config.UseDefaults, makeAzureConfigMap(c))
+	c.Assert(err, gc.IsNil)
+	env, err := azureEnvironProvider{}.Prepare(testing.Context(c), cfg)
+	c.Assert(err, gc.IsNil)
+	cfg, err = env.Config().Apply(map[string]interface{}{"availability-sets-enabled": false})
+	c.Assert(err, gc.IsNil)
+	err = env.SetConfig(cfg)
+	c.Assert(err, gc.ErrorMatches, "cannot change availability-sets-enabled")
 }

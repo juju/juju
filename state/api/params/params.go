@@ -330,6 +330,22 @@ type CharmInfo struct {
 	CharmURL string
 }
 
+// ResolveCharms stores charm references for a ResolveCharms call.
+type ResolveCharms struct {
+	References []charm.Reference
+}
+
+// ResolveCharmResult holds the result of resolving a charm reference to a URL, or any error that occurred.
+type ResolveCharmResult struct {
+	URL   *charm.URL `json:",omitempty"`
+	Error string     `json:",omitempty"`
+}
+
+// ResolveCharmResults holds results of the ResolveCharms call.
+type ResolveCharmResults struct {
+	URLs []ResolveCharmResult
+}
+
 // AllWatcherId holds the id of an AllWatcher.
 type AllWatcherId struct {
 	AllWatcherId string
@@ -472,6 +488,14 @@ type StateServingInfo struct {
 	PrivateKey string
 	// this will be passed as the KeyFile argument to MongoDB
 	SharedSecret string
+}
+
+// IsMasterResult holds the result of an IsMaster API call.
+type IsMasterResult struct {
+	// Master reports whether the connected agent
+	// lives on the same instance as the mongo replica
+	// set master.
+	Master bool
 }
 
 // MachineInfo holds the information about a Machine
@@ -637,6 +661,19 @@ type StatusParams struct {
 // SetRsyslogCertParams holds parameters for the SetRsyslogCert call.
 type SetRsyslogCertParams struct {
 	CACert []byte
+}
+
+// DistributionGroupResult contains the result of
+// the DistributionGroup provisioner API call.
+type DistributionGroupResult struct {
+	Error  *Error
+	Result []instance.Id
+}
+
+// DistributionGroupResults is the bulk form of
+// DistributionGroupResult.
+type DistributionGroupResults struct {
+	Results []DistributionGroupResult
 }
 
 // APIHostPortsResult holds the result of an APIHostPorts

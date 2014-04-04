@@ -30,10 +30,10 @@ func Read(path string) (Charm, error) {
 	return ReadBundle(path)
 }
 
-// InferRepository returns a charm repository inferred from
-// the provided URL. Local URLs will use the provided path.
-func InferRepository(curl *URL, localRepoPath string) (repo Repository, err error) {
-	switch curl.Schema {
+// InferRepository returns a charm repository inferred from the provided charm
+// reference. Local references will use the provided path.
+func InferRepository(ref Reference, localRepoPath string) (repo Repository, err error) {
+	switch ref.Schema {
 	case "cs":
 		repo = Store
 	case "local":
@@ -42,7 +42,7 @@ func InferRepository(curl *URL, localRepoPath string) (repo Repository, err erro
 		}
 		repo = &LocalRepository{Path: localRepoPath}
 	default:
-		return nil, fmt.Errorf("unknown schema for charm URL %q", curl)
+		return nil, fmt.Errorf("unknown schema for charm reference %q", ref)
 	}
 	return
 }
