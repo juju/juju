@@ -65,7 +65,8 @@ func (*mongoSuite) TestMongoMastership(c *gc.C) {
 	time.Sleep(1 * time.Minute)
 
 	// Try to choose a different agent than the primary to
-	// make master.
+	// make master (note we can't just do (activeId+1)%len(insts)
+	// because ids start at 1 not 0)
 	nextId := ((globalState.activeId+1)-1)%len(insts) + 1
 
 	c.Logf("giving agent %d priority to become master", nextId)
