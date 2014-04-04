@@ -180,8 +180,11 @@ func (s *bootstrapSuite) TestBootstrapTools(c *gc.C) {
 		}
 		err = bootstrap.Bootstrap(coretesting.Context(c), env, cons)
 		if test.Err != "" {
-			stripped := strings.Replace(err.Error(), "\n", "", -1)
-			c.Check(stripped, gc.Matches, ".*"+stripped)
+			c.Check(err, gc.NotNil)
+			if err != nil {
+				stripped := strings.Replace(err.Error(), "\n", "", -1)
+				c.Check(stripped, gc.Matches, ".*"+stripped)
+			}
 			continue
 		} else {
 			c.Check(err, gc.IsNil)
@@ -213,6 +216,12 @@ func (s *bootstrapSuite) TestEnsureToolsAvailabilityIncompatibleHostArch(c *gc.C
 	s.PatchValue(&arch.HostArch, func() string {
 		return "amd64"
 	})
+	// Force a dev version by having an odd minor version number.
+	// This is because we have not uploaded any tools and auto
+	// upload is only enabled for dev versions.
+	devVersion := version.Current
+	devVersion.Minor = 11
+	s.PatchValue(&version.Current, devVersion)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
 	envtesting.RemoveFakeTools(c, env.Storage())
@@ -230,6 +239,12 @@ func (s *bootstrapSuite) TestEnsureToolsAvailabilityIncompatibleTargetArch(c *gc
 	s.PatchValue(&arch.HostArch, func() string {
 		return "ppc64"
 	})
+	// Force a dev version by having an odd minor version number.
+	// This is because we have not uploaded any tools and auto
+	// upload is only enabled for dev versions.
+	devVersion := version.Current
+	devVersion.Minor = 11
+	s.PatchValue(&version.Current, devVersion)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
 	envtesting.RemoveFakeTools(c, env.Storage())
@@ -255,7 +270,7 @@ func (s *bootstrapSuite) TestEnsureToolsAvailabilityAgentVersionAlreadySet(c *gc
 }
 
 func (s *bootstrapSuite) TestEnsureToolsAvailabilityNonDevVersion(c *gc.C) {
-	// Can't upload tools for released versions.
+	// Can't automatically upload tools for released versions.
 	s.PatchValue(&version.Current, version.MustParseBinary("1.18.0-trusty-arm64"))
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
@@ -339,7 +354,7 @@ func (s *bootstrapSuite) TestSeriesToUpload(c *gc.C) {
 	c.Assert(bootstrap.SeriesToUpload(cfg, nil), jc.SameContents, []string{"quantal", config.LatestLtsSeries(), "lucid"})
 }
 
-func (s *bootstrapSuite) assertUploadTools(c *gc.C, vers version.Binary, allowRelease bool,
+func (s *bootstrapSuite) assertUploadTools(c *gc.C, vers version.Binary, forceVersion bool,
 	extraConfig map[string]interface{}, errMessage string) {
 
 	s.PatchValue(&version.Current, vers)
@@ -360,8 +375,9 @@ func (s *bootstrapSuite) assertUploadTools(c *gc.C, vers version.Binary, allowRe
 		return "arm64"
 	})
 	arch := "arm64"
-	err := bootstrap.UploadTools(coretesting.Context(c), env, &arch, allowRelease, "precise")
+	err := bootstrap.UploadTools(coretesting.Context(c), env, &arch, forceVersion, "precise")
 	if errMessage != "" {
+		c.Assert(err, gc.NotNil)
 		stripped := strings.Replace(err.Error(), "\n", "", -1)
 		c.Assert(stripped, gc.Matches, errMessage)
 		return
@@ -369,14 +385,14 @@ func (s *bootstrapSuite) assertUploadTools(c *gc.C, vers version.Binary, allowRe
 	c.Assert(err, gc.IsNil)
 	params := envtools.BootstrapToolsParams{
 		Arch:   &arch,
-		Series: "precise",
+		Series: version.Current.Series,
 	}
 	agentTools, err := envtools.FindBootstrapTools(env, params)
 	c.Assert(err, gc.IsNil)
 	c.Assert(agentTools, gc.HasLen, 1)
 	expectedVers := vers
 	expectedVers.Number.Build++
-	expectedVers.Series = "precise"
+	expectedVers.Series = version.Current.Series
 	c.Assert(agentTools[0].Version, gc.DeepEquals, expectedVers)
 }
 
@@ -385,21 +401,16 @@ func (s *bootstrapSuite) TestUploadTools(c *gc.C) {
 	s.assertUploadTools(c, vers, false, nil, "")
 }
 
-func (s *bootstrapSuite) TestUploadToolsForceVersionAllowsReleaseTools(c *gc.C) {
+func (s *bootstrapSuite) TestUploadToolsReleaseToolsWithDevConfig(c *gc.C) {
 	vers := version.MustParseBinary("1.18.0-trusty-arm64")
 	extraCfg := map[string]interface{}{"development": true}
-	s.assertUploadTools(c, vers, true, extraCfg, "")
+	s.assertUploadTools(c, vers, false, extraCfg, "")
 }
 
 func (s *bootstrapSuite) TestUploadToolsForceVersionAllowsAgentVersionSet(c *gc.C) {
 	vers := version.MustParseBinary("1.18.0-trusty-arm64")
 	extraCfg := map[string]interface{}{"agent-version": "1.18.0", "development": true}
 	s.assertUploadTools(c, vers, true, extraCfg, "")
-}
-
-func (s *bootstrapSuite) TestUploadToolsReleaseVersionDisallowed(c *gc.C) {
-	vers := version.MustParseBinary("1.18.0-trusty-arm64")
-	s.assertUploadTools(c, vers, false, nil, "Juju cannot bootstrap because no tools are available for your environment.*")
 }
 
 type bootstrapEnviron struct {
