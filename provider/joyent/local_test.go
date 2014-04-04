@@ -12,6 +12,7 @@ import (
 
 	lm "github.com/joyent/gomanta/localservices/manta"
 	lc "github.com/joyent/gosdc/localservices/cloudapi"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -27,6 +28,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/joyent"
+	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
@@ -420,4 +422,24 @@ func (s *localServerSuite) TestDeleteMoreThan100(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	_, err = storage.Get(stor, "ab")
 	c.Assert(err, gc.NotNil)
+}
+
+func (s *localServerSuite) TestInstanceTypeUnsupported(c *gc.C) {
+	defer loggo.ResetWriters()
+	logger := loggo.GetLogger("test")
+	logger.SetLogLevel(loggo.DEBUG)
+	tw := &loggo.TestWriter{}
+	c.Assert(loggo.RegisterWriter("test", tw, loggo.DEBUG), gc.IsNil)
+
+	var env environs.Environ = s.Prepare(c)
+	prechecker, ok := env.(state.Prechecker)
+	c.Assert(ok, jc.IsTrue)
+	err := prechecker.PrecheckInstance("precise", constraints.MustParse("instance-type=foo"))
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(tw.Log, jc.LogMatches, jc.SimpleMessages{{
+		loggo.WARNING,
+		`instance-type constraint "foo" not supported ` +
+			`for joyent provider "joyent test environment"`},
+	})
 }

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -27,6 +28,7 @@ import (
 	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider/local"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/upstart"
@@ -311,4 +313,28 @@ func (s *localJujuTestSuite) TestBootstrapRemoveLeftovers(c *gc.C) {
 	c.Assert(logThings, jc.DoesNotExist)
 	c.Assert(cloudInitOutputLog, jc.DoesNotExist)
 	c.Assert(filepath.Join(rootDir, "log"), jc.IsSymlink)
+}
+
+func (s *localJujuTestSuite) TestInstanceTypeUnsupported(c *gc.C) {
+	defer loggo.ResetWriters()
+	logger := loggo.GetLogger("test")
+	logger.SetLogLevel(loggo.DEBUG)
+	tw := &loggo.TestWriter{}
+	c.Assert(loggo.RegisterWriter("test", tw, loggo.DEBUG), gc.IsNil)
+
+	var env environs.Environ
+	var err error
+	ctx := coretesting.Context(c)
+	env, err = local.Provider.Prepare(ctx, minimalConfig(c))
+	c.Assert(err, gc.IsNil)
+	prechecker, ok := env.(state.Prechecker)
+	c.Assert(ok, jc.IsTrue)
+	err = prechecker.PrecheckInstance("precise", constraints.MustParse("instance-type=foo"))
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(tw.Log, jc.LogMatches, jc.SimpleMessages{{
+		loggo.WARNING,
+		`instance-type constraint "foo" not supported ` +
+			`for local provider "test"`},
+	})
 }

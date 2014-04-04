@@ -6,13 +6,17 @@ package maas_test
 import (
 	stdtesting "testing"
 
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gomaasapi"
 
+	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/provider/maas"
+	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
@@ -206,5 +210,29 @@ func (*environSuite) TestNewCloudinitConfig(c *gc.C) {
 		"cat > /etc/network/eth0.config << EOF\niface eth0 inet manual\n\nauto br0\niface br0 inet dhcp\n  bridge_ports eth0\nEOF\n",
 		`sed -i "s/iface eth0 inet dhcp/source \/etc\/network\/eth0.config/" /etc/network/interfaces`,
 		"ifup br0",
+	})
+}
+
+func (s *environSuite) TestInstanceTypeUnsupported(c *gc.C) {
+	defer loggo.ResetWriters()
+	logger := loggo.GetLogger("test")
+	logger.SetLogLevel(loggo.DEBUG)
+	tw := &loggo.TestWriter{}
+	c.Assert(loggo.RegisterWriter("test", tw, loggo.DEBUG), gc.IsNil)
+
+	cfg := getSimpleTestConfig(c, nil)
+	var env environs.Environ
+	var err error
+	env, err = maas.NewEnviron(cfg)
+	c.Assert(err, gc.IsNil)
+	prechecker, ok := env.(state.Prechecker)
+	c.Assert(ok, jc.IsTrue)
+	err = prechecker.PrecheckInstance("precise", constraints.MustParse("instance-type=foo"))
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(tw.Log, jc.LogMatches, jc.SimpleMessages{{
+		loggo.WARNING,
+		`instance-type constraint "foo" not supported ` +
+			`for maas provider "testenv"`},
 	})
 }
