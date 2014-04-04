@@ -15,6 +15,7 @@ import (
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/container/kvm"
@@ -88,6 +89,27 @@ func NewSingularAPIConn(apiState *api.State, agentState *apiagent.State) singula
 	newConn := singularAPIConn{
 		apiState:   apiState,
 		agentState: agentState,
+	}
+	return newConn
+}
+
+type singularStateConn struct {
+	state   *state.State
+	machine *state.Machine
+}
+
+func (c singularStateConn) IsMaster() (bool, error) {
+	return mongo.IsMaster(c.state.MongoSession(), c.machine)
+}
+
+func (c singularStateConn) Ping() error {
+	return c.state.Ping()
+}
+
+func NewSingularStateConn(state *state.State, machine *state.Machine) singularStateConn {
+	newConn := singularStateConn{
+		state:   state,
+		machine: machine,
 	}
 	return newConn
 }
@@ -288,10 +310,10 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 			// Make another job to enable the firewaller. Not all
 			// environments are capable of managing ports
 			// centrally.
-			a.startWorkerAfterUpgrade(runner, "firewaller", func() (worker.Worker, error) {
+			a.startWorkerAfterUpgrade(singularRunner, "firewaller", func() (worker.Worker, error) {
 				return firewaller.NewFirewaller(st.Firewaller())
 			})
-			a.startWorkerAfterUpgrade(runner, "charm-revision-updater", func() (worker.Worker, error) {
+			a.startWorkerAfterUpgrade(singularRunner, "charm-revision-updater", func() (worker.Worker, error) {
 				return charmrevisionworker.NewRevisionUpdateWorker(st.CharmRevisionUpdater()), nil
 			})
 		case params.JobManageStateDeprecated:
@@ -376,7 +398,13 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	close(a.stateOpened)
 	reportOpenedState(st)
 
+	singularStateConn := NewSingularStateConn(st, m)
 	runner := newRunner(connectionIsFatal(st), moreImportant)
+	singularRunner, err := NewSingularRunner(runner, singularStateConn)
+	if err != nil {
+		return nil, err
+	}
+
 	// Take advantage of special knowledge here in that we will only ever want
 	// the storage provider on one machine, and that is the "bootstrap" node.
 	providerType := agentConfig.Value(agent.ProviderType)
@@ -429,7 +457,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				// the transaction log.
 				return resumer.NewResumer(st), nil
 			})
-			a.startWorkerAfterUpgrade(runner, "minunitsworker", func() (worker.Worker, error) {
+			a.startWorkerAfterUpgrade(singularRunner, "minunitsworker", func() (worker.Worker, error) {
 				return minunitsworker.NewMinUnitsWorker(st), nil
 			})
 		case state.JobManageStateDeprecated:
