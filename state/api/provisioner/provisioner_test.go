@@ -329,7 +329,7 @@ func (s *provisionerSuite) TestNetworks(c *gc.C) {
 
 	apiMachine, err := s.provisioner.Machine(netsMachine.Tag())
 	c.Assert(err, gc.IsNil)
-	includeNetworks, excludeNetworks, err := apiMachine.LinkedNetworks()
+	includeNetworks, excludeNetworks, err := apiMachine.RequestedNetworks()
 	c.Assert(err, gc.IsNil)
 	c.Assert(includeNetworks, gc.DeepEquals, template.IncludeNetworks)
 	c.Assert(excludeNetworks, gc.DeepEquals, template.ExcludeNetworks)
@@ -337,7 +337,7 @@ func (s *provisionerSuite) TestNetworks(c *gc.C) {
 	// Now try machine 0.
 	apiMachine, err = s.provisioner.Machine(s.machine.Tag())
 	c.Assert(err, gc.IsNil)
-	includeNetworks, excludeNetworks, err = apiMachine.LinkedNetworks()
+	includeNetworks, excludeNetworks, err = apiMachine.RequestedNetworks()
 	c.Assert(err, gc.IsNil)
 	c.Assert(includeNetworks, gc.HasLen, 0)
 	c.Assert(excludeNetworks, gc.HasLen, 0)

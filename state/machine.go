@@ -564,7 +564,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 	return fmt.Errorf("machine %s cannot advance lifecycle: %v", m, ErrExcessiveContention)
 }
 
-// Remove removes the machine from state. It will fail if the machine is not
+// Remove sets the machine to Dead. It will fail if the machine is not
 // Dead.
 func (m *Machine) Remove() (err error) {
 	defer utils.ErrorContextf(&err, "cannot remove machine %s", m.doc.Id)
@@ -585,10 +585,14 @@ func (m *Machine) Remove() (err error) {
 		},
 		removeStatusOp(m.st, m.globalKey()),
 		removeConstraintsOp(m.st, m.globalKey()),
-		removeLinkedNetworksOp(m.st, m.globalKey()),
+		removeRequestedNetworksOp(m.st, m.globalKey()),
 		annotationRemoveOp(m.st, m.globalKey()),
 	}
-	ops = append(ops, removeNetworkInterfacesOps(m.st, m.Id())...)
+	ifacesOps, err := removeNetworkInterfacesOps(m.st, m.Id())
+	if err != nil {
+		return err
+	}
+	ops = append(ops, ifacesOps...)
 	ops = append(ops, removeContainerRefOps(m.st, m.Id())...)
 	// The only abort conditions in play indicate that the machine has already
 	// been removed.
@@ -883,29 +887,29 @@ func (m *Machine) SetMachineAddresses(addresses []instance.Address) (err error) 
 	return nil
 }
 
-// LinkedNetworks returns the list of networks the machine should be
-// on (includeNetworks) or not (excludeNetworks).
-func (m *Machine) LinkedNetworks() (includeNetworks, excludeNetworks []string, err error) {
-	return readLinkedNetworks(m.st, m.globalKey())
+// RequestedNetworks returns the list of networks the machine should
+// be on (includeNetworks) or not (excludeNetworks).
+func (m *Machine) RequestedNetworks() (includeNetworks, excludeNetworks []string, err error) {
+	return readRequestedNetworks(m.st, m.globalKey())
 }
 
-// MachineNetworks returns the list of configured networks on the machine.
-func (m *Machine) MachineNetworks() ([]*MachineNetwork, error) {
-	includeNetworks, _, err := m.LinkedNetworks()
+// Networks returns the list of configured networks on the machine.
+func (m *Machine) Networks() ([]*Network, error) {
+	includeNetworks, _, err := m.RequestedNetworks()
 	if err != nil {
 		return nil, err
 	}
-	docs := []machineNetworkDoc{}
+	docs := []networkDoc{}
 	sel := bson.D{{"_id", bson.D{{"$in", includeNetworks}}}}
-	err = m.st.machineNetworks.Find(sel).All(&docs)
+	err = m.st.networks.Find(sel).All(&docs)
 	if err != nil {
 		return nil, err
 	}
-	machineNetworks := make([]*MachineNetwork, len(docs))
+	networks := make([]*Network, len(docs))
 	for i, doc := range docs {
-		machineNetworks[i] = newMachineNetwork(m.st, &doc)
+		networks[i] = newNetwork(m.st, &doc)
 	}
-	return machineNetworks, nil
+	return networks, nil
 }
 
 // NetworkInterfaces returns the list of configured network interfaces
@@ -932,18 +936,23 @@ func (m *Machine) AddNetworkInterface(macAddress, name, networkName string) (ifa
 		return nil, err
 	}
 	if name == "" {
-		return nil, fmt.Errorf("name must be not empty")
+		return nil, fmt.Errorf("interface name must be not empty")
 	}
+	aliveAndNotProvisioned := append(isAliveDoc, bson.D{{"nonce", ""}}...)
 	doc := &networkInterfaceDoc{
-		MACAddress:  macAddress,
-		Name:        name,
-		NetworkName: networkName,
-		MachineId:   m.doc.Id,
+		MACAddress:    macAddress,
+		InterfaceName: name,
+		NetworkName:   networkName,
+		MachineId:     m.doc.Id,
 	}
 	ops := []txn.Op{{
-		C:      m.st.machineNetworks.Name,
+		C:      m.st.networks.Name,
 		Id:     networkName,
 		Assert: txn.DocExists,
+	}, {
+		C:      m.st.machines.Name,
+		Id:     m.doc.Id,
+		Assert: aliveAndNotProvisioned,
 	}, {
 		C:      m.st.networkInterfaces.Name,
 		Id:     macAddress,
@@ -955,11 +964,18 @@ func (m *Machine) AddNetworkInterface(macAddress, name, networkName string) (ifa
 		err = m.st.runTransaction(ops)
 		switch err {
 		case txn.ErrAborted:
-			_, err = m.st.MachineNetwork(networkName)
+			_, err = m.st.Network(networkName)
 			if err != nil {
 				return nil, err
 			}
-			// Network is valid, so the other assert must have failed.
+			if err = m.Refresh(); err != nil {
+				return nil, err
+			} else if m.doc.Life != Alive {
+				return nil, fmt.Errorf("machine is not alive")
+			} else if m.doc.Nonce != "" {
+				return nil, fmt.Errorf("machine already provisioned")
+			}
+			// Network and machine both OK, so the other assert must have failed.
 			return nil, fmt.Errorf("interface with MAC address %q already exists", macAddress)
 		case nil:
 			return newNetworkInterface(m.st, doc), nil

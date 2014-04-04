@@ -154,9 +154,6 @@ func (st *State) cleanupMachine(machineId string) error {
 	if err := st.cleanupContainers(machine); err != nil {
 		return err
 	}
-	if err := st.cleanupLinkedNetworks(machineGlobalKey(machineId)); err != nil {
-		return err
-	}
 	for _, unitName := range machine.doc.Principals {
 		if err := st.obliterateUnit(unitName); err != nil {
 			return err
@@ -205,16 +202,6 @@ func (st *State) cleanupContainers(machine *Machine) error {
 		if err := container.Remove(); err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-// cleanupNetworks removes associated networks for a machine or
-// service, given by its global key.
-func (st *State) cleanupLinkedNetworks(globalKey string) error {
-	op := removeLinkedNetworksOp(st, globalKey)
-	if err := st.runTransaction([]txn.Op{op}); err != nil {
-		logger.Warningf("cannot remove networks document for %q: %v", globalKey, err)
 	}
 	return nil
 }

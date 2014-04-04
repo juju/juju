@@ -491,7 +491,7 @@ func (task *provisionerTask) machineConfig(machine *apiprovisioner.Machine) (*cl
 	if err != nil {
 		return nil, err
 	}
-	includeNetworks, excludeNetworks, err := machine.LinkedNetworks()
+	includeNetworks, excludeNetworks, err := machine.RequestedNetworks()
 	if err != nil {
 		return nil, err
 	}

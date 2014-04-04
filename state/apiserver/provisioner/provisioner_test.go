@@ -769,7 +769,7 @@ func (s *withoutStateServerSuite) TestNetworks(c *gc.C) {
 	netsMachine, err := s.State.AddOneMachine(template)
 	c.Assert(err, gc.IsNil)
 
-	includeNetsMachine0, excludeNetsMachine0, err := s.machines[0].LinkedNetworks()
+	includeNetsMachine0, excludeNetsMachine0, err := s.machines[0].RequestedNetworks()
 	c.Assert(err, gc.IsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -779,7 +779,7 @@ func (s *withoutStateServerSuite) TestNetworks(c *gc.C) {
 		{Tag: "unit-foo-0"},
 		{Tag: "service-bar"},
 	}}
-	result, err := s.provisioner.Networks(args)
+	result, err := s.provisioner.RequestedNetworks(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.NetworksResults{
 		Results: []params.NetworkResult{
