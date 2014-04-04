@@ -70,8 +70,6 @@ var useMultipleCPUs = utils.UseMultipleCPUs
 
 var NewSingularRunner = singular.New
 
-// conn is used to create "singular runners" that only actually start
-// workers on the master agent.
 type singularAPIConn struct {
 	apiState   *api.State
 	agentState *apiagent.State
