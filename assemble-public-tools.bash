@@ -96,7 +96,7 @@ get_version() {
     # Defines $version. $version can be different than $RELEASE used to
     # match the packages in the archives.
     control_version=$1
-    version=$(basename "$control_version" ~juju |
+    version=$(basename "$control_version" ~juju1 |
         sed -n 's/^\([0-9]\+\).\([0-9]\+\).\([0-9]\+\)[-+][0-9].*/\1.\2.\3/p')
     if [ "${version}" == "" ] ; then
         echo "Invalid version: $control_version"
@@ -108,7 +108,7 @@ get_version() {
 get_series() {
     # Defines $series.
     control_version=$1
-    pkg_series=$(basename "$control_version" ~juju |
+    pkg_series=$(basename "$control_version" ~juju1 |
         cut -d '-' -f2 | cut -d '~' -f1 |
         sed -e 's/^[0-9]*ubuntu[0-9]*\.*\([0-9][0-9]\.[0-9][0-9]\).*/\1/')
     if [[ "${!version_names[@]}" =~ ${pkg_series} ]]; then
