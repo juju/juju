@@ -53,6 +53,7 @@ def deploy_stack(env, charm_prefix):
 def backup_state_server(env):
     """juju-backup provides a tarball."""
     environ = dict(os.environ)
+    # juju-backup does not support the -e flag.
     environ['JUJU_ENV'] = env.environment
     output = subprocess.check_output(["juju-backup"], env=environ)
     print(output)
@@ -68,9 +69,8 @@ def backup_state_server(env):
 def restore_present_state_server(env, backup_file):
     """juju-restore wont restore when the state-server is still present."""
     environ = dict(os.environ)
-    environ['JUJU_ENV'] = env.environment
     proc = subprocess.Popen(
-        ["juju-restore", backup_file], env=environ,
+        ["juju-restore", '-e', env.environment, backup_file], env=environ,
         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, err = proc.communicate()
     if proc.returncode == 0:
@@ -117,10 +117,10 @@ def delete_instance(env, instance_id):
 def restore_missing_state_server(env, backup_file):
     """juju-restore creates a replacement state-server for the services."""
     environ = dict(os.environ)
-    environ['JUJU_ENV'] = env.environment
     proc = subprocess.Popen(
-        ['juju-restore', '--constraints', 'mem=2G', backup_file], env=environ,
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        ['juju-restore', '-e', env.environment,  '--constraints', 'mem=2G',
+         backup_file],
+        env=environ, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, err = proc.communicate()
     if proc.returncode != 0:
         raise Exception("Restore failed: \n%s" % err)
