@@ -407,8 +407,8 @@ func (p *ProvisionerAPI) Constraints(args params.Entities) (params.ConstraintsRe
 	return result, nil
 }
 
-// Networks returns the networks for each given machine entity.
-func (p *ProvisionerAPI) Networks(args params.Entities) (params.NetworksResults, error) {
+// RequestedNetworks returns the requested networks for each given machine entity.
+func (p *ProvisionerAPI) RequestedNetworks(args params.Entities) (params.NetworksResults, error) {
 	result := params.NetworksResults{
 		Results: make([]params.NetworkResult, len(args.Entities)),
 	}
@@ -421,7 +421,7 @@ func (p *ProvisionerAPI) Networks(args params.Entities) (params.NetworksResults,
 		if err == nil {
 			var includeNetworks []string
 			var excludeNetworks []string
-			includeNetworks, excludeNetworks, err = machine.Networks()
+			includeNetworks, excludeNetworks, err = machine.RequestedNetworks()
 			if err == nil {
 				result.Results[i].IncludeNetworks = includeNetworks
 				result.Results[i].ExcludeNetworks = excludeNetworks

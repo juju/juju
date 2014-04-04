@@ -55,12 +55,12 @@ func (m *Machine) Refresh() error {
 	return nil
 }
 
-// Networks returns a pair of lists of networks to enable/disable on
-// the machine.
-func (m *Machine) Networks() (includeNetworks, excludeNetworks []string, err error) {
+// RequestedNetworks returns a pair of lists of networks to
+// enable/disable on the machine.
+func (m *Machine) RequestedNetworks() (includeNetworks, excludeNetworks []string, err error) {
 	var results params.NetworksResults
 	args := params.Entities{Entities: []params.Entity{{m.tag}}}
-	err = m.st.call("Networks", args, &results)
+	err = m.st.call("RequestedNetworks", args, &results)
 	if err != nil {
 		return nil, nil, err
 	}
