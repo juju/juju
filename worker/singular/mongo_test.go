@@ -1,9 +1,10 @@
 package singular_test
 
 import (
+	"flag"
 	"fmt"
-	"time"
 	"strings"
+	"time"
 
 	"github.com/juju/loggo"
 	"labix.org/v2/mgo"
@@ -23,7 +24,15 @@ type mongoSuite struct {
 	testbase.LoggingSuite
 }
 
+var enableUnreliableTests = flag.Bool("juju.unreliabletests", false, "enable unreliable and slow tests")
+
 var _ = gc.Suite(&mongoSuite{})
+
+func (*mongoSuite) SetUpSuite(c *gc.C) {
+	if !*enableUnreliableTests {
+		c.Skip("skipping unreliable tests")
+	}
+}
 
 // start replica set with three mongods
 // start singular worker on each one.
@@ -57,9 +66,9 @@ func (*mongoSuite) TestMongoMastership(c *gc.C) {
 	c.Logf("agent %d started; waiting for servers to sync", globalState.activeId)
 	time.Sleep(1 * time.Minute)
 
-	// Choose a different agent than the primary to
+	// Try to hoose a different agent than the primary to
 	// make master.
-	nextId := ((globalState.activeId + 1) -1) % len(insts) + 1
+	nextId := ((globalState.activeId+1)-1)%len(insts) + 1
 
 	c.Logf("giving agent %d priority to become master", nextId)
 	changeVotes(c, insts, nextId)
@@ -99,8 +108,8 @@ func startAgents(c *gc.C, notifyCh chan<- event, insts []*testing.MgoInstance) [
 			// Note: we use ids starting from 1 to match
 			// the replica set ids.
 			notify: &notifier{
-				id: i+1,
-				ch:    notifyCh,
+				id: i + 1,
+				ch: notifyCh,
 			},
 			Runner:   newRunner(),
 			hostPort: inst.Addr(),
@@ -203,20 +212,29 @@ type globalAgentState struct {
 
 	numAgents int
 	connected []bool
-	started []bool
-	quit []bool
-	activeId int
+	started   []bool
+	quit      []bool
+	activeId  int
 }
 
 func newGlobalAgentState(n int, expect func(...event) event) *globalAgentState {
 	return &globalAgentState{
-		expect: expect,
+		expect:    expect,
 		numAgents: n,
 		connected: make([]bool, n),
-		started: make([]bool, n),
-		quit: make([]bool, n),
-		activeId: -1,
+		started:   make([]bool, n),
+		quit:      make([]bool, n),
+		activeId:  -1,
 	}
+}
+
+func (g *globalAgentState) String() string {
+	return fmt.Sprintf("{active %d; connected %s; started %s; quit %s}",
+		g.activeId,
+		boolsToStr(g.connected),
+		boolsToStr(g.started),
+		boolsToStr(g.quit),
+	)
 }
 
 func boolsToStr(b []bool) string {
@@ -229,15 +247,6 @@ func boolsToStr(b []bool) string {
 		}
 	}
 	return string(d)
-}
-
-func (g *globalAgentState) String() string {
-	return fmt.Sprintf("{active %d; connected %s; started %s; quit %s}",
-		g.activeId,
-		boolsToStr(g.connected),
-		boolsToStr(g.started),
-		boolsToStr(g.quit),
-	)
 }
 
 func (g *globalAgentState) waitEvent(c *gc.C) event {
@@ -274,7 +283,7 @@ func (g *globalAgentState) possibleEvents() []event {
 	var possible []event
 	for i := 0; i < g.numAgents; i++ {
 		isConnected, isStarted, hasQuit := g.connected[i], g.started[i], g.quit[i]
-		id := i+1
+		id := i + 1
 		addPossible := func(kind string) {
 			possible = append(possible, event{kind: kind, id: id})
 		}
@@ -316,7 +325,7 @@ func mkEvents(ss ...string) []event {
 
 type event struct {
 	kind string
-	id int
+	id   int
 	info interface{}
 }
 
@@ -324,7 +333,7 @@ func (e event) String() string {
 	if e.info != nil {
 		return fmt.Sprintf("%s %d %v", e.kind, e.id, e.info)
 	} else {
-		return  fmt.Sprintf("%s %d", e.kind, e.id)
+		return fmt.Sprintf("%s %d", e.kind, e.id)
 	}
 }
 
@@ -363,7 +372,7 @@ func changeVotes(c *gc.C, insts []*testing.MgoInstance, voteId int) {
 	defer session.Close()
 
 	members, err := replicaset.CurrentMembers(session)
-	c.Assert(err, gc.IsNil)	
+	c.Assert(err, gc.IsNil)
 	c.Assert(members, gc.HasLen, len(insts))
 	for i := range members {
 		member := &members[i]
@@ -382,12 +391,12 @@ func changeVotes(c *gc.C, insts []*testing.MgoInstance, voteId int) {
 
 type notifier struct {
 	id int
-	ch    chan<- event
+	ch chan<- event
 }
 
 func (n *notifier) sendEvent(kind string, info interface{}) {
 	n.ch <- event{
-		id: n.id,
+		id:   n.id,
 		kind: kind,
 		info: info,
 	}
