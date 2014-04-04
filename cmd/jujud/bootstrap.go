@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"path/filepath"
 	"sort"
 
@@ -82,6 +83,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 			params.JobHostUnits,
 		}
 	}
+	logger.Infof("creating new Environ")
 
 	// Get the bootstrap machine's addresses from the provider.
 	env, err := environs.New(envCfg)
@@ -142,6 +144,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 }
 
 func (c *BootstrapCommand) startMongo(addrs []instance.Address, port int) error {
+	logger.Debugf("starting mongo")
 	preferredAddr, err := selectPreferredStateServerAddress(addrs)
 	if err != nil {
 		return err
@@ -151,18 +154,20 @@ func (c *BootstrapCommand) startMongo(addrs []instance.Address, port int) error 
 	if err != nil {
 		return err
 	}
-	// Use our preferred address to dial the mongo server, to
-	// ensure that it is actually usable locally within this machine
-	// (we'll have problems if not).
+	// Use localhost to dial the mongo server, because it's running in
+	// auth mode and will refuse to perform any operations unless
+	// we dial that address.
 	dialInfo.Addrs = []string{
-		instance.HostPort{preferredAddr, port}.NetAddr(),
+		net.JoinHostPort("127.0.0.1", fmt.Sprint(port)),
 	}
+	logger.Infof("calling ensureMongoServer")
 	if err := ensureMongoServer(agentConfig.DataDir(), port); err != nil {
 		return err
 	}
 
 	return maybeInitiateMongoServer(mongo.InitiateMongoParams{
 		DialInfo: dialInfo,
+		MemberHostPort: instance.HostPort{preferredAddr, port}.NetAddr(),
 	})
 }
 
