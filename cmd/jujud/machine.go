@@ -76,11 +76,11 @@ type conn struct {
 	agentState *apiagent.State
 }
 
-func (c *conn) IsMaster() (bool, error) {
+func (c conn) IsMaster() (bool, error) {
 	return c.agentState.IsMaster()
 }
 
-func (c *conn) Ping() error {
+func (c conn) Ping() error {
 	return c.state.Ping()
 }
 
