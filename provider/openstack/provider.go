@@ -275,6 +275,9 @@ func retryGet(uri string) (data []byte, err error) {
 }
 
 type environ struct {
+	common.NopPrecheckerPolicy
+	common.SupportsUnitPlacementPolicy
+
 	name string
 
 	// archMutex gates access to supportedArchitectures
@@ -1233,7 +1236,7 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 		return nil, err
 	}
 	return &simplestreams.MetadataLookupParams{
-		Series:        e.ecfg().DefaultSeries(),
+		Series:        config.PreferredSeries(e.ecfg()),
 		Region:        cloudSpec.Region,
 		Endpoint:      cloudSpec.Endpoint,
 		Architectures: arch.AllSupportedArches,

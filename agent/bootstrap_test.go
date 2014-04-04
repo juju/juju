@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
@@ -81,8 +82,9 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 		Characteristics: expectHW,
 		SharedSecret:    "abc123",
 	}
-	envAttrs := testing.FakeConfig().Delete("admin-secret").Merge(testing.Attrs{
+	envAttrs := dummy.SampleConfig().Delete("admin-secret").Merge(testing.Attrs{
 		"agent-version": version.Current.Number.String(),
+		"state-id":      "1", // needed so policy can Open config
 	})
 	envCfg, err := config.New(config.NoDefaults, envAttrs)
 	c.Assert(err, gc.IsNil)
@@ -193,8 +195,9 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		InstanceId:      "i-bootstrap",
 		Characteristics: expectHW,
 	}
-	envAttrs := testing.FakeConfig().Delete("admin-secret").Merge(testing.Attrs{
+	envAttrs := dummy.SampleConfig().Delete("admin-secret").Merge(testing.Attrs{
 		"agent-version": version.Current.Number.String(),
+		"state-id":      "1", // needed so policy can Open config
 	})
 	envCfg, err := config.New(config.NoDefaults, envAttrs)
 	c.Assert(err, gc.IsNil)
