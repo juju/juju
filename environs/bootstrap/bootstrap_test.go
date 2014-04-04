@@ -269,6 +269,20 @@ func (s *bootstrapSuite) TestEnsureToolsAvailabilityAgentVersionAlreadySet(c *gc
 		"cannot upload bootstrap tools: Juju cannot bootstrap because no tools are available for your environment.*")
 }
 
+func (s *bootstrapSuite) TestEnsureToolsAvailabilityNonDevVersion(c *gc.C) {
+	// Can't automatically upload tools for released versions.
+	s.PatchValue(&version.Current, version.MustParseBinary("1.18.0-trusty-arm64"))
+	env := newEnviron("foo", useDefaultKeys, nil)
+	s.setDummyStorage(c, env)
+	envtesting.RemoveFakeTools(c, env.Storage())
+	_, err := bootstrap.EnsureToolsAvailability(coretesting.Context(c), env, config.PreferredSeries(env.Config()), nil)
+	c.Assert(err, gc.NotNil)
+	stripped := strings.Replace(err.Error(), "\n", "", -1)
+	c.Assert(stripped,
+		gc.Matches,
+		"cannot upload bootstrap tools: Juju cannot bootstrap because no tools are available for your environment.*")
+}
+
 // getMockBuildTools returns a sync.BuildToolsTarballFunc implementation which generates
 // a fake tools tarball.
 func (s *bootstrapSuite) getMockBuildTools(c *gc.C) sync.BuildToolsTarballFunc {
