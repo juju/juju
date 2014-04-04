@@ -868,15 +868,26 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 
 func (e *environ) StopInstances(insts []instance.Instance) error {
 	ids := make([]instance.Id, len(insts))
+	securityGroupNames := make([]string, len(insts))
 	for i, inst := range insts {
 		instanceValue, ok := inst.(*openstackInstance)
 		if !ok {
 			return errors.New("Incompatible instance.Instance supplied")
 		}
 		ids[i] = instanceValue.Id()
+		openstackName := instanceValue.getServerDetail().Name
+		lastDash := strings.LastIndex(openstackName, "-")
+		if lastDash == -1 {
+			return fmt.Errorf("Cannot identify instance ID in openstack server name %q", openstackName)
+		}
+		securityGroupNames[i] = e.machineGroupName(openstackName[lastDash+1:])
 	}
 	logger.Debugf("terminating instances %v", ids)
-	return e.terminateInstances(ids)
+	err := e.terminateInstances(ids)
+	if err != nil {
+		return err
+	}
+	return e.deleteSecurityGroups(securityGroupNames)
 }
 
 // collectInstances tries to get information on each instance id in ids.
@@ -1222,6 +1233,30 @@ func (e *environ) ensureGroup(name string, rules []nova.RuleInfo) (nova.Security
 		group.Rules[i] = *groupRule
 	}
 	return *group, nil
+}
+
+// deleteSecurityGroups deletes the given secruity groups. Since
+// some security groups may be used for machines from another
+// environment (see bug #1300755), only those groups are really
+// deleted that are indeed not used.
+func (e *environ) deleteSecurityGroups(securityGroupNames []string) error {
+	novaclient := e.nova()
+	allSecurityGroups, err := novaclient.ListSecurityGroups()
+	if err != nil {
+		return err
+	}
+	for _, securityGroup := range allSecurityGroups {
+		for _, name := range securityGroupNames {
+			if securityGroup.Name == name {
+				err := novaclient.DeleteSecurityGroup(securityGroup.Id)
+				if err != nil {
+					logger.Warningf("Cannot delete security group %q. Used by another environment?", name)
+				}
+				break
+			}
+		}
+	}
+	return nil
 }
 
 func (e *environ) terminateInstances(ids []instance.Id) error {
