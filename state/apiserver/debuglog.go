@@ -218,10 +218,8 @@ func parseLogLine(line string) *logLine {
 	result := &logLine{
 		line: line,
 	}
-	logger.Infof("%#v", fields)
 	if len(fields) > agentField {
 		agent := fields[agentField]
-		logger.Infof("%q", agent)
 		if strings.HasSuffix(agent, ":") {
 			result.agent = agent[:len(agent)-1]
 		}
