@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/juju"
@@ -59,6 +60,7 @@ type JujuConnSuite struct {
 	ConfigStore  configstore.Storage
 	BackingState *state.State // The State being used by the API server
 	RootDir      string       // The faked-up root directory.
+	LogDir       string
 	oldHome      string
 	oldJujuHome  string
 	environ      environs.Environ
@@ -164,6 +166,14 @@ func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C, jobs ...state.MachineJob) (
 	return s.openAPIAs(c, machine.Tag(), password, "fake_nonce"), machine
 }
 
+func PreferredDefaultVersions(conf *config.Config, template version.Binary) []version.Binary {
+	prefVersion := template
+	prefVersion.Series = config.PreferredSeries(conf)
+	defaultVersion := template
+	defaultVersion.Series = testing.FakeDefaultSeries
+	return []version.Binary{prefVersion, defaultVersion}
+}
+
 func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	if s.RootDir != "" {
 		panic("JujuConnSuite.setUpConn without teardown")
@@ -202,8 +212,14 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	// sanity check we've got the correct environment.
 	c.Assert(environ.Name(), gc.Equals, "dummyenv")
 	s.PatchValue(&dummy.DataDir, s.DataDir())
+	s.LogDir = c.MkDir()
+	s.PatchValue(&dummy.LogDir, s.LogDir)
 
-	envtesting.MustUploadFakeTools(environ.Storage())
+	versions := PreferredDefaultVersions(environ.Config(), version.Current)
+	versions = append(versions, version.Current)
+
+	// Upload tools for both preferred and fake default series
+	envtesting.MustUploadFakeToolsVersions(environ.Storage(), versions...)
 	c.Assert(bootstrap.Bootstrap(ctx, environ, constraints.Value{}), gc.IsNil)
 
 	s.BackingState = environ.(GetStater).GetStateInAPIServer()
@@ -285,7 +301,7 @@ func (s *JujuConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 	ch := testing.Charms.Dir(name)
 	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
 	curl := charm.MustParseURL("local:quantal/" + ident)
-	repo, err := charm.InferRepository(curl, testing.Charms.Path())
+	repo, err := charm.InferRepository(curl.Reference, testing.Charms.Path())
 	c.Assert(err, gc.IsNil)
 	sch, err := s.Conn.PutCharm(curl, repo, false)
 	c.Assert(err, gc.IsNil)
