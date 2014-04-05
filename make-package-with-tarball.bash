@@ -69,6 +69,7 @@ make_source_package_branch() {
     DEBEMAIL=$DEBEMAIL dch --newversion $UBUNTU_VERSION -D $distro "$message"
     bzr ci -m "$message"
     bzr tag $UBUNTU_VERSION
+    cd $HERE
 }
 
 
@@ -79,6 +80,7 @@ make_source_package() {
     echo "The source package can be uploaded:"
     echo "  cd $TMP_DIR"
     echo "  dput $PPA juju-core_${UBUNTU_VERSION}_source.changes"
+    cd $HERE
 }
 
 
@@ -92,6 +94,7 @@ make_binary_package() {
     echo "Made $new_package"
     ln -s $new_package ${TMP_DIR}/new-${package_series}.deb
     echo "linked $new_package to ${TMP_DIR}/new-${package_series}.deb"
+    cd $HERE
 }
 
 
@@ -106,6 +109,7 @@ update_source_package_branch() {
         -D $distro "$message"
     bzr ci -m "$message"
     bzr tag $package_version
+    cd $HERE
 }
 
 
