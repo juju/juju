@@ -7,8 +7,28 @@
 
 set -eu
 
+# We need to update this constant to ensure ubuntu devel series packages
+# are properly identified
+UBUNTU_DEVEL="14.04"
 
 SCRIPT_DIR=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd )
+SIGNING_PASSPHRASE_FILE=${SIGNING_PASSPHRASE_FILE:-}
+
+# The location of environments.yaml and rc files.
+JUJU_DIR=${JUJU_HOME:-$HOME/.juju}
+JUJU_DIR=$(cd $JUJU_DIR; pwd)
+
+# These are the archives that are search for matching releases.
+UBUNTU_ARCH="http://archive.ubuntu.com/ubuntu/pool/universe/j/juju-core/"
+STABLE_ARCH="http://ppa.launchpad.net/juju/stable/ubuntu/pool/main/j/juju-core/"
+DEVEL_ARCH="http://ppa.launchpad.net/juju/devel/ubuntu/pool/main/j/juju-core/"
+ARM_ARCH="http://ports.ubuntu.com/pool/universe/j/juju-core/"
+ALL_ARCHIVES="$UBUNTU_ARCH $STABLE_ARCH $DEVEL_ARCH $ARM_ARCH"
+
+if [ -f $JUJU_DIR/buildarchrc ]; then
+    source $JUJU_DIR/buildarchrc
+    ALL_ARCHIVES="$ALL_ARCHIVES $BUILD_STABLE_ARCH $BUILD_DEVEL_ARCH"
+fi
 
 
 usage() {
@@ -109,22 +129,14 @@ get_series() {
     # Defines $series.
     control_version=$1
     pkg_series=$(basename "$control_version" ~juju1 |
-        cut -d '-' -f2 | cut -d '~' -f1 |
-        sed -e 's/^[0-9]*ubuntu[0-9]*\.*\([0-9][0-9]\.[0-9][0-9]\).*/\1/')
-    if [[ "${!version_names[@]}" =~ ${pkg_series} ]]; then
-        series=${version_names["$pkg_series"]}
-    else
-        # This might be an ubuntu devel series package.
-        implied_series=$(echo "$control_version" |
-            cut -d '-' -f2- |
-            sed -n 's/[0-9]ubuntu[0-9]/DEVEL/p')
-        if [[ $implied_series == "DEVEL" ]]; then
-            series=$UBUNTU_DEVEL
-        else
-            echo "Invalid series: $control_version, saw [$pkg_series]"
-            echo "${!version_names[@]}"
-            exit 3
-        fi
+        cut -d '-' -f 2 |
+        sed -r "s/^[0-9]ubuntu[0-9]$/ubuntu$UBUNTU_DEVEL/;" |
+        sed -r "s/.*ubuntu([0-9][0-9]\.[0-9][0-9]).*/\1/")
+    series=$(cat $SCRIPT_DIR/supported-releases.txt |
+        grep $pkg_series | cut -d ' ' -f 2)
+    if [[ -z $series ]]; then
+        echo "Invalid series: $control_version, saw [$pkg_series]"
+        exit 3
     fi
 }
 
@@ -282,43 +294,8 @@ cleanup() {
 }
 
 
-# The location of environments.yaml and rc files.
-JUJU_DIR=${JUJU_HOME:-$HOME/.juju}
-JUJU_DIR=$(cd $JUJU_DIR; pwd)
-
-# These are the archives that are search for matching releases.
-UBUNTU_ARCH="http://archive.ubuntu.com/ubuntu/pool/universe/j/juju-core/"
-STABLE_ARCH="http://ppa.launchpad.net/juju/stable/ubuntu/pool/main/j/juju-core/"
-DEVEL_ARCH="http://ppa.launchpad.net/juju/devel/ubuntu/pool/main/j/juju-core/"
-ARM_ARCH="http://ports.ubuntu.com/pool/universe/j/juju-core/"
-ALL_ARCHIVES="$UBUNTU_ARCH $STABLE_ARCH $DEVEL_ARCH $ARM_ARCH"
-
-if [ -f $JUJU_DIR/buildarchrc ]; then
-    source $JUJU_DIR/buildarchrc
-    ALL_ARCHIVES="$ALL_ARCHIVES $BUILD_STABLE_ARCH $BUILD_DEVEL_ARCH"
-fi
-
-# We need to update this constant to ensure ubuntu devel series packages
-# are properly identified
-UBUNTU_DEVEL="trusty"
-
-# Series names found in package versions need to be normalised.
-declare -A version_names
-version_names+=(["12.04"]="precise")
-version_names+=(["12.10"]="quantal")
-version_names+=(["13.04"]="raring")
-version_names+=(["13.10"]="saucy")
-version_names+=(["14.04"]="trusty")
-version_names+=(["precise"]="precise")
-version_names+=(["quantal"]="quantal")
-version_names+=(["raring"]="raring")
-version_names+=(["saucy"]="saucy")
-version_names+=(["trusty"]="trusty")
-
 declare -a added_tools
 added_tools=()
-
-SIGNING_PASSPHRASE_FILE=${SIGNING_PASSPHRASE_FILE:-}
 
 IS_TESTING="false"
 while getopts ":t:" o; do
