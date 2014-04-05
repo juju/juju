@@ -137,6 +137,7 @@ func (c *goCryptoCommand) ensureSession() (*ssh.Session, error) {
 			ssh.ClientAuthKeyring(keyring{c.signers}),
 		},
 	}
+	logger.Debugf("dialing with proxyCommand %q", c.proxyCommand)
 	conn, err := sshDialWithProxy(c.addr, c.proxyCommand, config)
 	if err != nil {
 		return nil, err

@@ -47,6 +47,7 @@ import (
 	"launchpad.net/juju-core/worker/machineenvironmentworker"
 	"launchpad.net/juju-core/worker/machiner"
 	"launchpad.net/juju-core/worker/minunitsworker"
+	"launchpad.net/juju-core/worker/peergrouper"
 	"launchpad.net/juju-core/worker/provisioner"
 	"launchpad.net/juju-core/worker/resumer"
 	"launchpad.net/juju-core/worker/rsyslog"
@@ -407,6 +408,9 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			useMultipleCPUs()
 			a.startWorkerAfterUpgrade(runner, "instancepoller", func() (worker.Worker, error) {
 				return instancepoller.NewWorker(st), nil
+			})
+			runner.StartWorker("peergrouper", func() (worker.Worker, error) {
+				return peergrouper.New(st)
 			})
 			runner.StartWorker("apiserver", func() (worker.Worker, error) {
 				// If the configuration does not have the required information,
