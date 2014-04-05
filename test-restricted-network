@@ -38,10 +38,16 @@ sudo dpkg -i new-precise.deb
 export JUJU_REPOSITORY="$HOME/repo"
 mkdir -p $JUJU_REPOSITORY/precise
 bzr branch lp:charms/ubuntu $JUJU_REPOSITORY/precise/ubuntu
-juju init
+mkdir ~/.juju
+cat > ~/.juju/environments.yaml <<EOT2
+default: local
+environments:
+  local:
+    type: local
+    tools-metadata-url: http://juju-dist.s3.amazonaws.com/testing/tools
+EOT2
 ssh-keygen -t rsa -b 2048 -N "" -f ~/.ssh/id_rsa
-juju switch local
-juju sync-tools
+juju sync-tools --show-log
 login_ip=$(sudo cat /proc/net/ip_conntrack|\
   sed -nr 's/.*src=([^ ]*) .*dport=22 .*/\1/p')
 gateway=$(route -n | sed -rn 's/^0.0.0.0 *([0-7.]*) .*/\1/p')
@@ -56,9 +62,9 @@ for ip in $(dig archive.ubuntu.com ubuntu-cloud.archive.canonical.com\
 done
 sudo route add -net 172.16.0.0 netmask 255.240.0.0 gw $gateway
 sudo route del default gw $gateway
-juju bootstrap
+juju bootstrap --show-log
 for x in $(seq 6); do
-  if juju deploy local:precise/ubuntu; then
+  if juju deploy --show-log local:precise/ubuntu; then
     break
   elif [ "$x" == "6" ]; then
     exit 0;

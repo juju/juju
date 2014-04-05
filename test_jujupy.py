@@ -557,6 +557,18 @@ class TestEnvironment(TestCase):
         env.client.juju.assert_called_with(
             env, 'upgrade-juju', ('--version', '1.234', '--upload-tools',))
 
+    def test_deploy_non_joyent(self):
+        env = Environment('foo', MagicMock(), {'type': 'local'})
+        env.client.version = '1.234-76'
+        env.deploy('mondogb')
+        env.client.juju.assert_called_with(env, 'deploy', ('mondogb',))
+
+    def test_deploy_joyent(self):
+        env = Environment('foo', MagicMock(), {'type': 'joyent'})
+        env.client.version = '1.234-76'
+        env.deploy('mondogb')
+        env.client.juju.assert_called_with(
+            env, 'deploy', ('mondogb',))
 
 class TestFormatListing(TestCase):
 
