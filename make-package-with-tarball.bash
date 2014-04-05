@@ -6,22 +6,17 @@
 set -e
 
 HERE=$(pwd)
-TMP_DIR=$(mktemp -d --tmpdir=$HERE)
-PACKAGING_DIR="$TMP_DIR/packaging"
-BUILD_DIR="$TMP_DIR/build"
-DEFAULT_STABLE_PACKAGING_BRANCH="lp:ubuntu/juju-core"
-DEFAULT_DEVEL_PACKAGING_BRANCH="lp:~juju-qa/juju-core/devel-packaging"
-DEFAULT_DEVEL_MONGODB_PACKAGING_BRANCH="lp:~juju-qa/juju-core/devel-mongodb-packaging"
-DEFAULT_1_16_PACKAGING_BRANCH="lp:~juju-qa/juju-core/1.16-packaging"
-DEVEL_SERIES=$(distro-info --devel --codename)
-DEVEL_VERSION=$(distro-info --release --devel | cut -d ' ' -f1)
+SCRIPT_DIR=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd )
+
+DEFAULT_JUJUDB_PACKAGING_BRANCH="lp:~juju-qa/juju-core/devel-packaging"
+DEFAULT_MONGODB_PACKAGING_BRANCH="lp:~juju-qa/juju-core/devel-mongodb-packaging"
+TESTING_SERIES="trusty"
 EXTRA_RELEASES="saucy:13.10 precise:12.04"
 
 
 usage() {
-    echo "usage: $0 <PURPOSE> tarball 'name-email' [bug-number ...]"
-    echo "  PURPOSE: stable, devel, devel-mongodb or testing,"
-    echo "     which selects the packaging branch."
+    echo "usage: $0 <SERIES> tarball 'name-email' [bug-number ...]"
+    echo "  SERIES: The series name which selects the packaging branch."
     echo "  tarball: The path to the juju-core tarball."
     echo "  name-email: The 'name <email>' string used in the changelog."
     echo "  bug-number: Zero or more Lp bug numbers"
@@ -44,6 +39,11 @@ check_deps() {
 
 make_source_package_branch() {
     echo "Phase 1: Updating the source package branch."
+    if [[ $SERIES == "trusty" ]]; then
+        PACKAGING_BRANCH=$DEFAULT_JUJUDB_PACKAGING_BRANCH
+    else
+        PACKAGING_BRANCH=$DEFAULT_MONGODB_PACKAGING_BRANCH
+    fi
     echo "Using $PACKAGING_BRANCH"
     bzr branch $PACKAGING_BRANCH $PACKAGING_DIR
     cd $PACKAGING_DIR
@@ -55,10 +55,10 @@ make_source_package_branch() {
         else
             message="New upstream point release."
         fi
-        distro=$DEVEL_SERIES
-    elif [[ $PURPOSE == "devel" || $PURPOSE == "devel-mongodb" ]]; then
+        distro=$SERIES
+    elif [[ $PURPOSE == "devel" ]]; then
         message="New upstream devel release."
-        distro=$DEVEL_SERIES
+        distro=$SERIES
     else
         message="New upstream release candidate."
         distro="UNRELEASED"
@@ -76,7 +76,6 @@ make_source_package() {
     echo "Phase 2: Creating the source package for ubuntu devel."
     cd $PACKAGING_DIR
     bzr bd -S --build-dir=$BUILD_DIR
-    cd $BUILD_DIR
     echo "The source package can be uploaded:"
     echo "  cd $TMP_DIR"
     echo "  dput $PPA juju-core_${UBUNTU_VERSION}_source.changes"
@@ -110,59 +109,68 @@ update_source_package_branch() {
 }
 
 
-test $# -ge 3 || usage
-
-PURPOSE=$1
-TARBALL=$(readlink -f $2)
-if [[ ! -f "$TARBALL" ]]; then
-    echo "Tarball not found."
-    usage
-fi
-
-VERSION=$(basename $TARBALL .tar.gz | cut -d '_' -f2)
-UBUNTU_VERSION="${VERSION}-0ubuntu1"
-
-DEBEMAIL=$3
-
-shift; shift; shift
-BUGS=$(echo "$@" | sed  -e 's/ /, /g; s/\([0-9]\+\)/#\1/g;')
-
-if [[ $VERSION =~ ^1\.16\.* ]]; then
-    PACKAGING_BRANCH=$DEFAULT_1_16_PACKAGING_BRANCH
-    PPA="ppa:juju-packaging/stable"
-elif [[ $PURPOSE == "stable" ]]; then
-    PACKAGING_BRANCH=$DEFAULT_STABLE_PACKAGING_BRANCH
-    PPA="ppa:juju-packaging/stable"
-elif [[ $PURPOSE == "devel-mongodb" ]]; then
-    # This is a hack to support separate packaging rules for saucy and older.
-    PACKAGING_BRANCH=$DEFAULT_DEVEL_MONGODB_PACKAGING_BRANCH
-    PPA="ppa:juju-packaging/devel"
-    DEVEL_SERIES="saucy"
-    UBUNTU_VERSION="${UBUNTU_VERSION}~ubuntu13.10.1"
-elif [[ $PURPOSE == "devel" || $PURPOSE == "testing" ]]; then
-    PACKAGING_BRANCH=$DEFAULT_DEVEL_PACKAGING_BRANCH
-    PPA="ppa:juju-packaging/devel"
-else
-    usage
-fi
-
-check_deps
-make_source_package_branch
-if [[ $PURPOSE == "testing" ]]; then
-    make_binary_package $UBUNTU_VERSION $DEVEL_SERIES
-    PACKAGE=$(ls ${TMP_DIR}/juju-core_*.deb)
-    echo "The binary package can be installed:"
-    echo "  sudo dpkg -i $PACKAGE"
+make_binary_packages() {
+    make_binary_package $UBUNTU_VERSION $SERIES
     # Make extra packages for supported series.
     for series_release in $EXTRA_RELEASES; do
         this_series=$(echo "$series_release" | cut -d ':' -f1)
         this_release=$(echo "$series_release" | cut -d ':' -f2)
-        package_version="${UBUNTU_VERSION}~ubuntu${this_release}.1"
+        package_version="${VERSION}-0ubuntu1~ubuntu${this_release}.${PPATCH}"
         update_source_package_branch $package_version $this_series
         make_binary_package $package_version $this_series
     done
     NEW_PACKAGES=$(ls ${TMP_DIR}/new-*.deb)
     echo "New packages for testing: $NEW_PACKAGES"
+}
+
+
+PPATCH="1"
+while getopts ":p:" o; do
+    case "${o}" in
+        p)
+            PPATCH=${OPTARG}
+            echo "Setting package patch to $PPATCH"
+            ;;
+        *)
+            usage
+            ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+test $# -ge 3 || usage
+
+SERIES=$1
+TARBALL=$(readlink -f $2)
+DEBEMAIL=$3
+shift; shift; shift
+BUGS=$(echo "$@" | sed  -e 's/ /, /g; s/\([0-9]\+\)/#\1/g;')
+if [[ ! -f "$TARBALL" ]]; then
+    echo "Tarball not found."
+    usage
+fi
+check_deps
+
+VERSION=$(basename $TARBALL .tar.gz | cut -d '_' -f2)
+if [[ $SERIES == "testing" ]]; then
+    PURPOSE="testing"
+    SERIES=$TESTING_SERIES
+elif [[ $VERSION =~ ^1.(18|20|22).*$ ]]; then
+    PURPOSE="stable"
+else
+    PURPOSE="devel"
+fi
+RELEASE=$(cat $SCRIPT_DIR/supported-releases.txt |
+    grep $SERIES | cut -d ' ' -f 1)
+UBUNTU_VERSION="${VERSION}-0ubuntu${RELEASE}.${PPATCH}~juju1"
+
+TMP_DIR=$(mktemp -d --tmpdir=$HERE)
+PACKAGING_DIR="$TMP_DIR/packaging"
+BUILD_DIR="$TMP_DIR/build"
+
+make_source_package_branch
+if [[ $PURPOSE == "testing" ]]; then
+    make_binary_packages
 else
     make_source_package
 fi
