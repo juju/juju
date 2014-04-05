@@ -6,9 +6,7 @@ package main
 import (
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
 	"net"
-	"path/filepath"
 	"sort"
 
 	"launchpad.net/gnuflag"
@@ -105,12 +103,19 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	sharedSecretFile := filepath.Join(c.dataDir, mongo.SharedSecretFile)
-	if err := ioutil.WriteFile(sharedSecretFile, []byte(sharedSecret), 0600); err != nil {
-		return err
+	info, ok := agentConfig.StateServingInfo()
+	if !ok {
+		return fmt.Errorf("bootstrap machine config has no state serving info")
 	}
+	info.SharedSecret = sharedSecret
+	if err := c.ChangeConfig(func(agentConfig agent.ConfigSetter) {
+		agentConfig.SetStateServingInfo(info)
+	}); err != nil {
+		return fmt.Errorf("cannot write agent config: %v", err)
+	}
+	agentConfig = c.CurrentConfig()
 
-	if err := c.startMongo(addrs, envCfg.StatePort()); err != nil {
+	if err := c.startMongo(addrs, agentConfig); err != nil {
 		return err
 	}
 
@@ -143,31 +148,34 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	return nil
 }
 
-func (c *BootstrapCommand) startMongo(addrs []instance.Address, port int) error {
+func (c *BootstrapCommand) startMongo(addrs []instance.Address, agentConfig agent.Config) error {
 	logger.Debugf("starting mongo")
 	preferredAddr, err := selectPreferredStateServerAddress(addrs)
 	if err != nil {
 		return err
 	}
-	agentConfig := c.CurrentConfig()
 	dialInfo, err := state.DialInfo(agentConfig.StateInfo(), state.DefaultDialOpts())
 	if err != nil {
 		return err
+	}
+	servingInfo, ok := agentConfig.StateServingInfo()
+	if !ok {
+		return fmt.Errorf("agent config has no state serving info")
 	}
 	// Use localhost to dial the mongo server, because it's running in
 	// auth mode and will refuse to perform any operations unless
 	// we dial that address.
 	dialInfo.Addrs = []string{
-		net.JoinHostPort("127.0.0.1", fmt.Sprint(port)),
+		net.JoinHostPort("127.0.0.1", fmt.Sprint(servingInfo.StatePort)),
 	}
 	logger.Infof("calling ensureMongoServer")
-	if err := ensureMongoServer(agentConfig.DataDir(), port); err != nil {
+	if err := ensureMongoServer(agentConfig.DataDir(), servingInfo); err != nil {
 		return err
 	}
 
 	return maybeInitiateMongoServer(mongo.InitiateMongoParams{
 		DialInfo: dialInfo,
-		MemberHostPort: instance.HostPort{preferredAddr, port}.NetAddr(),
+		MemberHostPort: instance.HostPort{preferredAddr, servingInfo.StatePort}.NetAddr(),
 	})
 }
 

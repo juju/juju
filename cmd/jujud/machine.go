@@ -409,7 +409,11 @@ func (a *MachineAgent) updateSupportedContainers(
 func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
 
-	err := ensureMongoServer(agentConfig.DataDir(), 0)
+	servingInfo, ok := agentConfig.StateServingInfo()
+	if !ok {
+		return nil, fmt.Errorf("state worker was started with no state serving info")
+	}
+	err := ensureMongoServer(agentConfig.DataDir(), servingInfo)
 	if err != nil {
 		return nil, err
 	}

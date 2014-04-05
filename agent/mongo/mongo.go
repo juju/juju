@@ -15,6 +15,7 @@ import (
 
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/replicaset"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
 )
@@ -143,7 +144,7 @@ func MaybeInitiateMongoServer(p InitiateMongoParams) error {
 			logger.Errorf("cannot login to admin db as %q, password %q, falling back: %v", p.User, p.Password, err)
 		}
 	}
-	_, err = replicaset.CurrentConfig(session) 
+	_, err = replicaset.CurrentConfig(session)
 	if err != nil && err != mgo.ErrNotFound {
 		return fmt.Errorf("cannot get replica set configuration: %v", err)
 	}
@@ -159,20 +160,31 @@ func MaybeInitiateMongoServer(p InitiateMongoParams) error {
 //
 // This method will remove old versions of the mongo upstart script as necessary
 // before installing the new version.
-func EnsureMongoServer(dataDir string, port int) error {
-	// TODO(natefinch): write out keyfile and shared secret
+func EnsureMongoServer(dataDir string, info params.StateServingInfo) error {
 
-	logger.Infof("Ensuring mongo server is running; dataDir %s; port %d", dataDir, port)
+	logger.Infof("Ensuring mongo server is running; dataDir %s; port %d", dataDir, info.StatePort)
 	dbDir := filepath.Join(dataDir, "db")
 	name := makeServiceName(mongoScriptVersion)
 
 	if err := removeOldMongoServices(mongoScriptVersion); err != nil {
 		return err
 	}
-	service, err := mongoUpstartService(name, dataDir, dbDir, port)
+	certKey := info.Cert + "\n" + info.PrivateKey
+	err := utils.AtomicWriteFile(sslKeyPath(dataDir), []byte(certKey), 0600)
+	if err != nil {
+		return fmt.Errorf("cannot write SSL key: %v", err)
+	}
+
+	err = utils.AtomicWriteFile(sharedSecretPath(dataDir), []byte(info.SharedSecret), 0600)
+	if err != nil {
+		return fmt.Errorf("cannot write mongod shared secret: %v", err)
+	}
+
+	service, err := mongoUpstartService(name, dataDir, dbDir, info.StatePort)
 	if err != nil {
 		return err
 	}
+
 	if err := makeJournalDirs(dbDir); err != nil {
 		return fmt.Errorf("Error creating journal directories: %v", err)
 	}
@@ -198,8 +210,8 @@ func EnsureMongoServer(dataDir string, port int) error {
 	return nil
 }
 
-func makeJournalDirs(dir string) error {
-	journalDir := path.Join(dir, "journal")
+func makeJournalDirs(dataDir string) error {
+	journalDir := path.Join(dataDir, "journal")
 
 	if err := os.MkdirAll(journalDir, 0700); err != nil {
 		logger.Errorf("failed to make mongo journal dir %s: %v", journalDir, err)
@@ -262,6 +274,14 @@ func RemoveService() error {
 	return svc.StopAndRemove()
 }
 
+func sslKeyPath(dataDir string) string {
+	return filepath.Join(dataDir, "server.pem")
+}
+
+func sharedSecretPath(dataDir string) string {
+	return filepath.Join(dataDir, SharedSecretFile)
+}
+
 // mongoScriptVersion keeps track of changes to the mongo upstart script.
 // Update this version when you update the script that gets installed from
 // MongoUpstartService.
@@ -271,10 +291,6 @@ const mongoScriptVersion = 2
 //
 // This method assumes there exist "server.pem" and "shared_secret" keyfiles in dataDir.
 func mongoUpstartService(name, dataDir, dbDir string, port int) (*upstart.Conf, error) {
-	sslKeyFile := path.Join(dataDir, "server.pem")
-
-	// TODO (natefinch) uncomment when we have the keyfile
-	// keyFile := path.Join(dataDir, SharedSecretFile)
 	svc := upstart.NewService(name)
 
 	mongopath, err := MongodPath()
@@ -292,16 +308,15 @@ func mongoUpstartService(name, dataDir, dbDir string, port int) (*upstart.Conf, 
 		Cmd: mongopath + " --auth" +
 			" --dbpath=" + dbDir +
 			" --sslOnNormalPorts" +
-			" --sslPEMKeyFile " + utils.ShQuote(sslKeyFile) +
+			" --sslPEMKeyFile " + utils.ShQuote(sslKeyPath(dataDir)) +
 			" --sslPEMKeyPassword ignored" +
 			" --bind_ip 0.0.0.0" +
 			" --port " + fmt.Sprint(port) +
 			" --noprealloc" +
 			" --syslog" +
 			" --smallfiles" +
-			" --replSet " + replicaSetName,
-		// TODO(natefinch) uncomment when we have the keyfile
-		//" --keyFile " + utils.ShQuote(keyFile),
+			" --replSet juju" +
+			" --keyFile " + utils.ShQuote(sharedSecretPath(dataDir)),
 	}
 	return conf, nil
 }
