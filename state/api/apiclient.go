@@ -203,6 +203,7 @@ func newWebsocketDialer(cfg *websocket.Config, opts DialOpts) func(<-chan struct
 			if a.HasNext() {
 				logger.Debugf("error dialing %q, will retry: %v", cfg.Location, err)
 			} else {
+				logger.Infof("error dialing %q: %v", cfg.Location, err)
 				return nil, fmt.Errorf("timed out connecting to %q", cfg.Location)
 			}
 		}

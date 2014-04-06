@@ -228,7 +228,7 @@ func Reset() {
 		s.destroy()
 	}
 	providerInstance.state = make(map[int]*environState)
-	if testing.MgoServer.Addr() != "" {
+	if mongoAlive() {
 		testing.MgoServer.Reset()
 	}
 	providerInstance.statePolicy = environs.NewStatePolicy()
@@ -240,19 +240,27 @@ func (state *environState) destroy() {
 		return
 	}
 	if state.apiServer != nil {
-		if err := state.apiServer.Stop(); err != nil {
+		if err := state.apiServer.Stop(); err != nil && mongoAlive() {
 			panic(err)
 		}
 		state.apiServer = nil
-		if err := state.apiState.Close(); err != nil {
+		if err := state.apiState.Close(); err != nil && mongoAlive() {
 			panic(err)
 		}
 		state.apiState = nil
 	}
-	if testing.MgoServer.Addr() != "" {
+	if mongoAlive() {
 		testing.MgoServer.Reset()
 	}
 	state.bootstrapped = false
+}
+
+// mongoAlive reports whether the mongo server is
+// still alive (i.e. has not been deliberately destroyed).
+// If it has been deliberately destroyed, we will
+// expect some errors when closing things down.
+func mongoAlive() bool {
+	return testing.MgoServer.Addr() != ""
 }
 
 // GetStateInAPIServer returns the state connection used by the API server
