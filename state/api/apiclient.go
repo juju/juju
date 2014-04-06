@@ -56,10 +56,6 @@ type State struct {
 	// serverRoot holds the cached API server address and port we used
 	// to login, with a https:// prefix.
 	serverRoot string
-
-	// websocketConfig holds the configuration for the websocket
-	// connection.
-	websocketConfig websocket.Config
 }
 
 // Info encapsulates information about a server holding juju state and
