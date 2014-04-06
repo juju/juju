@@ -4,13 +4,17 @@
 package api
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
+
+	"code.google.com/p/go.net/websocket"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
@@ -702,4 +706,48 @@ func (c *Client) EnsureAvailability(numStateServers int, cons constraints.Value,
 		Series:          series,
 	}
 	return c.call("EnsureAvailability", args, nil)
+}
+
+// WatchDebugLog returns a ClientDebugLog reading the debug log message.
+// The filter allows to grep wanted lines out of the output, e.g.
+// machines or units. The watching is started the given number of
+// matching lines back in history.
+func (c *Client) WatchDebugLog(lines int, filter string) (*ClientDebugLog, error) {
+	cfg := c.st.websocketConfig
+	// Prepare URL.
+	attrs := url.Values{
+		"lines":  {fmt.Sprintf("%d", lines)},
+		"filter": {filter},
+	}
+	cfg.Location = &url.URL{
+		Scheme:   "wss",
+		Host:     c.st.addr,
+		Path:     "/log",
+		RawQuery: attrs.Encode(),
+	}
+	cfg.Header = http.Header{
+		"Authorization": {"Basic " + basicAuth(c.st.tag, c.st.password)},
+	}
+
+	wsConn, err := websocket.DialConfig(&cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &ClientDebugLog{wsConn}, nil
+}
+
+// ClientDebugLog represents a stream of debug log messages.
+type ClientDebugLog struct {
+	*websocket.Conn
+}
+
+// basicAuth is copied from net/http.
+// See 2 (end of page 4) http://www.ietf.org/rfc/rfc2617.txt
+// "To receive authorization, the client sends the userid and password,
+// separated by a single colon (":") character, within a base64
+// encoded string in the credentials."
+// It is not meant to be urlencoded.
+func basicAuth(username, password string) string {
+	auth := username + ":" + password
+	return base64.StdEncoding.EncodeToString([]byte(auth))
 }
