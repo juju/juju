@@ -28,9 +28,8 @@ import (
 
 // debugLogHandler takes requests to watch the debug log.
 type debugLogHandler struct {
-	state   *state.State
-	request *http.Request
-	logDir  string
+	state  *state.State
+	logDir string
 }
 
 var maxLinesReached = fmt.Errorf("max lines reached")
@@ -49,56 +48,52 @@ var maxLinesReached = fmt.Errorf("max lines reached")
 //   level -> string one of [TRACE, DEBUG, INFO, WARNING, ERROR]
 //   replay -> string - one of [true, false], if true, start the file from the start
 func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	h.request = req
-	wsServer := websocket.Server{
-		Handler: h.handleWebsocket,
-	}
-	wsServer.ServeHTTP(w, req)
-}
+	server := websocket.Server{
+		Handler: func(socket *websocket.Conn) {
+			logger.Infof("debug log handler starting")
+			if err := h.authenticate(req); err != nil {
+				h.sendError(socket, fmt.Errorf("auth failed: %v", err))
+				socket.Close()
+				return
+			}
+			stream, err := newLogStream(req.URL.Query())
+			if err != nil {
+				h.sendError(socket, err)
+				socket.Close()
+				return
+			}
+			// Open log file.
+			logLocation := filepath.Join(h.logDir, "all-machines.log")
+			logFile, err := os.Open(logLocation)
+			if err != nil {
+				h.sendError(socket, fmt.Errorf("cannot open log file: %v", err))
+				socket.Close()
+				return
+			}
+			defer logFile.Close()
 
-func (h *debugLogHandler) handleWebsocket(socket *websocket.Conn) {
-	logger.Infof("debug log handler starting")
-	if err := h.authenticate(h.request); err != nil {
-		h.sendError(socket, fmt.Errorf("auth failed: %v", err))
-		socket.Close()
-		return
-	}
-	stream, err := newLogStream(h.request.URL.Query())
-	if err != nil {
-		h.sendError(socket, err)
-		socket.Close()
-		return
-	}
-	// Open log file.
-	logLocation := filepath.Join(h.logDir, "all-machines.log")
-	logFile, err := os.Open(logLocation)
-	if err != nil {
-		h.sendError(socket, fmt.Errorf("cannot open log file: %v", err))
-		socket.Close()
-		return
-	}
-	defer logFile.Close()
+			// If we get to here, no more errors to report, so we report a nil
+			// error.  This way the first line of the socket is always a json
+			// formatted simple error.
+			if err := h.sendError(socket, nil); err != nil {
+				logger.Errorf("could not send good log stream start")
+				socket.Close()
+				return
+			}
 
-	// If we get to here, no more errors to report, so we report a nil
-	// error.  This way the first line of the socket is always a json
-	// formatted simple error.
-	if err := h.sendError(socket, nil); err != nil {
-		logger.Errorf("could not send good log stream start")
-		socket.Close()
-		return
-	}
-
-	stream.init(logFile, socket)
-	go func() {
-		defer stream.tomb.Done()
-		defer socket.Close()
-		stream.tomb.Kill(stream.loop())
-	}()
-	if err := stream.tomb.Wait(); err != nil {
-		if err != maxLinesReached {
-			logger.Errorf("debug-log handler error: %v", err)
-		}
-	}
+			stream.init(logFile, socket)
+			go func() {
+				defer stream.tomb.Done()
+				defer socket.Close()
+				stream.tomb.Kill(stream.loop())
+			}()
+			if err := stream.tomb.Wait(); err != nil {
+				if err != maxLinesReached {
+					logger.Errorf("debug-log handler error: %v", err)
+				}
+			}
+		}}
+	server.ServeHTTP(w, req)
 }
 
 func newLogStream(queryMap url.Values) (*logStream, error) {
