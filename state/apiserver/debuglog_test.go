@@ -78,7 +78,6 @@ func (s *debugLogSuite) TestServesLog(c *gc.C) {
 }
 
 func (s *debugLogSuite) TestReadsFromEnd(c *gc.C) {
-	s.ensureLogFile(c)
 	s.writeLogLines(c, 10)
 
 	reader := s.openWebsocket(c, nil)
@@ -90,7 +89,6 @@ func (s *debugLogSuite) TestReadsFromEnd(c *gc.C) {
 }
 
 func (s *debugLogSuite) TestReplayFromStart(c *gc.C) {
-	s.ensureLogFile(c)
 	s.writeLogLines(c, 10)
 
 	reader := s.openWebsocket(c, url.Values{"replay": {"true"}})
@@ -102,7 +100,6 @@ func (s *debugLogSuite) TestReplayFromStart(c *gc.C) {
 }
 
 func (s *debugLogSuite) TestBacklog(c *gc.C) {
-	s.ensureLogFile(c)
 	s.writeLogLines(c, 10)
 
 	reader := s.openWebsocket(c, url.Values{"backlog": {"5"}})
@@ -114,7 +111,6 @@ func (s *debugLogSuite) TestBacklog(c *gc.C) {
 }
 
 func (s *debugLogSuite) TestMaxLines(c *gc.C) {
-	s.ensureLogFile(c)
 	s.writeLogLines(c, 10)
 
 	reader := s.openWebsocket(c, url.Values{"maxLines": {"10"}})
