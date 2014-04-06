@@ -725,9 +725,7 @@ func (c *Client) WatchDebugLog(lines int, filter string) (*ClientDebugLog, error
 		Path:     "/log",
 		RawQuery: attrs.Encode(),
 	}
-	cfg.Header = http.Header{
-		"Authorization": {"Basic " + basicAuth(c.st.tag, c.st.password)},
-	}
+	cfg.Header = utils.CreateBasicAuthHeader(c.st.tag, c.st.password)
 
 	wsConn, err := websocket.DialConfig(&cfg)
 	if err != nil {
