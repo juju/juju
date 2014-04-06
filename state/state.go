@@ -8,6 +8,7 @@ package state
 
 import (
 	"fmt"
+	"net"
 	"net/url"
 	"regexp"
 	"sort"
@@ -44,33 +45,35 @@ const (
 // State represents the state of an environment
 // managed by juju.
 type State struct {
-	info             *Info
-	policy           Policy
-	db               *mgo.Database
-	environments     *mgo.Collection
-	charms           *mgo.Collection
-	machines         *mgo.Collection
-	instanceData     *mgo.Collection
-	containerRefs    *mgo.Collection
-	relations        *mgo.Collection
-	relationScopes   *mgo.Collection
-	services         *mgo.Collection
-	networks         *mgo.Collection
-	minUnits         *mgo.Collection
-	settings         *mgo.Collection
-	settingsrefs     *mgo.Collection
-	constraints      *mgo.Collection
-	units            *mgo.Collection
-	users            *mgo.Collection
-	presence         *mgo.Collection
-	cleanups         *mgo.Collection
-	annotations      *mgo.Collection
-	statuses         *mgo.Collection
-	stateServers     *mgo.Collection
-	runner           *txn.Runner
-	transactionHooks chan ([]transactionHook)
-	watcher          *watcher.Watcher
-	pwatcher         *presence.Watcher
+	info              *Info
+	policy            Policy
+	db                *mgo.Database
+	environments      *mgo.Collection
+	charms            *mgo.Collection
+	machines          *mgo.Collection
+	instanceData      *mgo.Collection
+	containerRefs     *mgo.Collection
+	relations         *mgo.Collection
+	relationScopes    *mgo.Collection
+	services          *mgo.Collection
+	requestedNetworks *mgo.Collection
+	networks          *mgo.Collection
+	networkInterfaces *mgo.Collection
+	minUnits          *mgo.Collection
+	settings          *mgo.Collection
+	settingsrefs      *mgo.Collection
+	constraints       *mgo.Collection
+	units             *mgo.Collection
+	users             *mgo.Collection
+	presence          *mgo.Collection
+	cleanups          *mgo.Collection
+	annotations       *mgo.Collection
+	statuses          *mgo.Collection
+	stateServers      *mgo.Collection
+	runner            *txn.Runner
+	transactionHooks  chan ([]transactionHook)
+	watcher           *watcher.Watcher
+	pwatcher          *presence.Watcher
 	// mu guards allManager.
 	mu         sync.Mutex
 	allManager *multiwatcher.StoreManager
@@ -952,7 +955,11 @@ func (st *State) AddService(name, ownerTag string, ch *Charm, includeNetworks, e
 	ops := []txn.Op{
 		env.assertAliveOp(),
 		createConstraintsOp(st, svc.globalKey(), constraints.Value{}),
-		createNetworksOp(st, svc.globalKey(), includeNetworks, excludeNetworks),
+		// TODO(dimitern) 2014-04-04 bug #1302498
+		// Once we can add networks independently of machine
+		// provisioning, we should check the given networks are valid
+		// and known before setting them.
+		createRequestedNetworksOp(st, svc.globalKey(), includeNetworks, excludeNetworks),
 		createSettingsOp(st, svc.settingsKey(), nil),
 		{
 			C:      st.users.Name,
@@ -1001,6 +1008,52 @@ func (st *State) AddService(name, ownerTag string, ch *Charm, includeNetworks, e
 		return nil, err
 	}
 	return svc, nil
+}
+
+// AddNetwork creates a new network with the given name, CIDR and VLAN tag.
+func (st *State) AddNetwork(name, cidr string, vlanTag int) (n *Network, err error) {
+	defer utils.ErrorContextf(&err, "cannot add network %q", name)
+	if cidr != "" {
+		_, _, err := net.ParseCIDR(cidr)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if name == "" {
+		return nil, fmt.Errorf("name must be not empty")
+	}
+	if vlanTag < 0 || vlanTag > 4094 {
+		return nil, fmt.Errorf("invalid VLAN tag %d: must be between 0 and 4094", vlanTag)
+	}
+	doc := &networkDoc{
+		Name:    name,
+		CIDR:    cidr,
+		VLANTag: vlanTag,
+	}
+	ops := []txn.Op{{
+		C:      st.networks.Name,
+		Id:     name,
+		Assert: txn.DocMissing,
+		Insert: doc,
+	}}
+	err = onAbort(st.runTransaction(ops), fmt.Errorf("already exists"))
+	if err != nil {
+		return nil, err
+	}
+	return newNetwork(st, doc), nil
+}
+
+// Network returns the network with the given name.
+func (st *State) Network(name string) (*Network, error) {
+	doc := &networkDoc{}
+	err := st.networks.FindId(name).One(doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("network %q", name)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("cannot get network %q: %v", name, err)
+	}
+	return newNetwork(st, doc), nil
 }
 
 // Service returns a service state by name.

@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gwacl"
@@ -34,14 +35,19 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	apiparams "launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/testing"
+	coretesting "launchpad.net/juju-core/testing"
 )
 
-type environSuite struct {
+type baseEnvironSuite struct {
 	providerSuite
 }
 
+type environSuite struct {
+	baseEnvironSuite
+}
+
 var _ = gc.Suite(&environSuite{})
+var _ = gc.Suite(&startInstanceSuite{})
 
 // makeEnviron creates a fake azureEnviron with arbitrary configuration.
 func makeEnviron(c *gc.C) *azureEnviron {
@@ -63,7 +69,7 @@ func makeEnvironWithConfig(c *gc.C, attrs map[string]interface{}) *azureEnviron 
 // setDummyStorage injects the local provider's fake storage implementation
 // into the given environment, so that tests can manipulate storage as if it
 // were real.
-func (s *environSuite) setDummyStorage(c *gc.C, env *azureEnviron) {
+func (s *baseEnvironSuite) setDummyStorage(c *gc.C, env *azureEnviron) {
 	closer, storage, _ := envtesting.CreateLocalTestStorage(c)
 	env.storage = storage
 	s.AddCleanup(func(c *gc.C) { closer.Close() })
@@ -100,7 +106,7 @@ func (*environSuite) TestGetSnapshot(c *gc.C) {
 
 func (*environSuite) TestGetSnapshotLocksEnviron(c *gc.C) {
 	original := azureEnviron{}
-	testing.TestLockingFunction(&original.Mutex, func() { original.getSnapshot() })
+	coretesting.TestLockingFunction(&original.Mutex, func() { original.getSnapshot() })
 }
 
 func (*environSuite) TestName(c *gc.C) {
@@ -117,7 +123,7 @@ func (*environSuite) TestConfigReturnsConfig(c *gc.C) {
 
 func (*environSuite) TestConfigLocksEnviron(c *gc.C) {
 	env := azureEnviron{name: "env", ecfg: new(azureEnvironConfig)}
-	testing.TestLockingFunction(&env.Mutex, func() { env.Config() })
+	coretesting.TestLockingFunction(&env.Mutex, func() { env.Config() })
 }
 
 func (*environSuite) TestGetManagementAPI(c *gc.C) {
@@ -456,7 +462,7 @@ func (*environSuite) TestSetConfigLocksEnviron(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, makeAzureConfigMap(c))
 	c.Assert(err, gc.IsNil)
 
-	testing.TestLockingFunction(&env.Mutex, func() { env.SetConfig(cfg) })
+	coretesting.TestLockingFunction(&env.Mutex, func() { env.SetConfig(cfg) })
 }
 
 func (*environSuite) TestSetConfigWillNotUpdateName(c *gc.C) {
@@ -1412,61 +1418,103 @@ func (s *environSuite) TestCheckUnitAssignment(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *environSuite) TestStartInstance(c *gc.C) {
-	env := makeEnviron(c)
-	s.setDummyStorage(c, env)
-	env.ecfg.attrs["force-image-name"] = "my-image"
+type startInstanceSuite struct {
+	baseEnvironSuite
+	env    *azureEnviron
+	params environs.StartInstanceParams
+}
+
+func (s *startInstanceSuite) SetUpTest(c *gc.C) {
+	s.baseEnvironSuite.SetUpTest(c)
+	s.env = makeEnviron(c)
+	s.setDummyStorage(c, s.env)
+	s.env.ecfg.attrs["force-image-name"] = "my-image"
 	stateInfo := &state.Info{
 		Addrs:    []string{"localhost:123"},
-		CACert:   []byte(testing.CACert),
+		CACert:   []byte(coretesting.CACert),
 		Password: "password",
 		Tag:      "machine-1",
 	}
 	apiInfo := &api.Info{
 		Addrs:    []string{"localhost:124"},
-		CACert:   []byte(testing.CACert),
+		CACert:   []byte(coretesting.CACert),
 		Password: "admin",
 		Tag:      "machine-1",
 	}
-	var params environs.StartInstanceParams
-	params.Tools = envtesting.AssertUploadFakeToolsVersions(c, env.storage, envtesting.V120p...)
-	params.MachineConfig = environs.NewMachineConfig("1", "yanonce", nil, nil, stateInfo, apiInfo)
+	s.params = environs.StartInstanceParams{
+		Tools: envtesting.AssertUploadFakeToolsVersions(
+			c, s.env.storage, envtesting.V120p...,
+		),
+		MachineConfig: environs.NewMachineConfig(
+			"1", "yanonce", nil, nil, stateInfo, apiInfo,
+		),
+	}
+}
 
-	// Start out with availability sets disabled.
-	env.ecfg.attrs["availability-sets-enabled"] = false
-
-	var expectServiceName string
-	var expectStateServer bool
-	s.PatchValue(&createInstance, func(env *azureEnviron, azure *gwacl.ManagementAPI, role *gwacl.Role, serviceName string, stateServer bool) (instance.Instance, error) {
-		c.Assert(serviceName, gc.Equals, expectServiceName)
-		c.Assert(stateServer, gc.Equals, expectStateServer)
+func (s *startInstanceSuite) startInstance(c *gc.C) (serviceName string, stateServer bool) {
+	var called bool
+	restore := testing.PatchValue(&createInstance, func(env *azureEnviron, azure *gwacl.ManagementAPI, role *gwacl.Role, serviceNameArg string, stateServerArg bool) (instance.Instance, error) {
+		serviceName = serviceNameArg
+		stateServer = stateServerArg
+		called = true
 		return nil, nil
 	})
-	env.StartInstance(params)
+	defer restore()
+	_, _, err := s.env.StartInstance(s.params)
+	c.Assert(err, gc.IsNil)
+	c.Assert(called, jc.IsTrue)
+	return serviceName, stateServer
+}
 
-	// DistributionGroup won't have an effect if availability-sets-enabled=false.
-	expectServiceName = ""
-	params.DistributionGroup = func() ([]instance.Id, error) {
-		return []instance.Id{instance.Id(env.getEnvPrefix() + "whatever-role0")}, nil
+func (s *startInstanceSuite) TestStartInstanceDistributionGroupError(c *gc.C) {
+	s.params.DistributionGroup = func() ([]instance.Id, error) {
+		return nil, fmt.Errorf("DistributionGroupError")
 	}
-	env.StartInstance(params)
+	s.env.ecfg.attrs["availability-sets-enabled"] = true
+	_, _, err := s.env.StartInstance(s.params)
+	c.Assert(err, gc.ErrorMatches, "DistributionGroupError")
+	// DistributionGroup should not be called if availability-sets-enabled=false.
+	s.env.ecfg.attrs["availability-sets-enabled"] = false
+	s.startInstance(c)
+}
 
-	env.ecfg.attrs["availability-sets-enabled"] = true
-	expectServiceName = "juju-testenv-whatever"
-	env.StartInstance(params)
+func (s *startInstanceSuite) TestStartInstanceDistributionGroupEmpty(c *gc.C) {
+	// serviceName will be empty if DistributionGroup is nil or returns nothing.
+	s.env.ecfg.attrs["availability-sets-enabled"] = true
+	serviceName, _ := s.startInstance(c)
+	c.Assert(serviceName, gc.Equals, "")
+	s.params.DistributionGroup = func() ([]instance.Id, error) { return nil, nil }
+	serviceName, _ = s.startInstance(c)
+	c.Assert(serviceName, gc.Equals, "")
+}
 
-	expectServiceName = ""
-	params.DistributionGroup = nil
-	env.StartInstance(params)
-
-	// Empty distribution group is equivalent to no DistributionGroup function.
-	params.DistributionGroup = func() ([]instance.Id, error) {
-		return nil, nil
+func (s *startInstanceSuite) TestStartInstanceDistributionGroup(c *gc.C) {
+	s.params.DistributionGroup = func() ([]instance.Id, error) {
+		return []instance.Id{
+			instance.Id(s.env.getEnvPrefix() + "whatever-role0"),
+		}, nil
 	}
-	env.StartInstance(params)
+	// DistributionGroup will only have an effect if
+	// availability-sets-enabled=true.
+	s.env.ecfg.attrs["availability-sets-enabled"] = false
+	serviceName, _ := s.startInstance(c)
+	c.Assert(serviceName, gc.Equals, "")
+	s.env.ecfg.attrs["availability-sets-enabled"] = true
+	serviceName, _ = s.startInstance(c)
+	c.Assert(serviceName, gc.Equals, "juju-testenv-whatever")
+}
 
-	// If the machine has the JobManagesEnviron job, we should see stateServer==true.
-	expectStateServer = true
-	params.MachineConfig.Jobs = []apiparams.MachineJob{apiparams.JobHostUnits, apiparams.JobManageEnviron}
-	env.StartInstance(params)
+func (s *startInstanceSuite) TestStartInstanceStateServerJobs(c *gc.C) {
+	// If the machine has the JobManagesEnviron job,
+	// we should see stateServer==true.
+	s.params.MachineConfig.Jobs = []apiparams.MachineJob{
+		apiparams.JobHostUnits,
+	}
+	_, stateServer := s.startInstance(c)
+	c.Assert(stateServer, jc.IsFalse)
+	s.params.MachineConfig.Jobs = []apiparams.MachineJob{
+		apiparams.JobHostUnits, apiparams.JobManageEnviron,
+	}
+	_, stateServer = s.startInstance(c)
+	c.Assert(stateServer, jc.IsTrue)
 }
