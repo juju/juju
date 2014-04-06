@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"fmt"
 	"sort"
 
 	jc "github.com/juju/testing/checkers"
@@ -223,10 +224,13 @@ func (s *MachineSuite) TestRemove(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	_, err = s.machine.Containers()
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
-	include, exclude, err := s.machine.Networks()
+	include, exclude, err := s.machine.RequestedNetworks()
 	c.Assert(err, gc.IsNil)
 	c.Assert(include, gc.HasLen, 0)
 	c.Assert(exclude, gc.HasLen, 0)
+	ifaces, err := s.machine.NetworkInterfaces()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ifaces, gc.HasLen, 0)
 	err = s.machine.Remove()
 	c.Assert(err, gc.IsNil)
 }
@@ -352,10 +356,10 @@ func (s *MachineSuite) TestMachineWaitAgentAlive(c *gc.C) {
 	c.Assert(alive, gc.Equals, false)
 }
 
-func (s *MachineSuite) TestMachineNetworks(c *gc.C) {
-	// s.machine is created without networks, so check
+func (s *MachineSuite) TestRequestedNetworks(c *gc.C) {
+	// s.machine is created without requested networks, so check
 	// they're empty when we read them.
-	include, exclude, err := s.machine.Networks()
+	include, exclude, err := s.machine.RequestedNetworks()
 	c.Assert(err, gc.IsNil)
 	c.Assert(include, gc.HasLen, 0)
 	c.Assert(exclude, gc.HasLen, 0)
@@ -368,7 +372,7 @@ func (s *MachineSuite) TestMachineNetworks(c *gc.C) {
 		ExcludeNetworks: []string{"private-net", "logging"},
 	})
 	c.Assert(err, gc.IsNil)
-	include, exclude, err = machine.Networks()
+	include, exclude, err = machine.RequestedNetworks()
 	c.Assert(err, gc.IsNil)
 	c.Assert(include, jc.DeepEquals, []string{"net1", "mynet"})
 	c.Assert(exclude, jc.DeepEquals, []string{"private-net", "logging"})
@@ -378,10 +382,144 @@ func (s *MachineSuite) TestMachineNetworks(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = machine.Remove()
 	c.Assert(err, gc.IsNil)
-	include, exclude, err = machine.Networks()
+	include, exclude, err = machine.RequestedNetworks()
 	c.Assert(err, gc.IsNil)
 	c.Assert(include, gc.HasLen, 0)
 	c.Assert(exclude, gc.HasLen, 0)
+}
+
+func addNetworkAndInterface(c *gc.C, st *state.State, machine *state.Machine,
+	networkName, cidr string, vlanTag int,
+	mac, ifaceName string) (*state.Network, *state.NetworkInterface) {
+	net, err := st.AddNetwork(networkName, cidr, vlanTag)
+	c.Assert(err, gc.IsNil)
+	iface, err := machine.AddNetworkInterface(mac, ifaceName, networkName)
+	c.Assert(err, gc.IsNil)
+	return net, iface
+}
+
+func (s *MachineSuite) TestNetworks(c *gc.C) {
+	// s.machine is created without networks, so check
+	// they're empty when we read them.
+	nets, err := s.machine.Networks()
+	c.Assert(err, gc.IsNil)
+	c.Assert(nets, gc.HasLen, 0)
+
+	// Now create a testing machine with requested networks, because
+	// Networks() uses them to determine which networks are bound to
+	// the machine.
+	machine, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series:          "quantal",
+		Jobs:            []state.MachineJob{state.JobHostUnits},
+		IncludeNetworks: []string{"net1", "net2"},
+		ExcludeNetworks: []string{"net3", "net4"},
+	})
+	c.Assert(err, gc.IsNil)
+
+	net1, _ := addNetworkAndInterface(
+		c, s.State, machine,
+		"net1", "0.1.2.0/24", 0,
+		"aa:bb:cc:dd:ee:f0", "eth0")
+	net2, _ := addNetworkAndInterface(
+		c, s.State, machine,
+		"net2", "0.2.2.0/24", 0,
+		"aa:bb:cc:dd:ee:f1", "eth1")
+
+	nets, err = machine.Networks()
+	c.Assert(err, gc.IsNil)
+	c.Assert(nets, jc.DeepEquals, []*state.Network{net1, net2})
+}
+
+func (s *MachineSuite) TestMachineNetworkInterfaces(c *gc.C) {
+	// s.machine is created without network interfaces, so check
+	// they're empty when we read them.
+	ifaces, err := s.machine.NetworkInterfaces()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ifaces, gc.HasLen, 0)
+
+	machine, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series:          "quantal",
+		Jobs:            []state.MachineJob{state.JobHostUnits},
+		IncludeNetworks: []string{"net1", "vlan42", "net2"},
+	})
+	c.Assert(err, gc.IsNil)
+
+	// And a few networks and NICs.
+	_, iface0 := addNetworkAndInterface(
+		c, s.State, machine,
+		"net1", "0.1.2.0/24", 0,
+		"aa:bb:cc:dd:ee:f0", "eth0")
+	_, iface1 := addNetworkAndInterface(
+		c, s.State, machine,
+		"vlan42", "0.1.2.0/30", 42,
+		"aa:bb:cc:dd:ee:f1", "eth0.42")
+	_, iface2 := addNetworkAndInterface(
+		c, s.State, machine,
+		"net2", "0.2.2.0/24", 0,
+		"aa:bb:cc:dd:ee:f2", "eth1")
+
+	ifaces, err = machine.NetworkInterfaces()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ifaces, jc.DeepEquals, []*state.NetworkInterface{
+		iface0, iface1, iface2,
+	})
+
+	// Make sure interfaces get removed with the machine.
+	err = machine.EnsureDead()
+	c.Assert(err, gc.IsNil)
+	err = machine.Remove()
+	c.Assert(err, gc.IsNil)
+	ifaces, err = machine.NetworkInterfaces()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ifaces, gc.HasLen, 0)
+}
+
+func (s *MachineSuite) TestAddNetworkInterfaceErrors(c *gc.C) {
+	machine, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series:          "quantal",
+		Jobs:            []state.MachineJob{state.JobHostUnits},
+		IncludeNetworks: []string{"net1"},
+	})
+	c.Assert(err, gc.IsNil)
+	addNetworkAndInterface(
+		c, s.State, machine,
+		"net1", "0.1.2.0/24", 0,
+		"aa:bb:cc:dd:ee:f0", "eth0")
+
+	errorPrefix := fmt.Sprintf("cannot add network interface to machine %s: ", machine.Id())
+	_, err = machine.AddNetworkInterface("invalid", "eth0", "net1")
+	expectErr := errorPrefix + "invalid MAC address: invalid"
+	c.Assert(err, gc.ErrorMatches, expectErr)
+
+	_, err = machine.AddNetworkInterface("aa:bb:cc:dd:ee:ff", "", "net1")
+	expectErr = errorPrefix + "interface name must be not empty"
+	c.Assert(err, gc.ErrorMatches, expectErr)
+
+	_, err = machine.AddNetworkInterface("aa:bb:cc:dd:ee:f0", "eth2", "net1")
+	expectErr = errorPrefix + `interface with MAC address "aa:bb:cc:dd:ee:f0" already exists`
+	c.Assert(err, gc.ErrorMatches, expectErr)
+
+	_, err = machine.AddNetworkInterface("aa:bb:cc:dd:ee:f0", "eth2", "invalid")
+	expectErr = errorPrefix + `network "invalid" not found`
+	c.Assert(err, gc.ErrorMatches, expectErr)
+
+	err = machine.SetProvisioned("i-am", "fake_nonce", nil)
+	c.Assert(err, gc.IsNil)
+	_, err = machine.AddNetworkInterface("aa:bb:cc:dd:ee:ff", "eth2", "net1")
+	expectErr = errorPrefix + "machine already provisioned: dynamic network interfaces not currently supported"
+	c.Assert(err, gc.ErrorMatches, expectErr)
+
+	err = machine.EnsureDead()
+	c.Assert(err, gc.IsNil)
+	_, err = machine.AddNetworkInterface("aa:bb:cc:dd:ee:ff", "eth2", "net1")
+	expectErr = errorPrefix + "machine is not alive"
+	c.Assert(err, gc.ErrorMatches, expectErr)
+
+	err = machine.Remove()
+	c.Assert(err, gc.IsNil)
+	_, err = machine.AddNetworkInterface("aa:bb:cc:dd:ee:ff", "eth2", "net1")
+	expectErr = errorPrefix + fmt.Sprintf("machine %s not found", machine.Id())
+	c.Assert(err, gc.ErrorMatches, expectErr)
 }
 
 func (s *MachineSuite) TestMachineInstanceId(c *gc.C) {
