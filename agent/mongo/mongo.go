@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -18,6 +19,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 )
 
 const (
@@ -169,6 +171,7 @@ func EnsureMongoServer(dataDir string, info params.StateServingInfo) error {
 	if err := removeOldMongoServices(mongoScriptVersion); err != nil {
 		return err
 	}
+
 	certKey := info.Cert + "\n" + info.PrivateKey
 	err := utils.AtomicWriteFile(sslKeyPath(dataDir), []byte(certKey), 0600)
 	if err != nil {
@@ -178,6 +181,24 @@ func EnsureMongoServer(dataDir string, info params.StateServingInfo) error {
 	err = utils.AtomicWriteFile(sharedSecretPath(dataDir), []byte(info.SharedSecret), 0600)
 	if err != nil {
 		return fmt.Errorf("cannot write mongod shared secret: %v", err)
+	}
+
+	// Disable the default mongodb installed by the mongodb-server package.
+	// Only do this if the file doesn't exist already, so users can run
+	// their own mongodb server if they wish to.
+	if _, err := os.Stat("/etc/default/mongodb"); os.IsNotExist(err) {
+		err = ioutil.WriteFile(
+			"/etc/default/mongodb",
+			[]byte("ENABLE_MONGODB=no"),
+			0644,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	if err := aptGetInstallMongod(); err != nil {
+		return fmt.Errorf("cannot install mongod: %v", err)
 	}
 
 	service, err := mongoUpstartService(name, dataDir, dbDir, info.StatePort)
@@ -319,4 +340,14 @@ func mongoUpstartService(name, dataDir, dbDir string, port int) (*upstart.Conf, 
 			" --keyFile " + utils.ShQuote(sharedSecretPath(dataDir)),
 	}
 	return conf, nil
+}
+
+func aptGetInstallMongod() error {
+	cmds := utils.AptGetPreparePackages([]string{"mongodb-server"}, version.Current.Series)
+	for _, cmd := range cmds {
+		if err := utils.AptGetInstall(cmd...); err != nil {
+			return err
+		}
+	}
+	return nil
 }

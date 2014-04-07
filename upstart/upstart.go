@@ -15,8 +15,12 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/juju/loggo"
+
 	"launchpad.net/juju-core/utils"
 )
+
+var logger = loggo.GetLogger("juju.upstart")
 
 var startedRE = regexp.MustCompile(`^.* start/running, process (\d+)\n$`)
 
@@ -52,8 +56,10 @@ func (s *Service) Installed() bool {
 
 // Running returns true if the Service appears to be running.
 func (s *Service) Running() bool {
-	cmd := exec.Command("status", "--system", s.Name)
+	args := []string{"status", "--system", s.Name}
+	cmd := exec.Command(args[0], args[1:]...)
 	out, err := cmd.CombinedOutput()
+	logger.Debugf("run command %q; err %v; output %q", args, err, out)
 	if err != nil {
 		return false
 	}
@@ -77,6 +83,7 @@ func (s *Service) Start() error {
 
 func runCommand(args ...string) error {
 	out, err := exec.Command(args[0], args[1:]...).CombinedOutput()
+	logger.Debugf("run command %q; err %v; output %q", args, err, out)
 	if err == nil {
 		return nil
 	}
