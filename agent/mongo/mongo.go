@@ -32,7 +32,7 @@ const (
 	// located within the Juju data directory.
 	SharedSecretFile = "shared-secret"
 
-	replicaSetName = "juju"
+	ReplicaSetName = "juju"
 )
 
 var (
@@ -250,7 +250,7 @@ func mongoUpstartService(namespace, dataDir, dbDir string, port int) (*upstart.C
 			" --noprealloc" +
 			" --syslog" +
 			" --smallfiles" +
-			" --replSet " + replicaSetName +
+			" --replSet " + ReplicaSetName +
 			" --keyFile " + utils.ShQuote(sharedSecretPath(dataDir)),
 	}
 	return conf, nil
