@@ -680,8 +680,9 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 		errors = append(errors, err)
 	}
 
-	if err := mongo.RemoveService(); err != nil {
-		errors = append(errors, err)
+	namespace := agentConfig.Value(agent.Namespace)
+	if err := mongo.RemoveService(namespace); err != nil {
+		errors = append(errors, fmt.Errorf("cannot stop/remove mongo service with namespace %q: %v", namespace, err))
 	}
 	if err := os.RemoveAll(agentConfig.DataDir()); err != nil {
 		errors = append(errors, err)

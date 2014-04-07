@@ -12,6 +12,8 @@ import (
 	"launchpad.net/juju-core/replicaset"
 )
 
+const jujuMachineTag = "juju-machine-id"
+
 var logger = loggo.GetLogger("juju.worker.peergrouper")
 
 // peerGroupInfo holds information that may contribute to
@@ -215,7 +217,7 @@ func addNewMembers(
 			maxId++
 			member := &replicaset.Member{
 				Tags: map[string]string{
-					"juju-machine-id": m.id,
+					jujuMachineTag: m.id,
 				},
 				Id: maxId,
 			}
@@ -259,7 +261,7 @@ func (info *peerGroupInfo) membersMap() (members map[*machine]*replicaset.Member
 	members = make(map[*machine]*replicaset.Member)
 	for _, member := range info.members {
 		member := member
-		mid, ok := member.Tags["juju-machine-id"]
+		mid, ok := member.Tags[jujuMachineTag]
 		var found *machine
 		if ok {
 			found = info.machines[mid]

@@ -26,12 +26,16 @@ var logger = loggo.GetLogger("juju.replicaset")
 //
 // See http://docs.mongodb.org/manual/reference/method/rs.initiate/ for more
 // details.
-func Initiate(session *mgo.Session, address, name string) error {
+func Initiate(session *mgo.Session, address, name string, tags map[string]string) error {
 	session.SetMode(mgo.Monotonic, true)
 	cfg := Config{
 		Name:    name,
 		Version: 1,
-		Members: []Member{{Id: 1, Address: address}},
+		Members: []Member{{
+			Id: 1,
+			Address: address,
+			Tags: tags,
+		}},
 	}
 	logger.Infof("Initiating replicaset with config %#v", cfg)
 	return session.Run(bson.D{{"replSetInitiate", cfg}}, nil)
