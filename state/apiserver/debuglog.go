@@ -4,7 +4,6 @@
 package apiserver
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -19,16 +18,13 @@ import (
 	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/utils/tailer"
 )
 
 // debugLogHandler takes requests to watch the debug log.
 type debugLogHandler struct {
-	state  *state.State
+	httpHandler
 	logDir string
 }
 
@@ -36,16 +32,18 @@ var maxLinesReached = fmt.Errorf("max lines reached")
 
 // ServeHTTP will serve up connections as a websocket.
 // Args for the HTTP request are as follows:
-//   includeAgent -> []string - lists agent tagsto include in the response
-//      may finish with a '*' to match a prefix eg: unit-mysql-*, machine-2
+//   includeEntity -> []string - lists entity tags to include in the response
+//      - tags may finish with a '*' to match a prefix e.g.: unit-mysql-*, machine-2
 //      - if none are set, then all lines are considered included
 //   includeModule -> []string - lists logging modules to include in the response
 //      - if none are set, then all lines are considered included
-//   excludeAgent -> []string - lists agent tags to exclude from the response
-//      as with include, it may finish with a '*'
+//   excludeEntity -> []string - lists entity tags to exclude from the response
+//      - as with include, it may finish with a '*'
 //   excludeModule -> []string - lists logging modules to exclude from the response
-//   limit -> uint - show this many lines then exit
-//   backlog -> uint - go back this many lines from the end to start filtering
+//   limit -> uint - show *at most* this many lines
+//   backtrack -> uint
+//      - go back this many lines from the end before starting to filter
+//      - has no meaning if 'replay' is true
 //   level -> string one of [TRACE, DEBUG, INFO, WARNING, ERROR]
 //   replay -> string - one of [true, false], if true, start the file from the start
 func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -82,7 +80,7 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				return
 			}
 
-			stream.init(logFile, socket)
+			stream.start(logFile, socket)
 			go func() {
 				defer stream.tomb.Done()
 				defer socket.Close()
@@ -136,9 +134,9 @@ func newLogStream(queryMap url.Values) (*logStream, error) {
 	}
 
 	return &logStream{
-		includeAgent:  queryMap["includeAgent"],
+		includeEntity: queryMap["includeEntity"],
 		includeModule: queryMap["includeModule"],
-		excludeAgent:  queryMap["excludeAgent"],
+		excludeEntity: queryMap["excludeEntity"],
 		excludeModule: queryMap["excludeModule"],
 		maxLines:      maxLines,
 		fromTheStart:  fromTheStart,
@@ -161,41 +159,6 @@ func (h *debugLogHandler) sendError(w io.Writer, err error) error {
 	}
 	message = append(message, []byte("\n")...)
 	_, err = w.Write(message)
-	return err
-}
-
-// authenticate parses HTTP basic authentication and authorizes the
-// request by looking up the provided tag and password against state.
-func (h *debugLogHandler) authenticate(r *http.Request) error {
-	parts := strings.Fields(r.Header.Get("Authorization"))
-	if len(parts) != 2 || parts[0] != "Basic" {
-		// Invalid header format or no header provided.
-		logger.Debugf("unexpected auth header: %#v", parts)
-		return fmt.Errorf("invalid request format")
-	}
-	// Challenge is a base64-encoded "tag:pass" string.
-	// See RFC 2617, Section 2.
-	challenge, err := base64.StdEncoding.DecodeString(parts[1])
-	if err != nil {
-		logger.Debugf("decode failed: %v", err)
-		return fmt.Errorf("invalid request format")
-	}
-	tagPass := strings.SplitN(string(challenge), ":", 2)
-	if len(tagPass) != 2 {
-		return fmt.Errorf("invalid request format")
-	}
-	entity, err := checkCreds(h.state, params.Creds{
-		AuthTag:  tagPass[0],
-		Password: tagPass[1],
-	})
-	if err != nil {
-		return err
-	}
-	// Only allow users, not agents.
-	_, _, err = names.ParseTag(entity.Tag(), names.UserTagKind)
-	if err != nil {
-		return common.ErrBadCreds
-	}
 	return err
 }
 
@@ -238,9 +201,9 @@ type logStream struct {
 	tomb          tomb.Tomb
 	logTailer     *tailer.Tailer
 	filterLevel   loggo.Level
-	includeAgent  []string
+	includeEntity []string
 	includeModule []string
-	excludeAgent  []string
+	excludeEntity []string
 	excludeModule []string
 	backlog       uint
 	maxLines      uint
@@ -248,7 +211,9 @@ type logStream struct {
 	fromTheStart  bool
 }
 
-func (stream *logStream) init(logFile io.ReadSeeker, writer io.Writer) {
+// start the tailer listening to the logFile, and sending the matching
+// lines to the writer.
+func (stream *logStream) start(logFile io.ReadSeeker, writer io.Writer) {
 	if stream.fromTheStart {
 		stream.logTailer = tailer.NewTailer(logFile, writer, stream.filterLine)
 	} else {
@@ -270,23 +235,25 @@ func (stream *logStream) loop() error {
 // filterLine checks the received line for one of the confgured tags.
 func (stream *logStream) filterLine(line []byte) bool {
 	log := parseLogLine(string(line))
-	result := stream.checkIncludeAgent(log) &&
+	result := stream.checkIncludeEntity(log) &&
 		stream.checkIncludeModule(log) &&
 		!stream.exclude(log) &&
 		stream.checkLevel(log)
 	if result && stream.maxLines > 0 {
 		stream.lineCount++
 		result = stream.lineCount <= stream.maxLines
-		stream.tomb.Kill(maxLinesReached)
+		if stream.lineCount == stream.maxLines {
+			stream.tomb.Kill(maxLinesReached)
+		}
 	}
 	return result
 }
 
-func (stream *logStream) checkIncludeAgent(line *logLine) bool {
-	if len(stream.includeAgent) == 0 {
+func (stream *logStream) checkIncludeEntity(line *logLine) bool {
+	if len(stream.includeEntity) == 0 {
 		return true
 	}
-	for _, value := range stream.includeAgent {
+	for _, value := range stream.includeEntity {
 		// special handling, if ends with '*', check prefix
 		if strings.HasSuffix(value, "*") {
 			if strings.HasPrefix(line.agent, value[:len(value)-1]) {
@@ -312,7 +279,7 @@ func (stream *logStream) checkIncludeModule(line *logLine) bool {
 }
 
 func (stream *logStream) exclude(line *logLine) bool {
-	for _, value := range stream.excludeAgent {
+	for _, value := range stream.excludeEntity {
 		// special handling, if ends with '*', check prefix
 		if strings.HasSuffix(value, "*") {
 			if strings.HasPrefix(line.agent, value[:len(value)-1]) {
