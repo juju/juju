@@ -531,9 +531,11 @@ func (suite *environSuite) TestGetNetworksList(c *gc.C) {
 	suite.getNetwork("test_network")
 	test_instance := suite.getInstance("instance_for_network")
 	suite.testMAASObject.TestServer.ConnectNodeToNetwork("instance_for_network", "test_network")
-	networks, err := suite.makeEnviron().GetNetworksList(test_instance)
+	networks, err := suite.makeEnviron().getInstanceNetworks(test_instance)
 	c.Assert(err, gc.IsNil)
-	c.Check(networks, gc.DeepEquals, []MAASNetworkDetails{{Name: "test_network", Ip: "127.0.0.1", NetworkMask: "255.255.255.0", VlanTag: "1", Description: ""}})
+	c.Check(networks, gc.DeepEquals, []networkDetails{
+		{Name: "test_network", IP: "127.0.0.1", Mask: "255.255.255.0", VLANTag: 1, Description: ""},
+	})
 }
 
 func (suite *environSuite) TestExtractInterfaces(c *gc.C) {
