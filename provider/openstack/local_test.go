@@ -390,7 +390,8 @@ func assertSecurityGroups(c *gc.C, env environs.Environ, expected []string) {
 }
 
 func (s *localServerSuite) TestStopInstance(c *gc.C) {
-	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{}))
+	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
+		"firewall-mode": "instance"}))
 	c.Assert(err, gc.IsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil)
@@ -411,6 +412,7 @@ func (s *localServerSuite) TestStopInstance(c *gc.C) {
 // environment. If this is the case, the attempt to delete the instance's
 // security group fails but StopInstance succeeds.
 func (s *localServerSuite) TestStopInstanceSecurityGroupNotDeleted(c *gc.C) {
+	// Force an error when a security group is deleted.
 	cleanup := s.srv.Service.Nova.RegisterControlPoint(
 		"removeSecurityGroup",
 		func(sc hook.ServiceControl, args ...interface{}) error {
@@ -418,7 +420,8 @@ func (s *localServerSuite) TestStopInstanceSecurityGroupNotDeleted(c *gc.C) {
 		},
 	)
 	defer cleanup()
-	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{}))
+	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
+		"firewall-mode": "instance"}))
 	c.Assert(err, gc.IsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil)
@@ -429,6 +432,36 @@ func (s *localServerSuite) TestStopInstanceSecurityGroupNotDeleted(c *gc.C) {
 	err = env.StopInstances([]instance.Instance{inst})
 	c.Assert(err, gc.IsNil)
 	assertSecurityGroups(c, env, allSecurityGroups)
+}
+
+func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeInstance(c *gc.C) {
+	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
+		"firewall-mode": "instance"}))
+	c.Assert(err, gc.IsNil)
+	env, err := environs.New(cfg)
+	c.Assert(err, gc.IsNil)
+	instanceName := "100"
+	testing.AssertStartInstance(c, env, instanceName)
+	allSecurityGroups := []string{"default", fmt.Sprintf("juju-%v", env.Name()), fmt.Sprintf("juju-%v-%v", env.Name(), instanceName)}
+	assertSecurityGroups(c, env, allSecurityGroups)
+	err = env.Destroy()
+	c.Check(err, gc.IsNil)
+	assertSecurityGroups(c, env, []string{"default"})
+}
+
+func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeGlobabel(c *gc.C) {
+	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
+		"firewall-mode": "global"}))
+	c.Assert(err, gc.IsNil)
+	env, err := environs.New(cfg)
+	c.Assert(err, gc.IsNil)
+	instanceName := "100"
+	testing.AssertStartInstance(c, env, instanceName)
+	allSecurityGroups := []string{"default", fmt.Sprintf("juju-%v", env.Name()), fmt.Sprintf("juju-%v-global", env.Name())}
+	assertSecurityGroups(c, env, allSecurityGroups)
+	err = env.Destroy()
+	c.Check(err, gc.IsNil)
+	assertSecurityGroups(c, env, []string{"default"})
 }
 
 var instanceGathering = []struct {

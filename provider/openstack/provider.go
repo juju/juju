@@ -887,7 +887,10 @@ func (e *environ) StopInstances(insts []instance.Instance) error {
 	if err != nil {
 		return err
 	}
-	return e.deleteSecurityGroups(securityGroupNames)
+	if e.Config().FirewallMode() == config.FwInstance {
+		return e.deleteSecurityGroups(securityGroupNames)
+	}
+	return nil
 }
 
 // collectInstances tries to get information on each instance id in ids.
@@ -977,7 +980,29 @@ func (e *environ) AllInstances() (insts []instance.Instance, err error) {
 }
 
 func (e *environ) Destroy() error {
-	return common.Destroy(e)
+	err := common.Destroy(e)
+	if err != nil {
+		return err
+	}
+	novaClient := e.nova()
+	securityGroups, err := novaClient.ListSecurityGroups()
+	if err != nil {
+		return err
+	}
+	re, err := regexp.Compile(fmt.Sprintf("^%s(-\\d+)?$", e.jujuGroupName()))
+	if err != nil {
+		return err
+	}
+	globalGroupName := e.globalGroupName()
+	for _, group := range securityGroups {
+		if re.MatchString(group.Name) || group.Name == globalGroupName {
+			err = novaClient.DeleteSecurityGroup(group.Id)
+			if err != nil {
+				logger.Warningf("Cannot delete security group %q. Used by another environment?", group.Name)
+			}
+		}
+	}
+	return nil
 }
 
 func (e *environ) globalGroupName() string {
@@ -1235,10 +1260,9 @@ func (e *environ) ensureGroup(name string, rules []nova.RuleInfo) (nova.Security
 	return *group, nil
 }
 
-// deleteSecurityGroups deletes the given secruity groups. Since
-// some security groups may be used for machines from another
-// environment (see bug #1300755), only those groups are really
-// deleted that are indeed not used.
+// deleteSecurityGroups deletes the given security groups. If a security
+// group is also used by another environment (see bug #1300755), an attempt
+// to delete this group fails. A warning is logged in this case.
 func (e *environ) deleteSecurityGroups(securityGroupNames []string) error {
 	novaclient := e.nova()
 	allSecurityGroups, err := novaclient.ListSecurityGroups()
