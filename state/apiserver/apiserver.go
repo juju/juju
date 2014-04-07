@@ -168,15 +168,16 @@ func (srv *Server) run(lis net.Listener) {
 	}()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", srv.apiHandler)
-	mux.Handle("/log", &debugLogHandler{state: srv.state, logDir: srv.logDir})
-	charmHandler := &charmsHandler{httpHandler: httpHandler{state: srv.state}, dataDir: srv.dataDir}
-	// charmHandler itself provides the errorSender implementation for the embedded httpHandler.
-	charmHandler.httpHandler.errorSender = charmHandler
-	mux.Handle("/charms", charmHandler)
-	toolsHandler := &toolsHandler{httpHandler{state: srv.state}}
-	// toolsHandler itself provides the errorSender implementation for the embedded httpHandler.
-	toolsHandler.httpHandler.errorSender = toolsHandler
-	mux.Handle("/tools", toolsHandler)
+	mux.Handle("/log",
+		&debugLogHandler{
+			httpHandler: httpHandler{state: srv.state},
+			logDir:      srv.logDir})
+	mux.Handle("/charms",
+		&charmsHandler{
+			httpHandler: httpHandler{state: srv.state},
+			dataDir:     srv.dataDir})
+	mux.Handle("/tools",
+		&toolsHandler{httpHandler{state: srv.state}})
 	// The error from http.Serve is not interesting.
 	http.Serve(lis, mux)
 }

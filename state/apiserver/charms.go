@@ -41,7 +41,7 @@ type bundleContentSenderFunc func(w http.ResponseWriter, r *http.Request, bundle
 
 func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := h.authenticate(r); err != nil {
-		h.authError(w)
+		h.authError(w, h)
 		return
 	}
 

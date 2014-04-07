@@ -4,7 +4,6 @@
 package apiserver
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -19,16 +18,13 @@ import (
 	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/utils/tailer"
 )
 
 // debugLogHandler takes requests to watch the debug log.
 type debugLogHandler struct {
-	state  *state.State
+	httpHandler
 	logDir string
 }
 
@@ -163,39 +159,6 @@ func (h *debugLogHandler) sendError(w io.Writer, err error) error {
 	}
 	message = append(message, []byte("\n")...)
 	_, err = w.Write(message)
-	return err
-}
-
-// authenticate parses HTTP basic authentication and authorizes the
-// request by looking up the provided tag and password against state.
-func (h *debugLogHandler) authenticate(r *http.Request) error {
-	parts := strings.Fields(r.Header.Get("Authorization"))
-	if len(parts) != 2 || parts[0] != "Basic" {
-		// Invalid header format or no header provided.
-		return fmt.Errorf("invalid request format")
-	}
-	// Challenge is a base64-encoded "tag:pass" string.
-	// See RFC 2617, Section 2.
-	challenge, err := base64.StdEncoding.DecodeString(parts[1])
-	if err != nil {
-		return fmt.Errorf("invalid request format")
-	}
-	tagPass := strings.SplitN(string(challenge), ":", 2)
-	if len(tagPass) != 2 {
-		return fmt.Errorf("invalid request format")
-	}
-	entity, err := checkCreds(h.state, params.Creds{
-		AuthTag:  tagPass[0],
-		Password: tagPass[1],
-	})
-	if err != nil {
-		return err
-	}
-	// Only allow users, not agents.
-	_, _, err = names.ParseTag(entity.Tag(), names.UserTagKind)
-	if err != nil {
-		return common.ErrBadCreds
-	}
 	return err
 }
 
