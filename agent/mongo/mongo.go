@@ -23,7 +23,7 @@ const (
 	maxProcs = 20000
 
 	serviceName = "juju-db"
-	
+
 	// SharedSecretFile is the name of the Mongo shared secret file
 	// located within the Juju data directory.
 	SharedSecretFile = "shared-secret"
