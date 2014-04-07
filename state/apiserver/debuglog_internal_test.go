@@ -89,20 +89,20 @@ func (s *debugInternalSuite) TestCheckLevel(c *gc.C) {
 	c.Check(checkLevel(loggo.CRITICAL, loggo.INFO), jc.IsTrue)
 }
 
-func checkIncludeAgent(logValue string, agent ...string) bool {
-	stream := &logStream{includeAgent: agent}
+func checkIncludeEntity(logValue string, agent ...string) bool {
+	stream := &logStream{includeEntity: agent}
 	line := &logLine{agent: logValue}
-	return stream.checkIncludeAgent(line)
+	return stream.checkIncludeEntity(line)
 }
 
-func (s *debugInternalSuite) TestCheckIncludeAgent(c *gc.C) {
-	c.Check(checkIncludeAgent("machine-0"), jc.IsTrue)
-	c.Check(checkIncludeAgent("machine-0", "machine-0"), jc.IsTrue)
-	c.Check(checkIncludeAgent("machine-1", "machine-0"), jc.IsFalse)
-	c.Check(checkIncludeAgent("machine-1", "machine-0", "machine-1"), jc.IsTrue)
-	c.Check(checkIncludeAgent("machine-0-lxc-0", "machine-0"), jc.IsFalse)
-	c.Check(checkIncludeAgent("machine-0-lxc-0", "machine-0*"), jc.IsTrue)
-	c.Check(checkIncludeAgent("machine-0-lxc-0", "machine-0-lxc-*"), jc.IsTrue)
+func (s *debugInternalSuite) TestCheckIncludeEntity(c *gc.C) {
+	c.Check(checkIncludeEntity("machine-0"), jc.IsTrue)
+	c.Check(checkIncludeEntity("machine-0", "machine-0"), jc.IsTrue)
+	c.Check(checkIncludeEntity("machine-1", "machine-0"), jc.IsFalse)
+	c.Check(checkIncludeEntity("machine-1", "machine-0", "machine-1"), jc.IsTrue)
+	c.Check(checkIncludeEntity("machine-0-lxc-0", "machine-0"), jc.IsFalse)
+	c.Check(checkIncludeEntity("machine-0-lxc-0", "machine-0*"), jc.IsTrue)
+	c.Check(checkIncludeEntity("machine-0-lxc-0", "machine-0-lxc-*"), jc.IsTrue)
 }
 
 func checkIncludeModule(logValue string, module ...string) bool {
@@ -121,20 +121,20 @@ func (s *debugInternalSuite) TestCheckIncludeModule(c *gc.C) {
 	c.Check(checkIncludeModule("unit.mysql/1", "juju", "unit"), jc.IsTrue)
 }
 
-func checkExcludeAgent(logValue string, agent ...string) bool {
-	stream := &logStream{excludeAgent: agent}
+func checkExcludeEntity(logValue string, agent ...string) bool {
+	stream := &logStream{excludeEntity: agent}
 	line := &logLine{agent: logValue}
 	return stream.exclude(line)
 }
 
-func (s *debugInternalSuite) TestCheckExcludeAgent(c *gc.C) {
-	c.Check(checkExcludeAgent("machine-0"), jc.IsFalse)
-	c.Check(checkExcludeAgent("machine-0", "machine-0"), jc.IsTrue)
-	c.Check(checkExcludeAgent("machine-1", "machine-0"), jc.IsFalse)
-	c.Check(checkExcludeAgent("machine-1", "machine-0", "machine-1"), jc.IsTrue)
-	c.Check(checkExcludeAgent("machine-0-lxc-0", "machine-0"), jc.IsFalse)
-	c.Check(checkExcludeAgent("machine-0-lxc-0", "machine-0*"), jc.IsTrue)
-	c.Check(checkExcludeAgent("machine-0-lxc-0", "machine-0-lxc-*"), jc.IsTrue)
+func (s *debugInternalSuite) TestCheckExcludeEntity(c *gc.C) {
+	c.Check(checkExcludeEntity("machine-0"), jc.IsFalse)
+	c.Check(checkExcludeEntity("machine-0", "machine-0"), jc.IsTrue)
+	c.Check(checkExcludeEntity("machine-1", "machine-0"), jc.IsFalse)
+	c.Check(checkExcludeEntity("machine-1", "machine-0", "machine-1"), jc.IsTrue)
+	c.Check(checkExcludeEntity("machine-0-lxc-0", "machine-0"), jc.IsFalse)
+	c.Check(checkExcludeEntity("machine-0-lxc-0", "machine-0*"), jc.IsTrue)
+	c.Check(checkExcludeEntity("machine-0-lxc-0", "machine-0-lxc-*"), jc.IsTrue)
 }
 
 func checkExcludeModule(logValue string, module ...string) bool {
@@ -156,9 +156,9 @@ func (s *debugInternalSuite) TestCheckExcludeModule(c *gc.C) {
 func (s *debugInternalSuite) TestFilterLine(c *gc.C) {
 	stream := &logStream{
 		filterLevel:   loggo.INFO,
-		includeAgent:  []string{"machine-0", "unit-mysql*"},
+		includeEntity: []string{"machine-0", "unit-mysql*"},
 		includeModule: []string{"juju"},
-		excludeAgent:  []string{"unit-mysql-2"},
+		excludeEntity: []string{"unit-mysql-2"},
 		excludeModule: []string{"juju.foo"},
 	}
 	c.Check(stream.filterLine([]byte(
@@ -226,7 +226,7 @@ line 3
 	stream := &logStream{fromTheStart: fromTheStart, maxLines: maxLines}
 	output := &bytes.Buffer{}
 	waitReader := &seekWaitReader{logFileReader, make(chan struct{})}
-	stream.init(waitReader, output)
+	stream.start(waitReader, output)
 
 	go func() {
 		defer stream.tomb.Done()
@@ -284,9 +284,9 @@ line 5
 }
 
 func assertStreamParams(c *gc.C, obtained, expected *logStream) {
-	c.Check(obtained.includeAgent, jc.DeepEquals, expected.includeAgent)
+	c.Check(obtained.includeEntity, jc.DeepEquals, expected.includeEntity)
 	c.Check(obtained.includeModule, jc.DeepEquals, expected.includeModule)
-	c.Check(obtained.excludeAgent, jc.DeepEquals, expected.excludeAgent)
+	c.Check(obtained.excludeEntity, jc.DeepEquals, expected.excludeEntity)
 	c.Check(obtained.excludeModule, jc.DeepEquals, expected.excludeModule)
 	c.Check(obtained.maxLines, gc.Equals, expected.maxLines)
 	c.Check(obtained.fromTheStart, gc.Equals, expected.fromTheStart)
@@ -300,9 +300,9 @@ func (s *debugInternalSuite) TestNewLogStream(c *gc.C) {
 	assertStreamParams(c, obtained, &logStream{})
 
 	values := url.Values{
-		"includeAgent":  []string{"machine-1*", "machine-2"},
+		"includeEntity": []string{"machine-1*", "machine-2"},
 		"includeModule": []string{"juju", "unit"},
-		"excludeAgent":  []string{"machine-1-lxc*"},
+		"excludeEntity": []string{"machine-1-lxc*"},
 		"excludeModule": []string{"juju.provisioner"},
 		"maxLines":      []string{"300"},
 		"backlog":       []string{"100"},
@@ -311,9 +311,9 @@ func (s *debugInternalSuite) TestNewLogStream(c *gc.C) {
 		"replay": []string{"true"},
 	}
 	expected := &logStream{
-		includeAgent:  []string{"machine-1*", "machine-2"},
+		includeEntity: []string{"machine-1*", "machine-2"},
 		includeModule: []string{"juju", "unit"},
-		excludeAgent:  []string{"machine-1-lxc*"},
+		excludeEntity: []string{"machine-1-lxc*"},
 		excludeModule: []string{"juju.provisioner"},
 		maxLines:      300,
 		backlog:       100,
