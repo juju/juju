@@ -7,7 +7,6 @@ import (
 	"bufio"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -22,6 +21,7 @@ import (
 
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils"
 )
 
 type debugLogSuite struct {

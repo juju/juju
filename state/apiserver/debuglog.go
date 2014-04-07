@@ -44,7 +44,8 @@ var maxLinesReached = fmt.Errorf("max lines reached")
 //   excludeAgent -> []string - lists agent tags to exclude from the response
 //      as with include, it may finish with a '*'
 //   excludeModule -> []string - lists logging modules to exclude from the response
-//   limit -> int - show this many lines then exit
+//   limit -> uint - show this many lines then exit
+//   backlog -> uint - go back this many lines from the end to start filtering
 //   level -> string one of [TRACE, DEBUG, INFO, WARNING, ERROR]
 //   replay -> string - one of [true, false], if true, start the file from the start
 func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
