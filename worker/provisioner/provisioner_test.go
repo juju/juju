@@ -836,7 +836,7 @@ type mockBroker struct {
 	retryCount map[string]int
 }
 
-func (b *mockBroker) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (b *mockBroker) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error) {
 	// All machines except machines 3, 4 are provisioned successfully the first time.
 	// Machines 3 is provisioned after some attempts have been made.
 	// Machine 4 is never provisioned.
@@ -847,7 +847,7 @@ func (b *mockBroker) StartInstance(args environs.StartInstanceParams) (instance.
 	} else {
 		b.retryCount[id] = retries + 1
 	}
-	return nil, nil, fmt.Errorf("error: some error")
+	return nil, nil, nil, fmt.Errorf("error: some error")
 }
 
 func (b *mockBroker) GetToolsSources() ([]simplestreams.DataSource, error) {
