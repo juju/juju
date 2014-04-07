@@ -5,12 +5,14 @@ package maas
 
 import (
 	"encoding/base64"
+	"encoding/xml"
 	"fmt"
 	"net/url"
 	"strings"
 	"sync"
 	"time"
 
+	"labix.org/v2/mgo/bson"
 	"launchpad.net/gomaasapi"
 
 	"launchpad.net/juju-core/agent"
@@ -329,6 +331,66 @@ func linkBridgeInInterfaces() string {
 	return `sed -i "s/iface eth0 inet dhcp/source \/etc\/network\/eth0.config/" /etc/network/interfaces`
 }
 
+// getInstanceNetworkInterfaces returns a map of interface name to MAC
+// address for each network interface of the given instance, as
+// discovered during the commissioning phase.
+func (environ *maasEnviron) getInstanceNetworkInterfaces(inst instance.Instance) (map[string]string, error) {
+	maasInst := inst.(*maasInstance)
+	maasObj := maasInst.maasObject
+	result, err := maasObj.CallGet("details", nil)
+	if err != nil {
+		return nil, err
+	}
+	// Get the node's lldp / lshw details discovered at commissioning.
+	data, err := result.GetBytes()
+	if err != nil {
+		return nil, err
+	}
+	var parsed map[string]interface{}
+	if err := bson.Unmarshal(data, &parsed); err != nil {
+		return nil, err
+	}
+	lshwData, ok := parsed["lshw"]
+	if !ok {
+		return nil, fmt.Errorf("no hardware information available for node %q", inst.Id())
+	}
+	lshwXML, ok := lshwData.([]byte)
+	if !ok {
+		return nil, fmt.Errorf("invalid hardware information for node %q", inst.Id())
+	}
+	// Now we have the lshw XML data, parse it to extract and return NICs.
+	return extractInterfaces(inst, lshwXML)
+}
+
+func extractInterfaces(inst instance.Instance, lshwXML []byte) (map[string]string, error) {
+	type Node struct {
+		Id          string `xml:"id,attr"`
+		Description string `xml:"description"`
+		Serial      string `xml:"serial"`
+		LogicalName string `xml:"logicalname"`
+		Children    []Node `xml:"node"`
+	}
+	type List struct {
+		Nodes []Node `xml:"node"`
+	}
+	var lshw List
+	if err := xml.Unmarshal(lshwXML, &lshw); err != nil {
+		return nil, fmt.Errorf("cannot parse lshw XML details for node %q: %v", inst.Id(), err)
+	}
+	interfaces := make(map[string]string)
+	var processNodes func(nodes []Node)
+	processNodes = func(nodes []Node) {
+		for _, node := range nodes {
+			if strings.HasPrefix(node.Id, "network") {
+				interfaces[node.LogicalName] = node.Serial
+			}
+			processNodes(node.Children)
+		}
+	}
+	processNodes(lshw.Nodes)
+	return interfaces, nil
+}
+
 // StartInstance is specified in the InstanceBroker interface.
 func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error) {
 
@@ -352,6 +414,19 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (in
 			}
 		}
 	}()
+	// TODO(dimitern) Get the list of networks for the node
+	// and combine it with the list of NICs from the call below
+	// to return []NetworkInfo.
+	interfaces, err := environ.getInstanceNetworkInterfaces(inst)
+	if err != nil {
+		if args.MachineConfig.HasNetworks() {
+			return nil, nil, nil, err
+		}
+		// If we don't need to start networks, this is not an error.
+		logger.Warningf(err.Error())
+	} else {
+		logger.Debugf("node %q network interfaces %#v", inst.Id(), interfaces)
+	}
 
 	hostname, err := inst.DNSName()
 	if err != nil {
