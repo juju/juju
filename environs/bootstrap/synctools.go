@@ -29,8 +29,7 @@ You may want to use the 'tools-metadata-url' configuration setting to specify th
 
 // UploadTools uploads tools for the specified series and any other relevant series to
 // the environment storage, after which it sets the agent-version. If forceVersion is true,
-// we allow uploading release tools versions and allow uploading even when the agent-version is
-// already set in the environment.
+// we allow uploading even when the agent-version is already set in the environment.
 func UploadTools(ctx environs.BootstrapContext, env environs.Environ, toolsArch *string, forceVersion bool, bootstrapSeries ...string) error {
 	logger.Infof("checking that upload is possible")
 	// Check the series are valid.
@@ -100,8 +99,10 @@ func SeriesToUpload(cfg *config.Config, series []string) []string {
 	unique := set.NewStrings(series...)
 	if unique.IsEmpty() {
 		unique.Add(version.Current.Series)
-		unique.Add(config.DefaultSeries)
-		unique.Add(cfg.DefaultSeries())
+		unique.Add(config.LatestLtsSeries())
+		if series, ok := cfg.DefaultSeries(); ok {
+			unique.Add(series)
+		}
 	}
 	return unique.Values()
 }
@@ -110,9 +111,8 @@ func SeriesToUpload(cfg *config.Config, series []string) []string {
 // not be allowed.
 func validateUploadAllowed(env environs.Environ, toolsArch *string, forceVersion bool) error {
 	if !forceVersion {
-		// First, check that there isn't already an agent version specified, and that we
-		// are running a development version.
-		if _, hasAgentVersion := env.Config().AgentVersion(); hasAgentVersion || !version.Current.IsDev() {
+		// First, check that there isn't already an agent version specified.
+		if _, hasAgentVersion := env.Config().AgentVersion(); hasAgentVersion {
 			return fmt.Errorf(noToolsNoUploadMessage)
 		}
 	}
@@ -172,10 +172,18 @@ func EnsureToolsAvailability(ctx environs.BootstrapContext, env environs.Environ
 		return nil, err
 	}
 
+	// Only automatically upload tools for dev versions.
+	if !version.Current.IsDev() {
+		return nil, fmt.Errorf("cannot upload bootstrap tools: %v", noToolsNoUploadMessage)
+	}
+
 	// No tools available so our only hope is to build locally and upload.
 	logger.Warningf("no prepackaged tools available")
 	uploadSeries := SeriesToUpload(cfg, nil)
-	if err := UploadTools(ctx, env, toolsArch, false, append(uploadSeries, series)...); err != nil {
+	if series != "" {
+		uploadSeries = append(uploadSeries, series)
+	}
+	if err := UploadTools(ctx, env, toolsArch, false, uploadSeries...); err != nil {
 		logger.Errorf("%s", noToolsMessage)
 		return nil, fmt.Errorf("cannot upload bootstrap tools: %v", err)
 	}

@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/apiserver"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils"
 )
 
 type stateSuite struct {
@@ -69,7 +70,7 @@ func (s *stateSuite) TestPing(c *gc.C) {
 }
 
 func (s *stateSuite) TestClientNoNeedToPing(c *gc.C) {
-	s.PatchValue(apiserver.MaxPingInterval, time.Duration(0))
+	s.PatchValue(apiserver.MaxClientPingInterval, time.Duration(0))
 	st, err := api.Open(s.APIInfo(c), api.DefaultDialOpts())
 	c.Assert(err, gc.IsNil)
 	time.Sleep(coretesting.ShortWait)
@@ -78,9 +79,41 @@ func (s *stateSuite) TestClientNoNeedToPing(c *gc.C) {
 }
 
 func (s *stateSuite) TestAgentConnectionShutsDownWithNoPing(c *gc.C) {
-	s.PatchValue(apiserver.MaxPingInterval, time.Duration(0))
+	s.PatchValue(apiserver.MaxClientPingInterval, time.Duration(0))
 	st, _ := s.OpenAPIAsNewMachine(c)
 	time.Sleep(coretesting.ShortWait)
 	err := st.Ping()
 	c.Assert(err, gc.ErrorMatches, "connection is shut down")
+}
+
+type mongoPingerSuite struct {
+	testing.JujuConnSuite
+}
+
+var _ = gc.Suite(&mongoPingerSuite{})
+
+func (s *mongoPingerSuite) SetUpTest(c *gc.C) {
+	// We need to set the ping interval before the server is started.
+	s.PatchValue(apiserver.MongoPingInterval, coretesting.ShortWait)
+	s.JujuConnSuite.SetUpTest(c)
+}
+
+func (s *mongoPingerSuite) TestAgentConnectionsShutDownWhenStateDies(c *gc.C) {
+	s.PatchValue(apiserver.MongoPingInterval, coretesting.ShortWait)
+	st, _ := s.OpenAPIAsNewMachine(c)
+	err := st.Ping()
+	c.Assert(err, gc.IsNil)
+	coretesting.MgoServer.Destroy()
+
+	attempt := utils.AttemptStrategy{
+		Total: coretesting.LongWait,
+		Delay: coretesting.ShortWait,
+	}
+	for a := attempt.Start(); a.Next(); {
+		if err := st.Ping(); err != nil {
+			c.Assert(err, gc.ErrorMatches, "connection is shut down")
+			return
+		}
+	}
+	c.Fatalf("timed out waiting for API server to die")
 }

@@ -13,7 +13,6 @@ import (
 
 	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
@@ -161,10 +160,11 @@ func MustUploadFakeToolsVersions(stor storage.Storage, versions ...version.Binar
 }
 
 func uploadFakeTools(stor storage.Storage) error {
-	versions := []version.Binary{version.Current}
+	versions := []version.Binary{version.Current, version.Binary{Number: version.Current.Number, Series: "precise", Arch: "amd64"}}
 	toolsVersion := version.Current
-	if toolsVersion.Series != config.DefaultSeries {
-		toolsVersion.Series = config.DefaultSeries
+	latestLts := coretesting.FakeDefaultSeries
+	if toolsVersion.Series != latestLts {
+		toolsVersion.Series = latestLts
 		versions = append(versions, toolsVersion)
 	}
 	if _, err := UploadFakeToolsVersions(stor, versions...); err != nil {
@@ -175,9 +175,9 @@ func uploadFakeTools(stor storage.Storage) error {
 
 // UploadFakeTools puts fake tools into the supplied storage with a binary
 // version matching version.Current; if version.Current's series is different
-// to config.DefaultSeries, matching fake tools will be uploaded for that series.
-// This is useful for tests that are kinda casual about specifying their
-// environment.
+// to coretesting.FakeDefaultSeries, matching fake tools will be uploaded for that
+// series.  This is useful for tests that are kinda casual about specifying
+// their environment.
 func UploadFakeTools(c *gc.C, stor storage.Storage) {
 	c.Assert(uploadFakeTools(stor), gc.IsNil)
 }
@@ -196,8 +196,9 @@ func RemoveFakeTools(c *gc.C, stor storage.Storage) {
 	name := envtools.StorageName(toolsVersion)
 	err := stor.Remove(name)
 	c.Check(err, gc.IsNil)
-	if version.Current.Series != config.DefaultSeries {
-		toolsVersion.Series = config.DefaultSeries
+	defaultSeries := coretesting.FakeDefaultSeries
+	if version.Current.Series != defaultSeries {
+		toolsVersion.Series = defaultSeries
 		name := envtools.StorageName(toolsVersion)
 		err := stor.Remove(name)
 		c.Check(err, gc.IsNil)
@@ -380,7 +381,7 @@ var BootstrapToolsTests = []BootstrapToolsTest{
 		Available:     VAll,
 		CliVersion:    V100p64,
 		DefaultSeries: "precise",
-		Arch:          "arm",
+		Arch:          "armhf",
 		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli: specific bad major 1",

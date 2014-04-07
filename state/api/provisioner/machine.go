@@ -74,6 +74,34 @@ func (m *Machine) RequestedNetworks() (includeNetworks, excludeNetworks []string
 	return result.IncludeNetworks, result.ExcludeNetworks, nil
 }
 
+// AddNetworkInterfaces creates one or more network interfaces each on
+// an existing network and bound to the machine, which must not be
+// provisioned yet. MachineTag inside interfaces params is always set
+// to the current machine's tag. If any operation fails, the first
+// error is returned.
+func (m *Machine) AddNetworkInterfaces(interfaces []params.NetworkInterfaceParams) error {
+	var results params.ErrorResults
+	for i, _ := range interfaces {
+		if interfaces[i].MachineTag != m.tag {
+			interfaces[i].MachineTag = m.tag
+		}
+	}
+	args := params.AddNetworkInterfaceParams{Interfaces: interfaces}
+	err := m.st.call("AddNetworkInterface", args, &results)
+	if err != nil {
+		return err
+	}
+	if n := len(results.Results); n != len(interfaces) {
+		return fmt.Errorf("expected %d result(s), got %d", len(interfaces), n)
+	}
+	for _, result := range results.Results {
+		if err := result.Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // SetStatus sets the status of the machine.
 func (m *Machine) SetStatus(status params.Status, info string, data params.StatusData) error {
 	var result params.ErrorResults

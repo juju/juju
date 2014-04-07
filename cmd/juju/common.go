@@ -4,10 +4,13 @@
 package main
 
 import (
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/state/api"
 )
 
 // destroyPreparedEnviron destroys the environment and logs an error if it fails.
@@ -44,4 +47,40 @@ func environFromName(
 		}
 	}
 	return environ, cleanup, nil
+}
+
+// resolveCharmURL returns a resolved charm URL, given a charm location string.
+// If the series is not resolved, the environment default-series is used, or if
+// not set, the series is resolved with the state server.
+func resolveCharmURL(url string, client *api.Client, conf *config.Config) (*charm.URL, error) {
+	ref, series, err := charm.ParseReference(url)
+	if err != nil {
+		return nil, err
+	}
+	// If series is not set, use configured default series
+	if series == "" {
+		if defaultSeries, ok := conf.DefaultSeries(); ok {
+			series = defaultSeries
+		}
+	}
+	// Otherwise, look up the best supported series for this charm
+	if series == "" {
+		return client.ResolveCharm(ref)
+	}
+	return &charm.URL{Reference: ref, Series: series}, nil
+}
+
+// resolveCharmURL1dot16 returns a resolved charm URL for older state servers
+// that do not support ResolveCharm. The default series "precise" is
+// appropriate for these environments.
+func resolveCharmURL1dot16(url string, conf *config.Config) (*charm.URL, error) {
+	ref, series, err := charm.ParseReference(url)
+	if err != nil {
+		return nil, err
+	}
+
+	if series == "" {
+		series = config.PreferredSeries(conf)
+	}
+	return &charm.URL{Reference: ref, Series: series}, err
 }
