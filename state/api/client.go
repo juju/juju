@@ -4,13 +4,17 @@
 package api
 
 import (
-	"encoding/base64"
+	"bufio"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"github.com/juju/loggo"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -708,46 +712,81 @@ func (c *Client) EnsureAvailability(numStateServers int, cons constraints.Value,
 	return c.call("EnsureAvailability", args, nil)
 }
 
+// Allow overriding in tests.
+var dialDebugLog = func(config *websocket.Config) (io.ReadCloser, error) {
+	return websocket.DialConfig(config)
+}
+
+// Params for WatchDebugLog
+type DebugLogParams struct {
+	IncludeAgent  []string
+	IncludeModule []string
+	ExcludeAgent  []string
+	ExcludeModule []string
+	Limit         uint
+	Backlog       uint
+	Level         loggo.Level
+	Replay        bool
+}
+
 // WatchDebugLog returns a ClientDebugLog reading the debug log message.
 // The filter allows to grep wanted lines out of the output, e.g.
 // machines or units. The watching is started the given number of
 // matching lines back in history.
-func (c *Client) WatchDebugLog(lines int, filter string) (*ClientDebugLog, error) {
-	cfg := c.st.websocketConfig
+func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
 	// Prepare URL.
-	attrs := url.Values{
-		"lines":  {fmt.Sprintf("%d", lines)},
-		"filter": {filter},
+	attrs := url.Values{}
+	if args.Replay {
+		attrs["replay"] = []string{strconv.FormatBool(args.Replay)}
 	}
-	cfg.Location = &url.URL{
+	if args.Limit > 0 {
+		attrs["maxLines"] = []string{fmt.Sprint(args.Limit)}
+	}
+	if args.Backlog > 0 {
+		attrs["backlog"] = []string{fmt.Sprint(args.Backlog)}
+	}
+	if args.Level != loggo.UNSPECIFIED {
+		attrs["level"] = []string{fmt.Sprint(args.Level)}
+	}
+	addAttrIfNotEmpty := func(name string, arg []string) {
+		if len(arg) > 0 {
+			attrs[name] = arg
+		}
+	}
+	addAttrIfNotEmpty("includeAgent", args.IncludeAgent)
+	addAttrIfNotEmpty("includeModule", args.IncludeModule)
+	addAttrIfNotEmpty("excludeAgent", args.ExcludeAgent)
+	addAttrIfNotEmpty("excludeModule", args.ExcludeModule)
+
+	target := url.URL{
 		Scheme:   "wss",
 		Host:     c.st.addr,
 		Path:     "/log",
 		RawQuery: attrs.Encode(),
 	}
-	cfg.Header = http.Header{
-		"Authorization": {"Basic " + basicAuth(c.st.tag, c.st.password)},
-	}
-
-	wsConn, err := websocket.DialConfig(&cfg)
+	cfg, err := websocket.NewConfig(target.String(), "http://localhost/")
+	cfg.Header = utils.CreateBasicAuthHeader(c.st.tag, c.st.password)
+	cfg.TlsConfig = &tls.Config{RootCAs: c.st.certPool, ServerName: "anything"}
+	connection, err := dialDebugLog(cfg)
 	if err != nil {
 		return nil, err
 	}
-	return &ClientDebugLog{wsConn}, nil
-}
-
-// ClientDebugLog represents a stream of debug log messages.
-type ClientDebugLog struct {
-	*websocket.Conn
-}
-
-// basicAuth is copied from net/http.
-// See 2 (end of page 4) http://www.ietf.org/rfc/rfc2617.txt
-// "To receive authorization, the client sends the userid and password,
-// separated by a single colon (":") character, within a base64
-// encoded string in the credentials."
-// It is not meant to be urlencoded.
-func basicAuth(username, password string) string {
-	auth := username + ":" + password
-	return base64.StdEncoding.EncodeToString([]byte(auth))
+	// Read the initial error and translate to a real error.
+	scanner := bufio.NewScanner(connection)
+	if !scanner.Scan() {
+		err := scanner.Err()
+		if err != nil {
+			return nil, fmt.Errorf("unable to read initial response: %v", err)
+		}
+		return nil, fmt.Errorf("connection sent no data")
+	}
+	var errResult params.ErrorResult
+	err = json.Unmarshal(scanner.Bytes(), &errResult)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to unmarshal initial response: %v", err)
+	}
+	if errResult.Error != nil {
+		return nil, fmt.Errorf(errResult.Error.Message)
+	}
+	return connection, nil
 }

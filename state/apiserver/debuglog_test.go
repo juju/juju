@@ -7,7 +7,6 @@ import (
 	"bufio"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -22,6 +21,7 @@ import (
 
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils"
 )
 
 type debugLogSuite struct {
@@ -191,9 +191,7 @@ func (s *debugLogSuite) dialWebsocketInternal(c *gc.C, queryParams url.Values, h
 }
 
 func (s *debugLogSuite) dialWebsocket(c *gc.C, queryParams url.Values) (*websocket.Conn, error) {
-	header := http.Header{
-		"Authorization": {"Basic " + base64.StdEncoding.EncodeToString([]byte(s.userTag+":"+s.password))},
-	}
+	header := utils.CreateBasicAuthHeader(s.userTag, s.password)
 	return s.dialWebsocketInternal(c, queryParams, header)
 }
 

@@ -4,7 +4,10 @@
 package api_test
 
 import (
+	"bytes"
+	"code.google.com/p/go.net/websocket"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 
@@ -84,9 +87,46 @@ func (s *clientSuite) TestAddLocalCharm(c *gc.C) {
 	c.Assert(err, jc.Satisfies, params.IsCodeNotImplemented)
 }
 
-func (s *clientSuite) TestWatchDebugLog(c *gc.C) {
+func (s *clientSuite) TestWatchDebugLogConnected(c *gc.C) {
 	client := s.APIState.Client()
-	conn, err := client.WatchDebugLog(10, "")
-	c.Assert(err, gc.IsNil)
-	c.Assert(conn, gc.IsNil)
+	reader, err := client.WatchDebugLog(api.DebugLogParams{})
+	c.Assert(err, gc.ErrorMatches, "cannot open log file: .*")
+	c.Assert(reader, gc.IsNil)
+}
+
+func (s *clientSuite) TestConnectionErrorBadConnection(c *gc.C) {
+	s.PatchValue(api.DialDebugLog, func(_ *websocket.Config) (io.ReadCloser, error) {
+		return nil, fmt.Errorf("bad connection")
+	})
+	client := s.APIState.Client()
+	reader, err := client.WatchDebugLog(api.DebugLogParams{})
+	c.Assert(err, gc.ErrorMatches, "bad connection")
+	c.Assert(reader, gc.IsNil)
+}
+
+func (s *clientSuite) TestConnectionError(c *gc.C) {
+	s.PatchValue(api.DialDebugLog, func(_ *websocket.Config) (io.ReadCloser, error) {
+		return nil, fmt.Errorf("bad connection")
+	})
+	client := s.APIState.Client()
+	reader, err := client.WatchDebugLog(api.DebugLogParams{})
+	c.Assert(err, gc.ErrorMatches, "bad connection")
+	c.Assert(reader, gc.IsNil)
+}
+
+func (s *clientSuite) TestConnectionErrorNoData(c *gc.C) {
+	s.PatchValue(api.DialDebugLog, func(_ *websocket.Config) (io.ReadCloser, error) {
+		empty := bytes.Buffer{}
+		_ = empty
+		return nil, nil
+	})
+	client := s.APIState.Client()
+	reader, err := client.WatchDebugLog(api.DebugLogParams{})
+	c.Assert(err, gc.ErrorMatches, "connection sent no data")
+	c.Assert(reader, gc.IsNil)
+}
+
+type badReader struct {
+	io.ReadCloser
+	err string
 }
