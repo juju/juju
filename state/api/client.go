@@ -719,9 +719,9 @@ var dialDebugLog = func(config *websocket.Config) (io.ReadCloser, error) {
 
 // Params for WatchDebugLog
 type DebugLogParams struct {
-	IncludeAgent  []string
+	IncludeEntity []string
 	IncludeModule []string
-	ExcludeAgent  []string
+	ExcludeEntity []string
 	ExcludeModule []string
 	Limit         uint
 	Backlog       uint
@@ -753,9 +753,9 @@ func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
 			attrs[name] = arg
 		}
 	}
-	addAttrIfNotEmpty("includeAgent", args.IncludeAgent)
+	addAttrIfNotEmpty("includeEntity", args.IncludeEntity)
 	addAttrIfNotEmpty("includeModule", args.IncludeModule)
-	addAttrIfNotEmpty("excludeAgent", args.ExcludeAgent)
+	addAttrIfNotEmpty("excludeEntity", args.ExcludeEntity)
 	addAttrIfNotEmpty("excludeModule", args.ExcludeModule)
 
 	target := url.URL{
