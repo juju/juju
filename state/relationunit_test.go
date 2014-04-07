@@ -14,6 +14,7 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
@@ -774,8 +775,14 @@ func (s *WatchScopeSuite) TestPeer(c *gc.C) {
 	addUnit := func(i int) *state.RelationUnit {
 		unit, err := riak.AddUnit()
 		c.Assert(err, gc.IsNil)
-		err = unit.SetPrivateAddress(fmt.Sprintf("riak%d.example.com", i))
+		err = unit.AssignToNewMachine()
 		c.Assert(err, gc.IsNil)
+		mId, err := unit.AssignedMachineId()
+		c.Assert(err, gc.IsNil)
+		machine, err := s.State.Machine(mId)
+		c.Assert(err, gc.IsNil)
+		privateAddr := instance.NewAddress(fmt.Sprintf("riak%d.example.com", i), instance.NetworkCloudLocal)
+		machine.SetAddresses(privateAddr)
 		ru, err := rel.Unit(unit)
 		c.Assert(err, gc.IsNil)
 		c.Assert(ru.Endpoint(), gc.Equals, riakEP)

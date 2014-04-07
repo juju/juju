@@ -154,11 +154,13 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	curl, err := charm.InferURL(c.CharmName, conf.DefaultSeries())
+
+	curl, err := resolveCharmURL(c.CharmName, client, conf)
 	if err != nil {
 		return err
 	}
-	repo, err := charm.InferRepository(curl, ctx.AbsPath(c.RepoPath))
+
+	repo, err := charm.InferRepository(curl.Reference, ctx.AbsPath(c.RepoPath))
 	if err != nil {
 		return err
 	}
@@ -260,15 +262,16 @@ func (c *DeployCommand) run1dot16(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	curl, err := charm.InferURL(c.CharmName, conf.DefaultSeries())
-	if err != nil {
-		return err
-	}
-	repo, err := charm.InferRepository(curl, ctx.AbsPath(c.RepoPath))
+
+	curl, err := resolveCharmURL1dot16(c.CharmName, conf)
 	if err != nil {
 		return err
 	}
 
+	repo, err := charm.InferRepository(curl.Reference, c.RepoPath)
+	if err != nil {
+		return err
+	}
 	repo = config.SpecializeCharmRepo(repo, conf)
 
 	// TODO(fwereade) it's annoying to roundtrip the bytes through the client
