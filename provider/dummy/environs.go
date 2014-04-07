@@ -228,7 +228,7 @@ func Reset() {
 		s.destroy()
 	}
 	providerInstance.state = make(map[int]*environState)
-	if testing.MgoServer.Addr() != "" {
+	if mongoAlive() {
 		testing.MgoServer.Reset()
 	}
 	providerInstance.statePolicy = environs.NewStatePolicy()
@@ -240,19 +240,27 @@ func (state *environState) destroy() {
 		return
 	}
 	if state.apiServer != nil {
-		if err := state.apiServer.Stop(); err != nil {
+		if err := state.apiServer.Stop(); err != nil && mongoAlive() {
 			panic(err)
 		}
 		state.apiServer = nil
-		if err := state.apiState.Close(); err != nil {
+		if err := state.apiState.Close(); err != nil && mongoAlive() {
 			panic(err)
 		}
 		state.apiState = nil
 	}
-	if testing.MgoServer.Addr() != "" {
+	if mongoAlive() {
 		testing.MgoServer.Reset()
 	}
 	state.bootstrapped = false
+}
+
+// mongoAlive reports whether the mongo server is
+// still alive (i.e. has not been deliberately destroyed).
+// If it has been deliberately destroyed, we will
+// expect some errors when closing things down.
+func mongoAlive() bool {
+	return testing.MgoServer.Addr() != ""
 }
 
 // GetStateInAPIServer returns the state connection used by the API server
@@ -501,6 +509,7 @@ var errBroken = errors.New("broken environment")
 
 // Override for testing - the data directory with which the state api server is initialised.
 var DataDir = ""
+var LogDir = ""
 
 func (e *environ) ecfg() *environConfig {
 	e.ecfgMutex.Lock()
@@ -545,7 +554,7 @@ func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 }
 
 func (e *environ) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
-	selectedTools, err := common.EnsureBootstrapTools(ctx, e, e.Config().DefaultSeries(), cons.Arch)
+	selectedTools, err := common.EnsureBootstrapTools(ctx, e, config.PreferredSeries(e.Config()), cons.Arch)
 	if err != nil {
 		return err
 	}
@@ -607,7 +616,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, cons constraints.Valu
 		if err != nil {
 			panic(err)
 		}
-		estate.apiServer, err = apiserver.NewServer(st, "localhost:0", []byte(testing.ServerCert), []byte(testing.ServerKey), DataDir)
+		estate.apiServer, err = apiserver.NewServer(st, "localhost:0", []byte(testing.ServerCert), []byte(testing.ServerKey), DataDir, LogDir)
 		if err != nil {
 			panic(err)
 		}

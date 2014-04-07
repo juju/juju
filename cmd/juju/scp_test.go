@@ -104,6 +104,8 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 	srv = s.AddTestingService(c, "mongodb", dummyCharm)
 	s.addUnit(srv, m[1], c)
 	s.addUnit(srv, m[2], c)
+	srv = s.AddTestingService(c, "ipv6-svc", dummyCharm)
+	s.addUnit(srv, m[3], c)
 	// Simulate machine 3 has a public IPv6 address.
 	ipv6Addr := instance.Address{
 		Value:        "2001:db8::",
@@ -112,8 +114,6 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 	}
 	err = m[3].SetAddresses(ipv6Addr)
 	c.Assert(err, gc.IsNil)
-	srv = s.AddTestingService(c, "ipv6-svc", dummyCharm)
-	s.addUnit(srv, m[3], c)
 
 	for i, t := range scpTests {
 		c.Logf("test %d: %s -> %s\n", i, t.about, t.args)

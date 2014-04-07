@@ -844,23 +844,28 @@ func IsNotProvisionedError(err error) bool {
 	return ok
 }
 
+func mergedAddresses(machineAddresses, providerAddresses []address) []instance.Address {
+	merged := make(map[string]instance.Address)
+	for _, address := range machineAddresses {
+		merged[address.Value] = address.InstanceAddress()
+	}
+	for _, address := range providerAddresses {
+		merged[address.Value] = address.InstanceAddress()
+	}
+	addresses := make([]instance.Address, 0, len(merged))
+	for _, address := range merged {
+		addresses = append(addresses, address)
+	}
+	return addresses
+}
+
 // Addresses returns any hostnames and ips associated with a machine,
 // determined both by the machine itself, and by asking the provider.
 //
 // The addresses returned by the provider shadow any of the addresses
 // that the machine reported with the same address value.
 func (m *Machine) Addresses() (addresses []instance.Address) {
-	merged := make(map[string]instance.Address)
-	for _, address := range m.doc.MachineAddresses {
-		merged[address.Value] = address.InstanceAddress()
-	}
-	for _, address := range m.doc.Addresses {
-		merged[address.Value] = address.InstanceAddress()
-	}
-	for _, address := range merged {
-		addresses = append(addresses, address)
-	}
-	return
+	return mergedAddresses(m.doc.MachineAddresses, m.doc.Addresses)
 }
 
 // SetAddresses records any addresses related to the machine, sourced

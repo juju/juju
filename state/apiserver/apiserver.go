@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	"crypto/tls"
+	"fmt"
 	"net"
 	"net/http"
 	"sync"
@@ -19,9 +20,14 @@ import (
 	"launchpad.net/juju-core/rpc/jsoncodec"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/apiserver/common"
+	"launchpad.net/juju-core/utils"
 )
 
 var logger = loggo.GetLogger("juju.state.apiserver")
+
+// loginRateLimit defines how many concurrent Login requests we will
+// accept
+const loginRateLimit = 10
 
 // Server holds the server side of the API.
 type Server struct {
@@ -30,12 +36,14 @@ type Server struct {
 	state   *state.State
 	addr    net.Addr
 	dataDir string
+	logDir  string
+	limiter utils.Limiter
 }
 
 // Serve serves the given state by accepting requests on the given
 // listener, using the given certificate and key (in PEM format) for
 // authentication.
-func NewServer(s *state.State, addr string, cert, key []byte, datadir string) (*Server, error) {
+func NewServer(s *state.State, addr string, cert, key []byte, datadir, logDir string) (*Server, error) {
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, err
@@ -49,6 +57,8 @@ func NewServer(s *state.State, addr string, cert, key []byte, datadir string) (*
 		state:   s,
 		addr:    lis.Addr(),
 		dataDir: datadir,
+		logDir:  logDir,
+		limiter: utils.NewLimiter(loginRateLimit),
 	}
 	// TODO(rog) check that *srvRoot is a valid type for using
 	// as an RPC server.
@@ -150,16 +160,24 @@ func (srv *Server) run(lis net.Listener) {
 		lis.Close()
 		srv.wg.Done()
 	}()
+	srv.wg.Add(1)
+	go func() {
+		err := srv.mongoPinger()
+		srv.tomb.Kill(err)
+		srv.wg.Done()
+	}()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", srv.apiHandler)
-	charmHandler := &charmsHandler{httpHandler: httpHandler{state: srv.state}, dataDir: srv.dataDir}
-	// charmHandler itself provides the errorSender implementation for the embedded httpHandler.
-	charmHandler.httpHandler.errorSender = charmHandler
-	mux.Handle("/charms", charmHandler)
-	toolsHandler := &toolsHandler{httpHandler{state: srv.state}}
-	// toolsHandler itself provides the errorSender implementation for the embedded httpHandler.
-	toolsHandler.httpHandler.errorSender = toolsHandler
-	mux.Handle("/tools", toolsHandler)
+	mux.Handle("/log",
+		&debugLogHandler{
+			httpHandler: httpHandler{state: srv.state},
+			logDir:      srv.logDir})
+	mux.Handle("/charms",
+		&charmsHandler{
+			httpHandler: httpHandler{state: srv.state},
+			dataDir:     srv.dataDir})
+	mux.Handle("/tools",
+		&toolsHandler{httpHandler{state: srv.state}})
 	// The error from http.Serve is not interesting.
 	http.Serve(lis, mux)
 }
@@ -204,13 +222,30 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifie
 		notifier = reqNotifier
 	}
 	conn := rpc.NewConn(codec, notifier)
-	conn.Serve(newStateServer(srv, conn, reqNotifier), serverError)
+	conn.Serve(newStateServer(srv, conn, reqNotifier, srv.limiter), serverError)
 	conn.Start()
 	select {
 	case <-conn.Dead():
 	case <-srv.tomb.Dying():
 	}
 	return conn.Close()
+}
+
+func (srv *Server) mongoPinger() error {
+	timer := time.NewTimer(0)
+	session := srv.state.MongoSession()
+	for {
+		select {
+		case <-timer.C:
+		case <-srv.tomb.Dying():
+			return tomb.ErrDying
+		}
+		if err := session.Ping(); err != nil {
+			logger.Infof("got error pinging mongo: %v", err)
+			return fmt.Errorf("error pinging mongo: %v", err)
+		}
+		timer.Reset(mongoPingInterval)
+	}
 }
 
 func serverError(err error) error {
