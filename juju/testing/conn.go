@@ -60,6 +60,7 @@ type JujuConnSuite struct {
 	ConfigStore  configstore.Storage
 	BackingState *state.State // The State being used by the API server
 	RootDir      string       // The faked-up root directory.
+	LogDir       string
 	oldHome      string
 	oldJujuHome  string
 	environ      environs.Environ
@@ -211,8 +212,10 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	// sanity check we've got the correct environment.
 	c.Assert(environ.Name(), gc.Equals, "dummyenv")
 	s.PatchValue(&dummy.DataDir, s.DataDir())
+	s.LogDir = c.MkDir()
+	s.PatchValue(&dummy.LogDir, s.LogDir)
 
-	versions := PreferredDefaultVersions(environ.Config(), version.Current)
+	versions := PreferredDefaultVersions(environ.Config(), version.Binary{Number: version.Current.Number, Series: "precise", Arch: "amd64"})
 	versions = append(versions, version.Current)
 
 	// Upload tools for both preferred and fake default series
@@ -256,16 +259,24 @@ type GetStater interface {
 }
 
 func (s *JujuConnSuite) tearDownConn(c *gc.C) {
+	serverAlive := testing.MgoServer.Addr() != ""
+
 	// Bootstrap will set the admin password, and render non-authorized use
 	// impossible. s.State may still hold the right password, so try to reset
 	// the password so that the MgoSuite soft-resetting works. If that fails,
 	// it will still work, but it will take a while since it has to kill the
 	// whole database and start over.
-	if err := s.State.SetAdminMongoPassword(""); err != nil {
+	if err := s.State.SetAdminMongoPassword(""); err != nil && serverAlive {
 		c.Logf("cannot reset admin password: %v", err)
 	}
-	c.Assert(s.Conn.Close(), gc.IsNil)
-	c.Assert(s.APIConn.Close(), gc.IsNil)
+	err := s.Conn.Close()
+	if serverAlive {
+		c.Assert(err, gc.IsNil)
+	}
+	err = s.APIConn.Close()
+	if serverAlive {
+		c.Assert(err, gc.IsNil)
+	}
 	dummy.Reset()
 	s.Conn = nil
 	s.State = nil

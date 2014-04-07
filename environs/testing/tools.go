@@ -160,7 +160,7 @@ func MustUploadFakeToolsVersions(stor storage.Storage, versions ...version.Binar
 }
 
 func uploadFakeTools(stor storage.Storage) error {
-	versions := []version.Binary{version.Current}
+	versions := []version.Binary{version.Current, version.Binary{Number: version.Current.Number, Series: "precise", Arch: "amd64"}}
 	toolsVersion := version.Current
 	latestLts := coretesting.FakeDefaultSeries
 	if toolsVersion.Series != latestLts {
@@ -381,7 +381,7 @@ var BootstrapToolsTests = []BootstrapToolsTest{
 		Available:     VAll,
 		CliVersion:    V100p64,
 		DefaultSeries: "precise",
-		Arch:          "arm",
+		Arch:          "armhf",
 		Err:           noToolsMessage,
 	}, {
 		Info:          "released cli: specific bad major 1",

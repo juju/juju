@@ -425,7 +425,7 @@ func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error
 	if err != nil {
 		return err
 	}
-	inst, metadata, err := task.broker.StartInstance(environs.StartInstanceParams{
+	inst, metadata, _, err := task.broker.StartInstance(environs.StartInstanceParams{
 		Constraints:       cons,
 		Tools:             possibleTools,
 		MachineConfig:     machineConfig,
@@ -491,7 +491,7 @@ func (task *provisionerTask) machineConfig(machine *apiprovisioner.Machine) (*cl
 	if err != nil {
 		return nil, err
 	}
-	includeNetworks, excludeNetworks, err := machine.Networks()
+	includeNetworks, excludeNetworks, err := machine.RequestedNetworks()
 	if err != nil {
 		return nil, err
 	}

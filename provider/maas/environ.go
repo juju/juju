@@ -330,7 +330,7 @@ func linkBridgeInInterfaces() string {
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error) {
 
 	var inst *maasInstance
 	var err error
@@ -340,7 +340,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (in
 		args.MachineConfig.ExcludeNetworks,
 		args.Tools)
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot run instances: %v", err)
+		return nil, nil, nil, fmt.Errorf("cannot run instances: %v", err)
 	} else {
 		inst = &maasInstance{maasObject: &node, environ: environ}
 		args.MachineConfig.Tools = tools
@@ -355,10 +355,10 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (in
 
 	hostname, err := inst.DNSName()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	if err := environs.FinishMachineConfig(args.MachineConfig, environ.Config(), args.Constraints); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	// TODO(thumper): 2013-08-28 bug 1217614
 	// The machine envronment config values are being moved to the agent config.
@@ -366,22 +366,22 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (in
 	args.MachineConfig.AgentEnvironment[agent.LxcBridge] = "br0"
 	cloudcfg, err := newCloudinitConfig(hostname)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	userdata, err := environs.ComposeUserData(args.MachineConfig, cloudcfg)
 	if err != nil {
 		msg := fmt.Errorf("could not compose userdata for bootstrap node: %v", err)
-		return nil, nil, msg
+		return nil, nil, nil, msg
 	}
 	logger.Debugf("maas user data; %d bytes", len(userdata))
 
 	series := args.Tools.OneSeries()
 	if err := environ.startNode(*inst.maasObject, series, userdata); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	logger.Debugf("started instance %q", inst.Id())
 	// TODO(bug 1193998) - return instance hardware characteristics as well
-	return inst, nil, nil
+	return inst, nil, nil, nil
 }
 
 // newCloudinitConfig creates a cloudinit.Config structure
