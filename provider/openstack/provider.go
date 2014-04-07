@@ -275,6 +275,9 @@ func retryGet(uri string) (data []byte, err error) {
 }
 
 type environ struct {
+	common.NopPrecheckerPolicy
+	common.SupportsUnitPlacementPolicy
+
 	name string
 
 	// archMutex gates access to supportedArchitectures
@@ -744,6 +747,10 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 
 // StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
+
+	if args.MachineConfig.HasNetworks() {
+		return nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
+	}
 
 	series := args.Tools.OneSeries()
 	arches := args.Tools.Arches()
@@ -1229,7 +1236,7 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 		return nil, err
 	}
 	return &simplestreams.MetadataLookupParams{
-		Series:        e.ecfg().DefaultSeries(),
+		Series:        config.PreferredSeries(e.ecfg()),
 		Region:        cloudSpec.Region,
 		Endpoint:      cloudSpec.Endpoint,
 		Architectures: arch.AllSupportedArches,

@@ -781,7 +781,7 @@ func (s *WatchScopeSuite) TestPeer(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		machine, err := s.State.Machine(mId)
 		c.Assert(err, gc.IsNil)
-		privateAddr := instance.NewAddressWithScope(fmt.Sprintf("riak%d.example.com", i), instance.NetworkCloudLocal)
+		privateAddr := instance.NewAddress(fmt.Sprintf("riak%d.example.com", i), instance.NetworkCloudLocal)
 		machine.SetAddresses(privateAddr)
 		ru, err := rel.Unit(unit)
 		c.Assert(err, gc.IsNil)

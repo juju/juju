@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
@@ -56,7 +57,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
-	err = s.machine.SetAddresses(instance.NewAddress("0.1.2.3"))
+	err = s.machine.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
 	c.Assert(err, gc.IsNil)
 
 	// Create the provisioner API facade.
@@ -246,6 +247,52 @@ func (s *provisionerSuite) TestSeries(c *gc.C) {
 	c.Assert(series, gc.Equals, "quantal")
 }
 
+func (s *provisionerSuite) TestDistributionGroup(c *gc.C) {
+	apiMachine, err := s.provisioner.Machine(s.machine.Tag())
+	c.Assert(err, gc.IsNil)
+	instances, err := apiMachine.DistributionGroup()
+	c.Assert(err, gc.IsNil)
+	c.Assert(instances, gc.DeepEquals, []instance.Id{"i-manager"})
+
+	machine1, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	apiMachine, err = s.provisioner.Machine(machine1.Tag())
+	c.Assert(err, gc.IsNil)
+	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+
+	err = apiMachine.SetProvisioned("i-d", "fake", nil)
+	c.Assert(err, gc.IsNil)
+	instances, err = apiMachine.DistributionGroup()
+	c.Assert(err, gc.IsNil)
+	c.Assert(instances, gc.HasLen, 0) // no units assigned
+
+	var unitNames []string
+	for i := 0; i < 3; i++ {
+		unit, err := wordpress.AddUnit()
+		c.Assert(err, gc.IsNil)
+		unitNames = append(unitNames, unit.Name())
+		err = unit.AssignToMachine(machine1)
+		c.Assert(err, gc.IsNil)
+		instances, err := apiMachine.DistributionGroup()
+		c.Assert(err, gc.IsNil)
+		c.Assert(instances, gc.DeepEquals, []instance.Id{"i-d"})
+	}
+}
+
+func (s *provisionerSuite) TestDistributionGroupMachineNotFound(c *gc.C) {
+	stateMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	apiMachine, err := s.provisioner.Machine(stateMachine.Tag())
+	c.Assert(err, gc.IsNil)
+	err = apiMachine.EnsureDead()
+	c.Assert(err, gc.IsNil)
+	err = apiMachine.Remove()
+	c.Assert(err, gc.IsNil)
+	_, err = apiMachine.DistributionGroup()
+	c.Assert(err, gc.ErrorMatches, "machine 1 not found")
+	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
+}
+
 func (s *provisionerSuite) TestConstraints(c *gc.C) {
 	// Create a fresh machine with some constraints.
 	template := state.MachineTemplate{
@@ -268,6 +315,124 @@ func (s *provisionerSuite) TestConstraints(c *gc.C) {
 	cons, err = apiMachine.Constraints()
 	c.Assert(err, gc.IsNil)
 	c.Assert(cons, gc.DeepEquals, constraints.Value{})
+}
+
+func (s *provisionerSuite) TestRequestedNetworks(c *gc.C) {
+	// Create a fresh machine with some requested networks.
+	template := state.MachineTemplate{
+		Series:          "quantal",
+		Jobs:            []state.MachineJob{state.JobHostUnits},
+		IncludeNetworks: []string{"net1", "net2"},
+		ExcludeNetworks: []string{"net3", "net4"},
+	}
+	netsMachine, err := s.State.AddOneMachine(template)
+	c.Assert(err, gc.IsNil)
+
+	apiMachine, err := s.provisioner.Machine(netsMachine.Tag())
+	c.Assert(err, gc.IsNil)
+	includeNetworks, excludeNetworks, err := apiMachine.RequestedNetworks()
+	c.Assert(err, gc.IsNil)
+	c.Assert(includeNetworks, gc.DeepEquals, template.IncludeNetworks)
+	c.Assert(excludeNetworks, gc.DeepEquals, template.ExcludeNetworks)
+
+	// Now try machine 0.
+	apiMachine, err = s.provisioner.Machine(s.machine.Tag())
+	c.Assert(err, gc.IsNil)
+	includeNetworks, excludeNetworks, err = apiMachine.RequestedNetworks()
+	c.Assert(err, gc.IsNil)
+	c.Assert(includeNetworks, gc.HasLen, 0)
+	c.Assert(excludeNetworks, gc.HasLen, 0)
+}
+
+func (s *provisionerSuite) TestAddNetworks(c *gc.C) {
+	args := []params.NetworkParams{
+		{Name: "vlan42", CIDR: "0.1.2.0/24", VLANTag: 42},
+		{Name: "net1", CIDR: "0.2.1.0/24", VLANTag: 0},
+	}
+	err := s.provisioner.AddNetworks(args)
+	c.Assert(err, gc.IsNil)
+
+	assertNetwork := func(name string, expectParams params.NetworkParams) {
+		net, err := s.State.Network(name)
+		c.Assert(err, gc.IsNil)
+		c.Check(net.CIDR(), gc.Equals, expectParams.CIDR)
+		c.Check(net.Name(), gc.Equals, expectParams.Name)
+		c.Check(net.VLANTag(), gc.Equals, expectParams.VLANTag)
+	}
+	assertNetwork("vlan42", args[0])
+	assertNetwork("net1", args[1])
+
+	// Test the first error is returned.
+	args = []params.NetworkParams{
+		{Name: "net2", CIDR: "0.2.2.0/24", VLANTag: 0},
+		{Name: "", CIDR: "0.1.2.0/24", VLANTag: 0},
+		{Name: "net2", CIDR: "0.2.2.0/24", VLANTag: -1},
+	}
+	err = s.provisioner.AddNetworks(args)
+	c.Assert(err, gc.ErrorMatches, `cannot add network "": name must be not empty`)
+
+	assertNetwork("net2", args[0])
+}
+
+func (s *provisionerSuite) addMachineAndNetworks(c *gc.C) (*state.Machine, *provisioner.Machine) {
+	err := s.provisioner.AddNetworks([]params.NetworkParams{
+		{Name: "vlan42", CIDR: "0.1.2.0/24", VLANTag: 42},
+		{Name: "net1", CIDR: "0.2.1.0/24", VLANTag: 0},
+	})
+	c.Assert(err, gc.IsNil)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	apiMachine, err := s.provisioner.Machine(machine.Tag())
+	c.Assert(err, gc.IsNil)
+	return machine, apiMachine
+}
+
+func (s *provisionerSuite) TestMachineAddNetworkInterfaces(c *gc.C) {
+	machine, apiMachine := s.addMachineAndNetworks(c)
+
+	args := []params.NetworkInterfaceParams{
+		{"aa:bb:cc:dd:ee:f0", machine.Tag(), "eth0", "net1"},
+		{"aa:bb:cc:dd:ee:f1", "", "eth0", "net1"},             // tag filled in when empty
+		{"aa:bb:cc:dd:ee:f2", "machine-42", "eth2", "vlan42"}, // tag overwritten
+	}
+	err := apiMachine.AddNetworkInterfaces(args)
+	c.Assert(err, gc.IsNil)
+
+	// Check the interfaces are there.
+	ifaces, err := machine.NetworkInterfaces()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ifaces, gc.HasLen, len(args))
+	actual := make([]params.NetworkInterfaceParams, len(args))
+	for i, iface := range ifaces {
+		actual[i] = params.NetworkInterfaceParams{
+			MACAddress:    iface.MACAddress(),
+			MachineTag:    names.MachineTag(iface.MachineId()),
+			InterfaceName: iface.InterfaceName(),
+			NetworkName:   iface.NetworkName(),
+		}
+	}
+	c.Assert(actual, jc.SameContents, args)
+}
+
+func (s *provisionerSuite) TestMachineAddNetworkInterfacesReportsFirstError(c *gc.C) {
+	machine, apiMachine := s.addMachineAndNetworks(c)
+
+	// Ensure only the first error is reported.
+	args := []params.NetworkInterfaceParams{
+		{"aa:bb:cc:dd:ee:f3", "", "eth3", "net1"},
+		{"aa:bb:cc:dd:ee:f4", "", "eth0", "missing"},
+		{"invalid", "", "eth42", "net1"},
+	}
+	err := apiMachine.AddNetworkInterfaces(args)
+	c.Assert(err, gc.ErrorMatches, `cannot add network interface to machine 1: network "missing" not found`)
+
+	ifaces, err := machine.NetworkInterfaces()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ifaces, gc.HasLen, 1)
+	c.Assert(ifaces[0].MachineId(), gc.Equals, machine.Id())
+	c.Assert(ifaces[0].MACAddress(), gc.Equals, args[0].MACAddress)
+	c.Assert(ifaces[0].InterfaceName(), gc.Equals, args[0].InterfaceName)
+	c.Assert(ifaces[0].NetworkName(), gc.Equals, args[0].NetworkName)
 }
 
 func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
@@ -367,7 +532,7 @@ func (s *provisionerSuite) TestWatchEnvironMachines(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestStateAddresses(c *gc.C) {
-	err := s.machine.SetAddresses(instance.NewAddress("0.1.2.3"))
+	err := s.machine.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
 	c.Assert(err, gc.IsNil)
 
 	stateAddresses, err := s.State.Addresses()

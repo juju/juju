@@ -119,6 +119,12 @@ func (task *provisionerTask) loop() error {
 	// see all legitimate instances as unknown.
 	var safeModeChan chan bool
 
+	// Not all provisioners have a retry channel.
+	var retryChan <-chan struct{}
+	if task.retryWatcher != nil {
+		retryChan = task.retryWatcher.Changes()
+	}
+
 	// When the watcher is started, it will have the initial changes be all
 	// the machines that are relevant. Also, since this is available straight
 	// away, we know there will be some changes right off the bat.
@@ -149,7 +155,7 @@ func (task *provisionerTask) loop() error {
 					return fmt.Errorf("failed to process machines after safe mode disabled: %v", err)
 				}
 			}
-		case <-task.retryWatcher.Changes():
+		case <-retryChan:
 			if err := task.processMachinesWithTransientErrors(); err != nil {
 				return fmt.Errorf("failed to process machines with transient errors: %v", err)
 			}
@@ -420,9 +426,10 @@ func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error
 		return err
 	}
 	inst, metadata, err := task.broker.StartInstance(environs.StartInstanceParams{
-		Constraints:   cons,
-		Tools:         possibleTools,
-		MachineConfig: machineConfig,
+		Constraints:       cons,
+		Tools:             possibleTools,
+		MachineConfig:     machineConfig,
+		DistributionGroup: machine.DistributionGroup,
 	})
 	if err != nil {
 		// Set the state to error, so the machine will be skipped next
@@ -484,7 +491,11 @@ func (task *provisionerTask) machineConfig(machine *apiprovisioner.Machine) (*cl
 	if err != nil {
 		return nil, err
 	}
+	includeNetworks, excludeNetworks, err := machine.RequestedNetworks()
+	if err != nil {
+		return nil, err
+	}
 	nonce := fmt.Sprintf("%s:%s", task.machineTag, uuid.String())
-	machineConfig := environs.NewMachineConfig(machine.Id(), nonce, stateInfo, apiInfo)
+	machineConfig := environs.NewMachineConfig(machine.Id(), nonce, includeNetworks, excludeNetworks, stateInfo, apiInfo)
 	return machineConfig, nil
 }

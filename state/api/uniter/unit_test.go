@@ -201,7 +201,7 @@ func (s *unitSuite) TestPublicAddress(c *gc.C) {
 	address, err := s.apiUnit.PublicAddress()
 	c.Assert(err, gc.ErrorMatches, `"unit-wordpress-0" has no public address set`)
 
-	err = s.wordpressMachine.SetAddresses(instance.NewAddressWithScope("1.2.3.4", instance.NetworkPublic))
+	err = s.wordpressMachine.SetAddresses(instance.NewAddress("1.2.3.4", instance.NetworkPublic))
 	c.Assert(err, gc.IsNil)
 
 	address, err = s.apiUnit.PublicAddress()
@@ -213,7 +213,7 @@ func (s *unitSuite) TestPrivateAddress(c *gc.C) {
 	address, err := s.apiUnit.PrivateAddress()
 	c.Assert(err, gc.ErrorMatches, `"unit-wordpress-0" has no private address set`)
 
-	err = s.wordpressMachine.SetAddresses(instance.NewAddressWithScope("1.2.3.4", instance.NetworkCloudLocal))
+	err = s.wordpressMachine.SetAddresses(instance.NewAddress("1.2.3.4", instance.NetworkCloudLocal))
 	c.Assert(err, gc.IsNil)
 
 	address, err = s.apiUnit.PrivateAddress()

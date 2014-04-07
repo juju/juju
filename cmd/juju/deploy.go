@@ -13,6 +13,7 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -24,7 +25,7 @@ import (
 )
 
 type DeployCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	UnitCommandBase
 	CharmName       string
 	ServiceName     string
@@ -109,6 +110,10 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *DeployCommand) Init(args []string) error {
+	err := c.EnvCommandBase.Init()
+	if err != nil {
+		return err
+	}
 	switch len(args) {
 	case 2:
 		if !names.IsService(args[1]) {
@@ -149,11 +154,13 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	curl, err := charm.InferURL(c.CharmName, conf.DefaultSeries())
+
+	curl, err := resolveCharmURL(c.CharmName, client, conf)
 	if err != nil {
 		return err
 	}
-	repo, err := charm.InferRepository(curl, ctx.AbsPath(c.RepoPath))
+
+	repo, err := charm.InferRepository(curl.Reference, ctx.AbsPath(c.RepoPath))
 	if err != nil {
 		return err
 	}
@@ -255,15 +262,16 @@ func (c *DeployCommand) run1dot16(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	curl, err := charm.InferURL(c.CharmName, conf.DefaultSeries())
-	if err != nil {
-		return err
-	}
-	repo, err := charm.InferRepository(curl, ctx.AbsPath(c.RepoPath))
+
+	curl, err := resolveCharmURL1dot16(c.CharmName, conf)
 	if err != nil {
 		return err
 	}
 
+	repo, err := charm.InferRepository(curl.Reference, c.RepoPath)
+	if err != nil {
+		return err
+	}
 	repo = config.SpecializeCharmRepo(repo, conf)
 
 	// TODO(fwereade) it's annoying to roundtrip the bytes through the client

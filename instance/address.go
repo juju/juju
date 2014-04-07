@@ -93,7 +93,7 @@ func (a Address) String() string {
 // NewAddresses is a convenience function to create addresses from a string slice
 func NewAddresses(inAddresses ...string) (outAddresses []Address) {
 	for _, address := range inAddresses {
-		outAddresses = append(outAddresses, NewAddress(address))
+		outAddresses = append(outAddresses, NewAddress(address, NetworkUnknown))
 	}
 	return outAddresses
 }
@@ -113,16 +113,12 @@ func DeriveAddressType(value string) AddressType {
 	return HostName
 }
 
-// NewAddress returns a new Address with value.
-func NewAddress(value string) Address {
-	addresstype := DeriveAddressType(value)
-	return Address{value, addresstype, "", NetworkUnknown}
-}
-
-// NewAddressWithScope returns a new Address with value and the specifed network scope.
-func NewAddressWithScope(value string, scope NetworkScope) Address {
-	addresstype := DeriveAddressType(value)
-	return Address{value, addresstype, "", scope}
+func NewAddress(value string, scope NetworkScope) Address {
+	return Address{
+		Value:        value,
+		Type:         DeriveAddressType(value),
+		NetworkScope: scope,
+	}
 }
 
 // netLookupIP is a var for testing.
@@ -134,7 +130,7 @@ var netLookupIP = net.LookupIP
 // The argument passed in is always added ast the final
 // address in the resulting slice.
 func HostAddresses(host string) (addrs []Address, err error) {
-	hostAddr := NewAddress(host)
+	hostAddr := NewAddress(host, NetworkUnknown)
 	if hostAddr.Type != HostName {
 		// IPs shouldn't be fed into LookupIP.
 		return []Address{hostAddr}, nil

@@ -47,6 +47,9 @@ var shortAttempt = utils.AttemptStrategy{
 }
 
 type maasEnviron struct {
+	common.NopPrecheckerPolicy
+	common.SupportsUnitPlacementPolicy
+
 	name string
 
 	// archMutex gates access to supportedArchitectures
@@ -249,25 +252,25 @@ func convertConstraints(cons constraints.Value) url.Values {
 
 // addNetworks converts networks include/exclude information into
 // url.Values object suitable to pass to MAAS when acquiring a node.
-func addNetworks(params url.Values, nets environs.Networks) {
+func addNetworks(params url.Values, includeNetworks, excludeNetworks []string) {
 	// Network Inclusion/Exclusion setup
-	if nets.IncludeNetworks != nil {
-		for _, network_name := range nets.IncludeNetworks {
-			params.Add("networks", network_name)
+	if len(includeNetworks) > 0 {
+		for _, name := range includeNetworks {
+			params.Add("networks", name)
 		}
 	}
-	if nets.ExcludeNetworks != nil {
-		for _, not_network_name := range nets.ExcludeNetworks {
-			params.Add("not_networks", not_network_name)
+	if len(excludeNetworks) > 0 {
+		for _, name := range excludeNetworks {
+			params.Add("not_networks", name)
 		}
 	}
 
 }
 
 // acquireNode allocates a node from the MAAS.
-func (environ *maasEnviron) acquireNode(cons constraints.Value, nets environs.Networks, possibleTools tools.List) (gomaasapi.MAASObject, *tools.Tools, error) {
+func (environ *maasEnviron) acquireNode(cons constraints.Value, includeNetworks, excludeNetworks []string, possibleTools tools.List) (gomaasapi.MAASObject, *tools.Tools, error) {
 	acquireParams := convertConstraints(cons)
-	addNetworks(acquireParams, nets)
+	addNetworks(acquireParams, includeNetworks, excludeNetworks)
 	acquireParams.Add("agent_name", environ.ecfg().maasAgentName())
 	var result gomaasapi.JSONObject
 	var err error
@@ -331,7 +334,12 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (in
 
 	var inst *maasInstance
 	var err error
-	if node, tools, err := environ.acquireNode(args.Constraints, args.Networks, args.Tools); err != nil {
+	node, tools, err := environ.acquireNode(
+		args.Constraints,
+		args.MachineConfig.IncludeNetworks,
+		args.MachineConfig.ExcludeNetworks,
+		args.Tools)
+	if err != nil {
 		return nil, nil, fmt.Errorf("cannot run instances: %v", err)
 	} else {
 		inst = &maasInstance{maasObject: &node, environ: environ}
@@ -540,4 +548,61 @@ func (e *maasEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket.
 	return []simplestreams.DataSource{
 		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseToolsPath)}, nil
+}
+
+type MAASNetworkDetails struct {
+	Name        string
+	Ip          string
+	NetworkMask string
+	VlanTag     string
+	Description string
+}
+
+// GetNetworksList returns a list of strings which contain networks for a gien maas node instance.
+func (e *maasEnviron) GetNetworksList(inst instance.Instance) ([]MAASNetworkDetails, error) {
+	maasInst := inst.(*maasInstance)
+	maasObj := maasInst.maasObject
+	networksClient := e.getMAASClient().GetSubObject("networks")
+	system_id, err := maasObj.GetField("system_id")
+	if err != nil {
+		return nil, err
+	}
+	params := url.Values{"node": {system_id}}
+	json, err := networksClient.CallGet("", params)
+	if err != nil {
+		return nil, err
+	}
+	jsonNets, err := json.GetArray()
+	if err != nil {
+		return nil, err
+	}
+	var attributeError error
+	getField := func(maasNet *gomaasapi.MAASObject, name string) (val string) {
+		if attributeError != nil {
+			return
+		}
+		val, attributeError = maasNet.GetField(name)
+		if attributeError != nil {
+			attributeError = fmt.Errorf("cannot get %q: %v", name, attributeError)
+		}
+		return val
+	}
+	networks := make([]MAASNetworkDetails, len(jsonNets))
+	for i, jsonNet := range jsonNets {
+		maasNet, err := jsonNet.GetMAASObject()
+		if err != nil {
+			return nil, err
+		}
+		networks[i] = MAASNetworkDetails{
+			Name:        getField(&maasNet, "name"),
+			Ip:          getField(&maasNet, "ip"),
+			NetworkMask: getField(&maasNet, "netmask"),
+			VlanTag:     getField(&maasNet, "vlan_tag"),
+			Description: getField(&maasNet, "description"),
+		}
+	}
+	if attributeError != nil {
+		return nil, attributeError
+	}
+	return networks, attributeError
 }

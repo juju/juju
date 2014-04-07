@@ -320,7 +320,7 @@ func (s *uniterSuite) TestPublicAddress(c *gc.C) {
 	})
 
 	// Now set it an try again.
-	err = s.machine0.SetAddresses(instance.NewAddressWithScope("1.2.3.4", instance.NetworkPublic))
+	err = s.machine0.SetAddresses(instance.NewAddress("1.2.3.4", instance.NetworkPublic))
 	c.Assert(err, gc.IsNil)
 	address, ok := s.wordpressUnit.PublicAddress()
 	c.Assert(address, gc.Equals, "1.2.3.4")
@@ -358,7 +358,7 @@ func (s *uniterSuite) TestPrivateAddress(c *gc.C) {
 	})
 
 	// Now set it and try again.
-	err = s.machine0.SetAddresses(instance.NewAddressWithScope("1.2.3.4", instance.NetworkCloudLocal))
+	err = s.machine0.SetAddresses(instance.NewAddress("1.2.3.4", instance.NetworkCloudLocal))
 	c.Assert(err, gc.IsNil)
 	address, ok := s.wordpressUnit.PrivateAddress()
 	c.Assert(address, gc.Equals, "1.2.3.4")
@@ -951,7 +951,7 @@ func (s *uniterSuite) assertInScope(c *gc.C, relUnit *state.RelationUnit, inScop
 
 func (s *uniterSuite) TestEnterScope(c *gc.C) {
 	// Set wordpressUnit's private address first.
-	err := s.machine0.SetAddresses(instance.NewAddressWithScope("1.2.3.4", instance.NetworkCloudLocal))
+	err := s.machine0.SetAddresses(instance.NewAddress("1.2.3.4", instance.NetworkCloudLocal))
 	c.Assert(err, gc.IsNil)
 
 	rel := s.addRelation(c, "wordpress", "mysql")
@@ -1364,7 +1364,7 @@ func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 }
 
 func (s *uniterSuite) TestAPIAddresses(c *gc.C) {
-	err := s.machine0.SetAddresses(instance.NewAddress("0.1.2.3"))
+	err := s.machine0.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
 	c.Assert(err, gc.IsNil)
 	apiAddresses, err := s.State.APIAddressesFromMachines()
 	c.Assert(err, gc.IsNil)

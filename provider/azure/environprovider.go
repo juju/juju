@@ -39,6 +39,14 @@ func (prov azureEnvironProvider) Open(cfg *config.Config) (environs.Environ, err
 
 // Prepare is specified in the EnvironProvider interface.
 func (prov azureEnvironProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	// TODO prepare environment as necessary
+	// Set availability-sets-enabled to true
+	// by default, unless the user set a value.
+	if _, ok := cfg.AllAttrs()["availability-sets-enabled"]; !ok {
+		var err error
+		cfg, err = cfg.Apply(map[string]interface{}{"availability-sets-enabled": true})
+		if err != nil {
+			return nil, err
+		}
+	}
 	return prov.Open(cfg)
 }

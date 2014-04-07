@@ -4,8 +4,11 @@
 package zip_test
 
 import (
+	stdzip "archive/zip"
 	"bytes"
+	"fmt"
 	"io/ioutil"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
@@ -13,23 +16,50 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	ft "launchpad.net/juju-core/testing/filetesting"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils/zip"
 )
 
 type ZipSuite struct {
-	BaseSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&ZipSuite{})
 
+func (s *ZipSuite) makeZip(c *gc.C, entries ...ft.Entry) *stdzip.Reader {
+	basePath := c.MkDir()
+	for _, entry := range entries {
+		entry.Create(c, basePath)
+	}
+	defer os.RemoveAll(basePath)
+
+	outPath := filepath.Join(c.MkDir(), "test.zip")
+	cmd := exec.Command("/bin/sh", "-c", fmt.Sprintf("cd %q; zip --fifo --symlinks -r %q .", basePath, outPath))
+	output, err := cmd.CombinedOutput()
+	c.Assert(err, gc.IsNil, gc.Commentf("Command output: %s", output))
+
+	file, err := os.Open(outPath)
+	c.Assert(err, gc.IsNil)
+	s.AddCleanup(func(c *gc.C) {
+		err := file.Close()
+		c.Assert(err, gc.IsNil)
+	})
+	fileInfo, err := file.Stat()
+	c.Assert(err, gc.IsNil)
+	reader, err := stdzip.NewReader(file, fileInfo.Size())
+	c.Assert(err, gc.IsNil)
+	return reader
+}
+
 func (s *ZipSuite) TestFind(c *gc.C) {
 	reader := s.makeZip(c,
-		file{"some-file", "", 0644},
-		file{"another-file", "", 0644},
-		symlink{"some-symlink", "some-file"},
-		dir{"some-dir", 0755},
-		dir{"some-dir/another-dir", 0755},
-		file{"some-dir/another-file", "", 0644},
+		ft.File{"some-file", "", 0644},
+		ft.File{"another-file", "", 0644},
+		ft.Symlink{"some-symlink", "some-file"},
+		ft.Dir{"some-dir", 0755},
+		ft.Dir{"some-dir/another-dir", 0755},
+		ft.File{"some-dir/another-file", "", 0644},
 	)
 
 	for i, test := range []struct {
@@ -84,101 +114,101 @@ func (s *ZipSuite) TestFind(c *gc.C) {
 }
 
 func (s *ZipSuite) TestFindError(c *gc.C) {
-	reader := s.makeZip(c, file{"some-file", "", 0644})
+	reader := s.makeZip(c, ft.File{"some-file", "", 0644})
 	_, err := zip.Find(reader, "[]")
 	c.Assert(err, gc.ErrorMatches, "syntax error in pattern")
 }
 
 func (s *ZipSuite) TestExtractAll(c *gc.C) {
-	creators := []creator{
-		file{"some-file", "content 1", 0644},
-		file{"another-file", "content 2", 0640},
-		symlink{"some-symlink", "some-file"},
-		dir{"some-dir", 0750},
-		file{"some-dir/another-file", "content 3", 0644},
-		dir{"some-dir/another-dir", 0755},
-		symlink{"some-dir/another-dir/another-symlink", "../../another-file"},
+	entries := []ft.Entry{
+		ft.File{"some-file", "content 1", 0644},
+		ft.File{"another-file", "content 2", 0640},
+		ft.Symlink{"some-symlink", "some-file"},
+		ft.Dir{"some-dir", 0750},
+		ft.File{"some-dir/another-file", "content 3", 0644},
+		ft.Dir{"some-dir/another-dir", 0755},
+		ft.Symlink{"some-dir/another-dir/another-symlink", "../../another-file"},
 	}
-	reader := s.makeZip(c, creators...)
+	reader := s.makeZip(c, entries...)
 	targetPath := c.MkDir()
 	err := zip.ExtractAll(reader, targetPath)
 	c.Assert(err, gc.IsNil)
-	for i, creator := range creators {
-		c.Logf("test %d: %#v", i, creator)
-		creator.check(c, targetPath)
+	for i, entry := range entries {
+		c.Logf("test %d: %#v", i, entry)
+		entry.Check(c, targetPath)
 	}
 }
 
 func (s *ZipSuite) TestExtractAllOverwriteFiles(c *gc.C) {
 	name := "some-file"
-	for i, test := range []creator{
-		file{name, "content", 0644},
-		dir{name, 0751},
-		symlink{name, "wherever"},
+	for i, test := range []ft.Entry{
+		ft.File{name, "content", 0644},
+		ft.Dir{name, 0751},
+		ft.Symlink{name, "wherever"},
 	} {
 		c.Logf("test %d: %#v", i, test)
 		targetPath := c.MkDir()
-		file{name, "original", 0}.create(c, targetPath)
+		ft.File{name, "original", 0}.Create(c, targetPath)
 		reader := s.makeZip(c, test)
 		err := zip.ExtractAll(reader, targetPath)
 		c.Check(err, gc.IsNil)
-		test.check(c, targetPath)
+		test.Check(c, targetPath)
 	}
 }
 
 func (s *ZipSuite) TestExtractAllOverwriteSymlinks(c *gc.C) {
 	name := "some-symlink"
-	for i, test := range []creator{
-		file{name, "content", 0644},
-		dir{name, 0751},
-		symlink{name, "wherever"},
+	for i, test := range []ft.Entry{
+		ft.File{name, "content", 0644},
+		ft.Dir{name, 0751},
+		ft.Symlink{name, "wherever"},
 	} {
 		c.Logf("test %d: %#v", i, test)
 		targetPath := c.MkDir()
-		original := file{"original", "content", 0644}
-		original.create(c, targetPath)
-		symlink{name, "original"}.create(c, targetPath)
+		original := ft.File{"original", "content", 0644}
+		original.Create(c, targetPath)
+		ft.Symlink{name, "original"}.Create(c, targetPath)
 		reader := s.makeZip(c, test)
 		err := zip.ExtractAll(reader, targetPath)
 		c.Check(err, gc.IsNil)
-		test.check(c, targetPath)
-		original.check(c, targetPath)
+		test.Check(c, targetPath)
+		original.Check(c, targetPath)
 	}
 }
 
 func (s *ZipSuite) TestExtractAllOverwriteDirs(c *gc.C) {
 	name := "some-dir"
-	for i, test := range []creator{
-		file{name, "content", 0644},
-		dir{name, 0751},
-		symlink{name, "wherever"},
+	for i, test := range []ft.Entry{
+		ft.File{name, "content", 0644},
+		ft.Dir{name, 0751},
+		ft.Symlink{name, "wherever"},
 	} {
 		c.Logf("test %d: %#v", i, test)
 		targetPath := c.MkDir()
-		dir{name, 0}.create(c, targetPath)
+		ft.Dir{name, 0}.Create(c, targetPath)
 		reader := s.makeZip(c, test)
 		err := zip.ExtractAll(reader, targetPath)
 		c.Check(err, gc.IsNil)
-		test.check(c, targetPath)
+		test.Check(c, targetPath)
 	}
 }
 
 func (s *ZipSuite) TestExtractAllMergeDirs(c *gc.C) {
 	targetPath := c.MkDir()
-	dir{"dir", 0755}.create(c, targetPath)
-	originals := []creator{
-		dir{"dir/original-dir", 0751},
-		file{"dir/original-file", "content 1", 0600},
-		symlink{"dir/original-symlink", "original-file"},
+	ft.Dir{"dir", 0755}.Create(c, targetPath)
+	originals := []ft.Entry{
+		ft.Dir{"dir/original-dir", 0751},
+		ft.File{"dir/original-file", "content 1", 0600},
+		ft.Symlink{"dir/original-symlink", "original-file"},
 	}
-	for _, creator := range originals {
-		creator.create(c, targetPath)
+	for _, entry := range originals {
+		entry.Create(c, targetPath)
 	}
-	merges := []creator{
-		dir{"dir", 0751},
-		dir{"dir/merge-dir", 0750},
-		file{"dir/merge-file", "content 2", 0640},
-		symlink{"dir/merge-symlink", "merge-file"},
+	merges := []ft.Entry{
+		ft.Dir{"dir", 0751},
+		ft.Dir{"dir/merge-dir", 0750},
+		ft.File{"dir/merge-file", "content 2", 0640},
+		ft.Symlink{"dir/merge-symlink", "merge-file"},
 	}
 	reader := s.makeZip(c, merges...)
 	err := zip.ExtractAll(reader, targetPath)
@@ -186,28 +216,28 @@ func (s *ZipSuite) TestExtractAllMergeDirs(c *gc.C) {
 
 	for i, test := range append(originals, merges...) {
 		c.Logf("test %d: %#v", i, test)
-		test.check(c, targetPath)
+		test.Check(c, targetPath)
 	}
 }
 
 func (s *ZipSuite) TestExtractAllSymlinkErrors(c *gc.C) {
 	for i, test := range []struct {
-		content []creator
+		content []ft.Entry
 		error   string
 	}{{
-		content: []creator{
-			symlink{"symlink", "/blah"},
+		content: []ft.Entry{
+			ft.Symlink{"symlink", "/blah"},
 		},
 		error: `cannot extract "symlink": symlink "/blah" is absolute`,
 	}, {
-		content: []creator{
-			symlink{"symlink", "../blah"},
+		content: []ft.Entry{
+			ft.Symlink{"symlink", "../blah"},
 		},
 		error: `cannot extract "symlink": symlink "../blah" leads out of scope`,
 	}, {
-		content: []creator{
-			dir{"dir", 0755},
-			symlink{"dir/symlink", "../../blah"},
+		content: []ft.Entry{
+			ft.Dir{"dir", 0755},
+			ft.Symlink{"dir/symlink", "../../blah"},
 		},
 		error: `cannot extract "dir/symlink": symlink "../../blah" leads out of scope`,
 	}} {
@@ -221,30 +251,30 @@ func (s *ZipSuite) TestExtractAllSymlinkErrors(c *gc.C) {
 
 func (s *ZipSuite) TestExtractDir(c *gc.C) {
 	reader := s.makeZip(c,
-		file{"bad-file", "xxx", 0644},
-		dir{"bad-dir", 0755},
-		symlink{"bad-symlink", "bad-file"},
-		dir{"some-dir", 0751},
-		file{"some-dir-bad-lol", "xxx", 0644},
-		file{"some-dir/some-file", "content 1", 0644},
-		file{"some-dir/another-file", "content 2", 0600},
-		dir{"some-dir/another-dir", 0750},
-		symlink{"some-dir/another-dir/some-symlink", "../some-file"},
+		ft.File{"bad-file", "xxx", 0644},
+		ft.Dir{"bad-dir", 0755},
+		ft.Symlink{"bad-symlink", "bad-file"},
+		ft.Dir{"some-dir", 0751},
+		ft.File{"some-dir-bad-lol", "xxx", 0644},
+		ft.File{"some-dir/some-file", "content 1", 0644},
+		ft.File{"some-dir/another-file", "content 2", 0600},
+		ft.Dir{"some-dir/another-dir", 0750},
+		ft.Symlink{"some-dir/another-dir/some-symlink", "../some-file"},
 	)
 	targetParent := c.MkDir()
 	targetPath := filepath.Join(targetParent, "random-dir")
 	err := zip.Extract(reader, targetPath, "some-dir")
 	c.Assert(err, gc.IsNil)
 
-	for i, test := range []creator{
-		dir{"random-dir", 0751},
-		file{"random-dir/some-file", "content 1", 0644},
-		file{"random-dir/another-file", "content 2", 0600},
-		dir{"random-dir/another-dir", 0750},
-		symlink{"random-dir/another-dir/some-symlink", "../some-file"},
+	for i, test := range []ft.Entry{
+		ft.Dir{"random-dir", 0751},
+		ft.File{"random-dir/some-file", "content 1", 0644},
+		ft.File{"random-dir/another-file", "content 2", 0600},
+		ft.Dir{"random-dir/another-dir", 0750},
+		ft.Symlink{"random-dir/another-dir/some-symlink", "../some-file"},
 	} {
 		c.Logf("test %d: %#v", i, test)
-		test.check(c, targetParent)
+		test.Check(c, targetParent)
 	}
 
 	fileInfos, err := ioutil.ReadDir(targetParent)
@@ -258,10 +288,10 @@ func (s *ZipSuite) TestExtractDir(c *gc.C) {
 
 func (s *ZipSuite) TestExtractSingleFile(c *gc.C) {
 	reader := s.makeZip(c,
-		dir{"dir", 0755},
-		dir{"dir/dir", 0755},
-		file{"dir/dir/some-file", "content 1", 0644},
-		file{"dir/dir/some-file-wtf", "content 2", 0644},
+		ft.Dir{"dir", 0755},
+		ft.Dir{"dir/dir", 0755},
+		ft.File{"dir/dir/some-file", "content 1", 0644},
+		ft.File{"dir/dir/some-file-wtf", "content 2", 0644},
 	)
 	targetParent := c.MkDir()
 	targetPath := filepath.Join(targetParent, "just-the-one-file")
@@ -270,11 +300,11 @@ func (s *ZipSuite) TestExtractSingleFile(c *gc.C) {
 	fileInfos, err := ioutil.ReadDir(targetParent)
 	c.Check(err, gc.IsNil)
 	c.Check(fileInfos, gc.HasLen, 1)
-	file{"just-the-one-file", "content 1", 0644}.check(c, targetParent)
+	ft.File{"just-the-one-file", "content 1", 0644}.Check(c, targetParent)
 }
 
 func (s *ZipSuite) TestClosesFile(c *gc.C) {
-	reader := s.makeZip(c, file{"f", "echo hullo!", 0755})
+	reader := s.makeZip(c, ft.File{"f", "echo hullo!", 0755})
 	targetPath := c.MkDir()
 	err := zip.ExtractAll(reader, targetPath)
 	c.Assert(err, gc.IsNil)
@@ -288,26 +318,26 @@ func (s *ZipSuite) TestClosesFile(c *gc.C) {
 
 func (s *ZipSuite) TestExtractSymlinkErrors(c *gc.C) {
 	for i, test := range []struct {
-		content []creator
+		content []ft.Entry
 		source  string
 		error   string
 	}{{
-		content: []creator{
-			dir{"dir", 0755},
-			symlink{"dir/symlink", "/blah"},
+		content: []ft.Entry{
+			ft.Dir{"dir", 0755},
+			ft.Symlink{"dir/symlink", "/blah"},
 		},
 		source: "dir",
 		error:  `cannot extract "dir/symlink": symlink "/blah" is absolute`,
 	}, {
-		content: []creator{
-			dir{"dir", 0755},
-			symlink{"dir/symlink", "../blah"},
+		content: []ft.Entry{
+			ft.Dir{"dir", 0755},
+			ft.Symlink{"dir/symlink", "../blah"},
 		},
 		source: "dir",
 		error:  `cannot extract "dir/symlink": symlink "../blah" leads out of scope`,
 	}, {
-		content: []creator{
-			symlink{"symlink", "blah"},
+		content: []ft.Entry{
+			ft.Symlink{"symlink", "blah"},
 		},
 		source: "symlink",
 		error:  `cannot extract "symlink": symlink "blah" leads out of scope`,
@@ -321,7 +351,7 @@ func (s *ZipSuite) TestExtractSymlinkErrors(c *gc.C) {
 }
 
 func (s *ZipSuite) TestExtractSourceError(c *gc.C) {
-	reader := s.makeZip(c, dir{"dir", 0755})
+	reader := s.makeZip(c, ft.Dir{"dir", 0755})
 	err := zip.Extract(reader, c.MkDir(), "../lol")
 	c.Assert(err, gc.ErrorMatches, `cannot extract files rooted at "../lol"`)
 }

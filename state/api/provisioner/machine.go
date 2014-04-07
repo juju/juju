@@ -55,6 +55,53 @@ func (m *Machine) Refresh() error {
 	return nil
 }
 
+// RequestedNetworks returns a pair of lists of networks to
+// enable/disable on the machine.
+func (m *Machine) RequestedNetworks() (includeNetworks, excludeNetworks []string, err error) {
+	var results params.NetworksResults
+	args := params.Entities{Entities: []params.Entity{{m.tag}}}
+	err = m.st.call("RequestedNetworks", args, &results)
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, nil, result.Error
+	}
+	return result.IncludeNetworks, result.ExcludeNetworks, nil
+}
+
+// AddNetworkInterfaces creates one or more network interfaces each on
+// an existing network and bound to the machine, which must not be
+// provisioned yet. MachineTag inside interfaces params is always set
+// to the current machine's tag. If any operation fails, the first
+// error is returned.
+func (m *Machine) AddNetworkInterfaces(interfaces []params.NetworkInterfaceParams) error {
+	var results params.ErrorResults
+	for i, _ := range interfaces {
+		if interfaces[i].MachineTag != m.tag {
+			interfaces[i].MachineTag = m.tag
+		}
+	}
+	args := params.AddNetworkInterfaceParams{Interfaces: interfaces}
+	err := m.st.call("AddNetworkInterface", args, &results)
+	if err != nil {
+		return err
+	}
+	if n := len(results.Results); n != len(interfaces) {
+		return fmt.Errorf("expected %d result(s), got %d", len(interfaces), n)
+	}
+	for _, result := range results.Results {
+		if err := result.Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // SetStatus sets the status of the machine.
 func (m *Machine) SetStatus(status params.Status, info string, data params.StatusData) error {
 	var result params.ErrorResults
@@ -159,6 +206,29 @@ func (m *Machine) Series() (string, error) {
 	result := results.Results[0]
 	if result.Error != nil {
 		return "", result.Error
+	}
+	return result.Result, nil
+}
+
+// DistributionGroup returns a slice of instance.Ids
+// that belong to the same distribution group as this
+// Machine. The provisioner may use this information
+// to distribute instances for high availability.
+func (m *Machine) DistributionGroup() ([]instance.Id, error) {
+	var results params.DistributionGroupResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: m.tag}},
+	}
+	err := m.st.caller.Call("Provisioner", "", "DistributionGroup", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
 	}
 	return result.Result, nil
 }

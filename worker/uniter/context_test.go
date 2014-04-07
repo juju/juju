@@ -614,7 +614,7 @@ func (s *InterfaceSuite) TestUnitCaching(c *gc.C) {
 
 	// Change remote state.
 	err := s.machine.SetAddresses(
-		instance.NewAddressWithScope("blah.testing.invalid", instance.NetworkPublic))
+		instance.NewAddress("blah.testing.invalid", instance.NetworkPublic))
 	c.Assert(err, gc.IsNil)
 
 	// Local view is unchanged.
@@ -692,7 +692,7 @@ func (s *HookContextSuite) AddUnit(c *gc.C, svc *state.Service) *state.Unit {
 	err = unit.AssignToMachine(s.machine)
 	c.Assert(err, gc.IsNil)
 	name := strings.Replace(unit.Name(), "/", "-", 1)
-	privateAddr := instance.NewAddressWithScope(name+".testing.invalid", instance.NetworkCloudLocal)
+	privateAddr := instance.NewAddress(name+".testing.invalid", instance.NetworkCloudLocal)
 	err = s.machine.SetAddresses(privateAddr)
 	c.Assert(err, gc.IsNil)
 	return unit

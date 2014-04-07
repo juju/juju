@@ -185,3 +185,16 @@ func (*fileSuite) TestAtomicWriteFile(c *gc.C) {
 		c.Assert(os.Remove(path), gc.IsNil)
 	}
 }
+
+func (*fileSuite) TestIsNotExist(c *gc.C) {
+	dir := c.MkDir()
+	path := func(s string) string { return filepath.Join(dir, s) }
+	err := ioutil.WriteFile(path("file"), []byte("blah"), 0644)
+	c.Assert(err, gc.IsNil)
+
+	_, err = os.Lstat(path("noexist"))
+	c.Assert(err, jc.Satisfies, utils.IsNotExist)
+
+	_, err = os.Lstat(path("file/parent-not-a-dir"))
+	c.Assert(err, jc.Satisfies, utils.IsNotExist)
+}

@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -563,8 +564,28 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 	return fmt.Errorf("machine %s cannot advance lifecycle: %v", m, ErrExcessiveContention)
 }
 
-// Remove removes the machine from state. It will fail if the machine is not
-// Dead.
+func (m *Machine) removeNetworkInterfacesOps() ([]txn.Op, error) {
+	var doc struct {
+		MACAddress string `bson:"_id"`
+	}
+	ops := []txn.Op{}
+	sel := bson.D{{"machineid", m.doc.Id}}
+	iter := m.st.networkInterfaces.Find(sel).Select(bson.D{{"_id", 1}}).Iter()
+	for iter.Next(&doc) {
+		ops = append(ops, txn.Op{
+			C:      m.st.networkInterfaces.Name,
+			Id:     doc.MACAddress,
+			Remove: true,
+		})
+	}
+	if err := iter.Err(); err != nil {
+		return nil, err
+	}
+	return ops, nil
+}
+
+// Remove removes the machine from state. It will fail if the machine
+// is not Dead.
 func (m *Machine) Remove() (err error) {
 	defer utils.ErrorContextf(&err, "cannot remove machine %s", m.doc.Id)
 	if m.doc.Life != Dead {
@@ -578,15 +599,25 @@ func (m *Machine) Remove() (err error) {
 			Remove: true,
 		},
 		{
+			C:      m.st.machines.Name,
+			Id:     m.doc.Id,
+			Assert: isDeadDoc,
+		},
+		{
 			C:      m.st.instanceData.Name,
 			Id:     m.doc.Id,
 			Remove: true,
 		},
 		removeStatusOp(m.st, m.globalKey()),
 		removeConstraintsOp(m.st, m.globalKey()),
-		removeNetworksOp(m.st, m.globalKey()),
+		removeRequestedNetworksOp(m.st, m.globalKey()),
 		annotationRemoveOp(m.st, m.globalKey()),
 	}
+	ifacesOps, err := m.removeNetworkInterfacesOps()
+	if err != nil {
+		return err
+	}
+	ops = append(ops, ifacesOps...)
 	ops = append(ops, removeContainerRefOps(m.st, m.Id())...)
 	// The only abort conditions in play indicate that the machine has already
 	// been removed.
@@ -813,23 +844,28 @@ func IsNotProvisionedError(err error) bool {
 	return ok
 }
 
+func mergedAddresses(machineAddresses, providerAddresses []address) []instance.Address {
+	merged := make(map[string]instance.Address)
+	for _, address := range machineAddresses {
+		merged[address.Value] = address.InstanceAddress()
+	}
+	for _, address := range providerAddresses {
+		merged[address.Value] = address.InstanceAddress()
+	}
+	addresses := make([]instance.Address, 0, len(merged))
+	for _, address := range merged {
+		addresses = append(addresses, address)
+	}
+	return addresses
+}
+
 // Addresses returns any hostnames and ips associated with a machine,
 // determined both by the machine itself, and by asking the provider.
 //
 // The addresses returned by the provider shadow any of the addresses
 // that the machine reported with the same address value.
 func (m *Machine) Addresses() (addresses []instance.Address) {
-	merged := make(map[string]instance.Address)
-	for _, address := range m.doc.MachineAddresses {
-		merged[address.Value] = address.InstanceAddress()
-	}
-	for _, address := range m.doc.Addresses {
-		merged[address.Value] = address.InstanceAddress()
-	}
-	for _, address := range merged {
-		addresses = append(addresses, address)
-	}
-	return
+	return mergedAddresses(m.doc.MachineAddresses, m.doc.Addresses)
 }
 
 // SetAddresses records any addresses related to the machine, sourced
@@ -881,10 +917,105 @@ func (m *Machine) SetMachineAddresses(addresses []instance.Address) (err error) 
 	return nil
 }
 
-// Networks returns the list of networks the machine should be on
-// (includeNetworks) or not (excludeNetworks).
-func (m *Machine) Networks() (includeNetworks, excludeNetworks []string, err error) {
-	return readNetworks(m.st, m.globalKey())
+// RequestedNetworks returns the list of networks the machine should
+// be on (includeNetworks) or not (excludeNetworks).
+func (m *Machine) RequestedNetworks() (includeNetworks, excludeNetworks []string, err error) {
+	return readRequestedNetworks(m.st, m.globalKey())
+}
+
+// Networks returns the list of configured networks on the machine.
+func (m *Machine) Networks() ([]*Network, error) {
+	includeNetworks, _, err := m.RequestedNetworks()
+	if err != nil {
+		return nil, err
+	}
+	docs := []networkDoc{}
+	sel := bson.D{{"_id", bson.D{{"$in", includeNetworks}}}}
+	err = m.st.networks.Find(sel).All(&docs)
+	if err != nil {
+		return nil, err
+	}
+	networks := make([]*Network, len(docs))
+	for i, doc := range docs {
+		networks[i] = newNetwork(m.st, &doc)
+	}
+	return networks, nil
+}
+
+// NetworkInterfaces returns the list of configured network interfaces
+// of the machine.
+func (m *Machine) NetworkInterfaces() ([]*NetworkInterface, error) {
+	docs := []networkInterfaceDoc{}
+	err := m.st.networkInterfaces.Find(bson.D{{"machineid", m.doc.Id}}).All(&docs)
+	if err != nil {
+		return nil, err
+	}
+	ifaces := make([]*NetworkInterface, len(docs))
+	for i, doc := range docs {
+		ifaces[i] = newNetworkInterface(m.st, &doc)
+	}
+	return ifaces, nil
+}
+
+// AddNetworkInterface creates a new network interface on the given
+// network for the machine. The machine must be alive and not yet
+// provisioned, and there must be no other interface with the same MAC
+// address for this to succeed.
+func (m *Machine) AddNetworkInterface(macAddress, name, networkName string) (iface *NetworkInterface, err error) {
+	defer utils.ErrorContextf(&err, "cannot add network interface to machine %s", m.doc.Id)
+
+	if _, err := net.ParseMAC(macAddress); err != nil {
+		return nil, err
+	}
+	if name == "" {
+		return nil, fmt.Errorf("interface name must be not empty")
+	}
+	aliveAndNotProvisioned := append(isAliveDoc, bson.D{{"nonce", ""}}...)
+	doc := &networkInterfaceDoc{
+		MACAddress:    macAddress,
+		InterfaceName: name,
+		NetworkName:   networkName,
+		MachineId:     m.doc.Id,
+	}
+	ops := []txn.Op{{
+		C:      m.st.networks.Name,
+		Id:     networkName,
+		Assert: txn.DocExists,
+	}, {
+		C:      m.st.machines.Name,
+		Id:     m.doc.Id,
+		Assert: aliveAndNotProvisioned,
+	}, {
+		C:      m.st.networkInterfaces.Name,
+		Id:     macAddress,
+		Assert: txn.DocMissing,
+		Insert: doc,
+	}}
+
+	for i := 0; i < 5; i++ {
+		err = m.st.runTransaction(ops)
+		switch err {
+		case txn.ErrAborted:
+			_, err = m.st.Network(networkName)
+			if err != nil {
+				return nil, err
+			}
+			if err = m.Refresh(); err != nil {
+				return nil, err
+			} else if m.doc.Life != Alive {
+				return nil, fmt.Errorf("machine is not alive")
+			} else if m.doc.Nonce != "" {
+				return nil, fmt.Errorf("machine already provisioned: dynamic network interfaces not currently supported")
+			}
+			// Network and machine both OK, so the other assert must have failed.
+			return nil, fmt.Errorf("interface with MAC address %q already exists", macAddress)
+		case nil:
+			return newNetworkInterface(m.st, doc), nil
+		default:
+			return nil, err
+		}
+	}
+	return nil, ErrExcessiveContention
 }
 
 // CheckProvisioned returns true if the machine was provisioned with the given nonce.
