@@ -215,7 +215,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.LogDir = c.MkDir()
 	s.PatchValue(&dummy.LogDir, s.LogDir)
 
-	versions := PreferredDefaultVersions(environ.Config(), version.Current)
+	versions := PreferredDefaultVersions(environ.Config(), version.Binary{Number: version.Current.Number, Series: "precise", Arch: "amd64"})
 	versions = append(versions, version.Current)
 
 	// Upload tools for both preferred and fake default series
