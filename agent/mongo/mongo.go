@@ -107,10 +107,11 @@ func MongodPath() (string, error) {
 // InitiateMongoParams holds parameters for the MaybeInitiateMongo call.
 type InitiateMongoParams struct {
 	// DialInfo specifies how to connect to the mongo server.
-	// If the replica set has not been initiated, the first
-	// address of DialInfo.Addrs is used as the address
-	// of the first replica set member.
 	DialInfo *mgo.DialInfo
+
+	// MemberHostPort provides the address to use for
+	// the first replica set member.
+	MemberHostPort string
 
 	// User holds the user to log as in to the mongo server.
 	// If it is empty, no login will take place.
@@ -142,16 +143,13 @@ func MaybeInitiateMongoServer(p InitiateMongoParams) error {
 			logger.Errorf("cannot login to admin db as %q, password %q, falling back: %v", p.User, p.Password, err)
 		}
 	}
-	_, err = replicaset.CurrentConfig(session)
-	if err == mgo.ErrNotFound {
-		err := replicaset.Initiate(session, p.DialInfo.Addrs[0], replicaSetName)
-		if err != nil {
-			return fmt.Errorf("cannot initiate replica set: %v", err)
-		}
-		return nil
-	}
-	if err != nil {
+	_, err = replicaset.CurrentConfig(session) 
+	if err != nil && err != mgo.ErrNotFound {
 		return fmt.Errorf("cannot get replica set configuration: %v", err)
+	}
+	err = replicaset.Initiate(session, p.MemberHostPort, replicaSetName)
+	if err != nil {
+		return fmt.Errorf("cannot initiate replica set: %v", err)
 	}
 	return nil
 }
@@ -164,7 +162,7 @@ func MaybeInitiateMongoServer(p InitiateMongoParams) error {
 func EnsureMongoServer(dataDir string, port int) error {
 	// TODO(natefinch): write out keyfile and shared secret
 
-	logger.Debugf("Ensuring mongo server is running; dataDir %s; port %d", dataDir, port)
+	logger.Infof("Ensuring mongo server is running; dataDir %s; port %d", dataDir, port)
 	dbDir := filepath.Join(dataDir, "db")
 	name := makeServiceName(mongoScriptVersion)
 
@@ -175,21 +173,27 @@ func EnsureMongoServer(dataDir string, port int) error {
 	if err != nil {
 		return err
 	}
+	if err := makeJournalDirs(dbDir); err != nil {
+		return fmt.Errorf("Error creating journal directories: %v", err)
+	}
 	if !service.Installed() {
-		if err := makeJournalDirs(dbDir); err != nil {
-			return fmt.Errorf("Error creating journal directories: %v", err)
-		}
+		logger.Infof("installing service")
 		logger.Debugf("mongod upstart command: %s", service.Cmd)
 		err = service.Install()
 		if err != nil {
 			return fmt.Errorf("failed to install mongo service %q: %v", service.Name, err)
 		}
+	} else {
+		logger.Infof("service already installed")
 	}
 	if !service.Running() {
+		logger.Infof("starting service")
 		if err := service.Start(); err != nil {
 			return fmt.Errorf("failed to start %q service: %v", name, err)
 		}
 		logger.Infof("Mongod service %q started.", name)
+	} else {
+		logger.Infof("service already started")
 	}
 	return nil
 }
