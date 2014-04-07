@@ -104,7 +104,10 @@ func (inst *MgoInstance) Start(ssl bool) error {
 	inst.dir = dbdir
 	inst.ssl = ssl
 	if err := inst.run(); err != nil {
+		inst.addr = ""
+		inst.port = 0
 		os.RemoveAll(inst.dir)
+		inst.dir = ""
 		return err
 	}
 	logger.Debugf("started mongod pid %d in %s on port %d", inst.server.Process.Pid, dbdir, inst.port)
