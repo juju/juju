@@ -110,7 +110,7 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 
 	initctl stop jujud-machine-0
 
-	initctl stop juju-db-v2
+	initctl stop juju-db
 	rm -r /var/lib/juju /var/log/juju
 	tar -C / -xvp -f juju-backup/root.tar
 	mkdir -p /var/lib/juju/db

@@ -51,7 +51,7 @@ remote_cmd() {
 		--db juju \
 		--collection settings \
 		--out environconfig.json
-	execute 'Starting mongo' start juju-db-v2
+	execute 'Starting mongo' start juju-db
 	trap - 0
 
 	next_step 'Copying Juju configuration'
@@ -68,7 +68,7 @@ remote_cmd() {
 	#   - /etc/rsyslog.d/*juju* config files for the agents (ignore any unit agents)
 	#  - Juju logs for machine 0 and all machines.
 	execute 'Archiving selected files' copy_files \
-		/etc/init/juju-db-v2.conf \
+		/etc/init/juju-db.conf \
 		/etc/init/jujud-machine-*.conf \
 		$LIBJUJU/agents/machine-* \
 		$LIBJUJU/tools \
