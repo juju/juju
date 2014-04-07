@@ -126,7 +126,7 @@ func (s *debugLogSuite) TestFilter(c *gc.C) {
 	s.ensureLogFile(c)
 
 	reader := s.openWebsocket(c, url.Values{
-		"includeAgent":  {"machine-0", "unit-ubuntu-0"},
+		"includeEntity": {"machine-0", "unit-ubuntu-0"},
 		"includeModule": {"juju.cmd"},
 		"excludeModule": {"juju.cmd.jujud"},
 	})
