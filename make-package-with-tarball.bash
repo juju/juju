@@ -119,7 +119,7 @@ make_binary_packages() {
     for series_release in $EXTRA_RELEASES; do
         this_series=$(echo "$series_release" | cut -d ':' -f1)
         this_release=$(echo "$series_release" | cut -d ':' -f2)
-        package_version="${VERSION}-0ubuntu1~ubuntu${this_release}.${PPATCH}"
+        package_version="${VERSION}-0ubuntu1~${this_release}.${PPATCH}~juju1"
         update_source_package_branch $package_version $this_series
         make_binary_package $package_version $this_series
     done
@@ -166,7 +166,7 @@ else
 fi
 RELEASE=$(cat $SCRIPT_DIR/supported-releases.txt |
     grep $SERIES | cut -d ' ' -f 1)
-UBUNTU_VERSION="${VERSION}-0ubuntu${RELEASE}.${PPATCH}~juju1"
+UBUNTU_VERSION="${VERSION}-0ubuntu1~${RELEASE}.${PPATCH}~juju1"
 
 TMP_DIR=$(mktemp -d --tmpdir=$HERE)
 PACKAGING_DIR="$TMP_DIR/packaging"
