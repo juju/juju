@@ -91,6 +91,10 @@ var errorTransformTests = []struct {
 	code:       params.CodeHasAssignedUnits,
 	helperFunc: params.IsCodeHasAssignedUnits,
 }, {
+	err:        common.ErrTryAgain,
+	code:       params.CodeTryAgain,
+	helperFunc: params.IsCodeTryAgain,
+}, {
 	err:  stderrors.New("an error"),
 	code: "",
 }, {

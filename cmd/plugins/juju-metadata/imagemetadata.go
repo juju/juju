@@ -97,7 +97,7 @@ func (c *ImageMetadataCommand) setParams(context *cmd.Context) error {
 			}
 			cfg := environ.Config()
 			if c.Series == "" {
-				c.Series = cfg.DefaultSeries()
+				c.Series = config.PreferredSeries(cfg)
 			}
 			if v, ok := cfg.AllAttrs()["control-bucket"]; ok {
 				c.privateStorage = v.(string)
@@ -110,7 +110,7 @@ func (c *ImageMetadataCommand) setParams(context *cmd.Context) error {
 		logger.Infof("no environment found, creating image metadata using user supplied data")
 	}
 	if c.Series == "" {
-		c.Series = config.DefaultSeries
+		c.Series = config.LatestLtsSeries()
 	}
 	if c.ImageId == "" {
 		return fmt.Errorf("image id must be specified")

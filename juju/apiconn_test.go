@@ -175,7 +175,7 @@ func (s *NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
 			"name":                      "myenv",
 			"state-server":              true,
 			"authorized-keys":           "i-am-a-key",
-			"default-series":            config.DefaultSeries,
+			"default-series":            config.LatestLtsSeries(),
 			"firewall-mode":             config.FwInstance,
 			"development":               false,
 			"ssl-hostname-verification": true,

@@ -35,25 +35,34 @@ type Tailer struct {
 	reader      *bufio.Reader
 	writeCloser io.WriteCloser
 	writer      *bufio.Writer
-	lines       int
+	lines       uint
 	filter      TailerFilterFunc
 	bufferSize  int
 	polltime    time.Duration
+	lookBack    bool
+}
+
+// NewTailerBacktrack starts a Tailer which reads strings from the passed
+// ReadSeeker line by line. If a filter function is specified the read
+// lines are filtered. The matching lines are written to the passed
+// Writer. The reading begins the specified number of matching lines
+// from the end.
+func NewTailerBacktrack(readSeeker io.ReadSeeker, writer io.Writer, lines uint, filter TailerFilterFunc) *Tailer {
+	return newTailer(readSeeker, writer, lines, filter, bufferSize, polltime, true)
 }
 
 // NewTailer starts a Tailer which reads strings from the passed
 // ReadSeeker line by line. If a filter function is specified the read
 // lines are filtered. The matching lines are written to the passed
-// Writer. The reading begins the specified number of matching lines
-// from the end.
-func NewTailer(readSeeker io.ReadSeeker, writer io.Writer, lines int, filter TailerFilterFunc) *Tailer {
-	return newTailer(readSeeker, writer, lines, filter, bufferSize, polltime)
+// Writer.
+func NewTailer(readSeeker io.ReadSeeker, writer io.Writer, filter TailerFilterFunc) *Tailer {
+	return newTailer(readSeeker, writer, 0, filter, bufferSize, polltime, false)
 }
 
 // newTailer starts a Tailer like NewTailer but allows the setting of
 // the read buffer size and the time between pollings for testing.
-func newTailer(readSeeker io.ReadSeeker, writer io.Writer, lines int, filter TailerFilterFunc,
-	bufferSize int, polltime time.Duration) *Tailer {
+func newTailer(readSeeker io.ReadSeeker, writer io.Writer, lines uint, filter TailerFilterFunc,
+	bufferSize int, polltime time.Duration, lookBack bool) *Tailer {
 	t := &Tailer{
 		readSeeker: readSeeker,
 		reader:     bufio.NewReaderSize(readSeeker, bufferSize),
@@ -62,6 +71,7 @@ func newTailer(readSeeker io.ReadSeeker, writer io.Writer, lines int, filter Tai
 		filter:     filter,
 		bufferSize: bufferSize,
 		polltime:   polltime,
+		lookBack:   lookBack,
 	}
 	go func() {
 		defer t.tomb.Done()
@@ -98,8 +108,10 @@ func (t *Tailer) Err() error {
 // writer too.
 func (t *Tailer) loop() error {
 	// Position the readSeeker.
-	if err := t.seekLastLines(); err != nil {
-		return err
+	if t.lookBack {
+		if err := t.seekLastLines(); err != nil {
+			return err
+		}
 	}
 	// Start polling.
 	// TODO(mue) 2013-12-06
@@ -139,8 +151,12 @@ func (t *Tailer) seekLastLines() error {
 	if err != nil {
 		return err
 	}
+	if t.lines == 0 {
+		// We are done, just seeking to the end is sufficient.
+		return nil
+	}
 	seekPos := int64(0)
-	found := 0
+	found := uint(0)
 	buffer := make([]byte, t.bufferSize)
 SeekLoop:
 	for offset > 0 {

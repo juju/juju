@@ -349,7 +349,7 @@ func (s *CommonProvisionerSuite) addMachine() (*state.Machine, error) {
 
 func (s *CommonProvisionerSuite) addMachineWithRequestedNetworks(includeNetworks, excludeNetworks []string) (*state.Machine, error) {
 	return s.BackingState.AddOneMachine(state.MachineTemplate{
-		Series:          config.DefaultSeries,
+		Series:          coretesting.FakeDefaultSeries,
 		Jobs:            []state.MachineJob{state.JobHostUnits},
 		Constraints:     s.defaultConstraints,
 		IncludeNetworks: includeNetworks,
@@ -442,7 +442,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForContainers(c *gc.C) {
 
 	// make a container on the machine we just created
 	template := state.MachineTemplate{
-		Series: config.DefaultSeries,
+		Series: coretesting.FakeDefaultSeries,
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideMachine(template, m.Id(), instance.LXC)

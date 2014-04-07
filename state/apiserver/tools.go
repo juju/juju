@@ -31,7 +31,7 @@ type toolsHandler struct {
 
 func (h *toolsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := h.authenticate(r); err != nil {
-		h.authError(w)
+		h.authError(w, h)
 		return
 	}
 
