@@ -449,7 +449,7 @@ func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeInst
 	assertSecurityGroups(c, env, []string{"default"})
 }
 
-func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeGlobabel(c *gc.C) {
+func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeGlobal(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
 		"firewall-mode": "global"}))
 	c.Assert(err, gc.IsNil)

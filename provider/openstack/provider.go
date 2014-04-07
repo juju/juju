@@ -876,11 +876,11 @@ func (e *environ) StopInstances(insts []instance.Instance) error {
 		}
 		ids[i] = instanceValue.Id()
 		openstackName := instanceValue.getServerDetail().Name
-		lastDash := strings.LastIndex(openstackName, "-")
-		if lastDash == -1 {
-			return fmt.Errorf("Cannot identify instance ID in openstack server name %q", openstackName)
+		lastDashPos := strings.LastIndex(openstackName, "-")
+		if lastDashPos == -1 {
+			return fmt.Errorf("cannot identify instance ID in openstack server name %q", openstackName)
 		}
-		securityGroupNames[i] = e.machineGroupName(openstackName[lastDash+1:])
+		securityGroupNames[i] = e.machineGroupName(openstackName[lastDashPos+1:])
 	}
 	logger.Debugf("terminating instances %v", ids)
 	err := e.terminateInstances(ids)
@@ -998,7 +998,7 @@ func (e *environ) Destroy() error {
 		if re.MatchString(group.Name) || group.Name == globalGroupName {
 			err = novaClient.DeleteSecurityGroup(group.Id)
 			if err != nil {
-				logger.Warningf("Cannot delete security group %q. Used by another environment?", group.Name)
+				logger.Warningf("cannot delete security group %q. Used by another environment?", group.Name)
 			}
 		}
 	}
@@ -1274,7 +1274,7 @@ func (e *environ) deleteSecurityGroups(securityGroupNames []string) error {
 			if securityGroup.Name == name {
 				err := novaclient.DeleteSecurityGroup(securityGroup.Id)
 				if err != nil {
-					logger.Warningf("Cannot delete security group %q. Used by another environment?", name)
+					logger.Warningf("cannot delete security group %q. Used by another environment?", name)
 				}
 				break
 			}
