@@ -579,9 +579,9 @@ func (suite *environSuite) TestExtractInterfaces(c *gc.C) {
 	interfaces, err := extractInterfaces(inst, lshwXML)
 	c.Assert(err, gc.IsNil)
 	c.Assert(interfaces, jc.DeepEquals, map[string]string{
-		"wlan0": "aa:bb:cc:dd:ee:ff",
-		"eth0":  "aa:bb:cc:dd:ee:f1",
-		"vnet1": "aa:bb:cc:dd:ee:f2",
+		"aa:bb:cc:dd:ee:ff": "wlan0",
+		"aa:bb:cc:dd:ee:f1": "eth0",
+		"aa:bb:cc:dd:ee:f2": "vnet1",
 	})
 }
 

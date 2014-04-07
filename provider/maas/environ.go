@@ -331,8 +331,8 @@ func linkBridgeInInterfaces() string {
 	return `sed -i "s/iface eth0 inet dhcp/source \/etc\/network\/eth0.config/" /etc/network/interfaces`
 }
 
-// getInstanceNetworkInterfaces returns a map of interface name to MAC
-// address for each network interface of the given instance, as
+// getInstanceNetworkInterfaces returns a map of interface MAC address
+// to name for each network interface of the given instance, as
 // discovered during the commissioning phase.
 func (environ *maasEnviron) getInstanceNetworkInterfaces(inst instance.Instance) (map[string]string, error) {
 	maasInst := inst.(*maasInstance)
@@ -362,6 +362,8 @@ func (environ *maasEnviron) getInstanceNetworkInterfaces(inst instance.Instance)
 	return extractInterfaces(inst, lshwXML)
 }
 
+// extractInterfaces parses the XML output of lswh and extracts all
+// network interfaces, returing a map MAC address to interface name.
 func extractInterfaces(inst instance.Instance, lshwXML []byte) (map[string]string, error) {
 	type Node struct {
 		Id          string `xml:"id,attr"`
@@ -382,7 +384,7 @@ func extractInterfaces(inst instance.Instance, lshwXML []byte) (map[string]strin
 	processNodes = func(nodes []Node) {
 		for _, node := range nodes {
 			if strings.HasPrefix(node.Id, "network") {
-				interfaces[node.LogicalName] = node.Serial
+				interfaces[node.Serial] = node.LogicalName
 			}
 			processNodes(node.Children)
 		}
