@@ -104,14 +104,11 @@ func (s *prereqsSuite) TestJujuLocalPrereq(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*juju-local must be installed to enable the local provider(.|\n)*")
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*apt-get install juju-local(.|\n)*")
 
-	s.PatchValue(&defaultJujuLocalPath, filepath.Join(s.tmpdir, "non-existent"))
 	os.Setenv("JUJUTEST_LSB_RELEASE_ID", "NotUbuntu")
 	err = VerifyPrerequisites(instance.LXC)
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*non-existent: no such file or directory(.|\n)*")
 	c.Assert(err, gc.Not(gc.ErrorMatches), "(.|\n)*apt-get install juju-local(.|\n)*")
 
-	err = ioutil.WriteFile(defaultJujuLocalPath, nil, 0644)
-	c.Assert(err, gc.IsNil)
 	err = VerifyPrerequisites(instance.LXC)
 	c.Assert(err, gc.IsNil)
 }

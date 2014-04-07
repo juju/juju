@@ -6,7 +6,6 @@ package local
 import (
 	"errors"
 	"fmt"
-	"os"
 	"os/exec"
 	"runtime"
 
@@ -32,11 +31,6 @@ juju-local must be installed to enable the local provider:
 
     sudo apt-get install juju-local`
 
-const installJujuLocalGeneric = `
-juju-local must be installed to enable the local provider.
-Please consult your operating system distribution's documentation
-for instructions on installing this package.`
-
 const installLxcGeneric = `
 Linux Containers (LXC) userspace tools must be installed to enable the
 local provider. Please consult your operating system distribution's
@@ -53,12 +47,6 @@ var lxclsPath = "lxc-ls"
 
 // isPackageInstalled is a variable to support testing.
 var isPackageInstalled = utils.IsPackageInstalled
-
-// defaultJujuLocalPath is the default path to the
-// rsyslog GnuTLS module. This is a variable only to
-// support unit testing.
-// I'm not sure what the path should be?
-var defaultJujuLocalPath = "/home/ubuntu/go/bin/juju-local"
 
 // The operating system the process is running in.
 // This is a variable only to support unit testing.
@@ -95,17 +83,7 @@ func verifyJujuLocal() error {
 	if isPackageInstalled("juju-local") {
 		return nil
 	}
-	if utils.IsUbuntu() {
-		return errors.New(installJujuLocalUbuntu)
-	}
-	// Not all Linuxes will distribute the module
-	// in the same way. Check if it's in the default
-	// location too.
-	_, err := os.Stat(defaultJujuLocalPath)
-	if err == nil {
-		return nil
-	}
-	return fmt.Errorf("%v\n%s", err, installJujuLocalGeneric)
+	return errors.New(installJujuLocalUbuntu)
 }
 
 func wrapLxcNotFound(err error) error {

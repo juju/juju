@@ -219,8 +219,9 @@ func AddAptCommands(proxy osenv.ProxySettings, c *cloudinit.Config) {
 	// juju requires git for managing charm directories.
 	c.AddPackage("git")
 	c.AddPackage("curl")
+	c.AddPackage("cpu-checker")
 	c.AddPackage("bridge-utils")
-	c.AddPackage("juju-local")
+	c.AddPackage("rsyslog-gnutls")
 
 	// Write out the apt proxy settings
 	if (proxy != osenv.ProxySettings{}) {

@@ -98,12 +98,12 @@ func (s *UpgradeSuite) keyFile() string {
 }
 
 func (s *UpgradeSuite) assertCommonUpgrades(c *gc.C) {
-	// juju-local should have been installed.
+	// rsyslog-gnutls should have been installed.
 	c.Assert(s.aptCmds, gc.HasLen, 1)
 	args := s.aptCmds[0].Args
 	c.Assert(len(args), jc.GreaterThan, 1)
 	c.Assert(args[0], gc.Equals, "apt-get")
-	c.Assert(args[len(args)-1], gc.Equals, "juju-local")
+	c.Assert(args[len(args)-1], gc.Equals, "rsyslog-gnutls")
 }
 
 func (s *UpgradeSuite) assertStateServerUpgrades(c *gc.C) {

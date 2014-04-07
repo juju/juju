@@ -44,8 +44,8 @@ You could try running 'kvm-ok' yourself as root to get the full rationale as to
 why it isn't supported, or potentially some BIOS settings to change to enable
 KVM support.`
 
-const neetToInstallKVMOk = `kvm-ok is not installed. Please install the juju-local package.
-    sudo apt-get install juju-local`
+const neetToInstallKVMOk = `kvm-ok is not installed. Please install the cpu-checker package.
+    sudo apt-get install cpu-ckecker`
 
 const missingKVMDeps = `Some required packages are missing for KVM to work:
 
