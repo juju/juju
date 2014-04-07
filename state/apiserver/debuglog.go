@@ -51,7 +51,7 @@ var maxLinesReached = fmt.Errorf("max lines reached")
 func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	server := websocket.Server{
 		Handler: func(socket *websocket.Conn) {
-			logger.Infof("debug log handler starting")
+			logger.Infof("debug log handler starting, %#v", *req)
 			if err := h.authenticate(req); err != nil {
 				h.sendError(socket, fmt.Errorf("auth failed: %v", err))
 				socket.Close()
@@ -170,12 +170,14 @@ func (h *debugLogHandler) authenticate(r *http.Request) error {
 	parts := strings.Fields(r.Header.Get("Authorization"))
 	if len(parts) != 2 || parts[0] != "Basic" {
 		// Invalid header format or no header provided.
+		logger.Debugf("unexpected auth header: %#v", parts)
 		return fmt.Errorf("invalid request format")
 	}
 	// Challenge is a base64-encoded "tag:pass" string.
 	// See RFC 2617, Section 2.
 	challenge, err := base64.StdEncoding.DecodeString(parts[1])
 	if err != nil {
+		logger.Debugf("decode failed: %v", err)
 		return fmt.Errorf("invalid request format")
 	}
 	tagPass := strings.SplitN(string(challenge), ":", 2)
