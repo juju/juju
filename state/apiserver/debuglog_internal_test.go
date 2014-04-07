@@ -283,6 +283,13 @@ line 5
 	s.testStreamInternal(c, false, 0, expected, "")
 }
 
+func (s *debugInternalSuite) TestLogStreamLoopTailMaxLinesNotYetReached(c *gc.C) {
+	expected := `line 4
+line 5
+`
+	s.testStreamInternal(c, false, 3, expected, "")
+}
+
 func assertStreamParams(c *gc.C, obtained, expected *logStream) {
 	c.Check(obtained.includeEntity, jc.DeepEquals, expected.includeEntity)
 	c.Check(obtained.includeModule, jc.DeepEquals, expected.includeModule)

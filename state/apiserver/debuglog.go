@@ -242,7 +242,9 @@ func (stream *logStream) filterLine(line []byte) bool {
 	if result && stream.maxLines > 0 {
 		stream.lineCount++
 		result = stream.lineCount <= stream.maxLines
-		stream.tomb.Kill(maxLinesReached)
+		if stream.lineCount == stream.maxLines {
+			stream.tomb.Kill(maxLinesReached)
+		}
 	}
 	return result
 }
