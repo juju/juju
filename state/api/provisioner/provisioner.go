@@ -143,3 +143,23 @@ func (st *State) MachinesWithTransientErrors() ([]*Machine, []params.StatusResul
 	}
 	return machines, results.Results, nil
 }
+
+// AddNetworks creates one or more networks with the given parameters.
+// If any operation fails, the first error is returned.
+func (st *State) AddNetworks(networks []params.NetworkParams) error {
+	var results params.ErrorResults
+	args := params.AddNetworkParams{Networks: networks}
+	err := st.call("AddNetwork", args, &results)
+	if err != nil {
+		return err
+	}
+	if n := len(results.Results); n != len(networks) {
+		return fmt.Errorf("expected %d result(s), got %d", len(networks), n)
+	}
+	for _, result := range results.Results {
+		if err := result.Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}

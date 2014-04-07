@@ -22,8 +22,6 @@ type errorSender interface {
 
 // httpHandler handles http requests through HTTPS in the API server.
 type httpHandler struct {
-	// Structs which embed httpHandler provide their own errorSender implementation.
-	errorSender
 	state *state.State
 }
 
@@ -59,7 +57,7 @@ func (h *httpHandler) authenticate(r *http.Request) error {
 }
 
 // authError sends an unauthorized error.
-func (h *httpHandler) authError(w http.ResponseWriter) {
+func (h *httpHandler) authError(w http.ResponseWriter, sender errorSender) {
 	w.Header().Set("WWW-Authenticate", `Basic realm="juju"`)
-	h.sendError(w, http.StatusUnauthorized, "unauthorized")
+	sender.sendError(w, http.StatusUnauthorized, "unauthorized")
 }

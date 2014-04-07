@@ -333,13 +333,19 @@ func (s *MgoSuite) SetUpTest(c *gc.C) {
 // Reset deletes all content from the MongoDB server and panics if it encounters
 // errors.
 func (inst *MgoInstance) Reset() {
+	// If the server has already been destroyed for testing purposes,
+	// just start it again.
+	if inst.Addr() == "" {
+		if err := inst.Start(inst.ssl); err != nil {
+			panic(err)
+		}
+		return
+	}
 	session := inst.MustDial()
 	defer session.Close()
 
 	dbnames, ok := resetAdminPasswordAndFetchDBNames(session)
-	if ok {
-		log.Infof("Reset successfully reset admin password")
-	} else {
+	if !ok {
 		// We restart it to regain access.  This should only
 		// happen when tests fail.
 		log.Noticef("testing: restarting MongoDB server after unauthorized access")
@@ -349,6 +355,7 @@ func (inst *MgoInstance) Reset() {
 		}
 		return
 	}
+	log.Infof("Reset successfully reset admin password")
 	for _, name := range dbnames {
 		switch name {
 		case "admin", "local", "config":

@@ -41,3 +41,7 @@ func ServerError(message string) *params.Error {
 		Code:    "",
 	}
 }
+
+func PrefixedError(prefix, message string) *params.Error {
+	return ServerError(prefix + message)
+}

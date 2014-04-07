@@ -8,20 +8,23 @@ import (
 	"sync"
 
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/presence"
+	"launchpad.net/juju-core/utils"
 )
 
-func newStateServer(srv *Server, rpcConn *rpc.Conn, reqNotifier *requestNotifier) *initialRoot {
+func newStateServer(srv *Server, rpcConn *rpc.Conn, reqNotifier *requestNotifier, limiter utils.Limiter) *initialRoot {
 	r := &initialRoot{
 		srv:     srv,
 		rpcConn: rpcConn,
 	}
 	r.admin = &srvAdmin{
 		root:        r,
+		limiter:     limiter,
 		reqNotifier: reqNotifier,
 	}
 	return r
@@ -53,6 +56,7 @@ func (r *initialRoot) Admin(id string) (*srvAdmin, error) {
 // that are needed to log in.
 type srvAdmin struct {
 	mu          sync.Mutex
+	limiter     utils.Limiter
 	root        *initialRoot
 	loggedIn    bool
 	reqNotifier *requestNotifier
@@ -70,7 +74,15 @@ func (a *srvAdmin) Login(c params.Creds) (params.LoginResult, error) {
 		// This can only happen if Login is called concurrently.
 		return params.LoginResult{}, errAlreadyLoggedIn
 	}
-	entity, err := checkCreds(a.root.srv.state, c)
+	// Users are not rate limited, all other entities are
+	if kind, err := names.TagKind(c.AuthTag); err != nil || kind != names.UserTagKind {
+		if !a.limiter.Acquire() {
+			logger.Debugf("rate limiting, try again later")
+			return params.LoginResult{}, common.ErrTryAgain
+		}
+		defer a.limiter.Release()
+	}
+	entity, err := doCheckCreds(a.root.srv.state, c)
 	if err != nil {
 		return params.LoginResult{}, err
 	}
@@ -94,6 +106,8 @@ func (a *srvAdmin) Login(c params.Creds) (params.LoginResult, error) {
 	a.root.rpcConn.Serve(newRoot, serverError)
 	return params.LoginResult{hostPorts}, nil
 }
+
+var doCheckCreds = checkCreds
 
 func checkCreds(st *state.State, c params.Creds) (taggedAuthenticator, error) {
 	entity0, err := st.FindEntity(c.AuthTag)
@@ -159,7 +173,7 @@ func (a *srvAdmin) apiRootForEntity(entity taggedAuthenticator, c params.Creds) 
 				logger.Errorf("error closing the RPC connection: %v", err)
 			}
 		}
-		newRoot.pingTimeout = newPingTimeout(action, maxPingInterval)
+		newRoot.pingTimeout = newPingTimeout(action, maxClientPingInterval)
 	}
 	return newRoot, nil
 }
