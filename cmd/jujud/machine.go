@@ -67,7 +67,7 @@ var (
 	jujuRun                  = "/usr/local/bin/juju-run"
 	useMultipleCPUs          = utils.UseMultipleCPUs
 	ensureMongoServer        = mongo.EnsureMongoServer
-	maybeInitiateMongoServer = mongo.MaybeInitiateMongoServer
+	maybeInitiateMongoServer = peergrouper.MaybeInitiateMongoServer
 )
 
 var NewSingularRunner = singular.New
@@ -413,7 +413,11 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	if !ok {
 		return nil, fmt.Errorf("state worker was started with no state serving info")
 	}
-	err := ensureMongoServer(agentConfig.DataDir(), servingInfo)
+	err := ensureMongoServer(
+		agentConfig.DataDir(),
+		agentConfig.Value(agent.Namespace),
+		servingInfo,
+	)
 	if err != nil {
 		return nil, err
 	}

@@ -448,7 +448,7 @@ func (env *localEnviron) Destroy() error {
 	}
 	// Stop the mongo database and machine agent. It's possible that the
 	// service doesn't exist or is not running, so don't check the error.
-	if err := mongo.RemoveService(); err != nil {
+	if err := mongo.RemoveService(env.config.namespace()); err != nil {
 		return err
 	}
 	if err := upstart.NewService(env.machineAgentServiceName()).StopAndRemove(); err != nil {

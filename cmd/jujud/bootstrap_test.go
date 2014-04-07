@@ -7,14 +7,12 @@ import (
 	"encoding/base64"
 	"io"
 	"io/ioutil"
-	"path/filepath"
 
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -31,6 +29,7 @@ import (
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
+	"launchpad.net/juju-core/worker/peergrouper"
 )
 
 var _ = configstore.Default
@@ -53,18 +52,19 @@ type fakeEnsure struct {
 	ensureCount    int
 	initiateCount  int
 	dataDir        string
-	port           int
-	initiateParams mongo.InitiateMongoParams
+	namespace string
+	info params.StateServingInfo
+	initiateParams peergrouper.InitiateMongoParams
 	err            error
 }
 
-func (f *fakeEnsure) fakeEnsureMongo(dataDir string, port int) error {
+func (f *fakeEnsure) fakeEnsureMongo(dataDir, namespace string, info params.StateServingInfo) error {
 	f.ensureCount++
-	f.dataDir, f.port = dataDir, port
+	f.dataDir, f.namespace, f.info = dataDir, namespace, info
 	return f.err
 }
 
-func (f *fakeEnsure) fakeInitiateMongo(p mongo.InitiateMongoParams) error {
+func (f *fakeEnsure) fakeInitiateMongo(p peergrouper.InitiateMongoParams) error {
 	f.initiateCount++
 	f.initiateParams = p
 	return nil
@@ -252,28 +252,6 @@ func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 	m, err := st.Machine("0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageEnviron})
-}
-
-func (s *BootstrapSuite) TestSharedSecret(c *gc.C) {
-	jobs := []params.MachineJob{params.JobManageEnviron}
-	_, cmd, err := s.initBootstrapCommand(c, jobs, "--env-config", s.envcfg, "--instance-id", string(s.instanceId))
-	c.Assert(err, gc.IsNil)
-	err = cmd.Run(nil)
-	c.Assert(err, gc.IsNil)
-	sharedSecret, err := ioutil.ReadFile(filepath.Join(s.dataDir, mongo.SharedSecretFile))
-	c.Assert(err, gc.IsNil)
-
-	st, err := state.Open(&state.Info{
-		Addrs:    []string{testing.MgoServer.Addr()},
-		CACert:   []byte(testing.CACert),
-		Password: testPasswordHash(),
-	}, state.DefaultDialOpts(), environs.NewStatePolicy())
-	c.Assert(err, gc.IsNil)
-	defer st.Close()
-
-	stateServingInfo, err := st.StateServingInfo()
-	c.Assert(err, gc.IsNil)
-	c.Assert(stateServingInfo.SharedSecret, gc.Equals, string(sharedSecret))
 }
 
 func testOpenState(c *gc.C, info *state.Info, expectErrType error) {
