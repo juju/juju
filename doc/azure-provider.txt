@@ -100,6 +100,11 @@ Bootstrapping
     Service is enabled; otherwise there is a single Role per Cloud Service. By
     default, we set availability-sets-enabled=true for new environments.
 
+    Note: by setting availability-sets-enabled=false, you will gain the abililty
+    to place units on any machine at the cost of losing Azure's SLA guarantees.
+    See "Starting instances" below for more details on what is prevented by
+    azure-mode.
+
 Starting instances
 
     When *not* in azure-mode, the provider will simply create a new Cloud-
