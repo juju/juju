@@ -1662,6 +1662,30 @@ func (s *clientSuite) TestClientAddMachinesWithConstraints(c *gc.C) {
 	}
 }
 
+func (s *clientSuite) TestClientAddMachinesWithPlacement(c *gc.C) {
+	apiParams := make([]params.AddMachineParams, 4)
+	for i := range apiParams {
+		apiParams[i] = params.AddMachineParams{
+			Jobs: []params.MachineJob{params.JobHostUnits},
+		}
+	}
+	apiParams[0].Placement = instance.MustParsePlacement("lxc")
+	apiParams[1].Placement = instance.MustParsePlacement("lxc:0")
+	apiParams[2].Placement = instance.MustParsePlacement("invalid:uhoh")
+	apiParams[3].Placement = instance.MustParsePlacement("valid:hooray")
+	machines, err := s.APIState.Client().AddMachines(apiParams)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(machines), gc.Equals, 4)
+	c.Assert(machines[0].Machine, gc.Equals, "0/lxc/0")
+	c.Assert(machines[1].Machine, gc.Equals, "0/lxc/1")
+	c.Assert(machines[2].Error, gc.ErrorMatches, "cannot add a new machine: invalid: uhoh")
+	c.Assert(machines[3].Machine, gc.Equals, "1")
+
+	m, err := s.BackingState.Machine(machines[3].Machine)
+	c.Assert(err, gc.IsNil)
+	c.Assert(m.Placement(), gc.DeepEquals, apiParams[3].Placement)
+}
+
 func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 	// Here we check that adding a number of containers correctly handles the
 	// case that some adds succeed and others fail and report the errors
@@ -1678,8 +1702,8 @@ func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Set up params for adding 4 containers.
-	apiParams := make([]params.AddMachineParams, 4)
-	for i := 0; i < 4; i++ {
+	apiParams := make([]params.AddMachineParams, 5)
+	for i := range apiParams {
 		apiParams[i] = params.AddMachineParams{
 			Jobs: []params.MachineJob{params.JobHostUnits},
 		}
@@ -1690,9 +1714,12 @@ func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 	// This will cause a machine add to fail due to an unsupported container.
 	apiParams[3].ParentId = host.Id()
 	apiParams[3].ContainerType = instance.KVM
+	apiParams[4].ParentId = host.Id()
+	apiParams[4].ContainerType = instance.KVM
+	apiParams[4].Placement = instance.MustParsePlacement("valid:whee")
 	machines, err := s.APIState.Client().AddMachines(apiParams)
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(machines), gc.Equals, 4)
+	c.Assert(len(machines), gc.Equals, 5)
 
 	// Check the results - machines 2 and 3 will have errors.
 	c.Check(machines[0].Machine, gc.Equals, "1")
@@ -1703,6 +1730,7 @@ func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 	c.Check(machines[2].Error, gc.ErrorMatches, "parent machine specified without container type")
 	c.Assert(machines[2].Error, gc.NotNil)
 	c.Check(machines[3].Error, gc.ErrorMatches, "cannot add a new machine: machine 0 cannot host kvm containers")
+	c.Check(machines[4].Error, gc.ErrorMatches, "ContainerType cannot be specified with Placement")
 }
 
 func (s *clientSuite) TestClientAddMachinesWithInstanceIdSomeErrors(c *gc.C) {
