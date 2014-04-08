@@ -13,7 +13,6 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state/api/params"
 )
 
 const getConstraintsDoc = `
@@ -93,21 +92,6 @@ func (c *GetConstraintsCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-// getEnvironConstraints1dot16 uses direct DB access to get the Environment
-// constraints against an API server running 1.16 or older (when GetEnvironmentConstraints
-// was not available). This fallback can be removed when we no longer maintain
-// 1.16 compatibility.
-// This only does the GetEnvironmentConstraints portion of Run, since
-// GetServiceConstraints was already implemented.
-func (c *GetConstraintsCommand) getEnvironConstraints1dot16() (constraints.Value, error) {
-	conn, err := juju.NewConnFromName(c.EnvName)
-	if err != nil {
-		return constraints.Value{}, err
-	}
-	defer conn.Close()
-	return conn.State.EnvironConstraints()
-}
-
 func (c *GetConstraintsCommand) Run(ctx *cmd.Context) error {
 	apiclient, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
@@ -118,11 +102,6 @@ func (c *GetConstraintsCommand) Run(ctx *cmd.Context) error {
 	var cons constraints.Value
 	if c.ServiceName == "" {
 		cons, err = apiclient.GetEnvironmentConstraints()
-		if params.IsCodeNotImplemented(err) {
-			logger.Infof("GetEnvironmentConstraints not supported by the API server, " +
-				"falling back to 1.16 compatibility mode (direct DB access)")
-			cons, err = c.getEnvironConstraints1dot16()
-		}
 	} else {
 		cons, err = apiclient.GetServiceConstraints(c.ServiceName)
 	}
@@ -166,21 +145,6 @@ func (c *SetConstraintsCommand) Init(args []string) (err error) {
 	return err
 }
 
-// setEnvironConstraints1dot16 uses direct DB access to get the Environment
-// constraints against an API server running 1.16 or older (when SetEnvironmentConstraints
-// was not available). This fallback can be removed when we no longer maintain
-// 1.16 compatibility.
-// This only does the SetEnvironmentConstraints portion of Run, since
-// SetServiceConstraints was already implemented.
-func (c *SetConstraintsCommand) setEnvironConstraints1dot16() error {
-	conn, err := juju.NewConnFromName(c.EnvName)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-	return conn.State.SetEnvironConstraints(c.Constraints)
-}
-
 func (c *SetConstraintsCommand) Run(_ *cmd.Context) (err error) {
 	apiclient, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
@@ -188,13 +152,7 @@ func (c *SetConstraintsCommand) Run(_ *cmd.Context) (err error) {
 	}
 	defer apiclient.Close()
 	if c.ServiceName == "" {
-		err = apiclient.SetEnvironmentConstraints(c.Constraints)
-		if params.IsCodeNotImplemented(err) {
-			logger.Infof("SetEnvironmentConstraints not supported by the API server, " +
-				"falling back to 1.16 compatibility mode (direct DB access)")
-			err = c.setEnvironConstraints1dot16()
-		}
-		return err
+		return apiclient.SetEnvironmentConstraints(c.Constraints)
 	}
 	return apiclient.SetServiceConstraints(c.ServiceName, c.Constraints)
 }
