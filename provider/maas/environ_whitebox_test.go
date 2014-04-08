@@ -527,7 +527,7 @@ func (suite *environSuite) TestSupportedArchitectures(c *gc.C) {
 	c.Assert(a, gc.DeepEquals, []string{"amd64"})
 }
 
-func (suite *environSuite) TestGetNetworksList(c *gc.C) {
+func (suite *environSuite) TestGetInstanceNetworks(c *gc.C) {
 	suite.getNetwork("test_network")
 	test_instance := suite.getInstance("instance_for_network")
 	suite.testMAASObject.TestServer.ConnectNodeToNetwork("instance_for_network", "test_network")
