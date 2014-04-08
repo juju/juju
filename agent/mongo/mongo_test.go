@@ -98,30 +98,75 @@ func testJournalDirs(dir string, c *gc.C) {
 
 func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 	dir := c.MkDir()
-
 	dbDir := filepath.Join(dir, "db")
-	err := os.MkdirAll(dbDir, 0777)
-	c.Assert(err, gc.IsNil)
-
 	port := 25252
 	namespace := "namespace"
 	oldsvc := makeService(ServiceName(namespace), c)
 	defer oldsvc.StopAndRemove()
 
-	err = EnsureMongoServer(dir, port, namespace)
+	err := EnsureMongoServer(dir, port, namespace)
 	c.Assert(err, gc.IsNil)
-	mongodPath := MongodPathForSeries("some-series")
-	svc, err := MongoUpstartService(namespace, mongodPath, dir, port)
+	svc, err := mongoUpstartService(namespace, dir, dbDir, port)
 	c.Assert(err, gc.IsNil)
 	defer svc.StopAndRemove()
 
-	testJournalDirs(dir, c)
+	testJournalDirs(dbDir, c)
 	c.Assert(svc.Installed(), jc.IsTrue)
 
 	// now check we can call it multiple times without error
 	err = EnsureMongoServer(dir, port, namespace)
 	c.Assert(err, gc.IsNil)
 	c.Assert(svc.Installed(), jc.IsTrue)
+}
+
+func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
+	dir := c.MkDir()
+
+	dbDir := filepath.Join(dir, "db")
+
+	// remove the directory so we use the path but it won't exist
+	// that should make it get cleaned up at the end of the test if created
+	os.RemoveAll(dir)
+	port := 25252
+
+	err := EnsureMongoServer(dir, port, "")
+	c.Check(err, gc.IsNil)
+
+	_, err = os.Stat(dbDir)
+	c.Assert(err, gc.IsNil)
+
+	svc, err := mongoUpstartService("", dir, dbDir, port)
+	c.Assert(err, gc.IsNil)
+	defer svc.Remove()
+}
+
+// TODO(natefinch) add a test that InitiateMongoServer works when
+// we support upgrading of existing environments.
+
+func (s *MongoSuite) TestInitiateReplicaSet(c *gc.C) {
+	var err error
+	inst := &coretesting.MgoInstance{Params: []string{"--replSet", "juju"}}
+	err = inst.Start(true)
+	c.Assert(err, gc.IsNil)
+
+	info := inst.DialInfo()
+
+	err = MaybeInitiateMongoServer(InitiateMongoParams{
+		DialInfo:       info,
+		MemberHostPort: inst.Addr(),
+	})
+	c.Assert(err, gc.IsNil)
+
+	// This would return a mgo.QueryError if a ReplicaSet
+	// configuration already existed but we tried to created
+	// one with replicaset.Initiate again.
+	err = MaybeInitiateMongoServer(InitiateMongoParams{
+		DialInfo:       info,
+		MemberHostPort: inst.Addr(),
+	})
+	c.Assert(err, gc.IsNil)
+
+	// TODO test login
 }
 
 func (s *MongoSuite) TestServiceName(c *gc.C) {

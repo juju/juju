@@ -45,14 +45,18 @@ type kvmBroker struct {
 	agentConfig agent.Config
 }
 
-func (broker *kvmBroker) Tools() tools.List {
-	return tools.List{broker.tools}
+func (broker *kvmBroker) Tools(series string) tools.List {
+	// TODO: thumper 2014-04-08 bug 1304151
+	// should use the api get get tools for the series.
+	seriesTools := *broker.tools
+	seriesTools.Version.Series = series
+	return tools.List{&seriesTools}
 }
 
 // StartInstance is specified in the Broker interface.
-func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error) {
 	if args.MachineConfig.HasNetworks() {
-		return nil, nil, fmt.Errorf("starting kvm containers with networks is not supported yet.")
+		return nil, nil, nil, fmt.Errorf("starting kvm containers with networks is not supported yet.")
 	}
 	// TODO: refactor common code out of the container brokers.
 	machineId := args.MachineConfig.MachineId
@@ -75,7 +79,7 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (insta
 	config, err := broker.api.ContainerConfig()
 	if err != nil {
 		kvmLogger.Errorf("failed to get container config: %v", err)
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	if err := environs.PopulateMachineConfig(
 		args.MachineConfig,
@@ -86,16 +90,16 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (insta
 		config.AptProxy,
 	); err != nil {
 		kvmLogger.Errorf("failed to populate machine config: %v", err)
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	inst, hardware, err := broker.manager.CreateContainer(args.MachineConfig, series, network)
 	if err != nil {
 		kvmLogger.Errorf("failed to start container: %v", err)
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	kvmLogger.Infof("started kvm container for machineId: %s, %s, %s", machineId, inst.Id(), hardware.String())
-	return inst, hardware, nil
+	return inst, hardware, nil, nil
 }
 
 // StopInstances shuts down the given instances.

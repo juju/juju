@@ -65,8 +65,8 @@ var _ state.Prechecker = (*manualEnviron)(nil)
 var errNoStartInstance = errors.New("manual provider cannot start instances")
 var errNoStopInstance = errors.New("manual provider cannot stop instances")
 
-func (*manualEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	return nil, nil, errNoStartInstance
+func (*manualEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error) {
+	return nil, nil, nil, errNoStartInstance
 }
 
 func (*manualEnviron) StopInstances([]instance.Instance) error {

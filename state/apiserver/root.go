@@ -38,11 +38,19 @@ type taggedAuthenticator interface {
 	state.Authenticator
 }
 
-// maxPingInterval defines the timeframe until the ping
-// timeout closes the monitored connection.
-// TODO(mue): Idea by Roger: Move to API (e.g. params) so
-// that the pinging there may depend on the interval.
-var maxPingInterval = 3 * time.Minute
+var (
+	// maxClientPingInterval defines the timeframe until the ping timeout
+	// closes the monitored connection. TODO(mue): Idea by Roger:
+	// Move to API (e.g. params) so that the pinging there may
+	// depend on the interval.
+	maxClientPingInterval = 3 * time.Minute
+
+	// mongoPingInterval defines the interval at which an API server
+	// will ping the mongo session to make sure that it's still
+	// alive. When the ping returns an error, the server will be
+	// terminated.
+	mongoPingInterval = 10 * time.Second
+)
 
 // srvRoot represents a single client's connection to the state
 // after it has logged in.

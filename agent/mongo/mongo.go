@@ -40,9 +40,6 @@ var (
 
 	// JujuMongodPath holds the default path to the juju-specific mongod.
 	JujuMongodPath = "/usr/lib/juju/bin/mongod"
-
-	// MongodbServerPath holds the default path to the generic mongod.
-	MongodbServerPath = "/usr/bin/mongod"
 )
 
 // WithAddresses represents an entity that has a set of
@@ -162,7 +159,6 @@ func EnsureMongoServer(dataDir string, namespace string, info params.StateServin
 	if err != nil {
 		return err
 	}
-
 	if err := makeJournalDirs(dbDir); err != nil {
 		return fmt.Errorf("Error creating journal directories: %v", err)
 	}
@@ -215,16 +211,12 @@ func sharedSecretPath(dataDir string) string {
 	return filepath.Join(dataDir, SharedSecretFile)
 }
 
-// mongoScriptVersion keeps track of changes to the mongo upstart script.
-// Update this version when you update the script that gets installed from
-// MongoUpstartService.
-const mongoScriptVersion = 2
-
 // mongoUpstartService returns the upstart config for the mongo state service.
 //
 func mongoUpstartService(namespace, dataDir, dbDir string, port int) (*upstart.Conf, error) {
 	// NOTE: ensure that the right package is installed?
 	name := ServiceName(namespace)
+	sslKeyFile := path.Join(dataDir, "server.pem")
 
 	svc := upstart.NewService(name)
 

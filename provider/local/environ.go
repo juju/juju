@@ -301,9 +301,9 @@ func (env *localEnviron) setLocalStorage() error {
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error) {
 	if args.MachineConfig.HasNetworks() {
-		return nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
+		return nil, nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
 	}
 	series := args.Tools.OneSeries()
 	logger.Debugf("StartInstance: %q, %s", args.MachineConfig.MachineId, series)
@@ -312,7 +312,7 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (insta
 	logger.Debugf("tools: %#v", args.MachineConfig.Tools)
 	network := container.BridgeNetworkConfig(env.config.networkBridge())
 	if err := environs.FinishMachineConfig(args.MachineConfig, env.config.Config, args.Constraints); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	// TODO: evaluate the impact of setting the contstraints on the
 	// machineConfig for all machines rather than just state server nodes.
@@ -321,9 +321,9 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (insta
 	args.MachineConfig.AgentEnvironment[agent.Namespace] = env.config.namespace()
 	inst, hardware, err := env.containerManager.CreateContainer(args.MachineConfig, series, network)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return inst, hardware, nil
+	return inst, hardware, nil, nil
 }
 
 // StartInstance is specified in the InstanceBroker interface.
@@ -448,12 +448,8 @@ func (env *localEnviron) Destroy() error {
 	}
 	// Stop the mongo database and machine agent. It's possible that the
 	// service doesn't exist or is not running, so don't check the error.
-	if err := mongo.RemoveService(env.config.namespace()); err != nil {
-		return err
-	}
-	if err := upstart.NewService(env.machineAgentServiceName()).StopAndRemove(); err != nil {
-		return err
-	}
+	mongo.RemoveService(env.config.namespace())
+	upstart.NewService(env.machineAgentServiceName()).StopAndRemove()
 
 	// Finally, remove the data-dir.
 	if err := os.RemoveAll(env.config.rootDir()); err != nil && !os.IsNotExist(err) {

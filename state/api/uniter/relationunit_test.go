@@ -8,6 +8,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/uniter"
@@ -95,7 +96,7 @@ func (s *relationUnitSuite) TestPrivateAddress(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `"unit-wordpress-0" has no private address set`)
 
 	// Set an address and try again.
-	err = s.wordpressUnit.SetPrivateAddress("1.2.3.4")
+	err = s.wordpressMachine.SetAddresses(instance.NewAddress("1.2.3.4", instance.NetworkCloudLocal))
 	c.Assert(err, gc.IsNil)
 	address, err = apiRelUnit.PrivateAddress()
 	c.Assert(err, gc.IsNil)

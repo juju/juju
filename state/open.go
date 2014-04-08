@@ -83,7 +83,7 @@ func Open(info *Info, opts DialOpts, policy Policy) (*State, error) {
 	if err != nil {
 		return nil, err
 	}
-	logger.Infof("dialing mongo with info %#v", di)
+	logger.Infof("dialing mongo")
 	session, err := mgo.DialWithInfo(di)
 	if err != nil {
 		return nil, err
@@ -206,6 +206,8 @@ var indexes = []struct {
 	{"units", []string{"principal"}},
 	{"units", []string{"machineid"}},
 	{"users", []string{"name"}},
+	{"networkinterfaces", []string{"networkname"}},
+	{"networkinterfaces", []string{"machineid"}},
 }
 
 // The capped collection used for transaction logs defaults to 10MB.
@@ -267,29 +269,31 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 	}
 
 	st := &State{
-		info:           info,
-		policy:         policy,
-		db:             db,
-		environments:   db.C("environments"),
-		charms:         db.C("charms"),
-		machines:       db.C("machines"),
-		containerRefs:  db.C("containerRefs"),
-		instanceData:   db.C("instanceData"),
-		relations:      db.C("relations"),
-		relationScopes: db.C("relationscopes"),
-		services:       db.C("services"),
-		networks:       db.C("linkednetworks"),
-		minUnits:       db.C("minunits"),
-		settings:       db.C("settings"),
-		settingsrefs:   db.C("settingsrefs"),
-		constraints:    db.C("constraints"),
-		units:          db.C("units"),
-		users:          db.C("users"),
-		presence:       pdb.C("presence"),
-		cleanups:       db.C("cleanups"),
-		annotations:    db.C("annotations"),
-		statuses:       db.C("statuses"),
-		stateServers:   db.C("stateServers"),
+		info:              info,
+		policy:            policy,
+		db:                db,
+		environments:      db.C("environments"),
+		charms:            db.C("charms"),
+		machines:          db.C("machines"),
+		containerRefs:     db.C("containerRefs"),
+		instanceData:      db.C("instanceData"),
+		relations:         db.C("relations"),
+		relationScopes:    db.C("relationscopes"),
+		services:          db.C("services"),
+		requestedNetworks: db.C("linkednetworks"),
+		networks:          db.C("networks"),
+		networkInterfaces: db.C("networkinterfaces"),
+		minUnits:          db.C("minunits"),
+		settings:          db.C("settings"),
+		settingsrefs:      db.C("settingsrefs"),
+		constraints:       db.C("constraints"),
+		units:             db.C("units"),
+		users:             db.C("users"),
+		presence:          pdb.C("presence"),
+		cleanups:          db.C("cleanups"),
+		annotations:       db.C("annotations"),
+		statuses:          db.C("statuses"),
+		stateServers:      db.C("stateServers"),
 	}
 	log := db.C("txns.log")
 	logInfo := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}

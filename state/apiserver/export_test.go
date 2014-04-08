@@ -11,9 +11,10 @@ import (
 )
 
 var (
-	RootType        = reflect.TypeOf(&srvRoot{})
-	NewPingTimeout  = newPingTimeout
-	MaxPingInterval = &maxPingInterval
+	RootType              = reflect.TypeOf(&srvRoot{})
+	NewPingTimeout        = newPingTimeout
+	MaxClientPingInterval = &maxClientPingInterval
+	MongoPingInterval     = &mongoPingInterval
 )
 
 const LoginRateLimit = loginRateLimit

@@ -173,7 +173,7 @@ func (a *srvAdmin) apiRootForEntity(entity taggedAuthenticator, c params.Creds) 
 				logger.Errorf("error closing the RPC connection: %v", err)
 			}
 		}
-		newRoot.pingTimeout = newPingTimeout(action, maxPingInterval)
+		newRoot.pingTimeout = newPingTimeout(action, maxClientPingInterval)
 	}
 	return newRoot, nil
 }
