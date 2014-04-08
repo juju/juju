@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goose/client"
@@ -34,6 +35,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/openstack"
+	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
@@ -587,6 +589,55 @@ func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {
 	env := s.Open(c)
 	_, err := openstack.FindInstanceSpec(env, "precise", "amd64", "instance-type=m1.large")
 	c.Assert(err, gc.ErrorMatches, `invalid instance type "m1.large"`)
+}
+
+func (s *localServerSuite) TestValidateConstraintsValidInstanceType(c *gc.C) {
+	env := s.Open(c)
+	cons := constraints.MustParse("instance-type=m1.small")
+	envCons := constraints.Value{}
+	combined, err := env.(state.ConstraintsValidator).ValidateConstraints(cons, envCons)
+	c.Assert(err, gc.IsNil)
+	c.Assert(combined, gc.DeepEquals, cons)
+}
+
+func (s *localServerSuite) TestValidateConstraintsInvalidInstanceType(c *gc.C) {
+	env := s.Open(c)
+	cons := constraints.MustParse("instance-type=m1.large")
+	envCons := constraints.Value{}
+	_, err := env.(state.ConstraintsValidator).ValidateConstraints(cons, envCons)
+	c.Assert(err, gc.ErrorMatches, `invalid Openstack flavour "m1.large" specified`)
+}
+
+func (s *localServerSuite) TestValidateConstraintsLogsWarning(c *gc.C) {
+	env := s.Open(c)
+	defer loggo.ResetWriters()
+	logger := loggo.GetLogger("test")
+	logger.SetLogLevel(loggo.DEBUG)
+	tw := &loggo.TestWriter{}
+	c.Assert(loggo.RegisterWriter("constraints-tester", tw, loggo.DEBUG), gc.IsNil)
+	cons := constraints.MustParse("arch=amd64 instance-type=m1.small")
+	envCons := constraints.MustParse("cpu-cores=2")
+	combined, err := env.(state.ConstraintsValidator).ValidateConstraints(cons, envCons)
+	c.Assert(err, gc.IsNil)
+	c.Assert(combined, gc.DeepEquals, constraints.MustParse("arch=amd64"))
+	c.Assert(tw.Log, jc.LogMatches, jc.SimpleMessages{{
+		loggo.WARNING,
+		`instance-type constraint "m1.small" ignored since other constraints are specified`},
+	})
+}
+
+var imageMatchConstraintTests = []struct{ in, out string }{
+	{"arch=amd64", "arch=amd64"},
+	{"arch=amd64 instance-type=foo", "arch=amd64"},
+	{"instance-type=foo", "instance-type=foo"},
+}
+
+func (s *localServerSuite) TestImageMatchConstraint(c *gc.C) {
+	for _, test := range imageMatchConstraintTests {
+		inCons := constraints.MustParse(test.in)
+		outCons := constraints.MustParse(test.out)
+		c.Check(openstack.ImageMatchConstraint(inCons), jc.DeepEquals, outCons)
+	}
 }
 
 func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {

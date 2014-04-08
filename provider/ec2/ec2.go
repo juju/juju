@@ -359,7 +359,18 @@ func (e *environ) SupportNetworks() bool {
 
 // ValidateConstraints is defined on the state.ConstraintsValidator interface.
 func (e *environ) ValidateConstraints(cons, envCons constraints.Value) (constraints.Value, error) {
-	return common.ValidateConstraints(logger, e, cons, envCons)
+	combined := cons.WithFallbacks(envCons)
+	result := imageMatchConstraint(combined)
+	if !result.HasInstanceType() {
+		return result, nil
+	}
+	// Constraint uses an instance-type constraint so let's see if it is valid.
+	for _, itype := range allInstanceTypes {
+		if itype.Name == *result.InstanceType {
+			return result, nil
+		}
+	}
+	return constraints.Value{}, fmt.Errorf("invalid AWS instance type %q specified", *result.InstanceType)
 }
 
 // MetadataLookupParams returns parameters which are used to query simplestreams metadata.

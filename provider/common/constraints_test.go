@@ -56,17 +56,3 @@ func (s *constraintsSuite) TestValidateConstraintsNoMessage(c *gc.C) {
 	c.Assert(combined, gc.DeepEquals, constraints.MustParse("arch=amd64 cpu-cores=2"))
 	c.Assert(tw.Log, jc.LogMatches, jc.SimpleMessages{})
 }
-
-var imageMatchConstraintTests = []struct{ in, out string }{
-	{"arch=amd64", "arch=amd64"},
-	{"arch=amd64 instance-type=foo", "arch=amd64"},
-	{"instance-type=foo", "instance-type=foo"},
-}
-
-func (s *constraintsSuite) TestImageMatchConstraint(c *gc.C) {
-	for _, test := range imageMatchConstraintTests {
-		inCons := constraints.MustParse(test.in)
-		outCons := constraints.MustParse(test.out)
-		c.Check(common.ImageMatchConstraint(inCons), jc.DeepEquals, outCons)
-	}
-}

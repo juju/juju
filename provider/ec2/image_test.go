@@ -231,3 +231,19 @@ func (*specSuite) TestFilterImagesMaintainsOrdering(c *gc.C) {
 	}
 	c.Check(filterImages(input), gc.DeepEquals, input)
 }
+
+var imageMatchConstraintTests = []struct{ in, out string }{
+	{"arch=amd64", "arch=amd64"},
+	{"arch=amd64 instance-type=foo", "arch=amd64"},
+	{"instance-type=foo", "instance-type=foo"},
+	{"root-disk=1G instance-type=foo", "root-disk=1G instance-type=foo"},
+	{"arch=amd64 root-disk=1G instance-type=foo", "arch=amd64 root-disk=1G"},
+}
+
+func (s *specSuite) TestImageMatchConstraint(c *gc.C) {
+	for _, test := range imageMatchConstraintTests {
+		inCons := constraints.MustParse(test.in)
+		outCons := constraints.MustParse(test.out)
+		c.Check(imageMatchConstraint(inCons), gc.DeepEquals, outCons)
+	}
+}

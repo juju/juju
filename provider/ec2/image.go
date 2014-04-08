@@ -6,10 +6,10 @@ package ec2
 import (
 	"fmt"
 
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/provider/common"
 )
 
 // signedImageDataOnly is defined here to allow tests to override the content.
@@ -39,16 +39,14 @@ func filterImages(images []*imagemetadata.ImageMetadata) []*imagemetadata.ImageM
 func findInstanceSpec(
 	sources []simplestreams.DataSource, stream string, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
 
-	cons := *ic
-	cons.Constraints = common.ImageMatchConstraint(cons.Constraints)
-	if cons.Constraints.CpuPower == nil && !cons.Constraints.HasInstanceType() {
-		cons.Constraints.CpuPower = instances.CpuPower(defaultCpuPower)
+	if ic.Constraints.CpuPower == nil && !ic.Constraints.HasInstanceType() {
+		ic.Constraints.CpuPower = instances.CpuPower(defaultCpuPower)
 	}
-	ec2Region := allRegions[cons.Region]
+	ec2Region := allRegions[ic.Region]
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		CloudSpec: simplestreams.CloudSpec{cons.Region, ec2Region.EC2Endpoint},
-		Series:    []string{cons.Series},
-		Arches:    cons.Arches,
+		CloudSpec: simplestreams.CloudSpec{ic.Region, ec2Region.EC2Endpoint},
+		Series:    []string{ic.Series},
+		Arches:    ic.Arches,
 		Stream:    stream,
 	})
 	matchingImages, _, err := imagemetadata.Fetch(
@@ -57,15 +55,15 @@ func findInstanceSpec(
 		return nil, err
 	}
 	if len(matchingImages) == 0 {
-		logger.Warningf("no matching image metadata for constraints: %v", cons)
+		logger.Warningf("no matching image meta data for constraints: %v", ic)
 	}
 	suitableImages := filterImages(matchingImages)
 	images := instances.ImageMetadataToImages(suitableImages)
 
 	// Make a copy of the known EC2 instance types, filling in the cost for the specified region.
-	regionCosts := allRegionCosts[cons.Region]
+	regionCosts := allRegionCosts[ic.Region]
 	if len(regionCosts) == 0 && len(allRegionCosts) > 0 {
-		return nil, fmt.Errorf("no instance types found in %s", cons.Region)
+		return nil, fmt.Errorf("no instance types found in %s", ic.Region)
 	}
 
 	var itypesWithCosts []instances.InstanceType
@@ -78,5 +76,26 @@ func findInstanceSpec(
 		itWithCost.Cost = cost
 		itypesWithCosts = append(itypesWithCosts, itWithCost)
 	}
-	return instances.FindInstanceSpec(images, &cons, itypesWithCosts)
+	return instances.FindInstanceSpec(images, ic, itypesWithCosts)
+}
+
+// imageMatchConstraint returns a constraint which is used to search for images,
+// based on whether an instance type value is set.
+func imageMatchConstraint(cons constraints.Value) constraints.Value {
+	// No InstanceType specified, return the original constraint.
+	if !cons.HasInstanceType() {
+		return cons
+	}
+	consWithoutInstType := cons
+	consWithoutInstType.InstanceType = nil
+	// Constraints with instance-type values may also specify a root disk.
+	// But any other constraint values take precedence and override the instance-type value.
+	consWithoutRootDisk := consWithoutInstType
+	consWithoutRootDisk.RootDisk = nil
+	if !constraints.IsEmpty(&consWithoutRootDisk) {
+		logger.Warningf("instance-type constraint %q ignored since other constraints are specified", *cons.InstanceType)
+		return consWithoutInstType
+	}
+	// If we are here, cons contains just an instance type (and possibly root disk) constraint value.
+	return cons
 }

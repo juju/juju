@@ -23,22 +23,3 @@ func ValidateConstraints(
 	}
 	return combinedCons, nil
 }
-
-// ImageMatchConstraint returns a constrains.Value derived from cons according
-// to whether InstanceType is specified as a constraint.
-func ImageMatchConstraint(cons constraints.Value) constraints.Value {
-	// No InstanceType specified, return the original constraint.
-	if !cons.HasInstanceType() {
-		return cons
-	}
-	consWithoutInstType := cons
-	consWithoutInstType.InstanceType = nil
-	// If the original constraint has attributes besides instances constraint,
-	// we use those, ignoring instance constraint.
-	if !constraints.IsEmpty(&consWithoutInstType) {
-		logger.Warningf("instance-type constraint %q ignored since other constraints are specified", cons.InstanceType)
-		return consWithoutInstType
-	}
-	// If we are here, cons contains just an instance type constraint value.
-	return cons
-}

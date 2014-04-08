@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"launchpad.net/goamz/aws"
 	amzec2 "launchpad.net/goamz/ec2"
@@ -32,6 +33,7 @@ import (
 	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/ec2"
+	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
@@ -393,6 +395,41 @@ func (t *localServerSuite) TestSupportedArchitectures(c *gc.C) {
 func (t *localServerSuite) TestSupportNetworks(c *gc.C) {
 	env := t.Prepare(c)
 	c.Assert(env.SupportNetworks(), jc.IsFalse)
+}
+
+func (t *localServerSuite) TestValidateConstraintsValidInstanceType(c *gc.C) {
+	env := t.Prepare(c)
+	cons := constraints.MustParse("instance-type=m1.small")
+	envCons := constraints.Value{}
+	combined, err := env.(state.ConstraintsValidator).ValidateConstraints(cons, envCons)
+	c.Assert(err, gc.IsNil)
+	c.Assert(combined, gc.DeepEquals, cons)
+}
+
+func (t *localServerSuite) TestValidateConstraintsInvalidInstanceType(c *gc.C) {
+	env := t.Prepare(c)
+	cons := constraints.MustParse("instance-type=m1.invalid")
+	envCons := constraints.Value{}
+	_, err := env.(state.ConstraintsValidator).ValidateConstraints(cons, envCons)
+	c.Assert(err, gc.ErrorMatches, `invalid AWS instance type "m1.invalid" specified`)
+}
+
+func (t *localServerSuite) TestValidateConstraintsLogsWarning(c *gc.C) {
+	env := t.Prepare(c)
+	defer loggo.ResetWriters()
+	logger := loggo.GetLogger("test")
+	logger.SetLogLevel(loggo.DEBUG)
+	tw := &loggo.TestWriter{}
+	c.Assert(loggo.RegisterWriter("constraints-tester", tw, loggo.DEBUG), gc.IsNil)
+	cons := constraints.MustParse("cpu-cores=2 instance-type=m1.small")
+	envCons := constraints.MustParse("cpu-cores=2")
+	combined, err := env.(state.ConstraintsValidator).ValidateConstraints(cons, envCons)
+	c.Assert(err, gc.IsNil)
+	c.Assert(combined, gc.DeepEquals, constraints.MustParse("cpu-cores=2"))
+	c.Assert(tw.Log, jc.LogMatches, jc.SimpleMessages{{
+		loggo.WARNING,
+		`instance-type constraint "m1.small" ignored since other constraints are specified`},
+	})
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server
