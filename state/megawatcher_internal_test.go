@@ -78,8 +78,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 	c.Assert(err, gc.IsNil)
 	hc, err := m.HardwareCharacteristics()
 	c.Assert(err, gc.IsNil)
-	addresses := instance.NewAddresses([]string{"example.com"})
-	err = m.SetAddresses(addresses)
+	err = m.SetAddresses(instance.NewAddress("example.com", instance.NetworkUnknown))
 	c.Assert(err, gc.IsNil)
 	add(&params.MachineInfo{
 		Id:                      "0",
@@ -359,15 +358,73 @@ var allWatcherChangedTests = []struct {
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit()
 			c.Assert(err, gc.IsNil)
-			err = u.SetPublicAddress("public")
+			err = u.OpenPort("tcp", 12345)
 			c.Assert(err, gc.IsNil)
-			err = u.SetPrivateAddress("private")
+			m, err := st.AddMachine("quantal", JobHostUnits)
+			c.Assert(err, gc.IsNil)
+			err = u.AssignToMachine(m)
+			c.Assert(err, gc.IsNil)
+			err = u.SetStatus(params.StatusError, "failure", nil)
+			c.Assert(err, gc.IsNil)
+		},
+		change: watcher.Change{
+			C:  "units",
+			Id: "wordpress/0",
+		},
+		expectContents: []params.EntityInfo{
+			&params.UnitInfo{
+				Name:       "wordpress/0",
+				Service:    "wordpress",
+				Series:     "quantal",
+				MachineId:  "0",
+				Ports:      []instance.Port{{"tcp", 12345}},
+				Status:     params.StatusError,
+				StatusInfo: "failure",
+			},
+		},
+	}, {
+		about: "unit is updated if it's in backing and in multiwatcher.Store",
+		add: []params.EntityInfo{&params.UnitInfo{
+			Name:       "wordpress/0",
+			Status:     params.StatusError,
+			StatusInfo: "another failure",
+		}},
+		setUp: func(c *gc.C, st *State) {
+			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+			u, err := wordpress.AddUnit()
+			c.Assert(err, gc.IsNil)
+			err = u.OpenPort("udp", 17070)
+			c.Assert(err, gc.IsNil)
+		},
+		change: watcher.Change{
+			C:  "units",
+			Id: "wordpress/0",
+		},
+		expectContents: []params.EntityInfo{
+			&params.UnitInfo{
+				Name:       "wordpress/0",
+				Service:    "wordpress",
+				Series:     "quantal",
+				Ports:      []instance.Port{{"udp", 17070}},
+				Status:     params.StatusError,
+				StatusInfo: "another failure",
+			},
+		},
+	}, {
+		about: "unit addresses are read from the assigned machine for recent Juju releases",
+		setUp: func(c *gc.C, st *State) {
+			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+			u, err := wordpress.AddUnit()
 			c.Assert(err, gc.IsNil)
 			err = u.OpenPort("tcp", 12345)
 			c.Assert(err, gc.IsNil)
 			m, err := st.AddMachine("quantal", JobHostUnits)
 			c.Assert(err, gc.IsNil)
 			err = u.AssignToMachine(m)
+			c.Assert(err, gc.IsNil)
+			publicAddress := instance.NewAddress("public", instance.NetworkPublic)
+			privateAddress := instance.NewAddress("private", instance.NetworkCloudLocal)
+			err = m.SetAddresses(publicAddress, privateAddress)
 			c.Assert(err, gc.IsNil)
 			err = u.SetStatus(params.StatusError, "failure", nil)
 			c.Assert(err, gc.IsNil)
@@ -387,37 +444,6 @@ var allWatcherChangedTests = []struct {
 				Ports:          []instance.Port{{"tcp", 12345}},
 				Status:         params.StatusError,
 				StatusInfo:     "failure",
-			},
-		},
-	}, {
-		about: "unit is updated if it's in backing and in multiwatcher.Store",
-		add: []params.EntityInfo{&params.UnitInfo{
-			Name:       "wordpress/0",
-			Status:     params.StatusError,
-			StatusInfo: "another failure",
-		}},
-		setUp: func(c *gc.C, st *State) {
-			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
-			u, err := wordpress.AddUnit()
-			c.Assert(err, gc.IsNil)
-			err = u.SetPublicAddress("public")
-			c.Assert(err, gc.IsNil)
-			err = u.OpenPort("udp", 17070)
-			c.Assert(err, gc.IsNil)
-		},
-		change: watcher.Change{
-			C:  "units",
-			Id: "wordpress/0",
-		},
-		expectContents: []params.EntityInfo{
-			&params.UnitInfo{
-				Name:          "wordpress/0",
-				Service:       "wordpress",
-				Series:        "quantal",
-				PublicAddress: "public",
-				Ports:         []instance.Port{{"udp", 17070}},
-				Status:        params.StatusError,
-				StatusInfo:    "another failure",
 			},
 		},
 	},

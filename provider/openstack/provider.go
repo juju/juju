@@ -250,36 +250,6 @@ func (p environProvider) SecretAttrs(cfg *config.Config) (map[string]string, err
 	return m, nil
 }
 
-func (p environProvider) PublicAddress() (string, error) {
-	if addr, err := fetchMetadata("public-ipv4"); err != nil {
-		return "", err
-	} else if addr != "" {
-		return addr, nil
-	}
-	return p.PrivateAddress()
-}
-
-func (p environProvider) PrivateAddress() (string, error) {
-	return fetchMetadata("local-ipv4")
-}
-
-// metadataHost holds the address of the instance metadata service.
-// It is a variable so that tests can change it to refer to a local
-// server when needed.
-var metadataHost = "http://169.254.169.254"
-
-// fetchMetadata fetches a single atom of data from the openstack instance metadata service.
-// http://docs.amazonwebservices.com/AWSEC2/latest/UserGuide/AESDG-chapter-instancedata.html
-// (the same specs is implemented in ec2, hence the reference)
-func fetchMetadata(name string) (value string, err error) {
-	uri := fmt.Sprintf("%s/latest/meta-data/%s", metadataHost, name)
-	data, err := retryGet(uri)
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(data)), nil
-}
-
 func retryGet(uri string) (data []byte, err error) {
 	for a := shortAttempt.Start(); a.Next(); {
 		var resp *http.Response
@@ -306,6 +276,9 @@ func retryGet(uri string) (data []byte, err error) {
 }
 
 type environ struct {
+	common.NopPrecheckerPolicy
+	common.SupportsUnitPlacementPolicy
+
 	name string
 
 	// archMutex gates access to supportedArchitectures
@@ -543,6 +516,13 @@ func (e *environ) SupportedArchitectures() ([]string, error) {
 	return e.supportedArchitectures, err
 }
 
+// SupportNetworks is specified on the EnvironCapability interface.
+func (e *environ) SupportNetworks() bool {
+	// TODO(dimitern) Once we have support for networking, inquire
+	// about capabilities and return true if supported.
+	return false
+}
+
 func (e *environ) Storage() storage.Storage {
 	e.ecfgMutex.Lock()
 	stor := e.storageUnlocked
@@ -767,7 +747,11 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error) {
+
+	if args.MachineConfig.HasNetworks() {
+		return nil, nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
+	}
 
 	series := args.Tools.OneSeries()
 	arches := args.Tools.Arches()
@@ -778,21 +762,21 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		Constraints: args.Constraints,
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	tools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
-		return nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
+		return nil, nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
 	args.MachineConfig.Tools = tools[0]
 
 	if err := environs.FinishMachineConfig(args.MachineConfig, e.Config(), args.Constraints); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	userData, err := environs.ComposeUserData(args.MachineConfig)
+	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot make user data: %v", err)
+		return nil, nil, nil, fmt.Errorf("cannot make user data: %v", err)
 	}
 	logger.Debugf("openstack user data; %d bytes", len(userData))
 	var networks = []nova.ServerNetworks{}
@@ -800,7 +784,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	if usingNetwork != "" {
 		networkId, err := e.resolveNetwork(usingNetwork)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		logger.Debugf("using network id %q", networkId)
 		networks = append(networks, nova.ServerNetworks{NetworkId: networkId})
@@ -809,7 +793,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	var publicIP *nova.FloatingIP
 	if withPublicIP {
 		if fip, err := e.allocatePublicIP(); err != nil {
-			return nil, nil, fmt.Errorf("cannot allocate a public IP as needed: %v", err)
+			return nil, nil, nil, fmt.Errorf("cannot allocate a public IP as needed: %v", err)
 		} else {
 			publicIP = fip
 			logger.Infof("allocated public IP %s", publicIP.IP)
@@ -818,7 +802,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	cfg := e.Config()
 	groups, err := e.setUpGroups(args.MachineConfig.MachineId, cfg.StatePort(), cfg.APIPort())
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot set up groups: %v", err)
+		return nil, nil, nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
 	var groupNames = make([]nova.SecurityGroupName, len(groups))
 	for i, g := range groups {
@@ -840,11 +824,11 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		}
 	}
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot run instance: %v", err)
+		return nil, nil, nil, fmt.Errorf("cannot run instance: %v", err)
 	}
 	detail, err := e.nova().GetServer(server.Id)
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot get started instance: %v", err)
+		return nil, nil, nil, fmt.Errorf("cannot get started instance: %v", err)
 	}
 	inst := &openstackInstance{
 		e:            e,
@@ -859,11 +843,11 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 				// ignore the failure at this stage, just log it
 				logger.Debugf("failed to terminate instance %q: %v", inst.Id(), err)
 			}
-			return nil, nil, fmt.Errorf("cannot assign public address %s to instance %q: %v", publicIP.IP, inst.Id(), err)
+			return nil, nil, nil, fmt.Errorf("cannot assign public address %s to instance %q: %v", publicIP.IP, inst.Id(), err)
 		}
 		logger.Infof("assigned public IP %s to %q", publicIP.IP, inst.Id())
 	}
-	return inst, inst.hardwareCharacteristics(), nil
+	return inst, inst.hardwareCharacteristics(), nil, nil
 }
 
 func (e *environ) StopInstances(insts []instance.Instance) error {
@@ -1312,7 +1296,7 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 		return nil, err
 	}
 	return &simplestreams.MetadataLookupParams{
-		Series:        e.ecfg().DefaultSeries(),
+		Series:        config.PreferredSeries(e.ecfg()),
 		Region:        cloudSpec.Region,
 		Endpoint:      cloudSpec.Endpoint,
 		Architectures: arch.AllSupportedArches,

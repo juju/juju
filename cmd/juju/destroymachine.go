@@ -9,15 +9,14 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/statecmd"
 )
 
 // DestroyMachineCommand causes an existing machine to be destroyed.
 type DestroyMachineCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	MachineIds []string
 	Force      bool
 }
@@ -45,6 +44,10 @@ func (c *DestroyMachineCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *DestroyMachineCommand) Init(args []string) error {
+	err := c.EnvCommandBase.Init()
+	if err != nil {
+		return err
+	}
 	if len(args) == 0 {
 		return fmt.Errorf("no machines specified")
 	}
@@ -57,21 +60,6 @@ func (c *DestroyMachineCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *DestroyMachineCommand) run1dot16() error {
-	if c.Force {
-		return fmt.Errorf("destroy-machine --force is not supported in Juju servers older than 1.16.4")
-	}
-	conn, err := juju.NewConnFromName(c.EnvName)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-	// TODO: When this run1dot16 code is removed, we should remove the
-	// method in state as well (as long as add-machine also no longer
-	// needs it.)
-	return statecmd.DestroyMachines1dot16(conn.State, c.MachineIds...)
-}
-
 func (c *DestroyMachineCommand) Run(_ *cmd.Context) error {
 	apiclient, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
@@ -79,15 +67,7 @@ func (c *DestroyMachineCommand) Run(_ *cmd.Context) error {
 	}
 	defer apiclient.Close()
 	if c.Force {
-		err = apiclient.ForceDestroyMachines(c.MachineIds...)
-	} else {
-		err = apiclient.DestroyMachines(c.MachineIds...)
+		return apiclient.ForceDestroyMachines(c.MachineIds...)
 	}
-	// Juju 1.16.3 and older did not have DestroyMachines as an API command.
-	if params.IsCodeNotImplemented(err) {
-		logger.Infof("DestroyMachines not supported by the API server, " +
-			"falling back to <=1.16.3 compatibility")
-		return c.run1dot16()
-	}
-	return err
+	return apiclient.DestroyMachines(c.MachineIds...)
 }

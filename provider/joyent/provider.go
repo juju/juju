@@ -9,34 +9,32 @@ import (
 
 	"github.com/juju/loggo"
 
+	"github.com/joyent/gosign/auth"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/imagemetadata"
+	"launchpad.net/juju-core/environs/simplestreams"
+	envtools "launchpad.net/juju-core/environs/tools"
 )
 
 var logger = loggo.GetLogger("juju.provider.joyent")
 
-type environProvider struct{}
+type joyentProvider struct{}
 
-var providerInstance = environProvider{}
+var providerInstance = joyentProvider{}
 var _ environs.EnvironProvider = providerInstance
 
+var _ simplestreams.HasRegion = (*joyentEnviron)(nil)
+var _ imagemetadata.SupportsCustomSources = (*joyentEnviron)(nil)
+var _ envtools.SupportsCustomSources = (*joyentEnviron)(nil)
+
 func init() {
-	// This will only happen in binaries that actually import this provider
-	// somewhere. To enable a provider, import it in the "providers/all"
-	// package; please do *not* import individual providers anywhere else,
-	// except for tests for that provider.
 	environs.RegisterProvider("joyent", providerInstance)
 }
 
 var errNotImplemented = errors.New("not implemented in Joyent provider")
 
-func (environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	// This method may be called with an incomplete cfg. It should make every
-	// reasonable effort to create a valid configuration based on the supplied,
-	// and open the resulting environment.
-	// You should implement this method to the best of your ability before
-	// expecting non-developers to use your provider, but it shouldn't be your
-	// first priority.
+func (joyentProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	preparedCfg, err := prepareConfig(cfg)
 	if err != nil {
 		return nil, err
@@ -44,35 +42,37 @@ func (environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config
 	return providerInstance.Open(preparedCfg)
 }
 
-func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	env := &environ{name: cfg.Name()}
-	if err := env.SetConfig(cfg); err != nil {
+func credentials(cfg *environConfig) (*auth.Credentials, error) {
+	if cfg.privateKey() == "" {
+		return nil, errors.New("cannot create credentials without a private key")
+	}
+	authentication := auth.Auth{User: cfg.mantaUser(), PrivateKey: cfg.privateKey(), Algorithm: cfg.algorithm()}
+	return &auth.Credentials{
+		UserAuthentication: authentication,
+		MantaKeyId:         cfg.mantaKeyId(),
+		MantaEndpoint:      auth.Endpoint{URL: cfg.mantaUrl()},
+		SdcKeyId:           cfg.sdcKeyId(),
+		SdcEndpoint:        auth.Endpoint{URL: cfg.sdcUrl()},
+	}, nil
+}
+
+func (joyentProvider) Open(cfg *config.Config) (environs.Environ, error) {
+	env, err := newEnviron(cfg)
+	if err != nil {
 		return nil, err
 	}
 	return env, nil
 }
 
-func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
-	// You should almost certainly not change this method; if you need to change
-	// how configs are validated, you should edit validateConfig itself, to ensure
-	// that your checks are always applied.
-	newEcfg, err := validateConfig(cfg, nil)
+func (joyentProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
+	newEcfg, err := validateConfig(cfg, old)
 	if err != nil {
 		return nil, fmt.Errorf("invalid Joyent provider config: %v", err)
 	}
-	if old != nil {
-		oldEcfg, err := validateConfig(old, nil)
-		if err != nil {
-			return nil, fmt.Errorf("original Joyent provider config is invalid: %v", err)
-		}
-		if newEcfg, err = validateConfig(cfg, oldEcfg); err != nil {
-			return nil, fmt.Errorf("invalid Joyent provider config change: %v", err)
-		}
-	}
-	return newEcfg.Config, nil
+	return cfg.Apply(newEcfg.attrs)
 }
 
-func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
+func (joyentProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
 	// If you keep configSecretFields up to date, this method should Just Work.
 	ecfg, err := validateConfig(cfg, nil)
 	if err != nil {
@@ -97,24 +97,31 @@ func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error
 	return secretAttrs, nil
 }
 
-func (environProvider) BoilerplateConfig() string {
+func (joyentProvider) BoilerplateConfig() string {
 	return boilerplateConfig
 
 }
-func (environProvider) PublicAddress() (string, error) {
-	// Don't bother implementing this method until you're ready to deploy units.
-	// You probably won't need to by that stage; it's due for retirement. If it
-	// turns out that you do need to, remember that this method will *only* be
-	// called in code running on an instance in an environment using this
-	// provider; and it needs to return the address of *that* instance.
-	return "", errNotImplemented
+
+func GetProviderInstance() environs.EnvironProvider {
+	return providerInstance
 }
 
-func (environProvider) PrivateAddress() (string, error) {
-	// Don't bother implementing this method until you're ready to deploy units.
-	// You probably won't need to by that stage; it's due for retirement. If it
-	// turns out that you do need to, remember that this method will *only* be
-	// called in code running on an instance in an environment using this
-	// provider; and it needs to return the address of *that* instance.
-	return "", errNotImplemented
+// MetadataLookupParams returns parameters which are used to query image metadata to
+// find matching image information.
+func (p joyentProvider) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
+	if region == "" {
+		return nil, fmt.Errorf("region must be specified")
+	}
+	return &simplestreams.MetadataLookupParams{
+		Region:        region,
+		Architectures: []string{"amd64", "armhf"},
+	}, nil
+}
+
+func (p joyentProvider) newConfig(cfg *config.Config) (*environConfig, error) {
+	valid, err := p.Validate(cfg, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &environConfig{valid, valid.UnknownAttrs()}, nil
 }

@@ -1,14 +1,19 @@
 package mongo
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
+	"labix.org/v2/mgo"
+	"net"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 
 	"github.com/juju/loggo"
-
+	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/replicaset"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
 )
@@ -16,18 +21,73 @@ import (
 const (
 	maxFiles = 65000
 	maxProcs = 20000
+
+	serviceName = "juju-db"
+
+	// SharedSecretFile is the name of the Mongo shared secret file
+	// located within the Juju data directory.
+	SharedSecretFile = "shared-secret"
 )
 
 var (
 	logger = loggo.GetLogger("juju.agent.mongo")
 
-	oldMongoServiceName = "juju-db"
-
 	// JujuMongodPath holds the default path to the juju-specific mongod.
 	JujuMongodPath = "/usr/lib/juju/bin/mongod"
+
 	// MongodbServerPath holds the default path to the generic mongod.
 	MongodbServerPath = "/usr/bin/mongod"
 )
+
+// WithAddresses represents an entity that has a set of
+// addresses. e.g. a state Machine object
+type WithAddresses interface {
+	Addresses() []instance.Address
+}
+
+// IsMaster returns a boolean that represents whether the given
+// machine's peer address is the primary mongo host for the replicaset
+func IsMaster(session *mgo.Session, obj WithAddresses) (bool, error) {
+	addrs := obj.Addresses()
+
+	masterHostPort, err := replicaset.MasterHostPort(session)
+	if err != nil {
+		return false, err
+	}
+
+	masterAddr, _, err := net.SplitHostPort(masterHostPort)
+	if err != nil {
+		return false, err
+	}
+
+	machinePeerAddr := SelectPeerAddress(addrs)
+	return machinePeerAddr == masterAddr, nil
+}
+
+// SelectPeerAddress returns the address to use as the
+// mongo replica set peer address by selecting it from the given addresses.
+func SelectPeerAddress(addrs []instance.Address) string {
+	return instance.SelectInternalAddress(addrs, false)
+}
+
+// SelectPeerHostPort returns the HostPort to use as the
+// mongo replica set peer by selecting it from the given hostPorts.
+func SelectPeerHostPort(hostPorts []instance.HostPort) string {
+	return instance.SelectInternalHostPort(hostPorts, false)
+}
+
+// GenerateSharedSecret generates a pseudo-random shared secret (keyfile)
+// for use with Mongo replica sets.
+func GenerateSharedSecret() (string, error) {
+	// "A key’s length must be between 6 and 1024 characters and may
+	// only contain characters in the base64 set."
+	//   -- http://docs.mongodb.org/manual/tutorial/generate-key-file/
+	buf := make([]byte, base64.StdEncoding.DecodedLen(1024))
+	if _, err := rand.Read(buf); err != nil {
+		return "", fmt.Errorf("cannot read random secret: %v", err)
+	}
+	return base64.StdEncoding.EncodeToString(buf), nil
+}
 
 // MongoPackageForSeries returns the name of the mongo package for the series
 // of the machine that it is going to be running on.
@@ -65,26 +125,26 @@ func MongodPath() (string, error) {
 	return path, nil
 }
 
+// RemoveService removes the mongoDB upstart service from this machine.
+func RemoveService(namespace string) error {
+	return upstart.NewService(ServiceName(namespace)).StopAndRemove()
+}
+
 // EnsureMongoServer ensures that the correct mongo upstart script is installed
 // and running.
 //
 // This method will remove old versions of the mongo upstart script as necessary
 // before installing the new version.
-func EnsureMongoServer(dir string, port int) error {
-	// NOTE: ensure that the right package is installed?
-	name := makeServiceName(mongoScriptVersion)
+//
+// The namespace is a unique identifier to prevent multiple instances of mongo
+// on this machine from colliding. This should be empty unless using
+// the local provider.
+func EnsureMongoServer(dir string, port int, namespace string) error {
 	// TODO: get the series from somewhere, non trusty values return
 	// the existing default path.
 	mongodPath := MongodPathForSeries("some-series")
-	service, err := MongoUpstartService(name, mongodPath, dir, port)
+	service, err := MongoUpstartService(namespace, mongodPath, dir, port)
 	if err != nil {
-		return err
-	}
-	if service.Installed() {
-		return nil
-	}
-
-	if err := removeOldMongoServices(mongoScriptVersion); err != nil {
 		return err
 	}
 
@@ -92,10 +152,16 @@ func EnsureMongoServer(dir string, port int) error {
 		return err
 	}
 
-	if err := service.Install(); err != nil {
-		return fmt.Errorf("failed to install mongo service %q: %v", service.Name, err)
+	return service.Install()
+}
+
+// ServiceName returns the name of the upstart service config for mongo using
+// the given namespace.
+func ServiceName(namespace string) string {
+	if namespace != "" {
+		return fmt.Sprintf("%s-%s", serviceName, namespace)
 	}
-	return service.Start()
+	return serviceName
 }
 
 func makeJournalDirs(dir string) error {
@@ -127,41 +193,16 @@ func makeJournalDirs(dir string) error {
 	return nil
 }
 
-// removeOldMongoServices looks for any old juju mongo upstart scripts and
-// removes them.
-func removeOldMongoServices(curVersion int) error {
-	old := upstart.NewService(oldMongoServiceName)
-	if err := old.StopAndRemove(); err != nil {
-		logger.Errorf("Failed to remove old mongo upstart service %q: %v", old.Name, err)
-		return err
-	}
-
-	// the new formatting for the script name started at version 2
-	for x := 2; x < curVersion; x++ {
-		old := upstart.NewService(makeServiceName(x))
-		if err := old.StopAndRemove(); err != nil {
-			logger.Errorf("Failed to remove old mongo upstart service %q: %v", old.Name, err)
-			return err
-		}
-	}
-	return nil
-}
-
-func makeServiceName(version int) string {
-	return fmt.Sprintf("juju-db-v%d", version)
-}
-
-// mongoScriptVersion keeps track of changes to the mongo upstart script.
-// Update this version when you update the script that gets installed from
-// MongoUpstartService.
-const mongoScriptVersion = 2
-
 // MongoUpstartService returns the upstart config for the mongo state service.
 //
-// This method assumes there is a server.pem keyfile in dataDir.
-func MongoUpstartService(name, mongodExec, dataDir string, port int) (*upstart.Conf, error) {
+// This method assumes there exist "server.pem" and "shared_secret" keyfiles in dataDir.
+func MongoUpstartService(namespace, mongodExec, dataDir string, port int) (*upstart.Conf, error) {
+	// NOTE: ensure that the right package is installed?
+	name := ServiceName(namespace)
 
-	keyFile := path.Join(dataDir, "server.pem")
+	sslKeyFile := path.Join(dataDir, "server.pem")
+	// TODO(Nate): uncomment when we commit HA stuff
+	//keyFile := path.Join(dataDir, SharedSecretFile)
 	svc := upstart.NewService(name)
 
 	dbDir := path.Join(dataDir, "db")
@@ -177,7 +218,7 @@ func MongoUpstartService(name, mongodExec, dataDir string, port int) (*upstart.C
 			" --auth" +
 			" --dbpath=" + dbDir +
 			" --sslOnNormalPorts" +
-			" --sslPEMKeyFile " + utils.ShQuote(keyFile) +
+			" --sslPEMKeyFile " + utils.ShQuote(sslKeyFile) +
 			" --sslPEMKeyPassword ignored" +
 			" --bind_ip 0.0.0.0" +
 			" --port " + fmt.Sprint(port) +
@@ -186,7 +227,8 @@ func MongoUpstartService(name, mongodExec, dataDir string, port int) (*upstart.C
 			" --smallfiles",
 		// TODO(Nate): uncomment when we commit HA stuff
 		// +
-		//	" --replSet juju",
+		//	" --replSet juju" +
+		//	" --keyFile " + utils.ShQuote(keyFile),
 	}
 	return conf, nil
 }

@@ -8,7 +8,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	_ "launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/testing"
 )
@@ -69,7 +69,7 @@ func (*SwitchSimpleSuite) TestSettingWritesFile(c *gc.C) {
 	context, err := testing.RunCommand(c, &SwitchCommand{}, []string{"erewhemos-2"})
 	c.Assert(err, gc.IsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "erewhemos -> erewhemos-2\n")
-	c.Assert(cmd.ReadCurrentEnvironment(), gc.Equals, "erewhemos-2")
+	c.Assert(envcmd.ReadCurrentEnvironment(), gc.Equals, "erewhemos-2")
 }
 
 func (*SwitchSimpleSuite) TestSettingToUnknown(c *gc.C) {

@@ -79,6 +79,10 @@ func (s *ConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm) *st
 	return state.AddTestingService(c, s.State, name, ch)
 }
 
+func (s *ConnSuite) AddTestingServiceWithNetworks(c *gc.C, name string, ch *state.Charm, includeNetworks, excludeNetworks []string) *state.Service {
+	return state.AddTestingServiceWithNetworks(c, s.State, name, ch, includeNetworks, excludeNetworks)
+}
+
 func (s *ConnSuite) AddSeriesCharm(c *gc.C, name, series string) *state.Charm {
 	return state.AddCustomCharm(c, s.State, name, "", "", series, -1)
 }
@@ -97,8 +101,9 @@ func (s *ConnSuite) AddMetaCharm(c *gc.C, name, metaYaml string, revsion int) *s
 }
 
 type mockPolicy struct {
-	getPrechecker      func(*config.Config) (state.Prechecker, error)
-	getConfigValidator func(string) (state.ConfigValidator, error)
+	getPrechecker        func(*config.Config) (state.Prechecker, error)
+	getConfigValidator   func(string) (state.ConfigValidator, error)
+	getEnvironCapability func(*config.Config) (state.EnvironCapability, error)
 }
 
 func (p *mockPolicy) Prechecker(cfg *config.Config) (state.Prechecker, error) {
@@ -113,4 +118,11 @@ func (p *mockPolicy) ConfigValidator(providerType string) (state.ConfigValidator
 		return p.getConfigValidator(providerType)
 	}
 	return nil, errors.NewNotImplementedError("ConfigValidator")
+}
+
+func (p *mockPolicy) EnvironCapability(cfg *config.Config) (state.EnvironCapability, error) {
+	if p.getEnvironCapability != nil {
+		return p.getEnvironCapability(cfg)
+	}
+	return nil, errors.NewNotImplementedError("EnvironCapability")
 }

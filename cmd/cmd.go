@@ -17,16 +17,16 @@ import (
 	"launchpad.net/gnuflag"
 )
 
-type rcPassthroughError struct {
-	code int
+type RcPassthroughError struct {
+	Code int
 }
 
-func (e *rcPassthroughError) Error() string {
-	return fmt.Sprintf("rc: %v", e.code)
+func (e *RcPassthroughError) Error() string {
+	return fmt.Sprintf("subprocess encountered error code %v", e.Code)
 }
 
 func IsRcPassthroughError(err error) bool {
-	_, ok := err.(*rcPassthroughError)
+	_, ok := err.(*RcPassthroughError)
 	return ok
 }
 
@@ -34,7 +34,7 @@ func IsRcPassthroughError(err error) bool {
 // return code from the cmd.Main function rather than the default of 1 if
 // there is an error.
 func NewRcPassthroughError(code int) error {
-	return &rcPassthroughError{code}
+	return &RcPassthroughError{code}
 }
 
 // ErrSilent can be returned from Run to signal that Main should exit with
@@ -90,10 +90,40 @@ func (c *CommandBase) AllowInterspersedFlags() bool {
 // should interpret file names relative to Dir (see AbsPath below), and print
 // output and errors to Stdout and Stderr respectively.
 type Context struct {
-	Dir    string
-	Stdin  io.Reader
-	Stdout io.Writer
-	Stderr io.Writer
+	Dir     string
+	Stdin   io.Reader
+	Stdout  io.Writer
+	Stderr  io.Writer
+	quiet   bool
+	verbose bool
+}
+
+func (ctx *Context) write(format string, params ...interface{}) {
+	output := fmt.Sprintf(format, params...)
+	if !strings.HasSuffix(output, "\n") {
+		output = output + "\n"
+	}
+	fmt.Fprint(ctx.Stderr, output)
+}
+
+// Infof will write the formatted string to Stderr if quiet is false, but if
+// quiet is true the message is logged.
+func (ctx *Context) Infof(format string, params ...interface{}) {
+	if ctx.quiet {
+		logger.Infof(format, params...)
+	} else {
+		ctx.write(format, params...)
+	}
+}
+
+// Verbosef will write the formatted string to Stderr if the verbose is true,
+// and to the logger if not.
+func (ctx *Context) Verbosef(format string, params ...interface{}) {
+	if ctx.verbose {
+		ctx.write(format, params...)
+	} else {
+		logger.Infof(format, params...)
+	}
 }
 
 // AbsPath returns an absolute representation of path, with relative paths
@@ -213,7 +243,7 @@ func Main(c Command, ctx *Context, args []string) int {
 	}
 	if err := c.Run(ctx); err != nil {
 		if IsRcPassthroughError(err) {
-			return err.(*rcPassthroughError).code
+			return err.(*RcPassthroughError).Code
 		}
 		if err != ErrSilent {
 			fmt.Fprintf(ctx.Stderr, "error: %v\n", err)

@@ -15,6 +15,7 @@ import (
 
 	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -76,7 +77,13 @@ func (s *RelationerSuite) AddRelationUnit(c *gc.C, name string) (*state.Relation
 	u, err := s.svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 	c.Assert(u.Name(), gc.Equals, name)
-	err = u.SetPrivateAddress(strings.Replace(name, "/", "-", 1) + ".testing.invalid")
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = u.AssignToMachine(machine)
+	c.Assert(err, gc.IsNil)
+	privateAddr := instance.NewAddress(
+		strings.Replace(name, "/", "-", 1)+".testing.invalid", instance.NetworkCloudLocal)
+	err = machine.SetAddresses(privateAddr)
 	c.Assert(err, gc.IsNil)
 	ru, err := s.rel.Unit(u)
 	c.Assert(err, gc.IsNil)
@@ -381,7 +388,11 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	u, err := mysql.AddUnit()
 	c.Assert(err, gc.IsNil)
-	err = u.SetPrivateAddress("blah")
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = u.AssignToMachine(machine)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetAddresses(instance.NewAddress("blah", instance.NetworkCloudLocal))
 	c.Assert(err, gc.IsNil)
 	logging := s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints([]string{"logging", "mysql"})
@@ -417,8 +428,6 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	_, err = os.Stat(filepath.Join(relsDir, strconv.Itoa(rel.Id())))
 	c.Assert(err, gc.NotNil)
 	sub, err := logging.Unit("logging/0")
-	c.Assert(err, gc.IsNil)
-	err = sub.SetPrivateAddress("blah")
 	c.Assert(err, gc.IsNil)
 
 	// Join the other side; check no hooks are sent.

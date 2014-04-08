@@ -7,13 +7,14 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/configstore"
 )
 
 // EndpointCommand returns the API endpoints
 type EndpointCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	out cmd.Output
 }
 
@@ -37,6 +38,10 @@ func (c *EndpointCommand) Info() *cmd.Info {
 }
 
 func (c *EndpointCommand) Init(args []string) error {
+	err := c.EnvCommandBase.Init()
+	if err != nil {
+		return err
+	}
 	return cmd.CheckEmpty(args)
 }
 

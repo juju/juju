@@ -6,26 +6,42 @@ package api
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
+	"io"
 	"time"
 
 	"code.google.com/p/go.net/websocket"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/cert"
-	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/rpc/jsoncodec"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/parallel"
 )
+
+var logger = loggo.GetLogger("juju.state.api")
 
 // PingPeriod defines how often the internal connection health check
 // will run. It's a variable so it can be changed in tests.
 var PingPeriod = 1 * time.Minute
 
+// maxParallelDial defines the maximum number addresses to dial in
+// parallel.
+const maxParallelDial = 7
+
 type State struct {
 	client *rpc.Conn
 	conn   *websocket.Conn
-	addr   string
+
+	// addr is the address used to connect to the API server.
+	addr string
+
+	// hostPorts is the API server addresses returned from Login,
+	// which the client may cache and use for failover.
+	hostPorts [][]instance.HostPort
 
 	// authTag holds the authenticated entity's tag after login.
 	authTag string
@@ -69,6 +85,10 @@ type Info struct {
 // DialOpts holds configuration parameters that control the
 // Dialing behavior when connecting to a state server.
 type DialOpts struct {
+	// DialAddressInterval is the amount of time to wait
+	// before starting to dial another address.
+	DialAddressInterval time.Duration
+
 	// Timeout is the amount of time to wait contacting
 	// a state server.
 	Timeout time.Duration
@@ -82,54 +102,51 @@ type DialOpts struct {
 // parameters for contacting a state server.
 func DefaultDialOpts() DialOpts {
 	return DialOpts{
-		Timeout:    10 * time.Minute,
-		RetryDelay: 2 * time.Second,
+		DialAddressInterval: 50 * time.Millisecond,
+		Timeout:             10 * time.Minute,
+		RetryDelay:          2 * time.Second,
 	}
 }
 
 func Open(info *Info, opts DialOpts) (*State, error) {
-	// TODO Select a random address from info.Addrs
-	// and only fail when we've tried all the addresses.
-	// TODO what does "origin" really mean, and is localhost always ok?
-	cfg, err := websocket.NewConfig("wss://"+info.Addrs[0]+"/", "http://localhost/")
-	if err != nil {
-		return nil, err
-	}
 	pool := x509.NewCertPool()
 	xcert, err := cert.ParseCert(info.CACert)
 	if err != nil {
 		return nil, err
 	}
 	pool.AddCert(xcert)
-	cfg.TlsConfig = &tls.Config{
-		RootCAs:    pool,
-		ServerName: "anything",
-	}
-	var conn *websocket.Conn
-	openAttempt := utils.AttemptStrategy{
-		Total: opts.Timeout,
-		Delay: opts.RetryDelay,
-	}
-	for a := openAttempt.Start(); a.Next(); {
-		log.Infof("state/api: dialing %q", cfg.Location)
-		conn, err = websocket.DialConfig(cfg)
-		if err == nil {
+
+	// Dial all addresses, with up to maxParallelDial in parallel.
+	try := parallel.NewTry(maxParallelDial, nil)
+	defer try.Kill()
+	for _, addr := range info.Addrs {
+		err := dialWebsocket(addr, opts, pool, try)
+		if err == parallel.ErrStopped {
 			break
 		}
-		log.Errorf("state/api: %v", err)
+		if err != nil {
+			return nil, err
+		}
+		select {
+		case <-time.After(opts.DialAddressInterval):
+		case <-try.Dead():
+		}
 	}
+	try.Close()
+	result, err := try.Result()
 	if err != nil {
 		return nil, err
 	}
-	log.Infof("state/api: connection established")
+	conn := result.(*websocket.Conn)
+	logger.Infof("connection established to %q", conn.RemoteAddr())
 
 	client := rpc.NewConn(jsoncodec.NewWebsocket(conn), nil)
 	client.Start()
 	st := &State{
 		client:     client,
 		conn:       conn,
-		addr:       cfg.Location.Host,
-		serverRoot: "https://" + cfg.Location.Host,
+		addr:       conn.Config().Location.Host,
+		serverRoot: "https://" + conn.Config().Location.Host,
 		tag:        info.Tag,
 		password:   info.Password,
 	}
@@ -142,6 +159,52 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	st.broken = make(chan struct{})
 	go st.heartbeatMonitor()
 	return st, nil
+}
+
+func dialWebsocket(addr string, opts DialOpts, rootCAs *x509.CertPool, try *parallel.Try) error {
+	// origin is required by the WebSocket API, used for "origin policy"
+	// in websockets. We pass localhost to satisfy the API; it is
+	// inconsequential to us.
+	const origin = "http://localhost/"
+	cfg, err := websocket.NewConfig("wss://"+addr+"/", origin)
+	if err != nil {
+		return err
+	}
+	cfg.TlsConfig = &tls.Config{
+		RootCAs:    rootCAs,
+		ServerName: "anything",
+	}
+	return try.Start(newWebsocketDialer(cfg, opts))
+}
+
+// new WebsocketDialler returns a function that
+// can be passed to utils/parallel.Try.Start.
+func newWebsocketDialer(cfg *websocket.Config, opts DialOpts) func(<-chan struct{}) (io.Closer, error) {
+	openAttempt := utils.AttemptStrategy{
+		Total: opts.Timeout,
+		Delay: opts.RetryDelay,
+	}
+	return func(stop <-chan struct{}) (io.Closer, error) {
+		for a := openAttempt.Start(); a.Next(); {
+			select {
+			case <-stop:
+				return nil, parallel.ErrStopped
+			default:
+			}
+			logger.Infof("dialing %q", cfg.Location)
+			conn, err := websocket.DialConfig(cfg)
+			if err == nil {
+				return conn, nil
+			}
+			if a.HasNext() {
+				logger.Debugf("error dialing %q, will retry: %v", cfg.Location, err)
+			} else {
+				logger.Infof("error dialing %q: %v", cfg.Location, err)
+				return nil, fmt.Errorf("timed out connecting to %q", cfg.Location)
+			}
+		}
+		panic("unreachable")
+	}
 }
 
 func (s *State) heartbeatMonitor() {
@@ -189,7 +252,23 @@ func (s *State) RPCClient() *rpc.Conn {
 	return s.client
 }
 
-// Addr returns the address used to connect to the RPC server.
+// Addr returns the address used to connect to the API server.
 func (s *State) Addr() string {
 	return s.addr
+}
+
+// APIHostPorts returns addresses that may be used to connect
+// to the API server, including the address used to connect.
+//
+// The addresses are scoped (public, cloud-internal, etc.), so
+// the client may choose which addresses to attempt. For the
+// Juju CLI, all addresses must be attempted, as the CLI may
+// be invoked both within and outside the environment (think
+// private clouds).
+func (s *State) APIHostPorts() [][]instance.HostPort {
+	hostPorts := make([][]instance.HostPort, len(s.hostPorts))
+	for i, server := range s.hostPorts {
+		hostPorts[i] = append([]instance.HostPort{}, server...)
+	}
+	return hostPorts
 }

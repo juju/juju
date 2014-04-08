@@ -14,6 +14,8 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
@@ -23,6 +25,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
+	apiserverprovisioner "launchpad.net/juju-core/state/apiserver/provisioner"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
@@ -107,9 +110,7 @@ func (s *CommonProvisionerSuite) setupEnvironmentManager(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.Id(), gc.Equals, "0")
-	err = machine.SetAddresses([]instance.Address{
-		instance.NewAddress("0.1.2.3"),
-	})
+	err = machine.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
 	c.Assert(err, gc.IsNil)
 	s.APILogin(c, machine)
 }
@@ -161,10 +162,10 @@ func (s *CommonProvisionerSuite) startUnknownInstance(c *gc.C, id string) instan
 }
 
 func (s *CommonProvisionerSuite) checkStartInstance(c *gc.C, m *state.Machine) instance.Instance {
-	return s.checkStartInstanceCustom(c, m, "pork", s.defaultConstraints)
+	return s.checkStartInstanceCustom(c, m, "pork", s.defaultConstraints, nil, nil)
 }
 
-func (s *CommonProvisionerSuite) checkStartInstanceCustom(c *gc.C, m *state.Machine, secret string, cons constraints.Value) (inst instance.Instance) {
+func (s *CommonProvisionerSuite) checkStartInstanceCustom(c *gc.C, m *state.Machine, secret string, cons constraints.Value, includeNetworks, excludeNetworks []string) (inst instance.Instance) {
 	s.BackingState.StartSync()
 	for {
 		select {
@@ -182,6 +183,8 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(c *gc.C, m *state.Mach
 				c.Assert(nonceParts[1], jc.Satisfies, utils.IsValidUUIDString)
 				c.Assert(o.Secret, gc.Equals, secret)
 				c.Assert(o.Constraints, gc.DeepEquals, cons)
+				c.Assert(o.IncludeNetworks, jc.DeepEquals, includeNetworks)
+				c.Assert(o.ExcludeNetworks, jc.DeepEquals, excludeNetworks)
 
 				// All provisioned machines in this test suite have their hardware characteristics
 				// attributes set to the same values as the constraints due to the dummy environment being used.
@@ -334,28 +337,34 @@ func (s *CommonProvisionerSuite) waitInstanceId(c *gc.C, m *state.Machine, expec
 	})
 }
 
-func (s *ProvisionerSuite) SetUpTest(c *gc.C) {
-	s.CommonProvisionerSuite.SetUpTest(c)
-	s.CommonProvisionerSuite.setupEnvironmentManager(c)
-}
-
-func (s *ProvisionerSuite) newEnvironProvisioner(c *gc.C) provisioner.Provisioner {
+func (s *CommonProvisionerSuite) newEnvironProvisioner(c *gc.C) provisioner.Provisioner {
 	machineTag := "machine-0"
 	agentConfig := s.AgentConfigForTag(c, machineTag)
 	return provisioner.NewEnvironProvisioner(s.provisioner, agentConfig)
 }
 
+func (s *CommonProvisionerSuite) addMachine() (*state.Machine, error) {
+	return s.addMachineWithRequestedNetworks(nil, nil)
+}
+
+func (s *CommonProvisionerSuite) addMachineWithRequestedNetworks(includeNetworks, excludeNetworks []string) (*state.Machine, error) {
+	return s.BackingState.AddOneMachine(state.MachineTemplate{
+		Series:          coretesting.FakeDefaultSeries,
+		Jobs:            []state.MachineJob{state.JobHostUnits},
+		Constraints:     s.defaultConstraints,
+		IncludeNetworks: includeNetworks,
+		ExcludeNetworks: excludeNetworks,
+	})
+}
+
+func (s *ProvisionerSuite) SetUpTest(c *gc.C) {
+	s.CommonProvisionerSuite.SetUpTest(c)
+	s.CommonProvisionerSuite.setupEnvironmentManager(c)
+}
+
 func (s *ProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
 	p := s.newEnvironProvisioner(c)
 	c.Assert(p.Stop(), gc.IsNil)
-}
-
-func (s *ProvisionerSuite) addMachine() (*state.Machine, error) {
-	return s.BackingState.AddOneMachine(state.MachineTemplate{
-		Series:      config.DefaultSeries,
-		Jobs:        []state.MachineJob{state.JobHostUnits},
-		Constraints: s.defaultConstraints,
-	})
 }
 
 func (s *ProvisionerSuite) TestSimple(c *gc.C) {
@@ -384,7 +393,7 @@ func (s *ProvisionerSuite) TestConstraints(c *gc.C) {
 	// Start a provisioner and check those constraints are used.
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)
-	s.checkStartInstanceCustom(c, m, "pork", cons)
+	s.checkStartInstanceCustom(c, m, "pork", cons, nil, nil)
 }
 
 func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenStartInstanceFailed(c *gc.C) {
@@ -433,7 +442,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForContainers(c *gc.C) {
 
 	// make a container on the machine we just created
 	template := state.MachineTemplate{
-		Series: config.DefaultSeries,
+		Series: coretesting.FakeDefaultSeries,
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideMachine(template, m.Id(), instance.LXC)
@@ -445,6 +454,23 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForContainers(c *gc.C) {
 	// cleanup
 	c.Assert(container.EnsureDead(), gc.IsNil)
 	c.Assert(container.Remove(), gc.IsNil)
+	c.Assert(m.EnsureDead(), gc.IsNil)
+	s.checkStopInstances(c, inst)
+	s.waitRemoved(c, m)
+}
+
+func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedNetworks(c *gc.C) {
+	p := s.newEnvironProvisioner(c)
+	defer stop(c, p)
+
+	// Add and provision a machine with networks specified.
+	includeNetworks := []string{"net1", "net2"}
+	excludeNetworks := []string{"net3", "net4"}
+	m, err := s.addMachineWithRequestedNetworks(includeNetworks, excludeNetworks)
+	c.Assert(err, gc.IsNil)
+	inst := s.checkStartInstanceCustom(c, m, "pork", s.defaultConstraints, includeNetworks, excludeNetworks)
+
+	// Cleanup.
 	c.Assert(m.EnsureDead(), gc.IsNil)
 	s.checkStopInstances(c, inst)
 	s.waitRemoved(c, m)
@@ -632,7 +658,7 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	c.Assert(err, gc.IsNil)
 
 	// the PA should create it using the new environment
-	s.checkStartInstanceCustom(c, m, "beef", s.defaultConstraints)
+	s.checkStartInstanceCustom(c, m, "beef", s.defaultConstraints, nil, nil)
 }
 
 func (s *ProvisionerSuite) TestProvisioningSafeMode(c *gc.C) {
@@ -731,17 +757,20 @@ func (s *ProvisionerSuite) TestProvisioningSafeModeChange(c *gc.C) {
 	s.waitRemoved(c, m3)
 }
 
-func (s *ProvisionerSuite) newProvisionerTask(c *gc.C, safeMode bool) provisioner.ProvisionerTask {
-	env := s.APIConn.Environ
-	watcher, err := s.provisioner.WatchEnvironMachines()
+func (s *ProvisionerSuite) newProvisionerTask(c *gc.C, safeMode bool, broker environs.InstanceBroker) provisioner.ProvisionerTask {
+	machineWatcher, err := s.provisioner.WatchEnvironMachines()
+	c.Assert(err, gc.IsNil)
+	retryWatcher, err := s.provisioner.WatchMachineErrorRetry()
 	c.Assert(err, gc.IsNil)
 	auth, err := environs.NewAPIAuthenticator(s.provisioner)
 	c.Assert(err, gc.IsNil)
-	return provisioner.NewProvisionerTask("machine-0", safeMode, s.provisioner, watcher, env, auth)
+	return provisioner.NewProvisionerTask(
+		"machine-0", safeMode, s.provisioner,
+		machineWatcher, retryWatcher, broker, auth)
 }
 
 func (s *ProvisionerSuite) TestTurningOffSafeModeReapsUnknownInstances(c *gc.C) {
-	task := s.newProvisionerTask(c, true)
+	task := s.newProvisionerTask(c, true, s.APIConn.Environ)
 	defer stop(c, task)
 
 	// Initially create a machine, and an unknown instance, with safe mode on.
@@ -760,4 +789,67 @@ func (s *ProvisionerSuite) TestTurningOffSafeModeReapsUnknownInstances(c *gc.C) 
 	// turn off safe mode and check that the other machine is now stopped also.
 	task.SetSafeMode(false)
 	s.checkStopInstances(c, i1)
+}
+
+func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
+	s.PatchValue(&apiserverprovisioner.ErrorRetryWaitDelay, 5*time.Millisecond)
+	var e environs.Environ = &mockBroker{Environ: s.APIConn.Environ, retryCount: make(map[string]int)}
+	task := s.newProvisionerTask(c, false, e)
+	defer stop(c, task)
+
+	// Provision some machines, some will be started first time,
+	// another will require retries.
+	m1, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	m2, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	m3, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	m4, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	s.checkStartInstance(c, m1)
+	s.checkStartInstance(c, m2)
+	thatsAllFolks := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-thatsAllFolks:
+				return
+			case <-time.After(coretesting.ShortWait):
+				err := m3.SetStatus(params.StatusError, "info", params.StatusData{"transient": true})
+				c.Assert(err, gc.IsNil)
+			}
+		}
+	}()
+	s.checkStartInstance(c, m3)
+	close(thatsAllFolks)
+	// Machine 4 is never provisioned.
+	status, _, _, err := m4.Status()
+	c.Assert(err, gc.IsNil)
+	c.Assert(status, gc.Equals, params.StatusError)
+	_, err = m4.InstanceId()
+	c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
+}
+
+type mockBroker struct {
+	environs.Environ
+	retryCount map[string]int
+}
+
+func (b *mockBroker) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error) {
+	// All machines except machines 3, 4 are provisioned successfully the first time.
+	// Machines 3 is provisioned after some attempts have been made.
+	// Machine 4 is never provisioned.
+	id := args.MachineConfig.MachineId
+	retries := b.retryCount[id]
+	if (id != "3" && id != "4") || retries > 2 {
+		return b.Environ.StartInstance(args)
+	} else {
+		b.retryCount[id] = retries + 1
+	}
+	return nil, nil, nil, fmt.Errorf("error: some error")
+}
+
+func (b *mockBroker) GetToolsSources() ([]simplestreams.DataSource, error) {
+	return b.Environ.(tools.SupportsCustomSources).GetToolsSources()
 }

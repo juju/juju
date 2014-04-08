@@ -103,7 +103,13 @@ func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Conf
 	}
 	// If the user has specified no values for any of the three normal
 	// proxies, then look in the environment and set them.
-	attrs := make(map[string]interface{})
+	attrs := map[string]interface{}{
+		// We must not proxy SSH through the API server in a
+		// local provider environment. Besides not being useful,
+		// it may not work; there is no requirement for sshd to
+		// be available on machine-0.
+		"proxy-ssh": false,
+	}
 	setIfNotBlank := func(key, value string) {
 		if value != "" {
 			attrs[key] = value
@@ -263,22 +269,6 @@ local:
 func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
 	// don't have any secret attrs
 	return nil, nil
-}
-
-// Location specific methods that are able to be called by any instance that
-// has been created by this provider type.  So a machine agent may well call
-// these methods to find out its own address or instance id.
-
-// PublicAddress implements environs.EnvironProvider.PublicAddress.
-func (environProvider) PublicAddress() (string, error) {
-	// Get the IPv4 address from eth0
-	return getAddressForInterface("eth0")
-}
-
-// PrivateAddress implements environs.EnvironProvider.PrivateAddress.
-func (environProvider) PrivateAddress() (string, error) {
-	// Get the IPv4 address from eth0
-	return getAddressForInterface("eth0")
 }
 
 func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {

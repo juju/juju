@@ -149,6 +149,10 @@ type ServiceDeploy struct {
 	ConfigYAML    string // Takes precedence over config if both are present.
 	Constraints   constraints.Value
 	ToMachineSpec string
+	// The following fields are supported from 1.17.7 onwards and
+	// ignored before that.
+	IncludeNetworks []string
+	ExcludeNetworks []string
 }
 
 // ServiceUpdate holds the parameters for making the ServiceUpdate call.
@@ -326,6 +330,22 @@ type CharmInfo struct {
 	CharmURL string
 }
 
+// ResolveCharms stores charm references for a ResolveCharms call.
+type ResolveCharms struct {
+	References []charm.Reference
+}
+
+// ResolveCharmResult holds the result of resolving a charm reference to a URL, or any error that occurred.
+type ResolveCharmResult struct {
+	URL   *charm.URL `json:",omitempty"`
+	Error string     `json:",omitempty"`
+}
+
+// ResolveCharmResults holds results of the ResolveCharms call.
+type ResolveCharmResults struct {
+	URLs []ResolveCharmResult
+}
+
 // AllWatcherId holds the id of an AllWatcher.
 type AllWatcherId struct {
 	AllWatcherId string
@@ -355,6 +375,12 @@ type ListSSHKeys struct {
 type ModifyUserSSHKeys struct {
 	User string
 	Keys []string
+}
+
+// ModifyUser stores the parameters used for a UserManager.Add|Remove call
+type ModifyUser struct {
+	Tag      string
+	Password string
 }
 
 // MarshalJSON implements json.Marshaler.
@@ -451,6 +477,25 @@ var (
 type EntityId struct {
 	Kind string
 	Id   interface{}
+}
+
+// StateServingInfo holds information needed by a state
+// server.
+type StateServingInfo struct {
+	APIPort    int
+	StatePort  int
+	Cert       string
+	PrivateKey string
+	// this will be passed as the KeyFile argument to MongoDB
+	SharedSecret string
+}
+
+// IsMasterResult holds the result of an IsMaster API call.
+type IsMasterResult struct {
+	// Master reports whether the connected agent
+	// lives on the same instance as the mongo replica
+	// set master.
+	Master bool
 }
 
 // MachineInfo holds the information about a Machine
@@ -589,6 +634,12 @@ type EnvironmentSet struct {
 	Config map[string]interface{}
 }
 
+// EnvironmentUnset contains the arguments for EnvironmentUnset client API
+// call.
+type EnvironmentUnset struct {
+	Keys []string
+}
+
 // SetEnvironAgentVersion contains the arguments for
 // SetEnvironAgentVersion client API call.
 type SetEnvironAgentVersion struct {
@@ -610,4 +661,39 @@ type StatusParams struct {
 // SetRsyslogCertParams holds parameters for the SetRsyslogCert call.
 type SetRsyslogCertParams struct {
 	CACert []byte
+}
+
+// DistributionGroupResult contains the result of
+// the DistributionGroup provisioner API call.
+type DistributionGroupResult struct {
+	Error  *Error
+	Result []instance.Id
+}
+
+// DistributionGroupResults is the bulk form of
+// DistributionGroupResult.
+type DistributionGroupResults struct {
+	Results []DistributionGroupResult
+}
+
+// APIHostPortsResult holds the result of an APIHostPorts
+// call. Each element in the top level slice holds
+// the addresses for one API server.
+type APIHostPortsResult struct {
+	Servers [][]instance.HostPort
+}
+
+// LoginResult holds the result of a Login call.
+type LoginResult struct {
+	Servers [][]instance.HostPort
+}
+
+// EnsureAvailability contains arguments for
+// the EnsureAvailability client API call.
+type EnsureAvailability struct {
+	NumStateServers int
+	Constraints     constraints.Value
+	// Series is the series to associate with new state server machines.
+	// If this is empty, then the environment's default series is used.
+	Series string
 }

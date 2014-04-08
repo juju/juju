@@ -39,6 +39,7 @@ echo $@ | tee $0.args
 
 func (s *SSHCommonSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
+	s.PatchValue(&getJujuExecutable, func() (string, error) { return "juju", nil })
 
 	s.bin = c.MkDir()
 	s.PatchEnvPathPrepend(s.bin)
@@ -53,8 +54,10 @@ func (s *SSHCommonSuite) SetUpTest(c *gc.C) {
 }
 
 const (
-	commonArgs = `-o StrictHostKeyChecking no -o PasswordAuthentication no `
-	sshArgs    = commonArgs + `-t -t `
+	commonArgsNoProxy = `-o StrictHostKeyChecking no -o PasswordAuthentication no `
+	commonArgs        = `-o StrictHostKeyChecking no -o ProxyCommand juju ssh --proxy=false --pty=false 127.0.0.1 nc -q0 %h %p -o PasswordAuthentication no `
+	sshArgs           = commonArgs + `-t -t `
+	sshArgsNoProxy    = commonArgsNoProxy + `-t -t `
 )
 
 var sshTests = []struct {
@@ -81,6 +84,11 @@ var sshTests = []struct {
 		"connect to unit mongodb/1 and pass extra arguments",
 		[]string{"ssh", "mongodb/1", "ls", "/"},
 		sshArgs + "ubuntu@dummyenv-2.dns ls /\n",
+	},
+	{
+		"connect to unit mysql/0 without proxy",
+		[]string{"ssh", "--proxy=false", "mysql/0"},
+		sshArgsNoProxy + "ubuntu@dummyenv-0.dns\n",
 	},
 }
 
@@ -114,6 +122,20 @@ func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 	}
 }
 
+func (s *SSHSuite) TestSSHCommandEnvironProxySSH(c *gc.C) {
+	s.makeMachines(1, c, true)
+	// Setting proxy-ssh=false in the environment overrides --proxy.
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{"proxy-ssh": false}, nil, nil)
+	c.Assert(err, gc.IsNil)
+	ctx := coretesting.Context(c)
+	jujucmd := cmd.NewSuperCommand(cmd.SuperCommandParams{})
+	jujucmd.Register(&SSHCommand{})
+	code := cmd.Main(jujucmd, ctx, []string{"ssh", "0"})
+	c.Check(code, gc.Equals, 0)
+	c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
+	c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, sshArgsNoProxy+"ubuntu@dummyenv-0.dns\n")
+}
+
 type callbackAttemptStarter struct {
 	next func() bool
 }
@@ -131,10 +153,16 @@ func (a callbackAttempt) Next() bool {
 }
 
 func (s *SSHSuite) TestSSHCommandHostAddressRetry(c *gc.C) {
+	s.testSSHCommandHostAddressRetry(c, false)
+}
+
+func (s *SSHSuite) TestSSHCommandHostAddressRetryProxy(c *gc.C) {
+	s.testSSHCommandHostAddressRetry(c, true)
+}
+
+func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 	m := s.makeMachines(1, c, false)
 	ctx := coretesting.Context(c)
-	jujucmd := cmd.NewSuperCommand(cmd.SuperCommandParams{})
-	jujucmd.Register(&SSHCommand{})
 
 	var called int
 	next := func() bool {
@@ -146,24 +174,26 @@ func (s *SSHSuite) TestSSHCommandHostAddressRetry(c *gc.C) {
 
 	// Ensure that the ssh command waits for a public address, or the attempt
 	// strategy's Done method returns false.
-	code := cmd.Main(jujucmd, ctx, []string{"ssh", "0"})
+	args := []string{"--proxy=" + fmt.Sprint(proxy), "0"}
+	code := cmd.Main(&SSHCommand{}, ctx, args)
 	c.Check(code, gc.Equals, 1)
 	c.Assert(called, gc.Equals, 2)
 	called = 0
 	attemptStarter.next = func() bool {
 		called++
-		s.setAddress(m[0], c)
-		return false
+		if called > 1 {
+			s.setAddress(m[0], c)
+		}
+		return true
 	}
-	code = cmd.Main(jujucmd, ctx, []string{"ssh", "0"})
+	code = cmd.Main(&SSHCommand{}, ctx, args)
 	c.Check(code, gc.Equals, 0)
-	c.Assert(called, gc.Equals, 1)
+	c.Assert(called, gc.Equals, 2)
 }
 
 func (s *SSHCommonSuite) setAddress(m *state.Machine, c *gc.C) {
-	addr := instance.NewAddress(fmt.Sprintf("dummyenv-%s.dns", m.Id()))
-	addr.NetworkScope = instance.NetworkPublic
-	err := m.SetAddresses([]instance.Address{addr})
+	addr := instance.NewAddress(fmt.Sprintf("dummyenv-%s.dns", m.Id()), instance.NetworkPublic)
+	err := m.SetAddresses(addr)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -196,6 +226,6 @@ func (s *SSHCommonSuite) addUnit(srv *state.Service, m *state.Machine, c *gc.C) 
 	c.Assert(err, gc.IsNil)
 	addr, err := insts[0].WaitDNSName()
 	c.Assert(err, gc.IsNil)
-	err = u.SetPublicAddress(addr)
+	err = m.SetAddresses(instance.NewAddress(addr, instance.NetworkPublic))
 	c.Assert(err, gc.IsNil)
 }

@@ -5,9 +5,6 @@ package ec2
 
 import (
 	"fmt"
-	"io/ioutil"
-	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -50,6 +47,9 @@ type environProvider struct{}
 var providerInstance environProvider
 
 type environ struct {
+	common.NopPrecheckerPolicy
+	common.SupportsUnitPlacementPolicy
+
 	name string
 
 	// archMutex gates access to supportedArchitectures
@@ -264,14 +264,6 @@ func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error
 	return m, nil
 }
 
-func (environProvider) PublicAddress() (string, error) {
-	return fetchMetadata("public-hostname")
-}
-
-func (environProvider) PrivateAddress() (string, error) {
-	return fetchMetadata("local-hostname")
-}
-
 func (e *environ) Config() *config.Config {
 	return e.ecfg().Config
 }
@@ -358,6 +350,13 @@ func (e *environ) SupportedArchitectures() ([]string, error) {
 	return e.supportedArchitectures, err
 }
 
+// SupportNetworks is specified on the EnvironCapability interface.
+func (e *environ) SupportNetworks() bool {
+	// TODO(dimitern) Once we have support for VPCs and advanced
+	// networking, return true here.
+	return false
+}
+
 // MetadataLookupParams returns parameters which are used to query simplestreams metadata.
 func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
 	if region == "" {
@@ -368,7 +367,7 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 		return nil, err
 	}
 	return &simplestreams.MetadataLookupParams{
-		Series:        e.ecfg().DefaultSeries(),
+		Series:        config.PreferredSeries(e.ecfg()),
 		Region:        cloudSpec.Region,
 		Endpoint:      cloudSpec.Endpoint,
 		Architectures: arch.AllSupportedArches,
@@ -394,13 +393,15 @@ func (e *environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 const ebsStorage = "ebs"
 
 // StartInstance is specified in the InstanceBroker interface.
-func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
-
+func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error) {
+	if args.MachineConfig.HasNetworks() {
+		return nil, nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
+	}
 	arches := args.Tools.Arches()
 	stor := ebsStorage
 	sources, err := imagemetadata.GetMetadataSources(e)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	series := args.Tools.OneSeries()
@@ -412,27 +413,27 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		Storage:     &stor,
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	tools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
-		return nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
+		return nil, nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
 	args.MachineConfig.Tools = tools[0]
 	if err := environs.FinishMachineConfig(args.MachineConfig, e.Config(), args.Constraints); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
-	userData, err := environs.ComposeUserData(args.MachineConfig)
+	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot make user data: %v", err)
+		return nil, nil, nil, fmt.Errorf("cannot make user data: %v", err)
 	}
 	logger.Debugf("ec2 user data; %d bytes", len(userData))
 	cfg := e.Config()
 	groups, err := e.setUpGroups(args.MachineConfig.MachineId, cfg.StatePort(), cfg.APIPort())
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot set up groups: %v", err)
+		return nil, nil, nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
 	var instResp *ec2.RunInstancesResp
 
@@ -452,10 +453,10 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		}
 	}
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot run instances: %v", err)
+		return nil, nil, nil, fmt.Errorf("cannot run instances: %v", err)
 	}
 	if len(instResp.Instances) != 1 {
-		return nil, nil, fmt.Errorf("expected 1 started instance, got %d", len(instResp.Instances))
+		return nil, nil, nil, fmt.Errorf("expected 1 started instance, got %d", len(instResp.Instances))
 	}
 
 	inst := &ec2Instance{
@@ -472,7 +473,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		RootDisk: &diskSize,
 		// Tags currently not supported by EC2
 	}
-	return inst, &hc, nil
+	return inst, &hc, nil, nil
 }
 
 func (e *environ) StopInstances(insts []instance.Instance) error {
@@ -1055,37 +1056,6 @@ func ec2ErrCode(err error) string {
 		return ""
 	}
 	return ec2err.Code
-}
-
-// metadataHost holds the address of the instance metadata service.
-// It is a variable so that tests can change it to refer to a local
-// server when needed.
-var metadataHost = "http://169.254.169.254"
-
-// fetchMetadata fetches a single atom of data from the ec2 instance metadata service.
-// http://docs.amazonwebservices.com/AWSEC2/latest/UserGuide/AESDG-chapter-instancedata.html
-func fetchMetadata(name string) (value string, err error) {
-	uri := fmt.Sprintf("%s/2011-01-01/meta-data/%s", metadataHost, name)
-	defer utils.ErrorContextf(&err, "cannot get %q", uri)
-	for a := shortAttempt.Start(); a.Next(); {
-		var resp *http.Response
-		resp, err = http.Get(uri)
-		if err != nil {
-			continue
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			err = fmt.Errorf("bad http response %v", resp.Status)
-			continue
-		}
-		var data []byte
-		data, err = ioutil.ReadAll(resp.Body)
-		if err != nil {
-			continue
-		}
-		return strings.TrimSpace(string(data)), nil
-	}
-	return
 }
 
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.

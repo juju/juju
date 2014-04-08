@@ -15,6 +15,7 @@ import (
 	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -25,9 +26,11 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/ssh"
 	"launchpad.net/juju-core/worker/localstorage"
 	"launchpad.net/juju-core/worker/terminationworker"
@@ -47,6 +50,8 @@ const (
 var logger = loggo.GetLogger("juju.provider.manual")
 
 type manualEnviron struct {
+	common.SupportsUnitPlacementPolicy
+
 	cfg                 *environConfig
 	cfgmutex            sync.Mutex
 	storage             storage.Storage
@@ -55,12 +60,13 @@ type manualEnviron struct {
 }
 
 var _ envtools.SupportsCustomSources = (*manualEnviron)(nil)
+var _ state.Prechecker = (*manualEnviron)(nil)
 
 var errNoStartInstance = errors.New("manual provider cannot start instances")
 var errNoStopInstance = errors.New("manual provider cannot stop instances")
 
-func (*manualEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	return nil, nil, errNoStartInstance
+func (*manualEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error) {
+	return nil, nil, nil, errNoStartInstance
 }
 
 func (*manualEnviron) StopInstances([]instance.Instance) error {
@@ -88,13 +94,12 @@ func (e *manualEnviron) Name() string {
 
 // SupportedArchitectures is specified on the EnvironCapability interface.
 func (e *manualEnviron) SupportedArchitectures() ([]string, error) {
-	envConfig := e.envConfig()
-	host := envConfig.bootstrapHost()
-	hc, _, err := manual.DetectSeriesAndHardwareCharacteristics(host)
-	if err != nil {
-		return nil, err
-	}
-	return []string{*hc.Arch}, nil
+	return arch.AllSupportedArches, nil
+}
+
+// SupportNetworks is specified on the EnvironCapability interface.
+func (e *manualEnviron) SupportNetworks() bool {
+	return false
 }
 
 func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
@@ -112,7 +117,7 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraint
 	if err != nil {
 		return err
 	}
-	selectedTools, err := common.EnsureBootstrapTools(e, series, hc.Arch)
+	selectedTools, err := common.EnsureBootstrapTools(ctx, e, series, hc.Arch)
 	if err != nil {
 		return err
 	}
@@ -218,18 +223,35 @@ func (e *manualEnviron) Storage() storage.Storage {
 	return e.storage
 }
 
-var runSSHCommand = func(host string, command []string) (stderr string, err error) {
+var runSSHCommand = func(host string, command []string, stdin string) (stderr string, err error) {
 	cmd := ssh.Command(host, command, nil)
 	var stderrBuf bytes.Buffer
+	cmd.Stdin = strings.NewReader(stdin)
 	cmd.Stderr = &stderrBuf
 	err = cmd.Run()
 	return stderrBuf.String(), err
 }
 
 func (e *manualEnviron) Destroy() error {
+	script := `
+set -x
+pkill -%d jujud && exit
+stop %s
+rm -f /etc/init/juju*
+rm -f /etc/rsyslog.d/*juju*
+rm -fr %s %s
+exit 0
+`
+	script = fmt.Sprintf(
+		script,
+		terminationworker.TerminationSignal,
+		mongo.ServiceName(""),
+		utils.ShQuote(agent.DefaultDataDir),
+		utils.ShQuote(agent.DefaultLogDir),
+	)
 	stderr, err := runSSHCommand(
 		"ubuntu@"+e.envConfig().bootstrapHost(),
-		[]string{"sudo", "pkill", fmt.Sprintf("-%d", terminationworker.TerminationSignal), "jujud"},
+		[]string{"sudo", "/bin/bash"}, script,
 	)
 	if err != nil {
 		if stderr := strings.TrimSpace(stderr); len(stderr) > 0 {

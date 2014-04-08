@@ -23,7 +23,7 @@ import (
 // The presence and format of this constant is very important.
 // The debian/rules build recipe uses this value for the version
 // number of the release package.
-const version = "1.17.7"
+const version = "1.19.0"
 
 // lsbReleaseFile is the name of the file that is read in order to determine
 // the release version of ubuntu.

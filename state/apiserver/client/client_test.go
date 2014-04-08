@@ -44,7 +44,7 @@ func (s *clientSuite) TestClientStatus(c *gc.C) {
 	s.setUpScenario(c)
 	status, err := s.APIState.Client().Status(nil)
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.DeepEquals, scenarioStatus)
+	c.Assert(status, jc.DeepEquals, scenarioStatus)
 }
 
 func (s *clientSuite) TestCompatibleSettingsParsing(c *gc.C) {
@@ -261,7 +261,7 @@ func (s *clientSuite) TestClientEnvironmentInfo(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
-	c.Assert(info.DefaultSeries, gc.Equals, conf.DefaultSeries())
+	c.Assert(info.DefaultSeries, gc.Equals, config.PreferredSeries(conf))
 	c.Assert(info.ProviderType, gc.Equals, conf.Type())
 	c.Assert(info.Name, gc.Equals, conf.Name())
 	c.Assert(info.UUID, gc.Equals, env.UUID())
@@ -680,6 +680,50 @@ func (s *clientSuite) TestClientServiceDeployCharmErrors(c *gc.C) {
 	}
 }
 
+func (s *clientSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
+	store, restore := makeMockCharmStore()
+	defer restore()
+	curl, bundle := addCharm(c, store, "dummy")
+	mem4g := constraints.MustParse("mem=4G")
+	err := s.APIState.Client().ServiceDeployWithNetworks(
+		curl.String(), "service", 3, "", mem4g, "", []string{"net1", "net2"}, []string{"net3"},
+	)
+	c.Assert(err, gc.IsNil)
+	service := s.assertPrincipalDeployed(c, "service", curl, false, bundle, mem4g)
+
+	include, exclude, err := service.Networks()
+	c.Assert(err, gc.IsNil)
+	c.Assert(include, gc.DeepEquals, []string{"net1", "net2"})
+	c.Assert(exclude, gc.DeepEquals, []string{"net3"})
+}
+
+func (s *clientSuite) assertPrincipalDeployed(c *gc.C, serviceName string, curl *charm.URL, forced bool, bundle charm.Charm, cons constraints.Value) *state.Service {
+	service, err := s.State.Service(serviceName)
+	c.Assert(err, gc.IsNil)
+	charm, force, err := service.Charm()
+	c.Assert(err, gc.IsNil)
+	c.Assert(force, gc.Equals, forced)
+	c.Assert(charm.URL(), gc.DeepEquals, curl)
+	c.Assert(charm.Meta(), gc.DeepEquals, bundle.Meta())
+	c.Assert(charm.Config(), gc.DeepEquals, bundle.Config())
+
+	serviceCons, err := service.Constraints()
+	c.Assert(err, gc.IsNil)
+	c.Assert(serviceCons, gc.DeepEquals, cons)
+	units, err := service.AllUnits()
+	c.Assert(err, gc.IsNil)
+	for _, unit := range units {
+		mid, err := unit.AssignedMachineId()
+		c.Assert(err, gc.IsNil)
+		machine, err := s.State.Machine(mid)
+		c.Assert(err, gc.IsNil)
+		machineCons, err := machine.Constraints()
+		c.Assert(err, gc.IsNil)
+		c.Assert(machineCons, gc.DeepEquals, cons)
+	}
+	return service
+}
+
 func (s *clientSuite) TestClientServiceDeployPrincipal(c *gc.C) {
 	// TODO(fwereade): test ToMachineSpec directly on srvClient, when we
 	// manage to extract it as a package and can thus do it conveniently.
@@ -691,29 +735,7 @@ func (s *clientSuite) TestClientServiceDeployPrincipal(c *gc.C) {
 		curl.String(), "service", 3, "", mem4g, "",
 	)
 	c.Assert(err, gc.IsNil)
-	service, err := s.State.Service("service")
-	c.Assert(err, gc.IsNil)
-	charm, force, err := service.Charm()
-	c.Assert(err, gc.IsNil)
-	c.Assert(force, gc.Equals, false)
-	c.Assert(charm.URL(), gc.DeepEquals, curl)
-	c.Assert(charm.Meta(), gc.DeepEquals, bundle.Meta())
-	c.Assert(charm.Config(), gc.DeepEquals, bundle.Config())
-
-	cons, err := service.Constraints()
-	c.Assert(err, gc.IsNil)
-	c.Assert(cons, gc.DeepEquals, mem4g)
-	units, err := service.AllUnits()
-	c.Assert(err, gc.IsNil)
-	for _, unit := range units {
-		mid, err := unit.AssignedMachineId()
-		c.Assert(err, gc.IsNil)
-		machine, err := s.State.Machine(mid)
-		c.Assert(err, gc.IsNil)
-		cons, err := machine.Constraints()
-		c.Assert(err, gc.IsNil)
-		c.Assert(cons, gc.DeepEquals, mem4g)
-	}
+	s.assertPrincipalDeployed(c, "service", curl, false, bundle, mem4g)
 }
 
 func (s *clientSuite) TestClientServiceDeploySubordinate(c *gc.C) {
@@ -1097,8 +1119,12 @@ func makeMockCharmStore() (store *coretesting.MockCharmStore, restore func()) {
 }
 
 func addCharm(c *gc.C, store *coretesting.MockCharmStore, name string) (*charm.URL, charm.Charm) {
+	return addSeriesCharm(c, store, "precise", name)
+}
+
+func addSeriesCharm(c *gc.C, store *coretesting.MockCharmStore, series, name string) (*charm.URL, charm.Charm) {
 	bundle := coretesting.Charms.Bundle(c.MkDir(), name)
-	scurl := fmt.Sprintf("cs:precise/%s-%d", name, bundle.Revision())
+	scurl := fmt.Sprintf("cs:%s/%s-%d", series, name, bundle.Revision())
 	curl := charm.MustParseURL(scurl)
 	err := store.SetCharm(curl, bundle)
 	c.Assert(err, gc.IsNil)
@@ -1378,47 +1404,29 @@ func (s *clientSuite) TestClientPublicAddressMachine(c *gc.C) {
 	// address is returned.
 	m1, err := s.State.Machine("1")
 	c.Assert(err, gc.IsNil)
-	cloudLocalAddress := instance.NewAddress("cloudlocal")
-	cloudLocalAddress.NetworkScope = instance.NetworkCloudLocal
-	publicAddress := instance.NewAddress("public")
-	publicAddress.NetworkScope = instance.NetworkPublic
-	err = m1.SetAddresses([]instance.Address{cloudLocalAddress})
+	cloudLocalAddress := instance.NewAddress("cloudlocal", instance.NetworkCloudLocal)
+	publicAddress := instance.NewAddress("public", instance.NetworkPublic)
+	err = m1.SetAddresses(cloudLocalAddress)
 	c.Assert(err, gc.IsNil)
 	addr, err := s.APIState.Client().PublicAddress("1")
 	c.Assert(err, gc.IsNil)
 	c.Assert(addr, gc.Equals, "cloudlocal")
-	err = m1.SetAddresses([]instance.Address{cloudLocalAddress, publicAddress})
+	err = m1.SetAddresses(cloudLocalAddress, publicAddress)
 	addr, err = s.APIState.Client().PublicAddress("1")
 	c.Assert(err, gc.IsNil)
 	c.Assert(addr, gc.Equals, "public")
 }
 
-func (s *clientSuite) TestClientPublicAddressUnitWithMachine(c *gc.C) {
+func (s *clientSuite) TestClientPublicAddressUnit(c *gc.C) {
 	s.setUpScenario(c)
 
-	// Public address of unit is taken from its machine
-	// (if its machine has addresses).
 	m1, err := s.State.Machine("1")
-	publicAddress := instance.NewAddress("public")
-	publicAddress.NetworkScope = instance.NetworkPublic
-	err = m1.SetAddresses([]instance.Address{publicAddress})
+	publicAddress := instance.NewAddress("public", instance.NetworkPublic)
+	err = m1.SetAddresses(publicAddress)
 	c.Assert(err, gc.IsNil)
 	addr, err := s.APIState.Client().PublicAddress("wordpress/0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(addr, gc.Equals, "public")
-}
-
-func (s *clientSuite) TestClientPublicAddressUnitWithoutMachine(c *gc.C) {
-	s.setUpScenario(c)
-	// If the unit's machine has no addresses, the public address
-	// comes from the unit's document.
-	u, err := s.State.Unit("wordpress/1")
-	c.Assert(err, gc.IsNil)
-	err = u.SetPublicAddress("127.0.0.1")
-	c.Assert(err, gc.IsNil)
-	addr, err := s.APIState.Client().PublicAddress("wordpress/1")
-	c.Assert(err, gc.IsNil)
-	c.Assert(addr, gc.Equals, "127.0.0.1")
 }
 
 func (s *clientSuite) TestClientPrivateAddressErrors(c *gc.C) {
@@ -1431,54 +1439,36 @@ func (s *clientSuite) TestClientPrivateAddressErrors(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" has no internal address`)
 }
 
-func (s *clientSuite) TestClientPrivateAddressMachine(c *gc.C) {
+func (s *clientSuite) TestClientPrivateAddress(c *gc.C) {
 	s.setUpScenario(c)
 
 	// Internally, instance.SelectInternalAddress is used; the public
 	// address if no cloud-local one is available.
 	m1, err := s.State.Machine("1")
 	c.Assert(err, gc.IsNil)
-	cloudLocalAddress := instance.NewAddress("cloudlocal")
-	cloudLocalAddress.NetworkScope = instance.NetworkCloudLocal
-	publicAddress := instance.NewAddress("public")
-	publicAddress.NetworkScope = instance.NetworkCloudLocal
-	err = m1.SetAddresses([]instance.Address{publicAddress})
+	cloudLocalAddress := instance.NewAddress("cloudlocal", instance.NetworkCloudLocal)
+	publicAddress := instance.NewAddress("public", instance.NetworkPublic)
+	err = m1.SetAddresses(publicAddress)
 	c.Assert(err, gc.IsNil)
 	addr, err := s.APIState.Client().PrivateAddress("1")
 	c.Assert(err, gc.IsNil)
 	c.Assert(addr, gc.Equals, "public")
-	err = m1.SetAddresses([]instance.Address{cloudLocalAddress, publicAddress})
+	err = m1.SetAddresses(cloudLocalAddress, publicAddress)
 	addr, err = s.APIState.Client().PrivateAddress("1")
 	c.Assert(err, gc.IsNil)
 	c.Assert(addr, gc.Equals, "cloudlocal")
 }
 
-func (s *clientSuite) TestClientPrivateAddressUnitWithMachine(c *gc.C) {
+func (s *clientSuite) TestClientPrivateAddressUnit(c *gc.C) {
 	s.setUpScenario(c)
 
-	// Private address of unit is taken from its machine
-	// (if its machine has addresses).
 	m1, err := s.State.Machine("1")
-	publicAddress := instance.NewAddress("public")
-	publicAddress.NetworkScope = instance.NetworkCloudLocal
-	err = m1.SetAddresses([]instance.Address{publicAddress})
+	privateAddress := instance.NewAddress("private", instance.NetworkCloudLocal)
+	err = m1.SetAddresses(privateAddress)
 	c.Assert(err, gc.IsNil)
 	addr, err := s.APIState.Client().PrivateAddress("wordpress/0")
 	c.Assert(err, gc.IsNil)
-	c.Assert(addr, gc.Equals, "public")
-}
-
-func (s *clientSuite) TestClientPrivateAddressUnitWithoutMachine(c *gc.C) {
-	s.setUpScenario(c)
-	// If the unit's machine has no addresses, the public address
-	// comes from the unit's document.
-	u, err := s.State.Unit("wordpress/1")
-	c.Assert(err, gc.IsNil)
-	err = u.SetPrivateAddress("127.0.0.1")
-	c.Assert(err, gc.IsNil)
-	addr, err := s.APIState.Client().PrivateAddress("wordpress/1")
-	c.Assert(err, gc.IsNil)
-	c.Assert(addr, gc.Equals, "127.0.0.1")
+	c.Assert(addr, gc.Equals, "private")
 }
 
 func (s *clientSuite) TestClientEnvironmentGet(c *gc.C) {
@@ -1542,6 +1532,47 @@ func (s *clientSuite) TestClientEnvironmentSetCannotChangeAgentVersion(c *gc.C) 
 	c.Assert(err, gc.IsNil)
 }
 
+func (s *clientSuite) TestClientEnvironmentUnset(c *gc.C) {
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{"abc": 123}, nil, nil)
+	c.Assert(err, gc.IsNil)
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	_, found := envConfig.AllAttrs()["abc"]
+	c.Assert(found, jc.IsTrue)
+
+	err = s.APIState.Client().EnvironmentUnset("abc")
+	c.Assert(err, gc.IsNil)
+	envConfig, err = s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	_, found = envConfig.AllAttrs()["abc"]
+	c.Assert(found, jc.IsFalse)
+}
+
+func (s *clientSuite) TestClientEnvironmentUnsetMissing(c *gc.C) {
+	// It's okay to unset a non-existent attribute.
+	err := s.APIState.Client().EnvironmentUnset("not_there")
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *clientSuite) TestClientEnvironmentUnsetError(c *gc.C) {
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{"abc": 123}, nil, nil)
+	c.Assert(err, gc.IsNil)
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	_, found := envConfig.AllAttrs()["abc"]
+	c.Assert(found, jc.IsTrue)
+
+	// "type" may not be removed, and this will cause an error.
+	// If any one attribute's removal causes an error, there
+	// should be no change.
+	err = s.APIState.Client().EnvironmentUnset("abc", "type")
+	c.Assert(err, gc.ErrorMatches, "type: expected string, got nothing")
+	envConfig, err = s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	_, found = envConfig.AllAttrs()["abc"]
+	c.Assert(found, jc.IsTrue)
+}
+
 func (s *clientSuite) TestClientFindTools(c *gc.C) {
 	result, err := s.APIState.Client().FindTools(2, -1, "", "")
 	c.Assert(err, gc.IsNil)
@@ -1577,7 +1608,7 @@ func (s *clientSuite) TestClientAddMachinesDefaultSeries(c *gc.C) {
 	c.Assert(len(machines), gc.Equals, 3)
 	for i, machineResult := range machines {
 		c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
-		s.checkMachine(c, machineResult.Machine, config.DefaultSeries, apiParams[i].Constraints.String())
+		s.checkMachine(c, machineResult.Machine, coretesting.FakeDefaultSeries, apiParams[i].Constraints.String())
 	}
 }
 
@@ -1627,7 +1658,7 @@ func (s *clientSuite) TestClientAddMachinesWithConstraints(c *gc.C) {
 	c.Assert(len(machines), gc.Equals, 3)
 	for i, machineResult := range machines {
 		c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
-		s.checkMachine(c, machineResult.Machine, config.DefaultSeries, apiParams[i].Constraints.String())
+		s.checkMachine(c, machineResult.Machine, coretesting.FakeDefaultSeries, apiParams[i].Constraints.String())
 	}
 }
 
@@ -1676,7 +1707,7 @@ func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 
 func (s *clientSuite) TestClientAddMachinesWithInstanceIdSomeErrors(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 3)
-	addrs := []instance.Address{instance.NewAddress("1.2.3.4")}
+	addrs := []instance.Address{instance.NewAddress("1.2.3.4", instance.NetworkUnknown)}
 	hc := instance.MustParseHardware("mem=4G")
 	for i := 0; i < 3; i++ {
 		apiParams[i] = params.AddMachineParams{
@@ -1698,7 +1729,7 @@ func (s *clientSuite) TestClientAddMachinesWithInstanceIdSomeErrors(c *gc.C) {
 			c.Assert(machineResult.Error, gc.ErrorMatches, "cannot add a new machine: cannot add a machine with an instance id and no nonce")
 		} else {
 			c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
-			s.checkMachine(c, machineResult.Machine, config.DefaultSeries, apiParams[i].Constraints.String())
+			s.checkMachine(c, machineResult.Machine, coretesting.FakeDefaultSeries, apiParams[i].Constraints.String())
 			instanceId := fmt.Sprintf("1234-%d", i)
 			s.checkInstance(c, machineResult.Machine, instanceId, "foo", hc, addrs)
 		}
@@ -1886,6 +1917,57 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	s.assertUploaded(c, storage, sch.BundleURL(), sch.BundleSha256())
 }
 
+var resolveCharmCases = []struct {
+	schema, defaultSeries, charmName string
+	parseErr                         string
+	resolveErr                       string
+}{
+	{"cs", "precise", "wordpress", "", ""},
+	{"cs", "trusty", "wordpress", "", ""},
+	{"cs", "", "wordpress", "", `missing default series, cannot resolve charm url: "cs:wordpress"`},
+	{"cs", "trusty", "", `charm URL has invalid charm name: "cs:"`, ""},
+	{"local", "trusty", "wordpress", "", `only charm store charm references are supported, with cs: schema`},
+	{"cs", "precise", "hl3", "", ""},
+	{"cs", "trusty", "hl3", "", ""},
+	{"cs", "", "hl3", "", `missing default series, cannot resolve charm url: \"cs:hl3\"`},
+}
+
+func (s *clientSuite) TestResolveCharm(c *gc.C) {
+	store, restore := makeMockCharmStore()
+	defer restore()
+
+	for i, test := range resolveCharmCases {
+		c.Logf("test %d: %#v", i, test)
+		// Mock charm store will use this to resolve a charm reference.
+		store.DefaultSeries = test.defaultSeries
+
+		client := s.APIState.Client()
+		ref, series, err := charm.ParseReference(fmt.Sprintf("%s:%s", test.schema, test.charmName))
+		if test.parseErr == "" {
+			if !c.Check(err, gc.IsNil) {
+				continue
+			}
+		} else {
+			c.Assert(err, gc.NotNil)
+			c.Check(err, gc.ErrorMatches, test.parseErr)
+			continue
+		}
+		c.Check(series, gc.Equals, "")
+		c.Check(ref.String(), gc.Equals, fmt.Sprintf("%s:%s", test.schema, test.charmName))
+
+		curl, err := client.ResolveCharm(ref)
+		if err == nil {
+			c.Assert(curl, gc.NotNil)
+			// Only cs: schema should make it through here
+			c.Check(curl.String(), gc.Equals, fmt.Sprintf("cs:%s/%s", test.defaultSeries, test.charmName))
+			c.Check(test.resolveErr, gc.Equals, "")
+		} else {
+			c.Check(curl, gc.IsNil)
+			c.Check(err, gc.ErrorMatches, test.resolveErr)
+		}
+	}
+}
+
 func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
 	store, restore := makeMockCharmStore()
 	defer restore()
@@ -2003,4 +2085,108 @@ func (s *clientSuite) assertUploaded(c *gc.C, storage envstorage.Storage, bundle
 
 func getArchiveName(bundleURL *url.URL) string {
 	return strings.TrimPrefix(bundleURL.RequestURI(), "/dummyenv/private/")
+}
+
+func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetStatus(params.StatusError, "error", nil)
+	c.Assert(err, gc.IsNil)
+	_, err = s.APIState.Client().RetryProvisioning(machine.Tag())
+	c.Assert(err, gc.IsNil)
+
+	status, info, data, err := machine.Status()
+	c.Assert(err, gc.IsNil)
+	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(info, gc.Equals, "error")
+	c.Assert(data["transient"], gc.Equals, true)
+}
+
+func (s *clientSuite) TestClientEnsureAvailabilitySeries(c *gc.C) {
+	apiParams := []params.EnsureAvailability{{
+		NumStateServers: 1,
+	}, {
+		NumStateServers: 3,
+		Series:          "non-default",
+	}}
+	for _, p := range apiParams {
+		err := s.APIState.Client().EnsureAvailability(p.NumStateServers, p.Constraints, p.Series)
+		c.Assert(err, gc.IsNil)
+	}
+	machines, err := s.State.AllMachines()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machines, gc.HasLen, 3)
+	c.Assert(machines[0].Series(), gc.Equals, "precise")
+	c.Assert(machines[1].Series(), gc.Equals, "non-default")
+	c.Assert(machines[2].Series(), gc.Equals, "non-default")
+}
+
+func (s *clientSuite) TestClientEnsureAvailabilityConstraints(c *gc.C) {
+	apiParams := []params.EnsureAvailability{{
+		NumStateServers: 1,
+	}, {
+		NumStateServers: 3,
+		Constraints:     constraints.MustParse("mem=4G"),
+	}}
+	for _, p := range apiParams {
+		err := s.APIState.Client().EnsureAvailability(p.NumStateServers, p.Constraints, p.Series)
+		c.Assert(err, gc.IsNil)
+	}
+	machines, err := s.State.AllMachines()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machines, gc.HasLen, 3)
+	expectedCons := []constraints.Value{
+		constraints.Value{},
+		constraints.MustParse("mem=4G"),
+		constraints.MustParse("mem=4G"),
+	}
+	for i, m := range machines {
+		cons, err := m.Constraints()
+		c.Assert(err, gc.IsNil)
+		c.Check(cons, gc.DeepEquals, expectedCons[i])
+	}
+}
+
+func (s *clientSuite) TestClientEnsureAvailabilityErrors(c *gc.C) {
+	var emptyCons constraints.Value
+	defaultSeries := ""
+	err := s.APIState.Client().EnsureAvailability(0, emptyCons, defaultSeries)
+	c.Assert(err, gc.ErrorMatches, "number of state servers must be odd and greater than zero")
+	err = s.APIState.Client().EnsureAvailability(3, emptyCons, defaultSeries)
+	c.Assert(err, gc.IsNil)
+	err = s.APIState.Client().EnsureAvailability(1, emptyCons, defaultSeries)
+	c.Assert(err, gc.ErrorMatches, "cannot reduce state server count")
+}
+
+func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
+	apiHostPorts, err := s.APIState.Client().APIHostPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(apiHostPorts, gc.HasLen, 0)
+
+	server1Addresses := []instance.Address{{
+		Value:        "server-1",
+		Type:         instance.HostName,
+		NetworkScope: instance.NetworkPublic,
+	}, {
+		Value:        "10.0.0.1",
+		Type:         instance.Ipv4Address,
+		NetworkName:  "internal",
+		NetworkScope: instance.NetworkCloudLocal,
+	}}
+	server2Addresses := []instance.Address{{
+		Value:        "::1",
+		Type:         instance.Ipv6Address,
+		NetworkName:  "loopback",
+		NetworkScope: instance.NetworkMachineLocal,
+	}}
+	stateAPIHostPorts := [][]instance.HostPort{
+		instance.AddressesWithPort(server1Addresses, 123),
+		instance.AddressesWithPort(server2Addresses, 456),
+	}
+
+	err = s.State.SetAPIHostPorts(stateAPIHostPorts)
+	c.Assert(err, gc.IsNil)
+	apiHostPorts, err = s.APIState.Client().APIHostPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(apiHostPorts, gc.DeepEquals, stateAPIHostPorts)
 }

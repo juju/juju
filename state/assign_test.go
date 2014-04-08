@@ -28,7 +28,13 @@ var _ = gc.Suite(&assignCleanSuite{ConnSuite{}, state.AssignClean, nil})
 
 func (s *AssignSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress := s.AddTestingServiceWithNetworks(
+		c,
+		"wordpress",
+		s.AddTestingCharm(c, "wordpress"),
+		[]string{"net1", "net2"},
+		[]string{"net3", "net4"},
+	)
 	s.wordpress = wordpress
 }
 
@@ -312,12 +318,21 @@ func (s *AssignSuite) TestAssignMachinePrincipalsChange(c *gc.C) {
 }
 
 func (s *AssignSuite) assertAssignedUnit(c *gc.C, unit *state.Unit) string {
+	// Get service networks.
+	service, err := unit.Service()
+	c.Assert(err, gc.IsNil)
+	includeNetworks, excludeNetworks, err := service.Networks()
+	c.Assert(err, gc.IsNil)
 	// Check the machine on the unit is set.
 	machineId, err := unit.AssignedMachineId()
 	c.Assert(err, gc.IsNil)
 	// Check that the principal is set on the machine.
 	machine, err := s.State.Machine(machineId)
 	c.Assert(err, gc.IsNil)
+	include, exclude, err := machine.RequestedNetworks()
+	c.Assert(err, gc.IsNil)
+	c.Assert(include, gc.DeepEquals, includeNetworks)
+	c.Assert(exclude, gc.DeepEquals, excludeNetworks)
 	machineUnits, err := machine.Units()
 	c.Assert(err, gc.IsNil)
 	c.Assert(machineUnits, gc.HasLen, 1)

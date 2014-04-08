@@ -288,18 +288,6 @@ type LifeResults struct {
 	Results []LifeResult
 }
 
-// SetEntityAddress holds an entity tag and an address.
-type SetEntityAddress struct {
-	Tag     string
-	Address string
-}
-
-// SetEntityAddresses holds the parameters for making a Set*Address
-// call, where the address can be a public or a private one.
-type SetEntityAddresses struct {
-	Entities []SetEntityAddress
-}
-
 // MachineSetProvisioned holds a machine tag, provider-specific instance id,
 // a nonce, or an error.
 type MachineSetProvisioned struct {
@@ -315,25 +303,28 @@ type SetProvisioned struct {
 	Machines []MachineSetProvisioned
 }
 
-// SetEntityStatus holds an entity tag, status and extra info.
-type SetEntityStatus struct {
+// EntityStatus holds an entity tag, status and extra info.
+type EntityStatus struct {
 	Tag    string
 	Status Status
 	Info   string
 	Data   StatusData
 }
 
-// SetStatus holds the parameters for making a SetStatus call.
+// SetStatus holds the parameters for making a SetStatus/UpdateStatus call.
 type SetStatus struct {
-	Entities []SetEntityStatus
+	Entities []EntityStatus
 }
 
 // StatusResult holds an entity status, extra information, or an
 // error.
 type StatusResult struct {
 	Error  *Error
+	Id     string
+	Life   Life
 	Status Status
 	Info   string
+	Data   StatusData
 }
 
 // StatusResults holds multiple status results.
@@ -361,6 +352,44 @@ type ConstraintsResult struct {
 // ConstraintsResults holds multiple constraints results.
 type ConstraintsResults struct {
 	Results []ConstraintsResult
+}
+
+// NetworkResult holds machine networks or an error.
+type NetworkResult struct {
+	Error           *Error
+	IncludeNetworks []string
+	ExcludeNetworks []string
+}
+
+// NetworksResults holds multiple networks results.
+type NetworksResults struct {
+	Results []NetworkResult
+}
+
+// NetworkParams holds a single network definition.
+type NetworkParams struct {
+	Name    string
+	CIDR    string
+	VLANTag int
+}
+
+// AddNetworkParams holds the parameters for making an AddNetwork call.
+type AddNetworkParams struct {
+	Networks []NetworkParams
+}
+
+// NetworkInterfaceParams holds a single network interface definition.
+type NetworkInterfaceParams struct {
+	MACAddress    string
+	MachineTag    string
+	InterfaceName string
+	NetworkName   string
+}
+
+// AddNetworkInterfaceParams holds the parameters for making an
+// AddNetworkInterface call.
+type AddNetworkInterfaceParams struct {
+	Interfaces []NetworkInterfaceParams
 }
 
 // AgentGetEntitiesResults holds the results of a
@@ -528,11 +557,4 @@ type RunResult struct {
 // need to return single structure values.
 type RunResults struct {
 	Results []RunResult
-}
-
-// APIHostPortsResult holds the result of an APIHostPorts
-// call. Each element in the top level slice holds
-// the addresses for one API server.
-type APIHostPortsResult struct {
-	Servers [][]instance.HostPort
 }

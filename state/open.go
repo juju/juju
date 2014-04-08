@@ -19,6 +19,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils"
@@ -190,6 +191,8 @@ var indexes = []struct {
 	{"units", []string{"principal"}},
 	{"units", []string{"machineid"}},
 	{"users", []string{"name"}},
+	{"networkinterfaces", []string{"networkname"}},
+	{"networkinterfaces", []string{"machineid"}},
 }
 
 // The capped collection used for transaction logs defaults to 10MB.
@@ -244,29 +247,31 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 		}
 	}
 	st := &State{
-		info:           info,
-		policy:         policy,
-		db:             db,
-		environments:   db.C("environments"),
-		charms:         db.C("charms"),
-		machines:       db.C("machines"),
-		containerRefs:  db.C("containerRefs"),
-		instanceData:   db.C("instanceData"),
-		relations:      db.C("relations"),
-		relationScopes: db.C("relationscopes"),
-		services:       db.C("services"),
-		networks:       db.C("linkednetworks"),
-		minUnits:       db.C("minunits"),
-		settings:       db.C("settings"),
-		settingsrefs:   db.C("settingsrefs"),
-		constraints:    db.C("constraints"),
-		units:          db.C("units"),
-		users:          db.C("users"),
-		presence:       pdb.C("presence"),
-		cleanups:       db.C("cleanups"),
-		annotations:    db.C("annotations"),
-		statuses:       db.C("statuses"),
-		stateServers:   db.C("stateServers"),
+		info:              info,
+		policy:            policy,
+		db:                db,
+		environments:      db.C("environments"),
+		charms:            db.C("charms"),
+		machines:          db.C("machines"),
+		containerRefs:     db.C("containerRefs"),
+		instanceData:      db.C("instanceData"),
+		relations:         db.C("relations"),
+		relationScopes:    db.C("relationscopes"),
+		services:          db.C("services"),
+		requestedNetworks: db.C("linkednetworks"),
+		networks:          db.C("networks"),
+		networkInterfaces: db.C("networkinterfaces"),
+		minUnits:          db.C("minunits"),
+		settings:          db.C("settings"),
+		settingsrefs:      db.C("settingsrefs"),
+		constraints:       db.C("constraints"),
+		units:             db.C("units"),
+		users:             db.C("users"),
+		presence:          pdb.C("presence"),
+		cleanups:          db.C("cleanups"),
+		annotations:       db.C("annotations"),
+		statuses:          db.C("statuses"),
+		stateServers:      db.C("stateServers"),
 	}
 	log := db.C("txns.log")
 	logInfo := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
@@ -296,6 +301,9 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 	}
 	if err := st.createAPIAddressesDoc(); err != nil {
 		return nil, fmt.Errorf("cannot create API addresses document: %v", err)
+	}
+	if err := st.createStateServingInfoDoc(); err != nil {
+		return nil, fmt.Errorf("cannot create state serving info document: %v", err)
 	}
 	return st, nil
 }
@@ -363,6 +371,19 @@ func (st *State) createAPIAddressesDoc() error {
 		Id:     apiHostPortsKey,
 		Assert: txn.DocMissing,
 		Insert: &doc,
+	}}
+	return onAbort(st.runTransaction(ops), nil)
+}
+
+// createStateServingInfoDoc creates the state serving info document
+// if it does not already exist
+func (st *State) createStateServingInfoDoc() error {
+	var info params.StateServingInfo
+	ops := []txn.Op{{
+		C:      st.stateServers.Name,
+		Id:     stateServingInfoKey,
+		Assert: txn.DocMissing,
+		Insert: &info,
 	}}
 	return onAbort(st.runTransaction(ops), nil)
 }

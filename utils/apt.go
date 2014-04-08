@@ -46,6 +46,7 @@ var aptGetEnvOptions = []string{"DEBIAN_FRONTEND=noninteractive"}
 // should reference when determining the --target-release for a given series.
 // http://reqorts.qa.ubuntu.com/reports/ubuntu-server/cloud-archive/cloud-tools_versions.html
 var cloudArchivePackages = map[string]bool{
+	"cloud-image-utils":       true,
 	"cloud-utils":             true,
 	"curtin":                  true,
 	"djorm-ext-pgarray":       true,
@@ -79,16 +80,6 @@ func targetRelease(series string) string {
 	default:
 		return ""
 	}
-}
-
-// AptGetCommand returns a command to execute apt-get
-// with the specified arguments, and the appropriate
-// environment variables and options for a non-interactive
-// session.
-func AptGetCommand(args ...string) []string {
-	cmd := append([]string{"env"}, aptGetEnvOptions...)
-	cmd = append(cmd, aptGetCommand...)
-	return append(cmd, args...)
 }
 
 // AptGetPreparePackages returns a slice of installCommands. Each item

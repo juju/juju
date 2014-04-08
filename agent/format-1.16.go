@@ -5,8 +5,12 @@ package agent
 
 import (
 	"encoding/base64"
+	"fmt"
+	"net"
+	"strconv"
 
 	"launchpad.net/goyaml"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/version"
 )
 
@@ -93,15 +97,36 @@ func (formatter_1_16) unmarshal(data []byte) (*configInternal, error) {
 		upgradedToVersion: *format.UpgradedToVersion,
 		caCert:            caCert,
 		oldPassword:       format.OldPassword,
-		stateServerCert:   stateServerCert,
-		stateServerKey:    stateServerKey,
-		apiPort:           format.APIPort,
 		values:            format.Values,
 	}
 	if len(format.StateAddresses) > 0 {
 		config.stateDetails = &connectionDetails{
 			format.StateAddresses,
 			format.StatePassword,
+		}
+	}
+
+	if len(stateServerKey) != 0 {
+		config.servingInfo = &params.StateServingInfo{
+			Cert:       string(stateServerCert),
+			PrivateKey: string(stateServerKey),
+			APIPort:    format.APIPort,
+		}
+		// There's a private key, then we need the state
+		// port, which wasn't directly available in the 1.16 format,
+		// but we can infer it from the ports in the state addresses.
+		if len(format.StateAddresses) > 0 {
+			_, portString, err := net.SplitHostPort(format.StateAddresses[0])
+			if err != nil {
+				return nil, err
+			}
+			statePort, err := strconv.Atoi(portString)
+			if err != nil {
+				return nil, err
+			}
+			config.servingInfo.StatePort = statePort
+		} else {
+			return nil, fmt.Errorf("server key found but no state port")
 		}
 	}
 	if len(format.APIAddresses) > 0 {

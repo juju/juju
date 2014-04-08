@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -34,9 +35,6 @@ const (
 	// port opened.
 	FwGlobal = "global"
 
-	// DefaultSeries returns the most recent Ubuntu LTS release name.
-	DefaultSeries string = "precise"
-
 	// DefaultStatePort is the default port the state server is listening on.
 	DefaultStatePort int = 37017
 
@@ -59,7 +57,52 @@ const (
 	// refreshing the addresses, in seconds. Not too frequent, as we
 	// refresh addresses from the provider each time.
 	DefaultBootstrapSSHAddressesDelay int = 10
+
+	// fallbackLtsSeries is the latest LTS series we'll use, if we fail to
+	// obtain this information from the system.
+	fallbackLtsSeries string = "precise"
 )
+
+var latestLtsSeries string
+
+type HasDefaultSeries interface {
+	DefaultSeries() (string, bool)
+}
+
+// PreferredSeries returns the preferred series to use when a charm does not
+// explicitly specify a series.
+func PreferredSeries(cfg HasDefaultSeries) string {
+	if series, ok := cfg.DefaultSeries(); ok {
+		return series
+	}
+	return LatestLtsSeries()
+}
+
+func LatestLtsSeries() string {
+	if latestLtsSeries == "" {
+		series, err := distroLtsSeries()
+		if err != nil {
+			latestLtsSeries = fallbackLtsSeries
+		} else {
+			latestLtsSeries = series
+		}
+	}
+	return latestLtsSeries
+}
+
+// distroLtsSeries returns the latest LTS series, if this information is
+// available on this system.
+func distroLtsSeries() (string, error) {
+	out, err := exec.Command("distro-info", "--lts").Output()
+	if err != nil {
+		return "", err
+	}
+	series := strings.TrimSpace(string(out))
+	if !charm.IsValidSeries(series) {
+		return "", fmt.Errorf("not a valid LTS series: %q", series)
+	}
+	return series, nil
+}
 
 // Config holds an immutable environment configuration.
 type Config struct {
@@ -162,7 +205,6 @@ func (c *Config) fillInDefaults() error {
 	// For backward compatibility purposes, we treat as unset string
 	// valued attributes that are set to the empty string, and fill
 	// out their defaults accordingly.
-	c.fillInStringDefault("default-series")
 	c.fillInStringDefault("firewall-mode")
 
 	// Load authorized-keys-path into authorized-keys if necessary.
@@ -407,9 +449,17 @@ func (c *Config) Name() string {
 	return c.mustString("name")
 }
 
-// DefaultSeries returns the default Ubuntu series for the environment.
-func (c *Config) DefaultSeries() string {
-	return c.mustString("default-series")
+// DefaultSeries returns the configured default Ubuntu series for the environment,
+// and whether the default series was explicitly configured on the environment.
+func (c *Config) DefaultSeries() (string, bool) {
+	if s, ok := c.defined["default-series"]; ok {
+		if series, ok := s.(string); ok && series != "" {
+			return series, true
+		} else if !ok {
+			logger.Warningf("invalid default-series: %q", s)
+		}
+	}
+	return "", false
 }
 
 // StatePort returns the state server port for the environment.
@@ -440,6 +490,13 @@ func (c *Config) RsyslogCACert() []byte {
 // AuthorizedKeys returns the content for ssh's authorized_keys file.
 func (c *Config) AuthorizedKeys() string {
 	return c.mustString("authorized-keys")
+}
+
+// ProxySSH returns a flag indicating whether SSH commands
+// should be proxied through the API server.
+func (c *Config) ProxySSH() bool {
+	value, _ := c.defined["proxy-ssh"].(bool)
+	return value
 }
 
 // ProxySettings returns all four proxy settings; http, https, ftp, and no
@@ -716,6 +773,7 @@ var fields = schema.Fields{
 	"bootstrap-retry-delay":     schema.ForceInt(),
 	"bootstrap-addresses-delay": schema.ForceInt(),
 	"test-mode":                 schema.Bool(),
+	"proxy-ssh":                 schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url": schema.String(),
@@ -763,6 +821,8 @@ var alwaysOptional = schema.Defaults{
 	"image-metadata-url": "", // TODO(rog) omit
 	"tools-metadata-url": "", // TODO(rog) omit
 
+	"default-series": "",
+
 	// For backward compatibility only - default ports were
 	// not filled out in previous versions of the configuration.
 	"state-port":  DefaultStatePort,
@@ -773,6 +833,7 @@ var alwaysOptional = schema.Defaults{
 	// Previously image-stream could be set to an empty value
 	"image-stream": "",
 	"test-mode":    false,
+	"proxy-ssh":    false,
 }
 
 func allowEmpty(attr string) bool {
@@ -786,7 +847,6 @@ var defaults = allDefaults()
 // UseDefaults.
 func allDefaults() schema.Defaults {
 	d := schema.Defaults{
-		"default-series":            DefaultSeries,
 		"firewall-mode":             FwInstance,
 		"development":               false,
 		"ssl-hostname-verification": true,
@@ -796,6 +856,7 @@ func allDefaults() schema.Defaults {
 		"bootstrap-timeout":         DefaultBootstrapSSHTimeout,
 		"bootstrap-retry-delay":     DefaultBootstrapSSHRetryDelay,
 		"bootstrap-addresses-delay": DefaultBootstrapSSHAddressesDelay,
+		"proxy-ssh":                 true,
 	}
 	for attr, val := range alwaysOptional {
 		if _, ok := d[attr]; !ok {

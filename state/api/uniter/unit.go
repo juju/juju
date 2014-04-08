@@ -58,7 +58,7 @@ func (u *Unit) Refresh() error {
 func (u *Unit) SetStatus(status params.Status, info string, data params.StatusData) error {
 	var result params.ErrorResults
 	args := params.SetStatus{
-		Entities: []params.SetEntityStatus{
+		Entities: []params.EntityStatus{
 			{Tag: u.tag, Status: status, Info: info, Data: data},
 		},
 	}
@@ -278,24 +278,6 @@ func (u *Unit) PublicAddress() (string, error) {
 	return result.Result, nil
 }
 
-// SetPublicAddress sets the public address of the unit.
-//
-// TODO(dimitern): We might be able to drop this, once we have machine
-// addresses implemented fully. See also LP bug 1221798.
-func (u *Unit) SetPublicAddress(address string) error {
-	var result params.ErrorResults
-	args := params.SetEntityAddresses{
-		Entities: []params.SetEntityAddress{
-			{Tag: u.tag, Address: address},
-		},
-	}
-	err := u.st.call("SetPublicAddress", args, &result)
-	if err != nil {
-		return err
-	}
-	return result.OneError()
-}
-
 // PrivateAddress returns the private address of the unit and whether
 // it is valid.
 //
@@ -321,24 +303,6 @@ func (u *Unit) PrivateAddress() (string, error) {
 		return "", result.Error
 	}
 	return result.Result, nil
-}
-
-// SetPrivateAddress sets the private address of the unit.
-//
-// TODO(dimitern): We might be able to drop this, once we have machine
-// addresses implemented fully. See also LP bug 1221798.
-func (u *Unit) SetPrivateAddress(address string) error {
-	var result params.ErrorResults
-	args := params.SetEntityAddresses{
-		Entities: []params.SetEntityAddress{
-			{Tag: u.tag, Address: address},
-		},
-	}
-	err := u.st.call("SetPrivateAddress", args, &result)
-	if err != nil {
-		return err
-	}
-	return result.OneError()
 }
 
 // OpenPort sets the policy of the port with protocol and number to be

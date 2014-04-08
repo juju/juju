@@ -10,21 +10,12 @@ import (
 	"launchpad.net/juju-core/tools"
 )
 
-// Networks holds network include/exclude when starting an instance.
-type Networks struct {
-	IncludeNetworks []string
-	ExcludeNetworks []string
-}
-
 // StartInstanceParams holds parameters for the
-// InstanceBroker.StartInstace method.
+// InstanceBroker.StartInstance method.
 type StartInstanceParams struct {
 	// Constraints is a set of constraints on
 	// the kind of instance to create.
 	Constraints constraints.Value
-
-	// Networks holds networks to include/exclude for the instance.
-	Networks Networks
 
 	// Tools is a list of tools that may be used
 	// to start a Juju agent on the machine.
@@ -32,6 +23,25 @@ type StartInstanceParams struct {
 
 	// MachineConfig describes the machine's configuration.
 	MachineConfig *cloudinit.MachineConfig
+
+	// DistributionGroup, if non-nil, is a function
+	// that returns a slice of instance.Ids that belong
+	// to the same distribution group as the machine
+	// being provisioned. The InstanceBroker may use
+	// this information to distribute instances for
+	// high availability.
+	DistributionGroup func() ([]instance.Id, error)
+}
+
+// NetworkInfo describes a single network interface available on an
+// instance. For providers that support networks, this will be
+// available at StartInstance() time.
+type NetworkInfo struct {
+	MACAddress    string
+	CIDR          string
+	NetworkName   string
+	VLANTag       int
+	InterfaceName string
 }
 
 // TODO(wallyworld) - we want this in the environs/instance package but import loops
@@ -43,7 +53,7 @@ type InstanceBroker interface {
 	// unique within an environment, is used by juju to protect against the
 	// consequences of multiple instances being started with the same machine
 	// id.
-	StartInstance(args StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error)
+	StartInstance(args StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []NetworkInfo, error)
 
 	// StopInstances shuts down the given instances.
 	StopInstances([]instance.Instance) error

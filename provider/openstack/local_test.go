@@ -54,44 +54,6 @@ func (s *ProviderSuite) TearDownTest(c *gc.C) {
 	s.restoreTimeouts()
 }
 
-func (s *ProviderSuite) TestMetadata(c *gc.C) {
-	openstack.UseTestMetadata(openstack.MetadataTesting)
-	defer openstack.UseTestMetadata(nil)
-
-	p, err := environs.Provider("openstack")
-	c.Assert(err, gc.IsNil)
-
-	addr, err := p.PublicAddress()
-	c.Assert(err, gc.IsNil)
-	c.Assert(addr, gc.Equals, "203.1.1.2")
-
-	addr, err = p.PrivateAddress()
-	c.Assert(err, gc.IsNil)
-	c.Assert(addr, gc.Equals, "10.1.1.2")
-}
-
-func (s *ProviderSuite) TestPublicFallbackToPrivate(c *gc.C) {
-	openstack.UseTestMetadata(map[string]string{
-		"/latest/meta-data/public-ipv4": "203.1.1.2",
-		"/latest/meta-data/local-ipv4":  "10.1.1.2",
-	})
-	defer openstack.UseTestMetadata(nil)
-	p, err := environs.Provider("openstack")
-	c.Assert(err, gc.IsNil)
-
-	addr, err := p.PublicAddress()
-	c.Assert(err, gc.IsNil)
-	c.Assert(addr, gc.Equals, "203.1.1.2")
-
-	openstack.UseTestMetadata(map[string]string{
-		"/latest/meta-data/local-ipv4":  "10.1.1.2",
-		"/latest/meta-data/public-ipv4": "",
-	})
-	addr, err = p.PublicAddress()
-	c.Assert(err, gc.IsNil)
-	c.Assert(addr, gc.Equals, "10.1.1.2")
-}
-
 // Register tests to run against a test Openstack instance (service doubles).
 func registerLocalTests() {
 	cred := &identity.Credentials{
@@ -338,7 +300,7 @@ func (s *localServerSuite) TestStartInstanceNetworkUnknownLabel(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil)
-	inst, _, err := testing.StartInstance(env, "100")
+	inst, _, _, err := testing.StartInstance(env, "100")
 	c.Check(inst, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "No networks exist with label .*")
 }
@@ -351,7 +313,7 @@ func (s *localServerSuite) TestStartInstanceNetworkUnknownId(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil)
-	inst, _, err := testing.StartInstance(env, "100")
+	inst, _, _, err := testing.StartInstance(env, "100")
 	c.Check(inst, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "cannot run instance: (\\n|.)*"+
 		"caused by: "+
@@ -620,12 +582,10 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(stateData.StateInstances, gc.HasLen, 1)
 
-	expectedHardware := instance.MustParseHardware("arch=amd64 cpu-cores=1 mem=2G")
 	insts, err := env.AllInstances()
 	c.Assert(err, gc.IsNil)
 	c.Assert(insts, gc.HasLen, 1)
 	c.Check(insts[0].Id(), gc.Equals, stateData.StateInstances[0])
-	c.Check(expectedHardware, gc.DeepEquals, stateData.Characteristics[0])
 
 	bootstrapDNS, err := insts[0].DNSName()
 	c.Assert(err, gc.IsNil)
@@ -697,6 +657,11 @@ func (s *localServerSuite) TestSupportedArchitectures(c *gc.C) {
 	a, err := env.SupportedArchitectures()
 	c.Assert(err, gc.IsNil)
 	c.Assert(a, gc.DeepEquals, []string{"amd64", "ppc64"})
+}
+
+func (s *localServerSuite) TestSupportNetworks(c *gc.C) {
+	env := s.Open(c)
+	c.Assert(env.SupportNetworks(), jc.IsFalse)
 }
 
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {

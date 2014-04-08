@@ -152,24 +152,55 @@ func (s *UnitSuite) TestWatchConfigSettings(c *gc.C) {
 	// because it's not very helpful and subject to change.
 }
 
-func (s *UnitSuite) TestGetSetPublicAddress(c *gc.C) {
-	_, ok := s.unit.PublicAddress()
-	c.Assert(ok, gc.Equals, false)
-
-	err := s.unit.SetPublicAddress("example.foobar.com")
+func (s *UnitSuite) addSubordinateUnit(c *gc.C) *state.Unit {
+	subCharm := s.AddTestingCharm(c, "logging")
+	s.AddTestingService(c, "logging", subCharm)
+	eps, err := s.State.InferEndpoints([]string{"wordpress", "logging"})
 	c.Assert(err, gc.IsNil)
-	address, ok := s.unit.PublicAddress()
-	c.Assert(ok, gc.Equals, true)
-	c.Assert(address, gc.Equals, "example.foobar.com")
-
-	defer state.SetBeforeHooks(c, s.State, func() {
-		c.Assert(s.unit.Destroy(), gc.IsNil)
-	}).Check()
-	err = s.unit.SetPublicAddress("example.foobar.com")
-	c.Assert(err, gc.ErrorMatches, `cannot set public address of unit "wordpress/0": unit not found`)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, gc.IsNil)
+	ru, err := rel.Unit(s.unit)
+	c.Assert(err, gc.IsNil)
+	err = ru.EnterScope(nil)
+	c.Assert(err, gc.IsNil)
+	subUnit, err := s.State.Unit("logging/0")
+	c.Assert(err, gc.IsNil)
+	return subUnit
 }
 
-func (s *UnitSuite) TestGetPublicAddressFromMachine(c *gc.C) {
+func (s *UnitSuite) setAssignedMachineAddresses(c *gc.C, u *state.Unit) {
+	err := u.AssignToNewMachine()
+	c.Assert(err, gc.IsNil)
+	mid, err := u.AssignedMachineId()
+	c.Assert(err, gc.IsNil)
+	machine, err := s.State.Machine(mid)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetProvisioned("i-exist", "fake_nonce", nil)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetAddresses(instance.Address{
+		Type:         instance.Ipv4Address,
+		NetworkScope: instance.NetworkCloudLocal,
+		Value:        "private.address.example.com",
+	}, instance.Address{
+		Type:         instance.Ipv4Address,
+		NetworkScope: instance.NetworkPublic,
+		Value:        "public.address.example.com",
+	})
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *UnitSuite) TestPublicAddressSubordinate(c *gc.C) {
+	subUnit := s.addSubordinateUnit(c)
+	_, ok := subUnit.PublicAddress()
+	c.Assert(ok, gc.Equals, false)
+
+	s.setAssignedMachineAddresses(c, s.unit)
+	address, ok := subUnit.PublicAddress()
+	c.Assert(ok, gc.Equals, true)
+	c.Assert(address, gc.Equals, "public.address.example.com")
+}
+
+func (s *UnitSuite) TestPublicAddress(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = s.unit.AssignToMachine(machine)
@@ -179,11 +210,10 @@ func (s *UnitSuite) TestGetPublicAddressFromMachine(c *gc.C) {
 	c.Check(address, gc.Equals, "")
 	c.Assert(ok, gc.Equals, false)
 
-	addresses := []instance.Address{
-		instance.NewAddress("127.0.0.1"),
-		instance.NewAddress("8.8.8.8"),
-	}
-	err = machine.SetAddresses(addresses)
+	public := instance.NewAddress("8.8.8.8", instance.NetworkPublic)
+	private := instance.NewAddress("127.0.0.1", instance.NetworkCloudLocal)
+
+	err = machine.SetAddresses(public, private)
 	c.Assert(err, gc.IsNil)
 
 	address, ok = s.unit.PublicAddress()
@@ -191,24 +221,18 @@ func (s *UnitSuite) TestGetPublicAddressFromMachine(c *gc.C) {
 	c.Assert(ok, gc.Equals, true)
 }
 
-func (s *UnitSuite) TestGetSetPrivateAddress(c *gc.C) {
-	_, ok := s.unit.PrivateAddress()
+func (s *UnitSuite) TestPrivateAddressSubordinate(c *gc.C) {
+	subUnit := s.addSubordinateUnit(c)
+	_, ok := subUnit.PrivateAddress()
 	c.Assert(ok, gc.Equals, false)
 
-	err := s.unit.SetPrivateAddress("example.local")
-	c.Assert(err, gc.IsNil)
-	address, ok := s.unit.PrivateAddress()
+	s.setAssignedMachineAddresses(c, s.unit)
+	address, ok := subUnit.PrivateAddress()
 	c.Assert(ok, gc.Equals, true)
-	c.Assert(address, gc.Equals, "example.local")
-
-	defer state.SetBeforeHooks(c, s.State, func() {
-		c.Assert(s.unit.Destroy(), gc.IsNil)
-	}).Check()
-	err = s.unit.SetPrivateAddress("example.local")
-	c.Assert(err, gc.ErrorMatches, `cannot set private address of unit "wordpress/0": unit not found`)
+	c.Assert(address, gc.Equals, "private.address.example.com")
 }
 
-func (s *UnitSuite) TestGetPrivateAddressFromMachine(c *gc.C) {
+func (s *UnitSuite) TestPrivateAddress(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = s.unit.AssignToMachine(machine)
@@ -218,11 +242,10 @@ func (s *UnitSuite) TestGetPrivateAddressFromMachine(c *gc.C) {
 	c.Check(address, gc.Equals, "")
 	c.Assert(ok, gc.Equals, false)
 
-	addresses := []instance.Address{
-		instance.NewAddress("127.0.0.1"),
-		instance.NewAddress("8.8.8.8"),
-	}
-	err = machine.SetAddresses(addresses)
+	public := instance.NewAddress("8.8.8.8", instance.NetworkPublic)
+	private := instance.NewAddress("127.0.0.1", instance.NetworkCloudLocal)
+
+	err = machine.SetAddresses(public, private)
 	c.Assert(err, gc.IsNil)
 
 	address, ok = s.unit.PrivateAddress()
@@ -234,24 +257,14 @@ func (s *UnitSuite) TestRefresh(c *gc.C) {
 	unit1, err := s.State.Unit(s.unit.Name())
 	c.Assert(err, gc.IsNil)
 
-	err = s.unit.SetPrivateAddress("example.local")
+	err = s.unit.SetPassword("arble-farble-dying-yarble")
 	c.Assert(err, gc.IsNil)
-	err = s.unit.SetPublicAddress("example.foobar.com")
-	c.Assert(err, gc.IsNil)
-
-	address, ok := unit1.PrivateAddress()
-	c.Assert(ok, gc.Equals, false)
-	address, ok = unit1.PublicAddress()
-	c.Assert(ok, gc.Equals, false)
-
+	valid := unit1.PasswordValid("arble-farble-dying-yarble")
+	c.Assert(valid, jc.IsFalse)
 	err = unit1.Refresh()
 	c.Assert(err, gc.IsNil)
-	address, ok = unit1.PrivateAddress()
-	c.Assert(ok, gc.Equals, true)
-	c.Assert(address, gc.Equals, "example.local")
-	address, ok = unit1.PublicAddress()
-	c.Assert(ok, gc.Equals, true)
-	c.Assert(address, gc.Equals, "example.foobar.com")
+	valid = unit1.PasswordValid("arble-farble-dying-yarble")
+	c.Assert(valid, jc.IsTrue)
 
 	err = unit1.EnsureDead()
 	c.Assert(err, gc.IsNil)
@@ -619,18 +632,7 @@ func (s *UnitSuite) TestSetAgentCompatPassword(c *gc.C) {
 func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *gc.C) {
 	// Make a second unit to use later. (Subordinate units can only be created
 	// as a side-effect of a principal entering relation scope.)
-	subCharm := s.AddTestingCharm(c, "logging")
-	s.AddTestingService(c, "logging", subCharm)
-	eps, err := s.State.InferEndpoints([]string{"wordpress", "logging"})
-	c.Assert(err, gc.IsNil)
-	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, gc.IsNil)
-	ru, err := rel.Unit(s.unit)
-	c.Assert(err, gc.IsNil)
-	err = ru.EnterScope(nil)
-	c.Assert(err, gc.IsNil)
-	subUnit, err := s.State.Unit("logging/0")
-	c.Assert(err, gc.IsNil)
+	subUnit := s.addSubordinateUnit(c)
 
 	info := state.TestingStateInfo()
 	st, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
@@ -1181,12 +1183,11 @@ func (s *UnitSuite) TestWatchUnit(c *gc.C) {
 	// Make one change (to a separate instance), check one event.
 	unit, err := s.State.Unit(s.unit.Name())
 	c.Assert(err, gc.IsNil)
-	err = unit.SetPublicAddress("example.foobar.com")
-	c.Assert(err, gc.IsNil)
+	s.setAssignedMachineAddresses(c, unit)
 	wc.AssertOneChange()
 
 	// Make two changes, check one event.
-	err = unit.SetPrivateAddress("example.foobar")
+	err = unit.SetPassword("arble-farble-dying-yarble")
 	c.Assert(err, gc.IsNil)
 	err = unit.Destroy()
 	c.Assert(err, gc.IsNil)

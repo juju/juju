@@ -154,7 +154,7 @@ func (s *MachinerSuite) TestMachineAddresses(c *gc.C) {
 	c.Assert(mr.Wait(), gc.Equals, worker.ErrTerminateAgent)
 	c.Assert(s.machine.Refresh(), gc.IsNil)
 	c.Assert(s.machine.MachineAddresses(), gc.DeepEquals, []instance.Address{
-		instance.NewAddress("10.0.0.1"),
-		instance.NewAddress("2001:db8::1"),
+		instance.NewAddress("10.0.0.1", instance.NetworkUnknown),
+		instance.NewAddress("2001:db8::1", instance.NetworkUnknown),
 	})
 }

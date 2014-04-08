@@ -10,14 +10,14 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/state/api/params"
 )
 
 // GetEnvironmentCommand is able to output either the entire environment or
 // the requested value in a format of the user's choosing.
 type GetEnvironmentCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	key string
 	out cmd.Output
 }
@@ -50,28 +50,12 @@ func (c *GetEnvironmentCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *GetEnvironmentCommand) Init(args []string) (err error) {
+	err = c.EnvCommandBase.Init()
+	if err != nil {
+		return
+	}
 	c.key, err = cmd.ZeroOrOneArgs(args)
 	return
-}
-
-// environmentGet1dot16 runs matches client.EnvironmentGet using a direct DB
-// connection to maintain compatibility with an API server running 1.16 or
-// older (when EnvironmentGet was not available). This fallback can be removed
-// when we no longer maintain 1.16 compatibility.
-func (c *GetEnvironmentCommand) environmentGet1dot16() (map[string]interface{}, error) {
-	conn, err := juju.NewConnFromName(c.EnvName)
-	if err != nil {
-		return nil, err
-	}
-	defer conn.Close()
-
-	// Get the existing environment config from the state.
-	config, err := conn.State.EnvironConfig()
-	if err != nil {
-		return nil, err
-	}
-	attrs := config.AllAttrs()
-	return attrs, nil
 }
 
 func (c *GetEnvironmentCommand) Run(ctx *cmd.Context) error {
@@ -82,11 +66,6 @@ func (c *GetEnvironmentCommand) Run(ctx *cmd.Context) error {
 	defer client.Close()
 
 	attrs, err := client.EnvironmentGet()
-	if params.IsCodeNotImplemented(err) {
-		logger.Infof("EnvironmentGet not supported by the API server, " +
-			"falling back to 1.16 compatibility mode (direct DB access)")
-		attrs, err = c.environmentGet1dot16()
-	}
 	if err != nil {
 		return err
 	}
@@ -105,7 +84,7 @@ type attributes map[string]interface{}
 
 // SetEnvironment
 type SetEnvironmentCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	values attributes
 }
 
@@ -127,6 +106,10 @@ func (c *SetEnvironmentCommand) Info() *cmd.Info {
 // SetFlags handled entirely by cmd.EnvCommandBase
 
 func (c *SetEnvironmentCommand) Init(args []string) (err error) {
+	err = c.EnvCommandBase.Init()
+	if err != nil {
+		return
+	}
 	if len(args) == 0 {
 		return fmt.Errorf("No key, value pairs specified")
 	}
@@ -150,34 +133,57 @@ func (c *SetEnvironmentCommand) Init(args []string) (err error) {
 	return nil
 }
 
-// run1dot16 runs matches client.EnvironmentSet using a direct DB
-// connection to maintain compatibility with an API server running 1.16 or
-// older (when EnvironmentSet was not available). This fallback can be removed
-// when we no longer maintain 1.16 compatibility.
-// This content was copied from SetEnvironmentCommand.Run in 1.16
-func (c *SetEnvironmentCommand) run1dot16() error {
-	conn, err := juju.NewConnFromName(c.EnvName)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
-	// Update state config with new values
-	return conn.State.UpdateEnvironConfig(c.values, nil, nil)
-}
-
 func (c *SetEnvironmentCommand) Run(ctx *cmd.Context) error {
 	client, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
+	return client.EnvironmentSet(c.values)
+}
 
-	err = client.EnvironmentSet(c.values)
-	if params.IsCodeNotImplemented(err) {
-		logger.Infof("EnvironmentSet not supported by the API server, " +
-			"falling back to 1.16 compatibility mode (direct DB access)")
-		err = c.run1dot16()
+// UnsetEnvironment
+type UnsetEnvironmentCommand struct {
+	envcmd.EnvCommandBase
+	keys []string
+}
+
+const unsetEnvHelpDoc = `
+Reset one or more the environment configuration attributes to its default
+value in a running Juju instance.  Attributes without defaults are removed,
+and attempting to remove a required attribute with no default will result
+in an error.
+
+Multiple attributes may be removed at once; keys are space-separated.
+`
+
+func (c *UnsetEnvironmentCommand) Info() *cmd.Info {
+	return &cmd.Info{
+		Name:    "unset-environment",
+		Args:    "<environment key> ...",
+		Purpose: "unset environment values",
+		Doc:     strings.TrimSpace(unsetEnvHelpDoc),
+		Aliases: []string{"unset-env"},
 	}
-	return err
+}
+
+func (c *UnsetEnvironmentCommand) Init(args []string) (err error) {
+	err = c.EnvCommandBase.Init()
+	if err != nil {
+		return
+	}
+	if len(args) == 0 {
+		return fmt.Errorf("No keys specified")
+	}
+	c.keys = args
+	return nil
+}
+
+func (c *UnsetEnvironmentCommand) Run(ctx *cmd.Context) error {
+	client, err := juju.NewAPIClientFromName(c.EnvName)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+	return client.EnvironmentUnset(c.keys...)
 }

@@ -14,11 +14,12 @@ import (
 	"launchpad.net/juju-core/bzr"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/log"
 )
 
 type PublishCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	URL       string
 	CharmPath string
 
@@ -60,6 +61,10 @@ func (c *PublishCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *PublishCommand) Init(args []string) error {
+	err := c.EnvCommandBase.Init()
+	if err != nil {
+		return err
+	}
 	if len(args) == 0 {
 		return nil
 	}
@@ -110,7 +115,7 @@ func (c *PublishCommand) Run(ctx *cmd.Context) (err error) {
 		pushLocation = c.changePushLocation(pushLocation)
 	}
 
-	repo, err := charm.InferRepository(curl, "/not/important")
+	repo, err := charm.InferRepository(curl.Reference, "/not/important")
 	if err != nil {
 		return err
 	}

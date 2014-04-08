@@ -39,22 +39,6 @@ func (s *AptSuite) TestAptGetPreparePackages(c *gc.C) {
 	c.Assert(packagesList[1], gc.DeepEquals, []string{"bridge-utils", "git"})
 }
 
-func (s *AptSuite) TestAptGetCommand(c *gc.C) {
-	s.testAptGetCommand(c)
-	s.testAptGetCommand(c, "install", "foo")
-}
-
-func (s *AptSuite) testAptGetCommand(c *gc.C, args ...string) {
-	commonArgs := []string{
-		"env", "DEBIAN_FRONTEND=noninteractive",
-		"apt-get", "--option=Dpkg::Options::=--force-confold",
-		"--option=Dpkg::options::=--force-unsafe-io", "--assume-yes", "--quiet",
-	}
-	expected := append(commonArgs, args...)
-	cmd := utils.AptGetCommand(args...)
-	c.Assert(cmd, gc.DeepEquals, expected)
-}
-
 func (s *AptSuite) TestAptGetError(c *gc.C) {
 	const expected = `E: frobnicator failure detected`
 	cmdError := fmt.Errorf("error")

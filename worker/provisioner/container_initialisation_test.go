@@ -12,10 +12,10 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
@@ -88,7 +88,7 @@ func (s *ContainerSetupSuite) createContainer(c *gc.C, host *state.Machine, ctyp
 
 	// make a container on the host machine
 	template := state.MachineTemplate{
-		Series: config.DefaultSeries,
+		Series: coretesting.FakeDefaultSeries,
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideMachine(template, host.Id(), ctype)
@@ -131,7 +131,7 @@ func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
 	for _, ctype := range instance.ContainerTypes {
 		// create a machine to host the container.
 		m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
-			Series:      config.DefaultSeries,
+			Series:      coretesting.FakeDefaultSeries,
 			Jobs:        []state.MachineJob{state.JobHostUnits},
 			Constraints: s.defaultConstraints,
 		})
@@ -154,7 +154,7 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, ctype instance
 
 	// create a machine to host the container.
 	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
-		Series:      config.DefaultSeries,
+		Series:      coretesting.FakeDefaultSeries,
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: s.defaultConstraints,
 	})
@@ -180,7 +180,7 @@ func (s *ContainerSetupSuite) TestContainerInitialised(c *gc.C) {
 		ctype    instance.ContainerType
 		packages []string
 	}{
-		{instance.LXC, []string{"--target-release", "precise-updates/cloud-tools", "lxc"}},
+		{instance.LXC, []string{"--target-release", "precise-updates/cloud-tools", "lxc", "cloud-image-utils"}},
 		{instance.KVM, []string{"uvtool-libvirt", "uvtool"}},
 	} {
 		s.assertContainerInitialised(c, test.ctype, test.packages)

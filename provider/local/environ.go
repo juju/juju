@@ -18,6 +18,7 @@ import (
 	"github.com/errgo/errgo"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/mongo"
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/cloudinit/sshinit"
 	"launchpad.net/juju-core/constraints"
@@ -56,6 +57,9 @@ var _ environs.Environ = (*localEnviron)(nil)
 var _ envtools.SupportsCustomSources = (*localEnviron)(nil)
 
 type localEnviron struct {
+	common.NopPrecheckerPolicy
+	common.SupportsUnitPlacementPolicy
+
 	localMutex       sync.Mutex
 	config           *environConfig
 	name             string
@@ -78,13 +82,14 @@ func (*localEnviron) SupportedArchitectures() ([]string, error) {
 	return []string{localArch}, nil
 }
 
+// SupportNetworks is specified on the EnvironCapability interface.
+func (*localEnviron) SupportNetworks() bool {
+	return false
+}
+
 // Name is specified in the Environ interface.
 func (env *localEnviron) Name() string {
 	return env.name
-}
-
-func (env *localEnviron) mongoServiceName() string {
-	return "juju-db-" + env.config.namespace()
 }
 
 func (env *localEnviron) machineAgentServiceName() string {
@@ -118,7 +123,7 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 	}
 
 	vers := version.Current
-	selectedTools, err := common.EnsureBootstrapTools(env, vers.Series, &vers.Arch)
+	selectedTools, err := common.EnsureBootstrapTools(ctx, env, vers.Series, &vers.Arch)
 	if err != nil {
 		return err
 	}
@@ -144,7 +149,6 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 	mcfg.CloudInitOutputLog = filepath.Join(mcfg.DataDir, "cloud-init-output.log")
 	mcfg.DisablePackageCommands = true
 	mcfg.MachineAgentServiceName = env.machineAgentServiceName()
-	mcfg.MongoServiceName = env.mongoServiceName()
 	mcfg.AgentEnvironment = map[string]string{
 		agent.Namespace:   env.config.namespace(),
 		agent.StorageDir:  env.config.storageDir(),
@@ -297,8 +301,10 @@ func (env *localEnviron) setLocalStorage() error {
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
-
+func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error) {
+	if args.MachineConfig.HasNetworks() {
+		return nil, nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
+	}
 	series := args.Tools.OneSeries()
 	logger.Debugf("StartInstance: %q, %s", args.MachineConfig.MachineId, series)
 	args.MachineConfig.Tools = args.Tools[0]
@@ -306,7 +312,7 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (insta
 	logger.Debugf("tools: %#v", args.MachineConfig.Tools)
 	network := container.BridgeNetworkConfig(env.config.networkBridge())
 	if err := environs.FinishMachineConfig(args.MachineConfig, env.config.Config, args.Constraints); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	// TODO: evaluate the impact of setting the contstraints on the
 	// machineConfig for all machines rather than just state server nodes.
@@ -315,9 +321,9 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (insta
 	args.MachineConfig.AgentEnvironment[agent.Namespace] = env.config.namespace()
 	inst, hardware, err := env.containerManager.CreateContainer(args.MachineConfig, series, network)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return inst, hardware, nil
+	return inst, hardware, nil, nil
 }
 
 // StartInstance is specified in the InstanceBroker interface.
@@ -442,7 +448,7 @@ func (env *localEnviron) Destroy() error {
 	}
 	// Stop the mongo database and machine agent. It's possible that the
 	// service doesn't exist or is not running, so don't check the error.
-	upstart.NewService(env.mongoServiceName()).StopAndRemove()
+	mongo.RemoveService(env.config.namespace())
 	upstart.NewService(env.machineAgentServiceName()).StopAndRemove()
 
 	// Finally, remove the data-dir.

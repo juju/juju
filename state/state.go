@@ -8,6 +8,7 @@ package state
 
 import (
 	"fmt"
+	"net"
 	"net/url"
 	"regexp"
 	"sort"
@@ -25,6 +26,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/multiwatcher"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
@@ -43,33 +45,35 @@ const (
 // State represents the state of an environment
 // managed by juju.
 type State struct {
-	info             *Info
-	policy           Policy
-	db               *mgo.Database
-	environments     *mgo.Collection
-	charms           *mgo.Collection
-	machines         *mgo.Collection
-	instanceData     *mgo.Collection
-	containerRefs    *mgo.Collection
-	relations        *mgo.Collection
-	relationScopes   *mgo.Collection
-	services         *mgo.Collection
-	networks         *mgo.Collection
-	minUnits         *mgo.Collection
-	settings         *mgo.Collection
-	settingsrefs     *mgo.Collection
-	constraints      *mgo.Collection
-	units            *mgo.Collection
-	users            *mgo.Collection
-	presence         *mgo.Collection
-	cleanups         *mgo.Collection
-	annotations      *mgo.Collection
-	statuses         *mgo.Collection
-	stateServers     *mgo.Collection
-	runner           *txn.Runner
-	transactionHooks chan ([]transactionHook)
-	watcher          *watcher.Watcher
-	pwatcher         *presence.Watcher
+	info              *Info
+	policy            Policy
+	db                *mgo.Database
+	environments      *mgo.Collection
+	charms            *mgo.Collection
+	machines          *mgo.Collection
+	instanceData      *mgo.Collection
+	containerRefs     *mgo.Collection
+	relations         *mgo.Collection
+	relationScopes    *mgo.Collection
+	services          *mgo.Collection
+	requestedNetworks *mgo.Collection
+	networks          *mgo.Collection
+	networkInterfaces *mgo.Collection
+	minUnits          *mgo.Collection
+	settings          *mgo.Collection
+	settingsrefs      *mgo.Collection
+	constraints       *mgo.Collection
+	units             *mgo.Collection
+	users             *mgo.Collection
+	presence          *mgo.Collection
+	cleanups          *mgo.Collection
+	annotations       *mgo.Collection
+	statuses          *mgo.Collection
+	stateServers      *mgo.Collection
+	runner            *txn.Runner
+	transactionHooks  chan ([]transactionHook)
+	watcher           *watcher.Watcher
+	pwatcher          *presence.Watcher
 	// mu guards allManager.
 	mu         sync.Mutex
 	allManager *multiwatcher.StoreManager
@@ -907,7 +911,7 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 // AddService creates a new service, running the supplied charm, with the
 // supplied name (which must be unique). If the charm defines peer relations,
 // they will be created automatically.
-func (st *State) AddService(name, ownerTag string, ch *Charm) (service *Service, err error) {
+func (st *State) AddService(name, ownerTag string, ch *Charm, includeNetworks, excludeNetworks []string) (service *Service, err error) {
 	defer utils.ErrorContextf(&err, "cannot add service %q", name)
 	kind, ownerId, err := names.ParseTag(ownerTag, names.UserTagKind)
 	if err != nil || kind != names.UserTagKind {
@@ -951,7 +955,11 @@ func (st *State) AddService(name, ownerTag string, ch *Charm) (service *Service,
 	ops := []txn.Op{
 		env.assertAliveOp(),
 		createConstraintsOp(st, svc.globalKey(), constraints.Value{}),
-		createNetworksOp(st, svc.globalKey(), []string{}, []string{}),
+		// TODO(dimitern) 2014-04-04 bug #1302498
+		// Once we can add networks independently of machine
+		// provisioning, we should check the given networks are valid
+		// and known before setting them.
+		createRequestedNetworksOp(st, svc.globalKey(), includeNetworks, excludeNetworks),
 		createSettingsOp(st, svc.settingsKey(), nil),
 		{
 			C:      st.users.Name,
@@ -1000,6 +1008,52 @@ func (st *State) AddService(name, ownerTag string, ch *Charm) (service *Service,
 		return nil, err
 	}
 	return svc, nil
+}
+
+// AddNetwork creates a new network with the given name, CIDR and VLAN tag.
+func (st *State) AddNetwork(name, cidr string, vlanTag int) (n *Network, err error) {
+	defer utils.ErrorContextf(&err, "cannot add network %q", name)
+	if cidr != "" {
+		_, _, err := net.ParseCIDR(cidr)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if name == "" {
+		return nil, fmt.Errorf("name must be not empty")
+	}
+	if vlanTag < 0 || vlanTag > 4094 {
+		return nil, fmt.Errorf("invalid VLAN tag %d: must be between 0 and 4094", vlanTag)
+	}
+	doc := &networkDoc{
+		Name:    name,
+		CIDR:    cidr,
+		VLANTag: vlanTag,
+	}
+	ops := []txn.Op{{
+		C:      st.networks.Name,
+		Id:     name,
+		Assert: txn.DocMissing,
+		Insert: doc,
+	}}
+	err = onAbort(st.runTransaction(ops), fmt.Errorf("already exists"))
+	if err != nil {
+		return nil, err
+	}
+	return newNetwork(st, doc), nil
+}
+
+// Network returns the network with the given name.
+func (st *State) Network(name string) (*Network, error) {
+	doc := &networkDoc{}
+	err := st.networks.FindId(name).One(doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("network %q", name)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("cannot get network %q: %v", name, err)
+	}
+	return newNetwork(st, doc), nil
 }
 
 // Service returns a service state by name.
@@ -1383,7 +1437,7 @@ type StateServerInfo struct {
 	VotingMachineIds []string
 }
 
-// StateServerInfo returns returns information about
+// StateServerInfo returns information about
 // the currently configured state server machines.
 func (st *State) StateServerInfo() (*StateServerInfo, error) {
 	var doc stateServersDoc
@@ -1395,6 +1449,31 @@ func (st *State) StateServerInfo() (*StateServerInfo, error) {
 		MachineIds:       doc.MachineIds,
 		VotingMachineIds: doc.VotingMachineIds,
 	}, nil
+}
+
+const stateServingInfoKey = "stateServingInfo"
+
+// StateServingInfo returns information for running a state server machine
+func (st *State) StateServingInfo() (params.StateServingInfo, error) {
+	var info params.StateServingInfo
+	err := st.stateServers.Find(bson.D{{"_id", stateServingInfoKey}}).One(&info)
+	if err != nil {
+		return info, err
+	}
+	return info, nil
+}
+
+// SetStateServingInfo stores information needed for running a state server
+func (st *State) SetStateServingInfo(info params.StateServingInfo) error {
+	ops := []txn.Op{{
+		C:      st.stateServers.Name,
+		Id:     stateServingInfoKey,
+		Update: bson.D{{"$set", info}},
+	}}
+	if err := st.runTransaction(ops); err != nil {
+		return fmt.Errorf("cannot set state serving info: %v", err)
+	}
+	return nil
 }
 
 // ResumeTransactions resumes all pending transactions.

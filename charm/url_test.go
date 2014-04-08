@@ -258,7 +258,7 @@ var codecs = []struct {
 	Unmarshal: json.Unmarshal,
 }}
 
-func (s *URLSuite) TestCodecs(c *gc.C) {
+func (s *URLSuite) TestURLCodecs(c *gc.C) {
 	for i, codec := range codecs {
 		c.Logf("codec %d", i)
 		type doc struct {
@@ -276,6 +276,25 @@ func (s *URLSuite) TestCodecs(c *gc.C) {
 		err = codec.Unmarshal(data, &v)
 		c.Assert(err, gc.IsNil)
 		c.Assert(v.URL, gc.IsNil)
+	}
+}
+
+func (s *URLSuite) TestReferenceJSON(c *gc.C) {
+	ref, _, err := charm.ParseReference("cs:series/name")
+	c.Assert(err, gc.IsNil)
+	data, err := json.Marshal(&ref)
+	c.Assert(err, gc.IsNil)
+	c.Check(string(data), gc.Equals, `"cs:name"`)
+
+	var parsed charm.Reference
+	err = json.Unmarshal(data, &parsed)
+	c.Assert(err, gc.IsNil)
+	c.Check(parsed, gc.DeepEquals, ref)
+
+	// unmarshalling json gibberish and invalid charm reference strings
+	for _, value := range []string{":{", `"cs:{}+<"`, `"cs:~_~/f00^^&^/baaaar$%-?"`} {
+		err = json.Unmarshal([]byte(value), &parsed)
+		c.Check(err, gc.NotNil)
 	}
 }
 

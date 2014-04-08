@@ -72,12 +72,12 @@ func (s *compatSuite) TestGetServiceWithoutNetworksIsOK(c *gc.C) {
 	_, err := s.state.AddUser(AdminUser, "pass")
 	c.Assert(err, gc.IsNil)
 	charm := addCharm(c, s.state, "quantal", testing.Charms.Dir("mysql"))
-	service, err := s.state.AddService("mysql", "user-admin", charm)
+	service, err := s.state.AddService("mysql", "user-admin", charm, nil, nil)
 	c.Assert(err, gc.IsNil)
 	// In 1.17.7+ all services have associated document in the
-	// networks collection. We remove it here to test backwards
-	// compatibility.
-	ops := []txn.Op{removeNetworksOp(s.state, service.globalKey())}
+	// requested networks collection. We remove it here to test
+	// backwards compatibility.
+	ops := []txn.Op{removeRequestedNetworksOp(s.state, service.globalKey())}
 	err = s.state.runTransaction(ops)
 	c.Assert(err, gc.IsNil)
 
@@ -88,18 +88,18 @@ func (s *compatSuite) TestGetServiceWithoutNetworksIsOK(c *gc.C) {
 	c.Assert(exclude, gc.HasLen, 0)
 }
 
-func (s *compatSuite) TestGetMachineWithoutNetworksIsOK(c *gc.C) {
+func (s *compatSuite) TestGetMachineWithoutRequestedNetworksIsOK(c *gc.C) {
 	machine, err := s.state.AddMachine("quantal", JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	// In 1.17.7+ all machines have associated document in the
-	// networks collection. We remove it here to test backwards
-	// compatibility.
-	ops := []txn.Op{removeNetworksOp(s.state, machine.globalKey())}
+	// requested networks collection. We remove it here to test
+	// backwards compatibility.
+	ops := []txn.Op{removeRequestedNetworksOp(s.state, machine.globalKey())}
 	err = s.state.runTransaction(ops)
 	c.Assert(err, gc.IsNil)
 
 	// Now check the trying to fetch machine's networks is OK.
-	include, exclude, err := machine.Networks()
+	include, exclude, err := machine.RequestedNetworks()
 	c.Assert(err, gc.IsNil)
 	c.Assert(include, gc.HasLen, 0)
 	c.Assert(exclude, gc.HasLen, 0)

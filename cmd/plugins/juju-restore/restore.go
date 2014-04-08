@@ -11,7 +11,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path"
 	"text/template"
 
@@ -20,6 +19,7 @@ import (
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
@@ -31,6 +31,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/ssh"
 )
 
 func main() {
@@ -64,7 +65,7 @@ to choose the new instance.
 `
 
 type restoreCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	Log             cmd.Log
 	Constraints     constraints.Value
 	backupFile      string
@@ -88,6 +89,10 @@ func (c *restoreCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *restoreCommand) Init(args []string) error {
+	err := c.EnvCommandBase.Init()
+	if err != nil {
+		return err
+	}
 	if c.showDescription {
 		return cmd.CheckEmpty(args)
 	}
@@ -117,10 +122,10 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 		mongo --ssl -u {{.Creds.Tag}} -p {{.Creds.Password | shquote}} localhost:37017/juju --eval "$1"
 	}
 	# wait for mongo to come up after starting the juju-db upstart service.
-	for i in $(seq 1 60)
+	for i in $(seq 1 100)
 	do
 		mongoEval ' ' && break
-		sleep 2
+		sleep 5
 	done
 	mongoEval '
 		db = db.getSiblingDB("juju")
@@ -271,11 +276,11 @@ func restoreBootstrapMachine(conn *juju.APIConn, backupFile string, creds creden
 	newInstId = instance.Id(info.InstanceId)
 
 	progress("copying backup file to bootstrap host")
-	if err := scp(backupFile, addr, "~/juju-backup.tgz"); err != nil {
+	if err := sendViaScp(backupFile, addr, "~/juju-backup.tgz"); err != nil {
 		return "", "", fmt.Errorf("cannot copy backup file to bootstrap instance: %v", err)
 	}
 	progress("updating bootstrap machine")
-	if err := ssh(addr, updateBootstrapMachineScript(newInstId, creds)); err != nil {
+	if err := runViaSsh(addr, updateBootstrapMachineScript(newInstId, creds)); err != nil {
 		return "", "", fmt.Errorf("update script failed: %v", err)
 	}
 	return newInstId, addr, nil
@@ -350,13 +355,18 @@ do
 		n
 		s/- .*(:[0-9]+)/- {{.Address}}\1/
 	}" $agent/agent.conf
+
+    # If we're processing a unit agent's directly
+    # and it has some relations, reset
+    # the stored version of all of them to
+    # ensure that any relation hooks will
+    # fire.
 	if [[ $agent = unit-* ]]
 	then
- 		sed -i -r 's/change-version: [0-9]+$/change-version: 0/' $agent/state/relations/*/* || true
+	find $agent/state/relations -type f -exec sed -i -r 's/change-version: [0-9]+$/change-version: 0/' {} \;
 	fi
 	initctl start jujud-$agent
 done
-sed -i -r 's/^(:syslogtag, startswith, "juju-" @)(.*)(:[0-9]+.*)$/\1{{.Address}}\3/' /etc/rsyslog.d/*-juju*.conf
 `)
 
 // setAgentAddressScript generates an ssh script argument to update state addresses
@@ -409,46 +419,31 @@ func runMachineUpdate(m *state.Machine, sshArg string) error {
 	if addr == "" {
 		return fmt.Errorf("no appropriate public address found")
 	}
-	return ssh(addr, sshArg)
+	return runViaSsh(addr, sshArg)
 }
 
-func ssh(addr string, script string) error {
-	args := []string{
-		"-l", "ubuntu",
-		"-T",
-		"-o", "StrictHostKeyChecking no",
-		"-o", "PasswordAuthentication no",
-		addr,
-		"sudo -n bash -c " + utils.ShQuote(script),
-	}
-	cmd := exec.Command("ssh", args...)
-	logger.Debugf("ssh command: %s %q", cmd.Path, cmd.Args)
-	data, err := cmd.CombinedOutput()
+func runViaSsh(addr string, script string) error {
+	// This is taken from cmd/juju/ssh.go there is no other clear way to set user
+	userAddr := "ubuntu@" + addr
+	cmd := ssh.Command(userAddr, []string{"sudo", "-n", "bash", "-c " + utils.ShQuote(script)}, nil)
+	var stderrBuf bytes.Buffer
+	var stdoutBuf bytes.Buffer
+	cmd.Stderr = &stderrBuf
+	cmd.Stdout = &stdoutBuf
+	err := cmd.Run()
 	if err != nil {
-		return fmt.Errorf("ssh command failed: %v (%q)", err, data)
+		return fmt.Errorf("ssh command failed: %v (%q)", err, stderrBuf.String())
 	}
-	progress("ssh command succeeded: %q", data)
+	progress("ssh command succedded: %q", stdoutBuf.String())
 	return nil
 }
 
-func scp(file, host, destFile string) error {
-	cmd := exec.Command(
-		"scp",
-		"-B",
-		"-q",
-		"-o", "StrictHostKeyChecking no",
-		"-o", "PasswordAuthentication no",
-		file,
-		"ubuntu@"+host+":"+destFile)
-	logger.Debugf("scp command: %s %q", cmd.Path, cmd.Args)
-	out, err := cmd.CombinedOutput()
-	if err == nil {
-		return nil
+func sendViaScp(file, host, destFile string) error {
+	err := ssh.Copy([]string{file, "ubuntu@" + host + ":" + destFile}, nil, nil)
+	if err != nil {
+		return fmt.Errorf("scp command failed: %v", err)
 	}
-	if _, ok := err.(*exec.ExitError); ok {
-		return fmt.Errorf("scp failed: %s", out)
-	}
-	return err
+	return nil
 }
 
 func mustParseTemplate(templ string) *template.Template {

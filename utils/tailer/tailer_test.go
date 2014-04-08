@@ -59,12 +59,13 @@ var tests = []struct {
 	description           string
 	data                  []string
 	initialLinesWritten   int
-	initialLinesRequested int
+	initialLinesRequested uint
 	bufferSize            int
 	filter                tailer.TailerFilterFunc
 	injector              func(*tailer.Tailer, *readSeeker) func([]string)
 	initialCollectedData  []string
 	appendedCollectedData []string
+	fromStart             bool
 	err                   string
 }{{
 	description: "lines are longer than buffer size",
@@ -181,6 +182,19 @@ var tests = []struct {
 		"echo echo\n",
 	},
 	appendedCollectedData: alphabetData[5:],
+}, {
+	description:           "ignore current lines",
+	data:                  alphabetData,
+	initialLinesWritten:   5,
+	bufferSize:            5,
+	appendedCollectedData: alphabetData[5:],
+}, {
+	description:           "start from the start",
+	data:                  alphabetData,
+	initialLinesWritten:   5,
+	bufferSize:            5,
+	appendedCollectedData: alphabetData,
+	fromStart:             true,
 }, {
 	description:           "lines are longer than buffer size, less lines already written than initially requested",
 	data:                  alphabetData,
@@ -323,7 +337,7 @@ func (tailerSuite) TestTailer(c *gc.C) {
 		reader, writer := io.Pipe()
 		sigc := make(chan struct{}, 1)
 		rs := startReadSeeker(c, test.data, test.initialLinesWritten, sigc)
-		tailer := tailer.NewTestTailer(rs, writer, test.initialLinesRequested, test.filter, bufferSize, 2*time.Millisecond)
+		tailer := tailer.NewTestTailer(rs, writer, test.initialLinesRequested, test.filter, bufferSize, 2*time.Millisecond, !test.fromStart)
 		linec := startReading(c, tailer, reader, writer)
 
 		// Collect initial data.
@@ -386,6 +400,9 @@ func startReading(c *gc.C, tailer *tailer.Tailer, reader *io.PipeReader, writer 
 // linec is closed due to stopping or an error only the values so far care
 // compared. Checking the reason for termination is done in the test.
 func assertCollected(c *gc.C, linec chan string, compare []string, injection func([]string)) {
+	if len(compare) == 0 {
+		return
+	}
 	timeout := time.After(testing.LongWait)
 	lines := []string{}
 	for {

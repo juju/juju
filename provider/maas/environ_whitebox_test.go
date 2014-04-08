@@ -13,6 +13,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
+	"launchpad.net/gomaasapi"
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/constraints"
@@ -204,7 +205,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 
 	// Trash the tools and try to start another instance.
 	envtesting.RemoveTools(c, env.Storage())
-	instance, _, err = testing.StartInstance(env, "2")
+	instance, _, _, err = testing.StartInstance(env, "2")
 	c.Check(instance, gc.IsNil)
 	c.Check(err, jc.Satisfies, errors.IsNotFoundError)
 }
@@ -223,8 +224,7 @@ func (suite *environSuite) TestAcquireNode(c *gc.C) {
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 
-	_, _, err := env.acquireNode(constraints.Value{}, environs.Networks{},
-		tools.List{fakeTools})
+	_, _, err := env.acquireNode(constraints.Value{}, nil, nil, tools.List{fakeTools})
 
 	c.Check(err, gc.IsNil)
 	operations := suite.testMAASObject.TestServer.NodeOperations()
@@ -240,8 +240,7 @@ func (suite *environSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *gc.C) {
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 	constraints := constraints.Value{Arch: stringp("arm"), Mem: uint64p(1024)}
 
-	_, _, err := env.acquireNode(constraints, environs.Networks{},
-		tools.List{fakeTools})
+	_, _, err := env.acquireNode(constraints, nil, nil, tools.List{fakeTools})
 
 	c.Check(err, gc.IsNil)
 	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
@@ -257,8 +256,7 @@ func (suite *environSuite) TestAcquireNodePassedAgentName(c *gc.C) {
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 
-	_, _, err := env.acquireNode(constraints.Value{}, environs.Networks{},
-		tools.List{fakeTools})
+	_, _, err := env.acquireNode(constraints.Value{}, nil, nil, tools.List{fakeTools})
 
 	c.Check(err, gc.IsNil)
 	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
@@ -291,30 +289,28 @@ func (*environSuite) TestConvertConstraints(c *gc.C) {
 }
 
 var testNetworkValues = []struct {
-	networks       environs.Networks
-	expectedResult url.Values
+	includeNetworks []string
+	excludeNetworks []string
+	expectedResult  url.Values
 }{
 	{
-		environs.Networks{},
+		nil,
+		nil,
 		url.Values{},
 	},
 	{
-		environs.Networks{
-			IncludeNetworks: []string{"included_net_1"},
-		},
+		[]string{"included_net_1"},
+		nil,
 		url.Values{"networks": {"included_net_1"}},
 	},
 	{
-		environs.Networks{
-			ExcludeNetworks: []string{"excluded_net_1"},
-		},
+		nil,
+		[]string{"excluded_net_1"},
 		url.Values{"not_networks": {"excluded_net_1"}},
 	},
 	{
-		environs.Networks{
-			IncludeNetworks: []string{"included_net_1", "included_net_2"},
-			ExcludeNetworks: []string{"excluded_net_1", "excluded_net_2"},
-		},
+		[]string{"included_net_1", "included_net_2"},
+		[]string{"excluded_net_1", "excluded_net_2"},
 		url.Values{
 			"networks":     {"included_net_1", "included_net_2"},
 			"not_networks": {"excluded_net_1", "excluded_net_2"},
@@ -325,15 +321,21 @@ var testNetworkValues = []struct {
 func (*environSuite) TestConvertNetworks(c *gc.C) {
 	for _, test := range testNetworkValues {
 		var vals = url.Values{}
-		addNetworks(vals, test.networks)
+		addNetworks(vals, test.includeNetworks, test.excludeNetworks)
 		c.Check(vals, gc.DeepEquals, test.expectedResult)
 	}
 }
 
 func (suite *environSuite) getInstance(systemId string) *maasInstance {
-	input := `{"system_id": "` + systemId + `"}`
+	input := fmt.Sprintf(`{"system_id": %q}`, systemId)
 	node := suite.testMAASObject.TestServer.NewNode(input)
 	return &maasInstance{maasObject: &node, environ: suite.makeEnviron()}
+}
+
+func (suite *environSuite) getNetwork(name string) *gomaasapi.MAASObject {
+	input := fmt.Sprintf(`{"name": %q, "ip":"127.0.0.1", "netmask": "255.255.255.0", "vlan_tag": "1", "description": "" }`, name)
+	network := suite.testMAASObject.TestServer.NewNetwork(input)
+	return &network
 }
 
 func (suite *environSuite) TestStopInstancesReturnsIfParameterEmpty(c *gc.C) {
@@ -523,4 +525,71 @@ func (suite *environSuite) TestSupportedArchitectures(c *gc.C) {
 	a, err := env.SupportedArchitectures()
 	c.Assert(err, gc.IsNil)
 	c.Assert(a, gc.DeepEquals, []string{"amd64"})
+}
+
+func (suite *environSuite) TestGetInstanceNetworks(c *gc.C) {
+	suite.getNetwork("test_network")
+	test_instance := suite.getInstance("instance_for_network")
+	suite.testMAASObject.TestServer.ConnectNodeToNetwork("instance_for_network", "test_network")
+	networks, err := suite.makeEnviron().getInstanceNetworks(test_instance)
+	c.Assert(err, gc.IsNil)
+	c.Check(networks, gc.DeepEquals, []networkDetails{
+		{Name: "test_network", IP: "127.0.0.1", Mask: "255.255.255.0", VLANTag: 1, Description: ""},
+	})
+}
+
+func (suite *environSuite) TestExtractInterfaces(c *gc.C) {
+	// TODO(dimitern) We should test getInstanceNetworkInterfaces,
+	// but for that we need /nodes/<id>/?op=details API to be
+	// supported by gomaasapi testing server. That's why
+	// we're just testing the last part of it - XML parsing.
+
+	// A typical lshw XML dump with lots of things left out.
+	lshwXML := []byte(`
+<?xml version="1.0" standalone="yes" ?>
+<!-- generated by lshw-B.02.16 -->
+<list>
+<node id="machine" claimed="true" class="system" handle="DMI:0001">
+ <description>Notebook</description>
+ <product>MyMachine</product>
+ <version>1.0</version>
+ <width units="bits">64</width>
+  <node id="core" claimed="true" class="bus" handle="DMI:0002">
+   <description>Motherboard</description>
+    <node id="cpu" claimed="true" class="processor" handle="DMI:0004">
+     <description>CPU</description>
+      <node id="pci:2" claimed="true" class="bridge" handle="PCIBUS:0000:03">
+        <node id="network" claimed="true" class="network" handle="PCI:0000:03:00.0">
+         <logicalname>wlan0</logicalname>
+         <serial>aa:bb:cc:dd:ee:ff</serial>
+        </node>
+        <node id="network" claimed="true" class="network" handle="PCI:0000:04:00.0">
+         <logicalname>eth0</logicalname>
+         <serial>aa:bb:cc:dd:ee:f1</serial>
+        </node>
+      </node>
+    </node>
+  </node>
+  <node id="network:0" claimed="true" class="network" handle="">
+   <logicalname>vnet1</logicalname>
+   <serial>aa:bb:cc:dd:ee:f2</serial>
+  </node>
+</node>
+</list>
+`)
+	inst := suite.getInstance("testInstance")
+	interfaces, err := extractInterfaces(inst, lshwXML)
+	c.Assert(err, gc.IsNil)
+	c.Assert(interfaces, jc.DeepEquals, map[string]string{
+		"aa:bb:cc:dd:ee:ff": "wlan0",
+		"aa:bb:cc:dd:ee:f1": "eth0",
+		"aa:bb:cc:dd:ee:f2": "vnet1",
+	})
+}
+
+func (suite *environSuite) TestSupportNetworks(c *gc.C) {
+	env := suite.makeEnviron()
+	// TODO(dimitern) Change this to check for jc.IsTrue below
+	// once gomaasapi testing server supports networks.
+	c.Assert(env.SupportNetworks(), jc.IsFalse)
 }

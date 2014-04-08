@@ -22,7 +22,9 @@ import (
 
 type migrateLocalProviderAgentConfigSuite struct {
 	jujutesting.JujuConnSuite
-	ctx upgrades.Context
+
+	config agent.ConfigSetterWriter
+	ctx    upgrades.Context
 }
 
 var _ = gc.Suite(&migrateLocalProviderAgentConfigSuite{})
@@ -60,7 +62,8 @@ func (s *migrateLocalProviderAgentConfigSuite) primeConfig(c *gc.C, st *state.St
 		},
 	})
 	c.Assert(err, gc.IsNil)
-	c.Assert(initialConfig.Write(), gc.IsNil)
+	s.config = initialConfig
+	c.Assert(s.config.Write(), gc.IsNil)
 
 	apiState, _ := s.OpenAPIAsNewMachine(c, job)
 	s.ctx = &mockContext{
@@ -97,7 +100,7 @@ func (s *migrateLocalProviderAgentConfigSuite) assertConfigProcessed(c *gc.C) {
 
 	// We need to read the actual migrated agent config.
 	configFilePath := agent.ConfigPath(expectedDataDir, tag)
-	agentConfig, err := agent.ReadConf(configFilePath)
+	agentConfig, err := agent.ReadConfig(configFilePath)
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(agentConfig.DataDir(), gc.Equals, expectedDataDir)
@@ -107,9 +110,7 @@ func (s *migrateLocalProviderAgentConfigSuite) assertConfigProcessed(c *gc.C) {
 	c.Assert(agentConfig.Value("SHARED_STORAGE_DIR"), gc.Equals, "")
 	c.Assert(agentConfig.Value(agent.Namespace), gc.Equals, namespace)
 	agentService := "juju-agent-user-dummyenv"
-	mongoService := "juju-db-user-dummyenv"
 	c.Assert(agentConfig.Value(agent.AgentServiceName), gc.Equals, agentService)
-	c.Assert(agentConfig.Value(agent.MongoServiceName), gc.Equals, mongoService)
 	c.Assert(agentConfig.Value(agent.ContainerType), gc.Equals, "")
 }
 
@@ -131,7 +132,7 @@ func (s *migrateLocalProviderAgentConfigSuite) assertConfigNotProcessed(c *gc.C)
 
 	// We need to read the actual migrated agent config.
 	configFilePath := agent.ConfigPath(agent.DefaultDataDir, tag)
-	agentConfig, err := agent.ReadConf(configFilePath)
+	agentConfig, err := agent.ReadConfig(configFilePath)
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(agentConfig.DataDir(), gc.Equals, agent.DefaultDataDir)
@@ -141,12 +142,13 @@ func (s *migrateLocalProviderAgentConfigSuite) assertConfigNotProcessed(c *gc.C)
 	c.Assert(agentConfig.Value("SHARED_STORAGE_DIR"), gc.Equals, expectedSharedStorageDir)
 	c.Assert(agentConfig.Value(agent.Namespace), gc.Equals, "")
 	c.Assert(agentConfig.Value(agent.AgentServiceName), gc.Equals, "")
-	c.Assert(agentConfig.Value(agent.MongoServiceName), gc.Equals, "")
 	c.Assert(agentConfig.Value(agent.ContainerType), gc.Equals, "")
 }
 func (s *migrateLocalProviderAgentConfigSuite) TestMigrateStateServer(c *gc.C) {
 	s.primeConfig(c, s.State, state.JobManageEnviron, "machine-0")
 	err := upgrades.MigrateLocalProviderAgentConfig(s.ctx)
+	c.Assert(err, gc.IsNil)
+	err = s.config.Write()
 	c.Assert(err, gc.IsNil)
 	s.assertConfigProcessed(c)
 }
@@ -156,12 +158,16 @@ func (s *migrateLocalProviderAgentConfigSuite) TestMigrateNonLocalEnvNotDone(c *
 	s.primeConfig(c, s.State, state.JobManageEnviron, "machine-0")
 	err := upgrades.MigrateLocalProviderAgentConfig(s.ctx)
 	c.Assert(err, gc.IsNil)
+	err = s.config.Write()
+	c.Assert(err, gc.IsNil)
 	s.assertConfigNotProcessed(c)
 }
 
 func (s *migrateLocalProviderAgentConfigSuite) TestMigrateWithoutStateConnectionNotDone(c *gc.C) {
 	s.primeConfig(c, nil, state.JobManageEnviron, "machine-0")
 	err := upgrades.MigrateLocalProviderAgentConfig(s.ctx)
+	c.Assert(err, gc.IsNil)
+	err = s.config.Write()
 	c.Assert(err, gc.IsNil)
 	s.assertConfigNotProcessed(c)
 }
@@ -170,9 +176,13 @@ func (s *migrateLocalProviderAgentConfigSuite) TestIdempotent(c *gc.C) {
 	s.primeConfig(c, s.State, state.JobManageEnviron, "machine-0")
 	err := upgrades.MigrateLocalProviderAgentConfig(s.ctx)
 	c.Assert(err, gc.IsNil)
+	err = s.config.Write()
+	c.Assert(err, gc.IsNil)
 	s.assertConfigProcessed(c)
 
 	err = upgrades.MigrateLocalProviderAgentConfig(s.ctx)
+	c.Assert(err, gc.IsNil)
+	err = s.config.Write()
 	c.Assert(err, gc.IsNil)
 	s.assertConfigProcessed(c)
 }

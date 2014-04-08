@@ -42,7 +42,7 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, cons constra
 	defer func() { handleBootstrapError(err, ctx, inst, env) }()
 
 	// First thing, ensure we have tools otherwise there's no point.
-	selectedTools, err := EnsureBootstrapTools(env, env.Config().DefaultSeries(), cons.Arch)
+	selectedTools, err := EnsureBootstrapTools(ctx, env, config.PreferredSeries(env.Config()), cons.Arch)
 	if err != nil {
 		return err
 	}
@@ -63,7 +63,7 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, cons constra
 	machineConfig := environs.NewBootstrapMachineConfig(privateKey)
 
 	fmt.Fprintln(ctx.GetStderr(), "Launching instance")
-	inst, hw, err := env.StartInstance(environs.StartInstanceParams{
+	inst, hw, _, err := env.StartInstance(environs.StartInstanceParams{
 		Constraints:   cons,
 		Tools:         selectedTools,
 		MachineConfig: machineConfig,
@@ -75,15 +75,10 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, cons constra
 	machineConfig.InstanceId = inst.Id()
 	machineConfig.HardwareCharacteristics = hw
 
-	var characteristics []instance.HardwareCharacteristics
-	if hw != nil {
-		characteristics = []instance.HardwareCharacteristics{*hw}
-	}
 	err = bootstrap.SaveState(
 		env.Storage(),
 		&bootstrap.BootstrapState{
-			StateInstances:  []instance.Id{inst.Id()},
-			Characteristics: characteristics,
+			StateInstances: []instance.Id{inst.Id()},
 		})
 	if err != nil {
 		return fmt.Errorf("cannot save state: %v", err)
@@ -403,8 +398,8 @@ func waitSSH(ctx environs.BootstrapContext, interrupted <-chan os.Signal, client
 // EnsureBootstrapTools finds tools, syncing with an external tools source as
 // necessary; it then selects the newest tools to bootstrap with, and sets
 // agent-version.
-func EnsureBootstrapTools(env environs.Environ, series string, arch *string) (coretools.List, error) {
-	possibleTools, err := bootstrap.EnsureToolsAvailability(env, series, arch)
+func EnsureBootstrapTools(ctx environs.BootstrapContext, env environs.Environ, series string, arch *string) (coretools.List, error) {
+	possibleTools, err := bootstrap.EnsureToolsAvailability(ctx, env, series, arch)
 	if err != nil {
 		return nil, err
 	}
