@@ -54,13 +54,14 @@ type fakeEnsure struct {
 	initiateCount  int
 	dataDir        string
 	port           int
+	namespace      string
 	initiateParams mongo.InitiateMongoParams
 	err            error
 }
 
-func (f *fakeEnsure) fakeEnsureMongo(dataDir string, port int) error {
+func (f *fakeEnsure) fakeEnsureMongo(dataDir string, port int, namespace string) error {
 	f.ensureCount++
-	f.dataDir, f.port = dataDir, port
+	f.dataDir, f.port, f.namespace = dataDir, port, namespace
 	return f.err
 }
 
@@ -418,7 +419,7 @@ func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	maybePanic(err)
 
 	envtesting.MustUploadFakeTools(env.Storage())
-	inst, _, err := jujutesting.StartInstance(env, "0")
+	inst, _, _, err := jujutesting.StartInstance(env, "0")
 	maybePanic(err)
 	s.instanceId = inst.Id()
 	s.envcfg = b64yaml(env.Config().AllAttrs()).encode()

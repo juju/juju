@@ -288,18 +288,6 @@ type LifeResults struct {
 	Results []LifeResult
 }
 
-// SetEntityAddress holds an entity tag and an address.
-type SetEntityAddress struct {
-	Tag     string
-	Address string
-}
-
-// SetEntityAddresses holds the parameters for making a Set*Address
-// call, where the address can be a public or a private one.
-type SetEntityAddresses struct {
-	Entities []SetEntityAddress
-}
-
 // MachineSetProvisioned holds a machine tag, provider-specific instance id,
 // a nonce, or an error.
 type MachineSetProvisioned struct {
@@ -376,6 +364,32 @@ type NetworkResult struct {
 // NetworksResults holds multiple networks results.
 type NetworksResults struct {
 	Results []NetworkResult
+}
+
+// NetworkParams holds a single network definition.
+type NetworkParams struct {
+	Name    string
+	CIDR    string
+	VLANTag int
+}
+
+// AddNetworkParams holds the parameters for making an AddNetwork call.
+type AddNetworkParams struct {
+	Networks []NetworkParams
+}
+
+// NetworkInterfaceParams holds a single network interface definition.
+type NetworkInterfaceParams struct {
+	MACAddress    string
+	MachineTag    string
+	InterfaceName string
+	NetworkName   string
+}
+
+// AddNetworkInterfaceParams holds the parameters for making an
+// AddNetworkInterface call.
+type AddNetworkInterfaceParams struct {
+	Interfaces []NetworkInterfaceParams
 }
 
 // AgentGetEntitiesResults holds the results of a

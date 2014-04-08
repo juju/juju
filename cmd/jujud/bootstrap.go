@@ -110,7 +110,9 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 
-	if err := c.startMongo(addrs, envCfg.StatePort()); err != nil {
+	namespace := agentConfig.Value(agent.Namespace)
+
+	if err := c.startMongo(addrs, envCfg.StatePort(), namespace); err != nil {
 		return err
 	}
 
@@ -143,7 +145,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	return nil
 }
 
-func (c *BootstrapCommand) startMongo(addrs []instance.Address, port int) error {
+func (c *BootstrapCommand) startMongo(addrs []instance.Address, port int, namespace string) error {
 	logger.Debugf("starting mongo")
 	preferredAddr, err := selectPreferredStateServerAddress(addrs)
 	if err != nil {
@@ -161,12 +163,12 @@ func (c *BootstrapCommand) startMongo(addrs []instance.Address, port int) error 
 		net.JoinHostPort("127.0.0.1", fmt.Sprint(port)),
 	}
 	logger.Infof("calling ensureMongoServer")
-	if err := ensureMongoServer(agentConfig.DataDir(), port); err != nil {
+	if err := ensureMongoServer(agentConfig.DataDir(), port, namespace); err != nil {
 		return err
 	}
 
 	return maybeInitiateMongoServer(mongo.InitiateMongoParams{
-		DialInfo: dialInfo,
+		DialInfo:       dialInfo,
 		MemberHostPort: instance.HostPort{preferredAddr, port}.NetAddr(),
 	})
 }

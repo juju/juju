@@ -370,7 +370,13 @@ func (a *MachineAgent) updateSupportedContainers(
 func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
 
-	err := ensureMongoServer(agentConfig.DataDir(), 0)
+	namespace := agentConfig.Value(agent.Namespace)
+	info, exist := agentConfig.StateServingInfo()
+	if !exist {
+		return nil, fmt.Errorf("No state info on agent config")
+	}
+
+	err := ensureMongoServer(agentConfig.DataDir(), info.StatePort, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -427,7 +433,9 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 					return nil, &fatalError{"configuration does not have state server cert/key"}
 				}
 				dataDir := agentConfig.DataDir()
-				return apiserver.NewServer(st, fmt.Sprintf(":%d", port), cert, key, dataDir)
+				logDir := agentConfig.LogDir()
+				return apiserver.NewServer(
+					st, fmt.Sprintf(":%d", port), cert, key, dataDir, logDir)
 			})
 			a.startWorkerAfterUpgrade(runner, "cleaner", func() (worker.Worker, error) {
 				return cleaner.NewCleaner(st), nil
@@ -627,8 +635,9 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 		errors = append(errors, err)
 	}
 
-	if err := mongo.RemoveService(); err != nil {
-		errors = append(errors, err)
+	namespace := agentConfig.Value(agent.Namespace)
+	if err := mongo.RemoveService(namespace); err != nil {
+		errors = append(errors, fmt.Errorf("cannot stop/remove mongo service with namespace %q: %v", namespace, err))
 	}
 	if err := os.RemoveAll(agentConfig.DataDir()); err != nil {
 		errors = append(errors, err)

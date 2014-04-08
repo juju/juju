@@ -25,6 +25,8 @@ const (
 
 	replicaSetName = "juju"
 
+	serviceName = "juju-db"
+
 	// SharedSecretFile is the name of the Mongo shared secret file
 	// located within the Juju data directory.
 	SharedSecretFile = "shared-secret"
@@ -32,8 +34,6 @@ const (
 
 var (
 	logger = loggo.GetLogger("juju.agent.mongo")
-
-	oldMongoServiceName = "juju-db"
 
 	// JujuMongodPath holds the default path to the juju-specific mongod.
 	JujuMongodPath = "/usr/lib/juju/bin/mongod"
@@ -143,10 +143,18 @@ func MaybeInitiateMongoServer(p InitiateMongoParams) error {
 			logger.Errorf("cannot login to admin db as %q, password %q, falling back: %v", p.User, p.Password, err)
 		}
 	}
-	_, err = replicaset.CurrentConfig(session) 
-	if err != nil && err != mgo.ErrNotFound {
+	_, err = replicaset.CurrentConfig(session)
+	if err == nil {
+		// already initiated, nothing to do
+		return nil
+	}
+	if err != mgo.ErrNotFound {
+		// oops, some random error, bail
 		return fmt.Errorf("cannot get replica set configuration: %v", err)
 	}
+
+	// err is ErrNotFound, which just means we need to initiate
+
 	err = replicaset.Initiate(session, p.MemberHostPort, replicaSetName)
 	if err != nil {
 		return fmt.Errorf("cannot initiate replica set: %v", err)
@@ -154,48 +162,43 @@ func MaybeInitiateMongoServer(p InitiateMongoParams) error {
 	return nil
 }
 
+// RemoveService removes the mongoDB upstart service from this machine.
+func RemoveService(namespace string) error {
+	return upstart.NewService(ServiceName(namespace)).StopAndRemove()
+}
+
 // EnsureMongoServer ensures that the correct mongo upstart script is installed
 // and running.
 //
 // This method will remove old versions of the mongo upstart script as necessary
 // before installing the new version.
-func EnsureMongoServer(dataDir string, port int) error {
-	// TODO(natefinch): write out keyfile and shared secret
+//
+// The namespace is a unique identifier to prevent multiple instances of mongo
+// on this machine from colliding. This should be empty unless using
+// the local provider.
+func EnsureMongoServer(dir string, port int, namespace string) error {
+	// NOTE: ensure that the right package is installed?
 
-	logger.Infof("Ensuring mongo server is running; dataDir %s; port %d", dataDir, port)
-	dbDir := filepath.Join(dataDir, "db")
-	name := makeServiceName(mongoScriptVersion)
+	logger.Infof("Ensuring mongo server is running; dataDir %s; port %d", dir, port)
+	dbDir := filepath.Join(dir, "db")
 
-	if err := removeOldMongoServices(mongoScriptVersion); err != nil {
-		return err
-	}
-	service, err := mongoUpstartService(name, dataDir, dbDir, port)
+	service, err := mongoUpstartService(namespace, dir, dbDir, port)
 	if err != nil {
 		return err
 	}
 	if err := makeJournalDirs(dbDir); err != nil {
 		return fmt.Errorf("Error creating journal directories: %v", err)
 	}
-	if !service.Installed() {
-		logger.Infof("installing service")
-		logger.Debugf("mongod upstart command: %s", service.Cmd)
-		err = service.Install()
-		if err != nil {
-			return fmt.Errorf("failed to install mongo service %q: %v", service.Name, err)
-		}
-	} else {
-		logger.Infof("service already installed")
+	return service.Install()
+}
+
+// ServiceName returns the name of the upstart service config for mongo using
+// the given namespace.
+func ServiceName(namespace string) string {
+	if namespace != "" {
+		return fmt.Sprintf("%s-%s", serviceName, namespace)
 	}
-	if !service.Running() {
-		logger.Infof("starting service")
-		if err := service.Start(); err != nil {
-			return fmt.Errorf("failed to start %q service: %v", name, err)
-		}
-		logger.Infof("Mongod service %q started.", name)
-	} else {
-		logger.Infof("service already started")
-	}
-	return nil
+	return serviceName
 }
 
 func makeJournalDirs(dir string) error {
@@ -227,50 +230,12 @@ func makeJournalDirs(dir string) error {
 	return nil
 }
 
-// removeOldMongoServices looks for any old juju mongo upstart scripts and
-// removes them.
-func removeOldMongoServices(curVersion int) error {
-	old := upstart.NewService(oldMongoServiceName)
-	if err := old.StopAndRemove(); err != nil {
-		logger.Errorf("failed to remove old mongo upstart service %q: %v", old.Name, err)
-		return err
-	}
-
-	// the new formatting for the script name started at version 2
-	for x := 2; x < curVersion; x++ {
-		old := upstart.NewService(makeServiceName(x))
-		if err := old.StopAndRemove(); err != nil {
-			logger.Errorf("failed to remove old mongo upstart service %q: %v", old.Name, err)
-			return err
-		}
-	}
-	return nil
-}
-
-// ServiceName returns a string for the current juju db version
-func ServiceName() string {
-	return makeServiceName(mongoScriptVersion)
-}
-
-func makeServiceName(version int) string {
-	return fmt.Sprintf("juju-db-v%d", version)
-}
-
-// RemoveService will stop and remove Juju's mongo upstart service.
-func RemoveService() error {
-	svc := upstart.NewService(ServiceName())
-	return svc.StopAndRemove()
-}
-
-// mongoScriptVersion keeps track of changes to the mongo upstart script.
-// Update this version when you update the script that gets installed from
-// MongoUpstartService.
-const mongoScriptVersion = 2
-
 // mongoUpstartService returns the upstart config for the mongo state service.
 //
 // This method assumes there exist "server.pem" and "shared_secret" keyfiles in dataDir.
-func mongoUpstartService(name, dataDir, dbDir string, port int) (*upstart.Conf, error) {
+func mongoUpstartService(namespace, dataDir, dbDir string, port int) (*upstart.Conf, error) {
+	// NOTE: ensure that the right package is installed?
+	name := ServiceName(namespace)
 	sslKeyFile := path.Join(dataDir, "server.pem")
 
 	// TODO (natefinch) uncomment when we have the keyfile

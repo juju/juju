@@ -367,7 +367,7 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 		return nil, err
 	}
 	return &simplestreams.MetadataLookupParams{
-		Series:        e.ecfg().DefaultSeries(),
+		Series:        config.PreferredSeries(e.ecfg()),
 		Region:        cloudSpec.Region,
 		Endpoint:      cloudSpec.Endpoint,
 		Architectures: arch.AllSupportedArches,
@@ -393,15 +393,15 @@ func (e *environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 const ebsStorage = "ebs"
 
 // StartInstance is specified in the InstanceBroker interface.
-func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error) {
 	if args.MachineConfig.HasNetworks() {
-		return nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
+		return nil, nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
 	}
 	arches := args.Tools.Arches()
 	stor := ebsStorage
 	sources, err := imagemetadata.GetMetadataSources(e)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	series := args.Tools.OneSeries()
@@ -413,27 +413,27 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		Storage:     &stor,
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	tools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
-		return nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
+		return nil, nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
 	args.MachineConfig.Tools = tools[0]
 	if err := environs.FinishMachineConfig(args.MachineConfig, e.Config(), args.Constraints); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot make user data: %v", err)
+		return nil, nil, nil, fmt.Errorf("cannot make user data: %v", err)
 	}
 	logger.Debugf("ec2 user data; %d bytes", len(userData))
 	cfg := e.Config()
 	groups, err := e.setUpGroups(args.MachineConfig.MachineId, cfg.StatePort(), cfg.APIPort())
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot set up groups: %v", err)
+		return nil, nil, nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
 	var instResp *ec2.RunInstancesResp
 
@@ -453,10 +453,10 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		}
 	}
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot run instances: %v", err)
+		return nil, nil, nil, fmt.Errorf("cannot run instances: %v", err)
 	}
 	if len(instResp.Instances) != 1 {
-		return nil, nil, fmt.Errorf("expected 1 started instance, got %d", len(instResp.Instances))
+		return nil, nil, nil, fmt.Errorf("expected 1 started instance, got %d", len(instResp.Instances))
 	}
 
 	inst := &ec2Instance{
@@ -473,7 +473,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		RootDisk: &diskSize,
 		// Tags currently not supported by EC2
 	}
-	return inst, &hc, nil
+	return inst, &hc, nil, nil
 }
 
 func (e *environ) StopInstances(insts []instance.Instance) error {

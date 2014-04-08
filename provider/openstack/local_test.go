@@ -300,7 +300,7 @@ func (s *localServerSuite) TestStartInstanceNetworkUnknownLabel(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil)
-	inst, _, err := testing.StartInstance(env, "100")
+	inst, _, _, err := testing.StartInstance(env, "100")
 	c.Check(inst, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "No networks exist with label .*")
 }
@@ -313,7 +313,7 @@ func (s *localServerSuite) TestStartInstanceNetworkUnknownId(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil)
-	inst, _, err := testing.StartInstance(env, "100")
+	inst, _, _, err := testing.StartInstance(env, "100")
 	c.Check(inst, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "cannot run instance: (\\n|.)*"+
 		"caused by: "+

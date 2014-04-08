@@ -230,7 +230,8 @@ func (s *localJujuTestSuite) makeFakeUpstartScripts(c *gc.C, env environs.Enviro
 	s.PatchValue(&upstart.InitDir, upstartDir)
 	s.MakeTool(c, "start", `echo "some-service start/running, process 123"`)
 
-	mongoService = upstart.NewService(mongo.ServiceName())
+	namespace := env.Config().AllAttrs()["namespace"].(string)
+	mongoService = upstart.NewService(mongo.ServiceName(namespace))
 	mongoConf := upstart.Conf{
 		Service: *mongoService,
 		Desc:    "fake mongo",
@@ -240,7 +241,6 @@ func (s *localJujuTestSuite) makeFakeUpstartScripts(c *gc.C, env environs.Enviro
 	c.Assert(err, gc.IsNil)
 	c.Assert(mongoService.Installed(), jc.IsTrue)
 
-	namespace := env.Config().AllAttrs()["namespace"].(string)
 	machineAgent = upstart.NewService(fmt.Sprintf("juju-agent-%s", namespace))
 	agentConf := upstart.Conf{
 		Service: *machineAgent,

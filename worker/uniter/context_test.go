@@ -15,6 +15,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -100,7 +101,7 @@ func AssertEnvContains(c *gc.C, lines []string, env map[string]string) {
 			}
 		}
 		comment := gc.Commentf("expected to find %v among %v", sought, lines)
-		c.Assert(found, gc.Equals, true, comment)
+		c.Assert(found, jc.IsTrue, comment)
 	}
 }
 
@@ -574,54 +575,55 @@ func (s *InterfaceSuite) TestUtils(c *gc.C) {
 	ctx := s.GetContext(c, -1, "")
 	c.Assert(ctx.UnitName(), gc.Equals, "u/0")
 	r, found := ctx.HookRelation()
-	c.Assert(found, gc.Equals, false)
+	c.Assert(found, jc.IsFalse)
 	c.Assert(r, gc.IsNil)
 	name, found := ctx.RemoteUnitName()
-	c.Assert(found, gc.Equals, false)
+	c.Assert(found, jc.IsFalse)
 	c.Assert(name, gc.Equals, "")
 	c.Assert(ctx.RelationIds(), gc.HasLen, 2)
 	r, found = ctx.Relation(0)
-	c.Assert(found, gc.Equals, true)
+	c.Assert(found, jc.IsTrue)
 	c.Assert(r.Name(), gc.Equals, "db")
 	c.Assert(r.FakeId(), gc.Equals, "db:0")
 	r, found = ctx.Relation(123)
-	c.Assert(found, gc.Equals, false)
+	c.Assert(found, jc.IsFalse)
 	c.Assert(r, gc.IsNil)
 
 	ctx = s.GetContext(c, 1, "")
 	r, found = ctx.HookRelation()
-	c.Assert(found, gc.Equals, true)
+	c.Assert(found, jc.IsTrue)
 	c.Assert(r.Name(), gc.Equals, "db")
 	c.Assert(r.FakeId(), gc.Equals, "db:1")
 
 	ctx = s.GetContext(c, 1, "u/123")
 	name, found = ctx.RemoteUnitName()
-	c.Assert(found, gc.Equals, true)
+	c.Assert(found, jc.IsTrue)
 	c.Assert(name, gc.Equals, "u/123")
 }
 
 func (s *InterfaceSuite) TestUnitCaching(c *gc.C) {
 	ctx := s.GetContext(c, -1, "")
 	pr, ok := ctx.PrivateAddress()
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(pr, gc.Equals, "u-0.testing.invalid")
-	_, ok = ctx.PublicAddress()
-	c.Assert(ok, gc.Equals, false)
+	pa, ok := ctx.PublicAddress()
+	c.Assert(ok, jc.IsTrue)
+	// Initially the public address is the same as the private address since
+	// the "most public" address is chosen.
+	c.Assert(pr, gc.Equals, pa)
 
 	// Change remote state.
-	u, err := s.State.Unit("u/0")
-	c.Assert(err, gc.IsNil)
-	err = u.SetPrivateAddress("")
-	c.Assert(err, gc.IsNil)
-	err = u.SetPublicAddress("blah.testing.invalid")
+	err := s.machine.SetAddresses(
+		instance.NewAddress("blah.testing.invalid", instance.NetworkPublic))
 	c.Assert(err, gc.IsNil)
 
 	// Local view is unchanged.
 	pr, ok = ctx.PrivateAddress()
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(pr, gc.Equals, "u-0.testing.invalid")
-	_, ok = ctx.PublicAddress()
-	c.Assert(ok, gc.Equals, false)
+	pa, ok = ctx.PublicAddress()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(pr, gc.Equals, pa)
 }
 
 func (s *InterfaceSuite) TestConfigCaching(c *gc.C) {
@@ -646,6 +648,7 @@ type HookContextSuite struct {
 	testing.JujuConnSuite
 	service  *state.Service
 	unit     *state.Unit
+	machine  *state.Machine
 	relch    *state.Charm
 	relunits map[int]*state.RelationUnit
 	relctxs  map[int]*uniter.ContextRelation
@@ -684,8 +687,13 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 func (s *HookContextSuite) AddUnit(c *gc.C, svc *state.Service) *state.Unit {
 	unit, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
+	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = unit.AssignToMachine(s.machine)
+	c.Assert(err, gc.IsNil)
 	name := strings.Replace(unit.Name(), "/", "-", 1)
-	err = unit.SetPrivateAddress(name + ".testing.invalid")
+	privateAddr := instance.NewAddress(name+".testing.invalid", instance.NetworkCloudLocal)
+	err = s.machine.SetAddresses(privateAddr)
 	c.Assert(err, gc.IsNil)
 	return unit
 }
@@ -714,7 +722,7 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 	remote string, proxies osenv.ProxySettings) *uniter.HookContext {
 	if relid != -1 {
 		_, found := s.relctxs[relid]
-		c.Assert(found, gc.Equals, true)
+		c.Assert(found, jc.IsTrue)
 	}
 	context, err := uniter.NewHookContext(s.apiUnit, "TestCtx", uuid,
 		"test-env-name", relid, remote, s.relctxs, apiAddrs, "test-owner",

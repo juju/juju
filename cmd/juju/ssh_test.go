@@ -226,6 +226,6 @@ func (s *SSHCommonSuite) addUnit(srv *state.Service, m *state.Machine, c *gc.C) 
 	c.Assert(err, gc.IsNil)
 	addr, err := insts[0].WaitDNSName()
 	c.Assert(err, gc.IsNil)
-	err = u.SetPublicAddress(addr)
+	err = m.SetAddresses(instance.NewAddress(addr, instance.NetworkPublic))
 	c.Assert(err, gc.IsNil)
 }
