@@ -69,9 +69,9 @@ func ParsePlacement(directive string) (*Placement, error) {
 // ParsePlacement attempts to parse the specified string and create a
 // corresponding Placement structure, panicking if an error occurs.
 func MustParsePlacement(directive string) *Placement {
-    placement, err := ParsePlacement(directive)
-    if err != nil {
-        panic(err)
-    }
-    return placement
+	placement, err := ParsePlacement(directive)
+	if err != nil {
+		panic(err)
+	}
+	return placement
 }
