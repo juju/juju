@@ -215,10 +215,7 @@ func sharedSecretPath(dataDir string) string {
 //
 func mongoUpstartService(namespace, dataDir, dbDir string, port int) (*upstart.Conf, error) {
 	// NOTE: ensure that the right package is installed?
-	name := ServiceName(namespace)
-	sslKeyFile := path.Join(dataDir, "server.pem")
-
-	svc := upstart.NewService(name)
+	svc := upstart.NewService(ServiceName(namespace))
 
 	mongoPath, err := MongodPath()
 	if err != nil {

@@ -6,9 +6,7 @@ package main
 import (
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
 	"net"
-	"path/filepath"
 	"sort"
 
 	"launchpad.net/gnuflag"

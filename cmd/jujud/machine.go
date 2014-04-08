@@ -259,11 +259,8 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		}
 	}
 
-<<<<<<< TREE
 	runner := newRunner(connectionIsFatal(st), moreImportant)
 	var singularRunner worker.Runner
-=======
->>>>>>> MERGE-SOURCE
 	rsyslogMode := rsyslog.RsyslogModeForwarding
 	for _, job := range entity.Jobs() {
 		if job == params.JobManageEnviron {
@@ -413,27 +410,15 @@ func (a *MachineAgent) updateSupportedContainers(
 func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
 
-<<<<<<< TREE
 	servingInfo, ok := agentConfig.StateServingInfo()
 	if !ok {
 		return nil, fmt.Errorf("state worker was started with no state serving info")
-=======
-	namespace := agentConfig.Value(agent.Namespace)
-	info, exist := agentConfig.StateServingInfo()
-	if !exist {
-		return nil, fmt.Errorf("No state info on agent config")
->>>>>>> MERGE-SOURCE
 	}
-<<<<<<< TREE
 	err := ensureMongoServer(
 		agentConfig.DataDir(),
 		agentConfig.Value(agent.Namespace),
 		servingInfo,
 	)
-=======
-
-	err := ensureMongoServer(agentConfig.DataDir(), info.StatePort, namespace)
->>>>>>> MERGE-SOURCE
 	if err != nil {
 		return nil, err
 	}
@@ -452,14 +437,11 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	singularStateConn := singularStateConn{st, m}
 	runner := newRunner(connectionIsFatal(st), moreImportant)
 
-<<<<<<< TREE
 	singularRunner, err := NewSingularRunner(runner, singularStateConn)
 	if err != nil {
 		return nil, fmt.Errorf("cannot make singular Runner: %v", err)
 	}
 
-=======
->>>>>>> MERGE-SOURCE
 	// Take advantage of special knowledge here in that we will only ever want
 	// the storage provider on one machine, and that is the "bootstrap" node.
 	providerType := agentConfig.Value(agent.ProviderType)
