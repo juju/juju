@@ -17,8 +17,14 @@ import (
 type DebugLogCommand struct {
 	cmd.EnvCommandBase
 
-	lines  int
-	filter string
+	include       []string
+	exclude       []string
+	includeModule []string
+	excludeModule []string
+	limit         uint
+	lines         uint
+	level         string
+	replay        bool
 }
 
 var DefaultLogLocation = "/var/log/juju/all-machines.log"
@@ -41,6 +47,16 @@ func (c *DebugLogCommand) Info() *cmd.Info {
 }
 
 func (c *DebugLogCommand) SetFlags(f *gnuflag.FlagSet) {
+	f.Var(cmd.NewAppendStringsValue(&c.include), "i", "only show log messages for these entities")
+	f.Var(cmd.NewAppendStringsValue(&c.include), "include", "only show log messages for these entities")
+	f.Var(cmd.NewAppendStringsValue(&c.exclude), "x", "only show log messages for these entities")
+	f.Var(cmd.NewAppendStringsValue(&c.exclude), "exclude", "only show log messages for these entities")
+	f.Var(cmd.NewAppendStringsValue(&c.includeModule), "include-module", "only show log messages for these logging modules")
+	f.Var(cmd.NewAppendStringsValue(&c.excludeModule), "exclude-module", "do not show log messages for these logging modules")
+
+	f.StringVar(&c.level, "l", "", "log level to show, one of [TRACE, DEBUG, INFO, WARNING, ERROR]")
+	f.StringVar(&c.level, "level", "", "")
+
 	f.IntVar(&c.lines, "n", defaultLineCount, "output the last K lines; or use -n +K to output lines starting with the Kth")
 	f.IntVar(&c.lines, "lines", defaultLineCount, "")
 	f.StringVar(&c.filter, "f", "", "filter the output with a regular expression")
