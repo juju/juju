@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net"
 	"net/url"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -364,23 +363,21 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (in
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		logger.Debugf("node %q has network interfaces %#v", inst.Id(), interfaces)
+		logger.Debugf("node %q has network interfaces %v", inst.Id(), interfaces)
+		tempNetworkInfo := make([]environs.NetworkInfo, len(interfaces))
 		macAddressToIndex := make(map[string]int)
 		i := 0
 		for macAddress, interfaceName := range interfaces {
-			networkInfo[i] = environs.NetworkInfo{
-				MACAddress:    macAddress,
-				InterfaceName: interfaceName,
-			}
+			tempNetworkInfo[i].MACAddress = macAddress
+			tempNetworkInfo[i].InterfaceName = interfaceName
 			macAddressToIndex[macAddress] = i
 			i++
 		}
 		networks, err := environ.getInstanceNetworks(inst)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, fmt.Errorf("getInstanceNetworks failed: %v", err)
 		}
-		logger.Debugf("node %q has networks %#v", inst.Id(), networks)
-		networkInfo = make([]environs.NetworkInfo, len(interfaces))
+		logger.Debugf("node %q has networks %v", inst.Id(), networks)
 		for _, network := range networks {
 			netCIDR := &net.IPNet{
 				IP:   net.ParseIP(network.IP),
@@ -388,16 +385,31 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (in
 			}
 			macs, err := environ.getNetworkMACs(network.Name)
 			if err != nil {
-				return nil, nil, nil, err
+				return nil, nil, nil, fmt.Errorf("getNetworkMACs failed: %v", err)
 			}
 			for _, mac := range macs {
 				if _, ok := interfaces[mac]; ok {
-					i := macAddressToIndex[mac]
-					networkInfo[i].CIDR = netCIDR.String()
-					networkInfo[i].VLANTag = network.VLANTag
-					networkInfo[i].NetworkName = network.Name
+					if index, ok := macAddressToIndex[mac]; ok {
+						tempNetworkInfo[index].CIDR = netCIDR.String()
+						tempNetworkInfo[index].VLANTag = network.VLANTag
+						tempNetworkInfo[index].NetworkName = network.Name
+						continue
+					}
 				}
 			}
+		}
+		// Verify we filled-in everything for all networks/interfaces
+		// and drop incomplete records.
+		for _, info := range tempNetworkInfo {
+			if info.NetworkName == "" || info.CIDR == "" {
+				logger.Warningf("ignoring network interface %q: missing network information", info.InterfaceName)
+				continue
+			}
+			if info.MACAddress == "" || info.InterfaceName == "" {
+				logger.Warningf("ignoring network %q: missing network interface information", info.NetworkName)
+				continue
+			}
+			networkInfo = append(networkInfo, info)
 		}
 		logger.Debugf("node %q network information: %#v", inst.Id(), networkInfo)
 	}
@@ -629,33 +641,35 @@ func (environ *maasEnviron) getInstanceNetworks(inst instance.Instance) ([]netwo
 
 	networks := make([]networkDetails, len(jsonNets))
 	for i, jsonNet := range jsonNets {
-		maasNet, err := jsonNet.GetMAASObject()
+		fields, err := jsonNet.GetMap()
 		if err != nil {
 			return nil, err
 		}
-		name, err := maasNet.GetField("name")
+		name, err := fields["name"].GetString()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("cannot get name: %v", err)
 		}
-		ip, err := maasNet.GetField("ip")
+		ip, err := fields["ip"].GetString()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("cannot get ip: %v", err)
 		}
-		netmask, err := maasNet.GetField("netmask")
+		netmask, err := fields["netmask"].GetString()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("cannot get netmask: %v", err)
 		}
-		vlanTagString, err := maasNet.GetField("vlan_tag")
-		if err != nil {
-			return nil, err
+		vlanTag := 0
+		vlanTagField, ok := fields["vlan_tag"]
+		if ok && !vlanTagField.IsNil() {
+			// vlan_tag is optional, so assume it's missing when err != nil.
+			vlanTagFloat, err := vlanTagField.GetFloat64()
+			if err != nil {
+				return nil, fmt.Errorf("cannot get vlan_tag: %v", err)
+			}
+			vlanTag = int(vlanTagFloat)
 		}
-		vlanTag, err := strconv.Atoi(vlanTagString)
+		description, err := fields["description"].GetString()
 		if err != nil {
-			return nil, err
-		}
-		description, err := maasNet.GetField("description")
-		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("cannot get description: %v", err)
 		}
 
 		networks[i] = networkDetails{
@@ -684,13 +698,13 @@ func (environ *maasEnviron) getNetworkMACs(networkName string) ([]string, error)
 
 	macs := make([]string, len(jsonMACs))
 	for i, jsonMAC := range jsonMACs {
-		maasMAC, err := jsonMAC.GetMAASObject()
+		fields, err := jsonMAC.GetMap()
 		if err != nil {
 			return nil, err
 		}
-		macAddress, err := maasMAC.GetField("mac_address")
+		macAddress, err := fields["mac_address"].GetString()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("cannot get mac_address: %v", err)
 		}
 		macs[i] = macAddress
 	}

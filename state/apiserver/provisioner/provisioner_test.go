@@ -799,147 +799,66 @@ func (s *withoutStateServerSuite) TestRequestedNetworks(c *gc.C) {
 	})
 }
 
-func (s *withoutStateServerSuite) TestAddNetwork(c *gc.C) {
-	args := params.AddNetworkParams{Networks: []params.NetworkParams{
-		{Name: "vlan42", CIDR: "0.1.2.0/24", VLANTag: 42},
-		{Name: "net1", CIDR: "0.2.1.0/24", VLANTag: 0},
-		{Name: "", CIDR: "0.1.3.0/24", VLANTag: 0},
-		{Name: "net2", CIDR: "invalid", VLANTag: 0},
-		{Name: "net1", CIDR: "0.1.4.0/24", VLANTag: 0},
-		{Name: "net2", CIDR: "0.1.5.0/24", VLANTag: -1},
-	}}
-	result, err := s.provisioner.AddNetwork(args)
-	c.Assert(err, gc.IsNil)
-	prefix := "cannot add network %q: "
-	c.Assert(result, jc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{Error: nil},
-			{Error: nil},
-			{Error: apiservertesting.PrefixedError(
-				fmt.Sprintf(prefix, ""),
-				"name must be not empty")},
-			{Error: apiservertesting.PrefixedError(
-				fmt.Sprintf(prefix, "net2"),
-				"invalid CIDR address: invalid")},
-			{Error: apiservertesting.AlreadyExistsError("network net1")},
-			{Error: apiservertesting.PrefixedError(
-				fmt.Sprintf(prefix, "net2"),
-				"invalid VLAN tag -1: must be between 0 and 4094")},
-		}})
-
-	// Check add networks are there and failed ones are not.
-	net, err := s.State.Network("vlan42")
-	c.Assert(err, gc.IsNil)
-	c.Check(net.Name(), gc.Equals, "vlan42")
-	c.Check(net.CIDR(), gc.Equals, "0.1.2.0/24")
-	c.Check(net.VLANTag(), gc.Equals, 42)
-	net, err = s.State.Network("net1")
-	c.Assert(err, gc.IsNil)
-	c.Check(net.Name(), gc.Equals, "net1")
-	c.Check(net.CIDR(), gc.Equals, "0.2.1.0/24")
-	c.Check(net.VLANTag(), gc.Equals, 0)
-	_, err = s.State.Network("net2")
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
-}
-
-func (s *withoutStateServerSuite) TestAddNetworkFailsWithNonEnvironManager(c *gc.C) {
-	anAuthorizer := s.authorizer
-	anAuthorizer.MachineAgent = true
-	anAuthorizer.EnvironManager = false
-	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
-	c.Assert(err, gc.IsNil)
-	c.Assert(aProvisioner, gc.NotNil)
-	_, err = aProvisioner.AddNetwork(params.AddNetworkParams{})
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-}
-
-func assertInterfaces(c *gc.C, machine *state.Machine, expect ...params.NetworkInterfaceParams) {
-	ifaces, err := machine.NetworkInterfaces()
-	c.Assert(err, gc.IsNil)
-	c.Assert(ifaces, gc.HasLen, len(expect))
-	actual := make([]params.NetworkInterfaceParams, len(expect))
-	for i, iface := range ifaces {
-		actual[i] = params.NetworkInterfaceParams{
-			MACAddress:    iface.MACAddress(),
-			MachineTag:    names.MachineTag(iface.MachineId()),
-			InterfaceName: iface.InterfaceName(),
-			NetworkName:   iface.NetworkName(),
-		}
-	}
-	c.Assert(actual, jc.SameContents, expect)
-}
-
-func (s *withoutStateServerSuite) TestAddNetworkInterface(c *gc.C) {
-	// Add a few networks first.
-	_, err := s.State.AddNetwork("net1", "0.1.2.0/24", 0)
-	c.Assert(err, gc.IsNil)
-	_, err = s.State.AddNetwork("vlan42", "0.2.1.0/24", 42)
-	c.Assert(err, gc.IsNil)
-
-	args := params.AddNetworkInterfaceParams{Interfaces: []params.NetworkInterfaceParams{
-		{"aa:bb:cc:dd:ee:f0", s.machines[0].Tag(), "eth0", "net1"},
-		{"aa:bb:cc:dd:ee:f1", s.machines[1].Tag(), "eth0", "net1"},
-		{"aa:bb:cc:dd:ee:f2", s.machines[1].Tag(), "eth1", "vlan42"},
-		{"invalid", s.machines[1].Tag(), "eth1", "vlan42"},
-		{"aa:bb:cc:dd:ee:ff", s.machines[1].Tag(), "", "net1"},
-		{"aa:bb:cc:dd:ee:ff", s.machines[1].Tag(), "eth1", "invalid"},
-		{"aa:bb:cc:dd:ee:ff", s.machines[1].Tag(), "eth1", ""},
-		{"aa:bb:cc:dd:ee:f1", s.machines[1].Tag(), "eth2", "net1"},
-		{"aa:bb:cc:dd:ee:f1", s.machines[2].Tag(), "eth0", "net1"},
-		{"aa:bb:cc:dd:ee:f1", "machine-42", "eth0", "net1"},
-		{"aa:bb:cc:dd:ee:f1", "unit-foo-42", "eth0", "net1"},
-	}}
-	err = s.machines[2].SetProvisioned("i-am", "fake_nonce", nil)
-	c.Assert(err, gc.IsNil)
-
-	prefix := "cannot add network interface to machine %s: "
-	prefixM1 := fmt.Sprintf(prefix, s.machines[1].Id())
-	result, err := s.provisioner.AddNetworkInterface(args)
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, jc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{Error: nil},
-			{Error: nil},
-			{Error: nil},
-			{Error: apiservertesting.PrefixedError(
-				prefixM1, "invalid MAC address: invalid")},
-			{Error: apiservertesting.PrefixedError(
-				prefixM1, "interface name must be not empty")},
-			{Error: apiservertesting.PrefixedError(
-				prefixM1, `network "invalid" not found`)},
-			{Error: apiservertesting.PrefixedError(
-				prefixM1, `network "" not found`)},
-			{Error: apiservertesting.AlreadyExistsError("interface with MAC address aa:bb:cc:dd:ee:f1")},
-			{Error: apiservertesting.PrefixedError(
-				fmt.Sprintf(prefix, s.machines[2].Id()),
-				`machine already provisioned: dynamic network interfaces not currently supported`,
-			)},
-			{Error: apiservertesting.NotFoundError("machine 42")},
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	})
-
-	// Now check the added interfaces are there.
-	assertInterfaces(c, s.machines[0], args.Interfaces[0])
-	assertInterfaces(c, s.machines[1], args.Interfaces[1], args.Interfaces[2])
-	assertInterfaces(c, s.machines[2]) // None
-}
-
-func (s *withoutStateServerSuite) TestSetProvisioned(c *gc.C) {
+func (s *withoutStateServerSuite) TestSetProvisionedWithNetworks(c *gc.C) {
 	// Provision machine 0 first.
 	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
-	err := s.machines[0].SetProvisioned("i-am", "fake_nonce", &hwChars)
+	err := s.machines[0].SetProvisionedWithNetworks("i-am", "fake_nonce", &hwChars, nil, nil)
 	c.Assert(err, gc.IsNil)
 
-	args := params.SetProvisioned{Machines: []params.MachineSetProvisioned{
-		{Tag: s.machines[0].Tag(), InstanceId: "i-was", Nonce: "fake_nonce", Characteristics: nil},
-		{Tag: s.machines[1].Tag(), InstanceId: "i-will", Nonce: "fake_nonce", Characteristics: &hwChars},
-		{Tag: s.machines[2].Tag(), InstanceId: "i-am-too", Nonce: "fake", Characteristics: nil},
-		{Tag: "machine-42", InstanceId: "", Nonce: "", Characteristics: nil},
-		{Tag: "unit-foo-0", InstanceId: "", Nonce: "", Characteristics: nil},
-		{Tag: "service-bar", InstanceId: "", Nonce: "", Characteristics: nil},
+	networks := []params.NetworkParams{{
+		Name:    "net1",
+		CIDR:    "0.1.2.0/24",
+		VLANTag: 0,
+	}, {
+		Name:    "vlan42",
+		CIDR:    "0.2.2.0/24",
+		VLANTag: 42,
+	}, {
+		Name:    "vlan42", // duplicated; ignored
+		CIDR:    "0.2.2.0/24",
+		VLANTag: 42,
 	}}
-	result, err := s.provisioner.SetProvisioned(args)
+	ifaces := []params.NetworkInterfaceParams{{
+		MACAddress:    "aa:bb:cc:dd:ee:f0",
+		NetworkName:   "net1",
+		InterfaceName: "eth0",
+	}, {
+		MACAddress:    "aa:bb:cc:dd:ee:f1",
+		NetworkName:   "net1",
+		InterfaceName: "eth1",
+	}, {
+		MACAddress:    "aa:bb:cc:dd:ee:f2",
+		NetworkName:   "vlan42",
+		InterfaceName: "eth2",
+	}, {
+		MACAddress:    "aa:bb:cc:dd:ee:f2", // duplicated; ignored
+		NetworkName:   "vlan42",
+		InterfaceName: "eth2",
+	}}
+	args := params.SetProvisionedWithNetworks{Machines: []params.ProvisionWithNetworks{{
+		Tag:        s.machines[0].Tag(),
+		InstanceId: "i-was",
+		Nonce:      "fake_nonce",
+	}, {
+		Tag:             s.machines[1].Tag(),
+		InstanceId:      "i-will",
+		Nonce:           "fake_nonce",
+		Characteristics: &hwChars,
+		Networks:        networks,
+		Interfaces:      ifaces,
+	}, {
+		Tag:             s.machines[2].Tag(),
+		InstanceId:      "i-am-too",
+		Nonce:           "fake",
+		Characteristics: nil,
+		Networks:        networks,
+		Interfaces:      ifaces,
+	},
+		{Tag: "machine-42"},
+		{Tag: "unit-foo-0"},
+		{Tag: "service-bar"},
+	}}
+	result, err := s.provisioner.SetProvisionedWithNetworks(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -969,6 +888,31 @@ func (s *withoutStateServerSuite) TestSetProvisioned(c *gc.C) {
 	gotHardware, err := s.machines[1].HardwareCharacteristics()
 	c.Assert(err, gc.IsNil)
 	c.Check(gotHardware, gc.DeepEquals, &hwChars)
+	ifacesMachine1, err := s.machines[1].NetworkInterfaces()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ifacesMachine1, gc.HasLen, 3)
+	actual := make([]params.NetworkInterfaceParams, len(ifacesMachine1))
+	for i, iface := range ifacesMachine1 {
+		actual[i].InterfaceName = iface.InterfaceName()
+		actual[i].NetworkName = iface.NetworkName()
+		actual[i].MACAddress = iface.MACAddress()
+		c.Check(names.MachineTag(iface.MachineId()), gc.Equals, s.machines[1].Tag())
+	}
+	c.Assert(actual, jc.SameContents, ifaces[:3])
+	ifacesMachine2, err := s.machines[2].NetworkInterfaces()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ifacesMachine2, gc.HasLen, 0)
+	for i, _ := range networks {
+		if i == 2 {
+			// Last one was ignored, so don't check.
+			break
+		}
+		network, err := s.State.Network(networks[i].Name)
+		c.Assert(err, gc.IsNil)
+		c.Check(network.Name(), gc.Equals, networks[i].Name)
+		c.Check(network.VLANTag(), gc.Equals, networks[i].VLANTag)
+		c.Check(network.CIDR(), gc.Equals, networks[i].CIDR)
+	}
 }
 
 func (s *withoutStateServerSuite) TestInstanceId(c *gc.C) {

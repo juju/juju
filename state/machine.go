@@ -825,6 +825,39 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 	return fmt.Errorf("already set")
 }
 
+// SetProvisionedWithNetworks is used to provision a machine and in
+// one steps set it's instance id, nonce, hardware characteristics,
+// add networks and network interfaces as needed.
+//
+// TODO(dimitern) Do all the operations described in a single
+// transaction, rather than using separate calls. Merge
+// SetProvisioned() in here at that point.
+func (m *Machine) SetProvisionedWithNetworks(
+	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
+	networks []params.NetworkParams, interfaces []params.NetworkInterfaceParams) error {
+
+	// Add the networks and interfaces first.
+	for _, network := range networks {
+		_, err := m.st.AddNetwork(network.Name, network.CIDR, network.VLANTag)
+		if err != nil && errors.IsAlreadyExistsError(err) {
+			// Ignore already existing networks.
+			continue
+		} else if err != nil {
+			return err
+		}
+	}
+	for _, iface := range interfaces {
+		_, err := m.AddNetworkInterface(iface.MACAddress, iface.InterfaceName, iface.NetworkName)
+		if err != nil && errors.IsAlreadyExistsError(err) {
+			// Ignore already existing network interfaces.
+			continue
+		} else if err != nil {
+			return err
+		}
+	}
+	return m.SetProvisioned(id, nonce, characteristics)
+}
+
 // notProvisionedError records an error when a machine is not provisioned.
 type notProvisionedError struct {
 	machineId string

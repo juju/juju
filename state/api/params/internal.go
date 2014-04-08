@@ -288,8 +288,12 @@ type LifeResults struct {
 	Results []LifeResult
 }
 
-// MachineSetProvisioned holds a machine tag, provider-specific instance id,
-// a nonce, or an error.
+// MachineSetProvisioned holds a machine tag, provider-specific
+// instance id, a nonce, or an error.
+//
+// NOTE: This is deprecated since 1.19.0 and not used by the
+// provisioner, it's just retained for backwards-compatibility and
+// should be removed.
 type MachineSetProvisioned struct {
 	Tag             string
 	InstanceId      instance.Id
@@ -299,8 +303,58 @@ type MachineSetProvisioned struct {
 
 // SetProvisioned holds the parameters for making a SetProvisioned
 // call for a machine.
+//
+// NOTE: This is deprecated since 1.19.0 and not used by the
+// provisioner, it's just retained for backwards-compatibility and
+// should be removed.
 type SetProvisioned struct {
 	Machines []MachineSetProvisioned
+}
+
+// NetworkParams describes a single network available on an
+// instance.
+type NetworkParams struct {
+	Name    string
+	CIDR    string
+	VLANTag int
+}
+
+// NetworkInterfaceParams describes a single network interface
+// available on an instance.
+type NetworkInterfaceParams struct {
+	MACAddress    string
+	InterfaceName string
+	NetworkName   string
+}
+
+// ProvisionWithNetworks holds a machine tag, provider-specific
+// instance id, a nonce, a list of networks and interfaces to set up,
+// or an error.
+type ProvisionWithNetworks struct {
+	Tag             string
+	InstanceId      instance.Id
+	Nonce           string
+	Characteristics *instance.HardwareCharacteristics
+	Networks        []NetworkParams
+	Interfaces      []NetworkInterfaceParams
+}
+
+// SetProvisionedWithNetworks holds the parameters for making a
+// SetProvisionedWithNetworks call for a machine.
+type SetProvisionedWithNetworks struct {
+	Machines []ProvisionWithNetworks
+}
+
+// NetworkResult holds machine networks or an error.
+type NetworkResult struct {
+	Error           *Error
+	IncludeNetworks []string
+	ExcludeNetworks []string
+}
+
+// NetworksResults holds multiple networks results.
+type NetworksResults struct {
+	Results []NetworkResult
 }
 
 // EntityStatus holds an entity tag, status and extra info.
@@ -352,44 +406,6 @@ type ConstraintsResult struct {
 // ConstraintsResults holds multiple constraints results.
 type ConstraintsResults struct {
 	Results []ConstraintsResult
-}
-
-// NetworkResult holds machine networks or an error.
-type NetworkResult struct {
-	Error           *Error
-	IncludeNetworks []string
-	ExcludeNetworks []string
-}
-
-// NetworksResults holds multiple networks results.
-type NetworksResults struct {
-	Results []NetworkResult
-}
-
-// NetworkParams holds a single network definition.
-type NetworkParams struct {
-	Name    string
-	CIDR    string
-	VLANTag int
-}
-
-// AddNetworkParams holds the parameters for making an AddNetwork call.
-type AddNetworkParams struct {
-	Networks []NetworkParams
-}
-
-// NetworkInterfaceParams holds a single network interface definition.
-type NetworkInterfaceParams struct {
-	MACAddress    string
-	MachineTag    string
-	InterfaceName string
-	NetworkName   string
-}
-
-// AddNetworkInterfaceParams holds the parameters for making an
-// AddNetworkInterface call.
-type AddNetworkInterfaceParams struct {
-	Interfaces []NetworkInterfaceParams
 }
 
 // AgentGetEntitiesResults holds the results of a

@@ -162,10 +162,10 @@ func (s *CommonProvisionerSuite) startUnknownInstance(c *gc.C, id string) instan
 }
 
 func (s *CommonProvisionerSuite) checkStartInstance(c *gc.C, m *state.Machine) instance.Instance {
-	return s.checkStartInstanceCustom(c, m, "pork", s.defaultConstraints, nil, nil)
+	return s.checkStartInstanceCustom(c, m, "pork", s.defaultConstraints, nil, nil, nil)
 }
 
-func (s *CommonProvisionerSuite) checkStartInstanceCustom(c *gc.C, m *state.Machine, secret string, cons constraints.Value, includeNetworks, excludeNetworks []string) (inst instance.Instance) {
+func (s *CommonProvisionerSuite) checkStartInstanceCustom(c *gc.C, m *state.Machine, secret string, cons constraints.Value, includeNetworks, excludeNetworks []string, networkInfo []environs.NetworkInfo) (inst instance.Instance) {
 	s.BackingState.StartSync()
 	for {
 		select {
@@ -183,8 +183,15 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(c *gc.C, m *state.Mach
 				c.Assert(nonceParts[1], jc.Satisfies, utils.IsValidUUIDString)
 				c.Assert(o.Secret, gc.Equals, secret)
 				c.Assert(o.Constraints, gc.DeepEquals, cons)
-				c.Assert(o.IncludeNetworks, jc.DeepEquals, includeNetworks)
-				c.Assert(o.ExcludeNetworks, jc.DeepEquals, excludeNetworks)
+				if len(includeNetworks) > 0 {
+					c.Assert(o.IncludeNetworks, gc.DeepEquals, includeNetworks)
+				}
+				if len(excludeNetworks) > 0 {
+					c.Assert(o.ExcludeNetworks, gc.DeepEquals, excludeNetworks)
+				}
+				if len(networkInfo) > 0 {
+					c.Assert(o.NetworkInfo, gc.DeepEquals, networkInfo)
+				}
 
 				// All provisioned machines in this test suite have their hardware characteristics
 				// attributes set to the same values as the constraints due to the dummy environment being used.
@@ -393,7 +400,7 @@ func (s *ProvisionerSuite) TestConstraints(c *gc.C) {
 	// Start a provisioner and check those constraints are used.
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)
-	s.checkStartInstanceCustom(c, m, "pork", cons, nil, nil)
+	s.checkStartInstanceCustom(c, m, "pork", cons, nil, nil, nil)
 }
 
 func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenStartInstanceFailed(c *gc.C) {
@@ -466,9 +473,36 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedNetworks(c *gc.C
 	// Add and provision a machine with networks specified.
 	includeNetworks := []string{"net1", "net2"}
 	excludeNetworks := []string{"net3", "net4"}
+	expectNetworkInfo := []environs.NetworkInfo{{
+		MACAddress:    "aa:bb:cc:dd:ee:f0",
+		InterfaceName: "eth0",
+		NetworkName:   "net1",
+		VLANTag:       0,
+		CIDR:          "0.1.2.0/24",
+	}, {
+		MACAddress:    "aa:bb:cc:dd:ee:f1",
+		InterfaceName: "eth1",
+		NetworkName:   "net2",
+		VLANTag:       1,
+		CIDR:          "0.2.2.0/24",
+	}}
 	m, err := s.addMachineWithRequestedNetworks(includeNetworks, excludeNetworks)
 	c.Assert(err, gc.IsNil)
-	inst := s.checkStartInstanceCustom(c, m, "pork", s.defaultConstraints, includeNetworks, excludeNetworks)
+	inst := s.checkStartInstanceCustom(
+		c, m, "pork", s.defaultConstraints,
+		includeNetworks, excludeNetworks, expectNetworkInfo)
+
+	_, err = s.State.Network("net1")
+	c.Assert(err, gc.IsNil)
+	_, err = s.State.Network("net2")
+	c.Assert(err, gc.IsNil)
+	_, err = s.State.Network("net3")
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	_, err = s.State.Network("net4")
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	ifaces, err := m.NetworkInterfaces()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ifaces, gc.HasLen, 2)
 
 	// Cleanup.
 	c.Assert(m.EnsureDead(), gc.IsNil)
@@ -658,7 +692,7 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	c.Assert(err, gc.IsNil)
 
 	// the PA should create it using the new environment
-	s.checkStartInstanceCustom(c, m, "beef", s.defaultConstraints, nil, nil)
+	s.checkStartInstanceCustom(c, m, "beef", s.defaultConstraints, nil, nil, nil)
 }
 
 func (s *ProvisionerSuite) TestProvisioningSafeMode(c *gc.C) {
@@ -765,7 +799,7 @@ func (s *ProvisionerSuite) newProvisionerTask(c *gc.C, safeMode bool, broker env
 	auth, err := environs.NewAPIAuthenticator(s.provisioner)
 	c.Assert(err, gc.IsNil)
 	return provisioner.NewProvisionerTask(
-		"machine-0", safeMode, s.provisioner, s.provisioner,
+		"machine-0", safeMode, s.provisioner,
 		machineWatcher, retryWatcher, broker, auth)
 }
 

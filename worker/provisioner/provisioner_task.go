@@ -20,6 +20,7 @@ import (
 	"launchpad.net/juju-core/state/watcher"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/worker"
 )
 
@@ -43,17 +44,10 @@ type MachineGetter interface {
 
 var _ MachineGetter = (*apiprovisioner.State)(nil)
 
-type NetworksAdder interface {
-	AddNetworks(args []params.NetworkParams) error
-}
-
-var _ NetworksAdder = (*apiprovisioner.State)(nil)
-
 func NewProvisionerTask(
 	machineTag string,
 	safeMode bool,
 	machineGetter MachineGetter,
-	networksAdder NetworksAdder,
 	machineWatcher apiwatcher.StringsWatcher,
 	retryWatcher apiwatcher.NotifyWatcher,
 	broker environs.InstanceBroker,
@@ -62,7 +56,6 @@ func NewProvisionerTask(
 	task := &provisionerTask{
 		machineTag:     machineTag,
 		machineGetter:  machineGetter,
-		networksAdder:  networksAdder,
 		machineWatcher: machineWatcher,
 		retryWatcher:   retryWatcher,
 		broker:         broker,
@@ -81,7 +74,6 @@ func NewProvisionerTask(
 type provisionerTask struct {
 	machineTag     string
 	machineGetter  MachineGetter
-	networksAdder  NetworksAdder
 	machineWatcher apiwatcher.StringsWatcher
 	retryWatcher   apiwatcher.NotifyWatcher
 	broker         environs.InstanceBroker
@@ -459,18 +451,40 @@ func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error
 		return task.setErrorStatus("cannot start instance for machine %q: %v", machine, err)
 	}
 	nonce := machineConfig.MachineNonce
-	if err := machine.SetProvisioned(inst.Id(), nonce, metadata); err != nil {
-		logger.Errorf("cannot register instance for machine %v: %v", machine, err)
-		// Stop the instance right away.
-		if err := task.broker.StopInstances([]instance.Instance{inst}); err != nil {
-			// We cannot even stop the instance, log the error and quit.
-			logger.Errorf("cannot stop instance %q for machine %v: %v", inst.Id(), machine, err)
-			return err
+	var networks []params.NetworkParams
+	var ifaces []params.NetworkInterfaceParams
+	if len(networkInfo) > 0 {
+		visitedNetworks := set.NewStrings()
+		for _, info := range networkInfo {
+			if !visitedNetworks.Contains(info.NetworkName) {
+				networks = append(networks, params.NetworkParams{
+					Name:    info.NetworkName,
+					CIDR:    info.CIDR,
+					VLANTag: info.VLANTag,
+				})
+				visitedNetworks.Add(info.NetworkName)
+			}
+			ifaces = append(ifaces, params.NetworkInterfaceParams{
+				InterfaceName: info.InterfaceName,
+				MACAddress:    info.MACAddress,
+				NetworkName:   info.NetworkName,
+			})
 		}
-		// We stopped the instance, so we can go on.
+	}
+	err = machine.SetProvisionedWithNetworks(inst.Id(), nonce, metadata, networks, ifaces)
+	if err != nil && params.IsCodeNotImplemented(err) {
+		logger.Errorf("cannot provision instance %v for machine %q with networks: not implemented")
+	} else if err == nil {
+		logger.Infof("started machine %s as instance %s with hardware %q, networks %v, interfaces %v", machine, inst.Id(), metadata, networks, ifaces)
 		return nil
 	}
-	logger.Infof("started machine %s as instance %s with hardware %q and networks %v", machine, inst.Id(), metadata, networkInfo)
+	// We need to stop the instance right away here and go on.
+	logger.Errorf("cannot register instance for machine %v: %v", machine, err)
+	if err := task.broker.StopInstances([]instance.Instance{inst}); err != nil {
+		// We cannot even stop the instance, log the error and quit.
+		logger.Errorf("cannot stop instance %q for machine %v: %v", inst.Id(), machine, err)
+		return err
+	}
 	return nil
 }
 
