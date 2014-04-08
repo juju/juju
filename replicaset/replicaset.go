@@ -288,7 +288,7 @@ func CurrentStatus(session *mgo.Session) (*Status, error) {
 	status := &Status{}
 	err := session.Run("replSetGetStatus", status)
 	if err != nil {
-		return nil, fmt.Errorf("replSetGetStatus error: %v", err)
+		return nil, fmt.Errorf("cannot get replica set status: %v", err)
 	}
 	return status, nil
 }

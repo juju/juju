@@ -5,6 +5,7 @@ package main
 
 import (
 	"encoding/base64"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"path/filepath"
@@ -45,6 +46,7 @@ type BootstrapSuite struct {
 	dataDir         string
 	logDir          string
 	fakeEnsureMongo fakeEnsure
+	bootstrapName   string
 }
 
 var _ = gc.Suite(&BootstrapSuite{})
@@ -125,6 +127,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob,
 		StateAddresses:    []string{testing.MgoServer.Addr()},
 		APIAddresses:      []string{"0.1.2.3:1234"},
 		CACert:            []byte(testing.CACert),
+		Values:            map[string]string{agent.Namespace: "foobar"},
 	}
 	servingInfo := params.StateServingInfo{
 		Cert:       "some cert",
@@ -151,10 +154,30 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob,
 
 func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	hw := instance.MustParseHardware("arch=amd64 mem=8G")
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.envcfg, "--instance-id", string(s.instanceId), "--hardware", hw.String())
+	machConf, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.envcfg, "--instance-id", string(s.instanceId), "--hardware", hw.String())
 	c.Assert(err, gc.IsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
+
+	c.Assert(s.fakeEnsureMongo.dataDir, gc.Equals, s.dataDir)
+	c.Assert(s.fakeEnsureMongo.initiateCount, gc.Equals, 1)
+	c.Assert(s.fakeEnsureMongo.ensureCount, gc.Equals, 1)
+	c.Assert(s.fakeEnsureMongo.dataDir, gc.Equals, s.dataDir)
+
+	info, exists := machConf.StateServingInfo()
+	c.Assert(exists, jc.IsTrue)
+	stateport := info.StatePort
+
+	c.Assert(s.fakeEnsureMongo.port, gc.Equals, stateport)
+	c.Assert(s.fakeEnsureMongo.namespace, gc.Equals, machConf.Value(agent.Namespace))
+
+	dialAddr := fmt.Sprintf("127.0.0.1:%d", stateport)
+	c.Assert(s.fakeEnsureMongo.initiateParams.DialInfo.Addrs[0], gc.Equals, dialAddr)
+
+	memberHost := fmt.Sprintf("%s:%d", s.bootstrapName, stateport)
+	c.Assert(s.fakeEnsureMongo.initiateParams.MemberHostPort, gc.Equals, memberHost)
+	c.Assert(s.fakeEnsureMongo.initiateParams.User, gc.Equals, "")
+	c.Assert(s.fakeEnsureMongo.initiateParams.Password, gc.Equals, "")
 
 	st, err := state.Open(&state.Info{
 		Addrs:    []string{testing.MgoServer.Addr()},
@@ -422,6 +445,8 @@ func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	inst, _, _, err := jujutesting.StartInstance(env, "0")
 	maybePanic(err)
 	s.instanceId = inst.Id()
+	s.bootstrapName, err = inst.DNSName()
+	maybePanic(err)
 	s.envcfg = b64yaml(env.Config().AllAttrs()).encode()
 }
 

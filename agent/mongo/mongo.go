@@ -176,13 +176,13 @@ func RemoveService(namespace string) error {
 // The namespace is a unique identifier to prevent multiple instances of mongo
 // on this machine from colliding. This should be empty unless using
 // the local provider.
-func EnsureMongoServer(dir string, port int, namespace string) error {
+func EnsureMongoServer(dataDir string, port int, namespace string) error {
 	// NOTE: ensure that the right package is installed?
 
-	logger.Infof("Ensuring mongo server is running; dataDir %s; port %d", dir, port)
-	dbDir := filepath.Join(dir, "db")
+	logger.Infof("Ensuring mongo server is running; dataDir %s; port %d", dataDir, port)
+	dbDir := filepath.Join(dataDir, "db")
 
-	service, err := mongoUpstartService(namespace, dir, dbDir, port)
+	service, err := mongoUpstartService(namespace, dataDir, dbDir, port)
 	if err != nil {
 		return err
 	}

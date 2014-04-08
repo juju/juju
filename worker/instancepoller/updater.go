@@ -221,10 +221,10 @@ func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo,
 	instInfo = instanceInfo{}
 	instId, err := m.InstanceId()
 	if err != nil {
-		if !state.IsNotProvisionedError(err) {
-			return instInfo, fmt.Errorf("cannot get machine's instance id: %v", err)
+		if state.IsNotProvisionedError(err) {
+			return instInfo, nil
 		}
-		return instInfo, nil
+		return instInfo, fmt.Errorf("cannot get machine's instance id: %v", err)
 	}
 	instInfo, err = context.instanceInfo(instId)
 	if err != nil {

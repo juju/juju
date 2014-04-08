@@ -80,7 +80,6 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
 	f.Var(seriesVar{&c.Series}, "series", "upload tools for supplied comma-separated series list")
 	f.StringVar(&c.MetadataSource, "metadata-source", "", "local path to use as tools and/or metadata source")
-
 }
 
 func (c *BootstrapCommand) Init(args []string) (err error) {

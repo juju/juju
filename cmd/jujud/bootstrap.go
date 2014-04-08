@@ -83,7 +83,6 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 			params.JobHostUnits,
 		}
 	}
-	logger.Infof("creating new Environ")
 
 	// Get the bootstrap machine's addresses from the provider.
 	env, err := environs.New(envCfg)
@@ -162,7 +161,7 @@ func (c *BootstrapCommand) startMongo(addrs []instance.Address, port int, namesp
 	dialInfo.Addrs = []string{
 		net.JoinHostPort("127.0.0.1", fmt.Sprint(port)),
 	}
-	logger.Infof("calling ensureMongoServer")
+
 	if err := ensureMongoServer(agentConfig.DataDir(), port, namespace); err != nil {
 		return err
 	}

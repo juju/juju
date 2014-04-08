@@ -373,7 +373,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	namespace := agentConfig.Value(agent.Namespace)
 	info, exist := agentConfig.StateServingInfo()
 	if !exist {
-		return nil, fmt.Errorf("No state info on agent config")
+		return nil, fmt.Errorf("no state info in agent config")
 	}
 
 	err := ensureMongoServer(agentConfig.DataDir(), info.StatePort, namespace)
