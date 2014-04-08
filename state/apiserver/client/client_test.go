@@ -2190,3 +2190,12 @@ func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(apiHostPorts, gc.DeepEquals, stateAPIHostPorts)
 }
+
+func (s *clientSuite) TestClientVersion(c *gc.C) {
+	current := version.MustParse("1.2.0")
+	s.PatchValue(&version.Current.Number, current)
+	result, err := s.APIState.Client().Version()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Version, gc.NotNil)
+	c.Assert(*result.Version, gc.Equals, current)
+}
