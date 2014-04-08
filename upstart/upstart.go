@@ -165,7 +165,7 @@ func (c *Conf) validate() error {
 	return nil
 }
 
-// Render returns the upstart configuration for the service as a slice of bytes.
+// render returns the upstart configuration for the service as a slice of bytes.
 func (c *Conf) render() ([]byte, error) {
 	if err := c.validate(); err != nil {
 		return nil, err
