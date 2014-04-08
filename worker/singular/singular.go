@@ -10,7 +10,7 @@ import (
 	"launchpad.net/juju-core/worker"
 )
 
-var logger = loggo.GetLogger("juju.worker")
+var logger = loggo.GetLogger("juju.worker.singular")
 
 var PingInterval = 10 * time.Second
 
@@ -51,6 +51,7 @@ func New(underlying worker.Runner, conn Conn) (worker.Runner, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot get master status: %v", err)
 	}
+	logger.Infof("runner created; isMaster %v", isMaster)
 	return &runner{
 		isMaster:   isMaster,
 		Runner:     underlying,
@@ -74,6 +75,7 @@ func (r *runner) pinger() {
 		if err := r.conn.Ping(); err != nil {
 			// The ping has failed: cause all other workers
 			// to exit with the ping error.
+			logger.Infof("pinger has died: %v", err)
 			r.pingErr = err
 			close(r.pingerDied)
 			return
@@ -93,8 +95,10 @@ func (r *runner) StartWorker(id string, startFunc func() (worker.Worker, error))
 		// encounter an error as they do what they're supposed
 		// to do - we can just start the worker in the
 		// underlying runner.
+		logger.Infof("starting %q", id)
 		return r.Runner.StartWorker(id, startFunc)
 	}
+	logger.Infof("standby %q", id)
 	// We're not master, so don't start the worker, but start a pinger so
 	// that we know when the connection master changes.
 	r.startPingerOnce.Do(func() {

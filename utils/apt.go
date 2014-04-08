@@ -58,6 +58,7 @@ var cloudArchivePackages = map[string]bool{
 	"lxc":                     true,
 	"maas":                    true,
 	"mongodb":                 true,
+	"mongodb-server":                 true,
 	"python-django":           true,
 	"python-django-piston":    true,
 	"python-jujuclient":       true,

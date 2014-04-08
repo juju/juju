@@ -27,7 +27,8 @@ var logger = loggo.GetLogger("juju.replicaset")
 // See http://docs.mongodb.org/manual/reference/method/rs.initiate/ for more
 // details.
 func Initiate(session *mgo.Session, address, name string, tags map[string]string) error {
-	session.SetMode(mgo.Monotonic, true)
+	monotonicSession := session.Clone()
+	monotonicSession.SetMode(mgo.Monotonic, true)
 	cfg := Config{
 		Name:    name,
 		Version: 1,
@@ -38,7 +39,7 @@ func Initiate(session *mgo.Session, address, name string, tags map[string]string
 		}},
 	}
 	logger.Infof("Initiating replicaset with config %#v", cfg)
-	return session.Run(bson.D{{"replSetInitiate", cfg}}, nil)
+	return monotonicSession.Run(bson.D{{"replSetInitiate", cfg}}, nil)
 }
 
 // Member holds configuration information for a replica set member.
@@ -268,8 +269,9 @@ func CurrentMembers(session *mgo.Session) ([]Member, error) {
 // there is no current config, the error returned will be mgo.ErrNotFound.
 func CurrentConfig(session *mgo.Session) (*Config, error) {
 	cfg := &Config{}
-	session.SetMode(mgo.Monotonic, true)
-	err := session.DB("local").C("system.replset").Find(nil).One(cfg)
+	monotonicSession := session.Clone()
+	monotonicSession.SetMode(mgo.Monotonic, true)
+	err := monotonicSession.DB("local").C("system.replset").Find(nil).One(cfg)
 	if err == mgo.ErrNotFound {
 		return nil, err
 	}

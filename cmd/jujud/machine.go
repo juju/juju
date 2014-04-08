@@ -259,18 +259,19 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		}
 	}
 
+	runner := newRunner(connectionIsFatal(st), moreImportant)
+	var singularRunner worker.Runner
 	rsyslogMode := rsyslog.RsyslogModeForwarding
 	for _, job := range entity.Jobs() {
 		if job == params.JobManageEnviron {
+			conn := singularAPIConn{st, st.Agent()}
+			singularRunner, err = NewSingularRunner(runner, conn)
+			if err != nil {
+				return nil, fmt.Errorf("cannot make singular Runner: %v", err)
+			}
 			rsyslogMode = rsyslog.RsyslogModeAccumulate
 			break
 		}
-	}
-	runner := newRunner(connectionIsFatal(st), moreImportant)
-	conn := singularAPIConn{st, st.Agent()}
-	singularRunner, err := NewSingularRunner(runner, conn)
-	if err != nil {
-		return nil, err
 	}
 
 	// Run the upgrader and the upgrade-steps worker without waiting for
@@ -435,9 +436,10 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 
 	singularStateConn := singularStateConn{st, m}
 	runner := newRunner(connectionIsFatal(st), moreImportant)
+
 	singularRunner, err := NewSingularRunner(runner, singularStateConn)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot make singular Runner: %v", err)
 	}
 
 	// Take advantage of special knowledge here in that we will only ever want

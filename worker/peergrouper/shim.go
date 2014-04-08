@@ -64,5 +64,15 @@ func (s mongoSessionShim) CurrentMembers() ([]replicaset.Member, error) {
 }
 
 func (s mongoSessionShim) Set(members []replicaset.Member) error {
-	return replicaset.Set(s.session, members)
+	err := replicaset.Set(s.session, members)
+	if err != nil {
+		ism, err := replicaset.IsMaster(s.session)
+		if err != nil {
+			logger.Infof("(Set error) cannot get IsMaster: %v", err)
+		} else {
+			logger.Infof("(Set error) isMaster %#v", ism)
+		}
+	}
+	return err
 }
+

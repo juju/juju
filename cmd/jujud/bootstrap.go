@@ -120,6 +120,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 
+	logger.Infof("started mongo")
 	// Initialise state, and store any agent config (e.g. password) changes.
 	var st *state.State
 	err = nil
