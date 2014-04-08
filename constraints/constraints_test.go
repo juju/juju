@@ -610,3 +610,65 @@ func (s *ConstraintsSuite) TestHasInstanceType(c *gc.C) {
 	cons = constraints.MustParse("arch=amd64 instance-type=foo")
 	c.Check(cons.HasInstanceType(), jc.IsTrue)
 }
+
+var removeTests = []struct {
+	initial string
+	remove  []string
+	final   string
+}{
+	{
+		initial: "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
+		remove:  []string{"root-disk"},
+		final:   "mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
+	},
+	{
+		initial: "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
+		remove:  []string{"mem"},
+		final:   "root-disk=8G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
+	},
+	{
+		initial: "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
+		remove:  []string{"arch"},
+		final:   "root-disk=8G mem=4G cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
+	},
+	{
+		initial: "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
+		remove:  []string{"cpu-power"},
+		final:   "root-disk=8G mem=4G arch=amd64 cpu-cores=4 tags=foo container=lxc instance-type=bar",
+	},
+	{
+		initial: "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
+		remove:  []string{"cpu-cores"},
+		final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 tags=foo container=lxc instance-type=bar",
+	},
+	{
+		initial: "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
+		remove:  []string{"tags"},
+		final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 container=lxc instance-type=bar",
+	},
+	{
+		initial: "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
+		remove:  []string{"container"},
+		final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo instance-type=bar",
+	},
+	{
+		initial: "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
+		remove:  []string{"instance-type"},
+		final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc",
+	},
+	{
+		initial: "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
+		remove:  []string{"root-disk", "mem", "arch"},
+		final:   "cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
+	},
+}
+
+func (s *ConstraintsSuite) TestRemove(c *gc.C) {
+	for i, t := range removeTests {
+		c.Logf("test %d", i)
+		initial := constraints.MustParse(t.initial)
+		final, err := initial.Remove(t.remove)
+		c.Assert(err, gc.IsNil)
+		c.Check(final, gc.DeepEquals, constraints.MustParse(t.final))
+	}
+}

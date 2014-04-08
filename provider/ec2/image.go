@@ -79,6 +79,10 @@ func findInstanceSpec(
 	return instances.FindInstanceSpec(images, ic, itypesWithCosts)
 }
 
+// instanceTypeCoConstraints are constraint values which can be specified
+// along side an instance-type constraint.
+var instanceTypeCoConstraints = []string{"arch", "root-disk"}
+
 // imageMatchConstraint returns a constraint which is used to search for images,
 // based on whether an instance type value is set.
 func imageMatchConstraint(cons constraints.Value) constraints.Value {
@@ -88,14 +92,14 @@ func imageMatchConstraint(cons constraints.Value) constraints.Value {
 	}
 	consWithoutInstType := cons
 	consWithoutInstType.InstanceType = nil
-	// Constraints with instance-type values may also specify a root disk.
+	// Constraints with instance-type values may also specify a some allowed values.
 	// But any other constraint values take precedence and override the instance-type value.
-	consWithoutRootDisk := consWithoutInstType
-	consWithoutRootDisk.RootDisk = nil
-	if !constraints.IsEmpty(&consWithoutRootDisk) {
+	strippedCons, _ := consWithoutInstType.Remove(instanceTypeCoConstraints)
+	if !constraints.IsEmpty(&strippedCons) {
 		logger.Warningf("instance-type constraint %q ignored since other constraints are specified", *cons.InstanceType)
 		return consWithoutInstType
 	}
-	// If we are here, cons contains just an instance type (and possibly root disk) constraint value.
+	// If we are here, cons contains just an instance type
+	// (and possibly root disk and/or arch) constraint value.
 	return cons
 }

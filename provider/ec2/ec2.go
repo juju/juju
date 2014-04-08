@@ -357,8 +357,24 @@ func (e *environ) SupportNetworks() bool {
 	return false
 }
 
+func archMatches(arches []string, arch *string) bool {
+	if arch == nil {
+		return true
+	}
+	for _, a := range arches {
+		if a == *arch {
+			return true
+		}
+	}
+	return false
+}
+
 // ValidateConstraints is defined on the state.ConstraintsValidator interface.
 func (e *environ) ValidateConstraints(cons, envCons constraints.Value) (constraints.Value, error) {
+	return validateConstraints(cons, envCons)
+}
+
+func validateConstraints(cons, envCons constraints.Value) (constraints.Value, error) {
 	combined := cons.WithFallbacks(envCons)
 	result := imageMatchConstraint(combined)
 	if !result.HasInstanceType() {
@@ -366,11 +382,18 @@ func (e *environ) ValidateConstraints(cons, envCons constraints.Value) (constrai
 	}
 	// Constraint uses an instance-type constraint so let's see if it is valid.
 	for _, itype := range allInstanceTypes {
-		if itype.Name == *result.InstanceType {
-			return result, nil
+		if itype.Name != *result.InstanceType {
+			continue
+		}
+		if archMatches(itype.Arches, result.Arch) {
+			return combined, nil
 		}
 	}
-	return constraints.Value{}, fmt.Errorf("invalid AWS instance type %q specified", *result.InstanceType)
+	if result.Arch == nil {
+		return constraints.Value{}, fmt.Errorf("invalid AWS instance type %q specified", *result.InstanceType)
+	}
+	return constraints.Value{}, fmt.Errorf(
+		"invalid AWS instance type %q and arch %q specified", *result.InstanceType, *result.Arch)
 }
 
 // MetadataLookupParams returns parameters which are used to query simplestreams metadata.

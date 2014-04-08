@@ -399,7 +399,7 @@ func (t *localServerSuite) TestSupportNetworks(c *gc.C) {
 
 func (t *localServerSuite) TestValidateConstraintsValidInstanceType(c *gc.C) {
 	env := t.Prepare(c)
-	cons := constraints.MustParse("instance-type=m1.small")
+	cons := constraints.MustParse("instance-type=m1.small root-disk=1G")
 	envCons := constraints.Value{}
 	combined, err := env.(state.ConstraintsValidator).ValidateConstraints(cons, envCons)
 	c.Assert(err, gc.IsNil)
@@ -412,6 +412,14 @@ func (t *localServerSuite) TestValidateConstraintsInvalidInstanceType(c *gc.C) {
 	envCons := constraints.Value{}
 	_, err := env.(state.ConstraintsValidator).ValidateConstraints(cons, envCons)
 	c.Assert(err, gc.ErrorMatches, `invalid AWS instance type "m1.invalid" specified`)
+}
+
+func (t *localServerSuite) TestValidateConstraintsUnsupportedArch(c *gc.C) {
+	env := t.Prepare(c)
+	cons := constraints.MustParse("instance-type=cc1.4xlarge arch=i386")
+	envCons := constraints.Value{}
+	_, err := env.(state.ConstraintsValidator).ValidateConstraints(cons, envCons)
+	c.Assert(err, gc.ErrorMatches, `invalid AWS instance type "cc1.4xlarge" and arch "i386" specified`)
 }
 
 func (t *localServerSuite) TestValidateConstraintsLogsWarning(c *gc.C) {

@@ -205,6 +205,35 @@ func (v ConstraintsValue) String() string {
 	return v.Target.String()
 }
 
+// Remove removes the specified constraint values and returns
+// the resulting constraint.
+func (v *Value) Remove(attrNames []string) (Value, error) {
+	result := *v
+	for _, attr := range attrNames {
+		switch attr {
+		case "arch":
+			result.Arch = nil
+		case "container":
+			result.Container = nil
+		case "cpu-cores":
+			result.CpuCores = nil
+		case "cpu-power":
+			result.CpuPower = nil
+		case "mem":
+			result.Mem = nil
+		case "root-disk":
+			result.RootDisk = nil
+		case "tags":
+			result.Tags = nil
+		case "instance-type":
+			result.InstanceType = nil
+		default:
+			return Value{}, fmt.Errorf("unknown constraint %q", attr)
+		}
+	}
+	return result, nil
+}
+
 // setRaw interprets a name=value string and sets the supplied value.
 func (v *Value) setRaw(raw string) error {
 	eq := strings.Index(raw, "=")
