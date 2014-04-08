@@ -41,10 +41,19 @@ type MachineGetter interface {
 	MachinesWithTransientErrors() ([]*apiprovisioner.Machine, []params.StatusResult, error)
 }
 
+var _ MachineGetter = (*apiprovisioner.State)(nil)
+
+type NetworksAdder interface {
+	AddNetworks(args []params.NetworkParams) error
+}
+
+var _ NetworksAdder = (*apiprovisioner.State)(nil)
+
 func NewProvisionerTask(
 	machineTag string,
 	safeMode bool,
 	machineGetter MachineGetter,
+	networksAdder NetworksAdder,
 	machineWatcher apiwatcher.StringsWatcher,
 	retryWatcher apiwatcher.NotifyWatcher,
 	broker environs.InstanceBroker,
@@ -53,6 +62,7 @@ func NewProvisionerTask(
 	task := &provisionerTask{
 		machineTag:     machineTag,
 		machineGetter:  machineGetter,
+		networksAdder:  networksAdder,
 		machineWatcher: machineWatcher,
 		retryWatcher:   retryWatcher,
 		broker:         broker,
@@ -71,6 +81,7 @@ func NewProvisionerTask(
 type provisionerTask struct {
 	machineTag     string
 	machineGetter  MachineGetter
+	networksAdder  NetworksAdder
 	machineWatcher apiwatcher.StringsWatcher
 	retryWatcher   apiwatcher.NotifyWatcher
 	broker         environs.InstanceBroker
@@ -408,6 +419,16 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 	return nil
 }
 
+func (task *provisionerTask) setErrorStatus(message string, machine *apiprovisioner.Machine, err error) error {
+	logger.Errorf(message, machine, err)
+	if err1 := machine.SetStatus(params.StatusError, err.Error(), nil); err1 != nil {
+		// Something is wrong with this machine, better report it back.
+		logger.Errorf("cannot set error status for machine %q: %v", machine, err1)
+		return err1
+	}
+	return nil
+}
+
 func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error {
 	cons, err := machine.Constraints()
 	if err != nil {
@@ -425,7 +446,7 @@ func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error
 	if err != nil {
 		return err
 	}
-	inst, metadata, _, err := task.broker.StartInstance(environs.StartInstanceParams{
+	inst, metadata, networkInfo, err := task.broker.StartInstance(environs.StartInstanceParams{
 		Constraints:       cons,
 		Tools:             possibleTools,
 		MachineConfig:     machineConfig,
@@ -435,32 +456,21 @@ func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error
 		// Set the state to error, so the machine will be skipped next
 		// time until the error is resolved, but don't return an
 		// error; just keep going with the other machines.
-		logger.Errorf("cannot start instance for machine %q: %v", machine, err)
-		if err1 := machine.SetStatus(params.StatusError, err.Error(), nil); err1 != nil {
-			// Something is wrong with this machine, better report it back.
-			logger.Errorf("cannot set error status for machine %q: %v", machine, err1)
-			return err1
-		}
-		return nil
+		return task.setErrorStatus("cannot start instance for machine %q: %v", machine, err)
 	}
 	nonce := machineConfig.MachineNonce
 	if err := machine.SetProvisioned(inst.Id(), nonce, metadata); err != nil {
 		logger.Errorf("cannot register instance for machine %v: %v", machine, err)
-		// The machine is started, but we can't record the mapping in
-		// state. It'll keep running while we fail out and restart,
-		// but will then be detected by findUnknownInstances and
-		// killed again.
-		//
-		// TODO(dimitern) Stop the instance right away here.
-		//
-		// Multiple instantiations of a given machine (with the same
-		// machine ID) cannot coexist, because findUnknownInstances is
-		// called before startMachines. However, if the first machine
-		// had started to do work before being replaced, we may
-		// encounter surprising problems.
-		return err
+		// Stop the instance right away.
+		if err := task.broker.StopInstances([]instance.Instance{inst}); err != nil {
+			// We cannot even stop the instance, log the error and quit.
+			logger.Errorf("cannot stop instance %q for machine %v: %v", inst.Id(), machine, err)
+			return err
+		}
+		// We stopped the instance, so we can go on.
+		return nil
 	}
-	logger.Infof("started machine %s as instance %s with hardware %q", machine, inst.Id(), metadata)
+	logger.Infof("started machine %s as instance %s with hardware %q and networks %v", machine, inst.Id(), metadata, networkInfo)
 	return nil
 }
 

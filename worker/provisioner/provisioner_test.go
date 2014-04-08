@@ -765,7 +765,7 @@ func (s *ProvisionerSuite) newProvisionerTask(c *gc.C, safeMode bool, broker env
 	auth, err := environs.NewAPIAuthenticator(s.provisioner)
 	c.Assert(err, gc.IsNil)
 	return provisioner.NewProvisionerTask(
-		"machine-0", safeMode, s.provisioner,
+		"machine-0", safeMode, s.provisioner, s.provisioner,
 		machineWatcher, retryWatcher, broker, auth)
 }
 
