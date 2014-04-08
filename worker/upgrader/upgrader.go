@@ -112,6 +112,11 @@ func (u *Upgrader) loop() error {
 		case <-dying:
 			return nil
 		}
+		if wantVersion.Compare(version.Current) < 0 {
+			logger.Infof("desired tool version: %s is older than current %s, due to bug #1299802, refusing to downgrade",
+				wantVersion, version.Current)
+			continue
+		}
 		if wantVersion != currentTools.Version.Number {
 			logger.Infof("upgrade requested from %v to %v", currentTools.Version, wantVersion)
 			// TODO(dimitern) 2013-10-03 bug #1234715
