@@ -251,9 +251,9 @@ class Environment:
     def get_status(self):
         return self.client.get_status(self)
 
-    def wait_for_started(self):
+    def wait_for_started(self, timeout=1200):
         """Wait until all unit/machine agents are 'started'."""
-        for ignored in until_timeout(1200):
+        for ignored in until_timeout(timeout):
             try:
                 status = self.get_status()
             except CannotConnectEnv:
