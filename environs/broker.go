@@ -33,6 +33,17 @@ type StartInstanceParams struct {
 	DistributionGroup func() ([]instance.Id, error)
 }
 
+// NetworkInfo describes a single network interface available on an
+// instance. For providers that support networks, this will be
+// available at StartInstance() time.
+type NetworkInfo struct {
+	MACAddress    string
+	CIDR          string
+	NetworkName   string
+	VLANTag       int
+	InterfaceName string
+}
+
 // TODO(wallyworld) - we want this in the environs/instance package but import loops
 // stop that from being possible right now.
 type InstanceBroker interface {
@@ -42,7 +53,7 @@ type InstanceBroker interface {
 	// unique within an environment, is used by juju to protect against the
 	// consequences of multiple instances being started with the same machine
 	// id.
-	StartInstance(args StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error)
+	StartInstance(args StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []NetworkInfo, error)
 
 	// StopInstances shuts down the given instances.
 	StopInstances([]instance.Instance) error

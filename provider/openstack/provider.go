@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -746,10 +747,10 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error) {
 
 	if args.MachineConfig.HasNetworks() {
-		return nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
+		return nil, nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
 	}
 
 	series := args.Tools.OneSeries()
@@ -761,21 +762,21 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		Constraints: args.Constraints,
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	tools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
-		return nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
+		return nil, nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
 	args.MachineConfig.Tools = tools[0]
 
 	if err := environs.FinishMachineConfig(args.MachineConfig, e.Config(), args.Constraints); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot make user data: %v", err)
+		return nil, nil, nil, fmt.Errorf("cannot make user data: %v", err)
 	}
 	logger.Debugf("openstack user data; %d bytes", len(userData))
 	var networks = []nova.ServerNetworks{}
@@ -783,7 +784,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	if usingNetwork != "" {
 		networkId, err := e.resolveNetwork(usingNetwork)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		logger.Debugf("using network id %q", networkId)
 		networks = append(networks, nova.ServerNetworks{NetworkId: networkId})
@@ -792,7 +793,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	var publicIP *nova.FloatingIP
 	if withPublicIP {
 		if fip, err := e.allocatePublicIP(); err != nil {
-			return nil, nil, fmt.Errorf("cannot allocate a public IP as needed: %v", err)
+			return nil, nil, nil, fmt.Errorf("cannot allocate a public IP as needed: %v", err)
 		} else {
 			publicIP = fip
 			logger.Infof("allocated public IP %s", publicIP.IP)
@@ -801,7 +802,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	cfg := e.Config()
 	groups, err := e.setUpGroups(args.MachineConfig.MachineId, cfg.StatePort(), cfg.APIPort())
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot set up groups: %v", err)
+		return nil, nil, nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
 	var groupNames = make([]nova.SecurityGroupName, len(groups))
 	for i, g := range groups {
@@ -823,11 +824,11 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		}
 	}
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot run instance: %v", err)
+		return nil, nil, nil, fmt.Errorf("cannot run instance: %v", err)
 	}
 	detail, err := e.nova().GetServer(server.Id)
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot get started instance: %v", err)
+		return nil, nil, nil, fmt.Errorf("cannot get started instance: %v", err)
 	}
 	inst := &openstackInstance{
 		e:            e,
@@ -842,24 +843,38 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 				// ignore the failure at this stage, just log it
 				logger.Debugf("failed to terminate instance %q: %v", inst.Id(), err)
 			}
-			return nil, nil, fmt.Errorf("cannot assign public address %s to instance %q: %v", publicIP.IP, inst.Id(), err)
+			return nil, nil, nil, fmt.Errorf("cannot assign public address %s to instance %q: %v", publicIP.IP, inst.Id(), err)
 		}
 		logger.Infof("assigned public IP %s to %q", publicIP.IP, inst.Id())
 	}
-	return inst, inst.hardwareCharacteristics(), nil
+	return inst, inst.hardwareCharacteristics(), nil, nil
 }
 
 func (e *environ) StopInstances(insts []instance.Instance) error {
 	ids := make([]instance.Id, len(insts))
+	securityGroupNames := make([]string, len(insts))
 	for i, inst := range insts {
 		instanceValue, ok := inst.(*openstackInstance)
 		if !ok {
 			return errors.New("Incompatible instance.Instance supplied")
 		}
 		ids[i] = instanceValue.Id()
+		openstackName := instanceValue.getServerDetail().Name
+		lastDashPos := strings.LastIndex(openstackName, "-")
+		if lastDashPos == -1 {
+			return fmt.Errorf("cannot identify instance ID in openstack server name %q", openstackName)
+		}
+		securityGroupNames[i] = e.machineGroupName(openstackName[lastDashPos+1:])
 	}
 	logger.Debugf("terminating instances %v", ids)
-	return e.terminateInstances(ids)
+	err := e.terminateInstances(ids)
+	if err != nil {
+		return err
+	}
+	if e.Config().FirewallMode() == config.FwInstance {
+		return e.deleteSecurityGroups(securityGroupNames)
+	}
+	return nil
 }
 
 // collectInstances tries to get information on each instance id in ids.
@@ -949,7 +964,29 @@ func (e *environ) AllInstances() (insts []instance.Instance, err error) {
 }
 
 func (e *environ) Destroy() error {
-	return common.Destroy(e)
+	err := common.Destroy(e)
+	if err != nil {
+		return err
+	}
+	novaClient := e.nova()
+	securityGroups, err := novaClient.ListSecurityGroups()
+	if err != nil {
+		return err
+	}
+	re, err := regexp.Compile(fmt.Sprintf("^%s(-\\d+)?$", e.jujuGroupName()))
+	if err != nil {
+		return err
+	}
+	globalGroupName := e.globalGroupName()
+	for _, group := range securityGroups {
+		if re.MatchString(group.Name) || group.Name == globalGroupName {
+			err = novaClient.DeleteSecurityGroup(group.Id)
+			if err != nil {
+				logger.Warningf("cannot delete security group %q. Used by another environment?", group.Name)
+			}
+		}
+	}
+	return nil
 }
 
 func (e *environ) globalGroupName() string {
@@ -1205,6 +1242,29 @@ func (e *environ) ensureGroup(name string, rules []nova.RuleInfo) (nova.Security
 		group.Rules[i] = *groupRule
 	}
 	return *group, nil
+}
+
+// deleteSecurityGroups deletes the given security groups. If a security
+// group is also used by another environment (see bug #1300755), an attempt
+// to delete this group fails. A warning is logged in this case.
+func (e *environ) deleteSecurityGroups(securityGroupNames []string) error {
+	novaclient := e.nova()
+	allSecurityGroups, err := novaclient.ListSecurityGroups()
+	if err != nil {
+		return err
+	}
+	for _, securityGroup := range allSecurityGroups {
+		for _, name := range securityGroupNames {
+			if securityGroup.Name == name {
+				err := novaclient.DeleteSecurityGroup(securityGroup.Id)
+				if err != nil {
+					logger.Warningf("cannot delete security group %q. Used by another environment?", name)
+				}
+				break
+			}
+		}
+	}
+	return nil
 }
 
 func (e *environ) terminateInstances(ids []instance.Id) error {

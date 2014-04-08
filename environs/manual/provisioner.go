@@ -21,7 +21,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/statecmd"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/shell"
@@ -72,33 +71,13 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 	if err != nil {
 		return "", err
 	}
-	// Used for fallback to 1.16 code
-	var stateConn *juju.Conn
 	defer func() {
 		if machineId != "" && err != nil {
 			logger.Errorf("provisioning failed, removing machine %v: %v", machineId, err)
-			// If we have stateConn, then we are in 1.16
-			// compatibility mode and we should issue
-			// DestroyMachines directly on the state, rather than
-			// via API (because DestroyMachine *also* didn't exist
-			// in 1.16, though it will be in 1.16.5).
-			// TODO: When this compatibility code is removed, we
-			// should remove the method in state as well (as long
-			// as destroy-machine also no longer needs it.)
-			var cleanupErr error
-			if stateConn != nil {
-				cleanupErr = statecmd.DestroyMachines1dot16(stateConn.State, machineId)
-			} else {
-				cleanupErr = client.DestroyMachines(machineId)
-			}
-			if cleanupErr != nil {
+			if cleanupErr := client.DestroyMachines(machineId); cleanupErr != nil {
 				logger.Warningf("error cleaning up machine: %s", cleanupErr)
 			}
 			machineId = ""
-		}
-		if stateConn != nil {
-			stateConn.Close()
-			stateConn = nil
 		}
 		client.Close()
 	}()
@@ -120,35 +99,16 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 
 	// Inform Juju that the machine exists.
 	machineId, err = recordMachineInState(client, *machineParams)
-	if params.IsCodeNotImplemented(err) {
-		logger.Infof("AddMachines not supported by the API server, " +
-			"falling back to 1.16 compatibility mode (direct DB access)")
-		stateConn, err = juju.NewConnFromName(args.EnvName)
-		if err == nil {
-			machineId, err = recordMachineInState1dot16(stateConn, *machineParams)
-		}
-	}
 	if err != nil {
 		return "", err
 	}
 
-	var provisioningScript string
-	if stateConn == nil {
-		provisioningScript, err = client.ProvisioningScript(params.ProvisioningScriptParams{
-			MachineId: machineId,
-			Nonce:     machineParams.Nonce,
-		})
-		if err != nil {
-			return "", err
-		}
-	} else {
-		mcfg, err := statecmd.MachineConfig(stateConn.State, machineId, machineParams.Nonce, args.DataDir)
-		if err == nil {
-			provisioningScript, err = ProvisioningScript(mcfg)
-		}
-		if err != nil {
-			return "", err
-		}
+	provisioningScript, err := client.ProvisioningScript(params.ProvisioningScriptParams{
+		MachineId: machineId,
+		Nonce:     machineParams.Nonce,
+	})
+	if err != nil {
+		return "", err
 	}
 
 	// Finally, provision the machine agent.
@@ -192,28 +152,6 @@ func convertToStateJobs(jobs []params.MachineJob) ([]state.MachineJob, error) {
 		}
 	}
 	return outJobs, nil
-}
-
-func recordMachineInState1dot16(
-	stateConn *juju.Conn, machineParams params.AddMachineParams) (machineId string, err error) {
-	stateJobs, err := convertToStateJobs(machineParams.Jobs)
-	if err != nil {
-		return "", err
-	}
-	template := state.MachineTemplate{
-		Series:      machineParams.Series,
-		Constraints: machineParams.Constraints,
-		InstanceId:  machineParams.InstanceId,
-		Jobs:        stateJobs,
-		Nonce:       machineParams.Nonce,
-		HardwareCharacteristics: machineParams.HardwareCharacteristics,
-		Addresses:               machineParams.Addrs,
-	}
-	machine, err := stateConn.State.AddOneMachine(template)
-	if err != nil {
-		return "", err
-	}
-	return machine.Id(), nil
 }
 
 // gatherMachineParams collects all the information we know about the machine
