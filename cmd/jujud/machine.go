@@ -97,16 +97,16 @@ func (c singularAPIConn) Ping() error {
 }
 
 type singularStateConn struct {
-	state   *state.State
+	session   *mgo.Session
 	machine *state.Machine
 }
 
 func (c singularStateConn) IsMaster() (bool, error) {
-	return mongo.IsMaster(c.state.MongoSession(), c.machine)
+	return mongo.IsMaster(c.session, c.machine)
 }
 
 func (c singularStateConn) Ping() error {
-	return c.state.Ping()
+	return c.session.Ping()
 }
 
 // MachineAgent is a cmd.Command responsible for running a machine agent.
@@ -389,7 +389,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	}
 	reportOpenedState(st)
 
-	singularStateConn := singularStateConn{st, m}
+	singularStateConn := singularStateConn{st.Session(), m}
 	runner := newRunner(connectionIsFatal(st), moreImportant)
 	singularRunner, err := NewSingularRunner(runner, singularStateConn)
 	if err != nil {
