@@ -524,6 +524,37 @@ func (s *MachineSuite) assertJobWithAPI(
 	job state.MachineJob,
 	test func(agent.Config, *api.State),
 ) {
+	s.assertAgentOpensState(c, &reportOpenedAPI, job, func(cfg agent.Config, st eitherState) {
+		test(cfg, st.(*api.State))
+	})
+}
+
+func (s *MachineSuite) assertJobWithState(
+	c *gc.C,
+	job state.MachineJob,
+	test func(agent.Config, *state.State),
+) {
+	paramsJob := job.ToParams()
+	if !paramsJob.NeedsState() {
+		c.Fatalf("%v does not use state", paramsJob)
+	}
+	s.assertAgentOpensState(c, &reportOpenedState, job, func(cfg agent.Config, st eitherState) {
+		test(cfg, st.(*state.State))
+	})
+}
+
+// assertAgentOpensState asserts that a machine agent
+// started with the given job will call the function
+// pointed to by reportOpened. The agent's
+// configuration and the value passed to reportOpened
+// are then passed to the test function for further
+// checking.
+func (s *MachineSuite) assertAgentOpensState(
+	c *gc.C,
+	reportOpened *func(eitherState),
+	job state.MachineJob,
+	test func(agent.Config, eitherState),
+) {
 	stm, conf, _ := s.primeAgent(c, version.Current, job)
 	a := s.newAgent(c, stm)
 	defer a.Stop()
@@ -531,9 +562,13 @@ func (s *MachineSuite) assertJobWithAPI(
 	// All state jobs currently also run an APIWorker, so no
 	// need to check for that here, like in assertJobWithState.
 
-	agentAPIs := make(chan *api.State, 1000)
-	undo := sendOpenedAPIs(agentAPIs)
-	defer undo()
+	agentAPIs := make(chan eitherState, 1)
+	s.PatchValue(reportOpened, func(st eitherState) {
+		select {
+		case agentAPIs <- st:
+		default:
+		}
+	})
 
 	done := make(chan error)
 	go func() {
@@ -546,39 +581,6 @@ func (s *MachineSuite) assertJobWithAPI(
 		test(conf, agentAPI)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("API not opened")
-	}
-
-	s.waitStopped(c, job, a, done)
-}
-
-func (s *MachineSuite) assertJobWithState(
-	c *gc.C,
-	job state.MachineJob,
-	test func(agent.Config, *state.State),
-) {
-	paramsJob := job.ToParams()
-	if !paramsJob.NeedsState() {
-		c.Fatalf("%v does not use state", paramsJob)
-	}
-	stm, conf, _ := s.primeAgent(c, version.Current, job)
-	a := s.newAgent(c, stm)
-	defer a.Stop()
-
-	agentStates := make(chan *state.State, 1000)
-	undo := sendOpenedStates(agentStates)
-	defer undo()
-
-	done := make(chan error)
-	go func() {
-		done <- a.Run(nil)
-	}()
-
-	select {
-	case agentState := <-agentStates:
-		c.Assert(agentState, gc.NotNil)
-		test(conf, agentState)
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("state not opened")
 	}
 
 	s.waitStopped(c, job, a, done)
