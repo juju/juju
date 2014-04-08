@@ -177,7 +177,7 @@ func selectPreferredStateServerAddress(addrs []instance.Address) (instance.Addre
 		return instance.Address{}, fmt.Errorf("no state server addresses")
 	}
 	newAddrs := append(byAddressPreference{}, addrs...)
-	sort.Stable(newAddrs)
+	sort.Sort(newAddrs)
 	return newAddrs[0], nil
 }
 
