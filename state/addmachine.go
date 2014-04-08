@@ -73,6 +73,32 @@ type MachineTemplate struct {
 	// principals holds the principal units that will
 	// associated with the machine.
 	principals []string
+
+	// placement holds the Placement information that will be associated
+	// with the machine.
+	placement *instance.Placement
+}
+
+// AddMachineWithPlacement creates a new machine with specified placement.
+// If placement is nil, then the machine will be created as a top-level
+// machine.
+func (st *State) AddMachineWithPlacement(template MachineTemplate, placement *instance.Placement) (*Machine, error) {
+	if placement == nil {
+		return st.AddOneMachine(template)
+	}
+	if placement.Scope == instance.MachineScope {
+		// It doesn't make sense to attempt to add a machine to an existing
+		// machine; MachineScope exists for adding units to an existing machine.
+		return nil, fmt.Errorf("machine-id cannot be specified when adding machines")
+	}
+	if ctype, err := instance.ParseContainerType(placement.Scope); err == nil {
+		if placement.Value == "" {
+			return st.AddMachineInsideNewMachine(template, template, ctype)
+		}
+		return st.AddMachineInsideMachine(template, placement.Value, ctype)
+	}
+	template.placement = placement
+	return st.AddOneMachine(template)
 }
 
 // AddMachineInsideNewMachine creates a new machine within a container
@@ -237,6 +263,11 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 	if template.InstanceId == "" {
 		if err := st.precheckInstance(template.Series, template.Constraints); err != nil {
 			return nil, nil, err
+		}
+		if template.placement != nil {
+			if err := st.validatePlacement(template.placement); err != nil {
+				return nil, nil, err
+			}
 		}
 	}
 	seq, err := st.sequence("machine")
@@ -404,6 +435,7 @@ func machineDocForTemplate(template MachineTemplate, id string) *machineDoc {
 		Nonce:      template.Nonce,
 		Addresses:  instanceAddressesToAddresses(template.Addresses),
 		NoVote:     template.NoVote,
+		Placement:  template.placement,
 	}
 }
 

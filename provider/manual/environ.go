@@ -101,6 +101,11 @@ func (e *manualEnviron) SupportNetworks() bool {
 	return false
 }
 
+// ValidatePlacement is specified in the state.PlacementValidator interface.
+func (*manualEnviron) ValidatePlacement(p *instance.Placement) error {
+	return fmt.Errorf("unknown placement directive: %s", p)
+}
+
 func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
 	// Set "use-sshstorage" to false, so agents know not to use sshstorage.
 	cfg, err := e.Config().Apply(map[string]interface{}{"use-sshstorage": false})

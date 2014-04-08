@@ -542,6 +542,17 @@ func (*environ) SupportNetworks() bool {
 	return true
 }
 
+// ValidatePlacement is specified in the state.PlacementValidator interface.
+func (*environ) ValidatePlacement(p *instance.Placement) error {
+	switch p.Scope {
+	case "valid":
+		return nil
+	case "invalid":
+		return fmt.Errorf("invalid: %s", p.Value)
+	}
+	return fmt.Errorf("unknown placement directive: %s", p)
+}
+
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
 func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 	return []simplestreams.DataSource{

@@ -283,6 +283,25 @@ func (p *ProvisionerAPI) Series(args params.Entities) (params.StringResults, err
 	return result, nil
 }
 
+// Placement returns the placement information for each given machine entity.
+func (p *ProvisionerAPI) Placement(args params.Entities) (params.PlacementResults, error) {
+	result := params.PlacementResults{
+		Results: make([]params.PlacementResult, len(args.Entities)),
+	}
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		return result, err
+	}
+	for i, entity := range args.Entities {
+		machine, err := p.getMachine(canAccess, entity.Tag)
+		if err == nil {
+			result.Results[i].Result = machine.Placement()
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
 // DistributionGroup returns, for each given machine entity,
 // a slice of instance.Ids that belong to the same distribution
 // group as that machine. This information may be used to

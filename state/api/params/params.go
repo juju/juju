@@ -106,6 +106,10 @@ type AddMachineParams struct {
 	// constraints and jobs.
 	ContainerType instance.ContainerType
 
+	// If Placement is non-nil, it contains a placement directive
+	// that will be used to decide how to instantiate the machine.
+	Placement *instance.Placement
+
 	// If InstanceId is non-empty, it will be associated with
 	// the new machine along with the given nonce,
 	// hardware characteristics and addresses.
@@ -696,4 +700,15 @@ type EnsureAvailability struct {
 	// Series is the series to associate with new state server machines.
 	// If this is empty, then the environment's default series is used.
 	Series string
+}
+
+// PlacementResult contains the result of the Placement provisioner API call.
+type PlacementResult struct {
+	Error  *Error
+	Result *instance.Placement
+}
+
+// PlacementResults is the bulk form of PlacementResult.
+type PlacementResults struct {
+	Results []PlacementResult
 }

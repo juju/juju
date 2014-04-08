@@ -375,3 +375,23 @@ func (m *Machine) SetSupportedContainers(containerTypes ...instance.ContainerTyp
 func (m *Machine) SupportsNoContainers() error {
 	return m.SetSupportedContainers([]instance.ContainerType{}...)
 }
+
+// Placement returns the machine's placement information.
+func (m *Machine) Placement() (*instance.Placement, error) {
+	var results params.PlacementResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: m.tag}},
+	}
+	err := m.st.caller.Call("Provisioner", "", "Placement", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return result.Result, nil
+}

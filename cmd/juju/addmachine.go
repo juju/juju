@@ -5,7 +5,6 @@ package main
 
 import (
 	"fmt"
-	"strings"
 
 	"launchpad.net/gnuflag"
 
@@ -15,7 +14,6 @@ import (
 	"launchpad.net/juju-core/environs/manual"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
 )
 
@@ -60,10 +58,9 @@ type AddMachineCommand struct {
 	// If specified, use this series, else use the environment default-series
 	Series string
 	// If specified, these constraints are merged with those already in the environment.
-	Constraints   constraints.Value
-	MachineId     string
-	ContainerType instance.ContainerType
-	SSHHost       string
+	Constraints constraints.Value
+	// Placement is passed verbatim to the API, to be parsed and evaluated server-side.
+	Placement *instance.Placement
 }
 
 func (c *AddMachineCommand) Info() *cmd.Info {
@@ -89,33 +86,23 @@ func (c *AddMachineCommand) Init(args []string) error {
 	if c.Constraints.Container != nil {
 		return fmt.Errorf("container constraint %q not allowed when adding a machine", *c.Constraints.Container)
 	}
-	containerSpec, err := cmd.ZeroOrOneArgs(args)
+	placement, err := cmd.ZeroOrOneArgs(args)
 	if err != nil {
 		return err
 	}
-	if containerSpec == "" {
-		return nil
+	if c.Placement, err = instance.ParsePlacement(placement); err != nil {
+		return err
 	}
-	if strings.HasPrefix(containerSpec, sshHostPrefix) {
-		c.SSHHost = containerSpec[len(sshHostPrefix):]
-	} else {
-		// container arg can either be 'type:machine' or 'type'
-		if c.ContainerType, err = instance.ParseContainerType(containerSpec); err != nil {
-			if names.IsMachine(containerSpec) || !cmd.IsMachineOrNewContainer(containerSpec) {
-				return fmt.Errorf("malformed container argument %q", containerSpec)
-			}
-			sep := strings.Index(containerSpec, ":")
-			c.MachineId = containerSpec[sep+1:]
-			c.ContainerType, err = instance.ParseContainerType(containerSpec[:sep])
-		}
+	if c.Placement != nil && c.Placement.Scope == "" {
+		c.Placement.Scope = c.EnvironName()
 	}
-	return err
+	return nil
 }
 
 func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
-	if c.SSHHost != "" {
+	if c.Placement != nil && c.Placement.Scope == "ssh" {
 		args := manual.ProvisionMachineArgs{
-			Host:    c.SSHHost,
+			Host:    c.Placement.Value,
 			EnvName: c.EnvName,
 			Stdin:   ctx.Stdin,
 			Stdout:  ctx.Stdout,
@@ -132,11 +119,10 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 	defer client.Close()
 
 	machineParams := params.AddMachineParams{
-		ParentId:      c.MachineId,
-		ContainerType: c.ContainerType,
-		Series:        c.Series,
-		Constraints:   c.Constraints,
-		Jobs:          []params.MachineJob{params.JobHostUnits},
+		Placement:   c.Placement,
+		Series:      c.Series,
+		Constraints: c.Constraints,
+		Jobs:        []params.MachineJob{params.JobHostUnits},
 	}
 	results, err := client.AddMachines([]params.AddMachineParams{machineParams})
 	if err != nil {
@@ -148,10 +134,7 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 		return machineInfo.Error
 	}
 	machineId := machineInfo.Machine
-	if c.ContainerType == "" {
-		logger.Infof("created machine %v", machineId)
-	} else {
-		logger.Infof("created %q container on machine %v", c.ContainerType, machineId)
-	}
+	// TODO(axw) figure out how to convey whether it's a container?
+	ctx.Infof("created machine %v", machineId)
 	return nil
 }

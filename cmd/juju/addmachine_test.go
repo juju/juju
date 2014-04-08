@@ -107,13 +107,17 @@ func (s *AddMachineSuite) TestAddUnsupportedContainerToMachine(c *gc.C) {
 
 func (s *AddMachineSuite) TestAddMachineErrors(c *gc.C) {
 	err := runAddMachine(c, ":lxc")
-	c.Assert(err, gc.ErrorMatches, `malformed container argument ":lxc"`)
+	c.Check(err, gc.ErrorMatches, `cannot add a new machine: unknown placement directive: dummyenv:lxc`)
 	err = runAddMachine(c, "lxc:")
-	c.Assert(err, gc.ErrorMatches, `malformed container argument "lxc:"`)
+	c.Check(err, gc.ErrorMatches, `invalid value "" for "lxc" scope: expected machine-id`)
 	err = runAddMachine(c, "2")
-	c.Assert(err, gc.ErrorMatches, `malformed container argument "2"`)
+	c.Check(err, gc.ErrorMatches, `machine-id cannot be specified when adding machines`)
 	err = runAddMachine(c, "foo")
-	c.Assert(err, gc.ErrorMatches, `malformed container argument "foo"`)
+	c.Check(err, gc.ErrorMatches, `cannot add a new machine: unknown placement directive: dummyenv:foo`)
+	err = runAddMachine(c, "foo:bar")
+	c.Check(err, gc.ErrorMatches, `cannot add a new machine: unknown placement directive: foo:bar`)
+	err = runAddMachine(c, "invalid:woop")
+	c.Check(err, gc.ErrorMatches, `cannot add a new machine: invalid: woop`)
 	err = runAddMachine(c, "lxc", "--constraints", "container=lxc")
-	c.Assert(err, gc.ErrorMatches, `container constraint "lxc" not allowed when adding a machine`)
+	c.Check(err, gc.ErrorMatches, `container constraint "lxc" not allowed when adding a machine`)
 }

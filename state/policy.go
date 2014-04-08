@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 )
 
 // Policy is an interface provided to State that may
@@ -32,6 +33,10 @@ type Policy interface {
 	// EnvironCapability takes a *config.Config and returns
 	// a (possibly nil) EnvironCapability or an error.
 	EnvironCapability(*config.Config) (EnvironCapability, error)
+
+	// PlacementValidator takes a *config.Config and returns
+	// a (possibly nil) PlacementValidator or an error.
+	PlacementValidator(*config.Config) (PlacementValidator, error)
 }
 
 // Prechecker is a policy interface that is provided to State
@@ -70,6 +75,12 @@ type EnvironCapability interface {
 	// does not support unit placement, then machines may not be created
 	// without units, and units cannot be placed explcitly.
 	SupportsUnitPlacement() error
+}
+
+// PlacementValidator is a policy interface that is provided to State
+// to check validity of placement directives.
+type PlacementValidator interface {
+	ValidatePlacement(placement *instance.Placement) error
 }
 
 // precheckInstance calls the state's assigned policy, if non-nil, to obtain
@@ -134,4 +145,24 @@ func (st *State) supportsUnitPlacement() error {
 		return fmt.Errorf("policy returned nil EnvironCapability without an error")
 	}
 	return capability.SupportsUnitPlacement()
+}
+
+func (st *State) validatePlacement(p *instance.Placement) error {
+	if st.policy == nil {
+		return nil
+	}
+	cfg, err := st.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	validator, err := st.policy.PlacementValidator(cfg)
+	if errors.IsNotImplementedError(err) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	if validator == nil {
+		return fmt.Errorf("policy returned nil PlacementValidator without an error")
+	}
+	return validator.ValidatePlacement(p)
 }

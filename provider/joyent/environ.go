@@ -4,6 +4,7 @@
 package joyent
 
 import (
+	"fmt"
 	"sync"
 
 	"launchpad.net/juju-core/constraints"
@@ -12,6 +13,7 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -99,6 +101,11 @@ func (env *joyentEnviron) SupportedArchitectures() ([]string, error) {
 // SupportNetworks is specified on the EnvironCapability interface.
 func (e *joyentEnviron) SupportNetworks() bool {
 	return false
+}
+
+// ValidatePlacement is specified in the state.PlacementValidator interface.
+func (*joyentEnviron) ValidatePlacement(p *instance.Placement) error {
+	return fmt.Errorf("unknown placement directive: %s", p)
 }
 
 func (env *joyentEnviron) SetConfig(cfg *config.Config) error {

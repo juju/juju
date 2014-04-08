@@ -293,6 +293,44 @@ func (s *provisionerSuite) TestDistributionGroupMachineNotFound(c *gc.C) {
 	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 }
 
+func (s *provisionerSuite) TestPlacement(c *gc.C) {
+	template := state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}
+	placement := instance.MustParsePlacement("valid:b")
+	placementMachine, err := s.State.AddMachineWithPlacement(template, placement)
+	c.Assert(err, gc.IsNil)
+	c.Assert(placementMachine.Placement(), gc.DeepEquals, placement)
+	apiMachine, err := s.provisioner.Machine(placementMachine.Tag())
+	c.Assert(err, gc.IsNil)
+	apiPlacement, err := apiMachine.Placement()
+	c.Assert(err, gc.IsNil)
+	c.Assert(apiPlacement, gc.DeepEquals, placement)
+}
+
+func (s *provisionerSuite) TestNoPlacement(c *gc.C) {
+	apiMachine, err := s.provisioner.Machine(s.machine.Tag())
+	c.Assert(err, gc.IsNil)
+	placement, err := apiMachine.Placement()
+	c.Assert(placement, gc.IsNil)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *provisionerSuite) TestPlacementMachineNotFound(c *gc.C) {
+	stateMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	apiMachine, err := s.provisioner.Machine(stateMachine.Tag())
+	c.Assert(err, gc.IsNil)
+	err = apiMachine.EnsureDead()
+	c.Assert(err, gc.IsNil)
+	err = apiMachine.Remove()
+	c.Assert(err, gc.IsNil)
+	_, err = apiMachine.Placement()
+	c.Assert(err, gc.ErrorMatches, "machine 1 not found")
+	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
+}
+
 func (s *provisionerSuite) TestConstraints(c *gc.C) {
 	// Create a fresh machine with some constraints.
 	template := state.MachineTemplate{

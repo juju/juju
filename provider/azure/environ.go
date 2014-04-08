@@ -1173,3 +1173,8 @@ func (env *azureEnviron) SupportsUnitPlacement() error {
 	}
 	return nil
 }
+
+// ValidatePlacement is specified in the state.PlacementValidator interface.
+func (env *azureEnviron) ValidatePlacement(p *instance.Placement) error {
+	return fmt.Errorf("unknown placement directive: %s", p)
+}

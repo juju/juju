@@ -583,23 +583,35 @@ func (c *Client) InjectMachines(args params.AddMachines) (params.AddMachinesResu
 }
 
 func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error) {
+	var err error
+	if p.ParentId != "" && p.ContainerType == "" {
+		return nil, fmt.Errorf("parent machine specified without container type")
+	}
+	placement := p.Placement
+	if placement != nil {
+		if p.ContainerType != "" {
+			return nil, fmt.Errorf("ContainerType cannot be specified with Placement")
+		}
+	} else if p.ContainerType != "" {
+		placement = &instance.Placement{Scope: string(p.ContainerType), Value: p.ParentId}
+	}
+
+	if placement != nil {
+		// Guard against dubious client by making sure that
+		// the following attributes can only be set when we're
+		// not using placement.
+		p.InstanceId = ""
+		p.Nonce = ""
+		p.HardwareCharacteristics = instance.HardwareCharacteristics{}
+		p.Addrs = nil
+	}
+
 	if p.Series == "" {
 		conf, err := c.api.state.EnvironConfig()
 		if err != nil {
 			return nil, err
 		}
 		p.Series = config.PreferredSeries(conf)
-	}
-	if p.ContainerType != "" {
-		// Guard against dubious client by making sure that
-		// the following attributes can only be set when we're
-		// not making a new container.
-		p.InstanceId = ""
-		p.Nonce = ""
-		p.HardwareCharacteristics = instance.HardwareCharacteristics{}
-		p.Addrs = nil
-	} else if p.ParentId != "" {
-		return nil, fmt.Errorf("parent machine specified without container type")
 	}
 
 	jobs, err := stateJobs(p.Jobs)
@@ -615,13 +627,7 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 		HardwareCharacteristics: p.HardwareCharacteristics,
 		Addresses:               p.Addrs,
 	}
-	if p.ContainerType == "" {
-		return c.api.state.AddOneMachine(template)
-	}
-	if p.ParentId != "" {
-		return c.api.state.AddMachineInsideMachine(template, p.ParentId, p.ContainerType)
-	}
-	return c.api.state.AddMachineInsideNewMachine(template, template, p.ContainerType)
+	return c.api.state.AddMachineWithPlacement(template, placement)
 }
 
 func stateJobs(jobs []params.MachineJob) ([]state.MachineJob, error) {

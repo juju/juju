@@ -86,6 +86,11 @@ func (*localEnviron) SupportNetworks() bool {
 	return false
 }
 
+// ValidatePlacement is specified in the state.PlacementValidator interface.
+func (*localEnviron) ValidatePlacement(p *instance.Placement) error {
+	return fmt.Errorf("unknown placement directive: %s", p)
+}
+
 // Name is specified in the Environ interface.
 func (env *localEnviron) Name() string {
 	return env.name

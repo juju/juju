@@ -522,6 +522,11 @@ func (e *environ) SupportNetworks() bool {
 	return false
 }
 
+// ValidatePlacement is specified in the state.PlacementValidator interface.
+func (*environ) ValidatePlacement(p *instance.Placement) error {
+	return fmt.Errorf("unknown placement directive: %s", p)
+}
+
 func (e *environ) Storage() storage.Storage {
 	e.ecfgMutex.Lock()
 	stor := e.storageUnlocked
