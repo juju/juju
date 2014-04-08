@@ -22,6 +22,8 @@ const (
 	maxFiles = 65000
 	maxProcs = 20000
 
+	serviceName = "juju-db"
+
 	// SharedSecretFile is the name of the Mongo shared secret file
 	// located within the Juju data directory.
 	SharedSecretFile = "shared-secret"
@@ -30,10 +32,9 @@ const (
 var (
 	logger = loggo.GetLogger("juju.agent.mongo")
 
-	oldMongoServiceName = "juju-db"
-
 	// JujuMongodPath holds the default path to the juju-specific mongod.
 	JujuMongodPath = "/usr/lib/juju/bin/mongod"
+
 	// MongodbServerPath holds the default path to the generic mongod.
 	MongodbServerPath = "/usr/bin/mongod"
 )
@@ -124,26 +125,26 @@ func MongodPath() (string, error) {
 	return path, nil
 }
 
+// RemoveService removes the mongoDB upstart service from this machine.
+func RemoveService(namespace string) error {
+	return upstart.NewService(ServiceName(namespace)).StopAndRemove()
+}
+
 // EnsureMongoServer ensures that the correct mongo upstart script is installed
 // and running.
 //
 // This method will remove old versions of the mongo upstart script as necessary
 // before installing the new version.
-func EnsureMongoServer(dir string, port int) error {
-	// NOTE: ensure that the right package is installed?
-	name := makeServiceName(mongoScriptVersion)
+//
+// The namespace is a unique identifier to prevent multiple instances of mongo
+// on this machine from colliding. This should be empty unless using
+// the local provider.
+func EnsureMongoServer(dir string, port int, namespace string) error {
 	// TODO: get the series from somewhere, non trusty values return
 	// the existing default path.
 	mongodPath := MongodPathForSeries("some-series")
-	service, err := MongoUpstartService(name, mongodPath, dir, port)
+	service, err := MongoUpstartService(namespace, mongodPath, dir, port)
 	if err != nil {
-		return err
-	}
-	if service.Installed() {
-		return nil
-	}
-
-	if err := removeOldMongoServices(mongoScriptVersion); err != nil {
 		return err
 	}
 
@@ -151,10 +152,16 @@ func EnsureMongoServer(dir string, port int) error {
 		return err
 	}
 
-	if err := service.Install(); err != nil {
-		return fmt.Errorf("failed to install mongo service %q: %v", service.Name, err)
+	return service.Install()
+}
+
+// ServiceName returns the name of the upstart service config for mongo using
+// the given namespace.
+func ServiceName(namespace string) string {
+	if namespace != "" {
+		return fmt.Sprintf("%s-%s", serviceName, namespace)
 	}
-	return service.Start()
+	return serviceName
 }
 
 func makeJournalDirs(dir string) error {
@@ -186,39 +193,12 @@ func makeJournalDirs(dir string) error {
 	return nil
 }
 
-// removeOldMongoServices looks for any old juju mongo upstart scripts and
-// removes them.
-func removeOldMongoServices(curVersion int) error {
-	old := upstart.NewService(oldMongoServiceName)
-	if err := old.StopAndRemove(); err != nil {
-		logger.Errorf("Failed to remove old mongo upstart service %q: %v", old.Name, err)
-		return err
-	}
-
-	// the new formatting for the script name started at version 2
-	for x := 2; x < curVersion; x++ {
-		old := upstart.NewService(makeServiceName(x))
-		if err := old.StopAndRemove(); err != nil {
-			logger.Errorf("Failed to remove old mongo upstart service %q: %v", old.Name, err)
-			return err
-		}
-	}
-	return nil
-}
-
-func makeServiceName(version int) string {
-	return fmt.Sprintf("juju-db-v%d", version)
-}
-
-// mongoScriptVersion keeps track of changes to the mongo upstart script.
-// Update this version when you update the script that gets installed from
-// MongoUpstartService.
-const mongoScriptVersion = 2
-
 // MongoUpstartService returns the upstart config for the mongo state service.
 //
 // This method assumes there exist "server.pem" and "shared_secret" keyfiles in dataDir.
-func MongoUpstartService(name, mongodExec, dataDir string, port int) (*upstart.Conf, error) {
+func MongoUpstartService(namespace, mongodExec, dataDir string, port int) (*upstart.Conf, error) {
+	// NOTE: ensure that the right package is installed?
+	name := ServiceName(namespace)
 
 	sslKeyFile := path.Join(dataDir, "server.pem")
 	// TODO(Nate): uncomment when we commit HA stuff
