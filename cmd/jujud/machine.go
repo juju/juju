@@ -62,11 +62,24 @@ var newRunner = func(isFatal func(error) bool, moreImportant func(e0, e1 error) 
 
 const bootstrapMachineId = "0"
 
-var retryDelay = 3 * time.Second
+// eitherState can be either a *state.State or a *api.State.
+type eitherState interface{}
 
-var jujuRun = "/usr/local/bin/juju-run"
+var (
+	retryDelay = 3 * time.Second
 
-var useMultipleCPUs = utils.UseMultipleCPUs
+	jujuRun = "/usr/local/bin/juju-run"
+
+	useMultipleCPUs = utils.UseMultipleCPUs
+
+	// reportOpenedAPI is exposed for tests to know when
+	// the State has been successfully opened.
+	reportOpenedState = func(eitherState) {}
+
+	// reportOpenedAPI is exposed for tests to know when
+	// the API has been successfully opened.
+	reportOpenedAPI = func(eitherState) {}
+)
 
 var NewSingularRunner = singular.New
 
@@ -104,7 +117,6 @@ type MachineAgent struct {
 	MachineId       string
 	runner          worker.Runner
 	upgradeComplete chan struct{}
-	stateOpened     chan struct{}
 	workersStarted  chan struct{}
 	st              *state.State
 }
@@ -132,7 +144,6 @@ func (a *MachineAgent) Init(args []string) error {
 	}
 	a.runner = newRunner(isFatal, moreImportant)
 	a.upgradeComplete = make(chan struct{})
-	a.stateOpened = make(chan struct{})
 	a.workersStarted = make(chan struct{})
 	return nil
 }
@@ -242,7 +253,7 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 		return upgrader.NewUpgrader(st.Upgrader(), agentConfig), nil
 	})
 	runner.StartWorker("upgrade-steps", func() (worker.Worker, error) {
-		return a.upgradeWorker(st, entity.Jobs()), nil
+		return a.upgradeWorker(st, entity.Jobs(), agentConfig), nil
 	})
 
 	// All other workers must wait for the upgrade steps to complete
@@ -376,8 +387,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	if err != nil {
 		return nil, err
 	}
-	a.st = st
-	close(a.stateOpened)
 	reportOpenedState(st)
 
 	singularStateConn := singularStateConn{st, m}
@@ -517,7 +526,11 @@ func (a *MachineAgent) upgradeWaiterWorker(start func() (worker.Worker, error)) 
 }
 
 // upgradeWorker runs the required upgrade operations to upgrade to the current Juju version.
-func (a *MachineAgent) upgradeWorker(apiState *api.State, jobs []params.MachineJob) worker.Worker {
+func (a *MachineAgent) upgradeWorker(
+	apiState *api.State,
+	jobs []params.MachineJob,
+	agentConfig agent.Config,
+) worker.Worker {
 	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
 		select {
 		case <-a.upgradeComplete:
@@ -528,17 +541,25 @@ func (a *MachineAgent) upgradeWorker(apiState *api.State, jobs []params.MachineJ
 		default:
 		}
 		// If the machine agent is a state server, wait until state is opened.
-		var st *state.State
+		needsState := false
 		for _, job := range jobs {
 			if job == params.JobManageEnviron {
-				select {
-				case <-a.stateOpened:
-				}
-				st = a.st
-				break
+				needsState = true
 			}
 		}
-		err := a.runUpgrades(st, apiState, jobs)
+		// We need a *state.State for upgrades. We open it independently
+		// of StateWorker, because we have no guarantees about when
+		// and how often StateWorker might run.
+		var st *state.State
+		if needsState {
+			var err error
+			st, err = state.Open(agentConfig.StateInfo(), state.DialOpts{}, environs.NewStatePolicy())
+			if err != nil {
+				return err
+			}
+			defer st.Close()
+		}
+		err := a.runUpgrades(st, apiState, jobs, agentConfig)
 		if err != nil {
 			return err
 		}
@@ -550,8 +571,12 @@ func (a *MachineAgent) upgradeWorker(apiState *api.State, jobs []params.MachineJ
 }
 
 // runUpgrades runs the upgrade operations for each job type and updates the updatedToVersion on success.
-func (a *MachineAgent) runUpgrades(st *state.State, apiState *api.State, jobs []params.MachineJob) error {
-	agentConfig := a.CurrentConfig()
+func (a *MachineAgent) runUpgrades(
+	st *state.State,
+	apiState *api.State,
+	jobs []params.MachineJob,
+	agentConfig agent.Config,
+) error {
 	from := version.Current
 	from.Number = agentConfig.UpgradedToVersion()
 	if from == version.Current {
@@ -627,15 +652,10 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 	if err := os.Remove(jujuRun); err != nil && !os.IsNotExist(err) {
 		errors = append(errors, err)
 	}
-	// The machine agent may terminate without knowing its jobs,
-	// for example if the machine's entry in state was removed.
-	// Thus, we do not rely on jobs here, and instead just check
-	// if the upstart config exists.
-	mongoServiceName := agentConfig.Value(agent.MongoServiceName)
-	if mongoServiceName != "" {
-		if err := upstart.NewService(mongoServiceName).StopAndRemove(); err != nil {
-			errors = append(errors, fmt.Errorf("cannot stop/remove service %q: %v", mongoServiceName, err))
-		}
+
+	namespace := agentConfig.Value(agent.Namespace)
+	if err := mongo.RemoveService(namespace); err != nil {
+		errors = append(errors, fmt.Errorf("cannot stop/remove mongo service with namespace %q: %v", namespace, err))
 	}
 	if err := os.RemoveAll(agentConfig.DataDir()); err != nil {
 		errors = append(errors, err)
@@ -644,37 +664,4 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 		return nil
 	}
 	return fmt.Errorf("uninstall failed: %v", errors)
-}
-
-// Below pieces are used for testing,to give us access to the *State opened
-// by the agent, and allow us to trigger syncs without waiting 5s for them
-// to happen automatically.
-
-var stateReporter chan<- *state.State
-
-func reportOpenedState(st *state.State) {
-	select {
-	case stateReporter <- st:
-	default:
-	}
-}
-
-func sendOpenedStates(dst chan<- *state.State) (undo func()) {
-	var original chan<- *state.State
-	original, stateReporter = stateReporter, dst
-	return func() { stateReporter = original }
-}
-
-var apiReporter chan<- *api.State
-
-func reportOpenedAPI(st *api.State) {
-	select {
-	case apiReporter <- st:
-	default:
-	}
-}
-func sendOpenedAPIs(dst chan<- *api.State) (undo func()) {
-	var original chan<- *api.State
-	original, apiReporter = apiReporter, dst
-	return func() { apiReporter = original }
 }

@@ -81,11 +81,11 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 	startInstance := func(
 		cons constraints.Value, _, _ []string, possibleTools tools.List, mcfg *cloudinit.MachineConfig,
 	) (
-		instance.Instance, *instance.HardwareCharacteristics, error,
+		instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error,
 	) {
 		c.Assert(cons, gc.DeepEquals, checkCons)
 		c.Assert(mcfg, gc.DeepEquals, environs.NewBootstrapMachineConfig(mcfg.SystemPrivateSSHKey))
-		return nil, nil, fmt.Errorf("meh, not started")
+		return nil, nil, nil, fmt.Errorf("meh, not started")
 	}
 
 	env := &mockEnviron{
@@ -106,10 +106,10 @@ func (s *BootstrapSuite) TestCannotRecordStartedInstance(c *gc.C) {
 	startInstance := func(
 		_ constraints.Value, _, _ []string, _ tools.List, _ *cloudinit.MachineConfig,
 	) (
-		instance.Instance, *instance.HardwareCharacteristics, error,
+		instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error,
 	) {
 		stor.putErr = fmt.Errorf("suddenly a wild blah")
-		return &mockInstance{id: "i-blah"}, nil, nil
+		return &mockInstance{id: "i-blah"}, nil, nil, nil
 	}
 
 	var stopped []instance.Instance
@@ -139,10 +139,10 @@ func (s *BootstrapSuite) TestCannotRecordThenCannotStop(c *gc.C) {
 	startInstance := func(
 		_ constraints.Value, _, _ []string, _ tools.List, _ *cloudinit.MachineConfig,
 	) (
-		instance.Instance, *instance.HardwareCharacteristics, error,
+		instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error,
 	) {
 		stor.putErr = fmt.Errorf("suddenly a wild blah")
-		return &mockInstance{id: "i-blah"}, nil, nil
+		return &mockInstance{id: "i-blah"}, nil, nil, nil
 	}
 
 	var stopped []instance.Instance
@@ -180,9 +180,9 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	startInstance := func(
 		_ constraints.Value, _, _ []string, _ tools.List, mcfg *cloudinit.MachineConfig,
 	) (
-		instance.Instance, *instance.HardwareCharacteristics, error,
+		instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error,
 	) {
-		return &mockInstance{id: checkInstanceId}, &checkHardware, nil
+		return &mockInstance{id: checkInstanceId}, &checkHardware, nil, nil
 	}
 	var mocksConfig = minimalConfig(c)
 	var getConfigCalled int

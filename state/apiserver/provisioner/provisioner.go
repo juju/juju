@@ -407,8 +407,8 @@ func (p *ProvisionerAPI) Constraints(args params.Entities) (params.ConstraintsRe
 	return result, nil
 }
 
-// Networks returns the networks for each given machine entity.
-func (p *ProvisionerAPI) Networks(args params.Entities) (params.NetworksResults, error) {
+// RequestedNetworks returns the requested networks for each given machine entity.
+func (p *ProvisionerAPI) RequestedNetworks(args params.Entities) (params.NetworksResults, error) {
 	result := params.NetworksResults{
 		Results: make([]params.NetworkResult, len(args.Entities)),
 	}
@@ -421,11 +421,47 @@ func (p *ProvisionerAPI) Networks(args params.Entities) (params.NetworksResults,
 		if err == nil {
 			var includeNetworks []string
 			var excludeNetworks []string
-			includeNetworks, excludeNetworks, err = machine.Networks()
+			includeNetworks, excludeNetworks, err = machine.RequestedNetworks()
 			if err == nil {
 				result.Results[i].IncludeNetworks = includeNetworks
 				result.Results[i].ExcludeNetworks = excludeNetworks
 			}
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// AddNetwork creates one or more new networks with the given parameters.
+// Only the environment manager can add networks.
+func (p *ProvisionerAPI) AddNetwork(args params.AddNetworkParams) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Networks)),
+	}
+	if !p.authorizer.AuthEnvironManager() {
+		return result, common.ErrPerm
+	}
+	for i, arg := range args.Networks {
+		_, err := p.st.AddNetwork(arg.Name, arg.CIDR, arg.VLANTag)
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// AddNetworkInterface creates one or more new network interfaces with
+// the given parameters.
+func (p *ProvisionerAPI) AddNetworkInterface(args params.AddNetworkInterfaceParams) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Interfaces)),
+	}
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		return result, err
+	}
+	for i, arg := range args.Interfaces {
+		machine, err := p.getMachine(canAccess, arg.MachineTag)
+		if err == nil {
+			_, err = machine.AddNetworkInterface(arg.MACAddress, arg.InterfaceName, arg.NetworkName)
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}

@@ -115,29 +115,6 @@ func (u *UniterAPI) PublicAddress(args params.Entities) (params.StringResults, e
 	return result, nil
 }
 
-// SetPublicAddress sets the public address of each of the given units.
-func (u *UniterAPI) SetPublicAddress(args params.SetEntityAddresses) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Entities)),
-	}
-	canAccess, err := u.accessUnit()
-	if err != nil {
-		return params.ErrorResults{}, err
-	}
-	for i, entity := range args.Entities {
-		err := common.ErrPerm
-		if canAccess(entity.Tag) {
-			var unit *state.Unit
-			unit, err = u.getUnit(entity.Tag)
-			if err == nil {
-				err = unit.SetPublicAddress(entity.Address)
-			}
-		}
-		result.Results[i].Error = common.ServerError(err)
-	}
-	return result, nil
-}
-
 // PrivateAddress returns the private address for each given unit, if set.
 func (u *UniterAPI) PrivateAddress(args params.Entities) (params.StringResults, error) {
 	result := params.StringResults{
@@ -159,29 +136,6 @@ func (u *UniterAPI) PrivateAddress(args params.Entities) (params.StringResults, 
 				} else {
 					err = common.NoAddressSetError(entity.Tag, "private")
 				}
-			}
-		}
-		result.Results[i].Error = common.ServerError(err)
-	}
-	return result, nil
-}
-
-// SetPrivateAddress sets the private address of each of the given units.
-func (u *UniterAPI) SetPrivateAddress(args params.SetEntityAddresses) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Entities)),
-	}
-	canAccess, err := u.accessUnit()
-	if err != nil {
-		return params.ErrorResults{}, err
-	}
-	for i, entity := range args.Entities {
-		err := common.ErrPerm
-		if canAccess(entity.Tag) {
-			var unit *state.Unit
-			unit, err = u.getUnit(entity.Tag)
-			if err == nil {
-				err = unit.SetPrivateAddress(entity.Address)
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)

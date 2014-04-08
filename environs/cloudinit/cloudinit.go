@@ -144,9 +144,6 @@ type MachineConfig struct {
 	// MachineAgentServiceName is the Upstart service name for the Juju machine agent.
 	MachineAgentServiceName string
 
-	// MongoServiceName is the Upstart service name for the Mongo database.
-	MongoServiceName string
-
 	// ProxySettings define normal http, https and ftp proxies.
 	ProxySettings osenv.ProxySettings
 
@@ -456,9 +453,6 @@ func (cfg *MachineConfig) addAgentInfo(c *cloudinit.Config, tag string) (agent.C
 		return nil, err
 	}
 	acfg.SetValue(agent.AgentServiceName, cfg.MachineAgentServiceName)
-	if cfg.Bootstrap {
-		acfg.SetValue(agent.MongoServiceName, cfg.MongoServiceName)
-	}
 	cmds, err := acfg.WriteCommands()
 	if err != nil {
 		return nil, errgo.Annotate(err, "failed to write commands")
@@ -497,9 +491,9 @@ func (cfg *MachineConfig) addMongoToBoot(c *cloudinit.Config) error {
 		"dd bs=1M count=1 if=/dev/zero of="+dbDir+"/journal/prealloc.2",
 	)
 
-	name := cfg.MongoServiceName
+	namespace := cfg.AgentEnvironment[agent.Namespace]
 	mongodExec := mongo.MongodPathForSeries(cfg.Tools.Version.Series)
-	conf, err := mongo.MongoUpstartService(name, mongodExec, cfg.DataDir, cfg.StateServingInfo.StatePort)
+	conf, err := mongo.MongoUpstartService(namespace, mongodExec, cfg.DataDir, cfg.StateServingInfo.StatePort)
 	if err != nil {
 		return err
 	}
@@ -507,6 +501,7 @@ func (cfg *MachineConfig) addMongoToBoot(c *cloudinit.Config) error {
 	if err != nil {
 		return errgo.Annotate(err, "cannot make cloud-init upstart script for the state database")
 	}
+	name := mongo.ServiceName(namespace)
 	c.AddRunCmd(cloudinit.LogProgressCmd("Starting MongoDB server (%s)", name))
 	c.AddScripts(cmds...)
 	return nil
@@ -679,9 +674,6 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		return fmt.Errorf("missing machine agent service name")
 	}
 	if cfg.Bootstrap {
-		if cfg.MongoServiceName == "" {
-			return fmt.Errorf("missing mongo service name")
-		}
 		if cfg.Config == nil {
 			return fmt.Errorf("missing environment configuration")
 		}
