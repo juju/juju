@@ -69,7 +69,7 @@ var (
 	useMultipleCPUs          = utils.UseMultipleCPUs
 	ensureMongoServer        = mongo.EnsureMongoServer
 	maybeInitiateMongoServer = mongo.MaybeInitiateMongoServer
-	
+
 	// reportOpenedAPI is exposed for tests to know when
 	// the State has been successfully opened.
 	reportOpenedState = func(eitherState) {}
