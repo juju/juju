@@ -10,12 +10,18 @@ import (
 	"launchpad.net/juju-core/environs"
 )
 
-// InstanceTypeUnsupported logs a warning if cons contains an instance type value.
-func InstanceTypeUnsupported(logger loggo.Logger, e environs.Environ, cons constraints.Value) {
-	if cons.HasInstanceType() {
+// ValidateConstraints uses the default constraints WithFallbacks method to combine cons with envCons
+// and logs a warning if the resulting combined constraints contains an instance type value.
+// It is used by providers which do not support instance type constraints.
+func ValidateConstraints(
+	logger loggo.Logger, e environs.Environ, cons, envCons constraints.Value) (constraints.Value, error) {
+
+	combinedCons := cons.WithFallbacks(envCons)
+	if combinedCons.HasInstanceType() {
 		logger.Warningf("instance-type constraint %q not supported for %s provider %q",
 			*cons.InstanceType, e.Config().Type(), e.Name())
 	}
+	return combinedCons, nil
 }
 
 // ImageMatchConstraint returns a constrains.Value derived from cons according

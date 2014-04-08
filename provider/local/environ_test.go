@@ -315,7 +315,7 @@ func (s *localJujuTestSuite) TestBootstrapRemoveLeftovers(c *gc.C) {
 	c.Assert(filepath.Join(rootDir, "log"), jc.IsSymlink)
 }
 
-func (s *localJujuTestSuite) TestInstanceTypeUnsupported(c *gc.C) {
+func (s *localJujuTestSuite) TestValidateConstraints(c *gc.C) {
 	defer loggo.ResetWriters()
 	logger := loggo.GetLogger("test")
 	logger.SetLogLevel(loggo.DEBUG)
@@ -327,11 +327,13 @@ func (s *localJujuTestSuite) TestInstanceTypeUnsupported(c *gc.C) {
 	ctx := coretesting.Context(c)
 	env, err = local.Provider.Prepare(ctx, minimalConfig(c))
 	c.Assert(err, gc.IsNil)
-	prechecker, ok := env.(state.Prechecker)
+	envCons := constraints.MustParse("arch=amd64")
+	cons := constraints.MustParse("instance-type=foo")
+	validator, ok := env.(state.ConstraintsValidator)
 	c.Assert(ok, jc.IsTrue)
-	err = prechecker.PrecheckInstance("precise", constraints.MustParse("instance-type=foo"))
+	combined, err := validator.ValidateConstraints(cons, envCons)
 	c.Assert(err, gc.IsNil)
-
+	c.Assert(combined, gc.DeepEquals, cons)
 	c.Assert(tw.Log, jc.LogMatches, jc.SimpleMessages{{
 		loggo.WARNING,
 		`instance-type constraint "foo" not supported ` +

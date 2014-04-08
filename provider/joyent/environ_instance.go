@@ -52,10 +52,9 @@ func (env *joyentEnviron) machineFullName(machineId string) string {
 	return fmt.Sprintf("juju-%s-%s", env.Name(), names.MachineTag(machineId))
 }
 
-// PrecheckInstance is defined on the state.Prechecker interface.
-func (environ *joyentEnviron) PrecheckInstance(series string, cons constraints.Value) error {
-	common.InstanceTypeUnsupported(logger, environ, cons)
-	return nil
+// ValidateConstraints is defined on the state.ConstraintsValidator interface.
+func (env *joyentEnviron) ValidateConstraints(cons, envCons constraints.Value) (constraints.Value, error) {
+	return common.ValidateConstraints(logger, env, cons, envCons)
 }
 
 func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {

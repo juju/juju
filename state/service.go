@@ -595,11 +595,10 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		if err != nil {
 			return "", nil, err
 		}
-		econs, err := s.st.EnvironConstraints()
+		cons, err := s.st.resolveConstraints(scons)
 		if err != nil {
 			return "", nil, err
 		}
-		cons := scons.WithFallbacks(econs)
 		ops = append(ops, createConstraintsOp(s.st, globalKey, cons))
 	}
 	return name, ops, nil

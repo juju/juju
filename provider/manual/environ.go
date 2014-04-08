@@ -259,8 +259,13 @@ exit 0
 	return err
 }
 
-func (*manualEnviron) PrecheckInstance(series string, cons constraints.Value) error {
+func (*manualEnviron) PrecheckInstance(series string) error {
 	return errors.New(`use "juju add-machine ssh:[user@]<host>" to provision machines`)
+}
+
+// ValidateConstraints is defined on the state.ConstraintsValidator interface.
+func (environ *manualEnviron) ValidateConstraints(cons, envCons constraints.Value) (constraints.Value, error) {
+	return common.ValidateConstraints(logger, environ, cons, envCons)
 }
 
 func (e *manualEnviron) OpenPorts(ports []instance.Port) error {

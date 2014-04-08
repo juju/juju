@@ -357,6 +357,11 @@ func (e *environ) SupportNetworks() bool {
 	return false
 }
 
+// ValidateConstraints is defined on the state.ConstraintsValidator interface.
+func (e *environ) ValidateConstraints(cons, envCons constraints.Value) (constraints.Value, error) {
+	return common.ValidateConstraints(logger, e, cons, envCons)
+}
+
 // MetadataLookupParams returns parameters which are used to query simplestreams metadata.
 func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
 	if region == "" {

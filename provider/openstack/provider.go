@@ -522,6 +522,11 @@ func (e *environ) SupportNetworks() bool {
 	return false
 }
 
+// ValidateConstraints is defined on the state.ConstraintsValidator interface.
+func (e *environ) ValidateConstraints(cons, envCons constraints.Value) (constraints.Value, error) {
+	return common.ValidateConstraints(logger, e, cons, envCons)
+}
+
 func (e *environ) Storage() storage.Storage {
 	e.ecfgMutex.Lock()
 	stor := e.storageUnlocked

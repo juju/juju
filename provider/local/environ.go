@@ -304,10 +304,9 @@ func (env *localEnviron) setLocalStorage() error {
 	return nil
 }
 
-// PrecheckInstance is defined on the state.Prechecker interface.
-func (environ *localEnviron) PrecheckInstance(series string, cons constraints.Value) error {
-	common.InstanceTypeUnsupported(logger, environ, cons)
-	return nil
+// ValidateConstraints is defined on the state.ConstraintsValidator interface.
+func (env *localEnviron) ValidateConstraints(cons, envCons constraints.Value) (constraints.Value, error) {
+	return common.ValidateConstraints(logger, env, cons, envCons)
 }
 
 // StartInstance is specified in the InstanceBroker interface.

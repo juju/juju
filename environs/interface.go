@@ -157,6 +157,8 @@ type Environ interface {
 	Provider() EnvironProvider
 
 	state.Prechecker
+
+	state.ConstraintsValidator
 }
 
 // BootstrapContext is an interface that is passed to

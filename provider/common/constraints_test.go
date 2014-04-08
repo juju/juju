@@ -19,17 +19,20 @@ type constraintsSuite struct {
 
 var _ = gc.Suite(&constraintsSuite{})
 
-func (s *constraintsSuite) TestInstanceTypeUnsupported(c *gc.C) {
+func (s *constraintsSuite) TestValidateConstraints(c *gc.C) {
 	defer loggo.ResetWriters()
 	logger := loggo.GetLogger("test")
 	logger.SetLogLevel(loggo.DEBUG)
 	tw := &loggo.TestWriter{}
 	c.Assert(loggo.RegisterWriter("constraints-tester", tw, loggo.DEBUG), gc.IsNil)
 	cons := constraints.MustParse("arch=amd64 instance-type=foo")
+	envCons := constraints.MustParse("cpu-cores=2")
 	env := &mockEnviron{
 		config: configGetter(c),
 	}
-	common.InstanceTypeUnsupported(logger, env, cons)
+	combined, err := common.ValidateConstraints(logger, env, cons, envCons)
+	c.Assert(err, gc.IsNil)
+	c.Assert(combined, gc.DeepEquals, constraints.MustParse("arch=amd64 instance-type=foo"))
 	c.Assert(tw.Log, jc.LogMatches, jc.SimpleMessages{{
 		loggo.WARNING,
 		`instance-type constraint "foo" not supported ` +
@@ -37,17 +40,20 @@ func (s *constraintsSuite) TestInstanceTypeUnsupported(c *gc.C) {
 	})
 }
 
-func (s *constraintsSuite) TestInstanceTypeUnsupportedNoMessage(c *gc.C) {
+func (s *constraintsSuite) TestValidateConstraintsNoMessage(c *gc.C) {
 	defer loggo.ResetWriters()
 	logger := loggo.GetLogger("test")
 	logger.SetLogLevel(loggo.DEBUG)
 	tw := &loggo.TestWriter{}
 	c.Assert(loggo.RegisterWriter("constraints-tester", tw, loggo.DEBUG), gc.IsNil)
 	cons := constraints.MustParse("arch=amd64")
+	envCons := constraints.MustParse("cpu-cores=2")
 	env := &mockEnviron{
 		config: configGetter(c),
 	}
-	common.InstanceTypeUnsupported(logger, env, cons)
+	combined, err := common.ValidateConstraints(logger, env, cons, envCons)
+	c.Assert(err, gc.IsNil)
+	c.Assert(combined, gc.DeepEquals, constraints.MustParse("arch=amd64 cpu-cores=2"))
 	c.Assert(tw.Log, jc.LogMatches, jc.SimpleMessages{})
 }
 

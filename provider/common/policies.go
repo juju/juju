@@ -4,7 +4,6 @@
 package common
 
 import (
-	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/state"
 )
 
@@ -25,6 +24,6 @@ type NopPrecheckerPolicy struct{}
 
 var _ state.Prechecker = (*NopPrecheckerPolicy)(nil)
 
-func (*NopPrecheckerPolicy) PrecheckInstance(series string, cons constraints.Value) error {
+func (*NopPrecheckerPolicy) PrecheckInstance(series string) error {
 	return nil
 }

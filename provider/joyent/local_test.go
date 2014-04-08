@@ -424,7 +424,7 @@ func (s *localServerSuite) TestDeleteMoreThan100(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 }
 
-func (s *localServerSuite) TestInstanceTypeUnsupported(c *gc.C) {
+func (s *localServerSuite) TestValidateConstraints(c *gc.C) {
 	defer loggo.ResetWriters()
 	logger := loggo.GetLogger("test")
 	logger.SetLogLevel(loggo.DEBUG)
@@ -432,11 +432,13 @@ func (s *localServerSuite) TestInstanceTypeUnsupported(c *gc.C) {
 	c.Assert(loggo.RegisterWriter("test", tw, loggo.DEBUG), gc.IsNil)
 
 	var env environs.Environ = s.Prepare(c)
-	prechecker, ok := env.(state.Prechecker)
+	envCons := constraints.MustParse("arch=amd64")
+	cons := constraints.MustParse("instance-type=foo")
+	validator, ok := env.(state.ConstraintsValidator)
 	c.Assert(ok, jc.IsTrue)
-	err := prechecker.PrecheckInstance("precise", constraints.MustParse("instance-type=foo"))
+	combined, err := validator.ValidateConstraints(cons, envCons)
 	c.Assert(err, gc.IsNil)
-
+	c.Assert(combined, gc.DeepEquals, cons)
 	c.Assert(tw.Log, jc.LogMatches, jc.SimpleMessages{{
 		loggo.WARNING,
 		`instance-type constraint "foo" not supported ` +

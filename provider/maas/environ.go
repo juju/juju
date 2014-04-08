@@ -329,10 +329,9 @@ func linkBridgeInInterfaces() string {
 	return `sed -i "s/iface eth0 inet dhcp/source \/etc\/network\/eth0.config/" /etc/network/interfaces`
 }
 
-// PrecheckInstance is defined on the state.Prechecker interface.
-func (environ *maasEnviron) PrecheckInstance(series string, cons constraints.Value) error {
-	common.InstanceTypeUnsupported(logger, environ, cons)
-	return nil
+// ValidateConstraints is defined on the state.ConstraintsValidator interface.
+func (environ *maasEnviron) ValidateConstraints(cons, envCons constraints.Value) (constraints.Value, error) {
+	return common.ValidateConstraints(logger, environ, cons, envCons)
 }
 
 // StartInstance is specified in the InstanceBroker interface.

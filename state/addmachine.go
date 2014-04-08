@@ -184,15 +184,23 @@ func (st *State) addMachine(mdoc *machineDoc, ops []txn.Op) (*Machine, error) {
 // valid and combines it with values from the state
 // to produce a resulting template that more accurately
 // represents the data that will be inserted into the state.
-func (st *State) effectiveMachineTemplate(p MachineTemplate, allowStateServer bool) (MachineTemplate, error) {
+func (st *State) effectiveMachineTemplate(p MachineTemplate, allowStateServer bool) (tmpl MachineTemplate, err error) {
+	// First check for obvious errors.
 	if p.Series == "" {
-		return MachineTemplate{}, fmt.Errorf("no series specified")
+		return tmpl, fmt.Errorf("no series specified")
 	}
-	cons, err := st.EnvironConstraints()
+	if p.InstanceId != "" {
+		if p.Nonce == "" {
+			return tmpl, fmt.Errorf("cannot add a machine with an instance id and no nonce")
+		}
+	} else if p.Nonce != "" {
+		return tmpl, fmt.Errorf("cannot specify a nonce without an instance id")
+	}
+
+	p.Constraints, err = st.resolveConstraints(p.Constraints)
 	if err != nil {
-		return MachineTemplate{}, err
+		return tmpl, err
 	}
-	p.Constraints = p.Constraints.WithFallbacks(cons)
 	// Machine constraints do not use a container constraint value.
 	// Both provisioning and deployment constraints use the same
 	// constraints.Value struct so here we clear the container
@@ -201,7 +209,7 @@ func (st *State) effectiveMachineTemplate(p MachineTemplate, allowStateServer bo
 	p.Constraints.Container = nil
 
 	if len(p.Jobs) == 0 {
-		return MachineTemplate{}, fmt.Errorf("no jobs specified")
+		return tmpl, fmt.Errorf("no jobs specified")
 	}
 	jset := make(map[MachineJob]bool)
 	for _, j := range p.Jobs {
@@ -212,16 +220,8 @@ func (st *State) effectiveMachineTemplate(p MachineTemplate, allowStateServer bo
 	}
 	if jset[JobManageEnviron] {
 		if !allowStateServer {
-			return MachineTemplate{}, errStateServerNotAllowed
+			return tmpl, errStateServerNotAllowed
 		}
-	}
-
-	if p.InstanceId != "" {
-		if p.Nonce == "" {
-			return MachineTemplate{}, fmt.Errorf("cannot add a machine with an instance id and no nonce")
-		}
-	} else if p.Nonce != "" {
-		return MachineTemplate{}, fmt.Errorf("cannot specify a nonce without an instance id")
 	}
 	return p, nil
 }
@@ -235,7 +235,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 		return nil, nil, err
 	}
 	if template.InstanceId == "" {
-		if err := st.precheckInstance(template.Series, template.Constraints); err != nil {
+		if err := st.precheckInstance(template.Series); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -360,7 +360,7 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineT
 		return nil, nil, fmt.Errorf("no container type specified")
 	}
 	if parentTemplate.InstanceId == "" {
-		if err := st.precheckInstance(parentTemplate.Series, parentTemplate.Constraints); err != nil {
+		if err := st.precheckInstance(parentTemplate.Series); err != nil {
 			return nil, nil, err
 		}
 		// Adding a machine within a machine implies add-machine or placement.

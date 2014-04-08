@@ -421,10 +421,9 @@ func (env *azureEnviron) selectInstanceTypeAndImage(constraint *instances.Instan
 	return spec.InstanceType.Id, spec.Image.Id, nil
 }
 
-// PrecheckInstance is defined on the state.Prechecker interface.
-func (environ *azureEnviron) PrecheckInstance(series string, cons constraints.Value) error {
-	common.InstanceTypeUnsupported(logger, environ, cons)
-	return nil
+// ValidateConstraints is defined on the state.ConstraintsValidator interface.
+func (environ *azureEnviron) ValidateConstraints(cons, envCons constraints.Value) (constraints.Value, error) {
+	return common.ValidateConstraints(logger, environ, cons, envCons)
 }
 
 // createInstance creates all of the Azure entities necessary for a

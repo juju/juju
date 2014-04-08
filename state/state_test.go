@@ -756,6 +756,7 @@ func (s *StateSuite) TestInvalidAddMachineParams(c *gc.C) {
 		Series:     "quantal",
 		Jobs:       []state.MachineJob{state.JobHostUnits, state.JobHostUnits},
 		InstanceId: "i-foo",
+		Nonce:      "nonce",
 	})
 	c.Check(err, gc.ErrorMatches, fmt.Sprintf("cannot add a new machine: duplicate job: %s", state.JobHostUnits))
 

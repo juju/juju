@@ -35,3 +35,8 @@ func (environStatePolicy) EnvironCapability(cfg *config.Config) (state.EnvironCa
 	// Environ implements state.EnvironCapability.
 	return New(cfg)
 }
+
+func (environStatePolicy) ConstraintsValidator(cfg *config.Config) (state.ConstraintsValidator, error) {
+	// Environ implements state.ConstraintsValidator.
+	return New(cfg)
+}

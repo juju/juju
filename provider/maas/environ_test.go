@@ -213,7 +213,7 @@ func (*environSuite) TestNewCloudinitConfig(c *gc.C) {
 	})
 }
 
-func (s *environSuite) TestInstanceTypeUnsupported(c *gc.C) {
+func (s *environSuite) TestValidateConstraints(c *gc.C) {
 	defer loggo.ResetWriters()
 	logger := loggo.GetLogger("test")
 	logger.SetLogLevel(loggo.DEBUG)
@@ -225,11 +225,13 @@ func (s *environSuite) TestInstanceTypeUnsupported(c *gc.C) {
 	var err error
 	env, err = maas.NewEnviron(cfg)
 	c.Assert(err, gc.IsNil)
-	prechecker, ok := env.(state.Prechecker)
+	envCons := constraints.MustParse("arch=amd64")
+	cons := constraints.MustParse("instance-type=foo")
+	validator, ok := env.(state.ConstraintsValidator)
 	c.Assert(ok, jc.IsTrue)
-	err = prechecker.PrecheckInstance("precise", constraints.MustParse("instance-type=foo"))
+	combined, err := validator.ValidateConstraints(cons, envCons)
 	c.Assert(err, gc.IsNil)
-
+	c.Assert(combined, gc.DeepEquals, cons)
 	c.Assert(tw.Log, jc.LogMatches, jc.SimpleMessages{{
 		loggo.WARNING,
 		`instance-type constraint "foo" not supported ` +
