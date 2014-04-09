@@ -162,11 +162,16 @@ func (c *BootstrapCommand) startMongo(addrs []instance.Address, port int, namesp
 		return err
 	}
 
-	memberAddr := fmt.Sprintf("%s:%d", mongo.SelectPeerAddress(addrs), port)
+	peerAddr := mongo.SelectPeerAddress(addrs)
+
+	if peerAddr == "" {
+		return fmt.Errorf("no appropriate peer address found in %q", addrs)
+	}
+	peerHostPort := net.JoinHostPort(peerAddr, fmt.Sprint(port))
 
 	return maybeInitiateMongoServer(mongo.InitiateMongoParams{
 		DialInfo:       dialInfo,
-		MemberHostPort: memberAddr,
+		MemberHostPort: peerHostPort,
 	})
 }
 
