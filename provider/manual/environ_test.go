@@ -16,10 +16,12 @@ import (
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/arch"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
 type environSuite struct {
+	coretesting.FakeHomeSuite
 	testbase.LoggingSuite
 	env *manualEnviron
 }
@@ -31,6 +33,7 @@ type dummyStorage struct {
 var _ = gc.Suite(&environSuite{})
 
 func (s *environSuite) SetUpTest(c *gc.C) {
+	s.FakeHomeSuite.SetUpTest(c)
 	env, err := manualProvider{}.Open(MinimalConfig(c))
 	c.Assert(err, gc.IsNil)
 	s.env = env.(*manualEnviron)

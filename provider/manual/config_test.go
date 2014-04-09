@@ -12,14 +12,18 @@ import (
 
 	"launchpad.net/juju-core/environs/config"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 type configSuite struct {
-	testbase.LoggingSuite
+	coretesting.FakeHomeSuite
 }
 
 var _ = gc.Suite(&configSuite{})
+
+func (s *configSuite) SetupTest(c *gc.C) {
+	s.FakeHomeSuite.SetUpTest(c)
+	s.LoggingSuite.SetUpTest(c)
+}
 
 func MinimalConfigValues() map[string]interface{} {
 	return map[string]interface{}{
