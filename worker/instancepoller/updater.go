@@ -171,7 +171,7 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 	for {
 		if pollInstance {
 			instInfo, err := pollInstanceInfo(context, m)
-			if err != nil {
+			if err != nil && !state.IsNotProvisionedError(err) {
 				// If the provider doesn't implement Addresses/Status now,
 				// it never will until we're upgraded, so don't bother
 				// asking any more. We could use less resources
@@ -220,7 +220,11 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo, err error) {
 	instInfo = instanceInfo{}
 	instId, err := m.InstanceId()
-	if err != nil && !state.IsNotProvisionedError(err) {
+	// We can't ask the machine for its addresses if it isn't provisioned yet.
+	if state.IsNotProvisionedError(err) {
+		return instInfo, err
+	}
+	if err != nil {
 		return instInfo, fmt.Errorf("cannot get machine's instance id: %v", err)
 	}
 	instInfo, err = context.instanceInfo(instId)
