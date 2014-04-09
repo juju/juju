@@ -42,6 +42,7 @@ type machine interface {
 	Refresh() error
 	Life() state.Life
 	Status() (status params.Status, info string, data params.StatusData, err error)
+	IsManual() (bool, error)
 }
 
 type instanceInfo struct {
@@ -131,6 +132,14 @@ func (p *updater) startMachines(ids []string) error {
 			}
 			if err != nil {
 				return err
+			}
+			// We don't poll manual machines.
+			isManual, err := m.IsManual()
+			if err != nil {
+				return err
+			}
+			if isManual {
+				continue
 			}
 			c = make(chan struct{})
 			p.machines[id] = c

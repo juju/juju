@@ -8,6 +8,7 @@ import (
 	stderrors "errors"
 	"fmt"
 	"math"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -116,7 +117,7 @@ func (s *machineSuite) TestLongPollIntervalWhenHasAllInstanceInfo(c *gc.C) {
 func countPolls(c *gc.C, addrs []instance.Address, instId, instStatus string, machineStatus params.Status) int {
 	count := int32(0)
 	getInstanceInfo := func(id instance.Id) (instanceInfo, error) {
-		c.Check(id, gc.Equals, instance.Id("i1234"))
+		c.Check(string(id), gc.Equals, instId)
 		atomic.AddInt32(&count, 1)
 		if addrs == nil {
 			return instanceInfo{}, fmt.Errorf("no instance addresses available")
@@ -355,8 +356,17 @@ func (m *testMachine) InstanceId() (instance.Id, error) {
 	return m.instanceId, m.instanceIdErr
 }
 
-func (m *testMachine) Status() (status params.Status, info string, data params.StatusData, err error) {
+// This is stubbed out for testing.
+var MachineStatus = func(m *testMachine) (status params.Status, info string, data params.StatusData, err error) {
 	return m.status, "", nil, nil
+}
+
+func (m *testMachine) Status() (status params.Status, info string, data params.StatusData, err error) {
+	return MachineStatus(m)
+}
+
+func (m *testMachine) IsManual() (bool, error) {
+	return strings.HasPrefix(string(m.instanceId), "manual:"), nil
 }
 
 func (m *testMachine) InstanceStatus() (string, error) {
