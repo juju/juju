@@ -49,7 +49,7 @@ var maxLinesReached = fmt.Errorf("max lines reached")
 func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	server := websocket.Server{
 		Handler: func(socket *websocket.Conn) {
-			logger.Infof("debug log handler starting, %#v", *req)
+			logger.Infof("debug log handler starting")
 			if err := h.authenticate(req); err != nil {
 				h.sendError(socket, fmt.Errorf("auth failed: %v", err))
 				socket.Close()
