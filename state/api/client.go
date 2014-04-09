@@ -8,7 +8,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"github.com/juju/loggo"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -19,6 +18,7 @@ import (
 	"time"
 
 	"code.google.com/p/go.net/websocket"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
@@ -712,9 +712,31 @@ func (c *Client) EnsureAvailability(numStateServers int, cons constraints.Value,
 	return c.call("EnsureAvailability", args, nil)
 }
 
+// Version reports the version number of the api server.
+func (c *Client) Version() (version.Number, error) {
+	var result params.VersionResult
+	if err := c.call("Version", nil, &result); err != nil {
+		return version.Number{}, err
+	}
+	if result.Error != nil {
+		return version.Number{}, result.Error
+	}
+	return *result.Version, nil
+}
+
 // Allow overriding in tests.
 var dialDebugLog = func(config *websocket.Config) (io.ReadCloser, error) {
 	return websocket.DialConfig(config)
+}
+
+type connectionError struct {
+	error
+}
+
+// IsConnectionError returns true if the error is a connection error.
+func IsConnectionError(err error) bool {
+	_, ok := err.(*connectionError)
+	return ok
 }
 
 // Params for WatchDebugLog
@@ -734,6 +756,12 @@ type DebugLogParams struct {
 // machines or units. The watching is started the given number of
 // matching lines back in history.
 func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
+	// The websocket connection just hangs if the server doesn't have the log
+	// end point (not sure why). So do a version check.
+	_, err := c.Version()
+	if err != nil {
+		return nil, &connectionError{fmt.Errorf("server doesn't support debug log websocket")}
+	}
 	// Prepare URL.
 	attrs := url.Values{}
 	if args.Replay {
@@ -769,7 +797,7 @@ func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
 	cfg.TlsConfig = &tls.Config{RootCAs: c.st.certPool, ServerName: "anything"}
 	connection, err := dialDebugLog(cfg)
 	if err != nil {
-		return nil, err
+		return nil, &connectionError{err}
 	}
 	// Read the initial error and translate to a real error.
 	scanner := bufio.NewScanner(connection)

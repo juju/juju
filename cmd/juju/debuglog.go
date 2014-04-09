@@ -6,25 +6,21 @@ package main
 import (
 	"fmt"
 	"io"
-	"os"
 
+	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/state/api"
 )
 
 type DebugLogCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 
-	include       []string
-	exclude       []string
-	includeModule []string
-	excludeModule []string
-	limit         uint
-	lines         uint
-	level         string
-	replay        bool
+	level  string
+	params api.DebugLogParams
 }
 
 var DefaultLogLocation = "/var/log/juju/all-machines.log"
@@ -47,24 +43,38 @@ func (c *DebugLogCommand) Info() *cmd.Info {
 }
 
 func (c *DebugLogCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.Var(cmd.NewAppendStringsValue(&c.include), "i", "only show log messages for these entities")
-	f.Var(cmd.NewAppendStringsValue(&c.include), "include", "only show log messages for these entities")
-	f.Var(cmd.NewAppendStringsValue(&c.exclude), "x", "only show log messages for these entities")
-	f.Var(cmd.NewAppendStringsValue(&c.exclude), "exclude", "only show log messages for these entities")
-	f.Var(cmd.NewAppendStringsValue(&c.includeModule), "include-module", "only show log messages for these logging modules")
-	f.Var(cmd.NewAppendStringsValue(&c.excludeModule), "exclude-module", "do not show log messages for these logging modules")
+	c.EnvCommandBase.SetFlags(f)
 
-	f.StringVar(&c.level, "l", "", "log level to show, one of [TRACE, DEBUG, INFO, WARNING, ERROR]")
-	f.StringVar(&c.level, "level", "", "")
+	f.Var(cmd.NewAppendStringsValue(&c.params.IncludeEntity), "i", "only show log messages for these entities")
+	f.Var(cmd.NewAppendStringsValue(&c.params.IncludeEntity), "include", "only show log messages for these entities")
+	f.Var(cmd.NewAppendStringsValue(&c.params.ExcludeEntity), "x", "only show log messages for these entities")
+	f.Var(cmd.NewAppendStringsValue(&c.params.ExcludeEntity), "exclude", "only show log messages for these entities")
+	f.Var(cmd.NewAppendStringsValue(&c.params.IncludeModule), "include-module", "only show log messages for these logging modules")
+	f.Var(cmd.NewAppendStringsValue(&c.params.ExcludeModule), "exclude-module", "do not show log messages for these logging modules")
 
-	f.IntVar(&c.lines, "n", defaultLineCount, "output the last K lines; or use -n +K to output lines starting with the Kth")
-	f.IntVar(&c.lines, "lines", defaultLineCount, "")
-	f.StringVar(&c.filter, "f", "", "filter the output with a regular expression")
-	f.StringVar(&c.filter, "filter", "", "")
+	f.StringVar(&c.level, "l", "DEBUG", "log level to show, one of [TRACE, DEBUG, INFO, WARNING, ERROR]")
+	f.StringVar(&c.level, "level", "DEBUG", "")
+
+	f.UintVar(&c.params.Backlog, "n", defaultLineCount, "go back this many lines from the end before starting to filter")
+	f.UintVar(&c.params.Backlog, "lines", defaultLineCount, "")
+	f.UintVar(&c.params.Limit, "limit", 0, "show at most this many lines")
+	f.BoolVar(&c.params.Replay, "replay", false, "start filtering from the start")
 }
 
 func (c *DebugLogCommand) Init(args []string) error {
-	return nil
+	err := c.EnvCommandBase.Init()
+	if err != nil {
+		return err
+	}
+
+	level, ok := loggo.ParseLevel(c.level)
+	if !ok || level < loggo.TRACE || level > loggo.ERROR {
+		return fmt.Errorf("level value %q is not one of %q, %q, %q, %q, %q",
+			c.level, loggo.TRACE, loggo.DEBUG, loggo.INFO, loggo.WARNING, loggo.ERROR)
+	}
+	c.params.Level = level
+
+	return cmd.CheckEmpty(args)
 }
 
 // Run retrieves the debug log via the API.
@@ -74,32 +84,32 @@ func (c *DebugLogCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 	defer client.Close()
-
-	logger.Debugf("CALLING WATCH DEBUG LOG")
-	debugLog, err := client.WatchDebugLog(c.lines, c.filter)
+	debugLog, err := client.WatchDebugLog(c.params)
 	if err != nil {
-		logger.Infof("WatchDebugLog not supported by the API server, "+
-			"falling back to 1.16 compatibility mode using ssh: %v", err)
-		return c.watchDebugLog1dot16(ctx)
+		if api.IsConnectionError(err) {
+			return c.watchDebugLog1dot16(ctx)
+		}
+		return err
 	}
 	defer debugLog.Close()
-
-	_, err = io.Copy(os.Stdout, debugLog)
+	_, err = io.Copy(ctx.Stdout, debugLog)
 	return err
 }
 
 // watchDebugLog1dot16 runs in case of an older API server and uses ssh
 // but with server-side grep.
 func (c *DebugLogCommand) watchDebugLog1dot16(ctx *cmd.Context) error {
+	ctx.Infof("Server does not support new stream log, falling back to tail")
+	ctx.Verbosef("filters are not supported with tail")
 	sshCmd := &SSHCommand{}
-	tailGrepCmd := fmt.Sprintf("tail -n %d -f %s", c.lines, DefaultLogLocation)
-	if c.filter != "" {
-		tailGrepCmd += fmt.Sprintf("  | grep -E %s", c.filter)
-	}
+	tailGrepCmd := fmt.Sprintf("tail -n -%d -f %s", c.params.Backlog, DefaultLogLocation)
+	// If the api doesn't support WatchDebugLog, then it won't be running
+	// in HA either, so machine 0 is where it is all at.
 	args := []string{"0", tailGrepCmd}
 	err := sshCmd.Init(args)
 	if err != nil {
 		return err
 	}
+	sshCmd.EnvName = c.EnvName
 	return sshCmd.Run(ctx)
 }
