@@ -194,9 +194,11 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 					return err
 				}
 			}
-			machineStatus, _, _, err := m.Status()
-			if err != nil {
-				logger.Warningf("cannot get current machine status for machine %v: %v", m.Id(), err)
+			machineStatus := params.StatusPending
+			if err == nil {
+				if machineStatus, _, _, err = m.Status(); err != nil {
+					logger.Warningf("cannot get current machine status for machine %v: %v", m.Id(), err)
+				}
 			}
 			if len(instInfo.addresses) > 0 && instInfo.status != "" && machineStatus == params.StatusStarted {
 				// We've got at least one address and a status and instance is started, so poll infrequently.
