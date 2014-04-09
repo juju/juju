@@ -27,8 +27,7 @@ var _ = gc.Suite(&GitDirSuite{})
 
 func (s *GitDirSuite) SetUpTest(c *gc.C) {
 	s.GitSuite.SetUpTest(c)
-	//should be "C"
-	s.PatchEnvironment("LC_ALL", "en_US")
+	s.PatchEnvironment("LC_ALL", "C")
 }
 
 func (s *GitDirSuite) TestInitConfig(c *gc.C) {
