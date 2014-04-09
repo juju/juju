@@ -56,7 +56,6 @@ func NormaliseArch(rawArch string) string {
 	for _, re := range archREs {
 		if re.Match([]byte(rawArch)) {
 			return re.arch
-			break
 		}
 	}
 	return rawArch

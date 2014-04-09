@@ -44,7 +44,7 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.AgentConf.AddFlags(f)
 	yamlBase64Var(f, &c.EnvConfig, "env-config", "", "initial environment configuration (yaml, base64 encoded)")
-	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "initial environment constraints (space-separated strings)")
+	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "initial environment constraints (space-separated strings)")
 	f.Var(&c.Hardware, "hardware", "hardware characteristics (space-separated strings)")
 	f.StringVar(&c.InstanceId, "instance-id", "", "unique instance-id for bootstrap machine")
 }
@@ -174,15 +174,16 @@ func (c *BootstrapCommand) startMongo(addrs []instance.Address, agentConfig agen
 	if err != nil {
 		return err
 	}
-	memberAddr := mongo.SelectPeerAddress(addrs)
+
+	peerAddr := mongo.SelectPeerAddress(addrs)
 	if peerAddr == "" {
 		return fmt.Errorf("no appropriate peer address found in %q", addrs)
 	}
-	memberHostPort := net.JoinHostPort(peerAddr, fmt.Sprint(servingInfo.StatePort))
+	peerHostPort := net.JoinHostPort(peerAddr, fmt.Sprint(port))
 
 	return maybeInitiateMongoServer(mongo.InitiateMongoParams{
 		DialInfo:       dialInfo,
-		MemberHostPort: memberHostPort.String(),
+		MemberHostPort: peerHostPort,
 	})
 }
 

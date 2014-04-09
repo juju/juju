@@ -246,8 +246,6 @@ func isUnauthorized(err error) bool {
 }
 
 func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
-	logger.Debugf("starting newState")
-
 	db := session.DB("juju")
 	pdb := session.DB("presence")
 	if info.Tag != "" {
