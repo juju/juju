@@ -213,7 +213,7 @@ func (m *Machine) SetInstanceInfo(
 	networks []params.Network, interfaces []params.NetworkInterface,
 ) error {
 	var result params.ErrorResults
-	args := params.SetInstanceInfo{
+	args := params.InstancesInfo{
 		Machines: []params.InstanceInfo{{
 			Tag:             m.tag,
 			InstanceId:      id,

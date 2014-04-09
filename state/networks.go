@@ -48,7 +48,7 @@ func (n *Network) CIDR() string {
 	return n.doc.CIDR
 }
 
-// VLANTag returns the network VLAN tag. Its a number between 1 and
+// VLANTag returns the network VLAN tag. It's a number between 1 and
 // 4094 for VLANs and 0 if the network is not a VLAN.
 func (n *Network) VLANTag() int {
 	return n.doc.VLANTag

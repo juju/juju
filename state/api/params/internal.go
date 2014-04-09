@@ -327,7 +327,7 @@ type NetworkInterface struct {
 }
 
 // InstanceInfo holds a machine tag, provider-specific instance id, a
-// nonce, a list of networks and interfaces to set up, or an error.
+// nonce, a list of networks and interfaces to set up.
 type InstanceInfo struct {
 	Tag             string
 	InstanceId      instance.Id
@@ -337,9 +337,9 @@ type InstanceInfo struct {
 	Interfaces      []NetworkInterface
 }
 
-// SetInstanceInfo holds the parameters for making a
-// SetInstanceInfo call for multiple machines.
-type SetInstanceInfo struct {
+// InstancesInfo holds the parameters for making a SetInstanceInfo
+// call for multiple machines.
+type InstancesInfo struct {
 	Machines []InstanceInfo
 }
 

@@ -4,6 +4,8 @@
 package provisioner
 
 import (
+	"fmt"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
@@ -471,10 +473,35 @@ func (p *ProvisionerAPI) RequestedNetworks(args params.Entities) (params.Request
 	return result, nil
 }
 
+// SetProvisioned sets the provider specific instance id, nonce and
+// metadata for each given machine. Once set, the instance id cannot
+// be changed.
+//
+// TODO(dimitern) This is not used anymore (as of 1.19.0) and is
+// retained only for backwards-compatibility. It should be removed as
+// deprecated. SetInstanceInfo is used instead.
+func (p *ProvisionerAPI) SetProvisioned(args params.SetProvisioned) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Machines)),
+	}
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		return result, err
+	}
+	for i, arg := range args.Machines {
+		machine, err := p.getMachine(canAccess, arg.Tag)
+		if err == nil {
+			err = machine.SetProvisioned(arg.InstanceId, arg.Nonce, arg.Characteristics)
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
 // SetInstanceInfo sets the provider specific machine id, nonce,
 // metadata and network info for each given machine. Once set, the
 // instance id cannot be changed.
-func (p *ProvisionerAPI) SetInstanceInfo(args params.SetInstanceInfo) (params.ErrorResults, error) {
+func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Machines)),
 	}
@@ -492,6 +519,11 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.SetInstanceInfo) (params.Er
 				err = machine.SetInstanceInfo(
 					arg.InstanceId, arg.Nonce, arg.Characteristics,
 					networks, interfaces)
+			} else {
+				// Give the user more context about the error.
+				err = fmt.Errorf(
+					"provisioning %q with networks %v, interfaces %v failed: %v",
+					arg.Tag, arg.Networks, arg.Interfaces, err)
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
