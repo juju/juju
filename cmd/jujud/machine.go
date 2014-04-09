@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"labix.org/v2/mgo"
 	"launchpad.net/gnuflag"
 	"launchpad.net/tomb"
 
@@ -66,11 +67,15 @@ const bootstrapMachineId = "0"
 type eitherState interface{}
 
 var (
-	retryDelay               = 3 * time.Second
-	jujuRun                  = "/usr/local/bin/juju-run"
-	useMultipleCPUs          = utils.UseMultipleCPUs
+	retryDelay      = 3 * time.Second
+	jujuRun         = "/usr/local/bin/juju-run"
+	useMultipleCPUs = utils.UseMultipleCPUs
+
+	// The following are defined as variables to
+	// allow the tests to intercept calls to the functions.
 	ensureMongoServer        = mongo.EnsureMongoServer
-	maybeInitiateMongoServer = peergrouper.MaybeInitiateMongoServer
+	maybeInitiateMongoServer = mongo.MaybeInitiateMongoServer
+	newSingularRunner        = singular.New
 
 	// reportOpenedAPI is exposed for tests to know when
 	// the State has been successfully opened.
@@ -80,34 +85,6 @@ var (
 	// the API has been successfully opened.
 	reportOpenedAPI = func(eitherState) {}
 )
-
-var NewSingularRunner = singular.New
-
-type singularAPIConn struct {
-	apiState   *api.State
-	agentState *apiagent.State
-}
-
-func (c singularAPIConn) IsMaster() (bool, error) {
-	return c.agentState.IsMaster()
-}
-
-func (c singularAPIConn) Ping() error {
-	return c.apiState.Ping()
-}
-
-type singularStateConn struct {
-	state   *state.State
-	machine *state.Machine
-}
-
-func (c singularStateConn) IsMaster() (bool, error) {
-	return mongo.IsMaster(c.state.MongoSession(), c.machine)
-}
-
-func (c singularStateConn) Ping() error {
-	return c.state.Ping()
-}
 
 // MachineAgent is a cmd.Command responsible for running a machine agent.
 type MachineAgent struct {
@@ -268,9 +245,9 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		}
 	}
 
+	rsyslogMode := rsyslog.RsyslogModeForwarding
 	runner := newRunner(connectionIsFatal(st), moreImportant)
 	var singularRunner worker.Runner
-	rsyslogMode := rsyslog.RsyslogModeForwarding
 	for _, job := range entity.Jobs() {
 		if job == params.JobManageEnviron {
 			conn := singularAPIConn{st, st.Agent()}
@@ -279,6 +256,11 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 				return nil, fmt.Errorf("cannot make singular Runner: %v", err)
 			}
 			rsyslogMode = rsyslog.RsyslogModeAccumulate
+			conn := singularAPIConn{st, st.Agent()}
+			singularRunner, err = newSingularRunner(runner, conn)
+			if err != nil {
+				return nil, fmt.Errorf("cannot make singular API Runner: %v", err)
+			}
 			break
 		}
 	}
@@ -441,12 +423,11 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	}
 	reportOpenedState(st)
 
-	singularStateConn := singularStateConn{st, m}
+	singularStateConn := singularStateConn{st.MongoSession(), m}
 	runner := newRunner(connectionIsFatal(st), moreImportant)
-
-	singularRunner, err := NewSingularRunner(runner, singularStateConn)
+	singularRunner, err := newSingularRunner(runner, singularStateConn)
 	if err != nil {
-		return nil, fmt.Errorf("cannot make singular Runner: %v", err)
+		return nil, fmt.Errorf("cannot make singular State Runner: %v", err)
 	}
 
 	// Take advantage of special knowledge here in that we will only ever want
@@ -720,4 +701,34 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 		return nil
 	}
 	return fmt.Errorf("uninstall failed: %v", errors)
+}
+
+// singularAPIConn implements singular.Conn on
+// top of an API connection.
+type singularAPIConn struct {
+	apiState   *api.State
+	agentState *apiagent.State
+}
+
+func (c singularAPIConn) IsMaster() (bool, error) {
+	return c.agentState.IsMaster()
+}
+
+func (c singularAPIConn) Ping() error {
+	return c.apiState.Ping()
+}
+
+// singularStateConn implements singular.Conn on
+// top of a State connection.
+type singularStateConn struct {
+	session *mgo.Session
+	machine *state.Machine
+}
+
+func (c singularStateConn) IsMaster() (bool, error) {
+	return mongo.IsMaster(c.session, c.machine)
+}
+
+func (c singularStateConn) Ping() error {
+	return c.session.Ping()
 }
