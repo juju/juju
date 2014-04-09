@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"labix.org/v2/mgo"
 	"launchpad.net/gnuflag"
 	"launchpad.net/tomb"
 
@@ -32,6 +33,7 @@ import (
 	"launchpad.net/juju-core/upgrades"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/voyeur"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/apiaddressupdater"
@@ -56,9 +58,7 @@ import (
 
 var logger = loggo.GetLogger("juju.cmd.jujud")
 
-var newRunner = func(isFatal func(error) bool, moreImportant func(e0, e1 error) bool) worker.Runner {
-	return worker.NewRunner(isFatal, moreImportant)
-}
+var newRunner = worker.NewRunner
 
 const bootstrapMachineId = "0"
 
@@ -66,11 +66,15 @@ const bootstrapMachineId = "0"
 type eitherState interface{}
 
 var (
-	retryDelay = 3 * time.Second
-
-	jujuRun = "/usr/local/bin/juju-run"
-
+	retryDelay      = 3 * time.Second
+	jujuRun         = "/usr/local/bin/juju-run"
 	useMultipleCPUs = utils.UseMultipleCPUs
+
+	// The following are defined as variables to
+	// allow the tests to intercept calls to the functions.
+	ensureMongoServer        = mongo.EnsureMongoServer
+	maybeInitiateMongoServer = mongo.MaybeInitiateMongoServer
+	newSingularRunner        = singular.New
 
 	// reportOpenedAPI is exposed for tests to know when
 	// the State has been successfully opened.
@@ -81,44 +85,17 @@ var (
 	reportOpenedAPI = func(eitherState) {}
 )
 
-var NewSingularRunner = singular.New
-
-type singularAPIConn struct {
-	apiState   *api.State
-	agentState *apiagent.State
-}
-
-func (c singularAPIConn) IsMaster() (bool, error) {
-	return c.agentState.IsMaster()
-}
-
-func (c singularAPIConn) Ping() error {
-	return c.apiState.Ping()
-}
-
-type singularStateConn struct {
-	session   *mgo.Session
-	machine *state.Machine
-}
-
-func (c singularStateConn) IsMaster() (bool, error) {
-	return mongo.IsMaster(c.session, c.machine)
-}
-
-func (c singularStateConn) Ping() error {
-	return c.session.Ping()
-}
-
 // MachineAgent is a cmd.Command responsible for running a machine agent.
 type MachineAgent struct {
 	cmd.CommandBase
 	tomb tomb.Tomb
 	AgentConf
-	MachineId       string
-	runner          worker.Runner
-	upgradeComplete chan struct{}
-	workersStarted  chan struct{}
-	st              *state.State
+	MachineId        string
+	runner           worker.Runner
+	configChangedVal voyeur.Value
+	upgradeComplete  chan struct{}
+	workersStarted   chan struct{}
+	st               *state.State
 }
 
 // Info returns usage information for the command.
@@ -171,37 +148,14 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	if err := a.ReadConfig(a.Tag()); err != nil {
 		return fmt.Errorf("cannot read agent configuration: %v", err)
 	}
+	a.configChangedVal.Set(struct{}{})
 	agentConfig := a.CurrentConfig()
 	charm.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
 	if err := a.createJujuRun(agentConfig.DataDir()); err != nil {
 		return fmt.Errorf("cannot create juju run symlink: %v", err)
 	}
-
-	// ensureStateWorker ensures that there is a worker that
-	// connects to the state that runs within itself all the workers
-	// that need a state connection. Unless we're bootstrapping, we
-	// need to connect to the API server to find out if we need to
-	// call this, so we make the APIWorker call it when necessary if
-	// the machine requires it. Note that ensureStateWorker can be
-	// called many times - StartWorker does nothing if there is
-	// already a worker started with the given name.
-	ensureStateWorker := func() {
-		a.runner.StartWorker("state", a.StateWorker)
-	}
-	// We might be bootstrapping, and the API server is not
-	// running yet. If so, make sure we run a state worker instead.
-	if a.MachineId == bootstrapMachineId {
-		// TODO(rog) When we have HA, we only want to do this
-		// when we really are bootstrapping - once other
-		// instances of the API server have been started, we
-		// should follow the normal course of things and ignore
-		// the fact that this was once the bootstrap machine.
-		logger.Infof("Starting StateWorker for machine-0")
-		ensureStateWorker()
-	}
-	a.runner.StartWorker("api", func() (worker.Worker, error) {
-		return a.APIWorker(ensureStateWorker)
-	})
+	a.runner.StartWorker("api", a.APIWorker)
+	a.runner.StartWorker("statestarter", a.newStateStarterWorker)
 	a.runner.StartWorker("termination", func() (worker.Worker, error) {
 		return terminationworker.NewWorker(), nil
 	})
@@ -216,35 +170,93 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	return err
 }
 
+func (a *MachineAgent) ChangeConfig(mutate func(config agent.ConfigSetter)) error {
+	err := a.AgentConf.ChangeConfig(mutate)
+	a.configChangedVal.Set(struct{}{})
+	return err
+}
+
+// newStateStarterWorker wraps stateStarter in a simple worker for use in
+// a.runner.StartWorker.
+func (a *MachineAgent) newStateStarterWorker() (worker.Worker, error) {
+	return worker.NewSimpleWorker(a.stateStarter), nil
+}
+
+// stateStarter watches for changes to the agent configuration, and
+// starts or stops the state worker as appropriate. We watch the agent
+// configuration because the agent configuration has all the details
+// that we need to start a state server, whether they have been cached
+// or read from the state.
+//
+// It will stop working as soon as stopch is closed.
+func (a *MachineAgent) stateStarter(stopch <-chan struct{}) error {
+	confWatch := a.configChangedVal.Watch()
+	defer confWatch.Close()
+	watchCh := make(chan struct{})
+	go func() {
+		for confWatch.Next() {
+			watchCh <- struct{}{}
+		}
+	}()
+	for {
+		select {
+		case <-watchCh:
+			agentConfig := a.CurrentConfig()
+
+			// N.B. StartWorker and StopWorker are idempotent.
+			_, ok := agentConfig.StateServingInfo()
+			if ok {
+				a.runner.StartWorker("state", func() (worker.Worker, error) {
+					return a.StateWorker()
+				})
+			} else {
+				a.runner.StopWorker("state")
+			}
+		case <-stopch:
+			return nil
+		}
+	}
+}
+
 // APIWorker returns a Worker that connects to the API and starts any
 // workers that need an API connection.
-//
-// If a state worker is necessary, APIWorker calls ensureStateWorker.
-func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error) {
+func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
 	st, entity, err := openAPIState(agentConfig, a)
 	if err != nil {
 		return nil, err
 	}
 	reportOpenedAPI(st)
+
 	for _, job := range entity.Jobs() {
 		if job.NeedsState() {
-			ensureStateWorker()
+			info, err := st.Agent().StateServingInfo()
+			if err != nil {
+				return nil, fmt.Errorf("cannot get state serving info: %v", err)
+			}
+			err = a.ChangeConfig(func(config agent.ConfigSetter) {
+				config.SetStateServingInfo(info)
+			})
+			if err != nil {
+				return nil, err
+			}
 			break
 		}
 	}
+
 	rsyslogMode := rsyslog.RsyslogModeForwarding
+	runner := newRunner(connectionIsFatal(st), moreImportant)
+	var singularRunner worker.Runner
 	for _, job := range entity.Jobs() {
 		if job == params.JobManageEnviron {
 			rsyslogMode = rsyslog.RsyslogModeAccumulate
+			conn := singularAPIConn{st, st.Agent()}
+			singularRunner, err = newSingularRunner(runner, conn)
+			if err != nil {
+				return nil, fmt.Errorf("cannot make singular API Runner: %v", err)
+			}
 			break
 		}
-	}
-	runner := newRunner(connectionIsFatal(st), moreImportant)
-	conn := singularAPIConn{st, st.Agent()}
-	singularRunner, err := NewSingularRunner(runner, conn)
-	if err != nil {
-		return nil, err
 	}
 
 	// Run the upgrader and the upgrade-steps worker without waiting for
@@ -383,17 +395,31 @@ func (a *MachineAgent) updateSupportedContainers(
 func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
 
+	namespace := agentConfig.Value(agent.Namespace)
+	info, exist := agentConfig.StateServingInfo()
+	if !exist {
+		return nil, fmt.Errorf("no state info in agent config")
+	}
+
+	err := ensureMongoServer(agentConfig.DataDir(), info.StatePort, namespace)
+	if err != nil {
+		return nil, err
+	}
+	// TODO(rog) call maybeInitiateMongoServer to upgrade mongo
+	// from old environments. We'll need to acquire a non-localhost
+	// address for the current instance before we do.
+
 	st, m, err := openState(agentConfig)
 	if err != nil {
 		return nil, err
 	}
 	reportOpenedState(st)
 
-	singularStateConn := singularStateConn{st.Session(), m}
+	singularStateConn := singularStateConn{st.MongoSession(), m}
 	runner := newRunner(connectionIsFatal(st), moreImportant)
-	singularRunner, err := NewSingularRunner(runner, singularStateConn)
+	singularRunner, err := newSingularRunner(runner, singularStateConn)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot make singular State Runner: %v", err)
 	}
 
 	// Take advantage of special knowledge here in that we will only ever want
@@ -664,4 +690,34 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 		return nil
 	}
 	return fmt.Errorf("uninstall failed: %v", errors)
+}
+
+// singularAPIConn implements singular.Conn on
+// top of an API connection.
+type singularAPIConn struct {
+	apiState   *api.State
+	agentState *apiagent.State
+}
+
+func (c singularAPIConn) IsMaster() (bool, error) {
+	return c.agentState.IsMaster()
+}
+
+func (c singularAPIConn) Ping() error {
+	return c.apiState.Ping()
+}
+
+// singularStateConn implements singular.Conn on
+// top of a State connection.
+type singularStateConn struct {
+	session *mgo.Session
+	machine *state.Machine
+}
+
+func (c singularStateConn) IsMaster() (bool, error) {
+	return mongo.IsMaster(c.session, c.machine)
+}
+
+func (c singularStateConn) Ping() error {
+	return c.session.Ping()
 }

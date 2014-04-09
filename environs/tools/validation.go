@@ -33,9 +33,12 @@ func ValidateToolsMetadata(params *ToolsMetadataLookupParams) ([]string, *simple
 	var toolsConstraint *ToolsConstraint
 	if params.Version == "" {
 		toolsConstraint = NewGeneralToolsConstraint(params.Major, params.Minor, false, simplestreams.LookupParams{
-			CloudSpec: simplestreams.CloudSpec{params.Region, params.Endpoint},
-			Series:    []string{params.Series},
-			Arches:    params.Architectures,
+			CloudSpec: simplestreams.CloudSpec{
+				Region:   params.Region,
+				Endpoint: params.Endpoint,
+			},
+			Series: []string{params.Series},
+			Arches: params.Architectures,
 		})
 	} else {
 		versNum, err := version.Parse(params.Version)
@@ -43,9 +46,12 @@ func ValidateToolsMetadata(params *ToolsMetadataLookupParams) ([]string, *simple
 			return nil, nil, err
 		}
 		toolsConstraint = NewVersionedToolsConstraint(versNum, simplestreams.LookupParams{
-			CloudSpec: simplestreams.CloudSpec{params.Region, params.Endpoint},
-			Series:    []string{params.Series},
-			Arches:    params.Architectures,
+			CloudSpec: simplestreams.CloudSpec{
+				Region:   params.Region,
+				Endpoint: params.Endpoint,
+			},
+			Series: []string{params.Series},
+			Arches: params.Architectures,
 		})
 	}
 	matchingTools, resolveInfo, err := Fetch(params.Sources, simplestreams.DefaultIndexPath, toolsConstraint, false)
@@ -57,7 +63,11 @@ func ValidateToolsMetadata(params *ToolsMetadataLookupParams) ([]string, *simple
 	}
 	versions := make([]string, len(matchingTools))
 	for i, tm := range matchingTools {
-		vers := version.Binary{version.MustParse(tm.Version), tm.Release, tm.Arch}
+		vers := version.Binary{
+			Number: version.MustParse(tm.Version),
+			Series: tm.Release,
+			Arch:   tm.Arch,
+		}
 		versions[i] = vers.String()
 	}
 	return versions, resolveInfo, nil

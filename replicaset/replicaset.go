@@ -33,6 +33,7 @@ func Initiate(session *mgo.Session, address, name string) error {
 		Version: 1,
 		Members: []Member{{Id: 1, Address: address}},
 	}
+	logger.Infof("Initiating replicaset with config %#v", cfg)
 	return session.Run(bson.D{{"replSetInitiate", cfg}}, nil)
 }
 
@@ -247,6 +248,7 @@ func MasterHostPort(session *mgo.Session) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	logger.Infof("MasterHostPort returned %#v", results)
 	return results.PrimaryAddress, nil
 }
 
@@ -259,12 +261,17 @@ func CurrentMembers(session *mgo.Session) ([]Member, error) {
 	return cfg.Members, nil
 }
 
-// CurrentConfig returns the Config for the given session's replica set.
+// CurrentConfig returns the Config for the given session's replica set.  If
+// there is no current config, the error returned will be mgo.ErrNotFound.
 func CurrentConfig(session *mgo.Session) (*Config, error) {
 	cfg := &Config{}
+	session.SetMode(mgo.Monotonic, true)
 	err := session.DB("local").C("system.replset").Find(nil).One(cfg)
+	if err == mgo.ErrNotFound {
+		return nil, err
+	}
 	if err != nil {
-		return nil, fmt.Errorf("Error getting replset config : %s", err.Error())
+		return nil, fmt.Errorf("cannot get replset config: %s", err.Error())
 	}
 	return cfg, nil
 }
@@ -282,7 +289,7 @@ func CurrentStatus(session *mgo.Session) (*Status, error) {
 	status := &Status{}
 	err := session.Run("replSetGetStatus", status)
 	if err != nil {
-		return nil, fmt.Errorf("Error from replSetGetStatus: %v", err)
+		return nil, fmt.Errorf("cannot get replica set status: %v", err)
 	}
 	return status, nil
 }

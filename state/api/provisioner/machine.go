@@ -78,7 +78,8 @@ func (m *Machine) RequestedNetworks() (includeNetworks, excludeNetworks []string
 // an existing network and bound to the machine, which must not be
 // provisioned yet. MachineTag inside interfaces params is always set
 // to the current machine's tag. If any operation fails, the first
-// error is returned.
+// error is returned. Trying to add an already existing interface is
+// not an error.
 func (m *Machine) AddNetworkInterfaces(interfaces []params.NetworkInterfaceParams) error {
 	var results params.ErrorResults
 	for i, _ := range interfaces {
@@ -95,7 +96,9 @@ func (m *Machine) AddNetworkInterfaces(interfaces []params.NetworkInterfaceParam
 		return fmt.Errorf("expected %d result(s), got %d", len(interfaces), n)
 	}
 	for _, result := range results.Results {
-		if err := result.Error; err != nil {
+		if err := result.Error; err != nil && params.IsCodeAlreadyExists(err) {
+			continue
+		} else if err != nil {
 			return err
 		}
 	}

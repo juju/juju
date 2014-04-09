@@ -4,10 +4,12 @@
 package main
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/juju/testing"
@@ -36,7 +38,9 @@ import (
 	"launchpad.net/juju-core/state/watcher"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/utils/ssh"
 	sshtesting "launchpad.net/juju-core/utils/ssh/testing"
 	"launchpad.net/juju-core/version"
@@ -46,11 +50,13 @@ import (
 	"launchpad.net/juju-core/worker/instancepoller"
 	"launchpad.net/juju-core/worker/machineenvironmentworker"
 	"launchpad.net/juju-core/worker/rsyslog"
+	"launchpad.net/juju-core/worker/singular"
 	"launchpad.net/juju-core/worker/upgrader"
 )
 
 type commonMachineSuite struct {
 	agentSuite
+	singularRecord *singularRunnerRecord
 	lxctesting.TestSuite
 }
 
@@ -59,7 +65,6 @@ func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
 	s.TestSuite.SetUpSuite(c)
 	restore := testing.PatchValue(&charm.CacheDir, c.MkDir())
 	s.AddSuiteCleanup(func(*gc.C) { restore() })
-
 }
 
 func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
@@ -70,11 +75,30 @@ func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
 func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	s.agentSuite.SetUpTest(c)
 	s.TestSuite.SetUpTest(c)
+
 	os.Remove(jujuRun) // ignore error; may not exist
 	// Fake $HOME, and ssh user to avoid touching ~ubuntu/.ssh/authorized_keys.
 	fakeHome := coretesting.MakeEmptyFakeHomeWithoutJuju(c)
 	s.AddCleanup(func(*gc.C) { fakeHome.Restore() })
 	s.PatchValue(&authenticationworker.SSHUser, "")
+
+	testpath := c.MkDir()
+	s.PatchEnvPathPrepend(testpath)
+	// mock out the start method so we can fake install services without sudo
+	fakeCmd(filepath.Join(testpath, "start"))
+	fakeCmd(filepath.Join(testpath, "stop"))
+
+	s.PatchValue(&upstart.InitDir, c.MkDir())
+
+	s.singularRecord = &singularRunnerRecord{}
+	testing.PatchValue(&newSingularRunner, s.singularRecord.newSingularRunner)
+}
+
+func fakeCmd(path string) {
+	err := ioutil.WriteFile(path, []byte("#!/bin/bash --norc\nexit 0"), 0755)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (s *commonMachineSuite) TearDownTest(c *gc.C) {
@@ -234,6 +258,7 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	u1, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
+
 	ctx.waitDeployed(c)
 
 	// assign u0, check it's deployed.
@@ -355,6 +380,15 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 	case <-time.After(5 * time.Second):
 		c.Fatalf("timed out waiting for agent to terminate")
 	}
+
+	c.Assert(s.singularRecord.started(), jc.DeepEquals, []string{
+		"charm-revision-updater",
+		"cleaner",
+		"environ-provisioner",
+		"firewaller",
+		"minunitsworker",
+		"resumer",
+	})
 }
 
 func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
@@ -873,6 +907,9 @@ var _ = gc.Suite(&MachineWithCharmsSuite{})
 
 func (s *MachineWithCharmsSuite) SetUpTest(c *gc.C) {
 	s.CharmSuite.SetUpTest(c)
+	s.PatchValue(&ensureMongoServer, func(string, int, string) error {
+		return nil
+	})
 
 	// Create a state server machine.
 	var err error
@@ -897,6 +934,12 @@ func (s *MachineWithCharmsSuite) SetUpTest(c *gc.C) {
 func (s *MachineWithCharmsSuite) TestManageEnvironRunsCharmRevisionUpdater(c *gc.C) {
 	s.SetupScenario(c)
 
+	testpath := c.MkDir()
+	s.PatchEnvPathPrepend(testpath)
+	fakeCmd(filepath.Join(testpath, "start"))
+	fakeCmd(filepath.Join(testpath, "stop"))
+	s.PatchValue(&upstart.InitDir, c.MkDir())
+
 	// Start the machine agent.
 	a := &MachineAgent{}
 	args := []string{"--data-dir", s.DataDir(), "--machine-id", s.machine.Id()}
@@ -920,4 +963,33 @@ func (s *MachineWithCharmsSuite) TestManageEnvironRunsCharmRevisionUpdater(c *gc
 		}
 	}
 	c.Assert(success, gc.Equals, true)
+}
+
+type singularRunnerRecord struct {
+	mu             sync.Mutex
+	startedWorkers set.Strings
+}
+
+func (r *singularRunnerRecord) newSingularRunner(runner worker.Runner, conn singular.Conn) (worker.Runner, error) {
+	return &fakeSingularRunner{
+		Runner: runner,
+		record: r,
+	}, nil
+}
+
+// started returns the names of all singular-started workers.
+func (r *singularRunnerRecord) started() []string {
+	return r.startedWorkers.SortedValues()
+}
+
+type fakeSingularRunner struct {
+	worker.Runner
+	record *singularRunnerRecord
+}
+
+func (r *fakeSingularRunner) StartWorker(name string, start func() (worker.Worker, error)) error {
+	r.record.mu.Lock()
+	defer r.record.mu.Unlock()
+	r.record.startedWorkers.Add(name)
+	return r.Runner.StartWorker(name, start)
 }

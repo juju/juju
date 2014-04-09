@@ -160,7 +160,6 @@ type ConfigSetterOnly interface {
 }
 
 type ConfigWriter interface {
-
 	// Write writes the agent configuration.
 	Write() error
 }

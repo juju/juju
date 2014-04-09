@@ -69,7 +69,7 @@ func RunPlugin(ctx *cmd.Context, subcommand string, args []string) error {
 	if !execError {
 		return err
 	}
-	return &cmd.UnrecognizedCommand{subcommand}
+	return &cmd.UnrecognizedCommand{Name: subcommand}
 }
 
 type PluginCommand struct {
