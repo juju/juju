@@ -45,7 +45,7 @@ why it isn't supported, or potentially some BIOS settings to change to enable
 KVM support.`
 
 const neetToInstallKVMOk = `kvm-ok is not installed. Please install the cpu-checker package.
-    sudo apt-get install cpu-ckecker`
+    sudo apt-get install cpu-checker`
 
 const missingKVMDeps = `Some required packages are missing for KVM to work:
 
