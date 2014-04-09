@@ -102,8 +102,12 @@ func dialAndTestInitiate(c *gc.C) {
 	session := root.MustDialDirect()
 	defer session.Close()
 
+	mode := session.Mode()
 	err := Initiate(session, root.Addr(), name)
 	c.Assert(err, gc.IsNil)
+
+	// make sure we haven't messed with the session's mode
+	c.Assert(session.Mode(), gc.Equals, mode)
 
 	// Ids start at 1 for us, so we can differentiate between set and unset
 	expectedMembers := []Member{Member{Id: 1, Address: root.Addr()}}
