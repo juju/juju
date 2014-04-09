@@ -332,7 +332,7 @@ type logInfo struct {
 // of the watcher to be ignored.
 func (w *Watcher) initLastId() error {
 	var entry struct {
-		Id interface{} "_id"
+		Id interface{} `entry:"_id"`
 	}
 	err := w.log.Find(nil).Sort("-$natural").One(&entry)
 	if err != nil && err != mgo.ErrNotFound {

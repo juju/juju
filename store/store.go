@@ -175,8 +175,8 @@ func (s *Store) statsKey(session *storeSession, key []string, write bool) (strin
 const statsTokenCacheSize = 1024
 
 type tokenId struct {
-	Id    int    "_id"
-	Token string "t"
+	Id    int    `token:"id"`
+	Token string `token:"value"`
 }
 
 // cacheStatsTokenId adds the id for token into the cache.
@@ -389,10 +389,16 @@ func (s *Store) Counters(req *CounterRequest) ([]Counter, error) {
 	}
 	var query, tquery bson.D
 	if !req.Start.IsZero() {
-		tquery = append(tquery, bson.DocElem{"$gte", timeToStamp(req.Start)})
+		tquery = append(tquery, bson.DocElem{
+			Name:  "$gte",
+			Value: timeToStamp(req.Start),
+		})
 	}
 	if !req.Stop.IsZero() {
-		tquery = append(tquery, bson.DocElem{"$lte", timeToStamp(req.Stop)})
+		tquery = append(tquery, bson.DocElem{
+			Name:  "$lte",
+			Value: timeToStamp(req.Stop),
+		})
 	}
 	if len(tquery) == 0 {
 		query = bson.D{{"k", bson.D{{"$regex", regex}}}}

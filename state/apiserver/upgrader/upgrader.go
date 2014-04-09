@@ -109,5 +109,5 @@ func (u *UpgraderAPI) DesiredVersion(args params.Entities) (params.VersionResult
 		}
 		results[i].Error = common.ServerError(err)
 	}
-	return params.VersionResults{results}, nil
+	return params.VersionResults{Results: results}, nil
 }
