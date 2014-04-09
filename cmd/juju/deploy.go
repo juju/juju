@@ -49,11 +49,11 @@ For cs:precise/mysql
 For cs:~user/precise/mysql
   cs:~user/mysql
 
-For local:precise/mysql
-  local:mysql
-
-In all cases, a versioned charm URL will be expanded as expected (for example,
+In these cases, a versioned charm URL will be expanded as expected (for example,
 mysql-33 becomes cs:precise/mysql-33).
+
+However, for local charms, such as local:precise/mysql, one must specify the
+series.
 
 <service name>, if omitted, will be derived from <charm name>.
 
