@@ -116,9 +116,7 @@ func (s *clientSuite) TestConnectionError(c *gc.C) {
 
 func (s *clientSuite) TestConnectionErrorNoData(c *gc.C) {
 	s.PatchValue(api.DialDebugLog, func(_ *websocket.Config) (io.ReadCloser, error) {
-		empty := bytes.Buffer{}
-		_ = empty
-		return nil, nil
+		return &closableBuffer{&bytes.Buffer{}}, nil
 	})
 	client := s.APIState.Client()
 	reader, err := client.WatchDebugLog(api.DebugLogParams{})
@@ -126,7 +124,46 @@ func (s *clientSuite) TestConnectionErrorNoData(c *gc.C) {
 	c.Assert(reader, gc.IsNil)
 }
 
+func (s *clientSuite) TestConnectionErrorBadData(c *gc.C) {
+	s.PatchValue(api.DialDebugLog, func(_ *websocket.Config) (io.ReadCloser, error) {
+		junk := bytes.NewBufferString("junk")
+		return &closableBuffer{junk}, nil
+	})
+	client := s.APIState.Client()
+	reader, err := client.WatchDebugLog(api.DebugLogParams{})
+	c.Assert(err, gc.ErrorMatches, "unable to unmarshal initial response: .*")
+	c.Assert(reader, gc.IsNil)
+}
+
+func (s *clientSuite) TestConnectionErrorReadError(c *gc.C) {
+	s.PatchValue(api.DialDebugLog, func(_ *websocket.Config) (io.ReadCloser, error) {
+		junk := bytes.NewBufferString("junk")
+		reader := &closableBuffer{junk}
+		err := fmt.Errorf("bad read")
+		return &badReader{reader, err}, nil
+	})
+	client := s.APIState.Client()
+	reader, err := client.WatchDebugLog(api.DebugLogParams{})
+	c.Assert(err, gc.ErrorMatches, "unable to read initial response: bad read")
+	c.Assert(reader, gc.IsNil)
+}
+
+// bytes.Buffer is an io.Reader, but not an io.ReadCloser.
+// closeableBuffer provides a no-op close method for the buffer.
+type closableBuffer struct {
+	*bytes.Buffer
+}
+
+func (*closableBuffer) Close() error {
+	return nil
+}
+
+// badReader raises err when read is attempted
 type badReader struct {
 	io.ReadCloser
-	err string
+	err error
+}
+
+func (r *badReader) Read(p []byte) (n int, err error) {
+	return 0, r.err
 }
