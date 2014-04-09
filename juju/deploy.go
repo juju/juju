@@ -52,6 +52,9 @@ func DeployService(st *state.State, args DeployServiceParams) (*state.Service, e
 			return nil, fmt.Errorf("subordinate service must be deployed without constraints")
 		}
 	}
+	if args.ServiceOwner == "" {
+		args.ServiceOwner = "user-admin"
+	}
 	// TODO(fwereade): transactional State.AddService including settings, constraints
 	// (minimumUnitCount, initialMachineIds?).
 	service, err := st.AddService(
