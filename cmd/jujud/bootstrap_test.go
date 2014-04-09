@@ -413,18 +413,18 @@ func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	).Delete("admin-secret", "ca-private-key")
 
 	cfg, err := config.New(config.NoDefaults, attrs)
-	maybePanic(err)
+	c.Assert(err, gc.IsNil)
 	provider, err := environs.Provider(cfg.Type())
-	maybePanic(err)
+	c.Assert(err, gc.IsNil)
 	env, err := provider.Prepare(nullContext(), cfg)
-	maybePanic(err)
+	c.Assert(err, gc.IsNil)
 
 	envtesting.MustUploadFakeTools(env.Storage())
-	inst, _, err := jujutesting.StartInstance(env, "0")
-	maybePanic(err)
+	inst, _, _, err := jujutesting.StartInstance(env, "0")
+	c.Assert(err, gc.IsNil)
 	s.instanceId = inst.Id()
 	s.bootstrapName, err = inst.DNSName()
-	maybePanic(err)
+	c.Assert(err, gc.IsNil)
 	s.envcfg = b64yaml(env.Config().AllAttrs()).encode()
 }
 
@@ -444,10 +444,4 @@ func (m b64yaml) encode() string {
 		panic(err)
 	}
 	return base64.StdEncoding.EncodeToString(data)
-}
-
-func maybePanic(err error) {
-	if err != nil {
-		panic(err)
-	}
 }
