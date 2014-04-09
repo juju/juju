@@ -142,11 +142,6 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	defer client.Close()
 
 	attrs, err := client.EnvironmentGet()
-	if params.IsCodeNotImplemented(err) {
-		logger.Infof("EnvironmentGet not supported by the API server, " +
-			"falling back to 1.16 compatibility mode (direct DB access)")
-		return c.run1dot16(ctx)
-	}
 	if err != nil {
 		return err
 	}
@@ -246,79 +241,6 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 			c.Constraints,
 			c.ToMachineSpec)
 	}
-	return err
-}
-
-// run1dot16 implements the deploy command in 1.16 compatibility mode,
-// with direct state access. Remove this when support for 1.16 is
-// dropped.
-func (c *DeployCommand) run1dot16(ctx *cmd.Context) error {
-	conn, err := juju.NewConnFromName(c.EnvName)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-	conf, err := conn.State.EnvironConfig()
-	if err != nil {
-		return err
-	}
-
-	curl, err := resolveCharmURL1dot16(c.CharmName, conf)
-	if err != nil {
-		return err
-	}
-
-	repo, err := charm.InferRepository(curl.Reference, c.RepoPath)
-	if err != nil {
-		return err
-	}
-	repo = config.SpecializeCharmRepo(repo, conf)
-
-	// TODO(fwereade) it's annoying to roundtrip the bytes through the client
-	// here, but it's the original behaviour and not convenient to change.
-	// PutCharm will always be required in some form for local charms; and we
-	// will need an EnsureStoreCharm method somewhere that gets the state.Charm
-	// for use in the following checks.
-	ch, err := conn.PutCharm(curl, repo, c.BumpRevision)
-	if err != nil {
-		return err
-	}
-	numUnits := c.NumUnits
-	if ch.Meta().Subordinate {
-		if !constraints.IsEmpty(&c.Constraints) {
-			return errors.New("cannot use --constraints with subordinate service")
-		}
-		if numUnits == 1 && c.ToMachineSpec == "" {
-			numUnits = 0
-		} else {
-			return errors.New("cannot use --num-units or --to with subordinate service")
-		}
-	}
-
-	serviceName := c.ServiceName
-	if serviceName == "" {
-		serviceName = ch.Meta().Name
-	}
-	var settings charm.Settings
-	if c.Config.Path != "" {
-		configYAML, err := c.Config.Read(ctx)
-		if err != nil {
-			return err
-		}
-		settings, err = ch.Config().ParseSettingsYAML(configYAML, serviceName)
-		if err != nil {
-			return err
-		}
-	}
-	_, err = juju.DeployService(conn.State,
-		juju.DeployServiceParams{
-			ServiceName:    serviceName,
-			Charm:          ch,
-			NumUnits:       numUnits,
-			ConfigSettings: settings,
-			Constraints:    c.Constraints,
-			ToMachineSpec:  c.ToMachineSpec,
-		})
 	return err
 }
 

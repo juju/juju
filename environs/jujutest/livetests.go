@@ -859,7 +859,7 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 
 	t.PrepareOnce(c)
 	possibleTools := envtesting.AssertUploadFakeToolsVersions(c, t.Env.Storage(), version.MustParseBinary("5.4.5-precise-amd64"))
-	inst, _, err := t.Env.StartInstance(environs.StartInstanceParams{
+	inst, _, _, err := t.Env.StartInstance(environs.StartInstanceParams{
 		Tools:         possibleTools,
 		MachineConfig: machineConfig,
 	})

@@ -5,12 +5,16 @@ package maas
 
 import (
 	"encoding/base64"
+	"encoding/xml"
 	"fmt"
+	"net"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"labix.org/v2/mgo/bson"
 	"launchpad.net/gomaasapi"
 
 	"launchpad.net/juju-core/agent"
@@ -264,7 +268,6 @@ func addNetworks(params url.Values, includeNetworks, excludeNetworks []string) {
 			params.Add("not_networks", name)
 		}
 	}
-
 }
 
 // acquireNode allocates a node from the MAAS.
@@ -335,7 +338,7 @@ func (environ *maasEnviron) ValidateConstraints(cons, envCons constraints.Value)
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error) {
 
 	var inst *maasInstance
 	var err error
@@ -345,7 +348,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (in
 		args.MachineConfig.ExcludeNetworks,
 		args.Tools)
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot run instances: %v", err)
+		return nil, nil, nil, fmt.Errorf("cannot run instances: %v", err)
 	} else {
 		inst = &maasInstance{maasObject: &node, environ: environ}
 		args.MachineConfig.Tools = tools
@@ -357,13 +360,59 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (in
 			}
 		}
 	}()
+	var networkInfo []environs.NetworkInfo
+	if args.MachineConfig.HasNetworks() {
+		// Prepare network information by getting the instance
+		// network interfaces, networks and map latter to the
+		// former.
+		interfaces, err := environ.getInstanceNetworkInterfaces(inst)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		logger.Debugf("node %q has network interfaces %#v", inst.Id(), interfaces)
+		macAddressToIndex := make(map[string]int)
+		i := 0
+		for macAddress, interfaceName := range interfaces {
+			networkInfo[i] = environs.NetworkInfo{
+				MACAddress:    macAddress,
+				InterfaceName: interfaceName,
+			}
+			macAddressToIndex[macAddress] = i
+			i++
+		}
+		networks, err := environ.getInstanceNetworks(inst)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		logger.Debugf("node %q has networks %#v", inst.Id(), networks)
+		networkInfo = make([]environs.NetworkInfo, len(interfaces))
+		for _, network := range networks {
+			netCIDR := &net.IPNet{
+				IP:   net.ParseIP(network.IP),
+				Mask: net.IPMask(net.ParseIP(network.Mask)),
+			}
+			macs, err := environ.getNetworkMACs(network.Name)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			for _, mac := range macs {
+				if _, ok := interfaces[mac]; ok {
+					i := macAddressToIndex[mac]
+					networkInfo[i].CIDR = netCIDR.String()
+					networkInfo[i].VLANTag = network.VLANTag
+					networkInfo[i].NetworkName = network.Name
+				}
+			}
+		}
+		logger.Debugf("node %q network information: %#v", inst.Id(), networkInfo)
+	}
 
 	hostname, err := inst.DNSName()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	if err := environs.FinishMachineConfig(args.MachineConfig, environ.Config(), args.Constraints); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	// TODO(thumper): 2013-08-28 bug 1217614
 	// The machine envronment config values are being moved to the agent config.
@@ -371,22 +420,22 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (in
 	args.MachineConfig.AgentEnvironment[agent.LxcBridge] = "br0"
 	cloudcfg, err := newCloudinitConfig(hostname)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	userdata, err := environs.ComposeUserData(args.MachineConfig, cloudcfg)
 	if err != nil {
 		msg := fmt.Errorf("could not compose userdata for bootstrap node: %v", err)
-		return nil, nil, msg
+		return nil, nil, nil, msg
 	}
 	logger.Debugf("maas user data; %d bytes", len(userdata))
 
 	series := args.Tools.OneSeries()
 	if err := environ.startNode(*inst.maasObject, series, userdata); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	logger.Debugf("started instance %q", inst.Id())
 	// TODO(bug 1193998) - return instance hardware characteristics as well
-	return inst, nil, nil
+	return inst, nil, networkInfo, nil
 }
 
 // newCloudinitConfig creates a cloudinit.Config structure
@@ -555,25 +604,26 @@ func (e *maasEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseToolsPath)}, nil
 }
 
-type MAASNetworkDetails struct {
+// networkDetails holds information about a MAAS network.
+type networkDetails struct {
 	Name        string
-	Ip          string
-	NetworkMask string
-	VlanTag     string
+	IP          string
+	Mask        string
+	VLANTag     int
 	Description string
 }
 
-// GetNetworksList returns a list of strings which contain networks for a gien maas node instance.
-func (e *maasEnviron) GetNetworksList(inst instance.Instance) ([]MAASNetworkDetails, error) {
+// getInstanceNetworks returns a list of all MAAS networks for a given node.
+func (environ *maasEnviron) getInstanceNetworks(inst instance.Instance) ([]networkDetails, error) {
 	maasInst := inst.(*maasInstance)
 	maasObj := maasInst.maasObject
-	networksClient := e.getMAASClient().GetSubObject("networks")
-	system_id, err := maasObj.GetField("system_id")
+	client := environ.getMAASClient().GetSubObject("networks")
+	nodeId, err := maasObj.GetField("system_id")
 	if err != nil {
 		return nil, err
 	}
-	params := url.Values{"node": {system_id}}
-	json, err := networksClient.CallGet("", params)
+	params := url.Values{"node": {nodeId}}
+	json, err := client.CallGet("", params)
 	if err != nil {
 		return nil, err
 	}
@@ -581,33 +631,135 @@ func (e *maasEnviron) GetNetworksList(inst instance.Instance) ([]MAASNetworkDeta
 	if err != nil {
 		return nil, err
 	}
-	var attributeError error
-	getField := func(maasNet *gomaasapi.MAASObject, name string) (val string) {
-		if attributeError != nil {
-			return
-		}
-		val, attributeError = maasNet.GetField(name)
-		if attributeError != nil {
-			attributeError = fmt.Errorf("cannot get %q: %v", name, attributeError)
-		}
-		return val
-	}
-	networks := make([]MAASNetworkDetails, len(jsonNets))
+
+	networks := make([]networkDetails, len(jsonNets))
 	for i, jsonNet := range jsonNets {
 		maasNet, err := jsonNet.GetMAASObject()
 		if err != nil {
 			return nil, err
 		}
-		networks[i] = MAASNetworkDetails{
-			Name:        getField(&maasNet, "name"),
-			Ip:          getField(&maasNet, "ip"),
-			NetworkMask: getField(&maasNet, "netmask"),
-			VlanTag:     getField(&maasNet, "vlan_tag"),
-			Description: getField(&maasNet, "description"),
+		name, err := maasNet.GetField("name")
+		if err != nil {
+			return nil, err
+		}
+		ip, err := maasNet.GetField("ip")
+		if err != nil {
+			return nil, err
+		}
+		netmask, err := maasNet.GetField("netmask")
+		if err != nil {
+			return nil, err
+		}
+		vlanTagString, err := maasNet.GetField("vlan_tag")
+		if err != nil {
+			return nil, err
+		}
+		vlanTag, err := strconv.Atoi(vlanTagString)
+		if err != nil {
+			return nil, err
+		}
+		description, err := maasNet.GetField("description")
+		if err != nil {
+			return nil, err
+		}
+
+		networks[i] = networkDetails{
+			Name:        name,
+			IP:          ip,
+			Mask:        netmask,
+			VLANTag:     vlanTag,
+			Description: description,
 		}
 	}
-	if attributeError != nil {
-		return nil, attributeError
+	return networks, nil
+}
+
+// getNetworkMACs returns all MAC addresses connected to the given
+// network.
+func (environ *maasEnviron) getNetworkMACs(networkName string) ([]string, error) {
+	client := environ.getMAASClient().GetSubObject("networks").GetSubObject(networkName)
+	json, err := client.CallGet("list_connected_macs", nil)
+	if err != nil {
+		return nil, err
 	}
-	return networks, attributeError
+	jsonMACs, err := json.GetArray()
+	if err != nil {
+		return nil, err
+	}
+
+	macs := make([]string, len(jsonMACs))
+	for i, jsonMAC := range jsonMACs {
+		maasMAC, err := jsonMAC.GetMAASObject()
+		if err != nil {
+			return nil, err
+		}
+		macAddress, err := maasMAC.GetField("mac_address")
+		if err != nil {
+			return nil, err
+		}
+		macs[i] = macAddress
+	}
+	return macs, nil
+}
+
+// getInstanceNetworkInterfaces returns a map of interface MAC address
+// to name for each network interface of the given instance, as
+// discovered during the commissioning phase.
+func (environ *maasEnviron) getInstanceNetworkInterfaces(inst instance.Instance) (map[string]string, error) {
+	maasInst := inst.(*maasInstance)
+	maasObj := maasInst.maasObject
+	result, err := maasObj.CallGet("details", nil)
+	if err != nil {
+		return nil, err
+	}
+	// Get the node's lldp / lshw details discovered at commissioning.
+	data, err := result.GetBytes()
+	if err != nil {
+		return nil, err
+	}
+	var parsed map[string]interface{}
+	if err := bson.Unmarshal(data, &parsed); err != nil {
+		return nil, err
+	}
+	lshwData, ok := parsed["lshw"]
+	if !ok {
+		return nil, fmt.Errorf("no hardware information available for node %q", inst.Id())
+	}
+	lshwXML, ok := lshwData.([]byte)
+	if !ok {
+		return nil, fmt.Errorf("invalid hardware information for node %q", inst.Id())
+	}
+	// Now we have the lshw XML data, parse it to extract and return NICs.
+	return extractInterfaces(inst, lshwXML)
+}
+
+// extractInterfaces parses the XML output of lswh and extracts all
+// network interfaces, returing a map MAC address to interface name.
+func extractInterfaces(inst instance.Instance, lshwXML []byte) (map[string]string, error) {
+	type Node struct {
+		Id          string `xml:"id,attr"`
+		Description string `xml:"description"`
+		Serial      string `xml:"serial"`
+		LogicalName string `xml:"logicalname"`
+		Children    []Node `xml:"node"`
+	}
+	type List struct {
+		Nodes []Node `xml:"node"`
+	}
+	var lshw List
+	if err := xml.Unmarshal(lshwXML, &lshw); err != nil {
+		return nil, fmt.Errorf("cannot parse lshw XML details for node %q: %v", inst.Id(), err)
+	}
+	interfaces := make(map[string]string)
+	var processNodes func(nodes []Node)
+	processNodes = func(nodes []Node) {
+		for _, node := range nodes {
+			if strings.HasPrefix(node.Id, "network") {
+				interfaces[node.Serial] = node.LogicalName
+			}
+			processNodes(node.Children)
+		}
+	}
+	processNodes(lshw.Nodes)
+	return interfaces, nil
 }

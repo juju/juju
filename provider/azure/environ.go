@@ -513,14 +513,14 @@ func deploymentNameV2(serviceName string) string {
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ instance.Instance, _ *instance.HardwareCharacteristics, err error) {
+func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ instance.Instance, _ *instance.HardwareCharacteristics, _ []environs.NetworkInfo, err error) {
 	if args.MachineConfig.HasNetworks() {
-		return nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
+		return nil, nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
 	}
 
 	err = environs.FinishMachineConfig(args.MachineConfig, env.Config(), args.Constraints)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	// Pick envtools.  Needed for the custom data (which is what we normally
@@ -531,12 +531,12 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ ins
 	// Compose userdata.
 	userData, err := makeCustomData(args.MachineConfig)
 	if err != nil {
-		return nil, nil, fmt.Errorf("custom data: %v", err)
+		return nil, nil, nil, fmt.Errorf("custom data: %v", err)
 	}
 
 	azure, err := env.getManagementAPI()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	defer env.releaseManagementAPI(azure)
 
@@ -549,7 +549,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ ins
 		Constraints: args.Constraints,
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	// We use the cloud service label as a way to group instances with
@@ -559,7 +559,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ ins
 	if args.DistributionGroup != nil && snapshot.ecfg.availabilitySetsEnabled() {
 		instanceIds, err := args.DistributionGroup()
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		for _, id := range instanceIds {
 			cloudServiceName, _ = env.splitInstanceId(id)
@@ -582,10 +582,10 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ ins
 	role := env.newRole(instanceType, vhd, userData, stateServer)
 	inst, err := createInstance(env, azure.ManagementAPI, role, cloudServiceName, stateServer)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	// TODO(bug 1193998) - return instance hardware characteristics as well
-	return inst, &instance.HardwareCharacteristics{}, nil
+	return inst, &instance.HardwareCharacteristics{}, nil, nil
 }
 
 // getInstance returns an up-to-date version of the instance with the given

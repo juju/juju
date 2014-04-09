@@ -16,10 +16,8 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/sync"
 	envtools "launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
@@ -132,9 +130,6 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) (err error) {
 
 	// Determine the version to upgrade to, uploading tools if necessary.
 	attrs, err := client.EnvironmentGet()
-	if params.IsCodeNotImplemented(err) {
-		return c.run1dot16()
-	}
 	if err != nil {
 		return err
 	}
@@ -371,95 +366,4 @@ func uploadVersion(vers version.Number, existing coretools.List) version.Number 
 		}
 	}
 	return vers
-}
-
-// run1dot16 implements the command without access to the API. This is
-// needed for compatibility, so 1.16 can be upgraded to newer
-// releases. It should be removed in 1.18.
-func (c *UpgradeJujuCommand) run1dot16() error {
-	logger.Warningf("running in 1.16 compatibility mode")
-	conn, err := juju.NewConnFromName(c.EnvName)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-	defer func() {
-		if err == errUpToDate {
-			logger.Infof(err.Error())
-			err = nil
-		}
-	}()
-
-	// Determine the version to upgrade to, uploading tools if necessary.
-	env := conn.Environ
-	cfg, err := conn.State.EnvironConfig()
-	if err != nil {
-		return err
-	}
-	context, err := c.initVersions1dot16(cfg, env)
-	if err != nil {
-		return err
-	}
-	if c.UploadTools {
-		series := bootstrap.SeriesToUpload(cfg, c.Series)
-		if err := context.uploadTools1dot16(env.Storage(), series); err != nil {
-			return err
-		}
-	}
-	if err := context.validate(); err != nil {
-		return err
-	}
-	logger.Infof("upgrade version chosen: %s", context.chosen)
-	logger.Infof("available tools: %s", context.tools)
-
-	if err := conn.State.SetEnvironAgentVersion(context.chosen); err != nil {
-		return err
-	}
-	logger.Infof("started upgrade to %s", context.chosen)
-	return nil
-}
-
-func (c *UpgradeJujuCommand) initVersions1dot16(cfg *config.Config, env environs.Environ) (*upgradeContext, error) {
-	agent, ok := cfg.AgentVersion()
-	if !ok {
-		// Can't happen. In theory.
-		return nil, fmt.Errorf("incomplete environment configuration")
-	}
-	if c.Version == agent {
-		return nil, errUpToDate
-	}
-	client := version.Current.Number
-	available, err := envtools.FindTools(env, client.Major, -1, coretools.Filter{}, envtools.DoNotAllowRetry)
-	if err != nil {
-		if !errors.IsNotFoundError(err) {
-			return nil, err
-		}
-		if !c.UploadTools {
-			// No tools found and we shouldn't upload any, so if we are not asking for a
-			// major upgrade, pretend there is no more recent version available.
-			if c.Version == version.Zero && agent.Major == client.Major {
-				return nil, errUpToDate
-			}
-			return nil, err
-		}
-	}
-	return &upgradeContext{
-		agent:  agent,
-		client: client,
-		chosen: c.Version,
-		tools:  available,
-	}, nil
-}
-
-func (context *upgradeContext) uploadTools1dot16(storage storage.Storage, series []string) error {
-	if context.chosen == version.Zero {
-		context.chosen = context.client
-	}
-	context.chosen = uploadVersion(context.chosen, context.tools)
-	uploaded, err := sync.Upload(storage, &context.chosen, series...)
-	if err != nil {
-		return err
-	}
-	context.tools = coretools.List{uploaded}
-	return nil
 }
