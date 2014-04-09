@@ -39,8 +39,7 @@ type DeployCommand struct {
 
 const deployDoc = `
 <charm name> can be a charm URL, or an unambiguously condensed form of it;
-assuming a current default series of "precise", the following forms will be
-accepted.
+assuming a current series of "precise", the following forms will be accepted:
 
 For cs:precise/mysql
   mysql
@@ -49,11 +48,14 @@ For cs:precise/mysql
 For cs:~user/precise/mysql
   cs:~user/mysql
 
+The current series is determined first by the default-series environment
+setting, followed by the preferred series for the charm in the charm store.
+
 In these cases, a versioned charm URL will be expanded as expected (for example,
 mysql-33 becomes cs:precise/mysql-33).
 
-However, for local charms, such as local:precise/mysql, one must specify the
-series.
+However, for local charms, where the default-series is not specified in the
+environment, one must specify the series.
 
 <service name>, if omitted, will be derived from <charm name>.
 
