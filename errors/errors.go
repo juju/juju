@@ -106,3 +106,24 @@ func IsNotImplementedError(err error) bool {
 	_, ok := err.(*notImplementedError)
 	return ok
 }
+
+type alreadyExistsError struct {
+	what string
+}
+
+// NewAlreadyExistsError returns an error signifying that
+// something already exists.
+func NewAlreadyExistsError(what string) error {
+	return &alreadyExistsError{what: what}
+}
+
+func (e *alreadyExistsError) Error() string {
+	return e.what + " already exists"
+}
+
+// IsAlreadyExistsError reports whether the error
+// was created with NewAlreadyExistsError.
+func IsAlreadyExistsError(err error) bool {
+	_, ok := err.(*alreadyExistsError)
+	return ok
+}
