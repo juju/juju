@@ -519,7 +519,8 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 				err = machine.SetInstanceInfo(
 					arg.InstanceId, arg.Nonce, arg.Characteristics,
 					networks, interfaces)
-			} else {
+			}
+			if err != nil {
 				// Give the user more context about the error.
 				err = fmt.Errorf(
 					"provisioning %q with networks %v, interfaces %v failed: %v",
