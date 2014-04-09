@@ -12,7 +12,6 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/manual"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
