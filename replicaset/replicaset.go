@@ -21,8 +21,7 @@ var logger = loggo.GetLogger("juju.replicaset")
 // set.
 //
 // Note that you must set DialWithInfo and set Direct = true when dialing into a
-// specific non-initiated mongo server.  The session will be set to Monotonic
-// mode.
+// specific non-initiated mongo server.
 //
 // See http://docs.mongodb.org/manual/reference/method/rs.initiate/ for more
 // details.

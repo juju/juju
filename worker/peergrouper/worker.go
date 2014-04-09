@@ -72,9 +72,6 @@ var (
 	// members will be updated even in the absence of changes
 	// to State. This enables us to make changes to members
 	// that are triggered by changes to member status.
-	//
-	// 10 seconds is the default time interval used by
-	// mongo to keep its replicas up to date.
 	pollInterval = 1 * time.Minute
 )
 
@@ -134,7 +131,6 @@ func newWorker(st stateInterface, pub publisherInterface) worker.Worker {
 		machines:  make(map[string]*machine),
 		publisher: pub,
 	}
-	logger.Infof("worker starting")
 	go func() {
 		defer w.tomb.Done()
 		if err := w.loop(); err != nil {
