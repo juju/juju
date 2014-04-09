@@ -335,7 +335,6 @@ func ReadConfig(configFilePath string) (ConfigSetterWriter, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot read agent config %q: %v", configFilePath, err)
 	}
-	logger.Debugf("config:\n-------------\n%s\n-----------------\n", configData)
 
 	// Try to read the legacy format file.
 	dir := filepath.Dir(configFilePath)

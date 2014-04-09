@@ -7,7 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net"
-	"sort"
+	"path/filepath"
 
 	"launchpad.net/gnuflag"
 	"launchpad.net/goyaml"
@@ -82,7 +82,6 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 			params.JobHostUnits,
 		}
 	}
-	logger.Infof("creating new Environ")
 
 	// Get the bootstrap machine's addresses from the provider.
 	env, err := environs.New(envCfg)
@@ -152,10 +151,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 
 func (c *BootstrapCommand) startMongo(addrs []instance.Address, agentConfig agent.Config) error {
 	logger.Debugf("starting mongo")
-	preferredAddr, err := selectPreferredStateServerAddress(addrs)
-	if err != nil {
-		return err
-	}
+
 	dialInfo, err := state.DialInfo(agentConfig.StateInfo(), state.DefaultDialOpts())
 	if err != nil {
 		return err
@@ -178,60 +174,16 @@ func (c *BootstrapCommand) startMongo(addrs []instance.Address, agentConfig agen
 	if err != nil {
 		return err
 	}
+	peerAddr := mongo.SelectPeerAddress(addrs)
+	if peerAddr == "" {
+	    return fmt.Errorf("no appropriate peer address found in %q", addrs)
+	}
+	peerHostPort := net.JoinHostPort(peerAddr, fmt.Sprint(servingInfo.StatePort))
 
-	return maybeInitiateMongoServer(peergrouper.InitiateMongoParams{
-		DialInfo: dialInfo,
-		MemberHostPort: instance.HostPort{preferredAddr, servingInfo.StatePort}.NetAddr(),
+	return maybeInitiateMongoServer(mongo.InitiateMongoParams{
+		DialInfo:       dialInfo,
+		MemberHostPort: peerHostPort,
 	})
-}
-
-func selectPreferredStateServerAddress(addrs []instance.Address) (instance.Address, error) {
-	if len(addrs) == 0 {
-		return instance.Address{}, fmt.Errorf("no state server addresses")
-	}
-	newAddrs := append(byAddressPreference{}, addrs...)
-	sort.Stable(newAddrs)
-	return newAddrs[0], nil
-}
-
-// byAddressPreference sorts addresses, preferring numeric cloud local addresses.
-type byAddressPreference []instance.Address
-
-func (a byAddressPreference) Len() int {
-	return len(a)
-}
-
-func (a byAddressPreference) Swap(i, j int) {
-	a[i], a[j] = a[j], a[i]
-}
-
-func (a byAddressPreference) Less(i, j int) bool {
-	a0, a1 := &a[i], &a[j]
-	if pref0, pref1 := netScopePref(a0.NetworkScope), netScopePref(a1.NetworkScope); pref0 != pref1 {
-		return pref0 < pref1
-	}
-	if pref0, pref1 := netTypePref(a0.Type), netTypePref(a1.Type); pref0 != pref1 {
-		return pref0 < pref1
-	}
-	return false
-}
-
-func netScopePref(scope instance.NetworkScope) int {
-	switch scope {
-	case instance.NetworkCloudLocal:
-		return 0
-	case instance.NetworkUnknown:
-		return 1
-	}
-	return 2
-}
-
-func netTypePref(atype instance.AddressType) int {
-	switch atype {
-	case instance.HostName:
-		return 0
-	}
-	return 1
 }
 
 // yamlBase64Value implements gnuflag.Value on a map[string]interface{}.

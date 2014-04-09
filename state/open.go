@@ -83,12 +83,12 @@ func Open(info *Info, opts DialOpts, policy Policy) (*State, error) {
 	if err != nil {
 		return nil, err
 	}
-	logger.Infof("dialing mongo")
+	logger.Debugf("dialing mongo")
 	session, err := mgo.DialWithInfo(di)
 	if err != nil {
 		return nil, err
 	}
-	logger.Infof("connection established")
+	logger.Debugf("connection established")
 
 	st, err := newState(session, info, policy)
 	if err != nil {
@@ -143,7 +143,7 @@ func DialInfo(info *Info, opts DialOpts) (*mgo.DialInfo, error) {
 
 // Initialize sets up an initial empty state and returns it.
 // This needs to be performed only once for a given environment.
-// It  returns unauthorizedError if access is unauthorized.
+// It returns unauthorizedError if access is unauthorized.
 func Initialize(info *Info, cfg *config.Config, opts DialOpts, policy Policy) (rst *State, err error) {
 	st, err := Open(info, opts, policy)
 	if err != nil {
