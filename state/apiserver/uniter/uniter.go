@@ -693,6 +693,44 @@ func (u *UniterAPI) RelationById(args params.RelationIds) (params.RelationResult
 	return result, nil
 }
 
+func joinedRelationTags(unit *state.Unit) ([]string, error) {
+	relations, err := unit.JoinedRelations()
+	if err != nil {
+		return nil, err
+	}
+	tags := make([]string, len(relations))
+	for i, relation := range relations {
+		tags[i] = relation.Tag()
+	}
+	return tags, nil
+}
+
+// JoinedRelations returns the tags of all relations each supplied unit has joined.
+func (u *UniterAPI) JoinedRelations(args params.Entities) (params.StringsResults, error) {
+	result := params.StringsResults{
+		Results: make([]params.StringsResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	canRead, err := u.accessUnit()
+	if err != nil {
+		return params.StringsResults{}, err
+	}
+	for i, entity := range args.Entities {
+		err := common.ErrPerm
+		if canRead(entity.Tag) {
+			var unit *state.Unit
+			unit, err = u.getUnit(entity.Tag)
+			if err == nil {
+				result.Results[i].Result, err = joinedRelationTags(unit)
+			}
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
 // CurrentEnvironUUID returns the UUID for the current juju environment.
 func (u *UniterAPI) CurrentEnvironUUID() (params.StringResult, error) {
 	result := params.StringResult{}
