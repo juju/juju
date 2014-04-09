@@ -54,8 +54,9 @@ setting, followed by the preferred series for the charm in the charm store.
 In these cases, a versioned charm URL will be expanded as expected (for example,
 mysql-33 becomes cs:precise/mysql-33).
 
-However, for local charms, where the default-series is not specified in the
-environment, one must specify the series.
+However, for local charms, when the default-series is not specified in the
+environment, one must specify the series. For example:
+  local:precise/mysql
 
 <service name>, if omitted, will be derived from <charm name>.
 
