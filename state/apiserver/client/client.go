@@ -28,6 +28,7 @@ import (
 	"launchpad.net/juju-core/state/statecmd"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 )
 
 var logger = loggo.GetLogger("juju.state.apiserver.client")
@@ -779,6 +780,12 @@ func parseSettingsCompatible(ch *state.Charm, settings map[string]string) (charm
 		changes[name] = nil
 	}
 	return changes, nil
+}
+
+// Version returns the current version that the api server is running.
+func (c *Client) Version() (params.VersionResult, error) {
+	current := version.Current.Number
+	return params.VersionResult{Version: &current}, nil
 }
 
 // EnvironmentGet implements the server-side part of the
