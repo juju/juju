@@ -2196,6 +2196,5 @@ func (s *clientSuite) TestClientVersion(c *gc.C) {
 	s.PatchValue(&version.Current.Number, current)
 	result, err := s.APIState.Client().Version()
 	c.Assert(err, gc.IsNil)
-	c.Assert(result.Version, gc.NotNil)
-	c.Assert(*result.Version, gc.Equals, current)
+	c.Assert(result, gc.Equals, current)
 }

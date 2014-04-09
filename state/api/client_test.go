@@ -111,29 +111,19 @@ func (s *clientSuite) TestConnectionErrorBadConnection(c *gc.C) {
 	c.Assert(reader, gc.IsNil)
 }
 
-func (s *clientSuite) TestConnectionError(c *gc.C) {
-	s.PatchValue(api.DialDebugLog, func(_ *websocket.Config) (io.ReadCloser, error) {
-		return nil, fmt.Errorf("bad connection")
-	})
-	client := s.APIState.Client()
-	reader, err := client.WatchDebugLog(api.DebugLogParams{})
-	c.Assert(err, gc.ErrorMatches, "bad connection")
-	c.Assert(reader, gc.IsNil)
-}
-
 func (s *clientSuite) TestConnectionErrorNoData(c *gc.C) {
 	s.PatchValue(api.DialDebugLog, func(_ *websocket.Config) (io.ReadCloser, error) {
 		return &closableBuffer{&bytes.Buffer{}, c}, nil
 	})
 	client := s.APIState.Client()
 	reader, err := client.WatchDebugLog(api.DebugLogParams{})
-	c.Assert(err, gc.ErrorMatches, "connection sent no data")
+	c.Assert(err, gc.ErrorMatches, "unable to read initial response: EOF")
 	c.Assert(reader, gc.IsNil)
 }
 
 func (s *clientSuite) TestConnectionErrorBadData(c *gc.C) {
 	s.PatchValue(api.DialDebugLog, func(_ *websocket.Config) (io.ReadCloser, error) {
-		junk := bytes.NewBufferString("junk")
+		junk := bytes.NewBufferString("junk\n")
 		return &closableBuffer{junk, c}, nil
 	})
 	client := s.APIState.Client()
