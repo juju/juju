@@ -17,10 +17,10 @@ type Network struct {
 // networkDoc represents a configured network that a machine can be a
 // part of.
 type networkDoc struct {
-	// Id is the network's name. It should be one of the machine's
+	// Id is the network's id. It should be one of the machine's
 	// included networks. This is intended to be a juju-specific id
-	// and have a separate field for provider-specific name, but for
-	// now both are the same.
+	// and to have a separate field for provider-specific name, but
+	// for now both are the same.
 	Id string `bson:"_id"`
 	// CIDR holds the network CIDR in the form 192.168.100.0/24.
 	CIDR string
@@ -33,7 +33,7 @@ func newNetwork(st *State, doc *networkDoc) *Network {
 	return &Network{st, *doc}
 }
 
-// Name returns the network id.
+// Id returns the network id.
 func (n *Network) Id() string {
 	return n.doc.Id
 }

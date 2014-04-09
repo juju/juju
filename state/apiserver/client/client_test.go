@@ -691,7 +691,7 @@ func (s *clientSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
 		curl.String(), "service", 3, "", mem4g, "",
 		[]string{"net1", "net2"}, []string{"net3"},
 	)
-	c.Assert(err, gc.ErrorMatches, "blah")
+	c.Assert(err, gc.ErrorMatches, `"net1" is not a valid network tag`)
 
 	err = s.APIState.Client().ServiceDeployWithNetworks(
 		curl.String(), "service", 3, "", mem4g, "",
