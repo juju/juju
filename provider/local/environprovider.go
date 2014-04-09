@@ -256,6 +256,10 @@ local:
     #
     # network-bridge: lxcbr0
 
+    # The default series to deploy the state-server and charms on.
+    #
+    # default-series: precise
+
 `[1:]
 }
 
