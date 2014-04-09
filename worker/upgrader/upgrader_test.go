@@ -229,7 +229,28 @@ func (s *UpgraderSuite) TestEnsureToolsChecksBeforeDownloading(c *gc.C) {
 	// something invalid and ensure we don't actually get an error, because
 	// it doesn't actually do an HTTP request
 	u := s.makeUpgrader()
-	newTools.URL = "http://localhost:999999/invalid/path/tools.tgz"
+	newTools.URL = "http://0.1.2.3/invalid/path/tools.tgz"
 	err := upgrader.EnsureTools(u, newTools, utils.VerifySSLHostnames)
 	c.Assert(err, gc.IsNil)
+}
+
+func (s *UpgraderSuite) TestUpgraderRefusesToDowngrade(c *gc.C) {
+	stor := s.Conn.Environ.Storage()
+	origTools := envtesting.PrimeTools(c, stor, s.DataDir(), version.MustParseBinary("5.4.3-precise-amd64"))
+	s.PatchValue(&version.Current, origTools.Version)
+	downgradeTools := envtesting.AssertUploadFakeToolsVersions(
+		c, stor, version.MustParseBinary("5.3.3-precise-amd64"))[0]
+	err := statetesting.SetAgentVersion(s.State, downgradeTools.Version.Number)
+	c.Assert(err, gc.IsNil)
+
+	u := s.makeUpgrader()
+	err = u.Stop()
+	// If the upgrade would have triggered, we would have gotten an
+	// UpgradeReadyError, since it was skipped, we get no error
+	c.Check(err, gc.IsNil)
+	_, err = agenttools.ReadTools(s.DataDir(), downgradeTools.Version)
+	// TODO: ReadTools *should* be returning some form of NotFoundError,
+	// however, it just passes back a fmt.Errorf so we live with it
+	// c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Check(err, gc.ErrorMatches, "cannot read tools metadata in tools directory.*no such file or directory")
 }
