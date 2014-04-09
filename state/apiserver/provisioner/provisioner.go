@@ -432,10 +432,10 @@ func (p *ProvisionerAPI) RequestedNetworks(args params.Entities) (params.Network
 	return result, nil
 }
 
-// SetProvisionedWithNetworks sets the provider specific machine id,
-// nonce, metadata and network info for each given machine. Once set,
-// the instance id cannot be changed.
-func (p *ProvisionerAPI) SetProvisionedWithNetworks(args params.SetProvisionedWithNetworks) (params.ErrorResults, error) {
+// SetInstanceInfo sets the provider specific machine id, nonce,
+// metadata and network info for each given machine. Once set, the
+// instance id cannot be changed.
+func (p *ProvisionerAPI) SetInstanceInfo(args params.SetInstanceInfo) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Machines)),
 	}
@@ -446,7 +446,7 @@ func (p *ProvisionerAPI) SetProvisionedWithNetworks(args params.SetProvisionedWi
 	for i, arg := range args.Machines {
 		machine, err := p.getMachine(canAccess, arg.Tag)
 		if err == nil {
-			err = machine.SetProvisionedWithNetworks(
+			err = machine.SetInstanceInfo(
 				arg.InstanceId, arg.Nonce, arg.Characteristics,
 				arg.Networks, arg.Interfaces)
 		}

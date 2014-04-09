@@ -311,38 +311,36 @@ type SetProvisioned struct {
 	Machines []MachineSetProvisioned
 }
 
-// NetworkParams describes a single network available on an
-// instance.
-type NetworkParams struct {
+// Network describes a single network available on an instance.
+type Network struct {
 	Name    string
 	CIDR    string
 	VLANTag int
 }
 
-// NetworkInterfaceParams describes a single network interface
-// available on an instance.
-type NetworkInterfaceParams struct {
+// NetworkInterface describes a single network interface available on
+// an instance.
+type NetworkInterface struct {
 	MACAddress    string
 	InterfaceName string
 	NetworkName   string
 }
 
-// ProvisionWithNetworks holds a machine tag, provider-specific
-// instance id, a nonce, a list of networks and interfaces to set up,
-// or an error.
-type ProvisionWithNetworks struct {
+// InstanceInfo holds a machine tag, provider-specific instance id, a
+// nonce, a list of networks and interfaces to set up, or an error.
+type InstanceInfo struct {
 	Tag             string
 	InstanceId      instance.Id
 	Nonce           string
 	Characteristics *instance.HardwareCharacteristics
-	Networks        []NetworkParams
-	Interfaces      []NetworkInterfaceParams
+	Networks        []Network
+	Interfaces      []NetworkInterface
 }
 
-// SetProvisionedWithNetworks holds the parameters for making a
-// SetProvisionedWithNetworks call for a machine.
-type SetProvisionedWithNetworks struct {
-	Machines []ProvisionWithNetworks
+// SetInstanceInfo holds the parameters for making a
+// SetInstanceInfo call for multiple machines.
+type SetInstanceInfo struct {
+	Machines []InstanceInfo
 }
 
 // NetworkResult holds machine networks or an error.

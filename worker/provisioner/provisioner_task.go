@@ -451,29 +451,29 @@ func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error
 		return task.setErrorStatus("cannot start instance for machine %q: %v", machine, err)
 	}
 	nonce := machineConfig.MachineNonce
-	var networks []params.NetworkParams
-	var ifaces []params.NetworkInterfaceParams
+	var networks []params.Network
+	var ifaces []params.NetworkInterface
 	if len(networkInfo) > 0 {
 		visitedNetworks := set.NewStrings()
 		for _, info := range networkInfo {
 			if !visitedNetworks.Contains(info.NetworkName) {
-				networks = append(networks, params.NetworkParams{
+				networks = append(networks, params.Network{
 					Name:    info.NetworkName,
 					CIDR:    info.CIDR,
 					VLANTag: info.VLANTag,
 				})
 				visitedNetworks.Add(info.NetworkName)
 			}
-			ifaces = append(ifaces, params.NetworkInterfaceParams{
+			ifaces = append(ifaces, params.NetworkInterface{
 				InterfaceName: info.InterfaceName,
 				MACAddress:    info.MACAddress,
 				NetworkName:   info.NetworkName,
 			})
 		}
 	}
-	err = machine.SetProvisionedWithNetworks(inst.Id(), nonce, metadata, networks, ifaces)
+	err = machine.SetInstanceInfo(inst.Id(), nonce, metadata, networks, ifaces)
 	if err != nil && params.IsCodeNotImplemented(err) {
-		logger.Errorf("cannot provision instance %v for machine %q with networks: not implemented")
+		return nil, fmt.Errorf("cannot provision instance %v for machine %q with networks: not implemented")
 	} else if err == nil {
 		logger.Infof("started machine %s as instance %s with hardware %q, networks %v, interfaces %v", machine, inst.Id(), metadata, networks, ifaces)
 		return nil

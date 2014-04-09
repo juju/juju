@@ -799,13 +799,13 @@ func (s *withoutStateServerSuite) TestRequestedNetworks(c *gc.C) {
 	})
 }
 
-func (s *withoutStateServerSuite) TestSetProvisionedWithNetworks(c *gc.C) {
+func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 	// Provision machine 0 first.
 	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
-	err := s.machines[0].SetProvisionedWithNetworks("i-am", "fake_nonce", &hwChars, nil, nil)
+	err := s.machines[0].SetInstanceInfo("i-am", "fake_nonce", &hwChars, nil, nil)
 	c.Assert(err, gc.IsNil)
 
-	networks := []params.NetworkParams{{
+	networks := []params.Network{{
 		Name:    "net1",
 		CIDR:    "0.1.2.0/24",
 		VLANTag: 0,
@@ -818,7 +818,7 @@ func (s *withoutStateServerSuite) TestSetProvisionedWithNetworks(c *gc.C) {
 		CIDR:    "0.2.2.0/24",
 		VLANTag: 42,
 	}}
-	ifaces := []params.NetworkInterfaceParams{{
+	ifaces := []params.NetworkInterface{{
 		MACAddress:    "aa:bb:cc:dd:ee:f0",
 		NetworkName:   "net1",
 		InterfaceName: "eth0",
@@ -835,7 +835,7 @@ func (s *withoutStateServerSuite) TestSetProvisionedWithNetworks(c *gc.C) {
 		NetworkName:   "vlan42",
 		InterfaceName: "eth2",
 	}}
-	args := params.SetProvisionedWithNetworks{Machines: []params.ProvisionWithNetworks{{
+	args := params.SetInstanceInfo{Machines: []params.InstanceInfo{{
 		Tag:        s.machines[0].Tag(),
 		InstanceId: "i-was",
 		Nonce:      "fake_nonce",
@@ -858,7 +858,7 @@ func (s *withoutStateServerSuite) TestSetProvisionedWithNetworks(c *gc.C) {
 		{Tag: "unit-foo-0"},
 		{Tag: "service-bar"},
 	}}
-	result, err := s.provisioner.SetProvisionedWithNetworks(args)
+	result, err := s.provisioner.SetInstanceInfo(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -891,7 +891,7 @@ func (s *withoutStateServerSuite) TestSetProvisionedWithNetworks(c *gc.C) {
 	ifacesMachine1, err := s.machines[1].NetworkInterfaces()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ifacesMachine1, gc.HasLen, 3)
-	actual := make([]params.NetworkInterfaceParams, len(ifacesMachine1))
+	actual := make([]params.NetworkInterface, len(ifacesMachine1))
 	for i, iface := range ifacesMachine1 {
 		actual[i].InterfaceName = iface.InterfaceName()
 		actual[i].NetworkName = iface.NetworkName()

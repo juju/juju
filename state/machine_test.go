@@ -639,25 +639,25 @@ func (s *MachineSuite) TestMachineSetCheckProvisioned(c *gc.C) {
 	c.Assert(s.machine.CheckProvisioned("not-really"), gc.Equals, false)
 }
 
-func (s *MachineSuite) TestMachineSetProvisionedWithNetworksFailureDoesNotProvision(c *gc.C) {
+func (s *MachineSuite) TestMachineSetInstanceInfoFailureDoesNotProvision(c *gc.C) {
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), gc.Equals, false)
-	invalidNetworks := []params.NetworkParams{{Name: ""}}
-	invalidInterfaces := []params.NetworkInterfaceParams{{MACAddress: ""}}
-	err := s.machine.SetProvisionedWithNetworks("umbrella/0", "fake_nonce", nil, invalidNetworks, nil)
+	invalidNetworks := []params.Network{{Name: ""}}
+	invalidInterfaces := []params.NetworkInterface{{MACAddress: ""}}
+	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, invalidNetworks, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add network "": name must be not empty`)
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), gc.Equals, false)
-	err = s.machine.SetProvisionedWithNetworks("umbrella/0", "fake_nonce", nil, nil, invalidInterfaces)
+	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, invalidInterfaces)
 	c.Assert(err, gc.ErrorMatches, "cannot add network interface to machine 1: invalid MAC address: ")
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), gc.Equals, false)
 }
 
-func (s *MachineSuite) TestMachineSetProvisionedWithNetworksSuccess(c *gc.C) {
+func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), gc.Equals, false)
-	networks := []params.NetworkParams{{Name: "net1", CIDR: "0.1.2.0/24", VLANTag: 0}}
-	interfaces := []params.NetworkInterfaceParams{
+	networks := []params.Network{{Name: "net1", CIDR: "0.1.2.0/24", VLANTag: 0}}
+	interfaces := []params.NetworkInterface{
 		{MACAddress: "aa:bb:cc:dd:ee:ff", NetworkName: "net1", InterfaceName: "eth0"},
 	}
-	err := s.machine.SetProvisionedWithNetworks("umbrella/0", "fake_nonce", nil, networks, interfaces)
+	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, networks, interfaces)
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), gc.Equals, true)
 	network, err := s.State.Network(networks[0].Name)

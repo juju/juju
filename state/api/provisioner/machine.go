@@ -205,26 +205,16 @@ func (m *Machine) DistributionGroup() ([]instance.Id, error) {
 	return result.Result, nil
 }
 
-// SetProvisioned sets the provider specific machine id, nonce and
-// also metadata for this machine. Once set, the instance id cannot be
-// changed.
-//
-// NOTE: This is deprecated and not used by the provisioner since
-// 1.19.0, but it's kept for backwards-compatibility. Remove it.
-func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics) error {
-	return m.SetProvisionedWithNetworks(id, nonce, characteristics, nil, nil)
-}
-
-// SetProvisionedWithNetworks sets the provider specific machine id,
-// nonce, metadata, networks and interfaces for this machine. Once
-// set, the instance id cannot be changed.
-func (m *Machine) SetProvisionedWithNetworks(
+// SetInstanceInfo sets the provider specific machine id, nonce,
+// metadata, networks and interfaces for this machine. Once set, the
+// instance id cannot be changed.
+func (m *Machine) SetInstanceInfo(
 	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
-	networks []params.NetworkParams, interfaces []params.NetworkInterfaceParams,
+	networks []params.Network, interfaces []params.NetworkInterface,
 ) error {
 	var result params.ErrorResults
-	args := params.SetProvisionedWithNetworks{
-		Machines: []params.ProvisionWithNetworks{{
+	args := params.SetInstanceInfo{
+		Machines: []params.InstanceInfo{{
 			Tag:             m.tag,
 			InstanceId:      id,
 			Nonce:           nonce,
@@ -233,7 +223,7 @@ func (m *Machine) SetProvisionedWithNetworks(
 			Interfaces:      interfaces,
 		}},
 	}
-	err := m.st.call("SetProvisionedWithNetworks", args, &result)
+	err := m.st.call("SetInstanceInfo", args, &result)
 	if err != nil {
 		return err
 	}

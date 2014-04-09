@@ -53,7 +53,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = s.machine.SetPassword(password)
 	c.Assert(err, gc.IsNil)
-	err = s.machine.SetProvisioned("i-manager", "fake_nonce", nil)
+	err = s.machine.SetInstanceInfo("i-manager", "fake_nonce", nil, nil, nil)
 	c.Assert(err, gc.IsNil)
 	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
@@ -195,7 +195,7 @@ func (s *provisionerSuite) TestRefreshAndLife(c *gc.C) {
 	c.Assert(apiMachine.Life(), gc.Equals, params.Dead)
 }
 
-func (s *provisionerSuite) TestSetProvisionedWithNetworks(c *gc.C) {
+func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	// Create a fresh machine, since machine 0 is already provisioned.
 	notProvisionedMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
@@ -219,7 +219,7 @@ func (s *provisionerSuite) TestSetProvisionedWithNetworks(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(ifacesMachine, gc.HasLen, 0)
 
-	networks := []params.NetworkParams{{
+	networks := []params.Network{{
 		Name:    "net1",
 		CIDR:    "0.1.2.0/24",
 		VLANTag: 0,
@@ -232,7 +232,7 @@ func (s *provisionerSuite) TestSetProvisionedWithNetworks(c *gc.C) {
 		CIDR:    "0.2.2.0/24",
 		VLANTag: 42,
 	}}
-	ifaces := []params.NetworkInterfaceParams{{
+	ifaces := []params.NetworkInterface{{
 		MACAddress:    "aa:bb:cc:dd:ee:f0",
 		NetworkName:   "net1",
 		InterfaceName: "eth0",
@@ -250,7 +250,7 @@ func (s *provisionerSuite) TestSetProvisionedWithNetworks(c *gc.C) {
 		InterfaceName: "eth2",
 	}}
 
-	err = apiMachine.SetProvisionedWithNetworks("i-will", "fake_nonce", &hwChars, networks, ifaces)
+	err = apiMachine.SetInstanceInfo("i-will", "fake_nonce", &hwChars, networks, ifaces)
 	c.Assert(err, gc.IsNil)
 
 	instanceId, err = apiMachine.InstanceId()
@@ -258,7 +258,7 @@ func (s *provisionerSuite) TestSetProvisionedWithNetworks(c *gc.C) {
 	c.Assert(instanceId, gc.Equals, instance.Id("i-will"))
 
 	// Try it again - should fail.
-	err = apiMachine.SetProvisionedWithNetworks("i-wont", "fake", nil, nil, nil)
+	err = apiMachine.SetInstanceInfo("i-wont", "fake", nil, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set instance data for machine "1": already set`)
 
 	// Now try to get machine 0's instance id.
@@ -285,7 +285,7 @@ func (s *provisionerSuite) TestSetProvisionedWithNetworks(c *gc.C) {
 	ifacesMachine, err = notProvisionedMachine.NetworkInterfaces()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ifacesMachine, gc.HasLen, 3)
-	actual := make([]params.NetworkInterfaceParams, len(ifacesMachine))
+	actual := make([]params.NetworkInterface, len(ifacesMachine))
 	for i, iface := range ifacesMachine {
 		actual[i].InterfaceName = iface.InterfaceName()
 		actual[i].NetworkName = iface.NetworkName()
@@ -326,7 +326,7 @@ func (s *provisionerSuite) TestDistributionGroup(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 
-	err = apiMachine.SetProvisioned("i-d", "fake", nil)
+	err = apiMachine.SetInstanceInfo("i-d", "fake", nil, nil, nil)
 	c.Assert(err, gc.IsNil)
 	instances, err = apiMachine.DistributionGroup()
 	c.Assert(err, gc.IsNil)

@@ -825,16 +825,18 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 	return fmt.Errorf("already set")
 }
 
-// SetProvisionedWithNetworks is used to provision a machine and in
-// one steps set it's instance id, nonce, hardware characteristics,
-// add networks and network interfaces as needed.
+// SetInstanceInfo is used to provision a machine and in one steps set
+// it's instance id, nonce, hardware characteristics, add networks and
+// network interfaces as needed.
 //
 // TODO(dimitern) Do all the operations described in a single
-// transaction, rather than using separate calls. Merge
-// SetProvisioned() in here at that point.
-func (m *Machine) SetProvisionedWithNetworks(
+// transaction, rather than using separate calls. Alternatively,
+// we can add all the things to create/set in a document in some
+// collection and have a worker that takes care of the actual work.
+// Merge SetProvisioned() in here or drop it at that point.
+func (m *Machine) SetInstanceInfo(
 	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
-	networks []params.NetworkParams, interfaces []params.NetworkInterfaceParams) error {
+	networks []params.Network, interfaces []params.NetworkInterface) error {
 
 	// Add the networks and interfaces first.
 	for _, network := range networks {

@@ -331,9 +331,67 @@ func linkBridgeInInterfaces() string {
 	return `sed -i "s/iface eth0 inet dhcp/source \/etc\/network\/eth0.config/" /etc/network/interfaces`
 }
 
-// StartInstance is specified in the InstanceBroker interface.
-func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error) {
+// setupNetworks prepares a []environs.NetworkInfo for the given instance.
+func (environ *maasEnviron) setupNetworks(inst instance.Instance) ([]environs.NetworkInfo, error) {
+	// Get the instance network interfaces first.
+	interfaces, err := environ.getInstanceNetworkInterfaces(inst)
+	if err != nil {
+		return nil, fmt.Errorf("getInstanceNetworkInterfaces failed: %v", err)
+	}
+	logger.Debugf("node %q has network interfaces %v", inst.Id(), interfaces)
+	networkInfoMap := make(map[string]environs.NetworkInfo)
+	for macAddress, interfaceName := range interfaces {
+		networkInfoMap[macAddress] = environs.NetworkInfo{
+			MACAddress:    macAddress,
+			InterfaceName: interfaceName,
+		}
+	}
+	networks, err := environ.getInstanceNetworks(inst)
+	if err != nil {
+		return nil, fmt.Errorf("getInstanceNetworks failed: %v", err)
+	}
+	logger.Debugf("node %q has networks %v", inst.Id(), networks)
+	for _, network := range networks {
+		netCIDR := &net.IPNet{
+			IP:   net.ParseIP(network.IP),
+			Mask: net.IPMask(net.ParseIP(network.Mask)),
+		}
+		macs, err := environ.getNetworkMACs(network.Name)
+		if err != nil {
+			return nil, fmt.Errorf("getNetworkMACs failed: %v", err)
+		}
+		for _, mac := range macs {
+			if _, ok := interfaces[mac]; ok {
+				info := networkInfoMap[mac]
+				info.CIDR = netCIDR.String()
+				info.VLANTag = network.VLANTag
+				info.NetworkName = network.Name
+				networkInfoMap[mac] = info
+			}
+		}
+	}
+	// Verify we filled-in everything for all networks/interfaces
+	// and drop incomplete records.
+	var networkInfo []environs.NetworkInfo
+	for _, info := range networkInfoMap {
+		if info.NetworkName == "" || info.CIDR == "" {
+			logger.Warningf("ignoring network interface %q: missing network information", info.InterfaceName)
+			continue
+		}
+		if info.MACAddress == "" || info.InterfaceName == "" {
+			logger.Warningf("ignoring network %q: missing network interface information", info.NetworkName)
+			continue
+		}
+		networkInfo = append(networkInfo, info)
+	}
+	logger.Debugf("node %q network information: %#v", inst.Id(), networkInfo)
+	return networkInfo, nil
+}
 
+// StartInstance is specified in the InstanceBroker interface.
+func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
+	instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error,
+) {
 	var inst *maasInstance
 	var err error
 	node, tools, err := environ.acquireNode(
@@ -356,62 +414,10 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (in
 	}()
 	var networkInfo []environs.NetworkInfo
 	if args.MachineConfig.HasNetworks() {
-		// Prepare network information by getting the instance
-		// network interfaces, networks and map latter to the
-		// former.
-		interfaces, err := environ.getInstanceNetworkInterfaces(inst)
+		networkInfo, err = environ.setupNetworks(inst)
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		logger.Debugf("node %q has network interfaces %v", inst.Id(), interfaces)
-		tempNetworkInfo := make([]environs.NetworkInfo, len(interfaces))
-		macAddressToIndex := make(map[string]int)
-		i := 0
-		for macAddress, interfaceName := range interfaces {
-			tempNetworkInfo[i].MACAddress = macAddress
-			tempNetworkInfo[i].InterfaceName = interfaceName
-			macAddressToIndex[macAddress] = i
-			i++
-		}
-		networks, err := environ.getInstanceNetworks(inst)
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("getInstanceNetworks failed: %v", err)
-		}
-		logger.Debugf("node %q has networks %v", inst.Id(), networks)
-		for _, network := range networks {
-			netCIDR := &net.IPNet{
-				IP:   net.ParseIP(network.IP),
-				Mask: net.IPMask(net.ParseIP(network.Mask)),
-			}
-			macs, err := environ.getNetworkMACs(network.Name)
-			if err != nil {
-				return nil, nil, nil, fmt.Errorf("getNetworkMACs failed: %v", err)
-			}
-			for _, mac := range macs {
-				if _, ok := interfaces[mac]; ok {
-					if index, ok := macAddressToIndex[mac]; ok {
-						tempNetworkInfo[index].CIDR = netCIDR.String()
-						tempNetworkInfo[index].VLANTag = network.VLANTag
-						tempNetworkInfo[index].NetworkName = network.Name
-						continue
-					}
-				}
-			}
-		}
-		// Verify we filled-in everything for all networks/interfaces
-		// and drop incomplete records.
-		for _, info := range tempNetworkInfo {
-			if info.NetworkName == "" || info.CIDR == "" {
-				logger.Warningf("ignoring network interface %q: missing network information", info.InterfaceName)
-				continue
-			}
-			if info.MACAddress == "" || info.InterfaceName == "" {
-				logger.Warningf("ignoring network %q: missing network interface information", info.NetworkName)
-				continue
-			}
-			networkInfo = append(networkInfo, info)
-		}
-		logger.Debugf("node %q network information: %#v", inst.Id(), networkInfo)
 	}
 
 	hostname, err := inst.DNSName()
@@ -660,7 +666,7 @@ func (environ *maasEnviron) getInstanceNetworks(inst instance.Instance) ([]netwo
 		vlanTag := 0
 		vlanTagField, ok := fields["vlan_tag"]
 		if ok && !vlanTagField.IsNil() {
-			// vlan_tag is optional, so assume it's missing when err != nil.
+			// vlan_tag is optional, so assume it's 0 when missing or nil.
 			vlanTagFloat, err := vlanTagField.GetFloat64()
 			if err != nil {
 				return nil, fmt.Errorf("cannot get vlan_tag: %v", err)
