@@ -467,6 +467,8 @@ func (st *State) FindEntity(tag string) (Entity, error) {
 		return env, nil
 	case names.RelationTagKind:
 		return st.KeyRelation(id)
+	case names.NetworkTagKind:
+		return st.Network(id)
 	}
 	return nil, err
 }
@@ -491,6 +493,8 @@ func (st *State) parseTag(tag string) (coll string, id string, err error) {
 		coll = st.relations.Name
 	case names.EnvironTagKind:
 		coll = st.environments.Name
+	case names.NetworkTagKind:
+		coll = st.networks.Name
 	default:
 		return "", "", fmt.Errorf("%q is not a valid collection tag", tag)
 	}
@@ -1010,13 +1014,18 @@ func (st *State) AddService(name, ownerTag string, ch *Charm, includeNetworks, e
 	return svc, nil
 }
 
-// AddNetwork creates a new network with the given name, CIDR and VLAN
-// tag. If a network with the same name already exists in state, an
+// AddNetwork creates a new network with the given id, CIDR and VLAN
+// tag. If a network with the same id already exists in state, an
 // error satisfying errors.IsAlreadyExistsError is returned.
-func (st *State) AddNetwork(name, cidr string, vlanTag int) (n *Network, err error) {
+//
+// TODO(dimitern) Start using sequences for id, like for machines. For
+// that we need a more comprehensive networks specification in juju,
+// including a clear separation between provider-specific and
+// juju-specific terms.
+func (st *State) AddNetwork(id, cidr string, vlanTag int) (n *Network, err error) {
 	defer func() {
 		if !errors.IsAlreadyExistsError(err) {
-			utils.ErrorContextf(&err, "cannot add network %q", name)
+			utils.ErrorContextf(&err, "cannot add network %q", id)
 		}
 	}()
 	if cidr != "" {
@@ -1025,39 +1034,39 @@ func (st *State) AddNetwork(name, cidr string, vlanTag int) (n *Network, err err
 			return nil, err
 		}
 	}
-	if name == "" {
-		return nil, fmt.Errorf("name must be not empty")
+	if id == "" {
+		return nil, fmt.Errorf("id must be not empty")
 	}
 	if vlanTag < 0 || vlanTag > 4094 {
 		return nil, fmt.Errorf("invalid VLAN tag %d: must be between 0 and 4094", vlanTag)
 	}
 	doc := &networkDoc{
-		Name:    name,
+		Id:      id,
 		CIDR:    cidr,
 		VLANTag: vlanTag,
 	}
 	ops := []txn.Op{{
 		C:      st.networks.Name,
-		Id:     name,
+		Id:     id,
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}}
-	err = onAbort(st.runTransaction(ops), errors.NewAlreadyExistsError("network "+name))
+	err = onAbort(st.runTransaction(ops), errors.NewAlreadyExistsError("network "+id))
 	if err != nil {
 		return nil, err
 	}
 	return newNetwork(st, doc), nil
 }
 
-// Network returns the network with the given name.
-func (st *State) Network(name string) (*Network, error) {
+// Network returns the network with the given id.
+func (st *State) Network(id string) (*Network, error) {
 	doc := &networkDoc{}
-	err := st.networks.FindId(name).One(doc)
+	err := st.networks.FindId(id).One(doc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("network %q", name)
+		return nil, errors.NotFoundf("network %q", id)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("cannot get network %q: %v", name, err)
+		return nil, fmt.Errorf("cannot get network %q: %v", id, err)
 	}
 	return newNetwork(st, doc), nil
 }
@@ -1493,6 +1502,7 @@ var tagPrefix = map[byte]string{
 	'u': names.UnitTagKind + "-",
 	'e': names.EnvironTagKind + "-",
 	'r': names.RelationTagKind + "-",
+	'n': names.NetworkTagKind + "-",
 }
 
 func tagForGlobalKey(key string) (string, bool) {

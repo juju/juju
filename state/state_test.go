@@ -984,7 +984,7 @@ func (s *StateSuite) TestAddAndGetNetwork(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `network "missing" not found`)
 
 	_, err = s.State.AddNetwork("", "0.3.1.0/24", 0)
-	expectErr := `cannot add network "": name must be not empty`
+	expectErr := `cannot add network "": id must be not empty`
 	c.Assert(err, gc.ErrorMatches, expectErr)
 	_, err = s.State.AddNetwork("net42", "invalid", 0)
 	expectErr = `cannot add network "net42": invalid CIDR address: invalid`
@@ -2208,6 +2208,14 @@ var findEntityTests = []findEntityTest{{
 }, {
 	tag: "user-arble",
 }, {
+	tag: "network-missing",
+	err: `network "missing" not found`,
+}, {
+	tag: "network-",
+	err: `"network-" is not a valid network tag`,
+}, {
+	tag: "network-net1",
+}, {
 	// TODO(axw) 2013-12-04 #1257587
 	// remove backwards compatibility for environment-tag; see state.go
 	tag: "environment-notauuid",
@@ -2224,6 +2232,7 @@ var entityTypes = map[string]interface{}{
 	names.UnitTagKind:     (*state.Unit)(nil),
 	names.MachineTagKind:  (*state.Machine)(nil),
 	names.RelationTagKind: (*state.Relation)(nil),
+	names.NetworkTagKind:  (*state.Network)(nil),
 }
 
 func (s *StateSuite) TestFindEntity(c *gc.C) {
@@ -2240,6 +2249,9 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
 	c.Assert(rel.String(), gc.Equals, "wordpress:db ser-vice2:server")
+	net1, err := s.State.AddNetwork("net1", "0.1.2.0/24", 0)
+	c.Assert(err, gc.IsNil)
+	c.Assert(net1.Tag(), gc.Equals, "network-net1")
 
 	// environment tag is dynamically generated
 	env, err := s.State.Environment()
@@ -2280,6 +2292,8 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 		"---",
 		"foo-bar",
 		"unit-foo",
+		"network",
+		"network-",
 	}
 	for _, name := range bad {
 		c.Logf(name)
@@ -2326,6 +2340,14 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 	coll, id, err = state.ParseTag(s.State, env.Tag())
 	c.Assert(coll, gc.Equals, "environments")
 	c.Assert(id, gc.Equals, env.UUID())
+	c.Assert(err, gc.IsNil)
+
+	// Parse a network id.
+	net1, err := s.State.AddNetwork("net1", "0.1.2.0/24", 0)
+	c.Assert(err, gc.IsNil)
+	coll, id, err = state.ParseTag(s.State, net1.Tag())
+	c.Assert(coll, gc.Equals, "networks")
+	c.Assert(id, gc.Equals, net1.Id())
 	c.Assert(err, gc.IsNil)
 }
 

@@ -428,18 +428,19 @@ func (task *provisionerTask) prepareNetworkAndInterfaces(networkInfo []environs.
 	}
 	visitedNetworks := set.NewStrings()
 	for _, info := range networkInfo {
-		if !visitedNetworks.Contains(info.NetworkName) {
+		networkTag := names.NetworkTag(info.NetworkId)
+		if !visitedNetworks.Contains(info.NetworkId) {
 			networks = append(networks, params.Network{
-				Name:    info.NetworkName,
+				Tag:     networkTag,
 				CIDR:    info.CIDR,
 				VLANTag: info.VLANTag,
 			})
-			visitedNetworks.Add(info.NetworkName)
+			visitedNetworks.Add(info.NetworkId)
 		}
 		ifaces = append(ifaces, params.NetworkInterface{
 			InterfaceName: info.InterfaceName,
 			MACAddress:    info.MACAddress,
-			NetworkName:   info.NetworkName,
+			NetworkTag:    networkTag,
 		})
 	}
 	return networks, ifaces
@@ -508,6 +509,18 @@ func (task *provisionerTask) possibleTools(series string, cons constraints.Value
 	panic(fmt.Errorf("broker of type %T does not provide any tools", task.broker))
 }
 
+func networkTagsToIds(tags []string) ([]string, error) {
+	ids := make([]string, len(tags))
+	for i, tag := range tags {
+		_, id, err := names.ParseTag(tag, names.NetworkTagKind)
+		if err != nil {
+			return nil, err
+		}
+		ids[i] = id
+	}
+	return ids, nil
+}
+
 func (task *provisionerTask) machineConfig(machine *apiprovisioner.Machine) (*cloudinit.MachineConfig, error) {
 	stateInfo, apiInfo, err := task.auth.SetupAuthentication(machine)
 	if err != nil {
@@ -522,6 +535,15 @@ func (task *provisionerTask) machineConfig(machine *apiprovisioner.Machine) (*cl
 		return nil, err
 	}
 	includeNetworks, excludeNetworks, err := machine.RequestedNetworks()
+	if err != nil {
+		return nil, err
+	}
+	// Convert network tags to ids.
+	includeNetworks, err = networkTagsToIds(includeNetworks)
+	if err != nil {
+		return nil, err
+	}
+	excludeNetworks, err = networkTagsToIds(excludeNetworks)
 	if err != nil {
 		return nil, err
 	}

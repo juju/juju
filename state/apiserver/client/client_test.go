@@ -685,8 +685,17 @@ func (s *clientSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
 	defer restore()
 	curl, bundle := addCharm(c, store, "dummy")
 	mem4g := constraints.MustParse("mem=4G")
+
+	// Check for invalid network tags handling.
 	err := s.APIState.Client().ServiceDeployWithNetworks(
-		curl.String(), "service", 3, "", mem4g, "", []string{"net1", "net2"}, []string{"net3"},
+		curl.String(), "service", 3, "", mem4g, "",
+		[]string{"net1", "net2"}, []string{"net3"},
+	)
+	c.Assert(err, gc.ErrorMatches, "blah")
+
+	err = s.APIState.Client().ServiceDeployWithNetworks(
+		curl.String(), "service", 3, "", mem4g, "",
+		[]string{"network-net1", "network-net2"}, []string{"network-net3"},
 	)
 	c.Assert(err, gc.IsNil)
 	service := s.assertPrincipalDeployed(c, "service", curl, false, bundle, mem4g)

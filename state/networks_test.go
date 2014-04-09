@@ -31,7 +31,8 @@ func (s *NetworkSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *NetworkSuite) TestGetterMethods(c *gc.C) {
-	c.Assert(s.network.Name(), gc.Equals, "net1")
+	c.Assert(s.network.Id(), gc.Equals, "net1")
+	c.Assert(s.network.Tag(), gc.Equals, "network-net1")
 	c.Assert(s.network.CIDR(), gc.Equals, "0.1.2.3/24")
 	c.Assert(s.network.VLANTag(), gc.Equals, 0)
 	c.Assert(s.vlan.VLANTag(), gc.Equals, 42)

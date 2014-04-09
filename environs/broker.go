@@ -35,11 +35,12 @@ type StartInstanceParams struct {
 
 // NetworkInfo describes a single network interface available on an
 // instance. For providers that support networks, this will be
-// available at StartInstance() time.
+// available at StartInstance() time. NetworkId is a provider-specific
+// network identifier.
 type NetworkInfo struct {
 	MACAddress    string
 	CIDR          string
-	NetworkName   string
+	NetworkId     string
 	VLANTag       int
 	InterfaceName string
 }

@@ -313,7 +313,7 @@ type SetProvisioned struct {
 
 // Network describes a single network available on an instance.
 type Network struct {
-	Name    string
+	Tag     string
 	CIDR    string
 	VLANTag int
 }
@@ -323,7 +323,7 @@ type Network struct {
 type NetworkInterface struct {
 	MACAddress    string
 	InterfaceName string
-	NetworkName   string
+	NetworkTag    string
 }
 
 // InstanceInfo holds a machine tag, provider-specific instance id, a
@@ -343,16 +343,16 @@ type SetInstanceInfo struct {
 	Machines []InstanceInfo
 }
 
-// NetworkResult holds machine networks or an error.
-type NetworkResult struct {
+// RequestedNetworkResult holds requested networks or an error.
+type RequestedNetworkResult struct {
 	Error           *Error
 	IncludeNetworks []string
 	ExcludeNetworks []string
 }
 
-// NetworksResults holds multiple networks results.
-type NetworksResults struct {
-	Results []NetworkResult
+// RequestedNetworksResults holds multiple requested networks results.
+type RequestedNetworksResults struct {
+	Results []RequestedNetworkResult
 }
 
 // EntityStatus holds an entity tag, status and extra info.

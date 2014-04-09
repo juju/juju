@@ -237,6 +237,18 @@ func (c *Client) ServiceUnexpose(args params.ServiceUnexpose) error {
 
 var CharmStore charm.Repository = charm.Store
 
+func networkTagsToIds(tags []string) ([]string, error) {
+	var ids []string
+	for _, tag := range tags {
+		_, id, err := names.ParseTag(tag, names.NetworkTagKind)
+		if err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
+}
+
 // ServiceDeploy fetches the charm from the charm store and deploys it.
 // AddCharm or AddLocalCharm should be called to add the charm
 // before calling ServiceDeploy, although for backward compatibility
@@ -279,6 +291,15 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 	if err != nil {
 		return err
 	}
+	// Convert network tags to ids for any given networks.
+	includeNetworks, err := networkTagsToIds(args.IncludeNetworks)
+	if err != nil {
+		return err
+	}
+	excludeNetworks, err := networkTagsToIds(args.ExcludeNetworks)
+	if err != nil {
+		return err
+	}
 
 	_, err = juju.DeployService(c.api.state,
 		juju.DeployServiceParams{
@@ -288,8 +309,8 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 			ConfigSettings:  settings,
 			Constraints:     args.Constraints,
 			ToMachineSpec:   args.ToMachineSpec,
-			IncludeNetworks: args.IncludeNetworks,
-			ExcludeNetworks: args.ExcludeNetworks,
+			IncludeNetworks: includeNetworks,
+			ExcludeNetworks: excludeNetworks,
 		})
 	return err
 }

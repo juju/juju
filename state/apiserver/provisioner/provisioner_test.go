@@ -760,6 +760,14 @@ func (s *withoutStateServerSuite) TestConstraints(c *gc.C) {
 }
 
 func (s *withoutStateServerSuite) TestRequestedNetworks(c *gc.C) {
+	idsToTags := func(netIds []string) []string {
+		tags := make([]string, len(netIds))
+		for i, id := range netIds {
+			tags[i] = names.NetworkTag(id)
+		}
+		return tags
+	}
+
 	// Add a machine with some requested networks.
 	template := state.MachineTemplate{
 		Series:          "quantal",
@@ -782,15 +790,15 @@ func (s *withoutStateServerSuite) TestRequestedNetworks(c *gc.C) {
 	}}
 	result, err := s.provisioner.RequestedNetworks(args)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.NetworksResults{
-		Results: []params.NetworkResult{
+	c.Assert(result, gc.DeepEquals, params.RequestedNetworksResults{
+		Results: []params.RequestedNetworkResult{
 			{
-				IncludeNetworks: includeNetsMachine0,
-				ExcludeNetworks: excludeNetsMachine0,
+				IncludeNetworks: idsToTags(includeNetsMachine0),
+				ExcludeNetworks: idsToTags(excludeNetsMachine0),
 			},
 			{
-				IncludeNetworks: template.IncludeNetworks,
-				ExcludeNetworks: template.ExcludeNetworks,
+				IncludeNetworks: idsToTags(template.IncludeNetworks),
+				ExcludeNetworks: idsToTags(template.ExcludeNetworks),
 			},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -806,33 +814,33 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	networks := []params.Network{{
-		Name:    "net1",
+		Tag:     "network-net1",
 		CIDR:    "0.1.2.0/24",
 		VLANTag: 0,
 	}, {
-		Name:    "vlan42",
+		Tag:     "network-vlan42",
 		CIDR:    "0.2.2.0/24",
 		VLANTag: 42,
 	}, {
-		Name:    "vlan42", // duplicated; ignored
+		Tag:     "network-vlan42", // duplicated; ignored
 		CIDR:    "0.2.2.0/24",
 		VLANTag: 42,
 	}}
 	ifaces := []params.NetworkInterface{{
 		MACAddress:    "aa:bb:cc:dd:ee:f0",
-		NetworkName:   "net1",
+		NetworkTag:    "network-net1",
 		InterfaceName: "eth0",
 	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:f1",
-		NetworkName:   "net1",
+		NetworkTag:    "network-net1",
 		InterfaceName: "eth1",
 	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:f2",
-		NetworkName:   "vlan42",
+		NetworkTag:    "network-vlan42",
 		InterfaceName: "eth2",
 	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:f2", // duplicated; ignored
-		NetworkName:   "vlan42",
+		NetworkTag:    "network-vlan42",
 		InterfaceName: "eth2",
 	}}
 	args := params.SetInstanceInfo{Machines: []params.InstanceInfo{{
@@ -894,9 +902,10 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 	actual := make([]params.NetworkInterface, len(ifacesMachine1))
 	for i, iface := range ifacesMachine1 {
 		actual[i].InterfaceName = iface.InterfaceName()
-		actual[i].NetworkName = iface.NetworkName()
+		actual[i].NetworkTag = iface.NetworkTag()
 		actual[i].MACAddress = iface.MACAddress()
-		c.Check(names.MachineTag(iface.MachineId()), gc.Equals, s.machines[1].Tag())
+		c.Check(iface.MachineId(), gc.Equals, s.machines[1].Id())
+		c.Check(iface.MachineTag(), gc.Equals, s.machines[1].Tag())
 	}
 	c.Assert(actual, jc.SameContents, ifaces[:3])
 	ifacesMachine2, err := s.machines[2].NetworkInterfaces()
@@ -907,9 +916,12 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 			// Last one was ignored, so don't check.
 			break
 		}
-		network, err := s.State.Network(networks[i].Name)
+		_, networkId, err := names.ParseTag(networks[i].Tag, names.NetworkTagKind)
 		c.Assert(err, gc.IsNil)
-		c.Check(network.Name(), gc.Equals, networks[i].Name)
+		network, err := s.State.Network(networkId)
+		c.Assert(err, gc.IsNil)
+		c.Check(network.Id(), gc.Equals, networkId)
+		c.Check(network.Tag(), gc.Equals, networks[i].Tag)
 		c.Check(network.VLANTag(), gc.Equals, networks[i].VLANTag)
 		c.Check(network.CIDR(), gc.Equals, networks[i].CIDR)
 	}

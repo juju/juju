@@ -14,7 +14,6 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/testing"
@@ -641,10 +640,10 @@ func (s *MachineSuite) TestMachineSetCheckProvisioned(c *gc.C) {
 
 func (s *MachineSuite) TestMachineSetInstanceInfoFailureDoesNotProvision(c *gc.C) {
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), gc.Equals, false)
-	invalidNetworks := []params.Network{{Name: ""}}
-	invalidInterfaces := []params.NetworkInterface{{MACAddress: ""}}
+	invalidNetworks := []state.NetworkParams{{Id: ""}}
+	invalidInterfaces := []state.NetworkInterfaceParams{{MACAddress: ""}}
 	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, invalidNetworks, nil)
-	c.Assert(err, gc.ErrorMatches, `cannot add network "": name must be not empty`)
+	c.Assert(err, gc.ErrorMatches, `cannot add network "": id must be not empty`)
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), gc.Equals, false)
 	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, invalidInterfaces)
 	c.Assert(err, gc.ErrorMatches, "cannot add network interface to machine 1: invalid MAC address: ")
@@ -653,25 +652,25 @@ func (s *MachineSuite) TestMachineSetInstanceInfoFailureDoesNotProvision(c *gc.C
 
 func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), gc.Equals, false)
-	networks := []params.Network{{Name: "net1", CIDR: "0.1.2.0/24", VLANTag: 0}}
-	interfaces := []params.NetworkInterface{
-		{MACAddress: "aa:bb:cc:dd:ee:ff", NetworkName: "net1", InterfaceName: "eth0"},
+	networks := []state.NetworkParams{{Id: "net1", CIDR: "0.1.2.0/24", VLANTag: 0}}
+	interfaces := []state.NetworkInterfaceParams{
+		{MACAddress: "aa:bb:cc:dd:ee:ff", NetworkId: "net1", InterfaceName: "eth0"},
 	}
 	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, networks, interfaces)
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), gc.Equals, true)
-	network, err := s.State.Network(networks[0].Name)
+	network, err := s.State.Network(networks[0].Id)
 	c.Assert(err, gc.IsNil)
-	c.Check(network.Name(), gc.Equals, networks[0].Name)
+	c.Check(network.Id(), gc.Equals, networks[0].Id)
 	c.Check(network.VLANTag(), gc.Equals, networks[0].VLANTag)
 	c.Check(network.CIDR(), gc.Equals, networks[0].CIDR)
 	ifaces, err := s.machine.NetworkInterfaces()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ifaces, gc.HasLen, 1)
 	c.Check(ifaces[0].InterfaceName(), gc.Equals, interfaces[0].InterfaceName)
-	c.Check(ifaces[0].NetworkName(), gc.Equals, interfaces[0].NetworkName)
+	c.Check(ifaces[0].NetworkId(), gc.Equals, interfaces[0].NetworkId)
 	c.Check(ifaces[0].MACAddress(), gc.Equals, interfaces[0].MACAddress)
-	c.Check(names.MachineTag(ifaces[0].MachineId()), gc.Equals, s.machine.Tag())
+	c.Check(ifaces[0].MachineTag(), gc.Equals, s.machine.Tag())
 }
 
 func (s *MachineSuite) TestMachineSetProvisionedWhenNotAlive(c *gc.C) {

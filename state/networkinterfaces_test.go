@@ -32,6 +32,8 @@ func (s *NetworkInterfaceSuite) SetUpTest(c *gc.C) {
 func (s *NetworkInterfaceSuite) TestGetterMethods(c *gc.C) {
 	c.Assert(s.iface.MACAddress(), gc.Equals, "aa:bb:cc:dd:ee:ff")
 	c.Assert(s.iface.InterfaceName(), gc.Equals, "eth0")
-	c.Assert(s.iface.NetworkName(), gc.Equals, s.network.Name())
+	c.Assert(s.iface.NetworkId(), gc.Equals, s.network.Id())
+	c.Assert(s.iface.NetworkTag(), gc.Equals, s.network.Tag())
 	c.Assert(s.iface.MachineId(), gc.Equals, s.machine.Id())
+	c.Assert(s.iface.MachineTag(), gc.Equals, s.machine.Tag())
 }

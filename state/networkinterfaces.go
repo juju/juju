@@ -3,6 +3,10 @@
 
 package state
 
+import (
+	"launchpad.net/juju-core/names"
+)
+
 // NetworkInterface represents the state of a machine network
 // interface.
 type NetworkInterface struct {
@@ -16,7 +20,7 @@ type networkInterfaceDoc struct {
 	MACAddress string `bson:"_id"`
 	// InterfaceName is the network interface name (e.g. "eth0").
 	InterfaceName string
-	NetworkName   string
+	NetworkId     string
 	MachineId     string
 }
 
@@ -34,12 +38,22 @@ func (ni *NetworkInterface) InterfaceName() string {
 	return ni.doc.InterfaceName
 }
 
-// NetworkName returns the machine network name of the interface.
-func (ni *NetworkInterface) NetworkName() string {
-	return ni.doc.NetworkName
+// NetworkId returns the network id of the interface.
+func (ni *NetworkInterface) NetworkId() string {
+	return ni.doc.NetworkId
+}
+
+// NetworkTag returns the network tag of the interface.
+func (ni *NetworkInterface) NetworkTag() string {
+	return names.NetworkTag(ni.doc.NetworkId)
 }
 
 // MachineId returns the machine id of the interface.
 func (ni *NetworkInterface) MachineId() string {
 	return ni.doc.MachineId
+}
+
+// MachineTag returns the machine tag of the interface.
+func (ni *NetworkInterface) MachineTag() string {
+	return names.MachineTag(ni.doc.MachineId)
 }
