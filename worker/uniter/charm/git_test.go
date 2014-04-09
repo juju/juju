@@ -14,7 +14,6 @@ import (
 
 	corecharm "launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/worker/uniter/charm"
 )
 
@@ -22,20 +21,14 @@ var curl = corecharm.MustParseURL("cs:series/blah-blah-123")
 
 type GitDirSuite struct {
 	testing.GitSuite
-	LoggingSuite testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&GitDirSuite{})
 
 func (s *GitDirSuite) SetUpTest(c *gc.C) {
 	s.GitSuite.SetUpTest(c)
-	s.LoggingSuite.SetUpTest(c)
-	s.LoggingSuite.PatchEnvironment("LC_ALL", "en_US")
-}
-
-func (s *GitDirSuite) TearDownTest(c *gc.C) {
-	s.LoggingSuite.TearDownTest(c)
-	s.GitSuite.TearDownTest(c)
+	//should be "C"
+	s.PatchEnvironment("LC_ALL", "en_US")
 }
 
 func (s *GitDirSuite) TestInitConfig(c *gc.C) {
