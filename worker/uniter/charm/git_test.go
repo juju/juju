@@ -25,11 +25,6 @@ type GitDirSuite struct {
 
 var _ = gc.Suite(&GitDirSuite{})
 
-func (s *GitDirSuite) SetUpTest(c *gc.C) {
-	s.GitSuite.SetUpTest(c)
-	s.PatchEnvironment("LC_ALL", "C")
-}
-
 func (s *GitDirSuite) TestInitConfig(c *gc.C) {
 	base := c.MkDir()
 	repo := charm.NewGitDir(filepath.Join(base, "repo"))
