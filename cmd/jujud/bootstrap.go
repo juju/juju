@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"path/filepath"
 
 	"launchpad.net/gnuflag"
@@ -107,6 +108,12 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 
+	namespace := agentConfig.Value(agent.Namespace)
+
+	if err := c.startMongo(addrs, envCfg.StatePort(), namespace); err != nil {
+		return err
+	}
+
 	// Initialise state, and store any agent config (e.g. password) changes.
 	var st *state.State
 	err = nil
@@ -134,6 +141,38 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 	st.Close()
 	return nil
+}
+
+func (c *BootstrapCommand) startMongo(addrs []instance.Address, port int, namespace string) error {
+	logger.Debugf("starting mongo")
+
+	agentConfig := c.CurrentConfig()
+	dialInfo, err := state.DialInfo(agentConfig.StateInfo(), state.DefaultDialOpts())
+	if err != nil {
+		return err
+	}
+	// Use localhost to dial the mongo server, because it's running in
+	// auth mode and will refuse to perform any operations unless
+	// we dial that address.
+	dialInfo.Addrs = []string{
+		net.JoinHostPort("127.0.0.1", fmt.Sprint(port)),
+	}
+
+	if err := ensureMongoServer(agentConfig.DataDir(), port, namespace); err != nil {
+		return err
+	}
+
+	peerAddr := mongo.SelectPeerAddress(addrs)
+
+	if peerAddr == "" {
+		return fmt.Errorf("no appropriate peer address found in %q", addrs)
+	}
+	peerHostPort := net.JoinHostPort(peerAddr, fmt.Sprint(port))
+
+	return maybeInitiateMongoServer(mongo.InitiateMongoParams{
+		DialInfo:       dialInfo,
+		MemberHostPort: peerHostPort,
+	})
 }
 
 // yamlBase64Value implements gnuflag.Value on a map[string]interface{}.

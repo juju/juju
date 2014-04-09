@@ -211,7 +211,7 @@ func runWithTimeout(r runner) error {
 	select {
 	case err := <-done:
 		return err
-	case <-time.After(5 * time.Second):
+	case <-time.After(coretesting.LongWait):
 	}
 	err := r.Stop()
 	return fmt.Errorf("timed out waiting for agent to finish; stop error: %v", err)
@@ -224,12 +224,16 @@ type agentSuite struct {
 }
 
 func (s *agentSuite) SetUpSuite(c *gc.C) {
+	s.JujuConnSuite.SetUpSuite(c)
+
 	s.oldRestartDelay = worker.RestartDelay
 	// We could use testing.ShortWait, but this thrashes quite
 	// a bit when some tests are restarting every 50ms for 10 seconds,
 	// so use a slightly more friendly delay.
 	worker.RestartDelay = 250 * time.Millisecond
-	s.JujuConnSuite.SetUpSuite(c)
+	s.PatchValue(&ensureMongoServer, func(string, int, string) error {
+		return nil
+	})
 }
 
 func (s *agentSuite) TearDownSuite(c *gc.C) {
