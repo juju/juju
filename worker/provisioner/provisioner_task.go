@@ -421,6 +421,30 @@ func (task *provisionerTask) setErrorStatus(message string, machine *apiprovisio
 	return nil
 }
 
+func (task *provisionerTask) prepareNetworkAndInterfaces(networkInfo []environs.NetworkInfo) (
+	networks []params.Network, ifaces []params.NetworkInterface) {
+	if len(networkInfo) == 0 {
+		return nil, nil
+	}
+	visitedNetworks := set.NewStrings()
+	for _, info := range networkInfo {
+		if !visitedNetworks.Contains(info.NetworkName) {
+			networks = append(networks, params.Network{
+				Name:    info.NetworkName,
+				CIDR:    info.CIDR,
+				VLANTag: info.VLANTag,
+			})
+			visitedNetworks.Add(info.NetworkName)
+		}
+		ifaces = append(ifaces, params.NetworkInterface{
+			InterfaceName: info.InterfaceName,
+			MACAddress:    info.MACAddress,
+			NetworkName:   info.NetworkName,
+		})
+	}
+	return networks, ifaces
+}
+
 func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error {
 	cons, err := machine.Constraints()
 	if err != nil {
@@ -451,26 +475,8 @@ func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error
 		return task.setErrorStatus("cannot start instance for machine %q: %v", machine, err)
 	}
 	nonce := machineConfig.MachineNonce
-	var networks []params.Network
-	var ifaces []params.NetworkInterface
-	if len(networkInfo) > 0 {
-		visitedNetworks := set.NewStrings()
-		for _, info := range networkInfo {
-			if !visitedNetworks.Contains(info.NetworkName) {
-				networks = append(networks, params.Network{
-					Name:    info.NetworkName,
-					CIDR:    info.CIDR,
-					VLANTag: info.VLANTag,
-				})
-				visitedNetworks.Add(info.NetworkName)
-			}
-			ifaces = append(ifaces, params.NetworkInterface{
-				InterfaceName: info.InterfaceName,
-				MACAddress:    info.MACAddress,
-				NetworkName:   info.NetworkName,
-			})
-		}
-	}
+	networks, ifaces := task.prepareNetworkAndInterfaces(networkInfo)
+
 	err = machine.SetInstanceInfo(inst.Id(), nonce, metadata, networks, ifaces)
 	if err != nil && params.IsCodeNotImplemented(err) {
 		return fmt.Errorf("cannot provision instance %v for machine %q with networks: not implemented")
@@ -478,8 +484,8 @@ func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error
 		logger.Infof("started machine %s as instance %s with hardware %q, networks %v, interfaces %v", machine, inst.Id(), metadata, networks, ifaces)
 		return nil
 	}
-	// We need to stop the instance right away here and go on.
-	logger.Errorf("cannot register instance for machine %v: %v", machine, err)
+	// We need to stop the instance right away here, set error status and go on.
+	task.setErrorStatus("cannot register instance for machine %v: %v", machine, err)
 	if err := task.broker.StopInstances([]instance.Instance{inst}); err != nil {
 		// We cannot even stop the instance, log the error and quit.
 		logger.Errorf("cannot stop instance %q for machine %v: %v", inst.Id(), machine, err)
