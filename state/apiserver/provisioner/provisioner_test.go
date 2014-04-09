@@ -917,7 +917,7 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{&params.Error{
-				Message: `provisioning "machine-0" with networks [], interfaces [] failed: cannot set instance data for machine "0": already set`,
+				Message: `aborted instance "i-was": cannot set instance data for machine "0": already set`,
 			}},
 			{nil},
 			{nil},

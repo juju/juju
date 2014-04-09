@@ -522,9 +522,7 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 			}
 			if err != nil {
 				// Give the user more context about the error.
-				err = fmt.Errorf(
-					"provisioning %q with networks %v, interfaces %v failed: %v",
-					arg.Tag, arg.Networks, arg.Interfaces, err)
+				err = fmt.Errorf("aborted instance %q: %v", arg.InstanceId, err)
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
