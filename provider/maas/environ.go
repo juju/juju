@@ -292,7 +292,7 @@ func (environ *maasEnviron) acquireNode(cons constraints.Value, includeNetworks,
 		return gomaasapi.MAASObject{}, nil, msg
 	}
 	tools := possibleTools[0]
-	logger.Warningf("picked arbitrary tools %q", tools)
+	logger.Warningf("picked arbitrary tools %v", tools)
 	return node, tools, nil
 }
 
