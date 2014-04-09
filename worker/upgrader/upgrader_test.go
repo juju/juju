@@ -46,7 +46,9 @@ var _ = gc.Suite(&UpgraderSuite{})
 
 func (s *UpgraderSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.state, s.machine = s.OpenAPIAsNewMachine(c)
+	// s.machine needs to have IsManager() so that it can get the actual
+	// current revision to upgrade to.
+	s.state, s.machine = s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
 	// Capture the value of RetryAfter, and use that captured
 	// value in the cleanup lambda.
 	oldRetryAfter := *upgrader.RetryAfter
