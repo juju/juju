@@ -42,6 +42,7 @@ type machine interface {
 	Refresh() error
 	Life() state.Life
 	Status() (status params.Status, info string, data params.StatusData, err error)
+	IsManual() (bool, error)
 }
 
 type instanceInfo struct {
@@ -132,6 +133,14 @@ func (p *updater) startMachines(ids []string) error {
 			if err != nil {
 				return err
 			}
+			// We don't poll manual machines.
+			isManual, err := m.IsManual()
+			if err != nil {
+				return err
+			}
+			if isManual {
+				continue
+			}
 			c = make(chan struct{})
 			p.machines[id] = c
 			go runMachine(p.context.newMachineContext(), m, c, p.machineDead)
@@ -171,7 +180,7 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 	for {
 		if pollInstance {
 			instInfo, err := pollInstanceInfo(context, m)
-			if err != nil {
+			if err != nil && !state.IsNotProvisionedError(err) {
 				// If the provider doesn't implement Addresses/Status now,
 				// it never will until we're upgraded, so don't bother
 				// asking any more. We could use less resources
@@ -185,9 +194,11 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 					return err
 				}
 			}
-			machineStatus, _, _, err := m.Status()
-			if err != nil {
-				logger.Warningf("cannot get current machine status for machine %v: %v", m.Id(), err)
+			machineStatus := params.StatusPending
+			if err == nil {
+				if machineStatus, _, _, err = m.Status(); err != nil {
+					logger.Warningf("cannot get current machine status for machine %v: %v", m.Id(), err)
+				}
 			}
 			if len(instInfo.addresses) > 0 && instInfo.status != "" && machineStatus == params.StatusStarted {
 				// We've got at least one address and a status and instance is started, so poll infrequently.
@@ -220,10 +231,11 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo, err error) {
 	instInfo = instanceInfo{}
 	instId, err := m.InstanceId()
+	// We can't ask the machine for its addresses if it isn't provisioned yet.
+	if state.IsNotProvisionedError(err) {
+		return instInfo, err
+	}
 	if err != nil {
-		if state.IsNotProvisionedError(err) {
-			return instInfo, nil
-		}
 		return instInfo, fmt.Errorf("cannot get machine's instance id: %v", err)
 	}
 	instInfo, err = context.instanceInfo(instId)

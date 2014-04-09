@@ -17,7 +17,7 @@ var (
 		"bootstrap-host":    schema.String(),
 		"bootstrap-user":    schema.String(),
 		"storage-listen-ip": schema.String(),
-		"storage-port":      schema.Int(),
+		"storage-port":      schema.ForceInt(),
 		"storage-auth-key":  schema.String(),
 		"use-sshstorage":    schema.Bool(),
 	}
@@ -59,7 +59,7 @@ func (c *environConfig) storageListenIPAddress() string {
 }
 
 func (c *environConfig) storagePort() int {
-	return int(c.attrs["storage-port"].(int64))
+	return c.attrs["storage-port"].(int)
 }
 
 func (c *environConfig) storageAuthKey() string {
