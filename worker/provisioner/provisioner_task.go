@@ -473,7 +473,7 @@ func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error
 	}
 	err = machine.SetInstanceInfo(inst.Id(), nonce, metadata, networks, ifaces)
 	if err != nil && params.IsCodeNotImplemented(err) {
-		return nil, fmt.Errorf("cannot provision instance %v for machine %q with networks: not implemented")
+		return fmt.Errorf("cannot provision instance %v for machine %q with networks: not implemented")
 	} else if err == nil {
 		logger.Infof("started machine %s as instance %s with hardware %q, networks %v, interfaces %v", machine, inst.Id(), metadata, networks, ifaces)
 		return nil
