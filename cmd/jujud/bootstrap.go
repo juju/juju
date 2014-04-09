@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"net"
 	"path/filepath"
-	"sort"
 
 	"launchpad.net/gnuflag"
 	"launchpad.net/goyaml"
@@ -146,10 +145,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 
 func (c *BootstrapCommand) startMongo(addrs []instance.Address, port int, namespace string) error {
 	logger.Debugf("starting mongo")
-	preferredAddr, err := selectPreferredStateServerAddress(addrs)
-	if err != nil {
-		return err
-	}
+
 	agentConfig := c.CurrentConfig()
 	dialInfo, err := state.DialInfo(agentConfig.StateInfo(), state.DefaultDialOpts())
 	if err != nil {
@@ -168,57 +164,8 @@ func (c *BootstrapCommand) startMongo(addrs []instance.Address, port int, namesp
 
 	return maybeInitiateMongoServer(mongo.InitiateMongoParams{
 		DialInfo:       dialInfo,
-		MemberHostPort: instance.HostPort{preferredAddr, port}.NetAddr(),
+		MemberHostPort: mongo.SelectPeerAddress(addrs),
 	})
-}
-
-func selectPreferredStateServerAddress(addrs []instance.Address) (instance.Address, error) {
-	if len(addrs) == 0 {
-		return instance.Address{}, fmt.Errorf("no state server addresses")
-	}
-	newAddrs := append(byAddressPreference{}, addrs...)
-	sort.Sort(newAddrs)
-	return newAddrs[0], nil
-}
-
-// byAddressPreference sorts addresses, preferring numeric cloud local addresses.
-type byAddressPreference []instance.Address
-
-func (a byAddressPreference) Len() int {
-	return len(a)
-}
-
-func (a byAddressPreference) Swap(i, j int) {
-	a[i], a[j] = a[j], a[i]
-}
-
-func (a byAddressPreference) Less(i, j int) bool {
-	a0, a1 := &a[i], &a[j]
-	if pref0, pref1 := netScopePref(a0.NetworkScope), netScopePref(a1.NetworkScope); pref0 != pref1 {
-		return pref0 < pref1
-	}
-	if pref0, pref1 := netTypePref(a0.Type), netTypePref(a1.Type); pref0 != pref1 {
-		return pref0 < pref1
-	}
-	return false
-}
-
-func netScopePref(scope instance.NetworkScope) int {
-	switch scope {
-	case instance.NetworkCloudLocal:
-		return 0
-	case instance.NetworkUnknown:
-		return 1
-	}
-	return 2
-}
-
-func netTypePref(atype instance.AddressType) int {
-	switch atype {
-	case instance.HostName:
-		return 0
-	}
-	return 1
 }
 
 // yamlBase64Value implements gnuflag.Value on a map[string]interface{}.
