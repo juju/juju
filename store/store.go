@@ -175,8 +175,8 @@ func (s *Store) statsKey(session *storeSession, key []string, write bool) (strin
 const statsTokenCacheSize = 1024
 
 type tokenId struct {
-	Id    int    `token:"id"`
-	Token string `token:"value"`
+	Id    int    `bson:"_id"`
+	Token string `bson:"t"`
 }
 
 // cacheStatsTokenId adds the id for token into the cache.
