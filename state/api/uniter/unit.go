@@ -430,3 +430,20 @@ func (u *Unit) WatchConfigSettings() (watcher.NotifyWatcher, error) {
 	w := watcher.NewNotifyWatcher(u.st.caller, result)
 	return w, nil
 }
+
+// JoinedRelations returns the tags of the relations the unit has joined.
+func (u *Unit) JoinedRelations() ([]string, error) {
+	var results params.StringsResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: u.tag}},
+	}
+	err := u.st.call("JoinedRelations", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	return result.Result, result.Error
+}
