@@ -536,7 +536,7 @@ func (s *ProvisionerSuite) TestSetInstanceInfoFailureSetsErrorStatusAndStopsInst
 			continue
 		}
 		c.Assert(status, gc.Equals, params.StatusError)
-		c.Assert(info, gc.Matches, `cannot add network "": name must be not empty`)
+		c.Assert(info, gc.Matches, `provisioning "machine-1" with networks \[\{  0\}\], interfaces \[\{  \}\] failed: cannot add network "": name must be not empty`)
 		break
 	}
 	s.checkStopInstances(c, inst)
