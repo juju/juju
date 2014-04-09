@@ -4,7 +4,6 @@
 package api
 
 import (
-	"bufio"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -757,7 +756,8 @@ type DebugLogParams struct {
 // matching lines back in history.
 func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
 	// The websocket connection just hangs if the server doesn't have the log
-	// end point (not sure why). So do a version check.
+	// end point (not sure why). So do a version check, as version was added
+	// at the same time as the remote end point.
 	_, err := c.Version()
 	if err != nil {
 		return nil, &connectionError{fmt.Errorf("server doesn't support debug log websocket")}
@@ -800,18 +800,28 @@ func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
 		return nil, &connectionError{err}
 	}
 	// Read the initial error and translate to a real error.
-	scanner := bufio.NewScanner(connection)
-	if !scanner.Scan() {
-		err := scanner.Err()
-		if err != nil {
-			return nil, fmt.Errorf("unable to read initial response: %v", err)
+	// Read up to the first new line character. We can't use bufio here as it
+	// reads too much from the reader.
+	line := []byte{}
+	data := []byte{0}
+	for err == nil {
+		var n int
+		n, err = connection.Read(data)
+		if n > 0 {
+			line = append(line, data[0])
 		}
-		return nil, fmt.Errorf("connection sent no data")
+		if data[0] == '\n' {
+			break
+		}
 	}
-	var errResult params.ErrorResult
-	err = json.Unmarshal(scanner.Bytes(), &errResult)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to unmarshal initial response: %v", err)
+		return nil, fmt.Errorf("unable to read initial response: %v", err)
+	}
+	logger.Debugf("initial line: %v", string(line))
+	var errResult params.ErrorResult
+	err = json.Unmarshal(line, &errResult)
+	if err != nil {
+		return nil, fmt.Errorf("unable to unmarshal initial response: %v", err)
 	}
 	if errResult.Error != nil {
 		return nil, fmt.Errorf(errResult.Error.Message)

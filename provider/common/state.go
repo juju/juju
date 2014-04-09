@@ -23,6 +23,7 @@ func getDNSNames(instances []instance.Instance) []string {
 	for _, inst := range instances {
 		if inst != nil {
 			name, err := inst.DNSName()
+			logger.Debugf("Couldn't get DNSName from instance %v: %v", inst.Id(), err)
 			// If that fails, just keep looking.
 			if err == nil && name != "" {
 				names = append(names, name)

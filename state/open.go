@@ -78,7 +78,32 @@ func DefaultDialOpts() DialOpts {
 //
 // Open returns unauthorizedError if access is unauthorized.
 func Open(info *Info, opts DialOpts, policy Policy) (*State, error) {
-	logger.Infof("opening state; mongo addresses: %q; entity %q", info.Addrs, info.Tag)
+	logger.Infof("opening state, mongo addresses: %q; entity %q", info.Addrs, info.Tag)
+	di, err := DialInfo(info, opts)
+	if err != nil {
+		return nil, err
+	}
+	logger.Debugf("dialing mongo")
+	session, err := mgo.DialWithInfo(di)
+
+	if err != nil {
+		return nil, err
+	}
+	logger.Debugf("connection established")
+
+	st, err := newState(session, info, policy)
+	if err != nil {
+		session.Close()
+		return nil, err
+	}
+	session.SetSocketTimeout(mongoSocketTimeout)
+	return st, nil
+}
+
+// DialInfo returns information on how to dial
+// the state's mongo server with the given info
+// and dial options.
+func DialInfo(info *Info, opts DialOpts) (*mgo.DialInfo, error) {
 	if len(info.Addrs) == 0 {
 		return nil, stderrors.New("no mongo addresses")
 	}
@@ -108,22 +133,12 @@ func Open(info *Info, opts DialOpts, policy Policy) (*State, error) {
 		}
 		return cc, nil
 	}
-	session, err := mgo.DialWithInfo(&mgo.DialInfo{
+
+	return &mgo.DialInfo{
 		Addrs:   info.Addrs,
 		Timeout: opts.Timeout,
 		Dial:    dial,
-	})
-	if err != nil {
-		return nil, err
-	}
-	logger.Infof("connection established")
-	st, err := newState(session, info, policy)
-	if err != nil {
-		session.Close()
-		return nil, err
-	}
-	session.SetSocketTimeout(mongoSocketTimeout)
-	return st, nil
+	}, nil
 }
 
 // Initialize sets up an initial empty state and returns it.
@@ -240,12 +255,17 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 		if err := pdb.Login(info.Tag, info.Password); err != nil {
 			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to presence database as %q", info.Tag))
 		}
+		admin := session.DB(AdminUser)
+		if err := admin.Login(info.Tag, info.Password); err != nil {
+			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to admin database as %q", info.Tag))
+		}
 	} else if info.Password != "" {
 		admin := session.DB(AdminUser)
 		if err := admin.Login(AdminUser, info.Password); err != nil {
 			return nil, maybeUnauthorized(err, "cannot log in to admin database")
 		}
 	}
+
 	st := &State{
 		info:              info,
 		policy:            policy,

@@ -821,9 +821,7 @@ func (s *withoutStateServerSuite) TestAddNetwork(c *gc.C) {
 			{Error: apiservertesting.PrefixedError(
 				fmt.Sprintf(prefix, "net2"),
 				"invalid CIDR address: invalid")},
-			{Error: apiservertesting.PrefixedError(
-				fmt.Sprintf(prefix, "net1"),
-				"already exists")},
+			{Error: apiservertesting.AlreadyExistsError("network net1")},
 			{Error: apiservertesting.PrefixedError(
 				fmt.Sprintf(prefix, "net2"),
 				"invalid VLAN tag -1: must be between 0 and 4094")},
@@ -911,10 +909,7 @@ func (s *withoutStateServerSuite) TestAddNetworkInterface(c *gc.C) {
 				prefixM1, `network "invalid" not found`)},
 			{Error: apiservertesting.PrefixedError(
 				prefixM1, `network "" not found`)},
-			{Error: apiservertesting.PrefixedError(
-				prefixM1,
-				`interface with MAC address "aa:bb:cc:dd:ee:f1" already exists`),
-			},
+			{Error: apiservertesting.AlreadyExistsError("interface with MAC address aa:bb:cc:dd:ee:f1")},
 			{Error: apiservertesting.PrefixedError(
 				fmt.Sprintf(prefix, s.machines[2].Id()),
 				`machine already provisioned: dynamic network interfaces not currently supported`,

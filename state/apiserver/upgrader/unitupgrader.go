@@ -98,7 +98,7 @@ func (u *UnitUpgraderAPI) DesiredVersion(args params.Entities) (params.VersionRe
 		}
 		result[i].Error = common.ServerError(err)
 	}
-	return params.VersionResults{result}, nil
+	return params.VersionResults{Results: result}, nil
 }
 
 // Tools finds the tools necessary for the given agents.
