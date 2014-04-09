@@ -37,6 +37,8 @@ func Initiate(session *mgo.Session, address, name string) error {
 	return monotonicSession.Run(bson.D{{"replSetInitiate", cfg}}, nil)
 }
 
+// Member holds configuration information for a replica set member.
+//
 // See http://docs.mongodb.org/manual/reference/replica-configuration/
 // for more details
 type Member struct {
