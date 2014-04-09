@@ -112,8 +112,13 @@ func (u *Upgrader) loop() error {
 		case <-dying:
 			return nil
 		}
-		if wantVersion.Compare(version.Current) < 0 {
-			logger.Infof("desired tool version: %s is older than current %s, due to bug #1299802, refusing to downgrade",
+		if wantVersion.Compare(version.Current.Number) < 0 {
+			// See also bug #1299802 where when upgrading from
+			// 1.16 to 1.18 there is a race condition that can
+			// cause the unit agent to upgrade, and then want to
+			// downgrade when its associate machine agent has not
+			// finished upgrading.
+			logger.Infof("desired tool version: %s is older than current %s, refusing to downgrade",
 				wantVersion, version.Current)
 			continue
 		}
