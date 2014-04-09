@@ -445,5 +445,8 @@ func (u *Unit) JoinedRelations() ([]string, error) {
 		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
-	return result.Result, result.Error
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return result.Result, nil
 }

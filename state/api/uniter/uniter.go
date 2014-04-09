@@ -134,7 +134,7 @@ func (st *State) Relation(tag string) (*Relation, error) {
 	}, nil
 }
 
-// Relation returns the existing relation with the given tag.
+// RelationById returns the existing relation with the given id.
 func (st *State) RelationById(id int) (*Relation, error) {
 	var results params.RelationResults
 	args := params.RelationIds{
