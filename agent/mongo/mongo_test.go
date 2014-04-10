@@ -79,6 +79,13 @@ func fakeCmd(path string) {
 	}
 }
 
+func failCmd(path string) {
+	err := ioutil.WriteFile(path, []byte("#!/bin/bash --norc\nexit 1"), 0755)
+	if err != nil {
+		panic(err)
+	}
+}
+
 func (s *MongoSuite) TestJujuMongodPath(c *gc.C) {
 	obtained, err := MongodPath()
 	c.Check(err, gc.IsNil)
@@ -145,6 +152,14 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(contents, jc.DeepEquals, []byte("ENABLE_MONGODB=no"))
 
+	contents, err = ioutil.ReadFile(sslKeyPath(dataDir))
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(contents), gc.Equals, info.Cert+"\n"+info.PrivateKey)
+
+	contents, err = ioutil.ReadFile(sharedSecretPath(dataDir))
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(contents), gc.Equals, info.SharedSecret)
+
 	s.installed = nil
 	// now check we can call it multiple times without error
 	err = EnsureMongoServer(dataDir, namespace, testInfo)
@@ -159,6 +174,22 @@ func (s *MongoSuite) TestRemoveService(c *gc.C) {
 		Name:    "juju-db-namespace",
 		InitDir: upstart.InitDir,
 	}})
+}
+
+func (s *MongoSuite) TestQuantalAptAddRepo(c *gc.C) {
+	dir := c.MkDir()
+	s.PatchEnvPathPrepend(dir)
+	failCmd(filepath.Join(dir, "add-apt-repository"))
+
+	// test that we call add-apt-repository only for quantal (and that if it
+	// fails, we return the error)
+	s.PatchValue(&version.Current.Series, "quantal")
+	err := EnsureMongoServer(dir, "", info)
+	c.Assert(err, gc.ErrorMatches, "cannot install mongod: cannot add apt repository: exit status 1.*")
+
+	s.PatchValue(&version.Current.Series, "trusty")
+	err = EnsureMongoServer(dir, "", info)
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
