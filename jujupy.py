@@ -139,7 +139,7 @@ class JujuClientDevel:
 
     def get_env_option(self, environment, option):
         """Return the value of the environment's configured option."""
-        return self.juju(environment, 'get-env', (option,))
+        return self.get_juju_output(environment, 'get-env', option)
 
     def set_env_option(self, environment, option, value):
         """Set the value of the option in the environment."""

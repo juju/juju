@@ -70,7 +70,7 @@ class JujuClientDevelFake(JujuClientDevel):
     output_iterator = None
 
     @classmethod
-    def get_juju_output(cls, environment, command):
+    def get_juju_output(cls, environment, command, *args):
         return cls.output_iterator.send((environment, command))
 
     @classmethod
@@ -244,12 +244,13 @@ class TestJujuClientDevel(TestCase):
                     client.get_status(env)
 
     def test_get_env_option(self):
-        client = JujuClientDevelFake(None, None)
+        client = JujuClientDevel(None, None)
         env = Environment('foo', '')
-        with patch('subprocess.check_call') as mock:
+        with patch('subprocess.check_output') as mock:
             mock.return_value = 'https://example.org/juju/tools'
             result = client.get_env_option(env, 'tools-metadata-url')
-        mock.assert_called_with(
+        self.assertEqual(
+            mock.call_args[0][0],
             ('juju', '--show-log', 'get-env', '-e', 'foo',
              'tools-metadata-url'))
         self.assertEqual('https://example.org/juju/tools', result)
