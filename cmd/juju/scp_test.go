@@ -193,3 +193,12 @@ func (s *expandArgsSuite) TestExpandArgs(c *gc.C) {
 		c.Check(expanded, gc.DeepEquals, t.result)
 	}
 }
+
+func (s *expandArgsSuite) TestExpandArgsPropagatesErrors(c *gc.C) {
+	erroringHostFromTargets := func(string) (string, error) {
+		return "", fmt.Errorf("this is my error")
+	}
+	expanded, err := expandArgs([]string{"foo:1", "bar"}, erroringHostFromTargets)
+	c.Assert(err, gc.ErrorMatches, "this is my error")
+	c.Check(expanded, gc.IsNil)
+}
