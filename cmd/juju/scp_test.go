@@ -89,6 +89,11 @@ var scpTests = []struct {
 		[]string{"ipv6-svc/0:foo", "bar"},
 		commonArgs + `ubuntu@\[2001:db8::\]:foo bar` + "\n",
 		"",
+	}, {
+		"scp with no such machine",
+		[]string{"5:foo", "bar"},
+		"",
+		"machine 5 not found",
 	},
 }
 
@@ -159,6 +164,12 @@ func dummyHostsFromTarget(target string) (string, error) {
 
 func (s *expandArgsSuite) TestSCPExpandArgs(c *gc.C) {
 	for i, t := range scpTests {
+		if t.error != "" {
+			// We are just running a focused set of tests on
+			// expandArgs, we aren't implementing the full
+			// hostsFromTargets to actually trigger errors
+			continue
+		}
 		c.Logf("test %d: %s -> %s\n", i, t.about, t.args)
 		// expandArgs doesn't add the commonArgs prefix, so strip it
 		// off, along with the trailing '\n'
