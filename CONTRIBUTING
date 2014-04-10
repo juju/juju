@@ -132,6 +132,19 @@ is not recursive, the following commands are equal, and will produce no output.
 
     go test launchpad.net/juju-core
 
+MongoDB
+-------
+
+Many tests run a standalone instance of mongod. These tests will run the
+`mongod` binary found in $PATH.
+
+Some tests, particularly those under ./store/..., assume a MongoDB instance
+that supports Javascript for map-reduce functions. These functions are not
+supported by juju-mongodb and the associated tests will fail unless disabled
+with an environment variable:
+
+    JUJU_NOTEST_MONGOJS=1 go test launchpad.net/juju-core/...
+
 Proposing
 =========
 
