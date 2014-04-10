@@ -6,7 +6,6 @@ package state_test
 import (
 	"fmt"
 	"net/url"
-	"sort"
 	"strconv"
 	"time"
 
@@ -2838,6 +2837,11 @@ func (s *StateSuite) TestEnsureAvailabilityFailsWithBadCount(c *gc.C) {
 }
 
 func (s *StateSuite) TestEnsureAvailabilityAddsNewMachines(c *gc.C) {
+	// Don't use agent presence to decide on machine availability.
+	s.PatchValue(state.StateServerAvailable, func(m *state.Machine) (bool, error) {
+		return true, nil
+	})
+
 	ids := make([]string, 3)
 	m0, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
@@ -2847,12 +2851,7 @@ func (s *StateSuite) TestEnsureAvailabilityAddsNewMachines(c *gc.C) {
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
-	info, err := s.State.StateServerInfo()
-	c.Assert(err, gc.IsNil)
-	c.Assert(info, gc.DeepEquals, &state.StateServerInfo{
-		MachineIds:       []string{m0.Id()},
-		VotingMachineIds: []string{m0.Id()},
-	})
+	s.assertStateServerInfo(c, []string{"0"}, []string{"0"})
 
 	cons := constraints.Value{
 		Mem: newUint64(100),
@@ -2873,20 +2872,103 @@ func (s *StateSuite) TestEnsureAvailabilityAddsNewMachines(c *gc.C) {
 		c.Assert(m.WantsVote(), jc.IsTrue)
 		ids[i] = m.Id()
 	}
-	sort.Strings(ids)
-
-	info, err = s.State.StateServerInfo()
-	c.Assert(err, gc.IsNil)
-	sort.Strings(info.MachineIds)
-	sort.Strings(info.VotingMachineIds)
-	c.Assert(info, gc.DeepEquals, &state.StateServerInfo{
-		MachineIds:       ids,
-		VotingMachineIds: ids,
-	})
+	s.assertStateServerInfo(c, ids, ids)
 }
 
 func newUint64(i uint64) *uint64 {
 	return &i
+}
+
+func (s *StateSuite) assertStateServerInfo(c *gc.C, machineIds []string, votingMachineIds []string) {
+	info, err := s.State.StateServerInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(info.MachineIds, jc.SameContents, machineIds)
+	c.Assert(info.VotingMachineIds, jc.SameContents, votingMachineIds)
+}
+
+func (s *StateSuite) TestEnsureAvailabilityDemotesUnavailableMachines(c *gc.C) {
+	err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	c.Assert(err, gc.IsNil)
+	s.assertStateServerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"})
+	s.PatchValue(state.StateServerAvailable, func(m *state.Machine) (bool, error) {
+		return m.Id() != "0", nil
+	})
+	err = s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	c.Assert(err, gc.IsNil)
+
+	// New state server machine "3" is created; "0" still exists in MachineIds,
+	// but no longer in VotingMachineIds.
+	s.assertStateServerInfo(c, []string{"0", "1", "2", "3"}, []string{"1", "2", "3"})
+	m0, err := s.State.Machine("0")
+	c.Assert(err, gc.IsNil)
+	c.Assert(m0.WantsVote(), jc.IsFalse)
+	c.Assert(m0.IsManager(), jc.IsTrue) // job still intact for now
+	m3, err := s.State.Machine("3")
+	c.Assert(err, gc.IsNil)
+	c.Assert(m3.WantsVote(), jc.IsTrue)
+	c.Assert(m3.IsManager(), jc.IsTrue)
+}
+
+func (s *StateSuite) TestEnsureAvailabilityPromotesAvailableMachines(c *gc.C) {
+	err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	c.Assert(err, gc.IsNil)
+	s.assertStateServerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"})
+	s.PatchValue(state.StateServerAvailable, func(m *state.Machine) (bool, error) {
+		return m.Id() != "0", nil
+	})
+	err = s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	c.Assert(err, gc.IsNil)
+
+	// New state server machine "3" is created; "0" still exists in MachineIds,
+	// but no longer in VotingMachineIds.
+	s.assertStateServerInfo(c, []string{"0", "1", "2", "3"}, []string{"1", "2", "3"})
+	m0, err := s.State.Machine("0")
+	c.Assert(err, gc.IsNil)
+	c.Assert(m0.WantsVote(), jc.IsFalse)
+
+	// Mark machine 0 as having a vote, so it doesn't get removed, and make it
+	// available once more.
+	err = m0.SetHasVote(true)
+	c.Assert(err, gc.IsNil)
+	s.PatchValue(state.StateServerAvailable, func(m *state.Machine) (bool, error) {
+		return true, nil
+	})
+	err = s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	c.Assert(err, gc.IsNil)
+	// No change; we've got as many voting machines as we need.
+	s.assertStateServerInfo(c, []string{"0", "1", "2", "3"}, []string{"1", "2", "3"})
+
+	// Make machine 3 unavailable; machine 0 should be promoted, and two new
+	// machines created.
+	s.PatchValue(state.StateServerAvailable, func(m *state.Machine) (bool, error) {
+		return m.Id() != "3", nil
+	})
+	err = s.State.EnsureAvailability(5, constraints.Value{}, "quantal")
+	c.Assert(err, gc.IsNil)
+	s.assertStateServerInfo(c, []string{"0", "1", "2", "3", "4", "5"}, []string{"0", "1", "2", "4", "5"})
+	err = m0.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(m0.WantsVote(), jc.IsTrue)
+}
+
+func (s *StateSuite) TestEnsureAvailabilityRemovesUnavailableMachines(c *gc.C) {
+	err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	c.Assert(err, gc.IsNil)
+	s.assertStateServerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"})
+	s.PatchValue(state.StateServerAvailable, func(m *state.Machine) (bool, error) {
+		return m.Id() != "0", nil
+	})
+	err = s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	c.Assert(err, gc.IsNil)
+	s.assertStateServerInfo(c, []string{"0", "1", "2", "3"}, []string{"1", "2", "3"})
+	// machine 0 does not have a vote, so another call to EnsureAvailability
+	// will remove machine 0's JobEnvironManager job.
+	err = s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	c.Assert(err, gc.IsNil)
+	s.assertStateServerInfo(c, []string{"1", "2", "3"}, []string{"1", "2", "3"})
+	m0, err := s.State.Machine("0")
+	c.Assert(err, gc.IsNil)
+	c.Assert(m0.IsManager(), jc.IsFalse)
 }
 
 func (s *StateSuite) TestStateServingInfo(c *gc.C) {
