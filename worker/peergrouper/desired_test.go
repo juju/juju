@@ -432,8 +432,8 @@ func (h hostPortSliceByHostPort) Len() int      { return len(h) }
 func (h hostPortSliceByHostPort) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
 func (h hostPortSliceByHostPort) Less(i, j int) bool {
 	a, b := h[i], h[j]
-	if len(a) < len(b) {
-		return true
+	if len(a) != len(b) {
+		return len(a) < len(b)
 	}
 	for i := 0; i < len(a); i++ {
 		if a[i].Address.Value < b[i].Address.Value && a[i].Port <= b[i].Port {
