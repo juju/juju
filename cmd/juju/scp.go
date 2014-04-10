@@ -35,12 +35,12 @@ Copy a single file from machine 2 to the local machine:
 Copy 2 files from two units to the local backup/ directory, passing -v
 to scp as an extra argument:
 
-    juju scp ubuntu/0:/path/file1 ubuntu/1:/path/file2 backup/ -v
+    juju scp -v ubuntu/0:/path/file1 ubuntu/1:/path/file2 backup/
 
 Recursively copy the directory /var/log/mongodb/ on the first mongodb
 server to the local directory remote-logs:
 
-    juju scp mongodb/0:/var/log/mongodb/ remote-logs/ -r
+    juju scp -r mongodb/0:/var/log/mongodb/ remote-logs/
 
 Copy a local file to the second apache unit of the environment "testing":
 
@@ -72,7 +72,7 @@ func expandArgs(args []string, hostFromTarget func(string) (string, error)) ([]s
 	outArgs := make([]string, len(args))
 	for i, arg := range args {
 		v := strings.SplitN(arg, ":", 2)
-		if len(v) <= 1 {
+		if strings.HasPrefix(arg, "-") || len(v) <= 1 {
 			// Can't be an interesting target, so just pass it along
 			outArgs[i] = arg
 			continue

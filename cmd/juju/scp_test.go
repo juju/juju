@@ -20,10 +20,13 @@ import (
 )
 
 var _ = gc.Suite(&SCPSuite{})
+var _ = gc.Suite(&expandArgsSuite{})
 
 type SCPSuite struct {
 	SSHCommonSuite
 }
+
+type expandArgsSuite struct{}
 
 var scpTests = []struct {
 	about  string
@@ -154,7 +157,7 @@ func dummyHostsFromTarget(target string) (string, error) {
 	return target, nil
 }
 
-func (s *SCPSuite) TestSCPExpandArgs(c *gc.C) {
+func (s *expandArgsSuite) TestSCPExpandArgs(c *gc.C) {
 	for i, t := range scpTests {
 		c.Logf("test %d: %s -> %s\n", i, t.about, t.args)
 		// expandArgs doesn't add the commonArgs prefix, so strip it
@@ -170,5 +173,23 @@ func (s *SCPSuite) TestSCPExpandArgs(c *gc.C) {
 	}
 }
 
-func (s *SCPSuite) TestSCPExtendedArgs(c *gc.C) {
+var expandTests = []struct {
+	about  string
+	args   []string
+	result []string
+}{
+	{
+		"don't expand params that start with '-'",
+		[]string{"-0:stuff", "0:foo", "."},
+		[]string{"-0:stuff", "ubuntu@dummyenv-0.dns:foo", "."},
+	},
+}
+
+func (s *expandArgsSuite) TestExpandArgs(c *gc.C) {
+	for i, t := range expandTests {
+		c.Logf("test %d: %s -> %s\n", i, t.about, t.args)
+		expanded, err := expandArgs(t.args, dummyHostsFromTarget)
+		c.Check(err, gc.IsNil)
+		c.Check(expanded, gc.DeepEquals, t.result)
+	}
 }
