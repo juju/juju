@@ -76,8 +76,11 @@ retrieve_released_tools() {
     [[ $PRIVATE == "true" ]] && return 0
     echo "Phase 2: Retrieving released tools."
     # unsupported, stable, devel excludes to make sync fast.
-    excludes="--rexclude 'juju-1.15.*' --rexclude 'juju-1.16.[0-5].*'"
-    excludes="$excludes --rexclude 'juju-1.17.[0-2].*'"
+    if [[ $IS_TESTING == "true" ]]; then
+        excludes="--rexclude 'juju-1.1[5-7].*'"
+    else
+        excludes=""
+    fi
     s3cmd -c $JUJU_DIR/s3cfg sync $excludes \
         s3://juju-dist/tools/releases/ $DEST_TOOLS/
 }
@@ -235,11 +238,6 @@ generate_streams() {
     cp $DEST_TOOLS/*tgz ${DEST_DIST}/tools/releases
     JUJU_HOME=$JUJU_DIR PATH=$JUJU_BIN_PATH:$PATH \
         $JUJU_EXEC metadata generate-tools -d ${DEST_DIST}
-    # Support old tools location so that deployments can upgrade to new tools.
-    old_tools_glob="${DEST_DIST}/tools/releases/juju-1.16*tgz"
-    if [[ $IS_TESTING == "false" && -n $(ls $old_tools_glob) ]]; then
-        cp $old_tools_glob ${DEST_DIST}/tools
-    fi
     echo "The tools are in ${DEST_DIST}."
 }
 

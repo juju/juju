@@ -49,7 +49,6 @@ publish_to_canonistack() {
     ${SCRIPT_DIR}/swift-sync.bash tools/streams/v1/ {index,com}*
     # This needed to allow old deployments upgrade.
     cd ${JUJU_DIST}/tools
-    ${SCRIPT_DIR}/swift-sync.bash tools/ juju-1.16*.tgz
 }
 
 
@@ -74,7 +73,6 @@ publish_to_hp() {
     ${SCRIPT_DIR}/swift-sync.bash tools/streams/v1/ {index,com}*
     # Support old tools location so that deployments can upgrade to new tools.
     cd ${JUJU_DIST}/tools
-    ${SCRIPT_DIR}/swift-sync.bash tools/ juju-1.16*.tgz
 }
 
 
