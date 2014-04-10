@@ -2211,3 +2211,11 @@ func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(apiHostPorts, gc.DeepEquals, stateAPIHostPorts)
 }
+
+func (s *clientSuite) TestClientAgentVersion(c *gc.C) {
+	current := version.MustParse("1.2.0")
+	s.PatchValue(&version.Current.Number, current)
+	result, err := s.APIState.Client().AgentVersion()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.Equals, current)
+}
