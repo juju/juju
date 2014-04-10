@@ -825,6 +825,41 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 	return fmt.Errorf("already set")
 }
 
+// SetInstanceInfo is used to provision a machine and in one steps set
+// it's instance id, nonce, hardware characteristics, add networks and
+// network interfaces as needed.
+//
+// TODO(dimitern) Do all the operations described in a single
+// transaction, rather than using separate calls. Alternatively,
+// we can add all the things to create/set in a document in some
+// collection and have a worker that takes care of the actual work.
+// Merge SetProvisioned() in here or drop it at that point.
+func (m *Machine) SetInstanceInfo(
+	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
+	networks []params.Network, interfaces []params.NetworkInterface) error {
+
+	// Add the networks and interfaces first.
+	for _, network := range networks {
+		_, err := m.st.AddNetwork(network.Name, network.CIDR, network.VLANTag)
+		if err != nil && errors.IsAlreadyExistsError(err) {
+			// Ignore already existing networks.
+			continue
+		} else if err != nil {
+			return err
+		}
+	}
+	for _, iface := range interfaces {
+		_, err := m.AddNetworkInterface(iface.MACAddress, iface.InterfaceName, iface.NetworkName)
+		if err != nil && errors.IsAlreadyExistsError(err) {
+			// Ignore already existing network interfaces.
+			continue
+		} else if err != nil {
+			return err
+		}
+	}
+	return m.SetProvisioned(id, nonce, characteristics)
+}
+
 // notProvisionedError records an error when a machine is not provisioned.
 type notProvisionedError struct {
 	machineId string
@@ -960,11 +995,17 @@ func (m *Machine) NetworkInterfaces() ([]*NetworkInterface, error) {
 // AddNetworkInterface creates a new network interface on the given
 // network for the machine. The machine must be alive and not yet
 // provisioned, and there must be no other interface with the same MAC
-// address for this to succeed.
+// address for this to succeed. If a network interface with the given
+// MAC address already exists, the returned error satisfies
+// errors.IsAlreadyExistsError.
 func (m *Machine) AddNetworkInterface(macAddress, name, networkName string) (iface *NetworkInterface, err error) {
-	defer utils.ErrorContextf(&err, "cannot add network interface to machine %s", m.doc.Id)
+	defer func() {
+		if !errors.IsAlreadyExistsError(err) {
+			utils.ErrorContextf(&err, "cannot add network interface to machine %s", m.doc.Id)
+		}
+	}()
 
-	if _, err := net.ParseMAC(macAddress); err != nil {
+	if _, err = net.ParseMAC(macAddress); err != nil {
 		return nil, err
 	}
 	if name == "" {
@@ -1008,7 +1049,7 @@ func (m *Machine) AddNetworkInterface(macAddress, name, networkName string) (ifa
 				return nil, fmt.Errorf("machine already provisioned: dynamic network interfaces not currently supported")
 			}
 			// Network and machine both OK, so the other assert must have failed.
-			return nil, fmt.Errorf("interface with MAC address %q already exists", macAddress)
+			return nil, errors.NewAlreadyExistsError("interface with MAC address " + macAddress)
 		case nil:
 			return newNetworkInterface(m.st, doc), nil
 		default:

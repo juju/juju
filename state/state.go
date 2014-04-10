@@ -1010,9 +1010,15 @@ func (st *State) AddService(name, ownerTag string, ch *Charm, includeNetworks, e
 	return svc, nil
 }
 
-// AddNetwork creates a new network with the given name, CIDR and VLAN tag.
+// AddNetwork creates a new network with the given name, CIDR and VLAN
+// tag. If a network with the same name already exists in state, an
+// error satisfying errors.IsAlreadyExistsError is returned.
 func (st *State) AddNetwork(name, cidr string, vlanTag int) (n *Network, err error) {
-	defer utils.ErrorContextf(&err, "cannot add network %q", name)
+	defer func() {
+		if !errors.IsAlreadyExistsError(err) {
+			utils.ErrorContextf(&err, "cannot add network %q", name)
+		}
+	}()
 	if cidr != "" {
 		_, _, err := net.ParseCIDR(cidr)
 		if err != nil {
@@ -1036,7 +1042,7 @@ func (st *State) AddNetwork(name, cidr string, vlanTag int) (n *Network, err err
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}}
-	err = onAbort(st.runTransaction(ops), fmt.Errorf("already exists"))
+	err = onAbort(st.runTransaction(ops), errors.NewAlreadyExistsError("network "+name))
 	if err != nil {
 		return nil, err
 	}
@@ -1413,6 +1419,9 @@ func (st *State) setMongoPassword(name, password string) error {
 	}
 	if err := st.db.Session.DB("presence").AddUser(name, password, false); err != nil {
 		return fmt.Errorf("cannot set password in presence db for %q: %v", name, err)
+	}
+	if err := st.db.Session.DB("admin").AddUser(name, password, false); err != nil {
+		return fmt.Errorf("cannot set password in admin db for %q: %v", name, err)
 	}
 	return nil
 }

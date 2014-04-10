@@ -67,7 +67,7 @@ func (api *LoggerAPI) WatchLoggingConfig(arg params.Entities) params.NotifyWatch
 		}
 		result[i].Error = common.ServerError(err)
 	}
-	return params.NotifyWatchResults{result}
+	return params.NotifyWatchResults{Results: result}
 }
 
 // LoggingConfig reports the logging configuration for the agents specified.
@@ -89,5 +89,5 @@ func (api *LoggerAPI) LoggingConfig(arg params.Entities) params.StringResults {
 		}
 		results[i].Error = common.ServerError(err)
 	}
-	return params.StringResults{results}
+	return params.StringResults{Results: results}
 }

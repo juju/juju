@@ -121,7 +121,7 @@ func (api *KeyManagerAPI) ListKeys(arg params.ListSSHKeys) (params.StringsResult
 		}
 		results[i].Error = common.ServerError(err)
 	}
-	return params.StringsResults{results}, nil
+	return params.StringsResults{Results: results}, nil
 }
 
 func parseKeys(keys []string, mode ssh.ListMode) (keyInfo []string) {

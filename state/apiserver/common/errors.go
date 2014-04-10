@@ -94,6 +94,8 @@ func ServerError(err error) *params.Error {
 		code = params.CodeUnauthorized
 	case errors.IsNotFoundError(err):
 		code = params.CodeNotFound
+	case errors.IsAlreadyExistsError(err):
+		code = params.CodeAlreadyExists
 	case state.IsNotAssigned(err):
 		code = params.CodeNotAssigned
 	case state.IsHasAssignedUnitsError(err):

@@ -17,9 +17,9 @@ import (
 )
 
 // InitializeState should be called on the bootstrap machine's agent
-// configuration. It uses that information to dial the state server and
-// initialize it. It also generates a new password for the bootstrap
-// machine and calls Write to save the the configuration.
+// configuration. It uses that information to create the state server, dial the
+// state server, and initialize it. It also generates a new password for the
+// bootstrap machine and calls Write to save the the configuration.
 //
 // The envCfg values will be stored in the state's EnvironConfig; the
 // machineCfg values will be used to configure the bootstrap Machine,
@@ -67,9 +67,12 @@ func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg Bootstrap
 	if !ok {
 		return nil, nil, fmt.Errorf("state serving information not available")
 	}
+	// N.B. no users are set up when we're initializing the state,
+	// so don't use any tag or password when opening it.
 	info := c.StateInfo()
 	info.Tag = ""
 	info.Password = ""
+
 	logger.Debugf("initializing address %v", info.Addrs)
 	st, err := state.Initialize(info, envCfg, timeout, policy)
 	if err != nil {
@@ -142,7 +145,6 @@ func initBootstrapUser(st *state.State, passwordHash string) error {
 
 // initBootstrapMachine initializes the initial bootstrap machine in state.
 func initBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineConfig) (*state.Machine, error) {
-
 	logger.Infof("initialising bootstrap machine with config: %+v", cfg)
 
 	jobs := make([]state.MachineJob, len(cfg.Jobs))
