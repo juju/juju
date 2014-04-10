@@ -12,7 +12,7 @@ def main():
         environment = jujupy.Environment.from_config(env)
         environment.set_testing_tools_metadata_url()
         print(
-            'The tools-metadata-url is '  % environment.client.get_env_option(
+            'The tools-metadata-url is %s' % environment.client.get_env_option(
             environment, 'tools-metadata-url'))
         environment.upgrade_juju()
 
