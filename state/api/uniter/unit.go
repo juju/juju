@@ -94,7 +94,7 @@ func (u *Unit) Watch() (watcher.NotifyWatcher, error) {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -134,7 +134,7 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -197,7 +197,7 @@ func (u *Unit) Resolved() (params.ResolvedMode, error) {
 		return "", err
 	}
 	if len(results.Results) != 1 {
-		return "", fmt.Errorf("expected one result, got %d", len(results.Results))
+		return "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -221,7 +221,7 @@ func (u *Unit) IsPrincipal() (bool, error) {
 		return false, err
 	}
 	if len(results.Results) != 1 {
-		return false, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return false, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -242,7 +242,7 @@ func (u *Unit) HasSubordinates() (bool, error) {
 		return false, err
 	}
 	if len(results.Results) != 1 {
-		return false, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return false, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -269,7 +269,7 @@ func (u *Unit) PublicAddress() (string, error) {
 		return "", err
 	}
 	if len(results.Results) != 1 {
-		return "", fmt.Errorf("expected one result, got %d", len(results.Results))
+		return "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -296,7 +296,7 @@ func (u *Unit) PrivateAddress() (string, error) {
 		return "", err
 	}
 	if len(results.Results) != 1 {
-		return "", fmt.Errorf("expected one result, got %d", len(results.Results))
+		return "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -359,7 +359,7 @@ func (u *Unit) CharmURL() (*charm.URL, error) {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -421,7 +421,7 @@ func (u *Unit) WatchConfigSettings() (watcher.NotifyWatcher, error) {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -442,7 +442,7 @@ func (u *Unit) JoinedRelations() ([]string, error) {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {

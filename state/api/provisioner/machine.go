@@ -65,7 +65,7 @@ func (m *Machine) RequestedNetworks() (includeNetworks, excludeNetworks []string
 		return nil, nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return nil, nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -128,7 +128,7 @@ func (m *Machine) Status() (params.Status, string, error) {
 		return "", "", err
 	}
 	if len(results.Results) != 1 {
-		return "", "", fmt.Errorf("expected one result, got %d", len(results.Results))
+		return "", "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -150,7 +150,7 @@ func (m *Machine) Constraints() (constraints.Value, error) {
 		return nothing, err
 	}
 	if len(results.Results) != 1 {
-		return nothing, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return nothing, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -201,7 +201,7 @@ func (m *Machine) Series() (string, error) {
 		return "", err
 	}
 	if len(results.Results) != 1 {
-		return "", fmt.Errorf("expected one result, got %d", len(results.Results))
+		return "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -224,7 +224,7 @@ func (m *Machine) DistributionGroup() ([]instance.Id, error) {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -264,7 +264,7 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 		return "", err
 	}
 	if len(results.Results) != 1 {
-		return "", fmt.Errorf("expected one result, got %d", len(results.Results))
+		return "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -315,7 +315,7 @@ func (m *Machine) WatchContainers(ctype instance.ContainerType) (watcher.Strings
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -339,7 +339,7 @@ func (m *Machine) WatchAllContainers() (watcher.StringsWatcher, error) {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -362,7 +362,7 @@ func (m *Machine) SetSupportedContainers(containerTypes ...instance.ContainerTyp
 		return err
 	}
 	if len(results.Results) != 1 {
-		return fmt.Errorf("expected one result, got %d", len(results.Results))
+		return fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	apiError := results.Results[0].Error
 	if apiError != nil {
