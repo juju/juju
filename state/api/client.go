@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -713,8 +712,8 @@ func (c *Client) EnsureAvailability(numStateServers int, cons constraints.Value,
 
 // AgentVersion reports the version number of the api server.
 func (c *Client) AgentVersion() (version.Number, error) {
-	var result AgentVersionResult
-	if err := c.call("Version", nil, &result); err != nil {
+	var result params.AgentVersionResult
+	if err := c.call("AgentVersion", nil, &result); err != nil {
 		return version.Number{}, err
 	}
 	return result.Version, nil
@@ -773,7 +772,7 @@ func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
 	// The websocket connection just hangs if the server doesn't have the log
 	// end point. So do a version check, as version was added at the same time
 	// as the remote end point.
-	_, err := c.Version()
+	_, err := c.AgentVersion()
 	if err != nil {
 		return nil, &connectionError{fmt.Errorf("server doesn't support debug log websocket")}
 	}

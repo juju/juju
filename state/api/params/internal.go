@@ -562,5 +562,5 @@ type RunResults struct {
 // AgentVersionResult is used to return the current version number of the
 // apiserver.
 type AgentVersionResult struct {
-	Version evrsion.Number
+	Version version.Number
 }
