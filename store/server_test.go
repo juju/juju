@@ -302,6 +302,10 @@ func (s *StoreSuite) TestRootRedirect(c *gc.C) {
 }
 
 func (s *StoreSuite) TestStatsCounter(c *gc.C) {
+	if *noTestMongoJs {
+		c.Skip("MongoDB javascript not available")
+	}
+
 	for _, key := range [][]string{{"a", "b"}, {"a", "b"}, {"a", "c"}, {"a"}} {
 		err := s.store.IncCounter(key)
 		c.Assert(err, gc.IsNil)
@@ -332,6 +336,10 @@ func (s *StoreSuite) TestStatsCounter(c *gc.C) {
 }
 
 func (s *StoreSuite) TestStatsCounterList(c *gc.C) {
+	if *noTestMongoJs {
+		c.Skip("MongoDB javascript not available")
+	}
+
 	incs := [][]string{
 		{"a"},
 		{"a", "b"},
@@ -380,6 +388,10 @@ func (s *StoreSuite) TestStatsCounterList(c *gc.C) {
 }
 
 func (s *StoreSuite) TestStatsCounterBy(c *gc.C) {
+	if *noTestMongoJs {
+		c.Skip("MongoDB javascript not available")
+	}
+
 	incs := []struct {
 		key []string
 		day int
