@@ -244,6 +244,16 @@ class TestJujuClientDevel(TestCase):
              'tools-metadata-url'))
         self.assertEqual('https://example.org/juju/tools', result)
 
+    def test_set_env_option(self):
+        client = JujuClientDevelFake(None, None)
+        env = Environment('foo', '')
+        with patch('subprocess.check_call') as mock:
+            client.set_env_option(
+                env, 'tools-metadata-url=https://example.org/juju/tools')
+        mock.assert_called_with(
+            ('juju', '--show-log', 'set-env', '-e', 'foo',
+             'tools-metadata-url=https://example.org/juju/tools'))
+
     def test_juju(self):
         env = Environment('qux', '')
         client = JujuClientDevel(None, None)
@@ -580,6 +590,7 @@ class TestEnvironment(TestCase):
         env.deploy('mondogb')
         env.client.juju.assert_called_with(
             env, 'deploy', ('mondogb',))
+
 
 class TestFormatListing(TestCase):
 

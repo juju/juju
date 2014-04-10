@@ -138,10 +138,15 @@ class JujuClientDevel:
             'Timed out waiting for juju status to succeed: %s' % e)
 
     def get_env_option(self, environment, option):
+        """Return the value of the environment's configured option."""
         return self.juju(environment, 'get-env', (option,))
 
-    def set_env_option(self):
-        pass
+    def set_env_option(self, environment, option_value):
+        """Set the value of the option in the environment.
+
+        option_value is a string like option=value.
+        """
+        return self.juju(environment, 'set-env', (option_value,))
 
     def juju(self, environment, command, args, sudo=False, check=True):
         """Run a command under juju for the current environment."""
