@@ -315,7 +315,7 @@ func (s *workerSuite) TestStateServersArePublished(c *gc.C) {
 	case servers := <-publishCh:
 		expected := expectedAPIHostPorts(3)
 		expected[0] = newMachine10APIHostPorts
-		c.Assert(servers, jc.DeepEquals, expected)
+		assertAPIHostPorts(c, servers, expected)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for publish")
 	}

@@ -418,4 +418,27 @@ func (l membersById) Swap(i, j int)      { l[i], l[j] = l[j], l[i] }
 func (l membersById) Less(i, j int) bool { return l[i].Id < l[j].Id }
 
 // assertAPIHostPorts asserts of two sets of instance.HostPort slices are the same.
-func assertAPIHostPorts(c *gc.C, got, want [][]instance.HostPort) {}
+func assertAPIHostPorts(c *gc.C, got, want [][]instance.HostPort) {
+	c.Assert(got, gc.HasLen, len(want))
+	sort.Sort(hostPortSliceByHostPort(got))
+	sort.Sort(hostPortSliceByHostPort(want))
+	c.Assert(got, gc.DeepEquals, want)
+}
+
+// hostPortSliceByHostPort sorts a slice of as slice of instance.HostPort values.
+type hostPortSliceByHostPort [][]instance.HostPort
+
+func (h hostPortSliceByHostPort) Len() int      { return len(h) }
+func (h hostPortSliceByHostPort) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
+func (h hostPortSliceByHostPort) Less(i, j int) bool {
+	a, b := h[i], h[j]
+	if len(a) < len(b) {
+		return true
+	}
+	for i := 0; i < len(a); i++ {
+		if a[i].Address.Value < b[i].Address.Value || a[i].Port < b[i].Port {
+			return true
+		}
+	}
+	return false
+}
