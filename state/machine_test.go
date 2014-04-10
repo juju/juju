@@ -496,8 +496,9 @@ func (s *MachineSuite) TestAddNetworkInterfaceErrors(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, expectErr)
 
 	_, err = machine.AddNetworkInterface("aa:bb:cc:dd:ee:f0", "eth2", "net1")
-	expectErr = errorPrefix + `interface with MAC address "aa:bb:cc:dd:ee:f0" already exists`
+	expectErr = `interface with MAC address aa:bb:cc:dd:ee:f0 already exists`
 	c.Assert(err, gc.ErrorMatches, expectErr)
+	c.Assert(err, jc.Satisfies, errors.IsAlreadyExistsError)
 
 	_, err = machine.AddNetworkInterface("aa:bb:cc:dd:ee:f0", "eth2", "invalid")
 	expectErr = errorPrefix + `network "invalid" not found`

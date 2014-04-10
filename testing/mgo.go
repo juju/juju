@@ -359,11 +359,12 @@ func (inst *MgoInstance) Reset() {
 	log.Infof("Reset successfully reset admin password")
 	for _, name := range dbnames {
 		switch name {
-		case "admin", "local", "config":
-		default:
-			if err := session.DB(name).DropDatabase(); err != nil {
-				panic(fmt.Errorf("Cannot drop MongoDB database %v: %v", name, err))
-			}
+		case "local", "config":
+			// don't delete these
+			continue
+		}
+		if err := session.DB(name).DropDatabase(); err != nil {
+			panic(fmt.Errorf("Cannot drop MongoDB database %v: %v", name, err))
 		}
 	}
 }

@@ -14,6 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/agent/mongo"
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container"
@@ -108,7 +109,6 @@ type localJujuTestSuite struct {
 	jujutest.Tests
 	oldUpstartLocation string
 	testPath           string
-	dbServiceName      string
 	fakesudo           string
 }
 
@@ -129,10 +129,6 @@ func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 	s.Tests.TestConfig["admin-secret"] = "sekrit"
 	s.PatchValue(local.CheckIfRoot, func() bool { return false })
 	s.Tests.SetUpTest(c)
-
-	cfg, err := config.New(config.NoDefaults, s.TestConfig)
-	c.Assert(err, gc.IsNil)
-	s.dbServiceName = "juju-db-" + local.ConfigNamespace(cfg)
 
 	s.PatchValue(local.FinishBootstrap, func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config, ctx environs.BootstrapContext) error {
 		return nil
@@ -231,21 +227,21 @@ func (s *localJujuTestSuite) TestDestroyCallSudo(c *gc.C) {
 }
 
 func (s *localJujuTestSuite) makeFakeUpstartScripts(c *gc.C, env environs.Environ,
-) (mongo *upstart.Service, machineAgent *upstart.Service) {
+) (mongoService *upstart.Service, machineAgent *upstart.Service) {
 	upstartDir := c.MkDir()
 	s.PatchValue(&upstart.InitDir, upstartDir)
 	s.MakeTool(c, "start", `echo "some-service start/running, process 123"`)
 
 	namespace := env.Config().AllAttrs()["namespace"].(string)
-	mongo = upstart.NewService(fmt.Sprintf("juju-db-%s", namespace))
+	mongoService = upstart.NewService(mongo.ServiceName(namespace))
 	mongoConf := upstart.Conf{
-		Service: *mongo,
+		Service: *mongoService,
 		Desc:    "fake mongo",
 		Cmd:     "echo FAKE",
 	}
 	err := mongoConf.Install()
 	c.Assert(err, gc.IsNil)
-	c.Assert(mongo.Installed(), jc.IsTrue)
+	c.Assert(mongoService.Installed(), jc.IsTrue)
 
 	machineAgent = upstart.NewService(fmt.Sprintf("juju-agent-%s", namespace))
 	agentConf := upstart.Conf{
@@ -257,7 +253,7 @@ func (s *localJujuTestSuite) makeFakeUpstartScripts(c *gc.C, env environs.Enviro
 	c.Assert(err, gc.IsNil)
 	c.Assert(machineAgent.Installed(), jc.IsTrue)
 
-	return mongo, machineAgent
+	return mongoService, machineAgent
 }
 
 func (s *localJujuTestSuite) TestDestroyRemovesUpstartServices(c *gc.C) {

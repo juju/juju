@@ -432,8 +432,10 @@ func (p *ProvisionerAPI) RequestedNetworks(args params.Entities) (params.Network
 	return result, nil
 }
 
-// AddNetwork creates one or more new networks with the given parameters.
-// Only the environment manager can add networks.
+// AddNetwork creates one or more new networks with the given
+// parameters. Only the environment manager can add networks. If any
+// of the given networks already exists, an error satisfying
+// params.IsCodeAlreadyExists will be returned for it.
 func (p *ProvisionerAPI) AddNetwork(args params.AddNetworkParams) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Networks)),
@@ -449,7 +451,9 @@ func (p *ProvisionerAPI) AddNetwork(args params.AddNetworkParams) (params.ErrorR
 }
 
 // AddNetworkInterface creates one or more new network interfaces with
-// the given parameters.
+// the given parameters. If any of the given interfaces already exist,
+// an error satisfying params.IsCodeAlreadyExists will be returned for
+// it.
 func (p *ProvisionerAPI) AddNetworkInterface(args params.AddNetworkInterfaceParams) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Interfaces)),
