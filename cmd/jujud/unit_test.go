@@ -4,6 +4,7 @@
 package main
 
 import (
+	"reflect"
 	"time"
 
 	gc "launchpad.net/gocheck"
@@ -11,6 +12,7 @@ import (
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/cmd"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
@@ -249,4 +251,29 @@ func (s *UnitSuite) TestRsyslogConfigWorker(c *gc.C) {
 	case mode := <-created:
 		c.Assert(mode, gc.Equals, rsyslog.RsyslogModeForwarding)
 	}
+}
+
+func (s *UnitSuite) TestUnitAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
+	_, unit, _, _ := s.primeAgent(c)
+	a := s.newAgent(c, unit)
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+
+	// Update the API addresses.
+	updatedServers := [][]instance.HostPort{instance.AddressesWithPort(
+		instance.NewAddresses("localhost"), 1234,
+	)}
+	err := s.BackingState.SetAPIHostPorts(updatedServers)
+	c.Assert(err, gc.IsNil)
+
+	// Wait for config to be updated.
+	s.BackingState.StartSync()
+	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
+		addrs, err := a.CurrentConfig().APIAddresses()
+		c.Assert(err, gc.IsNil)
+		if reflect.DeepEqual(addrs, []string{"localhost:1234"}) {
+			return
+		}
+	}
+	c.Fatalf("timeout while waiting for agent config to change")
 }

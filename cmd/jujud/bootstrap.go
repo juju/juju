@@ -6,11 +6,15 @@ package main
 import (
 	"encoding/base64"
 	"fmt"
+	"io/ioutil"
+	"net"
+	"path/filepath"
 
 	"launchpad.net/gnuflag"
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -40,7 +44,7 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.AgentConf.AddFlags(f)
 	yamlBase64Var(f, &c.EnvConfig, "env-config", "", "initial environment configuration (yaml, base64 encoded)")
-	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "initial environment constraints (space-separated strings)")
+	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "initial environment constraints (space-separated strings)")
 	f.Var(&c.Hardware, "hardware", "hardware characteristics (space-separated strings)")
 	f.StringVar(&c.InstanceId, "instance-id", "", "unique instance-id for bootstrap machine")
 }
@@ -94,6 +98,22 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 
+	// Generate a shared secret for the Mongo replica set, and write it out.
+	sharedSecret, err := mongo.GenerateSharedSecret()
+	if err != nil {
+		return err
+	}
+	sharedSecretFile := filepath.Join(c.dataDir, mongo.SharedSecretFile)
+	if err := ioutil.WriteFile(sharedSecretFile, []byte(sharedSecret), 0600); err != nil {
+		return err
+	}
+
+	namespace := agentConfig.Value(agent.Namespace)
+
+	if err := c.startMongo(addrs, envCfg.StatePort(), namespace); err != nil {
+		return err
+	}
+
 	// Initialise state, and store any agent config (e.g. password) changes.
 	var st *state.State
 	err = nil
@@ -107,6 +127,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 				Jobs:            jobs,
 				InstanceId:      instanceId,
 				Characteristics: c.Hardware,
+				SharedSecret:    sharedSecret,
 			},
 			state.DefaultDialOpts(),
 			environs.NewStatePolicy(),
@@ -120,6 +141,38 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 	st.Close()
 	return nil
+}
+
+func (c *BootstrapCommand) startMongo(addrs []instance.Address, port int, namespace string) error {
+	logger.Debugf("starting mongo")
+
+	agentConfig := c.CurrentConfig()
+	dialInfo, err := state.DialInfo(agentConfig.StateInfo(), state.DefaultDialOpts())
+	if err != nil {
+		return err
+	}
+	// Use localhost to dial the mongo server, because it's running in
+	// auth mode and will refuse to perform any operations unless
+	// we dial that address.
+	dialInfo.Addrs = []string{
+		net.JoinHostPort("127.0.0.1", fmt.Sprint(port)),
+	}
+
+	if err := ensureMongoServer(agentConfig.DataDir(), port, namespace); err != nil {
+		return err
+	}
+
+	peerAddr := mongo.SelectPeerAddress(addrs)
+
+	if peerAddr == "" {
+		return fmt.Errorf("no appropriate peer address found in %q", addrs)
+	}
+	peerHostPort := net.JoinHostPort(peerAddr, fmt.Sprint(port))
+
+	return maybeInitiateMongoServer(mongo.InitiateMongoParams{
+		DialInfo:       dialInfo,
+		MemberHostPort: peerHostPort,
+	})
 }
 
 // yamlBase64Value implements gnuflag.Value on a map[string]interface{}.

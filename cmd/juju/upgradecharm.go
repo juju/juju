@@ -12,15 +12,15 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state/api/params"
 )
 
 // UpgradeCharm is responsible for upgrading a service's charm.
 type UpgradeCharmCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	ServiceName string
 	Force       bool
 	RepoPath    string // defaults to JUJU_REPOSITORY
@@ -84,6 +84,10 @@ func (c *UpgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *UpgradeCharmCommand) Init(args []string) error {
+	err := c.EnvCommandBase.Init()
+	if err != nil {
+		return err
+	}
 	switch len(args) {
 	case 1:
 		if !names.IsService(args[0]) {
@@ -110,10 +114,6 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 	oldURL, err := client.ServiceGetCharmURL(c.ServiceName)
-	if params.IsCodeNotImplemented(err) {
-		logger.Infof("ServiceGetCharmURL is not implemented by the API server, switching to 1.16 compatibility mode (direct DB connection).")
-		return c.run1dot16(ctx)
-	}
 	if err != nil {
 		return err
 	}
@@ -129,8 +129,7 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 
 	var newURL *charm.URL
 	if c.SwitchURL != "" {
-		// A new charm URL was explicitly specified.
-		newURL, err = charm.InferURL(c.SwitchURL, conf.DefaultSeries())
+		newURL, err = resolveCharmURL(c.SwitchURL, client, conf)
 		if err != nil {
 			return err
 		}
@@ -138,11 +137,11 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 		// No new URL specified, but revision might have been.
 		newURL = oldURL.WithRevision(c.Revision)
 	}
-	repo, err := charm.InferRepository(newURL, ctx.AbsPath(c.RepoPath))
+
+	repo, err := charm.InferRepository(newURL.Reference, ctx.AbsPath(c.RepoPath))
 	if err != nil {
 		return err
 	}
-
 	repo = config.SpecializeCharmRepo(repo, conf)
 
 	// If no explicit revision was set with either SwitchURL
@@ -173,84 +172,4 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 	}
 
 	return client.ServiceSetCharm(c.ServiceName, addedURL.String(), c.Force)
-}
-
-// run1dot16 perfoms the charm upgrade using a 1.16 compatible code
-// path, with a direct state connection. Remove once the support for
-// 1.16 is dropped.
-func (c *UpgradeCharmCommand) run1dot16(ctx *cmd.Context) error {
-	conn, err := juju.NewConnFromName(c.EnvName)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-	service, err := conn.State.Service(c.ServiceName)
-	if err != nil {
-		return err
-	}
-
-	conf, err := conn.State.EnvironConfig()
-	if err != nil {
-		return err
-	}
-
-	oldURL, _ := service.CharmURL()
-	var newURL *charm.URL
-	if c.SwitchURL != "" {
-		// A new charm URL was explicitly specified.
-		conf, err := conn.State.EnvironConfig()
-		if err != nil {
-			return err
-		}
-		newURL, err = charm.InferURL(c.SwitchURL, conf.DefaultSeries())
-		if err != nil {
-			return err
-		}
-	} else {
-		// No new URL specified, but revision might have been.
-		newURL = oldURL.WithRevision(c.Revision)
-	}
-	repo, err := charm.InferRepository(newURL, ctx.AbsPath(c.RepoPath))
-	if err != nil {
-		return err
-	}
-
-	repo = config.SpecializeCharmRepo(repo, conf)
-
-	// If no explicit revision was set with either SwitchURL
-	// or Revision flags, discover the latest.
-	explicitRevision := true
-	if newURL.Revision == -1 {
-		explicitRevision = false
-		latest, err := charm.Latest(repo, newURL)
-		if err != nil {
-			return err
-		}
-		newURL = newURL.WithRevision(latest)
-	}
-	bumpRevision := false
-	if *newURL == *oldURL {
-		if explicitRevision {
-			return fmt.Errorf("already running specified charm %q", newURL)
-		}
-		// Only try bumping the revision when necessary (local dir charm).
-		if _, isLocal := repo.(*charm.LocalRepository); !isLocal {
-			// TODO(dimitern): If the --force flag is set to something
-			// different to before, we might actually want to allow this
-			// case (and the other error below). LP bug #1174287
-			return fmt.Errorf("already running latest charm %q", newURL)
-		}
-		// This is a local repository.
-		if ch, err := repo.Get(newURL); err != nil {
-			return err
-		} else if _, bumpRevision = ch.(*charm.Dir); !bumpRevision {
-			// Only bump the revision when it's a directory.
-			return fmt.Errorf("cannot increment revision of charm %q: not a directory", newURL)
-		}
-	}
-	sch, err := conn.PutCharm(newURL, repo, bumpRevision)
-	if err != nil {
-		return err
-	}
-	return service.SetCharm(sch, c.Force)
 }

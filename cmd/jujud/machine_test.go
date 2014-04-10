@@ -4,10 +4,12 @@
 package main
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/juju/testing"
@@ -36,7 +38,9 @@ import (
 	"launchpad.net/juju-core/state/watcher"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/utils/ssh"
 	sshtesting "launchpad.net/juju-core/utils/ssh/testing"
 	"launchpad.net/juju-core/version"
@@ -46,11 +50,13 @@ import (
 	"launchpad.net/juju-core/worker/instancepoller"
 	"launchpad.net/juju-core/worker/machineenvironmentworker"
 	"launchpad.net/juju-core/worker/rsyslog"
+	"launchpad.net/juju-core/worker/singular"
 	"launchpad.net/juju-core/worker/upgrader"
 )
 
 type commonMachineSuite struct {
 	agentSuite
+	singularRecord *singularRunnerRecord
 	lxctesting.TestSuite
 }
 
@@ -59,7 +65,6 @@ func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
 	s.TestSuite.SetUpSuite(c)
 	restore := testing.PatchValue(&charm.CacheDir, c.MkDir())
 	s.AddSuiteCleanup(func(*gc.C) { restore() })
-
 }
 
 func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
@@ -70,11 +75,30 @@ func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
 func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	s.agentSuite.SetUpTest(c)
 	s.TestSuite.SetUpTest(c)
+
 	os.Remove(jujuRun) // ignore error; may not exist
 	// Fake $HOME, and ssh user to avoid touching ~ubuntu/.ssh/authorized_keys.
 	fakeHome := coretesting.MakeEmptyFakeHomeWithoutJuju(c)
 	s.AddCleanup(func(*gc.C) { fakeHome.Restore() })
 	s.PatchValue(&authenticationworker.SSHUser, "")
+
+	testpath := c.MkDir()
+	s.PatchEnvPathPrepend(testpath)
+	// mock out the start method so we can fake install services without sudo
+	fakeCmd(filepath.Join(testpath, "start"))
+	fakeCmd(filepath.Join(testpath, "stop"))
+
+	s.PatchValue(&upstart.InitDir, c.MkDir())
+
+	s.singularRecord = &singularRunnerRecord{}
+	testing.PatchValue(&newSingularRunner, s.singularRecord.newSingularRunner)
+}
+
+func fakeCmd(path string) {
+	err := ioutil.WriteFile(path, []byte("#!/bin/bash --norc\nexit 0"), 0755)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (s *commonMachineSuite) TearDownTest(c *gc.C) {
@@ -234,6 +258,7 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	u1, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
+
 	ctx.waitDeployed(c)
 
 	// assign u0, check it's deployed.
@@ -296,7 +321,7 @@ func patchDeployContext(c *gc.C, st *state.State) (*fakeContext, func()) {
 
 func (s *MachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Machine) {
 	addrs := []instance.Address{
-		instance.NewAddress("0.1.2.3"),
+		instance.NewAddress("0.1.2.3", instance.NetworkUnknown),
 	}
 	err := machine.SetAddresses(addrs...)
 	c.Assert(err, gc.IsNil)
@@ -355,6 +380,15 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 	case <-time.After(5 * time.Second):
 		c.Fatalf("timed out waiting for agent to terminate")
 	}
+
+	c.Assert(s.singularRecord.started(), jc.DeepEquals, []string{
+		"charm-revision-updater",
+		"cleaner",
+		"environ-provisioner",
+		"firewaller",
+		"minunitsworker",
+		"resumer",
+	})
 }
 
 func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
@@ -379,7 +413,7 @@ func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
 	m, instId := s.waitProvisioned(c, units[0])
 	insts, err := s.Conn.Environ.Instances([]instance.Id{instId})
 	c.Assert(err, gc.IsNil)
-	addrs := []instance.Address{instance.NewAddress("1.2.3.4")}
+	addrs := []instance.Address{instance.NewAddress("1.2.3.4", instance.NetworkUnknown)}
 	dummy.SetInstanceAddresses(insts[0], addrs)
 	dummy.SetInstanceStatus(insts[0], "running")
 
@@ -524,6 +558,37 @@ func (s *MachineSuite) assertJobWithAPI(
 	job state.MachineJob,
 	test func(agent.Config, *api.State),
 ) {
+	s.assertAgentOpensState(c, &reportOpenedAPI, job, func(cfg agent.Config, st eitherState) {
+		test(cfg, st.(*api.State))
+	})
+}
+
+func (s *MachineSuite) assertJobWithState(
+	c *gc.C,
+	job state.MachineJob,
+	test func(agent.Config, *state.State),
+) {
+	paramsJob := job.ToParams()
+	if !paramsJob.NeedsState() {
+		c.Fatalf("%v does not use state", paramsJob)
+	}
+	s.assertAgentOpensState(c, &reportOpenedState, job, func(cfg agent.Config, st eitherState) {
+		test(cfg, st.(*state.State))
+	})
+}
+
+// assertAgentOpensState asserts that a machine agent
+// started with the given job will call the function
+// pointed to by reportOpened. The agent's
+// configuration and the value passed to reportOpened
+// are then passed to the test function for further
+// checking.
+func (s *MachineSuite) assertAgentOpensState(
+	c *gc.C,
+	reportOpened *func(eitherState),
+	job state.MachineJob,
+	test func(agent.Config, eitherState),
+) {
 	stm, conf, _ := s.primeAgent(c, version.Current, job)
 	a := s.newAgent(c, stm)
 	defer a.Stop()
@@ -531,9 +596,13 @@ func (s *MachineSuite) assertJobWithAPI(
 	// All state jobs currently also run an APIWorker, so no
 	// need to check for that here, like in assertJobWithState.
 
-	agentAPIs := make(chan *api.State, 1000)
-	undo := sendOpenedAPIs(agentAPIs)
-	defer undo()
+	agentAPIs := make(chan eitherState, 1)
+	s.PatchValue(reportOpened, func(st eitherState) {
+		select {
+		case agentAPIs <- st:
+		default:
+		}
+	})
 
 	done := make(chan error)
 	go func() {
@@ -546,39 +615,6 @@ func (s *MachineSuite) assertJobWithAPI(
 		test(conf, agentAPI)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("API not opened")
-	}
-
-	s.waitStopped(c, job, a, done)
-}
-
-func (s *MachineSuite) assertJobWithState(
-	c *gc.C,
-	job state.MachineJob,
-	test func(agent.Config, *state.State),
-) {
-	paramsJob := job.ToParams()
-	if !paramsJob.NeedsState() {
-		c.Fatalf("%v does not use state", paramsJob)
-	}
-	stm, conf, _ := s.primeAgent(c, version.Current, job)
-	a := s.newAgent(c, stm)
-	defer a.Stop()
-
-	agentStates := make(chan *state.State, 1000)
-	undo := sendOpenedStates(agentStates)
-	defer undo()
-
-	done := make(chan error)
-	go func() {
-		done <- a.Run(nil)
-	}()
-
-	select {
-	case agentState := <-agentStates:
-		c.Assert(agentState, gc.NotNil)
-		test(conf, agentState)
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("state not opened")
 	}
 
 	s.waitStopped(c, job, a, done)
@@ -833,6 +869,32 @@ func (s *MachineSuite) testMachineAgentRsyslogConfigWorker(c *gc.C, job state.Ma
 	})
 }
 
+func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+
+	// Update the API addresses.
+	updatedServers := [][]instance.HostPort{instance.AddressesWithPort(
+		instance.NewAddresses("localhost"), 1234,
+	)}
+	err := s.BackingState.SetAPIHostPorts(updatedServers)
+	c.Assert(err, gc.IsNil)
+
+	// Wait for config to be updated.
+	s.BackingState.StartSync()
+	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
+		addrs, err := a.CurrentConfig().APIAddresses()
+		c.Assert(err, gc.IsNil)
+		if reflect.DeepEqual(addrs, []string{"localhost:1234"}) {
+			return
+		}
+	}
+	c.Fatalf("timeout while waiting for agent config to change")
+}
+
 // MachineWithCharmsSuite provides infrastructure for tests which need to
 // work with charms.
 type MachineWithCharmsSuite struct {
@@ -845,6 +907,9 @@ var _ = gc.Suite(&MachineWithCharmsSuite{})
 
 func (s *MachineWithCharmsSuite) SetUpTest(c *gc.C) {
 	s.CharmSuite.SetUpTest(c)
+	s.PatchValue(&ensureMongoServer, func(string, int, string) error {
+		return nil
+	})
 
 	// Create a state server machine.
 	var err error
@@ -869,6 +934,12 @@ func (s *MachineWithCharmsSuite) SetUpTest(c *gc.C) {
 func (s *MachineWithCharmsSuite) TestManageEnvironRunsCharmRevisionUpdater(c *gc.C) {
 	s.SetupScenario(c)
 
+	testpath := c.MkDir()
+	s.PatchEnvPathPrepend(testpath)
+	fakeCmd(filepath.Join(testpath, "start"))
+	fakeCmd(filepath.Join(testpath, "stop"))
+	s.PatchValue(&upstart.InitDir, c.MkDir())
+
 	// Start the machine agent.
 	a := &MachineAgent{}
 	args := []string{"--data-dir", s.DataDir(), "--machine-id", s.machine.Id()}
@@ -892,4 +963,37 @@ func (s *MachineWithCharmsSuite) TestManageEnvironRunsCharmRevisionUpdater(c *gc
 		}
 	}
 	c.Assert(success, gc.Equals, true)
+}
+
+type singularRunnerRecord struct {
+	mu             sync.Mutex
+	startedWorkers set.Strings
+}
+
+func (r *singularRunnerRecord) newSingularRunner(runner worker.Runner, conn singular.Conn) (worker.Runner, error) {
+	sr, err := singular.New(runner, conn)
+	if err != nil {
+		return nil, err
+	}
+	return &fakeSingularRunner{
+		Runner: sr,
+		record: r,
+	}, nil
+}
+
+// started returns the names of all singular-started workers.
+func (r *singularRunnerRecord) started() []string {
+	return r.startedWorkers.SortedValues()
+}
+
+type fakeSingularRunner struct {
+	worker.Runner
+	record *singularRunnerRecord
+}
+
+func (r *fakeSingularRunner) StartWorker(name string, start func() (worker.Worker, error)) error {
+	r.record.mu.Lock()
+	defer r.record.mu.Unlock()
+	r.record.startedWorkers.Add(name)
+	return r.Runner.StartWorker(name, start)
 }

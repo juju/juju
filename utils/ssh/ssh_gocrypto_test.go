@@ -6,7 +6,11 @@ package ssh_test
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
+	"io/ioutil"
 	"net"
+	"os/exec"
+	"path/filepath"
 	"sync"
 
 	cryptossh "code.google.com/p/go.crypto/ssh"
@@ -147,4 +151,39 @@ func (s *SSHGoCryptoCommandSuite) TestCopy(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = client.Copy([]string{"0.1.2.3:b", c.MkDir()}, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `scp command is not implemented \(OpenSSH scp not available in PATH\)`)
+}
+
+func (s *SSHGoCryptoCommandSuite) TestProxyCommand(c *gc.C) {
+	realNetcat, err := exec.LookPath("nc")
+	if err != nil {
+		c.Skip("skipping test, couldn't find netcat: %v")
+		return
+	}
+	netcat := filepath.Join(c.MkDir(), "nc")
+	err = ioutil.WriteFile(netcat, []byte("#!/bin/sh\necho $0 \"$@\" > $0.args && exec "+realNetcat+" \"$@\""), 0755)
+	c.Assert(err, gc.IsNil)
+
+	private, _, err := ssh.GenerateKey("test-server")
+	c.Assert(err, gc.IsNil)
+	key, err := cryptossh.ParsePrivateKey([]byte(private))
+	client, err := ssh.NewGoCryptoClient(key)
+	c.Assert(err, gc.IsNil)
+	server := newServer(c)
+	var opts ssh.Options
+	port := server.Addr().(*net.TCPAddr).Port
+	opts.SetProxyCommand(netcat, "-q0", "%h", "%p")
+	opts.SetPort(port)
+	cmd := client.Command("127.0.0.1", testCommand, &opts)
+	server.cfg.PublicKeyCallback = func(conn *cryptossh.ServerConn, user, algo string, pubkey []byte) bool {
+		return true
+	}
+	go server.run(c)
+	out, err := cmd.Output()
+	c.Assert(err, gc.ErrorMatches, "ssh: could not execute command.*")
+	// TODO(axw) when gosshnew is ready, expect reply from server.
+	c.Assert(out, gc.IsNil)
+	// Ensure the proxy command was executed with the appropriate arguments.
+	data, err := ioutil.ReadFile(netcat + ".args")
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(data), gc.Equals, fmt.Sprintf("%s -q0 127.0.0.1 %v\n", netcat, port))
 }

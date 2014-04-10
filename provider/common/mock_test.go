@@ -17,7 +17,7 @@ import (
 )
 
 type allInstancesFunc func() ([]instance.Instance, error)
-type startInstanceFunc func(constraints.Value, environs.Networks, tools.List, *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error)
+type startInstanceFunc func(constraints.Value, []string, []string, tools.List, *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error)
 type stopInstancesFunc func([]instance.Instance) error
 type getToolsSourcesFunc func() ([]simplestreams.DataSource, error)
 type configFunc func() *config.Config
@@ -49,8 +49,13 @@ func (env *mockEnviron) Storage() storage.Storage {
 func (env *mockEnviron) AllInstances() ([]instance.Instance, error) {
 	return env.allInstances()
 }
-func (env *mockEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	return env.startInstance(args.Constraints, args.Networks, args.Tools, args.MachineConfig)
+func (env *mockEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error) {
+	return env.startInstance(
+		args.Constraints,
+		args.MachineConfig.IncludeNetworks,
+		args.MachineConfig.ExcludeNetworks,
+		args.Tools,
+		args.MachineConfig)
 }
 
 func (env *mockEnviron) StopInstances(instances []instance.Instance) error {

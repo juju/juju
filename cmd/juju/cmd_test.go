@@ -97,7 +97,7 @@ func (*CmdSuite) TestEnvironmentInit(c *gc.C) {
 		c.Logf("test %d", i)
 		com, args := cmdFunc()
 		testInit(c, com, args, "")
-		assertConnName(c, com, "")
+		assertConnName(c, com, "peckham")
 
 		com, args = cmdFunc()
 		testInit(c, com, append(args, "-e", "walthamstow"), "")
@@ -192,6 +192,7 @@ func initExpectations(com *DeployCommand) {
 	if com.RepoPath == "" {
 		com.RepoPath = "/path/to/repo"
 	}
+	com.EnvCommandBase.EnvName = "peckham"
 }
 
 func initDeployCommand(args ...string) (*DeployCommand, error) {

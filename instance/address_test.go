@@ -4,9 +4,6 @@
 package instance
 
 import (
-	"errors"
-	"net"
-
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -20,29 +17,75 @@ type AddressSuite struct {
 var _ = gc.Suite(&AddressSuite{})
 
 func (s *AddressSuite) TestNewAddressIpv4(c *gc.C) {
-	addr := NewAddress("127.0.0.1")
-	c.Check(addr.Value, gc.Equals, "127.0.0.1")
-	c.Check(addr.Type, gc.Equals, Ipv4Address)
+	type test struct {
+		value         string
+		scope         NetworkScope
+		expectedScope NetworkScope
+	}
+
+	tests := []test{{
+		value:         "127.0.0.1",
+		scope:         NetworkUnknown,
+		expectedScope: NetworkMachineLocal,
+	}, {
+		value:         "127.0.0.1",
+		scope:         NetworkPublic,
+		expectedScope: NetworkPublic, // don't second guess != Unknown
+	}, {
+		value:         "10.0.3.1",
+		scope:         NetworkUnknown,
+		expectedScope: NetworkCloudLocal,
+	}, {
+		value:         "172.16.15.14",
+		scope:         NetworkUnknown,
+		expectedScope: NetworkCloudLocal,
+	}, {
+		value:         "192.168.0.1",
+		scope:         NetworkUnknown,
+		expectedScope: NetworkCloudLocal,
+	}, {
+		value:         "8.8.8.8",
+		scope:         NetworkUnknown,
+		expectedScope: NetworkPublic,
+	}}
+
+	for _, t := range tests {
+		c.Logf("test %s %s", t.value, t.scope)
+		addr := NewAddress(t.value, t.scope)
+		c.Check(addr.Value, gc.Equals, t.value)
+		c.Check(addr.Type, gc.Equals, Ipv4Address)
+		c.Check(addr.NetworkScope, gc.Equals, t.expectedScope)
+	}
 }
 
 func (s *AddressSuite) TestNewAddressIpv6(c *gc.C) {
-	addr := NewAddress("::1")
+	addr := NewAddress("::1", NetworkUnknown)
 	c.Check(addr.Value, gc.Equals, "::1")
 	c.Check(addr.Type, gc.Equals, Ipv6Address)
+	c.Check(addr.NetworkScope, gc.Equals, NetworkMachineLocal)
+
+	addr = NewAddress("2001:DB8::1", NetworkUnknown)
+	c.Check(addr.Value, gc.Equals, "2001:DB8::1")
+	c.Check(addr.Type, gc.Equals, Ipv6Address)
+	c.Check(addr.NetworkScope, gc.Equals, NetworkUnknown)
 }
 
 func (s *AddressSuite) TestNewAddresses(c *gc.C) {
 	addresses := NewAddresses("127.0.0.1", "192.168.1.1", "192.168.178.255")
 	c.Assert(len(addresses), gc.Equals, 3)
 	c.Assert(addresses[0].Value, gc.Equals, "127.0.0.1")
+	c.Assert(addresses[0].NetworkScope, gc.Equals, NetworkMachineLocal)
 	c.Assert(addresses[1].Value, gc.Equals, "192.168.1.1")
+	c.Assert(addresses[1].NetworkScope, gc.Equals, NetworkCloudLocal)
 	c.Assert(addresses[2].Value, gc.Equals, "192.168.178.255")
+	c.Assert(addresses[2].NetworkScope, gc.Equals, NetworkCloudLocal)
 }
 
 func (s *AddressSuite) TestNewAddressHostname(c *gc.C) {
-	addr := NewAddress("localhost")
+	addr := NewAddress("localhost", NetworkUnknown)
 	c.Check(addr.Value, gc.Equals, "localhost")
 	c.Check(addr.Type, gc.Equals, HostName)
+	c.Check(addr.NetworkScope, gc.Equals, NetworkUnknown)
 }
 
 type selectTest struct {
@@ -119,12 +162,12 @@ var selectPublicTests = []selectTest{{
 	},
 	2,
 }, {
-	"last unknown address selected",
+	"first unknown address selected",
 	[]Address{
 		{"10.0.0.1", Ipv4Address, "cloud", NetworkUnknown},
 		{"8.8.8.8", Ipv4Address, "floating", NetworkUnknown},
 	},
-	1,
+	0,
 }}
 
 func (s *AddressSuite) TestSelectPublicAddress(c *gc.C) {
@@ -223,43 +266,6 @@ func (s *AddressSuite) TestSelectInternalMachineHostPort(c *gc.C) {
 	}
 }
 
-func (s *AddressSuite) TestHostAddresses(c *gc.C) {
-	// Mock the call to net.LookupIP made from HostAddresses.
-	var lookupIPs []net.IP
-	var lookupErr error
-	lookupIP := func(addr string) ([]net.IP, error) {
-		return append([]net.IP{}, lookupIPs...), lookupErr
-	}
-	s.PatchValue(&netLookupIP, lookupIP)
-
-	// err is only non-nil if net.LookupIP fails.
-	addrs, err := HostAddresses("")
-	c.Assert(err, gc.IsNil)
-	// addrs always contains the input address.
-	c.Assert(addrs, gc.HasLen, 1)
-	c.Assert(addrs[0], gc.Equals, NewAddress(""))
-
-	loopback := net.ParseIP("127.0.0.1").To4()
-	lookupIPs = []net.IP{net.IPv6loopback, net.IPv4zero, loopback}
-	addrs, err = HostAddresses("localhost")
-	c.Assert(err, gc.IsNil)
-	c.Assert(addrs, gc.HasLen, 4)
-	c.Assert(addrs[0], gc.Equals, NewAddress(net.IPv6loopback.String()))
-	c.Assert(addrs[1], gc.Equals, NewAddress(net.IPv4zero.String()))
-	c.Assert(addrs[2], gc.Equals, NewAddress(loopback.String()))
-	c.Assert(addrs[3], gc.Equals, NewAddress("localhost"))
-
-	lookupErr = errors.New("what happened?")
-	addrs, err = HostAddresses("localhost")
-	c.Assert(err, gc.Equals, lookupErr)
-
-	// If the input address is an IP, the call to net.LookupIP is elided.
-	addrs, err = HostAddresses("127.0.0.1")
-	c.Assert(err, gc.IsNil)
-	c.Assert(addrs, gc.HasLen, 1)
-	c.Assert(addrs[0], gc.Equals, NewAddress("127.0.0.1"))
-}
-
 var stringTests = []struct {
 	addr Address
 	str  string
@@ -309,10 +315,10 @@ func (*AddressSuite) TestAddressesWithPort(c *gc.C) {
 	addrs := NewAddresses("0.1.2.3", "0.2.4.6")
 	hps := AddressesWithPort(addrs, 999)
 	c.Assert(hps, jc.DeepEquals, []HostPort{{
-		Address: NewAddress("0.1.2.3"),
+		Address: NewAddress("0.1.2.3", NetworkUnknown),
 		Port:    999,
 	}, {
-		Address: NewAddress("0.2.4.6"),
+		Address: NewAddress("0.2.4.6", NetworkUnknown),
 		Port:    999,
 	}})
 }
@@ -322,11 +328,11 @@ var netAddrTests = []struct {
 	port   int
 	expect string
 }{{
-	addr:   NewAddress("0.1.2.3"),
+	addr:   NewAddress("0.1.2.3", NetworkUnknown),
 	port:   99,
 	expect: "0.1.2.3:99",
 }, {
-	addr:   NewAddress("2001:DB8::1"),
+	addr:   NewAddress("2001:DB8::1", NetworkUnknown),
 	port:   100,
 	expect: "[2001:DB8::1]:100",
 }}

@@ -321,7 +321,7 @@ func (s *RunSuite) TestSingleResponse(c *gc.C) {
 		message:    "smart (default)",
 		stdout:     "stdout\n",
 		stderr:     "stderr\n",
-		errorMatch: "rc: 42",
+		errorMatch: "subprocess encountered error code 42",
 	}, {
 		message: "yaml output",
 		format:  "yaml",

@@ -9,6 +9,22 @@ import (
 	"strconv"
 )
 
+// Private network ranges for IPv4.
+// See: http://tools.ietf.org/html/rfc1918
+var (
+	classAPrivate = mustParseCIDR("10.0.0.0/8")
+	classBPrivate = mustParseCIDR("172.16.0.0/12")
+	classCPrivate = mustParseCIDR("192.168.0.0/16")
+)
+
+func mustParseCIDR(s string) *net.IPNet {
+	_, net, err := net.ParseCIDR(s)
+	if err != nil {
+		panic(err)
+	}
+	return net
+}
+
 // AddressType represents the possible ways of specifying a machine location by
 // either a hostname resolvable by dns lookup, or ipv4 or ipv6 address.
 type AddressType string
@@ -93,76 +109,83 @@ func (a Address) String() string {
 // NewAddresses is a convenience function to create addresses from a string slice
 func NewAddresses(inAddresses ...string) (outAddresses []Address) {
 	for _, address := range inAddresses {
-		outAddresses = append(outAddresses, NewAddress(address))
+		outAddresses = append(outAddresses, NewAddress(address, NetworkUnknown))
 	}
 	return outAddresses
 }
 
 func DeriveAddressType(value string) AddressType {
 	ip := net.ParseIP(value)
-	if ip != nil {
-		if ip.To4() != nil {
-			return Ipv4Address
-		}
-		if ip.To16() != nil {
-			return Ipv6Address
-		}
+	switch {
+	case ip == nil:
+		// TODO(gz): Check value is a valid hostname
+		return HostName
+	case ip.To4() != nil:
+		return Ipv4Address
+	case ip.To16() != nil:
+		return Ipv6Address
+	default:
 		panic("Unknown form of IP address")
 	}
-	// TODO(gz): Check value is a valid hostname
-	return HostName
 }
 
-func NewAddress(value string) Address {
-	addresstype := DeriveAddressType(value)
-	return Address{value, addresstype, "", NetworkUnknown}
+func isIPv4PrivateNetworkAddress(ip net.IP) bool {
+	return classAPrivate.Contains(ip) ||
+		classBPrivate.Contains(ip) ||
+		classCPrivate.Contains(ip)
 }
 
-// netLookupIP is a var for testing.
-var netLookupIP = net.LookupIP
-
-// HostAddresses looks up the IP addresses of the specified
-// host, and translates them into instance.Address values.
-//
-// The argument passed in is always added ast the final
-// address in the resulting slice.
-func HostAddresses(host string) (addrs []Address, err error) {
-	hostAddr := NewAddress(host)
-	if hostAddr.Type != HostName {
-		// IPs shouldn't be fed into LookupIP.
-		return []Address{hostAddr}, nil
+// deriveNetworkScope attempts to derive the network scope from an address's
+// type and value, returning the original network scope if no deduction can
+// be made.
+func deriveNetworkScope(addr Address) NetworkScope {
+	if addr.Type == HostName {
+		return addr.NetworkScope
 	}
-	ipaddrs, err := netLookupIP(host)
-	if err != nil {
-		return nil, err
+	ip := net.ParseIP(addr.Value)
+	if ip == nil {
+		return addr.NetworkScope
 	}
-	addrs = make([]Address, len(ipaddrs)+1)
-	for i, ipaddr := range ipaddrs {
-		switch len(ipaddr) {
-		case net.IPv4len:
-			addrs[i].Type = Ipv4Address
-			addrs[i].Value = ipaddr.String()
-		case net.IPv6len:
-			if ipaddr.To4() != nil {
-				// ipaddr is an IPv4 address represented in 16 bytes.
-				addrs[i].Type = Ipv4Address
-			} else {
-				addrs[i].Type = Ipv6Address
-			}
-			addrs[i].Value = ipaddr.String()
+	if ip.IsLoopback() {
+		return NetworkMachineLocal
+	}
+	switch addr.Type {
+	case Ipv4Address:
+		if isIPv4PrivateNetworkAddress(ip) {
+			return NetworkCloudLocal
 		}
+		// If it's not loopback, and it's not a private
+		// network address, then it's publicly routable.
+		return NetworkPublic
+	case Ipv6Address:
+		// TODO(axw) check for IPv6 unique local address, if/when we care.
 	}
-	addrs[len(addrs)-1] = hostAddr
-	return addrs, err
+	return addr.NetworkScope
+}
+
+// NewAddress creates a new Address, deriving its type from the value.
+//
+// If the specified scope is NetworkUnknown, then NewAddress will
+// attempt derive the scope based on reserved IP address ranges.
+func NewAddress(value string, scope NetworkScope) Address {
+	addr := Address{
+		Value:        value,
+		Type:         DeriveAddressType(value),
+		NetworkScope: scope,
+	}
+	if scope == NetworkUnknown {
+		addr.NetworkScope = deriveNetworkScope(addr)
+	}
+	return addr
 }
 
 // SelectPublicAddress picks one address from a slice that would
 // be appropriate to display as a publicly accessible endpoint.
 // If there are no suitable addresses, the empty string is returned.
 func SelectPublicAddress(addresses []Address) string {
-	index := publicAddressIndex(len(addresses), func(i int) Address {
+	index := bestAddressIndex(len(addresses), func(i int) Address {
 		return addresses[i]
-	})
+	}, publicMatch)
 	if index < 0 {
 		return ""
 	}
@@ -170,40 +193,22 @@ func SelectPublicAddress(addresses []Address) string {
 }
 
 func SelectPublicHostPort(hps []HostPort) string {
-	index := publicAddressIndex(len(hps), func(i int) Address {
+	index := bestAddressIndex(len(hps), func(i int) Address {
 		return hps[i].Address
-	})
+	}, publicMatch)
 	if index < 0 {
 		return ""
 	}
 	return hps[index].NetAddr()
 }
 
-// publicAddressIndex is the internal version of SelectPublicAddress.
-// It returns the index the selected address, or -1 if not found.
-func publicAddressIndex(numAddr int, getAddr func(i int) Address) int {
-	mostPublicIndex := -1
-	for i := 0; i < numAddr; i++ {
-		addr := getAddr(i)
-		if addr.Type != Ipv6Address {
-			switch addr.NetworkScope {
-			case NetworkPublic:
-				return i
-			case NetworkCloudLocal, NetworkUnknown:
-				mostPublicIndex = i
-			}
-		}
-	}
-	return mostPublicIndex
-}
-
 // SelectInternalAddress picks one address from a slice that can be
 // used as an endpoint for juju internal communication.
 // If there are no suitable addresses, the empty string is returned.
 func SelectInternalAddress(addresses []Address, machineLocal bool) string {
-	index := internalAddressIndex(len(addresses), func(i int) Address {
+	index := bestAddressIndex(len(addresses), func(i int) Address {
 		return addresses[i]
-	}, machineLocal)
+	}, internalAddressMatcher(machineLocal))
 	if index < 0 {
 		return ""
 	}
@@ -215,35 +220,76 @@ func SelectInternalAddress(addresses []Address, machineLocal bool) string {
 // and returns it in its NetAddr form.
 // If there are no suitable addresses, the empty string is returned.
 func SelectInternalHostPort(hps []HostPort, machineLocal bool) string {
-	index := internalAddressIndex(len(hps), func(i int) Address {
+	index := bestAddressIndex(len(hps), func(i int) Address {
 		return hps[i].Address
-	}, machineLocal)
+	}, internalAddressMatcher(machineLocal))
 	if index < 0 {
 		return ""
 	}
 	return hps[index].NetAddr()
 }
 
-// internalAddressIndex is the internal version of SelectInternalAddress.
-// It returns the index the selected address, or -1 if not found.
-func internalAddressIndex(numAddr int, getAddr func(i int) Address, machineLocal bool) int {
-	usableAddressIndex := -1
+func publicMatch(addr Address) scopeMatch {
+	switch addr.NetworkScope {
+	case NetworkPublic:
+		return exactScope
+	case NetworkCloudLocal, NetworkUnknown:
+		return fallbackScope
+	}
+	return invalidScope
+}
+
+func internalAddressMatcher(machineLocal bool) func(Address) scopeMatch {
+	if machineLocal {
+		return cloudOrMachineLocalMatch
+	}
+	return cloudLocalMatch
+}
+
+func cloudLocalMatch(addr Address) scopeMatch {
+	switch addr.NetworkScope {
+	case NetworkCloudLocal:
+		return exactScope
+	case NetworkPublic, NetworkUnknown:
+		return fallbackScope
+	}
+	return invalidScope
+}
+
+func cloudOrMachineLocalMatch(addr Address) scopeMatch {
+	if addr.NetworkScope == NetworkMachineLocal {
+		return exactScope
+	}
+	return cloudLocalMatch(addr)
+}
+
+type scopeMatch int
+
+const (
+	invalidScope scopeMatch = iota
+	exactScope
+	fallbackScope
+)
+
+// bestAddressIndex returns the index of the first address
+// with an exactly matching scope, or the first address with
+// a matching fallback scope if there are no exact matches.
+// If there are no suitable addresses, -1 is returned.
+func bestAddressIndex(numAddr int, getAddr func(i int) Address, match func(addr Address) scopeMatch) int {
+	fallbackAddressIndex := -1
 	for i := 0; i < numAddr; i++ {
 		addr := getAddr(i)
 		if addr.Type != Ipv6Address {
-			switch addr.NetworkScope {
-			case NetworkCloudLocal:
+			switch match(addr) {
+			case exactScope:
 				return i
-			case NetworkMachineLocal:
-				if machineLocal {
-					return i
-				}
-			case NetworkPublic, NetworkUnknown:
-				if usableAddressIndex == -1 {
-					usableAddressIndex = i
+			case fallbackScope:
+				// Use the first fallback address if there are no exact matches.
+				if fallbackAddressIndex == -1 {
+					fallbackAddressIndex = i
 				}
 			}
 		}
 	}
-	return usableAddressIndex
+	return fallbackAddressIndex
 }

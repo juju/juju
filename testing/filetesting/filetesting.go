@@ -189,6 +189,10 @@ func (r Removed) Create(c *gc.C, basePath string) Entry {
 
 func (r Removed) Check(c *gc.C, basePath string) Entry {
 	_, err := os.Lstat(join(basePath, r.Path))
+	// utils.IsNotExist allows us to handle the following case:
+	//  File{"foo", ...}.Create(...)
+	//  Removed{"foo/bar"}.Check(...)
+	// ...where os.IsNotExist would not work.
 	c.Assert(err, jc.Satisfies, utils.IsNotExist)
 	return r
 }

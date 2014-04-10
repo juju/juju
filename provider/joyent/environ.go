@@ -20,6 +20,9 @@ import (
 // This file contains the core of the Joyent Environ implementation.
 
 type joyentEnviron struct {
+	common.NopPrecheckerPolicy
+	common.SupportsUnitPlacementPolicy
+
 	name string
 
 	// supportedArchitectures caches the architectures
@@ -151,10 +154,10 @@ func (env *joyentEnviron) MetadataLookupParams(region string) (*simplestreams.Me
 		region = env.Ecfg().Region()
 	}
 	return &simplestreams.MetadataLookupParams{
-		Series:        env.Ecfg().DefaultSeries(),
+		Series:        config.PreferredSeries(env.Ecfg()),
 		Region:        region,
 		Endpoint:      env.Ecfg().sdcUrl(),
-		Architectures: []string{"amd64", "arm"},
+		Architectures: []string{"amd64", "armhf"},
 	}, nil
 }
 

@@ -11,6 +11,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
@@ -23,7 +24,7 @@ import (
 
 // ImageMetadataCommand is used to write out simplestreams image metadata information.
 type ImageMetadataCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	Dir            string
 	Series         string
 	Arch           string
@@ -96,7 +97,7 @@ func (c *ImageMetadataCommand) setParams(context *cmd.Context) error {
 			}
 			cfg := environ.Config()
 			if c.Series == "" {
-				c.Series = cfg.DefaultSeries()
+				c.Series = config.PreferredSeries(cfg)
 			}
 			if v, ok := cfg.AllAttrs()["control-bucket"]; ok {
 				c.privateStorage = v.(string)
@@ -109,7 +110,7 @@ func (c *ImageMetadataCommand) setParams(context *cmd.Context) error {
 		logger.Infof("no environment found, creating image metadata using user supplied data")
 	}
 	if c.Series == "" {
-		c.Series = config.DefaultSeries
+		c.Series = config.LatestLtsSeries()
 	}
 	if c.ImageId == "" {
 		return fmt.Errorf("image id must be specified")

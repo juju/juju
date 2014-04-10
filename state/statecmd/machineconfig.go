@@ -74,7 +74,13 @@ func MachineConfig(st *state.State, machineId, nonce, dataDir string) (*cloudini
 		return nil, err
 	}
 
-	mcfg := environs.NewMachineConfig(machineId, nonce, stateInfo, apiInfo)
+	// Find requested networks.
+	includeNetworks, excludeNetworks, err := machine.RequestedNetworks()
+	if err != nil {
+		return nil, err
+	}
+
+	mcfg := environs.NewMachineConfig(machineId, nonce, includeNetworks, excludeNetworks, stateInfo, apiInfo)
 	if dataDir != "" {
 		mcfg.DataDir = dataDir
 	}

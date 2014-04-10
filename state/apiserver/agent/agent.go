@@ -6,6 +6,7 @@
 package agent
 
 import (
+	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -79,6 +80,23 @@ func (api *API) StateServingInfo() (result params.StateServingInfo, err error) {
 		return
 	}
 	return api.st.StateServingInfo()
+}
+
+// MongoIsMaster is called by the IsMaster API call
+// instead of mongo.IsMaster. It exists so it can
+// be overridden by tests.
+var MongoIsMaster = mongo.IsMaster
+
+func (api *API) IsMaster() (params.IsMasterResult, error) {
+	if !api.auth.AuthEnvironManager() {
+		return params.IsMasterResult{}, common.ErrPerm
+	}
+
+	session := api.st.MongoSession()
+	machine := api.auth.GetAuthEntity().(*state.Machine)
+
+	isMaster, err := MongoIsMaster(session, machine)
+	return params.IsMasterResult{Master: isMaster}, err
 }
 
 func stateJobsToAPIParamsJobs(jobs []state.MachineJob) []params.MachineJob {

@@ -4,8 +4,6 @@
 package uniter_test
 
 import (
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -15,11 +13,13 @@ import (
 
 	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	apiuniter "launchpad.net/juju-core/state/api/uniter"
 	coretesting "launchpad.net/juju-core/testing"
+	ft "launchpad.net/juju-core/testing/filetesting"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/juju-core/worker/uniter/hook"
@@ -76,11 +76,40 @@ func (s *RelationerSuite) AddRelationUnit(c *gc.C, name string) (*state.Relation
 	u, err := s.svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 	c.Assert(u.Name(), gc.Equals, name)
-	err = u.SetPrivateAddress(strings.Replace(name, "/", "-", 1) + ".testing.invalid")
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = u.AssignToMachine(machine)
+	c.Assert(err, gc.IsNil)
+	privateAddr := instance.NewAddress(
+		strings.Replace(name, "/", "-", 1)+".testing.invalid", instance.NetworkCloudLocal)
+	err = machine.SetAddresses(privateAddr)
 	c.Assert(err, gc.IsNil)
 	ru, err := s.rel.Unit(u)
 	c.Assert(err, gc.IsNil)
 	return ru, u
+}
+
+func (s *RelationerSuite) TestStateDir(c *gc.C) {
+	// Create the relationer; check its state dir is not created.
+	r := uniter.NewRelationer(s.apiRelUnit, s.dir, s.hooks)
+	path := strconv.Itoa(s.rel.Id())
+	ft.Removed{path}.Check(c, s.dirPath)
+
+	// Join the relation; check the dir was created.
+	err := r.Join()
+	c.Assert(err, gc.IsNil)
+	ft.Dir{path, 0755}.Check(c, s.dirPath)
+
+	// Prepare to depart the relation; check the dir is still there.
+	hi := hook.Info{Kind: hooks.RelationBroken}
+	_, err = r.PrepareHook(hi)
+	c.Assert(err, gc.IsNil)
+	ft.Dir{path, 0755}.Check(c, s.dirPath)
+
+	// Actually depart it; check the dir is removed.
+	err = r.CommitHook(hi)
+	c.Assert(err, gc.IsNil)
+	ft.Removed{path}.Check(c, s.dirPath)
 }
 
 func (s *RelationerSuite) TestEnterLeaveScope(c *gc.C) {
@@ -126,11 +155,6 @@ func (s *RelationerSuite) TestEnterLeaveScope(c *gc.C) {
 	hi := hook.Info{Kind: hooks.RelationBroken}
 	_, err = r.PrepareHook(hi)
 	c.Assert(err, gc.IsNil)
-
-	// Verify PrepareHook created the dir.
-	fi, err := os.Stat(filepath.Join(s.dirPath, strconv.Itoa(s.rel.Id())))
-	c.Assert(err, gc.IsNil)
-	c.Assert(fi, jc.Satisfies, os.FileInfo.IsDir)
 
 	err = r.CommitHook(hi)
 	c.Assert(err, gc.IsNil)
@@ -381,7 +405,11 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	u, err := mysql.AddUnit()
 	c.Assert(err, gc.IsNil)
-	err = u.SetPrivateAddress("blah")
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = u.AssignToMachine(machine)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetAddresses(instance.NewAddress("blah", instance.NetworkCloudLocal))
 	c.Assert(err, gc.IsNil)
 	logging := s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints([]string{"logging", "mysql"})
@@ -411,14 +439,10 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	r := uniter.NewRelationer(apiRelUnit, dir, hooks)
 	c.Assert(r, jc.Satisfies, (*uniter.Relationer).IsImplicit)
 
-	// Join the relationer; the dir won't be created until necessary
+	// Join the relation.
 	err = r.Join()
 	c.Assert(err, gc.IsNil)
-	_, err = os.Stat(filepath.Join(relsDir, strconv.Itoa(rel.Id())))
-	c.Assert(err, gc.NotNil)
 	sub, err := logging.Unit("logging/0")
-	c.Assert(err, gc.IsNil)
-	err = sub.SetPrivateAddress("blah")
 	c.Assert(err, gc.IsNil)
 
 	// Join the other side; check no hooks are sent.
@@ -435,11 +459,11 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 		c.Fatalf("unexpected hook generated")
 	}
 
-	// Set it to Dying; check that the dir is removed.
+	// Set it to Dying; check that the dir is removed immediately.
 	err = r.SetDying()
 	c.Assert(err, gc.IsNil)
-	_, err = os.Stat(filepath.Join(relsDir, strconv.Itoa(rel.Id())))
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
+	path := strconv.Itoa(rel.Id())
+	ft.Removed{path}.Check(c, relsDir)
 
 	// Check that it left scope, by leaving scope on the other side and destroying
 	// the relation.

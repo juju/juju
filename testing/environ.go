@@ -28,6 +28,8 @@ func init() {
 	}
 }
 
+const FakeDefaultSeries = "precise"
+
 // FakeConfig() returns an environment configuration for a
 // fake provider with all required attributes set.
 func FakeConfig() Attrs {
@@ -43,7 +45,7 @@ func FakeConfig() Attrs {
 		"development":               false,
 		"state-port":                19034,
 		"api-port":                  17777,
-		"default-series":            config.DefaultSeries,
+		"default-series":            FakeDefaultSeries,
 	}
 }
 
@@ -240,8 +242,10 @@ func MakeFakeHomeWithFiles(c *gc.C, files []TestFile) *FakeHome {
 	return fake
 }
 
-func MakeSampleHome(c *gc.C) *FakeHome {
-	return MakeFakeHome(c, SingleEnvConfig, SampleCertName)
+func MakeSampleHome(c *gc.C, files ...TestFile) *FakeHome {
+	fake := MakeFakeHome(c, SingleEnvConfig, SampleCertName)
+	fake.AddFiles(c, files)
+	return fake
 }
 
 func MakeMultipleEnvHome(c *gc.C) *FakeHome {

@@ -19,6 +19,7 @@ import (
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
@@ -64,7 +65,7 @@ to choose the new instance.
 `
 
 type restoreCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	Log             cmd.Log
 	Constraints     constraints.Value
 	backupFile      string
@@ -82,12 +83,16 @@ func (c *restoreCommand) Info() *cmd.Info {
 
 func (c *restoreCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
-	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "set environment constraints")
+	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set environment constraints")
 	f.BoolVar(&c.showDescription, "description", false, "show the purpose of this plugin")
 	c.Log.AddFlags(f)
 }
 
 func (c *restoreCommand) Init(args []string) error {
+	err := c.EnvCommandBase.Init()
+	if err != nil {
+		return err
+	}
 	if c.showDescription {
 		return cmd.CheckEmpty(args)
 	}
@@ -117,10 +122,10 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 		mongo --ssl -u {{.Creds.Tag}} -p {{.Creds.Password | shquote}} localhost:37017/juju --eval "$1"
 	}
 	# wait for mongo to come up after starting the juju-db upstart service.
-	for i in $(seq 1 60)
+	for i in $(seq 1 100)
 	do
 		mongoEval ' ' && break
-		sleep 2
+		sleep 5
 	done
 	mongoEval '
 		db = db.getSiblingDB("juju")

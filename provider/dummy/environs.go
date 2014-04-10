@@ -108,14 +108,17 @@ type OpDestroy struct {
 }
 
 type OpStartInstance struct {
-	Env          string
-	MachineId    string
-	MachineNonce string
-	Instance     instance.Instance
-	Constraints  constraints.Value
-	Info         *state.Info
-	APIInfo      *api.Info
-	Secret       string
+	Env             string
+	MachineId       string
+	MachineNonce    string
+	Instance        instance.Instance
+	Constraints     constraints.Value
+	IncludeNetworks []string
+	ExcludeNetworks []string
+	NetworkInfo     []environs.NetworkInfo
+	Info            *state.Info
+	APIInfo         *api.Info
+	Secret          string
 }
 
 type OpStopInstances struct {
@@ -180,6 +183,9 @@ type environState struct {
 // environ represents a client's connection to a given environment's
 // state.
 type environ struct {
+	common.NopPrecheckerPolicy
+	common.SupportsUnitPlacementPolicy
+
 	name         string
 	ecfgMutex    sync.Mutex
 	ecfgUnlocked *environConfig
@@ -223,7 +229,7 @@ func Reset() {
 		s.destroy()
 	}
 	providerInstance.state = make(map[int]*environState)
-	if testing.MgoServer.Addr() != "" {
+	if mongoAlive() {
 		testing.MgoServer.Reset()
 	}
 	providerInstance.statePolicy = environs.NewStatePolicy()
@@ -235,19 +241,27 @@ func (state *environState) destroy() {
 		return
 	}
 	if state.apiServer != nil {
-		if err := state.apiServer.Stop(); err != nil {
+		if err := state.apiServer.Stop(); err != nil && mongoAlive() {
 			panic(err)
 		}
 		state.apiServer = nil
-		if err := state.apiState.Close(); err != nil {
+		if err := state.apiState.Close(); err != nil && mongoAlive() {
 			panic(err)
 		}
 		state.apiState = nil
 	}
-	if testing.MgoServer.Addr() != "" {
+	if mongoAlive() {
 		testing.MgoServer.Reset()
 	}
 	state.bootstrapped = false
+}
+
+// mongoAlive reports whether the mongo server is
+// still alive (i.e. has not been deliberately destroyed).
+// If it has been deliberately destroyed, we will
+// expect some errors when closing things down.
+func mongoAlive() bool {
+	return testing.MgoServer.Addr() != ""
 }
 
 // GetStateInAPIServer returns the state connection used by the API server
@@ -496,6 +510,7 @@ var errBroken = errors.New("broken environment")
 
 // Override for testing - the data directory with which the state api server is initialised.
 var DataDir = ""
+var LogDir = ""
 
 func (e *environ) ecfg() *environConfig {
 	e.ecfgMutex.Lock()
@@ -524,7 +539,6 @@ func (*environ) SupportedArchitectures() ([]string, error) {
 
 // SupportNetworks is specified on the EnvironCapability interface.
 func (*environ) SupportNetworks() bool {
-	// We need to be able to test networks with the dummy provider.
 	return true
 }
 
@@ -541,7 +555,7 @@ func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 }
 
 func (e *environ) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
-	selectedTools, err := common.EnsureBootstrapTools(ctx, e, e.Config().DefaultSeries(), cons.Arch)
+	selectedTools, err := common.EnsureBootstrapTools(ctx, e, config.PreferredSeries(e.Config()), cons.Arch)
 	if err != nil {
 		return err
 	}
@@ -603,7 +617,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, cons constraints.Valu
 		if err != nil {
 			panic(err)
 		}
-		estate.apiServer, err = apiserver.NewServer(st, "localhost:0", []byte(testing.ServerCert), []byte(testing.ServerKey), DataDir)
+		estate.apiServer, err = apiserver.NewServer(st, "localhost:0", []byte(testing.ServerCert), []byte(testing.ServerKey), DataDir, LogDir)
 		if err != nil {
 			panic(err)
 		}
@@ -679,42 +693,46 @@ func (e *environ) Destroy() (res error) {
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error) {
 
 	defer delay()
 	machineId := args.MachineConfig.MachineId
 	logger.Infof("dummy startinstance, machine %s", machineId)
 	if err := e.checkBroken("StartInstance"); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	estate, err := e.state()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 	if args.MachineConfig.MachineNonce == "" {
-		return nil, nil, fmt.Errorf("cannot start instance: missing machine nonce")
+		return nil, nil, nil, fmt.Errorf("cannot start instance: missing machine nonce")
 	}
 	if _, ok := e.Config().CACert(); !ok {
-		return nil, nil, fmt.Errorf("no CA certificate in environment configuration")
+		return nil, nil, nil, fmt.Errorf("no CA certificate in environment configuration")
 	}
 	if args.MachineConfig.StateInfo.Tag != names.MachineTag(machineId) {
-		return nil, nil, fmt.Errorf("entity tag must match started machine")
+		return nil, nil, nil, fmt.Errorf("entity tag must match started machine")
 	}
 	if args.MachineConfig.APIInfo.Tag != names.MachineTag(machineId) {
-		return nil, nil, fmt.Errorf("entity tag must match started machine")
+		return nil, nil, nil, fmt.Errorf("entity tag must match started machine")
 	}
 	logger.Infof("would pick tools from %s", args.Tools)
 	series := args.Tools.OneSeries()
+
+	idString := fmt.Sprintf("%s-%d", e.name, estate.maxId)
 	i := &dummyInstance{
-		id:           instance.Id(fmt.Sprintf("%s-%d", e.name, estate.maxId)),
+		id:           instance.Id(idString),
+		addresses:    instance.NewAddresses(idString + ".dns"),
 		ports:        make(map[instance.Port]bool),
 		machineId:    machineId,
 		series:       series,
 		firewallMode: e.Config().FirewallMode(),
 		state:        estate,
 	}
+
 	var hc *instance.HardwareCharacteristics
 	// To match current system capability, only provide hardware characteristics for
 	// environ machines, not containers.
@@ -747,19 +765,38 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 			hc.CpuCores = &cores
 		}
 	}
+	// Simulate networks added when requested.
+	networkInfo := make([]environs.NetworkInfo, len(args.MachineConfig.IncludeNetworks))
+	for i, network := range args.MachineConfig.IncludeNetworks {
+		if strings.HasPrefix(network, "bad-") {
+			// Simulate we didn't get correct information for the network.
+			networkInfo[i] = environs.NetworkInfo{}
+		} else {
+			networkInfo[i] = environs.NetworkInfo{
+				NetworkName:   network,
+				CIDR:          fmt.Sprintf("0.%d.2.0/24", i+1),
+				InterfaceName: fmt.Sprintf("eth%d", i),
+				VLANTag:       i,
+				MACAddress:    fmt.Sprintf("aa:bb:cc:dd:ee:f%d", i),
+			}
+		}
+	}
 	estate.insts[i.id] = i
 	estate.maxId++
 	estate.ops <- OpStartInstance{
-		Env:          e.name,
-		MachineId:    machineId,
-		MachineNonce: args.MachineConfig.MachineNonce,
-		Constraints:  args.Constraints,
-		Instance:     i,
-		Info:         args.MachineConfig.StateInfo,
-		APIInfo:      args.MachineConfig.APIInfo,
-		Secret:       e.ecfg().secret(),
+		Env:             e.name,
+		MachineId:       machineId,
+		MachineNonce:    args.MachineConfig.MachineNonce,
+		Constraints:     args.Constraints,
+		IncludeNetworks: args.MachineConfig.IncludeNetworks,
+		ExcludeNetworks: args.MachineConfig.ExcludeNetworks,
+		NetworkInfo:     networkInfo,
+		Instance:        i,
+		Info:            args.MachineConfig.StateInfo,
+		APIInfo:         args.MachineConfig.APIInfo,
+		Secret:          e.ecfg().secret(),
 	}
-	return i, hc, nil
+	return i, hc, networkInfo, nil
 }
 
 func (e *environ) StopInstances(is []instance.Instance) error {
@@ -926,7 +963,12 @@ func SetInstanceStatus(inst instance.Instance, status string) {
 
 func (inst *dummyInstance) DNSName() (string, error) {
 	defer delay()
-	return string(inst.id) + ".dns", nil
+	inst.mu.Lock()
+	defer inst.mu.Unlock()
+	if len(inst.addresses) == 0 {
+		return "", instance.ErrNoDNSName
+	}
+	return inst.addresses[0].String(), nil
 }
 
 func (*dummyInstance) Refresh() error {

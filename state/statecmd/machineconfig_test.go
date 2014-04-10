@@ -30,7 +30,7 @@ type machineConfigSuite struct {
 var _ = gc.Suite(&machineConfigSuite{})
 
 func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
-	addrs := []instance.Address{instance.NewAddress("1.2.3.4")}
+	addrs := []instance.Address{instance.NewAddress("1.2.3.4", instance.NetworkUnknown)}
 	hc := instance.MustParseHardware("mem=4G arch=amd64")
 	apiParams := params.AddMachineParams{
 		Jobs:       []params.MachineJob{params.JobHostUnits},
@@ -73,7 +73,7 @@ func (s *machineConfigSuite) TestMachineConfigNoArch(c *gc.C) {
 
 func (s *machineConfigSuite) TestMachineConfigNoTools(c *gc.C) {
 	s.PatchValue(&envtools.DefaultBaseURL, "")
-	addrs := []instance.Address{instance.NewAddress("1.2.3.4")}
+	addrs := []instance.Address{instance.NewAddress("1.2.3.4", instance.NetworkUnknown)}
 	hc := instance.MustParseHardware("mem=4G arch=amd64")
 	apiParams := params.AddMachineParams{
 		Series:     "quantal",

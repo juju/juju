@@ -133,7 +133,7 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	// we could connect to (actual live tests, rather than local-only)
 	cons := constraints.MustParse("mem=2G")
 	if t.CanOpenState {
-		_, err := sync.Upload(t.Env.Storage(), nil, config.DefaultSeries)
+		_, err := sync.Upload(t.Env.Storage(), nil, coretesting.FakeDefaultSeries)
 		c.Assert(err, gc.IsNil)
 	}
 	envtesting.UploadFakeTools(c, t.Env.Storage())
@@ -442,7 +442,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 
 	// If the series has not been specified, we expect the most recent Ubuntu LTS release to be used.
 	expectedVersion := version.Current
-	expectedVersion.Series = config.DefaultSeries
+	expectedVersion.Series = config.LatestLtsSeries()
 
 	mtools0 := waitAgentTools(c, mw0, expectedVersion)
 
@@ -855,11 +855,11 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	machineId := "4"
 	stateInfo := testing.FakeStateInfo(machineId)
 	apiInfo := testing.FakeAPIInfo(machineId)
-	machineConfig := environs.NewMachineConfig(machineId, "", stateInfo, apiInfo)
+	machineConfig := environs.NewMachineConfig(machineId, "", nil, nil, stateInfo, apiInfo)
 
 	t.PrepareOnce(c)
 	possibleTools := envtesting.AssertUploadFakeToolsVersions(c, t.Env.Storage(), version.MustParseBinary("5.4.5-precise-amd64"))
-	inst, _, err := t.Env.StartInstance(environs.StartInstanceParams{
+	inst, _, _, err := t.Env.StartInstance(environs.StartInstanceParams{
 		Tools:         possibleTools,
 		MachineConfig: machineConfig,
 	})

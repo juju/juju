@@ -4,9 +4,11 @@
 package store_test
 
 import (
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 	"strconv"
 	"sync"
 	stdtesting "testing"
@@ -35,12 +37,19 @@ type StoreSuite struct {
 	store *store.Store
 }
 
+var noTestMongoJs *bool = flag.Bool("notest-mongojs", false, "Disable MongoDB tests that require javascript")
+
 type TrivialSuite struct{}
 
 func (s *StoreSuite) SetUpSuite(c *gc.C) {
 	s.MgoSuite.SetUpSuite(c)
 	s.HTTPSuite.SetUpSuite(c)
 	s.LoggingSuite.SetUpSuite(c)
+
+	if os.Getenv("JUJU_NOTEST_MONGOJS") == "1" {
+		c.Log("Tests requiring MongoDB Javascript will be skipped")
+		*noTestMongoJs = true
+	}
 }
 
 func (s *StoreSuite) TearDownSuite(c *gc.C) {
@@ -601,6 +610,10 @@ func (s *StoreSuite) TestLogCharmEvent(c *gc.C) {
 }
 
 func (s *StoreSuite) TestSumCounters(c *gc.C) {
+	if *noTestMongoJs {
+		c.Skip("MongoDB javascript not available")
+	}
+
 	req := store.CounterRequest{Key: []string{"a"}}
 	cs, err := s.store.Counters(&req)
 	c.Assert(err, gc.IsNil)
@@ -674,6 +687,10 @@ func (s *StoreSuite) TestSumCounters(c *gc.C) {
 }
 
 func (s *StoreSuite) TestCountersReadOnlySum(c *gc.C) {
+	if *noTestMongoJs {
+		c.Skip("MongoDB javascript not available")
+	}
+
 	// Summing up an unknown key shouldn't add the key to the database.
 	req := store.CounterRequest{Key: []string{"a", "b", "c"}}
 	_, err := s.store.Counters(&req)
@@ -686,6 +703,10 @@ func (s *StoreSuite) TestCountersReadOnlySum(c *gc.C) {
 }
 
 func (s *StoreSuite) TestCountersTokenCaching(c *gc.C) {
+	if *noTestMongoJs {
+		c.Skip("MongoDB javascript not available")
+	}
+
 	assertSum := func(i int, want int64) {
 		req := store.CounterRequest{Key: []string{strconv.Itoa(i)}}
 		cs, err := s.store.Counters(&req)
@@ -741,6 +762,10 @@ func (s *StoreSuite) TestCountersTokenCaching(c *gc.C) {
 }
 
 func (s *StoreSuite) TestCounterTokenUniqueness(c *gc.C) {
+	if *noTestMongoJs {
+		c.Skip("MongoDB javascript not available")
+	}
+
 	var wg0, wg1 sync.WaitGroup
 	wg0.Add(10)
 	wg1.Add(10)
@@ -762,6 +787,10 @@ func (s *StoreSuite) TestCounterTokenUniqueness(c *gc.C) {
 }
 
 func (s *StoreSuite) TestListCounters(c *gc.C) {
+	if *noTestMongoJs {
+		c.Skip("MongoDB javascript not available")
+	}
+
 	incs := [][]string{
 		{"c", "b", "a"}, // Assign internal id c < id b < id a, to make sorting slightly trickier.
 		{"a"},
@@ -823,6 +852,10 @@ func (s *StoreSuite) TestListCounters(c *gc.C) {
 }
 
 func (s *StoreSuite) TestListCountersBy(c *gc.C) {
+	if *noTestMongoJs {
+		c.Skip("MongoDB javascript not available")
+	}
+
 	incs := []struct {
 		key []string
 		day int

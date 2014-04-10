@@ -75,6 +75,10 @@ var errorTransformTests = []struct {
 	code:       params.CodeNotProvisioned,
 	helperFunc: params.IsCodeNotProvisioned,
 }, {
+	err:        errors.NewAlreadyExistsError("blah"),
+	code:       params.CodeAlreadyExists,
+	helperFunc: params.IsCodeAlreadyExists,
+}, {
 	err:        common.ErrUnknownWatcher,
 	code:       params.CodeNotFound,
 	helperFunc: params.IsCodeNotFound,
@@ -90,6 +94,10 @@ var errorTransformTests = []struct {
 	err:        &state.HasAssignedUnitsError{"42", []string{"a"}},
 	code:       params.CodeHasAssignedUnits,
 	helperFunc: params.IsCodeHasAssignedUnits,
+}, {
+	err:        common.ErrTryAgain,
+	code:       params.CodeTryAgain,
+	helperFunc: params.IsCodeTryAgain,
 }, {
 	err:  stderrors.New("an error"),
 	code: "",

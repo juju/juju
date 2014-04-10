@@ -3,6 +3,12 @@
 
 package api
 
+var (
+	NewWebsocketDialer = newWebsocketDialer
+
+	WebsocketDialConfig = &websocketDialConfig
+)
+
 // SetServerRoot allows changing the URL to the internal API server
 // that AddLocalCharm uses in order to test NotImplementedError.
 func SetServerRoot(c *Client, root string) {

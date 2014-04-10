@@ -1,5 +1,5 @@
 code.google.com/p/go.crypto	hg	6478cc9340cbbe6c04511280c5007722269108e9	184
-code.google.com/p/go.net	hg	3591c18acabc99439c783463ef00e6dc277eee39	77
+code.google.com/p/go.net	hg	c17ad62118ea511e1051721b429779fa40bddc74	116
 github.com/errgo/errgo	git	93d72bf813883d1054cae1c001d3a46603f7f559	
 github.com/joyent/gocommon	git	98b151a080efe19bcde223d2d3b04389963d2347	
 github.com/joyent/gomanta	git	ff785814c0ebb4050420a2f1d47895b35b8808f2	
@@ -13,9 +13,9 @@ launchpad.net/gnuflag	bzr	roger.peppe@canonical.com-20121003093437-zcyyw0lpvj2ni
 launchpad.net/goamz	bzr	roger.peppe@canonical.com-20131218155244-hbnkvlkkzy3vmlh9	44
 launchpad.net/gocheck	bzr	gustavo@niemeyer.net-20130302024745-6ikofwq2c03h7giu	85
 launchpad.net/golxc	bzr	tim.penhey@canonical.com-20140311005930-b14361bwnocu3krh	8
-launchpad.net/gomaasapi	bzr	ian.booth@canonical.com-20131017011445-m1hmr0ap14osd7li	47
+launchpad.net/gomaasapi	bzr	martin.packman@canonical.com-20140401145548-bcmsw2gic5e576ns	48
 launchpad.net/goose	bzr	tarmac-20140124165235-h9rloooc531udms5	116
 launchpad.net/goyaml	bzr	gustavo@niemeyer.net-20131114120802-abe042syx64z2m7s	50
-launchpad.net/gwacl	bzr	tarmac-20140205045433-81h182mhz24fzp5e	231
+launchpad.net/gwacl	bzr	tarmac-20140312041035-ac7gw7kcqjx7db63	234
 launchpad.net/lpad	bzr	gustavo@niemeyer.net-20120626194701-536yx0g9jdq2ik3h	64
 launchpad.net/tomb	bzr	gustavo@niemeyer.net-20130531003818-70ikdgklbxopn8x4	17

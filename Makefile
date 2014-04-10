@@ -23,7 +23,7 @@ define DEPENDENCIES
   distro-info-data
   git-core
   mercurial
-  rsyslog-gnutls
+  juju-local
   zip
   $(GO_C)
 endef

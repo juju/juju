@@ -33,9 +33,11 @@ func (s *archSuite) TestNormaliseArch(c *gc.C) {
 		{"386", "i386"},
 		{"i386", "i386"},
 		{"i486", "i386"},
-		{"armv", "arm"},
-		{"armv7", "arm"},
+		{"arm", "armhf"},
+		{"armv", "armhf"},
+		{"armv7", "armhf"},
 		{"aarch64", "arm64"},
+		{"arm64", "arm64"},
 		{"ppc64el", "ppc64"},
 		{"ppc64le", "ppc64"},
 	} {

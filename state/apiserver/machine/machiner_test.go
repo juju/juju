@@ -154,8 +154,8 @@ func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 	c.Assert(s.machine1.Addresses(), gc.HasLen, 0)
 
 	addresses := []instance.Address{
-		instance.NewAddress("127.0.0.1"),
-		instance.NewAddress("8.8.8.8"),
+		instance.NewAddress("127.0.0.1", instance.NetworkUnknown),
+		instance.NewAddress("8.8.8.8", instance.NetworkUnknown),
 	}
 
 	args := params.SetMachinesAddresses{MachineAddresses: []params.MachineAddresses{

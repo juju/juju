@@ -10,12 +10,12 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/manual"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 )
 
@@ -56,7 +56,7 @@ See Also:
 
 // AddMachineCommand starts a new machine and registers it in the environment.
 type AddMachineCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	// If specified, use this series, else use the environment default-series
 	Series string
 	// If specified, these constraints are merged with those already in the environment.
@@ -78,10 +78,14 @@ func (c *AddMachineCommand) Info() *cmd.Info {
 func (c *AddMachineCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.StringVar(&c.Series, "series", "", "the charm series")
-	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "additional machine constraints")
+	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "additional machine constraints")
 }
 
 func (c *AddMachineCommand) Init(args []string) error {
+	err := c.EnvCommandBase.Init()
+	if err != nil {
+		return err
+	}
 	if c.Constraints.Container != nil {
 		return fmt.Errorf("container constraint %q not allowed when adding a machine", *c.Constraints.Container)
 	}
@@ -106,46 +110,6 @@ func (c *AddMachineCommand) Init(args []string) error {
 		}
 	}
 	return err
-}
-
-// addMachine1dot16 runs Client.AddMachines using a direct DB connection to maintain
-// compatibility with an API server running 1.16 or older (when AddMachines
-// was not available). This fallback can be removed when we no longer maintain
-// 1.16 compatibility.
-// This was copied directly from the code in AddMachineCommand.Run in 1.16
-func (c *AddMachineCommand) addMachine1dot16() (string, error) {
-	conn, err := juju.NewConnFromName(c.EnvName)
-	if err != nil {
-		return "", err
-	}
-	defer conn.Close()
-
-	series := c.Series
-	if series == "" {
-		conf, err := conn.State.EnvironConfig()
-		if err != nil {
-			return "", err
-		}
-		series = conf.DefaultSeries()
-	}
-	template := state.MachineTemplate{
-		Series:      series,
-		Constraints: c.Constraints,
-		Jobs:        []state.MachineJob{state.JobHostUnits},
-	}
-	var m *state.Machine
-	switch {
-	case c.ContainerType == "":
-		m, err = conn.State.AddOneMachine(template)
-	case c.MachineId != "":
-		m, err = conn.State.AddMachineInsideMachine(template, c.MachineId, c.ContainerType)
-	default:
-		m, err = conn.State.AddMachineInsideNewMachine(template, template, c.ContainerType)
-	}
-	if err != nil {
-		return "", err
-	}
-	return m.String(), err
 }
 
 func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
@@ -175,25 +139,15 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 		Jobs:          []params.MachineJob{params.JobHostUnits},
 	}
 	results, err := client.AddMachines([]params.AddMachineParams{machineParams})
-	var machineId string
-	if params.IsCodeNotImplemented(err) {
-		logger.Infof("AddMachines not supported by the API server, " +
-			"falling back to 1.16 compatibility mode (direct DB access)")
-		machineId, err = c.addMachine1dot16()
-	} else if err != nil {
-		return err
-	} else {
-		// Currently, only one machine is added, but in future there may be several added in one call.
-		machineInfo := results[0]
-		var machineErr *params.Error
-		machineId, machineErr = machineInfo.Machine, machineInfo.Error
-		if machineErr != nil {
-			err = machineErr
-		}
-	}
 	if err != nil {
 		return err
 	}
+	// Currently, only one machine is added, but in future there may be several added in one call.
+	machineInfo := results[0]
+	if machineInfo.Error != nil {
+		return machineInfo.Error
+	}
+	machineId := machineInfo.Machine
 	if c.ContainerType == "" {
 		logger.Infof("created machine %v", machineId)
 	} else {
