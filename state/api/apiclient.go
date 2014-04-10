@@ -113,6 +113,9 @@ func DefaultDialOpts() DialOpts {
 }
 
 func Open(info *Info, opts DialOpts) (*State, error) {
+	if len(info.Addrs) == 0 {
+		return nil, fmt.Errorf("no API addresses to connect to")
+	}
 	pool := x509.NewCertPool()
 	xcert, err := cert.ParseCert(info.CACert)
 	if err != nil {
@@ -122,7 +125,6 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 
 	// Dial all addresses, with up to maxParallelDial in parallel.
 	try := parallel.NewTry(maxParallelDial, nil)
-	defer try.Kill()
 	for _, addr := range info.Addrs {
 		err := dialWebsocket(addr, opts, pool, try)
 		if err == parallel.ErrStopped {
