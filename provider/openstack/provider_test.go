@@ -60,9 +60,9 @@ var addressTests = []struct {
 	},
 	{
 		summary:  "private plus (HP cloud)",
-		private:  []nova.IPAddress{{4, "192.168.0.1"}, {4, "10.0.0.1"}},
+		private:  []nova.IPAddress{{4, "10.0.0.1"}, {4, "8.8.4.4"}},
 		networks: []string{"private"},
-		expected: "192.168.0.1", // first cloud-local/unknown
+		expected: "8.8.4.4",
 	},
 	{
 		summary:  "public only",
