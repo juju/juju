@@ -432,7 +432,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	// The machine envronment config values are being moved to the agent config.
 	// Explicitly specify that the lxc containers use the network bridge defined above.
 	args.MachineConfig.AgentEnvironment[agent.LxcBridge] = "br0"
-	cloudcfg, err := newCloudinitConfig(hostname)
+	cloudcfg, err := newCloudinitConfig(hostname, networkInfo)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -454,7 +454,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 
 // newCloudinitConfig creates a cloudinit.Config structure
 // suitable as a base for initialising a MAAS node.
-func newCloudinitConfig(hostname string) (*cloudinit.Config, error) {
+func newCloudinitConfig(hostname string, networkInfo []environs.NetworkInfo) (*cloudinit.Config, error) {
 	info := machineInfo{hostname}
 	runCmd, err := info.cloudinitRunCmd()
 	if err != nil {
@@ -463,6 +463,7 @@ func newCloudinitConfig(hostname string) (*cloudinit.Config, error) {
 	cloudcfg := cloudinit.New()
 	cloudcfg.SetAptUpdate(true)
 	cloudcfg.AddPackage("bridge-utils")
+	cloudcfg.AddPackage("vlan")
 	cloudcfg.AddScripts(
 		"set -xe",
 		runCmd,
@@ -471,7 +472,51 @@ func newCloudinitConfig(hostname string) (*cloudinit.Config, error) {
 		linkBridgeInInterfaces(),
 		"ifup br0",
 	)
+	for _, script := range setupNetworksOnBoot(networkInfo) {
+		cloudcfg.AddScripts(script)
+	}
 	return cloudcfg, nil
+}
+
+// setupNetworksOnBoot prepares a script to enable and start all given
+// networks on boot.
+func setupNetworksOnBoot(networkInfo []environs.NetworkInfo) []string {
+	const ifaceConfig = `cat >> /etc/network/interfaces << EOF
+
+auto %s
+iface %s inet dhcp
+EOF
+`
+
+	lines := []string{}
+	script := func(line string, args ...interface{}) {
+		lines = append(lines, fmt.Sprintf(line, args...))
+	}
+	// In order to support VLANs, we need to include 8021q module
+	// configure vconfig's set_name_type
+	script("modprobe 8021q")
+	script("sh -c 'grep -q 8021q /etc/modules || echo 8021q >> /etc/modules'")
+	script("vconfig set_name_type DEV_PLUS_VID_NO_PAD")
+	// Now prepare each interface configuration
+	for _, info := range networkInfo {
+		// Because eth0 is already configured in the br0 bridge, we
+		// don't want to break that.
+		if info.InterfaceName == "eth0" {
+			continue
+		}
+		// Register and bring up the interface.
+		script(ifaceConfig, info.InterfaceName, info.InterfaceName)
+		script("ifup %s", info.InterfaceName)
+		if info.VLANTag > 0 {
+			// We have a VLAN and need to create and register it after
+			// its parent interface was brought up.
+			script("vconfig add %s %d", info.InterfaceName, info.VLANTag)
+			vlan := fmt.Sprintf("%s.%d", info.InterfaceName, info.VLANTag)
+			script(ifaceConfig, vlan, vlan)
+			script("ifup %s", vlan)
+		}
+	}
+	return lines
 }
 
 // StartInstance is specified in the InstanceBroker interface.
