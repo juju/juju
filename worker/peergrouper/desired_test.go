@@ -435,9 +435,13 @@ func (h hostPortSliceByHostPort) Less(i, j int) bool {
 	if len(a) != len(b) {
 		return len(a) < len(b)
 	}
-	for i := 0; i < len(a); i++ {
-		if a[i].Address.Value < b[i].Address.Value && a[i].Port <= b[i].Port {
-			return true
+	for i := range a {
+		av, bv := a[i], b[i]
+		if av.Value != bv.Value {
+			return av.Value < bv.Value
+		}
+		if av.Port != bv.Port {
+			return av.Port < bv.Port
 		}
 	}
 	return false
