@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net"
-	"path/filepath"
 
 	"launchpad.net/gnuflag"
 	"launchpad.net/goyaml"
@@ -179,9 +178,9 @@ func (c *BootstrapCommand) startMongo(addrs []instance.Address, agentConfig agen
 	if peerAddr == "" {
 		return fmt.Errorf("no appropriate peer address found in %q", addrs)
 	}
-	peerHostPort := net.JoinHostPort(peerAddr, fmt.Sprint(port))
+	peerHostPort := net.JoinHostPort(peerAddr, fmt.Sprint(servingInfo.StatePort))
 
-	return maybeInitiateMongoServer(mongo.InitiateMongoParams{
+	return maybeInitiateMongoServer(peergrouper.InitiateMongoParams{
 		DialInfo:       dialInfo,
 		MemberHostPort: peerHostPort,
 	})

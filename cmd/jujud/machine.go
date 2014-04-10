@@ -74,7 +74,7 @@ var (
 	// The following are defined as variables to
 	// allow the tests to intercept calls to the functions.
 	ensureMongoServer        = mongo.EnsureMongoServer
-	maybeInitiateMongoServer = mongo.MaybeInitiateMongoServer
+	maybeInitiateMongoServer = peergrouper.MaybeInitiateMongoServer
 	newSingularRunner        = singular.New
 
 	// reportOpenedAPI is exposed for tests to know when
@@ -250,11 +250,6 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	var singularRunner worker.Runner
 	for _, job := range entity.Jobs() {
 		if job == params.JobManageEnviron {
-			conn := singularAPIConn{st, st.Agent()}
-			singularRunner, err = NewSingularRunner(runner, conn)
-			if err != nil {
-				return nil, fmt.Errorf("cannot make singular Runner: %v", err)
-			}
 			rsyslogMode = rsyslog.RsyslogModeAccumulate
 			conn := singularAPIConn{st, st.Agent()}
 			singularRunner, err = newSingularRunner(runner, conn)

@@ -14,7 +14,6 @@ import (
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -120,7 +119,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob,
 		LogDir:            s.logDir,
 		DataDir:           s.dataDir,
 		Jobs:              jobs,
-		Tag:               "bootstrap",
+		Tag:               "machine-0",
 		UpgradedToVersion: version.Current.Number,
 		Password:          testPasswordHash(),
 		Nonce:             state.BootstrapNonce,
@@ -135,12 +134,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob,
 		APIPort:    3737,
 		StatePort:  1234,
 	}
-	bootConf, err := agent.NewStateMachineConfig(agentParams, servingInfo)
-	c.Assert(err, gc.IsNil)
-	err = bootConf.Write()
-	c.Assert(err, gc.IsNil)
 
-	agentParams.Tag = "machine-0"
 	machineConf, err = agent.NewStateMachineConfig(agentParams, servingInfo)
 	c.Assert(err, gc.IsNil)
 	err = machineConf.Write()
@@ -162,19 +156,20 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	c.Assert(s.fakeEnsureMongo.dataDir, gc.Equals, s.dataDir)
 	c.Assert(s.fakeEnsureMongo.initiateCount, gc.Equals, 1)
 	c.Assert(s.fakeEnsureMongo.ensureCount, gc.Equals, 1)
-	c.Assert(s.fakeEnsureMongo.dataDir, gc.Equals, s.dataDir)
 
-	info, exists := machConf.StateServingInfo()
-	c.Assert(exists, jc.IsTrue)
-	stateport := info.StatePort
+	expectInfo, ok := machConf.StateServingInfo()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(expectInfo.SharedSecret, gc.Equals, "")
 
-	c.Assert(s.fakeEnsureMongo.port, gc.Equals, stateport)
-	c.Assert(s.fakeEnsureMongo.namespace, gc.Equals, machConf.Value(agent.Namespace))
+	servingInfo := s.fakeEnsureMongo.info
+	c.Assert(len(servingInfo.SharedSecret), gc.Not(gc.Equals), 0)
+	servingInfo.SharedSecret = ""
+	c.Assert(servingInfo, jc.DeepEquals, expectInfo)
+	expectDialAddrs := []string{fmt.Sprintf("127.0.0.1:%d", expectInfo.StatePort)}
+	gotDialAddrs := s.fakeEnsureMongo.initiateParams.DialInfo.Addrs
+	c.Assert(gotDialAddrs, gc.DeepEquals, expectDialAddrs)
 
-	dialAddr := fmt.Sprintf("127.0.0.1:%d", stateport)
-	c.Assert(s.fakeEnsureMongo.initiateParams.DialInfo.Addrs[0], gc.Equals, dialAddr)
-
-	memberHost := fmt.Sprintf("%s:%d", s.bootstrapName, stateport)
+	memberHost := fmt.Sprintf("%s:%d", s.bootstrapName, expectInfo.StatePort)
 	c.Assert(s.fakeEnsureMongo.initiateParams.MemberHostPort, gc.Equals, memberHost)
 	c.Assert(s.fakeEnsureMongo.initiateParams.User, gc.Equals, "")
 	c.Assert(s.fakeEnsureMongo.initiateParams.Password, gc.Equals, "")
