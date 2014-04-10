@@ -166,18 +166,20 @@ func (s *clientSuite) TestParamsEncoded(c *gc.C) {
 	bufReader := bufio.NewReader(reader)
 	location, err := bufReader.ReadString('\n')
 	c.Assert(err, gc.IsNil)
-	url, err := url.Parse(strings.TrimSpace(location))
+	connectUrl, err := url.Parse(strings.TrimSpace(location))
 	c.Assert(err, gc.IsNil)
 
-	values := url.Query()
-	c.Assert(values["includeEntity"], jc.SameContents, params.IncludeEntity)
-	c.Assert(values["includeModule"], jc.SameContents, params.IncludeModule)
-	c.Assert(values["excludeEntity"], jc.SameContents, params.ExcludeEntity)
-	c.Assert(values["excludeModule"], jc.SameContents, params.ExcludeModule)
-	c.Assert(values.Get("maxLines"), gc.Equals, "100")
-	c.Assert(values.Get("backlog"), gc.Equals, "200")
-	c.Assert(values.Get("level"), gc.Equals, "ERROR")
-	c.Assert(values.Get("replay"), gc.Equals, "true")
+	values := connectUrl.Query()
+	c.Assert(values, jc.DeepEquals, url.Values{
+		"includeEntity": params.IncludeEntity,
+		"includeModule": params.IncludeModule,
+		"excludeEntity": params.ExcludeEntity,
+		"excludeModule": params.ExcludeModule,
+		"maxLines":      {"100"},
+		"backlog":       {"200"},
+		"level":         {"ERROR"},
+		"replay":        {"true"},
+	})
 }
 
 // badReader raises err when read is attempted
