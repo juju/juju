@@ -219,7 +219,7 @@ class TestJujuClientDevel(TestCase):
 
         env = Environment('foo', '')
         with patch.object(client, 'get_juju_output', get_juju_output):
-            result = client.get_status(env)
+            client.get_status(env)
 
     def test_get_status_raises_on_timeout(self):
         client = JujuClientDevelFake(None, None)
@@ -231,7 +231,18 @@ class TestJujuClientDevel(TestCase):
             with patch('jujupy.until_timeout', lambda x: iter([None, None])):
                 with self.assertRaisesRegexp(
                         Exception, 'Timed out waiting for juju status'):
-                    result = client.get_status(env)
+                    client.get_status(env)
+
+    def test_get_env_option(self):
+        client = JujuClientDevelFake(None, None)
+        env = Environment('foo', '')
+        with patch('subprocess.check_call') as mock:
+            mock.return_value = 'https://example.org/juju/tools'
+            result = client.get_env_option(env, 'tools-metadata-url')
+        mock.assert_called_with(
+            ('juju', '--show-log', 'get-env', '-e', 'foo',
+             'tools-metadata-url'))
+        self.assertEqual('https://example.org/juju/tools', result)
 
     def test_juju(self):
         env = Environment('qux', '')

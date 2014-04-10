@@ -137,6 +137,12 @@ class JujuClientDevel:
         raise Exception(
             'Timed out waiting for juju status to succeed: %s' % e)
 
+    def get_env_option(self, environment, option):
+        return self.juju(environment, 'get-env', (option,))
+
+    def set_env_option(self):
+        pass
+
     def juju(self, environment, command, args, sudo=False, check=True):
         """Run a command under juju for the current environment."""
         args = self._full_args(environment, command, sudo, args)
@@ -288,6 +294,9 @@ class Environment:
         if not no_build and self.local:
             version_number += '.1'
         return version_number
+
+    def set_testing_tools_metadata_url(self):
+        pass
 
 
 def format_listing(listing, expected):
