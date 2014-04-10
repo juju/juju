@@ -725,12 +725,12 @@ var websocketDialConfig = func(config *websocket.Config) (io.ReadCloser, error) 
 	return websocket.DialConfig(config)
 }
 
-type connectionError struct {
+type notSupportedError struct {
 	error
 }
 
-// IsConnectionError reports whether the error is a connection error.
-func IsConnectionError(err error) bool {
+// IsNotSupportedError reports whether the error is a not supported error.
+func IsNotSupportedError(err error) bool {
 	_, ok := err.(*connectionError)
 	return ok
 }
@@ -772,7 +772,7 @@ type DebugLogParams struct {
 // WatchDebugLog returns a ReadCloser that the caller can read the log lines
 // from. Only log lines that match the filtering specified in the
 // DebugLogParams are returned. It returns an error that satisfies
-// IsConnectionError when the connection cannot be made.
+// IsNotSupportedError when the API server does not support the end-point.
 func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
 	// The websocket connection just hangs if the server doesn't have the log
 	// end point. So do a version check, as version was added at the same time

@@ -86,7 +86,7 @@ func (c *DebugLogCommand) Run(ctx *cmd.Context) (err error) {
 	defer client.Close()
 	debugLog, err := client.WatchDebugLog(c.params)
 	if err != nil {
-		if api.IsConnectionError(err) {
+		if api.IsNotSupportedError(err) {
 			return c.watchDebugLog1dot16(ctx)
 		}
 		return err
@@ -102,9 +102,9 @@ func (c *DebugLogCommand) watchDebugLog1dot16(ctx *cmd.Context) error {
 	ctx.Infof("Server does not support new stream log, falling back to tail")
 	ctx.Verbosef("filters are not supported with tail")
 	sshCmd := &SSHCommand{}
-	tailGrepCmd := fmt.Sprintf("tail -n -%d -f %s", c.params.Backlog, DefaultLogLocation)
-	// If the api doesn't support WatchDebugLog, then it won't be running
-	// in HA either, so machine 0 is where it is all at.
+	tailCmd := fmt.Sprintf("tail -n -%d -f %s", c.params.Backlog, DefaultLogLocation)
+	// If the api doesn't support WatchDebugLog, then it won't be running in
+	// HA either, so machine 0 is where it is all at.
 	args := []string{"0", tailGrepCmd}
 	err := sshCmd.Init(args)
 	if err != nil {
