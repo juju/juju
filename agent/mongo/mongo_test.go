@@ -72,20 +72,6 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 	s.removed = nil
 }
 
-func fakeCmd(path string) {
-	err := ioutil.WriteFile(path, []byte("#!/bin/bash --norc\nexit 0"), 0755)
-	if err != nil {
-		panic(err)
-	}
-}
-
-func failCmd(path string) {
-	err := ioutil.WriteFile(path, []byte("#!/bin/bash --norc\nexit 1"), 0755)
-	if err != nil {
-		panic(err)
-	}
-}
-
 func (s *MongoSuite) TestJujuMongodPath(c *gc.C) {
 	obtained, err := MongodPath()
 	c.Check(err, gc.IsNil)
@@ -154,11 +140,11 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 
 	contents, err = ioutil.ReadFile(sslKeyPath(dataDir))
 	c.Assert(err, gc.IsNil)
-	c.Assert(string(contents), gc.Equals, info.Cert+"\n"+info.PrivateKey)
+	c.Assert(string(contents), gc.Equals, testInfo.Cert+"\n"+testInfo.PrivateKey)
 
 	contents, err = ioutil.ReadFile(sharedSecretPath(dataDir))
 	c.Assert(err, gc.IsNil)
-	c.Assert(string(contents), gc.Equals, info.SharedSecret)
+	c.Assert(string(contents), gc.Equals, testInfo.SharedSecret)
 
 	s.installed = nil
 	// now check we can call it multiple times without error
@@ -180,15 +166,16 @@ func (s *MongoSuite) TestQuantalAptAddRepo(c *gc.C) {
 	dir := c.MkDir()
 	s.PatchEnvPathPrepend(dir)
 	failCmd(filepath.Join(dir, "add-apt-repository"))
+	s.mockShellCommand(c, "apt-get")
 
 	// test that we call add-apt-repository only for quantal (and that if it
 	// fails, we return the error)
 	s.PatchValue(&version.Current.Series, "quantal")
-	err := EnsureMongoServer(dir, "", info)
+	err := EnsureMongoServer(dir, "", testInfo)
 	c.Assert(err, gc.ErrorMatches, "cannot install mongod: cannot add apt repository: exit status 1.*")
 
 	s.PatchValue(&version.Current.Series, "trusty")
-	err = EnsureMongoServer(dir, "", info)
+	err = EnsureMongoServer(dir, "", testInfo)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -324,4 +311,11 @@ func splitCall(c *gc.C, part string) []string {
 		result = append(result, arg)
 	}
 	return result
+}
+
+func failCmd(path string) {
+	err := ioutil.WriteFile(path, []byte("#!/bin/bash --norc\nexit 1"), 0755)
+	if err != nil {
+		panic(err)
+	}
 }
