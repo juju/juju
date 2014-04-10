@@ -350,6 +350,17 @@ func (s *MongoSuite) TestMasterHostPort(c *gc.C) {
 	c.Assert(result, gc.Equals, expected)
 }
 
+func (s *MongoSuite) TestMasterHostPortOnUnconfiguredReplicaSet(c *gc.C) {
+	inst := &coretesting.MgoInstance{}
+	err := inst.Start(true)
+	c.Assert(err, gc.IsNil)
+	defer inst.Destroy()
+	session := inst.MustDial()
+	hp, err := MasterHostPort(session)
+	c.Assert(err, gc.Equals, ErrMasterNotConfigured)
+	c.Assert(hp, gc.Equals, "")
+}
+
 func (s *MongoSuite) TestCurrentStatus(c *gc.C) {
 	session := root.MustDial()
 	defer session.Close()
