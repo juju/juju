@@ -92,5 +92,5 @@ func (s *httpSuite) TestBasicAuthHeader(c *gc.C) {
 	c.Assert(basic, gc.Equals, "Basic")
 	decoded, err := base64.StdEncoding.DecodeString(encoded)
 	c.Assert(err, gc.IsNil)
-	c.Assert(decoded, gc.Equals, "eric:sekrit")
+	c.Assert(string(decoded), gc.Equals, "eric:sekrit")
 }
