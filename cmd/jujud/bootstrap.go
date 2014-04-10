@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net"
-	"path/filepath"
 
 	"launchpad.net/gnuflag"
 	"launchpad.net/goyaml"
@@ -20,8 +19,8 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/worker/peergrouper"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/worker/peergrouper"
 )
 
 type BootstrapCommand struct {
@@ -179,9 +178,9 @@ func (c *BootstrapCommand) startMongo(addrs []instance.Address, agentConfig agen
 	if peerAddr == "" {
 		return fmt.Errorf("no appropriate peer address found in %q", addrs)
 	}
-	peerHostPort := net.JoinHostPort(peerAddr, fmt.Sprint(port))
+	peerHostPort := net.JoinHostPort(peerAddr, fmt.Sprint(servingInfo.StatePort))
 
-	return maybeInitiateMongoServer(mongo.InitiateMongoParams{
+	return peergrouper.MaybeInitiateMongoServer(peergrouper.InitiateMongoParams{
 		DialInfo:       dialInfo,
 		MemberHostPort: peerHostPort,
 	})

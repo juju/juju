@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"path/filepath"
 
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
@@ -32,6 +31,7 @@ import (
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
+	"launchpad.net/juju-core/worker/peergrouper"
 )
 
 var _ = configstore.Default
@@ -55,19 +55,19 @@ type fakeEnsure struct {
 	ensureCount    int
 	initiateCount  int
 	dataDir        string
-	port           int
-	namespace      string
-	initiateParams mongo.InitiateMongoParams
+	namespace string
+	info params.StateServingInfo
+	initiateParams peergrouper.InitiateMongoParams
 	err            error
 }
 
-func (f *fakeEnsure) fakeEnsureMongo(dataDir string, port int, namespace string) error {
+func (f *fakeEnsure) fakeEnsureMongo(dataDir, namespace string, info params.StateServingInfo) error {
 	f.ensureCount++
-	f.dataDir, f.port, f.namespace = dataDir, port, namespace
+	f.dataDir, f.namespace, f.info = dataDir, namespace, info
 	return f.err
 }
 
-func (f *fakeEnsure) fakeInitiateMongo(p mongo.InitiateMongoParams) error {
+func (f *fakeEnsure) fakeInitiateMongo(p peergrouper.InitiateMongoParams) error {
 	f.initiateCount++
 	f.initiateParams = p
 	return nil

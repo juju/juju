@@ -57,10 +57,10 @@ type BootstrapMachineConfig struct {
 	SharedSecret string
 }
 
-const bootstrapMachineId = "0"
+const BootstrapMachineId = "0"
 
 func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
-	if c.Tag() != names.MachineTag(bootstrapMachineId) {
+	if c.Tag() != names.MachineTag(BootstrapMachineId) {
 		return nil, nil, fmt.Errorf("InitializeState not called with bootstrap machine's configuration")
 	}
 	servingInfo, ok := c.StateServingInfo()
@@ -167,7 +167,7 @@ func initBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineC
 	if err != nil {
 		return nil, fmt.Errorf("cannot create bootstrap machine in state: %v", err)
 	}
-	if m.Id() != bootstrapMachineId {
+	if m.Id() != BootstrapMachineId {
 		return nil, fmt.Errorf("bootstrap machine expected id 0, got %q", m.Id())
 	}
 	// Read the machine agent's password and change it to
