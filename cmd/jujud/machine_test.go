@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/juju/testing"
@@ -39,6 +40,7 @@ import (
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/utils/ssh"
 	sshtesting "launchpad.net/juju-core/utils/ssh/testing"
 	"launchpad.net/juju-core/version"
@@ -48,11 +50,13 @@ import (
 	"launchpad.net/juju-core/worker/instancepoller"
 	"launchpad.net/juju-core/worker/machineenvironmentworker"
 	"launchpad.net/juju-core/worker/rsyslog"
+	"launchpad.net/juju-core/worker/singular"
 	"launchpad.net/juju-core/worker/upgrader"
 )
 
 type commonMachineSuite struct {
 	agentSuite
+	singularRecord *singularRunnerRecord
 	lxctesting.TestSuite
 }
 
@@ -85,6 +89,9 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	fakeCmd(filepath.Join(testpath, "stop"))
 
 	s.PatchValue(&upstart.InitDir, c.MkDir())
+
+	s.singularRecord = &singularRunnerRecord{}
+	testing.PatchValue(&newSingularRunner, s.singularRecord.newSingularRunner)
 }
 
 func fakeCmd(path string) {
@@ -373,6 +380,15 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 	case <-time.After(5 * time.Second):
 		c.Fatalf("timed out waiting for agent to terminate")
 	}
+
+	c.Assert(s.singularRecord.started(), jc.DeepEquals, []string{
+		"charm-revision-updater",
+		"cleaner",
+		"environ-provisioner",
+		"firewaller",
+		"minunitsworker",
+		"resumer",
+	})
 }
 
 func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
@@ -947,4 +963,37 @@ func (s *MachineWithCharmsSuite) TestManageEnvironRunsCharmRevisionUpdater(c *gc
 		}
 	}
 	c.Assert(success, gc.Equals, true)
+}
+
+type singularRunnerRecord struct {
+	mu             sync.Mutex
+	startedWorkers set.Strings
+}
+
+func (r *singularRunnerRecord) newSingularRunner(runner worker.Runner, conn singular.Conn) (worker.Runner, error) {
+	sr, err := singular.New(runner, conn)
+	if err != nil {
+		return nil, err
+	}
+	return &fakeSingularRunner{
+		Runner: sr,
+		record: r,
+	}, nil
+}
+
+// started returns the names of all singular-started workers.
+func (r *singularRunnerRecord) started() []string {
+	return r.startedWorkers.SortedValues()
+}
+
+type fakeSingularRunner struct {
+	worker.Runner
+	record *singularRunnerRecord
+}
+
+func (r *fakeSingularRunner) StartWorker(name string, start func() (worker.Worker, error)) error {
+	r.record.mu.Lock()
+	defer r.record.mu.Unlock()
+	r.record.startedWorkers.Add(name)
+	return r.Runner.StartWorker(name, start)
 }
