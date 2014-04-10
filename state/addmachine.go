@@ -564,7 +564,9 @@ var stateServerAvailable = func(m *Machine) (bool, error) {
 	// TODO(axw) #1271504 2014-01-22
 	// Check the state server's associated mongo health;
 	// requires coordination with worker/peergrouper.
-	return m.AgentAlive()
+	alive, err := m.AgentAlive()
+	logger.Debugf("%s alive?: %v", m.Id(), alive)
+	return alive, err
 }
 
 // updateAvailableStateServersOps checks the availability of state servers,

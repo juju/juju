@@ -1706,6 +1706,10 @@ func (s *StateSuite) TestWatchStateServerInfo(c *gc.C) {
 		VotingMachineIds: []string{"0"},
 	})
 
+	s.PatchValue(state.StateServerAvailable, func(m *state.Machine) (bool, error) {
+		return true, nil
+	})
+
 	err = s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
 	c.Assert(err, gc.IsNil)
 
