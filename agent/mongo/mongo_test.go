@@ -12,7 +12,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/instance"
-	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/upstart"
 )
@@ -21,9 +21,18 @@ func Test(t *testing.T) { gc.TestingT(t) }
 
 type MongoSuite struct {
 	testbase.LoggingSuite
+	mongodConfigPath string
 }
 
-var _ = gc.Suite(&MongoSuite{})
+var (
+	_    = gc.Suite(&MongoSuite{})
+	info = params.StateServingInfo{
+		StatePort:    25252,
+		Cert:         "foobar-cert",
+		PrivateKey:   "foobar-privkey",
+		SharedSecret: "foobar-sharedsecret",
+	}
+)
 
 func (s *MongoSuite) SetUpSuite(c *gc.C) {
 	testpath := c.MkDir()
@@ -31,8 +40,13 @@ func (s *MongoSuite) SetUpSuite(c *gc.C) {
 	// mock out the upstart commands so we can fake install services without sudo
 	fakeCmd(filepath.Join(testpath, "start"))
 	fakeCmd(filepath.Join(testpath, "stop"))
+	fakeCmd(filepath.Join(testpath, "apt-get"))
 
 	s.PatchValue(&upstart.InitDir, c.MkDir())
+
+	s.mongodConfigPath = filepath.Join(testpath, "mongodConfig")
+
+	s.PatchValue(&mongoConfigPath, s.mongodConfigPath)
 }
 
 func fakeCmd(path string) {
@@ -97,76 +111,49 @@ func testJournalDirs(dir string, c *gc.C) {
 }
 
 func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
-	dir := c.MkDir()
-	dbDir := filepath.Join(dir, "db")
-	port := 25252
+	dataDir := c.MkDir()
+	dbDir := filepath.Join(dataDir, "db")
 	namespace := "namespace"
 	oldsvc := makeService(ServiceName(namespace), c)
 	defer oldsvc.StopAndRemove()
 
-	err := EnsureMongoServer(dir, port, namespace)
+	err := EnsureMongoServer(dataDir, namespace, info)
 	c.Assert(err, gc.IsNil)
-	svc, err := mongoUpstartService(namespace, dir, dbDir, port)
+	svc, err := mongoUpstartService(namespace, dataDir, dbDir, info.StatePort)
 	c.Assert(err, gc.IsNil)
 	defer svc.StopAndRemove()
 
 	testJournalDirs(dbDir, c)
 	c.Assert(svc.Installed(), jc.IsTrue)
 
+	contents, err := ioutil.ReadFile(s.mongodConfigPath)
+	c.Assert(err, gc.IsNil)
+	c.Assert(contents, jc.DeepEquals, []byte("ENABLE_MONGODB=no"))
+
 	// now check we can call it multiple times without error
-	err = EnsureMongoServer(dir, port, namespace)
+	err = EnsureMongoServer(dataDir, namespace, info)
 	c.Assert(err, gc.IsNil)
 	c.Assert(svc.Installed(), jc.IsTrue)
 }
 
 func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
-	dir := c.MkDir()
+	dataDir := c.MkDir()
 
-	dbDir := filepath.Join(dir, "db")
+	dbDir := filepath.Join(dataDir, "db")
 
 	// remove the directory so we use the path but it won't exist
 	// that should make it get cleaned up at the end of the test if created
-	os.RemoveAll(dir)
-	port := 25252
+	os.RemoveAll(dataDir)
 
-	err := EnsureMongoServer(dir, port, "")
+	err := EnsureMongoServer(dataDir, "", info)
 	c.Check(err, gc.IsNil)
 
 	_, err = os.Stat(dbDir)
 	c.Assert(err, gc.IsNil)
 
-	svc, err := mongoUpstartService("", dir, dbDir, port)
+	svc, err := mongoUpstartService("", dataDir, dbDir, info.StatePort)
 	c.Assert(err, gc.IsNil)
 	defer svc.Remove()
-}
-
-// TODO(natefinch) add a test that InitiateMongoServer works when
-// we support upgrading of existing environments.
-
-func (s *MongoSuite) TestInitiateReplicaSet(c *gc.C) {
-	var err error
-	inst := &coretesting.MgoInstance{Params: []string{"--replSet", "juju"}}
-	err = inst.Start(true)
-	c.Assert(err, gc.IsNil)
-
-	info := inst.DialInfo()
-
-	err = MaybeInitiateMongoServer(InitiateMongoParams{
-		DialInfo:       info,
-		MemberHostPort: inst.Addr(),
-	})
-	c.Assert(err, gc.IsNil)
-
-	// This would return a mgo.QueryError if a ReplicaSet
-	// configuration already existed but we tried to created
-	// one with replicaset.Initiate again.
-	err = MaybeInitiateMongoServer(InitiateMongoParams{
-		DialInfo:       info,
-		MemberHostPort: inst.Addr(),
-	})
-	c.Assert(err, gc.IsNil)
-
-	// TODO test login
 }
 
 func (s *MongoSuite) TestServiceName(c *gc.C) {

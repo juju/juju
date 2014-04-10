@@ -36,7 +36,8 @@ const (
 )
 
 var (
-	logger = loggo.GetLogger("juju.agent.mongo")
+	logger          = loggo.GetLogger("juju.agent.mongo")
+	mongoConfigPath = "/etc/default/mongodb"
 
 	// JujuMongodPath holds the default path to the juju-specific mongod.
 	JujuMongodPath = "/usr/lib/juju/bin/mongod"
@@ -122,9 +123,12 @@ func RemoveService(namespace string) error {
 // on this machine from colliding. This should be empty unless using
 // the local provider.
 func EnsureMongoServer(dataDir string, namespace string, info params.StateServingInfo) error {
-
 	logger.Infof("Ensuring mongo server is running; dataDir %s; port %d", dataDir, info.StatePort)
 	dbDir := filepath.Join(dataDir, "db")
+
+	if err := os.MkdirAll(dbDir, 0700); err != nil {
+		return fmt.Errorf("cannot create mongo dbdir: %v", err)
+	}
 
 	certKey := info.Cert + "\n" + info.PrivateKey
 	err := utils.AtomicWriteFile(sslKeyPath(dataDir), []byte(certKey), 0600)
@@ -140,9 +144,9 @@ func EnsureMongoServer(dataDir string, namespace string, info params.StateServin
 	// Disable the default mongodb installed by the mongodb-server package.
 	// Only do this if the file doesn't exist already, so users can run
 	// their own mongodb server if they wish to.
-	if _, err := os.Stat("/etc/default/mongodb"); os.IsNotExist(err) {
+	if _, err := os.Stat(mongoConfigPath); os.IsNotExist(err) {
 		err = ioutil.WriteFile(
-			"/etc/default/mongodb",
+			mongoConfigPath,
 			[]byte("ENABLE_MONGODB=no"),
 			0644,
 		)
