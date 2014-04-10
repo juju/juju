@@ -29,6 +29,7 @@ import (
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/exec"
 	"launchpad.net/juju-core/utils/fslock"
+	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/uniter/charm"
 	"launchpad.net/juju-core/worker/uniter/hook"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
@@ -166,6 +167,13 @@ func (u *Uniter) init(unitTag string) (err error) {
 	u.unit, err = u.st.Unit(unitTag)
 	if err != nil {
 		return err
+	}
+	if u.unit.Life() == params.Dead {
+		// If we started up already dead, we should not progress further. If we
+		// become Dead immediately after starting up, we may well complete any
+		// operations in progress before detecting it; but that race is fundamental
+		// and inescapable, whereas this one is not.
+		return worker.ErrTerminateAgent
 	}
 	if err = u.setupLocks(); err != nil {
 		return err

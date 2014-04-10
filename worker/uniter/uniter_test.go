@@ -967,7 +967,7 @@ var relationsTests = []uniterTest{
 		waitHooks{},
 		// TODO BUG(?): the unit doesn't leave the scope, leaving the relation
 		// unkillable without direct intervention. I'm pretty sure it's not a
-		// uniter bug -- it should be the responisbility of `juju remove-unit
+		// uniter bug -- it should be the responsibility of `juju remove-unit
 		// --force` to cause the unit to leave any relation scopes it may be
 		// in -- but it's worth noting here all the same.
 	), ut(
