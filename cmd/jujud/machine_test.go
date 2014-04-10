@@ -971,8 +971,12 @@ type singularRunnerRecord struct {
 }
 
 func (r *singularRunnerRecord) newSingularRunner(runner worker.Runner, conn singular.Conn) (worker.Runner, error) {
+	sr, err := singular.New(runner, conn)
+	if err != nil {
+		return nil, err
+	}
 	return &fakeSingularRunner{
-		Runner: runner,
+		Runner: sr,
 		record: r,
 	}, nil
 }
