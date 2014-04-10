@@ -182,6 +182,16 @@ class TestJujuClientDevel(TestCase):
         self.assertEqual((('juju', '--show-log', 'bar', '-e', 'foo'),),
                          mock.call_args[0])
 
+    def test_get_juju_output_accepts_varargs(self):
+        env = Environment('foo', '')
+        asdf = lambda x, stderr: 'asdf'
+        client = JujuClientDevel(None, None)
+        with patch('subprocess.check_output', side_effect=asdf) as mock:
+            result = client.get_juju_output(env, 'bar', 'baz', '--qux')
+        self.assertEqual('asdf', result)
+        self.assertEqual((('juju', '--show-log', 'bar', '-e', 'foo', 'baz',
+                           '--qux'),), mock.call_args[0])
+
     def test_get_juju_output_stderr(self):
         def raise_without_stderr(args, stderr):
             stderr.write('Hello!')
