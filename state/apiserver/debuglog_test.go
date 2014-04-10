@@ -191,7 +191,7 @@ func (s *debugLogSuite) dialWebsocketInternal(c *gc.C, queryParams url.Values, h
 }
 
 func (s *debugLogSuite) dialWebsocket(c *gc.C, queryParams url.Values) (*websocket.Conn, error) {
-	header := utils.CreateBasicAuthHeader(s.userTag, s.password)
+	header := utils.BasicAuthHeader(s.userTag, s.password)
 	return s.dialWebsocketInternal(c, queryParams, header)
 }
 

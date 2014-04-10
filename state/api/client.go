@@ -793,7 +793,7 @@ func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
 		RawQuery: attrs.Encode(),
 	}
 	cfg, err := websocket.NewConfig(target.String(), "http://localhost/")
-	cfg.Header = utils.CreateBasicAuthHeader(c.st.tag, c.st.password)
+	cfg.Header = utils.BasicAuthHeader(c.st.tag, c.st.password)
 	cfg.TlsConfig = &tls.Config{RootCAs: c.st.certPool, ServerName: "anything"}
 	connection, err := dialDebugLog(cfg)
 	if err != nil {
