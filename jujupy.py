@@ -141,11 +141,9 @@ class JujuClientDevel:
         """Return the value of the environment's configured option."""
         return self.juju(environment, 'get-env', (option,))
 
-    def set_env_option(self, environment, option_value):
-        """Set the value of the option in the environment.
-
-        option_value is a string like option=value.
-        """
+    def set_env_option(self, environment, option, value):
+        """Set the value of the option in the environment."""
+        option_value = "%s=%s" % (option, value)
         return self.juju(environment, 'set-env', (option_value,))
 
     def juju(self, environment, command, args, sudo=False, check=True):
@@ -303,7 +301,7 @@ class Environment:
     def set_testing_tools_metadata_url(self):
         url = self.client.get_env_option(self, 'tools-metadata-url')
         testing_url = url.replace('/tools', '/testing/tools')
-        self.client.set_env_option(self, 'tools-metadata-url=%s' % testing_url)
+        self.client.set_env_option(self, 'tools-metadata-url',  testing_url)
 
 
 def format_listing(listing, expected):

@@ -249,7 +249,7 @@ class TestJujuClientDevel(TestCase):
         env = Environment('foo', '')
         with patch('subprocess.check_call') as mock:
             client.set_env_option(
-                env, 'tools-metadata-url=https://example.org/juju/tools')
+                env, 'tools-metadata-url', 'https://example.org/juju/tools')
         mock.assert_called_with(
             ('juju', '--show-log', 'set-env', '-e', 'foo',
              'tools-metadata-url=https://example.org/juju/tools'))
@@ -600,7 +600,7 @@ class TestEnvironment(TestCase):
                 env.set_testing_tools_metadata_url()
         mock_get.assert_called_with(env, 'tools-metadata-url')
         mock_set.assert_called_with(
-            env, 'tools-metadata-url=https://example.org/juju/testing/tools')
+            env, 'tools-metadata-url', 'https://example.org/juju/testing/tools')
 
 
 class TestFormatListing(TestCase):
