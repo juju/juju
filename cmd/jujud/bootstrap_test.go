@@ -56,8 +56,8 @@ type fakeEnsure struct {
 	ensureCount    int
 	initiateCount  int
 	dataDir        string
-	namespace string
-	info params.StateServingInfo
+	namespace      string
+	info           params.StateServingInfo
 	initiateParams peergrouper.InitiateMongoParams
 	err            error
 }
@@ -165,9 +165,8 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	c.Assert(s.fakeEnsureMongo.ensureCount, gc.Equals, 1)
 	c.Assert(s.fakeEnsureMongo.dataDir, gc.Equals, s.dataDir)
 
-	info, exists := machConf.StateServingInfo()
+	expectInfo, exists := machConf.StateServingInfo()
 	c.Assert(exists, jc.IsTrue)
-	stateport := info.StatePort
 
 	servingInfo := s.fakeEnsureMongo.info
 	c.Assert(len(servingInfo.SharedSecret), gc.Not(gc.Equals), 0)

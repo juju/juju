@@ -1,6 +1,7 @@
 package mongo
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
