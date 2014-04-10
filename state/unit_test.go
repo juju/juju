@@ -221,6 +221,31 @@ func (s *UnitSuite) TestPublicAddress(c *gc.C) {
 	c.Assert(ok, gc.Equals, true)
 }
 
+func (s *UnitSuite) TestPublicAddressMachineAddresses(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = s.unit.AssignToMachine(machine)
+	c.Assert(err, gc.IsNil)
+
+	publicProvider := instance.NewAddress("8.8.8.8", instance.NetworkPublic)
+	privateProvider := instance.NewAddress("127.0.0.1", instance.NetworkCloudLocal)
+	privateMachine := instance.NewAddress("127.0.0.2", instance.NetworkUnknown)
+
+	err = machine.SetAddresses(privateProvider)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetMachineAddresses(privateMachine)
+	c.Assert(err, gc.IsNil)
+	address, ok := s.unit.PublicAddress()
+	c.Check(address, gc.Equals, "127.0.0.1")
+	c.Assert(ok, gc.Equals, true)
+
+	err = machine.SetAddresses(publicProvider, privateProvider)
+	c.Assert(err, gc.IsNil)
+	address, ok = s.unit.PublicAddress()
+	c.Check(address, gc.Equals, "8.8.8.8")
+	c.Assert(ok, gc.Equals, true)
+}
+
 func (s *UnitSuite) TestPrivateAddressSubordinate(c *gc.C) {
 	subUnit := s.addSubordinateUnit(c)
 	_, ok := subUnit.PrivateAddress()
