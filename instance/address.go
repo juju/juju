@@ -116,20 +116,20 @@ func NewAddresses(inAddresses ...string) (outAddresses []Address) {
 
 func DeriveAddressType(value string) AddressType {
 	ip := net.ParseIP(value)
-	if ip != nil {
-		if ip.To4() != nil {
-			return Ipv4Address
-		}
-		if ip.To16() != nil {
-			return Ipv6Address
-		}
+	switch {
+	case ip == nil:
+		// TODO(gz): Check value is a valid hostname
+		return HostName
+	case ip.To4() != nil:
+		return Ipv4Address
+	case ip.To16() != nil:
+		return Ipv6Address
+	default:
 		panic("Unknown form of IP address")
 	}
-	// TODO(gz): Check value is a valid hostname
-	return HostName
 }
 
-func isIpv4PrivateNetworkAddress(ip net.IP) bool {
+func isIPv4PrivateNetworkAddress(ip net.IP) bool {
 	return classAPrivate.Contains(ip) ||
 		classBPrivate.Contains(ip) ||
 		classCPrivate.Contains(ip)
@@ -151,7 +151,7 @@ func deriveNetworkScope(addr Address) NetworkScope {
 	}
 	switch addr.Type {
 	case Ipv4Address:
-		if isIpv4PrivateNetworkAddress(ip) {
+		if isIPv4PrivateNetworkAddress(ip) {
 			return NetworkCloudLocal
 		}
 		// If it's not loopback, and it's not a private
