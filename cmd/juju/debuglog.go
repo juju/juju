@@ -12,6 +12,7 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/cmd/envcmd"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state/api"
 )
@@ -86,7 +87,7 @@ func (c *DebugLogCommand) Run(ctx *cmd.Context) (err error) {
 	defer client.Close()
 	debugLog, err := client.WatchDebugLog(c.params)
 	if err != nil {
-		if api.IsNotSupportedError(err) {
+		if errors.IsNotSupportedError(err) {
 			return c.watchDebugLog1dot16(ctx)
 		}
 		return err
@@ -105,7 +106,7 @@ func (c *DebugLogCommand) watchDebugLog1dot16(ctx *cmd.Context) error {
 	tailCmd := fmt.Sprintf("tail -n -%d -f %s", c.params.Backlog, DefaultLogLocation)
 	// If the api doesn't support WatchDebugLog, then it won't be running in
 	// HA either, so machine 0 is where it is all at.
-	args := []string{"0", tailGrepCmd}
+	args := []string{"0", tailCmd}
 	err := sshCmd.Init(args)
 	if err != nil {
 		return err
