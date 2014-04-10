@@ -27,6 +27,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/api/usermanager"
 	"launchpad.net/juju-core/state/apiserver/client"
 	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
@@ -817,6 +818,26 @@ func (s *clientSuite) TestClientServiceDeployToMachine(c *gc.C) {
 	mid, err := units[0].AssignedMachineId()
 	c.Assert(err, gc.IsNil)
 	c.Assert(mid, gc.Equals, machine.Id())
+}
+
+func (s *clientSuite) TestClientServiceDeployServiceOwner(c *gc.C) {
+	store, restore := makeMockCharmStore()
+	defer restore()
+	curl, _ := addCharm(c, store, "dummy")
+
+	usermanager := usermanager.NewClient(s.APIState)
+	err := usermanager.AddUser("foobar", "password")
+	c.Assert(err, gc.IsNil)
+	s.APIState = s.OpenAPIAs(c, "user-foobar", "password")
+
+	err = s.APIState.Client().ServiceDeploy(
+		curl.String(), "service", 3, "", constraints.Value{}, "",
+	)
+	c.Assert(err, gc.IsNil)
+
+	service, err := s.State.Service("service")
+	c.Assert(err, gc.IsNil)
+	c.Assert(service.GetOwnerTag(), gc.Equals, "user-foobar")
 }
 
 func (s *clientSuite) deployServiceForTests(c *gc.C, store *coretesting.MockCharmStore) {
