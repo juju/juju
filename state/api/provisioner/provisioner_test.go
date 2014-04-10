@@ -259,7 +259,7 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 
 	// Try it again - should fail.
 	err = apiMachine.SetInstanceInfo("i-wont", "fake", nil, nil, nil)
-	c.Assert(err, gc.ErrorMatches, `provisioning "machine-1" with networks \[\], interfaces \[\] failed: cannot set instance data for machine "1": already set`)
+	c.Assert(err, gc.ErrorMatches, `aborted instance "i-wont": cannot set instance data for machine "1": already set`)
 
 	// Now try to get machine 0's instance id.
 	apiMachine, err = s.provisioner.Machine(s.machine.Tag())
