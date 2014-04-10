@@ -413,6 +413,7 @@ func convertNovaAddresses(addresses map[string][]nova.IPAddress) []instance.Addr
 				addrtype = instance.Ipv6Address
 			}
 			machineAddr := instance.NewAddress(address.Address, networkscope)
+			machineAddr.NetworkName = network
 			if machineAddr.Type != addrtype {
 				logger.Warningf("derived address type %v, nova reports %v", machineAddr.Type, addrtype)
 			}
