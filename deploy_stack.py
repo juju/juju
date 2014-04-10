@@ -46,6 +46,43 @@ def deploy_stack(environment, charm_prefix, already_bootstrapped):
     wp_unit_0 = status['services']['wordpress']['units']['wordpress/0']
     check_wordpress(wp_unit_0['public-address'])
 
+def deploy_dummy_stack(environment, charm_prefix, already_bootstrapped):
+    """"Deploy a dummy stack in the specified environment.
+
+    :param environment: The name of the desired environment.
+    """
+    if sys.platform == 'win32':
+        # Ensure OpenSSH is never in the path for win tests.
+        sys.path = [p for p in sys.path if 'OpenSSH' not in p]
+    env = Environment.from_config(environment)
+    if not already_bootstrapped:
+        env.bootstrap()
+    agent_version = env.get_matching_agent_version()
+    status = env.get_status()
+    for ignored in until_timeout(30):
+        agent_versions = env.get_status().get_agent_versions()
+        if 'unknown' not in agent_versions and len(agent_versions) == 1:
+            break
+        status = env.get_status()
+    if agent_versions.keys() != [agent_version]:
+        print("Current versions: %s" % ', '.join(agent_versions.keys()))
+        env.juju('upgrade-juju', '--version', agent_version)
+    if sys.platform == 'win32':
+        # The win client tests only verify the client to the state-server.
+        return
+    env.wait_for_version(env.get_matching_agent_version())
+    token='asdf'
+    env.deploy(charm_prefix + 'dummy-source')
+    env.juju('set', 'dummy-source', 'token=%s' % token)
+    env.deploy(charm_prefix + 'dummy-sink')
+    env.juju('add-relation', 'dummy-source', 'dummy-sink')
+    env.juju('expose', 'dummy-sink')
+    status = env.wait_for_started().status
+    result = env.client.get_juju_output(env, 'ssh', 'dummy-sink/0', 'cat',
+                                        '/var/run/dummy-sink/token')
+    if result != token:
+        raise ValueError('Token is %r' % result)
+
 
 def main():
     parser = ArgumentParser('Deploy a WordPress stack')
@@ -54,10 +91,17 @@ def main():
     parser.add_argument('--already-bootstrapped',
                         help='The environment is already bootstrapped.',
                         action='store_true')
+    parser.add_argument('--dummy', help='Use dummy charms.',
+                        action='store_true')
     parser.add_argument('env', help='The environment to deploy on.')
     args = parser.parse_args()
     try:
-        deploy_stack(args.env, args.charm_prefix, args.already_bootstrapped)
+        if args.dummy:
+            deploy_dummy_stack(args.env, args.charm_prefix,
+                               args.already_bootstrapped)
+        else:
+            deploy_stack(args.env, args.charm_prefix,
+                         args.already_bootstrapped)
     except Exception as e:
         print('%s (%s)' % (e, type(e).__name__))
         sys.exit(1)
