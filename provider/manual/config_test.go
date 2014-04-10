@@ -20,11 +20,6 @@ type configSuite struct {
 
 var _ = gc.Suite(&configSuite{})
 
-func (s *configSuite) SetupTest(c *gc.C) {
-	s.FakeHomeSuite.SetUpTest(c)
-	s.LoggingSuite.SetUpTest(c)
-}
-
 func MinimalConfigValues() map[string]interface{} {
 	return map[string]interface{}{
 		"name":             "test",

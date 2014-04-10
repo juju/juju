@@ -17,12 +17,10 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/arch"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 type environSuite struct {
 	coretesting.FakeHomeSuite
-	testbase.LoggingSuite
 	env *manualEnviron
 }
 

@@ -26,7 +26,6 @@ var _ = gc.Suite(&providerSuite{})
 
 func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.FakeHomeSuite.SetUpTest(c)
-	s.LoggingSuite.SetUpTest(c)
 	s.PatchValue(manual.InitUbuntuUser, func(host, user, keys string, stdin io.Reader, stdout io.Writer) error {
 		return nil
 	})
