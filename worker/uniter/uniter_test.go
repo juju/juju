@@ -32,6 +32,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	apiuniter "launchpad.net/juju-core/state/api/uniter"
 	coretesting "launchpad.net/juju-core/testing"
+	ft "launchpad.net/juju-core/testing/filetesting"
 	"launchpad.net/juju-core/utils"
 	utilexec "launchpad.net/juju-core/utils/exec"
 	"launchpad.net/juju-core/utils/fslock"
@@ -966,9 +967,58 @@ var relationsTests = []uniterTest{
 		waitHooks{},
 		// TODO BUG(?): the unit doesn't leave the scope, leaving the relation
 		// unkillable without direct intervention. I'm pretty sure it's not a
-		// uniter bug -- it should be the responisbility of `juju remove-unit
+		// uniter bug -- it should be the responsibility of `juju remove-unit
 		// --force` to cause the unit to leave any relation scopes it may be
 		// in -- but it's worth noting here all the same.
+	), ut(
+		"unknown local relation dir is removed",
+		quickStartRelation{},
+		stopUniter{},
+		custom{func(c *gc.C, ctx *context) {
+			ft.Dir{"state/relations/90210", 0755}.Create(c, ctx.path)
+		}},
+		startUniter{},
+		waitHooks{"config-changed"},
+		custom{func(c *gc.C, ctx *context) {
+			ft.Removed{"state/relations/90210"}.Check(c, ctx.path)
+		}},
+	), ut(
+		"all relations are available to config-changed on bounce, even if state dir is missing",
+		createCharm{
+			customize: func(c *gc.C, ctx *context, path string) {
+				script := "relation-ids db > relations.out && chmod 644 relations.out"
+				appendHook(c, path, "config-changed", script)
+			},
+		},
+		serveCharm{},
+		createUniter{},
+		waitUnit{
+			status: params.StatusStarted,
+		},
+		waitHooks{"install", "config-changed", "start"},
+		addRelation{waitJoin: true},
+		stopUniter{},
+		custom{func(c *gc.C, ctx *context) {
+			// Check the state dir was created, and remove it.
+			path := fmt.Sprintf("state/relations/%d", ctx.relation.Id())
+			ft.Dir{path, 0755}.Check(c, ctx.path)
+			ft.Removed{path}.Create(c, ctx.path)
+
+			// Check that config-changed didn't record any relations, because
+			// they shouldn't been available until after the start hook.
+			ft.File{"charm/relations.out", "", 0644}.Check(c, ctx.path)
+		}},
+		startUniter{},
+		waitHooks{"config-changed"},
+		custom{func(c *gc.C, ctx *context) {
+			// Check the state dir was recreated.
+			path := fmt.Sprintf("state/relations/%d", ctx.relation.Id())
+			ft.Dir{path, 0755}.Check(c, ctx.path)
+
+			// Check that config-changed did record the joined relations.
+			data := fmt.Sprintf("db:%d\n", ctx.relation.Id())
+			ft.File{"charm/relations.out", data, 0644}.Check(c, ctx.path)
+		}},
 	),
 }
 
@@ -1671,7 +1721,7 @@ func (s startUpgradeError) step(c *gc.C, ctx *context) {
 }
 
 type addRelation struct {
-	testing.JujuConnSuite
+	waitJoin bool
 }
 
 func (s addRelation) step(c *gc.C, ctx *context) {
@@ -1686,6 +1736,27 @@ func (s addRelation) step(c *gc.C, ctx *context) {
 	ctx.relation, err = ctx.st.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
 	ctx.relationUnits = map[string]*state.RelationUnit{}
+	if !s.waitJoin {
+		return
+	}
+
+	// It's hard to do this properly (watching scope) without perturbing other tests.
+	ru, err := ctx.relation.Unit(ctx.unit)
+	c.Assert(err, gc.IsNil)
+	timeout := time.After(worstCase)
+	for {
+		c.Logf("waiting to join relation")
+		select {
+		case <-timeout:
+			c.Fatalf("failed to join relation")
+		case <-time.After(coretesting.ShortWait):
+			inScope, err := ru.InScope()
+			c.Assert(err, gc.IsNil)
+			if inScope {
+				return
+			}
+		}
+	}
 }
 
 type addRelationUnit struct{}

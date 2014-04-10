@@ -993,6 +993,47 @@ func (s *UnitSuite) TestPrincipalName(c *gc.C) {
 	c.Assert(principal, gc.Equals, "")
 }
 
+func (s *UnitSuite) TestJoinedRelations(c *gc.C) {
+	wordpress0 := s.unit
+	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysql0, err := mysql.AddUnit()
+	c.Assert(err, gc.IsNil)
+	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
+	c.Assert(err, gc.IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, gc.IsNil)
+
+	assertJoinedRelations := func(unit *state.Unit, expect ...*state.Relation) {
+		actual, err := unit.JoinedRelations()
+		c.Assert(err, gc.IsNil)
+		c.Assert(actual, gc.HasLen, len(expect))
+		for i, a := range actual {
+			c.Assert(a.Id(), gc.Equals, expect[i].Id())
+		}
+	}
+	assertJoinedRelations(wordpress0)
+	assertJoinedRelations(mysql0)
+
+	mysql0ru, err := rel.Unit(mysql0)
+	c.Assert(err, gc.IsNil)
+	err = mysql0ru.EnterScope(nil)
+	c.Assert(err, gc.IsNil)
+	assertJoinedRelations(wordpress0)
+	assertJoinedRelations(mysql0, rel)
+
+	wordpress0ru, err := rel.Unit(wordpress0)
+	c.Assert(err, gc.IsNil)
+	err = wordpress0ru.EnterScope(nil)
+	c.Assert(err, gc.IsNil)
+	assertJoinedRelations(wordpress0, rel)
+	assertJoinedRelations(mysql0, rel)
+
+	err = mysql0ru.LeaveScope()
+	c.Assert(err, gc.IsNil)
+	assertJoinedRelations(wordpress0, rel)
+	assertJoinedRelations(mysql0)
+}
+
 func (s *UnitSuite) TestRemove(c *gc.C) {
 	err := s.unit.Remove()
 	c.Assert(err, gc.ErrorMatches, `cannot remove unit "wordpress/0": unit is not dead`)
