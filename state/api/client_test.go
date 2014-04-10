@@ -103,7 +103,7 @@ func (s *clientSuite) TestWatchDebugLogConnected(c *gc.C) {
 }
 
 func (s *clientSuite) TestConnectionErrorBadConnection(c *gc.C) {
-	s.PatchValue(api.DialDebugLog, func(_ *websocket.Config) (io.ReadCloser, error) {
+	s.PatchValue(api.WebsocketDialConfig, func(_ *websocket.Config) (io.ReadCloser, error) {
 		return nil, fmt.Errorf("bad connection")
 	})
 	client := s.APIState.Client()
@@ -113,7 +113,7 @@ func (s *clientSuite) TestConnectionErrorBadConnection(c *gc.C) {
 }
 
 func (s *clientSuite) TestConnectionErrorNoData(c *gc.C) {
-	s.PatchValue(api.DialDebugLog, func(_ *websocket.Config) (io.ReadCloser, error) {
+	s.PatchValue(api.WebsocketDialConfig, func(_ *websocket.Config) (io.ReadCloser, error) {
 		return ioutil.NopCloser(&bytes.Buffer{}), nil
 	})
 	client := s.APIState.Client()
@@ -123,7 +123,7 @@ func (s *clientSuite) TestConnectionErrorNoData(c *gc.C) {
 }
 
 func (s *clientSuite) TestConnectionErrorBadData(c *gc.C) {
-	s.PatchValue(api.DialDebugLog, func(_ *websocket.Config) (io.ReadCloser, error) {
+	s.PatchValue(api.WebsocketDialConfig, func(_ *websocket.Config) (io.ReadCloser, error) {
 		junk := strings.NewReader("junk\n")
 		return ioutil.NopCloser(junk), nil
 	})
@@ -134,7 +134,7 @@ func (s *clientSuite) TestConnectionErrorBadData(c *gc.C) {
 }
 
 func (s *clientSuite) TestConnectionErrorReadError(c *gc.C) {
-	s.PatchValue(api.DialDebugLog, func(_ *websocket.Config) (io.ReadCloser, error) {
+	s.PatchValue(api.WebsocketDialConfig, func(_ *websocket.Config) (io.ReadCloser, error) {
 		junk := strings.NewReader("junk")
 		err := fmt.Errorf("bad read")
 		return &badReader{ioutil.NopCloser(junk), err}, nil
@@ -146,7 +146,7 @@ func (s *clientSuite) TestConnectionErrorReadError(c *gc.C) {
 }
 
 func (s *clientSuite) TestParamsEncoded(c *gc.C) {
-	s.PatchValue(api.DialDebugLog, echoUrl(c))
+	s.PatchValue(api.WebsocketDialConfig, echoUrl(c))
 
 	params := api.DebugLogParams{
 		IncludeEntity: []string{"a", "b"},
