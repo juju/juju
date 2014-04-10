@@ -425,7 +425,6 @@ func assertAPIHostPorts(c *gc.C, got, want [][]instance.HostPort) {
 	c.Assert(got, gc.DeepEquals, want)
 }
 
-// hostPortSliceByHostPort sorts a slice of as slice of instance.HostPort values.
 type hostPortSliceByHostPort [][]instance.HostPort
 
 func (h hostPortSliceByHostPort) Len() int      { return len(h) }
