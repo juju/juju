@@ -436,7 +436,7 @@ func (h hostPortSliceByHostPort) Less(i, j int) bool {
 		return true
 	}
 	for i := 0; i < len(a); i++ {
-		if a[i].Address.Value < b[i].Address.Value || a[i].Port < b[i].Port {
+		if a[i].Address.Value < b[i].Address.Value && a[i].Port <= b[i].Port {
 			return true
 		}
 	}
