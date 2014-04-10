@@ -64,6 +64,35 @@ func (c *SCPCommand) Init(args []string) error {
 	return nil
 }
 
+// expandArgs takes a list of arguments and looks for ones in the form of
+// 0:some/path or service/0:some/path, and translates them into
+// ubuntu@machine:some/path so they can be passed as arguments to scp, and pass
+// the rest verbatim on to scp
+func expandArgs(args []string, hostFromTarget func(string) (string, error)) ([]string, error) {
+	outArgs := make([]string, len(args))
+	for i, arg := range args {
+		v := strings.SplitN(arg, ":", 2)
+		if len(v) <= 1 {
+			// Can't be an interesting target, so just pass it along
+			outArgs[i] = arg
+			continue
+		}
+		host, err := hostFromTarget(v[0])
+		if err != nil {
+			return nil, err
+		}
+		// To ensure this works with IPv6 addresses, we need to
+		// wrap the host with \[..\], so the colons inside will be
+		// interpreted as part of the address and the last one as
+		// separator between host and remote path.
+		if strings.Contains(host, ":") {
+			host = fmt.Sprintf(`\[%s\]`, host)
+		}
+		outArgs[i] = "ubuntu@" + host + ":" + v[1]
+	}
+	return outArgs, nil
+}
+
 // Run resolves c.Target to a machine, or host of a unit and
 // forks ssh with c.Args, if provided.
 func (c *SCPCommand) Run(ctx *cmd.Context) error {
@@ -73,38 +102,9 @@ func (c *SCPCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer c.apiClient.Close()
-
-	// Parse all arguments, translating those in the form 0:/somepath
-	// or service/0:/somepath into ubuntu@machine:/somepath so they
-	// can be given to scp as targets (source(s) and destination(s)),
-	// and passing any others that look like extra arguments (starting
-	// with "-") verbatim to scp.
-	var targets, extraArgs []string
-	for i, arg := range c.Args {
-		if v := strings.SplitN(arg, ":", 2); len(v) > 1 {
-			host, err := c.hostFromTarget(v[0])
-			if err != nil {
-				return err
-			}
-			// To ensure this works with IPv6 addresses, we need to
-			// wrap the host with \[..\], so the colons inside will be
-			// interpreted as part of the address and the last one as
-			// separator between host and remote path.
-			if strings.Contains(host, ":") {
-				host = fmt.Sprintf(`\[%s\]`, host)
-			}
-			targets = append(targets, "ubuntu@"+host+":"+v[1])
-			continue
-		}
-		if strings.HasPrefix(arg, "-") {
-			if i != len(c.Args)-1 {
-				return fmt.Errorf("unexpected argument %q; extra arguments must be last", arg)
-			}
-			extraArgs = append(extraArgs, arg)
-		} else {
-			// Local path
-			targets = append(targets, arg)
-		}
+	args, err := expandArgs(c.Args, c.hostFromTarget)
+	if err != nil {
+		return err
 	}
-	return ssh.Copy(targets, extraArgs, nil)
+	return ssh.Copy(args, nil)
 }

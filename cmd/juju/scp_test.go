@@ -9,7 +9,9 @@ import (
 	"io/ioutil"
 	"net/url"
 	"path/filepath"
+	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
@@ -34,56 +36,52 @@ var scpTests = []struct {
 		[]string{"0:foo", "."},
 		commonArgs + "ubuntu@dummyenv-0.dns:foo .\n",
 		"",
-	},
-	{
+	}, {
 		"scp from machine 0 to current dir with extra args",
-		[]string{"0:foo", ".", "-rv -o SomeOption"},
-		commonArgs + "-rv -o SomeOption ubuntu@dummyenv-0.dns:foo .\n",
+		[]string{"0:foo", ".", "-rv", "-o", "SomeOption"},
+		commonArgs + "ubuntu@dummyenv-0.dns:foo . -rv -o SomeOption\n",
 		"",
-	},
-	{
+	}, {
 		"scp from current dir to machine 0",
 		[]string{"foo", "0:"},
 		commonArgs + "foo ubuntu@dummyenv-0.dns:\n",
 		"",
-	},
-	{
+	}, {
 		"scp from current dir to machine 0 with extra args",
-		[]string{"foo", "0:", "-r -v"},
-		commonArgs + "-r -v foo ubuntu@dummyenv-0.dns:\n",
+		[]string{"foo", "0:", "-r", "-v"},
+		commonArgs + "foo ubuntu@dummyenv-0.dns: -r -v\n",
 		"",
-	},
-	{
+	}, {
 		"scp from machine 0 to unit mysql/0",
 		[]string{"0:foo", "mysql/0:/foo"},
 		commonArgs + "ubuntu@dummyenv-0.dns:foo ubuntu@dummyenv-0.dns:/foo\n",
 		"",
-	},
-	{
+	}, {
 		"scp from machine 0 to unit mysql/0 and extra args",
 		[]string{"0:foo", "mysql/0:/foo", "-q"},
-		commonArgs + "-q ubuntu@dummyenv-0.dns:foo ubuntu@dummyenv-0.dns:/foo\n",
+		commonArgs + "ubuntu@dummyenv-0.dns:foo ubuntu@dummyenv-0.dns:/foo -q\n",
 		"",
-	},
-	{
+	}, {
 		"scp from machine 0 to unit mysql/0 and extra args before",
 		[]string{"-q", "-r", "0:foo", "mysql/0:/foo"},
+		commonArgs + "-q -r ubuntu@dummyenv-0.dns:foo ubuntu@dummyenv-0.dns:/foo\n",
 		"",
-		`unexpected argument "-q"; extra arguments must be last`,
-	},
-	{
+	}, {
 		"scp two local files to unit mysql/0",
 		[]string{"file1", "file2", "mysql/0:/foo/"},
 		commonArgs + "file1 file2 ubuntu@dummyenv-0.dns:/foo/\n",
 		"",
-	},
-	{
+	}, {
 		"scp from unit mongodb/1 to unit mongodb/0 and multiple extra args",
-		[]string{"mongodb/1:foo", "mongodb/0:", "-r -v -q -l5"},
-		commonArgs + "-r -v -q -l5 ubuntu@dummyenv-2.dns:foo ubuntu@dummyenv-1.dns:\n",
+		[]string{"mongodb/1:foo", "mongodb/0:", "-r", "-v", "-q", "-l5"},
+		commonArgs + "ubuntu@dummyenv-2.dns:foo ubuntu@dummyenv-1.dns: -r -v -q -l5\n",
 		"",
-	},
-	{
+	}, {
+		"scp from unit mongodb/1 to unit mongodb/0 with a --",
+		[]string{"--", "-r", "-v", "mongodb/1:foo", "mongodb/0:", "-q", "-l5"},
+		commonArgs + "-- -r -v ubuntu@dummyenv-2.dns:foo ubuntu@dummyenv-1.dns: -q -l5\n",
+		"",
+	}, {
 		"scp works with IPv6 addresses",
 		[]string{"ipv6-svc/0:foo", "bar"},
 		commonArgs + `ubuntu@\[2001:db8::\]:foo bar` + "\n",
@@ -139,4 +137,38 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 			c.Check(string(data), gc.Equals, t.result)
 		}
 	}
+}
+
+var hostsFromTargets = map[string]string{
+	"0":          "dummyenv-0.dns",
+	"mysql/0":    "dummyenv-0.dns",
+	"mongodb/0":  "dummyenv-1.dns",
+	"mongodb/1":  "dummyenv-2.dns",
+	"ipv6-svc/0": "2001:db8::",
+}
+
+func dummyHostsFromTarget(target string) (string, error) {
+	if res, ok := hostsFromTargets[target]; ok {
+		return res, nil
+	}
+	return target, nil
+}
+
+func (s *SCPSuite) TestSCPExpandArgs(c *gc.C) {
+	for i, t := range scpTests {
+		c.Logf("test %d: %s -> %s\n", i, t.about, t.args)
+		// expandArgs doesn't add the commonArgs prefix, so strip it
+		// off, along with the trailing '\n'
+		c.Check(strings.HasPrefix(t.result, commonArgs), jc.IsTrue)
+		argString := t.result[len(commonArgs):]
+		c.Check(strings.HasSuffix(argString, "\n"), jc.IsTrue)
+		argString = argString[:len(argString)-1]
+		args := strings.Split(argString, " ")
+		expanded, err := expandArgs(t.args, dummyHostsFromTarget)
+		c.Check(err, gc.IsNil)
+		c.Check(expanded, gc.DeepEquals, args)
+	}
+}
+
+func (s *SCPSuite) TestSCPExtendedArgs(c *gc.C) {
 }

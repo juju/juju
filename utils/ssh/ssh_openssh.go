@@ -124,17 +124,16 @@ func (c *OpenSSHClient) Command(host string, command []string, options *Options)
 }
 
 // Copy implements Client.Copy.
-func (c *OpenSSHClient) Copy(targets, extraArgs []string, userOptions *Options) error {
+func (c *OpenSSHClient) Copy(args []string, userOptions *Options) error {
 	var options Options
 	if userOptions != nil {
 		options = *userOptions
 		options.allocatePTY = false // doesn't make sense for scp
 	}
-	args := opensshOptions(&options, scpKind)
-	args = append(args, extraArgs...)
-	args = append(args, targets...)
-	bin, args := sshpassWrap("scp", args)
-	cmd := exec.Command(bin, args...)
+	allArgs := opensshOptions(&options, scpKind)
+	allArgs = append(allArgs, args...)
+	bin, allArgs := sshpassWrap("scp", allArgs)
+	cmd := exec.Command(bin, allArgs...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	logger.Debugf("running: %s %s", bin, utils.CommandString(args...))
