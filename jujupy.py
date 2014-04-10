@@ -111,8 +111,8 @@ class JujuClientDevel:
             (environment.environment, '--force', '-y'),
             environment.needs_sudo(), check=False)
 
-    def get_juju_output(self, environment, command):
-        args = self._full_args(environment, command, False, ())
+    def get_juju_output(self, environment, command, *args):
+        args = self._full_args(environment, command, False, args)
         with tempfile.TemporaryFile() as stderr:
             try:
                 return subprocess.check_output(args, stderr=stderr)
