@@ -50,7 +50,7 @@ type ErrorResults struct {
 // of a bulk operation on a single value.
 func (result ErrorResults) OneError() error {
 	if n := len(result.Results); n != 1 {
-		return fmt.Errorf("expected one result, got %d", n)
+		return fmt.Errorf("expected 1 result, got %d", n)
 	}
 	if err := result.Results[0].Error; err != nil {
 		return err

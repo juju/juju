@@ -38,7 +38,7 @@ func (s *Service) Watch() (watcher.NotifyWatcher, error) {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -80,7 +80,7 @@ func (s *Service) IsExposed() (bool, error) {
 		return false, err
 	}
 	if len(results.Results) != 1 {
-		return false, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return false, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
