@@ -333,7 +333,7 @@ func (suite *environSuite) getInstance(systemId string) *maasInstance {
 }
 
 func (suite *environSuite) getNetwork(name string) *gomaasapi.MAASObject {
-	input := fmt.Sprintf(`{"name": %q, "ip":"127.0.0.1", "netmask": "255.255.255.0", "vlan_tag": "1", "description": "" }`, name)
+	input := fmt.Sprintf(`{"name": %q, "ip":"127.0.0.1", "netmask": "255.255.255.0", "vlan_tag": 1, "description": "" }`, name)
 	network := suite.testMAASObject.TestServer.NewNetwork(input)
 	return &network
 }
