@@ -42,6 +42,9 @@ var (
 
 	// JujuMongodPath holds the default path to the juju-specific mongod.
 	JujuMongodPath = "/usr/lib/juju/bin/mongod"
+
+	upstartConfInstall          = (*upstart.Conf).Install
+	upstartServiceStopAndRemove = (*upstart.Service).StopAndRemove
 )
 
 // WithAddresses represents an entity that has a set of
@@ -111,7 +114,8 @@ func MongodPath() (string, error) {
 
 // RemoveService removes the mongoDB upstart service from this machine.
 func RemoveService(namespace string) error {
-	return upstart.NewService(ServiceName(namespace)).StopAndRemove()
+	svc := upstart.NewService(ServiceName(namespace))
+	return upstartServiceStopAndRemove(svc)
 }
 
 // EnsureMongoServer ensures that the correct mongo upstart script is installed
@@ -160,14 +164,14 @@ func EnsureMongoServer(dataDir string, namespace string, info params.StateServin
 		return fmt.Errorf("cannot install mongod: %v", err)
 	}
 
-	service, err := mongoUpstartService(namespace, dataDir, dbDir, info.StatePort)
+	upstartConf, err := mongoUpstartService(namespace, dataDir, dbDir, info.StatePort)
 	if err != nil {
 		return err
 	}
 	if err := makeJournalDirs(dbDir); err != nil {
 		return fmt.Errorf("Error creating journal directories: %v", err)
 	}
-	return service.Install()
+	return upstartConfInstall(upstartConf)
 }
 
 // ServiceName returns the name of the upstart service config for mongo using
