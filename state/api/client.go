@@ -735,27 +735,32 @@ func IsConnectionError(err error) bool {
 	return ok
 }
 
-// Params for WatchDebugLog controls the filtering of the log messages. If the
-// structure is zero initialized, the entire log file is sent back starting
-// from the end, and until the user closes the connection.
+// DebugLogParams holds parameters for WatchDebugLog that control the
+// filtering of the log messages. If the structure is zero initialized, the
+// entire log file is sent back starting from the end, and until the user
+// closes the connection.
 type DebugLogParams struct {
 	// IncludeEntity lists entity tags to include in the response. Tags may
 	// finish with a '*' to match a prefix e.g.: unit-mysql-*, machine-2. If
 	// none are set, then all lines are considered included.
 	IncludeEntity []string
 	// IncludeModule lists logging modules to include in the response. If none
-	// are  set all modules are considered included.
+	// are set all modules are considered included.  If a module is specified,
+	// all the submodules also match.
 	IncludeModule []string
 	// ExcludeEntity lists entity tags to exclude from the response. As with
 	// IncludeEntity the values may finish with a '*'.
 	ExcludeEntity []string
-	// ExcludeModule lists logging modules to exclude from the resposne.
+	// ExcludeModule lists logging modules to exclude from the resposne. If a
+	// module is specified, all the submodules are also excluded.
 	ExcludeModule []string
 	// Limit defines the maximum number of lines to return. Once this many
-	// have been sent, the socket is closed.
+	// have been sent, the socket is closed.  If zero, all filtered lines are
+	// sent down the connection until the client closes the connection.
 	Limit uint
 	// Backlog tells the server to try to go back this many lines before
-	// starting filtering.
+	// starting filtering. If backlog is zero and replay is false, then there
+	// may be an initial delay until the next matching log message is written.
 	Backlog uint
 	// Level specifies the minimum logging level to be sent back in the response.
 	Level loggo.Level
@@ -818,7 +823,7 @@ func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
 	}
 	line = line[0:n]
 
-	logger.Debugf("initial line: %s", line)
+	logger.Debugf("initial line: %q", line)
 	var errResult params.ErrorResult
 	err = json.Unmarshal(line, &errResult)
 	if err != nil {

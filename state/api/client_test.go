@@ -135,9 +135,8 @@ func (s *clientSuite) TestConnectionErrorBadData(c *gc.C) {
 
 func (s *clientSuite) TestConnectionErrorReadError(c *gc.C) {
 	s.PatchValue(api.WebsocketDialConfig, func(_ *websocket.Config) (io.ReadCloser, error) {
-		junk := strings.NewReader("junk")
 		err := fmt.Errorf("bad read")
-		return &badReader{ioutil.NopCloser(junk), err}, nil
+		return ioutil.NopCloser(&badReader{err}), nil
 	})
 	client := s.APIState.Client()
 	reader, err := client.WatchDebugLog(api.DebugLogParams{})
@@ -146,7 +145,7 @@ func (s *clientSuite) TestConnectionErrorReadError(c *gc.C) {
 }
 
 func (s *clientSuite) TestParamsEncoded(c *gc.C) {
-	s.PatchValue(api.WebsocketDialConfig, echoUrl(c))
+	s.PatchValue(api.WebsocketDialConfig, echoURL(c))
 
 	params := api.DebugLogParams{
 		IncludeEntity: []string{"a", "b"},
@@ -184,7 +183,6 @@ func (s *clientSuite) TestParamsEncoded(c *gc.C) {
 
 // badReader raises err when Read is called.
 type badReader struct {
-	io.ReadCloser
 	err error
 }
 
@@ -192,7 +190,7 @@ func (r *badReader) Read(p []byte) (n int, err error) {
 	return 0, r.err
 }
 
-func echoUrl(c *gc.C) func(*websocket.Config) (io.ReadCloser, error) {
+func echoURL(c *gc.C) func(*websocket.Config) (io.ReadCloser, error) {
 	response := &params.ErrorResult{}
 	message, err := json.Marshal(response)
 	c.Assert(err, gc.IsNil)

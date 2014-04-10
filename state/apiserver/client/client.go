@@ -782,7 +782,7 @@ func parseSettingsCompatible(ch *state.Charm, settings map[string]string) (charm
 	return changes, nil
 }
 
-// AgentVersion returns the current version that the api server is running.
+// AgentVersion returns the current version that the API server is running.
 func (c *Client) AgentVersion() (params.AgentVersionResult, error) {
 	return params.AgentVersionResult{Version: version.Current.Number}, nil
 }
