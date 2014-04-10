@@ -85,15 +85,14 @@ func NewHttpTLSTransport(tlsConfig *tls.Config) *http.Transport {
 	return transport
 }
 
-// CreateBasicAuthHeader creates a header that contains just
-// the "Authorization" entry.  The implementation was originally
-// taked from net/http but this is needed externally from the
-// http request object in order to use this with our websockets.
-// See 2 (end of page 4) http://www.ietf.org/rfc/rfc2617.txt
+// BasicAuthHeader creates a header that contains just the "Authorization"
+// entry.  The implementation was originally taked from net/http but this is
+// needed externally from the http request object in order to use this with
+// our websockets. See 2 (end of page 4) http://www.ietf.org/rfc/rfc2617.txt
 // "To receive authorization, the client sends the userid and password,
-// separated by a single colon (":") character, within a base64
-// encoded string in the credentials."
-func CreateBasicAuthHeader(username, password string) http.Header {
+// separated by a single colon (":") character, within a base64 encoded string
+// in the credentials."
+func BasicAuthHeader(username, password string) http.Header {
 	auth := username + ":" + password
 	encoded := "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
 	return http.Header{

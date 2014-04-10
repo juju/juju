@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -711,20 +710,18 @@ func (c *Client) EnsureAvailability(numStateServers int, cons constraints.Value,
 	return c.call("EnsureAvailability", args, nil)
 }
 
-// Version reports the version number of the api server.
-func (c *Client) Version() (version.Number, error) {
-	var result params.VersionResult
-	if err := c.call("Version", nil, &result); err != nil {
+// AgentVersion reports the version number of the api server.
+func (c *Client) AgentVersion() (version.Number, error) {
+	var result params.AgentVersionResult
+	if err := c.call("AgentVersion", nil, &result); err != nil {
 		return version.Number{}, err
 	}
-	if result.Error != nil {
-		return version.Number{}, result.Error
-	}
-	return *result.Version, nil
+	return result.Version, nil
 }
 
-// Allow overriding in tests.
-var dialDebugLog = func(config *websocket.Config) (io.ReadCloser, error) {
+// websocketDialConfig is called instead of websocket.DialConfig so we can
+// override it in tests.
+var websocketDialConfig = func(config *websocket.Config) (io.ReadCloser, error) {
 	return websocket.DialConfig(config)
 }
 
@@ -732,59 +729,76 @@ type connectionError struct {
 	error
 }
 
-// IsConnectionError returns true if the error is a connection error.
+// IsConnectionError reports whether the error is a connection error.
 func IsConnectionError(err error) bool {
 	_, ok := err.(*connectionError)
 	return ok
 }
 
-// Params for WatchDebugLog
+// DebugLogParams holds parameters for WatchDebugLog that control the
+// filtering of the log messages. If the structure is zero initialized, the
+// entire log file is sent back starting from the end, and until the user
+// closes the connection.
 type DebugLogParams struct {
+	// IncludeEntity lists entity tags to include in the response. Tags may
+	// finish with a '*' to match a prefix e.g.: unit-mysql-*, machine-2. If
+	// none are set, then all lines are considered included.
 	IncludeEntity []string
+	// IncludeModule lists logging modules to include in the response. If none
+	// are set all modules are considered included.  If a module is specified,
+	// all the submodules also match.
 	IncludeModule []string
+	// ExcludeEntity lists entity tags to exclude from the response. As with
+	// IncludeEntity the values may finish with a '*'.
 	ExcludeEntity []string
+	// ExcludeModule lists logging modules to exclude from the resposne. If a
+	// module is specified, all the submodules are also excluded.
 	ExcludeModule []string
-	Limit         uint
-	Backlog       uint
-	Level         loggo.Level
-	Replay        bool
+	// Limit defines the maximum number of lines to return. Once this many
+	// have been sent, the socket is closed.  If zero, all filtered lines are
+	// sent down the connection until the client closes the connection.
+	Limit uint
+	// Backlog tells the server to try to go back this many lines before
+	// starting filtering. If backlog is zero and replay is false, then there
+	// may be an initial delay until the next matching log message is written.
+	Backlog uint
+	// Level specifies the minimum logging level to be sent back in the response.
+	Level loggo.Level
+	// Replay tells the server to start at the start of the log file rather
+	// than the end. If replay is true, backlog is ignored.
+	Replay bool
 }
 
-// WatchDebugLog returns a ClientDebugLog reading the debug log message.
-// The filter allows to grep wanted lines out of the output, e.g.
-// machines or units. The watching is started the given number of
-// matching lines back in history.
+// WatchDebugLog returns a ReadCloser that the caller can read the log lines
+// from. Only log lines that match the filtering specified in the
+// DebugLogParams are returned. It returns an error that satisfies
+// IsConnectionError when the connection cannot be made.
 func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
 	// The websocket connection just hangs if the server doesn't have the log
-	// end point (not sure why). So do a version check, as version was added
-	// at the same time as the remote end point.
-	_, err := c.Version()
+	// end point. So do a version check, as version was added at the same time
+	// as the remote end point.
+	_, err := c.AgentVersion()
 	if err != nil {
 		return nil, &connectionError{fmt.Errorf("server doesn't support debug log websocket")}
 	}
 	// Prepare URL.
 	attrs := url.Values{}
 	if args.Replay {
-		attrs["replay"] = []string{strconv.FormatBool(args.Replay)}
+		attrs.Set("replay", fmt.Sprint(args.Replay))
 	}
 	if args.Limit > 0 {
-		attrs["maxLines"] = []string{fmt.Sprint(args.Limit)}
+		attrs.Set("maxLines", fmt.Sprint(args.Limit))
 	}
 	if args.Backlog > 0 {
-		attrs["backlog"] = []string{fmt.Sprint(args.Backlog)}
+		attrs.Set("backlog", fmt.Sprint(args.Backlog))
 	}
 	if args.Level != loggo.UNSPECIFIED {
-		attrs["level"] = []string{fmt.Sprint(args.Level)}
+		attrs.Set("level", fmt.Sprint(args.Level))
 	}
-	addAttrIfNotEmpty := func(name string, arg []string) {
-		if len(arg) > 0 {
-			attrs[name] = arg
-		}
-	}
-	addAttrIfNotEmpty("includeEntity", args.IncludeEntity)
-	addAttrIfNotEmpty("includeModule", args.IncludeModule)
-	addAttrIfNotEmpty("excludeEntity", args.ExcludeEntity)
-	addAttrIfNotEmpty("excludeModule", args.ExcludeModule)
+	attrs["includeEntity"] = args.IncludeEntity
+	attrs["includeModule"] = args.IncludeModule
+	attrs["excludeEntity"] = args.ExcludeEntity
+	attrs["excludeModule"] = args.ExcludeModule
 
 	target := url.URL{
 		Scheme:   "wss",
@@ -793,38 +807,30 @@ func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
 		RawQuery: attrs.Encode(),
 	}
 	cfg, err := websocket.NewConfig(target.String(), "http://localhost/")
-	cfg.Header = utils.CreateBasicAuthHeader(c.st.tag, c.st.password)
+	cfg.Header = utils.BasicAuthHeader(c.st.tag, c.st.password)
 	cfg.TlsConfig = &tls.Config{RootCAs: c.st.certPool, ServerName: "anything"}
-	connection, err := dialDebugLog(cfg)
+	connection, err := websocketDialConfig(cfg)
 	if err != nil {
 		return nil, &connectionError{err}
 	}
 	// Read the initial error and translate to a real error.
 	// Read up to the first new line character. We can't use bufio here as it
 	// reads too much from the reader.
-	line := []byte{}
-	data := []byte{0}
-	for err == nil {
-		var n int
-		n, err = connection.Read(data)
-		if n > 0 {
-			line = append(line, data[0])
-		}
-		if data[0] == '\n' {
-			break
-		}
-	}
+	line := make([]byte, 4096)
+	n, err := connection.Read(line)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read initial response: %v", err)
 	}
-	logger.Debugf("initial line: %v", string(line))
+	line = line[0:n]
+
+	logger.Debugf("initial line: %q", line)
 	var errResult params.ErrorResult
 	err = json.Unmarshal(line, &errResult)
 	if err != nil {
 		return nil, fmt.Errorf("unable to unmarshal initial response: %v", err)
 	}
 	if errResult.Error != nil {
-		return nil, fmt.Errorf(errResult.Error.Message)
+		return nil, errResult.Error
 	}
 	return connection, nil
 }
