@@ -272,7 +272,7 @@ class Environment:
     def wait_for_version(self, version):
         for ignored in until_timeout(30 * 60):
             try:
-                versions = self.get_status(30 * 30).get_agent_versions()
+                versions = self.get_status().get_agent_versions()
             except CannotConnectEnv:
                 print('Supressing "Unable to connect to environment"')
                 continue
