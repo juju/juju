@@ -180,7 +180,7 @@ func (c *BootstrapCommand) startMongo(addrs []instance.Address, agentConfig agen
 	}
 	peerHostPort := net.JoinHostPort(peerAddr, fmt.Sprint(servingInfo.StatePort))
 
-	return peergrouper.MaybeInitiateMongoServer(peergrouper.InitiateMongoParams{
+	return maybeInitiateMongoServer(peergrouper.InitiateMongoParams{
 		DialInfo:       dialInfo,
 		MemberHostPort: peerHostPort,
 	})
