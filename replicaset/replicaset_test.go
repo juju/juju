@@ -102,7 +102,7 @@ func dialAndTestInitiate(c *gc.C) {
 	session := root.MustDialDirect()
 	defer session.Close()
 
-	err := Initiate(session, root.Addr(), name)
+	err := Initiate(session, root.Addr(), name, nil)
 	c.Assert(err, gc.IsNil)
 
 	// Ids start at 1 for us, so we can differentiate between set and unset
