@@ -3,15 +3,22 @@
 
 package names
 
-// NetworkTag returns the tag of a network with the given id.
-func NetworkTag(id string) string {
-	return makeTag(NetworkTagKind, id)
+import (
+	"fmt"
+	"regexp"
+)
+
+var validNetwork = regexp.MustCompile("^([a-z0-9]+(-[a-z0-9]+)*)$")
+
+// IsNetwork returns whether name is a valid network name.
+func IsNetwork(name string) bool {
+	return validNetwork.MatchString(name)
 }
 
-// IsNetwork returns whether id is a valid network id.
-func IsNetwork(id string) bool {
-	// TODO(dimitern) Until we have a clear networking specification,
-	// we cannot impose further restrictions on the id, because it
-	// comes from the provider.
-	return id != ""
+// NetworkTag returns the tag of a network with the given name.
+func NetworkTag(name string) string {
+	if !IsNetwork(name) {
+		panic(fmt.Sprintf("%q is not a valid network name", name))
+	}
+	return makeTag(NetworkTagKind, name)
 }

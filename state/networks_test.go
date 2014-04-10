@@ -24,14 +24,15 @@ func (s *NetworkSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	s.network, err = s.State.AddNetwork("net1", "0.1.2.3/24", 0)
+	s.network, err = s.State.AddNetwork("net1", "net1", "0.1.2.3/24", 0)
 	c.Assert(err, gc.IsNil)
-	s.vlan, err = s.State.AddNetwork("vlan", "0.1.2.3/30", 42)
+	s.vlan, err = s.State.AddNetwork("vlan", "vlan", "0.1.2.3/30", 42)
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *NetworkSuite) TestGetterMethods(c *gc.C) {
-	c.Assert(s.network.Id(), gc.Equals, "net1")
+	c.Assert(s.network.Name(), gc.Equals, "net1")
+	c.Assert(s.network.ProviderId(), gc.Equals, "net1")
 	c.Assert(s.network.Tag(), gc.Equals, "network-net1")
 	c.Assert(s.network.CIDR(), gc.Equals, "0.1.2.3/24")
 	c.Assert(s.network.VLANTag(), gc.Equals, 0)

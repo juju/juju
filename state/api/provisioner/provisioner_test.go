@@ -220,17 +220,20 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(ifacesMachine, gc.HasLen, 0)
 
 	networks := []params.Network{{
-		Tag:     "network-net1",
-		CIDR:    "0.1.2.0/24",
-		VLANTag: 0,
+		Tag:        "network-net1",
+		ProviderId: "net1",
+		CIDR:       "0.1.2.0/24",
+		VLANTag:    0,
 	}, {
-		Tag:     "network-vlan42",
-		CIDR:    "0.2.2.0/24",
-		VLANTag: 42,
+		Tag:        "network-vlan42",
+		ProviderId: "vlan42",
+		CIDR:       "0.2.2.0/24",
+		VLANTag:    42,
 	}, {
-		Tag:     "network-vlan42", // duplicated; ignored
-		CIDR:    "0.2.2.0/24",
-		VLANTag: 42,
+		Tag:        "network-vlan42", // duplicated; ignored
+		ProviderId: "vlan42",
+		CIDR:       "0.2.2.0/24",
+		VLANTag:    42,
 	}}
 	ifaces := []params.NetworkInterface{{
 		MACAddress:    "aa:bb:cc:dd:ee:f0",
@@ -274,11 +277,12 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 			// Last one was ignored, so skip it.
 			break
 		}
-		_, networkId, err := names.ParseTag(networks[i].Tag, names.NetworkTagKind)
+		_, networkName, err := names.ParseTag(networks[i].Tag, names.NetworkTagKind)
 		c.Assert(err, gc.IsNil)
-		network, err := s.State.Network(networkId)
+		network, err := s.State.Network(networkName)
 		c.Assert(err, gc.IsNil)
-		c.Check(network.Id(), gc.Equals, networkId)
+		c.Check(network.Name(), gc.Equals, networkName)
+		c.Check(network.ProviderId(), gc.Equals, networks[i].ProviderId)
 		c.Check(network.Tag(), gc.Equals, networks[i].Tag)
 		c.Check(network.VLANTag(), gc.Equals, networks[i].VLANTag)
 		c.Check(network.CIDR(), gc.Equals, networks[i].CIDR)
@@ -403,8 +407,8 @@ func (s *provisionerSuite) TestRequestedNetworks(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	includeNetworks, excludeNetworks, err := apiMachine.RequestedNetworks()
 	c.Assert(err, gc.IsNil)
-	c.Assert(includeNetworks, gc.DeepEquals, []string{"network-net1", "network-net2"})
-	c.Assert(excludeNetworks, gc.DeepEquals, []string{"network-net3", "network-net4"})
+	c.Assert(includeNetworks, gc.DeepEquals, template.IncludeNetworks)
+	c.Assert(excludeNetworks, gc.DeepEquals, template.ExcludeNetworks)
 
 	// Now try machine 0.
 	apiMachine, err = s.provisioner.Machine(s.machine.Tag())

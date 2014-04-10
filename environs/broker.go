@@ -38,8 +38,11 @@ type StartInstanceParams struct {
 // available at StartInstance() time. NetworkId is a provider-specific
 // network identifier.
 type NetworkInfo struct {
-	MACAddress    string
-	CIDR          string
+	MACAddress string
+	CIDR       string
+	// NetworkName is juju-internal name of the network.
+	NetworkName string
+	// NetworkId is a provider-specific network id.
 	NetworkId     string
 	VLANTag       int
 	InterfaceName string

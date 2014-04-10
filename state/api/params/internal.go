@@ -313,9 +313,10 @@ type SetProvisioned struct {
 
 // Network describes a single network available on an instance.
 type Network struct {
-	Tag     string
-	CIDR    string
-	VLANTag int
+	Tag        string
+	ProviderId string
+	CIDR       string
+	VLANTag    int
 }
 
 // NetworkInterface describes a single network interface available on

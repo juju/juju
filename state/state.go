@@ -1014,59 +1014,76 @@ func (st *State) AddService(name, ownerTag string, ch *Charm, includeNetworks, e
 	return svc, nil
 }
 
-// AddNetwork creates a new network with the given id, CIDR and VLAN
-// tag. If a network with the same id already exists in state, an
-// error satisfying errors.IsAlreadyExistsError is returned.
-//
-// TODO(dimitern) Start using sequences for id, like for machines. For
-// that we need a more comprehensive networks specification in juju,
-// including a clear separation between provider-specific and
-// juju-specific terms.
-func (st *State) AddNetwork(id, cidr string, vlanTag int) (n *Network, err error) {
-	defer func() {
-		if !errors.IsAlreadyExistsError(err) {
-			utils.ErrorContextf(&err, "cannot add network %q", id)
-		}
-	}()
+// AddNetwork creates a new network with the given name,
+// provider-specific id, CIDR and VLAN tag. If a network with the same
+// name or provider id already exists in state, an error satisfying
+// errors.IsAlreadyExistsError is returned.
+func (st *State) AddNetwork(name, providerId, cidr string, vlanTag int) (n *Network, err error) {
+	defer utils.ErrorContextf(&err, "cannot add network %q", name)
 	if cidr != "" {
 		_, _, err := net.ParseCIDR(cidr)
 		if err != nil {
 			return nil, err
 		}
 	}
-	if id == "" {
-		return nil, fmt.Errorf("id must be not empty")
+	if name == "" {
+		return nil, fmt.Errorf("name must be not empty")
+	}
+	if !names.IsNetwork(name) {
+		return nil, fmt.Errorf("invalid name")
+	}
+	if providerId == "" {
+		return nil, fmt.Errorf("provider id must be not empty")
 	}
 	if vlanTag < 0 || vlanTag > 4094 {
 		return nil, fmt.Errorf("invalid VLAN tag %d: must be between 0 and 4094", vlanTag)
 	}
 	doc := &networkDoc{
-		Id:      id,
-		CIDR:    cidr,
-		VLANTag: vlanTag,
+		Name:       name,
+		ProviderId: providerId,
+		CIDR:       cidr,
+		VLANTag:    vlanTag,
 	}
 	ops := []txn.Op{{
 		C:      st.networks.Name,
-		Id:     id,
+		Id:     name,
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}}
-	err = onAbort(st.runTransaction(ops), errors.NewAlreadyExistsError("network "+id))
-	if err != nil {
-		return nil, err
+	for i := 0; i < 5; i++ {
+		err = st.runTransaction(ops)
+		switch err {
+		case txn.ErrAborted:
+			if _, err = st.Network(name); err == nil {
+				msg := fmt.Sprintf("network %q", name)
+				return nil, errors.NewAlreadyExistsError(msg)
+			} else if err != nil {
+				return nil, err
+			}
+		case nil:
+			// For some reason when using unique indices with mgo, and
+			// we have an index violation the error is nil, but the
+			// document is not added. So we check if the supposedly
+			// successful transaction did actually add the document.
+			if _, err = st.Network(name); err != nil {
+				msg := fmt.Sprintf("network with provider id %q", providerId)
+				return nil, errors.NewAlreadyExistsError(msg)
+			}
+			return newNetwork(st, doc), nil
+		}
 	}
-	return newNetwork(st, doc), nil
+	return nil, ErrExcessiveContention
 }
 
-// Network returns the network with the given id.
-func (st *State) Network(id string) (*Network, error) {
+// Network returns the network with the given name.
+func (st *State) Network(name string) (*Network, error) {
 	doc := &networkDoc{}
-	err := st.networks.FindId(id).One(doc)
+	err := st.networks.FindId(name).One(doc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("network %q", id)
+		return nil, errors.NotFoundf("network %q", name)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("cannot get network %q: %v", id, err)
+		return nil, fmt.Errorf("cannot get network %q: %v", name, err)
 	}
 	return newNetwork(st, doc), nil
 }

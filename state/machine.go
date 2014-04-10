@@ -827,9 +827,10 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 
 // NetworkParams describes a single network available on an instance.
 type NetworkParams struct {
-	Id      string
-	CIDR    string
-	VLANTag int
+	Name       string
+	ProviderId string
+	CIDR       string
+	VLANTag    int
 }
 
 // NetworkInterfaceParams describes a single network interface
@@ -837,7 +838,7 @@ type NetworkParams struct {
 type NetworkInterfaceParams struct {
 	MACAddress    string
 	InterfaceName string
-	NetworkId     string
+	NetworkName   string
 }
 
 // SetInstanceInfo is used to provision a machine and in one steps set
@@ -855,7 +856,7 @@ func (m *Machine) SetInstanceInfo(
 
 	// Add the networks and interfaces first.
 	for _, network := range networks {
-		_, err := m.st.AddNetwork(network.Id, network.CIDR, network.VLANTag)
+		_, err := m.st.AddNetwork(network.Name, network.ProviderId, network.CIDR, network.VLANTag)
 		if err != nil && errors.IsAlreadyExistsError(err) {
 			// Ignore already existing networks.
 			continue
@@ -864,7 +865,7 @@ func (m *Machine) SetInstanceInfo(
 		}
 	}
 	for _, iface := range interfaces {
-		_, err := m.AddNetworkInterface(iface.MACAddress, iface.InterfaceName, iface.NetworkId)
+		_, err := m.AddNetworkInterface(iface.MACAddress, iface.InterfaceName, iface.NetworkName)
 		if err != nil && errors.IsAlreadyExistsError(err) {
 			// Ignore already existing network interfaces.
 			continue
@@ -967,13 +968,14 @@ func (m *Machine) SetMachineAddresses(addresses []instance.Address) (err error) 
 	return nil
 }
 
-// RequestedNetworks returns the list of networks the machine should
-// be on (includeNetworks) or not (excludeNetworks).
+// RequestedNetworks returns the list of network names the machine
+// should be on (includeNetworks) or not (excludeNetworks).
 func (m *Machine) RequestedNetworks() (includeNetworks, excludeNetworks []string, err error) {
 	return readRequestedNetworks(m.st, m.globalKey())
 }
 
 // Networks returns the list of configured networks on the machine.
+// The configured and requested networks on a machine must match.
 func (m *Machine) Networks() ([]*Network, error) {
 	includeNetworks, _, err := m.RequestedNetworks()
 	if err != nil {
@@ -1010,32 +1012,31 @@ func (m *Machine) NetworkInterfaces() ([]*NetworkInterface, error) {
 // AddNetworkInterface creates a new network interface on the given
 // network for the machine. The machine must be alive and not yet
 // provisioned, and there must be no other interface with the same MAC
-// address for this to succeed. If a network interface with the given
-// MAC address already exists, the returned error satisfies
+// address or the same name on that machine for this to succeed. If a
+// network interface already exists, the returned error satisfies
 // errors.IsAlreadyExistsError.
-func (m *Machine) AddNetworkInterface(macAddress, name, networkId string) (iface *NetworkInterface, err error) {
-	defer func() {
-		if !errors.IsAlreadyExistsError(err) {
-			utils.ErrorContextf(&err, "cannot add network interface to machine %s", m.doc.Id)
-		}
-	}()
+func (m *Machine) AddNetworkInterface(macAddress, interfaceName, networkName string) (iface *NetworkInterface, err error) {
+	defer utils.ErrorContextf(&err, "cannot add network interface %q to machine %q", interfaceName, m.doc.Id)
 
+	if macAddress == "" {
+		return nil, fmt.Errorf("MAC address must be not empty")
+	}
 	if _, err = net.ParseMAC(macAddress); err != nil {
 		return nil, err
 	}
-	if name == "" {
+	if interfaceName == "" {
 		return nil, fmt.Errorf("interface name must be not empty")
 	}
 	aliveAndNotProvisioned := append(isAliveDoc, bson.D{{"nonce", ""}}...)
 	doc := &networkInterfaceDoc{
 		MACAddress:    macAddress,
-		InterfaceName: name,
-		NetworkId:     networkId,
+		InterfaceName: interfaceName,
+		NetworkName:   networkName,
 		MachineId:     m.doc.Id,
 	}
 	ops := []txn.Op{{
 		C:      m.st.networks.Name,
-		Id:     networkId,
+		Id:     networkName,
 		Assert: txn.DocExists,
 	}, {
 		C:      m.st.machines.Name,
@@ -1052,8 +1053,11 @@ func (m *Machine) AddNetworkInterface(macAddress, name, networkId string) (iface
 		err = m.st.runTransaction(ops)
 		switch err {
 		case txn.ErrAborted:
-			_, err = m.st.Network(networkId)
-			if err != nil {
+			if err = m.st.networkInterfaces.FindId(macAddress).One(nil); err == nil {
+				msg := fmt.Sprintf("interface with MAC address %q", macAddress)
+				return nil, errors.NewAlreadyExistsError(msg)
+			}
+			if _, err = m.st.Network(networkName); err != nil {
 				return nil, err
 			}
 			if err = m.Refresh(); err != nil {
@@ -1061,11 +1065,18 @@ func (m *Machine) AddNetworkInterface(macAddress, name, networkId string) (iface
 			} else if m.doc.Life != Alive {
 				return nil, fmt.Errorf("machine is not alive")
 			} else if m.doc.Nonce != "" {
-				return nil, fmt.Errorf("machine already provisioned: dynamic network interfaces not currently supported")
+				msg := "machine already provisioned: dynamic network interfaces not currently supported"
+				return nil, fmt.Errorf(msg)
 			}
-			// Network and machine both OK, so the other assert must have failed.
-			return nil, errors.NewAlreadyExistsError("interface with MAC address " + macAddress)
 		case nil:
+			// For some reason when using unique indices with mgo, and
+			// we have an index violation the error is nil, but the
+			// document is not added. So we check if the supposedly
+			// successful transaction did actually add the document.
+			if err = m.st.networkInterfaces.FindId(macAddress).One(nil); err != nil {
+				msg := fmt.Sprintf("%q on machine %q", interfaceName, m.doc.Id)
+				return nil, errors.NewAlreadyExistsError(msg)
+			}
 			return newNetworkInterface(m.st, doc), nil
 		default:
 			return nil, err

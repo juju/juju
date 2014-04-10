@@ -5,6 +5,7 @@ package state
 
 import (
 	"labix.org/v2/mgo/bson"
+
 	"launchpad.net/juju-core/names"
 )
 
@@ -17,11 +18,11 @@ type Network struct {
 // networkDoc represents a configured network that a machine can be a
 // part of.
 type networkDoc struct {
-	// Id is the network's id. It should be one of the machine's
-	// included networks. This is intended to be a juju-specific id
-	// and to have a separate field for provider-specific name, but
-	// for now both are the same.
-	Id string `bson:"_id"`
+	// Name is the network's name. It should be one of the machine's
+	// included networks.
+	Name string `bson:"_id"`
+	// ProviderId is a provider-specific id of the network.
+	ProviderId string
 	// CIDR holds the network CIDR in the form 192.168.100.0/24.
 	CIDR string
 	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
@@ -33,14 +34,19 @@ func newNetwork(st *State, doc *networkDoc) *Network {
 	return &Network{st, *doc}
 }
 
-// Id returns the network id.
-func (n *Network) Id() string {
-	return n.doc.Id
+// Name returns the network name.
+func (n *Network) Name() string {
+	return n.doc.Name
+}
+
+// ProviderId returns the provider-specific id of the network.
+func (n *Network) ProviderId() string {
+	return n.doc.ProviderId
 }
 
 // Tag returns the network tag.
 func (n *Network) Tag() string {
-	return names.NetworkTag(n.doc.Id)
+	return names.NetworkTag(n.doc.Name)
 }
 
 // CIDR returns the network CIDR (e.g. 192.168.50.0/24).
@@ -63,7 +69,7 @@ func (n *Network) IsVLAN() bool {
 // Interfaces returns all network interfaces on the network.
 func (n *Network) Interfaces() ([]*NetworkInterface, error) {
 	docs := []networkInterfaceDoc{}
-	sel := bson.D{{"networkid", n.doc.Id}}
+	sel := bson.D{{"networkname", n.doc.Name}}
 	err := n.st.networkInterfaces.Find(sel).All(&docs)
 	if err != nil {
 		return nil, err

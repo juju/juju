@@ -4,7 +4,9 @@
 package names_test
 
 import (
-	jc "github.com/juju/testing/checkers"
+	"fmt"
+	"regexp"
+
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/names"
@@ -14,12 +16,37 @@ type networkSuite struct{}
 
 var _ = gc.Suite(&networkSuite{})
 
-func (s *networkSuite) TestNetworkTag(c *gc.C) {
-	c.Assert(names.NetworkTag("net1"), gc.Equals, "network-net1")
+var networkNameTests = []struct {
+	pattern string
+	valid   bool
+}{
+	{pattern: "", valid: false},
+	{pattern: "eth0", valid: true},
+	{pattern: "-my-net-", valid: false},
+	{pattern: "42", valid: true},
+	{pattern: "%not", valid: false},
+	{pattern: "$PATH", valid: false},
+	{pattern: "but-this-works", valid: true},
+	{pattern: "----", valid: false},
+	{pattern: "oh--no", valid: false},
+	{pattern: "777", valid: true},
+	{pattern: "is-it-", valid: false},
+	{pattern: "also_not", valid: false},
+	{pattern: "a--", valid: false},
+	{pattern: "foo-2", valid: true},
 }
 
-func (s *networkSuite) TestIsNetwork(c *gc.C) {
-	c.Assert(names.IsNetwork("net1"), jc.IsTrue)
-	c.Assert(names.IsNetwork("42"), jc.IsTrue)
-	c.Assert(names.IsNetwork(""), jc.IsFalse)
+func (s *networkSuite) TestNetworkNames(c *gc.C) {
+	for i, test := range networkNameTests {
+		c.Logf("test %d: %q", i, test.pattern)
+		c.Check(names.IsNetwork(test.pattern), gc.Equals, test.valid)
+		if test.valid {
+			expectTag := fmt.Sprintf("%s-%s", names.NetworkTagKind, test.pattern)
+			c.Check(names.NetworkTag(test.pattern), gc.Equals, expectTag)
+		} else {
+			expectErr := fmt.Sprintf("%q is not a valid network name", test.pattern)
+			testNetworkTag := func() { names.NetworkTag(test.pattern) }
+			c.Check(testNetworkTag, gc.PanicMatches, regexp.QuoteMeta(expectErr))
+		}
+	}
 }

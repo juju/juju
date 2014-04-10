@@ -4,8 +4,8 @@
 package state_test
 
 import (
-	"fmt"
 	"sort"
+	"strings"
 
 	jc "github.com/juju/testing/checkers"
 	"labix.org/v2/mgo/bson"
@@ -389,9 +389,10 @@ func (s *MachineSuite) TestRequestedNetworks(c *gc.C) {
 }
 
 func addNetworkAndInterface(c *gc.C, st *state.State, machine *state.Machine,
-	networkName, cidr string, vlanTag int,
-	mac, ifaceName string) (*state.Network, *state.NetworkInterface) {
-	net, err := st.AddNetwork(networkName, cidr, vlanTag)
+	networkName, providerId, cidr string, vlanTag int,
+	mac, ifaceName string,
+) (*state.Network, *state.NetworkInterface) {
+	net, err := st.AddNetwork(networkName, providerId, cidr, vlanTag)
 	c.Assert(err, gc.IsNil)
 	iface, err := machine.AddNetworkInterface(mac, ifaceName, networkName)
 	c.Assert(err, gc.IsNil)
@@ -418,11 +419,11 @@ func (s *MachineSuite) TestNetworks(c *gc.C) {
 
 	net1, _ := addNetworkAndInterface(
 		c, s.State, machine,
-		"net1", "0.1.2.0/24", 0,
+		"net1", "net1", "0.1.2.0/24", 0,
 		"aa:bb:cc:dd:ee:f0", "eth0")
 	net2, _ := addNetworkAndInterface(
 		c, s.State, machine,
-		"net2", "0.2.2.0/24", 0,
+		"net2", "net2", "0.2.2.0/24", 0,
 		"aa:bb:cc:dd:ee:f1", "eth1")
 
 	nets, err = machine.Networks()
@@ -447,15 +448,15 @@ func (s *MachineSuite) TestMachineNetworkInterfaces(c *gc.C) {
 	// And a few networks and NICs.
 	_, iface0 := addNetworkAndInterface(
 		c, s.State, machine,
-		"net1", "0.1.2.0/24", 0,
+		"net1", "net1", "0.1.2.0/24", 0,
 		"aa:bb:cc:dd:ee:f0", "eth0")
 	_, iface1 := addNetworkAndInterface(
 		c, s.State, machine,
-		"vlan42", "0.1.2.0/30", 42,
+		"vlan42", "vlan42", "0.1.2.0/30", 42,
 		"aa:bb:cc:dd:ee:f1", "eth0.42")
 	_, iface2 := addNetworkAndInterface(
 		c, s.State, machine,
-		"net2", "0.2.2.0/24", 0,
+		"net2", "net2", "0.2.2.0/24", 0,
 		"aa:bb:cc:dd:ee:f2", "eth1")
 
 	ifaces, err = machine.NetworkInterfaces()
@@ -474,6 +475,56 @@ func (s *MachineSuite) TestMachineNetworkInterfaces(c *gc.C) {
 	c.Assert(ifaces, gc.HasLen, 0)
 }
 
+var addNetworkInterfaceErrorsTests = []struct {
+	macAddress    string
+	interfaceName string
+	networkName   string
+	beforeAdding  func(*gc.C, *state.Machine)
+	expectErr     string
+}{{
+	"", "eth1", "net1",
+	nil,
+	`cannot add network interface "eth1" to machine "2": MAC address must be not empty`,
+}, {
+	"invalid", "eth1", "net1",
+	nil,
+	`cannot add network interface "eth1" to machine "2": invalid MAC address: invalid`,
+}, {
+	"aa:bb:cc:dd:ee:f0", "eth1", "net1",
+	nil,
+	`cannot add network interface "eth1" to machine "2": interface with MAC address "aa:bb:cc:dd:ee:f0" already exists`,
+}, {
+	"aa:bb:cc:dd:ee:ff", "", "net1",
+	nil,
+	`cannot add network interface "" to machine "2": interface name must be not empty`,
+}, {
+	"aa:bb:cc:dd:ee:ff", "eth0", "net1",
+	nil,
+	`cannot add network interface "eth0" to machine "2": "eth0" on machine "2" already exists`,
+}, {
+	"aa:bb:cc:dd:ee:ff", "eth1", "missing",
+	nil,
+	`cannot add network interface "eth1" to machine "2": network "missing" not found`,
+}, {
+	"aa:bb:cc:dd:ee:f1", "eth1", "net1",
+	func(c *gc.C, m *state.Machine) {
+		c.Check(m.SetProvisioned("i-am", "fake_nonce", nil), gc.IsNil)
+	},
+	`cannot add network interface "eth1" to machine "2": machine already provisioned: dynamic network interfaces not currently supported`,
+}, {
+	"aa:bb:cc:dd:ee:f1", "eth1", "net1",
+	func(c *gc.C, m *state.Machine) {
+		c.Check(m.EnsureDead(), gc.IsNil)
+	},
+	`cannot add network interface "eth1" to machine "2": machine is not alive`,
+}, {
+	"aa:bb:cc:dd:ee:f1", "eth1", "net1",
+	func(c *gc.C, m *state.Machine) {
+		c.Check(m.Remove(), gc.IsNil)
+	},
+	`cannot add network interface "eth1" to machine "2": machine 2 not found`,
+}}
+
 func (s *MachineSuite) TestAddNetworkInterfaceErrors(c *gc.C) {
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series:          "quantal",
@@ -483,44 +534,26 @@ func (s *MachineSuite) TestAddNetworkInterfaceErrors(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	addNetworkAndInterface(
 		c, s.State, machine,
-		"net1", "0.1.2.0/24", 0,
+		"net1", "provider-net1", "0.1.2.0/24", 0,
 		"aa:bb:cc:dd:ee:f0", "eth0")
 
-	errorPrefix := fmt.Sprintf("cannot add network interface to machine %s: ", machine.Id())
-	_, err = machine.AddNetworkInterface("invalid", "eth0", "net1")
-	expectErr := errorPrefix + "invalid MAC address: invalid"
-	c.Assert(err, gc.ErrorMatches, expectErr)
+	for i, test := range addNetworkInterfaceErrorsTests {
+		c.Logf("test %d: mac=%q, name=%q, network=%q",
+			i, test.macAddress, test.interfaceName, test.networkName)
 
-	_, err = machine.AddNetworkInterface("aa:bb:cc:dd:ee:ff", "", "net1")
-	expectErr = errorPrefix + "interface name must be not empty"
-	c.Assert(err, gc.ErrorMatches, expectErr)
+		if test.beforeAdding != nil {
+			test.beforeAdding(c, machine)
+		}
 
-	_, err = machine.AddNetworkInterface("aa:bb:cc:dd:ee:f0", "eth2", "net1")
-	expectErr = `interface with MAC address aa:bb:cc:dd:ee:f0 already exists`
-	c.Assert(err, gc.ErrorMatches, expectErr)
-	c.Assert(err, jc.Satisfies, errors.IsAlreadyExistsError)
-
-	_, err = machine.AddNetworkInterface("aa:bb:cc:dd:ee:f0", "eth2", "invalid")
-	expectErr = errorPrefix + `network "invalid" not found`
-	c.Assert(err, gc.ErrorMatches, expectErr)
-
-	err = machine.SetProvisioned("i-am", "fake_nonce", nil)
-	c.Assert(err, gc.IsNil)
-	_, err = machine.AddNetworkInterface("aa:bb:cc:dd:ee:ff", "eth2", "net1")
-	expectErr = errorPrefix + "machine already provisioned: dynamic network interfaces not currently supported"
-	c.Assert(err, gc.ErrorMatches, expectErr)
-
-	err = machine.EnsureDead()
-	c.Assert(err, gc.IsNil)
-	_, err = machine.AddNetworkInterface("aa:bb:cc:dd:ee:ff", "eth2", "net1")
-	expectErr = errorPrefix + "machine is not alive"
-	c.Assert(err, gc.ErrorMatches, expectErr)
-
-	err = machine.Remove()
-	c.Assert(err, gc.IsNil)
-	_, err = machine.AddNetworkInterface("aa:bb:cc:dd:ee:ff", "eth2", "net1")
-	expectErr = errorPrefix + fmt.Sprintf("machine %s not found", machine.Id())
-	c.Assert(err, gc.ErrorMatches, expectErr)
+		_, err = machine.AddNetworkInterface(test.macAddress, test.interfaceName, test.networkName)
+		c.Check(err, gc.ErrorMatches, test.expectErr)
+		if strings.Contains(test.expectErr, "not found") {
+			c.Check(err, jc.Satisfies, errors.IsNotFoundError)
+		}
+		if strings.Contains(test.expectErr, "already exists") {
+			c.Check(err, jc.Satisfies, errors.IsAlreadyExistsError)
+		}
+	}
 }
 
 func (s *MachineSuite) TestMachineInstanceId(c *gc.C) {
@@ -640,35 +673,36 @@ func (s *MachineSuite) TestMachineSetCheckProvisioned(c *gc.C) {
 
 func (s *MachineSuite) TestMachineSetInstanceInfoFailureDoesNotProvision(c *gc.C) {
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), gc.Equals, false)
-	invalidNetworks := []state.NetworkParams{{Id: ""}}
+	invalidNetworks := []state.NetworkParams{{Name: ""}}
 	invalidInterfaces := []state.NetworkInterfaceParams{{MACAddress: ""}}
 	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, invalidNetworks, nil)
-	c.Assert(err, gc.ErrorMatches, `cannot add network "": id must be not empty`)
+	c.Assert(err, gc.ErrorMatches, `cannot add network "": name must be not empty`)
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), gc.Equals, false)
 	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, invalidInterfaces)
-	c.Assert(err, gc.ErrorMatches, "cannot add network interface to machine 1: invalid MAC address: ")
+	c.Assert(err, gc.ErrorMatches, `cannot add network interface "" to machine "1": MAC address must be not empty`)
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), gc.Equals, false)
 }
 
 func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), gc.Equals, false)
-	networks := []state.NetworkParams{{Id: "net1", CIDR: "0.1.2.0/24", VLANTag: 0}}
+	networks := []state.NetworkParams{{Name: "net1", ProviderId: "net1", CIDR: "0.1.2.0/24", VLANTag: 0}}
 	interfaces := []state.NetworkInterfaceParams{
-		{MACAddress: "aa:bb:cc:dd:ee:ff", NetworkId: "net1", InterfaceName: "eth0"},
+		{MACAddress: "aa:bb:cc:dd:ee:ff", NetworkName: "net1", InterfaceName: "eth0"},
 	}
 	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, networks, interfaces)
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), gc.Equals, true)
-	network, err := s.State.Network(networks[0].Id)
+	network, err := s.State.Network(networks[0].Name)
 	c.Assert(err, gc.IsNil)
-	c.Check(network.Id(), gc.Equals, networks[0].Id)
+	c.Check(network.Name(), gc.Equals, networks[0].Name)
+	c.Check(network.ProviderId(), gc.Equals, networks[0].ProviderId)
 	c.Check(network.VLANTag(), gc.Equals, networks[0].VLANTag)
 	c.Check(network.CIDR(), gc.Equals, networks[0].CIDR)
 	ifaces, err := s.machine.NetworkInterfaces()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ifaces, gc.HasLen, 1)
 	c.Check(ifaces[0].InterfaceName(), gc.Equals, interfaces[0].InterfaceName)
-	c.Check(ifaces[0].NetworkId(), gc.Equals, interfaces[0].NetworkId)
+	c.Check(ifaces[0].NetworkName(), gc.Equals, interfaces[0].NetworkName)
 	c.Check(ifaces[0].MACAddress(), gc.Equals, interfaces[0].MACAddress)
 	c.Check(ifaces[0].MachineTag(), gc.Equals, s.machine.Tag())
 }

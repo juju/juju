@@ -760,14 +760,6 @@ func (s *withoutStateServerSuite) TestConstraints(c *gc.C) {
 }
 
 func (s *withoutStateServerSuite) TestRequestedNetworks(c *gc.C) {
-	idsToTags := func(netIds []string) []string {
-		tags := make([]string, len(netIds))
-		for i, id := range netIds {
-			tags[i] = names.NetworkTag(id)
-		}
-		return tags
-	}
-
 	// Add a machine with some requested networks.
 	template := state.MachineTemplate{
 		Series:          "quantal",
@@ -793,12 +785,12 @@ func (s *withoutStateServerSuite) TestRequestedNetworks(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.RequestedNetworksResults{
 		Results: []params.RequestedNetworkResult{
 			{
-				IncludeNetworks: idsToTags(includeNetsMachine0),
-				ExcludeNetworks: idsToTags(excludeNetsMachine0),
+				IncludeNetworks: includeNetsMachine0,
+				ExcludeNetworks: excludeNetsMachine0,
 			},
 			{
-				IncludeNetworks: idsToTags(template.IncludeNetworks),
-				ExcludeNetworks: idsToTags(template.ExcludeNetworks),
+				IncludeNetworks: template.IncludeNetworks,
+				ExcludeNetworks: template.ExcludeNetworks,
 			},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -860,17 +852,20 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	networks := []params.Network{{
-		Tag:     "network-net1",
-		CIDR:    "0.1.2.0/24",
-		VLANTag: 0,
+		Tag:        "network-net1",
+		ProviderId: "net1",
+		CIDR:       "0.1.2.0/24",
+		VLANTag:    0,
 	}, {
-		Tag:     "network-vlan42",
-		CIDR:    "0.2.2.0/24",
-		VLANTag: 42,
+		Tag:        "network-vlan42",
+		ProviderId: "vlan42",
+		CIDR:       "0.2.2.0/24",
+		VLANTag:    42,
 	}, {
-		Tag:     "network-vlan42", // duplicated; ignored
-		CIDR:    "0.2.2.0/24",
-		VLANTag: 42,
+		Tag:        "network-vlan42", // duplicated; ignored
+		ProviderId: "vlan42",
+		CIDR:       "0.2.2.0/24",
+		VLANTag:    42,
 	}}
 	ifaces := []params.NetworkInterface{{
 		MACAddress:    "aa:bb:cc:dd:ee:f0",
@@ -962,11 +957,12 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 			// Last one was ignored, so don't check.
 			break
 		}
-		_, networkId, err := names.ParseTag(networks[i].Tag, names.NetworkTagKind)
+		_, networkName, err := names.ParseTag(networks[i].Tag, names.NetworkTagKind)
 		c.Assert(err, gc.IsNil)
-		network, err := s.State.Network(networkId)
+		network, err := s.State.Network(networkName)
 		c.Assert(err, gc.IsNil)
-		c.Check(network.Id(), gc.Equals, networkId)
+		c.Check(network.Name(), gc.Equals, networkName)
+		c.Check(network.ProviderId(), gc.Equals, networks[i].ProviderId)
 		c.Check(network.Tag(), gc.Equals, networks[i].Tag)
 		c.Check(network.VLANTag(), gc.Equals, networks[i].VLANTag)
 		c.Check(network.CIDR(), gc.Equals, networks[i].CIDR)

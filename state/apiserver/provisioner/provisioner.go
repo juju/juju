@@ -409,45 +409,40 @@ func (p *ProvisionerAPI) Constraints(args params.Entities) (params.ConstraintsRe
 	return result, nil
 }
 
-func networkIdsToTags(networkIds []string) []string {
-	networksAsTags := make([]string, len(networkIds))
-	for i, netId := range networkIds {
-		networksAsTags[i] = names.NetworkTag(netId)
-	}
-	return networksAsTags
-}
-
 func networkParamsToStateParams(networks []params.Network, ifaces []params.NetworkInterface) (
 	[]state.NetworkParams, []state.NetworkInterfaceParams, error,
 ) {
 	stateNetworks := make([]state.NetworkParams, len(networks))
 	for i, network := range networks {
-		_, networkId, err := names.ParseTag(network.Tag, names.NetworkTagKind)
+		_, networkName, err := names.ParseTag(network.Tag, names.NetworkTagKind)
 		if err != nil {
 			return nil, nil, err
 		}
 		stateNetworks[i] = state.NetworkParams{
-			Id:      networkId,
-			CIDR:    network.CIDR,
-			VLANTag: network.VLANTag,
+			Name:       networkName,
+			ProviderId: network.ProviderId,
+			CIDR:       network.CIDR,
+			VLANTag:    network.VLANTag,
 		}
 	}
 	stateInterfaces := make([]state.NetworkInterfaceParams, len(ifaces))
 	for i, iface := range ifaces {
-		_, networkId, err := names.ParseTag(iface.NetworkTag, names.NetworkTagKind)
+		_, networkName, err := names.ParseTag(iface.NetworkTag, names.NetworkTagKind)
 		if err != nil {
 			return nil, nil, err
 		}
 		stateInterfaces[i] = state.NetworkInterfaceParams{
 			MACAddress:    iface.MACAddress,
-			NetworkId:     networkId,
+			NetworkName:   networkName,
 			InterfaceName: iface.InterfaceName,
 		}
 	}
 	return stateNetworks, stateInterfaces, nil
 }
 
-// RequestedNetworks returns the requested networks for each given machine entity.
+// RequestedNetworks returns the requested networks for each given
+// machine entity. Each entry in both lists is returned with its
+// provider specific id.
 func (p *ProvisionerAPI) RequestedNetworks(args params.Entities) (params.RequestedNetworksResults, error) {
 	result := params.RequestedNetworksResults{
 		Results: make([]params.RequestedNetworkResult, len(args.Entities)),
@@ -463,9 +458,14 @@ func (p *ProvisionerAPI) RequestedNetworks(args params.Entities) (params.Request
 			var excludeNetworks []string
 			includeNetworks, excludeNetworks, err = machine.RequestedNetworks()
 			if err == nil {
-				// Convert network ids to tags before returning.
-				result.Results[i].IncludeNetworks = networkIdsToTags(includeNetworks)
-				result.Results[i].ExcludeNetworks = networkIdsToTags(excludeNetworks)
+				// TODO(dimitern) For now, since network names and
+				// provider ids are the same, we return what we got
+				// from state. In the future, when networks can be
+				// added before provisioning, we should convert both
+				// slices from juju network names to provider-specific
+				// ids before returning them.
+				result.Results[i].IncludeNetworks = includeNetworks
+				result.Results[i].ExcludeNetworks = excludeNetworks
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)

@@ -5,6 +5,7 @@ package errors_test
 
 import (
 	stderrors "errors"
+	"fmt"
 	"reflect"
 	"runtime"
 	"testing"
@@ -73,6 +74,10 @@ func (*errorsSuite) TestErrors(c *gc.C) {
 		"",
 		isNotFoundError,
 	}, {
+		fmt.Errorf("some prefix: %v", errors.NotFoundf("something")),
+		"some prefix: something not found",
+		isNotFoundError,
+	}, {
 		errors.Unauthorizedf("woo %s", "hoo"),
 		"woo hoo",
 		isUnauthorizedError,
@@ -87,6 +92,10 @@ func (*errorsSuite) TestErrors(c *gc.C) {
 	}, {
 		errors.NewAlreadyExistsError("something"),
 		"something already exists",
+		isAlreadyExistsError,
+	}, {
+		fmt.Errorf("some prefix: %v", errors.NewAlreadyExistsError("something")),
+		"some prefix: something already exists",
 		isAlreadyExistsError,
 	}}
 

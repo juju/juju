@@ -23,7 +23,7 @@ func (s *NetworkInterfaceSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	s.network, err = s.State.AddNetwork("net1", "0.1.2.3/24", 42)
+	s.network, err = s.State.AddNetwork("net1", "net1", "0.1.2.3/24", 42)
 	c.Assert(err, gc.IsNil)
 	s.iface, err = s.machine.AddNetworkInterface("aa:bb:cc:dd:ee:ff", "eth0", "net1")
 	c.Assert(err, gc.IsNil)
@@ -32,7 +32,7 @@ func (s *NetworkInterfaceSuite) SetUpTest(c *gc.C) {
 func (s *NetworkInterfaceSuite) TestGetterMethods(c *gc.C) {
 	c.Assert(s.iface.MACAddress(), gc.Equals, "aa:bb:cc:dd:ee:ff")
 	c.Assert(s.iface.InterfaceName(), gc.Equals, "eth0")
-	c.Assert(s.iface.NetworkId(), gc.Equals, s.network.Id())
+	c.Assert(s.iface.NetworkName(), gc.Equals, s.network.Name())
 	c.Assert(s.iface.NetworkTag(), gc.Equals, s.network.Tag())
 	c.Assert(s.iface.MachineId(), gc.Equals, s.machine.Id())
 	c.Assert(s.iface.MachineTag(), gc.Equals, s.machine.Tag())

@@ -428,12 +428,13 @@ func (task *provisionerTask) prepareNetworkAndInterfaces(networkInfo []environs.
 	}
 	visitedNetworks := set.NewStrings()
 	for _, info := range networkInfo {
-		networkTag := names.NetworkTag(info.NetworkId)
+		networkTag := names.NetworkTag(info.NetworkName)
 		if !visitedNetworks.Contains(info.NetworkId) {
 			networks = append(networks, params.Network{
-				Tag:     networkTag,
-				CIDR:    info.CIDR,
-				VLANTag: info.VLANTag,
+				Tag:        networkTag,
+				ProviderId: info.NetworkId,
+				CIDR:       info.CIDR,
+				VLANTag:    info.VLANTag,
 			})
 			visitedNetworks.Add(info.NetworkId)
 		}
@@ -535,15 +536,6 @@ func (task *provisionerTask) machineConfig(machine *apiprovisioner.Machine) (*cl
 		return nil, err
 	}
 	includeNetworks, excludeNetworks, err := machine.RequestedNetworks()
-	if err != nil {
-		return nil, err
-	}
-	// Convert network tags to ids.
-	includeNetworks, err = networkTagsToIds(includeNetworks)
-	if err != nil {
-		return nil, err
-	}
-	excludeNetworks, err = networkTagsToIds(excludeNetworks)
 	if err != nil {
 		return nil, err
 	}
