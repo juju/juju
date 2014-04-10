@@ -182,7 +182,7 @@ func (s *clientSuite) TestParamsEncoded(c *gc.C) {
 	})
 }
 
-// badReader raises err when read is attempted
+// badReader raises err when Read is called.
 type badReader struct {
 	io.ReadCloser
 	err error
@@ -197,9 +197,11 @@ func echoUrl(c *gc.C) func(*websocket.Config) (io.ReadCloser, error) {
 	message, err := json.Marshal(response)
 	c.Assert(err, gc.IsNil)
 	return func(config *websocket.Config) (io.ReadCloser, error) {
-		testBuff := fmt.Sprintf("%s\n%s\n", string(message), config.Location.String())
-		c.Logf("test buffer: %v", testBuff)
-		buff := bytes.NewBufferString(testBuff)
-		return ioutil.NopCloser(buff), nil
+		pr, pw := io.Pipe()
+		go func() {
+			fmt.Fprintf(pw, "%s\n", message)
+			fmt.Fprintf(pw, "%s\n", config.Location)
+		}()
+		return pr, nil
 	}
 }
