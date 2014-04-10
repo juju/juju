@@ -42,7 +42,10 @@ type UpgraderSuite struct {
 	oldRetryAfter func() <-chan time.Time
 }
 
+type AllowedTargetVersionSuite struct{}
+
 var _ = gc.Suite(&UpgraderSuite{})
+var _ = gc.Suite(&AllowedTargetVersionSuite{})
 
 func (s *UpgraderSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
@@ -232,7 +235,7 @@ func (s *UpgraderSuite) TestEnsureToolsChecksBeforeDownloading(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *UpgraderSuite) TestUpgraderRefusesToDowngrade(c *gc.C) {
+func (s *UpgraderSuite) TestUpgraderRefusesToDowngradeMinorVersions(c *gc.C) {
 	stor := s.Conn.Environ.Storage()
 	origTools := envtesting.PrimeTools(c, stor, s.DataDir(), version.MustParseBinary("5.4.3-precise-amd64"))
 	s.PatchValue(&version.Current, origTools.Version)
@@ -251,4 +254,51 @@ func (s *UpgraderSuite) TestUpgraderRefusesToDowngrade(c *gc.C) {
 	// however, it just passes back a fmt.Errorf so we live with it
 	// c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	c.Check(err, gc.ErrorMatches, "cannot read tools metadata in tools directory.*no such file or directory")
+}
+
+func (s *UpgraderSuite) TestUpgraderAllowsDowngradingPatchVersions(c *gc.C) {
+	stor := s.Conn.Environ.Storage()
+	origTools := envtesting.PrimeTools(c, stor, s.DataDir(), version.MustParseBinary("5.4.3-precise-amd64"))
+	s.PatchValue(&version.Current, origTools.Version)
+	downgradeTools := envtesting.AssertUploadFakeToolsVersions(
+		c, stor, version.MustParseBinary("5.4.2-precise-amd64"))[0]
+	err := statetesting.SetAgentVersion(s.State, downgradeTools.Version.Number)
+	c.Assert(err, gc.IsNil)
+
+	dummy.SetStorageDelay(coretesting.ShortWait)
+
+	u := s.makeUpgrader()
+	err = u.Stop()
+	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
+		AgentName: s.machine.Tag(),
+		OldTools:  origTools.Version,
+		NewTools:  downgradeTools.Version,
+		DataDir:   s.DataDir(),
+	})
+	foundTools, err := agenttools.ReadTools(s.DataDir(), downgradeTools.Version)
+	c.Assert(err, gc.IsNil)
+	envtesting.CheckTools(c, foundTools, downgradeTools)
+}
+
+type allowedTest struct {
+	current string
+	target  string
+	allowed bool
+}
+
+func (s *AllowedTargetVersionSuite) TestAllowedTargetVersionSuite(c *gc.C) {
+	cases := []allowedTest{
+		{current: "1.2.3", target: "1.3.3", allowed: true},
+		{current: "1.2.3", target: "1.2.3", allowed: true},
+		{current: "1.2.3", target: "2.2.3", allowed: true},
+		{current: "1.2.3", target: "1.1.3", allowed: false},
+		{current: "1.2.3", target: "1.2.2", allowed: true},
+		{current: "1.2.3", target: "0.2.3", allowed: false},
+	}
+	for i, test := range cases {
+		c.Logf("test case %d, %#v", i, test)
+		current := version.MustParse(test.current)
+		target := version.MustParse(test.target)
+		c.Check(upgrader.AllowedTargetVersion(current, target), gc.Equals, test.allowed)
+	}
 }
