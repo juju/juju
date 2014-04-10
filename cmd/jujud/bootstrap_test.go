@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"path/filepath"
 
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
@@ -168,13 +169,15 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	c.Assert(exists, jc.IsTrue)
 	stateport := info.StatePort
 
-	c.Assert(s.fakeEnsureMongo.port, gc.Equals, stateport)
-	c.Assert(s.fakeEnsureMongo.namespace, gc.Equals, machConf.Value(agent.Namespace))
+	servingInfo := s.fakeEnsureMongo.info
+	c.Assert(len(servingInfo.SharedSecret), gc.Not(gc.Equals), 0)
+	servingInfo.SharedSecret = ""
+	c.Assert(servingInfo, jc.DeepEquals, expectInfo)
+	expectDialAddrs := []string{fmt.Sprintf("127.0.0.1:%d", expectInfo.StatePort)}
+	gotDialAddrs := s.fakeEnsureMongo.initiateParams.DialInfo.Addrs
+	c.Assert(gotDialAddrs, gc.DeepEquals, expectDialAddrs)
 
-	dialAddr := fmt.Sprintf("127.0.0.1:%d", stateport)
-	c.Assert(s.fakeEnsureMongo.initiateParams.DialInfo.Addrs[0], gc.Equals, dialAddr)
-
-	memberHost := fmt.Sprintf("%s:%d", s.bootstrapName, stateport)
+	memberHost := fmt.Sprintf("%s:%d", s.bootstrapName, expectInfo.StatePort)
 	c.Assert(s.fakeEnsureMongo.initiateParams.MemberHostPort, gc.Equals, memberHost)
 	c.Assert(s.fakeEnsureMongo.initiateParams.User, gc.Equals, "")
 	c.Assert(s.fakeEnsureMongo.initiateParams.Password, gc.Equals, "")
