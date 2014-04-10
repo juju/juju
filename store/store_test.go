@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 	"strconv"
 	"sync"
 	stdtesting "testing"
@@ -36,7 +37,7 @@ type StoreSuite struct {
 	store *store.Store
 }
 
-var mongojs *bool = flag.Bool("mongojs", false, "MongoDB in test environment supports javascript")
+var noTestMongoJs *bool = flag.Bool("notest-mongojs", false, "Disable MongoDB tests that require javascript")
 
 type TrivialSuite struct{}
 
@@ -44,6 +45,11 @@ func (s *StoreSuite) SetUpSuite(c *gc.C) {
 	s.MgoSuite.SetUpSuite(c)
 	s.HTTPSuite.SetUpSuite(c)
 	s.LoggingSuite.SetUpSuite(c)
+
+	if os.Getenv("JUJU_NOTEST_MONGOJS") == "1" {
+		c.Log("Tests requiring MongoDB Javascript will be skipped")
+		*noTestMongoJs = true
+	}
 }
 
 func (s *StoreSuite) TearDownSuite(c *gc.C) {
@@ -604,7 +610,7 @@ func (s *StoreSuite) TestLogCharmEvent(c *gc.C) {
 }
 
 func (s *StoreSuite) TestSumCounters(c *gc.C) {
-	if !*mongojs {
+	if *noTestMongoJs {
 		c.Skip("MongoDB javascript not available")
 	}
 
@@ -681,7 +687,7 @@ func (s *StoreSuite) TestSumCounters(c *gc.C) {
 }
 
 func (s *StoreSuite) TestCountersReadOnlySum(c *gc.C) {
-	if !*mongojs {
+	if *noTestMongoJs {
 		c.Skip("MongoDB javascript not available")
 	}
 
@@ -697,7 +703,7 @@ func (s *StoreSuite) TestCountersReadOnlySum(c *gc.C) {
 }
 
 func (s *StoreSuite) TestCountersTokenCaching(c *gc.C) {
-	if !*mongojs {
+	if *noTestMongoJs {
 		c.Skip("MongoDB javascript not available")
 	}
 
@@ -756,7 +762,7 @@ func (s *StoreSuite) TestCountersTokenCaching(c *gc.C) {
 }
 
 func (s *StoreSuite) TestCounterTokenUniqueness(c *gc.C) {
-	if !*mongojs {
+	if *noTestMongoJs {
 		c.Skip("MongoDB javascript not available")
 	}
 
@@ -781,7 +787,7 @@ func (s *StoreSuite) TestCounterTokenUniqueness(c *gc.C) {
 }
 
 func (s *StoreSuite) TestListCounters(c *gc.C) {
-	if !*mongojs {
+	if *noTestMongoJs {
 		c.Skip("MongoDB javascript not available")
 	}
 
@@ -846,7 +852,7 @@ func (s *StoreSuite) TestListCounters(c *gc.C) {
 }
 
 func (s *StoreSuite) TestListCountersBy(c *gc.C) {
-	if !*mongojs {
+	if *noTestMongoJs {
 		c.Skip("MongoDB javascript not available")
 	}
 

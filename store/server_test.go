@@ -203,7 +203,7 @@ func (s *StoreSuite) TestSeriesNotFound(c *gc.C) {
 // checkCounterSum checks that statistics are properly collected.
 // It retries a few times as they are generally collected in background.
 func (s *StoreSuite) checkCounterSum(c *gc.C, key []string, prefix bool, expected int64) {
-	if !*mongojs {
+	if *noTestMongoJs {
 		c.Skip("MongoDB javascript not available")
 	}
 
