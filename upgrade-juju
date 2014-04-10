@@ -8,7 +8,7 @@ import jujupy
 def main():
     for env in sys.argv[1:]:
         environment = jujupy.Environment.from_config(env)
-        environment.set_testing_tools_metadata_url()
+        #environment.set_testing_tools_metadata_url()
         environment.upgrade_juju()
 
 if __name__ == '__main__':
