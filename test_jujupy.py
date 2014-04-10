@@ -602,6 +602,15 @@ class TestEnvironment(TestCase):
         mock_set.assert_called_with(
             env, 'tools-metadata-url', 'https://example.org/juju/testing/tools')
 
+    def test_set_testing_tools_metadata_url_noop(self):
+        client = JujuClientDevelFake(None, None)
+        env = Environment('foo', client)
+        with patch.object(client, 'get_env_option') as mock_get:
+            mock_get.return_value = 'https://example.org/juju/testing/tools'
+            with patch.object(client, 'set_env_option') as mock_set:
+                env.set_testing_tools_metadata_url()
+        mock_get.assert_called_with(env, 'tools-metadata-url')
+        mock_set.assert_not_called()
 
 class TestFormatListing(TestCase):
 

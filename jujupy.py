@@ -300,8 +300,9 @@ class Environment:
 
     def set_testing_tools_metadata_url(self):
         url = self.client.get_env_option(self, 'tools-metadata-url')
-        testing_url = url.replace('/tools', '/testing/tools')
-        self.client.set_env_option(self, 'tools-metadata-url',  testing_url)
+        if 'testing' not in url:
+            testing_url = url.replace('/tools', '/testing/tools')
+            self.client.set_env_option(self, 'tools-metadata-url',  testing_url)
 
 
 def format_listing(listing, expected):
