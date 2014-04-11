@@ -41,7 +41,7 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	m, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
-	err = m.SetAddresses(instance.NewAddresses([]string{"127.0.0.1"}))
+	err = m.SetAddresses(instance.NewAddresses([]string{"10.0.0.1"}))
 	c.Assert(err, gc.IsNil)
 
 	s.st, s.machine = s.OpenAPIAsNewMachine(c)
@@ -133,7 +133,7 @@ func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 	c.Assert(addr, gc.HasLen, 0)
 
 	addresses := []instance.Address{
-		instance.NewAddress("127.0.0.1"),
+		instance.NewAddress("10.0.0.1"),
 		instance.NewAddress("8.8.8.8"),
 	}
 	err = machine.SetMachineAddresses(addresses)

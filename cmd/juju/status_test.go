@@ -28,6 +28,12 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
+func newPublicAddress(s string) instance.Address {
+	addr := instance.NewAddress(s)
+	addr.NetworkScope = instance.NetworkPublic
+	return addr
+}
+
 func runStatus(c *gc.C, args ...string) (code int, stdout, stderr []byte) {
 	ctx := coretesting.Context(c)
 	code = cmd.Main(&StatusCommand{}, ctx, args)
@@ -250,7 +256,7 @@ var statusTests = []testCase{
 		startAliveMachine{"0"},
 		setAddresses{"0", []instance.Address{
 			instance.NewAddress("10.0.0.1"),
-			instance.NewAddress("dummyenv-0.dns"),
+			newPublicAddress("dummyenv-0.dns"),
 		}},
 		expect{
 			"simulate the PA starting an instance in response to the state change",
@@ -306,7 +312,7 @@ var statusTests = []testCase{
 		setMachineStatus{"0", params.StatusStarted, ""},
 		setAddresses{"0", []instance.Address{
 			instance.NewAddress("10.0.0.1"),
-			instance.NewAddress("dummyenv-0.dns"),
+			newPublicAddress("dummyenv-0.dns"),
 		}},
 		addCharm{"dummy"},
 		addService{
@@ -352,7 +358,7 @@ var statusTests = []testCase{
 		addMachine{machineId: "0", cons: machineCons, job: state.JobManageEnviron},
 		setAddresses{"0", []instance.Address{
 			instance.NewAddress("10.0.0.1"),
-			instance.NewAddress("dummyenv-0.dns"),
+			newPublicAddress("dummyenv-0.dns"),
 		}},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", params.StatusStarted, ""},

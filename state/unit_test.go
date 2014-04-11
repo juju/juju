@@ -278,14 +278,39 @@ func (s *UnitSuite) TestGetPrivateAddressFromMachine(c *gc.C) {
 	c.Assert(ok, gc.Equals, false)
 
 	addresses := []instance.Address{
-		instance.NewAddress("127.0.0.1"),
+		instance.NewAddress("10.0.0.1"),
 		instance.NewAddress("8.8.8.8"),
 	}
 	err = machine.SetAddresses(addresses)
 	c.Assert(err, gc.IsNil)
 
 	address, ok = s.unit.PrivateAddress()
-	c.Check(address, gc.Equals, "127.0.0.1")
+	c.Check(address, gc.Equals, "10.0.0.1")
+	c.Assert(ok, gc.Equals, true)
+}
+
+func (s *UnitSuite) TestPublicAddressMachineAddresses(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = s.unit.AssignToMachine(machine)
+	c.Assert(err, gc.IsNil)
+
+	publicProvider := instance.NewAddress("8.8.8.8")
+	privateProvider := instance.NewAddress("10.0.0.1")
+	privateMachine := instance.NewAddress("10.0.0.2")
+
+	err = machine.SetAddresses([]instance.Address{privateProvider})
+	c.Assert(err, gc.IsNil)
+	err = machine.SetMachineAddresses(privateMachine)
+	c.Assert(err, gc.IsNil)
+	address, ok := s.unit.PublicAddress()
+	c.Check(address, gc.Equals, "10.0.0.1")
+	c.Assert(ok, gc.Equals, true)
+
+	err = machine.SetAddresses([]instance.Address{publicProvider, privateProvider})
+	c.Assert(err, gc.IsNil)
+	address, ok = s.unit.PublicAddress()
+	c.Check(address, gc.Equals, "8.8.8.8")
 	c.Assert(ok, gc.Equals, true)
 }
 
