@@ -81,7 +81,7 @@ type Client interface {
 	// Paths are specified in the scp format, [[user@]host:]path. If
 	// any extra arguments are specified in extraArgs, they are passed
 	// verbatim.
-	Copy(targets, extraArgs []string, options *Options) error
+	Copy(args []string, options *Options) error
 }
 
 // Cmd represents a command to be (or being) executed
@@ -236,7 +236,7 @@ func Command(host string, command []string, options *Options) *Cmd {
 }
 
 // Copy is a short-cut for DefaultClient.Copy.
-func Copy(targets, extraArgs []string, options *Options) error {
+func Copy(args []string, options *Options) error {
 	logger.Debugf("using %s ssh client", chosenClient)
-	return DefaultClient.Copy(targets, extraArgs, options)
+	return DefaultClient.Copy(args, options)
 }

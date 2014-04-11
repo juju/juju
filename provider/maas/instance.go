@@ -82,7 +82,7 @@ func (mi *maasInstance) Addresses() ([]instance.Address, error) {
 	}
 
 	for _, ip := range ips {
-		a := instance.Address{ip, instance.DeriveAddressType(ip), "", instance.NetworkUnknown}
+		a := instance.NewAddress(ip, instance.NetworkUnknown)
 		addrs = append(addrs, a)
 	}
 

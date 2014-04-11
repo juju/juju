@@ -59,6 +59,14 @@ func IsMaster(session *mgo.Session, obj WithAddresses) (bool, error) {
 	addrs := obj.Addresses()
 
 	masterHostPort, err := replicaset.MasterHostPort(session)
+
+	// If the replica set has not been configured, then we
+	// can have only one master and the caller must
+	// be that master.
+	if err == replicaset.ErrMasterNotConfigured {
+		return true, nil
+	}
+
 	if err != nil {
 		return false, err
 	}

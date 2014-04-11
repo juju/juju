@@ -105,6 +105,7 @@ func (s *EntrySuite) TestDirCreateSubdir(c *gc.C) {
 
 func (s *EntrySuite) TestDirCreateFailure(c *gc.C) {
 	os.Chmod(s.basePath, 0444)
+	defer os.Chmod(s.basePath, 0777)
 	c.ExpectFailure("should fail to create file")
 	ft.Dir{"foobar", 0750}.Create(c, s.basePath)
 }
@@ -194,6 +195,7 @@ func (s *EntrySuite) TestRemovedCreateNothing(c *gc.C) {
 func (s *EntrySuite) TestRemovedCreateFailure(c *gc.C) {
 	ft.File{"some-file", "content", 0644}.Create(c, s.basePath)
 	os.Chmod(s.basePath, 0444)
+	defer os.Chmod(s.basePath, 0777)
 	c.ExpectFailure("should fail to remove file")
 	ft.Removed{"some-file"}.Create(c, s.basePath)
 }

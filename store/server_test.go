@@ -203,6 +203,10 @@ func (s *StoreSuite) TestSeriesNotFound(c *gc.C) {
 // checkCounterSum checks that statistics are properly collected.
 // It retries a few times as they are generally collected in background.
 func (s *StoreSuite) checkCounterSum(c *gc.C, key []string, prefix bool, expected int64) {
+	if *noTestMongoJs {
+		c.Skip("MongoDB javascript not available")
+	}
+
 	var sum int64
 	for retry := 0; retry < 10; retry++ {
 		time.Sleep(1e8)
@@ -298,6 +302,10 @@ func (s *StoreSuite) TestRootRedirect(c *gc.C) {
 }
 
 func (s *StoreSuite) TestStatsCounter(c *gc.C) {
+	if *noTestMongoJs {
+		c.Skip("MongoDB javascript not available")
+	}
+
 	for _, key := range [][]string{{"a", "b"}, {"a", "b"}, {"a", "c"}, {"a"}} {
 		err := s.store.IncCounter(key)
 		c.Assert(err, gc.IsNil)
@@ -328,6 +336,10 @@ func (s *StoreSuite) TestStatsCounter(c *gc.C) {
 }
 
 func (s *StoreSuite) TestStatsCounterList(c *gc.C) {
+	if *noTestMongoJs {
+		c.Skip("MongoDB javascript not available")
+	}
+
 	incs := [][]string{
 		{"a"},
 		{"a", "b"},
@@ -376,6 +388,10 @@ func (s *StoreSuite) TestStatsCounterList(c *gc.C) {
 }
 
 func (s *StoreSuite) TestStatsCounterBy(c *gc.C) {
+	if *noTestMongoJs {
+		c.Skip("MongoDB javascript not available")
+	}
+
 	incs := []struct {
 		key []string
 		day int

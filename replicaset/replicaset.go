@@ -21,8 +21,7 @@ var logger = loggo.GetLogger("juju.replicaset")
 // set.
 //
 // Note that you must set DialWithInfo and set Direct = true when dialing into a
-// specific non-initiated mongo server.  The session will be set to Monotonic
-// mode.
+// specific non-initiated mongo server.
 //
 // See http://docs.mongodb.org/manual/reference/method/rs.initiate/ for more
 // details.
@@ -246,12 +245,18 @@ func IsMaster(session *mgo.Session) (*IsMasterResults, error) {
 	return results, nil
 }
 
-// MasterHostPort returns the "address:port" string for the
-// primary mongo server in the replicaset.
+var ErrMasterNotConfigured = fmt.Errorf("mongo master not configured")
+
+// MasterHostPort returns the "address:port" string for the primary
+// mongo server in the replicaset. It returns ErrMasterNotConfigured if
+// the replica set has not yet been initiated.
 func MasterHostPort(session *mgo.Session) (string, error) {
 	results, err := IsMaster(session)
 	if err != nil {
 		return "", err
+	}
+	if results.PrimaryAddress == "" {
+		return "", ErrMasterNotConfigured
 	}
 	return results.PrimaryAddress, nil
 }

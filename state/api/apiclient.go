@@ -56,6 +56,10 @@ type State struct {
 	// serverRoot holds the cached API server address and port we used
 	// to login, with a https:// prefix.
 	serverRoot string
+
+	// certPool holds the cert pool that is used to authenticate the tls
+	// connections to the API.
+	certPool *x509.CertPool
 }
 
 // Info encapsulates information about a server holding juju state and
@@ -109,6 +113,9 @@ func DefaultDialOpts() DialOpts {
 }
 
 func Open(info *Info, opts DialOpts) (*State, error) {
+	if len(info.Addrs) == 0 {
+		return nil, fmt.Errorf("no API addresses to connect to")
+	}
 	pool := x509.NewCertPool()
 	xcert, err := cert.ParseCert(info.CACert)
 	if err != nil {
@@ -149,6 +156,7 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 		serverRoot: "https://" + conn.Config().Location.Host,
 		tag:        info.Tag,
 		password:   info.Password,
+		certPool:   pool,
 	}
 	if info.Tag != "" || info.Password != "" {
 		if err := st.Login(info.Tag, info.Password, info.Nonce); err != nil {
