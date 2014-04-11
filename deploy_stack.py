@@ -4,6 +4,7 @@ __metaclass__ = type
 
 
 from argparse import ArgumentParser
+import re
 import sys
 
 from jujupy import (
@@ -80,6 +81,7 @@ def deploy_dummy_stack(environment, charm_prefix, already_bootstrapped):
     status = env.wait_for_started().status
     result = env.client.get_juju_output(env, 'ssh', 'dummy-sink/0', 'cat',
                                         '/var/run/dummy-sink/token')
+    result = re.match(r'([^\n\r]*)\r?\n?', result).group(1)
     if result != token:
         raise ValueError('Token is %r' % result)
 
