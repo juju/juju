@@ -337,7 +337,7 @@ func (tailerSuite) TestTailer(c *gc.C) {
 		reader, writer := io.Pipe()
 		sigc := make(chan struct{}, 1)
 		rs := startReadSeeker(c, test.data, test.initialLinesWritten, sigc)
-		tailer := tailer.NewTestTailer(rs, writer, test.initialLinesRequested, test.filter, bufferSize, 2*time.Millisecond, !test.fromStart)
+		tailer := tailer.NewTestTailer(rs, writer, test.initialLinesRequested, test.filter, nil, bufferSize, 2*time.Millisecond, !test.fromStart)
 		linec := startReading(c, tailer, reader, writer)
 
 		// Collect initial data.
