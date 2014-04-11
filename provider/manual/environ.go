@@ -15,6 +15,7 @@ import (
 	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -49,6 +50,8 @@ const (
 var logger = loggo.GetLogger("juju.provider.manual")
 
 type manualEnviron struct {
+	common.SupportsUnitPlacementPolicy
+
 	cfg                 *environConfig
 	cfgmutex            sync.Mutex
 	storage             storage.Storage
@@ -57,12 +60,13 @@ type manualEnviron struct {
 }
 
 var _ envtools.SupportsCustomSources = (*manualEnviron)(nil)
+var _ state.Prechecker = (*manualEnviron)(nil)
 
 var errNoStartInstance = errors.New("manual provider cannot start instances")
 var errNoStopInstance = errors.New("manual provider cannot stop instances")
 
-func (*manualEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	return nil, nil, errNoStartInstance
+func (*manualEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error) {
+	return nil, nil, nil, errNoStartInstance
 }
 
 func (*manualEnviron) StopInstances([]instance.Instance) error {
@@ -232,7 +236,7 @@ func (e *manualEnviron) Destroy() error {
 	script := `
 set -x
 pkill -%d jujud && exit
-stop juju-db
+stop %s
 rm -f /etc/init/juju*
 rm -f /etc/rsyslog.d/*juju*
 rm -fr %s %s
@@ -241,6 +245,7 @@ exit 0
 	script = fmt.Sprintf(
 		script,
 		terminationworker.TerminationSignal,
+		mongo.ServiceName(""),
 		utils.ShQuote(agent.DefaultDataDir),
 		utils.ShQuote(agent.DefaultLogDir),
 	)

@@ -140,9 +140,9 @@ func (s *MachinerSuite) TestMachineAddresses(c *gc.C) {
 	s.PatchValue(machiner.InterfaceAddrs, func() ([]net.Addr, error) {
 		addrs := []net.Addr{
 			&net.IPAddr{IP: net.IPv4(10, 0, 0, 1)},
-			&net.IPAddr{IP: net.IPv4(127, 0, 0, 1)}, // loopback, ignored
-			&net.IPAddr{IP: net.IPv6loopback},       // loopback, ignored
-			&net.UnixAddr{},                         // not IP, ignored
+			&net.IPAddr{IP: net.IPv4(127, 0, 0, 1)},
+			&net.IPAddr{IP: net.IPv6loopback},
+			&net.UnixAddr{}, // not IP, ignored
 			&net.IPNet{IP: net.ParseIP("2001:db8::1")},
 		}
 		return addrs, nil
@@ -154,7 +154,9 @@ func (s *MachinerSuite) TestMachineAddresses(c *gc.C) {
 	c.Assert(mr.Wait(), gc.Equals, worker.ErrTerminateAgent)
 	c.Assert(s.machine.Refresh(), gc.IsNil)
 	c.Assert(s.machine.MachineAddresses(), gc.DeepEquals, []instance.Address{
-		instance.NewAddress("10.0.0.1"),
-		instance.NewAddress("2001:db8::1"),
+		instance.NewAddress("10.0.0.1", instance.NetworkCloudLocal),
+		instance.NewAddress("127.0.0.1", instance.NetworkMachineLocal),
+		instance.NewAddress("::1", instance.NetworkMachineLocal),
+		instance.NewAddress("2001:db8::1", instance.NetworkUnknown),
 	})
 }

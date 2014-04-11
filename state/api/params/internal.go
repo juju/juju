@@ -288,20 +288,12 @@ type LifeResults struct {
 	Results []LifeResult
 }
 
-// SetEntityAddress holds an entity tag and an address.
-type SetEntityAddress struct {
-	Tag     string
-	Address string
-}
-
-// SetEntityAddresses holds the parameters for making a Set*Address
-// call, where the address can be a public or a private one.
-type SetEntityAddresses struct {
-	Entities []SetEntityAddress
-}
-
-// MachineSetProvisioned holds a machine tag, provider-specific instance id,
-// a nonce, or an error.
+// MachineSetProvisioned holds a machine tag, provider-specific
+// instance id, a nonce, or an error.
+//
+// NOTE: This is deprecated since 1.19.0 and not used by the
+// provisioner, it's just retained for backwards-compatibility and
+// should be removed.
 type MachineSetProvisioned struct {
 	Tag             string
 	InstanceId      instance.Id
@@ -311,8 +303,56 @@ type MachineSetProvisioned struct {
 
 // SetProvisioned holds the parameters for making a SetProvisioned
 // call for a machine.
+//
+// NOTE: This is deprecated since 1.19.0 and not used by the
+// provisioner, it's just retained for backwards-compatibility and
+// should be removed.
 type SetProvisioned struct {
 	Machines []MachineSetProvisioned
+}
+
+// Network describes a single network available on an instance.
+type Network struct {
+	Name    string
+	CIDR    string
+	VLANTag int
+}
+
+// NetworkInterface describes a single network interface available on
+// an instance.
+type NetworkInterface struct {
+	MACAddress    string
+	InterfaceName string
+	NetworkName   string
+}
+
+// InstanceInfo holds a machine tag, provider-specific instance id, a
+// nonce, a list of networks and interfaces to set up.
+type InstanceInfo struct {
+	Tag             string
+	InstanceId      instance.Id
+	Nonce           string
+	Characteristics *instance.HardwareCharacteristics
+	Networks        []Network
+	Interfaces      []NetworkInterface
+}
+
+// InstancesInfo holds the parameters for making a SetInstanceInfo
+// call for multiple machines.
+type InstancesInfo struct {
+	Machines []InstanceInfo
+}
+
+// NetworkResult holds machine networks or an error.
+type NetworkResult struct {
+	Error           *Error
+	IncludeNetworks []string
+	ExcludeNetworks []string
+}
+
+// NetworksResults holds multiple networks results.
+type NetworksResults struct {
+	Results []NetworkResult
 }
 
 // EntityStatus holds an entity tag, status and extra info.
@@ -531,4 +571,10 @@ type RunResult struct {
 // need to return single structure values.
 type RunResults struct {
 	Results []RunResult
+}
+
+// AgentVersionResult is used to return the current version number of the
+// agent running the API server.
+type AgentVersionResult struct {
+	Version version.Number
 }

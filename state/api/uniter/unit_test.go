@@ -4,6 +4,8 @@
 package uniter_test
 
 import (
+	"sort"
+
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -197,11 +199,11 @@ func (s *unitSuite) TestHasSubordinates(c *gc.C) {
 	c.Assert(found, jc.IsTrue)
 }
 
-func (s *unitSuite) TestGetSetPublicAddress(c *gc.C) {
+func (s *unitSuite) TestPublicAddress(c *gc.C) {
 	address, err := s.apiUnit.PublicAddress()
 	c.Assert(err, gc.ErrorMatches, `"unit-wordpress-0" has no public address set`)
 
-	err = s.apiUnit.SetPublicAddress("1.2.3.4")
+	err = s.wordpressMachine.SetAddresses(instance.NewAddress("1.2.3.4", instance.NetworkPublic))
 	c.Assert(err, gc.IsNil)
 
 	address, err = s.apiUnit.PublicAddress()
@@ -209,11 +211,11 @@ func (s *unitSuite) TestGetSetPublicAddress(c *gc.C) {
 	c.Assert(address, gc.Equals, "1.2.3.4")
 }
 
-func (s *unitSuite) TestGetSetPrivateAddress(c *gc.C) {
+func (s *unitSuite) TestPrivateAddress(c *gc.C) {
 	address, err := s.apiUnit.PrivateAddress()
 	c.Assert(err, gc.ErrorMatches, `"unit-wordpress-0" has no private address set`)
 
-	err = s.apiUnit.SetPrivateAddress("1.2.3.4")
+	err = s.wordpressMachine.SetAddresses(instance.NewAddress("1.2.3.4", instance.NetworkCloudLocal))
 	c.Assert(err, gc.IsNil)
 
 	address, err = s.apiUnit.PrivateAddress()
@@ -354,4 +356,21 @@ func (s *unitSuite) TestWatchConfigSettings(c *gc.C) {
 func (s *unitSuite) TestServiceNameAndTag(c *gc.C) {
 	c.Assert(s.apiUnit.ServiceName(), gc.Equals, "wordpress")
 	c.Assert(s.apiUnit.ServiceTag(), gc.Equals, "service-wordpress")
+}
+
+func (s *unitSuite) TestJoinedRelations(c *gc.C) {
+	joinedRelations, err := s.apiUnit.JoinedRelations()
+	c.Assert(err, gc.IsNil)
+	c.Assert(joinedRelations, gc.HasLen, 0)
+
+	rel1, _, _ := s.addRelatedService(c, "wordpress", "monitoring", s.wordpressUnit)
+	joinedRelations, err = s.apiUnit.JoinedRelations()
+	c.Assert(err, gc.IsNil)
+	c.Assert(joinedRelations, gc.DeepEquals, []string{rel1.Tag()})
+
+	rel2, _, _ := s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
+	joinedRelations, err = s.apiUnit.JoinedRelations()
+	c.Assert(err, gc.IsNil)
+	sort.Strings(joinedRelations)
+	c.Assert(joinedRelations, gc.DeepEquals, []string{rel2.Tag(), rel1.Tag()})
 }

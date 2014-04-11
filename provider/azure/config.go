@@ -18,12 +18,16 @@ var configFields = schema.Fields{
 	"management-certificate":      schema.String(),
 	"storage-account-name":        schema.String(),
 	"force-image-name":            schema.String(),
+	"availability-sets-enabled":   schema.Bool(),
 }
 var configDefaults = schema.Defaults{
 	"location":                    "",
 	"management-certificate":      "",
 	"management-certificate-path": "",
 	"force-image-name":            "",
+	// availability-sets-enabled is set to Omit (equivalent
+	// to false) for backwards compatibility.
+	"availability-sets-enabled": schema.Omit,
 }
 
 type azureEnvironConfig struct {
@@ -51,6 +55,11 @@ func (cfg *azureEnvironConfig) forceImageName() string {
 	return cfg.attrs["force-image-name"].(string)
 }
 
+func (cfg *azureEnvironConfig) availabilitySetsEnabled() bool {
+	enabled, _ := cfg.attrs["availability-sets-enabled"].(bool)
+	return enabled
+}
+
 func (prov azureEnvironProvider) newConfig(cfg *config.Config) (*azureEnvironConfig, error) {
 	validCfg, err := prov.Validate(cfg, nil)
 	if err != nil {
@@ -69,6 +78,13 @@ func (prov azureEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.C
 	err := config.Validate(cfg, oldCfg)
 	if err != nil {
 		return nil, err
+	}
+
+	// User cannot change availability-sets-enabled after environment is prepared.
+	if oldCfg != nil {
+		if oldCfg.AllAttrs()["availability-sets-enabled"] != cfg.AllAttrs()["availability-sets-enabled"] {
+			return nil, fmt.Errorf("cannot change availability-sets-enabled")
+		}
 	}
 
 	validated, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)

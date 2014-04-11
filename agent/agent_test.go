@@ -294,7 +294,8 @@ func (*suite) TestMigrate(c *gc.C) {
 func (*suite) TestNewStateMachineConfig(c *gc.C) {
 	type testStruct struct {
 		about         string
-		params        agent.StateMachineConfigParams
+		params        agent.AgentConfigParams
+		servingInfo   params.StateServingInfo
 		checkErr      string
 		inspectConfig func(*gc.C, agent.Config)
 	}
@@ -303,19 +304,35 @@ func (*suite) TestNewStateMachineConfig(c *gc.C) {
 		checkErr: "state server cert not found in configuration",
 	}, {
 		about: "missing state server key",
-		params: agent.StateMachineConfigParams{
-			StateServerCert: []byte("server cert"),
+		servingInfo: params.StateServingInfo{
+			Cert: "server cert",
 		},
 		checkErr: "state server key not found in configuration",
+	}, {
+		about: "missing state port",
+		servingInfo: params.StateServingInfo{
+			Cert:       "server cert",
+			PrivateKey: "server key",
+		},
+		checkErr: "state port not found in configuration",
+	}, {
+		about: "params api port",
+		servingInfo: params.StateServingInfo{
+			Cert:       "server cert",
+			PrivateKey: "server key",
+			StatePort:  69,
+		},
+		checkErr: "api port not found in configuration",
 	}}
-
 	for _, test := range agentConfigTests {
 		tests = append(tests, testStruct{
-			about: test.about,
-			params: agent.StateMachineConfigParams{
-				StateServerCert:   []byte("server cert"),
-				StateServerKey:    []byte("server key"),
-				AgentConfigParams: test.params,
+			about:  test.about,
+			params: test.params,
+			servingInfo: params.StateServingInfo{
+				Cert:       "server cert",
+				PrivateKey: "server key",
+				StatePort:  3171,
+				APIPort:    300,
 			},
 			checkErr: test.checkErr,
 		})
@@ -323,7 +340,7 @@ func (*suite) TestNewStateMachineConfig(c *gc.C) {
 
 	for i, test := range tests {
 		c.Logf("%v: %s", i, test.about)
-		cfg, err := agent.NewStateMachineConfig(test.params)
+		cfg, err := agent.NewStateMachineConfig(test.params, test.servingInfo)
 		if test.checkErr == "" {
 			c.Assert(err, gc.IsNil)
 			if test.inspectConfig != nil {
@@ -356,7 +373,41 @@ func (*suite) TestAttributes(c *gc.C) {
 	c.Assert(conf.UpgradedToVersion(), jc.DeepEquals, version.Current.Number)
 }
 
-func (s *suite) TestApiAddressesCantWriteBack(c *gc.C) {
+func (*suite) TestStateServingInfo(c *gc.C) {
+	servingInfo := params.StateServingInfo{
+		Cert:         "old cert",
+		PrivateKey:   "old key",
+		StatePort:    69,
+		APIPort:      47,
+		SharedSecret: "shared",
+	}
+	conf, err := agent.NewStateMachineConfig(attributeParams, servingInfo)
+	c.Assert(err, gc.IsNil)
+	gotInfo, ok := conf.StateServingInfo()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(gotInfo, jc.DeepEquals, servingInfo)
+	newInfo := params.StateServingInfo{
+		APIPort:      147,
+		StatePort:    169,
+		Cert:         "new cert",
+		PrivateKey:   "new key",
+		SharedSecret: "new shared",
+	}
+	conf.SetStateServingInfo(newInfo)
+	gotInfo, ok = conf.StateServingInfo()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(gotInfo, jc.DeepEquals, newInfo)
+}
+
+func (*suite) TestStateServingInfoNotAvailable(c *gc.C) {
+	conf, err := agent.NewAgentConfig(attributeParams)
+	c.Assert(err, gc.IsNil)
+
+	_, available := conf.StateServingInfo()
+	c.Assert(available, gc.Equals, false)
+}
+
+func (s *suite) TestAPIAddressesCannotWriteBack(c *gc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
 	c.Assert(err, gc.IsNil)
 	value, err := conf.APIAddresses()

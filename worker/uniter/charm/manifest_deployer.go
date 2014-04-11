@@ -14,11 +14,11 @@ import (
 )
 
 const (
-	// deployingURLPath holds the path in the charm dir to which the manifest
+	// deployingURLPath holds the path in the charm dir where the manifest
 	// deployer writes what charm is currently being deployed.
 	deployingURLPath = ".juju-deploying"
 
-	// manifestsDataPath holds the path in the data dir in which the manifest
+	// manifestsDataPath holds the path in the data dir where the manifest
 	// deployer stores the manifests for its charms.
 	manifestsDataPath = "manifests"
 )
@@ -92,8 +92,10 @@ func (d *manifestDeployer) Deploy() (err error) {
 	}
 
 	// Delete files in the base version not present in the staged charm.
-	if err := d.removeDiff(baseManifest, d.staged.manifest); err != nil {
-		return err
+	if upgrading {
+		if err := d.removeDiff(baseManifest, d.staged.manifest); err != nil {
+			return err
+		}
 	}
 
 	// Overwrite whatever's in place with the staged charm.
@@ -149,9 +151,9 @@ func (d *manifestDeployer) finishDeploy() error {
 }
 
 // ensureBaseFiles checks for an interrupted deploy operation and, if it finds
-// one, removes all entries in the manifest for the interrupted operation. This
-// leaves files from the base charm in an indeterminate state, but ready to be
-// either removed (if they are not referenced by the new charm) or overwritten
+// one, removes all entries in the manifest unique to the interrupted operation.
+// This leaves files from the base charm in an indeterminate state, but ready to
+// be either removed (if they are not referenced by the new charm) or overwritten
 // (if they are referenced by the new charm).
 //
 // Note that deployingURLPath is *not* written, because the charm state remains
@@ -160,9 +162,9 @@ func (d *manifestDeployer) finishDeploy() error {
 func (d *manifestDeployer) ensureBaseFiles(baseManifest set.Strings) error {
 	deployingURL, deployingManifest, err := d.loadManifest(deployingURLPath)
 	if err == nil {
-		logger.Debugf("detected interrupted deploy of charm %q", deployingURL)
+		logger.Infof("detected interrupted deploy of charm %q", deployingURL)
 		if *deployingURL != *d.staged.url {
-			logger.Debugf("removing files from charm %q", deployingURL)
+			logger.Infof("removing files from charm %q", deployingURL)
 			if err := d.removeDiff(deployingManifest, baseManifest); err != nil {
 				return err
 			}

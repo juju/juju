@@ -35,9 +35,20 @@ func NotAssignedError(unitName string) *params.Error {
 	}
 }
 
+func AlreadyExistsError(what string) *params.Error {
+	return &params.Error{
+		Message: fmt.Sprintf("%s already exists", what),
+		Code:    params.CodeAlreadyExists,
+	}
+}
+
 func ServerError(message string) *params.Error {
 	return &params.Error{
 		Message: message,
 		Code:    "",
 	}
+}
+
+func PrefixedError(prefix, message string) *params.Error {
+	return ServerError(prefix + message)
 }

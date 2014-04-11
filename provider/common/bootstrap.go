@@ -42,7 +42,7 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, cons constra
 	defer func() { handleBootstrapError(err, ctx, inst, env) }()
 
 	// First thing, ensure we have tools otherwise there's no point.
-	selectedTools, err := EnsureBootstrapTools(ctx, env, env.Config().DefaultSeries(), cons.Arch)
+	selectedTools, err := EnsureBootstrapTools(ctx, env, config.PreferredSeries(env.Config()), cons.Arch)
 	if err != nil {
 		return err
 	}
@@ -63,7 +63,7 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, cons constra
 	machineConfig := environs.NewBootstrapMachineConfig(privateKey)
 
 	fmt.Fprintln(ctx.GetStderr(), "Launching instance")
-	inst, hw, err := env.StartInstance(environs.StartInstanceParams{
+	inst, hw, _, err := env.StartInstance(environs.StartInstanceParams{
 		Constraints:   cons,
 		Tools:         selectedTools,
 		MachineConfig: machineConfig,

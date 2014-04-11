@@ -31,9 +31,7 @@ func (*workerSuite) instId(i int) instance.Id {
 }
 
 func (*workerSuite) addressesForIndex(i int) []instance.Address {
-	return []instance.Address{
-		instance.NewAddress(fmt.Sprintf("127.0.0.%d", i)),
-	}
+	return instance.NewAddresses(fmt.Sprintf("127.0.0.%d", i))
 }
 
 func (s *workerSuite) TestWorker(c *gc.C) {
@@ -173,6 +171,10 @@ func (s *workerSuite) setupScenario(c *gc.C) ([]*state.Machine, []instance.Insta
 	for i := 0; i < len(machines)/2; i++ {
 		dummy.SetInstanceAddresses(insts[i], s.addressesForIndex(i))
 		dummy.SetInstanceStatus(insts[i], "running")
+	}
+	// Make sure the second half of the instances have no addresses.
+	for i := len(machines) / 2; i < len(machines); i++ {
+		dummy.SetInstanceAddresses(insts[i], nil)
 	}
 	return machines, insts
 }

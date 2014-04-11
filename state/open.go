@@ -78,7 +78,32 @@ func DefaultDialOpts() DialOpts {
 //
 // Open returns unauthorizedError if access is unauthorized.
 func Open(info *Info, opts DialOpts, policy Policy) (*State, error) {
-	logger.Infof("opening state; mongo addresses: %q; entity %q", info.Addrs, info.Tag)
+	logger.Infof("opening state, mongo addresses: %q; entity %q", info.Addrs, info.Tag)
+	di, err := DialInfo(info, opts)
+	if err != nil {
+		return nil, err
+	}
+	logger.Debugf("dialing mongo")
+	session, err := mgo.DialWithInfo(di)
+
+	if err != nil {
+		return nil, err
+	}
+	logger.Debugf("connection established")
+
+	st, err := newState(session, info, policy)
+	if err != nil {
+		session.Close()
+		return nil, err
+	}
+	session.SetSocketTimeout(mongoSocketTimeout)
+	return st, nil
+}
+
+// DialInfo returns information on how to dial
+// the state's mongo server with the given info
+// and dial options.
+func DialInfo(info *Info, opts DialOpts) (*mgo.DialInfo, error) {
 	if len(info.Addrs) == 0 {
 		return nil, stderrors.New("no mongo addresses")
 	}
@@ -108,22 +133,12 @@ func Open(info *Info, opts DialOpts, policy Policy) (*State, error) {
 		}
 		return cc, nil
 	}
-	session, err := mgo.DialWithInfo(&mgo.DialInfo{
+
+	return &mgo.DialInfo{
 		Addrs:   info.Addrs,
 		Timeout: opts.Timeout,
 		Dial:    dial,
-	})
-	if err != nil {
-		return nil, err
-	}
-	logger.Infof("connection established")
-	st, err := newState(session, info, policy)
-	if err != nil {
-		session.Close()
-		return nil, err
-	}
-	session.SetSocketTimeout(mongoSocketTimeout)
-	return st, nil
+	}, nil
 }
 
 // Initialize sets up an initial empty state and returns it.
@@ -191,6 +206,8 @@ var indexes = []struct {
 	{"units", []string{"principal"}},
 	{"units", []string{"machineid"}},
 	{"users", []string{"name"}},
+	{"networkinterfaces", []string{"networkname"}},
+	{"networkinterfaces", []string{"machineid"}},
 }
 
 // The capped collection used for transaction logs defaults to 10MB.
@@ -238,36 +255,43 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 		if err := pdb.Login(info.Tag, info.Password); err != nil {
 			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to presence database as %q", info.Tag))
 		}
+		admin := session.DB(AdminUser)
+		if err := admin.Login(info.Tag, info.Password); err != nil {
+			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to admin database as %q", info.Tag))
+		}
 	} else if info.Password != "" {
 		admin := session.DB(AdminUser)
 		if err := admin.Login(AdminUser, info.Password); err != nil {
 			return nil, maybeUnauthorized(err, "cannot log in to admin database")
 		}
 	}
+
 	st := &State{
-		info:           info,
-		policy:         policy,
-		db:             db,
-		environments:   db.C("environments"),
-		charms:         db.C("charms"),
-		machines:       db.C("machines"),
-		containerRefs:  db.C("containerRefs"),
-		instanceData:   db.C("instanceData"),
-		relations:      db.C("relations"),
-		relationScopes: db.C("relationscopes"),
-		services:       db.C("services"),
-		networks:       db.C("linkednetworks"),
-		minUnits:       db.C("minunits"),
-		settings:       db.C("settings"),
-		settingsrefs:   db.C("settingsrefs"),
-		constraints:    db.C("constraints"),
-		units:          db.C("units"),
-		users:          db.C("users"),
-		presence:       pdb.C("presence"),
-		cleanups:       db.C("cleanups"),
-		annotations:    db.C("annotations"),
-		statuses:       db.C("statuses"),
-		stateServers:   db.C("stateServers"),
+		info:              info,
+		policy:            policy,
+		db:                db,
+		environments:      db.C("environments"),
+		charms:            db.C("charms"),
+		machines:          db.C("machines"),
+		containerRefs:     db.C("containerRefs"),
+		instanceData:      db.C("instanceData"),
+		relations:         db.C("relations"),
+		relationScopes:    db.C("relationscopes"),
+		services:          db.C("services"),
+		requestedNetworks: db.C("linkednetworks"),
+		networks:          db.C("networks"),
+		networkInterfaces: db.C("networkinterfaces"),
+		minUnits:          db.C("minunits"),
+		settings:          db.C("settings"),
+		settingsrefs:      db.C("settingsrefs"),
+		constraints:       db.C("constraints"),
+		units:             db.C("units"),
+		users:             db.C("users"),
+		presence:          pdb.C("presence"),
+		cleanups:          db.C("cleanups"),
+		annotations:       db.C("annotations"),
+		statuses:          db.C("statuses"),
+		stateServers:      db.C("stateServers"),
 	}
 	log := db.C("txns.log")
 	logInfo := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}

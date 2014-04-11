@@ -17,9 +17,9 @@ import (
 )
 
 // InitializeState should be called on the bootstrap machine's agent
-// configuration. It uses that information to dial the state server and
-// initialize it. It also generates a new password for the bootstrap
-// machine and calls Write to save the the configuration.
+// configuration. It uses that information to create the state server, dial the
+// state server, and initialize it. It also generates a new password for the
+// bootstrap machine and calls Write to save the the configuration.
 //
 // The envCfg values will be stored in the state's EnvironConfig; the
 // machineCfg values will be used to configure the bootstrap Machine,
@@ -52,30 +52,48 @@ type BootstrapMachineConfig struct {
 	// Characteristics holds hardware information on the
 	// bootstrap machine.
 	Characteristics instance.HardwareCharacteristics
+
+	// SharedSecret is the Mongo replica set shared secret (keyfile).
+	SharedSecret string
 }
 
 const bootstrapMachineId = "0"
 
-func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts, policy state.Policy) (*state.State, *state.Machine, error) {
+func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
 	if c.Tag() != names.MachineTag(bootstrapMachineId) {
 		return nil, nil, fmt.Errorf("InitializeState not called with bootstrap machine's configuration")
 	}
+	servingInfo, ok := c.StateServingInfo()
+	if !ok {
+		return nil, nil, fmt.Errorf("state serving information not available")
+	}
+	// N.B. no users are set up when we're initializing the state,
+	// so don't use any tag or password when opening it.
 	info := c.StateInfo()
 	info.Tag = ""
 	info.Password = ""
+
 	logger.Debugf("initializing address %v", info.Addrs)
 	st, err := state.Initialize(info, envCfg, timeout, policy)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to initialize state: %v", err)
 	}
 	logger.Debugf("connected to initial state")
-	if err = initAPIHostPorts(c, st, machineCfg.Addresses); err != nil {
-		st.Close()
+	defer func() {
+		if resultErr != nil {
+			st.Close()
+		}
+	}()
+	servingInfo.SharedSecret = machineCfg.SharedSecret
+	c.SetStateServingInfo(servingInfo)
+	if err = initAPIHostPorts(c, st, machineCfg.Addresses, servingInfo.APIPort); err != nil {
 		return nil, nil, err
+	}
+	if err := st.SetStateServingInfo(servingInfo); err != nil {
+		return nil, nil, fmt.Errorf("cannot set state serving info: %v", err)
 	}
 	m, err := initUsersAndBootstrapMachine(c, st, machineCfg)
 	if err != nil {
-		st.Close()
 		return nil, nil, err
 	}
 	return st, m, nil
@@ -127,7 +145,6 @@ func initBootstrapUser(st *state.State, passwordHash string) error {
 
 // initBootstrapMachine initializes the initial bootstrap machine in state.
 func initBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineConfig) (*state.Machine, error) {
-
 	logger.Infof("initialising bootstrap machine with config: %+v", cfg)
 
 	jobs := make([]state.MachineJob, len(cfg.Jobs))
@@ -173,8 +190,7 @@ func initBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineC
 }
 
 // initAPIHostPorts sets the initial API host/port addresses in state.
-func initAPIHostPorts(c ConfigSetter, st *state.State, addrs []instance.Address) error {
-	port, _, _ := c.APIServerDetails()
-	hostPorts := instance.AddressesWithPort(addrs, port)
+func initAPIHostPorts(c ConfigSetter, st *state.State, addrs []instance.Address, apiPort int) error {
+	hostPorts := instance.AddressesWithPort(addrs, apiPort)
 	return st.SetAPIHostPorts([][]instance.HostPort{hostPorts})
 }

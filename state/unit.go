@@ -63,21 +63,23 @@ const (
 // unitDoc represents the internal state of a unit in MongoDB.
 // Note the correspondence with UnitInfo in state/api/params.
 type unitDoc struct {
-	Name           string `bson:"_id"`
-	Service        string
-	Series         string
-	CharmURL       *charm.URL
-	Principal      string
-	Subordinates   []string
+	Name         string `bson:"_id"`
+	Service      string
+	Series       string
+	CharmURL     *charm.URL
+	Principal    string
+	Subordinates []string
+	MachineId    string
+	Resolved     ResolvedMode
+	Tools        *tools.Tools `bson:",omitempty"`
+	Ports        []instance.Port
+	Life         Life
+	TxnRevno     int64 `bson:"txn-revno"`
+	PasswordHash string
+
+	// No longer used - to be removed.
 	PublicAddress  string
 	PrivateAddress string
-	MachineId      string
-	Resolved       ResolvedMode
-	Tools          *tools.Tools `bson:",omitempty"`
-	Ports          []instance.Port
-	Life           Life
-	TxnRevno       int64 `bson:"txn-revno"`
-	PasswordHash   string
 }
 
 // Unit represents the state of a service unit.
@@ -479,6 +481,27 @@ func (u *Unit) SubordinateNames() []string {
 	return names
 }
 
+// JoinedRelations returns the relations for which the unit is in scope.
+func (u *Unit) JoinedRelations() ([]*Relation, error) {
+	candidates, err := serviceRelations(u.st, u.doc.Service)
+	if err != nil {
+		return nil, err
+	}
+	var joinedRelations []*Relation
+	for _, relation := range candidates {
+		relationUnit, err := relation.Unit(u)
+		if err != nil {
+			return nil, err
+		}
+		if inScope, err := relationUnit.InScope(); err != nil {
+			return nil, err
+		} else if inScope {
+			joinedRelations = append(joinedRelations, relation)
+		}
+	}
+	return joinedRelations, nil
+}
+
 // DeployerTag returns the tag of the agent responsible for deploying
 // the unit. If no such entity can be determined, false is returned.
 func (u *Unit) DeployerTag() (string, bool) {
@@ -513,7 +536,7 @@ func (u *Unit) addressesOfMachine() []instance.Address {
 
 // PublicAddress returns the public address of the unit and whether it is valid.
 func (u *Unit) PublicAddress() (string, bool) {
-	publicAddress := u.doc.PublicAddress
+	var publicAddress string
 	addresses := u.addressesOfMachine()
 	if len(addresses) > 0 {
 		publicAddress = instance.SelectPublicAddress(addresses)
@@ -523,7 +546,7 @@ func (u *Unit) PublicAddress() (string, bool) {
 
 // PrivateAddress returns the private address of the unit and whether it is valid.
 func (u *Unit) PrivateAddress() (string, bool) {
-	privateAddress := u.doc.PrivateAddress
+	var privateAddress string
 	addresses := u.addressesOfMachine()
 	if len(addresses) > 0 {
 		privateAddress = instance.SelectInternalAddress(addresses, false)
@@ -822,6 +845,11 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 	}
 	if !canHost {
 		return fmt.Errorf("machine %q cannot host units", m)
+	}
+	// assignToMachine implies assignment to an existing machine,
+	// which is only permitted if unit placement is supported.
+	if err := u.st.supportsUnitPlacement(); err != nil {
+		return err
 	}
 	assert := append(isAliveDoc, bson.D{
 		{"$or", []bson.D{
@@ -1275,37 +1303,6 @@ func (u *Unit) UnassignFromMachine() (err error) {
 		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, onAbort(err, errors.NotFoundf("machine")))
 	}
 	u.doc.MachineId = ""
-	return nil
-}
-
-// SetPublicAddress sets the public address of the unit.
-func (u *Unit) SetPublicAddress(address string) (err error) {
-	ops := []txn.Op{{
-		C:      u.st.units.Name,
-		Id:     u.doc.Name,
-		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"publicaddress", address}}}},
-	}}
-	if err := u.st.runTransaction(ops); err != nil {
-		return fmt.Errorf("cannot set public address of unit %q: %v", u, onAbort(err, errors.NotFoundf("unit")))
-	}
-	u.doc.PublicAddress = address
-	return nil
-}
-
-// SetPrivateAddress sets the private address of the unit.
-func (u *Unit) SetPrivateAddress(address string) error {
-	ops := []txn.Op{{
-		C:      u.st.units.Name,
-		Id:     u.doc.Name,
-		Assert: notDeadDoc,
-		Update: bson.D{{"$set", bson.D{{"privateaddress", address}}}},
-	}}
-	err := u.st.runTransaction(ops)
-	if err != nil {
-		return fmt.Errorf("cannot set private address of unit %q: %v", u, onAbort(err, errors.NotFoundf("unit")))
-	}
-	u.doc.PrivateAddress = address
 	return nil
 }
 

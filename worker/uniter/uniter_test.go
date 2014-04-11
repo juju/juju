@@ -810,6 +810,12 @@ func (s *UniterSuite) TestUniterErrorStateUpgrade(c *gc.C) {
 func (s *UniterSuite) TestUniterDeployerConversion(c *gc.C) {
 	deployerConversionTests := []uniterTest{
 		ut(
+			"install normally, check not using git",
+			quickStart{},
+			verifyCharm{
+				checkFiles: ft.Entries{ft.Removed{".git"}},
+			},
+		), ut(
 			"install with git, restart in steady state",
 			prepareGitUniter{[]stepper{
 				quickStart{},
@@ -823,7 +829,6 @@ func (s *UniterSuite) TestUniterDeployerConversion(c *gc.C) {
 			// charm directory itself hasn't; the *next* deployment will
 			// actually hit the charm directory and strip out the git
 			// stuff.
-
 			createCharm{revision: 1},
 			upgradeCharm{revision: 1},
 			waitHooks{"upgrade-charm", "config-changed"},
@@ -833,6 +838,39 @@ func (s *UniterSuite) TestUniterDeployerConversion(c *gc.C) {
 			},
 			verifyCharm{
 				revision:   1,
+				checkFiles: ft.Entries{ft.Removed{".git"}},
+			},
+			verifyRunning{},
+		), ut(
+			"install with git, get conflicted, mark resolved",
+			prepareGitUniter{[]stepper{
+				startGitUpgradeError{},
+				stopUniter{},
+			}},
+			startUniter{},
+
+			resolveError{state.ResolvedNoHooks},
+			waitHooks{"upgrade-charm", "config-changed"},
+			waitUnit{
+				status: params.StatusStarted,
+				charm:  1,
+			},
+			verifyCharm{revision: 1},
+			verifyRunning{},
+
+			// Due to the uncertainties around marking upgrade conflicts resolved,
+			// the charm directory again remains unconverted, although the deployer
+			// should have been fixed. Again, we check this by running another
+			// upgrade and verifying the .git dir is then removed.
+			createCharm{revision: 2},
+			upgradeCharm{revision: 2},
+			waitHooks{"upgrade-charm", "config-changed"},
+			waitUnit{
+				status: params.StatusStarted,
+				charm:  2,
+			},
+			verifyCharm{
+				revision:   2,
 				checkFiles: ft.Entries{ft.Removed{".git"}},
 			},
 			verifyRunning{},
@@ -857,6 +895,9 @@ func (s *UniterSuite) TestUniterDeployerConversion(c *gc.C) {
 				status: params.StatusStarted,
 				charm:  2,
 			},
+
+			// A forced upgrade allows us to swap out the git deployer *and*
+			// the .git dir inside the charm immediately; check we did so.
 			verifyCharm{
 				revision: 2,
 				checkFiles: ft.Entries{
@@ -865,34 +906,8 @@ func (s *UniterSuite) TestUniterDeployerConversion(c *gc.C) {
 				},
 			},
 			verifyRunning{},
-		), ut(
-			"install with git, get conflicted, mark resolved",
-			prepareGitUniter{[]stepper{
-				startGitUpgradeError{},
-				stopUniter{},
-			}},
-			startUniter{},
-
-			resolveError{state.ResolvedNoHooks},
-			waitHooks{"upgrade-charm", "config-changed"},
-			waitUnit{
-				status: params.StatusStarted,
-				charm:  1,
-			},
-			verifyCharm{
-				revision: 1,
-				checkFiles: ft.Entries{
-					ft.Removed{".git"},
-				},
-			},
-			verifyRunning{},
 		),
 	}
-
-	//
-
-	//
-
 	s.runUniterTests(c, deployerConversionTests)
 }
 
@@ -1095,9 +1110,58 @@ var relationsTests = []uniterTest{
 		waitHooks{},
 		// TODO BUG(?): the unit doesn't leave the scope, leaving the relation
 		// unkillable without direct intervention. I'm pretty sure it's not a
-		// uniter bug -- it should be the responisbility of `juju remove-unit
+		// uniter bug -- it should be the responsibility of `juju remove-unit
 		// --force` to cause the unit to leave any relation scopes it may be
 		// in -- but it's worth noting here all the same.
+	), ut(
+		"unknown local relation dir is removed",
+		quickStartRelation{},
+		stopUniter{},
+		custom{func(c *gc.C, ctx *context) {
+			ft.Dir{"state/relations/90210", 0755}.Create(c, ctx.path)
+		}},
+		startUniter{},
+		waitHooks{"config-changed"},
+		custom{func(c *gc.C, ctx *context) {
+			ft.Removed{"state/relations/90210"}.Check(c, ctx.path)
+		}},
+	), ut(
+		"all relations are available to config-changed on bounce, even if state dir is missing",
+		createCharm{
+			customize: func(c *gc.C, ctx *context, path string) {
+				script := "relation-ids db > relations.out && chmod 644 relations.out"
+				appendHook(c, path, "config-changed", script)
+			},
+		},
+		serveCharm{},
+		createUniter{},
+		waitUnit{
+			status: params.StatusStarted,
+		},
+		waitHooks{"install", "config-changed", "start"},
+		addRelation{waitJoin: true},
+		stopUniter{},
+		custom{func(c *gc.C, ctx *context) {
+			// Check the state dir was created, and remove it.
+			path := fmt.Sprintf("state/relations/%d", ctx.relation.Id())
+			ft.Dir{path, 0755}.Check(c, ctx.path)
+			ft.Removed{path}.Create(c, ctx.path)
+
+			// Check that config-changed didn't record any relations, because
+			// they shouldn't been available until after the start hook.
+			ft.File{"charm/relations.out", "", 0644}.Check(c, ctx.path)
+		}},
+		startUniter{},
+		waitHooks{"config-changed"},
+		custom{func(c *gc.C, ctx *context) {
+			// Check the state dir was recreated.
+			path := fmt.Sprintf("state/relations/%d", ctx.relation.Id())
+			ft.Dir{path, 0755}.Check(c, ctx.path)
+
+			// Check that config-changed did record the joined relations.
+			data := fmt.Sprintf("db:%d\n", ctx.relation.Id())
+			ft.File{"charm/relations.out", data, 0644}.Check(c, ctx.path)
+		}},
 	),
 }
 
@@ -1788,7 +1852,7 @@ func (s fixUpgradeError) step(c *gc.C, ctx *context) {
 }
 
 type addRelation struct {
-	testing.JujuConnSuite
+	waitJoin bool
 }
 
 func (s addRelation) step(c *gc.C, ctx *context) {
@@ -1803,6 +1867,27 @@ func (s addRelation) step(c *gc.C, ctx *context) {
 	ctx.relation, err = ctx.st.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
 	ctx.relationUnits = map[string]*state.RelationUnit{}
+	if !s.waitJoin {
+		return
+	}
+
+	// It's hard to do this properly (watching scope) without perturbing other tests.
+	ru, err := ctx.relation.Unit(ctx.unit)
+	c.Assert(err, gc.IsNil)
+	timeout := time.After(worstCase)
+	for {
+		c.Logf("waiting to join relation")
+		select {
+		case <-timeout:
+			c.Fatalf("failed to join relation")
+		case <-time.After(coretesting.ShortWait):
+			inScope, err := ru.InScope()
+			c.Assert(err, gc.IsNil)
+			if inScope {
+				return
+			}
+		}
+	}
 }
 
 type addRelationUnit struct{}

@@ -77,10 +77,8 @@ func setMachineAddresses(m *machiner.Machine) error {
 		default:
 			continue
 		}
-		if ip.IsLoopback() {
-			continue
-		}
-		hostAddresses = append(hostAddresses, instance.NewAddress(ip.String()))
+		address := instance.NewAddress(ip.String(), instance.NetworkUnknown)
+		hostAddresses = append(hostAddresses, address)
 	}
 	if len(hostAddresses) == 0 {
 		return nil

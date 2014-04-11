@@ -9,12 +9,13 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju"
 )
 
 // GetCommand retrieves the configuration of a service.
 type GetCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	ServiceName string
 	out         cmd.Output
 }
@@ -36,6 +37,10 @@ func (c *GetCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *GetCommand) Init(args []string) error {
+	err := c.EnvCommandBase.Init()
+	if err != nil {
+		return err
+	}
 	// TODO(dfc) add --schema-only
 	if len(args) == 0 {
 		return errors.New("no service name specified")

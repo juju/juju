@@ -28,6 +28,7 @@ import (
 	"launchpad.net/juju-core/state/statecmd"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 )
 
 var logger = loggo.GetLogger("juju.state.apiserver.client")
@@ -283,6 +284,7 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 	_, err = juju.DeployService(c.api.state,
 		juju.DeployServiceParams{
 			ServiceName:     args.ServiceName,
+			ServiceOwner:    c.api.auth.GetAuthTag(),
 			Charm:           ch,
 			NumUnits:        args.NumUnits,
 			ConfigSettings:  settings,
@@ -567,16 +569,8 @@ func (c *Client) AddMachines(args params.AddMachines) (params.AddMachinesResults
 	results := params.AddMachinesResults{
 		Machines: make([]params.AddMachinesResult, len(args.MachineParams)),
 	}
-
-	var defaultSeries string
-	conf, err := c.api.state.EnvironConfig()
-	if err != nil {
-		return results, err
-	}
-	defaultSeries = conf.DefaultSeries()
-
 	for i, p := range args.MachineParams {
-		m, err := c.addOneMachine(p, defaultSeries)
+		m, err := c.addOneMachine(p)
 		results.Machines[i].Error = common.ServerError(err)
 		if err == nil {
 			results.Machines[i].Machine = m.Id()
@@ -590,9 +584,13 @@ func (c *Client) InjectMachines(args params.AddMachines) (params.AddMachinesResu
 	return c.AddMachines(args)
 }
 
-func (c *Client) addOneMachine(p params.AddMachineParams, defaultSeries string) (*state.Machine, error) {
+func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error) {
 	if p.Series == "" {
-		p.Series = defaultSeries
+		conf, err := c.api.state.EnvironConfig()
+		if err != nil {
+			return nil, err
+		}
+		p.Series = config.PreferredSeries(conf)
 	}
 	if p.ContainerType != "" {
 		// Guard against dubious client by making sure that
@@ -709,7 +707,7 @@ func (c *Client) EnvironmentInfo() (api.EnvironmentInfo, error) {
 	}
 
 	info := api.EnvironmentInfo{
-		DefaultSeries: conf.DefaultSeries(),
+		DefaultSeries: config.PreferredSeries(conf),
 		ProviderType:  conf.Type(),
 		Name:          conf.Name(),
 		UUID:          env.UUID(),
@@ -783,6 +781,11 @@ func parseSettingsCompatible(ch *state.Charm, settings map[string]string) (charm
 		changes[name] = nil
 	}
 	return changes, nil
+}
+
+// AgentVersion returns the current version that the API server is running.
+func (c *Client) AgentVersion() (params.AgentVersionResult, error) {
+	return params.AgentVersionResult{Version: version.Current.Number}, nil
 }
 
 // EnvironmentGet implements the server-side part of the
@@ -955,6 +958,37 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 	return err
 }
 
+func (c *Client) ResolveCharms(args params.ResolveCharms) (params.ResolveCharmResults, error) {
+	var results params.ResolveCharmResults
+
+	envConfig, err := c.api.state.EnvironConfig()
+	if err != nil {
+		return params.ResolveCharmResults{}, err
+	}
+	repo := config.SpecializeCharmRepo(CharmStore, envConfig)
+
+	for _, ref := range args.References {
+		result := params.ResolveCharmResult{}
+		curl, err := c.resolveCharm(ref, repo)
+		if err != nil {
+			result.Error = err.Error()
+		} else {
+			result.URL = curl
+		}
+		results.URLs = append(results.URLs, result)
+	}
+	return results, nil
+}
+
+func (c *Client) resolveCharm(ref charm.Reference, repo charm.Repository) (*charm.URL, error) {
+	if ref.Schema != "cs" {
+		return nil, fmt.Errorf("only charm store charm references are supported, with cs: schema")
+	}
+
+	// Resolve the charm location with the repository.
+	return repo.Resolve(ref)
+}
+
 // CharmArchiveName returns a string that is suitable as a file name
 // in a storage URL. It is constructed from the charm name, revision
 // and a random UUID string.
@@ -993,7 +1027,7 @@ func (c *Client) EnsureAvailability(args params.EnsureAvailability) error {
 		if err != nil {
 			return err
 		}
-		series = cfg.DefaultSeries()
+		series = config.PreferredSeries(cfg)
 	}
 	return c.api.state.EnsureAvailability(args.NumStateServers, args.Constraints, series)
 }

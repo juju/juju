@@ -4,8 +4,11 @@
 package azure
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net/http"
+	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,16 +26,12 @@ import (
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/utils/parallel"
+	"launchpad.net/juju-core/utils/set"
 )
 
 const (
-	// In our initial implementation, each instance gets its own hosted
-	// service, deployment and role in Azure.  The role always gets this
-	// hostname (instance==service).
-	roleHostname = "default"
-
 	// deploymentSlot says in which slot to deploy instances.  Azure
 	// supports 'Production' or 'Staging'.
 	// This provider always deploys to Production.  Think twice about
@@ -48,9 +47,20 @@ const (
 	// environement, in CIDR notation. This is the network used for
 	// machine-to-machine communication.
 	networkDefinition = "10.0.0.0/8"
+
+	// stateServerLabel is the label applied to the cloud service created
+	// for state servers.
+	stateServerLabel = "juju-state-server"
+)
+
+// vars for testing purposes.
+var (
+	createInstance = (*azureEnviron).createInstance
 )
 
 type azureEnviron struct {
+	common.NopPrecheckerPolicy
+
 	// Except where indicated otherwise, all fields in this object should
 	// only be accessed using a lock or a snapshot.
 	sync.Mutex
@@ -207,14 +217,40 @@ func (env *azureEnviron) createVirtualNetwork() error {
 	return azure.AddVirtualNetworkSite(&virtualNetwork)
 }
 
+// deleteVnetAttempt is an AttemptyStrategy for use
+// when attempting delete a virtual network. This is
+// necessary as Azure apparently does not release all
+// references to the vnet even when all cloud services
+// are deleted.
+var deleteVnetAttempt = utils.AttemptStrategy{
+	Total: 30 * time.Second,
+	Delay: 1 * time.Second,
+}
+
+var networkInUse = regexp.MustCompile(".*The virtual network .* is currently in use.*")
+
 func (env *azureEnviron) deleteVirtualNetwork() error {
 	azure, err := env.getManagementAPI()
 	if err != nil {
 		return err
 	}
 	defer env.releaseManagementAPI(azure)
-	vnetName := env.getVirtualNetworkName()
-	return azure.RemoveVirtualNetworkSite(vnetName)
+	for a := deleteVnetAttempt.Start(); a.Next(); {
+		vnetName := env.getVirtualNetworkName()
+		err = azure.RemoveVirtualNetworkSite(vnetName)
+		if err == nil {
+			return nil
+		}
+		if err, ok := err.(*gwacl.AzureError); ok {
+			if err.StatusCode() == 400 && networkInUse.MatchString(err.Message) {
+				// Retry on "virtual network XYZ is currently in use".
+				continue
+			}
+		}
+		// Any other error should be returned.
+		break
+	}
+	return err
 }
 
 // getContainerName returns the name of the private storage account container
@@ -291,7 +327,7 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 // name it chooses (based on the given prefix), but recognizes that the name
 // may not be available.  If the name is not available, it does not treat that
 // as an error but just returns nil.
-func attemptCreateService(azure *gwacl.ManagementAPI, prefix string, affinityGroupName string, location string) (*gwacl.CreateHostedService, error) {
+func attemptCreateService(azure *gwacl.ManagementAPI, prefix, affinityGroupName, label string) (*gwacl.CreateHostedService, error) {
 	var err error
 	name := gwacl.MakeRandomHostedServiceName(prefix)
 	err = azure.CheckHostedServiceNameAvailability(name)
@@ -299,7 +335,10 @@ func attemptCreateService(azure *gwacl.ManagementAPI, prefix string, affinityGro
 		// The calling function should retry.
 		return nil, nil
 	}
-	req := gwacl.NewCreateHostedServiceWithLocation(name, name, location)
+	if label == "" {
+		label = name
+	}
+	req := gwacl.NewCreateHostedServiceWithLocation(name, label, "")
 	req.AffinityGroup = affinityGroupName
 	err = azure.AddHostedService(req)
 	if err != nil {
@@ -310,19 +349,19 @@ func attemptCreateService(azure *gwacl.ManagementAPI, prefix string, affinityGro
 
 // newHostedService creates a hosted service.  It will make up a unique name,
 // starting with the given prefix.
-func newHostedService(azure *gwacl.ManagementAPI, prefix string, affinityGroupName string, location string) (*gwacl.CreateHostedService, error) {
+func newHostedService(azure *gwacl.ManagementAPI, prefix, affinityGroupName, label string) (*gwacl.HostedService, error) {
 	var err error
-	var svc *gwacl.CreateHostedService
-	for tries := 10; tries > 0 && err == nil && svc == nil; tries-- {
-		svc, err = attemptCreateService(azure, prefix, affinityGroupName, location)
+	var createdService *gwacl.CreateHostedService
+	for tries := 10; tries > 0 && err == nil && createdService == nil; tries-- {
+		createdService, err = attemptCreateService(azure, prefix, affinityGroupName, label)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("could not create hosted service: %v", err)
 	}
-	if svc == nil {
+	if createdService == nil {
 		return nil, fmt.Errorf("could not come up with a unique hosted service name - is your randomizer initialized?")
 	}
-	return svc, nil
+	return azure.GetHostedServiceProperties(createdService.ServiceName, true)
 }
 
 // SupportedArchitectures is specified on the EnvironCapability interface.
@@ -382,15 +421,101 @@ func (env *azureEnviron) selectInstanceTypeAndImage(constraint *instances.Instan
 	return spec.InstanceType.Id, spec.Image.Id, nil
 }
 
-// StartInstance is specified in the InstanceBroker interface.
-func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ instance.Instance, _ *instance.HardwareCharacteristics, err error) {
+// createInstance creates all of the Azure entities necessary for a
+// new instance. This includes Cloud Service, Deployment and Role.
+//
+// If serviceName is non-empty, then createInstance will assign to
+// the Cloud Service with that name. Otherwise, a new Cloud Service
+// will be created.
+func (env *azureEnviron) createInstance(azure *gwacl.ManagementAPI, role *gwacl.Role, serviceName string, stateServer bool) (resultInst instance.Instance, resultErr error) {
+	var inst instance.Instance
+	defer func() {
+		if inst != nil && resultErr != nil {
+			if err := env.StopInstances([]instance.Instance{inst}); err != nil {
+				// Failure upon failure. Log it, but return the original error.
+				logger.Errorf("error releasing failed instance: %v", err)
+			}
+		}
+	}()
+	var err error
+	var service *gwacl.HostedService
+	if serviceName != "" {
+		logger.Debugf("creating instance in existing cloud service %q", serviceName)
+		service, err = azure.GetHostedServiceProperties(serviceName, true)
+	} else {
+		logger.Debugf("creating instance in new cloud service")
+		// If we're creating a cloud service for state servers,
+		// we will want to open additional ports. We need to
+		// record this against the cloud service, so we use a
+		// special label for the purpose.
+		var label string
+		if stateServer {
+			label = stateServerLabel
+		}
+		service, err = newHostedService(azure, env.getEnvPrefix(), env.getAffinityGroupName(), label)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if len(service.Deployments) == 0 {
+		// This is a newly created cloud service, so we
+		// should destroy it if anything below fails.
+		defer func() {
+			if resultErr != nil {
+				azure.DeleteHostedService(service.ServiceName)
+				// Destroying the hosted service destroys the instance,
+				// so ensure StopInstances isn't called.
+				inst = nil
+			}
+		}()
+		// Create an initial deployment.
+		deployment := gwacl.NewDeploymentForCreateVMDeployment(
+			deploymentNameV2(service.ServiceName),
+			deploymentSlot,
+			deploymentNameV2(service.ServiceName),
+			[]gwacl.Role{*role},
+			env.getVirtualNetworkName(),
+		)
+		if err := azure.AddDeployment(deployment, service.ServiceName); err != nil {
+			return nil, err
+		}
+		service.Deployments = append(service.Deployments, *deployment)
+	} else {
+		// Update the deployment.
+		deployment := &service.Deployments[0]
+		if err := azure.AddRole(&gwacl.AddRoleRequest{
+			ServiceName:      service.ServiceName,
+			DeploymentName:   deployment.Name,
+			PersistentVMRole: (*gwacl.PersistentVMRole)(role),
+		}); err != nil {
+			return nil, err
+		}
+		deployment.RoleList = append(deployment.RoleList, *role)
+	}
+	return env.getInstance(service, role.RoleName)
+}
 
-	// Declaring "err" in the function signature so that we can "defer"
-	// any cleanup that needs to run during error returns.
+// deploymentNameV1 returns the deployment name used
+// in the original implementation of the Azure provider.
+func deploymentNameV1(serviceName string) string {
+	return serviceName
+}
+
+// deploymentNameV2 returns the deployment name used
+// in the current implementation of the Azure provider.
+func deploymentNameV2(serviceName string) string {
+	return serviceName + "-v2"
+}
+
+// StartInstance is specified in the InstanceBroker interface.
+func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ instance.Instance, _ *instance.HardwareCharacteristics, _ []environs.NetworkInfo, err error) {
+	if args.MachineConfig.HasNetworks() {
+		return nil, nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
+	}
 
 	err = environs.FinishMachineConfig(args.MachineConfig, env.Config(), args.Constraints)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	// Pick envtools.  Needed for the custom data (which is what we normally
@@ -401,33 +526,17 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ ins
 	// Compose userdata.
 	userData, err := makeCustomData(args.MachineConfig)
 	if err != nil {
-		return nil, nil, fmt.Errorf("custom data: %v", err)
+		return nil, nil, nil, fmt.Errorf("custom data: %v", err)
 	}
 
 	azure, err := env.getManagementAPI()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	defer env.releaseManagementAPI(azure)
 
-	snap := env.getSnapshot()
-	location := snap.ecfg.location()
-	service, err := newHostedService(azure.ManagementAPI, env.getEnvPrefix(), env.getAffinityGroupName(), location)
-	if err != nil {
-		return nil, nil, err
-	}
-	serviceName := service.ServiceName
-
-	// If we fail after this point, clean up the hosted service.
-	defer func() {
-		if err != nil {
-			azure.DestroyHostedService(
-				&gwacl.DestroyHostedServiceRequest{
-					ServiceName: serviceName,
-				})
-		}
-	}()
-
+	snapshot := env.getSnapshot()
+	location := snapshot.ecfg.location()
 	instanceType, sourceImageName, err := env.selectInstanceTypeAndImage(&instances.InstanceConstraint{
 		Region:      location,
 		Series:      args.Tools.OneSeries(),
@@ -435,65 +544,93 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ ins
 		Constraints: args.Constraints,
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
-	// virtualNetworkName is the virtual network to which all the
-	// deployments in this environment belong.
-	virtualNetworkName := env.getVirtualNetworkName()
-
-	// 1. Create an OS Disk.
-	vhd := env.newOSDisk(sourceImageName)
-
-	// 2. Create a Role for a Linux machine.
-	role := env.newRole(instanceType, vhd, userData, roleHostname)
-
-	// 3. Create the Deployment object.
-	deployment := env.newDeployment(role, serviceName, serviceName, virtualNetworkName)
-
-	err = azure.AddDeployment(deployment, serviceName)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	var inst instance.Instance
-
-	// From here on, remember to shut down the instance before returning
-	// any error.
-	defer func() {
-		if err != nil && inst != nil {
-			err2 := env.StopInstances([]instance.Instance{inst})
-			if err2 != nil {
-				// Failure upon failure.  Log it, but return
-				// the original error.
-				logger.Errorf("error releasing failed instance: %v", err)
+	// We use the cloud service label as a way to group instances with
+	// the same affinity, so that machines can be be allocated to the
+	// same availability set.
+	var cloudServiceName string
+	if args.DistributionGroup != nil && snapshot.ecfg.availabilitySetsEnabled() {
+		instanceIds, err := args.DistributionGroup()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		for _, id := range instanceIds {
+			cloudServiceName, _ = env.splitInstanceId(id)
+			if cloudServiceName != "" {
+				break
 			}
 		}
-	}()
+	}
 
-	// Assign the returned instance to 'inst' so that the deferred method
-	// above can perform its check.
-	inst, err = env.getInstance(serviceName)
+	vhd := env.newOSDisk(sourceImageName)
+	// If we're creating machine-0, we'll want to expose port 22.
+	// All other machines get an auto-generated public port for SSH.
+	stateServer := false
+	for _, job := range args.MachineConfig.Jobs {
+		if job == params.JobManageEnviron {
+			stateServer = true
+			break
+		}
+	}
+	role := env.newRole(instanceType, vhd, userData, stateServer)
+	inst, err := createInstance(env, azure.ManagementAPI, role, cloudServiceName, stateServer)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	// TODO(bug 1193998) - return instance hardware characteristics as well
-	return inst, &instance.HardwareCharacteristics{}, nil
+	return inst, &instance.HardwareCharacteristics{}, nil, nil
 }
 
 // getInstance returns an up-to-date version of the instance with the given
 // name.
-func (env *azureEnviron) getInstance(instanceName string) (instance.Instance, error) {
-	context, err := env.getManagementAPI()
-	if err != nil {
-		return nil, err
+func (env *azureEnviron) getInstance(hostedService *gwacl.HostedService, roleName string) (instance.Instance, error) {
+	if n := len(hostedService.Deployments); n != 1 {
+		return nil, fmt.Errorf("expected one deployment for %q, got %d", hostedService.ServiceName, n)
 	}
-	defer env.releaseManagementAPI(context)
-	service, err := context.GetHostedServiceProperties(instanceName, false)
-	if err != nil {
-		return nil, fmt.Errorf("could not get instance %q: %v", instanceName, err)
+	deployment := &hostedService.Deployments[0]
+
+	var maskStateServerPorts bool
+	var instanceId instance.Id
+	switch deployment.Name {
+	case deploymentNameV1(hostedService.ServiceName):
+		// Old style instance.
+		instanceId = instance.Id(hostedService.ServiceName)
+		if n := len(deployment.RoleList); n != 1 {
+			return nil, fmt.Errorf("expected one role for %q, got %d", deployment.Name, n)
+		}
+		roleName = deployment.RoleList[0].RoleName
+		// In the old implementation of the Azure provider,
+		// all machines opened the state and API server ports.
+		maskStateServerPorts = true
+
+	case deploymentNameV2(hostedService.ServiceName):
+		instanceId = instance.Id(fmt.Sprintf("%s-%s", hostedService.ServiceName, roleName))
+		// Newly created state server machines are put into
+		// the cloud service with the stateServerLabel label.
+		if decoded, err := base64.StdEncoding.DecodeString(hostedService.Label); err == nil {
+			maskStateServerPorts = string(decoded) == stateServerLabel
+		}
 	}
-	instance := &azureInstance{service.HostedServiceDescriptor, env}
+
+	var roleInstance *gwacl.RoleInstance
+	for _, role := range deployment.RoleInstanceList {
+		if role.RoleName == roleName {
+			roleInstance = &role
+			break
+		}
+	}
+
+	instance := &azureInstance{
+		environ:              env,
+		hostedService:        &hostedService.HostedServiceDescriptor,
+		instanceId:           instanceId,
+		deploymentName:       deployment.Name,
+		roleName:             roleName,
+		roleInstance:         roleInstance,
+		maskStateServerPorts: maskStateServerPorts,
+	}
 	return instance, nil
 }
 
@@ -512,29 +649,40 @@ func (env *azureEnviron) newOSDisk(sourceImageName string) *gwacl.OSVirtualHardD
 
 // getInitialEndpoints returns a slice of the endpoints every instance should have open
 // (ssh port, etc).
-func (env *azureEnviron) getInitialEndpoints() []gwacl.InputEndpoint {
+func (env *azureEnviron) getInitialEndpoints(stateServer bool) []gwacl.InputEndpoint {
+	// TODO(axw) either proxy ssh traffic through one of the
+	// randomly chosen VMs to the internal address, or otherwise
+	// don't load balance SSH and provide a way of getting the
+	// local port.
 	cfg := env.Config()
-	return []gwacl.InputEndpoint{
-		{
-			LocalPort: 22,
-			Name:      "sshport",
-			Port:      22,
-			Protocol:  "tcp",
-		},
-		// TODO: Ought to have this only for state servers.
-		{
+	endpoints := []gwacl.InputEndpoint{{
+		LocalPort: 22,
+		Name:      "sshport",
+		Port:      22,
+		Protocol:  "tcp",
+	}}
+	if stateServer {
+		endpoints = append(endpoints, []gwacl.InputEndpoint{{
 			LocalPort: cfg.StatePort(),
-			Name:      "stateport",
 			Port:      cfg.StatePort(),
 			Protocol:  "tcp",
-		},
-		// TODO: Ought to have this only for API servers.
-		{
+			Name:      "stateport",
+		}, {
 			LocalPort: cfg.APIPort(),
-			Name:      "apiport",
 			Port:      cfg.APIPort(),
 			Protocol:  "tcp",
-		}}
+			Name:      "apiport",
+		}}...)
+	}
+	for i, endpoint := range endpoints {
+		endpoint.LoadBalancedEndpointSetName = endpoint.Name
+		endpoint.LoadBalancerProbe = &gwacl.LoadBalancerProbe{
+			Port:     endpoint.Port,
+			Protocol: "TCP",
+		}
+		endpoints[i] = endpoint
+	}
+	return endpoints
 }
 
 // newRole creates a gwacl.Role object (an Azure Virtual Machine) which uses
@@ -543,101 +691,204 @@ func (env *azureEnviron) getInitialEndpoints() []gwacl.InputEndpoint {
 // The VM will have:
 // - an 'ubuntu' user defined with an unguessable (randomly generated) password
 // - its ssh port (TCP 22) open
+// (if a state server)
 // - its state port (TCP mongoDB) port open
 // - its API port (TCP) open
 //
 // roleSize is the name of one of Azure's machine types, e.g. ExtraSmall,
 // Large, A6 etc.
-func (env *azureEnviron) newRole(roleSize string, vhd *gwacl.OSVirtualHardDisk, userData string, roleHostname string) *gwacl.Role {
+func (env *azureEnviron) newRole(roleSize string, vhd *gwacl.OSVirtualHardDisk, userData string, stateServer bool) *gwacl.Role {
+	roleName := gwacl.MakeRandomRoleName("juju")
 	// Create a Linux Configuration with the username and the password
 	// empty and disable SSH with password authentication.
-	hostname := roleHostname
+	hostname := roleName
 	username := "ubuntu"
 	password := gwacl.MakeRandomPassword()
 	linuxConfigurationSet := gwacl.NewLinuxProvisioningConfigurationSet(hostname, username, password, userData, "true")
-	// Generate a Network Configuration with the initially required ports
-	// open.
-	networkConfigurationSet := gwacl.NewNetworkConfigurationSet(env.getInitialEndpoints(), nil)
-	roleName := gwacl.MakeRandomRoleName("juju")
-	// The ordering of these configuration sets is significant for the tests.
-	return gwacl.NewRole(
-		roleSize, roleName,
+	// Generate a Network Configuration with the initially required ports open.
+	networkConfigurationSet := gwacl.NewNetworkConfigurationSet(env.getInitialEndpoints(stateServer), nil)
+	role := gwacl.NewRole(
+		roleSize, roleName, vhd,
 		[]gwacl.ConfigurationSet{*linuxConfigurationSet, *networkConfigurationSet},
-		[]gwacl.OSVirtualHardDisk{*vhd})
+	)
+	role.AvailabilitySetName = "juju"
+	return role
 }
-
-// newDeployment creates and returns a gwacl Deployment object.
-func (env *azureEnviron) newDeployment(role *gwacl.Role, deploymentName string, deploymentLabel string, virtualNetworkName string) *gwacl.Deployment {
-	// Use the service name as the label for the deployment.
-	return gwacl.NewDeploymentForCreateVMDeployment(deploymentName, deploymentSlot, deploymentLabel, []gwacl.Role{*role}, virtualNetworkName)
-}
-
-// Spawn this many goroutines to issue requests for destroying services.
-// TODO: this is currently set to 1 because of a problem in Azure:
-// removing Services in the same affinity group concurrently causes a conflict.
-// This conflict is wrongly reported by Azure as a BadRequest (400).
-// This has been reported to Windows Azure.
-var maxConcurrentDeletes = 1
 
 // StartInstance is specified in the InstanceBroker interface.
 func (env *azureEnviron) StopInstances(instances []instance.Instance) error {
-	// Each Juju instance is an Azure Service (instance==service), destroy
-	// all the Azure services.
-	// Acquire management API object.
 	context, err := env.getManagementAPI()
 	if err != nil {
 		return err
 	}
 	defer env.releaseManagementAPI(context)
 
-	// Destroy all the services in parallel.
-	run := parallel.NewRun(maxConcurrentDeletes)
+	// Map services to role names we want to delete.
+	serviceInstances := make(map[string]map[string]bool)
 	for _, instance := range instances {
-		serviceName := string(instance.Id())
-		run.Do(func() error {
-			request := &gwacl.DestroyHostedServiceRequest{ServiceName: serviceName}
-			return context.DestroyHostedService(request)
-		})
+		instance, ok := instance.(*azureInstance)
+		if !ok {
+			continue
+		}
+		serviceName := instance.hostedService.ServiceName
+		deleteRoleNames, ok := serviceInstances[serviceName]
+		if !ok {
+			deleteRoleNames = make(map[string]bool)
+			serviceInstances[serviceName] = deleteRoleNames
+		}
+		deleteRoleNames[instance.roleName] = true
 	}
-	return run.Wait()
+
+	// Load the properties of each service, so we know whether to
+	// delete the entire service.
+	//
+	// Note: concurrent operations on Affinity Groups have been
+	// found to cause conflict responses, so we do everything serially.
+	for serviceName, deleteRoleNames := range serviceInstances {
+		service, err := context.GetHostedServiceProperties(serviceName, true)
+		if err != nil {
+			return err
+		} else if len(service.Deployments) != 1 {
+			continue
+		}
+		// Filter the instances that have no corresponding role.
+		var roleNames set.Strings
+		for _, role := range service.Deployments[0].RoleList {
+			roleNames.Add(role.RoleName)
+		}
+		for roleName := range deleteRoleNames {
+			if !roleNames.Contains(roleName) {
+				delete(deleteRoleNames, roleName)
+			}
+		}
+		// If we're deleting all the roles, we need to delete the
+		// entire cloud service or we'll get an error.
+		if len(deleteRoleNames) == roleNames.Size() {
+			if err := context.DeleteHostedService(serviceName); err != nil {
+				return err
+			}
+		} else {
+			for roleName := range deleteRoleNames {
+				if err := context.DeleteRole(&gwacl.DeleteRoleRequest{
+					ServiceName:    serviceName,
+					DeploymentName: service.Deployments[0].Name,
+					RoleName:       roleName,
+					DeleteMedia:    true,
+				}); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// destroyAllServices destroys all Cloud Services and deployments contained.
+// This is needed to clean up broken environments, in which there are cloud
+// services with no deployments.
+func (env *azureEnviron) destroyAllServices() error {
+	context, err := env.getManagementAPI()
+	if err != nil {
+		return err
+	}
+	defer env.releaseManagementAPI(context)
+
+	request := &gwacl.ListPrefixedHostedServicesRequest{ServiceNamePrefix: env.getEnvPrefix()}
+	services, err := context.ListPrefixedHostedServices(request)
+	if err != nil {
+		return err
+	}
+	for _, service := range services {
+		if err := context.DeleteHostedService(service.ServiceName); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// splitInstanceId splits the specified instance.Id into its
+// cloud-service and role parts. Both values will be empty
+// if the instance-id is non-matching, and role will be empty
+// for legacy instance-ids.
+func (env *azureEnviron) splitInstanceId(id instance.Id) (service, role string) {
+	prefix := env.getEnvPrefix()
+	if !strings.HasPrefix(string(id), prefix) {
+		return "", ""
+	}
+	fields := strings.Split(string(id)[len(prefix):], "-")
+	service = prefix + fields[0]
+	if len(fields) > 1 {
+		role = fields[1]
+	}
+	return service, role
 }
 
 // Instances is specified in the Environ interface.
 func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
-	// The instance list is built using the list of all the relevant
-	// Azure Services (instance==service).
-	// Acquire management API object.
 	context, err := env.getManagementAPI()
 	if err != nil {
 		return nil, err
 	}
 	defer env.releaseManagementAPI(context)
 
-	// Prepare gwacl request object.
-	serviceNames := make([]string, len(ids))
-	for i, id := range ids {
-		serviceNames[i] = string(id)
+	type instanceId struct {
+		serviceName, roleName string
 	}
-	request := &gwacl.ListSpecificHostedServicesRequest{ServiceNames: serviceNames}
 
-	// Issue 'ListSpecificHostedServices' request with gwacl.
-	services, err := context.ListSpecificHostedServices(request)
+	instancesIds := make([]instanceId, len(ids))
+	var serviceNames set.Strings
+	for i, id := range ids {
+		serviceName, roleName := env.splitInstanceId(id)
+		if serviceName == "" {
+			continue
+		}
+		instancesIds[i] = instanceId{
+			serviceName: serviceName,
+			roleName:    roleName,
+		}
+		serviceNames.Add(serviceName)
+	}
+
+	// Map service names to gwacl.HostedServices.
+	services, err := context.ListSpecificHostedServices(&gwacl.ListSpecificHostedServicesRequest{
+		ServiceNames: serviceNames.Values(),
+	})
 	if err != nil {
 		return nil, err
 	}
-
-	// If no instances were found, return ErrNoInstances.
 	if len(services) == 0 {
 		return nil, environs.ErrNoInstances
 	}
-
-	instances := convertToInstances(services, env)
-
-	// Check if we got a partial result.
-	if len(ids) != len(instances) {
-		return instances, environs.ErrPartialInstances
+	hostedServices := make(map[string]*gwacl.HostedService)
+	for _, s := range services {
+		hostedService, err := context.GetHostedServiceProperties(s.ServiceName, true)
+		if err != nil {
+			return nil, err
+		}
+		hostedServices[s.ServiceName] = hostedService
 	}
-	return instances, nil
+
+	err = nil
+	instances := make([]instance.Instance, len(ids))
+	for i, id := range instancesIds {
+		if id.serviceName == "" {
+			// Previously determined to be an invalid instance ID.
+			continue
+		}
+		hostedService := hostedServices[id.serviceName]
+		instance, err := env.getInstance(hostedService, id.roleName)
+		if err == nil {
+			instances[i] = instance
+		} else {
+			logger.Debugf("failed to get instance for role %q in service %q: %v", id.roleName, hostedService.ServiceName, err)
+		}
+	}
+	for _, instance := range instances {
+		if instance == nil {
+			err = environs.ErrPartialInstances
+		}
+	}
+	return instances, err
 }
 
 // AllInstances is specified in the InstanceBroker interface.
@@ -652,27 +903,35 @@ func (env *azureEnviron) AllInstances() ([]instance.Instance, error) {
 	defer env.releaseManagementAPI(context)
 
 	request := &gwacl.ListPrefixedHostedServicesRequest{ServiceNamePrefix: env.getEnvPrefix()}
-	services, err := context.ListPrefixedHostedServices(request)
+	serviceDescriptors, err := context.ListPrefixedHostedServices(request)
 	if err != nil {
 		return nil, err
 	}
-	return convertToInstances(services, env), nil
+
+	var instances []instance.Instance
+	for _, sd := range serviceDescriptors {
+		hostedService, err := context.GetHostedServiceProperties(sd.ServiceName, true)
+		if err != nil {
+			return nil, err
+		} else if len(hostedService.Deployments) != 1 {
+			continue
+		}
+		deployment := &hostedService.Deployments[0]
+		for _, role := range deployment.RoleList {
+			instance, err := env.getInstance(hostedService, role.RoleName)
+			if err != nil {
+				return nil, err
+			}
+			instances = append(instances, instance)
+		}
+	}
+	return instances, nil
 }
 
 // getEnvPrefix returns the prefix used to name the objects specific to this
 // environment.
 func (env *azureEnviron) getEnvPrefix() string {
 	return fmt.Sprintf("juju-%s-", env.Name())
-}
-
-// convertToInstances converts a slice of gwacl.HostedServiceDescriptor objects
-// into a slice of instance.Instance objects.
-func convertToInstances(services []gwacl.HostedServiceDescriptor, env *azureEnviron) []instance.Instance {
-	instances := make([]instance.Instance, len(services))
-	for i, service := range services {
-		instances[i] = &azureInstance{service, env}
-	}
-	return instances
 }
 
 // Storage is specified in the Environ interface.
@@ -685,22 +944,15 @@ func (env *azureEnviron) Destroy() error {
 	logger.Debugf("destroying environment %q", env.name)
 
 	// Stop all instances.
-	insts, err := env.AllInstances()
-	if err != nil {
-		return fmt.Errorf("cannot get instances: %v", err)
-	}
-	err = env.StopInstances(insts)
-	if err != nil {
-		return fmt.Errorf("cannot stop instances: %v", err)
+	if err := env.destroyAllServices(); err != nil {
+		return fmt.Errorf("cannot destroy instances: %v", err)
 	}
 
 	// Delete vnet and affinity group.
-	err = env.deleteVirtualNetwork()
-	if err != nil {
+	if err := env.deleteVirtualNetwork(); err != nil {
 		return fmt.Errorf("cannot delete the environment's virtual network: %v", err)
 	}
-	err = env.deleteAffinityGroup()
-	if err != nil {
+	if err := env.deleteAffinityGroup(); err != nil {
 		return fmt.Errorf("cannot delete the environment's affinity group: %v", err)
 	}
 
@@ -709,8 +961,7 @@ func (env *azureEnviron) Destroy() error {
 	// half way through the Destroy() method, the storage won't be cleaned
 	// up and thus an attempt to re-boostrap the environment will lead to
 	// a "error: environment is already bootstrapped" error.
-	err = env.Storage().RemoveAll()
-	if err != nil {
+	if err := env.Storage().RemoveAll(); err != nil {
 		return fmt.Errorf("cannot clean up storage: %v", err)
 	}
 	return nil
@@ -913,4 +1164,12 @@ func (env *azureEnviron) Region() (simplestreams.CloudSpec, error) {
 		Region:   ecfg.location(),
 		Endpoint: string(gwacl.GetEndpoint(ecfg.location())),
 	}, nil
+}
+
+// SupportsUnitPlacement is specified in the state.EnvironCapability interface.
+func (env *azureEnviron) SupportsUnitPlacement() error {
+	if env.getSnapshot().ecfg.availabilitySetsEnabled() {
+		return fmt.Errorf("unit placement is not supported with availability-sets-enabled")
+	}
+	return nil
 }

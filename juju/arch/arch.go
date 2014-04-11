@@ -13,7 +13,7 @@ import (
 const (
 	AMD64 = "amd64"
 	I386  = "i386"
-	ARM   = "arm"
+	ARM   = "armhf"
 	ARM64 = "arm64"
 	PPC64 = "ppc64"
 )
@@ -35,7 +35,7 @@ var archREs = []struct {
 }{
 	{regexp.MustCompile("amd64|x86_64"), AMD64},
 	{regexp.MustCompile("i?[3-9]86"), I386},
-	{regexp.MustCompile("armv.*"), ARM},
+	{regexp.MustCompile("(arm$)|(armv.*)"), ARM},
 	{regexp.MustCompile("aarch64"), ARM64},
 	{regexp.MustCompile("ppc64el|ppc64le"), PPC64},
 }
@@ -56,7 +56,6 @@ func NormaliseArch(rawArch string) string {
 	for _, re := range archREs {
 		if re.Match([]byte(rawArch)) {
 			return re.arch
-			break
 		}
 	}
 	return rawArch

@@ -94,7 +94,7 @@ func (u *Unit) Watch() (watcher.NotifyWatcher, error) {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -134,7 +134,7 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -197,7 +197,7 @@ func (u *Unit) Resolved() (params.ResolvedMode, error) {
 		return "", err
 	}
 	if len(results.Results) != 1 {
-		return "", fmt.Errorf("expected one result, got %d", len(results.Results))
+		return "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -221,7 +221,7 @@ func (u *Unit) IsPrincipal() (bool, error) {
 		return false, err
 	}
 	if len(results.Results) != 1 {
-		return false, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return false, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -242,7 +242,7 @@ func (u *Unit) HasSubordinates() (bool, error) {
 		return false, err
 	}
 	if len(results.Results) != 1 {
-		return false, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return false, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -269,31 +269,13 @@ func (u *Unit) PublicAddress() (string, error) {
 		return "", err
 	}
 	if len(results.Results) != 1 {
-		return "", fmt.Errorf("expected one result, got %d", len(results.Results))
+		return "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
 		return "", result.Error
 	}
 	return result.Result, nil
-}
-
-// SetPublicAddress sets the public address of the unit.
-//
-// TODO(dimitern): We might be able to drop this, once we have machine
-// addresses implemented fully. See also LP bug 1221798.
-func (u *Unit) SetPublicAddress(address string) error {
-	var result params.ErrorResults
-	args := params.SetEntityAddresses{
-		Entities: []params.SetEntityAddress{
-			{Tag: u.tag, Address: address},
-		},
-	}
-	err := u.st.call("SetPublicAddress", args, &result)
-	if err != nil {
-		return err
-	}
-	return result.OneError()
 }
 
 // PrivateAddress returns the private address of the unit and whether
@@ -314,31 +296,13 @@ func (u *Unit) PrivateAddress() (string, error) {
 		return "", err
 	}
 	if len(results.Results) != 1 {
-		return "", fmt.Errorf("expected one result, got %d", len(results.Results))
+		return "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
 		return "", result.Error
 	}
 	return result.Result, nil
-}
-
-// SetPrivateAddress sets the private address of the unit.
-//
-// TODO(dimitern): We might be able to drop this, once we have machine
-// addresses implemented fully. See also LP bug 1221798.
-func (u *Unit) SetPrivateAddress(address string) error {
-	var result params.ErrorResults
-	args := params.SetEntityAddresses{
-		Entities: []params.SetEntityAddress{
-			{Tag: u.tag, Address: address},
-		},
-	}
-	err := u.st.call("SetPrivateAddress", args, &result)
-	if err != nil {
-		return err
-	}
-	return result.OneError()
 }
 
 // OpenPort sets the policy of the port with protocol and number to be
@@ -395,7 +359,7 @@ func (u *Unit) CharmURL() (*charm.URL, error) {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -457,7 +421,7 @@ func (u *Unit) WatchConfigSettings() (watcher.NotifyWatcher, error) {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -465,4 +429,24 @@ func (u *Unit) WatchConfigSettings() (watcher.NotifyWatcher, error) {
 	}
 	w := watcher.NewNotifyWatcher(u.st.caller, result)
 	return w, nil
+}
+
+// JoinedRelations returns the tags of the relations the unit has joined.
+func (u *Unit) JoinedRelations() ([]string, error) {
+	var results params.StringsResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: u.tag}},
+	}
+	err := u.st.call("JoinedRelations", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return result.Result, nil
 }

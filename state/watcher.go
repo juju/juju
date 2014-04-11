@@ -352,7 +352,6 @@ func (w *lifecycleWatcher) loop() error {
 			out = nil
 		}
 	}
-	return nil
 }
 
 // minUnitsWatcher notifies about MinUnits changes of the services requiring
@@ -443,7 +442,6 @@ func (w *minUnitsWatcher) loop() (err error) {
 			serviceNames = new(set.Strings)
 		}
 	}
-	return nil
 }
 
 func (w *minUnitsWatcher) Changes() <-chan []string {
@@ -562,7 +560,6 @@ func (w *RelationScopeWatcher) loop() error {
 			out = nil
 		}
 	}
-	return nil
 }
 
 // relationUnitsWatcher sends notifications of units entering and leaving the
@@ -915,7 +912,6 @@ func (w *unitsWatcher) loop(coll, id string) error {
 			changes = nil
 		}
 	}
-	return nil
 }
 
 // EnvironConfigWatcher observes changes to the
@@ -979,7 +975,6 @@ func (w *EnvironConfigWatcher) loop() (err error) {
 			out = nil
 		}
 	}
-	return nil
 }
 
 type settingsWatcher struct {
@@ -1044,7 +1039,6 @@ func (w *settingsWatcher) loop(key string) (err error) {
 			out = nil
 		}
 	}
-	return nil
 }
 
 // entityWatcher generates an event when a document in the db changes
@@ -1170,7 +1164,6 @@ func (w *entityWatcher) loop(coll *mgo.Collection, key string) error {
 			out = nil
 		}
 	}
-	return nil
 }
 
 // machineUnitsWatcher notifies about assignments and lifecycle changes

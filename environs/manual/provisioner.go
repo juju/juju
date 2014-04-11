@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"strings"
 
 	"github.com/juju/loggo"
@@ -22,7 +21,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/statecmd"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/shell"
@@ -73,33 +71,13 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 	if err != nil {
 		return "", err
 	}
-	// Used for fallback to 1.16 code
-	var stateConn *juju.Conn
 	defer func() {
 		if machineId != "" && err != nil {
 			logger.Errorf("provisioning failed, removing machine %v: %v", machineId, err)
-			// If we have stateConn, then we are in 1.16
-			// compatibility mode and we should issue
-			// DestroyMachines directly on the state, rather than
-			// via API (because DestroyMachine *also* didn't exist
-			// in 1.16, though it will be in 1.16.5).
-			// TODO: When this compatibility code is removed, we
-			// should remove the method in state as well (as long
-			// as destroy-machine also no longer needs it.)
-			var cleanupErr error
-			if stateConn != nil {
-				cleanupErr = statecmd.DestroyMachines1dot16(stateConn.State, machineId)
-			} else {
-				cleanupErr = client.DestroyMachines(machineId)
-			}
-			if cleanupErr != nil {
+			if cleanupErr := client.DestroyMachines(machineId); cleanupErr != nil {
 				logger.Warningf("error cleaning up machine: %s", cleanupErr)
 			}
 			machineId = ""
-		}
-		if stateConn != nil {
-			stateConn.Close()
-			stateConn = nil
 		}
 		client.Close()
 	}()
@@ -121,35 +99,16 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 
 	// Inform Juju that the machine exists.
 	machineId, err = recordMachineInState(client, *machineParams)
-	if params.IsCodeNotImplemented(err) {
-		logger.Infof("AddMachines not supported by the API server, " +
-			"falling back to 1.16 compatibility mode (direct DB access)")
-		stateConn, err = juju.NewConnFromName(args.EnvName)
-		if err == nil {
-			machineId, err = recordMachineInState1dot16(stateConn, *machineParams)
-		}
-	}
 	if err != nil {
 		return "", err
 	}
 
-	var provisioningScript string
-	if stateConn == nil {
-		provisioningScript, err = client.ProvisioningScript(params.ProvisioningScriptParams{
-			MachineId: machineId,
-			Nonce:     machineParams.Nonce,
-		})
-		if err != nil {
-			return "", err
-		}
-	} else {
-		mcfg, err := statecmd.MachineConfig(stateConn.State, machineId, machineParams.Nonce, args.DataDir)
-		if err == nil {
-			provisioningScript, err = ProvisioningScript(mcfg)
-		}
-		if err != nil {
-			return "", err
-		}
+	provisioningScript, err := client.ProvisioningScript(params.ProvisioningScriptParams{
+		MachineId: machineId,
+		Nonce:     machineParams.Nonce,
+	})
+	if err != nil {
+		return "", err
 	}
 
 	// Finally, provision the machine agent.
@@ -195,28 +154,6 @@ func convertToStateJobs(jobs []params.MachineJob) ([]state.MachineJob, error) {
 	return outJobs, nil
 }
 
-func recordMachineInState1dot16(
-	stateConn *juju.Conn, machineParams params.AddMachineParams) (machineId string, err error) {
-	stateJobs, err := convertToStateJobs(machineParams.Jobs)
-	if err != nil {
-		return "", err
-	}
-	template := state.MachineTemplate{
-		Series:      machineParams.Series,
-		Constraints: machineParams.Constraints,
-		InstanceId:  machineParams.InstanceId,
-		Jobs:        stateJobs,
-		Nonce:       machineParams.Nonce,
-		HardwareCharacteristics: machineParams.HardwareCharacteristics,
-		Addresses:               machineParams.Addrs,
-	}
-	machine, err := stateConn.State.AddOneMachine(template)
-	if err != nil {
-		return "", err
-	}
-	return machine.Id(), nil
-}
-
 // gatherMachineParams collects all the information we know about the machine
 // we are about to provision. It will SSH into that machine as the ubuntu user.
 // The hostname supplied should not include a username.
@@ -229,34 +166,13 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 	if err != nil {
 		return nil, err
 	}
-	// First, gather the parameters needed to inject the existing host into state.
-	if ip := net.ParseIP(hostname); ip != nil {
-		// Do a reverse-lookup on the IP. The IP may not have
-		// a DNS entry, so just log a warning if this fails.
-		names, err := net.LookupAddr(ip.String())
-		if err != nil {
-			logger.Infof("failed to resolve %v: %v", ip, err)
-		} else {
-			logger.Infof("resolved %v to %v", ip, names)
-			hostname = names[0]
-			// TODO: jam 2014-01-09 https://bugs.launchpad.net/bugs/1267387
-			// We change what 'hostname' we are using here (rather
-			// than an IP address we use the DNS name). I'm not
-			// sure why that is better, but if we are changing the
-			// host, we should probably be returning the hostname
-			// to the parent function.
-			// Also, we don't seem to try and compare if 'ip' is in
-			// the list of addrs returned from
-			// instance.HostAddresses in case you might get
-			// multiple and one of them is what you are supposed to
-			// be using.
-		}
+
+	var addrs []instance.Address
+	if addr, err := HostAddress(hostname); err != nil {
+		logger.Warningf("failed to compute public address for %q: %v", hostname, err)
+	} else {
+		addrs = append(addrs, addr)
 	}
-	addrs, err := HostAddresses(hostname)
-	if err != nil {
-		return nil, err
-	}
-	logger.Infof("addresses for %v: %v", hostname, addrs)
 
 	provisioned, err := checkProvisioned(hostname)
 	if err != nil {

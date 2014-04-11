@@ -9,10 +9,10 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state/api/params"
 )
 
 const getConstraintsDoc = `
@@ -51,7 +51,7 @@ See Also:
 
 // GetConstraintsCommand shows the constraints for a service or environment.
 type GetConstraintsCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	ServiceName string
 	out         cmd.Output
 }
@@ -79,6 +79,10 @@ func (c *GetConstraintsCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *GetConstraintsCommand) Init(args []string) error {
+	err := c.EnvCommandBase.Init()
+	if err != nil {
+		return err
+	}
 	if len(args) > 0 {
 		if !names.IsService(args[0]) {
 			return fmt.Errorf("invalid service name %q", args[0])
@@ -86,21 +90,6 @@ func (c *GetConstraintsCommand) Init(args []string) error {
 		c.ServiceName, args = args[0], args[1:]
 	}
 	return cmd.CheckEmpty(args)
-}
-
-// getEnvironConstraints1dot16 uses direct DB access to get the Environment
-// constraints against an API server running 1.16 or older (when GetEnvironmentConstraints
-// was not available). This fallback can be removed when we no longer maintain
-// 1.16 compatibility.
-// This only does the GetEnvironmentConstraints portion of Run, since
-// GetServiceConstraints was already implemented.
-func (c *GetConstraintsCommand) getEnvironConstraints1dot16() (constraints.Value, error) {
-	conn, err := juju.NewConnFromName(c.EnvName)
-	if err != nil {
-		return constraints.Value{}, err
-	}
-	defer conn.Close()
-	return conn.State.EnvironConstraints()
 }
 
 func (c *GetConstraintsCommand) Run(ctx *cmd.Context) error {
@@ -113,11 +102,6 @@ func (c *GetConstraintsCommand) Run(ctx *cmd.Context) error {
 	var cons constraints.Value
 	if c.ServiceName == "" {
 		cons, err = apiclient.GetEnvironmentConstraints()
-		if params.IsCodeNotImplemented(err) {
-			logger.Infof("GetEnvironmentConstraints not supported by the API server, " +
-				"falling back to 1.16 compatibility mode (direct DB access)")
-			cons, err = c.getEnvironConstraints1dot16()
-		}
 	} else {
 		cons, err = apiclient.GetServiceConstraints(c.ServiceName)
 	}
@@ -129,7 +113,7 @@ func (c *GetConstraintsCommand) Run(ctx *cmd.Context) error {
 
 // SetConstraintsCommand shows the constraints for a service or environment.
 type SetConstraintsCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	ServiceName string
 	Constraints constraints.Value
 }
@@ -150,26 +134,15 @@ func (c *SetConstraintsCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *SetConstraintsCommand) Init(args []string) (err error) {
+	err = c.EnvCommandBase.Init()
+	if err != nil {
+		return
+	}
 	if c.ServiceName != "" && !names.IsService(c.ServiceName) {
 		return fmt.Errorf("invalid service name %q", c.ServiceName)
 	}
 	c.Constraints, err = constraints.Parse(args...)
 	return err
-}
-
-// setEnvironConstraints1dot16 uses direct DB access to get the Environment
-// constraints against an API server running 1.16 or older (when SetEnvironmentConstraints
-// was not available). This fallback can be removed when we no longer maintain
-// 1.16 compatibility.
-// This only does the SetEnvironmentConstraints portion of Run, since
-// SetServiceConstraints was already implemented.
-func (c *SetConstraintsCommand) setEnvironConstraints1dot16() error {
-	conn, err := juju.NewConnFromName(c.EnvName)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-	return conn.State.SetEnvironConstraints(c.Constraints)
 }
 
 func (c *SetConstraintsCommand) Run(_ *cmd.Context) (err error) {
@@ -179,13 +152,7 @@ func (c *SetConstraintsCommand) Run(_ *cmd.Context) (err error) {
 	}
 	defer apiclient.Close()
 	if c.ServiceName == "" {
-		err = apiclient.SetEnvironmentConstraints(c.Constraints)
-		if params.IsCodeNotImplemented(err) {
-			logger.Infof("SetEnvironmentConstraints not supported by the API server, " +
-				"falling back to 1.16 compatibility mode (direct DB access)")
-			err = c.setEnvironConstraints1dot16()
-		}
-		return err
+		return apiclient.SetEnvironmentConstraints(c.Constraints)
 	}
 	return apiclient.SetServiceConstraints(c.ServiceName, c.Constraints)
 }
