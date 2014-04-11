@@ -1420,6 +1420,9 @@ func (st *State) setMongoPassword(name, password string) error {
 	if err := st.db.Session.DB("presence").AddUser(name, password, false); err != nil {
 		return fmt.Errorf("cannot set password in presence db for %q: %v", name, err)
 	}
+	if err := st.db.Session.DB("admin").AddUser(name, password, false); err != nil {
+		return fmt.Errorf("cannot set password in admin db for %q: %v", name, err)
+	}
 	return nil
 }
 

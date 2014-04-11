@@ -102,8 +102,12 @@ func dialAndTestInitiate(c *gc.C) {
 	session := root.MustDialDirect()
 	defer session.Close()
 
+	mode := session.Mode()
 	err := Initiate(session, root.Addr(), name)
 	c.Assert(err, gc.IsNil)
+
+	// make sure we haven't messed with the session's mode
+	c.Assert(session.Mode(), gc.Equals, mode)
 
 	// Ids start at 1 for us, so we can differentiate between set and unset
 	expectedMembers := []Member{Member{Id: 1, Address: root.Addr()}}
@@ -270,6 +274,8 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 			break
 		}
 		c.Logf("attempting Set got error: %v", err)
+		c.Logf("current session mode: %v", session.Mode())
+		session.Refresh()
 	}
 	c.Logf("Set() %d attempts in %s", attemptCount, time.Since(start))
 	c.Assert(err, gc.IsNil)
@@ -348,6 +354,17 @@ func (s *MongoSuite) TestMasterHostPort(c *gc.C) {
 	c.Logf("TestMasterHostPort expected: %v, got: %v", expected, result)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.Equals, expected)
+}
+
+func (s *MongoSuite) TestMasterHostPortOnUnconfiguredReplicaSet(c *gc.C) {
+	inst := &coretesting.MgoInstance{}
+	err := inst.Start(true)
+	c.Assert(err, gc.IsNil)
+	defer inst.Destroy()
+	session := inst.MustDial()
+	hp, err := MasterHostPort(session)
+	c.Assert(err, gc.Equals, ErrMasterNotConfigured)
+	c.Assert(hp, gc.Equals, "")
 }
 
 func (s *MongoSuite) TestCurrentStatus(c *gc.C) {

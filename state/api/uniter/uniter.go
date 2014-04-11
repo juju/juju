@@ -58,7 +58,7 @@ func (st *State) relation(relationTag, unitTag string) (params.RelationResult, e
 		return nothing, err
 	}
 	if len(result.Results) != 1 {
-		return nothing, fmt.Errorf("expected one result, got %d", len(result.Results))
+		return nothing, fmt.Errorf("expected 1 result, got %d", len(result.Results))
 	}
 	if err := result.Results[0].Error; err != nil {
 		return nothing, err
@@ -134,7 +134,7 @@ func (st *State) Relation(tag string) (*Relation, error) {
 	}, nil
 }
 
-// Relation returns the existing relation with the given tag.
+// RelationById returns the existing relation with the given id.
 func (st *State) RelationById(id int) (*Relation, error) {
 	var results params.RelationResults
 	args := params.RelationIds{
@@ -145,7 +145,7 @@ func (st *State) RelationById(id int) (*Relation, error) {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if err := result.Error; err != nil {

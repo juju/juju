@@ -104,7 +104,12 @@ func (azInstance *azureInstance) Addresses() ([]instance.Address, error) {
 	if err != nil {
 		return nil, err
 	}
-	host := instance.Address{name, instance.HostName, "", instance.NetworkPublic}
+	host := instance.Address{
+		Value:        name,
+		Type:         instance.HostName,
+		NetworkName:  "",
+		NetworkScope: instance.NetworkPublic,
+	}
 	addrs = append(addrs, host)
 	return addrs, nil
 }

@@ -49,23 +49,23 @@ func (api *CharmRevisionUpdaterAPI) UpdateLatestRevisions() (params.ErrorResult,
 	// First get the uuid for the environment to use when querying the charm store.
 	env, err := api.state.Environment()
 	if err != nil {
-		return params.ErrorResult{common.ServerError(err)}, nil
+		return params.ErrorResult{Error: common.ServerError(err)}, nil
 	}
 	uuid := env.UUID()
 
 	deployedCharms, err := fetchAllDeployedCharms(api.state)
 	if err != nil {
-		return params.ErrorResult{common.ServerError(err)}, nil
+		return params.ErrorResult{Error: common.ServerError(err)}, nil
 	}
 	// Look up the revision information for all the deployed charms.
 	curls, err := retrieveLatestCharmInfo(deployedCharms, uuid)
 	if err != nil {
-		return params.ErrorResult{common.ServerError(err)}, nil
+		return params.ErrorResult{Error: common.ServerError(err)}, nil
 	}
 	// Add the charms and latest revision info to state as charm placeholders.
 	for _, curl := range curls {
 		if err = api.state.AddStoreCharmPlaceholder(curl); err != nil {
-			return params.ErrorResult{common.ServerError(err)}, nil
+			return params.ErrorResult{Error: common.ServerError(err)}, nil
 		}
 	}
 	return params.ErrorResult{}, nil
