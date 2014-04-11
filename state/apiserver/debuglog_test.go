@@ -122,6 +122,18 @@ func (s *debugLogSuite) TestMaxLines(c *gc.C) {
 	s.assertWebsocketClosed(c, reader)
 }
 
+func (s *debugLogSuite) TestBacklogWithMaxLines(c *gc.C) {
+	s.writeLogLines(c, 10)
+
+	reader := s.openWebsocket(c, url.Values{"backlog": {"5"}, "maxLines": {"10"}})
+	s.assertLogFollowing(c, reader)
+	s.writeLogLines(c, logLineCount)
+
+	linesRead := s.readLogLines(c, reader, 10)
+	c.Assert(linesRead, jc.DeepEquals, logLines[10:20])
+	s.assertWebsocketClosed(c, reader)
+}
+
 func (s *debugLogSuite) TestFilter(c *gc.C) {
 	s.ensureLogFile(c)
 
