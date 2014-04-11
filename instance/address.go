@@ -209,6 +209,7 @@ func HostAddresses(host string) (addrs []Address, err error) {
 			}
 			addrs[i].Value = ipaddr.String()
 		}
+		addrs[i].NetworkScope = deriveNetworkScope(addrs[i])
 	}
 	addrs[len(addrs)-1] = hostAddr
 	return addrs, err
