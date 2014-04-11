@@ -34,3 +34,26 @@ func (v *StringsValue) Set(s string) error {
 func (v *StringsValue) String() string {
 	return strings.Join(*v, ",")
 }
+
+// AppendStringsValue implements gnuflag.Value for a value that can be set
+// multiple times, and it appends each value to the slice.
+type AppendStringsValue []string
+
+var _ gnuflag.Value = (*AppendStringsValue)(nil)
+
+// NewAppendStringsValue is used to create the type passed into the gnuflag.FlagSet Var function.
+// f.Var(cmd.NewAppendStringsValue(&someMember), "name", "help")
+func NewAppendStringsValue(target *[]string) *AppendStringsValue {
+	return (*AppendStringsValue)(target)
+}
+
+// Implements gnuflag.Value Set.
+func (v *AppendStringsValue) Set(s string) error {
+	*v = append(*v, s)
+	return nil
+}
+
+// Implements gnuflag.Value String.
+func (v *AppendStringsValue) String() string {
+	return strings.Join(*v, ",")
+}
