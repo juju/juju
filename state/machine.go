@@ -825,22 +825,6 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 	return fmt.Errorf("already set")
 }
 
-// NetworkParams describes a single network available on an instance.
-type NetworkParams struct {
-	Name       string
-	ProviderId string
-	CIDR       string
-	VLANTag    int
-}
-
-// NetworkInterfaceParams describes a single network interface
-// available on an instance.
-type NetworkInterfaceParams struct {
-	MACAddress    string
-	InterfaceName string
-	NetworkName   string
-}
-
 // SetInstanceInfo is used to provision a machine and in one steps set
 // it's instance id, nonce, hardware characteristics, add networks and
 // network interfaces as needed.

@@ -143,8 +143,8 @@ func (st *State) DeployerConnectionInfo() (*DeployerConnectionValues, error) {
 // about what kind of location the address describes.
 //
 // TODO(dimitern) Make sure we integrate this with other networking
-// stuff at some point. Like using juju-specific network ids pointing
-// to existing documents in the networks collection.
+// stuff at some point. We want to use juju-specific network names
+// that point to existing documents in the networks collection.
 type address struct {
 	Value        string
 	AddressType  instance.AddressType
@@ -153,8 +153,8 @@ type address struct {
 }
 
 // TODO(dimitern) Make sure we integrate this with other networking
-// stuff at some point. Like using juju-specific network ids pointing
-// to existing documents in the networks collection.
+// stuff at some point. We want to use juju-specific network names
+// that point to existing documents in the networks collection.
 type hostPort struct {
 	Value        string
 	AddressType  instance.AddressType

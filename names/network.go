@@ -10,7 +10,7 @@ import (
 
 var validNetwork = regexp.MustCompile("^([a-z0-9]+(-[a-z0-9]+)*)$")
 
-// IsNetwork returns whether name is a valid network name.
+// IsNetwork reports whether name is a valid network name.
 func IsNetwork(name string) bool {
 	return validNetwork.MatchString(name)
 }
