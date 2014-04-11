@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -411,12 +412,10 @@ func convertNovaAddresses(addresses map[string][]nova.IPAddress) []instance.Addr
 			if address.Version == 6 {
 				addrtype = instance.Ipv6Address
 			}
-			// TODO(gz): Use NewAddress... with sanity checking
-			machineAddr := instance.Address{
-				Value:        address.Address,
-				Type:         addrtype,
-				NetworkName:  network,
-				NetworkScope: networkscope,
+			machineAddr := instance.NewAddress(address.Address, networkscope)
+			machineAddr.NetworkName = network
+			if machineAddr.Type != addrtype {
+				logger.Warningf("derived address type %v, nova reports %v", machineAddr.Type, addrtype)
 			}
 			machineAddresses = append(machineAddresses, machineAddr)
 		}
@@ -851,15 +850,29 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 
 func (e *environ) StopInstances(insts []instance.Instance) error {
 	ids := make([]instance.Id, len(insts))
+	securityGroupNames := make([]string, len(insts))
 	for i, inst := range insts {
 		instanceValue, ok := inst.(*openstackInstance)
 		if !ok {
 			return errors.New("Incompatible instance.Instance supplied")
 		}
 		ids[i] = instanceValue.Id()
+		openstackName := instanceValue.getServerDetail().Name
+		lastDashPos := strings.LastIndex(openstackName, "-")
+		if lastDashPos == -1 {
+			return fmt.Errorf("cannot identify instance ID in openstack server name %q", openstackName)
+		}
+		securityGroupNames[i] = e.machineGroupName(openstackName[lastDashPos+1:])
 	}
 	logger.Debugf("terminating instances %v", ids)
-	return e.terminateInstances(ids)
+	err := e.terminateInstances(ids)
+	if err != nil {
+		return err
+	}
+	if e.Config().FirewallMode() == config.FwInstance {
+		return e.deleteSecurityGroups(securityGroupNames)
+	}
+	return nil
 }
 
 // collectInstances tries to get information on each instance id in ids.
@@ -949,7 +962,29 @@ func (e *environ) AllInstances() (insts []instance.Instance, err error) {
 }
 
 func (e *environ) Destroy() error {
-	return common.Destroy(e)
+	err := common.Destroy(e)
+	if err != nil {
+		return err
+	}
+	novaClient := e.nova()
+	securityGroups, err := novaClient.ListSecurityGroups()
+	if err != nil {
+		return err
+	}
+	re, err := regexp.Compile(fmt.Sprintf("^%s(-\\d+)?$", e.jujuGroupName()))
+	if err != nil {
+		return err
+	}
+	globalGroupName := e.globalGroupName()
+	for _, group := range securityGroups {
+		if re.MatchString(group.Name) || group.Name == globalGroupName {
+			err = novaClient.DeleteSecurityGroup(group.Id)
+			if err != nil {
+				logger.Warningf("cannot delete security group %q. Used by another environment?", group.Name)
+			}
+		}
+	}
+	return nil
 }
 
 func (e *environ) globalGroupName() string {
@@ -1205,6 +1240,29 @@ func (e *environ) ensureGroup(name string, rules []nova.RuleInfo) (nova.Security
 		group.Rules[i] = *groupRule
 	}
 	return *group, nil
+}
+
+// deleteSecurityGroups deletes the given security groups. If a security
+// group is also used by another environment (see bug #1300755), an attempt
+// to delete this group fails. A warning is logged in this case.
+func (e *environ) deleteSecurityGroups(securityGroupNames []string) error {
+	novaclient := e.nova()
+	allSecurityGroups, err := novaclient.ListSecurityGroups()
+	if err != nil {
+		return err
+	}
+	for _, securityGroup := range allSecurityGroups {
+		for _, name := range securityGroupNames {
+			if securityGroup.Name == name {
+				err := novaclient.DeleteSecurityGroup(securityGroup.Id)
+				if err != nil {
+					logger.Warningf("cannot delete security group %q. Used by another environment?", name)
+				}
+				break
+			}
+		}
+	}
+	return nil
 }
 
 func (e *environ) terminateInstances(ids []instance.Id) error {

@@ -4,6 +4,8 @@
 package main
 
 import (
+	"fmt"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
@@ -65,22 +67,13 @@ func resolveCharmURL(url string, client *api.Client, conf *config.Config) (*char
 	}
 	// Otherwise, look up the best supported series for this charm
 	if series == "" {
+		if ref.Schema == "local" {
+			possibleUrl := &charm.URL{Reference: ref, Series: "precise"}
+			logger.Errorf(`The series is not specified in the environment (default-series) or with the charm. Did you mean:
+	%s`, possibleUrl.String())
+			return nil, fmt.Errorf("cannot resolve series for charm: %q", ref)
+		}
 		return client.ResolveCharm(ref)
 	}
 	return &charm.URL{Reference: ref, Series: series}, nil
-}
-
-// resolveCharmURL1dot16 returns a resolved charm URL for older state servers
-// that do not support ResolveCharm. The default series "precise" is
-// appropriate for these environments.
-func resolveCharmURL1dot16(url string, conf *config.Config) (*charm.URL, error) {
-	ref, series, err := charm.ParseReference(url)
-	if err != nil {
-		return nil, err
-	}
-
-	if series == "" {
-		series = config.PreferredSeries(conf)
-	}
-	return &charm.URL{Reference: ref, Series: series}, err
 }

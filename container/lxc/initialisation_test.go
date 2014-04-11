@@ -26,7 +26,7 @@ func (s *InitialiserSuite) TestLTSSeriesPackages(c *gc.C) {
 	c.Assert(cmd.Args, gc.DeepEquals, []string{
 		"apt-get", "--option=Dpkg::Options::=--force-confold",
 		"--option=Dpkg::options::=--force-unsafe-io", "--assume-yes", "--quiet",
-		"install", "--target-release", "precise-updates/cloud-tools", "lxc",
+		"install", "--target-release", "precise-updates/cloud-tools", "lxc", "cloud-image-utils",
 	})
 }
 
@@ -40,6 +40,6 @@ func (s *InitialiserSuite) TestNoSeriesPackages(c *gc.C) {
 	c.Assert(cmd.Args, gc.DeepEquals, []string{
 		"apt-get", "--option=Dpkg::Options::=--force-confold",
 		"--option=Dpkg::options::=--force-unsafe-io", "--assume-yes", "--quiet",
-		"install", "lxc",
+		"install", "lxc", "cloud-image-utils",
 	})
 }

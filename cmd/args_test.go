@@ -149,3 +149,26 @@ func (*ArgsSuite) TestString(c *gc.C) {
 		c.Assert(value.String(), gc.Equals, test.expected)
 	}
 }
+
+func (*ArgsSuite) TestAppendStringsUsage(c *gc.C) {
+	for i, test := range []struct {
+		message       string
+		args          []string
+		expectedValue []string
+	}{{
+		message: "no args",
+	}, {
+		message:       "value set by args",
+		args:          []string{"--value", "foo", "--value=bar"},
+		expectedValue: []string{"foo", "bar"},
+	}} {
+		c.Log(fmt.Sprintf("%v: %s", i, test.message))
+		f := gnuflag.NewFlagSet("test", gnuflag.ContinueOnError)
+		f.SetOutput(ioutil.Discard)
+		var value []string
+		f.Var(cmd.NewAppendStringsValue(&value), "value", "help")
+		err := f.Parse(false, test.args)
+		c.Check(err, gc.IsNil)
+		c.Check(value, gc.DeepEquals, test.expectedValue)
+	}
+}

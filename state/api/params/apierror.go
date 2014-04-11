@@ -46,6 +46,7 @@ const (
 	CodeNoAddressSet        = "no address set"
 	CodeTryAgain            = "try again"
 	CodeNotImplemented      = rpc.CodeNotImplemented
+	CodeAlreadyExists       = "already exists"
 )
 
 // ErrCode returns the error code associated with
@@ -133,4 +134,8 @@ func IsCodeTryAgain(err error) bool {
 
 func IsCodeNotImplemented(err error) bool {
 	return ErrCode(err) == CodeNotImplemented
+}
+
+func IsCodeAlreadyExists(err error) bool {
+	return ErrCode(err) == CodeAlreadyExists
 }

@@ -73,6 +73,18 @@ func (u *Upgrader) Stop() error {
 	return u.Wait()
 }
 
+// allowedTargetVersion checks if targetVersion is too different from
+// curVersion to allow a downgrade.
+func allowedTargetVersion(curVersion, targetVersion version.Number) bool {
+	if targetVersion.Major < curVersion.Major {
+		return false
+	}
+	if targetVersion.Major == curVersion.Major && targetVersion.Minor < curVersion.Minor {
+		return false
+	}
+	return true
+}
+
 func (u *Upgrader) loop() error {
 	currentTools := &coretools.Tools{Version: version.Current}
 	err := u.st.SetVersion(u.tag, currentTools.Version)
@@ -112,33 +124,43 @@ func (u *Upgrader) loop() error {
 		case <-dying:
 			return nil
 		}
-		if wantVersion != currentTools.Version.Number {
-			logger.Infof("upgrade requested from %v to %v", currentTools.Version, wantVersion)
-			// TODO(dimitern) 2013-10-03 bug #1234715
-			// Add a testing HTTPS storage to verify the
-			// disableSSLHostnameVerification behavior here.
-			wantTools, hostnameVerification, err = u.st.Tools(u.tag)
-			if err != nil {
-				// Not being able to lookup Tools is considered fatal
-				return err
-			}
-			// The worker cannot be stopped while we're downloading
-			// the tools - this means that even if the API is going down
-			// repeatedly (causing the agent to be stopped), as long
-			// as we have got as far as this, we will still be able to
-			// upgrade the agent.
-			err := u.ensureTools(wantTools, hostnameVerification)
-			if err == nil {
-				return &UpgradeReadyError{
-					OldTools:  version.Current,
-					NewTools:  wantTools.Version,
-					AgentName: u.tag,
-					DataDir:   u.dataDir,
-				}
-			}
-			logger.Errorf("failed to fetch tools from %q: %v", wantTools.URL, err)
-			retry = retryAfter()
+		if wantVersion == currentTools.Version.Number {
+			continue
+		} else if !allowedTargetVersion(version.Current.Number, wantVersion) {
+			// See also bug #1299802 where when upgrading from
+			// 1.16 to 1.18 there is a race condition that can
+			// cause the unit agent to upgrade, and then want to
+			// downgrade when its associate machine agent has not
+			// finished upgrading.
+			logger.Infof("desired tool version: %s is older than current %s, refusing to downgrade",
+				wantVersion, version.Current)
+			continue
 		}
+		logger.Infof("upgrade requested from %v to %v", currentTools.Version, wantVersion)
+		// TODO(dimitern) 2013-10-03 bug #1234715
+		// Add a testing HTTPS storage to verify the
+		// disableSSLHostnameVerification behavior here.
+		wantTools, hostnameVerification, err = u.st.Tools(u.tag)
+		if err != nil {
+			// Not being able to lookup Tools is considered fatal
+			return err
+		}
+		// The worker cannot be stopped while we're downloading
+		// the tools - this means that even if the API is going down
+		// repeatedly (causing the agent to be stopped), as long
+		// as we have got as far as this, we will still be able to
+		// upgrade the agent.
+		err := u.ensureTools(wantTools, hostnameVerification)
+		if err == nil {
+			return &UpgradeReadyError{
+				OldTools:  version.Current,
+				NewTools:  wantTools.Version,
+				AgentName: u.tag,
+				DataDir:   u.dataDir,
+			}
+		}
+		logger.Errorf("failed to fetch tools from %q: %v", wantTools.URL, err)
+		retry = retryAfter()
 	}
 }
 

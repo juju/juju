@@ -13,7 +13,6 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/state/api/params"
 )
 
 // SetCommand updates the configuration of a service.
@@ -64,34 +63,6 @@ func (c *SetCommand) Init(args []string) error {
 	return nil
 }
 
-// serviceSet1dot16 does the final ServiceSet step using direct DB access
-// compatibility with an API server running 1.16 or older (when ServiceUnset
-// was not available). This fallback can be removed when we no longer maintain
-// 1.16 compatibility.
-// This was copied directly from the code in SetCommand.Run in 1.16
-func (c *SetCommand) serviceSet1dot16() error {
-	conn, err := juju.NewConnFromName(c.EnvName)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-	service, err := conn.State.Service(c.ServiceName)
-	if err != nil {
-		return err
-	}
-	ch, _, err := service.Charm()
-	if err != nil {
-		return err
-	}
-	// We don't need the multiple logic here, because that should have
-	// already been taken care of by the API code (which *was* in 1.16).
-	settings, err := ch.Config().ParseSettingsStrings(c.SettingsStrings)
-	if err != nil {
-		return err
-	}
-	return service.UpdateConfigSettings(settings)
-}
-
 // Run updates the configuration of a service.
 func (c *SetCommand) Run(ctx *cmd.Context) error {
 	api, err := juju.NewAPIClientFromName(c.EnvName)
@@ -109,13 +80,7 @@ func (c *SetCommand) Run(ctx *cmd.Context) error {
 	} else if len(c.SettingsStrings) == 0 {
 		return nil
 	}
-	err = api.ServiceSet(c.ServiceName, c.SettingsStrings)
-	if params.IsCodeNotImplemented(err) {
-		logger.Infof("NewServiceSetForClientAPI not supported by the API server, " +
-			"falling back to 1.16 compatibility mode (direct DB access)")
-		err = c.serviceSet1dot16()
-	}
-	return err
+	return api.ServiceSet(c.ServiceName, c.SettingsStrings)
 }
 
 // parse parses the option k=v strings into a map of options to be

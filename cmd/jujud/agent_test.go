@@ -6,6 +6,8 @@ package main
 import (
 	stderrors "errors"
 	"fmt"
+	"net"
+	"strconv"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -17,6 +19,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -211,7 +214,7 @@ func runWithTimeout(r runner) error {
 	select {
 	case err := <-done:
 		return err
-	case <-time.After(5 * time.Second):
+	case <-time.After(coretesting.LongWait):
 	}
 	err := r.Stop()
 	return fmt.Errorf("timed out waiting for agent to finish; stop error: %v", err)
@@ -224,12 +227,16 @@ type agentSuite struct {
 }
 
 func (s *agentSuite) SetUpSuite(c *gc.C) {
+	s.JujuConnSuite.SetUpSuite(c)
+
 	s.oldRestartDelay = worker.RestartDelay
 	// We could use testing.ShortWait, but this thrashes quite
 	// a bit when some tests are restarting every 50ms for 10 seconds,
 	// so use a slightly more friendly delay.
 	worker.RestartDelay = 250 * time.Millisecond
-	s.JujuConnSuite.SetUpSuite(c)
+	s.PatchValue(&ensureMongoServer, func(string, int, string) error {
+		return nil
+	})
 }
 
 func (s *agentSuite) TearDownSuite(c *gc.C) {
@@ -264,7 +271,33 @@ func (s *agentSuite) primeAgent(c *gc.C, tag, password string, vers version.Bina
 		})
 	conf.SetPassword(password)
 	c.Assert(conf.Write(), gc.IsNil)
+	s.primeAPIHostPorts(c)
 	return conf, agentTools
+}
+
+func (s *agentSuite) primeAPIHostPorts(c *gc.C) {
+	apiInfo := s.APIInfo(c)
+
+	c.Assert(apiInfo.Addrs, gc.HasLen, 1)
+	hostPort, err := parseHostPort(apiInfo.Addrs[0])
+	c.Assert(err, gc.IsNil)
+
+	err = s.State.SetAPIHostPorts([][]instance.HostPort{{hostPort}})
+	c.Assert(err, gc.IsNil)
+}
+
+func parseHostPort(s string) (instance.HostPort, error) {
+	addr, port, err := net.SplitHostPort(s)
+	if err != nil {
+		return instance.HostPort{}, err
+	}
+	portNum, err := strconv.Atoi(port)
+	if err != nil {
+		return instance.HostPort{}, fmt.Errorf("bad port number %q", port)
+	}
+	addrs := instance.NewAddresses(addr)
+	hostPorts := instance.AddressesWithPort(addrs, portNum)
+	return hostPorts[0], nil
 }
 
 // makeStateAgentConfig creates and writes a state agent config.
@@ -307,6 +340,7 @@ func (s *agentSuite) primeStateAgent(
 
 	stateInfo := s.StateInfo(c)
 	conf := writeStateAgentConfig(c, stateInfo, s.DataDir(), tag, password, vers)
+	s.primeAPIHostPorts(c)
 	return conf, agentTools
 }
 
