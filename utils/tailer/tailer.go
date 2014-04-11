@@ -27,6 +27,10 @@ var (
 // returns true) of shall be omitted (func returns false).
 type TailerFilterFunc func(line []byte) bool
 
+// TailerFilterStartedFunc is a callback that is called when the filtering is
+// starting.
+type TailerFilterStartedFunc func()
+
 // Tailer reads an input line by line an tails them into the passed Writer.
 // The lines have to be terminated with a newline.
 type Tailer struct {
@@ -40,6 +44,7 @@ type Tailer struct {
 	bufferSize  int
 	polltime    time.Duration
 	lookBack    bool
+	callback    TailerFilterStartedFunc
 }
 
 // NewTailerBacktrack starts a Tailer which reads strings from the passed
@@ -47,21 +52,24 @@ type Tailer struct {
 // lines are filtered. The matching lines are written to the passed
 // Writer. The reading begins the specified number of matching lines
 // from the end.
-func NewTailerBacktrack(readSeeker io.ReadSeeker, writer io.Writer, lines uint, filter TailerFilterFunc) *Tailer {
-	return newTailer(readSeeker, writer, lines, filter, bufferSize, polltime, true)
+func NewTailerBacktrack(readSeeker io.ReadSeeker, writer io.Writer, lines uint,
+	filter TailerFilterFunc, callback TailerFilterStartedFunc) *Tailer {
+	return newTailer(readSeeker, writer, lines, filter, callback, bufferSize, polltime, true)
 }
 
 // NewTailer starts a Tailer which reads strings from the passed
 // ReadSeeker line by line. If a filter function is specified the read
 // lines are filtered. The matching lines are written to the passed
 // Writer.
-func NewTailer(readSeeker io.ReadSeeker, writer io.Writer, filter TailerFilterFunc) *Tailer {
-	return newTailer(readSeeker, writer, 0, filter, bufferSize, polltime, false)
+func NewTailer(readSeeker io.ReadSeeker, writer io.Writer,
+	filter TailerFilterFunc, callback TailerFilterStartedFunc) *Tailer {
+	return newTailer(readSeeker, writer, 0, filter, callback, bufferSize, polltime, false)
 }
 
 // newTailer starts a Tailer like NewTailer but allows the setting of
 // the read buffer size and the time between pollings for testing.
-func newTailer(readSeeker io.ReadSeeker, writer io.Writer, lines uint, filter TailerFilterFunc,
+func newTailer(readSeeker io.ReadSeeker, writer io.Writer, lines uint,
+	filter TailerFilterFunc, callback TailerFilterStartedFunc,
 	bufferSize int, polltime time.Duration, lookBack bool) *Tailer {
 	t := &Tailer{
 		readSeeker: readSeeker,
@@ -72,6 +80,7 @@ func newTailer(readSeeker io.ReadSeeker, writer io.Writer, lines uint, filter Ta
 		bufferSize: bufferSize,
 		polltime:   polltime,
 		lookBack:   lookBack,
+		callback:   callback,
 	}
 	go func() {
 		defer t.tomb.Done()
@@ -112,6 +121,9 @@ func (t *Tailer) loop() error {
 		if err := t.seekLastLines(); err != nil {
 			return err
 		}
+	}
+	if t.callback != nil {
+		t.callback()
 	}
 	// Start polling.
 	// TODO(mue) 2013-12-06

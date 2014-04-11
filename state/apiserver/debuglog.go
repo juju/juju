@@ -209,16 +209,21 @@ type logStream struct {
 	maxLines      uint
 	lineCount     uint
 	fromTheStart  bool
+	started       bool
 }
 
 // start the tailer listening to the logFile, and sending the matching
 // lines to the writer.
 func (stream *logStream) start(logFile io.ReadSeeker, writer io.Writer) {
 	if stream.fromTheStart {
-		stream.logTailer = tailer.NewTailer(logFile, writer, stream.filterLine)
+		stream.logTailer = tailer.NewTailer(logFile, writer, stream.filterLine, stream.tailStarted)
 	} else {
-		stream.logTailer = tailer.NewTailerBacktrack(logFile, writer, stream.backlog, stream.filterLine)
+		stream.logTailer = tailer.NewTailerBacktrack(logFile, writer, stream.backlog, stream.filterLine, stream.tailStarted)
 	}
+}
+
+func (stream *logStream) tailStarted() {
+	stream.started = true
 }
 
 // loop starts the tailer with the log file and the web socket.
@@ -239,7 +244,7 @@ func (stream *logStream) filterLine(line []byte) bool {
 		stream.checkIncludeModule(log) &&
 		!stream.exclude(log) &&
 		stream.checkLevel(log)
-	if result && stream.maxLines > 0 {
+	if stream.started && result && stream.maxLines > 0 {
 		stream.lineCount++
 		result = stream.lineCount <= stream.maxLines
 		if stream.lineCount == stream.maxLines {
