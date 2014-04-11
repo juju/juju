@@ -22,13 +22,12 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/common"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils/ssh"
 )
 
 type BootstrapSuite struct {
-	testbase.LoggingSuite
+	coretesting.FakeHomeSuite
 	envtesting.ToolsFixture
 }
 
@@ -39,7 +38,7 @@ type cleaner interface {
 }
 
 func (s *BootstrapSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.FakeHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.PatchValue(common.ConnectSSH, func(_ ssh.Client, host, checkHostScript string) error {
 		return fmt.Errorf("mock connection failure to %s", host)

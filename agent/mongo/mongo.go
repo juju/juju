@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
-	"labix.org/v2/mgo"
 	"net"
 	"os"
 	"os/exec"
@@ -12,6 +11,8 @@ import (
 	"path/filepath"
 
 	"github.com/juju/loggo"
+	"labix.org/v2/mgo"
+
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/replicaset"
 	"launchpad.net/juju-core/upstart"
@@ -22,6 +23,10 @@ const (
 	maxFiles = 65000
 	maxProcs = 20000
 
+	replicaSetName = "juju"
+
+	serviceName = "juju-db"
+
 	// SharedSecretFile is the name of the Mongo shared secret file
 	// located within the Juju data directory.
 	SharedSecretFile = "shared-secret"
@@ -30,12 +35,8 @@ const (
 var (
 	logger = loggo.GetLogger("juju.agent.mongo")
 
-	oldMongoServiceName = "juju-db"
-
 	// JujuMongodPath holds the default path to the juju-specific mongod.
 	JujuMongodPath = "/usr/lib/juju/bin/mongod"
-	// MongodbServerPath holds the default path to the generic mongod.
-	MongodbServerPath = "/usr/bin/mongod"
 )
 
 // WithAddresses represents an entity that has a set of
@@ -50,6 +51,14 @@ func IsMaster(session *mgo.Session, obj WithAddresses) (bool, error) {
 	addrs := obj.Addresses()
 
 	masterHostPort, err := replicaset.MasterHostPort(session)
+
+	// If the replica set has not been configured, then we
+	// can have only one master and the caller must
+	// be that master.
+	if err == replicaset.ErrMasterNotConfigured {
+		return true, nil
+	}
+
 	if err != nil {
 		return false, err
 	}
@@ -88,27 +97,6 @@ func GenerateSharedSecret() (string, error) {
 	return base64.StdEncoding.EncodeToString(buf), nil
 }
 
-// MongoPackageForSeries returns the name of the mongo package for the series
-// of the machine that it is going to be running on.
-func MongoPackageForSeries(series string) string {
-	switch series {
-	case "precise", "quantal", "raring", "saucy":
-		return "mongodb-server"
-	default:
-		// trusty and onwards
-		return "juju-mongodb"
-	}
-}
-
-// MongodPathForSeries returns the path to the mongod executable for the
-// series of the machine that it is going to be running on.
-func MongodPathForSeries(series string) string {
-	if series == "trusty" {
-		return JujuMongodPath
-	}
-	return MongodbServerPath
-}
-
 // MongoPath returns the executable path to be used to run mongod on this
 // machine. If the juju-bundled version of mongo exists, it will return that
 // path, otherwise it will return the command to run mongod from the path.
@@ -124,37 +112,101 @@ func MongodPath() (string, error) {
 	return path, nil
 }
 
+// InitiateMongoParams holds parameters for the MaybeInitiateMongo call.
+type InitiateMongoParams struct {
+	// DialInfo specifies how to connect to the mongo server.
+	DialInfo *mgo.DialInfo
+
+	// MemberHostPort provides the address to use for
+	// the first replica set member.
+	MemberHostPort string
+
+	// User holds the user to log as in to the mongo server.
+	// If it is empty, no login will take place.
+	User     string
+	Password string
+}
+
+// MaybeInitiateMongoServer checks for an existing mongo configuration.
+// If no existing configuration is found one is created using Initiate.
+func MaybeInitiateMongoServer(p InitiateMongoParams) error {
+	logger.Debugf("Initiating mongo replicaset; params: %#v", p)
+
+	if len(p.DialInfo.Addrs) > 1 {
+		logger.Infof("more than one member; replica set must be already initiated")
+		return nil
+	}
+	p.DialInfo.Direct = true
+	session, err := mgo.DialWithInfo(p.DialInfo)
+	if err != nil {
+		return fmt.Errorf("can't dial mongo to initiate replicaset: %v", err)
+	}
+	defer session.Close()
+
+	// TODO(rog) remove this code when we no longer need to upgrade
+	// from pre-HA-capable environments.
+	if p.User != "" {
+		err := session.DB("admin").Login(p.User, p.Password)
+		if err != nil {
+			logger.Errorf("cannot login to admin db as %q, password %q, falling back: %v", p.User, p.Password, err)
+		}
+	}
+	_, err = replicaset.CurrentConfig(session)
+	if err == nil {
+		// already initiated, nothing to do
+		return nil
+	}
+	if err != mgo.ErrNotFound {
+		// oops, some random error, bail
+		return fmt.Errorf("cannot get replica set configuration: %v", err)
+	}
+
+	// err is ErrNotFound, which just means we need to initiate
+
+	err = replicaset.Initiate(session, p.MemberHostPort, replicaSetName)
+	if err != nil {
+		return fmt.Errorf("cannot initiate replica set: %v", err)
+	}
+	return nil
+}
+
+// RemoveService removes the mongoDB upstart service from this machine.
+func RemoveService(namespace string) error {
+	return upstart.NewService(ServiceName(namespace)).StopAndRemove()
+}
+
 // EnsureMongoServer ensures that the correct mongo upstart script is installed
 // and running.
 //
 // This method will remove old versions of the mongo upstart script as necessary
 // before installing the new version.
-func EnsureMongoServer(dir string, port int) error {
+//
+// The namespace is a unique identifier to prevent multiple instances of mongo
+// on this machine from colliding. This should be empty unless using
+// the local provider.
+func EnsureMongoServer(dataDir string, port int, namespace string) error {
 	// NOTE: ensure that the right package is installed?
-	name := makeServiceName(mongoScriptVersion)
-	// TODO: get the series from somewhere, non trusty values return
-	// the existing default path.
-	mongodPath := MongodPathForSeries("some-series")
-	service, err := MongoUpstartService(name, mongodPath, dir, port)
+
+	logger.Infof("Ensuring mongo server is running; dataDir %s; port %d", dataDir, port)
+	dbDir := filepath.Join(dataDir, "db")
+
+	service, err := mongoUpstartService(namespace, dataDir, dbDir, port)
 	if err != nil {
 		return err
 	}
-	if service.Installed() {
-		return nil
+	if err := makeJournalDirs(dbDir); err != nil {
+		return fmt.Errorf("Error creating journal directories: %v", err)
 	}
+	return service.Install()
+}
 
-	if err := removeOldMongoServices(mongoScriptVersion); err != nil {
-		return err
+// ServiceName returns the name of the upstart service config for mongo using
+// the given namespace.
+func ServiceName(namespace string) string {
+	if namespace != "" {
+		return fmt.Sprintf("%s-%s", serviceName, namespace)
 	}
-
-	if err := makeJournalDirs(dir); err != nil {
-		return err
-	}
-
-	if err := service.Install(); err != nil {
-		return fmt.Errorf("failed to install mongo service %q: %v", service.Name, err)
-	}
-	return service.Start()
+	return serviceName
 }
 
 func makeJournalDirs(dir string) error {
@@ -186,46 +238,22 @@ func makeJournalDirs(dir string) error {
 	return nil
 }
 
-// removeOldMongoServices looks for any old juju mongo upstart scripts and
-// removes them.
-func removeOldMongoServices(curVersion int) error {
-	old := upstart.NewService(oldMongoServiceName)
-	if err := old.StopAndRemove(); err != nil {
-		logger.Errorf("Failed to remove old mongo upstart service %q: %v", old.Name, err)
-		return err
-	}
-
-	// the new formatting for the script name started at version 2
-	for x := 2; x < curVersion; x++ {
-		old := upstart.NewService(makeServiceName(x))
-		if err := old.StopAndRemove(); err != nil {
-			logger.Errorf("Failed to remove old mongo upstart service %q: %v", old.Name, err)
-			return err
-		}
-	}
-	return nil
-}
-
-func makeServiceName(version int) string {
-	return fmt.Sprintf("juju-db-v%d", version)
-}
-
-// mongoScriptVersion keeps track of changes to the mongo upstart script.
-// Update this version when you update the script that gets installed from
-// MongoUpstartService.
-const mongoScriptVersion = 2
-
-// MongoUpstartService returns the upstart config for the mongo state service.
+// mongoUpstartService returns the upstart config for the mongo state service.
 //
 // This method assumes there exist "server.pem" and "shared_secret" keyfiles in dataDir.
-func MongoUpstartService(name, mongodExec, dataDir string, port int) (*upstart.Conf, error) {
-
+func mongoUpstartService(namespace, dataDir, dbDir string, port int) (*upstart.Conf, error) {
+	// NOTE: ensure that the right package is installed?
+	name := ServiceName(namespace)
 	sslKeyFile := path.Join(dataDir, "server.pem")
-	// TODO(Nate): uncomment when we commit HA stuff
-	//keyFile := path.Join(dataDir, SharedSecretFile)
+
+	// TODO (natefinch) uncomment when we have the keyfile
+	// keyFile := path.Join(dataDir, SharedSecretFile)
 	svc := upstart.NewService(name)
 
-	dbDir := path.Join(dataDir, "db")
+	mongopath, err := MongodPath()
+	if err != nil {
+		return nil, err
+	}
 
 	conf := &upstart.Conf{
 		Service: *svc,
@@ -234,8 +262,7 @@ func MongoUpstartService(name, mongodExec, dataDir string, port int) (*upstart.C
 			"nofile": fmt.Sprintf("%d %d", maxFiles, maxFiles),
 			"nproc":  fmt.Sprintf("%d %d", maxProcs, maxProcs),
 		},
-		Cmd: mongodExec +
-			" --auth" +
+		Cmd: mongopath + " --auth" +
 			" --dbpath=" + dbDir +
 			" --sslOnNormalPorts" +
 			" --sslPEMKeyFile " + utils.ShQuote(sslKeyFile) +
@@ -244,11 +271,10 @@ func MongoUpstartService(name, mongodExec, dataDir string, port int) (*upstart.C
 			" --port " + fmt.Sprint(port) +
 			" --noprealloc" +
 			" --syslog" +
-			" --smallfiles",
-		// TODO(Nate): uncomment when we commit HA stuff
-		// +
-		//	" --replSet juju" +
-		//	" --keyFile " + utils.ShQuote(keyFile),
+			" --smallfiles" +
+			" --replSet " + replicaSetName,
+		// TODO(natefinch) uncomment when we have the keyfile
+		//" --keyFile " + utils.ShQuote(keyFile),
 	}
 	return conf, nil
 }

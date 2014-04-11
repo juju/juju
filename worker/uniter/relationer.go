@@ -51,6 +51,12 @@ func (r *Relationer) Join() error {
 	if r.dying {
 		panic("dying relationer must not join!")
 	}
+	// We need to make sure the state directory exists before we join the
+	// relation, lest a subsequent ReadAllStateDirs report local state that
+	// doesn't include relations recorded in remote state.
+	if err := r.dir.Ensure(); err != nil {
+		return err
+	}
 	// uniter.RelationUnit.EnterScope() sets the unit's private address
 	// internally automatically, so no need to set it here.
 	return r.ru.EnterScope()
@@ -125,10 +131,6 @@ func (r *Relationer) PrepareHook(hi hook.Info) (hookName string, err error) {
 		panic("implicit relations must not run hooks")
 	}
 	if err = r.dir.State().Validate(hi); err != nil {
-		return
-	}
-	// We are about to use the dir, ensure it's there.
-	if err = r.dir.Ensure(); err != nil {
 		return
 	}
 	if hi.Kind == hooks.RelationDeparted {
