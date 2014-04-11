@@ -58,22 +58,25 @@ func fixDeployer(deployer *Deployer) error {
 	// that the uniter was stopped after staging, but before deploying, a new
 	// bundle.
 	deployedURL, err := ReadCharmURL(manifestDeployer.CharmPath(charmURLPath))
-	if err != nil {
-		return err
-	}
-	if err := ensureCurrentGitCharm(gitDeployer, deployedURL); err != nil {
+	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
 
-	// Now we know we've got the right stuff checked out in gitDeployer.current,
-	// we can turn that into a manifest that will be used in future upgrades...
-	// even if users desparate for space deleted the original bundle.
-	manifest, err := gitManifest(gitDeployer.current.Path())
-	if err != nil {
-		return err
-	}
-	if err := manifestDeployer.storeManifest(deployedURL, manifest); err != nil {
-		return err
+	// If we deployed something previously, we need to copy some state over.
+	if deployedURL != nil {
+		if err := ensureCurrentGitCharm(gitDeployer, deployedURL); err != nil {
+			return err
+		}
+		// Now we know we've got the right stuff checked out in gitDeployer.current,
+		// we can turn that into a manifest that will be used in future upgrades...
+		// even if users desparate for space deleted the original bundle.
+		manifest, err := gitManifest(gitDeployer.current.Path())
+		if err != nil {
+			return err
+		}
+		if err := manifestDeployer.storeManifest(deployedURL, manifest); err != nil {
+			return err
+		}
 	}
 
 	// We're left with the staging repo and a symlink to it. We decide deployer
