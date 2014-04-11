@@ -996,8 +996,9 @@ func (s *StateSuite) TestAddAndGetNetwork(c *gc.C) {
 	expectErr = `cannot add network "net69": invalid VLAN tag 9999: must be between 0 and 4094`
 	c.Assert(err, gc.ErrorMatches, expectErr)
 	_, err = s.State.AddNetwork("net1", "0.1.2.0/24", 0)
-	expectErr = `cannot add network "net1": already exists`
+	expectErr = `network net1 already exists`
 	c.Assert(err, gc.ErrorMatches, expectErr)
+	c.Assert(err, jc.Satisfies, errors.IsAlreadyExistsError)
 }
 
 func (s *StateSuite) TestAddService(c *gc.C) {

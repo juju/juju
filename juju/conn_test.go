@@ -29,6 +29,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/usermanager"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
@@ -497,6 +498,21 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 	s.assertSettings(c, service, charm.Settings{})
 	s.assertConstraints(c, service, constraints.Value{})
 	s.assertMachines(c, service, constraints.Value{})
+	c.Assert(service.GetOwnerTag(), gc.Equals, "user-admin")
+}
+
+func (s *DeployLocalSuite) TestDeployOwnerTag(c *gc.C) {
+	usermanager := usermanager.NewClient(s.APIState)
+	err := usermanager.AddUser("foobar", "")
+	c.Assert(err, gc.IsNil)
+	service, err := juju.DeployService(s.State,
+		juju.DeployServiceParams{
+			ServiceName:  "bobwithowner",
+			Charm:        s.charm,
+			ServiceOwner: "user-foobar",
+		})
+	c.Assert(err, gc.IsNil)
+	c.Assert(service.GetOwnerTag(), gc.Equals, "user-foobar")
 }
 
 func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {

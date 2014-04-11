@@ -293,7 +293,7 @@ func buildToolsTarball(forceVersion *version.Number) (builtTools *BuiltTools, er
 	}
 	size := fileInfo.Size()
 	logger.Infof("built tools %v (%dkB)", toolsVersion, (size+512)/1024)
-	baseToolsDir, err := ioutil.TempDir("", "")
+	baseToolsDir, err := ioutil.TempDir("", "juju-tools")
 	if err != nil {
 		return nil, err
 	}

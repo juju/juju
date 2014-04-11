@@ -180,7 +180,7 @@ func (s *ContainerSetupSuite) TestContainerInitialised(c *gc.C) {
 		ctype    instance.ContainerType
 		packages []string
 	}{
-		{instance.LXC, []string{"--target-release", "precise-updates/cloud-tools", "lxc"}},
+		{instance.LXC, []string{"--target-release", "precise-updates/cloud-tools", "lxc", "cloud-image-utils"}},
 		{instance.KVM, []string{"uvtool-libvirt", "uvtool"}},
 	} {
 		s.assertContainerInitialised(c, test.ctype, test.packages)

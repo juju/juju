@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/xml"
 	"fmt"
+	"net"
 	"net/url"
 	"strings"
 	"sync"
@@ -266,7 +267,6 @@ func addNetworks(params url.Values, includeNetworks, excludeNetworks []string) {
 			params.Add("not_networks", name)
 		}
 	}
-
 }
 
 // acquireNode allocates a node from the MAAS.
@@ -292,7 +292,7 @@ func (environ *maasEnviron) acquireNode(cons constraints.Value, includeNetworks,
 		return gomaasapi.MAASObject{}, nil, msg
 	}
 	tools := possibleTools[0]
-	logger.Warningf("picked arbitrary tools %q", tools)
+	logger.Warningf("picked arbitrary tools %v", tools)
 	return node, tools, nil
 }
 
@@ -331,71 +331,67 @@ func linkBridgeInInterfaces() string {
 	return `sed -i "s/iface eth0 inet dhcp/source \/etc\/network\/eth0.config/" /etc/network/interfaces`
 }
 
-// getInstanceNetworkInterfaces returns a map of interface MAC address
-// to name for each network interface of the given instance, as
-// discovered during the commissioning phase.
-func (environ *maasEnviron) getInstanceNetworkInterfaces(inst instance.Instance) (map[string]string, error) {
-	maasInst := inst.(*maasInstance)
-	maasObj := maasInst.maasObject
-	result, err := maasObj.CallGet("details", nil)
+// setupNetworks prepares a []environs.NetworkInfo for the given instance.
+func (environ *maasEnviron) setupNetworks(inst instance.Instance) ([]environs.NetworkInfo, error) {
+	// Get the instance network interfaces first.
+	interfaces, err := environ.getInstanceNetworkInterfaces(inst)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("getInstanceNetworkInterfaces failed: %v", err)
 	}
-	// Get the node's lldp / lshw details discovered at commissioning.
-	data, err := result.GetBytes()
-	if err != nil {
-		return nil, err
-	}
-	var parsed map[string]interface{}
-	if err := bson.Unmarshal(data, &parsed); err != nil {
-		return nil, err
-	}
-	lshwData, ok := parsed["lshw"]
-	if !ok {
-		return nil, fmt.Errorf("no hardware information available for node %q", inst.Id())
-	}
-	lshwXML, ok := lshwData.([]byte)
-	if !ok {
-		return nil, fmt.Errorf("invalid hardware information for node %q", inst.Id())
-	}
-	// Now we have the lshw XML data, parse it to extract and return NICs.
-	return extractInterfaces(inst, lshwXML)
-}
-
-// extractInterfaces parses the XML output of lswh and extracts all
-// network interfaces, returing a map MAC address to interface name.
-func extractInterfaces(inst instance.Instance, lshwXML []byte) (map[string]string, error) {
-	type Node struct {
-		Id          string `xml:"id,attr"`
-		Description string `xml:"description"`
-		Serial      string `xml:"serial"`
-		LogicalName string `xml:"logicalname"`
-		Children    []Node `xml:"node"`
-	}
-	type List struct {
-		Nodes []Node `xml:"node"`
-	}
-	var lshw List
-	if err := xml.Unmarshal(lshwXML, &lshw); err != nil {
-		return nil, fmt.Errorf("cannot parse lshw XML details for node %q: %v", inst.Id(), err)
-	}
-	interfaces := make(map[string]string)
-	var processNodes func(nodes []Node)
-	processNodes = func(nodes []Node) {
-		for _, node := range nodes {
-			if strings.HasPrefix(node.Id, "network") {
-				interfaces[node.Serial] = node.LogicalName
-			}
-			processNodes(node.Children)
+	logger.Debugf("node %q has network interfaces %v", inst.Id(), interfaces)
+	networkInfoMap := make(map[string]environs.NetworkInfo)
+	for macAddress, interfaceName := range interfaces {
+		networkInfoMap[macAddress] = environs.NetworkInfo{
+			MACAddress:    macAddress,
+			InterfaceName: interfaceName,
 		}
 	}
-	processNodes(lshw.Nodes)
-	return interfaces, nil
+	networks, err := environ.getInstanceNetworks(inst)
+	if err != nil {
+		return nil, fmt.Errorf("getInstanceNetworks failed: %v", err)
+	}
+	logger.Debugf("node %q has networks %v", inst.Id(), networks)
+	for _, network := range networks {
+		netCIDR := &net.IPNet{
+			IP:   net.ParseIP(network.IP),
+			Mask: net.IPMask(net.ParseIP(network.Mask)),
+		}
+		macs, err := environ.getNetworkMACs(network.Name)
+		if err != nil {
+			return nil, fmt.Errorf("getNetworkMACs failed: %v", err)
+		}
+		for _, mac := range macs {
+			if _, ok := interfaces[mac]; ok {
+				info := networkInfoMap[mac]
+				info.CIDR = netCIDR.String()
+				info.VLANTag = network.VLANTag
+				info.NetworkName = network.Name
+				networkInfoMap[mac] = info
+			}
+		}
+	}
+	// Verify we filled-in everything for all networks/interfaces
+	// and drop incomplete records.
+	var networkInfo []environs.NetworkInfo
+	for _, info := range networkInfoMap {
+		if info.NetworkName == "" || info.CIDR == "" {
+			logger.Warningf("ignoring network interface %q: missing network information", info.InterfaceName)
+			continue
+		}
+		if info.MACAddress == "" || info.InterfaceName == "" {
+			logger.Warningf("ignoring network %q: missing network interface information", info.NetworkName)
+			continue
+		}
+		networkInfo = append(networkInfo, info)
+	}
+	logger.Debugf("node %q network information: %#v", inst.Id(), networkInfo)
+	return networkInfo, nil
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error) {
-
+func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
+	instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error,
+) {
 	var inst *maasInstance
 	var err error
 	node, tools, err := environ.acquireNode(
@@ -416,18 +412,12 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (in
 			}
 		}
 	}()
-	// TODO(dimitern) Get the list of networks for the node
-	// and combine it with the list of NICs from the call below
-	// to return []NetworkInfo.
-	interfaces, err := environ.getInstanceNetworkInterfaces(inst)
-	if err != nil {
-		if args.MachineConfig.HasNetworks() {
+	var networkInfo []environs.NetworkInfo
+	if args.MachineConfig.HasNetworks() {
+		networkInfo, err = environ.setupNetworks(inst)
+		if err != nil {
 			return nil, nil, nil, err
 		}
-		// If we don't need to start networks, this is not an error.
-		logger.Warningf(err.Error())
-	} else {
-		logger.Debugf("node %q network interfaces %#v", inst.Id(), interfaces)
 	}
 
 	hostname, err := inst.DNSName()
@@ -458,7 +448,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (in
 	}
 	logger.Debugf("started instance %q", inst.Id())
 	// TODO(bug 1193998) - return instance hardware characteristics as well
-	return inst, nil, nil, nil
+	return inst, nil, networkInfo, nil
 }
 
 // newCloudinitConfig creates a cloudinit.Config structure
@@ -627,25 +617,26 @@ func (e *maasEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseToolsPath)}, nil
 }
 
-type MAASNetworkDetails struct {
+// networkDetails holds information about a MAAS network.
+type networkDetails struct {
 	Name        string
-	Ip          string
-	NetworkMask string
-	VlanTag     string
+	IP          string
+	Mask        string
+	VLANTag     int
 	Description string
 }
 
-// GetNetworksList returns a list of strings which contain networks for a gien maas node instance.
-func (e *maasEnviron) GetNetworksList(inst instance.Instance) ([]MAASNetworkDetails, error) {
+// getInstanceNetworks returns a list of all MAAS networks for a given node.
+func (environ *maasEnviron) getInstanceNetworks(inst instance.Instance) ([]networkDetails, error) {
 	maasInst := inst.(*maasInstance)
 	maasObj := maasInst.maasObject
-	networksClient := e.getMAASClient().GetSubObject("networks")
-	system_id, err := maasObj.GetField("system_id")
+	client := environ.getMAASClient().GetSubObject("networks")
+	nodeId, err := maasObj.GetField("system_id")
 	if err != nil {
 		return nil, err
 	}
-	params := url.Values{"node": {system_id}}
-	json, err := networksClient.CallGet("", params)
+	params := url.Values{"node": {nodeId}}
+	json, err := client.CallGet("", params)
 	if err != nil {
 		return nil, err
 	}
@@ -653,33 +644,137 @@ func (e *maasEnviron) GetNetworksList(inst instance.Instance) ([]MAASNetworkDeta
 	if err != nil {
 		return nil, err
 	}
-	var attributeError error
-	getField := func(maasNet *gomaasapi.MAASObject, name string) (val string) {
-		if attributeError != nil {
-			return
-		}
-		val, attributeError = maasNet.GetField(name)
-		if attributeError != nil {
-			attributeError = fmt.Errorf("cannot get %q: %v", name, attributeError)
-		}
-		return val
-	}
-	networks := make([]MAASNetworkDetails, len(jsonNets))
+
+	networks := make([]networkDetails, len(jsonNets))
 	for i, jsonNet := range jsonNets {
-		maasNet, err := jsonNet.GetMAASObject()
+		fields, err := jsonNet.GetMap()
 		if err != nil {
 			return nil, err
 		}
-		networks[i] = MAASNetworkDetails{
-			Name:        getField(&maasNet, "name"),
-			Ip:          getField(&maasNet, "ip"),
-			NetworkMask: getField(&maasNet, "netmask"),
-			VlanTag:     getField(&maasNet, "vlan_tag"),
-			Description: getField(&maasNet, "description"),
+		name, err := fields["name"].GetString()
+		if err != nil {
+			return nil, fmt.Errorf("cannot get name: %v", err)
+		}
+		ip, err := fields["ip"].GetString()
+		if err != nil {
+			return nil, fmt.Errorf("cannot get ip: %v", err)
+		}
+		netmask, err := fields["netmask"].GetString()
+		if err != nil {
+			return nil, fmt.Errorf("cannot get netmask: %v", err)
+		}
+		vlanTag := 0
+		vlanTagField, ok := fields["vlan_tag"]
+		if ok && !vlanTagField.IsNil() {
+			// vlan_tag is optional, so assume it's 0 when missing or nil.
+			vlanTagFloat, err := vlanTagField.GetFloat64()
+			if err != nil {
+				return nil, fmt.Errorf("cannot get vlan_tag: %v", err)
+			}
+			vlanTag = int(vlanTagFloat)
+		}
+		description, err := fields["description"].GetString()
+		if err != nil {
+			return nil, fmt.Errorf("cannot get description: %v", err)
+		}
+
+		networks[i] = networkDetails{
+			Name:        name,
+			IP:          ip,
+			Mask:        netmask,
+			VLANTag:     vlanTag,
+			Description: description,
 		}
 	}
-	if attributeError != nil {
-		return nil, attributeError
+	return networks, nil
+}
+
+// getNetworkMACs returns all MAC addresses connected to the given
+// network.
+func (environ *maasEnviron) getNetworkMACs(networkName string) ([]string, error) {
+	client := environ.getMAASClient().GetSubObject("networks").GetSubObject(networkName)
+	json, err := client.CallGet("list_connected_macs", nil)
+	if err != nil {
+		return nil, err
 	}
-	return networks, attributeError
+	jsonMACs, err := json.GetArray()
+	if err != nil {
+		return nil, err
+	}
+
+	macs := make([]string, len(jsonMACs))
+	for i, jsonMAC := range jsonMACs {
+		fields, err := jsonMAC.GetMap()
+		if err != nil {
+			return nil, err
+		}
+		macAddress, err := fields["mac_address"].GetString()
+		if err != nil {
+			return nil, fmt.Errorf("cannot get mac_address: %v", err)
+		}
+		macs[i] = macAddress
+	}
+	return macs, nil
+}
+
+// getInstanceNetworkInterfaces returns a map of interface MAC address
+// to name for each network interface of the given instance, as
+// discovered during the commissioning phase.
+func (environ *maasEnviron) getInstanceNetworkInterfaces(inst instance.Instance) (map[string]string, error) {
+	maasInst := inst.(*maasInstance)
+	maasObj := maasInst.maasObject
+	result, err := maasObj.CallGet("details", nil)
+	if err != nil {
+		return nil, err
+	}
+	// Get the node's lldp / lshw details discovered at commissioning.
+	data, err := result.GetBytes()
+	if err != nil {
+		return nil, err
+	}
+	var parsed map[string]interface{}
+	if err := bson.Unmarshal(data, &parsed); err != nil {
+		return nil, err
+	}
+	lshwData, ok := parsed["lshw"]
+	if !ok {
+		return nil, fmt.Errorf("no hardware information available for node %q", inst.Id())
+	}
+	lshwXML, ok := lshwData.([]byte)
+	if !ok {
+		return nil, fmt.Errorf("invalid hardware information for node %q", inst.Id())
+	}
+	// Now we have the lshw XML data, parse it to extract and return NICs.
+	return extractInterfaces(inst, lshwXML)
+}
+
+// extractInterfaces parses the XML output of lswh and extracts all
+// network interfaces, returing a map MAC address to interface name.
+func extractInterfaces(inst instance.Instance, lshwXML []byte) (map[string]string, error) {
+	type Node struct {
+		Id          string `xml:"id,attr"`
+		Description string `xml:"description"`
+		Serial      string `xml:"serial"`
+		LogicalName string `xml:"logicalname"`
+		Children    []Node `xml:"node"`
+	}
+	type List struct {
+		Nodes []Node `xml:"node"`
+	}
+	var lshw List
+	if err := xml.Unmarshal(lshwXML, &lshw); err != nil {
+		return nil, fmt.Errorf("cannot parse lshw XML details for node %q: %v", inst.Id(), err)
+	}
+	interfaces := make(map[string]string)
+	var processNodes func(nodes []Node)
+	processNodes = func(nodes []Node) {
+		for _, node := range nodes {
+			if strings.HasPrefix(node.Id, "network") {
+				interfaces[node.Serial] = node.LogicalName
+			}
+			processNodes(node.Children)
+		}
+	}
+	processNodes(lshw.Nodes)
+	return interfaces, nil
 }

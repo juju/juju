@@ -10,6 +10,7 @@ import (
 
 var requiredPackages = []string{
 	"lxc",
+	"cloud-image-utils",
 }
 
 type containerInitialiser struct {

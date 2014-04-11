@@ -106,7 +106,7 @@ func (st *State) Tools(tag string) (*tools.Tools, error) {
 	}
 	if len(results.Results) != 1 {
 		// TODO: Not directly tested
-		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if err := result.Error; err != nil {
@@ -142,24 +142,4 @@ func (st *State) MachinesWithTransientErrors() ([]*Machine, []params.StatusResul
 		}
 	}
 	return machines, results.Results, nil
-}
-
-// AddNetworks creates one or more networks with the given parameters.
-// If any operation fails, the first error is returned.
-func (st *State) AddNetworks(networks []params.NetworkParams) error {
-	var results params.ErrorResults
-	args := params.AddNetworkParams{Networks: networks}
-	err := st.call("AddNetwork", args, &results)
-	if err != nil {
-		return err
-	}
-	if n := len(results.Results); n != len(networks) {
-		return fmt.Errorf("expected %d result(s), got %d", len(networks), n)
-	}
-	for _, result := range results.Results {
-		if err := result.Error; err != nil {
-			return err
-		}
-	}
-	return nil
 }

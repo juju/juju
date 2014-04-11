@@ -106,3 +106,46 @@ func IsNotImplementedError(err error) bool {
 	_, ok := err.(*notImplementedError)
 	return ok
 }
+
+type alreadyExistsError struct {
+	what string
+}
+
+// NewAlreadyExistsError returns an error signifying that
+// something already exists.
+func NewAlreadyExistsError(what string) error {
+	return &alreadyExistsError{what: what}
+}
+
+func (e *alreadyExistsError) Error() string {
+	return e.what + " already exists"
+}
+
+// IsAlreadyExistsError reports whether the error
+// was created with NewAlreadyExistsError.
+func IsAlreadyExistsError(err error) bool {
+	_, ok := err.(*alreadyExistsError)
+	return ok
+}
+
+type notSupportedError struct {
+	what string
+}
+
+// NewNotSupportedError returns an error signifying that something is not
+// supported.  For example a client API call to a server that does not support
+// the action.
+func NewNotSupportedError(what string) error {
+	return &notSupportedError{what: what}
+}
+
+func (e *notSupportedError) Error() string {
+	return e.what + " not supported"
+}
+
+// IsNotSupportedError reports whether the error
+// was created with NewNotSupportedError.
+func IsNotSupportedError(err error) bool {
+	_, ok := err.(*notSupportedError)
+	return ok
+}

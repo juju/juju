@@ -27,7 +27,19 @@ func TestPackage(t *stdtesting.T) {
 // bundleReader is a charm.BundleReader that lets us mock out the bundles we
 // deploy to test the Deployers.
 type bundleReader struct {
-	bundles map[string]charm.Bundle
+	bundles     map[string]charm.Bundle
+	stopWaiting <-chan struct{}
+}
+
+// EnableWaitForAbort allows us to test that a Deployer.Stage call passes its abort
+// chan down to its BundleReader's Read method. If you call EnableWaitForAbort, the
+// next call to Read will block until either the abort chan is closed (in which case
+// it will return an error) or the stopWaiting chan is closed (in which case it
+// will return the bundle).
+func (br *bundleReader) EnableWaitForAbort() (stopWaiting chan struct{}) {
+	stopWaiting = make(chan struct{})
+	br.stopWaiting = stopWaiting
+	return stopWaiting
 }
 
 // Read implements the BundleReader interface.
@@ -35,6 +47,16 @@ func (br *bundleReader) Read(info charm.BundleInfo, abort <-chan struct{}) (char
 	bundle, ok := br.bundles[info.URL().String()]
 	if !ok {
 		return nil, fmt.Errorf("no such charm!")
+	}
+	if br.stopWaiting != nil {
+		// EnableWaitForAbort is a one-time wait; make sure we clear it.
+		defer func() { br.stopWaiting = nil }()
+		select {
+		case <-abort:
+			return nil, fmt.Errorf("charm read aborted")
+		case <-br.stopWaiting:
+			// We can stop waiting for the abort chan and return the bundle.
+		}
 	}
 	return bundle, nil
 }
