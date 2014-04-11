@@ -53,8 +53,8 @@ func (c *DebugLogCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(cmd.NewAppendStringsValue(&c.params.IncludeModule), "include-module", "only show log messages for these logging modules")
 	f.Var(cmd.NewAppendStringsValue(&c.params.ExcludeModule), "exclude-module", "do not show log messages for these logging modules")
 
-	f.StringVar(&c.level, "l", "DEBUG", "log level to show, one of [TRACE, DEBUG, INFO, WARNING, ERROR]")
-	f.StringVar(&c.level, "level", "DEBUG", "")
+	f.StringVar(&c.level, "l", "", "log level to show, one of [TRACE, DEBUG, INFO, WARNING, ERROR]")
+	f.StringVar(&c.level, "level", "", "")
 
 	f.UintVar(&c.params.Backlog, "n", defaultLineCount, "go back this many lines from the end before starting to filter")
 	f.UintVar(&c.params.Backlog, "lines", defaultLineCount, "")
@@ -67,20 +67,29 @@ func (c *DebugLogCommand) Init(args []string) error {
 	if err != nil {
 		return err
 	}
-
-	level, ok := loggo.ParseLevel(c.level)
-	if !ok || level < loggo.TRACE || level > loggo.ERROR {
-		return fmt.Errorf("level value %q is not one of %q, %q, %q, %q, %q",
-			c.level, loggo.TRACE, loggo.DEBUG, loggo.INFO, loggo.WARNING, loggo.ERROR)
+	if c.level != "" {
+		level, ok := loggo.ParseLevel(c.level)
+		if !ok || level < loggo.TRACE || level > loggo.ERROR {
+			return fmt.Errorf("level value %q is not one of %q, %q, %q, %q, %q",
+				c.level, loggo.TRACE, loggo.DEBUG, loggo.INFO, loggo.WARNING, loggo.ERROR)
+		}
+		c.params.Level = level
 	}
-	c.params.Level = level
-
 	return cmd.CheckEmpty(args)
+}
+
+type DebugLogAPI interface {
+	WatchDebugLog(params api.DebugLogParams) (io.ReadCloser, error)
+	Close() error
+}
+
+var getDebugLogAPI = func(envName string) (DebugLogAPI, error) {
+	return juju.NewAPIClientFromName(envName)
 }
 
 // Run retrieves the debug log via the API.
 func (c *DebugLogCommand) Run(ctx *cmd.Context) (err error) {
-	client, err := juju.NewAPIClientFromName(c.EnvName)
+	client, err := getDebugLogAPI(c.EnvName)
 	if err != nil {
 		return err
 	}
@@ -95,6 +104,10 @@ func (c *DebugLogCommand) Run(ctx *cmd.Context) (err error) {
 	defer debugLog.Close()
 	_, err = io.Copy(ctx.Stdout, debugLog)
 	return err
+}
+
+var runSSHCommand = func(sshCmd *SSHCommand, ctx *cmd.Context) error {
+	return sshCmd.Run(ctx)
 }
 
 // watchDebugLog1dot16 runs in case of an older API server and uses ssh
@@ -112,5 +125,5 @@ func (c *DebugLogCommand) watchDebugLog1dot16(ctx *cmd.Context) error {
 		return err
 	}
 	sshCmd.EnvName = c.EnvName
-	return sshCmd.Run(ctx)
+	return runSSHCommand(sshCmd, ctx)
 }
