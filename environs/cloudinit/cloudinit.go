@@ -354,12 +354,12 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 		c.AddRunCmd(cloudinit.LogProgressCmd("Bootstrapping Juju machine agent"))
 		c.AddScripts(
 			// The bootstrapping is always run with debug on.
-			cfg.jujuTools()+"/jujud bootstrap-state"+
-				" --data-dir "+shquote(cfg.DataDir)+
-				" --env-config "+shquote(base64yaml(cfg.Config))+
-				" --instance-id "+shquote(string(cfg.InstanceId))+
-				hardware+
-				cons+
+			cfg.jujuTools() + "/jujud bootstrap-state" +
+				" --data-dir " + shquote(cfg.DataDir) +
+				" --env-config " + shquote(base64yaml(cfg.Config)) +
+				" --instance-id " + shquote(string(cfg.InstanceId)) +
+				hardware +
+				cons +
 				" --debug",
 		)
 	}

@@ -75,4 +75,3 @@ func (s mongoSessionShim) Set(members []replicaset.Member) error {
 	}
 	return err
 }
-

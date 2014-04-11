@@ -4,9 +4,9 @@ import (
 	"fmt"
 
 	"labix.org/v2/mgo"
-	"launchpad.net/juju-core/replicaset"
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/agent/mongo"
+	"launchpad.net/juju-core/replicaset"
 )
 
 const bootstrapMachineId = "0"
@@ -55,7 +55,7 @@ func MaybeInitiateMongoServer(p InitiateMongoParams) error {
 	if err == nil && len(cfg.Members) > 0 {
 		logger.Infof("replica set configuration already found: %#v", cfg)
 		return nil
-	}	
+	}
 	if err != nil && err != mgo.ErrNotFound {
 		return fmt.Errorf("cannot get replica set configuration: %v", err)
 	}
