@@ -14,9 +14,9 @@ type NetworkInterface struct {
 	doc networkInterfaceDoc
 }
 
-// NetworkInterfaceParams describes a single network interface
-// available on an instance.
-type NetworkInterfaceParams struct {
+// NetworkInterfaceInfo describes a single network interface available
+// on an instance.
+type NetworkInterfaceInfo struct {
 	// MACAddress is the network interface's hardware MAC address
 	// (e.g. "aa:bb:cc:dd:ee:ff").
 	MACAddress string
@@ -31,9 +31,12 @@ type NetworkInterfaceParams struct {
 
 // networkInterfaceDoc represents a network interface for a machine on
 // a given network.
+//
+// TODO(dimitern) To allow multiple virtual (e.g. VLAN) interfaces on
+// the same MAC address, we need to change the key and uniqueness
+// constraints.
 type networkInterfaceDoc struct {
-	MACAddress string `bson:"_id"`
-	// InterfaceName is the network interface name (e.g. "eth0").
+	MACAddress    string `bson:"_id"`
 	InterfaceName string
 	NetworkName   string
 	MachineId     string

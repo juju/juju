@@ -836,7 +836,7 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 // Merge SetProvisioned() in here or drop it at that point.
 func (m *Machine) SetInstanceInfo(
 	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
-	networks []NetworkParams, interfaces []NetworkInterfaceParams) error {
+	networks []NetworkInfo, interfaces []NetworkInterfaceInfo) error {
 
 	// Add the networks and interfaces first.
 	for _, network := range networks {
