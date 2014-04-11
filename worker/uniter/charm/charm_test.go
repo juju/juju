@@ -27,8 +27,19 @@ func TestPackage(t *stdtesting.T) {
 // bundleReader is a charm.BundleReader that lets us mock out the bundles we
 // deploy to test the Deployers.
 type bundleReader struct {
-	bundles   map[string]charm.Bundle
-	waitAbort <-chan struct{}
+	bundles     map[string]charm.Bundle
+	stopWaiting <-chan struct{}
+}
+
+// EnableWaitForAbort allows us to test that a Deployer.Stage call passes its abort
+// chan down to its BundleReader's Read method. If you call EnableWaitForAbort, the
+// next call to Read will block until either the abort chan is closed (in which case
+// it will return an error) or the stopWaiting chan is closed (in which case it
+// will return the bundle).
+func (br *bundleReader) EnableWaitForAbort() (stopWaiting chan struct{}) {
+	stopWaiting = make(chan struct{})
+	br.stopWaiting = stopWaiting
+	return stopWaiting
 }
 
 // Read implements the BundleReader interface.
@@ -37,26 +48,17 @@ func (br *bundleReader) Read(info charm.BundleInfo, abort <-chan struct{}) (char
 	if !ok {
 		return nil, fmt.Errorf("no such charm!")
 	}
-	if br.waitAbort == nil {
-		close(br.SetAbortWait())
-	}
-	defer func() { br.waitAbort = nil }()
-	select {
-	case <-abort:
-		return nil, fmt.Errorf("charm read aborted")
-	case <-br.waitAbort:
+	if br.stopWaiting != nil {
+		// EnableWaitForAbort is a one-time wait; make sure we clear it.
+		defer func() { br.stopWaiting = nil }()
+		select {
+		case <-abort:
+			return nil, fmt.Errorf("charm read aborted")
+		case <-br.stopWaiting:
+			// We can stop waiting for the abort chan and return the bundle.
+		}
 	}
 	return bundle, nil
-}
-
-// SetAbortWait returns a channel that the next call to Read() will select on
-// alongside the supplied abort channel. By leaving the abortWait channel alone,
-// you can close the abort channel and force an aborted error without worrying
-// about timing.
-func (br *bundleReader) SetAbortWait() chan struct{} {
-	waitAbort := make(chan struct{})
-	br.waitAbort = waitAbort
-	return waitAbort
 }
 
 func (br *bundleReader) AddCustomBundle(c *gc.C, url *corecharm.URL, customize func(path string)) charm.BundleInfo {

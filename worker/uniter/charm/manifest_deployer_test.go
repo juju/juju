@@ -73,7 +73,7 @@ func (s *ManifestDeployerSuite) TestAbortStageWhenClosed(c *gc.C) {
 	info := s.addMockCharm(c, 1, mockBundle{})
 	abort := make(chan struct{})
 	errors := make(chan error)
-	s.bundles.SetAbortWait()
+	s.bundles.EnableWaitForAbort()
 	go func() {
 		errors <- s.deployer.Stage(info, abort)
 	}()
@@ -86,11 +86,11 @@ func (s *ManifestDeployerSuite) TestDontAbortStageWhenNotClosed(c *gc.C) {
 	info := s.addMockCharm(c, 1, mockBundle{})
 	abort := make(chan struct{})
 	errors := make(chan error)
-	wait := s.bundles.SetAbortWait()
+	stopWaiting := s.bundles.EnableWaitForAbort()
 	go func() {
 		errors <- s.deployer.Stage(info, abort)
 	}()
-	close(wait)
+	close(stopWaiting)
 	err := <-errors
 	c.Assert(err, gc.IsNil)
 }
