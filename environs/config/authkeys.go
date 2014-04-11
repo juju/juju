@@ -74,7 +74,7 @@ func ReadAuthorizedKeys(path string) (string, error) {
 	return string(keyData), nil
 }
 
-// L verifies that the certificate and key parse correctly.
+// verifyKeyPair verifies that the certificate and key parse correctly.
 // The key is optional - if it is provided, we also check that the key
 // matches the certificate.
 func verifyKeyPair(certb, key string) error {
