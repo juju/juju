@@ -250,7 +250,7 @@ var statusTests = []testCase{
 		startAliveMachine{"0"},
 		setAddresses{"0", []instance.Address{
 			instance.NewAddress("10.0.0.1", instance.NetworkUnknown),
-			instance.NewAddress("dummyenv-0.dns", instance.NetworkUnknown),
+			instance.NewAddress("dummyenv-0.dns", instance.NetworkPublic),
 		}},
 		expect{
 			"simulate the PA starting an instance in response to the state change",
@@ -306,7 +306,7 @@ var statusTests = []testCase{
 		setMachineStatus{"0", params.StatusStarted, ""},
 		setAddresses{"0", []instance.Address{
 			instance.NewAddress("10.0.0.1", instance.NetworkUnknown),
-			instance.NewAddress("dummyenv-0.dns", instance.NetworkUnknown),
+			instance.NewAddress("dummyenv-0.dns", instance.NetworkPublic),
 		}},
 		addCharm{"dummy"},
 		addService{
@@ -352,7 +352,7 @@ var statusTests = []testCase{
 		addMachine{machineId: "0", cons: machineCons, job: state.JobManageEnviron},
 		setAddresses{"0", []instance.Address{
 			instance.NewAddress("10.0.0.1", instance.NetworkUnknown),
-			instance.NewAddress("dummyenv-0.dns", instance.NetworkUnknown),
+			instance.NewAddress("dummyenv-0.dns", instance.NetworkPublic),
 		}},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", params.StatusStarted, ""},

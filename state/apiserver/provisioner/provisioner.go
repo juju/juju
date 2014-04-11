@@ -410,28 +410,28 @@ func (p *ProvisionerAPI) Constraints(args params.Entities) (params.ConstraintsRe
 }
 
 func networkParamsToStateParams(networks []params.Network, ifaces []params.NetworkInterface) (
-	[]state.NetworkParams, []state.NetworkInterfaceParams, error,
+	[]state.NetworkInfo, []state.NetworkInterfaceInfo, error,
 ) {
-	stateNetworks := make([]state.NetworkParams, len(networks))
+	stateNetworks := make([]state.NetworkInfo, len(networks))
 	for i, network := range networks {
 		_, networkName, err := names.ParseTag(network.Tag, names.NetworkTagKind)
 		if err != nil {
 			return nil, nil, err
 		}
-		stateNetworks[i] = state.NetworkParams{
+		stateNetworks[i] = state.NetworkInfo{
 			Name:       networkName,
 			ProviderId: network.ProviderId,
 			CIDR:       network.CIDR,
 			VLANTag:    network.VLANTag,
 		}
 	}
-	stateInterfaces := make([]state.NetworkInterfaceParams, len(ifaces))
+	stateInterfaces := make([]state.NetworkInterfaceInfo, len(ifaces))
 	for i, iface := range ifaces {
 		_, networkName, err := names.ParseTag(iface.NetworkTag, names.NetworkTagKind)
 		if err != nil {
 			return nil, nil, err
 		}
-		stateInterfaces[i] = state.NetworkInterfaceParams{
+		stateInterfaces[i] = state.NetworkInterfaceInfo{
 			MACAddress:    iface.MACAddress,
 			NetworkName:   networkName,
 			InterfaceName: iface.InterfaceName,
@@ -512,8 +512,8 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 	for i, arg := range args.Machines {
 		machine, err := p.getMachine(canAccess, arg.Tag)
 		if err == nil {
-			var networks []state.NetworkParams
-			var interfaces []state.NetworkInterfaceParams
+			var networks []state.NetworkInfo
+			var interfaces []state.NetworkInterfaceInfo
 			networks, interfaces, err = networkParamsToStateParams(arg.Networks, arg.Interfaces)
 			if err == nil {
 				err = machine.SetInstanceInfo(

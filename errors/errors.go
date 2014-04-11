@@ -126,3 +126,25 @@ func IsAlreadyExistsError(err error) bool {
 	_, ok := err.(*alreadyExistsError)
 	return ok || (err != nil && strings.HasSuffix(err.Error(), " already exists"))
 }
+
+type notSupportedError struct {
+	what string
+}
+
+// NewNotSupportedError returns an error signifying that something is not
+// supported.  For example a client API call to a server that does not support
+// the action.
+func NewNotSupportedError(what string) error {
+	return &notSupportedError{what: what}
+}
+
+func (e *notSupportedError) Error() string {
+	return e.what + " not supported"
+}
+
+// IsNotSupportedError reports whether the error
+// was created with NewNotSupportedError.
+func IsNotSupportedError(err error) bool {
+	_, ok := err.(*notSupportedError)
+	return ok
+}

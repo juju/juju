@@ -59,17 +59,20 @@ type notifyFunc func() (changed bool, err error)
 
 var (
 	// If we fail to set the mongo replica set members,
-	// we retry at the following interval until we succeed.
-	retryInterval = 2 * time.Second
+	// we start retrying with the following interval,
+	// before exponentially backing off with each further
+	// attempt.
+	initialRetryInterval = 2 * time.Second
+
+	// maxRetryInterval holds the maximum interval
+	// between retry attempts.
+	maxRetryInterval = 5 * time.Minute
 
 	// pollInterval holds the interval at which the replica set
 	// members will be updated even in the absence of changes
 	// to State. This enables us to make changes to members
 	// that are triggered by changes to member status.
-	//
-	// 10 seconds is the default time interval used by
-	// mongo to keep its replicas up to date.
-	pollInterval = 10 * time.Second
+	pollInterval = 1 * time.Minute
 )
 
 // pgWorker holds all the mutable state that we are watching.
@@ -128,7 +131,6 @@ func newWorker(st stateInterface, pub publisherInterface) worker.Worker {
 		machines:  make(map[string]*machine),
 		publisher: pub,
 	}
-	logger.Infof("worker starting")
 	go func() {
 		defer w.tomb.Done()
 		if err := w.loop(); err != nil {
@@ -158,6 +160,7 @@ func (w *pgWorker) loop() error {
 
 	retry := time.NewTimer(0)
 	retry.Stop()
+	retryInterval := initialRetryInterval
 	for {
 		select {
 		case f := <-w.notifyCh:
@@ -193,8 +196,13 @@ func (w *pgWorker) loop() error {
 				// to keep them up to date with the current
 				// replica set member statuses.
 				retry.Reset(pollInterval)
+				retryInterval = initialRetryInterval
 			} else {
 				retry.Reset(retryInterval)
+				retryInterval *= 2
+				if retryInterval > maxRetryInterval {
+					retryInterval = maxRetryInterval
+				}
 			}
 
 		case <-w.tomb.Dying():

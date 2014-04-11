@@ -6,6 +6,8 @@ package upgrader
 import (
 	"errors"
 
+	"github.com/juju/loggo"
+
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -13,6 +15,8 @@ import (
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/version"
 )
+
+var logger = loggo.GetLogger("juju.state.apiserver.upgrader")
 
 type Upgrader interface {
 	WatchAPIVersion(args params.Entities) (params.NotifyWatchResults, error)
@@ -91,6 +95,22 @@ func (u *UpgraderAPI) getGlobalAgentVersion() (version.Number, *config.Config, e
 	return agentVersion, cfg, nil
 }
 
+type hasIsManager interface {
+	IsManager() bool
+}
+
+func (u *UpgraderAPI) entityIsManager(tag string) bool {
+	entity, err := u.st.FindEntity(tag)
+	if err != nil {
+		return false
+	}
+	if m, ok := entity.(hasIsManager); !ok {
+		return false
+	} else {
+		return m.IsManager()
+	}
+}
+
 // DesiredVersion reports the Agent Version that we want that agent to be running
 func (u *UpgraderAPI) DesiredVersion(args params.Entities) (params.VersionResults, error) {
 	results := make([]params.VersionResult, len(args.Entities))
@@ -101,13 +121,20 @@ func (u *UpgraderAPI) DesiredVersion(args params.Entities) (params.VersionResult
 	if err != nil {
 		return params.VersionResults{}, common.ServerError(err)
 	}
+	// Is the desired version greater than the current API server version?
+	isNewerVersion := agentVersion.Compare(version.Current.Number) > 0
 	for i, entity := range args.Entities {
 		err := common.ErrPerm
 		if u.authorizer.AuthOwner(entity.Tag) {
-			results[i].Version = &agentVersion
+			if !isNewerVersion || u.entityIsManager(entity.Tag) {
+				results[i].Version = &agentVersion
+			} else {
+				logger.Debugf("desired version is %s, but current version is %s and agent is not a manager node", agentVersion, version.Current.Number)
+				results[i].Version = &version.Current.Number
+			}
 			err = nil
 		}
 		results[i].Error = common.ServerError(err)
 	}
-	return params.VersionResults{results}, nil
+	return params.VersionResults{Results: results}, nil
 }

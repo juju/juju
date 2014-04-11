@@ -12,6 +12,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/instance"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/upstart"
 )
@@ -69,29 +70,6 @@ func (s *MongoSuite) TestDefaultMongodPath(c *gc.C) {
 	c.Check(obtained, gc.Equals, filename)
 }
 
-func (s *MongoSuite) TestRemoveOldMongoServices(c *gc.C) {
-	s.PatchValue(&oldMongoServiceName, "someNameThatShouldntExist")
-
-	// Make fake old services.
-	// We defer the removes manually just in case the test fails, we don't leave
-	// junk behind.
-	conf := makeService(oldMongoServiceName, c)
-	defer conf.Remove()
-	conf2 := makeService(makeServiceName(2), c)
-	defer conf2.Remove()
-	conf3 := makeService(makeServiceName(3), c)
-	defer conf3.Remove()
-
-	// Remove with current version = 4, which should remove all previous
-	// versions plus the old service name.
-	err := removeOldMongoServices(4)
-	c.Assert(err, gc.IsNil)
-
-	c.Assert(conf.Installed(), jc.IsFalse)
-	c.Assert(conf2.Installed(), jc.IsFalse)
-	c.Assert(conf3.Installed(), jc.IsFalse)
-}
-
 func (s *MongoSuite) TestMakeJournalDirs(c *gc.C) {
 	dir := c.MkDir()
 	err := makeJournalDirs(dir)
@@ -116,31 +94,86 @@ func testJournalDirs(dir string, c *gc.C) {
 	info, err = os.Stat(filepath.Join(journalDir, "prealloc.2"))
 	c.Check(err, gc.IsNil)
 	c.Check(info.Size(), gc.Equals, size)
-
 }
 
 func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 	dir := c.MkDir()
+	dbDir := filepath.Join(dir, "db")
 	port := 25252
+	namespace := "namespace"
+	oldsvc := makeService(ServiceName(namespace), c)
+	defer oldsvc.StopAndRemove()
 
-	oldsvc := makeService(oldMongoServiceName, c)
-	defer oldsvc.Remove()
-
-	err := EnsureMongoServer(dir, port)
+	err := EnsureMongoServer(dir, port, namespace)
 	c.Assert(err, gc.IsNil)
-	mongodPath := MongodPathForSeries("some-series")
-	svc, err := MongoUpstartService(makeServiceName(mongoScriptVersion), mongodPath, dir, port)
+	svc, err := mongoUpstartService(namespace, dir, dbDir, port)
 	c.Assert(err, gc.IsNil)
-	defer svc.Remove()
+	defer svc.StopAndRemove()
 
-	testJournalDirs(dir, c)
-	c.Check(oldsvc.Installed(), jc.IsFalse)
-	c.Check(svc.Installed(), jc.IsTrue)
+	testJournalDirs(dbDir, c)
+	c.Assert(svc.Installed(), jc.IsTrue)
 
 	// now check we can call it multiple times without error
-	err = EnsureMongoServer(dir, port)
+	err = EnsureMongoServer(dir, port, namespace)
+	c.Assert(err, gc.IsNil)
+	c.Assert(svc.Installed(), jc.IsTrue)
+}
+
+func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
+	dir := c.MkDir()
+
+	dbDir := filepath.Join(dir, "db")
+
+	// remove the directory so we use the path but it won't exist
+	// that should make it get cleaned up at the end of the test if created
+	os.RemoveAll(dir)
+	port := 25252
+
+	err := EnsureMongoServer(dir, port, "")
+	c.Check(err, gc.IsNil)
+
+	_, err = os.Stat(dbDir)
 	c.Assert(err, gc.IsNil)
 
+	svc, err := mongoUpstartService("", dir, dbDir, port)
+	c.Assert(err, gc.IsNil)
+	defer svc.Remove()
+}
+
+// TODO(natefinch) add a test that InitiateMongoServer works when
+// we support upgrading of existing environments.
+
+func (s *MongoSuite) TestInitiateReplicaSet(c *gc.C) {
+	var err error
+	inst := &coretesting.MgoInstance{Params: []string{"--replSet", "juju"}}
+	err = inst.Start(true)
+	c.Assert(err, gc.IsNil)
+
+	info := inst.DialInfo()
+
+	err = MaybeInitiateMongoServer(InitiateMongoParams{
+		DialInfo:       info,
+		MemberHostPort: inst.Addr(),
+	})
+	c.Assert(err, gc.IsNil)
+
+	// This would return a mgo.QueryError if a ReplicaSet
+	// configuration already existed but we tried to created
+	// one with replicaset.Initiate again.
+	err = MaybeInitiateMongoServer(InitiateMongoParams{
+		DialInfo:       info,
+		MemberHostPort: inst.Addr(),
+	})
+	c.Assert(err, gc.IsNil)
+
+	// TODO test login
+}
+
+func (s *MongoSuite) TestServiceName(c *gc.C) {
+	name := ServiceName("foo")
+	c.Assert(name, gc.Equals, "juju-db-foo")
+	name = ServiceName("")
+	c.Assert(name, gc.Equals, "juju-db")
 }
 
 func (s *MongoSuite) TestSelectPeerAddress(c *gc.C) {
@@ -178,16 +211,6 @@ func (s *MongoSuite) TestSelectPeerHostPort(c *gc.C) {
 
 	address := SelectPeerHostPort(hostPorts)
 	c.Assert(address, gc.Equals, "10.0.0.1:37017")
-}
-
-func (s *MongoSuite) TestMongoPackageForSeries(c *gc.C) {
-	var pkg string
-
-	pkg = MongoPackageForSeries("precise")
-	c.Assert(pkg, gc.Equals, "mongodb-server")
-
-	pkg = MongoPackageForSeries("trusty")
-	c.Assert(pkg, gc.Equals, "juju-mongodb")
 }
 
 func (s *MongoSuite) TestGenerateSharedSecret(c *gc.C) {

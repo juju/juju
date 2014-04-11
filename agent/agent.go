@@ -42,7 +42,6 @@ const (
 	StorageDir       = "STORAGE_DIR"
 	StorageAddr      = "STORAGE_ADDR"
 	AgentServiceName = "AGENT_SERVICE_NAME"
-	MongoServiceName = "MONGO_SERVICE_NAME"
 )
 
 // The Config interface is the sole way that the agent gets access to the
@@ -161,7 +160,6 @@ type ConfigSetterOnly interface {
 }
 
 type ConfigWriter interface {
-
 	// Write writes the agent configuration.
 	Write() error
 }

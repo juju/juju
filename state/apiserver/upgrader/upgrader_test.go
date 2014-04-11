@@ -25,6 +25,7 @@ type upgraderSuite struct {
 	// These are raw State objects. Use them for setup and assertions, but
 	// should never be touched by the API calls themselves
 	rawMachine *state.Machine
+	apiMachine *state.Machine
 	upgrader   *upgrader.UpgraderAPI
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
@@ -38,6 +39,11 @@ func (s *upgraderSuite) SetUpTest(c *gc.C) {
 
 	// Create a machine to work with
 	var err error
+	// The first machine created is the only one allowed to
+	// JobManageEnviron
+	s.apiMachine, err = s.State.AddMachine("quantal", state.JobHostUnits,
+		state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
 	s.rawMachine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
@@ -268,6 +274,56 @@ func (s *upgraderSuite) TestDesiredVersionNoticesMixedAgents(c *gc.C) {
 }
 
 func (s *upgraderSuite) TestDesiredVersionForAgent(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag()}}}
+	results, err := s.upgrader.DesiredVersion(args)
+	c.Assert(err, gc.IsNil)
+	c.Check(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	agentVersion := results.Results[0].Version
+	c.Assert(agentVersion, gc.NotNil)
+	c.Check(*agentVersion, gc.DeepEquals, version.Current.Number)
+}
+
+func (s *upgraderSuite) bumpDesiredAgentVersion(c *gc.C) version.Number {
+	// In order to call SetEnvironAgentVersion we have to first SetTools on
+	// all the existing machines
+	s.apiMachine.SetAgentVersion(version.Current)
+	s.rawMachine.SetAgentVersion(version.Current)
+	newer := version.Current
+	newer.Patch++
+	err := s.State.SetEnvironAgentVersion(newer.Number)
+	c.Assert(err, gc.IsNil)
+	cfg, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	vers, ok := cfg.AgentVersion()
+	c.Assert(ok, jc.IsTrue)
+	c.Check(vers, gc.Equals, newer.Number)
+	return newer.Number
+}
+
+func (s *upgraderSuite) TestDesiredVersionUnrestrictedForAPIAgents(c *gc.C) {
+	newVersion := s.bumpDesiredAgentVersion(c)
+	// Grab a different Upgrader for the apiMachine
+	authorizer := apiservertesting.FakeAuthorizer{
+		Tag:          s.apiMachine.Tag(),
+		LoggedIn:     true,
+		MachineAgent: true,
+	}
+	upgraderAPI, err := upgrader.NewUpgraderAPI(s.State, s.resources, authorizer)
+	c.Assert(err, gc.IsNil)
+	args := params.Entities{Entities: []params.Entity{{Tag: s.apiMachine.Tag()}}}
+	results, err := upgraderAPI.DesiredVersion(args)
+	c.Assert(err, gc.IsNil)
+	c.Check(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	agentVersion := results.Results[0].Version
+	c.Assert(agentVersion, gc.NotNil)
+	c.Check(*agentVersion, gc.DeepEquals, newVersion)
+}
+
+func (s *upgraderSuite) TestDesiredVersionRestrictedForNonAPIAgents(c *gc.C) {
+	newVersion := s.bumpDesiredAgentVersion(c)
+	c.Assert(newVersion, gc.Not(gc.Equals), version.Current.Number)
 	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag()}}}
 	results, err := s.upgrader.DesiredVersion(args)
 	c.Assert(err, gc.IsNil)

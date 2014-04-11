@@ -15,8 +15,8 @@ type Network struct {
 	doc networkDoc
 }
 
-// NetworkParams describes a single network.
-type NetworkParams struct {
+// NetworkInfo describes a single network.
+type NetworkInfo struct {
 	// Name is juju-internal name of the network.
 	Name string
 
@@ -37,13 +37,10 @@ type networkDoc struct {
 	// Name is the network's name. It should be one of the machine's
 	// included networks.
 	Name string `bson:"_id"`
-	// ProviderId is a provider-specific id of the network.
+
 	ProviderId string
-	// CIDR holds the network CIDR in the form 192.168.100.0/24.
-	CIDR string
-	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
-	// normal networks.
-	VLANTag int
+	CIDR       string
+	VLANTag    int
 }
 
 func newNetwork(st *State, doc *networkDoc) *Network {

@@ -673,8 +673,8 @@ func (s *MachineSuite) TestMachineSetCheckProvisioned(c *gc.C) {
 
 func (s *MachineSuite) TestMachineSetInstanceInfoFailureDoesNotProvision(c *gc.C) {
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), gc.Equals, false)
-	invalidNetworks := []state.NetworkParams{{Name: ""}}
-	invalidInterfaces := []state.NetworkInterfaceParams{{MACAddress: ""}}
+	invalidNetworks := []state.NetworkInfo{{Name: ""}}
+	invalidInterfaces := []state.NetworkInterfaceInfo{{MACAddress: ""}}
 	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, invalidNetworks, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add network "": name must be not empty`)
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), gc.Equals, false)
@@ -685,8 +685,8 @@ func (s *MachineSuite) TestMachineSetInstanceInfoFailureDoesNotProvision(c *gc.C
 
 func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), gc.Equals, false)
-	networks := []state.NetworkParams{{Name: "net1", ProviderId: "net1", CIDR: "0.1.2.0/24", VLANTag: 0}}
-	interfaces := []state.NetworkInterfaceParams{
+	networks := []state.NetworkInfo{{Name: "net1", ProviderId: "net1", CIDR: "0.1.2.0/24", VLANTag: 0}}
+	interfaces := []state.NetworkInterfaceInfo{
 		{MACAddress: "aa:bb:cc:dd:ee:ff", NetworkName: "net1", InterfaceName: "eth0"},
 	}
 	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, networks, interfaces)
@@ -1445,11 +1445,40 @@ func (s *MachineSuite) TestSetMachineAddresses(c *gc.C) {
 		instance.NewAddress("127.0.0.1", instance.NetworkUnknown),
 		instance.NewAddress("8.8.8.8", instance.NetworkUnknown),
 	}
-	err = machine.SetMachineAddresses(addresses)
+	err = machine.SetMachineAddresses(addresses...)
 	c.Assert(err, gc.IsNil)
 	err = machine.Refresh()
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.MachineAddresses(), gc.DeepEquals, addresses)
+}
+
+func (s *MachineSuite) TestMergedAddresses(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.Addresses(), gc.HasLen, 0)
+
+	addresses := []instance.Address{
+		instance.NewAddress("127.0.0.1", instance.NetworkUnknown),
+		instance.NewAddress("8.8.8.8", instance.NetworkUnknown),
+	}
+	addresses[0].NetworkName = "loopback"
+	err = machine.SetAddresses(addresses...)
+	c.Assert(err, gc.IsNil)
+
+	machineAddresses := []instance.Address{
+		instance.NewAddress("127.0.0.1", instance.NetworkUnknown),
+		instance.NewAddress("192.168.0.1", instance.NetworkUnknown),
+	}
+	err = machine.SetMachineAddresses(machineAddresses...)
+	c.Assert(err, gc.IsNil)
+	err = machine.Refresh()
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(machine.Addresses(), gc.DeepEquals, []instance.Address{
+		addresses[0],
+		addresses[1],
+		machineAddresses[1],
+	})
 }
 
 func (s *MachineSuite) addMachineWithSupportedContainer(c *gc.C, container instance.ContainerType) *state.Machine {

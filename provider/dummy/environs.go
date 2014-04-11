@@ -721,14 +721,18 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	}
 	logger.Infof("would pick tools from %s", args.Tools)
 	series := args.Tools.OneSeries()
+
+	idString := fmt.Sprintf("%s-%d", e.name, estate.maxId)
 	i := &dummyInstance{
-		id:           instance.Id(fmt.Sprintf("%s-%d", e.name, estate.maxId)),
+		id:           instance.Id(idString),
+		addresses:    instance.NewAddresses(idString + ".dns"),
 		ports:        make(map[instance.Port]bool),
 		machineId:    machineId,
 		series:       series,
 		firewallMode: e.Config().FirewallMode(),
 		state:        estate,
 	}
+
 	var hc *instance.HardwareCharacteristics
 	// To match current system capability, only provide hardware characteristics for
 	// environ machines, not containers.
@@ -964,7 +968,12 @@ func SetInstanceStatus(inst instance.Instance, status string) {
 
 func (inst *dummyInstance) DNSName() (string, error) {
 	defer delay()
-	return string(inst.id) + ".dns", nil
+	inst.mu.Lock()
+	defer inst.mu.Unlock()
+	if len(inst.addresses) == 0 {
+		return "", instance.ErrNoDNSName
+	}
+	return inst.addresses[0].String(), nil
 }
 
 func (*dummyInstance) Refresh() error {
