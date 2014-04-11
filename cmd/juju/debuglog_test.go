@@ -5,16 +5,17 @@ package main
 
 import (
 	"fmt"
-	"github.com/juju/loggo"
-	jc "github.com/juju/testing/checkers"
 	"io"
 	"io/ioutil"
+	"strings"
+
+	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state/api"
-	"strings"
-
 	"launchpad.net/juju-core/testing"
 )
 
