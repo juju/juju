@@ -89,7 +89,7 @@ func stateInfo() *state.Info {
 	}
 	return &state.Info{
 		Addrs:  []string{testing.MgoServer.Addr()},
-		CACert: []byte(testing.CACert),
+		CACert: testing.CACert,
 	}
 }
 
@@ -646,7 +646,7 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 	}
 	return stateInfo(), &api.Info{
 		Addrs:  []string{estate.apiServer.Addr()},
-		CACert: []byte(testing.CACert),
+		CACert: testing.CACert,
 	}, nil
 }
 

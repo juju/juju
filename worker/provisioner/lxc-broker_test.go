@@ -74,7 +74,7 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 			Password:          "dummy-secret",
 			Nonce:             "nonce",
 			APIAddresses:      []string{"10.0.0.1:1234"},
-			CACert:            []byte(coretesting.CACert),
+			CACert:            coretesting.CACert,
 		})
 	c.Assert(err, gc.IsNil)
 	s.broker, err = provisioner.NewLxcBroker(&fakeAPI{}, tools, s.agentConfig)

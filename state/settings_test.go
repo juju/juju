@@ -27,7 +27,7 @@ var _ = gc.Suite(&SettingsSuite{})
 func TestingStateInfo() *Info {
 	return &Info{
 		Addrs:  []string{testing.MgoServer.Addr()},
-		CACert: []byte(testing.CACert),
+		CACert: testing.CACert,
 	}
 }
 

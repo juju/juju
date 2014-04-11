@@ -15,7 +15,7 @@ import (
 type AddressAndCertGetter interface {
 	Addresses() ([]string, error)
 	APIAddressesFromMachines() ([]string, error)
-	CACert() []byte
+	CACert() string
 	APIHostPorts() ([][]instance.HostPort, error)
 	WatchAPIHostPorts() state.NotifyWatcher
 }
@@ -72,7 +72,7 @@ func (a *APIAddresser) APIAddresses() (params.StringsResult, error) {
 // CACert returns the certificate used to validate the state connection.
 func (a *APIAddresser) CACert() params.BytesResult {
 	return params.BytesResult{
-		Result: a.getter.CACert(),
+		Result: []byte(a.getter.CACert()),
 	}
 }
 
