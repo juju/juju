@@ -174,31 +174,33 @@ archive_tools() {
         get_version $control_version
         get_series $control_version
         get_arch $control_file
+        tool="${DEST_TOOLS}/juju-${version}-${series}-${arch}.tgz"
         if [[ $arch == 'UNSUPPORTED' ]]; then
             echo "Skipping unsupported architecture $package"
-            continue
-        fi
-        tool="${DEST_TOOLS}/juju-${version}-${series}-${arch}.tgz"
-        echo "Creating $tool."
-        dpkg-deb -x $package ${WORK}/juju
-        bin_dir="${WORK}/juju/usr/bin"
-        lib_dir="${WORK}/juju/usr/lib/juju-${version}/bin"
-        if [[ -f "${bin_dir}/jujud" ]]; then
-            change_dir=$bin_dir
-        elif [[ -f "${lib_dir}/jujud" ]]; then
-            change_dir=$lib_dir
+        elif [[ -e $tool ]]; then
+            echo "Skipping $package because $tool already exists."
         else
-            echo "jujud is not in /usr/bin or /usr/lib"
-            exit 4
+            echo "Creating $tool."
+            dpkg-deb -x $package ${WORK}/juju
+            bin_dir="${WORK}/juju/usr/bin"
+            lib_dir="${WORK}/juju/usr/lib/juju-${version}/bin"
+            if [[ -f "${bin_dir}/jujud" ]]; then
+                change_dir=$bin_dir
+            elif [[ -f "${lib_dir}/jujud" ]]; then
+                change_dir=$lib_dir
+            else
+                echo "jujud is not in /usr/bin or /usr/lib"
+                exit 4
+            fi
+            sane_date=$(ar -tv ${package} |
+                grep data.tar |
+                cut -d ' ' -f4- |
+                sed -e 's,\([^ ]*\) \+\(.*\) \(.*\) \(.*\) .*,\2 \1 \4,')
+            touch --date="$sane_date" $change_dir/jujud
+            tar cvfz $tool -C $change_dir jujud
+            added_tools[${#added_tools[@]}]="$tool"
+            echo "Created ${tool}."
         fi
-        sane_date=$(ar -tv ${package} |
-            grep data.tar |
-            cut -d ' ' -f4- |
-            sed -e 's,\([^ ]*\) \+\(.*\) \(.*\) \(.*\) .*,\2 \1 \4,')
-        touch --date="$sane_date" $change_dir/jujud
-        tar cvfz $tool -C $change_dir jujud
-        added_tools[${#added_tools[@]}]="$tool"
-        echo "Created ${tool}."
         rm -r ${WORK}/juju/*
     done
 }
