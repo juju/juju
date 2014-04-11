@@ -1349,8 +1349,8 @@ func (*ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
 			c.Assert(err, gc.NotNil)
 		} else {
 			c.Assert(err, gc.ErrorMatches, test.errMatch)
-			c.Assert(certPEM, gc.IsNil)
-			c.Assert(keyPEM, gc.IsNil)
+			c.Assert(certPEM, gc.Equals, "")
+			c.Assert(keyPEM, gc.Equals, "")
 		}
 	}
 }

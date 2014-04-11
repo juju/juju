@@ -179,7 +179,7 @@ func (*suite) TestMigrate(c *gc.C) {
 			params.JobManageEnviron,
 			params.JobHostUnits,
 		},
-		CACert:            "ca cert",
+		CACert:         "ca cert",
 		StateAddresses: []string{"localhost:1234"},
 		APIAddresses:   []string{"localhost:4321"},
 		Values: map[string]string{
@@ -357,7 +357,7 @@ var attributeParams = agent.AgentConfigParams{
 	Tag:               "omg",
 	UpgradedToVersion: version.Current.Number,
 	Password:          "sekrit",
-		CACert:            "ca cert",
+	CACert:            "ca cert",
 	StateAddresses:    []string{"localhost:1234"},
 	APIAddresses:      []string{"localhost:1235"},
 	Nonce:             "a nonce",

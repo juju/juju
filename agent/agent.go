@@ -229,7 +229,7 @@ type AgentConfigParams struct {
 	Nonce             string
 	StateAddresses    []string
 	APIAddresses      []string
-	CACert           string
+	CACert            string
 	Values            map[string]string
 }
 

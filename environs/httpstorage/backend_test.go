@@ -424,7 +424,7 @@ func (b *backendSuite) tlsServerAndClient(c *gc.C) (client *http.Client, url, da
 	listener, url, dataDir := startServerTLS(c)
 	b.AddCleanup(func(*gc.C) { listener.Close() })
 	caCerts := x509.NewCertPool()
-	c.Assert(caCerts.AppendCertsFromPEM(coretesting.CACert), jc.IsTrue)
+	c.Assert(caCerts.AppendCertsFromPEM([]byte(coretesting.CACert)), jc.IsTrue)
 	client = &http.Client{
 		Transport: utils.NewHttpTLSTransport(&tls.Config{RootCAs: caCerts}),
 	}
