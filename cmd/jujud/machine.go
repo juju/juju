@@ -75,7 +75,6 @@ var (
 	// allow the tests to intercept calls to the functions.
 	ensureMongoServer        = mongo.EnsureMongoServer
 	maybeInitiateMongoServer = peergrouper.MaybeInitiateMongoServer
-	maybeInitiateMongoServer = mongo.MaybeInitiateMongoServer
 	newSingularRunner        = singular.New
 
 	// reportOpenedAPI is exposed for tests to know when
