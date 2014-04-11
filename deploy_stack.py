@@ -4,7 +4,9 @@ __metaclass__ = type
 
 
 from argparse import ArgumentParser
+import random
 import re
+import string
 import sys
 
 from jujupy import (
@@ -72,7 +74,8 @@ def deploy_dummy_stack(environment, charm_prefix, already_bootstrapped):
         # The win client tests only verify the client to the state-server.
         return
     env.wait_for_version(env.get_matching_agent_version())
-    token='asdf'
+    allowed_chars = string.ascii_uppercase + string.digits
+    token=''.join(random.choice(allowed_chars) for n in range(20))
     env.deploy(charm_prefix + 'dummy-source')
     env.juju('set', 'dummy-source', 'token=%s' % token)
     env.deploy(charm_prefix + 'dummy-sink')
