@@ -47,7 +47,7 @@ func (s *Service) Watch() (watcher.NotifyWatcher, error) {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -69,7 +69,7 @@ func (s *Service) WatchRelations() (watcher.StringsWatcher, error) {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -111,7 +111,7 @@ func (s *Service) CharmURL() (*charm.URL, bool, error) {
 		return nil, false, err
 	}
 	if len(results.Results) != 1 {
-		return nil, false, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return nil, false, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {

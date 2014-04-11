@@ -4,6 +4,8 @@
 package uniter_test
 
 import (
+	"sort"
+
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -354,4 +356,21 @@ func (s *unitSuite) TestWatchConfigSettings(c *gc.C) {
 func (s *unitSuite) TestServiceNameAndTag(c *gc.C) {
 	c.Assert(s.apiUnit.ServiceName(), gc.Equals, "wordpress")
 	c.Assert(s.apiUnit.ServiceTag(), gc.Equals, "service-wordpress")
+}
+
+func (s *unitSuite) TestJoinedRelations(c *gc.C) {
+	joinedRelations, err := s.apiUnit.JoinedRelations()
+	c.Assert(err, gc.IsNil)
+	c.Assert(joinedRelations, gc.HasLen, 0)
+
+	rel1, _, _ := s.addRelatedService(c, "wordpress", "monitoring", s.wordpressUnit)
+	joinedRelations, err = s.apiUnit.JoinedRelations()
+	c.Assert(err, gc.IsNil)
+	c.Assert(joinedRelations, gc.DeepEquals, []string{rel1.Tag()})
+
+	rel2, _, _ := s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
+	joinedRelations, err = s.apiUnit.JoinedRelations()
+	c.Assert(err, gc.IsNil)
+	sort.Strings(joinedRelations)
+	c.Assert(joinedRelations, gc.DeepEquals, []string{rel2.Tag(), rel1.Tag()})
 }
