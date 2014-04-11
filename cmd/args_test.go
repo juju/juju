@@ -158,7 +158,7 @@ func (*ArgsSuite) TestAppendStringsUsage(c *gc.C) {
 	}{{
 		message: "no args",
 	}, {
-		message:       "no value set by args",
+		message:       "value set by args",
 		args:          []string{"--value", "foo", "--value=bar"},
 		expectedValue: []string{"foo", "bar"},
 	}} {

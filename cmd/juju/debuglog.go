@@ -97,7 +97,7 @@ func (c *DebugLogCommand) Run(ctx *cmd.Context) (err error) {
 	debugLog, err := client.WatchDebugLog(c.params)
 	if err != nil {
 		if errors.IsNotSupportedError(err) {
-			return c.watchDebugLog1dot16(ctx)
+			return c.watchDebugLog1dot18(ctx)
 		}
 		return err
 	}
@@ -110,9 +110,9 @@ var runSSHCommand = func(sshCmd *SSHCommand, ctx *cmd.Context) error {
 	return sshCmd.Run(ctx)
 }
 
-// watchDebugLog1dot16 runs in case of an older API server and uses ssh
+// watchDebugLog1dot18 runs in case of an older API server and uses ssh
 // but with server-side grep.
-func (c *DebugLogCommand) watchDebugLog1dot16(ctx *cmd.Context) error {
+func (c *DebugLogCommand) watchDebugLog1dot18(ctx *cmd.Context) error {
 	ctx.Infof("Server does not support new stream log, falling back to tail")
 	ctx.Verbosef("filters are not supported with tail")
 	sshCmd := &SSHCommand{}
