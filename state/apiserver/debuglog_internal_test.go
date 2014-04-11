@@ -183,6 +183,7 @@ func (s *debugInternalSuite) TestFilterLineWithLimit(c *gc.C) {
 	stream := &logStream{
 		filterLevel: loggo.INFO,
 		maxLines:    5,
+		started:     true,
 	}
 	line := []byte("machine-0: date time WARNING juju")
 	c.Check(stream.filterLine(line), jc.IsTrue)
