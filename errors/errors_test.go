@@ -39,11 +39,13 @@ func (*errorsSuite) TestErrors(c *gc.C) {
 	isUnauthorizedError := &errorSatisfier{errors.IsUnauthorizedError}
 	isNotImplementedError := &errorSatisfier{errors.IsNotImplementedError}
 	isAlreadyExistsError := &errorSatisfier{errors.IsAlreadyExistsError}
+	isNotSupportedError := &errorSatisfier{errors.IsNotSupportedError}
 	satisfiers := []*errorSatisfier{
 		isNotFoundError,
 		isUnauthorizedError,
 		isNotImplementedError,
 		isAlreadyExistsError,
+		isNotSupportedError,
 	}
 
 	// make some errors, and record the errorSatsifier
@@ -97,6 +99,10 @@ func (*errorsSuite) TestErrors(c *gc.C) {
 		fmt.Errorf("some prefix: %v", errors.NewAlreadyExistsError("something")),
 		"some prefix: something already exists",
 		isAlreadyExistsError,
+	}, {
+		errors.NewNotSupportedError("something"),
+		"something not supported",
+		isNotSupportedError,
 	}}
 
 	for i, t := range errorTests {

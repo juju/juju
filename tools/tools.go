@@ -21,5 +21,5 @@ type Tools struct {
 
 // HasTools instances can be asked for a tools list.
 type HasTools interface {
-	Tools() List
+	Tools(series string) List
 }

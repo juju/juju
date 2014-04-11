@@ -68,16 +68,6 @@ Error details:
 %v
 `
 
-func (c *StatusCommand) getStatus1dot16() (*api.Status, error) {
-	conn, err := juju.NewConnFromName(c.EnvName)
-	if err != nil {
-		return nil, fmt.Errorf(connectionError, c.EnvName, err)
-	}
-	defer conn.Close()
-
-	return statecmd.Status(conn, c.patterns)
-}
-
 func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	// Just verify the pattern validity client side, do not use the matcher
 	_, err := statecmd.NewUnitMatcher(c.patterns)
@@ -91,12 +81,6 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	defer apiclient.Close()
 
 	status, err := apiclient.Status(c.patterns)
-	if params.IsCodeNotImplemented(err) {
-		logger.Infof("Status not supported by the API server, " +
-			"falling back to 1.16 compatibility mode " +
-			"(direct DB access)")
-		status, err = c.getStatus1dot16()
-	}
 	// Display any error, but continue to print status if some was returned
 	if err != nil {
 		fmt.Fprintf(ctx.Stderr, "%v\n", err)

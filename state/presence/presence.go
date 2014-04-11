@@ -241,7 +241,6 @@ func (w *Watcher) loop() error {
 			w.flush()
 		}
 	}
-	return nil
 }
 
 // flush sends all pending events to their respective channels.

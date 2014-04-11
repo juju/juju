@@ -46,8 +46,12 @@ type lxcBroker struct {
 	agentConfig agent.Config
 }
 
-func (broker *lxcBroker) Tools() tools.List {
-	return tools.List{broker.tools}
+func (broker *lxcBroker) Tools(series string) tools.List {
+	// TODO: thumper 2014-04-08 bug 1304151
+	// should use the api get get tools for the series.
+	seriesTools := *broker.tools
+	seriesTools.Version.Series = series
+	return tools.List{&seriesTools}
 }
 
 // StartInstance is specified in the Broker interface.

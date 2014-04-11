@@ -4,10 +4,12 @@
 package utils_test
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 
 	gc "launchpad.net/gocheck"
 
@@ -78,4 +80,17 @@ func (s *httpSuite) TestInsecureClientCached(c *gc.C) {
 	client1 := utils.GetNonValidatingHTTPClient()
 	client2 := utils.GetNonValidatingHTTPClient()
 	c.Check(client1, gc.Equals, client2)
+}
+
+func (s *httpSuite) TestBasicAuthHeader(c *gc.C) {
+	header := utils.BasicAuthHeader("eric", "sekrit")
+	c.Assert(len(header), gc.Equals, 1)
+	auth := header.Get("Authorization")
+	fields := strings.Fields(auth)
+	c.Assert(len(fields), gc.Equals, 2)
+	basic, encoded := fields[0], fields[1]
+	c.Assert(basic, gc.Equals, "Basic")
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(decoded), gc.Equals, "eric:sekrit")
 }

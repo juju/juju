@@ -60,7 +60,7 @@ func (st *State) DesiredVersion(tag string) (version.Number, error) {
 	}
 	if len(results.Results) != 1 {
 		// TODO: Not directly tested
-		return version.Number{}, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return version.Number{}, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if err := result.Error; err != nil {
@@ -87,7 +87,7 @@ func (st *State) Tools(tag string) (*tools.Tools, utils.SSLHostnameVerification,
 	}
 	if len(results.Results) != 1 {
 		// TODO: Not directly tested
-		return nil, false, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return nil, false, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if err := result.Error; err != nil {
@@ -112,7 +112,7 @@ func (st *State) WatchAPIVersion(agentTag string) (watcher.NotifyWatcher, error)
 	}
 	if len(results.Results) != 1 {
 		// TODO: Not directly tested
-		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {

@@ -61,6 +61,7 @@ type cloudinitTest struct {
 func minimalConfig(c *gc.C) *config.Config {
 	cfg, err := config.New(config.NoDefaults, testing.FakeConfig())
 	c.Assert(err, gc.IsNil)
+	c.Assert(cfg, gc.NotNil)
 	return cfg
 }
 
@@ -108,7 +109,6 @@ var cloudinitTests = []cloudinitTest{
 			InstanceId:              "i-bootstrap",
 			SystemPrivateSSHKey:     "private rsa key",
 			MachineAgentServiceName: "jujud-machine-0",
-			MongoServiceName:        "juju-db",
 		},
 		setEnvConfig: true,
 		expectScripts: `
@@ -140,14 +140,6 @@ install -D -m 600 /dev/null '/var/lib/juju/system-identity'
 printf '%s\\n' '.*' > '/var/lib/juju/system-identity'
 install -D -m 600 /dev/null '/var/lib/juju/server\.pem'
 printf '%s\\n' 'SERVER CERT\\n[^']*SERVER KEY\\n[^']*' > '/var/lib/juju/server\.pem'
-mkdir -p /var/lib/juju/db/journal
-chmod 0700 /var/lib/juju/db
-dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.0
-dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.1
-dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.2
-echo 'Starting MongoDB server \(juju-db\)'.*
-cat >> /etc/init/juju-db\.conf << 'EOF'\\ndescription "juju state database"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 65000 65000\\nlimit nproc 20000 20000\\n\\nexec /usr/bin/mongod --auth --dbpath=/var/lib/juju/db --sslOnNormalPorts --sslPEMKeyFile '/var/lib/juju/server\.pem' --sslPEMKeyPassword ignored --bind_ip 0\.0\.0\.0 --port 37017 --noprealloc --syslog --smallfiles\\nEOF\\n
-start juju-db
 mkdir -p '/var/lib/juju/agents/bootstrap'
 install -m 600 /dev/null '/var/lib/juju/agents/bootstrap/agent\.conf'
 printf '%s\\n' '.*' > '/var/lib/juju/agents/bootstrap/agent\.conf'
@@ -186,7 +178,6 @@ start jujud-machine-0
 			InstanceId:              "i-bootstrap",
 			SystemPrivateSSHKey:     "private rsa key",
 			MachineAgentServiceName: "jujud-machine-0",
-			MongoServiceName:        "juju-db",
 		},
 		setEnvConfig: true,
 		inexactMatch: true,
@@ -200,41 +191,6 @@ printf %s '{"version":"1\.2\.3-raring-amd64","url":"http://foo\.com/tools/releas
 /var/lib/juju/tools/1\.2\.3-raring-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --instance-id 'i-bootstrap' --constraints 'mem=2048M' --debug
 rm -rf '/var/lib/juju/agents/bootstrap'
 ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
-`,
-	}, {
-		// trusty state server - use the new mongo from juju-mongodb
-		cfg: cloudinit.MachineConfig{
-			MachineId:        "0",
-			AuthorizedKeys:   "sshkey1",
-			AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
-			// raring provides mongo in the archive
-			Tools:            newSimpleTools("1.2.3-trusty-amd64"),
-			Bootstrap:        true,
-			StateServingInfo: stateServingInfo,
-			MachineNonce:     "FAKE_NONCE",
-			StateInfo: &state.Info{
-				Password: "arble",
-				CACert:   []byte("CA CERT\n" + testing.CACert),
-			},
-			APIInfo: &api.Info{
-				Password: "bletch",
-				CACert:   []byte("CA CERT\n" + testing.CACert),
-			},
-			Constraints:             envConstraints,
-			DataDir:                 environs.DataDir,
-			LogDir:                  agent.DefaultLogDir,
-			Jobs:                    allMachineJobs,
-			CloudInitOutputLog:      environs.CloudInitOutputLog,
-			InstanceId:              "i-bootstrap",
-			SystemPrivateSSHKey:     "private rsa key",
-			MachineAgentServiceName: "jujud-machine-0",
-			MongoServiceName:        "juju-db",
-		},
-		setEnvConfig: true,
-		inexactMatch: true,
-		expectScripts: `
-echo 'Starting MongoDB server \(juju-db\)'.*
-cat >> /etc/init/juju-db\.conf << 'EOF'\\ndescription "juju state database"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 65000 65000\\nlimit nproc 20000 20000\\n\\nexec /usr/lib/juju/bin/mongod --auth --dbpath=/var/lib/juju/db --sslOnNormalPorts --sslPEMKeyFile '/var/lib/juju/server\.pem' --sslPEMKeyPassword ignored --bind_ip 0\.0\.0\.0 --port 37017 --noprealloc --syslog --smallfiles\\nEOF\\n
 `,
 	}, {
 		// non state server.
@@ -385,7 +341,6 @@ curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{ti
 			InstanceId:              "i-bootstrap",
 			SystemPrivateSSHKey:     "private rsa key",
 			MachineAgentServiceName: "jujud-machine-0",
-			MongoServiceName:        "juju-db",
 		},
 		setEnvConfig: true,
 		inexactMatch: true,
@@ -448,12 +403,6 @@ func checkEnvConfig(c *gc.C, cfg *config.Config, x map[interface{}]interface{}, 
 // TestCloudInit checks that the output from the various tests
 // in cloudinitTests is well formed.
 func (*cloudinitSuite) TestCloudInit(c *gc.C) {
-	expectedMongoPackage := map[string]string{
-		"precise": "mongodb-server",
-		"raring":  "mongodb-server",
-		"trusty":  "juju-mongodb",
-	}
-
 	for i, test := range cloudinitTests {
 		c.Logf("test %d", i)
 		if test.setEnvConfig {
@@ -487,14 +436,9 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		acfg := getAgentConfig(c, tag, scripts)
 		c.Assert(acfg, jc.Contains, "AGENT_SERVICE_NAME: jujud-"+tag)
 		if test.cfg.Bootstrap {
-			series := test.cfg.Tools.Version.Series
-			mongoPackage := expectedMongoPackage[series]
-			checkPackage(c, x, mongoPackage, true)
+			checkPackage(c, x, "mongodb-server", true)
 			source := "ppa:juju/stable"
 			checkAptSource(c, x, source, "", test.cfg.NeedMongoPPA())
-			c.Assert(acfg, jc.Contains, "MONGO_SERVICE_NAME: juju-db")
-		} else {
-			c.Assert(acfg, gc.Not(jc.Contains), "MONGO_SERVICE_NAME")
 		}
 		source := "deb http://ubuntu-cloud.archive.canonical.com/ubuntu precise-updates/cloud-tools main"
 		needCloudArchive := test.cfg.Tools.Version.Series == "precise"
@@ -784,9 +728,6 @@ var verifyTests = []struct {
 	{"missing machine agent service name", func(cfg *cloudinit.MachineConfig) {
 		cfg.MachineAgentServiceName = ""
 	}},
-	{"missing mongo service name", func(cfg *cloudinit.MachineConfig) {
-		cfg.MongoServiceName = ""
-	}},
 	{"missing instance-id", func(cfg *cloudinit.MachineConfig) {
 		cfg.InstanceId = ""
 	}},
@@ -829,7 +770,6 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		MachineNonce:            "FAKE_NONCE",
 		SystemPrivateSSHKey:     "private rsa key",
 		MachineAgentServiceName: "jujud-machine-99",
-		MongoServiceName:        "juju-db",
 	}
 	// check that the base configuration does not give an error
 	ci := coreCloudinit.New()
@@ -844,6 +784,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 
 		cfg1 := *cfg
 		test.mutate(&cfg1)
+
 		err = cloudinit.Configure(&cfg1, ci)
 		c.Assert(err, gc.ErrorMatches, "invalid machine configuration: "+test.err)
 
