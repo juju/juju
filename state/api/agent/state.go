@@ -32,7 +32,7 @@ func (st *State) getEntity(tag string) (*params.AgentGetEntitiesResult, error) {
 		return nil, err
 	}
 	if len(results.Entities) != 1 {
-		return nil, fmt.Errorf("expected one result, got %d", len(results.Entities))
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Entities))
 	}
 	if err := results.Entities[0].Error; err != nil {
 		return nil, err

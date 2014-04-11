@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"labix.org/v2/mgo"
 	"launchpad.net/gnuflag"
 	"launchpad.net/tomb"
 
@@ -50,6 +51,7 @@ import (
 	"launchpad.net/juju-core/worker/provisioner"
 	"launchpad.net/juju-core/worker/resumer"
 	"launchpad.net/juju-core/worker/rsyslog"
+	"launchpad.net/juju-core/worker/singular"
 	"launchpad.net/juju-core/worker/terminationworker"
 	"launchpad.net/juju-core/worker/upgrader"
 )
@@ -64,11 +66,15 @@ const bootstrapMachineId = "0"
 type eitherState interface{}
 
 var (
-	retryDelay               = 3 * time.Second
-	jujuRun                  = "/usr/local/bin/juju-run"
-	useMultipleCPUs          = utils.UseMultipleCPUs
+	retryDelay      = 3 * time.Second
+	jujuRun         = "/usr/local/bin/juju-run"
+	useMultipleCPUs = utils.UseMultipleCPUs
+
+	// The following are defined as variables to
+	// allow the tests to intercept calls to the functions.
 	ensureMongoServer        = mongo.EnsureMongoServer
 	maybeInitiateMongoServer = mongo.MaybeInitiateMongoServer
+	newSingularRunner        = singular.New
 
 	// reportOpenedAPI is exposed for tests to know when
 	// the State has been successfully opened.
@@ -239,15 +245,22 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	}
 
 	rsyslogMode := rsyslog.RsyslogModeForwarding
+	runner := newRunner(connectionIsFatal(st), moreImportant)
+	var singularRunner worker.Runner
 	for _, job := range entity.Jobs() {
 		if job == params.JobManageEnviron {
 			rsyslogMode = rsyslog.RsyslogModeAccumulate
+			conn := singularAPIConn{st, st.Agent()}
+			singularRunner, err = newSingularRunner(runner, conn)
+			if err != nil {
+				return nil, fmt.Errorf("cannot make singular API Runner: %v", err)
+			}
 			break
 		}
 	}
-	runner := newRunner(connectionIsFatal(st), moreImportant)
 
-	// Run the upgrader and the upgrade-steps worker without waiting for the upgrade steps to complete.
+	// Run the upgrader and the upgrade-steps worker without waiting for
+	// the upgrade steps to complete.
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
 		return upgrader.NewUpgrader(st.Upgrader(), agentConfig), nil
 	})
@@ -255,7 +268,8 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		return a.upgradeWorker(st, entity.Jobs(), agentConfig), nil
 	})
 
-	// All other workers must wait for the upgrade steps to complete before starting.
+	// All other workers must wait for the upgrade steps to complete
+	// before starting.
 	a.startWorkerAfterUpgrade(runner, "machiner", func() (worker.Worker, error) {
 		return machiner.NewMachiner(st.Machiner(), agentConfig), nil
 	})
@@ -272,7 +286,8 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
 
-	// If not a local provider bootstrap machine, start the worker to manage SSH keys.
+	// If not a local provider bootstrap machine, start the worker to
+	// manage SSH keys.
 	providerType := agentConfig.Value(agent.ProviderType)
 	if providerType != provider.Local || a.MachineId != bootstrapMachineId {
 		a.startWorkerAfterUpgrade(runner, "authenticationworker", func() (worker.Worker, error) {
@@ -293,16 +308,17 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 				return deployer.NewDeployer(apiDeployer, context), nil
 			})
 		case params.JobManageEnviron:
-			a.startWorkerAfterUpgrade(runner, "environ-provisioner", func() (worker.Worker, error) {
+			a.startWorkerAfterUpgrade(singularRunner, "environ-provisioner", func() (worker.Worker, error) {
 				return provisioner.NewEnvironProvisioner(st.Provisioner(), agentConfig), nil
 			})
 			// TODO(axw) 2013-09-24 bug #1229506
-			// Make another job to enable the firewaller. Not all environments
-			// are capable of managing ports centrally.
-			a.startWorkerAfterUpgrade(runner, "firewaller", func() (worker.Worker, error) {
+			// Make another job to enable the firewaller. Not all
+			// environments are capable of managing ports
+			// centrally.
+			a.startWorkerAfterUpgrade(singularRunner, "firewaller", func() (worker.Worker, error) {
 				return firewaller.NewFirewaller(st.Firewaller())
 			})
-			a.startWorkerAfterUpgrade(runner, "charm-revision-updater", func() (worker.Worker, error) {
+			a.startWorkerAfterUpgrade(singularRunner, "charm-revision-updater", func() (worker.Worker, error) {
 				return charmrevisionworker.NewRevisionUpdateWorker(st.CharmRevisionUpdater()), nil
 			})
 		case params.JobManageStateDeprecated:
@@ -399,7 +415,12 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	}
 	reportOpenedState(st)
 
+	singularStateConn := singularStateConn{st.MongoSession(), m}
 	runner := newRunner(connectionIsFatal(st), moreImportant)
+	singularRunner, err := newSingularRunner(runner, singularStateConn)
+	if err != nil {
+		return nil, fmt.Errorf("cannot make singular State Runner: %v", err)
+	}
 
 	// Take advantage of special knowledge here in that we will only ever want
 	// the storage provider on one machine, and that is the "bootstrap" node.
@@ -444,16 +465,16 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				return apiserver.NewServer(
 					st, fmt.Sprintf(":%d", port), cert, key, dataDir, logDir)
 			})
-			a.startWorkerAfterUpgrade(runner, "cleaner", func() (worker.Worker, error) {
+			a.startWorkerAfterUpgrade(singularRunner, "cleaner", func() (worker.Worker, error) {
 				return cleaner.NewCleaner(st), nil
 			})
-			a.startWorkerAfterUpgrade(runner, "resumer", func() (worker.Worker, error) {
+			a.startWorkerAfterUpgrade(singularRunner, "resumer", func() (worker.Worker, error) {
 				// The action of resumer is so subtle that it is not tested,
 				// because we can't figure out how to do so without brutalising
 				// the transaction log.
 				return resumer.NewResumer(st), nil
 			})
-			a.startWorkerAfterUpgrade(runner, "minunitsworker", func() (worker.Worker, error) {
+			a.startWorkerAfterUpgrade(singularRunner, "minunitsworker", func() (worker.Worker, error) {
 				return minunitsworker.NewMinUnitsWorker(st), nil
 			})
 		case state.JobManageStateDeprecated:
@@ -669,4 +690,34 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 		return nil
 	}
 	return fmt.Errorf("uninstall failed: %v", errors)
+}
+
+// singularAPIConn implements singular.Conn on
+// top of an API connection.
+type singularAPIConn struct {
+	apiState   *api.State
+	agentState *apiagent.State
+}
+
+func (c singularAPIConn) IsMaster() (bool, error) {
+	return c.agentState.IsMaster()
+}
+
+func (c singularAPIConn) Ping() error {
+	return c.apiState.Ping()
+}
+
+// singularStateConn implements singular.Conn on
+// top of a State connection.
+type singularStateConn struct {
+	session *mgo.Session
+	machine *state.Machine
+}
+
+func (c singularStateConn) IsMaster() (bool, error) {
+	return mongo.IsMaster(c.session, c.machine)
+}
+
+func (c singularStateConn) Ping() error {
+	return c.session.Ping()
 }

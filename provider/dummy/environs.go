@@ -770,6 +770,22 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 			hc.CpuCores = &cores
 		}
 	}
+	// Simulate networks added when requested.
+	networkInfo := make([]environs.NetworkInfo, len(args.MachineConfig.IncludeNetworks))
+	for i, network := range args.MachineConfig.IncludeNetworks {
+		if strings.HasPrefix(network, "bad-") {
+			// Simulate we didn't get correct information for the network.
+			networkInfo[i] = environs.NetworkInfo{}
+		} else {
+			networkInfo[i] = environs.NetworkInfo{
+				NetworkName:   network,
+				CIDR:          fmt.Sprintf("0.%d.2.0/24", i+1),
+				InterfaceName: fmt.Sprintf("eth%d", i),
+				VLANTag:       i,
+				MACAddress:    fmt.Sprintf("aa:bb:cc:dd:ee:f%d", i),
+			}
+		}
+	}
 	estate.insts[i.id] = i
 	estate.maxId++
 	estate.ops <- OpStartInstance{
@@ -779,13 +795,13 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		Constraints:     args.Constraints,
 		IncludeNetworks: args.MachineConfig.IncludeNetworks,
 		ExcludeNetworks: args.MachineConfig.ExcludeNetworks,
-		NetworkInfo:     nil,
+		NetworkInfo:     networkInfo,
 		Instance:        i,
 		Info:            args.MachineConfig.StateInfo,
 		APIInfo:         args.MachineConfig.APIInfo,
 		Secret:          e.ecfg().secret(),
 	}
-	return i, hc, nil, nil
+	return i, hc, networkInfo, nil
 }
 
 func (e *environ) StopInstances(is []instance.Instance) error {

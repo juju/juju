@@ -65,44 +65,13 @@ func (m *Machine) RequestedNetworks() (includeNetworks, excludeNetworks []string
 		return nil, nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return nil, nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
 		return nil, nil, result.Error
 	}
 	return result.IncludeNetworks, result.ExcludeNetworks, nil
-}
-
-// AddNetworkInterfaces creates one or more network interfaces each on
-// an existing network and bound to the machine, which must not be
-// provisioned yet. MachineTag inside interfaces params is always set
-// to the current machine's tag. If any operation fails, the first
-// error is returned. Trying to add an already existing interface is
-// not an error.
-func (m *Machine) AddNetworkInterfaces(interfaces []params.NetworkInterfaceParams) error {
-	var results params.ErrorResults
-	for i, _ := range interfaces {
-		if interfaces[i].MachineTag != m.tag {
-			interfaces[i].MachineTag = m.tag
-		}
-	}
-	args := params.AddNetworkInterfaceParams{Interfaces: interfaces}
-	err := m.st.call("AddNetworkInterface", args, &results)
-	if err != nil {
-		return err
-	}
-	if n := len(results.Results); n != len(interfaces) {
-		return fmt.Errorf("expected %d result(s), got %d", len(interfaces), n)
-	}
-	for _, result := range results.Results {
-		if err := result.Error; err != nil && params.IsCodeAlreadyExists(err) {
-			continue
-		} else if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // SetStatus sets the status of the machine.
@@ -131,7 +100,7 @@ func (m *Machine) Status() (params.Status, string, error) {
 		return "", "", err
 	}
 	if len(results.Results) != 1 {
-		return "", "", fmt.Errorf("expected one result, got %d", len(results.Results))
+		return "", "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -153,7 +122,7 @@ func (m *Machine) Constraints() (constraints.Value, error) {
 		return nothing, err
 	}
 	if len(results.Results) != 1 {
-		return nothing, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return nothing, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -204,7 +173,7 @@ func (m *Machine) Series() (string, error) {
 		return "", err
 	}
 	if len(results.Results) != 1 {
-		return "", fmt.Errorf("expected one result, got %d", len(results.Results))
+		return "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -227,7 +196,7 @@ func (m *Machine) DistributionGroup() ([]instance.Id, error) {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -236,19 +205,25 @@ func (m *Machine) DistributionGroup() ([]instance.Id, error) {
 	return result.Result, nil
 }
 
-// SetProvisioned sets the provider specific machine id, nonce and also metadata for
-// this machine. Once set, the instance id cannot be changed.
-func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics) error {
+// SetInstanceInfo sets the provider specific machine id, nonce,
+// metadata, networks and interfaces for this machine. Once set, the
+// instance id cannot be changed.
+func (m *Machine) SetInstanceInfo(
+	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
+	networks []params.Network, interfaces []params.NetworkInterface,
+) error {
 	var result params.ErrorResults
-	args := params.SetProvisioned{
-		Machines: []params.MachineSetProvisioned{{
+	args := params.InstancesInfo{
+		Machines: []params.InstanceInfo{{
 			Tag:             m.tag,
 			InstanceId:      id,
 			Nonce:           nonce,
 			Characteristics: characteristics,
+			Networks:        networks,
+			Interfaces:      interfaces,
 		}},
 	}
-	err := m.st.call("SetProvisioned", args, &result)
+	err := m.st.call("SetInstanceInfo", args, &result)
 	if err != nil {
 		return err
 	}
@@ -267,7 +242,7 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 		return "", err
 	}
 	if len(results.Results) != 1 {
-		return "", fmt.Errorf("expected one result, got %d", len(results.Results))
+		return "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -318,7 +293,7 @@ func (m *Machine) WatchContainers(ctype instance.ContainerType) (watcher.Strings
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -342,7 +317,7 @@ func (m *Machine) WatchAllContainers() (watcher.StringsWatcher, error) {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -365,7 +340,7 @@ func (m *Machine) SetSupportedContainers(containerTypes ...instance.ContainerTyp
 		return err
 	}
 	if len(results.Results) != 1 {
-		return fmt.Errorf("expected one result, got %d", len(results.Results))
+		return fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	apiError := results.Results[0].Error
 	if apiError != nil {

@@ -28,6 +28,7 @@ import (
 	"launchpad.net/juju-core/state/statecmd"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 )
 
 var logger = loggo.GetLogger("juju.state.apiserver.client")
@@ -283,6 +284,7 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 	_, err = juju.DeployService(c.api.state,
 		juju.DeployServiceParams{
 			ServiceName:     args.ServiceName,
+			ServiceOwner:    c.api.auth.GetAuthTag(),
 			Charm:           ch,
 			NumUnits:        args.NumUnits,
 			ConfigSettings:  settings,
@@ -779,6 +781,11 @@ func parseSettingsCompatible(ch *state.Charm, settings map[string]string) (charm
 		changes[name] = nil
 	}
 	return changes, nil
+}
+
+// AgentVersion returns the current version that the API server is running.
+func (c *Client) AgentVersion() (params.AgentVersionResult, error) {
+	return params.AgentVersionResult{Version: version.Current.Number}, nil
 }
 
 // EnvironmentGet implements the server-side part of the

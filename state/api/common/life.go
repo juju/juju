@@ -22,7 +22,7 @@ func Life(caller base.Caller, facadeName, tag string) (params.Life, error) {
 		return "", err
 	}
 	if len(result.Results) != 1 {
-		return "", fmt.Errorf("expected one result, got %d", len(result.Results))
+		return "", fmt.Errorf("expected 1 result, got %d", len(result.Results))
 	}
 	if err := result.Results[0].Error; err != nil {
 		return "", err
