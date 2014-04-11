@@ -128,7 +128,7 @@ class JujuClientDevel:
 
     def get_status(self, environment):
         """Get the current status as a dict."""
-        for ignored in until_timeout(30 * 30):
+        for ignored in until_timeout(60):
             try:
                 return Status(yaml_loads(
                     self.get_juju_output(environment, 'status')))
@@ -279,7 +279,7 @@ class Environment:
         return status
 
     def wait_for_version(self, version):
-        for ignored in until_timeout(30 * 60):
+        for ignored in until_timeout(300):
             try:
                 versions = self.get_status().get_agent_versions()
             except CannotConnectEnv:
