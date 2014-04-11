@@ -540,14 +540,6 @@ func MaybeAddCloudArchiveCloudTools(c *cloudinit.Config, series string) {
 	c.AddAptSource(name, CanonicalCloudArchiveSigningKey, prefs)
 }
 
-func (cfg *MachineConfig) NeedMongoPPA() bool {
-	series := cfg.Tools.Version.Series
-	// 11.10 and earlier are not supported.
-	// 12.04 can get a compatible version from the cloud-archive.
-	// 13.04 and later ship a compatible version in the archive.
-	return series == "quantal"
-}
-
 // HasNetworks returns if there are any networks set.
 func (cfg *MachineConfig) HasNetworks() bool {
 	return len(cfg.IncludeNetworks) > 0 || len(cfg.ExcludeNetworks) > 0
