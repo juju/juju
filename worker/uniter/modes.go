@@ -22,16 +22,6 @@ import (
 // states of a running Uniter.
 type Mode func(u *Uniter) (Mode, error)
 
-// ModeInit is the initial Uniter mode.
-func ModeInit(u *Uniter) (next Mode, err error) {
-	defer modeContext("ModeInit", &err)()
-	logger.Infof("reconciling relation state")
-	if err := u.restoreRelations(); err != nil {
-		return nil, err
-	}
-	return ModeContinue, nil
-}
-
 // ModeContinue determines what action to take based on persistent uniter state.
 func ModeContinue(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeContinue", &err)()

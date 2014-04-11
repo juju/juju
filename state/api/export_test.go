@@ -5,6 +5,8 @@ package api
 
 var (
 	NewWebsocketDialer = newWebsocketDialer
+
+	WebsocketDialConfig = &websocketDialConfig
 )
 
 // SetServerRoot allows changing the URL to the internal API server

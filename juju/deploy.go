@@ -19,6 +19,7 @@ import (
 // charm.
 type DeployServiceParams struct {
 	ServiceName    string
+	ServiceOwner   string
 	Charm          *state.Charm
 	ConfigSettings charm.Settings
 	Constraints    constraints.Value
@@ -51,11 +52,14 @@ func DeployService(st *state.State, args DeployServiceParams) (*state.Service, e
 			return nil, fmt.Errorf("subordinate service must be deployed without constraints")
 		}
 	}
+	if args.ServiceOwner == "" {
+		args.ServiceOwner = "user-admin"
+	}
 	// TODO(fwereade): transactional State.AddService including settings, constraints
 	// (minimumUnitCount, initialMachineIds?).
 	service, err := st.AddService(
 		args.ServiceName,
-		"user-admin",
+		args.ServiceOwner,
 		args.Charm,
 		args.IncludeNetworks,
 		args.ExcludeNetworks,

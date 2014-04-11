@@ -4,6 +4,8 @@
 package provisioner
 
 import (
+	"fmt"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
@@ -432,49 +434,13 @@ func (p *ProvisionerAPI) RequestedNetworks(args params.Entities) (params.Network
 	return result, nil
 }
 
-// AddNetwork creates one or more new networks with the given
-// parameters. Only the environment manager can add networks. If any
-// of the given networks already exists, an error satisfying
-// params.IsCodeAlreadyExists will be returned for it.
-func (p *ProvisionerAPI) AddNetwork(args params.AddNetworkParams) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Networks)),
-	}
-	if !p.authorizer.AuthEnvironManager() {
-		return result, common.ErrPerm
-	}
-	for i, arg := range args.Networks {
-		_, err := p.st.AddNetwork(arg.Name, arg.CIDR, arg.VLANTag)
-		result.Results[i].Error = common.ServerError(err)
-	}
-	return result, nil
-}
-
-// AddNetworkInterface creates one or more new network interfaces with
-// the given parameters. If any of the given interfaces already exist,
-// an error satisfying params.IsCodeAlreadyExists will be returned for
-// it.
-func (p *ProvisionerAPI) AddNetworkInterface(args params.AddNetworkInterfaceParams) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Interfaces)),
-	}
-	canAccess, err := p.getAuthFunc()
-	if err != nil {
-		return result, err
-	}
-	for i, arg := range args.Interfaces {
-		machine, err := p.getMachine(canAccess, arg.MachineTag)
-		if err == nil {
-			_, err = machine.AddNetworkInterface(arg.MACAddress, arg.InterfaceName, arg.NetworkName)
-		}
-		result.Results[i].Error = common.ServerError(err)
-	}
-	return result, nil
-}
-
-// SetProvisioned sets the provider specific machine id, nonce and
+// SetProvisioned sets the provider specific instance id, nonce and
 // metadata for each given machine. Once set, the instance id cannot
 // be changed.
+//
+// TODO(dimitern) This is not used anymore (as of 1.19.0) and is
+// retained only for backwards-compatibility. It should be removed as
+// deprecated. SetInstanceInfo is used instead.
 func (p *ProvisionerAPI) SetProvisioned(args params.SetProvisioned) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Machines)),
@@ -487,6 +453,33 @@ func (p *ProvisionerAPI) SetProvisioned(args params.SetProvisioned) (params.Erro
 		machine, err := p.getMachine(canAccess, arg.Tag)
 		if err == nil {
 			err = machine.SetProvisioned(arg.InstanceId, arg.Nonce, arg.Characteristics)
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// SetInstanceInfo sets the provider specific machine id, nonce,
+// metadata and network info for each given machine. Once set, the
+// instance id cannot be changed.
+func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Machines)),
+	}
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		return result, err
+	}
+	for i, arg := range args.Machines {
+		machine, err := p.getMachine(canAccess, arg.Tag)
+		if err == nil {
+			err = machine.SetInstanceInfo(
+				arg.InstanceId, arg.Nonce, arg.Characteristics,
+				arg.Networks, arg.Interfaces)
+			if err != nil {
+				// Give the user more context about the error.
+				err = fmt.Errorf("aborted instance %q: %v", arg.InstanceId, err)
+			}
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
