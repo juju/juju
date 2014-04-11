@@ -254,11 +254,26 @@ func mongoUpstartService(namespace, dataDir, dbDir string, port int) (*upstart.C
 }
 
 func aptGetInstallMongod() error {
+	// Only Quantal requires the PPA (for mongo).
+	if version.Current.Series == "quantal" {
+		if err := addAptRepository("ppa:juju/stable"); err != nil {
+			return err
+		}
+	}
 	cmds := utils.AptGetPreparePackages([]string{"mongodb-server"}, version.Current.Series)
 	for _, cmd := range cmds {
 		if err := utils.AptGetInstall(cmd...); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func addAptRepository(name string) error {
+	cmd := exec.Command("add-apt-repository", "-y", name)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("cannot add apt repository: %v (output %s)", err, bytes.TrimSpace(out))
 	}
 	return nil
 }
