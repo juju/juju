@@ -12,11 +12,11 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/provider/common"
-	"launchpad.net/juju-core/testing/testbase"
+	coretesting "launchpad.net/juju-core/testing"
 )
 
 type archSuite struct {
-	testbase.LoggingSuite
+	coretesting.FakeHomeSuite
 }
 
 var _ = gc.Suite(&archSuite{})
