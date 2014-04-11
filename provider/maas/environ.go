@@ -463,7 +463,6 @@ func newCloudinitConfig(hostname string, networkInfo []environs.NetworkInfo) (*c
 	cloudcfg := cloudinit.New()
 	cloudcfg.SetAptUpdate(true)
 	cloudcfg.AddPackage("bridge-utils")
-	cloudcfg.AddPackage("vlan")
 	cloudcfg.AddScripts(
 		"set -xe",
 		runCmd,
@@ -472,25 +471,28 @@ func newCloudinitConfig(hostname string, networkInfo []environs.NetworkInfo) (*c
 		linkBridgeInInterfaces(),
 		"ifup br0",
 	)
-	for _, script := range setupNetworksOnBoot(networkInfo) {
-		cloudcfg.AddScripts(script)
-	}
+	setupNetworksOnBoot(cloudcfg, networkInfo)
 	return cloudcfg, nil
 }
 
 // setupNetworksOnBoot prepares a script to enable and start all given
 // networks on boot.
-func setupNetworksOnBoot(networkInfo []environs.NetworkInfo) []string {
+//
+// TODO(dimitern) To support more than one VLAN on the same physical
+// interface, we need model changes to allow muliple NICs with the
+// same MAC address, but different network name.
+func setupNetworksOnBoot(cloudcfg *cloudinit.Config, networkInfo []environs.NetworkInfo) {
 	const ifaceConfig = `cat >> /etc/network/interfaces << EOF
 
 auto %s
 iface %s inet dhcp
 EOF
 `
+	// We need the vlan package for the vconfig command.
+	cloudcfg.AddPackage("vlan")
 
-	lines := []string{}
 	script := func(line string, args ...interface{}) {
-		lines = append(lines, fmt.Sprintf(line, args...))
+		cloudcfg.AddScripts(fmt.Sprintf(line, args...))
 	}
 	// In order to support VLANs, we need to include 8021q module
 	// configure vconfig's set_name_type
@@ -516,7 +518,6 @@ EOF
 			script("ifup %s", vlan)
 		}
 	}
-	return lines
 }
 
 // StartInstance is specified in the InstanceBroker interface.
