@@ -103,7 +103,7 @@ func dialAndTestInitiate(c *gc.C) {
 	defer session.Close()
 
 	mode := session.Mode()
-	err := Initiate(session, root.Addr(), name)
+	err := Initiate(session, root.Addr(), name, nil)
 	c.Assert(err, gc.IsNil)
 
 	// make sure we haven't messed with the session's mode
