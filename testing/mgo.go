@@ -303,7 +303,7 @@ func (inst *MgoInstance) MustDialDirect() *mgo.Session {
 // given addresses.
 func MgoDialInfo(addrs ...string) *mgo.DialInfo {
 	pool := x509.NewCertPool()
-	xcert, err := cert.ParseCert([]byte(CACert))
+	xcert, err := cert.ParseCert(CACert)
 	if err != nil {
 		panic(err)
 	}

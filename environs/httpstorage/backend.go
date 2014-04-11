@@ -179,18 +179,18 @@ func Serve(addr string, stor storage.Storage) (net.Listener, error) {
 //
 // This method returns the network listener, which can then be attached
 // to with ClientTLS.
-func ServeTLS(addr string, stor storage.Storage, caCertPEM, caKeyPEM []byte, hostnames []string, authkey string) (net.Listener, error) {
+func ServeTLS(addr string, stor storage.Storage, caCertPEM, caKeyPEM string, hostnames []string, authkey string) (net.Listener, error) {
 	expiry := time.Now().UTC().AddDate(10, 0, 0)
 	certPEM, keyPEM, err := cert.NewServer(caCertPEM, caKeyPEM, expiry, hostnames)
 	if err != nil {
 		return nil, err
 	}
-	serverCert, err := tls.X509KeyPair(certPEM, keyPEM)
+	serverCert, err := tls.X509KeyPair([]byte(certPEM), []byte(keyPEM))
 	if err != nil {
 		return nil, err
 	}
 	caCerts := x509.NewCertPool()
-	if !caCerts.AppendCertsFromPEM(caCertPEM) {
+	if !caCerts.AppendCertsFromPEM([]byte(caCertPEM)) {
 		return nil, errors.New("error adding CA certificate to pool")
 	}
 	config := &tls.Config{

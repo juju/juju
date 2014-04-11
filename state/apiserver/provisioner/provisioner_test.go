@@ -1208,7 +1208,7 @@ func (s *withStateServerSuite) TestStateAddresses(c *gc.C) {
 func (s *withStateServerSuite) TestCACert(c *gc.C) {
 	result := s.provisioner.CACert()
 	c.Assert(result, gc.DeepEquals, params.BytesResult{
-		Result: s.State.CACert(),
+		Result: []byte(s.State.CACert()),
 	})
 }
 

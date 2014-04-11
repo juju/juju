@@ -36,10 +36,10 @@ type LocalTLSStorageConfig interface {
 	LocalStorageConfig
 
 	// StorageCACert is the CA certificate in PEM format.
-	StorageCACert() []byte
+	StorageCACert() string
 
 	// StorageCAKey is the CA private key in PEM format.
-	StorageCAKey() []byte
+	StorageCAKey() string
 
 	// StorageHostnames is the set of hostnames that will
 	// be assigned to the storage server's certificate.
@@ -53,8 +53,8 @@ type LocalTLSStorageConfig interface {
 type config struct {
 	storageDir  string
 	storageAddr string
-	caCertPEM   []byte
-	caKeyPEM    []byte
+	caCertPEM   string
+	caKeyPEM    string
 	hostnames   []string
 	authkey     string
 }
@@ -70,11 +70,11 @@ func StoreConfig(storageConfig LocalStorageConfig) (map[string]string, error) {
 		if authkey := tlsConfig.StorageAuthKey(); authkey != "" {
 			kv[StorageAuthKey] = authkey
 		}
-		if cert := tlsConfig.StorageCACert(); cert != nil {
-			kv[StorageCACert] = string(cert)
+		if cert := tlsConfig.StorageCACert(); cert != "" {
+			kv[StorageCACert] = cert
 		}
-		if key := tlsConfig.StorageCAKey(); key != nil {
-			kv[StorageCAKey] = string(key)
+		if key := tlsConfig.StorageCAKey(); key != "" {
+			kv[StorageCAKey] = key
 		}
 		if hostnames := tlsConfig.StorageHostnames(); len(hostnames) > 0 {
 			data, err := goyaml.Marshal(hostnames)
@@ -96,12 +96,12 @@ func loadConfig(agentConfig agent.Config) (*config, error) {
 
 	caCertPEM := agentConfig.Value(StorageCACert)
 	if len(caCertPEM) > 0 {
-		config.caCertPEM = []byte(caCertPEM)
+		config.caCertPEM = caCertPEM
 	}
 
 	caKeyPEM := agentConfig.Value(StorageCAKey)
 	if len(caKeyPEM) > 0 {
-		config.caKeyPEM = []byte(caKeyPEM)
+		config.caKeyPEM = caKeyPEM
 	}
 
 	hostnames := agentConfig.Value(StorageHostnames)

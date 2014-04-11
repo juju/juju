@@ -42,7 +42,7 @@ func (s *rsyslogSuite) SetUpTest(c *gc.C) {
 		api, s.State, s.resources, commontesting.NoSecrets)
 }
 
-func verifyRsyslogCACert(c *gc.C, st *apirsyslog.State, expected []byte) {
+func verifyRsyslogCACert(c *gc.C, st *apirsyslog.State, expected string) {
 	cfg, err := st.EnvironConfig()
 	c.Assert(err, gc.IsNil)
 	c.Assert(cfg.RsyslogCACert(), gc.DeepEquals, expected)
@@ -50,33 +50,33 @@ func verifyRsyslogCACert(c *gc.C, st *apirsyslog.State, expected []byte) {
 
 func (s *rsyslogSuite) TestSetRsyslogCert(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
-	err := st.Rsyslog().SetRsyslogCert([]byte(coretesting.CACert))
+	err := st.Rsyslog().SetRsyslogCert(coretesting.CACert)
 	c.Assert(err, gc.IsNil)
-	verifyRsyslogCACert(c, st.Rsyslog(), []byte(coretesting.CACert))
+	verifyRsyslogCACert(c, st.Rsyslog(), coretesting.CACert)
 }
 
 func (s *rsyslogSuite) TestSetRsyslogCertNil(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
-	err := st.Rsyslog().SetRsyslogCert(nil)
+	err := st.Rsyslog().SetRsyslogCert("")
 	c.Assert(err, gc.ErrorMatches, "no certificates found")
-	verifyRsyslogCACert(c, st.Rsyslog(), nil)
+	verifyRsyslogCACert(c, st.Rsyslog(), "")
 }
 
 func (s *rsyslogSuite) TestSetRsyslogCertInvalid(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
-	err := st.Rsyslog().SetRsyslogCert(pem.EncodeToMemory(&pem.Block{
+	err := st.Rsyslog().SetRsyslogCert(string(pem.EncodeToMemory(&pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: []byte("not a valid certificate"),
-	}))
+	})))
 	c.Assert(err, gc.ErrorMatches, ".*structure error.*")
-	verifyRsyslogCACert(c, st.Rsyslog(), nil)
+	verifyRsyslogCACert(c, st.Rsyslog(), "")
 }
 
 func (s *rsyslogSuite) TestSetRsyslogCertPerms(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	err := st.Rsyslog().SetRsyslogCert([]byte(coretesting.CACert))
+	err := st.Rsyslog().SetRsyslogCert(coretesting.CACert)
 	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	// Verify no change was effected.
-	verifyRsyslogCACert(c, st.Rsyslog(), nil)
+	verifyRsyslogCACert(c, st.Rsyslog(), "")
 }

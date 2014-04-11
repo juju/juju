@@ -42,7 +42,7 @@ type Info struct {
 
 	// CACert holds the CA certificate that will be used
 	// to validate the state server's certificate, in PEM format.
-	CACert []byte
+	CACert string
 
 	// Tag holds the name of the entity that is connecting.
 	// It should be empty when connecting as an administrator.
@@ -409,8 +409,8 @@ func (st *State) createStateServingInfoDoc() error {
 }
 
 // CACert returns the certificate used to validate the state connection.
-func (st *State) CACert() (cert []byte) {
-	return append(cert, st.info.CACert...)
+func (st *State) CACert() string {
+	return st.info.CACert
 }
 
 func (st *State) Close() error {

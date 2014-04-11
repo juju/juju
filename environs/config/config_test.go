@@ -1341,11 +1341,11 @@ func (*ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
 			_, _, err = cert.ParseCertAndKey(certPEM, keyPEM)
 			c.Check(err, gc.IsNil)
 
-			err = cert.Verify(certPEM, []byte(testing.CACert), time.Now())
+			err = cert.Verify(certPEM, testing.CACert, time.Now())
 			c.Assert(err, gc.IsNil)
-			err = cert.Verify(certPEM, []byte(testing.CACert), time.Now().AddDate(9, 0, 0))
+			err = cert.Verify(certPEM, testing.CACert, time.Now().AddDate(9, 0, 0))
 			c.Assert(err, gc.IsNil)
-			err = cert.Verify(certPEM, []byte(testing.CACert), time.Now().AddDate(10, 0, 1))
+			err = cert.Verify(certPEM, testing.CACert, time.Now().AddDate(10, 0, 1))
 			c.Assert(err, gc.NotNil)
 		} else {
 			c.Assert(err, gc.ErrorMatches, test.errMatch)

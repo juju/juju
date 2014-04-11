@@ -480,11 +480,11 @@ func (c *Config) SyslogPort() int {
 // RsyslogCACert returns the certificate of the CA that signed the
 // rsyslog certificate, in PEM format, or nil if one hasn't been
 // generated yet.
-func (c *Config) RsyslogCACert() []byte {
+func (c *Config) RsyslogCACert() string {
 	if s, ok := c.defined["rsyslog-ca-cert"]; ok {
-		return []byte(s.(string))
+		return s.(string)
 	}
-	return nil
+	return ""
 }
 
 // AuthorizedKeys returns the content for ssh's authorized_keys file.
@@ -587,20 +587,20 @@ func (c *Config) BootstrapSSHOpts() SSHTimeoutOpts {
 
 // CACert returns the certificate of the CA that signed the state server
 // certificate, in PEM format, and whether the setting is available.
-func (c *Config) CACert() ([]byte, bool) {
+func (c *Config) CACert() (string, bool) {
 	if s, ok := c.defined["ca-cert"]; ok {
-		return []byte(s.(string)), true
+		return s.(string), true
 	}
-	return nil, false
+	return "", false
 }
 
 // CAPrivateKey returns the private key of the CA that signed the state
 // server certificate, in PEM format, and whether the setting is available.
-func (c *Config) CAPrivateKey() (key []byte, ok bool) {
+func (c *Config) CAPrivateKey() (key string, ok bool) {
 	if s, ok := c.defined["ca-private-key"]; ok && s != "" {
-		return []byte(s.(string)), true
+		return s.(string), true
 	}
-	return nil, false
+	return "", false
 }
 
 // AdminSecret returns the administrator password.
@@ -928,14 +928,14 @@ func (cfg *Config) ValidateUnknownAttrs(fields schema.Fields, defaults schema.De
 
 // GenerateStateServerCertAndKey makes sure that the config has a CACert and
 // CAPrivateKey, generates and retruns new certificate and key.
-func (cfg *Config) GenerateStateServerCertAndKey() ([]byte, []byte, error) {
+func (cfg *Config) GenerateStateServerCertAndKey() (string, string, error) {
 	caCert, hasCACert := cfg.CACert()
 	if !hasCACert {
-		return nil, nil, fmt.Errorf("environment configuration has no ca-cert")
+		return "", "", fmt.Errorf("environment configuration has no ca-cert")
 	}
 	caKey, hasCAKey := cfg.CAPrivateKey()
 	if !hasCAKey {
-		return nil, nil, fmt.Errorf("environment configuration has no ca-private-key")
+		return "", "", fmt.Errorf("environment configuration has no ca-private-key")
 	}
 	var noHostnames []string
 	return cert.NewServer(caCert, caKey, time.Now().UTC().AddDate(10, 0, 0), noHostnames)

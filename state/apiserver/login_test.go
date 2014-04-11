@@ -63,7 +63,7 @@ func (s *loginSuite) setupServer(c *gc.C) (*api.Info, func()) {
 		Tag:      "",
 		Password: "",
 		Addrs:    []string{srv.Addr()},
-		CACert:   []byte(coretesting.CACert),
+		CACert:   coretesting.CACert,
 	}
 	return info, func() {
 		err := srv.Stop()

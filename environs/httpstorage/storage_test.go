@@ -27,7 +27,7 @@ var _ = gc.Suite(&storageSuite{})
 func (s *storageSuite) TestClientTLS(c *gc.C) {
 	listener, _, storageDir := startServerTLS(c)
 	defer listener.Close()
-	stor, err := httpstorage.ClientTLS(listener.Addr().String(), []byte(coretesting.CACert), testAuthkey)
+	stor, err := httpstorage.ClientTLS(listener.Addr().String(), coretesting.CACert, testAuthkey)
 	c.Assert(err, gc.IsNil)
 
 	data := []byte("hello")
@@ -49,7 +49,7 @@ func (s *storageSuite) TestClientTLSInvalidAuth(c *gc.C) {
 	listener, _, storageDir := startServerTLS(c)
 	defer listener.Close()
 	const invalidAuthkey = testAuthkey + "!"
-	stor, err := httpstorage.ClientTLS(listener.Addr().String(), []byte(coretesting.CACert), invalidAuthkey)
+	stor, err := httpstorage.ClientTLS(listener.Addr().String(), coretesting.CACert, invalidAuthkey)
 	c.Assert(err, gc.IsNil)
 
 	// Get and List should succeed.
