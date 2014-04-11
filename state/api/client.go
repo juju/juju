@@ -20,6 +20,7 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/tools"
@@ -725,16 +726,6 @@ var websocketDialConfig = func(config *websocket.Config) (io.ReadCloser, error) 
 	return websocket.DialConfig(config)
 }
 
-type connectionError struct {
-	error
-}
-
-// IsConnectionError reports whether the error is a connection error.
-func IsConnectionError(err error) bool {
-	_, ok := err.(*connectionError)
-	return ok
-}
-
 // DebugLogParams holds parameters for WatchDebugLog that control the
 // filtering of the log messages. If the structure is zero initialized, the
 // entire log file is sent back starting from the end, and until the user
@@ -772,14 +763,14 @@ type DebugLogParams struct {
 // WatchDebugLog returns a ReadCloser that the caller can read the log lines
 // from. Only log lines that match the filtering specified in the
 // DebugLogParams are returned. It returns an error that satisfies
-// IsConnectionError when the connection cannot be made.
+// IsNotSupportedError when the API server does not support the end-point.
 func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
 	// The websocket connection just hangs if the server doesn't have the log
 	// end point. So do a version check, as version was added at the same time
 	// as the remote end point.
 	_, err := c.AgentVersion()
 	if err != nil {
-		return nil, &connectionError{fmt.Errorf("server doesn't support debug log websocket")}
+		return nil, errors.NewNotSupportedError("WatchDebugLog")
 	}
 	// Prepare URL.
 	attrs := url.Values{}
@@ -811,7 +802,7 @@ func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
 	cfg.TlsConfig = &tls.Config{RootCAs: c.st.certPool, ServerName: "anything"}
 	connection, err := websocketDialConfig(cfg)
 	if err != nil {
-		return nil, &connectionError{err}
+		return nil, err
 	}
 	// Read the initial error and translate to a real error.
 	// Read up to the first new line character. We can't use bufio here as it
