@@ -347,9 +347,9 @@ var bootstrapTests = []bootstrapTest{{
 }, {
 	info:     "--upload-tools rejects mismatched arch",
 	version:  "1.3.3-saucy-amd64",
+	hostArch: "amd64",
 	args:     []string{"--upload-tools", "--constraints", "arch=ppc64"},
 	err:      `cannot build tools for "ppc64" using a machine running on "amd64"`,
-	hostArch: "amd64",
 }, {
 	info:     "--upload-tools rejects non-supported arch",
 	version:  "1.3.3-saucy-arm64",
