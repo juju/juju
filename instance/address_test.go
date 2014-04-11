@@ -20,15 +20,47 @@ type AddressSuite struct {
 var _ = gc.Suite(&AddressSuite{})
 
 func (s *AddressSuite) TestNewAddressIpv4(c *gc.C) {
-	addr := NewAddress("127.0.0.1")
-	c.Check(addr.Value, gc.Equals, "127.0.0.1")
-	c.Check(addr.Type, gc.Equals, Ipv4Address)
+	type test struct {
+		value         string
+		expectedScope NetworkScope
+	}
+
+	tests := []test{{
+		value:         "127.0.0.1",
+		expectedScope: NetworkMachineLocal,
+	}, {
+		value:         "10.0.3.1",
+		expectedScope: NetworkCloudLocal,
+	}, {
+		value:         "172.16.15.14",
+		expectedScope: NetworkCloudLocal,
+	}, {
+		value:         "192.168.0.1",
+		expectedScope: NetworkCloudLocal,
+	}, {
+		value:         "8.8.8.8",
+		expectedScope: NetworkPublic,
+	}}
+
+	for _, t := range tests {
+		c.Logf("test %s %s", t.value)
+		addr := NewAddress(t.value)
+		c.Check(addr.Value, gc.Equals, t.value)
+		c.Check(addr.Type, gc.Equals, Ipv4Address)
+		c.Check(addr.NetworkScope, gc.Equals, t.expectedScope)
+	}
 }
 
 func (s *AddressSuite) TestNewAddressIpv6(c *gc.C) {
 	addr := NewAddress("::1")
 	c.Check(addr.Value, gc.Equals, "::1")
 	c.Check(addr.Type, gc.Equals, Ipv6Address)
+	c.Check(addr.NetworkScope, gc.Equals, NetworkMachineLocal)
+
+	addr = NewAddress("2001:DB8::1")
+	c.Check(addr.Value, gc.Equals, "2001:DB8::1")
+	c.Check(addr.Type, gc.Equals, Ipv6Address)
+	c.Check(addr.NetworkScope, gc.Equals, NetworkUnknown)
 }
 
 func (s *AddressSuite) TestNewAddresses(c *gc.C) {
@@ -36,8 +68,11 @@ func (s *AddressSuite) TestNewAddresses(c *gc.C) {
 		[]string{"127.0.0.1", "192.168.1.1", "192.168.178.255"})
 	c.Assert(len(addresses), gc.Equals, 3)
 	c.Assert(addresses[0].Value, gc.Equals, "127.0.0.1")
+	c.Assert(addresses[0].NetworkScope, gc.Equals, NetworkMachineLocal)
 	c.Assert(addresses[1].Value, gc.Equals, "192.168.1.1")
+	c.Assert(addresses[1].NetworkScope, gc.Equals, NetworkCloudLocal)
 	c.Assert(addresses[2].Value, gc.Equals, "192.168.178.255")
+	c.Assert(addresses[2].NetworkScope, gc.Equals, NetworkCloudLocal)
 }
 
 func (s *AddressSuite) TestNewAddressHostname(c *gc.C) {
@@ -120,12 +155,12 @@ var selectPublicTests = []selectTest{{
 	},
 	2,
 }, {
-	"last unknown address selected",
+	"first unknown address selected",
 	[]Address{
 		{"10.0.0.1", Ipv4Address, "cloud", NetworkUnknown},
 		{"8.8.8.8", Ipv4Address, "floating", NetworkUnknown},
 	},
-	1,
+	0,
 }}
 
 func (s *AddressSuite) TestSelectPublicAddress(c *gc.C) {

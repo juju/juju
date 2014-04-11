@@ -31,7 +31,7 @@ func (s *addressesSuite) TestHostAddresses(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(addrs, gc.HasLen, 3)
 	// The last address is marked public, all others are unknown.
-	c.Assert(addrs[0].NetworkScope, gc.Equals, instance.NetworkUnknown)
+	c.Assert(addrs[0].NetworkScope, gc.Equals, instance.NetworkCloudLocal)
 	c.Assert(addrs[1].NetworkScope, gc.Equals, instance.NetworkUnknown)
 	c.Assert(addrs[2].NetworkScope, gc.Equals, instance.NetworkPublic)
 }

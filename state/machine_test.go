@@ -1237,11 +1237,40 @@ func (s *MachineSuite) TestSetMachineAddresses(c *gc.C) {
 		instance.NewAddress("127.0.0.1"),
 		instance.NewAddress("8.8.8.8"),
 	}
-	err = machine.SetMachineAddresses(addresses)
+	err = machine.SetMachineAddresses(addresses...)
 	c.Assert(err, gc.IsNil)
 	err = machine.Refresh()
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.MachineAddresses(), gc.DeepEquals, addresses)
+}
+
+func (s *MachineSuite) TestMergedAddresses(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.Addresses(), gc.HasLen, 0)
+
+	addresses := []instance.Address{
+		instance.NewAddress("127.0.0.1"),
+		instance.NewAddress("8.8.8.8"),
+	}
+	addresses[0].NetworkName = "loopback"
+	err = machine.SetAddresses(addresses)
+	c.Assert(err, gc.IsNil)
+
+	machineAddresses := []instance.Address{
+		instance.NewAddress("127.0.0.1"),
+		instance.NewAddress("192.168.0.1"),
+	}
+	err = machine.SetMachineAddresses(machineAddresses...)
+	c.Assert(err, gc.IsNil)
+	err = machine.Refresh()
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(machine.Addresses(), gc.DeepEquals, []instance.Address{
+		addresses[0],
+		addresses[1],
+		machineAddresses[1],
+	})
 }
 
 func (s *MachineSuite) addMachineWithSupportedContainer(c *gc.C, container instance.ContainerType) *state.Machine {

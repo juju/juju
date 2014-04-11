@@ -101,12 +101,8 @@ func expectedAPIHostPorts(n int) [][]instance.HostPort {
 	servers := make([][]instance.HostPort, n)
 	for i := range servers {
 		servers[i] = []instance.HostPort{{
-			Address: instance.Address{
-				Value:        fmt.Sprintf("0.1.2.%d", i+10),
-				NetworkScope: instance.NetworkUnknown,
-				Type:         instance.Ipv4Address,
-			},
-			Port: apiPort,
+			Address: instance.NewAddress(fmt.Sprintf("0.1.2.%d", i+10)),
+			Port:    apiPort,
 		}}
 	}
 	return servers

@@ -20,6 +20,7 @@ import (
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
 )
 
@@ -814,25 +815,26 @@ func IsNotProvisionedError(err error) bool {
 }
 
 func mergedAddresses(machineAddresses, providerAddresses []address) []instance.Address {
-	merged := make(map[string]instance.Address)
+	merged := make([]instance.Address, len(providerAddresses), len(providerAddresses)+len(machineAddresses))
+	var providerValues set.Strings
+	for i, address := range providerAddresses {
+		providerValues.Add(address.Value)
+		merged[i] = address.InstanceAddress()
+	}
 	for _, address := range machineAddresses {
-		merged[address.Value] = address.InstanceAddress()
+		if !providerValues.Contains(address.Value) {
+			merged = append(merged, address.InstanceAddress())
+		}
 	}
-	for _, address := range providerAddresses {
-		merged[address.Value] = address.InstanceAddress()
-	}
-	addresses := make([]instance.Address, 0, len(merged))
-	for _, address := range merged {
-		addresses = append(addresses, address)
-	}
-	return addresses
+	return merged
 }
 
 // Addresses returns any hostnames and ips associated with a machine,
 // determined both by the machine itself, and by asking the provider.
 //
 // The addresses returned by the provider shadow any of the addresses
-// that the machine reported with the same address value.
+// that the machine reported with the same address value. Provider-reported
+// addresses always come before machine-reported addresses.
 func (m *Machine) Addresses() (addresses []instance.Address) {
 	return mergedAddresses(m.doc.MachineAddresses, m.doc.Addresses)
 }
@@ -868,7 +870,7 @@ func (m *Machine) MachineAddresses() (addresses []instance.Address) {
 
 // SetMachineAddresses records any addresses related to the machine, sourced
 // by asking the machine.
-func (m *Machine) SetMachineAddresses(addresses []instance.Address) (err error) {
+func (m *Machine) SetMachineAddresses(addresses ...instance.Address) (err error) {
 	stateAddresses := instanceAddressesToAddresses(addresses)
 	ops := []txn.Op{
 		{
