@@ -15,6 +15,22 @@ type Network struct {
 	doc networkDoc
 }
 
+// NetworkParams describes a single network.
+type NetworkParams struct {
+	// Name is juju-internal name of the network.
+	Name string
+
+	// ProviderId is a provider-specific network id.
+	ProviderId string
+
+	// CIDR of the network, in 123.45.67.89/24 format.
+	CIDR string
+
+	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
+	// normal networks. It's defined by IEEE 802.1Q standard.
+	VLANTag int
+}
+
 // networkDoc represents a configured network that a machine can be a
 // part of.
 type networkDoc struct {

@@ -510,18 +510,6 @@ func (task *provisionerTask) possibleTools(series string, cons constraints.Value
 	panic(fmt.Errorf("broker of type %T does not provide any tools", task.broker))
 }
 
-func networkTagsToIds(tags []string) ([]string, error) {
-	ids := make([]string, len(tags))
-	for i, tag := range tags {
-		_, id, err := names.ParseTag(tag, names.NetworkTagKind)
-		if err != nil {
-			return nil, err
-		}
-		ids[i] = id
-	}
-	return ids, nil
-}
-
 func (task *provisionerTask) machineConfig(machine *apiprovisioner.Machine) (*cloudinit.MachineConfig, error) {
 	stateInfo, apiInfo, err := task.auth.SetupAuthentication(machine)
 	if err != nil {

@@ -14,6 +14,21 @@ type NetworkInterface struct {
 	doc networkInterfaceDoc
 }
 
+// NetworkInterfaceParams describes a single network interface
+// available on an instance.
+type NetworkInterfaceParams struct {
+	// MACAddress is the network interface's hardware MAC address
+	// (e.g. "aa:bb:cc:dd:ee:ff").
+	MACAddress string
+
+	// InterfaceName is the OS-specific network device name (e.g.
+	// "eth0" or "eth1.42" for a VLAN virtual interface).
+	InterfaceName string
+
+	// NetworkName is this interface's network name.
+	NetworkName string
+}
+
 // networkInterfaceDoc represents a network interface for a machine on
 // a given network.
 type networkInterfaceDoc struct {

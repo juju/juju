@@ -1050,29 +1050,27 @@ func (st *State) AddNetwork(name, providerId, cidr string, vlanTag int) (n *Netw
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}}
-	for i := 0; i < 5; i++ {
-		err = st.runTransaction(ops)
-		switch err {
-		case txn.ErrAborted:
-			if _, err = st.Network(name); err == nil {
-				msg := fmt.Sprintf("network %q", name)
-				return nil, errors.NewAlreadyExistsError(msg)
-			} else if err != nil {
-				return nil, err
-			}
-		case nil:
-			// For some reason when using unique indices with mgo, and
-			// we have an index violation the error is nil, but the
-			// document is not added. So we check if the supposedly
-			// successful transaction did actually add the document.
-			if _, err = st.Network(name); err != nil {
-				msg := fmt.Sprintf("network with provider id %q", providerId)
-				return nil, errors.NewAlreadyExistsError(msg)
-			}
-			return newNetwork(st, doc), nil
+	err = st.runTransaction(ops)
+	switch err {
+	case txn.ErrAborted:
+		if _, err = st.Network(name); err == nil {
+			msg := fmt.Sprintf("network %q", name)
+			return nil, errors.NewAlreadyExistsError(msg)
+		} else if err != nil {
+			return nil, err
 		}
+	case nil:
+		// For some reason when using unique indices with mgo, and
+		// we have an index violation the error is nil, but the
+		// document is not added. So we check if the supposedly
+		// successful transaction did actually add the document.
+		if _, err = st.Network(name); err != nil {
+			msg := fmt.Sprintf("network with provider id %q", providerId)
+			return nil, errors.NewAlreadyExistsError(msg)
+		}
+		return newNetwork(st, doc), nil
 	}
-	return nil, ErrExcessiveContention
+	return nil, err
 }
 
 // Network returns the network with the given name.

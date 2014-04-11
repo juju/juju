@@ -35,16 +35,27 @@ type StartInstanceParams struct {
 
 // NetworkInfo describes a single network interface available on an
 // instance. For providers that support networks, this will be
-// available at StartInstance() time. NetworkId is a provider-specific
-// network identifier.
+// available at StartInstance() time.
 type NetworkInfo struct {
+	// MACAddress is the network interface's hardware MAC address
+	// (e.g. "aa:bb:cc:dd:ee:ff").
 	MACAddress string
-	CIDR       string
+
+	// CIDR of the network, in 123.45.67.89/24 format.
+	CIDR string
+
 	// NetworkName is juju-internal name of the network.
 	NetworkName string
+
 	// NetworkId is a provider-specific network id.
-	NetworkId     string
-	VLANTag       int
+	NetworkId string
+
+	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
+	// normal networks. It's defined by IEEE 802.1Q standard.
+	VLANTag int
+
+	// InterfaceName is the OS-specific network device name (e.g.
+	// "eth0" or "eth1.42" for a VLAN virtual interface).
 	InterfaceName string
 }
 
