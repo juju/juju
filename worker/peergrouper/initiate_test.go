@@ -1,16 +1,12 @@
 package peergrouper_test
 
 import (
-	"testing"
-
 	gc "launchpad.net/gocheck"
 
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/worker/peergrouper"
 )
-
-func Test(t *testing.T) { gc.TestingT(t) }
 
 type InitiateSuite struct {
 	testbase.LoggingSuite
