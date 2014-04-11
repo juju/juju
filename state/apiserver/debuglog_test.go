@@ -130,7 +130,7 @@ func (s *debugLogSuite) TestBacklogWithMaxLines(c *gc.C) {
 	s.writeLogLines(c, logLineCount)
 
 	linesRead := s.readLogLines(c, reader, 10)
-	c.Assert(linesRead, jc.DeepEquals, logLines[10:20])
+	c.Assert(linesRead, jc.DeepEquals, logLines[5:15])
 	s.assertWebsocketClosed(c, reader)
 }
 
