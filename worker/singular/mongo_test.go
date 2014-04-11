@@ -507,7 +507,7 @@ func startReplicaSet(n int) (_ []*testing.MgoInstance, err error) {
 
 	logger.Infof("dialled root instance")
 
-	if err := replicaset.Initiate(session, root.Addr(), replicaSetName); err != nil {
+	if err := replicaset.Initiate(session, root.Addr(), replicaSetName, nil); err != nil {
 		return nil, fmt.Errorf("cannot initiate replica set: %v", err)
 	}
 	var members []replicaset.Member

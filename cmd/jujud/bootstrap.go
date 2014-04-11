@@ -21,6 +21,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker/peergrouper"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/worker/peergrouper"
 )
 
 type BootstrapCommand struct {

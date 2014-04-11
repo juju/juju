@@ -274,6 +274,8 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 			break
 		}
 		c.Logf("attempting Set got error: %v", err)
+		c.Logf("current session mode: %v", session.Mode())
+		session.Refresh()
 	}
 	c.Logf("Set() %d attempts in %s", attemptCount, time.Since(start))
 	c.Assert(err, gc.IsNil)

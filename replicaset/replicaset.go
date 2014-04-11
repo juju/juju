@@ -32,9 +32,9 @@ func Initiate(session *mgo.Session, address, name string, tags map[string]string
 		Name:    name,
 		Version: 1,
 		Members: []Member{{
-			Id: 1,
+			Id:      1,
 			Address: address,
-			Tags: tags,
+			Tags:    tags,
 		}},
 	}
 	logger.Infof("Initiating replicaset with config %#v", cfg)
