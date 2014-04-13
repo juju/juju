@@ -313,17 +313,33 @@ type SetProvisioned struct {
 
 // Network describes a single network available on an instance.
 type Network struct {
-	Name    string
-	CIDR    string
+	// Tag is the network's tag.
+	Tag string
+
+	// ProviderId is the provider-specific network id.
+	ProviderId string
+
+	// CIDR of the network, in "123.45.67.89/12" format.
+	CIDR string
+
+	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
+	// normal networks. It's defined by IEEE 802.1Q standard.
 	VLANTag int
 }
 
 // NetworkInterface describes a single network interface available on
 // an instance.
 type NetworkInterface struct {
-	MACAddress    string
+	// MACAddress is the network interface's hardware MAC address
+	// (e.g. "aa:bb:cc:dd:ee:ff").
+	MACAddress string
+
+	// InterfaceName is the OS-specific network device name (e.g.
+	// "eth0" or "eth1.42" for a VLAN virtual interface).
 	InterfaceName string
-	NetworkName   string
+
+	// NetworkTag is this interface's network tag.
+	NetworkTag string
 }
 
 // InstanceInfo holds a machine tag, provider-specific instance id, a
@@ -343,16 +359,16 @@ type InstancesInfo struct {
 	Machines []InstanceInfo
 }
 
-// NetworkResult holds machine networks or an error.
-type NetworkResult struct {
+// RequestedNetworkResult holds requested networks or an error.
+type RequestedNetworkResult struct {
 	Error           *Error
 	IncludeNetworks []string
 	ExcludeNetworks []string
 }
 
-// NetworksResults holds multiple networks results.
-type NetworksResults struct {
-	Results []NetworkResult
+// RequestedNetworksResults holds multiple requested networks results.
+type RequestedNetworksResults struct {
+	Results []RequestedNetworkResult
 }
 
 // EntityStatus holds an entity tag, status and extra info.

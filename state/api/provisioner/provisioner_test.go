@@ -220,33 +220,36 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(ifacesMachine, gc.HasLen, 0)
 
 	networks := []params.Network{{
-		Name:    "net1",
-		CIDR:    "0.1.2.0/24",
-		VLANTag: 0,
+		Tag:        "network-net1",
+		ProviderId: "net1",
+		CIDR:       "0.1.2.0/24",
+		VLANTag:    0,
 	}, {
-		Name:    "vlan42",
-		CIDR:    "0.2.2.0/24",
-		VLANTag: 42,
+		Tag:        "network-vlan42",
+		ProviderId: "vlan42",
+		CIDR:       "0.2.2.0/24",
+		VLANTag:    42,
 	}, {
-		Name:    "vlan42", // duplicated; ignored
-		CIDR:    "0.2.2.0/24",
-		VLANTag: 42,
+		Tag:        "network-vlan42", // duplicated; ignored
+		ProviderId: "vlan42",
+		CIDR:       "0.2.2.0/24",
+		VLANTag:    42,
 	}}
 	ifaces := []params.NetworkInterface{{
 		MACAddress:    "aa:bb:cc:dd:ee:f0",
-		NetworkName:   "net1",
+		NetworkTag:    "network-net1",
 		InterfaceName: "eth0",
 	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:f1",
-		NetworkName:   "net1",
+		NetworkTag:    "network-net1",
 		InterfaceName: "eth1",
 	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:f2",
-		NetworkName:   "vlan42",
+		NetworkTag:    "network-vlan42",
 		InterfaceName: "eth2",
 	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:f2", // duplicated; ignored
-		NetworkName:   "vlan42",
+		NetworkTag:    "network-vlan42",
 		InterfaceName: "eth2",
 	}}
 
@@ -274,9 +277,13 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 			// Last one was ignored, so skip it.
 			break
 		}
-		network, err := s.State.Network(networks[i].Name)
+		_, networkName, err := names.ParseTag(networks[i].Tag, names.NetworkTagKind)
 		c.Assert(err, gc.IsNil)
-		c.Check(network.Name(), gc.Equals, networks[i].Name)
+		network, err := s.State.Network(networkName)
+		c.Assert(err, gc.IsNil)
+		c.Check(network.Name(), gc.Equals, networkName)
+		c.Check(network.ProviderId(), gc.Equals, networks[i].ProviderId)
+		c.Check(network.Tag(), gc.Equals, networks[i].Tag)
 		c.Check(network.VLANTag(), gc.Equals, networks[i].VLANTag)
 		c.Check(network.CIDR(), gc.Equals, networks[i].CIDR)
 	}
@@ -288,10 +295,12 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	actual := make([]params.NetworkInterface, len(ifacesMachine))
 	for i, iface := range ifacesMachine {
 		actual[i].InterfaceName = iface.InterfaceName()
-		actual[i].NetworkName = iface.NetworkName()
+		actual[i].NetworkTag = iface.NetworkTag()
 		actual[i].MACAddress = iface.MACAddress()
-		c.Check(names.MachineTag(iface.MachineId()), gc.Equals, notProvisionedMachine.Tag())
+		c.Check(iface.MachineTag(), gc.Equals, notProvisionedMachine.Tag())
+		c.Check(iface.MachineId(), gc.Equals, notProvisionedMachine.Id())
 	}
+	c.Assert(actual, jc.SameContents, ifaces[:3]) // skip [3] as it's ignored.
 }
 
 func (s *provisionerSuite) TestSeries(c *gc.C) {

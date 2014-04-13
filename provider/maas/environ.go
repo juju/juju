@@ -365,6 +365,7 @@ func (environ *maasEnviron) setupNetworks(inst instance.Instance) ([]environs.Ne
 				info := networkInfoMap[mac]
 				info.CIDR = netCIDR.String()
 				info.VLANTag = network.VLANTag
+				info.NetworkId = network.Name
 				info.NetworkName = network.Name
 				networkInfoMap[mac] = info
 			}
@@ -374,12 +375,12 @@ func (environ *maasEnviron) setupNetworks(inst instance.Instance) ([]environs.Ne
 	// and drop incomplete records.
 	var networkInfo []environs.NetworkInfo
 	for _, info := range networkInfoMap {
-		if info.NetworkName == "" || info.CIDR == "" {
+		if info.NetworkId == "" || info.NetworkName == "" || info.CIDR == "" {
 			logger.Warningf("ignoring network interface %q: missing network information", info.InterfaceName)
 			continue
 		}
 		if info.MACAddress == "" || info.InterfaceName == "" {
-			logger.Warningf("ignoring network %q: missing network interface information", info.NetworkName)
+			logger.Warningf("ignoring network %q: missing network interface information", info.NetworkId)
 			continue
 		}
 		networkInfo = append(networkInfo, info)
