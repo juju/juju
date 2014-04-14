@@ -38,6 +38,6 @@ if $SCRIPTS/deploy_stack.py --charm-prefix "$CHARM_PREFIX" $DEPLOY_ARGS manual "
 else
   exit_code=1
 fi
+$SCRIPTS/destroy-environment $ENV
 rm $JUJU_HOME/environments/manual.jenv
-$SCRIPTS/ec2-terminate-job-instances
 exit $exit_code
