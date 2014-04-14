@@ -228,6 +228,8 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		return nil, err
 	}
 	reportOpenedAPI(st)
+	// Refresh the configuration, because the password might have changed.
+	agentConfig = a.CurrentConfig()
 
 	for _, job := range entity.Jobs() {
 		if job.NeedsState() {
