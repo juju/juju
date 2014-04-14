@@ -264,7 +264,7 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 				// TODO(jam) https://launchpad.net/bugs/1306902 in juju <=1.18,
 				// machine-0 was not an admin, so it cannot login to the "admin"
 				// database until bug #1306902 is fixed.
-				logger.Infof("faileo to login to \"admin\" database as %q: %v", info.Tag, err)
+				logger.Infof("ignoring failure to login to \"admin\" database as %q (bug #1306902): %v", info.Tag, err)
 			} else {
 				return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to admin database as %q", info.Tag))
 			}
