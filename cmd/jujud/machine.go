@@ -48,6 +48,7 @@ import (
 	"launchpad.net/juju-core/worker/machineenvironmentworker"
 	"launchpad.net/juju-core/worker/machiner"
 	"launchpad.net/juju-core/worker/minunitsworker"
+	"launchpad.net/juju-core/worker/peergrouper"
 	"launchpad.net/juju-core/worker/provisioner"
 	"launchpad.net/juju-core/worker/resumer"
 	"launchpad.net/juju-core/worker/rsyslog"
@@ -73,7 +74,7 @@ var (
 	// The following are defined as variables to
 	// allow the tests to intercept calls to the functions.
 	ensureMongoServer        = mongo.EnsureMongoServer
-	maybeInitiateMongoServer = mongo.MaybeInitiateMongoServer
+	maybeInitiateMongoServer = peergrouper.MaybeInitiateMongoServer
 	newSingularRunner        = singular.New
 
 	// reportOpenedAPI is exposed for tests to know when
@@ -395,13 +396,15 @@ func (a *MachineAgent) updateSupportedContainers(
 func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
 
-	namespace := agentConfig.Value(agent.Namespace)
-	info, exist := agentConfig.StateServingInfo()
-	if !exist {
-		return nil, fmt.Errorf("no state info in agent config")
+	servingInfo, ok := agentConfig.StateServingInfo()
+	if !ok {
+		return nil, fmt.Errorf("state worker was started with no state serving info")
 	}
-
-	err := ensureMongoServer(agentConfig.DataDir(), info.StatePort, namespace)
+	err := ensureMongoServer(
+		agentConfig.DataDir(),
+		agentConfig.Value(agent.Namespace),
+		servingInfo,
+	)
 	if err != nil {
 		return nil, err
 	}

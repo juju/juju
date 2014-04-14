@@ -6,68 +6,85 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"testing"
 
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/instance"
-	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/upstart"
+	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 )
 
 func Test(t *testing.T) { gc.TestingT(t) }
 
 type MongoSuite struct {
 	testbase.LoggingSuite
+	mongodConfigPath string
+	mongodPath       string
+
+	installError error
+	installed    []upstart.Conf
+
+	removeError error
+	removed     []upstart.Service
 }
 
-var _ = gc.Suite(&MongoSuite{})
-
-func (s *MongoSuite) SetUpSuite(c *gc.C) {
-	testpath := c.MkDir()
-	s.PatchEnvPathPrepend(testpath)
-	// mock out the upstart commands so we can fake install services without sudo
-	fakeCmd(filepath.Join(testpath, "start"))
-	fakeCmd(filepath.Join(testpath, "stop"))
-
-	s.PatchValue(&upstart.InitDir, c.MkDir())
-}
-
-func fakeCmd(path string) {
-	err := ioutil.WriteFile(path, []byte("#!/bin/bash --norc\nexit 0"), 0755)
-	if err != nil {
-		panic(err)
+var (
+	_        = gc.Suite(&MongoSuite{})
+	testInfo = params.StateServingInfo{
+		StatePort:    25252,
+		Cert:         "foobar-cert",
+		PrivateKey:   "foobar-privkey",
+		SharedSecret: "foobar-sharedsecret",
 	}
+)
+
+func (s *MongoSuite) SetUpTest(c *gc.C) {
+	// Try to make sure we don't execute any commands accidentally.
+	s.PatchEnvironment("PATH", "")
+
+	s.mongodPath = filepath.Join(c.MkDir(), "mongod")
+	err := ioutil.WriteFile(s.mongodPath, nil, 0755)
+	c.Assert(err, gc.IsNil)
+	s.PatchValue(&JujuMongodPath, s.mongodPath)
+
+	testPath := c.MkDir()
+	s.mongodConfigPath = filepath.Join(testPath, "mongodConfig")
+	s.PatchValue(&mongoConfigPath, s.mongodConfigPath)
+
+	s.PatchValue(&upstartConfInstall, func(conf *upstart.Conf) error {
+		s.installed = append(s.installed, *conf)
+		return s.installError
+	})
+	s.PatchValue(&upstartServiceStopAndRemove, func(svc *upstart.Service) error {
+		s.removed = append(s.removed, *svc)
+		return s.removeError
+	})
+	s.removeError = nil
+	s.installError = nil
+	s.installed = nil
+	s.removed = nil
 }
 
 func (s *MongoSuite) TestJujuMongodPath(c *gc.C) {
-	d := c.MkDir()
-	defer os.RemoveAll(d)
-	mongoPath := filepath.Join(d, "mongod")
-	s.PatchValue(&JujuMongodPath, mongoPath)
-
-	err := ioutil.WriteFile(mongoPath, nil, 0777)
-	c.Assert(err, gc.IsNil)
-
 	obtained, err := MongodPath()
 	c.Check(err, gc.IsNil)
-	c.Check(obtained, gc.Equals, mongoPath)
+	c.Check(obtained, gc.Equals, s.mongodPath)
 }
 
 func (s *MongoSuite) TestDefaultMongodPath(c *gc.C) {
 	s.PatchValue(&JujuMongodPath, "/not/going/to/exist/mongod")
-
-	dir := c.MkDir()
-	s.PatchEnvPathPrepend(dir)
-	filename := filepath.Join(dir, "mongod")
-	err := ioutil.WriteFile(filename, nil, 0777)
-	c.Assert(err, gc.IsNil)
+	s.PatchEnvPathPrepend(filepath.Dir(s.mongodPath))
 
 	obtained, err := MongodPath()
 	c.Check(err, gc.IsNil)
-	c.Check(obtained, gc.Equals, filename)
+	c.Check(obtained, gc.Equals, s.mongodPath)
 }
 
 func (s *MongoSuite) TestMakeJournalDirs(c *gc.C) {
@@ -97,78 +114,81 @@ func testJournalDirs(dir string, c *gc.C) {
 }
 
 func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
-	dir := c.MkDir()
-	dbDir := filepath.Join(dir, "db")
-	port := 25252
+	dataDir := c.MkDir()
+	dbDir := filepath.Join(dataDir, "db")
 	namespace := "namespace"
 
-	// TODO(natefinch): uncomment when we support upgrading to HA
-	//oldsvc := makeService(ServiceName(namespace), c)
-	//defer oldsvc.StopAndRemove()
+	s.mockShellCommand(c, "apt-get")
 
-	err := EnsureMongoServer(dir, port, namespace)
+	err := EnsureMongoServer(dataDir, namespace, testInfo)
 	c.Assert(err, gc.IsNil)
-	svc, err := mongoUpstartService(namespace, dir, dbDir, port)
-	c.Assert(err, gc.IsNil)
-	defer svc.StopAndRemove()
 
 	testJournalDirs(dbDir, c)
-	c.Assert(svc.Installed(), jc.IsTrue)
 
-	// now check we can call it multiple times without error
-	err = EnsureMongoServer(dir, port, namespace)
+	c.Assert(s.installed, gc.HasLen, 1)
+	conf := s.installed[0]
+	c.Assert(conf.Name, gc.Equals, "juju-db-namespace")
+	c.Assert(conf.InitDir, gc.Equals, "/etc/init")
+	c.Assert(conf.Desc, gc.Not(gc.Equals), "")
+	c.Assert(conf.Cmd, gc.Matches, regexp.QuoteMeta(s.mongodPath)+".*")
+	// TODO set Out so that mongod output goes somewhere useful?
+	c.Assert(conf.Out, gc.Equals, "")
+
+	contents, err := ioutil.ReadFile(s.mongodConfigPath)
 	c.Assert(err, gc.IsNil)
-	c.Assert(svc.Installed(), jc.IsTrue)
+	c.Assert(contents, jc.DeepEquals, []byte("ENABLE_MONGODB=no"))
+
+	contents, err = ioutil.ReadFile(sslKeyPath(dataDir))
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(contents), gc.Equals, testInfo.Cert+"\n"+testInfo.PrivateKey)
+
+	contents, err = ioutil.ReadFile(sharedSecretPath(dataDir))
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(contents), gc.Equals, testInfo.SharedSecret)
+
+	s.installed = nil
+	// now check we can call it multiple times without error
+	err = EnsureMongoServer(dataDir, namespace, testInfo)
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.installed, gc.HasLen, 1)
+}
+
+func (s *MongoSuite) TestRemoveService(c *gc.C) {
+	err := RemoveService("namespace")
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.removed, jc.DeepEquals, []upstart.Service{{
+		Name:    "juju-db-namespace",
+		InitDir: upstart.InitDir,
+	}})
+}
+
+func (s *MongoSuite) TestQuantalAptAddRepo(c *gc.C) {
+	dir := c.MkDir()
+	s.PatchEnvPathPrepend(dir)
+	failCmd(filepath.Join(dir, "add-apt-repository"))
+	s.mockShellCommand(c, "apt-get")
+
+	// test that we call add-apt-repository only for quantal (and that if it
+	// fails, we return the error)
+	s.PatchValue(&version.Current.Series, "quantal")
+	err := EnsureMongoServer(dir, "", testInfo)
+	c.Assert(err, gc.ErrorMatches, "cannot install mongod: cannot add apt repository: exit status 1.*")
+
+	s.PatchValue(&version.Current.Series, "trusty")
+	err = EnsureMongoServer(dir, "", testInfo)
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
-	dir := c.MkDir()
-
-	dbDir := filepath.Join(dir, "db")
-
-	// remove the directory so we use the path but it won't exist
-	// that should make it get cleaned up at the end of the test if created
-	os.RemoveAll(dir)
-	port := 25252
-
-	err := EnsureMongoServer(dir, port, "")
+	// Make a non-existent directory that can nonetheless be
+	// created.
+	s.mockShellCommand(c, "apt-get")
+	dataDir := filepath.Join(c.MkDir(), "dir", "data")
+	err := EnsureMongoServer(dataDir, "", testInfo)
 	c.Check(err, gc.IsNil)
 
-	_, err = os.Stat(dbDir)
+	_, err = os.Stat(filepath.Join(dataDir, "db"))
 	c.Assert(err, gc.IsNil)
-
-	svc, err := mongoUpstartService("", dir, dbDir, port)
-	c.Assert(err, gc.IsNil)
-	defer svc.Remove()
-}
-
-// TODO(natefinch) add a test that InitiateMongoServer works when
-// we support upgrading of existing environments.
-
-func (s *MongoSuite) TestInitiateReplicaSet(c *gc.C) {
-	var err error
-	inst := &coretesting.MgoInstance{Params: []string{"--replSet", "juju"}}
-	err = inst.Start(true)
-	c.Assert(err, gc.IsNil)
-
-	info := inst.DialInfo()
-
-	err = MaybeInitiateMongoServer(InitiateMongoParams{
-		DialInfo:       info,
-		MemberHostPort: inst.Addr(),
-	})
-	c.Assert(err, gc.IsNil)
-
-	// This would return a mgo.QueryError if a ReplicaSet
-	// configuration already existed but we tried to created
-	// one with replicaset.Initiate again.
-	err = MaybeInitiateMongoServer(InitiateMongoParams{
-		DialInfo:       info,
-		MemberHostPort: inst.Addr(),
-	})
-	c.Assert(err, gc.IsNil)
-
-	// TODO test login
 }
 
 func (s *MongoSuite) TestServiceName(c *gc.C) {
@@ -223,13 +243,79 @@ func (s *MongoSuite) TestGenerateSharedSecret(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func makeService(name string, c *gc.C) *upstart.Conf {
-	conf := &upstart.Conf{
-		Desc:    "foo",
-		Service: *upstart.NewService(name),
-		Cmd:     "echo hi",
-	}
-	err := conf.Install()
+func (s *MongoSuite) TestAddPPAInQuantal(c *gc.C) {
+	s.mockShellCommand(c, "apt-get")
+
+	addAptRepoOut := s.mockShellCommand(c, "add-apt-repository")
+	s.PatchValue(&version.Current.Series, "quantal")
+
+	dataDir := c.MkDir()
+	err := EnsureMongoServer(dataDir, "", testInfo)
 	c.Assert(err, gc.IsNil)
-	return conf
+
+	c.Assert(getMockShellCalls(c, addAptRepoOut), gc.DeepEquals, [][]string{{
+		"-y",
+		"ppa:juju/stable",
+	}})
+}
+
+// mockShellCommand creates a new command with the given
+// name and contents, and patches $PATH so that it will be
+// executed by preference. It returns the name of a file
+// that is written by each call to the command - mockShellCalls
+// can be used to retrieve the calls.
+func (s *MongoSuite) mockShellCommand(c *gc.C, name string) string {
+	dir := c.MkDir()
+	s.PatchEnvPathPrepend(dir)
+
+	outputFile := filepath.Join(dir, name+".out")
+	contents := `#!/bin/sh
+{
+	for i in "$@"; do
+		echo +"$i"+
+	done
+	echo -
+} >> ` + utils.ShQuote(outputFile) + `
+`
+	err := ioutil.WriteFile(filepath.Join(dir, name), []byte(contents), 0755)
+	c.Assert(err, gc.IsNil)
+	return outputFile
+}
+
+// Given a file name returned by mockShellCommands, getMockShellCalls
+// returns a slice containing one element for each call, each
+// containing the arguments passed to the command.
+// It will be confused if the arguments contain newlines.
+func getMockShellCalls(c *gc.C, file string) [][]string {
+	data, err := ioutil.ReadFile(file)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	c.Assert(err, gc.IsNil)
+	s := string(data)
+	parts := strings.Split(s, "\n-\n")
+	c.Assert(parts[len(parts)-1], gc.Equals, "")
+	var calls [][]string
+	for _, part := range parts[0 : len(parts)-1] {
+		calls = append(calls, splitCall(c, part))
+	}
+	return calls
+}
+
+func splitCall(c *gc.C, part string) []string {
+	var result []string
+	for _, arg := range strings.Split(part, "\n") {
+		c.Assert(arg, gc.Matches, `\+.*\+`)
+		arg = strings.TrimSuffix(arg, "+")
+		arg = strings.TrimPrefix(arg, "+")
+		result = append(result, arg)
+	}
+	return result
+}
+
+func failCmd(path string) {
+	err := ioutil.WriteFile(path, []byte("#!/bin/bash --norc\nexit 1"), 0755)
+	if err != nil {
+		panic(err)
+	}
 }

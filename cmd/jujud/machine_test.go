@@ -907,7 +907,7 @@ var _ = gc.Suite(&MachineWithCharmsSuite{})
 
 func (s *MachineWithCharmsSuite) SetUpTest(c *gc.C) {
 	s.CharmSuite.SetUpTest(c)
-	s.PatchValue(&ensureMongoServer, func(string, int, string) error {
+	s.PatchValue(&ensureMongoServer, func(string, string, params.StateServingInfo) error {
 		return nil
 	})
 
