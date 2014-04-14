@@ -1,5 +1,4 @@
 #!/bin/bash
-export ENV=manual
 source $SCRIPTS/common-startup.sh
 if [ ! -d $JUJU_HOME ]; then
   mkdir $JUJU_HOME

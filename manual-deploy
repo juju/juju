@@ -2,7 +2,10 @@
 set -eux
 : ${SCRIPTS:=$(readlink -f $(dirname $0))}
 : ${JUJU_HOME:=$SCRIPTS/manual-provider-home}
-export JUJU_HOME
+CHARM_PREFIX=${CHARM_PREFIX:-}
+export ENV=manual
+: ${JOB_NAME:="testy"}
+export JUJU_HOME JOB_NAME
 $SCRIPTS/ec2-terminate-job-instances
 export INSTANCE_TYPE=m1.large
 export AMI_IMAGE=ami-bd6d40d4
@@ -33,7 +36,7 @@ for machine in $machine_1_name $machine_2_name; do
   juju add-machine ssh:$machine
 done
 
-if $SCRIPTS/deploy_stack.py --already-bootstrapped manual; then
+if $SCRIPTS/deploy_stack.py --charm-prefix "$CHARM_PREFIX" --already-bootstrapped manual "$@"; then
   exit_code=0
 else
   exit_code=1
