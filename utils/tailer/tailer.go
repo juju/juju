@@ -28,10 +28,6 @@ var (
 // returns true) of shall be omitted (func returns false).
 type TailerFilterFunc func(line []byte) bool
 
-// TailerFilterStartedFunc is a callback that is called when the filtering is
-// starting.
-type TailerFilterStartedFunc func()
-
 // Tailer reads an input line by line an tails them into the passed Writer.
 // The lines have to be terminated with a newline.
 type Tailer struct {

@@ -178,20 +178,19 @@ func (s *debugInternalSuite) TestFilterLine(c *gc.C) {
 		"machine-0: date time WARNING juju.foo.bar")), jc.IsFalse)
 }
 
-func (s *debugInternalSuite) TestFilterLineWithLimit(c *gc.C) {
+func (s *debugInternalSuite) TestCountedFilterLineWithLimit(c *gc.C) {
 	stream := &logStream{
 		filterLevel: loggo.INFO,
 		maxLines:    5,
-		started:     true,
 	}
 	line := []byte("machine-0: date time WARNING juju")
-	c.Check(stream.filterLine(line), jc.IsTrue)
-	c.Check(stream.filterLine(line), jc.IsTrue)
-	c.Check(stream.filterLine(line), jc.IsTrue)
-	c.Check(stream.filterLine(line), jc.IsTrue)
-	c.Check(stream.filterLine(line), jc.IsTrue)
-	c.Check(stream.filterLine(line), jc.IsFalse)
-	c.Check(stream.filterLine(line), jc.IsFalse)
+	c.Check(stream.countedFilterLine(line), jc.IsTrue)
+	c.Check(stream.countedFilterLine(line), jc.IsTrue)
+	c.Check(stream.countedFilterLine(line), jc.IsTrue)
+	c.Check(stream.countedFilterLine(line), jc.IsTrue)
+	c.Check(stream.countedFilterLine(line), jc.IsTrue)
+	c.Check(stream.countedFilterLine(line), jc.IsFalse)
+	c.Check(stream.countedFilterLine(line), jc.IsFalse)
 }
 
 func (s *debugInternalSuite) testStreamInternal(c *gc.C, fromTheStart bool, backlog, maxLines uint, expected, errMatch string) {

@@ -214,7 +214,6 @@ type logStream struct {
 	maxLines      uint
 	lineCount     uint
 	fromTheStart  bool
-	started       bool
 }
 
 // positionLogFile will update the internal read position of the logFile to be
@@ -222,10 +221,7 @@ type logStream struct {
 func (stream *logStream) positionLogFile(logFile io.ReadSeeker) error {
 	// Seek to the end, or lines back from the end if we need to.
 	if !stream.fromTheStart {
-		err := tailer.SeekLastLines(logFile, stream.backlog, stream.filterLine)
-		if err != nil {
-			return err
-		}
+		return tailer.SeekLastLines(logFile, stream.backlog, stream.filterLine)
 	}
 	return nil
 }
@@ -233,8 +229,7 @@ func (stream *logStream) positionLogFile(logFile io.ReadSeeker) error {
 // start the tailer listening to the logFile, and sending the matching
 // lines to the writer.
 func (stream *logStream) start(logFile io.ReadSeeker, writer io.Writer) {
-	stream.started = true
-	stream.logTailer = tailer.NewTailer(logFile, writer, stream.filterLine)
+	stream.logTailer = tailer.NewTailer(logFile, writer, stream.countedFilterLine)
 }
 
 // loop starts the tailer with the log file and the web socket.
@@ -251,11 +246,18 @@ func (stream *logStream) loop() error {
 // filterLine checks the received line for one of the confgured tags.
 func (stream *logStream) filterLine(line []byte) bool {
 	log := parseLogLine(string(line))
-	result := stream.checkIncludeEntity(log) &&
+	return stream.checkIncludeEntity(log) &&
 		stream.checkIncludeModule(log) &&
 		!stream.exclude(log) &&
 		stream.checkLevel(log)
-	if stream.started && result && stream.maxLines > 0 {
+}
+
+// countedFilterLine checks the received line for one of the confgured tags,
+// and also checks to make sure the stream doesn't send more than the
+// specified number of lines.
+func (stream *logStream) countedFilterLine(line []byte) bool {
+	result := stream.filterLine(line)
+	if result && stream.maxLines > 0 {
 		stream.lineCount++
 		result = stream.lineCount <= stream.maxLines
 		if stream.lineCount == stream.maxLines {
