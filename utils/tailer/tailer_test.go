@@ -15,6 +15,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils/tailer"
 )
 
@@ -22,9 +23,11 @@ func Test(t *stdtesting.T) {
 	gc.TestingT(t)
 }
 
-type tailerSuite struct{}
+type tailerSuite struct {
+	testbase.LoggingSuite
+}
 
-var _ = gc.Suite(tailerSuite{})
+var _ = gc.Suite(&tailerSuite{})
 
 var alphabetData = []string{
 	"alpha alpha\n",
@@ -326,7 +329,7 @@ var tests = []struct {
 	},
 }}
 
-func (tailerSuite) TestTailer(c *gc.C) {
+func (s *tailerSuite) TestTailer(c *gc.C) {
 	for i, test := range tests {
 		c.Logf("Test #%d) %s", i, test.description)
 		bufferSize := test.bufferSize
@@ -334,10 +337,15 @@ func (tailerSuite) TestTailer(c *gc.C) {
 			// Default value.
 			bufferSize = 4096
 		}
+		s.PatchValue(tailer.BufferSize, bufferSize)
 		reader, writer := io.Pipe()
 		sigc := make(chan struct{}, 1)
 		rs := startReadSeeker(c, test.data, test.initialLinesWritten, sigc)
-		tailer := tailer.NewTestTailer(rs, writer, test.initialLinesRequested, test.filter, nil, bufferSize, 2*time.Millisecond, !test.fromStart)
+		if !test.fromStart {
+			err := tailer.SeekLastLines(rs, test.initialLinesRequested, test.filter)
+			c.Assert(err, gc.IsNil)
+		}
+		tailer := tailer.NewTestTailer(rs, writer, test.filter, 2*time.Millisecond)
 		linec := startReading(c, tailer, reader, writer)
 
 		// Collect initial data.
