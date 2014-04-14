@@ -1,10 +1,9 @@
 #!/bin/bash
-export ENV=manual
 source $SCRIPTS/common-startup.sh
 if [ ! -d $JUJU_HOME ]; then
   mkdir $JUJU_HOME
 fi
 # Do the deployment for upgrade testing.
 EXIT_STATUS=0
-JUJU_REPOSITORY=$HOME/repository PATH=$NEW_PATH $SCRIPTS/manual-deploy || EXIT_STATUS=$?
+JUJU_REPOSITORY=$HOME/repository PATH=$NEW_PATH $SCRIPTS/manual-deploy "$@" || EXIT_STATUS=$?
 exit $EXIT_STATUS
