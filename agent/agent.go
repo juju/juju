@@ -602,7 +602,7 @@ func (c *configInternal) APIInfo() *api.Info {
 
 func (c *configInternal) StateInfo() *state.Info {
 	return &state.Info{
-		Addrs:    c.stateDetails.addresses,
+		Addrs:    []string{"127.0.0.1"},
 		Password: c.stateDetails.password,
 		CACert:   c.caCert,
 		Tag:      c.tag,

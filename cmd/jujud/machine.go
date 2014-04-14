@@ -228,6 +228,9 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	}
 	reportOpenedAPI(st)
 
+	// get the config, since it may have been updated after opening state.
+	agentConfig = a.CurrentConfig()
+
 	for _, job := range entity.Jobs() {
 		if job.NeedsState() {
 			info, err := st.Agent().StateServingInfo()
