@@ -231,7 +231,6 @@ func sharedSecretPath(dataDir string) string {
 // mongoUpstartService returns the upstart config for the mongo state service.
 //
 func mongoUpstartService(namespace, dataDir, dbDir string, port int) (*upstart.Conf, error) {
-	// NOTE: ensure that the right package is installed?
 	svc := upstart.NewService(ServiceName(namespace))
 
 	mongoPath, err := MongodPath()
@@ -263,13 +262,14 @@ func mongoUpstartService(namespace, dataDir, dbDir string, port int) (*upstart.C
 }
 
 func aptGetInstallMongod() error {
-	// Only Quantal requires the PPA (for mongo).
+	// Only Quantal requires the PPA.
 	if version.Current.Series == "quantal" {
 		if err := addAptRepository("ppa:juju/stable"); err != nil {
 			return err
 		}
 	}
 	cmds := utils.AptGetPreparePackages([]string{"mongodb-server"}, version.Current.Series)
+	logger.Infof("installing mongodb-server")
 	for _, cmd := range cmds {
 		if err := utils.AptGetInstall(cmd...); err != nil {
 			return err
@@ -279,6 +279,19 @@ func aptGetInstallMongod() error {
 }
 
 func addAptRepository(name string) error {
+	// add-apt-repository requires python-software-properties
+	cmds := utils.AptGetPreparePackages(
+		[]string{"python-software-properties"},
+		version.Current.Series,
+	)
+	logger.Infof("installing python-software-properties")
+	for _, cmd := range cmds {
+		if err := utils.AptGetInstall(cmd...); err != nil {
+			return err
+		}
+	}
+
+	logger.Infof("adding apt repository %q", name)
 	cmd := exec.Command("add-apt-repository", "-y", name)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
