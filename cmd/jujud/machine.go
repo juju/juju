@@ -231,6 +231,9 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	// Refresh the configuration, because the password might have changed.
 	agentConfig = a.CurrentConfig()
 
+	// get the config, since it may have been updated after opening state.
+	agentConfig = a.CurrentConfig()
+
 	for _, job := range entity.Jobs() {
 		if job.NeedsState() {
 			info, err := st.Agent().StateServingInfo()
@@ -495,7 +498,11 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 }
 
 func openState(agentConfig agent.Config) (_ *state.State, _ *state.Machine, err error) {
-	st, err := state.Open(agentConfig.StateInfo(), state.DialOpts{}, environs.NewStatePolicy())
+	info, ok := agentConfig.StateInfo()
+	if !ok {
+		return nil, nil, fmt.Errorf("no stateinfo available")
+	}
+	st, err := state.Open(info, state.DialOpts{}, environs.NewStatePolicy())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -587,7 +594,11 @@ func (a *MachineAgent) upgradeWorker(
 		var st *state.State
 		if needsState {
 			var err error
-			st, err = state.Open(agentConfig.StateInfo(), state.DialOpts{}, environs.NewStatePolicy())
+			info, ok := agentConfig.StateInfo()
+			if !ok {
+				return fmt.Errorf("no stateinfo available")
+			}
+			st, err = state.Open(info, state.DialOpts{}, environs.NewStatePolicy())
 			if err != nil {
 				return err
 			}
