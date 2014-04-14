@@ -458,6 +458,14 @@ func (env *localEnviron) Destroy() error {
 
 	// Finally, remove the data-dir.
 	if err := os.RemoveAll(env.config.rootDir()); err != nil && !os.IsNotExist(err) {
+		// Before we return the error, just check to see if the directory is
+		// there. There is a race condition with the agent with the removing
+		// of the directory, and due to a bug
+		// (https://code.google.com/p/go/issues/detail?id=7776) the
+		// os.IsNotExist error isn't always returned.
+		if _, statErr := os.Stat(env.config.rootDir()); os.IsNotExist(statErr) {
+			return nil
+		}
 		return err
 	}
 	return nil

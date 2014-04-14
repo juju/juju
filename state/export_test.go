@@ -259,3 +259,5 @@ var NewAddress = newAddress
 func CheckUserExists(st *State, name string) (bool, error) {
 	return st.checkUserExists(name)
 }
+
+var StateServerAvailable = &stateServerAvailable

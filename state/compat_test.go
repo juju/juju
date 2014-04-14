@@ -10,6 +10,7 @@ import (
 
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/utils"
 )
 
 // compatSuite contains backwards compatibility tests,
@@ -103,4 +104,35 @@ func (s *compatSuite) TestGetMachineWithoutRequestedNetworksIsOK(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(include, gc.HasLen, 0)
 	c.Assert(exclude, gc.HasLen, 0)
+}
+
+func (s *compatSuite) TestOpenStateWithoutAdmin(c *gc.C) {
+	// https://launchpad.net/bugs/1306902
+	// In 1.18, machine-0 did not have access to the "admin" database. In
+	// newer versions we need access in order to do replicaSet mutations.
+	// However, we have not added the ability during upgrade to add
+	// machine-0 to the admin db, so we should still continue even when it
+	// doesn't have rights.
+	machine, err := s.state.AddMachine("quantal", JobManageEnviron)
+	c.Assert(err, gc.IsNil)
+	machinePassword, err := utils.RandomPassword()
+	c.Assert(err, gc.IsNil)
+	err = machine.SetPassword(machinePassword)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetMongoPassword(machinePassword)
+	c.Assert(err, gc.IsNil)
+	// (jam) The only way I've found to actually ensure "machine-0" is
+	// removed from the Admin database is to actually login *as* the
+	// machine agent we just gave admin rights to, and then remove it.
+	adminDB := s.state.db.Session.DB("admin")
+	err = adminDB.Login(machine.Tag(), machinePassword)
+	c.Assert(err, gc.IsNil)
+	err = adminDB.RemoveUser(machine.Tag())
+	c.Assert(err, gc.IsNil)
+	info := TestingStateInfo()
+	info.Tag = machine.Tag()
+	info.Password = machinePassword
+	machineState, err := Open(info, TestingDialOpts(), Policy(nil))
+	c.Assert(err, gc.IsNil)
+	machineState.Close()
 }

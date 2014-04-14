@@ -3,4 +3,7 @@
 
 package tailer
 
-var NewTestTailer = newTailer
+var (
+	BufferSize    = &bufferSize
+	NewTestTailer = newTailer
+)
