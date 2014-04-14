@@ -16,6 +16,23 @@ import (
 	"launchpad.net/juju-core/errors"
 )
 
+// allErrors holds information for all defined errors: a satisfier
+// function, wrapping and variable arguments constructors and message
+// suffix. When adding new errors, add them here as well to include
+// them in tests.
+var allErrors = []struct {
+	satisfier       func(error) bool
+	argsConstructor func(string, ...interface{}) error
+	wrapConstructor func(error, string) error
+	suffix          string
+}{
+	{errors.IsNotFound, errors.NotFoundf, errors.NewNotFound, " not found"},
+	{errors.IsUnauthorized, errors.Unauthorizedf, errors.NewUnauthorized, ""},
+	{errors.IsNotImplemented, errors.NotImplementedf, errors.NewNotImplemented, " not implemented"},
+	{errors.IsAlreadyExists, errors.AlreadyExistsf, errors.NewAlreadyExists, " already exists"},
+	{errors.IsNotSupported, errors.NotSupportedf, errors.NewNotSupported, " not supported"},
+}
+
 type errorsSuite struct{}
 
 var _ = gc.Suite(&errorsSuite{})
@@ -59,83 +76,83 @@ func (*errorsSuite) TestErrors(c *gc.C) {
 		"<nil>",
 		nil,
 	}}
-	for _, errorInfo := range errors.AllErrors {
+	for _, errorInfo := range allErrors {
 		errorTests = append(errorTests, []errorTest{{
-			errorInfo.ArgsConstructor(""),
-			errorInfo.Suffix,
-			errorInfo.Satisfier,
+			errorInfo.argsConstructor(""),
+			errorInfo.suffix,
+			errorInfo.satisfier,
 		}, {
-			errorInfo.ArgsConstructor("pow"),
-			"pow" + errorInfo.Suffix,
-			errorInfo.Satisfier,
+			errorInfo.argsConstructor("pow"),
+			"pow" + errorInfo.suffix,
+			errorInfo.satisfier,
 		}, {
-			errorInfo.ArgsConstructor("woop %d", 123),
-			"woop 123" + errorInfo.Suffix,
-			errorInfo.Satisfier,
+			errorInfo.argsConstructor("woop %d", 123),
+			"woop 123" + errorInfo.suffix,
+			errorInfo.satisfier,
 		}, {
-			errorInfo.WrapConstructor(stderrors.New("woo"), "msg"),
+			errorInfo.wrapConstructor(stderrors.New("woo"), "msg"),
 			"msg: woo",
-			errorInfo.Satisfier,
+			errorInfo.satisfier,
 		}, {
-			errorInfo.WrapConstructor(stderrors.New("woo"), ""),
+			errorInfo.wrapConstructor(stderrors.New("woo"), ""),
 			"woo",
-			errorInfo.Satisfier,
+			errorInfo.satisfier,
 		}, {
-			errorInfo.WrapConstructor(fmt.Errorf("hey %s", "jude"), ""),
+			errorInfo.wrapConstructor(fmt.Errorf("hey %s", "jude"), ""),
 			"hey jude",
-			errorInfo.Satisfier,
+			errorInfo.satisfier,
 		}, {
-			errorInfo.WrapConstructor(nil, "msg"),
+			errorInfo.wrapConstructor(nil, "msg"),
 			"msg",
-			errorInfo.Satisfier,
+			errorInfo.satisfier,
 		}, {
-			errorInfo.WrapConstructor(nil, ""),
+			errorInfo.wrapConstructor(nil, ""),
 			"",
-			errorInfo.Satisfier,
+			errorInfo.satisfier,
 		}, {
-			contextf(errorInfo.ArgsConstructor("woo %q", "bar"), "msg %d", 42),
-			`msg 42: woo "bar"` + errorInfo.Suffix,
-			errorInfo.Satisfier,
+			contextf(errorInfo.argsConstructor("woo %q", "bar"), "msg %d", 42),
+			`msg 42: woo "bar"` + errorInfo.suffix,
+			errorInfo.satisfier,
 		}, {
-			contextf(errorInfo.ArgsConstructor("something"), "bad"),
-			"bad: something" + errorInfo.Suffix,
-			errorInfo.Satisfier,
+			contextf(errorInfo.argsConstructor("something"), "bad"),
+			"bad: something" + errorInfo.suffix,
+			errorInfo.satisfier,
 		}, {
-			contextf(errorInfo.ArgsConstructor("foo"), ""),
-			"foo" + errorInfo.Suffix,
-			errorInfo.Satisfier,
+			contextf(errorInfo.argsConstructor("foo"), ""),
+			"foo" + errorInfo.suffix,
+			errorInfo.satisfier,
 		}, {
-			contextf(errorInfo.ArgsConstructor(""), ""),
-			errorInfo.Suffix,
-			errorInfo.Satisfier,
+			contextf(errorInfo.argsConstructor(""), ""),
+			errorInfo.suffix,
+			errorInfo.satisfier,
 		}, {
-			contextf(errorInfo.WrapConstructor(fmt.Errorf("foo %s", "baz"), "bad"), "bar %d", 42),
+			contextf(errorInfo.wrapConstructor(fmt.Errorf("foo %s", "baz"), "bad"), "bar %d", 42),
 			"bar 42: bad: foo baz",
-			errorInfo.Satisfier,
+			errorInfo.satisfier,
 		}, {
-			contextf(errorInfo.WrapConstructor(stderrors.New("foo"), "bar"), "cause"),
+			contextf(errorInfo.wrapConstructor(stderrors.New("foo"), "bar"), "cause"),
 			"cause: bar: foo",
-			errorInfo.Satisfier,
+			errorInfo.satisfier,
 		}, {
-			contextf(errorInfo.WrapConstructor(stderrors.New(""), "bar"), "cause"),
+			contextf(errorInfo.wrapConstructor(stderrors.New(""), "bar"), "cause"),
 			"cause: bar: ",
-			errorInfo.Satisfier,
+			errorInfo.satisfier,
 		}, {
-			contextf(errorInfo.WrapConstructor(stderrors.New("woohoo"), ""), "cause"),
+			contextf(errorInfo.wrapConstructor(stderrors.New("woohoo"), ""), "cause"),
 			"cause: woohoo",
-			errorInfo.Satisfier,
+			errorInfo.satisfier,
 		}, {
-			contextf(errorInfo.WrapConstructor(stderrors.New(""), ""), "cause"),
+			contextf(errorInfo.wrapConstructor(stderrors.New(""), ""), "cause"),
 			"cause: ",
-			errorInfo.Satisfier,
+			errorInfo.satisfier,
 		}, {
-			contextf(errorInfo.WrapConstructor(nil, "woo"), "cause"),
+			contextf(errorInfo.wrapConstructor(nil, "woo"), "cause"),
 			"cause: woo",
-			errorInfo.Satisfier,
+			errorInfo.satisfier,
 		}, {
-			contextf(errorInfo.WrapConstructor(nil, ""), ""),
+			contextf(errorInfo.wrapConstructor(nil, ""), ""),
 			"",
-			errorInfo.Satisfier,
+			errorInfo.satisfier,
 		}}...)
 	}
 
@@ -152,12 +169,12 @@ func (*errorsSuite) TestErrors(c *gc.C) {
 			c.Check(t.err, jc.Satisfies, t.satisfier)
 		}
 		// Make sure only t.satifier satisfies t.err.
-		for _, errorInfo := range errors.AllErrors {
+		for _, errorInfo := range allErrors {
 			// Not using jc.Satisfies here, because it doesn't give a
 			// nice string representation of the function. Also, you
 			// can't take the address of a func, but you can store it
 			// and take the address of the struct.
-			satisfier := errorInfo.Satisfier
+			satisfier := errorInfo.satisfier
 			errSatisfier := &errorSatisfier{satisfier}
 			testSatisfier := &errorSatisfier{t.satisfier}
 			if t.satisfier == nil && satisfier(t.err) {

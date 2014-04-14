@@ -10,21 +10,27 @@ import (
 // wrapper defines a way to encapsulate an error inside another error.
 type wrapper struct {
 	// Err is the underlying error.
-	Err error
+	err error
 
 	// Msg is the annotation (prefix) of Err.
-	Msg string
+	msg string
+}
+
+// newer is implemented by error types that can add a context message
+// while preserving their type.
+type newer interface {
+	new(msg string) error
 }
 
 // Error implements the error interface.
 func (e *wrapper) Error() string {
-	if e.Msg != "" || e.Err == nil {
-		if e.Err != nil {
-			return fmt.Sprintf("%s: %v", e.Msg, e.Err.Error())
+	if e.msg != "" || e.err == nil {
+		if e.err != nil {
+			return fmt.Sprintf("%s: %v", e.msg, e.err.Error())
 		}
-		return e.Msg
+		return e.msg
 	}
-	return e.Err.Error()
+	return e.err.Error()
 }
 
 // wrap is a helper to construct an *wrapper.
@@ -32,43 +38,30 @@ func wrap(err error, format, suffix string, args ...interface{}) *wrapper {
 	return &wrapper{err, fmt.Sprintf(format+suffix, args...)}
 }
 
-// allErrors holds information for all defined errors: a satisfier
-// function, wrapping and variable arguments constructors and message
-// suffix. When adding new errors, add them here as well to include
-// them in tests.
-var allErrors = []struct {
-	Satisfier       func(error) bool
-	ArgsConstructor func(string, ...interface{}) error
-	WrapConstructor func(error, string) error
-	Suffix          string
-}{
-	{IsNotFound, NotFoundf, NewNotFound, " not found"},
-	{IsUnauthorized, Unauthorizedf, NewUnauthorized, ""},
-	{IsNotImplemented, NotImplementedf, NewNotImplemented, " not implemented"},
-	{IsAlreadyExists, AlreadyExistsf, NewAlreadyExists, " already exists"},
-	{IsNotSupported, NotSupportedf, NewNotSupported, " not supported"},
-}
-
 // Contextf prefixes any error stored in err with text formatted
 // according to the format specifier. If err does not contain an
 // error, Contextf does nothing. All errors created with functions
 // from this package are preserved when wrapping.
 func Contextf(err *error, format string, args ...interface{}) {
-	if *err != nil {
-		msg := fmt.Sprintf(format, args...)
-		for _, errorInfo := range allErrors {
-			if errorInfo.Satisfier(*err) {
-				*err = errorInfo.WrapConstructor(*err, msg)
-				return
-			}
-		}
-		*err = fmt.Errorf("%s: %v", msg, *err)
+	if *err == nil {
+		return
 	}
+	msg := fmt.Sprintf(format, args...)
+	errNewer, ok := (*err).(newer)
+	if ok {
+		*err = errNewer.new(msg)
+		return
+	}
+	*err = fmt.Errorf("%s: %v", msg, *err)
 }
 
 // notFound represents an error when something has not been found.
 type notFound struct {
 	*wrapper
+}
+
+func (e notFound) new(msg string) error {
+	return NewNotFound(e, msg)
 }
 
 // NotFoundf returns an error which satisfies IsNotFound().
@@ -92,6 +85,10 @@ func IsNotFound(err error) bool {
 // unauthorized represents an error when an operation is unauthorized.
 type unauthorized struct {
 	*wrapper
+}
+
+func (e unauthorized) new(msg string) error {
+	return NewUnauthorized(e, msg)
 }
 
 // Unauthorizedf returns an error which satisfies IsUnauthorized().
@@ -118,6 +115,10 @@ type notImplemented struct {
 	*wrapper
 }
 
+func (e notImplemented) new(msg string) error {
+	return NewNotImplemented(e, msg)
+}
+
 // NotImplementedf returns an error which satisfies IsNotImplemented().
 func NotImplementedf(format string, args ...interface{}) error {
 	return notImplemented{wrap(nil, format, " not implemented", args...)}
@@ -141,6 +142,10 @@ type alreadyExists struct {
 	*wrapper
 }
 
+func (e alreadyExists) new(msg string) error {
+	return NewAlreadyExists(e, msg)
+}
+
 // AlreadyExistsf returns an error which satisfies IsAlreadyExists().
 func AlreadyExistsf(format string, args ...interface{}) error {
 	return alreadyExists{wrap(nil, format, " already exists", args...)}
@@ -162,6 +167,10 @@ func IsAlreadyExists(err error) bool {
 // notSupported represents an error when something is not supported.
 type notSupported struct {
 	*wrapper
+}
+
+func (e notSupported) new(msg string) error {
+	return NewNotSupported(e, msg)
 }
 
 // NotSupportedf returns an error which satisfies IsNotSupported().
