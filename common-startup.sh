@@ -33,6 +33,9 @@ prepare_manual(){
     machine_1_name=$($SCRIPTS/ec2-get-name $machine_1_id)
     machine_2_name=$($SCRIPTS/ec2-get-name $machine_2_id)
 
+    if [ ! -d $JUJU_HOME ]; then
+        mkdir $JUJU_HOME
+    fi
     rm -f $JUJU_HOME/environments/manual.jenv
 
     # Write new environments.yaml
