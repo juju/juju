@@ -228,10 +228,8 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		return nil, err
 	}
 	reportOpenedAPI(st)
-	// Refresh the configuration, because the password might have changed.
-	agentConfig = a.CurrentConfig()
 
-	// get the config, since it may have been updated after opening state.
+	// Refresh the configuration, since it may have been updated after opening state.
 	agentConfig = a.CurrentConfig()
 
 	for _, job := range entity.Jobs() {
@@ -246,6 +244,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			if err != nil {
 				return nil, err
 			}
+			agentConfig = a.CurrentConfig()
 			break
 		}
 	}
