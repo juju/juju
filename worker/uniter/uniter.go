@@ -21,12 +21,12 @@ import (
 	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/uniter"
 	apiwatcher "launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/state/watcher"
-	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/exec"
 	"launchpad.net/juju-core/utils/fslock"
 	"launchpad.net/juju-core/worker"
@@ -163,7 +163,7 @@ func (u *Uniter) setupLocks() (err error) {
 }
 
 func (u *Uniter) init(unitTag string) (err error) {
-	defer utils.ErrorContextf(&err, "failed to initialize uniter for %q", unitTag)
+	defer errors.Contextf(&err, "failed to initialize uniter for %q", unitTag)
 	u.unit, err = u.st.Unit(unitTag)
 	if err != nil {
 		return err

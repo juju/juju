@@ -77,7 +77,7 @@ func removeServiceAndUnits(c *gc.C, service *state.Service) {
 	c.Assert(err, gc.IsNil)
 
 	err = service.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 // apiAuthenticator represents a simple authenticator object with only the

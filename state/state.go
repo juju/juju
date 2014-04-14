@@ -916,7 +916,7 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 // supplied name (which must be unique). If the charm defines peer relations,
 // they will be created automatically.
 func (st *State) AddService(name, ownerTag string, ch *Charm, includeNetworks, excludeNetworks []string) (service *Service, err error) {
-	defer utils.ErrorContextf(&err, "cannot add service %q", name)
+	defer errors.Contextf(&err, "cannot add service %q", name)
 	kind, ownerId, err := names.ParseTag(ownerTag, names.UserTagKind)
 	if err != nil || kind != names.UserTagKind {
 		return nil, fmt.Errorf("Invalid ownertag %s", ownerTag)
@@ -991,7 +991,7 @@ func (st *State) AddService(name, ownerTag string, ch *Charm, includeNetworks, e
 
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
 		err := env.Refresh()
-		if (err == nil && env.Life() != Alive) || errors.IsNotFoundError(err) {
+		if (err == nil && env.Life() != Alive) || errors.IsNotFound(err) {
 			return nil, fmt.Errorf("environment is no longer alive")
 		} else if err != nil {
 			return nil, err
@@ -1017,9 +1017,9 @@ func (st *State) AddService(name, ownerTag string, ch *Charm, includeNetworks, e
 // AddNetwork creates a new network with the given name,
 // provider-specific id, CIDR and VLAN tag. If a network with the same
 // name or provider id already exists in state, an error satisfying
-// errors.IsAlreadyExistsError is returned.
+// errors.IsAlreadyExists is returned.
 func (st *State) AddNetwork(name, providerId, cidr string, vlanTag int) (n *Network, err error) {
-	defer utils.ErrorContextf(&err, "cannot add network %q", name)
+	defer errors.Contextf(&err, "cannot add network %q", name)
 	if cidr != "" {
 		_, _, err := net.ParseCIDR(cidr)
 		if err != nil {
@@ -1054,8 +1054,7 @@ func (st *State) AddNetwork(name, providerId, cidr string, vlanTag int) (n *Netw
 	switch err {
 	case txn.ErrAborted:
 		if _, err = st.Network(name); err == nil {
-			msg := fmt.Sprintf("network %q", name)
-			return nil, errors.NewAlreadyExistsError(msg)
+			return nil, errors.AlreadyExistsf("network %q", name)
 		} else if err != nil {
 			return nil, err
 		}
@@ -1065,8 +1064,7 @@ func (st *State) AddNetwork(name, providerId, cidr string, vlanTag int) (n *Netw
 		// document is not added. So we check if the supposedly
 		// successful transaction did actually add the document.
 		if _, err = st.Network(name); err != nil {
-			msg := fmt.Sprintf("network with provider id %q", providerId)
-			return nil, errors.NewAlreadyExistsError(msg)
+			return nil, errors.AlreadyExistsf("network with provider id %q", providerId)
 		}
 		return newNetwork(st, doc), nil
 	}
@@ -1231,7 +1229,7 @@ func (st *State) endpoints(name string, filter func(ep Endpoint) bool) ([]Endpoi
 // AddRelation creates a new relation with the given endpoints.
 func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	key := relationKey(eps)
-	defer utils.ErrorContextf(&err, "cannot add relation %q", key)
+	defer errors.Contextf(&err, "cannot add relation %q", key)
 	// Enforce basic endpoint sanity. The epCount restrictions may be relaxed
 	// in the future; if so, this method is likely to need significant rework.
 	if len(eps) != 2 {
@@ -1270,7 +1268,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		series := map[string]bool{}
 		for _, ep := range eps {
 			svc, err := st.Service(ep.ServiceName)
-			if errors.IsNotFoundError(err) {
+			if errors.IsNotFound(err) {
 				return nil, fmt.Errorf("service %q does not exist", ep.ServiceName)
 			} else if err != nil {
 				return nil, err
@@ -1381,7 +1379,7 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 	if !u.IsPrincipal() {
 		return fmt.Errorf("subordinate unit %q cannot be assigned directly to a machine", u)
 	}
-	defer utils.ErrorContextf(&err, "cannot assign unit %q to machine", u)
+	defer errors.Contextf(&err, "cannot assign unit %q to machine", u)
 	var m *Machine
 	switch policy {
 	case AssignLocal:

@@ -1809,7 +1809,7 @@ type relationState struct {
 func (s relationState) step(c *gc.C, ctx *context) {
 	err := ctx.relation.Refresh()
 	if s.removed {
-		c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+		c.Assert(err, jc.Satisfies, errors.IsNotFound)
 		return
 	}
 	c.Assert(err, gc.IsNil)
@@ -1822,7 +1822,7 @@ type addSubordinateRelation struct {
 }
 
 func (s addSubordinateRelation) step(c *gc.C, ctx *context) {
-	if _, err := ctx.st.Service("logging"); errors.IsNotFoundError(err) {
+	if _, err := ctx.st.Service("logging"); errors.IsNotFound(err) {
 		ctx.s.AddTestingService(c, "logging", ctx.s.AddTestingCharm(c, "logging"))
 	}
 	eps, err := ctx.st.InferEndpoints([]string{"logging", "u:" + s.ifce})
@@ -1858,7 +1858,7 @@ func (s waitSubordinateExists) step(c *gc.C, ctx *context) {
 		case <-time.After(coretesting.ShortWait):
 			var err error
 			ctx.subordinate, err = ctx.st.Unit(s.name)
-			if errors.IsNotFoundError(err) {
+			if errors.IsNotFound(err) {
 				continue
 			}
 			c.Assert(err, gc.IsNil)

@@ -15,7 +15,6 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/replicaset"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/utils"
 )
 
 // MachineTemplate holds attributes that are to be associated
@@ -122,7 +121,7 @@ func (st *State) AddOneMachine(template MachineTemplate) (*Machine, error) {
 // AddMachines adds new machines configured according to the
 // given templates.
 func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err error) {
-	defer utils.ErrorContextf(&err, "cannot add a new machine")
+	defer errors.Contextf(&err, "cannot add a new machine")
 	var ms []*Machine
 	env, err := st.Environment()
 	if err != nil {
@@ -170,7 +169,7 @@ func (st *State) addMachine(mdoc *machineDoc, ops []txn.Op) (*Machine, error) {
 	ops = append([]txn.Op{env.assertAliveOp()}, ops...)
 	if err := st.runTransaction(ops); err != nil {
 		enverr := env.Refresh()
-		if (enverr == nil && env.Life() != Alive) || errors.IsNotFoundError(enverr) {
+		if (enverr == nil && env.Life() != Alive) || errors.IsNotFound(enverr) {
 			return nil, fmt.Errorf("environment is no longer alive")
 		} else if enverr != nil {
 			err = enverr

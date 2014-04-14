@@ -536,7 +536,7 @@ func (s *uniterSuite) TestDestroy(c *gc.C) {
 
 	// Verify wordpressUnit is destroyed and removed.
 	err = s.wordpressUnit.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *uniterSuite) TestDestroyAllSubordinates(c *gc.C) {

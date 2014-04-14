@@ -141,7 +141,7 @@ func (st *State) cleanupUnits(prefix string) error {
 // expected to be used in response to destroy-machine --force.
 func (st *State) cleanupMachine(machineId string) error {
 	machine, err := st.Machine(machineId)
-	if errors.IsNotFoundError(err) {
+	if errors.IsNotFound(err) {
 		return nil
 	} else if err != nil {
 		return err
@@ -162,7 +162,7 @@ func (st *State) cleanupMachine(machineId string) error {
 	// We need to refresh the machine at this point, because the local copy
 	// of the document will not reflect changes caused by the unit cleanups
 	// above, and may thus fail immediately.
-	if err := machine.Refresh(); errors.IsNotFoundError(err) {
+	if err := machine.Refresh(); errors.IsNotFound(err) {
 		return nil
 	} else if err != nil {
 		return err
@@ -184,7 +184,7 @@ func (st *State) cleanupMachine(machineId string) error {
 // machine's containers, and removes them from state entirely.
 func (st *State) cleanupContainers(machine *Machine) error {
 	containerIds, err := machine.Containers()
-	if errors.IsNotFoundError(err) {
+	if errors.IsNotFound(err) {
 		return nil
 	} else if err != nil {
 		return err
@@ -194,7 +194,7 @@ func (st *State) cleanupContainers(machine *Machine) error {
 			return err
 		}
 		container, err := st.Machine(containerId)
-		if errors.IsNotFoundError(err) {
+		if errors.IsNotFound(err) {
 			return nil
 		} else if err != nil {
 			return err
@@ -212,7 +212,7 @@ func (st *State) cleanupContainers(machine *Machine) error {
 // shutdown of units is not going to leave a machine in a difficult state.
 func (st *State) obliterateUnit(unitName string) error {
 	unit, err := st.Unit(unitName)
-	if errors.IsNotFoundError(err) {
+	if errors.IsNotFound(err) {
 		return nil
 	} else if err != nil {
 		return err
@@ -223,7 +223,7 @@ func (st *State) obliterateUnit(unitName string) error {
 	if err := unit.Destroy(); err != nil {
 		return err
 	}
-	if err := unit.Refresh(); errors.IsNotFoundError(err) {
+	if err := unit.Refresh(); errors.IsNotFound(err) {
 		return nil
 	} else if err != nil {
 		return err

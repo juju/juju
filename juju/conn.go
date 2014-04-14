@@ -54,7 +54,7 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 	info.Password = password
 	opts := state.DefaultDialOpts()
 	st, err := state.Open(info, opts, environs.NewStatePolicy())
-	if errors.IsUnauthorizedError(err) {
+	if errors.IsUnauthorized(err) {
 		log.Noticef("juju: authorization error while connecting to state server; retrying")
 		// We can't connect with the administrator password,;
 		// perhaps this was the first connection and the
@@ -66,7 +66,7 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 		// initialized and the initial password set.
 		for a := redialStrategy.Start(); a.Next(); {
 			st, err = state.Open(info, opts, environs.NewStatePolicy())
-			if !errors.IsUnauthorizedError(err) {
+			if !errors.IsUnauthorized(err) {
 				break
 			}
 		}

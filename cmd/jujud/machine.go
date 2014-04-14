@@ -498,7 +498,7 @@ func openState(agentConfig agent.Config) (_ *state.State, _ *state.Machine, err 
 	}()
 	m0, err := st.FindEntity(agentConfig.Tag())
 	if err != nil {
-		if errors.IsNotFoundError(err) {
+		if errors.IsNotFound(err) {
 			err = worker.ErrTerminateAgent
 		}
 		return nil, nil, err

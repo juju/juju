@@ -7,6 +7,7 @@ import (
 	"sort"
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/errors"
@@ -180,7 +181,7 @@ func (s *deployerSuite) TestSetPasswords(c *gc.C) {
 	err = s.subordinate0.Remove()
 	c.Assert(err, gc.IsNil)
 	err = s.subordinate0.Refresh()
-	c.Assert(errors.IsNotFoundError(err), gc.Equals, true)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	results, err = s.deployer.SetPasswords(params.EntityPasswords{
 		Changes: []params.EntityPassword{
@@ -228,7 +229,7 @@ func (s *deployerSuite) TestLife(c *gc.C) {
 	err = s.subordinate0.Remove()
 	c.Assert(err, gc.IsNil)
 	err = s.subordinate0.Refresh()
-	c.Assert(errors.IsNotFoundError(err), gc.Equals, true)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	result, err = s.deployer.Life(params.Entities{
 		Entities: []params.Entity{
@@ -289,7 +290,7 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 	})
 
 	err = s.subordinate0.Refresh()
-	c.Assert(errors.IsNotFoundError(err), gc.Equals, true)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// Make sure the subordinate is detected as removed.
 	result, err = s.deployer.Remove(args)

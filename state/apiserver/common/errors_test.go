@@ -75,7 +75,7 @@ var errorTransformTests = []struct {
 	code:       params.CodeNotProvisioned,
 	helperFunc: params.IsCodeNotProvisioned,
 }, {
-	err:        errors.NewAlreadyExistsError("blah"),
+	err:        errors.AlreadyExistsf("blah"),
 	code:       params.CodeAlreadyExists,
 	helperFunc: params.IsCodeAlreadyExists,
 }, {

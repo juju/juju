@@ -255,7 +255,7 @@ func (*OpenSuite) TestPrepareWithMissingKey(c *gc.C) {
 	c.Assert(env, gc.IsNil)
 	// Ensure that the config storage info is cleaned up.
 	_, err = store.ReadInfo(cfg.Name())
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (*OpenSuite) TestPrepareWithExistingKeyPair(c *gc.C) {
@@ -305,7 +305,7 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 	_, _, err = e.StateInfo()
 	c.Assert(err, gc.ErrorMatches, "environment has been destroyed")
 	_, err = store.ReadInfo(e.Name())
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (*OpenSuite) TestNewFromAttrs(c *gc.C) {

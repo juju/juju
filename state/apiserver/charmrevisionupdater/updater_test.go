@@ -63,11 +63,11 @@ func (s *charmVersionSuite) TestUpdateRevisions(c *gc.C) {
 
 	curl := charm.MustParseURL("cs:quantal/mysql")
 	_, err := s.State.LatestPlaceholderCharm(curl)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	curl = charm.MustParseURL("cs:quantal/wordpress")
 	_, err = s.State.LatestPlaceholderCharm(curl)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	result, err := s.charmrevisionupdater.UpdateLatestRevisions()
 	c.Assert(err, gc.IsNil)
@@ -81,12 +81,12 @@ func (s *charmVersionSuite) TestUpdateRevisions(c *gc.C) {
 	// Latest wordpress is already deployed, so no pending charm.
 	curl = charm.MustParseURL("cs:quantal/wordpress")
 	_, err = s.State.LatestPlaceholderCharm(curl)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// Varnish has an error when updating, so no pending charm.
 	curl = charm.MustParseURL("cs:quantal/varnish")
 	_, err = s.State.LatestPlaceholderCharm(curl)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// Update mysql version and run update again.
 	svc, err := s.State.Service("mysql")
@@ -102,7 +102,7 @@ func (s *charmVersionSuite) TestUpdateRevisions(c *gc.C) {
 	// Latest mysql is now deployed, so no pending charm.
 	curl = charm.MustParseURL("cs:quantal/mysql")
 	_, err = s.State.LatestPlaceholderCharm(curl)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *charmVersionSuite) TestEnvironmentUUIDUsed(c *gc.C) {

@@ -5,18 +5,19 @@ package errors
 
 import (
 	"fmt"
-	"strings"
 )
 
-// errorWrapper defines a way to encapsulate an error inside another error.
-type errorWrapper struct {
+// wrapper defines a way to encapsulate an error inside another error.
+type wrapper struct {
 	// Err is the underlying error.
 	Err error
+
+	// Msg is the annotation (prefix) of Err.
 	Msg string
 }
 
 // Error implements the error interface.
-func (e *errorWrapper) Error() string {
+func (e *wrapper) Error() string {
 	if e.Msg != "" || e.Err == nil {
 		if e.Err != nil {
 			return fmt.Sprintf("%s: %v", e.Msg, e.Err.Error())
@@ -26,125 +27,157 @@ func (e *errorWrapper) Error() string {
 	return e.Err.Error()
 }
 
-// notFoundError records an error when something has not been found.
-type notFoundError struct {
-	*errorWrapper
+// wrap is a helper to construct an *wrapper.
+func wrap(err error, format, suffix string, args ...interface{}) *wrapper {
+	return &wrapper{err, fmt.Sprintf(format+suffix, args...)}
 }
 
-// IsNotFoundError is satisfied by errors created by this package representing
-// resources that can't be found.
-func IsNotFoundError(err error) bool {
-	_, ok := err.(notFoundError)
-	return ok || (err != nil && strings.HasSuffix(err.Error(), " not found"))
+// allErrors holds information for all defined errors: a satisfier
+// function, wrapping and variable arguments constructors and message
+// suffix. When adding new errors, add them here as well to include
+// them in tests.
+var allErrors = []struct {
+	Satisfier       func(error) bool
+	ArgsConstructor func(string, ...interface{}) error
+	WrapConstructor func(error, string) error
+	Suffix          string
+}{
+	{IsNotFound, NotFoundf, NewNotFound, " not found"},
+	{IsUnauthorized, Unauthorizedf, NewUnauthorized, ""},
+	{IsNotImplemented, NotImplementedf, NewNotImplemented, " not implemented"},
+	{IsAlreadyExists, AlreadyExistsf, NewAlreadyExists, " already exists"},
+	{IsNotSupported, NotSupportedf, NewNotSupported, " not supported"},
 }
 
-// NotFoundf returns a error which satisfies IsNotFoundError().
-// The message for the error is made up from the given
-// arguments formatted as with fmt.Sprintf, with the
-// string " not found" appended.
+// Contextf prefixes any error stored in err with text formatted
+// according to the format specifier. If err does not contain an
+// error, Contextf does nothing. All errors created with functions
+// from this package are preserved when wrapping.
+func Contextf(err *error, format string, args ...interface{}) {
+	if *err != nil {
+		msg := fmt.Sprintf(format, args...)
+		for _, errorInfo := range allErrors {
+			if errorInfo.Satisfier(*err) {
+				*err = errorInfo.WrapConstructor(*err, msg)
+				return
+			}
+		}
+		*err = fmt.Errorf("%s: %v", msg, *err)
+	}
+}
+
+// notFound represents an error when something has not been found.
+type notFound struct {
+	*wrapper
+}
+
+// NotFoundf returns an error which satisfies IsNotFound().
 func NotFoundf(format string, args ...interface{}) error {
-	return notFoundError{
-		&errorWrapper{
-			Msg: fmt.Sprintf(format+" not found", args...),
-		},
-	}
+	return notFound{wrap(nil, format, " not found", args...)}
 }
 
-// NewNotFoundError returns a new error wrapping err that satisfies
-// IsNotFoundError().
-func NewNotFoundError(err error, msg string) error {
-	return notFoundError{&errorWrapper{Err: err, Msg: msg}}
+// NewNotFound returns an error which wraps err that satisfies
+// IsNotFound().
+func NewNotFound(err error, msg string) error {
+	return notFound{wrap(err, msg, "")}
 }
 
-// unauthorizedError represents the error that an operation is unauthorized.
-// Use IsUnauthorized() to determine if the error was related to authorization
-// failure.
-type unauthorizedError struct {
-	*errorWrapper
-}
-
-// IsUnauthorizedError is satisfied by errors created by this package
-// representing authorization failures.
-func IsUnauthorizedError(err error) bool {
-	_, ok := err.(unauthorizedError)
+// IsNotFound reports whether err was created with NotFoundf() or
+// NewNotFound().
+func IsNotFound(err error) bool {
+	_, ok := err.(notFound)
 	return ok
 }
 
-// Unauthorizedf returns an error which satisfies IsUnauthorizedError().
+// unauthorized represents an error when an operation is unauthorized.
+type unauthorized struct {
+	*wrapper
+}
+
+// Unauthorizedf returns an error which satisfies IsUnauthorized().
 func Unauthorizedf(format string, args ...interface{}) error {
-	return unauthorizedError{
-		&errorWrapper{
-			Msg: fmt.Sprintf(format, args...),
-		},
-	}
+	return unauthorized{wrap(nil, format, "", args...)}
 }
 
-// NewUnauthorizedError returns an error which wraps err and satisfies
+// NewUnauthorized returns an error which wraps err and satisfies
 // IsUnauthorized().
-func NewUnauthorizedError(err error, msg string) error {
-	return unauthorizedError{&errorWrapper{Err: err, Msg: msg}}
+func NewUnauthorized(err error, msg string) error {
+	return unauthorized{wrap(err, msg, "")}
 }
 
-type notImplementedError struct {
-	what string
-}
-
-// NewNotImplementedError returns an error signifying that
-// something is not implemented.
-func NewNotImplementedError(what string) error {
-	return &notImplementedError{what: what}
-}
-
-func (e *notImplementedError) Error() string {
-	return e.what + " not implemented"
-}
-
-// IsNotImplementedError reports whether the error
-// was created with NewNotImplementedError.
-func IsNotImplementedError(err error) bool {
-	_, ok := err.(*notImplementedError)
+// IsUnauthorized reports whether err was created with Unauthorizedf() or
+// NewUnauthorized().
+func IsUnauthorized(err error) bool {
+	_, ok := err.(unauthorized)
 	return ok
 }
 
-type alreadyExistsError struct {
-	what string
+// notImplemented represents an error when something is not
+// implemented.
+type notImplemented struct {
+	*wrapper
 }
 
-// NewAlreadyExistsError returns an error signifying that
-// something already exists.
-func NewAlreadyExistsError(what string) error {
-	return &alreadyExistsError{what: what}
+// NotImplementedf returns an error which satisfies IsNotImplemented().
+func NotImplementedf(format string, args ...interface{}) error {
+	return notImplemented{wrap(nil, format, " not implemented", args...)}
 }
 
-func (e *alreadyExistsError) Error() string {
-	return e.what + " already exists"
+// NewNotImplemented returns an error which wraps err and satisfies
+// IsNotImplemented().
+func NewNotImplemented(err error, msg string) error {
+	return notImplemented{wrap(err, msg, "")}
 }
 
-// IsAlreadyExistsError reports whether the error
-// was created with NewAlreadyExistsError.
-func IsAlreadyExistsError(err error) bool {
-	_, ok := err.(*alreadyExistsError)
-	return ok || (err != nil && strings.HasSuffix(err.Error(), " already exists"))
+// IsNotImplemented reports whether err was created with
+// NotImplementedf() or NewNotImplemented().
+func IsNotImplemented(err error) bool {
+	_, ok := err.(notImplemented)
+	return ok
 }
 
-type notSupportedError struct {
-	what string
+// alreadyExists represents and error when something already exists.
+type alreadyExists struct {
+	*wrapper
 }
 
-// NewNotSupportedError returns an error signifying that something is not
-// supported.  For example a client API call to a server that does not support
-// the action.
-func NewNotSupportedError(what string) error {
-	return &notSupportedError{what: what}
+// AlreadyExistsf returns an error which satisfies IsAlreadyExists().
+func AlreadyExistsf(format string, args ...interface{}) error {
+	return alreadyExists{wrap(nil, format, " already exists", args...)}
 }
 
-func (e *notSupportedError) Error() string {
-	return e.what + " not supported"
+// NewAlreadyExists returns an error which wraps err and satisfies
+// IsAlreadyExists().
+func NewAlreadyExists(err error, msg string) error {
+	return alreadyExists{wrap(err, msg, "")}
 }
 
-// IsNotSupportedError reports whether the error
-// was created with NewNotSupportedError.
-func IsNotSupportedError(err error) bool {
-	_, ok := err.(*notSupportedError)
+// IsAlreadyExists reports whether the error was created with
+// AlreadyExistsf() or NewAlreadyExists().
+func IsAlreadyExists(err error) bool {
+	_, ok := err.(alreadyExists)
+	return ok
+}
+
+// notSupported represents an error when something is not supported.
+type notSupported struct {
+	*wrapper
+}
+
+// NotSupportedf returns an error which satisfies IsNotSupported().
+func NotSupportedf(format string, args ...interface{}) error {
+	return notSupported{wrap(nil, format, " not supported", args...)}
+}
+
+// NewNotSupported returns an error which wraps err and satisfies
+// IsNotSupported().
+func NewNotSupported(err error, msg string) error {
+	return notSupported{wrap(err, msg, "")}
+}
+
+// IsNotSupported reports whether the error was created with
+// NotSupportedf() or NewNotSupported().
+func IsNotSupported(err error) bool {
+	_, ok := err.(notSupported)
 	return ok
 }

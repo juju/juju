@@ -319,7 +319,7 @@ func (s *CommonProvisionerSuite) waitHardwareCharacteristics(c *gc.C, m *state.M
 func (s *CommonProvisionerSuite) waitRemoved(c *gc.C, m *state.Machine) {
 	s.waitMachine(c, m, func() bool {
 		err := m.Refresh()
-		if errors.IsNotFoundError(err) {
+		if errors.IsNotFound(err) {
 			return true
 		}
 		c.Assert(err, gc.IsNil)
@@ -499,9 +499,9 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedNetworks(c *gc.C
 	_, err = s.State.Network("net2")
 	c.Assert(err, gc.IsNil)
 	_, err = s.State.Network("net3")
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	_, err = s.State.Network("net4")
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	ifaces, err := m.NetworkInterfaces()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ifaces, gc.HasLen, 2)

@@ -183,7 +183,7 @@ func (*storageSuite) TestGetReturnsNotFoundIf404(c *gc.C) {
 	transport.AddExchange(response, nil)
 	_, err := storage.Get(azStorage, filename)
 	c.Assert(err, gc.NotNil)
-	c.Check(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (*storageSuite) TestPut(c *gc.C) {

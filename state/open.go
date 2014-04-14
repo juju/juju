@@ -159,7 +159,7 @@ func Initialize(info *Info, cfg *config.Config, opts DialOpts, policy Policy) (r
 	// do nothing.
 	if _, err := st.Environment(); err == nil {
 		return st, nil
-	} else if !errors.IsNotFoundError(err) {
+	} else if !errors.IsNotFound(err) {
 		return nil, err
 	}
 	logger.Infof("initializing environment")
