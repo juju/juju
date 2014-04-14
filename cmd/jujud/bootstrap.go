@@ -151,7 +151,12 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 func (c *BootstrapCommand) startMongo(addrs []instance.Address, agentConfig agent.Config) error {
 	logger.Debugf("starting mongo")
 
-	dialInfo, err := state.DialInfo(agentConfig.StateInfo(), state.DefaultDialOpts())
+	agentConfig := c.CurrentConfig()
+	info, ok := agentConfig.StateInfo()
+	if !ok {
+		return fmt.Errorf("no stateinfo available")
+	}
+	dialInfo, err := state.DialInfo(info, state.DefaultDialOpts())
 	if err != nil {
 		return err
 	}
