@@ -150,8 +150,6 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 
 func (c *BootstrapCommand) startMongo(addrs []instance.Address, agentConfig agent.Config) error {
 	logger.Debugf("starting mongo")
-
-	agentConfig := c.CurrentConfig()
 	info, ok := agentConfig.StateInfo()
 	if !ok {
 		return fmt.Errorf("no stateinfo available")
