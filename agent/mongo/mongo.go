@@ -179,7 +179,7 @@ func EnsureMongoServer(dataDir string, namespace string, info params.StateServin
 
 	// TODO(natefinch) 2014-04-12 https://launchpad.net/bugs/1306902
 	// remove this once we support upgrading to HA
-	if service.Installed() {
+	if upstartConf.Installed() {
 		return nil
 	}
 
