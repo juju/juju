@@ -1,15 +1,17 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package peergrouper
 
 import (
 	"fmt"
 
 	"labix.org/v2/mgo"
+
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/replicaset"
 )
-
-const bootstrapMachineId = "0"
 
 // InitiateMongoParams holds parameters for the MaybeInitiateMongo call.
 type InitiateMongoParams struct {

@@ -107,9 +107,10 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return fmt.Errorf("bootstrap machine config has no state serving info")
 	}
 	info.SharedSecret = sharedSecret
-	if err := c.ChangeConfig(func(agentConfig agent.ConfigSetter) {
+	err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) {
 		agentConfig.SetStateServingInfo(info)
-	}); err != nil {
+	})
+	if err != nil {
 		return fmt.Errorf("cannot write agent config: %v", err)
 	}
 	agentConfig = c.CurrentConfig()
@@ -118,7 +119,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 
-	logger.Debugf("started mongo")
+	logger.Infof("started mongo")
 	// Initialise state, and store any agent config (e.g. password) changes.
 	var st *state.State
 	err = nil
@@ -165,7 +166,7 @@ func (c *BootstrapCommand) startMongo(addrs []instance.Address, agentConfig agen
 	dialInfo.Addrs = []string{
 		net.JoinHostPort("127.0.0.1", fmt.Sprint(servingInfo.StatePort)),
 	}
-	logger.Infof("calling ensureMongoServer")
+	logger.Debugf("calling ensureMongoServer")
 	err = ensureMongoServer(
 		agentConfig.DataDir(),
 		agentConfig.Value(agent.Namespace),

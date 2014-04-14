@@ -36,7 +36,8 @@ type MongoSuite struct {
 }
 
 var (
-	_        = gc.Suite(&MongoSuite{})
+	_ = gc.Suite(&MongoSuite{})
+
 	testInfo = params.StateServingInfo{
 		StatePort:    25252,
 		Cert:         "foobar-cert",
@@ -125,14 +126,17 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 
 	testJournalDirs(dbDir, c)
 
-	c.Assert(s.installed, gc.HasLen, 1)
-	conf := s.installed[0]
-	c.Assert(conf.Name, gc.Equals, "juju-db-namespace")
-	c.Assert(conf.InitDir, gc.Equals, "/etc/init")
-	c.Assert(conf.Desc, gc.Not(gc.Equals), "")
-	c.Assert(conf.Cmd, gc.Matches, regexp.QuoteMeta(s.mongodPath)+".*")
-	// TODO set Out so that mongod output goes somewhere useful?
-	c.Assert(conf.Out, gc.Equals, "")
+	assertInstalled := func() {
+		c.Assert(s.installed, gc.HasLen, 1)
+		conf := s.installed[0]
+		c.Assert(conf.Name, gc.Equals, "juju-db-namespace")
+		c.Assert(conf.InitDir, gc.Equals, "/etc/init")
+		c.Assert(conf.Desc, gc.Equals, "juju state database")
+		c.Assert(conf.Cmd, gc.Matches, regexp.QuoteMeta(s.mongodPath)+".*")
+		// TODO(nate) set Out so that mongod output goes somewhere useful?
+		c.Assert(conf.Out, gc.Equals, "")
+	}
+	assertInstalled()
 
 	contents, err := ioutil.ReadFile(s.mongodConfigPath)
 	c.Assert(err, gc.IsNil)
@@ -150,7 +154,7 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 	// now check we can call it multiple times without error
 	err = EnsureMongoServer(dataDir, namespace, testInfo)
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.installed, gc.HasLen, 1)
+	assertInstalled()
 }
 
 func (s *MongoSuite) TestRemoveService(c *gc.C) {
@@ -302,6 +306,8 @@ func getMockShellCalls(c *gc.C, file string) [][]string {
 	return calls
 }
 
+// splitCall takes the newline and '+' delimited arguments to a call and returns
+// the actual arguments
 func splitCall(c *gc.C, part string) []string {
 	var result []string
 	for _, arg := range strings.Split(part, "\n") {
@@ -313,6 +319,8 @@ func splitCall(c *gc.C, part string) []string {
 	return result
 }
 
+// failCmd creates an executable file at the given location that will do nothing
+// except return an error.
 func failCmd(path string) {
 	err := ioutil.WriteFile(path, []byte("#!/bin/bash --norc\nexit 1"), 0755)
 	if err != nil {

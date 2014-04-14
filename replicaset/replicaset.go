@@ -18,7 +18,8 @@ var logger = loggo.GetLogger("juju.replicaset")
 
 // Initiate sets up a replica set with the given replica set name with the
 // single given member.  It need be called only once for a given mongo replica
-// set.
+// set.  The tags specified will be added as tags on the member that is created
+// in the replica set.
 //
 // Note that you must set DialWithInfo and set Direct = true when dialing into a
 // specific non-initiated mongo server.

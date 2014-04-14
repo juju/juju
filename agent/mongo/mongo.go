@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -33,6 +32,8 @@ const (
 	// located within the Juju data directory.
 	SharedSecretFile = "shared-secret"
 
+	// ReplicaSetName is the name of the replica set that juju uses for its
+	// state servers.
 	ReplicaSetName = "juju"
 )
 
@@ -136,11 +137,11 @@ func RemoveService(namespace string) error {
 // on this machine from colliding. This should be empty unless using
 // the local provider.
 func EnsureMongoServer(dataDir string, namespace string, info params.StateServingInfo) error {
-	logger.Infof("Ensuring mongo server is running; dataDir %s; port %d", dataDir, info.StatePort)
+	logger.Infof("Ensuring mongo server is running; data directory %s; port %d", dataDir, info.StatePort)
 	dbDir := filepath.Join(dataDir, "db")
 
 	if err := os.MkdirAll(dbDir, 0700); err != nil {
-		return fmt.Errorf("cannot create mongo dbdir: %v", err)
+		return fmt.Errorf("cannot create mongo database directory: %v", err)
 	}
 
 	certKey := info.Cert + "\n" + info.PrivateKey
@@ -158,7 +159,7 @@ func EnsureMongoServer(dataDir string, namespace string, info params.StateServin
 	// Only do this if the file doesn't exist already, so users can run
 	// their own mongodb server if they wish to.
 	if _, err := os.Stat(mongoConfigPath); os.IsNotExist(err) {
-		err = ioutil.WriteFile(
+		err = utils.AtomicWriteFile(
 			mongoConfigPath,
 			[]byte("ENABLE_MONGODB=no"),
 			0644,
@@ -246,7 +247,7 @@ func mongoUpstartService(namespace, dataDir, dbDir string, port int) (*upstart.C
 			"nproc":  fmt.Sprintf("%d %d", maxProcs, maxProcs),
 		},
 		Cmd: mongoPath + " --auth" +
-			" --dbpath=" + dbDir +
+			" --dbpath=" + utils.ShQuote(dbDir) +
 			" --sslOnNormalPorts" +
 			" --sslPEMKeyFile " + utils.ShQuote(sslKeyPath(dataDir)) +
 			" --sslPEMKeyPassword ignored" +
@@ -255,7 +256,7 @@ func mongoUpstartService(namespace, dataDir, dbDir string, port int) (*upstart.C
 			" --noprealloc" +
 			" --syslog" +
 			" --smallfiles" +
-			" --replSet " + ReplicaSetName +
+			" --replSet " + utils.ShQuote(ReplicaSetName) +
 			" --keyFile " + utils.ShQuote(sharedSecretPath(dataDir)),
 	}
 	return conf, nil

@@ -103,14 +103,15 @@ func dialAndTestInitiate(c *gc.C) {
 	defer session.Close()
 
 	mode := session.Mode()
-	err := Initiate(session, root.Addr(), name, nil)
+	tags := map[string]string{"foo": "bar"}
+	err := Initiate(session, root.Addr(), name, tags)
 	c.Assert(err, gc.IsNil)
 
 	// make sure we haven't messed with the session's mode
 	c.Assert(session.Mode(), gc.Equals, mode)
 
 	// Ids start at 1 for us, so we can differentiate between set and unset
-	expectedMembers := []Member{Member{Id: 1, Address: root.Addr()}}
+	expectedMembers := []Member{Member{Id: 1, Address: root.Addr(), Tags: tags}}
 
 	// need to set mode to strong so that we wait for the write to succeed
 	// before reading and thus ensure that we're getting consistent reads.
