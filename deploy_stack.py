@@ -88,7 +88,7 @@ def main():
                         action='store_true')
     parser.add_argument('--machine',
                         help='A machine to add to the environment.',
-                        action='append')
+                        action='append', default=[])
     parser.add_argument('--dummy', help='Use dummy charms.',
                         action='store_true')
     parser.add_argument('env', help='The environment to deploy on.')
