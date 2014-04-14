@@ -68,6 +68,8 @@ echo "Testing $BRANCH $REVNO on $ENV"
 dpkg-deb -x $PACKAGE extracted-bin
 JUJU_BIN=$(readlink -f $(dirname $(find extracted-bin -name juju)))
 export NEW_PATH=$JUJU_BIN:$PATH
-if [ "$ENV" != "manual" ]; then
+if [ "$ENV" == "manual" ]; then
+  $SCRIPTS/ec2-terminate-job-instances
+else
   $SCRIPTS/destroy-environment $ENV
 fi
