@@ -119,6 +119,14 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 	err = EnsureMongoServer(dir, port, namespace)
 	c.Assert(err, gc.IsNil)
 	c.Assert(svc.Installed(), jc.IsTrue)
+
+	// make sure that we log the version of mongodb as we get ready to
+	// start it
+	tlog := c.GetTestLog()
+	any := `(.|\n)*`
+	start := "^" + any
+	tail := any + "$"
+	c.Assert(tlog, gc.Matches, start+`mongod --version:\ndb version v2\.\d+\.\d+`+tail)
 }
 
 func (s *MongoSuite) TestNoMongoDir(c *gc.C) {

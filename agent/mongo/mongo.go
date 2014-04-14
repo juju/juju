@@ -251,6 +251,17 @@ func makeJournalDirs(dir string) error {
 	return nil
 }
 
+func logMongoVersion(mongopath string) {
+	logger.Debugf("found mongod at: %s", mongopath)
+	cmd := exec.Command(mongopath, "--version")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		logger.Infof("failed to read the output from %s --version", mongopath)
+		return
+	}
+	logger.Debugf("mongod --version:\n%s", string(output))
+}
+
 // mongoUpstartService returns the upstart config for the mongo state service.
 //
 // This method assumes there exist "server.pem" and "shared_secret" keyfiles in dataDir.
@@ -267,6 +278,7 @@ func mongoUpstartService(namespace, dataDir, dbDir string, port int) (*upstart.C
 	if err != nil {
 		return nil, err
 	}
+	logMongoVersion(mongopath)
 
 	conf := &upstart.Conf{
 		Service: *svc,
