@@ -330,6 +330,6 @@ func (s *deployerSuite) TestAPIAddresses(c *gc.C) {
 func (s *deployerSuite) TestCACert(c *gc.C) {
 	result := s.deployer.CACert()
 	c.Assert(result, gc.DeepEquals, params.BytesResult{
-		Result: s.State.CACert(),
+		Result: []byte(s.State.CACert()),
 	})
 }

@@ -62,8 +62,8 @@ func (fakeAddresses) APIAddressesFromMachines() ([]string, error) {
 	return []string{"apiaddresses:1", "apiaddresses:2"}, nil
 }
 
-func (fakeAddresses) CACert() []byte {
-	return []byte("a cert")
+func (fakeAddresses) CACert() string {
+	return "a cert"
 }
 
 func (fakeAddresses) APIHostPorts() ([][]instance.HostPort, error) {

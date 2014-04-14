@@ -40,7 +40,7 @@ func (st *State) LoggingConfig(agentTag string) (string, error) {
 	}
 	if len(results.Results) != 1 {
 		// TODO: Not directly tested
-		return "", fmt.Errorf("expected one result, got %d", len(results.Results))
+		return "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if err := result.Error; err != nil {
@@ -63,7 +63,7 @@ func (st *State) WatchLoggingConfig(agentTag string) (watcher.NotifyWatcher, err
 	}
 	if len(results.Results) != 1 {
 		// TODO: Not directly tested
-		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {

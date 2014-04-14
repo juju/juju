@@ -25,7 +25,7 @@ func init() {
 var (
 	CACert, CAKey = mustNewCA()
 
-	CACertX509, CAKeyRSA = mustParseCertAndKey([]byte(CACert), []byte(CAKey))
+	CACertX509, CAKeyRSA = mustParseCertAndKey(CACert, CAKey)
 
 	ServerCert, ServerKey = mustNewServer()
 )
@@ -39,7 +39,7 @@ func verifyCertificates() error {
 	if err != nil {
 		return fmt.Errorf("bad server cert key pair: %v", err)
 	}
-	return cert.Verify([]byte(ServerCert), []byte(CACert), time.Now())
+	return cert.Verify(ServerCert, CACert, time.Now())
 }
 
 func mustNewCA() (string, string) {
@@ -54,7 +54,7 @@ func mustNewCA() (string, string) {
 func mustNewServer() (string, string) {
 	cert.KeyBits = 512
 	var hostnames []string
-	srvCert, srvKey, err := cert.NewServer([]byte(CACert), []byte(CAKey), time.Now().AddDate(10, 0, 0), hostnames)
+	srvCert, srvKey, err := cert.NewServer(CACert, CAKey, time.Now().AddDate(10, 0, 0), hostnames)
 	if err != nil {
 		panic(err)
 	}
@@ -62,14 +62,14 @@ func mustNewServer() (string, string) {
 }
 
 func mustParseCert(pemData string) *x509.Certificate {
-	cert, err := cert.ParseCert([]byte(pemData))
+	cert, err := cert.ParseCert(pemData)
 	if err != nil {
 		panic(err)
 	}
 	return cert
 }
 
-func mustParseCertAndKey(certPEM, keyPEM []byte) (*x509.Certificate, *rsa.PrivateKey) {
+func mustParseCertAndKey(certPEM, keyPEM string) (*x509.Certificate, *rsa.PrivateKey) {
 	cert, key, err := cert.ParseCertAndKey(certPEM, keyPEM)
 	if err != nil {
 		panic(err)

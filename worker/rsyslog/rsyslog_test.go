@@ -144,9 +144,9 @@ func (s *RsyslogSuite) TestModeAccumulate(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	rsyslogKeyPEM, err := ioutil.ReadFile(filepath.Join(*rsyslog.LogDir, "rsyslog-key.pem"))
 	c.Assert(err, gc.IsNil)
-	_, _, err = cert.ParseCertAndKey(rsyslogCertPEM, rsyslogKeyPEM)
+	_, _, err = cert.ParseCertAndKey(string(rsyslogCertPEM), string(rsyslogKeyPEM))
 	c.Assert(err, gc.IsNil)
-	err = cert.Verify(rsyslogCertPEM, caCertPEM, time.Now().UTC())
+	err = cert.Verify(string(rsyslogCertPEM), string(caCertPEM), time.Now().UTC())
 	c.Assert(err, gc.IsNil)
 
 	// Verify rsyslog configuration.

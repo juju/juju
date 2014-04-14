@@ -428,18 +428,20 @@ func (task *provisionerTask) prepareNetworkAndInterfaces(networkInfo []environs.
 	}
 	visitedNetworks := set.NewStrings()
 	for _, info := range networkInfo {
-		if !visitedNetworks.Contains(info.NetworkName) {
+		networkTag := names.NetworkTag(info.NetworkName)
+		if !visitedNetworks.Contains(info.NetworkId) {
 			networks = append(networks, params.Network{
-				Name:    info.NetworkName,
-				CIDR:    info.CIDR,
-				VLANTag: info.VLANTag,
+				Tag:        networkTag,
+				ProviderId: info.NetworkId,
+				CIDR:       info.CIDR,
+				VLANTag:    info.VLANTag,
 			})
-			visitedNetworks.Add(info.NetworkName)
+			visitedNetworks.Add(info.NetworkId)
 		}
 		ifaces = append(ifaces, params.NetworkInterface{
 			InterfaceName: info.InterfaceName,
 			MACAddress:    info.MACAddress,
-			NetworkName:   info.NetworkName,
+			NetworkTag:    networkTag,
 		})
 	}
 	return networks, ifaces

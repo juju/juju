@@ -12,11 +12,10 @@ import (
 
 	"launchpad.net/juju-core/environs/config"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 type configSuite struct {
-	testbase.LoggingSuite
+	coretesting.FakeHomeSuite
 }
 
 var _ = gc.Suite(&configSuite{})

@@ -6,15 +6,17 @@ package common_test
 import (
 	gc "launchpad.net/gocheck"
 
+	jc "github.com/juju/testing/checkers"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/provider/common"
-	"launchpad.net/juju-core/testing/testbase"
+	coretesting "launchpad.net/juju-core/testing"
 )
 
 type archSuite struct {
-	testbase.LoggingSuite
+	coretesting.FakeHomeSuite
 }
 
 var _ = gc.Suite(&archSuite{})
@@ -69,7 +71,7 @@ func (s *archSuite) TestSupportedArchitecturesOne(c *gc.C) {
 	})
 	arches, err := common.SupportedArchitectures(env, imageConstraint)
 	c.Assert(err, gc.IsNil)
-	c.Assert(arches, gc.DeepEquals, []string{"ppc64"})
+	c.Assert(arches, jc.SameContents, []string{"ppc64"})
 }
 
 func (s *archSuite) TestSupportedArchitecturesMany(c *gc.C) {
@@ -79,5 +81,5 @@ func (s *archSuite) TestSupportedArchitecturesMany(c *gc.C) {
 	})
 	arches, err := common.SupportedArchitectures(env, imageConstraint)
 	c.Assert(err, gc.IsNil)
-	c.Assert(arches, gc.DeepEquals, []string{"amd64", "ppc64"})
+	c.Assert(arches, jc.SameContents, []string{"amd64", "ppc64"})
 }

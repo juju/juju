@@ -302,8 +302,8 @@ func (mock *mockConfig) WriteUpgradedToVersion(newVersion version.Number) error 
 	return nil
 }
 
-func (mock *mockConfig) CACert() []byte {
-	return []byte(testing.CACert)
+func (mock *mockConfig) CACert() string {
+	return testing.CACert
 }
 
 func (mock *mockConfig) Value(_ string) string {
