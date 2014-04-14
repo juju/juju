@@ -7,10 +7,12 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/errgo/errgo"
@@ -97,8 +99,9 @@ type Config interface {
 	// APIInfo returns details for connecting to the API server.
 	APIInfo() *api.Info
 
-	// StateInfo returns details for connecting to the state server.
-	StateInfo() *state.Info
+	// StateInfo returns details for connecting to the state server and reports
+	// whether those details are available
+	StateInfo() (*state.Info, bool)
 
 	// OldPassword returns the fallback password when connecting to the
 	// API server.
@@ -600,11 +603,16 @@ func (c *configInternal) APIInfo() *api.Info {
 	}
 }
 
-func (c *configInternal) StateInfo() *state.Info {
+func (c *configInternal) StateInfo() (info *state.Info, ok bool) {
+	ssi, ok := c.StateServingInfo()
+	if !ok {
+		return nil, false
+	}
+	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(ssi.StatePort))
 	return &state.Info{
-		Addrs:    []string{"127.0.0.1"},
+		Addrs:    []string{addr},
 		Password: c.stateDetails.password,
 		CACert:   c.caCert,
 		Tag:      c.tag,
-	}
+	}, true
 }
