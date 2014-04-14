@@ -179,7 +179,7 @@ func EnsureCloneTemplate(
 	}
 
 	tailWriter := &logTail{tick: time.Now()}
-	consoleTailer := tailer.NewTailer(console, tailWriter, nil, nil)
+	consoleTailer := tailer.NewTailer(console, tailWriter, nil)
 	defer consoleTailer.Stop()
 
 	// We should wait maybe 1 minute between output?
