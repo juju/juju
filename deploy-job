@@ -1,5 +1,8 @@
 #!/bin/bash
 source $SCRIPTS/common-startup.sh
+if [ "$ENV" == "manual" ]; then
+    prepare_manual
+fi
 # Do the deployment for upgrade testing.
 CHARM_PREFIX=${CHARM_PREFIX:-}
 EXIT_STATUS=0
