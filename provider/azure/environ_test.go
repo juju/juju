@@ -1432,13 +1432,13 @@ func (s *startInstanceSuite) SetUpTest(c *gc.C) {
 	s.env.ecfg.attrs["force-image-name"] = "my-image"
 	stateInfo := &state.Info{
 		Addrs:    []string{"localhost:123"},
-		CACert:   []byte(coretesting.CACert),
+		CACert:   coretesting.CACert,
 		Password: "password",
 		Tag:      "machine-1",
 	}
 	apiInfo := &api.Info{
 		Addrs:    []string{"localhost:124"},
-		CACert:   []byte(coretesting.CACert),
+		CACert:   coretesting.CACert,
 		Password: "admin",
 		Tag:      "machine-1",
 	}

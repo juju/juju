@@ -271,8 +271,9 @@ func (c *Client) ServiceUnexpose(service string) error {
 }
 
 // ServiceDeployWithNetworks works exactly like ServiceDeploy, but
-// allows specifying networks to either include or exclude on the
-// machine where the charm is deployed.
+// allows the specification of networks that will be included or
+// excluded on the machines where the service is deployed. Networks
+// are specified with network tags (see names.NetworkTag).
 func (c *Client) ServiceDeployWithNetworks(charmURL string, serviceName string, numUnits int, configYAML string, cons constraints.Value, toMachineSpec string, includeNetworks, excludeNetworks []string) error {
 	params := params.ServiceDeploy{
 		ServiceName:     serviceName,

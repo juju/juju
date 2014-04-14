@@ -302,18 +302,18 @@ func (e *manualEnviron) SharedStorageDir() string {
 	return ""
 }
 
-func (e *manualEnviron) StorageCACert() []byte {
-	if bytes, ok := e.envConfig().CACert(); ok {
-		return bytes
+func (e *manualEnviron) StorageCACert() string {
+	if cert, ok := e.envConfig().CACert(); ok {
+		return cert
 	}
-	return nil
+	return ""
 }
 
-func (e *manualEnviron) StorageCAKey() []byte {
-	if bytes, ok := e.envConfig().CAPrivateKey(); ok {
-		return bytes
+func (e *manualEnviron) StorageCAKey() string {
+	if key, ok := e.envConfig().CAPrivateKey(); ok {
+		return key
 	}
-	return nil
+	return ""
 }
 
 func (e *manualEnviron) StorageHostnames() []string {

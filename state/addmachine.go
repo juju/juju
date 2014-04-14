@@ -53,12 +53,12 @@ type MachineTemplate struct {
 	// be associated with the machine.
 	HardwareCharacteristics instance.HardwareCharacteristics
 
-	// IncludeNetworks holds a list of networks the machine should be
-	// part of.
+	// IncludeNetworks holds a list of network names the machine
+	// should be part of.
 	IncludeNetworks []string
 
-	// ExcludeNetworks holds a list of network the machine should not
-	// be part of.
+	// ExcludeNetworks holds a list of network names the machine
+	// should not be part of.
 	ExcludeNetworks []string
 
 	// Nonce holds a unique value that can be used to check

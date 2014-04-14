@@ -15,6 +15,7 @@ const (
 	EnvironTagKind  = "environment"
 	UserTagKind     = "user"
 	RelationTagKind = "relation"
+	NetworkTagKind  = "network"
 )
 
 var validKinds = map[string]bool{
@@ -24,6 +25,7 @@ var validKinds = map[string]bool{
 	EnvironTagKind:  true,
 	UserTagKind:     true,
 	RelationTagKind: true,
+	NetworkTagKind:  true,
 }
 
 var tagSuffixToId = map[string]func(string) string{
@@ -39,6 +41,7 @@ var verifyId = map[string]func(string) bool{
 	UserTagKind:     IsUser,
 	EnvironTagKind:  IsEnvironment,
 	RelationTagKind: IsRelation,
+	NetworkTagKind:  IsNetwork,
 }
 
 // TagKind returns one of the *TagKind constants for the given tag, or

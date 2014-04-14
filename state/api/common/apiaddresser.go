@@ -41,13 +41,13 @@ func (a *APIAddresser) APIAddresses() ([]string, error) {
 }
 
 // CACert returns the certificate used to validate the API and state connections.
-func (a *APIAddresser) CACert() ([]byte, error) {
+func (a *APIAddresser) CACert() (string, error) {
 	var result params.BytesResult
 	err := a.caller.Call(a.facadeName, "", "CACert", nil, &result)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return result.Result, nil
+	return string(result.Result), nil
 }
 
 // APIHostPorts returns the host/port addresses of the API servers.

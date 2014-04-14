@@ -49,13 +49,11 @@ func Client(addr string) storage.Storage {
 // storage server at the given network address (see Serve),
 // using TLS. The client is given an authentication key,
 // which the server will verify for Put and Remove* operations.
-func ClientTLS(addr string, caCertPEM []byte, authkey string) (storage.Storage, error) {
+func ClientTLS(addr string, caCertPEM string, authkey string) (storage.Storage, error) {
 	logger.Debugf("using https storage at %q", addr)
 	caCerts := x509.NewCertPool()
-	if caCertPEM != nil {
-		if !caCerts.AppendCertsFromPEM(caCertPEM) {
-			return nil, errors.New("error adding CA certificate to pool")
-		}
+	if !caCerts.AppendCertsFromPEM([]byte(caCertPEM)) {
+		return nil, errors.New("error adding CA certificate to pool")
 	}
 	return &localStorage{
 		addr:    addr,

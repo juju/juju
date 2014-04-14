@@ -95,7 +95,7 @@ func (formatter_1_16) unmarshal(data []byte) (*configInternal, error) {
 		dataDir:           DefaultDataDir,
 		logDir:            DefaultLogDir,
 		upgradedToVersion: *format.UpgradedToVersion,
-		caCert:            caCert,
+		caCert:            string(caCert),
 		oldPassword:       format.OldPassword,
 		values:            format.Values,
 	}

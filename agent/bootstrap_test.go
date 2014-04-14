@@ -57,7 +57,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 		Tag:               "machine-0",
 		UpgradedToVersion: version.Current.Number,
 		StateAddresses:    []string{testing.MgoServer.Addr()},
-		CACert:            []byte(testing.CACert),
+		CACert:            testing.CACert,
 		Password:          pwHash,
 	}
 	servingInfo := params.StateServingInfo{
@@ -157,7 +157,7 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 		Tag:               "machine-0",
 		UpgradedToVersion: version.Current.Number,
 		StateAddresses:    []string{testing.MgoServer.Addr()},
-		CACert:            []byte(testing.CACert),
+		CACert:            testing.CACert,
 		Password:          "fake",
 	}
 	cfg, err := agent.NewAgentConfig(configParams)
@@ -180,7 +180,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		Tag:               "machine-0",
 		UpgradedToVersion: version.Current.Number,
 		StateAddresses:    []string{testing.MgoServer.Addr()},
-		CACert:            []byte(testing.CACert),
+		CACert:            testing.CACert,
 		Password:          pwHash,
 	}
 	cfg, err := agent.NewAgentConfig(configParams)
@@ -219,7 +219,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 func (*bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, password string) {
 	info := &state.Info{
 		Addrs:    []string{testing.MgoServer.Addr()},
-		CACert:   []byte(testing.CACert),
+		CACert:   testing.CACert,
 		Tag:      "",
 		Password: password,
 	}
