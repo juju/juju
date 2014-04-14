@@ -28,10 +28,10 @@ func NewState(caller base.Caller) *State {
 // SetRsyslogCert sets the rsyslog CA certificate,
 // which is used by clients to verify the server's
 // identity and establish a TLS session.
-func (st *State) SetRsyslogCert(caCert []byte) error {
+func (st *State) SetRsyslogCert(caCert string) error {
 	var result params.ErrorResult
 	args := params.SetRsyslogCertParams{
-		CACert: caCert,
+		CACert: []byte(caCert),
 	}
 	err := st.caller.Call(rsyslogAPI, "", "SetRsyslogCert", args, &result)
 	if err != nil {

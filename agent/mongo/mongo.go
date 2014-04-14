@@ -176,6 +176,13 @@ func EnsureMongoServer(dataDir string, namespace string, info params.StateServin
 	if err != nil {
 		return err
 	}
+
+	// TODO(natefinch) 2014-04-12 https://launchpad.net/bugs/1306902
+	// remove this once we support upgrading to HA
+	if service.Installed() {
+		return nil
+	}
+
 	if err := makeJournalDirs(dbDir); err != nil {
 		return fmt.Errorf("Error creating journal directories: %v", err)
 	}
@@ -204,7 +211,14 @@ func makeJournalDirs(dataDir string) error {
 	for x := 0; x < 3; x++ {
 		name := fmt.Sprintf("prealloc.%d", x)
 		filename := filepath.Join(journalDir, name)
-		f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0700)
+		f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0700)
+		// TODO(jam) 2014-04-12 https://launchpad.net/bugs/1306902
+		// When we support upgrading Mongo into Replica mode, we should
+		// start rewriting the upstart config
+		if os.IsExist(err) {
+			// already exists, don't overwrite
+			continue
+		}
 		if err != nil {
 			return fmt.Errorf("failed to open mongo prealloc file %q: %v", filename, err)
 		}

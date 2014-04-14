@@ -26,7 +26,7 @@ func NewAPIAddresserTests(facade APIAddresserFacade, st *state.State) *APIAddres
 
 type APIAddresserFacade interface {
 	APIAddresses() ([]string, error)
-	CACert() ([]byte, error)
+	CACert() (string, error)
 	APIHostPorts() ([][]instance.HostPort, error)
 	WatchAPIHostPorts() (watcher.NotifyWatcher, error)
 }

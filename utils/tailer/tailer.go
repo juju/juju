@@ -14,12 +14,13 @@ import (
 )
 
 const (
-	bufferSize = 4096
-	polltime   = time.Second
-	delimiter  = '\n'
+	defaultBufferSize = 4096
+	polltime          = time.Second
+	delimiter         = '\n'
 )
 
 var (
+	bufferSize = defaultBufferSize
 	delimiters = []byte{delimiter}
 )
 
@@ -35,20 +36,8 @@ type Tailer struct {
 	reader      *bufio.Reader
 	writeCloser io.WriteCloser
 	writer      *bufio.Writer
-	lines       uint
 	filter      TailerFilterFunc
-	bufferSize  int
 	polltime    time.Duration
-	lookBack    bool
-}
-
-// NewTailerBacktrack starts a Tailer which reads strings from the passed
-// ReadSeeker line by line. If a filter function is specified the read
-// lines are filtered. The matching lines are written to the passed
-// Writer. The reading begins the specified number of matching lines
-// from the end.
-func NewTailerBacktrack(readSeeker io.ReadSeeker, writer io.Writer, lines uint, filter TailerFilterFunc) *Tailer {
-	return newTailer(readSeeker, writer, lines, filter, bufferSize, polltime, true)
 }
 
 // NewTailer starts a Tailer which reads strings from the passed
@@ -56,22 +45,19 @@ func NewTailerBacktrack(readSeeker io.ReadSeeker, writer io.Writer, lines uint, 
 // lines are filtered. The matching lines are written to the passed
 // Writer.
 func NewTailer(readSeeker io.ReadSeeker, writer io.Writer, filter TailerFilterFunc) *Tailer {
-	return newTailer(readSeeker, writer, 0, filter, bufferSize, polltime, false)
+	return newTailer(readSeeker, writer, filter, polltime)
 }
 
 // newTailer starts a Tailer like NewTailer but allows the setting of
 // the read buffer size and the time between pollings for testing.
-func newTailer(readSeeker io.ReadSeeker, writer io.Writer, lines uint, filter TailerFilterFunc,
-	bufferSize int, polltime time.Duration, lookBack bool) *Tailer {
+func newTailer(readSeeker io.ReadSeeker, writer io.Writer,
+	filter TailerFilterFunc, polltime time.Duration) *Tailer {
 	t := &Tailer{
 		readSeeker: readSeeker,
 		reader:     bufio.NewReaderSize(readSeeker, bufferSize),
 		writer:     bufio.NewWriter(writer),
-		lines:      lines,
 		filter:     filter,
-		bufferSize: bufferSize,
 		polltime:   polltime,
-		lookBack:   lookBack,
 	}
 	go func() {
 		defer t.tomb.Done()
@@ -107,12 +93,6 @@ func (t *Tailer) Err() error {
 // writer and then polls for more data to write it to the
 // writer too.
 func (t *Tailer) loop() error {
-	// Position the readSeeker.
-	if t.lookBack {
-		if err := t.seekLastLines(); err != nil {
-			return err
-		}
-	}
 	// Start polling.
 	// TODO(mue) 2013-12-06
 	// Handling of read-seeker/files being truncated during
@@ -144,26 +124,26 @@ func (t *Tailer) loop() error {
 	}
 }
 
-// seekLastLines sets the read position of the ReadSeeker to the
+// SeekLastLines sets the read position of the ReadSeeker to the
 // wanted number of filtered lines before the end.
-func (t *Tailer) seekLastLines() error {
-	offset, err := t.readSeeker.Seek(0, os.SEEK_END)
+func SeekLastLines(readSeeker io.ReadSeeker, lines uint, filter TailerFilterFunc) error {
+	offset, err := readSeeker.Seek(0, os.SEEK_END)
 	if err != nil {
 		return err
 	}
-	if t.lines == 0 {
+	if lines == 0 {
 		// We are done, just seeking to the end is sufficient.
 		return nil
 	}
 	seekPos := int64(0)
 	found := uint(0)
-	buffer := make([]byte, t.bufferSize)
+	buffer := make([]byte, bufferSize)
 SeekLoop:
 	for offset > 0 {
 		// buffer contains the data left over from the
 		// previous iteration.
 		space := cap(buffer) - len(buffer)
-		if space < t.bufferSize {
+		if space < bufferSize {
 			// Grow buffer.
 			newBuffer := make([]byte, len(buffer), cap(buffer)*2)
 			copy(newBuffer, buffer)
@@ -180,11 +160,11 @@ SeekLoop:
 		copy(buffer[space:cap(buffer)], buffer)
 		buffer = buffer[0 : len(buffer)+space]
 		offset -= int64(space)
-		_, err := t.readSeeker.Seek(offset, os.SEEK_SET)
+		_, err := readSeeker.Seek(offset, os.SEEK_SET)
 		if err != nil {
 			return err
 		}
-		_, err = io.ReadFull(t.readSeeker, buffer[0:space])
+		_, err = io.ReadFull(readSeeker, buffer[0:space])
 		if err != nil {
 			return err
 		}
@@ -207,9 +187,9 @@ SeekLoop:
 				break
 			}
 			start++
-			if t.isValid(buffer[start:end]) {
+			if filter == nil || filter(buffer[start:end]) {
 				found++
-				if found >= t.lines {
+				if found >= lines {
 					seekPos = offset + int64(start)
 					break SeekLoop
 				}
@@ -221,7 +201,7 @@ SeekLoop:
 		buffer = buffer[0:end]
 	}
 	// Final positioning.
-	t.readSeeker.Seek(seekPos, os.SEEK_SET)
+	readSeeker.Seek(seekPos, os.SEEK_SET)
 	return nil
 }
 

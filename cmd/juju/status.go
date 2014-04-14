@@ -61,7 +61,7 @@ func (c *StatusCommand) Init(args []string) error {
 	return c.EnvCommandBase.Init()
 }
 
-var connectionError = `Unable to connect to environment "%s".
+var connectionError = `Unable to connect to environment %q.
 Please check your credentials or use 'juju bootstrap' to create a new environment.
 
 Error details:

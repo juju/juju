@@ -1178,13 +1178,13 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 	result, err := s.uniter.ReadRemoteSettings(args)
 
 	// We don't set the remote unit settings on purpose to test the error.
-	expectErr := `cannot read settings for unit "mysql/0" in relation "wordpress:db mysql:server": settings not found`
+	expectErr := `cannot read settings for unit "mysql/0" in relation "wordpress:db mysql:server": settings`
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.RelationSettingsResults{
+	c.Assert(result, jc.DeepEquals, params.RelationSettingsResults{
 		Results: []params.RelationSettingsResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
-			{Error: &params.Error{Message: expectErr}},
+			{Error: apiservertesting.NotFoundError(expectErr)},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},

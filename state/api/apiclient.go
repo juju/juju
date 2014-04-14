@@ -66,7 +66,7 @@ type Info struct {
 
 	// CACert holds the CA certificate that will be used
 	// to validate the state server's certificate, in PEM format.
-	CACert []byte
+	CACert string
 
 	// Tag holds the name of the entity that is connecting.
 	// If this and the password are empty, no login attempt will be made

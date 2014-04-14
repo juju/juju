@@ -89,7 +89,7 @@ func stateInfo() *state.Info {
 	}
 	return &state.Info{
 		Addrs:  []string{testing.MgoServer.Addr()},
-		CACert: []byte(testing.CACert),
+		CACert: testing.CACert,
 	}
 }
 
@@ -646,7 +646,7 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 	}
 	return stateInfo(), &api.Info{
 		Addrs:  []string{estate.apiServer.Addr()},
-		CACert: []byte(testing.CACert),
+		CACert: testing.CACert,
 	}, nil
 }
 
@@ -770,9 +770,14 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	for i, network := range args.MachineConfig.IncludeNetworks {
 		if strings.HasPrefix(network, "bad-") {
 			// Simulate we didn't get correct information for the network.
-			networkInfo[i] = environs.NetworkInfo{}
+			networkInfo[i] = environs.NetworkInfo{
+				NetworkId:   network,
+				NetworkName: network,
+				CIDR:        "invalid",
+			}
 		} else {
 			networkInfo[i] = environs.NetworkInfo{
+				NetworkId:     network,
 				NetworkName:   network,
 				CIDR:          fmt.Sprintf("0.%d.2.0/24", i+1),
 				InterfaceName: fmt.Sprintf("eth%d", i),

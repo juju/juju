@@ -98,19 +98,19 @@ func (s *MongoSuite) TestMakeJournalDirs(c *gc.C) {
 func testJournalDirs(dir string, c *gc.C) {
 	journalDir := path.Join(dir, "journal")
 
-	c.Check(journalDir, jc.IsDirectory)
+	c.Assert(journalDir, jc.IsDirectory)
 	info, err := os.Stat(filepath.Join(journalDir, "prealloc.0"))
-	c.Check(err, gc.IsNil)
+	c.Assert(err, gc.IsNil)
 
 	size := int64(1024 * 1024)
 
-	c.Check(info.Size(), gc.Equals, size)
+	c.Assert(info.Size(), gc.Equals, size)
 	info, err = os.Stat(filepath.Join(journalDir, "prealloc.1"))
-	c.Check(err, gc.IsNil)
-	c.Check(info.Size(), gc.Equals, size)
+	c.Assert(err, gc.IsNil)
+	c.Assert(info.Size(), gc.Equals, size)
 	info, err = os.Stat(filepath.Join(journalDir, "prealloc.2"))
-	c.Check(err, gc.IsNil)
-	c.Check(info.Size(), gc.Equals, size)
+	c.Assert(err, gc.IsNil)
+	c.Assert(info.Size(), gc.Equals, size)
 }
 
 func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {

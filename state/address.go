@@ -139,8 +139,12 @@ func (st *State) DeployerConnectionInfo() (*DeployerConnectionValues, error) {
 	}, nil
 }
 
-// address represents the location of a machine, including metadata about what
-// kind of location the address describes.
+// address represents the location of a machine, including metadata
+// about what kind of location the address describes.
+//
+// TODO(dimitern) Make sure we integrate this with other networking
+// stuff at some point. We want to use juju-specific network names
+// that point to existing documents in the networks collection.
 type address struct {
 	Value        string
 	AddressType  instance.AddressType
@@ -148,6 +152,9 @@ type address struct {
 	NetworkScope instance.NetworkScope `bson:",omitempty"`
 }
 
+// TODO(dimitern) Make sure we integrate this with other networking
+// stuff at some point. We want to use juju-specific network names
+// that point to existing documents in the networks collection.
 type hostPort struct {
 	Value        string
 	AddressType  instance.AddressType

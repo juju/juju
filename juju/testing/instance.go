@@ -27,7 +27,7 @@ func FakeStateInfo(machineId string) *state.Info {
 		Addrs:    []string{"0.1.2.3:1234"},
 		Tag:      names.MachineTag(machineId),
 		Password: "unimportant",
-		CACert:   []byte(testing.CACert),
+		CACert:   testing.CACert,
 	}
 }
 
@@ -39,7 +39,7 @@ func FakeAPIInfo(machineId string) *api.Info {
 		Addrs:    []string{"0.1.2.3:1234"},
 		Tag:      names.MachineTag(machineId),
 		Password: "unimportant",
-		CACert:   []byte(testing.CACert),
+		CACert:   testing.CACert,
 	}
 }
 

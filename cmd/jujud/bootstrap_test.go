@@ -125,7 +125,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob,
 		Nonce:             state.BootstrapNonce,
 		StateAddresses:    []string{testing.MgoServer.Addr()},
 		APIAddresses:      []string{"0.1.2.3:1234"},
-		CACert:            []byte(testing.CACert),
+		CACert:            testing.CACert,
 		Values:            map[string]string{agent.Namespace: "foobar"},
 	}
 	servingInfo := params.StateServingInfo{
@@ -177,7 +177,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 
 	st, err := state.Open(&state.Info{
 		Addrs:    []string{testing.MgoServer.Addr()},
-		CACert:   []byte(testing.CACert),
+		CACert:   testing.CACert,
 		Password: testPasswordHash(),
 	}, state.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
@@ -213,7 +213,7 @@ func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 
 	st, err := state.Open(&state.Info{
 		Addrs:    []string{testing.MgoServer.Addr()},
-		CACert:   []byte(testing.CACert),
+		CACert:   testing.CACert,
 		Password: testPasswordHash(),
 	}, state.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
@@ -245,7 +245,7 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 
 	st, err := state.Open(&state.Info{
 		Addrs:    []string{testing.MgoServer.Addr()},
-		CACert:   []byte(testing.CACert),
+		CACert:   testing.CACert,
 		Password: testPasswordHash(),
 	}, state.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
@@ -264,7 +264,7 @@ func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 
 	st, err := state.Open(&state.Info{
 		Addrs:    []string{testing.MgoServer.Addr()},
-		CACert:   []byte(testing.CACert),
+		CACert:   testing.CACert,
 		Password: testPasswordHash(),
 	}, state.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
@@ -297,7 +297,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	// password.
 	info := &state.Info{
 		Addrs:  []string{testing.MgoServer.Addr()},
-		CACert: []byte(testing.CACert),
+		CACert: testing.CACert,
 	}
 	testOpenState(c, info, errors.Unauthorizedf(""))
 

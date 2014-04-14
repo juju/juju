@@ -95,11 +95,11 @@ var cloudinitTests = []cloudinitTest{
 			MachineNonce:     "FAKE_NONCE",
 			StateInfo: &state.Info{
 				Password: "arble",
-				CACert:   []byte("CA CERT\n" + testing.CACert),
+				CACert:   "CA CERT\n" + testing.CACert,
 			},
 			APIInfo: &api.Info{
 				Password: "bletch",
-				CACert:   []byte("CA CERT\n" + testing.CACert),
+				CACert:   "CA CERT\n" + testing.CACert,
 			},
 			Constraints:             envConstraints,
 			DataDir:                 environs.DataDir,
@@ -157,11 +157,11 @@ start jujud-machine-0
 			MachineNonce:     "FAKE_NONCE",
 			StateInfo: &state.Info{
 				Password: "arble",
-				CACert:   []byte("CA CERT\n" + testing.CACert),
+				CACert:   "CA CERT\n" + testing.CACert,
 			},
 			APIInfo: &api.Info{
 				Password: "bletch",
-				CACert:   []byte("CA CERT\n" + testing.CACert),
+				CACert:   "CA CERT\n" + testing.CACert,
 			},
 			Constraints:             envConstraints,
 			DataDir:                 environs.DataDir,
@@ -201,13 +201,13 @@ ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
 				Addrs:    []string{"state-addr.testing.invalid:12345"},
 				Tag:      "machine-99",
 				Password: "arble",
-				CACert:   []byte("CA CERT\n" + testing.CACert),
+				CACert:   "CA CERT\n" + testing.CACert,
 			},
 			APIInfo: &api.Info{
 				Addrs:    []string{"state-addr.testing.invalid:54321"},
 				Tag:      "machine-99",
 				Password: "bletch",
-				CACert:   []byte("CA CERT\n" + testing.CACert),
+				CACert:   "CA CERT\n" + testing.CACert,
 			},
 			MachineAgentServiceName: "jujud-machine-99",
 		},
@@ -256,13 +256,13 @@ start jujud-machine-99
 				Addrs:    []string{"state-addr.testing.invalid:12345"},
 				Tag:      "machine-2-lxc-1",
 				Password: "arble",
-				CACert:   []byte("CA CERT\n" + testing.CACert),
+				CACert:   "CA CERT\n" + testing.CACert,
 			},
 			APIInfo: &api.Info{
 				Addrs:    []string{"state-addr.testing.invalid:54321"},
 				Tag:      "machine-2-lxc-1",
 				Password: "bletch",
-				CACert:   []byte("CA CERT\n" + testing.CACert),
+				CACert:   "CA CERT\n" + testing.CACert,
 			},
 			MachineAgentServiceName: "jujud-machine-2-lxc-1",
 		},
@@ -292,13 +292,13 @@ start jujud-machine-2-lxc-1
 				Addrs:    []string{"state-addr.testing.invalid:12345"},
 				Tag:      "machine-99",
 				Password: "arble",
-				CACert:   []byte("CA CERT\n" + testing.CACert),
+				CACert:   "CA CERT\n" + testing.CACert,
 			},
 			APIInfo: &api.Info{
 				Addrs:    []string{"state-addr.testing.invalid:54321"},
 				Tag:      "machine-99",
 				Password: "bletch",
-				CACert:   []byte("CA CERT\n" + testing.CACert),
+				CACert:   "CA CERT\n" + testing.CACert,
 			},
 			DisableSSLHostnameVerification: true,
 			MachineAgentServiceName:        "jujud-machine-99",
@@ -320,11 +320,11 @@ curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{ti
 			MachineNonce:     "FAKE_NONCE",
 			StateInfo: &state.Info{
 				Password: "arble",
-				CACert:   []byte("CA CERT\n" + testing.CACert),
+				CACert:   "CA CERT\n" + testing.CACert,
 			},
 			APIInfo: &api.Info{
 				Password: "bletch",
-				CACert:   []byte("CA CERT\n" + testing.CACert),
+				CACert:   "CA CERT\n" + testing.CACert,
 			},
 			DataDir:                 environs.DataDir,
 			LogDir:                  agent.DefaultLogDir,
@@ -610,12 +610,12 @@ var verifyTests = []struct {
 		cfg.Bootstrap = false
 		cfg.StateInfo = &state.Info{
 			Tag:    "machine-99",
-			CACert: []byte(testing.CACert),
+			CACert: testing.CACert,
 		}
 		cfg.APIInfo = &api.Info{
 			Addrs:  []string{"foo:35"},
 			Tag:    "machine-99",
-			CACert: []byte(testing.CACert),
+			CACert: testing.CACert,
 		}
 	}},
 	{"missing API hosts", func(cfg *cloudinit.MachineConfig) {
@@ -623,11 +623,11 @@ var verifyTests = []struct {
 		cfg.StateInfo = &state.Info{
 			Addrs:  []string{"foo:35"},
 			Tag:    "machine-99",
-			CACert: []byte(testing.CACert),
+			CACert: testing.CACert,
 		}
 		cfg.APIInfo = &api.Info{
 			Tag:    "machine-99",
-			CACert: []byte(testing.CACert),
+			CACert: testing.CACert,
 		}
 	}},
 	{"missing CA certificate", func(cfg *cloudinit.MachineConfig) {
@@ -741,12 +741,12 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
 		StateInfo: &state.Info{
 			Addrs:    []string{"host:98765"},
-			CACert:   []byte(testing.CACert),
+			CACert:   testing.CACert,
 			Password: "password",
 		},
 		APIInfo: &api.Info{
 			Addrs:  []string{"host:9999"},
-			CACert: []byte(testing.CACert),
+			CACert: testing.CACert,
 		},
 		Config:                  minimalConfig(c),
 		DataDir:                 environs.DataDir,

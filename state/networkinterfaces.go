@@ -3,6 +3,10 @@
 
 package state
 
+import (
+	"launchpad.net/juju-core/names"
+)
+
 // NetworkInterface represents the state of a machine network
 // interface.
 type NetworkInterface struct {
@@ -10,11 +14,29 @@ type NetworkInterface struct {
 	doc networkInterfaceDoc
 }
 
+// NetworkInterfaceInfo describes a single network interface available
+// on an instance.
+type NetworkInterfaceInfo struct {
+	// MACAddress is the network interface's hardware MAC address
+	// (e.g. "aa:bb:cc:dd:ee:ff").
+	MACAddress string
+
+	// InterfaceName is the OS-specific network device name (e.g.
+	// "eth0" or "eth1.42" for a VLAN virtual interface).
+	InterfaceName string
+
+	// NetworkName is this interface's network name.
+	NetworkName string
+}
+
 // networkInterfaceDoc represents a network interface for a machine on
 // a given network.
+//
+// TODO(dimitern) To allow multiple virtual (e.g. VLAN) interfaces on
+// the same MAC address, we need to change the key and uniqueness
+// constraints.
 type networkInterfaceDoc struct {
-	MACAddress string `bson:"_id"`
-	// InterfaceName is the network interface name (e.g. "eth0").
+	MACAddress    string `bson:"_id"`
 	InterfaceName string
 	NetworkName   string
 	MachineId     string
@@ -34,12 +56,22 @@ func (ni *NetworkInterface) InterfaceName() string {
 	return ni.doc.InterfaceName
 }
 
-// NetworkName returns the machine network name of the interface.
+// NetworkId returns the network name of the interface.
 func (ni *NetworkInterface) NetworkName() string {
 	return ni.doc.NetworkName
+}
+
+// NetworkTag returns the network tag of the interface.
+func (ni *NetworkInterface) NetworkTag() string {
+	return names.NetworkTag(ni.doc.NetworkName)
 }
 
 // MachineId returns the machine id of the interface.
 func (ni *NetworkInterface) MachineId() string {
 	return ni.doc.MachineId
+}
+
+// MachineTag returns the machine tag of the interface.
+func (ni *NetworkInterface) MachineTag() string {
+	return names.MachineTag(ni.doc.MachineId)
 }

@@ -29,6 +29,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/usermanager"
 	"launchpad.net/juju-core/state/apiserver/client"
+	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
@@ -686,8 +687,17 @@ func (s *clientSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
 	defer restore()
 	curl, bundle := addCharm(c, store, "dummy")
 	mem4g := constraints.MustParse("mem=4G")
+
+	// Check for invalid network tags handling.
 	err := s.APIState.Client().ServiceDeployWithNetworks(
-		curl.String(), "service", 3, "", mem4g, "", []string{"net1", "net2"}, []string{"net3"},
+		curl.String(), "service", 3, "", mem4g, "",
+		[]string{"net1", "net2"}, []string{"net3"},
+	)
+	c.Assert(err, gc.ErrorMatches, `"net1" is not a valid network tag`)
+
+	err = s.APIState.Client().ServiceDeployWithNetworks(
+		curl.String(), "service", 3, "", mem4g, "",
+		[]string{"network-net1", "network-net2"}, []string{"network-net3"},
 	)
 	c.Assert(err, gc.IsNil)
 	service := s.assertPrincipalDeployed(c, "service", curl, false, bundle, mem4g)
@@ -2123,17 +2133,24 @@ func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
 	c.Assert(data["transient"], gc.Equals, true)
 }
 
+func (s *clientSuite) setAgentAlive(c *gc.C, machineId string) *presence.Pinger {
+	m, err := s.BackingState.Machine(machineId)
+	c.Assert(err, gc.IsNil)
+	pinger, err := m.SetAgentAlive()
+	c.Assert(err, gc.IsNil)
+	s.BackingState.StartSync()
+	err = m.WaitAgentAlive(coretesting.LongWait)
+	c.Assert(err, gc.IsNil)
+	return pinger
+}
+
 func (s *clientSuite) TestClientEnsureAvailabilitySeries(c *gc.C) {
-	apiParams := []params.EnsureAvailability{{
-		NumStateServers: 1,
-	}, {
-		NumStateServers: 3,
-		Series:          "non-default",
-	}}
-	for _, p := range apiParams {
-		err := s.APIState.Client().EnsureAvailability(p.NumStateServers, p.Constraints, p.Series)
-		c.Assert(err, gc.IsNil)
-	}
+	err := s.APIState.Client().EnsureAvailability(1, constraints.Value{}, "")
+	c.Assert(err, gc.IsNil)
+	pinger := s.setAgentAlive(c, "0")
+	defer pinger.Kill()
+	err = s.APIState.Client().EnsureAvailability(3, constraints.Value{}, "non-default")
+	c.Assert(err, gc.IsNil)
 	machines, err := s.State.AllMachines()
 	c.Assert(err, gc.IsNil)
 	c.Assert(machines, gc.HasLen, 3)
@@ -2143,16 +2160,12 @@ func (s *clientSuite) TestClientEnsureAvailabilitySeries(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientEnsureAvailabilityConstraints(c *gc.C) {
-	apiParams := []params.EnsureAvailability{{
-		NumStateServers: 1,
-	}, {
-		NumStateServers: 3,
-		Constraints:     constraints.MustParse("mem=4G"),
-	}}
-	for _, p := range apiParams {
-		err := s.APIState.Client().EnsureAvailability(p.NumStateServers, p.Constraints, p.Series)
-		c.Assert(err, gc.IsNil)
-	}
+	err := s.APIState.Client().EnsureAvailability(1, constraints.Value{}, "")
+	c.Assert(err, gc.IsNil)
+	pinger := s.setAgentAlive(c, "0")
+	defer pinger.Kill()
+	err = s.APIState.Client().EnsureAvailability(3, constraints.MustParse("mem=4G"), "")
+	c.Assert(err, gc.IsNil)
 	machines, err := s.State.AllMachines()
 	c.Assert(err, gc.IsNil)
 	c.Assert(machines, gc.HasLen, 3)
