@@ -1036,38 +1036,36 @@ func (m *Machine) AddNetworkInterface(macAddress, interfaceName, networkName str
 		Insert: doc,
 	}}
 
-	for i := 0; i < 5; i++ {
-		err = m.st.runTransaction(ops)
-		switch err {
-		case txn.ErrAborted:
-			if err = m.st.networkInterfaces.FindId(macAddress).One(nil); err == nil {
-				return nil, errors.AlreadyExistsf("interface with MAC address %q", macAddress)
-			}
-			if _, err = m.st.Network(networkName); err != nil {
-				return nil, err
-			}
-			if err = m.Refresh(); err != nil {
-				return nil, err
-			} else if m.doc.Life != Alive {
-				return nil, fmt.Errorf("machine is not alive")
-			} else if m.doc.Nonce != "" {
-				msg := "machine already provisioned: dynamic network interfaces not currently supported"
-				return nil, fmt.Errorf(msg)
-			}
-		case nil:
-			// For some reason when using unique indices with mgo, and
-			// we have an index violation the error is nil, but the
-			// document is not added. So we check if the supposedly
-			// successful transaction did actually add the document.
-			if err = m.st.networkInterfaces.FindId(macAddress).One(nil); err != nil {
-				return nil, errors.AlreadyExistsf("%q on machine %q", interfaceName, m.doc.Id)
-			}
-			return newNetworkInterface(m.st, doc), nil
-		default:
+	err = m.st.runTransaction(ops)
+	switch err {
+	case txn.ErrAborted:
+		if err = m.st.networkInterfaces.FindId(macAddress).One(nil); err == nil {
+			return nil, errors.AlreadyExistsf("interface with MAC address %q", macAddress)
+		}
+		if _, err = m.st.Network(networkName); err != nil {
 			return nil, err
 		}
+		if err = m.Refresh(); err != nil {
+			return nil, err
+		} else if m.doc.Life != Alive {
+			return nil, fmt.Errorf("machine is not alive")
+		} else if m.doc.Nonce != "" {
+			msg := "machine already provisioned: dynamic network interfaces not currently supported"
+			return nil, fmt.Errorf(msg)
+		}
+	case nil:
+		// We have a unique key restriction on the InterfaceName
+		// field, which will cause the insert to fail if there is
+		// another record with the same interface name in the table.
+		// The txn logic does not report insertion errors, so we check
+		// that the record has actually been inserted correctly before
+		// reporting success.
+		if err = m.st.networkInterfaces.FindId(macAddress).One(nil); err != nil {
+			return nil, errors.AlreadyExistsf("%q on machine %q", interfaceName, m.doc.Id)
+		}
+		return newNetworkInterface(m.st, doc), nil
 	}
-	return nil, ErrExcessiveContention
+	return nil, err
 }
 
 // CheckProvisioned returns true if the machine was provisioned with the given nonce.

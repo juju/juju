@@ -1059,10 +1059,12 @@ func (st *State) AddNetwork(name, providerId, cidr string, vlanTag int) (n *Netw
 			return nil, err
 		}
 	case nil:
-		// For some reason when using unique indices with mgo, and
-		// we have an index violation the error is nil, but the
-		// document is not added. So we check if the supposedly
-		// successful transaction did actually add the document.
+		// We have a unique key restriction on the ProviderId field,
+		// which will cause the insert to fail if there is another
+		// record with the same provider id in the table. The txn
+		// logic does not report insertion errors, so we check that
+		// the record has actually been inserted correctly before
+		// reporting success.
 		if _, err = st.Network(name); err != nil {
 			return nil, errors.AlreadyExistsf("network with provider id %q", providerId)
 		}
