@@ -504,58 +504,64 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value,
 	if numStateServers > replicaset.MaxPeers {
 		return fmt.Errorf("state server count is too large (allowed %d)", replicaset.MaxPeers)
 	}
-	currentInfo, err := st.StateServerInfo()
-	if err != nil {
-		return err
-	}
-	if len(currentInfo.VotingMachineIds) > numStateServers {
-		return fmt.Errorf("cannot reduce state server count")
-	}
-	removeOps, info, promotableMachines, err := st.updateAvailableStateServersOps(currentInfo)
-	if err != nil {
-		return err
-	}
-	if len(info.VotingMachineIds) == numStateServers && len(removeOps) == 0 {
-		return nil
-	}
-	// Promote existing machines first.
-	var ops []txn.Op
-	if n := numStateServers - len(info.VotingMachineIds); n < len(promotableMachines) {
-		promotableMachines = promotableMachines[:n]
-	}
-	for _, m := range promotableMachines {
-		ops = append(ops, promoteStateServerOps(m)...)
-		info.VotingMachineIds = append(info.VotingMachineIds, m.Id())
-	}
-	// Create new machines to make up the shortfall.
-	mdocs := make([]*machineDoc, numStateServers-len(info.VotingMachineIds))
-	for i := range mdocs {
-		template := MachineTemplate{
-			Series: series,
-			Jobs: []MachineJob{
-				JobHostUnits,
-				JobManageEnviron,
-			},
-			Constraints: cons,
-		}
-		mdoc, addOps, err := st.addMachineOps(template)
+	for i := 0; i < 5; i++ {
+		currentInfo, err := st.StateServerInfo()
 		if err != nil {
 			return err
 		}
-		mdocs[i] = mdoc
-		ops = append(ops, addOps...)
+		if len(currentInfo.VotingMachineIds) > numStateServers {
+			return fmt.Errorf("cannot reduce state server count")
+		}
+		removeOps, info, promotableMachines, err := st.updateAvailableStateServersOps(currentInfo)
+		if err != nil {
+			return err
+		}
+		if len(info.VotingMachineIds) == numStateServers && len(removeOps) == 0 {
+			return nil
+		}
+		// Promote existing machines first.
+		var ops []txn.Op
+		if n := numStateServers - len(info.VotingMachineIds); n < len(promotableMachines) {
+			promotableMachines = promotableMachines[:n]
+		}
+		for _, m := range promotableMachines {
+			ops = append(ops, promoteStateServerOps(m)...)
+			info.VotingMachineIds = append(info.VotingMachineIds, m.Id())
+		}
+		// Create new machines to make up the shortfall.
+		mdocs := make([]*machineDoc, numStateServers-len(info.VotingMachineIds))
+		for i := range mdocs {
+			template := MachineTemplate{
+				Series: series,
+				Jobs: []MachineJob{
+					JobHostUnits,
+					JobManageEnviron,
+				},
+				Constraints: cons,
+			}
+			mdoc, addOps, err := st.addMachineOps(template)
+			if err != nil {
+				return err
+			}
+			mdocs[i] = mdoc
+			ops = append(ops, addOps...)
+		}
+		ssOps, err := st.maintainStateServersOps(mdocs, currentInfo)
+		if err != nil {
+			return fmt.Errorf("cannot prepare machine add operations: %v", err)
+		}
+		ops = append(ops, removeOps...)
+		ops = append(ops, ssOps...)
+		err = st.runTransaction(ops)
+		if err == nil {
+			return nil
+		} else if err != txn.ErrAborted {
+			return fmt.Errorf("failed to create new state server machines: %v", err)
+		}
+		// The transaction will only be aborted if another call to
+		// EnsureAvailability completed. Loop back around and try again.
 	}
-	ssOps, err := st.maintainStateServersOps(mdocs, currentInfo)
-	if err != nil {
-		return fmt.Errorf("cannot prepare machine add operations: %v", err)
-	}
-	ops = append(ops, removeOps...)
-	ops = append(ops, ssOps...)
-	err = st.runTransaction(ops)
-	if err != nil {
-		return fmt.Errorf("failed to create new state server machines: %v", err)
-	}
-	return nil
+	return ErrExcessiveContention
 }
 
 // stateServerAvailable returns true if the specified state server machine is
@@ -564,9 +570,7 @@ var stateServerAvailable = func(m *Machine) (bool, error) {
 	// TODO(axw) #1271504 2014-01-22
 	// Check the state server's associated mongo health;
 	// requires coordination with worker/peergrouper.
-	alive, err := m.AgentAlive()
-	logger.Debugf("%s alive?: %v", m.Id(), alive)
-	return alive, err
+	return m.AgentAlive()
 }
 
 // updateAvailableStateServersOps checks the availability of state servers,
@@ -575,7 +579,7 @@ var stateServerAvailable = func(m *Machine) (bool, error) {
 //   gathering available, non-voting machines that may be promoted;
 //   updating StateServerInfo to reflect reality.
 func (st *State) updateAvailableStateServersOps(info *StateServerInfo) (ops []txn.Op, newInfo *StateServerInfo, promotableMachines []*Machine, err error) {
-	var newVotingMachineIds, newMachineIds []string
+	newInfo = &StateServerInfo{}
 	for _, mid := range info.MachineIds {
 		m, err := st.Machine(mid)
 		if err != nil {
@@ -586,34 +590,30 @@ func (st *State) updateAvailableStateServersOps(info *StateServerInfo) (ops []tx
 			return nil, nil, nil, err
 		}
 		if available {
-			if !m.WantsVote() {
-				promotableMachines = append(promotableMachines, m)
+			if m.WantsVote() {
+				newInfo.VotingMachineIds = append(newInfo.VotingMachineIds, mid)
 			} else {
-				newVotingMachineIds = append(newVotingMachineIds, mid)
+				promotableMachines = append(promotableMachines, m)
 			}
-			newMachineIds = append(newMachineIds, mid)
+			newInfo.MachineIds = append(newInfo.MachineIds, mid)
 			continue
 		}
 		if m.WantsVote() {
-			// If the machine does want to vote, we simply set novote and
-			// allow it to run its course to have its vote removed by the
-			// worker that maintains the replicaset. We will replace it with
-			// a an existing non-voting state server if there is one, starting
-			// a new one if not.
+			// The machine wants to vote, so we simply set novote and allow it
+			// to run its course to have its vote removed by the worker that
+			// maintains the replicaset. We will replace it with an existing
+			// non-voting state server if there is one, starting a new one if
+			// not.
 			ops = append(ops, demoteStateServerOps(m)...)
-			newMachineIds = append(newMachineIds, mid)
-		} else if !m.HasVote() {
-			// If the machine does not want to vote and doesn't have a vote,
-			// then remove its JobManageEnviron job immediately.
-			ops = append(ops, removeStateServerOps(m)...)
+			newInfo.MachineIds = append(newInfo.MachineIds, mid)
+		} else if m.HasVote() {
+			// The machine still has a vote, so keep it in MachineIds for now.
+			newInfo.MachineIds = append(newInfo.MachineIds, mid)
 		} else {
-			// Machine still has a vote, so keep it in MachineIds for now.
-			newMachineIds = append(newMachineIds, mid)
+			// The machine neither wants to nor has a vote, so remove its
+			// JobManageEnviron job immediately.
+			ops = append(ops, removeStateServerOps(m)...)
 		}
-	}
-	newInfo = &StateServerInfo{
-		VotingMachineIds: newVotingMachineIds,
-		MachineIds:       newMachineIds,
 	}
 	return ops, newInfo, promotableMachines, nil
 }
@@ -622,7 +622,7 @@ func promoteStateServerOps(m *Machine) []txn.Op {
 	return []txn.Op{{
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
-		Assert: bson.D{{"novote", bson.D{{"$ne", false}}}},
+		Assert: bson.D{{"novote", true}},
 		Update: bson.D{{"$set", bson.D{{"novote", false}}}},
 	}, {
 		C:      m.st.stateServers.Name,
@@ -635,7 +635,7 @@ func demoteStateServerOps(m *Machine) []txn.Op {
 	return []txn.Op{{
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
-		Assert: bson.D{{"novote", bson.D{{"$ne", true}}}},
+		Assert: bson.D{{"novote", false}},
 		Update: bson.D{{"$set", bson.D{{"novote", true}}}},
 	}, {
 		C:      m.st.stateServers.Name,
@@ -646,13 +646,13 @@ func demoteStateServerOps(m *Machine) []txn.Op {
 
 func removeStateServerOps(m *Machine) []txn.Op {
 	return []txn.Op{{
-		C:  m.st.machines.Name,
-		Id: m.doc.Id,
-		Assert: bson.D{
-			{"novote", bson.D{{"$ne", false}}},
-			{"hasvote", bson.D{{"$ne", true}}},
+		C:      m.st.machines.Name,
+		Id:     m.doc.Id,
+		Assert: bson.D{{"novote", true}, {"hasvote", false}},
+		Update: bson.D{
+			{"$pull", bson.D{{"jobs", JobManageEnviron}}},
+			{"$set", bson.D{{"novote", false}}},
 		},
-		Update: bson.D{{"$pull", bson.D{{"jobs", JobManageEnviron}}}},
 	}, {
 		C:      m.st.stateServers.Name,
 		Id:     environGlobalKey,

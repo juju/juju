@@ -2975,6 +2975,83 @@ func (s *StateSuite) TestEnsureAvailabilityRemovesUnavailableMachines(c *gc.C) {
 	c.Assert(m0.IsManager(), jc.IsFalse)
 }
 
+func (s *StateSuite) TestEnsureAvailabilityConcurrentSame(c *gc.C) {
+	s.PatchValue(state.StateServerAvailable, func(m *state.Machine) (bool, error) {
+		return true, nil
+	})
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+		c.Assert(err, gc.IsNil)
+		// The outer EnsureAvailability call will allocate IDs 0..2,
+		// and the inner one 3..5.
+		expected := []string{"3", "4", "5"}
+		s.assertStateServerInfo(c, expected, expected)
+	}).Check()
+
+	err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	c.Assert(err, gc.IsNil)
+	s.assertStateServerInfo(c, []string{"3", "4", "5"}, []string{"3", "4", "5"})
+
+	// Machine 0 should never have been created.
+	_, err = s.State.Machine("0")
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+}
+
+func (s *StateSuite) TestEnsureAvailabilityConcurrentLess(c *gc.C) {
+	s.PatchValue(state.StateServerAvailable, func(m *state.Machine) (bool, error) {
+		return true, nil
+	})
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+		c.Assert(err, gc.IsNil)
+		// The outer EnsureAvailability call will initially allocate IDs 0..4,
+		// and the inner one 5..7.
+		expected := []string{"5", "6", "7"}
+		s.assertStateServerInfo(c, expected, expected)
+	}).Check()
+
+	// This call to EnsureAvailability will initially attempt to allocate
+	// machines 0..4, and fail due to the concurrent change. It will then
+	// allocate machines 8..9 to make up the difference from the concurrent
+	// EnsureAvailability call.
+	err := s.State.EnsureAvailability(5, constraints.Value{}, "quantal")
+	c.Assert(err, gc.IsNil)
+	expected := []string{"5", "6", "7", "8", "9"}
+	s.assertStateServerInfo(c, expected, expected)
+
+	// Machine 0 should never have been created.
+	_, err = s.State.Machine("0")
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+}
+
+func (s *StateSuite) TestEnsureAvailabilityConcurrentMore(c *gc.C) {
+	s.PatchValue(state.StateServerAvailable, func(m *state.Machine) (bool, error) {
+		return true, nil
+	})
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err := s.State.EnsureAvailability(5, constraints.Value{}, "quantal")
+		c.Assert(err, gc.IsNil)
+		// The outer EnsureAvailability call will allocate IDs 0..2,
+		// and the inner one 3..7.
+		expected := []string{"3", "4", "5", "6", "7"}
+		s.assertStateServerInfo(c, expected, expected)
+	}).Check()
+
+	// This call to EnsureAvailability will initially attempt to allocate
+	// machines 0..2, and fail due to the concurrent change. It will then
+	// find that the number of voting machines in state is greater than
+	// what we're attempting to ensure, and fail.
+	err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	c.Assert(err, gc.ErrorMatches, "cannot reduce state server count")
+
+	// Machine 0 should never have been created.
+	_, err = s.State.Machine("0")
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+}
+
 func (s *StateSuite) TestStateServingInfo(c *gc.C) {
 	info, err := s.State.StateServingInfo()
 	c.Assert(info, jc.DeepEquals, params.StateServingInfo{})
