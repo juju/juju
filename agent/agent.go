@@ -608,6 +608,9 @@ func (c *configInternal) StateInfo() (info *state.Info, ok bool) {
 	if !ok {
 		return nil, false
 	}
+	if ssi.StatePort == 0 {
+		panic("zero state port!")
+	}
 	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(ssi.StatePort))
 	return &state.Info{
 		Addrs:    []string{addr},
