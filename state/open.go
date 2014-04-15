@@ -42,7 +42,7 @@ type Info struct {
 
 	// CACert holds the CA certificate that will be used
 	// to validate the state server's certificate, in PEM format.
-	CACert []byte
+	CACert string
 
 	// Tag holds the name of the entity that is connecting.
 	// It should be empty when connecting as an administrator.
@@ -196,18 +196,21 @@ func Initialize(info *Info, cfg *config.Config, opts DialOpts, policy Policy) (r
 var indexes = []struct {
 	collection string
 	key        []string
+	unique     bool
 }{
 	// After the first public release, do not remove entries from here
 	// without adding them to a list of indexes to drop, to ensure
 	// old databases are modified to have the correct indexes.
-	{"relations", []string{"endpoints.relationname"}},
-	{"relations", []string{"endpoints.servicename"}},
-	{"units", []string{"service"}},
-	{"units", []string{"principal"}},
-	{"units", []string{"machineid"}},
-	{"users", []string{"name"}},
-	{"networkinterfaces", []string{"networkname"}},
-	{"networkinterfaces", []string{"machineid"}},
+	{"relations", []string{"endpoints.relationname"}, false},
+	{"relations", []string{"endpoints.servicename"}, false},
+	{"units", []string{"service"}, false},
+	{"units", []string{"principal"}, false},
+	{"units", []string{"machineid"}, false},
+	{"users", []string{"name"}, false},
+	{"networks", []string{"providerid"}, true},
+	{"networkinterfaces", []string{"interfacename", "machineid"}, true},
+	{"networkinterfaces", []string{"networkname"}, false},
+	{"networkinterfaces", []string{"machineid"}, false},
 }
 
 // The capped collection used for transaction logs defaults to 10MB.
@@ -255,12 +258,19 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 		if err := pdb.Login(info.Tag, info.Password); err != nil {
 			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to presence database as %q", info.Tag))
 		}
-		admin := session.DB(AdminUser)
+		admin := session.DB("admin")
 		if err := admin.Login(info.Tag, info.Password); err != nil {
-			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to admin database as %q", info.Tag))
+			if isUnauthorized(err) {
+				// TODO(jam) https://launchpad.net/bugs/1306902 in juju <=1.18,
+				// machine-0 was not an admin, so it cannot login to the "admin"
+				// database until bug #1306902 is fixed.
+				logger.Infof("ignoring failure to login to \"admin\" database as %q (bug #1306902): %v", info.Tag, err)
+			} else {
+				return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to admin database as %q", info.Tag))
+			}
 		}
 	} else if info.Password != "" {
-		admin := session.DB(AdminUser)
+		admin := session.DB("admin")
 		if err := admin.Login(AdminUser, info.Password); err != nil {
 			return nil, maybeUnauthorized(err, "cannot log in to admin database")
 		}
@@ -278,7 +288,7 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 		relations:         db.C("relations"),
 		relationScopes:    db.C("relationscopes"),
 		services:          db.C("services"),
-		requestedNetworks: db.C("linkednetworks"),
+		requestedNetworks: db.C("requestednetworks"),
 		networks:          db.C("networks"),
 		networkInterfaces: db.C("networkinterfaces"),
 		minUnits:          db.C("minunits"),
@@ -306,7 +316,7 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 	st.watcher = watcher.New(db.C("txns.log"))
 	st.pwatcher = presence.NewWatcher(pdb.C("presence"))
 	for _, item := range indexes {
-		index := mgo.Index{Key: item.key}
+		index := mgo.Index{Key: item.key, Unique: item.unique}
 		if err := db.C(item.collection).EnsureIndex(index); err != nil {
 			return nil, fmt.Errorf("cannot create database index: %v", err)
 		}
@@ -409,8 +419,8 @@ func (st *State) createStateServingInfoDoc() error {
 }
 
 // CACert returns the certificate used to validate the state connection.
-func (st *State) CACert() (cert []byte) {
-	return append(cert, st.info.CACert...)
+func (st *State) CACert() string {
+	return st.info.CACert
 }
 
 func (st *State) Close() error {

@@ -5,6 +5,7 @@ package errors
 
 import (
 	"fmt"
+	"strings"
 )
 
 // errorWrapper defines a way to encapsulate an error inside another error.
@@ -33,10 +34,8 @@ type notFoundError struct {
 // IsNotFoundError is satisfied by errors created by this package representing
 // resources that can't be found.
 func IsNotFoundError(err error) bool {
-	if _, ok := err.(notFoundError); ok {
-		return true
-	}
-	return false
+	_, ok := err.(notFoundError)
+	return ok || (err != nil && strings.HasSuffix(err.Error(), " not found"))
 }
 
 // NotFoundf returns a error which satisfies IsNotFoundError().
@@ -125,7 +124,7 @@ func (e *alreadyExistsError) Error() string {
 // was created with NewAlreadyExistsError.
 func IsAlreadyExistsError(err error) bool {
 	_, ok := err.(*alreadyExistsError)
-	return ok
+	return ok || (err != nil && strings.HasSuffix(err.Error(), " already exists"))
 }
 
 type notSupportedError struct {

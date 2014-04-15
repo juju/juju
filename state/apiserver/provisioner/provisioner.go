@@ -409,10 +409,43 @@ func (p *ProvisionerAPI) Constraints(args params.Entities) (params.ConstraintsRe
 	return result, nil
 }
 
-// RequestedNetworks returns the requested networks for each given machine entity.
-func (p *ProvisionerAPI) RequestedNetworks(args params.Entities) (params.NetworksResults, error) {
-	result := params.NetworksResults{
-		Results: make([]params.NetworkResult, len(args.Entities)),
+func networkParamsToStateParams(networks []params.Network, ifaces []params.NetworkInterface) (
+	[]state.NetworkInfo, []state.NetworkInterfaceInfo, error,
+) {
+	stateNetworks := make([]state.NetworkInfo, len(networks))
+	for i, network := range networks {
+		_, networkName, err := names.ParseTag(network.Tag, names.NetworkTagKind)
+		if err != nil {
+			return nil, nil, err
+		}
+		stateNetworks[i] = state.NetworkInfo{
+			Name:       networkName,
+			ProviderId: network.ProviderId,
+			CIDR:       network.CIDR,
+			VLANTag:    network.VLANTag,
+		}
+	}
+	stateInterfaces := make([]state.NetworkInterfaceInfo, len(ifaces))
+	for i, iface := range ifaces {
+		_, networkName, err := names.ParseTag(iface.NetworkTag, names.NetworkTagKind)
+		if err != nil {
+			return nil, nil, err
+		}
+		stateInterfaces[i] = state.NetworkInterfaceInfo{
+			MACAddress:    iface.MACAddress,
+			NetworkName:   networkName,
+			InterfaceName: iface.InterfaceName,
+		}
+	}
+	return stateNetworks, stateInterfaces, nil
+}
+
+// RequestedNetworks returns the requested networks for each given
+// machine entity. Each entry in both lists is returned with its
+// provider specific id.
+func (p *ProvisionerAPI) RequestedNetworks(args params.Entities) (params.RequestedNetworksResults, error) {
+	result := params.RequestedNetworksResults{
+		Results: make([]params.RequestedNetworkResult, len(args.Entities)),
 	}
 	canAccess, err := p.getAuthFunc()
 	if err != nil {
@@ -425,6 +458,12 @@ func (p *ProvisionerAPI) RequestedNetworks(args params.Entities) (params.Network
 			var excludeNetworks []string
 			includeNetworks, excludeNetworks, err = machine.RequestedNetworks()
 			if err == nil {
+				// TODO(dimitern) For now, since network names and
+				// provider ids are the same, we return what we got
+				// from state. In the future, when networks can be
+				// added before provisioning, we should convert both
+				// slices from juju network names to provider-specific
+				// ids before returning them.
 				result.Results[i].IncludeNetworks = includeNetworks
 				result.Results[i].ExcludeNetworks = excludeNetworks
 			}
@@ -473,9 +512,14 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 	for i, arg := range args.Machines {
 		machine, err := p.getMachine(canAccess, arg.Tag)
 		if err == nil {
-			err = machine.SetInstanceInfo(
-				arg.InstanceId, arg.Nonce, arg.Characteristics,
-				arg.Networks, arg.Interfaces)
+			var networks []state.NetworkInfo
+			var interfaces []state.NetworkInterfaceInfo
+			networks, interfaces, err = networkParamsToStateParams(arg.Networks, arg.Interfaces)
+			if err == nil {
+				err = machine.SetInstanceInfo(
+					arg.InstanceId, arg.Nonce, arg.Characteristics,
+					networks, interfaces)
+			}
 			if err != nil {
 				// Give the user more context about the error.
 				err = fmt.Errorf("aborted instance %q: %v", arg.InstanceId, err)

@@ -38,13 +38,13 @@ func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
 		CloudInitOutputLog: environs.CloudInitOutputLog,
 		Tools:              &tools.Tools{URL: "file://" + c.MkDir()},
 		StateInfo: &state.Info{
-			CACert:   []byte(testing.CACert),
+			CACert:   testing.CACert,
 			Addrs:    []string{"127.0.0.1:123"},
 			Tag:      names.MachineTag(machineID),
 			Password: "password",
 		},
 		APIInfo: &api.Info{
-			CACert: []byte(testing.CACert),
+			CACert: testing.CACert,
 			Addrs:  []string{"127.0.0.1:123"},
 			Tag:    names.MachineTag(machineID),
 		},

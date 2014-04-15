@@ -400,10 +400,13 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	if !ok {
 		return nil, fmt.Errorf("state worker was started with no state serving info")
 	}
+	providerType := agentConfig.Value(agent.ProviderType)
+	withHA := providerType != provider.Local
 	err := ensureMongoServer(
 		agentConfig.DataDir(),
 		agentConfig.Value(agent.Namespace),
 		servingInfo,
+		withHA,
 	)
 	if err != nil {
 		return nil, err
@@ -427,7 +430,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 
 	// Take advantage of special knowledge here in that we will only ever want
 	// the storage provider on one machine, and that is the "bootstrap" node.
-	providerType := agentConfig.Value(agent.ProviderType)
 	if (providerType == provider.Local || provider.IsManual(providerType)) && m.Id() == bootstrapMachineId {
 		a.startWorkerAfterUpgrade(runner, "local-storage", func() (worker.Worker, error) {
 			// TODO(axw) 2013-09-24 bug #1229507

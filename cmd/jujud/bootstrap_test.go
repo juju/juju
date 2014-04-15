@@ -55,14 +55,15 @@ type fakeEnsure struct {
 	initiateCount  int
 	dataDir        string
 	namespace      string
+	withHA         bool
 	info           params.StateServingInfo
 	initiateParams peergrouper.InitiateMongoParams
 	err            error
 }
 
-func (f *fakeEnsure) fakeEnsureMongo(dataDir, namespace string, info params.StateServingInfo) error {
+func (f *fakeEnsure) fakeEnsureMongo(dataDir, namespace string, info params.StateServingInfo, withHA bool) error {
 	f.ensureCount++
-	f.dataDir, f.namespace, f.info = dataDir, namespace, info
+	f.dataDir, f.namespace, f.info, f.withHA = dataDir, namespace, info, withHA
 	return f.err
 }
 
@@ -125,7 +126,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob,
 		Nonce:             state.BootstrapNonce,
 		StateAddresses:    []string{testing.MgoServer.Addr()},
 		APIAddresses:      []string{"0.1.2.3:1234"},
-		CACert:            []byte(testing.CACert),
+		CACert:            testing.CACert,
 		Values:            map[string]string{agent.Namespace: "foobar"},
 	}
 	servingInfo := params.StateServingInfo{
@@ -162,6 +163,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	c.Assert(s.fakeEnsureMongo.initiateCount, gc.Equals, 1)
 	c.Assert(s.fakeEnsureMongo.ensureCount, gc.Equals, 1)
 	c.Assert(s.fakeEnsureMongo.dataDir, gc.Equals, s.dataDir)
+	c.Assert(s.fakeEnsureMongo.withHA, jc.IsTrue)
 
 	expectInfo, exists := machConf.StateServingInfo()
 	c.Assert(exists, jc.IsTrue)
@@ -181,7 +183,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 
 	st, err := state.Open(&state.Info{
 		Addrs:    []string{testing.MgoServer.Addr()},
-		CACert:   []byte(testing.CACert),
+		CACert:   testing.CACert,
 		Password: testPasswordHash(),
 	}, state.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
@@ -217,7 +219,7 @@ func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 
 	st, err := state.Open(&state.Info{
 		Addrs:    []string{testing.MgoServer.Addr()},
-		CACert:   []byte(testing.CACert),
+		CACert:   testing.CACert,
 		Password: testPasswordHash(),
 	}, state.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
@@ -249,7 +251,7 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 
 	st, err := state.Open(&state.Info{
 		Addrs:    []string{testing.MgoServer.Addr()},
-		CACert:   []byte(testing.CACert),
+		CACert:   testing.CACert,
 		Password: testPasswordHash(),
 	}, state.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
@@ -268,7 +270,7 @@ func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 
 	st, err := state.Open(&state.Info{
 		Addrs:    []string{testing.MgoServer.Addr()},
-		CACert:   []byte(testing.CACert),
+		CACert:   testing.CACert,
 		Password: testPasswordHash(),
 	}, state.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
@@ -301,7 +303,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	// password.
 	info := &state.Info{
 		Addrs:  []string{testing.MgoServer.Addr()},
-		CACert: []byte(testing.CACert),
+		CACert: testing.CACert,
 	}
 	testOpenState(c, info, errors.Unauthorizedf(""))
 

@@ -339,7 +339,7 @@ func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag string) agent.Config {
 			Nonce:             "nonce",
 			StateAddresses:    s.StateInfo(c).Addrs,
 			APIAddresses:      s.APIInfo(c).Addrs,
-			CACert:            []byte(testing.CACert),
+			CACert:            testing.CACert,
 		})
 	c.Assert(err, gc.IsNil)
 	return config

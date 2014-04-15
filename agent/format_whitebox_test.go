@@ -28,7 +28,7 @@ var agentParams = AgentConfigParams{
 	UpgradedToVersion: version.Current.Number,
 	Jobs:              []params.MachineJob{params.JobHostUnits},
 	Password:          "sekrit",
-	CACert:            []byte("ca cert"),
+	CACert:            "ca cert",
 	StateAddresses:    []string{"localhost:1234"},
 	APIAddresses:      []string{"localhost:1235"},
 	Nonce:             "a nonce",

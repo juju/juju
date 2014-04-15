@@ -127,6 +127,13 @@ func RemoveService(namespace string) error {
 	return upstartServiceStopAndRemove(svc)
 }
 
+const (
+	// WithHA is used when we want to start a mongo service with HA support.
+	WithHA = true
+	// WithoutHA is used when we want to start a mongo service without HA support.
+	WithoutHA = false
+)
+
 // EnsureMongoServer ensures that the correct mongo upstart script is installed
 // and running.
 //
@@ -136,7 +143,7 @@ func RemoveService(namespace string) error {
 // The namespace is a unique identifier to prevent multiple instances of mongo
 // on this machine from colliding. This should be empty unless using
 // the local provider.
-func EnsureMongoServer(dataDir string, namespace string, info params.StateServingInfo) error {
+func EnsureMongoServer(dataDir string, namespace string, info params.StateServingInfo, withHA bool) error {
 	logger.Infof("Ensuring mongo server is running; data directory %s; port %d", dataDir, info.StatePort)
 	dbDir := filepath.Join(dataDir, "db")
 
@@ -173,10 +180,17 @@ func EnsureMongoServer(dataDir string, namespace string, info params.StateServin
 		return fmt.Errorf("cannot install mongod: %v", err)
 	}
 
-	upstartConf, err := mongoUpstartService(namespace, dataDir, dbDir, info.StatePort)
+	upstartConf, err := mongoUpstartService(namespace, dataDir, dbDir, info.StatePort, withHA)
 	if err != nil {
 		return err
 	}
+
+	// TODO(natefinch) 2014-04-12 https://launchpad.net/bugs/1306902
+	// remove this once we support upgrading to HA
+	if service.Installed() {
+		return nil
+	}
+
 	if err := makeJournalDirs(dbDir); err != nil {
 		return fmt.Errorf("Error creating journal directories: %v", err)
 	}
@@ -205,7 +219,14 @@ func makeJournalDirs(dataDir string) error {
 	for x := 0; x < 3; x++ {
 		name := fmt.Sprintf("prealloc.%d", x)
 		filename := filepath.Join(journalDir, name)
-		f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0700)
+		f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0700)
+		// TODO(jam) 2014-04-12 https://launchpad.net/bugs/1306902
+		// When we support upgrading Mongo into Replica mode, we should
+		// start rewriting the upstart config
+		if os.IsExist(err) {
+			// already exists, don't overwrite
+			continue
+		}
 		if err != nil {
 			return fmt.Errorf("failed to open mongo prealloc file %q: %v", filename, err)
 		}
@@ -229,6 +250,7 @@ func sharedSecretPath(dataDir string) string {
 	return filepath.Join(dataDir, SharedSecretFile)
 }
 
+
 // mongoUpstartService returns the upstart config for the mongo state service.
 //
 func mongoUpstartService(namespace, dataDir, dbDir string, port int) (*upstart.Conf, error) {
@@ -238,15 +260,7 @@ func mongoUpstartService(namespace, dataDir, dbDir string, port int) (*upstart.C
 	if err != nil {
 		return nil, err
 	}
-
-	conf := &upstart.Conf{
-		Service: *svc,
-		Desc:    "juju state database",
-		Limit: map[string]string{
-			"nofile": fmt.Sprintf("%d %d", maxFiles, maxFiles),
-			"nproc":  fmt.Sprintf("%d %d", maxProcs, maxProcs),
-		},
-		Cmd: mongoPath + " --auth" +
+	mongoCmd := mongoPath + " --auth" +
 			" --dbpath=" + utils.ShQuote(dbDir) +
 			" --sslOnNormalPorts" +
 			" --sslPEMKeyFile " + utils.ShQuote(sslKeyPath(dataDir)) +
@@ -256,8 +270,18 @@ func mongoUpstartService(namespace, dataDir, dbDir string, port int) (*upstart.C
 			" --noprealloc" +
 			" --syslog" +
 			" --smallfiles" +
-			" --replSet " + utils.ShQuote(ReplicaSetName) +
-			" --keyFile " + utils.ShQuote(sharedSecretPath(dataDir)),
+			" --keyFile " + utils.ShQuote(sharedSecretPath(dataDir))
+	if withHA {
+		mongoCmd += " --replSet " + ReplicaSetName
+	}
+	conf := &upstart.Conf{
+		Service: *svc,
+		Desc:    "juju state database",
+		Limit: map[string]string{
+			"nofile": fmt.Sprintf("%d %d", maxFiles, maxFiles),
+			"nproc":  fmt.Sprintf("%d %d", maxProcs, maxProcs),
+		},
+		Cmd: mongoCmd,
 	}
 	return conf, nil
 }

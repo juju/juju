@@ -79,7 +79,7 @@ type Config interface {
 
 	// CACert returns the CA certificate that is used to validate the state or
 	// API server's certificate.
-	CACert() []byte
+	CACert() string
 
 	// APIAddresses returns the addresses needed to connect to the api server
 	APIAddresses() ([]string, error)
@@ -211,7 +211,7 @@ type configInternal struct {
 	nonce             string
 	jobs              []params.MachineJob
 	upgradedToVersion version.Number
-	caCert            []byte
+	caCert            string
 	stateDetails      *connectionDetails
 	apiDetails        *connectionDetails
 	oldPassword       string
@@ -229,7 +229,7 @@ type AgentConfigParams struct {
 	Nonce             string
 	StateAddresses    []string
 	APIAddresses      []string
-	CACert            []byte
+	CACert            string
 	Values            map[string]string
 }
 
@@ -500,11 +500,8 @@ func (c *configInternal) UpgradedToVersion() version.Number {
 	return c.upgradedToVersion
 }
 
-func (c *configInternal) CACert() []byte {
-	// Give the caller their own copy of the cert to avoid any possibility of
-	// modifying the config's copy.
-	result := append([]byte{}, c.caCert...)
-	return result
+func (c *configInternal) CACert() string {
+	return c.caCert
 }
 
 func (c *configInternal) Value(key string) string {
