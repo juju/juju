@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
@@ -98,20 +99,21 @@ func (s *MongoSuite) TearDownTest(c *gc.C) {
 	}
 }
 
+var initialTags = map[string]string{"foo": "bar"}
+
 func dialAndTestInitiate(c *gc.C) {
 	session := root.MustDialDirect()
 	defer session.Close()
 
 	mode := session.Mode()
-	tags := map[string]string{"foo": "bar"}
-	err := Initiate(session, root.Addr(), name, tags)
+	err := Initiate(session, root.Addr(), name, initialTags)
 	c.Assert(err, gc.IsNil)
 
 	// make sure we haven't messed with the session's mode
 	c.Assert(session.Mode(), gc.Equals, mode)
 
 	// Ids start at 1 for us, so we can differentiate between set and unset
-	expectedMembers := []Member{Member{Id: 1, Address: root.Addr(), Tags: tags}}
+	expectedMembers := []Member{Member{Id: 1, Address: root.Addr(), Tags: initialTags}}
 
 	// need to set mode to strong so that we wait for the write to succeed
 	// before reading and thus ensure that we're getting consistent reads.
@@ -119,7 +121,7 @@ func dialAndTestInitiate(c *gc.C) {
 
 	mems, err := CurrentMembers(session)
 	c.Assert(err, gc.IsNil)
-	c.Assert(mems, gc.DeepEquals, expectedMembers)
+	c.Assert(mems, jc.DeepEquals, expectedMembers)
 
 	// now add some data so we get a more real-life test
 	loadData(session, c)
@@ -160,7 +162,7 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 
 	// Add should be idempotent, so re-adding root here shouldn't result in
 	// two copies of root in the replica set
-	members = append(members, Member{Address: root.Addr()})
+	members = append(members, Member{Address: root.Addr(), Tags: initialTags})
 
 	instances := make([]*coretesting.MgoInstance, 0, 5)
 	instances = append(instances, root)
@@ -227,7 +229,7 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 
 	mems := cfg.Members
 
-	c.Assert(mems, gc.DeepEquals, expectedMembers)
+	c.Assert(mems, jc.DeepEquals, expectedMembers)
 
 	// Now remove the last two Members
 	start = time.Now()
@@ -259,7 +261,7 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 	}
 	c.Logf("CurrentMembers() %d attempts in %s", attemptCount, time.Since(start))
 	c.Assert(err, gc.IsNil)
-	c.Assert(mems, gc.DeepEquals, expectedMembers)
+	c.Assert(mems, jc.DeepEquals, expectedMembers)
 
 	// now let's mix it up and set the new members to a mix of the previous
 	// plus the new arbiter
@@ -316,7 +318,7 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 	}
 	c.Assert(err, gc.IsNil)
 	c.Logf("CurrentMembers() %d attempts in %s", attemptCount, time.Since(start))
-	c.Assert(mems, gc.DeepEquals, expectedMembers)
+	c.Assert(mems, jc.DeepEquals, expectedMembers)
 }
 
 func (s *MongoSuite) TestIsMaster(c *gc.C) {
@@ -342,7 +344,7 @@ func (s *MongoSuite) TestIsMaster(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Check(closeEnough(res.LocalTime, time.Now()), gc.Equals, true)
 	res.LocalTime = time.Time{}
-	c.Check(*res, gc.DeepEquals, expected)
+	c.Check(*res, jc.DeepEquals, expected)
 }
 
 func (s *MongoSuite) TestMasterHostPort(c *gc.C) {
@@ -455,7 +457,7 @@ func (s *MongoSuite) TestCurrentStatus(c *gc.C) {
 		// now overwrite Uptime so it won't throw off DeepEquals
 		res.Members[x].Uptime = 0
 	}
-	c.Check(res, gc.DeepEquals, expected)
+	c.Check(res, jc.DeepEquals, expected)
 }
 
 func closeEnough(expected, obtained time.Time) bool {
