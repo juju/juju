@@ -121,6 +121,7 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 
 	// Dial all addresses
 	try := parallel.NewTry(0, nil)
+	defer try.Kill()
 	for _, addr := range info.Addrs {
 		err := dialWebsocket(addr, opts, pool, try)
 		if err == parallel.ErrStopped {

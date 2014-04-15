@@ -275,7 +275,7 @@ func mkMachines(description string) []*machine {
 }
 
 func memberTag(id string) map[string]string {
-	return map[string]string{"juju-machine-id": id}
+	return map[string]string{jujuMachineTag: id}
 }
 
 // mkMembers returns a slice of *replicaset.Member

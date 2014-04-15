@@ -6,6 +6,7 @@ package mongo
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"syscall"
 
 	"labix.org/v2/mgo"
@@ -60,7 +61,7 @@ func EnsureAdminUser(p EnsureAdminUserParams) (added bool, err error) {
 	// Stop mongo, so we can start it in --noauth mode.
 	mongoServiceName := ServiceName(p.Namespace)
 	mongoService := upstart.NewService(mongoServiceName)
-	if err := mongoService.Stop(); err != nil {
+	if err := upstartServiceStop(mongoService); err != nil {
 		return false, fmt.Errorf("failed to stop %v: %v", mongoServiceName, err)
 	}
 
@@ -92,9 +93,11 @@ func EnsureAdminUser(p EnsureAdminUserParams) (added bool, err error) {
 		return false, fmt.Errorf("cannot kill mongod: %v", err)
 	}
 	if err := cmd.Wait(); err != nil {
-		return false, fmt.Errorf("mongod did not cleanly terminate: %v", err)
+		if _, ok := err.(*exec.ExitError); !ok {
+			return false, fmt.Errorf("mongod did not cleanly terminate: %v", err)
+		}
 	}
-	if err := mongoService.Start(); err != nil {
+	if err := upstartServiceStart(mongoService); err != nil {
 		return false, err
 	}
 	return true, nil
