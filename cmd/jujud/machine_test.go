@@ -17,6 +17,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	lxctesting "launchpad.net/juju-core/container/lxc/testing"
@@ -893,6 +894,39 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 		}
 	}
 	c.Fatalf("timeout while waiting for agent config to change")
+}
+
+func (s *MachineSuite) TestMachineAgentEnsureAdminUser(c *gc.C) {
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	err := s.State.MongoSession().DB("admin").RemoveUser(m.Tag())
+	c.Assert(err, gc.IsNil)
+
+	s.PatchValue(&ensureMongoAdminUser, func(p mongo.EnsureAdminUserParams) (bool, error) {
+		err := s.State.MongoSession().DB("admin").AddUser(p.User, p.Password, false)
+		c.Assert(err, gc.IsNil)
+		return true, nil
+	})
+
+	stateOpened := make(chan eitherState, 1)
+	s.PatchValue(&reportOpenedState, func(st eitherState) {
+		select {
+		case stateOpened <- st:
+		default:
+		}
+	})
+
+	// Start the machine agent, and wait for state to be opened.
+	a := s.newAgent(c, m)
+	done := make(chan error)
+	go func() { done <- a.Run(nil) }()
+	defer a.Stop() // in case of failure
+	select {
+	case st := <-stateOpened:
+		c.Assert(st, gc.NotNil)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("state not opened")
+	}
+	s.waitStopped(c, state.JobManageEnviron, a, done)
 }
 
 // MachineWithCharmsSuite provides infrastructure for tests which need to
