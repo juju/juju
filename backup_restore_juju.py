@@ -60,7 +60,14 @@ def backup_state_server(env):
     environ = dict(os.environ)
     # juju-backup does not support the -e flag.
     environ['JUJU_ENV'] = env.environment
-    output = subprocess.check_output(["juju-backup"], env=environ)
+    try:
+        output = subprocess.check_output(["juju-backup"], env=environ)
+    except Exception as e:
+        # James Page reports a retry can work when the failure is the scp.
+        print_now(e)
+        print_now(e.output)
+        print_now("Retrying the backup.")
+        output = subprocess.check_output(["juju-backup"], env=environ)
     print_now(output)
     match = backup_file_pattern.search(output)
     if match is None:
