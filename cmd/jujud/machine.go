@@ -422,10 +422,11 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		return nil, fmt.Errorf("state worker was started with no state serving info")
 	}
 	providerType := agentConfig.Value(agent.ProviderType)
+	namespace := agentConfig.Value(agent.Namespace)
 	withHA := providerType != provider.Local
 	err := ensureMongoServer(
 		agentConfig.DataDir(),
-		agentConfig.Value(agent.Namespace),
+		namespace,
 		servingInfo,
 		withHA,
 	)
@@ -438,7 +439,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		// TODO(axw) remove this when we no longer need
 		// to upgrade from pre-HA-capable environments.
 		logger.Debugf("failed to open state, reattempt after ensuring admin user exists: %v", err)
-		added, ensureErr := a.ensureMongoAdminUser(agentConfig, info.StatePort, namespace)
+		added, ensureErr := a.ensureMongoAdminUser(agentConfig, servingInfo.StatePort, namespace)
 		if ensureErr != nil {
 			err = ensureErr
 		}
