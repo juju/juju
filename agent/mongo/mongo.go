@@ -324,3 +324,27 @@ func addAptRepository(name string) error {
 	}
 	return nil
 }
+
+// mongoNoauthCommand returns an os/exec.Cmd that may be executed to
+// run mongod without security.
+func mongoNoauthCommand(dataDir string, port int) (*exec.Cmd, error) {
+	sslKeyFile := path.Join(dataDir, "server.pem")
+	dbDir := filepath.Join(dataDir, "db")
+	mongopath, err := MongodPath()
+	if err != nil {
+		return nil, err
+	}
+	cmd := exec.Command(mongopath,
+		"--noauth",
+		"--dbpath", dbDir,
+		"--sslOnNormalPorts",
+		"--sslPEMKeyFile", sslKeyFile,
+		"--sslPEMKeyPassword", "ignored",
+		"--bind_ip", "127.0.0.1",
+		"--port", fmt.Sprint(port),
+		"--noprealloc",
+		"--syslog",
+		"--smallfiles",
+	)
+	return cmd, nil
+}
