@@ -48,6 +48,7 @@ import (
 	"launchpad.net/juju-core/worker/machineenvironmentworker"
 	"launchpad.net/juju-core/worker/machiner"
 	"launchpad.net/juju-core/worker/minunitsworker"
+	"launchpad.net/juju-core/worker/peergrouper"
 	"launchpad.net/juju-core/worker/provisioner"
 	"launchpad.net/juju-core/worker/resumer"
 	"launchpad.net/juju-core/worker/rsyslog"
@@ -73,7 +74,7 @@ var (
 	// The following are defined as variables to
 	// allow the tests to intercept calls to the functions.
 	ensureMongoServer        = mongo.EnsureMongoServer
-	maybeInitiateMongoServer = mongo.MaybeInitiateMongoServer
+	maybeInitiateMongoServer = peergrouper.MaybeInitiateMongoServer
 	ensureMongoAdminUser     = mongo.EnsureAdminUser
 	newSingularRunner        = singular.New
 
@@ -416,16 +417,19 @@ func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config, port int, 
 func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
 
-	namespace := agentConfig.Value(agent.Namespace)
-	info, exist := agentConfig.StateServingInfo()
-	if !exist {
-		return nil, fmt.Errorf("no state info in agent config")
+	servingInfo, ok := agentConfig.StateServingInfo()
+	if !ok {
+		return nil, fmt.Errorf("state worker was started with no state serving info")
 	}
-
-	// We do not want to enable HA for the local provider.
 	providerType := agentConfig.Value(agent.ProviderType)
+	namespace := agentConfig.Value(agent.Namespace)
 	withHA := providerType != provider.Local
-	err := ensureMongoServer(agentConfig.DataDir(), info.StatePort, namespace, withHA)
+	err := ensureMongoServer(
+		agentConfig.DataDir(),
+		namespace,
+		servingInfo,
+		withHA,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -435,7 +439,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		// TODO(axw) remove this when we no longer need
 		// to upgrade from pre-HA-capable environments.
 		logger.Debugf("failed to open state, reattempt after ensuring admin user exists: %v", err)
-		added, ensureErr := a.ensureMongoAdminUser(agentConfig, info.StatePort, namespace)
+		added, ensureErr := a.ensureMongoAdminUser(agentConfig, servingInfo.StatePort, namespace)
 		if ensureErr != nil {
 			err = ensureErr
 		}

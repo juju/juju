@@ -340,45 +340,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	if cfg.Bootstrap {
 		identityFile := cfg.dataFile(SystemIdentity)
 		c.AddFile(identityFile, cfg.SystemPrivateSSHKey, 0600)
-		if !cfg.DisablePackageCommands {
-			// Disable the default mongodb installed by the mongodb-server package.
-			// Only do this if the file doesn't exist already, so users can run
-			// their own mongodb server if they wish to.
-			c.AddBootCmd(
-				`[ -f /etc/default/mongodb ] ||
-             (echo ENABLE_MONGODB="no" > /etc/default/mongodb)`)
 
-			if cfg.NeedMongoPPA() {
-				const key = "" // key is loaded from PPA
-				c.AddAptSource("ppa:juju/stable", key, nil)
-			}
-			if cfg.Tools.Version.Series == "precise" {
-				// In precise we add the cloud-tools pocket and
-				// pin it with a lower priority, so we need to
-				// explicitly specify the target release when
-				// installing mongodb-server from there.
-				c.AddPackageFromTargetRelease("mongodb-server", "precise-updates/cloud-tools")
-			} else {
-				c.AddPackage("mongodb-server")
-			}
-		}
-
-		// TODO(natefinch) remove this once we write it from agent config
-
-		certKey := string(cfg.StateServingInfo.Cert) + string(cfg.StateServingInfo.PrivateKey)
-		c.AddFile(cfg.dataFile("server.pem"), certKey, 0600)
-
-		// We temporarily give bootstrap-state a directory
-		// of its own so that it can get the state info via the
-		// same mechanism as other jujud commands.
-		// TODO(rog) 2013-10-04
-		// This is redundant now as jujud bootstrap
-		// uses the machine agent's configuration.
-		// We leave it for the time being for backward compatibility.
-		acfg, err := cfg.addAgentInfo(c, "bootstrap")
-		if err != nil {
-			return err
-		}
 		cons := cfg.Constraints.String()
 		if cons != "" {
 			cons = " --constraints " + shquote(cons)
@@ -392,14 +354,13 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 		c.AddRunCmd(cloudinit.LogProgressCmd("Bootstrapping Juju machine agent"))
 		c.AddScripts(
 			// The bootstrapping is always run with debug on.
-			cfg.jujuTools()+"/jujud bootstrap-state"+
-				" --data-dir "+shquote(cfg.DataDir)+
-				" --env-config "+shquote(base64yaml(cfg.Config))+
-				" --instance-id "+shquote(string(cfg.InstanceId))+
-				hardware+
-				cons+
+			cfg.jujuTools() + "/jujud bootstrap-state" +
+				" --data-dir " + shquote(cfg.DataDir) +
+				" --env-config " + shquote(base64yaml(cfg.Config)) +
+				" --instance-id " + shquote(string(cfg.InstanceId)) +
+				hardware +
+				cons +
 				" --debug",
-			"rm -rf "+shquote(acfg.Dir()),
 		)
 	}
 
@@ -577,14 +538,6 @@ func MaybeAddCloudArchiveCloudTools(c *cloudinit.Config, series string) {
 		PinPriority: 400,
 	}
 	c.AddAptSource(name, CanonicalCloudArchiveSigningKey, prefs)
-}
-
-func (cfg *MachineConfig) NeedMongoPPA() bool {
-	series := cfg.Tools.Version.Series
-	// 11.10 and earlier are not supported.
-	// 12.04 can get a compatible version from the cloud-archive.
-	// 13.04 and later ship a compatible version in the archive.
-	return series == "quantal"
 }
 
 // HasNetworks returns if there are any networks set.
