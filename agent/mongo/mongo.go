@@ -175,6 +175,13 @@ func RemoveService(namespace string) error {
 	return upstart.NewService(ServiceName(namespace)).StopAndRemove()
 }
 
+const (
+	// WithHA is used when we want to start a mongo service with HA support.
+	WithHA = true
+	// WithoutHA is used when we want to start a mongo service without HA support.
+	WithoutHA = false
+)
+
 // EnsureMongoServer ensures that the correct mongo upstart script is installed
 // and running.
 //
@@ -184,12 +191,12 @@ func RemoveService(namespace string) error {
 // The namespace is a unique identifier to prevent multiple instances of mongo
 // on this machine from colliding. This should be empty unless using
 // the local provider.
-func EnsureMongoServer(dataDir string, port int, namespace string) error {
+func EnsureMongoServer(dataDir string, port int, namespace string, withHA bool) error {
 	// NOTE: ensure that the right package is installed?
 	logger.Infof("Ensuring mongo server is running; dataDir %s; port %d", dataDir, port)
 	dbDir := filepath.Join(dataDir, "db")
 
-	service, err := mongoUpstartService(namespace, dataDir, dbDir, port)
+	service, err := mongoUpstartService(namespace, dataDir, dbDir, port, withHA)
 	if err != nil {
 		return err
 	}
@@ -254,7 +261,7 @@ func makeJournalDirs(dir string) error {
 // mongoUpstartService returns the upstart config for the mongo state service.
 //
 // This method assumes there exist "server.pem" and "shared_secret" keyfiles in dataDir.
-func mongoUpstartService(namespace, dataDir, dbDir string, port int) (*upstart.Conf, error) {
+func mongoUpstartService(namespace, dataDir, dbDir string, port int, withHA bool) (*upstart.Conf, error) {
 	// NOTE: ensure that the right package is installed?
 	name := ServiceName(namespace)
 	sslKeyFile := path.Join(dataDir, "server.pem")
@@ -268,6 +275,22 @@ func mongoUpstartService(namespace, dataDir, dbDir string, port int) (*upstart.C
 		return nil, err
 	}
 
+	mongoCmd := mongopath + " --auth" +
+		" --dbpath=" + dbDir +
+		" --sslOnNormalPorts" +
+		" --sslPEMKeyFile " + utils.ShQuote(sslKeyFile) +
+		" --sslPEMKeyPassword ignored" +
+		" --bind_ip 0.0.0.0" +
+		" --port " + fmt.Sprint(port) +
+		" --noprealloc" +
+		" --syslog" +
+		" --smallfiles"
+		// TODO(natefinch) uncomment when we have the keyfile
+		//" --keyFile " + utils.ShQuote(keyFile),
+	if withHA == WithHA {
+		mongoCmd += " --replSet " + replicaSetName
+	}
+
 	conf := &upstart.Conf{
 		Service: *svc,
 		Desc:    "juju state database",
@@ -275,19 +298,31 @@ func mongoUpstartService(namespace, dataDir, dbDir string, port int) (*upstart.C
 			"nofile": fmt.Sprintf("%d %d", maxFiles, maxFiles),
 			"nproc":  fmt.Sprintf("%d %d", maxProcs, maxProcs),
 		},
-		Cmd: mongopath + " --auth" +
-			" --dbpath=" + dbDir +
-			" --sslOnNormalPorts" +
-			" --sslPEMKeyFile " + utils.ShQuote(sslKeyFile) +
-			" --sslPEMKeyPassword ignored" +
-			" --bind_ip 0.0.0.0" +
-			" --port " + fmt.Sprint(port) +
-			" --noprealloc" +
-			" --syslog" +
-			" --smallfiles" +
-			" --replSet " + replicaSetName,
-		// TODO(natefinch) uncomment when we have the keyfile
-		//" --keyFile " + utils.ShQuote(keyFile),
+		Cmd: mongoCmd,
 	}
 	return conf, nil
+}
+
+// mongoNoauthCommand returns an os/exec.Cmd that may be executed to
+// run mongod without security.
+func mongoNoauthCommand(dataDir string, port int) (*exec.Cmd, error) {
+	sslKeyFile := path.Join(dataDir, "server.pem")
+	dbDir := filepath.Join(dataDir, "db")
+	mongopath, err := MongodPath()
+	if err != nil {
+		return nil, err
+	}
+	cmd := exec.Command(mongopath,
+		"--noauth",
+		"--dbpath", dbDir,
+		"--sslOnNormalPorts",
+		"--sslPEMKeyFile", sslKeyFile,
+		"--sslPEMKeyPassword", "ignored",
+		"--bind_ip", "127.0.0.1",
+		"--port", fmt.Sprint(port),
+		"--noprealloc",
+		"--syslog",
+		"--smallfiles",
+	)
+	return cmd, nil
 }

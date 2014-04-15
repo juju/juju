@@ -3,12 +3,16 @@ package mongo
 import (
 	"encoding/base64"
 	"io/ioutil"
+	"net"
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 
 	jc "github.com/juju/testing/checkers"
+	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/instance"
@@ -106,19 +110,33 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 	//oldsvc := makeService(ServiceName(namespace), c)
 	//defer oldsvc.StopAndRemove()
 
-	err := EnsureMongoServer(dir, port, namespace)
+	err := EnsureMongoServer(dir, port, namespace, WithHA)
 	c.Assert(err, gc.IsNil)
-	svc, err := mongoUpstartService(namespace, dir, dbDir, port)
+	svc, err := mongoUpstartService(namespace, dir, dbDir, port, WithHA)
 	c.Assert(err, gc.IsNil)
 	defer svc.StopAndRemove()
+	c.Assert(strings.Contains(svc.Cmd, "--replSet"), jc.IsTrue)
 
 	testJournalDirs(dbDir, c)
 	c.Assert(svc.Installed(), jc.IsTrue)
 
 	// now check we can call it multiple times without error
-	err = EnsureMongoServer(dir, port, namespace)
+	err = EnsureMongoServer(dir, port, namespace, WithHA)
 	c.Assert(err, gc.IsNil)
 	c.Assert(svc.Installed(), jc.IsTrue)
+}
+
+func (s *MongoSuite) TestEnsureMongoServerWithoutHA(c *gc.C) {
+	dir := c.MkDir()
+	dbDir := filepath.Join(dir, "db")
+	port := 25252
+	namespace := "namespace"
+	err := EnsureMongoServer(dir, port, namespace, WithoutHA)
+	c.Assert(err, gc.IsNil)
+	svc, err := mongoUpstartService(namespace, dir, dbDir, port, WithoutHA)
+	c.Assert(err, gc.IsNil)
+	defer svc.StopAndRemove()
+	c.Assert(strings.Contains(svc.Cmd, "--replSet"), jc.IsFalse)
 }
 
 func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
@@ -131,13 +149,13 @@ func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
 	os.RemoveAll(dir)
 	port := 25252
 
-	err := EnsureMongoServer(dir, port, "")
+	err := EnsureMongoServer(dir, port, "", WithHA)
 	c.Check(err, gc.IsNil)
 
 	_, err = os.Stat(dbDir)
 	c.Assert(err, gc.IsNil)
 
-	svc, err := mongoUpstartService("", dir, dbDir, port)
+	svc, err := mongoUpstartService("", dir, dbDir, port, WithHA)
 	c.Assert(err, gc.IsNil)
 	defer svc.Remove()
 }
@@ -150,6 +168,7 @@ func (s *MongoSuite) TestInitiateReplicaSet(c *gc.C) {
 	inst := &coretesting.MgoInstance{Params: []string{"--replSet", "juju"}}
 	err = inst.Start(true)
 	c.Assert(err, gc.IsNil)
+	defer inst.Destroy()
 
 	info := inst.DialInfo()
 
@@ -213,6 +232,57 @@ func (s *MongoSuite) TestSelectPeerHostPort(c *gc.C) {
 
 	address := SelectPeerHostPort(hostPorts)
 	c.Assert(address, gc.Equals, "10.0.0.1:37017")
+}
+
+func (s *MongoSuite) TestEnsureAdminUser(c *gc.C) {
+	inst := &coretesting.MgoInstance{}
+	err := inst.Start(true)
+	c.Assert(err, gc.IsNil)
+	defer inst.Destroy()
+	dialInfo := inst.DialInfo()
+	// First call succeeds, as there are no users yet.
+	added, err := s.ensureAdminUser(c, dialInfo, "whomever", "whatever")
+	c.Assert(err, gc.IsNil)
+	c.Assert(added, jc.IsTrue)
+	// Second call succeeds, as the admin user is already there.
+	added, err = s.ensureAdminUser(c, dialInfo, "whomever", "whatever")
+	c.Assert(err, gc.IsNil)
+	c.Assert(added, jc.IsFalse)
+}
+
+func (s *MongoSuite) TestEnsureAdminUserError(c *gc.C) {
+	inst := &coretesting.MgoInstance{}
+	err := inst.Start(true)
+	c.Assert(err, gc.IsNil)
+	defer inst.Destroy()
+	dialInfo := inst.DialInfo()
+
+	// First call succeeds, as there are no users yet (mimics --noauth).
+	added, err := s.ensureAdminUser(c, dialInfo, "whomever", "whatever")
+	c.Assert(err, gc.IsNil)
+	c.Assert(added, jc.IsTrue)
+
+	// Second call fails, as there is another user and the database doesn't
+	// actually get reopened with --noauth in the test; mimics AddUser failure
+	_, err = s.ensureAdminUser(c, dialInfo, "whomeverelse", "whateverelse")
+	c.Assert(err, gc.ErrorMatches, `failed to add "whomeverelse" to admin database: not authorized for upsert on admin.system.users`)
+}
+
+func (s *MongoSuite) ensureAdminUser(c *gc.C, dialInfo *mgo.DialInfo, user, password string) (added bool, err error) {
+	_, portString, err := net.SplitHostPort(dialInfo.Addrs[0])
+	c.Assert(err, gc.IsNil)
+	port, err := strconv.Atoi(portString)
+	c.Assert(err, gc.IsNil)
+	s.PatchValue(&JujuMongodPath, "/bin/true")
+	s.PatchValue(&processSignal, func(*os.Process, os.Signal) error {
+		return nil
+	})
+	return EnsureAdminUser(EnsureAdminUserParams{
+		DialInfo: dialInfo,
+		Port:     port,
+		User:     user,
+		Password: password,
+	})
 }
 
 func (s *MongoSuite) TestGenerateSharedSecret(c *gc.C) {
