@@ -192,7 +192,11 @@ func (st *State) effectiveMachineTemplate(p MachineTemplate, allowStateServer bo
 	if err != nil {
 		return MachineTemplate{}, err
 	}
-	p.Constraints = p.Constraints.WithFallbacks(cons)
+	validator := constraints.NewValidator()
+	p.Constraints, err = validator.Merge(cons, p.Constraints)
+	if err != nil {
+		return MachineTemplate{}, err
+	}
 	// Machine constraints do not use a container constraint value.
 	// Both provisioning and deployment constraints use the same
 	// constraints.Value struct so here we clear the container

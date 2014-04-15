@@ -599,7 +599,11 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		if err != nil {
 			return "", nil, err
 		}
-		cons := scons.WithFallbacks(econs)
+		validator := constraints.NewValidator()
+		cons, err := validator.Merge(econs, scons)
+		if err != nil {
+			return "", nil, err
+		}
 		ops = append(ops, createConstraintsOp(s.st, globalKey, cons))
 	}
 	return name, ops, nil
