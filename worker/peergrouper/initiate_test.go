@@ -1,3 +1,6 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package peergrouper_test
 
 import (
@@ -24,20 +27,18 @@ func (s *InitiateSuite) TestInitiateReplicaSet(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	info := inst.DialInfo()
-
-	err = peergrouper.MaybeInitiateMongoServer(peergrouper.InitiateMongoParams{
+	args := peergrouper.InitiateMongoParams{
 		DialInfo:       info,
 		MemberHostPort: inst.Addr(),
-	})
+	}
+
+	err = peergrouper.MaybeInitiateMongoServer(args)
 	c.Assert(err, gc.IsNil)
 
 	// This would return a mgo.QueryError if a ReplicaSet
-	// configuration already existed but we tried to created
+	// configuration already existed but we tried to create
 	// one with replicaset.Initiate again.
-	err = peergrouper.MaybeInitiateMongoServer(peergrouper.InitiateMongoParams{
-		DialInfo:       info,
-		MemberHostPort: inst.Addr(),
-	})
+	err = peergrouper.MaybeInitiateMongoServer(args)
 	c.Assert(err, gc.IsNil)
 
 	// TODO test login

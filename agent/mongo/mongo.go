@@ -1,3 +1,6 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package mongo
 
 import (
@@ -33,6 +36,8 @@ const (
 	// located within the Juju data directory.
 	SharedSecretFile = "shared-secret"
 
+	// ReplicaSetName is the name of the replica set that juju uses for its
+	// state servers.
 	ReplicaSetName = "juju"
 )
 
@@ -45,6 +50,8 @@ var (
 
 	upstartConfInstall          = (*upstart.Conf).Install
 	upstartServiceStopAndRemove = (*upstart.Service).StopAndRemove
+	upstartServiceStop          = (*upstart.Service).Stop
+	upstartServiceStart         = (*upstart.Service).Start
 )
 
 // WithAddresses represents an entity that has a set of
@@ -126,6 +133,13 @@ func RemoveService(namespace string) error {
 	return upstartServiceStopAndRemove(svc)
 }
 
+const (
+	// WithHA is used when we want to start a mongo service with HA support.
+	WithHA = true
+	// WithoutHA is used when we want to start a mongo service without HA support.
+	WithoutHA = false
+)
+
 // EnsureMongoServer ensures that the correct mongo upstart script is installed
 // and running.
 //
@@ -135,12 +149,12 @@ func RemoveService(namespace string) error {
 // The namespace is a unique identifier to prevent multiple instances of mongo
 // on this machine from colliding. This should be empty unless using
 // the local provider.
-func EnsureMongoServer(dataDir string, namespace string, info params.StateServingInfo) error {
-	logger.Infof("Ensuring mongo server is running; dataDir %s; port %d", dataDir, info.StatePort)
+func EnsureMongoServer(dataDir string, namespace string, info params.StateServingInfo, withHA bool) error {
+	logger.Infof("Ensuring mongo server is running; data directory %s; port %d", dataDir, info.StatePort)
 	dbDir := filepath.Join(dataDir, "db")
 
 	if err := os.MkdirAll(dbDir, 0700); err != nil {
-		return fmt.Errorf("cannot create mongo dbdir: %v", err)
+		return fmt.Errorf("cannot create mongo database directory: %v", err)
 	}
 
 	certKey := info.Cert + "\n" + info.PrivateKey
@@ -158,7 +172,7 @@ func EnsureMongoServer(dataDir string, namespace string, info params.StateServin
 	// Only do this if the file doesn't exist already, so users can run
 	// their own mongodb server if they wish to.
 	if _, err := os.Stat(mongoConfigPath); os.IsNotExist(err) {
-		err = ioutil.WriteFile(
+		err = utils.AtomicWriteFile(
 			mongoConfigPath,
 			[]byte("ENABLE_MONGODB=no"),
 			0644,
@@ -172,7 +186,7 @@ func EnsureMongoServer(dataDir string, namespace string, info params.StateServin
 		return fmt.Errorf("cannot install mongod: %v", err)
 	}
 
-	upstartConf, err := mongoUpstartService(namespace, dataDir, dbDir, info.StatePort)
+	upstartConf, err := mongoUpstartService(namespace, dataDir, dbDir, info.StatePort, withHA)
 	if err != nil {
 		return err
 	}
@@ -244,14 +258,27 @@ func sharedSecretPath(dataDir string) string {
 
 // mongoUpstartService returns the upstart config for the mongo state service.
 //
-func mongoUpstartService(namespace, dataDir, dbDir string, port int) (*upstart.Conf, error) {
+func mongoUpstartService(namespace, dataDir, dbDir string, port int, withHA bool) (*upstart.Conf, error) {
 	svc := upstart.NewService(ServiceName(namespace))
 
 	mongoPath, err := MongodPath()
 	if err != nil {
 		return nil, err
 	}
-
+	mongoCmd := mongoPath + " --auth" +
+		" --dbpath=" + utils.ShQuote(dbDir) +
+		" --sslOnNormalPorts" +
+		" --sslPEMKeyFile " + utils.ShQuote(sslKeyPath(dataDir)) +
+		" --sslPEMKeyPassword ignored" +
+		" --bind_ip 0.0.0.0" +
+		" --port " + fmt.Sprint(port) +
+		" --noprealloc" +
+		" --syslog" +
+		" --smallfiles" +
+		" --keyFile " + utils.ShQuote(sharedSecretPath(dataDir))
+	if withHA {
+		mongoCmd += " --replSet " + ReplicaSetName
+	}
 	conf := &upstart.Conf{
 		Service: *svc,
 		Desc:    "juju state database",
@@ -259,18 +286,7 @@ func mongoUpstartService(namespace, dataDir, dbDir string, port int) (*upstart.C
 			"nofile": fmt.Sprintf("%d %d", maxFiles, maxFiles),
 			"nproc":  fmt.Sprintf("%d %d", maxProcs, maxProcs),
 		},
-		Cmd: mongoPath + " --auth" +
-			" --dbpath=" + dbDir +
-			" --sslOnNormalPorts" +
-			" --sslPEMKeyFile " + utils.ShQuote(sslKeyPath(dataDir)) +
-			" --sslPEMKeyPassword ignored" +
-			" --bind_ip 0.0.0.0" +
-			" --port " + fmt.Sprint(port) +
-			" --noprealloc" +
-			" --syslog" +
-			" --smallfiles" +
-			" --replSet " + ReplicaSetName +
-			" --keyFile " + utils.ShQuote(sharedSecretPath(dataDir)),
+		Cmd: mongoCmd,
 	}
 	return conf, nil
 }
@@ -312,4 +328,28 @@ func addAptRepository(name string) error {
 		return fmt.Errorf("cannot add apt repository: %v (output %s)", err, bytes.TrimSpace(out))
 	}
 	return nil
+}
+
+// mongoNoauthCommand returns an os/exec.Cmd that may be executed to
+// run mongod without security.
+func mongoNoauthCommand(dataDir string, port int) (*exec.Cmd, error) {
+	sslKeyFile := path.Join(dataDir, "server.pem")
+	dbDir := filepath.Join(dataDir, "db")
+	mongopath, err := MongodPath()
+	if err != nil {
+		return nil, err
+	}
+	cmd := exec.Command(mongopath,
+		"--noauth",
+		"--dbpath", dbDir,
+		"--sslOnNormalPorts",
+		"--sslPEMKeyFile", sslKeyFile,
+		"--sslPEMKeyPassword", "ignored",
+		"--bind_ip", "127.0.0.1",
+		"--port", fmt.Sprint(port),
+		"--noprealloc",
+		"--syslog",
+		"--smallfiles",
+	)
+	return cmd, nil
 }

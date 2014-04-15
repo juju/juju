@@ -1,3 +1,6 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package mongo
 
 import (
@@ -8,8 +11,9 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"testing"
+	stdtesting "testing"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -21,7 +25,7 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
-func Test(t *testing.T) { gc.TestingT(t) }
+func Test(t *stdtesting.T) { gc.TestingT(t) }
 
 type MongoSuite struct {
 	testbase.LoggingSuite
@@ -35,15 +39,14 @@ type MongoSuite struct {
 	removed     []upstart.Service
 }
 
-var (
-	_        = gc.Suite(&MongoSuite{})
-	testInfo = params.StateServingInfo{
-		StatePort:    25252,
-		Cert:         "foobar-cert",
-		PrivateKey:   "foobar-privkey",
-		SharedSecret: "foobar-sharedsecret",
-	}
-)
+var _ = gc.Suite(&MongoSuite{})
+
+var testInfo = params.StateServingInfo{
+	StatePort:    25252,
+	Cert:         "foobar-cert",
+	PrivateKey:   "foobar-privkey",
+	SharedSecret: "foobar-sharedsecret",
+}
 
 func (s *MongoSuite) SetUpTest(c *gc.C) {
 	// Try to make sure we don't execute any commands accidentally.
@@ -66,6 +69,7 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 		s.removed = append(s.removed, *svc)
 		return s.removeError
 	})
+	// Clear out the values that are set by the above patched functions.
 	s.removeError = nil
 	s.installError = nil
 	s.installed = nil
@@ -118,21 +122,24 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 	dbDir := filepath.Join(dataDir, "db")
 	namespace := "namespace"
 
-	s.mockShellCommand(c, "apt-get")
+	mockShellCommand(c, &s.CleanupSuite, "apt-get")
 
-	err := EnsureMongoServer(dataDir, namespace, testInfo)
+	err := EnsureMongoServer(dataDir, namespace, testInfo, WithHA)
 	c.Assert(err, gc.IsNil)
 
 	testJournalDirs(dbDir, c)
 
-	c.Assert(s.installed, gc.HasLen, 1)
-	conf := s.installed[0]
-	c.Assert(conf.Name, gc.Equals, "juju-db-namespace")
-	c.Assert(conf.InitDir, gc.Equals, "/etc/init")
-	c.Assert(conf.Desc, gc.Not(gc.Equals), "")
-	c.Assert(conf.Cmd, gc.Matches, regexp.QuoteMeta(s.mongodPath)+".*")
-	// TODO set Out so that mongod output goes somewhere useful?
-	c.Assert(conf.Out, gc.Equals, "")
+	assertInstalled := func() {
+		c.Assert(s.installed, gc.HasLen, 1)
+		conf := s.installed[0]
+		c.Assert(conf.Name, gc.Equals, "juju-db-namespace")
+		c.Assert(conf.InitDir, gc.Equals, "/etc/init")
+		c.Assert(conf.Desc, gc.Equals, "juju state database")
+		c.Assert(conf.Cmd, gc.Matches, regexp.QuoteMeta(s.mongodPath)+".*")
+		// TODO(nate) set Out so that mongod output goes somewhere useful?
+		c.Assert(conf.Out, gc.Equals, "")
+	}
+	assertInstalled()
 
 	contents, err := ioutil.ReadFile(s.mongodConfigPath)
 	c.Assert(err, gc.IsNil)
@@ -148,9 +155,21 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 
 	s.installed = nil
 	// now check we can call it multiple times without error
-	err = EnsureMongoServer(dataDir, namespace, testInfo)
+	err = EnsureMongoServer(dataDir, namespace, testInfo, WithHA)
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.installed, gc.HasLen, 1)
+	assertInstalled()
+}
+
+func (s *MongoSuite) TestMongoUpstartServiceWithHA(c *gc.C) {
+	dataDir := c.MkDir()
+
+	svc, err := mongoUpstartService("", dataDir, dataDir, 1234, WithHA)
+	c.Assert(err, gc.IsNil)
+	c.Assert(strings.Contains(svc.Cmd, "--replSet"), jc.IsTrue)
+
+	svc, err = mongoUpstartService("", dataDir, dataDir, 1234, WithoutHA)
+	c.Assert(err, gc.IsNil)
+	c.Assert(strings.Contains(svc.Cmd, "--replSet"), jc.IsFalse)
 }
 
 func (s *MongoSuite) TestRemoveService(c *gc.C) {
@@ -166,25 +185,25 @@ func (s *MongoSuite) TestQuantalAptAddRepo(c *gc.C) {
 	dir := c.MkDir()
 	s.PatchEnvPathPrepend(dir)
 	failCmd(filepath.Join(dir, "add-apt-repository"))
-	s.mockShellCommand(c, "apt-get")
+	mockShellCommand(c, &s.CleanupSuite, "apt-get")
 
 	// test that we call add-apt-repository only for quantal (and that if it
 	// fails, we return the error)
 	s.PatchValue(&version.Current.Series, "quantal")
-	err := EnsureMongoServer(dir, "", testInfo)
+	err := EnsureMongoServer(dir, "", testInfo, WithHA)
 	c.Assert(err, gc.ErrorMatches, "cannot install mongod: cannot add apt repository: exit status 1.*")
 
 	s.PatchValue(&version.Current.Series, "trusty")
-	err = EnsureMongoServer(dir, "", testInfo)
+	err = EnsureMongoServer(dir, "", testInfo, WithHA)
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
 	// Make a non-existent directory that can nonetheless be
 	// created.
-	s.mockShellCommand(c, "apt-get")
+	mockShellCommand(c, &s.CleanupSuite, "apt-get")
 	dataDir := filepath.Join(c.MkDir(), "dir", "data")
-	err := EnsureMongoServer(dataDir, "", testInfo)
+	err := EnsureMongoServer(dataDir, "", testInfo, WithHA)
 	c.Check(err, gc.IsNil)
 
 	_, err = os.Stat(filepath.Join(dataDir, "db"))
@@ -244,13 +263,13 @@ func (s *MongoSuite) TestGenerateSharedSecret(c *gc.C) {
 }
 
 func (s *MongoSuite) TestAddPPAInQuantal(c *gc.C) {
-	s.mockShellCommand(c, "apt-get")
+	mockShellCommand(c, &s.CleanupSuite, "apt-get")
 
-	addAptRepoOut := s.mockShellCommand(c, "add-apt-repository")
+	addAptRepoOut := mockShellCommand(c, &s.CleanupSuite, "add-apt-repository")
 	s.PatchValue(&version.Current.Series, "quantal")
 
 	dataDir := c.MkDir()
-	err := EnsureMongoServer(dataDir, "", testInfo)
+	err := EnsureMongoServer(dataDir, "", testInfo, WithHA)
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(getMockShellCalls(c, addAptRepoOut), gc.DeepEquals, [][]string{{
@@ -264,10 +283,20 @@ func (s *MongoSuite) TestAddPPAInQuantal(c *gc.C) {
 // executed by preference. It returns the name of a file
 // that is written by each call to the command - mockShellCalls
 // can be used to retrieve the calls.
-func (s *MongoSuite) mockShellCommand(c *gc.C, name string) string {
+func mockShellCommand(c *gc.C, s *testing.CleanupSuite, name string) string {
 	dir := c.MkDir()
 	s.PatchEnvPathPrepend(dir)
 
+	// Note the shell script produces output of the form:
+	// +arg1+\n
+	// +arg2+\n
+	// ...
+	// +argn+\n
+	// -
+	//
+	// It would be nice if there was a simple way of unambiguously
+	// quoting shell arguments, but this will do as long
+	// as no argument contains a newline character.
 	outputFile := filepath.Join(dir, name+".out")
 	contents := `#!/bin/sh
 {
@@ -282,7 +311,7 @@ func (s *MongoSuite) mockShellCommand(c *gc.C, name string) string {
 	return outputFile
 }
 
-// Given a file name returned by mockShellCommands, getMockShellCalls
+// getMockShellCalls, given a file name returned by mockShellCommands, 
 // returns a slice containing one element for each call, each
 // containing the arguments passed to the command.
 // It will be confused if the arguments contain newlines.
@@ -302,6 +331,9 @@ func getMockShellCalls(c *gc.C, file string) [][]string {
 	return calls
 }
 
+// splitCall splits the output produced by a single call to the
+// mocked shell function (see mockShellCommand) and
+// splits it into its individual arguments.
 func splitCall(c *gc.C, part string) []string {
 	var result []string
 	for _, arg := range strings.Split(part, "\n") {
@@ -313,6 +345,8 @@ func splitCall(c *gc.C, part string) []string {
 	return result
 }
 
+// failCmd creates an executable file at the given location that will do nothing
+// except return an error.
 func failCmd(path string) {
 	err := ioutil.WriteFile(path, []byte("#!/bin/bash --norc\nexit 1"), 0755)
 	if err != nil {

@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/worker/peergrouper"
@@ -107,9 +108,10 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return fmt.Errorf("bootstrap machine config has no state serving info")
 	}
 	info.SharedSecret = sharedSecret
-	if err := c.ChangeConfig(func(agentConfig agent.ConfigSetter) {
+	err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) {
 		agentConfig.SetStateServingInfo(info)
-	}); err != nil {
+	})
+	if err != nil {
 		return fmt.Errorf("cannot write agent config: %v", err)
 	}
 	agentConfig = c.CurrentConfig()
@@ -118,7 +120,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 
-	logger.Debugf("started mongo")
+	logger.Infof("started mongo")
 	// Initialise state, and store any agent config (e.g. password) changes.
 	var st *state.State
 	err = nil
@@ -168,13 +170,20 @@ func (c *BootstrapCommand) startMongo(addrs []instance.Address, agentConfig agen
 	dialInfo.Addrs = []string{
 		net.JoinHostPort("127.0.0.1", fmt.Sprint(servingInfo.StatePort)),
 	}
-	logger.Infof("calling ensureMongoServer")
+	logger.Debugf("calling ensureMongoServer")
+	providerType := agentConfig.Value(agent.ProviderType)
+	withHA := providerType != provider.Local
 	err = ensureMongoServer(
 		agentConfig.DataDir(),
 		agentConfig.Value(agent.Namespace),
-		servingInfo)
+		servingInfo,
+		withHA)
 	if err != nil {
 		return err
+	}
+	// If we are not doing HA, there is no need to set up replica set.
+	if !withHA {
+		return nil
 	}
 
 	peerAddr := mongo.SelectPeerAddress(addrs)

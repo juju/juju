@@ -64,7 +64,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 		Cert:       testing.ServerCert,
 		PrivateKey: testing.ServerKey,
 		APIPort:    1234,
-		StatePort:  3456,
+		StatePort:  testing.MgoServer.Port(),
 	}
 
 	cfg, err := agent.NewStateMachineConfig(configParams, servingInfo)
@@ -133,7 +133,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(stateServingInfo, jc.DeepEquals, params.StateServingInfo{
 		APIPort:      1234,
-		StatePort:    3456,
+		StatePort:    testing.MgoServer.Port(),
 		Cert:         testing.ServerCert,
 		PrivateKey:   testing.ServerKey,
 		SharedSecret: "abc123",

@@ -75,6 +75,7 @@ var (
 	// allow the tests to intercept calls to the functions.
 	ensureMongoServer        = mongo.EnsureMongoServer
 	maybeInitiateMongoServer = peergrouper.MaybeInitiateMongoServer
+	ensureMongoAdminUser     = mongo.EnsureAdminUser
 	newSingularRunner        = singular.New
 
 	// reportOpenedAPI is exposed for tests to know when
@@ -395,6 +396,26 @@ func (a *MachineAgent) updateSupportedContainers(
 	return nil
 }
 
+func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config, port int, namespace string) (added bool, err error) {
+	stateInfo := agentConfig.StateInfo()
+	dialInfo, err := state.DialInfo(stateInfo, state.DefaultDialOpts())
+	if err != nil {
+		return false, err
+	}
+	if len(dialInfo.Addrs) > 1 {
+		logger.Infof("more than one state server; admin user must exist")
+		return false, nil
+	}
+	return ensureMongoAdminUser(mongo.EnsureAdminUserParams{
+		DialInfo:  dialInfo,
+		Namespace: namespace,
+		DataDir:   agentConfig.DataDir(),
+		Port:      port,
+		User:      stateInfo.Tag,
+		Password:  stateInfo.Password,
+	})
+}
+
 // StateJobs returns a worker running all the workers that require
 // a *state.State connection.
 func (a *MachineAgent) StateWorker() (worker.Worker, error) {
@@ -404,23 +425,42 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	if !ok {
 		return nil, fmt.Errorf("state worker was started with no state serving info")
 	}
+	providerType := agentConfig.Value(agent.ProviderType)
+	namespace := agentConfig.Value(agent.Namespace)
+	withHA := providerType != provider.Local
 	err := ensureMongoServer(
 		agentConfig.DataDir(),
-		agentConfig.Value(agent.Namespace),
+		namespace,
 		servingInfo,
+		withHA,
 	)
 	if err != nil {
 		return nil, err
 	}
-	// TODO(rog) call maybeInitiateMongoServer to upgrade mongo
-	// from old environments. We'll need to acquire a non-localhost
-	// address for the current instance before we do.
 
 	st, m, err := openState(agentConfig)
+	if errors.IsUnauthorizedError(err) {
+		// TODO(axw) remove this when we no longer need
+		// to upgrade from pre-HA-capable environments.
+		logger.Debugf("failed to open state, reattempt after ensuring admin user exists: %v", err)
+		added, ensureErr := a.ensureMongoAdminUser(agentConfig, servingInfo.StatePort, namespace)
+		if ensureErr != nil {
+			err = ensureErr
+		}
+		if !added {
+			// No user added, so it's probably a genuine unauthorized error.
+			return nil, err
+		}
+		st, m, err = openState(agentConfig)
+	}
 	if err != nil {
 		return nil, err
 	}
 	reportOpenedState(st)
+
+	// TODO(rog) call maybeInitiateMongoServer to upgrade mongo
+	// from old environments. We'll need to acquire a non-localhost
+	// address for the current instance before we do.
 
 	singularStateConn := singularStateConn{st.MongoSession(), m}
 	runner := newRunner(connectionIsFatal(st), moreImportant)
@@ -431,7 +471,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 
 	// Take advantage of special knowledge here in that we will only ever want
 	// the storage provider on one machine, and that is the "bootstrap" node.
-	providerType := agentConfig.Value(agent.ProviderType)
 	if (providerType == provider.Local || provider.IsManual(providerType)) && m.Id() == bootstrapMachineId {
 		a.startWorkerAfterUpgrade(runner, "local-storage", func() (worker.Worker, error) {
 			// TODO(axw) 2013-09-24 bug #1229507
