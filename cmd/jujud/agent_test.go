@@ -234,7 +234,7 @@ func (s *agentSuite) SetUpSuite(c *gc.C) {
 	// a bit when some tests are restarting every 50ms for 10 seconds,
 	// so use a slightly more friendly delay.
 	worker.RestartDelay = 250 * time.Millisecond
-	s.PatchValue(&ensureMongoServer, func(string, int, string) error {
+	s.PatchValue(&ensureMongoServer, func(string, int, string, bool) error {
 		return nil
 	})
 }
