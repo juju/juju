@@ -111,7 +111,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 
 	namespace := agentConfig.Value(agent.Namespace)
 
-	if err := c.startMongo(addrs, envCfg.StatePort(), namespace); err != nil {
+	if err := c.startMongo(addrs, agentConfig, namespace); err != nil {
 		return err
 	}
 
@@ -144,24 +144,32 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	return nil
 }
 
-func (c *BootstrapCommand) startMongo(addrs []instance.Address, port int, namespace string) error {
+func (c *BootstrapCommand) startMongo(addrs []instance.Address, agentConfig agent.Config, namespace string) error {
 	logger.Debugf("starting mongo")
 
-	agentConfig := c.CurrentConfig()
-	dialInfo, err := state.DialInfo(agentConfig.StateInfo(), state.DefaultDialOpts())
+	info, ok := agentConfig.StateInfo()
+	if !ok {
+		return fmt.Errorf("no stateinfo available")
+	}
+	dialInfo, err := state.DialInfo(info, state.DefaultDialOpts())
 	if err != nil {
 		return err
 	}
+	servingInfo, ok := agentConfig.StateServingInfo()
+	if !ok {
+		return fmt.Errorf("No stateservinginfo available")
+	}
+
 	// Use localhost to dial the mongo server, because it's running in
 	// auth mode and will refuse to perform any operations unless
 	// we dial that address.
 	dialInfo.Addrs = []string{
-		net.JoinHostPort("127.0.0.1", fmt.Sprint(port)),
+		net.JoinHostPort("127.0.0.1", fmt.Sprint(servingInfo.StatePort)),
 	}
 
 	providerType := agentConfig.Value(agent.ProviderType)
 	withHA := providerType != provider.Local
-	if err := ensureMongoServer(agentConfig.DataDir(), port, namespace, withHA); err != nil {
+	if err := ensureMongoServer(agentConfig.DataDir(), servingInfo.StatePort, , namespace, withHA); err != nil {
 		return err
 	}
 	// If we are not doing HA, no need to set up replicaset.
@@ -174,7 +182,7 @@ func (c *BootstrapCommand) startMongo(addrs []instance.Address, port int, namesp
 	if peerAddr == "" {
 		return fmt.Errorf("no appropriate peer address found in %q", addrs)
 	}
-	peerHostPort := net.JoinHostPort(peerAddr, fmt.Sprint(port))
+	peerHostPort := net.JoinHostPort(peerAddr, fmt.Sprint(servingInfo.StatePort))
 
 	return maybeInitiateMongoServer(mongo.InitiateMongoParams{
 		DialInfo:       dialInfo,
