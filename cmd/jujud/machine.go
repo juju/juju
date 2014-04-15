@@ -422,7 +422,10 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		return nil, fmt.Errorf("no state info in agent config")
 	}
 
-	err := ensureMongoServer(agentConfig.DataDir(), info.StatePort, namespace)
+	// We do not want to enable HA for the local provider.
+	providerType := agentConfig.Value(agent.ProviderType)
+	withHA := providerType != provider.Local
+	err := ensureMongoServer(agentConfig.DataDir(), info.StatePort, namespace, withHA)
 	if err != nil {
 		return nil, err
 	}
@@ -460,7 +463,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 
 	// Take advantage of special knowledge here in that we will only ever want
 	// the storage provider on one machine, and that is the "bootstrap" node.
-	providerType := agentConfig.Value(agent.ProviderType)
 	if (providerType == provider.Local || provider.IsManual(providerType)) && m.Id() == bootstrapMachineId {
 		a.startWorkerAfterUpgrade(runner, "local-storage", func() (worker.Worker, error) {
 			// TODO(axw) 2013-09-24 bug #1229507
