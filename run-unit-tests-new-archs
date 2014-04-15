@@ -64,7 +64,7 @@ if [[ \$(apt-cache madison juju-mongodb) =~ .*juju-mongodb.* ]]; then
 else
     juju_db="mongodb-server"
 fi
-if [[ \$(uname -p) =~  .*x86|armel|armhf.* ]]; then
+if [[ \$(uname -p) =~  .*86|armel|armhf.* ]]; then
     juju_compiler="golang"
 else
     juju_compiler="gccgo-4.9 gccgo-go"
@@ -87,6 +87,8 @@ tar -xzvf $tarfile
 cd \$GOPATH/src/launchpad.net/juju-core
 bzr whoami 'J. Random Hacker <jrandom@example.org>'
 make build
+# Hack match for 386.
+sed -i 's/x86/86/' Makefile 
 make install
 make check
 EOT
