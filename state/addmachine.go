@@ -512,56 +512,86 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value,
 		if len(currentInfo.VotingMachineIds) > numStateServers {
 			return fmt.Errorf("cannot reduce state server count")
 		}
-		removeOps, info, promotableMachines, err := st.updateAvailableStateServersOps(currentInfo)
+
+		intent, err := st.ensureAvailabilityIntentions(currentInfo)
 		if err != nil {
 			return err
 		}
-		if len(info.VotingMachineIds) == numStateServers && len(removeOps) == 0 {
+		voteCount := 0
+		for _, m := range intent.maintain {
+			if m.WantsVote() {
+				voteCount++
+			}
+		}
+		if voteCount == numStateServers && len(intent.remove) == 0 {
 			return nil
 		}
-		// Promote existing machines first.
-		var ops []txn.Op
-		if n := numStateServers - len(info.VotingMachineIds); n < len(promotableMachines) {
-			promotableMachines = promotableMachines[:n]
+		// Promote as many machines as we can to fulfil the shortfall.
+		if n := numStateServers - voteCount; n < len(intent.promote) {
+			intent.promote = intent.promote[:n]
 		}
-		for _, m := range promotableMachines {
-			ops = append(ops, promoteStateServerOps(m)...)
-			info.VotingMachineIds = append(info.VotingMachineIds, m.Id())
-		}
-		// Create new machines to make up the shortfall.
-		mdocs := make([]*machineDoc, numStateServers-len(info.VotingMachineIds))
-		for i := range mdocs {
-			template := MachineTemplate{
-				Series: series,
-				Jobs: []MachineJob{
-					JobHostUnits,
-					JobManageEnviron,
-				},
-				Constraints: cons,
-			}
-			mdoc, addOps, err := st.addMachineOps(template)
-			if err != nil {
-				return err
-			}
-			mdocs[i] = mdoc
-			ops = append(ops, addOps...)
-		}
-		ssOps, err := st.maintainStateServersOps(mdocs, currentInfo)
+		voteCount += len(intent.promote)
+		intent.newCount = numStateServers - voteCount
+		logger.Infof("%d new machines; promoting %v", intent.newCount, intent.promote)
+		ops, err := st.ensureAvailabilityIntentionOps(intent, currentInfo, cons, series)
 		if err != nil {
-			return fmt.Errorf("cannot prepare machine add operations: %v", err)
+			return err
 		}
-		ops = append(ops, removeOps...)
-		ops = append(ops, ssOps...)
 		err = st.runTransaction(ops)
 		if err == nil {
 			return nil
-		} else if err != txn.ErrAborted {
+		}
+		if err != txn.ErrAborted {
 			return fmt.Errorf("failed to create new state server machines: %v", err)
 		}
 		// The transaction will only be aborted if another call to
 		// EnsureAvailability completed. Loop back around and try again.
+		logger.Errorf("EnsureAvailability aborted transaction (probable contention)")
 	}
 	return ErrExcessiveContention
+}
+
+// ensureAvailabilityIntentionOps returns operations to fulfil the desired intent.
+func (st *State) ensureAvailabilityIntentionOps(
+	intent *ensureAvailabilityIntent,
+	currentInfo *StateServerInfo,
+	cons constraints.Value,
+	series string,
+) ([]txn.Op, error) {
+	// First the operations to remove state-server status.
+	var ops []txn.Op
+	for _, m := range intent.promote {
+		ops = append(ops, promoteStateServerOps(m)...)
+	}
+	for _, m := range intent.demote {
+		ops = append(ops, demoteStateServerOps(m)...)
+	}
+	mdocs := make([]*machineDoc, intent.newCount)
+	for i := range mdocs {
+		template := MachineTemplate{
+			Series: series,
+			Jobs: []MachineJob{
+				JobHostUnits,
+				JobManageEnviron,
+			},
+			Constraints: cons,
+		}
+		mdoc, addOps, err := st.addMachineOps(template)
+		if err != nil {
+			return nil, err
+		}
+		mdocs[i] = mdoc
+		ops = append(ops, addOps...)
+	}
+	for _, m := range intent.remove {
+		ops = append(ops, removeStateServerOps(m)...)
+	}
+	ssOps, err := st.maintainStateServersOps(mdocs, currentInfo)
+	if err != nil {
+		return nil, fmt.Errorf("cannot prepare machine add operations: %v", err)
+	}
+	ops = append(ops, ssOps...)
+	return ops, nil
 }
 
 // stateServerAvailable returns true if the specified state server machine is
@@ -573,29 +603,35 @@ var stateServerAvailable = func(m *Machine) (bool, error) {
 	return m.AgentAlive()
 }
 
-// updateAvailableStateServersOps checks the availability of state servers,
+type ensureAvailabilityIntent struct {
+	newCount                          int
+	promote, maintain, demote, remove []*Machine
+}
+
+// ensureAvailabilityIntentions returns what we would like
+// to do to maintain the availability of the existing servers
+// mentioned in the given info, including:
 //   demoting unavailable, voting machines;
 //   removing unavailable, non-voting, non-vote-holding machines;
 //   gathering available, non-voting machines that may be promoted;
-//   updating StateServerInfo to reflect reality.
-func (st *State) updateAvailableStateServersOps(info *StateServerInfo) (ops []txn.Op, newInfo *StateServerInfo, promotableMachines []*Machine, err error) {
-	newInfo = &StateServerInfo{}
+func (st *State) ensureAvailabilityIntentions(info *StateServerInfo) (*ensureAvailabilityIntent, error) {
+	var intent ensureAvailabilityIntent
 	for _, mid := range info.MachineIds {
 		m, err := st.Machine(mid)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
 		available, err := stateServerAvailable(m)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
+		logger.Infof("machine %q, available %v, wants vote %v, has vote %v", m, available, m.WantsVote(), m.HasVote())
 		if available {
 			if m.WantsVote() {
-				newInfo.VotingMachineIds = append(newInfo.VotingMachineIds, mid)
+				intent.maintain = append(intent.maintain, m)
 			} else {
-				promotableMachines = append(promotableMachines, m)
+				intent.promote = append(intent.promote, m)
 			}
-			newInfo.MachineIds = append(newInfo.MachineIds, mid)
 			continue
 		}
 		if m.WantsVote() {
@@ -604,18 +640,18 @@ func (st *State) updateAvailableStateServersOps(info *StateServerInfo) (ops []tx
 			// maintains the replicaset. We will replace it with an existing
 			// non-voting state server if there is one, starting a new one if
 			// not.
-			ops = append(ops, demoteStateServerOps(m)...)
-			newInfo.MachineIds = append(newInfo.MachineIds, mid)
+			intent.demote = append(intent.demote, m)
 		} else if m.HasVote() {
-			// The machine still has a vote, so keep it in MachineIds for now.
-			newInfo.MachineIds = append(newInfo.MachineIds, mid)
+			// The machine still has a vote, so keep it around for now.
+			intent.maintain = append(intent.maintain, m)
 		} else {
 			// The machine neither wants to nor has a vote, so remove its
 			// JobManageEnviron job immediately.
-			ops = append(ops, removeStateServerOps(m)...)
+			intent.remove = append(intent.remove, m)
 		}
 	}
-	return ops, newInfo, promotableMachines, nil
+	logger.Infof("initial intentions: promote %v; maintain %v; demote %v; remove %v", intent.promote, intent.maintain, intent.demote, intent.remove)
+	return &intent, nil
 }
 
 func promoteStateServerOps(m *Machine) []txn.Op {
