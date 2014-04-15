@@ -72,8 +72,17 @@ def deploy_dummy_stack(env, charm_prefix):
     env.juju('add-relation', 'dummy-source', 'dummy-sink')
     env.juju('expose', 'dummy-sink')
     status = env.wait_for_started().status
-    result = env.client.get_juju_output(env, 'ssh', 'dummy-sink/0', 'cat',
-                                        '/var/run/dummy-sink/token')
+    # Wait up to 30 seconds for token to be created.
+    get_token="""
+        for x in $(seq 30); do
+          if [ -f /var/run/dummy-sink/token ]; then
+            break
+          fi
+          sleep 1
+        done
+        cat /var/run/dummy-sink/token
+    """
+    result = env.client.get_juju_output(env, 'ssh', 'dummy-sink/0', get_token)
     result = re.match(r'([^\n\r]*)\r?\n?', result).group(1)
     if result != token:
         raise ValueError('Token is %r' % result)
