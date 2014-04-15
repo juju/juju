@@ -60,15 +60,13 @@ func GetMockUploadTools(c *gc.C) sync.UploadFunc {
 }
 
 func GetMockBundleTools(c *gc.C) tools.BundleToolsFunc {
-	dir := c.MkDir()
 	if ToolsDir == "" {
-		ToolsDir = filepath.Join(dir, "jujud")
+		ToolsDir = filepath.Join(c.MkDir(), "jujud")
 	}
 
 	return func(w io.Writer, forceVersion *version.Number) (vers version.Binary, sha256Hash string, err error) {
 		vers = version.Current
 		if forceVersion != nil {
-			ioutil.WriteFile(filepath.Join(dir, "FORCE-VERSION"), []byte(forceVersion.String()), 0666)
 			vers.Number = *forceVersion
 		}
 
