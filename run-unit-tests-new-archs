@@ -87,7 +87,7 @@ tar -xzvf $tarfile
 cd \$GOPATH/src/launchpad.net/juju-core
 bzr whoami 'J. Random Hacker <jrandom@example.org>'
 make build
-# Hack match for 386.
+# Hack match for i386.
 sed -i 's/x86/86/' Makefile 
 make install
 make check
