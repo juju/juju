@@ -89,7 +89,7 @@ func EnsureAdminUser(p EnsureAdminUserParams) (added bool, err error) {
 
 	// Restart mongo using upstart.
 	if err := processSignal(cmd.Process, syscall.SIGTERM); err != nil {
-		return false, fmt.Errorf("mongod did not cleanly terminate: %v", err)
+		return false, fmt.Errorf("cannot kill mongod: %v", err)
 	}
 	if err := cmd.Wait(); err != nil {
 		return false, fmt.Errorf("mongod did not cleanly terminate: %v", err)

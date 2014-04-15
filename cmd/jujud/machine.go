@@ -429,13 +429,18 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 
 	st, m, err := openState(agentConfig)
 	if errors.IsUnauthorizedError(err) {
+		// TODO(axw) remove this when we no longer need
+		// to upgrade from pre-HA-capable environments.
 		logger.Debugf("failed to open state, reattempt after ensuring admin user exists: %v", err)
 		added, ensureErr := a.ensureMongoAdminUser(agentConfig, info.StatePort, namespace)
 		if ensureErr != nil {
 			err = ensureErr
-		} else if added {
-			st, m, err = openState(agentConfig)
 		}
+		if !added {
+			// No user added, so it's probably a genuine unauthorized error.
+			return nil, err
+		}
+		st, m, err = openState(agentConfig)
 	}
 	if err != nil {
 		return nil, err
