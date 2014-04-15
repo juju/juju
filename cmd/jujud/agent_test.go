@@ -392,7 +392,9 @@ func (e *errorAPIOpener) OpenAPI(_ api.DialOpts) (*api.State, string, error) {
 func (s *agentSuite) assertCanOpenState(c *gc.C, tag, dataDir string) {
 	config, err := agent.ReadConfig(agent.ConfigPath(dataDir, tag))
 	c.Assert(err, gc.IsNil)
-	st, err := state.Open(config.StateInfo(), state.DialOpts{}, environs.NewStatePolicy())
+	info, ok := config.StateInfo()
+	c.Assert(ok, jc.IsTrue)
+	st, err := state.Open(info, state.DialOpts{}, environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	st.Close()
 }
@@ -400,9 +402,8 @@ func (s *agentSuite) assertCanOpenState(c *gc.C, tag, dataDir string) {
 func (s *agentSuite) assertCannotOpenState(c *gc.C, tag, dataDir string) {
 	config, err := agent.ReadConfig(agent.ConfigPath(dataDir, tag))
 	c.Assert(err, gc.IsNil)
-	_, err = state.Open(config.StateInfo(), state.DialOpts{}, environs.NewStatePolicy())
-	expectErr := fmt.Sprintf("cannot log in to juju database as %q: unauthorized mongo access: auth fails", tag)
-	c.Assert(err, gc.ErrorMatches, expectErr)
+	_, ok := config.StateInfo()
+	c.Assert(ok, jc.IsFalse)
 }
 
 func refreshConfig(c *gc.C, config agent.Config) agent.ConfigSetterWriter {

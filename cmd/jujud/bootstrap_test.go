@@ -133,7 +133,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob,
 		Cert:       "some cert",
 		PrivateKey: "some key",
 		APIPort:    3737,
-		StatePort:  1234,
+		StatePort:  testing.MgoServer.Port(),
 	}
 	bootConf, err := agent.NewStateMachineConfig(agentParams, servingInfo)
 	c.Assert(err, gc.IsNil)
@@ -327,7 +327,9 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	machineConf1, err := agent.ReadConfig(agent.ConfigPath(machineConf.DataDir(), "machine-0"))
 	c.Assert(err, gc.IsNil)
 
-	st, err = state.Open(machineConf1.StateInfo(), state.DialOpts{}, environs.NewStatePolicy())
+	stateinfo, ok := machineConf1.StateInfo()
+	c.Assert(ok, jc.IsTrue)
+	st, err = state.Open(stateinfo, state.DialOpts{}, environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 }
