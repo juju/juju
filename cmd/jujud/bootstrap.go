@@ -6,9 +6,7 @@ package main
 import (
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
 	"net"
-	"path/filepath"
 
 	"launchpad.net/gnuflag"
 	"launchpad.net/goyaml"
@@ -20,8 +18,10 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/worker/peergrouper"
 )
 
 type BootstrapCommand struct {
@@ -103,17 +103,24 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	sharedSecretFile := filepath.Join(c.dataDir, mongo.SharedSecretFile)
-	if err := ioutil.WriteFile(sharedSecretFile, []byte(sharedSecret), 0600); err != nil {
+	info, ok := agentConfig.StateServingInfo()
+	if !ok {
+		return fmt.Errorf("bootstrap machine config has no state serving info")
+	}
+	info.SharedSecret = sharedSecret
+	err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) {
+		agentConfig.SetStateServingInfo(info)
+	})
+	if err != nil {
+		return fmt.Errorf("cannot write agent config: %v", err)
+	}
+	agentConfig = c.CurrentConfig()
+
+	if err := c.startMongo(addrs, agentConfig); err != nil {
 		return err
 	}
 
-	namespace := agentConfig.Value(agent.Namespace)
-
-	if err := c.startMongo(addrs, agentConfig, namespace); err != nil {
-		return err
-	}
-
+	logger.Infof("started mongo")
 	// Initialise state, and store any agent config (e.g. password) changes.
 	var st *state.State
 	err = nil
@@ -143,7 +150,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	return nil
 }
 
-func (c *BootstrapCommand) startMongo(addrs []instance.Address, agentConfig agent.Config, namespace string) error {
+func (c *BootstrapCommand) startMongo(addrs []instance.Address, agentConfig agent.Config) error {
 	logger.Debugf("starting mongo")
 
 	info, ok := agentConfig.StateInfo()
@@ -156,28 +163,37 @@ func (c *BootstrapCommand) startMongo(addrs []instance.Address, agentConfig agen
 	}
 	servingInfo, ok := agentConfig.StateServingInfo()
 	if !ok {
-		return fmt.Errorf("No state serving info available")
+		return fmt.Errorf("agent config has no state serving info")
 	}
-
 	// Use localhost to dial the mongo server, because it's running in
 	// auth mode and will refuse to perform any operations unless
 	// we dial that address.
 	dialInfo.Addrs = []string{
 		net.JoinHostPort("127.0.0.1", fmt.Sprint(servingInfo.StatePort)),
 	}
-
-	if err := ensureMongoServer(agentConfig.DataDir(), servingInfo.StatePort, namespace); err != nil {
+	logger.Debugf("calling ensureMongoServer")
+	providerType := agentConfig.Value(agent.ProviderType)
+	withHA := providerType != provider.Local
+	err = ensureMongoServer(
+		agentConfig.DataDir(),
+		agentConfig.Value(agent.Namespace),
+		servingInfo,
+		withHA)
+	if err != nil {
 		return err
+	}
+	// If we are not doing HA, there is no need to set up replica set.
+	if !withHA {
+		return nil
 	}
 
 	peerAddr := mongo.SelectPeerAddress(addrs)
-
 	if peerAddr == "" {
 		return fmt.Errorf("no appropriate peer address found in %q", addrs)
 	}
 	peerHostPort := net.JoinHostPort(peerAddr, fmt.Sprint(servingInfo.StatePort))
 
-	return maybeInitiateMongoServer(mongo.InitiateMongoParams{
+	return maybeInitiateMongoServer(peergrouper.InitiateMongoParams{
 		DialInfo:       dialInfo,
 		MemberHostPort: peerHostPort,
 	})

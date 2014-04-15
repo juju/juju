@@ -118,19 +118,11 @@ func (s *configureSuite) TestAptSources(c *gc.C) {
 			"(.|\n)*install -D -m 644 /dev/null '/etc/apt/preferences.d/50-cloud-tools'(.|\n)*",
 		)
 
-		// Only Quantal requires the PPA (for mongo).
-		needsJujuPPA := series == "quantal"
-		c.Assert(
-			script,
-			checkIff(gc.Matches, needsJujuPPA),
-			"(.|\n)*add-apt-repository.*ppa:juju/stable(.|\n)*",
-		)
-
 		// Only install python-software-properties (add-apt-repository)
 		// if we need to.
 		c.Assert(
 			script,
-			checkIff(gc.Matches, needsCloudTools || needsJujuPPA),
+			checkIff(gc.Matches, needsCloudTools),
 			aptgetRegexp+"install.*python-software-properties(.|\n)*",
 		)
 	}
