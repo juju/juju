@@ -1,9 +1,14 @@
 #!/bin/bash
 source $SCRIPTS/common-startup.sh
+if [ "$ENV" == "manual" ]; then
+    prepare_manual
+else
+    DEPLOY_ARGS=""
+fi
 # Do the deployment for upgrade testing.
 export JUJU_REPOSITORY=$HOME/repository
 CHARM_PREFIX=${CHARM_PREFIX:-}
-if ! $SCRIPTS/deploy_stack.py --charm-prefix "$CHARM_PREFIX" $ENV; then
+if ! $SCRIPTS/deploy_stack.py --charm-prefix "$CHARM_PREFIX" $DEPLOY_ARGS $ENV; then
   dump_logs
   $SCRIPTS/destroy-environment $ENV
   exit 1

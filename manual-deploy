@@ -2,7 +2,10 @@
 set -eux
 : ${SCRIPTS:=$(readlink -f $(dirname $0))}
 : ${JUJU_HOME:=$SCRIPTS/manual-provider-home}
-export JUJU_HOME
+CHARM_PREFIX=${CHARM_PREFIX:-}
+export ENV=manual
+: ${JOB_NAME:="testy"}
+export JUJU_HOME JOB_NAME
 $SCRIPTS/ec2-terminate-job-instances
 export INSTANCE_TYPE=m1.large
 export AMI_IMAGE=ami-bd6d40d4
@@ -14,7 +17,6 @@ machine_0_name=$($SCRIPTS/ec2-get-name $machine_0_id)
 machine_1_name=$($SCRIPTS/ec2-get-name $machine_1_id)
 machine_2_name=$($SCRIPTS/ec2-get-name $machine_2_id)
 
-$SCRIPTS/wait-for-port $machine_0_name 22
 rm -f $JUJU_HOME/environments/manual.jenv
 
 # Write new environments.yaml
@@ -26,18 +28,16 @@ environments:
     bootstrap-user: ubuntu
     tools-metadata-url: http://juju-dist.s3.amazonaws.com/testing/tools
 EOT
-juju bootstrap --show-log -e manual
 
-for machine in $machine_1_name $machine_2_name; do
+for machine in $machine_0_name $machine_1_name $machine_2_name; do
   $SCRIPTS/wait-for-port $machine 22
-  juju add-machine ssh:$machine
 done
-
-if $SCRIPTS/deploy_stack.py --already-bootstrapped manual; then
+DEPLOY_ARGS="--machine ssh:$machine_1_name --machine ssh:$machine_2_name"
+if $SCRIPTS/deploy_stack.py --charm-prefix "$CHARM_PREFIX" $DEPLOY_ARGS manual "$@"; then
   exit_code=0
 else
   exit_code=1
 fi
+$SCRIPTS/destroy-environment $ENV
 rm $JUJU_HOME/environments/manual.jenv
-$SCRIPTS/ec2-terminate-job-instances
 exit $exit_code
