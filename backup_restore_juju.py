@@ -147,6 +147,8 @@ def main():
         restore_missing_state_server(env, backup_file)
     except Exception as e:
         print(e)
+        if getattr(e, 'output', None):
+            print(e.output)
         print("FAIL")
         sys.exit(1)
 
