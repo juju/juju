@@ -402,7 +402,7 @@ func (s *agentSuite) assertCanOpenState(c *gc.C, tag, dataDir string) {
 func (s *agentSuite) assertCannotOpenState(c *gc.C, tag, dataDir string) {
 	config, err := agent.ReadConfig(agent.ConfigPath(dataDir, tag))
 	c.Assert(err, gc.IsNil)
-	info, ok := config.StateInfo()
+	_, ok := config.StateInfo()
 	c.Assert(ok, jc.IsFalse)
 }
 

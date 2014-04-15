@@ -93,6 +93,9 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 
 	s.singularRecord = &singularRunnerRecord{}
 	testing.PatchValue(&newSingularRunner, s.singularRecord.newSingularRunner)
+	testing.PatchValue(&peergrouperNew, func(st *state.State) (worker.Worker, error) {
+		return newDummyWorker(), nil
+	})
 }
 
 func fakeCmd(path string) {
@@ -858,7 +861,7 @@ func (s *MachineSuite) testMachineAgentRsyslogConfigWorker(c *gc.C, job state.Ma
 	created := make(chan rsyslog.RsyslogMode, 1)
 	s.PatchValue(&newRsyslogConfigWorker, func(_ *apirsyslog.State, _ agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
 		created <- mode
-		return worker.NewRunner(isFatal, moreImportant), nil
+		return newDummyWorker(), nil
 	})
 	s.assertJobWithAPI(c, job, func(conf agent.Config, st *api.State) {
 		select {
@@ -1030,4 +1033,11 @@ func (r *fakeSingularRunner) StartWorker(name string, start func() (worker.Worke
 	defer r.record.mu.Unlock()
 	r.record.startedWorkers.Add(name)
 	return r.Runner.StartWorker(name, start)
+}
+
+func newDummyWorker() worker.Worker {
+	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
+		<-stop
+		return nil
+	})
 }
