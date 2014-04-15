@@ -1,3 +1,6 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package mongo
 
 import (
@@ -46,6 +49,8 @@ var (
 
 	upstartConfInstall          = (*upstart.Conf).Install
 	upstartServiceStopAndRemove = (*upstart.Service).StopAndRemove
+	upstartServiceStop          = (*upstart.Service).Stop
+	upstartServiceStart         = (*upstart.Service).Start
 )
 
 // WithAddresses represents an entity that has a set of
@@ -250,7 +255,6 @@ func sharedSecretPath(dataDir string) string {
 	return filepath.Join(dataDir, SharedSecretFile)
 }
 
-
 // mongoUpstartService returns the upstart config for the mongo state service.
 //
 func mongoUpstartService(namespace, dataDir, dbDir string, port int, withHA bool) (*upstart.Conf, error) {
@@ -261,16 +265,16 @@ func mongoUpstartService(namespace, dataDir, dbDir string, port int, withHA bool
 		return nil, err
 	}
 	mongoCmd := mongoPath + " --auth" +
-			" --dbpath=" + utils.ShQuote(dbDir) +
-			" --sslOnNormalPorts" +
-			" --sslPEMKeyFile " + utils.ShQuote(sslKeyPath(dataDir)) +
-			" --sslPEMKeyPassword ignored" +
-			" --bind_ip 0.0.0.0" +
-			" --port " + fmt.Sprint(port) +
-			" --noprealloc" +
-			" --syslog" +
-			" --smallfiles" +
-			" --keyFile " + utils.ShQuote(sharedSecretPath(dataDir))
+		" --dbpath=" + utils.ShQuote(dbDir) +
+		" --sslOnNormalPorts" +
+		" --sslPEMKeyFile " + utils.ShQuote(sslKeyPath(dataDir)) +
+		" --sslPEMKeyPassword ignored" +
+		" --bind_ip 0.0.0.0" +
+		" --port " + fmt.Sprint(port) +
+		" --noprealloc" +
+		" --syslog" +
+		" --smallfiles" +
+		" --keyFile " + utils.ShQuote(sharedSecretPath(dataDir))
 	if withHA {
 		mongoCmd += " --replSet " + ReplicaSetName
 	}

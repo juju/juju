@@ -1,31 +1,31 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package mongo
 
 import (
 	"encoding/base64"
 	"io/ioutil"
-	"net"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
-	"testing"
+	stdtesting "testing"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/params"
-	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
-func Test(t *testing.T) { gc.TestingT(t) }
+func Test(t *stdtesting.T) { gc.TestingT(t) }
 
 type MongoSuite struct {
 	testbase.LoggingSuite
@@ -39,16 +39,14 @@ type MongoSuite struct {
 	removed     []upstart.Service
 }
 
-var (
-	_ = gc.Suite(&MongoSuite{})
+var _ = gc.Suite(&MongoSuite{})
 
-	testInfo = params.StateServingInfo{
-		StatePort:    25252,
-		Cert:         "foobar-cert",
-		PrivateKey:   "foobar-privkey",
-		SharedSecret: "foobar-sharedsecret",
-	}
-)
+var testInfo = params.StateServingInfo{
+	StatePort:    25252,
+	Cert:         "foobar-cert",
+	PrivateKey:   "foobar-privkey",
+	SharedSecret: "foobar-sharedsecret",
+}
 
 func (s *MongoSuite) SetUpTest(c *gc.C) {
 	// Try to make sure we don't execute any commands accidentally.
@@ -123,7 +121,7 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 	dbDir := filepath.Join(dataDir, "db")
 	namespace := "namespace"
 
-	s.mockShellCommand(c, "apt-get")
+	mockShellCommand(c, &s.CleanupSuite, "apt-get")
 
 	err := EnsureMongoServer(dataDir, namespace, testInfo, WithHA)
 	c.Assert(err, gc.IsNil)
@@ -163,7 +161,7 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 
 func (s *MongoSuite) TestMongoUpstartServiceWithHA(c *gc.C) {
 	dataDir := c.MkDir()
-	
+
 	svc, err := mongoUpstartService("", dataDir, dataDir, 1234, WithHA)
 	c.Assert(err, gc.IsNil)
 	c.Assert(strings.Contains(svc.Cmd, "--replSet"), jc.IsTrue)
@@ -172,7 +170,6 @@ func (s *MongoSuite) TestMongoUpstartServiceWithHA(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(strings.Contains(svc.Cmd, "--replSet"), jc.IsFalse)
 }
-	
 
 func (s *MongoSuite) TestRemoveService(c *gc.C) {
 	err := RemoveService("namespace")
@@ -187,7 +184,7 @@ func (s *MongoSuite) TestQuantalAptAddRepo(c *gc.C) {
 	dir := c.MkDir()
 	s.PatchEnvPathPrepend(dir)
 	failCmd(filepath.Join(dir, "add-apt-repository"))
-	s.mockShellCommand(c, "apt-get")
+	mockShellCommand(c, &s.CleanupSuite, "apt-get")
 
 	// test that we call add-apt-repository only for quantal (and that if it
 	// fails, we return the error)
@@ -203,7 +200,7 @@ func (s *MongoSuite) TestQuantalAptAddRepo(c *gc.C) {
 func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
 	// Make a non-existent directory that can nonetheless be
 	// created.
-	s.mockShellCommand(c, "apt-get")
+	mockShellCommand(c, &s.CleanupSuite, "apt-get")
 	dataDir := filepath.Join(c.MkDir(), "dir", "data")
 	err := EnsureMongoServer(dataDir, "", testInfo, WithHA)
 	c.Check(err, gc.IsNil)
@@ -256,57 +253,6 @@ func (s *MongoSuite) TestSelectPeerHostPort(c *gc.C) {
 	c.Assert(address, gc.Equals, "10.0.0.1:37017")
 }
 
-func (s *MongoSuite) TestEnsureAdminUser(c *gc.C) {
-	inst := &coretesting.MgoInstance{}
-	err := inst.Start(true)
-	c.Assert(err, gc.IsNil)
-	defer inst.Destroy()
-	dialInfo := inst.DialInfo()
-	// First call succeeds, as there are no users yet.
-	added, err := s.ensureAdminUser(c, dialInfo, "whomever", "whatever")
-	c.Assert(err, gc.IsNil)
-	c.Assert(added, jc.IsTrue)
-	// Second call succeeds, as the admin user is already there.
-	added, err = s.ensureAdminUser(c, dialInfo, "whomever", "whatever")
-	c.Assert(err, gc.IsNil)
-	c.Assert(added, jc.IsFalse)
-}
-
-func (s *MongoSuite) TestEnsureAdminUserError(c *gc.C) {
-	inst := &coretesting.MgoInstance{}
-	err := inst.Start(true)
-	c.Assert(err, gc.IsNil)
-	defer inst.Destroy()
-	dialInfo := inst.DialInfo()
-
-	// First call succeeds, as there are no users yet (mimics --noauth).
-	added, err := s.ensureAdminUser(c, dialInfo, "whomever", "whatever")
-	c.Assert(err, gc.IsNil)
-	c.Assert(added, jc.IsTrue)
-
-	// Second call fails, as there is another user and the database doesn't
-	// actually get reopened with --noauth in the test; mimics AddUser failure
-	_, err = s.ensureAdminUser(c, dialInfo, "whomeverelse", "whateverelse")
-	c.Assert(err, gc.ErrorMatches, `failed to add "whomeverelse" to admin database: not authorized for upsert on admin.system.users`)
-}
-
-func (s *MongoSuite) ensureAdminUser(c *gc.C, dialInfo *mgo.DialInfo, user, password string) (added bool, err error) {
-	_, portString, err := net.SplitHostPort(dialInfo.Addrs[0])
-	c.Assert(err, gc.IsNil)
-	port, err := strconv.Atoi(portString)
-	c.Assert(err, gc.IsNil)
-	s.PatchValue(&JujuMongodPath, "/bin/true")
-	s.PatchValue(&processSignal, func(*os.Process, os.Signal) error {
-		return nil
-	})
-	return EnsureAdminUser(EnsureAdminUserParams{
-		DialInfo: dialInfo,
-		Port:     port,
-		User:     user,
-		Password: password,
-	})
-}
-
 func (s *MongoSuite) TestGenerateSharedSecret(c *gc.C) {
 	secret, err := GenerateSharedSecret()
 	c.Assert(err, gc.IsNil)
@@ -316,9 +262,9 @@ func (s *MongoSuite) TestGenerateSharedSecret(c *gc.C) {
 }
 
 func (s *MongoSuite) TestAddPPAInQuantal(c *gc.C) {
-	s.mockShellCommand(c, "apt-get")
+	mockShellCommand(c, &s.CleanupSuite, "apt-get")
 
-	addAptRepoOut := s.mockShellCommand(c, "add-apt-repository")
+	addAptRepoOut := mockShellCommand(c, &s.CleanupSuite, "add-apt-repository")
 	s.PatchValue(&version.Current.Series, "quantal")
 
 	dataDir := c.MkDir()
@@ -336,7 +282,7 @@ func (s *MongoSuite) TestAddPPAInQuantal(c *gc.C) {
 // executed by preference. It returns the name of a file
 // that is written by each call to the command - mockShellCalls
 // can be used to retrieve the calls.
-func (s *MongoSuite) mockShellCommand(c *gc.C, name string) string {
+func mockShellCommand(c *gc.C, s *testing.CleanupSuite, name string) string {
 	dir := c.MkDir()
 	s.PatchEnvPathPrepend(dir)
 
