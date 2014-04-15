@@ -178,7 +178,7 @@ func (c *BootstrapCommand) startMongo(addrs []instance.Address, agentConfig agen
 	if err != nil {
 		return err
 	}
-	// If we are not doing HA, no need to set up replicaset.
+	// If we are not doing HA, there is no need to set up replica set.
 	if !withHA {
 		return nil
 	}

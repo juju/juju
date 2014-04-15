@@ -12,7 +12,7 @@ import (
 	"launchpad.net/juju-core/replicaset"
 )
 
-// jujuMachineTag is the key for the tag where we save the members juju machine id.
+// jujuMachineTag is the key for the tag where we save the member's juju machine id.
 const jujuMachineTag = "juju-machine-id"
 
 var logger = loggo.GetLogger("juju.worker.peergrouper")

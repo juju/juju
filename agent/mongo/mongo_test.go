@@ -69,6 +69,7 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 		s.removed = append(s.removed, *svc)
 		return s.removeError
 	})
+	// Clear out the values that are set by the above patched functions.
 	s.removeError = nil
 	s.installError = nil
 	s.installed = nil
@@ -286,6 +287,16 @@ func mockShellCommand(c *gc.C, s *testing.CleanupSuite, name string) string {
 	dir := c.MkDir()
 	s.PatchEnvPathPrepend(dir)
 
+	// Note the shell script produces output of the form:
+	// +arg1+\n
+	// +arg2+\n
+	// ...
+	// +argn+\n
+	// -
+	//
+	// It would be nice if there was a simple way of unambiguously
+	// quoting shell arguments, but this will do as long
+	// as no argument contains a newline character.
 	outputFile := filepath.Join(dir, name+".out")
 	contents := `#!/bin/sh
 {
@@ -300,7 +311,7 @@ func mockShellCommand(c *gc.C, s *testing.CleanupSuite, name string) string {
 	return outputFile
 }
 
-// Given a file name returned by mockShellCommands, getMockShellCalls
+// getMockShellCalls, given a file name returned by mockShellCommands, 
 // returns a slice containing one element for each call, each
 // containing the arguments passed to the command.
 // It will be confused if the arguments contain newlines.
@@ -320,8 +331,9 @@ func getMockShellCalls(c *gc.C, file string) [][]string {
 	return calls
 }
 
-// splitCall takes the newline and '+' delimited arguments to a call and returns
-// the actual arguments
+// splitCall splits the output produced by a single call to the
+// mocked shell function (see mockShellCommand) and
+// splits it into its individual arguments.
 func splitCall(c *gc.C, part string) []string {
 	var result []string
 	for _, arg := range strings.Split(part, "\n") {
