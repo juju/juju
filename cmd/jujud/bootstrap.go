@@ -148,7 +148,7 @@ func (c *BootstrapCommand) startMongo(addrs []instance.Address, agentConfig agen
 
 	info, ok := agentConfig.StateInfo()
 	if !ok {
-		return fmt.Errorf("no stateinfo available")
+		return fmt.Errorf("no state info available")
 	}
 	dialInfo, err := state.DialInfo(info, state.DefaultDialOpts())
 	if err != nil {
@@ -156,7 +156,7 @@ func (c *BootstrapCommand) startMongo(addrs []instance.Address, agentConfig agen
 	}
 	servingInfo, ok := agentConfig.StateServingInfo()
 	if !ok {
-		return fmt.Errorf("No stateservinginfo available")
+		return fmt.Errorf("No state serving info available")
 	}
 
 	// Use localhost to dial the mongo server, because it's running in

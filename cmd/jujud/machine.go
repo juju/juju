@@ -492,7 +492,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 func openState(agentConfig agent.Config) (_ *state.State, _ *state.Machine, err error) {
 	info, ok := agentConfig.StateInfo()
 	if !ok {
-		return nil, nil, fmt.Errorf("no stateinfo available")
+		return nil, nil, fmt.Errorf("no state info available")
 	}
 	st, err := state.Open(info, state.DialOpts{}, environs.NewStatePolicy())
 	if err != nil {
@@ -588,7 +588,7 @@ func (a *MachineAgent) upgradeWorker(
 			var err error
 			info, ok := agentConfig.StateInfo()
 			if !ok {
-				return fmt.Errorf("no stateinfo available")
+				return fmt.Errorf("no state info available")
 			}
 			st, err = state.Open(info, state.DialOpts{}, environs.NewStatePolicy())
 			if err != nil {
