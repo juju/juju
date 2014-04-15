@@ -21,7 +21,6 @@ from jujupy import (
     Environment,
     ErroredUnit,
     format_listing,
-    JujuClient16,
     JujuClientDevel,
     Status,
     until_timeout,
@@ -108,8 +107,11 @@ class TestJujuClientDevel(TestCase):
         with context:
             self.assertIs(JujuClientDevel,
                           type(JujuClientDevel.by_version()))
-            self.assertIs(JujuClient16, type(JujuClientDevel.by_version()))
-            self.assertIs(JujuClient16, type(JujuClientDevel.by_version()))
+            with self.assertRaisesRegexp(Exception, 'Unsupported juju: 1.16'):
+                JujuClientDevel.by_version()
+            with self.assertRaisesRegexp(Exception,
+                                         'Unsupported juju: 1.16.1'):
+                JujuClientDevel.by_version()
             client = JujuClientDevel.by_version()
             self.assertIs(JujuClientDevel, type(client))
             self.assertEqual('1.15', client.version)
@@ -203,6 +205,14 @@ class TestJujuClientDevel(TestCase):
                 client.get_juju_output(env, 'bar')
         self.assertEqual(exc.exception.stderr, 'Hello!')
 
+    def test_get_juju_output_accepts_timeout(self):
+        env = Environment('foo', '')
+        client = JujuClientDevel(None, None)
+        with patch('subprocess.check_output') as sco_mock:
+            client.get_juju_output(env, 'bar', timeout=5)
+        self.assertEqual(sco_mock.call_args[0][0],
+            ('timeout', '5.00s', 'juju', '--show-log', 'bar', '-e', 'foo'))
+
     def test_get_status(self):
         def output_iterator():
             yield
@@ -284,25 +294,6 @@ class TestJujuClientDevel(TestCase):
         mock.assert_called_with(('juju', '--show-log', 'foo', '-e', 'qux',
                                  'bar', 'baz'))
         stdout_mock.flush.assert_called_with()
-
-
-class TestJujuClient16(TestCase):
-
-    def test_destroy_environment_non_sudo(self):
-        env = Environment('foo', '')
-        with patch.object(env, 'needs_sudo', lambda: False):
-            with patch.object(JujuClient16, 'juju') as mock:
-                JujuClient16(None, None).destroy_environment(env)
-            mock.assert_called_with(
-                env, 'destroy-environment', ('-y',), False, check=False)
-
-    def test_destroy_environment_sudo(self):
-        env = Environment('foo', '')
-        with patch.object(env, 'needs_sudo', lambda: True):
-            with patch.object(JujuClient16, 'juju') as mock:
-                JujuClient16(None, None).destroy_environment(env)
-            mock.assert_called_with(
-                env, 'destroy-environment', ('-y',), True, check=False)
 
 
 class TestStatus(TestCase):

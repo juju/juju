@@ -87,14 +87,18 @@ class JujuClientDevel:
         version = cls.get_version()
         full_path = cls.get_full_path()
         if version.startswith('1.16'):
-            return JujuClient16(version, full_path)
+            raise Exception('Unsupported juju: %s' % version)
         else:
             return JujuClientDevel(version, full_path)
 
-    def _full_args(self, environment, command, sudo, args):
+    def _full_args(self, environment, command, sudo, args, timeout=None):
         # sudo is not needed for devel releases.
         e_arg = () if environment is None else ('-e', environment.environment)
-        return ('juju', '--show-log', command,) + e_arg + args
+        if timeout is None:
+            prefix = ()
+        else:
+            prefix = ('timeout', '%.2fs' % timeout)
+        return prefix + ('juju', '--show-log', command,) + e_arg + args
 
     def bootstrap(self, environment):
         """Bootstrap, using sudo if necessary."""
@@ -111,8 +115,9 @@ class JujuClientDevel:
             (environment.environment, '--force', '-y'),
             environment.needs_sudo(), check=False)
 
-    def get_juju_output(self, environment, command, *args):
-        args = self._full_args(environment, command, False, args)
+    def get_juju_output(self, environment, command, *args, **kwargs):
+        args = self._full_args(environment, command, False, args,
+                               timeout=kwargs.get('timeout'))
         with tempfile.TemporaryFile() as stderr:
             try:
                 return subprocess.check_output(args, stderr=stderr)
@@ -154,21 +159,6 @@ class JujuClientDevel:
         if check:
             return subprocess.check_call(args)
         return subprocess.call(args)
-
-
-class JujuClient16(JujuClientDevel):
-
-    def destroy_environment(self, environment):
-        self.juju(environment, 'destroy-environment', ('-y',),
-                  environment.needs_sudo(), check=False)
-
-    def _full_args(self, environment, command, sudo, args):
-        # juju 1.16.x required sudo, so replace the juju command with it, as
-        # appropriate.
-        full = super(JujuClient16, self)._full_args(
-            environment, command, sudo, args)
-        sudo_args = ('sudo', '-E', self.full_path) if sudo else ('juju',)
-        return sudo_args + full[1:]
 
 
 class Status:
