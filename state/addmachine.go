@@ -558,7 +558,6 @@ func (st *State) ensureAvailabilityIntentionOps(
 	cons constraints.Value,
 	series string,
 ) ([]txn.Op, error) {
-	// First the operations to remove state-server status.
 	var ops []txn.Op
 	for _, m := range intent.promote {
 		ops = append(ops, promoteStateServerOps(m)...)
