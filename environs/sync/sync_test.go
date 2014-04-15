@@ -53,6 +53,7 @@ var _ = gc.Suite(&syncSuite{})
 var _ = gc.Suite(&uploadSuite{})
 
 func (s *syncSuite) setUpTest(c *gc.C) {
+	s.PatchValue(&envtools.BundleTools, ttesting.GetMockBundleTools(c))
 	s.LoggingSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.origVersion = version.Current
@@ -260,6 +261,7 @@ type uploadSuite struct {
 }
 
 func (s *uploadSuite) SetUpTest(c *gc.C) {
+	s.PatchValue(&envtools.BundleTools, ttesting.GetMockBundleTools(c))
 	s.LoggingSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	// We only want to use simplestreams to find any synced tools.

@@ -56,6 +56,8 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	// Set up a local source with tools.
 	sourceDir := createToolsSource(c, vAll)
 	s.PatchValue(&envtools.DefaultBaseURL, sourceDir)
+
+	s.PatchValue(&sync.Upload, ttesting.GetMockUploadTools(c))
 }
 
 func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
@@ -150,32 +152,7 @@ func (s *BootstrapSuite) runAllowRetriesTest(c *gc.C, test bootstrapRetryTest) {
 	c.Check(stripped, gc.Matches, test.err)
 }
 
-// mockUploadTools simulates the effect of tools.Upload, but skips the time-
-// consuming build from source.
-// TODO(fwereade) better factor agent/tools such that build logic is
-// exposed and can itself be neatly mocked?
-func mockUploadTools(stor storage.Storage, forceVersion *version.Number, series ...string) (*coretools.Tools, error) {
-	vers := version.Current
-	if forceVersion != nil {
-		vers.Number = *forceVersion
-	}
-	versions := []version.Binary{vers}
-	for _, series := range series {
-		if series != version.Current.Series {
-			newVers := vers
-			newVers.Series = series
-			versions = append(versions, newVers)
-		}
-	}
-	agentTools, err := envtesting.UploadFakeToolsVersions(stor, versions...)
-	if err != nil {
-		return nil, err
-	}
-	return agentTools[0], nil
-}
-
 func (s *BootstrapSuite) TestTest(c *gc.C) {
-	s.PatchValue(&sync.Upload, mockUploadTools)
 	for i, test := range bootstrapTests {
 		c.Logf("\ntest %d: %s", i, test.info)
 		test.run(c)
@@ -502,7 +479,7 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 }
 
 func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, series string) environs.Environ {
-	s.PatchValue(&sync.Upload, mockUploadTools)
+	s.PatchValue(&sync.Upload, ttesting.GetMockUploadTools(c))
 	sourceDir := createToolsSource(c, vAll)
 	s.PatchValue(&envtools.DefaultBaseURL, sourceDir)
 

@@ -6,6 +6,7 @@ package testing
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path"
@@ -20,12 +21,90 @@ import (
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
+	"launchpad.net/juju-core/environs/sync"
+	"launchpad.net/juju-core/environs/testing"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
 )
+
+var ToolsDir string
+
+// mockUploadTools simulates the effect of tools.Upload, but skips the time-
+// consuming build from source.
+// TODO(fwereade) better factor agent/tools such that build logic is
+// exposed and can itself be neatly mocked?
+func GetMockUploadTools(c *gc.C) sync.UploadFunc {
+	return func(stor storage.Storage, forceVersion *version.Number, series ...string) (*coretools.Tools, error) {
+		vers := version.Current
+		if forceVersion != nil {
+			vers.Number = *forceVersion
+		}
+		versions := []version.Binary{vers}
+		for _, series := range series {
+			if series != version.Current.Series {
+				newVers := vers
+				newVers.Series = series
+				versions = append(versions, newVers)
+			}
+		}
+		agentTools, err := envtesting.UploadFakeToolsVersions(stor, versions...)
+		if err != nil {
+			return nil, err
+		}
+		return agentTools[0], nil
+	}
+}
+
+func GetMockBundleTools(c *gc.C) tools.BundleToolsFunc {
+	dir := c.MkDir()
+	if ToolsDir == "" {
+		ToolsDir = filepath.Join(dir, "jujud")
+	}
+
+	return func(w io.Writer, forceVersion *version.Number) (vers version.Binary, sha256Hash string, err error) {
+		vers = version.Current
+		if forceVersion != nil {
+			ioutil.WriteFile(filepath.Join(dir, "FORCE-VERSION"), []byte(forceVersion.String()), 0666)
+			vers.Number = *forceVersion
+		}
+
+		sha256Hash, err = tools.Archive(w, ToolsDir)
+		c.Assert(err, gc.IsNil)
+		return vers, sha256Hash, err
+	}
+}
+
+// getMockBuildTools returns a sync.BuildToolsTarballFunc implementation which generates
+// a fake tools tarball.
+func GetMockBuildTools(c *gc.C) sync.BuildToolsTarballFunc {
+	if ToolsDir == "" {
+		ToolsDir = c.MkDir()
+	}
+	return func(forceVersion *version.Number) (*sync.BuiltTools, error) {
+		// UploadFakeToolsVersions requires a storage to write to.
+		stor, err := filestorage.NewFileStorageWriter(ToolsDir)
+		c.Assert(err, gc.IsNil)
+		vers := version.Current
+		if forceVersion != nil {
+			vers.Number = *forceVersion
+		}
+		versions := []version.Binary{vers}
+		uploadedTools, err := testing.UploadFakeToolsVersions(stor, versions...)
+		c.Assert(err, gc.IsNil)
+		agentTools := uploadedTools[0]
+		return &sync.BuiltTools{
+			Dir:         ToolsDir,
+			StorageName: tools.StorageName(vers),
+			Version:     vers,
+			Size:        agentTools.Size,
+			Sha256Hash:  agentTools.SHA256,
+		}, nil
+	}
+}
 
 // MakeTools creates some fake tools with the given version strings.
 func MakeTools(c *gc.C, metadataDir, subdir string, versionStrings []string) coretools.List {

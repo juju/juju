@@ -18,10 +18,10 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
-// archive writes the executable files found in the given directory in
+// Archive writes the executable files found in the given directory in
 // gzipped tar format to w, returning the SHA256 hash of the resulting file.
 // An error is returned if an entry inside dir is not a regular executable file.
-func archive(w io.Writer, dir string) (string, error) {
+func Archive(w io.Writer, dir string) (string, error) {
 	entries, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return "", err
@@ -198,11 +198,18 @@ func buildJujud(dir string) error {
 	return nil
 }
 
+// BundleToolsFunc is a function which can bundles all the current juju tools
+// in gzipped tar format to the given writer.
+type BundleToolsFunc func(w io.Writer, forceVersion *version.Number) (version.Binary, string, error)
+
+// Override for testing.
+var BundleTools BundleToolsFunc = bundleTools
+
 // BundleTools bundles all the current juju tools in gzipped tar
 // format to the given writer.
 // If forceVersion is not nil, a FORCE-VERSION file is included in
 // the tools bundle so it will lie about its current version number.
-func BundleTools(w io.Writer, forceVersion *version.Number) (tvers version.Binary, sha256Hash string, err error) {
+func bundleTools(w io.Writer, forceVersion *version.Number) (tvers version.Binary, sha256Hash string, err error) {
 	dir, err := ioutil.TempDir("", "juju-tools")
 	if err != nil {
 		return version.Binary{}, "", err
@@ -232,7 +239,7 @@ func BundleTools(w io.Writer, forceVersion *version.Number) (tvers version.Binar
 	if err != nil {
 		return version.Binary{}, "", fmt.Errorf("invalid version %q printed by jujud", tvs)
 	}
-	sha256Hash, err = archive(w, dir)
+	sha256Hash, err = Archive(w, dir)
 	if err != nil {
 		return version.Binary{}, "", err
 	}

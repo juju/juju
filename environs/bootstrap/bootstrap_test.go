@@ -16,12 +16,12 @@ import (
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
-	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
+	ttesting "launchpad.net/juju-core/environs/tools/testing"
 	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
@@ -50,6 +50,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.home = coretesting.MakeFakeHomeNoEnvironments(c, "foo")
+	ttesting.ToolsDir = c.MkDir()
 }
 
 func (s *bootstrapSuite) TearDownTest(c *gc.C) {
@@ -149,6 +150,7 @@ var bootstrapSetAgentVersionTests = []envtesting.BootstrapToolsTest{
 	}}
 
 func (s *bootstrapSuite) TestBootstrapTools(c *gc.C) {
+	s.PatchValue(&sync.Upload, ttesting.GetMockUploadTools(c))
 	allTests := append(envtesting.BootstrapToolsTests, bootstrapSetAgentVersionTests...)
 	// version.Current is set in the loop so ensure it is restored later.
 	s.PatchValue(&version.Current, version.Current)
@@ -283,32 +285,6 @@ func (s *bootstrapSuite) TestEnsureToolsAvailabilityNonDevVersion(c *gc.C) {
 		"cannot upload bootstrap tools: Juju cannot bootstrap because no tools are available for your environment.*")
 }
 
-// getMockBuildTools returns a sync.BuildToolsTarballFunc implementation which generates
-// a fake tools tarball.
-func (s *bootstrapSuite) getMockBuildTools(c *gc.C) sync.BuildToolsTarballFunc {
-	toolsDir := c.MkDir()
-	return func(forceVersion *version.Number) (*sync.BuiltTools, error) {
-		// UploadFakeToolsVersions requires a storage to write to.
-		stor, err := filestorage.NewFileStorageWriter(toolsDir)
-		c.Assert(err, gc.IsNil)
-		vers := version.Current
-		if forceVersion != nil {
-			vers.Number = *forceVersion
-		}
-		versions := []version.Binary{vers}
-		uploadedTools, err := envtesting.UploadFakeToolsVersions(stor, versions...)
-		c.Assert(err, gc.IsNil)
-		agentTools := uploadedTools[0]
-		return &sync.BuiltTools{
-			Dir:         toolsDir,
-			StorageName: envtools.StorageName(vers),
-			Version:     vers,
-			Size:        agentTools.Size,
-			Sha256Hash:  agentTools.SHA256,
-		}, nil
-	}
-}
-
 func (s *bootstrapSuite) TestEnsureToolsAvailability(c *gc.C) {
 	existingToolsVersion := version.MustParseBinary("1.19.0-trusty-amd64")
 	s.PatchValue(&version.Current, existingToolsVersion)
@@ -319,7 +295,7 @@ func (s *bootstrapSuite) TestEnsureToolsAvailability(c *gc.C) {
 	cliVersion := version.Current
 	cliVersion.Arch = "arm64"
 	version.Current = cliVersion
-	s.PatchValue(&sync.BuildToolsTarball, s.getMockBuildTools(c))
+	s.PatchValue(&sync.BuildToolsTarball, ttesting.GetMockBuildTools(c))
 	// Host runs arm64, environment supports arm64.
 	s.PatchValue(&arch.HostArch, func() string {
 		return "arm64"
@@ -369,7 +345,7 @@ func (s *bootstrapSuite) assertUploadTools(c *gc.C, vers version.Binary, forceVe
 	cliVersion := version.Current
 	cliVersion.Arch = "arm64"
 	version.Current = cliVersion
-	s.PatchValue(&sync.BuildToolsTarball, s.getMockBuildTools(c))
+	s.PatchValue(&sync.BuildToolsTarball, ttesting.GetMockBuildTools(c))
 	// Host runs arm64, environment supports arm64.
 	s.PatchValue(&arch.HostArch, func() string {
 		return "arm64"

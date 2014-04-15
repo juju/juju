@@ -24,6 +24,7 @@ import (
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
+	ttesting "launchpad.net/juju-core/environs/tools/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
@@ -82,6 +83,7 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 func (t *LiveTests) SetUpTest(c *gc.C) {
 	t.LoggingSuite.SetUpTest(c)
 	t.ToolsFixture.SetUpTest(c)
+	t.PatchValue(&sync.Upload, ttesting.GetMockUploadTools(c))
 }
 
 func publicAttrs(e environs.Environ) map[string]interface{} {
