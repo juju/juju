@@ -123,10 +123,6 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 
 	err := EnsureMongoServer(dataDir, namespace, testInfo, WithHA)
 	c.Assert(err, gc.IsNil)
-	svc, err := mongoUpstartService(namespace, dir, dbDir, port, WithHA)
-	c.Assert(err, gc.IsNil)
-	defer svc.StopAndRemove()
-	c.Assert(strings.Contains(svc.Cmd, "--replSet"), jc.IsTrue)
 
 	testJournalDirs(dbDir, c)
 
@@ -161,6 +157,19 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 	assertInstalled()
 }
 
+func (s *MongoSuite) TestMongoUpstartServiceWithHA(c *gc.C) {
+	dataDir := c.MkDir()
+	
+	svc, err := mongoUpstartService("", dataDir, dataDir, 1234, WithHA)
+	c.Assert(err, gc.IsNil)
+	c.Assert(strings.Contains(svc.Cmd, "--replSet"), jc.IsTrue)
+
+	svc, err = mongoUpstartService("", dataDir, dataDir, 1234, WithoutHA)
+	c.Assert(err, gc.IsNil)
+	c.Assert(strings.Contains(svc.Cmd, "--replSet"), jc.IsFalse)
+}
+	
+
 func (s *MongoSuite) TestRemoveService(c *gc.C) {
 	err := RemoveService("namespace")
 	c.Assert(err, gc.IsNil)
@@ -179,25 +188,12 @@ func (s *MongoSuite) TestQuantalAptAddRepo(c *gc.C) {
 	// test that we call add-apt-repository only for quantal (and that if it
 	// fails, we return the error)
 	s.PatchValue(&version.Current.Series, "quantal")
-	err := EnsureMongoServer(dir, "", testInfo)
+	err := EnsureMongoServer(dir, "", testInfo, WithHA)
 	c.Assert(err, gc.ErrorMatches, "cannot install mongod: cannot add apt repository: exit status 1.*")
 
 	s.PatchValue(&version.Current.Series, "trusty")
 	err = EnsureMongoServer(dir, "", testInfo, WithHA)
 	c.Assert(err, gc.IsNil)
-}
-
-func (s *MongoSuite) TestEnsureMongoServerWithoutHA(c *gc.C) {
-	dir := c.MkDir()
-	dbDir := filepath.Join(dir, "db")
-	port := 25252
-	namespace := "namespace"
-	err := EnsureMongoServer(dir, port, namespace, WithoutHA)
-	c.Assert(err, gc.IsNil)
-	svc, err := mongoUpstartService(namespace, dir, dbDir, port, WithoutHA)
-	c.Assert(err, gc.IsNil)
-	defer svc.StopAndRemove()
-	c.Assert(strings.Contains(svc.Cmd, "--replSet"), jc.IsFalse)
 }
 
 func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
