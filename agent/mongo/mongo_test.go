@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	jc "github.com/juju/testing/checkers"
@@ -106,19 +107,33 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 	//oldsvc := makeService(ServiceName(namespace), c)
 	//defer oldsvc.StopAndRemove()
 
-	err := EnsureMongoServer(dir, port, namespace)
+	err := EnsureMongoServer(dir, port, namespace, WithHA)
 	c.Assert(err, gc.IsNil)
-	svc, err := mongoUpstartService(namespace, dir, dbDir, port)
+	svc, err := mongoUpstartService(namespace, dir, dbDir, port, WithHA)
 	c.Assert(err, gc.IsNil)
 	defer svc.StopAndRemove()
+	c.Assert(strings.Contains(svc.Cmd, "--replSet"), jc.IsTrue)
 
 	testJournalDirs(dbDir, c)
 	c.Assert(svc.Installed(), jc.IsTrue)
 
 	// now check we can call it multiple times without error
-	err = EnsureMongoServer(dir, port, namespace)
+	err = EnsureMongoServer(dir, port, namespace, WithHA)
 	c.Assert(err, gc.IsNil)
 	c.Assert(svc.Installed(), jc.IsTrue)
+}
+
+func (s *MongoSuite) TestEnsureMongoServerWithoutHA(c *gc.C) {
+	dir := c.MkDir()
+	dbDir := filepath.Join(dir, "db")
+	port := 25252
+	namespace := "namespace"
+	err := EnsureMongoServer(dir, port, namespace, WithoutHA)
+	c.Assert(err, gc.IsNil)
+	svc, err := mongoUpstartService(namespace, dir, dbDir, port, WithoutHA)
+	c.Assert(err, gc.IsNil)
+	defer svc.StopAndRemove()
+	c.Assert(strings.Contains(svc.Cmd, "--replSet"), jc.IsFalse)
 }
 
 func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
@@ -131,13 +146,13 @@ func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
 	os.RemoveAll(dir)
 	port := 25252
 
-	err := EnsureMongoServer(dir, port, "")
+	err := EnsureMongoServer(dir, port, "", WithHA)
 	c.Check(err, gc.IsNil)
 
 	_, err = os.Stat(dbDir)
 	c.Assert(err, gc.IsNil)
 
-	svc, err := mongoUpstartService("", dir, dbDir, port)
+	svc, err := mongoUpstartService("", dir, dbDir, port, WithHA)
 	c.Assert(err, gc.IsNil)
 	defer svc.Remove()
 }

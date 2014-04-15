@@ -258,12 +258,19 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 		if err := pdb.Login(info.Tag, info.Password); err != nil {
 			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to presence database as %q", info.Tag))
 		}
-		admin := session.DB(AdminUser)
+		admin := session.DB("admin")
 		if err := admin.Login(info.Tag, info.Password); err != nil {
-			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to admin database as %q", info.Tag))
+			if isUnauthorized(err) {
+				// TODO(jam) https://launchpad.net/bugs/1306902 in juju <=1.18,
+				// machine-0 was not an admin, so it cannot login to the "admin"
+				// database until bug #1306902 is fixed.
+				logger.Infof("ignoring failure to login to \"admin\" database as %q (bug #1306902): %v", info.Tag, err)
+			} else {
+				return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to admin database as %q", info.Tag))
+			}
 		}
 	} else if info.Password != "" {
-		admin := session.DB(AdminUser)
+		admin := session.DB("admin")
 		if err := admin.Login(AdminUser, info.Password); err != nil {
 			return nil, maybeUnauthorized(err, "cannot log in to admin database")
 		}

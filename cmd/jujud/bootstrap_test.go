@@ -57,13 +57,14 @@ type fakeEnsure struct {
 	dataDir        string
 	port           int
 	namespace      string
+	withHA         bool
 	initiateParams mongo.InitiateMongoParams
 	err            error
 }
 
-func (f *fakeEnsure) fakeEnsureMongo(dataDir string, port int, namespace string) error {
+func (f *fakeEnsure) fakeEnsureMongo(dataDir string, port int, namespace string, withHA bool) error {
 	f.ensureCount++
-	f.dataDir, f.port, f.namespace = dataDir, port, namespace
+	f.dataDir, f.port, f.namespace, f.withHA = dataDir, port, namespace, withHA
 	return f.err
 }
 
@@ -163,6 +164,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	c.Assert(s.fakeEnsureMongo.initiateCount, gc.Equals, 1)
 	c.Assert(s.fakeEnsureMongo.ensureCount, gc.Equals, 1)
 	c.Assert(s.fakeEnsureMongo.dataDir, gc.Equals, s.dataDir)
+	c.Assert(s.fakeEnsureMongo.withHA, jc.IsTrue)
 
 	info, exists := machConf.StateServingInfo()
 	c.Assert(exists, jc.IsTrue)
