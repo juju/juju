@@ -31,7 +31,7 @@ class ErroredUnit(Exception):
 
 class until_timeout:
 
-    """Yields None until timeout is reached.
+    """Yields remaining number of seconds.  Stops when timeout is reached.
 
     :ivar timeout: Number of seconds to wait.
     """
@@ -47,9 +47,11 @@ class until_timeout:
         return datetime.now()
 
     def next(self):
-        if self.now() - self.start >= timedelta(0, self.timeout):
+        elapsed = self.now() - self.start
+        remaining = self.timeout - elapsed.total_seconds()
+        if remaining <= 0:
             raise StopIteration
-        return None
+        return remaining
 
 
 def yaml_loads(yaml_str):
