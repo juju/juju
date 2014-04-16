@@ -13,9 +13,9 @@ import (
 	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/state/apiserver/client"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/apiserver/client"
 )
 
 type StatusCommand struct {
@@ -67,7 +67,6 @@ Please check your credentials or use 'juju bootstrap' to create a new environmen
 Error details:
 %v
 `
-
 
 func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	// Just verify the pattern validity client side, do not use the matcher

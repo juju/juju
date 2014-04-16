@@ -169,8 +169,6 @@ func NewUnitMatcher(patterns []string) (unitMatcher, error) {
 	return unitMatcher{patterns}, nil
 }
 
-
-
 // fetchMachines returns a map from top level machine id to machines, where machines[0] is the host
 // machine and machines[1..n] are any containers (including nested ones).
 //
