@@ -8,7 +8,6 @@ github.com/joyent/gosign	git	476720af5427223da5420afbbadf620bfb760345
 github.com/juju/loggo	git	fa3acf9ab9ed09aea29030558528e24a254d27af	
 github.com/juju/ratelimit	git	0025ab75db6c6eaa4ffff0240c2c9e617ad1a0eb	
 github.com/juju/testing	git	9c0e0686136637876ae659e9056897575236e11f	
-github.com/loggo/loggo	git	89458b4dc99692bc24efe9c2252d7587f8dc247b	
 labix.org/v2/mgo	bzr	gustavo@niemeyer.net-20131118213720-aralgr4ienh0gdyq	248
 launchpad.net/gnuflag	bzr	roger.peppe@canonical.com-20121003093437-zcyyw0lpvj2nifpk	12
 launchpad.net/goamz	bzr	roger.peppe@canonical.com-20131218155244-hbnkvlkkzy3vmlh9	44
