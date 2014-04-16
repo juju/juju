@@ -23,12 +23,14 @@ type PrecheckerSuite struct {
 var _ = gc.Suite(&PrecheckerSuite{})
 
 type mockPrechecker struct {
-	precheckInstanceError  error
-	precheckInstanceSeries string
+	precheckInstanceError       error
+	precheckInstanceSeries      string
+	precheckInstanceConstraints constraints.Value
 }
 
-func (p *mockPrechecker) PrecheckInstance(series string) error {
+func (p *mockPrechecker) PrecheckInstance(series string, cons constraints.Value) error {
 	p.precheckInstanceSeries = series
+	p.precheckInstanceConstraints = cons
 	return p.precheckInstanceError
 }
 
@@ -42,11 +44,17 @@ func (s *PrecheckerSuite) SetUpTest(c *gc.C) {
 
 func (s *PrecheckerSuite) TestPrecheckInstance(c *gc.C) {
 	// PrecheckInstance should be called with the specified
-	// series, when attempting to create an instance.
+	// series, and the specified constraints merged with the
+	// environment constraints, when attempting to create an
+	// instance.
 	envCons := constraints.MustParse("mem=4G")
 	template, err := s.addOneMachine(c, envCons)
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.prechecker.precheckInstanceSeries, gc.Equals, template.Series)
+	validator := constraints.NewValidator()
+	cons, err := validator.Merge(envCons, template.Constraints)
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.prechecker.precheckInstanceConstraints, gc.DeepEquals, cons)
 }
 
 func (s *PrecheckerSuite) TestPrecheckErrors(c *gc.C) {

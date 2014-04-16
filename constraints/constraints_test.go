@@ -436,151 +436,6 @@ func (s *ConstraintsSuite) TestRoundtripYaml(c *gc.C) {
 	}
 }
 
-var withFallbacksTests = []struct {
-	desc      string
-	initial   string
-	fallbacks string
-	final     string
-}{
-	{
-		desc: "empty all round",
-	}, {
-		desc:    "container with empty fallback",
-		initial: "container=lxc",
-		final:   "container=lxc",
-	}, {
-		desc:      "container from fallback",
-		fallbacks: "container=lxc",
-		final:     "container=lxc",
-	}, {
-		desc:    "arch with empty fallback",
-		initial: "arch=amd64",
-		final:   "arch=amd64",
-	}, {
-		desc:      "arch with ignored fallback",
-		initial:   "arch=amd64",
-		fallbacks: "arch=i386",
-		final:     "arch=amd64",
-	}, {
-		desc:      "arch from fallback",
-		fallbacks: "arch=i386",
-		final:     "arch=i386",
-	}, {
-		desc:    "instance type with empty fallback",
-		initial: "instance-type=foo",
-		final:   "instance-type=foo",
-	}, {
-		desc:      "instance type with ignored fallback",
-		initial:   "instance-type=foo",
-		fallbacks: "instance-type=bar",
-		final:     "instance-type=foo",
-	}, {
-		desc:      "instance type from fallback",
-		fallbacks: "instance-type=foo",
-		final:     "instance-type=foo",
-	}, {
-		desc:      "fallbacks ignored if instance type set",
-		initial:   "instance-type=foo",
-		fallbacks: "cpu-power=1000 cpu-cores=4",
-		final:     "instance-type=foo",
-	}, {
-		desc:      "fallback instance ignored if non empty constraint",
-		initial:   "arch=amd64",
-		fallbacks: "instance-type=foo cpu-cores=2",
-		final:     "arch=amd64 cpu-cores=2",
-	}, {
-		desc:    "cpu-cores with empty fallback",
-		initial: "cpu-cores=2",
-		final:   "cpu-cores=2",
-	}, {
-		desc:      "cpu-cores with ignored fallback",
-		initial:   "cpu-cores=4",
-		fallbacks: "cpu-cores=8",
-		final:     "cpu-cores=4",
-	}, {
-		desc:      "cpu-cores from fallback",
-		fallbacks: "cpu-cores=8",
-		final:     "cpu-cores=8",
-	}, {
-		desc:    "cpu-power with empty fallback",
-		initial: "cpu-power=100",
-		final:   "cpu-power=100",
-	}, {
-		desc:      "cpu-power with ignored fallback",
-		initial:   "cpu-power=100",
-		fallbacks: "cpu-power=200",
-		final:     "cpu-power=100",
-	}, {
-		desc:      "cpu-power from fallback",
-		fallbacks: "cpu-power=200",
-		final:     "cpu-power=200",
-	}, {
-		desc:    "tags with empty fallback",
-		initial: "tags=foo,bar",
-		final:   "tags=foo,bar",
-	}, {
-		desc:      "tags with ignored fallback",
-		initial:   "tags=foo,bar",
-		fallbacks: "tags=baz",
-		final:     "tags=foo,bar",
-	}, {
-		desc:      "tags from fallback",
-		fallbacks: "tags=foo,bar",
-		final:     "tags=foo,bar",
-	}, {
-		desc:      "tags inital empty",
-		initial:   "tags=",
-		fallbacks: "tags=foo,bar",
-		final:     "tags=",
-	}, {
-		desc:    "mem with empty fallback",
-		initial: "mem=4G",
-		final:   "mem=4G",
-	}, {
-		desc:      "mem with ignored fallback",
-		initial:   "mem=4G",
-		fallbacks: "mem=8G",
-		final:     "mem=4G",
-	}, {
-		desc:      "mem from fallback",
-		fallbacks: "mem=8G",
-		final:     "mem=8G",
-	}, {
-		desc:    "root-disk with empty fallback",
-		initial: "root-disk=4G",
-		final:   "root-disk=4G",
-	}, {
-		desc:      "root-disk with ignored fallback",
-		initial:   "root-disk=4G",
-		fallbacks: "root-disk=8G",
-		final:     "root-disk=4G",
-	}, {
-		desc:      "root-disk from fallback",
-		fallbacks: "root-disk=8G",
-		final:     "root-disk=8G",
-	}, {
-		desc:      "non-overlapping mix",
-		initial:   "root-disk=8G mem=4G arch=amd64",
-		fallbacks: "cpu-power=1000 cpu-cores=4",
-		final:     "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
-	}, {
-		desc:      "overlapping mix",
-		initial:   "root-disk=8G mem=4G arch=amd64",
-		fallbacks: "cpu-power=1000 cpu-cores=4 mem=8G",
-		final:     "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
-	},
-}
-
-func (s *ConstraintsSuite) TestWithFallbacks(c *gc.C) {
-	for i, t := range withFallbacksTests {
-		c.Logf("test %d: %s", i, t.desc)
-		initial := constraints.MustParse(t.initial)
-		fallbacks := constraints.MustParse(t.fallbacks)
-		final := constraints.MustParse(t.final)
-		c.Check(initial.WithFallbacks(fallbacks), gc.DeepEquals, final)
-	}
-}
-
 var hasContainerTests = []struct {
 	constraints  string
 	hasContainer bool
@@ -611,64 +466,120 @@ func (s *ConstraintsSuite) TestHasInstanceType(c *gc.C) {
 	c.Check(cons.HasInstanceType(), jc.IsTrue)
 }
 
-var removeTests = []struct {
+var withoutTests = []struct {
 	initial string
-	remove  []string
+	without []string
 	final   string
 }{
 	{
 		initial: "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
-		remove:  []string{"root-disk"},
+		without: []string{"root-disk"},
 		final:   "mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
 	},
 	{
 		initial: "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
-		remove:  []string{"mem"},
+		without: []string{"mem"},
 		final:   "root-disk=8G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
 	},
 	{
 		initial: "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
-		remove:  []string{"arch"},
+		without: []string{"arch"},
 		final:   "root-disk=8G mem=4G cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
 	},
 	{
 		initial: "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
-		remove:  []string{"cpu-power"},
+		without: []string{"cpu-power"},
 		final:   "root-disk=8G mem=4G arch=amd64 cpu-cores=4 tags=foo container=lxc instance-type=bar",
 	},
 	{
 		initial: "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
-		remove:  []string{"cpu-cores"},
+		without: []string{"cpu-cores"},
 		final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 tags=foo container=lxc instance-type=bar",
 	},
 	{
 		initial: "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
-		remove:  []string{"tags"},
+		without: []string{"tags"},
 		final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 container=lxc instance-type=bar",
 	},
 	{
 		initial: "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
-		remove:  []string{"container"},
+		without: []string{"container"},
 		final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo instance-type=bar",
 	},
 	{
 		initial: "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
-		remove:  []string{"instance-type"},
+		without: []string{"instance-type"},
 		final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc",
 	},
 	{
 		initial: "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
-		remove:  []string{"root-disk", "mem", "arch"},
+		without: []string{"root-disk", "mem", "arch"},
 		final:   "cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
 	},
 }
 
-func (s *ConstraintsSuite) TestRemove(c *gc.C) {
-	for i, t := range removeTests {
+func (s *ConstraintsSuite) TestWithout(c *gc.C) {
+	for i, t := range withoutTests {
 		c.Logf("test %d", i)
 		initial := constraints.MustParse(t.initial)
-		final, err := initial.Remove(t.remove)
+		final, err := constraints.Without(initial, t.without...)
 		c.Assert(err, gc.IsNil)
 		c.Check(final, gc.DeepEquals, constraints.MustParse(t.final))
+	}
+}
+
+func (s *ConstraintsSuite) TestWithoutError(c *gc.C) {
+	cons := constraints.MustParse("mem=4G")
+	_, err := constraints.Without(cons, "foo")
+	c.Assert(err, gc.ErrorMatches, `unknown constraint "foo"`)
+}
+
+var attributesWithValuesTests = []struct {
+	cons     string
+	attrs    []string
+	expected []string
+}{
+	{
+		cons:     "",
+		expected: []string{},
+	},
+	{
+		cons:     "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
+		expected: []string{"arch", "cpu-cores", "cpu-power", "mem", "root-disk"},
+	},
+}
+
+func (s *ConstraintsSuite) TestAttributesWithValues(c *gc.C) {
+	for i, t := range attributesWithValuesTests {
+		c.Logf("test %d", i)
+		cons := constraints.MustParse(t.cons)
+		obtained := constraints.AttributesWithValues(cons)
+		c.Check(obtained, gc.DeepEquals, t.expected)
+	}
+}
+
+var hasAnyTests = []struct {
+	cons     string
+	attrs    []string
+	expected []string
+}{
+	{
+		cons:     "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
+		attrs:    []string{"root-disk", "tags", "mem"},
+		expected: []string{"root-disk", "mem"},
+	},
+	{
+		cons:     "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
+		attrs:    []string{"tags"},
+		expected: []string{},
+	},
+}
+
+func (s *ConstraintsSuite) TestHasAny(c *gc.C) {
+	for i, t := range hasAnyTests {
+		c.Logf("test %d", i)
+		cons := constraints.MustParse(t.cons)
+		obtained := constraints.HasAny(cons, t.attrs...)
+		c.Check(obtained, gc.DeepEquals, t.expected)
 	}
 }

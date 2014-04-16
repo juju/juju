@@ -110,8 +110,12 @@ func (st *State) resolveConstraints(cons constraints.Value) (constraints.Value, 
 	if err != nil {
 		return constraints.Value{}, err
 	}
-	// Default behaviour is to rely on the standard WithFallbacks functionality.
-	resultCons := cons.WithFallbacks(envCons)
+	// Default behaviour is to rely on the standard merge functionality.
+	validator := constraints.NewValidator()
+	resultCons, err := validator.Merge(envCons, cons)
+	if err != nil {
+		return constraints.Value{}, err
+	}
 
 	if st.policy == nil {
 		return resultCons, nil
