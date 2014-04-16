@@ -77,7 +77,7 @@ var (
 	maybeInitiateMongoServer = peergrouper.MaybeInitiateMongoServer
 	ensureMongoAdminUser     = mongo.EnsureAdminUser
 	newSingularRunner        = singular.New
-	peergrouperNew = peergrouper.New
+	peergrouperNew           = peergrouper.New
 
 	// reportOpenedAPI is exposed for tests to know when
 	// the State has been successfully opened.
@@ -400,7 +400,7 @@ func (a *MachineAgent) updateSupportedContainers(
 func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config) (added bool, err error) {
 	stateInfo, ok1 := agentConfig.StateInfo()
 	servingInfo, ok2 := agentConfig.StateServingInfo()
-	if !ok1 || !ok2  {
+	if !ok1 || !ok2 {
 		return false, fmt.Errorf("no state serving info configuration")
 	}
 	dialInfo, err := state.DialInfo(stateInfo, state.DefaultDialOpts())

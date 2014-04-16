@@ -112,9 +112,9 @@ type machineStatus struct {
 	Id             string                   `json:"-" yaml:"-"`
 	Containers     map[string]machineStatus `json:"containers,omitempty" yaml:"containers,omitempty"`
 	Hardware       string                   `json:"hardware,omitempty" yaml:"hardware,omitempty"`
-	Jobs []params.MachineJob
-	HasVote bool
-	WantsVote bool
+	Jobs           []params.MachineJob
+	HasVote        bool
+	WantsVote      bool
 }
 
 // A goyaml bug means we can't declare these types
@@ -231,9 +231,9 @@ func formatMachine(machine api.MachineStatus) machineStatus {
 		Id:             machine.Id,
 		Containers:     make(map[string]machineStatus),
 		Hardware:       machine.Hardware,
-		HasVote: machine.HasVote,
-		WantsVote: machine.WantsVote,
-		Jobs: machine.Jobs,
+		HasVote:        machine.HasVote,
+		WantsVote:      machine.WantsVote,
+		Jobs:           machine.Jobs,
 	}
 	for k, m := range machine.Containers {
 		out.Containers[k] = formatMachine(m)

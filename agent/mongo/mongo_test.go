@@ -311,7 +311,7 @@ func mockShellCommand(c *gc.C, s *testing.CleanupSuite, name string) string {
 	return outputFile
 }
 
-// getMockShellCalls, given a file name returned by mockShellCommands, 
+// getMockShellCalls, given a file name returned by mockShellCommands,
 // returns a slice containing one element for each call, each
 // containing the arguments passed to the command.
 // It will be confused if the arguments contain newlines.
