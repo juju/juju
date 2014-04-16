@@ -67,8 +67,6 @@ func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
 	s.TestSuite.SetUpSuite(c)
 	restore := testing.PatchValue(&charm.CacheDir, c.MkDir())
 	s.AddSuiteCleanup(func(*gc.C) { restore() })
-	s.PatchValue(&ensureMongoServer, s.fakeEnsureMongo.fakeEnsureMongo)
-	s.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.fakeInitiateMongo)
 }
 
 func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
@@ -96,6 +94,10 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 
 	s.singularRecord = &singularRunnerRecord{}
 	testing.PatchValue(&newSingularRunner, s.singularRecord.newSingularRunner)
+
+	s.fakeEnsureMongo = fakeEnsure{}
+	s.PatchValue(&ensureMongoServer, s.fakeEnsureMongo.fakeEnsureMongo)
+	s.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.fakeInitiateMongo)
 }
 
 func fakeCmd(path string) {

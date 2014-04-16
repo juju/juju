@@ -419,20 +419,6 @@ func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config, port int, 
 	})
 }
 
-// getMachineAddresses opens state, gets the addresses for the agent's machine,
-// and then closes the state connection immediately.
-//
-// TODO(axw) remove this when we no longer need
-// to upgrade from pre-HA-capable environments.
-func getMachineAddresses(agentConfig agent.Config) ([]instance.Address, error) {
-	st, m, err := openState(agentConfig)
-	if err != nil {
-		return nil, err
-	}
-	st.Close()
-	return m.Addresses(), nil
-}
-
 func isPreHAVersion(v version.Number) bool {
 	return v.Compare(version.MustParse("1.19.0")) < 0
 }
@@ -443,6 +429,7 @@ func isPreHAVersion(v version.Number) bool {
 // it should be true before 1.20 is released or we'll
 // have more upgrade scenarios on our hands.
 func shouldEnableHA(agentConfig agent.Config) bool {
+	return true // XXX
 	providerType := agentConfig.Value(agent.ProviderType)
 	return providerType != provider.Local
 }
@@ -463,19 +450,35 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
 	//
 	// TODO(axw) remove this when we no longer need
 	// to upgrade from pre-HA-capable environments.
-	var shouldInitiateReplicaset bool
+	var shouldInitiateMongoServer bool
 	var addrs []instance.Address
 	if isPreHAVersion(agentConfig.UpgradedToVersion()) {
 		_, err := a.ensureMongoAdminUser(agentConfig, servingInfo.StatePort, namespace)
 		if err != nil {
 			return err
 		}
-		if withHA {
-			if addrs, err = getMachineAddresses(agentConfig); err != nil {
+		if servingInfo.SharedSecret == "" {
+			servingInfo.SharedSecret, err = mongo.GenerateSharedSecret()
+			if err != nil {
 				return err
 			}
-			shouldInitiateReplicaset = true
+			if err = a.ChangeConfig(func(config agent.ConfigSetter) {
+				config.SetStateServingInfo(servingInfo)
+			}); err != nil {
+				return err
+			}
 		}
+		st, m, err := openState(agentConfig)
+		if err != nil {
+			return err
+		}
+		if err := st.SetStateServingInfo(servingInfo); err != nil {
+			st.Close()
+			return fmt.Errorf("cannot set state serving info: %v", err)
+		}
+		st.Close()
+		addrs = m.Addresses()
+		shouldInitiateMongoServer = withHA
 	}
 
 	// ensureMongoServer installs/upgrades the upstart config as necessary.
@@ -487,7 +490,7 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
 	); err != nil {
 		return err
 	}
-	if !shouldInitiateReplicaset {
+	if !shouldInitiateMongoServer {
 		return nil
 	}
 

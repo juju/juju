@@ -107,6 +107,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return fmt.Errorf("bootstrap machine config has no state serving info")
 	}
 	info.SharedSecret = sharedSecret
+	logger.Debugf("shared secret: %d bytes", len(info.SharedSecret))
 	err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) {
 		agentConfig.SetStateServingInfo(info)
 	})
@@ -164,6 +165,7 @@ func (c *BootstrapCommand) startMongo(addrs []instance.Address, agentConfig agen
 	if !ok {
 		return fmt.Errorf("agent config has no state serving info")
 	}
+	logger.Debugf("shared secret: %d bytes", len(servingInfo.SharedSecret))
 	// Use localhost to dial the mongo server, because it's running in
 	// auth mode and will refuse to perform any operations unless
 	// we dial that address.

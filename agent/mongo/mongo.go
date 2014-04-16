@@ -162,6 +162,7 @@ func EnsureMongoServer(dataDir string, namespace string, info params.StateServin
 		return fmt.Errorf("cannot write SSL key: %v", err)
 	}
 
+	logger.Debugf("writing %d byte shared secret", len(info.SharedSecret))
 	err = utils.AtomicWriteFile(sharedSecretPath(dataDir), []byte(info.SharedSecret), 0600)
 	if err != nil {
 		return fmt.Errorf("cannot write mongod shared secret: %v", err)
