@@ -899,7 +899,7 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 	c.Fatalf("timeout while waiting for agent config to change")
 }
 
-func (s *MachineSuite) TestMachineAgentEnsureAdminUser(c *gc.C) {
+func (s *MachineSuite) TestMachineAgentUpgradeMongo(c *gc.C) {
 	m, agentConfig, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
 	agentConfig.SetUpgradedToVersion(version.MustParse("1.18.0"))
 	err := agentConfig.Write()
@@ -933,6 +933,8 @@ func (s *MachineSuite) TestMachineAgentEnsureAdminUser(c *gc.C) {
 		c.Fatalf("state not opened")
 	}
 	s.waitStopped(c, state.JobManageEnviron, a, done)
+	c.Assert(s.fakeEnsureMongo.ensureCount, gc.Equals, 1)
+	c.Assert(s.fakeEnsureMongo.initiateCount, gc.Equals, 1)
 }
 
 // MachineWithCharmsSuite provides infrastructure for tests which need to
