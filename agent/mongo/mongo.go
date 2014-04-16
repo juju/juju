@@ -137,20 +137,20 @@ func MaybeInitiateMongoServer(p InitiateMongoParams) error {
 		return nil
 	}
 	p.DialInfo.Direct = true
+
+	// TODO(rog) remove this code when we no longer need to upgrade
+	// from pre-HA-capable environments.
+	if p.User != "" {
+		p.DialInfo.Username = p.User
+		p.DialInfo.Password = p.Password
+	}
+
 	session, err := mgo.DialWithInfo(p.DialInfo)
 	if err != nil {
 		return fmt.Errorf("can't dial mongo to initiate replicaset: %v", err)
 	}
 	defer session.Close()
 
-	// TODO(rog) remove this code when we no longer need to upgrade
-	// from pre-HA-capable environments.
-	if p.User != "" {
-		err := session.DB("admin").Login(p.User, p.Password)
-		if err != nil {
-			logger.Errorf("cannot login to admin db as %q, password %q, falling back: %v", p.User, p.Password, err)
-		}
-	}
 	_, err = replicaset.CurrentConfig(session)
 	if err == nil {
 		// already initiated, nothing to do
@@ -195,20 +195,17 @@ func EnsureMongoServer(dataDir string, port int, namespace string, withHA bool) 
 	// NOTE: ensure that the right package is installed?
 	logger.Infof("Ensuring mongo server is running; dataDir %s; port %d", dataDir, port)
 	dbDir := filepath.Join(dataDir, "db")
-
 	service, err := mongoUpstartService(namespace, dataDir, dbDir, port, withHA)
 	if err != nil {
 		return err
 	}
-
-	// TODO(natefinch) 2014-04-12 https://launchpad.net/bugs/1306902
-	// remove this once we support upgrading to HA
-	if service.Installed() {
-		return nil
+	if service.Running() {
+		if err := service.Stop(); err != nil {
+			return fmt.Errorf("failed to stop mongo: %v", err)
+		}
 	}
-
 	if err := makeJournalDirs(dbDir); err != nil {
-		return fmt.Errorf("Error creating journal directories: %v", err)
+		return fmt.Errorf("error creating journal directories: %v", err)
 	}
 	return service.Install()
 }

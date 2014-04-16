@@ -20,7 +20,6 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 )
@@ -159,8 +158,7 @@ func (c *BootstrapCommand) startMongo(addrs []instance.Address, port int, namesp
 		net.JoinHostPort("127.0.0.1", fmt.Sprint(port)),
 	}
 
-	providerType := agentConfig.Value(agent.ProviderType)
-	withHA := providerType != provider.Local
+	withHA := shouldEnableHA(agentConfig)
 	if err := ensureMongoServer(agentConfig.DataDir(), port, namespace, withHA); err != nil {
 		return err
 	}
