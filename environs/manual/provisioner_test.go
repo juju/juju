@@ -19,7 +19,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/statecmd"
+	"launchpad.net/juju-core/state/apiserver/client"
 	"launchpad.net/juju-core/utils/shell"
 	"launchpad.net/juju-core/version"
 )
@@ -124,7 +124,7 @@ func (s *provisionerSuite) TestFinishMachineConfig(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Now check what we would've configured it with.
-	mcfg, err := statecmd.MachineConfig(s.State, machineId, state.BootstrapNonce, "/var/lib/juju")
+	mcfg, err := client.MachineConfig(s.State, machineId, state.BootstrapNonce, "/var/lib/juju")
 	c.Assert(err, gc.IsNil)
 	c.Check(mcfg, gc.NotNil)
 	c.Check(mcfg.APIInfo, gc.NotNil)
@@ -147,7 +147,7 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 	machineId, err := manual.ProvisionMachine(s.getArgs(c))
 	c.Assert(err, gc.IsNil)
 
-	mcfg, err := statecmd.MachineConfig(s.State, machineId, state.BootstrapNonce, "/var/lib/juju")
+	mcfg, err := client.MachineConfig(s.State, machineId, state.BootstrapNonce, "/var/lib/juju")
 	c.Assert(err, gc.IsNil)
 	script, err := manual.ProvisioningScript(mcfg)
 	c.Assert(err, gc.IsNil)
