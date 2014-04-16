@@ -944,12 +944,12 @@ var _ = gc.Suite(&MachineWithCharmsSuite{})
 
 func (s *MachineWithCharmsSuite) SetUpSuite(c *gc.C) {
 	s.commonMachineSuite.SetUpSuite(c)
-	s.CharmSuite.SetUpSuite(c, &s.JujuConnSuite)
+	s.CharmSuite.SetUpSuite(c, &s.commonMachineSuite.JujuConnSuite)
 }
 
 func (s *MachineWithCharmsSuite) TearDownSuite(c *gc.C) {
-	s.CharmSuite.TearDownSuite(c)
 	s.commonMachineSuite.TearDownSuite(c)
+	s.CharmSuite.TearDownSuite(c)
 }
 
 func (s *MachineWithCharmsSuite) SetUpTest(c *gc.C) {
@@ -958,8 +958,8 @@ func (s *MachineWithCharmsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *MachineWithCharmsSuite) TearDownTest(c *gc.C) {
-	s.CharmSuite.TearDownTest(c)
 	s.commonMachineSuite.TearDownTest(c)
+	s.CharmSuite.TearDownTest(c)
 }
 
 func (s *MachineWithCharmsSuite) TestManageEnvironRunsCharmRevisionUpdater(c *gc.C) {
