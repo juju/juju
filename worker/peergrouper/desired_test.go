@@ -8,20 +8,14 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	stdtesting "testing"
 
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/replicaset"
-	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
-
-func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 type desiredPeerGroupSuite struct {
 	testbase.LoggingSuite
@@ -275,7 +269,7 @@ func mkMachines(description string) []*machine {
 }
 
 func memberTag(id string) map[string]string {
-	return map[string]string{"juju-machine-id": id}
+	return map[string]string{jujuMachineTag: id}
 }
 
 // mkMembers returns a slice of *replicaset.Member

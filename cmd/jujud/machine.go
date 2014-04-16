@@ -49,6 +49,7 @@ import (
 	"launchpad.net/juju-core/worker/machineenvironmentworker"
 	"launchpad.net/juju-core/worker/machiner"
 	"launchpad.net/juju-core/worker/minunitsworker"
+	"launchpad.net/juju-core/worker/peergrouper"
 	"launchpad.net/juju-core/worker/provisioner"
 	"launchpad.net/juju-core/worker/resumer"
 	"launchpad.net/juju-core/worker/rsyslog"
@@ -74,7 +75,7 @@ var (
 	// The following are defined as variables to
 	// allow the tests to intercept calls to the functions.
 	ensureMongoServer        = mongo.EnsureMongoServer
-	maybeInitiateMongoServer = mongo.MaybeInitiateMongoServer
+	maybeInitiateMongoServer = peergrouper.MaybeInitiateMongoServer
 	ensureMongoAdminUser     = mongo.EnsureAdminUser
 	newSingularRunner        = singular.New
 
@@ -229,6 +230,9 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		return nil, err
 	}
 	reportOpenedAPI(st)
+
+	// get the config, since it may have been updated after opening state.
+	agentConfig = a.CurrentConfig()
 
 	for _, job := range entity.Jobs() {
 		if job.NeedsState() {
@@ -393,7 +397,10 @@ func (a *MachineAgent) updateSupportedContainers(
 }
 
 func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config, port int, namespace string) (added bool, err error) {
-	stateInfo := agentConfig.StateInfo()
+	stateInfo, ok := agentConfig.StateInfo()
+	if !ok {
+		return false, fmt.Errorf("agent config contains no state info")
+	}
 	dialInfo, err := state.DialInfo(stateInfo, state.DefaultDialOpts())
 	if err != nil {
 		return false, err
@@ -430,7 +437,7 @@ func isPreHAVersion(v version.Number) bool {
 	return v.Compare(version.MustParse("1.19.0")) < 0
 }
 
-// shouldEnableHA returns whether HA should be enabled.
+// shouldEnableHA reports whether HA should be enabled.
 //
 // Eventually this should always be true, and ideally
 // it should be true before 1.20 is released or we'll
@@ -440,15 +447,14 @@ func shouldEnableHA(agentConfig agent.Config) bool {
 	return providerType != provider.Local
 }
 
-// StateJobs returns a worker running all the workers that require
-// a *state.State connection.
-func (a *MachineAgent) StateWorker() (worker.Worker, error) {
-	agentConfig := a.CurrentConfig()
-	namespace := agentConfig.Value(agent.Namespace)
-	info, exist := agentConfig.StateServingInfo()
-	if !exist {
-		return nil, fmt.Errorf("no state info in agent config")
+// ensureMongoServer ensures that mongo is installed and running,
+// and ready for opening a state connection.
+func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
+	servingInfo, ok := agentConfig.StateServingInfo()
+	if !ok {
+		return fmt.Errorf("state worker was started with no state serving info")
 	}
+	namespace := agentConfig.Value(agent.Namespace)
 	withHA := shouldEnableHA(agentConfig)
 
 	// When upgrading from a pre-HA-capable environment,
@@ -460,49 +466,62 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	var shouldInitiateReplicaset bool
 	var addrs []instance.Address
 	if isPreHAVersion(agentConfig.UpgradedToVersion()) {
-		_, err := a.ensureMongoAdminUser(agentConfig, info.StatePort, namespace)
+		_, err := a.ensureMongoAdminUser(agentConfig, servingInfo.StatePort, namespace)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if withHA {
 			if addrs, err = getMachineAddresses(agentConfig); err != nil {
-				return nil, err
+				return err
 			}
 			shouldInitiateReplicaset = true
 		}
 	}
 
 	// ensureMongoServer installs/upgrades the upstart config as necessary.
-	err := ensureMongoServer(agentConfig.DataDir(), info.StatePort, namespace, withHA)
-	if err != nil {
-		return nil, err
+	if err := ensureMongoServer(
+		agentConfig.DataDir(),
+		namespace,
+		servingInfo,
+		withHA,
+	); err != nil {
+		return err
+	}
+	if !shouldInitiateReplicaset {
+		return nil
 	}
 
 	// Initiate the replicaset for upgraded environments.
 	//
 	// TODO(axw) remove this when we no longer need
 	// to upgrade from pre-HA-capable environments.
-	if shouldInitiateReplicaset {
-		stateInfo := agentConfig.StateInfo()
-		dialInfo, err := state.DialInfo(stateInfo, state.DefaultDialOpts())
-		if err != nil {
-			return nil, err
-		}
-		peerAddr := mongo.SelectPeerAddress(addrs)
-		if peerAddr == "" {
-			return nil, fmt.Errorf("no appropriate peer address found in %q", addrs)
-		}
-		logger.Debugf("initiating replicaset")
-		if err := maybeInitiateMongoServer(mongo.InitiateMongoParams{
-			DialInfo:       dialInfo,
-			MemberHostPort: net.JoinHostPort(peerAddr, fmt.Sprint(info.StatePort)),
-			User:           stateInfo.Tag,
-			Password:       stateInfo.Password,
-		}); err != nil {
-			return nil, err
-		}
+	stateInfo, ok := agentConfig.StateInfo()
+	if !ok {
+		return fmt.Errorf("state worker was started with no state serving info")
 	}
+	dialInfo, err := state.DialInfo(stateInfo, state.DefaultDialOpts())
+	if err != nil {
+		return err
+	}
+	peerAddr := mongo.SelectPeerAddress(addrs)
+	if peerAddr == "" {
+		return fmt.Errorf("no appropriate peer address found in %q", addrs)
+	}
+	return maybeInitiateMongoServer(peergrouper.InitiateMongoParams{
+		DialInfo:       dialInfo,
+		MemberHostPort: net.JoinHostPort(peerAddr, fmt.Sprint(servingInfo.StatePort)),
+		User:           stateInfo.Tag,
+		Password:       stateInfo.Password,
+	})
+}
 
+// StateJobs returns a worker running all the workers that require
+// a *state.State connection.
+func (a *MachineAgent) StateWorker() (worker.Worker, error) {
+	agentConfig := a.CurrentConfig()
+	if err := a.ensureMongoServer(agentConfig); err != nil {
+		return nil, err
+	}
 	st, m, err := openState(agentConfig)
 	if err != nil {
 		return nil, err
@@ -581,7 +600,11 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 }
 
 func openState(agentConfig agent.Config) (_ *state.State, _ *state.Machine, err error) {
-	st, err := state.Open(agentConfig.StateInfo(), state.DialOpts{}, environs.NewStatePolicy())
+	info, ok := agentConfig.StateInfo()
+	if !ok {
+		return nil, nil, fmt.Errorf("no state info available")
+	}
+	st, err := state.Open(info, state.DialOpts{}, environs.NewStatePolicy())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -673,7 +696,11 @@ func (a *MachineAgent) upgradeWorker(
 		var st *state.State
 		if needsState {
 			var err error
-			st, err = state.Open(agentConfig.StateInfo(), state.DialOpts{}, environs.NewStatePolicy())
+			info, ok := agentConfig.StateInfo()
+			if !ok {
+				return fmt.Errorf("no state info available")
+			}
+			st, err = state.Open(info, state.DialOpts{}, environs.NewStatePolicy())
 			if err != nil {
 				return err
 			}

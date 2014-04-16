@@ -32,12 +32,17 @@ type APIAddresserFacade interface {
 }
 
 func (s *APIAddresserTests) TestAPIAddresses(c *gc.C) {
-	apiAddresses, err := s.state.APIAddressesFromMachines()
+	hostPorts := [][]instance.HostPort{{{
+		Address: instance.NewAddress("0.1.2.3", instance.NetworkUnknown),
+		Port:    1234,
+	}}}
+
+	err := s.state.SetAPIHostPorts(hostPorts)
 	c.Assert(err, gc.IsNil)
 
 	addresses, err := s.facade.APIAddresses()
 	c.Assert(err, gc.IsNil)
-	c.Assert(addresses, gc.DeepEquals, apiAddresses)
+	c.Assert(addresses, gc.DeepEquals, []string{"0.1.2.3:1234"})
 }
 
 func (s *APIAddresserTests) TestAPIHostPorts(c *gc.C) {

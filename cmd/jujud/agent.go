@@ -261,6 +261,7 @@ func openAPIState(
 			return nil, nil, err
 		}
 	}
+
 	return st, entity, nil
 }
 
