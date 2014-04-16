@@ -102,13 +102,13 @@ func (s *validationSuite) TestUnsupportedError(c *gc.C) {
 }
 
 var mergeTests = []struct {
-	desc     string
-	consA    string
-	consB    string
+	desc        string
+	consA       string
+	consB       string
 	unsupported []string
-	reds     []string
-	blues    []string
-	expected string
+	reds        []string
+	blues       []string
+	expected    string
 }{
 	{
 		desc: "empty all round",
@@ -246,13 +246,13 @@ var mergeTests = []struct {
 		blues:    []string{"instance-type"},
 		expected: "root-disk=8G cpu-cores=4 instance-type=bar",
 	}, {
-		desc:     "unsupported attributes ignored",
-		consA:    "root-disk=8G instance-type=foo",
-		consB:    "root-disk=8G cpu-cores=4 instance-type=bar",
-		reds:     []string{"mem", "arch"},
-		blues:    []string{"instance-type"},
+		desc:        "unsupported attributes ignored",
+		consA:       "root-disk=8G instance-type=foo",
+		consB:       "root-disk=8G cpu-cores=4 instance-type=bar",
+		reds:        []string{"mem", "arch"},
+		blues:       []string{"instance-type"},
 		unsupported: []string{"instance-type"},
-		expected: "root-disk=8G cpu-cores=4 instance-type=bar",
+		expected:    "root-disk=8G cpu-cores=4 instance-type=bar",
 	}, {
 		desc:     "red conflict masked from fallback",
 		consA:    "root-disk=8G mem=4G",
