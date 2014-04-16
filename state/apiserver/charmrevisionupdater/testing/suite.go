@@ -20,14 +20,14 @@ import (
 // with charm versioning. A mock charm store is created using some known charms
 // used for testing.
 type CharmSuite struct {
-	jcSuite *jujutesting.JujuConnSuite
+	jujutesting.JujuConnSuite
 
 	Server *charmtesting.MockStore
 	charms map[string]*state.Charm
 }
 
-func (s *CharmSuite) SetUpSuite(c *gc.C, jcSuite *jujutesting.JujuConnSuite) {
-	s.jcSuite = jcSuite
+func (s *CharmSuite) SetUpSuite(c *gc.C) {
+	s.JujuConnSuite.SetUpSuite(c)
 	s.Server = charmtesting.NewMockStore(c, map[string]int{
 		"cs:quantal/mysql":     23,
 		"cs:quantal/dummy":     24,
@@ -39,12 +39,14 @@ func (s *CharmSuite) SetUpSuite(c *gc.C, jcSuite *jujutesting.JujuConnSuite) {
 }
 
 func (s *CharmSuite) TearDownSuite(c *gc.C) {
+	s.JujuConnSuite.TearDownSuite(c)
 	s.Server.Close()
 }
 
 func (s *CharmSuite) SetUpTest(c *gc.C) {
-	s.jcSuite.PatchValue(&charm.CacheDir, c.MkDir())
-	s.jcSuite.PatchValue(&charm.Store, &charm.CharmStore{BaseURL: s.Server.Address()})
+	s.JujuConnSuite.SetUpTest(c)
+	s.PatchValue(&charm.CacheDir, c.MkDir())
+	s.PatchValue(&charm.Store, &charm.CharmStore{BaseURL: s.Server.Address()})
 	s.Server.Downloads = nil
 	s.Server.Authorizations = nil
 	s.Server.Metadata = nil
@@ -52,6 +54,7 @@ func (s *CharmSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *CharmSuite) TearDownTest(c *gc.C) {
+	s.JujuConnSuite.TearDownTest(c)
 }
 
 // UpdateStoreRevision sets the revision of the specified charm to rev.
@@ -61,7 +64,7 @@ func (s *CharmSuite) UpdateStoreRevision(ch string, rev int) {
 
 // AddMachine adds a new machine to state.
 func (s *CharmSuite) AddMachine(c *gc.C, machineId string, job state.MachineJob) {
-	m, err := s.jcSuite.State.AddOneMachine(state.MachineTemplate{
+	m, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{job},
 	})
@@ -69,7 +72,7 @@ func (s *CharmSuite) AddMachine(c *gc.C, machineId string, job state.MachineJob)
 	c.Assert(m.Id(), gc.Equals, machineId)
 	cons, err := m.Constraints()
 	c.Assert(err, gc.IsNil)
-	inst, hc := jujutesting.AssertStartInstanceWithConstraints(c, s.jcSuite.Conn.Environ, m.Id(), cons)
+	inst, hc := jujutesting.AssertStartInstanceWithConstraints(c, s.Conn.Environ, m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), "fake_nonce", hc)
 	c.Assert(err, gc.IsNil)
 
@@ -82,7 +85,7 @@ func (s *CharmSuite) AddCharmWithRevision(c *gc.C, charmName string, rev int) *s
 	curl := charm.MustParseURL(fmt.Sprintf("cs:quantal/%s-%d", name, rev))
 	bundleURL, err := url.Parse(fmt.Sprintf("http://bundles.testing.invalid/%s-%d", name, rev))
 	c.Assert(err, gc.IsNil)
-	dummy, err := s.jcSuite.State.AddCharm(ch, curl, bundleURL, fmt.Sprintf("%s-%d-sha256", name, rev))
+	dummy, err := s.State.AddCharm(ch, curl, bundleURL, fmt.Sprintf("%s-%d-sha256", name, rev))
 	c.Assert(err, gc.IsNil)
 	s.charms[name] = dummy
 	return dummy
@@ -92,17 +95,17 @@ func (s *CharmSuite) AddCharmWithRevision(c *gc.C, charmName string, rev int) *s
 func (s *CharmSuite) AddService(c *gc.C, charmName, serviceName string, includeNetworks, excludeNetworks []string) {
 	ch, ok := s.charms[charmName]
 	c.Assert(ok, gc.Equals, true)
-	_, err := s.jcSuite.State.AddService(serviceName, "user-admin", ch, includeNetworks, excludeNetworks)
+	_, err := s.State.AddService(serviceName, "user-admin", ch, includeNetworks, excludeNetworks)
 	c.Assert(err, gc.IsNil)
 }
 
 // AddUnit adds a new unit for service to the specified machine.
 func (s *CharmSuite) AddUnit(c *gc.C, serviceName, machineId string) {
-	svc, err := s.jcSuite.State.Service(serviceName)
+	svc, err := s.State.Service(serviceName)
 	c.Assert(err, gc.IsNil)
 	u, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
-	m, err := s.jcSuite.State.Machine(machineId)
+	m, err := s.State.Machine(machineId)
 	c.Assert(err, gc.IsNil)
 	err = u.AssignToMachine(m)
 	c.Assert(err, gc.IsNil)
@@ -110,7 +113,7 @@ func (s *CharmSuite) AddUnit(c *gc.C, serviceName, machineId string) {
 
 // SetUnitRevision sets the unit's charm to the specified revision.
 func (s *CharmSuite) SetUnitRevision(c *gc.C, unitName string, rev int) {
-	u, err := s.jcSuite.State.Unit(unitName)
+	u, err := s.State.Unit(unitName)
 	c.Assert(err, gc.IsNil)
 	svc, err := u.Service()
 	c.Assert(err, gc.IsNil)
