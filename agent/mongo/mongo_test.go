@@ -126,7 +126,7 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 	any := `(.|\n)*`
 	start := "^" + any
 	tail := any + "$"
-	c.Assert(tlog, gc.Matches, start+`mongod --version:\ndb version v2\.\d+\.\d+`+tail)
+	c.Assert(tlog, gc.Matches, start+`using mongod: .*/mongod --version:\ndb version v2\.\d+\.\d+`+tail)
 }
 
 func (s *MongoSuite) TestNoMongoDir(c *gc.C) {

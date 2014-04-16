@@ -252,14 +252,13 @@ func makeJournalDirs(dir string) error {
 }
 
 func logMongoVersion(mongopath string) {
-	logger.Debugf("found mongod at: %s", mongopath)
 	cmd := exec.Command(mongopath, "--version")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		logger.Infof("failed to read the output from %s --version", mongopath)
+		logger.Infof("failed to read the output from %s --version: %v", mongopath, err)
 		return
 	}
-	logger.Debugf("mongod --version:\n%s", string(output))
+	logger.Debugf("using mongod: %s --version:\n%s", mongopath, string(output))
 }
 
 // mongoUpstartService returns the upstart config for the mongo state service.
