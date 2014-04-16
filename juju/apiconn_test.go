@@ -119,17 +119,7 @@ func (*NewAPIClientSuite) TestNameNotDefault(c *gc.C) {
 
 func (s *NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 	defer coretesting.MakeEmptyFakeHome(c).Restore()
-	storeConfig := &environInfo{
-		creds: configstore.APICredentials{
-			User:     "foo",
-			Password: "foopass",
-		},
-		endpoint: configstore.APIEndpoint{
-			Addresses: []string{"foo.invalid"},
-			CACert:    "certificated",
-		},
-	}
-	store := newConfigStore("noconfig", storeConfig)
+	store := newConfigStore("noconfig", dummyStoreInfo)
 
 	called := 0
 	expectState := &mockAPIState{
@@ -652,17 +642,34 @@ func (s *APIEndpointForSuite) TestAPIEndpointNotCached(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Check(endpoint.Addresses, gc.DeepEquals, dummyAddresses)
 	c.Check(endpoint.Addresses, gc.Not(gc.DeepEquals), []string{"0.1.2.3:1234"})
+}
 
-	// At this point, if we just check endpoint again, we get the cached value
-	endpoint, err = juju.APIEndpointInStore("erewhemos", false, store, apiOpen)
+func (s *APIEndpointForSuite) TestAPIEndpointRefresh(c *gc.C) {
+	defer coretesting.MakeEmptyFakeHome(c).Restore()
+	store := newConfigStore("env-name", dummyStoreInfo)
+	called := 0
+	expectState := &mockAPIState{
+		apiHostPorts: [][]instance.HostPort{
+			instance.AddressesWithPort([]instance.Address{instance.NewAddress("0.1.2.3", instance.NetworkUnknown)}, 1234),
+		},
+	}
+	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
+		c.Check(apiInfo.Tag, gc.Equals, "user-foo")
+		c.Check(string(apiInfo.CACert), gc.Equals, "certificated")
+		c.Check(apiInfo.Password, gc.Equals, "foopass")
+		c.Check(opts, gc.DeepEquals, api.DefaultDialOpts())
+		called++
+		return expectState, nil
+	}
+	endpoint, err := juju.APIEndpointInStore("env-name", false, store, apiOpen)
 	c.Assert(err, gc.IsNil)
-	c.Check(called, gc.Equals, 1)
-	c.Check(endpoint.Addresses, gc.DeepEquals, dummyAddresses)
+	c.Assert(called, gc.Equals, 0)
+	c.Check(endpoint.Addresses, gc.DeepEquals, []string{"foo.invalid"})
 	// However, if we ask to refresh them, we'll connect to the API and get
 	// the freshest set
-	endpoint, err = juju.APIEndpointInStore("erewhemos", true, store, apiOpen)
+	endpoint, err = juju.APIEndpointInStore("env-name", true, store, apiOpen)
 	c.Assert(err, gc.IsNil)
-	c.Check(called, gc.Equals, 2)
+	c.Check(called, gc.Equals, 1)
 	// This refresh now gives us the values return by APIHostPorts
 	c.Check(endpoint.Addresses, gc.DeepEquals, []string{"0.1.2.3:1234"})
 }
