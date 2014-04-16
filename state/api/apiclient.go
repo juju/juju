@@ -102,7 +102,7 @@ type DialOpts struct {
 // parameters for contacting a state server.
 func DefaultDialOpts() DialOpts {
 	return DialOpts{
-		DialAddressInterval: 50 * time.Millisecond,
+		DialAddressInterval: 500 * time.Millisecond,
 		Timeout:             10 * time.Minute,
 		RetryDelay:          2 * time.Second,
 	}
