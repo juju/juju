@@ -399,5 +399,20 @@ func apiEndpointInStore(envName string, refresh bool, store configstore.Storage,
 	if err != nil {
 		return configstore.APIEndpoint{}, err
 	}
+	endpoint := info.APIEndpoint()
+	if !refresh && len(endpoint.Addresses) > 0 {
+		return endpoint, nil
+	}
+	// We need to connect to refresh our endpoint settings
+	apiState, err := newAPIFromStore(envName, store, apiOpen)
+	if err != nil {
+		return configstore.APIEndpoint{}, err
+	}
+	apiState.Close()
+	// The side effect of connecting is that we update the store with new API information
+	info, err = store.ReadInfo(envName)
+	if err != nil {
+		return configstore.APIEndpoint{}, err
+	}
 	return info.APIEndpoint(), nil
 }

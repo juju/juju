@@ -601,3 +601,68 @@ func (s *APIEndpointForSuite) TestAPIEndpointForNoSuchName(c *gc.C) {
 	c.Check(err, jc.Satisfies, errors.IsNotFoundError)
 	c.Check(err, gc.ErrorMatches, `environment "no-such-env" not found`)
 }
+
+func (s *APIEndpointForSuite) TestAPIEndpointNotCached(c *gc.C) {
+	defer coretesting.MakeMultipleEnvHome(c).Restore()
+	store, err := configstore.Default()
+	c.Assert(err, gc.IsNil)
+	ctx := coretesting.Context(c)
+	env, err := environs.PrepareFromName("erewhemos", ctx, store)
+	c.Assert(err, gc.IsNil)
+	defer dummy.Reset()
+	envtesting.UploadFakeTools(c, env.Storage())
+	err = bootstrap.Bootstrap(ctx, env, constraints.Value{})
+	c.Assert(err, gc.IsNil)
+
+	// Note: if we get Bootstrap to start caching the API endpoint
+	// immediately, we'll still want to have this test for compatibility.
+	// We can just write blank info instead of reading and checking it is empty.
+	savedInfo, err := store.ReadInfo("erewhemos")
+	c.Assert(err, gc.IsNil)
+	// Ensure that the data isn't cached
+	c.Check(savedInfo.APIEndpoint().Addresses, gc.HasLen, 0)
+
+	called := 0
+	expectState := &mockAPIState{
+		apiHostPorts: [][]instance.HostPort{
+			instance.AddressesWithPort([]instance.Address{instance.NewAddress("0.1.2.3", instance.NetworkUnknown)}, 1234),
+		},
+	}
+	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
+		c.Check(apiInfo.Tag, gc.Equals, "user-admin")
+		c.Check(string(apiInfo.CACert), gc.Equals, coretesting.CACert)
+		c.Check(apiInfo.Password, gc.Equals, coretesting.DefaultMongoPassword)
+		c.Check(opts, gc.DeepEquals, api.DefaultDialOpts())
+		called++
+		return expectState, nil
+	}
+	endpoint, err := juju.APIEndpointInStore("erewhemos", false, store, apiOpen)
+	c.Assert(err, gc.IsNil)
+	c.Assert(called, gc.Equals, 1)
+	// TODO: The apiConfigConnect currently does not use APIHostPorts, but
+	// instead gives you the values based on what it looked up in the
+	// environment provider. These should instead be unified, so that you
+	// get properly scoped addresses, and up-to-date information even when
+	// you have to connect via provider-state
+	//c.Check(endpoint.Addresses, gc.DeepEquals, []string{"0.1.2.3:1234"})
+	// TODO: We could also look up the addresses somehow from dummy
+	// provider, but it is easiest to just read it from the configstore
+	savedInfo, err = store.ReadInfo("erewhemos")
+	dummyAddresses := savedInfo.APIEndpoint().Addresses
+	c.Assert(err, gc.IsNil)
+	c.Check(endpoint.Addresses, gc.DeepEquals, dummyAddresses)
+	c.Check(endpoint.Addresses, gc.Not(gc.DeepEquals), []string{"0.1.2.3:1234"})
+
+	// At this point, if we just check endpoint again, we get the cached value
+	endpoint, err = juju.APIEndpointInStore("erewhemos", false, store, apiOpen)
+	c.Assert(err, gc.IsNil)
+	c.Check(called, gc.Equals, 1)
+	c.Check(endpoint.Addresses, gc.DeepEquals, dummyAddresses)
+	// However, if we ask to refresh them, we'll connect to the API and get
+	// the freshest set
+	endpoint, err = juju.APIEndpointInStore("erewhemos", true, store, apiOpen)
+	c.Assert(err, gc.IsNil)
+	c.Check(called, gc.Equals, 2)
+	// This refresh now gives us the values return by APIHostPorts
+	c.Check(endpoint.Addresses, gc.DeepEquals, []string{"0.1.2.3:1234"})
+}
