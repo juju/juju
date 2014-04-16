@@ -401,6 +401,7 @@ func apiEndpointInStore(envName string, refresh bool, store configstore.Storage,
 	}
 	endpoint := info.APIEndpoint()
 	if !refresh && len(endpoint.Addresses) > 0 {
+		logger.Debugf("found cached addresses, not connecting to API server")
 		return endpoint, nil
 	}
 	// We need to connect to refresh our endpoint settings
