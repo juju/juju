@@ -24,6 +24,11 @@ backup_file_pattern = re.compile('(juju-backup-[0-9-]+\.tgz)')
 running_instance_pattern = re.compile('\["([^"]+)"\]')
 
 
+def print_now(string):
+    print(string)
+    sys.stdout.flush()
+
+
 def setup_juju_path(juju_path):
     """Ensure the binaries and scripts under test are found first."""
     full_path = os.path.abspath(juju_path)
@@ -44,12 +49,12 @@ def deploy_stack(env, charm_prefix):
         if 'unknown' not in agent_versions and len(agent_versions) == 1:
             break
     if agent_versions.keys() != [agent_version]:
-        print("Current versions: %s" % ', '.join(agent_versions.keys()))
+        print_now("Current versions: %s" % ', '.join(agent_versions.keys()))
         env.juju('upgrade-juju', '--version', agent_version)
     env.wait_for_version(env.get_matching_agent_version())
     env.juju('deploy', charm_prefix + 'ubuntu')
     env.wait_for_started().status
-    print("%s is ready to testing" % env.environment)
+    print_now("%s is ready to testing" % env.environment)
     return instance_id
 
 
@@ -59,13 +64,13 @@ def backup_state_server(env):
     # juju-backup does not support the -e flag.
     environ['JUJU_ENV'] = env.environment
     output = subprocess.check_output(["juju-backup"], env=environ)
-    print(output)
+    print_now(output)
     match = backup_file_pattern.search(output)
     if match is None:
         raise Exception("The backup file was not found in output: %s" % output)
     backup_file_name = match.group(1)
     backup_file_path = os.path.abspath(backup_file_name)
-    print("State-Server backup at %s" % backup_file_path)
+    print_now("State-Server backup at %s" % backup_file_path)
     return backup_file_path
 
 
@@ -80,7 +85,7 @@ def restore_present_state_server(env, backup_file):
         raise Exception(
             "juju-restore restored to an operational state-server: %s" % err)
     else:
-        print(
+        print_now(
             "juju-restore correctly refused to restore "
             "because the state-server was still up.")
         match = running_instance_pattern.search(err)
@@ -92,7 +97,7 @@ def restore_present_state_server(env, backup_file):
 
 def delete_instance(env, instance_id):
     """Delete the instance using the providers tools."""
-    print("Instrumenting a bootstrap node failure.")
+    print_now("Instrumenting a bootstrap node failure.")
     provider_type = env.config.get('type')
     if provider_type == 'ec2':
         environ = dict(os.environ)
@@ -108,9 +113,9 @@ def delete_instance(env, instance_id):
     else:
         raise ValueError(
             "This test does not support the %s provider" % provider_type)
-    print("Deleting %s." % instance_id)
+    print_now("Deleting %s." % instance_id)
     output = subprocess.check_output(command_args, env=environ)
-    print(output)
+    print_now(output)
 
 
 def restore_missing_state_server(env, backup_file):
@@ -123,10 +128,10 @@ def restore_missing_state_server(env, backup_file):
     output, err = proc.communicate()
     if proc.returncode != 0:
         raise Exception("Restore failed: \n%s" % err)
-    print(output)
+    print_now(output)
     env.wait_for_started(150).status
-    print("%s restored" % env.environment)
-    print("PASS")
+    print_now("%s restored" % env.environment)
+    print_now("PASS")
 
 
 def wait_for_port(host, port, closed=False):
@@ -144,7 +149,7 @@ def wait_for_port(host, port, closed=False):
             if closed:
                 return
         except Exception as e:
-            print('Unexpected %r: %s' % (type(e), e))
+            print_now('Unexpected %r: %s' % (type(e), e))
             raise
         else:
             conn.close()
@@ -174,16 +179,18 @@ def main():
             restore_present_state_server(env, backup_file)
         host = env.get_status().status['machines']['0']['dns-name']
         delete_instance(env, instance_id)
-        print ("Waiting for port to close on %s" % host)
+        print_now("Waiting for port to close on %s" % host)
         wait_for_port(host, 17070, closed=True)
-        print ("Closed.")
+        print_now("Closed.")
         if args.ha:
             env.client.get_juju_output(env, 'status', timeout=10)
         else:
             restore_missing_state_server(env, backup_file)
     except Exception as e:
-        print(e)
-        print("FAIL")
+        print_now(e)
+        if getattr(e, 'output', None):
+            print_now(e.output)
+        print_now("FAIL")
         sys.exit(1)
 
 
