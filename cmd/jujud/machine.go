@@ -397,11 +397,18 @@ func (a *MachineAgent) updateSupportedContainers(
 	return nil
 }
 
+<<<<<<< TREE
 func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config) (added bool, err error) {
 	stateInfo, ok1 := agentConfig.StateInfo()
 	servingInfo, ok2 := agentConfig.StateServingInfo()
 	if !ok1 || !ok2 {
 		return false, fmt.Errorf("no state serving info configuration")
+=======
+func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config, port int, namespace string) (added bool, err error) {
+	stateInfo, ok := agentConfig.StateInfo()
+	if !ok {
+		return false, fmt.Errorf("agent config contains no state info")
+>>>>>>> MERGE-SOURCE
 	}
 	dialInfo, err := state.DialInfo(stateInfo, state.DefaultDialOpts())
 	if err != nil {
@@ -413,9 +420,17 @@ func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config) (added boo
 	}
 	return ensureMongoAdminUser(mongo.EnsureAdminUserParams{
 		DialInfo:  dialInfo,
+<<<<<<< TREE
 		Namespace: agentConfig.Value(agent.Namespace),
+=======
+		Namespace: namespace,
+>>>>>>> MERGE-SOURCE
 		DataDir:   agentConfig.DataDir(),
+<<<<<<< TREE
 		Port:      servingInfo.StatePort,
+=======
+		Port:      port,
+>>>>>>> MERGE-SOURCE
 		User:      stateInfo.Tag,
 		Password:  stateInfo.Password,
 	})
@@ -448,7 +463,11 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		// TODO(axw) remove this when we no longer need
 		// to upgrade from pre-HA-capable environments.
 		logger.Debugf("failed to open state, reattempt after ensuring admin user exists: %v", err)
+<<<<<<< TREE
 		added, ensureErr := a.ensureMongoAdminUser(agentConfig)
+=======
+		added, ensureErr := a.ensureMongoAdminUser(agentConfig, servingInfo.StatePort, namespace)
+>>>>>>> MERGE-SOURCE
 		if ensureErr != nil {
 			err = ensureErr
 		}
@@ -543,7 +562,11 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 func openState(agentConfig agent.Config) (_ *state.State, _ *state.Machine, err error) {
 	info, ok := agentConfig.StateInfo()
 	if !ok {
+<<<<<<< TREE
 		return nil, nil, fmt.Errorf("no stateinfo available")
+=======
+		return nil, nil, fmt.Errorf("no state info available")
+>>>>>>> MERGE-SOURCE
 	}
 	st, err := state.Open(info, state.DialOpts{}, environs.NewStatePolicy())
 	if err != nil {
@@ -639,7 +662,11 @@ func (a *MachineAgent) upgradeWorker(
 			var err error
 			info, ok := agentConfig.StateInfo()
 			if !ok {
+<<<<<<< TREE
 				return fmt.Errorf("no stateinfo available")
+=======
+				return fmt.Errorf("no state info available")
+>>>>>>> MERGE-SOURCE
 			}
 			st, err = state.Open(info, state.DialOpts{}, environs.NewStatePolicy())
 			if err != nil {

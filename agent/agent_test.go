@@ -435,7 +435,7 @@ func (*suite) TestWriteAndRead(c *gc.C) {
 }
 
 func (*suite) TestSetPassword(c *gc.C) {
-	attrparams := attributeParams
+	attrParams := attributeParams
 	servingInfo := params.StateServingInfo{
 		Cert:         "old cert",
 		PrivateKey:   "old key",
@@ -443,22 +443,22 @@ func (*suite) TestSetPassword(c *gc.C) {
 		APIPort:      47,
 		SharedSecret: "shared",
 	}
-	conf, err := agent.NewStateMachineConfig(attributeParams, servingInfo)
+	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
 	c.Assert(err, gc.IsNil)
 
 	expectAPIInfo := &api.Info{
-		Addrs:    attrparams.APIAddresses,
-		CACert:   attrparams.CACert,
-		Tag:      attrparams.Tag,
+		Addrs:    attrParams.APIAddresses,
+		CACert:   attrParams.CACert,
+		Tag:      attrParams.Tag,
 		Password: "",
-		Nonce:    attrparams.Nonce,
+		Nonce:    attrParams.Nonce,
 	}
 	c.Assert(conf.APIInfo(), jc.DeepEquals, expectAPIInfo)
 	addr := fmt.Sprintf("127.0.0.1:%d", servingInfo.StatePort)
 	expectStateInfo := &state.Info{
 		Addrs:    []string{addr},
-		CACert:   attrparams.CACert,
-		Tag:      attrparams.Tag,
+		CACert:   attrParams.CACert,
+		Tag:      attrParams.Tag,
 		Password: "",
 	}
 	info, ok := conf.StateInfo()
