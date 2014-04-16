@@ -9,7 +9,8 @@ fi
 CHARM_PREFIX=${CHARM_PREFIX:-}
 EXIT_STATUS=0
 JUJU_REPOSITORY=$HOME/repository PATH=$NEW_PATH $SCRIPTS/deploy_stack.py \
-  --charm-prefix "$CHARM_PREFIX" $DEPLOY_ARGS $ENV "$@" || EXIT_STATUS=$?
+  --dummy --charm-prefix "$CHARM_PREFIX" $DEPLOY_ARGS $ENV "$@"\
+  || EXIT_STATUS=$?
 if [ $EXIT_STATUS -ne 0 ]; then
   dump_logs
 fi

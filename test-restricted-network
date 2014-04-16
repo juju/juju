@@ -47,7 +47,7 @@ environments:
     tools-metadata-url: http://juju-dist.s3.amazonaws.com/testing/tools
 EOT2
 ssh-keygen -t rsa -b 2048 -N "" -f ~/.ssh/id_rsa
-juju sync-tools --show-log
+#juju sync-tools --show-log
 login_ip=$(sudo cat /proc/net/ip_conntrack|\
   sed -nr 's/.*src=([^ ]*) .*dport=22 .*/\1/p')
 gateway=$(route -n | sed -rn 's/^0.0.0.0 *([0-7.]*) .*/\1/p')
