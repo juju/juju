@@ -15,7 +15,8 @@ import (
 // EndpointCommand returns the API endpoints
 type EndpointCommand struct {
 	envcmd.EnvCommandBase
-	out cmd.Output
+	out     cmd.Output
+	refresh bool
 }
 
 const endpointDoc = `
@@ -48,10 +49,12 @@ func (c *EndpointCommand) Init(args []string) error {
 func (c *EndpointCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	f.BoolVar(&c.refresh, "refresh", false, "connect to the API to ensure up-to-date endpoint locations")
+	f.IntVar(&c.NumUnits, "n", 1, "number of service units to add")
 }
 
 // Print out the addresses of the API server endpoints.
-func (c *EndpointCommand) Run(ctx *cmd.Context) error {
+func (c *EndpointCommand) run1dot16(ctx *cmd.Context) error {
 	store, err := configstore.Default()
 	if err != nil {
 		return err
@@ -65,4 +68,29 @@ func (c *EndpointCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	return c.out.Write(ctx, api_info.Addrs)
+}
+
+// Print out the addresses of the API server endpoints.
+func (c *EndpointCommand) Run(ctx *cmd.Context) error {
+	store, err := configstore.Default()
+	if err != nil {
+		return err
+	}
+	info, err := store.ReadInfo(c.EnvName)
+	addrs := info.APIEndpoint().Addresses
+	if c.refresh || len(addrs) == 0 {
+		// We connect to get a new list of API endpoints
+		apiclient, err := juju.NewAPIClientFromName(c.EnvName)
+		if err != nil {
+			return fmt.Errorf(connectionError, c.EnvName, err)
+		}
+		apiclient.Close()
+	}
+	info, err := store.ReadInfo(c.EnvName)
+	if addrs := info.APIEndpoint().Addresses; len(addrs) > 0 {
+		return c.out.Write(ctx, addrs)
+	} else {
+		logger.Debugf("no cached Addresses, falling back to old method")
+	}
+	return c.run1dot16(ctx)
 }

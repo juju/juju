@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/osenv"
@@ -565,4 +566,38 @@ type infoWithWriteNotify struct {
 func (info *infoWithWriteNotify) Write() error {
 	*info.written = true
 	return info.EnvironInfo.Write()
+}
+
+type APIEndpointForSuite struct {
+	testbase.LoggingSuite
+}
+
+var _ = gc.Suite(&APIEndpointForSuite{})
+
+var dummyStoreInfo = &environInfo{
+	creds: configstore.APICredentials{
+		User:     "foo",
+		Password: "foopass",
+	},
+	endpoint: configstore.APIEndpoint{
+		Addresses: []string{"foo.invalid"},
+		CACert:    "certificated",
+	},
+}
+
+func (s *APIEndpointForSuite) TestAPIEndpointInStoreCached(c *gc.C) {
+	store := newConfigStore("env-name", dummyStoreInfo)
+	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
+		return nil, nil
+	}
+	endpoint, err := juju.APIEndpointInStore("env-name", false, store, apiOpen)
+	c.Assert(err, gc.IsNil)
+	c.Check(endpoint, gc.DeepEquals, dummyStoreInfo.endpoint)
+}
+
+func (s *APIEndpointForSuite) TestAPIEndpointForNoSuchName(c *gc.C) {
+	defer coretesting.MakeMultipleEnvHome(c).Restore()
+	_, err := juju.APIEndpointFor("no-such-env", false)
+	c.Check(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Check(err, gc.ErrorMatches, `environment "no-such-env" not found`)
 }

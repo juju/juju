@@ -15,7 +15,6 @@ import (
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/keymanager"
@@ -118,15 +117,16 @@ func NewAPIFromName(envName string) (*api.State, error) {
 	return newAPIClient(envName)
 }
 
+func defaultAPIOpen(info *api.Info, opts api.DialOpts) (apiState, error) {
+	return api.Open(info, opts)
+}
+
 func newAPIClient(envName string) (*api.State, error) {
-	store, err := configstore.NewDisk(osenv.JujuHome())
+	store, err := configstore.Default()
 	if err != nil {
 		return nil, err
 	}
-	apiOpen := func(info *api.Info, opts api.DialOpts) (apiState, error) {
-		return api.Open(info, opts)
-	}
-	st, err := newAPIFromStore(envName, store, apiOpen)
+	st, err := newAPIFromStore(envName, store, defaultAPIOpen)
 	if err != nil {
 		return nil, err
 	}
@@ -381,4 +381,23 @@ func addrsChanged(a, b []string) bool {
 		}
 	}
 	return false
+}
+
+// APIEndpointFor returns the endpoint information for a given environment
+// It tries to just return the information from the cached settings unless
+// there is nothing cached or refresh is True
+func APIEndpointFor(envName string, refresh bool) (configstore.APIEndpoint, error) {
+	store, err := configstore.Default()
+	if err != nil {
+		return configstore.APIEndpoint{}, err
+	}
+	return apiEndpointInStore(envName, refresh, store, defaultAPIOpen)
+}
+
+func apiEndpointInStore(envName string, refresh bool, store configstore.Storage, apiOpen apiOpenFunc) (configstore.APIEndpoint, error) {
+	info, err := store.ReadInfo(envName)
+	if err != nil {
+		return configstore.APIEndpoint{}, err
+	}
+	return info.APIEndpoint(), nil
 }
