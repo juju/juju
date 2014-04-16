@@ -139,11 +139,13 @@ func (v *validator) Validate(cons Value) error {
 
 // Merge is defined on Validator.
 func (v *validator) Merge(consA, consB Value) (Value, error) {
-	// First ensure both constraints are valid.
-	if err := v.Validate(consA); err != nil {
+	// First ensure both constraints are valid. We don't care if there
+	// are constraint attributes that are unsupported - the caller can
+	// either ignore or error as required.
+	if err := v.Validate(consA); err != nil && !IsNotSupportedError(err) {
 		return Value{}, err
 	}
-	if err := v.Validate(consB); err != nil {
+	if err := v.Validate(consB); err != nil && !IsNotSupportedError(err) {
 		return Value{}, err
 	}
 	// Gather any attributes from consA which conflict with those on consB.

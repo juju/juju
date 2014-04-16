@@ -105,6 +105,7 @@ var mergeTests = []struct {
 	desc     string
 	consA    string
 	consB    string
+	unsupported []string
 	reds     []string
 	blues    []string
 	expected string
@@ -245,6 +246,14 @@ var mergeTests = []struct {
 		blues:    []string{"instance-type"},
 		expected: "root-disk=8G cpu-cores=4 instance-type=bar",
 	}, {
+		desc:     "unsupported attributes ignored",
+		consA:    "root-disk=8G instance-type=foo",
+		consB:    "root-disk=8G cpu-cores=4 instance-type=bar",
+		reds:     []string{"mem", "arch"},
+		blues:    []string{"instance-type"},
+		unsupported: []string{"instance-type"},
+		expected: "root-disk=8G cpu-cores=4 instance-type=bar",
+	}, {
 		desc:     "red conflict masked from fallback",
 		consA:    "root-disk=8G mem=4G",
 		consB:    "root-disk=8G cpu-cores=4 instance-type=bar",
@@ -291,11 +300,11 @@ func (s *validationSuite) TestMerge(c *gc.C) {
 
 func (s *validationSuite) TestMergeError(c *gc.C) {
 	validator := constraints.NewValidator()
-	validator.RegisterUnsupported([]string{"instance-type"})
-	consA := constraints.MustParse("instance-type=foo")
+	validator.RegisterConflicts([]string{"instance-type"}, []string{"mem"})
+	consA := constraints.MustParse("instance-type=foo mem=4G")
 	consB := constraints.MustParse("cpu-cores=2")
 	_, err := validator.Merge(consA, consB)
-	c.Assert(err, gc.ErrorMatches, "unsupported constraints: instance-type")
+	c.Assert(err, gc.ErrorMatches, `ambiguous constraints: "mem" overlaps with "instance-type"`)
 	_, err = validator.Merge(consB, consA)
-	c.Assert(err, gc.ErrorMatches, "unsupported constraints: instance-type")
+	c.Assert(err, gc.ErrorMatches, `ambiguous constraints: "mem" overlaps with "instance-type"`)
 }
