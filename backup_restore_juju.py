@@ -8,9 +8,12 @@ __metaclass__ = type
 from argparse import ArgumentParser
 import os
 import re
+import socket
 import subprocess
 import sys
+from time import sleep
 
+from jujuconfig import translate_to_env
 from jujupy import (
     Environment,
     until_timeout,
@@ -35,7 +38,7 @@ def deploy_stack(env, charm_prefix):
         charm_prefix = charm_prefix + '/'
     env.bootstrap()
     agent_version = env.get_matching_agent_version()
-    env.get_status()
+    instance_id = env.get_status().status['machines']['0']['instance-id']
     for ignored in until_timeout(30):
         agent_versions = env.get_status().get_agent_versions()
         if 'unknown' not in agent_versions and len(agent_versions) == 1:
@@ -47,7 +50,7 @@ def deploy_stack(env, charm_prefix):
     env.juju('deploy', charm_prefix + 'ubuntu')
     env.wait_for_started().status
     print("%s is ready to testing" % env.environment)
-    return env
+    return instance_id
 
 
 def backup_state_server(env):
@@ -100,11 +103,7 @@ def delete_instance(env, instance_id):
         command_args = ['euca-terminate-instances', instance_id]
     elif provider_type == 'openstack':
         environ = dict(os.environ)
-        environ['OS_AUTH_URL'] = env.config['auth-url']
-        environ['OS_REGION_NAME'] = env.config['region']
-        environ['OS_USERNAME'] = env.config['username']
-        environ['OS_PASSWORD'] = env.config['password']
-        environ['OS_TENANT_NAME'] = env.config['tenant-name']
+        environ.update(translate_to_env(env.config))
         command_args = ['nova', 'delete', instance_id]
     else:
         raise ValueError(
@@ -130,21 +129,58 @@ def restore_missing_state_server(env, backup_file):
     print("PASS")
 
 
+def wait_for_port(host, port, closed=False):
+    for remaining in until_timeout(30):
+        conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        conn.settimeout(max(remaining, 5))
+        try:
+            conn.connect((host, port))
+        except socket.timeout:
+            if closed:
+                return
+        except socket.error as e:
+            if e.errno != errno.ECONNREFUSED:
+                raise
+            if closed:
+                return
+        except Exception as e:
+            print('Unexpected %r: %s' % (type(e), e))
+            raise
+        else:
+            conn.close()
+            if not closed:
+                return
+            sleep(1)
+    raise Exception('Timed out waiting for port.')
+
+
 def main():
     parser = ArgumentParser('Backup and restore a stack')
     parser.add_argument(
         '--charm-prefix', help='A prefix for charm urls.', default='')
+    parser.add_argument(
+        '--ha', action='store_true', help="Test HA instead of backup/restore.")
     parser.add_argument('juju_path')
     parser.add_argument('env_name')
     args = parser.parse_args()
     try:
         setup_juju_path(args.juju_path)
         env = Environment.from_config(args.env_name)
-        deploy_stack(env, args.charm_prefix)
-        backup_file = backup_state_server(env)
-        instance_id = restore_present_state_server(env, backup_file)
+        instance_id = deploy_stack(env, args.charm_prefix)
+        if args.ha:
+            env.juju('ensure-availability', '-n', '3')
+        else:
+            backup_file = backup_state_server(env)
+            restore_present_state_server(env, backup_file)
+        host = env.get_status().status['machines']['0']['dns-name']
         delete_instance(env, instance_id)
-        restore_missing_state_server(env, backup_file)
+        print ("Waiting for port to close on %s" % host)
+        wait_for_port(host, 17070, closed=True)
+        print ("Closed.")
+        if args.ha:
+            env.client.get_juju_output(env, 'status', timeout=10)
+        else:
+            restore_missing_state_server(env, backup_file)
     except Exception as e:
         print(e)
         print("FAIL")
