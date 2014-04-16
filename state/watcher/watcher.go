@@ -10,12 +10,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/loggo"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"launchpad.net/tomb"
-
-	"launchpad.net/juju-core/log"
 )
+
+var logger = loggo.GetLogger("juju.state.watcher")
 
 // Debug specifies whether the package will log debug
 // messages.
@@ -276,7 +277,7 @@ func (w *Watcher) flush() {
 // handle deals with requests delivered by the public API
 // onto the background watcher goroutine.
 func (w *Watcher) handle(req interface{}) {
-	debugf("state/watcher: got request: %#v", req)
+	logger.Debugf("got request: %#v", req)
 	switch r := req.(type) {
 	case reqSync:
 		w.needSync = true
@@ -354,7 +355,7 @@ func (w *Watcher) sync() error {
 	var entry bson.D
 	for iter.Next(&entry) {
 		if len(entry) == 0 {
-			debugf("state/watcher: got empty changelog document")
+			logger.Debugf("got empty changelog document")
 		}
 		id := entry[0]
 		if id.Name != "_id" {
@@ -367,7 +368,7 @@ func (w *Watcher) sync() error {
 		if id.Value == lastId {
 			break
 		}
-		debugf("state/watcher: got changelog document: %#v", entry)
+		logger.Debugf("got changelog document: %#v", entry)
 		for _, c := range entry[1:] {
 			// See txn's Runner.ChangeLog for the structure of log entries.
 			var d, r []interface{}
@@ -381,7 +382,7 @@ func (w *Watcher) sync() error {
 				}
 			}
 			if len(d) == 0 || len(d) != len(r) {
-				log.Warningf("state/watcher: changelog has invalid collection document: %#v", c)
+				logger.Warningf("changelog has invalid collection document: %#v", c)
 				continue
 			}
 			for i := len(d) - 1; i >= 0; i-- {
@@ -392,7 +393,7 @@ func (w *Watcher) sync() error {
 				seen[key] = true
 				revno, ok := r[i].(int64)
 				if !ok {
-					log.Warningf("state/watcher: changelog has revno with type %T: %#v", r[i], r[i])
+					logger.Warningf("changelog has revno with type %T: %#v", r[i], r[i])
 					continue
 				}
 				if revno < 0 {
@@ -424,10 +425,4 @@ func (w *Watcher) sync() error {
 		return fmt.Errorf("watcher iteration error: %v", iter.Err())
 	}
 	return nil
-}
-
-func debugf(f string, a ...interface{}) {
-	if Debug {
-		log.Debugf(f, a...)
-	}
 }
