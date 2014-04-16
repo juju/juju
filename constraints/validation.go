@@ -36,6 +36,27 @@ type Validator interface {
 	Merge(consA, consB Value) (Value, error)
 }
 
+type notSupportedError struct {
+	what []string
+}
+
+// NewNotSupportedError returns an error signifying that
+// constraint attributes are not supported.
+func NewNotSupportedError(what []string) error {
+	return &notSupportedError{what: what}
+}
+
+func (e *notSupportedError) Error() string {
+	return fmt.Sprintf("unsupported constraints: %s", strings.Join(e.what, ","))
+}
+
+// IsNotSupportedError reports whether the error
+// was created with NewNotSupportedError.
+func IsNotSupportedError(err error) bool {
+	_, ok := err.(*notSupportedError)
+	return ok
+}
+
 // NewValidator returns a new constraints Validator instance.
 func NewValidator() Validator {
 	c := validator{}
@@ -85,7 +106,7 @@ func (v *validator) checkConflicts(cons Value) error {
 func (v *validator) checkUnsupported(cons Value) error {
 	attrNames := cons.hasAny(v.unsupported.Values()...)
 	if len(attrNames) > 0 {
-		return fmt.Errorf("unsupported constraints: %s", strings.Join(attrNames, ","))
+		return NewNotSupportedError(attrNames)
 	}
 	return nil
 }
@@ -105,10 +126,15 @@ func withFallbacks(v Value, vFallback Value) Value {
 
 // Validate is defined on Validator.
 func (v *validator) Validate(cons Value) error {
-	if err := v.checkUnsupported(cons); err != nil {
+	// Conflicts are checked first because such errors are fatal.
+	if err := v.checkConflicts(cons); err != nil {
 		return err
 	}
-	return v.checkConflicts(cons)
+	// Lastly, check for unsupported attributes.
+	// Callers might choose to ignore such errors since the
+	// constraints value is usable if the unsupported attributes
+	// are simply ignored.
+	return v.checkUnsupported(cons)
 }
 
 // Merge is defined on Validator.

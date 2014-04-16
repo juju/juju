@@ -4,6 +4,9 @@
 package constraints_test
 
 import (
+	"errors"
+
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
@@ -31,6 +34,14 @@ var validationTests = []struct {
 		cons:        "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 instance-type=foo",
 		unsupported: []string{"cpu-power", "instance-type"},
 		err:         "unsupported constraints: cpu-power,instance-type",
+	},
+	{
+		// Ambiguous constraint errors take precedence over unsupported errors.
+		cons:        "root-disk=8G mem=4G cpu-cores=4 instance-type=foo",
+		reds:        []string{"mem", "arch"},
+		blues:       []string{"instance-type"},
+		unsupported: []string{"cpu-cores"},
+		err:         `ambiguous constraints: "mem" overlaps with "instance-type"`,
 	},
 	{
 		cons: "root-disk=8G mem=4G arch=amd64 cpu-cores=4 instance-type=foo",
@@ -74,8 +85,20 @@ func (s *validationSuite) TestValidation(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 		} else {
 			c.Assert(err, gc.ErrorMatches, t.err)
+			if len(t.unsupported) > 0 && len(t.reds) == 0 {
+				c.Assert(err, jc.Satisfies, constraints.IsNotSupportedError)
+			} else {
+				c.Assert(err, gc.Not(jc.Satisfies), constraints.IsNotSupportedError)
+			}
 		}
 	}
+}
+
+func (s *validationSuite) TestUnsupportedError(c *gc.C) {
+	unsupported := constraints.NewNotSupportedError([]string{"foo", "bar"})
+	c.Assert(unsupported, jc.Satisfies, constraints.IsNotSupportedError)
+	c.Assert(unsupported, gc.ErrorMatches, "unsupported constraints: foo,bar")
+	c.Assert(errors.New("foo"), gc.Not(jc.Satisfies), constraints.IsNotSupportedError)
 }
 
 var mergeTests = []struct {
