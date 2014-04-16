@@ -79,6 +79,7 @@ func (s *validationSuite) TestValidation(c *gc.C) {
 }
 
 var mergeTests = []struct {
+	desc     string
 	consA    string
 	consB    string
 	reds     []string
@@ -86,46 +87,163 @@ var mergeTests = []struct {
 	expected string
 }{
 	{
+		desc: "empty all round",
+	}, {
+		desc:     "container with empty fallback",
+		consB:    "container=lxc",
+		expected: "container=lxc",
+	}, {
+		desc:     "container from fallback",
+		consA:    "container=lxc",
+		expected: "container=lxc",
+	}, {
+		desc:     "arch with empty fallback",
+		consB:    "arch=amd64",
+		expected: "arch=amd64",
+	}, {
+		desc:     "arch with ignored fallback",
+		consB:    "arch=amd64",
+		consA:    "arch=i386",
+		expected: "arch=amd64",
+	}, {
+		desc:     "arch from fallback",
+		consA:    "arch=i386",
+		expected: "arch=i386",
+	}, {
+		desc:     "instance type with empty fallback",
+		consB:    "instance-type=foo",
+		expected: "instance-type=foo",
+	}, {
+		desc:     "instance type with ignored fallback",
+		consB:    "instance-type=foo",
+		consA:    "instance-type=bar",
+		expected: "instance-type=foo",
+	}, {
+		desc:     "instance type from fallback",
+		consA:    "instance-type=foo",
+		expected: "instance-type=foo",
+	}, {
+		desc:     "cpu-cores with empty fallback",
+		consB:    "cpu-cores=2",
+		expected: "cpu-cores=2",
+	}, {
+		desc:     "cpu-cores with ignored fallback",
+		consB:    "cpu-cores=4",
+		consA:    "cpu-cores=8",
+		expected: "cpu-cores=4",
+	}, {
+		desc:     "cpu-cores from fallback",
+		consA:    "cpu-cores=8",
+		expected: "cpu-cores=8",
+	}, {
+		desc:     "cpu-power with empty fallback",
+		consB:    "cpu-power=100",
+		expected: "cpu-power=100",
+	}, {
+		desc:     "cpu-power with ignored fallback",
+		consB:    "cpu-power=100",
+		consA:    "cpu-power=200",
+		expected: "cpu-power=100",
+	}, {
+		desc:     "cpu-power from fallback",
+		consA:    "cpu-power=200",
+		expected: "cpu-power=200",
+	}, {
+		desc:     "tags with empty fallback",
+		consB:    "tags=foo,bar",
+		expected: "tags=foo,bar",
+	}, {
+		desc:     "tags with ignored fallback",
+		consB:    "tags=foo,bar",
+		consA:    "tags=baz",
+		expected: "tags=foo,bar",
+	}, {
+		desc:     "tags from fallback",
+		consA:    "tags=foo,bar",
+		expected: "tags=foo,bar",
+	}, {
+		desc:     "tags inital empty",
+		consB:    "tags=",
+		consA:    "tags=foo,bar",
+		expected: "tags=",
+	}, {
+		desc:     "mem with empty fallback",
+		consB:    "mem=4G",
+		expected: "mem=4G",
+	}, {
+		desc:     "mem with ignored fallback",
+		consB:    "mem=4G",
+		consA:    "mem=8G",
+		expected: "mem=4G",
+	}, {
+		desc:     "mem from fallback",
+		consA:    "mem=8G",
+		expected: "mem=8G",
+	}, {
+		desc:     "root-disk with empty fallback",
+		consB:    "root-disk=4G",
+		expected: "root-disk=4G",
+	}, {
+		desc:     "root-disk with ignored fallback",
+		consB:    "root-disk=4G",
+		consA:    "root-disk=8G",
+		expected: "root-disk=4G",
+	}, {
+		desc:     "root-disk from fallback",
+		consA:    "root-disk=8G",
+		expected: "root-disk=8G",
+	}, {
+		desc:     "non-overlapping mix",
+		consB:    "root-disk=8G mem=4G arch=amd64",
+		consA:    "cpu-power=1000 cpu-cores=4",
+		expected: "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
+	}, {
+		desc:     "overlapping mix",
+		consB:    "root-disk=8G mem=4G arch=amd64",
+		consA:    "cpu-power=1000 cpu-cores=4 mem=8G",
+		expected: "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
+	}, {
+		desc:     "fallback only, no conflicts",
 		consA:    "root-disk=8G cpu-cores=4 instance-type=foo",
 		reds:     []string{"mem", "arch"},
 		blues:    []string{"instance-type"},
 		expected: "root-disk=8G cpu-cores=4 instance-type=foo",
-	},
-	{
+	}, {
+		desc:     "no fallback, no conflicts",
 		consB:    "root-disk=8G cpu-cores=4 instance-type=foo",
 		reds:     []string{"mem", "arch"},
 		blues:    []string{"instance-type"},
 		expected: "root-disk=8G cpu-cores=4 instance-type=foo",
-	},
-	{
+	}, {
+		desc:     "conflict value from override",
 		consA:    "root-disk=8G instance-type=foo",
 		consB:    "root-disk=8G cpu-cores=4 instance-type=bar",
 		reds:     []string{"mem", "arch"},
 		blues:    []string{"instance-type"},
 		expected: "root-disk=8G cpu-cores=4 instance-type=bar",
-	},
-	{
+	}, {
+		desc:     "red conflict masked from fallback",
 		consA:    "root-disk=8G mem=4G",
 		consB:    "root-disk=8G cpu-cores=4 instance-type=bar",
 		reds:     []string{"mem", "arch"},
 		blues:    []string{"instance-type"},
 		expected: "root-disk=8G cpu-cores=4 instance-type=bar",
-	},
-	{
+	}, {
+		desc:     "second red conflict masked from fallback",
 		consA:    "root-disk=8G arch=amd64",
 		consB:    "root-disk=8G cpu-cores=4 instance-type=bar",
 		reds:     []string{"mem", "arch"},
 		blues:    []string{"instance-type"},
 		expected: "root-disk=8G cpu-cores=4 instance-type=bar",
-	},
-	{
+	}, {
+		desc:     "blue conflict masked from fallback",
 		consA:    "root-disk=8G cpu-cores=4 instance-type=bar",
 		consB:    "root-disk=8G mem=4G",
 		reds:     []string{"mem", "arch"},
 		blues:    []string{"instance-type"},
 		expected: "root-disk=8G cpu-cores=4 mem=4G",
-	},
-	{
+	}, {
+		desc:     "both red conflicts used, blue mased from fallback",
 		consA:    "root-disk=8G cpu-cores=4 instance-type=bar",
 		consB:    "root-disk=8G arch=amd64 mem=4G",
 		reds:     []string{"mem", "arch"},
@@ -136,7 +254,7 @@ var mergeTests = []struct {
 
 func (s *validationSuite) TestMerge(c *gc.C) {
 	for i, t := range mergeTests {
-		c.Logf("test %d", i)
+		c.Logf("test %d: %s", i, t.desc)
 		validator := constraints.NewValidator()
 		validator.RegisterConflicts(t.reds, t.blues)
 		consA := constraints.MustParse(t.consA)
@@ -144,16 +262,6 @@ func (s *validationSuite) TestMerge(c *gc.C) {
 		merged, err := validator.Merge(consA, consB)
 		c.Assert(err, gc.IsNil)
 		expected := constraints.MustParse(t.expected)
-		c.Check(merged, gc.DeepEquals, expected)
-	}
-	validator := constraints.NewValidator()
-	for i, t := range withFallbacksTests {
-		c.Logf("test %d", i+len(mergeTests))
-		consA := constraints.MustParse(t.fallbacks)
-		consB := constraints.MustParse(t.initial)
-		merged, err := validator.Merge(consA, consB)
-		c.Assert(err, gc.IsNil)
-		expected := constraints.MustParse(t.final)
 		c.Check(merged, gc.DeepEquals, expected)
 	}
 }
@@ -167,139 +275,4 @@ func (s *validationSuite) TestMergeError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "unsupported constraints: instance-type")
 	_, err = validator.Merge(consB, consA)
 	c.Assert(err, gc.ErrorMatches, "unsupported constraints: instance-type")
-}
-
-var withFallbacksTests = []struct {
-	desc      string
-	initial   string
-	fallbacks string
-	final     string
-}{
-	{
-		desc: "empty all round",
-	}, {
-		desc:    "container with empty fallback",
-		initial: "container=lxc",
-		final:   "container=lxc",
-	}, {
-		desc:      "container from fallback",
-		fallbacks: "container=lxc",
-		final:     "container=lxc",
-	}, {
-		desc:    "arch with empty fallback",
-		initial: "arch=amd64",
-		final:   "arch=amd64",
-	}, {
-		desc:      "arch with ignored fallback",
-		initial:   "arch=amd64",
-		fallbacks: "arch=i386",
-		final:     "arch=amd64",
-	}, {
-		desc:      "arch from fallback",
-		fallbacks: "arch=i386",
-		final:     "arch=i386",
-	}, {
-		desc:    "instance type with empty fallback",
-		initial: "instance-type=foo",
-		final:   "instance-type=foo",
-	}, {
-		desc:      "instance type with ignored fallback",
-		initial:   "instance-type=foo",
-		fallbacks: "instance-type=bar",
-		final:     "instance-type=foo",
-	}, {
-		desc:      "instance type from fallback",
-		fallbacks: "instance-type=foo",
-		final:     "instance-type=foo",
-	}, {
-		desc:    "cpu-cores with empty fallback",
-		initial: "cpu-cores=2",
-		final:   "cpu-cores=2",
-	}, {
-		desc:      "cpu-cores with ignored fallback",
-		initial:   "cpu-cores=4",
-		fallbacks: "cpu-cores=8",
-		final:     "cpu-cores=4",
-	}, {
-		desc:      "cpu-cores from fallback",
-		fallbacks: "cpu-cores=8",
-		final:     "cpu-cores=8",
-	}, {
-		desc:    "cpu-power with empty fallback",
-		initial: "cpu-power=100",
-		final:   "cpu-power=100",
-	}, {
-		desc:      "cpu-power with ignored fallback",
-		initial:   "cpu-power=100",
-		fallbacks: "cpu-power=200",
-		final:     "cpu-power=100",
-	}, {
-		desc:      "cpu-power from fallback",
-		fallbacks: "cpu-power=200",
-		final:     "cpu-power=200",
-	}, {
-		desc:    "tags with empty fallback",
-		initial: "tags=foo,bar",
-		final:   "tags=foo,bar",
-	}, {
-		desc:      "tags with ignored fallback",
-		initial:   "tags=foo,bar",
-		fallbacks: "tags=baz",
-		final:     "tags=foo,bar",
-	}, {
-		desc:      "tags from fallback",
-		fallbacks: "tags=foo,bar",
-		final:     "tags=foo,bar",
-	}, {
-		desc:      "tags inital empty",
-		initial:   "tags=",
-		fallbacks: "tags=foo,bar",
-		final:     "tags=",
-	}, {
-		desc:    "mem with empty fallback",
-		initial: "mem=4G",
-		final:   "mem=4G",
-	}, {
-		desc:      "mem with ignored fallback",
-		initial:   "mem=4G",
-		fallbacks: "mem=8G",
-		final:     "mem=4G",
-	}, {
-		desc:      "mem from fallback",
-		fallbacks: "mem=8G",
-		final:     "mem=8G",
-	}, {
-		desc:    "root-disk with empty fallback",
-		initial: "root-disk=4G",
-		final:   "root-disk=4G",
-	}, {
-		desc:      "root-disk with ignored fallback",
-		initial:   "root-disk=4G",
-		fallbacks: "root-disk=8G",
-		final:     "root-disk=4G",
-	}, {
-		desc:      "root-disk from fallback",
-		fallbacks: "root-disk=8G",
-		final:     "root-disk=8G",
-	}, {
-		desc:      "non-overlapping mix",
-		initial:   "root-disk=8G mem=4G arch=amd64",
-		fallbacks: "cpu-power=1000 cpu-cores=4",
-		final:     "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
-	}, {
-		desc:      "overlapping mix",
-		initial:   "root-disk=8G mem=4G arch=amd64",
-		fallbacks: "cpu-power=1000 cpu-cores=4 mem=8G",
-		final:     "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
-	},
-}
-
-func (s *validationSuite) TestWithFallbacks(c *gc.C) {
-	for i, t := range withFallbacksTests {
-		c.Logf("test %d: %s", i, t.desc)
-		initial := constraints.MustParse(t.initial)
-		fallbacks := constraints.MustParse(t.fallbacks)
-		final := constraints.MustParse(t.final)
-		c.Check(constraints.WithFallbacks(initial, fallbacks), gc.DeepEquals, final)
-	}
 }
