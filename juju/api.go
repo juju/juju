@@ -209,9 +209,14 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen apiOpenF
 		return nil, err
 	}
 
-	val := val0.(apiState)
-	if cachedInfo, ok := val.(apiStateCachedInfo); ok {
-		val = cachedInfo.apiState
+	st := val0.(apiState)
+	// Even though we are about to update API addresses based on
+	// APIHostPorts in cacheChangedAPIAddresses, we first cache the
+	// addresses based on the provider lookup. This is because older API
+	// servers didn't return their HostPort information on Login, and we
+	// still want to cache our connection information to them.
+	if cachedInfo, ok := st.(apiStateCachedInfo); ok {
+		st = cachedInfo.apiState
 		if cachedInfo.cachedInfo != nil && info != nil {
 			// Cache the connection settings only if we used the
 			// environment config, but any errors are just logged
@@ -224,7 +229,11 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen apiOpenF
 			}
 		}
 	}
-	return val, nil
+	// Update API addresses if they've changed. Error is non-fatal.
+	if localerr := cacheChangedAPIAddresses(info, st); localerr != nil {
+		logger.Warningf("cannot failed to cache API addresses: %v", localerr)
+	}
+	return st, nil
 }
 
 func errorImportance(err error) int {
@@ -267,17 +276,7 @@ func apiInfoConnect(store configstore.Storage, info configstore.EnvironInfo, api
 	if err != nil {
 		return nil, &infoConnectError{err}
 	}
-	var addrs []string
-	for _, serverHostPorts := range st.APIHostPorts() {
-		for _, hostPort := range serverHostPorts {
-			addrs = append(addrs, hostPort.NetAddr())
-		}
-	}
-	// Update API addresses if they've changed. Error is non-fatal.
-	if err := cacheChangedAPIAddresses(info, addrs); err != nil {
-		logger.Warningf("cannot cache API addresses: %v", err.Error())
-	}
-	return st, err
+	return st, nil
 }
 
 // apiConfigConnect looks for configuration info on the given environment,
@@ -354,7 +353,13 @@ func cacheAPIInfo(info configstore.EnvironInfo, apiInfo *api.Info) error {
 
 // cacheChangedAPIAddresses updates the local environment settings (.jenv file)
 // with the provided API server addresses if they have changed.
-func cacheChangedAPIAddresses(info configstore.EnvironInfo, addrs []string) error {
+func cacheChangedAPIAddresses(info configstore.EnvironInfo, st apiState) error {
+	var addrs []string
+	for _, serverHostPorts := range st.APIHostPorts() {
+		for _, hostPort := range serverHostPorts {
+			addrs = append(addrs, hostPort.NetAddr())
+		}
+	}
 	endpoint := info.APIEndpoint()
 	if !addrsChanged(endpoint.Addresses, addrs) {
 		return nil

@@ -629,19 +629,7 @@ func (s *APIEndpointForSuite) TestAPIEndpointNotCached(c *gc.C) {
 	endpoint, err := juju.APIEndpointInStore("erewhemos", false, store, apiOpen)
 	c.Assert(err, gc.IsNil)
 	c.Assert(called, gc.Equals, 1)
-	// TODO: The apiConfigConnect currently does not use APIHostPorts, but
-	// instead gives you the values based on what it looked up in the
-	// environment provider. These should instead be unified, so that you
-	// get properly scoped addresses, and up-to-date information even when
-	// you have to connect via provider-state
-	//c.Check(endpoint.Addresses, gc.DeepEquals, []string{"0.1.2.3:1234"})
-	// TODO: We could also look up the addresses somehow from dummy
-	// provider, but it is easiest to just read it from the configstore
-	savedInfo, err = store.ReadInfo("erewhemos")
-	dummyAddresses := savedInfo.APIEndpoint().Addresses
-	c.Assert(err, gc.IsNil)
-	c.Check(endpoint.Addresses, gc.DeepEquals, dummyAddresses)
-	c.Check(endpoint.Addresses, gc.Not(gc.DeepEquals), []string{"0.1.2.3:1234"})
+	c.Check(endpoint.Addresses, gc.DeepEquals, []string{"0.1.2.3:1234"})
 }
 
 func (s *APIEndpointForSuite) TestAPIEndpointRefresh(c *gc.C) {
