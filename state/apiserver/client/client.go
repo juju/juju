@@ -25,7 +25,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
-	"launchpad.net/juju-core/state/statecmd"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -664,7 +663,7 @@ func stateJobs(jobs []params.MachineJob) ([]state.MachineJob, error) {
 // provisions a machine agent on the machine executing the script.
 func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (params.ProvisioningScriptResult, error) {
 	var result params.ProvisioningScriptResult
-	mcfg, err := statecmd.MachineConfig(c.api.state, args.MachineId, args.Nonce, args.DataDir)
+	mcfg, err := MachineConfig(c.api.state, args.MachineId, args.Nonce, args.DataDir)
 	if err != nil {
 		return result, err
 	}
