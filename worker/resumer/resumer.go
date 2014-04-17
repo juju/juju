@@ -7,10 +7,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/loggo"
 	"launchpad.net/tomb"
-
-	"launchpad.net/juju-core/log"
 )
+
+var logger = loggo.GetLogger("juju.worker.resumer")
 
 // defaultInterval is the standard value for the interval setting.
 const defaultInterval = time.Minute
@@ -65,7 +66,7 @@ func (rr *Resumer) loop() error {
 			return tomb.ErrDying
 		case <-time.After(interval):
 			if err := rr.tr.ResumeTransactions(); err != nil {
-				log.Errorf("worker/resumer: cannot resume transactions: %v", err)
+				logger.Errorf("cannot resume transactions: %v", err)
 			}
 		}
 	}
