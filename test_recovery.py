@@ -6,10 +6,8 @@ from __future__ import print_function
 __metaclass__ = type
 
 from argparse import ArgumentParser
-import errno
 import os
 import re
-import socket
 import subprocess
 import sys
 from time import sleep
@@ -19,15 +17,14 @@ from jujupy import (
     Environment,
     until_timeout,
 )
+from utility import (
+    print_now,
+    wait_for_port,
+)
 
 
 backup_file_pattern = re.compile('(juju-backup-[0-9-]+\.tgz)')
 running_instance_pattern = re.compile('\["([^"]+)"\]')
-
-
-def print_now(string):
-    print(string)
-    sys.stdout.flush()
 
 
 def setup_juju_path(juju_path):
@@ -133,31 +130,6 @@ def restore_missing_state_server(env, backup_file):
     env.wait_for_started(150).status
     print_now("%s restored" % env.environment)
     print_now("PASS")
-
-
-def wait_for_port(host, port, closed=False):
-    for remaining in until_timeout(30):
-        conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        conn.settimeout(max(remaining, 5))
-        try:
-            conn.connect((host, port))
-        except socket.timeout:
-            if closed:
-                return
-        except socket.error as e:
-            if e.errno != errno.ECONNREFUSED:
-                raise
-            if closed:
-                return
-        except Exception as e:
-            print_now('Unexpected %r: %s' % (type(e), e))
-            raise
-        else:
-            conn.close()
-            if not closed:
-                return
-            sleep(1)
-    raise Exception('Timed out waiting for port.')
 
 
 def main():
