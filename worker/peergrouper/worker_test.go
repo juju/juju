@@ -256,7 +256,6 @@ loop:
 	for {
 		select {
 		case <-changed:
-			c.Logf("something changed")
 			correct := true
 			for i := 10; i < 14; i++ {
 				hasVote := st.machine(fmt.Sprint(i)).HasVote()

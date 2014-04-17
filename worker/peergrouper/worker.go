@@ -164,7 +164,6 @@ func (w *pgWorker) loop() error {
 	for {
 		select {
 		case f := <-w.notifyCh:
-			logger.Infof("notified")
 			// Update our current view of the state of affairs.
 			changed, err := f()
 			if err != nil {
