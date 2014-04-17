@@ -346,6 +346,7 @@ func (context *statusContext) makeMachineStatus(machine *state.Machine) (status 
 	status.Containers = make(map[string]api.MachineStatus)
 	return
 }
+
 // paramsJobsFromJobs converts state jobs to params jobs.
 func paramsJobsFromJobs(jobs []state.MachineJob) []params.MachineJob {
 	paramsJobs := make([]params.MachineJob, len(jobs))
