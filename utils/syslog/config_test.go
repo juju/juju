@@ -11,8 +11,8 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/log/syslog"
-	syslogtesting "launchpad.net/juju-core/log/syslog/testing"
+	"launchpad.net/juju-core/utils/syslog"
+	syslogtesting "launchpad.net/juju-core/utils/syslog/testing"
 )
 
 func Test(t *stdtesting.T) {
