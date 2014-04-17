@@ -59,7 +59,7 @@ func (fakeAddresses) Addresses() ([]string, error) {
 }
 
 func (fakeAddresses) APIAddressesFromMachines() ([]string, error) {
-	return []string{"apiaddresses:1", "apiaddresses:2"}, nil
+	panic("should never be called")
 }
 
 func (fakeAddresses) CACert() string {
@@ -67,7 +67,13 @@ func (fakeAddresses) CACert() string {
 }
 
 func (fakeAddresses) APIHostPorts() ([][]instance.HostPort, error) {
-	panic("should never be called")
+	return [][]instance.HostPort{{{
+		Address: instance.NewAddress("apiaddresses", instance.NetworkUnknown),
+		Port:    1,
+	}}, {{
+		Address: instance.NewAddress("apiaddresses", instance.NetworkUnknown),
+		Port:    2,
+	}}}, nil
 }
 
 func (fakeAddresses) WatchAPIHostPorts() state.NotifyWatcher {

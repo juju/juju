@@ -5,6 +5,8 @@ package errors
 
 import (
 	"fmt"
+
+	"github.com/juju/loggo"
 )
 
 // wrapper defines a way to encapsulate an error inside another error.
@@ -199,4 +201,10 @@ func NewNotSupported(err error, msg string) error {
 func IsNotSupported(err error) bool {
 	_, ok := err.(*notSupported)
 	return ok
+}
+
+// LoggedErrorf logs the error and return an error with the same text.
+func LoggedErrorf(logger loggo.Logger, format string, a ...interface{}) error {
+	logger.Logf(loggo.ERROR, format, a...)
+	return fmt.Errorf(format, a...)
 }

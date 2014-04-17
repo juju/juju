@@ -194,6 +194,15 @@ func (s *lxcProvisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = m.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
 	c.Assert(err, gc.IsNil)
+
+	hostPorts := [][]instance.HostPort{{{
+		Address: instance.NewAddress("0.1.2.3", instance.NetworkUnknown),
+		Port:    1234,
+	}}}
+	err = s.State.SetAPIHostPorts(hostPorts)
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(err, gc.IsNil)
 	s.parentMachineId = m.Id()
 	s.APILogin(c, m)
 	err = m.SetAgentVersion(version.Current)

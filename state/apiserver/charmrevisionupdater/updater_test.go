@@ -9,6 +9,7 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
+	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/apiserver/charmrevisionupdater"
 	"launchpad.net/juju-core/state/apiserver/charmrevisionupdater/testing"
@@ -18,6 +19,7 @@ import (
 
 type charmVersionSuite struct {
 	testing.CharmSuite
+	jujutesting.JujuConnSuite
 
 	charmrevisionupdater *charmrevisionupdater.CharmRevisionUpdaterAPI
 	resources            *common.Resources
@@ -27,10 +29,17 @@ type charmVersionSuite struct {
 var _ = gc.Suite(&charmVersionSuite{})
 
 func (s *charmVersionSuite) SetUpSuite(c *gc.C) {
-	s.CharmSuite.SetUpSuite(c)
+	s.JujuConnSuite.SetUpSuite(c)
+	s.CharmSuite.SetUpSuite(c, &s.JujuConnSuite)
+}
+
+func (s *charmVersionSuite) TearDownSuite(c *gc.C) {
+	s.CharmSuite.TearDownSuite(c)
+	s.JujuConnSuite.TearDownSuite(c)
 }
 
 func (s *charmVersionSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
 	s.CharmSuite.SetUpTest(c)
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
@@ -41,6 +50,11 @@ func (s *charmVersionSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.charmrevisionupdater, err = charmrevisionupdater.NewCharmRevisionUpdaterAPI(s.State, s.resources, s.authoriser)
 	c.Assert(err, gc.IsNil)
+}
+
+func (s *charmVersionSuite) TearDownTest(c *gc.C) {
+	s.CharmSuite.TearDownTest(c)
+	s.JujuConnSuite.TearDownTest(c)
 }
 
 func (s *charmVersionSuite) TestNewCharmRevisionUpdaterAPIAcceptsStateManager(c *gc.C) {

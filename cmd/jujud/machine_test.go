@@ -17,6 +17,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	lxctesting "launchpad.net/juju-core/container/lxc/testing"
@@ -129,6 +130,10 @@ func (s *commonMachineSuite) primeAgent(
 		err = m.SetMongoPassword(initialMachinePassword)
 		c.Assert(err, gc.IsNil)
 		config, tools = s.agentSuite.primeStateAgent(c, tag, initialMachinePassword, vers)
+		info, ok := config.StateServingInfo()
+		c.Assert(ok, jc.IsTrue)
+		err = s.State.SetStateServingInfo(info)
+		c.Assert(err, gc.IsNil)
 	} else {
 		config, tools = s.agentSuite.primeAgent(c, tag, initialMachinePassword, vers)
 	}
@@ -577,12 +582,10 @@ func (s *MachineSuite) assertJobWithState(
 	})
 }
 
-// assertAgentOpensState asserts that a machine agent
-// started with the given job will call the function
-// pointed to by reportOpened. The agent's
-// configuration and the value passed to reportOpened
-// are then passed to the test function for further
-// checking.
+// assertAgentOpensState asserts that a machine agent started with the
+// given job will call the function pointed to by reportOpened. The
+// agent's configuration and the value passed to reportOpened are then
+// passed to the test function for further checking.
 func (s *MachineSuite) assertAgentOpensState(
 	c *gc.C,
 	reportOpened *func(eitherState),
@@ -895,9 +898,43 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 	c.Fatalf("timeout while waiting for agent config to change")
 }
 
+func (s *MachineSuite) TestMachineAgentEnsureAdminUser(c *gc.C) {
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	err := s.State.MongoSession().DB("admin").RemoveUser(m.Tag())
+	c.Assert(err, gc.IsNil)
+
+	s.PatchValue(&ensureMongoAdminUser, func(p mongo.EnsureAdminUserParams) (bool, error) {
+		err := s.State.MongoSession().DB("admin").AddUser(p.User, p.Password, false)
+		c.Assert(err, gc.IsNil)
+		return true, nil
+	})
+
+	stateOpened := make(chan eitherState, 1)
+	s.PatchValue(&reportOpenedState, func(st eitherState) {
+		select {
+		case stateOpened <- st:
+		default:
+		}
+	})
+
+	// Start the machine agent, and wait for state to be opened.
+	a := s.newAgent(c, m)
+	done := make(chan error)
+	go func() { done <- a.Run(nil) }()
+	defer a.Stop() // in case of failure
+	select {
+	case st := <-stateOpened:
+		c.Assert(st, gc.NotNil)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("state not opened")
+	}
+	s.waitStopped(c, state.JobManageEnviron, a, done)
+}
+
 // MachineWithCharmsSuite provides infrastructure for tests which need to
 // work with charms.
 type MachineWithCharmsSuite struct {
+	commonMachineSuite
 	charmtesting.CharmSuite
 
 	machine *state.Machine
@@ -905,47 +942,32 @@ type MachineWithCharmsSuite struct {
 
 var _ = gc.Suite(&MachineWithCharmsSuite{})
 
+func (s *MachineWithCharmsSuite) SetUpSuite(c *gc.C) {
+	s.commonMachineSuite.SetUpSuite(c)
+	s.CharmSuite.SetUpSuite(c, &s.commonMachineSuite.JujuConnSuite)
+}
+
+func (s *MachineWithCharmsSuite) TearDownSuite(c *gc.C) {
+	s.commonMachineSuite.TearDownSuite(c)
+	s.CharmSuite.TearDownSuite(c)
+}
+
 func (s *MachineWithCharmsSuite) SetUpTest(c *gc.C) {
+	s.commonMachineSuite.SetUpTest(c)
 	s.CharmSuite.SetUpTest(c)
-	s.PatchValue(&ensureMongoServer, func(string, int, string) error {
-		return nil
-	})
+}
 
-	// Create a state server machine.
-	var err error
-	s.machine, err = s.State.AddOneMachine(state.MachineTemplate{
-		Series:     "quantal",
-		InstanceId: "ardbeg-0",
-		Nonce:      state.BootstrapNonce,
-		Jobs:       []state.MachineJob{state.JobManageEnviron},
-	})
-	c.Assert(err, gc.IsNil)
-	err = s.machine.SetPassword(initialMachinePassword)
-	c.Assert(err, gc.IsNil)
-	tag := names.MachineTag(s.machine.Id())
-	err = s.machine.SetMongoPassword(initialMachinePassword)
-	c.Assert(err, gc.IsNil)
-
-	// Set up the agent configuration.
-	stateInfo := s.StateInfo(c)
-	writeStateAgentConfig(c, stateInfo, s.DataDir(), tag, initialMachinePassword, version.Current)
+func (s *MachineWithCharmsSuite) TearDownTest(c *gc.C) {
+	s.commonMachineSuite.TearDownTest(c)
+	s.CharmSuite.TearDownTest(c)
 }
 
 func (s *MachineWithCharmsSuite) TestManageEnvironRunsCharmRevisionUpdater(c *gc.C) {
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+
 	s.SetupScenario(c)
 
-	testpath := c.MkDir()
-	s.PatchEnvPathPrepend(testpath)
-	fakeCmd(filepath.Join(testpath, "start"))
-	fakeCmd(filepath.Join(testpath, "stop"))
-	s.PatchValue(&upstart.InitDir, c.MkDir())
-
-	// Start the machine agent.
-	a := &MachineAgent{}
-	args := []string{"--data-dir", s.DataDir(), "--machine-id", s.machine.Id()}
-	err := coretesting.InitCommand(a, args)
-	c.Assert(err, gc.IsNil)
-
+	a := s.newAgent(c, m)
 	go func() {
 		c.Check(a.Run(nil), gc.IsNil)
 	}()

@@ -3105,9 +3105,8 @@ func (s *StateSuite) TestEnsureAvailabilityConcurrentMore(c *gc.C) {
 
 func (s *StateSuite) TestStateServingInfo(c *gc.C) {
 	info, err := s.State.StateServingInfo()
-	c.Assert(info, jc.DeepEquals, params.StateServingInfo{})
-	// no error because empty doc created by default
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "state serving info not found")
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 
 	data := params.StateServingInfo{
 		APIPort:      69,
@@ -3124,6 +3123,30 @@ func (s *StateSuite) TestStateServingInfo(c *gc.C) {
 	c.Assert(info, jc.DeepEquals, data)
 }
 
+var setStateServingInfoWithInvalidInfoTests = []func(info *params.StateServingInfo){
+	func(info *params.StateServingInfo) { info.APIPort = 0 },
+	func(info *params.StateServingInfo) { info.StatePort = 0 },
+	func(info *params.StateServingInfo) { info.Cert = "" },
+	func(info *params.StateServingInfo) { info.PrivateKey = "" },
+}
+
+func (s *StateSuite) TestSetStateServingInfoWithInvalidInfo(c *gc.C) {
+	origData := params.StateServingInfo{
+		APIPort:      69,
+		StatePort:    80,
+		Cert:         "Some cert",
+		PrivateKey:   "Some key",
+		SharedSecret: "Some Keyfile",
+	}
+	for i, test := range setStateServingInfoWithInvalidInfoTests {
+		c.Logf("test %d", i)
+		data := origData
+		test(&data)
+		err := s.State.SetStateServingInfo(data)
+		c.Assert(err, gc.ErrorMatches, "incomplete state serving info set in state")
+	}
+}
+
 func (s *StateSuite) TestOpenCreatesStateServingInfoDoc(c *gc.C) {
 	// Delete the stateServers collection to pretend this
 	// is an older environment that had not created it
@@ -3136,7 +3159,7 @@ func (s *StateSuite) TestOpenCreatesStateServingInfoDoc(c *gc.C) {
 	defer st.Close()
 
 	info, err := st.StateServingInfo()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	c.Assert(info, gc.DeepEquals, params.StateServingInfo{})
 }
 

@@ -4,6 +4,7 @@
 package agent_test
 
 import (
+	"fmt"
 	"reflect"
 
 	jc "github.com/juju/testing/checkers"
@@ -434,25 +435,35 @@ func (*suite) TestWriteAndRead(c *gc.C) {
 }
 
 func (*suite) TestSetPassword(c *gc.C) {
-	params := attributeParams
-	conf, err := agent.NewAgentConfig(attributeParams)
+	attrParams := attributeParams
+	servingInfo := params.StateServingInfo{
+		Cert:         "old cert",
+		PrivateKey:   "old key",
+		StatePort:    69,
+		APIPort:      47,
+		SharedSecret: "shared",
+	}
+	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
 	c.Assert(err, gc.IsNil)
 
 	expectAPIInfo := &api.Info{
-		Addrs:    params.APIAddresses,
-		CACert:   params.CACert,
-		Tag:      params.Tag,
+		Addrs:    attrParams.APIAddresses,
+		CACert:   attrParams.CACert,
+		Tag:      attrParams.Tag,
 		Password: "",
-		Nonce:    params.Nonce,
+		Nonce:    attrParams.Nonce,
 	}
 	c.Assert(conf.APIInfo(), jc.DeepEquals, expectAPIInfo)
+	addr := fmt.Sprintf("127.0.0.1:%d", servingInfo.StatePort)
 	expectStateInfo := &state.Info{
-		Addrs:    params.StateAddresses,
-		CACert:   params.CACert,
-		Tag:      params.Tag,
+		Addrs:    []string{addr},
+		CACert:   attrParams.CACert,
+		Tag:      attrParams.Tag,
 		Password: "",
 	}
-	c.Assert(conf.StateInfo(), jc.DeepEquals, expectStateInfo)
+	info, ok := conf.StateInfo()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(info, jc.DeepEquals, expectStateInfo)
 
 	conf.SetPassword("newpassword")
 
@@ -460,7 +471,9 @@ func (*suite) TestSetPassword(c *gc.C) {
 	expectStateInfo.Password = "newpassword"
 
 	c.Assert(conf.APIInfo(), jc.DeepEquals, expectAPIInfo)
-	c.Assert(conf.StateInfo(), jc.DeepEquals, expectStateInfo)
+	info, ok = conf.StateInfo()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(info, jc.DeepEquals, expectStateInfo)
 }
 
 func (*suite) TestSetOldPassword(c *gc.C) {

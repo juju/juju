@@ -523,10 +523,9 @@ func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, series string) envir
 }
 
 func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
-	otherSeries := "precise"
-	if otherSeries == version.Current.Series {
-		otherSeries = "raring"
-	}
+	s.PatchValue(&version.Current.Series, config.LatestLtsSeries())
+	otherSeries := "quantal"
+
 	env := s.setupAutoUploadTest(c, "1.7.3", otherSeries)
 	// Run command and check for that upload has been run for tools matching the current juju version.
 	opc, errc := runCommand(nullContext(c), new(BootstrapCommand))
@@ -536,17 +535,17 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Logf("found: " + list.String())
 	urls := list.URLs()
-	expectedUrlCount := 2
 
-	// There will be distinct tools for each of these if they are different
-	if config.LatestLtsSeries() != coretesting.FakeDefaultSeries {
-		expectedUrlCount++
-	}
-	c.Assert(urls, gc.HasLen, expectedUrlCount)
+	// We expect:
+	//     latest LTS,
+	//     the specified series (quantal),
+	//     and the environment's default series (raring).
 	expectedVers := []version.Binary{
-		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", otherSeries, version.Current.Arch)),
+		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", "quantal", version.Current.Arch)),
+		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", "raring", version.Current.Arch)),
 		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", version.Current.Series, version.Current.Arch)),
 	}
+	c.Assert(urls, gc.HasLen, len(expectedVers))
 	for _, vers := range expectedVers {
 		c.Logf("seeking: " + vers.String())
 		_, found := urls[vers]
@@ -663,6 +662,8 @@ var (
 	v120p64 = version.MustParseBinary("1.2.0-precise-amd64")
 	v120q32 = version.MustParseBinary("1.2.0-quantal-i386")
 	v120q64 = version.MustParseBinary("1.2.0-quantal-amd64")
+	v120t32 = version.MustParseBinary("1.2.0-trusty-i386")
+	v120t64 = version.MustParseBinary("1.2.0-trusty-amd64")
 	v190p32 = version.MustParseBinary("1.9.0-precise-i386")
 	v190q64 = version.MustParseBinary("1.9.0-quantal-amd64")
 	v200p64 = version.MustParseBinary("2.0.0-precise-amd64")
@@ -670,12 +671,21 @@ var (
 		v100d64, v100p64, v100q64, v100q32,
 	}
 	v120All = []version.Binary{
-		v120d64, v120p64, v120q64, v120q32,
+		v120d64, v120p64, v120q64, v120q32, v120t32, v120t64,
 	}
-	vAll = []version.Binary{
-		v100d64, v100p64, v100q32, v100q64,
-		v120d64, v120p64, v120q32, v120q64,
+	v190All = []version.Binary{
 		v190p32, v190q64,
+	}
+	v200All = []version.Binary{
 		v200p64,
 	}
+	vAll = joinBinaryVersions(v100All, v120All, v190All, v200All)
 )
+
+func joinBinaryVersions(versions ...[]version.Binary) []version.Binary {
+	var all []version.Binary
+	for _, versions := range versions {
+		all = append(all, versions...)
+	}
+	return all
+}

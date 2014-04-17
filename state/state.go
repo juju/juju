@@ -1416,7 +1416,7 @@ func (st *State) StartSync() {
 // all subsequent attempts to access the state must
 // be authorized; otherwise no authorization is required.
 func (st *State) SetAdminMongoPassword(password string) error {
-	admin := st.db.Session.DB(AdminUser)
+	admin := st.db.Session.DB("admin")
 	if password != "" {
 		// On 2.2+, we get a "need to login" error without a code when
 		// adding the first user because we go from no-auth+no-login to
@@ -1491,11 +1491,18 @@ func (st *State) StateServingInfo() (params.StateServingInfo, error) {
 	if err != nil {
 		return info, err
 	}
+	if info.StatePort == 0 {
+		return params.StateServingInfo{}, errors.NotFoundf("state serving info")
+	}
 	return info, nil
 }
 
 // SetStateServingInfo stores information needed for running a state server
 func (st *State) SetStateServingInfo(info params.StateServingInfo) error {
+	if info.StatePort == 0 || info.APIPort == 0 ||
+		info.Cert == "" || info.PrivateKey == "" {
+		return fmt.Errorf("incomplete state serving info set in state")
+	}
 	ops := []txn.Op{{
 		C:      st.stateServers.Name,
 		Id:     stateServingInfoKey,

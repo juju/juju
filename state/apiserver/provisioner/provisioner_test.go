@@ -1192,13 +1192,18 @@ func (s *withStateServerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *withStateServerSuite) TestAPIAddresses(c *gc.C) {
-	addrs, err := s.State.APIAddressesFromMachines()
+	hostPorts := [][]instance.HostPort{{{
+		Address: instance.NewAddress("0.1.2.3", instance.NetworkUnknown),
+		Port:    1234,
+	}}}
+
+	err := s.State.SetAPIHostPorts(hostPorts)
 	c.Assert(err, gc.IsNil)
 
 	result, err := s.provisioner.APIAddresses()
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsResult{
-		Result: addrs,
+		Result: []string{"0.1.2.3:1234"},
 	})
 }
 

@@ -21,7 +21,6 @@ import (
 	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/uniter"
@@ -105,8 +104,11 @@ func NewUniter(st *uniter.State, unitTag string, dataDir string) *Uniter {
 }
 
 func (u *Uniter) loop(unitTag string) (err error) {
-	if err = u.init(unitTag); err != nil {
-		return err
+	if err := u.init(unitTag); err != nil {
+		if err == worker.ErrTerminateAgent {
+			return err
+		}
+		return fmt.Errorf("failed to initialize uniter for %q: %v", unitTag, err)
 	}
 	defer u.runListener.Close()
 	logger.Infof("unit %q started", u.unit)
@@ -163,7 +165,6 @@ func (u *Uniter) setupLocks() (err error) {
 }
 
 func (u *Uniter) init(unitTag string) (err error) {
-	defer errors.Maskf(&err, "failed to initialize uniter for %q", unitTag)
 	u.unit, err = u.st.Unit(unitTag)
 	if err != nil {
 		return err

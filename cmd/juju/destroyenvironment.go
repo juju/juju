@@ -16,7 +16,6 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 )
 
@@ -45,6 +44,30 @@ func (c *DestroyEnvironmentCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.force, "force", false, "Forcefully destroy the environment, directly through the environment provider")
 	f.StringVar(&c.envName, "e", "", "juju environment to operate in")
 	f.StringVar(&c.envName, "environment", "", "juju environment to operate in")
+}
+
+func (c *DestroyEnvironmentCommand) Init(args []string) error {
+	if c.envName != "" {
+		logger.Warningf("-e/--environment flag is deprecated in 1.18, " +
+			"please supply environment as a positional parameter")
+		// They supplied the -e flag
+		if len(args) == 0 {
+			// We're happy, we have enough information
+			return nil
+		}
+		// You can't supply -e ENV and ENV as a positional argument
+		return DoubleEnvironmentError
+	}
+	// No -e flag means they must supply the environment positionally
+	switch len(args) {
+	case 0:
+		return NoEnvironmentError
+	case 1:
+		c.envName = args[0]
+		return nil
+	default:
+		return cmd.CheckEmpty(args[1:])
+	}
 }
 
 func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
@@ -95,42 +118,17 @@ to be cleaned up.
 
 `, c.envName)
 		}()
-		conn, err := juju.NewAPIConn(environ, api.DefaultDialOpts())
+		apiclient, err := juju.NewAPIClientFromName(c.envName)
 		if err != nil {
-			return err
+			return fmt.Errorf("cannot connect to API: %v", err)
 		}
-		defer conn.Close()
-		err = conn.State.Client().DestroyEnvironment()
+		defer apiclient.Close()
+		err = apiclient.DestroyEnvironment()
 		if err != nil && !params.IsCodeNotImplemented(err) {
 			return fmt.Errorf("destroying environment: %v", err)
 		}
 	}
 	return environs.Destroy(environ, store)
-}
-
-func (c *DestroyEnvironmentCommand) Init(args []string) error {
-	if c.envName != "" {
-		logger.Warningf("-e/--environment flag is deprecated in 1.18, " +
-			"please supply environment as a positional parameter")
-		// They supplied the -e flag
-		if len(args) == 0 {
-			// We're happy, we have enough information
-			return nil
-		}
-		// You can't supply -e ENV and ENV as a positional argument
-		return DoubleEnvironmentError
-	} else {
-		// No -e flag means they must supply the environment positionally
-		switch len(args) {
-		case 0:
-			return NoEnvironmentError
-		case 1:
-			c.envName = args[0]
-			return nil
-		default:
-			return cmd.CheckEmpty(args[1:])
-		}
-	}
 }
 
 var destroyEnvMsg = `

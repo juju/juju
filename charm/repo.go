@@ -15,7 +15,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -185,7 +184,7 @@ func (s *CharmStore) Info(curls ...Location) ([]*InfoResponse, error) {
 		if err != nil {
 			return nil, readErr
 		}
-		log.Errorf("%v Response body: %s", errMsg, body)
+		logger.Errorf("%v Response body: %s", errMsg, body)
 		return nil, errMsg
 	}
 	body, err := ioutil.ReadAll(resp.Body)
@@ -256,7 +255,7 @@ func (s *CharmStore) revisions(curls ...Location) (revisions []CharmRevision, er
 	revisions = make([]CharmRevision, len(infos))
 	for i, info := range infos {
 		for _, w := range info.Warnings {
-			log.Warningf("charm store reports for %q: %s", curls[i], w)
+			logger.Warningf("charm store reports for %q: %s", curls[i], w)
 		}
 		if info.Errors == nil {
 			revisions[i].Revision = info.Revision
@@ -503,7 +502,7 @@ func (r *LocalRepository) Get(curl *URL) (Charm, error) {
 			continue
 		}
 		if ch, err := Read(chPath); err != nil {
-			log.Warningf("failed to load charm at %q: %s", chPath, err)
+			logger.Warningf("failed to load charm at %q: %s", chPath, err)
 		} else if ch.Meta().Name == curl.Name {
 			if ch.Revision() == curl.Revision {
 				return ch, nil

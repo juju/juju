@@ -48,6 +48,7 @@ import (
 	"launchpad.net/juju-core/worker/machineenvironmentworker"
 	"launchpad.net/juju-core/worker/machiner"
 	"launchpad.net/juju-core/worker/minunitsworker"
+	"launchpad.net/juju-core/worker/peergrouper"
 	"launchpad.net/juju-core/worker/provisioner"
 	"launchpad.net/juju-core/worker/resumer"
 	"launchpad.net/juju-core/worker/rsyslog"
@@ -73,7 +74,8 @@ var (
 	// The following are defined as variables to
 	// allow the tests to intercept calls to the functions.
 	ensureMongoServer        = mongo.EnsureMongoServer
-	maybeInitiateMongoServer = mongo.MaybeInitiateMongoServer
+	maybeInitiateMongoServer = peergrouper.MaybeInitiateMongoServer
+	ensureMongoAdminUser     = mongo.EnsureAdminUser
 	newSingularRunner        = singular.New
 
 	// reportOpenedAPI is exposed for tests to know when
@@ -227,6 +229,9 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		return nil, err
 	}
 	reportOpenedAPI(st)
+
+	// get the config, since it may have been updated after opening state.
+	agentConfig = a.CurrentConfig()
 
 	for _, job := range entity.Jobs() {
 		if job.NeedsState() {
@@ -390,30 +395,74 @@ func (a *MachineAgent) updateSupportedContainers(
 	return nil
 }
 
+func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config, port int, namespace string) (added bool, err error) {
+	stateInfo, ok := agentConfig.StateInfo()
+	if !ok {
+		return false, fmt.Errorf("agent config contains no state info")
+	}
+	dialInfo, err := state.DialInfo(stateInfo, state.DefaultDialOpts())
+	if err != nil {
+		return false, err
+	}
+	if len(dialInfo.Addrs) > 1 {
+		logger.Infof("more than one state server; admin user must exist")
+		return false, nil
+	}
+	return ensureMongoAdminUser(mongo.EnsureAdminUserParams{
+		DialInfo:  dialInfo,
+		Namespace: namespace,
+		DataDir:   agentConfig.DataDir(),
+		Port:      port,
+		User:      stateInfo.Tag,
+		Password:  stateInfo.Password,
+	})
+}
+
 // StateJobs returns a worker running all the workers that require
 // a *state.State connection.
 func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
 
-	namespace := agentConfig.Value(agent.Namespace)
-	info, exist := agentConfig.StateServingInfo()
-	if !exist {
-		return nil, fmt.Errorf("no state info in agent config")
+	servingInfo, ok := agentConfig.StateServingInfo()
+	if !ok {
+		return nil, fmt.Errorf("state worker was started with no state serving info")
 	}
-
-	err := ensureMongoServer(agentConfig.DataDir(), info.StatePort, namespace)
+	providerType := agentConfig.Value(agent.ProviderType)
+	namespace := agentConfig.Value(agent.Namespace)
+	withHA := providerType != provider.Local
+	err := ensureMongoServer(
+		agentConfig.DataDir(),
+		namespace,
+		servingInfo,
+		withHA,
+	)
 	if err != nil {
 		return nil, err
 	}
-	// TODO(rog) call maybeInitiateMongoServer to upgrade mongo
-	// from old environments. We'll need to acquire a non-localhost
-	// address for the current instance before we do.
 
 	st, m, err := openState(agentConfig)
+	if errors.IsUnauthorizedError(err) {
+		// TODO(axw) remove this when we no longer need
+		// to upgrade from pre-HA-capable environments.
+		logger.Debugf("failed to open state, reattempt after ensuring admin user exists: %v", err)
+		added, ensureErr := a.ensureMongoAdminUser(agentConfig, servingInfo.StatePort, namespace)
+		if ensureErr != nil {
+			err = ensureErr
+		}
+		if !added {
+			// No user added, so it's probably a genuine unauthorized error.
+			return nil, err
+		}
+		st, m, err = openState(agentConfig)
+	}
 	if err != nil {
 		return nil, err
 	}
 	reportOpenedState(st)
+
+	// TODO(rog) call maybeInitiateMongoServer to upgrade mongo
+	// from old environments. We'll need to acquire a non-localhost
+	// address for the current instance before we do.
 
 	singularStateConn := singularStateConn{st.MongoSession(), m}
 	runner := newRunner(connectionIsFatal(st), moreImportant)
@@ -424,7 +473,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 
 	// Take advantage of special knowledge here in that we will only ever want
 	// the storage provider on one machine, and that is the "bootstrap" node.
-	providerType := agentConfig.Value(agent.ProviderType)
 	if (providerType == provider.Local || provider.IsManual(providerType)) && m.Id() == bootstrapMachineId {
 		a.startWorkerAfterUpgrade(runner, "local-storage", func() (worker.Worker, error) {
 			// TODO(axw) 2013-09-24 bug #1229507
@@ -487,7 +535,11 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 }
 
 func openState(agentConfig agent.Config) (_ *state.State, _ *state.Machine, err error) {
-	st, err := state.Open(agentConfig.StateInfo(), state.DialOpts{}, environs.NewStatePolicy())
+	info, ok := agentConfig.StateInfo()
+	if !ok {
+		return nil, nil, fmt.Errorf("no state info available")
+	}
+	st, err := state.Open(info, state.DialOpts{}, environs.NewStatePolicy())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -579,7 +631,11 @@ func (a *MachineAgent) upgradeWorker(
 		var st *state.State
 		if needsState {
 			var err error
-			st, err = state.Open(agentConfig.StateInfo(), state.DialOpts{}, environs.NewStatePolicy())
+			info, ok := agentConfig.StateInfo()
+			if !ok {
+				return fmt.Errorf("no state info available")
+			}
+			st, err = state.Open(info, state.DialOpts{}, environs.NewStatePolicy())
 			if err != nil {
 				return err
 			}

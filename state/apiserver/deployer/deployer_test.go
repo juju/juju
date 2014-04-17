@@ -315,16 +315,18 @@ func (s *deployerSuite) TestStateAddresses(c *gc.C) {
 }
 
 func (s *deployerSuite) TestAPIAddresses(c *gc.C) {
-	err := s.machine0.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
-	c.Assert(err, gc.IsNil)
+	hostPorts := [][]instance.HostPort{{{
+		Address: instance.NewAddress("0.1.2.3", instance.NetworkUnknown),
+		Port:    1234,
+	}}}
 
-	apiAddresses, err := s.State.APIAddressesFromMachines()
+	err := s.State.SetAPIHostPorts(hostPorts)
 	c.Assert(err, gc.IsNil)
 
 	result, err := s.deployer.APIAddresses()
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsResult{
-		Result: apiAddresses,
+		Result: []string{"0.1.2.3:1234"},
 	})
 }
 

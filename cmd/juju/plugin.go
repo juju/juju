@@ -18,7 +18,6 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju/osenv"
-	"launchpad.net/juju-core/log"
 )
 
 const JujuPluginPrefix = "juju-"
@@ -170,7 +169,7 @@ func GetPluginDescriptions() []PluginDescription {
 				result.description = strings.SplitN(string(output), "\n", 2)[0]
 			} else {
 				result.description = fmt.Sprintf("error occurred running '%s --description'", plugin)
-				log.Errorf("'%s --description': %s", plugin, err)
+				logger.Errorf("'%s --description': %s", plugin, err)
 			}
 		}(plugin)
 	}

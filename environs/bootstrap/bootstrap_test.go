@@ -26,6 +26,7 @@ import (
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -411,6 +412,64 @@ func (s *bootstrapSuite) TestUploadToolsForceVersionAllowsAgentVersionSet(c *gc.
 	vers := version.MustParseBinary("1.18.0-trusty-arm64")
 	extraCfg := map[string]interface{}{"agent-version": "1.18.0", "development": true}
 	s.assertUploadTools(c, vers, true, extraCfg, "")
+}
+
+func (s *bootstrapSuite) TestSetBootstrapTools(c *gc.C) {
+	availableVersions := []version.Binary{
+		version.MustParseBinary("1.18.0-trusty-arm64"),
+		version.MustParseBinary("1.18.1-trusty-arm64"),
+		version.MustParseBinary("1.18.1.1-trusty-arm64"),
+		version.MustParseBinary("1.18.1.2-trusty-arm64"),
+		version.MustParseBinary("1.18.1.3-trusty-arm64"),
+	}
+	availableTools := make(tools.List, len(availableVersions))
+	for i, v := range availableVersions {
+		availableTools[i] = &tools.Tools{Version: v}
+	}
+
+	type test struct {
+		currentVersion       version.Number
+		expectedTools        version.Number
+		expectedAgentVersion version.Number
+	}
+	tests := []test{{
+		currentVersion:       version.MustParse("1.18.0"),
+		expectedTools:        version.MustParse("1.18.0"),
+		expectedAgentVersion: version.MustParse("1.18.1.3"),
+	}, {
+		currentVersion:       version.MustParse("1.18.1.4"),
+		expectedTools:        version.MustParse("1.18.1.3"),
+		expectedAgentVersion: version.MustParse("1.18.1.3"),
+	}, {
+		// build number is ignored unless major/minor don't
+		// match the latest.
+		currentVersion:       version.MustParse("1.18.1.2"),
+		expectedTools:        version.MustParse("1.18.1.3"),
+		expectedAgentVersion: version.MustParse("1.18.1.3"),
+	}, {
+		// If the current patch level exceeds whatever's in
+		// the tools source (e.g. when bootstrapping from trunk)
+		// then the latest available tools will be chosen.
+		currentVersion:       version.MustParse("1.18.2"),
+		expectedTools:        version.MustParse("1.18.1.3"),
+		expectedAgentVersion: version.MustParse("1.18.1.3"),
+	}}
+
+	env := newEnviron("foo", useDefaultKeys, nil)
+	for i, t := range tests {
+		c.Logf("test %d: %+v", i, t)
+		cfg, err := env.Config().Remove([]string{"agent-version"})
+		c.Assert(err, gc.IsNil)
+		err = env.SetConfig(cfg)
+		c.Assert(err, gc.IsNil)
+		s.PatchValue(&version.Current.Number, t.currentVersion)
+		bootstrapTools, err := bootstrap.SetBootstrapTools(env, availableTools)
+		c.Assert(err, gc.IsNil)
+		c.Assert(bootstrapTools, gc.HasLen, 1)
+		c.Assert(bootstrapTools[0].Version.Number, gc.Equals, t.expectedTools)
+		agentVersion, _ := env.Config().AgentVersion()
+		c.Assert(agentVersion, gc.Equals, t.expectedAgentVersion)
+	}
 }
 
 type bootstrapEnviron struct {
