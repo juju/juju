@@ -213,8 +213,8 @@ func (*desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 		}
 		for i, m := range test.machines {
 			vote, votePresent := voting[m]
-			c.Assert(votePresent, jc.IsTrue)
-			c.Assert(vote, gc.Equals, test.expectVoting[i], gc.Commentf("machine %s", m.id))
+			c.Check(votePresent, jc.IsTrue)
+			c.Check(vote, gc.Equals, test.expectVoting[i], gc.Commentf("machine %s", m.id))
 		}
 		// Assure ourselves that the total number of desired votes is odd in
 		// all circumstances.
@@ -228,8 +228,8 @@ func (*desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 		c.Assert(members, gc.IsNil)
 		for i, m := range test.machines {
 			vote, votePresent := voting[m]
-			c.Assert(votePresent, jc.IsTrue)
-			c.Assert(vote, gc.Equals, test.expectVoting[i], gc.Commentf("machine %s", m.id))
+			c.Check(votePresent, jc.IsTrue)
+			c.Check(vote, gc.Equals, test.expectVoting[i], gc.Commentf("machine %s", m.id))
 		}
 		c.Assert(err, gc.IsNil)
 	}
