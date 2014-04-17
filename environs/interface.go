@@ -113,6 +113,10 @@ type Environ interface {
 	// EnvironCapability allows access to this environment's capabilities.
 	state.EnvironCapability
 
+	// ConstraintsValidator returns a Validator instance which
+	// is used to validate and merge constraints.
+	ConstraintsValidator() constraints.Validator
+
 	// SetConfig updates the Environ's configuration.
 	//
 	// Calls to SetConfig do not affect the configuration of
@@ -157,8 +161,6 @@ type Environ interface {
 	Provider() EnvironProvider
 
 	state.Prechecker
-
-	state.ConstraintsValidator
 }
 
 // BootstrapContext is an interface that is passed to

@@ -19,7 +19,6 @@ import (
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 )
@@ -52,9 +51,17 @@ func (env *joyentEnviron) machineFullName(machineId string) string {
 	return fmt.Sprintf("juju-%s-%s", env.Name(), names.MachineTag(machineId))
 }
 
-// ValidateConstraints is defined on the state.ConstraintsValidator interface.
-func (env *joyentEnviron) ValidateConstraints(cons, envCons constraints.Value) (constraints.Value, error) {
-	return common.ValidateConstraints(logger, env, cons, envCons)
+var unsupportedConstraints = []string{
+	constraints.CpuPower,
+	constraints.InstanceType,
+	constraints.Tags,
+}
+
+// ConstraintsValidator is defined on the Environs interface.
+func (env *joyentEnviron) ConstraintsValidator() constraints.Validator {
+	validator := constraints.NewValidator()
+	validator.RegisterUnsupported(unsupportedConstraints)
+	return validator
 }
 
 func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error) {

@@ -6,7 +6,6 @@ package maas_test
 import (
 	stdtesting "testing"
 
-	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gomaasapi"
@@ -16,7 +15,6 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/provider/maas"
-	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
@@ -229,28 +227,13 @@ func (*environSuite) TestNewCloudinitConfig(c *gc.C) {
 	})
 }
 
-func (s *environSuite) TestValidateConstraints(c *gc.C) {
-	defer loggo.ResetWriters()
-	logger := loggo.GetLogger("test")
-	logger.SetLogLevel(loggo.DEBUG)
-	tw := &loggo.TestWriter{}
-	c.Assert(loggo.RegisterWriter("test", tw, loggo.DEBUG), gc.IsNil)
-
+func (s *environSuite) TestConstraintsValidator(c *gc.C) {
 	cfg := getSimpleTestConfig(c, nil)
-	var env environs.Environ
-	var err error
-	env, err = maas.NewEnviron(cfg)
+	env, err := maas.NewEnviron(cfg)
 	c.Assert(err, gc.IsNil)
-	envCons := constraints.MustParse("arch=amd64")
-	cons := constraints.MustParse("instance-type=foo")
-	validator, ok := env.(state.ConstraintsValidator)
-	c.Assert(ok, jc.IsTrue)
-	combined, err := validator.ValidateConstraints(cons, envCons)
-	c.Assert(err, gc.IsNil)
-	c.Assert(combined, gc.DeepEquals, cons)
-	c.Assert(tw.Log, jc.LogMatches, jc.SimpleMessages{{
-		loggo.WARNING,
-		`instance-type constraint "foo" not supported ` +
-			`for maas provider "testenv"`},
-	})
+	validator := env.ConstraintsValidator()
+	cons := constraints.MustParse("arch=amd64 cpu-power=10 instance-type=foo")
+	err = validator.Validate(cons)
+	c.Assert(err, jc.Satisfies, constraints.IsNotSupportedError)
+	c.Assert(err, gc.ErrorMatches, "unsupported constraints: cpu-power,instance-type")
 }

@@ -121,18 +121,6 @@ var findInstanceSpecTests = []struct {
 		cons:   "arch=amd64",
 		itype:  "cc1.4xlarge",
 		image:  "ami-01000035",
-	}, {
-		series: "quantal",
-		arches: both,
-		cons:   "instance-type=cc1.4xlarge",
-		itype:  "cc1.4xlarge",
-		image:  "ami-01000035",
-	}, {
-		series: "precise",
-		arches: []string{"i386"},
-		cons:   "instance-type=cc1.4xlarge cpu-power=400",
-		itype:  "c1.medium",
-		image:  "ami-00000034",
 	},
 }
 
@@ -140,7 +128,6 @@ func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 	for i, t := range findInstanceSpecTests {
 		c.Logf("test %d", i)
 		stor := ebsStorage
-		cons, _ := validateConstraints(constraints.MustParse(t.cons), constraints.Value{})
 		spec, err := findInstanceSpec(
 			[]simplestreams.DataSource{
 				simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames)},
@@ -149,7 +136,7 @@ func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 				Region:      "test",
 				Series:      t.series,
 				Arches:      t.arches,
-				Constraints: cons,
+				Constraints: constraints.MustParse(t.cons),
 				Storage:     &stor,
 			})
 		c.Assert(err, gc.IsNil)
@@ -183,7 +170,6 @@ var findInstanceSpecErrorTests = []struct {
 func (s *specSuite) TestFindInstanceSpecErrors(c *gc.C) {
 	for i, t := range findInstanceSpecErrorTests {
 		c.Logf("test %d", i)
-		cons, _ := validateConstraints(constraints.MustParse(t.cons), constraints.Value{})
 		_, err := findInstanceSpec(
 			[]simplestreams.DataSource{
 				simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames)},
@@ -192,7 +178,7 @@ func (s *specSuite) TestFindInstanceSpecErrors(c *gc.C) {
 				Region:      "test",
 				Series:      t.series,
 				Arches:      t.arches,
-				Constraints: cons,
+				Constraints: constraints.MustParse(t.cons),
 			})
 		c.Check(err, gc.ErrorMatches, t.err)
 	}
@@ -227,22 +213,4 @@ func (*specSuite) TestFilterImagesMaintainsOrdering(c *gc.C) {
 		{Id: "three", Storage: "ebs"},
 	}
 	c.Check(filterImages(input), gc.DeepEquals, input)
-}
-
-var imageMatchConstraintTests = []struct{ in, out string }{
-	{"arch=amd64", "arch=amd64"},
-	{"cpu-cores=2 instance-type=foo", "cpu-cores=2"},
-	{"instance-type=foo", "instance-type=foo"},
-	{"root-disk=1G instance-type=foo", "root-disk=1G instance-type=foo"},
-	{"arch=amd64 instance-type=foo", "arch=amd64 instance-type=foo"},
-	{"arch=amd64 root-disk=1G instance-type=foo", "arch=amd64 root-disk=1G instance-type=foo"},
-	{"cpu-cores=2 arch=amd64 root-disk=1G instance-type=foo", "cpu-cores=2 arch=amd64 root-disk=1G"},
-}
-
-func (s *specSuite) TestImageMatchConstraint(c *gc.C) {
-	for _, test := range imageMatchConstraintTests {
-		inCons := constraints.MustParse(test.in)
-		outCons := constraints.MustParse(test.out)
-		c.Check(imageMatchConstraint(inCons), gc.DeepEquals, outCons)
-	}
 }

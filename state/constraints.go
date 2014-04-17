@@ -17,36 +17,39 @@ import (
 
 // constraintsDoc is the mongodb representation of a constraints.Value.
 type constraintsDoc struct {
-	Arch      *string
-	CpuCores  *uint64
-	CpuPower  *uint64
-	Mem       *uint64
-	RootDisk  *uint64
-	Container *instance.ContainerType
-	Tags      *[]string `bson:",omitempty"`
+	Arch         *string
+	CpuCores     *uint64
+	CpuPower     *uint64
+	Mem          *uint64
+	RootDisk     *uint64
+	InstanceType *string
+	Container    *instance.ContainerType
+	Tags         *[]string `bson:",omitempty"`
 }
 
 func (doc constraintsDoc) value() constraints.Value {
 	return constraints.Value{
-		Arch:      doc.Arch,
-		CpuCores:  doc.CpuCores,
-		CpuPower:  doc.CpuPower,
-		Mem:       doc.Mem,
-		RootDisk:  doc.RootDisk,
-		Container: doc.Container,
-		Tags:      doc.Tags,
+		Arch:         doc.Arch,
+		CpuCores:     doc.CpuCores,
+		CpuPower:     doc.CpuPower,
+		Mem:          doc.Mem,
+		RootDisk:     doc.RootDisk,
+		Container:    doc.Container,
+		Tags:         doc.Tags,
+		InstanceType: doc.InstanceType,
 	}
 }
 
 func newConstraintsDoc(cons constraints.Value) constraintsDoc {
 	return constraintsDoc{
-		Arch:      cons.Arch,
-		CpuCores:  cons.CpuCores,
-		CpuPower:  cons.CpuPower,
-		Mem:       cons.Mem,
-		RootDisk:  cons.RootDisk,
-		Container: cons.Container,
-		Tags:      cons.Tags,
+		Arch:         cons.Arch,
+		CpuCores:     cons.CpuCores,
+		CpuPower:     cons.CpuPower,
+		Mem:          cons.Mem,
+		RootDisk:     cons.RootDisk,
+		Container:    cons.Container,
+		Tags:         cons.Tags,
+		InstanceType: cons.InstanceType,
 	}
 }
 

@@ -692,9 +692,11 @@ func (e *environ) Destroy() (res error) {
 	return nil
 }
 
-// ValidateConstraints is defined on the state.ConstraintsValidator interface.
-func (e *environ) ValidateConstraints(cons, envCons constraints.Value) (constraints.Value, error) {
-	return common.ValidateConstraints(logger, e, cons, envCons)
+// ConstraintsValidator is defined on the Environs interface.
+func (e *environ) ConstraintsValidator() constraints.Validator {
+	validator := constraints.NewValidator()
+	validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
+	return validator
 }
 
 // StartInstance is specified in the InstanceBroker interface.

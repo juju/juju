@@ -421,9 +421,17 @@ func (env *azureEnviron) selectInstanceTypeAndImage(constraint *instances.Instan
 	return spec.InstanceType.Id, spec.Image.Id, nil
 }
 
-// ValidateConstraints is defined on the state.ConstraintsValidator interface.
-func (environ *azureEnviron) ValidateConstraints(cons, envCons constraints.Value) (constraints.Value, error) {
-	return common.ValidateConstraints(logger, environ, cons, envCons)
+var unsupportedConstraints = []string{
+	constraints.CpuPower,
+	constraints.InstanceType,
+	constraints.Tags,
+}
+
+// ConstraintsValidator is defined on the Environs interface.
+func (environ *azureEnviron) ConstraintsValidator() constraints.Validator {
+	validator := constraints.NewValidator()
+	validator.RegisterUnsupported(unsupportedConstraints)
+	return validator
 }
 
 // createInstance creates all of the Azure entities necessary for a

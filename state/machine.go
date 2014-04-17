@@ -1092,6 +1092,12 @@ func (m *Machine) Constraints() (constraints.Value, error) {
 // is already provisioned.
 func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 	defer utils.ErrorContextf(&err, "cannot set constraints")
+	err = m.st.validateConstraints(cons)
+	if constraints.IsNotSupportedError(err) {
+		logger.Warningf("setting constraints on machine %q: %v", m.Tag(), err)
+	} else if err != nil {
+		return err
+	}
 	notSetYet := bson.D{{"nonce", ""}}
 	ops := []txn.Op{
 		{

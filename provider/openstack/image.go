@@ -4,7 +4,6 @@
 package openstack
 
 import (
-	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
@@ -49,29 +48,9 @@ func findInstanceSpec(e *environ, ic *instances.InstanceConstraint) (*instances.
 		return nil, err
 	}
 	images := instances.ImageMetadataToImages(matchingImages)
-
 	spec, err := instances.FindInstanceSpec(images, ic, allInstanceTypes)
 	if err != nil {
 		return nil, err
 	}
 	return spec, nil
-}
-
-// imageMatchConstraint returns a constraint which is used to search for images,
-// based on whether an instance type value is set.
-func imageMatchConstraint(cons constraints.Value) constraints.Value {
-	// No InstanceType specified, return the original constraint.
-	if !cons.HasInstanceType() {
-		return cons
-	}
-	consWithoutInstType := cons
-	consWithoutInstType.InstanceType = nil
-	// If the original constraint has attributes besides instance constraint,
-	// we use those, ignoring instance constraint.
-	if !constraints.IsEmpty(&consWithoutInstType) {
-		logger.Warningf("instance-type constraint %q ignored since other constraints are specified", *cons.InstanceType)
-		return consWithoutInstType
-	}
-	// If we are here, cons contains just an instance type constraint value.
-	return cons
 }

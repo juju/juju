@@ -521,25 +521,19 @@ func (e *environ) SupportNetworks() bool {
 	return false
 }
 
-// ValidateConstraints is defined on the state.ConstraintsValidator interface.
-func (e *environ) ValidateConstraints(cons, envCons constraints.Value) (constraints.Value, error) {
-	combined := cons.WithFallbacks(envCons)
-	result := imageMatchConstraint(combined)
-	if !result.HasInstanceType() {
-		return result, nil
-	}
-	// Constraint uses an instance-type constraint so let's see if it is valid.
-	novaClient := e.nova()
-	flavors, err := novaClient.ListFlavorsDetail()
-	if err != nil {
-		return constraints.Value{}, err
-	}
-	for _, flavor := range flavors {
-		if flavor.Name == *result.InstanceType {
-			return result, nil
-		}
-	}
-	return constraints.Value{}, fmt.Errorf("invalid Openstack flavour %q specified", *result.InstanceType)
+var unsupportedConstraints = []string{
+	constraints.Tags,
+	constraints.CpuPower,
+}
+
+// ConstraintsValidator is defined on the Environs interface.
+func (e *environ) ConstraintsValidator() constraints.Validator {
+	validator := constraints.NewValidator()
+	validator.RegisterConflicts(
+		[]string{constraints.InstanceType},
+		[]string{constraints.Mem, constraints.Arch, constraints.RootDisk, constraints.CpuCores})
+	validator.RegisterUnsupported(unsupportedConstraints)
+	return validator
 }
 
 func (e *environ) Storage() storage.Storage {

@@ -9,6 +9,7 @@ import (
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
@@ -104,7 +105,7 @@ type mockPolicy struct {
 	getPrechecker           func(*config.Config) (state.Prechecker, error)
 	getConfigValidator      func(string) (state.ConfigValidator, error)
 	getEnvironCapability    func(*config.Config) (state.EnvironCapability, error)
-	getConstraintsValidator func(*config.Config) (state.ConstraintsValidator, error)
+	getConstraintsValidator func(*config.Config) (constraints.Validator, error)
 }
 
 func (p *mockPolicy) Prechecker(cfg *config.Config) (state.Prechecker, error) {
@@ -128,7 +129,7 @@ func (p *mockPolicy) EnvironCapability(cfg *config.Config) (state.EnvironCapabil
 	return nil, errors.NewNotImplementedError("EnvironCapability")
 }
 
-func (p *mockPolicy) ConstraintsValidator(cfg *config.Config) (state.ConstraintsValidator, error) {
+func (p *mockPolicy) ConstraintsValidator(cfg *config.Config) (constraints.Validator, error) {
 	if p.getConstraintsValidator != nil {
 		return p.getConstraintsValidator(cfg)
 	}

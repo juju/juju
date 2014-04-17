@@ -34,26 +34,22 @@ type Policy interface {
 	EnvironCapability(*config.Config) (EnvironCapability, error)
 
 	// ConstraintsValidator takes a *config.Config and returns
-	// a (possibly nil) ConstraintsValidator or an error.
-	ConstraintsValidator(*config.Config) (ConstraintsValidator, error)
+	// a (possibly nil) constraints.Validator or an error.
+	ConstraintsValidator(*config.Config) (constraints.Validator, error)
 }
 
 // Prechecker is a policy interface that is provided to State
 // to perform pre-flight checking of instance creation.
 type Prechecker interface {
 	// PrecheckInstance performs a preflight check on the specified
-	// series, ensuring that it is possible to create an instance in
-	// this environment.
-	PrecheckInstance(series string) error
-}
-
-// ConstraintsValidator is a policy interface that is provided to State
-// to perform validation of constraints used to create an instance.
-type ConstraintsValidator interface {
-	// ValidateConstraints combines the given constraints with those from
-	// the environment and returns a consolidated constraints value, or an error
-	// if the constraints are not compatible.
-	ValidateConstraints(cons, envCons constraints.Value) (constraints.Value, error)
+	// series and constraints, ensuring that they are possibly valid for
+	// creating an instance in this environment.
+	//
+	// PrecheckInstance is best effort, and not guaranteed to eliminate
+	// all invalid parameters. If PrecheckInstance returns nil, it is not
+	// guaranteed that the constraints are valid; if a non-nil error is
+	// returned, then the constraints are definitely invalid.
+	PrecheckInstance(series string, cons constraints.Value) error
 }
 
 // ConfigValidator is a policy interface that is provided to State
@@ -82,7 +78,7 @@ type EnvironCapability interface {
 
 // precheckInstance calls the state's assigned policy, if non-nil, to obtain
 // a Prechecker, and calls PrecheckInstance if a non-nil Prechecker is returned.
-func (st *State) precheckInstance(series string) error {
+func (st *State) precheckInstance(series string, cons constraints.Value) error {
 	if st.policy == nil {
 		return nil
 	}
@@ -99,41 +95,54 @@ func (st *State) precheckInstance(series string) error {
 	if prechecker == nil {
 		return fmt.Errorf("policy returned nil prechecker without an error")
 	}
-	return prechecker.PrecheckInstance(series)
+	return prechecker.PrecheckInstance(series, cons)
+}
+
+func (st *State) constraintsValidator() (constraints.Validator, error) {
+	// Default behaviour is to simply use a standard validator with
+	// no environment specific behaviour built in.
+	defaultValidator := constraints.NewValidator()
+	if st.policy == nil {
+		return defaultValidator, nil
+	}
+	cfg, err := st.EnvironConfig()
+	if err != nil {
+		return nil, err
+	}
+	validator, err := st.policy.ConstraintsValidator(cfg)
+	if errors.IsNotImplementedError(err) {
+		return defaultValidator, nil
+	} else if err != nil {
+		return nil, err
+	}
+	if validator == nil {
+		return nil, fmt.Errorf("policy returned nil constraints validator without an error")
+	}
+	return validator, nil
 }
 
 // resolveConstraints combines the given constraints with the environ constraints to get
 // a constraints which will be used to create a new instance.
-// If supported by the states assigned policy, a provider specific resolution may be used.
 func (st *State) resolveConstraints(cons constraints.Value) (constraints.Value, error) {
+	validator, err := st.constraintsValidator()
+	if err != nil {
+		return constraints.Value{}, err
+	}
 	envCons, err := st.EnvironConstraints()
 	if err != nil {
 		return constraints.Value{}, err
 	}
-	// Default behaviour is to rely on the standard merge functionality.
-	validator := constraints.NewValidator()
-	resultCons, err := validator.Merge(envCons, cons)
-	if err != nil {
-		return constraints.Value{}, err
-	}
+	return validator.Merge(envCons, cons)
+}
 
-	if st.policy == nil {
-		return resultCons, nil
-	}
-	cfg, err := st.EnvironConfig()
+// validateConstraints returns an error if the given constraints are not valid for the
+// current environment.
+func (st *State) validateConstraints(cons constraints.Value) error {
+	validator, err := st.constraintsValidator()
 	if err != nil {
-		return constraints.Value{}, err
+		return err
 	}
-	validator, err := st.policy.ConstraintsValidator(cfg)
-	if errors.IsNotImplementedError(err) {
-		return resultCons, nil
-	} else if err != nil {
-		return constraints.Value{}, err
-	}
-	if validator == nil {
-		return constraints.Value{}, fmt.Errorf("policy returned nil constraints validator without an error")
-	}
-	return validator.ValidateConstraints(cons, envCons)
+	return validator.Validate(cons)
 }
 
 // validate calls the state's assigned policy, if non-nil, to obtain

@@ -6,7 +6,6 @@ package ec2
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
@@ -39,7 +38,7 @@ func filterImages(images []*imagemetadata.ImageMetadata) []*imagemetadata.ImageM
 func findInstanceSpec(
 	sources []simplestreams.DataSource, stream string, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
 
-	if ic.Constraints.CpuPower == nil && !ic.Constraints.HasInstanceType() {
+	if ic.Constraints.CpuPower == nil {
 		ic.Constraints.CpuPower = instances.CpuPower(defaultCpuPower)
 	}
 	ec2Region := allRegions[ic.Region]
@@ -77,29 +76,4 @@ func findInstanceSpec(
 		itypesWithCosts = append(itypesWithCosts, itWithCost)
 	}
 	return instances.FindInstanceSpec(images, ic, itypesWithCosts)
-}
-
-// instanceTypeCoConstraints are constraint values which can be specified
-// along side an instance-type constraint.
-var instanceTypeCoConstraints = []string{"arch", "root-disk"}
-
-// imageMatchConstraint returns a constraint which is used to search for images,
-// based on whether an instance type value is set.
-func imageMatchConstraint(cons constraints.Value) constraints.Value {
-	// No InstanceType specified, return the original constraint.
-	if !cons.HasInstanceType() {
-		return cons
-	}
-	consWithoutInstType := cons
-	consWithoutInstType.InstanceType = nil
-	// Constraints with instance-type values may also specify a some allowed values.
-	// But any other constraint values take precedence and override the instance-type value.
-	strippedCons, _ := consWithoutInstType.Remove(instanceTypeCoConstraints)
-	if !constraints.IsEmpty(&strippedCons) {
-		logger.Warningf("instance-type constraint %q ignored since other constraints are specified", *cons.InstanceType)
-		return consWithoutInstType
-	}
-	// If we are here, cons contains just an instance type
-	// (and possibly root disk and/or arch) constraint value.
-	return cons
 }

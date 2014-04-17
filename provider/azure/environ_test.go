@@ -16,7 +16,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
@@ -1520,24 +1519,11 @@ func (s *startInstanceSuite) TestStartInstanceStateServerJobs(c *gc.C) {
 	c.Assert(stateServer, jc.IsTrue)
 }
 
-func (s *environSuite) TestValidateConstraints(c *gc.C) {
-	defer loggo.ResetWriters()
-	logger := loggo.GetLogger("test")
-	logger.SetLogLevel(loggo.DEBUG)
-	tw := &loggo.TestWriter{}
-	c.Assert(loggo.RegisterWriter("test", tw, loggo.DEBUG), gc.IsNil)
-
-	var env environs.Environ = makeEnviron(c)
-	envCons := constraints.MustParse("arch=amd64")
-	cons := constraints.MustParse("instance-type=foo")
-	validator, ok := env.(state.ConstraintsValidator)
-	c.Assert(ok, jc.IsTrue)
-	combined, err := validator.ValidateConstraints(cons, envCons)
-	c.Assert(err, gc.IsNil)
-	c.Assert(combined, gc.DeepEquals, cons)
-	c.Assert(tw.Log, jc.LogMatches, jc.SimpleMessages{{
-		loggo.WARNING,
-		`instance-type constraint "foo" not supported ` +
-			`for azure provider "testenv"`},
-	})
+func (s *environSuite) TestConstraintsValidator(c *gc.C) {
+	env := makeEnviron(c)
+	validator := env.ConstraintsValidator()
+	cons := constraints.MustParse("arch=amd64 instance-type=foo tags=bar")
+	err := validator.Validate(cons)
+	c.Assert(err, jc.Satisfies, constraints.IsNotSupportedError)
+	c.Assert(err, gc.ErrorMatches, "unsupported constraints: cpu-power,instance-type,tags")
 }

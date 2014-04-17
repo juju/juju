@@ -803,6 +803,12 @@ func (s *Service) Constraints() (constraints.Value, error) {
 
 // SetConstraints replaces the current service constraints.
 func (s *Service) SetConstraints(cons constraints.Value) (err error) {
+	err = s.st.validateConstraints(cons)
+	if constraints.IsNotSupportedError(err) {
+		logger.Warningf("setting constraints on service %q: %v", s.Name(), err)
+	} else if err != nil {
+		return err
+	}
 	if s.doc.Subordinate {
 		return ErrSubordinateConstraints
 	}

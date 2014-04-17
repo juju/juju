@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -29,7 +28,6 @@ import (
 	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider/local"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/upstart"
@@ -311,28 +309,13 @@ func (s *localJujuTestSuite) TestBootstrapRemoveLeftovers(c *gc.C) {
 	c.Assert(filepath.Join(rootDir, "log"), jc.IsSymlink)
 }
 
-func (s *localJujuTestSuite) TestValidateConstraints(c *gc.C) {
-	defer loggo.ResetWriters()
-	logger := loggo.GetLogger("test")
-	logger.SetLogLevel(loggo.DEBUG)
-	tw := &loggo.TestWriter{}
-	c.Assert(loggo.RegisterWriter("test", tw, loggo.DEBUG), gc.IsNil)
-
-	var env environs.Environ
-	var err error
+func (s *localJujuTestSuite) TestConstraintsValidator(c *gc.C) {
 	ctx := coretesting.Context(c)
-	env, err = local.Provider.Prepare(ctx, minimalConfig(c))
+	env, err := local.Provider.Prepare(ctx, minimalConfig(c))
 	c.Assert(err, gc.IsNil)
-	envCons := constraints.MustParse("arch=amd64")
-	cons := constraints.MustParse("instance-type=foo")
-	validator, ok := env.(state.ConstraintsValidator)
-	c.Assert(ok, jc.IsTrue)
-	combined, err := validator.ValidateConstraints(cons, envCons)
-	c.Assert(err, gc.IsNil)
-	c.Assert(combined, gc.DeepEquals, cons)
-	c.Assert(tw.Log, jc.LogMatches, jc.SimpleMessages{{
-		loggo.WARNING,
-		`instance-type constraint "foo" not supported ` +
-			`for local provider "test"`},
-	})
+	validator := env.ConstraintsValidator()
+	cons := constraints.MustParse("arch=amd64 instance-type=foo tags=bar")
+	err = validator.Validate(cons)
+	c.Assert(err, jc.Satisfies, constraints.IsNotSupportedError)
+	c.Assert(err, gc.ErrorMatches, "unsupported constraints: cpu-power,instance-type,tags")
 }

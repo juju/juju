@@ -300,9 +300,17 @@ func (env *localEnviron) setLocalStorage() error {
 	return nil
 }
 
-// ValidateConstraints is defined on the state.ConstraintsValidator interface.
-func (env *localEnviron) ValidateConstraints(cons, envCons constraints.Value) (constraints.Value, error) {
-	return common.ValidateConstraints(logger, env, cons, envCons)
+var unsupportedConstraints = []string{
+	constraints.CpuPower,
+	constraints.InstanceType,
+	constraints.Tags,
+}
+
+// ConstraintsValidator is defined on the Environs interface.
+func (env *localEnviron) ConstraintsValidator() constraints.Validator {
+	validator := constraints.NewValidator()
+	validator.RegisterUnsupported(unsupportedConstraints)
+	return validator
 }
 
 // StartInstance is specified in the InstanceBroker interface.

@@ -235,7 +235,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 		return nil, nil, err
 	}
 	if template.InstanceId == "" {
-		if err := st.precheckInstance(template.Series); err != nil {
+		if err := st.precheckInstance(template.Series, template.Constraints); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -360,7 +360,7 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineT
 		return nil, nil, fmt.Errorf("no container type specified")
 	}
 	if parentTemplate.InstanceId == "" {
-		if err := st.precheckInstance(parentTemplate.Series); err != nil {
+		if err := st.precheckInstance(parentTemplate.Series, parentTemplate.Constraints); err != nil {
 			return nil, nil, err
 		}
 		// Adding a machine within a machine implies add-machine or placement.

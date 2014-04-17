@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/testing"
@@ -28,6 +30,12 @@ var _ = gc.Suite(&ServiceSuite{})
 
 func (s *ServiceSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
+	s.policy.getConstraintsValidator = func(*config.Config) (constraints.Validator, error) {
+		validator := constraints.NewValidator()
+		validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
+		validator.RegisterUnsupported([]string{constraints.CpuPower})
+		return validator, nil
+	}
 	s.charm = s.AddTestingCharm(c, "mysql")
 	s.mysql = s.AddTestingService(c, "mysql", s.charm)
 }
@@ -1151,6 +1159,31 @@ func (s *ServiceSuite) TestConstraints(c *gc.C) {
 	cons6, err := mysql.Constraints()
 	c.Assert(err, gc.IsNil)
 	c.Assert(&cons6, jc.Satisfies, constraints.IsEmpty)
+}
+
+func (s *ServiceSuite) TestSetInvalidConstraints(c *gc.C) {
+	cons := constraints.MustParse("mem=4G instance-type=foo")
+	err := s.mysql.SetConstraints(cons)
+	c.Assert(err, gc.ErrorMatches, `ambiguous constraints: "mem" overlaps with "instance-type"`)
+}
+
+func (s *ServiceSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
+	defer loggo.ResetWriters()
+	logger := loggo.GetLogger("test")
+	logger.SetLogLevel(loggo.DEBUG)
+	tw := &loggo.TestWriter{}
+	c.Assert(loggo.RegisterWriter("constraints-tester", tw, loggo.DEBUG), gc.IsNil)
+
+	cons := constraints.MustParse("mem=4G cpu-power=10")
+	err := s.mysql.SetConstraints(cons)
+	c.Assert(err, gc.IsNil)
+	c.Assert(tw.Log, jc.LogMatches, jc.SimpleMessages{{
+		loggo.WARNING,
+		`setting constraints on service "mysql": unsupported constraints: cpu-power`},
+	})
+	scons, err := s.mysql.Constraints()
+	c.Assert(err, gc.IsNil)
+	c.Assert(scons, gc.DeepEquals, cons)
 }
 
 func (s *ServiceSuite) TestConstraintsLifecycle(c *gc.C) {

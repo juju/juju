@@ -261,13 +261,23 @@ exit 0
 	return err
 }
 
-func (*manualEnviron) PrecheckInstance(series string) error {
+func (*manualEnviron) PrecheckInstance(series string, cons constraints.Value) error {
 	return errors.New(`use "juju add-machine ssh:[user@]<host>" to provision machines`)
 }
 
-// ValidateConstraints is defined on the state.ConstraintsValidator interface.
-func (environ *manualEnviron) ValidateConstraints(cons, envCons constraints.Value) (constraints.Value, error) {
-	return common.ValidateConstraints(logger, environ, cons, envCons)
+var unsupportedConstraints = []string{
+	constraints.CpuCores,
+	constraints.CpuPower,
+	constraints.Mem,
+	constraints.InstanceType,
+	constraints.Tags,
+}
+
+// ConstraintsValidator is defined on the Environs interface.
+func (e *manualEnviron) ConstraintsValidator() constraints.Validator {
+	validator := constraints.NewValidator()
+	validator.RegisterUnsupported(unsupportedConstraints)
+	return validator
 }
 
 func (e *manualEnviron) OpenPorts(ports []instance.Port) error {

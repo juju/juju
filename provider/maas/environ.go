@@ -331,9 +331,16 @@ func linkBridgeInInterfaces() string {
 	return `sed -i "s/iface eth0 inet dhcp/source \/etc\/network\/eth0.config/" /etc/network/interfaces`
 }
 
-// ValidateConstraints is defined on the state.ConstraintsValidator interface.
-func (environ *maasEnviron) ValidateConstraints(cons, envCons constraints.Value) (constraints.Value, error) {
-	return common.ValidateConstraints(logger, environ, cons, envCons)
+var unsupportedConstraints = []string{
+	constraints.CpuPower,
+	constraints.InstanceType,
+}
+
+// ConstraintsValidator is defined on the Environs interface.
+func (environ *maasEnviron) ConstraintsValidator() constraints.Validator {
+	validator := constraints.NewValidator()
+	validator.RegisterUnsupported(unsupportedConstraints)
+	return validator
 }
 
 // setupNetworks prepares a []environs.NetworkInfo for the given instance.
