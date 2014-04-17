@@ -24,7 +24,6 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cert"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -159,9 +158,9 @@ func (inst *MgoInstance) run() error {
 		if err == nil || exitErr != nil && exitErr.Exited() {
 			// mongodb has exited without being killed, so print the
 			// last few lines of its log output.
-			log.Errorf("mongodb has exited without being killed")
+			logger.Errorf("mongodb has exited without being killed")
 			for _, line := range lines {
-				log.Errorf("mongod: %s", line)
+				logger.Errorf("mongod: %s", line)
 			}
 		}
 		close(exited)
@@ -349,14 +348,14 @@ func (inst *MgoInstance) Reset() {
 	if !ok {
 		// We restart it to regain access.  This should only
 		// happen when tests fail.
-		log.Noticef("testing: restarting MongoDB server after unauthorized access")
+		logger.Infof("restarting MongoDB server after unauthorized access")
 		inst.Destroy()
 		if err := inst.Start(inst.ssl); err != nil {
 			panic(err)
 		}
 		return
 	}
-	log.Infof("Reset successfully reset admin password")
+	logger.Infof("reset successfully reset admin password")
 	for _, name := range dbnames {
 		switch name {
 		case "local", "config":
@@ -391,7 +390,7 @@ func resetAdminPasswordAndFetchDBNames(session *mgo.Session) ([]string, bool) {
 	} {
 		admin := session.DB("admin")
 		if err := admin.Login("admin", password); err != nil {
-			log.Infof("failed to log in with password %q", password)
+			logger.Infof("failed to log in with password %q", password)
 			continue
 		}
 		dbnames, err := session.DatabaseNames()
@@ -404,7 +403,7 @@ func resetAdminPasswordAndFetchDBNames(session *mgo.Session) ([]string, bool) {
 		if !isUnauthorized(err) {
 			panic(err)
 		}
-		log.Infof("unauthorized access when getting database names; password %q", password)
+		logger.Infof("unauthorized access when getting database names; password %q", password)
 	}
 	return nil, false
 }
