@@ -5,16 +5,13 @@ __metaclass__ = type
 
 import sys
 
+from deploy_stack import upgrade_juju
 import jujupy
 
 def main():
     for env in sys.argv[1:]:
         environment = jujupy.Environment.from_config(env)
-        environment.set_testing_tools_metadata_url()
-        print(
-            'The tools-metadata-url is %s' % environment.client.get_env_option(
-            environment, 'tools-metadata-url'))
-        environment.upgrade_juju()
+        upgrade_juju(environment)
 
 if __name__ == '__main__':
     main()
