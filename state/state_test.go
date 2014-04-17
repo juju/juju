@@ -3106,7 +3106,7 @@ func (s *StateSuite) TestEnsureAvailabilityConcurrentMore(c *gc.C) {
 func (s *StateSuite) TestStateServingInfo(c *gc.C) {
 	info, err := s.State.StateServingInfo()
 	c.Assert(err, gc.ErrorMatches, "state serving info not found")
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	data := params.StateServingInfo{
 		APIPort:      69,
@@ -3159,7 +3159,7 @@ func (s *StateSuite) TestOpenCreatesStateServingInfoDoc(c *gc.C) {
 	defer st.Close()
 
 	info, err := st.StateServingInfo()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(info, gc.DeepEquals, params.StateServingInfo{})
 }
 
