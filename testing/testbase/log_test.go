@@ -35,7 +35,7 @@ func (s *logSuite) TearDownSuite(c *gc.C) {
 func (s *logSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	logger.Infof("testing-SetUpTest")
-	c.Assert(c.GetTestLog(), gc.Matches, ".*INFO .logsuite testing-SetUpTest\n")
+	c.Assert(c.GetTestLog(), gc.Matches, ".*INFO juju.logsuite testing-SetUpTest\n")
 }
 
 func (s *logSuite) TearDownTest(c *gc.C) {
