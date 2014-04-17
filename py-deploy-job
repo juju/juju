@@ -1,0 +1,10 @@
+#!/bin/bash
+source $SCRIPTS/common-startup.sh
+if [ "$ENV" == "manual" ]; then
+    prepare_manual
+else
+    DEPLOY_ARGS=""
+fi
+export DEPLOY_ARGS
+# Do the deployment for upgrade testing.
+JUJU_REPOSITORY=$HOME/repository PATH=$NEW_PATH deploy_job.py
