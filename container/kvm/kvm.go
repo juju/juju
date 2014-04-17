@@ -14,8 +14,8 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/environs/cloudinit"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/version"
 )
@@ -100,7 +100,7 @@ func (manager *containerManager) CreateContainer(
 	logger.Tracef("write cloud-init")
 	userDataFilename, err := container.WriteUserData(machineConfig, directory)
 	if err != nil {
-		return nil, nil, log.LoggedErrorf(logger, "failed to write user data: %v", err)
+		return nil, nil, errors.LoggedErrorf(logger, "failed to write user data: %v", err)
 	}
 	// Create the container.
 	startParams := ParseConstraintsToStartParams(machineConfig.Constraints)
@@ -119,7 +119,7 @@ func (manager *containerManager) CreateContainer(
 
 	logger.Tracef("create the container, constraints: %v", machineConfig.Constraints)
 	if err := kvmContainer.Start(startParams); err != nil {
-		return nil, nil, log.LoggedErrorf(logger, "kvm container creation failed: %v", err)
+		return nil, nil, errors.LoggedErrorf(logger, "kvm container creation failed: %v", err)
 	}
 	logger.Tracef("kvm container created")
 	return &kvmInstance{kvmContainer, name}, &hardware, nil

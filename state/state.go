@@ -1493,11 +1493,18 @@ func (st *State) StateServingInfo() (params.StateServingInfo, error) {
 	if err != nil {
 		return info, err
 	}
+	if info.StatePort == 0 {
+		return params.StateServingInfo{}, errors.NotFoundf("state serving info")
+	}
 	return info, nil
 }
 
 // SetStateServingInfo stores information needed for running a state server
 func (st *State) SetStateServingInfo(info params.StateServingInfo) error {
+	if info.StatePort == 0 || info.APIPort == 0 ||
+		info.Cert == "" || info.PrivateKey == "" {
+		return fmt.Errorf("incomplete state serving info set in state")
+	}
 	ops := []txn.Op{{
 		C:      st.stateServers.Name,
 		Id:     stateServingInfoKey,

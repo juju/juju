@@ -130,6 +130,10 @@ func (s *commonMachineSuite) primeAgent(
 		err = m.SetMongoPassword(initialMachinePassword)
 		c.Assert(err, gc.IsNil)
 		config, tools = s.agentSuite.primeStateAgent(c, tag, initialMachinePassword, vers)
+		info, ok := config.StateServingInfo()
+		c.Assert(ok, jc.IsTrue)
+		err = s.State.SetStateServingInfo(info)
+		c.Assert(err, gc.IsNil)
 	} else {
 		config, tools = s.agentSuite.primeAgent(c, tag, initialMachinePassword, vers)
 	}
@@ -578,12 +582,10 @@ func (s *MachineSuite) assertJobWithState(
 	})
 }
 
-// assertAgentOpensState asserts that a machine agent
-// started with the given job will call the function
-// pointed to by reportOpened. The agent's
-// configuration and the value passed to reportOpened
-// are then passed to the test function for further
-// checking.
+// assertAgentOpensState asserts that a machine agent started with the
+// given job will call the function pointed to by reportOpened. The
+// agent's configuration and the value passed to reportOpened are then
+// passed to the test function for further checking.
 func (s *MachineSuite) assertAgentOpensState(
 	c *gc.C,
 	reportOpened *func(eitherState),
@@ -932,6 +934,7 @@ func (s *MachineSuite) TestMachineAgentEnsureAdminUser(c *gc.C) {
 // MachineWithCharmsSuite provides infrastructure for tests which need to
 // work with charms.
 type MachineWithCharmsSuite struct {
+	commonMachineSuite
 	charmtesting.CharmSuite
 
 	machine *state.Machine
@@ -939,47 +942,32 @@ type MachineWithCharmsSuite struct {
 
 var _ = gc.Suite(&MachineWithCharmsSuite{})
 
+func (s *MachineWithCharmsSuite) SetUpSuite(c *gc.C) {
+	s.commonMachineSuite.SetUpSuite(c)
+	s.CharmSuite.SetUpSuite(c, &s.commonMachineSuite.JujuConnSuite)
+}
+
+func (s *MachineWithCharmsSuite) TearDownSuite(c *gc.C) {
+	s.commonMachineSuite.TearDownSuite(c)
+	s.CharmSuite.TearDownSuite(c)
+}
+
 func (s *MachineWithCharmsSuite) SetUpTest(c *gc.C) {
+	s.commonMachineSuite.SetUpTest(c)
 	s.CharmSuite.SetUpTest(c)
-	s.PatchValue(&ensureMongoServer, func(string, string, params.StateServingInfo, bool) error {
-		return nil
-	})
+}
 
-	// Create a state server machine.
-	var err error
-	s.machine, err = s.State.AddOneMachine(state.MachineTemplate{
-		Series:     "quantal",
-		InstanceId: "ardbeg-0",
-		Nonce:      state.BootstrapNonce,
-		Jobs:       []state.MachineJob{state.JobManageEnviron},
-	})
-	c.Assert(err, gc.IsNil)
-	err = s.machine.SetPassword(initialMachinePassword)
-	c.Assert(err, gc.IsNil)
-	tag := names.MachineTag(s.machine.Id())
-	err = s.machine.SetMongoPassword(initialMachinePassword)
-	c.Assert(err, gc.IsNil)
-
-	// Set up the agent configuration.
-	stateInfo := s.StateInfo(c)
-	writeStateAgentConfig(c, stateInfo, s.DataDir(), tag, initialMachinePassword, version.Current)
+func (s *MachineWithCharmsSuite) TearDownTest(c *gc.C) {
+	s.commonMachineSuite.TearDownTest(c)
+	s.CharmSuite.TearDownTest(c)
 }
 
 func (s *MachineWithCharmsSuite) TestManageEnvironRunsCharmRevisionUpdater(c *gc.C) {
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+
 	s.SetupScenario(c)
 
-	testpath := c.MkDir()
-	s.PatchEnvPathPrepend(testpath)
-	fakeCmd(filepath.Join(testpath, "start"))
-	fakeCmd(filepath.Join(testpath, "stop"))
-	s.PatchValue(&upstart.InitDir, c.MkDir())
-
-	// Start the machine agent.
-	a := &MachineAgent{}
-	args := []string{"--data-dir", s.DataDir(), "--machine-id", s.machine.Id()}
-	err := coretesting.InitCommand(a, args)
-	c.Assert(err, gc.IsNil)
-
+	a := s.newAgent(c, m)
 	go func() {
 		c.Check(a.Run(nil), gc.IsNil)
 	}()

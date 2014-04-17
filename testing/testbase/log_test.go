@@ -4,11 +4,13 @@
 package testbase_test
 
 import (
+	"github.com/juju/loggo"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/testing/testbase"
 )
+
+var logger = loggo.GetLogger("juju.logsuite")
 
 var _ = gc.Suite(&logSuite{})
 
@@ -18,8 +20,8 @@ type logSuite struct {
 
 func (s *logSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
-	log.Infof("testing-SetUpSuite")
-	c.Assert(c.GetTestLog(), gc.Matches, ".*INFO juju testing-SetUpSuite\n")
+	logger.Infof("testing-SetUpSuite")
+	c.Assert(c.GetTestLog(), gc.Matches, ".*INFO juju.logsuite testing-SetUpSuite\n")
 }
 
 func (s *logSuite) TearDownSuite(c *gc.C) {
@@ -27,25 +29,25 @@ func (s *logSuite) TearDownSuite(c *gc.C) {
 	// log output is printed, as the logger is printing
 	// a previously set up *gc.C. We print a message
 	// anyway so that we can manually verify it.
-	log.Infof("testing-TearDownSuite")
+	logger.Infof("testing-TearDownSuite")
 }
 
 func (s *logSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
-	log.Infof("testing-SetUpTest")
-	c.Assert(c.GetTestLog(), gc.Matches, ".*INFO juju testing-SetUpTest\n")
+	logger.Infof("testing-SetUpTest")
+	c.Assert(c.GetTestLog(), gc.Matches, ".*INFO juju.logsuite testing-SetUpTest\n")
 }
 
 func (s *logSuite) TearDownTest(c *gc.C) {
 	// The same applies here as to TearDownSuite.
-	log.Infof("testing-TearDownTest")
+	logger.Infof("testing-TearDownTest")
 	s.LoggingSuite.TearDownTest(c)
 }
 
 func (s *logSuite) TestLog(c *gc.C) {
-	log.Infof("testing-Test")
+	logger.Infof("testing-Test")
 	c.Assert(c.GetTestLog(), gc.Matches,
-		".*INFO juju testing-SetUpTest\n"+
-			".*INFO juju testing-Test\n",
+		".*INFO juju.logsuite testing-SetUpTest\n"+
+			".*INFO juju.logsuite testing-Test\n",
 	)
 }
