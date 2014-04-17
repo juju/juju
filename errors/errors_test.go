@@ -88,12 +88,29 @@ func mustNotSatisfy(c *gc.C, err error, errInfo *errorInfo) {
 }
 
 func checkErrorMatches(c *gc.C, err error, message string, errInfo *errorInfo) {
-	if err == nil {
+	if message == "<nil>" {
 		c.Check(err, gc.IsNil)
 		c.Check(errInfo, gc.IsNil)
-		c.Check(message, gc.Equals, "<nil>")
 	} else {
 		c.Check(err, gc.ErrorMatches, message)
+	}
+}
+
+func runErrorTests(c *gc.C, errorTests []errorTest, checkMustSatisfy bool) {
+	for i, t := range errorTests {
+		c.Logf("test %d: %T: %v", i, t.err, t.err)
+		checkErrorMatches(c, t.err, t.message, t.errInfo)
+		if checkMustSatisfy {
+			mustSatisfy(c, t.err, t.errInfo)
+		}
+
+		// Check all other satisfiers to make sure none match.
+		for _, otherErrInfo := range allErrors {
+			if checkMustSatisfy && otherErrInfo.equal(t.errInfo) {
+				continue
+			}
+			mustNotSatisfy(c, t.err, otherErrInfo)
+		}
 	}
 }
 
@@ -125,16 +142,7 @@ func (*errorsSuite) TestMaskf(c *gc.C) {
 		}}...)
 	}
 
-	for i, t := range errorTests {
-		c.Logf("test %d: %T: %v", i, t.err, t.err)
-		checkErrorMatches(c, t.err, t.message, t.errInfo)
-		mustNotSatisfy(c, t.err, t.errInfo)
-
-		// Check all other satisfiers to make sure none match.
-		for _, otherErrInfo := range allErrors {
-			mustNotSatisfy(c, t.err, otherErrInfo)
-		}
-	}
+	runErrorTests(c, errorTests, false)
 }
 
 func (*errorsSuite) TestContextf(c *gc.C) {
@@ -164,25 +172,7 @@ func (*errorsSuite) TestContextf(c *gc.C) {
 		}}...)
 	}
 
-	for i, t := range errorTests {
-		if t.err == nil {
-			c.Logf("test %d: nil: %v", i, t.err)
-			c.Check(t.message, gc.Equals, "<nil>")
-			c.Check(t.errInfo, gc.IsNil)
-			continue
-		}
-		c.Logf("test %d: %T: %v", i, t.err, t.err)
-		checkErrorMatches(c, t.err, t.message, t.errInfo)
-		mustSatisfy(c, t.err, t.errInfo)
-
-		// Check all other satisfiers to make sure none match.
-		for _, otherErrInfo := range allErrors {
-			if otherErrInfo.equal(t.errInfo) {
-				continue
-			}
-			mustNotSatisfy(c, t.err, otherErrInfo)
-		}
-	}
+	runErrorTests(c, errorTests, true)
 }
 
 func (*errorsSuite) TestAllErrors(c *gc.C) {
@@ -215,31 +205,5 @@ func (*errorsSuite) TestAllErrors(c *gc.C) {
 		}}...)
 	}
 
-	for i, t := range errorTests {
-		if t.err == nil {
-			c.Logf("test %d: nil: %v", i, t.err)
-			c.Check(t.message, gc.Equals, "<nil>")
-			c.Check(t.errInfo, gc.IsNil)
-			continue
-		}
-		c.Logf("test %d: %T: %v", i, t.err, t.err)
-		c.Check(t.err, gc.ErrorMatches, t.message)
-		c.Check(t.errInfo, gc.NotNil)
-		testSatisfierName := t.errInfo.satisfierName()
-		c.Check(t.err,
-			jc.Satisfies,
-			t.errInfo.satisfier,
-			gc.Commentf("%#v must satisfy %v", t.err, testSatisfierName))
-
-		// Check all other satisfiers to make sure none match.
-		for _, errInfo := range allErrors {
-			if errInfo.satisfierName() == testSatisfierName {
-				continue
-			}
-			c.Check(t.err,
-				gc.Not(jc.Satisfies),
-				errInfo.satisfier,
-				gc.Commentf("%#v must not satisfy %v", t.err, errInfo.satisfierName()))
-		}
-	}
+	runErrorTests(c, errorTests, true)
 }
