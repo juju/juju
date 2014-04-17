@@ -41,7 +41,8 @@ def get_files(args):
     account = get_account()
     container_url = '{0}/v1/{1}/{2}?format=json'.format(
         swift_url, account, args.container)
-    print(container_url)
+    if args.verbose:
+        print(container_url)
     response = urllib2.urlopen(container_url)
     files = json.loads(response.read())
     remote_files = dict((f['name'], f) for f in files)
@@ -50,11 +51,13 @@ def get_files(args):
 
 def upload_changes(args, remote_files):
     container_path = '{0}/{1}/'.format(args.container, args.path)
+    count = 0
     for file_name in args.files:
-        local_path = "{0}/{1}".format(args.path, file_name)
+        local_path = "{0}/{1}".format(args.path, file_name).replace('//', '/')
         remote_file = remote_files.get(local_path)
         if remote_file is None:
-            print("File is new: {0}".format(local_path))
+            if args.verbose:
+                print("File is new: {0}".format(local_path))
         else:
             md5 = hashlib.md5()
             with open(file_name, mode='rb') as local_file:
@@ -62,20 +65,26 @@ def upload_changes(args, remote_files):
             remote_hash = str(remote_file['hash'])
             local_hash = str(md5.hexdigest())
             if remote_hash == local_hash:
-                print("File is same: {0}".format(local_path))
+                if args.verbose:
+                    print("File is same: {0}".format(local_path))
                 continue
             else:
-                print("File is different: {0}".format(local_path))
-                print("  {0} != {1}".format(local_hash, remote_hash))
+                if args.verbose:
+                    print("File is different: {0}".format(local_path))
+                    print("  {0} != {1}".format(local_hash, remote_hash))
+        count += 1
         print("Uploading {0}/{1}".format(args.container, local_path))
         cmd = ['swift', 'upload', container_path, file_name]
         output = subprocess.check_output(cmd)
         print(' '.join(cmd))
         print(output)
+    print('Uploaded {0} files'.format(count))
 
 
 def main():
     parser = ArgumentParser('Sync changed and new files.')
+    parser.add_argument(
+        '-v', '--verbose', action="store_true", help='Increse verbosity.')
     parser.add_argument(
         '--container', default='juju-dist', help='The container name.')
     parser.add_argument('path', help='The destination path in the container.')

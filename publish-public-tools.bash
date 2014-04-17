@@ -44,9 +44,9 @@ publish_to_canonistack() {
     echo "Phase 1: Publish to canonistack."
     source $JUJU_DIR/canonistacktoolsrc
     cd $JUJU_DIST/tools/releases/
-    ${SCRIPT_DIR}/swift-sync.bash tools/releases/ *.tgz
+    ${SCRIPT_DIR}/swift_sync.py tools/releases/ *.tgz
     cd $JUJU_DIST/tools/streams/v1
-    ${SCRIPT_DIR}/swift-sync.bash tools/streams/v1/ {index,com}*
+    ${SCRIPT_DIR}/swift_sync.py tools/streams/v1/ {index,com}*
 }
 
 
@@ -55,9 +55,9 @@ testing_to_canonistack() {
     echo "Phase 1: Testing to canonistack."
     source $JUJU_DIR/canonistacktoolsrc
     cd $JUJU_DIST/tools/releases/
-    ${SCRIPT_DIR}/swift-sync.bash testing/tools/releases/ *.tgz
+    ${SCRIPT_DIR}/swift_sync.py testing/tools/releases/ *.tgz
     cd $JUJU_DIST/tools/streams/v1
-    ${SCRIPT_DIR}/swift-sync.bash testing/tools/streams/v1/ {index,com}*
+    ${SCRIPT_DIR}/swift_sync.py testing/tools/streams/v1/ {index,com}*
 }
 
 
@@ -66,9 +66,9 @@ publish_to_hp() {
     echo "Phase 2: Publish to HP Cloud."
     source $JUJU_DIR/hptoolsrc
     cd $JUJU_DIST/tools/releases/
-    ${SCRIPT_DIR}/swift-sync.bash tools/releases/ *.tgz
+    ${SCRIPT_DIR}/swift_sync.py tools/releases/ *.tgz
     cd $JUJU_DIST/tools/streams/v1
-    ${SCRIPT_DIR}/swift-sync.bash tools/streams/v1/ {index,com}*
+    ${SCRIPT_DIR}/swift_sync.py tools/streams/v1/ {index,com}*
 }
 
 
@@ -79,9 +79,9 @@ testing_to_hp() {
     echo "Phase 2: Testing to HP Cloud."
     source $JUJU_DIR/hptoolsrc
     cd $JUJU_DIST/tools/releases/
-    ${SCRIPT_DIR}/swift-sync.bash testing/tools/releases/ *.tgz
+    ${SCRIPT_DIR}/swift_sync.py testing/tools/releases/ *.tgz
     cd $JUJU_DIST/tools/streams/v1
-    ${SCRIPT_DIR}/swift-sync.bash testing/tools/streams/v1/ {index,com}*
+    ${SCRIPT_DIR}/swift_sync.py testing/tools/streams/v1/ {index,com}*
 }
 
 
@@ -156,6 +156,7 @@ fi
 
 
 check_deps
+exit
 if [[ $PURPOSE == "RELEASE" ]]; then
     publish_to_streams
     publish_to_canonistack
