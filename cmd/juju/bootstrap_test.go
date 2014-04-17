@@ -523,10 +523,9 @@ func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, series string) envir
 }
 
 func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
-	otherSeries := "precise"
-	if otherSeries == version.Current.Series {
-		otherSeries = "raring"
-	}
+	s.PatchValue(&version.Current.Series, config.LatestLtsSeries())
+	otherSeries := "quantal"
+
 	env := s.setupAutoUploadTest(c, "1.7.3", otherSeries)
 	// Run command and check for that upload has been run for tools matching the current juju version.
 	opc, errc := runCommand(nullContext(c), new(BootstrapCommand))
@@ -536,17 +535,17 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Logf("found: " + list.String())
 	urls := list.URLs()
-	expectedUrlCount := 2
 
-	// There will be distinct tools for each of these if they are different
-	if config.LatestLtsSeries() != coretesting.FakeDefaultSeries {
-		expectedUrlCount++
-	}
-	c.Assert(urls, gc.HasLen, expectedUrlCount)
+	// We expect:
+	//     latest LTS,
+	//     the specified series (quantal),
+	//     and the environment's default series (raring).
 	expectedVers := []version.Binary{
-		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", otherSeries, version.Current.Arch)),
+		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", "quantal", version.Current.Arch)),
+		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", "raring", version.Current.Arch)),
 		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", version.Current.Series, version.Current.Arch)),
 	}
+	c.Assert(urls, gc.HasLen, len(expectedVers))
 	for _, vers := range expectedVers {
 		c.Logf("seeking: " + vers.String())
 		_, found := urls[vers]
