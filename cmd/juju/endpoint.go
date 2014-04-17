@@ -53,7 +53,7 @@ func (c *EndpointCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Print out the addresses of the API server endpoints.
 func (c *EndpointCommand) Run(ctx *cmd.Context) error {
-	apiendpoint, err := juju.APIEndpointFor(c.EnvName, c.refresh)
+	apiendpoint, err := juju.APIEndpointForEnv(c.EnvName, c.refresh)
 	if err != nil {
 		return err
 	}

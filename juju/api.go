@@ -388,10 +388,10 @@ func addrsChanged(a, b []string) bool {
 	return false
 }
 
-// APIEndpointFor returns the endpoint information for a given environment
+// APIEndpointForEnv returns the endpoint information for a given environment
 // It tries to just return the information from the cached settings unless
 // there is nothing cached or refresh is True
-func APIEndpointFor(envName string, refresh bool) (configstore.APIEndpoint, error) {
+func APIEndpointForEnv(envName string, refresh bool) (configstore.APIEndpoint, error) {
 	store, err := configstore.Default()
 	if err != nil {
 		return configstore.APIEndpoint{}, err

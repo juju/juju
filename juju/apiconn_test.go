@@ -202,7 +202,7 @@ func (s *NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, gc.NotNil)
 	ep := info.APIEndpoint()
-	c.Check(ep.Addresses, gc.HasLen, 1)
+	c.Assert(ep.Addresses, gc.HasLen, 1)
 	c.Check(ep.Addresses[0], gc.Matches, `127\.0\.0\.1:\d+`)
 	c.Check(ep.CACert, gc.Not(gc.Equals), "")
 	creds := info.APICredentials()
@@ -558,11 +558,11 @@ func (info *infoWithWriteNotify) Write() error {
 	return info.EnvironInfo.Write()
 }
 
-type APIEndpointForSuite struct {
+type APIEndpointForEnvSuite struct {
 	testbase.LoggingSuite
 }
 
-var _ = gc.Suite(&APIEndpointForSuite{})
+var _ = gc.Suite(&APIEndpointForEnvSuite{})
 
 var dummyStoreInfo = &environInfo{
 	creds: configstore.APICredentials{
@@ -575,7 +575,7 @@ var dummyStoreInfo = &environInfo{
 	},
 }
 
-func (s *APIEndpointForSuite) TestAPIEndpointInStoreCached(c *gc.C) {
+func (s *APIEndpointForEnvSuite) TestAPIEndpointInStoreCached(c *gc.C) {
 	store := newConfigStore("env-name", dummyStoreInfo)
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
 		return nil, nil
@@ -585,14 +585,14 @@ func (s *APIEndpointForSuite) TestAPIEndpointInStoreCached(c *gc.C) {
 	c.Check(endpoint, gc.DeepEquals, dummyStoreInfo.endpoint)
 }
 
-func (s *APIEndpointForSuite) TestAPIEndpointForNoSuchName(c *gc.C) {
+func (s *APIEndpointForEnvSuite) TestAPIEndpointForEnvSuchName(c *gc.C) {
 	defer coretesting.MakeMultipleEnvHome(c).Restore()
-	_, err := juju.APIEndpointFor("no-such-env", false)
+	_, err := juju.APIEndpointForEnv("no-such-env", false)
 	c.Check(err, jc.Satisfies, errors.IsNotFoundError)
 	c.Check(err, gc.ErrorMatches, `environment "no-such-env" not found`)
 }
 
-func (s *APIEndpointForSuite) TestAPIEndpointNotCached(c *gc.C) {
+func (s *APIEndpointForEnvSuite) TestAPIEndpointNotCached(c *gc.C) {
 	defer coretesting.MakeMultipleEnvHome(c).Restore()
 	store, err := configstore.Default()
 	c.Assert(err, gc.IsNil)
@@ -632,7 +632,7 @@ func (s *APIEndpointForSuite) TestAPIEndpointNotCached(c *gc.C) {
 	c.Check(endpoint.Addresses, gc.DeepEquals, []string{"0.1.2.3:1234"})
 }
 
-func (s *APIEndpointForSuite) TestAPIEndpointRefresh(c *gc.C) {
+func (s *APIEndpointForEnvSuite) TestAPIEndpointRefresh(c *gc.C) {
 	defer coretesting.MakeEmptyFakeHome(c).Restore()
 	store := newConfigStore("env-name", dummyStoreInfo)
 	called := 0
