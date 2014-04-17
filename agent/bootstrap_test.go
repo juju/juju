@@ -188,7 +188,10 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	cfg, err := agent.NewAgentConfig(configParams)
 	c.Assert(err, gc.IsNil)
 	cfg.SetStateServingInfo(params.StateServingInfo{
-		StatePort: testing.MgoServer.Port(),
+		Cert:       testing.ServerCert,
+		PrivateKey: testing.ServerKey,
+		APIPort:    1234,
+		StatePort:  testing.MgoServer.Port(),
 	})
 	expectConstraints := constraints.MustParse("mem=1024M")
 	expectHW := instance.MustParseHardware("mem=2048M")
