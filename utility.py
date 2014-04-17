@@ -2,6 +2,7 @@ from contextlib import contextmanager
 import errno
 import os
 import socket
+import sys
 
 from jujupy import until_timeout
 
