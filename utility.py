@@ -1,7 +1,10 @@
 import errno
 import socket
+import sys
+from time import sleep
 
 from jujupy import until_timeout
+
 
 def wait_for_port(host, port, closed=False, timeout=30):
     for remaining in until_timeout(timeout):
