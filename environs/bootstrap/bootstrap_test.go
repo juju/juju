@@ -446,6 +446,13 @@ func (s *bootstrapSuite) TestSetBootstrapTools(c *gc.C) {
 		currentVersion:       version.MustParse("1.18.1.2"),
 		expectedTools:        version.MustParse("1.18.1.3"),
 		expectedAgentVersion: version.MustParse("1.18.1.3"),
+	}, {
+		// If the current patch level exceeds whatever's in
+		// the tools source (e.g. when bootstrapping from trunk)
+		// then the latest available tools will be chosen.
+		currentVersion:       version.MustParse("1.18.2"),
+		expectedTools:        version.MustParse("1.18.1.3"),
+		expectedAgentVersion: version.MustParse("1.18.1.3"),
 	}}
 
 	env := newEnviron("foo", useDefaultKeys, nil)
