@@ -162,8 +162,10 @@ func (w *pgWorker) loop() error {
 	retry.Stop()
 	retryInterval := initialRetryInterval
 	for {
+		logger.Infof("in loop")
 		select {
 		case f := <-w.notifyCh:
+			logger.Infof("notified")
 			// Update our current view of the state of affairs.
 			changed, err := f()
 			if err != nil {
@@ -175,6 +177,7 @@ func (w *pgWorker) loop() error {
 			// Try to update the replica set immediately.
 			retry.Reset(0)
 		case <-retry.C:
+			logger.Infof("retry")
 			ok := true
 			servers, instanceIds, err := w.apiPublishInfo()
 			if err != nil {
@@ -192,12 +195,14 @@ func (w *pgWorker) loop() error {
 				ok = false
 			}
 			if ok {
+				logger.Infof("resetting retry to %v after success", pollInterval)
 				// Update the replica set members occasionally
 				// to keep them up to date with the current
 				// replica set member statuses.
 				retry.Reset(pollInterval)
 				retryInterval = initialRetryInterval
 			} else {
+				logger.Infof("resetting retry to %v after failure", retryInterval)
 				retry.Reset(retryInterval)
 				retryInterval *= 2
 				if retryInterval > maxRetryInterval {
@@ -269,6 +274,7 @@ type replicaSetError struct {
 // updateReplicaset sets the current replica set members, and applies the
 // given voting status to machines in the state.
 func (w *pgWorker) updateReplicaset() error {
+	logger.Infof("updateReplicaset")
 	info, err := w.peerGroupInfo()
 	if err != nil {
 		return err
@@ -280,7 +286,7 @@ func (w *pgWorker) updateReplicaset() error {
 	if members != nil {
 		logger.Debugf("desired peer group members: %#v", members)
 	} else {
-		logger.Debugf("no change in desired peer group")
+		logger.Debugf("no change in desired peer group (voting %#v)", voting)
 	}
 
 	// We cannot change the HasVote flag of a machine in state at exactly
