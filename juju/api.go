@@ -361,7 +361,7 @@ func cacheChangedAPIAddresses(info configstore.EnvironInfo, st apiState) error {
 		}
 	}
 	endpoint := info.APIEndpoint()
-	if !addrsChanged(endpoint.Addresses, addrs) {
+	if len(serverHostPorts) == 0 || !addrsChanged(endpoint.Addresses, addrs) {
 		return nil
 	}
 	logger.Debugf("API addresses changed from %q to %q", endpoint.Addresses, addrs)
