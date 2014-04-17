@@ -5,6 +5,7 @@ package errors_test
 
 import (
 	stderrors "errors"
+	"fmt"
 	"reflect"
 	"runtime"
 	"testing"
@@ -33,14 +34,18 @@ func (s *errorSatisfier) String() string {
 	return f.Name()
 }
 
-func (*errorsSuite) TestNotFoundError(c *gc.C) {
+func (*errorsSuite) TestErrors(c *gc.C) {
 	isNotFoundError := &errorSatisfier{errors.IsNotFoundError}
 	isUnauthorizedError := &errorSatisfier{errors.IsUnauthorizedError}
 	isNotImplementedError := &errorSatisfier{errors.IsNotImplementedError}
+	isAlreadyExistsError := &errorSatisfier{errors.IsAlreadyExistsError}
+	isNotSupportedError := &errorSatisfier{errors.IsNotSupportedError}
 	satisfiers := []*errorSatisfier{
 		isNotFoundError,
 		isUnauthorizedError,
 		isNotImplementedError,
+		isAlreadyExistsError,
+		isNotSupportedError,
 	}
 
 	// make some errors, and record the errorSatsifier
@@ -71,6 +76,10 @@ func (*errorsSuite) TestNotFoundError(c *gc.C) {
 		"",
 		isNotFoundError,
 	}, {
+		fmt.Errorf("some prefix: %v", errors.NotFoundf("something")),
+		"some prefix: something not found",
+		isNotFoundError,
+	}, {
 		errors.Unauthorizedf("woo %s", "hoo"),
 		"woo hoo",
 		isUnauthorizedError,
@@ -82,6 +91,18 @@ func (*errorsSuite) TestNotFoundError(c *gc.C) {
 		errors.NewNotImplementedError("something"),
 		"something not implemented",
 		isNotImplementedError,
+	}, {
+		errors.NewAlreadyExistsError("something"),
+		"something already exists",
+		isAlreadyExistsError,
+	}, {
+		fmt.Errorf("some prefix: %v", errors.NewAlreadyExistsError("something")),
+		"some prefix: something already exists",
+		isAlreadyExistsError,
+	}, {
+		errors.NewNotSupportedError("something"),
+		"something not supported",
+		isNotSupportedError,
 	}}
 
 	for i, t := range errorTests {

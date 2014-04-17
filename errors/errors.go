@@ -5,6 +5,7 @@ package errors
 
 import (
 	"fmt"
+	"strings"
 )
 
 // errorWrapper defines a way to encapsulate an error inside another error.
@@ -33,10 +34,8 @@ type notFoundError struct {
 // IsNotFoundError is satisfied by errors created by this package representing
 // resources that can't be found.
 func IsNotFoundError(err error) bool {
-	if _, ok := err.(notFoundError); ok {
-		return true
-	}
-	return false
+	_, ok := err.(notFoundError)
+	return ok || (err != nil && strings.HasSuffix(err.Error(), " not found"))
 }
 
 // NotFoundf returns a error which satisfies IsNotFoundError().
@@ -104,5 +103,48 @@ func (e *notImplementedError) Error() string {
 // was created with NewNotImplementedError.
 func IsNotImplementedError(err error) bool {
 	_, ok := err.(*notImplementedError)
+	return ok
+}
+
+type alreadyExistsError struct {
+	what string
+}
+
+// NewAlreadyExistsError returns an error signifying that
+// something already exists.
+func NewAlreadyExistsError(what string) error {
+	return &alreadyExistsError{what: what}
+}
+
+func (e *alreadyExistsError) Error() string {
+	return e.what + " already exists"
+}
+
+// IsAlreadyExistsError reports whether the error
+// was created with NewAlreadyExistsError.
+func IsAlreadyExistsError(err error) bool {
+	_, ok := err.(*alreadyExistsError)
+	return ok || (err != nil && strings.HasSuffix(err.Error(), " already exists"))
+}
+
+type notSupportedError struct {
+	what string
+}
+
+// NewNotSupportedError returns an error signifying that something is not
+// supported.  For example a client API call to a server that does not support
+// the action.
+func NewNotSupportedError(what string) error {
+	return &notSupportedError{what: what}
+}
+
+func (e *notSupportedError) Error() string {
+	return e.what + " not supported"
+}
+
+// IsNotSupportedError reports whether the error
+// was created with NewNotSupportedError.
+func IsNotSupportedError(err error) bool {
+	_, ok := err.(*notSupportedError)
 	return ok
 }

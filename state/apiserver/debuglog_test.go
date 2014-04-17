@@ -7,7 +7,6 @@ import (
 	"bufio"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -22,6 +21,7 @@ import (
 
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils"
 )
 
 type debugLogSuite struct {
@@ -122,6 +122,18 @@ func (s *debugLogSuite) TestMaxLines(c *gc.C) {
 	s.assertWebsocketClosed(c, reader)
 }
 
+func (s *debugLogSuite) TestBacklogWithMaxLines(c *gc.C) {
+	s.writeLogLines(c, 10)
+
+	reader := s.openWebsocket(c, url.Values{"backlog": {"5"}, "maxLines": {"10"}})
+	s.assertLogFollowing(c, reader)
+	s.writeLogLines(c, logLineCount)
+
+	linesRead := s.readLogLines(c, reader, 10)
+	c.Assert(linesRead, jc.DeepEquals, logLines[5:15])
+	s.assertWebsocketClosed(c, reader)
+}
+
 func (s *debugLogSuite) TestFilter(c *gc.C) {
 	s.ensureLogFile(c)
 
@@ -191,9 +203,7 @@ func (s *debugLogSuite) dialWebsocketInternal(c *gc.C, queryParams url.Values, h
 }
 
 func (s *debugLogSuite) dialWebsocket(c *gc.C, queryParams url.Values) (*websocket.Conn, error) {
-	header := http.Header{
-		"Authorization": {"Basic " + base64.StdEncoding.EncodeToString([]byte(s.userTag+":"+s.password))},
-	}
+	header := utils.BasicAuthHeader(s.userTag, s.password)
 	return s.dialWebsocketInternal(c, queryParams, header)
 }
 

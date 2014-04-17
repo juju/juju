@@ -20,6 +20,7 @@ import (
 	"launchpad.net/juju-core/state/watcher"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/worker"
 )
 
@@ -40,6 +41,8 @@ type MachineGetter interface {
 	Machine(tag string) (*apiprovisioner.Machine, error)
 	MachinesWithTransientErrors() ([]*apiprovisioner.Machine, []params.StatusResult, error)
 }
+
+var _ MachineGetter = (*apiprovisioner.State)(nil)
 
 func NewProvisionerTask(
 	machineTag string,
@@ -408,6 +411,42 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 	return nil
 }
 
+func (task *provisionerTask) setErrorStatus(message string, machine *apiprovisioner.Machine, err error) error {
+	logger.Errorf(message, machine, err)
+	if err1 := machine.SetStatus(params.StatusError, err.Error(), nil); err1 != nil {
+		// Something is wrong with this machine, better report it back.
+		logger.Errorf("cannot set error status for machine %q: %v", machine, err1)
+		return err1
+	}
+	return nil
+}
+
+func (task *provisionerTask) prepareNetworkAndInterfaces(networkInfo []environs.NetworkInfo) (
+	networks []params.Network, ifaces []params.NetworkInterface) {
+	if len(networkInfo) == 0 {
+		return nil, nil
+	}
+	visitedNetworks := set.NewStrings()
+	for _, info := range networkInfo {
+		networkTag := names.NetworkTag(info.NetworkName)
+		if !visitedNetworks.Contains(info.NetworkId) {
+			networks = append(networks, params.Network{
+				Tag:        networkTag,
+				ProviderId: info.NetworkId,
+				CIDR:       info.CIDR,
+				VLANTag:    info.VLANTag,
+			})
+			visitedNetworks.Add(info.NetworkId)
+		}
+		ifaces = append(ifaces, params.NetworkInterface{
+			InterfaceName: info.InterfaceName,
+			MACAddress:    info.MACAddress,
+			NetworkTag:    networkTag,
+		})
+	}
+	return networks, ifaces
+}
+
 func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error {
 	cons, err := machine.Constraints()
 	if err != nil {
@@ -429,7 +468,7 @@ func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error
 	if err != nil {
 		return err
 	}
-	inst, metadata, _, err := task.broker.StartInstance(environs.StartInstanceParams{
+	inst, metadata, networkInfo, err := task.broker.StartInstance(environs.StartInstanceParams{
 		Constraints:       cons,
 		Tools:             possibleTools,
 		MachineConfig:     machineConfig,
@@ -440,32 +479,25 @@ func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error
 		// Set the state to error, so the machine will be skipped next
 		// time until the error is resolved, but don't return an
 		// error; just keep going with the other machines.
-		logger.Errorf("cannot start instance for machine %q: %v", machine, err)
-		if err1 := machine.SetStatus(params.StatusError, err.Error(), nil); err1 != nil {
-			// Something is wrong with this machine, better report it back.
-			logger.Errorf("cannot set error status for machine %q: %v", machine, err1)
-			return err1
-		}
-		return nil
+		return task.setErrorStatus("cannot start instance for machine %q: %v", machine, err)
 	}
 	nonce := machineConfig.MachineNonce
-	if err := machine.SetProvisioned(inst.Id(), nonce, metadata); err != nil {
-		logger.Errorf("cannot register instance for machine %v: %v", machine, err)
-		// The machine is started, but we can't record the mapping in
-		// state. It'll keep running while we fail out and restart,
-		// but will then be detected by findUnknownInstances and
-		// killed again.
-		//
-		// TODO(dimitern) Stop the instance right away here.
-		//
-		// Multiple instantiations of a given machine (with the same
-		// machine ID) cannot coexist, because findUnknownInstances is
-		// called before startMachines. However, if the first machine
-		// had started to do work before being replaced, we may
-		// encounter surprising problems.
+	networks, ifaces := task.prepareNetworkAndInterfaces(networkInfo)
+
+	err = machine.SetInstanceInfo(inst.Id(), nonce, metadata, networks, ifaces)
+	if err != nil && params.IsCodeNotImplemented(err) {
+		return fmt.Errorf("cannot provision instance %v for machine %q with networks: not implemented")
+	} else if err == nil {
+		logger.Infof("started machine %s as instance %s with hardware %q, networks %v, interfaces %v", machine, inst.Id(), metadata, networks, ifaces)
+		return nil
+	}
+	// We need to stop the instance right away here, set error status and go on.
+	task.setErrorStatus("cannot register instance for machine %v: %v", machine, err)
+	if err := task.broker.StopInstances([]instance.Instance{inst}); err != nil {
+		// We cannot even stop the instance, log the error and quit.
+		logger.Errorf("cannot stop instance %q for machine %v: %v", inst.Id(), machine, err)
 		return err
 	}
-	logger.Infof("started machine %s as instance %s with hardware %q", machine, inst.Id(), metadata)
 	return nil
 }
 
@@ -478,7 +510,7 @@ func (task *provisionerTask) possibleTools(series string, cons constraints.Value
 		return tools.FindInstanceTools(env, agentVersion, series, cons.Arch)
 	}
 	if hasTools, ok := task.broker.(coretools.HasTools); ok {
-		return hasTools.Tools(), nil
+		return hasTools.Tools(series), nil
 	}
 	panic(fmt.Errorf("broker of type %T does not provide any tools", task.broker))
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -234,7 +235,7 @@ func (e *manualEnviron) Destroy() error {
 	script := `
 set -x
 pkill -%d jujud && exit
-stop juju-db
+stop %s
 rm -f /etc/init/juju*
 rm -f /etc/rsyslog.d/*juju*
 rm -fr %s %s
@@ -243,6 +244,7 @@ exit 0
 	script = fmt.Sprintf(
 		script,
 		terminationworker.TerminationSignal,
+		mongo.ServiceName(""),
 		utils.ShQuote(agent.DefaultDataDir),
 		utils.ShQuote(agent.DefaultLogDir),
 	)
@@ -294,18 +296,18 @@ func (e *manualEnviron) SharedStorageDir() string {
 	return ""
 }
 
-func (e *manualEnviron) StorageCACert() []byte {
-	if bytes, ok := e.envConfig().CACert(); ok {
-		return bytes
+func (e *manualEnviron) StorageCACert() string {
+	if cert, ok := e.envConfig().CACert(); ok {
+		return cert
 	}
-	return nil
+	return ""
 }
 
-func (e *manualEnviron) StorageCAKey() []byte {
-	if bytes, ok := e.envConfig().CAPrivateKey(); ok {
-		return bytes
+func (e *manualEnviron) StorageCAKey() string {
+	if key, ok := e.envConfig().CAPrivateKey(); ok {
+		return key
 	}
-	return nil
+	return ""
 }
 
 func (e *manualEnviron) StorageHostnames() []string {

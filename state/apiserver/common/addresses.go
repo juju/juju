@@ -15,7 +15,7 @@ import (
 type AddressAndCertGetter interface {
 	Addresses() ([]string, error)
 	APIAddressesFromMachines() ([]string, error)
-	CACert() []byte
+	CACert() string
 	APIHostPorts() ([][]instance.HostPort, error)
 	WatchAPIHostPorts() state.NotifyWatcher
 }
@@ -58,11 +58,17 @@ func (api *APIAddresser) WatchAPIHostPorts() (params.NotifyWatchResult, error) {
 }
 
 // APIAddresses returns the list of addresses used to connect to the API.
-func (a *APIAddresser) APIAddresses() (params.StringsResult, error) {
-	// TODO(rog) change this to use api.st.APIHostPorts()
-	addrs, err := a.getter.APIAddressesFromMachines()
+func (api *APIAddresser) APIAddresses() (params.StringsResult, error) {
+	apiHostPorts, err := api.getter.APIHostPorts()
 	if err != nil {
 		return params.StringsResult{}, err
+	}
+	var addrs = make([]string, 0, len(apiHostPorts))
+	for _, hostPorts := range apiHostPorts {
+		addr := instance.SelectInternalHostPort(hostPorts, false)
+		if addr != "" {
+			addrs = append(addrs, addr)
+		}
 	}
 	return params.StringsResult{
 		Result: addrs,
@@ -72,7 +78,7 @@ func (a *APIAddresser) APIAddresses() (params.StringsResult, error) {
 // CACert returns the certificate used to validate the state connection.
 func (a *APIAddresser) CACert() params.BytesResult {
 	return params.BytesResult{
-		Result: a.getter.CACert(),
+		Result: []byte(a.getter.CACert()),
 	}
 }
 

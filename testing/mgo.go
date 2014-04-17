@@ -303,7 +303,7 @@ func (inst *MgoInstance) MustDialDirect() *mgo.Session {
 // given addresses.
 func MgoDialInfo(addrs ...string) *mgo.DialInfo {
 	pool := x509.NewCertPool()
-	xcert, err := cert.ParseCert([]byte(CACert))
+	xcert, err := cert.ParseCert(CACert)
 	if err != nil {
 		panic(err)
 	}
@@ -359,11 +359,12 @@ func (inst *MgoInstance) Reset() {
 	log.Infof("Reset successfully reset admin password")
 	for _, name := range dbnames {
 		switch name {
-		case "admin", "local", "config":
-		default:
-			if err := session.DB(name).DropDatabase(); err != nil {
-				panic(fmt.Errorf("Cannot drop MongoDB database %v: %v", name, err))
-			}
+		case "local", "config":
+			// don't delete these
+			continue
+		}
+		if err := session.DB(name).DropDatabase(); err != nil {
+			panic(fmt.Errorf("Cannot drop MongoDB database %v: %v", name, err))
 		}
 	}
 }

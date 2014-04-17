@@ -59,7 +59,7 @@ func (s *serverSuite) TestStop(c *gc.C) {
 		Password: password,
 		Nonce:    "fake_nonce",
 		Addrs:    []string{srv.Addr()},
-		CACert:   []byte(coretesting.CACert),
+		CACert:   coretesting.CACert,
 	}
 	st, err := api.Open(apiInfo, fastDialOpts)
 	c.Assert(err, gc.IsNil)

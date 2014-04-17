@@ -59,7 +59,7 @@ func (s *workerJujuConnSuite) TestPublisherSetsAPIHostPorts(c *gc.C) {
 	cwatch.AssertOneChange()
 	hps, err := s.State.APIHostPorts()
 	c.Assert(err, gc.IsNil)
-	c.Assert(hps, jc.DeepEquals, expectedAPIHostPorts(3))
+	assertAPIHostPorts(c, hps, expectedAPIHostPorts(3))
 }
 
 type workerSuite struct {
@@ -101,12 +101,8 @@ func expectedAPIHostPorts(n int) [][]instance.HostPort {
 	servers := make([][]instance.HostPort, n)
 	for i := range servers {
 		servers[i] = []instance.HostPort{{
-			Address: instance.Address{
-				Value:        fmt.Sprintf("0.1.2.%d", i+10),
-				NetworkScope: instance.NetworkUnknown,
-				Type:         instance.Ipv4Address,
-			},
-			Port: apiPort,
+			Address: instance.NewAddress(fmt.Sprintf("0.1.2.%d", i+10), instance.NetworkUnknown),
+			Port:    apiPort,
 		}}
 	}
 	return servers
@@ -266,19 +262,34 @@ func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
 		count++
 		return errors.New("sample")
 	})
-	s.PatchValue(&retryInterval, 5*time.Millisecond)
+	s.PatchValue(&initialRetryInterval, 10*time.Microsecond)
+	s.PatchValue(&maxRetryInterval, coretesting.ShortWait/4)
+
+	expectedIterations := 0
+	for d := initialRetryInterval; d < maxRetryInterval*2; d *= 2 {
+		expectedIterations++
+	}
+
 	w := newWorker(st, noPublisher{})
 	defer func() {
 		c.Check(worker.Stop(w), gc.IsNil)
 	}()
 	isSetWatcher := isSet.Watch()
-	n0, _ := mustNext(c, isSetWatcher)
-	// The worker should not retry more than every
-	// retryInterval.
-	time.Sleep(retryInterval * 10)
-	n1, _ := mustNext(c, isSetWatcher)
-	c.Assert(n0.(int)-n0.(int), jc.LessThan, 11)
-	c.Assert(n1, jc.GreaterThan, n0)
+
+	n0 := mustNext(c, isSetWatcher).(int)
+	time.Sleep(maxRetryInterval * 2)
+	n1 := mustNext(c, isSetWatcher).(int)
+
+	// The worker should have backed off exponentially...
+	c.Assert(n1-n0, jc.LessThan, expectedIterations+1)
+	c.Logf("actual iterations %d; expected iterations %d", n1-n0, expectedIterations)
+
+	// ... but only up to the maximum retry interval
+	n0 = mustNext(c, isSetWatcher).(int)
+	time.Sleep(maxRetryInterval * 2)
+	n1 = mustNext(c, isSetWatcher).(int)
+
+	c.Assert(n1-n0, jc.LessThan, 3)
 }
 
 type publisherFunc func(apiServers [][]instance.HostPort, instanceIds []instance.Id) error
@@ -302,7 +313,7 @@ func (s *workerSuite) TestStateServersArePublished(c *gc.C) {
 	}()
 	select {
 	case servers := <-publishCh:
-		c.Assert(servers, gc.DeepEquals, expectedAPIHostPorts(3))
+		assertAPIHostPorts(c, servers, expectedAPIHostPorts(3))
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for publish")
 	}
@@ -315,7 +326,7 @@ func (s *workerSuite) TestStateServersArePublished(c *gc.C) {
 	case servers := <-publishCh:
 		expected := expectedAPIHostPorts(3)
 		expected[0] = newMachine10APIHostPorts
-		c.Assert(servers, jc.DeepEquals, expected)
+		assertAPIHostPorts(c, servers, expected)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for publish")
 	}
@@ -323,7 +334,8 @@ func (s *workerSuite) TestStateServersArePublished(c *gc.C) {
 
 func (s *workerSuite) TestWorkerRetriesOnPublishError(c *gc.C) {
 	s.PatchValue(&pollInterval, coretesting.LongWait+time.Second)
-	s.PatchValue(&retryInterval, 5*time.Millisecond)
+	s.PatchValue(&initialRetryInterval, 5*time.Millisecond)
+	s.PatchValue(&maxRetryInterval, initialRetryInterval)
 
 	publishCh := make(chan [][]instance.HostPort, 100)
 
@@ -347,7 +359,7 @@ func (s *workerSuite) TestWorkerRetriesOnPublishError(c *gc.C) {
 	for i := 0; i < 4; i++ {
 		select {
 		case servers := <-publishCh:
-			c.Assert(servers, jc.DeepEquals, expectedAPIHostPorts(3))
+			assertAPIHostPorts(c, servers, expectedAPIHostPorts(3))
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out waiting for publish #%d", i)
 		}
@@ -361,7 +373,8 @@ func (s *workerSuite) TestWorkerRetriesOnPublishError(c *gc.C) {
 
 func (s *workerSuite) TestWorkerPublishesInstanceIds(c *gc.C) {
 	s.PatchValue(&pollInterval, coretesting.LongWait+time.Second)
-	s.PatchValue(&retryInterval, 5*time.Millisecond)
+	s.PatchValue(&initialRetryInterval, 5*time.Millisecond)
+	s.PatchValue(&maxRetryInterval, initialRetryInterval)
 
 	publishCh := make(chan []instance.Id, 100)
 
@@ -385,17 +398,19 @@ func (s *workerSuite) TestWorkerPublishesInstanceIds(c *gc.C) {
 	}
 }
 
-func mustNext(c *gc.C, w *voyeur.Watcher) (val interface{}, ok bool) {
-	done := make(chan struct{})
+// mustNext waits for w's value to be set and returns it.
+func mustNext(c *gc.C, w *voyeur.Watcher) (val interface{}) {
+	done := make(chan bool)
 	go func() {
 		c.Logf("mustNext %p", w)
-		ok = w.Next()
+		ok := w.Next()
 		val = w.Value()
 		c.Logf("mustNext done %p, ok %v", w, ok)
-		done <- struct{}{}
+		done <- ok
 	}()
 	select {
-	case <-done:
+	case ok := <-done:
+		c.Assert(ok, jc.IsTrue)
 		return
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for value to be set")

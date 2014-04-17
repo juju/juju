@@ -259,7 +259,7 @@ func apiInfoConnect(store configstore.Storage, info configstore.EnvironInfo, api
 	logger.Infof("connecting to API addresses: %v", endpoint.Addresses)
 	apiInfo := &api.Info{
 		Addrs:    endpoint.Addresses,
-		CACert:   []byte(endpoint.CACert),
+		CACert:   endpoint.CACert,
 		Tag:      names.UserTag(info.APICredentials().User),
 		Password: info.APICredentials().Password,
 	}

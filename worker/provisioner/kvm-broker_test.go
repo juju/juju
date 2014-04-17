@@ -72,7 +72,7 @@ func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 			Password:          "dummy-secret",
 			Nonce:             "nonce",
 			APIAddresses:      []string{"10.0.0.1:1234"},
-			CACert:            []byte(coretesting.CACert),
+			CACert:            coretesting.CACert,
 		})
 	c.Assert(err, gc.IsNil)
 	s.broker, err = provisioner.NewKvmBroker(&fakeAPI{}, tools, s.agentConfig)
@@ -85,7 +85,7 @@ func (s *kvmBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	machineConfig := environs.NewMachineConfig(machineId, machineNonce, nil, nil, stateInfo, apiInfo)
 	cons := constraints.Value{}
-	possibleTools := s.broker.(coretools.HasTools).Tools()
+	possibleTools := s.broker.(coretools.HasTools).Tools("precise")
 	kvm, _, _, err := s.broker.StartInstance(environs.StartInstanceParams{
 		Constraints:   cons,
 		Tools:         possibleTools,
@@ -165,6 +165,14 @@ func (s *kvmProvisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = m.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
 	c.Assert(err, gc.IsNil)
+
+	hostPorts := [][]instance.HostPort{{{
+		Address: instance.NewAddress("0.1.2.3", instance.NetworkUnknown),
+		Port:    1234,
+	}}}
+	err = s.State.SetAPIHostPorts(hostPorts)
+	c.Assert(err, gc.IsNil)
+
 	s.machineId = m.Id()
 	s.APILogin(c, m)
 	err = m.SetAgentVersion(version.Current)

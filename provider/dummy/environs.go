@@ -89,7 +89,7 @@ func stateInfo() *state.Info {
 	}
 	return &state.Info{
 		Addrs:  []string{testing.MgoServer.Addr()},
-		CACert: []byte(testing.CACert),
+		CACert: testing.CACert,
 	}
 }
 
@@ -653,7 +653,7 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 	}
 	return stateInfo(), &api.Info{
 		Addrs:  []string{estate.apiServer.Addr()},
-		CACert: []byte(testing.CACert),
+		CACert: testing.CACert,
 	}, nil
 }
 
@@ -728,14 +728,18 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	}
 	logger.Infof("would pick tools from %s", args.Tools)
 	series := args.Tools.OneSeries()
+
+	idString := fmt.Sprintf("%s-%d", e.name, estate.maxId)
 	i := &dummyInstance{
-		id:           instance.Id(fmt.Sprintf("%s-%d", e.name, estate.maxId)),
+		id:           instance.Id(idString),
+		addresses:    instance.NewAddresses(idString + ".dns"),
 		ports:        make(map[instance.Port]bool),
 		machineId:    machineId,
 		series:       series,
 		firewallMode: e.Config().FirewallMode(),
 		state:        estate,
 	}
+
 	var hc *instance.HardwareCharacteristics
 	// To match current system capability, only provide hardware characteristics for
 	// environ machines, not containers.
@@ -768,6 +772,27 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 			hc.CpuCores = &cores
 		}
 	}
+	// Simulate networks added when requested.
+	networkInfo := make([]environs.NetworkInfo, len(args.MachineConfig.IncludeNetworks))
+	for i, network := range args.MachineConfig.IncludeNetworks {
+		if strings.HasPrefix(network, "bad-") {
+			// Simulate we didn't get correct information for the network.
+			networkInfo[i] = environs.NetworkInfo{
+				NetworkId:   network,
+				NetworkName: network,
+				CIDR:        "invalid",
+			}
+		} else {
+			networkInfo[i] = environs.NetworkInfo{
+				NetworkId:     network,
+				NetworkName:   network,
+				CIDR:          fmt.Sprintf("0.%d.2.0/24", i+1),
+				InterfaceName: fmt.Sprintf("eth%d", i),
+				VLANTag:       i,
+				MACAddress:    fmt.Sprintf("aa:bb:cc:dd:ee:f%d", i),
+			}
+		}
+	}
 	estate.insts[i.id] = i
 	estate.maxId++
 	estate.ops <- OpStartInstance{
@@ -777,13 +802,13 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		Constraints:     args.Constraints,
 		IncludeNetworks: args.MachineConfig.IncludeNetworks,
 		ExcludeNetworks: args.MachineConfig.ExcludeNetworks,
-		NetworkInfo:     nil,
+		NetworkInfo:     networkInfo,
 		Instance:        i,
 		Info:            args.MachineConfig.StateInfo,
 		APIInfo:         args.MachineConfig.APIInfo,
 		Secret:          e.ecfg().secret(),
 	}
-	return i, hc, nil, nil
+	return i, hc, networkInfo, nil
 }
 
 func (e *environ) StopInstances(is []instance.Instance) error {
@@ -950,7 +975,12 @@ func SetInstanceStatus(inst instance.Instance, status string) {
 
 func (inst *dummyInstance) DNSName() (string, error) {
 	defer delay()
-	return string(inst.id) + ".dns", nil
+	inst.mu.Lock()
+	defer inst.mu.Unlock()
+	if len(inst.addresses) == 0 {
+		return "", instance.ErrNoDNSName
+	}
+	return inst.addresses[0].String(), nil
 }
 
 func (*dummyInstance) Refresh() error {

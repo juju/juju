@@ -275,7 +275,7 @@ func mkMachines(description string) []*machine {
 }
 
 func memberTag(id string) map[string]string {
-	return map[string]string{"juju-machine-id": id}
+	return map[string]string{jujuMachineTag: id}
 }
 
 // mkMembers returns a slice of *replicaset.Member
@@ -416,3 +416,32 @@ type membersById []replicaset.Member
 func (l membersById) Len() int           { return len(l) }
 func (l membersById) Swap(i, j int)      { l[i], l[j] = l[j], l[i] }
 func (l membersById) Less(i, j int) bool { return l[i].Id < l[j].Id }
+
+// assertAPIHostPorts asserts of two sets of instance.HostPort slices are the same.
+func assertAPIHostPorts(c *gc.C, got, want [][]instance.HostPort) {
+	c.Assert(got, gc.HasLen, len(want))
+	sort.Sort(hostPortSliceByHostPort(got))
+	sort.Sort(hostPortSliceByHostPort(want))
+	c.Assert(got, gc.DeepEquals, want)
+}
+
+type hostPortSliceByHostPort [][]instance.HostPort
+
+func (h hostPortSliceByHostPort) Len() int      { return len(h) }
+func (h hostPortSliceByHostPort) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
+func (h hostPortSliceByHostPort) Less(i, j int) bool {
+	a, b := h[i], h[j]
+	if len(a) != len(b) {
+		return len(a) < len(b)
+	}
+	for i := range a {
+		av, bv := a[i], b[i]
+		if av.Value != bv.Value {
+			return av.Value < bv.Value
+		}
+		if av.Port != bv.Port {
+			return av.Port < bv.Port
+		}
+	}
+	return false
+}

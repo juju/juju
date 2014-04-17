@@ -4,6 +4,7 @@
 package agent_test
 
 import (
+	"fmt"
 	"reflect"
 
 	jc "github.com/juju/testing/checkers"
@@ -69,7 +70,7 @@ var agentConfigTests = []struct {
 		Tag:               "omg",
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
-		CACert:            []byte("ca cert"),
+		CACert:            "ca cert",
 	},
 	checkErr: "state or API addresses not found in configuration",
 }, {
@@ -79,7 +80,7 @@ var agentConfigTests = []struct {
 		Tag:               "omg",
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
-		CACert:            []byte("ca cert"),
+		CACert:            "ca cert",
 		StateAddresses:    []string{"localhost:8080", "bad-address"},
 	},
 	checkErr: `invalid state server address "bad-address"`,
@@ -90,7 +91,7 @@ var agentConfigTests = []struct {
 		Tag:               "omg",
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
-		CACert:            []byte("ca cert"),
+		CACert:            "ca cert",
 		APIAddresses:      []string{"localhost:8080", "bad-address"},
 	},
 	checkErr: `invalid API server address "bad-address"`,
@@ -101,7 +102,7 @@ var agentConfigTests = []struct {
 		Tag:               "omg",
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
-		CACert:            []byte("ca cert"),
+		CACert:            "ca cert",
 		StateAddresses:    []string{"localhost:1234"},
 	},
 }, {
@@ -111,7 +112,7 @@ var agentConfigTests = []struct {
 		Tag:               "omg",
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
-		CACert:            []byte("ca cert"),
+		CACert:            "ca cert",
 		APIAddresses:      []string{"localhost:1234"},
 	},
 }, {
@@ -121,7 +122,7 @@ var agentConfigTests = []struct {
 		Tag:               "omg",
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
-		CACert:            []byte("ca cert"),
+		CACert:            "ca cert",
 		StateAddresses:    []string{"localhost:1234"},
 		APIAddresses:      []string{"localhost:1235"},
 	},
@@ -132,7 +133,7 @@ var agentConfigTests = []struct {
 		Tag:               "omg",
 		Password:          "sekrit",
 		UpgradedToVersion: version.Current.Number,
-		CACert:            []byte("ca cert"),
+		CACert:            "ca cert",
 		StateAddresses:    []string{"localhost:1234"},
 		APIAddresses:      []string{"localhost:1235"},
 		Nonce:             "a nonce",
@@ -144,7 +145,7 @@ var agentConfigTests = []struct {
 		Tag:               "omg",
 		Password:          "sekrit",
 		UpgradedToVersion: version.Current.Number,
-		CACert:            []byte("ca cert"),
+		CACert:            "ca cert",
 		StateAddresses:    []string{"localhost:1234"},
 		APIAddresses:      []string{"localhost:1235"},
 		Nonce:             "a nonce",
@@ -179,7 +180,7 @@ func (*suite) TestMigrate(c *gc.C) {
 			params.JobManageEnviron,
 			params.JobHostUnits,
 		},
-		CACert:         []byte("ca cert"),
+		CACert:         "ca cert",
 		StateAddresses: []string{"localhost:1234"},
 		APIAddresses:   []string{"localhost:4321"},
 		Values: map[string]string{
@@ -357,7 +358,7 @@ var attributeParams = agent.AgentConfigParams{
 	Tag:               "omg",
 	UpgradedToVersion: version.Current.Number,
 	Password:          "sekrit",
-	CACert:            []byte("ca cert"),
+	CACert:            "ca cert",
 	StateAddresses:    []string{"localhost:1234"},
 	APIAddresses:      []string{"localhost:1235"},
 	Nonce:             "a nonce",
@@ -434,25 +435,35 @@ func (*suite) TestWriteAndRead(c *gc.C) {
 }
 
 func (*suite) TestSetPassword(c *gc.C) {
-	params := attributeParams
-	conf, err := agent.NewAgentConfig(attributeParams)
+	attrParams := attributeParams
+	servingInfo := params.StateServingInfo{
+		Cert:         "old cert",
+		PrivateKey:   "old key",
+		StatePort:    69,
+		APIPort:      47,
+		SharedSecret: "shared",
+	}
+	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
 	c.Assert(err, gc.IsNil)
 
 	expectAPIInfo := &api.Info{
-		Addrs:    params.APIAddresses,
-		CACert:   params.CACert,
-		Tag:      params.Tag,
+		Addrs:    attrParams.APIAddresses,
+		CACert:   attrParams.CACert,
+		Tag:      attrParams.Tag,
 		Password: "",
-		Nonce:    params.Nonce,
+		Nonce:    attrParams.Nonce,
 	}
 	c.Assert(conf.APIInfo(), jc.DeepEquals, expectAPIInfo)
+	addr := fmt.Sprintf("127.0.0.1:%d", servingInfo.StatePort)
 	expectStateInfo := &state.Info{
-		Addrs:    params.StateAddresses,
-		CACert:   params.CACert,
-		Tag:      params.Tag,
+		Addrs:    []string{addr},
+		CACert:   attrParams.CACert,
+		Tag:      attrParams.Tag,
 		Password: "",
 	}
-	c.Assert(conf.StateInfo(), jc.DeepEquals, expectStateInfo)
+	info, ok := conf.StateInfo()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(info, jc.DeepEquals, expectStateInfo)
 
 	conf.SetPassword("newpassword")
 
@@ -460,7 +471,9 @@ func (*suite) TestSetPassword(c *gc.C) {
 	expectStateInfo.Password = "newpassword"
 
 	c.Assert(conf.APIInfo(), jc.DeepEquals, expectAPIInfo)
-	c.Assert(conf.StateInfo(), jc.DeepEquals, expectStateInfo)
+	info, ok = conf.StateInfo()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(info, jc.DeepEquals, expectStateInfo)
 }
 
 func (*suite) TestSetOldPassword(c *gc.C) {

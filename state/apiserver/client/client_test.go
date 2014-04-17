@@ -27,8 +27,9 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/api/usermanager"
 	"launchpad.net/juju-core/state/apiserver/client"
-	"launchpad.net/juju-core/state/statecmd"
+	"launchpad.net/juju-core/state/presence"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -685,8 +686,17 @@ func (s *clientSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
 	defer restore()
 	curl, bundle := addCharm(c, store, "dummy")
 	mem4g := constraints.MustParse("mem=4G")
+
+	// Check for invalid network tags handling.
 	err := s.APIState.Client().ServiceDeployWithNetworks(
-		curl.String(), "service", 3, "", mem4g, "", []string{"net1", "net2"}, []string{"net3"},
+		curl.String(), "service", 3, "", mem4g, "",
+		[]string{"net1", "net2"}, []string{"net3"},
+	)
+	c.Assert(err, gc.ErrorMatches, `"net1" is not a valid network tag`)
+
+	err = s.APIState.Client().ServiceDeployWithNetworks(
+		curl.String(), "service", 3, "", mem4g, "",
+		[]string{"network-net1", "network-net2"}, []string{"network-net3"},
 	)
 	c.Assert(err, gc.IsNil)
 	service := s.assertPrincipalDeployed(c, "service", curl, false, bundle, mem4g)
@@ -817,6 +827,26 @@ func (s *clientSuite) TestClientServiceDeployToMachine(c *gc.C) {
 	mid, err := units[0].AssignedMachineId()
 	c.Assert(err, gc.IsNil)
 	c.Assert(mid, gc.Equals, machine.Id())
+}
+
+func (s *clientSuite) TestClientServiceDeployServiceOwner(c *gc.C) {
+	store, restore := makeMockCharmStore()
+	defer restore()
+	curl, _ := addCharm(c, store, "dummy")
+
+	usermanager := usermanager.NewClient(s.APIState)
+	err := usermanager.AddUser("foobar", "password")
+	c.Assert(err, gc.IsNil)
+	s.APIState = s.OpenAPIAs(c, "user-foobar", "password")
+
+	err = s.APIState.Client().ServiceDeploy(
+		curl.String(), "service", 3, "", constraints.Value{}, "",
+	)
+	c.Assert(err, gc.IsNil)
+
+	service, err := s.State.Service("service")
+	c.Assert(err, gc.IsNil)
+	c.Assert(service.GetOwnerTag(), gc.Equals, "user-foobar")
 }
 
 func (s *clientSuite) deployServiceForTests(c *gc.C, store *coretesting.MockCharmStore) {
@@ -1836,7 +1866,7 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 		Nonce:     apiParams.Nonce,
 	})
 	c.Assert(err, gc.IsNil)
-	mcfg, err := statecmd.MachineConfig(s.State, machineId, apiParams.Nonce, "")
+	mcfg, err := client.MachineConfig(s.State, machineId, apiParams.Nonce, "")
 	c.Assert(err, gc.IsNil)
 	sshinitScript, err := manual.ProvisioningScript(mcfg)
 	c.Assert(err, gc.IsNil)
@@ -2148,17 +2178,24 @@ func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
 	c.Assert(data["transient"], gc.Equals, true)
 }
 
+func (s *clientSuite) setAgentAlive(c *gc.C, machineId string) *presence.Pinger {
+	m, err := s.BackingState.Machine(machineId)
+	c.Assert(err, gc.IsNil)
+	pinger, err := m.SetAgentAlive()
+	c.Assert(err, gc.IsNil)
+	s.BackingState.StartSync()
+	err = m.WaitAgentAlive(coretesting.LongWait)
+	c.Assert(err, gc.IsNil)
+	return pinger
+}
+
 func (s *clientSuite) TestClientEnsureAvailabilitySeries(c *gc.C) {
-	apiParams := []params.EnsureAvailability{{
-		NumStateServers: 1,
-	}, {
-		NumStateServers: 3,
-		Series:          "non-default",
-	}}
-	for _, p := range apiParams {
-		err := s.APIState.Client().EnsureAvailability(p.NumStateServers, p.Constraints, p.Series)
-		c.Assert(err, gc.IsNil)
-	}
+	err := s.APIState.Client().EnsureAvailability(1, constraints.Value{}, "")
+	c.Assert(err, gc.IsNil)
+	pinger := s.setAgentAlive(c, "0")
+	defer pinger.Kill()
+	err = s.APIState.Client().EnsureAvailability(3, constraints.Value{}, "non-default")
+	c.Assert(err, gc.IsNil)
 	machines, err := s.State.AllMachines()
 	c.Assert(err, gc.IsNil)
 	c.Assert(machines, gc.HasLen, 3)
@@ -2168,16 +2205,12 @@ func (s *clientSuite) TestClientEnsureAvailabilitySeries(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientEnsureAvailabilityConstraints(c *gc.C) {
-	apiParams := []params.EnsureAvailability{{
-		NumStateServers: 1,
-	}, {
-		NumStateServers: 3,
-		Constraints:     constraints.MustParse("mem=4G"),
-	}}
-	for _, p := range apiParams {
-		err := s.APIState.Client().EnsureAvailability(p.NumStateServers, p.Constraints, p.Series)
-		c.Assert(err, gc.IsNil)
-	}
+	err := s.APIState.Client().EnsureAvailability(1, constraints.Value{}, "")
+	c.Assert(err, gc.IsNil)
+	pinger := s.setAgentAlive(c, "0")
+	defer pinger.Kill()
+	err = s.APIState.Client().EnsureAvailability(3, constraints.MustParse("mem=4G"), "")
+	c.Assert(err, gc.IsNil)
 	machines, err := s.State.AllMachines()
 	c.Assert(err, gc.IsNil)
 	c.Assert(machines, gc.HasLen, 3)
@@ -2235,4 +2268,12 @@ func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
 	apiHostPorts, err = s.APIState.Client().APIHostPorts()
 	c.Assert(err, gc.IsNil)
 	c.Assert(apiHostPorts, gc.DeepEquals, stateAPIHostPorts)
+}
+
+func (s *clientSuite) TestClientAgentVersion(c *gc.C) {
+	current := version.MustParse("1.2.0")
+	s.PatchValue(&version.Current.Number, current)
+	result, err := s.APIState.Client().AgentVersion()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.Equals, current)
 }

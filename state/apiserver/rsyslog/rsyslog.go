@@ -36,7 +36,7 @@ func (api *RsyslogAPI) SetRsyslogCert(args params.SetRsyslogCertParams) (params.
 		result.Error = common.ServerError(common.ErrBadCreds)
 		return result, nil
 	}
-	if _, err := cert.ParseCert(args.CACert); err != nil {
+	if _, err := cert.ParseCert(string(args.CACert)); err != nil {
 		result.Error = common.ServerError(err)
 		return result, nil
 	}

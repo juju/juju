@@ -28,10 +28,6 @@ var logger = loggo.GetLogger("juju.state.api")
 // will run. It's a variable so it can be changed in tests.
 var PingPeriod = 1 * time.Minute
 
-// maxParallelDial defines the maximum number addresses to dial in
-// parallel.
-const maxParallelDial = 7
-
 type State struct {
 	client *rpc.Conn
 	conn   *websocket.Conn
@@ -56,6 +52,10 @@ type State struct {
 	// serverRoot holds the cached API server address and port we used
 	// to login, with a https:// prefix.
 	serverRoot string
+
+	// certPool holds the cert pool that is used to authenticate the tls
+	// connections to the API.
+	certPool *x509.CertPool
 }
 
 // Info encapsulates information about a server holding juju state and
@@ -66,7 +66,7 @@ type Info struct {
 
 	// CACert holds the CA certificate that will be used
 	// to validate the state server's certificate, in PEM format.
-	CACert []byte
+	CACert string
 
 	// Tag holds the name of the entity that is connecting.
 	// If this and the password are empty, no login attempt will be made
@@ -109,6 +109,9 @@ func DefaultDialOpts() DialOpts {
 }
 
 func Open(info *Info, opts DialOpts) (*State, error) {
+	if len(info.Addrs) == 0 {
+		return nil, fmt.Errorf("no API addresses to connect to")
+	}
 	pool := x509.NewCertPool()
 	xcert, err := cert.ParseCert(info.CACert)
 	if err != nil {
@@ -116,8 +119,8 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	}
 	pool.AddCert(xcert)
 
-	// Dial all addresses, with up to maxParallelDial in parallel.
-	try := parallel.NewTry(maxParallelDial, nil)
+	// Dial all addresses
+	try := parallel.NewTry(0, nil)
 	defer try.Kill()
 	for _, addr := range info.Addrs {
 		err := dialWebsocket(addr, opts, pool, try)
@@ -149,6 +152,7 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 		serverRoot: "https://" + conn.Config().Location.Host,
 		tag:        info.Tag,
 		password:   info.Password,
+		certPool:   pool,
 	}
 	if info.Tag != "" || info.Password != "" {
 		if err := st.Login(info.Tag, info.Password, info.Nonce); err != nil {

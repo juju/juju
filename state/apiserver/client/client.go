@@ -25,9 +25,9 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
-	"launchpad.net/juju-core/state/statecmd"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 )
 
 var logger = loggo.GetLogger("juju.state.apiserver.client")
@@ -237,6 +237,18 @@ func (c *Client) ServiceUnexpose(args params.ServiceUnexpose) error {
 
 var CharmStore charm.Repository = charm.Store
 
+func networkTagsToNames(tags []string) ([]string, error) {
+	netNames := make([]string, len(tags))
+	for i, tag := range tags {
+		_, name, err := names.ParseTag(tag, names.NetworkTagKind)
+		if err != nil {
+			return nil, err
+		}
+		netNames[i] = name
+	}
+	return netNames, nil
+}
+
 // ServiceDeploy fetches the charm from the charm store and deploys it.
 // AddCharm or AddLocalCharm should be called to add the charm
 // before calling ServiceDeploy, although for backward compatibility
@@ -279,24 +291,35 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 	if err != nil {
 		return err
 	}
+	// Convert network tags to names for any given networks.
+	includeNetworks, err := networkTagsToNames(args.IncludeNetworks)
+	if err != nil {
+		return err
+	}
+	excludeNetworks, err := networkTagsToNames(args.ExcludeNetworks)
+	if err != nil {
+		return err
+	}
 
 	_, err = juju.DeployService(c.api.state,
 		juju.DeployServiceParams{
 			ServiceName:     args.ServiceName,
+			ServiceOwner:    c.api.auth.GetAuthTag(),
 			Charm:           ch,
 			NumUnits:        args.NumUnits,
 			ConfigSettings:  settings,
 			Constraints:     args.Constraints,
 			ToMachineSpec:   args.ToMachineSpec,
-			IncludeNetworks: args.IncludeNetworks,
-			ExcludeNetworks: args.ExcludeNetworks,
+			IncludeNetworks: includeNetworks,
+			ExcludeNetworks: excludeNetworks,
 		})
 	return err
 }
 
 // ServiceDeployWithNetworks works exactly like ServiceDeploy, but
 // allows specifying networks to include or exclude on the machine
-// where the charm gets deployed.
+// where the charm gets deployed. Each given network to
+// include/exclude needs to be specified using its network tag.
 func (c *Client) ServiceDeployWithNetworks(args params.ServiceDeploy) error {
 	return c.ServiceDeploy(args)
 }
@@ -664,7 +687,7 @@ func stateJobs(jobs []params.MachineJob) ([]state.MachineJob, error) {
 // provisions a machine agent on the machine executing the script.
 func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (params.ProvisioningScriptResult, error) {
 	var result params.ProvisioningScriptResult
-	mcfg, err := statecmd.MachineConfig(c.api.state, args.MachineId, args.Nonce, args.DataDir)
+	mcfg, err := MachineConfig(c.api.state, args.MachineId, args.Nonce, args.DataDir)
 	if err != nil {
 		return result, err
 	}
@@ -803,6 +826,11 @@ func parseSettingsCompatible(ch *state.Charm, settings map[string]string) (charm
 		changes[name] = nil
 	}
 	return changes, nil
+}
+
+// AgentVersion returns the current version that the API server is running.
+func (c *Client) AgentVersion() (params.AgentVersionResult, error) {
+	return params.AgentVersionResult{Version: version.Current.Number}, nil
 }
 
 // EnvironmentGet implements the server-side part of the

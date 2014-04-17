@@ -41,7 +41,7 @@ var maxLinesReached = fmt.Errorf("max lines reached")
 //      - as with include, it may finish with a '*'
 //   excludeModule -> []string - lists logging modules to exclude from the response
 //   limit -> uint - show *at most* this many lines
-//   backtrack -> uint
+//   backlog -> uint
 //      - go back this many lines from the end before starting to filter
 //      - has no meaning if 'replay' is true
 //   level -> string one of [TRACE, DEBUG, INFO, WARNING, ERROR]
@@ -70,6 +70,11 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				return
 			}
 			defer logFile.Close()
+			if err := stream.positionLogFile(logFile); err != nil {
+				h.sendError(socket, fmt.Errorf("cannot position log file: %v", err))
+				socket.Close()
+				return
+			}
 
 			// If we get to here, no more errors to report, so we report a nil
 			// error.  This way the first line of the socket is always a json
@@ -211,14 +216,20 @@ type logStream struct {
 	fromTheStart  bool
 }
 
+// positionLogFile will update the internal read position of the logFile to be
+// at the end of the file or somewhere in the middle if backlog has been specified.
+func (stream *logStream) positionLogFile(logFile io.ReadSeeker) error {
+	// Seek to the end, or lines back from the end if we need to.
+	if !stream.fromTheStart {
+		return tailer.SeekLastLines(logFile, stream.backlog, stream.filterLine)
+	}
+	return nil
+}
+
 // start the tailer listening to the logFile, and sending the matching
 // lines to the writer.
 func (stream *logStream) start(logFile io.ReadSeeker, writer io.Writer) {
-	if stream.fromTheStart {
-		stream.logTailer = tailer.NewTailer(logFile, writer, stream.filterLine)
-	} else {
-		stream.logTailer = tailer.NewTailerBacktrack(logFile, writer, stream.backlog, stream.filterLine)
-	}
+	stream.logTailer = tailer.NewTailer(logFile, writer, stream.countedFilterLine)
 }
 
 // loop starts the tailer with the log file and the web socket.
@@ -235,10 +246,17 @@ func (stream *logStream) loop() error {
 // filterLine checks the received line for one of the confgured tags.
 func (stream *logStream) filterLine(line []byte) bool {
 	log := parseLogLine(string(line))
-	result := stream.checkIncludeEntity(log) &&
+	return stream.checkIncludeEntity(log) &&
 		stream.checkIncludeModule(log) &&
 		!stream.exclude(log) &&
 		stream.checkLevel(log)
+}
+
+// countedFilterLine checks the received line for one of the confgured tags,
+// and also checks to make sure the stream doesn't send more than the
+// specified number of lines.
+func (stream *logStream) countedFilterLine(line []byte) bool {
+	result := stream.filterLine(line)
 	if result && stream.maxLines > 0 {
 		stream.lineCount++
 		result = stream.lineCount <= stream.maxLines

@@ -39,8 +39,7 @@ type DeployCommand struct {
 
 const deployDoc = `
 <charm name> can be a charm URL, or an unambiguously condensed form of it;
-assuming a current default series of "precise", the following forms will be
-accepted.
+assuming a current series of "precise", the following forms will be accepted:
 
 For cs:precise/mysql
   mysql
@@ -49,11 +48,15 @@ For cs:precise/mysql
 For cs:~user/precise/mysql
   cs:~user/mysql
 
-For local:precise/mysql
-  local:mysql
+The current series is determined first by the default-series environment
+setting, followed by the preferred series for the charm in the charm store.
 
-In all cases, a versioned charm URL will be expanded as expected (for example,
+In these cases, a versioned charm URL will be expanded as expected (for example,
 mysql-33 becomes cs:precise/mysql-33).
+
+However, for local charms, when the default-series is not specified in the
+environment, one must specify the series. For example:
+  local:precise/mysql
 
 <service name>, if omitted, will be derived from <charm name>.
 
@@ -103,7 +106,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.BumpRevision, "u", false, "increment local charm directory revision (DEPRECATED)")
 	f.BoolVar(&c.BumpRevision, "upgrade", false, "")
 	f.Var(&c.Config, "config", "path to yaml-formatted service config")
-	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "set service constraints")
+	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set service constraints")
 	f.StringVar(&c.Networks, "networks", "", "enable networks for service")
 	f.StringVar(&c.ExcludeNetworks, "exclude-networks", "", "disable networks for service")
 	f.StringVar(&c.RepoPath, "repository", os.Getenv(osenv.JujuRepositoryEnvKey), "local charm repository")
@@ -278,7 +281,7 @@ func addCharmViaAPI(client *api.Client, ctx *cmd.Context, curl *charm.URL, repo 
 	return curl, nil
 }
 
-// parseNetworks returns a list of networks by parsing the
+// parseNetworks returns a list of network tags by parsing the
 // comma-delimited string value of --networks or --exclude-networks
 // arguments.
 func parseNetworks(networksValue string) (networks []string) {
@@ -286,7 +289,7 @@ func parseNetworks(networksValue string) (networks []string) {
 	for _, part := range parts {
 		network := strings.TrimSpace(part)
 		if network != "" {
-			networks = append(networks, network)
+			networks = append(networks, names.NetworkTag(network))
 		}
 	}
 	return networks

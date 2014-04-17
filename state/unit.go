@@ -481,6 +481,27 @@ func (u *Unit) SubordinateNames() []string {
 	return names
 }
 
+// JoinedRelations returns the relations for which the unit is in scope.
+func (u *Unit) JoinedRelations() ([]*Relation, error) {
+	candidates, err := serviceRelations(u.st, u.doc.Service)
+	if err != nil {
+		return nil, err
+	}
+	var joinedRelations []*Relation
+	for _, relation := range candidates {
+		relationUnit, err := relation.Unit(u)
+		if err != nil {
+			return nil, err
+		}
+		if inScope, err := relationUnit.InScope(); err != nil {
+			return nil, err
+		} else if inScope {
+			joinedRelations = append(joinedRelations, relation)
+		}
+	}
+	return joinedRelations, nil
+}
+
 // DeployerTag returns the tag of the agent responsible for deploying
 // the unit. If no such entity can be determined, false is returned.
 func (u *Unit) DeployerTag() (string, bool) {

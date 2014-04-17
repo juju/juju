@@ -18,6 +18,7 @@ import (
 	"github.com/errgo/errgo"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/mongo"
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/cloudinit/sshinit"
 	"launchpad.net/juju-core/constraints"
@@ -97,10 +98,6 @@ func (env *localEnviron) Name() string {
 	return env.name
 }
 
-func (env *localEnviron) mongoServiceName() string {
-	return "juju-db-" + env.config.namespace()
-}
-
 func (env *localEnviron) machineAgentServiceName() string {
 	return "juju-agent-" + env.config.namespace()
 }
@@ -158,7 +155,6 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 	mcfg.CloudInitOutputLog = filepath.Join(mcfg.DataDir, "cloud-init-output.log")
 	mcfg.DisablePackageCommands = true
 	mcfg.MachineAgentServiceName = env.machineAgentServiceName()
-	mcfg.MongoServiceName = env.mongoServiceName()
 	mcfg.AgentEnvironment = map[string]string{
 		agent.Namespace:   env.config.namespace(),
 		agent.StorageDir:  env.config.storageDir(),
@@ -458,11 +454,19 @@ func (env *localEnviron) Destroy() error {
 	}
 	// Stop the mongo database and machine agent. It's possible that the
 	// service doesn't exist or is not running, so don't check the error.
-	upstart.NewService(env.mongoServiceName()).StopAndRemove()
+	mongo.RemoveService(env.config.namespace())
 	upstart.NewService(env.machineAgentServiceName()).StopAndRemove()
 
 	// Finally, remove the data-dir.
 	if err := os.RemoveAll(env.config.rootDir()); err != nil && !os.IsNotExist(err) {
+		// Before we return the error, just check to see if the directory is
+		// there. There is a race condition with the agent with the removing
+		// of the directory, and due to a bug
+		// (https://code.google.com/p/go/issues/detail?id=7776) the
+		// os.IsNotExist error isn't always returned.
+		if _, statErr := os.Stat(env.config.rootDir()); os.IsNotExist(statErr) {
+			return nil
+		}
 		return err
 	}
 	return nil

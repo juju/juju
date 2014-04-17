@@ -333,7 +333,7 @@ func (suite *environSuite) getInstance(systemId string) *maasInstance {
 }
 
 func (suite *environSuite) getNetwork(name string) *gomaasapi.MAASObject {
-	input := fmt.Sprintf(`{"name": %q, "ip":"127.0.0.1", "netmask": "255.255.255.0", "vlan_tag": "1", "description": "" }`, name)
+	input := fmt.Sprintf(`{"name": %q, "ip":"127.0.0.1", "netmask": "255.255.255.0", "vlan_tag": 1, "description": "" }`, name)
 	network := suite.testMAASObject.TestServer.NewNetwork(input)
 	return &network
 }
@@ -527,13 +527,15 @@ func (suite *environSuite) TestSupportedArchitectures(c *gc.C) {
 	c.Assert(a, gc.DeepEquals, []string{"amd64"})
 }
 
-func (suite *environSuite) TestGetNetworksList(c *gc.C) {
+func (suite *environSuite) TestGetInstanceNetworks(c *gc.C) {
 	suite.getNetwork("test_network")
 	test_instance := suite.getInstance("instance_for_network")
 	suite.testMAASObject.TestServer.ConnectNodeToNetwork("instance_for_network", "test_network")
-	networks, err := suite.makeEnviron().GetNetworksList(test_instance)
+	networks, err := suite.makeEnviron().getInstanceNetworks(test_instance)
 	c.Assert(err, gc.IsNil)
-	c.Check(networks, gc.DeepEquals, []MAASNetworkDetails{{Name: "test_network", Ip: "127.0.0.1", NetworkMask: "255.255.255.0", VlanTag: "1", Description: ""}})
+	c.Check(networks, gc.DeepEquals, []networkDetails{
+		{Name: "test_network", IP: "127.0.0.1", Mask: "255.255.255.0", VLANTag: 1, Description: ""},
+	})
 }
 
 func (suite *environSuite) TestExtractInterfaces(c *gc.C) {

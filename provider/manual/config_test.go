@@ -12,11 +12,10 @@ import (
 
 	"launchpad.net/juju-core/environs/config"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 type configSuite struct {
-	testbase.LoggingSuite
+	coretesting.FakeHomeSuite
 }
 
 var _ = gc.Suite(&configSuite{})
@@ -72,7 +71,7 @@ func (s *configSuite) TestValidateConfig(c *gc.C) {
 	c.Assert(unknownAttrs["bootstrap-host"], gc.Equals, "hostname")
 	c.Assert(unknownAttrs["bootstrap-user"], gc.Equals, "")
 	c.Assert(unknownAttrs["storage-listen-ip"], gc.Equals, "")
-	c.Assert(unknownAttrs["storage-port"], gc.Equals, int64(8040))
+	c.Assert(unknownAttrs["storage-port"], gc.Equals, int(8040))
 }
 
 func (s *configSuite) TestConfigMutability(c *gc.C) {
@@ -89,7 +88,7 @@ func (s *configSuite) TestConfigMutability(c *gc.C) {
 		"bootstrap-host":    "new-hostname",
 		"bootstrap-user":    "new-username",
 		"storage-listen-ip": "10.0.0.123",
-		"storage-port":      int64(1234),
+		"storage-port":      1234,
 	} {
 		testConfig = MinimalConfig(c)
 		testConfig, err = testConfig.Apply(map[string]interface{}{k: v})
@@ -119,7 +118,7 @@ func (s *configSuite) TestStorageParams(c *gc.C) {
 	c.Assert(testConfig.storageAddr(), gc.Equals, "hostname:8040")
 	c.Assert(testConfig.storageListenAddr(), gc.Equals, ":8040")
 	values["storage-listen-ip"] = "10.0.0.123"
-	values["storage-port"] = int64(1234)
+	values["storage-port"] = 1234
 	testConfig = getEnvironConfig(c, values)
 	c.Assert(testConfig.storageAddr(), gc.Equals, "hostname:1234")
 	c.Assert(testConfig.storageListenAddr(), gc.Equals, "10.0.0.123:1234")
@@ -136,4 +135,17 @@ func (s *configSuite) TestStorageCompat(c *gc.C) {
 	envConfig := newEnvironConfig(cfg, values)
 	c.Assert(err, gc.IsNil)
 	c.Assert(envConfig.useSSHStorage(), jc.IsFalse)
+}
+
+func (s *configSuite) TestValidateConfigWithFloatPort(c *gc.C) {
+	// When the config values get serialized through JSON, the integers
+	// get coerced to float64 values.  The parsing needs to handle this.
+	values := MinimalConfigValues()
+	values["storage-port"] = float64(8040)
+	cfg, err := config.New(config.UseDefaults, values)
+	c.Assert(err, gc.IsNil)
+	valid, err := ProviderInstance.Validate(cfg, nil)
+	c.Assert(err, gc.IsNil)
+	unknownAttrs := valid.UnknownAttrs()
+	c.Assert(unknownAttrs["storage-port"], gc.Equals, int(8040))
 }

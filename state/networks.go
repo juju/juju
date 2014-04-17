@@ -5,6 +5,8 @@ package state
 
 import (
 	"labix.org/v2/mgo/bson"
+
+	"launchpad.net/juju-core/names"
 )
 
 // Network represents the state of a network.
@@ -13,17 +15,32 @@ type Network struct {
 	doc networkDoc
 }
 
+// NetworkInfo describes a single network.
+type NetworkInfo struct {
+	// Name is juju-internal name of the network.
+	Name string
+
+	// ProviderId is a provider-specific network id.
+	ProviderId string
+
+	// CIDR of the network, in 123.45.67.89/24 format.
+	CIDR string
+
+	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
+	// normal networks. It's defined by IEEE 802.1Q standard.
+	VLANTag int
+}
+
 // networkDoc represents a configured network that a machine can be a
 // part of.
 type networkDoc struct {
 	// Name is the network's name. It should be one of the machine's
 	// included networks.
 	Name string `bson:"_id"`
-	// CIDR holds the network CIDR in the form 192.168.100.0/24.
-	CIDR string
-	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
-	// normal networks.
-	VLANTag int
+
+	ProviderId string
+	CIDR       string
+	VLANTag    int
 }
 
 func newNetwork(st *State, doc *networkDoc) *Network {
@@ -35,12 +52,22 @@ func (n *Network) Name() string {
 	return n.doc.Name
 }
 
+// ProviderId returns the provider-specific id of the network.
+func (n *Network) ProviderId() string {
+	return n.doc.ProviderId
+}
+
+// Tag returns the network tag.
+func (n *Network) Tag() string {
+	return names.NetworkTag(n.doc.Name)
+}
+
 // CIDR returns the network CIDR (e.g. 192.168.50.0/24).
 func (n *Network) CIDR() string {
 	return n.doc.CIDR
 }
 
-// VLANTag returns the network VLAN tag. Its a number between 1 and
+// VLANTag returns the network VLAN tag. It's a number between 1 and
 // 4094 for VLANs and 0 if the network is not a VLAN.
 func (n *Network) VLANTag() int {
 	return n.doc.VLANTag

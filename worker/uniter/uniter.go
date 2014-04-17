@@ -26,9 +26,9 @@ import (
 	"launchpad.net/juju-core/state/api/uniter"
 	apiwatcher "launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/state/watcher"
-	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/exec"
 	"launchpad.net/juju-core/utils/fslock"
+	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/uniter/charm"
 	"launchpad.net/juju-core/worker/uniter/hook"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
@@ -104,8 +104,11 @@ func NewUniter(st *uniter.State, unitTag string, dataDir string) *Uniter {
 }
 
 func (u *Uniter) loop(unitTag string) (err error) {
-	if err = u.init(unitTag); err != nil {
-		return err
+	if err := u.init(unitTag); err != nil {
+		if err == worker.ErrTerminateAgent {
+			return err
+		}
+		return fmt.Errorf("failed to initialize uniter for %q: %v", unitTag, err)
 	}
 	defer u.runListener.Close()
 	logger.Infof("unit %q started", u.unit)
@@ -128,7 +131,7 @@ func (u *Uniter) loop(unitTag string) (err error) {
 	}()
 
 	// Run modes until we encounter an error.
-	mode := ModeInit
+	mode := ModeContinue
 	for err == nil {
 		select {
 		case <-u.tomb.Dying():
@@ -162,10 +165,16 @@ func (u *Uniter) setupLocks() (err error) {
 }
 
 func (u *Uniter) init(unitTag string) (err error) {
-	defer utils.ErrorContextf(&err, "failed to initialize uniter for %q", unitTag)
 	u.unit, err = u.st.Unit(unitTag)
 	if err != nil {
 		return err
+	}
+	if u.unit.Life() == params.Dead {
+		// If we started up already dead, we should not progress further. If we
+		// become Dead immediately after starting up, we may well complete any
+		// operations in progress before detecting it; but that race is fundamental
+		// and inescapable, whereas this one is not.
+		return worker.ErrTerminateAgent
 	}
 	if err = u.setupLocks(); err != nil {
 		return err
@@ -191,16 +200,6 @@ func (u *Uniter) init(unitTag string) (err error) {
 	u.uuid = env.UUID()
 	u.envName = env.Name()
 
-	runListenerSocketPath := filepath.Join(u.baseDir, RunListenerFile)
-	logger.Debugf("starting juju-run listener on unix:%s", runListenerSocketPath)
-	u.runListener, err = NewRunListener(u, runListenerSocketPath)
-	if err != nil {
-		return err
-	}
-	// The socket needs to have permissions 777 in order for other users to use it.
-	if err := os.Chmod(runListenerSocketPath, 0777); err != nil {
-		return err
-	}
 	u.relationers = map[int]*Relationer{}
 	u.relationHooks = make(chan hook.Info)
 	u.charm = charm.NewGitDir(filepath.Join(u.baseDir, "charm"))
@@ -209,7 +208,20 @@ func (u *Uniter) init(unitTag string) (err error) {
 	u.deployer = charm.NewGitDeployer(u.charm.Path(), deployerPath, bundles)
 	u.sf = NewStateFile(filepath.Join(u.baseDir, "state", "uniter"))
 	u.rand = rand.New(rand.NewSource(time.Now().Unix()))
-	return nil
+
+	// If we start trying to listen for juju-run commands before we have valid
+	// relation state, surprising things will come to pass.
+	if err := u.restoreRelations(); err != nil {
+		return err
+	}
+	runListenerSocketPath := filepath.Join(u.baseDir, RunListenerFile)
+	logger.Debugf("starting juju-run listener on unix:%s", runListenerSocketPath)
+	u.runListener, err = NewRunListener(u, runListenerSocketPath)
+	if err != nil {
+		return err
+	}
+	// The socket needs to have permissions 777 in order for other users to use it.
+	return os.Chmod(runListenerSocketPath, 0777)
 }
 
 func (u *Uniter) Kill() {
@@ -522,35 +534,69 @@ func (u *Uniter) currentHookName() string {
 	return hookName
 }
 
-// restoreRelations reconciles the supplied relation state dirs with the
+// getJoinedRelations finds out what relations the unit is *really* part of,
+// working around the fact that pre-1.19 (1.18.1?) unit agents don't write a
+// state dir for a relation until a remote unit joins.
+func (u *Uniter) getJoinedRelations() (map[int]*uniter.Relation, error) {
+	var joinedRelationTags []string
+	for {
+		var err error
+		joinedRelationTags, err = u.unit.JoinedRelations()
+		if err == nil {
+			break
+		}
+		if params.IsCodeNotImplemented(err) {
+			logger.Infof("waiting for state server to be upgraded")
+			select {
+			case <-u.tomb.Dying():
+				return nil, tomb.ErrDying
+			case <-time.After(15 * time.Second):
+				continue
+			}
+		}
+		return nil, err
+	}
+	joinedRelations := make(map[int]*uniter.Relation)
+	for _, tag := range joinedRelationTags {
+		relation, err := u.st.Relation(tag)
+		if err != nil {
+			return nil, err
+		}
+		joinedRelations[relation.Id()] = relation
+	}
+	return joinedRelations, nil
+}
+
+// restoreRelations reconciles the local relation state dirs with the
 // remote state of the corresponding relations.
 func (u *Uniter) restoreRelations() error {
-	// TODO(dimitern): Get these from state, not from disk.
-	dirs, err := relation.ReadAllStateDirs(u.relationsDir)
+	joinedRelations, err := u.getJoinedRelations()
 	if err != nil {
 		return err
 	}
-	for id, dir := range dirs {
-		remove := false
-		rel, err := u.st.RelationById(id)
-		if params.IsCodeNotFoundOrCodeUnauthorized(err) {
-			remove = true
-		} else if err != nil {
-			return err
-		}
-		err = u.addRelation(rel, dir)
-		if params.IsCodeCannotEnterScope(err) {
-			remove = true
-		} else if err != nil {
-			return err
-		}
-		if remove {
-			// If the previous execution was interrupted in the process of
-			// joining or departing the relation, the directory will be empty
-			// and the state is sane.
-			if err := dir.Remove(); err != nil {
-				return fmt.Errorf("cannot synchronize relation state: %v", err)
+	knownDirs, err := relation.ReadAllStateDirs(u.relationsDir)
+	if err != nil {
+		return err
+	}
+	for id, dir := range knownDirs {
+		if rel, ok := joinedRelations[id]; ok {
+			if err := u.addRelation(rel, dir); err != nil {
+				return err
 			}
+		} else if err := dir.Remove(); err != nil {
+			return err
+		}
+	}
+	for id, rel := range joinedRelations {
+		if _, ok := knownDirs[id]; ok {
+			continue
+		}
+		dir, err := relation.ReadStateDir(u.relationsDir, id)
+		if err != nil {
+			return err
+		}
+		if err := u.addRelation(rel, dir); err != nil {
+			return err
 		}
 	}
 	return nil

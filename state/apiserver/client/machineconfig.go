@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package statecmd
+package client
 
 import (
 	"fmt"
@@ -28,11 +28,9 @@ func findInstanceTools(env environs.Environ, series, arch string) (*tools.Tools,
 
 // MachineConfig returns information from the environment config that is
 // needed for machine cloud-init (for non-state servers only).
-//
-// The code is here so that it can be shared between the API server
-// (for ProvisioningScript) and the CLI (for manual provisioning) for maintaining
-// compatibiility with juju-1.16 (where the API MachineConfig did not exist).
-// When we drop 1.16 compatibility, this code should be moved into apiserver.
+// It is exposed for testing purposes.
+// TODO(rog) fix environs/manual tests so they do not need to
+// call this, or move this elsewhere.
 func MachineConfig(st *state.State, machineId, nonce, dataDir string) (*cloudinit.MachineConfig, error) {
 	environConfig, err := st.EnvironConfig()
 	if err != nil {

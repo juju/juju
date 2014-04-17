@@ -7,7 +7,6 @@ package apiserver
 
 import (
 	"bytes"
-	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -179,36 +178,22 @@ func (s *debugInternalSuite) TestFilterLine(c *gc.C) {
 		"machine-0: date time WARNING juju.foo.bar")), jc.IsFalse)
 }
 
-func (s *debugInternalSuite) TestFilterLineWithLimit(c *gc.C) {
+func (s *debugInternalSuite) TestCountedFilterLineWithLimit(c *gc.C) {
 	stream := &logStream{
 		filterLevel: loggo.INFO,
 		maxLines:    5,
 	}
 	line := []byte("machine-0: date time WARNING juju")
-	c.Check(stream.filterLine(line), jc.IsTrue)
-	c.Check(stream.filterLine(line), jc.IsTrue)
-	c.Check(stream.filterLine(line), jc.IsTrue)
-	c.Check(stream.filterLine(line), jc.IsTrue)
-	c.Check(stream.filterLine(line), jc.IsTrue)
-	c.Check(stream.filterLine(line), jc.IsFalse)
-	c.Check(stream.filterLine(line), jc.IsFalse)
+	c.Check(stream.countedFilterLine(line), jc.IsTrue)
+	c.Check(stream.countedFilterLine(line), jc.IsTrue)
+	c.Check(stream.countedFilterLine(line), jc.IsTrue)
+	c.Check(stream.countedFilterLine(line), jc.IsTrue)
+	c.Check(stream.countedFilterLine(line), jc.IsTrue)
+	c.Check(stream.countedFilterLine(line), jc.IsFalse)
+	c.Check(stream.countedFilterLine(line), jc.IsFalse)
 }
 
-type seekWaitReader struct {
-	io.ReadSeeker
-	wait chan struct{}
-}
-
-func (w *seekWaitReader) Seek(offset int64, whence int) (int64, error) {
-	pos, err := w.ReadSeeker.Seek(offset, whence)
-	if w.wait != nil {
-		close(w.wait)
-		w.wait = nil
-	}
-	return pos, err
-}
-
-func (s *debugInternalSuite) testStreamInternal(c *gc.C, fromTheStart bool, maxLines uint, expected, errMatch string) {
+func (s *debugInternalSuite) testStreamInternal(c *gc.C, fromTheStart bool, backlog, maxLines uint, expected, errMatch string) {
 
 	dir := c.MkDir()
 	logPath := filepath.Join(dir, "logfile.txt")
@@ -223,17 +208,20 @@ func (s *debugInternalSuite) testStreamInternal(c *gc.C, fromTheStart bool, maxL
 line 2
 line 3
 `)
-	stream := &logStream{fromTheStart: fromTheStart, maxLines: maxLines}
+	stream := &logStream{
+		fromTheStart: fromTheStart,
+		backlog:      backlog,
+		maxLines:     maxLines,
+	}
+	err = stream.positionLogFile(logFileReader)
+	c.Assert(err, gc.IsNil)
 	output := &bytes.Buffer{}
-	waitReader := &seekWaitReader{logFileReader, make(chan struct{})}
-	stream.start(waitReader, output)
+	stream.start(logFileReader, output)
 
 	go func() {
 		defer stream.tomb.Done()
 		stream.tomb.Kill(stream.loop())
 	}()
-	// wait for the tailer to have started tailing before writing more
-	<-waitReader.wait
 
 	logFile.WriteString("line 4\n")
 	logFile.WriteString("line 5\n")
@@ -265,7 +253,7 @@ line 3
 line 4
 line 5
 `
-	s.testStreamInternal(c, true, 0, expected, "")
+	s.testStreamInternal(c, true, 0, 0, expected, "")
 }
 
 func (s *debugInternalSuite) TestLogStreamLoopFromTheStartMaxLines(c *gc.C) {
@@ -273,21 +261,28 @@ func (s *debugInternalSuite) TestLogStreamLoopFromTheStartMaxLines(c *gc.C) {
 line 2
 line 3
 `
-	s.testStreamInternal(c, true, 3, expected, "max lines reached")
+	s.testStreamInternal(c, true, 0, 3, expected, "max lines reached")
 }
 
 func (s *debugInternalSuite) TestLogStreamLoopJustTail(c *gc.C) {
 	expected := `line 4
 line 5
 `
-	s.testStreamInternal(c, false, 0, expected, "")
+	s.testStreamInternal(c, false, 0, 0, expected, "")
+}
+
+func (s *debugInternalSuite) TestLogStreamLoopBackOneLimitTwo(c *gc.C) {
+	expected := `line 3
+line 4
+`
+	s.testStreamInternal(c, false, 1, 2, expected, "max lines reached")
 }
 
 func (s *debugInternalSuite) TestLogStreamLoopTailMaxLinesNotYetReached(c *gc.C) {
 	expected := `line 4
 line 5
 `
-	s.testStreamInternal(c, false, 3, expected, "")
+	s.testStreamInternal(c, false, 0, 3, expected, "")
 }
 
 func assertStreamParams(c *gc.C, obtained, expected *logStream) {

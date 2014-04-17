@@ -35,17 +35,17 @@ func (c *localStorageConfig) StorageAddr() string {
 
 type localTLSStorageConfig struct {
 	localStorageConfig
-	caCertPEM []byte
-	caKeyPEM  []byte
+	caCertPEM string
+	caKeyPEM  string
 	hostnames []string
 	authkey   string
 }
 
-func (c *localTLSStorageConfig) StorageCACert() []byte {
+func (c *localTLSStorageConfig) StorageCACert() string {
 	return c.caCertPEM
 }
 
-func (c *localTLSStorageConfig) StorageCAKey() []byte {
+func (c *localTLSStorageConfig) StorageCAKey() string {
 	return c.caKeyPEM
 }
 
@@ -87,8 +87,8 @@ func (*configSuite) TestStoreConfigTLS(c *gc.C) {
 
 	config.storageDir = "a"
 	config.storageAddr = "b"
-	config.caCertPEM = []byte("heyhey")
-	config.caKeyPEM = []byte("hoho")
+	config.caCertPEM = "heyhey"
+	config.caKeyPEM = "hoho"
 	config.hostnames = []string{"easy", "as", "1.2.3"}
 	config.authkey = "password"
 	m, err = localstorage.StoreConfig(&config)

@@ -42,7 +42,7 @@ type Info struct {
 
 	// CACert holds the CA certificate that will be used
 	// to validate the state server's certificate, in PEM format.
-	CACert []byte
+	CACert string
 
 	// Tag holds the name of the entity that is connecting.
 	// It should be empty when connecting as an administrator.
@@ -78,7 +78,32 @@ func DefaultDialOpts() DialOpts {
 //
 // Open returns unauthorizedError if access is unauthorized.
 func Open(info *Info, opts DialOpts, policy Policy) (*State, error) {
-	logger.Infof("opening state; mongo addresses: %q; entity %q", info.Addrs, info.Tag)
+	logger.Infof("opening state, mongo addresses: %q; entity %q", info.Addrs, info.Tag)
+	di, err := DialInfo(info, opts)
+	if err != nil {
+		return nil, err
+	}
+	logger.Debugf("dialing mongo")
+	session, err := mgo.DialWithInfo(di)
+
+	if err != nil {
+		return nil, err
+	}
+	logger.Debugf("connection established")
+
+	st, err := newState(session, info, policy)
+	if err != nil {
+		session.Close()
+		return nil, err
+	}
+	session.SetSocketTimeout(mongoSocketTimeout)
+	return st, nil
+}
+
+// DialInfo returns information on how to dial
+// the state's mongo server with the given info
+// and dial options.
+func DialInfo(info *Info, opts DialOpts) (*mgo.DialInfo, error) {
 	if len(info.Addrs) == 0 {
 		return nil, stderrors.New("no mongo addresses")
 	}
@@ -108,22 +133,12 @@ func Open(info *Info, opts DialOpts, policy Policy) (*State, error) {
 		}
 		return cc, nil
 	}
-	session, err := mgo.DialWithInfo(&mgo.DialInfo{
+
+	return &mgo.DialInfo{
 		Addrs:   info.Addrs,
 		Timeout: opts.Timeout,
 		Dial:    dial,
-	})
-	if err != nil {
-		return nil, err
-	}
-	logger.Infof("connection established")
-	st, err := newState(session, info, policy)
-	if err != nil {
-		session.Close()
-		return nil, err
-	}
-	session.SetSocketTimeout(mongoSocketTimeout)
-	return st, nil
+	}, nil
 }
 
 // Initialize sets up an initial empty state and returns it.
@@ -181,18 +196,21 @@ func Initialize(info *Info, cfg *config.Config, opts DialOpts, policy Policy) (r
 var indexes = []struct {
 	collection string
 	key        []string
+	unique     bool
 }{
 	// After the first public release, do not remove entries from here
 	// without adding them to a list of indexes to drop, to ensure
 	// old databases are modified to have the correct indexes.
-	{"relations", []string{"endpoints.relationname"}},
-	{"relations", []string{"endpoints.servicename"}},
-	{"units", []string{"service"}},
-	{"units", []string{"principal"}},
-	{"units", []string{"machineid"}},
-	{"users", []string{"name"}},
-	{"networkinterfaces", []string{"networkname"}},
-	{"networkinterfaces", []string{"machineid"}},
+	{"relations", []string{"endpoints.relationname"}, false},
+	{"relations", []string{"endpoints.servicename"}, false},
+	{"units", []string{"service"}, false},
+	{"units", []string{"principal"}, false},
+	{"units", []string{"machineid"}, false},
+	{"users", []string{"name"}, false},
+	{"networks", []string{"providerid"}, true},
+	{"networkinterfaces", []string{"interfacename", "machineid"}, true},
+	{"networkinterfaces", []string{"networkname"}, false},
+	{"networkinterfaces", []string{"machineid"}, false},
 }
 
 // The capped collection used for transaction logs defaults to 10MB.
@@ -233,6 +251,7 @@ func isUnauthorized(err error) bool {
 func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 	db := session.DB("juju")
 	pdb := session.DB("presence")
+	admin := session.DB("admin")
 	if info.Tag != "" {
 		if err := db.Login(info.Tag, info.Password); err != nil {
 			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to juju database as %q", info.Tag))
@@ -240,12 +259,15 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 		if err := pdb.Login(info.Tag, info.Password); err != nil {
 			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to presence database as %q", info.Tag))
 		}
+		if err := admin.Login(info.Tag, info.Password); err != nil {
+			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to admin database as %q", info.Tag))
+		}
 	} else if info.Password != "" {
-		admin := session.DB(AdminUser)
 		if err := admin.Login(AdminUser, info.Password); err != nil {
 			return nil, maybeUnauthorized(err, "cannot log in to admin database")
 		}
 	}
+
 	st := &State{
 		info:              info,
 		policy:            policy,
@@ -258,7 +280,7 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 		relations:         db.C("relations"),
 		relationScopes:    db.C("relationscopes"),
 		services:          db.C("services"),
-		requestedNetworks: db.C("linkednetworks"),
+		requestedNetworks: db.C("requestednetworks"),
 		networks:          db.C("networks"),
 		networkInterfaces: db.C("networkinterfaces"),
 		minUnits:          db.C("minunits"),
@@ -286,7 +308,7 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 	st.watcher = watcher.New(db.C("txns.log"))
 	st.pwatcher = presence.NewWatcher(pdb.C("presence"))
 	for _, item := range indexes {
-		index := mgo.Index{Key: item.key}
+		index := mgo.Index{Key: item.key, Unique: item.unique}
 		if err := db.C(item.collection).EnsureIndex(index); err != nil {
 			return nil, fmt.Errorf("cannot create database index: %v", err)
 		}
@@ -389,8 +411,8 @@ func (st *State) createStateServingInfoDoc() error {
 }
 
 // CACert returns the certificate used to validate the state connection.
-func (st *State) CACert() (cert []byte) {
-	return append(cert, st.info.CACert...)
+func (st *State) CACert() string {
+	return st.info.CACert
 }
 
 func (st *State) Close() error {

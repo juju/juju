@@ -46,6 +46,7 @@ var aptGetEnvOptions = []string{"DEBIAN_FRONTEND=noninteractive"}
 // should reference when determining the --target-release for a given series.
 // http://reqorts.qa.ubuntu.com/reports/ubuntu-server/cloud-archive/cloud-tools_versions.html
 var cloudArchivePackages = map[string]bool{
+	"cloud-image-utils":       true,
 	"cloud-utils":             true,
 	"curtin":                  true,
 	"djorm-ext-pgarray":       true,
@@ -58,6 +59,7 @@ var cloudArchivePackages = map[string]bool{
 	"lxc":                     true,
 	"maas":                    true,
 	"mongodb":                 true,
+	"mongodb-server":          true,
 	"python-django":           true,
 	"python-django-piston":    true,
 	"python-jujuclient":       true,

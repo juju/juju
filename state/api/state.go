@@ -66,12 +66,8 @@ func addAddress(servers [][]instance.HostPort, addr string) ([][]instance.HostPo
 		return nil, err
 	}
 	hostPort := instance.HostPort{
-		Address: instance.Address{
-			Value:        host,
-			Type:         instance.DeriveAddressType(host),
-			NetworkScope: instance.NetworkUnknown,
-		},
-		Port: port,
+		Address: instance.NewAddress(host, instance.NetworkUnknown),
+		Port:    port,
 	}
 	return append(servers, []instance.HostPort{hostPort}), nil
 }

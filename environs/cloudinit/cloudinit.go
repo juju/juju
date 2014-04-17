@@ -14,7 +14,6 @@ import (
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/agent/mongo"
 	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
@@ -143,9 +142,6 @@ type MachineConfig struct {
 
 	// MachineAgentServiceName is the Upstart service name for the Juju machine agent.
 	MachineAgentServiceName string
-
-	// MongoServiceName is the Upstart service name for the Mongo database.
-	MongoServiceName string
 
 	// ProxySettings define normal http, https and ftp proxies.
 	ProxySettings osenv.ProxySettings
@@ -344,50 +340,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	if cfg.Bootstrap {
 		identityFile := cfg.dataFile(SystemIdentity)
 		c.AddFile(identityFile, cfg.SystemPrivateSSHKey, 0600)
-		if !cfg.DisablePackageCommands {
-			series := cfg.Tools.Version.Series
-			mongoPackage := mongo.MongoPackageForSeries(series)
-			if mongoPackage == "mongodb-server" {
-				// Disable the default mongodb installed by the mongodb-server package.
-				// Only do this if the file doesn't exist already, so users can run
-				// their own mongodb server if they wish to.
-				c.AddBootCmd(
-					`[ -f /etc/default/mongodb ] ||
-             (echo ENABLE_MONGODB="no" > /etc/default/mongodb)`)
 
-				if cfg.NeedMongoPPA() {
-					const key = "" // key is loaded from PPA
-					c.AddAptSource("ppa:juju/stable", key, nil)
-				}
-				if series == "precise" {
-					// In precise we add the cloud-tools pocket and
-					// pin it with a lower priority, so we need to
-					// explicitly specify the target release when
-					// installing mongodb-server from there.
-					c.AddPackageFromTargetRelease("mongodb-server", "precise-updates/cloud-tools")
-				} else {
-					c.AddPackage("mongodb-server")
-				}
-			} else {
-				c.AddPackage(mongoPackage)
-			}
-		}
-		certKey := string(cfg.StateServingInfo.Cert) + string(cfg.StateServingInfo.PrivateKey)
-		c.AddFile(cfg.dataFile("server.pem"), certKey, 0600)
-		if err := cfg.addMongoToBoot(c); err != nil {
-			return err
-		}
-		// We temporarily give bootstrap-state a directory
-		// of its own so that it can get the state info via the
-		// same mechanism as other jujud commands.
-		// TODO(rog) 2013-10-04
-		// This is redundant now as jujud bootstrap
-		// uses the machine agent's configuration.
-		// We leave it for the time being for backward compatibility.
-		acfg, err := cfg.addAgentInfo(c, "bootstrap")
-		if err != nil {
-			return err
-		}
 		cons := cfg.Constraints.String()
 		if cons != "" {
 			cons = " --constraints " + shquote(cons)
@@ -401,14 +354,13 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 		c.AddRunCmd(cloudinit.LogProgressCmd("Bootstrapping Juju machine agent"))
 		c.AddScripts(
 			// The bootstrapping is always run with debug on.
-			cfg.jujuTools()+"/jujud bootstrap-state"+
-				" --data-dir "+shquote(cfg.DataDir)+
-				" --env-config "+shquote(base64yaml(cfg.Config))+
-				" --instance-id "+shquote(string(cfg.InstanceId))+
-				hardware+
-				cons+
+			cfg.jujuTools() + "/jujud bootstrap-state" +
+				" --data-dir " + shquote(cfg.DataDir) +
+				" --env-config " + shquote(base64yaml(cfg.Config)) +
+				" --instance-id " + shquote(string(cfg.InstanceId)) +
+				hardware +
+				cons +
 				" --debug",
-			"rm -rf "+shquote(acfg.Dir()),
 		)
 	}
 
@@ -456,9 +408,6 @@ func (cfg *MachineConfig) addAgentInfo(c *cloudinit.Config, tag string) (agent.C
 		return nil, err
 	}
 	acfg.SetValue(agent.AgentServiceName, cfg.MachineAgentServiceName)
-	if cfg.Bootstrap {
-		acfg.SetValue(agent.MongoServiceName, cfg.MongoServiceName)
-	}
 	cmds, err := acfg.WriteCommands()
 	if err != nil {
 		return nil, errgo.Annotate(err, "failed to write commands")
@@ -482,32 +431,6 @@ func (cfg *MachineConfig) addMachineAgentToBoot(c *cloudinit.Config, tag, machin
 		return errgo.Annotatef(err, "cannot make cloud-init upstart script for the %s agent", tag)
 	}
 	c.AddRunCmd(cloudinit.LogProgressCmd("Starting Juju machine agent (%s)", name))
-	c.AddScripts(cmds...)
-	return nil
-}
-
-func (cfg *MachineConfig) addMongoToBoot(c *cloudinit.Config) error {
-	dbDir := path.Join(cfg.DataDir, "db")
-	c.AddScripts(
-		"mkdir -p "+dbDir+"/journal",
-		"chmod 0700 "+dbDir,
-		// Otherwise we get three files with 100M+ each, which takes time.
-		"dd bs=1M count=1 if=/dev/zero of="+dbDir+"/journal/prealloc.0",
-		"dd bs=1M count=1 if=/dev/zero of="+dbDir+"/journal/prealloc.1",
-		"dd bs=1M count=1 if=/dev/zero of="+dbDir+"/journal/prealloc.2",
-	)
-
-	name := cfg.MongoServiceName
-	mongodExec := mongo.MongodPathForSeries(cfg.Tools.Version.Series)
-	conf, err := mongo.MongoUpstartService(name, mongodExec, cfg.DataDir, cfg.StateServingInfo.StatePort)
-	if err != nil {
-		return err
-	}
-	cmds, err := conf.InstallCommands()
-	if err != nil {
-		return errgo.Annotate(err, "cannot make cloud-init upstart script for the state database")
-	}
-	c.AddRunCmd(cloudinit.LogProgressCmd("Starting MongoDB server (%s)", name))
 	c.AddScripts(cmds...)
 	return nil
 }
@@ -617,14 +540,6 @@ func MaybeAddCloudArchiveCloudTools(c *cloudinit.Config, series string) {
 	c.AddAptSource(name, CanonicalCloudArchiveSigningKey, prefs)
 }
 
-func (cfg *MachineConfig) NeedMongoPPA() bool {
-	series := cfg.Tools.Version.Series
-	// 11.10 and earlier are not supported.
-	// 12.04 can get a compatible version from the cloud-archive.
-	// 13.04 and later ship a compatible version in the archive.
-	return series == "quantal"
-}
-
 // HasNetworks returns if there are any networks set.
 func (cfg *MachineConfig) HasNetworks() bool {
 	return len(cfg.IncludeNetworks) > 0 || len(cfg.ExcludeNetworks) > 0
@@ -679,9 +594,6 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		return fmt.Errorf("missing machine agent service name")
 	}
 	if cfg.Bootstrap {
-		if cfg.MongoServiceName == "" {
-			return fmt.Errorf("missing mongo service name")
-		}
 		if cfg.Config == nil {
 			return fmt.Errorf("missing environment configuration")
 		}

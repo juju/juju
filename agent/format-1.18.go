@@ -75,7 +75,7 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 		jobs:              format.Jobs,
 		upgradedToVersion: *format.UpgradedToVersion,
 		nonce:             format.Nonce,
-		caCert:            []byte(format.CACert),
+		caCert:            format.CACert,
 		oldPassword:       format.OldPassword,
 		values:            format.Values,
 	}
