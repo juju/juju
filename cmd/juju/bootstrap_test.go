@@ -306,7 +306,7 @@ var bootstrapTests = []bootstrapTest{{
 	info:    "bad environment",
 	version: "1.2.3-%LTS%-amd64",
 	args:    []string{"-e", "brokenenv"},
-	err:     `dummy.Bootstrap is broken`,
+	err:     `cannot upload bootstrap tools: Juju cannot bootstrap because no tools are available for your environment.*`,
 }, {
 	info:        "constraints",
 	args:        []string{"--constraints", "mem=4G cpu-cores=4"},

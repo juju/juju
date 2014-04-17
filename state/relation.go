@@ -97,7 +97,7 @@ func (r *Relation) Life() Life {
 // Destroy ensures that the relation will be removed at some point; if no units
 // are currently in scope, it will be removed immediately.
 func (r *Relation) Destroy() (err error) {
-	defer errors.Contextf(&err, "cannot destroy relation %q", r)
+	defer errors.Maskf(&err, "cannot destroy relation %q", r)
 	if len(r.doc.Endpoints) == 1 && r.doc.Endpoints[0].Role == charm.RolePeer {
 		return fmt.Errorf("is a peer relation")
 	}

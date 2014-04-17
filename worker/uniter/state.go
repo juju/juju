@@ -75,7 +75,7 @@ type State struct {
 
 // validate returns an error if the state violates expectations.
 func (st State) validate() (err error) {
-	defer coreerrors.Contextf(&err, "invalid uniter state")
+	defer coreerrors.Maskf(&err, "invalid uniter state")
 	hasHook := st.Hook != nil
 	hasCharm := st.CharmURL != nil
 	switch st.Op {

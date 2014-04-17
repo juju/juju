@@ -163,7 +163,7 @@ func (u *Uniter) setupLocks() (err error) {
 }
 
 func (u *Uniter) init(unitTag string) (err error) {
-	defer errors.Contextf(&err, "failed to initialize uniter for %q", unitTag)
+	defer errors.Maskf(&err, "failed to initialize uniter for %q", unitTag)
 	u.unit, err = u.st.Unit(unitTag)
 	if err != nil {
 		return err

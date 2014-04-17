@@ -35,7 +35,7 @@ type annotator struct {
 
 // SetAnnotations adds key/value pairs to annotations in MongoDB.
 func (a *annotator) SetAnnotations(pairs map[string]string) (err error) {
-	defer errors.Contextf(&err, "cannot update annotations on %s", a.tag)
+	defer errors.Maskf(&err, "cannot update annotations on %s", a.tag)
 	if len(pairs) == 0 {
 		return nil
 	}

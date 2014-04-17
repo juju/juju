@@ -8,7 +8,6 @@ import (
 
 	"github.com/loggo/loggo"
 
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -68,7 +67,7 @@ func (api *UserManagerAPI) AddUser(args params.EntityPasswords) (params.ErrorRes
 		}
 		_, err := api.state.AddUser(arg.Tag, arg.Password)
 		if err != nil {
-			err = errors.NewAlreadyExists(err, "Failed to create user")
+			err = fmt.Errorf("Failed to create user: %v", err)
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}

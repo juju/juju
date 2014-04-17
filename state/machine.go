@@ -300,7 +300,7 @@ func checkVersionValidity(v version.Binary) error {
 // SetAgentVersion sets the version of juju that the agent is
 // currently running.
 func (m *Machine) SetAgentVersion(v version.Binary) (err error) {
-	defer errors.Contextf(&err, "cannot set agent version for machine %v", m)
+	defer errors.Maskf(&err, "cannot set agent version for machine %v", m)
 	if err = checkVersionValidity(v); err != nil {
 		return err
 	}
@@ -589,7 +589,7 @@ func (m *Machine) removeNetworkInterfacesOps() ([]txn.Op, error) {
 // Remove removes the machine from state. It will fail if the machine
 // is not Dead.
 func (m *Machine) Remove() (err error) {
-	defer errors.Contextf(&err, "cannot remove machine %s", m.doc.Id)
+	defer errors.Maskf(&err, "cannot remove machine %s", m.doc.Id)
 	if m.doc.Life != Dead {
 		return fmt.Errorf("machine is not dead")
 	}
@@ -649,7 +649,7 @@ func (m *Machine) AgentAlive() (bool, error) {
 
 // WaitAgentAlive blocks until the respective agent is alive.
 func (m *Machine) WaitAgentAlive(timeout time.Duration) (err error) {
-	defer errors.Contextf(&err, "waiting for agent of machine %v", m)
+	defer errors.Maskf(&err, "waiting for agent of machine %v", m)
 	ch := make(chan presence.Change)
 	m.st.pwatcher.Watch(m.globalKey(), ch)
 	defer m.st.pwatcher.Unwatch(m.globalKey(), ch)
@@ -721,7 +721,7 @@ func (m *Machine) InstanceStatus() (string, error) {
 
 // SetInstanceStatus sets the provider specific instance status for a machine.
 func (m *Machine) SetInstanceStatus(status string) (err error) {
-	defer errors.Contextf(&err, "cannot set instance status for machine %q", m)
+	defer errors.Maskf(&err, "cannot set instance status for machine %q", m)
 
 	// SCHEMACHANGE - we can't do this yet until the schema is updated
 	// so just do a txn.DocExists for now.
@@ -745,7 +745,7 @@ func (m *Machine) SetInstanceStatus(status string) (err error) {
 
 // Units returns all the units that have been assigned to the machine.
 func (m *Machine) Units() (units []*Unit, err error) {
-	defer errors.Contextf(&err, "cannot get units assigned to machine %v", m)
+	defer errors.Maskf(&err, "cannot get units assigned to machine %v", m)
 	pudocs := []unitDoc{}
 	err = m.st.units.Find(bson.D{{"machineid", m.doc.Id}}).All(&pudocs)
 	if err != nil {
@@ -774,7 +774,7 @@ func (m *Machine) Units() (units []*Unit, err error) {
 // lost) after starting the instance, we can be sure that only a single
 // instance will be able to act for that machine.
 func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics) (err error) {
-	defer errors.Contextf(&err, "cannot set instance data for machine %q", m)
+	defer errors.Maskf(&err, "cannot set instance data for machine %q", m)
 
 	if id == "" || nonce == "" {
 		return fmt.Errorf("instance id and nonce cannot be empty")
@@ -1090,7 +1090,7 @@ func (m *Machine) Constraints() (constraints.Value, error) {
 // instance for the machine. It will fail if the machine is Dead, or if it
 // is already provisioned.
 func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
-	defer errors.Contextf(&err, "cannot set constraints")
+	defer errors.Maskf(&err, "cannot set constraints")
 	notSetYet := bson.D{{"nonce", ""}}
 	ops := []txn.Op{
 		{
