@@ -128,7 +128,7 @@ make_binary_packages() {
 }
 
 
-PPATCH="1"
+PPATCH="${PPATCH:-1}"
 while getopts ":p:" o; do
     case "${o}" in
         p)
