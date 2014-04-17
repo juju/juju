@@ -359,6 +359,49 @@ func makeTestMetadata(c *gc.C, env environs.Environ, series, location string, im
 	c.Assert(err, gc.IsNil)
 }
 
+var findInstanceSpecTests = []struct {
+	series string
+	cons   string
+	itype  string
+}{
+	{
+		series: "precise",
+		cons:   "mem=7G cpu-cores=2",
+		itype:  "Large",
+	}, {
+		series: "precise",
+		cons:   "instance-type=ExtraLarge",
+	},
+}
+
+func (s *instanceTypeSuite) TestFindInstanceSpec(c *gc.C) {
+	env := s.setupEnvWithDummyMetadata(c)
+	for i, t := range findInstanceSpecTests {
+		c.Logf("test %d", i)
+
+		cons := constraints.MustParse(t.cons)
+		constraints := &instances.InstanceConstraint{
+			Region:      "West US",
+			Series:      t.series,
+			Arches:      []string{"amd64"},
+			Constraints: cons,
+		}
+
+		// Find a matching instance type and image.
+		spec, err := findInstanceSpec(env, constraints)
+		c.Assert(err, gc.IsNil)
+
+		// We got the instance type we described in our constraints, and
+		// the image returned by (the fake) simplestreams.
+		if cons.HasInstanceType() {
+			c.Check(spec.InstanceType.Name, gc.Equals, *cons.InstanceType)
+		} else {
+			c.Check(spec.InstanceType.Name, gc.Equals, t.itype)
+		}
+		c.Check(spec.Image.Id, gc.Equals, "image-id")
+	}
+}
+
 func (s *instanceTypeSuite) TestFindInstanceSpecFindsMatch(c *gc.C) {
 	env := s.setupEnvWithDummyMetadata(c)
 
