@@ -425,8 +425,8 @@ func (s *localServerSuite) TestDeleteMoreThan100(c *gc.C) {
 func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
 	env := s.Prepare(c)
 	validator := env.ConstraintsValidator()
-	cons := constraints.MustParse("arch=amd64 instance-type=foo tags=bar")
+	cons := constraints.MustParse("arch=amd64 tags=bar cpu-power=10")
 	err := validator.Validate(cons)
 	c.Assert(err, jc.Satisfies, constraints.IsNotSupportedError)
-	c.Assert(err, gc.ErrorMatches, "unsupported constraints: cpu-power,instance-type,tags")
+	c.Assert(err, gc.ErrorMatches, "unsupported constraints: cpu-power,tags")
 }

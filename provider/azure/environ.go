@@ -423,7 +423,6 @@ func (env *azureEnviron) selectInstanceTypeAndImage(constraint *instances.Instan
 
 var unsupportedConstraints = []string{
 	constraints.CpuPower,
-	constraints.InstanceType,
 	constraints.Tags,
 }
 

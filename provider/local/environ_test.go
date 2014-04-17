@@ -314,7 +314,7 @@ func (s *localJujuTestSuite) TestConstraintsValidator(c *gc.C) {
 	env, err := local.Provider.Prepare(ctx, minimalConfig(c))
 	c.Assert(err, gc.IsNil)
 	validator := env.ConstraintsValidator()
-	cons := constraints.MustParse("arch=amd64 instance-type=foo tags=bar")
+	cons := constraints.MustParse("arch=amd64 instance-type=foo tags=bar cpu-power=10")
 	err = validator.Validate(cons)
 	c.Assert(err, jc.Satisfies, constraints.IsNotSupportedError)
 	c.Assert(err, gc.ErrorMatches, "unsupported constraints: cpu-power,instance-type,tags")

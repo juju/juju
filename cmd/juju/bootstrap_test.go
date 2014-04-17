@@ -295,6 +295,10 @@ var bootstrapTests = []bootstrapTest{{
 	args: []string{"--constraints", "bad=wrong"},
 	err:  `invalid value "bad=wrong" for flag --constraints: unknown constraint "bad"`,
 }, {
+	info: "conflicting --constraints",
+	args: []string{"--constraints", "instance-type=foo mem=4G"},
+	err:  `ambiguous constraints: "mem" overlaps with "instance-type"`,
+}, {
 	info: "bad --series",
 	args: []string{"--series", "1bad1"},
 	err:  `invalid value "1bad1" for flag --series: invalid series name "1bad1"`,
@@ -311,6 +315,10 @@ var bootstrapTests = []bootstrapTest{{
 	info:        "constraints",
 	args:        []string{"--constraints", "mem=4G cpu-cores=4"},
 	constraints: constraints.MustParse("mem=4G cpu-cores=4"),
+}, {
+	info:        "unsupported constraint passed through but no error",
+	args:        []string{"--constraints", "mem=4G cpu-cores=4 cpu-power=10"},
+	constraints: constraints.MustParse("mem=4G cpu-cores=4 cpu-power=10"),
 }, {
 	info:    "--upload-tools picks all reasonable series",
 	version: "1.2.3-saucy-amd64",

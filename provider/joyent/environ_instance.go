@@ -53,7 +53,6 @@ func (env *joyentEnviron) machineFullName(machineId string) string {
 
 var unsupportedConstraints = []string{
 	constraints.CpuPower,
-	constraints.InstanceType,
 	constraints.Tags,
 }
 
