@@ -58,6 +58,9 @@ type MachineStatus struct {
 	Id             string
 	Containers     map[string]MachineStatus
 	Hardware       string
+	Jobs           []params.MachineJob
+	HasVote        bool
+	WantsVote      bool
 }
 
 // ServiceStatus holds status info about a service.

@@ -312,6 +312,9 @@ func (context *statusContext) makeMachineStatus(machine *state.Machine) (status 
 		status.AgentStateInfo,
 		status.Err = processAgent(machine)
 	status.Series = machine.Series()
+	status.Jobs = paramsJobsFromJobs(machine.Jobs())
+	status.WantsVote = machine.WantsVote()
+	status.HasVote = machine.HasVote()
 	instid, err := machine.InstanceId()
 	if err == nil {
 		status.InstanceId = instid
@@ -342,6 +345,15 @@ func (context *statusContext) makeMachineStatus(machine *state.Machine) (status 
 	}
 	status.Containers = make(map[string]api.MachineStatus)
 	return
+}
+
+// paramsJobsFromJobs converts state jobs to params jobs.
+func paramsJobsFromJobs(jobs []state.MachineJob) []params.MachineJob {
+	paramsJobs := make([]params.MachineJob, len(jobs))
+	for i, machineJob := range jobs {
+		paramsJobs[i] = machineJob.ToParams()
+	}
+	return paramsJobs
 }
 
 func (context *statusContext) processServices() map[string]api.ServiceStatus {
