@@ -262,7 +262,7 @@ func (w *Watcher) flush() {
 // handle deals with requests delivered by the public API
 // onto the background watcher goroutine.
 func (w *Watcher) handle(req interface{}) {
-	logger.Debugf("got request: %#v", req)
+	logger.Tracef("got request: %#v", req)
 	switch r := req.(type) {
 	case reqSync:
 		w.next = time.After(0)
@@ -362,7 +362,7 @@ func (w *Watcher) sync() error {
 				}
 				seq := k + i
 				dead[seq] = true
-				logger.Debugf("found seq=%d dead", seq)
+				logger.Tracef("found seq=%d dead", seq)
 			}
 		}
 	}
@@ -396,7 +396,7 @@ func (w *Watcher) sync() error {
 				if being, ok = allBeings[seq]; !ok {
 					err := w.beings.Find(bson.D{{"_id", seq}}).One(&being)
 					if err == mgo.ErrNotFound {
-						logger.Debugf("found seq=%d unowned", seq)
+						logger.Tracef("found seq=%d unowned", seq)
 						continue
 					} else if err != nil {
 						return err
@@ -414,7 +414,7 @@ func (w *Watcher) sync() error {
 				if cur > 0 || dead[seq] {
 					continue
 				}
-				logger.Debugf("found seq=%d alive with key %q", seq, being.Key)
+				logger.Tracef("found seq=%d alive with key %q", seq, being.Key)
 				for _, ch := range w.watches[being.Key] {
 					w.pending = append(w.pending, event{ch, being.Key, true})
 				}
@@ -470,7 +470,7 @@ func (p *Pinger) Start() error {
 	if err := p.prepare(); err != nil {
 		return err
 	}
-	logger.Debugf("starting pinger for %q with seq=%d", p.beingKey, p.beingSeq)
+	logger.Tracef("starting pinger for %q with seq=%d", p.beingKey, p.beingSeq)
 	if err := p.ping(); err != nil {
 		return err
 	}
@@ -489,7 +489,7 @@ func (p *Pinger) Stop() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.started {
-		logger.Debugf("stopping pinger for %q with seq=%d", p.beingKey, p.beingSeq)
+		logger.Tracef("stopping pinger for %q with seq=%d", p.beingKey, p.beingSeq)
 	}
 	p.tomb.Kill(nil)
 	err := p.tomb.Wait()
@@ -504,10 +504,10 @@ func (p *Pinger) Kill() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.started {
-		logger.Debugf("killing pinger for %q (was started)", p.beingKey)
+		logger.Tracef("killing pinger for %q (was started)", p.beingKey)
 		return p.killStarted()
 	}
-	logger.Debugf("killing pinger for %q (was stopped)", p.beingKey)
+	logger.Tracef("killing pinger for %q (was stopped)", p.beingKey)
 	return p.killStopped()
 }
 
@@ -582,7 +582,7 @@ func (p *Pinger) prepare() error {
 // ping records updates the current time slot with the
 // sequence in use by the pinger.
 func (p *Pinger) ping() error {
-	logger.Debugf("pinging %q with seq=%d", p.beingKey, p.beingSeq)
+	logger.Tracef("pinging %q with seq=%d", p.beingKey, p.beingSeq)
 	if p.delta == 0 {
 		delta, err := clockDelta(p.base)
 		if err != nil {

@@ -18,11 +18,6 @@ import (
 
 var logger = loggo.GetLogger("juju.state.watcher")
 
-// Debug specifies whether the package will log debug
-// messages.
-// TODO(rog) allow debug level setting in the log package.
-var Debug = false
-
 // A Watcher can watch any number of collections and documents for changes.
 type Watcher struct {
 	tomb tomb.Tomb
@@ -277,7 +272,7 @@ func (w *Watcher) flush() {
 // handle deals with requests delivered by the public API
 // onto the background watcher goroutine.
 func (w *Watcher) handle(req interface{}) {
-	logger.Debugf("got request: %#v", req)
+	logger.Tracef("got request: %#v", req)
 	switch r := req.(type) {
 	case reqSync:
 		w.needSync = true
@@ -355,7 +350,7 @@ func (w *Watcher) sync() error {
 	var entry bson.D
 	for iter.Next(&entry) {
 		if len(entry) == 0 {
-			logger.Debugf("got empty changelog document")
+			logger.Tracef("got empty changelog document")
 		}
 		id := entry[0]
 		if id.Name != "_id" {
@@ -368,7 +363,7 @@ func (w *Watcher) sync() error {
 		if id.Value == lastId {
 			break
 		}
-		logger.Debugf("got changelog document: %#v", entry)
+		logger.Tracef("got changelog document: %#v", entry)
 		for _, c := range entry[1:] {
 			// See txn's Runner.ChangeLog for the structure of log entries.
 			var d, r []interface{}
