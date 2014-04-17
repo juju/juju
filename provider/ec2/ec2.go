@@ -47,7 +47,6 @@ type environProvider struct{}
 var providerInstance environProvider
 
 type environ struct {
-	common.NopPrecheckerPolicy
 	common.SupportsUnitPlacementPolicy
 
 	name string
@@ -70,6 +69,7 @@ var _ environs.Environ = (*environ)(nil)
 var _ simplestreams.HasRegion = (*environ)(nil)
 var _ imagemetadata.SupportsCustomSources = (*environ)(nil)
 var _ envtools.SupportsCustomSources = (*environ)(nil)
+var _ state.Prechecker = (*environ)(nil)
 
 type ec2Instance struct {
 	e *environ
@@ -369,6 +369,38 @@ func (e *environ) ConstraintsValidator() constraints.Validator {
 		[]string{constraints.Mem, constraints.CpuCores})
 	validator.RegisterUnsupported(unsupportedConstraints)
 	return validator
+}
+
+func archMatches(arches []string, arch *string) bool {
+	if arch == nil {
+		return true
+	}
+	for _, a := range arches {
+		if a == *arch {
+			return true
+		}
+	}
+	return false
+}
+
+// PrecheckInstance is defined on the state.Prechecker interface.
+func (e *environ) PrecheckInstance(series string, cons constraints.Value) error {
+	if !cons.HasInstanceType() {
+		return nil
+	}
+	// Constraint has an instance-type constraint so let's see if it is valid.
+	for _, itype := range allInstanceTypes {
+		if itype.Name != *cons.InstanceType {
+			continue
+		}
+		if archMatches(itype.Arches, cons.Arch) {
+			return nil
+		}
+	}
+	if cons.Arch == nil {
+		return fmt.Errorf("invalid AWS instance type %q specified", *cons.InstanceType)
+	}
+	return fmt.Errorf("invalid AWS instance type %q and arch %q specified", *cons.InstanceType, *cons.Arch)
 }
 
 // MetadataLookupParams returns parameters which are used to query simplestreams metadata.
