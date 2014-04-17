@@ -438,7 +438,29 @@ func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
 			break
 		}
 	}
+}
 
+func (s *MachineSuite) TestManageEnvironRunsPeergrouper(c *gc.C) {
+	started := make(chan struct{}, 1)
+	testing.PatchValue(&peergrouperNew, func(st *state.State) (worker.Worker, error) {
+		c.Check(st, gc.NotNil)
+		select {
+		case started <- struct{}{}:
+		default:
+		}
+		return newDummyWorker(), nil
+	})
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	defer a.Stop()
+	go func() {
+		c.Check(a.Run(nil), gc.IsNil)
+	}()
+	select {
+	case <-started:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for peergrouper worker to be started")
+	}
 }
 
 func (s *MachineSuite) TestManageEnvironCallsUseMultipleCPUs(c *gc.C) {
