@@ -695,6 +695,7 @@ func (e *environ) Destroy() (res error) {
 // ConstraintsValidator is defined on the Environs interface.
 func (e *environ) ConstraintsValidator() constraints.Validator {
 	validator := constraints.NewValidator()
+	validator.RegisterUnsupported([]string{constraints.CpuPower})
 	validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
 	return validator
 }
