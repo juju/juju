@@ -47,8 +47,6 @@ publish_to_canonistack() {
     ${SCRIPT_DIR}/swift-sync.bash tools/releases/ *.tgz
     cd $JUJU_DIST/tools/streams/v1
     ${SCRIPT_DIR}/swift-sync.bash tools/streams/v1/ {index,com}*
-    # This needed to allow old deployments upgrade.
-    cd ${JUJU_DIST}/tools
 }
 
 
@@ -71,8 +69,6 @@ publish_to_hp() {
     ${SCRIPT_DIR}/swift-sync.bash tools/releases/ *.tgz
     cd $JUJU_DIST/tools/streams/v1
     ${SCRIPT_DIR}/swift-sync.bash tools/streams/v1/ {index,com}*
-    # Support old tools location so that deployments can upgrade to new tools.
-    cd ${JUJU_DIST}/tools
 }
 
 
@@ -106,18 +102,11 @@ testing_to_aws() {
         ${JUJU_DIST}/tools s3://juju-dist/testing/
 }
 
-shim_creds() {
-    # The azure library uses different vars than was defined for gwacl.
-    export AZURE_STORAGE_ACCOUNT=${AZURE_STORAGE_ACCOUNT:-$AZURE_ACCOUNT}
-    AZURE_STORAGE_ACCESS_KEY=${AZURE_STORAGE_ACCESS_KEY:-$AZURE_JUJU_TOOLS_KEY}
-    export AZURE_STORAGE_ACCOUNT AZURE_STORAGE_ACCESS_KEY
-}
 
 publish_to_azure() {
     [[ $JT_IGNORE_AZURE == '1' ]] && return 0
     echo "Phase 4: Publish to Azure."
     source $JUJU_DIR/azuretoolsrc
-    shim_creds
     ${SCRIPT_DIR}/azure_publish_tools.py publish release ${JUJU_DIST}
 }
 
@@ -128,7 +117,6 @@ testing_to_azure() {
     [[ $JT_IGNORE_AZURE == '1' ]] && return 0
     echo "Phase 4: Testing to Azure."
     source $JUJU_DIR/azuretoolsrc
-    shim_creds
     ${SCRIPT_DIR}/azure_publish_tools.py publish testing ${JUJU_DIST}
 }
 
