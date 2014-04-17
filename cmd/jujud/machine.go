@@ -441,7 +441,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	}
 
 	st, m, err := openState(agentConfig)
-	if errors.IsUnauthorizedError(err) {
+	if errors.IsUnauthorized(err) {
 		// TODO(axw) remove this when we no longer need
 		// to upgrade from pre-HA-capable environments.
 		logger.Debugf("failed to open state, reattempt after ensuring admin user exists: %v", err)
