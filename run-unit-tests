@@ -39,11 +39,6 @@ for attempt in \$(seq 10); do
   fi
   sleep 10
 done
-if [[ \$(lsb_release -sc) == "precise" ]]; then
-    sudo apt-add-repository --yes cloud-archive:tools
-    sudo apt-get update
-    sudo apt-get install -y mongodb-server
-fi
 sudo apt-get update
 sudo apt-get install -y build-essential
 # Hack match for i386.
