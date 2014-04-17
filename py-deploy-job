@@ -7,4 +7,4 @@ else
 fi
 export DEPLOY_ARGS
 # Do the deployment for upgrade testing.
-JUJU_REPOSITORY=$HOME/repository PATH=$NEW_PATH deploy_job.py
+JUJU_REPOSITORY=$HOME/repository PATH=$NEW_PATH $SCRIPTS/deploy_job.py
