@@ -277,11 +277,12 @@ func (w *pgWorker) updateReplicaset() error {
 	if err != nil {
 		return fmt.Errorf("cannot compute desired peer group: %v", err)
 	}
-	if members == nil {
-		logger.Debugf("no change in desired peer group")
-		return nil
+	if members != nil {
+		logger.Debugf("desired peer group members: %#v", members)
+	} else {
+		logger.Debugf("no change in desired peer group (voting %#v)", voting)
 	}
-	logger.Debugf("desired peer group members: %#v", members)
+
 	// We cannot change the HasVote flag of a machine in state at exactly
 	// the same moment as changing its voting status in the replica set.
 	//
@@ -301,7 +302,9 @@ func (w *pgWorker) updateReplicaset() error {
 	// actual voting status for a while, but when things come
 	// back on line, it will be sorted out, as desiredReplicaSet
 	// will return the actual voting status.
-
+	//
+	// Note that we potentially update the HasVote status of the machines even
+	// if the members have not changed.
 	var added, removed []*machine
 	for m, hasVote := range voting {
 		switch {
@@ -314,15 +317,17 @@ func (w *pgWorker) updateReplicaset() error {
 	if err := setHasVote(added, true); err != nil {
 		return err
 	}
-	if err := w.st.MongoSession().Set(members); err != nil {
-		// We've failed to set the replica set, so revert back
-		// to the previous settings.
-		if err1 := setHasVote(added, false); err1 != nil {
-			logger.Errorf("cannot revert machine voting after failure to change replica set: %v", err1)
+	if members != nil {
+		if err := w.st.MongoSession().Set(members); err != nil {
+			// We've failed to set the replica set, so revert back
+			// to the previous settings.
+			if err1 := setHasVote(added, false); err1 != nil {
+				logger.Errorf("cannot revert machine voting after failure to change replica set: %v", err1)
+			}
+			return &replicaSetError{err}
 		}
-		return &replicaSetError{err}
+		logger.Infof("successfully changed replica set to %#v", members)
 	}
-	logger.Infof("successfully changed replica set to %#v", members)
 	if err := setHasVote(removed, false); err != nil {
 		return err
 	}
@@ -345,6 +350,10 @@ func (w *pgWorker) start(loop func() error) {
 // setHasVote sets the HasVote status of all the given
 // machines to hasVote.
 func setHasVote(ms []*machine, hasVote bool) error {
+	if len(ms) == 0 {
+		return nil
+	}
+	logger.Infof("setting HasVote=%v on machines %v", hasVote, ms)
 	for _, m := range ms {
 		if err := m.stm.SetHasVote(hasVote); err != nil {
 			return fmt.Errorf("cannot set voting status of %q to %v: %v", m.id, hasVote, err)
