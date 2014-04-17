@@ -128,7 +128,7 @@ def upgrade_juju(environment):
 def deploy_job():
     deploy_args = os.environ['DEPLOY_ARGS']
     # retrieve odd-numbered tokens from a list of --machine x --machine y
-    machines = [a for a in deploy_args.split() if a % 2 == 1]
+    machines = [a for n, a in enumerate(deploy_args.split()) if n % 2 == 1]
     environment = os.environ['ENV']
     try:
         if sys.platform == 'win32':
