@@ -56,7 +56,7 @@ func SetBootstrapTools(environ environs.Environ, possibleTools coretools.List) (
 	}
 	var newVersion version.Number
 	newVersion, toolsList := possibleTools.Newest()
-	logger.Infof("picked newest version: %s", newVersion)
+	logger.Infof("newest version: %s", newVersion)
 	cfg := environ.Config()
 	if agentVersion, _ := cfg.AgentVersion(); agentVersion != newVersion {
 		cfg, err := cfg.Apply(map[string]interface{}{
@@ -69,7 +69,37 @@ func SetBootstrapTools(environ environs.Environ, possibleTools coretools.List) (
 			return nil, fmt.Errorf("failed to update environment configuration: %v", err)
 		}
 	}
+	// We should only ever bootstrap the exact same version as the client,
+	// or we risk bootstrap incompatibility. We still set agent-version to
+	// the newest version, so the agent will immediately upgrade itself.
+	//
+	// Build number is not important to match; uploaded tools will have
+	// incremented build number, and we want to match them.
+	bootstrapVersion := newVersion
+	if !sameVersionIgnoringBuild(newVersion, version.Current.Number) {
+		var sameTools coretools.List
+		for _, tools := range possibleTools {
+			if sameVersionIgnoringBuild(tools.Version.Number, version.Current.Number) {
+				sameTools = append(sameTools, tools)
+			}
+		}
+		if len(sameTools) == 0 {
+			logger.Warningf(
+				"failed to find %s tools, will attempt to use %s",
+				version.Current.Number, newVersion,
+			)
+		} else {
+			bootstrapVersion, toolsList = sameTools.Newest()
+		}
+	}
+	logger.Infof("picked bootstrap tools version: %s", bootstrapVersion)
 	return toolsList, nil
+}
+
+func sameVersionIgnoringBuild(v1, v2 version.Number) bool {
+	v1.Build = 0
+	v2.Build = 0
+	return v1.Compare(v2) == 0
 }
 
 // EnsureNotBootstrapped returns nil if the environment is not
