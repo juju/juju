@@ -63,7 +63,7 @@ func (w *commonWatcher) commonLoop() {
 		defer w.wg.Done()
 		<-w.tomb.Dying()
 		if err := w.call("Stop", nil); err != nil {
-			log.Errorf("state/api: error trying to stop watcher %v", err)
+			log.Errorf("state/api: error trying to stop watcher: %v", err)
 		}
 	}()
 	w.wg.Add(1)

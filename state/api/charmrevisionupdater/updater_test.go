@@ -7,6 +7,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
+	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/charmrevisionupdater"
 	"launchpad.net/juju-core/state/apiserver/charmrevisionupdater/testing"
@@ -14,6 +15,7 @@ import (
 )
 
 type versionUpdaterSuite struct {
+	jujutesting.JujuConnSuite
 	testing.CharmSuite
 
 	updater *charmrevisionupdater.State
@@ -21,7 +23,18 @@ type versionUpdaterSuite struct {
 
 var _ = gc.Suite(&versionUpdaterSuite{})
 
+func (s *versionUpdaterSuite) SetUpSuite(c *gc.C) {
+	s.JujuConnSuite.SetUpSuite(c)
+	s.CharmSuite.SetUpSuite(c, &s.JujuConnSuite)
+}
+
+func (s *versionUpdaterSuite) TearDownSuite(c *gc.C) {
+	s.CharmSuite.TearDownSuite(c)
+	s.JujuConnSuite.TearDownSuite(c)
+}
+
 func (s *versionUpdaterSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
 	s.CharmSuite.SetUpTest(c)
 
 	machine, err := s.State.AddMachine("quantal", state.JobManageEnviron)
@@ -37,6 +50,11 @@ func (s *versionUpdaterSuite) SetUpTest(c *gc.C) {
 
 	s.updater = charmrevisionupdater.NewState(st)
 	c.Assert(s.updater, gc.NotNil)
+}
+
+func (s *versionUpdaterSuite) TearDownTest(c *gc.C) {
+	s.CharmSuite.TearDownTest(c)
+	s.JujuConnSuite.TearDownTest(c)
 }
 
 func (s *versionUpdaterSuite) TestUpdateRevisions(c *gc.C) {
