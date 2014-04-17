@@ -49,7 +49,6 @@ var shortAttempt = utils.AttemptStrategy{
 }
 
 type maasEnviron struct {
-	common.NopPrecheckerPolicy
 	common.SupportsUnitPlacementPolicy
 
 	name string
@@ -169,10 +168,12 @@ func (env *maasEnviron) SupportNetworks() bool {
 	return caps.Contains(capNetworksManagement)
 }
 
-// ValidatePlacement is specified in the state.PlacementValidator interface.
-func (env *maasEnviron) ValidatePlacement(p *instance.Placement) error {
+func (env *maasEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
 	// TODO(axw) handle maas-name placement directive
-	return fmt.Errorf("unknown placement directive: %s", p)
+	if placement != "" {
+		return fmt.Errorf("unknown placement directive: %s", placement)
+	}
+	return nil
 }
 
 const capNetworksManagement = "networks-management"

@@ -101,10 +101,9 @@ func (s *ConnSuite) AddMetaCharm(c *gc.C, name, metaYaml string, revsion int) *s
 }
 
 type mockPolicy struct {
-	getPrechecker         func(*config.Config) (state.Prechecker, error)
-	getConfigValidator    func(string) (state.ConfigValidator, error)
-	getEnvironCapability  func(*config.Config) (state.EnvironCapability, error)
-	getPlacementValidator func(*config.Config) (state.PlacementValidator, error)
+	getPrechecker        func(*config.Config) (state.Prechecker, error)
+	getConfigValidator   func(string) (state.ConfigValidator, error)
+	getEnvironCapability func(*config.Config) (state.EnvironCapability, error)
 }
 
 func (p *mockPolicy) Prechecker(cfg *config.Config) (state.Prechecker, error) {
@@ -126,11 +125,4 @@ func (p *mockPolicy) EnvironCapability(cfg *config.Config) (state.EnvironCapabil
 		return p.getEnvironCapability(cfg)
 	}
 	return nil, errors.NewNotImplementedError("EnvironCapability")
-}
-
-func (p *mockPolicy) PlacementValidator(cfg *config.Config) (state.PlacementValidator, error) {
-	if p.getPlacementValidator != nil {
-		return p.getPlacementValidator(cfg)
-	}
-	return nil, errors.NewNotImplementedError("PlacementValidator")
 }

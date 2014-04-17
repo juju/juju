@@ -295,25 +295,25 @@ func (s *provisionerSuite) TestDistributionGroupMachineNotFound(c *gc.C) {
 
 func (s *provisionerSuite) TestPlacement(c *gc.C) {
 	template := state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Series:    "quantal",
+		Jobs:      []state.MachineJob{state.JobHostUnits},
+		Placement: "valid",
 	}
-	placement := instance.MustParsePlacement("valid:b")
-	placementMachine, err := s.State.AddMachineWithPlacement(template, placement)
+	placementMachine, err := s.State.AddOneMachine(template)
 	c.Assert(err, gc.IsNil)
-	c.Assert(placementMachine.Placement(), gc.DeepEquals, placement)
+	c.Assert(placementMachine.Placement(), gc.Equals, template.Placement)
 	apiMachine, err := s.provisioner.Machine(placementMachine.Tag())
 	c.Assert(err, gc.IsNil)
 	apiPlacement, err := apiMachine.Placement()
 	c.Assert(err, gc.IsNil)
-	c.Assert(apiPlacement, gc.DeepEquals, placement)
+	c.Assert(apiPlacement, gc.Equals, template.Placement)
 }
 
 func (s *provisionerSuite) TestNoPlacement(c *gc.C) {
 	apiMachine, err := s.provisioner.Machine(s.machine.Tag())
 	c.Assert(err, gc.IsNil)
 	placement, err := apiMachine.Placement()
-	c.Assert(placement, gc.IsNil)
+	c.Assert(placement, gc.Equals, "")
 	c.Assert(err, gc.IsNil)
 }
 

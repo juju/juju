@@ -59,7 +59,6 @@ type manualEnviron struct {
 }
 
 var _ envtools.SupportsCustomSources = (*manualEnviron)(nil)
-var _ state.Prechecker = (*manualEnviron)(nil)
 
 var errNoStartInstance = errors.New("manual provider cannot start instances")
 var errNoStopInstance = errors.New("manual provider cannot stop instances")
@@ -99,11 +98,6 @@ func (e *manualEnviron) SupportedArchitectures() ([]string, error) {
 // SupportNetworks is specified on the EnvironCapability interface.
 func (e *manualEnviron) SupportNetworks() bool {
 	return false
-}
-
-// ValidatePlacement is specified in the state.PlacementValidator interface.
-func (*manualEnviron) ValidatePlacement(p *instance.Placement) error {
-	return fmt.Errorf("unknown placement directive: %s", p)
 }
 
 func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
@@ -264,7 +258,7 @@ exit 0
 	return err
 }
 
-func (*manualEnviron) PrecheckInstance(series string, cons constraints.Value) error {
+func (*manualEnviron) PrecheckInstance(series string, _ constraints.Value, placement string) error {
 	return errors.New(`use "juju add-machine ssh:[user@]<host>" to provision machines`)
 }
 

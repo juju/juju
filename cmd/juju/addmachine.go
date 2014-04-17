@@ -90,11 +90,11 @@ func (c *AddMachineCommand) Init(args []string) error {
 	if err != nil {
 		return err
 	}
-	if c.Placement, err = instance.ParsePlacement(placement); err != nil {
-		return err
-	}
-	if c.Placement != nil && c.Placement.Scope == "" {
+	c.Placement, err = instance.ParsePlacement(placement)
+	if c.Placement != nil && err == instance.ErrPlacementScopeMissing {
 		c.Placement.Scope = c.EnvironName()
+	} else if err != nil {
+		return err
 	}
 	return nil
 }
@@ -102,7 +102,7 @@ func (c *AddMachineCommand) Init(args []string) error {
 func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 	if c.Placement != nil && c.Placement.Scope == "ssh" {
 		args := manual.ProvisionMachineArgs{
-			Host:    c.Placement.Value,
+			Host:    c.Placement.Directive,
 			EnvName: c.EnvName,
 			Stdin:   ctx.Stdin,
 			Stdout:  ctx.Stdout,
@@ -118,23 +118,58 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
+	// We may need these for backwards compatibility; we also
+	// want to know if we're creating a container for the log
+	// message.
+	var containerType instance.ContainerType
+	var parentId string
+	if c.Placement != nil {
+		if c.Placement.Scope == instance.MachineScope {
+			return fmt.Errorf("machine-id cannot be specified when adding machines")
+		}
+		containerType, err = instance.ParseContainerType(c.Placement.Scope)
+		if err == nil {
+			parentId = c.Placement.Directive
+			c.Placement = nil
+		}
+	}
+
 	machineParams := params.AddMachineParams{
-		Placement:   c.Placement,
-		Series:      c.Series,
-		Constraints: c.Constraints,
-		Jobs:        []params.MachineJob{params.JobHostUnits},
+		ContainerType: containerType,
+		ParentId:      parentId,
+		Placement:     c.Placement,
+		Series:        c.Series,
+		Constraints:   c.Constraints,
+		Jobs:          []params.MachineJob{params.JobHostUnits},
 	}
 	results, err := client.AddMachines([]params.AddMachineParams{machineParams})
+	if params.IsCodeNotImplemented(err) {
+		// If the user specified a non-container placement
+		// directive, then we should not proceed.
+		if c.Placement != nil && containerType == "" {
+			return err
+		}
+		logger.Infof(
+			"AddMachinesWithPlacement not supported by the API server, " +
+				"falling back to 1.18 compatibility mode",
+		)
+		results, err = client.AddMachines1dot18([]params.AddMachineParams{machineParams})
+	}
 	if err != nil {
 		return err
 	}
+
 	// Currently, only one machine is added, but in future there may be several added in one call.
 	machineInfo := results[0]
 	if machineInfo.Error != nil {
 		return machineInfo.Error
 	}
 	machineId := machineInfo.Machine
-	// TODO(axw) figure out how to convey whether it's a container?
-	ctx.Infof("created machine %v", machineId)
+
+	if containerType != "" {
+		ctx.Infof("created %q container %v", containerType, machineId)
+	} else {
+		ctx.Infof("created machine %v", machineId)
+	}
 	return nil
 }

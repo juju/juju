@@ -56,7 +56,6 @@ var _ environs.Environ = (*localEnviron)(nil)
 var _ envtools.SupportsCustomSources = (*localEnviron)(nil)
 
 type localEnviron struct {
-	common.NopPrecheckerPolicy
 	common.SupportsUnitPlacementPolicy
 
 	localMutex       sync.Mutex
@@ -86,9 +85,11 @@ func (*localEnviron) SupportNetworks() bool {
 	return false
 }
 
-// ValidatePlacement is specified in the state.PlacementValidator interface.
-func (*localEnviron) ValidatePlacement(p *instance.Placement) error {
-	return fmt.Errorf("unknown placement directive: %s", p)
+func (*localEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
+	if placement != "" {
+		return fmt.Errorf("unknown placement directive: %s", placement)
+	}
+	return nil
 }
 
 // Name is specified in the Environ interface.

@@ -376,22 +376,22 @@ func (m *Machine) SupportsNoContainers() error {
 	return m.SetSupportedContainers([]instance.ContainerType{}...)
 }
 
-// Placement returns the machine's placement information.
-func (m *Machine) Placement() (*instance.Placement, error) {
-	var results params.PlacementResults
+// Placement returns the machine's placement directive.
+func (m *Machine) Placement() (string, error) {
+	var results params.StringResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
 	err := m.st.caller.Call("Provisioner", "", "Placement", args, &results)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return "", fmt.Errorf("expected one result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return nil, result.Error
+		return "", result.Error
 	}
 	return result.Result, nil
 }

@@ -35,8 +35,3 @@ func (environStatePolicy) EnvironCapability(cfg *config.Config) (state.EnvironCa
 	// Environ implements state.EnvironCapability.
 	return New(cfg)
 }
-
-func (environStatePolicy) PlacementValidator(cfg *config.Config) (state.PlacementValidator, error) {
-	// Environ implements state.PlacementValidator.
-	return New(cfg)
-}

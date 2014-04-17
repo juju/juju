@@ -59,8 +59,6 @@ var (
 )
 
 type azureEnviron struct {
-	common.NopPrecheckerPolicy
-
 	// Except where indicated otherwise, all fields in this object should
 	// only be accessed using a lock or a snapshot.
 	sync.Mutex
@@ -1174,7 +1172,9 @@ func (env *azureEnviron) SupportsUnitPlacement() error {
 	return nil
 }
 
-// ValidatePlacement is specified in the state.PlacementValidator interface.
-func (env *azureEnviron) ValidatePlacement(p *instance.Placement) error {
-	return fmt.Errorf("unknown placement directive: %s", p)
+func (*azureEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
+	if placement != "" {
+		return fmt.Errorf("unknown placement directive: %s", placement)
+	}
+	return nil
 }

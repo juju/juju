@@ -729,11 +729,11 @@ func (s *withoutStateServerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C)
 func (s *withoutStateServerSuite) TestPlacement(c *gc.C) {
 	// Add a machine with placement.
 	template := state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
+		Series:    "quantal",
+		Jobs:      []state.MachineJob{state.JobHostUnits},
+		Placement: "valid",
 	}
-	placement := instance.MustParsePlacement("valid:woohoo")
-	placementMachine, err := s.State.AddMachineWithPlacement(template, placement)
+	placementMachine, err := s.State.AddOneMachine(template)
 	c.Assert(err, gc.IsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -745,11 +745,42 @@ func (s *withoutStateServerSuite) TestPlacement(c *gc.C) {
 	}}
 	result, err := s.provisioner.Placement(args)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.PlacementResults{
-		Results: []params.PlacementResult{
-			{Result: nil},
-			{Result: placement},
+	c.Assert(result, gc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{
+			{Result: ""},
+			{Result: template.Placement},
 			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *withoutStateServerSuite) TestPlacementPermissions(c *gc.C) {
+	// Login as a machine agent for machine 0.
+	anAuthorizer := s.authorizer
+	anAuthorizer.MachineAgent = true
+	anAuthorizer.EnvironManager = false
+	anAuthorizer.Tag = s.machines[0].Tag()
+	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
+	c.Assert(err, gc.IsNil)
+	c.Assert(aProvisioner, gc.NotNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: s.machines[0].Tag()},
+		{Tag: s.machines[0].Tag() + "-lxc-0"},
+		{Tag: "machine-42"},
+		{Tag: s.machines[1].Tag()},
+		{Tag: "service-bar"},
+	}}
+
+	// Only machine 0 and containers therein can be accessed.
+	results, err := aProvisioner.Placement(args)
+	c.Assert(results, gc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{
+			{Error: nil},
+			{Error: apiservertesting.NotFoundError("machine 0/lxc/0")},
+			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 		},

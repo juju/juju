@@ -275,7 +275,6 @@ func retryGet(uri string) (data []byte, err error) {
 }
 
 type environ struct {
-	common.NopPrecheckerPolicy
 	common.SupportsUnitPlacementPolicy
 
 	name string
@@ -522,9 +521,11 @@ func (e *environ) SupportNetworks() bool {
 	return false
 }
 
-// ValidatePlacement is specified in the state.PlacementValidator interface.
-func (*environ) ValidatePlacement(p *instance.Placement) error {
-	return fmt.Errorf("unknown placement directive: %s", p)
+func (*environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
+	if placement != "" {
+		return fmt.Errorf("unknown placement directive: %s", placement)
+	}
+	return nil
 }
 
 func (e *environ) Storage() storage.Storage {

@@ -14,18 +14,19 @@ type PlacementSuite struct{}
 var _ = gc.Suite(&PlacementSuite{})
 
 var parsePlacementTests = []struct {
-	arg    string
-	expect *instance.Placement
-	err    string
+	arg                          string
+	expectScope, expectDirective string
+	err                          string
 }{{
-	arg:    "",
-	expect: nil,
+	arg: "",
 }, {
-	arg:    "0",
-	expect: &instance.Placement{Scope: instance.MachineScope, Value: "0"},
+	arg:             "0",
+	expectScope:     instance.MachineScope,
+	expectDirective: "0",
 }, {
-	arg:    "0/lxc/0",
-	expect: &instance.Placement{Scope: instance.MachineScope, Value: "0/lxc/0"},
+	arg:             "0/lxc/0",
+	expectScope:     instance.MachineScope,
+	expectDirective: "0/lxc/0",
 }, {
 	arg: "#:x",
 	err: `invalid value "x" for "#" scope: expected machine-id`,
@@ -36,20 +37,24 @@ var parsePlacementTests = []struct {
 	arg: "kvm:x",
 	err: `invalid value "x" for "kvm" scope: expected machine-id`,
 }, {
-	arg:    "kvm:123",
-	expect: &instance.Placement{Scope: string(instance.KVM), Value: "123"},
+	arg:             "kvm:123",
+	expectScope:     string(instance.KVM),
+	expectDirective: "123",
 }, {
-	arg:    "lxc",
-	expect: &instance.Placement{Scope: string(instance.LXC)},
+	arg:         "lxc",
+	expectScope: string(instance.LXC),
 }, {
-	arg:    "non-standard",
-	expect: &instance.Placement{Value: "non-standard"},
+	arg:             "non-standard",
+	expectDirective: "non-standard",
+	err:             "placement scope missing",
 }, {
-	arg:    ":non-standard",
-	expect: &instance.Placement{Value: "non-standard"},
+	arg:             ":non-standard",
+	expectDirective: "non-standard",
+	err:             "placement scope missing",
 }, {
-	arg:    "non:standard",
-	expect: &instance.Placement{Scope: "non", Value: "standard"},
+	arg:             "non:standard",
+	expectScope:     "non",
+	expectDirective: "standard",
 }}
 
 func (s *PlacementSuite) TestParsePlacement(c *gc.C) {
@@ -58,9 +63,16 @@ func (s *PlacementSuite) TestParsePlacement(c *gc.C) {
 		p, err := instance.ParsePlacement(t.arg)
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
-			continue
+		} else {
+			c.Assert(err, gc.IsNil)
 		}
-		c.Assert(err, gc.IsNil)
-		c.Assert(p, gc.DeepEquals, t.expect)
+		if t.expectScope == "" && t.expectDirective == "" {
+			c.Assert(p, gc.IsNil)
+		} else {
+			c.Assert(p, gc.DeepEquals, &instance.Placement{
+				Scope:     t.expectScope,
+				Directive: t.expectDirective,
+			})
+		}
 	}
 }

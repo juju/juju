@@ -13,7 +13,6 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
-	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -22,7 +21,6 @@ import (
 // This file contains the core of the Joyent Environ implementation.
 
 type joyentEnviron struct {
-	common.NopPrecheckerPolicy
 	common.SupportsUnitPlacementPolicy
 
 	name string
@@ -103,9 +101,11 @@ func (e *joyentEnviron) SupportNetworks() bool {
 	return false
 }
 
-// ValidatePlacement is specified in the state.PlacementValidator interface.
-func (*joyentEnviron) ValidatePlacement(p *instance.Placement) error {
-	return fmt.Errorf("unknown placement directive: %s", p)
+func (*joyentEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
+	if placement != "" {
+		return fmt.Errorf("unknown placement directive: %s", placement)
+	}
+	return nil
 }
 
 func (env *joyentEnviron) SetConfig(cfg *config.Config) error {

@@ -16,6 +16,8 @@ const (
 	MachineScope = "#"
 )
 
+var ErrPlacementScopeMissing = fmt.Errorf("placement scope missing")
+
 // Placement defines a placement directive, which has a scope
 // and a value that is scope-specific.
 type Placement struct {
@@ -26,15 +28,15 @@ type Placement struct {
 	// If Scope is empty, then it must be inferred from the context.
 	Scope string
 
-	// Value is a scope-specific placement value.
+	// Directive is a scope-specific placement idrective.
 	//
 	// For MachineScope or a container scope, this may be empty or
 	// the ID of an existing machine.
-	Value string
+	Directive string
 }
 
 func (p *Placement) String() string {
-	return fmt.Sprintf("%s:%s", p.Scope, p.Value)
+	return fmt.Sprintf("%s:%s", p.Scope, p.Directive)
 }
 
 func isContainerType(s string) bool {
@@ -44,30 +46,37 @@ func isContainerType(s string) bool {
 
 // ParsePlacement attempts to parse the specified string and create a
 // corresponding Placement structure.
+//
+// If the placement directive is non-empty and missing a scope,
+// ErrPlacementScopeMissing will be returned as well as a Placement
+// with an empty Scope field.
 func ParsePlacement(directive string) (*Placement, error) {
 	if directive == "" {
 		return nil, nil
 	}
 	if colon := strings.IndexRune(directive, ':'); colon != -1 {
-		scope, value := directive[:colon], directive[colon+1:]
-		// Sanity check: machine/container scopes require a machine ID as the value.
-		if (scope == MachineScope || isContainerType(scope)) && !names.IsMachine(value) {
-			return nil, fmt.Errorf("invalid value %q for %q scope: expected machine-id", value, scope)
+		scope, directive := directive[:colon], directive[colon+1:]
+		if scope == "" {
+			return &Placement{Directive: directive}, ErrPlacementScopeMissing
 		}
-		return &Placement{Scope: scope, Value: value}, nil
+		// Sanity check: machine/container scopes require a machine ID as the value.
+		if (scope == MachineScope || isContainerType(scope)) && !names.IsMachine(directive) {
+			return nil, fmt.Errorf("invalid value %q for %q scope: expected machine-id", directive, scope)
+		}
+		return &Placement{Scope: scope, Directive: directive}, nil
 	}
 	if names.IsMachine(directive) {
-		return &Placement{Scope: MachineScope, Value: directive}, nil
+		return &Placement{Scope: MachineScope, Directive: directive}, nil
 	}
 	if isContainerType(directive) {
 		return &Placement{Scope: directive}, nil
 	}
 	// Empty scope, caller must infer the scope from context.
-	return &Placement{Value: directive}, nil
+	return &Placement{Directive: directive}, ErrPlacementScopeMissing
 }
 
-// ParsePlacement attempts to parse the specified string and create a
-// corresponding Placement structure, panicking if an error occurs.
+// MustParsePlacement attempts to parse the specified string and create
+// a corresponding Placement structure, panicking if an error occurs.
 func MustParsePlacement(directive string) *Placement {
 	placement, err := ParsePlacement(directive)
 	if err != nil {

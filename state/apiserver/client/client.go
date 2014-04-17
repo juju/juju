@@ -564,6 +564,11 @@ func (c *Client) DestroyRelation(args params.DestroyRelation) error {
 
 // AddMachines adds new machines with the supplied parameters.
 func (c *Client) AddMachines(args params.AddMachines) (params.AddMachinesResults, error) {
+	return c.AddMachinesV2(args)
+}
+
+// AddMachinesV2 adds new machines with the supplied parameters.
+func (c *Client) AddMachinesV2(args params.AddMachines) (params.AddMachinesResults, error) {
 	results := params.AddMachinesResults{
 		Machines: make([]params.AddMachinesResult, len(args.MachineParams)),
 	}
@@ -583,20 +588,14 @@ func (c *Client) InjectMachines(args params.AddMachines) (params.AddMachinesResu
 }
 
 func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error) {
-	var err error
 	if p.ParentId != "" && p.ContainerType == "" {
 		return nil, fmt.Errorf("parent machine specified without container type")
 	}
-	placement := p.Placement
-	if placement != nil {
-		if p.ContainerType != "" {
-			return nil, fmt.Errorf("ContainerType cannot be specified with Placement")
-		}
-	} else if p.ContainerType != "" {
-		placement = &instance.Placement{Scope: string(p.ContainerType), Value: p.ParentId}
+	if p.ContainerType != "" && p.Placement != nil {
+		return nil, fmt.Errorf("container type and placement are mutually exclusive")
 	}
 
-	if placement != nil {
+	if p.ContainerType != "" || p.Placement != nil {
 		// Guard against dubious client by making sure that
 		// the following attributes can only be set when we're
 		// not using placement.
@@ -614,6 +613,18 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 		p.Series = config.PreferredSeries(conf)
 	}
 
+	var placementDirective string
+	if p.Placement != nil {
+		env, err := c.api.state.Environment()
+		if err != nil {
+			return nil, err
+		}
+		if p.Placement.Scope != env.Name() {
+			return nil, fmt.Errorf("invalid environment name %q", p.Placement.Scope)
+		}
+		placementDirective = p.Placement.Directive
+	}
+
 	jobs, err := stateJobs(p.Jobs)
 	if err != nil {
 		return nil, err
@@ -626,8 +637,15 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 		Nonce:       p.Nonce,
 		HardwareCharacteristics: p.HardwareCharacteristics,
 		Addresses:               p.Addrs,
+		Placement:               placementDirective,
 	}
-	return c.api.state.AddMachineWithPlacement(template, placement)
+	if p.ContainerType == "" {
+		return c.api.state.AddOneMachine(template)
+	}
+	if p.ParentId != "" {
+		return c.api.state.AddMachineInsideMachine(template, p.ParentId, p.ContainerType)
+	}
+	return c.api.state.AddMachineInsideNewMachine(template, template, p.ContainerType)
 }
 
 func stateJobs(jobs []params.MachineJob) ([]state.MachineJob, error) {

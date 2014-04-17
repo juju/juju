@@ -284,9 +284,9 @@ func (p *ProvisionerAPI) Series(args params.Entities) (params.StringResults, err
 }
 
 // Placement returns the placement information for each given machine entity.
-func (p *ProvisionerAPI) Placement(args params.Entities) (params.PlacementResults, error) {
-	result := params.PlacementResults{
-		Results: make([]params.PlacementResult, len(args.Entities)),
+func (p *ProvisionerAPI) Placement(args params.Entities) (params.StringResults, error) {
+	result := params.StringResults{
+		Results: make([]params.StringResult, len(args.Entities)),
 	}
 	canAccess, err := p.getAuthFunc()
 	if err != nil {

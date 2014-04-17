@@ -24,9 +24,10 @@ type StartInstanceParams struct {
 	// MachineConfig describes the machine's configuration.
 	MachineConfig *cloudinit.MachineConfig
 
-	// Placement, if non-nil, contains information that may
-	// be used to decide how the instance should be started.
-	Placement *instance.Placement
+	// Placement, if non-empty, contains an environment-specific
+	// placement directive that may be used to decide how the
+	// instance should be started.
+	Placement string
 
 	// DistributionGroup, if non-nil, is a function
 	// that returns a slice of instance.Ids that belong

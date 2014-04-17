@@ -217,13 +217,26 @@ func (c *Client) ServiceCharmRelations(service string) ([]string, error) {
 	return results.CharmRelations, err
 }
 
+// AddMachines1dot18 adds new machines with the supplied parameters.
+//
+// TODO(axw) 2014-04-11 #XXX
+// This exists for backwards compatibility; remove in 1.21 (client only).
+func (c *Client) AddMachines1dot18(machineParams []params.AddMachineParams) ([]params.AddMachinesResult, error) {
+	args := params.AddMachines{
+		MachineParams: machineParams,
+	}
+	results := new(params.AddMachinesResults)
+	err := c.call("AddMachines", args, results)
+	return results.Machines, err
+}
+
 // AddMachines adds new machines with the supplied parameters.
 func (c *Client) AddMachines(machineParams []params.AddMachineParams) ([]params.AddMachinesResult, error) {
 	args := params.AddMachines{
 		MachineParams: machineParams,
 	}
 	results := new(params.AddMachinesResults)
-	err := c.call("AddMachines", args, results)
+	err := c.call("AddMachinesV2", args, results)
 	return results.Machines, err
 }
 
