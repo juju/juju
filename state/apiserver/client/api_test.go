@@ -154,6 +154,9 @@ var scenarioStatus = &api.Status{
 			AgentStateInfo: "(started)",
 			Series:         "quantal",
 			Containers:     map[string]api.MachineStatus{},
+			Jobs:           []params.MachineJob{params.JobManageEnviron},
+			HasVote:        false,
+			WantsVote:      true,
 		},
 		"1": {
 			Id:             "1",
@@ -162,6 +165,9 @@ var scenarioStatus = &api.Status{
 			AgentStateInfo: "(started)",
 			Series:         "quantal",
 			Containers:     map[string]api.MachineStatus{},
+			Jobs:           []params.MachineJob{params.JobHostUnits},
+			HasVote:        false,
+			WantsVote:      false,
 		},
 		"2": {
 			Id:             "2",
@@ -170,6 +176,9 @@ var scenarioStatus = &api.Status{
 			AgentStateInfo: "(started)",
 			Series:         "quantal",
 			Containers:     map[string]api.MachineStatus{},
+			Jobs:           []params.MachineJob{params.JobHostUnits},
+			HasVote:        false,
+			WantsVote:      false,
 		},
 	},
 	Services: map[string]api.ServiceStatus{
