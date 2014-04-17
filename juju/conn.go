@@ -11,16 +11,19 @@ import (
 	"os"
 	"time"
 
+	"github.com/juju/loggo"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/osenv"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/ssh"
 )
+
+var logger = loggo.GetLogger("juju.conn")
 
 // Conn holds a connection to a juju environment and its
 // associated state.
@@ -55,7 +58,7 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 	opts := state.DefaultDialOpts()
 	st, err := state.Open(info, opts, environs.NewStatePolicy())
 	if errors.IsUnauthorizedError(err) {
-		log.Noticef("juju: authorization error while connecting to state server; retrying")
+		logger.Infof("authorization error while connecting to state server; retrying")
 		// We can't connect with the administrator password,;
 		// perhaps this was the first connection and the
 		// password has not been changed yet.
@@ -224,7 +227,7 @@ func (conn *Conn) addCharm(curl *charm.URL, ch charm.Charm) (*state.Charm, error
 		return nil, err
 	}
 	stor := conn.Environ.Storage()
-	log.Infof("writing charm to storage [%d bytes]", size)
+	logger.Infof("writing charm to storage [%d bytes]", size)
 	if err := stor.Put(name, f, size); err != nil {
 		return nil, fmt.Errorf("cannot put charm: %v", err)
 	}
@@ -236,7 +239,7 @@ func (conn *Conn) addCharm(curl *charm.URL, ch charm.Charm) (*state.Charm, error
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse storage URL: %v", err)
 	}
-	log.Infof("adding charm to state")
+	logger.Infof("adding charm to state")
 	sch, err := conn.State.AddCharm(ch, curl, u, digest)
 	if err != nil {
 		return nil, fmt.Errorf("cannot add charm: %v", err)

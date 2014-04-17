@@ -18,8 +18,8 @@ import (
 )
 
 type charmVersionSuite struct {
-	jujutesting.JujuConnSuite
 	testing.CharmSuite
+	jujutesting.JujuConnSuite
 
 	charmrevisionupdater *charmrevisionupdater.CharmRevisionUpdaterAPI
 	resources            *common.Resources

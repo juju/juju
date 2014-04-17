@@ -8,8 +8,6 @@ import (
 	"io"
 	"time"
 
-	"github.com/juju/loggo"
-
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
@@ -22,8 +20,6 @@ import (
 	"launchpad.net/juju-core/state/api/usermanager"
 	"launchpad.net/juju-core/utils/parallel"
 )
-
-var logger = loggo.GetLogger("juju")
 
 // The following are variables so that they can be
 // changed by tests.
