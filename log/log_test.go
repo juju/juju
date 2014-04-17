@@ -52,33 +52,3 @@ func (s *suite) TearDownTest(c *gc.C) {
 	err = loggo.RegisterWriter("default", s.oldWriter, s.oldLevel)
 	c.Assert(err, gc.IsNil)
 }
-
-func (s *suite) TestLoggerDebug(c *gc.C) {
-	input := "Hello World"
-	log.Debugf(input)
-	c.Assert(s.writer.String(), gc.Equals, "DEBUG juju "+input)
-}
-
-func (s *suite) TestInfoLogger(c *gc.C) {
-	input := "Hello World"
-	log.Infof(input)
-	c.Assert(s.writer.String(), gc.Equals, "INFO juju "+input)
-}
-
-func (s *suite) TestErrorLogger(c *gc.C) {
-	input := "Hello World"
-	log.Errorf(input)
-	c.Assert(s.writer.String(), gc.Equals, "ERROR juju "+input)
-}
-
-func (s *suite) TestWarningLogger(c *gc.C) {
-	input := "Hello World"
-	log.Warningf(input)
-	c.Assert(s.writer.String(), gc.Equals, "WARNING juju "+input)
-}
-
-func (s *suite) TestNoticeLogger(c *gc.C) {
-	input := "Hello World"
-	log.Noticef(input)
-	c.Assert(s.writer.String(), gc.Equals, "INFO juju "+input)
-}
