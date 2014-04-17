@@ -44,6 +44,7 @@ set -x
 scp -i $JUJU_HOME/staging-juju-rsa \
     -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
     $SCRIPTS/deploy_stack.py $SCRIPTS/jujupy.py $SCRIPTS/jujuconfig.py \
+    $SCRIPTS/utility.py \
     Administrator@$instance_ip:/cygdrive/c/Users/Administrator/ci/
 if [ $? -ne 0 ]; then
     exit 1

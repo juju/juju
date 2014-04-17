@@ -14,9 +14,12 @@ import sys
 from jujupy import (
     check_wordpress,
     Environment,
+)
+from utility import (
+    scoped_environ,
+    wait_for_port,
     until_timeout,
 )
-from utility import wait_for_port
 
 
 def prepare_environment(environment, already_bootstrapped, machines):
@@ -108,10 +111,24 @@ def dump_logs(env, host, directory):
         subprocess.check_call(['gzip', path])
 
 
+def test_upgrade(environment):
+    env = Environment.from_config(environment)
+    upgrade_juju(env)
+    env.wait_for_version(env.get_matching_agent_version())
+
+
+def upgrade_juju(environment):
+    environment.set_testing_tools_metadata_url()
+    print(
+        'The tools-metadata-url is %s' % environment.client.get_env_option(
+        environment, 'tools-metadata-url'))
+    environment.upgrade_juju()
+
+
 def deploy_job():
     deploy_args = os.environ['DEPLOY_ARGS']
     # retrieve odd-numbered tokens from a list of --machine x --machine y
-    machines = [a for a in deploy_args.split() if a % 2 == 1]
+    machines = [a for n, a in enumerate(deploy_args.split()) if n % 2 == 1]
     environment = os.environ['ENV']
     try:
         if sys.platform == 'win32':
@@ -133,6 +150,10 @@ def deploy_job():
                     # state-server.
                     return
                 deploy_dummy_stack(env, os.environ['CHARM_PREFIX'])
+                if os.environ.get('UPGRADE') == 'true':
+                    with scoped_environ():
+                        os.environ['PATH'] = os.environ['NEW_PATH']
+                        test_upgrade(environment)
             except:
                 dump_logs(env, host,
                           os.path.join(os.environ['WORKSPACE'], 'artifacts'))

@@ -1,9 +1,21 @@
+from contextlib import contextmanager
 import errno
+import os
 import socket
 import sys
 from time import sleep
 
 from jujupy import until_timeout
+
+
+@contextmanager
+def scoped_environ():
+    old_environ = dict(os.environ)
+    try:
+        yield
+    finally:
+        os.environ.clear()
+        os.environ.update(old_environ)
 
 
 def wait_for_port(host, port, closed=False, timeout=30):
