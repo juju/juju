@@ -20,7 +20,7 @@ usage() {
 
 
 PPATCH="1"
-while getopts ":pt:" o; do
+while getopts ":p:" o; do
     case "${o}" in
         p)
             PPATCH=${OPTARG}
