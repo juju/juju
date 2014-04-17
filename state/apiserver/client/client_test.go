@@ -30,7 +30,6 @@ import (
 	"launchpad.net/juju-core/state/api/usermanager"
 	"launchpad.net/juju-core/state/apiserver/client"
 	"launchpad.net/juju-core/state/presence"
-	"launchpad.net/juju-core/state/statecmd"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -1821,7 +1820,7 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 		Nonce:     apiParams.Nonce,
 	})
 	c.Assert(err, gc.IsNil)
-	mcfg, err := statecmd.MachineConfig(s.State, machineId, apiParams.Nonce, "")
+	mcfg, err := client.MachineConfig(s.State, machineId, apiParams.Nonce, "")
 	c.Assert(err, gc.IsNil)
 	sshinitScript, err := manual.ProvisioningScript(mcfg)
 	c.Assert(err, gc.IsNil)

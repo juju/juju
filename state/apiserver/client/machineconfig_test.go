@@ -1,11 +1,10 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package statecmd_test
+package client_test
 
 import (
 	"fmt"
-	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
 
@@ -14,14 +13,9 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/statecmd"
-	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/state/apiserver/client"
 	coretools "launchpad.net/juju-core/tools"
 )
-
-func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 type machineConfigSuite struct {
 	testing.JujuConnSuite
@@ -44,7 +38,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	c.Assert(len(machines), gc.Equals, 1)
 
 	machineId := machines[0].Machine
-	machineConfig, err := statecmd.MachineConfig(s.State, machineId, apiParams.Nonce, "")
+	machineConfig, err := client.MachineConfig(s.State, machineId, apiParams.Nonce, "")
 	c.Assert(err, gc.IsNil)
 
 	envConfig, err := s.State.EnvironConfig()
@@ -67,7 +61,7 @@ func (s *machineConfigSuite) TestMachineConfigNoArch(c *gc.C) {
 	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(machines), gc.Equals, 1)
-	_, err = statecmd.MachineConfig(s.State, machines[0].Machine, apiParams.Nonce, "")
+	_, err = client.MachineConfig(s.State, machines[0].Machine, apiParams.Nonce, "")
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("arch is not set for %q", "machine-"+machines[0].Machine))
 }
 
@@ -85,6 +79,6 @@ func (s *machineConfigSuite) TestMachineConfigNoTools(c *gc.C) {
 	}
 	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
 	c.Assert(err, gc.IsNil)
-	_, err = statecmd.MachineConfig(s.State, machines[0].Machine, apiParams.Nonce, "")
+	_, err = client.MachineConfig(s.State, machines[0].Machine, apiParams.Nonce, "")
 	c.Assert(err, gc.ErrorMatches, coretools.ErrNoMatches.Error())
 }
