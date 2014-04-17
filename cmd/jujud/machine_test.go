@@ -93,6 +93,9 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 
 	s.singularRecord = &singularRunnerRecord{}
 	testing.PatchValue(&newSingularRunner, s.singularRecord.newSingularRunner)
+	testing.PatchValue(&peergrouperNew, func(st *state.State) (worker.Worker, error) {
+		return newDummyWorker(), nil
+	})
 }
 
 func fakeCmd(path string) {
@@ -435,7 +438,29 @@ func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
 			break
 		}
 	}
+}
 
+func (s *MachineSuite) TestManageEnvironRunsPeergrouper(c *gc.C) {
+	started := make(chan struct{}, 1)
+	testing.PatchValue(&peergrouperNew, func(st *state.State) (worker.Worker, error) {
+		c.Check(st, gc.NotNil)
+		select {
+		case started <- struct{}{}:
+		default:
+		}
+		return newDummyWorker(), nil
+	})
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	defer a.Stop()
+	go func() {
+		c.Check(a.Run(nil), gc.IsNil)
+	}()
+	select {
+	case <-started:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for peergrouper worker to be started")
+	}
 }
 
 func (s *MachineSuite) TestManageEnvironCallsUseMultipleCPUs(c *gc.C) {
@@ -860,7 +885,7 @@ func (s *MachineSuite) testMachineAgentRsyslogConfigWorker(c *gc.C, job state.Ma
 	created := make(chan rsyslog.RsyslogMode, 1)
 	s.PatchValue(&newRsyslogConfigWorker, func(_ *apirsyslog.State, _ agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
 		created <- mode
-		return worker.NewRunner(isFatal, moreImportant), nil
+		return newDummyWorker(), nil
 	})
 	s.assertJobWithAPI(c, job, func(conf agent.Config, st *api.State) {
 		select {
@@ -1018,4 +1043,11 @@ func (r *fakeSingularRunner) StartWorker(name string, start func() (worker.Worke
 	defer r.record.mu.Unlock()
 	r.record.startedWorkers.Add(name)
 	return r.Runner.StartWorker(name, start)
+}
+
+func newDummyWorker() worker.Worker {
+	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
+		<-stop
+		return nil
+	})
 }

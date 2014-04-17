@@ -120,7 +120,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob,
 		LogDir:            s.logDir,
 		DataDir:           s.dataDir,
 		Jobs:              jobs,
-		Tag:               "bootstrap",
+		Tag:               "machine-0",
 		UpgradedToVersion: version.Current.Number,
 		Password:          testPasswordHash(),
 		Nonce:             state.BootstrapNonce,
@@ -135,12 +135,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob,
 		APIPort:    3737,
 		StatePort:  testing.MgoServer.Port(),
 	}
-	bootConf, err := agent.NewStateMachineConfig(agentParams, servingInfo)
-	c.Assert(err, gc.IsNil)
-	err = bootConf.Write()
-	c.Assert(err, gc.IsNil)
 
-	agentParams.Tag = "machine-0"
 	machineConf, err = agent.NewStateMachineConfig(agentParams, servingInfo)
 	c.Assert(err, gc.IsNil)
 	err = machineConf.Write()
@@ -167,6 +162,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 
 	expectInfo, exists := machConf.StateServingInfo()
 	c.Assert(exists, jc.IsTrue)
+	c.Assert(expectInfo.SharedSecret, gc.Equals, "")
 
 	servingInfo := s.fakeEnsureMongo.info
 	c.Assert(len(servingInfo.SharedSecret), gc.Not(gc.Equals), 0)
