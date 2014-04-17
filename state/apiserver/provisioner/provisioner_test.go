@@ -263,7 +263,7 @@ func (s *withoutStateServerSuite) TestLifeAsEnvironManager(c *gc.C) {
 	err = s.machines[1].Remove()
 	c.Assert(err, gc.IsNil)
 	err = s.machines[1].Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	result, err = s.provisioner.Life(params.Entities{
 		Entities: []params.Entity{
@@ -309,7 +309,7 @@ func (s *withoutStateServerSuite) TestRemove(c *gc.C) {
 	// Verify the changes.
 	s.assertLife(c, 0, state.Alive)
 	err = s.machines[1].Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	s.assertLife(c, 2, state.Alive)
 }
 

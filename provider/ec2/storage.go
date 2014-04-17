@@ -216,7 +216,7 @@ func deleteBucket(s *ec2storage) (err error) {
 
 func maybeNotFound(err error) error {
 	if err != nil && s3ErrorStatusCode(err) == 404 {
-		return errors.NewNotFoundError(err, "")
+		return errors.NewNotFound(err, "")
 	}
 	return err
 }

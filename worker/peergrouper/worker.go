@@ -412,7 +412,7 @@ func (infow *serverInfoWatcher) updateMachines() (bool, error) {
 		logger.Debugf("found new machine %q", id)
 		stm, err := infow.worker.st.Machine(id)
 		if err != nil {
-			if errors.IsNotFoundError(err) {
+			if errors.IsNotFound(err) {
 				// If the machine isn't found, it must have been
 				// removed and will soon enough be removed
 				// from the state server list. This will probably
@@ -486,7 +486,7 @@ func (m *machine) stop() {
 
 func (m *machine) refresh() (bool, error) {
 	if err := m.stm.Refresh(); err != nil {
-		if errors.IsNotFoundError(err) {
+		if errors.IsNotFound(err) {
 			// We want to be robust when the machine
 			// state is out of date with respect to the
 			// state server info, so if the machine

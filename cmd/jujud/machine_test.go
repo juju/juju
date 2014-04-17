@@ -298,7 +298,7 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 		if err == nil && attempt.HasNext() {
 			continue
 		}
-		c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+		c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	}
 
 	// short-circuit-remove u1 after it's been deployed; check it's recalled
@@ -306,7 +306,7 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 	err = u1.Destroy()
 	c.Assert(err, gc.IsNil)
 	err = u1.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	ctx.waitDeployed(c)
 }
 
@@ -666,7 +666,7 @@ func (s *MachineSuite) TestManageEnvironRunsCleaner(c *gc.C) {
 				s.State.StartSync()
 			case <-w.Changes():
 				err := unit.Refresh()
-				if errors.IsNotFoundError(err) {
+				if errors.IsNotFound(err) {
 					done = true
 				} else {
 					c.Assert(err, gc.IsNil)

@@ -508,7 +508,7 @@ func assertLife(c *gc.C, entity state.Living, life state.Life) {
 
 func assertRemoved(c *gc.C, entity state.Living) {
 	err := entity.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *clientSuite) setupDestroyMachinesTest(c *gc.C) (*state.Machine, *state.Machine, *state.Machine, *state.Unit) {
@@ -677,7 +677,7 @@ func (s *clientSuite) TestClientServiceDeployCharmErrors(c *gc.C) {
 		)
 		c.Check(err, gc.ErrorMatches, expect)
 		_, err = s.State.Service("service")
-		c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+		c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	}
 }
 
@@ -797,7 +797,7 @@ func (s *clientSuite) TestClientServiceDeployConfigError(c *gc.C) {
 	)
 	c.Assert(err, gc.ErrorMatches, `option "skill-level" expected int, got "fred"`)
 	_, err = s.State.Service("service-name")
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *clientSuite) TestClientServiceDeployToMachine(c *gc.C) {
@@ -1249,7 +1249,7 @@ func (s *clientSuite) assertDestroyRelation(c *gc.C, endpoints []string) {
 	err = s.APIState.Client().DestroyRelation(endpoints...)
 	c.Assert(err, gc.IsNil)
 	// Show that the relation was removed.
-	c.Assert(relation.Refresh(), jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(relation.Refresh(), jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *clientSuite) TestSuccessfulDestroyRelation(c *gc.C) {
@@ -1308,7 +1308,7 @@ func (s *clientSuite) TestAttemptDestroyingAlreadyDestroyedRelation(c *gc.C) {
 	endpoints := []string{"wordpress", "mysql"}
 	err = s.APIState.Client().DestroyRelation(endpoints...)
 	// Show that the relation was removed.
-	c.Assert(rel.Refresh(), jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(rel.Refresh(), jc.Satisfies, errors.IsNotFound)
 
 	// And try to destroy it again.
 	err = s.APIState.Client().DestroyRelation(endpoints...)
@@ -1928,13 +1928,13 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	name := charm.Quote(sch.URL().String())
 	storage := s.Conn.Environ.Storage()
 	_, err = storage.Get(name)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// AddCharm should see the charm in state and not upload it.
 	err = client.AddCharm(sch.URL())
 	c.Assert(err, gc.IsNil)
 	_, err = storage.Get(name)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// Now try adding another charm completely.
 	curl, _ = addCharm(c, store, "wordpress")
@@ -2057,7 +2057,7 @@ func (s *clientSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
 	err := s.State.AddStoreCharmPlaceholder(curl)
 	c.Assert(err, gc.IsNil)
 	_, err = s.State.Charm(curl)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// Now try to add the charm, which will convert the placeholder to
 	// a pending charm.

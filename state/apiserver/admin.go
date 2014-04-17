@@ -111,7 +111,7 @@ var doCheckCreds = checkCreds
 
 func checkCreds(st *state.State, c params.Creds) (taggedAuthenticator, error) {
 	entity0, err := st.FindEntity(c.AuthTag)
-	if err != nil && !errors.IsNotFoundError(err) {
+	if err != nil && !errors.IsNotFound(err) {
 		return nil, err
 	}
 	// We return the same error when an entity

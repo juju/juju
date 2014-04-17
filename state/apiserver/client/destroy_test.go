@@ -109,7 +109,7 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironment(c *gc.C) {
 	for _, s := range services {
 		err = s.Refresh()
 		if err != nil {
-			c.Assert(err, jc.Satisfies, coreerrors.IsNotFoundError)
+			c.Assert(err, jc.Satisfies, coreerrors.IsNotFound)
 		} else {
 			c.Assert(s.Life(), gc.Not(gc.Equals), state.Alive)
 		}

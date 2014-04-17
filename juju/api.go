@@ -177,7 +177,7 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen apiOpenF
 	try := parallel.NewTry(0, chooseError)
 
 	info, err := store.ReadInfo(envName)
-	if err != nil && !errors.IsNotFoundError(err) {
+	if err != nil && !errors.IsNotFound(err) {
 		return nil, err
 	}
 	var delay time.Duration
@@ -236,7 +236,7 @@ func errorImportance(err error) int {
 	if err == nil {
 		return 0
 	}
-	if errors.IsNotFoundError(err) {
+	if errors.IsNotFound(err) {
 		// An error from an actual connection attempt
 		// is more interesting than the fact that there's
 		// no environment info available.
@@ -287,7 +287,7 @@ func apiConfigConnect(info configstore.EnvironInfo, envs *environs.Environs, env
 		cfg, err = config.New(config.NoDefaults, info.BootstrapConfig())
 	} else if envs != nil {
 		cfg, err = envs.Config(envName)
-		if errors.IsNotFoundError(err) {
+		if errors.IsNotFound(err) {
 			return nil, err
 		}
 	} else {

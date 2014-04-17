@@ -219,11 +219,11 @@ func (s *MachineSuite) TestRemove(c *gc.C) {
 	err = s.machine.Remove()
 	c.Assert(err, gc.IsNil)
 	err = s.machine.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	_, err = s.machine.HardwareCharacteristics()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	_, err = s.machine.Containers()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	include, exclude, err := s.machine.RequestedNetworks()
 	c.Assert(err, gc.IsNil)
 	c.Assert(include, gc.HasLen, 0)
@@ -548,10 +548,10 @@ func (s *MachineSuite) TestAddNetworkInterfaceErrors(c *gc.C) {
 		_, err = machine.AddNetworkInterface(test.macAddress, test.interfaceName, test.networkName)
 		c.Check(err, gc.ErrorMatches, test.expectErr)
 		if strings.Contains(test.expectErr, "not found") {
-			c.Check(err, jc.Satisfies, errors.IsNotFoundError)
+			c.Check(err, jc.Satisfies, errors.IsNotFound)
 		}
 		if strings.Contains(test.expectErr, "already exists") {
-			c.Check(err, jc.Satisfies, errors.IsAlreadyExistsError)
+			c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
 		}
 	}
 }
@@ -613,7 +613,7 @@ func (s *MachineSuite) TestMachineInstanceIdBlank(c *gc.C) {
 func (s *MachineSuite) TestMachineSetProvisionedUpdatesCharacteristics(c *gc.C) {
 	// Before provisioning, there is no hardware characteristics.
 	_, err := s.machine.HardwareCharacteristics()
-	c.Assert(errors.IsNotFoundError(err), gc.Equals, true)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	arch := "amd64"
 	mem := uint64(4096)
 	expected := &instance.HardwareCharacteristics{
@@ -781,7 +781,7 @@ func (s *MachineSuite) TestMachineRefresh(c *gc.C) {
 	err = m0.Remove()
 	c.Assert(err, gc.IsNil)
 	err = m0.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *MachineSuite) TestRefreshWhenNotAlive(c *gc.C) {

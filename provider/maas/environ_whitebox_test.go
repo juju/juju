@@ -207,7 +207,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	envtesting.RemoveTools(c, env.Storage())
 	instance, _, _, err = testing.StartInstance(env, "2")
 	c.Check(instance, gc.IsNil)
-	c.Check(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func uint64p(val uint64) *uint64 {

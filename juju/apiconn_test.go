@@ -588,7 +588,7 @@ func (s *APIEndpointForEnvSuite) TestAPIEndpointInStoreCached(c *gc.C) {
 func (s *APIEndpointForEnvSuite) TestAPIEndpointForEnvSuchName(c *gc.C) {
 	defer coretesting.MakeMultipleEnvHome(c).Restore()
 	_, err := juju.APIEndpointForEnv("no-such-env", false)
-	c.Check(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
 	c.Check(err, gc.ErrorMatches, `environment "no-such-env" not found`)
 }
 

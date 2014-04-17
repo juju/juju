@@ -128,8 +128,8 @@ func (s *StateSuite) TestPing(c *gc.C) {
 func (s *StateSuite) TestIsNotFound(c *gc.C) {
 	err1 := fmt.Errorf("unrelated error")
 	err2 := errors.NotFoundf("foo")
-	c.Assert(err1, gc.Not(jc.Satisfies), errors.IsNotFoundError)
-	c.Assert(err2, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err1, gc.Not(jc.Satisfies), errors.IsNotFound)
+	c.Assert(err2, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *StateSuite) dummyCharm(c *gc.C, curlOverride string) (ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSHA256 string) {
@@ -190,7 +190,7 @@ func (s *StateSuite) TestAddCharmUpdatesPlaceholder(c *gc.C) {
 
 	// No more placeholder charm.
 	_, err = s.State.LatestPlaceholderCharm(curl)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *StateSuite) assertPendingCharmExists(c *gc.C, curl *charm.URL) {
@@ -210,7 +210,7 @@ func (s *StateSuite) assertPendingCharmExists(c *gc.C, curl *charm.URL) {
 
 	// Make sure we can't find it with st.Charm().
 	_, err = s.State.Charm(curl)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *StateSuite) TestPrepareLocalCharmUpload(c *gc.C) {
@@ -322,7 +322,7 @@ func (s *StateSuite) TestUpdateUploadedCharm(c *gc.C) {
 	c.Assert(sch, gc.IsNil)
 	missingCurl := charm.MustParseURL("local:quantal/missing-1")
 	sch, err = s.State.UpdateUploadedCharm(ch, missingCurl, bundleURL, "missing")
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(sch, gc.IsNil)
 
 	// Test with with an uploaded local charm.
@@ -356,7 +356,7 @@ func (s *StateSuite) assertPlaceholderCharmExists(c *gc.C, curl *charm.URL) {
 
 	// Make sure we can't find it with st.Charm().
 	_, err = s.State.Charm(curl)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *StateSuite) TestLatestPlaceholderCharm(c *gc.C) {
@@ -367,7 +367,7 @@ func (s *StateSuite) TestLatestPlaceholderCharm(c *gc.C) {
 
 	// Deployed charm not found.
 	_, err = s.State.LatestPlaceholderCharm(curl)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// Add a charm reference
 	curl2 := charm.MustParseURL("cs:quantal/dummy-2")
@@ -920,7 +920,7 @@ func (s *StateSuite) TestReadMachine(c *gc.C) {
 func (s *StateSuite) TestMachineNotFound(c *gc.C) {
 	_, err := s.State.Machine("0")
 	c.Assert(err, gc.ErrorMatches, "machine 0 not found")
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *StateSuite) TestMachineIdLessThan(c *gc.C) {
@@ -1014,7 +1014,7 @@ func (s *StateSuite) TestAddNetworkErrors(c *gc.C) {
 	c.Assert(net.Name(), gc.Equals, "net1")
 	c.Assert(net.ProviderId(), gc.Equals, "provider-net1")
 	_, err = s.State.Network("missing")
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(err, gc.ErrorMatches, `network "missing" not found`)
 
 	for i, test := range addNetworkErrorsTests {
@@ -1023,7 +1023,7 @@ func (s *StateSuite) TestAddNetworkErrors(c *gc.C) {
 		_, err := s.State.AddNetwork(test.name, test.providerId, test.cidr, test.vlanTag)
 		c.Check(err, gc.ErrorMatches, test.expectErr)
 		if strings.Contains(test.expectErr, "already exists") {
-			c.Check(err, jc.Satisfies, errors.IsAlreadyExistsError)
+			c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
 		}
 	}
 }
@@ -1091,7 +1091,7 @@ func (s *StateSuite) TestAddServiceEnvironmentDyingAfterInitial(c *gc.C) {
 func (s *StateSuite) TestServiceNotFound(c *gc.C) {
 	_, err := s.State.Service("bummer")
 	c.Assert(err, gc.ErrorMatches, `service "bummer" not found`)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *StateSuite) TestAddServiceNoTag(c *gc.C) {
@@ -1966,11 +1966,11 @@ func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *gc.C) {
 	info := state.TestingStateInfo()
 	info.Tag, info.Password = "arble", "bar"
 	err := tryOpenState(info)
-	c.Assert(err, jc.Satisfies, errors.IsUnauthorizedError)
+	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
 
 	info.Tag, info.Password = "arble", ""
 	err = tryOpenState(info)
-	c.Assert(err, jc.Satisfies, errors.IsUnauthorizedError)
+	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
 
 	info.Tag, info.Password = "", ""
 	err = tryOpenState(info)
@@ -2111,7 +2111,7 @@ func testSetMongoPassword(c *gc.C, getEntity func(st *state.State) (entity, erro
 	info.Tag = ent.Tag()
 	info.Password = "bar"
 	err = tryOpenState(info)
-	c.Assert(err, jc.Satisfies, errors.IsUnauthorizedError)
+	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
 
 	// Check that we can log in with the correct password.
 	info.Password = "foo"
@@ -2129,7 +2129,7 @@ func testSetMongoPassword(c *gc.C, getEntity func(st *state.State) (entity, erro
 	// Check that we cannot log in with the old password.
 	info.Password = "foo"
 	err = tryOpenState(info)
-	c.Assert(err, jc.Satisfies, errors.IsUnauthorizedError)
+	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
 
 	// Check that we can log in with the correct password.
 	info.Password = "bar"
@@ -2157,7 +2157,7 @@ func (s *StateSuite) TestSetAdminMongoPassword(c *gc.C) {
 	defer s.State.SetAdminMongoPassword("")
 	info := state.TestingStateInfo()
 	err = tryOpenState(info)
-	c.Assert(err, jc.Satisfies, errors.IsUnauthorizedError)
+	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
 
 	info.Password = "foo"
 	err = tryOpenState(info)
@@ -3046,7 +3046,7 @@ func (s *StateSuite) TestEnsureAvailabilityConcurrentSame(c *gc.C) {
 
 	// Machine 0 should never have been created.
 	_, err = s.State.Machine("0")
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *StateSuite) TestEnsureAvailabilityConcurrentLess(c *gc.C) {
@@ -3074,7 +3074,7 @@ func (s *StateSuite) TestEnsureAvailabilityConcurrentLess(c *gc.C) {
 
 	// Machine 0 should never have been created.
 	_, err = s.State.Machine("0")
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *StateSuite) TestEnsureAvailabilityConcurrentMore(c *gc.C) {
@@ -3100,13 +3100,13 @@ func (s *StateSuite) TestEnsureAvailabilityConcurrentMore(c *gc.C) {
 
 	// Machine 0 should never have been created.
 	_, err = s.State.Machine("0")
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *StateSuite) TestStateServingInfo(c *gc.C) {
 	info, err := s.State.StateServingInfo()
 	c.Assert(err, gc.ErrorMatches, "state serving info not found")
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	data := params.StateServingInfo{
 		APIPort:      69,
@@ -3159,7 +3159,7 @@ func (s *StateSuite) TestOpenCreatesStateServingInfoDoc(c *gc.C) {
 	defer st.Close()
 
 	info, err := st.StateServingInfo()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(info, gc.DeepEquals, params.StateServingInfo{})
 }
 

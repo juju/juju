@@ -117,7 +117,7 @@ func (s *storageSuite) TestGetFileNotExists(c *gc.C) {
 
 	_, err := mantaStorage.Get("noFile")
 	c.Assert(err, gc.NotNil)
-	c.Assert(err, jc.Satisfies, coreerrors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, coreerrors.IsNotFound)
 }
 
 func (s *storageSuite) TestPut(c *gc.C) {
@@ -195,5 +195,5 @@ func (s *storageSuite) TestDeleteContainerNotExists(c *gc.C) {
 
 	err := mantaStorage.DeleteContainer("noContainer")
 	c.Assert(err, gc.NotNil)
-	c.Assert(err, jc.Satisfies, coreerrors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, coreerrors.IsNotFound)
 }

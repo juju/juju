@@ -239,7 +239,7 @@ func fetchAllServicesAndUnits(
 	}
 	for baseURL, _ := range latestCharms {
 		ch, err := st.LatestPlaceholderCharm(&baseURL)
-		if errors.IsNotFoundError(err) {
+		if errors.IsNotFound(err) {
 			continue
 		}
 		if err != nil {
@@ -334,7 +334,7 @@ func (context *statusContext) makeMachineStatus(machine *state.Machine) (status 
 	}
 	hc, err := machine.HardwareCharacteristics()
 	if err != nil {
-		if !errors.IsNotFoundError(err) {
+		if !errors.IsNotFound(err) {
 			status.Hardware = "error"
 		}
 	} else {

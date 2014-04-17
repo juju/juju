@@ -72,7 +72,7 @@ func (api *MachinerAPI) SetMachineAddresses(args params.SetMachinesAddresses) (p
 			m, err = api.getMachine(arg.Tag)
 			if err == nil {
 				err = m.SetMachineAddresses(arg.Addresses...)
-			} else if errors.IsNotFoundError(err) {
+			} else if errors.IsNotFound(err) {
 				err = common.ErrPerm
 			}
 		}

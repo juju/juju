@@ -240,7 +240,7 @@ func checkPutFile(c *gc.C, stor storage.StorageWriter, name string, contents []b
 func checkFileDoesNotExist(c *gc.C, stor storage.StorageReader, name string, attempt utils.AttemptStrategy) {
 	r, err := storage.GetWithRetry(stor, name, attempt)
 	c.Assert(r, gc.IsNil)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func checkFileHasContents(c *gc.C, stor storage.StorageReader, name string, contents []byte, attempt utils.AttemptStrategy) {

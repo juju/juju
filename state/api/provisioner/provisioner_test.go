@@ -163,7 +163,7 @@ func (s *provisionerSuite) TestEnsureDeadAndRemove(c *gc.C) {
 	err = apiMachine.Remove()
 	c.Assert(err, gc.IsNil)
 	err = otherMachine.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	err = apiMachine.EnsureDead()
 	c.Assert(err, gc.ErrorMatches, "machine 1 not found")
@@ -211,9 +211,9 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	hwChars := instance.MustParseHardware("cpu-cores=123", "mem=4G")
 
 	_, err = s.State.Network("net1")
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	_, err = s.State.Network("vlan42")
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	ifacesMachine, err := notProvisionedMachine.NetworkInterfaces()
 	c.Assert(err, gc.IsNil)
