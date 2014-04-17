@@ -176,6 +176,104 @@ func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
 	assertMembers(c, memberWatcher.Value(), mkMembers("1v 2v 3v"))
 }
 
+func (s *workerSuite) TestHasVoteMaintainedEvenWhenReplicaSetFails(c *gc.C) {
+	st := newFakeState()
+
+	// Simulate a state where we have four state servers,
+	// one has gone down, and we're replacing it:
+	// 0 - hasvote true, wantsvote false, down
+	// 1 - hasvote true, wantsvote true
+	// 2 - hasvote true, wantsvote true
+	// 3 - hasvote false, wantsvote true
+	//
+	// When it starts, the worker should move the vote from
+	// 0 to 3. We'll arrange things so that it will succeed in
+	// setting the membership but fail setting the HasVote
+	// to false.
+	initState(c, st, 4)
+	st.machine("10").SetHasVote(true)
+	st.machine("11").SetHasVote(true)
+	st.machine("12").SetHasVote(true)
+	st.machine("13").SetHasVote(false)
+
+	st.machine("10").setWantsVote(false)
+	st.machine("11").setWantsVote(true)
+	st.machine("12").setWantsVote(true)
+	st.machine("13").setWantsVote(true)
+
+	st.session.Set(mkMembers("0v 1v 2v 3"))
+	st.session.setStatus(mkStatuses("0H 1p 2s 3s"))
+
+	// Make the worker fail to set HasVote to false
+	// after changing the replica set membership.
+	setErrorFor("Machine.SetHasVote * false", errors.New("frood"))
+
+	memberWatcher := st.session.members.Watch()
+	mustNext(c, memberWatcher)
+	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v 3"))
+
+	w := newWorker(st, noPublisher{})
+	done := make(chan error)
+	go func() {
+		done <- w.Wait()
+	}()
+
+	// Wait for the worker to set the initial members.
+	mustNext(c, memberWatcher)
+	assertMembers(c, memberWatcher.Value(), mkMembers("0 1v 2v 3v"))
+
+	// The worker should encounter an error setting the
+	// has-vote status to false and exit.
+	select {
+	case err := <-done:
+		c.Assert(err, gc.ErrorMatches, `cannot set voting status of "[0-9]+" to false: frood`)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for worker to exit")
+	}
+
+	// Start the worker again - although the membership should
+	// not change, the HasVote status should be updated correctly.
+	resetErrors()
+	w = newWorker(st, noPublisher{})
+
+	// Watch all the machines for changes, so we can check
+	// their has-vote status without polling.
+	changed := make(chan struct{}, 1)
+	for i := 10; i < 14; i++ {
+		watcher := st.machine(fmt.Sprint(i)).val.Watch()
+		defer watcher.Close()
+		go func() {
+			for watcher.Next() {
+				select {
+				case changed <- struct{}{}:
+				default:
+				}
+			}
+		}()
+	}
+	timeout := time.After(coretesting.LongWait)
+loop:
+	for {
+		select {
+		case <-changed:
+			c.Logf("something changed")
+			correct := true
+			for i := 10; i < 14; i++ {
+				hasVote := st.machine(fmt.Sprint(i)).HasVote()
+				expectHasVote := i != 10
+				if hasVote != expectHasVote {
+					correct = false
+				}
+			}
+			if correct {
+				break loop
+			}
+		case <-timeout:
+			c.Fatalf("timed out waiting for vote to be set")
+		}
+	}
+}
+
 func (s *workerSuite) TestAddressChange(c *gc.C) {
 	st := newFakeState()
 	initState(c, st, 3)

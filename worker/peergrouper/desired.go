@@ -27,8 +27,9 @@ type peerGroupInfo struct {
 
 // desiredPeerGroup returns the mongo peer group according to the given
 // servers and a map with an element for each machine in info.machines
-// specifying whether that machine has been configured as voting. It may
-// return (nil, nil, nil) if the current group is already correct.
+// specifying whether that machine has been configured as voting. It will
+// return a nil member list and error if the current group is already
+// correct, though the voting map will be still be returned in that case.
 func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, map[*machine]bool, error) {
 	if len(info.members) == 0 {
 		return nil, nil, fmt.Errorf("current member set is empty")
@@ -68,9 +69,8 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, map[*machine]bo
 	// this will trigger a peer group election.
 	machineVoting := make(map[*machine]bool)
 	for _, m := range info.machines {
-		if member := members[m]; member != nil && isVotingMember(member) {
-			machineVoting[m] = true
-		}
+		member := members[m]
+		machineVoting[m] = member != nil && isVotingMember(member)
 	}
 	setVoting := func(m *machine, voting bool) {
 		setMemberVoting(members[m], voting)
@@ -84,7 +84,7 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, map[*machine]bo
 		changed = true
 	}
 	if !changed {
-		return nil, nil, nil
+		return nil, machineVoting, nil
 	}
 	var memberSet []replicaset.Member
 	for _, member := range members {

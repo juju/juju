@@ -164,6 +164,7 @@ func (w *pgWorker) loop() error {
 	for {
 		select {
 		case f := <-w.notifyCh:
+			logger.Infof("notified")
 			// Update our current view of the state of affairs.
 			changed, err := f()
 			if err != nil {
@@ -280,7 +281,7 @@ func (w *pgWorker) updateReplicaset() error {
 	if members != nil {
 		logger.Debugf("desired peer group members: %#v", members)
 	} else {
-		logger.Debugf("no change in desired peer group")
+		logger.Debugf("no change in desired peer group (voting %#v)", voting)
 	}
 
 	// We cannot change the HasVote flag of a machine in state at exactly
