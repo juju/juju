@@ -25,7 +25,7 @@ def get_files(args):
     swift_url = os.environ['OS_SWIFT_URL']
     account = get_account()
     container_url = '{0}/{1}/{2}?format=json'.format(
-        swift_url, account, args.container).replace('//', '/')
+        swift_url, account, args.container)
     print("Checking {0}".format(container_url))
     response = urllib2.urlopen(container_url)
     files = json.loads(response.read())
