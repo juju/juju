@@ -41,101 +41,83 @@ check_deps() {
 
 publish_to_canonistack() {
     [[ $JT_IGNORE_CANONISTACK == '1' ]] && return 0
-    echo "Phase 1: Publish to canonistack."
+    if [[ $PURPOSE == "RELEASE" ]]; then
+        local event="Publish"
+        local destination="tools"
+    else
+        local event="Testing"
+        local destination="testing/tools"
+    fi
+    echo "Phase 2: $event to canonistack."
     source $JUJU_DIR/canonistacktoolsrc
     cd $JUJU_DIST/tools/releases/
-    ${SCRIPT_DIR}/swift_sync.py tools/releases/ *.tgz
+    ${SCRIPT_DIR}/swift_sync.py $destination/releases/ *.tgz
     cd $JUJU_DIST/tools/streams/v1
-    ${SCRIPT_DIR}/swift_sync.py tools/streams/v1/ {index,com}*
-}
-
-
-testing_to_canonistack() {
-    [[ $JT_IGNORE_CANONISTACK == '1' ]] && return 0
-    echo "Phase 1: Testing to canonistack."
-    source $JUJU_DIR/canonistacktoolsrc
-    cd $JUJU_DIST/tools/releases/
-    ${SCRIPT_DIR}/swift_sync.py testing/tools/releases/ *.tgz
-    cd $JUJU_DIST/tools/streams/v1
-    ${SCRIPT_DIR}/swift_sync.py testing/tools/streams/v1/ {index,com}*
+    ${SCRIPT_DIR}/swift_sync.py $destination/streams/v1/ {index,com}*
 }
 
 
 publish_to_hp() {
     [[ $JT_IGNORE_HP == '1' ]] && return 0
-    echo "Phase 2: Publish to HP Cloud."
+    if [[ $PURPOSE == "RELEASE" ]]; then
+        local event="Publish"
+        local destination="tools"
+    else
+        local event="Testing"
+        local destination="testing/tools"
+    fi
+    echo "Phase 3: $event to HP Cloud."
     source $JUJU_DIR/hptoolsrc
     cd $JUJU_DIST/tools/releases/
-    ${SCRIPT_DIR}/swift_sync.py tools/releases/ *.tgz
+    ${SCRIPT_DIR}/swift_sync.py $destination/releases/ *.tgz
     cd $JUJU_DIST/tools/streams/v1
-    ${SCRIPT_DIR}/swift_sync.py tools/streams/v1/ {index,com}*
-}
-
-
-testing_to_hp() {
-    # sync-tools cannot place the tools in a testing location, so swift is
-    # used.
-    [[ $JT_IGNORE_HP == '1' ]] && return 0
-    echo "Phase 2: Testing to HP Cloud."
-    source $JUJU_DIR/hptoolsrc
-    cd $JUJU_DIST/tools/releases/
-    ${SCRIPT_DIR}/swift_sync.py testing/tools/releases/ *.tgz
-    cd $JUJU_DIST/tools/streams/v1
-    ${SCRIPT_DIR}/swift_sync.py testing/tools/streams/v1/ {index,com}*
+    ${SCRIPT_DIR}/swift_sync.py $destination/streams/v1/ {index,com}*
 }
 
 
 publish_to_aws() {
     [[ $JT_IGNORE_AWS == '1' ]] && return 0
-    echo "Phase 3: Publish to AWS."
+    if [[ $PURPOSE == "RELEASE" ]]; then
+        local event="Publish"
+        local destination="s3://juju-dist/"
+    else
+        local event="Testing"
+        local destination="s3://juju-dist/testing/"
+    fi
+    echo "Phase 1: $event to AWS."
     s3cmd -c $JUJU_DIR/s3cfg sync --exclude '*mirror*' \
-        ${JUJU_DIST}/tools s3://juju-dist/
-}
-
-
-testing_to_aws() {
-    # this is the same as the publishing command except that the
-    # destination is juju-dist/testing/
-    [[ $JT_IGNORE_AWS == '1' ]] && return 0
-    echo "Phase 3.1: Testing to AWS juju-dist."
-    s3cmd -c $JUJU_DIR/s3cfg sync --exclude '*mirror*' \
-        ${JUJU_DIST}/tools s3://juju-dist/testing/
+        ${JUJU_DIST}/tools $destination
 }
 
 
 publish_to_azure() {
     [[ $JT_IGNORE_AZURE == '1' ]] && return 0
-    echo "Phase 4: Publish to Azure."
+    if [[ $PURPOSE == "RELEASE" ]]; then
+        local event="Publish"
+        local destination="release"
+    else
+        local event="Testing"
+        local destination="testing"
+    fi
+    echo "Phase 4: $event to Azure."
     source $JUJU_DIR/azuretoolsrc
-    ${SCRIPT_DIR}/azure_publish_tools.py publish release ${JUJU_DIST}
-}
-
-
-testing_to_azure() {
-    # This command is like the publish command expcept tht -container is
-    # different.
-    [[ $JT_IGNORE_AZURE == '1' ]] && return 0
-    echo "Phase 4: Testing to Azure."
-    source $JUJU_DIR/azuretoolsrc
-    ${SCRIPT_DIR}/azure_publish_tools.py publish testing ${JUJU_DIST}
+    ${SCRIPT_DIR}/azure_publish_tools.py publish $destination ${JUJU_DIST}
 }
 
 
 publish_to_streams() {
     [[ -f $JUJU_DIR/streamsrc ]] || return 0
     [[ $JT_IGNORE_STREAMS == '1' ]] && return 0
-    echo "Phase 5: Published to streams.canonical.com."
+    if [[ $PURPOSE == "RELEASE" ]]; then
+        local event="Publish"
+        local destination=$STREAMS_OFFICIAL_DEST
+    else
+        local event="Testing"
+        local destination=$STREAMS_TESTING_DEST
+    fi
+    echo "Phase 5: $event to streams.canonical.com."
     source $JUJU_DIR/streamsrc
-    rsync -avzh $JUJU_DIST/ $STREAMS_OFFICIAL_DEST
-}
-
-
-testing_to_streams() {
-    [[ -f $JUJU_DIR/streamsrc ]] || return 0
-    [[ $JT_IGNORE_STREAMS == '1' ]] && return 0
-    echo "Phase 5: Testing to streams.canonical.com."
-    source $JUJU_DIR/streamsrc
-    rsync -avzh $JUJU_DIST/ $STREAMS_TESTING_DEST
+    rsync -avzh $JUJU_DIST/ $destination
 }
 
 
@@ -156,19 +138,10 @@ fi
 
 
 check_deps
-exit
-if [[ $PURPOSE == "RELEASE" ]]; then
-    publish_to_streams
-    publish_to_canonistack
-    publish_to_hp
-    publish_to_aws
-    publish_to_azure
-    echo "Release data published to all CPCs."
-else
-    testing_to_streams
-    testing_to_canonistack
-    testing_to_hp
-    testing_to_aws
-    testing_to_azure
-    echo "Testing data published to all CPCs."
-fi
+publish_to_streams
+publish_to_aws
+publish_to_canonistack
+publish_to_hp
+publish_to_azure
+echo "Release data published to all CPCs."
+
