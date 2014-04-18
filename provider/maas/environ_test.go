@@ -10,8 +10,8 @@ import (
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gomaasapi"
 
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/network"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/provider/maas"
 	coretesting "launchpad.net/juju-core/testing"
@@ -197,7 +197,7 @@ func (*environSuite) TestNewEnvironSetsConfig(c *gc.C) {
 }
 
 func (*environSuite) TestNewCloudinitConfig(c *gc.C) {
-	nwInfo := []environs.NetworkInfo{
+	nwInfo := []network.Info{
 		// physical eth0 won't be touched, but it can have VLANs on it.
 		{InterfaceName: "eth0", VLANTag: 0},
 		{InterfaceName: "eth0", VLANTag: 99},

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs/network"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils/exec"
@@ -317,7 +318,7 @@ type Network struct {
 	Tag string
 
 	// ProviderId is the provider-specific network id.
-	ProviderId instance.NetworkId
+	ProviderId network.Id
 
 	// CIDR of the network, in "123.45.67.89/12" format.
 	CIDR string

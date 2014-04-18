@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/network"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
@@ -60,7 +61,7 @@ func AssertStartInstance(
 func StartInstance(
 	env environs.Environ, machineId string,
 ) (
-	instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error,
+	instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
 ) {
 	return StartInstanceWithConstraints(env, machineId, constraints.Value{})
 }
@@ -84,7 +85,7 @@ func AssertStartInstanceWithConstraints(
 func StartInstanceWithConstraints(
 	env environs.Environ, machineId string, cons constraints.Value,
 ) (
-	instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error,
+	instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
 ) {
 	return StartInstanceWithConstraintsAndNetworks(env, machineId, cons, nil, nil)
 }
@@ -111,7 +112,7 @@ func StartInstanceWithConstraintsAndNetworks(
 	env environs.Environ, machineId string, cons constraints.Value,
 	includeNetworks, excludeNetworks []string,
 ) (
-	instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error,
+	instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
 ) {
 	series := config.PreferredSeries(env.Config())
 	agentVersion, ok := env.Config().AgentVersion()

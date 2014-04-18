@@ -567,6 +567,9 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 }
 
 func (m *Machine) removeNetworkInterfacesOps() ([]txn.Op, error) {
+	if m.doc.Life != Dead {
+		return nil, fmt.Errorf("machine is not dead")
+	}
 	var doc networkInterfaceDoc
 	ops := []txn.Op{{
 		C:      m.st.machines.Name,

@@ -8,7 +8,7 @@ import (
 
 	"labix.org/v2/mgo/bson"
 
-	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/environs/network"
 	"launchpad.net/juju-core/names"
 )
 
@@ -24,7 +24,7 @@ type NetworkInfo struct {
 	Name string
 
 	// ProviderId is a provider-specific network id.
-	ProviderId instance.NetworkId
+	ProviderId network.Id
 
 	// CIDR of the network, in 123.45.67.89/24 format.
 	CIDR string
@@ -41,7 +41,7 @@ type networkDoc struct {
 	// included networks.
 	Name string `bson:"_id"`
 
-	ProviderId instance.NetworkId
+	ProviderId network.Id
 	CIDR       string
 	VLANTag    int
 }
@@ -72,7 +72,7 @@ func (n *Network) Name() string {
 }
 
 // ProviderId returns the provider-specific id of the network.
-func (n *Network) ProviderId() instance.NetworkId {
+func (n *Network) ProviderId() network.Id {
 	return n.doc.ProviderId
 }
 
