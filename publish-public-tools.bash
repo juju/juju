@@ -11,12 +11,15 @@ SCRIPT_DIR=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd )
 
 
 usage() {
-    echo "usage: $0 PURPOSE DIST_DIRECTORY"
-    echo "  PURPOSE: 'RELEASE' or  'TESTING'"
-    echo "    RELEASE installs tools/ at the top of juju-dist/tools."
-    echo "    TESTING installs tools/ at juju-dist/testing/tools."
+    echo "usage: $0 PURPOSE DIST_DIRECTORY DESTINATIONS"
+    echo "  PURPOSE: 'release' or  'testing'"
+    echo "    release installs tools/ at the top of juju-dist/tools."
+    echo "    testing installs tools/ at juju-dist/testing/tools."
     echo "  DIST_DIRECTORY: The directory to the assembled tools."
     echo "    This is the juju-dist dir created by assemble-public-tools.bash."
+    echo "  DESTINATIONS: cpc or streams"
+    echo "    cpc publishes tools to the certified public clouds."
+    echo "    streams publishes tools just to streams.canonical.com."
     exit 1
 }
 
@@ -40,8 +43,8 @@ check_deps() {
 
 
 publish_to_aws() {
-    [[ $JT_IGNORE_AWS == '1' ]] && return 0
-    if [[ $PURPOSE == "RELEASE" ]]; then
+    [[ $DESTINATIONS == 'cpc' ]] || return 0
+    if [[ $PURPOSE == "release" ]]; then
         local destination="s3://juju-dist/"
     else
         local destination="s3://juju-dist/testing/"
@@ -53,8 +56,8 @@ publish_to_aws() {
 
 
 publish_to_canonistack() {
-    [[ $JT_IGNORE_CANONISTACK == '1' ]] && return 0
-    if [[ $PURPOSE == "RELEASE" ]]; then
+    [[ $DESTINATIONS == 'cpc' ]] || return 0
+    if [[ $PURPOSE == "release" ]]; then
         local destination="tools"
     else
         local destination="testing/tools"
@@ -69,8 +72,8 @@ publish_to_canonistack() {
 
 
 publish_to_hp() {
-    [[ $JT_IGNORE_HP == '1' ]] && return 0
-    if [[ $PURPOSE == "RELEASE" ]]; then
+    [[ $DESTINATIONS == 'cpc' ]] || return 0
+    if [[ $PURPOSE == "release" ]]; then
         local destination="tools"
     else
         local destination="testing/tools"
@@ -85,8 +88,8 @@ publish_to_hp() {
 
 
 publish_to_azure() {
-    [[ $JT_IGNORE_AZURE == '1' ]] && return 0
-    if [[ $PURPOSE == "RELEASE" ]]; then
+    [[ $DESTINATIONS == 'cpc' ]] || return 0
+    if [[ $PURPOSE == "release" ]]; then
         local destination="release"
     else
         local destination="testing"
@@ -97,15 +100,30 @@ publish_to_azure() {
 }
 
 
+publish_to_joyent() {
+    [[ $DESTINATIONS == 'cpc' ]] || return 0
+    if [[ $PURPOSE == "release" ]]; then
+        local destination="tools"
+    else
+        local destination="testing/tools"
+    fi
+    echo "Phase 5: $EVENT to Joyent."
+    source $JUJU_DIR/joyentrc
+    cd $JUJU_DIST/tools/releases/
+    ${SCRIPT_DIR}/manta_sync.py $destination/releases/ *.tgz
+    cd $JUJU_DIST/tools/streams/v1
+    ${SCRIPT_DIR}/manta_sync.py $destination/streams/v1/ {index,com}*
+}
+
+
 publish_to_streams() {
-    [[ -f $JUJU_DIR/streamsrc ]] || return 0
-    [[ $JT_IGNORE_STREAMS == '1' ]] && return 0
-    if [[ $PURPOSE == "RELEASE" ]]; then
+    [[ $DESTINATIONS == 'streams' ]] ||  return 0
+    if [[ $PURPOSE == "release" ]]; then
         local destination=$STREAMS_OFFICIAL_DEST
     else
         local destination=$STREAMS_TESTING_DEST
     fi
-    echo "Phase 5: $EVENT to streams.canonical.com."
+    echo "Phase 6: $EVENT to streams.canonical.com."
     source $JUJU_DIR/streamsrc
     rsync -avzh $JUJU_DIST/ $destination
 }
@@ -114,10 +132,10 @@ publish_to_streams() {
 # The location of environments.yaml and rc files.
 JUJU_DIR=${JUJU_HOME:-$HOME/.juju}
 
-test $# -eq 2 || usage
+test $# -eq 3 || usage
 
 PURPOSE=$1
-if [[ $PURPOSE != "RELEASE" && $PURPOSE != "TESTING" ]]; then
+if [[ $PURPOSE != "release" && $PURPOSE != "testing" ]]; then
     usage
 fi
 
@@ -126,11 +144,14 @@ if [[ ! -d $JUJU_DIST/tools/releases && ! -d $JUJU_DIST/tools/streams ]]; then
     usage
 fi
 
-if [[ $PURPOSE == "RELEASE" ]]; then
+DESTINATIONS=$1
+
+if [[ $PURPOSE == "release" ]]; then
     EVENT="Release"
 else
     EVENT="Testing"
 fi
+
 
 check_deps
 publish_to_aws
@@ -139,4 +160,3 @@ publish_to_hp
 publish_to_azure
 publish_to_streams
 echo "$EVENT data published to all CPCs."
-
