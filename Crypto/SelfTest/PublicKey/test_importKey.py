@@ -104,7 +104,7 @@ Lr7UkvEtFrRhDDKMtuIIq19FrL4pUIMymPMSLBn3hJLe30Dw48GQM4UCAwEAAQ==
 -----END PUBLIC KEY-----'''
 
     # Obtained using 'ssh-keygen -i -m PKCS8 -f rsaPublicKeyPEM'
-    rsaPublicKeyOpenSSH = b('''ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAQQC/HieQCqCLI1EaXBKBrm2TMSw+/pE/ky6+1JLxLRa0YQwyjLbiCKtfRay+KVCDMpjzEiwZ94SS3t9A8OPBkDOF comment\n''')
+    rsaPublicKeyOpenSSH = '''ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAQQC/HieQCqCLI1EaXBKBrm2TMSw+/pE/ky6+1JLxLRa0YQwyjLbiCKtfRay+KVCDMpjzEiwZ94SS3t9A8OPBkDOF comment\n'''
 
     # The private key, in PKCS#1 format encoded with DER
     rsaKeyDER = a2b_hex(
@@ -158,7 +158,7 @@ Lr7UkvEtFrRhDDKMtuIIq19FrL4pUIMymPMSLBn3hJLe30Dw48GQM4UCAwEAAQ==
     def testImportKey1(self):
         """Verify import of RSAPrivateKey DER SEQUENCE"""
         key = self.rsa.importKey(self.rsaKeyDER)
-        self.assertTrue(key.has_private())
+        self.failUnless(key.has_private())
         self.assertEqual(key.n, self.n)
         self.assertEqual(key.e, self.e)
         self.assertEqual(key.d, self.d)
@@ -168,7 +168,7 @@ Lr7UkvEtFrRhDDKMtuIIq19FrL4pUIMymPMSLBn3hJLe30Dw48GQM4UCAwEAAQ==
     def testImportKey2(self):
         """Verify import of SubjectPublicKeyInfo DER SEQUENCE"""
         key = self.rsa.importKey(self.rsaPublicKeyDER)
-        self.assertFalse(key.has_private())
+        self.failIf(key.has_private())
         self.assertEqual(key.n, self.n)
         self.assertEqual(key.e, self.e)
 
@@ -228,7 +228,7 @@ Lr7UkvEtFrRhDDKMtuIIq19FrL4pUIMymPMSLBn3hJLe30Dw48GQM4UCAwEAAQ==
         """Verify import of encrypted PrivateKeyInfo DER SEQUENCE"""
         for t in self.rsaKeyEncryptedPEM:
             key = self.rsa.importKey(t[1], t[0])
-            self.assertTrue(key.has_private())
+            self.failUnless(key.has_private())
             self.assertEqual(key.n, self.n)
             self.assertEqual(key.e, self.e)
             self.assertEqual(key.d, self.d)
@@ -238,7 +238,7 @@ Lr7UkvEtFrRhDDKMtuIIq19FrL4pUIMymPMSLBn3hJLe30Dw48GQM4UCAwEAAQ==
     def testImportKey9(self):
         """Verify import of unencrypted PrivateKeyInfo DER SEQUENCE"""
         key = self.rsa.importKey(self.rsaKeyDER8)
-        self.assertTrue(key.has_private())
+        self.failUnless(key.has_private())
         self.assertEqual(key.n, self.n)
         self.assertEqual(key.e, self.e)
         self.assertEqual(key.d, self.d)
@@ -248,7 +248,7 @@ Lr7UkvEtFrRhDDKMtuIIq19FrL4pUIMymPMSLBn3hJLe30Dw48GQM4UCAwEAAQ==
     def testImportKey10(self):
         """Verify import of unencrypted PrivateKeyInfo DER SEQUENCE, encoded with PEM"""
         key = self.rsa.importKey(self.rsaKeyPEM8)
-        self.assertTrue(key.has_private())
+        self.failUnless(key.has_private())
         self.assertEqual(key.n, self.n)
         self.assertEqual(key.e, self.e)
         self.assertEqual(key.d, self.d)
@@ -298,7 +298,7 @@ Lr7UkvEtFrRhDDKMtuIIq19FrL4pUIMymPMSLBn3hJLe30Dw48GQM4UCAwEAAQ==
         self.assertEqual(openssh_1[0], openssh_2[0])
         self.assertEqual(openssh_1[1], openssh_2[1])
 
-    def testExportKey6(self):
+    def testExportKey4(self):
         key = self.rsa.construct([self.n, self.e, self.d, self.p, self.q, self.pInv])
         # Tuple with index #1 is encrypted with 3DES
         t = map(b,self.rsaKeyEncryptedPEM[1])
@@ -307,12 +307,12 @@ Lr7UkvEtFrRhDDKMtuIIq19FrL4pUIMymPMSLBn3hJLe30Dw48GQM4UCAwEAAQ==
         pemKey = key.exportKey("PEM", t[0])
         self.assertEqual(pemKey, t[1])
 
-    def testExportKey7(self):
+    def testExportKey5(self):
         key = self.rsa.construct([self.n, self.e, self.d, self.p, self.q, self.pInv])
         derKey = key.exportKey("DER", pkcs=8)
         self.assertEqual(derKey, self.rsaKeyDER8)
 
-    def testExportKey8(self):
+    def testExportKey6(self):
         key = self.rsa.construct([self.n, self.e, self.d, self.p, self.q, self.pInv])
         pemKey = key.exportKey("PEM", pkcs=8)
         self.assertEqual(pemKey, b(self.rsaKeyPEM8))

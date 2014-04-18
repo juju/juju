@@ -314,12 +314,11 @@ class PKCS1_OAEP_Tests(unittest.TestCase):
                 # Encrypt/Decrypt messages of length [0..128-2*20-2]
                 for pt_len in xrange(0,128-2*20-2):
                     pt = self.rng(pt_len)
-                    cipher = PKCS.new(self.key1024)
-                    ct = cipher.encrypt(pt)
-                    pt2 = cipher.decrypt(ct)
+                    ct = PKCS.encrypt(pt, self.key1024)
+                    pt2 = PKCS.decrypt(ct, self.key1024)
                     self.assertEqual(pt,pt2)
 
-        def testEncryptDecrypt2(self):
+        def testEncryptDecrypt1(self):
                 # Helper function to monitor what's requested from RNG
                 global asked
                 def localRng(N):
@@ -336,9 +335,9 @@ class PKCS1_OAEP_Tests(unittest.TestCase):
                     cipher = PKCS.new(self.key1024, hashmod)
                     ct = cipher.encrypt(pt)
                     self.assertEqual(cipher.decrypt(ct), pt)
-                    self.assertTrue(asked > hashmod.digest_size)
+                    self.failUnless(asked > hashmod.digest_size)
 
-        def testEncryptDecrypt3(self):
+        def testEncryptDecrypt2(self):
                 # Verify that OAEP supports labels
                 pt = self.rng(35)
                 xlabel = self.rng(22)
@@ -346,7 +345,7 @@ class PKCS1_OAEP_Tests(unittest.TestCase):
                 ct = cipher.encrypt(pt)
                 self.assertEqual(cipher.decrypt(ct), pt)
 
-        def testEncryptDecrypt4(self):
+        def testEncryptDecrypt3(self):
                 # Verify that encrypt() uses the custom MGF
                 global mgfcalls
                 # Helper function to monitor what's requested from MGF

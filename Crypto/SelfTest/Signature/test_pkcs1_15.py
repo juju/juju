@@ -168,7 +168,7 @@ class PKCS1_15_Tests(unittest.TestCase):
                             h.update(b(row[1]))
                         # The real test
                         signer = PKCS.new(key)
-                        self.assertTrue(signer.can_sign())
+                        self.failUnless(signer.can_sign())
                         s = signer.sign(h)
                         self.assertEqual(s, t2b(row[2]))
 
@@ -189,9 +189,9 @@ class PKCS1_15_Tests(unittest.TestCase):
                             h.update(b(row[1]))
                         # The real test
                         verifier = PKCS.new(key)
-                        self.assertFalse(verifier.can_sign())
+                        self.failIf(verifier.can_sign())
                         result = verifier.verify(h, t2b(row[2]))
-                        self.assertTrue(result)
+                        self.failUnless(result)
 
         def testSignVerify(self):
                         rng = Random.new().read
@@ -204,7 +204,7 @@ class PKCS1_15_Tests(unittest.TestCase):
                             signer = PKCS.new(key)
                             s = signer.sign(h)
                             result = signer.verify(h, s)
-                            self.assertTrue(result)
+                            self.failUnless(result)
 
 
 def get_tests(config={}):

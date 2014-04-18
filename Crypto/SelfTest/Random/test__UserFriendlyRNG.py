@@ -39,11 +39,6 @@ from Crypto.Util.py3compat import *
 
 try:
     import multiprocessing
-    # multiprocessing.Pool uses classes from multiprocessing.synchronize, so we
-    # need to check if multiprocessing.semaphore will work. Otherwise creating a
-    # multiprocessing.Pool instance will fail with an ImportError. See Python
-    # bug #3770 for details.
-    import multiprocessing.synchronize
 except ImportError:
     multiprocessing = None
 
