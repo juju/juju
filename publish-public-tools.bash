@@ -145,6 +145,9 @@ if [[ ! -d $JUJU_DIST/tools/releases && ! -d $JUJU_DIST/tools/streams ]]; then
 fi
 
 DESTINATIONS=$1
+if [[ $PURPOSE != "cpc" && $PURPOSE != "streams" ]]; then
+    usage
+fi
 
 if [[ $PURPOSE == "release" ]]; then
     EVENT="Release"

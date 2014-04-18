@@ -16,4 +16,4 @@ done
 
 mkdir -p new-tools
 $SCRIPTS/assemble-public-tools.bash -t $WORKSPACE/ $VERSION new-tools
-$SCRIPTS/publish-public-tools.bash TESTING new-tools/juju-dist-testing
+$SCRIPTS/publish-public-tools.bash TESTING new-tools/juju-dist-testing cpc
