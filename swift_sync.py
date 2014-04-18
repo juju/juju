@@ -16,7 +16,8 @@ def get_swift_url():
     pattern = re.compile('(https://.*)/')
     cmd = ['swift', 'capabilities']
     # This relies on the swift url being shown somewhere in stdout or stderr.
-    proc = subprocess.Popen(cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+    proc = subprocess.Popen(
+        cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
     out, err = proc.communicate()
     swift_url = None
     for line in out.split('\n') + err.split('\n'):
@@ -41,8 +42,7 @@ def get_files(args):
     account = get_account()
     container_url = '{0}/v1/{1}/{2}?format=json'.format(
         swift_url, account, args.container)
-    if args.verbose:
-        print(container_url)
+    print("Checking {0}".format(container_url))
     response = urllib2.urlopen(container_url)
     files = json.loads(response.read())
     remote_files = dict((f['name'], f) for f in files)
@@ -89,7 +89,7 @@ def main():
         '--container', default='juju-dist', help='The container name.')
     parser.add_argument('path', help='The destination path in the container.')
     parser.add_argument(
-        'files', nargs='*',help='The files to send to the container.')
+        'files', nargs='*', help='The files to send to the container.')
     args = parser.parse_args()
     if not os.environ['OS_AUTH_URL']:
         print('OS_AUTH_URL must be sourced into the environment.')
@@ -99,4 +99,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
