@@ -1063,7 +1063,7 @@ func (m *Machine) AddNetworkInterface(args NetworkInterfaceInfo) (iface *Network
 		// The txn logic does not report insertion errors, so we check
 		// that the record has actually been inserted correctly before
 		// reporting success.
-		if err = m.st.networkInterfaces.FindId(doc.Id).One(nil); err == nil {
+		if err = m.st.networkInterfaces.FindId(doc.Id).One(&doc); err == nil {
 			return newNetworkInterface(m.st, doc), nil
 		}
 		sel := bson.D{{"interfacename", args.InterfaceName}, {"machineid", m.doc.Id}}
