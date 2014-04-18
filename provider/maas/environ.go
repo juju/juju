@@ -339,18 +339,12 @@ func (environ *maasEnviron) setupNetworks(inst instance.Instance) ([]environs.Ne
 		return nil, fmt.Errorf("getInstanceNetworkInterfaces failed: %v", err)
 	}
 	logger.Debugf("node %q has network interfaces %v", inst.Id(), interfaces)
-	networkInfoMap := make(map[string]environs.NetworkInfo)
-	for macAddress, interfaceName := range interfaces {
-		networkInfoMap[macAddress] = environs.NetworkInfo{
-			MACAddress:    macAddress,
-			InterfaceName: interfaceName,
-		}
-	}
 	networks, err := environ.getInstanceNetworks(inst)
 	if err != nil {
 		return nil, fmt.Errorf("getInstanceNetworks failed: %v", err)
 	}
 	logger.Debugf("node %q has networks %v", inst.Id(), networks)
+	var tempNetworkInfo []environs.NetworkInfo
 	for _, network := range networks {
 		netCIDR := &net.IPNet{
 			IP:   net.ParseIP(network.IP),
@@ -360,22 +354,25 @@ func (environ *maasEnviron) setupNetworks(inst instance.Instance) ([]environs.Ne
 		if err != nil {
 			return nil, fmt.Errorf("getNetworkMACs failed: %v", err)
 		}
+		logger.Debugf("network %q has MACs: %v", network.Name, macs)
 		for _, mac := range macs {
-			if _, ok := interfaces[mac]; ok {
-				info := networkInfoMap[mac]
-				info.CIDR = netCIDR.String()
-				info.VLANTag = network.VLANTag
-				info.ProviderId = network.Name
-				info.NetworkName = network.Name
-				info.IsVirtual = network.VLANTag > 0
-				networkInfoMap[mac] = info
+			if interfaceName, ok := interfaces[mac]; ok {
+				tempNetworkInfo = append(tempNetworkInfo, environs.NetworkInfo{
+					MACAddress:    mac,
+					InterfaceName: interfaceName,
+					CIDR:          netCIDR.String(),
+					VLANTag:       network.VLANTag,
+					ProviderId:    network.Name,
+					NetworkName:   network.Name,
+					IsVirtual:     network.VLANTag > 0,
+				})
 			}
 		}
 	}
 	// Verify we filled-in everything for all networks/interfaces
 	// and drop incomplete records.
 	var networkInfo []environs.NetworkInfo
-	for _, info := range networkInfoMap {
+	for _, info := range tempNetworkInfo {
 		if info.ProviderId == "" || info.NetworkName == "" || info.CIDR == "" {
 			logger.Warningf("ignoring network interface %q: missing network information", info.InterfaceName)
 			continue
@@ -478,10 +475,6 @@ func newCloudinitConfig(hostname string, networkInfo []environs.NetworkInfo) (*c
 
 // setupNetworksOnBoot prepares a script to enable and start all given
 // networks on boot.
-//
-// TODO(dimitern) To support more than one VLAN on the same physical
-// interface, we need model changes to allow muliple NICs with the
-// same MAC address, but different network name.
 func setupNetworksOnBoot(cloudcfg *cloudinit.Config, networkInfo []environs.NetworkInfo) {
 	const ifaceConfig = `cat >> /etc/network/interfaces << EOF
 
@@ -495,6 +488,10 @@ EOF
 	script := func(line string, args ...interface{}) {
 		cloudcfg.AddScripts(fmt.Sprintf(line, args...))
 	}
+	// Because eth0 is already configured in the br0 bridge, we
+	// don't want to break that.
+	configured := set.NewStrings("eth0")
+
 	// In order to support VLANs, we need to include 8021q module
 	// configure vconfig's set_name_type
 	script("modprobe 8021q")
@@ -502,14 +499,12 @@ EOF
 	script("vconfig set_name_type DEV_PLUS_VID_NO_PAD")
 	// Now prepare each interface configuration
 	for _, info := range networkInfo {
-		// Because eth0 is already configured in the br0 bridge, we
-		// don't want to break that.
-		if info.InterfaceName == "eth0" {
-			continue
+		if !configured.Contains(info.InterfaceName) {
+			// Register and bring up the physical interface.
+			script(ifaceConfig, info.InterfaceName, info.InterfaceName)
+			script("ifup %s", info.InterfaceName)
+			configured.Add(info.InterfaceName)
 		}
-		// Register and bring up the interface.
-		script(ifaceConfig, info.InterfaceName, info.InterfaceName)
-		script("ifup %s", info.InterfaceName)
 		if info.VLANTag > 0 {
 			// We have a VLAN and need to create and register it after
 			// its parent interface was brought up.

@@ -198,9 +198,16 @@ func (*environSuite) TestNewEnvironSetsConfig(c *gc.C) {
 
 func (*environSuite) TestNewCloudinitConfig(c *gc.C) {
 	nwInfo := []environs.NetworkInfo{
+		// physical eth0 won't be touched, but it can have VLANs on it.
 		{InterfaceName: "eth0", VLANTag: 0},
+		{InterfaceName: "eth0", VLANTag: 99},
+		// physical NIC given explicitly, then a couple of virtual ones using it.
+		{InterfaceName: "eth1", VLANTag: 0},
 		{InterfaceName: "eth1", VLANTag: 42},
+		{InterfaceName: "eth1", VLANTag: 69},
 		{InterfaceName: "eth2", VLANTag: 0},
+		// physical NIC not given, ensure it gets brought up first, before the virtual one.
+		{InterfaceName: "eth3", VLANTag: 123},
 	}
 	cloudcfg, err := maas.NewCloudinitConfig("testing.invalid", nwInfo)
 	c.Assert(err, gc.IsNil)
@@ -216,12 +223,23 @@ func (*environSuite) TestNewCloudinitConfig(c *gc.C) {
 		"modprobe 8021q",
 		"sh -c 'grep -q 8021q /etc/modules || echo 8021q >> /etc/modules'",
 		"vconfig set_name_type DEV_PLUS_VID_NO_PAD",
+		"vconfig add eth0 99",
+		"cat >> /etc/network/interfaces << EOF\n\nauto eth0.99\niface eth0.99 inet dhcp\nEOF\n",
+		"ifup eth0.99",
 		"cat >> /etc/network/interfaces << EOF\n\nauto eth1\niface eth1 inet dhcp\nEOF\n",
 		"ifup eth1",
 		"vconfig add eth1 42",
 		"cat >> /etc/network/interfaces << EOF\n\nauto eth1.42\niface eth1.42 inet dhcp\nEOF\n",
 		"ifup eth1.42",
+		"vconfig add eth1 69",
+		"cat >> /etc/network/interfaces << EOF\n\nauto eth1.69\niface eth1.69 inet dhcp\nEOF\n",
+		"ifup eth1.69",
 		"cat >> /etc/network/interfaces << EOF\n\nauto eth2\niface eth2 inet dhcp\nEOF\n",
 		"ifup eth2",
+		"cat >> /etc/network/interfaces << EOF\n\nauto eth3\niface eth3 inet dhcp\nEOF\n",
+		"ifup eth3",
+		"vconfig add eth3 123",
+		"cat >> /etc/network/interfaces << EOF\n\nauto eth3.123\niface eth3.123 inet dhcp\nEOF\n",
+		"ifup eth3.123",
 	})
 }
