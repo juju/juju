@@ -97,7 +97,7 @@ func (s *ConfigValidatorSuite) TestConfigValidateUnimplemented(c *gc.C) {
 
 	err := s.updateEnvironConfig(c)
 	c.Assert(err, gc.ErrorMatches, "policy returned nil configValidator without an error")
-	configValidatorErr = errors.NewNotImplementedError("Validator")
+	configValidatorErr = errors.NotImplementedf("Validator")
 	err = s.updateEnvironConfig(c)
 	c.Assert(err, gc.IsNil)
 }

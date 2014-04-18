@@ -85,7 +85,6 @@ func Open(info *Info, opts DialOpts, policy Policy) (*State, error) {
 	}
 	logger.Debugf("dialing mongo")
 	session, err := mgo.DialWithInfo(di)
-
 	if err != nil {
 		return nil, err
 	}
@@ -131,6 +130,7 @@ func DialInfo(info *Info, opts DialOpts) (*mgo.DialInfo, error) {
 			logger.Errorf("TLS handshake failed: %v", err)
 			return nil, err
 		}
+		logger.Infof("dialled mongo successfully")
 		return cc, nil
 	}
 
@@ -159,7 +159,7 @@ func Initialize(info *Info, cfg *config.Config, opts DialOpts, policy Policy) (r
 	// do nothing.
 	if _, err := st.Environment(); err == nil {
 		return st, nil
-	} else if !errors.IsNotFoundError(err) {
+	} else if !errors.IsNotFound(err) {
 		return nil, err
 	}
 	logger.Infof("initializing environment")

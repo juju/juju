@@ -106,7 +106,7 @@ func (api *KeyManagerAPI) ListKeys(arg params.ListSSHKeys) (params.StringsResult
 			continue
 		}
 		if _, err := api.state.User(entity.Tag); err != nil {
-			if errors.IsNotFoundError(err) {
+			if errors.IsNotFound(err) {
 				results[i].Error = common.ServerError(common.ErrPerm)
 			} else {
 				results[i].Error = common.ServerError(err)

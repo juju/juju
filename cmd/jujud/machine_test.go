@@ -94,6 +94,9 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 
 	s.singularRecord = &singularRunnerRecord{}
 	testing.PatchValue(&newSingularRunner, s.singularRecord.newSingularRunner)
+	testing.PatchValue(&peergrouperNew, func(st *state.State) (worker.Worker, error) {
+		return newDummyWorker(), nil
+	})
 
 	s.fakeEnsureMongo = fakeEnsure{}
 	s.PatchValue(&ensureMongoServer, s.fakeEnsureMongo.fakeEnsureMongo)
@@ -139,6 +142,10 @@ func (s *commonMachineSuite) primeAgent(
 		err = m.SetMongoPassword(initialMachinePassword)
 		c.Assert(err, gc.IsNil)
 		config, tools = s.agentSuite.primeStateAgent(c, tag, initialMachinePassword, vers)
+		info, ok := config.StateServingInfo()
+		c.Assert(ok, jc.IsTrue)
+		err = s.State.SetStateServingInfo(info)
+		c.Assert(err, gc.IsNil)
 	} else {
 		config, tools = s.agentSuite.primeAgent(c, tag, initialMachinePassword, vers)
 	}
@@ -303,7 +310,7 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 		if err == nil && attempt.HasNext() {
 			continue
 		}
-		c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+		c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	}
 
 	// short-circuit-remove u1 after it's been deployed; check it's recalled
@@ -311,7 +318,7 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 	err = u1.Destroy()
 	c.Assert(err, gc.IsNil)
 	err = u1.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	ctx.waitDeployed(c)
 }
 
@@ -438,7 +445,29 @@ func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
 			break
 		}
 	}
+}
 
+func (s *MachineSuite) TestManageEnvironRunsPeergrouper(c *gc.C) {
+	started := make(chan struct{}, 1)
+	testing.PatchValue(&peergrouperNew, func(st *state.State) (worker.Worker, error) {
+		c.Check(st, gc.NotNil)
+		select {
+		case started <- struct{}{}:
+		default:
+		}
+		return newDummyWorker(), nil
+	})
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	defer a.Stop()
+	go func() {
+		c.Check(a.Run(nil), gc.IsNil)
+	}()
+	select {
+	case <-started:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for peergrouper worker to be started")
+	}
 }
 
 func (s *MachineSuite) TestManageEnvironCallsUseMultipleCPUs(c *gc.C) {
@@ -583,12 +612,10 @@ func (s *MachineSuite) assertJobWithState(
 	})
 }
 
-// assertAgentOpensState asserts that a machine agent
-// started with the given job will call the function
-// pointed to by reportOpened. The agent's
-// configuration and the value passed to reportOpened
-// are then passed to the test function for further
-// checking.
+// assertAgentOpensState asserts that a machine agent started with the
+// given job will call the function pointed to by reportOpened. The
+// agent's configuration and the value passed to reportOpened are then
+// passed to the test function for further checking.
 func (s *MachineSuite) assertAgentOpensState(
 	c *gc.C,
 	reportOpened *func(eitherState),
@@ -669,7 +696,7 @@ func (s *MachineSuite) TestManageEnvironRunsCleaner(c *gc.C) {
 				s.State.StartSync()
 			case <-w.Changes():
 				err := unit.Refresh()
-				if errors.IsNotFoundError(err) {
+				if errors.IsNotFound(err) {
 					done = true
 				} else {
 					c.Assert(err, gc.IsNil)
@@ -863,7 +890,7 @@ func (s *MachineSuite) testMachineAgentRsyslogConfigWorker(c *gc.C, job state.Ma
 	created := make(chan rsyslog.RsyslogMode, 1)
 	s.PatchValue(&newRsyslogConfigWorker, func(_ *apirsyslog.State, _ agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
 		created <- mode
-		return worker.NewRunner(isFatal, moreImportant), nil
+		return newDummyWorker(), nil
 	})
 	s.assertJobWithAPI(c, job, func(conf agent.Config, st *api.State) {
 		select {
@@ -942,6 +969,7 @@ func (s *MachineSuite) TestMachineAgentUpgradeMongo(c *gc.C) {
 // MachineWithCharmsSuite provides infrastructure for tests which need to
 // work with charms.
 type MachineWithCharmsSuite struct {
+	commonMachineSuite
 	charmtesting.CharmSuite
 
 	machine *state.Machine
@@ -949,47 +977,32 @@ type MachineWithCharmsSuite struct {
 
 var _ = gc.Suite(&MachineWithCharmsSuite{})
 
+func (s *MachineWithCharmsSuite) SetUpSuite(c *gc.C) {
+	s.commonMachineSuite.SetUpSuite(c)
+	s.CharmSuite.SetUpSuite(c, &s.commonMachineSuite.JujuConnSuite)
+}
+
+func (s *MachineWithCharmsSuite) TearDownSuite(c *gc.C) {
+	s.commonMachineSuite.TearDownSuite(c)
+	s.CharmSuite.TearDownSuite(c)
+}
+
 func (s *MachineWithCharmsSuite) SetUpTest(c *gc.C) {
+	s.commonMachineSuite.SetUpTest(c)
 	s.CharmSuite.SetUpTest(c)
-	s.PatchValue(&ensureMongoServer, func(string, string, params.StateServingInfo, bool) error {
-		return nil
-	})
+}
 
-	// Create a state server machine.
-	var err error
-	s.machine, err = s.State.AddOneMachine(state.MachineTemplate{
-		Series:     "quantal",
-		InstanceId: "ardbeg-0",
-		Nonce:      state.BootstrapNonce,
-		Jobs:       []state.MachineJob{state.JobManageEnviron},
-	})
-	c.Assert(err, gc.IsNil)
-	err = s.machine.SetPassword(initialMachinePassword)
-	c.Assert(err, gc.IsNil)
-	tag := names.MachineTag(s.machine.Id())
-	err = s.machine.SetMongoPassword(initialMachinePassword)
-	c.Assert(err, gc.IsNil)
-
-	// Set up the agent configuration.
-	stateInfo := s.StateInfo(c)
-	writeStateAgentConfig(c, stateInfo, s.DataDir(), tag, initialMachinePassword, version.Current)
+func (s *MachineWithCharmsSuite) TearDownTest(c *gc.C) {
+	s.commonMachineSuite.TearDownTest(c)
+	s.CharmSuite.TearDownTest(c)
 }
 
 func (s *MachineWithCharmsSuite) TestManageEnvironRunsCharmRevisionUpdater(c *gc.C) {
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+
 	s.SetupScenario(c)
 
-	testpath := c.MkDir()
-	s.PatchEnvPathPrepend(testpath)
-	fakeCmd(filepath.Join(testpath, "start"))
-	fakeCmd(filepath.Join(testpath, "stop"))
-	s.PatchValue(&upstart.InitDir, c.MkDir())
-
-	// Start the machine agent.
-	a := &MachineAgent{}
-	args := []string{"--data-dir", s.DataDir(), "--machine-id", s.machine.Id()}
-	err := coretesting.InitCommand(a, args)
-	c.Assert(err, gc.IsNil)
-
+	a := s.newAgent(c, m)
 	go func() {
 		c.Check(a.Run(nil), gc.IsNil)
 	}()
@@ -1040,4 +1053,11 @@ func (r *fakeSingularRunner) StartWorker(name string, start func() (worker.Worke
 	defer r.record.mu.Unlock()
 	r.record.startedWorkers.Add(name)
 	return r.Runner.StartWorker(name, start)
+}
+
+func newDummyWorker() worker.Worker {
+	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
+		<-stop
+		return nil
+	})
 }

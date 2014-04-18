@@ -540,7 +540,7 @@ func (u *UniterAPI) CharmArchiveURL(args params.CharmURLs) (params.CharmArchiveU
 		} else {
 			var sch *state.Charm
 			sch, err = u.st.Charm(curl)
-			if errors.IsNotFoundError(err) {
+			if errors.IsNotFound(err) {
 				err = common.ErrPerm
 			}
 			if err == nil {
@@ -566,7 +566,7 @@ func (u *UniterAPI) CharmArchiveSha256(args params.CharmURLs) (params.StringResu
 		} else {
 			var sch *state.Charm
 			sch, err = u.st.Charm(curl)
-			if errors.IsNotFoundError(err) {
+			if errors.IsNotFound(err) {
 				err = common.ErrPerm
 			}
 			if err == nil {
@@ -584,7 +584,7 @@ func (u *UniterAPI) getRelationAndUnit(canAccess common.AuthFunc, relTag, unitTa
 		return nil, nil, common.ErrPerm
 	}
 	rel, err := u.st.KeyRelation(key)
-	if errors.IsNotFoundError(err) {
+	if errors.IsNotFound(err) {
 		return nil, nil, common.ErrPerm
 	} else if err != nil {
 		return nil, nil, err
@@ -627,7 +627,7 @@ func (u *UniterAPI) getOneRelation(canAccess common.AuthFunc, relTag, unitTag st
 func (u *UniterAPI) getOneRelationById(relId int) (params.RelationResult, error) {
 	nothing := params.RelationResult{}
 	rel, err := u.st.Relation(relId)
-	if errors.IsNotFoundError(err) {
+	if errors.IsNotFound(err) {
 		return nothing, common.ErrPerm
 	} else if err != nil {
 		return nothing, err

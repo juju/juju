@@ -46,13 +46,30 @@ func (st *State) Login(tag, password, nonce string) error {
 	return err
 }
 
+// slideAddressToFront moves the address at the location (serverIndex, addrIndex) to be
+// the first address of the first server.
+func slideAddressToFront(servers [][]instance.HostPort, serverIndex, addrIndex int) {
+	server := servers[serverIndex]
+	hostPort := server[addrIndex]
+	// Move the matching address to be the first in this server
+	for ; addrIndex > 0; addrIndex-- {
+		server[addrIndex] = server[addrIndex-1]
+	}
+	server[0] = hostPort
+	for ; serverIndex > 0; serverIndex-- {
+		servers[serverIndex] = servers[serverIndex-1]
+	}
+	servers[0] = server
+}
+
 // addAddress appends a new server derived from the given
 // address to servers if the address is not already found
 // there.
 func addAddress(servers [][]instance.HostPort, addr string) ([][]instance.HostPort, error) {
-	for _, server := range servers {
-		for _, hostPort := range server {
+	for i, server := range servers {
+		for j, hostPort := range server {
 			if hostPort.NetAddr() == addr {
+				slideAddressToFront(servers, i, j)
 				return servers, nil
 			}
 		}
@@ -69,7 +86,10 @@ func addAddress(servers [][]instance.HostPort, addr string) ([][]instance.HostPo
 		Address: instance.NewAddress(host, instance.NetworkUnknown),
 		Port:    port,
 	}
-	return append(servers, []instance.HostPort{hostPort}), nil
+	result := make([][]instance.HostPort, 0, len(servers)+1)
+	result = append(result, []instance.HostPort{hostPort})
+	result = append(result, servers...)
+	return result, nil
 }
 
 // Client returns an object that can be used

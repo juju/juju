@@ -43,7 +43,7 @@ func testAgentTools(c *gc.C, obj tooler, agent string) {
 	// object starts with zero'd tools.
 	t, err := obj.AgentTools()
 	c.Assert(t, gc.IsNil)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	err = obj.SetAgentVersion(version.Binary{})
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("cannot set agent version for %s: empty series or arch", agent))

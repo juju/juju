@@ -11,7 +11,6 @@ import (
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 )
@@ -72,12 +71,12 @@ func StateInfo(env environs.Environ) (*state.Info, *api.Info, error) {
 	}
 	// Wait for the DNS names of any of the instances
 	// to become available.
-	log.Debugf("waiting for DNS name(s) of state server instances %v", st.StateInstances)
+	logger.Debugf("waiting for DNS name(s) of state server instances %v", st.StateInstances)
 	var hostnames []string
 	for a := LongAttempt.Start(); len(hostnames) == 0 && a.Next(); {
 		insts, err := env.Instances(st.StateInstances)
 		if err != nil && err != environs.ErrPartialInstances {
-			log.Debugf("error getting state instances: %v", err.Error())
+			logger.Debugf("error getting state instances: %v", err.Error())
 			return nil, nil, err
 		}
 		hostnames = getDNSNames(insts)

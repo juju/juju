@@ -56,7 +56,7 @@ func SetBootstrapTools(environ environs.Environ, possibleTools coretools.List) (
 	}
 	var newVersion version.Number
 	newVersion, toolsList := possibleTools.Newest()
-	logger.Infof("picked newest version: %s", newVersion)
+	logger.Infof("newest version: %s", newVersion)
 	cfg := environ.Config()
 	if agentVersion, _ := cfg.AgentVersion(); agentVersion != newVersion {
 		cfg, err := cfg.Apply(map[string]interface{}{
@@ -69,7 +69,44 @@ func SetBootstrapTools(environ environs.Environ, possibleTools coretools.List) (
 			return nil, fmt.Errorf("failed to update environment configuration: %v", err)
 		}
 	}
+	bootstrapVersion := newVersion
+	// We should only ever bootstrap the exact same version as the client,
+	// or we risk bootstrap incompatibility. We still set agent-version to
+	// the newest version, so the agent will immediately upgrade itself.
+	if !isCompatibleVersion(newVersion, version.Current.Number) {
+		compatibleVersion, compatibleTools := findCompatibleTools(possibleTools, version.Current.Number)
+		if len(compatibleTools) == 0 {
+			logger.Warningf(
+				"failed to find %s tools, will attempt to use %s",
+				version.Current.Number, newVersion,
+			)
+		} else {
+			bootstrapVersion, toolsList = compatibleVersion, compatibleTools
+		}
+	}
+	logger.Infof("picked bootstrap tools version: %s", bootstrapVersion)
 	return toolsList, nil
+}
+
+// findCompatibleTools finds tools in the list that have the same major, minor
+// and patch level as version.Current.
+//
+// Build number is not important to match; uploaded tools will have
+// incremented build number, and we want to match them.
+func findCompatibleTools(possibleTools coretools.List, version version.Number) (version.Number, coretools.List) {
+	var compatibleTools coretools.List
+	for _, tools := range possibleTools {
+		if isCompatibleVersion(tools.Version.Number, version) {
+			compatibleTools = append(compatibleTools, tools)
+		}
+	}
+	return compatibleTools.Newest()
+}
+
+func isCompatibleVersion(v1, v2 version.Number) bool {
+	v1.Build = 0
+	v2.Build = 0
+	return v1.Compare(v2) == 0
 }
 
 // EnsureNotBootstrapped returns nil if the environment is not

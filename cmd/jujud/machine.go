@@ -78,6 +78,7 @@ var (
 	maybeInitiateMongoServer = peergrouper.MaybeInitiateMongoServer
 	ensureMongoAdminUser     = mongo.EnsureAdminUser
 	newSingularRunner        = singular.New
+	peergrouperNew           = peergrouper.New
 
 	// reportOpenedAPI is exposed for tests to know when
 	// the State has been successfully opened.
@@ -231,7 +232,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	}
 	reportOpenedAPI(st)
 
-	// get the config, since it may have been updated after opening state.
+	// Refresh the configuration, since it may have been updated after opening state.
 	agentConfig = a.CurrentConfig()
 
 	for _, job := range entity.Jobs() {
@@ -246,6 +247,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			if err != nil {
 				return nil, err
 			}
+			agentConfig = a.CurrentConfig()
 			break
 		}
 	}
@@ -436,6 +438,9 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			a.startWorkerAfterUpgrade(runner, "instancepoller", func() (worker.Worker, error) {
 				return instancepoller.NewWorker(st), nil
 			})
+			runner.StartWorker("peergrouper", func() (worker.Worker, error) {
+				return peergrouperNew(st)
+			})
 			runner.StartWorker("apiserver", func() (worker.Worker, error) {
 				// If the configuration does not have the required information,
 				// it is currently not a recoverable error, so we kill the whole
@@ -499,7 +504,7 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
 	var shouldInitiateMongoServer bool
 	var addrs []instance.Address
 	if isPreHAVersion(agentConfig.UpgradedToVersion()) {
-		_, err := a.ensureMongoAdminUser(agentConfig, servingInfo.StatePort, namespace)
+		_, err := a.ensureMongoAdminUser(agentConfig)
 		if err != nil {
 			return err
 		}
@@ -565,10 +570,11 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
 	})
 }
 
-func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config, port int, namespace string) (added bool, err error) {
-	stateInfo, ok := agentConfig.StateInfo()
-	if !ok {
-		return false, fmt.Errorf("agent config contains no state info")
+func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config) (added bool, err error) {
+	stateInfo, ok1 := agentConfig.StateInfo()
+	servingInfo, ok2 := agentConfig.StateServingInfo()
+	if !ok1 || !ok2 {
+		return false, fmt.Errorf("no state serving info configuration")
 	}
 	dialInfo, err := state.DialInfo(stateInfo, state.DefaultDialOpts())
 	if err != nil {
@@ -580,9 +586,9 @@ func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config, port int, 
 	}
 	return ensureMongoAdminUser(mongo.EnsureAdminUserParams{
 		DialInfo:  dialInfo,
-		Namespace: namespace,
+		Namespace: agentConfig.Value(agent.Namespace),
 		DataDir:   agentConfig.DataDir(),
-		Port:      port,
+		Port:      servingInfo.StatePort,
 		User:      stateInfo.Tag,
 		Password:  stateInfo.Password,
 	})
@@ -618,7 +624,7 @@ func openState(agentConfig agent.Config) (_ *state.State, _ *state.Machine, err 
 	}()
 	m0, err := st.FindEntity(agentConfig.Tag())
 	if err != nil {
-		if errors.IsNotFoundError(err) {
+		if errors.IsNotFound(err) {
 			err = worker.ErrTerminateAgent
 		}
 		return nil, nil, err

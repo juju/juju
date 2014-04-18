@@ -504,7 +504,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 		<-uwatch.Changes()
 		err := unit.Refresh()
 		c.Logf("refreshed; err %v", err)
-		if errors.IsNotFoundError(err) {
+		if errors.IsNotFound(err) {
 			c.Logf("unit has been removed")
 			break
 		}
@@ -519,7 +519,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 		c.Assert(err, gc.FitsTypeOf, &state.HasAssignedUnitsError{})
 		time.Sleep(5 * time.Second)
 		err = m1.Refresh()
-		if errors.IsNotFoundError(err) {
+		if errors.IsNotFound(err) {
 			break
 		}
 		c.Assert(err, gc.IsNil)
@@ -685,7 +685,7 @@ func (w *toolsWaiter) NextTools(c *gc.C) (*coretools.Tools, error) {
 			return nil, fmt.Errorf("object is dead")
 		}
 		tools, err := w.tooler.AgentTools()
-		if errors.IsNotFoundError(err) {
+		if errors.IsNotFound(err) {
 			c.Logf("tools not yet set")
 			continue
 		}

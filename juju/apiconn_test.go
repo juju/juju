@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/osenv"
@@ -118,17 +119,7 @@ func (*NewAPIClientSuite) TestNameNotDefault(c *gc.C) {
 
 func (s *NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 	defer coretesting.MakeEmptyFakeHome(c).Restore()
-	storeConfig := &environInfo{
-		creds: configstore.APICredentials{
-			User:     "foo",
-			Password: "foopass",
-		},
-		endpoint: configstore.APIEndpoint{
-			Addresses: []string{"foo.invalid"},
-			CACert:    "certificated",
-		},
-	}
-	store := newConfigStore("noconfig", storeConfig)
+	store := newConfigStore("noconfig", dummyStoreInfo)
 
 	called := 0
 	expectState := &mockAPIState{
@@ -211,7 +202,7 @@ func (s *NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, gc.NotNil)
 	ep := info.APIEndpoint()
-	c.Check(ep.Addresses, gc.HasLen, 1)
+	c.Assert(ep.Addresses, gc.HasLen, 1)
 	c.Check(ep.Addresses[0], gc.Matches, `127\.0\.0\.1:\d+`)
 	c.Check(ep.CACert, gc.Not(gc.Equals), "")
 	creds := info.APICredentials()
@@ -565,4 +556,108 @@ type infoWithWriteNotify struct {
 func (info *infoWithWriteNotify) Write() error {
 	*info.written = true
 	return info.EnvironInfo.Write()
+}
+
+type APIEndpointForEnvSuite struct {
+	testbase.LoggingSuite
+}
+
+var _ = gc.Suite(&APIEndpointForEnvSuite{})
+
+var dummyStoreInfo = &environInfo{
+	creds: configstore.APICredentials{
+		User:     "foo",
+		Password: "foopass",
+	},
+	endpoint: configstore.APIEndpoint{
+		Addresses: []string{"foo.invalid"},
+		CACert:    "certificated",
+	},
+}
+
+func (s *APIEndpointForEnvSuite) TestAPIEndpointInStoreCached(c *gc.C) {
+	store := newConfigStore("env-name", dummyStoreInfo)
+	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
+		return nil, nil
+	}
+	endpoint, err := juju.APIEndpointInStore("env-name", false, store, apiOpen)
+	c.Assert(err, gc.IsNil)
+	c.Check(endpoint, gc.DeepEquals, dummyStoreInfo.endpoint)
+}
+
+func (s *APIEndpointForEnvSuite) TestAPIEndpointForEnvSuchName(c *gc.C) {
+	defer coretesting.MakeMultipleEnvHome(c).Restore()
+	_, err := juju.APIEndpointForEnv("no-such-env", false)
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, gc.ErrorMatches, `environment "no-such-env" not found`)
+}
+
+func (s *APIEndpointForEnvSuite) TestAPIEndpointNotCached(c *gc.C) {
+	defer coretesting.MakeMultipleEnvHome(c).Restore()
+	store, err := configstore.Default()
+	c.Assert(err, gc.IsNil)
+	ctx := coretesting.Context(c)
+	env, err := environs.PrepareFromName("erewhemos", ctx, store)
+	c.Assert(err, gc.IsNil)
+	defer dummy.Reset()
+	envtesting.UploadFakeTools(c, env.Storage())
+	err = bootstrap.Bootstrap(ctx, env, constraints.Value{})
+	c.Assert(err, gc.IsNil)
+
+	// Note: if we get Bootstrap to start caching the API endpoint
+	// immediately, we'll still want to have this test for compatibility.
+	// We can just write blank info instead of reading and checking it is empty.
+	savedInfo, err := store.ReadInfo("erewhemos")
+	c.Assert(err, gc.IsNil)
+	// Ensure that the data isn't cached
+	c.Check(savedInfo.APIEndpoint().Addresses, gc.HasLen, 0)
+
+	called := 0
+	expectState := &mockAPIState{
+		apiHostPorts: [][]instance.HostPort{
+			instance.AddressesWithPort([]instance.Address{instance.NewAddress("0.1.2.3", instance.NetworkUnknown)}, 1234),
+		},
+	}
+	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
+		c.Check(apiInfo.Tag, gc.Equals, "user-admin")
+		c.Check(string(apiInfo.CACert), gc.Equals, coretesting.CACert)
+		c.Check(apiInfo.Password, gc.Equals, coretesting.DefaultMongoPassword)
+		c.Check(opts, gc.DeepEquals, api.DefaultDialOpts())
+		called++
+		return expectState, nil
+	}
+	endpoint, err := juju.APIEndpointInStore("erewhemos", false, store, apiOpen)
+	c.Assert(err, gc.IsNil)
+	c.Assert(called, gc.Equals, 1)
+	c.Check(endpoint.Addresses, gc.DeepEquals, []string{"0.1.2.3:1234"})
+}
+
+func (s *APIEndpointForEnvSuite) TestAPIEndpointRefresh(c *gc.C) {
+	defer coretesting.MakeEmptyFakeHome(c).Restore()
+	store := newConfigStore("env-name", dummyStoreInfo)
+	called := 0
+	expectState := &mockAPIState{
+		apiHostPorts: [][]instance.HostPort{
+			instance.AddressesWithPort([]instance.Address{instance.NewAddress("0.1.2.3", instance.NetworkUnknown)}, 1234),
+		},
+	}
+	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
+		c.Check(apiInfo.Tag, gc.Equals, "user-foo")
+		c.Check(string(apiInfo.CACert), gc.Equals, "certificated")
+		c.Check(apiInfo.Password, gc.Equals, "foopass")
+		c.Check(opts, gc.DeepEquals, api.DefaultDialOpts())
+		called++
+		return expectState, nil
+	}
+	endpoint, err := juju.APIEndpointInStore("env-name", false, store, apiOpen)
+	c.Assert(err, gc.IsNil)
+	c.Assert(called, gc.Equals, 0)
+	c.Check(endpoint.Addresses, gc.DeepEquals, []string{"foo.invalid"})
+	// However, if we ask to refresh them, we'll connect to the API and get
+	// the freshest set
+	endpoint, err = juju.APIEndpointInStore("env-name", true, store, apiOpen)
+	c.Assert(err, gc.IsNil)
+	c.Check(called, gc.Equals, 1)
+	// This refresh now gives us the values return by APIHostPorts
+	c.Check(endpoint.Addresses, gc.DeepEquals, []string{"0.1.2.3:1234"})
 }

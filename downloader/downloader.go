@@ -10,11 +10,13 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/utils"
 )
+
+var logger = loggo.GetLogger("juju.downloader")
 
 // Status represents the status of a completed download.
 type Status struct {
@@ -114,7 +116,7 @@ func cleanTempFile(f *os.File) {
 	if f != nil {
 		f.Close()
 		if err := os.Remove(f.Name()); err != nil {
-			log.Warningf("downloader: cannot remove temp file %q: %v", f.Name(), err)
+			logger.Warningf("cannot remove temp file %q: %v", f.Name(), err)
 		}
 	}
 }

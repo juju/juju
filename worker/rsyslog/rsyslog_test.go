@@ -16,10 +16,10 @@ import (
 
 	"launchpad.net/juju-core/cert"
 	jujutesting "launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils/syslog"
 	"launchpad.net/juju-core/worker/rsyslog"
 )
 

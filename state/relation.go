@@ -17,7 +17,6 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/utils"
 )
 
 // relationKey returns a string describing the relation defined by
@@ -69,8 +68,8 @@ func (r *Relation) Tag() string {
 }
 
 // Refresh refreshes the contents of the relation from the underlying
-// state. It returns an error that satisfies IsNotFound if the relation has been
-// removed.
+// state. It returns an error that satisfies errors.IsNotFound if the
+// relation has been removed.
 func (r *Relation) Refresh() error {
 	doc := relationDoc{}
 	err := r.st.relations.FindId(r.doc.Key).One(&doc)
@@ -98,7 +97,7 @@ func (r *Relation) Life() Life {
 // Destroy ensures that the relation will be removed at some point; if no units
 // are currently in scope, it will be removed immediately.
 func (r *Relation) Destroy() (err error) {
-	defer utils.ErrorContextf(&err, "cannot destroy relation %q", r)
+	defer errors.Maskf(&err, "cannot destroy relation %q", r)
 	if len(r.doc.Endpoints) == 1 && r.doc.Endpoints[0].Role == charm.RolePeer {
 		return fmt.Errorf("is a peer relation")
 	}
@@ -123,7 +122,7 @@ func (r *Relation) Destroy() (err error) {
 		if err := rel.st.runTransaction(ops); err != txn.ErrAborted {
 			return err
 		}
-		if err := rel.Refresh(); errors.IsNotFoundError(err) {
+		if err := rel.Refresh(); errors.IsNotFound(err) {
 			return nil
 		} else if err != nil {
 			return err

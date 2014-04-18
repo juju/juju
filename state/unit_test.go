@@ -41,7 +41,7 @@ func (s *UnitSuite) SetUpTest(c *gc.C) {
 func (s *UnitSuite) TestUnitNotFound(c *gc.C) {
 	_, err := s.State.Unit("subway/0")
 	c.Assert(err, gc.ErrorMatches, `unit "subway/0" not found`)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *UnitSuite) TestService(c *gc.C) {
@@ -296,7 +296,7 @@ func (s *UnitSuite) TestRefresh(c *gc.C) {
 	err = unit1.Remove()
 	c.Assert(err, gc.IsNil)
 	err = unit1.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *UnitSuite) TestGetSetStatusWhileAlive(c *gc.C) {
@@ -620,7 +620,7 @@ func assertLife(c *gc.C, entity state.Living, life state.Life) {
 
 func assertRemoved(c *gc.C, entity state.Living) {
 	err := entity.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	err = entity.Destroy()
 	c.Assert(err, gc.IsNil)
 	if entity, ok := entity.(state.AgentLiving); ok {
@@ -685,7 +685,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 	info.Tag = m.Tag()
 	info.Password = "foo1"
 	err = tryOpenState(info)
-	c.Assert(err, jc.Satisfies, errors.IsUnauthorizedError)
+	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
 
 	// Connect as the machine entity.
 	info.Tag = m.Tag()
@@ -1067,7 +1067,7 @@ func (s *UnitSuite) TestRemove(c *gc.C) {
 	err = s.unit.Remove()
 	c.Assert(err, gc.IsNil)
 	err = s.unit.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	units, err := s.service.AllUnits()
 	c.Assert(err, gc.IsNil)
 	c.Assert(units, gc.HasLen, 0)
@@ -1117,9 +1117,9 @@ func (s *UnitSuite) TestRemovePathological(c *gc.C) {
 	err = mysql0ru.LeaveScope()
 	c.Assert(err, gc.IsNil)
 	err = wordpress.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	err = rel.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *UnitSuite) TestRemovePathologicalWithBuggyUniter(c *gc.C) {
@@ -1167,9 +1167,9 @@ func (s *UnitSuite) TestRemovePathologicalWithBuggyUniter(c *gc.C) {
 	err = mysql0.Remove()
 	c.Assert(err, gc.IsNil)
 	err = wordpress.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	err = rel.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *UnitSuite) TestWatchSubordinates(c *gc.C) {

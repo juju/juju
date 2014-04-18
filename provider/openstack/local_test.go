@@ -334,7 +334,7 @@ func assertSecurityGroups(c *gc.C, env environs.Environ, expected []string) {
 			}
 		}
 		if !found {
-			c.Errorf("expected security group %g not found", name)
+			c.Errorf("expected security group %q not found", name)
 		}
 	}
 	for _, group := range groups {
@@ -346,7 +346,7 @@ func assertSecurityGroups(c *gc.C, env environs.Environ, expected []string) {
 			}
 		}
 		if !found {
-			c.Errorf("existing security group %g is not expected", group.Name)
+			c.Errorf("existing security group %q is not expected", group.Name)
 		}
 	}
 }
