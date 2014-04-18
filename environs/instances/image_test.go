@@ -212,6 +212,15 @@ var findInstanceSpecTests = []instanceSpecTestParams{
 		},
 	},
 	{
+		desc:        "empty instance type constraint",
+		region:      "test",
+		constraints: "instance-type=",
+		imageId:     "ami-00000033",
+		instanceTypes: []InstanceType{
+			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, VirtType: &pv, Mem: 512},
+		},
+	},
+	{
 		desc:        "use instance type constraint",
 		region:      "test",
 		constraints: "instance-type=it-1",
