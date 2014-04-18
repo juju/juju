@@ -39,6 +39,21 @@ check_deps() {
 }
 
 
+publish_to_aws() {
+    [[ $JT_IGNORE_AWS == '1' ]] && return 0
+    if [[ $PURPOSE == "RELEASE" ]]; then
+        local event="Publish"
+        local destination="s3://juju-dist/"
+    else
+        local event="Testing"
+        local destination="s3://juju-dist/testing/"
+    fi
+    echo "Phase 1: $event to AWS."
+    s3cmd -c $JUJU_DIR/s3cfg sync --exclude '*mirror*' \
+        ${JUJU_DIST}/tools $destination
+}
+
+
 publish_to_canonistack() {
     [[ $JT_IGNORE_CANONISTACK == '1' ]] && return 0
     if [[ $PURPOSE == "RELEASE" ]]; then
@@ -72,21 +87,6 @@ publish_to_hp() {
     ${SCRIPT_DIR}/swift_sync.py $destination/releases/ *.tgz
     cd $JUJU_DIST/tools/streams/v1
     ${SCRIPT_DIR}/swift_sync.py $destination/streams/v1/ {index,com}*
-}
-
-
-publish_to_aws() {
-    [[ $JT_IGNORE_AWS == '1' ]] && return 0
-    if [[ $PURPOSE == "RELEASE" ]]; then
-        local event="Publish"
-        local destination="s3://juju-dist/"
-    else
-        local event="Testing"
-        local destination="s3://juju-dist/testing/"
-    fi
-    echo "Phase 1: $event to AWS."
-    s3cmd -c $JUJU_DIR/s3cfg sync --exclude '*mirror*' \
-        ${JUJU_DIST}/tools $destination
 }
 
 
@@ -138,10 +138,10 @@ fi
 
 
 check_deps
-publish_to_streams
 publish_to_aws
 publish_to_canonistack
 publish_to_hp
 publish_to_azure
+publish_to_streams
 echo "Release data published to all CPCs."
 
