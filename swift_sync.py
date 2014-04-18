@@ -26,7 +26,8 @@ def get_files(args):
     account = get_account()
     container_url = '{0}/{1}/{2}?format=json'.format(
         swift_url, account, args.container)
-    print("Checking {0}".format(container_url))
+    if args.verbose:
+        print("Checking {0}".format(container_url))
     response = urllib2.urlopen(container_url)
     files = json.loads(response.read())
     remote_files = dict((f['name'], f) for f in files)
