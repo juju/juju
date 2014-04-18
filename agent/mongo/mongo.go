@@ -192,14 +192,11 @@ func EnsureMongoServer(dataDir string, namespace string, info params.StateServin
 	}
 	logMongoVersion(mongoPath)
 
-	// TODO(natefinch) 2014-04-12 https://launchpad.net/bugs/1306902
-	// remove this once we support upgrading to HA
-	if upstartConf.Installed() {
-		return nil
+	if err := upstartServiceStop(&upstartConf.Service); err != nil {
+		return fmt.Errorf("failed to stop mongo: %v", err)
 	}
-
 	if err := makeJournalDirs(dbDir); err != nil {
-		return fmt.Errorf("Error creating journal directories: %v", err)
+		return fmt.Errorf("error creating journal directories: %v", err)
 	}
 	return upstartConfInstall(upstartConf)
 }

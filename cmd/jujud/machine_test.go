@@ -59,6 +59,7 @@ type commonMachineSuite struct {
 	agentSuite
 	singularRecord *singularRunnerRecord
 	lxctesting.TestSuite
+	fakeEnsureMongo fakeEnsure
 }
 
 func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
@@ -96,6 +97,10 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	testing.PatchValue(&peergrouperNew, func(st *state.State) (worker.Worker, error) {
 		return newDummyWorker(), nil
 	})
+
+	s.fakeEnsureMongo = fakeEnsure{}
+	s.PatchValue(&ensureMongoServer, s.fakeEnsureMongo.fakeEnsureMongo)
+	s.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.fakeInitiateMongo)
 }
 
 func fakeCmd(path string) {
@@ -122,6 +127,10 @@ func (s *commonMachineSuite) primeAgent(
 	c.Assert(err, gc.IsNil)
 	inst, md := jujutesting.AssertStartInstance(c, s.Conn.Environ, m.Id())
 	c.Assert(m.SetProvisioned(inst.Id(), state.BootstrapNonce, md), gc.IsNil)
+
+	// Add an address for the tests in case the maybeInitiateMongoServer
+	// codepath is exercised.
+	s.setFakeMachineAddresses(c, m)
 
 	// Set up the new machine.
 	err = m.SetAgentVersion(vers)
@@ -327,7 +336,7 @@ func patchDeployContext(c *gc.C, st *state.State) (*fakeContext, func()) {
 	return ctx, func() { newDeployContext = orig }
 }
 
-func (s *MachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Machine) {
+func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Machine) {
 	addrs := []instance.Address{
 		instance.NewAddress("0.1.2.3", instance.NetworkUnknown),
 	}
@@ -347,7 +356,6 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 	usefulVersion.Series = "quantal" // to match the charm created below
 	envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), usefulVersion)
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
-	s.setFakeMachineAddresses(c, m)
 	op := make(chan dummy.Operation, 200)
 	dummy.Listen(op)
 
@@ -405,7 +413,6 @@ func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
 	usefulVersion.Series = "quantal" // to match the charm created below
 	envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), usefulVersion)
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
-	s.setFakeMachineAddresses(c, m)
 	a := s.newAgent(c, m)
 	defer a.Stop()
 	go func() {
@@ -469,7 +476,6 @@ func (s *MachineSuite) TestManageEnvironCallsUseMultipleCPUs(c *gc.C) {
 	usefulVersion.Series = "quantal"
 	envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), usefulVersion)
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
-	s.setFakeMachineAddresses(c, m)
 	calledChan := make(chan struct{}, 1)
 	s.PatchValue(&useMultipleCPUs, func() { calledChan <- struct{}{} })
 	// Now, start the agent, and observe that a JobManageEnviron agent
@@ -489,7 +495,6 @@ func (s *MachineSuite) TestManageEnvironCallsUseMultipleCPUs(c *gc.C) {
 	c.Check(a.Stop(), gc.IsNil)
 	// However, an agent that just JobHostUnits doesn't call UseMultipleCPUs
 	m2, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
-	s.setFakeMachineAddresses(c, m2)
 	a2 := s.newAgent(c, m2)
 	defer a2.Stop()
 	go func() {
@@ -923,9 +928,12 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 	c.Fatalf("timeout while waiting for agent config to change")
 }
 
-func (s *MachineSuite) TestMachineAgentEnsureAdminUser(c *gc.C) {
-	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
-	err := s.State.MongoSession().DB("admin").RemoveUser(m.Tag())
+func (s *MachineSuite) TestMachineAgentUpgradeMongo(c *gc.C) {
+	m, agentConfig, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	agentConfig.SetUpgradedToVersion(version.MustParse("1.18.0"))
+	err := agentConfig.Write()
+	c.Assert(err, gc.IsNil)
+	err = s.State.MongoSession().DB("admin").RemoveUser(m.Tag())
 	c.Assert(err, gc.IsNil)
 
 	s.PatchValue(&ensureMongoAdminUser, func(p mongo.EnsureAdminUserParams) (bool, error) {
@@ -954,6 +962,8 @@ func (s *MachineSuite) TestMachineAgentEnsureAdminUser(c *gc.C) {
 		c.Fatalf("state not opened")
 	}
 	s.waitStopped(c, state.JobManageEnviron, a, done)
+	c.Assert(s.fakeEnsureMongo.ensureCount, gc.Equals, 1)
+	c.Assert(s.fakeEnsureMongo.initiateCount, gc.Equals, 1)
 }
 
 // MachineWithCharmsSuite provides infrastructure for tests which need to
