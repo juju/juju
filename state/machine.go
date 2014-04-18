@@ -577,7 +577,6 @@ func (m *Machine) removeNetworkInterfacesOps() ([]txn.Op, error) {
 			Id:     doc.Id,
 			Remove: true,
 		})
-		logger.Debugf("removing %#v on %v", doc, m.doc.Id)
 	}
 	if err := iter.Err(); err != nil {
 		return nil, err

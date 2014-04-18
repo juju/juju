@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"path/filepath"
 
-	"github.com/juju/loggo"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
@@ -20,8 +19,6 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing"
 )
-
-var Logger loggo.Logger = logger
 
 // transactionHook holds Before and After func()s that will be called
 // respectively before and after a particular state transaction is executed.
