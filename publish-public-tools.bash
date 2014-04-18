@@ -136,16 +136,19 @@ test $# -eq 3 || usage
 
 PURPOSE=$1
 if [[ $PURPOSE != "release" && $PURPOSE != "testing" ]]; then
+    echo "Invalid PURPOSE."
     usage
 fi
 
 JUJU_DIST=$(cd $2; pwd)
 if [[ ! -d $JUJU_DIST/tools/releases && ! -d $JUJU_DIST/tools/streams ]]; then
+    echo "Invalid JUJU-DIST."
     usage
 fi
 
-DESTINATIONS=$1
-if [[ $PURPOSE != "cpc" && $PURPOSE != "streams" ]]; then
+DESTINATIONS=$3
+if [[ $DESTINATIONS != "cpc" && $DESTINATIONS != "streams" ]]; then
+    echo "Invalid DESTINATIONS."
     usage
 fi
 
@@ -161,5 +164,6 @@ publish_to_aws
 publish_to_canonistack
 publish_to_hp
 publish_to_azure
+publish_to_joyent
 publish_to_streams
 echo "$EVENT data published to all CPCs."
