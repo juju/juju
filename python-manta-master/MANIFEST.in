@@ -1,0 +1,13 @@
+include MANIFEST
+include MANIFEST.in
+include README.md
+include TODO.txt
+include LICENSE
+include AUTHORS
+include CHANGES.md
+include Makefile
+include setup.py
+include requirements.txt
+recursive-include manta *.py
+recursive-include bin *
+recursive-include test *.py

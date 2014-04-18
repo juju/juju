@@ -1,0 +1,95 @@
+# todo
+
+- https://mo.joyent.com/docs/muskie/master/api.html#putsnaplink-put-loginstordirectorylink
+- find globbing of given DIR(s), cat globbing, zcat globbing, open globbing: client.glob()
+- job:
+  - keys via 'find $args -type o'
+- mantash job -c JOB-ID   # cancel a job
+- mantash job: taking keys on stdin
+- job support for running a given *script*
+- test suite:
+  - moar
+  - OS compat tests
+- unicode data tests: and filenames too
+- restdown docs
+- signed URLs
+
+
+# Bugs
+
+- listing empty files:
+    [trentm@us-east /trentm/jobs/f8e9e83c-bc69-4c70-f23c-8ae15906f75c]$ cat err.txt
+    mantash: ERROR: 'content-md5' (/Users/trentm/joy/python-manta/manta/client.py:366 in get_object2)
+    [20:41:09 trentm@grape:~/joy/sdcnode (master)]
+    $ m -C /trentm/jobs/f8e9e83c-bc69-4c70-f23c-8ae15906f75c
+    [trentm@us-east /trentm/jobs/f8e9e83c-bc69-4c70-f23c-8ae15906f75c]$ cat fail.txt
+    mantash: ERROR: 'content-md5' (/Users/trentm/joy/python-manta/manta/client.py:366 in get_object2)
+- find:
+    $ mbeta find . -ls       # fails
+    mantash: ERROR: /trentm/stor: no such remote directory
+    $ mbeta find tmp -ls     # works
+    directory  trentm           -                            tmp
+    ...
+- job:
+    [trentm@manta-beta /trentm/stor]$ job tmp ^ zonename
+    mantash: ERROR: global name 'pname' is not defined (/Users/trentm/joy/python-manta/bin/mantash:1158 in do_job)
+- mantash crash on unparsable input line:
+        [admin@us-east /admin/stor]$ asdf"
+        mantash: ERROR: command line is not terminated: unfinished double-quoted segment (/Users/trentm/joy/python-manta/manta/cmdln.py:1444 in line2argv)
+
+        Traceback (most recent call last):
+          File "/Users/trentm/joy/python-manta/bin/mantash", line 1565, in <module>
+            retval = main(sys.argv)
+          File "/Users/trentm/joy/python-manta/bin/mantash", line 1559, in main
+            return shell.main(argv, loop=cmdln.LOOP_IF_EMPTY)
+          File "/Users/trentm/joy/python-manta/manta/cmdln.py", line 268, in main
+            return self.cmdloop()
+          File "/Users/trentm/joy/python-manta/manta/cmdln.py", line 355, in cmdloop
+            argv = line2argv(line)
+          File "/Users/trentm/joy/python-manta/manta/cmdln.py", line 1444, in line2argv
+            "segment" % state)
+        ValueError: command line is not terminated: unfinished double-quoted segment
+
+# Someday/Maybe
+
+- mantash less
+- mantash touch
+- mantash rmdir
+- mantash md5  # a la mmd5
+- mantash job ARGS:  where 'ARGS' is like 'find -type o', i.e. recursive
+  and just objects
+- mantash diff   # that does the fast thing for binary files (use md5 compare)
+- mantash sync  # like rsync, but less complicated
+  Use case: sync the latest changes from a *git repo* in manta, then run
+  a job on it.
+- pipe support in interactive shell to *local* commands
+- import mantash TODOs
+- mantash job ^C support
+- mantash job -W   or something to NOT wait for a job to complete
+- retries
+- Cache the Authorization header for the same Date second. Bryan has been
+  able to get ECONNREFUSED using the ssh-agent. Also keep a persistent
+  conn to ssh-agent?
+- 'datetime=True' option to list_directory to interp the mtime to datetime
+  objects
+- pip/python setup.py install support (hack-i-berry). All deps should be in
+  a lib/manta/deps which gets added to sys.path for manta imports
+- remember visited public folders for tab completion and 'mantash ls /'
+  Need an option to drop that cache.
+- Unix-y MantaClient subclass with: mkdir, mkdirp, rmr, etc. a la node-manta.
+  - ls should use marker and result-set-size
+- streaming MantaClient.list_directory(), put_object(), get_object()
+  See https://github.com/madlag/streaming_httplib2
+- extra utility endpoints like node-manta's client.info() and others?
+
+# Wanted from Manta
+
+- include content-type for files in dirents. would be handy for 'ls -l'.
+  Also include size/content-length -- useful for Apache/Nginx-style dir
+  listings.
+
+# Manta bug to report
+
+- this:
+    [https://manta-beta.joyentcloud.com/trentm/public/python-manta]$ ln python-manta-1.0.0.tgz python-manta-latest.tgz
+    mantash: ERROR: (AuthorizationFailed) trentm is not allowed to access /trentm/public/python-manta/python-manta-1.0.0.tgz (/Users/trentm/joy/python-manta/lib/manta/client.py:398 in put_link)
