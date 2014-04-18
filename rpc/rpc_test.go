@@ -13,13 +13,15 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/juju/loggo"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/rpc/jsoncodec"
 	"launchpad.net/juju-core/testing/testbase"
 )
+
+var logger = loggo.GetLogger("juju.rpc")
 
 type rpcSuite struct {
 	testbase.LoggingSuite
@@ -100,7 +102,7 @@ func (r *Root) CallbackMethods(string) (*CallbackMethods, error) {
 }
 
 func (r *Root) InterfaceMethods(id string) (InterfaceMethods, error) {
-	log.Infof("interface methods called")
+	logger.Infof("interface methods called")
 	m, err := r.SimpleMethods(id)
 	if err != nil {
 		return nil, err
@@ -1002,7 +1004,7 @@ func (c *testCodec) WriteMessage(hdr *rpc.Header, x interface{}) error {
 	if c.role != roleBoth && hdr.IsRequest() != (c.role == roleClient) {
 		panic(fmt.Errorf("codec role %v; header wrong type %#v", c.role, hdr))
 	}
-	log.Infof("send header: %#v; body: %#v", hdr, x)
+	logger.Infof("send header: %#v; body: %#v", hdr, x)
 	return c.Codec.WriteMessage(hdr, x)
 }
 
@@ -1011,7 +1013,7 @@ func (c *testCodec) ReadHeader(hdr *rpc.Header) error {
 	if err != nil {
 		return err
 	}
-	log.Infof("got header %#v", hdr)
+	logger.Infof("got header %#v", hdr)
 	if c.role != roleBoth && hdr.IsRequest() == (c.role == roleClient) {
 		panic(fmt.Errorf("codec role %v; read wrong type %#v", c.role, hdr))
 	}
@@ -1031,9 +1033,9 @@ func (c *testCodec) ReadBody(r interface{}, isRequest bool) error {
 	if err != nil {
 		return err
 	}
-	log.Infof("got response body: %q", m)
+	logger.Infof("got response body: %q", m)
 	err = json.Unmarshal(m, r)
-	log.Infof("unmarshalled into %#v", r)
+	logger.Infof("unmarshalled into %#v", r)
 	return err
 }
 

@@ -29,7 +29,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/usermanager"
 	"launchpad.net/juju-core/state/apiserver/client"
-	"launchpad.net/juju-core/state/statecmd"
+	"launchpad.net/juju-core/state/presence"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -508,7 +508,7 @@ func assertLife(c *gc.C, entity state.Living, life state.Life) {
 
 func assertRemoved(c *gc.C, entity state.Living) {
 	err := entity.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *clientSuite) setupDestroyMachinesTest(c *gc.C) (*state.Machine, *state.Machine, *state.Machine, *state.Unit) {
@@ -677,7 +677,7 @@ func (s *clientSuite) TestClientServiceDeployCharmErrors(c *gc.C) {
 		)
 		c.Check(err, gc.ErrorMatches, expect)
 		_, err = s.State.Service("service")
-		c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+		c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	}
 }
 
@@ -686,8 +686,17 @@ func (s *clientSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
 	defer restore()
 	curl, bundle := addCharm(c, store, "dummy")
 	mem4g := constraints.MustParse("mem=4G")
+
+	// Check for invalid network tags handling.
 	err := s.APIState.Client().ServiceDeployWithNetworks(
-		curl.String(), "service", 3, "", mem4g, "", []string{"net1", "net2"}, []string{"net3"},
+		curl.String(), "service", 3, "", mem4g, "",
+		[]string{"net1", "net2"}, []string{"net3"},
+	)
+	c.Assert(err, gc.ErrorMatches, `"net1" is not a valid network tag`)
+
+	err = s.APIState.Client().ServiceDeployWithNetworks(
+		curl.String(), "service", 3, "", mem4g, "",
+		[]string{"network-net1", "network-net2"}, []string{"network-net3"},
 	)
 	c.Assert(err, gc.IsNil)
 	service := s.assertPrincipalDeployed(c, "service", curl, false, bundle, mem4g)
@@ -788,7 +797,7 @@ func (s *clientSuite) TestClientServiceDeployConfigError(c *gc.C) {
 	)
 	c.Assert(err, gc.ErrorMatches, `option "skill-level" expected int, got "fred"`)
 	_, err = s.State.Service("service-name")
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *clientSuite) TestClientServiceDeployToMachine(c *gc.C) {
@@ -1240,7 +1249,7 @@ func (s *clientSuite) assertDestroyRelation(c *gc.C, endpoints []string) {
 	err = s.APIState.Client().DestroyRelation(endpoints...)
 	c.Assert(err, gc.IsNil)
 	// Show that the relation was removed.
-	c.Assert(relation.Refresh(), jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(relation.Refresh(), jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *clientSuite) TestSuccessfulDestroyRelation(c *gc.C) {
@@ -1299,7 +1308,7 @@ func (s *clientSuite) TestAttemptDestroyingAlreadyDestroyedRelation(c *gc.C) {
 	endpoints := []string{"wordpress", "mysql"}
 	err = s.APIState.Client().DestroyRelation(endpoints...)
 	// Show that the relation was removed.
-	c.Assert(rel.Refresh(), jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(rel.Refresh(), jc.Satisfies, errors.IsNotFound)
 
 	// And try to destroy it again.
 	err = s.APIState.Client().DestroyRelation(endpoints...)
@@ -1811,7 +1820,7 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 		Nonce:     apiParams.Nonce,
 	})
 	c.Assert(err, gc.IsNil)
-	mcfg, err := statecmd.MachineConfig(s.State, machineId, apiParams.Nonce, "")
+	mcfg, err := client.MachineConfig(s.State, machineId, apiParams.Nonce, "")
 	c.Assert(err, gc.IsNil)
 	sshinitScript, err := manual.ProvisioningScript(mcfg)
 	c.Assert(err, gc.IsNil)
@@ -1919,13 +1928,13 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	name := charm.Quote(sch.URL().String())
 	storage := s.Conn.Environ.Storage()
 	_, err = storage.Get(name)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// AddCharm should see the charm in state and not upload it.
 	err = client.AddCharm(sch.URL())
 	c.Assert(err, gc.IsNil)
 	_, err = storage.Get(name)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// Now try adding another charm completely.
 	curl, _ = addCharm(c, store, "wordpress")
@@ -2048,7 +2057,7 @@ func (s *clientSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
 	err := s.State.AddStoreCharmPlaceholder(curl)
 	c.Assert(err, gc.IsNil)
 	_, err = s.State.Charm(curl)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// Now try to add the charm, which will convert the placeholder to
 	// a pending charm.
@@ -2123,17 +2132,24 @@ func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
 	c.Assert(data["transient"], gc.Equals, true)
 }
 
+func (s *clientSuite) setAgentAlive(c *gc.C, machineId string) *presence.Pinger {
+	m, err := s.BackingState.Machine(machineId)
+	c.Assert(err, gc.IsNil)
+	pinger, err := m.SetAgentAlive()
+	c.Assert(err, gc.IsNil)
+	s.BackingState.StartSync()
+	err = m.WaitAgentAlive(coretesting.LongWait)
+	c.Assert(err, gc.IsNil)
+	return pinger
+}
+
 func (s *clientSuite) TestClientEnsureAvailabilitySeries(c *gc.C) {
-	apiParams := []params.EnsureAvailability{{
-		NumStateServers: 1,
-	}, {
-		NumStateServers: 3,
-		Series:          "non-default",
-	}}
-	for _, p := range apiParams {
-		err := s.APIState.Client().EnsureAvailability(p.NumStateServers, p.Constraints, p.Series)
-		c.Assert(err, gc.IsNil)
-	}
+	err := s.APIState.Client().EnsureAvailability(1, constraints.Value{}, "")
+	c.Assert(err, gc.IsNil)
+	pinger := s.setAgentAlive(c, "0")
+	defer pinger.Kill()
+	err = s.APIState.Client().EnsureAvailability(3, constraints.Value{}, "non-default")
+	c.Assert(err, gc.IsNil)
 	machines, err := s.State.AllMachines()
 	c.Assert(err, gc.IsNil)
 	c.Assert(machines, gc.HasLen, 3)
@@ -2143,16 +2159,12 @@ func (s *clientSuite) TestClientEnsureAvailabilitySeries(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientEnsureAvailabilityConstraints(c *gc.C) {
-	apiParams := []params.EnsureAvailability{{
-		NumStateServers: 1,
-	}, {
-		NumStateServers: 3,
-		Constraints:     constraints.MustParse("mem=4G"),
-	}}
-	for _, p := range apiParams {
-		err := s.APIState.Client().EnsureAvailability(p.NumStateServers, p.Constraints, p.Series)
-		c.Assert(err, gc.IsNil)
-	}
+	err := s.APIState.Client().EnsureAvailability(1, constraints.Value{}, "")
+	c.Assert(err, gc.IsNil)
+	pinger := s.setAgentAlive(c, "0")
+	defer pinger.Kill()
+	err = s.APIState.Client().EnsureAvailability(3, constraints.MustParse("mem=4G"), "")
+	c.Assert(err, gc.IsNil)
 	machines, err := s.State.AllMachines()
 	c.Assert(err, gc.IsNil)
 	c.Assert(machines, gc.HasLen, 3)

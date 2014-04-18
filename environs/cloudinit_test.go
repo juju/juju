@@ -113,10 +113,10 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	c.Check(mcfg.DisableSSLHostnameVerification, jc.IsFalse)
 	password := utils.UserPasswordHash("lisboan-pork", utils.CompatSalt)
 	c.Check(mcfg.APIInfo, gc.DeepEquals, &api.Info{
-		Password: password, CACert: []byte(testing.CACert),
+		Password: password, CACert: testing.CACert,
 	})
 	c.Check(mcfg.StateInfo, gc.DeepEquals, &state.Info{
-		Password: password, CACert: []byte(testing.CACert),
+		Password: password, CACert: testing.CACert,
 	})
 	c.Check(mcfg.StateServingInfo.StatePort, gc.Equals, cfg.StatePort())
 	c.Check(mcfg.StateServingInfo.APIPort, gc.Equals, cfg.APIPort())
@@ -127,14 +127,14 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	c.Check(mcfg.Config.AllAttrs(), gc.DeepEquals, oldAttrs)
 	srvCertPEM := mcfg.StateServingInfo.Cert
 	srvKeyPEM := mcfg.StateServingInfo.PrivateKey
-	_, _, err = cert.ParseCertAndKey([]byte(srvCertPEM), []byte(srvKeyPEM))
+	_, _, err = cert.ParseCertAndKey(srvCertPEM, srvKeyPEM)
 	c.Check(err, gc.IsNil)
 
-	err = cert.Verify([]byte(srvCertPEM), []byte(testing.CACert), time.Now())
+	err = cert.Verify(srvCertPEM, testing.CACert, time.Now())
 	c.Assert(err, gc.IsNil)
-	err = cert.Verify([]byte(srvCertPEM), []byte(testing.CACert), time.Now().AddDate(9, 0, 0))
+	err = cert.Verify(srvCertPEM, testing.CACert, time.Now().AddDate(9, 0, 0))
 	c.Assert(err, gc.IsNil)
-	err = cert.Verify([]byte(srvCertPEM), []byte(testing.CACert), time.Now().AddDate(10, 0, 1))
+	err = cert.Verify(srvCertPEM, testing.CACert, time.Now().AddDate(10, 0, 1))
 	c.Assert(err, gc.NotNil)
 }
 
@@ -167,13 +167,13 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 		StateInfo: &state.Info{
 			Addrs:    []string{"127.0.0.1:1234"},
 			Password: "pw1",
-			CACert:   []byte("CA CERT\n" + testing.CACert),
+			CACert:   "CA CERT\n" + testing.CACert,
 			Tag:      "machine-10",
 		},
 		APIInfo: &api.Info{
 			Addrs:    []string{"127.0.0.1:1234"},
 			Password: "pw2",
-			CACert:   []byte("CA CERT\n" + testing.CACert),
+			CACert:   "CA CERT\n" + testing.CACert,
 			Tag:      "machine-10",
 		},
 		DataDir:                 environs.DataDir,

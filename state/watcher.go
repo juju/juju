@@ -1014,7 +1014,7 @@ func (w *settingsWatcher) loop(key string) (err error) {
 	settings, err := readSettings(w.st, key)
 	if err == nil {
 		revno = settings.txnRevno
-	} else if !errors.IsNotFoundError(err) {
+	} else if !errors.IsNotFound(err) {
 		return err
 	}
 	w.st.watcher.Watch(w.st.settings.Name, key, revno, ch)

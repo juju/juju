@@ -76,7 +76,7 @@ func (s *PrecheckerSuite) TestPrecheckPrecheckerUnimplemented(c *gc.C) {
 	}
 	_, err := s.addOneMachine(c, constraints.Value{})
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: policy returned nil prechecker without an error")
-	precheckerErr = errors.NewNotImplementedError("Prechecker")
+	precheckerErr = errors.NotImplementedf("Prechecker")
 	_, err = s.addOneMachine(c, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 }

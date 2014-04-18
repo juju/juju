@@ -58,7 +58,7 @@ func (m *Machine) Refresh() error {
 // RequestedNetworks returns a pair of lists of networks to
 // enable/disable on the machine.
 func (m *Machine) RequestedNetworks() (includeNetworks, excludeNetworks []string, err error) {
-	var results params.NetworksResults
+	var results params.RequestedNetworksResults
 	args := params.Entities{Entities: []params.Entity{{m.tag}}}
 	err = m.st.call("RequestedNetworks", args, &results)
 	if err != nil {
@@ -205,7 +205,7 @@ func (m *Machine) DistributionGroup() ([]instance.Id, error) {
 	return result.Result, nil
 }
 
-// SetInstanceInfo sets the provider specific machine id, nonce,
+// SetInstanceInfo sets the provider specific instance id, nonce,
 // metadata, networks and interfaces for this machine. Once set, the
 // instance id cannot be changed.
 func (m *Machine) SetInstanceInfo(

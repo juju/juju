@@ -7,10 +7,12 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/errgo/errgo"
@@ -79,7 +81,7 @@ type Config interface {
 
 	// CACert returns the CA certificate that is used to validate the state or
 	// API server's certificate.
-	CACert() []byte
+	CACert() string
 
 	// APIAddresses returns the addresses needed to connect to the api server
 	APIAddresses() ([]string, error)
@@ -97,8 +99,9 @@ type Config interface {
 	// APIInfo returns details for connecting to the API server.
 	APIInfo() *api.Info
 
-	// StateInfo returns details for connecting to the state server.
-	StateInfo() *state.Info
+	// StateInfo returns details for connecting to the state server and reports
+	// whether those details are available
+	StateInfo() (*state.Info, bool)
 
 	// OldPassword returns the fallback password when connecting to the
 	// API server.
@@ -211,7 +214,7 @@ type configInternal struct {
 	nonce             string
 	jobs              []params.MachineJob
 	upgradedToVersion version.Number
-	caCert            []byte
+	caCert            string
 	stateDetails      *connectionDetails
 	apiDetails        *connectionDetails
 	oldPassword       string
@@ -229,7 +232,7 @@ type AgentConfigParams struct {
 	Nonce             string
 	StateAddresses    []string
 	APIAddresses      []string
-	CACert            []byte
+	CACert            string
 	Values            map[string]string
 }
 
@@ -500,11 +503,8 @@ func (c *configInternal) UpgradedToVersion() version.Number {
 	return c.upgradedToVersion
 }
 
-func (c *configInternal) CACert() []byte {
-	// Give the caller their own copy of the cert to avoid any possibility of
-	// modifying the config's copy.
-	result := append([]byte{}, c.caCert...)
-	return result
+func (c *configInternal) CACert() string {
+	return c.caCert
 }
 
 func (c *configInternal) Value(key string) string {
@@ -603,11 +603,16 @@ func (c *configInternal) APIInfo() *api.Info {
 	}
 }
 
-func (c *configInternal) StateInfo() *state.Info {
+func (c *configInternal) StateInfo() (info *state.Info, ok bool) {
+	ssi, ok := c.StateServingInfo()
+	if !ok {
+		return nil, false
+	}
+	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(ssi.StatePort))
 	return &state.Info{
-		Addrs:    c.stateDetails.addresses,
+		Addrs:    []string{addr},
 		Password: c.stateDetails.password,
 		CACert:   c.caCert,
 		Tag:      c.tag,
-	}
+	}, true
 }

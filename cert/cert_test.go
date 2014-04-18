@@ -38,7 +38,7 @@ func (certSuite) TestParseCertificate(c *gc.C) {
 	c.Check(xcert, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "no certificates found")
 
-	xcert, err = cert.ParseCert([]byte("hello"))
+	xcert, err = cert.ParseCert("hello")
 	c.Check(xcert, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "no certificates found")
 }
@@ -144,8 +144,8 @@ func (certSuite) TestWithNonUTCExpiry(c *gc.C) {
 func (certSuite) TestNewServerWithInvalidCert(c *gc.C) {
 	var noHostnames []string
 	srvCert, srvKey, err := cert.NewServer(nonCACert, nonCAKey, time.Now(), noHostnames)
-	c.Check(srvCert, gc.IsNil)
-	c.Check(srvKey, gc.IsNil)
+	c.Check(srvCert, gc.Equals, "")
+	c.Check(srvKey, gc.Equals, "")
 	c.Assert(err, gc.ErrorMatches, "CA certificate is not a valid CA")
 }
 
@@ -295,7 +295,7 @@ func roundTime(t time.Time) time.Time {
 }
 
 var (
-	caCertPEM = []byte(`
+	caCertPEM = `
 -----BEGIN CERTIFICATE-----
 MIIBnTCCAUmgAwIBAgIBADALBgkqhkiG9w0BAQUwJjENMAsGA1UEChMEanVqdTEV
 MBMGA1UEAxMManVqdSB0ZXN0aW5nMB4XDTEyMTExNDE0Mzg1NFoXDTIyMTExNDE0
@@ -307,9 +307,9 @@ FQGeGMeTzPbHW62EZbbTJzAfBgNVHSMEGDAWgBQQDswPFQGeGMeTzPbHW62EZbbT
 JzALBgkqhkiG9w0BAQUDQQAqZzN0DqUyEfR8zIanozyD2pp10m9le+ODaKZDDNfH
 8cB2x26F1iZ8ccq5IC2LtQf1IKJnpTcYlLuDvW6yB96g
 -----END CERTIFICATE-----
-`)
+`
 
-	caKeyPEM = []byte(`
+	caKeyPEM = `
 -----BEGIN RSA PRIVATE KEY-----
 MIIBOwIBAAJBAII46mf1pYpwqvYZAa3KDAPs91817Uj0FiI8CprYjfcXn7o+oV1+
 6NQq+jJMkjpcbhCj8IQJpo32yaHKr0PHMyECAwEAAQJAYctedh4raLE+Ir0a3qnK
@@ -319,9 +319,9 @@ JFwDdp+7gE98mXtaFrjctLWeFx797U8CIAnnqiMTwWM8H2ljyhfBtYMXeTmu3zzU
 0hfS4hcNwDiLAiEAkNXXU7YEPkFJD46ps1x7/s0UOutHV8tXZD44ou+l1GkCIQDO
 HOzuvYngJpoClGw0ipzJPoNZ2Z/GkdOWGByPeKu/8g==
 -----END RSA PRIVATE KEY-----
-`)
+`
 
-	nonCACert = []byte(`-----BEGIN CERTIFICATE-----
+	nonCACert = `-----BEGIN CERTIFICATE-----
 MIIBmjCCAUagAwIBAgIBADALBgkqhkiG9w0BAQUwJjENMAsGA1UEChMEanVqdTEV
 MBMGA1UEAxMManVqdSB0ZXN0aW5nMB4XDTEyMTExNDE3MTU1NloXDTIyMTExNDE3
 MjA1NlowJjENMAsGA1UEChMEanVqdTEVMBMGA1UEAxMManVqdSB0ZXN0aW5nMFow
@@ -332,9 +332,9 @@ vmmkUoYuWg9sDob4jzAfBgNVHSMEGDAWgBRqbxkIW4R0vmmkUoYuWg9sDob4jzAL
 BgkqhkiG9w0BAQUDQQC3+KN8RppKdvlbP6fDwRC22PaCxd0PVyIHsn7I4jgpBPf8
 Z3codMYYA5/f0AmUsD7wi7nnJVPPLZK7JWu4VI/w
 -----END CERTIFICATE-----
-`)
+`
 
-	nonCAKey = []byte(`-----BEGIN RSA PRIVATE KEY-----
+	nonCAKey = `-----BEGIN RSA PRIVATE KEY-----
 MIIBOgIBAAJBAL3r8KxNNjVVrx63pBg1fCuywCLfpqwWVX9+SwaGpG5yJ2LP/7Ee
 +Gz0SKoS7s0bF5UCRx8iFe7r8EOWhu2Pa/kCAwEAAQJAdzuAxStUNPeuEWLJKkmp
 wuVdqocuZCtBUeE/yMEOyibZ9NLKSuDJuDorkoeoiBz2vyUITHkLp4jgNmCI8NGg
@@ -343,5 +343,5 @@ kj2moFk9GdBXZV9I0t1VTwcDvVyeAXkCIDrfvldQPdO9wJOKK3vLkS1qpyf2lhIZ
 b1alx3PZuxOBAiAthPltYMRWtar+fTaZTFo5RH+SQSkibaRI534mQF+ySQIhAIml
 yiWVLC2XrtwijDu1fwh/wtFCb/bPvqvgG5wgAO+2
 -----END RSA PRIVATE KEY-----
-`)
+`
 )

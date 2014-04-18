@@ -95,11 +95,11 @@ var cloudinitTests = []cloudinitTest{
 			MachineNonce:     "FAKE_NONCE",
 			StateInfo: &state.Info{
 				Password: "arble",
-				CACert:   []byte("CA CERT\n" + testing.CACert),
+				CACert:   "CA CERT\n" + testing.CACert,
 			},
 			APIInfo: &api.Info{
 				Password: "bletch",
-				CACert:   []byte("CA CERT\n" + testing.CACert),
+				CACert:   "CA CERT\n" + testing.CACert,
 			},
 			Constraints:             envConstraints,
 			DataDir:                 environs.DataDir,
@@ -112,7 +112,6 @@ var cloudinitTests = []cloudinitTest{
 		},
 		setEnvConfig: true,
 		expectScripts: `
-echo ENABLE_MONGODB="no" > /etc/default/mongodb
 set -xe
 install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
 printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
@@ -138,14 +137,8 @@ install -D -m 644 /dev/null '/etc/apt/preferences\.d/50-cloud-tools'
 printf '%s\\n' '.*' > '/etc/apt/preferences\.d/50-cloud-tools'
 install -D -m 600 /dev/null '/var/lib/juju/system-identity'
 printf '%s\\n' '.*' > '/var/lib/juju/system-identity'
-install -D -m 600 /dev/null '/var/lib/juju/server\.pem'
-printf '%s\\n' 'SERVER CERT\\n[^']*SERVER KEY\\n[^']*' > '/var/lib/juju/server\.pem'
-mkdir -p '/var/lib/juju/agents/bootstrap'
-install -m 600 /dev/null '/var/lib/juju/agents/bootstrap/agent\.conf'
-printf '%s\\n' '.*' > '/var/lib/juju/agents/bootstrap/agent\.conf'
 echo 'Bootstrapping Juju machine agent'.*
 /var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --instance-id 'i-bootstrap' --constraints 'mem=2048M' --debug
-rm -rf '/var/lib/juju/agents/bootstrap'
 ln -s 1\.2\.3-precise-amd64 '/var/lib/juju/tools/machine-0'
 echo 'Starting Juju machine agent \(jujud-machine-0\)'.*
 cat >> /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju machine-0 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nexec /var/lib/juju/tools/machine-0/jujud machine --data-dir '/var/lib/juju' --machine-id 0 --debug >> /var/log/juju/machine-0\.log 2>&1\\nEOF\\n
@@ -164,11 +157,11 @@ start jujud-machine-0
 			MachineNonce:     "FAKE_NONCE",
 			StateInfo: &state.Info{
 				Password: "arble",
-				CACert:   []byte("CA CERT\n" + testing.CACert),
+				CACert:   "CA CERT\n" + testing.CACert,
 			},
 			APIInfo: &api.Info{
 				Password: "bletch",
-				CACert:   []byte("CA CERT\n" + testing.CACert),
+				CACert:   "CA CERT\n" + testing.CACert,
 			},
 			Constraints:             envConstraints,
 			DataDir:                 environs.DataDir,
@@ -189,7 +182,6 @@ grep '1234' \$bin/juju1\.2\.3-raring-amd64.sha256 \|\| \(echo "Tools checksum mi
 rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-raring-amd64\.sha256
 printf %s '{"version":"1\.2\.3-raring-amd64","url":"http://foo\.com/tools/releases/juju1\.2\.3-raring-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
 /var/lib/juju/tools/1\.2\.3-raring-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --instance-id 'i-bootstrap' --constraints 'mem=2048M' --debug
-rm -rf '/var/lib/juju/agents/bootstrap'
 ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
 `,
 	}, {
@@ -209,13 +201,13 @@ ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
 				Addrs:    []string{"state-addr.testing.invalid:12345"},
 				Tag:      "machine-99",
 				Password: "arble",
-				CACert:   []byte("CA CERT\n" + testing.CACert),
+				CACert:   "CA CERT\n" + testing.CACert,
 			},
 			APIInfo: &api.Info{
 				Addrs:    []string{"state-addr.testing.invalid:54321"},
 				Tag:      "machine-99",
 				Password: "bletch",
-				CACert:   []byte("CA CERT\n" + testing.CACert),
+				CACert:   "CA CERT\n" + testing.CACert,
 			},
 			MachineAgentServiceName: "jujud-machine-99",
 		},
@@ -264,13 +256,13 @@ start jujud-machine-99
 				Addrs:    []string{"state-addr.testing.invalid:12345"},
 				Tag:      "machine-2-lxc-1",
 				Password: "arble",
-				CACert:   []byte("CA CERT\n" + testing.CACert),
+				CACert:   "CA CERT\n" + testing.CACert,
 			},
 			APIInfo: &api.Info{
 				Addrs:    []string{"state-addr.testing.invalid:54321"},
 				Tag:      "machine-2-lxc-1",
 				Password: "bletch",
-				CACert:   []byte("CA CERT\n" + testing.CACert),
+				CACert:   "CA CERT\n" + testing.CACert,
 			},
 			MachineAgentServiceName: "jujud-machine-2-lxc-1",
 		},
@@ -300,13 +292,13 @@ start jujud-machine-2-lxc-1
 				Addrs:    []string{"state-addr.testing.invalid:12345"},
 				Tag:      "machine-99",
 				Password: "arble",
-				CACert:   []byte("CA CERT\n" + testing.CACert),
+				CACert:   "CA CERT\n" + testing.CACert,
 			},
 			APIInfo: &api.Info{
 				Addrs:    []string{"state-addr.testing.invalid:54321"},
 				Tag:      "machine-99",
 				Password: "bletch",
-				CACert:   []byte("CA CERT\n" + testing.CACert),
+				CACert:   "CA CERT\n" + testing.CACert,
 			},
 			DisableSSLHostnameVerification: true,
 			MachineAgentServiceName:        "jujud-machine-99",
@@ -328,11 +320,11 @@ curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{ti
 			MachineNonce:     "FAKE_NONCE",
 			StateInfo: &state.Info{
 				Password: "arble",
-				CACert:   []byte("CA CERT\n" + testing.CACert),
+				CACert:   "CA CERT\n" + testing.CACert,
 			},
 			APIInfo: &api.Info{
 				Password: "bletch",
-				CACert:   []byte("CA CERT\n" + testing.CACert),
+				CACert:   "CA CERT\n" + testing.CACert,
 			},
 			DataDir:                 environs.DataDir,
 			LogDir:                  agent.DefaultLogDir,
@@ -435,11 +427,6 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		tag := names.MachineTag(test.cfg.MachineId)
 		acfg := getAgentConfig(c, tag, scripts)
 		c.Assert(acfg, jc.Contains, "AGENT_SERVICE_NAME: jujud-"+tag)
-		if test.cfg.Bootstrap {
-			checkPackage(c, x, "mongodb-server", true)
-			source := "ppa:juju/stable"
-			checkAptSource(c, x, source, "", test.cfg.NeedMongoPPA())
-		}
 		source := "deb http://ubuntu-cloud.archive.canonical.com/ubuntu precise-updates/cloud-tools main"
 		needCloudArchive := test.cfg.Tools.Version.Series == "precise"
 		checkAptSource(c, x, source, cloudinit.CanonicalCloudArchiveSigningKey, needCloudArchive)
@@ -623,12 +610,12 @@ var verifyTests = []struct {
 		cfg.Bootstrap = false
 		cfg.StateInfo = &state.Info{
 			Tag:    "machine-99",
-			CACert: []byte(testing.CACert),
+			CACert: testing.CACert,
 		}
 		cfg.APIInfo = &api.Info{
 			Addrs:  []string{"foo:35"},
 			Tag:    "machine-99",
-			CACert: []byte(testing.CACert),
+			CACert: testing.CACert,
 		}
 	}},
 	{"missing API hosts", func(cfg *cloudinit.MachineConfig) {
@@ -636,11 +623,11 @@ var verifyTests = []struct {
 		cfg.StateInfo = &state.Info{
 			Addrs:  []string{"foo:35"},
 			Tag:    "machine-99",
-			CACert: []byte(testing.CACert),
+			CACert: testing.CACert,
 		}
 		cfg.APIInfo = &api.Info{
 			Tag:    "machine-99",
-			CACert: []byte(testing.CACert),
+			CACert: testing.CACert,
 		}
 	}},
 	{"missing CA certificate", func(cfg *cloudinit.MachineConfig) {
@@ -754,12 +741,12 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
 		StateInfo: &state.Info{
 			Addrs:    []string{"host:98765"},
-			CACert:   []byte(testing.CACert),
+			CACert:   testing.CACert,
 			Password: "password",
 		},
 		APIInfo: &api.Info{
 			Addrs:  []string{"host:9999"},
-			CACert: []byte(testing.CACert),
+			CACert: testing.CACert,
 		},
 		Config:                  minimalConfig(c),
 		DataDir:                 environs.DataDir,

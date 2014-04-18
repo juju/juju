@@ -10,6 +10,7 @@ import (
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gomaasapi"
 
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/provider/maas"
@@ -196,15 +197,31 @@ func (*environSuite) TestNewEnvironSetsConfig(c *gc.C) {
 }
 
 func (*environSuite) TestNewCloudinitConfig(c *gc.C) {
-	cloudcfg, err := maas.NewCloudinitConfig("testing.invalid")
+	nwInfo := []environs.NetworkInfo{
+		{InterfaceName: "eth0", VLANTag: 0},
+		{InterfaceName: "eth1", VLANTag: 42},
+		{InterfaceName: "eth2", VLANTag: 0},
+	}
+	cloudcfg, err := maas.NewCloudinitConfig("testing.invalid", nwInfo)
 	c.Assert(err, gc.IsNil)
 	c.Assert(cloudcfg.AptUpdate(), jc.IsTrue)
-	c.Assert(cloudcfg.RunCmds(), gc.DeepEquals, []interface{}{
+	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, []interface{}{
 		"set -xe",
 		"mkdir -p '/var/lib/juju'; echo -n 'hostname: testing.invalid\n' > '/var/lib/juju/MAASmachine.txt'",
 		"ifdown eth0",
 		"cat > /etc/network/eth0.config << EOF\niface eth0 inet manual\n\nauto br0\niface br0 inet dhcp\n  bridge_ports eth0\nEOF\n",
 		`sed -i "s/iface eth0 inet dhcp/source \/etc\/network\/eth0.config/" /etc/network/interfaces`,
 		"ifup br0",
+		// Networking/VLAN stuff.
+		"modprobe 8021q",
+		"sh -c 'grep -q 8021q /etc/modules || echo 8021q >> /etc/modules'",
+		"vconfig set_name_type DEV_PLUS_VID_NO_PAD",
+		"cat >> /etc/network/interfaces << EOF\n\nauto eth1\niface eth1 inet dhcp\nEOF\n",
+		"ifup eth1",
+		"vconfig add eth1 42",
+		"cat >> /etc/network/interfaces << EOF\n\nauto eth1.42\niface eth1.42 inet dhcp\nEOF\n",
+		"ifup eth1.42",
+		"cat >> /etc/network/interfaces << EOF\n\nauto eth2\niface eth2 inet dhcp\nEOF\n",
+		"ifup eth2",
 	})
 }

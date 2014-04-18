@@ -51,7 +51,7 @@ func (s *migrateLocalProviderAgentConfigSuite) primeConfig(c *gc.C, st *state.St
 	initialConfig, err := agent.NewAgentConfig(agent.AgentConfigParams{
 		Tag:               tag,
 		Password:          "blah",
-		CACert:            []byte(testing.CACert),
+		CACert:            testing.CACert,
 		StateAddresses:    []string{"localhost:1111"},
 		DataDir:           agent.DefaultDataDir,
 		LogDir:            agent.DefaultLogDir,

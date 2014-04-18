@@ -57,14 +57,14 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 		Tag:               "machine-0",
 		UpgradedToVersion: version.Current.Number,
 		StateAddresses:    []string{testing.MgoServer.Addr()},
-		CACert:            []byte(testing.CACert),
+		CACert:            testing.CACert,
 		Password:          pwHash,
 	}
 	servingInfo := params.StateServingInfo{
 		Cert:       testing.ServerCert,
 		PrivateKey: testing.ServerKey,
 		APIPort:    1234,
-		StatePort:  3456,
+		StatePort:  testing.MgoServer.Port(),
 	}
 
 	cfg, err := agent.NewStateMachineConfig(configParams, servingInfo)
@@ -133,7 +133,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(stateServingInfo, jc.DeepEquals, params.StateServingInfo{
 		APIPort:      1234,
-		StatePort:    3456,
+		StatePort:    testing.MgoServer.Port(),
 		Cert:         testing.ServerCert,
 		PrivateKey:   testing.ServerKey,
 		SharedSecret: "abc123",
@@ -146,7 +146,9 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	c.Assert(newCfg.Tag(), gc.Equals, "machine-0")
 	c.Assert(agent.Password(newCfg), gc.Not(gc.Equals), pwHash)
 	c.Assert(agent.Password(newCfg), gc.Not(gc.Equals), testing.DefaultMongoPassword)
-	st1, err := state.Open(cfg.StateInfo(), state.DialOpts{}, environs.NewStatePolicy())
+	info, ok := cfg.StateInfo()
+	c.Assert(ok, jc.IsTrue)
+	st1, err := state.Open(info, state.DialOpts{}, environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	defer st1.Close()
 }
@@ -157,7 +159,7 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 		Tag:               "machine-0",
 		UpgradedToVersion: version.Current.Number,
 		StateAddresses:    []string{testing.MgoServer.Addr()},
-		CACert:            []byte(testing.CACert),
+		CACert:            testing.CACert,
 		Password:          "fake",
 	}
 	cfg, err := agent.NewAgentConfig(configParams)
@@ -180,13 +182,17 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		Tag:               "machine-0",
 		UpgradedToVersion: version.Current.Number,
 		StateAddresses:    []string{testing.MgoServer.Addr()},
-		CACert:            []byte(testing.CACert),
+		CACert:            testing.CACert,
 		Password:          pwHash,
 	}
 	cfg, err := agent.NewAgentConfig(configParams)
 	c.Assert(err, gc.IsNil)
 	cfg.SetStateServingInfo(params.StateServingInfo{
-		StatePort: testing.MgoServer.Port(),
+		APIPort:      5555,
+		StatePort:    testing.MgoServer.Port(),
+		Cert:         "foo",
+		PrivateKey:   "bar",
+		SharedSecret: "baz",
 	})
 	expectConstraints := constraints.MustParse("mem=1024M")
 	expectHW := instance.MustParseHardware("mem=2048M")
@@ -219,7 +225,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 func (*bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, password string) {
 	info := &state.Info{
 		Addrs:    []string{testing.MgoServer.Addr()},
-		CACert:   []byte(testing.CACert),
+		CACert:   testing.CACert,
 		Tag:      "",
 		Password: password,
 	}

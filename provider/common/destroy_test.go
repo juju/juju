@@ -93,7 +93,7 @@ func (s *DestroySuite) TestSuccess(c *gc.C) {
 	err = common.Destroy(env)
 	c.Assert(err, gc.IsNil)
 	_, err = stor.Get("somewhere")
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *DestroySuite) TestCannotTrashStorageWhenNoInstances(c *gc.C) {
@@ -121,5 +121,5 @@ func (s *DestroySuite) TestSuccessWhenNoInstances(c *gc.C) {
 	err = common.Destroy(env)
 	c.Assert(err, gc.IsNil)
 	_, err = stor.Get("elsewhere")
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

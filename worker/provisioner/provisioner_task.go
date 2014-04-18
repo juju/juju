@@ -428,18 +428,20 @@ func (task *provisionerTask) prepareNetworkAndInterfaces(networkInfo []environs.
 	}
 	visitedNetworks := set.NewStrings()
 	for _, info := range networkInfo {
-		if !visitedNetworks.Contains(info.NetworkName) {
+		networkTag := names.NetworkTag(info.NetworkName)
+		if !visitedNetworks.Contains(info.NetworkId) {
 			networks = append(networks, params.Network{
-				Name:    info.NetworkName,
-				CIDR:    info.CIDR,
-				VLANTag: info.VLANTag,
+				Tag:        networkTag,
+				ProviderId: info.NetworkId,
+				CIDR:       info.CIDR,
+				VLANTag:    info.VLANTag,
 			})
-			visitedNetworks.Add(info.NetworkName)
+			visitedNetworks.Add(info.NetworkId)
 		}
 		ifaces = append(ifaces, params.NetworkInterface{
 			InterfaceName: info.InterfaceName,
 			MACAddress:    info.MACAddress,
-			NetworkName:   info.NetworkName,
+			NetworkTag:    networkTag,
 		})
 	}
 	return networks, ifaces
@@ -479,7 +481,7 @@ func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error
 
 	err = machine.SetInstanceInfo(inst.Id(), nonce, metadata, networks, ifaces)
 	if err != nil && params.IsCodeNotImplemented(err) {
-		return fmt.Errorf("cannot provision instance %v for machine %q with networks: not implemented")
+		return fmt.Errorf("cannot provision instance %v for machine %q with networks: not implemented", inst.Id(), machine)
 	} else if err == nil {
 		logger.Infof("started machine %s as instance %s with hardware %q, networks %v, interfaces %v", machine, inst.Id(), metadata, networks, ifaces)
 		return nil

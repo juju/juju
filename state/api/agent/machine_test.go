@@ -135,7 +135,7 @@ func (s *machineSuite) TestEntitySetPassword(c *gc.C) {
 	info.Tag = entity.Tag()
 	info.Password = "foo-12345678901234567890"
 	err = tryOpenState(info)
-	c.Assert(err, jc.Satisfies, errors.IsUnauthorizedError)
+	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
 }
 
 func tryOpenState(info *state.Info) error {

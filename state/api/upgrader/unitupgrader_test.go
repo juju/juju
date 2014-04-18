@@ -76,7 +76,7 @@ func (s *unitUpgraderSuite) TestSetVersionNotUnit(c *gc.C) {
 func (s *unitUpgraderSuite) TestSetVersion(c *gc.C) {
 	cur := version.Current
 	agentTools, err := s.rawUnit.AgentTools()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(agentTools, gc.IsNil)
 	err = s.st.SetVersion(s.rawUnit.Tag(), cur)
 	c.Assert(err, gc.IsNil)

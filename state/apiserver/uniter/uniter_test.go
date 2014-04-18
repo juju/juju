@@ -536,7 +536,7 @@ func (s *uniterSuite) TestDestroy(c *gc.C) {
 
 	// Verify wordpressUnit is destroyed and removed.
 	err = s.wordpressUnit.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *uniterSuite) TestDestroyAllSubordinates(c *gc.C) {
@@ -1180,11 +1180,11 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 	// We don't set the remote unit settings on purpose to test the error.
 	expectErr := `cannot read settings for unit "mysql/0" in relation "wordpress:db mysql:server": settings not found`
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.RelationSettingsResults{
+	c.Assert(result, jc.DeepEquals, params.RelationSettingsResults{
 		Results: []params.RelationSettingsResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
-			{Error: &params.Error{Message: expectErr}},
+			{Error: apiservertesting.ServerError(expectErr)},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -1395,15 +1395,18 @@ func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 }
 
 func (s *uniterSuite) TestAPIAddresses(c *gc.C) {
-	err := s.machine0.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
-	c.Assert(err, gc.IsNil)
-	apiAddresses, err := s.State.APIAddressesFromMachines()
+	hostPorts := [][]instance.HostPort{{{
+		Address: instance.NewAddress("0.1.2.3", instance.NetworkUnknown),
+		Port:    1234,
+	}}}
+
+	err := s.State.SetAPIHostPorts(hostPorts)
 	c.Assert(err, gc.IsNil)
 
 	result, err := s.uniter.APIAddresses()
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsResult{
-		Result: apiAddresses,
+		Result: []string{"0.1.2.3:1234"},
 	})
 }
 

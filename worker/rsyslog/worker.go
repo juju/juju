@@ -4,7 +4,6 @@
 package rsyslog
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"os/user"
@@ -16,11 +15,11 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/cert"
-	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/names"
 	apirsyslog "launchpad.net/juju-core/state/api/rsyslog"
 	"launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/syslog"
 	"launchpad.net/juju-core/worker"
 )
 
@@ -59,7 +58,7 @@ type RsyslogConfigHandler struct {
 	// values after writing the rsyslog configuration,
 	// so we can decide whether a change has occurred.
 	syslogPort    int
-	rsyslogCACert []byte
+	rsyslogCACert string
 }
 
 var _ worker.NotifyWatchHandler = (*RsyslogConfigHandler)(nil)
@@ -144,17 +143,17 @@ func (h *RsyslogConfigHandler) Handle() error {
 		return errgo.Annotate(err, "cannot get environ config")
 	}
 	rsyslogCACert := cfg.RsyslogCACert()
-	if rsyslogCACert == nil {
+	if rsyslogCACert == "" {
 		return nil
 	}
 	// If neither syslog-port nor rsyslog-ca-cert
 	// have changed, we can drop out now.
-	if cfg.SyslogPort() == h.syslogPort && bytes.Equal(rsyslogCACert, h.rsyslogCACert) {
+	if cfg.SyslogPort() == h.syslogPort && rsyslogCACert == h.rsyslogCACert {
 		return nil
 	}
 	h.syslogConfig.Port = cfg.SyslogPort()
 	if h.mode == RsyslogModeForwarding {
-		if err := writeFileAtomic(h.syslogConfig.CACertPath(), rsyslogCACert, 0644, 0, 0); err != nil {
+		if err := writeFileAtomic(h.syslogConfig.CACertPath(), []byte(rsyslogCACert), 0644, 0, 0); err != nil {
 			return errgo.Annotate(err, "cannot write CA certificate")
 		}
 	}
@@ -218,31 +217,31 @@ func (h *RsyslogConfigHandler) ensureCertificates() error {
 	// The CA key will be discarded after the server
 	// cert has been generated.
 	expiry := time.Now().UTC().AddDate(10, 0, 0)
-	caCertPEMBytes, caKeyPEMBytes, err := cert.NewCA("rsyslog", expiry)
+	caCertPEM, caKeyPEM, err := cert.NewCA("rsyslog", expiry)
 	if err != nil {
 		return err
 	}
-	rsyslogCertPEMBytes, rsyslogKeyPEMBytes, err := cert.NewServer(caCertPEMBytes, caKeyPEMBytes, expiry, nil)
+	rsyslogCertPEM, rsyslogKeyPEM, err := cert.NewServer(caCertPEM, caKeyPEM, expiry, nil)
 	if err != nil {
 		return err
 	}
 
 	// Update the environment config with the CA cert,
 	// so clients can configure rsyslog.
-	if err := h.st.SetRsyslogCert(caCertPEMBytes); err != nil {
+	if err := h.st.SetRsyslogCert(caCertPEM); err != nil {
 		return err
 	}
 
 	// Write the certificates and key. The CA certificate must be written last for idempotency.
 	for _, pair := range []struct {
 		path string
-		data []byte
+		data string
 	}{
-		{h.syslogConfig.ServerCertPath(), rsyslogCertPEMBytes},
-		{h.syslogConfig.ServerKeyPath(), rsyslogKeyPEMBytes},
-		{h.syslogConfig.CACertPath(), caCertPEMBytes},
+		{h.syslogConfig.ServerCertPath(), rsyslogCertPEM},
+		{h.syslogConfig.ServerKeyPath(), rsyslogKeyPEM},
+		{h.syslogConfig.CACertPath(), caCertPEM},
 	} {
-		if err := writeFileAtomic(pair.path, pair.data, 0600, syslogUid, syslogGid); err != nil {
+		if err := writeFileAtomic(pair.path, []byte(pair.data), 0600, syslogUid, syslogGid); err != nil {
 			return err
 		}
 	}

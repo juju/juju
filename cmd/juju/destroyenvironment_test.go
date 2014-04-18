@@ -41,7 +41,7 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommand(c *gc.C) {
 
 	// Verify that the environment information has been removed.
 	_, err = s.ConfigStore.ReadInfo("dummyenv")
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *destroyEnvSuite) TestDestroyEnvironmentCommandEFlag(c *gc.C) {
@@ -67,7 +67,7 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandEFlag(c *gc.C) {
 
 	// Verify that the environment information has been removed.
 	_, err = s.ConfigStore.ReadInfo("dummyenv")
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *destroyEnvSuite) TestDestroyEnvironmentCommandEmptyJenv(c *gc.C) {
@@ -183,7 +183,7 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandConfirmation(c *gc.C) {
 
 func assertEnvironDestroyed(c *gc.C, env environs.Environ, store configstore.Storage) {
 	_, err := store.ReadInfo(env.Name())
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	_, err = env.Instances([]instance.Id{"invalid"})
 	c.Assert(err, gc.ErrorMatches, "environment has been destroyed")

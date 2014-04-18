@@ -65,7 +65,7 @@ func (api *KeyUpdaterAPI) WatchAuthorisedKeys(arg params.Entities) (params.Notif
 		}
 		// 2. Check entity exists
 		if _, err := api.state.FindEntity(entity.Tag); err != nil {
-			if errors.IsNotFoundError(err) {
+			if errors.IsNotFound(err) {
 				results[i].Error = common.ServerError(common.ErrPerm)
 			} else {
 				results[i].Error = common.ServerError(err)
@@ -114,7 +114,7 @@ func (api *KeyUpdaterAPI) AuthorisedKeys(arg params.Entities) (params.StringsRes
 		}
 		// 2. Check entity exists
 		if _, err := api.state.FindEntity(entity.Tag); err != nil {
-			if errors.IsNotFoundError(err) {
+			if errors.IsNotFound(err) {
 				results[i].Error = common.ServerError(common.ErrPerm)
 			} else {
 				results[i].Error = common.ServerError(err)

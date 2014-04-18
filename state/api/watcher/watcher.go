@@ -4,14 +4,16 @@
 package watcher
 
 import (
+	"github.com/juju/loggo"
 	"sync"
 
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/api/base"
 	"launchpad.net/juju-core/state/api/params"
 )
+
+var logger = loggo.GetLogger("juju.state.api.watcher")
 
 // commonWatcher implements common watcher logic in one place to
 // reduce code duplication, but it's not in fact a complete watcher;
@@ -63,7 +65,7 @@ func (w *commonWatcher) commonLoop() {
 		defer w.wg.Done()
 		<-w.tomb.Dying()
 		if err := w.call("Stop", nil); err != nil {
-			log.Errorf("state/api: error trying to stop watcher %v", err)
+			logger.Errorf("error trying to stop watcher: %v", err)
 		}
 	}()
 	w.wg.Add(1)

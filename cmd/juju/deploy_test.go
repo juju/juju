@@ -143,7 +143,7 @@ func (s *DeploySuite) TestConfigError(c *gc.C) {
 	err := runDeploy(c, "local:dummy", "other-service", "--config", path)
 	c.Assert(err, gc.ErrorMatches, `no settings found for "other-service"`)
 	_, err = s.State.Service("other-service")
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *DeploySuite) TestConstraints(c *gc.C) {

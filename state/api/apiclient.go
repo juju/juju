@@ -28,10 +28,6 @@ var logger = loggo.GetLogger("juju.state.api")
 // will run. It's a variable so it can be changed in tests.
 var PingPeriod = 1 * time.Minute
 
-// maxParallelDial defines the maximum number addresses to dial in
-// parallel.
-const maxParallelDial = 7
-
 type State struct {
 	client *rpc.Conn
 	conn   *websocket.Conn
@@ -70,7 +66,7 @@ type Info struct {
 
 	// CACert holds the CA certificate that will be used
 	// to validate the state server's certificate, in PEM format.
-	CACert []byte
+	CACert string
 
 	// Tag holds the name of the entity that is connecting.
 	// If this and the password are empty, no login attempt will be made
@@ -123,8 +119,9 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	}
 	pool.AddCert(xcert)
 
-	// Dial all addresses, with up to maxParallelDial in parallel.
-	try := parallel.NewTry(maxParallelDial, nil)
+	// Dial all addresses at reasonable intervals.
+	try := parallel.NewTry(0, nil)
+	defer try.Kill()
 	for _, addr := range info.Addrs {
 		err := dialWebsocket(addr, opts, pool, try)
 		if err == parallel.ErrStopped {

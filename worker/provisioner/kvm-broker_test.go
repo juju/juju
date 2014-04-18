@@ -72,7 +72,7 @@ func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 			Password:          "dummy-secret",
 			Nonce:             "nonce",
 			APIAddresses:      []string{"10.0.0.1:1234"},
-			CACert:            []byte(coretesting.CACert),
+			CACert:            coretesting.CACert,
 		})
 	c.Assert(err, gc.IsNil)
 	s.broker, err = provisioner.NewKvmBroker(&fakeAPI{}, tools, s.agentConfig)
@@ -165,6 +165,14 @@ func (s *kvmProvisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = m.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
 	c.Assert(err, gc.IsNil)
+
+	hostPorts := [][]instance.HostPort{{{
+		Address: instance.NewAddress("0.1.2.3", instance.NetworkUnknown),
+		Port:    1234,
+	}}}
+	err = s.State.SetAPIHostPorts(hostPorts)
+	c.Assert(err, gc.IsNil)
+
 	s.machineId = m.Id()
 	s.APILogin(c, m)
 	err = m.SetAgentVersion(version.Current)
@@ -238,7 +246,7 @@ func (s *kvmProvisionerSuite) TestDoesNotHaveRetryWatcher(c *gc.C) {
 
 	w, err := provisioner.GetRetryWatcher(p)
 	c.Assert(w, gc.IsNil)
-	c.Assert(errors.IsNotImplementedError(err), jc.IsTrue)
+	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
 }
 
 func (s *kvmProvisionerSuite) addContainer(c *gc.C) *state.Machine {

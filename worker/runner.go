@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"launchpad.net/tomb"
-
-	"launchpad.net/juju-core/log"
 )
 
 // RestartDelay holds the length of time that a worker
@@ -125,7 +123,7 @@ func (runner *runner) Wait() error {
 }
 
 func (runner *runner) Kill() {
-	log.Debugf("worker: killing runner %p", runner)
+	logger.Debugf("killing runner %p", runner)
 	runner.tomb.Kill(nil)
 }
 
@@ -161,13 +159,13 @@ func (runner *runner) run() error {
 		}
 		select {
 		case <-tombDying:
-			log.Infof("worker: runner is dying")
+			logger.Infof("runner is dying")
 			isDying = true
 			killAll(workers)
 			tombDying = nil
 		case req := <-runner.startc:
 			if isDying {
-				log.Infof("worker: ignoring start request for %q when dying", req.id)
+				logger.Infof("ignoring start request for %q when dying", req.id)
 				break
 			}
 			info := workers[req.id]
@@ -206,7 +204,7 @@ func (runner *runner) run() error {
 			}
 			if info.err != nil {
 				if runner.isFatal(info.err) {
-					log.Errorf("worker: fatal %q: %v", info.id, info.err)
+					logger.Errorf("fatal %q: %v", info.id, info.err)
 					if finalError == nil || runner.moreImportant(info.err, finalError) {
 						finalError = info.err
 					}
@@ -217,7 +215,7 @@ func (runner *runner) run() error {
 					}
 					break
 				} else {
-					log.Errorf("worker: exited %q: %v", info.id, info.err)
+					logger.Errorf("exited %q: %v", info.id, info.err)
 				}
 			}
 			if workerInfo.start == nil {
@@ -240,7 +238,7 @@ func killAll(workers map[string]*workerInfo) {
 
 func killWorker(id string, info *workerInfo) {
 	if info.worker != nil {
-		log.Debugf("worker: killing %q", id)
+		logger.Debugf("killing %q", id)
 		info.worker.Kill()
 		info.worker = nil
 	}
@@ -251,7 +249,7 @@ func killWorker(id string, info *workerInfo) {
 // runWorker starts the given worker after waiting for the given delay.
 func (runner *runner) runWorker(delay time.Duration, id string, start func() (Worker, error)) {
 	if delay > 0 {
-		log.Infof("worker: restarting %q in %v", id, delay)
+		logger.Infof("restarting %q in %v", id, delay)
 		select {
 		case <-runner.tomb.Dying():
 			runner.donec <- doneInfo{id, nil}
@@ -259,7 +257,7 @@ func (runner *runner) runWorker(delay time.Duration, id string, start func() (Wo
 		case <-time.After(delay):
 		}
 	}
-	log.Infof("worker: start %q", id)
+	logger.Infof("start %q", id)
 	worker, err := start()
 	if err == nil {
 		runner.startedc <- startInfo{id, worker}

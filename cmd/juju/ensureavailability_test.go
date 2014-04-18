@@ -83,6 +83,19 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityIdempotent(c *gc.C) {
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityMultiple(c *gc.C) {
 	err := runEnsureAvailability(c, "-n", "1")
 	c.Assert(err, gc.IsNil)
+
+	// make sure machine-0 remains alive for the second call to
+	// EnsureAvailability, or machine-0 will get bumped down to
+	// non-voting.
+	m0, err := s.BackingState.Machine("0")
+	c.Assert(err, gc.IsNil)
+	pinger, err := m0.SetAgentAlive()
+	c.Assert(err, gc.IsNil)
+	defer pinger.Kill()
+	s.BackingState.StartSync()
+	err = m0.WaitAgentAlive(testing.LongWait)
+	c.Assert(err, gc.IsNil)
+
 	err = runEnsureAvailability(c, "-n", "3", "--constraints", "mem=4G")
 	c.Assert(err, gc.IsNil)
 

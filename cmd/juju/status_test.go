@@ -116,11 +116,12 @@ func (ctx *context) setAgentAlive(c *gc.C, a aliver) *presence.Pinger {
 // shortcuts for expected output.
 var (
 	machine0 = M{
-		"agent-state": "started",
-		"dns-name":    "dummyenv-0.dns",
-		"instance-id": "dummyenv-0",
-		"series":      "quantal",
-		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
+		"agent-state":                "started",
+		"dns-name":                   "dummyenv-0.dns",
+		"instance-id":                "dummyenv-0",
+		"series":                     "quantal",
+		"hardware":                   "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
+		"state-server-member-status": "adding-vote",
 	}
 	machine1 = M{
 		"agent-state": "started",
@@ -239,8 +240,9 @@ var statusTests = []testCase{
 				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
-						"instance-id": "pending",
-						"series":      "quantal",
+						"instance-id":                "pending",
+						"series":                     "quantal",
+						"state-server-member-status": "adding-vote",
 					},
 				},
 				"services": M{},
@@ -258,11 +260,12 @@ var statusTests = []testCase{
 				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
-						"agent-state": "pending",
-						"dns-name":    "dummyenv-0.dns",
-						"instance-id": "dummyenv-0",
-						"series":      "quantal",
-						"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
+						"agent-state":                "pending",
+						"dns-name":                   "dummyenv-0.dns",
+						"instance-id":                "dummyenv-0",
+						"series":                     "quantal",
+						"hardware":                   "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
+						"state-server-member-status": "adding-vote",
 					},
 				},
 				"services": M{},
@@ -288,12 +291,13 @@ var statusTests = []testCase{
 				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
-						"dns-name":      "dummyenv-0.dns",
-						"instance-id":   "dummyenv-0",
-						"agent-version": "1.2.3",
-						"agent-state":   "started",
-						"series":        "quantal",
-						"hardware":      "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
+						"dns-name":                   "dummyenv-0.dns",
+						"instance-id":                "dummyenv-0",
+						"agent-version":              "1.2.3",
+						"agent-state":                "started",
+						"series":                     "quantal",
+						"hardware":                   "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
+						"state-server-member-status": "adding-vote",
 					},
 				},
 				"services": M{},
@@ -362,11 +366,12 @@ var statusTests = []testCase{
 				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
-						"agent-state": "started",
-						"dns-name":    "dummyenv-0.dns",
-						"instance-id": "dummyenv-0",
-						"series":      "quantal",
-						"hardware":    "arch=amd64 cpu-cores=2 mem=8192M root-disk=8192M",
+						"agent-state":                "started",
+						"dns-name":                   "dummyenv-0.dns",
+						"instance-id":                "dummyenv-0",
+						"series":                     "quantal",
+						"hardware":                   "arch=amd64 cpu-cores=2 mem=8192M root-disk=8192M",
+						"state-server-member-status": "adding-vote",
 					},
 				},
 				"services": M{},
@@ -383,10 +388,11 @@ var statusTests = []testCase{
 				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
-						"agent-state": "started",
-						"instance-id": "dummyenv-0",
-						"series":      "quantal",
-						"hardware":    "arch=amd64 cpu-cores=2 mem=8192M root-disk=8192M",
+						"agent-state":                "started",
+						"instance-id":                "dummyenv-0",
+						"series":                     "quantal",
+						"hardware":                   "arch=amd64 cpu-cores=2 mem=8192M root-disk=8192M",
+						"state-server-member-status": "adding-vote",
 					},
 				},
 				"services": M{},
@@ -401,8 +407,9 @@ var statusTests = []testCase{
 				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
-						"instance-id": "pending",
-						"series":      "quantal",
+						"instance-id":                "pending",
+						"series":                     "quantal",
+						"state-server-member-status": "adding-vote",
 					},
 				},
 				"services": M{},
@@ -416,11 +423,12 @@ var statusTests = []testCase{
 				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
-						"instance-state": "missing",
-						"instance-id":    "i-missing",
-						"agent-state":    "pending",
-						"series":         "quantal",
-						"hardware":       "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
+						"instance-state":             "missing",
+						"instance-id":                "i-missing",
+						"agent-state":                "pending",
+						"series":                     "quantal",
+						"hardware":                   "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
+						"state-server-member-status": "adding-vote",
 					},
 				},
 				"services": M{},
@@ -1908,7 +1916,7 @@ type expect struct {
 }
 
 func (e scopedExpect) step(c *gc.C, ctx *context) {
-	c.Logf("expect: %s %s", e.what, strings.Join(e.scope, " "))
+	c.Logf("\nexpect: %s %s\n", e.what, strings.Join(e.scope, " "))
 
 	// Now execute the command for each format.
 	for _, format := range statusFormats {
