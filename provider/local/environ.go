@@ -301,6 +301,7 @@ func (env *localEnviron) setLocalStorage() error {
 }
 
 var unsupportedConstraints = []string{
+	constraints.CpuCores,
 	constraints.CpuPower,
 	constraints.InstanceType,
 	constraints.Tags,

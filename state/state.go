@@ -333,6 +333,13 @@ func (st *State) EnvironConstraints() (constraints.Value, error) {
 
 // SetEnvironConstraints replaces the current environment constraints.
 func (st *State) SetEnvironConstraints(cons constraints.Value) error {
+	unsupported, err := st.validateConstraints(cons)
+	if len(unsupported) > 0 {
+		logger.Warningf(
+			"setting environment constraints: unsupported constraints: %v", strings.Join(unsupported, ","))
+	} else if err != nil {
+		return err
+	}
 	return writeConstraints(st, environGlobalKey, cons)
 }
 

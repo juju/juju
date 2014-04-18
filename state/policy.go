@@ -136,11 +136,11 @@ func (st *State) resolveConstraints(cons constraints.Value) (constraints.Value, 
 }
 
 // validateConstraints returns an error if the given constraints are not valid for the
-// current environment.
-func (st *State) validateConstraints(cons constraints.Value) error {
+// current environment, and also any unsupported attributes.
+func (st *State) validateConstraints(cons constraints.Value) ([]string, error) {
 	validator, err := st.constraintsValidator()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	return validator.Validate(cons)
 }

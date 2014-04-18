@@ -1268,7 +1268,7 @@ func (s *MachineSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(tw.Log, jc.LogMatches, jc.SimpleMessages{{
 		loggo.WARNING,
-		`setting constraints on machine "machine-2": unsupported constraints: cpu-power`},
+		`setting constraints on machine "2": unsupported constraints: cpu-power`},
 	})
 	mcons, err := machine.Constraints()
 	c.Assert(err, gc.IsNil)

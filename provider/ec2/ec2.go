@@ -366,7 +366,7 @@ func (e *environ) ConstraintsValidator() constraints.Validator {
 	validator := constraints.NewValidator()
 	validator.RegisterConflicts(
 		[]string{constraints.InstanceType},
-		[]string{constraints.Mem, constraints.CpuCores})
+		[]string{constraints.Mem, constraints.CpuCores, constraints.CpuPower})
 	validator.RegisterUnsupported(unsupportedConstraints)
 	return validator
 }

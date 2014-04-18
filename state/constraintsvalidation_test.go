@@ -36,49 +36,49 @@ func (s *constraintsValidationSuite) addOneMachine(c *gc.C, cons constraints.Val
 }
 
 var setConstraintsTests = []struct {
-	consA    string
-	consB    string
-	expected string
+	consFallback string
+	cons         string
+	expected     string
 }{
 	{
-		consB:    "root-disk=8G mem=4G arch=amd64",
-		consA:    "cpu-power=1000 cpu-cores=4",
-		expected: "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
+		cons:         "root-disk=8G mem=4G arch=amd64",
+		consFallback: "cpu-power=1000 cpu-cores=4",
+		expected:     "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
 	}, {
-		consB:    "root-disk=8G mem=4G arch=amd64",
-		consA:    "cpu-power=1000 cpu-cores=4 mem=8G",
-		expected: "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
+		cons:         "root-disk=8G mem=4G arch=amd64",
+		consFallback: "cpu-power=1000 cpu-cores=4 mem=8G",
+		expected:     "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
 	}, {
-		consA:    "root-disk=8G cpu-cores=4 instance-type=foo",
+		consFallback: "root-disk=8G cpu-cores=4 instance-type=foo",
+		expected:     "root-disk=8G cpu-cores=4 instance-type=foo",
+	}, {
+		cons:     "root-disk=8G cpu-cores=4 instance-type=foo",
 		expected: "root-disk=8G cpu-cores=4 instance-type=foo",
 	}, {
-		consB:    "root-disk=8G cpu-cores=4 instance-type=foo",
-		expected: "root-disk=8G cpu-cores=4 instance-type=foo",
+		consFallback: "root-disk=8G instance-type=foo",
+		cons:         "root-disk=8G cpu-cores=4 instance-type=bar",
+		expected:     "root-disk=8G cpu-cores=4 instance-type=bar",
 	}, {
-		consA:    "root-disk=8G instance-type=foo",
-		consB:    "root-disk=8G cpu-cores=4 instance-type=bar",
-		expected: "root-disk=8G cpu-cores=4 instance-type=bar",
+		consFallback: "root-disk=8G mem=4G",
+		cons:         "root-disk=8G cpu-cores=4 instance-type=bar",
+		expected:     "root-disk=8G cpu-cores=4 instance-type=bar",
 	}, {
-		consA:    "root-disk=8G mem=4G",
-		consB:    "root-disk=8G cpu-cores=4 instance-type=bar",
-		expected: "root-disk=8G cpu-cores=4 instance-type=bar",
+		consFallback: "root-disk=8G cpu-cores=4 instance-type=bar",
+		cons:         "root-disk=8G mem=4G",
+		expected:     "root-disk=8G cpu-cores=4 mem=4G",
 	}, {
-		consA:    "root-disk=8G cpu-cores=4 instance-type=bar",
-		consB:    "root-disk=8G mem=4G",
-		expected: "root-disk=8G cpu-cores=4 mem=4G",
-	}, {
-		consA:    "root-disk=8G cpu-cores=4 instance-type=bar",
-		consB:    "root-disk=8G arch=amd64 mem=4G",
-		expected: "root-disk=8G cpu-cores=4 arch=amd64 mem=4G",
+		consFallback: "root-disk=8G cpu-cores=4 instance-type=bar",
+		cons:         "root-disk=8G arch=amd64 mem=4G",
+		expected:     "root-disk=8G cpu-cores=4 arch=amd64 mem=4G",
 	},
 }
 
 func (s *constraintsValidationSuite) TestMachineConstraints(c *gc.C) {
 	for i, t := range setConstraintsTests {
 		c.Logf("test %d", i)
-		err := s.State.SetEnvironConstraints(constraints.MustParse(t.consA))
+		err := s.State.SetEnvironConstraints(constraints.MustParse(t.consFallback))
 		c.Check(err, gc.IsNil)
-		m, err := s.addOneMachine(c, constraints.MustParse(t.consB))
+		m, err := s.addOneMachine(c, constraints.MustParse(t.cons))
 		c.Check(err, gc.IsNil)
 		cons, err := m.Constraints()
 		c.Check(err, gc.IsNil)
@@ -91,9 +91,9 @@ func (s *constraintsValidationSuite) TestServiceConstraints(c *gc.C) {
 	service := s.AddTestingService(c, "wordpress", charm)
 	for i, t := range setConstraintsTests {
 		c.Logf("test %d", i)
-		err := s.State.SetEnvironConstraints(constraints.MustParse(t.consA))
+		err := s.State.SetEnvironConstraints(constraints.MustParse(t.consFallback))
 		c.Check(err, gc.IsNil)
-		err = service.SetConstraints(constraints.MustParse(t.consB))
+		err = service.SetConstraints(constraints.MustParse(t.cons))
 		c.Check(err, gc.IsNil)
 		u, err := service.AddUnit()
 		c.Check(err, gc.IsNil)

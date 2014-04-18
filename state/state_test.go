@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
@@ -48,6 +49,16 @@ type StateSuite struct {
 }
 
 var _ = gc.Suite(&StateSuite{})
+
+func (s *StateSuite) SetUpTest(c *gc.C) {
+	s.ConnSuite.SetUpTest(c)
+	s.policy.getConstraintsValidator = func(*config.Config) (constraints.Validator, error) {
+		validator := constraints.NewValidator()
+		validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
+		validator.RegisterUnsupported([]string{constraints.CpuPower})
+		return validator, nil
+	}
+}
 
 func (s *StateSuite) TestDialAgain(c *gc.C) {
 	// Ensure idempotent operations on Dial are working fine.
@@ -1352,6 +1363,31 @@ func (s *StateSuite) TestEnvironConstraints(c *gc.C) {
 	cons5, err := s.State.EnvironConstraints()
 	c.Assert(err, gc.IsNil)
 	c.Assert(cons5, gc.DeepEquals, cons4)
+}
+
+func (s *StateSuite) TestSetInvalidConstraints(c *gc.C) {
+	cons := constraints.MustParse("mem=4G instance-type=foo")
+	err := s.State.SetEnvironConstraints(cons)
+	c.Assert(err, gc.ErrorMatches, `ambiguous constraints: "mem" overlaps with "instance-type"`)
+}
+
+func (s *StateSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
+	defer loggo.ResetWriters()
+	logger := loggo.GetLogger("test")
+	logger.SetLogLevel(loggo.DEBUG)
+	tw := &loggo.TestWriter{}
+	c.Assert(loggo.RegisterWriter("constraints-tester", tw, loggo.DEBUG), gc.IsNil)
+
+	cons := constraints.MustParse("mem=4G cpu-power=10")
+	err := s.State.SetEnvironConstraints(cons)
+	c.Assert(err, gc.IsNil)
+	c.Assert(tw.Log, jc.LogMatches, jc.SimpleMessages{{
+		loggo.WARNING,
+		`setting environment constraints: unsupported constraints: cpu-power`},
+	})
+	econs, err := s.State.EnvironConstraints()
+	c.Assert(err, gc.IsNil)
+	c.Assert(econs, gc.DeepEquals, cons)
 }
 
 func (s *StateSuite) TestWatchServicesBulkEvents(c *gc.C) {

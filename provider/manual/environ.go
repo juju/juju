@@ -266,9 +266,7 @@ func (*manualEnviron) PrecheckInstance(series string, cons constraints.Value) er
 }
 
 var unsupportedConstraints = []string{
-	constraints.CpuCores,
 	constraints.CpuPower,
-	constraints.Mem,
 	constraints.InstanceType,
 	constraints.Tags,
 }

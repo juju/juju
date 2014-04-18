@@ -102,9 +102,9 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return err
 	}
 	validator := environ.ConstraintsValidator()
-	err = validator.Validate(c.Constraints)
-	if constraints.IsNotSupportedError(err) {
-		logger.Warningf("%v", err)
+	unsupported, err := validator.Validate(c.Constraints)
+	if len(unsupported) > 0 {
+		logger.Warningf("unsupported constraints: %v", err)
 	} else if err != nil {
 		return err
 	}
