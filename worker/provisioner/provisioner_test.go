@@ -476,17 +476,19 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedNetworks(c *gc.C
 	expectNetworkInfo := []environs.NetworkInfo{{
 		MACAddress:    "aa:bb:cc:dd:ee:f0",
 		InterfaceName: "eth0",
-		NetworkId:     "net1",
+		ProviderId:    "net1",
 		NetworkName:   "net1",
 		VLANTag:       0,
 		CIDR:          "0.1.2.0/24",
+		IsVirtual:     false,
 	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:f1",
 		InterfaceName: "eth1",
-		NetworkId:     "net2",
+		ProviderId:    "net2",
 		NetworkName:   "net2",
 		VLANTag:       1,
 		CIDR:          "0.2.2.0/24",
+		IsVirtual:     true,
 	}}
 	m, err := s.addMachineWithRequestedNetworks(includeNetworks, excludeNetworks)
 	c.Assert(err, gc.IsNil)
@@ -521,7 +523,7 @@ func (s *ProvisionerSuite) TestSetInstanceInfoFailureSetsErrorStatusAndStopsInst
 	// "bad-" prefix for networks causes dummy provider to report
 	// invalid NetworkInfo.
 	expectNetworkInfo := []environs.NetworkInfo{
-		{NetworkId: "bad-net1", NetworkName: "bad-net1", CIDR: "invalid"},
+		{ProviderId: "bad-net1", NetworkName: "bad-net1", CIDR: "invalid"},
 	}
 	m, err := s.addMachineWithRequestedNetworks(includeNetworks, nil)
 	c.Assert(err, gc.IsNil)

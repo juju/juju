@@ -4,6 +4,8 @@
 package state
 
 import (
+	"fmt"
+
 	"labix.org/v2/mgo/bson"
 
 	"launchpad.net/juju-core/names"
@@ -29,6 +31,10 @@ type NetworkInfo struct {
 	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
 	// normal networks. It's defined by IEEE 802.1Q standard.
 	VLANTag int
+
+	// IsVirtual is true when this network uses virtual network
+	// interface devices, or false when using physical devices.
+	IsVirtual bool
 }
 
 // networkDoc represents a configured network that a machine can be a
@@ -41,10 +47,28 @@ type networkDoc struct {
 	ProviderId string
 	CIDR       string
 	VLANTag    int
+	IsVirtual  bool
 }
 
 func newNetwork(st *State, doc *networkDoc) *Network {
 	return &Network{st, *doc}
+}
+
+func newNetworkDoc(args NetworkInfo) *networkDoc {
+	return &networkDoc{
+		Name:       args.Name,
+		ProviderId: args.ProviderId,
+		CIDR:       args.CIDR,
+		VLANTag:    args.VLANTag,
+		IsVirtual:  args.IsVirtual,
+	}
+}
+
+// GoString implements fmt.GoStringer.
+func (n *Network) GoString() string {
+	return fmt.Sprintf(
+		"&state.Network{name: %q, providerId: %q, cidr: %q, vlanTag: %v, isVirtual: %v}",
+		n.Name(), n.ProviderId(), n.CIDR(), n.VLANTag(), n.IsVirtual())
 }
 
 // Name returns the network name.
@@ -77,6 +101,18 @@ func (n *Network) VLANTag() int {
 // normal network.
 func (n *Network) IsVLAN() bool {
 	return n.doc.VLANTag > 0
+}
+
+// IsVirtual returns whether the network is virtual network (using
+// virtual network interfaces only).
+func (n *Network) IsVirtual() bool {
+	return n.doc.IsVirtual
+}
+
+// IsPhysical returns whether the network is physical network (using
+// physical network interfaces only).
+func (n *Network) IsPhysical() bool {
+	return !n.doc.IsVirtual
 }
 
 // Interfaces returns all network interfaces on the network.

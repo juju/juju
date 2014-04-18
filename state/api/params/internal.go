@@ -325,6 +325,10 @@ type Network struct {
 	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
 	// normal networks. It's defined by IEEE 802.1Q standard.
 	VLANTag int
+
+	// IsVirtual is true when this network uses virtual network
+	// interface devices, or false when using physical devices.
+	IsVirtual bool
 }
 
 // NetworkInterface describes a single network interface available on
@@ -340,6 +344,10 @@ type NetworkInterface struct {
 
 	// NetworkTag is this interface's network tag.
 	NetworkTag string
+
+	// IsVirtual is true when the interface is a virtual device, as
+	// opposed to a physical device.
+	IsVirtual bool
 }
 
 // InstanceInfo holds a machine tag, provider-specific instance id, a

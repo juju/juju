@@ -47,8 +47,8 @@ type NetworkInfo struct {
 	// NetworkName is juju-internal name of the network.
 	NetworkName string
 
-	// NetworkId is a provider-specific network id.
-	NetworkId string
+	// ProviderId is a provider-specific network id.
+	ProviderId string
 
 	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
 	// normal networks. It's defined by IEEE 802.1Q standard.
@@ -57,6 +57,10 @@ type NetworkInfo struct {
 	// InterfaceName is the OS-specific network device name (e.g.
 	// "eth0" or "eth1.42" for a VLAN virtual interface).
 	InterfaceName string
+
+	// IsVirtual is true when the interface is a virtual device, as
+	// opposed to a physical device.
+	IsVirtual bool
 }
 
 // TODO(wallyworld) - we want this in the environs/instance package but import loops

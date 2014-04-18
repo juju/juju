@@ -1014,47 +1014,45 @@ func (st *State) AddService(name, ownerTag string, ch *Charm, includeNetworks, e
 	return svc, nil
 }
 
-// AddNetwork creates a new network with the given name,
-// provider-specific id, CIDR and VLAN tag. If a network with the same
-// name or provider id already exists in state, an error satisfying
-// errors.IsAlreadyExists is returned.
-func (st *State) AddNetwork(name, providerId, cidr string, vlanTag int) (n *Network, err error) {
-	defer errors.Contextf(&err, "cannot add network %q", name)
-	if cidr != "" {
-		_, _, err := net.ParseCIDR(cidr)
+// AddNetwork creates a new network with the given params. If a
+// network with the same name or provider id already exists in state,
+// an error satisfying errors.IsAlreadyExists is returned.
+func (st *State) AddNetwork(args NetworkInfo) (n *Network, err error) {
+	defer errors.Contextf(&err, "cannot add network %q", args.Name)
+	if args.CIDR != "" {
+		_, _, err := net.ParseCIDR(args.CIDR)
 		if err != nil {
 			return nil, err
 		}
 	}
-	if name == "" {
+	if args.Name == "" {
 		return nil, fmt.Errorf("name must be not empty")
 	}
-	if !names.IsNetwork(name) {
+	if !names.IsNetwork(args.Name) {
 		return nil, fmt.Errorf("invalid name")
 	}
-	if providerId == "" {
+	if args.ProviderId == "" {
 		return nil, fmt.Errorf("provider id must be not empty")
 	}
-	if vlanTag < 0 || vlanTag > 4094 {
-		return nil, fmt.Errorf("invalid VLAN tag %d: must be between 0 and 4094", vlanTag)
+	if args.VLANTag < 0 || args.VLANTag > 4094 {
+		return nil, fmt.Errorf("invalid VLAN tag %d: must be between 0 and 4094", args.VLANTag)
 	}
-	doc := &networkDoc{
-		Name:       name,
-		ProviderId: providerId,
-		CIDR:       cidr,
-		VLANTag:    vlanTag,
+	if !args.IsVirtual && args.VLANTag > 0 {
+		// VLANs are always virtual networks.
+		return nil, fmt.Errorf("IsVirtual must be true with non-empty VLAN tag")
 	}
+	doc := newNetworkDoc(args)
 	ops := []txn.Op{{
 		C:      st.networks.Name,
-		Id:     name,
+		Id:     args.Name,
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}}
 	err = st.runTransaction(ops)
 	switch err {
 	case txn.ErrAborted:
-		if _, err = st.Network(name); err == nil {
-			return nil, errors.AlreadyExistsf("network %q", name)
+		if _, err = st.Network(args.Name); err == nil {
+			return nil, errors.AlreadyExistsf("network %q", args.Name)
 		} else if err != nil {
 			return nil, err
 		}
@@ -1065,8 +1063,8 @@ func (st *State) AddNetwork(name, providerId, cidr string, vlanTag int) (n *Netw
 		// logic does not report insertion errors, so we check that
 		// the record has actually been inserted correctly before
 		// reporting success.
-		if _, err = st.Network(name); err != nil {
-			return nil, errors.AlreadyExistsf("network with provider id %q", providerId)
+		if _, err = st.Network(args.Name); err != nil {
+			return nil, errors.AlreadyExistsf("network with provider id %q", args.ProviderId)
 		}
 		return newNetwork(st, doc), nil
 	}

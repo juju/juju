@@ -771,18 +771,19 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		if strings.HasPrefix(network, "bad-") {
 			// Simulate we didn't get correct information for the network.
 			networkInfo[i] = environs.NetworkInfo{
-				NetworkId:   network,
+				ProviderId:  network,
 				NetworkName: network,
 				CIDR:        "invalid",
 			}
 		} else {
 			networkInfo[i] = environs.NetworkInfo{
-				NetworkId:     network,
+				ProviderId:    network,
 				NetworkName:   network,
 				CIDR:          fmt.Sprintf("0.%d.2.0/24", i+1),
 				InterfaceName: fmt.Sprintf("eth%d", i),
 				VLANTag:       i,
 				MACAddress:    fmt.Sprintf("aa:bb:cc:dd:ee:f%d", i),
+				IsVirtual:     i > 0,
 			}
 		}
 	}

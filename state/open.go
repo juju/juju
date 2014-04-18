@@ -209,6 +209,7 @@ var indexes = []struct {
 	{"users", []string{"name"}, false},
 	{"networks", []string{"providerid"}, true},
 	{"networkinterfaces", []string{"interfacename", "machineid"}, true},
+	{"networkinterfaces", []string{"macaddress", "networkname"}, true},
 	{"networkinterfaces", []string{"networkname"}, false},
 	{"networkinterfaces", []string{"machineid"}, false},
 }
