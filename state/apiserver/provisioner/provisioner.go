@@ -423,7 +423,6 @@ func networkParamsToStateParams(networks []params.Network, ifaces []params.Netwo
 			ProviderId: network.ProviderId,
 			CIDR:       network.CIDR,
 			VLANTag:    network.VLANTag,
-			IsVirtual:  network.IsVirtual,
 		}
 	}
 	stateInterfaces := make([]state.NetworkInterfaceInfo, len(ifaces))

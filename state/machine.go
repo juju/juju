@@ -568,7 +568,11 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 
 func (m *Machine) removeNetworkInterfacesOps() ([]txn.Op, error) {
 	var doc networkInterfaceDoc
-	ops := []txn.Op{}
+	ops := []txn.Op{{
+		C:      m.st.machines.Name,
+		Id:     m.doc.Id,
+		Assert: isDeadDoc,
+	}}
 	sel := bson.D{{"machineid", m.doc.Id}}
 	iter := m.st.networkInterfaces.Find(sel).Select(bson.D{{"_id", 1}}).Iter()
 	for iter.Next(&doc) {
@@ -1013,14 +1017,13 @@ func (m *Machine) AddNetworkInterface(args NetworkInterfaceInfo) (iface *Network
 		return nil, fmt.Errorf("interface name must be not empty")
 	}
 	aliveAndNotProvisioned := append(isAliveDoc, bson.D{{"nonce", ""}}...)
-	isVirtualMatches := bson.D{{"isvirtual", args.IsVirtual}}
 	doc := newNetworkInterfaceDoc(args)
 	doc.MachineId = m.doc.Id
 	doc.Id = bson.NewObjectId()
 	ops := []txn.Op{{
 		C:      m.st.networks.Name,
 		Id:     args.NetworkName,
-		Assert: isVirtualMatches,
+		Assert: txn.DocExists,
 	}, {
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
@@ -1035,13 +1038,8 @@ func (m *Machine) AddNetworkInterface(args NetworkInterfaceInfo) (iface *Network
 	err = m.st.runTransaction(ops)
 	switch err {
 	case txn.ErrAborted:
-		var network *Network
-		if network, err = m.st.Network(args.NetworkName); err != nil {
+		if _, err = m.st.Network(args.NetworkName); err != nil {
 			return nil, err
-		} else if network.IsVirtual() != args.IsVirtual {
-			return nil, fmt.Errorf(
-				"network %q IsVirtual value must match (got %v, want %v)",
-				args.NetworkName, network.IsVirtual(), args.IsVirtual)
 		}
 		if err = m.Refresh(); err != nil {
 			return nil, err
@@ -1052,7 +1050,7 @@ func (m *Machine) AddNetworkInterface(args NetworkInterfaceInfo) (iface *Network
 			return nil, fmt.Errorf(msg)
 		}
 		// Should never happen.
-		panic("unhandled assert while adding network interface")
+		logger.Errorf("unhandled assert while adding network interface doc %#v", doc)
 	case nil:
 		// We have a unique key restrictions on the following fields:
 		// - InterfaceName, MachineId
@@ -1074,7 +1072,7 @@ func (m *Machine) AddNetworkInterface(args NetworkInterfaceInfo) (iface *Network
 			return nil, errors.AlreadyExistsf("MAC address %q on network %q", args.MACAddress, args.NetworkName)
 		}
 		// Should never happen.
-		panic("unknown error while adding network interface")
+		logger.Errorf("unknown error while adding network interface doc %#v", doc)
 	}
 	return nil, err
 }

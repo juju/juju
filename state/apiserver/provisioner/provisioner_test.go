@@ -856,25 +856,21 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 		ProviderId: "net1",
 		CIDR:       "0.1.2.0/24",
 		VLANTag:    0,
-		IsVirtual:  false,
 	}, {
 		Tag:        "network-vlan42",
 		ProviderId: "vlan42",
 		CIDR:       "0.2.2.0/24",
 		VLANTag:    42,
-		IsVirtual:  true,
 	}, {
 		Tag:        "network-vlan69",
 		ProviderId: "vlan69",
 		CIDR:       "0.3.2.0/24",
 		VLANTag:    69,
-		IsVirtual:  true,
 	}, {
 		Tag:        "network-vlan42", // duplicated; ignored
 		ProviderId: "vlan42",
 		CIDR:       "0.2.2.0/24",
 		VLANTag:    42,
-		IsVirtual:  true,
 	}}
 	ifaces := []params.NetworkInterface{{
 		MACAddress:    "aa:bb:cc:dd:ee:f0",
@@ -994,7 +990,6 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 		c.Check(network.Tag(), gc.Equals, networks[i].Tag)
 		c.Check(network.VLANTag(), gc.Equals, networks[i].VLANTag)
 		c.Check(network.CIDR(), gc.Equals, networks[i].CIDR)
-		c.Check(network.IsVirtual(), gc.Equals, networks[i].IsVirtual)
 	}
 }
 

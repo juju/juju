@@ -317,7 +317,7 @@ type Network struct {
 	Tag string
 
 	// ProviderId is the provider-specific network id.
-	ProviderId string
+	ProviderId instance.NetworkId
 
 	// CIDR of the network, in "123.45.67.89/12" format.
 	CIDR string
@@ -325,10 +325,6 @@ type Network struct {
 	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
 	// normal networks. It's defined by IEEE 802.1Q standard.
 	VLANTag int
-
-	// IsVirtual is true when this network uses virtual network
-	// interface devices, or false when using physical devices.
-	IsVirtual bool
 }
 
 // NetworkInterface describes a single network interface available on

@@ -362,7 +362,7 @@ func (environ *maasEnviron) setupNetworks(inst instance.Instance) ([]environs.Ne
 					InterfaceName: interfaceName,
 					CIDR:          netCIDR.String(),
 					VLANTag:       network.VLANTag,
-					ProviderId:    network.Name,
+					ProviderId:    instance.NetworkId(network.Name),
 					NetworkName:   network.Name,
 					IsVirtual:     network.VLANTag > 0,
 				})

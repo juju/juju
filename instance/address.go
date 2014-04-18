@@ -9,6 +9,9 @@ import (
 	"strconv"
 )
 
+// NetworkId defines a provider-specific network id.
+type NetworkId string
+
 // Private network ranges for IPv4.
 // See: http://tools.ietf.org/html/rfc1918
 var (

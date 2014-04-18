@@ -24,25 +24,21 @@ func (s *NetworkSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	s.network, err = s.State.AddNetwork(state.NetworkInfo{"net1", "net1", "0.1.2.3/24", 0, false})
+	s.network, err = s.State.AddNetwork(state.NetworkInfo{"net1", "net1", "0.1.2.3/24", 0})
 	c.Assert(err, gc.IsNil)
-	s.vlan, err = s.State.AddNetwork(state.NetworkInfo{"vlan", "vlan", "0.1.2.3/30", 42, true})
+	s.vlan, err = s.State.AddNetwork(state.NetworkInfo{"vlan", "vlan", "0.1.2.3/30", 42})
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *NetworkSuite) TestGetterMethods(c *gc.C) {
 	c.Assert(s.network.Name(), gc.Equals, "net1")
-	c.Assert(s.network.ProviderId(), gc.Equals, "net1")
+	c.Assert(string(s.network.ProviderId()), gc.Equals, "net1")
 	c.Assert(s.network.Tag(), gc.Equals, "network-net1")
 	c.Assert(s.network.CIDR(), gc.Equals, "0.1.2.3/24")
 	c.Assert(s.network.VLANTag(), gc.Equals, 0)
-	c.Assert(s.network.IsVirtual(), jc.IsFalse)
-	c.Assert(s.network.IsPhysical(), jc.IsTrue)
 	c.Assert(s.vlan.VLANTag(), gc.Equals, 42)
 	c.Assert(s.network.IsVLAN(), jc.IsFalse)
 	c.Assert(s.vlan.IsVLAN(), jc.IsTrue)
-	c.Assert(s.vlan.IsVirtual(), jc.IsTrue)
-	c.Assert(s.vlan.IsPhysical(), jc.IsFalse)
 }
 
 func (s *NetworkSuite) TestInterfaces(c *gc.C) {

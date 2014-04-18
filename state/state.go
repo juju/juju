@@ -1037,10 +1037,6 @@ func (st *State) AddNetwork(args NetworkInfo) (n *Network, err error) {
 	if args.VLANTag < 0 || args.VLANTag > 4094 {
 		return nil, fmt.Errorf("invalid VLAN tag %d: must be between 0 and 4094", args.VLANTag)
 	}
-	if !args.IsVirtual && args.VLANTag > 0 {
-		// VLANs are always virtual networks.
-		return nil, fmt.Errorf("IsVirtual must be true with non-empty VLAN tag")
-	}
 	doc := newNetworkDoc(args)
 	ops := []txn.Op{{
 		C:      st.networks.Name,

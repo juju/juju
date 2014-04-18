@@ -394,10 +394,9 @@ func addNetworkAndInterface(c *gc.C, st *state.State, machine *state.Machine,
 ) (*state.Network, *state.NetworkInterface) {
 	net, err := st.AddNetwork(state.NetworkInfo{
 		Name:       networkName,
-		ProviderId: providerId,
+		ProviderId: instance.NetworkId(providerId),
 		CIDR:       cidr,
 		VLANTag:    vlanTag,
-		IsVirtual:  isVirtual,
 	})
 	c.Assert(err, gc.IsNil)
 	iface, err := machine.AddNetworkInterface(state.NetworkInterfaceInfo{
@@ -510,10 +509,6 @@ var addNetworkInterfaceErrorsTests = []struct {
 	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:ff", "eth0", "net1", false},
 	nil,
 	`cannot add network interface "eth0" to machine "2": "eth0" on machine "2" already exists`,
-}, {
-	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:ff", "eth1", "net1", true},
-	nil,
-	`cannot add network interface "eth1" to machine "2": network "net1" IsVirtual value must match \(got false, want true\)`,
 }, {
 	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:ff", "eth1", "missing", false},
 	nil,
@@ -701,7 +696,7 @@ func (s *MachineSuite) TestMachineSetInstanceInfoFailureDoesNotProvision(c *gc.C
 func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), gc.Equals, false)
 	networks := []state.NetworkInfo{
-		{Name: "net1", ProviderId: "net1", CIDR: "0.1.2.0/24", VLANTag: 0, IsVirtual: false},
+		{Name: "net1", ProviderId: "net1", CIDR: "0.1.2.0/24", VLANTag: 0},
 	}
 	interfaces := []state.NetworkInterfaceInfo{
 		{MACAddress: "aa:bb:cc:dd:ee:ff", NetworkName: "net1", InterfaceName: "eth0", IsVirtual: false},
@@ -715,7 +710,6 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 	c.Check(network.ProviderId(), gc.Equals, networks[0].ProviderId)
 	c.Check(network.VLANTag(), gc.Equals, networks[0].VLANTag)
 	c.Check(network.CIDR(), gc.Equals, networks[0].CIDR)
-	c.Check(network.IsVirtual(), gc.Equals, networks[0].IsVirtual)
 	ifaces, err := s.machine.NetworkInterfaces()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ifaces, gc.HasLen, 1)

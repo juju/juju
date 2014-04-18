@@ -966,32 +966,29 @@ var addNetworkErrorsTests = []struct {
 	args      state.NetworkInfo
 	expectErr string
 }{{
-	state.NetworkInfo{"", "provider-id", "0.3.1.0/24", 0, false},
+	state.NetworkInfo{"", "provider-id", "0.3.1.0/24", 0},
 	`cannot add network "": name must be not empty`,
 }, {
-	state.NetworkInfo{"-invalid-", "provider-id", "0.3.1.0/24", 0, false},
+	state.NetworkInfo{"-invalid-", "provider-id", "0.3.1.0/24", 0},
 	`cannot add network "-invalid-": invalid name`,
 }, {
-	state.NetworkInfo{"net2", "", "0.3.1.0/24", 0, false},
+	state.NetworkInfo{"net2", "", "0.3.1.0/24", 0},
 	`cannot add network "net2": provider id must be not empty`,
 }, {
-	state.NetworkInfo{"net2", "provider-id", "invalid", 0, false},
+	state.NetworkInfo{"net2", "provider-id", "invalid", 0},
 	`cannot add network "net2": invalid CIDR address: invalid`,
 }, {
-	state.NetworkInfo{"net2", "provider-id", "0.3.1.0/24", -1, false},
+	state.NetworkInfo{"net2", "provider-id", "0.3.1.0/24", -1},
 	`cannot add network "net2": invalid VLAN tag -1: must be between 0 and 4094`,
 }, {
-	state.NetworkInfo{"net2", "provider-id", "0.3.1.0/24", 9999, false},
+	state.NetworkInfo{"net2", "provider-id", "0.3.1.0/24", 9999},
 	`cannot add network "net2": invalid VLAN tag 9999: must be between 0 and 4094`,
 }, {
-	state.NetworkInfo{"net1", "provider-id", "0.3.1.0/24", 0, false},
+	state.NetworkInfo{"net1", "provider-id", "0.3.1.0/24", 0},
 	`cannot add network "net1": network "net1" already exists`,
 }, {
-	state.NetworkInfo{"net2", "provider-net1", "0.3.1.0/24", 0, false},
+	state.NetworkInfo{"net2", "provider-net1", "0.3.1.0/24", 0},
 	`cannot add network "net2": network with provider id "provider-net1" already exists`,
-}, {
-	state.NetworkInfo{"net2", "provider-net2", "0.3.1.0/24", 42, false},
-	`cannot add network "net2": IsVirtual must be true with non-empty VLAN tag`,
 }}
 
 func (s *StateSuite) TestAddNetworkErrors(c *gc.C) {
@@ -1012,7 +1009,7 @@ func (s *StateSuite) TestAddNetworkErrors(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(net, gc.DeepEquals, net1)
 	c.Assert(net.Name(), gc.Equals, "net1")
-	c.Assert(net.ProviderId(), gc.Equals, "provider-net1")
+	c.Assert(string(net.ProviderId()), gc.Equals, "provider-net1")
 	_, err = s.State.Network("missing")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(err, gc.ErrorMatches, `network "missing" not found`)
@@ -2284,11 +2281,10 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 		ProviderId: "provider-id",
 		CIDR:       "0.1.2.0/24",
 		VLANTag:    0,
-		IsVirtual:  false,
 	})
 	c.Assert(err, gc.IsNil)
 	c.Assert(net1.Tag(), gc.Equals, "network-net1")
-	c.Assert(net1.ProviderId(), gc.Equals, "provider-id")
+	c.Assert(string(net1.ProviderId()), gc.Equals, "provider-id")
 
 	// environment tag is dynamically generated
 	env, err := s.State.Environment()
@@ -2385,7 +2381,6 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 		ProviderId: "provider-id",
 		CIDR:       "0.1.2.0/24",
 		VLANTag:    0,
-		IsVirtual:  false,
 	})
 	c.Assert(err, gc.IsNil)
 	coll, id, err = state.ParseTag(s.State, net1.Tag())
