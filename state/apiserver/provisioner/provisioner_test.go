@@ -862,6 +862,11 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 		CIDR:       "0.2.2.0/24",
 		VLANTag:    42,
 	}, {
+		Tag:        "network-vlan69",
+		ProviderId: "vlan69",
+		CIDR:       "0.3.2.0/24",
+		VLANTag:    69,
+	}, {
 		Tag:        "network-vlan42", // duplicated; ignored
 		ProviderId: "vlan42",
 		CIDR:       "0.2.2.0/24",
@@ -871,18 +876,32 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 		MACAddress:    "aa:bb:cc:dd:ee:f0",
 		NetworkTag:    "network-net1",
 		InterfaceName: "eth0",
+		IsVirtual:     false,
 	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:f1",
 		NetworkTag:    "network-net1",
 		InterfaceName: "eth1",
+		IsVirtual:     false,
+	}, {
+		MACAddress:    "aa:bb:cc:dd:ee:f1",
+		NetworkTag:    "network-vlan42",
+		InterfaceName: "eth1.42",
+		IsVirtual:     true,
+	}, {
+		MACAddress:    "aa:bb:cc:dd:ee:f0",
+		NetworkTag:    "network-vlan69",
+		InterfaceName: "eth0.69",
+		IsVirtual:     true,
+	}, {
+		MACAddress:    "aa:bb:cc:dd:ee:f1", // duplicated mac+net; ignored
+		NetworkTag:    "network-vlan42",
+		InterfaceName: "eth2",
+		IsVirtual:     true,
 	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:f2",
-		NetworkTag:    "network-vlan42",
-		InterfaceName: "eth2",
-	}, {
-		MACAddress:    "aa:bb:cc:dd:ee:f2", // duplicated; ignored
-		NetworkTag:    "network-vlan42",
-		InterfaceName: "eth2",
+		NetworkTag:    "network-net1",
+		InterfaceName: "eth1", // duplicated name+machine id; ignored for machine 1.
+		IsVirtual:     false,
 	}}
 	args := params.InstancesInfo{Machines: []params.InstanceInfo{{
 		Tag:        s.machines[0].Tag(),
@@ -939,21 +958,26 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Check(gotHardware, gc.DeepEquals, &hwChars)
 	ifacesMachine1, err := s.machines[1].NetworkInterfaces()
 	c.Assert(err, gc.IsNil)
-	c.Assert(ifacesMachine1, gc.HasLen, 3)
+	c.Assert(ifacesMachine1, gc.HasLen, 4)
 	actual := make([]params.NetworkInterface, len(ifacesMachine1))
 	for i, iface := range ifacesMachine1 {
 		actual[i].InterfaceName = iface.InterfaceName()
 		actual[i].NetworkTag = iface.NetworkTag()
 		actual[i].MACAddress = iface.MACAddress()
+		actual[i].IsVirtual = iface.IsVirtual()
 		c.Check(iface.MachineId(), gc.Equals, s.machines[1].Id())
 		c.Check(iface.MachineTag(), gc.Equals, s.machines[1].Tag())
 	}
-	c.Assert(actual, jc.SameContents, ifaces[:3])
+	c.Assert(actual, jc.SameContents, ifaces[:4])
 	ifacesMachine2, err := s.machines[2].NetworkInterfaces()
 	c.Assert(err, gc.IsNil)
-	c.Assert(ifacesMachine2, gc.HasLen, 0)
+	c.Assert(ifacesMachine2, gc.HasLen, 1)
+	c.Assert(ifacesMachine2[0].InterfaceName(), gc.Equals, ifaces[5].InterfaceName)
+	c.Assert(ifacesMachine2[0].MACAddress(), gc.Equals, ifaces[5].MACAddress)
+	c.Assert(ifacesMachine2[0].NetworkTag(), gc.Equals, ifaces[5].NetworkTag)
+	c.Assert(ifacesMachine2[0].MachineId(), gc.Equals, s.machines[2].Id())
 	for i, _ := range networks {
-		if i == 2 {
+		if i == 3 {
 			// Last one was ignored, so don't check.
 			break
 		}

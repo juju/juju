@@ -567,16 +567,21 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 }
 
 func (m *Machine) removeNetworkInterfacesOps() ([]txn.Op, error) {
-	var doc struct {
-		MACAddress string `bson:"_id"`
+	if m.doc.Life != Dead {
+		return nil, fmt.Errorf("machine is not dead")
 	}
-	ops := []txn.Op{}
+	var doc networkInterfaceDoc
+	ops := []txn.Op{{
+		C:      m.st.machines.Name,
+		Id:     m.doc.Id,
+		Assert: isDeadDoc,
+	}}
 	sel := bson.D{{"machineid", m.doc.Id}}
 	iter := m.st.networkInterfaces.Find(sel).Select(bson.D{{"_id", 1}}).Iter()
 	for iter.Next(&doc) {
 		ops = append(ops, txn.Op{
 			C:      m.st.networkInterfaces.Name,
-			Id:     doc.MACAddress,
+			Id:     doc.Id,
 			Remove: true,
 		})
 	}
@@ -842,7 +847,7 @@ func (m *Machine) SetInstanceInfo(
 
 	// Add the networks and interfaces first.
 	for _, network := range networks {
-		_, err := m.st.AddNetwork(network.Name, network.ProviderId, network.CIDR, network.VLANTag)
+		_, err := m.st.AddNetwork(network)
 		if err != nil && errors.IsAlreadyExists(err) {
 			// Ignore already existing networks.
 			continue
@@ -851,7 +856,7 @@ func (m *Machine) SetInstanceInfo(
 		}
 	}
 	for _, iface := range interfaces {
-		_, err := m.AddNetworkInterface(iface.MACAddress, iface.InterfaceName, iface.NetworkName)
+		_, err := m.AddNetworkInterface(iface)
 		if err != nil && errors.IsAlreadyExists(err) {
 			// Ignore already existing network interfaces.
 			continue
@@ -996,34 +1001,31 @@ func (m *Machine) NetworkInterfaces() ([]*NetworkInterface, error) {
 	return ifaces, nil
 }
 
-// AddNetworkInterface creates a new network interface on the given
-// network for the machine. The machine must be alive and not yet
+// AddNetworkInterface creates a new network interface with the given
+// args for this machine. The machine must be alive and not yet
 // provisioned, and there must be no other interface with the same MAC
-// address or the same name on that machine for this to succeed. If a
-// network interface already exists, the returned error satisfies
-// errors.IsAlreadyExists.
-func (m *Machine) AddNetworkInterface(macAddress, interfaceName, networkName string) (iface *NetworkInterface, err error) {
-	defer errors.Contextf(&err, "cannot add network interface %q to machine %q", interfaceName, m.doc.Id)
+// address on the same network, or the same name on that machine for
+// this to succeed. If a network interface already exists, the
+// returned error satisfies errors.IsAlreadyExists.
+func (m *Machine) AddNetworkInterface(args NetworkInterfaceInfo) (iface *NetworkInterface, err error) {
+	defer errors.Contextf(&err, "cannot add network interface %q to machine %q", args.InterfaceName, m.doc.Id)
 
-	if macAddress == "" {
+	if args.MACAddress == "" {
 		return nil, fmt.Errorf("MAC address must be not empty")
 	}
-	if _, err = net.ParseMAC(macAddress); err != nil {
+	if _, err = net.ParseMAC(args.MACAddress); err != nil {
 		return nil, err
 	}
-	if interfaceName == "" {
+	if args.InterfaceName == "" {
 		return nil, fmt.Errorf("interface name must be not empty")
 	}
 	aliveAndNotProvisioned := append(isAliveDoc, bson.D{{"nonce", ""}}...)
-	doc := &networkInterfaceDoc{
-		MACAddress:    macAddress,
-		InterfaceName: interfaceName,
-		NetworkName:   networkName,
-		MachineId:     m.doc.Id,
-	}
+	doc := newNetworkInterfaceDoc(args)
+	doc.MachineId = m.doc.Id
+	doc.Id = bson.NewObjectId()
 	ops := []txn.Op{{
 		C:      m.st.networks.Name,
-		Id:     networkName,
+		Id:     args.NetworkName,
 		Assert: txn.DocExists,
 	}, {
 		C:      m.st.machines.Name,
@@ -1031,7 +1033,7 @@ func (m *Machine) AddNetworkInterface(macAddress, interfaceName, networkName str
 		Assert: aliveAndNotProvisioned,
 	}, {
 		C:      m.st.networkInterfaces.Name,
-		Id:     macAddress,
+		Id:     doc.Id,
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}}
@@ -1039,10 +1041,7 @@ func (m *Machine) AddNetworkInterface(macAddress, interfaceName, networkName str
 	err = m.st.runTransaction(ops)
 	switch err {
 	case txn.ErrAborted:
-		if err = m.st.networkInterfaces.FindId(macAddress).One(nil); err == nil {
-			return nil, errors.AlreadyExistsf("interface with MAC address %q", macAddress)
-		}
-		if _, err = m.st.Network(networkName); err != nil {
+		if _, err = m.st.Network(args.NetworkName); err != nil {
 			return nil, err
 		}
 		if err = m.Refresh(); err != nil {
@@ -1053,17 +1052,30 @@ func (m *Machine) AddNetworkInterface(macAddress, interfaceName, networkName str
 			msg := "machine already provisioned: dynamic network interfaces not currently supported"
 			return nil, fmt.Errorf(msg)
 		}
+		// Should never happen.
+		logger.Errorf("unhandled assert while adding network interface doc %#v", doc)
 	case nil:
-		// We have a unique key restriction on the InterfaceName
-		// field, which will cause the insert to fail if there is
-		// another record with the same interface name in the table.
+		// We have a unique key restrictions on the following fields:
+		// - InterfaceName, MachineId
+		// - MACAddress, NetworkName
+		// These will cause the insert to fail if there is another record
+		// with the same combination of values in the table.
 		// The txn logic does not report insertion errors, so we check
 		// that the record has actually been inserted correctly before
 		// reporting success.
-		if err = m.st.networkInterfaces.FindId(macAddress).One(nil); err != nil {
-			return nil, errors.AlreadyExistsf("%q on machine %q", interfaceName, m.doc.Id)
+		if err = m.st.networkInterfaces.FindId(doc.Id).One(&doc); err == nil {
+			return newNetworkInterface(m.st, doc), nil
 		}
-		return newNetworkInterface(m.st, doc), nil
+		sel := bson.D{{"interfacename", args.InterfaceName}, {"machineid", m.doc.Id}}
+		if err = m.st.networkInterfaces.Find(sel).One(nil); err == nil {
+			return nil, errors.AlreadyExistsf("%q on machine %q", args.InterfaceName, m.doc.Id)
+		}
+		sel = bson.D{{"macaddress", args.MACAddress}, {"networkname", args.NetworkName}}
+		if err = m.st.networkInterfaces.Find(sel).One(nil); err == nil {
+			return nil, errors.AlreadyExistsf("MAC address %q on network %q", args.MACAddress, args.NetworkName)
+		}
+		// Should never happen.
+		logger.Errorf("unknown error while adding network interface doc %#v", doc)
 	}
 	return nil, err
 }

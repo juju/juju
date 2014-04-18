@@ -22,6 +22,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
+	"launchpad.net/juju-core/environs/network"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
@@ -331,56 +332,54 @@ func linkBridgeInInterfaces() string {
 	return `sed -i "s/iface eth0 inet dhcp/source \/etc\/network\/eth0.config/" /etc/network/interfaces`
 }
 
-// setupNetworks prepares a []environs.NetworkInfo for the given instance.
-func (environ *maasEnviron) setupNetworks(inst instance.Instance) ([]environs.NetworkInfo, error) {
+// setupNetworks prepares a []network.Info for the given instance.
+func (environ *maasEnviron) setupNetworks(inst instance.Instance) ([]network.Info, error) {
 	// Get the instance network interfaces first.
 	interfaces, err := environ.getInstanceNetworkInterfaces(inst)
 	if err != nil {
 		return nil, fmt.Errorf("getInstanceNetworkInterfaces failed: %v", err)
 	}
 	logger.Debugf("node %q has network interfaces %v", inst.Id(), interfaces)
-	networkInfoMap := make(map[string]environs.NetworkInfo)
-	for macAddress, interfaceName := range interfaces {
-		networkInfoMap[macAddress] = environs.NetworkInfo{
-			MACAddress:    macAddress,
-			InterfaceName: interfaceName,
-		}
-	}
 	networks, err := environ.getInstanceNetworks(inst)
 	if err != nil {
 		return nil, fmt.Errorf("getInstanceNetworks failed: %v", err)
 	}
 	logger.Debugf("node %q has networks %v", inst.Id(), networks)
-	for _, network := range networks {
+	var tempNetworkInfo []network.Info
+	for _, netw := range networks {
 		netCIDR := &net.IPNet{
-			IP:   net.ParseIP(network.IP),
-			Mask: net.IPMask(net.ParseIP(network.Mask)),
+			IP:   net.ParseIP(netw.IP),
+			Mask: net.IPMask(net.ParseIP(netw.Mask)),
 		}
-		macs, err := environ.getNetworkMACs(network.Name)
+		macs, err := environ.getNetworkMACs(netw.Name)
 		if err != nil {
 			return nil, fmt.Errorf("getNetworkMACs failed: %v", err)
 		}
+		logger.Debugf("network %q has MACs: %v", netw.Name, macs)
 		for _, mac := range macs {
-			if _, ok := interfaces[mac]; ok {
-				info := networkInfoMap[mac]
-				info.CIDR = netCIDR.String()
-				info.VLANTag = network.VLANTag
-				info.NetworkId = network.Name
-				info.NetworkName = network.Name
-				networkInfoMap[mac] = info
+			if interfaceName, ok := interfaces[mac]; ok {
+				tempNetworkInfo = append(tempNetworkInfo, network.Info{
+					MACAddress:    mac,
+					InterfaceName: interfaceName,
+					CIDR:          netCIDR.String(),
+					VLANTag:       netw.VLANTag,
+					ProviderId:    network.Id(netw.Name),
+					NetworkName:   netw.Name,
+					IsVirtual:     netw.VLANTag > 0,
+				})
 			}
 		}
 	}
 	// Verify we filled-in everything for all networks/interfaces
 	// and drop incomplete records.
-	var networkInfo []environs.NetworkInfo
-	for _, info := range networkInfoMap {
-		if info.NetworkId == "" || info.NetworkName == "" || info.CIDR == "" {
+	var networkInfo []network.Info
+	for _, info := range tempNetworkInfo {
+		if info.ProviderId == "" || info.NetworkName == "" || info.CIDR == "" {
 			logger.Warningf("ignoring network interface %q: missing network information", info.InterfaceName)
 			continue
 		}
 		if info.MACAddress == "" || info.InterfaceName == "" {
-			logger.Warningf("ignoring network %q: missing network interface information", info.NetworkId)
+			logger.Warningf("ignoring network %q: missing network interface information", info.ProviderId)
 			continue
 		}
 		networkInfo = append(networkInfo, info)
@@ -391,7 +390,7 @@ func (environ *maasEnviron) setupNetworks(inst instance.Instance) ([]environs.Ne
 
 // StartInstance is specified in the InstanceBroker interface.
 func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
-	instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error,
+	instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
 ) {
 	var inst *maasInstance
 	var err error
@@ -413,7 +412,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 			}
 		}
 	}()
-	var networkInfo []environs.NetworkInfo
+	var networkInfo []network.Info
 	if args.MachineConfig.HasNetworks() {
 		networkInfo, err = environ.setupNetworks(inst)
 		if err != nil {
@@ -454,7 +453,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 
 // newCloudinitConfig creates a cloudinit.Config structure
 // suitable as a base for initialising a MAAS node.
-func newCloudinitConfig(hostname string, networkInfo []environs.NetworkInfo) (*cloudinit.Config, error) {
+func newCloudinitConfig(hostname string, networkInfo []network.Info) (*cloudinit.Config, error) {
 	info := machineInfo{hostname}
 	runCmd, err := info.cloudinitRunCmd()
 	if err != nil {
@@ -477,11 +476,7 @@ func newCloudinitConfig(hostname string, networkInfo []environs.NetworkInfo) (*c
 
 // setupNetworksOnBoot prepares a script to enable and start all given
 // networks on boot.
-//
-// TODO(dimitern) To support more than one VLAN on the same physical
-// interface, we need model changes to allow muliple NICs with the
-// same MAC address, but different network name.
-func setupNetworksOnBoot(cloudcfg *cloudinit.Config, networkInfo []environs.NetworkInfo) {
+func setupNetworksOnBoot(cloudcfg *cloudinit.Config, networkInfo []network.Info) {
 	const ifaceConfig = `cat >> /etc/network/interfaces << EOF
 
 auto %s
@@ -494,6 +489,10 @@ EOF
 	script := func(line string, args ...interface{}) {
 		cloudcfg.AddScripts(fmt.Sprintf(line, args...))
 	}
+	// Because eth0 is already configured in the br0 bridge, we
+	// don't want to break that.
+	configured := set.NewStrings("eth0")
+
 	// In order to support VLANs, we need to include 8021q module
 	// configure vconfig's set_name_type
 	script("modprobe 8021q")
@@ -501,14 +500,12 @@ EOF
 	script("vconfig set_name_type DEV_PLUS_VID_NO_PAD")
 	// Now prepare each interface configuration
 	for _, info := range networkInfo {
-		// Because eth0 is already configured in the br0 bridge, we
-		// don't want to break that.
-		if info.InterfaceName == "eth0" {
-			continue
+		if !configured.Contains(info.InterfaceName) {
+			// Register and bring up the physical interface.
+			script(ifaceConfig, info.InterfaceName, info.InterfaceName)
+			script("ifup %s", info.InterfaceName)
+			configured.Add(info.InterfaceName)
 		}
-		// Register and bring up the interface.
-		script(ifaceConfig, info.InterfaceName, info.InterfaceName)
-		script("ifup %s", info.InterfaceName)
 		if info.VLANTag > 0 {
 			// We have a VLAN and need to create and register it after
 			// its parent interface was brought up.

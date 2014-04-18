@@ -4,6 +4,10 @@
 package state
 
 import (
+	"fmt"
+
+	"labix.org/v2/mgo/bson"
+
 	"launchpad.net/juju-core/names"
 )
 
@@ -27,23 +31,47 @@ type NetworkInterfaceInfo struct {
 
 	// NetworkName is this interface's network name.
 	NetworkName string
+
+	// IsVirtual is true when the interface is a virtual device, as
+	// opposed to a physical device.
+	IsVirtual bool
 }
 
 // networkInterfaceDoc represents a network interface for a machine on
 // a given network.
-//
-// TODO(dimitern) To allow multiple virtual (e.g. VLAN) interfaces on
-// the same MAC address, we need to change the key and uniqueness
-// constraints.
 type networkInterfaceDoc struct {
-	MACAddress    string `bson:"_id"`
+	Id            bson.ObjectId `bson:"_id"`
+	MACAddress    string
 	InterfaceName string
 	NetworkName   string
 	MachineId     string
+	IsVirtual     bool
 }
 
 func newNetworkInterface(st *State, doc *networkInterfaceDoc) *NetworkInterface {
 	return &NetworkInterface{st, *doc}
+}
+
+func newNetworkInterfaceDoc(args NetworkInterfaceInfo) *networkInterfaceDoc {
+	// This does not set the machine id.
+	return &networkInterfaceDoc{
+		MACAddress:    args.MACAddress,
+		InterfaceName: args.InterfaceName,
+		NetworkName:   args.NetworkName,
+		IsVirtual:     args.IsVirtual,
+	}
+}
+
+// GoString implements fmt.GoStringer.
+func (ni *NetworkInterface) GoString() string {
+	return fmt.Sprintf(
+		"&state.NetworkInterface{machineId: %q, mac: %q, name: %q, networkName: %q, isVirtual: %v}",
+		ni.MachineId(), ni.MACAddress(), ni.InterfaceName(), ni.NetworkName(), ni.IsVirtual())
+}
+
+// Id returns the internal juju-specific id of the interface.
+func (ni *NetworkInterface) Id() string {
+	return ni.doc.Id.String()
 }
 
 // MACAddress returns the MAC address of the interface.
@@ -56,7 +84,7 @@ func (ni *NetworkInterface) InterfaceName() string {
 	return ni.doc.InterfaceName
 }
 
-// NetworkId returns the network name of the interface.
+// NetworkName returns the network name of the interface.
 func (ni *NetworkInterface) NetworkName() string {
 	return ni.doc.NetworkName
 }
@@ -74,4 +102,16 @@ func (ni *NetworkInterface) MachineId() string {
 // MachineTag returns the machine tag of the interface.
 func (ni *NetworkInterface) MachineTag() string {
 	return names.MachineTag(ni.doc.MachineId)
+}
+
+// IsVirtual returns whether the interface represents a virtual
+// device.
+func (ni *NetworkInterface) IsVirtual() bool {
+	return ni.doc.IsVirtual
+}
+
+// IsPhysical returns whether the interface represents a physical
+// device.
+func (ni *NetworkInterface) IsPhysical() bool {
+	return !ni.doc.IsVirtual
 }
