@@ -59,7 +59,7 @@ shift; shift; shift
 FIXED_BUGS=$@
 
 summary="The source package can be uploaded:"
-for series in "trusty" "saucy" "quantal" "precise"; do
+for series in "trusty" "saucy" "precise"; do
     source $SCRIPT_DIR/make-package-with-tarball.bash \
         -p $PPATCH $series $TARBALL "$DEBEMAIL" $FIXED_BUGS
     summary="$summary\n  cd $TMP_DIR"
