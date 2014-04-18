@@ -160,10 +160,10 @@ fi
 
 
 check_deps
-#publish_to_aws
+publish_to_aws
 publish_to_canonistack
-#publish_to_hp
-#publish_to_azure
-#publish_to_joyent
-#publish_to_streams
+publish_to_hp
+publish_to_azure
+publish_to_joyent
+publish_to_streams
 echo "$EVENT data published to all CPCs."
