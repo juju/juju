@@ -19,6 +19,7 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
+	"strings"
 )
 
 // Service represents the state of a service.
@@ -803,9 +804,10 @@ func (s *Service) Constraints() (constraints.Value, error) {
 
 // SetConstraints replaces the current service constraints.
 func (s *Service) SetConstraints(cons constraints.Value) (err error) {
-	err = s.st.validateConstraints(cons)
-	if constraints.IsNotSupportedError(err) {
-		logger.Warningf("setting constraints on service %q: %v", s.Name(), err)
+	unsupported, err := s.st.validateConstraints(cons)
+	if len(unsupported) > 0 {
+		logger.Warningf(
+			"setting constraints on service %q: unsupported constraints: %v", s.Name(), strings.Join(unsupported, ","))
 	} else if err != nil {
 		return err
 	}

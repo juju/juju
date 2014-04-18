@@ -1092,9 +1092,10 @@ func (m *Machine) Constraints() (constraints.Value, error) {
 // is already provisioned.
 func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 	defer utils.ErrorContextf(&err, "cannot set constraints")
-	err = m.st.validateConstraints(cons)
-	if constraints.IsNotSupportedError(err) {
-		logger.Warningf("setting constraints on machine %q: %v", m.Tag(), err)
+	unsupported, err := m.st.validateConstraints(cons)
+	if len(unsupported) > 0 {
+		logger.Warningf(
+			"setting constraints on machine %q: unsupported constraints: %v", m.Id(), strings.Join(unsupported, ","))
 	} else if err != nil {
 		return err
 	}

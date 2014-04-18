@@ -155,7 +155,7 @@ func (s *environSuite) TestSupportNetworks(c *gc.C) {
 func (s *environSuite) TestConstraintsValidator(c *gc.C) {
 	validator := s.env.ConstraintsValidator()
 	cons := constraints.MustParse("arch=amd64 instance-type=foo tags=bar cpu-power=10 cpu-cores=2 mem=1G")
-	err := validator.Validate(cons)
-	c.Assert(err, jc.Satisfies, constraints.IsNotSupportedError)
-	c.Assert(err, gc.ErrorMatches, "unsupported constraints: cpu-cores,cpu-power,mem,instance-type,tags")
+	unsupported, err := validator.Validate(cons)
+	c.Assert(err, gc.IsNil)
+	c.Assert(unsupported, gc.DeepEquals, []string{"cpu-power", "instance-type", "tags"})
 }
