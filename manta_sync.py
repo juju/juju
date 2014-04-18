@@ -87,7 +87,7 @@ def main():
         help="SSH key fingerprint.  Environment: MANTA_KEY_ID=FINGERPRINT",
         default=os.environ.get("MANTA_KEY_ID"))
     parser.add_argument(
-        '--container', default='juju', help='The container name.')
+        '--container', default='juju-dist', help='The container name.')
     parser.add_argument('path', help='The destination path in the container.')
     parser.add_argument(
         'files', nargs='*', help='The files to send to the container.')
