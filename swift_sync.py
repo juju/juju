@@ -6,25 +6,9 @@ from argparse import ArgumentParser
 import hashlib
 import json
 import os
-import re
 import subprocess
 import sys
 import urllib2
-
-
-def get_swift_url():
-    pattern = re.compile('(https://.*)/')
-    cmd = ['swift', 'capabilities']
-    # This relies on the swift url being shown somewhere in stdout or stderr.
-    proc = subprocess.Popen(
-        cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
-    out, err = proc.communicate()
-    swift_url = None
-    for line in out.split('\n') + err.split('\n'):
-        match = pattern.search(line)
-        if match:
-            swift_url = match.group(1)
-    return swift_url
 
 
 def get_account():
@@ -38,7 +22,7 @@ def get_account():
 
 
 def get_files(args):
-    swift_url = get_swift_url()
+    swift_url = os.environ['OS_SWIFT_URL']
     account = get_account()
     container_url = '{0}/v1/{1}/{2}?format=json'.format(
         swift_url, account, args.container)
@@ -91,7 +75,7 @@ def main():
     parser.add_argument(
         'files', nargs='*', help='The files to send to the container.')
     args = parser.parse_args()
-    if not os.environ['OS_AUTH_URL']:
+    if not os.environ.get('OS_AUTH_URL'):
         print('OS_AUTH_URL must be sourced into the environment.')
         sys.exit(1)
     remote_files = get_files(args)
