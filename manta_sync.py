@@ -4,10 +4,14 @@ from __future__ import print_function
 
 from argparse import ArgumentParser
 import base64
+from datetime import datetime
 import hashlib
+import json
 import mimetypes
 import os
+import subprocess
 import sys
+import urllib2
 
 import manta
 
@@ -16,11 +20,114 @@ USER_AGENT = "juju-cloud-sync/{} ({}) Python/{}".format(
     manta.__version__, sys.platform, sys.version.split(None, 1)[0])
 
 
-def get_md5content(remote_path):
+SSL_SIGN = """
+echo -n "date:" {0} |
+    openssl dgst -sha256 -sign {1} |
+    openssl enc -e -a |
+    tr -d '\n'
+"""
+
+
+class HeadRequest(urllib2.Request):
+
+    def get_method(self):
+        return "HEAD"
+
+
+class PutRequest(urllib2.Request):
+
+    def get_method(self):
+        return "PUT"
+
+
+class Client:
+    """A class that mirrors MantaClient without the modern Crypto."""
+
+    def __init__(self, manta_url, account, key_id,
+                 user_agent=USER_AGENT, verbose=False):
+        self.manta_url = manta_url
+        self.account = account
+        self.key_id = key_id
+        self.user_agent = user_agent
+
+    def make_request_headers(self, headers=None):
+        """Return a dict of required headers.
+
+        The Authorization header is always a signing of the "Date" header,
+        where "date" must be lowercase.
+        """
+        timestamp = datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")
+        key_path = os.path.join(os.environ['JUJU_HOME'], 'id_rsa')
+        script = SSL_SIGN.format(timestamp, key_path)
+        signature = subprocess.check_output(['bash', '-c', script])
+        key = "/{}/keys/{}".format(self.account, self.key_id)
+        auth = (
+            'Signature keyId="{}",algorithm="rsa-sha256",'.format(key) +
+            'signature="{}"'.format(signature))
+        if headers is None:
+            headers = {}
+        headers['Date'] = timestamp
+        headers['Authorization'] = auth
+        headers["User-Agent"] = USER_AGENT
+        return headers
+
+    def _request(self, path, method="GET", body=None, headers=None):
+        headers = self.make_request_headers(headers)
+        container_url = "{}/{}".format(self.manta_url, path)
+        if method == 'HEAD':
+            request = HeadRequest(container_url, headers=headers)
+        elif method == 'PUT':
+            request = PutRequest(container_url, data=body, headers=headers)
+        else:
+            request = urllib2.Request(container_url, headers=headers)
+        try:
+            response = urllib2.urlopen(request)
+        except Exception as err:
+            print(request.header_items())
+            print(err.read())
+            raise
+        content = response.read()
+        headers = dict(response.headers.items())
+        headers['status'] = str(response.getcode())
+        headers['reason'] = response.msg
+        return headers, content
+
+    def ls(self, container_path):
+        """Return a dict of a directory or file listing."""
+        headers, content = self._request(container_path)
+        files = {}
+        for string in content.splitlines():
+            data = json.loads(string)
+            files[data['name']] = data
+        return files
+
+    def put_object(self, remote_path, path=None,
+                   content_type="application/octet-stream",
+                   durability_level=None):
+        """Put an object at te remote path."""
+        with open(path, mode='rb') as local_file:
+            content = local_file.read()
+        if not isinstance(content, bytes):
+            raise ValueError("'content' must be bytes, not unicode")
+        headers = {
+            "Content-Type": content_type,
+        }
+        if durability_level:
+            headers["x-durability-level"] = durability_level
+        headers["Content-Length"] = str(len(content))
+        headers["Content-MD5"] = get_md5content(path, content)
+        response, content = self._request(
+            remote_path, method="PUT", body=content, headers=headers)
+        if response["status"] != "204":
+            raise Exception(content)
+
+
+def get_md5content(local_path, content=None):
     """Return the base64 encoded md5 digest for the local file."""
-    md5 = hashlib.md5()
-    with open(remote_path, mode='rb') as local_file:
-        md5.update(local_file.read())
+    if content is None:
+        with open(local_path, mode='rb') as local_file:
+            content = local_file.read()
+    md5 = hashlib.md5(content)
     base64_md5 = base64.encodestring(md5.digest()).strip()
     return base64_md5
 
@@ -95,10 +202,9 @@ def main():
     if not args.manta_url:
         print('MANTA_URL must be sourced into the environment.')
         sys.exit(1)
-    client = manta.MantaClient(
-        args.manta_url, args.account, signer=manta.CLISigner(args.key_id),
-        user_agent=USER_AGENT, verbose=args.verbose)
-    # /cpcjoyentsupport/public/juju/tools/streams/v1/
+    client = Client(
+        args.manta_url, args.account, args.key_id, verbose=args.verbose)
+    # /cpcjoyentsupport/public/juju-dist/tools/streams/v1/
     container_path = '/{0}/public/{1}/{2}'.format(
         args.account, args.container, args.path).replace('//', '/')
     if args.verbose:
