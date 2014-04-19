@@ -1,9 +1,0 @@
-*.pyc
-*.pyo
-__pycache__
-/*.tgz
-/build
-/tmp
-/dist
-/MANIFEST
-/manta.egg-info

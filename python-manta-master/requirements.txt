@@ -1,3 +1,0 @@
-pycrypto == 2.6
-paramiko >= 1.7.7.2
-httplib2 == 0.8
