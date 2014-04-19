@@ -13,11 +13,10 @@ import subprocess
 import sys
 import urllib2
 
-import manta
 
-
+VERSION = '0.1.0'
 USER_AGENT = "juju-cloud-sync/{} ({}) Python/{}".format(
-    manta.__version__, sys.platform, sys.version.split(None, 1)[0])
+    VERSION, sys.platform, sys.version.split(None, 1)[0])
 
 
 SSL_SIGN = """
@@ -41,7 +40,10 @@ class PutRequest(urllib2.Request):
 
 
 class Client:
-    """A class that mirrors MantaClient without the modern Crypto."""
+    """A class that mirrors MantaClient without the modern Crypto.
+
+    See https://github.com/joyent/python-manta
+    """
 
     def __init__(self, manta_url, account, key_id,
                  user_agent=USER_AGENT, verbose=False):
