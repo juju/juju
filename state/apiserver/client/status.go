@@ -239,7 +239,7 @@ func fetchAllServicesAndUnits(
 	}
 	for baseURL, _ := range latestCharms {
 		ch, err := st.LatestPlaceholderCharm(&baseURL)
-		if errors.IsNotFoundError(err) {
+		if errors.IsNotFound(err) {
 			continue
 		}
 		if err != nil {
@@ -312,6 +312,9 @@ func (context *statusContext) makeMachineStatus(machine *state.Machine) (status 
 		status.AgentStateInfo,
 		status.Err = processAgent(machine)
 	status.Series = machine.Series()
+	status.Jobs = paramsJobsFromJobs(machine.Jobs())
+	status.WantsVote = machine.WantsVote()
+	status.HasVote = machine.HasVote()
 	instid, err := machine.InstanceId()
 	if err == nil {
 		status.InstanceId = instid
@@ -334,7 +337,7 @@ func (context *statusContext) makeMachineStatus(machine *state.Machine) (status 
 	}
 	hc, err := machine.HardwareCharacteristics()
 	if err != nil {
-		if !errors.IsNotFoundError(err) {
+		if !errors.IsNotFound(err) {
 			status.Hardware = "error"
 		}
 	} else {
@@ -342,6 +345,15 @@ func (context *statusContext) makeMachineStatus(machine *state.Machine) (status 
 	}
 	status.Containers = make(map[string]api.MachineStatus)
 	return
+}
+
+// paramsJobsFromJobs converts state jobs to params jobs.
+func paramsJobsFromJobs(jobs []state.MachineJob) []params.MachineJob {
+	paramsJobs := make([]params.MachineJob, len(jobs))
+	for i, machineJob := range jobs {
+		paramsJobs[i] = machineJob.ToParams()
+	}
+	return paramsJobs
 }
 
 func (context *statusContext) processServices() map[string]api.ServiceStatus {

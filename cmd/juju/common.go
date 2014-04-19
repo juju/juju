@@ -35,7 +35,7 @@ func environFromName(
 		return nil, nil, err
 	}
 	var existing bool
-	if environInfo, err := store.ReadInfo(envName); !errors.IsNotFoundError(err) {
+	if environInfo, err := store.ReadInfo(envName); !errors.IsNotFound(err) {
 		existing = true
 		logger.Warningf("ignoring environments.yaml: using bootstrap config in %s", environInfo.Location())
 	}

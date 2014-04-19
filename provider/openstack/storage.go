@@ -178,7 +178,7 @@ func (s *openstackstorage) RemoveAll() error {
 // container not being found.
 func maybeNotFound(err error) (error, bool) {
 	if err != nil && gooseerrors.IsNotFound(err) {
-		return coreerrors.NewNotFoundError(err, ""), true
+		return coreerrors.NewNotFound(err, ""), true
 	}
 	return err, false
 }

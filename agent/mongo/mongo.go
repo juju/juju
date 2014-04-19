@@ -121,6 +121,7 @@ func MongodPath() (string, error) {
 
 	path, err := exec.LookPath("mongod")
 	if err != nil {
+		logger.Infof("could not find %v or mongod in $PATH", JujuMongodPath)
 		return "", err
 	}
 	return path, nil
@@ -185,19 +186,17 @@ func EnsureMongoServer(dataDir string, namespace string, info params.StateServin
 		return fmt.Errorf("cannot install mongod: %v", err)
 	}
 
-	upstartConf, err := mongoUpstartService(namespace, dataDir, dbDir, info.StatePort, withHA)
+	upstartConf, mongoPath, err := mongoUpstartService(namespace, dataDir, dbDir, info.StatePort, withHA)
 	if err != nil {
 		return err
 	}
+	logMongoVersion(mongoPath)
 
-	// TODO(natefinch) 2014-04-12 https://launchpad.net/bugs/1306902
-	// remove this once we support upgrading to HA
-	if upstartConf.Installed() {
-		return nil
+	if err := upstartServiceStop(&upstartConf.Service); err != nil {
+		return fmt.Errorf("failed to stop mongo: %v", err)
 	}
-
 	if err := makeJournalDirs(dbDir); err != nil {
-		return fmt.Errorf("Error creating journal directories: %v", err)
+		return fmt.Errorf("error creating journal directories: %v", err)
 	}
 	return upstartConfInstall(upstartConf)
 }
@@ -247,6 +246,16 @@ func makeJournalDirs(dataDir string) error {
 	return nil
 }
 
+func logMongoVersion(mongoPath string) {
+	cmd := exec.Command(mongoPath, "--version")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		logger.Infof("failed to read the output from %s --version: %v", mongoPath, err)
+		return
+	}
+	logger.Debugf("using mongod: %s --version: %q", mongoPath, output)
+}
+
 func sslKeyPath(dataDir string) string {
 	return filepath.Join(dataDir, "server.pem")
 }
@@ -256,14 +265,16 @@ func sharedSecretPath(dataDir string) string {
 }
 
 // mongoUpstartService returns the upstart config for the mongo state service.
-//
-func mongoUpstartService(namespace, dataDir, dbDir string, port int, withHA bool) (*upstart.Conf, error) {
+// It also returns the path to the mongod executable that the upstart config
+// will be using.
+func mongoUpstartService(namespace, dataDir, dbDir string, port int, withHA bool) (*upstart.Conf, string, error) {
 	svc := upstart.NewService(ServiceName(namespace))
 
 	mongoPath, err := MongodPath()
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
+
 	mongoCmd := mongoPath + " --auth" +
 		" --dbpath=" + utils.ShQuote(dbDir) +
 		" --sslOnNormalPorts" +
@@ -287,7 +298,7 @@ func mongoUpstartService(namespace, dataDir, dbDir string, port int, withHA bool
 		},
 		Cmd: mongoCmd,
 	}
-	return conf, nil
+	return conf, mongoPath, nil
 }
 
 func aptGetInstallMongod() error {
@@ -334,11 +345,11 @@ func addAptRepository(name string) error {
 func mongoNoauthCommand(dataDir string, port int) (*exec.Cmd, error) {
 	sslKeyFile := path.Join(dataDir, "server.pem")
 	dbDir := filepath.Join(dataDir, "db")
-	mongopath, err := MongodPath()
+	mongoPath, err := MongodPath()
 	if err != nil {
 		return nil, err
 	}
-	cmd := exec.Command(mongopath,
+	cmd := exec.Command(mongoPath,
 		"--noauth",
 		"--dbpath", dbDir,
 		"--sslOnNormalPorts",

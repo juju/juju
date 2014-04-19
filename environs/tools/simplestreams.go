@@ -337,7 +337,7 @@ func ReadMetadata(store storage.StorageReader) ([]*ToolsMetadata, error) {
 	}
 	metadata, _, err := Fetch(
 		[]simplestreams.DataSource{dataSource}, simplestreams.DefaultIndexPath, toolsConstraint, false)
-	if err != nil && !errors.IsNotFoundError(err) {
+	if err != nil && !errors.IsNotFound(err) {
 		return nil, err
 	}
 	return metadata, nil

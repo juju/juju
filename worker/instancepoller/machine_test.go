@@ -153,7 +153,7 @@ func (s *machineSuite) TestSinglePollWhenInstancInfoUnimplemented(c *gc.C) {
 	getInstanceInfo := func(id instance.Id) (instanceInfo, error) {
 		c.Check(id, gc.Equals, instance.Id("i1234"))
 		atomic.AddInt32(&count, 1)
-		return instanceInfo{}, errors.NewNotImplementedError("instance address")
+		return instanceInfo{}, errors.NotImplementedf("instance address")
 	}
 	context := &testMachineContext{
 		getInstanceInfo: getInstanceInfo,

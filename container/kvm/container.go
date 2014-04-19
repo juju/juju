@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/container"
-	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/errors"
 )
 
 type kvmContainer struct {
@@ -35,7 +35,7 @@ func (c *kvmContainer) Start(params StartParams) error {
 		if params.Network.NetworkType == container.BridgeNetwork {
 			bridge = params.Network.Device
 		} else {
-			return log.LoggedErrorf(logger, "Non-bridge network devices not yet supported")
+			return errors.LoggedErrorf(logger, "Non-bridge network devices not yet supported")
 		}
 	}
 	logger.Debugf("Create the machine %s", c.name)

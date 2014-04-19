@@ -543,7 +543,7 @@ func (s *DeployLocalSuite) TestDeploySettingsError(c *gc.C) {
 		})
 	c.Assert(err, gc.ErrorMatches, `option "skill-level" expected int, got 99.01`)
 	_, err = s.State.Service("bob")
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {

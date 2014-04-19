@@ -10,7 +10,7 @@ import (
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state/api/keyupdater"
 	"launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/utils/set"
@@ -50,14 +50,14 @@ func (kw *keyupdaterWorker) SetUp() (watcher.NotifyWatcher, error) {
 	// Record the keys Juju knows about.
 	jujuKeys, err := kw.st.AuthorisedKeys(kw.tag)
 	if err != nil {
-		return nil, log.LoggedErrorf(logger, "reading Juju ssh keys for %q: %v", kw.tag, err)
+		return nil, errors.LoggedErrorf(logger, "reading Juju ssh keys for %q: %v", kw.tag, err)
 	}
 	kw.jujuKeys = set.NewStrings(jujuKeys...)
 
 	// Read the keys currently in ~/.ssh/authorised_keys.
 	sshKeys, err := ssh.ListKeys(SSHUser, ssh.FullKeys)
 	if err != nil {
-		return nil, log.LoggedErrorf(logger, "reading ssh authorized keys for %q: %v", kw.tag, err)
+		return nil, errors.LoggedErrorf(logger, "reading ssh authorized keys for %q: %v", kw.tag, err)
 	}
 	// Record any keys not added by Juju.
 	for _, key := range sshKeys {
@@ -69,12 +69,12 @@ func (kw *keyupdaterWorker) SetUp() (watcher.NotifyWatcher, error) {
 	}
 	// Write out the ssh authorised keys file to match the current state of the world.
 	if err := kw.writeSSHKeys(jujuKeys); err != nil {
-		return nil, log.LoggedErrorf(logger, "adding current Juju keys to ssh authorised keys: %v", err)
+		return nil, errors.LoggedErrorf(logger, "adding current Juju keys to ssh authorised keys: %v", err)
 	}
 
 	w, err := kw.st.WatchAuthorisedKeys(kw.tag)
 	if err != nil {
-		return nil, log.LoggedErrorf(logger, "starting key updater worker: %v", err)
+		return nil, errors.LoggedErrorf(logger, "starting key updater worker: %v", err)
 	}
 	logger.Infof("%q key updater worker started", kw.tag)
 	return w, nil
@@ -97,7 +97,7 @@ func (kw *keyupdaterWorker) Handle() error {
 	// Read the keys that Juju has.
 	newKeys, err := kw.st.AuthorisedKeys(kw.tag)
 	if err != nil {
-		return log.LoggedErrorf(logger, "reading Juju ssh keys for %q: %v", kw.tag, err)
+		return errors.LoggedErrorf(logger, "reading Juju ssh keys for %q: %v", kw.tag, err)
 	}
 	// Figure out if any keys have been added or deleted.
 	newJujuKeys := set.NewStrings(newKeys...)
@@ -107,7 +107,7 @@ func (kw *keyupdaterWorker) Handle() error {
 		logger.Debugf("adding ssh keys to authorised keys: %v", added)
 		logger.Debugf("deleting ssh keys from authorised keys: %v", deleted)
 		if err = kw.writeSSHKeys(newKeys); err != nil {
-			return log.LoggedErrorf(logger, "updating ssh keys: %v", err)
+			return errors.LoggedErrorf(logger, "updating ssh keys: %v", err)
 		}
 	}
 	kw.jujuKeys = newJujuKeys

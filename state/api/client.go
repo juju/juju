@@ -58,6 +58,9 @@ type MachineStatus struct {
 	Id             string
 	Containers     map[string]MachineStatus
 	Hardware       string
+	Jobs           []params.MachineJob
+	HasVote        bool
+	WantsVote      bool
 }
 
 // ServiceStatus holds status info about a service.
@@ -761,17 +764,21 @@ type DebugLogParams struct {
 	Replay bool
 }
 
-// WatchDebugLog returns a ReadCloser that the caller can read the log lines
-// from. Only log lines that match the filtering specified in the
-// DebugLogParams are returned. It returns an error that satisfies
-// IsNotSupportedError when the API server does not support the end-point.
+// WatchDebugLog returns a ReadCloser that the caller can read the log
+// lines from. Only log lines that match the filtering specified in
+// the DebugLogParams are returned. It returns an error that satisfies
+// errors.IsNotImplemented when the API server does not support the
+// end-point.
+//
+// TODO(dimitern) We already have errors.IsNotImplemented - why do we
+// need to define a different error for this purpose here?
 func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
 	// The websocket connection just hangs if the server doesn't have the log
 	// end point. So do a version check, as version was added at the same time
 	// as the remote end point.
 	_, err := c.AgentVersion()
 	if err != nil {
-		return nil, errors.NewNotSupportedError("WatchDebugLog")
+		return nil, errors.NotSupportedf("WatchDebugLog")
 	}
 	// Prepare URL.
 	attrs := url.Values{}

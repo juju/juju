@@ -49,9 +49,9 @@ func (s *CleanupSuite) TestCleanupDyingServiceUnits(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(units[0].Life(), gc.Equals, state.Dying)
 	err = units[1].Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	err = units[2].Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *CleanupSuite) TestCleanupEnvironmentServices(c *gc.C) {
@@ -90,7 +90,7 @@ func (s *CleanupSuite) TestCleanupEnvironmentServices(c *gc.C) {
 	s.assertCleanupRuns(c)
 	for _, unit := range units {
 		err = unit.Refresh()
-		c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+		c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	}
 	s.assertDoesNotNeedCleanup(c)
 }
@@ -221,7 +221,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
 	s.assertCleanupRuns(c)
 	s.assertDoesNotNeedCleanup(c)
 	err = container.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// ...and so have all the units...
 	assertRemoved(c, prr.pu0)

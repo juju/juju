@@ -60,7 +60,7 @@ func (f *fileStorageReader) Get(name string) (io.ReadCloser, error) {
 	fi, err := os.Stat(filename)
 	if err != nil {
 		if os.IsNotExist(err) {
-			err = coreerrors.NewNotFoundError(err, "")
+			err = coreerrors.NewNotFound(err, "")
 		}
 		return nil, err
 	} else if fi.IsDir() {

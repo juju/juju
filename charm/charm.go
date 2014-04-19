@@ -7,7 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"os"
+
+	"github.com/juju/loggo"
 )
+
+var logger = loggo.GetLogger("juju.charm")
 
 // The Charm interface is implemented by any type that
 // may be handled as a charm.

@@ -333,7 +333,7 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	assertNotInScope(c, pr.ru1)
 	err = rel.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// The settings were not themselves actually deleted yet...
 	assertSettings()
