@@ -55,7 +55,12 @@ def prepare_environment(environment, already_bootstrapped, machines):
 def destroy_environment(environment):
     if environment.config['type'] != 'manual':
         environment.destroy_environment()
-    instances = list(get_job_instances(os.environ['JOB_NAME']))
+    else:
+        destroy_job_instances(os.environ['JOB_NAME'])
+
+
+def destroy_job_instances(job_name)
+    instances = list(get_job_instances(job_name))
     subprocess.check_call(['euca-terminate-instances'] + instances)
 
 
