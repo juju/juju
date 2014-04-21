@@ -128,7 +128,7 @@ def dump_logs(env, host, directory):
         for log_name in log_names:
             try:
                 scp_logs([log_name], directory)
-            except CalledProcessError:
+            except subprocess.CalledProcessError:
                 pass
     for log_name in os.listdir(directory):
         if not log_name.endswith('.log'):
