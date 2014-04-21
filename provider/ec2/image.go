@@ -56,6 +56,9 @@ func findInstanceSpec(
 	if len(matchingImages) == 0 {
 		logger.Warningf("no matching image meta data for constraints: %v", ic)
 	}
+	for _, img := range matchingImages {
+		logger.Debugf("Image: %s, arch %v", img.Id, img.Arch)
+	}
 	suitableImages := filterImages(matchingImages)
 	images := instances.ImageMetadataToImages(suitableImages)
 
@@ -75,5 +78,8 @@ func findInstanceSpec(
 		itWithCost.Cost = cost
 		itypesWithCosts = append(itypesWithCosts, itWithCost)
 	}
-	return instances.FindInstanceSpec(images, ic, itypesWithCosts)
+	logger.Debugf("Images: %#v", images)
+	spec, err := instances.FindInstanceSpec(images, ic, itypesWithCosts)
+	logger.Debugf("chosen spec: %#v", *spec)
+	return spec, err
 }

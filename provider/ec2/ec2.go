@@ -403,7 +403,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	if err != nil {
 		return nil, nil, nil, err
 	}
-
+	logger.Debugf("Arches: %v", arches)
 	series := args.Tools.OneSeries()
 	spec, err := findInstanceSpec(sources, e.Config().ImageStream(), &instances.InstanceConstraint{
 		Region:      e.ecfg().region(),

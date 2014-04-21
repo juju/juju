@@ -8,6 +8,7 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/imagemetadata"
+	"launchpad.net/juju-core/juju/arch"
 )
 
 // InstanceConstraint constrains the possible instances that may be
@@ -56,12 +57,26 @@ func FindInstanceSpec(possibleImages []Image, ic *InstanceConstraint, allInstanc
 		return nil, err
 	}
 
+	specs := []*InstanceSpec{}
+
 	for _, itype := range matchingTypes {
 		for _, image := range possibleImages {
 			if image.match(itype) {
-				return &InstanceSpec{itype, image}, nil
+				specs = append(specs, &InstanceSpec{itype, image})
 			}
 		}
+	}
+
+	if len(specs) > 1 {
+		for _, spec := range specs {
+			// prefer AMD64
+			if spec.Image.Arch == arch.AMD64 {
+				return spec, nil
+			}
+		}
+	}
+	if len(specs) > 0 {
+		return specs[0], nil
 	}
 
 	if len(possibleImages) == 0 || len(matchingTypes) == 0 {
