@@ -573,6 +573,7 @@ func (suite *environSuite) TestSupportedArchitectures(c *gc.C) {
 func (suite *environSuite) TestGetNetworkMACs(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
+
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node_1"}`)
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node_2"}`)
 	suite.testMAASObject.TestServer.NewNetwork(`{"name": "net_1"}`)
@@ -581,12 +582,15 @@ func (suite *environSuite) TestGetNetworkMACs(c *gc.C) {
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node_1", "net_1", "aa:bb:cc:dd:ee:11")
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node_2", "net_1", "aa:bb:cc:dd:ee:21")
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node_1", "net_2", "aa:bb:cc:dd:ee:12")
+
 	networks, err := env.getNetworkMACs("net_1")
 	c.Assert(err, gc.IsNil)
 	c.Check(networks, jc.SameContents, []string{"aa:bb:cc:dd:ee:11", "aa:bb:cc:dd:ee:21"})
+
 	networks, err = env.getNetworkMACs("net_2")
 	c.Assert(err, gc.IsNil)
 	c.Check(networks, jc.SameContents, []string{"aa:bb:cc:dd:ee:12", "aa:bb:cc:dd:ee:22"})
+
 	networks, err = env.getNetworkMACs("net_3")
 	c.Check(networks, gc.HasLen, 0)
 	c.Assert(err, gc.IsNil)
@@ -658,6 +662,7 @@ func (suite *environSuite) TestGetInstanceNetworkInterfaces(c *gc.C) {
 	}
 	lshwXML, err := suite.generateHWTemplate(templateInterfaces)
 	c.Assert(err, gc.IsNil)
+
 	suite.testMAASObject.TestServer.AddNodeDetails("testInstance", lshwXML)
 	interfaces, err := inst.environ.getInstanceNetworkInterfaces(inst)
 	c.Assert(err, gc.IsNil)
@@ -673,6 +678,7 @@ func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 	}
 	lshwXML, err := suite.generateHWTemplate(templateInterfaces)
 	c.Assert(err, gc.IsNil)
+
 	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
 	suite.getNetwork("LAN", 2, 42)
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "LAN", "aa:bb:cc:dd:ee:f1")
@@ -682,6 +688,7 @@ func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "WLAN", "aa:bb:cc:dd:ee:ff")
 	networkInfo, err := suite.makeEnviron().setupNetworks(test_instance)
 	c.Assert(err, gc.IsNil)
+
 	// Note: order of networks is based on lshwXML
 	c.Check(networkInfo, jc.SameContents, []environs.NetworkInfo{
 		environs.NetworkInfo{
@@ -718,6 +725,7 @@ func (suite *environSuite) TestSetupNetworksPartialMatch(c *gc.C) {
 	}
 	lshwXML, err := suite.generateHWTemplate(templateInterfaces)
 	c.Assert(err, gc.IsNil)
+
 	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
 	suite.getNetwork("LAN", 2, 42)
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "LAN", "aa:bb:cc:dd:ee:f1")
@@ -725,6 +733,7 @@ func (suite *environSuite) TestSetupNetworksPartialMatch(c *gc.C) {
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f3")
 	networkInfo, err := suite.makeEnviron().setupNetworks(test_instance)
 	c.Assert(err, gc.IsNil)
+
 	// Note: order of networks is based on lshwXML
 	c.Check(networkInfo, jc.SameContents, []environs.NetworkInfo{
 		environs.NetworkInfo{
@@ -747,11 +756,13 @@ func (suite *environSuite) TestSetupNetworksNoMatch(c *gc.C) {
 	}
 	lshwXML, err := suite.generateHWTemplate(templateInterfaces)
 	c.Assert(err, gc.IsNil)
+
 	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
 	suite.getNetwork("Virt", 3, 0)
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f3")
 	networkInfo, err := suite.makeEnviron().setupNetworks(test_instance)
 	c.Assert(err, gc.IsNil)
+
 	// Note: order of networks is based on lshwXML
 	c.Check(networkInfo, gc.HasLen, 0)
 }
