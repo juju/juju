@@ -4,10 +4,13 @@
 package common
 
 import (
-	"launchpad.net/juju-core/log"
+	"github.com/juju/loggo"
+
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 )
+
+var logger = loggo.GetLogger("juju.state.apiserver.common")
 
 // PasswordChanger implements a common SetPasswords method for use by
 // various facades.
@@ -61,7 +64,7 @@ func (pc *PasswordChanger) setMongoPassword(entity state.Entity, password string
 		if err := entity0.SetMongoPassword(password); err != nil {
 			return err
 		}
-		log.Infof("setting mongo password for %q", entity.Tag())
+		logger.Infof("setting mongo password for %q", entity.Tag())
 		return nil
 	}
 	return NotSupportedError(entity.Tag(), "mongo access")
@@ -91,7 +94,7 @@ func (pc *PasswordChanger) setPassword(tag, password string) error {
 	}
 	if err == nil {
 		err = entity.SetPassword(password)
-		log.Infof("setting password for %q", tag)
+		logger.Infof("setting password for %q", tag)
 	}
 	return err
 }

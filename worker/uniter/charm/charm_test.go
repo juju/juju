@@ -64,7 +64,9 @@ func (br *bundleReader) Read(info charm.BundleInfo, abort <-chan struct{}) (char
 func (br *bundleReader) AddCustomBundle(c *gc.C, url *corecharm.URL, customize func(path string)) charm.BundleInfo {
 	base := c.MkDir()
 	dirpath := coretesting.Charms.ClonedDirPath(base, "dummy")
-	customize(dirpath)
+	if customize != nil {
+		customize(dirpath)
+	}
 	dir, err := corecharm.ReadDir(dirpath)
 	c.Assert(err, gc.IsNil)
 	err = dir.SetDiskRevision(url.Revision)
@@ -107,5 +109,13 @@ func (b mockBundle) Manifest() (set.Strings, error) {
 }
 
 func (b mockBundle) ExpandTo(dir string) error {
-	return b.expand(dir)
+	if b.expand != nil {
+		return b.expand(dir)
+	}
+	return nil
+}
+
+func charmURL(revision int) *corecharm.URL {
+	baseURL := corecharm.MustParseURL("cs:s/c")
+	return baseURL.WithRevision(revision)
 }

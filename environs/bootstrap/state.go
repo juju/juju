@@ -65,7 +65,7 @@ func SaveState(storage storage.StorageWriter, state *BootstrapState) error {
 func LoadState(stor storage.StorageReader) (*BootstrapState, error) {
 	r, err := storage.Get(stor, StateFile)
 	if err != nil {
-		if coreerrors.IsNotFoundError(err) {
+		if coreerrors.IsNotFound(err) {
 			return nil, environs.ErrNotBootstrapped
 		}
 		return nil, err

@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"launchpad.net/juju-core/charm/hooks"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker/uniter/hook"
 )
@@ -52,7 +53,7 @@ func (s *State) copy() *State {
 // against the current state before they are run, to ensure that the system
 // meets its guarantees about hook execution order.
 func (s *State) Validate(hi hook.Info) (err error) {
-	defer utils.ErrorContextf(&err, "inappropriate %q for %q", hi.Kind, hi.RemoteUnit)
+	defer errors.Maskf(&err, "inappropriate %q for %q", hi.Kind, hi.RemoteUnit)
 	if hi.RelationId != s.RelationId {
 		return fmt.Errorf("expected relation %d, got relation %d", s.RelationId, hi.RelationId)
 	}
@@ -104,7 +105,7 @@ func ReadStateDir(dirPath string, relationId int) (d *StateDir, err error) {
 		filepath.Join(dirPath, strconv.Itoa(relationId)),
 		State{relationId, map[string]int64{}, ""},
 	}
-	defer utils.ErrorContextf(&err, "cannot load relation state from %q", d.path)
+	defer errors.Maskf(&err, "cannot load relation state from %q", d.path)
 	if _, err := os.Stat(d.path); os.IsNotExist(err) {
 		return d, nil
 	} else if err != nil {
@@ -149,7 +150,7 @@ func ReadStateDir(dirPath string, relationId int) (d *StateDir, err error) {
 // ReadAllStateDirs loads and returns every StateDir persisted directly inside
 // the supplied dirPath. If dirPath does not exist, no error is returned.
 func ReadAllStateDirs(dirPath string) (dirs map[int]*StateDir, err error) {
-	defer utils.ErrorContextf(&err, "cannot load relations state from %q", dirPath)
+	defer errors.Maskf(&err, "cannot load relations state from %q", dirPath)
 	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
 		return nil, nil
 	} else if err != nil {
@@ -187,7 +188,7 @@ func (d *StateDir) Ensure() error {
 // Write doesn't validate hi but guarantees that successive writes of
 // the same hi are idempotent.
 func (d *StateDir) Write(hi hook.Info) (err error) {
-	defer utils.ErrorContextf(&err, "failed to write %q hook info for %q on state directory", hi.Kind, hi.RemoteUnit)
+	defer errors.Maskf(&err, "failed to write %q hook info for %q on state directory", hi.Kind, hi.RemoteUnit)
 	if hi.Kind == hooks.RelationBroken {
 		return d.Remove()
 	}

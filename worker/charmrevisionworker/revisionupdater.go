@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/api/charmrevisionupdater"
 	"launchpad.net/juju-core/worker"
 )
+
+var logger = loggo.GetLogger("juju.worker.charmrevisionworker")
 
 // interval sets how often the resuming is called.
 var interval = 24 * time.Hour
@@ -70,6 +72,6 @@ func (ruw *RevisionUpdateWorker) loop() error {
 
 func (ruw *RevisionUpdateWorker) updateVersions() {
 	if err := ruw.st.UpdateLatestRevisions(); err != nil {
-		log.Errorf("worker/charm revision lookup: cannot process charms: %v", err)
+		logger.Errorf("cannot process charms: %v", err)
 	}
 }

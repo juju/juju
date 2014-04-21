@@ -87,7 +87,7 @@ func (st *State) precheckInstance(series string, cons constraints.Value) error {
 		return err
 	}
 	prechecker, err := st.policy.Prechecker(cfg)
-	if errors.IsNotImplementedError(err) {
+	if errors.IsNotImplemented(err) {
 		return nil
 	} else if err != nil {
 		return err
@@ -110,7 +110,7 @@ func (st *State) constraintsValidator() (constraints.Validator, error) {
 		return nil, err
 	}
 	validator, err := st.policy.ConstraintsValidator(cfg)
-	if errors.IsNotImplementedError(err) {
+	if errors.IsNotImplemented(err) {
 		return defaultValidator, nil
 	} else if err != nil {
 		return nil, err
@@ -153,7 +153,7 @@ func (st *State) validate(cfg, old *config.Config) (valid *config.Config, err er
 		return cfg, nil
 	}
 	configValidator, err := st.policy.ConfigValidator(cfg.Type())
-	if errors.IsNotImplementedError(err) {
+	if errors.IsNotImplemented(err) {
 		return cfg, nil
 	} else if err != nil {
 		return nil, err
@@ -176,7 +176,7 @@ func (st *State) supportsUnitPlacement() error {
 		return err
 	}
 	capability, err := st.policy.EnvironCapability(cfg)
-	if errors.IsNotImplementedError(err) {
+	if errors.IsNotImplemented(err) {
 		return nil
 	} else if err != nil {
 		return err

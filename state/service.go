@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
@@ -18,8 +19,6 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/utils"
-	"strings"
 )
 
 // Service represents the state of a service.
@@ -104,7 +103,7 @@ var errRefresh = stderrors.New("state seems inconsistent, refresh and try again"
 // some point; if the service has no units, and no relation involving the
 // service has any units in scope, they are all removed immediately.
 func (s *Service) Destroy() (err error) {
-	defer utils.ErrorContextf(&err, "cannot destroy service %q", s)
+	defer errors.Maskf(&err, "cannot destroy service %q", s)
 	defer func() {
 		if err == nil {
 			// This is a white lie; the document might actually be removed.
@@ -124,7 +123,7 @@ func (s *Service) Destroy() (err error) {
 		default:
 			return err
 		}
-		if err := svc.Refresh(); errors.IsNotFoundError(err) {
+		if err := svc.Refresh(); errors.IsNotFound(err) {
 			return nil
 		} else if err != nil {
 			return err
@@ -516,8 +515,8 @@ func (s *Service) String() string {
 }
 
 // Refresh refreshes the contents of the Service from the underlying
-// state. It returns an error that satisfies IsNotFound if the service has
-// been removed.
+// state. It returns an error that satisfies errors.IsNotFound if the
+// service has been removed.
 func (s *Service) Refresh() error {
 	err := s.st.services.FindId(s.doc.Name).One(&s.doc)
 	if err == mgo.ErrNotFound {
@@ -623,7 +622,7 @@ func (s *Service) GetOwnerTag() string {
 
 // AddUnit adds a new principal unit to the service.
 func (s *Service) AddUnit() (unit *Unit, err error) {
-	defer utils.ErrorContextf(&err, "cannot add unit to service %q", s)
+	defer errors.Maskf(&err, "cannot add unit to service %q", s)
 	name, ops, err := s.addUnitOps("", nil)
 	if err != nil {
 		return nil, err
@@ -678,7 +677,7 @@ func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	)
 	if u.doc.CharmURL != nil {
 		decOps, err := settingsDecRefOps(s.st, s.doc.Name, u.doc.CharmURL)
-		if errors.IsNotFoundError(err) {
+		if errors.IsNotFound(err) {
 			return nil, errRefresh
 		} else if err != nil {
 			return nil, err
@@ -740,7 +739,7 @@ func (s *Service) Relations() (relations []*Relation, err error) {
 }
 
 func serviceRelations(st *State, name string) (relations []*Relation, err error) {
-	defer utils.ErrorContextf(&err, "can't get relations for service %q", name)
+	defer errors.Maskf(&err, "can't get relations for service %q", name)
 	docs := []relationDoc{}
 	err = st.relations.Find(bson.D{{"endpoints.servicename", name}}).All(&docs)
 	if err != nil {
@@ -814,7 +813,7 @@ func (s *Service) SetConstraints(cons constraints.Value) (err error) {
 	if s.doc.Subordinate {
 		return ErrSubordinateConstraints
 	}
-	defer utils.ErrorContextf(&err, "cannot set constraints")
+	defer errors.Maskf(&err, "cannot set constraints")
 	if s.doc.Life != Alive {
 		return errNotAlive
 	}

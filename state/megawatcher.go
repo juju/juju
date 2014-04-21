@@ -63,7 +63,7 @@ func (m *backingMachine) updated(st *State, store *multiwatcher.Store, id interf
 		if err == nil {
 			info.InstanceId = string(instanceData.InstanceId)
 			info.HardwareCharacteristics = hardwareCharacteristics(instanceData)
-		} else if !errors.IsNotFoundError(err) {
+		} else if !errors.IsNotFound(err) {
 			return err
 		}
 	}

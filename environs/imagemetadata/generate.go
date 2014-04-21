@@ -38,7 +38,7 @@ func readMetadata(metadataStore storage.Storage) ([]*ImageMetadata, error) {
 	imageConstraint := NewImageConstraint(simplestreams.LookupParams{})
 	existingMetadata, _, err := Fetch(
 		[]simplestreams.DataSource{dataSource}, simplestreams.DefaultIndexPath, imageConstraint, false)
-	if err != nil && !errors.IsNotFoundError(err) {
+	if err != nil && !errors.IsNotFound(err) {
 		return nil, err
 	}
 	return existingMetadata, nil

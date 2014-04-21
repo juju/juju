@@ -168,7 +168,7 @@ func EnsureToolsAvailability(ctx environs.BootstrapContext, env environs.Environ
 	toolsList, err := envtools.FindBootstrapTools(env, params)
 	if err == nil {
 		return toolsList, nil
-	} else if !errors.IsNotFoundError(err) {
+	} else if !errors.IsNotFound(err) {
 		return nil, err
 	}
 

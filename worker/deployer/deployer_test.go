@@ -249,7 +249,7 @@ func isDeployed(ctx deployer.Context, expected ...string) func(*gc.C) bool {
 func isRemoved(st *state.State, name string) func(*gc.C) bool {
 	return func(c *gc.C) bool {
 		_, err := st.Unit(name)
-		if errors.IsNotFoundError(err) {
+		if errors.IsNotFound(err) {
 			return true
 		}
 		c.Assert(err, gc.IsNil)

@@ -68,11 +68,12 @@ func (stor *maasStorage) addressFileObject(name string) gomaasapi.MAASObject {
 	return stor.maasClientUnlocked.GetSubObject(name)
 }
 
-// retrieveFileObject retrieves the information of the named file, including
-// its download URL and its contents, as a MAASObject.
+// retrieveFileObject retrieves the information of the named file,
+// including its download URL and its contents, as a MAASObject.
 //
 // This may return many different errors, but specifically, it returns
-// an error that satisfies errors.IsNotFoundError if the file did not exist.
+// an error that satisfies errors.IsNotFound if the file did not
+// exist.
 //
 // The function takes out a lock on the storage object.
 func (stor *maasStorage) retrieveFileObject(name string) (gomaasapi.MAASObject, error) {

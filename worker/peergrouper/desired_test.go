@@ -8,20 +8,14 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	stdtesting "testing"
 
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/replicaset"
-	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
-
-func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 type desiredPeerGroupSuite struct {
 	testbase.LoggingSuite
@@ -212,7 +206,9 @@ func (*desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 			continue
 		}
 		for i, m := range test.machines {
-			c.Assert(voting[m], gc.Equals, test.expectVoting[i], gc.Commentf("machine %s", m.id))
+			vote, votePresent := voting[m]
+			c.Check(votePresent, jc.IsTrue)
+			c.Check(vote, gc.Equals, test.expectVoting[i], gc.Commentf("machine %s", m.id))
 		}
 		// Assure ourselves that the total number of desired votes is odd in
 		// all circumstances.
@@ -224,7 +220,11 @@ func (*desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 		info.members = members
 		members, voting, err = desiredPeerGroup(info)
 		c.Assert(members, gc.IsNil)
-		c.Assert(voting, gc.IsNil)
+		for i, m := range test.machines {
+			vote, votePresent := voting[m]
+			c.Check(votePresent, jc.IsTrue)
+			c.Check(vote, gc.Equals, test.expectVoting[i], gc.Commentf("machine %s", m.id))
+		}
 		c.Assert(err, gc.IsNil)
 	}
 }
@@ -275,7 +275,7 @@ func mkMachines(description string) []*machine {
 }
 
 func memberTag(id string) map[string]string {
-	return map[string]string{"juju-machine-id": id}
+	return map[string]string{jujuMachineTag: id}
 }
 
 // mkMembers returns a slice of *replicaset.Member

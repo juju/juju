@@ -472,7 +472,7 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	err = rel.Destroy()
 	c.Assert(err, gc.IsNil)
 	err = rel.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// Verify that no other hooks were sent at any stage.
 	select {

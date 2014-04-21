@@ -15,11 +15,11 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/cert"
-	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/names"
 	apirsyslog "launchpad.net/juju-core/state/api/rsyslog"
 	"launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/syslog"
 	"launchpad.net/juju-core/worker"
 )
 

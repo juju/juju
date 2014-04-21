@@ -17,6 +17,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	lxctesting "launchpad.net/juju-core/container/lxc/testing"
@@ -58,6 +59,7 @@ type commonMachineSuite struct {
 	agentSuite
 	singularRecord *singularRunnerRecord
 	lxctesting.TestSuite
+	fakeEnsureMongo fakeEnsure
 }
 
 func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
@@ -92,6 +94,13 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 
 	s.singularRecord = &singularRunnerRecord{}
 	testing.PatchValue(&newSingularRunner, s.singularRecord.newSingularRunner)
+	testing.PatchValue(&peergrouperNew, func(st *state.State) (worker.Worker, error) {
+		return newDummyWorker(), nil
+	})
+
+	s.fakeEnsureMongo = fakeEnsure{}
+	s.PatchValue(&ensureMongoServer, s.fakeEnsureMongo.fakeEnsureMongo)
+	s.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.fakeInitiateMongo)
 }
 
 func fakeCmd(path string) {
@@ -119,6 +128,10 @@ func (s *commonMachineSuite) primeAgent(
 	inst, md := jujutesting.AssertStartInstance(c, s.Conn.Environ, m.Id())
 	c.Assert(m.SetProvisioned(inst.Id(), state.BootstrapNonce, md), gc.IsNil)
 
+	// Add an address for the tests in case the maybeInitiateMongoServer
+	// codepath is exercised.
+	s.setFakeMachineAddresses(c, m)
+
 	// Set up the new machine.
 	err = m.SetAgentVersion(vers)
 	c.Assert(err, gc.IsNil)
@@ -129,6 +142,10 @@ func (s *commonMachineSuite) primeAgent(
 		err = m.SetMongoPassword(initialMachinePassword)
 		c.Assert(err, gc.IsNil)
 		config, tools = s.agentSuite.primeStateAgent(c, tag, initialMachinePassword, vers)
+		info, ok := config.StateServingInfo()
+		c.Assert(ok, jc.IsTrue)
+		err = s.State.SetStateServingInfo(info)
+		c.Assert(err, gc.IsNil)
 	} else {
 		config, tools = s.agentSuite.primeAgent(c, tag, initialMachinePassword, vers)
 	}
@@ -293,7 +310,7 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 		if err == nil && attempt.HasNext() {
 			continue
 		}
-		c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+		c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	}
 
 	// short-circuit-remove u1 after it's been deployed; check it's recalled
@@ -301,7 +318,7 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 	err = u1.Destroy()
 	c.Assert(err, gc.IsNil)
 	err = u1.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	ctx.waitDeployed(c)
 }
 
@@ -319,7 +336,7 @@ func patchDeployContext(c *gc.C, st *state.State) (*fakeContext, func()) {
 	return ctx, func() { newDeployContext = orig }
 }
 
-func (s *MachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Machine) {
+func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Machine) {
 	addrs := []instance.Address{
 		instance.NewAddress("0.1.2.3", instance.NetworkUnknown),
 	}
@@ -339,7 +356,6 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 	usefulVersion.Series = "quantal" // to match the charm created below
 	envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), usefulVersion)
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
-	s.setFakeMachineAddresses(c, m)
 	op := make(chan dummy.Operation, 200)
 	dummy.Listen(op)
 
@@ -397,7 +413,6 @@ func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
 	usefulVersion.Series = "quantal" // to match the charm created below
 	envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), usefulVersion)
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
-	s.setFakeMachineAddresses(c, m)
 	a := s.newAgent(c, m)
 	defer a.Stop()
 	go func() {
@@ -430,7 +445,29 @@ func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
 			break
 		}
 	}
+}
 
+func (s *MachineSuite) TestManageEnvironRunsPeergrouper(c *gc.C) {
+	started := make(chan struct{}, 1)
+	testing.PatchValue(&peergrouperNew, func(st *state.State) (worker.Worker, error) {
+		c.Check(st, gc.NotNil)
+		select {
+		case started <- struct{}{}:
+		default:
+		}
+		return newDummyWorker(), nil
+	})
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	defer a.Stop()
+	go func() {
+		c.Check(a.Run(nil), gc.IsNil)
+	}()
+	select {
+	case <-started:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for peergrouper worker to be started")
+	}
 }
 
 func (s *MachineSuite) TestManageEnvironCallsUseMultipleCPUs(c *gc.C) {
@@ -439,7 +476,6 @@ func (s *MachineSuite) TestManageEnvironCallsUseMultipleCPUs(c *gc.C) {
 	usefulVersion.Series = "quantal"
 	envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), usefulVersion)
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
-	s.setFakeMachineAddresses(c, m)
 	calledChan := make(chan struct{}, 1)
 	s.PatchValue(&useMultipleCPUs, func() { calledChan <- struct{}{} })
 	// Now, start the agent, and observe that a JobManageEnviron agent
@@ -459,7 +495,6 @@ func (s *MachineSuite) TestManageEnvironCallsUseMultipleCPUs(c *gc.C) {
 	c.Check(a.Stop(), gc.IsNil)
 	// However, an agent that just JobHostUnits doesn't call UseMultipleCPUs
 	m2, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
-	s.setFakeMachineAddresses(c, m2)
 	a2 := s.newAgent(c, m2)
 	defer a2.Stop()
 	go func() {
@@ -577,12 +612,10 @@ func (s *MachineSuite) assertJobWithState(
 	})
 }
 
-// assertAgentOpensState asserts that a machine agent
-// started with the given job will call the function
-// pointed to by reportOpened. The agent's
-// configuration and the value passed to reportOpened
-// are then passed to the test function for further
-// checking.
+// assertAgentOpensState asserts that a machine agent started with the
+// given job will call the function pointed to by reportOpened. The
+// agent's configuration and the value passed to reportOpened are then
+// passed to the test function for further checking.
 func (s *MachineSuite) assertAgentOpensState(
 	c *gc.C,
 	reportOpened *func(eitherState),
@@ -663,7 +696,7 @@ func (s *MachineSuite) TestManageEnvironRunsCleaner(c *gc.C) {
 				s.State.StartSync()
 			case <-w.Changes():
 				err := unit.Refresh()
-				if errors.IsNotFoundError(err) {
+				if errors.IsNotFound(err) {
 					done = true
 				} else {
 					c.Assert(err, gc.IsNil)
@@ -857,7 +890,7 @@ func (s *MachineSuite) testMachineAgentRsyslogConfigWorker(c *gc.C, job state.Ma
 	created := make(chan rsyslog.RsyslogMode, 1)
 	s.PatchValue(&newRsyslogConfigWorker, func(_ *apirsyslog.State, _ agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
 		created <- mode
-		return worker.NewRunner(isFatal, moreImportant), nil
+		return newDummyWorker(), nil
 	})
 	s.assertJobWithAPI(c, job, func(conf agent.Config, st *api.State) {
 		select {
@@ -895,9 +928,48 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 	c.Fatalf("timeout while waiting for agent config to change")
 }
 
+func (s *MachineSuite) TestMachineAgentUpgradeMongo(c *gc.C) {
+	m, agentConfig, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	agentConfig.SetUpgradedToVersion(version.MustParse("1.18.0"))
+	err := agentConfig.Write()
+	c.Assert(err, gc.IsNil)
+	err = s.State.MongoSession().DB("admin").RemoveUser(m.Tag())
+	c.Assert(err, gc.IsNil)
+
+	s.PatchValue(&ensureMongoAdminUser, func(p mongo.EnsureAdminUserParams) (bool, error) {
+		err := s.State.MongoSession().DB("admin").AddUser(p.User, p.Password, false)
+		c.Assert(err, gc.IsNil)
+		return true, nil
+	})
+
+	stateOpened := make(chan eitherState, 1)
+	s.PatchValue(&reportOpenedState, func(st eitherState) {
+		select {
+		case stateOpened <- st:
+		default:
+		}
+	})
+
+	// Start the machine agent, and wait for state to be opened.
+	a := s.newAgent(c, m)
+	done := make(chan error)
+	go func() { done <- a.Run(nil) }()
+	defer a.Stop() // in case of failure
+	select {
+	case st := <-stateOpened:
+		c.Assert(st, gc.NotNil)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("state not opened")
+	}
+	s.waitStopped(c, state.JobManageEnviron, a, done)
+	c.Assert(s.fakeEnsureMongo.ensureCount, gc.Equals, 1)
+	c.Assert(s.fakeEnsureMongo.initiateCount, gc.Equals, 1)
+}
+
 // MachineWithCharmsSuite provides infrastructure for tests which need to
 // work with charms.
 type MachineWithCharmsSuite struct {
+	commonMachineSuite
 	charmtesting.CharmSuite
 
 	machine *state.Machine
@@ -905,47 +977,32 @@ type MachineWithCharmsSuite struct {
 
 var _ = gc.Suite(&MachineWithCharmsSuite{})
 
+func (s *MachineWithCharmsSuite) SetUpSuite(c *gc.C) {
+	s.commonMachineSuite.SetUpSuite(c)
+	s.CharmSuite.SetUpSuite(c, &s.commonMachineSuite.JujuConnSuite)
+}
+
+func (s *MachineWithCharmsSuite) TearDownSuite(c *gc.C) {
+	s.commonMachineSuite.TearDownSuite(c)
+	s.CharmSuite.TearDownSuite(c)
+}
+
 func (s *MachineWithCharmsSuite) SetUpTest(c *gc.C) {
+	s.commonMachineSuite.SetUpTest(c)
 	s.CharmSuite.SetUpTest(c)
-	s.PatchValue(&ensureMongoServer, func(string, int, string) error {
-		return nil
-	})
+}
 
-	// Create a state server machine.
-	var err error
-	s.machine, err = s.State.AddOneMachine(state.MachineTemplate{
-		Series:     "quantal",
-		InstanceId: "ardbeg-0",
-		Nonce:      state.BootstrapNonce,
-		Jobs:       []state.MachineJob{state.JobManageEnviron},
-	})
-	c.Assert(err, gc.IsNil)
-	err = s.machine.SetPassword(initialMachinePassword)
-	c.Assert(err, gc.IsNil)
-	tag := names.MachineTag(s.machine.Id())
-	err = s.machine.SetMongoPassword(initialMachinePassword)
-	c.Assert(err, gc.IsNil)
-
-	// Set up the agent configuration.
-	stateInfo := s.StateInfo(c)
-	writeStateAgentConfig(c, stateInfo, s.DataDir(), tag, initialMachinePassword, version.Current)
+func (s *MachineWithCharmsSuite) TearDownTest(c *gc.C) {
+	s.commonMachineSuite.TearDownTest(c)
+	s.CharmSuite.TearDownTest(c)
 }
 
 func (s *MachineWithCharmsSuite) TestManageEnvironRunsCharmRevisionUpdater(c *gc.C) {
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+
 	s.SetupScenario(c)
 
-	testpath := c.MkDir()
-	s.PatchEnvPathPrepend(testpath)
-	fakeCmd(filepath.Join(testpath, "start"))
-	fakeCmd(filepath.Join(testpath, "stop"))
-	s.PatchValue(&upstart.InitDir, c.MkDir())
-
-	// Start the machine agent.
-	a := &MachineAgent{}
-	args := []string{"--data-dir", s.DataDir(), "--machine-id", s.machine.Id()}
-	err := coretesting.InitCommand(a, args)
-	c.Assert(err, gc.IsNil)
-
+	a := s.newAgent(c, m)
 	go func() {
 		c.Check(a.Run(nil), gc.IsNil)
 	}()
@@ -996,4 +1053,11 @@ func (r *fakeSingularRunner) StartWorker(name string, start func() (worker.Worke
 	defer r.record.mu.Unlock()
 	r.record.startedWorkers.Add(name)
 	return r.Runner.StartWorker(name, start)
+}
+
+func newDummyWorker() worker.Worker {
+	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
+		<-stop
+		return nil
+	})
 }
