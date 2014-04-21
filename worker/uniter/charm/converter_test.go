@@ -7,13 +7,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/testing"
 	ft "launchpad.net/juju-core/testing/filetesting"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/worker/uniter/charm"
 )
 
 type ConverterSuite struct {
-	testbase.LoggingSuite
+	testing.GitSuite
 	targetPath string
 	dataPath   string
 	bundles    *bundleReader
@@ -22,7 +22,7 @@ type ConverterSuite struct {
 var _ = gc.Suite(&ConverterSuite{})
 
 func (s *ConverterSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.GitSuite.SetUpTest(c)
 	s.targetPath = c.MkDir()
 	s.dataPath = c.MkDir()
 	s.bundles = &bundleReader{}
