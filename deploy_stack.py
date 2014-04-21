@@ -79,6 +79,7 @@ def deploy_stack(env, charm_prefix):
     wp_unit_0 = status['services']['wordpress']['units']['wordpress/0']
     check_wordpress(wp_unit_0['public-address'])
 
+
 def deploy_dummy_stack(env, charm_prefix):
     """"Deploy a dummy stack in the specified environment.
     """
@@ -158,7 +159,14 @@ def deploy_job():
             # Ensure OpenSSH is never in the path for win tests.
             sys.path = [p for p in sys.path if 'OpenSSH' not in p]
         env = Environment.from_config(environment)
-        env.bootstrap()
+        host = env.config.get('bootstrap-host')
+        try:
+            env.bootstrap()
+        except:
+            if host is not None:
+                dump_logs(env, host,
+                          os.path.join(os.environ['WORKSPACE'], 'artifacts'))
+            raise
         try:
             while True:
                 bootstrap = env.get_status().status['machines']['0']
