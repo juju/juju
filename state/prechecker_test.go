@@ -51,7 +51,9 @@ func (s *PrecheckerSuite) TestPrecheckInstance(c *gc.C) {
 	template, err := s.addOneMachine(c, envCons)
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.prechecker.precheckInstanceSeries, gc.Equals, template.Series)
-	cons := template.Constraints.WithFallbacks(envCons)
+	validator := constraints.NewValidator()
+	cons, err := validator.Merge(envCons, template.Constraints)
+	c.Assert(err, gc.IsNil)
 	c.Assert(s.prechecker.precheckInstanceConstraints, gc.DeepEquals, cons)
 }
 
