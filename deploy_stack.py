@@ -52,12 +52,11 @@ def prepare_environment(environment, already_bootstrapped, machines):
     return env
 
 
-def destroy_environment(environment, scripts_dir):
-    terminate = os.path.join(scripts_dir, 'ec2-terminate-job-instances')
-    if environment.config['type'] == 'manual':
-        subprocess.check_call(terminate)
-    else:
+def destroy_environment(environment):
+    if environment.config['type'] != 'manual':
         environment.destroy_environment()
+    instances = list(get_job_instances(os.environ['JOB_NAME']))
+    subprocess.check_call(['euca-terminate-instances'] + instances)
 
 
 def deploy_stack(env, charm_prefix):
@@ -133,6 +132,17 @@ def upgrade_juju(environment):
     environment.upgrade_juju()
 
 
+def get_job_instances(job_name):
+    instance_pattern = re.compile('^INSTANCE\t(i-[^\t]*)\t.*')
+    description = subprocess.check_output([
+        'euca-describe-instances', '--filter', 'instance-state-name=running',
+        '--filter', 'tag:job_name=%s' % job_name])
+    for line in description.splitlines():
+        match = instance_pattern.match(line)
+        if match:
+            yield match.group(1)
+
+
 def deploy_job():
     machines = ['ssh:%s' % m for m in os.environ['MACHINES'].split()]
     environment = os.environ['ENV']
@@ -165,7 +175,7 @@ def deploy_job():
                           os.path.join(os.environ['WORKSPACE'], 'artifacts'))
                 raise
         finally:
-            destroy_environment(env, os.environ['SCRIPTS'])
+            destroy_environment(env)
     except Exception as e:
         raise
         print('%s (%s)' % (e, type(e).__name__))

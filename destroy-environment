@@ -10,10 +10,9 @@ from deploy_stack import destroy_environment
 
 
 def main():
-    mydir = os.path.dirname(os.path.abspath(sys.argv[0]))
     for env in sys.argv[1:]:
         environment = jujupy.Environment.from_config(env)
-        destroy_environment(environment, mydir)
+        destroy_environment(environment)
 
 
 if __name__ == '__main__':
