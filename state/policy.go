@@ -110,7 +110,7 @@ func (st *State) constraintsValidator() (constraints.Validator, error) {
 		return nil, err
 	}
 	validator, err := st.policy.ConstraintsValidator(cfg)
-	if errors.IsNotImplementedError(err) {
+	if errors.IsNotImplemented(err) {
 		return defaultValidator, nil
 	} else if err != nil {
 		return nil, err

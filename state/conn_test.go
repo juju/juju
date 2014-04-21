@@ -133,5 +133,5 @@ func (p *mockPolicy) ConstraintsValidator(cfg *config.Config) (constraints.Valid
 	if p.getConstraintsValidator != nil {
 		return p.getConstraintsValidator(cfg)
 	}
-	return nil, errors.NewNotImplementedError("ConstraintsValidator")
+	return nil, errors.NewNotImplemented(nil, "ConstraintsValidator")
 }
