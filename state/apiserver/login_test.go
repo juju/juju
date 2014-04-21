@@ -232,7 +232,9 @@ func (s *loginSuite) TestLoginAddrs(c *gc.C) {
 	err = s.State.SetAPIHostPorts(stateAPIHostPorts)
 	c.Assert(err, gc.IsNil)
 	connectedAddr, hostPorts = s.loginHostPorts(c, info)
-	stateAPIHostPorts = append(stateAPIHostPorts, connectedAddrHostPorts...)
+	// Now that we connected, we add the other stateAPIHostPorts. However,
+	// the one we connected to comes first.
+	stateAPIHostPorts = append(connectedAddrHostPorts, stateAPIHostPorts...)
 	c.Assert(hostPorts, gc.DeepEquals, stateAPIHostPorts)
 }
 

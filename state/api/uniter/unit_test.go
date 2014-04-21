@@ -83,7 +83,7 @@ func (s *unitSuite) TestEnsureDead(c *gc.C) {
 	err = s.wordpressUnit.Remove()
 	c.Assert(err, gc.IsNil)
 	err = s.wordpressUnit.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	err = s.apiUnit.EnsureDead()
 	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" not found`)

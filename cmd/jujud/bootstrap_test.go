@@ -8,14 +8,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"path/filepath"
 
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -32,6 +30,7 @@ import (
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
+	"launchpad.net/juju-core/worker/peergrouper"
 )
 
 var _ = configstore.Default
@@ -55,19 +54,20 @@ type fakeEnsure struct {
 	ensureCount    int
 	initiateCount  int
 	dataDir        string
-	port           int
 	namespace      string
-	initiateParams mongo.InitiateMongoParams
+	withHA         bool
+	info           params.StateServingInfo
+	initiateParams peergrouper.InitiateMongoParams
 	err            error
 }
 
-func (f *fakeEnsure) fakeEnsureMongo(dataDir string, port int, namespace string) error {
+func (f *fakeEnsure) fakeEnsureMongo(dataDir, namespace string, info params.StateServingInfo, withHA bool) error {
 	f.ensureCount++
-	f.dataDir, f.port, f.namespace = dataDir, port, namespace
+	f.dataDir, f.namespace, f.info, f.withHA = dataDir, namespace, info, withHA
 	return f.err
 }
 
-func (f *fakeEnsure) fakeInitiateMongo(p mongo.InitiateMongoParams) error {
+func (f *fakeEnsure) fakeInitiateMongo(p peergrouper.InitiateMongoParams) error {
 	f.initiateCount++
 	f.initiateParams = p
 	return nil
@@ -120,7 +120,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob,
 		LogDir:            s.logDir,
 		DataDir:           s.dataDir,
 		Jobs:              jobs,
-		Tag:               "bootstrap",
+		Tag:               "machine-0",
 		UpgradedToVersion: version.Current.Number,
 		Password:          testPasswordHash(),
 		Nonce:             state.BootstrapNonce,
@@ -133,14 +133,9 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob,
 		Cert:       "some cert",
 		PrivateKey: "some key",
 		APIPort:    3737,
-		StatePort:  1234,
+		StatePort:  testing.MgoServer.Port(),
 	}
-	bootConf, err := agent.NewStateMachineConfig(agentParams, servingInfo)
-	c.Assert(err, gc.IsNil)
-	err = bootConf.Write()
-	c.Assert(err, gc.IsNil)
 
-	agentParams.Tag = "machine-0"
 	machineConf, err = agent.NewStateMachineConfig(agentParams, servingInfo)
 	c.Assert(err, gc.IsNil)
 	err = machineConf.Write()
@@ -163,18 +158,21 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	c.Assert(s.fakeEnsureMongo.initiateCount, gc.Equals, 1)
 	c.Assert(s.fakeEnsureMongo.ensureCount, gc.Equals, 1)
 	c.Assert(s.fakeEnsureMongo.dataDir, gc.Equals, s.dataDir)
+	c.Assert(s.fakeEnsureMongo.withHA, jc.IsTrue)
 
-	info, exists := machConf.StateServingInfo()
+	expectInfo, exists := machConf.StateServingInfo()
 	c.Assert(exists, jc.IsTrue)
-	stateport := info.StatePort
+	c.Assert(expectInfo.SharedSecret, gc.Equals, "")
 
-	c.Assert(s.fakeEnsureMongo.port, gc.Equals, stateport)
-	c.Assert(s.fakeEnsureMongo.namespace, gc.Equals, machConf.Value(agent.Namespace))
+	servingInfo := s.fakeEnsureMongo.info
+	c.Assert(len(servingInfo.SharedSecret), gc.Not(gc.Equals), 0)
+	servingInfo.SharedSecret = ""
+	c.Assert(servingInfo, jc.DeepEquals, expectInfo)
+	expectDialAddrs := []string{fmt.Sprintf("127.0.0.1:%d", expectInfo.StatePort)}
+	gotDialAddrs := s.fakeEnsureMongo.initiateParams.DialInfo.Addrs
+	c.Assert(gotDialAddrs, gc.DeepEquals, expectDialAddrs)
 
-	dialAddr := fmt.Sprintf("127.0.0.1:%d", stateport)
-	c.Assert(s.fakeEnsureMongo.initiateParams.DialInfo.Addrs[0], gc.Equals, dialAddr)
-
-	memberHost := fmt.Sprintf("%s:%d", s.bootstrapName, stateport)
+	memberHost := fmt.Sprintf("%s:%d", s.bootstrapName, expectInfo.StatePort)
 	c.Assert(s.fakeEnsureMongo.initiateParams.MemberHostPort, gc.Equals, memberHost)
 	c.Assert(s.fakeEnsureMongo.initiateParams.User, gc.Equals, "")
 	c.Assert(s.fakeEnsureMongo.initiateParams.Password, gc.Equals, "")
@@ -278,28 +276,6 @@ func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageEnviron})
 }
 
-func (s *BootstrapSuite) TestSharedSecret(c *gc.C) {
-	jobs := []params.MachineJob{params.JobManageEnviron}
-	_, cmd, err := s.initBootstrapCommand(c, jobs, "--env-config", s.envcfg, "--instance-id", string(s.instanceId))
-	c.Assert(err, gc.IsNil)
-	err = cmd.Run(nil)
-	c.Assert(err, gc.IsNil)
-	sharedSecret, err := ioutil.ReadFile(filepath.Join(s.dataDir, mongo.SharedSecretFile))
-	c.Assert(err, gc.IsNil)
-
-	st, err := state.Open(&state.Info{
-		Addrs:    []string{testing.MgoServer.Addr()},
-		CACert:   testing.CACert,
-		Password: testPasswordHash(),
-	}, state.DefaultDialOpts(), environs.NewStatePolicy())
-	c.Assert(err, gc.IsNil)
-	defer st.Close()
-
-	stateServingInfo, err := st.StateServingInfo()
-	c.Assert(err, gc.IsNil)
-	c.Assert(stateServingInfo.SharedSecret, gc.Equals, string(sharedSecret))
-}
-
 func testOpenState(c *gc.C, info *state.Info, expectErrType error) {
 	st, err := state.Open(info, state.DefaultDialOpts(), environs.NewStatePolicy())
 	if st != nil {
@@ -347,7 +323,9 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	machineConf1, err := agent.ReadConfig(agent.ConfigPath(machineConf.DataDir(), "machine-0"))
 	c.Assert(err, gc.IsNil)
 
-	st, err = state.Open(machineConf1.StateInfo(), state.DialOpts{}, environs.NewStatePolicy())
+	stateinfo, ok := machineConf1.StateInfo()
+	c.Assert(ok, jc.IsTrue)
+	st, err = state.Open(stateinfo, state.DialOpts{}, environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 }

@@ -139,7 +139,7 @@ func findMatchingImages(e *azureEnviron, location, series string, arches []strin
 	}
 	indexPath := simplestreams.DefaultIndexPath
 	images, _, err := imagemetadata.Fetch(sources, indexPath, constraint, signedImageDataOnly)
-	if len(images) == 0 || errors.IsNotFoundError(err) {
+	if len(images) == 0 || errors.IsNotFound(err) {
 		return nil, fmt.Errorf("no OS images found for location %q, series %q, architectures %q (and endpoint: %q)", location, series, arches, endpoint)
 	} else if err != nil {
 		return nil, err

@@ -22,5 +22,13 @@ func AddStateServerMachine(c *gc.C, st *state.State) *state.Machine {
 	c.Assert(err, gc.IsNil)
 	err = machine.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
 	c.Assert(err, gc.IsNil)
+
+	hostPorts := [][]instance.HostPort{{{
+		Address: instance.NewAddress("0.1.2.3", instance.NetworkUnknown),
+		Port:    1234,
+	}}}
+	err = st.SetAPIHostPorts(hostPorts)
+	c.Assert(err, gc.IsNil)
+
 	return machine
 }

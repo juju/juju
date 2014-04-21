@@ -75,7 +75,7 @@ func (s *StoreSuite) TestError(c *gc.C) {
 
 func (s *StoreSuite) TestWarning(c *gc.C) {
 	charmURL := charm.MustParseURL("cs:series/unwise")
-	expect := `.* WARNING juju charm store reports for "cs:series/unwise": foolishness` + "\n"
+	expect := `.* WARNING juju.charm charm store reports for "cs:series/unwise": foolishness` + "\n"
 	r, err := charm.Latest(s.store, charmURL)
 	c.Assert(r, gc.Equals, 23)
 	c.Assert(err, gc.IsNil)
@@ -493,9 +493,9 @@ func (s *LocalRepoSuite) TestLogsErrors(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(ch.Revision(), gc.Equals, 1)
 	c.Assert(c.GetTestLog(), gc.Matches, `
-.* WARNING juju failed to load charm at ".*/quantal/blah": .*
-.* WARNING juju failed to load charm at ".*/quantal/blah.charm": .*
-.* WARNING juju failed to load charm at ".*/quantal/upgrade2": .*
+.* WARNING juju.charm failed to load charm at ".*/quantal/blah": .*
+.* WARNING juju.charm failed to load charm at ".*/quantal/blah.charm": .*
+.* WARNING juju.charm failed to load charm at ".*/quantal/upgrade2": .*
 `[1:])
 }
 

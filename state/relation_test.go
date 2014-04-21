@@ -121,11 +121,11 @@ func (s *RelationSuite) TestRetrieveNotFound(c *gc.C) {
 	}
 	_, err := s.State.EndpointsRelation(subway, mongo)
 	c.Assert(err, gc.ErrorMatches, `relation "subway:db mongo:server" not found`)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	_, err = s.State.Relation(999)
 	c.Assert(err, gc.ErrorMatches, `relation 999 not found`)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *RelationSuite) TestAddRelation(c *gc.C) {
@@ -211,7 +211,7 @@ func (s *RelationSuite) TestDestroyRelation(c *gc.C) {
 	err = rel.Destroy()
 	c.Assert(err, gc.IsNil)
 	err = rel.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	assertNoRelations(c, wordpress)
 	assertNoRelations(c, mysql)
 
@@ -224,7 +224,7 @@ func (s *RelationSuite) TestDestroyRelation(c *gc.C) {
 	_, err = s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
 	err = rel.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *RelationSuite) TestDestroyPeerRelation(c *gc.C) {
@@ -243,14 +243,14 @@ func (s *RelationSuite) TestDestroyPeerRelation(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	assertNoRelations(c, riak)
 	err = rel.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// Create a new service (and hence a new relation in the background); check
 	// that refreshing the old one does not accidentally get the new one.
 	newriak := s.AddTestingService(c, "riak", riakch)
 	assertOneRelation(c, newriak, 1, riakEP)
 	err = rel.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func assertNoRelations(c *gc.C, srv *state.Service) {

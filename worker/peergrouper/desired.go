@@ -12,6 +12,9 @@ import (
 	"launchpad.net/juju-core/replicaset"
 )
 
+// jujuMachineTag is the key for the tag where we save the member's juju machine id.
+const jujuMachineTag = "juju-machine-id"
+
 var logger = loggo.GetLogger("juju.worker.peergrouper")
 
 // peerGroupInfo holds information that may contribute to
@@ -24,8 +27,9 @@ type peerGroupInfo struct {
 
 // desiredPeerGroup returns the mongo peer group according to the given
 // servers and a map with an element for each machine in info.machines
-// specifying whether that machine has been configured as voting. It may
-// return (nil, nil, nil) if the current group is already correct.
+// specifying whether that machine has been configured as voting. It will
+// return a nil member list and error if the current group is already
+// correct, though the voting map will be still be returned in that case.
 func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, map[*machine]bool, error) {
 	if len(info.members) == 0 {
 		return nil, nil, fmt.Errorf("current member set is empty")
@@ -65,9 +69,8 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, map[*machine]bo
 	// this will trigger a peer group election.
 	machineVoting := make(map[*machine]bool)
 	for _, m := range info.machines {
-		if member := members[m]; member != nil && isVotingMember(member) {
-			machineVoting[m] = true
-		}
+		member := members[m]
+		machineVoting[m] = member != nil && isVotingMember(member)
 	}
 	setVoting := func(m *machine, voting bool) {
 		setMemberVoting(members[m], voting)
@@ -81,7 +84,7 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, map[*machine]bo
 		changed = true
 	}
 	if !changed {
-		return nil, nil, nil
+		return nil, machineVoting, nil
 	}
 	var memberSet []replicaset.Member
 	for _, member := range members {
@@ -215,7 +218,7 @@ func addNewMembers(
 			maxId++
 			member := &replicaset.Member{
 				Tags: map[string]string{
-					"juju-machine-id": m.id,
+					jujuMachineTag: m.id,
 				},
 				Id: maxId,
 			}
@@ -259,7 +262,7 @@ func (info *peerGroupInfo) membersMap() (members map[*machine]*replicaset.Member
 	members = make(map[*machine]*replicaset.Member)
 	for _, member := range info.members {
 		member := member
-		mid, ok := member.Tags["juju-machine-id"]
+		mid, ok := member.Tags[jujuMachineTag]
 		var found *machine
 		if ok {
 			found = info.machines[mid]

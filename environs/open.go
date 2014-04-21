@@ -87,7 +87,7 @@ func ConfigForName(name string, store configstore.Storage) (*config.Config, Conf
 			cfg, err := config.New(config.NoDefaults, info.BootstrapConfig())
 			return cfg, ConfigFromInfo, err
 		}
-		if err != nil && !errors.IsNotFoundError(err) {
+		if err != nil && !errors.IsNotFound(err) {
 			return nil, ConfigFromInfo, fmt.Errorf("cannot read environment info for %q: %v", name, err)
 		}
 	}
@@ -268,7 +268,7 @@ func Destroy(env Environ, store configstore.Storage) error {
 func DestroyInfo(envName string, store configstore.Storage) error {
 	info, err := store.ReadInfo(envName)
 	if err != nil {
-		if errors.IsNotFoundError(err) {
+		if errors.IsNotFound(err) {
 			return nil
 		}
 		return err
@@ -304,7 +304,7 @@ func VerifyStorage(stor storage.Storage) error {
 func CheckEnvironment(environ Environ) error {
 	stor := environ.Storage()
 	reader, err := storage.Get(stor, VerificationFilename)
-	if errors.IsNotFoundError(err) {
+	if errors.IsNotFound(err) {
 		// When verification file does not exist, this is a juju-core
 		// environment.
 		return nil

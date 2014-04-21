@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/network"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
@@ -165,7 +166,7 @@ func (s *CommonProvisionerSuite) checkStartInstance(c *gc.C, m *state.Machine) i
 	return s.checkStartInstanceCustom(c, m, "pork", s.defaultConstraints, nil, nil, nil, true)
 }
 
-func (s *CommonProvisionerSuite) checkStartInstanceCustom(c *gc.C, m *state.Machine, secret string, cons constraints.Value, includeNetworks, excludeNetworks []string, networkInfo []environs.NetworkInfo, waitInstanceId bool) (inst instance.Instance) {
+func (s *CommonProvisionerSuite) checkStartInstanceCustom(c *gc.C, m *state.Machine, secret string, cons constraints.Value, includeNetworks, excludeNetworks []string, networkInfo []network.Info, waitInstanceId bool) (inst instance.Instance) {
 	s.BackingState.StartSync()
 	for {
 		select {
@@ -319,7 +320,7 @@ func (s *CommonProvisionerSuite) waitHardwareCharacteristics(c *gc.C, m *state.M
 func (s *CommonProvisionerSuite) waitRemoved(c *gc.C, m *state.Machine) {
 	s.waitMachine(c, m, func() bool {
 		err := m.Refresh()
-		if errors.IsNotFoundError(err) {
+		if errors.IsNotFound(err) {
 			return true
 		}
 		c.Assert(err, gc.IsNil)
@@ -473,20 +474,22 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedNetworks(c *gc.C
 	// Add and provision a machine with networks specified.
 	includeNetworks := []string{"net1", "net2"}
 	excludeNetworks := []string{"net3", "net4"}
-	expectNetworkInfo := []environs.NetworkInfo{{
+	expectNetworkInfo := []network.Info{{
 		MACAddress:    "aa:bb:cc:dd:ee:f0",
 		InterfaceName: "eth0",
-		NetworkId:     "net1",
+		ProviderId:    "net1",
 		NetworkName:   "net1",
 		VLANTag:       0,
 		CIDR:          "0.1.2.0/24",
+		IsVirtual:     false,
 	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:f1",
 		InterfaceName: "eth1",
-		NetworkId:     "net2",
+		ProviderId:    "net2",
 		NetworkName:   "net2",
 		VLANTag:       1,
 		CIDR:          "0.2.2.0/24",
+		IsVirtual:     true,
 	}}
 	m, err := s.addMachineWithRequestedNetworks(includeNetworks, excludeNetworks)
 	c.Assert(err, gc.IsNil)
@@ -499,9 +502,9 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedNetworks(c *gc.C
 	_, err = s.State.Network("net2")
 	c.Assert(err, gc.IsNil)
 	_, err = s.State.Network("net3")
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	_, err = s.State.Network("net4")
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	ifaces, err := m.NetworkInterfaces()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ifaces, gc.HasLen, 2)
@@ -519,9 +522,9 @@ func (s *ProvisionerSuite) TestSetInstanceInfoFailureSetsErrorStatusAndStopsInst
 	// Add and provision a machine with networks specified.
 	includeNetworks := []string{"bad-net1"}
 	// "bad-" prefix for networks causes dummy provider to report
-	// invalid NetworkInfo.
-	expectNetworkInfo := []environs.NetworkInfo{
-		{NetworkId: "bad-net1", NetworkName: "bad-net1", CIDR: "invalid"},
+	// invalid network.Info.
+	expectNetworkInfo := []network.Info{
+		{ProviderId: "bad-net1", NetworkName: "bad-net1", CIDR: "invalid"},
 	}
 	m, err := s.addMachineWithRequestedNetworks(includeNetworks, nil)
 	c.Assert(err, gc.IsNil)
@@ -924,7 +927,7 @@ type mockBroker struct {
 	retryCount map[string]int
 }
 
-func (b *mockBroker) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error) {
+func (b *mockBroker) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
 	// All machines except machines 3, 4 are provisioned successfully the first time.
 	// Machines 3 is provisioned after some attempts have been made.
 	// Machine 4 is never provisioned.

@@ -112,21 +112,21 @@ func (p *mockPolicy) Prechecker(cfg *config.Config) (state.Prechecker, error) {
 	if p.getPrechecker != nil {
 		return p.getPrechecker(cfg)
 	}
-	return nil, errors.NewNotImplementedError("Prechecker")
+	return nil, errors.NotImplementedf("Prechecker")
 }
 
 func (p *mockPolicy) ConfigValidator(providerType string) (state.ConfigValidator, error) {
 	if p.getConfigValidator != nil {
 		return p.getConfigValidator(providerType)
 	}
-	return nil, errors.NewNotImplementedError("ConfigValidator")
+	return nil, errors.NotImplementedf("ConfigValidator")
 }
 
 func (p *mockPolicy) EnvironCapability(cfg *config.Config) (state.EnvironCapability, error) {
 	if p.getEnvironCapability != nil {
 		return p.getEnvironCapability(cfg)
 	}
-	return nil, errors.NewNotImplementedError("EnvironCapability")
+	return nil, errors.NotImplementedf("EnvironCapability")
 }
 
 func (p *mockPolicy) ConstraintsValidator(cfg *config.Config) (constraints.Validator, error) {

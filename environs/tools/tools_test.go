@@ -163,7 +163,7 @@ func (s *SimpleStreamsToolsSuite) TestFindTools(c *gc.C) {
 			if len(actual) > 0 {
 				c.Logf(actual.String())
 			}
-			c.Check(err, jc.Satisfies, errors.IsNotFoundError)
+			c.Check(err, jc.Satisfies, errors.IsNotFound)
 			continue
 		}
 		expect := map[version.Binary]string{}
@@ -197,7 +197,7 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 	defer loggo.RemoveWriter("filter-tester")
 	_, err := envtools.FindTools(
 		s.env, 1, -1, coretools.Filter{Number: version.Number{Major: 1, Minor: 2, Patch: 3}}, envtools.DoNotAllowRetry)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	// This is slightly overly prescriptive, but feel free to change or add
 	// messages. This still helps to ensure that all log messages are
 	// properly formed.
@@ -244,7 +244,7 @@ func (s *SimpleStreamsToolsSuite) TestFindBootstrapTools(c *gc.C) {
 			if len(actual) > 0 {
 				c.Logf(actual.String())
 			}
-			c.Check(err, jc.Satisfies, errors.IsNotFoundError)
+			c.Check(err, jc.Satisfies, errors.IsNotFound)
 			continue
 		}
 		expect := map[version.Binary]string{}
@@ -328,7 +328,7 @@ func (s *SimpleStreamsToolsSuite) TestFindInstanceTools(c *gc.C) {
 			if len(actual) > 0 {
 				c.Logf(actual.String())
 			}
-			c.Check(err, jc.Satisfies, errors.IsNotFoundError)
+			c.Check(err, jc.Satisfies, errors.IsNotFound)
 			continue
 		}
 		expect := map[version.Binary]string{}
@@ -392,7 +392,7 @@ func (s *SimpleStreamsToolsSuite) TestFindExactTools(c *gc.C) {
 				c.Check(actual.URL, gc.DeepEquals, public[actual.Version])
 			}
 		} else {
-			c.Check(err, jc.Satisfies, errors.IsNotFoundError)
+			c.Check(err, jc.Satisfies, errors.IsNotFound)
 		}
 	}
 }
