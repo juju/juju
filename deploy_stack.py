@@ -59,7 +59,7 @@ def destroy_environment(environment):
         destroy_job_instances(os.environ['JOB_NAME'])
 
 
-def destroy_job_instances(job_name)
+def destroy_job_instances(job_name):
     instances = list(get_job_instances(job_name))
     subprocess.check_call(['euca-terminate-instances'] + instances)
 
