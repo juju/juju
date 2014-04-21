@@ -134,7 +134,7 @@ def upgrade_juju(environment):
 
 
 def deploy_job():
-    machines = os.environ['MACHINES'].split()
+    machines = ['ssh:%s' % m for m in os.environ['MACHINES'].split()]
     environment = os.environ['ENV']
     try:
         if sys.platform == 'win32':
