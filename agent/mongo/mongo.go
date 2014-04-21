@@ -111,10 +111,10 @@ func GenerateSharedSecret() (string, error) {
 	return base64.StdEncoding.EncodeToString(buf), nil
 }
 
-// MongoPath returns the executable path to be used to run mongod on this
+// Path returns the executable path to be used to run mongod on this
 // machine. If the juju-bundled version of mongo exists, it will return that
 // path, otherwise it will return the command to run mongod from the path.
-func MongodPath() (string, error) {
+func Path() (string, error) {
 	if _, err := os.Stat(JujuMongodPath); err == nil {
 		return JujuMongodPath, nil
 	}
@@ -149,7 +149,7 @@ const (
 // The namespace is a unique identifier to prevent multiple instances of mongo
 // on this machine from colliding. This should be empty unless using
 // the local provider.
-func EnsureMongoServer(dataDir string, namespace string, info params.StateServingInfo, withHA bool) error {
+func EnsureServer(dataDir string, namespace string, info params.StateServingInfo, withHA bool) error {
 	logger.Infof("Ensuring mongo server is running; data directory %s; port %d", dataDir, info.StatePort)
 	dbDir := filepath.Join(dataDir, "db")
 
@@ -186,11 +186,11 @@ func EnsureMongoServer(dataDir string, namespace string, info params.StateServin
 		return fmt.Errorf("cannot install mongod: %v", err)
 	}
 
-	upstartConf, mongoPath, err := mongoUpstartService(namespace, dataDir, dbDir, info.StatePort, withHA)
+	upstartConf, mongoPath, err := upstartService(namespace, dataDir, dbDir, info.StatePort, withHA)
 	if err != nil {
 		return err
 	}
-	logMongoVersion(mongoPath)
+	logVersion(mongoPath)
 
 	if err := upstartServiceStop(&upstartConf.Service); err != nil {
 		return fmt.Errorf("failed to stop mongo: %v", err)
@@ -246,7 +246,7 @@ func makeJournalDirs(dataDir string) error {
 	return nil
 }
 
-func logMongoVersion(mongoPath string) {
+func logVersion(mongoPath string) {
 	cmd := exec.Command(mongoPath, "--version")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -264,13 +264,13 @@ func sharedSecretPath(dataDir string) string {
 	return filepath.Join(dataDir, SharedSecretFile)
 }
 
-// mongoUpstartService returns the upstart config for the mongo state service.
+// upstartService returns the upstart config for the mongo state service.
 // It also returns the path to the mongod executable that the upstart config
 // will be using.
-func mongoUpstartService(namespace, dataDir, dbDir string, port int, withHA bool) (*upstart.Conf, string, error) {
+func upstartService(namespace, dataDir, dbDir string, port int, withHA bool) (*upstart.Conf, string, error) {
 	svc := upstart.NewService(ServiceName(namespace))
 
-	mongoPath, err := MongodPath()
+	mongoPath, err := Path()
 	if err != nil {
 		return nil, "", err
 	}
@@ -340,12 +340,12 @@ func addAptRepository(name string) error {
 	return nil
 }
 
-// mongoNoauthCommand returns an os/exec.Cmd that may be executed to
+// noauthCommand returns an os/exec.Cmd that may be executed to
 // run mongod without security.
-func mongoNoauthCommand(dataDir string, port int) (*exec.Cmd, error) {
+func noauthCommand(dataDir string, port int) (*exec.Cmd, error) {
 	sslKeyFile := path.Join(dataDir, "server.pem")
 	dbDir := filepath.Join(dataDir, "db")
-	mongoPath, err := MongodPath()
+	mongoPath, err := Path()
 	if err != nil {
 		return nil, err
 	}

@@ -67,7 +67,7 @@ func EnsureAdminUser(p EnsureAdminUserParams) (added bool, err error) {
 
 	// Start mongod in --noauth mode.
 	logger.Debugf("starting mongo with --noauth")
-	cmd, err := mongoNoauthCommand(p.DataDir, p.Port)
+	cmd, err := noauthCommand(p.DataDir, p.Port)
 	if err != nil {
 		return false, fmt.Errorf("failed to prepare mongod command: %v", err)
 	}

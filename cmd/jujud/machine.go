@@ -74,7 +74,7 @@ var (
 
 	// The following are defined as variables to
 	// allow the tests to intercept calls to the functions.
-	ensureMongoServer        = mongo.EnsureMongoServer
+	ensureMongoServer        = mongo.EnsureServer
 	maybeInitiateMongoServer = peergrouper.MaybeInitiateMongoServer
 	ensureMongoAdminUser     = mongo.EnsureAdminUser
 	newSingularRunner        = singular.New
