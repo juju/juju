@@ -104,7 +104,7 @@ func (s *machinerSuite) TestEnsureDead(c *gc.C) {
 	err = s.machine.Remove()
 	c.Assert(err, gc.IsNil)
 	err = s.machine.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	err = machine.EnsureDead()
 	c.Assert(err, gc.ErrorMatches, "machine 1 not found")

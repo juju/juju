@@ -7,7 +7,7 @@ import (
 	"os"
 	"path"
 
-	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/errors"
 )
 
 // tempCertFile is a temporary file containing an x509 certificate.
@@ -48,7 +48,7 @@ func (certFile *tempCertFile) Delete() {
 // You *must* clean up the file after use, by calling its Delete method.
 func newTempCertFile(data []byte) (certFile *tempCertFile, err error) {
 	// Add context to any error we may return.
-	defer utils.ErrorContextf(&err, "failed while writing temporary certificate file")
+	defer errors.Maskf(&err, "failed while writing temporary certificate file")
 
 	// Access permissions for these temporary files:
 	const (

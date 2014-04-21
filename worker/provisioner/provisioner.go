@@ -111,7 +111,7 @@ func (p *provisioner) getStartTask(safeMode bool) (ProvisionerTask, error) {
 		return nil, err
 	}
 	retryWatcher, err := p.getRetryWatcher()
-	if err != nil && !errors.IsNotImplementedError(err) {
+	if err != nil && !errors.IsNotImplemented(err) {
 		return nil, err
 	}
 	task := NewProvisionerTask(
@@ -266,5 +266,5 @@ func (p *containerProvisioner) getMachineWatcher() (apiwatcher.StringsWatcher, e
 }
 
 func (p *containerProvisioner) getRetryWatcher() (apiwatcher.NotifyWatcher, error) {
-	return nil, errors.NewNotImplementedError("getRetryWatcher")
+	return nil, errors.NotImplementedf("getRetryWatcher")
 }

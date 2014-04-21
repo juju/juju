@@ -128,8 +128,8 @@ func (s *StateSuite) TestPing(c *gc.C) {
 func (s *StateSuite) TestIsNotFound(c *gc.C) {
 	err1 := fmt.Errorf("unrelated error")
 	err2 := errors.NotFoundf("foo")
-	c.Assert(err1, gc.Not(jc.Satisfies), errors.IsNotFoundError)
-	c.Assert(err2, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err1, gc.Not(jc.Satisfies), errors.IsNotFound)
+	c.Assert(err2, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *StateSuite) dummyCharm(c *gc.C, curlOverride string) (ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSHA256 string) {
@@ -190,7 +190,7 @@ func (s *StateSuite) TestAddCharmUpdatesPlaceholder(c *gc.C) {
 
 	// No more placeholder charm.
 	_, err = s.State.LatestPlaceholderCharm(curl)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *StateSuite) assertPendingCharmExists(c *gc.C, curl *charm.URL) {
@@ -210,7 +210,7 @@ func (s *StateSuite) assertPendingCharmExists(c *gc.C, curl *charm.URL) {
 
 	// Make sure we can't find it with st.Charm().
 	_, err = s.State.Charm(curl)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *StateSuite) TestPrepareLocalCharmUpload(c *gc.C) {
@@ -322,7 +322,7 @@ func (s *StateSuite) TestUpdateUploadedCharm(c *gc.C) {
 	c.Assert(sch, gc.IsNil)
 	missingCurl := charm.MustParseURL("local:quantal/missing-1")
 	sch, err = s.State.UpdateUploadedCharm(ch, missingCurl, bundleURL, "missing")
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(sch, gc.IsNil)
 
 	// Test with with an uploaded local charm.
@@ -356,7 +356,7 @@ func (s *StateSuite) assertPlaceholderCharmExists(c *gc.C, curl *charm.URL) {
 
 	// Make sure we can't find it with st.Charm().
 	_, err = s.State.Charm(curl)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *StateSuite) TestLatestPlaceholderCharm(c *gc.C) {
@@ -367,7 +367,7 @@ func (s *StateSuite) TestLatestPlaceholderCharm(c *gc.C) {
 
 	// Deployed charm not found.
 	_, err = s.State.LatestPlaceholderCharm(curl)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// Add a charm reference
 	curl2 := charm.MustParseURL("cs:quantal/dummy-2")
@@ -920,7 +920,7 @@ func (s *StateSuite) TestReadMachine(c *gc.C) {
 func (s *StateSuite) TestMachineNotFound(c *gc.C) {
 	_, err := s.State.Machine("0")
 	c.Assert(err, gc.ErrorMatches, "machine 0 not found")
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *StateSuite) TestMachineIdLessThan(c *gc.C) {
@@ -963,34 +963,31 @@ func (s *StateSuite) TestAllMachines(c *gc.C) {
 }
 
 var addNetworkErrorsTests = []struct {
-	name       string
-	providerId string
-	cidr       string
-	vlanTag    int
-	expectErr  string
+	args      state.NetworkInfo
+	expectErr string
 }{{
-	"", "provider-id", "0.3.1.0/24", 0,
+	state.NetworkInfo{"", "provider-id", "0.3.1.0/24", 0},
 	`cannot add network "": name must be not empty`,
 }, {
-	"-invalid-", "provider-id", "0.3.1.0/24", 0,
+	state.NetworkInfo{"-invalid-", "provider-id", "0.3.1.0/24", 0},
 	`cannot add network "-invalid-": invalid name`,
 }, {
-	"net2", "", "0.3.1.0/24", 0,
+	state.NetworkInfo{"net2", "", "0.3.1.0/24", 0},
 	`cannot add network "net2": provider id must be not empty`,
 }, {
-	"net2", "provider-id", "invalid", 0,
+	state.NetworkInfo{"net2", "provider-id", "invalid", 0},
 	`cannot add network "net2": invalid CIDR address: invalid`,
 }, {
-	"net2", "provider-id", "0.3.1.0/24", -1,
+	state.NetworkInfo{"net2", "provider-id", "0.3.1.0/24", -1},
 	`cannot add network "net2": invalid VLAN tag -1: must be between 0 and 4094`,
 }, {
-	"net2", "provider-id", "0.3.1.0/24", 9999,
+	state.NetworkInfo{"net2", "provider-id", "0.3.1.0/24", 9999},
 	`cannot add network "net2": invalid VLAN tag 9999: must be between 0 and 4094`,
 }, {
-	"net1", "provider-id", "0.3.1.0/24", 0,
+	state.NetworkInfo{"net1", "provider-id", "0.3.1.0/24", 0},
 	`cannot add network "net1": network "net1" already exists`,
 }, {
-	"net2", "provider-net1", "0.3.1.0/24", 0,
+	state.NetworkInfo{"net2", "provider-net1", "0.3.1.0/24", 0},
 	`cannot add network "net2": network with provider id "provider-net1" already exists`,
 }}
 
@@ -1005,25 +1002,24 @@ func (s *StateSuite) TestAddNetworkErrors(c *gc.C) {
 
 	net1, _ := addNetworkAndInterface(
 		c, s.State, machine,
-		"net1", "provider-net1", "0.1.2.0/24", 0,
+		"net1", "provider-net1", "0.1.2.0/24", 0, false,
 		"aa:bb:cc:dd:ee:f0", "eth0")
 
 	net, err := s.State.Network("net1")
 	c.Assert(err, gc.IsNil)
 	c.Assert(net, gc.DeepEquals, net1)
 	c.Assert(net.Name(), gc.Equals, "net1")
-	c.Assert(net.ProviderId(), gc.Equals, "provider-net1")
+	c.Assert(string(net.ProviderId()), gc.Equals, "provider-net1")
 	_, err = s.State.Network("missing")
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(err, gc.ErrorMatches, `network "missing" not found`)
 
 	for i, test := range addNetworkErrorsTests {
-		c.Logf("test %d: name=%q, providerId=%q, cidr=%q, vlanTag=%d",
-			i, test.name, test.providerId, test.cidr, test.vlanTag)
-		_, err := s.State.AddNetwork(test.name, test.providerId, test.cidr, test.vlanTag)
+		c.Logf("test %d: %#v", i, test.args)
+		_, err := s.State.AddNetwork(test.args)
 		c.Check(err, gc.ErrorMatches, test.expectErr)
 		if strings.Contains(test.expectErr, "already exists") {
-			c.Check(err, jc.Satisfies, errors.IsAlreadyExistsError)
+			c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
 		}
 	}
 }
@@ -1091,7 +1087,7 @@ func (s *StateSuite) TestAddServiceEnvironmentDyingAfterInitial(c *gc.C) {
 func (s *StateSuite) TestServiceNotFound(c *gc.C) {
 	_, err := s.State.Service("bummer")
 	c.Assert(err, gc.ErrorMatches, `service "bummer" not found`)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *StateSuite) TestAddServiceNoTag(c *gc.C) {
@@ -1966,11 +1962,11 @@ func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *gc.C) {
 	info := state.TestingStateInfo()
 	info.Tag, info.Password = "arble", "bar"
 	err := tryOpenState(info)
-	c.Assert(err, jc.Satisfies, errors.IsUnauthorizedError)
+	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
 
 	info.Tag, info.Password = "arble", ""
 	err = tryOpenState(info)
-	c.Assert(err, jc.Satisfies, errors.IsUnauthorizedError)
+	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
 
 	info.Tag, info.Password = "", ""
 	err = tryOpenState(info)
@@ -2111,7 +2107,7 @@ func testSetMongoPassword(c *gc.C, getEntity func(st *state.State) (entity, erro
 	info.Tag = ent.Tag()
 	info.Password = "bar"
 	err = tryOpenState(info)
-	c.Assert(err, jc.Satisfies, errors.IsUnauthorizedError)
+	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
 
 	// Check that we can log in with the correct password.
 	info.Password = "foo"
@@ -2129,7 +2125,7 @@ func testSetMongoPassword(c *gc.C, getEntity func(st *state.State) (entity, erro
 	// Check that we cannot log in with the old password.
 	info.Password = "foo"
 	err = tryOpenState(info)
-	c.Assert(err, jc.Satisfies, errors.IsUnauthorizedError)
+	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
 
 	// Check that we can log in with the correct password.
 	info.Password = "bar"
@@ -2157,7 +2153,7 @@ func (s *StateSuite) TestSetAdminMongoPassword(c *gc.C) {
 	defer s.State.SetAdminMongoPassword("")
 	info := state.TestingStateInfo()
 	err = tryOpenState(info)
-	c.Assert(err, jc.Satisfies, errors.IsUnauthorizedError)
+	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
 
 	info.Password = "foo"
 	err = tryOpenState(info)
@@ -2280,10 +2276,15 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
 	c.Assert(rel.String(), gc.Equals, "wordpress:db ser-vice2:server")
-	net1, err := s.State.AddNetwork("net1", "provider-id", "0.1.2.0/24", 0)
+	net1, err := s.State.AddNetwork(state.NetworkInfo{
+		Name:       "net1",
+		ProviderId: "provider-id",
+		CIDR:       "0.1.2.0/24",
+		VLANTag:    0,
+	})
 	c.Assert(err, gc.IsNil)
 	c.Assert(net1.Tag(), gc.Equals, "network-net1")
-	c.Assert(net1.ProviderId(), gc.Equals, "provider-id")
+	c.Assert(string(net1.ProviderId()), gc.Equals, "provider-id")
 
 	// environment tag is dynamically generated
 	env, err := s.State.Environment()
@@ -2375,7 +2376,12 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Parse a network name.
-	net1, err := s.State.AddNetwork("net1", "provider-id", "0.1.2.0/24", 0)
+	net1, err := s.State.AddNetwork(state.NetworkInfo{
+		Name:       "net1",
+		ProviderId: "provider-id",
+		CIDR:       "0.1.2.0/24",
+		VLANTag:    0,
+	})
 	c.Assert(err, gc.IsNil)
 	coll, id, err = state.ParseTag(s.State, net1.Tag())
 	c.Assert(coll, gc.Equals, "networks")
@@ -3046,7 +3052,7 @@ func (s *StateSuite) TestEnsureAvailabilityConcurrentSame(c *gc.C) {
 
 	// Machine 0 should never have been created.
 	_, err = s.State.Machine("0")
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *StateSuite) TestEnsureAvailabilityConcurrentLess(c *gc.C) {
@@ -3074,7 +3080,7 @@ func (s *StateSuite) TestEnsureAvailabilityConcurrentLess(c *gc.C) {
 
 	// Machine 0 should never have been created.
 	_, err = s.State.Machine("0")
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *StateSuite) TestEnsureAvailabilityConcurrentMore(c *gc.C) {
@@ -3100,14 +3106,13 @@ func (s *StateSuite) TestEnsureAvailabilityConcurrentMore(c *gc.C) {
 
 	// Machine 0 should never have been created.
 	_, err = s.State.Machine("0")
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *StateSuite) TestStateServingInfo(c *gc.C) {
 	info, err := s.State.StateServingInfo()
-	c.Assert(info, jc.DeepEquals, params.StateServingInfo{})
-	// no error because empty doc created by default
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "state serving info not found")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	data := params.StateServingInfo{
 		APIPort:      69,
@@ -3124,6 +3129,30 @@ func (s *StateSuite) TestStateServingInfo(c *gc.C) {
 	c.Assert(info, jc.DeepEquals, data)
 }
 
+var setStateServingInfoWithInvalidInfoTests = []func(info *params.StateServingInfo){
+	func(info *params.StateServingInfo) { info.APIPort = 0 },
+	func(info *params.StateServingInfo) { info.StatePort = 0 },
+	func(info *params.StateServingInfo) { info.Cert = "" },
+	func(info *params.StateServingInfo) { info.PrivateKey = "" },
+}
+
+func (s *StateSuite) TestSetStateServingInfoWithInvalidInfo(c *gc.C) {
+	origData := params.StateServingInfo{
+		APIPort:      69,
+		StatePort:    80,
+		Cert:         "Some cert",
+		PrivateKey:   "Some key",
+		SharedSecret: "Some Keyfile",
+	}
+	for i, test := range setStateServingInfoWithInvalidInfoTests {
+		c.Logf("test %d", i)
+		data := origData
+		test(&data)
+		err := s.State.SetStateServingInfo(data)
+		c.Assert(err, gc.ErrorMatches, "incomplete state serving info set in state")
+	}
+}
+
 func (s *StateSuite) TestOpenCreatesStateServingInfoDoc(c *gc.C) {
 	// Delete the stateServers collection to pretend this
 	// is an older environment that had not created it
@@ -3136,7 +3165,7 @@ func (s *StateSuite) TestOpenCreatesStateServingInfoDoc(c *gc.C) {
 	defer st.Close()
 
 	info, err := st.StateServingInfo()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(info, gc.DeepEquals, params.StateServingInfo{})
 }
 

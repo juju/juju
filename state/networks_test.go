@@ -24,15 +24,15 @@ func (s *NetworkSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	s.network, err = s.State.AddNetwork("net1", "net1", "0.1.2.3/24", 0)
+	s.network, err = s.State.AddNetwork(state.NetworkInfo{"net1", "net1", "0.1.2.3/24", 0})
 	c.Assert(err, gc.IsNil)
-	s.vlan, err = s.State.AddNetwork("vlan", "vlan", "0.1.2.3/30", 42)
+	s.vlan, err = s.State.AddNetwork(state.NetworkInfo{"vlan", "vlan", "0.1.2.3/30", 42})
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *NetworkSuite) TestGetterMethods(c *gc.C) {
 	c.Assert(s.network.Name(), gc.Equals, "net1")
-	c.Assert(s.network.ProviderId(), gc.Equals, "net1")
+	c.Assert(string(s.network.ProviderId()), gc.Equals, "net1")
 	c.Assert(s.network.Tag(), gc.Equals, "network-net1")
 	c.Assert(s.network.CIDR(), gc.Equals, "0.1.2.3/24")
 	c.Assert(s.network.VLANTag(), gc.Equals, 0)
@@ -46,9 +46,19 @@ func (s *NetworkSuite) TestInterfaces(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(ifaces, gc.HasLen, 0)
 
-	iface0, err := s.machine.AddNetworkInterface("aa:bb:cc:dd:ee:f0", "eth0", "net1")
+	iface0, err := s.machine.AddNetworkInterface(state.NetworkInterfaceInfo{
+		MACAddress:    "aa:bb:cc:dd:ee:f0",
+		InterfaceName: "eth0",
+		NetworkName:   "net1",
+		IsVirtual:     false,
+	})
 	c.Assert(err, gc.IsNil)
-	iface1, err := s.machine.AddNetworkInterface("aa:bb:cc:dd:ee:f1", "eth1", "net1")
+	iface1, err := s.machine.AddNetworkInterface(state.NetworkInterfaceInfo{
+		MACAddress:    "aa:bb:cc:dd:ee:f1",
+		InterfaceName: "eth1",
+		NetworkName:   "net1",
+		IsVirtual:     false,
+	})
 	c.Assert(err, gc.IsNil)
 
 	ifaces, err = s.network.Interfaces()

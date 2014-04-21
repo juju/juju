@@ -22,6 +22,7 @@ import (
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
+	"launchpad.net/juju-core/environs/network"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
@@ -252,7 +253,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	envtesting.RemoveTools(c, env.Storage())
 	instance, _, _, err = testing.StartInstance(env, "2")
 	c.Check(instance, gc.IsNil)
-	c.Check(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func uint64p(val uint64) *uint64 {
@@ -690,28 +691,31 @@ func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Note: order of networks is based on lshwXML
-	c.Check(networkInfo, jc.SameContents, []environs.NetworkInfo{
-		environs.NetworkInfo{
+	c.Check(networkInfo, jc.SameContents, []network.Info{
+		network.Info{
 			MACAddress:    "aa:bb:cc:dd:ee:ff",
 			CIDR:          "192.168.1.1/24",
 			NetworkName:   "WLAN",
-			NetworkId:     "WLAN",
+			ProviderId:    "WLAN",
 			VLANTag:       0,
-			InterfaceName: "wlan0"},
-		environs.NetworkInfo{
+			InterfaceName: "wlan0",
+			IsVirtual:     false},
+		network.Info{
 			MACAddress:    "aa:bb:cc:dd:ee:f1",
 			CIDR:          "192.168.2.1/24",
 			NetworkName:   "LAN",
-			NetworkId:     "LAN",
+			ProviderId:    "LAN",
 			VLANTag:       42,
-			InterfaceName: "eth0"},
-		environs.NetworkInfo{
+			InterfaceName: "eth0",
+		        IsVirtual:     true},
+		network.Info{
 			MACAddress:    "aa:bb:cc:dd:ee:f2",
 			CIDR:          "192.168.3.1/24",
 			NetworkName:   "Virt",
-			NetworkId:     "Virt",
+			ProviderId:    "Virt",
 			VLANTag:       0,
-			InterfaceName: "vnet1"},
+			InterfaceName: "vnet1",
+		        IsVirtual:     false},
 	})
 }
 
@@ -735,14 +739,15 @@ func (suite *environSuite) TestSetupNetworksPartialMatch(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Note: order of networks is based on lshwXML
-	c.Check(networkInfo, jc.SameContents, []environs.NetworkInfo{
-		environs.NetworkInfo{
+	c.Check(networkInfo, jc.SameContents, []network.Info{
+		network.Info{
 			MACAddress:    "aa:bb:cc:dd:ee:f1",
 			CIDR:          "192.168.2.1/24",
 			NetworkName:   "LAN",
-			NetworkId:     "LAN",
+			ProviderId:    "LAN",
 			VLANTag:       42,
-			InterfaceName: "eth0"},
+			InterfaceName: "eth0",
+			IsVirtual:     true},
 	})
 }
 

@@ -25,6 +25,7 @@ func (s *InitiateSuite) TestInitiateReplicaSet(c *gc.C) {
 	inst := &coretesting.MgoInstance{Params: []string{"--replSet", "juju"}}
 	err = inst.Start(true)
 	c.Assert(err, gc.IsNil)
+	defer inst.Destroy()
 
 	info := inst.DialInfo()
 	args := peergrouper.InitiateMongoParams{

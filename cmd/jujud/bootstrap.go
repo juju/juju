@@ -18,7 +18,6 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/worker/peergrouper"
@@ -171,14 +170,15 @@ func (c *BootstrapCommand) startMongo(addrs []instance.Address, agentConfig agen
 	dialInfo.Addrs = []string{
 		net.JoinHostPort("127.0.0.1", fmt.Sprint(servingInfo.StatePort)),
 	}
+
 	logger.Debugf("calling ensureMongoServer")
-	providerType := agentConfig.Value(agent.ProviderType)
-	withHA := providerType != provider.Local
+	withHA := shouldEnableHA(agentConfig)
 	err = ensureMongoServer(
 		agentConfig.DataDir(),
 		agentConfig.Value(agent.Namespace),
 		servingInfo,
-		withHA)
+		withHA,
+	)
 	if err != nil {
 		return err
 	}

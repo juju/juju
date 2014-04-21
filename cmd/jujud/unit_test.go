@@ -237,7 +237,7 @@ func (s *UnitSuite) TestRsyslogConfigWorker(c *gc.C) {
 	created := make(chan rsyslog.RsyslogMode, 1)
 	s.PatchValue(&newRsyslogConfigWorker, func(_ *apirsyslog.State, _ agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
 		created <- mode
-		return worker.NewRunner(isFatal, moreImportant), nil
+		return newDummyWorker(), nil
 	})
 
 	_, unit, _, _ := s.primeAgent(c)

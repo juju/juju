@@ -435,6 +435,7 @@ func networkParamsToStateParams(networks []params.Network, ifaces []params.Netwo
 			MACAddress:    iface.MACAddress,
 			NetworkName:   networkName,
 			InterfaceName: iface.InterfaceName,
+			IsVirtual:     iface.IsVirtual,
 		}
 	}
 	return stateNetworks, stateInterfaces, nil

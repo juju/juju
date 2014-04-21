@@ -8,22 +8,17 @@ import (
 	"io"
 	"time"
 
-	"github.com/juju/loggo"
-
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/keymanager"
 	"launchpad.net/juju-core/state/api/usermanager"
 	"launchpad.net/juju-core/utils/parallel"
 )
-
-var logger = loggo.GetLogger("juju")
 
 // The following are variables so that they can be
 // changed by tests.
@@ -118,15 +113,16 @@ func NewAPIFromName(envName string) (*api.State, error) {
 	return newAPIClient(envName)
 }
 
+func defaultAPIOpen(info *api.Info, opts api.DialOpts) (apiState, error) {
+	return api.Open(info, opts)
+}
+
 func newAPIClient(envName string) (*api.State, error) {
-	store, err := configstore.NewDisk(osenv.JujuHome())
+	store, err := configstore.Default()
 	if err != nil {
 		return nil, err
 	}
-	apiOpen := func(info *api.Info, opts api.DialOpts) (apiState, error) {
-		return api.Open(info, opts)
-	}
-	st, err := newAPIFromStore(envName, store, apiOpen)
+	st, err := newAPIFromStore(envName, store, defaultAPIOpen)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +177,7 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen apiOpenF
 	try := parallel.NewTry(0, chooseError)
 
 	info, err := store.ReadInfo(envName)
-	if err != nil && !errors.IsNotFoundError(err) {
+	if err != nil && !errors.IsNotFound(err) {
 		return nil, err
 	}
 	var delay time.Duration
@@ -209,9 +205,14 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen apiOpenF
 		return nil, err
 	}
 
-	val := val0.(apiState)
-	if cachedInfo, ok := val.(apiStateCachedInfo); ok {
-		val = cachedInfo.apiState
+	st := val0.(apiState)
+	// Even though we are about to update API addresses based on
+	// APIHostPorts in cacheChangedAPIAddresses, we first cache the
+	// addresses based on the provider lookup. This is because older API
+	// servers didn't return their HostPort information on Login, and we
+	// still want to cache our connection information to them.
+	if cachedInfo, ok := st.(apiStateCachedInfo); ok {
+		st = cachedInfo.apiState
 		if cachedInfo.cachedInfo != nil && info != nil {
 			// Cache the connection settings only if we used the
 			// environment config, but any errors are just logged
@@ -224,14 +225,18 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen apiOpenF
 			}
 		}
 	}
-	return val, nil
+	// Update API addresses if they've changed. Error is non-fatal.
+	if localerr := cacheChangedAPIAddresses(info, st); localerr != nil {
+		logger.Warningf("cannot failed to cache API addresses: %v", localerr)
+	}
+	return st, nil
 }
 
 func errorImportance(err error) int {
 	if err == nil {
 		return 0
 	}
-	if errors.IsNotFoundError(err) {
+	if errors.IsNotFound(err) {
 		// An error from an actual connection attempt
 		// is more interesting than the fact that there's
 		// no environment info available.
@@ -267,17 +272,7 @@ func apiInfoConnect(store configstore.Storage, info configstore.EnvironInfo, api
 	if err != nil {
 		return nil, &infoConnectError{err}
 	}
-	var addrs []string
-	for _, serverHostPorts := range st.APIHostPorts() {
-		for _, hostPort := range serverHostPorts {
-			addrs = append(addrs, hostPort.NetAddr())
-		}
-	}
-	// Update API addresses if they've changed. Error is non-fatal.
-	if err := cacheChangedAPIAddresses(info, addrs); err != nil {
-		logger.Warningf("cannot cache API addresses: %v", err.Error())
-	}
-	return st, err
+	return st, nil
 }
 
 // apiConfigConnect looks for configuration info on the given environment,
@@ -292,7 +287,7 @@ func apiConfigConnect(info configstore.EnvironInfo, envs *environs.Environs, env
 		cfg, err = config.New(config.NoDefaults, info.BootstrapConfig())
 	} else if envs != nil {
 		cfg, err = envs.Config(envName)
-		if errors.IsNotFoundError(err) {
+		if errors.IsNotFound(err) {
 			return nil, err
 		}
 	} else {
@@ -354,9 +349,15 @@ func cacheAPIInfo(info configstore.EnvironInfo, apiInfo *api.Info) error {
 
 // cacheChangedAPIAddresses updates the local environment settings (.jenv file)
 // with the provided API server addresses if they have changed.
-func cacheChangedAPIAddresses(info configstore.EnvironInfo, addrs []string) error {
+func cacheChangedAPIAddresses(info configstore.EnvironInfo, st apiState) error {
+	var addrs []string
+	for _, serverHostPorts := range st.APIHostPorts() {
+		for _, hostPort := range serverHostPorts {
+			addrs = append(addrs, hostPort.NetAddr())
+		}
+	}
 	endpoint := info.APIEndpoint()
-	if !addrsChanged(endpoint.Addresses, addrs) {
+	if len(addrs) == 0 || !addrsChanged(endpoint.Addresses, addrs) {
 		return nil
 	}
 	logger.Debugf("API addresses changed from %q to %q", endpoint.Addresses, addrs)
@@ -381,4 +382,39 @@ func addrsChanged(a, b []string) bool {
 		}
 	}
 	return false
+}
+
+// APIEndpointForEnv returns the endpoint information for a given environment
+// It tries to just return the information from the cached settings unless
+// there is nothing cached or refresh is True
+func APIEndpointForEnv(envName string, refresh bool) (configstore.APIEndpoint, error) {
+	store, err := configstore.Default()
+	if err != nil {
+		return configstore.APIEndpoint{}, err
+	}
+	return apiEndpointInStore(envName, refresh, store, defaultAPIOpen)
+}
+
+func apiEndpointInStore(envName string, refresh bool, store configstore.Storage, apiOpen apiOpenFunc) (configstore.APIEndpoint, error) {
+	info, err := store.ReadInfo(envName)
+	if err != nil {
+		return configstore.APIEndpoint{}, err
+	}
+	endpoint := info.APIEndpoint()
+	if !refresh && len(endpoint.Addresses) > 0 {
+		logger.Debugf("found cached addresses, not connecting to API server")
+		return endpoint, nil
+	}
+	// We need to connect to refresh our endpoint settings
+	apiState, err := newAPIFromStore(envName, store, apiOpen)
+	if err != nil {
+		return configstore.APIEndpoint{}, err
+	}
+	apiState.Close()
+	// The side effect of connecting is that we update the store with new API information
+	info, err = store.ReadInfo(envName)
+	if err != nil {
+		return configstore.APIEndpoint{}, err
+	}
+	return info.APIEndpoint(), nil
 }

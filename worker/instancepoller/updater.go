@@ -126,7 +126,7 @@ func (p *updater) startMachines(ids []string) error {
 			// We don't know about the machine - start
 			// a goroutine to deal with it.
 			m, err := p.context.getMachine(id)
-			if errors.IsNotFoundError(err) {
+			if errors.IsNotFound(err) {
 				logger.Warningf("watcher gave notification of non-existent machine %q", id)
 				continue
 			}
@@ -188,7 +188,7 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 				// (and hopefully the local provider will implement
 				// Addresses/Status in the not-too-distant future),
 				// so we won't need to worry about this case at all.
-				if errors.IsNotImplementedError(err) {
+				if errors.IsNotImplemented(err) {
 					pollInterval = 365 * 24 * time.Hour
 				} else {
 					return err
@@ -240,7 +240,7 @@ func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo,
 	}
 	instInfo, err = context.instanceInfo(instId)
 	if err != nil {
-		if errors.IsNotImplementedError(err) {
+		if errors.IsNotImplemented(err) {
 			return instInfo, err
 		}
 		logger.Warningf("cannot get instance info for instance %q: %v", instId, err)

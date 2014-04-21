@@ -19,12 +19,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/loggo"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/log"
 )
+
+var logger = loggo.GetLogger("juju.store")
 
 // The following MongoDB collections are currently used:
 //
@@ -65,11 +67,11 @@ type Store struct {
 // server at the given address (as expected by the Mongo function in the
 // labix.org/v2/mgo package).
 func Open(mongoAddr string) (store *Store, err error) {
-	log.Infof("store: Store opened. Connecting to: %s", mongoAddr)
+	logger.Infof("store opened, connecting to: %s", mongoAddr)
 	store = &Store{}
 	session, err := mgo.Dial(mongoAddr)
 	if err != nil {
-		log.Errorf("store: Error connecting to MongoDB: %v", err)
+		logger.Errorf("error connecting to MongoDB: %v", err)
 		return nil, err
 	}
 
@@ -110,7 +112,7 @@ func (s *Store) ensureIndexes() error {
 	for _, idx := range indexes {
 		err := idx.c.EnsureIndex(idx.i)
 		if err != nil {
-			log.Errorf("store: Error ensuring stat.counters index: %v", err)
+			logger.Errorf("error ensuring stat.counters index: %v", err)
 			return err
 		}
 	}
@@ -552,7 +554,7 @@ func (p *CharmPublisher) Publish(charm CharmDir) error {
 // ErrRedundantUpdate is returned if all of the provided urls are
 // already associated to that digest.
 func (s *Store) CharmPublisher(urls []*charm.URL, digest string) (p *CharmPublisher, err error) {
-	log.Infof("store: Trying to add charms %v with key %q...", urls, digest)
+	logger.Infof("trying to add charms %v with key %q...", urls, digest)
 	if err = mustLackRevision("CharmPublisher", urls...); err != nil {
 		return
 	}
@@ -567,16 +569,16 @@ func (s *Store) CharmPublisher(urls []*charm.URL, digest string) (p *CharmPublis
 		urlStr := urls[i].String()
 		err = charms.Find(bson.D{{"urls", urlStr}}).Sort("-revision").One(&doc)
 		if err == mgo.ErrNotFound {
-			log.Infof("store: Charm %s not yet in the store.", urls[i])
+			logger.Infof("charm %s not yet in the store.", urls[i])
 			newKey = true
 			continue
 		}
 		if doc.Digest != digest {
-			log.Infof("store: Charm %s is out of date with revision key %q.", urlStr, digest)
+			logger.Infof("charm %s is out of date with revision key %q.", urlStr, digest)
 			newKey = true
 		}
 		if err != nil {
-			log.Errorf("store: Unknown error looking for charm %s: %s", urlStr, err)
+			logger.Errorf("unknown error looking for charm %s: %s", urlStr, err)
 			return
 		}
 		if doc.Revision > maxRev {
@@ -584,12 +586,12 @@ func (s *Store) CharmPublisher(urls []*charm.URL, digest string) (p *CharmPublis
 		}
 	}
 	if !newKey {
-		log.Infof("store: All charms have revision key %q. Nothing to update.", digest)
+		logger.Infof("all charms have revision key %q. Nothing to update.", digest)
 		err = ErrRedundantUpdate
 		return
 	}
 	revision := maxRev + 1
-	log.Infof("store: Preparing writer to add charms with revision %d.", revision)
+	logger.Infof("preparing writer to add charms with revision %d.", revision)
 	w := &charmWriter{
 		store:    s,
 		urls:     urls,
@@ -618,11 +620,11 @@ func (w *charmWriter) Write(data []byte) (n int, err error) {
 		w.session = w.store.session.Copy()
 		w.file, err = w.session.CharmFS().Create("")
 		if err != nil {
-			log.Errorf("store: Failed to create GridFS file: %v", err)
+			logger.Errorf("failed to create GridFS file: %v", err)
 			return 0, err
 		}
 		w.sha256 = sha256.New()
-		log.Infof("store: Creating GridFS file with id %q...", w.file.Id().(bson.ObjectId).Hex())
+		logger.Infof("creating GridFS file with id %q...", w.file.Id().(bson.ObjectId).Hex())
 	}
 	_, err = w.sha256.Write(data)
 	if err != nil {
@@ -652,7 +654,7 @@ func (w *charmWriter) finish() error {
 	size := w.file.Size()
 	err := w.file.Close()
 	if err != nil {
-		log.Errorf("store: Failed to close GridFS file: %v", err)
+		logger.Errorf("failed to close GridFS file: %v", err)
 		return err
 	}
 	charms := w.session.Charms()
@@ -669,7 +671,7 @@ func (w *charmWriter) finish() error {
 	}
 	if err = charms.Insert(&charm); err != nil {
 		err = maybeConflict(err)
-		log.Errorf("store: Failed to insert new revision of charm %v: %v", w.urls, err)
+		logger.Errorf("failed to insert new revision of charm %v: %v", w.urls, err)
 		return err
 	}
 	return nil
@@ -782,7 +784,7 @@ func (s *Store) getRevisions(url *charm.URL, n int) ([]*CharmInfo, error) {
 	session := s.session.Copy()
 	defer session.Close()
 
-	log.Debugf("store: Retrieving charm info for %s", url)
+	logger.Debugf("retrieving charm info for %s", url)
 	rev := url.Revision
 	url = url.WithRevision(-1)
 
@@ -799,7 +801,7 @@ func (s *Store) getRevisions(url *charm.URL, n int) ([]*CharmInfo, error) {
 		q = q.Limit(n)
 	}
 	if err := q.All(&cdocs); err != nil {
-		log.Errorf("store: Failed to find charm %s: %v", url, err)
+		logger.Errorf("failed to find charm %s: %v", url, err)
 		return nil, ErrNotFound
 	}
 	var infos []*CharmInfo
@@ -821,7 +823,7 @@ func (s *Store) getRevisions(url *charm.URL, n int) ([]*CharmInfo, error) {
 func (s *Store) CharmInfo(url *charm.URL) (*CharmInfo, error) {
 	infos, err := s.getRevisions(url, 1)
 	if err != nil {
-		log.Errorf("store: Failed to find charm %s: %v", url, err)
+		logger.Errorf("failed to find charm %s: %v", url, err)
 		return nil, ErrNotFound
 	} else if len(infos) < 1 {
 		return nil, ErrNotFound
@@ -832,7 +834,7 @@ func (s *Store) CharmInfo(url *charm.URL) (*CharmInfo, error) {
 // OpenCharm opens for reading via rc the charm currently available at url.
 // rc must be closed after dealing with it or resources will leak.
 func (s *Store) OpenCharm(url *charm.URL) (info *CharmInfo, rc io.ReadCloser, err error) {
-	log.Debugf("store: Opening charm %s", url)
+	logger.Debugf("opening charm %s", url)
 	info, err = s.CharmInfo(url)
 	if err != nil {
 		return nil, nil, err
@@ -840,7 +842,7 @@ func (s *Store) OpenCharm(url *charm.URL) (info *CharmInfo, rc io.ReadCloser, er
 	session := s.session.Copy()
 	file, err := session.CharmFS().OpenId(info.fileId)
 	if err != nil {
-		log.Errorf("store: Failed to open GridFS file for charm %s: %v", url, err)
+		logger.Errorf("failed to open GridFS file for charm %s: %v", url, err)
 		session.Close()
 		return nil, nil, err
 	}
@@ -851,7 +853,7 @@ func (s *Store) OpenCharm(url *charm.URL) (info *CharmInfo, rc io.ReadCloser, er
 // DeleteCharm deletes the charms matching url. If no revision is specified,
 // all revisions of the charm are deleted.
 func (s *Store) DeleteCharm(url *charm.URL) ([]*CharmInfo, error) {
-	log.Debugf("store: Deleting charm %s", url)
+	logger.Debugf("deleting charm %s", url)
 	infos, err := s.getRevisions(url, 0)
 	if err != nil {
 		return nil, err
@@ -866,12 +868,12 @@ func (s *Store) DeleteCharm(url *charm.URL) ([]*CharmInfo, error) {
 		err := session.Charms().Remove(
 			bson.D{{"urls", url.WithRevision(-1)}, {"revision", info.Revision()}})
 		if err != nil {
-			log.Errorf("store: Failed to delete metadata for charm %s: %v", url, err)
+			logger.Errorf("failed to delete metadata for charm %s: %v", url, err)
 			return deleted, err
 		}
 		err = session.CharmFS().RemoveId(info.fileId)
 		if err != nil {
-			log.Errorf("store: Failed to delete GridFS file for charm %s: %v", url, err)
+			logger.Errorf("failed to delete GridFS file for charm %s: %v", url, err)
 			return deleted, err
 		}
 		deleted = append(deleted, info)
@@ -940,7 +942,7 @@ type UpdateLock struct {
 // Unlock removes the previously acquired server-side lock that prevents
 // other processes from attempting to update a set of charm URLs.
 func (l *UpdateLock) Unlock() {
-	log.Debugf("store: Unlocking charms for future updates: %v", l.keys)
+	logger.Debugf("unlocking charms for future updates: %v", l.keys)
 	defer l.locks.Database.Session.Close()
 	for i := len(l.keys) - 1; i >= 0; i-- {
 		// Using time below ensures only the proper lock is removed.
@@ -956,19 +958,19 @@ func (l *UpdateLock) Unlock() {
 // locks and aborts with an error.
 func (l *UpdateLock) tryLock() error {
 	for i, key := range l.keys {
-		log.Debugf("store: Trying to lock charm %s for updates...", key)
+		logger.Debugf("trying to lock charm %s for updates...", key)
 		doc := bson.D{{"_id", key}, {"time", l.time}}
 		err := l.locks.Insert(doc)
 		if err == nil {
-			log.Debugf("store: Charm %s is now locked for updates.", key)
+			logger.Debugf("charm %s is now locked for updates.", key)
 			continue
 		}
 		if lerr, ok := err.(*mgo.LastError); ok && lerr.Code == 11000 {
-			log.Debugf("store: Charm %s is locked. Trying to expire lock.", key)
+			logger.Debugf("charm %s is locked. Trying to expire lock.", key)
 			l.tryExpire(key)
 			err = l.locks.Insert(doc)
 			if err == nil {
-				log.Debugf("store: Charm %s is now locked for updates.", key)
+				logger.Debugf("charm %s is now locked for updates.", key)
 				continue
 			}
 		}
@@ -979,7 +981,7 @@ func (l *UpdateLock) tryLock() error {
 			l.locks.Remove(bson.D{{"_id", l.keys[j]}, {"time", l.time}})
 		}
 		err = maybeConflict(err)
-		log.Errorf("store: Can't lock charms %v for updating: %v", l.keys, err)
+		logger.Errorf("can't lock charms %v for updating: %v", l.keys, err)
 		return err
 	}
 	return nil
@@ -1073,7 +1075,7 @@ type CharmEvent struct {
 
 // LogCharmEvent records an event related to one or more charm URLs.
 func (s *Store) LogCharmEvent(event *CharmEvent) (err error) {
-	log.Infof("store: Adding charm event for %v with key %q: %s", event.URLs, event.Digest, event.Kind)
+	logger.Infof("adding charm event for %v with key %q: %s", event.URLs, event.Digest, event.Kind)
 	if err = mustLackRevision("LogCharmEvent", event.URLs...); err != nil {
 		return
 	}
@@ -1126,7 +1128,7 @@ func mustLackRevision(context string, urls ...*charm.URL) error {
 	for _, url := range urls {
 		if url.Revision != -1 {
 			err := fmt.Errorf("%s: got charm URL with revision: %s", context, url)
-			log.Errorf("store: %v", err)
+			logger.Errorf("%v", err)
 			return err
 		}
 	}

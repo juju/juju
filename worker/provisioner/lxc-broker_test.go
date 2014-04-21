@@ -280,7 +280,7 @@ func (s *lxcProvisionerSuite) TestDoesNotHaveRetryWatcher(c *gc.C) {
 
 	w, err := provisioner.GetRetryWatcher(p)
 	c.Assert(w, gc.IsNil)
-	c.Assert(errors.IsNotImplementedError(err), jc.IsTrue)
+	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
 }
 
 func (s *lxcProvisionerSuite) addContainer(c *gc.C) *state.Machine {

@@ -15,7 +15,6 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/utils"
 )
 
 // RelationUnit holds information about a single unit in a relation, and
@@ -297,7 +296,7 @@ func (ru *RelationUnit) LeaveScope() error {
 			}
 			return err
 		}
-		if err := ru.relation.Refresh(); errors.IsNotFoundError(err) {
+		if err := ru.relation.Refresh(); errors.IsNotFound(err) {
 			return nil
 		} else if err != nil {
 			return err
@@ -345,7 +344,7 @@ func (ru *RelationUnit) Settings() (*Settings, error) {
 // guaranteed to persist for the lifetime of the relation, regardless
 // of the lifetime of the unit.
 func (ru *RelationUnit) ReadSettings(uname string) (m map[string]interface{}, err error) {
-	defer utils.ErrorContextf(&err, "cannot read settings for unit %q in relation %q", uname, ru.relation)
+	defer errors.Maskf(&err, "cannot read settings for unit %q in relation %q", uname, ru.relation)
 	if !names.IsUnit(uname) {
 		return nil, fmt.Errorf("%q is not a valid unit name", uname)
 	}

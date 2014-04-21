@@ -122,7 +122,7 @@ func (*diskStoreSuite) TestReadNotFound(c *gc.C) {
 	store, err := configstore.NewDisk(dir)
 	c.Assert(err, gc.IsNil)
 	info, err := store.ReadInfo("someenv")
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(info, gc.IsNil)
 }
 

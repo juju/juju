@@ -106,7 +106,7 @@ func (s *userManagerSuite) TestCannotAddRemoveAdd(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	_, err = s.State.User("addremove")
 	result, err := s.usermanager.AddUser(args)
-	expectedError := apiservertesting.AlreadyExistsError("Failed to create user: user")
+	expectedError := apiservertesting.ServerError("Failed to create user: user already exists")
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			params.ErrorResult{expectedError}}})

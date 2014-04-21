@@ -7,6 +7,7 @@ var (
 	NewWebsocketDialer = newWebsocketDialer
 
 	WebsocketDialConfig = &websocketDialConfig
+	SlideAddressToFront = slideAddressToFront
 )
 
 // SetServerRoot allows changing the URL to the internal API server
