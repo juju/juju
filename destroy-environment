@@ -13,7 +13,7 @@ def main():
     mydir = os.path.dirname(os.path.abspath(sys.argv[0]))
     for env in sys.argv[1:]:
         environment = jujupy.Environment.from_config(env)
-        destroy_environment(environmennt, mydir)
+        destroy_environment(environment, mydir)
 
 
 if __name__ == '__main__':
