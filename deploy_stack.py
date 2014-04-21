@@ -107,6 +107,10 @@ def deploy_dummy_stack(env, charm_prefix):
         raise ValueError('Token is %r' % result)
 
 
+def scp_logs(log_names, directory):
+    subprocess.check_call(['timeout', '5m', 'scp'] + log_names + [directory])
+
+
 def dump_logs(env, host, directory):
     log_names = []
     if env.local:
@@ -115,14 +119,21 @@ def dump_logs(env, host, directory):
         log_dir = os.path.join(local, 'log')
         log_names.extend(os.path.join(log_dir, l) for l
                          in os.listdir(log_dir) if l.endswith('.log'))
+        scp_logs(log_names, directory)
     else:
         log_names = [
             'ubuntu@%s:/var/log/%s' % (host, n)
             for n in ['juju/all-machines.log', 'cloud-init-output.log']]
         wait_for_port(host, 22, timeout=60)
-    subprocess.check_call(['timeout', '5m', 'scp'] + log_names + [directory])
-    for log_name in log_names:
-        path = os.path.join(directory, os.path.basename(log_name))
+        for log_name in log_names:
+            try:
+                scp_logs([log_name], directory)
+            except CalledProcessError:
+                pass
+    for log_name in os.listdir(directory):
+        if not log_name.endswith('.log'):
+            continue
+        path = os.path.join(directory, log_name)
         subprocess.check_call(['gzip', path])
 
 
