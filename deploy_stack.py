@@ -52,6 +52,14 @@ def prepare_environment(environment, already_bootstrapped, machines):
     return env
 
 
+def destroy_environment(environment, scripts_dir):
+    terminate = os.path.join(scripts_dir, 'ec2-terminate-job-instances')
+    if environment.config['type'] == 'manual':
+        subprocess.check_call(terminate)
+    else:
+        environment.destroy_environment()
+
+
 def deploy_stack(env, charm_prefix):
     """"Deploy a Wordpress stack in the specified environment.
 
@@ -159,7 +167,7 @@ def deploy_job():
                           os.path.join(os.environ['WORKSPACE'], 'artifacts'))
                 raise
         finally:
-            env.destroy_environment()
+            destroy_environment(env, os.environ['SCRIPTS'])
     except Exception as e:
         raise
         print('%s (%s)' % (e, type(e).__name__))

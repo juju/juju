@@ -6,18 +6,14 @@ import subprocess
 import sys
 
 import jujupy
+from deploy_stack import destroy_environment
 
 
 def main():
     mydir = os.path.dirname(os.path.abspath(sys.argv[0]))
-    terminate = os.path.join(mydir, 'ec2-terminate-job-instances')
     for env in sys.argv[1:]:
         environment = jujupy.Environment.from_config(env)
-        if environment.config['type'] == 'manual':
-            subprocess.check_call(terminate)
-        else:
-            environment.destroy_environment()
-
+        destroy_environment(environmennt, mydir)
 
 
 if __name__ == '__main__':
