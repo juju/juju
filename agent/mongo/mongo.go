@@ -308,8 +308,9 @@ func aptGetInstallMongod() error {
 			return err
 		}
 	}
-	cmds := utils.AptGetPreparePackages([]string{"mongodb-server"}, version.Current.Series)
-	logger.Infof("installing mongodb-server")
+	pkg := mongoPackageForSeries(version.Current.Series)
+	cmds := utils.AptGetPreparePackages([]string{pkg}, version.Current.Series)
+	logger.Infof("installing %s", pkg)
 	for _, cmd := range cmds {
 		if err := utils.AptGetInstall(cmd...); err != nil {
 			return err
@@ -338,6 +339,18 @@ func addAptRepository(name string) error {
 		return fmt.Errorf("cannot add apt repository: %v (output %s)", err, bytes.TrimSpace(out))
 	}
 	return nil
+}
+
+// mongoPackageForSeries returns the name of the mongo package for the series
+// of the machine that it is going to be running on.
+func mongoPackageForSeries(series string) string {
+	switch series {
+	case "precise", "quantal", "raring", "saucy":
+		return "mongodb-server"
+	default:
+		// trusty and onwards
+		return "juju-mongodb"
+	}
 }
 
 // mongoNoauthCommand returns an os/exec.Cmd that may be executed to
