@@ -51,10 +51,12 @@ EOT
       $SCRIPTS/wait-for-port $machine 22
     done
     DEPLOY_ARGS="--machine ssh:$machine_1_name --machine ssh:$machine_2_name"
+    export MACHINES="$machine_1_name $machine_2_name"
 }
 
 export PACKAGE=$WORKSPACE/new-precise.deb
 artifacts_path=$WORKSPACE/artifacts
+export MACHINES=""
 set -x
 rm * -rf
 mkdir -p $artifacts_path
