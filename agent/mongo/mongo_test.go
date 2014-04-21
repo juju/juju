@@ -169,6 +169,34 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 	c.Assert(tlog, gc.Matches, start+`using mongod: .*/mongod --version: "db version v2\.4\.9`+tail)
 }
 
+func (s *MongoSuite) TestInstallOldMongod(c *gc.C) {
+	dataDir := c.MkDir()
+	namespace := "namespace"
+
+	output := mockShellCommand(c, &s.CleanupSuite, "apt-get")
+	s.PatchValue(&version.Current.Series, "precise")
+
+	err := EnsureMongoServer(dataDir, namespace, testInfo, WithHA)
+	c.Assert(err, gc.IsNil)
+
+	cmds := getMockShellCalls(c, output)
+	c.Assert(strings.Join(cmds[0], " "), gc.Matches, `.* install .*mongodb-server`)
+}
+
+func (s *MongoSuite) TestInstallJujuMongod(c *gc.C) {
+	dataDir := c.MkDir()
+	namespace := "namespace"
+
+	output := mockShellCommand(c, &s.CleanupSuite, "apt-get")
+	s.PatchValue(&version.Current.Series, "trusty")
+
+	err := EnsureMongoServer(dataDir, namespace, testInfo, WithHA)
+	c.Assert(err, gc.IsNil)
+
+	cmds := getMockShellCalls(c, output)
+	c.Assert(strings.Join(cmds[0], " "), gc.Matches, ".* install .*juju-mongodb")
+}
+
 func (s *MongoSuite) TestMongoUpstartServiceWithHA(c *gc.C) {
 	dataDir := c.MkDir()
 
