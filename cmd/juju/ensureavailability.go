@@ -33,7 +33,7 @@ to ensure that the specified number of state servers are made available.
 An odd number of state servers is required.
 
 Examples:
- juju ensure-availability -n 3
+ juju ensure-availability
      Ensure that 3 state servers are available,
      with newly created state server machines
      having the default series and constraints.
@@ -58,7 +58,7 @@ func (c *EnsureAvailabilityCommand) Info() *cmd.Info {
 
 func (c *EnsureAvailabilityCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
-	f.IntVar(&c.NumStateServers, "n", -1, "number of state servers to make available")
+	f.IntVar(&c.NumStateServers, "n", 3, "number of state servers to make available")
 	f.StringVar(&c.Series, "series", "", "the charm series")
 	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "additional machine constraints")
 }
