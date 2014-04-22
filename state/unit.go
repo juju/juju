@@ -166,7 +166,8 @@ func (u *Unit) Life() Life {
 }
 
 // AgentTools returns the tools that the agent is currently running.
-// It an error that satisfies IsNotFound if the tools have not yet been set.
+// It an error that satisfies errors.IsNotFound if the tools have not
+// yet been set.
 func (u *Unit) AgentTools() (*tools.Tools, error) {
 	if u.doc.Tools == nil {
 		return nil, errors.NotFoundf("agent tools for unit %q", u)
@@ -178,7 +179,7 @@ func (u *Unit) AgentTools() (*tools.Tools, error) {
 // SetAgentVersion sets the version of juju that the agent is
 // currently running.
 func (u *Unit) SetAgentVersion(v version.Binary) (err error) {
-	defer utils.ErrorContextf(&err, "cannot set agent version for unit %q", u)
+	defer errors.Maskf(&err, "cannot set agent version for unit %q", u)
 	if err = checkVersionValidity(v); err != nil {
 		return err
 	}
@@ -282,7 +283,7 @@ func (u *Unit) Destroy() (err error) {
 		default:
 			return err
 		}
-		if err := unit.Refresh(); errors.IsNotFoundError(err) {
+		if err := unit.Refresh(); errors.IsNotFound(err) {
 			return nil
 		} else if err != nil {
 			return err
@@ -335,7 +336,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 
 	sdocId := u.globalKey()
 	sdoc, err := getStatus(u.st, sdocId)
-	if errors.IsNotFoundError(err) {
+	if errors.IsNotFound(err) {
 		return nil, errAlreadyDying
 	} else if err != nil {
 		return nil, err
@@ -364,7 +365,7 @@ var errAlreadyRemoved = stderrors.New("entity has already been removed")
 // the supplied asserts apply to the unit document.
 func (u *Unit) removeOps(asserts bson.D) ([]txn.Op, error) {
 	svc, err := u.st.Service(u.doc.Service)
-	if errors.IsNotFoundError(err) {
+	if errors.IsNotFound(err) {
 		// If the service has been removed, the unit must already have been.
 		return nil, errAlreadyRemoved
 	} else if err != nil {
@@ -415,7 +416,7 @@ func (u *Unit) EnsureDead() (err error) {
 // the service is Dying and no other references to it exist. It will fail if
 // the unit is not Dead.
 func (u *Unit) Remove() (err error) {
-	defer utils.ErrorContextf(&err, "cannot remove unit %q", u)
+	defer errors.Maskf(&err, "cannot remove unit %q", u)
 	if u.doc.Life != Dead {
 		return stderrors.New("unit is not dead")
 	}
@@ -454,7 +455,7 @@ func (u *Unit) Remove() (err error) {
 		default:
 			return err
 		}
-		if err := unit.Refresh(); errors.IsNotFoundError(err) {
+		if err := unit.Refresh(); errors.IsNotFound(err) {
 			return nil
 		} else if err != nil {
 			return err
@@ -555,7 +556,8 @@ func (u *Unit) PrivateAddress() (string, bool) {
 }
 
 // Refresh refreshes the contents of the Unit from the underlying
-// state. It an error that satisfies IsNotFound if the unit has been removed.
+// state. It an error that satisfies errors.IsNotFound if the unit has
+// been removed.
 func (u *Unit) Refresh() error {
 	err := u.st.units.FindId(u.doc.Name).One(&u.doc)
 	if err == mgo.ErrNotFound {
@@ -607,7 +609,7 @@ func (u *Unit) SetStatus(status params.Status, info string, data params.StatusDa
 // OpenPort sets the policy of the port with protocol and number to be opened.
 func (u *Unit) OpenPort(protocol string, number int) (err error) {
 	port := instance.Port{Protocol: protocol, Number: number}
-	defer utils.ErrorContextf(&err, "cannot open port %v for unit %q", port, u)
+	defer errors.Maskf(&err, "cannot open port %v for unit %q", port, u)
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
@@ -633,7 +635,7 @@ func (u *Unit) OpenPort(protocol string, number int) (err error) {
 // ClosePort sets the policy of the port with protocol and number to be closed.
 func (u *Unit) ClosePort(protocol string, number int) (err error) {
 	port := instance.Port{Protocol: protocol, Number: number}
-	defer utils.ErrorContextf(&err, "cannot close port %v for unit %q", port, u)
+	defer errors.Maskf(&err, "cannot close port %v for unit %q", port, u)
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
@@ -744,7 +746,7 @@ func (u *Unit) Tag() string {
 
 // WaitAgentAlive blocks until the respective agent is alive.
 func (u *Unit) WaitAgentAlive(timeout time.Duration) (err error) {
-	defer utils.ErrorContextf(&err, "waiting for agent of unit %q", u)
+	defer errors.Maskf(&err, "waiting for agent of unit %q", u)
 	ch := make(chan presence.Change)
 	u.st.pwatcher.Watch(u.globalKey(), ch)
 	defer u.st.pwatcher.Unwatch(u.globalKey(), ch)
@@ -1012,7 +1014,7 @@ func (u *Unit) assignToNewMachine(template MachineTemplate, parentId string, con
 // constraints is a helper function to return a unit's deployment constraints.
 func (u *Unit) constraints() (*constraints.Value, error) {
 	cons, err := readConstraints(u.st, u.globalKey())
-	if errors.IsNotFoundError(err) {
+	if errors.IsNotFound(err) {
 		// Lack of constraints indicates lack of unit.
 		return nil, errors.NotFoundf("unit")
 	} else if err != nil {
@@ -1332,7 +1334,7 @@ func (u *Unit) Resolve(retryHooks bool) error {
 // whether to attempt to reexecute previous failed hooks or to continue
 // as if they had succeeded before.
 func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
-	defer utils.ErrorContextf(&err, "cannot set resolved mode for unit %q", u)
+	defer errors.Maskf(&err, "cannot set resolved mode for unit %q", u)
 	switch mode {
 	case ResolvedRetryHooks, ResolvedNoHooks:
 	default:

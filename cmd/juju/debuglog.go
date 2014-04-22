@@ -96,7 +96,7 @@ func (c *DebugLogCommand) Run(ctx *cmd.Context) (err error) {
 	defer client.Close()
 	debugLog, err := client.WatchDebugLog(c.params)
 	if err != nil {
-		if errors.IsNotSupportedError(err) {
+		if errors.IsNotSupported(err) {
 			return c.watchDebugLog1dot18(ctx)
 		}
 		return err

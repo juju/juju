@@ -1518,3 +1518,12 @@ func (s *startInstanceSuite) TestStartInstanceStateServerJobs(c *gc.C) {
 	_, stateServer = s.startInstance(c)
 	c.Assert(stateServer, jc.IsTrue)
 }
+
+func (s *environSuite) TestConstraintsValidator(c *gc.C) {
+	env := makeEnviron(c)
+	validator := env.ConstraintsValidator()
+	cons := constraints.MustParse("arch=amd64 tags=bar cpu-power=10")
+	unsupported, err := validator.Validate(cons)
+	c.Assert(err, gc.IsNil)
+	c.Assert(unsupported, gc.DeepEquals, []string{"cpu-power", "tags"})
+}

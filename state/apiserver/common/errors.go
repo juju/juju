@@ -90,11 +90,11 @@ func ServerError(err error) *params.Error {
 	code, ok := singletonCode(err)
 	switch {
 	case ok:
-	case errors.IsUnauthorizedError(err):
+	case errors.IsUnauthorized(err):
 		code = params.CodeUnauthorized
-	case errors.IsNotFoundError(err):
+	case errors.IsNotFound(err):
 		code = params.CodeNotFound
-	case errors.IsAlreadyExistsError(err):
+	case errors.IsAlreadyExists(err):
 		code = params.CodeAlreadyExists
 	case state.IsNotAssigned(err):
 		code = params.CodeNotAssigned

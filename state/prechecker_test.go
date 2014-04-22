@@ -55,7 +55,9 @@ func (s *PrecheckerSuite) TestPrecheckInstance(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.prechecker.precheckInstanceSeries, gc.Equals, template.Series)
 	c.Assert(s.prechecker.precheckInstancePlacement, gc.Equals, placement)
-	cons := template.Constraints.WithFallbacks(envCons)
+	validator := constraints.NewValidator()
+	cons, err := validator.Merge(envCons, template.Constraints)
+	c.Assert(err, gc.IsNil)
 	c.Assert(s.prechecker.precheckInstanceConstraints, gc.DeepEquals, cons)
 }
 
@@ -80,7 +82,7 @@ func (s *PrecheckerSuite) TestPrecheckPrecheckerUnimplemented(c *gc.C) {
 	}
 	_, err := s.addOneMachine(c, constraints.Value{}, "placement")
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: policy returned nil prechecker without an error")
-	precheckerErr = errors.NewNotImplementedError("Prechecker")
+	precheckerErr = errors.NotImplementedf("Prechecker")
 	_, err = s.addOneMachine(c, constraints.Value{}, "placement")
 	c.Assert(err, gc.IsNil)
 }

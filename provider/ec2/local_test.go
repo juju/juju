@@ -359,6 +359,49 @@ func (t *localServerSuite) TestAddresses(c *gc.C) {
 	}
 }
 
+func (t *localServerSuite) TestConstraintsValidator(c *gc.C) {
+	env := t.Prepare(c)
+	validator := env.ConstraintsValidator()
+	cons := constraints.MustParse("arch=amd64 tags=foo")
+	unsupported, err := validator.Validate(cons)
+	c.Assert(err, gc.IsNil)
+	c.Assert(unsupported, gc.DeepEquals, []string{"tags"})
+}
+
+func (t *localServerSuite) TestConstraintsMerge(c *gc.C) {
+	env := t.Prepare(c)
+	validator := env.ConstraintsValidator()
+	consA := constraints.MustParse("arch=amd64 mem=1G cpu-power=10 cpu-cores=2 tags=bar")
+	consB := constraints.MustParse("arch=i386 instance-type=foo")
+	cons, err := validator.Merge(consA, consB)
+	c.Assert(err, gc.IsNil)
+	c.Assert(cons, gc.DeepEquals, constraints.MustParse("arch=i386 instance-type=foo tags=bar"))
+}
+
+func (t *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
+	env := t.Prepare(c)
+	cons := constraints.MustParse("instance-type=m1.small root-disk=1G")
+	placement := ""
+	err := env.PrecheckInstance("precise", cons, placement)
+	c.Assert(err, gc.IsNil)
+}
+
+func (t *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
+	env := t.Prepare(c)
+	cons := constraints.MustParse("instance-type=m1.invalid")
+	placement := ""
+	err := env.PrecheckInstance("precise", cons, placement)
+	c.Assert(err, gc.ErrorMatches, `invalid AWS instance type "m1.invalid" specified`)
+}
+
+func (t *localServerSuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
+	env := t.Prepare(c)
+	cons := constraints.MustParse("instance-type=cc1.4xlarge arch=i386")
+	placement := ""
+	err := env.PrecheckInstance("precise", cons, placement)
+	c.Assert(err, gc.ErrorMatches, `invalid AWS instance type "cc1.4xlarge" and arch "i386" specified`)
+}
+
 func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	env := t.Prepare(c)
 	params, err := env.(simplestreams.MetadataValidator).MetadataLookupParams("test")

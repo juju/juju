@@ -116,7 +116,7 @@ func (s *EnvironCapabilitySuite) TestEnvironCapabilityUnimplemented(c *gc.C) {
 	}
 	_, err := s.addOneMachine(c)
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: policy returned nil EnvironCapability without an error")
-	capabilityErr = errors.NewNotImplementedError("EnvironCapability")
+	capabilityErr = errors.NotImplementedf("EnvironCapability")
 	_, err = s.addOneMachine(c)
 	c.Assert(err, gc.IsNil)
 }

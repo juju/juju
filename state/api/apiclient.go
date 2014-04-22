@@ -119,7 +119,7 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	}
 	pool.AddCert(xcert)
 
-	// Dial all addresses
+	// Dial all addresses at reasonable intervals.
 	try := parallel.NewTry(0, nil)
 	defer try.Kill()
 	for _, addr := range info.Addrs {

@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
+	"launchpad.net/juju-core/environs/network"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
@@ -69,6 +70,7 @@ var _ environs.Environ = (*environ)(nil)
 var _ simplestreams.HasRegion = (*environ)(nil)
 var _ imagemetadata.SupportsCustomSources = (*environ)(nil)
 var _ envtools.SupportsCustomSources = (*environ)(nil)
+var _ state.Prechecker = (*environ)(nil)
 
 type ec2Instance struct {
 	e *environ
@@ -356,11 +358,53 @@ func (e *environ) SupportNetworks() bool {
 	return false
 }
 
-func (*environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
+var unsupportedConstraints = []string{
+	constraints.Tags,
+}
+
+// ConstraintsValidator is defined on the Environs interface.
+func (e *environ) ConstraintsValidator() constraints.Validator {
+	validator := constraints.NewValidator()
+	validator.RegisterConflicts(
+		[]string{constraints.InstanceType},
+		[]string{constraints.Mem, constraints.CpuCores, constraints.CpuPower})
+	validator.RegisterUnsupported(unsupportedConstraints)
+	return validator
+}
+
+func archMatches(arches []string, arch *string) bool {
+	if arch == nil {
+		return true
+	}
+	for _, a := range arches {
+		if a == *arch {
+			return true
+		}
+	}
+	return false
+}
+
+// PrecheckInstance is defined on the state.Prechecker interface.
+func (e *environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
 	if placement != "" {
 		return fmt.Errorf("unknown placement directive: %s", placement)
 	}
-	return nil
+	if !cons.HasInstanceType() {
+		return nil
+	}
+	// Constraint has an instance-type constraint so let's see if it is valid.
+	for _, itype := range allInstanceTypes {
+		if itype.Name != *cons.InstanceType {
+			continue
+		}
+		if archMatches(itype.Arches, cons.Arch) {
+			return nil
+		}
+	}
+	if cons.Arch == nil {
+		return fmt.Errorf("invalid AWS instance type %q specified", *cons.InstanceType)
+	}
+	return fmt.Errorf("invalid AWS instance type %q and arch %q specified", *cons.InstanceType, *cons.Arch)
 }
 
 // MetadataLookupParams returns parameters which are used to query simplestreams metadata.
@@ -399,7 +443,7 @@ func (e *environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 const ebsStorage = "ebs"
 
 // StartInstance is specified in the InstanceBroker interface.
-func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error) {
+func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
 	if args.MachineConfig.HasNetworks() {
 		return nil, nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
 	}

@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
@@ -556,7 +557,7 @@ func (e requiresError) Error() string {
 }
 
 func verifyConfig(cfg *MachineConfig) (err error) {
-	defer utils.ErrorContextf(&err, "invalid machine configuration")
+	defer errors.Maskf(&err, "invalid machine configuration")
 	if !names.IsMachine(cfg.MachineId) {
 		return fmt.Errorf("invalid machine id")
 	}

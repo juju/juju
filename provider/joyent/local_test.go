@@ -421,3 +421,12 @@ func (s *localServerSuite) TestDeleteMoreThan100(c *gc.C) {
 	_, err = storage.Get(stor, "ab")
 	c.Assert(err, gc.NotNil)
 }
+
+func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
+	env := s.Prepare(c)
+	validator := env.ConstraintsValidator()
+	cons := constraints.MustParse("arch=amd64 tags=bar cpu-power=10")
+	unsupported, err := validator.Validate(cons)
+	c.Assert(err, gc.IsNil)
+	c.Assert(unsupported, gc.DeepEquals, []string{"cpu-power", "tags"})
+}

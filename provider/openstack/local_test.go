@@ -15,6 +15,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goose/client"
+	goosehttp "launchpad.net/goose/http"
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/testservices/hook"
@@ -52,6 +53,7 @@ func (s *ProviderSuite) SetUpTest(c *gc.C) {
 
 func (s *ProviderSuite) TearDownTest(c *gc.C) {
 	s.restoreTimeouts()
+	goosehttp.NewNonSSLValidating().Transport.(*http.Transport).DisableKeepAlives = true
 }
 
 // Register tests to run against a test Openstack instance (service doubles).
@@ -149,6 +151,7 @@ func (s *localLiveSuite) SetUpTest(c *gc.C) {
 func (s *localLiveSuite) TearDownTest(c *gc.C) {
 	s.LiveTests.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
+	goosehttp.NewNonSSLValidating().Transport.(*http.Transport).DisableKeepAlives = true
 }
 
 // localServerSuite contains tests that run against an Openstack service double.
@@ -212,6 +215,7 @@ func (s *localServerSuite) TearDownTest(c *gc.C) {
 	s.Tests.TearDownTest(c)
 	s.srv.stop()
 	s.LoggingSuite.TearDownTest(c)
+	goosehttp.NewNonSSLValidating().Transport.(*http.Transport).DisableKeepAlives = true
 }
 
 // If the bootstrap node is configured to require a public IP address,
@@ -334,7 +338,7 @@ func assertSecurityGroups(c *gc.C, env environs.Environ, expected []string) {
 			}
 		}
 		if !found {
-			c.Errorf("expected security group %g not found", name)
+			c.Errorf("expected security group %q not found", name)
 		}
 	}
 	for _, group := range groups {
@@ -346,7 +350,7 @@ func assertSecurityGroups(c *gc.C, env environs.Environ, expected []string) {
 			}
 		}
 		if !found {
-			c.Errorf("existing security group %g is not expected", group.Name)
+			c.Errorf("existing security group %q is not expected", group.Name)
 		}
 	}
 }
@@ -675,6 +679,60 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `no "saucy" images in some-region with arches \[amd64\]`)
 }
 
+func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
+	env := s.Open(c)
+	validator := env.ConstraintsValidator()
+	cons := constraints.MustParse("arch=amd64 cpu-power=10")
+	unsupported, err := validator.Validate(cons)
+	c.Assert(err, gc.IsNil)
+	c.Assert(unsupported, gc.DeepEquals, []string{"cpu-power"})
+}
+
+func (s *localServerSuite) TestConstraintsMerge(c *gc.C) {
+	env := s.Open(c)
+	validator := env.ConstraintsValidator()
+	consA := constraints.MustParse("arch=amd64 mem=1G root-disk=10G")
+	consB := constraints.MustParse("instance-type=foo")
+	cons, err := validator.Merge(consA, consB)
+	c.Assert(err, gc.IsNil)
+	c.Assert(cons, gc.DeepEquals, constraints.MustParse("instance-type=foo"))
+}
+
+func (s *localServerSuite) TestFindImageInstanceConstraint(c *gc.C) {
+	// Prevent falling over to the public datasource.
+	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
+
+	env := s.Open(c)
+	spec, err := openstack.FindInstanceSpec(env, "precise", "amd64", "instance-type=m1.tiny")
+	c.Assert(err, gc.IsNil)
+	c.Assert(spec.InstanceType.Name, gc.Equals, "m1.tiny")
+}
+
+func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {
+	// Prevent falling over to the public datasource.
+	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
+
+	env := s.Open(c)
+	_, err := openstack.FindInstanceSpec(env, "precise", "amd64", "instance-type=m1.large")
+	c.Assert(err, gc.ErrorMatches, `invalid instance type "m1.large"`)
+}
+
+func (s *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
+	env := s.Open(c)
+	cons := constraints.MustParse("instance-type=m1.small")
+	placement := ""
+	err := env.PrecheckInstance("precise", cons, placement)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
+	env := s.Open(c)
+	cons := constraints.MustParse("instance-type=m1.large")
+	placement := ""
+	err := env.PrecheckInstance("precise", cons, placement)
+	c.Assert(err, gc.ErrorMatches, `invalid Openstack flavour "m1.large" specified`)
+}
+
 func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	env := s.Open(c)
 	params, err := env.(simplestreams.MetadataValidator).MetadataLookupParams("some-region")
@@ -835,6 +893,7 @@ func (s *localHTTPSServerSuite) TearDownTest(c *gc.C) {
 	}
 	s.srv.stop()
 	s.LoggingSuite.TearDownTest(c)
+	goosehttp.NewNonSSLValidating().Transport.(*http.Transport).DisableKeepAlives = true
 }
 
 func (s *localHTTPSServerSuite) TestCanUploadTools(c *gc.C) {

@@ -45,8 +45,8 @@ func (r *Relation) Life() params.Life {
 }
 
 // Refresh refreshes the contents of the relation from the underlying
-// state. It returns an error that satisfies IsNotFound if the relation has been
-// removed.
+// state. It returns an error that satisfies errors.IsNotFound if the
+// relation has been removed.
 func (r *Relation) Refresh() error {
 	result, err := r.st.relation(r.tag, r.st.unitTag)
 	if err != nil {

@@ -333,6 +333,13 @@ func (st *State) EnvironConstraints() (constraints.Value, error) {
 
 // SetEnvironConstraints replaces the current environment constraints.
 func (st *State) SetEnvironConstraints(cons constraints.Value) error {
+	unsupported, err := st.validateConstraints(cons)
+	if len(unsupported) > 0 {
+		logger.Warningf(
+			"setting environment constraints: unsupported constraints: %v", strings.Join(unsupported, ","))
+	} else if err != nil {
+		return err
+	}
 	return writeConstraints(st, environGlobalKey, cons)
 }
 
@@ -916,7 +923,7 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 // supplied name (which must be unique). If the charm defines peer relations,
 // they will be created automatically.
 func (st *State) AddService(name, ownerTag string, ch *Charm, includeNetworks, excludeNetworks []string) (service *Service, err error) {
-	defer utils.ErrorContextf(&err, "cannot add service %q", name)
+	defer errors.Maskf(&err, "cannot add service %q", name)
 	kind, ownerId, err := names.ParseTag(ownerTag, names.UserTagKind)
 	if err != nil || kind != names.UserTagKind {
 		return nil, fmt.Errorf("Invalid ownertag %s", ownerTag)
@@ -991,7 +998,7 @@ func (st *State) AddService(name, ownerTag string, ch *Charm, includeNetworks, e
 
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
 		err := env.Refresh()
-		if (err == nil && env.Life() != Alive) || errors.IsNotFoundError(err) {
+		if (err == nil && env.Life() != Alive) || errors.IsNotFound(err) {
 			return nil, fmt.Errorf("environment is no longer alive")
 		} else if err != nil {
 			return nil, err
@@ -1014,59 +1021,53 @@ func (st *State) AddService(name, ownerTag string, ch *Charm, includeNetworks, e
 	return svc, nil
 }
 
-// AddNetwork creates a new network with the given name,
-// provider-specific id, CIDR and VLAN tag. If a network with the same
-// name or provider id already exists in state, an error satisfying
-// errors.IsAlreadyExistsError is returned.
-func (st *State) AddNetwork(name, providerId, cidr string, vlanTag int) (n *Network, err error) {
-	defer utils.ErrorContextf(&err, "cannot add network %q", name)
-	if cidr != "" {
-		_, _, err := net.ParseCIDR(cidr)
+// AddNetwork creates a new network with the given params. If a
+// network with the same name or provider id already exists in state,
+// an error satisfying errors.IsAlreadyExists is returned.
+func (st *State) AddNetwork(args NetworkInfo) (n *Network, err error) {
+	defer errors.Contextf(&err, "cannot add network %q", args.Name)
+	if args.CIDR != "" {
+		_, _, err := net.ParseCIDR(args.CIDR)
 		if err != nil {
 			return nil, err
 		}
 	}
-	if name == "" {
+	if args.Name == "" {
 		return nil, fmt.Errorf("name must be not empty")
 	}
-	if !names.IsNetwork(name) {
+	if !names.IsNetwork(args.Name) {
 		return nil, fmt.Errorf("invalid name")
 	}
-	if providerId == "" {
+	if args.ProviderId == "" {
 		return nil, fmt.Errorf("provider id must be not empty")
 	}
-	if vlanTag < 0 || vlanTag > 4094 {
-		return nil, fmt.Errorf("invalid VLAN tag %d: must be between 0 and 4094", vlanTag)
+	if args.VLANTag < 0 || args.VLANTag > 4094 {
+		return nil, fmt.Errorf("invalid VLAN tag %d: must be between 0 and 4094", args.VLANTag)
 	}
-	doc := &networkDoc{
-		Name:       name,
-		ProviderId: providerId,
-		CIDR:       cidr,
-		VLANTag:    vlanTag,
-	}
+	doc := newNetworkDoc(args)
 	ops := []txn.Op{{
 		C:      st.networks.Name,
-		Id:     name,
+		Id:     args.Name,
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}}
 	err = st.runTransaction(ops)
 	switch err {
 	case txn.ErrAborted:
-		if _, err = st.Network(name); err == nil {
-			msg := fmt.Sprintf("network %q", name)
-			return nil, errors.NewAlreadyExistsError(msg)
+		if _, err = st.Network(args.Name); err == nil {
+			return nil, errors.AlreadyExistsf("network %q", args.Name)
 		} else if err != nil {
 			return nil, err
 		}
 	case nil:
-		// For some reason when using unique indices with mgo, and
-		// we have an index violation the error is nil, but the
-		// document is not added. So we check if the supposedly
-		// successful transaction did actually add the document.
-		if _, err = st.Network(name); err != nil {
-			msg := fmt.Sprintf("network with provider id %q", providerId)
-			return nil, errors.NewAlreadyExistsError(msg)
+		// We have a unique key restriction on the ProviderId field,
+		// which will cause the insert to fail if there is another
+		// record with the same provider id in the table. The txn
+		// logic does not report insertion errors, so we check that
+		// the record has actually been inserted correctly before
+		// reporting success.
+		if _, err = st.Network(args.Name); err != nil {
+			return nil, errors.AlreadyExistsf("network with provider id %q", args.ProviderId)
 		}
 		return newNetwork(st, doc), nil
 	}
@@ -1231,7 +1232,7 @@ func (st *State) endpoints(name string, filter func(ep Endpoint) bool) ([]Endpoi
 // AddRelation creates a new relation with the given endpoints.
 func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	key := relationKey(eps)
-	defer utils.ErrorContextf(&err, "cannot add relation %q", key)
+	defer errors.Maskf(&err, "cannot add relation %q", key)
 	// Enforce basic endpoint sanity. The epCount restrictions may be relaxed
 	// in the future; if so, this method is likely to need significant rework.
 	if len(eps) != 2 {
@@ -1270,7 +1271,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		series := map[string]bool{}
 		for _, ep := range eps {
 			svc, err := st.Service(ep.ServiceName)
-			if errors.IsNotFoundError(err) {
+			if errors.IsNotFound(err) {
 				return nil, fmt.Errorf("service %q does not exist", ep.ServiceName)
 			} else if err != nil {
 				return nil, err
@@ -1381,7 +1382,7 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 	if !u.IsPrincipal() {
 		return fmt.Errorf("subordinate unit %q cannot be assigned directly to a machine", u)
 	}
-	defer utils.ErrorContextf(&err, "cannot assign unit %q to machine", u)
+	defer errors.Maskf(&err, "cannot assign unit %q to machine", u)
 	var m *Machine
 	switch policy {
 	case AssignLocal:
@@ -1493,11 +1494,18 @@ func (st *State) StateServingInfo() (params.StateServingInfo, error) {
 	if err != nil {
 		return info, err
 	}
+	if info.StatePort == 0 {
+		return params.StateServingInfo{}, errors.NotFoundf("state serving info")
+	}
 	return info, nil
 }
 
 // SetStateServingInfo stores information needed for running a state server
 func (st *State) SetStateServingInfo(info params.StateServingInfo) error {
+	if info.StatePort == 0 || info.APIPort == 0 ||
+		info.Cert == "" || info.PrivateKey == "" {
+		return fmt.Errorf("incomplete state serving info set in state")
+	}
 	ops := []txn.Op{{
 		C:      st.stateServers.Name,
 		Id:     stateServingInfoKey,

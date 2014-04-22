@@ -92,7 +92,7 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 	s.PatchValue(&version.Current, agentTools.Version)
 	err = envtools.MergeAndWriteMetadata(stor, coretools.List{agentTools}, envtools.DoNotWriteMirrors)
 	_, err = s.machine.AgentTools()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	u := s.makeUpgrader()
 	statetesting.AssertStop(c, u)
@@ -110,7 +110,7 @@ func (s *UpgraderSuite) TestUpgraderSetVersion(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	_, err = s.machine.AgentTools()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	err = statetesting.SetAgentVersion(s.State, vers.Number)
 	c.Assert(err, gc.IsNil)
 
@@ -252,9 +252,9 @@ func (s *UpgraderSuite) TestUpgraderRefusesToDowngradeMinorVersions(c *gc.C) {
 	// UpgradeReadyError, since it was skipped, we get no error
 	c.Check(err, gc.IsNil)
 	_, err = agenttools.ReadTools(s.DataDir(), downgradeTools.Version)
-	// TODO: ReadTools *should* be returning some form of NotFoundError,
+	// TODO: ReadTools *should* be returning some form of errors.NotFound,
 	// however, it just passes back a fmt.Errorf so we live with it
-	// c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	// c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Check(err, gc.ErrorMatches, "cannot read tools metadata in tools directory.*no such file or directory")
 }
 

@@ -15,7 +15,6 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/replicaset"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/utils"
 )
 
 // MachineTemplate holds attributes that are to be associated
@@ -126,7 +125,7 @@ func (st *State) AddOneMachine(template MachineTemplate) (*Machine, error) {
 // AddMachines adds new machines configured according to the
 // given templates.
 func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err error) {
-	defer utils.ErrorContextf(&err, "cannot add a new machine")
+	defer errors.Maskf(&err, "cannot add a new machine")
 	var ms []*Machine
 	env, err := st.Environment()
 	if err != nil {
@@ -174,7 +173,7 @@ func (st *State) addMachine(mdoc *machineDoc, ops []txn.Op) (*Machine, error) {
 	ops = append([]txn.Op{env.assertAliveOp()}, ops...)
 	if err := st.runTransaction(ops); err != nil {
 		enverr := env.Refresh()
-		if (enverr == nil && env.Life() != Alive) || errors.IsNotFoundError(enverr) {
+		if (enverr == nil && env.Life() != Alive) || errors.IsNotFound(enverr) {
 			return nil, fmt.Errorf("environment is no longer alive")
 		} else if enverr != nil {
 			err = enverr
@@ -188,15 +187,23 @@ func (st *State) addMachine(mdoc *machineDoc, ops []txn.Op) (*Machine, error) {
 // valid and combines it with values from the state
 // to produce a resulting template that more accurately
 // represents the data that will be inserted into the state.
-func (st *State) effectiveMachineTemplate(p MachineTemplate, allowStateServer bool) (MachineTemplate, error) {
+func (st *State) effectiveMachineTemplate(p MachineTemplate, allowStateServer bool) (tmpl MachineTemplate, err error) {
+	// First check for obvious errors.
 	if p.Series == "" {
-		return MachineTemplate{}, fmt.Errorf("no series specified")
+		return tmpl, fmt.Errorf("no series specified")
 	}
-	cons, err := st.EnvironConstraints()
+	if p.InstanceId != "" {
+		if p.Nonce == "" {
+			return tmpl, fmt.Errorf("cannot add a machine with an instance id and no nonce")
+		}
+	} else if p.Nonce != "" {
+		return tmpl, fmt.Errorf("cannot specify a nonce without an instance id")
+	}
+
+	p.Constraints, err = st.resolveConstraints(p.Constraints)
 	if err != nil {
-		return MachineTemplate{}, err
+		return tmpl, err
 	}
-	p.Constraints = p.Constraints.WithFallbacks(cons)
 	// Machine constraints do not use a container constraint value.
 	// Both provisioning and deployment constraints use the same
 	// constraints.Value struct so here we clear the container
@@ -205,7 +212,7 @@ func (st *State) effectiveMachineTemplate(p MachineTemplate, allowStateServer bo
 	p.Constraints.Container = nil
 
 	if len(p.Jobs) == 0 {
-		return MachineTemplate{}, fmt.Errorf("no jobs specified")
+		return tmpl, fmt.Errorf("no jobs specified")
 	}
 	jset := make(map[MachineJob]bool)
 	for _, j := range p.Jobs {
@@ -216,16 +223,8 @@ func (st *State) effectiveMachineTemplate(p MachineTemplate, allowStateServer bo
 	}
 	if jset[JobManageEnviron] {
 		if !allowStateServer {
-			return MachineTemplate{}, errStateServerNotAllowed
+			return tmpl, errStateServerNotAllowed
 		}
-	}
-
-	if p.InstanceId != "" {
-		if p.Nonce == "" {
-			return MachineTemplate{}, fmt.Errorf("cannot add a machine with an instance id and no nonce")
-		}
-	} else if p.Nonce != "" {
-		return MachineTemplate{}, fmt.Errorf("cannot specify a nonce without an instance id")
 	}
 	return p, nil
 }

@@ -49,11 +49,12 @@ var testInfo = params.StateServingInfo{
 }
 
 func (s *MongoSuite) SetUpTest(c *gc.C) {
+	s.LoggingSuite.SetUpTest(c)
 	// Try to make sure we don't execute any commands accidentally.
 	s.PatchEnvironment("PATH", "")
 
 	s.mongodPath = filepath.Join(c.MkDir(), "mongod")
-	err := ioutil.WriteFile(s.mongodPath, nil, 0755)
+	err := ioutil.WriteFile(s.mongodPath, []byte("#!/bin/bash\n\nprintf %s 'db version v2.4.9'\n"), 0755)
 	c.Assert(err, gc.IsNil)
 	s.PatchValue(&JujuMongodPath, s.mongodPath)
 
@@ -158,16 +159,24 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 	err = EnsureMongoServer(dataDir, namespace, testInfo, WithHA)
 	c.Assert(err, gc.IsNil)
 	assertInstalled()
+
+	// make sure that we log the version of mongodb as we get ready to
+	// start it
+	tlog := c.GetTestLog()
+	any := `(.|\n)*`
+	start := "^" + any
+	tail := any + "$"
+	c.Assert(tlog, gc.Matches, start+`using mongod: .*/mongod --version: "db version v2\.4\.9`+tail)
 }
 
 func (s *MongoSuite) TestMongoUpstartServiceWithHA(c *gc.C) {
 	dataDir := c.MkDir()
 
-	svc, err := mongoUpstartService("", dataDir, dataDir, 1234, WithHA)
+	svc, _, err := mongoUpstartService("", dataDir, dataDir, 1234, WithHA)
 	c.Assert(err, gc.IsNil)
 	c.Assert(strings.Contains(svc.Cmd, "--replSet"), jc.IsTrue)
 
-	svc, err = mongoUpstartService("", dataDir, dataDir, 1234, WithoutHA)
+	svc, _, err = mongoUpstartService("", dataDir, dataDir, 1234, WithoutHA)
 	c.Assert(err, gc.IsNil)
 	c.Assert(strings.Contains(svc.Cmd, "--replSet"), jc.IsFalse)
 }

@@ -130,7 +130,6 @@ func (src List) Match(f Filter) (List, error) {
 		}
 	}
 	if len(result) == 0 {
-		logger.Errorf("cannot match %#v", f)
 		return nil, ErrNoMatches
 	}
 	return result, nil

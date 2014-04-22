@@ -39,20 +39,20 @@ func MaybeInitiateMongoServer(p InitiateMongoParams) error {
 		return nil
 	}
 	p.DialInfo.Direct = true
+
+	// TODO(rog) remove this code when we no longer need to upgrade
+	// from pre-HA-capable environments.
+	if p.User != "" {
+		p.DialInfo.Username = p.User
+		p.DialInfo.Password = p.Password
+	}
+
 	session, err := mgo.DialWithInfo(p.DialInfo)
 	if err != nil {
 		return fmt.Errorf("can't dial mongo to initiate replicaset: %v", err)
 	}
 	defer session.Close()
 
-	// TODO(rog) remove this code when we no longer need to upgrade
-	// from pre-HA-capable environments.
-	if p.User != "" {
-		err := session.DB("admin").Login(p.User, p.Password)
-		if err != nil {
-			logger.Errorf("cannot login to admin db as %q, password %q, falling back: %v", p.User, p.Password, err)
-		}
-	}
 	cfg, err := replicaset.CurrentConfig(session)
 	if err == nil && len(cfg.Members) > 0 {
 		logger.Infof("replica set configuration already found: %#v", cfg)

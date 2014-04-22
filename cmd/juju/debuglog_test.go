@@ -137,7 +137,7 @@ func (s *DebugLogSuite) TestTailFallback(c *gc.C) {
 		return nil
 	})
 	s.PatchValue(&getDebugLogAPI, func(envName string) (DebugLogAPI, error) {
-		return &fakeDebugLogAPI{err: errors.NewNotSupportedError("testing")}, nil
+		return &fakeDebugLogAPI{err: errors.NotSupportedf("testing")}, nil
 	})
 	ctx, err := testing.RunCommand(c, &DebugLogCommand{}, []string{"-n", "100"})
 	c.Assert(err, gc.IsNil)

@@ -7,7 +7,7 @@ import (
 	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -108,7 +108,7 @@ func retrieveLatestCharmInfo(deployedCharms map[string]*charm.URL, uuid string) 
 	store := charm.Store.WithJujuAttrs("environment_uuid=" + uuid)
 	revInfo, err := store.Latest(curls...)
 	if err != nil {
-		return nil, log.LoggedErrorf(logger, "finding charm revision info: %v", err)
+		return nil, errors.LoggedErrorf(logger, "finding charm revision info: %v", err)
 	}
 	var latestCurls []*charm.URL
 	for i, info := range revInfo {

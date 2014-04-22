@@ -142,7 +142,7 @@ func checkInvariants(st *fakeState) error {
 			votes = *m.Votes
 		}
 		voteCount += votes
-		if id, ok := m.Tags["juju-machine-id"]; ok {
+		if id, ok := m.Tags[jujuMachineTag]; ok {
 			if votes > 0 {
 				m := st.machine(id)
 				if m == nil {

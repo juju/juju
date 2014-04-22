@@ -19,6 +19,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
+	"launchpad.net/juju-core/environs/network"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
@@ -89,6 +90,7 @@ var _ environs.Environ = (*azureEnviron)(nil)
 var _ simplestreams.HasRegion = (*azureEnviron)(nil)
 var _ imagemetadata.SupportsCustomSources = (*azureEnviron)(nil)
 var _ envtools.SupportsCustomSources = (*azureEnviron)(nil)
+var _ state.Prechecker = (*azureEnviron)(nil)
 
 // NewEnviron creates a new azureEnviron.
 func NewEnviron(cfg *config.Config) (*azureEnviron, error) {
@@ -419,6 +421,36 @@ func (env *azureEnviron) selectInstanceTypeAndImage(constraint *instances.Instan
 	return spec.InstanceType.Id, spec.Image.Id, nil
 }
 
+var unsupportedConstraints = []string{
+	constraints.CpuPower,
+	constraints.Tags,
+}
+
+// ConstraintsValidator is defined on the Environs interface.
+func (environ *azureEnviron) ConstraintsValidator() constraints.Validator {
+	validator := constraints.NewValidator()
+	validator.RegisterUnsupported(unsupportedConstraints)
+	return validator
+}
+
+// PrecheckInstance is defined on the state.Prechecker interface.
+func (env *azureEnviron) PrecheckInstance(series string, cons constraints.Value) error {
+	if !cons.HasInstanceType() {
+		return nil
+	}
+	// Constraint has an instance-type constraint so let's see if it is valid.
+	instanceTypes, err := listInstanceTypes(env, gwacl.RoleSizes)
+	if err != nil {
+		return err
+	}
+	for _, instanceType := range instanceTypes {
+		if instanceType.Name == *cons.InstanceType {
+			return nil
+		}
+	}
+	return fmt.Errorf("invalid Azure instance %q specified", *cons.InstanceType)
+}
+
 // createInstance creates all of the Azure entities necessary for a
 // new instance. This includes Cloud Service, Deployment and Role.
 //
@@ -506,7 +538,7 @@ func deploymentNameV2(serviceName string) string {
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ instance.Instance, _ *instance.HardwareCharacteristics, _ []environs.NetworkInfo, err error) {
+func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ instance.Instance, _ *instance.HardwareCharacteristics, _ []network.Info, err error) {
 	if args.MachineConfig.HasNetworks() {
 		return nil, nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
 	}

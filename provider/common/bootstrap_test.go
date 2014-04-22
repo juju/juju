@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/network"
 	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
@@ -80,7 +81,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 	startInstance := func(
 		cons constraints.Value, _, _ []string, possibleTools tools.List, mcfg *cloudinit.MachineConfig,
 	) (
-		instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error,
+		instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
 	) {
 		c.Assert(cons, gc.DeepEquals, checkCons)
 		c.Assert(mcfg, gc.DeepEquals, environs.NewBootstrapMachineConfig(mcfg.SystemPrivateSSHKey))
@@ -105,7 +106,7 @@ func (s *BootstrapSuite) TestCannotRecordStartedInstance(c *gc.C) {
 	startInstance := func(
 		_ constraints.Value, _, _ []string, _ tools.List, _ *cloudinit.MachineConfig,
 	) (
-		instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error,
+		instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
 	) {
 		stor.putErr = fmt.Errorf("suddenly a wild blah")
 		return &mockInstance{id: "i-blah"}, nil, nil, nil
@@ -138,7 +139,7 @@ func (s *BootstrapSuite) TestCannotRecordThenCannotStop(c *gc.C) {
 	startInstance := func(
 		_ constraints.Value, _, _ []string, _ tools.List, _ *cloudinit.MachineConfig,
 	) (
-		instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error,
+		instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
 	) {
 		stor.putErr = fmt.Errorf("suddenly a wild blah")
 		return &mockInstance{id: "i-blah"}, nil, nil, nil
@@ -179,7 +180,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	startInstance := func(
 		_ constraints.Value, _, _ []string, _ tools.List, mcfg *cloudinit.MachineConfig,
 	) (
-		instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error,
+		instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
 	) {
 		return &mockInstance{id: checkInstanceId}, &checkHardware, nil, nil
 	}

@@ -4,6 +4,7 @@
 package environs
 
 import (
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 )
@@ -34,4 +35,12 @@ func (environStatePolicy) ConfigValidator(providerType string) (state.ConfigVali
 func (environStatePolicy) EnvironCapability(cfg *config.Config) (state.EnvironCapability, error) {
 	// Environ implements state.EnvironCapability.
 	return New(cfg)
+}
+
+func (environStatePolicy) ConstraintsValidator(cfg *config.Config) (constraints.Validator, error) {
+	env, err := New(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return env.ConstraintsValidator(), nil
 }

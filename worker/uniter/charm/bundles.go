@@ -10,6 +10,7 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/downloader"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -47,7 +48,7 @@ func (d *BundlesDir) download(info BundleInfo, abort <-chan struct{}) (err error
 	if err != nil {
 		return err
 	}
-	defer utils.ErrorContextf(&err, "failed to download charm %q from %q", info.URL(), archiveURL)
+	defer errors.Maskf(&err, "failed to download charm %q from %q", info.URL(), archiveURL)
 	dir := d.downloadsPath()
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err

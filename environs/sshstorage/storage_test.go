@@ -164,7 +164,7 @@ func (s *storageSuite) TestGet(c *gc.C) {
 		c.Assert(out, gc.DeepEquals, data)
 	}
 	_, err = storage.Get(stor, "notthere")
-	c.Assert(err, jc.Satisfies, coreerrors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, coreerrors.IsNotFound)
 }
 
 func (s *storageSuite) TestWriteFailure(c *gc.C) {

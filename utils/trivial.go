@@ -8,8 +8,6 @@ import (
 	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -47,15 +45,6 @@ func ReadYaml(path string, obj interface{}) error {
 		return err
 	}
 	return goyaml.Unmarshal(data, obj)
-}
-
-// ErrorContextf prefixes any error stored in err with text formatted
-// according to the format specifier. If err does not contain an error,
-// ErrorContextf does nothing.
-func ErrorContextf(err *error, format string, args ...interface{}) {
-	if *err != nil {
-		*err = errors.New(fmt.Sprintf(format, args...) + ": " + (*err).Error())
-	}
 }
 
 // ShQuote quotes s so that when read by bash, no metacharacters

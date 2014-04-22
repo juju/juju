@@ -71,7 +71,7 @@ func (s *machineUpgraderSuite) TestSetVersionNotMachine(c *gc.C) {
 func (s *machineUpgraderSuite) TestSetVersion(c *gc.C) {
 	cur := version.Current
 	agentTools, err := s.rawMachine.AgentTools()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(agentTools, gc.IsNil)
 	err = s.st.SetVersion(s.rawMachine.Tag(), cur)
 	c.Assert(err, gc.IsNil)

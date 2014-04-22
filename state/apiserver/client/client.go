@@ -264,7 +264,7 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 
 	// Try to find the charm URL in state first.
 	ch, err := c.api.state.Charm(curl)
-	if errors.IsNotFoundError(err) {
+	if errors.IsNotFound(err) {
 		// Remove this whole if block when 1.16 compatibility is dropped.
 		if curl.Schema != "cs" {
 			return fmt.Errorf(`charm url has unsupported schema %q`, curl.Schema)
@@ -368,7 +368,7 @@ func (c *Client) serviceSetCharm(service *state.Service, url string, force bool)
 		return err
 	}
 	sch, err := c.api.state.Charm(curl)
-	if errors.IsNotFoundError(err) {
+	if errors.IsNotFound(err) {
 		// Charms should be added before trying to use them, with
 		// AddCharm or AddLocalCharm API calls. When they're not,
 		// we're reverting to 1.16 compatibility mode.
@@ -492,7 +492,7 @@ func (c *Client) DestroyServiceUnits(args params.DestroyServiceUnits) error {
 	for _, name := range args.UnitNames {
 		unit, err := c.api.state.Unit(name)
 		switch {
-		case errors.IsNotFoundError(err):
+		case errors.IsNotFound(err):
 			err = fmt.Errorf("unit %q does not exist", name)
 		case err != nil:
 		case unit.Life() != state.Alive:
@@ -711,7 +711,7 @@ func (c *Client) DestroyMachines(args params.DestroyMachines) error {
 	for _, id := range args.MachineNames {
 		machine, err := c.api.state.Machine(id)
 		switch {
-		case errors.IsNotFoundError(err):
+		case errors.IsNotFound(err):
 			err = fmt.Errorf("machine %s does not exist", id)
 		case err != nil:
 		case args.Force:
