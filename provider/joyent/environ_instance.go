@@ -19,6 +19,7 @@ import (
 	"launchpad.net/juju-core/environs/network"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
@@ -244,6 +245,7 @@ func (env *joyentEnviron) listInstanceTypes() ([]instances.InstanceType, error) 
 		instanceType := instances.InstanceType{
 			Id:       pkg.Id,
 			Name:     pkg.Name,
+			Arches:   []string{arch.AMD64},
 			Mem:      uint64(pkg.Memory),
 			CpuCores: uint64(pkg.VCPUs),
 			RootDisk: uint64(pkg.Disk * 1024),
@@ -259,9 +261,6 @@ func (env *joyentEnviron) FindInstanceSpec(ic *instances.InstanceConstraint) (*i
 	allInstanceTypes, err := env.listInstanceTypes()
 	if err != nil {
 		return nil, err
-	}
-	for _, iType := range allInstanceTypes {
-		iType.Arches = ic.Arches
 	}
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{ic.Region, env.Ecfg().SdcUrl()},
