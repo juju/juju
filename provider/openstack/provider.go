@@ -277,7 +277,6 @@ func retryGet(uri string) (data []byte, err error) {
 }
 
 type environ struct {
-	common.NopPrecheckerPolicy
 	common.SupportsUnitPlacementPolicy
 
 	name string
@@ -307,6 +306,7 @@ var _ environs.Environ = (*environ)(nil)
 var _ imagemetadata.SupportsCustomSources = (*environ)(nil)
 var _ envtools.SupportsCustomSources = (*environ)(nil)
 var _ simplestreams.HasRegion = (*environ)(nil)
+var _ state.Prechecker = (*environ)(nil)
 
 type openstackInstance struct {
 	e        *environ
@@ -535,6 +535,25 @@ func (e *environ) ConstraintsValidator() constraints.Validator {
 		[]string{constraints.Mem, constraints.Arch, constraints.RootDisk, constraints.CpuCores})
 	validator.RegisterUnsupported(unsupportedConstraints)
 	return validator
+}
+
+// PrecheckInstance is defined on the state.Prechecker interface.
+func (e *environ) PrecheckInstance(series string, cons constraints.Value) error {
+	if !cons.HasInstanceType() {
+		return nil
+	}
+	// Constraint has an instance-type constraint so let's see if it is valid.
+	novaClient := e.nova()
+	flavors, err := novaClient.ListFlavorsDetail()
+	if err != nil {
+		return err
+	}
+	for _, flavor := range flavors {
+		if flavor.Name == *cons.InstanceType {
+			return nil
+		}
+	}
+	return fmt.Errorf("invalid Openstack flavour %q specified", *cons.InstanceType)
 }
 
 func (e *environ) Storage() storage.Storage {

@@ -121,6 +121,18 @@ var findInstanceSpecTests = []struct {
 		cons:   "arch=amd64",
 		itype:  "cc1.4xlarge",
 		image:  "ami-01000035",
+	}, {
+		series: "quantal",
+		arches: both,
+		cons:   "instance-type=cc1.4xlarge",
+		itype:  "cc1.4xlarge",
+		image:  "ami-01000035",
+	}, {
+		series: "precise",
+		arches: []string{"i386"},
+		cons:   "instance-type=c1.medium",
+		itype:  "c1.medium",
+		image:  "ami-00000034",
 	},
 }
 
