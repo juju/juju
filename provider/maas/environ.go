@@ -332,6 +332,18 @@ func linkBridgeInInterfaces() string {
 	return `sed -i "s/iface eth0 inet dhcp/source \/etc\/network\/eth0.config/" /etc/network/interfaces`
 }
 
+var unsupportedConstraints = []string{
+	constraints.CpuPower,
+	constraints.InstanceType,
+}
+
+// ConstraintsValidator is defined on the Environs interface.
+func (environ *maasEnviron) ConstraintsValidator() constraints.Validator {
+	validator := constraints.NewValidator()
+	validator.RegisterUnsupported(unsupportedConstraints)
+	return validator
+}
+
 // setupNetworks prepares a []network.Info for the given instance.
 func (environ *maasEnviron) setupNetworks(inst instance.Instance) ([]network.Info, error) {
 	// Get the instance network interfaces first.

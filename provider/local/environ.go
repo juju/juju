@@ -301,6 +301,20 @@ func (env *localEnviron) setLocalStorage() error {
 	return nil
 }
 
+var unsupportedConstraints = []string{
+	constraints.CpuCores,
+	constraints.CpuPower,
+	constraints.InstanceType,
+	constraints.Tags,
+}
+
+// ConstraintsValidator is defined on the Environs interface.
+func (env *localEnviron) ConstraintsValidator() constraints.Validator {
+	validator := constraints.NewValidator()
+	validator.RegisterUnsupported(unsupportedConstraints)
+	return validator
+}
+
 // StartInstance is specified in the InstanceBroker interface.
 func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
 	if args.MachineConfig.HasNetworks() {

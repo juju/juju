@@ -183,18 +183,22 @@ func (st *State) addMachine(mdoc *machineDoc, ops []txn.Op) (*Machine, error) {
 // valid and combines it with values from the state
 // to produce a resulting template that more accurately
 // represents the data that will be inserted into the state.
-func (st *State) effectiveMachineTemplate(p MachineTemplate, allowStateServer bool) (MachineTemplate, error) {
+func (st *State) effectiveMachineTemplate(p MachineTemplate, allowStateServer bool) (tmpl MachineTemplate, err error) {
+	// First check for obvious errors.
 	if p.Series == "" {
-		return MachineTemplate{}, fmt.Errorf("no series specified")
+		return tmpl, fmt.Errorf("no series specified")
 	}
-	cons, err := st.EnvironConstraints()
-	if err != nil {
-		return MachineTemplate{}, err
+	if p.InstanceId != "" {
+		if p.Nonce == "" {
+			return tmpl, fmt.Errorf("cannot add a machine with an instance id and no nonce")
+		}
+	} else if p.Nonce != "" {
+		return tmpl, fmt.Errorf("cannot specify a nonce without an instance id")
 	}
-	validator := constraints.NewValidator()
-	p.Constraints, err = validator.Merge(cons, p.Constraints)
+
+	p.Constraints, err = st.resolveConstraints(p.Constraints)
 	if err != nil {
-		return MachineTemplate{}, err
+		return tmpl, err
 	}
 	// Machine constraints do not use a container constraint value.
 	// Both provisioning and deployment constraints use the same
@@ -204,7 +208,7 @@ func (st *State) effectiveMachineTemplate(p MachineTemplate, allowStateServer bo
 	p.Constraints.Container = nil
 
 	if len(p.Jobs) == 0 {
-		return MachineTemplate{}, fmt.Errorf("no jobs specified")
+		return tmpl, fmt.Errorf("no jobs specified")
 	}
 	jset := make(map[MachineJob]bool)
 	for _, j := range p.Jobs {
@@ -215,16 +219,8 @@ func (st *State) effectiveMachineTemplate(p MachineTemplate, allowStateServer bo
 	}
 	if jset[JobManageEnviron] {
 		if !allowStateServer {
-			return MachineTemplate{}, errStateServerNotAllowed
+			return tmpl, errStateServerNotAllowed
 		}
-	}
-
-	if p.InstanceId != "" {
-		if p.Nonce == "" {
-			return MachineTemplate{}, fmt.Errorf("cannot add a machine with an instance id and no nonce")
-		}
-	} else if p.Nonce != "" {
-		return MachineTemplate{}, fmt.Errorf("cannot specify a nonce without an instance id")
 	}
 	return p, nil
 }

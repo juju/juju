@@ -522,6 +522,21 @@ func (e *environ) SupportNetworks() bool {
 	return false
 }
 
+var unsupportedConstraints = []string{
+	constraints.Tags,
+	constraints.CpuPower,
+}
+
+// ConstraintsValidator is defined on the Environs interface.
+func (e *environ) ConstraintsValidator() constraints.Validator {
+	validator := constraints.NewValidator()
+	validator.RegisterConflicts(
+		[]string{constraints.InstanceType},
+		[]string{constraints.Mem, constraints.Arch, constraints.RootDisk, constraints.CpuCores})
+	validator.RegisterUnsupported(unsupportedConstraints)
+	return validator
+}
+
 func (e *environ) Storage() storage.Storage {
 	e.ecfgMutex.Lock()
 	stor := e.storageUnlocked

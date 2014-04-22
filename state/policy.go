@@ -32,6 +32,10 @@ type Policy interface {
 	// EnvironCapability takes a *config.Config and returns
 	// a (possibly nil) EnvironCapability or an error.
 	EnvironCapability(*config.Config) (EnvironCapability, error)
+
+	// ConstraintsValidator takes a *config.Config and returns
+	// a (possibly nil) constraints.Validator or an error.
+	ConstraintsValidator(*config.Config) (constraints.Validator, error)
 }
 
 // Prechecker is a policy interface that is provided to State
@@ -92,6 +96,53 @@ func (st *State) precheckInstance(series string, cons constraints.Value) error {
 		return fmt.Errorf("policy returned nil prechecker without an error")
 	}
 	return prechecker.PrecheckInstance(series, cons)
+}
+
+func (st *State) constraintsValidator() (constraints.Validator, error) {
+	// Default behaviour is to simply use a standard validator with
+	// no environment specific behaviour built in.
+	defaultValidator := constraints.NewValidator()
+	if st.policy == nil {
+		return defaultValidator, nil
+	}
+	cfg, err := st.EnvironConfig()
+	if err != nil {
+		return nil, err
+	}
+	validator, err := st.policy.ConstraintsValidator(cfg)
+	if errors.IsNotImplemented(err) {
+		return defaultValidator, nil
+	} else if err != nil {
+		return nil, err
+	}
+	if validator == nil {
+		return nil, fmt.Errorf("policy returned nil constraints validator without an error")
+	}
+	return validator, nil
+}
+
+// resolveConstraints combines the given constraints with the environ constraints to get
+// a constraints which will be used to create a new instance.
+func (st *State) resolveConstraints(cons constraints.Value) (constraints.Value, error) {
+	validator, err := st.constraintsValidator()
+	if err != nil {
+		return constraints.Value{}, err
+	}
+	envCons, err := st.EnvironConstraints()
+	if err != nil {
+		return constraints.Value{}, err
+	}
+	return validator.Merge(envCons, cons)
+}
+
+// validateConstraints returns an error if the given constraints are not valid for the
+// current environment, and also any unsupported attributes.
+func (st *State) validateConstraints(cons constraints.Value) ([]string, error) {
+	validator, err := st.constraintsValidator()
+	if err != nil {
+		return nil, err
+	}
+	return validator.Validate(cons)
 }
 
 // validate calls the state's assigned policy, if non-nil, to obtain

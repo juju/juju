@@ -266,6 +266,19 @@ func (*manualEnviron) PrecheckInstance(series string, cons constraints.Value) er
 	return errors.New(`use "juju add-machine ssh:[user@]<host>" to provision machines`)
 }
 
+var unsupportedConstraints = []string{
+	constraints.CpuPower,
+	constraints.InstanceType,
+	constraints.Tags,
+}
+
+// ConstraintsValidator is defined on the Environs interface.
+func (e *manualEnviron) ConstraintsValidator() constraints.Validator {
+	validator := constraints.NewValidator()
+	validator.RegisterUnsupported(unsupportedConstraints)
+	return validator
+}
+
 func (e *manualEnviron) OpenPorts(ports []instance.Port) error {
 	return nil
 }

@@ -9,6 +9,7 @@ import (
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
@@ -101,9 +102,10 @@ func (s *ConnSuite) AddMetaCharm(c *gc.C, name, metaYaml string, revsion int) *s
 }
 
 type mockPolicy struct {
-	getPrechecker        func(*config.Config) (state.Prechecker, error)
-	getConfigValidator   func(string) (state.ConfigValidator, error)
-	getEnvironCapability func(*config.Config) (state.EnvironCapability, error)
+	getPrechecker           func(*config.Config) (state.Prechecker, error)
+	getConfigValidator      func(string) (state.ConfigValidator, error)
+	getEnvironCapability    func(*config.Config) (state.EnvironCapability, error)
+	getConstraintsValidator func(*config.Config) (constraints.Validator, error)
 }
 
 func (p *mockPolicy) Prechecker(cfg *config.Config) (state.Prechecker, error) {
@@ -125,4 +127,11 @@ func (p *mockPolicy) EnvironCapability(cfg *config.Config) (state.EnvironCapabil
 		return p.getEnvironCapability(cfg)
 	}
 	return nil, errors.NotImplementedf("EnvironCapability")
+}
+
+func (p *mockPolicy) ConstraintsValidator(cfg *config.Config) (constraints.Validator, error) {
+	if p.getConstraintsValidator != nil {
+		return p.getConstraintsValidator(cfg)
+	}
+	return nil, errors.NewNotImplemented(nil, "ConstraintsValidator")
 }

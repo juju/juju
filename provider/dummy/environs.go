@@ -693,6 +693,14 @@ func (e *environ) Destroy() (res error) {
 	return nil
 }
 
+// ConstraintsValidator is defined on the Environs interface.
+func (e *environ) ConstraintsValidator() constraints.Validator {
+	validator := constraints.NewValidator()
+	validator.RegisterUnsupported([]string{constraints.CpuPower})
+	validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
+	return validator
+}
+
 // StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
 

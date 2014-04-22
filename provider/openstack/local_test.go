@@ -675,6 +675,25 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `no "saucy" images in some-region with arches \[amd64\]`)
 }
 
+func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
+	env := s.Open(c)
+	validator := env.ConstraintsValidator()
+	cons := constraints.MustParse("arch=amd64 cpu-power=10")
+	unsupported, err := validator.Validate(cons)
+	c.Assert(err, gc.IsNil)
+	c.Assert(unsupported, gc.DeepEquals, []string{"cpu-power"})
+}
+
+func (s *localServerSuite) TestConstraintsMerge(c *gc.C) {
+	env := s.Open(c)
+	validator := env.ConstraintsValidator()
+	consA := constraints.MustParse("arch=amd64 mem=1G root-disk=10G")
+	consB := constraints.MustParse("instance-type=foo")
+	cons, err := validator.Merge(consA, consB)
+	c.Assert(err, gc.IsNil)
+	c.Assert(cons, gc.DeepEquals, constraints.MustParse("instance-type=foo"))
+}
+
 func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	env := s.Open(c)
 	params, err := env.(simplestreams.MetadataValidator).MetadataLookupParams("some-region")

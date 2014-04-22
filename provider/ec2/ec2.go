@@ -358,6 +358,20 @@ func (e *environ) SupportNetworks() bool {
 	return false
 }
 
+var unsupportedConstraints = []string{
+	constraints.Tags,
+}
+
+// ConstraintsValidator is defined on the Environs interface.
+func (e *environ) ConstraintsValidator() constraints.Validator {
+	validator := constraints.NewValidator()
+	validator.RegisterConflicts(
+		[]string{constraints.InstanceType},
+		[]string{constraints.Mem, constraints.CpuCores, constraints.CpuPower})
+	validator.RegisterUnsupported(unsupportedConstraints)
+	return validator
+}
+
 // MetadataLookupParams returns parameters which are used to query simplestreams metadata.
 func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
 	if region == "" {

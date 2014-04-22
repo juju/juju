@@ -422,6 +422,18 @@ func (env *azureEnviron) selectInstanceTypeAndImage(constraint *instances.Instan
 	return spec.InstanceType.Id, spec.Image.Id, nil
 }
 
+var unsupportedConstraints = []string{
+	constraints.CpuPower,
+	constraints.Tags,
+}
+
+// ConstraintsValidator is defined on the Environs interface.
+func (environ *azureEnviron) ConstraintsValidator() constraints.Validator {
+	validator := constraints.NewValidator()
+	validator.RegisterUnsupported(unsupportedConstraints)
+	return validator
+}
+
 // createInstance creates all of the Azure entities necessary for a
 // new instance. This includes Cloud Service, Deployment and Role.
 //
