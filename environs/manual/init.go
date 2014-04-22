@@ -176,7 +176,7 @@ func InitUbuntuUser(host, login, authorizedKeys string, stdin io.Reader, stdout 
 
 const initUbuntuScript = `
 set -e
-(id ubuntu &> /dev/null) || useradd -m ubuntu
+(id ubuntu &> /dev/null) || useradd -m ubuntu -s /bin/bash
 umask 0077
 temp=$(mktemp)
 echo 'ubuntu ALL=(ALL) NOPASSWD:ALL' > $temp
