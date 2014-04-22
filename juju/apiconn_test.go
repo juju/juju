@@ -661,3 +661,38 @@ func (s *APIEndpointForEnvSuite) TestAPIEndpointRefresh(c *gc.C) {
 	// This refresh now gives us the values return by APIHostPorts
 	c.Check(endpoint.Addresses, gc.DeepEquals, []string{"0.1.2.3:1234"})
 }
+
+func (s *APIEndpointForEnvSuite) TestAPIEndpointNotMachineLocal(c *gc.C) {
+	defer coretesting.MakeEmptyFakeHome(c).Restore()
+	store := newConfigStore("env-name", dummyStoreInfo)
+	called := 0
+	hostPorts := [][]instance.HostPort{
+		instance.AddressesWithPort([]instance.Address{
+			instance.NewAddress("1.0.0.1", instance.NetworkPublic),
+			instance.NewAddress("192.0.0.1", instance.NetworkCloudLocal),
+			instance.NewAddress("127.0.0.1", instance.NetworkMachineLocal),
+			instance.NewAddress("localhost", instance.NetworkMachineLocal),
+		}, 1234),
+		instance.AddressesWithPort([]instance.Address{
+			instance.NewAddress("1.0.0.2", instance.NetworkUnknown),
+			instance.NewAddress("2002:0:0:0:0:0:100:2", instance.NetworkUnknown),
+			instance.NewAddress("::1", instance.NetworkMachineLocal),
+			instance.NewAddress("127.0.0.1", instance.NetworkMachineLocal),
+			instance.NewAddress("localhost", instance.NetworkMachineLocal),
+		}, 1235),
+	}
+
+	expectState := &mockAPIState{apiHostPorts: hostPorts}
+	apiOpen := func(_ *api.Info, _ api.DialOpts) (juju.APIState, error) {
+		called++
+		return expectState, nil
+	}
+	endpoint, err := juju.APIEndpointInStore("env-name", true, store, apiOpen)
+	c.Assert(err, gc.IsNil)
+	c.Check(called, gc.Equals, 1)
+	c.Check(endpoint.Addresses, gc.DeepEquals, []string{
+		"1.0.0.1:1234",
+		"192.0.0.1:1234",
+		"1.0.0.2:1235",
+	})
+}
