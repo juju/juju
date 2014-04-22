@@ -5,6 +5,7 @@ package mongo
 
 import (
 	"encoding/base64"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -169,32 +170,45 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 	c.Assert(tlog, gc.Matches, start+`using mongod: .*/mongod --version: "db version v2\.4\.9`+tail)
 }
 
-func (s *MongoSuite) TestInstallOldMongod(c *gc.C) {
-	dataDir := c.MkDir()
-	namespace := "namespace"
+func (s *MongoSuite) TestInstallMongod(c *gc.C) {
+	type installs struct {
+		series string
+		pkg    string
+	}
+	tests := []installs{
+		{"precise", "mongodb-server"},
+		{"quantal", "mongodb-server"},
+		{"raring", "mongodb-server"},
+		{"saucy", "mongodb-server"},
+		{"trusty", "juju-mongodb"},
+		{"u-series", "juju-mongodb"},
+	}
 
+	mockShellCommand(c, &s.CleanupSuite, "add-apt-repository")
 	output := mockShellCommand(c, &s.CleanupSuite, "apt-get")
-	s.PatchValue(&version.Current.Series, "precise")
+	for _, test := range tests {
+		c.Logf("Testing %s", test.series)
+		dataDir := c.MkDir()
+		namespace := "namespace" + test.series
 
-	err := EnsureMongoServer(dataDir, namespace, testInfo, WithHA)
-	c.Assert(err, gc.IsNil)
+		s.PatchValue(&version.Current.Series, test.series)
 
-	cmds := getMockShellCalls(c, output)
-	c.Assert(strings.Join(cmds[0], " "), gc.Matches, `.* install .*mongodb-server`)
-}
+		err := EnsureMongoServer(dataDir, namespace, testInfo, WithHA)
+		c.Assert(err, gc.IsNil)
 
-func (s *MongoSuite) TestInstallJujuMongod(c *gc.C) {
-	dataDir := c.MkDir()
-	namespace := "namespace"
+		cmds := getMockShellCalls(c, output)
 
-	output := mockShellCommand(c, &s.CleanupSuite, "apt-get")
-	s.PatchValue(&version.Current.Series, "trusty")
-
-	err := EnsureMongoServer(dataDir, namespace, testInfo, WithHA)
-	c.Assert(err, gc.IsNil)
-
-	cmds := getMockShellCalls(c, output)
-	c.Assert(strings.Join(cmds[0], " "), gc.Matches, ".* install .*juju-mongodb")
+		// quantal does an extra apt-get install for python software properties
+		// so we need to remember to skip that one
+		index := 0
+		if test.series == "quantal" {
+			index = 1
+		}
+		match := fmt.Sprintf(`.* install .*%s`, test.pkg)
+		c.Assert(strings.Join(cmds[index], " "), gc.Matches, match)
+		// remove the temp file between tests
+		c.Assert(os.Remove(output), gc.IsNil)
+	}
 }
 
 func (s *MongoSuite) TestMongoUpstartServiceWithHA(c *gc.C) {
