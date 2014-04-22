@@ -353,7 +353,11 @@ func cacheChangedAPIAddresses(info configstore.EnvironInfo, st apiState) error {
 	var addrs []string
 	for _, serverHostPorts := range st.APIHostPorts() {
 		for _, hostPort := range serverHostPorts {
-			addrs = append(addrs, hostPort.NetAddr())
+			// Only cache addresses that are likely to be usable,
+			// exclude IPv6 for now and localhost style ones.
+			if hostPort.Type != instance.Ipv6Address && hostPort.NetworkScope != instance.NetworkMachineLocal {
+				addrs = append(addrs, hostPort.NetAddr())
+			}
 		}
 	}
 	endpoint := info.APIEndpoint()
