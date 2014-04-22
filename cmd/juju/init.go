@@ -59,5 +59,6 @@ func (c *InitCommand) Run(context *cmd.Context) error {
 	}
 	fmt.Fprintf(out, "A boilerplate environment configuration file has been written to %s.\n", filename)
 	fmt.Fprint(out, "Edit the file to configure your juju environment and run bootstrap.\n")
+	fmt.Fprint(out, "If you are going to use the local provider, make sure to set the default-series to precise or trusty on your %s file.\n", filename)
 	return nil
 }
