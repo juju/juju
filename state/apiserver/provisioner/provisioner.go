@@ -285,10 +285,10 @@ func (p *ProvisionerAPI) Series(args params.Entities) (params.StringResults, err
 	return result, nil
 }
 
-// Placement returns the placement information for each given machine entity.
-func (p *ProvisionerAPI) Placement(args params.Entities) (params.StringResults, error) {
-	result := params.StringResults{
-		Results: make([]params.StringResult, len(args.Entities)),
+// ProvisioningInfo returns the provisioning information for each given machine entity.
+func (p *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.ProvisioningInfoResults, error) {
+	result := params.ProvisioningInfoResults{
+		Results: make([]params.ProvisioningInfoResult, len(args.Entities)),
 	}
 	canAccess, err := p.getAuthFunc()
 	if err != nil {
@@ -297,11 +297,35 @@ func (p *ProvisionerAPI) Placement(args params.Entities) (params.StringResults, 
 	for i, entity := range args.Entities {
 		machine, err := p.getMachine(canAccess, entity.Tag)
 		if err == nil {
-			result.Results[i].Result = machine.Placement()
+			result.Results[i].Result, err = getProvisioningInfo(machine)
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
+}
+
+func getProvisioningInfo(m *state.Machine) (*params.ProvisioningInfo, error) {
+	cons, err := m.Constraints()
+	if err != nil {
+		return nil, err
+	}
+	// TODO(dimitern) For now, since network names and
+	// provider ids are the same, we return what we got
+	// from state. In the future, when networks can be
+	// added before provisioning, we should convert both
+	// slices from juju network names to provider-specific
+	// ids before returning them.
+	includeNetworks, excludeNetworks, err := m.RequestedNetworks()
+	if err != nil {
+		return nil, err
+	}
+	return &params.ProvisioningInfo{
+		Constraints:     cons,
+		Series:          m.Series(),
+		Placement:       m.Placement(),
+		IncludeNetworks: includeNetworks,
+		ExcludeNetworks: excludeNetworks,
+	}, nil
 }
 
 // DistributionGroup returns, for each given machine entity,

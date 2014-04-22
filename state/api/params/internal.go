@@ -594,3 +594,23 @@ type RunResults struct {
 type AgentVersionResult struct {
 	Version version.Number
 }
+
+// ProvisioningInfo holds machine provisioning info.
+type ProvisioningInfo struct {
+	Constraints     constraints.Value
+	Series          string
+	Placement       string
+	IncludeNetworks []string
+	ExcludeNetworks []string
+}
+
+// ProvisioningInfoResult holds machine provisioning info or an error.
+type ProvisioningInfoResult struct {
+	Error  *Error
+	Result *ProvisioningInfo
+}
+
+// ProvisioningInfoResults holds multiple machine provisioning info results.
+type ProvisioningInfoResults struct {
+	Results []ProvisioningInfoResult
+}

@@ -617,6 +617,15 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 	if p.ContainerType != "" && p.Placement != nil {
 		return nil, fmt.Errorf("container type and placement are mutually exclusive")
 	}
+	if p.Placement != nil {
+		// Extract container type and parent from container placement directives.
+		containerType, err := instance.ParseContainerType(p.Placement.Scope)
+		if err == nil {
+			p.ContainerType = containerType
+			p.ParentId = p.Placement.Directive
+			p.Placement = nil
+		}
+	}
 
 	if p.ContainerType != "" || p.Placement != nil {
 		// Guard against dubious client by making sure that

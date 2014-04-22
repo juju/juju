@@ -21,6 +21,11 @@ func IsMachine(id string) bool {
 	return validMachine.MatchString(id)
 }
 
+// IsMachine returns whether id is a valid container machine id.
+func IsContainerMachine(id string) bool {
+	return validMachine.MatchString(id) && strings.Contains(id, "/")
+}
+
 // MachineTag returns the tag for the machine with the given id.
 func MachineTag(id string) string {
 	tag := makeTag(MachineTagKind, id)

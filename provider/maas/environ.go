@@ -170,7 +170,8 @@ func (env *maasEnviron) SupportNetworks() bool {
 }
 
 func (env *maasEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
-	// TODO(axw) handle maas-name placement directive
+	// TODO(axw) 2014-04-22 #1237709
+	// Handle maas-name placement directive.
 	if placement != "" {
 		return fmt.Errorf("unknown placement directive: %s", placement)
 	}

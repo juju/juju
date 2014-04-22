@@ -702,14 +702,3 @@ type EnsureAvailability struct {
 	// If this is empty, then the environment's default series is used.
 	Series string
 }
-
-// PlacementResult contains the result of the Placement provisioner API call.
-type PlacementResult struct {
-	Error  *Error
-	Result *instance.Placement
-}
-
-// PlacementResults is the bulk form of PlacementResult.
-type PlacementResults struct {
-	Results []PlacementResult
-}

@@ -368,31 +368,29 @@ func (s *provisionerSuite) TestDistributionGroupMachineNotFound(c *gc.C) {
 	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 }
 
-func (s *provisionerSuite) TestPlacement(c *gc.C) {
+func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 	template := state.MachineTemplate{
-		Series:    "quantal",
-		Jobs:      []state.MachineJob{state.JobHostUnits},
-		Placement: "valid",
+		Series:          "quantal",
+		Jobs:            []state.MachineJob{state.JobHostUnits},
+		Placement:       "valid",
+		Constraints:     constraints.MustParse("cpu-cores=12", "mem=8G"),
+		IncludeNetworks: []string{"net1", "net2"},
+		ExcludeNetworks: []string{"net3", "net4"},
 	}
-	placementMachine, err := s.State.AddOneMachine(template)
+	machine, err := s.State.AddOneMachine(template)
 	c.Assert(err, gc.IsNil)
-	c.Assert(placementMachine.Placement(), gc.Equals, template.Placement)
-	apiMachine, err := s.provisioner.Machine(placementMachine.Tag())
+	apiMachine, err := s.provisioner.Machine(machine.Tag())
 	c.Assert(err, gc.IsNil)
-	apiPlacement, err := apiMachine.Placement()
+	provisioningInfo, err := apiMachine.ProvisioningInfo()
 	c.Assert(err, gc.IsNil)
-	c.Assert(apiPlacement, gc.Equals, template.Placement)
+	c.Assert(provisioningInfo.Series, gc.Equals, template.Series)
+	c.Assert(provisioningInfo.Placement, gc.Equals, template.Placement)
+	c.Assert(provisioningInfo.Constraints, gc.DeepEquals, template.Constraints)
+	c.Assert(provisioningInfo.IncludeNetworks, gc.DeepEquals, template.IncludeNetworks)
+	c.Assert(provisioningInfo.ExcludeNetworks, gc.DeepEquals, template.ExcludeNetworks)
 }
 
-func (s *provisionerSuite) TestNoPlacement(c *gc.C) {
-	apiMachine, err := s.provisioner.Machine(s.machine.Tag())
-	c.Assert(err, gc.IsNil)
-	placement, err := apiMachine.Placement()
-	c.Assert(placement, gc.Equals, "")
-	c.Assert(err, gc.IsNil)
-}
-
-func (s *provisionerSuite) TestPlacementMachineNotFound(c *gc.C) {
+func (s *provisionerSuite) TestProvisioningInfoMachineNotFound(c *gc.C) {
 	stateMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	apiMachine, err := s.provisioner.Machine(stateMachine.Tag())
@@ -401,60 +399,10 @@ func (s *provisionerSuite) TestPlacementMachineNotFound(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = apiMachine.Remove()
 	c.Assert(err, gc.IsNil)
-	_, err = apiMachine.Placement()
+	_, err = apiMachine.ProvisioningInfo()
 	c.Assert(err, gc.ErrorMatches, "machine 1 not found")
 	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
-}
-
-func (s *provisionerSuite) TestConstraints(c *gc.C) {
-	// Create a fresh machine with some constraints.
-	template := state.MachineTemplate{
-		Series:      "quantal",
-		Jobs:        []state.MachineJob{state.JobHostUnits},
-		Constraints: constraints.MustParse("cpu-cores=12", "mem=8G"),
-	}
-	consMachine, err := s.State.AddOneMachine(template)
-	c.Assert(err, gc.IsNil)
-
-	apiMachine, err := s.provisioner.Machine(consMachine.Tag())
-	c.Assert(err, gc.IsNil)
-	cons, err := apiMachine.Constraints()
-	c.Assert(err, gc.IsNil)
-	c.Assert(cons, gc.DeepEquals, template.Constraints)
-
-	// Now try machine 0.
-	apiMachine, err = s.provisioner.Machine(s.machine.Tag())
-	c.Assert(err, gc.IsNil)
-	cons, err = apiMachine.Constraints()
-	c.Assert(err, gc.IsNil)
-	c.Assert(cons, gc.DeepEquals, constraints.Value{})
-}
-
-func (s *provisionerSuite) TestRequestedNetworks(c *gc.C) {
-	// Create a fresh machine with some requested networks.
-	template := state.MachineTemplate{
-		Series:          "quantal",
-		Jobs:            []state.MachineJob{state.JobHostUnits},
-		IncludeNetworks: []string{"net1", "net2"},
-		ExcludeNetworks: []string{"net3", "net4"},
-	}
-	netsMachine, err := s.State.AddOneMachine(template)
-	c.Assert(err, gc.IsNil)
-
-	apiMachine, err := s.provisioner.Machine(netsMachine.Tag())
-	c.Assert(err, gc.IsNil)
-	includeNetworks, excludeNetworks, err := apiMachine.RequestedNetworks()
-	c.Assert(err, gc.IsNil)
-	c.Assert(includeNetworks, gc.DeepEquals, template.IncludeNetworks)
-	c.Assert(excludeNetworks, gc.DeepEquals, template.ExcludeNetworks)
-
-	// Now try machine 0.
-	apiMachine, err = s.provisioner.Machine(s.machine.Tag())
-	c.Assert(err, gc.IsNil)
-	includeNetworks, excludeNetworks, err = apiMachine.RequestedNetworks()
-	c.Assert(err, gc.IsNil)
-	c.Assert(includeNetworks, gc.HasLen, 0)
-	c.Assert(excludeNetworks, gc.HasLen, 0)
+	// auth tests in apiserver
 }
 
 func (s *provisionerSuite) TestWatchContainers(c *gc.C) {

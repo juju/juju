@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/environs/manual"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
 )
 
@@ -118,36 +119,29 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	// We may need these for backwards compatibility; we also
-	// want to know if we're creating a container for the log
-	// message.
-	var containerType instance.ContainerType
-	var parentId string
-	if c.Placement != nil {
-		if c.Placement.Scope == instance.MachineScope {
-			return fmt.Errorf("machine-id cannot be specified when adding machines")
-		}
-		containerType, err = instance.ParseContainerType(c.Placement.Scope)
-		if err == nil {
-			parentId = c.Placement.Directive
-			c.Placement = nil
-		}
+	if c.Placement != nil && c.Placement.Scope == instance.MachineScope {
+		// It does not make sense to add-machine <id>.
+		return fmt.Errorf("machine-id cannot be specified when adding machines")
 	}
 
 	machineParams := params.AddMachineParams{
-		ContainerType: containerType,
-		ParentId:      parentId,
-		Placement:     c.Placement,
-		Series:        c.Series,
-		Constraints:   c.Constraints,
-		Jobs:          []params.MachineJob{params.JobHostUnits},
+		Placement:   c.Placement,
+		Series:      c.Series,
+		Constraints: c.Constraints,
+		Jobs:        []params.MachineJob{params.JobHostUnits},
 	}
 	results, err := client.AddMachines([]params.AddMachineParams{machineParams})
 	if params.IsCodeNotImplemented(err) {
-		// If the user specified a non-container placement
-		// directive, then we should not proceed.
-		if c.Placement != nil && containerType == "" {
-			return err
+		if c.Placement != nil {
+			containerType, parseErr := instance.ParseContainerType(c.Placement.Scope)
+			if parseErr != nil {
+				// The user specified a non-container placement directive:
+				// return original API not implemented error.
+				return err
+			}
+			machineParams.ContainerType = containerType
+			machineParams.ParentId = c.Placement.Directive
+			machineParams.Placement = nil
 		}
 		logger.Infof(
 			"AddMachinesWithPlacement not supported by the API server, " +
@@ -166,8 +160,8 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 	}
 	machineId := machineInfo.Machine
 
-	if containerType != "" {
-		ctx.Infof("created %q container %v", containerType, machineId)
+	if names.IsContainerMachine(machineId) {
+		ctx.Infof("created container %v", machineId)
 	} else {
 		ctx.Infof("created machine %v", machineId)
 	}

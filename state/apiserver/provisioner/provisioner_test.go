@@ -726,12 +726,14 @@ func (s *withoutStateServerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C)
 	})
 }
 
-func (s *withoutStateServerSuite) TestPlacement(c *gc.C) {
-	// Add a machine with placement.
+func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 	template := state.MachineTemplate{
-		Series:    "quantal",
-		Jobs:      []state.MachineJob{state.JobHostUnits},
-		Placement: "valid",
+		Series:          "quantal",
+		Jobs:            []state.MachineJob{state.JobHostUnits},
+		Constraints:     constraints.MustParse("cpu-cores=123", "mem=8G"),
+		Placement:       "valid",
+		IncludeNetworks: []string{"net1", "net2"},
+		ExcludeNetworks: []string{"net3", "net4"},
 	}
 	placementMachine, err := s.State.AddOneMachine(template)
 	c.Assert(err, gc.IsNil)
@@ -743,12 +745,26 @@ func (s *withoutStateServerSuite) TestPlacement(c *gc.C) {
 		{Tag: "unit-foo-0"},
 		{Tag: "service-bar"},
 	}}
-	result, err := s.provisioner.Placement(args)
+	result, err := s.provisioner.ProvisioningInfo(args)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.StringResults{
-		Results: []params.StringResult{
-			{Result: ""},
-			{Result: template.Placement},
+	c.Assert(result, gc.DeepEquals, params.ProvisioningInfoResults{
+		Results: []params.ProvisioningInfoResult{
+			{
+				Result: &params.ProvisioningInfo{
+					Series:          "quantal",
+					IncludeNetworks: []string{},
+					ExcludeNetworks: []string{},
+				},
+			},
+			{
+				Result: &params.ProvisioningInfo{
+					Series:          "quantal",
+					Constraints:     template.Constraints,
+					Placement:       template.Placement,
+					IncludeNetworks: template.IncludeNetworks,
+					ExcludeNetworks: template.ExcludeNetworks,
+				},
+			},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -756,7 +772,7 @@ func (s *withoutStateServerSuite) TestPlacement(c *gc.C) {
 	})
 }
 
-func (s *withoutStateServerSuite) TestPlacementPermissions(c *gc.C) {
+func (s *withoutStateServerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 	// Login as a machine agent for machine 0.
 	anAuthorizer := s.authorizer
 	anAuthorizer.MachineAgent = true
@@ -775,10 +791,14 @@ func (s *withoutStateServerSuite) TestPlacementPermissions(c *gc.C) {
 	}}
 
 	// Only machine 0 and containers therein can be accessed.
-	results, err := aProvisioner.Placement(args)
-	c.Assert(results, gc.DeepEquals, params.StringResults{
-		Results: []params.StringResult{
-			{Error: nil},
+	results, err := aProvisioner.ProvisioningInfo(args)
+	c.Assert(results, gc.DeepEquals, params.ProvisioningInfoResults{
+		Results: []params.ProvisioningInfoResult{
+			{Result: &params.ProvisioningInfo{
+				Series:          "quantal",
+				IncludeNetworks: []string{},
+				ExcludeNetworks: []string{},
+			}},
 			{Error: apiservertesting.NotFoundError("machine 0/lxc/0")},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},

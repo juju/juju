@@ -1707,10 +1707,10 @@ func (s *clientSuite) TestClientAddMachinesWithPlacement(c *gc.C) {
 	machines, err := s.APIState.Client().AddMachines(apiParams)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(machines), gc.Equals, 4)
-	c.Assert(machines[0].Error, gc.ErrorMatches, `invalid environment name "lxc"`)
+	c.Assert(machines[0].Machine, gc.Equals, "0/lxc/0")
 	c.Assert(machines[1].Error, gc.ErrorMatches, "container type and placement are mutually exclusive")
 	c.Assert(machines[2].Error, gc.ErrorMatches, "cannot add a new machine: invalid placement is invalid")
-	c.Assert(machines[3].Machine, gc.Equals, "0")
+	c.Assert(machines[3].Machine, gc.Equals, "1")
 
 	m, err := s.BackingState.Machine(machines[3].Machine)
 	c.Assert(err, gc.IsNil)
