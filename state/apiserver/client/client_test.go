@@ -2144,22 +2144,40 @@ func (s *clientSuite) setAgentAlive(c *gc.C, machineId string) *presence.Pinger 
 }
 
 func (s *clientSuite) TestClientEnsureAvailabilitySeries(c *gc.C) {
-	err := s.APIState.Client().EnsureAvailability(1, constraints.Value{}, "")
+	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
+	// We have to ensure the agents are alive, or EnsureAvailability will
+	// create more to replace them.
 	pinger := s.setAgentAlive(c, "0")
 	defer pinger.Kill()
-	err = s.APIState.Client().EnsureAvailability(3, constraints.Value{}, "non-default")
-	c.Assert(err, gc.IsNil)
 	machines, err := s.State.AllMachines()
 	c.Assert(err, gc.IsNil)
+	c.Assert(machines, gc.HasLen, 1)
+	c.Assert(machines[0].Series(), gc.Equals, "quantal")
+	err = s.APIState.Client().EnsureAvailability(3, constraints.Value{}, "")
+	c.Assert(err, gc.IsNil)
+	machines, err = s.State.AllMachines()
+	c.Assert(err, gc.IsNil)
 	c.Assert(machines, gc.HasLen, 3)
-	c.Assert(machines[0].Series(), gc.Equals, "precise")
-	c.Assert(machines[1].Series(), gc.Equals, "non-default")
-	c.Assert(machines[2].Series(), gc.Equals, "non-default")
+	c.Assert(machines[0].Series(), gc.Equals, "quantal")
+	c.Assert(machines[1].Series(), gc.Equals, "quantal")
+	c.Assert(machines[2].Series(), gc.Equals, "quantal")
+	defer s.setAgentAlive(c, "1").Kill()
+	defer s.setAgentAlive(c, "2").Kill()
+	err = s.APIState.Client().EnsureAvailability(5, constraints.Value{}, "non-default")
+	c.Assert(err, gc.IsNil)
+	machines, err = s.State.AllMachines()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machines, gc.HasLen, 5)
+	c.Assert(machines[0].Series(), gc.Equals, "quantal")
+	c.Assert(machines[1].Series(), gc.Equals, "quantal")
+	c.Assert(machines[2].Series(), gc.Equals, "quantal")
+	c.Assert(machines[3].Series(), gc.Equals, "non-default")
+	c.Assert(machines[4].Series(), gc.Equals, "non-default")
 }
 
 func (s *clientSuite) TestClientEnsureAvailabilityConstraints(c *gc.C) {
-	err := s.APIState.Client().EnsureAvailability(1, constraints.Value{}, "")
+	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	pinger := s.setAgentAlive(c, "0")
 	defer pinger.Kill()
@@ -2181,9 +2199,13 @@ func (s *clientSuite) TestClientEnsureAvailabilityConstraints(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientEnsureAvailabilityErrors(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
+	pinger := s.setAgentAlive(c, "0")
+	defer pinger.Kill()
 	var emptyCons constraints.Value
 	defaultSeries := ""
-	err := s.APIState.Client().EnsureAvailability(0, emptyCons, defaultSeries)
+	err = s.APIState.Client().EnsureAvailability(0, emptyCons, defaultSeries)
 	c.Assert(err, gc.ErrorMatches, "number of state servers must be odd and greater than zero")
 	err = s.APIState.Client().EnsureAvailability(3, emptyCons, defaultSeries)
 	c.Assert(err, gc.IsNil)
