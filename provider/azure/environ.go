@@ -434,7 +434,10 @@ func (environ *azureEnviron) ConstraintsValidator() constraints.Validator {
 }
 
 // PrecheckInstance is defined on the state.Prechecker interface.
-func (env *azureEnviron) PrecheckInstance(series string, cons constraints.Value) error {
+func (env *azureEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
+	if placement != "" {
+		return fmt.Errorf("unknown placement directive: %s", placement)
+	}
 	if !cons.HasInstanceType() {
 		return nil
 	}
@@ -1200,13 +1203,6 @@ func (env *azureEnviron) Region() (simplestreams.CloudSpec, error) {
 func (env *azureEnviron) SupportsUnitPlacement() error {
 	if env.getSnapshot().ecfg.availabilitySetsEnabled() {
 		return fmt.Errorf("unit placement is not supported with availability-sets-enabled")
-	}
-	return nil
-}
-
-func (*azureEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
-	if placement != "" {
-		return fmt.Errorf("unknown placement directive: %s", placement)
 	}
 	return nil
 }

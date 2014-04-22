@@ -76,7 +76,10 @@ func (*joyentEnviron) Provider() environs.EnvironProvider {
 }
 
 // PrecheckInstance is defined on the state.Prechecker interface.
-func (env *joyentEnviron) PrecheckInstance(series string, cons constraints.Value) error {
+func (env *joyentEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
+	if placement != "" {
+		return fmt.Errorf("unknown placement directive: %s", placement)
+	}
 	if !cons.HasInstanceType() {
 		return nil
 	}
@@ -118,13 +121,6 @@ func (env *joyentEnviron) SupportedArchitectures() ([]string, error) {
 // SupportNetworks is specified on the EnvironCapability interface.
 func (e *joyentEnviron) SupportNetworks() bool {
 	return false
-}
-
-func (*joyentEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
-	if placement != "" {
-		return fmt.Errorf("unknown placement directive: %s", placement)
-	}
-	return nil
 }
 
 func (env *joyentEnviron) SetConfig(cfg *config.Config) error {
