@@ -15,7 +15,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goose/client"
-	goosehttp "launchpad.net/goose/http"
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/testservices/hook"
@@ -53,7 +52,6 @@ func (s *ProviderSuite) SetUpTest(c *gc.C) {
 
 func (s *ProviderSuite) TearDownTest(c *gc.C) {
 	s.restoreTimeouts()
-	goosehttp.NewNonSSLValidating().Transport.(*http.Transport).DisableKeepAlives = true
 }
 
 // Register tests to run against a test Openstack instance (service doubles).
@@ -151,7 +149,6 @@ func (s *localLiveSuite) SetUpTest(c *gc.C) {
 func (s *localLiveSuite) TearDownTest(c *gc.C) {
 	s.LiveTests.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
-	goosehttp.NewNonSSLValidating().Transport.(*http.Transport).DisableKeepAlives = true
 }
 
 // localServerSuite contains tests that run against an Openstack service double.
@@ -215,7 +212,6 @@ func (s *localServerSuite) TearDownTest(c *gc.C) {
 	s.Tests.TearDownTest(c)
 	s.srv.stop()
 	s.LoggingSuite.TearDownTest(c)
-	goosehttp.NewNonSSLValidating().Transport.(*http.Transport).DisableKeepAlives = true
 }
 
 // If the bootstrap node is configured to require a public IP address,
@@ -893,7 +889,6 @@ func (s *localHTTPSServerSuite) TearDownTest(c *gc.C) {
 	}
 	s.srv.stop()
 	s.LoggingSuite.TearDownTest(c)
-	goosehttp.NewNonSSLValidating().Transport.(*http.Transport).DisableKeepAlives = true
 }
 
 func (s *localHTTPSServerSuite) TestCanUploadTools(c *gc.C) {
