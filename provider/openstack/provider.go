@@ -27,6 +27,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
+	"launchpad.net/juju-core/environs/network"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
@@ -276,7 +277,6 @@ func retryGet(uri string) (data []byte, err error) {
 }
 
 type environ struct {
-	common.NopPrecheckerPolicy
 	common.SupportsUnitPlacementPolicy
 
 	name string
@@ -306,6 +306,7 @@ var _ environs.Environ = (*environ)(nil)
 var _ imagemetadata.SupportsCustomSources = (*environ)(nil)
 var _ envtools.SupportsCustomSources = (*environ)(nil)
 var _ simplestreams.HasRegion = (*environ)(nil)
+var _ state.Prechecker = (*environ)(nil)
 
 type openstackInstance struct {
 	e        *environ
@@ -519,6 +520,43 @@ func (e *environ) SupportNetworks() bool {
 	// TODO(dimitern) Once we have support for networking, inquire
 	// about capabilities and return true if supported.
 	return false
+}
+
+var unsupportedConstraints = []string{
+	constraints.Tags,
+	constraints.CpuPower,
+}
+
+// ConstraintsValidator is defined on the Environs interface.
+func (e *environ) ConstraintsValidator() constraints.Validator {
+	validator := constraints.NewValidator()
+	validator.RegisterConflicts(
+		[]string{constraints.InstanceType},
+		[]string{constraints.Mem, constraints.Arch, constraints.RootDisk, constraints.CpuCores})
+	validator.RegisterUnsupported(unsupportedConstraints)
+	return validator
+}
+
+// PrecheckInstance is defined on the state.Prechecker interface.
+func (e *environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
+	if placement != "" {
+		return fmt.Errorf("unknown placement directive: %s", placement)
+	}
+	if !cons.HasInstanceType() {
+		return nil
+	}
+	// Constraint has an instance-type constraint so let's see if it is valid.
+	novaClient := e.nova()
+	flavors, err := novaClient.ListFlavorsDetail()
+	if err != nil {
+		return err
+	}
+	for _, flavor := range flavors {
+		if flavor.Name == *cons.InstanceType {
+			return nil
+		}
+	}
+	return fmt.Errorf("invalid Openstack flavour %q specified", *cons.InstanceType)
 }
 
 func (e *environ) Storage() storage.Storage {
@@ -745,7 +783,7 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error) {
+func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
 
 	if args.MachineConfig.HasNetworks() {
 		return nil, nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")

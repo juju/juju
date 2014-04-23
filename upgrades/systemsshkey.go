@@ -7,16 +7,14 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
 
-	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state/api/keymanager"
 	"launchpad.net/juju-core/utils/ssh"
 )
 
 func ensureSystemSSHKey(context Context) error {
-	identityFile := path.Join(context.AgentConfig().DataDir(), cloudinit.SystemIdentity)
+	identityFile := context.AgentConfig().SystemIdentityPath()
 	// Don't generate a key unless we have to.
 	keyExists, err := systemKeyExists(identityFile)
 	if err != nil {

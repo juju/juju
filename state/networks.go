@@ -4,8 +4,11 @@
 package state
 
 import (
+	"fmt"
+
 	"labix.org/v2/mgo/bson"
 
+	"launchpad.net/juju-core/environs/network"
 	"launchpad.net/juju-core/names"
 )
 
@@ -21,7 +24,7 @@ type NetworkInfo struct {
 	Name string
 
 	// ProviderId is a provider-specific network id.
-	ProviderId string
+	ProviderId network.Id
 
 	// CIDR of the network, in 123.45.67.89/24 format.
 	CIDR string
@@ -38,7 +41,7 @@ type networkDoc struct {
 	// included networks.
 	Name string `bson:"_id"`
 
-	ProviderId string
+	ProviderId network.Id
 	CIDR       string
 	VLANTag    int
 }
@@ -47,13 +50,29 @@ func newNetwork(st *State, doc *networkDoc) *Network {
 	return &Network{st, *doc}
 }
 
+func newNetworkDoc(args NetworkInfo) *networkDoc {
+	return &networkDoc{
+		Name:       args.Name,
+		ProviderId: args.ProviderId,
+		CIDR:       args.CIDR,
+		VLANTag:    args.VLANTag,
+	}
+}
+
+// GoString implements fmt.GoStringer.
+func (n *Network) GoString() string {
+	return fmt.Sprintf(
+		"&state.Network{name: %q, providerId: %q, cidr: %q, vlanTag: %v}",
+		n.Name(), n.ProviderId(), n.CIDR(), n.VLANTag())
+}
+
 // Name returns the network name.
 func (n *Network) Name() string {
 	return n.doc.Name
 }
 
 // ProviderId returns the provider-specific id of the network.
-func (n *Network) ProviderId() string {
+func (n *Network) ProviderId() network.Id {
 	return n.doc.ProviderId
 }
 

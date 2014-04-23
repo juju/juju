@@ -40,6 +40,7 @@ import (
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
+	"launchpad.net/juju-core/environs/network"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/tools"
@@ -115,7 +116,7 @@ type OpStartInstance struct {
 	Constraints     constraints.Value
 	IncludeNetworks []string
 	ExcludeNetworks []string
-	NetworkInfo     []environs.NetworkInfo
+	NetworkInfo     []network.Info
 	Info            *state.Info
 	APIInfo         *api.Info
 	Secret          string
@@ -183,7 +184,6 @@ type environState struct {
 // environ represents a client's connection to a given environment's
 // state.
 type environ struct {
-	common.NopPrecheckerPolicy
 	common.SupportsUnitPlacementPolicy
 
 	name         string
@@ -542,6 +542,14 @@ func (*environ) SupportNetworks() bool {
 	return true
 }
 
+// PrecheckInstance is specified in the state.Prechecker interface.
+func (*environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
+	if placement != "" && placement != "valid" {
+		return fmt.Errorf("%s placement is invalid", placement)
+	}
+	return nil
+}
+
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
 func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 	return []simplestreams.DataSource{
@@ -692,8 +700,16 @@ func (e *environ) Destroy() (res error) {
 	return nil
 }
 
+// ConstraintsValidator is defined on the Environs interface.
+func (e *environ) ConstraintsValidator() constraints.Validator {
+	validator := constraints.NewValidator()
+	validator.RegisterUnsupported([]string{constraints.CpuPower})
+	validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
+	return validator
+}
+
 // StartInstance is specified in the InstanceBroker interface.
-func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error) {
+func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
 
 	defer delay()
 	machineId := args.MachineConfig.MachineId
@@ -766,23 +782,24 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		}
 	}
 	// Simulate networks added when requested.
-	networkInfo := make([]environs.NetworkInfo, len(args.MachineConfig.IncludeNetworks))
-	for i, network := range args.MachineConfig.IncludeNetworks {
-		if strings.HasPrefix(network, "bad-") {
+	networkInfo := make([]network.Info, len(args.MachineConfig.IncludeNetworks))
+	for i, netName := range args.MachineConfig.IncludeNetworks {
+		if strings.HasPrefix(netName, "bad-") {
 			// Simulate we didn't get correct information for the network.
-			networkInfo[i] = environs.NetworkInfo{
-				NetworkId:   network,
-				NetworkName: network,
+			networkInfo[i] = network.Info{
+				ProviderId:  network.Id(netName),
+				NetworkName: netName,
 				CIDR:        "invalid",
 			}
 		} else {
-			networkInfo[i] = environs.NetworkInfo{
-				NetworkId:     network,
-				NetworkName:   network,
+			networkInfo[i] = network.Info{
+				ProviderId:    network.Id(netName),
+				NetworkName:   netName,
 				CIDR:          fmt.Sprintf("0.%d.2.0/24", i+1),
 				InterfaceName: fmt.Sprintf("eth%d", i),
 				VLANTag:       i,
 				MACAddress:    fmt.Sprintf("aa:bb:cc:dd:ee:f%d", i),
+				IsVirtual:     i > 0,
 			}
 		}
 	}

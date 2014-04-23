@@ -12,3 +12,13 @@ func GitDeployerDataPath(d Deployer) string {
 func GitDeployerCurrent(d Deployer) *GitDir {
 	return d.(*gitDeployer).current
 }
+
+func IsGitDeployer(d Deployer) bool {
+	_, ok := d.(*gitDeployer)
+	return ok
+}
+
+func IsManifestDeployer(d Deployer) bool {
+	_, ok := d.(*manifestDeployer)
+	return ok
+}

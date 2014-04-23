@@ -21,6 +21,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/httpstorage"
 	"launchpad.net/juju-core/environs/manual"
+	"launchpad.net/juju-core/environs/network"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/sshstorage"
 	"launchpad.net/juju-core/environs/storage"
@@ -60,12 +61,11 @@ type manualEnviron struct {
 }
 
 var _ envtools.SupportsCustomSources = (*manualEnviron)(nil)
-var _ state.Prechecker = (*manualEnviron)(nil)
 
 var errNoStartInstance = errors.New("manual provider cannot start instances")
 var errNoStopInstance = errors.New("manual provider cannot stop instances")
 
-func (*manualEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error) {
+func (*manualEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
 	return nil, nil, nil, errNoStartInstance
 }
 
@@ -261,8 +261,21 @@ exit 0
 	return err
 }
 
-func (*manualEnviron) PrecheckInstance(series string, cons constraints.Value) error {
+func (*manualEnviron) PrecheckInstance(series string, _ constraints.Value, placement string) error {
 	return errors.New(`use "juju add-machine ssh:[user@]<host>" to provision machines`)
+}
+
+var unsupportedConstraints = []string{
+	constraints.CpuPower,
+	constraints.InstanceType,
+	constraints.Tags,
+}
+
+// ConstraintsValidator is defined on the Environs interface.
+func (e *manualEnviron) ConstraintsValidator() constraints.Validator {
+	validator := constraints.NewValidator()
+	validator.RegisterUnsupported(unsupportedConstraints)
+	return validator
 }
 
 func (e *manualEnviron) OpenPorts(ports []instance.Port) error {

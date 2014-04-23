@@ -52,9 +52,31 @@ type InstanceSpec struct {
 // which instances can be run. The InstanceConstraint is used to filter allInstanceTypes and then a suitable image
 // compatible with the matching instance types is returned.
 func FindInstanceSpec(possibleImages []Image, ic *InstanceConstraint, allInstanceTypes []InstanceType) (*InstanceSpec, error) {
-	matchingTypes, err := getMatchingInstanceTypes(ic, allInstanceTypes)
-	if err != nil {
-		return nil, err
+	if len(possibleImages) == 0 {
+		return nil, fmt.Errorf("no %q images in %s with arches %s",
+			ic.Series, ic.Region, ic.Arches)
+	}
+
+	var matchingTypes []InstanceType
+	if ic.Constraints.HasInstanceType() {
+		for _, itype := range allInstanceTypes {
+			if itype.Name == *ic.Constraints.InstanceType {
+				matchingTypes = append(matchingTypes, itype)
+				break
+			}
+		}
+		if len(matchingTypes) == 0 {
+			return nil, fmt.Errorf("invalid instance type %q", *ic.Constraints.InstanceType)
+		}
+	} else {
+		var err error
+		matchingTypes, err = getMatchingInstanceTypes(ic, allInstanceTypes)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if len(matchingTypes) == 0 {
+		return nil, fmt.Errorf("no instance types found matching constraint: %s", ic)
 	}
 
 	specs := []*InstanceSpec{}
@@ -69,11 +91,6 @@ func FindInstanceSpec(possibleImages []Image, ic *InstanceConstraint, allInstanc
 
 	if spec := preferredSpec(specs); spec != nil {
 		return spec, nil
-	}
-
-	if len(possibleImages) == 0 || len(matchingTypes) == 0 {
-		return nil, fmt.Errorf("no %q images in %s with arches %s",
-			ic.Series, ic.Region, ic.Arches)
 	}
 
 	names := make([]string, len(matchingTypes))

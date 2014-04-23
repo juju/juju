@@ -30,6 +30,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/httpstorage"
+	"launchpad.net/juju-core/environs/network"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
@@ -57,7 +58,6 @@ var _ environs.Environ = (*localEnviron)(nil)
 var _ envtools.SupportsCustomSources = (*localEnviron)(nil)
 
 type localEnviron struct {
-	common.NopPrecheckerPolicy
 	common.SupportsUnitPlacementPolicy
 
 	localMutex       sync.Mutex
@@ -85,6 +85,13 @@ func (*localEnviron) SupportedArchitectures() ([]string, error) {
 // SupportNetworks is specified on the EnvironCapability interface.
 func (*localEnviron) SupportNetworks() bool {
 	return false
+}
+
+func (*localEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
+	if placement != "" {
+		return fmt.Errorf("unknown placement directive: %s", placement)
+	}
+	return nil
 }
 
 // Name is specified in the Environ interface.
@@ -300,8 +307,22 @@ func (env *localEnviron) setLocalStorage() error {
 	return nil
 }
 
+var unsupportedConstraints = []string{
+	constraints.CpuCores,
+	constraints.CpuPower,
+	constraints.InstanceType,
+	constraints.Tags,
+}
+
+// ConstraintsValidator is defined on the Environs interface.
+func (env *localEnviron) ConstraintsValidator() constraints.Validator {
+	validator := constraints.NewValidator()
+	validator.RegisterUnsupported(unsupportedConstraints)
+	return validator
+}
+
 // StartInstance is specified in the InstanceBroker interface.
-func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error) {
+func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
 	if args.MachineConfig.HasNetworks() {
 		return nil, nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
 	}

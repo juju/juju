@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/container/kvm"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/network"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/tools"
 )
@@ -54,7 +55,7 @@ func (broker *kvmBroker) Tools(series string) tools.List {
 }
 
 // StartInstance is specified in the Broker interface.
-func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error) {
+func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
 	if args.MachineConfig.HasNetworks() {
 		return nil, nil, nil, fmt.Errorf("starting kvm containers with networks is not supported yet.")
 	}

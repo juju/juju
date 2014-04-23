@@ -12,11 +12,14 @@ import (
 	"github.com/joyent/gocommon/client"
 	"github.com/joyent/gosdc/cloudapi"
 
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
+	"launchpad.net/juju-core/environs/network"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
@@ -50,7 +53,19 @@ func (env *joyentEnviron) machineFullName(machineId string) string {
 	return fmt.Sprintf("juju-%s-%s", env.Name(), names.MachineTag(machineId))
 }
 
-func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []environs.NetworkInfo, error) {
+var unsupportedConstraints = []string{
+	constraints.CpuPower,
+	constraints.Tags,
+}
+
+// ConstraintsValidator is defined on the Environs interface.
+func (env *joyentEnviron) ConstraintsValidator() constraints.Validator {
+	validator := constraints.NewValidator()
+	validator.RegisterUnsupported(unsupportedConstraints)
+	return validator
+}
+
+func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
 
 	if args.MachineConfig.HasNetworks() {
 		return nil, nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
@@ -220,8 +235,7 @@ func (env *joyentEnviron) StopInstances(instances []instance.Instance) error {
 	return nil
 }
 
-// findInstanceSpec returns an InstanceSpec satisfying the supplied instanceConstraint.
-func (env *joyentEnviron) FindInstanceSpec(ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+func (env *joyentEnviron) listInstanceTypes() ([]instances.InstanceType, error) {
 	packages, err := env.compute.cloudapi.ListPackages(nil)
 	if err != nil {
 		return nil, err
@@ -231,7 +245,7 @@ func (env *joyentEnviron) FindInstanceSpec(ic *instances.InstanceConstraint) (*i
 		instanceType := instances.InstanceType{
 			Id:       pkg.Id,
 			Name:     pkg.Name,
-			Arches:   ic.Arches,
+			Arches:   []string{arch.AMD64},
 			Mem:      uint64(pkg.Memory),
 			CpuCores: uint64(pkg.VCPUs),
 			RootDisk: uint64(pkg.Disk * 1024),
@@ -239,7 +253,15 @@ func (env *joyentEnviron) FindInstanceSpec(ic *instances.InstanceConstraint) (*i
 		}
 		allInstanceTypes = append(allInstanceTypes, instanceType)
 	}
+	return allInstanceTypes, nil
+}
 
+// findInstanceSpec returns an InstanceSpec satisfying the supplied instanceConstraint.
+func (env *joyentEnviron) FindInstanceSpec(ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+	allInstanceTypes, err := env.listInstanceTypes()
+	if err != nil {
+		return nil, err
+	}
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{ic.Region, env.Ecfg().SdcUrl()},
 		Series:    []string{ic.Series},

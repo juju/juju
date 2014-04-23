@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 
-	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
@@ -55,23 +54,22 @@ func (m *Machine) Refresh() error {
 	return nil
 }
 
-// RequestedNetworks returns a pair of lists of networks to
-// enable/disable on the machine.
-func (m *Machine) RequestedNetworks() (includeNetworks, excludeNetworks []string, err error) {
-	var results params.RequestedNetworksResults
+// ProvisioningInfo returns the information required to provisiong a machine.
+func (m *Machine) ProvisioningInfo() (*params.ProvisioningInfo, error) {
+	var results params.ProvisioningInfoResults
 	args := params.Entities{Entities: []params.Entity{{m.tag}}}
-	err = m.st.call("RequestedNetworks", args, &results)
+	err := m.st.call("ProvisioningInfo", args, &results)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return nil, nil, result.Error
+		return nil, result.Error
 	}
-	return result.IncludeNetworks, result.ExcludeNetworks, nil
+	return result.Result, nil
 }
 
 // SetStatus sets the status of the machine.
@@ -107,28 +105,6 @@ func (m *Machine) Status() (params.Status, string, error) {
 		return "", "", result.Error
 	}
 	return result.Status, result.Info, nil
-}
-
-// Constraints returns the exact constraints that should apply when provisioning
-// an instance for the machine.
-func (m *Machine) Constraints() (constraints.Value, error) {
-	nothing := constraints.Value{}
-	var results params.ConstraintsResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: m.tag}},
-	}
-	err := m.st.call("Constraints", args, &results)
-	if err != nil {
-		return nothing, err
-	}
-	if len(results.Results) != 1 {
-		return nothing, fmt.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return nothing, result.Error
-	}
-	return result.Constraints, nil
 }
 
 // EnsureDead sets the machine lifecycle to Dead if it is Alive or

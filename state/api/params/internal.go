@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs/network"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils/exec"
@@ -317,7 +318,7 @@ type Network struct {
 	Tag string
 
 	// ProviderId is the provider-specific network id.
-	ProviderId string
+	ProviderId network.Id
 
 	// CIDR of the network, in "123.45.67.89/12" format.
 	CIDR string
@@ -340,6 +341,10 @@ type NetworkInterface struct {
 
 	// NetworkTag is this interface's network tag.
 	NetworkTag string
+
+	// IsVirtual is true when the interface is a virtual device, as
+	// opposed to a physical device.
+	IsVirtual bool
 }
 
 // InstanceInfo holds a machine tag, provider-specific instance id, a
@@ -593,4 +598,24 @@ type RunResults struct {
 // agent running the API server.
 type AgentVersionResult struct {
 	Version version.Number
+}
+
+// ProvisioningInfo holds machine provisioning info.
+type ProvisioningInfo struct {
+	Constraints     constraints.Value
+	Series          string
+	Placement       string
+	IncludeNetworks []string
+	ExcludeNetworks []string
+}
+
+// ProvisioningInfoResult holds machine provisioning info or an error.
+type ProvisioningInfoResult struct {
+	Error  *Error
+	Result *ProvisioningInfo
+}
+
+// ProvisioningInfoResults holds multiple machine provisioning info results.
+type ProvisioningInfoResults struct {
+	Results []ProvisioningInfoResult
 }

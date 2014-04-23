@@ -61,10 +61,11 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 		Password:          pwHash,
 	}
 	servingInfo := params.StateServingInfo{
-		Cert:       testing.ServerCert,
-		PrivateKey: testing.ServerKey,
-		APIPort:    1234,
-		StatePort:  testing.MgoServer.Port(),
+		Cert:           testing.ServerCert,
+		PrivateKey:     testing.ServerKey,
+		APIPort:        1234,
+		StatePort:      testing.MgoServer.Port(),
+		SystemIdentity: "def456",
 	}
 
 	cfg, err := agent.NewStateMachineConfig(configParams, servingInfo)
@@ -132,11 +133,12 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	stateServingInfo, err := st.StateServingInfo()
 	c.Assert(err, gc.IsNil)
 	c.Assert(stateServingInfo, jc.DeepEquals, params.StateServingInfo{
-		APIPort:      1234,
-		StatePort:    testing.MgoServer.Port(),
-		Cert:         testing.ServerCert,
-		PrivateKey:   testing.ServerKey,
-		SharedSecret: "abc123",
+		APIPort:        1234,
+		StatePort:      testing.MgoServer.Port(),
+		Cert:           testing.ServerCert,
+		PrivateKey:     testing.ServerKey,
+		SharedSecret:   "abc123",
+		SystemIdentity: "def456",
 	})
 
 	// Check that the machine agent's config has been written
@@ -188,11 +190,12 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	cfg, err := agent.NewAgentConfig(configParams)
 	c.Assert(err, gc.IsNil)
 	cfg.SetStateServingInfo(params.StateServingInfo{
-		APIPort:      5555,
-		StatePort:    testing.MgoServer.Port(),
-		Cert:         "foo",
-		PrivateKey:   "bar",
-		SharedSecret: "baz",
+		APIPort:        5555,
+		StatePort:      testing.MgoServer.Port(),
+		Cert:           "foo",
+		PrivateKey:     "bar",
+		SharedSecret:   "baz",
+		SystemIdentity: "qux",
 	})
 	expectConstraints := constraints.MustParse("mem=1024M")
 	expectHW := instance.MustParseHardware("mem=2048M")

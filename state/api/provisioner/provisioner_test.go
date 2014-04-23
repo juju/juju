@@ -230,6 +230,11 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 		CIDR:       "0.2.2.0/24",
 		VLANTag:    42,
 	}, {
+		Tag:        "network-vlan69",
+		ProviderId: "vlan69",
+		CIDR:       "0.3.2.0/24",
+		VLANTag:    69,
+	}, {
 		Tag:        "network-vlan42", // duplicated; ignored
 		ProviderId: "vlan42",
 		CIDR:       "0.2.2.0/24",
@@ -239,18 +244,32 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 		MACAddress:    "aa:bb:cc:dd:ee:f0",
 		NetworkTag:    "network-net1",
 		InterfaceName: "eth0",
+		IsVirtual:     false,
 	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:f1",
 		NetworkTag:    "network-net1",
 		InterfaceName: "eth1",
+		IsVirtual:     false,
 	}, {
-		MACAddress:    "aa:bb:cc:dd:ee:f2",
+		MACAddress:    "aa:bb:cc:dd:ee:f1",
+		NetworkTag:    "network-vlan42",
+		InterfaceName: "eth1.42",
+		IsVirtual:     true,
+	}, {
+		MACAddress:    "aa:bb:cc:dd:ee:f1",
+		NetworkTag:    "network-vlan69",
+		InterfaceName: "eth1.69",
+		IsVirtual:     true,
+	}, {
+		MACAddress:    "aa:bb:cc:dd:ee:f1", // duplicated mac+net; ignored
 		NetworkTag:    "network-vlan42",
 		InterfaceName: "eth2",
+		IsVirtual:     true,
 	}, {
-		MACAddress:    "aa:bb:cc:dd:ee:f2", // duplicated; ignored
-		NetworkTag:    "network-vlan42",
-		InterfaceName: "eth2",
+		MACAddress:    "aa:bb:cc:dd:ee:f4",
+		NetworkTag:    "network-net1",
+		InterfaceName: "eth1", // duplicated name+machine id; ignored
+		IsVirtual:     false,
 	}}
 
 	err = apiMachine.SetInstanceInfo("i-will", "fake_nonce", &hwChars, networks, ifaces)
@@ -273,7 +292,7 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 
 	// Check the networks are created.
 	for i, _ := range networks {
-		if i == 2 {
+		if i == 3 {
 			// Last one was ignored, so skip it.
 			break
 		}
@@ -291,16 +310,17 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	// And the network interfaces as well.
 	ifacesMachine, err = notProvisionedMachine.NetworkInterfaces()
 	c.Assert(err, gc.IsNil)
-	c.Assert(ifacesMachine, gc.HasLen, 3)
+	c.Assert(ifacesMachine, gc.HasLen, 4)
 	actual := make([]params.NetworkInterface, len(ifacesMachine))
 	for i, iface := range ifacesMachine {
 		actual[i].InterfaceName = iface.InterfaceName()
 		actual[i].NetworkTag = iface.NetworkTag()
 		actual[i].MACAddress = iface.MACAddress()
+		actual[i].IsVirtual = iface.IsVirtual()
 		c.Check(iface.MachineTag(), gc.Equals, notProvisionedMachine.Tag())
 		c.Check(iface.MachineId(), gc.Equals, notProvisionedMachine.Id())
 	}
-	c.Assert(actual, jc.SameContents, ifaces[:3]) // skip [3] as it's ignored.
+	c.Assert(actual, jc.SameContents, ifaces[:4]) // skip the rest as they are ignored.
 }
 
 func (s *provisionerSuite) TestSeries(c *gc.C) {
@@ -368,55 +388,41 @@ func (s *provisionerSuite) TestDistributionGroupMachineNotFound(c *gc.C) {
 	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 }
 
-func (s *provisionerSuite) TestConstraints(c *gc.C) {
-	// Create a fresh machine with some constraints.
-	template := state.MachineTemplate{
-		Series:      "quantal",
-		Jobs:        []state.MachineJob{state.JobHostUnits},
-		Constraints: constraints.MustParse("cpu-cores=12", "mem=8G"),
-	}
-	consMachine, err := s.State.AddOneMachine(template)
-	c.Assert(err, gc.IsNil)
-
-	apiMachine, err := s.provisioner.Machine(consMachine.Tag())
-	c.Assert(err, gc.IsNil)
-	cons, err := apiMachine.Constraints()
-	c.Assert(err, gc.IsNil)
-	c.Assert(cons, gc.DeepEquals, template.Constraints)
-
-	// Now try machine 0.
-	apiMachine, err = s.provisioner.Machine(s.machine.Tag())
-	c.Assert(err, gc.IsNil)
-	cons, err = apiMachine.Constraints()
-	c.Assert(err, gc.IsNil)
-	c.Assert(cons, gc.DeepEquals, constraints.Value{})
-}
-
-func (s *provisionerSuite) TestRequestedNetworks(c *gc.C) {
-	// Create a fresh machine with some requested networks.
+func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 	template := state.MachineTemplate{
 		Series:          "quantal",
 		Jobs:            []state.MachineJob{state.JobHostUnits},
+		Placement:       "valid",
+		Constraints:     constraints.MustParse("cpu-cores=12", "mem=8G"),
 		IncludeNetworks: []string{"net1", "net2"},
 		ExcludeNetworks: []string{"net3", "net4"},
 	}
-	netsMachine, err := s.State.AddOneMachine(template)
+	machine, err := s.State.AddOneMachine(template)
 	c.Assert(err, gc.IsNil)
+	apiMachine, err := s.provisioner.Machine(machine.Tag())
+	c.Assert(err, gc.IsNil)
+	provisioningInfo, err := apiMachine.ProvisioningInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(provisioningInfo.Series, gc.Equals, template.Series)
+	c.Assert(provisioningInfo.Placement, gc.Equals, template.Placement)
+	c.Assert(provisioningInfo.Constraints, gc.DeepEquals, template.Constraints)
+	c.Assert(provisioningInfo.IncludeNetworks, gc.DeepEquals, template.IncludeNetworks)
+	c.Assert(provisioningInfo.ExcludeNetworks, gc.DeepEquals, template.ExcludeNetworks)
+}
 
-	apiMachine, err := s.provisioner.Machine(netsMachine.Tag())
+func (s *provisionerSuite) TestProvisioningInfoMachineNotFound(c *gc.C) {
+	stateMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	includeNetworks, excludeNetworks, err := apiMachine.RequestedNetworks()
+	apiMachine, err := s.provisioner.Machine(stateMachine.Tag())
 	c.Assert(err, gc.IsNil)
-	c.Assert(includeNetworks, gc.DeepEquals, template.IncludeNetworks)
-	c.Assert(excludeNetworks, gc.DeepEquals, template.ExcludeNetworks)
-
-	// Now try machine 0.
-	apiMachine, err = s.provisioner.Machine(s.machine.Tag())
+	err = apiMachine.EnsureDead()
 	c.Assert(err, gc.IsNil)
-	includeNetworks, excludeNetworks, err = apiMachine.RequestedNetworks()
+	err = apiMachine.Remove()
 	c.Assert(err, gc.IsNil)
-	c.Assert(includeNetworks, gc.HasLen, 0)
-	c.Assert(excludeNetworks, gc.HasLen, 0)
+	_, err = apiMachine.ProvisioningInfo()
+	c.Assert(err, gc.ErrorMatches, "machine 1 not found")
+	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
+	// auth tests in apiserver
 }
 
 func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
