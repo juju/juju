@@ -31,9 +31,6 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
-// SystemIdentity is the name of the file where the environment SSH key is kept.
-const SystemIdentity = "system-identity"
-
 // fileSchemePrefix is the prefix for file:// URLs.
 const fileSchemePrefix = "file://"
 
@@ -339,9 +336,6 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	}
 
 	if cfg.Bootstrap {
-		identityFile := cfg.dataFile(SystemIdentity)
-		c.AddFile(identityFile, cfg.SystemPrivateSSHKey, 0600)
-
 		cons := cfg.Constraints.String()
 		if cons != "" {
 			cons = " --constraints " + shquote(cons)

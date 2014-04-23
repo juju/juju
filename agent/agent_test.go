@@ -368,6 +368,7 @@ func (*suite) TestAttributes(c *gc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
 	c.Assert(err, gc.IsNil)
 	c.Assert(conf.DataDir(), gc.Equals, "/data/dir")
+	c.Assert(conf.SystemIdentityPath(), gc.Equals, "/data/dir/system-identity")
 	c.Assert(conf.Tag(), gc.Equals, "omg")
 	c.Assert(conf.Dir(), gc.Equals, "/data/dir/agents/omg")
 	c.Assert(conf.Nonce(), gc.Equals, "a nonce")
@@ -376,11 +377,12 @@ func (*suite) TestAttributes(c *gc.C) {
 
 func (*suite) TestStateServingInfo(c *gc.C) {
 	servingInfo := params.StateServingInfo{
-		Cert:         "old cert",
-		PrivateKey:   "old key",
-		StatePort:    69,
-		APIPort:      47,
-		SharedSecret: "shared",
+		Cert:           "old cert",
+		PrivateKey:     "old key",
+		StatePort:      69,
+		APIPort:        47,
+		SharedSecret:   "shared",
+		SystemIdentity: "identity",
 	}
 	conf, err := agent.NewStateMachineConfig(attributeParams, servingInfo)
 	c.Assert(err, gc.IsNil)
@@ -388,11 +390,12 @@ func (*suite) TestStateServingInfo(c *gc.C) {
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(gotInfo, jc.DeepEquals, servingInfo)
 	newInfo := params.StateServingInfo{
-		APIPort:      147,
-		StatePort:    169,
-		Cert:         "new cert",
-		PrivateKey:   "new key",
-		SharedSecret: "new shared",
+		APIPort:        147,
+		StatePort:      169,
+		Cert:           "new cert",
+		PrivateKey:     "new key",
+		SharedSecret:   "new shared",
+		SystemIdentity: "new identity",
 	}
 	conf.SetStateServingInfo(newInfo)
 	gotInfo, ok = conf.StateServingInfo()
@@ -437,11 +440,12 @@ func (*suite) TestWriteAndRead(c *gc.C) {
 func (*suite) TestSetPassword(c *gc.C) {
 	attrParams := attributeParams
 	servingInfo := params.StateServingInfo{
-		Cert:         "old cert",
-		PrivateKey:   "old key",
-		StatePort:    69,
-		APIPort:      47,
-		SharedSecret: "shared",
+		Cert:           "old cert",
+		PrivateKey:     "old key",
+		StatePort:      69,
+		APIPort:        47,
+		SharedSecret:   "shared",
+		SystemIdentity: "identity",
 	}
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
 	c.Assert(err, gc.IsNil)

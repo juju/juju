@@ -184,7 +184,6 @@ type environState struct {
 // environ represents a client's connection to a given environment's
 // state.
 type environ struct {
-	common.NopPrecheckerPolicy
 	common.SupportsUnitPlacementPolicy
 
 	name         string
@@ -541,6 +540,14 @@ func (*environ) SupportedArchitectures() ([]string, error) {
 // SupportNetworks is specified on the EnvironCapability interface.
 func (*environ) SupportNetworks() bool {
 	return true
+}
+
+// PrecheckInstance is specified in the state.Prechecker interface.
+func (*environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
+	if placement != "" && placement != "valid" {
+		return fmt.Errorf("%s placement is invalid", placement)
+	}
+	return nil
 }
 
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
