@@ -5,6 +5,7 @@ package provisioner
 
 import (
 	"fmt"
+	"time"
 
 	"launchpad.net/tomb"
 
@@ -525,8 +526,22 @@ func (task *provisionerTask) provisioningInfo(machine *apiprovisioner.Machine) (
 	if err != nil {
 		return nil, err
 	}
-	pInfo, err := machine.ProvisioningInfo()
-	if err != nil {
+	// ProvisioningInfo is new in 1.20; wait for the API server to be upgraded
+	// so we don't spew errors on upgrade.
+	var pInfo *params.ProvisioningInfo
+	for {
+		if pInfo, err = machine.ProvisioningInfo(); err == nil {
+			break
+		}
+		if params.IsCodeNotImplemented(err) {
+			logger.Infof("waiting for state server to be upgraded")
+			select {
+			case <-task.tomb.Dying():
+				return nil, tomb.ErrDying
+			case <-time.After(15 * time.Second):
+				continue
+			}
+		}
 		return nil, err
 	}
 	includeNetworks := pInfo.IncludeNetworks
