@@ -492,7 +492,8 @@ type StateServingInfo struct {
 	Cert       string
 	PrivateKey string
 	// this will be passed as the KeyFile argument to MongoDB
-	SharedSecret string
+	SharedSecret   string
+	SystemIdentity string
 }
 
 // IsMasterResult holds the result of an IsMaster API call.

@@ -36,6 +36,9 @@ var DefaultLogDir = "/var/log/juju"
 // It's defined as a variable so it could be overridden in tests.
 var DefaultDataDir = "/var/lib/juju"
 
+// SystemIdentity is the name of the file where the environment SSH key is kept.
+const SystemIdentity = "system-identity"
+
 const (
 	LxcBridge        = "LXC_BRIDGE"
 	ProviderType     = "PROVIDER_TYPE"
@@ -64,6 +67,10 @@ type Config interface {
 	// LogDir returns the log directory. All logs from all agents on
 	// the machine are written to this directory.
 	LogDir() string
+
+	// SystemIdentityPath returns the path of the file where the environment
+	// SSH key is kept.
+	SystemIdentityPath() string
 
 	// Jobs returns a list of MachineJobs that need to run.
 	Jobs() []params.MachineJob
@@ -489,6 +496,10 @@ func (c *configInternal) DataDir() string {
 
 func (c *configInternal) LogDir() string {
 	return c.logDir
+}
+
+func (c *configInternal) SystemIdentityPath() string {
+	return filepath.Join(c.dataDir, SystemIdentity)
 }
 
 func (c *configInternal) Jobs() []params.MachineJob {
