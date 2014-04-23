@@ -47,6 +47,7 @@ type format_1_18Serialization struct {
 	APIPort         int    `yaml:",omitempty"`
 	StatePort       int    `yaml:",omitempty"`
 	SharedSecret    string `yaml:",omitempty"`
+	SystemIdentity  string `yaml:",omitempty"`
 }
 
 func init() {
@@ -100,11 +101,12 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 	}
 	if len(format.StateServerKey) != 0 {
 		config.servingInfo = &params.StateServingInfo{
-			Cert:         format.StateServerCert,
-			PrivateKey:   format.StateServerKey,
-			APIPort:      format.APIPort,
-			StatePort:    format.StatePort,
-			SharedSecret: format.SharedSecret,
+			Cert:           format.StateServerCert,
+			PrivateKey:     format.StateServerKey,
+			APIPort:        format.APIPort,
+			StatePort:      format.StatePort,
+			SharedSecret:   format.SharedSecret,
+			SystemIdentity: format.SystemIdentity,
 		}
 		// There's a private key, then we need the state port,
 		// which wasn't always in the  1.18 format. If it's not present
@@ -147,6 +149,7 @@ func (formatter_1_18) marshal(config *configInternal) ([]byte, error) {
 		format.APIPort = config.servingInfo.APIPort
 		format.StatePort = config.servingInfo.StatePort
 		format.SharedSecret = config.servingInfo.SharedSecret
+		format.SystemIdentity = config.servingInfo.SystemIdentity
 	}
 	if config.stateDetails != nil {
 		format.StateAddresses = config.stateDetails.addresses

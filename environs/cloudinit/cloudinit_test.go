@@ -135,8 +135,6 @@ install -m 600 /dev/null '/var/lib/juju/agents/machine-0/agent\.conf'
 printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-0/agent\.conf'
 install -D -m 644 /dev/null '/etc/apt/preferences\.d/50-cloud-tools'
 printf '%s\\n' '.*' > '/etc/apt/preferences\.d/50-cloud-tools'
-install -D -m 600 /dev/null '/var/lib/juju/system-identity'
-printf '%s\\n' '.*' > '/var/lib/juju/system-identity'
 echo 'Bootstrapping Juju machine agent'.*
 /var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --instance-id 'i-bootstrap' --constraints 'mem=2048M' --debug
 ln -s 1\.2\.3-precise-amd64 '/var/lib/juju/tools/machine-0'
