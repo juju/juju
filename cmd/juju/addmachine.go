@@ -92,9 +92,11 @@ func (c *AddMachineCommand) Init(args []string) error {
 		return err
 	}
 	c.Placement, err = instance.ParsePlacement(placement)
-	if c.Placement != nil && err == instance.ErrPlacementScopeMissing {
-		c.Placement.Scope = c.EnvironName()
-	} else if err != nil {
+	if err == instance.ErrPlacementScopeMissing {
+		placement = c.EnvironName() + ":" + placement
+		c.Placement, err = instance.ParsePlacement(placement)
+	}
+	if err != nil {
 		return err
 	}
 	return nil

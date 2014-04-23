@@ -107,7 +107,7 @@ func (s *AddMachineSuite) TestAddUnsupportedContainerToMachine(c *gc.C) {
 
 func (s *AddMachineSuite) TestAddMachineErrors(c *gc.C) {
 	err := runAddMachine(c, ":lxc")
-	c.Check(err, gc.ErrorMatches, `cannot add a new machine: lxc placement is invalid`)
+	c.Check(err, gc.ErrorMatches, `cannot add a new machine: :lxc placement is invalid`)
 	err = runAddMachine(c, "lxc:")
 	c.Check(err, gc.ErrorMatches, `invalid value "" for "lxc" scope: expected machine-id`)
 	err = runAddMachine(c, "2")

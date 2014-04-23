@@ -57,7 +57,7 @@ func ParsePlacement(directive string) (*Placement, error) {
 	if colon := strings.IndexRune(directive, ':'); colon != -1 {
 		scope, directive := directive[:colon], directive[colon+1:]
 		if scope == "" {
-			return &Placement{Directive: directive}, ErrPlacementScopeMissing
+			return nil, ErrPlacementScopeMissing
 		}
 		// Sanity check: machine/container scopes require a machine ID as the value.
 		if (scope == MachineScope || isContainerType(scope)) && !names.IsMachine(directive) {
@@ -71,8 +71,7 @@ func ParsePlacement(directive string) (*Placement, error) {
 	if isContainerType(directive) {
 		return &Placement{Scope: directive}, nil
 	}
-	// Empty scope, caller must infer the scope from context.
-	return &Placement{Directive: directive}, ErrPlacementScopeMissing
+	return nil, ErrPlacementScopeMissing
 }
 
 // MustParsePlacement attempts to parse the specified string and create

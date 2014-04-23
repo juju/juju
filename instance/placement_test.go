@@ -45,13 +45,11 @@ func (s *PlacementSuite) TestParsePlacement(c *gc.C) {
 		arg:         "lxc",
 		expectScope: string(instance.LXC),
 	}, {
-		arg:             "non-standard",
-		expectDirective: "non-standard",
-		err:             "placement scope missing",
+		arg: "non-standard",
+		err: "placement scope missing",
 	}, {
-		arg:             ":non-standard",
-		expectDirective: "non-standard",
-		err:             "placement scope missing",
+		arg: ":non-standard",
+		err: "placement scope missing",
 	}, {
 		arg:             "non:standard",
 		expectScope:     "non",
