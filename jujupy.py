@@ -133,9 +133,9 @@ class JujuClientDevel:
                 print('!!! ' + e.stderr)
                 raise
 
-    def get_status(self, environment):
+    def get_status(self, environment, timeout=60):
         """Get the current status as a dict."""
-        for ignored in until_timeout(60):
+        for ignored in until_timeout(timeout):
             try:
                 return Status(yaml_loads(
                     self.get_juju_output(environment, 'status')))
@@ -253,8 +253,8 @@ class Environment:
     def juju(self, command, *args):
         return self.client.juju(self, command, args)
 
-    def get_status(self):
-        return self.client.get_status(self)
+    def get_status(self, timeout=60):
+        return self.client.get_status(self, timeout)
 
     def wait_for_started(self, timeout=1200):
         """Wait until all unit/machine agents are 'started'."""

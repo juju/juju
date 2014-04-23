@@ -181,7 +181,7 @@ def main():
         wait_for_port(host, 17070, closed=True)
         print_now("Closed.")
         if args.strategy == 'ha':
-            env.client.get_juju_output(env, 'status', timeout=10)
+            env.get_status(600)
         else:
             restore_missing_state_server(env, backup_file)
     except Exception as e:
