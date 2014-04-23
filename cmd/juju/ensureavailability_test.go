@@ -129,14 +129,28 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityMultiple(c *gc.C) {
 }
 
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityErrors(c *gc.C) {
-	err := runEnsureAvailability(c)
-	c.Assert(err, gc.ErrorMatches, "must specify a number of state servers odd and greater than zero")
-	for _, n := range []int{-1, 0, 2} {
+	for _, n := range []int{-1, 2} {
 		err := runEnsureAvailability(c, "-n", fmt.Sprint(n))
-		c.Assert(err, gc.ErrorMatches, "must specify a number of state servers odd and greater than zero")
+		c.Assert(err, gc.ErrorMatches, "must specify a number of state servers odd and non-negative")
 	}
-	err = runEnsureAvailability(c, "-n", "3")
+	err := runEnsureAvailability(c, "-n", "3")
 	c.Assert(err, gc.IsNil)
 	err = runEnsureAvailability(c, "-n", "1")
 	c.Assert(err, gc.ErrorMatches, "cannot reduce state server count")
+}
+
+func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityAllows0(c *gc.C) {
+	err := runEnsureAvailability(c, "-n", "0")
+	c.Assert(err, gc.IsNil)
+	machines, err := s.State.AllMachines()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machines, gc.HasLen, 3)
+}
+
+func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityDefaultsTo3(c *gc.C) {
+	err := runEnsureAvailability(c)
+	c.Assert(err, gc.IsNil)
+	machines, err := s.State.AllMachines()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machines, gc.HasLen, 3)
 }
