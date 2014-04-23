@@ -114,6 +114,9 @@ type machineDoc struct {
 	// machine is capable of hosting.
 	SupportedContainersKnown bool
 	SupportedContainers      []instance.ContainerType `bson:",omitempty"`
+	// Placement is the placement directive that should be used when provisioning
+	// an instance for the machine.
+	Placement string `bson:",omitempty"`
 	// Deprecated. InstanceId, now lives on instanceData.
 	// This attribute is retained so that data from existing machines can be read.
 	// SCHEMACHANGE
@@ -1088,6 +1091,12 @@ func (m *Machine) CheckProvisioned(nonce string) bool {
 // String returns a unique description of this machine.
 func (m *Machine) String() string {
 	return m.doc.Id
+}
+
+// Placement returns the machine's Placement structure that should be used when
+// provisioning an instance for the machine.
+func (m *Machine) Placement() string {
+	return m.doc.Placement
 }
 
 // Constraints returns the exact constraints that should apply when provisioning

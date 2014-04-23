@@ -716,14 +716,16 @@ func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {
 func (s *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
 	env := s.Open(c)
 	cons := constraints.MustParse("instance-type=m1.small")
-	err := env.PrecheckInstance("precise", cons)
+	placement := ""
+	err := env.PrecheckInstance("precise", cons, placement)
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 	env := s.Open(c)
 	cons := constraints.MustParse("instance-type=m1.large")
-	err := env.PrecheckInstance("precise", cons)
+	placement := ""
+	err := env.PrecheckInstance("precise", cons, placement)
 	c.Assert(err, gc.ErrorMatches, `invalid Openstack flavour "m1.large" specified`)
 }
 

@@ -69,6 +69,10 @@ type MachineTemplate struct {
 	// as unclean for unit-assignment purposes.
 	Dirty bool
 
+	// Placement holds the placement directive that will be associated
+	// with the machine.
+	Placement string
+
 	// principals holds the principal units that will
 	// associated with the machine.
 	principals []string
@@ -234,7 +238,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 		return nil, nil, err
 	}
 	if template.InstanceId == "" {
-		if err := st.precheckInstance(template.Series, template.Constraints); err != nil {
+		if err := st.precheckInstance(template.Series, template.Constraints, template.Placement); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -359,11 +363,11 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineT
 		return nil, nil, fmt.Errorf("no container type specified")
 	}
 	if parentTemplate.InstanceId == "" {
-		if err := st.precheckInstance(parentTemplate.Series, parentTemplate.Constraints); err != nil {
-			return nil, nil, err
-		}
 		// Adding a machine within a machine implies add-machine or placement.
 		if err := st.supportsUnitPlacement(); err != nil {
+			return nil, nil, err
+		}
+		if err := st.precheckInstance(parentTemplate.Series, parentTemplate.Constraints, parentTemplate.Placement); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -403,6 +407,7 @@ func machineDocForTemplate(template MachineTemplate, id string) *machineDoc {
 		Nonce:      template.Nonce,
 		Addresses:  instanceAddressesToAddresses(template.Addresses),
 		NoVote:     template.NoVote,
+		Placement:  template.Placement,
 	}
 }
 

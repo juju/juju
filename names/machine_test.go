@@ -26,8 +26,9 @@ func (s *machineSuite) TestMachineTag(c *gc.C) {
 }
 
 var machineIdTests = []struct {
-	pattern string
-	valid   bool
+	pattern   string
+	valid     bool
+	container bool
 }{
 	{pattern: "42", valid: true},
 	{pattern: "042", valid: false},
@@ -37,7 +38,7 @@ var machineIdTests = []struct {
 	{pattern: "55/", valid: false},
 	{pattern: "1/foo", valid: false},
 	{pattern: "2/foo/", valid: false},
-	{pattern: "3/lxc/42", valid: true},
+	{pattern: "3/lxc/42", valid: true, container: true},
 	{pattern: "3/lxc-nodash/42", valid: false},
 	{pattern: "0/lxc/00", valid: false},
 	{pattern: "0/lxc/0/", valid: false},
@@ -45,7 +46,7 @@ var machineIdTests = []struct {
 	{pattern: "3/lxc/042", valid: false},
 	{pattern: "4/foo/bar", valid: false},
 	{pattern: "5/lxc/42/foo", valid: false},
-	{pattern: "6/lxc/42/kvm/0", valid: true},
+	{pattern: "6/lxc/42/kvm/0", valid: true, container: true},
 	{pattern: "06/lxc/42/kvm/0", valid: false},
 	{pattern: "6/lxc/042/kvm/0", valid: false},
 	{pattern: "6/lxc/42/kvm/00", valid: false},
@@ -56,5 +57,6 @@ func (s *machineSuite) TestMachineIdFormats(c *gc.C) {
 	for i, test := range machineIdTests {
 		c.Logf("test %d: %q", i, test.pattern)
 		c.Assert(names.IsMachine(test.pattern), gc.Equals, test.valid)
+		c.Assert(names.IsContainerMachine(test.pattern), gc.Equals, test.container)
 	}
 }

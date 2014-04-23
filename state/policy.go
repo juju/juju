@@ -49,7 +49,7 @@ type Prechecker interface {
 	// all invalid parameters. If PrecheckInstance returns nil, it is not
 	// guaranteed that the constraints are valid; if a non-nil error is
 	// returned, then the constraints are definitely invalid.
-	PrecheckInstance(series string, cons constraints.Value) error
+	PrecheckInstance(series string, cons constraints.Value, placement string) error
 }
 
 // ConfigValidator is a policy interface that is provided to State
@@ -78,7 +78,7 @@ type EnvironCapability interface {
 
 // precheckInstance calls the state's assigned policy, if non-nil, to obtain
 // a Prechecker, and calls PrecheckInstance if a non-nil Prechecker is returned.
-func (st *State) precheckInstance(series string, cons constraints.Value) error {
+func (st *State) precheckInstance(series string, cons constraints.Value, placement string) error {
 	if st.policy == nil {
 		return nil
 	}
@@ -95,7 +95,7 @@ func (st *State) precheckInstance(series string, cons constraints.Value) error {
 	if prechecker == nil {
 		return fmt.Errorf("policy returned nil prechecker without an error")
 	}
-	return prechecker.PrecheckInstance(series, cons)
+	return prechecker.PrecheckInstance(series, cons, placement)
 }
 
 func (st *State) constraintsValidator() (constraints.Validator, error) {

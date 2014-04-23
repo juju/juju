@@ -538,7 +538,10 @@ func (e *environ) ConstraintsValidator() constraints.Validator {
 }
 
 // PrecheckInstance is defined on the state.Prechecker interface.
-func (e *environ) PrecheckInstance(series string, cons constraints.Value) error {
+func (e *environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
+	if placement != "" {
+		return fmt.Errorf("unknown placement directive: %s", placement)
+	}
 	if !cons.HasInstanceType() {
 		return nil
 	}

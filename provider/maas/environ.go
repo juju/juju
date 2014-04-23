@@ -51,7 +51,6 @@ var shortAttempt = utils.AttemptStrategy{
 }
 
 type maasEnviron struct {
-	common.NopPrecheckerPolicy
 	common.SupportsUnitPlacementPolicy
 
 	name string
@@ -169,6 +168,15 @@ func (env *maasEnviron) SupportNetworks() bool {
 		return false
 	}
 	return caps.Contains(capNetworksManagement)
+}
+
+func (env *maasEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
+	// TODO(axw) 2014-04-22 #1237709
+	// Handle maas-name placement directive.
+	if placement != "" {
+		return fmt.Errorf("unknown placement directive: %s", placement)
+	}
+	return nil
 }
 
 const capNetworksManagement = "networks-management"

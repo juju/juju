@@ -449,13 +449,15 @@ func (s *instanceTypeSuite) TestFindInstanceSpecSetsBaseline(c *gc.C) {
 func (s *instanceTypeSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
 	env := s.setupEnvWithDummyMetadata(c)
 	cons := constraints.MustParse("instance-type=Large")
-	err := env.PrecheckInstance("precise", cons)
+	placement := ""
+	err := env.PrecheckInstance("precise", cons, placement)
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *instanceTypeSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 	env := s.setupEnvWithDummyMetadata(c)
 	cons := constraints.MustParse("instance-type=Super")
-	err := env.PrecheckInstance("precise", cons)
+	placement := ""
+	err := env.PrecheckInstance("precise", cons, placement)
 	c.Assert(err, gc.ErrorMatches, `invalid Azure instance "Super" specified`)
 }

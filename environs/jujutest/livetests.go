@@ -162,7 +162,8 @@ func (t *LiveTests) TestPrechecker(c *gc.C) {
 	if !ok {
 		return
 	}
-	err := prechecker.PrecheckInstance("precise", constraints.Value{})
+	const placement = ""
+	err := prechecker.PrecheckInstance("precise", constraints.Value{}, placement)
 	c.Assert(err, gc.IsNil)
 }
 
