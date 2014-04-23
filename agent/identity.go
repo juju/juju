@@ -17,13 +17,11 @@ func WriteSystemIdentityFile(c Config) error {
 	}
 	// Write non-empty contents to the file, otherwise delete it
 	if info.SystemIdentity != "" {
-		fmt.Printf("writing %s: %s\n", c.SystemIdentityPath(), info.SystemIdentity)
 		err := utils.AtomicWriteFile(c.SystemIdentityPath(), []byte(info.SystemIdentity), 0600)
 		if err != nil {
 			return fmt.Errorf("cannot write system identity: %v", err)
 		}
 	} else {
-		fmt.Printf("deleting %s\n", c.SystemIdentityPath())
 		os.Remove(c.SystemIdentityPath())
 	}
 	return nil

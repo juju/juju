@@ -5,6 +5,7 @@ package agent
 
 import (
 	"io/ioutil"
+	"os"
 
 	gc "launchpad.net/gocheck"
 
@@ -50,5 +51,20 @@ func (s *identitySuite) TestWriteSystemIdentityFile(c *gc.C) {
 
 	contents, err := ioutil.ReadFile(conf.SystemIdentityPath())
 	c.Assert(err, gc.IsNil)
-	c.Assert(string(contents), gc.Equals, servingInfo.SystemIdentity)
+	c.Check(string(contents), gc.Equals, servingInfo.SystemIdentity)
+
+	fi, err := os.Stat(conf.SystemIdentityPath())
+	c.Assert(err, gc.IsNil)
+	c.Check(fi.Mode().Perm(), gc.Equals, os.FileMode(0600))
+
+	// ensure that file is deleted when SystemIdentity is empty
+	info := servingInfo
+	info.SystemIdentity = ""
+	conf, err = NewStateMachineConfig(params, info)
+	c.Assert(err, gc.IsNil)
+	err = WriteSystemIdentityFile(conf)
+	c.Assert(err, gc.IsNil)
+
+	fi, err = os.Stat(conf.SystemIdentityPath())
+	c.Assert(err, gc.ErrorMatches, `stat .*: no such file or directory`)
 }
