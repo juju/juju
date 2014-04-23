@@ -497,8 +497,8 @@ func (st *State) maintainStateServersOps(mdocs []*machineDoc, currentInfo *State
 // the number of live state servers equal to numStateServers. The given
 // constraints and series will be attached to any new machines.
 func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value, series string) error {
-	if numStateServers%2 != 1 || numStateServers <= 0 {
-		return fmt.Errorf("number of state servers must be odd and greater than zero")
+	if numStateServers < 0 || (numStateServers != 0 && numStateServers%2 != 1) {
+		return fmt.Errorf("number of state servers must be odd and non-negative")
 	}
 	if numStateServers > replicaset.MaxPeers {
 		return fmt.Errorf("state server count is too large (allowed %d)", replicaset.MaxPeers)
@@ -508,7 +508,14 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value,
 		if err != nil {
 			return err
 		}
-		if len(currentInfo.VotingMachineIds) > numStateServers {
+		desiredStateServerCount := numStateServers
+		if desiredStateServerCount == 0 {
+			desiredStateServerCount = len(currentInfo.VotingMachineIds)
+			if desiredStateServerCount <= 1 {
+				desiredStateServerCount = 3
+			}
+		}
+		if len(currentInfo.VotingMachineIds) > desiredStateServerCount {
 			return fmt.Errorf("cannot reduce state server count")
 		}
 
@@ -522,15 +529,15 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value,
 				voteCount++
 			}
 		}
-		if voteCount == numStateServers && len(intent.remove) == 0 {
+		if voteCount == desiredStateServerCount && len(intent.remove) == 0 {
 			return nil
 		}
 		// Promote as many machines as we can to fulfil the shortfall.
-		if n := numStateServers - voteCount; n < len(intent.promote) {
+		if n := desiredStateServerCount - voteCount; n < len(intent.promote) {
 			intent.promote = intent.promote[:n]
 		}
 		voteCount += len(intent.promote)
-		intent.newCount = numStateServers - voteCount
+		intent.newCount = desiredStateServerCount - voteCount
 		logger.Infof("%d new machines; promoting %v", intent.newCount, intent.promote)
 		ops, err := st.ensureAvailabilityIntentionOps(intent, currentInfo, cons, series)
 		if err != nil {

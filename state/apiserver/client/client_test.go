@@ -2143,6 +2143,11 @@ func (s *clientSuite) setAgentAlive(c *gc.C, machineId string) *presence.Pinger 
 	return pinger
 }
 
+var (
+	emptyCons     = constraints.Value{}
+	defaultSeries = ""
+)
+
 func (s *clientSuite) TestClientEnsureAvailabilitySeries(c *gc.C) {
 	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
@@ -2154,7 +2159,7 @@ func (s *clientSuite) TestClientEnsureAvailabilitySeries(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(machines, gc.HasLen, 1)
 	c.Assert(machines[0].Series(), gc.Equals, "quantal")
-	err = s.APIState.Client().EnsureAvailability(3, constraints.Value{}, "")
+	err = s.APIState.Client().EnsureAvailability(3, emptyCons, defaultSeries)
 	c.Assert(err, gc.IsNil)
 	machines, err = s.State.AllMachines()
 	c.Assert(err, gc.IsNil)
@@ -2164,7 +2169,7 @@ func (s *clientSuite) TestClientEnsureAvailabilitySeries(c *gc.C) {
 	c.Assert(machines[2].Series(), gc.Equals, "quantal")
 	defer s.setAgentAlive(c, "1").Kill()
 	defer s.setAgentAlive(c, "2").Kill()
-	err = s.APIState.Client().EnsureAvailability(5, constraints.Value{}, "non-default")
+	err = s.APIState.Client().EnsureAvailability(5, emptyCons, "non-default")
 	c.Assert(err, gc.IsNil)
 	machines, err = s.State.AllMachines()
 	c.Assert(err, gc.IsNil)
@@ -2181,7 +2186,8 @@ func (s *clientSuite) TestClientEnsureAvailabilityConstraints(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	pinger := s.setAgentAlive(c, "0")
 	defer pinger.Kill()
-	err = s.APIState.Client().EnsureAvailability(3, constraints.MustParse("mem=4G"), "")
+	err = s.APIState.Client().EnsureAvailability(
+		3, constraints.MustParse("mem=4G"), defaultSeries)
 	c.Assert(err, gc.IsNil)
 	machines, err := s.State.AllMachines()
 	c.Assert(err, gc.IsNil)
@@ -2198,15 +2204,53 @@ func (s *clientSuite) TestClientEnsureAvailabilityConstraints(c *gc.C) {
 	}
 }
 
+func (s *clientSuite) TestClientEnsureAvailability0Preserves(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
+	pinger := s.setAgentAlive(c, "0")
+	defer pinger.Kill()
+	// A value of 0 says either "if I'm not HA, make me HA" or "preserve my
+	// current HA settings".
+	err = s.APIState.Client().EnsureAvailability(0, emptyCons, defaultSeries)
+	c.Assert(err, gc.IsNil)
+	machines, err := s.State.AllMachines()
+	c.Assert(machines, gc.HasLen, 3)
+	defer s.setAgentAlive(c, "1").Kill()
+	// Now, we keep agent 1 alive, but not agent 2, calling
+	// EnsureAvailability(0) again will cause us to start another machine
+	err = s.APIState.Client().EnsureAvailability(0, emptyCons, defaultSeries)
+	c.Assert(err, gc.IsNil)
+	machines, err = s.State.AllMachines()
+	c.Assert(machines, gc.HasLen, 4)
+}
+
+func (s *clientSuite) TestClientEnsureAvailability0Preserves5(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
+	pinger := s.setAgentAlive(c, "0")
+	defer pinger.Kill()
+	// Start off with 5 servers
+	err = s.APIState.Client().EnsureAvailability(5, emptyCons, defaultSeries)
+	c.Assert(err, gc.IsNil)
+	machines, err := s.State.AllMachines()
+	c.Assert(machines, gc.HasLen, 5)
+	defer s.setAgentAlive(c, "1").Kill()
+	defer s.setAgentAlive(c, "2").Kill()
+	defer s.setAgentAlive(c, "3").Kill()
+	// Keeping all alive but one, will bring up 1 more server to preserve 5
+	err = s.APIState.Client().EnsureAvailability(0, emptyCons, defaultSeries)
+	c.Assert(err, gc.IsNil)
+	machines, err = s.State.AllMachines()
+	c.Assert(machines, gc.HasLen, 6)
+}
+
 func (s *clientSuite) TestClientEnsureAvailabilityErrors(c *gc.C) {
 	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	pinger := s.setAgentAlive(c, "0")
 	defer pinger.Kill()
-	var emptyCons constraints.Value
-	defaultSeries := ""
-	err = s.APIState.Client().EnsureAvailability(0, emptyCons, defaultSeries)
-	c.Assert(err, gc.ErrorMatches, "number of state servers must be odd and greater than zero")
+	err = s.APIState.Client().EnsureAvailability(-1, emptyCons, defaultSeries)
+	c.Assert(err, gc.ErrorMatches, "number of state servers must be odd and non-negative")
 	err = s.APIState.Client().EnsureAvailability(3, emptyCons, defaultSeries)
 	c.Assert(err, gc.IsNil)
 	err = s.APIState.Client().EnsureAvailability(1, emptyCons, defaultSeries)

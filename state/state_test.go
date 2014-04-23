@@ -2926,9 +2926,9 @@ func (s *StateSuite) TestOpenReplacesOldStateServersDoc(c *gc.C) {
 }
 
 func (s *StateSuite) TestEnsureAvailabilityFailsWithBadCount(c *gc.C) {
-	for _, n := range []int{-1, 0, 2, 6} {
+	for _, n := range []int{-1, 2, 6} {
 		err := s.State.EnsureAvailability(n, constraints.Value{}, "")
-		c.Assert(err, gc.ErrorMatches, "number of state servers must be odd and greater than zero")
+		c.Assert(err, gc.ErrorMatches, "number of state servers must be odd and non-negative")
 	}
 	err := s.State.EnsureAvailability(replicaset.MaxPeers+2, constraints.Value{}, "")
 	c.Assert(err, gc.ErrorMatches, `state server count is too large \(allowed \d+\)`)
@@ -3067,6 +3067,60 @@ func (s *StateSuite) TestEnsureAvailabilityRemovesUnavailableMachines(c *gc.C) {
 	m0, err := s.State.Machine("0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(m0.IsManager(), jc.IsFalse)
+}
+
+func (s *StateSuite) TestEnsureAvailabilityMaintainsVoteList(c *gc.C) {
+	err := s.State.EnsureAvailability(5, constraints.Value{}, "quantal")
+	c.Assert(err, gc.IsNil)
+	s.assertStateServerInfo(c,
+		[]string{"0", "1", "2", "3", "4"},
+		[]string{"0", "1", "2", "3", "4"})
+	// Mark machine-0 as dead, so we'll want to create another one again
+	s.PatchValue(state.StateServerAvailable, func(m *state.Machine) (bool, error) {
+		return m.Id() != "0", nil
+	})
+	err = s.State.EnsureAvailability(0, constraints.Value{}, "quantal")
+	c.Assert(err, gc.IsNil)
+
+	// New state server machine "5" is created; "0" still exists in MachineIds,
+	// but no longer in VotingMachineIds.
+	s.assertStateServerInfo(c,
+		[]string{"0", "1", "2", "3", "4", "5"},
+		[]string{"1", "2", "3", "4", "5"})
+	m0, err := s.State.Machine("0")
+	c.Assert(err, gc.IsNil)
+	c.Assert(m0.WantsVote(), jc.IsFalse)
+	c.Assert(m0.IsManager(), jc.IsTrue) // job still intact for now
+	m3, err := s.State.Machine("5")
+	c.Assert(err, gc.IsNil)
+	c.Assert(m3.WantsVote(), jc.IsTrue)
+	c.Assert(m3.IsManager(), jc.IsTrue)
+}
+
+func (s *StateSuite) TestEnsureAvailabilityDefaultsTo3(c *gc.C) {
+	err := s.State.EnsureAvailability(0, constraints.Value{}, "quantal")
+	c.Assert(err, gc.IsNil)
+	s.assertStateServerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"})
+	// Mark machine-0 as dead, so we'll want to create it again
+	s.PatchValue(state.StateServerAvailable, func(m *state.Machine) (bool, error) {
+		return m.Id() != "0", nil
+	})
+	err = s.State.EnsureAvailability(0, constraints.Value{}, "quantal")
+	c.Assert(err, gc.IsNil)
+
+	// New state server machine "3" is created; "0" still exists in MachineIds,
+	// but no longer in VotingMachineIds.
+	s.assertStateServerInfo(c,
+		[]string{"0", "1", "2", "3"},
+		[]string{"1", "2", "3"})
+	m0, err := s.State.Machine("0")
+	c.Assert(err, gc.IsNil)
+	c.Assert(m0.WantsVote(), jc.IsFalse)
+	c.Assert(m0.IsManager(), jc.IsTrue) // job still intact for now
+	m3, err := s.State.Machine("3")
+	c.Assert(err, gc.IsNil)
+	c.Assert(m3.WantsVote(), jc.IsTrue)
+	c.Assert(m3.IsManager(), jc.IsTrue)
 }
 
 func (s *StateSuite) TestEnsureAvailabilityConcurrentSame(c *gc.C) {
