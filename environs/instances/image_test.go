@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 )
@@ -271,6 +272,42 @@ func (s *imageSuite) TestFindInstanceSpec(c *gc.C) {
 				c.Check(spec.InstanceType, gc.DeepEquals, t.instanceTypes[0])
 			}
 		}
+	}
+}
+
+func (s *imageSuite) TestPreferredSpec(c *gc.C) {
+	type prefTest struct {
+		desc     string
+		specs    []*InstanceSpec
+		expected *InstanceSpec
+	}
+
+	amd64 := &InstanceSpec{Image: Image{Arch: arch.AMD64}}
+	i386 := &InstanceSpec{Image: Image{Arch: arch.I386}}
+	arm64 := &InstanceSpec{Image: Image{Arch: arch.ARM64}}
+
+	prefTests := []prefTest{
+		{
+			"choose amd64 over other arches",
+			[]*InstanceSpec{i386, arm64, amd64},
+			amd64,
+		},
+		{
+			"choose first image if no amd64",
+			[]*InstanceSpec{i386, arm64},
+			i386,
+		},
+		{
+			"choose only image only one there",
+			[]*InstanceSpec{arm64},
+			arm64,
+		},
+	}
+
+	for n, test := range prefTests {
+		c.Logf("PreferredSpec test %d: %s", n, test.desc)
+		actual := preferredSpec(test.specs)
+		c.Assert(actual, gc.Equals, test.expected)
 	}
 }
 

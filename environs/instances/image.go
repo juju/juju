@@ -67,16 +67,8 @@ func FindInstanceSpec(possibleImages []Image, ic *InstanceConstraint, allInstanc
 		}
 	}
 
-	if len(specs) > 1 {
-		for _, spec := range specs {
-			// prefer AMD64
-			if spec.Image.Arch == arch.AMD64 {
-				return spec, nil
-			}
-		}
-	}
-	if len(specs) > 0 {
-		return specs[0], nil
+	if spec := preferredSpec(specs); spec != nil {
+		return spec, nil
 	}
 
 	if len(possibleImages) == 0 || len(matchingTypes) == 0 {
@@ -89,6 +81,20 @@ func FindInstanceSpec(possibleImages []Image, ic *InstanceConstraint, allInstanc
 		names[i] = itype.Name
 	}
 	return nil, fmt.Errorf("no %q images in %s matching instance types %v", ic.Series, ic.Region, names)
+}
+
+func preferredSpec(specs []*InstanceSpec) *InstanceSpec {
+	if len(specs) > 1 {
+		for _, spec := range specs {
+			if spec.Image.Arch == arch.AMD64 {
+				return spec
+			}
+		}
+	}
+	if len(specs) > 0 {
+		return specs[0]
+	}
+	return nil
 }
 
 // Image holds the attributes that vary amongst relevant images for
