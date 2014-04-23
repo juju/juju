@@ -1,7 +1,6 @@
-#!/bin/bash
-set -eu
-instances=$(euca-describe-instances --filter instance-state-name=running\
-  --filter tag:job_name=$JOB_NAME|grep '^INSTANCE'|cut -f 2)
-if [ "$instances" != "" ]; then
-  euca-terminate-instances $instances
-fi
+#!/usr/bin/env python
+import os
+from deploy_stack import destroy_job_instances
+
+if __name__ == '__main__':
+    destroy_job_instances(os.environ['JOB_NAME'])

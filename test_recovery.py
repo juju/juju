@@ -15,6 +15,7 @@ from time import sleep
 from jujuconfig import translate_to_env
 from jujupy import (
     Environment,
+    format_listing,
     until_timeout,
 )
 from utility import (
@@ -32,6 +33,7 @@ def setup_juju_path(juju_path):
     full_path = os.path.abspath(juju_path)
     if not os.path.isdir(full_path):
         raise ValueError("The juju_path does not exist: %s" % full_path)
+    os.environ['PATH'] = '%s:%s' % (full_path, os.environ['PATH'])
     sys.path.insert(0, full_path)
 
 
@@ -132,6 +134,23 @@ def restore_missing_state_server(env, backup_file):
     print_now("PASS")
 
 
+def wait_for_ha(env):
+    desired_state = 'has-vote'
+    for remaining in until_timeout(300):
+        status = env.get_status()
+        states = {}
+        for machine, info in status.iter_machines():
+            status = info.get('state-server-member-status')
+            if status is None:
+                continue
+            states.setdefault(status, []).append(machine)
+        if states.keys() == [desired_state]:
+            return
+        print_now(format_listing(states, desired_state))
+    else:
+        raise Exception('Timed out waiting for voting to be enabled.')
+
+
 def main():
     parser = ArgumentParser('Test recovery strategies.')
     parser.add_argument(
@@ -152,6 +171,7 @@ def main():
         instance_id = deploy_stack(env, args.charm_prefix)
         if args.strategy == 'ha':
             env.juju('ensure-availability', '-n', '3')
+            wait_for_ha(env)
         else:
             backup_file = backup_state_server(env)
             restore_present_state_server(env, backup_file)
@@ -161,7 +181,7 @@ def main():
         wait_for_port(host, 17070, closed=True)
         print_now("Closed.")
         if args.strategy == 'ha':
-            env.client.get_juju_output(env, 'status', timeout=10)
+            env.get_status(600)
         else:
             restore_missing_state_server(env, backup_file)
     except Exception as e:

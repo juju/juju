@@ -261,6 +261,14 @@ class TestJujuClientDevel(TestCase):
                         Exception, 'Timed out waiting for juju status'):
                     client.get_status(env)
 
+    def test_get_status_raises_on_timeout(self):
+        client = JujuClientDevelFake(None, None)
+        env = Environment('foo', '')
+        with patch('jujupy.until_timeout', return_value=iter([1])) as mock_ut:
+            with self.assertRaises(StopIteration):
+                client.get_status(env, 500)
+        mock_ut.assert_called_with(500)
+
     def test_get_env_option(self):
         client = JujuClientDevel(None, None)
         env = Environment('foo', '')

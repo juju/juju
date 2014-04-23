@@ -52,6 +52,20 @@ def prepare_environment(environment, already_bootstrapped, machines):
     return env
 
 
+def destroy_environment(environment):
+    if environment.config['type'] != 'manual':
+        environment.destroy_environment()
+    else:
+        destroy_job_instances(os.environ['JOB_NAME'])
+
+
+def destroy_job_instances(job_name):
+    instances = list(get_job_instances(job_name))
+    if len(instances) == 0:
+        return
+    subprocess.check_call(['euca-terminate-instances'] + instances)
+
+
 def deploy_stack(env, charm_prefix):
     """"Deploy a Wordpress stack in the specified environment.
 
@@ -64,6 +78,7 @@ def deploy_stack(env, charm_prefix):
     status = env.wait_for_started().status
     wp_unit_0 = status['services']['wordpress']['units']['wordpress/0']
     check_wordpress(wp_unit_0['public-address'])
+
 
 def deploy_dummy_stack(env, charm_prefix):
     """"Deploy a dummy stack in the specified environment.
@@ -92,6 +107,10 @@ def deploy_dummy_stack(env, charm_prefix):
         raise ValueError('Token is %r' % result)
 
 
+def scp_logs(log_names, directory):
+    subprocess.check_call(['timeout', '5m', 'scp'] + log_names + [directory])
+
+
 def dump_logs(env, host, directory):
     log_names = []
     if env.local:
@@ -100,14 +119,21 @@ def dump_logs(env, host, directory):
         log_dir = os.path.join(local, 'log')
         log_names.extend(os.path.join(log_dir, l) for l
                          in os.listdir(log_dir) if l.endswith('.log'))
+        scp_logs(log_names, directory)
     else:
         log_names = [
             'ubuntu@%s:/var/log/%s' % (host, n)
             for n in ['juju/all-machines.log', 'cloud-init-output.log']]
         wait_for_port(host, 22, timeout=60)
-    subprocess.check_call(['timeout', '5m', 'scp'] + log_names + [directory])
-    for log_name in log_names:
-        path = os.path.join(directory, os.path.basename(log_name))
+        for log_name in log_names:
+            try:
+                scp_logs([log_name], directory)
+            except subprocess.CalledProcessError:
+                pass
+    for log_name in os.listdir(directory):
+        if not log_name.endswith('.log'):
+            continue
+        path = os.path.join(directory, log_name)
         subprocess.check_call(['gzip', path])
 
 
@@ -125,17 +151,33 @@ def upgrade_juju(environment):
     environment.upgrade_juju()
 
 
+def get_job_instances(job_name):
+    instance_pattern = re.compile('^INSTANCE\t(i-[^\t]*)\t.*')
+    description = subprocess.check_output([
+        'euca-describe-instances', '--filter', 'instance-state-name=running',
+        '--filter', 'tag:job_name=%s' % job_name])
+    for line in description.splitlines():
+        match = instance_pattern.match(line)
+        if match:
+            yield match.group(1)
+
+
 def deploy_job():
-    deploy_args = os.environ['DEPLOY_ARGS']
-    # retrieve odd-numbered tokens from a list of --machine x --machine y
-    machines = [a for n, a in enumerate(deploy_args.split()) if n % 2 == 1]
+    machines = ['ssh:%s' % m for m in os.environ['MACHINES'].split()]
     environment = os.environ['ENV']
     try:
         if sys.platform == 'win32':
             # Ensure OpenSSH is never in the path for win tests.
             sys.path = [p for p in sys.path if 'OpenSSH' not in p]
         env = Environment.from_config(environment)
-        env.bootstrap()
+        host = env.config.get('bootstrap-host')
+        try:
+            env.bootstrap()
+        except:
+            if host is not None:
+                dump_logs(env, host,
+                          os.path.join(os.environ['WORKSPACE'], 'artifacts'))
+            raise
         try:
             while True:
                 bootstrap = env.get_status().status['machines']['0']
@@ -159,7 +201,7 @@ def deploy_job():
                           os.path.join(os.environ['WORKSPACE'], 'artifacts'))
                 raise
         finally:
-            env.destroy_environment()
+            destroy_environment(env)
     except Exception as e:
         raise
         print('%s (%s)' % (e, type(e).__name__))
