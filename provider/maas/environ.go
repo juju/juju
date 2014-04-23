@@ -171,11 +171,7 @@ func (env *maasEnviron) SupportNetworks() bool {
 }
 
 func (env *maasEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
-	// TODO(axw) 2014-04-22 #1237709
-	// Handle maas-name placement directive.
-	if placement != "" {
-		return fmt.Errorf("unknown placement directive: %s", placement)
-	}
+	// We treat all placement directives as maas-name.
 	return nil
 }
 
@@ -279,10 +275,13 @@ func addNetworks(params url.Values, includeNetworks, excludeNetworks []string) {
 }
 
 // acquireNode allocates a node from the MAAS.
-func (environ *maasEnviron) acquireNode(cons constraints.Value, includeNetworks, excludeNetworks []string, possibleTools tools.List) (gomaasapi.MAASObject, *tools.Tools, error) {
+func (environ *maasEnviron) acquireNode(nodeName string, cons constraints.Value, includeNetworks, excludeNetworks []string, possibleTools tools.List) (gomaasapi.MAASObject, *tools.Tools, error) {
 	acquireParams := convertConstraints(cons)
 	addNetworks(acquireParams, includeNetworks, excludeNetworks)
 	acquireParams.Add("agent_name", environ.ecfg().maasAgentName())
+	if nodeName != "" {
+		acquireParams.Add("name", nodeName)
+	}
 	var result gomaasapi.JSONObject
 	var err error
 	for a := shortAttempt.Start(); a.Next(); {
@@ -414,7 +413,9 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 ) {
 	var inst *maasInstance
 	var err error
+	nodeName := args.Placement
 	node, tools, err := environ.acquireNode(
+		nodeName,
 		args.Constraints,
 		args.MachineConfig.IncludeNetworks,
 		args.MachineConfig.ExcludeNetworks,

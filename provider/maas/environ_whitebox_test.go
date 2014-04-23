@@ -270,13 +270,38 @@ func (suite *environSuite) TestAcquireNode(c *gc.C) {
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 
-	_, _, err := env.acquireNode(constraints.Value{}, nil, nil, tools.List{fakeTools})
+	_, _, err := env.acquireNode("", constraints.Value{}, nil, nil, tools.List{fakeTools})
 
 	c.Check(err, gc.IsNil)
 	operations := suite.testMAASObject.TestServer.NodeOperations()
 	actions, found := operations["node0"]
 	c.Assert(found, gc.Equals, true)
 	c.Check(actions, gc.DeepEquals, []string{"acquire"})
+
+	// no "name" parameter should have been passed through
+	values := suite.testMAASObject.TestServer.NodeOperationRequestValues()["node0"][0]
+	_, found = values["name"]
+	c.Assert(found, jc.IsFalse)
+}
+
+func (suite *environSuite) TestAcquireNodeByName(c *gc.C) {
+	stor := NewStorage(suite.makeEnviron())
+	fakeTools := envtesting.MustUploadFakeToolsVersions(stor, version.Current)[0]
+	env := suite.makeEnviron()
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
+
+	_, _, err := env.acquireNode("host0", constraints.Value{}, nil, nil, tools.List{fakeTools})
+
+	c.Check(err, gc.IsNil)
+	operations := suite.testMAASObject.TestServer.NodeOperations()
+	actions, found := operations["node0"]
+	c.Assert(found, gc.Equals, true)
+	c.Check(actions, gc.DeepEquals, []string{"acquire"})
+
+	// no "name" parameter should have been passed through
+	values := suite.testMAASObject.TestServer.NodeOperationRequestValues()["node0"][0]
+	nodeName := values.Get("name")
+	c.Assert(nodeName, gc.Equals, "host0")
 }
 
 func (suite *environSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *gc.C) {
@@ -286,7 +311,7 @@ func (suite *environSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *gc.C) {
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 	constraints := constraints.Value{Arch: stringp("arm"), Mem: uint64p(1024)}
 
-	_, _, err := env.acquireNode(constraints, nil, nil, tools.List{fakeTools})
+	_, _, err := env.acquireNode("", constraints, nil, nil, tools.List{fakeTools})
 
 	c.Check(err, gc.IsNil)
 	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
@@ -302,7 +327,7 @@ func (suite *environSuite) TestAcquireNodePassedAgentName(c *gc.C) {
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 
-	_, _, err := env.acquireNode(constraints.Value{}, nil, nil, tools.List{fakeTools})
+	_, _, err := env.acquireNode("", constraints.Value{}, nil, nil, tools.List{fakeTools})
 
 	c.Check(err, gc.IsNil)
 	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
