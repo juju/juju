@@ -1044,11 +1044,23 @@ func (c *Client) APIHostPorts() (result params.APIHostPortsResult, err error) {
 func (c *Client) EnsureAvailability(args params.EnsureAvailability) error {
 	series := args.Series
 	if series == "" {
-		cfg, err := c.api.state.EnvironConfig()
+		ssi, err := c.api.state.StateServerInfo()
 		if err != nil {
 			return err
 		}
-		series = config.PreferredSeries(cfg)
+		// We should always have at least one voting machine
+		// If we *really* wanted we could just pick whatever series is
+		// in the majority, but really, if we always copy the value of
+		// the first one, then they'll stay in sync.
+		if len(ssi.VotingMachineIds) == 0 {
+			// Better than a panic()?
+			return fmt.Errorf("internal error, failed to find any voting machines")
+		}
+		templateMachine, err := c.api.state.Machine(ssi.VotingMachineIds[0])
+		if err != nil {
+			return err
+		}
+		series = templateMachine.Series()
 	}
 	return c.api.state.EnsureAvailability(args.NumStateServers, args.Constraints, series)
 }
