@@ -86,7 +86,7 @@ func FindInstanceSpec(possibleImages []Image, ic *InstanceConstraint, allInstanc
 func preferredSpec(specs []*InstanceSpec) *InstanceSpec {
 	if len(specs) > 1 {
 		for _, spec := range specs {
-			if spec.Image.Arch == arch.AMD64 {
+			if spec.Image.Arch == arch.HostArch() {
 				return spec
 			}
 		}

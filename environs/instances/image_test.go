@@ -282,25 +282,27 @@ func (s *imageSuite) TestPreferredSpec(c *gc.C) {
 		expected *InstanceSpec
 	}
 
+	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
+
 	amd64 := &InstanceSpec{Image: Image{Arch: arch.AMD64}}
 	i386 := &InstanceSpec{Image: Image{Arch: arch.I386}}
 	arm64 := &InstanceSpec{Image: Image{Arch: arch.ARM64}}
 
 	prefTests := []prefTest{
 		{
-			"choose amd64 over other arches",
+			"choose hostarch (arm64) over other arches",
 			[]*InstanceSpec{i386, arm64, amd64},
-			amd64,
+			arm64,
 		},
 		{
-			"choose first image if no amd64",
-			[]*InstanceSpec{i386, arm64},
+			"choose first image if no arm64",
+			[]*InstanceSpec{i386, amd64},
 			i386,
 		},
 		{
 			"choose only image only one there",
-			[]*InstanceSpec{arm64},
-			arm64,
+			[]*InstanceSpec{amd64},
+			amd64,
 		},
 	}
 
