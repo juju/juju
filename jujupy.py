@@ -168,9 +168,13 @@ class Status:
     def __init__(self, status):
         self.status = status
 
-    def agent_items(self):
+    def iter_machines(self):
         for machine_name, machine in sorted(self.status['machines'].items()):
             yield machine_name, machine
+
+    def agent_items(self):
+        for result in self.iter_machines():
+            yield result
         for service in sorted(self.status['services'].values()):
             for unit_name, unit in service.get('units', {}).items():
                 yield unit_name, unit
