@@ -58,7 +58,6 @@ var _ environs.Environ = (*localEnviron)(nil)
 var _ envtools.SupportsCustomSources = (*localEnviron)(nil)
 
 type localEnviron struct {
-	common.NopPrecheckerPolicy
 	common.SupportsUnitPlacementPolicy
 
 	localMutex       sync.Mutex
@@ -86,6 +85,13 @@ func (*localEnviron) SupportedArchitectures() ([]string, error) {
 // SupportNetworks is specified on the EnvironCapability interface.
 func (*localEnviron) SupportNetworks() bool {
 	return false
+}
+
+func (*localEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
+	if placement != "" {
+		return fmt.Errorf("unknown placement directive: %s", placement)
+	}
+	return nil
 }
 
 // Name is specified in the Environ interface.
@@ -299,6 +305,20 @@ func (env *localEnviron) setLocalStorage() error {
 	}
 	env.localStorage = storage
 	return nil
+}
+
+var unsupportedConstraints = []string{
+	constraints.CpuCores,
+	constraints.CpuPower,
+	constraints.InstanceType,
+	constraints.Tags,
+}
+
+// ConstraintsValidator is defined on the Environs interface.
+func (env *localEnviron) ConstraintsValidator() constraints.Validator {
+	validator := constraints.NewValidator()
+	validator.RegisterUnsupported(unsupportedConstraints)
+	return validator
 }
 
 // StartInstance is specified in the InstanceBroker interface.

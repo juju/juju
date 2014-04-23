@@ -1665,8 +1665,8 @@ func (s *clientSuite) TestClientAddMachineInsideMachine(c *gc.C) {
 
 	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{{
 		Jobs:          []params.MachineJob{params.JobHostUnits},
-		ParentId:      "0",
 		ContainerType: instance.LXC,
+		ParentId:      "0",
 		Series:        "quantal",
 	}})
 	c.Assert(err, gc.IsNil)
@@ -1692,13 +1692,65 @@ func (s *clientSuite) TestClientAddMachinesWithConstraints(c *gc.C) {
 	}
 }
 
+func (s *clientSuite) TestClientAddMachinesWithPlacement(c *gc.C) {
+	apiParams := make([]params.AddMachineParams, 4)
+	for i := range apiParams {
+		apiParams[i] = params.AddMachineParams{
+			Jobs: []params.MachineJob{params.JobHostUnits},
+		}
+	}
+	apiParams[0].Placement = instance.MustParsePlacement("lxc")
+	apiParams[1].Placement = instance.MustParsePlacement("lxc:0")
+	apiParams[1].ContainerType = instance.LXC
+	apiParams[2].Placement = instance.MustParsePlacement("dummyenv:invalid")
+	apiParams[3].Placement = instance.MustParsePlacement("dummyenv:valid")
+	machines, err := s.APIState.Client().AddMachines(apiParams)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(machines), gc.Equals, 4)
+	c.Assert(machines[0].Machine, gc.Equals, "0/lxc/0")
+	c.Assert(machines[1].Error, gc.ErrorMatches, "container type and placement are mutually exclusive")
+	c.Assert(machines[2].Error, gc.ErrorMatches, "cannot add a new machine: invalid placement is invalid")
+	c.Assert(machines[3].Machine, gc.Equals, "1")
+
+	m, err := s.BackingState.Machine(machines[3].Machine)
+	c.Assert(err, gc.IsNil)
+	c.Assert(m.Placement(), gc.DeepEquals, apiParams[3].Placement.Directive)
+}
+
+func (s *clientSuite) TestClientAddMachines1dot18(c *gc.C) {
+	apiParams := make([]params.AddMachineParams, 2)
+	for i := range apiParams {
+		apiParams[i] = params.AddMachineParams{
+			Jobs: []params.MachineJob{params.JobHostUnits},
+		}
+	}
+	apiParams[1].ContainerType = instance.LXC
+	apiParams[1].ParentId = "0"
+	machines, err := s.APIState.Client().AddMachines1dot18(apiParams)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(machines), gc.Equals, 2)
+	c.Assert(machines[0].Machine, gc.Equals, "0")
+	c.Assert(machines[1].Machine, gc.Equals, "0/lxc/0")
+}
+
+func (s *clientSuite) TestClientAddMachines1dot18SomeErrors(c *gc.C) {
+	apiParams := []params.AddMachineParams{{
+		Jobs:     []params.MachineJob{params.JobHostUnits},
+		ParentId: "123",
+	}}
+	machines, err := s.APIState.Client().AddMachines1dot18(apiParams)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(machines), gc.Equals, 1)
+	c.Check(machines[0].Error, gc.ErrorMatches, "parent machine specified without container type")
+}
+
 func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 	// Here we check that adding a number of containers correctly handles the
 	// case that some adds succeed and others fail and report the errors
 	// accordingly.
-	// We will set up params to the AddMachines API to attempt to create 4 machines.
+	// We will set up params to the AddMachines API to attempt to create 3 machines.
 	// Machines 0 and 1 will be added successfully.
-	// Mchines 2 and 3 will fail due to different reasons.
+	// Remaining machines will fail due to different reasons.
 
 	// Create a machine to host the requested containers.
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
@@ -1707,32 +1759,26 @@ func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 	err = host.SetSupportedContainers([]instance.ContainerType{instance.LXC})
 	c.Assert(err, gc.IsNil)
 
-	// Set up params for adding 4 containers.
-	apiParams := make([]params.AddMachineParams, 4)
-	for i := 0; i < 4; i++ {
+	// Set up params for adding 3 containers.
+	apiParams := make([]params.AddMachineParams, 3)
+	for i := range apiParams {
 		apiParams[i] = params.AddMachineParams{
 			Jobs: []params.MachineJob{params.JobHostUnits},
 		}
 	}
-	// Make it so that machines 2 and 3 will fail to be added.
-	// This will cause a machine add to fail because of an invalid parent.
-	apiParams[2].ParentId = "123"
 	// This will cause a machine add to fail due to an unsupported container.
-	apiParams[3].ParentId = host.Id()
-	apiParams[3].ContainerType = instance.KVM
+	apiParams[2].ContainerType = instance.KVM
+	apiParams[2].ParentId = host.Id()
 	machines, err := s.APIState.Client().AddMachines(apiParams)
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(machines), gc.Equals, 4)
+	c.Assert(len(machines), gc.Equals, 3)
 
 	// Check the results - machines 2 and 3 will have errors.
 	c.Check(machines[0].Machine, gc.Equals, "1")
 	c.Check(machines[0].Error, gc.IsNil)
 	c.Check(machines[1].Machine, gc.Equals, "2")
 	c.Check(machines[1].Error, gc.IsNil)
-	c.Assert(machines[2].Error, gc.NotNil)
-	c.Check(machines[2].Error, gc.ErrorMatches, "parent machine specified without container type")
-	c.Assert(machines[2].Error, gc.NotNil)
-	c.Check(machines[3].Error, gc.ErrorMatches, "cannot add a new machine: machine 0 cannot host kvm containers")
+	c.Check(machines[2].Error, gc.ErrorMatches, "cannot add a new machine: machine 0 cannot host kvm containers")
 }
 
 func (s *clientSuite) TestClientAddMachinesWithInstanceIdSomeErrors(c *gc.C) {
@@ -2144,22 +2190,40 @@ func (s *clientSuite) setAgentAlive(c *gc.C, machineId string) *presence.Pinger 
 }
 
 func (s *clientSuite) TestClientEnsureAvailabilitySeries(c *gc.C) {
-	err := s.APIState.Client().EnsureAvailability(1, constraints.Value{}, "")
+	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
+	// We have to ensure the agents are alive, or EnsureAvailability will
+	// create more to replace them.
 	pinger := s.setAgentAlive(c, "0")
 	defer pinger.Kill()
-	err = s.APIState.Client().EnsureAvailability(3, constraints.Value{}, "non-default")
-	c.Assert(err, gc.IsNil)
 	machines, err := s.State.AllMachines()
 	c.Assert(err, gc.IsNil)
+	c.Assert(machines, gc.HasLen, 1)
+	c.Assert(machines[0].Series(), gc.Equals, "quantal")
+	err = s.APIState.Client().EnsureAvailability(3, constraints.Value{}, "")
+	c.Assert(err, gc.IsNil)
+	machines, err = s.State.AllMachines()
+	c.Assert(err, gc.IsNil)
 	c.Assert(machines, gc.HasLen, 3)
-	c.Assert(machines[0].Series(), gc.Equals, "precise")
-	c.Assert(machines[1].Series(), gc.Equals, "non-default")
-	c.Assert(machines[2].Series(), gc.Equals, "non-default")
+	c.Assert(machines[0].Series(), gc.Equals, "quantal")
+	c.Assert(machines[1].Series(), gc.Equals, "quantal")
+	c.Assert(machines[2].Series(), gc.Equals, "quantal")
+	defer s.setAgentAlive(c, "1").Kill()
+	defer s.setAgentAlive(c, "2").Kill()
+	err = s.APIState.Client().EnsureAvailability(5, constraints.Value{}, "non-default")
+	c.Assert(err, gc.IsNil)
+	machines, err = s.State.AllMachines()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machines, gc.HasLen, 5)
+	c.Assert(machines[0].Series(), gc.Equals, "quantal")
+	c.Assert(machines[1].Series(), gc.Equals, "quantal")
+	c.Assert(machines[2].Series(), gc.Equals, "quantal")
+	c.Assert(machines[3].Series(), gc.Equals, "non-default")
+	c.Assert(machines[4].Series(), gc.Equals, "non-default")
 }
 
 func (s *clientSuite) TestClientEnsureAvailabilityConstraints(c *gc.C) {
-	err := s.APIState.Client().EnsureAvailability(1, constraints.Value{}, "")
+	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	pinger := s.setAgentAlive(c, "0")
 	defer pinger.Kill()
@@ -2181,9 +2245,13 @@ func (s *clientSuite) TestClientEnsureAvailabilityConstraints(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientEnsureAvailabilityErrors(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
+	pinger := s.setAgentAlive(c, "0")
+	defer pinger.Kill()
 	var emptyCons constraints.Value
 	defaultSeries := ""
-	err := s.APIState.Client().EnsureAvailability(0, emptyCons, defaultSeries)
+	err = s.APIState.Client().EnsureAvailability(0, emptyCons, defaultSeries)
 	c.Assert(err, gc.ErrorMatches, "number of state servers must be odd and greater than zero")
 	err = s.APIState.Client().EnsureAvailability(3, emptyCons, defaultSeries)
 	c.Assert(err, gc.IsNil)

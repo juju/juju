@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
@@ -594,11 +595,10 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		if err != nil {
 			return "", nil, err
 		}
-		econs, err := s.st.EnvironConstraints()
+		cons, err := s.st.resolveConstraints(scons)
 		if err != nil {
 			return "", nil, err
 		}
-		cons := scons.WithFallbacks(econs)
 		ops = append(ops, createConstraintsOp(s.st, globalKey, cons))
 	}
 	return name, ops, nil
@@ -803,6 +803,13 @@ func (s *Service) Constraints() (constraints.Value, error) {
 
 // SetConstraints replaces the current service constraints.
 func (s *Service) SetConstraints(cons constraints.Value) (err error) {
+	unsupported, err := s.st.validateConstraints(cons)
+	if len(unsupported) > 0 {
+		logger.Warningf(
+			"setting constraints on service %q: unsupported constraints: %v", s.Name(), strings.Join(unsupported, ","))
+	} else if err != nil {
+		return err
+	}
 	if s.doc.Subordinate {
 		return ErrSubordinateConstraints
 	}

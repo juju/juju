@@ -60,8 +60,6 @@ var (
 )
 
 type azureEnviron struct {
-	common.NopPrecheckerPolicy
-
 	// Except where indicated otherwise, all fields in this object should
 	// only be accessed using a lock or a snapshot.
 	sync.Mutex
@@ -92,6 +90,7 @@ var _ environs.Environ = (*azureEnviron)(nil)
 var _ simplestreams.HasRegion = (*azureEnviron)(nil)
 var _ imagemetadata.SupportsCustomSources = (*azureEnviron)(nil)
 var _ envtools.SupportsCustomSources = (*azureEnviron)(nil)
+var _ state.Prechecker = (*azureEnviron)(nil)
 
 // NewEnviron creates a new azureEnviron.
 func NewEnviron(cfg *config.Config) (*azureEnviron, error) {
@@ -420,6 +419,39 @@ func (env *azureEnviron) selectInstanceTypeAndImage(constraint *instances.Instan
 		return "", "", err
 	}
 	return spec.InstanceType.Id, spec.Image.Id, nil
+}
+
+var unsupportedConstraints = []string{
+	constraints.CpuPower,
+	constraints.Tags,
+}
+
+// ConstraintsValidator is defined on the Environs interface.
+func (environ *azureEnviron) ConstraintsValidator() constraints.Validator {
+	validator := constraints.NewValidator()
+	validator.RegisterUnsupported(unsupportedConstraints)
+	return validator
+}
+
+// PrecheckInstance is defined on the state.Prechecker interface.
+func (env *azureEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
+	if placement != "" {
+		return fmt.Errorf("unknown placement directive: %s", placement)
+	}
+	if !cons.HasInstanceType() {
+		return nil
+	}
+	// Constraint has an instance-type constraint so let's see if it is valid.
+	instanceTypes, err := listInstanceTypes(env, gwacl.RoleSizes)
+	if err != nil {
+		return err
+	}
+	for _, instanceType := range instanceTypes {
+		if instanceType.Name == *cons.InstanceType {
+			return nil
+		}
+	}
+	return fmt.Errorf("invalid Azure instance %q specified", *cons.InstanceType)
 }
 
 // createInstance creates all of the Azure entities necessary for a

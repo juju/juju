@@ -92,6 +92,10 @@ type AddMachineParams struct {
 	Constraints constraints.Value
 	Jobs        []MachineJob
 
+	// If Placement is non-nil, it contains a placement directive
+	// that will be used to decide how to instantiate the machine.
+	Placement *instance.Placement
+
 	// If ParentId is non-empty, it specifies the id of the
 	// parent machine within which the new machine will
 	// be created. In that case, ContainerType must also be
@@ -117,7 +121,8 @@ type AddMachineParams struct {
 	Addrs                   []instance.Address
 }
 
-// AddMachines holds the parameters for making the AddMachines call.
+// AddMachines holds the parameters for making the
+// AddMachinesWithPlacement call.
 type AddMachines struct {
 	MachineParams []AddMachineParams
 }

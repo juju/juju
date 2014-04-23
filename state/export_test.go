@@ -15,6 +15,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing"
@@ -261,3 +262,7 @@ func CheckUserExists(st *State, name string) (bool, error) {
 }
 
 var StateServerAvailable = &stateServerAvailable
+
+func UnitConstraints(u *Unit) (*constraints.Value, error) {
+	return u.constraints()
+}

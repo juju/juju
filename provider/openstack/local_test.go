@@ -675,6 +675,60 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `no "saucy" images in some-region with arches \[amd64\]`)
 }
 
+func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
+	env := s.Open(c)
+	validator := env.ConstraintsValidator()
+	cons := constraints.MustParse("arch=amd64 cpu-power=10")
+	unsupported, err := validator.Validate(cons)
+	c.Assert(err, gc.IsNil)
+	c.Assert(unsupported, gc.DeepEquals, []string{"cpu-power"})
+}
+
+func (s *localServerSuite) TestConstraintsMerge(c *gc.C) {
+	env := s.Open(c)
+	validator := env.ConstraintsValidator()
+	consA := constraints.MustParse("arch=amd64 mem=1G root-disk=10G")
+	consB := constraints.MustParse("instance-type=foo")
+	cons, err := validator.Merge(consA, consB)
+	c.Assert(err, gc.IsNil)
+	c.Assert(cons, gc.DeepEquals, constraints.MustParse("instance-type=foo"))
+}
+
+func (s *localServerSuite) TestFindImageInstanceConstraint(c *gc.C) {
+	// Prevent falling over to the public datasource.
+	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
+
+	env := s.Open(c)
+	spec, err := openstack.FindInstanceSpec(env, "precise", "amd64", "instance-type=m1.tiny")
+	c.Assert(err, gc.IsNil)
+	c.Assert(spec.InstanceType.Name, gc.Equals, "m1.tiny")
+}
+
+func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {
+	// Prevent falling over to the public datasource.
+	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
+
+	env := s.Open(c)
+	_, err := openstack.FindInstanceSpec(env, "precise", "amd64", "instance-type=m1.large")
+	c.Assert(err, gc.ErrorMatches, `invalid instance type "m1.large"`)
+}
+
+func (s *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
+	env := s.Open(c)
+	cons := constraints.MustParse("instance-type=m1.small")
+	placement := ""
+	err := env.PrecheckInstance("precise", cons, placement)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
+	env := s.Open(c)
+	cons := constraints.MustParse("instance-type=m1.large")
+	placement := ""
+	err := env.PrecheckInstance("precise", cons, placement)
+	c.Assert(err, gc.ErrorMatches, `invalid Openstack flavour "m1.large" specified`)
+}
+
 func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	env := s.Open(c)
 	params, err := env.(simplestreams.MetadataValidator).MetadataLookupParams("some-region")
