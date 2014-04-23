@@ -4,6 +4,12 @@ set -eux
 
 export INSTANCE_TYPE=$1
 export AMI_IMAGE=$2
+
+afact='lastSuccessfulBuild/artifact'
+wget -q $LOCAL_JENKINS_URL/job/build-revision/$afact/buildvars.bash
+source buildvars.bash
+echo "Testing $BRANCH $REVNO on $ENV"
+
 tarfile=$($SCRIPTS/get-tarfile-name $revision_build)
 juju_version=$(basename $tarfile .tar.gz)
 instance_id=$($SCRIPTS/ec2-run-instance-get-id)
@@ -42,7 +48,7 @@ done
 sudo apt-get update
 sudo apt-get install -y build-essential
 # Hack match for i386.
-sed -i 's/x86/86/' Makefile 
+sed -i 's/x86/86/' Makefile
 make install-dependencies
 bzr whoami 'J. Random Hacker <jrandom@example.org>'
 # Force mongodb-server to be present because the makefile doesn't know that

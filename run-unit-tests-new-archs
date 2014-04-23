@@ -34,6 +34,11 @@ fi
 
 # Define common vars for remote scripts; do not make them evalaute
 # what is known in this script to ensure the logs line order is sane.
+afact='lastSuccessfulBuild/artifact'
+wget -q $LOCAL_JENKINS_URL/job/build-revision/$afact/buildvars.bash
+source buildvars.bash
+echo "Testing $BRANCH $REVNO on $ENV"
+
 tarfile_path=$(find $HOME/jobs/build-revision/lastStable/archive/ -name juju-core*.tar.gz)
 tarfile=$(basename $tarfile_path)
 juju_version=$(basename $tarfile .tar.gz)
@@ -88,7 +93,7 @@ cd \$GOPATH/src/launchpad.net/juju-core
 bzr whoami 'J. Random Hacker <jrandom@example.org>'
 make build
 # Hack match for i386.
-sed -i 's/x86/86/' Makefile 
+sed -i 's/x86/86/' Makefile
 make install
 make check
 EOT
