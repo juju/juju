@@ -5,4 +5,5 @@ var (
 	APIClose             = &apiClose
 	ProviderConnectDelay = &providerConnectDelay
 	NewAPIFromStore      = newAPIFromStore
+	APIConfigConnect     = apiConfigConnect
 )
