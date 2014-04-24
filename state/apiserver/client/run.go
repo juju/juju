@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"launchpad.net/juju-core/environs/cloudinit"
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -144,7 +144,7 @@ func ParallelExecute(dataDir string, runParams []*RemoteExec) params.RunResults 
 	var outstanding sync.WaitGroup
 	var lock sync.Mutex
 	var result []params.RunResult
-	identity := filepath.Join(dataDir, cloudinit.SystemIdentity)
+	identity := filepath.Join(dataDir, agent.SystemIdentity)
 	for _, param := range runParams {
 		outstanding.Add(1)
 		logger.Debugf("exec on %s: %#v", param.MachineId, *param)

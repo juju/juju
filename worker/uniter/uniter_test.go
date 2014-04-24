@@ -922,9 +922,21 @@ var upgradeConflictsTests = []uniterTest{
 			info:   "upgrade failed",
 			charm:  1,
 		},
-		verifyWaiting{},
-		verifyCharm{attemptedRevision: 1},
+		stopUniter{},
+		custom{func(c *gc.C, ctx *context) {
+			// By setting status to Started, and waiting for the restarted uniter
+			// to reset the error status, we can avoid a race in which we
+			// fixUpgradeError just before the restarting uniter retries the upgrade.
+			ctx.unit.SetStatus(params.StatusStarted, "", nil)
+		}},
+		startUniter{},
 
+		waitUnit{
+			status: params.StatusError,
+			info:   "upgrade failed",
+			charm:  1,
+		},
+		verifyCharm{attemptedRevision: 1},
 		fixUpgradeError{},
 		resolveError{state.ResolvedNoHooks},
 		waitHooks{"upgrade-charm", "config-changed"},

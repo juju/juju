@@ -190,7 +190,7 @@ func bootstrapContext(c *gc.C) environs.BootstrapContext {
 func (s *localServerSuite) TestStartInstance(c *gc.C) {
 	env := s.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	inst, _ := testing.AssertStartInstance(c, env, "100")
 	err = env.StopInstances([]instance.Instance{inst})
@@ -200,7 +200,7 @@ func (s *localServerSuite) TestStartInstance(c *gc.C) {
 func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := s.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	_, hc := testing.AssertStartInstanceWithConstraints(c, env, "100", constraints.MustParse("mem=1024"))
 	c.Check(*hc.Arch, gc.Equals, "amd64")
@@ -310,7 +310,7 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := s.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
