@@ -1,9 +1,11 @@
 from contextlib import contextmanager
 import errno
 import os
+from shutil import rmtree
 import socket
 import sys
 from time import sleep
+from tempfile import mkdtemp
 
 from jujupy import until_timeout
 
@@ -46,3 +48,12 @@ def wait_for_port(host, port, closed=False, timeout=30):
 def print_now(string):
     print(string)
     sys.stdout.flush()
+
+
+@contextmanager
+def temp_dir():
+    directory = mkdtemp()
+    try:
+        yield directory
+    finally:
+        rmtree(directory)
