@@ -419,7 +419,13 @@ func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error
 	}
 	possibleTools, err := task.possibleTools(series, cons)
 	if err != nil {
-		return err
+		logger.Errorf("cannot find tools for machine %q: %v", machine, err)
+		if err1 := machine.SetStatus(params.StatusError, err.Error(), nil); err1 != nil {
+			// Something is wrong with this machine, better report it back.
+			logger.Errorf("cannot set error status for machine %q: %v", machine, err1)
+			return err1
+		}
+		return nil
 	}
 	machineConfig, err := task.machineConfig(machine)
 	if err != nil {
