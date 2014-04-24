@@ -10,15 +10,18 @@ import re
 import string
 import subprocess
 import sys
+import yaml
 
+from jujuconfig import get_environments_path
 from jujupy import (
     check_wordpress,
     Environment,
 )
 from utility import (
     scoped_environ,
-    wait_for_port,
+    temp_dir,
     until_timeout,
+    wait_for_port,
 )
 
 
@@ -160,6 +163,31 @@ def get_job_instances(job_name):
         match = instance_pattern.match(line)
         if match:
             yield match.group(1)
+
+
+def get_jenv_path(juju_home, name):
+    return os.path.join(juju_home, 'environments', '%s.jenv' % name)
+
+
+def bootstrap_from_env(juju_home, env):
+    new_config = {'environments': {env.environment: env.config}}
+    jenv_path = get_jenv_path(juju_home, env.environment)
+    with temp_dir() as temp_juju_home:
+        if os.path.lexists(jenv_path):
+            raise Exception('%s already exists!' % jenv_path)
+        new_jenv_path = get_jenv_path(temp_juju_home, env.environment)
+        # Create a symlink to allow access while bootstrapping, and to reduce
+        # races.  Can't use a hard link because jenv doesn't exist until
+        # partway through bootstrap.
+        os.symlink(new_jenv_path, jenv_path)
+        temp_environments = get_environments_path(temp_juju_home)
+        with open(temp_environments, 'w') as config_file:
+            yaml.safe_dump(new_config, config_file)
+        with scoped_environ():
+            os.environ['JUJU_HOME'] = temp_juju_home
+            env.bootstrap()
+        # replace symlink with file before deleting temp home.
+        os.rename(new_jenv_path, jenv_path)
 
 
 def deploy_job():

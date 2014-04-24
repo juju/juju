@@ -27,12 +27,20 @@ def get_stateserver_ips(environment, name):
     return ips
 
 
-def get_environments():
-    """Return the environments for juju."""
+def get_juju_home():
     home = os.environ.get('JUJU_HOME')
     if home is None:
         home = os.path.join(os.environ.get('HOME'), '.juju')
-    with open(os.path.join(home, 'environments.yaml')) as env:
+    return home
+
+def get_environments_path(juju_home):
+    return os.path.join(juju_home, 'environments.yaml')
+
+
+def get_environments():
+    """Return the environments for juju."""
+    home = get_juju_home()
+    with open(get_environments_path(home)) as env:
         return yaml.safe_load(env)['environments']
 
 

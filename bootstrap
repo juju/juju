@@ -1,0 +1,22 @@
+#!/usr/bin/env python
+from argparse import ArgumentParser
+
+from jujuconfig import get_juju_home
+from jujupy import Environment
+from deploy_stack import bootstrap_from_env
+
+
+def main():
+    parser = ArgumentParser('Deploy a WordPress stack')
+    parser.add_argument('env', help='The environment to deploy on.')
+    parser.add_argument('option', nargs='*', help='An option to override')
+    args = parser.parse_args()
+    env = Environment.from_config(args.env)
+    for option in args.option:
+        key, value = option.split('=', 1)
+        env.config[key] = value
+    bootstrap_from_env(get_juju_home(), env)
+
+
+if __name__ == '__main__':
+    main()
