@@ -75,3 +75,5 @@ if [ "$ENV" == "manual" ]; then
 else
   $SCRIPTS/destroy-environment $ENV
 fi
+jenv=$JUJU_HOME/environments/$ENV.jenv
+if [ -e $jenv ]; then rm $jenv; fi
