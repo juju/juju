@@ -27,6 +27,9 @@ type Validator interface {
 	// RegisterUnsupported records attributes which are not supported by a constraints Value.
 	RegisterUnsupported(unsupported []string)
 
+	// RegisterVocabulary records allowed values for the specified constraint attribute.
+	RegisterVocabulary(attributeName string, allowedValues []interface{})
+
 	// Validate returns an error if the given constraints are not valid, and also
 	// any unsupported attributes.
 	Validate(cons Value) ([]string, error)
@@ -40,12 +43,14 @@ type Validator interface {
 func NewValidator() Validator {
 	c := validator{}
 	c.conflicts = make(map[string]set.Strings)
+	c.vocab = make(map[string][]interface{})
 	return &c
 }
 
 type validator struct {
 	unsupported set.Strings
 	conflicts   map[string]set.Strings
+	vocab       map[string][]interface{}
 }
 
 // RegisterConflicts is defined on Validator.
@@ -63,18 +68,26 @@ func (v *validator) RegisterUnsupported(unsupported []string) {
 	v.unsupported = set.NewStrings(unsupported...)
 }
 
+// RegisterVocabulary is defined on Validator.
+func (v *validator) RegisterVocabulary(attributeName string, allowedValues []interface{}) {
+	v.vocab[attributeName] = allowedValues
+}
+
 // checkConflicts returns an error if the constraints Value contains conflicting attributes.
 func (v *validator) checkConflicts(cons Value) error {
-	attrNames := cons.attributesWithValues()
-	attrSet := set.NewStrings(attrNames...)
-	for _, attr := range attrNames {
-		conflicts, ok := v.conflicts[attr]
+	attrValues := cons.attributesWithValues()
+	attrSet := set.NewStrings()
+	for attrTag := range attrValues {
+		attrSet.Add(attrTag)
+	}
+	for attrTag := range attrValues {
+		conflicts, ok := v.conflicts[attrTag]
 		if !ok {
 			continue
 		}
 		for _, conflict := range conflicts.Values() {
 			if attrSet.Contains(conflict) {
-				return fmt.Errorf("ambiguous constraints: %q overlaps with %q", attr, conflict)
+				return fmt.Errorf("ambiguous constraints: %q overlaps with %q", attrTag, conflict)
 			}
 		}
 	}
@@ -84,6 +97,71 @@ func (v *validator) checkConflicts(cons Value) error {
 // checkUnsupported returns any unsupported attributes.
 func (v *validator) checkUnsupported(cons Value) []string {
 	return cons.hasAny(v.unsupported.Values()...)
+}
+
+// checkValid returns an error if the constraints value contains an attribute value
+// which is not allowed by the vocab which may have been registered for it.
+func (v *validator) checkValidValues(cons Value) error {
+	for attrTag, attrValue := range cons.attributesWithValues() {
+		if err := v.checkValidValue(attrTag, attrValue); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// checkValidValue returns an error if the attribute value is not allowed by the
+// vocab which may have been registered for it.
+func (v *validator) checkValidValue(attributeName string, attributeValue interface{}) error {
+	valid, ok := v.vocab[attributeName]
+	if !ok {
+		return nil
+	}
+	containsValue := func(val interface{}, valid []interface{}) bool {
+		for _, validValue := range valid {
+			if coerce(validValue) == coerce(val) {
+				return true
+			}
+		}
+		return false
+	}
+	// If the attributeValue is a slice, we need to check that each
+	// element exists in the vocab.
+	var valuesToCheck []interface{}
+	k := reflect.TypeOf(attributeValue).Kind()
+	if k == reflect.Slice || k == reflect.Array {
+		v := reflect.ValueOf(attributeValue)
+		valuesToCheck = make([]interface{}, v.Len())
+		for i := 0; i < v.Len(); i++ {
+			valuesToCheck[i] = v.Index(i).Interface()
+		}
+	} else {
+		valuesToCheck = []interface{}{attributeValue}
+	}
+	for _, val := range valuesToCheck {
+		if !containsValue(val, valid) {
+			return fmt.Errorf("invalid constraint value: %v=%v", attributeName, val)
+		}
+	}
+	return nil
+}
+
+// coerce returns v in a format that allows constraint values to be easily compared.
+// Its main purpose is to cast all numeric values to int64 or float64.
+func coerce(v interface{}) interface{} {
+	if v != nil {
+		switch vv := reflect.TypeOf(v); vv.Kind() {
+		case reflect.String:
+			return v
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			return int64(reflect.ValueOf(v).Int())
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			return int64(reflect.ValueOf(v).Uint())
+		case reflect.Float32, reflect.Float64:
+			return float64(reflect.ValueOf(v).Float())
+		}
+	}
+	return v
 }
 
 // withFallbacks returns a copy of v with nil values taken from vFallback.
@@ -105,6 +183,9 @@ func (v *validator) Validate(cons Value) ([]string, error) {
 	if err := v.checkConflicts(cons); err != nil {
 		return unsupported, err
 	}
+	if err := v.checkValidValues(cons); err != nil {
+		return unsupported, err
+	}
 	return unsupported, nil
 }
 
@@ -119,10 +200,10 @@ func (v *validator) Merge(consFallback, cons Value) (Value, error) {
 		return Value{}, err
 	}
 	// Gather any attributes from consFallback which conflict with those on cons.
-	attrs := cons.attributesWithValues()
+	attrValues := cons.attributesWithValues()
 	var fallbackConflicts []string
-	for _, attr := range attrs {
-		fallbackConflicts = append(fallbackConflicts, v.conflicts[attr].Values()...)
+	for attrTag := range attrValues {
+		fallbackConflicts = append(fallbackConflicts, v.conflicts[attrTag].Values()...)
 	}
 	// Null out the conflicting consFallback attribute values because
 	// cons takes priority. We can't error here because we
