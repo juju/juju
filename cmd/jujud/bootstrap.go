@@ -151,10 +151,10 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+	defer st.Close()
+
 	// bootstrap machine always gets the vote
-	m.SetHasVote(true)
-	st.Close()
-	return nil
+	return m.SetHasVote(true)
 }
 
 func (c *BootstrapCommand) startMongo(addrs []instance.Address, agentConfig agent.Config) error {
