@@ -1,10 +1,7 @@
-#!/usr/bin/env python
-import argparse
 import errno
 import os
 import re
 import subprocess
-import sys
 import yaml
 
 
