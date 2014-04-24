@@ -21,7 +21,6 @@ prepare_manual(){
     machine_0_name=$(ec2-get-name $machine_0_id)
     machine_1_name=$(ec2-get-name $machine_1_id)
     machine_2_name=$(ec2-get-name $machine_2_id)
-    rm -f $JUJU_HOME/environments/manual.jenv
     export BOOTSTRAP_HOST=$machine_0_name
     export MACHINES="$machine_1_name $machine_2_name"
 }
@@ -45,8 +44,6 @@ if [ "$ENV" == "manual" ]; then
 else
   destroy-environment $ENV
 fi
-jenv=$JUJU_HOME/environments/$ENV.jenv
-if [ -e $jenv ]; then rm $jenv; fi
 if [ "$ENV" == "manual" ]; then
     prepare_manual
 fi
