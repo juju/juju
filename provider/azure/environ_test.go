@@ -1535,8 +1535,8 @@ func (s *environSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	cons := constraints.MustParse("arch=ppc64")
 	_, err = validator.Validate(cons)
-	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64")
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64\nvalid values are:.*")
 	cons = constraints.MustParse("instance-type=foo")
 	_, err = validator.Validate(cons)
-	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo")
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")
 }

@@ -146,7 +146,7 @@ func (v *validator) checkValidValue(attributeName string, attributeValue interfa
 	valuesToCheck := toSlice(attributeValue)
 	for _, val := range valuesToCheck {
 		if !containsValue(val, valid) {
-			return fmt.Errorf("invalid constraint value: %v=%v", attributeName, val)
+			return fmt.Errorf("invalid constraint value: %v=%v\nvalid values are: %v", attributeName, val, valid)
 		}
 	}
 	return nil

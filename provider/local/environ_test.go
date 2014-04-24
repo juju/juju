@@ -337,5 +337,5 @@ func (s *localJujuTestSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	}
 	cons := constraints.MustParse(fmt.Sprintf("arch=%s", invalidArch))
 	_, err = validator.Validate(cons)
-	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch="+invalidArch)
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch="+invalidArch+"\nvalid values are:.*")
 }

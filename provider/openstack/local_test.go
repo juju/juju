@@ -691,10 +691,10 @@ func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	cons := constraints.MustParse("arch=i386")
 	_, err = validator.Validate(cons)
-	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=i386")
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=i386\nvalid values are:.*")
 	cons = constraints.MustParse("instance-type=foo")
 	_, err = validator.Validate(cons)
-	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo")
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")
 }
 
 func (s *localServerSuite) TestConstraintsMerge(c *gc.C) {
