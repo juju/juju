@@ -2,7 +2,6 @@ set -eu
 # For most jobs, this is localhost, so provide it.
 : ${LOCAL_JENKINS_URL=http://localhost:8080}
 if [ "$ENV" = "manual" ]; then
-  export JUJU_HOME=$WORKSPACE/manual-provider-home
   source $HOME/cloud-city/ec2rc
 else
   export JUJU_HOME=$HOME/cloud-city
@@ -34,19 +33,8 @@ prepare_manual(){
     machine_2_name=$($SCRIPTS/ec2-get-name $machine_2_id)
     export BOOTSTRAP_HOST=$machine_0_name
 
-    if [ ! -d $JUJU_HOME ]; then
-        mkdir $JUJU_HOME
-    fi
     rm -f $JUJU_HOME/environments/manual.jenv
 
-    # Write new environments.yaml
-    cat  > $JUJU_HOME/environments.yaml <<EOT
-environments:
-  manual:
-    type: manual
-    bootstrap-user: ubuntu
-    tools-metadata-url: http://juju-dist.s3.amazonaws.com/testing/tools
-EOT
     for machine in $machine_0_name $machine_1_name $machine_2_name; do
       $SCRIPTS/wait-for-port $machine 22
     done
