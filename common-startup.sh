@@ -1,10 +1,9 @@
 set -eu
 # For most jobs, this is localhost, so provide it.
 : ${LOCAL_JENKINS_URL=http://localhost:8080}
+export JUJU_HOME=$HOME/cloud-city
 if [ "$ENV" = "manual" ]; then
   source $HOME/cloud-city/ec2rc
-else
-  export JUJU_HOME=$HOME/cloud-city
 fi
 
 dump_logs(){
