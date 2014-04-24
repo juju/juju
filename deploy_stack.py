@@ -180,7 +180,7 @@ def bootstrap_from_env(juju_home, env):
         env.config.setdefault('root-dir', os.path.join(juju_home, 'local'))
     new_config = {'environments': {env.environment: env.config}}
     jenv_path = get_jenv_path(juju_home, env.environment)
-    with temp_dir() as temp_juju_home:
+    with temp_dir(juju_home) as temp_juju_home:
         if os.path.lexists(jenv_path):
             raise Exception('%s already exists!' % jenv_path)
         new_jenv_path = get_jenv_path(temp_juju_home, env.environment)
@@ -200,8 +200,7 @@ def bootstrap_from_env(juju_home, env):
             os.environ['JUJU_HOME'] = temp_juju_home
             env.bootstrap()
         # replace symlink with file before deleting temp home.
-        os.unlink(jenv_path)
-        shutil.move(new_jenv_path, jenv_path)
+        os.rename(new_jenv_path, jenv_path)
 
 
 def deploy_job():
