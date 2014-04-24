@@ -117,9 +117,10 @@ update_source_package_branch() {
 make_binary_packages() {
     make_binary_package $UBUNTU_VERSION $SERIES
     # Make extra packages for supported series.
-    for series_release in $EXTRA_RELEASES; do
-        this_series=$(echo "$series_release" | cut -d ':' -f1)
-        this_release=$(echo "$series_release" | cut -d ':' -f2)
+    lts_series=$(grep 'LTS' supported-releases.txt | tr ' ' : | cut -d : -f 1,2)
+    for series_release in lts_series; do
+        this_release=$(echo "$series_release" | cut -d ':' -f1)
+        this_series=$(echo "$series_release" | cut -d ':' -f2)
         package_version="${VERSION}-0ubuntu1~${this_release}.${PPATCH}~juju1"
         update_source_package_branch $package_version $this_series
         make_binary_package $package_version $this_series
