@@ -176,12 +176,13 @@ func NewForwardConfig(logFile, logDir string, port int, namespace string, stateS
 
 // NewAccumulateConfig creates a SyslogConfig instance used to accumulate log entries from the
 // various unit nodes.
-func NewAccumulateConfig(logFile, logDir string, port int, namespace string) *SyslogConfig {
+func NewAccumulateConfig(logFile, logDir string, port int, namespace string, stateServerAddresses []string) *SyslogConfig {
 	conf := &SyslogConfig{
-		configTemplate: stateServerRsyslogTemplate,
-		LogFileName:    logFile,
-		Port:           port,
-		LogDir:         logDir,
+		configTemplate:       stateServerRsyslogTemplate,
+		LogFileName:          logFile,
+		Port:                 port,
+		LogDir:               logDir,
+		StateServerAddresses: stateServerAddresses,
 	}
 	if namespace != "" {
 		conf.Namespace = "-" + namespace

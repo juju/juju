@@ -320,13 +320,9 @@ var newDeployContext = func(st *apideployer.State, agentConfig agent.Config) dep
 var newRsyslogConfigWorker = func(st *apirsyslog.State, agentConfig agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
 	tag := agentConfig.Tag()
 	namespace := agentConfig.Value(agent.Namespace)
-	var addrs []string
-	if mode == rsyslog.RsyslogModeForwarding {
-		var err error
-		addrs, err = agentConfig.APIAddresses()
-		if err != nil {
-			return nil, err
-		}
+	addrs, err := agentConfig.APIAddresses()
+	if err != nil {
+		return nil, err
 	}
 	return rsyslog.NewRsyslogConfigWorker(st, mode, tag, namespace, addrs)
 }
