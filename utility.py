@@ -51,8 +51,8 @@ def print_now(string):
 
 
 @contextmanager
-def temp_dir():
-    directory = mkdtemp()
+def temp_dir(parent=None):
+    directory = mkdtemp(dir=parent)
     try:
         yield directory
     finally:

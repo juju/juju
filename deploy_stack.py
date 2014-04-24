@@ -4,10 +4,13 @@ __metaclass__ = type
 
 
 from argparse import ArgumentParser
+import errno
+import logging
 import os
 import random
 import re
 import string
+import shutil
 import subprocess
 import sys
 import yaml
@@ -15,9 +18,9 @@ import yaml
 from jujuconfig import (
     get_environments_path,
     get_jenv_path,
+    get_juju_home,
 )
 from jujupy import (
-    check_wordpress,
     Environment,
 )
 from utility import (
@@ -54,7 +57,7 @@ def prepare_environment(environment, already_bootstrapped, machines):
         env.juju('upgrade-juju', '--version', agent_version)
     env.wait_for_version(env.get_matching_agent_version())
     for machine in machines:
-        env.juju('add-machine', machine)
+        env.juju('add-machine', 'ssh:' + machine)
     return env
 
 
@@ -72,20 +75,6 @@ def destroy_job_instances(job_name):
     subprocess.check_call(['euca-terminate-instances'] + instances)
 
 
-def deploy_stack(env, charm_prefix):
-    """"Deploy a Wordpress stack in the specified environment.
-
-    :param environment: The name of the desired environment.
-    """
-    env.deploy(charm_prefix + 'wordpress')
-    env.deploy(charm_prefix + 'mysql')
-    env.juju('add-relation', 'mysql', 'wordpress')
-    env.juju('expose', 'wordpress')
-    status = env.wait_for_started().status
-    wp_unit_0 = status['services']['wordpress']['units']['wordpress/0']
-    check_wordpress(wp_unit_0['public-address'])
-
-
 def deploy_dummy_stack(env, charm_prefix):
     """"Deploy a dummy stack in the specified environment.
     """
@@ -98,10 +87,13 @@ def deploy_dummy_stack(env, charm_prefix):
     env.juju('expose', 'dummy-sink')
     env.wait_for_started()
     # Wait up to 30 seconds for token to be created.
+    logging.info('Retrieving token.')
     get_token="""
         for x in $(seq 30); do
           if [ -f /var/run/dummy-sink/token ]; then
-            break
+            if [ "$(cat /var/run/dummy-sink/token)" != "" ]; then
+              break
+            fi
           fi
           sleep 1
         done
@@ -120,7 +112,7 @@ def scp_logs(log_names, directory):
 def dump_logs(env, host, directory):
     log_names = []
     if env.local:
-        local = os.path.join(os.environ['JUJU_HOME'], 'local')
+        local = os.path.join(get_juju_home(), 'local')
         log_names = [os.path.join(local, 'cloud-init-output.log')]
         log_dir = os.path.join(local, 'log')
         log_names.extend(os.path.join(log_dir, l) for l
@@ -169,15 +161,22 @@ def get_job_instances(job_name):
 
 
 def bootstrap_from_env(juju_home, env):
+    if env.config['type'] == 'local':
+        env.config.setdefault('root-dir', os.path.join(juju_home, 'local'))
     new_config = {'environments': {env.environment: env.config}}
     jenv_path = get_jenv_path(juju_home, env.environment)
-    with temp_dir() as temp_juju_home:
+    with temp_dir(juju_home) as temp_juju_home:
         if os.path.lexists(jenv_path):
             raise Exception('%s already exists!' % jenv_path)
         new_jenv_path = get_jenv_path(temp_juju_home, env.environment)
         # Create a symlink to allow access while bootstrapping, and to reduce
         # races.  Can't use a hard link because jenv doesn't exist until
         # partway through bootstrap.
+        try:
+            os.mkdir(os.path.join(juju_home, 'environments'))
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
         os.symlink(new_jenv_path, jenv_path)
         temp_environments = get_environments_path(temp_juju_home)
         with open(temp_environments, 'w') as config_file:
@@ -190,16 +189,32 @@ def bootstrap_from_env(juju_home, env):
 
 
 def deploy_job():
-    machines = ['ssh:%s' % m for m in os.environ['MACHINES'].split()]
+    logging.basicConfig(
+        level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S')
+    machines = os.environ['MACHINES'].split()
     environment = os.environ['ENV']
+    new_path = '%s:%s' % (os.environ['NEW_JUJU_BIN'], os.environ['PATH'])
+    upgrade = bool(os.environ.get('UPGRADE') == 'true')
+    if not upgrade:
+        os.environ['PATH'] = new_path
     try:
         if sys.platform == 'win32':
             # Ensure OpenSSH is never in the path for win tests.
             sys.path = [p for p in sys.path if 'OpenSSH' not in p]
         env = Environment.from_config(environment)
+        if 'BOOTSTRAP_HOST' in os.environ:
+            env.config['bootstrap-host'] = os.environ['BOOTSTRAP_HOST']
         host = env.config.get('bootstrap-host')
+        env.config['agent-version'] = env.get_matching_agent_version()
+        ssh_machines = [] + machines
+        if host is not None:
+            ssh_machines.append(host)
+        for machine in ssh_machines:
+            logging.info('Waiting for port 22 on %s' % machine)
+            wait_for_port(host, 22, timeout=120)
         try:
-            env.bootstrap()
+            bootstrap_from_env(get_juju_home(), env)
         except:
             if host is not None:
                 dump_logs(env, host,
@@ -219,9 +234,9 @@ def deploy_job():
                     # state-server.
                     return
                 deploy_dummy_stack(env, os.environ['CHARM_PREFIX'])
-                if os.environ.get('UPGRADE') == 'true':
+                if upgrade:
                     with scoped_environ():
-                        os.environ['PATH'] = os.environ['NEW_PATH']
+                        os.environ['PATH'] = new_path
                         test_upgrade(environment)
             except:
                 dump_logs(env, host,

@@ -18,7 +18,6 @@ import yaml
 
 from jujupy import (
     CannotConnectEnv,
-    check_wordpress,
     Environment,
     ErroredUnit,
     format_listing,
@@ -637,23 +636,3 @@ class TestFormatListing(TestCase):
         result = format_listing(
             {'1': ['a', 'b'], '2': ['c'], 'expected': ['d']}, 'expected')
         self.assertEqual('1: a, b | 2: c', result)
-
-
-class TestCheckWordpress(TestCase):
-
-    def test_check_wordpress(self):
-        out = StringIO('Welcome to the famous five minute WordPress'
-                       ' installation process!')
-        with patch('urllib2.urlopen', side_effect=lambda x: out) as mock:
-            check_wordpress('host')
-        mock.assert_called_with('http://host/wp-admin/install.php')
-
-    def test_check_wordpress_failure(self):
-        out = StringIO('Urk!')
-        sleep = patch('jujupy.sleep')
-        urlopen = patch('urllib2.urlopen', side_effect=lambda x: out)
-        timeout = patch('jujupy.until_timeout', lambda x: range(1))
-        with sleep, urlopen, timeout:
-            with self.assertRaisesRegexp(
-                    Exception, 'Cannot get welcome screen at .*host.*'):
-                check_wordpress('host')
