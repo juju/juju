@@ -188,7 +188,7 @@ def bootstrap_from_env(juju_home, env):
         # partway through bootstrap.
         try:
             os.mkdir(os.path.join(juju_home, 'environments'))
-        except IOError as e:
+        except OSError as e:
             if e.errno != errno.EEXIST:
                 raise
         os.symlink(new_jenv_path, jenv_path)
