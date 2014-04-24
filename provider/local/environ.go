@@ -309,10 +309,15 @@ var unsupportedConstraints = []string{
 }
 
 // ConstraintsValidator is defined on the Environs interface.
-func (env *localEnviron) ConstraintsValidator() constraints.Validator {
+func (env *localEnviron) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported(unsupportedConstraints)
-	return validator
+	supportedArches, err := env.SupportedArchitectures()
+	if err != nil {
+		return nil, err
+	}
+	validator.RegisterVocabulary(constraints.Arch, supportedArches)
+	return validator, nil
 }
 
 // StartInstance is specified in the InstanceBroker interface.

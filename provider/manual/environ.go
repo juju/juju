@@ -273,10 +273,10 @@ var unsupportedConstraints = []string{
 }
 
 // ConstraintsValidator is defined on the Environs interface.
-func (e *manualEnviron) ConstraintsValidator() constraints.Validator {
+func (e *manualEnviron) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported(unsupportedConstraints)
-	return validator
+	return validator, nil
 }
 
 func (e *manualEnviron) OpenPorts(ports []instance.Port) error {

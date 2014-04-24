@@ -10,7 +10,6 @@ import (
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gomaasapi"
 
-	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/network"
 	envtesting "launchpad.net/juju-core/environs/testing"
@@ -243,15 +242,4 @@ func (*environSuite) TestNewCloudinitConfig(c *gc.C) {
 		"cat >> /etc/network/interfaces << EOF\n\nauto eth3.123\niface eth3.123 inet dhcp\nEOF\n",
 		"ifup eth3.123",
 	})
-}
-
-func (s *environSuite) TestConstraintsValidator(c *gc.C) {
-	cfg := getSimpleTestConfig(c, nil)
-	env, err := maas.NewEnviron(cfg)
-	c.Assert(err, gc.IsNil)
-	validator := env.ConstraintsValidator()
-	cons := constraints.MustParse("arch=amd64 cpu-power=10 instance-type=foo")
-	unsupported, err := validator.Validate(cons)
-	c.Assert(err, gc.IsNil)
-	c.Assert(unsupported, gc.DeepEquals, []string{"cpu-power", "instance-type"})
 }

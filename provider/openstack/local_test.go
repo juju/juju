@@ -677,21 +677,35 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 
 func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
 	env := s.Open(c)
-	validator := env.ConstraintsValidator()
+	validator, err := env.ConstraintsValidator()
+	c.Assert(err, gc.IsNil)
 	cons := constraints.MustParse("arch=amd64 cpu-power=10")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, gc.IsNil)
 	c.Assert(unsupported, gc.DeepEquals, []string{"cpu-power"})
 }
 
+func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
+	env := s.Open(c)
+	validator, err := env.ConstraintsValidator()
+	c.Assert(err, gc.IsNil)
+	cons := constraints.MustParse("arch=i386")
+	_, err = validator.Validate(cons)
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=i386")
+	cons = constraints.MustParse("instance-type=foo")
+	_, err = validator.Validate(cons)
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo")
+}
+
 func (s *localServerSuite) TestConstraintsMerge(c *gc.C) {
 	env := s.Open(c)
-	validator := env.ConstraintsValidator()
+	validator, err := env.ConstraintsValidator()
+	c.Assert(err, gc.IsNil)
 	consA := constraints.MustParse("arch=amd64 mem=1G root-disk=10G")
-	consB := constraints.MustParse("instance-type=foo")
+	consB := constraints.MustParse("instance-type=m1.small")
 	cons, err := validator.Merge(consA, consB)
 	c.Assert(err, gc.IsNil)
-	c.Assert(cons, gc.DeepEquals, constraints.MustParse("instance-type=foo"))
+	c.Assert(cons, gc.DeepEquals, constraints.MustParse("instance-type=m1.small"))
 }
 
 func (s *localServerSuite) TestFindImageInstanceConstraint(c *gc.C) {

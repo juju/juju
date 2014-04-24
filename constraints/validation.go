@@ -28,7 +28,7 @@ type Validator interface {
 	RegisterUnsupported(unsupported []string)
 
 	// RegisterVocabulary records allowed values for the specified constraint attribute.
-	RegisterVocabulary(attributeName string, allowedValues []interface{})
+	RegisterVocabulary(attributeName string, allowedValues interface{})
 
 	// Validate returns an error if the given constraints are not valid, and also
 	// any unsupported attributes.
@@ -69,8 +69,24 @@ func (v *validator) RegisterUnsupported(unsupported []string) {
 }
 
 // RegisterVocabulary is defined on Validator.
-func (v *validator) RegisterVocabulary(attributeName string, allowedValues []interface{}) {
-	v.vocab[attributeName] = allowedValues
+func (v *validator) RegisterVocabulary(attributeName string, allowedValues interface{}) {
+	v.vocab[attributeName] = toSlice(allowedValues)
+}
+
+// toSlice returns a slice of values constructed from v.
+func toSlice(v interface{}) []interface{} {
+	var valuesSlice []interface{}
+	k := reflect.TypeOf(v).Kind()
+	if k == reflect.Slice || k == reflect.Array {
+		v := reflect.ValueOf(v)
+		valuesSlice = make([]interface{}, v.Len())
+		for i := 0; i < v.Len(); i++ {
+			valuesSlice[i] = v.Index(i).Interface()
+		}
+	} else {
+		valuesSlice = []interface{}{v}
+	}
+	return valuesSlice
 }
 
 // checkConflicts returns an error if the constraints Value contains conflicting attributes.
@@ -127,17 +143,7 @@ func (v *validator) checkValidValue(attributeName string, attributeValue interfa
 	}
 	// If the attributeValue is a slice, we need to check that each
 	// element exists in the vocab.
-	var valuesToCheck []interface{}
-	k := reflect.TypeOf(attributeValue).Kind()
-	if k == reflect.Slice || k == reflect.Array {
-		v := reflect.ValueOf(attributeValue)
-		valuesToCheck = make([]interface{}, v.Len())
-		for i := 0; i < v.Len(); i++ {
-			valuesToCheck[i] = v.Index(i).Interface()
-		}
-	} else {
-		valuesToCheck = []interface{}{attributeValue}
-	}
+	valuesToCheck := toSlice(attributeValue)
 	for _, val := range valuesToCheck {
 		if !containsValue(val, valid) {
 			return fmt.Errorf("invalid constraint value: %v=%v", attributeName, val)

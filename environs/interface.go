@@ -115,7 +115,7 @@ type Environ interface {
 
 	// ConstraintsValidator returns a Validator instance which
 	// is used to validate and merge constraints.
-	ConstraintsValidator() constraints.Validator
+	ConstraintsValidator() (constraints.Validator, error)
 
 	// SetConfig updates the Environ's configuration.
 	//

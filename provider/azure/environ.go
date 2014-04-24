@@ -427,10 +427,20 @@ var unsupportedConstraints = []string{
 }
 
 // ConstraintsValidator is defined on the Environs interface.
-func (environ *azureEnviron) ConstraintsValidator() constraints.Validator {
+func (env *azureEnviron) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported(unsupportedConstraints)
-	return validator
+	supportedArches, err := env.SupportedArchitectures()
+	if err != nil {
+		return nil, err
+	}
+	validator.RegisterVocabulary(constraints.Arch, supportedArches)
+	instTypeNames := make([]string, len(gwacl.RoleSizes))
+	for i, role := range gwacl.RoleSizes {
+		instTypeNames[i] = role.Name
+	}
+	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
+	return validator, nil
 }
 
 // PrecheckInstance is defined on the state.Prechecker interface.

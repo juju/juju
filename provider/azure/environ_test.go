@@ -200,7 +200,7 @@ func (s *environSuite) TestSupportedArchitectures(c *gc.C) {
 	env := s.setupEnvWithDummyMetadata(c)
 	a, err := env.SupportedArchitectures()
 	c.Assert(err, gc.IsNil)
-	c.Assert(a, gc.DeepEquals, []string{"ppc64"})
+	c.Assert(a, gc.DeepEquals, []string{"amd64"})
 }
 
 func (s *environSuite) TestSupportNetworks(c *gc.C) {
@@ -1309,7 +1309,7 @@ func (s *environSuite) setupEnvWithDummyMetadata(c *gc.C) *azureEnviron {
 		{
 			Id:         "image-id",
 			VirtType:   "Hyper-V",
-			Arch:       "ppc64",
+			Arch:       "amd64",
 			RegionName: "North Europe",
 			Endpoint:   "https://management.core.windows.net/",
 		},
@@ -1520,10 +1520,23 @@ func (s *startInstanceSuite) TestStartInstanceStateServerJobs(c *gc.C) {
 }
 
 func (s *environSuite) TestConstraintsValidator(c *gc.C) {
-	env := makeEnviron(c)
-	validator := env.ConstraintsValidator()
+	env := s.setupEnvWithDummyMetadata(c)
+	validator, err := env.ConstraintsValidator()
+	c.Assert(err, gc.IsNil)
 	cons := constraints.MustParse("arch=amd64 tags=bar cpu-power=10")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, gc.IsNil)
 	c.Assert(unsupported, gc.DeepEquals, []string{"cpu-power", "tags"})
+}
+
+func (s *environSuite) TestConstraintsValidatorVocab(c *gc.C) {
+	env := s.setupEnvWithDummyMetadata(c)
+	validator, err := env.ConstraintsValidator()
+	c.Assert(err, gc.IsNil)
+	cons := constraints.MustParse("arch=ppc64")
+	_, err = validator.Validate(cons)
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64")
+	cons = constraints.MustParse("instance-type=foo")
+	_, err = validator.Validate(cons)
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo")
 }

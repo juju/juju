@@ -528,13 +528,28 @@ var unsupportedConstraints = []string{
 }
 
 // ConstraintsValidator is defined on the Environs interface.
-func (e *environ) ConstraintsValidator() constraints.Validator {
+func (e *environ) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterConflicts(
 		[]string{constraints.InstanceType},
 		[]string{constraints.Mem, constraints.Arch, constraints.RootDisk, constraints.CpuCores})
 	validator.RegisterUnsupported(unsupportedConstraints)
-	return validator
+	supportedArches, err := e.SupportedArchitectures()
+	if err != nil {
+		return nil, err
+	}
+	validator.RegisterVocabulary(constraints.Arch, supportedArches)
+	novaClient := e.nova()
+	flavors, err := novaClient.ListFlavorsDetail()
+	if err != nil {
+		return nil, err
+	}
+	instTypeNames := make([]string, len(flavors))
+	for i, flavor := range flavors {
+		instTypeNames[i] = flavor.Name
+	}
+	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
+	return validator, nil
 }
 
 // PrecheckInstance is defined on the state.Prechecker interface.
