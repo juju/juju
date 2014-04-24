@@ -4,6 +4,7 @@ __metaclass__ = type
 
 
 from argparse import ArgumentParser
+import errno
 import logging
 import os
 import random
