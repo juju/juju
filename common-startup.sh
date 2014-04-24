@@ -32,6 +32,7 @@ prepare_manual(){
     machine_0_name=$($SCRIPTS/ec2-get-name $machine_0_id)
     machine_1_name=$($SCRIPTS/ec2-get-name $machine_1_id)
     machine_2_name=$($SCRIPTS/ec2-get-name $machine_2_id)
+    export BOOTSTRAP_HOST=$machine_0_name
 
     if [ ! -d $JUJU_HOME ]; then
         mkdir $JUJU_HOME
@@ -43,7 +44,6 @@ prepare_manual(){
 environments:
   manual:
     type: manual
-    bootstrap-host: $machine_0_name
     bootstrap-user: ubuntu
     tools-metadata-url: http://juju-dist.s3.amazonaws.com/testing/tools
 EOT
