@@ -118,7 +118,7 @@ make_binary_packages() {
     lts_series=$(grep 'LTS' $SCRIPT_DIR/supported-releases.txt |
         tr ' ' : |
         cut -d : -f 1,2)
-    for series_release in lts_series; do
+    for series_release in $lts_series; do
         this_release=$(echo "$series_release" | cut -d ':' -f1)
         this_series=$(echo "$series_release" | cut -d ':' -f2)
         package_version="${VERSION}-0ubuntu1~${this_release}.${PPATCH}~juju1"
