@@ -22,10 +22,6 @@ prepare_manual(){
     machine_1_name=$(ec2-get-name $machine_1_id)
     machine_2_name=$(ec2-get-name $machine_2_id)
     rm -f $JUJU_HOME/environments/manual.jenv
-
-    for machine in $machine_0_name $machine_1_name $machine_2_name; do
-      wait-for-port $machine 22
-    done
     export BOOTSTRAP_HOST=$machine_0_name
     export MACHINES="$machine_1_name $machine_2_name"
 }

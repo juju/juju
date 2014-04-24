@@ -57,7 +57,7 @@ def prepare_environment(environment, already_bootstrapped, machines):
         env.juju('upgrade-juju', '--version', agent_version)
     env.wait_for_version(env.get_matching_agent_version())
     for machine in machines:
-        env.juju('add-machine', machine)
+        env.juju('add-machine', 'ssh:' + machine)
     return env
 
 
@@ -192,7 +192,7 @@ def deploy_job():
     logging.basicConfig(
         level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S')
-    machines = ['ssh:%s' % m for m in os.environ['MACHINES'].split()]
+    machines = os.environ['MACHINES'].split()
     environment = os.environ['ENV']
     new_path = '%s:%s' % (os.environ['NEW_JUJU_BIN'], os.environ['PATH'])
     upgrade = bool(os.environ.get('UPGRADE') == 'true')
@@ -207,6 +207,12 @@ def deploy_job():
             env.config['bootstrap-host'] = os.environ['BOOTSTRAP_HOST']
         host = env.config.get('bootstrap-host')
         env.config['agent-version'] = env.get_matching_agent_version()
+        ssh_machines = [] + machines
+        if host is not None:
+            ssh_machines.append(host)
+        for machine in ssh_machines:
+            logger.info('Waiting for port 22 on %s' % machines)
+            wait_for_port(host, 22)
         try:
             bootstrap_from_env(get_juju_home(), env)
         except:
