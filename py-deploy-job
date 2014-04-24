@@ -7,7 +7,6 @@ if [ "$ENV" = "manual" ]; then
   source $HOME/cloud-city/ec2rc
 fi
 # Do the deployment for upgrade testing.
-: ${UPGRADE=false}
 : ${JUJU_REPOSITORY=$HOME/repository}
 
 prepare_manual(){
@@ -55,4 +54,5 @@ if [ -e $jenv ]; then rm $jenv; fi
 if [ "$ENV" == "manual" ]; then
     prepare_manual
 fi
+export JUJU_REPOSITORY
 $SCRIPTS/deploy_job.py
