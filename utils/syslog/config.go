@@ -45,12 +45,32 @@ const tagOffset = len("juju-") + 1
 const stateServerRsyslogTemplate = `
 $ModLoad imfile
 
+# Messages received from remote rsyslog machines have messages prefixed with a space,
+# so add one in for local messages too if needed.
+$template JujuLogFormat{{namespace}},"%syslogtag:{{tagStart}}:$%%msg:::sp-if-no-1st-sp%%msg:::drop-last-lf%\n"
+
+$template LongTagForwardFormat,"<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %syslogtag%%msg:::sp-if-no-1st-sp%%msg%"
+
+$RuleSet local
+:syslogtag, startswith, "juju{{namespace}}-" @@{{bootstrapIP}}:{{portNumber}};LongTagForwardFormat
+$FileCreateMode 0644
+:syslogtag, startswith, "juju{{namespace}}-" {{logDir}}/all-machines.log;JujuLogFormat{{namespace}}
+& ~
+$FileCreateMode 0640
+
+$RuleSet remote
+$FileCreateMode 0644
+:syslogtag, startswith, "juju{{namespace}}-" {{logDir}}/all-machines.log;JujuLogFormat{{namespace}}
+& ~
+$FileCreateMode 0640
+
 $InputFilePersistStateInterval 50
 $InputFilePollInterval 5
 $InputFileName {{logfilePath}}
 $InputFileTag juju{{namespace}}-{{logfileName}}:
 $InputFileStateFile {{logfileName}}{{namespace}}
 $InputRunFileMonitor
+$DefaultRuleset local
 
 $ModLoad imtcp
 $DefaultNetstreamDriver gtls
@@ -59,16 +79,9 @@ $DefaultNetstreamDriverCertFile {{tlsCertPath}}
 $DefaultNetstreamDriverKeyFile {{tlsKeyPath}}
 $InputTCPServerStreamDriverAuthMode anon
 $InputTCPServerStreamDriverMode 1 # run driver in TLS-only mode
+
+$InputTCPServerBindRuleset remote
 $InputTCPServerRun {{portNumber}}
-
-# Messages received from remote rsyslog machines have messages prefixed with a space,
-# so add one in for local messages too if needed.
-$template JujuLogFormat{{namespace}},"%syslogtag:{{tagStart}}:$%%msg:::sp-if-no-1st-sp%%msg:::drop-last-lf%\n"
-
-$FileCreateMode 0644
-:syslogtag, startswith, "juju{{namespace}}-" {{logDir}}/all-machines.log;JujuLogFormat{{namespace}}
-& ~
-$FileCreateMode 0640
 `
 
 // The rsyslog conf for non-state server nodes.
@@ -207,7 +220,12 @@ func (slConfig *SyslogConfig) ServerKeyPath() string {
 func (slConfig *SyslogConfig) Render() ([]byte, error) {
 	// TODO: for HA, we will want to send to all state server addresses (maybe).
 	var bootstrapIP = func() string {
-		addr := slConfig.StateServerAddresses[0]
+		var addr string
+		if len(slConfig.StateServerAddresses) > 0 {
+			addr = slConfig.StateServerAddresses[0]
+		} else {
+			addr = "foo:80"
+		}
 		parts := strings.Split(addr, ":")
 		return parts[0]
 	}
