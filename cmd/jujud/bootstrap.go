@@ -127,9 +127,10 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	logger.Infof("started mongo")
 	// Initialise state, and store any agent config (e.g. password) changes.
 	var st *state.State
+	var m *state.Machine
 	err = nil
 	writeErr := c.ChangeConfig(func(agentConfig agent.ConfigSetter) {
-		st, _, err = agent.InitializeState(
+		st, m, err = agent.InitializeState(
 			agentConfig,
 			envCfg,
 			agent.BootstrapMachineConfig{
@@ -150,6 +151,8 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+	// bootstrap machine always gets the vote
+	m.SetHasVote(true)
 	st.Close()
 	return nil
 }

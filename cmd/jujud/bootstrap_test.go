@@ -328,6 +328,10 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	st, err = state.Open(stateinfo, state.DialOpts{}, environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
+
+	m, err := st.Machine("0")
+	c.Assert(err, gc.IsNil)
+	c.Assert(m.HasVote(), jc.IsTrue)
 }
 
 var bootstrapArgTests = []struct {
