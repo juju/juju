@@ -8,6 +8,7 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/imagemetadata"
+	"launchpad.net/juju-core/juju/arch"
 )
 
 // InstanceConstraint constrains the possible instances that may be
@@ -78,12 +79,17 @@ func FindInstanceSpec(possibleImages []Image, ic *InstanceConstraint, allInstanc
 		return nil, fmt.Errorf("no instance types found matching constraint: %s", ic)
 	}
 
+	specs := []*InstanceSpec{}
 	for _, itype := range matchingTypes {
 		for _, image := range possibleImages {
 			if image.match(itype) {
-				return &InstanceSpec{itype, image}, nil
+				specs = append(specs, &InstanceSpec{itype, image})
 			}
 		}
+	}
+
+	if spec := preferredSpec(specs); spec != nil {
+		return spec, nil
 	}
 
 	names := make([]string, len(matchingTypes))
@@ -91,6 +97,23 @@ func FindInstanceSpec(possibleImages []Image, ic *InstanceConstraint, allInstanc
 		names[i] = itype.Name
 	}
 	return nil, fmt.Errorf("no %q images in %s matching instance types %v", ic.Series, ic.Region, names)
+}
+
+// preferredSpec will if possible return a spec with arch matching that
+// of the host machine.
+func preferredSpec(specs []*InstanceSpec) *InstanceSpec {
+	if len(specs) > 1 {
+		hostArch := arch.HostArch()
+		for _, spec := range specs {
+			if spec.Image.Arch == hostArch {
+				return spec
+			}
+		}
+	}
+	if len(specs) > 0 {
+		return specs[0]
+	}
+	return nil
 }
 
 // Image holds the attributes that vary amongst relevant images for
