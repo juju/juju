@@ -37,6 +37,9 @@ var initErrorTests = []struct {
 		args: nil,
 		err:  `no charm specified`,
 	}, {
+		args: []string{"charm-name", "service-name", "hotdog"},
+		err:  `unrecognized args: \["hotdog"\]`,
+	}, {
 		args: []string{"craz~ness"},
 		err:  `invalid charm name "craz~ness"`,
 	}, {

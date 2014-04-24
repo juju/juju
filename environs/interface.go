@@ -65,6 +65,17 @@ type ConfigGetter interface {
 	Config() *config.Config
 }
 
+// BootstrapParams holds the parameters for bootstrapping an environment.
+type BootstrapParams struct {
+	// Constraints are used to choose the initial instance specification,
+	// and will be stored in the new environment's state.
+	Constraints constraints.Value
+
+	// Placement, if non-empty, holds an environment-specific placement
+	// directive used to choose the initial instance.
+	Placement string
+}
+
 // An Environ represents a juju environment as specified
 // in the environments.yaml file.
 //
@@ -91,13 +102,10 @@ type Environ interface {
 	// environment via the juju package, the password hash will be
 	// automatically replaced by the real password.
 	//
-	// The supplied constraints are used to choose the initial instance
-	// specification, and will be stored in the new environment's state.
-	//
 	// Bootstrap is responsible for selecting the appropriate tools,
 	// and setting the agent-version configuration attribute prior to
 	// bootstrapping the environment.
-	Bootstrap(ctx BootstrapContext, cons constraints.Value) error
+	Bootstrap(ctx BootstrapContext, params BootstrapParams) error
 
 	// StateInfo returns information on the state initialized
 	// by Bootstrap.

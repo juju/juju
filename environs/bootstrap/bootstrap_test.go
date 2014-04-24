@@ -70,20 +70,20 @@ func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *gc.C) {
 		env.cfg = cfg
 	}
 
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "environment configuration has no admin-secret")
 
 	fixEnv("admin-secret", "whatever")
-	err = bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "environment configuration has no ca-cert")
 
 	fixEnv("ca-cert", coretesting.CACert)
-	err = bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "environment configuration has no ca-private-key")
 
 	fixEnv("ca-private-key", coretesting.CAKey)
 	uploadTools(c, env)
-	err = bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 }
 
@@ -96,20 +96,30 @@ func uploadTools(c *gc.C, env environs.Environ) {
 func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
-	c.Assert(env.constraints, gc.DeepEquals, constraints.Value{})
+	c.Assert(env.args, gc.DeepEquals, environs.BootstrapParams{})
 }
 
 func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
 	cons := constraints.MustParse("cpu-cores=2 mem=4G")
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, cons)
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{Constraints: cons})
 	c.Assert(err, gc.IsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
-	c.Assert(env.constraints, gc.DeepEquals, cons)
+	c.Assert(env.args.Constraints, gc.DeepEquals, cons)
+}
+
+func (s *bootstrapSuite) TestBootstrapSpecifiedPlacement(c *gc.C) {
+	env := newEnviron("foo", useDefaultKeys, nil)
+	s.setDummyStorage(c, env)
+	placement := "directive"
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{Placement: placement})
+	c.Assert(err, gc.IsNil)
+	c.Assert(env.bootstrapCount, gc.Equals, 1)
+	c.Assert(env.args.Placement, gc.DeepEquals, placement)
 }
 
 var bootstrapSetAgentVersionTests = []envtesting.BootstrapToolsTest{
@@ -179,7 +189,7 @@ func (s *bootstrapSuite) TestBootstrapTools(c *gc.C) {
 		if test.Arch != "" {
 			cons = constraints.MustParse("arch=" + test.Arch)
 		}
-		err = bootstrap.Bootstrap(coretesting.Context(c), env, cons)
+		err = bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{Constraints: cons})
 		if test.Err != "" {
 			c.Check(err, gc.NotNil)
 			if err != nil {
@@ -206,7 +216,7 @@ func (s *bootstrapSuite) TestBootstrapNoTools(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
 	envtesting.RemoveFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	// bootstrap.Bootstrap leaves it to the provider to
 	// locate bootstrap tools.
 	c.Assert(err, gc.IsNil)
@@ -479,7 +489,7 @@ type bootstrapEnviron struct {
 
 	// The following fields are filled in when Bootstrap is called.
 	bootstrapCount int
-	constraints    constraints.Value
+	args           environs.BootstrapParams
 	storage        storage.Storage
 }
 
@@ -525,9 +535,9 @@ func (e *bootstrapEnviron) Name() string {
 	return e.name
 }
 
-func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
+func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) error {
 	e.bootstrapCount++
-	e.constraints = cons
+	e.args = args
 	return nil
 }
 

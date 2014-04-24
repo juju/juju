@@ -10,7 +10,6 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cert"
-	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
@@ -41,7 +40,7 @@ func (*OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	env, err := environs.Prepare(cfg, ctx, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err = bootstrap.Bootstrap(ctx, env, constraints.Value{})
+	err = bootstrap.Bootstrap(ctx, env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 }
 
