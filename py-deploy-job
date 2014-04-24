@@ -1,5 +1,6 @@
 #!/bin/bash
 set -eu
+: ${SCRIPTS=$(readlink -f $(dirname $0))}
 # For most jobs, this is localhost, so provide it.
 : ${LOCAL_JENKINS_URL=http://localhost:8080}
 export JUJU_HOME=$HOME/cloud-city
@@ -19,14 +20,12 @@ prepare_manual(){
     machine_0_name=$($SCRIPTS/ec2-get-name $machine_0_id)
     machine_1_name=$($SCRIPTS/ec2-get-name $machine_1_id)
     machine_2_name=$($SCRIPTS/ec2-get-name $machine_2_id)
-    export BOOTSTRAP_HOST=$machine_0_name
-
     rm -f $JUJU_HOME/environments/manual.jenv
 
     for machine in $machine_0_name $machine_1_name $machine_2_name; do
       $SCRIPTS/wait-for-port $machine 22
     done
-    DEPLOY_ARGS="--machine ssh:$machine_1_name --machine ssh:$machine_2_name"
+    export BOOTSTRAP_HOST=$machine_0_name
     export MACHINES="$machine_1_name $machine_2_name"
 }
 
