@@ -324,7 +324,8 @@ var bootstrapTests = []bootstrapTest{{
 	uploads: []string{
 		"1.2.3.1-saucy-amd64",  // from version.Current
 		"1.2.3.1-raring-amd64", // from env.Config().DefaultSeries()
-		"1.2.3.1-%LTS%-amd64",  // from environs/config.DefaultSeries
+		"1.2.3.1-precise-amd64",
+		"1.2.3.1-trusty-amd64",
 	},
 }, {
 	info:     "--upload-tools uses arch from constraint if it matches current version",
@@ -334,7 +335,8 @@ var bootstrapTests = []bootstrapTest{{
 	uploads: []string{
 		"1.3.3.1-saucy-ppc64",  // from version.Current
 		"1.3.3.1-raring-ppc64", // from env.Config().DefaultSeries()
-		"1.3.3.1-%LTS%-ppc64",  // from environs/config.DefaultSeries
+		"1.3.3.1-precise-ppc64",
+		"1.3.3.1-trusty-ppc64",
 	},
 	constraints: constraints.MustParse("arch=ppc64"),
 }, {
@@ -343,7 +345,8 @@ var bootstrapTests = []bootstrapTest{{
 	args:    []string{"--upload-tools"},
 	uploads: []string{
 		"1.2.3.1-raring-amd64",
-		"1.2.3.1-%LTS%-amd64",
+		"1.2.3.1-precise-amd64",
+		"1.2.3.1-trusty-amd64",
 	},
 }, {
 	info:    "--upload-tools rejects invalid series",
@@ -368,7 +371,8 @@ var bootstrapTests = []bootstrapTest{{
 	args:    []string{"--upload-tools"},
 	uploads: []string{
 		"1.2.3.5-raring-amd64",
-		"1.2.3.5-%LTS%-amd64",
+		"1.2.3.5-precise-amd64",
+		"1.2.3.5-trusty-amd64",
 	},
 }, {
 	info:      "placement",
@@ -551,13 +555,14 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	urls := list.URLs()
 
 	// We expect:
-	//     latest LTS,
+	//     supported LTS series precise, trusty,
 	//     the specified series (quantal),
 	//     and the environment's default series (raring).
 	expectedVers := []version.Binary{
 		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", "quantal", version.Current.Arch)),
 		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", "raring", version.Current.Arch)),
-		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", version.Current.Series, version.Current.Arch)),
+		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", "precise", version.Current.Arch)),
+		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", "trusty", version.Current.Arch)),
 	}
 	c.Assert(urls, gc.HasLen, len(expectedVers))
 	for _, vers := range expectedVers {
