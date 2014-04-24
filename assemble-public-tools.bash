@@ -127,7 +127,8 @@ get_version() {
 get_series() {
     # Defines $series.
     control_version=$1
-    ubuntu_devel=$(tail -1 $SCRIPT_DIR/supported-releases.txt | cut -d ' ' -f 1)
+    ubuntu_devel=$(grep DEVEL $SCRIPT_DIR/supported-releases.txt |
+        cut -d ' ' -f 1)
     pkg_series=$(basename "$control_version" ~juju1 |
         cut -d '-' -f 2 |
         sed -r "s/(^[0-9]ubuntu[0-9])$/\1~$ubuntu_devel/;" |
