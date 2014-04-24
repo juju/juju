@@ -9,6 +9,7 @@ import os
 import random
 import re
 import string
+import shutil
 import subprocess
 import sys
 import yaml
@@ -191,7 +192,8 @@ def bootstrap_from_env(juju_home, env):
             os.environ['JUJU_HOME'] = temp_juju_home
             env.bootstrap()
         # replace symlink with file before deleting temp home.
-        os.rename(new_jenv_path, jenv_path)
+        os.unlink(jenv_path)
+        shutil.move(new_jenv_path, jenv_path)
 
 
 def deploy_job():
