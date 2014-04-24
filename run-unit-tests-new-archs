@@ -37,7 +37,7 @@ fi
 afact='lastSuccessfulBuild/artifact'
 wget -q $LOCAL_JENKINS_URL/job/build-revision/$afact/buildvars.bash
 source buildvars.bash
-echo "Testing $BRANCH $REVNO on $ENV"
+echo "Testing $BRANCH $REVNO"
 
 tarfile_path=$(find $HOME/jobs/build-revision/lastStable/archive/ -name juju-core*.tar.gz)
 tarfile=$(basename $tarfile_path)
