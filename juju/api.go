@@ -260,7 +260,7 @@ func apiConfigConnect(info configstore.EnvironInfo, envs *environs.Environs, env
 	if info != nil && len(info.BootstrapConfig()) > 0 {
 		cfg, err = config.New(config.NoDefaults, info.BootstrapConfig())
 		if err != nil {
-			logger.Debugf("failed to parse BootstrapConfig(): %v", err)
+			logger.Warningf("failed to parse bootstrap-config: %v", err)
 			return apiState{}, err
 		}
 	} else if envs != nil {
