@@ -311,13 +311,13 @@ func (m *badBootstrapInfo) BootstrapConfig() map[string]interface{} {
 }
 
 func (s *NewAPIClientSuite) TestBadConfigDoesntPanic(c *gc.C) {
-	stop := make(chan struct{})
 	badInfo := &badBootstrapInfo{}
-	_, err := juju.APIConfigConnect(badInfo, nil, "test", stop, 0)
+	cfg, err := juju.GetConfig(badInfo, nil, "test")
 	// The specific error we get depends on what key is invalid, which is a
 	// bit spurious, but what we care about is that we didn't get a panic,
 	// but instead got an error
 	c.Assert(err, gc.ErrorMatches, ".*expected.*got nothing")
+	c.Assert(cfg, gc.IsNil)
 }
 
 func setEndpointAddress(c *gc.C, store configstore.Storage, envName string, addr string) {
