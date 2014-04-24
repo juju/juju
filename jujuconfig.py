@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+import argparse
+import errno
 import os
 import re
 import subprocess
@@ -40,6 +42,13 @@ def get_environments_path(juju_home):
 def get_environments():
     """Return the environments for juju."""
     home = get_juju_home()
+    single_name = os.path.join(home, 'environments', environment + '.jenv')
+    try:
+        with open(single_name) as env:
+            return yaml.safe_load(env)['bootstrap-config']
+    except IOError as e:
+        if e.errno != errno.ENOENT:
+            raise
     with open(get_environments_path(home)) as env:
         return yaml.safe_load(env)['environments']
 
@@ -47,13 +56,42 @@ def get_environments():
 def default_env():
     """Determine Juju's default environment."""
     output = subprocess.check_output(['juju', 'switch'])
-    return re.search('\"(.*)\"', output).group(1)
+    match = re.search('\"(.*)\"', output)
+    if match is None:
+        return output.rstrip('\n')
+    return match.group(1)
 
 
 def translate_to_env(current_env):
     """Translate openstack settings to environment variables."""
+    if current_env['type'] != 'openstack':
+        raise Exception('Not an openstack environment. (type: %s)' %
+                        current_env['type'])
     # Region doesn't follow the mapping for other vars.
     new_environ = {'OS_REGION_NAME': current_env['region']}
     for key in ['username', 'password', 'tenant-name', 'auth-url']:
         new_environ['OS_' + key.upper().replace('-', '_')] = current_env[key]
+    return new_environ
+
+def get_euca_env(current_env):
+    """Translate openstack settings to environment variables."""
+    # Region doesn't follow the mapping for other vars.
+    new_environ = {
+        'EC2_URL': 'https://%s.ec2.amazonaws.com' % current_env['region']}
+    for key in ['access-key', 'secret-key']:
+        new_environ['EC2_' + key.upper().replace('-', '_')] = current_env[key]
+    return new_environ
+
+def get_awscli_env(current_env):
+    """Translate openstack settings to environment variables."""
+    # Region doesn't follow the mapping for other vars.
+    new_environ = {
+        'AWS_ACCESS_KEY_ID': 'access-key',
+        'AWS_SECRET_ACCESS_KEY': 'secret-key',
+        'AWS_DEFAULT_REGION': 'region'
+    }
+    for key, value in new_environ.items():
+        if value not in current_env:
+            del new_environ[key]
+        new_environ[key] = current_env[value]
     return new_environ
