@@ -12,7 +12,10 @@ import subprocess
 import sys
 import yaml
 
-from jujuconfig import get_environments_path
+from jujuconfig import (
+    get_environments_path,
+    get_jenv_path,
+)
 from jujupy import (
     check_wordpress,
     Environment,
