@@ -165,10 +165,6 @@ def get_job_instances(job_name):
             yield match.group(1)
 
 
-def get_jenv_path(juju_home, name):
-    return os.path.join(juju_home, 'environments', '%s.jenv' % name)
-
-
 def bootstrap_from_env(juju_home, env):
     new_config = {'environments': {env.environment: env.config}}
     jenv_path = get_jenv_path(juju_home, env.environment)
