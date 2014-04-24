@@ -10,8 +10,8 @@ SCRIPT_DIR=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd )
 
 DEFAULT_JUJUDB_PACKAGING_BRANCH="lp:~juju-qa/juju-core/devel-packaging"
 DEFAULT_MONGODB_PACKAGING_BRANCH="lp:~juju-qa/juju-core/devel-mongodb-packaging"
-TESTING_SERIES="trusty"
-EXTRA_RELEASES="saucy:13.10 precise:12.04"
+TESTING_SERIES="utopic"
+EXTRA_RELEASES="trusty:14.04 precise:12.04"
 
 
 usage() {
@@ -39,10 +39,11 @@ check_deps() {
 
 make_source_package_branch() {
     echo "Phase 1: Updating the source package branch."
-    if [[ $SERIES == "trusty" ]]; then
-        PACKAGING_BRANCH=$DEFAULT_JUJUDB_PACKAGING_BRANCH
-    else
+    if [[ $SERIES == "saucy" || $SERIES == "precise" ]]; then
         PACKAGING_BRANCH=$DEFAULT_MONGODB_PACKAGING_BRANCH
+        
+    else
+        PACKAGING_BRANCH=$DEFAULT_JUJUDB_PACKAGING_BRANCH
     fi
     echo "Using $PACKAGING_BRANCH"
     bzr branch $PACKAGING_BRANCH $PACKAGING_DIR

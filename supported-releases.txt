@@ -3,4 +3,4 @@
 12.10 quantal
 13.10 saucy
 14.04 trusty
-14.10 u-series
+14.10 utopic
