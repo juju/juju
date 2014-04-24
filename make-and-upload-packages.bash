@@ -59,7 +59,8 @@ shift; shift; shift
 FIXED_BUGS=$@
 
 summary="The source package can be uploaded:"
-supported_series=$(grep -E 'DEVEL|LTS|SUPPORTED' supported-releases.txt |
+supported_series=$(grep -E 'DEVEL|LTS|SUPPORTED' \
+    $SCRIPT_DIR/supported-releases.txt |
     cut -d ' ' -f 2)
 for series in $supported_series; do
     source $SCRIPT_DIR/make-package-with-tarball.bash \

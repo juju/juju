@@ -115,7 +115,9 @@ update_source_package_branch() {
 make_binary_packages() {
     make_binary_package $UBUNTU_VERSION $SERIES
     # Make extra packages for supported series.
-    lts_series=$(grep 'LTS' supported-releases.txt | tr ' ' : | cut -d : -f 1,2)
+    lts_series=$(grep 'LTS' $SCRIPT_DIR/supported-releases.txt |
+        tr ' ' : |
+        cut -d : -f 1,2)
     for series_release in lts_series; do
         this_release=$(echo "$series_release" | cut -d ':' -f1)
         this_series=$(echo "$series_release" | cut -d ':' -f2)
