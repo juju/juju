@@ -93,6 +93,10 @@ make_binary_package() {
     echo "Made $new_package"
     ln -s $new_package ${TMP_DIR}/new-${package_series}.deb
     echo "linked $new_package to ${TMP_DIR}/new-${package_series}.deb"
+    new_local_package=$(ls ${TMP_DIR}/juju-local_${package_version}*.deb)
+    echo "Made $new_local_package"
+    ln -s $new_local_package ${TMP_DIR}/new-local-${package_series}.deb
+    echo "linked $new_local_package to ${TMP_DIR}/new-local-${package_series}.deb"
     cd $HERE
 }
 
