@@ -10,8 +10,6 @@ SCRIPT_DIR=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd )
 
 DEFAULT_JUJUDB_PACKAGING_BRANCH="lp:~juju-qa/juju-core/devel-packaging"
 DEFAULT_MONGODB_PACKAGING_BRANCH="lp:~juju-qa/juju-core/devel-mongodb-packaging"
-TESTING_SERIES="utopic"
-EXTRA_RELEASES="trusty:14.04 precise:12.04"
 
 
 usage() {
@@ -160,7 +158,7 @@ check_deps
 VERSION=$(basename $TARBALL .tar.gz | cut -d '_' -f2)
 if [[ $SERIES == "testing" ]]; then
     PURPOSE="testing"
-    SERIES=$TESTING_SERIES
+    SERIES=$(grep DEVEL $SCRIPT_DIR/supported-releases.txt | cut -d ' ' -f 2)
 elif [[ $VERSION =~ ^1.(18|20|22).*$ ]]; then
     PURPOSE="stable"
 else
