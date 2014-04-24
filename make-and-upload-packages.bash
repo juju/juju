@@ -59,7 +59,9 @@ shift; shift; shift
 FIXED_BUGS=$@
 
 summary="The source package can be uploaded:"
-for series in "utopic" "trusty" "saucy" "precise"; do
+supported_series=$(grep -E 'DEVEL|LTS|SUPPORTED' supported-releases.txt |
+    cut -d ' ' -f 2)
+for series in $supported_series; do
     source $SCRIPT_DIR/make-package-with-tarball.bash \
         -p $PPATCH $series $TARBALL "$DEBEMAIL" $FIXED_BUGS
     summary="$summary\n  cd $TMP_DIR"
