@@ -300,6 +300,26 @@ func (s *NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 	}
 }
 
+type badBootstrapInfo struct {
+	configstore.EnvironInfo
+}
+
+// BootstrapConfig is returned as a map with real content, but the content
+// isn't actually valid configuration, causing config.New to fail
+func (m *badBootstrapInfo) BootstrapConfig() map[string]interface{} {
+	return map[string]interface{}{"something": "else"}
+}
+
+func (s *NewAPIClientSuite) TestBadConfigDoesntPanic(c *gc.C) {
+	badInfo := &badBootstrapInfo{}
+	cfg, err := juju.GetConfig(badInfo, nil, "test")
+	// The specific error we get depends on what key is invalid, which is a
+	// bit spurious, but what we care about is that we didn't get a panic,
+	// but instead got an error
+	c.Assert(err, gc.ErrorMatches, ".*expected.*got nothing")
+	c.Assert(cfg, gc.IsNil)
+}
+
 func setEndpointAddress(c *gc.C, store configstore.Storage, envName string, addr string) {
 	// Populate the environment's info with an endpoint
 	// with a known address.

@@ -179,7 +179,11 @@ func newAPIFromStore(envName string, store configstore.Storage) (*api.State, err
 		logger.Debugf("no cached API connection settings found")
 	}
 	try.Start(func(stop <-chan struct{}) (io.Closer, error) {
-		return apiConfigConnect(info, envs, envName, stop, delay)
+		cfg, err := getConfig(info, envs, envName)
+		if err != nil {
+			return nil, err
+		}
+		return apiConfigConnect(cfg, stop, delay)
 	})
 	try.Close()
 	val0, err := try.Result()
@@ -254,19 +258,7 @@ func apiInfoConnect(store configstore.Storage, info configstore.EnvironInfo, sto
 // its endpoint. It only starts the attempt after the given delay,
 // to allow the faster apiInfoConnect to hopefully succeed first.
 // It returns nil if there was no configuration information found.
-func apiConfigConnect(info configstore.EnvironInfo, envs *environs.Environs, envName string, stop <-chan struct{}, delay time.Duration) (apiState, error) {
-	var cfg *config.Config
-	var err error
-	if info != nil && len(info.BootstrapConfig()) > 0 {
-		cfg, err = config.New(config.NoDefaults, info.BootstrapConfig())
-	} else if envs != nil {
-		cfg, err = envs.Config(envName)
-		if errors.IsNotFoundError(err) {
-			return apiState{}, err
-		}
-	} else {
-		return apiState{}, errors.NotFoundf("environment %q", envName)
-	}
+func apiConfigConnect(cfg *config.Config, stop <-chan struct{}, delay time.Duration) (apiState, error) {
 	select {
 	case <-time.After(delay):
 	case <-stop:
@@ -286,6 +278,25 @@ func apiConfigConnect(info configstore.EnvironInfo, envs *environs.Environs, env
 		return apiState{}, err
 	}
 	return apiState{st, apiInfo}, nil
+}
+
+// getConfig looks for configuration info on the given environment
+func getConfig(info configstore.EnvironInfo, envs *environs.Environs, envName string) (*config.Config, error) {
+	if info != nil && len(info.BootstrapConfig()) > 0 {
+		cfg, err := config.New(config.NoDefaults, info.BootstrapConfig())
+		if err != nil {
+			logger.Warningf("failed to parse bootstrap-config: %v", err)
+		}
+		return cfg, err
+	}
+	if envs != nil {
+		cfg, err := envs.Config(envName)
+		if err != nil && !errors.IsNotFoundError(err) {
+			logger.Warningf("failed to get config for environment %q: %v", envName, err)
+		}
+		return cfg, err
+	}
+	return nil, errors.NotFoundf("environment %q", envName)
 }
 
 func environAPIInfo(environ environs.Environ) (*api.Info, error) {
