@@ -105,7 +105,9 @@ def deploy_dummy_stack(env, charm_prefix):
     get_token="""
         for x in $(seq 30); do
           if [ -f /var/run/dummy-sink/token ]; then
-            break
+            if [ "$(cat /var/run/dummy-sink/token)" != "" ]; then
+              break
+            fi
           fi
           sleep 1
         done
