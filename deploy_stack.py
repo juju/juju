@@ -212,7 +212,7 @@ def deploy_job():
             ssh_machines.append(host)
         for machine in ssh_machines:
             logging.info('Waiting for port 22 on %s' % machine)
-            wait_for_port(host, 22)
+            wait_for_port(host, 22, timeout=120)
         try:
             bootstrap_from_env(get_juju_home(), env)
         except:
