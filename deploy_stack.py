@@ -186,6 +186,11 @@ def bootstrap_from_env(juju_home, env):
         # Create a symlink to allow access while bootstrapping, and to reduce
         # races.  Can't use a hard link because jenv doesn't exist until
         # partway through bootstrap.
+        try:
+            os.mkdir(os.path.join(juju_home, 'environments'))
+        except IOError as e:
+            if e.errno != errno.EEXIST:
+                raise
         os.symlink(new_jenv_path, jenv_path)
         temp_environments = get_environments_path(temp_juju_home)
         with open(temp_environments, 'w') as config_file:
