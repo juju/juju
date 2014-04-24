@@ -134,33 +134,33 @@ func (s *ec2storage) ResetMadeBucket() {
 
 var TestImagesData = map[string]string{
 	"/streams/v1/index.json": `
-		{
-		 "index": {
-		  "com.ubuntu.cloud:released": {
-		   "updated": "Wed, 01 May 2013 13:31:26 +0000",
-		   "clouds": [
-			{
-			 "region": "test",
-			 "endpoint": "https://ec2.endpoint.com"
-			}
-		   ],
-		   "cloudname": "aws",
-		   "datatype": "image-ids",
-		   "format": "products:1.0",
-		   "products": [
-			"com.ubuntu.cloud:server:12.04:amd64",
-			"com.ubuntu.cloud:server:12.04:i386",
-			"com.ubuntu.cloud:server:12.04:amd64",
-			"com.ubuntu.cloud:server:12.10:amd64",
-			"com.ubuntu.cloud:server:12.10:i386",
-			"com.ubuntu.cloud:server:13.04:i386"
-		   ],
-		   "path": "streams/v1/com.ubuntu.cloud:released:aws.js"
-		  }
-		 },
-		 "updated": "Wed, 01 May 2013 13:31:26 +0000",
-		 "format": "index:1.0"
-		}
+        {
+         "index": {
+          "com.ubuntu.cloud:released": {
+           "updated": "Wed, 01 May 2013 13:31:26 +0000",
+           "clouds": [
+            {
+             "region": "test",
+             "endpoint": "https://ec2.endpoint.com"
+            }
+           ],
+           "cloudname": "aws",
+           "datatype": "image-ids",
+           "format": "products:1.0",
+           "products": [
+            "com.ubuntu.cloud:server:12.04:amd64",
+            "com.ubuntu.cloud:server:12.04:i386",
+            "com.ubuntu.cloud:server:12.04:amd64",
+            "com.ubuntu.cloud:server:12.10:amd64",
+            "com.ubuntu.cloud:server:12.10:i386",
+            "com.ubuntu.cloud:server:13.04:i386"
+           ],
+           "path": "streams/v1/com.ubuntu.cloud:released:aws.js"
+          }
+         },
+         "updated": "Wed, 01 May 2013 13:31:26 +0000",
+         "format": "index:1.0"
+        }
 `,
 	"/streams/v1/com.ubuntu.cloud:released:aws.js": `
 {
@@ -341,7 +341,6 @@ var TestInstanceTypeCosts = instanceTypeCost{
 	"t1.micro":    20,
 	"c1.medium":   145,
 	"c1.xlarge":   580,
-	"cc1.4xlarge": 1300,
 	"cc2.8xlarge": 2400,
 }
 
