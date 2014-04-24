@@ -256,14 +256,15 @@ func apiInfoConnect(store configstore.Storage, info configstore.EnvironInfo, sto
 // It returns nil if there was no configuration information found.
 func apiConfigConnect(info configstore.EnvironInfo, envs *environs.Environs, envName string, stop <-chan struct{}, delay time.Duration) (apiState, error) {
 	var cfg *config.Config
-	var err error
 	if info != nil && len(info.BootstrapConfig()) > 0 {
+		var err error
 		cfg, err = config.New(config.NoDefaults, info.BootstrapConfig())
 		if err != nil {
 			logger.Warningf("failed to parse bootstrap-config: %v", err)
 			return apiState{}, err
 		}
 	} else if envs != nil {
+		var err error
 		cfg, err = envs.Config(envName)
 		if errors.IsNotFoundError(err) {
 			return apiState{}, err
