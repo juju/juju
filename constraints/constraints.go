@@ -221,17 +221,10 @@ func (v *Value) attributesWithValues() (result map[string]interface{}) {
 // hasAny returns any attrTags for which the constraint has a non-nil value.
 func (v *Value) hasAny(attrTags ...string) []string {
 	attrValues := v.attributesWithValues()
-	containsFunc := func(values map[string]interface{}, value string) bool {
-		for attrTag := range values {
-			if attrTag == value {
-				return true
-			}
-		}
-		return false
-	}
 	var result []string = []string{}
 	for _, tag := range attrTags {
-		if containsFunc(attrValues, tag) {
+		_, ok := attrValues[tag]
+		if ok {
 			result = append(result, tag)
 		}
 	}

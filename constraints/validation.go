@@ -5,6 +5,7 @@ package constraints
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 
 	"launchpad.net/juju-core/utils/set"
@@ -28,6 +29,8 @@ type Validator interface {
 	RegisterUnsupported(unsupported []string)
 
 	// RegisterVocabulary records allowed values for the specified constraint attribute.
+	// allowedValues is expected to be a slice/array but is declared as interface{} so
+	// that vocabs of different types can be passed in.
 	RegisterVocabulary(attributeName string, allowedValues interface{})
 
 	// Validate returns an error if the given constraints are not valid, and also
@@ -70,23 +73,17 @@ func (v *validator) RegisterUnsupported(unsupported []string) {
 
 // RegisterVocabulary is defined on Validator.
 func (v *validator) RegisterVocabulary(attributeName string, allowedValues interface{}) {
-	v.vocab[attributeName] = toSlice(allowedValues)
-}
-
-// toSlice returns a slice of values constructed from v.
-func toSlice(v interface{}) []interface{} {
-	var valuesSlice []interface{}
-	k := reflect.TypeOf(v).Kind()
-	if k == reflect.Slice || k == reflect.Array {
-		v := reflect.ValueOf(v)
-		valuesSlice = make([]interface{}, v.Len())
-		for i := 0; i < v.Len(); i++ {
-			valuesSlice[i] = v.Index(i).Interface()
-		}
-	} else {
-		valuesSlice = []interface{}{v}
+	k := reflect.TypeOf(allowedValues).Kind()
+	if k != reflect.Slice && k != reflect.Array {
+		panic(fmt.Errorf("invalid vocab: %v of type %T is not a slice", allowedValues, allowedValues))
 	}
-	return valuesSlice
+	// Convert the vocab to a slice of interface{}
+	var allowedSlice []interface{}
+	val := reflect.ValueOf(allowedValues)
+	for i := 0; i < val.Len(); i++ {
+		allowedSlice = append(allowedSlice, val.Index(i).Interface())
+	}
+	v.vocab[attributeName] = allowedSlice
 }
 
 // checkConflicts returns an error if the constraints Value contains conflicting attributes.
@@ -119,37 +116,38 @@ func (v *validator) checkUnsupported(cons Value) []string {
 // which is not allowed by the vocab which may have been registered for it.
 func (v *validator) checkValidValues(cons Value) error {
 	for attrTag, attrValue := range cons.attributesWithValues() {
-		if err := v.checkValidValue(attrTag, attrValue); err != nil {
-			return err
+		k := reflect.TypeOf(attrValue).Kind()
+		if k == reflect.Slice || k == reflect.Array {
+			// For slices we check that all values are valid.
+			val := reflect.ValueOf(attrValue)
+			for i := 0; i < val.Len(); i++ {
+				if err := v.checkInVocab(attrTag, val.Index(i).Interface()); err != nil {
+					return err
+				}
+			}
+		} else {
+			if err := v.checkInVocab(attrTag, attrValue); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
 }
 
-// checkValidValue returns an error if the attribute value is not allowed by the
+// checkInVocab returns an error if the attribute value is not allowed by the
 // vocab which may have been registered for it.
-func (v *validator) checkValidValue(attributeName string, attributeValue interface{}) error {
-	valid, ok := v.vocab[attributeName]
+func (v *validator) checkInVocab(attributeName string, attributeValue interface{}) error {
+	validValues, ok := v.vocab[attributeName]
 	if !ok {
 		return nil
 	}
-	containsValue := func(val interface{}, valid []interface{}) bool {
-		for _, validValue := range valid {
-			if coerce(validValue) == coerce(val) {
-				return true
-			}
-		}
-		return false
-	}
-	// If the attributeValue is a slice, we need to check that each
-	// element exists in the vocab.
-	valuesToCheck := toSlice(attributeValue)
-	for _, val := range valuesToCheck {
-		if !containsValue(val, valid) {
-			return fmt.Errorf("invalid constraint value: %v=%v\nvalid values are: %v", attributeName, val, valid)
+	for _, validValue := range validValues {
+		if coerce(validValue) == coerce(attributeValue) {
+			return nil
 		}
 	}
-	return nil
+	return fmt.Errorf(
+		"invalid constraint value: %v=%v\nvalid values are: %v", attributeName, attributeValue, validValues)
 }
 
 // coerce returns v in a format that allows constraint values to be easily compared.
@@ -162,7 +160,12 @@ func coerce(v interface{}) interface{} {
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 			return int64(reflect.ValueOf(v).Int())
 		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-			return int64(reflect.ValueOf(v).Uint())
+			uval := reflect.ValueOf(v).Uint()
+			// Just double check the value is in range.
+			if uval > math.MaxInt64 {
+				panic(fmt.Errorf("constraint value %v is too large", uval))
+			}
+			return int64(uval)
 		case reflect.Float32, reflect.Float64:
 			return float64(reflect.ValueOf(v).Float())
 		}
