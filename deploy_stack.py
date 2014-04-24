@@ -194,6 +194,10 @@ def deploy_job():
         datefmt='%Y-%m-%d %H:%M:%S')
     machines = ['ssh:%s' % m for m in os.environ['MACHINES'].split()]
     environment = os.environ['ENV']
+    new_path = '%s:%s' % (os.environ['NEW_JUJU_BIN'], os.environ['PATH'])
+    upgrade = bool(os.environ.get('UPGRADE') == 'true')
+    if not upgrade:
+        os.environ['PATH'] = new_path
     try:
         if sys.platform == 'win32':
             # Ensure OpenSSH is never in the path for win tests.
@@ -224,9 +228,9 @@ def deploy_job():
                     # state-server.
                     return
                 deploy_dummy_stack(env, os.environ['CHARM_PREFIX'])
-                if os.environ.get('UPGRADE') == 'true':
+                if upgrade:
                     with scoped_environ():
-                        os.environ['PATH'] = os.environ['NEW_PATH']
+                        os.environ['PATH'] = new_path
                         test_upgrade(environment)
             except:
                 dump_logs(env, host,
