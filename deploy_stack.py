@@ -203,6 +203,7 @@ def deploy_job():
             # Ensure OpenSSH is never in the path for win tests.
             sys.path = [p for p in sys.path if 'OpenSSH' not in p]
         env = Environment.from_config(environment)
+        if environment == 'manual':
         if 'BOOTSTRAP_HOST' in os.environ:
             env.config['bootstrap-host'] = os.environ['BOOTSTRAP_HOST']
         host = env.config.get('bootstrap-host')
@@ -213,8 +214,14 @@ def deploy_job():
         for machine in ssh_machines:
             logging.info('Waiting for port 22 on %s' % machine)
             wait_for_port(host, 22, timeout=120)
+        juju_home = get_juju_home()
         try:
-            bootstrap_from_env(get_juju_home(), env)
+            os.unlink(get_jenv_path(juju_home, env.environment))
+        except OSError as e:
+            if e.errno != errno.ENOENT:
+                raise
+        try:
+            bootstrap_from_env(juju_home, env)
         except:
             if host is not None:
                 dump_logs(env, host,
