@@ -46,13 +46,6 @@ def get_jenv_path(juju_home, name):
 def get_environments():
     """Return the environments for juju."""
     home = get_juju_home()
-    single_name = get_jenv_path(home, environment)
-    try:
-        with open(single_name) as env:
-            return yaml.safe_load(env)['bootstrap-config']
-    except IOError as e:
-        if e.errno != errno.ENOENT:
-            raise
     with open(get_environments_path(home)) as env:
         return yaml.safe_load(env)['environments']
 
