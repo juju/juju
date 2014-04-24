@@ -6,20 +6,7 @@ if [ "$ENV" = "manual" ]; then
   source $HOME/cloud-city/ec2rc
 fi
 
-dump_logs(){
-  log_path=${artifacts_path}/all-machines-${ENV}.log
-  if [[ $ENV == "local" && -f $JUJU_HOME/local/log/machine-0.log ]]; then
-    sudo cp $JUJU_HOME/local/log/*.log $artifacts_path/
-    sudo chown jenkins:jenkins $artifacts_path/*.log
-    for log in $artifacts_path/*.log; do
-        gzip $log
-    done
-  else
-      if timeout 5m juju --show-log scp -e $ENV -- -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" -i $JUJU_HOME/staging-juju-rsa 0:/var/log/juju/all-machines.log $log_path; then
-        gzip $log_path
-      fi
-  fi
-}
+
 prepare_manual(){
     export INSTANCE_TYPE=m1.large
     export AMI_IMAGE=ami-bd6d40d4
@@ -41,7 +28,6 @@ prepare_manual(){
     export MACHINES="$machine_1_name $machine_2_name"
 }
 
-export PACKAGE=$WORKSPACE/new-precise.deb
 artifacts_path=$WORKSPACE/artifacts
 export MACHINES=""
 set -x
@@ -54,7 +40,7 @@ wget -q $LOCAL_JENKINS_URL/job/publish-revision/$afact/new-precise.deb
 wget -q $LOCAL_JENKINS_URL/job/build-revision/$afact/buildvars.bash
 source buildvars.bash
 echo "Testing $BRANCH $REVNO on $ENV"
-dpkg-deb -x $PACKAGE extracted-bin
+dpkg-deb -x $WORKSPACE/new-precise.deb extracted-bin
 JUJU_BIN=$(readlink -f $(dirname $(find extracted-bin -name juju)))
 export NEW_PATH=$JUJU_BIN:$PATH
 if [ "$ENV" == "manual" ]; then

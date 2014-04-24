@@ -2,10 +2,7 @@
 source $SCRIPTS/common-startup.sh
 if [ "$ENV" == "manual" ]; then
     prepare_manual
-else
-    DEPLOY_ARGS=""
 fi
-export DEPLOY_ARGS
 # Do the deployment for upgrade testing.
 : ${UPGRADE=false}
 if [ $UPGRADE != "true" ]; then

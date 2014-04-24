@@ -21,7 +21,6 @@ from jujuconfig import (
     get_juju_home,
 )
 from jujupy import (
-    check_wordpress,
     Environment,
 )
 from utility import (
@@ -74,20 +73,6 @@ def destroy_job_instances(job_name):
     if len(instances) == 0:
         return
     subprocess.check_call(['euca-terminate-instances'] + instances)
-
-
-def deploy_stack(env, charm_prefix):
-    """"Deploy a Wordpress stack in the specified environment.
-
-    :param environment: The name of the desired environment.
-    """
-    env.deploy(charm_prefix + 'wordpress')
-    env.deploy(charm_prefix + 'mysql')
-    env.juju('add-relation', 'mysql', 'wordpress')
-    env.juju('expose', 'wordpress')
-    status = env.wait_for_started().status
-    wp_unit_0 = status['services']['wordpress']['units']['wordpress/0']
-    check_wordpress(wp_unit_0['public-address'])
 
 
 def deploy_dummy_stack(env, charm_prefix):
