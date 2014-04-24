@@ -596,6 +596,25 @@ func (suite *environSuite) TestSupportedArchitectures(c *gc.C) {
 	c.Assert(a, gc.DeepEquals, []string{"amd64"})
 }
 
+func (suite *environSuite) TestConstraintsValidator(c *gc.C) {
+	env := suite.makeEnviron()
+	validator, err := env.ConstraintsValidator()
+	c.Assert(err, gc.IsNil)
+	cons := constraints.MustParse("arch=amd64 cpu-power=10 instance-type=foo")
+	unsupported, err := validator.Validate(cons)
+	c.Assert(err, gc.IsNil)
+	c.Assert(unsupported, gc.DeepEquals, []string{"cpu-power", "instance-type"})
+}
+
+func (suite *environSuite) TestConstraintsValidatorVocab(c *gc.C) {
+	env := suite.makeEnviron()
+	validator, err := env.ConstraintsValidator()
+	c.Assert(err, gc.IsNil)
+	cons := constraints.MustParse("arch=ppc64")
+	_, err = validator.Validate(cons)
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64\nvalid values are:.*")
+}
+
 func (suite *environSuite) TestGetNetworkMACs(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()

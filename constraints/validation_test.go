@@ -17,6 +17,7 @@ var _ = gc.Suite(&validationSuite{})
 var validationTests = []struct {
 	cons        string
 	unsupported []string
+	vocab       map[string][]interface{}
 	reds        []string
 	blues       []string
 	err         string
@@ -68,6 +69,48 @@ var validationTests = []struct {
 		blues: []string{"instance-type"},
 		err:   `ambiguous constraints: "mem" overlaps with "instance-type"`,
 	},
+	{
+		cons:  "arch=amd64 mem=4G cpu-cores=4",
+		vocab: map[string][]interface{}{"arch": []interface{}{"amd64", "i386"}},
+	},
+	{
+		cons:  "mem=4G cpu-cores=4",
+		vocab: map[string][]interface{}{"cpu-cores": []interface{}{2, 4, 8}},
+	},
+	{
+		cons:  "mem=4G instance-type=foo",
+		vocab: map[string][]interface{}{"instance-type": []interface{}{"foo", "bar"}},
+	},
+	{
+		cons:  "mem=4G tags=foo,bar",
+		vocab: map[string][]interface{}{"tags": []interface{}{"foo", "bar", "another"}},
+	},
+	{
+		cons:  "arch=i386 mem=4G cpu-cores=4",
+		vocab: map[string][]interface{}{"arch": []interface{}{"amd64"}},
+		err:   "invalid constraint value: arch=i386\nvalid values are:.*",
+	},
+	{
+		cons:  "mem=4G cpu-cores=5",
+		vocab: map[string][]interface{}{"cpu-cores": []interface{}{2, 4, 8}},
+		err:   "invalid constraint value: cpu-cores=5\nvalid values are:.*",
+	},
+	{
+		cons:  "mem=4G instance-type=foo",
+		vocab: map[string][]interface{}{"instance-type": []interface{}{"bar"}},
+		err:   "invalid constraint value: instance-type=foo\nvalid values are:.*",
+	},
+	{
+		cons:  "mem=4G tags=foo,other",
+		vocab: map[string][]interface{}{"tags": []interface{}{"foo", "bar", "another"}},
+		err:   "invalid constraint value: tags=other\nvalid values are:.*",
+	},
+	{
+		cons: "arch=i386 mem=4G instance-type=foo",
+		vocab: map[string][]interface{}{
+			"instance-type": []interface{}{"foo", "bar"},
+			"arch":          []interface{}{"amd64", "i386"}},
+	},
 }
 
 func (s *validationSuite) TestValidation(c *gc.C) {
@@ -76,6 +119,9 @@ func (s *validationSuite) TestValidation(c *gc.C) {
 		validator := constraints.NewValidator()
 		validator.RegisterUnsupported(t.unsupported)
 		validator.RegisterConflicts(t.reds, t.blues)
+		for a, v := range t.vocab {
+			validator.RegisterVocabulary(a, v)
+		}
 		cons := constraints.MustParse(t.cons)
 		unsupported, err := validator.Validate(cons)
 		if t.err == "" {
