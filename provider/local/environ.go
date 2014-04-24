@@ -111,7 +111,7 @@ func ensureNotRoot() error {
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
+func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) error {
 	if err := ensureNotRoot(); err != nil {
 		return err
 	}
@@ -161,7 +161,7 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 		agent.StorageDir:  env.config.storageDir(),
 		agent.StorageAddr: env.config.storageAddr(),
 	}
-	if err := environs.FinishMachineConfig(mcfg, cfg, cons); err != nil {
+	if err := environs.FinishMachineConfig(mcfg, cfg, args.Constraints); err != nil {
 		return err
 	}
 	// don't write proxy settings for local machine

@@ -193,6 +193,7 @@ type bootstrapTest struct {
 	// will be uploaded before running the test.
 	uploads     []string
 	constraints constraints.Value
+	placement   string
 	hostArch    string
 }
 
@@ -271,7 +272,8 @@ func (test bootstrapTest) run(c *gc.C) {
 
 	opBootstrap := (<-opc).(dummy.OpBootstrap)
 	c.Check(opBootstrap.Env, gc.Equals, "peckham")
-	c.Check(opBootstrap.Constraints, gc.DeepEquals, test.constraints)
+	c.Check(opBootstrap.Args.Constraints, gc.DeepEquals, test.constraints)
+	c.Check(opBootstrap.Args.Placement, gc.Equals, test.placement)
 
 	store, err := configstore.Default()
 	c.Assert(err, gc.IsNil)
@@ -286,10 +288,6 @@ func (test bootstrapTest) run(c *gc.C) {
 
 var bootstrapTests = []bootstrapTest{{
 	info: "no args, no error, no uploads, no constraints",
-}, {
-	info: "bad arg",
-	args: []string{"twiddle"},
-	err:  `unrecognized args: \["twiddle"\]`,
 }, {
 	info: "bad --constraints",
 	args: []string{"--constraints", "bad=wrong"},
@@ -372,6 +370,14 @@ var bootstrapTests = []bootstrapTest{{
 		"1.2.3.5-raring-amd64",
 		"1.2.3.5-%LTS%-amd64",
 	},
+}, {
+	info:      "placement",
+	args:      []string{"something"},
+	placement: "something",
+}, {
+	info: "invalid placement: ssh",
+	args: []string{"ssh:someplace"},
+	err:  `unsupported bootstrap placement directive "ssh:someplace"`,
 }}
 
 func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {

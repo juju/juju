@@ -254,7 +254,8 @@ func rebootstrap(cfg *config.Config, ctx *cmd.Context, cons constraints.Value) (
 	// error-prone) or we could provide a --no-check flag to make
 	// it go ahead anyway without the check.
 
-	if err := bootstrap.Bootstrap(ctx, env, cons); err != nil {
+	args := environs.BootstrapParams{Constraints: cons}
+	if err := bootstrap.Bootstrap(ctx, env, args); err != nil {
 		return nil, fmt.Errorf("cannot bootstrap new instance: %v", err)
 	}
 	return env, nil
