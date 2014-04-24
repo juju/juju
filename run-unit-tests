@@ -8,7 +8,7 @@ export AMI_IMAGE=$2
 afact='lastSuccessfulBuild/artifact'
 wget -q $LOCAL_JENKINS_URL/job/build-revision/$afact/buildvars.bash
 source buildvars.bash
-echo "Testing $BRANCH $REVNO on $ENV"
+echo "Testing $BRANCH $REVNO"
 
 tarfile=$($SCRIPTS/get-tarfile-name $revision_build)
 juju_version=$(basename $tarfile .tar.gz)
