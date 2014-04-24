@@ -1,4 +1,5 @@
-# This is the list of series that must be recognised for tools
+# This is the list of series that must be recognised for tools.
+# The current ubuntu devel series must be last.
 12.04 precise
 12.10 quantal
 13.10 saucy
