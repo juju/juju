@@ -46,18 +46,12 @@ for attempt in \$(seq 10); do
   sleep 10
 done
 sudo apt-get update
+sudo apt-get upgrade -y
 sudo apt-get install -y build-essential
 # Hack match for i386.
 sed -i 's/x86/86/' Makefile
 make install-dependencies
 bzr whoami 'J. Random Hacker <jrandom@example.org>'
-# Force mongodb-server to be present because the makefile doesn't know that
-# juju-mongodb was temporarilly removed
-if [[ \$(lsb_release -sc) == "trusty" ]]; then
-    sudo apt-get install -y mongodb-server
-    sudo apt-get remove -y juju-mongodb
-    sudo apt-get upgrade -y
-fi
 make build
 make check
 EOT
