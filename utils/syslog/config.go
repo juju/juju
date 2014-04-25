@@ -96,7 +96,7 @@ $ActionSendStreamDriverMode 1 # run driver in TLS-only mode
 
 $template LongTagForwardFormat,"<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %syslogtag%%msg:::sp-if-no-1st-sp%%msg%"
 
-:syslogtag, startswith, "juju{{namespace}}-" {{range $i, $bootstrapIP := bootstrapHosts}}{{if $i}} & {{end}}@@{{$bootstrapIP}}:{{portNumber}}{{end}};LongTagForwardFormat
+:syslogtag, startswith, "juju{{namespace}}-" {{range $i, $bootstrapIP := bootstrapHosts}}{{if $i}} & {{end}}@@{{$bootstrapIP}}:{{portNumber}};LongTagForwardFormat{{end}}
 & ~
 `
 
