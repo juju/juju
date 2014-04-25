@@ -52,7 +52,7 @@ $template JujuLogFormat{{namespace}},"%syslogtag:{{tagStart}}:$%%msg:::sp-if-no-
 $template LongTagForwardFormat,"<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %syslogtag%%msg:::sp-if-no-1st-sp%%msg%"
 
 $RuleSet local
-:syslogtag, startswith, "juju{{namespace}}-" {{range $i, $bootstrapIP := bootstrapHosts}}{{if $i}} & {{end}}@@{{$bootstrapIP}}:{{portNumber}}{{end}};LongTagForwardFormat
+:syslogtag, startswith, "juju{{namespace}}-" {{range $i, $bootstrapIP := bootstrapHosts}}{{if $i}} & {{end}}@@{{$bootstrapIP}}:{{portNumber}};LongTagForwardFormat{{end}}
 $FileCreateMode 0644
 :syslogtag, startswith, "juju{{namespace}}-" {{logDir}}/all-machines.log;JujuLogFormat{{namespace}}
 & ~
