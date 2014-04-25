@@ -317,7 +317,7 @@ func getConfig(info configstore.EnvironInfo, envs *environs.Environs, envName st
 	}
 	if envs != nil {
 		cfg, err := envs.Config(envName)
-		if err != nil && !errors.IsNotFoundError(err) {
+		if err != nil && !errors.IsNotFound(err) {
 			logger.Warningf("failed to get config for environment %q: %v", envName, err)
 		}
 		return cfg, err
