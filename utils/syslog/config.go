@@ -52,7 +52,7 @@ $template JujuLogFormat{{namespace}},"%syslogtag:{{tagStart}}:$%%msg:::sp-if-no-
 $template LongTagForwardFormat,"<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %syslogtag%%msg:::sp-if-no-1st-sp%%msg%"
 
 $RuleSet local
-:syslogtag, startswith, "juju{{namespace}}-" @@{{bootstrapIP}}:{{portNumber}};LongTagForwardFormat
+:syslogtag, startswith, "juju{{namespace}}-" {{range $i, $bootstrapIP := bootstrapHosts}}{{if $i}} & {{end}}@@{{$bootstrapIP}}:{{portNumber}}{{end}};LongTagForwardFormat
 $FileCreateMode 0644
 :syslogtag, startswith, "juju{{namespace}}-" {{logDir}}/all-machines.log;JujuLogFormat{{namespace}}
 & ~
@@ -109,7 +109,7 @@ $ActionSendStreamDriverMode 1 # run driver in TLS-only mode
 
 $template LongTagForwardFormat,"<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %syslogtag%%msg:::sp-if-no-1st-sp%%msg%"
 
-:syslogtag, startswith, "juju{{namespace}}-" @@{{bootstrapIP}}:{{portNumber}};LongTagForwardFormat
+:syslogtag, startswith, "juju{{namespace}}-" {{range $i, $bootstrapIP := bootstrapHosts}}{{if $i}} & {{end}}@@{{$bootstrapIP}}:{{portNumber}}{{end}};LongTagForwardFormat
 & ~
 `
 
@@ -219,16 +219,13 @@ func (slConfig *SyslogConfig) ServerKeyPath() string {
 
 // Render generates the rsyslog config.
 func (slConfig *SyslogConfig) Render() ([]byte, error) {
-	// TODO: for HA, we will want to send to all state server addresses (maybe).
-	var bootstrapIP = func() string {
-		var addr string
-		if len(slConfig.StateServerAddresses) > 0 {
-			addr = slConfig.StateServerAddresses[0]
-		} else {
-			addr = "foo:80"
+	var bootstrapHosts = func() []string {
+		var hosts []string
+		for _, addr := range slConfig.StateServerAddresses {
+			parts := strings.Split(addr, ":")
+			hosts = append(hosts, parts[0])
 		}
-		parts := strings.Split(addr, ":")
-		return parts[0]
+		return hosts
 	}
 
 	var logFilePath = func() string {
@@ -237,16 +234,16 @@ func (slConfig *SyslogConfig) Render() ([]byte, error) {
 
 	t := template.New("")
 	t.Funcs(template.FuncMap{
-		"logfileName":   func() string { return slConfig.LogFileName },
-		"bootstrapIP":   bootstrapIP,
-		"logfilePath":   logFilePath,
-		"portNumber":    func() int { return slConfig.Port },
-		"logDir":        func() string { return slConfig.LogDir },
-		"namespace":     func() string { return slConfig.Namespace },
-		"tagStart":      func() int { return tagOffset + len(slConfig.Namespace) },
-		"tlsCACertPath": slConfig.CACertPath,
-		"tlsCertPath":   slConfig.ServerCertPath,
-		"tlsKeyPath":    slConfig.ServerKeyPath,
+		"logfileName":    func() string { return slConfig.LogFileName },
+		"bootstrapHosts": bootstrapHosts,
+		"logfilePath":    logFilePath,
+		"portNumber":     func() int { return slConfig.Port },
+		"logDir":         func() string { return slConfig.LogDir },
+		"namespace":      func() string { return slConfig.Namespace },
+		"tagStart":       func() int { return tagOffset + len(slConfig.Namespace) },
+		"tlsCACertPath":  slConfig.CACertPath,
+		"tlsCertPath":    slConfig.ServerCertPath,
+		"tlsKeyPath":     slConfig.ServerKeyPath,
 	})
 
 	// Process the rsyslog config template and echo to the conf file.
