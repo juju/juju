@@ -59,10 +59,24 @@ var unsupportedConstraints = []string{
 }
 
 // ConstraintsValidator is defined on the Environs interface.
-func (env *joyentEnviron) ConstraintsValidator() constraints.Validator {
+func (env *joyentEnviron) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported(unsupportedConstraints)
-	return validator
+	supportedArches, err := env.SupportedArchitectures()
+	if err != nil {
+		return nil, err
+	}
+	validator.RegisterVocabulary(constraints.Arch, supportedArches)
+	packages, err := env.compute.cloudapi.ListPackages(nil)
+	if err != nil {
+		return nil, err
+	}
+	instTypeNames := make([]string, len(packages))
+	for i, pkg := range packages {
+		instTypeNames[i] = pkg.Name
+	}
+	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
+	return validator, nil
 }
 
 func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {

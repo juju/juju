@@ -206,13 +206,13 @@ func (v *Value) fieldFromTag(tagName string) (reflect.Value, bool) {
 	return val, val.IsValid()
 }
 
-// attributesWithValues returns the non-zero attribute tags from the constraint.
-func (v *Value) attributesWithValues() []string {
-	var result []string = []string{}
+// attributesWithValues returns the non-zero attribute tags and their values from the constraint.
+func (v *Value) attributesWithValues() (result map[string]interface{}) {
+	result = make(map[string]interface{})
 	for fieldTag, fieldName := range fieldNames {
 		val := reflect.ValueOf(v).Elem().FieldByName(fieldName)
 		if !val.IsNil() {
-			result = append(result, fieldTag)
+			result[fieldTag] = val.Elem().Interface()
 		}
 	}
 	return result
@@ -220,18 +220,11 @@ func (v *Value) attributesWithValues() []string {
 
 // hasAny returns any attrTags for which the constraint has a non-nil value.
 func (v *Value) hasAny(attrTags ...string) []string {
-	withValues := v.attributesWithValues()
-	containsFunc := func(values []string, value string) bool {
-		for _, v := range values {
-			if v == value {
-				return true
-			}
-		}
-		return false
-	}
+	attrValues := v.attributesWithValues()
 	var result []string = []string{}
 	for _, tag := range attrTags {
-		if containsFunc(withValues, tag) {
+		_, ok := attrValues[tag]
+		if ok {
 			result = append(result, tag)
 		}
 	}
