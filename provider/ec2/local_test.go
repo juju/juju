@@ -359,23 +359,37 @@ func (t *localServerSuite) TestAddresses(c *gc.C) {
 	}
 }
 
-func (t *localServerSuite) TestConstraintsValidator(c *gc.C) {
+func (t *localServerSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 	env := t.Prepare(c)
-	validator := env.ConstraintsValidator()
+	validator, err := env.ConstraintsValidator()
+	c.Assert(err, gc.IsNil)
 	cons := constraints.MustParse("arch=amd64 tags=foo")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, gc.IsNil)
 	c.Assert(unsupported, gc.DeepEquals, []string{"tags"})
 }
 
+func (t *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
+	env := t.Prepare(c)
+	validator, err := env.ConstraintsValidator()
+	c.Assert(err, gc.IsNil)
+	cons := constraints.MustParse("arch=ppc64")
+	_, err = validator.Validate(cons)
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64\nvalid values are:.*")
+	cons = constraints.MustParse("instance-type=foo")
+	_, err = validator.Validate(cons)
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")
+}
+
 func (t *localServerSuite) TestConstraintsMerge(c *gc.C) {
 	env := t.Prepare(c)
-	validator := env.ConstraintsValidator()
+	validator, err := env.ConstraintsValidator()
+	c.Assert(err, gc.IsNil)
 	consA := constraints.MustParse("arch=amd64 mem=1G cpu-power=10 cpu-cores=2 tags=bar")
-	consB := constraints.MustParse("arch=i386 instance-type=foo")
+	consB := constraints.MustParse("arch=i386 instance-type=m1.small")
 	cons, err := validator.Merge(consA, consB)
 	c.Assert(err, gc.IsNil)
-	c.Assert(cons, gc.DeepEquals, constraints.MustParse("arch=i386 instance-type=foo tags=bar"))
+	c.Assert(cons, gc.DeepEquals, constraints.MustParse("arch=i386 instance-type=m1.small tags=bar"))
 }
 
 func (t *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {

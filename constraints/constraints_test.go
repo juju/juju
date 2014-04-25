@@ -534,27 +534,53 @@ func (s *ConstraintsSuite) TestWithoutError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unknown constraint "foo"`)
 }
 
-var attributesWithValuesTests = []struct {
-	cons     string
-	attrs    []string
-	expected []string
-}{
-	{
-		cons:     "",
-		expected: []string{},
-	},
-	{
-		cons:     "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
-		expected: []string{"arch", "cpu-cores", "cpu-power", "mem", "root-disk"},
-	},
-}
-
 func (s *ConstraintsSuite) TestAttributesWithValues(c *gc.C) {
-	for i, t := range attributesWithValuesTests {
+	for i, consStr := range []string{
+		"",
+		"root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 instance-type=foo tags=foo,bar",
+	} {
 		c.Logf("test %d", i)
-		cons := constraints.MustParse(t.cons)
+		cons := constraints.MustParse(consStr)
 		obtained := constraints.AttributesWithValues(cons)
-		c.Check(obtained, gc.DeepEquals, t.expected)
+		assertMissing := func(attrName string) {
+			_, ok := obtained[attrName]
+			c.Check(ok, jc.IsFalse)
+		}
+		if cons.Arch != nil {
+			c.Check(obtained["arch"], gc.Equals, *cons.Arch)
+		} else {
+			assertMissing("arch")
+		}
+		if cons.Mem != nil {
+			c.Check(obtained["mem"], gc.Equals, *cons.Mem)
+		} else {
+			assertMissing("mem")
+		}
+		if cons.CpuCores != nil {
+			c.Check(obtained["cpu-cores"], gc.Equals, *cons.CpuCores)
+		} else {
+			assertMissing("cpu-cores")
+		}
+		if cons.CpuPower != nil {
+			c.Check(obtained["cpu-power"], gc.Equals, *cons.CpuPower)
+		} else {
+			assertMissing("cpu-power")
+		}
+		if cons.RootDisk != nil {
+			c.Check(obtained["root-disk"], gc.Equals, *cons.RootDisk)
+		} else {
+			assertMissing("root-disk")
+		}
+		if cons.Tags != nil {
+			c.Check(obtained["tags"], gc.DeepEquals, *cons.Tags)
+		} else {
+			assertMissing("tags")
+		}
+		if cons.InstanceType != nil {
+			c.Check(obtained["instance-type"], gc.Equals, *cons.InstanceType)
+		} else {
+			assertMissing("instance-type")
+		}
 	}
 }
 
