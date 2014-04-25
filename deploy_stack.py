@@ -252,7 +252,7 @@ def deploy_job():
         sys.exit(1)
 
 
-def get_machine_dns_name(env, machine)
+def get_machine_dns_name(env, machine):
     for remaining in until_timeout(300):
         bootstrap = env.get_status().status['machines'][str(machine)]
         host = bootstrap.get('dns-name')
