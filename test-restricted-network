@@ -35,9 +35,9 @@ rm .bash_logout
 afact=lastSuccessfulBuild/artifact
 wget -q ${JENKINS_URL}job/publish-revision/$afact/new-precise.deb
 wget -q ${JENKINS_URL}job/publish-revision/$afact/new-local-precise.deb
-set +x
+set +e
 sudo dpkg -i new-precise.deb new-local-precise.deb
-set -x
+set -e
 sudo apt-get install -f
 export JUJU_REPOSITORY="$HOME/repo"
 mkdir -p $JUJU_REPOSITORY/precise
