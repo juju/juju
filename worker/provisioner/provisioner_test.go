@@ -404,6 +404,41 @@ func (s *ProvisionerSuite) TestConstraints(c *gc.C) {
 	s.checkStartInstanceCustom(c, m, "pork", cons, nil, nil, nil, true)
 }
 
+func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenNoToolsAreAvailable(c *gc.C) {
+	p := s.newEnvironProvisioner(c)
+	defer stop(c, p)
+
+	// Check that an instance is not provisioned when the machine is created...
+	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
+		// We need a valid series that has no tools uploaded
+		Series:      "raring",
+		Jobs:        []state.MachineJob{state.JobHostUnits},
+		Constraints: s.defaultConstraints,
+	})
+	c.Assert(err, gc.IsNil)
+	s.checkNoOperations(c)
+
+	t0 := time.Now()
+	for time.Since(t0) < coretesting.LongWait {
+		// And check the machine status is set to error.
+		status, info, _, err := m.Status()
+		c.Assert(err, gc.IsNil)
+		if status == params.StatusPending {
+			time.Sleep(coretesting.ShortWait)
+			continue
+		}
+		c.Assert(status, gc.Equals, params.StatusError)
+		c.Assert(info, gc.Equals, "no matching tools available")
+		break
+	}
+
+	// Restart the PA to make sure the machine is skipped again.
+	stop(c, p)
+	p = s.newEnvironProvisioner(c)
+	defer stop(c, p)
+	s.checkNoOperations(c)
+}
+
 func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenStartInstanceFailed(c *gc.C) {
 	brokenMsg := breakDummyProvider(c, s.State, "StartInstance")
 	p := s.newEnvironProvisioner(c)
