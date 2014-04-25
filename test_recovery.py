@@ -173,8 +173,8 @@ def main():
         setup_juju_path(args.juju_path)
         env = Environment.from_config(args.env_name)
         env.bootstrap()
-        boostrap_host = get_machine_dns_name(env, 0)
-        log_host = bootstrap_host()
+        bootstrap_host = get_machine_dns_name(env, 0)
+        log_host = bootstrap_host
         try:
             instance_id = deploy_stack(env, args.charm_prefix)
             if args.strategy == 'ha':
