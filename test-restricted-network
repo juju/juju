@@ -38,7 +38,7 @@ wget -q ${JENKINS_URL}job/publish-revision/$afact/new-local-precise.deb
 set +e
 sudo dpkg -i new-precise.deb new-local-precise.deb
 set -e
-sudo apt-get install -yf
+sudo apt-get install -y -f juju-local
 export JUJU_REPOSITORY="$HOME/repo"
 mkdir -p $JUJU_REPOSITORY/precise
 bzr branch lp:charms/ubuntu $JUJU_REPOSITORY/precise/ubuntu
