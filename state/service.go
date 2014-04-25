@@ -905,7 +905,7 @@ func settingsDecRefOps(st *State, serviceName string, curl *charm.URL) ([]txn.Op
 // just the ref count is not considered a change worth reporting
 // to watchers and firing config-changed hooks.
 //
-// There is and implicit _id field here, which mongo creates, which is
+// There is an implicit _id field here, which mongo creates, which is
 // always the same as the settingsDoc's id.
 type settingsRefsDoc struct {
 	RefCount int
