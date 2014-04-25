@@ -186,7 +186,7 @@ def main():
                 restore_present_state_server(env, backup_file)
                 log_host = None
             delete_instance(env, instance_id)
-            print_now("Waiting for port to close on %s" % boostrap_host)
+            print_now("Waiting for port to close on %s" % bootstrap_host)
             wait_for_port(bootstrap_host, 17070, closed=True)
             print_now("Closed.")
             if args.strategy == 'ha':
