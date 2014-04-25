@@ -39,8 +39,8 @@ set +e
 sudo dpkg -i new-precise.deb new-local-precise.deb
 set -e
 sudo apt-get install -y -f
-# The one package build for all series is broken by mongodb.
-sudo apt-get install -y rsyslog-gnutls
+# The one-package-build-for-all-series is broken by mongodb.
+sudo apt-get install -y juju-local rsyslog-gnutls
 export JUJU_REPOSITORY="$HOME/repo"
 mkdir -p $JUJU_REPOSITORY/precise
 bzr branch lp:charms/ubuntu $JUJU_REPOSITORY/precise/ubuntu
