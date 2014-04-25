@@ -48,6 +48,7 @@ type SuperCommandParams struct {
 	Doc             string
 	Log             *Log
 	MissingCallback MissingCallback
+	Aliases         []string
 }
 
 // NewSuperCommand creates and initializes a new `SuperCommand`, and returns
@@ -59,7 +60,9 @@ func NewSuperCommand(params SuperCommandParams) *SuperCommand {
 		Doc:             params.Doc,
 		Log:             params.Log,
 		usagePrefix:     params.UsagePrefix,
-		missingCallback: params.MissingCallback}
+		missingCallback: params.MissingCallback,
+		Aliases:         params.Aliases,
+	}
 	command.init()
 	return command
 }
@@ -74,6 +77,7 @@ type SuperCommand struct {
 	Purpose         string
 	Doc             string
 	Log             *Log
+	Aliases         []string
 	usagePrefix     string
 	subcmds         map[string]Command
 	commonflags     *gnuflag.FlagSet
@@ -186,6 +190,7 @@ func (c *SuperCommand) Info() *Info {
 		Args:    "<command> ...",
 		Purpose: c.Purpose,
 		Doc:     strings.Join(docParts, "\n\n"),
+		Aliases: c.Aliases,
 	}
 }
 
