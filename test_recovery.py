@@ -173,14 +173,14 @@ def main():
         setup_juju_path(args.juju_path)
         env = Environment.from_config(args.env_name)
         env.bootstrap()
-        boostrap_host = get_machine_dns_name(0)
+        boostrap_host = get_machine_dns_name(env, 0)
         log_host = bootstrap_host()
         try:
             instance_id = deploy_stack(env, args.charm_prefix)
             if args.strategy == 'ha':
                 env.juju('ensure-availability', '-n', '3')
                 wait_for_ha(env)
-                log_host = get_machine_dns_name(3)
+                log_host = get_machine_dns_name(env, 3)
             else:
                 backup_file = backup_state_server(env)
                 restore_present_state_server(env, backup_file)
